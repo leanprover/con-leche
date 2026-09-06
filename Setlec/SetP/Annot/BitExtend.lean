@@ -64,13 +64,8 @@ theorem denoteP_envExtend {env₀ env : Env}
       env₀.findProj? sn i = some entry →
       env.findProj? sn i = some entry := by
     intro sn i entry h
-    unfold Setlec.Env.findProj? at h ⊢
-    cases hf0 : env₀.find? (Setlec.projFnName sn i) with
-    | none => rw [hf0] at h; exact nomatch h
-    | some ci =>
-      rw [hf0] at h
-      rw [hF hf0]
-      exact h
+    obtain ⟨tbl, hf0, hi, rfl⟩ := Setlec.Env.findProj?_some h
+    exact Setlec.Env.findProj?_of_table (hF hf0) hi
   intro d e
   induction d, e using denoteP.induct (env := env₀) with
   | case1 d u => intro _; rw [denoteP, denoteP]
@@ -204,13 +199,8 @@ theorem denoteP_envExtend_mono {env₀ env : Env}
       env₀.findProj? sn i = some entry →
       env.findProj? sn i = some entry := by
     intro sn i entry h
-    unfold Setlec.Env.findProj? at h ⊢
-    cases hf0 : env₀.find? (Setlec.projFnName sn i) with
-    | none => rw [hf0] at h; exact nomatch h
-    | some ci =>
-      rw [hf0] at h
-      rw [hF hf0]
-      exact h
+    obtain ⟨tbl, hf0, hi, rfl⟩ := Setlec.Env.findProj?_some h
+    exact Setlec.Env.findProj?_of_table (hF hf0) hi
   intro d e
   induction d, e using denoteP.induct (env := env₀) with
   | case1 d u => intro _ ea h; rw [denoteP] at h ⊢; exact h

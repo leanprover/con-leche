@@ -809,12 +809,12 @@ theorem SwapCongr.projEq {env₀ env₃ : Env} (hcg : SwapCongr env₀ env₃) :
     ∀ (sn : Name) (i : Nat), env₀.findProj? sn i = env₃.findProj? sn i := by
   intro sn i
   unfold Env.findProj?
-  cases h0 : env₀.find? (projFnName sn i) with
+  cases h0 : env₀.find? (projTableName sn) with
   | none =>
-    cases h3 : env₃.find? (projFnName sn i) with
+    cases h3 : env₃.find? (projTableName sn) with
     | none => rfl
     | some ci =>
-      have := hcg.isSomeEq (projFnName sn i)
+      have := hcg.isSomeEq (projTableName sn)
       rw [h0, h3] at this
       exact nomatch this
   | some ci =>
@@ -822,13 +822,8 @@ theorem SwapCongr.projEq {env₀ env₃ : Env} (hcg : SwapCongr env₀ env₃) :
     | projInfo e =>
       rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]
     | recInfo cv mI rP rules =>
-      cases h3 : env₃.find? (projFnName sn i) with
-      | none =>
-        first
-        | rfl
-        | (have hs := hcg.isSomeEq (projFnName sn i)
-           rw [h0, h3] at hs
-           exact nomatch hs)
+      cases h3 : env₃.find? (projTableName sn) with
+      | none => rfl
       | some ci₃ =>
         cases ci₃ with
         | projInfo e₃ =>

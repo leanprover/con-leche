@@ -196,7 +196,6 @@ theorem EnvFacts.consBlockMember {env : Env} (m : EnvFacts env)
   · -- the projection table: the head is no entry
     exact ProjOkT.cons m.proj_ok hfresh'
       (fun entry heq => absurd heq (hnproj entry))
-      (fun entry heq => absurd heq (hnproj entry))
   · -- the theorem unfoldings: vacuous at the head
     intro cv value hmem ψ
     rcases List.mem_cons.mp hmem with h | h
@@ -260,7 +259,7 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     rw [hnameA]
     exact Option.isNone_iff_eq_none.mp hfind
   have hwf : EnvWF ⟨c₀ :: env.consts⟩ := by
-    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · rw [hc₀cv, htypeA]; exact htf'
     · rw [hc₀cv, htypeA, hlpsA]; exact htp
     · rw [hc₀cv, htypeA]; exact Expr.constsResolve_mono htr
@@ -277,6 +276,8 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
         exact nomatch hr
     · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
         intro cv2 v2 heq <;> exact nomatch heq
+    · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+        intro tbl heq <;> exact nomatch heq
   have hpinsA : ∀ caps, c₀ = .indInfo cvA caps →
       EtaPins μ env cvA.name cvA.levelParams caps ∧
         (caps.eta = true → blockNames.contains caps.etaCtor = true) ∧

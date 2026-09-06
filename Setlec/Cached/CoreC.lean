@@ -371,16 +371,6 @@ def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           structEtaProjCertsI r fe depth TI T us' targs b lpsT rest
         else pure false
       else pure false
-    | some (.projInfo entry) =>
-      -- a tower-backed entry (task #175 W4c), as in the spec body
-      if entry.tower = true ∧ entry.levelParams = lpsT ∧
-          (entry.ty.stripPis (targs.length + 1)).isSome = true then do
-        let pf ← projFnIdxM TI i
-        let pty ← constTyAtM fe pf (projFnName T i) us'
-        if ← iotaCertsI r fe depth false pty (targs ++ [b]) then
-          structEtaProjCertsI r fe depth TI T us' targs b lpsT rest
-        else pure false
-      else pure false
     | _ => pure false
 
 /-- Twin of `structEtaCertWith`. -/
@@ -412,8 +402,11 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   (← isEquivListLM us us') then do
                 let tyT ← constTyAtM fe T Tn us'
                 if ← iotaCertsI r fe depth false tyT targs then do
-                  if ← structEtaProjCertsI r fe depth T Tn us'
-                      targs b cvT.levelParams (List.range cnF) then do
+                  -- the per-slot certificates are the projection-function
+                  -- kind's; a tower-backed family has none (task #175 S1)
+                  if ← (if fe.towerSlotsAllF Tn cnF then pure true
+                      else structEtaProjCertsI r fe depth T Tn us'
+                        targs b cvT.levelParams (List.range cnF)) then do
                     if ← defEqListI r fe depth (aargs.take cnP) targs then do
                       let projs ← projAppsI fe Tn T us' targs b cnF
                       -- synthetic-spine certification (task #137): the
@@ -740,6 +733,11 @@ def projCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (lic : Bool)
     iotaCertsI r fe depth lic tyC args
   | _ => pure false
 
+/-- Twin of `projCertAt`. -/
+def projCertAtI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (verified lic : Bool)
+    (c : Name) (us : List Level) (args : List ExprC) : CheckCM Bool :=
+  if verified then projCertI r fe depth lic c us args else pure true
+
 mutual
 
 /-- Bulk-beta argument loop (task #50): consume the whole application
@@ -854,18 +852,19 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         match ← withStore (fun st => st.getNode (st.getAppFnI e')) with
         | some (.const c us) => do
           let args ← withStore (·.getAppArgsI e')
-          if entry.native ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
+          if entry.tower ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then do
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
             -- task #100 de-gating: the certificate runs
-            -- unconditionally (the former nonzero-sort gate is
-            -- unsound-to-model under the domain-relative collapse);
-            -- task #175 W6: the spine against the constructor's type
-            -- (see `projCert`).
-            if ← projCertI r fe depth cfg.betaGate c us args then
+            -- unconditionally at the verified config (the former
+            -- nonzero-sort gate is unsound-to-model under the
+            -- domain-relative collapse); task #175 W6: the spine
+            -- against the constructor's type (see `projCert`); the
+            -- parity config runs none (`projCertAt`).
+            if ← projCertAtI r fe depth cfg.verified cfg.betaGate c us args then
               k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')
@@ -1220,7 +1219,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         match fe.findProj? Tn i with
         | some entry => do
           let targs ← withStore (·.getAppArgsI te)
-          if entry.native ∧ T = sn ∧ targs.length = entry.numParams ∧
+          if entry.tower ∧ T = sn ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             -- the official `infer_proj` restriction (task #175
             -- W4c/O4), as in the spec body
@@ -1230,15 +1229,11 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
                   == some true do
                 throw (.invalid
                   "projection from a propositional structure must be a proposition")
-            -- task #175 wiring W2c: the tower-backed residual, as in
-            -- the spec body — since B3a `ExprC = Expr` and the store
-            -- is a unit, so the level-instantiated peel runs
-            -- directly on the entry type and the interned spine.
-            let tyI := entry.ty.instantiateLevelParams
-              entry.levelParams us
-            match Expr.instPisAt (targs ++ [pe]) tyI with
-            | some (_, resid) => internExprM resid
-            | none => throw (.internal "malformed projection entry")
+            -- the body at the arguments and the subject, as in the
+            -- spec body (task #175 S1) — since B3a `ExprC = Expr` and
+            -- the store is a unit, so the instantiation runs directly
+            -- on the stored body and the interned spine.
+            internExprM (entry.typeAt us targs pe)
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
@@ -1706,7 +1701,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
         let Tn ← readbackNM T
         match fe.findProj? Tn i with
         | some entry =>
-          if entry.native then do
+          if entry.tower then do
             let targs ← withStore (·.getAppArgsI te)
             unless targs.length = entry.numParams do
               throw (.invalid "projection parameter mismatch")

@@ -276,7 +276,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     obtain ⟨mp₃, -, -, -, -⟩ :=
       projInstallP hμ hTblock hbshape (List.range nF) mp₂ hproj hinvR
         hinvAR hI₂ hIA₂ hpinsR hCblockR hFieldsR
-    exact templatesP (List.range nF) mp₃ htpl
+    exact templatesP mp₃ htpl
   · -- the generic arm: an empty capability record
     have hBP0 : Setlec.BlockEtaPinned μ (block.map (·.name)) env :=
       fun n cvS capsS hnb hf _ =>

@@ -43158,3 +43158,204 @@ names, and building a general skip list was explicitly out of scope.
   ~16–17 GiB, still inside the 22 GB cap but with the streaming-parse
   fix (§2) it would be ~5 GiB.
 
+
+
+## TASK #175 S1 — THE PROJECTION TABLE AS AN ARRAY OF BODIES (2026-09-06, `agent/s1-proj-array`)
+
+### 0. What landed
+
+Four commits off master `4c1b7ddf` (the cleanup-B merge), then master
+`3993fb54` merged in (DESIGN-only):
+
+| commit | content |
+|---|---|
+| `14d6591b` | kernel: one `.projInfo` per structure, an array of bodies; infer's `.proj` arm = one `instantiateList`; the per-field entry install retired |
+| `876ac521` | kernel: the table stage's own guards (body scoping once at insertion; the projection-function name family free); inert tables carry dummy bodies |
+| `25ab18e1` | proofs: the tower law over the body, the table cons, the direct install assembled over one stage; five `SetP/Direct` modules retired |
+| `a8c5adc8` | **parity mirrors official**: the parity core drops the projection fire certificate (coordinator addition, §4) |
+
+### 1. What the table is now (`Setlec/Kernel/Env.lean`)
+
+* **`ProjTable`** — `structName`, `levelParams`, `numParams`, `ctor`,
+  `numFields`, `structSort`, **`bodies : Array Expr`**, `guards : List
+  Level`, `tower : Bool`.  Stored as `ConstantInfo.projInfo tbl` at
+  **`projTableName T = (T.str "projTable").num 0`** with the dummy type
+  `Sort 1`; the shape is reserved by `Name.isProjFnShape` (so the
+  front-door duplicate/shape guard of `checkConstantVal` covers it as
+  it covers `T.proj.i`).
+* **`ProjEntry`** is now the per-field *view* `ProjTable.entry i`
+  (`body := bodies.getD i default`, `fieldSort := guards.getD i .zero`);
+  `Env.findProj? T i` looks the table up and returns the view for
+  `i < numFields`.  `ProjEntry.native`, `recExtraLevel` and the stored
+  entry *type* `ty` are gone.
+* **Body `i`** is `F_i[p⃗ ↦ bvar (nP-1-k), f_j ↦ .proj T j (bvar 0)]`,
+  scoped at `nP + 1` — read off the **annotated** constructor type by
+  substitution alone: `directProjBodies` (`Kernel/Direct/Parts.lean`)
+  is one `instPisAtLift` walk over the loose parameter variables
+  followed by one capture-avoiding step per field with the
+  projection substitute `directProjArgP`.  No `annotate`, no `infer`,
+  no pins at install.
+* **Infer `.proj T i e`** (both cores, both modes): whnf the subject's
+  type, head `T` at levels `us`, the argument spine, the unchanged
+  `Prop` guard test (`fireOk`/`TowerGuardAt`), then **one**
+  `instantiateList (e :: args.reverse)` of `bodies[i]` at `us`
+  (`ProjEntry.typeAt`).
+* **Install** (`checkDirectProjTable`, `Kernel/Direct/Install.lean`;
+  `F` twin in `InstallF.lean`): generate the bodies, validate their
+  scoping once (fvar-free, level parameters within the structure's,
+  resolving, bounded at `nP + 1`, one per field — what `EnvWF`'s new
+  table clause records), assert the projection-function name family
+  `T.proj.j` is free (§3a) and the table name is fresh, cons.  Gone:
+  `checkDirectProjEntry`, the admission branch, `directGuardSigma`,
+  `directSlotAdmit(At)`, `directInertEntry`, `directProjSlots`, the
+  per-slot fold (`DirectProjFoldRun`), the per-field `T.proj.i` names
+  of the direct route.
+* **Untouched**: the tower fire rule and its certificate at the P core
+  (`projCert`), structural η, `NoProjEnv`/`NoProjHead`, the modeled
+  route's projection functions (`projFnName`, `recSlotsAll`) — its
+  template entries collapse to **one inert table per family**
+  (`installProjTemplate`, `tower := false`, `nF` dummy `Sort 0`
+  bodies, §3b).  The eta certificate's per-slot tower arm is dropped
+  (`structEtaCertWith`: per-slot certificates for projection-function
+  families only; the tower law needs no per-field telescope).
+
+### 2. The proof shape (REPORT §4.5, realised)
+
+* **The reading of a body** — `Setlec/Verify/ProjTele.lean`: the dummy
+  telescope `projTele (nP + 1) body` (`Sort 0` binders, bit `.never`);
+  its `instPisAt` peel along the parameters and the subject is the
+  checker's one `instantiateList` (`instPisAt_typeAt`, through
+  `typeAt_eq_instSpine`).  The tower law (A) (`TowerEntryLawP`,
+  `SetP/Annot/EnvS2P.lean`) is stated over the telescope's reading and
+  keeps its `peelPis` shape; the `.proj` infer row consumes it through
+  `denoteP_typeAt_peel` (`SetP/Step2/TowerKitP.lean`).
+* **The substitution reading** — `Setlec/Verify/Direct/DirectBody.lean`
+  (syntactic): the body opened at the variables *is* the constructor
+  telescope's field domain peeled at the variables and the subject's
+  earlier projections (`directProjBody_open`: `directProjBodies_spec`,
+  `instPisAtLift_head`/`instPisAt_head`, and the
+  `instSeq_instSeqLift` collapse).  `SetP/Direct/DirectBodyFramesP.lean`
+  (semantic): the telescope reads to the opened body
+  (`denoteP_projTele`, ~50 lines) and the opened body's reading is the
+  field domain at the subject's projection spine, graded at the
+  **frame** — the subject a member of the family at the parameters —
+  (`bodyFrames`, ~150 lines: `denoteP_instPisAt_peel` over the
+  parameter and projection readings, `chainP_entry_agree`, the squash
+  regime through `free_of_diff`/`annotOkP_congr_lifts`).  No claims
+  row (no `defEqRow`, no `inferRow`) is consumed: the reading is a
+  homomorphism for substitution.
+* **The law** — `DirectEntryLawP.entryTypingCore` is premised on the
+  frame instead of the retired entry type's binder context ((B) and
+  (C) unchanged); `TowerConsP.declStepPM_of_tower_cons` is stated over
+  a **table** (`Sort 0` leaf, `TowerHead` and `TowerEntryLawP` at
+  every field, `ConsCrossEnv` = `NoProjEnv` at every slot);
+  `DirectStageTableP.stageTable` discharges the laws per field (the
+  guard content and the unused-field invariance derived per field, as
+  the fold derived them per slot); `DeclDirectP` assembles former,
+  constructor, recursor, table.
+* **Invariant**: `EnvWF` has a table clause (size and per-body
+  scoping); `NoProjEnv.table`; `ConsCrossEnv`/`ConsCrossAt` quantify
+  over all slots; `mem_typeP` is **unguarded** (§3c).
+* **Retired proof modules**: `DirectEntryDataP` (`EntryData`),
+  `DirectEntryFramesP` (`entryFrames` and its three pins),
+  `DirectSigmaP`, `DirectStageEntryP` (the choice leaf, `stageEntry`),
+  `DirectFoldEntryP` (`FoldInvP`, `foldEntriesP`), the inert-entry
+  cons, `checkDirectProjEntry_shape/_facts`.  Net: 114 files,
+  +3 233 / −5 315 lines against master.
+
+### 3. Departures from the brief, and why
+
+* **(a) the projection-function name family is still asserted free at
+  the table stage.**  The brief retires `projFnName` for the direct
+  route; it also keeps the modeled route's projection functions
+  untouched, and those are the key of the η-family predicate
+  `EtaFamilyStored`.  The direct install's soundness refutes
+  `EtaFamilyStored` at the block's former from exactly "`T.proj.0` is
+  not stored" (`stageCtor`/`stageRec`'s `hslot0`), and no invariant
+  says a stored `T.proj.j` implies a stored `T` — so the check stays
+  as the stage's own guard (`nF` hash lookups per structure; the
+  measurement is unmoved).  The direct route stores nothing at those
+  names.
+* **(b) inert tables carry dummy bodies** (`Array.replicate nF (.sort
+  .zero)`) so `EnvWF`'s size clause is uniform over both table kinds
+  and the modeled route's install proof (`templateConsP`) needs no
+  second clause.
+* **(c) `mem_typeP` is unguarded.**  The old guard (`isTowerEntry =
+  false → leaf ∈ type`) existed because a tower entry's stored type was
+  a real telescope its `.prf` leaf did not inhabit; the table's dummy
+  type reads to `univ 1` and its `Sort 0` leaf is a member
+  (`interp2_sort_mem`), so the guard and the `notTower_of_atom`
+  side-conditions it forced on every caller (`DivModCertP`,
+  `AxiomReduceP`, …) are gone.
+* **(d) `ProjEntry.native` removed** (the census found it redundant
+  with `tower` on every stored entry).
+* **(e) the proofdeps pin** (`tests/proofdeps-expected.txt`, 1 363
+  rows, regenerated): the five retired modules leave all four cones;
+  `DirectBodyFramesP`, `DirectStageTableP`, `Verify.Direct.DirectBody`,
+  `Verify.ProjTele` enter all four; and the P root alone additionally
+  reaches `Verify.Direct.DirectResid`, `Verify.InstList` (the
+  `instSpine`/`instantiateList` identification the infer arm's lemmas
+  use) and `Verify.Extend.Modeled` — base-tier modules the body
+  reading walks through.  Doors 0.
+* **(f) the printed count.**  `setlec: accepted N declarations` prints
+  `env.consts.length`; init-full-pre2 prints **60 549 in both modes
+  where it printed 61 048** — the 499 per-field entry constants of the
+  direct structures collapsed into their tables.  Exit 0 in both modes;
+  every verdict fixture unchanged.
+
+### 4. Parity mirrors official (coordinator addition, `a8c5adc8`)
+
+The user's ruling: the parity core (`--no-model`: `Cached/CoreNC.lean`
+and the shared bodies at `verified = false`) mirrors the official
+kernel, whose `reduce_proj` reduces every constructor redex with no
+certificate.  So the shared `whnfCoreBody` reads the fire's
+certificate through **`projCertAt r env depth mode.verified
+mode.betaGate …`** = `if verified then projCert … else pure true`
+(`Kernel/Core.lean`; `CoreP.lean`'s template likewise), the cached
+certified core through `projCertAtI … cfg.verified cfg.betaGate`
+(`Cached/CoreC.lean`), and `CoreNC`'s own body runs none.  The P core
+keeps its licensed certificate — the model's licence at a squash
+instantiation (W6) — and the parity–P agreement floor
+(`Verify/Cached/AgreeFloor.lean`) is untouched: parity stays an
+accept-superset, and the floor reads install skeletons only.
+
+Verification twins (all mode-parametric, so the mirrors stay stated at
+every mode): `projCertAt_atF` (`Fueled`), `projCertAt_fst_proj`/
+`_snd_proj` (`PairM`), `projCertAt_mono` (`BetaSpine`),
+`projCertAt_disc` (`Disc`), `projCertAt_shift` (`Deep`),
+`projCertAtC_sim` (`DiscC2`, consumed at `DiscC4`); `whnf_proj_inv`
+(`InferLemmas`) pins the *gated* certificate and
+`projCertAtP_verified` recovers `projCert`'s run at the verified mode,
+which `projStepP_of_claims` (`SetP/Step2/ProjRowsP.lean`) now takes as
+`hμ` — the one P-tier statement that changed.  This closes the W6
+docket item "the parity core's `projCert`".
+
+### 5. Receipts
+
+All at the branch tip (`d31e8833`, master merged): `lake build`
+warning-free; `lake test` green; `tests/arena.sh` exit 0 — tutorial
+90/92 (084/089 accept; 085 = 1, 086 = 2, 088/090/091/092/094/095 = 1),
+e2e 73/73 (`psigma_rec_eta` accepts), annot 14/14, retired/mode flags
+8/8 and 14/14, no-model sweep as expected (the 3 recorded
+divergences), proofdeps 1 363 rows as pinned, doors 0, layering 0
+edges (base 232 / P 160); the four capstones' axioms exactly
+`[propext, Classical.choice, Quot.sound]`; no `sorry`, no new axiom.
+
+init-full-pre2 (`ulimit -v 16G`, `perf stat -e instructions:u`,
+single runs, exit 0 / 60 549 constants in every cell) and grind-ring-5
+(3 866):
+
+| cell | baseline (W6 F) | S1 (`876ac521`) | S1 + parity mirrors official (`a8c5adc8`) |
+|---|---|---|---|
+| init-full P | 987.26 G | **984.36 G** (−0.29 %) | 984.36 G (unchanged) |
+| init-full parity | 1085.84 G | 1084.71 G (−0.10 %) | **1030.66 G** (−4.98 % vs S1, −5.08 % vs baseline) |
+| grind-ring-5 P | 37.38 G | **37.13 G** (−0.67 %) | 37.13 G (unchanged) |
+| grind-ring-5 parity | 37.50 G | 37.33 G (−0.45 %) | **36.41 G** (−2.46 % vs S1, −2.91 % vs baseline) |
+
+Reading: S1 itself is verdict-neutral and slightly cheaper in both
+modes (fewer constants, one `instantiateList` per `.proj` use instead
+of a stored-telescope peel); the parity core's certificate drop lands
+parity at 1030.66 G — below W6's X row (1048.16 G, the old two-run
+certificate), since S1's saving compounds.  Artefacts:
+`_tmp/s1/measure-k{2,3}.txt`, `_tmp/s1/arena-k3.log`,
+`_tmp/s1/Axioms.lean`.

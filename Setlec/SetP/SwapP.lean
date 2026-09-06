@@ -238,7 +238,6 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
             type_reads := ?_
             type_okP := ?_
             mem_typeP := ?_
-            tower_ty := ?_
             defn_reads := ?_
             nat_heads := ?_
             nat_ops := ?_
@@ -261,27 +260,16 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     exact mp.type_okP c₀ hc₀ ψ ta hta ρ
   · -- `mem_typeP`: the swap touches recursors only, so the tower
     -- exclusion carries over
-    intro c hc hnt ψ ta hta ρ
+    intro c hc ψ ta hta ρ
     obtain ⟨c₀, hc₀, hpair⟩ := Setlec.swapSh_mem_corr hsw c hc
     have hcv : c₀.toConstantVal = c.toConstantVal := by
       rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩ <;> rfl
     have hname : c₀.name = c.name := by
       rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩ <;> rfl
-    have hnt₀ : c₀.isTowerEntry = false := by
-      rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
-      · exact hnt
-      · rfl
     rw [← hde, ← hcv] at hta
-    have := mp.mem_typeP c₀ hc₀ hnt₀ ψ ta hta ρ
+    have := mp.mem_typeP c₀ hc₀ ψ ta hta ρ
     rw [hname] at this
     exact this
-  · -- `tower_ty`: the swap touches recursors only
-    intro c hc e hce htw
-    obtain ⟨c₀, hc₀, hpair⟩ := Setlec.swapSh_mem_corr hsw c hc
-    rcases hpair with rfl | ⟨cv, mI, rP, rules, -, hc3⟩
-    · exact mp.tower_ty c₀ hc₀ e hce htw
-    · rw [hc3] at hce
-      exact nomatch hce
   · -- `defn_reads`
     intro ψ cv value hmem
     have hmem₀ : (∃ hint : Setlec.ReducibilityHint,
@@ -359,14 +347,13 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     -- is unchanged by the swap, and the readings are `hde`
     intro φ T i entry hf htw
     have hfP : env₀.findProj? T i = some entry := by
-      have h3 := Setlec.Env.findProj?_some hf
+      obtain ⟨tbl, h3, hi, rfl⟩ := Setlec.Env.findProj?_some hf
       have h0 := (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp h3
-      unfold Setlec.Env.findProj?
-      rw [h0]
-    obtain ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
+      exact Setlec.Env.findProj?_of_table h0 hi
+    obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
       hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP htw
-    refine ⟨hnat, hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
+    refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
       hO5, cvC, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,

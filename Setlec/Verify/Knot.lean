@@ -274,6 +274,8 @@ abbrev projLitToCtorP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr
 
 abbrev projCertP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Bool → Name →
     List Level → List Expr → CheckM Bool := projCert (pureFns mode env fuel) env
+abbrev projCertAtP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Bool → Bool → Name →
+    List Level → List Expr → CheckM Bool := projCertAt (pureFns mode env fuel) env
 
 abbrev isPropTypeP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → CheckM Bool :=
   isPropType (pureFns mode env fuel) env
@@ -323,6 +325,8 @@ theorem projLitToCtor_fold (env : Env) (fuel : Nat) :
     projLitToCtor (pureFns mode env fuel) env = projLitToCtorP mode env fuel := rfl
 theorem projCert_fold (env : Env) (fuel : Nat) :
     projCert (pureFns mode env fuel) env = projCertP mode env fuel := rfl
+theorem projCertAt_fold (env : Env) (fuel : Nat) :
+    projCertAt (pureFns mode env fuel) env = projCertAtP mode env fuel := rfl
 theorem reduceNat_fold (env : Env) (fuel : Nat) :
     reduceNat (pureFns mode env fuel) env = reduceNatP mode env fuel := rfl
 theorem defeqSpine_fold (env : Env) (fuel : Nat) :

@@ -401,7 +401,7 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
       inferTypeCoreIO mode env fuel d e = .ok tpe ∧
       whnf mode env fuel d tpe = .ok te ∧
       te.getAppFn = .const T us ∧
-      env.findProj? T i = some entry ∧ entry.native = true ∧
+      env.findProj? T i = some entry ∧ entry.tower = true ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
       -- the official `infer_proj` restriction (task #175 W4c/O4), as in
@@ -409,9 +409,7 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
       ((Level.isEquiv entry.structSort .zero == some true) = true →
         (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
           == some true) = true) ∧
-      ((∃ ds, Expr.instPisAt (te.getAppArgs ++ [e])
-            (entry.ty.instantiateLevelParams entry.levelParams us)
-          = some (ds, t)) ∧
+      (t = entry.typeAt us te.getAppArgs e ∧
        -- task #175 wiring W5: the node's struct name is the head's
        T = sn) := by
   rw [inferTypeCoreIO_succ] at h
@@ -466,28 +464,15 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
       · rw [if_neg hf] at h
         exact absurd h (by
           simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
-    have h' : (match Expr.instPisAt (te.getAppArgs ++ [e])
-          (entry.ty.instantiateLevelParams entry.levelParams us) with
-        | some (_, resid) => (pure resid : Except CheckError Expr)
-        | none => (throw (CheckError.internal "malformed projection entry") :
-            Except CheckError Expr)) = .ok t := by
+    have h' : (pure (entry.typeAt us te.getAppArgs e) : Except CheckError Expr) = .ok t := by
       by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
       · rw [if_pos hp, if_pos (hg hp)] at h
         exact h
       · rw [if_neg hp] at h
         exact h
-    clear h
-    revert h'
-    cases hpi : Expr.instPisAt (te.getAppArgs ++ [e])
-        (entry.ty.instantiateLevelParams entry.levelParams us) with
-    | none => intro h; exact nomatch h
-    | some q =>
-      obtain ⟨ds, resid⟩ := q
-      intro h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
-        hg, ⟨ds, hpi⟩, hsn⟩
+    simp only [pure, Except.pure, Except.ok.injEq] at h'
+    exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+      hg, h'.symm, hsn⟩
 
 /-- **The literal clauses are lane-independent**: neither recurses, so
 the io run *is* the full run — the io twins of the two literal claims
@@ -666,7 +651,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       exact inferTypeCoreIO_of_full htail
     | .proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hnat,
-        hlenArgs, hlenUs, hguard, ⟨ds, hpi⟩, hsn⟩ :=
+        hlenArgs, hlenUs, hguard, rfl, hsn⟩ :=
         Setlec.inferTypeCore_proj_inv h
       rw [inferTypeCoreIO_succ]
       simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
@@ -682,8 +667,8 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       dsimp only
       rw [if_pos ⟨hnat, hsn, hlenArgs, hlenUs⟩]
       by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
-      · rw [if_pos hp, if_pos (hguard hp), hpi]
-      · rw [if_neg hp, hpi]
+      · rw [if_pos hp, if_pos (hguard hp)]
+      · rw [if_neg hp]
 
 /-- The weakening at the knot's io slot: at any mode, a full-grade
 success is an io-slot success with the same value (gate-off: the slot

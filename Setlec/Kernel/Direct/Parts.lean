@@ -336,77 +336,30 @@ def directProjGuards (cty : Expr) (nP nF : Nat) (sorts : List Level) :
         else acc)
       (sorts.getD i .zero)
 
-/-- **The guard's zeroing instantiation** (task #175 W4c P3 module 7,
-"σ"): at a `Prop`-declared structure, the instantiation of the block's
-level parameters that zeroes exactly the parameters the slot's guard
-level forces to zero (`Level.zeronessOf`, exact — `Verify.PropWhen`);
-the identity elsewhere.  A tower entry of a propositional structure is
-usable only where its guard is `Prop` (the official `infer_proj`
-restriction, checked at every use), and there these parameters *are*
-zero — so its stored type is annotated and inferred at this
-instantiation, where the earlier projections it mentions pass their
-own guards.  A `.never` guard (a field of a `Type`-sorted domain) has
-no such instantiation; its slot is admitted only if it mentions no
-guarded earlier projection (`directSlotAdmitAt`). -/
-def directGuardSigma (resSort : Level) (lps : List Name) (guard : Level) :
-    List Level :=
-  if Level.isEquiv resSort .zero == some true then
-    match guard.zeronessOf with
-    | .ifAllZero ps => lps.map fun p => if ps.contains p then .zero else .param p
-    | .never => lps.map .param
-  else lps.map .param
+/-- **The projection bodies of a recognised block** (task #175 S1),
+one walk of the constructor telescope: after the parameters are
+replaced by the loose variables `directProjPs nP` (parameter `k` at
+`bvar (nP - k)`, the subject reserved at `bvar 0`), the fields are
+peeled one at a time — field `i`'s domain is body `i`, and the field
+is replaced by the subject's projection `.proj T i (bvar 0)` before
+the walk continues (`directProjResidP`'s step).  So `bodies[i] =
+F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]`, scoped at `nP + 1`: what
+a `.proj T i e` use instantiates in one `instantiateList` along the
+subject type's arguments and the subject (`ProjEntry.typeAt`).  The
+table holds every field (the official `infer_proj` restriction at a
+`Prop`-declared structure is the per-use guard level,
+`directProjGuards`); no entry is annotated, inferred or pinned. -/
+def directProjBodiesGo (T : Name) : Nat → Nat → Expr → Option (List Expr)
+  | 0, _, _ => some []
+  | k + 1, i, .forallE _ fdom body _ =>
+    (directProjBodiesGo T k (i + 1) (body.instantiate1Lift (directProjArgP T i))).map
+      (fdom :: ·)
+  | _ + 1, _, _ => none
 
-/-- **Slot admission** (task #175 W4c P3 module 7): at a
-`Prop`-declared structure, every earlier field a later field uses has
-a guard that is `Prop` at the slot's zeroing instantiation — exactly
-the checks the entry install's inference of the generated type runs
-at the earlier projections' nodes.  (Vacuous at a non-`Prop`
-structure: the tower infer branch's guard check fires only at
-`Prop`-declared ones.) -/
-def directSlotAdmitAt (resSort : Level) (lps : List Name) (cty : Expr) (nP : Nat)
-    (guards : List Level) (i : Nat) : Bool :=
-  !(Level.isEquiv resSort .zero == some true) ||
-  (List.range i).all fun j =>
-    !directUsedLater cty nP j ||
-    (Level.isEquiv
-      (Level.subst lps (directGuardSigma resSort lps (guards.getD i .zero))
-        (guards.getD j .zero)) .zero == some true)
-
-/-- Admission, cumulatively: the slot and every earlier one — so the
-admitted slots are a prefix of the field list (an unadmitted slot's
-data field poisons every later slot that could mention it, and the
-earlier projections a stored entry's type mentions are all real
-entries). -/
-def directSlotAdmit (resSort : Level) (lps : List Name) (cty : Expr) (nP : Nat)
-    (guards : List Level) (i : Nat) : Bool :=
-  (List.range (i + 1)).all (directSlotAdmitAt resSort lps cty nP guards)
-
-/-- **The inert entry** at an unadmitted slot (task #175 W4c P3 module
-7): a non-native, non-tower table entry holding the slot (the
-agreement floor's skeleton is the block's raw data), typing no node
-(the tower infer branch keys on `native`), firing no reduction
-(`fireOk` keys on `tower`), of type `Sort 1`.  A `.proj` use of the
-field falls through to the dispatch's decline; officially such a use
-is invalid at every level instantiation (a used-later field of a
-propositional structure whose sort is never `Prop`). -/
-def directInertEntry (T : Name) (i : Nat) (lps : List Name) (nP : Nat) (C : Name)
-    (nF : Nat) (guard resSort : Level) : ProjEntry :=
-  ⟨T, i, lps, nP, C, nF, .sort (.succ .zero), guard, resSort, false, false, false⟩
-
-/-- **The entry decisions of a recognised block**, one per field: the
-generated projection type exists (on the block's raw types — the
-agreement floor's currency, input data alone).  Every field of every
-recognised block gets an entry (task #175 W4c P3 module 7); the
-official `infer_proj` restriction at a `Prop`-declared structure is
-the entry's *guard level* (`directProjGuards`), checked at every
-use.  The entry's constant is a table entry no term names
-(`ConstantInfo.isTowerEntry`), so an entry whose type is uninhabited
-at some level instantiation (a field depending on a data field of a
-propositional structure) is no burden on the model. -/
-def directProjSlots (p : DirectParts) : List Bool :=
-  (List.range p.nF).map fun i =>
-    (directProjTyP p.cvT.name p.cvT.levelParams p.nP p.nF i p.cvT.type
-      p.cvC.type).isSome
+def directProjBodies (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr) :=
+  match Expr.instPisAtLift (directProjPs nP) cty with
+  | some r => (directProjBodiesGo T nF 0 r).map List.toArray
+  | none => none
 
 /-- **Non-recursive**: every binder domain of the constructor already
 resolves in the *pre-block* environment.  This subsumes the reference

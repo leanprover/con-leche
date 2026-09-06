@@ -66,7 +66,7 @@ theorem eqThird_mem (mp : EnvS2PM V μ env)
     (hS : interp2 V σ Sa ∈ˢ (univ (χ uN) : V))
     (hl : interp2 V σ la ∈ˢ interp2 V σ Sa) :
     interp2 V σ ra ∈ˢ interp2 V σ Sa := by
-  obtain ⟨ea, hea, -, hmem⟩ := mp.acval_memTypeP heqfE (Setlec.isTowerEntry_false_of_find? heqfE (fun _ _ h => Name.noConfusion h)) χ
+  obtain ⟨ea, hea, -, hmem⟩ := mp.acval_memTypeP heqfE χ
   rw [show (eqA : ConstantInfo).toConstantVal.type
       = eqA.toConstantVal.type from rfl, denoteP_eqA_type_gen] at hea
   obtain rfl : ea = eqTyP χ := (Option.some.inj hea).symm
@@ -190,7 +190,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
   intro us hus
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
       ψ = Level.substFn φ' cvT.levelParams us := ⟨_, rfl⟩
-  obtain ⟨ta, htaM, hokta, -⟩ := mp.acval_memTypeP hTmE (Setlec.isTowerEntry_false_of_find? hTmE (fun _ _ h => Name.noConfusion h)) ψ
+  obtain ⟨ta, htaM, hokta, -⟩ := mp.acval_memTypeP hTmE ψ
   have htaM' : denoteP mp.base2.acval env ψ 0 cvmT.type = some ta := htaM
   have hta : denoteP mp.base2.acval env ψ 0 cvT.type = some ta := by
     rw [hEqTy]; exact htaM'
@@ -205,7 +205,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
   -- ===== the two telescopes =====
   obtain ⟨Γm, Cm, hteleM, hΓmlen, hbodyM, hdomsM⟩ :=
     stripPis_denotePTele caps.etaParams hTstrip htaM'
-  obtain ⟨ua, hua, hokua, hmemua⟩ := mp.acval_memTypeP hthmE (Setlec.isTowerEntry_false_of_find? hthmE (fun _ _ h => Name.noConfusion h)) ψ
+  obtain ⟨ua, hua, hokua, hmemua⟩ := mp.acval_memTypeP hthmE ψ
   have hua' : denoteP mp.base2.acval env ψ 0 tcv.type = some ua := hua
   obtain ⟨Γs, Cs, hteleS, hΓslen, hbodyS, hdomsS⟩ :=
     stripPis_denotePTele (caps.etaParams + 1) hSstrip hua'

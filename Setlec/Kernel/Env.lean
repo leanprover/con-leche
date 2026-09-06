@@ -214,28 +214,30 @@ structure IndCaps where
   ruleK : Bool := false
   deriving DecidableEq, Repr, Inhabited
 
-/-- One projection-table entry, keyed by (type former × field index):
-everything the checker's `.proj` rules consume, stored once at install
-(the key is encoded in the entry's stored *name*, `projFnName
-structName idx`; see `Env.findProj?`).
+/-- **One structure's projection table** (task #175 S1, 2026-09-06):
+everything the checker's `.proj` rules consume about a structure `T`,
+stored once at the structure's install as ONE constant (keyed on the
+structure: `projTableName structName`; see `Env.findProj?`).
 
-* `native = true`: the `.proj` node is first-class — typed by the
-  level-parametric `ty` (`∀ p⃗ (t : T p⃗), F_i`, earlier fields spelled
-  as `.proj` nodes of the subject) and reduced by the generic
-  structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`, guarded at possibly-Prop
-  instances by the stored `fieldSort`/`structSort` levels.  Installed
-  by the direct simple-structure path only (task #175 W6: the pinned
-  `PSigma'` pair entries are retired), so every native entry is
-  tower-backed (`tower = true`).
-* `native = false`: an inert entry — the modeled path's
-  elimination-template entry (`ty` the closed junk `Prop`) or the
-  direct path's `directInertEntry` at an unadmitted slot (`ty` is
-  `Sort 1`; task #175 W4c P3 module 7).  It types no node and fires no
-  reduction; a `.proj` use on the slot is a verdict at its own site
-  (task #175 wiring W5: the recursor-inlining fallback is gone). -/
-structure ProjEntry where
+* `tower = true`: the direct simple-structure install's table.  The
+  `.proj T i` node is first-class — typed by `bodies[i]`, the field's
+  result-type **body** `F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]`,
+  scoped at `numParams + 1` (the parameters and the subject are loose
+  `bvar`s, the subject at `bvar 0`, the earlier fields already spelled
+  as projections of the subject), instantiated at a use by ONE
+  `instantiateList` along the subject type's arguments and the
+  subject (`ProjEntry.typeAt`); reduced by the generic structural rule
+  `proj_i (ctor p⃗ x⃗) ↦ x_i`, guarded at possibly-Prop instances by
+  the stored `guards[i]`/`structSort` levels.  The bodies are taken
+  from the annotated constructor type by substitution alone
+  (`directProjBodies`) — no annotate, no infer, no pins: a slot with
+  no legal instantiation simply fails the guard at every use.
+* `tower = false`: the modeled path's inert elimination-template
+  table (`bodies` empty).  It types no node and fires no reduction; a
+  `.proj` use on the family is a verdict at its own site (task #175
+  wiring W5: the recursor-inlining fallback is gone). -/
+structure ProjTable where
   structName : Name
-  idx : Nat
   /-- the parent type former's level parameters -/
   levelParams : List Name
   /-- the parent's parameter count -/
@@ -244,32 +246,52 @@ structure ProjEntry where
   ctor : Name
   /-- its field count -/
   numFields : Nat
-  /-- the projection's level-parametric type (native entries only) -/
-  ty : Expr
-  /-- **the projection's `Prop` guard level** (native entries only):
-  the projected field's sort joined with the sorts of the earlier
-  fields that a later field's type uses — exactly the sorts the
-  official `infer_proj` requires to be `Prop` when projecting from a
-  propositional structure (task #175 W4c/O4, `directProjGuards`); the
-  tower infer branch checks it at every use of a `Prop`-declared
-  structure. -/
-  fieldSort : Level
-  /-- the parent's result sort (native entries only) -/
+  /-- the parent's result sort (tower tables only) -/
   structSort : Level
-  native : Bool
-  /-- the parent's recursor carries a motive-sort level parameter in
-  front of the parent's own (template entries only) -/
-  recExtraLevel : Bool
-  /-- **the entry-kind discriminator** (task #175 wiring): `true` for
-  a tower-backed entry installed by the direct-structure path (the
-  carrier is the unit-terminated pair tower, `.proj i` reads field
-  `i` via `projS i = sfst ∘ ssnd^i`, and inference walks the stored
-  `ty` generically); `false` for elimination-template entries and the
-  direct path's inert entries (task #175 W6: the pinned pair entries,
-  the last `native ∧ ¬tower` kind, are retired — `native → tower` is
-  the table invariant, `ProjOkT`'s first conjunct). -/
+  /-- per field, the projection's result-type body (tower tables
+  only; see above) -/
+  bodies : Array Expr
+  /-- per field, **the projection's `Prop` guard level** (tower tables
+  only): the projected field's sort joined with the sorts of the
+  earlier fields that a later field's type uses — exactly the sorts
+  the official `infer_proj` requires to be `Prop` when projecting from
+  a propositional structure (task #175 W4c/O4, `directProjGuards`);
+  the tower infer branch checks it at every use of a `Prop`-declared
+  structure. -/
+  guards : List Level
+  /-- **the table-kind discriminator** (task #175 wiring): `true` for
+  the direct-structure install's tower-backed table (the carrier is
+  the unit-terminated pair tower, `.proj i` reads field `i` via
+  `projS i = sfst ∘ ssnd^i`); `false` for the modeled path's inert
+  template table. -/
   tower : Bool := false
   deriving DecidableEq, Repr, Inhabited
+
+/-- **One projection-table entry** — the per-field VIEW of a
+`ProjTable` (`ProjTable.entry`), what `Env.findProj? T i` returns:
+the table's data at field `idx`.  `body` is `bodies[idx]` and
+`fieldSort` is `guards[idx]` (junk on an inert table). -/
+structure ProjEntry where
+  structName : Name
+  idx : Nat
+  levelParams : List Name
+  numParams : Nat
+  ctor : Name
+  numFields : Nat
+  /-- the projection's result-type body, scoped at `numParams + 1`
+  (see `ProjTable.bodies`) -/
+  body : Expr
+  /-- the projection's `Prop` guard level (see `ProjTable.guards`) -/
+  fieldSort : Level
+  structSort : Level
+  tower : Bool
+  deriving DecidableEq, Repr, Inhabited
+
+/-- The per-field view of a table at field `i` (meaningful for `i <
+numFields`). -/
+def ProjTable.entry (tbl : ProjTable) (i : Nat) : ProjEntry :=
+  ⟨tbl.structName, i, tbl.levelParams, tbl.numParams, tbl.ctor, tbl.numFields,
+    tbl.bodies.getD i default, tbl.guards.getD i .zero, tbl.structSort, tbl.tower⟩
 
 /-- Information stored about an accepted constant. -/
 inductive ConstantInfo where
@@ -288,13 +310,15 @@ inductive ConstantInfo where
   are consumed at install time only and are not stored. -/
   | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
       (rules : List RecRule)
-  /-- A projection-table entry (see `ProjEntry`), stored under the
-  reserved name `projFnName entry.structName entry.idx` so lookups,
+  /-- A structure's projection table (see `ProjTable`), stored under
+  the reserved name `projTableName tbl.structName` so lookups,
   freshness and environment extension are uniform with constants.  Its
-  `toConstantVal` carries the entry's projection type (`ty`; template
-  entries carry the closed junk `Prop` there), so the environment
-  well-formedness and model machinery cover the entry uniformly. -/
-  | projInfo (entry : ProjEntry)
+  `toConstantVal` carries the closed dummy type `Sort 1` (the table is
+  not a term: no `.const` names it, `inferTypeCore` rejects one), so
+  the environment well-formedness and model machinery cover the
+  constant uniformly; the bodies' own well-formedness is `EnvWF`'s
+  table clause. -/
+  | projInfo (tbl : ProjTable)
   deriving DecidableEq, Repr, Inhabited
 
 /-- A declaration presented to the checker. -/
@@ -325,25 +349,34 @@ def name : Declaration → Name
 
 end Declaration
 
-/-- The public projection-table name for field `i` of structure `T` (a
-`Nat` component keeps it out of the way of exported identifiers;
-installs are duplicate-checked regardless). -/
+/-- The public projection-*function* name for field `i` of structure
+`T` — the modeled path's degenerate-recursor projection functions
+(`checkProjFn`; a `Nat` component keeps it out of the way of exported
+identifiers; installs are duplicate-checked regardless).  Since task
+#175 S1 no table entry lives under this name: the direct install's
+table is one constant per structure, `projTableName`. -/
 def projFnName (T : Name) (i : Nat) : Name := (T.str "proj").num i
+
+/-- The reserved name of structure `T`'s projection table (task #175
+S1): one constant per structure, a `Nat` component keeping it out of
+the way of exported identifiers (the front door rejects the shape,
+`Name.isProjFnShape`), distinct from every `projFnName` name. -/
+def projTableName (T : Name) : Name := (T.str "projTable").num 0
 
 namespace ConstantInfo
 
 def toConstantVal : ConstantInfo → ConstantVal
   | .axiomInfo v | .defnInfo v _ _ | .thmInfo v _ => v
   | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ => v
-  | .projInfo e => ⟨projFnName e.structName e.idx, e.levelParams, e.ty⟩
+  | .projInfo tbl => ⟨projTableName tbl.structName, tbl.levelParams, .sort (.succ .zero)⟩
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 
-/-- A tower-backed projection-table entry (task #175 W4c): a table
-entry, not a term — no `.const` node names it (`inferTypeCore`
-rejects one), so the model owes it no leaf. -/
+/-- A tower-backed projection table (task #175 W4c): a table, not a
+term — no `.const` node names it (`inferTypeCore` rejects one), so the
+model owes it no leaf. -/
 def isTowerEntry : ConstantInfo → Bool
-  | .projInfo e => e.tower
+  | .projInfo tbl => tbl.tower
   | _ => false
 
 /-- The index count of a recursor (majorIdx − rulePrefix; junk
@@ -386,10 +419,12 @@ def empty : Env := ⟨[]⟩
 def find? (env : Env) (n : Name) : Option ConstantInfo :=
   env.consts.find? (·.name == n)
 
-/-- Look up the projection-table entry for field `i` of `T`. -/
+/-- Look up the projection-table entry for field `i` of `T`: the
+structure's table (`projTableName T`), viewed at field `i` (task #175
+S1; `none` beyond the table's field count). -/
 def findProj? (env : Env) (T : Name) (i : Nat) : Option ProjEntry :=
-  match env.find? (projFnName T i) with
-  | some (.projInfo e) => some e
+  match env.find? (projTableName T) with
+  | some (.projInfo tbl) => if i < tbl.numFields then some (tbl.entry i) else none
   | _ => none
 
 end Env

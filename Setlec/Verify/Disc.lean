@@ -401,28 +401,7 @@ theorem structEtaProjCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
             exact ihrest
           | false => exact DiscV.pure trivial
         · exact DiscV.pure trivial
-      | projInfo entry =>
-        -- the tower-backed slot (task #175 W4c): the entry's stored
-        -- type is closed, so its certificate walks like the recursor's
-        dsimp only
-        split
-        · have htyw : WScoped d
-              (entry.ty.instantiateLevelParams entry.levelParams us') :=
-            projEntry_ty_WScoped henv (by unfold Env.findProj?; rw [hf]) us'
-          have hargs : ∀ x ∈ targs ++ [b], WScoped d x := by
-            intro x hx
-            rcases List.mem_append.mp hx with hx | hx
-            · exact hwt x hx
-            · rcases List.mem_singleton.mp hx with rfl
-              exact hwb
-          refine DiscV.bind (iotaCerts_disc ih henv htyw hargs)
-            (fun r _ => ?_)
-          cases r with
-          | true =>
-            simp only [↓reduceIte]
-            exact ihrest
-          | false => exact DiscV.pure trivial
-        · exact DiscV.pure trivial
+      | projInfo entry => exact DiscV.pure trivial
       | axiomInfo cv => exact DiscV.pure trivial
       | defnInfo cv value hint => exact DiscV.pure trivial
       | thmInfo cv value => exact DiscV.pure trivial
@@ -455,8 +434,13 @@ theorem structEtaCertWith_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     (iotaCerts_disc ih henv htyw hwwtb.getAppArgs)
     (fun r₁ _ => ?_)
   split <;> try exact DiscV.pure trivial
-  refine DiscV.bind (structEtaProjCerts_disc ih henv T us'
-    cvT.levelParams hwwtb.getAppArgs hwb _) (fun r₂ _ => ?_)
+  -- the per-slot certificates run at a projection-function family
+  -- only (task #175 S1)
+  refine DiscV.bind (P := fun _ => True) ?_ (fun r₂ _ => ?_)
+  · split
+    · exact DiscV.pure trivial
+    · exact structEtaProjCerts_disc ih henv T us' cvT.levelParams
+        hwwtb.getAppArgs hwb _
   split <;> try exact DiscV.pure trivial
   refine DiscV.bind (defEqList_disc ih
     (fun x hx => hwa.getAppArgs x (List.mem_of_mem_take hx))
@@ -565,6 +549,16 @@ theorem projCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hnf : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false :=
       const_ty_hasFvar henv hf us
     exact iotaCerts_disc ih henv (WScoped.of_not_hasFvar hnf) hwargs
+  · exact DiscV.pure trivial
+
+theorem projCertAt_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {v lic : Bool} {c : Name} {us : List Level} {args : List Expr}
+    (hwargs : ∀ x ∈ args, WScoped d x) :
+    DiscV mode env (fun _ => True)
+      (projCertAt C env d v lic c us args) (projCertAt G env d v lic c us args) := by
+  unfold projCertAt
+  split
+  · exact projCert_disc ih henv hwargs
   · exact DiscV.pure trivial
 
 theorem stuckIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
@@ -916,11 +910,11 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         | some entry =>
           match e'.getAppFn with
           | .const c us =>
-            if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
+            if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCert C env d mode.betaGate c us e'.getAppArgs >>= fun b =>
+              projCertAt C env d mode.verified mode.betaGate c us e'.getAppArgs >>= fun b =>
               if b then
                 (C : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -934,11 +928,11 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         | some entry =>
           match e'.getAppFn with
           | .const c us =>
-            if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
+            if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCert G env d mode.betaGate c us e'.getAppArgs >>= fun b =>
+              projCertAt G env d mode.verified mode.betaGate c us e'.getAppArgs >>= fun b =>
               if b then
                 (G : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -956,7 +950,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split <;> try exact DiscV.pure hwproj
     split <;> try exact DiscV.pure hwproj
     split <;> try exact DiscV.pure hwproj
-    refine DiscV.bind (projCert_disc ih henv (fun x hx => he'.getAppArgs x hx))
+    refine DiscV.bind (projCertAt_disc ih henv (fun x hx => he'.getAppArgs x hx))
       (fun b _ => ?_)
     split
     · exact ih.site_whnfCore henv (hwarg _)
@@ -1128,7 +1122,7 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         | .const T _ =>
           match env.findProj? T i with
           | some entry =>
-            if entry.native then
+            if entry.tower then
               if te.getAppArgs.length = entry.numParams then
                 pure (Expr.proj T i e')
               else throw (.invalid "projection parameter mismatch")
@@ -1145,7 +1139,7 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         | .const T _ =>
           match env.findProj? T i with
           | some entry =>
-            if entry.native then
+            if entry.tower then
               if te.getAppArgs.length = entry.numParams then
                 pure (Expr.proj T i e')
               else throw (.invalid "projection parameter mismatch")
@@ -1325,28 +1319,13 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     rename_i entry hfpw
     split <;> try exact DiscV.throw _
     rename_i hcond
-    -- task #175 wiring W2c: the tower residual — scoped because the
-    -- stored entry type is closed and the spine and subject are
+    -- task #175 S1: the body at the spine and the subject — scoped
+    -- because the stored body is fvar-free and the spine and subject are
     have hres : DiscV mode env (WScoped d)
-        (match Expr.instPisAt (w.getAppArgs ++ [pe])
-            (entry.ty.instantiateLevelParams entry.levelParams usw) with
-          | some (_, resid) => (pure resid : CheckSM Expr)
-          | none => throw (CheckError.internal "malformed projection entry"))
-        (match Expr.instPisAt (w.getAppArgs ++ [pe])
-            (entry.ty.instantiateLevelParams entry.levelParams usw) with
-          | some (_, resid) => (pure resid : CheckSM Expr)
-          | none => throw (CheckError.internal "malformed projection entry")) := by
-      split
-      · rename_i fst resid heq
-        refine DiscV.pure ?_
-        refine (instPisAt_WScoped _ _ heq
-          (projEntry_ty_WScoped henv hfpw usw) ?_).2
-        intro a ha
-        rcases List.mem_append.mp ha with ha | ha
-        · exact hww.getAppArgs a ha
-        · rcases List.mem_singleton.mp ha with rfl
-          exact hwpe
-      · exact DiscV.throw _
+        (pure (entry.typeAt usw w.getAppArgs pe) : CheckSM Expr)
+        (pure (entry.typeAt usw w.getAppArgs pe) : CheckSM Expr) :=
+      DiscV.pure (projEntry_typeAt_WScoped henv hfpw usw hcond.2.2.1
+        (fun a ha => hww.getAppArgs a ha) hwpe)
     -- the Prop guard (task #175 W4c) runs no walk of its own
     split
     · split
@@ -1515,28 +1494,13 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     rename_i entry hfpw
     split <;> try exact DiscV.throw _
     rename_i hcond
-    -- task #175 wiring W2c: the tower residual (as in
-    -- `inferBody_disc`)
+    -- task #175 S1: the body at the spine and the subject — scoped
+    -- because the stored body is fvar-free and the spine and subject are
     have hres : DiscV mode env (WScoped d)
-        (match Expr.instPisAt (w.getAppArgs ++ [pe])
-            (entry.ty.instantiateLevelParams entry.levelParams usw) with
-          | some (_, resid) => (pure resid : CheckSM Expr)
-          | none => throw (CheckError.internal "malformed projection entry"))
-        (match Expr.instPisAt (w.getAppArgs ++ [pe])
-            (entry.ty.instantiateLevelParams entry.levelParams usw) with
-          | some (_, resid) => (pure resid : CheckSM Expr)
-          | none => throw (CheckError.internal "malformed projection entry")) := by
-      split
-      · rename_i fst resid heq
-        refine DiscV.pure ?_
-        refine (instPisAt_WScoped _ _ heq
-          (projEntry_ty_WScoped henv hfpw usw) ?_).2
-        intro a ha
-        rcases List.mem_append.mp ha with ha | ha
-        · exact hww.getAppArgs a ha
-        · rcases List.mem_singleton.mp ha with rfl
-          exact hwpe
-      · exact DiscV.throw _
+        (pure (entry.typeAt usw w.getAppArgs pe) : CheckSM Expr)
+        (pure (entry.typeAt usw w.getAppArgs pe) : CheckSM Expr) :=
+      DiscV.pure (projEntry_typeAt_WScoped henv hfpw usw hcond.2.2.1
+        (fun a ha => hww.getAppArgs a ha) hwpe)
     -- the Prop guard (task #175 W4c) runs no walk of its own
     split
     · split

@@ -262,125 +262,50 @@ def checkDirectRule (ops : CheckerOps m) (env : Env) (p : DirectParts)
   let _rhsTy ← ops.inferType env 0 rhsA
   pure rhsA
 
-/-- Install the **native tower-backed projection entry** for field `i`
-of a direct simple structure (task #175 wiring; supersedes the
-degenerate-recursor install).  The stored `ty` is the generated
-projection type in `.proj`-node spelling (`directProjTyP`), reduction
-is `whnfCore`'s generic structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`,
-and the definitional re-checks below (subject domain, residual) are
-exactly the interpretation pins the model consumes.  The **O4
-per-field branch**: the entry is installed iff the levelwise bound
-`ψ(structSort) = 0 → ψ(fieldSort) = 0` is decidably discharged —
-`resSort.isNonZero` (today's whole recognised class) or
-`Level.leq fieldSort resSort` (the monotone case); a field failing it
-gets NO entry and its `.proj` uses stay per-use checked.  Fields are
-installed in order: field `i`'s type spells the earlier projections as
-`.proj` nodes, whose annotation reads the earlier entries. -/
-def checkDirectProjEntry (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (resSort guard : Level) (cvCa : ConstantVal)
-    (pty : Expr) (env : Env) (i : Nat) : m Env := do
-  unless !pty.hasFvar && pty.looseBVarsBounded 0 do
-    throw (.notImplemented "direct structure: projection type scoping")
-  -- the guard's zeroing instantiation (`directGuardSigma`): the
-  -- entry's type is validated where the entry is usable
-  let σ := directGuardSigma resSort lps guard
-  let ptyσ := pty.instantiateLevelParams lps σ
-  let ctyσ := cvCa.type.instantiateLevelParams lps σ
-  let ptyA ← ops.annotate env 0 ptyσ
-  unless ptyA.allLevelParamsDefined lps && ptyA.constsResolve env &&
-      ptyA.looseBVarsBounded 0 && !ptyA.hasFvar do
-    throw (.notImplemented "direct structure: projection type wellformedness")
-  unless (ptyA.stripPis (nP + 1)).isSome do
-    throw (.notImplemented "direct structure: projection type telescope")
-  let sty ← ops.inferType env 0 ptyA
-  let _u ← ops.ensureSort env 0 sty
-  unless (env.find? (projFnName T i)).isNone do
-    throw (.invalid "projection name taken")
-  checkProjShape ptyA ctyσ nP nF
-  -- The **annotated** projection type's own frame walk.  The model
-  -- reads the stored (annotated) type, and annotation is not
-  -- interpretation-preserving — the raw `directProjTy` output is not
-  -- even interpretable, since its binders carry no codomain sort — so
-  -- the two facts the model needs are re-checked here, exactly as
-  -- `checkDirectInd`/`checkDirectCtor`/`checkDirectRecTy` re-check
-  -- their skeletons on the annotated constants: the subject's domain is
-  -- the family at the opened parameters, and the residual is the
-  -- constructor's `i`-th field domain at those parameters and at the
-  -- earlier projections.  Both comparands are built here from *closed*
-  -- arguments (the opened variables), so `Expr.instPisAt` suffices and
-  -- `directProjTy` becomes a **validated generator**: a failure here is
-  -- a generator bug, and declining is the right verdict.
-  let (fvsP, prest) ← unwrapOr (openPisAtFvars nP ptyA 0)
-    (.notImplemented "direct structure: projection type telescope")
-  let famApp := Expr.mkAppN (.const T σ) fvsP
-  let (sbs, _) ← unwrapOr (prest.stripPis 1)
-    (.notImplemented "direct structure: projection subject telescope")
-  let sdom ← unwrapOr ((sbs[0]?).map (·.2.1))
-    (.notImplemented "direct structure: projection subject telescope")
-  unless ← ops.isDefEq env nP sdom famApp do
-    throw (.notImplemented "direct structure: projection subject domain")
-  let (tFvs, resid) ← unwrapOr (openPisAtFvars 1 prest nP)
-    (.notImplemented "direct structure: projection subject telescope")
-  let tfv ← unwrapOr tFvs[0]?
-    (.internal "direct structure: projection subject index")
-  -- the entry's parameter domains are the constructor's at the opened
-  -- parameters (task #175 W4c, P3 module 7): the model identifies the
-  -- entry's parameter frame with the block's through this pin, exactly
-  -- as `checkDirectCtor` pins the constructor's to the former's
-  let (cdomsP, _) ← unwrapOr (Expr.instPisAt fvsP ctyσ)
-    (.notImplemented "direct structure: projection parameter telescope")
-  checkDirectDomsAt ops env 0 fvsP cdomsP nP
-  let projArgs := (List.range i).map fun j => Expr.proj T j tfv
-  let (_, cresid) ← unwrapOr (Expr.instPisAt (fvsP ++ projArgs) ctyσ)
-    (.notImplemented "direct structure: projection field telescope")
-  let fdom ← unwrapOr (match cresid with
-      | .forallE _ d _ _ => some d
-      | _ => none)
-    (.notImplemented "direct structure: projection field telescope")
-  unless ← ops.isDefEq env (nP + 1) resid fdom do
-    throw (.notImplemented "direct structure: projection residual")
-  -- the entry's `fieldSort` slot carries the projection's `Prop`
-  -- guard level (`directProjGuards`), the datum the tower infer
-  -- branch checks at every use of a `Prop`-declared structure
-  pure ⟨.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, resSort,
-    true, false, true⟩ :: env.consts⟩
-
-/-- The projection slot for field `i` (task #175 W4c/O4): the entry
-decision `slots` (`directProjSlots`, a function of the block's raw
-types) says whether an entry installs at all; a skipped slot is a
-plain fall-through, never a verdict (the block installs; a `.proj` use
-of the field declines at its own site).  Otherwise the entry is
-installed, from the annotated types, with its guard level. -/
-def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (resSort : Level) (slots : List Bool)
-    (guards : List Level) (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) :
-    m Env :=
-  if slots.getD i false then do
-    let pty ← unwrapOr (directProjTyP T lps nP nF i cvTa.type cvCa.type)
-      (.notImplemented "direct structure: projection type")
-    if directSlotAdmit resSort lps cvCa.type nP guards i then
-      checkDirectProjEntry ops T C lps nP nF resSort (guards.getD i .zero)
-        cvCa pty env i
-    else do
-      -- the inert entry (`directInertEntry`): the slot is held, the
-      -- field's projections decline at their own sites
-      unless (env.find? (projFnName T i)).isNone do
-        throw (.invalid "projection name taken")
-      pure ⟨.projInfo (directInertEntry T i lps nP C nF (guards.getD i .zero) resSort)
-        :: env.consts⟩
-  else pure env
+/-- Stage 5: **the projection table** (task #175 S1).  One constant
+per structure: the fields' result-type bodies read off the
+*annotated* constructor type by substitution alone
+(`directProjBodies`), the per-field guard levels
+(`directProjGuards`), the constructor and the counts.  Nothing is
+annotated, inferred or pinned here — a `.proj T i e` use instantiates
+`bodies[i]` at its own arguments (`ProjEntry.typeAt`) after the
+official `infer_proj` guard test, and a slot with no legal
+instantiation (a used-later data field of a `Prop` structure) simply
+fails that guard at every use (`invalid`, as official).  The body
+walk cannot fail on a constructor type `checkDirectCtor` accepted
+(it peels exactly `nP + nF` binders), so its failure is internal. -/
+def checkDirectProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
+    (resSort : Level) (guards : List Level) (cvCa : ConstantVal) (env : Env) :
+    m Env := do
+  let bodies ← unwrapOr (directProjBodies T nP nF cvCa.type)
+    (.internal "direct structure: projection bodies")
+  -- the bodies' scoping, validated once at insertion (the stage's own
+  -- guard, what `EnvWF`'s table clause records): fvar-free, level
+  -- parameters within the structure's, resolving, scoped at the
+  -- parameters and the subject; one per field
+  unless bodies.size = nF ∧ bodies.all (fun b => !b.hasFvar &&
+      b.allLevelParamsDefined lps && b.constsResolve env &&
+      b.looseBVarsBounded (nP + 1)) do
+    throw (.internal "direct structure: projection body scoping")
+  -- the projection-function name family (the modeled route's, the key
+  -- of its η-family predicate) must be free too: a direct family has
+  -- no projection functions, and the model's η law for the block is
+  -- discharged by the tower, never by `EtaFamilyStored`
+  unless (List.range nF).all (fun j => (env.find? (projFnName T j)).isNone) do
+    throw (.invalid "projection name family taken")
+  unless (env.find? (projTableName T)).isNone do
+    throw (.invalid "projection table taken")
+  pure ⟨.projInfo ⟨T, lps, nP, C, nF, resSort, bodies, guards, true⟩ :: env.consts⟩
 
 /-- Check and install a **direct simple structure** (task #82): the
 type former, the constructor, the recursor with its single rule, and
-the `nF` projection **functions** (`checkDirectProj` — real degenerate
-recursors in the `projFnName` slot family, *not* the Prop-fallback
-elimination templates, which cannot express a dependent field's
-projection; see DESIGN.md, "Projections compose with the existing
-table").  No `_model` artifact is read and none is written; the model
-was constructed at install by the retired direct model (deleted at
-task #148 T7; the route ships `false`).  Recognition
-happened in `directParts?`; everything here is a genuine check of the
-declaration, so a failure is a verdict, not a fall-through. -/
+the structure's projection **table** (`checkDirectProjTable` — the
+fields' bodies, one constant; task #175 S1).  No `_model` artifact is
+read and none is written; the model was constructed at install by the
+retired direct model (deleted at task #148 T7; the route ships
+`false`).  Recognition happened in `directParts?`; everything here is
+a genuine check of the declaration, so a failure is a verdict, not a
+fall-through. -/
 def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     m Env := do
   let (env₁, cvTa) ← checkDirectInd ops env p
@@ -394,12 +319,7 @@ def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
           .plain else .inert,
         rhsA⟩] :: env₂.consts⟩
-  unless (List.range p.nF).all
-      (fun j => (env₃.find? (projFnName p.cvT.name j)).isNone) do
-    throw (.invalid "projection name family taken")
-  (List.range p.nF).foldlM
-    (checkDirectProj ops p.cvT.name p.cvC.name p.cvT.levelParams
-      p.nP p.nF p.resSort (directProjSlots p)
-      (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa) env₃
+  checkDirectProjTable p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
+    p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) cvCa env₃
 
 end Setlec
