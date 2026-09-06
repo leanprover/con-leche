@@ -1156,6 +1156,9 @@ theorem checkDirectFixS_skels (mode : CheckMode) {fe : FEnv}
   obtain ⟨fe₁, cvTa⟩ := r₁
   try simp only []
   ybind
+  -- the index binders' sorts (read, not compared)
+  refine Yields.bind fun _tq => ?_
+  refine Yields.bind fun _isorts => ?_
   refine Yields.bind' (checkDirectSumCtorsF_names _ fe₁ fe₁ p.cvT.name
     p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors)
     fun ctorsA hns => ?_

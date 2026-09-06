@@ -563,16 +563,41 @@ theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       = .ok (env₁, cvTa) := by
     rw [← checkDirectSumInd_datF]; exact hF₁
   obtain ⟨henv₁, hTf⟩ := direct_sum_ind_wf henv hF₁p
-  -- stage 2: every constructor, at the former's environment, the
-  -- resolution guard pointed at that same environment
+  -- the index binders' sorts, read
   obtain ⟨u1, sB, hfl1, h⟩ := bindC_ok h
   rw [flushC_run] at hfl1
   injection hfl1 with hfl1
   obtain rfl : s₁.flushed = sB := congrArg Prod.snd hfl1
+  cases htq : openPisAtFvars (p.nP + p.nIdx) cvTa.type 0 with
+  | none => rw [htq] at h; exact absurd h throwC_bind_ok
+  | some tq =>
+  rw [htq] at h
+  simp only [unwrapOr, pure_bind] at h
+  rw [checkDirectFieldSortsIF_eq] at h
+  obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h
+  have hTw : Expr.WScoped 0 cvTa.type := Expr.WScoped.of_not_hasFvar hTf
+  obtain ⟨htqW, -⟩ := openPisAtFvars_WScoped _ _ _ htq hTw
+  have hidxT := openPisAtFvars_index _ _ _ htq
+  have hxPos : ∀ (i : Nat) (x : Expr), (tq.1.drop p.nP)[i]? = some x →
+      Expr.WScoped (p.nP + i) (Expr.fvarTypeD x) := by
+    intro i x hx
+    rw [List.getElem?_drop] at hx
+    obtain ⟨nm, ty, rfl⟩ := hidxT (p.nP + i) x hx
+    have hw := htqW _ (List.mem_of_getElem? hx)
+    simp only [Expr.WScoped, Nat.zero_add] at hw
+    exact hw.2
+  obtain ⟨hsS, isorts', hPs, F₀, hF₀⟩ :=
+    (checkDirectFieldSortsIS_sim hμ henv₁ hxPos (flushC_csok hs₁.residue)) isorts sS hsorts
+  obtain rfl : isorts = isorts' := hPs
+  have hF₀p : checkDirectFieldSortsI (fueledOps mode F₀) env₁ true false p.resSort p.nP
+      (tq.1.drop p.nP) [] p.nIdx = .ok isorts := by
+    rw [← checkDirectFieldSortsI_datF]; exact hF₀
+  -- stage 2: every constructor, at the former's environment, the
+  -- resolution guard pointed at that same environment
   rw [checkDirectSumCtorsF_eq] at h
   obtain ⟨ctorsA, s₂, hct, h⟩ := bindC_ok h
   obtain ⟨hs₂, ctorsA', hP2, F₂, hF₂⟩ :=
-    (checkDirectSumCtorsS_sim hμ henv₁ hTf (flushC_csok hs₁.residue)) ctorsA s₂ hct
+    (checkDirectSumCtorsS_sim hμ henv₁ hTf hsS) ctorsA s₂ hct
   obtain rfl : ctorsA = ctorsA' := hP2
   have hF₂p : checkDirectSumCtors (fueledOps mode F₂) env₁ env₁ p.cvT.name
       p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
@@ -614,12 +639,15 @@ theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   -- the final push
   rw [push_mkFEnv] at h
   obtain ⟨rfl, rfl⟩ := pureC_ok h
-  obtain ⟨G, hle₁, hle₂, hle₃⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G :=
-    ⟨max F₁ (max F₂ F₃), by omega, by omega, by omega⟩
+  obtain ⟨G, hle₁, hle₀, hle₂, hle₃⟩ : ∃ G, F₁ ≤ G ∧ F₀ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G :=
+    ⟨max F₁ (max F₀ (max F₂ F₃)), by omega, by omega, by omega, by omega⟩
   refine ⟨hs₃.residue, rfl, G, ?_⟩
   have g₁ : checkDirectSumInd (fueledOps mode G) env p.toDirectSumParts
       = .ok (env₁, cvTa) := by
     rw [← checkDirectSumInd_datF]; exact FueledM.up hle₁ hF₁
+  have g₀ : checkDirectFieldSortsI (fueledOps mode G) env₁ true false p.resSort p.nP
+      (tq.1.drop p.nP) [] p.nIdx = .ok isorts := by
+    rw [← checkDirectFieldSortsI_datF]; exact FueledM.up hle₀ hF₀
   have g₂ : checkDirectSumCtors (fueledOps mode G) env₁ env₁ p.cvT.name
       p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
       = .ok ctorsA := by
@@ -631,6 +659,10 @@ theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   rw [if_neg hneg, if_neg hg, if_pos hnd]
   simp only [Bind.bind, Except.bind, pure, Except.pure]
   rw [g₁]
+  simp only [Except.bind]
+  rw [htq]
+  simp only [unwrapOr, pure, Except.pure, Except.bind]
+  rw [g₀]
   simp only [Except.bind]
   rw [g₂]
   simp only [Except.bind]

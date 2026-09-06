@@ -109,7 +109,7 @@ stage. -/
 theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : Lech.DirectFixParts} (hE : EtaFamiliesClosed env)
     (h : DeclDirectFixRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨-, -, hnd, cvTa, env₁, ctorsA, cvRa, rhss, hInd, hCtors, -, hRec, rfl⟩ := h
+  obtain ⟨-, -, hnd, cvTa, env₁, ctorsA, cvRa, rhss, -, -, -, hInd, -, -, hCtors, -, hRec, rfl⟩ := h
   obtain ⟨hcvT, rfl, -⟩ := Lech.checkDirectSumInd_shape hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
     Lech.checkConstantVal_inv hcvT

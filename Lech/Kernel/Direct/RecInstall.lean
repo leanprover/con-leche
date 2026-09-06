@@ -147,6 +147,14 @@ def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env
   unless (p.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   let (env₁, cvTa) ← checkDirectSumInd ops env p.toDirectSumParts
+  -- the index binders' universes, exposed for the model's index-tuple
+  -- universe: the former's telescope opened at variables, each index
+  -- domain's sort inferred (no bound is checked — `isProp` set,
+  -- `large` unset — the sorts are read, not compared)
+  let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) cvTa.type 0)
+    (.internal "direct rec: type former telescope")
+  let _isorts ← checkDirectFieldSortsI ops env₁ true false p.resSort p.nP (tq.1.drop p.nP) []
+    p.nIdx
   -- the constructors' field domains may mention the block: the
   -- resolution guard is pointed at the former's environment, and the
   -- kinds are re-checked afterwards

@@ -703,7 +703,7 @@ theorem checkDirectFix_datF (env : Env) (p : DirectFixParts) (F : Nat) :
   unfold checkDirectFix
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, checkDirectSumInd_datF, checkDirectSumCtors_datF,
-    checkDirectFixRec_datF]
+    checkDirectFixRec_datF, unwrapOr_atF, checkDirectFieldSortsI_datF]
 
 macro "datF_step4_alt" : tactic =>
   `(tactic| first

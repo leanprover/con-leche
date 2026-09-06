@@ -199,6 +199,10 @@ def checkDirectFixS (fe : FEnv) (p : DirectFixParts) : CheckCM FEnv := do
   flushC
   let (fe₁, cvTa) ← checkDirectSumIndF (sharedOpsC mode fe) fe p.toDirectSumParts
   flushC
+  let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) cvTa.type 0)
+    (.internal "direct rec: type former telescope")
+  let _isorts ← checkDirectFieldSortsIF (sharedOpsC mode fe₁) fe₁ true false p.resSort p.nP
+    (tq.1.drop p.nP) [] p.nIdx
   let ctorsA ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p.cvT.name p.cvT.levelParams
     p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
   unless directFixFieldsOkF fe p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds do

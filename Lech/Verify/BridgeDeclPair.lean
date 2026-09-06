@@ -1032,7 +1032,7 @@ theorem checkDirectFix_fst_dproj (env : Env) (p : DirectFixParts) :
   unfold checkDirectFix
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, checkDirectSumInd_fst_dproj, checkDirectSumCtors_fst_dproj,
-    checkDirectFixRec_fst_dproj]
+    checkDirectFixRec_fst_dproj, unwrapOr_fst_dproj, checkDirectFieldSortsI_fst_dproj]
 
 theorem checkDirectFix_snd_dproj (env : Env) (p : DirectFixParts) :
     (checkDirectFix (pairOps o₁ o₂ h) env p).val.2 =
@@ -1040,7 +1040,7 @@ theorem checkDirectFix_snd_dproj (env : Env) (p : DirectFixParts) :
   unfold checkDirectFix
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, checkDirectSumInd_snd_dproj, checkDirectSumCtors_snd_dproj,
-    checkDirectFixRec_snd_dproj]
+    checkDirectFixRec_snd_dproj, unwrapOr_snd_dproj, checkDirectFieldSortsI_snd_dproj]
 
 macro "dfst_step4_alt" : tactic =>
   `(tactic| first
