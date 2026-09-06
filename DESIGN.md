@@ -44002,7 +44002,7 @@ is what makes the same code terminate *and* run fast.
   The one closure-shaped helper this session *introduced* is candidate
   C, and it was measured and rejected.
 
-### 4. The RSS follow-up (coordinator, mid-session)
+### 4. The RSS follow-up, and the static `bvar` pool
 
 D's atoms are no longer memoized, so they are no longer *shared*: peak
 RSS rose +1.2 % on app-lam and +3–6 % on init-full.  Verified first that
@@ -44010,31 +44010,72 @@ the unchanged atoms already return the original node **by reference**
 (`fvar`/`sort`/`const`/`lit` and the below-cursor `bvar` return `e`; a
 substituted `bvar` returns the replacement object) — so the only
 unshared atoms were the *shifted* `bvar (i − 1)` / `bvar (i − k)` and
-abstraction's fresh `bvar k`.  Candidate E is a 4096-entry pool of
-`bvar` nodes, built once at module initialization (hence persistent, so
-its reference counting is free), consulted by `mkBVarP` with a bounds
-check instead of an allocation.  It costs nothing in instructions
-(−0.0 to −0.5 %) and puts init-full's retention **below master's**.
-app-lam's +1.2 % survives the pool, so it is not the atoms; at 52 MB on
-a 4 GB peak it was not chased further.
+abstraction's fresh `bvar k`.
 
-### 5. Result (baseline master `3993fb54`, both modes, `--pre`)
+A first attempt scoped the pool to the cached tier and routed only the
+walks: it recovered init-full (925 → 854 MB) but left app-lam's +1.2 %.
+The **user's design**, which replaced it, is one static table at the
+`Expr` level, routed at *every* runtime `bvar` construction:
+
+```
+def bvarPoolSize : Nat := 4096
+def bvarPool : Array Expr := (Array.range bvarPoolSize).map Expr.bvar
+@[inline] def mkBvar (i : Nat) : Expr :=
+  if h : i < bvarPool.size then bvarPool[i] else .bvar i
+@[simp] theorem mkBvar_eq (i : Nat) : mkBvar i = .bvar i
+```
+
+* **It is built once.**  Checked in the generated C, not assumed:
+  `bvarPool` is an `_init_…` constant obtained through `lean_obj_once`
+  and then `lean_mark_persistent`ed, so the table is created at module
+  initialization and its nodes' reference counting is a no-op.
+* **The bound is 4096, not the suggested ~2048**, because the corpus's
+  own deepest index is `good/perf/app-lam`'s 4 000-binder tower: a pool
+  that stops short of the fixture that motivated it would miss it.
+* **The routing is one line.**  `Cached.ExprC.mkBVar := Expr.mkBvar`,
+  and `mkBVar` is the cached tier's only `bvar` builder, so the
+  substitution and abstraction walks, `ofView` and the frontend's
+  parser are covered at once.  Census of what is deliberately *not*
+  routed: the pure spec functions of `Kernel/ExprOps.lean` (they must
+  keep the bare constructor — they are what the pool is proved
+  transparent against) and the closed `.bvar 0` literals of the cores
+  and the pinned basis terms, which the compiler already lifts to
+  per-module `_init_…_closed__n` constants and marks persistent itself.
+  Nothing hot builds a `bvar` outside the pool.
+* **Proof bill: one line.**  `mkBVar_eq` stopped being `rfl`, so
+  `ofView_spec` closes by `simp [ofView, ofViewE]`; every other user
+  already went through the `@[simp]` equation.
+
+The global pool is equal or marginally better than the per-tier one on
+instructions (init-full −0.10 %, grind-ring-5 −0.08 %, app-lam ±0.00 %)
+and strictly better on retention, so the per-tier pool was dropped.
+
+### 5. Result
+
+Measured against the **merged** master tip `e736f24d`, not against
+PERF.md: S1's projection table and the rat-frontier K rescue landed
+mid-session and moved the accept counts (app-lam 94, grind-ring-5 3866,
+beta-ladder 53, init-full 60 549), so PERF.md's rows are a different
+pipeline.  Baseline binary = this tree with `Kernel/Expr.lean`,
+`Cached/ExprC.lean` and `Cached/ExprOpsC.lean` at master.
 
 | stream | parity before → after | P before → after |
 |---|---|---|
-| `app-lam` | 208.62 → **161.72 G** (−22.5 %) | 208.97 → **162.08 G** (−22.4 %) |
-| `beta-ladder` | 40.78 → **30.92 G** (−24.2 %) | 52.08 → **40.89 G** (−21.5 %) |
-| `grind-ring-5` | 37.50 → **32.15 G** (−14.3 %) | 37.38 → **32.10 G** (−14.1 %) |
-| `init-full` | 1085.56 → **939.93 G** (−13.4 %) | 987.05 → **853.40 G** (−13.5 %) |
+| `app-lam` | 208.62 → **161.70 G** (−22.5 %) | 208.78 → **161.90 G** (−22.5 %) |
+| `beta-ladder` | 40.78 → **30.91 G** (−24.2 %) | 52.07 → **40.88 G** (−21.5 %) |
+| `grind-ring-5` | 36.45 → **31.17 G** (−14.5 %) | 37.05 → **31.79 G** (−14.2 %) |
+| `init-full` | 1030.47 → **888.58 G** (−13.8 %) | 980.49 → **846.88 G** (−13.6 %) |
 
-Peak RSS (VmHWM sampled from `/proc`, parity / P): app-lam 4075/4088 →
-4127/4126 MB; init-full 875/889 → **854/855 MB**.
+| peak RSS (VmHWM from `/proc`) | parity | P |
+|---|---|---|
+| `app-lam` | 4124 → **4091 MB** (−0.8 %) | 4138 → **4132 MB** (−0.1 %) |
+| `init-full` | 904 → **866 MB** (−4.2 %) | 916 → **858 MB** (−6.3 %) |
 
-Verdicts identical everywhere: init-full 61 048 accepted in both modes,
-`tests/arena.sh` 0 FAIL (arena 90/92, e2e 73/73, annot 14/14, retired
+Verdicts identical everywhere: init-full 60 549 accepted in both modes,
+`tests/arena.sh` 0 FAIL (arena 90/92, e2e 76/76, annot 14/14, retired
 and mode flags, the `--no-model` sweep with its three recorded
 divergences), `lake test` green, layering and `tests/proofdeps.sh`
-unchanged (1364 rows, 0 doors), build warning-free.
+unchanged (1363 rows, 0 doors), build warning-free.
 
 ### 6. The proof shape
 
@@ -44057,9 +44098,9 @@ The `bvar` arm's fresh-memo re-entry needs one new step: under
 `i − d = 0` the residual prefix is `[]` (`instantiateList_nil`), under
 `w.bvarB ≤ d` the replacement is its own instantiation
 (`instantiateList_eq_self`), and otherwise the strong induction on `k`
-applies at `MemoLInv.empty`.  `mkBVarP_eq` is a one-line theorem
-(`Array.getElem_ofFn`), `@[simp]`, so the pool is invisible to every
-other proof.
+applies at `MemoLInv.empty`.  `Expr.mkBvar_eq` is a one-line theorem, `@[simp]`, so the
+pool is invisible to every proof but `ofView_spec`, which stopped being
+`rfl`.
 
 Capstone axioms exactly `[propext, Classical.choice, Quot.sound]` on
 all three (`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
