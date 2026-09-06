@@ -1,6 +1,6 @@
 import Setlec.SetP.AxiomReduceP
 import Setlec.SetP.DeclIndP
-import Setlec.SetP.DeclDirectP
+import Setlec.SetP.Direct.DeclDirectP
 import Setlec.Semantics.IndBlockR
 import Setlec.Semantics.Bridge.Sound
 import Setlec.Semantics.Direct.DeclDirectEta

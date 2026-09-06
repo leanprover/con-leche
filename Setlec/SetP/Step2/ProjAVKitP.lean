@@ -1,4 +1,4 @@
-import Setlec.SetP.DirectIntroP
+import Setlec.SetP.Direct.DirectIntroP
 
 /-!
 # `projAV`'s grading under equal-valued subjects (task #175 wiring, W5 S3)

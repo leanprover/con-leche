@@ -1,5 +1,5 @@
 import Setlec.SetP.Claims2P
-import Setlec.SetP.DirectIntroP
+import Setlec.SetP.Direct.DirectIntroP
 import Setlec.SetP.Claims2PIO
 import Setlec.SetP.IOLicenseP
 import Setlec.SetP.OkPTransport
