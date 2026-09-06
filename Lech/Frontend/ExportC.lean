@@ -410,7 +410,7 @@ private def projRewriteD (st : StateD) (cv : ConstantVal) (vl : ExprC) :
 /-- An artifact `T._model.proj_i.iota` names the field's sort in its
 `Eq` level: recorded for the projection rewrite (stream theorems and
 the in-process modeller's alike). -/
-private def noteProjIota (st : StateD) (cvp : ConstantValC) : StateD :=
+private def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
   if isProjIotaName cvp.name then
     match projIotaLevel cvp.type with
     | some l =>

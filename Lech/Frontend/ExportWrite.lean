@@ -21,7 +21,7 @@ entries.
 namespace Lech.Frontend
 
 open Lech
-open Lech.Cached (DeclC ConstantValC)
+open Lech.Cached (DeclC)
 
 /-- The writer's interning state and its output lines. -/
 structure ExportWriter where
