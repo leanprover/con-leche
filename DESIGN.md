@@ -48133,6 +48133,14 @@ accepts), the
 Mathlib slice `diseq-slice-pre.ndjson` 1 790 accepted (exit 0).
 `tests/native-agree.sh` is SKIPPED here as on master (the stock
 `lean-inductive-models` is not built in the workspace).
+Re-gated once at the master merge `5e65b404` (master `61899d09`: the
+basis literals, the affine `typeAtI` fix, the linear audit; CoreC's two
+foreign hunks merged clean): build warning-free (647 jobs), `lake
+test` green, `tests/arena.sh` exit 0 (layering `base 252 / P 166`,
+proofdeps 1 441 rows / 0 doors as auto-merged, pindump fresh, 90/92 ·
+83/83 · 14/14 · 8/8 · 16/16, the trusted sweep), init-full-pre2
+`--verified` 60 549 and `--trusted` 60 549 (exit 0), the four
+capstones' axioms unchanged.
 
 ### 6. What indexed families need next — the fibre construction
 
