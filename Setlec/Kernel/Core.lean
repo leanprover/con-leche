@@ -943,9 +943,13 @@ def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   | _ => pure false
 
 /-- The per-projection telescope certificates of a structural eta
-certification: for every field index, the installed projection
-function's telescope is certified against the type's arguments and the
-stuck side. -/
+certification at a **projection-function** slot family (the modeled
+path's): for every field index, the installed projection function's
+telescope is certified against the type's arguments and the stuck
+side.  A tower-backed family (the direct install's table, task #175
+S1) has no per-field telescope and needs no certificate: its η law
+(`TowerEtaLawP`) is keyed on the family's typing of the stuck side,
+which the caller already holds. -/
 def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
     (T : Name) (us' : List Level) (targs : List Expr) (b : Expr)
     (lpsT : List Name) : List Nat → m Bool
@@ -957,17 +961,6 @@ def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
           (cvp.type.stripPis (targs.length + 1)).isSome = true then
         if ← iotaCerts r env depth false
             (cvp.type.instantiateLevelParams cvp.levelParams us')
-            (targs ++ [b]) then
-          structEtaProjCerts r env depth T us' targs b lpsT rest
-        else pure false
-      else pure false
-    | some (.projInfo entry) =>
-      -- a tower-backed entry (task #175 W4c): its stored type is the
-      -- same `∀ p⃗ (t : T p⃗), F_i` telescope, certified the same way
-      if entry.tower = true ∧ entry.levelParams = lpsT ∧
-          (entry.ty.stripPis (targs.length + 1)).isSome = true then
-        if ← iotaCerts r env depth false
-            (entry.ty.instantiateLevelParams entry.levelParams us')
             (targs ++ [b]) then
           structEtaProjCerts r env depth T us' targs b lpsT rest
         else pure false
@@ -1033,9 +1026,12 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                 if ← iotaCerts r env depth false
                     (cvT.type.instantiateLevelParams cvT.levelParams
                       us') wtb.getAppArgs then
-                  if ← structEtaProjCerts r env depth T us'
-                      wtb.getAppArgs b cvT.levelParams
-                      (List.range cnF) then
+                  -- the per-slot certificates are the projection-function
+                  -- kind's; a tower-backed family has none (task #175 S1)
+                  if ← (if towerSlotsAll env T cnF then pure true
+                      else structEtaProjCerts r env depth T us'
+                        wtb.getAppArgs b cvT.levelParams
+                        (List.range cnF)) then
                     if ← defEqList r env depth
                         (a.getAppArgs.take cnP) wtb.getAppArgs then
                       -- synthetic-spine certification (task #137): the
@@ -1495,6 +1491,17 @@ def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
     (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
       == some true)
 
+/-- **The type of a `.proj` node at a tower-backed entry** (task #175
+S1): the stored body `F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]`,
+level-instantiated at the subject type's levels, with the subject
+type's arguments and the subject substituted for its `numParams + 1`
+loose variables in ONE traversal (`instantiateList`: `bvar 0` is the
+subject, `bvar (numParams - k)` parameter `k`). -/
+def ProjEntry.typeAt (entry : ProjEntry) (us : List Level) (targs : List Expr)
+    (pe : Expr) : Expr :=
+  (entry.body.instantiateLevelParams entry.levelParams us).instantiateList
+    (pe :: targs.reverse)
+
 /-- **The structural projection's certificate** (task #175 W6, the
 squash-regime licence): the redex `proj_i (C p⃗ x⃗)` fires only after
 its constructor spine is certified against `C`'s stored type at the
@@ -1615,15 +1622,15 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- expansion site.
       let e' ← projLitToCtor r env depth e'
       -- The structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`, driven by the
-      -- projection table (never by basis names): a `native` entry for
-      -- (structName, i) supplies the constructor, the counts, and the
-      -- possibly-Prop level guard.
+      -- projection table (never by basis names): a tower-backed entry
+      -- for (structName, i) supplies the constructor, the counts, and
+      -- the possibly-Prop level guard.
       match env.findProj? sn i with
       | some entry =>
         match e'.getAppFn with
         | .const c us =>
           let args := e'.getAppArgs
-          if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
+          if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
@@ -1828,11 +1835,11 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | _ => throw (.invalid "function expected")
     | .proj sn i pe => do
       -- A `.proj` node is typed by its projection-table entry: the
-      -- stored level-parametric type, instantiated at the subject
-      -- type's levels and peeled along its arguments and the subject.
-      -- Only `native` entries type bare nodes — and every native entry
-      -- is tower-backed (task #175 W6: the pinned pair entries and
-      -- their computed two-member fast path are retired).
+      -- stored body, level-instantiated at the subject type's levels
+      -- and instantiated at its arguments and the subject (task #175
+      -- S1).  Only tower-backed entries type bare nodes (task #175
+      -- W6: the pinned pair entries and their computed two-member
+      -- fast path are retired).
       let te ← r.whnf depth (← r.infer depth pe)
       match te.getAppFn with
       | .const T us =>
@@ -1842,7 +1849,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- subject type's head (official `infer_proj`'s
           -- `const_name(I) == proj_sname(e)`); the readings key the
           -- table on the node's name, the checker on the head's
-          if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
+          if entry.tower ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             -- the official `infer_proj` restriction (task #175
             -- W4c/O4): at a `Prop`-declared structure the field —
@@ -1855,16 +1862,9 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
                   == some true do
                 throw (.invalid
                   "projection from a propositional structure must be a proposition")
-            -- task #175 wiring W2c: the generic residual for a
-            -- tower-backed entry — the stored `ty`
-            -- (`∀ p⃗ (t : T p⃗), F_i`, `.proj`-node spelling) is
-            -- level-instantiated at the subject type's levels and
-            -- peeled along the parameters and the subject
-            let tyI := entry.ty.instantiateLevelParams
-              entry.levelParams us
-            match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
-            | some (_, resid) => pure resid
-            | none => throw (.internal "malformed projection entry")
+            -- the body at the subject type's arguments and the
+            -- subject, one `instantiateList` (task #175 S1)
+            pure (entry.typeAt us te.getAppArgs pe)
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
@@ -1987,7 +1987,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- subject type's head (official `infer_proj`'s
           -- `const_name(I) == proj_sname(e)`); the readings key the
           -- table on the node's name, the checker on the head's
-          if entry.native ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
+          if entry.tower ∧ T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             -- the official `infer_proj` restriction (task #175
             -- W4c/O4), as in `inferBody`
@@ -1997,13 +1997,9 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
                   == some true do
                 throw (.invalid
                   "projection from a propositional structure must be a proposition")
-            -- task #175 wiring W2c: the generic residual for a
-            -- tower-backed entry, as in `inferBody`
-            let tyI := entry.ty.instantiateLevelParams
-              entry.levelParams us
-            match Expr.instPisAt (te.getAppArgs ++ [pe]) tyI with
-            | some (_, resid) => pure resid
-            | none => throw (.internal "malformed projection entry")
+            -- the body at the arguments and the subject, as in
+            -- `inferBody` (task #175 S1)
+            pure (entry.typeAt us te.getAppArgs pe)
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
@@ -2459,7 +2455,7 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       let e' ← r.annotate depth pe
       -- Run the projection rule (the one place it is checked; this
       -- establishes the semantic proj clause of `AnnotOk`).  A
-      -- `native` table entry types the node directly (the display
+      -- tower-backed table entry types the node directly (the display
       -- name is normalized to the type's head, so reduction's table
       -- lookup is complete on annotated terms); anything else goes
       -- through the rewrite/fallback dispatch.
@@ -2468,17 +2464,15 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | .const T _ =>
         match env.findProj? T i with
         | some entry =>
-          if entry.native then do
+          if entry.tower then do
             unless te.getAppArgs.length = entry.numParams do
               throw (.invalid "projection parameter mismatch")
             pure (.proj T i e')
           else
-            -- the inert entry of an unadmitted slot (task #175 W4c P3
-            -- module 7, `directInertEntry`): a used-later earlier
-            -- field of this propositional structure has a sort that
-            -- is never `Prop`, so the official `infer_proj`
-            -- restriction rejects the projection at every level
-            -- instantiation
+            -- the modeled path's inert template entry: the family
+            -- carries no tower table, so the official `infer_proj`
+            -- has no typing for the node here (task #175 wiring W5:
+            -- the recursor-inlining fallback is gone)
             throw (.invalid
               "projection from a propositional structure must be a proposition")
         | none =>

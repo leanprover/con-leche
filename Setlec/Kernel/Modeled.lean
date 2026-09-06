@@ -670,47 +670,39 @@ def checkUnitThm (env' : Env) (T : Name) (lps : List Name)
      | _, _ => false)
   | _, _, _ => false
 
-/-- Install the Prop-fallback elimination-template entry for field `i`
-of a single-constructor block whose `_model.proj_i` artifact is absent
-(Prop structures whose projections only exist at certain level
+/-- Install the Prop-fallback elimination-template table of a
+single-constructor block some of whose `_model.proj_i` artifacts are
+absent (Prop structures whose projections only exist at certain level
 instantiations): the parent's elimination *shape* — a structure
 recursor with one rule for the block's constructor, no indices, and a
 prefix of params + one motive + one minor — is checked here, once, and
-recorded as a `native = false` projection-table entry.  Task #175
-wiring W5: the recursor-inlining fallback that consumed it
-(`annotateProjRec`) is gone — every supported `.proj` node is typed by
-a native tower entry of the direct install — so the entry is inert
-(it holds the slot; a `.proj` use on the family declines at its own
-site).  When the shape does not support the elimination the entry is
-simply not installed. -/
+recorded as an inert (`tower = false`) projection table, one per
+structure (task #175 S1; until then one entry per artifact-less
+field).  Task #175 wiring W5: the recursor-inlining fallback that
+consumed it (`annotateProjRec`) is gone — every supported `.proj`
+node is typed by a tower table of the direct install — so the table
+is inert (it holds the family; a `.proj` use on it is invalid at its
+own site).  When the shape does not support the elimination, or every
+field has a projection function, no table is installed. -/
 def installProjTemplate (env : Env) (T ctorName : Name) (lps : List Name)
-    (nP nF i : Nat) : m Env := do
+    (nP nF : Nat) : m Env := do
   match env.find? (T.str "rec") with
-  | some (.recInfo cvR mI rP [rule]) =>
-    if (env.find? (projFnName T i)).isNone ∧
-        mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧ i < nF then
-      pure ⟨.projInfo ⟨T, i, lps, nP, ctorName, nF, .sort .zero,
-        .zero, .zero, false,
-        cvR.levelParams.length = lps.length + 1, false⟩ :: env.consts⟩
+  | some (.recInfo _cvR mI rP [rule]) =>
+    if (env.find? (projTableName T)).isNone ∧
+        mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧
+        !(List.range nF).all (fun i => (env.find? (projFnName T i)).isSome) then
+      pure ⟨.projInfo ⟨T, lps, nP, ctorName, nF, .zero, #[], [], false⟩ :: env.consts⟩
     else pure env
   | _ => pure env
 
 /-- One projection-function install step (skipped where the model's
-projection artifact is absent; those fields get elimination-template
-entries in a second pass, `installProjTemplateStep`, so the artifact
-phase never sees a template entry). -/
+projection artifact is absent; a family with such fields gets the
+elimination-template table afterwards, `installProjTemplate`, so the
+artifact phase never sees a template table). -/
 def installProjFnStep (ops : CheckerOps m) (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) : m Env :=
   if (e.find? (projModelName T i)).isSome then
     checkProjFn mode ops e T ctorName lps nP nF i
-  else pure e
-
-/-- One elimination-template install step (the second pass): indices
-whose artifact phase installed a projection function are skipped. -/
-def installProjTemplateStep (T ctorName : Name) (lps : List Name)
-    (nP nF : Nat) (e : Env) (i : Nat) : m Env :=
-  if (e.find? (projFnName T i)).isNone then
-    installProjTemplate e T ctorName lps nP nF i
   else pure e
 
 /-- The capabilities recorded for a single-constructor modeled block. -/
@@ -804,9 +796,7 @@ def checkIndDecl (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
     let env₄ ← (List.range nF).foldlM
       (installProjFnStep mode ops cvT.name cvC.name cvT.levelParams nP nF)
       env₃
-    (List.range nF).foldlM
-      (installProjTemplateStep cvT.name cvC.name cvT.levelParams nP nF)
-      env₄
+    installProjTemplate env₄ cvT.name cvC.name cvT.levelParams nP nF
   | _, _ => do
     let env₂ ← nonrecs.foldlM (checkIndMember ops blockNames {}) env
     checkIndRecs mode ops blockNames env₂ recs

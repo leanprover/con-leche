@@ -362,7 +362,7 @@ def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         match ← withStore (fun st => st.getNode (st.getAppFnI e')) with
         | some (.const c us) => do
           let args ← withStore (·.getAppArgsI e')
-          if entry.native ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
+          if entry.tower ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then do
@@ -470,7 +470,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         match fe.findProj? Tn i with
         | some entry => do
           let targs ← withStore (·.getAppArgsI te)
-          if entry.native ∧ T = sn ∧ targs.length = entry.numParams ∧
+          if entry.tower ∧ T = sn ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             -- the official `infer_proj` restriction (task #175
             -- W4c/O4), as in the spec body
@@ -480,15 +480,11 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
                   == some true do
                 throw (.invalid
                   "projection from a propositional structure must be a proposition")
-            -- task #175 wiring W2c: the tower-backed residual, as in
-            -- the spec body — since B3a `ExprC = Expr` and the store
-            -- is a unit, so the level-instantiated peel runs
-            -- directly on the entry type and the interned spine.
-            let tyI := entry.ty.instantiateLevelParams
-              entry.levelParams us
-            match Expr.instPisAt (targs ++ [pe]) tyI with
-            | some (_, resid) => internExprM resid
-            | none => throw (.internal "malformed projection entry")
+            -- the body at the arguments and the subject, as in the
+            -- spec body (task #175 S1) — since B3a `ExprC = Expr` and
+            -- the store is a unit, so the instantiation runs directly
+            -- on the stored body and the interned spine.
+            internExprM (entry.typeAt us targs pe)
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
