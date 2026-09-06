@@ -423,7 +423,9 @@ def DeclIndRun (μ : CheckMode) (F : Nat) (env : Env)
            = true ∧
          ∃ envP,
            ProjInstallRun μ F cvT.name cvC.name cvT.levelParams nP nF
-             envR (List.range nF) envP ∧
+             envR
+             (if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF
+              then List.range nF else []) envP ∧
            DeclIndRun.Templates cvT.name cvC.name cvT.levelParams nP nF
              envP env₂)) ∨
    (¬ (∃ cvT capsT cvC nP nF,

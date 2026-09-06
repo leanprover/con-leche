@@ -421,3 +421,23 @@
 # decline at Lean.Meta.Grind.AC.DiseqCnstr.lhs).
 0 mutual_struct_proj.ndjson
 0 nested_struct_proj.ndjson
+# indexed_one_ctor.ndjson (task #175 SigmaHom, 2026-09-06): an INDEXED
+# one-constructor family in Type (Mathlib's CategoryTheory.Sigma.SigmaHom
+# shape: two indices built from the fields, dependent fields).  Not
+# structure-like by official's `is_non_rec_structure` (one ctor AND no
+# indices), yet the preprocessor emits `IdxHom._model.proj_{0..3}` and
+# `.eta` for it (its indexed-fibre tranche); the modeled install must
+# ignore those artifacts (they stay ordinary definitions) instead of
+# declining at the structure-shaped residual pin.  The consumer goes
+# through casesOn and a `rfl` forces the indexed iota.  Pre-fix verdict:
+# 2 ("projection constructor residual arity").
+0 indexed_one_ctor.ndjson
+# indexed_one_ctor_proj.ndjson: the preprocessed stream above plus a
+# hand-written `def IdxHom.badProj := fun h => h.0` — a `.proj` node on
+# the indexed family.  No projection table exists for it, so the node is
+# a positive decline (user ruling: indexed types get no projections;
+# decline if a `.proj` occurs).  NB the official kernel ACCEPTS this
+# stream: `infer_proj` (type_checker.cpp) requires one constructor and
+# `args = nparams + nindices`, not `is_non_rec_structure` — a
+# conservative decline on our side, recorded as a finding in DESIGN.md.
+2 indexed_one_ctor_proj.ndjson pre
