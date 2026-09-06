@@ -45382,12 +45382,16 @@ by unfolding, with no acceleration and no decline (measured: exit 0,
 now rejects through the structural unfold rather than the fast path.
 e2e is 76/76 (two fixtures fewer).
 
-**Gates at the tip.**  `lake build` warning-free (444 jobs), `lake
-test`, `tests/arena.sh` 0 FAIL (tutorial 90/92, e2e 76/76, annot
-14/14, flags 8/8 + 14/14, no-model sweep as recorded), proofdeps
-1 371 rows as pinned / doors 0 (no module added or removed), layering
-0 edges, init-full-pre2 ACCEPT 60 549 constants in both modes, the
-four capstones at exactly `[propext, Classical.choice, Quot.sound]`.
+**Gates at the tip** (master `161cd827` merged — the mode rename
+landed in between, so the runs below use `--verified`/`--trusted`):
+`lake build` warning-free (444 jobs), `lake test`, `tests/arena.sh`
+0 FAIL (tutorial 90/92, e2e 76/76, annot 14/14, retired flags 8/8,
+mode flags 16/16, trusted sweep 138 arena + 76 e2e + 14 annot with the
+three recorded divergences), proofdeps 1 371 rows as pinned / doors 0
+(no module added or removed — the removal is all *within* modules),
+layering 0 edges, init-full-pre2 ACCEPT 60 549 constants in both
+modes, the four capstones at exactly `[propext, Classical.choice,
+Quot.sound]`.
 
 ## MODE RENAME — `--verified` / `--trusted`, and the fast `isProof` arms ungated (2026-09-06, `agent/mode-rename`)
 
