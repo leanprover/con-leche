@@ -93,6 +93,8 @@ A(f"| metric | `perf stat -e instructions:u`, one run per cell, "
   f"`ulimit -v {meta.get('vlimit', '?')}`, `timeout {meta.get('timeout', '?')}`, `nice -n 5` |")
 A("| streams | preprocessed once off the clock by `lean-inductive-models`; "
   "both checkers read the same bytes, setlec under `--pre` |")
+if meta.get("loadnote"):
+    A(f"| concurrent load | {meta['loadnote']} |")
 A(f"| official kernel | `{meta.get('official', '?')}` |")
 A(f"| preprocessor | `{meta.get('preproc', '?')}` |")
 A("")

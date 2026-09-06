@@ -86,9 +86,15 @@ say() { echo "$(date +%T) $*" | tee -a "$LOG" >&2; }
 median() { printf '%s\n' "$@" | sort -n | awk '{a[NR]=$0} END{print a[int((NR+1)/2)]}'; }
 
 # Measurement hygiene: never two timed cells at once, anywhere on the
-# machine (a concurrent perf campaign may be running).
+# machine (a concurrent perf campaign may be running).  The battery
+# itself runs cells strictly one at a time regardless; this wait is only
+# about FOREIGN work.  `PERF_NO_WAIT=1` skips it — on a 96-core box a
+# single unrelated single-threaded checker run does not move
+# instructions:u, and blocking on one can cost hours (the Mathlib
+# frontier campaign holds one such process for up to four hours).
 wait_idle() {
   local waited=0
+  [ -n "${PERF_NO_WAIT:-}" ] && return
   # NB `pgrep -x` matches /proc/PID/comm, which the kernel truncates to
   # 15 characters — hence the truncated preprocessor name.
   while pgrep -x setlec >/dev/null 2>&1 \
@@ -199,6 +205,8 @@ else
     # optional one-line provenance note for the header (e.g. which
     # master commit the measured tree is a merge of)
     [ -n "${PERF_NOTE:-}" ] && echo "note	$PERF_NOTE"
+    # what else was live on the machine while the battery ran
+    [ -n "${PERF_LOAD_NOTE:-}" ] && echo "loadnote	$PERF_LOAD_NOTE"
     # the live matrix: exactly the columns the renderer may print
     echo "configs	$CONFIGS"
     echo "reps	$REPS"
