@@ -47635,3 +47635,245 @@ same symptom, an OOM in the same tower — is now an open question for
 the next finder, since the mechanism §5 was written against has been
 removed.  The §7 tools and §8's "work against the slice, not the
 stream" stand.
+
+
+## Task #179 — no threads, and the linearity audit that followed (2026-09-06, `agent/linear-audit`)
+
+**The user's brief:** *"oh, no threads please! and 6% array copying is
+worth checking. if it's just normal growing fine, but let us erase all
+non-linear use of hashmaps and arrays"* — the two symbols task #177
+left unattributed on `init-full`, `lean_mark_mt` 7.6 % and
+`lean_copy_expand_array` 6.2 %.
+
+They are one bug, and it is the same bug: **one `Thunk`**.
+
+### 1. There are no threads
+
+Census of the executable path (`Main.lean`, `Setlec/Frontend/*`,
+`Setlec/Cached/*`, `Setlec/Kernel/*`, `SetlecPreprocess.lean`): zero
+occurrences of `Task`, `IO.asTask`, `BaseIO.asTask`, `Task.spawn`,
+`IO.bindTask`/`mapTask`, or any thread primitive.  The only
+`IO.Process.spawn` is the OOM supervisor's re-exec (`Main.lean:379`),
+a *process*, not a thread, and the checker itself runs on the main
+thread of the supervised child.  No stack-depth thread trick exists or
+is needed.
+
+So why did the runtime mark objects multi-threaded?  Because
+`lean_thunk_get_core` does:
+
+```c
+object * r = lean_apply_1(c, lean_box(0));
+mark_mt(r);                 // ← object.cpp:895
+lean_to_thunk(t)->m_value = r;
+```
+
+The runtime's invariant is that *a single-threaded object may not be
+reachable from a multi-threaded one*, and a `Thunk` is a shareable cell
+that another thread could force — so forcing one marks the whole
+reachable graph of its **value** MT, threads or no threads.  `mark_mt`
+traverses constructors, closures, arrays, thunks and refs
+(`object.cpp:630-690`).
+
+### 2. The one `Thunk`, and why it cost 13.8 %
+
+`Setlec/Cached/CoreC.lean`, `coreKnotI` (perf-eng E1):
+
+```lean
+let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotI fe fuel⟩
+```
+
+The forced value is a `CoreFnsI` record whose six closures capture
+`fe : FEnv`.  So the first force at every knot level **marked the whole
+environment index multi-threaded**.  Two consequences, each
+`O(|env|)` per *declaration*, and they sustain each other:
+
+* **the mark** walks the index's entire bucket array (`LeanArray` is
+  traversed slot by slot; the already-marked constant infos below stop
+  the descent, the fresh array does not);
+* **the copy.**  `lean_is_exclusive` is false for every MT object, so
+  `FEnv.push`'s `idx.insert` — whose generated C is *optimal*, a
+  reset/reuse that takes `idx` without an `inc` on the exclusive path —
+  fell into `lean_array_uset`'s
+  `lean_copy_expand_array_nonlinear` and copied the whole bucket array,
+  with an atomic `lean_inc` per slot, at **every accepted constant**.
+
+And the copy hands back a *fresh, single-threaded* array, which the
+next force marks again.  60 549 accepted constants × an index of up to
+2^17 buckets is where 13.8 % of `init-full` went.
+
+`Thunk.get ⟨f⟩` is `f ()` by structure eta, so the fix is the same
+term:
+
+```lean
+let prev : Unit → CoreFnsI := fun _ => coreKnotI fe fuel
+```
+
+### 3. The census: every update site, and its linearity
+
+Four shapes, all of them linear; the fifth entry is the one that was
+not, for the reason above.
+
+| # | shape | sites | verdict |
+|---|---|---|---|
+| 1 | pair-threaded memo walks — the memo is returned in the result pair and never aliased | `Cached/ExprOpsC.lean` ×26 (`instantiate1Go`, `instantiateListGo`, `instantiateRevGo`, `abstract1Go`, `abstractRangeGo`, the `wscopedB`/leaf memos, `fvarLeavesGo`'s `seen`); `Kernel/ExprOps.lean:687,717`; `Kernel/Expr.lean:741` (`beqGo`); `Cached/StateC.lean:90,594` | linear |
+| 2 | monadic state memos under the swap-out idiom (`let mp := get' st; set' st ∅; set' st (mp.insert …)`) | `Cached/CoreC.lean:1837` (`memoEI`: whnfCoreC/whnfC/inferC/inferIOC/annotC), `:1852` (`memoBI`: defeqC); `Kernel/TypeCheckerC.lean:81,96`; `Cached/StateC.lean:320,382,393,417-431,486,504,512,533,614` | linear |
+| 3 | accumulator arrays threaded through a recursion (ordinary amortised doubling) | `Cached/CoreC.lean:981,1029` (`inferSpine` `acc`), `:1174,1225` (`inferLams`/`inferPis` `fvs`), `:1685,1732` (the annotate twins); `Main.lean:334` (argv) | normal growth |
+| 4 | the parser's state record, `{ st with f := st.f.insert … }` | `Frontend/ExportC.lean:144` (names), `:163` (levels), `:214,532` (exprs), `:313,427,471`; `st.decls.push` ×10, `projRewrites`/`taintSkipped` pushes | linear — **verified in the generated C** |
+| 5 | the environment index, `FEnv.push` | `Kernel/FEnv.lean:83`; callers in `DeclCheck`, `Direct/InstallF`, `CheckerC`, `ParsedC` | **was** non-linear — see §2 |
+
+**Row 4 is a finding worth recording.**  `{ st with f := st.f.insert
+… }` *looks* like the classic RC bug (read the field out of a record
+that is still alive, then update it), and the codebase spells the
+swap-out idiom by hand in some places and not others.  The generated C
+for `parseNameEntryD`
+(`.lake/build/ir/Setlec/Frontend/ExportC.c`) settles it: Lean's
+reset/reuse emits `lean_is_exclusive(st)`, and on the exclusive path
+the fields are taken **without an `inc`** and the constructor cell is
+reused, so `insert` sees RC 1 and updates in place.  The hand-written
+swap-out is belt-and-braces, not a requirement, wherever the update is
+a direct structure-update of an exclusive record.  `FEnv.push`
+compiles to exactly the same optimal shape — which is why it was worth
+knowing that the copy there could only come from `fe` never being
+exclusive, i.e. from the MT mark.
+
+Nothing was pre-sized: after the fix the profile shows no growth cost
+worth attacking (task #177 already measured pre-sizing the walk memo at
++1.5 % on grind — the same warning applies).
+
+### 4. Result
+
+`perf stat -e instructions:u`, one run per cell, `ulimit -v 16G`,
+`timeout 3000`, `nice -n 5`, `SETLEC_SUPERVISED=1`, `--pre` streams.
+Baseline = master `2664b1dd`.
+
+| stream | verified before → after | trusted before → after |
+|---|---|---|
+| `init-full` | 822.11 → **686.97 G** (−16.4 %) | 795.65 → **660.31 G** (−17.0 %) |
+| `app-lam` | 162.41 → **161.69 G** (−0.44 %) | 162.41 → **161.68 G** (−0.45 %) |
+| `grind-ring-5` | 30.87 → **30.99 G** (+0.37 %) | 28.72 → **28.75 G** (+0.11 %) |
+
+`perf record -e instructions:u -F 499`, `init-full`, verified mode
+(`_tmp/linear-audit/initfull-{base,fix}.data`):
+
+| symbol | before | after |
+|---|---|---|
+| `lean_mark_mt` | **10.91 %** | **absent** (0.00 %) |
+| `lean_copy_expand_array` | **4.34 %** | **0.26 %** |
+| `lean_dec_ref_cold` | 17.64 % | 10.26 % |
+| `lean::lean_del_core_other` | 6.86 % | 3.84 % |
+| `lean_thunk_get_core` | 0.05 % | absent |
+| `mi_malloc_small` | 8.18 % | 16.22 % |
+
+(`lean_mark_mt` was 7.6 % when task #177 measured it; the environment
+has grown since.  `mi_malloc_small`'s *share* rises because the
+denominator fell and because E1's rebuild really does allocate — see
+§4's last paragraph.)
+
+The same two symbols across the battery, before → after — **the cost
+scales with |env| × declarations, exactly as the mechanism predicts**:
+
+| stream / mode | `lean_mark_mt` | `lean_copy_expand_array` |
+|---|---|---|
+| `init-full` verified (60 549 decls) | 10.91 → **0.00 %** | 4.34 → **0.26 %** |
+| `grind-ring-5` verified (3 866) | 1.69 → **0.03 %** | 0.71 → **0.25 %** |
+| `grind-ring-5` trusted | 1.99 → **0.06 %** | 0.51 → **0.43 %** |
+| `app-lam` verified (94) | 0.03 → **0.01 %** | 0.00 → **0.00 %** |
+| `app-lam` trusted | 0.03 → **0.01 %** | 0.02 → **0.00 %** |
+
+`app-lam` is the control: 94 declarations, so the environment never
+grows enough for the mark or the copy to cost anything — and yet
+`app-lam` still gets *faster* by 0.44 %, which is the `Thunk`'s own
+per-call overhead (a cell allocation and an atomic exchange) net of the
+rebuild.  `init-full` trusted was not profiled; its −17.0 % on
+instructions says the same thing.
+
+**A measurement hazard, recorded because it nearly produced a wrong
+table.**  `perf report` resolves symbols against the binary *at the
+recorded path*.  The first `grind-ring-5` profiles were taken against
+`.lake/build/bin/setlec`, which was then rebuilt twice; re-reading
+those files later silently redistributed the samples (`lean_mark_mt`
+read 0.82 % instead of 1.69 %).  Every number above was re-taken
+against immutable copies (`_tmp/linear-audit/setlec-{base,fix}`).
+Snapshot the binary before recording, always.
+
+**How the copies were classified, since `lean_copy_expand_array_nonlinear`
+is a bare `jmp` into `lean_copy_expand_array` and carries no samples of
+its own:** `perf annotate lean_copy_expand_array`.  The function
+branches on `lean_is_exclusive(a)` into a `memcpy` + `dealloc` arm
+(ordinary growth of a uniquely-owned array) and a per-slot
+`*dest = *it; lean_inc(*it)` loop (the non-linear copy).  Before, the
+samples sat almost entirely in the **inc loop** — ~95 % of the 4.34 %
+was non-linear copying, ~5 % real growth.  After, 0.26 % total remains,
+of which ~0.15 pp is still in the inc loop.
+
+**Where that 0.15 pp is, as far as it could be pinned.**  A
+`--call-graph dwarf` run over `init-full` did not resolve the runtime
+frames (the samples land in `lean_copy_expand_array`, whose only
+non-linear caller is a bare `jmp` and whose Lean-side callers inline
+`lean_array_uset` and carry no CFI at that point).  What *did* pin part
+of it is annotating the Lean side instead: the walks' own memo inserts
+— the `Std.DHashMap … insert` specialisations at
+`Setlec_Cached_ExprC_instantiate1Go_spec__1` and
+`Setlec_Expr_bvarBoundGo_spec__0` — carry non-zero samples on the
+instruction *after* their `call lean_copy_expand_array_nonlinear`
+(≈0.006 pp and ≈0.003 pp of the total each).  So the residue is memo
+tables that are occasionally not exclusive at the insert, not the
+environment index.  `lean_array_push`'s non-exclusive arm accounts for
+almost none of it (the whole function is 0.13 %).  Two orders of
+magnitude below where this session started, and left as a lead rather
+than a hunt.
+
+Peak RSS on `init-full` (`VmHWM` from `/proc`, verified mode): 811 →
+**839 MB (+3.5 %)** — the honest cost of E1's rebuild, seven
+short-lived allocations at every memo-missing body call.  Retention is
+unchanged; this is allocator high-water, not live data.
+
+**E1's premise does not survive its own measurement.**  The `Thunk` was
+introduced so the previous fuel level would be built once per record
+instead of once per cache-missing call; rebuilding it turns out to be
+*cheaper* than the thunk on `app-lam`, and to cost 0.37 % on
+`grind-ring-5` — against 16 % on the flagship stream.  The rebuild is
+seven allocations (one record, six closures) at a memo miss; the thunk
+was one allocation, one atomic exchange, and a graph mark.
+
+### 5. Proof bill: one line
+
+The walks' and the knot's **statements** did not move, and neither did
+their definitions in any sense a proof can see — `Thunk.get ⟨f⟩` is
+`f ()` by structure eta.  The single edit is in
+`Setlec/Verify/Cached/KnotC.lean`: `memoEI_inferIO_sim`'s slot identity
+now closes at `simp only [↓reduceIte]`, because the level
+beta-reduces where it used to need a trailing `rfl` to see through
+`Thunk.get ⟨·⟩`.  No `SimC`, `BridgeC*`, `DiscC*` or capstone edit.
+Capstone axioms exactly `[propext, Classical.choice, Quot.sound]`.
+
+### 6. What this leaves for the next round
+
+* **`Thunk` is now a banned shape in the executable path**, and the
+  reason generalises: any lazily-forced value that reaches a large,
+  linearly-updated structure turns that structure's in-place updates
+  into whole-array copies for the rest of the run.  Grep for `Thunk`
+  before adding one.
+* **The next lever is priced, and it is big.**  E1's rebuild is not
+  free: on `init-full` `mi_malloc_small` went 67.2 → 111.4 G and
+  `mi_free` 29.7 → 47.8 G in absolute instructions — about **+60 G,
+  ~9 % of the post-fix total**, i.e. roughly 630 M record builds
+  (seven allocations each) at memo-missing body calls.  Recovering that
+  *and* keeping the mark away means the tower must stop capturing `fe`:
+  give `CoreFnsI`'s fields an `FEnv` parameter, and the levels become
+  `fe`-independent — cacheable in a `Thunk` again (its value would then
+  reach only `cfg`), or built once per run.  That is a signature change
+  across `Setlec/Verify/Cached/*`; priced here, not taken.
+* Task #177's other open items stand: `Expr.bvarBoundGo`'s own memo and
+  the walks' `ExprC × Memo` result pair.
+
+### 7. Gates
+
+`lake build` 619 jobs, warning-free; `lake test` green; `tests/arena.sh`
+0 FAIL (arena tutorial 90/92, e2e 79/79, annot 14/14, retired flags 8/8,
+mode flags 16/16, trusted sweep 138+79+14 with its three recorded
+divergences); `tests/layering.sh` base 237 / P 156 / caps 2 / umbrella 1,
+0 base→lane, 0 impl→theory; `tests/proofdeps.sh` 1342 rows as pinned
+across 4 capstones, **0 doors** — no regeneration needed; `init-full`
+accepted, 60 549 declarations, in both modes.  PERF.md's table is now
+stale by 16 % on `init-full` and should be regenerated at the landing.

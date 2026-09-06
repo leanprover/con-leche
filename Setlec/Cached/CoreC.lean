@@ -1872,24 +1872,43 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
       inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
-    -- perf-eng E1: the previous fuel level is built at most once per
-    -- record (Thunk-cached) instead of once per cache-missing call.
-    let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotI fe fuel⟩
+    -- **NOT a `Thunk`** (task #179).  The previous fuel level used to be
+    -- `Thunk`-cached (perf-eng E1: built once per record rather than once
+    -- per cache-missing call), and that single word cost 13.8 % of
+    -- `init-full`.  `lean_thunk_get_core` calls `mark_mt` on the forced
+    -- **value** — the runtime's invariant is that a single-threaded object
+    -- may not be reachable from a multi-threaded one, and a thunk may be
+    -- forced from another thread — so forcing this thunk marked the whole
+    -- reachable graph of its value multi-threaded, and the value's six
+    -- closures capture `fe`.  Two consequences, both `O(|env|)` per
+    -- *declaration*: (i) the mark itself walks the index's whole bucket
+    -- array, and (ii) an MT object is never `lean_is_exclusive`, so
+    -- `FEnv.push`'s `idx.insert` stopped updating in place and copied the
+    -- bucket array (with an atomic `lean_inc` per slot) at every accepted
+    -- constant — the two symbols task #177 left unattributed,
+    -- `lean_mark_mt` (7.6 %) and `lean_copy_expand_array` (6.2 %).  The
+    -- copy re-created the array as single-threaded, the next force marked
+    -- it again, and the loop sustained itself.  A plain `Unit`-closure
+    -- forces nothing and marks nothing; it pays E1 back (one record per
+    -- cache-missing call) and that is the smaller number by 5×.
+    -- `Thunk.get ⟨f⟩` is `f ()` by structure eta, so this is the same
+    -- term: no proof in `Setlec/Verify/Cached/*` moved.
+    let prev : Unit → CoreFnsI := fun _ => coreKnotI fe fuel
     -- task #172 B2: the template's config is a parameter, so it is
     -- built once per *driver*, never per knot level or per call
     -- (measured at B2: a record allocation at every head-normalization
     -- entry cost +0.155 % on `init-prelude`).
     { whnfCore := memoEI (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => whnfCoreBodyI cfg prev.get fe d e)
+        (fun d e => whnfCoreBodyI cfg (prev ()) fe d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-        (fun d e => whnfBodyI prev.get fe d e)
+        (fun d e => whnfBodyI (prev ()) fe d e)
       infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => inferBodyI cfg prev.get fe d e)
+        (fun d e => inferBodyI cfg (prev ()) fe d e)
       defeq := memoBI
-        (fun d a b => defeqBodyI cfg prev.get fe d a b)
+        (fun d a b => defeqBodyI cfg (prev ()) fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI prev.get fe d e)
+        (fun d e => annotateBodyI (prev ()) fe d e)
       -- **The io slot** (task #170 / #172 B4), selected once per knot
       -- level: at the gated config the io body under its OWN memo
       -- (`CState.inferIOC` — the task-#170 memo ruling: a hit in the io
@@ -1900,10 +1919,10 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       -- "in R mode infer_only is just equivalent to infer").
       inferIO := if cfg.ioGate then
           memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
-            (fun d e => inferBodyIOI cfg prev.get.ioView fe d e)
+            (fun d e => inferBodyIOI cfg (prev ()).ioView fe d e)
         else
           memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-            (fun d e => inferBodyI cfg prev.get fe d e) }
+            (fun d e => inferBodyI cfg (prev ()) fe d e) }
 
 /-! ## The named concrete cores (task #172, batches B2 and B3; the R
 half retired 2026-09-05; the T half instantiated 2026-09-06)
