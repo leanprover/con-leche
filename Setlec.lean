@@ -27,6 +27,7 @@ import Setlec.Verify.Mono
 import Setlec.Verify.Deep
 import Setlec.Verify.Bridge
 import Setlec.Verify.BridgeDecl
+import Setlec.Verify.BridgeDeclPair
 import Setlec.Verify.OfReducePin
 import Setlec.Kernel.ZeroSet
 import Setlec.Verify.ZeroSet

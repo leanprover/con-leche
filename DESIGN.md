@@ -50217,3 +50217,449 @@ statement-neutral and is left as it was.
 * init-full-pre2 `--pre`, 16 GB cap: `--verified` **exit 0, 60 549
   accepted** (102 s wall); `--trusted` **exit 0, 60 549 accepted**
   (96 s wall).
+
+## TASK #184 — THE BUILD-TIME AUDIT AT TODAY'S TREE, AND THE MODULE-SYSTEM ANSWER (2026-09-06, `agent/buildtime`)
+
+**Headline, in one line each.**  The build is still critical-path bound —
+the longest import chain is **99.1 %** of the clean build's wall — and the
+single largest node on it, `Verify/BridgeDecl` (57 s, 700 G), turned out to
+be **two batteries in one file, one of which nothing in the tree consumes**.
+Splitting it takes the chain from **203.1 s to 164.1 s (−19.2 %)** at the same
+load, for **+0.03 %** of whole-build instructions.  On the module system: the
+tree does not use it because **Lean forbids a `module` from importing a
+non-`module`** (`"cannot import non-`module` X from `module`"`), so adoption
+is all-or-nothing along an import cone — and a measured three-file pilot says
+the payoff would be **zero on a clean build** and **large only on incremental
+rebuilds**, and only across edges where *both* sides are modules.
+
+### 0. The measurement, and how quiet the machine was
+
+Base `d09f2c56`; toolchain `leanprover/lean4:v4.33.0`; 96 cores.  Kit is
+task #77's, reproduced in `_tmp/buildtime/` (fake sysroot whose `bin/lean` is
+a `time`-wrapping shim, a *copy* of `lake` beside it because Lake derives the
+sysroot from its own path; `analyze.py` for per-module rows and the
+import-chain walk; `meas.sh` for single-module `perf stat -e instructions:u`).
+
+`lake build` after `lake clean setlec` (the `lean_inductive_models`
+dependency stays built — it is an external constant and #77's baseline
+predates it).  **Wall time on this box is contaminated** — four other agent
+worktrees were building throughout — so every wall figure below carries the
+1-minute load average at the start of its run, and every *comparison* that
+matters is stated in `instructions:u`, which is load-insensitive.
+
+### 1. The baseline (load 18 → 10)
+
+| | task #77 (2026-09-04) | task #184 (2026-09-06) |
+|---|---|---|
+| Lake jobs / `lean` module invocations | — / 506 | 651 / 424 |
+| clean build wall | 282.9 s | **204.9 s** (load 18) |
+| whole-build `instructions:u` | 8 800.5 G | **5 353.3 G** |
+| Σ per-module wall | 910.4 s | 588.4 s |
+| Σ per-module CPU (u+s) | 1 671.6 s | 1 072.3 s |
+| longest *measured* import chain | 280.4 s | **203.1 s** (55 modules) |
+| chain as a fraction of the wall | 99 % | **99.1 %** |
+| effective parallelism (Σwall / span) | 3.2× | 2.9× |
+
+The tree lost the interned world and the SetR tier since #77 (183 301 lines
+in `Setlec/`, largest file 3 128 lines — `Kernel/ArenaWF` and `SetR/*` are
+gone), which is where the 39 % instruction drop comes from.  **The structural
+finding is unchanged and, if anything, sharper: only modules ON the chain
+move the wall clock.**
+
+**Where the chain sits.**
+
+| tier | s on the chain | share |
+|---|---|---|
+| `Verify/*` (excl. `Verify/Cached`) | 116.5 | 57.3 % |
+| `SetP/*` | 75.2 | 37.0 % |
+| `Kernel/*` | 10.0 | 4.9 % |
+| `Verify/Cached/*` | 0.8 | 0.4 % |
+| `MainTheorem` | 0.7 | 0.3 % |
+| `Semantics/*`, `Cached/*`, `SetModel/*`, `SetTheory/*`, `TT/*` | **0.0** | **0 %** |
+
+The chain, in order, with its expensive nodes:
+`Kernel.Name 0.3 → PropWhen 0.6 → Expr 1.4 → Level 3.3 → ExprOps 1.6 →
+PropRead 0.2 → Core 1.7 → TypeChecker 0.7 → CoreIO 0.2 → Verify.Knot 0.5 →
+**PairM 17.1** → Mono 0.4 → InferLemmas 3.9 → InferLeaves 1.0 →
+InferIOLeaves 0.5 → Deep 6.4 → **Fueled 10.8** → Scoped 0.5 → **Disc 10.2**
+→ Bridge 0.8 → **BridgeDecl 56.7** → BridgeWfImp 4.7 → Denote.IndFrame 3.1 →
+[21 `SetP.Ind*P` modules, 0.7–2.3 each] → **IndBottomPlainP 15.8** →
+**IndBottomNestedP 28.6** → IotaRuleNestedP 2.0 → [7 more `SetP` modules] →
+Verify.Cached.MainC 0.8 → MainTheorem 0.7`.
+
+**Top 15 modules by elaboration wall** (all 424, baseline run):
+
+| s | CPU s | maxRSS MB | module | on chain? |
+|---|---|---|---|---|
+| 56.7 | 144.4 | 3 732 | `Verify/BridgeDecl` | **yes** |
+| 28.6 | 33.0 | 5 729 | `SetP/IndBottomNestedP` | **yes** |
+| 17.1 | 53.0 | 1 520 | `Verify/PairM` | **yes** |
+| 15.8 | 21.9 | 3 308 | `SetP/IndBottomPlainP` | **yes** |
+| 10.8 | 19.2 | 1 091 | `Verify/Fueled` | **yes** |
+| 10.2 | 31.5 | 888 | `Verify/Disc` | **yes** |
+| 8.1 | 13.8 | 807 | `Verify/Abstract` | no |
+| 7.2 | 14.7 | 2 371 | `Verify/Extend/Iota` | no |
+| 6.8 | 8.1 | 2 748 | `SetP/IndBottomProjP` | no |
+| 6.6 | 8.6 | 1 785 | `SetP/Step2/DefEqP` | no |
+| 6.6 | 9.6 | 1 868 | `Verify/Cached/DiscC4` | no |
+| 6.4 | 19.1 | 1 051 | `Verify/Deep` | **yes** |
+| 5.7 | 5.8 | 1 088 | `Kernel/NatOpPins` | no |
+| 4.7 | 19.1 | 2 097 | `Verify/BridgeWfImp` | **yes** |
+| 4.7 | 5.4 | 1 847 | `Verify/Cached/DiscC5` | no |
+
+Two *non-module* Lake jobs also belong on any honest list: the C compiles
+`Kernel.NatOpPins:c.o` (25 s) and `Kernel.TypeCheckerC:c.o` (6.3 s), which
+the executable's link waits for but no `.olean` does.
+
+**Top 5 oleans** (445.2 MB over 421 files in total):
+`Verify/BridgeDecl` **28.90 MB**, `Verify/Extend/Iota` 12.52,
+`Verify/Deep` 9.43, `Verify/PairM` 9.22, `Verify/InferLemmas` 8.49.
+Note the shape of that list: it is the *proof* tier, and it is what every
+downstream `lean` process loads at start-up.
+
+### 2. Incremental cost of touching a leaf — and the surprise in it
+
+Protocol (`_tmp/buildtime/incr2.sh`): revert, rebuild to a settled tree,
+apply ONE probe, `perf stat` a full `lake build`, revert.  (A first pass
+without the settle step produced numbers contaminated by the *previous*
+probe's revert; those are discarded.)  Two probes per file: a trailing
+comment, and one appended `theorem buildtimeProbe184 : True := trivial`.
+
+| file | probe | modules rebuilt | `instructions:u` |
+|---|---|---|---|
+| `Kernel/Expr.lean` (a `module`) | trailing comment | **1** | 12.5 G |
+| `Kernel/Expr.lean` | + one declaration | 363 | 4 790 G (89 % of a clean build) |
+| `Kernel/Env.lean` | trailing comment | **1** | 6.7 G |
+| `Kernel/Env.lean` | + one declaration | 341 | 4 551 G (85 %) |
+| `Cached/CoreC.lean` | trailing comment | 26 | 436 G |
+| `Cached/CoreC.lean` | + one declaration | 26 | 436 G |
+
+Three things to read off this.
+
+1. **Lake invalidates dependents on the dependency's `.olean` hash, not on
+   its source.**  A comment that leaves the olean byte-identical costs one
+   module.  This is not a module-system property: `Kernel/Env.lean` is a
+   plain file and behaves the same as `Kernel/Expr.lean`.
+2. **`Cached/CoreC.olean` is comment-sensitive** and its 25-module cone
+   therefore rebuilds for nothing.  Checked directly: two consecutive `lean`
+   runs on unchanged `CoreC.lean` produce byte-identical oleans (so the
+   olean is deterministic), but appending a comment changes the hash — while
+   the same experiment on `Kernel/Env.lean` does not.  Some position-bearing
+   datum in that module's environment extends past its last declaration.
+   Worth an upstream question; not chased here.
+3. **`Cached/CoreC.lean` is not a hot leaf.**  Its whole downstream cone is
+   25 modules; `Kernel/Env`'s is 340 and `Kernel/Expr`'s is 362.  A real edit
+   to either of those two costs ~85–90 % of a clean build, which is the
+   honest number for "I changed the expression type".
+
+### 3. What landed: the `BridgeDecl` split
+
+**The finding that made it worth doing.**  `Verify/BridgeDecl.lean` (2 242
+lines, 163 declarations) is two independent batteries:
+
+* lines 24–171 — the operation records (`bridgeRel`, `OpsRel`, `pairOps`,
+  `fueledOpsM`, `wfOpsM`, five `wfOpsM_*` equations);
+* lines 173–1543 — the **pair-monad projection battery**, 102 theorems
+  `X_fst_dproj` / `X_snd_dproj` over six macro families;
+* lines 1544–2238 — the **`atF` battery**, 21 theorems `X_datF`.
+
+A whole-tree reference scan says **136 of the 163 declarations are used
+nowhere else**, and every one of the 27 that *are* used lives in the first or
+the third block.  **Not one `_dproj` theorem has a consumer anywhere in the
+tree** — and `checkDecl_wfOpsM_bridge`, the punchline the module's docstring
+says the battery exists to prove, no longer exists either (it went with the
+interned executable).  The battery is 1 371 lines of live, sorry-free,
+kernel-checked Lean that nothing reads.
+
+**The split** (`c1`): the consumed halves stay in
+`Setlec/Verify/BridgeDecl.lean` **under the same module name** — so every
+importer, and the frozen proof-dependency pin, is untouched — and the
+projection battery moves to `Setlec/Verify/BridgeDeclPair.lean`, which
+imports it back and is reached only from the `Setlec` umbrella (so it stays
+built, `lake build`-gated and sorry-free, but nothing on the chain waits for
+it).  No statement, name, signature or `private` marker changed anywhere; the
+diff is a file cut plus two docstrings plus one umbrella import.
+
+Single-module A/B, `perf stat -e instructions:u`:
+
+| module | `instructions:u` |
+|---|---|
+| `Verify/BridgeDecl` before (2 242 lines) | **700.5 G** |
+| `Verify/BridgeDecl` after (the consumed halves, 882 lines) | **142.3 G** |
+| `Verify/BridgeDeclPair` (1 404 lines, off the chain) | **562.7 G** |
+| sum | 705.0 G (**+0.6 %** of CPU — the prelude is elaborated twice) |
+
+Whole clean build: **5 353.3 G → 5 354.8 G, +0.03 %** — i.e. the split is free
+in CPU and moves 562.7 G off the chain.  The chain's largest node drops
+**−79.7 %** in instructions; in wall, the two runs happened to start at
+comparable load (18 and 17), and it drops **56.7 s → 17.7 s**.
+
+Substituting that one changed node into the baseline chain (nothing else on
+the chain changed a byte):
+
+* **203.1 s → 164.1 s, −19.2 %**, and the chain's most expensive node is now
+  `SetP/IndBottomNestedP` (28.6 s), not `Verify/BridgeDecl`.
+
+The split run's *own* measured chain came out at 214.4 s, which is **not**
+comparable and is reported here only for completeness: that run's `SetP`
+tail executed while the box climbed to load 30, and its unchanged `SetP`
+segment alone inflated from 75.2 s to 117.8 s.  This is exactly the
+contamination the charter warned about; the instruction figures and the
+substitution above are the load-clean statements.
+
+**Gates**: `lake build` warning-free (0 warnings, 652 jobs), `lake test`
+green, `tests/layering.sh` 0 violations, and — the one that mattered —
+**`tests/proofdeps.sh` reports 3 264 module rows exactly as pinned across
+9 roots, 0 doors.**  That was engineered: an earlier three-file cut that
+moved the operation records into a new `Setlec/Verify/BridgeOps.lean` made
+seven pin rows appear (`… :: Setlec.Verify.BridgeOps`) with none leaving —
+a pure relocation, but a relocation the gate cannot distinguish from a door,
+and the gate's own instruction is *"do not regenerate the pin to hide it"*.
+The cut was redone so that everything the capstones reach keeps the module
+name it already had, and the pin file is untouched.  Recorded because the
+lesson generalises: **a module split under a module-level dependency pin must
+keep the consumed declarations in the module that is pinned, and move the
+unconsumed ones out.**
+
+**Re-derived on top of task #185 (CoreCfg retirement) at the landing.**  #185
+threads `mode : CheckMode` through every core and cached function and puts
+`hμ` on the simulation tower, and `Verify/BridgeDecl.lean` is one of its
+files — so the cut was not merged textually.  Master's `BridgeDecl.lean` was
+taken wholesale and the split re-derived from it by a *marker-driven*
+splitter (`_tmp/buildtime/resplit_bridgedecl.py`: it locates `section
+DeclBattery`, the `atF` section comment and the last `end DeclBattery`, and
+copies master's own imports, docstring, `set_option`s, namespace and section
+variables).  Two checks make that safe, both re-run on the post-#185
+content: the multiset of the 217 declaration names is identical before and
+after the cut, and **none of the 27 declarations referenced from outside the
+file lies inside the projection battery** (they are at lines 72–161 and
+1584–2221 of master's 2 301-line file).  One trap found and fixed in the
+splitter: `open Classical in` sits in that preamble and is a *modifier on the
+next declaration*, so copying it across attaches it to `section DeclBattery`
+and derails the scope stack.
+
+Post-merge numbers on #185's content, same instrument:
+
+| module | `instructions:u` |
+|---|---|
+| `Verify/BridgeDecl` as master has it (2 301 lines) | **702.8 G** |
+| `Verify/BridgeDecl` after (906 lines) | **142.9 G**, −79.7 % |
+| `Verify/BridgeDeclPair` (1 439 lines, off the chain) | **564.2 G** |
+| sum | 707.1 G, +0.6 % |
+
+Full re-gate at the landing: `lake build` warning-free (651 jobs), `lake test`
+green, `tests/arena.sh` EXIT 0 — layering base 255 / P 167 / caps 3 /
+umbrella 1 with 0 base→lane and 0 impl→theory, **proofdeps 2 522 rows across
+7 roots, 0 doors — byte-identical to the pin #185 landed**, pindump fresh,
+trust surface 18 escapes in 4 allowlisted files (433 scanned) / 0 outside,
+axioms pinned at 11 theorems, tutorial 90/92, e2e 96/96, annot 14/14, flags
+8/8 + 16/16, progress lane 6/6, trusted sweep 138 + 96 + 14 with the 3
+recorded divergences.
+
+**The open question this raises, and it is not ours to close.**  If the
+projection battery has no consumer, deleting it would take ~565 G — **10.5 %
+of the whole build's instructions** — off the CPU bill outright, together
+with 1 404 lines and its 19.41 MB olean (`BridgeDecl.olean` itself falls
+from 28.90 MB to 11.06 MB with the split).  That is a deletion of statements, which
+this batch is chartered not to do.  Recorded for a ruling.
+
+### 4. What did NOT pan out, and why (the charter's other three levers)
+
+**Umbrella-import hygiene: the lever is empty.**  The five umbrella files
+(`Setlec.lean`, `Setlec/SetP.lean`, `Setlec/Semantics.lean`,
+`Setlec/SetModel.lean`, `Setlec/Verify/Cached.lean`) have **six importers in
+the whole tree, and every one of them is in `tests/`** — `tests/ProofDeps.lean`
+(four of them, which is that gate's entire purpose), `tests/SetlecTests.lean`
+and `tests/SetlecTests/ZeroSetTests.lean`.  **No library module imports an
+umbrella.**  The hygiene problem the charter suspected does not exist here.
+
+**Implied imports: 467 of 1 236, and still worth nothing.**  191 of them are
+in the umbrella files, where listing every member is the point.  As #77
+recorded: removing an implied import changes the transitive closure by
+exactly nothing, so it buys zero build time.  Re-measured, unchanged, not
+done.
+
+**Breaking a chain import edge: there is no edge to break.**  The 55 chain
+modules form a genuine cascade — each imports its predecessor directly, and
+#77's one structurally surprising edge (`Verify/Bridge → Verify/BridgeI`,
+which threaded 33 s of interned tower onto the chain) died with the interned
+world.  The only way to shorten this chain is to make a chain *node* cheaper
+or to split one, which is what §3 does.
+
+**`maxHeartbeats` hot spots: a category error.**  96 sites.  A heartbeat
+budget is a *limit*, not a cost: raising or lowering one moves no
+instruction.  The sites are a useful map of where the expensive proofs are —
+and that map points at `SetP/IndBottomPlainP` (83 `omega` calls, 15.8 s) and
+`SetP/IndBottomNestedP` (71, 28.6 s), the two files #77 already cut by 15 %
+and 53 %.  What is left there is proof surgery inside one ~1 300-line theorem
+apiece, and #77 measured that the blanket `omega`→`grind` rewrite fails
+outright and costs 150 s before it does.  Left alone deliberately.
+
+**`decide` on the chain**: six calls total (one in `Verify/InferLemmas`, five
+in `Verify/BridgeWfImp`), none of them a hot spot in the trace.  Nothing to
+move.
+
+**`Verify/PairM` (17.1 s, #3 on the chain), NOT split.**  It is five macro
+families and their theorem blocks and is mechanically separable — but its
+only importer is `Verify/Mono`, which uses declarations from *all* the
+families, so both halves would still have to finish before `Mono` starts and
+the saving is bounded by whatever the halves can overlap.  Worth a measured
+attempt in its own batch; not a free win like `BridgeDecl`, where one half
+has no consumer at all.
+
+### 5. The module system: why it is not used, and what a migration would buy
+
+The user's question, verbatim: *"I noticed you aren't actually using the
+module system, are you?  Why not?"*  Seven files carry the `module` header
+today (`Kernel/{Name, PropWhen, Expr, NatOpPins, TrustPins}`, `PinGen`,
+`PinGen/Dump`), and they are exactly the bottom of the import order plus the
+pin generator.  That is not an accident, and the recorded reason (provers
+unfold checker definitions) is only *half* the reason.
+
+**The hard constraint, which the recorded reason omits.**
+`Lean/Environment.lean:2119`:
+
+```
+throw <| IO.userError s!"cannot import non-`module` {i.module} from `module`"
+```
+
+**A `module` may not import a non-`module`.**  So the header cannot be
+adopted file-by-file where it happens to be convenient: it must be adopted
+**bottom-up over a whole import cone**, and the seven current files are
+precisely a downward-closed set.  Measured cone sizes (Setlec modules that
+would have to be converted *first*):
+
+| target | cone | still non-`module` |
+|---|---|---|
+| `Kernel/Level`, `Kernel/Env` | 3 | **0** — convertible today |
+| `Kernel/ExprOps` | 4 | 1 |
+| `Verify/Level` | 4 | 1 |
+| `Verify/PairM` | 22 | 19 |
+| `Verify/Deep` | 40 | 37 |
+| `Verify/BridgeDecl` | 61 | 54 |
+| `SetP/IndBottomNestedP` | 254 | 247 |
+| `MainTheorem` | 395 | **388** |
+
+**The pilot** (parked, not committed — `_tmp/buildtime/module-pilot.diff`,
+three files, whole tree green and warning-free):
+
+* (a) *checker code* — `Setlec/Kernel/Level.lean` → `module`,
+  `public import Setlec.Kernel.Expr`, one blanket `@[expose] public section`.
+  Zero per-declaration work; no downstream file needed a single change,
+  because everything stays exposed.
+* (b) *proof files* — `Setlec/Verify/Level.lean` → `module` with only the
+  **16 of its 31** declarations that anything outside the file references
+  marked `public` (two of them `@[expose]`, being `def`s downstream unfolds).
+  Exactly **one** further declaration had to be promoted after the first
+  build error (`EvalEqList`, a `def` appearing in a public statement) —
+  so the mechanical cost of selective marking is low and the compiler tells
+  you the answer.
+  Then `Setlec/Verify/PropWhen.lean` → `module` with a blanket
+  `public section` — it needed **two `import all` lines**
+  (`Setlec.Kernel.PropWhen`, `Setlec.Kernel.Level`) because its proofs close
+  goals by `rfl` against `Kernel/PropWhen`'s deliberately *hidden*
+  representation.  That is the user's suggested escape and it works verbatim.
+
+**(a) olean sizes.**  Splitting into a public and a private part is a real
+win *even with a blanket `@[expose] public section`*, because theorem proof
+terms are private regardless:
+
+| module | before (one olean) | after: public / private / server |
+|---|---|---|
+| `Kernel/Level` (`@[expose] public`) | 1 552 KB | **963** / 503 / 12 KB (−38 % downstream) |
+| `Verify/Level` (16 of 31 public) | 2 434 KB | **1 344** / 1 009 / 13 KB (−45 %) |
+| `Verify/PropWhen` (blanket `public`) | — | **100** / 239 / 7 KB (70 % hidden) |
+
+The `Verify/PropWhen` row is the important one for a projection: **a proof
+file gets ~70 % of its olean hidden from `module` + a blanket
+`public section` alone**, with no per-declaration surgery at all.  (The
+extreme already in the tree: `Kernel/NatOpPins` is 0.02 MB public against
+23.78 MB private — 100 % hidden.)
+
+**(b) downstream elaboration instructions: no change at all.**
+
+| module elaborated | before | after |
+|---|---|---|
+| `Kernel/ExprOps` | 16.2 G | 16.2 G |
+| `Verify/InstLevels` | 7.5 G | 7.5 G |
+| `Verify/PropWhen` | 2.2 G | 2.2 G |
+| `Kernel/Level` itself | 21.2 G | 20.0 G (−5.7 %) |
+
+and the **whole clean build** with the three files converted is **5 344.9 G
+against the baseline's 5 353.3 G — −0.16 %, i.e. nothing.**  Smaller oleans
+do not make importers faster here; olean regions are mapped lazily and the
+elaboration cost is the file's own work.
+
+**(c) incremental rebuild — this is where the whole payoff is, and it has a
+sharp condition.**  Probe: rewrite the *proof* of the private theorem
+`eval_combining` in `Verify/Level.lean`, no line-count change.  Verified by
+hash: the public `.olean` is **byte-identical**; only `.olean.private` and
+`.olean.server` move.
+
+| configuration | downstream rebuilt | instructions |
+|---|---|---|
+| `Verify/Level` is a `module`, its importers are **not** | **268 modules** | 3 716 G (69 % of a clean build) |
+| `Verify/Level` **and** `Verify/PropWhen` are both `module`s | `Verify/PropWhen` **not rebuilt** | — |
+
+The mechanism, from Lake's own source
+(`lake/Lake/Build/Module.lean`): a module-system module exports
+`artsTrace := … olean.trace` — the **public** olean only — but
+`allArtsTrace` mixes in `.olean.server` and `.olean.private`, and
+`enqueue` sets `importAll := nonModule || …`.  **A non-`module` importer is
+treated as `import all`**, so it depends on the private and server oleans and
+rebuilds on any source change in the dependency.  A `module` importer depends
+only on the public interface.
+
+**Therefore: partial adoption buys exactly nothing.**  The benefit lives on
+edges where *both* endpoints are modules, and Lean's own import rule forces
+the conversion to sweep a cone bottom-up anyway.
+
+**Projection for a full migration.**
+
+* *Size.*  424 files under `Setlec/` plus four top-level roots; 388 of them in `MainTheorem`'s cone.  The
+  48 `Kernel/*` and `Cached/*` files take one blanket
+  `@[expose] public section` each — no per-declaration work, because
+  downstream unfolds them (the reference scan finds **517 distinct
+  `Kernel`/`Cached` definitions named in `unfold` / `simp [·]` positions by
+  the 337 prover files, 5 713 occurrences**; `Kernel/Core.lean` alone
+  contributes 101).  The ~370 proof files take `module` + a blanket
+  `public section`, which already hides every proof term; the further step of
+  marking only the externally-used declarations `public` would additionally
+  hide the **40 % of the tree's 6 744 declarations that no other file
+  mentions** (`Verify/*` 51 %, `SetP/*` 41 %, `Cached/*` 6 %) — worth doing
+  file by file, not a precondition.
+* *Escapes.*  The only checker module that deliberately hides its
+  representation today is `Kernel/PropWhen` (the `Std.HashMap` pattern the
+  project licenses); the provers that close goals by `rfl` against it need an
+  `import all` line each, as the pilot showed.  Everything else is covered by
+  the blanket expose on `Kernel/*` and `Cached/*`.
+* *Expected build-time payoff.*  **Clean build: ~0** (measured −0.16 % on
+  three files; downstream elaboration unchanged to three significant
+  figures).  **Incremental: large** — a proof-body edit inside a converted
+  cone stops at the module boundary instead of costing 69–89 % of a clean
+  build.  That is a developer-latency win, not a CI-throughput win, and it
+  should be sold as such.
+* *Risks, checked.*  `@[computed_field]` and `@[csimp]` already coexist with
+  `module` in `Kernel/Expr.lean` and `Kernel/Name.lean`; `include_str` plus
+  the elab-time pin splice already do in `Kernel/NatOpPins.lean` — the three
+  the trust-surface gate names are all *already* module files and green.
+  Untested: `@[implemented_by]` in `Kernel/BasisGen.lean`.  The genuinely new
+  risk is that every `import all` is an abstraction (and trust-surface)
+  widening that `tests/trust-surface.sh` does not currently see; if the
+  migration happens, that gate should learn to count `import all` lines.
+* *Verdict.*  A worthwhile hygiene and developer-latency project, of the
+  scale of one dedicated batch per tier, bottom-up, with `Kernel/Level` and
+  `Kernel/Env` as the two files that can be converted today.  It is **not** a
+  build-time optimisation, and this audit recommends it not be sold as one.
+
+### 6. Toolchain notes (delta to #77)
+
+* Lake 5.0 still has **no `-j`/jobs flag**.
+* `lake shake` still refuses: *"lake shake only works with modules
+  currently"*, and 7 of 428 library modules carry the header — so truly dead imports
+  (as opposed to the 467 *implied* ones) remain mechanically undetectable in
+  this tree.  A full module migration would unlock `shake`; that is a second
+  reason for it, and a better one than build time.
+* `lake build` prints per-job elapsed times (`✔ [n/651] Built X (6.2s)`),
+  which makes #77's `time`-shim sysroot unnecessary for wall figures — the
+  shim is still needed for per-module CPU and maxRSS.
