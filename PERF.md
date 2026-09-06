@@ -1,4 +1,4 @@
-# PERF.md — the setlec performance battery
+# PERF.md — the lech performance battery
 
 | | |
 |---|---|
@@ -8,10 +8,10 @@
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
 | metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` |
-| streams | preprocessed once off the clock by `lean-inductive-models`; both checkers read the same bytes, setlec under `--pre` |
+| streams | preprocessed once off the clock by `lean-inductive-models`; both checkers read the same bytes, lech under `--pre` |
 | concurrent load | other agents ran unrelated single-process checkers on the machine throughout (load ~19 of 96 cores); battery cells still ran strictly one at a time, and `instructions:u` is contention-independent |
-| official kernel | `/home/joachim/setlec/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
-| preprocessor | `/home/joachim/setlec/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models` |
+| official kernel | `<main-checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
+| preprocessor | `<main-checkout>/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models` |
 
 ## instructions:u
 
@@ -39,9 +39,9 @@ Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
 
 ## Notes
 
-* **What changed since the previous table.**  Two landings, no method change.  (i) Since task #175 S1 a direct structure's projection table is ONE stored constant per structure instead of one per field, so every setlec accepted-declaration count drops with no verdict change: init-full 60 549 (was 61 048), grind-ring-5 3 866 (3 946), init-prelude 3 606 (3 653), app-lam 94 (97), let-ladder 66 (69), beta-ladder 53 (56).  (ii) Since the 2026-09-06 mode rename the trusted mode WRITES the `pw` binder annotations and runs the fast `isProof` head-symbol arms exactly as the verified mode does — only *validating* the annotations and producing certificates stays certification-only.
+* **What changed since the previous table.**  Two landings, no method change.  (i) Since task #175 S1 a direct structure's projection table is ONE stored constant per structure instead of one per field, so every lech accepted-declaration count drops with no verdict change: init-full 60 549 (was 61 048), grind-ring-5 3 866 (3 946), init-prelude 3 606 (3 653), app-lam 94 (97), let-ladder 66 (69), beta-ladder 53 (56).  (ii) Since the 2026-09-06 mode rename the trusted mode WRITES the `pw` binder annotations and runs the fast `isProof` head-symbol arms exactly as the verified mode does — only *validating* the annotations and producing certificates stays certification-only.
 * **Cross-pipeline, not same-work.**  Both sides read the same bytes,
-  but every setlec cell checks a *modeled* encoding of the inductive
+  but every lech cell checks a *modeled* encoding of the inductive
   blocks plus an `annotate` pass with no official counterpart, while
   official checks that file with native inductive/recursor support.
   Hence the accepted-declaration counts differ too.
@@ -51,7 +51,7 @@ Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
 * One run per cell on a shared machine: `instructions:u` is
   contention-independent, so a cell may overlap other work; wall time
   is not reported for that reason.
-* Regenerate with `lake build setlec && scripts/perf-tables.sh`;
+* Regenerate with `lake build lech && scripts/perf-tables.sh`;
   `--render` re-renders from `perf-data/` without measuring, and
   `PERF_STREAMS=… PERF_APPEND=1` re-runs a single stream.  Raw cells
   (with wall time and load, recorded but not printed) are tracked in

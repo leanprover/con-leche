@@ -1,5 +1,5 @@
-import Setlec.PinGen
-import Setlec.PinGen.Certs
+import Lech.PinGen
+import Lech.PinGen.Certs
 
 /-!
 # `natop-pins-export` — the pin dump generator (task #176)
@@ -14,7 +14,7 @@ fails the battery.
     lake exe natop-pins-export                 # regenerate in place
     lake exe natop-pins-export _tmp/scratch    # for the freshness gate
 
-`import Setlec.PinGen.Certs` above is the *build-order edge* the old
+`import Lech.PinGen.Certs` above is the *build-order edge* the old
 mechanism lacked: the certificate theorems are read out of their olean
 at run time (`importModules` at `OLeanLevel.private`, so the proof
 bodies are visible), and this import is what makes Lake build that
@@ -22,7 +22,7 @@ olean first.  Nothing in the checker's own build depends on it any
 more.
 -/
 
-open Setlec.PinGen
+open Lech.PinGen
 
 def main (args : List String) : IO UInt32 := do
   Lean.initSearchPath (← Lean.findSysroot)

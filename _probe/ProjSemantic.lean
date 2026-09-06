@@ -1,4 +1,4 @@
-import Setlec.SetTheory.Basic
+import Lech.SetTheory.Basic
 
 /-!
 # Probes: the annotation-free semantic-projection design (agent/proj-semantic)
@@ -21,7 +21,7 @@ boundary exactly there.
 
 namespace ProjSemanticProbe
 
-open Setlec Setlec.SetTheory
+open Lech Lech.SetTheory
 
 universe u v
 

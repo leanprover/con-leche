@@ -1,18 +1,18 @@
 let-ladder	official	6161484162	0.66	0	62	18.75	Accepted 62 declarations.
-let-ladder	trusted	8451663638	1.31	0	66	18.75	setlec: accepted 66 declarations
-let-ladder	verified	8463460141	1.31	0	66	18.75	setlec: accepted 66 declarations
+let-ladder	trusted	8451663638	1.31	0	66	18.75	lech: accepted 66 declarations
+let-ladder	verified	8463460141	1.31	0	66	18.75	lech: accepted 66 declarations
 beta-ladder	official	10147309706	1.20	0	50	18.29	Accepted 50 declarations.
-beta-ladder	trusted	41216647361	6.29	0	53	18.29	setlec: accepted 53 declarations
-beta-ladder	verified	41203273001	6.56	0	53	17.79	setlec: accepted 53 declarations
+beta-ladder	trusted	41216647361	6.29	0	53	18.29	lech: accepted 53 declarations
+beta-ladder	verified	41203273001	6.56	0	53	17.79	lech: accepted 53 declarations
 init-prelude	official	3914158123	0.44	0	3489	16.97	Accepted 3489 declarations.
-init-prelude	trusted	6884508261	0.81	0	3606	16.97	setlec: accepted 3606 declarations
-init-prelude	verified	8983890455	1.05	0	3606	16.97	setlec: accepted 3606 declarations
+init-prelude	trusted	6884508261	0.81	0	3606	16.97	lech: accepted 3606 declarations
+init-prelude	verified	8983890455	1.05	0	3606	16.97	lech: accepted 3606 declarations
 grind-ring-5	official	15715620986	1.82	0	3775	16.97	Accepted 3775 declarations.
-grind-ring-5	trusted	27965259713	4.50	0	3866	16.97	setlec: accepted 3866 declarations
-grind-ring-5	verified	31592312378	4.73	0	3866	16.73	setlec: accepted 3866 declarations
+grind-ring-5	trusted	27965259713	4.50	0	3866	16.97	lech: accepted 3866 declarations
+grind-ring-5	verified	31592312378	4.73	0	3866	16.73	lech: accepted 3866 declarations
 app-lam	official	29447063057	5.58	0	88	16.43	Accepted 88 declarations.
-app-lam	trusted	162432418294	45.11	0	94	16.40	setlec: accepted 94 declarations
-app-lam	verified	162498200613	36.02	0	94	20.92	setlec: accepted 94 declarations
+app-lam	trusted	162432418294	45.11	0	94	16.40	lech: accepted 94 declarations
+app-lam	verified	162498200613	36.02	0	94	20.92	lech: accepted 94 declarations
 init-full	official	413142923011	61.61	0	60060	17.36	Accepted 60060 declarations.
-init-full	trusted	794993841545	159.71	0	60549	40.44	setlec: accepted 60549 declarations
-init-full	verified	841695874900	165.61	0	60549	33.17	setlec: accepted 60549 declarations
+init-full	trusted	794993841545	159.71	0	60549	40.44	lech: accepted 60549 declarations
+init-full	verified	841695874900	165.61	0	60549	33.17	lech: accepted 60549 declarations

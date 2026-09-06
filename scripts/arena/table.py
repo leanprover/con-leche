@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Print the setlec column of an arena run as a table.
+"""Print the lech column of an arena run as a table.
 
-Usage: scripts/arena/table.py <arena-clone> [checker-name] [results-dir]
+Usage: scripts/arena/table.py <arena-clone> [checker-name] [results-dir] [results-dir]
 
 Reads <results-dir>/<checker>_*.json (what `lka.py run` writes into
 <arena-clone>/_results) and joins it with the expected outcome from
@@ -26,7 +26,7 @@ def human(n):
 
 def main():
     arena = Path(sys.argv[1])
-    checker = sys.argv[2] if len(sys.argv) > 2 else "setlec"
+    checker = sys.argv[2] if len(sys.argv) > 2 else "lech"
     results = Path(sys.argv[3]) if len(sys.argv) > 3 else arena / "_results"
 
     expected = {}

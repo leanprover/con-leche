@@ -15,7 +15,7 @@
 # An <expectation> is a single exit code.  Until task #148 T0b it could
 # also be a pair "<on>|<off>" for the five fixtures whose verdict
 # depended on the direct simple-structure master switch
-# (`Setlec.directStructsEnabled`, Setlec/Kernel/Direct.lean, task
+# (`Lech.directStructsEnabled`, Lech/Kernel/Direct.lean, task
 # #119/#120), and `--direct-off` ran the whole suite against a second
 # binary built with the switch off.  The switch now ships `false` — the
 # configuration both verified lanes reason about — so the shipped binary
@@ -27,8 +27,8 @@
 # checker has one two-valued mode: `--verified` (the default — the
 # surface the set model proves) and `--trusted` (the unverified lane:
 # checking-mode front door, infer-only internals, no certificate
-# families; it absorbs the retired --yolo/SETLEC_NO_PROOF_CERTS and
-# --infer-only/SETLEC_INFER_ONLY).  `--tt-model` selected the seven
+# families; it absorbs the retired --yolo/LECH_NO_PROOF_CERTS and
+# --infer-only/LECH_INFER_ONLY).  `--tt-model` selected the seven
 # TT-lane checks for the declarative verification lane; that lane was
 # deleted at #148 T7b and the flag is a hard error now, so its sweep —
 # which had claimed and shown byte-identity with the default on every
@@ -46,6 +46,14 @@
 set -u
 cd "$(dirname "$0")/.."
 
+# Scratch space goes to DISK, never tmpfs (task #180).  Honour TMPDIR if
+# the caller set one; otherwise use the project's on-disk scratch
+# directory rather than the system temp, which is commonly a RAM-backed
+# tmpfs — the gzipped e2e fixtures below expand to gigabytes.  Exported,
+# so the checker and every child honour the same choice.
+export TMPDIR="${TMPDIR:-$PWD/_tmp/tmp}"
+mkdir -p "$TMPDIR"
+
 MODE_SWEEPS=on
 args=()
 for a in "$@"; do
@@ -57,7 +65,7 @@ done
 set -- ${args+"${args[@]}"}
 
 TESTS_DIR="${1:-_tmp/arena-tests}"
-BIN=.lake/build/bin/setlec
+BIN=.lake/build/bin/lech
 EXPECTED=tests/arena-expected.txt
 E2E_EXPECTED=tests/e2e-expected.txt
 ANNOT_EXPECTED=tests/annot-expected.txt
@@ -76,7 +84,7 @@ if [ ! -d "$TESTS_DIR" ]; then
   fi
 fi
 
-lake build setlec >/dev/null || exit 3
+lake build lech >/dev/null || exit 3
 
 
 # The trusted-mode overrides, keyed "<suite> <fixture> <mode>" (mode empty
@@ -147,6 +155,37 @@ if tests/proofdeps.sh; then :; else fail=1; fi
 # regenerate and diff.
 if tests/pindump.sh; then :; else fail=1; fi
 
+# THE TRUST-SURFACE GATE (2026-09-06, external review §5.6).  The
+# layering gate fences one direction of trust (the implementation may
+# not import the theory); this one fences the other — no compiler
+# escape (`unsafe`, `implemented_by`, `computed_field`, `native_decide`,
+# …) outside the allowlisted trusted-surface files, whose justification
+# is the script's header.  It is the companion of the axiom pin above:
+# `#print axioms` sees the LOGICAL TCB, this one sees the RUNTIME TCB,
+# and neither sees the other's.
+if tests/trust-surface.sh; then :; else fail=1; fi
+
+# THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
+# theorems, the four letters, the assembly under them and the `IO`
+# loop's bridge — and, since task #181, the `False` letters — carry `#guard_msgs in #print axioms`
+# guards in `tests/LechTests/Axioms.lean`, pinning them at exactly
+# `[propext, Classical.choice, Quot.sound]`.  The guards ARE the
+# elaboration of that module, so building the test library is the gate:
+# a drifting axiom footprint is a build error, not a claim in the
+# journal.  (`lake test` runs the same library; this line is so the
+# standard battery says so too.)
+AXLOG=$(lake build LechTests 2>&1)
+if [ $? = 0 ] && ! printf '%s\n' "$AXLOG" | grep -q 'error:'; then
+  nax=$(grep -c '^#print axioms' tests/LechTests/Axioms.lean)
+  echo "axioms: pinned ($nax theorems at [propext, Classical.choice, Quot.sound])"
+else
+  echo 'AXIOM PIN FAIL — tests/LechTests/Axioms.lean did not elaborate:'
+  printf '%s\n' "$AXLOG" | grep -A6 'error:' | head -40 | sed 's/^/    /'
+  echo '    a changed `#print axioms` message is a FINDING: report it,'
+  echo '    do not relax the guard.'
+  fail=1
+fi
+
 # --- the arena half ------------------------------------------------
 arena_half() {
   accepted=0
@@ -184,7 +223,7 @@ arena_half() {
 # they still carry `_model` artifacts for blocks the direct install
 # recognises; that is inert (the W4c priority gate ignores them) and
 # they are deliberately left alone as pre-#178 baselines.  A fixture
-# regenerated from now on should go through `setlec-preprocess`.
+# regenerated from now on should go through `lech-preprocess`.
 e2e_half() {
   e2e_ok=0
   e2e_total=0
@@ -195,7 +234,7 @@ e2e_half() {
     src="tests/e2e/$rel"
     if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
       # large fixtures are committed gzipped
-      tmpf="${TMPDIR:-/tmp}/setlec-e2e-$(basename "$rel")"
+      tmpf="$TMPDIR/lech-e2e-$(basename "$rel")"
       gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
       src="$tmpf"
     fi
@@ -203,7 +242,7 @@ e2e_half() {
     # preprocessor made unavailable, so the stream really carries no
     # `_model` declarations and the direct install path is exercised
     if [ "${mode:-}" = raw ]; then
-      SETLEC_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
+      LECH_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
     elif [ "${mode:-}" = pre ]; then
       # `pre` fixtures assert the --pre flag: the input is taken as
       # already preprocessed — no detection scan, no spawn.  The
@@ -332,22 +371,66 @@ mode_case 3 --set-model=r "$SPLIT_BAD"             # …on a bad stream too
 mode_case 3 --yolo "$SPLIT_GOOD"                   # retired flag: hard error
 mode_case 3 --infer-only "$SPLIT_GOOD"             # retired flag: hard error
 mode_total=$((mode_total+1))
-if SETLEC_NO_PROOF_CERTS=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
+if LECH_NO_PROOF_CERTS=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
     >/dev/null 2>&1; [ $? = 3 ]; then
   mode_ok=$((mode_ok+1))                           # retired env var: hard error
 else
-  echo "MODE FAIL: SETLEC_NO_PROOF_CERTS=1 did not error"
+  echo "MODE FAIL: LECH_NO_PROOF_CERTS=1 did not error"
   fail=1
 fi
 mode_total=$((mode_total+1))
-if SETLEC_INFER_ONLY=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
+if LECH_INFER_ONLY=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
     >/dev/null 2>&1; [ $? = 3 ]; then
   mode_ok=$((mode_ok+1))                           # retired env var: hard error
 else
-  echo "MODE FAIL: SETLEC_INFER_ONLY=1 did not error"
+  echo "MODE FAIL: LECH_INFER_ONLY=1 did not error"
   fail=1
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
+
+# The progress lane (`LECH_PROGRESS=<stride>`, 2026-09-07).  Two
+# folds, one verdict: without the variable the driver runs the verified
+# `checkDeclsSPCachedD`, with it the unverified `checkDeclsProgressIO`
+# — the same steps with a line printed before each declaration.  The
+# checks below are the contract: the lane prints, it prints EVERY
+# declaration at stride 1 (that is the localisation mode: a dying run
+# names the declaration it died in on its last line), and it changes no
+# verdict, on an accepting and on a rejecting fixture alike.
+prog_ok=0
+prog_total=0
+prog_check() { # <description> <condition-result>
+  prog_total=$((prog_total+1))
+  if [ "$2" = ok ]; then
+    prog_ok=$((prog_ok+1))
+  else
+    echo "PROGRESS FAIL: $1"; fail=1
+  fi
+}
+# the accepting fixture: exit 0 with and without the variable, same
+# stdout verdict line, and one progress line per declaration at stride 1
+prog_out=$(timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null); prog_code=$?
+prog_err1=$(LECH_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_out1=$(LECH_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null)
+prog_code1=$?
+prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^lech: progress [0-9]')
+prog_decls=$(printf '%s' "$prog_out1" | sed -n 's/^lech: accepted \([0-9]*\) .*/\1/p')
+prog_check "stride 1 exits 0 on the accepting fixture" \
+  "$([ "$prog_code1" = 0 ] && echo ok)"
+prog_check "the verdict line is unchanged by the variable" \
+  "$([ "$prog_out" = "$prog_out1" ] && [ "$prog_code" = "$prog_code1" ] && echo ok)"
+prog_check "stride 1 prints one line per declaration" \
+  "$([ -n "$prog_decls" ] && [ "$prog_lines" = "$prog_decls" ] && echo ok)"
+prog_check "the lane brackets the run (parse done / fold done)" \
+  "$(printf '%s' "$prog_err1" | grep -q 'progress parse done' && \
+     printf '%s' "$prog_err1" | grep -q 'progress fold done' && echo ok)"
+# the rejecting fixture: still exit 1, still naming the declaration
+prog_errB=$(LECH_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_BAD" 2>&1 >/dev/null)
+prog_codeB=$?
+prog_check "stride 1 still rejects the bad fixture (exit 1)" \
+  "$([ "$prog_codeB" = 1 ] && echo ok)"
+prog_check "the rejection still names the failing declaration" \
+  "$(printf '%s' "$prog_errB" | grep -q '\[at .*, fold position [0-9]' && echo ok)"
+echo "progress lane: $prog_ok/$prog_total as expected"
 
 # The mode sweep (task #147): both suites again with `--trusted`
 # (certified expectations plus the recorded overrides in

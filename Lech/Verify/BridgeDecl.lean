@@ -1,0 +1,906 @@
+import Lech.Verify.Bridge
+
+/-!
+# The cache-refinement bridge, part C: the declaration checker
+
+The declaration checker is monad-polymorphic over a `CheckerOps`
+record, so the same pair-monad game applies: `bridgeRel` relates
+monotone fueled families to plain executable computations
+("success on the executable side is reproduced at some fuel"), the
+fueled/cached operation records are related by part B's entry-point
+bridges, and the projection batteries push the pairing through every
+declaration-checker function.  The punchline: a successful
+`checkDecls mode (wfOpsM mode)` run is reproduced by `checkDecls mode (fueledOps mode F)`
+for some fuel `F`.
+
+**The file split (task #184, the build-time audit).**  This module is the
+*consumed* half: the operation records (`bridgeRel`, `OpsRel`, `pairOps`,
+`fueledOpsM`, `wfOpsM` and the `wfOpsM_*` equations) and the `atF` battery
+— for every `check*` function, `(… (fueledOpsM …) …).val F = … (fueledOps …
+F) …`, which is what `Verify/BridgeWfImp` and the cached lane's
+`Verify/Cached/Bridge*` rewrite by.  The pair-monad projection battery
+(`X_fst_dproj` / `X_snd_dproj`, theorems that nothing outside their own file
+consumes) moved to `Lech/Verify/BridgeDeclPair.lean`, which the `Lech`
+umbrella imports so that it stays built and gated.
+
+Why: the two batteries share nothing but the declarations above, and together
+they were the largest node on the build's critical path (57 s of 203 s).
+Apart, the projection battery elaborates in parallel and only the consumed
+half stays on the chain.  No statement changed and the module name did not
+move, so the frozen proof-dependency pin (`tests/proofdeps.sh`) is untouched.
+-/
+
+set_option linter.unusedSimpArgs false
+set_option maxHeartbeats 3200000
+
+namespace Lech
+
+variable {mode : CheckMode}
+
+/-- Success on the executable side is reproduced at some fuel. -/
+def bridgeRel : MonadRel FueledM CheckM where
+  R p c := ∀ v, c = .ok v → ∃ F, p.val F = .ok v
+  pure_rel a := fun v h => ⟨0, by cases h; rfl⟩
+  bind_rel {α β x₁ x₂ f₁ f₂} hx hf := by
+    intro v h
+    simp only [Bind.bind] at h
+    cases hx2 : x₂ with
+    | error e => rw [hx2] at h; exact nomatch h
+    | ok a =>
+      rw [hx2] at h
+      dsimp only [Except.bind] at h
+      obtain ⟨F₁, h1⟩ := hx a hx2
+      obtain ⟨F₂, h2⟩ := hf a v h
+      refine ⟨max F₁ F₂, ?_⟩
+      rw [FueledM.atF_bind]
+      simp only [Bind.bind]
+      rw [x₁.property (Nat.le_max_left F₁ F₂) h1]
+      dsimp only [Except.bind]
+      exact (f₁ a).property (Nat.le_max_right F₁ F₂) h2
+  throw_rel e := fun v h => nomatch h
+
+/-- Componentwise relatedness of two operation records. -/
+def OpsRel {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
+    [MonadExceptOf CheckError M₁] [MonadExceptOf CheckError M₂]
+    (rel : MonadRel M₁ M₂) (o₁ : CheckerOps M₁) (o₂ : CheckerOps M₂) :
+    Prop :=
+  (∀ env d e, rel.R (o₁.annotate env d e) (o₂.annotate env d e)) ∧
+  (∀ env d e, rel.R (o₁.inferType env d e) (o₂.inferType env d e)) ∧
+  (∀ env d a b, rel.R (o₁.isDefEq env d a b) (o₂.isDefEq env d a b)) ∧
+  (∀ env d e, rel.R (o₁.ensureSort env d e) (o₂.ensureSort env d e)) ∧
+  (∀ env d e, rel.R (o₁.whnf env d e) (o₂.whnf env d e))
+
+/-- The paired operation record. -/
+def pairOps {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
+    [MonadExceptOf CheckError M₁] [MonadExceptOf CheckError M₂]
+    {rel : MonadRel M₁ M₂} (o₁ : CheckerOps M₁) (o₂ : CheckerOps M₂)
+    (h : OpsRel rel o₁ o₂) : CheckerOps (PairM rel) where
+  annotate env d e := ⟨(o₁.annotate env d e, o₂.annotate env d e), h.1 env d e⟩
+  inferType env d e :=
+    ⟨(o₁.inferType env d e, o₂.inferType env d e), h.2.1 env d e⟩
+  isDefEq env d a b :=
+    ⟨(o₁.isDefEq env d a b, o₂.isDefEq env d a b), h.2.2.1 env d a b⟩
+  ensureSort env d e :=
+    ⟨(o₁.ensureSort env d e, o₂.ensureSort env d e), h.2.2.2.1 env d e⟩
+  whnf env d e := ⟨(o₁.whnf env d e, o₂.whnf env d e), h.2.2.2.2 env d e⟩
+
+/-- The fueled operations as monotone families. -/
+def fueledOpsM (mode : CheckMode) : CheckerOps FueledM where
+  annotate env d e :=
+    ⟨fun F => annotateCore mode env F d e, fun hle h => annotateCore_mono hle h⟩
+  inferType env d e :=
+    ⟨fun F => inferTypeCore mode env F d e, fun hle h => inferTypeCore_mono hle h⟩
+  isDefEq env d a b :=
+    ⟨fun F => isDefEqCore mode env F d a b, fun hle h => isDefEqCore_mono hle h⟩
+  ensureSort env d e :=
+    ⟨fun F => ensureSortCore mode env F d e, fun hle h => ensureSortCore_mono hle h⟩
+  whnf env d e :=
+    ⟨fun F => whnf mode env F d e, fun hle h => whnf_mono hle h⟩
+
+/-! ## The WF-conditional fueled comparand
+
+Part B's entry-point bridges hold only over well-formed environments
+(`EnvWF` — the depth-free memo cache is justified by depth invariance,
+which needs it), and there is **no runtime check** for `EnvWF`: the
+executable always runs the memoized knot.  To keep the pair-monad
+battery unconditional, the fueled comparand is chosen per environment:
+over a well-formed environment it is the pure fueled family, otherwise
+the constant family that merely repeats the cached run (trivially
+related).  The battery then yields, for *every* environment: a
+successful cached `checkDecl` run is reproduced by its `wfOpsM mode`
+instantiation at some fuel (`checkDecl_wfOpsM_bridge`).
+`Lech/Model/BridgeWF.lean` turns `wfOpsM mode` runs into pure `fueledOps`
+runs by threading `EnvWF` — obtained there from the environment
+model — through the declaration checker's intermediate environments,
+using the `*_wfeq` equalities below. -/
+
+open Classical in
+/-- The fueled families over well-formed environments *and* well-scoped
+arguments (both are hypotheses of part B's entry-point bridges — the
+executable's memo operations carry no runtime check for either); the
+constant `.internal` error (a trivially monotone family) otherwise.
+
+Task #172: the `otherwise` branch used to be the interned executable's
+own run, which is what made the entry-point bridges unconditional in
+the environment.  With that executable deleted the branch has no
+consumer — every surviving use of `wfOpsM` goes through the `if_pos`
+equations below — so it is a constant. -/
+noncomputable def wfOpsM (mode : CheckMode) : CheckerOps FueledM where
+  annotate env d e :=
+    if EnvWF env ∧ e.wscopedB d = true then
+      ⟨fun F => annotateCore mode env F d e, fun hle h => annotateCore_mono hle h⟩
+    else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
+      fun _ h => h⟩
+  inferType env d e :=
+    if EnvWF env ∧ e.wscopedB d = true then
+      ⟨fun F => inferTypeCore mode env F d e,
+        fun hle h => inferTypeCore_mono hle h⟩
+    else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
+      fun _ h => h⟩
+  isDefEq env d a b :=
+    if EnvWF env ∧ a.wscopedB d = true ∧ b.wscopedB d = true then
+      ⟨fun F => isDefEqCore mode env F d a b, fun hle h => isDefEqCore_mono hle h⟩
+    else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
+      fun _ h => h⟩
+  ensureSort env d e :=
+    if EnvWF env ∧ e.wscopedB d = true then
+      ⟨fun F => ensureSortCore mode env F d e,
+        fun hle h => ensureSortCore_mono hle h⟩
+    else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
+      fun _ h => h⟩
+  whnf env d e :=
+    if EnvWF env ∧ e.wscopedB d = true then
+      ⟨fun F => whnf mode env F d e, fun hle h => whnf_mono hle h⟩
+    else ⟨fun _ => throw (.internal "wfOpsM: precondition failed"),
+      fun _ h => h⟩
+
+/-- Over a well-formed environment and a well-scoped argument `wfOpsM mode`
+*is* the fueled record. -/
+theorem wfOpsM_annotate {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
+    (hg : e.wscopedB d = true) :
+    (wfOpsM mode).annotate env d e = (fueledOpsM mode).annotate env d e := by
+  dsimp only [wfOpsM, fueledOpsM]
+  exact if_pos ⟨henv, hg⟩
+
+theorem wfOpsM_inferType {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
+    (hg : e.wscopedB d = true) :
+    (wfOpsM mode).inferType env d e = (fueledOpsM mode).inferType env d e := by
+  dsimp only [wfOpsM, fueledOpsM]
+  exact if_pos ⟨henv, hg⟩
+
+theorem wfOpsM_isDefEq {env : Env} (henv : EnvWF env) {d : Nat} {a b : Expr}
+    (hga : a.wscopedB d = true) (hgb : b.wscopedB d = true) :
+    (wfOpsM mode).isDefEq env d a b = (fueledOpsM mode).isDefEq env d a b := by
+  dsimp only [wfOpsM, fueledOpsM]
+  exact if_pos ⟨henv, hga, hgb⟩
+
+theorem wfOpsM_ensureSort {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
+    (hg : e.wscopedB d = true) :
+    (wfOpsM mode).ensureSort env d e = (fueledOpsM mode).ensureSort env d e := by
+  dsimp only [wfOpsM, fueledOpsM]
+  exact if_pos ⟨henv, hg⟩
+
+theorem wfOpsM_whnf {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
+    (hg : e.wscopedB d = true) :
+    (wfOpsM mode).whnf env d e = (fueledOpsM mode).whnf env d e := by
+  dsimp only [wfOpsM, fueledOpsM]
+  exact if_pos ⟨henv, hg⟩
+
+/-! ## The `atF` battery: fueled-family runs are fueled-ops runs -/
+
+theorem foldlM_atF {α β : Type} (g : β → α → FueledM β) (F : Nat) :
+    ∀ (l : List α) (init : β),
+      (l.foldlM g init).val F =
+        l.foldlM (fun b a => (g b a).val F) init
+  | [], init => rfl
+  | a :: l, init => by
+    show ((g init a >>= fun b => l.foldlM g b : FueledM β)).val F = _
+    rw [FueledM.atF_bind]
+    show _ = (g init a).val F >>= fun b =>
+      l.foldlM (fun b a => (g b a).val F) b
+    congr 1
+    funext b
+    exact foldlM_atF g F l b
+
+macro "datF_step_alt" : tactic =>
+  `(tactic| first
+    | (rw [liftFueled_atF])
+    | (rw [foldlM_atF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only []))
+
+macro "datF_step" : tactic => `(tactic| repeat datF_step_alt)
+
+macro "datF_tac" : tactic =>
+  `(tactic| repeat' datF_step_alt)
+
+theorem checkConstantVal_datF (env : Env) (cv : ConstantVal) (F : Nat) :
+    (checkConstantVal (fueledOpsM mode) env cv).val F =
+      checkConstantVal (fueledOps mode F) env cv := by
+  unfold checkConstantVal
+  datF_tac
+
+theorem checkProjLookups_datF (env' : Env) (T ctorName : Name) (lps : List Name) (nP nF i : Nat) (F : Nat) :
+    (checkProjLookups env' T ctorName lps nP nF i : FueledM _).val F =
+      (checkProjLookups env' T ctorName lps nP nF i : CheckM _) := by
+  unfold checkProjLookups
+  datF_tac
+
+theorem checkProjTy_datF (env' : Env) (T ctorName : Name) (lps : List Name) (mty : Expr) (nP nF : Nat) (F : Nat) :
+    (checkProjTy env' T ctorName lps mty nP nF : FueledM _).val F =
+      (checkProjTy env' T ctorName lps mty nP nF : CheckM _) := by
+  unfold checkProjTy
+  datF_tac
+
+theorem checkProjShape_datF (pty cty : Expr) (nP nF : Nat) (F : Nat) :
+    (checkProjShape pty cty nP nF : FueledM _).val F =
+      checkProjShape (m := CheckM) pty cty nP nF := by
+  unfold checkProjShape
+  datF_tac
+
+theorem fueledOpsM_isDefEq_atF (env : Env) (d : Nat) (a b : Expr)
+    (F : Nat) :
+    ((fueledOpsM mode).isDefEq env d a b).val F =
+      (fueledOps mode F).isDefEq env d a b := rfl
+
+theorem unwrapOr_atF {α : Type} (o : Option α) (e : CheckError)
+    (F : Nat) :
+    (unwrapOr o e : FueledM α).val F = (unwrapOr o e : CheckM α) := by
+  cases o <;> rfl
+
+theorem checkDefEqList_datF (env : Env) (depth F : Nat) :
+    ∀ (as bs : List Expr),
+      (checkDefEqList (fueledOpsM mode) env depth as bs).val F =
+      checkDefEqList (fueledOps mode F) env depth as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkDefEqList
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      fueledOpsM_isDefEq_atF, checkDefEqList_datF env depth F as bs]
+
+theorem fueledOpsM_inferType_atF (env : Env) (d : Nat) (a : Expr)
+    (F : Nat) :
+    ((fueledOpsM mode).inferType env d a).val F =
+      (fueledOps mode F).inferType env d a := rfl
+
+theorem checkTypedList_datF (env : Env) (depth F : Nat) :
+    ∀ (as bs : List Expr),
+      (checkTypedList (fueledOpsM mode) env depth as bs).val F =
+      checkTypedList (fueledOps mode F) env depth as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkTypedList
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
+      checkTypedList_datF env depth F as bs]
+
+theorem fueledOpsM_annotate_atF' (env : Env) (d : Nat) (a : Expr)
+    (F : Nat) :
+    ((fueledOpsM mode).annotate env d a).val F =
+      (fueledOps mode F).annotate env d a := rfl
+
+theorem checkAnnotList_datF (env : Env) (depth F : Nat) :
+    ∀ (as : List Expr),
+      (checkAnnotList (fueledOpsM mode) env depth as).val F =
+      checkAnnotList (fueledOps mode F) env depth as
+  | [] => rfl
+  | a :: as => by
+    unfold checkAnnotList
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_annotate_atF',
+      checkAnnotList_datF env depth F as]
+
+theorem checkIotaSidesTy_datF (envSelf : Env) (depth : Nat)
+    (alphaS lhsS rhsS : Expr) (ℓA : Level) (cvName : Name) (F : Nat) :
+    (checkIotaSidesTy mode (fueledOpsM mode) envSelf depth alphaS lhsS rhsS
+      ℓA cvName).val F =
+    checkIotaSidesTy mode (fueledOps mode F) envSelf depth alphaS lhsS rhsS
+      ℓA cvName := by
+  unfold checkIotaSidesTy
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF]
+
+macro "datF_stepPI_alt" : tactic =>
+  `(tactic| first
+    | (rw [checkIotaSidesTy_datF])
+    | (rw [unwrapOr_atF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only []))
+
+macro "datF_stepPI" : tactic => `(tactic| repeat datF_stepPI_alt)
+
+theorem checkProjIota_datF (env' envSelf : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) (F : Nat) :
+    (checkProjIota mode (fueledOpsM mode) env' envSelf T ctorName lps cvj nP nF i).val F =
+      checkProjIota mode (fueledOps mode F) env' envSelf T ctorName lps cvj nP nF i := by
+  unfold checkProjIota
+  repeat' datF_stepPI_alt
+
+theorem checkIotaThm_datF (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (cnP cnF : Nat) (rhsA : Expr) (F : Nat) :
+    (checkIotaThm mode (fueledOpsM mode) env' envSelf f cvName lps tyA
+      mI rP j r cvj cnP cnF rhsA).val F =
+    checkIotaThm mode (fueledOps mode F) env' envSelf f cvName lps tyA mI rP
+      j r cvj cnP cnF rhsA := by
+  unfold checkIotaThm
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF, unwrapOr_atF,
+    checkDefEqList_datF, checkTypedList_datF, checkIotaSidesTy_datF]
+
+theorem checkIotaThmN_datF (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (cnP cnF : Nat) (rhsA : Expr) (F : Nat) :
+    (checkIotaThmN mode (fueledOpsM mode) env' envSelf f cvName lps tyA
+      mI rP j r cvj cnP cnF rhsA).val F =
+    checkIotaThmN mode (fueledOps mode F) env' envSelf f cvName lps tyA mI rP
+      j r cvj cnP cnF rhsA := by
+  unfold checkIotaThmN
+  split
+  · rfl
+  · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF, unwrapOr_atF,
+      checkDefEqList_datF, checkTypedList_datF, checkAnnotList_datF,
+      checkIotaSidesTy_datF]
+
+set_option maxHeartbeats 12800000 in
+theorem checkIotaRule_datF (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (mI rP j : Nat) (r : RecRule) (F : Nat) :
+    (checkIotaRule mode (fueledOpsM mode) env' envSelf f cvName lps tyA
+      mI rP j r).val F =
+    checkIotaRule mode (fueledOps mode F) env' envSelf f cvName lps tyA
+      mI rP j r := by
+  unfold checkIotaRule
+  datF_tac
+  all_goals first
+  | rw [checkIotaThm_datF]
+  | rw [checkIotaThmN_datF]
+
+theorem checkIotaRules_datF (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (mI rP : Nat) (F : Nat) :
+    ∀ (j : Nat) (rules : List RecRule),
+      (checkIotaRules mode (fueledOpsM mode) env' envSelf f cvName lps tyA
+        mI rP j rules).val F =
+      checkIotaRules mode (fueledOps mode F) env' envSelf f cvName lps tyA
+        mI rP j rules
+  | _, [] => rfl
+  | j, r :: rest => by
+    show ((do
+        let r' ← checkIotaRule mode (fueledOpsM mode) env' envSelf f cvName lps tyA
+          mI rP j r
+        let rest' ← checkIotaRules mode (fueledOpsM mode) env' envSelf f cvName lps
+          tyA mI rP (j + 1) rest
+        pure (r' :: rest') : FueledM _)).val F = (do
+        let r' ← checkIotaRule mode (fueledOps mode F) env' envSelf f cvName lps
+          tyA mI rP j r
+        let rest' ← checkIotaRules mode (fueledOps mode F) env' envSelf f cvName
+          lps tyA mI rP (j + 1) rest
+        pure (r' :: rest'))
+    rw [FueledM.atF_bind, checkIotaRule_datF]
+    congr 1
+    funext r'
+    rw [FueledM.atF_bind, checkIotaRules_datF env' envSelf f cvName lps
+      tyA mI rP F (j + 1) rest]
+    rfl
+
+macro "datF_step2_alt" : tactic =>
+  `(tactic| first
+    | (rw [liftFueled_atF])
+    | (rw [foldlM_atF])
+    | (rw [checkConstantVal_datF])
+    | (rw [checkProjLookups_datF])
+    | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
+    | (rw [checkProjIota_datF])
+    | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
+    | (rw [checkIndMember_datF])
+    | (rw [checkIotaRule_datF])
+    | (rw [checkIotaRules_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only []))
+
+macro "datF_step2" : tactic => `(tactic| repeat datF_step2_alt)
+
+macro "datF_tac2" : tactic =>
+  `(tactic| repeat' datF_step2_alt)
+
+theorem checkProjRule_datF (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) (F : Nat) :
+    (checkProjRule (fueledOpsM mode) env' pty cvj lps nP nF i).val F =
+      checkProjRule (fueledOps mode F) env' pty cvj lps nP nF i := by
+  unfold checkProjRule
+  datF_tac2 <;> datF_step2 <;> datF_step2
+
+theorem checkMemberVal_datF (blockNames : List Name)
+    (env' : Env) (cv : ConstantVal) (F : Nat) :
+    (checkMemberVal (fueledOpsM mode) blockNames env' cv).val F =
+      checkMemberVal (fueledOps mode F) blockNames env' cv := by
+  unfold checkMemberVal
+  datF_tac2
+
+theorem checkIndMember_datF (blockNames : List Name) (caps : IndCaps) (env' : Env) (ci : ConstantInfo) (F : Nat) :
+    (checkIndMember (fueledOpsM mode) blockNames caps env' ci).val F =
+      checkIndMember (fueledOps mode F) blockNames caps env' ci := by
+  unfold checkIndMember
+  datF_tac2
+  all_goals rw [checkMemberVal_datF]
+
+theorem provisionRecs_datF (blockNames : List Name) (F : Nat) :
+    ∀ (envAcc : Env) (recs : List ConstantInfo),
+      (provisionRecs (fueledOpsM mode) blockNames envAcc recs).val F =
+      provisionRecs (fueledOps mode F) blockNames envAcc recs
+  | _, [] => rfl
+  | envAcc, ci :: rest => by
+    unfold provisionRecs
+    (datF_step2 <;> datF_step2) <;>
+      first
+        | (rw [checkMemberVal_datF])
+        | exact provisionRecs_datF blockNames F _ rest
+        | rfl
+
+theorem checkIndRecs_datF (blockNames : List Name) (env₂ : Env)
+    (recs : List ConstantInfo) (F : Nat) :
+    (checkIndRecs mode (fueledOpsM mode) blockNames env₂ recs).val F =
+      checkIndRecs mode (fueledOps mode F) blockNames env₂ recs := by
+  unfold checkIndRecs
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    provisionRecs_datF, foldlM_atF, checkIotaRules_datF]
+
+macro "datF_step3_alt" : tactic =>
+  `(tactic| first
+    | (rw [liftFueled_atF])
+    | (rw [foldlM_atF])
+    | (rw [checkConstantVal_datF])
+    | (rw [checkProjLookups_datF])
+    | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
+    | (rw [checkProjIota_datF])
+    | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
+    | (rw [checkIndMember_datF])
+    | (rw [checkIotaRule_datF])
+    | (rw [checkIotaRules_datF])
+    | (rw [checkProjFn_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only []))
+
+macro "datF_step3" : tactic => `(tactic| repeat datF_step3_alt)
+
+macro "datF_tac3" : tactic =>
+  `(tactic| repeat' datF_step3_alt)
+
+theorem checkProjFn_datF (env' : Env) (T ctorName : Name) (lps : List Name) (nP nF i : Nat) (F : Nat) :
+    (checkProjFn mode (fueledOpsM mode) env' T ctorName lps nP nF i).val F =
+      checkProjFn mode (fueledOps mode F) env' T ctorName lps nP nF i := by
+  unfold checkProjFn
+  datF_tac3 <;> datF_step3 <;> datF_step3 <;> datF_step3
+
+theorem installProjFnStep_datF (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) (F : Nat) :
+    (installProjFnStep mode (fueledOpsM mode) T ctorName lps nP nF e i).val F
+      = installProjFnStep mode (fueledOps mode F) T ctorName lps nP nF e i := by
+  unfold installProjFnStep
+  split
+  · exact checkProjFn_datF e T ctorName lps nP nF i F
+  · rfl
+
+theorem installBasisDecl_datF (env : Env) (ci : ConstantInfo) (F : Nat) :
+    (installBasisDecl env ci : FueledM _).val F =
+      (installBasisDecl env ci : CheckM _) := by
+  unfold installBasisDecl
+  datF_tac
+
+/-! ### The direct simple-structure path, at fuel `F` -/
+
+theorem fueledOpsM_annotate_atF (env : Env) (d : Nat) (a : Expr)
+    (F : Nat) :
+    ((fueledOpsM mode).annotate env d a).val F =
+      (fueledOps mode F).annotate env d a := rfl
+
+theorem fueledOpsM_ensureSort_atF (env : Env) (d : Nat) (a : Expr)
+    (F : Nat) :
+    ((fueledOpsM mode).ensureSort env d a).val F =
+      (fueledOps mode F).ensureSort env d a := rfl
+
+theorem checkDirectFieldSorts_datF (env : Env) (isProp large : Bool)
+    (s : Level) (nP : Nat) (fvs : List Expr) (F : Nat) :
+    ∀ j : Nat,
+      (checkDirectFieldSorts (fueledOpsM mode) env isProp large s nP fvs
+          j).val F =
+        checkDirectFieldSorts (fueledOps mode F) env isProp large s nP fvs j
+  | 0 => rfl
+  | j + 1 => by
+    unfold checkDirectFieldSorts
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
+      liftFueled_atF, unwrapOr_atF,
+      checkDirectFieldSorts_datF env isProp large s nP fvs F j]
+
+theorem checkDirectDomsAt_datF (env : Env) (off : Nat)
+    (fvs doms : List Expr) (F : Nat) :
+    ∀ j : Nat,
+      (checkDirectDomsAt (fueledOpsM mode) env off fvs doms j).val F =
+        checkDirectDomsAt (fueledOps mode F) env off fvs doms j
+  | 0 => rfl
+  | j + 1 => by
+    unfold checkDirectDomsAt
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_isDefEq_atF, unwrapOr_atF,
+      checkDirectDomsAt_datF env off fvs doms F j]
+
+theorem checkDirectInd_datF (env : Env) (p : DirectParts) (F : Nat) :
+    (checkDirectInd (fueledOpsM mode) env p).val F =
+      checkDirectInd (fueledOps mode F) env p := by
+  unfold checkDirectInd
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF]
+
+theorem checkDirectCtor_datF (env₀ env : Env) (p : DirectParts)
+    (cvTa : ConstantVal) (F : Nat) :
+    (checkDirectCtor (fueledOpsM mode) env₀ env p cvTa).val F =
+      checkDirectCtor (fueledOps mode F) env₀ env p cvTa := by
+  unfold checkDirectCtor
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
+    checkDirectFieldSorts_datF, checkDirectDomsAt_datF]
+
+theorem checkDirectRec_datF (env : Env) (p : DirectParts)
+    (cvTa cvCa : ConstantVal) (F : Nat) :
+    (checkDirectRec (fueledOpsM mode) env p cvTa cvCa).val F =
+      checkDirectRec (fueledOps mode F) env p cvTa cvCa := by
+  unfold checkDirectRec
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
+    fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF]
+
+theorem checkDirectProjTable_datF (T C : Name) (lps : List Name)
+    (nP nF : Nat) (rs : Level) (guards : List Level) (cvCa : ConstantVal)
+    (env : Env) (F : Nat) :
+    (checkDirectProjTable T C lps nP nF rs guards cvCa env : FueledM _).val F =
+      (checkDirectProjTable T C lps nP nF rs guards cvCa env : CheckM _) := by
+  unfold checkDirectProjTable
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, unwrapOr_atF]
+
+theorem checkDirectStruct_datF (env : Env) (p : DirectParts) (F : Nat) :
+    (checkDirectStruct (fueledOpsM mode) env p).val F =
+      checkDirectStruct (fueledOps mode F) env p := by
+  unfold checkDirectStruct
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, checkConstantVal_datF,
+    checkDirectInd_datF, checkDirectCtor_datF, checkDirectRec_datF,
+    checkDirectProjTable_datF]
+
+/-! ### The direct sum route (task #175 sum-types) -/
+
+theorem checkDirectSumInd_datF (env : Env) (p : DirectSumParts) (F : Nat) :
+    (checkDirectSumInd (fueledOpsM mode) env p).val F =
+      checkDirectSumInd (fueledOps mode F) env p := by
+  unfold checkDirectSumInd
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF]
+
+/-- `checkDirectFieldSortsI` (task #175 indexed) at fuel `F`. -/
+theorem checkDirectFieldSortsI_datF (env : Env) (isProp large : Bool)
+    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) (F : Nat) :
+    ∀ j : Nat,
+      (checkDirectFieldSortsI (fueledOpsM mode) env isProp large s nP fvs idxArgs
+          j).val F =
+        checkDirectFieldSortsI (fueledOps mode F) env isProp large s nP fvs idxArgs j
+  | 0 => rfl
+  | j + 1 => by
+    unfold checkDirectFieldSortsI
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
+      liftFueled_atF, unwrapOr_atF,
+      checkDirectFieldSortsI_datF env isProp large s nP fvs idxArgs F j]
+
+theorem checkDirectSumCtor_datF (env₀ env : Env) (T : Name) (lps : List Name)
+    (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
+    (cvTa : ConstantVal) (F : Nat) :
+    (checkDirectSumCtor (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
+      cvC nF cvTa).val F =
+      checkDirectSumCtor (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
+        cvC nF cvTa := by
+  unfold checkDirectSumCtor
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
+    checkDirectFieldSortsI_datF, checkDirectDomsAt_datF]
+
+theorem checkDirectSumCtors_datF (env₀ env : Env) (T : Name) (lps : List Name)
+    (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) (F : Nat) :
+    ∀ cs : List (ConstantVal × Nat),
+      (checkDirectSumCtors (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
+        cvTa cs).val F =
+        checkDirectSumCtors (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
+          cvTa cs
+  | [] => rfl
+  | c :: cs => by
+    unfold checkDirectSumCtors
+    simp only [FueledM.atF_bind, FueledM.atF_pure, checkDirectSumCtor_datF,
+      checkDirectSumCtors_datF env₀ env T lps nP nIdx rs isProp large cvTa F cs]
+
+theorem checkDirectSumRules_datF (env : Env) (rlps : List Name) (T : Name)
+    (lps : List Name) (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
+    (ctors : List (Name × Nat × Expr)) (F : Nat) :
+    ∀ k j : Nat,
+      (checkDirectSumRules (fueledOpsM mode) env rlps T lps elim large nP nIdx tty
+        ctors k j).val F =
+        checkDirectSumRules (fueledOps mode F) env rlps T lps elim large nP nIdx tty
+          ctors k j
+  | 0, _ => rfl
+  | k + 1, j => by
+    unfold checkDirectSumRules
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      fueledOpsM_inferType_atF, unwrapOr_atF,
+      checkDirectSumRules_datF env rlps T lps elim large nP nIdx tty ctors F k (j + 1)]
+
+theorem checkDirectSumRec_datF (env : Env) (p : DirectSumParts)
+    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) (F : Nat) :
+    (checkDirectSumRec (fueledOpsM mode) env p cvTa ctorsA).val F =
+      checkDirectSumRec (fueledOps mode F) env p cvTa ctorsA := by
+  unfold checkDirectSumRec
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
+    fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF,
+    checkDirectSumRules_datF]
+
+theorem checkDirectSum_datF (env : Env) (p : DirectSumParts) (F : Nat) :
+    (checkDirectSum (fueledOpsM mode) env p).val F =
+      checkDirectSum (fueledOps mode F) env p := by
+  unfold checkDirectSum
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, checkDirectSumInd_datF, checkDirectSumCtors_datF,
+    checkDirectSumRec_datF]
+
+macro "datF_step4_alt" : tactic =>
+  `(tactic| first
+    | (rw [liftFueled_atF])
+    | (rw [foldlM_atF])
+    | (simp only [checkIndMember_datF, checkProjFn_datF,
+        installProjFnStep_datF, installBasisDecl_datF])
+    | (rw [checkConstantVal_datF])
+    | (rw [checkProjLookups_datF])
+    | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
+    | (rw [checkProjIota_datF])
+    | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
+    | (rw [checkIndMember_datF])
+    | (rw [checkIotaRule_datF])
+    | (rw [checkIotaRules_datF])
+    | (rw [checkIndRecs_datF])
+    | (rw [checkProjFn_datF])
+    | (rw [checkDirectStruct_datF])
+    | (rw [checkIndDecl_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only []))
+
+macro "datF_step4" : tactic => `(tactic| repeat datF_step4_alt)
+
+macro "datF_tac4" : tactic =>
+  `(tactic| repeat' datF_step4_alt)
+
+theorem checkIndDecl_datF (env : Env) (block : List ConstantInfo) (F : Nat) :
+    (checkIndDecl mode (fueledOpsM mode) env block).val F =
+      checkIndDecl mode (fueledOps mode F) env block := by
+  unfold checkIndDecl
+  datF_tac4
+
+macro "datF_step5_alt" : tactic =>
+  `(tactic| first
+    | (rw [liftFueled_atF])
+    | (rw [foldlM_atF])
+    | (simp only [checkIndMember_datF, checkProjFn_datF,
+        installProjFnStep_datF, installBasisDecl_datF,
+        checkIndDecl_datF])
+    | (rw [checkConstantVal_datF])
+    | (rw [checkProjLookups_datF])
+    | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
+    | (rw [checkProjIota_datF])
+    | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
+    | (rw [checkIndMember_datF])
+    | (rw [checkIotaRule_datF])
+    | (rw [checkIotaRules_datF])
+    | (rw [checkIndRecs_datF])
+    | (rw [checkProjFn_datF])
+    | (rw [checkDirectStruct_datF])
+    | (rw [checkIndDecl_datF])
+    | (rw [checkDecl_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only []))
+
+macro "datF_step5" : tactic => `(tactic| repeat datF_step5_alt)
+
+macro "datF_tac5" : tactic =>
+  `(tactic| repeat' datF_step5_alt)
+
+theorem checkDefnVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
+    (hint : ReducibilityHint) (F : Nat) :
+    (checkDefnVal (fueledOpsM mode) env cv value hint).val F =
+      checkDefnVal (fueledOps mode F) env cv value hint := by
+  unfold checkDefnVal
+  datF_tac
+
+theorem checkThmVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
+    (F : Nat) :
+    (checkThmVal (fueledOpsM mode) env cv value).val F =
+      checkThmVal (fueledOps mode F) env cv value := by
+  unfold checkThmVal
+  datF_tac
+
+theorem checkOpaqueVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
+    (F : Nat) :
+    (checkOpaqueVal (fueledOpsM mode) env cv value).val F =
+      checkOpaqueVal (fueledOps mode F) env cv value := by
+  unfold checkOpaqueVal
+  datF_tac
+
+theorem certifyNatEqs_datF (env : Env) (F : Nat) :
+    ∀ eqs : List (Expr × Expr),
+      (certifyNatEqs (fueledOpsM mode) env eqs).val F =
+        certifyNatEqs (fueledOps mode F) env eqs
+  | [] => rfl
+  | eq :: rest => by
+    show ((do
+        if ← CheckerOps.isDefEq (fueledOpsM mode) env 2 eq.1 eq.2 then
+          certifyNatEqs (fueledOpsM mode) env rest
+        else pure false : FueledM _)).val F = _
+    rw [FueledM.atF_bind]
+    show _ = (do
+        if ← CheckerOps.isDefEq (fueledOps mode F) env 2 eq.1 eq.2 then
+          certifyNatEqs (fueledOps mode F) env rest
+        else pure false : CheckM _)
+    congr 1
+    funext b
+    cases b with
+    | true => exact certifyNatEqs_datF env F rest
+    | false => rfl
+
+theorem checkDivModCerts_datF (env : Env) (c : Name) (annVal : Expr)
+    (F : Nat) :
+    ∀ (stmts : List (List Expr × Expr)) (proofs : List Expr),
+      (checkDivModCerts (fueledOpsM mode) env c annVal stmts proofs).val F =
+        checkDivModCerts (fueledOps mode F) env c annVal stmts proofs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | (hyps, eqE) :: srest, proof :: prest => by
+    simp only [checkDivModCerts]
+    split
+    · rw [FueledM.atF_bind]
+      congr 1
+      funext appliedA
+      rw [FueledM.atF_bind]
+      congr 1
+      funext tp
+      rw [FueledM.atF_bind]
+      congr 1
+      funext b
+      cases b with
+      | true => exact checkDivModCerts_datF env c annVal F srest prest
+      | false => rfl
+    · rfl
+
+theorem checkDivModPin_datF (env env2 : Env) (c : Name) (F : Nat) :
+    (checkDivModPin (fueledOpsM mode) env env2 c).val F =
+      checkDivModPin (fueledOps mode F) env env2 c := by
+  unfold checkDivModPin
+  repeat (first
+    | (rw [checkDivModCerts_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
+
+theorem checkReducePin_datF (env env2 : Env) (c : Name) (value : Expr)
+    (F : Nat) :
+    (checkReducePin (fueledOpsM mode) env env2 c value).val F =
+      checkReducePin (fueledOps mode F) env env2 c value := by
+  unfold checkReducePin
+  repeat (first
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
+
+theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
+    (checkDecl mode (fueledOpsM mode) env d).val F =
+      checkDecl mode (fueledOps mode F) env d := by
+  unfold checkDecl
+  cases d with
+  | defnDecl cv value hint =>
+    dsimp only
+    rw [FueledM.atF_bind, checkConstantVal_datF]
+    congr 1
+    funext cv'
+    rw [FueledM.atF_bind, checkDefnVal_datF]
+    congr 1
+    funext env2
+    repeat (first
+      | (rw [certifyNatEqs_datF])
+      | (rw [checkDivModPin_datF])
+      | split
+      | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+      | rfl
+      | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
+  | thmDecl cv value =>
+    show ((checkConstantVal (fueledOpsM mode) env cv >>= fun cv =>
+      checkThmVal (fueledOpsM mode) env cv value : FueledM _)).val F = _
+    rw [FueledM.atF_bind, checkConstantVal_datF]
+    congr 1
+    funext cv'
+    rw [checkThmVal_datF]
+  | opaqueDecl cv value =>
+    dsimp only
+    rw [FueledM.atF_bind, checkConstantVal_datF]
+    congr 1
+    funext cv'
+    rw [FueledM.atF_bind, checkOpaqueVal_datF]
+    congr 1
+    funext env2
+    repeat (first
+      | (rw [checkReducePin_datF])
+      | split
+      | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+      | rfl
+      | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
+  | axiomDecl cv =>
+    dsimp only
+    rw [FueledM.atF_bind, checkConstantVal_datF]
+    congr 1
+    funext cvA
+    simp only [FueledM.atF_ite, FueledM.atF_pure, FueledM.atF_throw]
+  | basisDecl kind =>
+    dsimp only
+    by_cases hq : kind = .quotK
+    · rw [if_pos hq, if_pos hq]
+      by_cases he : env.find? eqName = some eqA
+      · rw [if_pos he, if_pos he, foldlM_atF]
+        simp only [installBasisDecl_datF]
+      · rw [if_neg he, if_neg he, FueledM.atF_bind]
+        simp only [FueledM.atF_throw]
+        congr 1
+        funext x
+        rw [foldlM_atF]
+        simp only [installBasisDecl_datF]
+    · rw [if_neg hq, if_neg hq, foldlM_atF]
+      simp only [installBasisDecl_datF]
+  | indDecl block =>
+    dsimp only
+    split
+    · exact checkDirectStruct_datF env _ F
+    · split
+      · exact checkDirectSum_datF env _ F
+      · exact checkIndDecl_datF env block F
+
+theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
+    (checkDecls mode (fueledOpsM mode) ds).val F =
+      checkDecls mode (fueledOps mode F) ds := by
+  unfold checkDecls
+  rw [foldlM_atF]
+  simp only [checkDecl_datF]
+
+
+end Lech

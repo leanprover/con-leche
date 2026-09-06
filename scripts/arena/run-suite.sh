@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Run the *upstream* Lean Kernel Arena suite against this working tree's
-# setlec, through the arena's own orchestration (`lka.py`), so the exports
+# lech, through the arena's own orchestration (`lka.py`), so the exports
 # are produced exactly the way the arena produces them.
 #
 #   scripts/arena/run-suite.sh clone           # clone/refresh the arena
 #   scripts/arena/run-suite.sh build-tests …   # lka.py build-test (patterns)
-#   scripts/arena/run-suite.sh run …           # lka.py run   --checker setlec
+#   scripts/arena/run-suite.sh run …           # lka.py run   --checker lech
 #   scripts/arena/run-suite.sh table            # print the result table
 #   scripts/arena/run-suite.sh all              # everything but mathlib
 #
@@ -14,10 +14,10 @@
 #
 # THE BIG FOUR (`run-big`: init, std, cedar, cslib — 0.3 to 2.0 GB of raw
 # export each).  They are Mathlib-scale in memory, so: strictly one at a time,
-# `ulimit -v 22000000`, and never while another lane's Mathlib-scale run is
-# live on the machine (`pgrep -f '\.lake/build/bin/setlec'` — check for a
-# FOREIGN one; the cgroup will kill a run otherwise).  `run-small` is the rest
-# and is harmless (the biggest cell is perf/app-lam at ~4 GB).
+# `ulimit -v 22000000`, and only when the machine's single Mathlib-scale slot
+# is yours (ask the coordinator; do NOT poll other lanes' processes).
+# `run-small` is the rest and is harmless (the biggest cell is perf/app-lam at
+# ~4 GB).
 #
 # WHAT THE ARENA NEEDS, AND WHERE IT COMES FROM ON THIS MACHINE
 #   * python + pyyaml/jsonschema/markdown/jinja2 — via `uv run lka.py`
@@ -31,31 +31,31 @@
 #   * rustc/cargo — only needed to BUILD the Rust checkers upstream.  We
 #     never build another checker, so they are not required.
 #
-# The checker definition is scripts/arena/setlec.yaml; it is copied into the
+# The checker definition is scripts/arena/lech.yaml; it is copied into the
 # clone's checkers/ on every run, and takes the binary, the preprocessor, the
 # mode and the limits from the environment (see below), so the arena clone
 # stays a pure checkout.
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-WORK=${SETLEC_ARENA_WORK:-$ROOT/_tmp/arena-suite}
-ARENA=${SETLEC_ARENA_DIR:-$WORK/lean-kernel-arena}
-ARENA_URL=${SETLEC_ARENA_URL:-https://github.com/leanprover/lean-kernel-arena}
+WORK=${LECH_ARENA_WORK:-$ROOT/_tmp/arena-suite}
+ARENA=${LECH_ARENA_DIR:-$WORK/lean-kernel-arena}
+ARENA_URL=${LECH_ARENA_URL:-https://github.com/leanprover/lean-kernel-arena}
 
-export SETLEC_BIN=${SETLEC_BIN:-$ROOT/.lake/build/bin/setlec}
-export SETLEC_PREPROC=${SETLEC_PREPROC:-$ROOT/.lake/build/bin/setlec-preprocess}
-export SETLEC_MODE=${SETLEC_MODE:---verified}
-# Scratch for the preprocessor's temp stream — MUST be on disk: /tmp is a
-# tmpfs here and a Cedar/cslib/Init preprocessing run would put gigabytes of
-# it in RAM.  Exported so the checker's `run` command inherits it, and set as
-# TMPDIR for this script's own children too.
-export SETLEC_TMPDIR=${SETLEC_TMPDIR:-$WORK/tmp}
-mkdir -p "$SETLEC_TMPDIR"
-export TMPDIR=$SETLEC_TMPDIR
+export LECH_BIN=${LECH_BIN:-$ROOT/.lake/build/bin/lech}
+export LECH_PREPROC=${LECH_PREPROC:-$ROOT/.lake/build/bin/lech-preprocess}
+export LECH_MODE=${LECH_MODE:---verified}
+# Scratch.  Since task #180 the preprocessor's output is a pipe, so a run
+# writes no scratch file at all — the multi-gigabyte temp stream that used to
+# land in the tmpfs `/tmp` is gone.  This stays as the project's standing rule
+# for anything that does need scratch (and for lka.py's own children).
+export LECH_TMPDIR=${LECH_TMPDIR:-$WORK/tmp}
+mkdir -p "$LECH_TMPDIR"
+export TMPDIR=$LECH_TMPDIR
 # The standing ceilings for this project: 22 GB / 4 h for the large streams
 # (cedar, cslib, init, std), 16 GB / 50 min otherwise.  Set per invocation.
-export SETLEC_VLIMIT=${SETLEC_VLIMIT:-16000000}
-export SETLEC_TIMEOUT=${SETLEC_TIMEOUT:-3000}
+export LECH_VLIMIT=${LECH_VLIMIT:-16000000}
+export LECH_TIMEOUT=${LECH_TIMEOUT:-3000}
 
 # GNU time (see above).  Anything already on PATH wins.
 # NB `time` is a bash KEYWORD, so `time --version` and `command -v time` both
@@ -87,11 +87,11 @@ do_clone() {
 
 install_checker() {
   [ -d "$ARENA/checkers" ] || { echo "no arena clone at $ARENA (run 'clone')" >&2; exit 1; }
-  cp "$ROOT/scripts/arena/setlec.yaml" "$ARENA/checkers/setlec.yaml"
-  for f in "$SETLEC_BIN" "$SETLEC_PREPROC"; do
+  cp "$ROOT/scripts/arena/lech.yaml" "$ARENA/checkers/lech.yaml"
+  for f in "$LECH_BIN" "$LECH_PREPROC"; do
     [ -x "$f" ] || { echo "missing binary: $f  (lake build)" >&2; exit 1; }
   done
-  lka build-checker setlec
+  lka build-checker lech
 }
 
 # The four multi-hundred-megabyte streams: they get the large ceilings and run
@@ -112,7 +112,7 @@ small_tests() {
 
 run_group() { # $@ = lka test patterns
   install_checker >/dev/null
-  for p in "$@"; do lka run --checker setlec --test "$p"; done
+  for p in "$@"; do lka run --checker lech --test "$p"; done
 }
 
 case "${1:-all}" in
@@ -130,12 +130,12 @@ case "${1:-all}" in
     run_group "${pats[@]}" ;;
   run-big)
     # one at a time, 22 GB / 4 h, and nothing else of ours running
-    SETLEC_VLIMIT=${SETLEC_VLIMIT_BIG:-22000000} \
-    SETLEC_TIMEOUT=${SETLEC_TIMEOUT_BIG:-14400} \
+    LECH_VLIMIT=${LECH_VLIMIT_BIG:-22000000} \
+    LECH_TIMEOUT=${LECH_TIMEOUT_BIG:-14400} \
       run_group $BIG ;;
   table)
     shift
-    python3 "$ROOT/scripts/arena/table.py" "$ARENA" setlec "${1:-$ARENA/_results}" ;;
+    python3 "$ROOT/scripts/arena/table.py" "$ARENA" lech "${1:-$ARENA/_results}" ;;
   all)
     do_clone
     for p in $(all_tests); do lka build-test "$p"; done

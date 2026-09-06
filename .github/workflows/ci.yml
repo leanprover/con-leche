@@ -1,0 +1,159 @@
+# Lech CI (2026-09-06, external review §5.1: "add a CI workflow …
+# until then the headline is unverifiable").
+#
+# ---------------------------------------------------------------------
+# WHAT THIS JOB COVERS
+#
+#   lake build       every library and executable, and it must be
+#                    WARNING-FREE (a `warning:` line fails the job —
+#                    the project rule, enforced nowhere else).
+#   lake test        the `LechTests` library: the `#guard`/`example`
+#                    suite AND `tests/LechTests/Axioms.lean`, whose
+#                    six `#print axioms` guards pin the consistency
+#                    capstones at exactly
+#                    [propext, Classical.choice, Quot.sound].
+#   tests/arena.sh   the standard battery, which is itself six gates
+#                    plus four suites:
+#                      * tests/layering.sh       import fence
+#                      * tests/proofdeps.sh      proof-term module pin
+#                      * tests/pindump.sh        committed-generator
+#                                                freshness
+#                      * tests/trust-surface.sh  compiler-escape
+#                                                allowlist
+#                      * the axiom pin (as the `axioms:` line)
+#                      * the vendored arena tutorial snapshot
+#                        (tests/arena/lean-arena-tests.tar.gz — pinned
+#                        and committed, so CI never depends on the live
+#                        arena's progression)
+#                      * the e2e, annot, retired-flag and mode suites
+#                      * the `--trusted` sweep of all three suites
+#
+# WHAT IT DELIBERATELY DOES **NOT** COVER — and why the local battery is
+# still the real one:
+#
+#   * init-full (the full `Init` export, 60 549 declarations) and the
+#     Mathlib-scale frontier runs.  Tens of GiB of RSS and tens of
+#     minutes each, coordinated ONE AT A TIME on the development
+#     machine.  They are the *frontier measurement*, not a regression
+#     gate; putting them here would make CI both slow and flaky without
+#     making it more informative.  See DESIGN.md's frontier sections.
+#   * the performance battery (PERF.md).  Timings on a shared CI runner
+#     are noise.
+#   * anything needing the `lean-inductive-models` checkout in `_tmp/`
+#     beyond the pinned Lake dependency (the preprocessor IS built here,
+#     as `lech-preprocess`, because `lake build` builds it).
+#
+# ---------------------------------------------------------------------
+# NOTES ON THE ENVIRONMENT
+#
+#   * Toolchain: installed by `elan` from the repo's `lean-toolchain`
+#     (leanprover/lean4:v4.33.0 at the time of writing).  Never pin the
+#     version here — `lean-toolchain` is the single source, and
+#     `tests/pindump.sh` independently refuses a pin dump that is not
+#     the running toolchain's.
+#   * Network: needed once, for elan and for the pinned Lake dependency
+#     `lean_inductive_models` (a git rev in `lakefile.toml`).  The arena
+#     fixtures are vendored, so no arena download happens.
+#   * TIME.  A cold full build is ~650 modules of proof-heavy Lean; on a
+#     two-core runner that is long.  The `.lake` cache below makes the
+#     common case incremental; `timeout-minutes` is set generously and
+#     deliberately, not tuned.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      # `--default-toolchain none` on purpose: elan then reads
+      # `lean-toolchain` and installs exactly that on the first `lake`
+      # call, so the toolchain is named in ONE place in the repo.
+      - name: Install elan (toolchain comes from lean-toolchain)
+        run: |
+          set -euo pipefail
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Report versions
+        run: |
+          lean --version
+          lake --version
+
+      # Build artifacts are cached across runs so the usual push is
+      # incremental.  The key moves with the source tree; the restore
+      # keys let a run start from the previous build of this branch,
+      # then of the default branch.
+      - name: Cache .lake
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-${{ github.sha }}
+          restore-keys: |
+            lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-
+            lake-${{ runner.os }}-
+
+      # THE WARNING-FREE RULE (CLAUDE.md: "`lake build` must stay
+      # warning-free").  Lake exits 0 on warnings, so the grep is the
+      # gate; `pipefail` keeps a build *error* fatal as well.
+      - name: lake build (must be warning-free)
+        run: |
+          set -euo pipefail
+          lake build 2>&1 | tee build.log
+          if grep -n 'warning:' build.log; then
+            echo '::error::lake build produced warnings (see the lines above);'
+            echo '::error::the tree must stay warning-free.'
+            exit 1
+          fi
+
+      # `lake test` builds the LechTests library.  The suite is
+      # `#guard`/`example`-based and the axiom pin is
+      # `#guard_msgs in #print axioms`, so *elaboration* is the test:
+      # a failure is a build error with the offending message inline.
+      # The warning check is repeated here on purpose: `LechTests` is
+      # NOT a default target, so the `lake build` step above never
+      # reaches it — the same reason `tests/pindump.sh` re-checks
+      # warnings for `natop-pins-export`.
+      - name: lake test (suite + the capstone axiom pin)
+        run: |
+          set -euo pipefail
+          lake test 2>&1 | tee test.log
+          if grep -n 'warning:' test.log; then
+            echo '::error::lake test produced warnings (see the lines above).'
+            exit 1
+          fi
+
+      # The standard battery.  It rebuilds nothing of consequence (the
+      # step above already did) and runs every gate and suite listed at
+      # the top of this file, including the `--trusted` sweep.
+      - name: tests/arena.sh (gates + arena/e2e/annot suites + trusted sweep)
+        run: |
+          set -euo pipefail
+          bash tests/arena.sh 2>&1 | tee arena.log
+          # arena.sh's exit code is the verdict; `pipefail` propagates it.
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-logs
+          path: |
+            build.log
+            test.log
+            arena.log
+          if-no-files-found: ignore

@@ -15,12 +15,18 @@
 # `production` vs `interned-shared` is the driver control (it must
 # already agree — both are kernel code); `interned-shared` vs `cached`
 # and `production` vs `cached-parsed` are the pilot's claims.  Both
-# exit codes and the decision-relevant stdout line ("setlec: accepted
+# exit codes and the decision-relevant stdout line ("lech: accepted
 # N declarations") are compared.
 #
 # Usage: tests/pilot-parity.sh [--mode=--verified|--trusted] [tests-dir]
 set -u
 cd "$(dirname "$0")/.."
+
+# Scratch space goes to DISK, never tmpfs (task #180): honour TMPDIR if
+# set, else the project's on-disk ./_tmp/tmp.  Exported, so children see
+# the same choice.
+export TMPDIR="${TMPDIR:-$PWD/_tmp/tmp}"
+mkdir -p "$TMPDIR"
 
 MODEFLAG=--verified
 args=()
@@ -33,10 +39,10 @@ done
 set -- ${args+"${args[@]}"}
 
 TESTS_DIR="${1:-_tmp/arena-tests}"
-BIN=.lake/build/bin/setlec
+BIN=.lake/build/bin/lech
 TIMEOUT=${PILOT_TIMEOUT:-300}
 
-lake build setlec >/dev/null || exit 3
+lake build lech >/dev/null || exit 3
 
 fail=0
 checked=0
@@ -49,7 +55,7 @@ run_one() {
   out=$(timeout "$TIMEOUT" "$BIN" $MODEFLAG "--core=$core" "$@" 2>/dev/null)
   got=$?
   # keep only the decision-relevant stdout line
-  outline=$(printf '%s\n' "$out" | grep -E '^setlec: (accepted|installed|checked)' || true)
+  outline=$(printf '%s\n' "$out" | grep -E '^lech: (accepted|installed|checked)' || true)
 }
 
 # compare <suite> <fixture-label> <cmd...>
@@ -83,12 +89,12 @@ while read -r exp rel mode; do
   case "$exp" in ''|'#'*) continue;; esac
   src="tests/e2e/$rel"
   if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
-    tmpf="${TMPDIR:-/tmp}/setlec-pilot-$(basename "$rel")"
+    tmpf="$TMPDIR/lech-pilot-$(basename "$rel")"
     gunzip -c "$src.gz" > "$tmpf" || { echo "E2E gunzip failed $rel"; fail=1; continue; }
     src="$tmpf"
   fi
   case "${mode:-}" in
-    raw) SETLEC_INDUCTIVE_MODELS=/nonexistent compare "e2e/$rel[raw]" "$src";;
+    raw) LECH_INDUCTIVE_MODELS=/nonexistent compare "e2e/$rel[raw]" "$src";;
     pre) compare "e2e/$rel[pre]" --pre "$src";;
     *)   compare "e2e/$rel" "$src";;
   esac

@@ -1,19 +1,19 @@
-name = "setlec"
-defaultTargets = ["SetlecBase", "SetlecP", "SetlecCaps", "setlec", "setlec-preprocess"]
-testDriver = "SetlecTests"
+name = "lech"
+defaultTargets = ["LechBase", "LechP", "LechCaps", "lech", "lech-preprocess"]
+testDriver = "LechTests"
 
 # THE PREPROCESSOR, AS A LIBRARY (task #178).  `lean-inductive-models` reduces
 # an export's inductives to its five-member basis; since its `45d1346` it is
 # also a Lean library, `InductiveModels.main args (native := pred)`, whose
-# `pred` says which inductive blocks the *consumer* handles itself.  setlec's
+# `pred` says which inductive blocks the *consumer* handles itself.  lech's
 # direct simple-structure path handles a whole class of them, so the checker
-# ships its own front end for the tool — `setlec-preprocess`, below — and
+# ships its own front end for the tool — `lech-preprocess`, below — and
 # spawns that instead of the stock binary.
 #
 # The pin is a commit, not a branch: the predicate mirrors a recogniser
-# (`Setlec/Kernel/Direct/Parts.lean`) and both sides of that mirror have to
-# move deliberately.  Nothing in the `Setlec.*` libraries imports this
-# dependency: it is the `setlec-preprocess` executable's alone, so the layering
+# (`Lech/Kernel/Direct/Parts.lean`) and both sides of that mirror have to
+# move deliberately.  Nothing in the `Lech.*` libraries imports this
+# dependency: it is the `lech-preprocess` executable's alone, so the layering
 # gate and the proof-dependency pin are untouched by it.
 [[require]]
 name = "lean_inductive_models"
@@ -24,20 +24,20 @@ rev = "45d134663faec16f13b4885f4a5a11bdd08de1b2"
 # the SetR removal (user ruling 2026-09-05, "do remove the SetR tier,
 # for more focus").
 #
-#             SetlecBase
+#             LechBase
 #   Kernel/* · model-free Verify/* · SetTheory/* · TT/*
 #   SetModel/* (pure set constructions) · Semantics/* (Expr-facing
 #   denotation and claims; the two halves of the former SetBase/*)
 #                               ↑
-#                           SetlecP
+#                           LechP
 #                   de-based EnvS2Core · Annot
 #                   carriers · Interp2 rows ·
 #                   self-standing fold · P capstone
 #                               ↑
-#             SetlecCaps (exe/capstones)
+#             LechCaps (exe/capstones)
 #
-# HISTORY.  The layout was a FOUR-lib one until 2026-09-05: `SetlecR`
-# rooted `Setlec.SetR` — the collapsed-model consistency proof for the
+# HISTORY.  The layout was a FOUR-lib one until 2026-09-05: `LechR`
+# rooted `Lech.SetR` — the collapsed-model consistency proof for the
 # R core (`EnvS`, `Sound/*`, `Install/*`, the `R`/`R2`/`R2M` capstones).
 # The B4 measurement had shown a ZERO acceptance delta between the two
 # verified configurations (225 fixtures + init-full byte-identical), so
@@ -50,8 +50,8 @@ rev = "45d134663faec16f13b4885f4a5a11bdd08de1b2"
 # HONESTY NOTE about "cross-import = build error" (S1 finding).  Lake
 # does NOT give an import barrier between `lean_lib`s of the SAME
 # package: import resolution is per-package, so a module in one lib may
-# import a module rooted in another (today `Setlec.SetP.*` imports
-# `Setlec.Kernel.*` across exactly such a boundary).  The lib split is
+# import a module rooted in another (today `Lech.SetP.*` imports
+# `Lech.Kernel.*` across exactly such a boundary).  The lib split is
 # therefore the layout, not the fence; `tests/layering.sh` is the fence.
 # A hard build error would need the lanes to become separate Lake
 # *packages* (`require ... from "..."`), which is a lakefile-level
@@ -71,51 +71,51 @@ rev = "45d134663faec16f13b4885f4a5a11bdd08de1b2"
 # failure modes (stale inter-package oleans, a split `.lake`) are new
 # and would land on top of a green tree.  Recorded; not attempted.
 
-# The pin-generator's certificate theorems (Setlec/PinGen/Certs.lean) are
+# The pin-generator's certificate theorems (Lech/PinGen/Certs.lean) are
 # a classic (non-`module`) library: the proofs unfold core definition
 # bodies, which the module system hides.
 #
 # SUPERSEDED (task #176, 2026-09-06) — the paragraph that stood here
-# said `Setlec/Kernel/NatOpPins.lean` "loads the built olean into the
+# said `Lech/Kernel/NatOpPins.lean` "loads the built olean into the
 # generator's full-view environment at elaboration time, so it must be
 # built first — hence the `extraDepTargets`".  That ordering was not an
 # import edge and Lake did not honour it through the executable's
-# import graph: on a cold tree `lake build setlec` failed with "object
-# file '…/Setlec/PinGen/Certs.olean' of module Setlec.PinGen.Certs does
+# import graph: on a cold tree `lake build lech` failed with "object
+# file '…/Lech/PinGen/Certs.olean' of module Lech.PinGen.Certs does
 # not exist".  Per the user's ruling the pins are now a COMMITTED file
 # (`pins/<toolchain>.json`, see `pins/README.md`), written by the
 # `natop-pins-export` executable below, whose root *imports*
-# `Setlec.PinGen.Certs` — a real edge Lake orders.  The certificates
+# `Lech.PinGen.Certs` — a real edge Lake orders.  The certificates
 # stay kernel-checked theorems in this library (that is where their
 # trust comes from), but nothing in the checker's build depends on it:
-# its only in-tree consumers are the generator and `Setlec.SetP.NatWfP`,
+# its only in-tree consumers are the generator and `Lech.SetP.NatWfP`,
 # both by ordinary import.
 [[lean_lib]]
-name = "SetlecPinCerts"
-roots = ["Setlec.PinGen.Certs"]
+name = "LechPinCerts"
+roots = ["Lech.PinGen.Certs"]
 
-# The shared base: the checker itself (`Setlec.Kernel.*`), the model-free
-# verification tier (`Setlec.Verify.*`), the `SetTheory` interface, the
-# declarative type-theory layer (`Setlec.TT.*`, task #74 — its own module
-# hierarchy, importing nothing from the checker), `Setlec.SetModel.*`
-# (the pure set constructions) and `Setlec.Semantics.*` (the Expr-facing
-# denotation and claims) — the two halves the former `Setlec.SetBase.*`
+# The shared base: the checker itself (`Lech.Kernel.*`), the model-free
+# verification tier (`Lech.Verify.*`), the `SetTheory` interface, the
+# declarative type-theory layer (`Lech.TT.*`, task #74 — its own module
+# hierarchy, importing nothing from the checker), `Lech.SetModel.*`
+# (the pure set constructions) and `Lech.Semantics.*` (the Expr-facing
+# denotation and claims) — the two halves the former `Lech.SetBase.*`
 # (task #161 S1) was split into on 2026-09-06.  The model lane stands on
 # this and nothing here may import it.
 [[lean_lib]]
-name = "SetlecBase"
-roots = ["Setlec", "Setlec.TT", "Setlec.SetModel", "Setlec.Semantics"]
+name = "LechBase"
+roots = ["Lech", "Lech.TT", "Lech.SetModel", "Lech.Semantics"]
 
 # The graded-model lane (task #161 S2): the `AnnotOk2` bit carriers, the
 # de-basing's `EnvS2Core`/`EnvS2P`, the per-rule `…P` quarters and rows,
 # the basis/inductive/projection install `…P` families, `FoldP` and
-# `CapstoneP`.  Stands on `SetlecBase`; since the SetR removal it is the
+# `CapstoneP`.  Stands on `LechBase`; since the SetR removal it is the
 # ONLY model lane.  Only the file paths ever moved — the Lean namespaces
-# are `Setlec.SetR.{Interp2, Annot}` still, so no frozen statement
+# are `Lech.SetR.{Interp2, Annot}` still, so no frozen statement
 # changed name.
 [[lean_lib]]
-name = "SetlecP"
-roots = ["Setlec.SetP"]
+name = "LechP"
+roots = ["Lech.SetP"]
 
 # The capstone assembly (task #163): the cached checker variant's
 # verification tier — the `ExprC` erasure/field-exactness seam, the `SimC`
@@ -123,19 +123,34 @@ roots = ["Setlec.SetP"]
 # `Verify/Cached/MainC.lean` carries the shipped driver's capstone; it
 # was the two-lane assembly until the SetR removal left one lane.
 [[lean_lib]]
-name = "SetlecCaps"
-roots = ["Setlec.Verify.Cached"]
+name = "LechCaps"
+roots = ["Lech.Verify.Cached", "Lech.MainTheorem"]
+
+# THE PALOMAR CHALLENGE MODULE (task #183).  `Lech/Challenge.lean` is
+# the small readable statement of `Lech.no_proof_of_False` with
+# `sorry` for a proof — the *challenge* half of the pair the Comparator
+# tool (leanprover/comparator) compares against `Lech.MainTheorem`,
+# the *solution* half.  See `comparator.json`.
+#
+# It gets its own `lean_lib` because Comparator builds the module by
+# name (`lake build Lech.Challenge`), which needs the module to be
+# reachable from *some* library root; and it is deliberately NOT in
+# `defaultTargets`, so `lake build` — the sorry-free, warning-free
+# gate — never builds it.  Nothing in the tree imports it.
+[[lean_lib]]
+name = "LechChallenge"
+roots = ["Lech.Challenge"]
 
 [[lean_lib]]
-name = "SetlecTests"
+name = "LechTests"
 srcDir = "tests"
 
 [[lean_exe]]
-name = "setlec"
+name = "lech"
 root = "Main"
 
 # The pin dump generator (task #176).  Lives in the certificate
-# library's world — its root imports `Setlec.PinGen.Certs`, so the
+# library's world — its root imports `Lech.PinGen.Certs`, so the
 # proof bodies are visible to `importModules` at `OLeanLevel.private`
 # and Lake builds that olean first.  Writes
 # `pins/<toolchain>.json`; `tests/pindump.sh` checks
@@ -145,13 +160,13 @@ name = "natop-pins-export"
 root = "PinDump"
 
 # The checker's own front end for `lean-inductive-models` (task #178): the
-# tool's `main`, passed setlec's `NativeSupport`.  `supportInterpreter` because
+# tool's `main`, passed lech's `NativeSupport`.  `supportInterpreter` because
 # the tool imports `Lean` and replays declarations through the kernel, exactly
-# as its own executable target does upstream.  It imports no `Setlec.*` module
-# — the predicate is a documented mirror of `Setlec.directPartsCore?`, gated by
+# as its own executable target does upstream.  It imports no `Lech.*` module
+# — the predicate is a documented mirror of `Lech.directPartsCore?`, gated by
 # `tests/native-agree.sh`, not a shared definition (the two sides speak
 # different `Expr` types).
 [[lean_exe]]
-name = "setlec-preprocess"
-root = "SetlecPreprocess"
+name = "lech-preprocess"
+root = "LechPreprocess"
 supportInterpreter = true

@@ -54,7 +54,7 @@
 #     restrictive), the harness SKIPS everything: prominent notice,
 #     exit 0.
 #   * the preprocessor (found like the checker finds it:
-#     $SETLEC_INDUCTIVE_MODELS, this build's setlec-preprocess, the
+#     $LECH_INDUCTIVE_MODELS, this build's lech-preprocess, the
 #     _tmp/ stock dev checkout, PATH).
 #     When unavailable, only the preprocessed shapes (ctors-mod,
 #     fields-mod) are SKIPPED with a notice; everything else runs.
@@ -62,14 +62,19 @@
 # NOT part of `lake test` (needs a built binary, perf, and a process
 # per stream) — run manually or as a CI job:
 #   tests/scale.sh
-#   BIN=path/to/setlec tests/scale.sh --deep
+#   BIN=path/to/lech tests/scale.sh --deep
 # Exit code: 0 all measured shapes PASS (or harness skipped), 1 a
 # gate failed.
 set -u
 cd "$(dirname "$0")/.."
 
-BIN=${BIN:-.lake/build/bin/setlec}
+BIN=${BIN:-.lake/build/bin/lech}
 GEN=tests/scale/gen.py
+# Generated streams go to DISK, never tmpfs (task #180): honour TMPDIR if
+# set, else the project's on-disk ./_tmp/tmp — `mktemp -d` and the
+# generator both read TMPDIR from here.
+export TMPDIR="${TMPDIR:-$PWD/_tmp/tmp}"
+mkdir -p "$TMPDIR"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -98,11 +103,11 @@ fi
 # --- preprocessor availability (same search order as the checker,
 # Main.lean findPreprocessor): decides whether the *-mod shapes run.
 HAVE_PP=0
-if [ -n "${SETLEC_INDUCTIVE_MODELS:-}" ]; then
-  [ -x "$SETLEC_INDUCTIVE_MODELS" ] && HAVE_PP=1
-elif [ -x .lake/build/bin/setlec-preprocess ] \
+if [ -n "${LECH_INDUCTIVE_MODELS:-}" ]; then
+  [ -x "$LECH_INDUCTIVE_MODELS" ] && HAVE_PP=1
+elif [ -x .lake/build/bin/lech-preprocess ] \
     || [ -x _tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models ] \
-    || command -v setlec-preprocess >/dev/null 2>&1; then
+    || command -v lech-preprocess >/dev/null 2>&1; then
   HAVE_PP=1
 fi
 
@@ -114,7 +119,7 @@ TIMEOUT=120
 # run the checker as-is.
 run_shape() {
   if [ "$1" = raw ]; then
-    SETLEC_INDUCTIVE_MODELS=/nonexistent timeout "$TIMEOUT" nice -n 10 "$BIN" "$2"
+    LECH_INDUCTIVE_MODELS=/nonexistent timeout "$TIMEOUT" nice -n 10 "$BIN" "$2"
   else
     timeout "$TIMEOUT" nice -n 10 "$BIN" "$2"
   fi
@@ -122,7 +127,7 @@ run_shape() {
 
 measure_once() { # measure_once MODE FILE -> instruction count
   if [ "$1" = raw ]; then
-    perf stat -e instructions:u -x, env SETLEC_INDUCTIVE_MODELS=/nonexistent \
+    perf stat -e instructions:u -x, env LECH_INDUCTIVE_MODELS=/nonexistent \
       timeout "$TIMEOUT" nice -n 10 "$BIN" "$2" 2>&1 >/dev/null
   else
     perf stat -e instructions:u -x, \
@@ -139,7 +144,7 @@ measure() { # measure MODE FILE -> median of 3, empty on failure
 
 rss_once() { # rss_once MODE FILE -> peak RSS (KB) of the process tree
   local pre=()
-  [ "$1" = raw ] && pre=(env SETLEC_INDUCTIVE_MODELS=/nonexistent)
+  [ "$1" = raw ] && pre=(env LECH_INDUCTIVE_MODELS=/nonexistent)
   "${pre[@]}" python3 - "$BIN" "$2" "$TIMEOUT" <<'EOF'
 import resource, subprocess, sys
 r = subprocess.run(["timeout", sys.argv[3], "nice", "-n", "10",

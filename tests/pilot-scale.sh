@@ -12,8 +12,12 @@
 set -u
 cd "$(dirname "$0")/.."
 
-BIN=${BIN:-.lake/build/bin/setlec}
+BIN=${BIN:-.lake/build/bin/lech}
 GEN=tests/scale/gen.py
+# Generated streams go to DISK, never tmpfs (task #180): honour TMPDIR if
+# set, else the project's on-disk ./_tmp/tmp.
+export TMPDIR="${TMPDIR:-$PWD/_tmp/tmp}"
+mkdir -p "$TMPDIR"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 VARIANTS=${VARIANTS:-production,cached-parsed}
