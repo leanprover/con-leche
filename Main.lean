@@ -239,8 +239,9 @@ the preprocessor to do, or a preprocessor that could not be run) or
 through the preprocessor's pipe — or the preprocessor's own verdict. -/
 def parseInput (file : String) (pre : Bool) (modeTag : String)
     (prelude : Frontend.PreludeIx) (inModel : Bool) : IO InputResult := do
+  let census := (← IO.getEnv "LECH_INMODEL_CENSUS") == some "1"
   let raw : IO InputResult :=
-    InputResult.parsed <$> Frontend.parseExportStreamD file (modeled := true) prelude inModel
+    InputResult.parsed <$> Frontend.parseExportStreamD file (modeled := true) prelude inModel census
   if pre then return ← raw
   unless ← needsPreprocess file do return ← raw
   let some tool ← findPreprocessor | raw
@@ -438,11 +439,19 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       IO.eprintln s!"lech: {file}:{line}: {msg}"
       return 3
     | .parsed (.ok ⟨decls, taintSkipped, projRewrites, preludeCount,
-                    preludeDropped, hoisted, inModelled, inModelGen⟩) =>
+                    preludeDropped, hoisted, inModelled, inModelGen, inModelDeclined⟩) =>
       -- the in-process modeller's receipt (task #200)
       if inModelled.size > 0 then
         IO.eprintln s!"lech: {inModelled.size} inductive blocks modelled \
           in-process: {String.intercalate ", " (inModelled.toList.map toString)}"
+      -- the census (`LECH_INMODEL_CENSUS=1`): every mutual/nested block's
+      -- outcome, then stop — the parse only, no fold
+      if (← IO.getEnv "LECH_INMODEL_CENSUS") == some "1" then
+        for (n, why) in inModelDeclined do
+          IO.eprintln s!"lech: inmodel declined {n}: {why}"
+        IO.eprintln s!"lech: inmodel census: {inModelled.size} modelled, \
+          {inModelDeclined.size} declined ({modeTag}, parse only)"
+        return 0
       if let some out ← IO.getEnv "LECH_INMODEL_DUMP" then
         if inModelGen.size > 0 then
           Frontend.dumpInModel file out inModelGen

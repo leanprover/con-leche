@@ -170,6 +170,13 @@ structure StateD where
   /-- the parsed inductive blocks, by member type name (the in-process
   modeller's nested rung reads a container's shape off it) -/
   indBlocks : Std.HashMap Name InModel.BlockRec := {}
+  /-- CENSUS mode (`LECH_INMODEL_CENSUS=1`): a generator decline is
+  recorded and the block pushed bare instead of declining the parse, so
+  one parse lists every block's outcome (the driver then stops before
+  the fold) -/
+  inModelCensus : Bool := false
+  /-- the census's declines: block name and reason -/
+  inModelDeclined : Array (Name × String) := #[]
   /-- stream records dropped as identical copies of prelude records:
   they count as accepted stream declarations (they ARE installed, from
   the prelude), so the driver's record count adds them back -/
@@ -584,7 +591,11 @@ private def processLineCoreD (st : StateD) (j : Json)
             ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
           match InModel.generate ctx b with
           | .error why =>
-            return .inr s!"in-process model of {T0}: {why}"
+            if st.inModelCensus then
+              return pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
+                (.indDecl block)
+            else
+              return .inr s!"in-process model of {T0}: {why}"
           | .ok gen =>
             let mut st1 := st
             for d in gen do
@@ -801,13 +812,15 @@ structure ParseResultD where
   the block's ordinal among the stream's `inductive` records (for the
   debug dump only) -/
   inModelGen : Array (Nat × Array DeclC) := #[]
+  /-- the census's declines (block, reason) -/
+  inModelDeclined : Array (Name × String) := #[]
 
 /-- The initial parse state over a prelude: `PUnit` counts as seen for
 the projection rewrite when the prelude installs it; the prelude's
 constants seed the declaration table (task #200). -/
-private def StateD.init (prelude : PreludeIx) (inModel : Bool) : StateD :=
+private def StateD.init (prelude : PreludeIx) (inModel : Bool) (census : Bool := false) : StateD :=
   prelude.decls.foldl noteDecl
-    { prelude, punitSeen := prelude.basis.contains .punitK, inModel }
+    { prelude, punitSeen := prelude.basis.contains .punitK, inModel, inModelCensus := census }
 
 /-- The result: the prelude's records, then the stream's with every
 pinned operation's stream-certified ground hoisted ahead of it
@@ -815,7 +828,8 @@ pinned operation's stream-certified ground hoisted ahead of it
 private def ParseResultD.ofState (st : StateD) : ParseResultD :=
   let (decls, hoisted) := hoistNatOpGround st.decls
   ⟨st.prelude.decls ++ decls, st.taintSkipped, st.projRewrites,
-   st.prelude.decls.size, st.preludeDropped, hoisted, st.inModelled, st.inModelGen⟩
+   st.prelude.decls.size, st.preludeDropped, hoisted, st.inModelled, st.inModelGen,
+   st.inModelDeclined⟩
 
 /-- Twin of `feedLine`. -/
 private def feedLineD (st : StateD) (line : String) (lineNo : Nat)
@@ -835,9 +849,9 @@ private def feedLineD (st : StateD) (line : String) (lineNo : Nat)
 built-in prelude the result is prepended with and deduped against
 (task #191; empty for the prelude's own parse). -/
 def parseExportD (contents : String) (modeled : Bool := false)
-    (prelude : PreludeIx := {}) (inModel : Bool := true) :
+    (prelude : PreludeIx := {}) (inModel : Bool := true) (census : Bool := false) :
     Except FrontendError ParseResultD := do
-  let mut st : StateD := .init prelude inModel
+  let mut st : StateD := .init prelude inModel census
   let mut lineNo := 0
   for line in contents.splitToList (· == '\n') do
     lineNo := lineNo + 1
@@ -855,7 +869,8 @@ preprocessor's stdout directly (task #180: no scratch file at all;
 `Main.lean`), and it is a property to preserve: a seek or a re-open
 here would silently re-introduce the temp file. -/
 partial def parseExportHandleD (h : IO.FS.Handle)
-    (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true) :
+    (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true)
+    (census : Bool := false) :
     IO (Except FrontendError ParseResultD) := do
   let rec loop (lineNo : Nat) (st : StateD) :
       IO (Except FrontendError ParseResultD) := do
@@ -866,12 +881,13 @@ partial def parseExportHandleD (h : IO.FS.Handle)
     match feedLineD st line (lineNo + 1) modeled with
     | .error e => return .error e
     | .ok st => loop (lineNo + 1) st
-  loop 0 (.init prelude inModel)
+  loop 0 (.init prelude inModel census)
 
 /-- Streaming direct parse of a file. -/
 def parseExportStreamD (path : System.FilePath)
-    (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true) :
+    (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true)
+    (census : Bool := false) :
     IO (Except FrontendError ParseResultD) := do
-  parseExportHandleD (← IO.FS.Handle.mk path .read) modeled prelude inModel
+  parseExportHandleD (← IO.FS.Handle.mk path .read) modeled prelude inModel census
 
 end Lech.Frontend
