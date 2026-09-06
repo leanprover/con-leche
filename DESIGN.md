@@ -47140,3 +47140,213 @@ regeneration instruction in any document, and one fewer executable in
 the build.  The pin dump keeps its gate because its computation is not
 cheap (it reads kernel-checked certificate proof terms out of a second
 library) and its build ordering was the defect task #176 fixed.
+
+## The affine frontier: a MEMORY blow-up from the `.proj` inference clause — the executable path ran the spec's tree-walking `instantiateList`, copying every DAG subject (2026-09-06, `agent/affine-fix`)
+
+The full Mathlib stream at master `c5485803` ended at 1 651 s with
+`INTERNAL PANIC: out of memory` under `ulimit -v 22000000`, in the
+check phase, RSS 12.5 GB → 18.7 GB inside one 30 s sample
+(`_tmp/frontier3/c5485803-p.log`, `-rss.log`).  The frontier-finding
+agent's trace run named the record: **181 570**,
+`AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen` (24.97 % of the
+stream), and cut its dependency cone
+(`_tmp/frontier3/affine-slice-pre.ndjson`, 212 MB, 26 466 records):
+official accepts in 45 s; ours, pre-fix, dies in both modes at ~216 s
+under the 16 GB cap (`affine-verdicts.txt`, exit 3 supervised / exit 1
+in-process).  Not a fuel exhaustion — no fuel message, and the
+`gdb` samples (`bt-{1..4}.txt`) all sit in `Expr.beqGo`, the memoized
+structural-equality descent, reached from `memoEI`'s `whnfCore` memo
+probe inside `defeqStepI`, ten `defEqListI` levels deep under the
+theorem value's `inferSpineI`.
+
+### 1. The declaration
+
+`_tmp/frontier3/affine_shape.py` on the slice's last record: the
+theorem's **type** is a 341-node DAG (tree 14 211); its **value** a
+**3 106-node DAG with a 392 695 789-node tree** (depth 104) —
+`λ X s hs hs₂. let this := …; let this := …; …` over scheme-theoretic
+carriers (`Scheme.toLocallyRingedSpace (pullback … (Spec (Functor.obj …)) …)`),
+where the same instance/carrier objects are passed hundreds of times.
+Any operation that materializes such a term as a *tree* is 10⁸ nodes
+≈ 16 GB.  That is the whole mechanism; the rest is finding which
+operation did.
+
+### 2. The instrument, and what it found
+
+A throwaway debug build (`_tmp/affine-debug`, never committed) added
+two probes to `Expr.beqFast` and to every syntactic wrapper and memo
+entry point: (a) when the budgeted descent falls to `beqGo`, print the
+memo size and each side's `(pointer-DAG, tree)` sizes; (b) at every
+`inst1M`/`instListM`/`instListRevM`/`abstractRangeM`/`mkAppNM`/
+`instSpineM`/`piResidualM`/`instLevelParamsM` result and every
+`whnfCore`/`whnf`/`infer`/`inferIO`/`annotate` memo miss, print the
+call whose OUTPUT is *copy-degraded* — `(pointer-DAG, structural-DAG,
+tree)` with pointer-DAG ≫ structural-DAG, i.e. structurally equal
+subterms at many distinct addresses — while no INPUT is.  Findings
+(`_tmp/affine-fix-runs/dbg{1,3}-verified.out`):
+
+* The `beqGo` comparisons that grow are between a DAG and a **copy of
+  it with the sharing gone**: `a: dag=959 tree=297 989` against
+  `b: dag=99 849 tree=297 989`; `dag=1 157` against `dag=821 294` (tree
+  2.3 M); at the end `dag=799` against `dag=7 647 139` (tree 16.5 M),
+  the same pair compared over and over — each comparison allocating a
+  7.6 M-entry address-pair memo.  Once such a copy is a memo KEY, every
+  probe with a structurally equal term pays the tree.
+* **Every origin is the same call** — 1 368 of 1 376 flagged events are
+  tagged `inferIO`, the other 8 are downstream `inst1M`s whose inputs
+  were already copies (below the flag threshold).  The flagged
+  `inferIO` inputs are well-shared `.proj` nodes and their outputs are
+  field types whose *parameter* is a tree copy of the subject's
+  carrier:
+
+      [unshare:inferIO] in=[(269, (223, 61345))] out=(27629, (225, 61347))
+        args=[(27627,223,61345)]
+        (CommRing (Classical.choice … …).ColimitCocone.0.Cocone.0.CommRingCat.0)
+
+  — input pointer-DAG 269 / structural 223 / tree 61 345; output
+  parameter pointer-DAG 27 627 for the same 223 structural nodes: a
+  full copy, leaves excepted.  Projection chains over a carrier
+  (`(Classical.choice …).ColimitCocone.0.Cocone.0.CommRingCat.0`, the
+  instance tower `CommRing → Ring → Semiring → NonUnitalSemiring …`)
+  copy the subject at every level and the copies nest.
+
+### 3. The clause
+
+`Setlec/Cached/CoreC.lean`, `inferBodyI`'s `.proj` clause, computed the
+field type as `internExprM (entry.typeAt us targs pe)` — **the spec's
+`ProjEntry.typeAt`** (`Kernel/Core.lean`), legitimate as a *value*
+(`ExprC = Expr` since task #172 B3a, the comment said as much) but not
+as a *computation*: `typeAt` is `(body.instantiateLevelParams …).instantiateList (pe :: targs.reverse)`
+over `Kernel/ExprOps.lean`'s **unmemoized** `Expr.instantiateList`,
+whose `.bvar` arm is
+
+    instantiateList vs[j - d] (vs.take (j - d)) d
+
+— it *re-traverses the replacement* (the spec's fold semantics, "a
+replacement inserted early is traversed again by the later
+`instantiate1` passes"), and every arm rebuilds its node.  So each
+occurrence of the subject `pe` and of each parameter in the field type
+came back as a fresh tree copy.  Exactly the class the memory note
+"No unmemoized traversals" forbids in executable paths; this one hid
+behind the identity `ExprC = Expr`.
+
+**Official** (`type_checker.cpp:239-284`, `infer_proj`, v4.33.0):
+`r = instantiate(binding_body(r), args[i])` for the parameters and
+`instantiate(binding_body(r), mk_proj(I_name, i, proj_expr(e)))` for
+the prior fields — `instantiate` inserts the replacement **by
+pointer** (`lift_loose_bvars` returns its argument unchanged on a
+closed term), so the field type shares the subject and the parameters
+with the node being typed.  Structurally the same instantiation as
+ours; the divergence was purely representational — a tree where
+official keeps a DAG — and it is a *memory* divergence, not a
+strategy one: no reduction or comparison differs, the verdict is the
+same, only the allocation is exponential.
+
+### 4. The fix (both modes; one definition, one equation)
+
+`Setlec/Cached/ExprOpsC.lean`:
+
+    def ProjEntry.typeAtI (entry : ProjEntry) (us : List Level)
+        (targs : List ExprC) (pe : ExprC) : ExprC :=
+      instantiateList (instLevelParams entry.levelParams us entry.body)
+        (pe :: targs.reverse)
+
+— the same two instantiations through the memoized, sharing-preserving
+`ExprC.instLevelParams` and `ExprC.instantiateList` (whose `.bvar` arm
+returns a closed replacement **by reference**; the re-entry runs only
+on an open one, under its own table).  `inferBodyI`'s clause calls
+it; `inferBodyIOI` dispatches to the same clause, so the trusted core
+and the verified core share the fix by construction.  Nothing else
+moved.
+
+### 5. The proof
+
+`Setlec/Verify/Cached/OpsC.lean`:
+
+    theorem ProjEntry.typeAtI_eq … : entry.typeAtI us targs pe = entry.typeAt us targs pe
+
+by `instantiateList_spec` and `instLevelParams_spec` (the two
+memoized walks each equal their tree-walk spec — proved long ago for
+every other call site).  The only proof references to the clause are
+the two `SimC.pure hs₂ ⟨rfl, projEntry_typeAt_WScoped …⟩` steps of
+`inferBodyC_sim` / `inferBodyIOC_sim` (`Verify/Cached/DiscC4.lean`);
+`rfl` became `ProjEntry.typeAtI_eq entry us _ pe` (`RelC` is `v' = v`).
+The spec, the `Expr`-level lemma families (`projEntry_typeAt_WScoped`,
+`typeAt_eq_instSpine`, `typeAt_shiftFrom`, …) and the P tier are
+untouched — they speak about `typeAt`, and the executable now equals
+it by a theorem instead of by definition.  No sorry, no new axiom;
+capstones at `[propext, Classical.choice, Quot.sound]`; layering 0
+impl→theory; proofdeps **1 370 rows, 0 doors** (as pinned; no module
+entered or left a closure).
+
+### 6. The coordinator's pointer (lean4lean d41b6377, `reduceNat`'s fvar filter)
+
+Checked while in the path.  (1) Our whnf-side `reduceNat` /
+`reduceNatI` and their call site `whnfStep` carry **no** free-variable
+guard (`grep hasFvar Kernel/Core.lean` hits only `defeqStep`'s
+`Bool.true` shortcut and the lazy-delta fold guard, the two sites
+official has at `:1097` and `:1008`); official v4.33's `reduce_nat`
+(`:639-668`) has none either.  No divergence.  (2) The affine blow-up
+involves no `Nat`/literal reduction at all — the slice's flagged
+events are all `.proj` inferences on carrier types.
+
+### 7. The fixture
+
+`tests/e2e/src/proj_share.lean` → `tests/e2e/proj_share.ndjson` (raw,
+201 lines; exported through `lean-inductive-models/scripts/export-fixture.sh`
+with `--#export unbox unbox2` — without the filter the `import Lean`
+closure is 12 M lines).  `big% n` is a term elaborator returning
+`Prod (T n) (T n)` with BOTH children the same `Expr` object (a DAG of
+`n + 1` nodes, tree `2^(n+1) − 1`; lean4export hash-conses, so the
+stream carries 27 records for `big% 26`); `boxval% b` returns a
+literal `Expr.proj Box 0 b` (the elaborator would emit the projection
+*function* for `b.val`); `noncomputable def unbox (b : Box (big% 26)) : big% 26 := boxval% b`
+and a two-deep `unbox2`.  (`noncomputable` because the code generator
+walks the type as a tree — the elaboration alone did not finish
+otherwise.)  Typing the `.proj` node instantiates the field type
+`α := big% 26`: the tree walk materializes 2^27 nodes per projection.
+
+| `n` (tree `2^(n+1)`) | pre-fix (`c5485803`), verified | fixed, verified |
+|---|---|---|
+| 20 (2.1 M) | accept, 8.84 s, 567 MB | accept, 0.05 s, 71 MB |
+| 22 (8.4 M) | accept, 49.6 s, 2.77 GB | accept, 0.06 s, 71 MB |
+| 24 (33.6 M) | accept, 235 s, 8.98 GB | accept, 0.05 s, 73 MB |
+| **26 (134 M), the committed fixture** | **out of memory** at 34 s (exit 3, 12.1 GB RSS at the 16 GB virtual cap) | accept, both modes, 0.353 G instr (official 0.167 G) |
+
+Wall/RSS from `/usr/bin/env time` under the 16 GB cap — a scaling
+picture, not a perf figure (×4–5.6 per +2 in both time and memory, as
+a tree copy should).
+
+### 8. Receipts
+
+* Slice `affine-slice-pre.ndjson` (`ulimit -v 16000000; timeout 3000`):
+  pre-fix **out of memory at 216 s** (verified; RSS 11.8 GB at the
+  last sample before the cap), fixed **accept, 28 665 declarations,
+  70 s verified / 65 s trusted**, peak RSS ≈ 0.5 GB.  Official 45 s.
+* `lake build` warning-free (616 jobs); `lake test` green;
+  `tests/proofdeps.sh` 1 370 rows / 0 doors; layering base 234 / P 160
+  / caps 2 / umbrella 1, 0 base→lane, 0 impl→theory.
+* `tests/arena.sh` **0 FAIL, every verdict unchanged**: arena tutorial
+  90/92 good accepted (032/033 the by-design declines), e2e **79/79**
+  (master's 78 + `proj_share`), annot 14/14, retired flags 8/8, mode
+  flags 16/16, trusted sweep 138 arena + 79 e2e + 14 annot with the
+  same 3 recorded divergences; pindump fresh.
+* init-full (`init-full-pre2.ndjson --pre`, 16 GB cap): **accept,
+  60 549 declarations, both modes** — `--verified` 155 s / 866 MB,
+  `--trusted` 148 s / 866 MB (`/usr/bin/env time`, verdict only).
+* The full Mathlib stream was **not** rerun (the cadence: gates + the
+  slice; the campaign measurement is the frontier agent's).
+
+### 9. Notes for the next frontier agent
+
+* The two instruments are worth keeping in mind: `dagStats` (pointer-DAG
+  vs tree, keyed by address) and the *copy-degradation* test
+  (pointer-DAG ≫ structural-DAG) at every syntactic wrapper and memo
+  miss, printing only ORIGINS (inputs not degraded).  The patch is
+  `_tmp/affine-fix-runs/debug-probe-affine.patch`.
+* A grep for the class: any `Expr.`-namespace traversal from
+  `Kernel/ExprOps.lean` reached from `Setlec/Cached/*` at check time.
+  After this fix the only such calls are the wrappers' `ExprC.` twins;
+  `Kernel/{DeclCheck,Modeled,Direct/*}.lean` still use the spec walks
+  at *install* time on block-sized terms, where no DAG blow-up has
+  been seen.
