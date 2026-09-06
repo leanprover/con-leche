@@ -15,15 +15,17 @@ Task #172: the interned checker this was cloned from is gone, and with
 it the `Expr`-typed shared fold (`checkDeclsShared`) that existed only
 to make the two comparable.  What is left is the per-declaration phase
 driver the parsed-declaration driver (`Setlec/Cached/ParsedC.lean`)
-and its bridges consume — at a `CoreCfg` since 2026-09-06 (the
-trusted twin `ParsedT`/`CoreT` retired; see `ParsedC.lean`'s header).
+and its bridges consume — at a `CheckMode` (the trusted twin
+`ParsedT`/`CoreT` retired 2026-09-06, the configuration record that
+briefly stood in for the mode retired at task #185; see
+`ParsedC.lean`'s header).
 -/
 
 namespace Setlec.Cached
 
 open Setlec
 
-variable (cfg : CoreCfg)
+variable (mode : CheckMode)
 
 /-! ## The entry-point record over the cached core
 
@@ -37,24 +39,24 @@ win came from. -/
 /-- Shared-state unary entry point: run the cached knot. -/
 def opE (fe : FEnv) (pick : CoreFnsI → Nat → ExprC → CheckCM ExprC)
     (d : Nat) (e : Expr) : CheckCM Expr := do
-  pick (coreKnotI cfg fe checkFuel) d e
+  pick (coreKnotI mode fe checkFuel) d e
 
 /-- Shared-state definitional-equality entry point. -/
 def opB (fe : FEnv) (d : Nat) (a b : Expr) : CheckCM Bool :=
-  (coreKnotI cfg fe checkFuel).defeq d a b
+  (coreKnotI mode fe checkFuel).defeq d a b
 
 /-- Shared-state sort-ensuring entry point. -/
 def opS (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Level :=
-  ensureSortI (coreKnotI cfg fe checkFuel) d e
+  ensureSortI (coreKnotI mode fe checkFuel) d e
 
 /-- The per-declaration shared operations at a fixed environment
 index (the clone's `sharedOps`). -/
 def sharedOpsC (fe : FEnv) : CheckerOps CheckCM where
-  annotate _ d e := opE cfg fe (·.annotate) d e
-  inferType _ d e := opE cfg fe (·.infer) d e
-  isDefEq _ d a b := opB cfg fe d a b
-  ensureSort _ d e := opS cfg fe d e
-  whnf _ d e := opE cfg fe (·.whnf) d e
+  annotate _ d e := opE mode fe (·.annotate) d e
+  inferType _ d e := opE mode fe (·.infer) d e
+  isDefEq _ d a b := opB mode fe d a b
+  ensureSort _ d e := opS mode fe d e
+  whnf _ d e := opE mode fe (·.whnf) d e
 
 
 /-! ## Thin phase drivers (one interned state per declaration)
@@ -68,7 +70,7 @@ environment lookup routed through the index (task #63). -/
 def checkIndMemberS (blockNames : List Name) (caps : IndCaps)
     (fe : FEnv) (ci : ConstantInfo) : CheckCM FEnv := do
   flushC
-  let cvA ← checkMemberValF (sharedOpsC cfg fe) blockNames fe ci.toConstantVal
+  let cvA ← checkMemberValF (sharedOpsC mode fe) blockNames fe ci.toConstantVal
   match ci with
   | .indInfo _ _ => pure (fe.push (.indInfo cvA caps))
   | .ctorInfo _ nP nF => pure (fe.push (.ctorInfo cvA nP nF))
@@ -83,7 +85,7 @@ def provisionRecsS (blockNames : List Name) :
     match ci with
     | .recInfo _ mI rP rules => do
       flushC
-      let cvA ← checkMemberValF (sharedOpsC cfg feAcc) blockNames feAcc
+      let cvA ← checkMemberValF (sharedOpsC mode feAcc) blockNames feAcc
         ci.toConstantVal
       let (feSelf, others) ← provisionRecsS blockNames
         (feAcc.push (.recInfo cvA mI rP [])) rest
@@ -104,10 +106,10 @@ def checkIndRecsS (blockNames : List Name) (fe₂ : FEnv)
       if blockNames.contains n then n.str "_model" else n
     unless fe₂.find? eqName = some eqA do
       throw (.notImplemented "modeled recursor requires the pinned Eq basis")
-    let (feSelf, checked) ← provisionRecsS cfg blockNames fe₂ recs
+    let (feSelf, checked) ← provisionRecsS mode blockNames fe₂ recs
     flushC
     checked.foldlM (fun (acc : FEnv) c => do
-        let rules' ← checkIotaRulesF cfg.iotaMode (sharedOpsC cfg feSelf) fe₂ feSelf
+        let rules' ← checkIotaRulesF mode (sharedOpsC mode feSelf) fe₂ feSelf
           f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
         pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules')))
       fe₂
@@ -122,8 +124,8 @@ def checkProjFnS (fe : FEnv) (T ctorName : Name) (lps : List Name)
   checkProjShape (m := CheckCM) pty cvj.type nP nF
   unless i < nF do
     throw (.invalid "projection index out of range")
-  let rhsA ← checkProjRuleF (sharedOpsC cfg fe) fe pty cvj lps nP nF i
-  checkProjIotaF cfg.iotaMode (sharedOpsC cfg fe) fe T ctorName lps cvj nP nF i
+  let rhsA ← checkProjRuleF (sharedOpsC mode fe) fe pty cvj lps nP nF i
+  checkProjIotaF mode (sharedOpsC mode fe) fe T ctorName lps cvj nP nF i
   pure (fe.push (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
     [⟨ctorName, nF, nP,
       if Expr.recRulePlain pty nP nP nP then .plain else .inert, rhsA⟩]))
@@ -134,7 +136,7 @@ def installProjFnStepS (T ctorName : Name) (lps : List Name)
     (nP nF : Nat) (fe : FEnv) (i : Nat) : CheckCM FEnv := do
   if (fe.find? (projModelName T i)).isSome then do
     flushC
-    checkProjFnS cfg fe T ctorName lps nP nF i
+    checkProjFnS mode fe T ctorName lps nP nF i
   else pure fe
 
 /-- `checkDirectStruct` through the index. -/
@@ -144,11 +146,11 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
   -- created them, and this driver walks four of them (the block's
   -- provisional environments)
   flushC
-  let (fe₁, cvTa) ← checkDirectIndF (sharedOpsC cfg fe) fe p
+  let (fe₁, cvTa) ← checkDirectIndF (sharedOpsC mode fe) fe p
   flushC
-  let (fe₂, cvCa, sorts) ← checkDirectCtorF (sharedOpsC cfg fe₁) fe fe₁ p cvTa
+  let (fe₂, cvCa, sorts) ← checkDirectCtorF (sharedOpsC mode fe₁) fe fe₁ p cvTa
   flushC
-  let (cvRa, rhsA) ← checkDirectRecF (sharedOpsC cfg fe₂) fe₂ p cvTa cvCa
+  let (cvRa, rhsA) ← checkDirectRecF (sharedOpsC mode fe₂) fe₂ p cvTa cvCa
   let fe₃ := fe₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
     [⟨p.cvC.name, p.nF, p.nP,
       if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
@@ -167,13 +169,13 @@ def checkDirectSumS (fe : FEnv) (p : DirectSumParts) : CheckCM FEnv := do
   unless (p.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct sum: duplicate constructor")
   flushC
-  let (fe₁, cvTa) ← checkDirectSumIndF (sharedOpsC cfg fe) fe p
+  let (fe₁, cvTa) ← checkDirectSumIndF (sharedOpsC mode fe) fe p
   flushC
-  let ctorsA ← checkDirectSumCtorsF (sharedOpsC cfg fe₁) fe fe₁ p.cvT.name p.cvT.levelParams
+  let ctorsA ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe fe₁ p.cvT.name p.cvT.levelParams
     p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
   let fe₂ := consSumCtorsF p.nP ctorsA fe₁
   flushC
-  let (cvRa, rhss) ← checkDirectSumRecF (sharedOpsC cfg fe₂) fe₂ p cvTa ctorsA
+  let (cvRa, rhss) ← checkDirectSumRecF (sharedOpsC mode fe₂) fe₂ p cvTa ctorsA
   pure (fe₂.push (.recInfo cvRa p.majorIdx p.rulePrefix
     (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)))
 
@@ -193,10 +195,10 @@ def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
     block.filter (fun ci => match ci with
       | .ctorInfo _ _ _ => true | _ => false) with
   | [.indInfo cvT _], [.ctorInfo cvC nP nF] =>
-    let caps ← pure (indBlockCapsF cfg.iotaMode fe cvT cvC nP nF)
-    let fe₂ ← nonrecs.foldlM (checkIndMemberS cfg blockNames caps) fe
-    let fe₃ ← checkIndRecsS cfg blockNames fe₂ recs
-    unless ctorResidualOkF cfg.iotaMode fe₃ cvT.name cvC.name cvT.levelParams nP nF
+    let caps ← pure (indBlockCapsF mode fe cvT cvC nP nF)
+    let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames caps) fe
+    let fe₃ ← checkIndRecsS mode blockNames fe₂ recs
+    unless ctorResidualOkF mode fe₃ cvT.name cvC.name cvT.levelParams nP nF
         caps.eta do
       throw (.notImplemented "modeled structure: eta constructor residual")
     unless (List.range nF).all
@@ -204,23 +206,23 @@ def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
       throw (.invalid "projection name family taken")
     if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
       (List.range nF).foldlM
-        (installProjFnStepS cfg cvT.name cvC.name cvT.levelParams nP nF)
+        (installProjFnStepS mode cvT.name cvC.name cvT.levelParams nP nF)
         fe₃
     else pure fe₃
   | _, _ => do
-    let fe₂ ← nonrecs.foldlM (checkIndMemberS cfg blockNames {}) fe
-    checkIndRecsS cfg blockNames fe₂ recs
+    let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames {}) fe
+    checkIndRecsS mode blockNames fe₂ recs
 
 /-- One declaration in the shared state, index in and out (mirrors
 `checkDecl` branch by branch; every lookup through the index). -/
 def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
   match d with
   | .defnDecl cv value hint => do
-    let cv ← checkConstantValF (sharedOpsC cfg fe) fe cv
+    let cv ← checkConstantValF (sharedOpsC mode fe) fe cv
     -- Rare Nat-op branch decided before the value check, so the common
     -- path does not retain `fe` across it (see `checkDeclSP`).
     if natOpNames.contains cv.name || natDivModNames.contains cv.name then
-      let fe2 ← checkDefnValF (sharedOpsC cfg fe) fe cv value hint
+      let fe2 ← checkDefnValF (sharedOpsC mode fe) fe cv value hint
       if natOpNames.contains cv.name then
         unless natOpGuardF fe2 cv.name &&
             (natOpDeps cv.name).all (natOpStoredOkF fe2) do
@@ -228,7 +230,7 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
             s!"nonstandard structural Nat operation environment ({cv.name})")
         match fe2.find? cv.name with
         | some (.defnInfo _ value' _) =>
-          let ok ← certifyNatEqs (sharedOpsC cfg fe) fe.env
+          let ok ← certifyNatEqs (sharedOpsC mode fe) fe.env
             ((natOpEquations 0 cv.name).map fun eq =>
               (Expr.substConst0 cv.name value' eq.1,
                Expr.substConst0 cv.name value' eq.2))
@@ -238,21 +240,21 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
         | _ => throw (.internal
             s!"structural Nat operation not stored ({cv.name})")
       if natDivModNames.contains cv.name then
-        checkDivModPinF (sharedOpsC cfg fe) fe fe2 cv.name
+        checkDivModPinF (sharedOpsC mode fe) fe fe2 cv.name
       pure fe2
     else
-      checkDefnValF (sharedOpsC cfg fe) fe cv value hint
+      checkDefnValF (sharedOpsC mode fe) fe cv value hint
   | .thmDecl cv value => do
-    let cv ← checkConstantValF (sharedOpsC cfg fe) fe cv
-    checkThmValF (sharedOpsC cfg fe) fe cv value
+    let cv ← checkConstantValF (sharedOpsC mode fe) fe cv
+    checkThmValF (sharedOpsC mode fe) fe cv value
   | .opaqueDecl cv value => do
-    let cv ← checkConstantValF (sharedOpsC cfg fe) fe cv
-    let fe2 ← checkOpaqueValF (sharedOpsC cfg fe) fe cv value
+    let cv ← checkConstantValF (sharedOpsC mode fe) fe cv
+    let fe2 ← checkOpaqueValF (sharedOpsC mode fe) fe cv value
     if reduceOpNames.contains cv.name then
-      checkReducePinF (sharedOpsC cfg fe) fe fe2 cv.name value
+      checkReducePinF (sharedOpsC mode fe) fe fe2 cv.name value
     pure fe2
   | .axiomDecl cv => do
-    let cvA ← checkConstantValF (sharedOpsC cfg fe) fe cv
+    let cvA ← checkConstantValF (sharedOpsC mode fe) fe cv
     if stdAxiomOkF fe cvA then
       pure (fe.push (.axiomInfo cvA))
     else if cvA.name = trustCompilerName then
@@ -278,17 +280,17 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
     kind.declsA.foldlM installBasisDeclF fe
   | .indDecl block =>
     match directPartsF? fe block with
-    | some p => checkDirectStructS cfg fe p
+    | some p => checkDirectStructS mode fe p
     | none =>
       match directSumPartsF? fe block with
-      | some p => checkDirectSumS cfg fe p
-      | none => checkIndDeclSF cfg fe block
+      | some p => checkDirectSumS mode fe p
+      | none => checkIndDeclSF mode fe block
 
 /-- The shared-state checker step the binary runs: the index is
 threaded *across* declarations (built once for the whole stream; each
 accepted constant is one `FEnv.push`), the interned state lives for
 exactly one declaration. -/
 def checkDeclSharedF (fe : FEnv) (d : Declaration) : CheckM FEnv :=
-  (checkDeclSF cfg fe d).run' {}
+  (checkDeclSF mode fe d).run' {}
 
 end Setlec.Cached

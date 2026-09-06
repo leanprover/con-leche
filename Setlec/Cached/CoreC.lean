@@ -1,5 +1,5 @@
 import Setlec.Cached.StateC
-import Setlec.Kernel.CoreCfg
+import Setlec.Kernel.Env
 
 /-!
 # The cached-clone checker core
@@ -16,18 +16,21 @@ claim auditable.
 
 Unverified pilot code.  See DESIGN.md, "The cached-clone pilot".
 
-**One body, two configs (2026-09-06, `agent/coret-retire`).**  Every
-body below is a template over `cfg : CoreCfg`, and the knot at the end
-(`coreKnotI cfg`) ties them at a *config*, not a mode.  The verified
-core is this knot at `cfgP`; the trusted core is this same knot at
-`cfgT` — there is no second implementation.  The hand-written
-cert-skipping twin (`Setlec/Cached/CoreT.lean`, retired with this
-batch) is gone: what the trusted mode omits is exactly what
-`cfg.verified` gates here (group A: the annotation validations, the
-λ-codomain sort check, the projection certificate) plus what
-`cfg.certs` gates (the certificate families: every `certAtI` /
-`certUnlessI` site and the `betaSkip` / `ioSkip` reads), and nothing
-else (DESIGN.md, "CORET RETIRED").
+**One body, two modes (2026-09-06, `agent/coret-retire`; the mode is
+the only parameter since task #185).**  Every body below is a template
+over `mode : CheckMode`, and the knot at the end (`coreKnotI mode`)
+ties them at a mode.  The verified core is this knot at `.verified`;
+the trusted core is this same knot at `.trusted` — there is no second
+implementation.  The hand-written cert-skipping twin
+(`Setlec/Cached/CoreT.lean`, retired with this batch) is gone: what
+the trusted mode omits is exactly what `mode.verifiedChecks` gates
+here (group A: the annotation validations, the λ-codomain sort check,
+the projection certificate) plus what `mode.certs` gates (the
+certificate families: every `certAtI` / `certUnlessI` site and the
+`betaSkip` / `ioSkip` reads), and nothing else (DESIGN.md, "CORET
+RETIRED").  Every read is a `match` on the two-constructor enum
+(`Setlec/Kernel/Env.lean`), so at either literal mode it reduces by
+`rfl` and the branch is gone, not collapsed.
 -/
 
 namespace Setlec.Cached
@@ -48,12 +51,11 @@ structure CoreFnsI where
   /-- Type inference at the **infer-only grade** (task #170 / #172 B4)
   — the twin of `CoreFns.inferIO` (`Setlec/Kernel/Core.lean`): what
   every internal inference call site runs.  The knot selects the
-  grade's meaning per config (`cfg.ioGate`): the io body (own memo,
-  `CState.inferIOC`) at **both shipped configs** since the licence
-  ruling of 2026-09-06 — the io skip is a licence, not
-  certification-only work — and the full `infer` only at a config
-  whose `ioGate` is `false` (the retired R core; `cfgOf .trusted`,
-  which nothing ships). -/
+  grade's meaning per mode (`mode.ioGate`): the io body (own memo,
+  `CState.inferIOC`) at **both modes** since the licence ruling of
+  2026-09-06 — the io skip is a licence, not certification-only work
+  — and the full `infer` only at `ioGate = false`, which no mode
+  spells any more (the retired R core). -/
   inferIO : Nat → ExprC → CheckCM ExprC
 
 /-- The io-grade view (twin of `CoreFns.ioView`): the record whose
@@ -273,62 +275,67 @@ def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
       | _ => pure false
     | _ => pure false
 
-/- Task #172 batch B2 — **THE BODY TEMPLATE'S PARAMETER.**  Every
-configured body below takes `cfg : CoreCfg` and is instantiated at the
-two named concrete cores at the end of this module (`…PC` at `cfgP`,
-`…TC` at `cfgT`; the `…RC` half retired with the R core, 2026-09-05).
-Nothing below branches on a `CheckMode`.  The ι cone
-(`structEtaCertWithI` → `majorToCtorI` → `prepareMajorI` → `iotaRecI`)
-used to take the transitional `cfg.iotaMode` as a `CheckMode` (task
-#147); since the twin's retirement (2026-09-06) it takes `cfg` itself,
-reads its ι-slot licence off `cfg.betaGate` — the same field the β
-site reads, so the licence is ON at both shipped configs — and keeps
-only the TT-lane residue on `cfg.iotaMode.ttChecks`, a literal `false`
-at each core (`Setlec/Kernel/CoreCfg.lean`). -/
-variable (cfg : CoreCfg)
+/- Task #172 batch B2 — **THE BODY TEMPLATE'S PARAMETER** (the mode
+itself since task #185).  Every configured body below takes
+`mode : CheckMode` and is instantiated at the two named concrete cores
+at the end of this module (`…PC` at `.verified`, `…TC` at `.trusted`;
+the `…RC` half retired with the R core, 2026-09-05).  Every read below
+is one of the `CheckMode` functions of `Setlec/Kernel/Env.lean`, each
+a `match` on the enum.  The ι cone (`structEtaCertWithI` →
+`majorToCtorI` → `prepareMajorI` → `iotaRecI`) reads its ι-slot
+licence off `mode.betaGate` — the same function the β site reads —
+and keeps only the TT-lane residue on `mode.ttChecks`, a literal
+`false` at each mode. -/
+variable (mode : CheckMode)
 
 /-! ### The certificate-family switch (the twin's retirement, 2026-09-06)
 
-`CoreCfg.certs` (`Setlec/Kernel/CoreCfg.lean`) is the task-#76 skip
-list as a config bit: the certificate families the reference kernel
-does not run and only the soundness proof consumes.  Every such
+`CheckMode.certs` (`Setlec/Kernel/Env.lean`) is the task-#76 skip
+list as a mode function: the certificate families the reference
+kernel does not run and only the soundness proof consumes.  Every such
 certificate below is spelled through one of the two wrappers here, so
 the list of `certAtI`/`certUnlessI` sites — plus the `betaSkip` and
 `ioSkip` reads — **is** the list of what the trusted core omits beyond
-group A.  At every `cfgOf mode` the field is the literal `true`, so
-`certAtI (cfgOf mode) c` is `c` by `rfl` (`certAtI_cfgOf`, checked in
-`Verify/BetaGate.lean`'s bridge): the spec bodies carry no such
-wrapper, and the simulation tower never sees one. -/
+group A.  At `.verified` the function is `true`, so `certAtI .verified
+c` is `c` by `rfl` (`certAtI_verified`); the simulation tower
+(`Setlec/Verify/Cached/*`), stated under `hμ : mode.verifiedChecks =
+true`, sees through the wrapper by `certAtI_of_verifiedChecks` — the
+spec bodies carry no such wrapper. -/
 
-/-- Run the certificate `c` when the config runs the certificate
+/-- Run the certificate `c` when the mode runs the certificate
 families; otherwise it is `true` without running. -/
-@[inline] def certAtI (cfg : CoreCfg) (c : CheckCM Bool) : CheckCM Bool :=
-  if cfg.certs then c else pure true
+@[inline] def certAtI (mode : CheckMode) (c : CheckCM Bool) : CheckCM Bool :=
+  if mode.certs then c else pure true
 
 /-- `certAtI` with a *verdict-relevant* exception: `keep = true` runs
-the check at every config (the twin's judgement at ι's parameter
+the check at every mode (the twin's judgement at ι's parameter
 comparison — nested-rule comparands and projection-function rules
 compare in both modes, ordinary plain rules only when certifying). -/
-@[inline] def certUnlessI (cfg : CoreCfg) (keep : Bool) (c : CheckCM Bool) :
+@[inline] def certUnlessI (mode : CheckMode) (keep : Bool) (c : CheckCM Bool) :
     CheckCM Bool :=
-  if cfg.certs || keep then c else pure true
+  if mode.certs || keep then c else pure true
 
-/-- At every mode-parametric instance the wrapper is the certificate,
-definitionally — the simulation tower's blindness to the field, as one
-`rfl` each. -/
-@[simp] theorem certAtI_cfgOf (mode : CheckMode) (c : CheckCM Bool) :
-    certAtI (cfgOf mode) c = c := rfl
-@[simp] theorem certUnlessI_cfgOf (mode : CheckMode) (keep : Bool)
-    (c : CheckCM Bool) : certUnlessI (cfgOf mode) keep c = c := rfl
-/-- … and at the shipped cores the wrapper is the certificate or the
-constant `true`. -/
-@[simp] theorem certAtI_cfgP (c : CheckCM Bool) : certAtI cfgP c = c := rfl
-@[simp] theorem certAtI_cfgT (c : CheckCM Bool) :
-    certAtI cfgT c = pure true := rfl
+/-- At a mode running the certificate families the wrapper is the
+certificate — the simulation tower's blindness to the switch, under
+its `hμ`. -/
+@[simp] theorem certAtI_of_verifiedChecks {mode : CheckMode}
+    (hμ : mode.verifiedChecks = true) (c : CheckCM Bool) :
+    certAtI mode c = c := by
+  cases mode <;> simp_all [certAtI, CheckMode.certs, CheckMode.verifiedChecks]
+@[simp] theorem certUnlessI_of_verifiedChecks {mode : CheckMode}
+    (hμ : mode.verifiedChecks = true) (keep : Bool) (c : CheckCM Bool) :
+    certUnlessI mode keep c = c := by
+  cases mode <;> simp_all [certUnlessI, CheckMode.certs, CheckMode.verifiedChecks]
+/-- … and at the two modes the wrapper is the certificate or the
+constant `true`, by `rfl`. -/
+@[simp] theorem certAtI_verified (c : CheckCM Bool) :
+    certAtI .verified c = c := rfl
+@[simp] theorem certAtI_trusted (c : CheckCM Bool) :
+    certAtI .trusted c = pure true := rfl
 
 /-- Twin of `propIrrel` (task #168): the hoisted `Prop`-branch test
 with both head-symbol arms.  Ungated since 2026-09-06 — the readers
-run in both modes, so this body takes no `CoreCfg` at all. -/
+run in both modes, so this body takes no `CheckMode` at all. -/
 def propIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
   if notProofFast fe.find? a || notProofFast fe.find? b then
@@ -435,11 +442,11 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 let tyT ← constTyAtM fe T Tn us'
                 -- the type-former telescope certificate and the
                 -- per-slot ones are certificate families (official's
-                -- `try_eta_struct_core` runs neither); off at `cfgT`
-                if ← certAtI cfg (iotaCertsI r fe depth false tyT targs) then do
+                -- `try_eta_struct_core` runs neither); off at `.trusted`
+                if ← certAtI mode (iotaCertsI r fe depth false tyT targs) then do
                   -- the per-slot certificates are the projection-function
                   -- kind's; a tabled family has none (task #175 S1)
-                  if ← certAtI cfg (if fe.towerSlotsAllF Tn cnF then pure true
+                  if ← certAtI mode (if fe.towerSlotsAllF Tn cnF then pure true
                       else structEtaProjCertsI r fe depth T Tn us'
                         targs b cvT.levelParams (List.range cnF)) then do
                     if ← defEqListI r fe depth (aargs.take cnP) targs then do
@@ -452,9 +459,9 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       -- `majorToCtorI`'s eta rescue ran it already
                       -- (task #71), `defeq`'s `structEtaCertI` did not.
                       -- TT-lane check (task #147): skipped unless
-                      -- `cfg.iotaMode.ttChecks`, a literal `false` at
+                      -- `mode.ttChecks`, a literal `false` at
                       -- both shipped cores.
-                      if ← (if cfg.iotaMode.ttChecks then do
+                      if ← (if mode.ttChecks then do
                           let tyCtor ← constTyAtM fe c cn us
                           iotaCertsI r fe depth false tyCtor (targs ++ projs)
                         else pure true) then
@@ -479,7 +486,7 @@ def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
   if sh then
     let tb ← r.inferIO depth b
     let wtb ← r.whnf depth tb
-    structEtaCertWithI cfg r fe depth a b wtb
+    structEtaCertWithI mode r fe depth a b wtb
   else pure false
 
 /-- Twin of `structUnitCert`. -/
@@ -503,9 +510,9 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
         if ← r.defeq depth wta wtb then do
           -- the type-former telescope certificate (a certificate
           -- family: official's `is_def_eq_unit_like` stops at the
-          -- defeq above); off at `cfgT`
+          -- defeq above); off at `.trusted`
           let tyT ← constTyAtM fe T Tn us'
-          certAtI cfg (iotaCertsI r fe depth false tyT targs)
+          certAtI mode (iotaCertsI r fe depth false tyT targs)
         else pure false
       else pure false
     | _ => pure false
@@ -526,7 +533,7 @@ def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
       let b₁ ← inst1M body₁ fv
       let ba ← internI (.app b fv)
       unless ← r.defeq (depth + 1) b₁ ba do return false
-      if cfg.verified && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (eta)")
       pure true
     else pure false
@@ -535,9 +542,9 @@ def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
 /-- Twin of `stuckIrrel`. -/
 def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
-  if ← structEtaCertI cfg r fe depth a b then pure true
-  else if ← structEtaCertI cfg r fe depth b a then pure true
-  else if ← structUnitCertI cfg r fe depth a b then pure true
+  if ← structEtaCertI mode r fe depth a b then pure true
+  else if ← structEtaCertI mode r fe depth b a then pure true
+  else if ← structUnitCertI mode r fe depth a b then pure true
   else proofIrrelI r fe depth a b
 
 /-- Twin of `majorToCtor`. -/
@@ -573,8 +580,8 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     -- telescope certificate, relocated here from the
                     -- fire path
                     let tyCtor ← constTyAtM fe ctorI rl.ctor ust
-                    -- (a certificate family; off at `cfgT`)
-                    if ← certAtI cfg (iotaCertsI r fe depth false tyCtor
+                    -- (a certificate family; off at `.trusted`)
+                    if ← certAtI mode (iotaCertsI r fe depth false tyCtor
                         (margs.take cnP)) then do
                       -- official `to_cnstr_when_K` fabrication type
                       -- check (load-bearing with the major-slot
@@ -583,10 +590,10 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       -- both modes; `proofIrrelI` stays as the
                       -- soundness certificate, a certificate family
                       -- (official stops at the type check), off at
-                      -- `cfgT`
+                      -- `.trusted`
                       let tfab ← r.inferIO depth fab
                       if ← r.defeq depth tmaj tfab then
-                        if ← certAtI cfg (proofIrrelI r fe depth fab major) then
+                        if ← certAtI mode (proofIrrelI r fe depth fab major) then
                           pure fab
                         else pure major
                       else pure major
@@ -623,10 +630,10 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     -- synthetic-spine certification, as in the K
                     -- branch (task #71)
                     let tyCtor ← constTyAtM fe ctorI rl.ctor ust
-                    -- (a certificate family; off at `cfgT`)
-                    if ← certAtI cfg (iotaCertsI r fe depth false tyCtor
+                    -- (a certificate family; off at `.trusted`)
+                    if ← certAtI mode (iotaCertsI r fe depth false tyCtor
                         (margs ++ projs)) then do
-                      if ← structEtaCertWithI cfg r fe depth fab major
+                      if ← structEtaCertWithI mode r fe depth fab major
                           tmaj then
                         pure fab
                       else if caps.etaFields = 0 ∧
@@ -676,13 +683,13 @@ def prepareMajorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (recName : Name) (rules : List RecRule) (major : ExprC) :
     CheckCM ExprC := do
   if recRuleKOf fe.find? rules then do
-    let majorK ← majorToCtorI cfg r fe depth recName rules major
+    let majorK ← majorToCtorI mode r fe depth recName rules major
     let major₀ ← r.whnf depth majorK
     litMajorToCtorI r fe depth major₀
   else do
     let major₀ ← r.whnf depth major
     let major₁ ← litMajorToCtorI r fe depth major₀
-    majorToCtorI cfg r fe depth recName rules major₁
+    majorToCtorI mode r fe depth recName rules major₁
 
 /-- The interned nested-rule pin instantiations (structural recursion;
 the spec side is `(recFireComparands …).2`'s `List.map`). -/
@@ -709,7 +716,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
       -- recursor's level arity before the rule's RHS is instantiated.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length then do
         let bvar0 ← internI (.bvar 0)
-        let major ← prepareMajorI cfg r fe depth cn rules (args.getD mI bvar0)
+        let major ← prepareMajorI mode r fe depth cn rules (args.getD mI bvar0)
         match ← withStore (fun st => st.getNode (st.getAppFnI major)) with
         | some (.const cj usj) => do
           let cjn ← readbackNM cj
@@ -746,29 +753,29 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                  -- for an ordinary plain rule (official's
                  -- `inductive_reduce_rec` compares nothing) — the
                  -- retired twin's judgement, kept
-                 if ← certUnlessI cfg
+                 if ← certUnlessI mode
                     ((match rl.fire with | .nested _ _ => true | _ => false)
                       || Name.isProjFnShape cn)
                     (defEqListI r fe depth (margs.take rl.ctorParams)
                       cmpArgs) then do
                   let tyRec ← constTyAtM fe c cn us
                   -- the two telescope runs, licensed (`iotaCertsIAux`)
-                  -- off the config's own β field — `true` at both
-                  -- shipped cores (the licence ruling of 2026-09-06);
-                  -- the transitional `cfg.iotaMode.betaGate` read it
-                  -- replaced was `false` at `cfgT`, an inversion the
-                  -- twin's retirement exposed (DESIGN.md, "CORET
-                  -- RETIRED").  Both are certificate families, off
-                  -- at `cfgT` (where the licence is therefore moot).
-                  if ← certAtI cfg (iotaCertsI r fe depth cfg.betaGate tyRec
+                  -- off `mode.betaGate` — the same function the β
+                  -- site reads, `true` at `.verified`.  Both are
+                  -- certificate families, off at `.trusted` — where
+                  -- the licence's value is therefore moot (the retired
+                  -- trusted config's `betaGate = true` was moot the same way; the
+                  -- read sits under `certAtI`, never beside it —
+                  -- DESIGN.md, "CORET RETIRED", inversion 22).
+                  if ← certAtI mode (iotaCertsI r fe depth mode.betaGate tyRec
                      (args.take mI ++ [major])) then do
                    let tyCtor ← constTyAtM fe cj cjn usj
-                   if ← certAtI cfg (iotaCertsI r fe depth cfg.betaGate tyCtor
+                   if ← certAtI mode (iotaCertsI r fe depth mode.betaGate tyCtor
                        margs) then do
                     -- the canonical-index comparison, only where
                     -- indices exist (the spec's `iotaRec`); a
-                    -- certificate family, off at `cfgT`
-                    if ← certAtI cfg (iotaIndexOkI r fe depth mI rP
+                    -- certificate family, off at `.trusted`
+                    if ← certAtI mode (iotaIndexOkI r fe depth mI rP
                         rl.ctorParams tyCtor
                         margs ((args.take mI).drop rP)) then do
                       let rhs ← ruleRhsAtM fe c cj cn cjn us
@@ -824,7 +831,7 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.lam _ ty body mb) => do
         -- task #161: the β gate is a pure early return; the `else`
         -- arm is the pre-gate clause, verbatim (`betaGateFires`)
-        if cfg.betaSkip mb.pw then
+        if mode.betaSkip mb.pw then
           betaPeelI r fe depth k body [a] rest
         else do
           -- task #172 B4: the β certificate's inference at the io grade
@@ -836,7 +843,7 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             mkAppNM fa rest
     | _ => do
       let fa ← internI (.app v a)
-      match ← iotaRecI cfg r fe depth fa with
+      match ← iotaRecI mode r fe depth fa with
       | some e'' => do
         let v' ← k e''
         whnfAppI r fe depth k v' rest
@@ -863,7 +870,7 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.lam _ ty body mb) => do
         -- task #161: the β gate is a pure early return; the `else`
         -- arm is the pre-gate clause, verbatim (`betaGateFires`)
-        if cfg.betaSkip mb.pw then
+        if mode.betaSkip mb.pw then
           betaPeelI r fe depth k body (a :: acc) rest
         else do
           let ty' ← instListM ty acc
@@ -907,7 +914,7 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let v ← r.whnfCore depth h
-      whnfAppI cfg r fe depth k v args
+      whnfAppI mode r fe depth k v args
     | some (.proj sn i pe) => do
       let e' ← r.whnf depth pe
       let e' ← projLitToCtorI r fe depth e'
@@ -924,12 +931,12 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
             -- task #100 de-gating: the certificate runs
-            -- unconditionally at the verified config (the former
+            -- unconditionally at the verified mode (the former
             -- nonzero-sort gate is unsound-to-model under the
             -- domain-relative collapse); task #175 W6: the spine
             -- against the constructor's type (see `projCert`); the
-            -- trusted config runs none (`projCertAt`).
-            if ← projCertAtI r fe depth cfg.verified cfg.betaGate c us args then
+            -- trusted mode runs none (`projCertAt`).
+            if ← projCertAtI r fe depth mode.verifiedChecks mode.betaGate c us args then
               k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')
@@ -950,12 +957,12 @@ def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → ExprC → CheckCM ExprC
   | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
   | n + 1, e =>
-    whnfCoreStepI cfg r fe depth (whnfCoreLoopI r fe depth n) e
+    whnfCoreStepI mode r fe depth (whnfCoreLoopI r fe depth n) e
 
 /-- Twin of `whnfCoreBody`: the head-normalization loop at its own step
 budget. -/
 def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
-  fun depth e => whnfCoreLoopI cfg r fe depth whnfCoreLoopFuel e
+  fun depth e => whnfCoreLoopI mode r fe depth whnfCoreLoopFuel e
 
 /-- Application-inference spine loop (task #50): walk the raw
 Π-telescope against the arguments with deferred substitution — each
@@ -1001,7 +1008,7 @@ whnf, so the syntactic step's datum is the datum the pure io body
 reads off the whnf'd type.
 
 **The licence reads the datum and nothing else** (the ruling of
-2026-09-06).  It used to carry a `cfg.verified &&` mode conjunct; that
+2026-09-06).  It used to carry a `mode.verifiedChecks &&` mode conjunct; that
 conjunct made the *trusted* core run the certificate the verified core
 skips — an inversion of what the trusted mode is defined to be (the
 real mode with certification-only steps omitted).  Validating the
@@ -1010,9 +1017,9 @@ not.  The P tier's licensing theorem (`io_domain_transfer`,
 `SetP/IOLicenseP.lean`) never used the mode conjunct either: it spends
 only `pwBit_ne_zero_of_isNever`.
 
-**The read is `cfg.ioSkip mt.pw`** (the twin's retirement): at
-`cfgOf mode` and at `cfgP` that is `mt.pw.isNever` by `rfl` — the
-datum alone, as above — and at `cfgT` it is `true`: the per-argument
+**The read is `mode.ioSkip mt.pw`** (the twin's retirement): at
+`.verified` that is `mt.pw.isNever` by `rfl` — the datum alone, as
+above — and at `.trusted` it is `true`: the per-argument
 certificate at an internal inference is a certificate family
 (official's `infer_only` runs none), skipped wholesale. -/
 def inferSpineIOI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
@@ -1021,7 +1028,7 @@ def inferSpineIOI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
   | ty, acc, a :: rest => do
     match ← viewI ty with
     | some (.forallE _ dom body mt) => do
-      unless cfg.ioSkip mt.pw do
+      unless mode.ioSkip mt.pw do
         let dom' ← instListRevM dom acc
         let ta ← r.infer depth a
         unless ← r.defeq depth ta dom' do
@@ -1032,7 +1039,7 @@ def inferSpineIOI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       let w ← r.whnf depth ty'
       match ← viewI w with
       | some (.forallE _ dom body mt) => do
-        unless cfg.ioSkip mt.pw do
+        unless mode.ioSkip mt.pw do
           let ta ← r.infer depth a
           unless ← r.defeq depth ta dom do
             throw (.invalid "application type mismatch")
@@ -1103,7 +1110,7 @@ def inferLamsOutI (d : Nat) :
     -- node's prop-ness annotation must agree with its inner
     -- neighbour's (the innermost step compares the entry with itself
     -- — vacuously true).
-    if cfg.verified && !(mb.pw.equiv prevPw) then
+    if mode.verifiedChecks && !(mb.pw.equiv prevPw) then
       throw (.notImplemented "sort-annotation mismatch (lam-cod-chain)")
     let tyAbs ← abstractRangeM tyo d j
     let node ← internI (.forallE n tyAbs cur mb)
@@ -1124,7 +1131,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
   match ← viewI t with
   | some (.lam ..) => pure ()
   | _ =>
-    if cfg.verified then
+    if mode.verifiedChecks then
       let btt ← r.inferIO (d + k) bt
       let wbtt ← r.whnf (d + k) btt
       match ← viewI wbtt with
@@ -1153,7 +1160,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
       pure (match stk with
         | (_, _, mb₀) :: _ => mb₀.pw
         | [] => .never)
-  inferLamsOutI cfg d stk (k - 1) cur prevPw
+  inferLamsOutI mode d stk (k - 1) cur prevPw
 
 /-- λ-telescope inference loop (task #72; used by `inferBodyI`'s and
 `inferBodyIOI`'s lam cases): peel the raw λ-chain, checking each opened
@@ -1174,8 +1181,8 @@ def inferLamsI (r : CoreFnsI) (d : Nat) :
         inferLamsI r d fuel body (k + 1) (fvs.push fv)
           ((n, tyo, mb) :: stk)
       | _ => throw (.invalid "expected a sort")
-    | _ => inferLamsLeafI cfg r d t k fvs stk
-  | 0, t, k, fvs, stk => inferLamsLeafI cfg r d t k fvs stk
+    | _ => inferLamsLeafI mode r d t k fvs stk
+  | 0, t, k, fvs, stk => inferLamsLeafI mode r d t k fvs stk
 
 /-- Rebuild loop of `inferPisI`: fold the accumulated domain sorts by
 `imax`, innermost binder first — exactly the chained `∀`-rule's result
@@ -1187,7 +1194,7 @@ def inferPisOutI : List (Level × PropWhen) → Level → CStore.PWMemo → Chec
     -- inferred codomain sort (`v` is exactly the spec `∀`-clause's
     -- `v` at this node); the readout is memoized across the fold.
     let (pv, memo) ← withStore fun st => st.zeronessOfLIGo memo v
-    if cfg.verified && !(pv.equiv pw) then
+    if mode.verifiedChecks && !(pv.equiv pw) then
       throw (.notImplemented "sort-annotation mismatch (forall-cod)")
     let v' ← internLM (.imax u v)
     inferPisOutI rest v' memo
@@ -1201,7 +1208,7 @@ def inferPisLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
   let wbt ← r.whnf (d + k) bt
   match ← viewI wbt with
   | some (.sort v) => do
-    let iv ← inferPisOutI cfg stk v ({} : CStore.PWMemo)
+    let iv ← inferPisOutI mode stk v ({} : CStore.PWMemo)
     internI (.sort iv)
   | _ => throw (.invalid "expected a sort")
 
@@ -1225,8 +1232,8 @@ def inferPisI (r : CoreFnsI) (d : Nat) :
         inferPisI r d fuel body (k + 1) (fvs.push fv)
           ((u, mb.pw) :: stk)
       | _ => throw (.invalid "expected a sort")
-    | _ => inferPisLeafI cfg r d t k fvs stk
-  | 0, t, k, fvs, stk => inferPisLeafI cfg r d t k fvs stk
+    | _ => inferPisLeafI mode r d t k fvs stk
+  | 0, t, k, fvs, stk => inferPisLeafI mode r d t k fvs stk
 
 /-- Twin of `inferBody`. -/
 def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
@@ -1270,7 +1277,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       | some (.sort u) => do
         let fv ← internI (.fvar depth n ty)
         let fuel ← peelFuelM
-        inferPisI cfg r depth fuel body 1 #[fv] [(u, mb.pw)]
+        inferPisI mode r depth fuel body 1 #[fv] [(u, mb.pw)]
       | _ => throw (.invalid "expected a sort")
     | some (.lam n ty body mb) => do
       let tty ← r.infer depth ty
@@ -1281,7 +1288,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         -- open in bulk, rebuild with `abstractRange`.
         let fv ← internI (.fvar depth n ty)
         let fuel ← peelFuelM
-        inferLamsI cfg r depth fuel body 1 #[fv] [(n, ty, mb)]
+        inferLamsI mode r depth fuel body 1 #[fv] [(n, ty, mb)]
       | _ => throw (.invalid "expected a sort")
     | some (.app _ _) => do
       -- Bulk telescope consumption (task #50): infer the spine head
@@ -1350,7 +1357,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let tf ← r.infer depth h
-      inferSpineIOI cfg r fe depth tf #[] args
+      inferSpineIOI mode r fe depth tf #[] args
     | some (.forallE n ty body mb) => do
       -- the pure io ∀ clause, **chained** (deliberately not the
       -- task-#72 telescope loop: the loops are the front door's
@@ -1366,7 +1373,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         let ob ← inst1M body fv
         let bt ← r.infer (depth + 1) ob
         let v ← ensureSortI r (depth + 1) bt
-        if cfg.verified then
+        if mode.verifiedChecks then
           unless (Level.zeronessOf v).equiv mb.pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         let iu ← internLM (.imax u v)
@@ -1378,7 +1385,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       let fv ← internI (.fvar depth n ty)
       let ob ← inst1M body fv
       let bt ← r.infer (depth + 1) ob
-      if cfg.verified then
+      if mode.verifiedChecks then
         match body.lamPw with
         | some pwI =>
           unless mb.pw.equiv pwI do
@@ -1392,7 +1399,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
               "sort-annotation mismatch (lam-cod-leaf)")
       let bAbs ← abstract1M bt depth
       internI (.forallE n ty bAbs mb)
-    | _ => inferBodyI cfg r fe depth e
+    | _ => inferBodyI mode r fe depth e
 
 /-- The store read of `Expr.isBoolTrue` (`ExprC = Expr`; the
 `rawNatLitI?` convention). -/
@@ -1477,51 +1484,51 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.lit l₁), some (.lit l₂) => pure (l₁ == l₂)
     | some (.lit (.natVal n)), some (.const c us) =>
       if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
-      else stuckIrrelI cfg r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.const c us), some (.lit (.natVal n)) =>
       if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
-      else stuckIrrelI cfg r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.lit (.natVal nn)), some (.app f x) => do
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
         if ← beqNameM c natSuccName then do
           let kl ← internI (.lit (.natVal k))
           r.defeq depth kl x
-        else stuckIrrelI cfg r fe depth a' b'
-      | _, _ => stuckIrrelI cfg r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      | _, _ => stuckIrrelI mode r fe depth a' b'
     | some (.app f x), some (.lit (.natVal nn)) => do
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
         if ← beqNameM c natSuccName then do
           let kl ← internI (.lit (.natVal k))
           r.defeq depth x kl
-        else stuckIrrelI cfg r fe depth a' b'
-      | _, _ => stuckIrrelI cfg r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      | _, _ => stuckIrrelI mode r fe depth a' b'
     | some (.lit (.strVal s)), some (.app fO _x) => do
       match ← viewI fO with
       | some (.const cO usO) =>
         if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
           let sc ← internExprM (strLitToConstructor s)
           r.defeq depth sc b'
-        else stuckIrrelI cfg r fe depth a' b'
-      | _ => stuckIrrelI cfg r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      | _ => stuckIrrelI mode r fe depth a' b'
     | some (.app fO _x), some (.lit (.strVal s)) => do
       match ← viewI fO with
       | some (.const cO usO) =>
         if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
           let sc ← internExprM (strLitToConstructor s)
           r.defeq depth a' sc
-        else stuckIrrelI cfg r fe depth a' b'
-      | _ => stuckIrrelI cfg r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      | _ => stuckIrrelI mode r fe depth a' b'
     | some (.fvar i _ _), some (.fvar j _ _) =>
       if i == j then pure true
-      else stuckIrrelI cfg r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.const n us), some (.const n' us') =>
       if n = n' then do
         if ← liftFueled "level comparison" (← isEquivListLM us us') then
           pure true
-        else stuckIrrelI cfg r fe depth a' b'
-      else stuckIrrelI cfg r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.forallE n₁ ty₁ body₁ m₁), some (.forallE n₂ ty₂ body₂ m₂) => do
       -- prop-ness agreement checked LAST (task #161); see `defeqBody`
       unless ← r.defeq depth ty₁ ty₂ do return false
@@ -1530,7 +1537,7 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      if cfg.verified && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
       pure true
     | some (.lam n₁ ty₁ body₁ m₁), some (.lam n₂ ty₂ body₂ m₂) => do
@@ -1540,7 +1547,7 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      if cfg.verified && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
       pure true
     | some (.app _f₁ _a₁), some (.app _f₂ _a₂) => do
@@ -1553,21 +1560,21 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         let h₂ ← withStore (fun st => st.getAppFnI b')
         if ← r.defeq depth h₁ h₂ then do
           if ← defEqListI r fe depth as₁ as₂ then pure true
-          else stuckIrrelI cfg r fe depth a' b'
-        else stuckIrrelI cfg r fe depth a' b'
-      else stuckIrrelI cfg r fe depth a' b'
+          else stuckIrrelI mode r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.proj s₁ i₁ e₁), some (.proj s₂ i₂ e₂) => do
       if s₁ == s₂ && i₁ == i₂ then do
         if ← r.defeq depth e₁ e₂ then pure true
-        else stuckIrrelI cfg r fe depth a' b'
-      else stuckIrrelI cfg r fe depth a' b'
+        else stuckIrrelI mode r fe depth a' b'
+      else stuckIrrelI mode r fe depth a' b'
     | some (.lam n₁ ty₁ body₁ m₁), _ => do
-      if ← etaCertI cfg r fe depth n₁ ty₁ body₁ m₁ b' then pure true
-      else stuckIrrelI cfg r fe depth a' b'
+      if ← etaCertI mode r fe depth n₁ ty₁ body₁ m₁ b' then pure true
+      else stuckIrrelI mode r fe depth a' b'
     | _, some (.lam n₂ ty₂ body₂ m₂) => do
-      if ← etaCertI cfg r fe depth n₂ ty₂ body₂ m₂ a' then pure true
-      else stuckIrrelI cfg r fe depth a' b'
-    | some _, some _ => stuckIrrelI cfg r fe depth a' b'
+      if ← etaCertI mode r fe depth n₂ ty₂ body₂ m₂ a' then pure true
+      else stuckIrrelI mode r fe depth a' b'
+    | some _, some _ => stuckIrrelI mode r fe depth a' b'
     | _, _ => throw (.internal "interned node missing")
 
 /-- Twin of `defeqLoop`. -/
@@ -1575,11 +1582,11 @@ def defeqLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → Bool → ExprC → ExprC → CheckCM Bool
   | 0, _, _, _ => throw (.internal "fuel exhausted: defeq loop")
   | fl + 1, pi, a, b =>
-    defeqStepI cfg r fe depth (defeqLoopI r fe depth fl) pi a b
+    defeqStepI mode r fe depth (defeqLoopI r fe depth fl) pi a b
 
 /-- Twin of `defeqBody`. -/
 def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → ExprC → CheckCM Bool :=
-  fun depth a b => defeqLoopI cfg r fe depth defeqLoopFuel true a b
+  fun depth a b => defeqLoopI mode r fe depth defeqLoopFuel true a b
 
 /-- Twin of `isPropType`. -/
 def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : ExprC) :
@@ -1855,14 +1862,13 @@ index pair (`@[inline]` as `memoEI`). -/
 /-- Tie the interned bodies at the memoizing state monad (fuel only
 here, as in `coreKnot`; levels built lazily).
 
-**The knot takes the config, not the mode** (2026-09-06, the twin's
-retirement).  `coreKnotI cfgP` is the verified core the capstones are
-stated about (through `cfgOf .verified = cfgP`, `rfl`), and
-`coreKnotI cfgT` is the trusted core `--trusted` runs — the same
-function at the other config.  The mode-parametric simulation tower
-(`Setlec/Verify/Cached/*`) is stated at `coreKnotI (cfgOf mode)`, which
-at a variable `mode` unfolds to exactly what the old `coreKnotI mode`
-did (`let cfg := cfgOf mode` was its first line). -/
+**The knot takes the mode** (task #185; from 2026-09-06 to then it
+took a configuration record standing in for it).  `coreKnotI .verified`
+is the verified core the capstones are stated about, and
+`coreKnotI .trusted` is the trusted core `--trusted` runs — the same
+function at the other mode.  The mode-parametric simulation tower
+(`Setlec/Verify/Cached/*`) is stated at `coreKnotI mode` under
+`hμ : mode.verifiedChecks = true`. -/
 def coreKnotI (fe : FEnv) : Nat → CoreFnsI
   | 0 =>
     { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
@@ -1894,35 +1900,36 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
     -- `Thunk.get ⟨f⟩` is `f ()` by structure eta, so this is the same
     -- term: no proof in `Setlec/Verify/Cached/*` moved.
     let prev : Unit → CoreFnsI := fun _ => coreKnotI fe fuel
-    -- task #172 B2: the template's config is a parameter, so it is
-    -- built once per *driver*, never per knot level or per call
-    -- (measured at B2: a record allocation at every head-normalization
-    -- entry cost +0.155 % on `init-prelude`).
+    -- task #172 B2 / #185: the template's parameter is the mode, an
+    -- enum passed down once per *driver* — nothing is built per knot
+    -- level or per call (at B2 a record allocation at every
+    -- head-normalization entry cost +0.155 % on `init-prelude`).
     { whnfCore := memoEI (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => whnfCoreBodyI cfg (prev ()) fe d e)
+        (fun d e => whnfCoreBodyI mode (prev ()) fe d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (prev ()) fe d e)
       infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => inferBodyI cfg (prev ()) fe d e)
+        (fun d e => inferBodyI mode (prev ()) fe d e)
       defeq := memoBI
-        (fun d a b => defeqBodyI cfg (prev ()) fe d a b)
+        (fun d a b => defeqBodyI mode (prev ()) fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
         (fun d e => annotateBodyI (prev ()) fe d e)
       -- **The io slot** (task #170 / #172 B4), selected once per knot
-      -- level: at the gated config the io body under its OWN memo
+      -- level: at `ioGate` the io body under its OWN memo
       -- (`CState.inferIOC` — the task-#170 memo ruling: a hit in the io
       -- memo never serves a full-infer query), tied to the io-grade
-      -- view of the previous level (the grade propagates); at every
-      -- other config the full inference closure, verbatim — one memo,
-      -- because the two grades are the same function there (task #170:
-      -- "in R mode infer_only is just equivalent to infer").
-      inferIO := if cfg.ioGate then
+      -- view of the previous level (the grade propagates); at
+      -- `ioGate = false` — no mode any more — the full inference
+      -- closure, verbatim, under one memo, because the two grades are
+      -- the same function there (task #170: "in R mode infer_only is
+      -- just equivalent to infer").
+      inferIO := if mode.ioGate then
           memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
-            (fun d e => inferBodyIOI cfg (prev ()).ioView fe d e)
+            (fun d e => inferBodyIOI mode (prev ()).ioView fe d e)
         else
           memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-            (fun d e => inferBodyI cfg (prev ()) fe d e) }
+            (fun d e => inferBodyI mode (prev ()) fe d e) }
 
 /-! ## The named concrete cores (task #172, batches B2 and B3; the R
 half retired 2026-09-05; the T half instantiated 2026-09-06)
@@ -1931,20 +1938,23 @@ The template's whole point, spelled out: these are **definitions, not
 clones** — one body, one name per family, and each unfolds to a term
 with no `CheckMode` branch left in it.  Since the twin's retirement
 the trusted core is the second instantiation of the same four bodies,
-at `cfgT` (`…TC` below): `cfgT_eq_cfgP_verified_off` says the two
-cores differ in the `verified` and `certs` bits and nothing else, so
-**the `cfg.verified` reads plus the `certAtI`/`certUnlessI`/`betaSkip`/
-`ioSkip` reads in this module are the complete list of what the
-trusted mode omits**.
+at `.trusted` (`…TC` below): of the `CheckMode` functions
+(`Setlec/Kernel/Env.lean`) only `verifiedChecks` and `certs` differ
+between the two constructors (`betaGate` does too, but every read of
+it here sits under a `certs` read or a `verifiedChecks` read that is
+off at `.trusted`), so **the `mode.verifiedChecks` reads plus the
+`certAtI`/`certUnlessI`/`betaSkip`/`ioSkip` reads in this module are
+the complete list of what the trusted mode omits**.
 
-`whnfCoreBodyPC` is the P core's head normalization: `cfgP.betaSkip`
-is `PropWhen.isNever`, so the surviving branch reads the redex's
-**validated annotation datum**.  That is data, and it is the licence's
-own subject (`AnnotOkP_beta_gate`), not a flag.
+`whnfCoreBodyPC` is the P core's head normalization:
+`CheckMode.betaSkip .verified` is `PropWhen.isNever`, so the surviving
+branch reads the redex's **validated annotation datum**.  That is
+data, and it is the licence's own subject (`AnnotOkP_beta_gate`), not
+a flag.
 
 B3 added the remaining three configured families.  Their config read
-is `cfg.verified` — the λ-codomain sort check and the ∀/λ annotation
-validation — which is `true` at `cfgP`, so at the named core the `if`
+is `mode.verifiedChecks` — the λ-codomain sort check and the ∀/λ annotation
+validation — which is `true` at `.verified`, so at the named core the `if`
 is its own *then* arm by `rfl` and the check is unconditionally
 present:
 
@@ -1961,37 +1971,37 @@ bodies at `cfgR` — every certificate unconditional, the census's part 2
 proof that was the R core's whole reason to exist, and with the
 acceptance delta against the graded core measured at ZERO (B4: 225
 fixtures plus init-full, byte-identical), the core went with its proof.
-`cfgR` is gone from `Kernel/CoreCfg.lean`; the flag that selected it
-(`--set-model=r`) is a hard error.
+`cfgR` is gone (with the whole configuration record, task #185); the flag
+that selected it (`--set-model=r`) is a hard error.
 
 **`whnf` needs no instantiation and that is a finding, not an
 omission.**  `whnfBodyI` (and `whnfStepI`/`whnfLoopI` under it) reads
-no configuration field at all: the whole δ/ι/β content sits in
+no mode function at all: the whole δ/ι/β content sits in
 `whnfCore`, which `whnf` reaches through the knot.
 
-The `rfl` identities against the mode-parametric spelling are in
-`Setlec/Verify/BetaGate.lean` (the implementation tier may not import
-`Verify`); they are what keeps the transition free: every landed
-statement about `inferBodyI (cfgOf mode)` (etc.) is a statement about
-this core at the concrete mode, definitionally. -/
+The `rfl` identities of the mode functions at the two constructors are
+in `Setlec/Verify/BetaGate.lean` (the implementation tier may not
+import `Verify`): every landed statement about `inferBodyI mode`
+(etc.) is a statement about this core at the concrete mode,
+definitionally. -/
 
 /-- **The P core's head-normalization body.**  Flag-free by
 construction; the one surviving branch reads the validated annotation
 datum. -/
 def whnfCoreBodyPC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
-  whnfCoreBodyI cfgP r fe
+  whnfCoreBodyI .verified r fe
 
-/-- **The P core's inference body.**  Flag-free: `cfgP.verified` is
-`true`, so the λ-codomain sort check and the chain-rule annotation
-agreement are unconditional. -/
+/-- **The P core's inference body.**  Flag-free:
+`CheckMode.verifiedChecks .verified` is `true`, so the λ-codomain sort
+check and the chain-rule annotation agreement are unconditional. -/
 def inferBodyPC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
-  inferBodyI cfgP r fe
+  inferBodyI .verified r fe
 
 /-- **The P core's conversion body.**  Flag-free: the ∀/λ `pw`
 agreement checks are unconditional. -/
 def defeqBodyPC (r : CoreFnsI) (fe : FEnv) :
     Nat → ExprC → ExprC → CheckCM Bool :=
-  defeqBodyI cfgP r fe
+  defeqBodyI .verified r fe
 
 /-- **The P core's annotation pass.**  Flag-free: the two `pw` writes
 are unconditional.  (Annotation stays its own pass in every core — the
@@ -2001,29 +2011,30 @@ def annotateBodyPC (r : CoreFnsI) (fe : FEnv) :
     Nat → ExprC → CheckCM ExprC :=
   annotateBodyI r fe
 
-/-! ### The trusted core — the same bodies at `cfgT`
+/-! ### The trusted core — the same bodies at `.trusted`
 
-Unverified by construction (no capstone covers `cfgT`, and none will:
+Unverified by construction (no capstone covers `.trusted`, and none will:
 the mode is defined as *unvalidated*), but not a second
 implementation: each definition below is its `…PC` sibling with the
-config swapped, and `cfgT.verified = false` is the only field that
-computes differently.  `annotateBodyI` reads no config, so the
-annotation pass has one name for both cores. -/
+mode swapped, and `verifiedChecks`/`certs` (both `false` at
+`.trusted`) are the only reads that compute differently.
+`annotateBodyI` reads no mode, so the annotation pass has one name for
+both cores. -/
 
 /-- **The trusted core's head-normalization body**: the β argument
 certificate, the ι telescope certificates and index comparison, the
 η/unit/K-rescue certificates and the projection certificate family
-are all off (`cfgT.certs`, `cfgT.verified`); every guard and
-comparison official performs runs. -/
+are all off (`CheckMode.certs .trusted`, `CheckMode.verifiedChecks
+.trusted`); every guard and comparison official performs runs. -/
 def whnfCoreBodyTC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
-  whnfCoreBodyI cfgT r fe
+  whnfCoreBodyI .trusted r fe
 
 /-- **The trusted core's inference body**: the λ-codomain sort check
 and the ∀/λ annotation validations are off; its io grade
-(`inferBodyIOI cfgT`, the knot's `inferIO` slot) runs no per-argument
-certificate at all (`cfgT_ioSkip`). -/
+(`inferBodyIOI .trusted`, the knot's `inferIO` slot) runs no
+per-argument certificate at all (`ioSkip_trusted`). -/
 def inferBodyTC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
-  inferBodyI cfgT r fe
+  inferBodyI .trusted r fe
 
 /-- **The trusted core's conversion body**: the ∀/λ `pw` agreement
 checks (and `etaCertI`'s) are off, and so are the structure-η,
@@ -2031,6 +2042,6 @@ unit-like and K-rescue certificate families reached through
 `stuckIrrelI`/`whnfCore`. -/
 def defeqBodyTC (r : CoreFnsI) (fe : FEnv) :
     Nat → ExprC → ExprC → CheckCM Bool :=
-  defeqBodyI cfgT r fe
+  defeqBodyI .trusted r fe
 
 end Setlec.Cached

@@ -31,35 +31,35 @@ structure SSimC (mode : CheckMode) (env : Env) (f : Nat) : Prop where
   whnfCore : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)
-      ((coreKnotI (cfgOf mode) (mkFEnv env) f).whnfCore d i)
+      ((coreKnotI mode (mkFEnv env) f).whnfCore d i)
       ((fueledFns mode env).whnfCore d e)
   whnf : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)
-      ((coreKnotI (cfgOf mode) (mkFEnv env) f).whnf d i)
+      ((coreKnotI mode (mkFEnv env) f).whnf d i)
       ((fueledFns mode env).whnf d e)
   infer : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)
-      ((coreKnotI (cfgOf mode) (mkFEnv env) f).infer d i)
+      ((coreKnotI mode (mkFEnv env) f).infer d i)
       ((fueledFns mode env).infer d e)
   defeq : ∀ {s₀ : CState} {d : Nat} {i j : ExprC} {a b : Expr},
     CSOK mode env s₀ → RelC i a → RelC j b →
     Expr.WScoped d a → Expr.WScoped d b →
     SimC mode env s₀ RelVC
-      ((coreKnotI (cfgOf mode) (mkFEnv env) f).defeq d i j)
+      ((coreKnotI mode (mkFEnv env) f).defeq d i j)
       ((fueledFns mode env).defeq d a b)
   annotate : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)
-      ((coreKnotI (cfgOf mode) (mkFEnv env) f).annotate d i)
+      ((coreKnotI mode (mkFEnv env) f).annotate d i)
       ((fueledFns mode env).annotate d e)
   /-- the io slot (task #172 B4): the memoized knot's `inferIO` entry
   simulates the fueled io-slot family -/
   inferIO : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)
-      ((coreKnotI (cfgOf mode) (mkFEnv env) f).inferIO d i)
+      ((coreKnotI mode (mkFEnv env) f).inferIO d i)
       ((fueledFns mode env).inferIO d e)
 
 /-- The base case: fuel `0` throws everywhere. -/
@@ -83,7 +83,7 @@ theorem defEqListC_sim (ih : SSimC mode env f) {d : Nat} :
       RelCL args xs → RelCL brgs ys →
       (∀ x ∈ xs, Expr.WScoped d x) → (∀ y ∈ ys, Expr.WScoped d y) →
       SimC mode env s₀ RelVC
-        (defEqListI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d args brgs)
+        (defEqListI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d args brgs)
         (defEqList (fueledFns mode env) env d xs ys) := by
   intro args
   induction args with
@@ -101,8 +101,8 @@ theorem defEqListC_sim (ih : SSimC mode env f) {d : Nat} :
     | b :: bs, ys', hlen =>
       obtain ⟨y, ys, rfl, hby, hbsys⟩ := hbrgs.cons_inv
       show SimC mode env s₀ RelVC
-        ((coreKnotI (cfgOf mode) (mkFEnv env) f).defeq d a b >>= fun r =>
-          if r then defEqListI (coreKnotI (cfgOf mode) (mkFEnv env) f)
+        ((coreKnotI mode (mkFEnv env) f).defeq d a b >>= fun r =>
+          if r then defEqListI (coreKnotI mode (mkFEnv env) f)
             (mkFEnv env) d as bs
           else pure false)
         ((fueledFns mode env).defeq d x y >>= fun r =>
@@ -132,7 +132,7 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
       Expr.WScoped d (tyx.instantiateList ws) →
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
       SimC mode env s₀ RelVC
-        (iotaCertsIAux (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d lic ty acc
+        (iotaCertsIAux (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d lic ty acc
           args)
         (iotaCerts (fueledFns mode env) env d lic (tyx.instantiateList ws) xs)
   | [], xs, acc, ws, ty, tyx, s₀, hs, hty, hacc, hwty, hargs, hwargs => by
@@ -156,13 +156,13 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
         simpa only [Expr.WScoped] using hwty
       show SimC mode env s₀ RelVC
         (if lic && m.pw.isNever then
-          iotaCertsIAux (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d lic b
+          iotaCertsIAux (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d lic b
             (a :: acc) as
         else
           instListM t acc >>= fun dom' =>
-          (coreKnotI (cfgOf mode) (mkFEnv env) f).inferIO d a >>= fun ta =>
-          (coreKnotI (cfgOf mode) (mkFEnv env) f).defeq d ta dom' >>= fun r =>
-          if r then iotaCertsIAux (coreKnotI (cfgOf mode) (mkFEnv env) f)
+          (coreKnotI mode (mkFEnv env) f).inferIO d a >>= fun ta =>
+          (coreKnotI mode (mkFEnv env) f).defeq d ta dom' >>= fun r =>
+          if r then iotaCertsIAux (coreKnotI mode (mkFEnv env) f)
             (mkFEnv env) d lic b (a :: acc) as
           else pure false)
         (if lic && m.pw.isNever then
@@ -178,7 +178,7 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
       have hwx : Expr.WScoped d x := hwargs x (List.mem_cons_self ..)
       -- the licensed slot: no run on either side
       have htail : SimC mode env s₀ RelVC
-          (iotaCertsIAux (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d lic b
+          (iotaCertsIAux (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d lic b
             (a :: acc) as)
           (iotaCerts (fueledFns mode env) env d lic
             (((Expr.instantiateList b ws 1)).instantiate1 x) xs) := by
@@ -219,7 +219,7 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
         obtain ⟨w, ws', rfl, ha'w, hacc'⟩ := hacc.cons_inv
         show SimC mode env s₀ RelVC
           (instListM (Expr.bvar k) (a' :: acc') >>= fun ty' =>
-            iotaCertsIAux (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env)
+            iotaCertsIAux (coreKnotI mode (mkFEnv env) f) (mkFEnv env)
               d lic ty' [] (a :: as))
           (iotaCerts (fueledFns mode env) env d lic
             ((Expr.instantiateList (Expr.bvar k) (w :: ws')))
@@ -284,7 +284,7 @@ theorem iotaCertsC_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
       RelC ty tyx → Expr.WScoped d tyx →
       RelCL args xs → (∀ x ∈ xs, Expr.WScoped d x) →
       SimC mode env s₀ RelVC
-        (iotaCertsI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d lic ty args)
+        (iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d lic ty args)
         (iotaCerts (fueledFns mode env) env d lic tyx xs) := by
   intro args xs ty tyx s₀ hs hty hwty hargs hwargs
   have := iotaCertsCAux_sim ih (lic := lic) (acc := []) (ws := []) hs hty RelCL.nil
@@ -302,10 +302,10 @@ variable {env : Env} {f : Nat}
 theorem ensureSortC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
-    SimC mode env s₀ RelVC (ensureSortI (coreKnotI (cfgOf mode) (mkFEnv env) f) d i)
+    SimC mode env s₀ RelVC (ensureSortI (coreKnotI mode (mkFEnv env) f) d i)
       (ensureSort (fueledFns mode env) env d e) := by
   show SimC mode env s₀ RelVC
-    ((coreKnotI (cfgOf mode) (mkFEnv env) f).whnf d i >>= fun w =>
+    ((coreKnotI mode (mkFEnv env) f).whnf d i >>= fun w =>
       viewI w >>= fun n =>
       match n with
       | some (.sort u) => pure u
@@ -535,7 +535,7 @@ theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelEC d)
-      (litMajorToCtorI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
+      (litMajorToCtorI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (litMajorToCtor (fueledFns mode env) env d e) := by
   show SimC mode env s₀ (RelEC d)
     (viewI i >>= fun n =>
@@ -543,7 +543,7 @@ theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       | some (.lit (.strVal s)) =>
         if strLitSupportedF (mkFEnv env) then do
           let x ← internExprM (strLitToConstructor s)
-          (coreKnotI (cfgOf mode) (mkFEnv env) f).whnf d x
+          (coreKnotI mode (mkFEnv env) f).whnf d x
         else pure i
       | _ => litToCtorIfNatI (mkFEnv env) i)
     (litMajorToCtor (fueledFns mode env) env d e)
@@ -605,7 +605,7 @@ theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelEC d)
-      (projLitToCtorI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
+      (projLitToCtorI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (projLitToCtor (fueledFns mode env) env d e) := by
   show SimC mode env s₀ (RelEC d)
     (viewI i >>= fun n =>
@@ -613,7 +613,7 @@ theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       | some (.lit (.strVal s)) =>
         if strLitSupportedF (mkFEnv env) then do
           let x ← internExprM (strLitToConstructor s)
-          (coreKnotI (cfgOf mode) (mkFEnv env) f).whnf d x
+          (coreKnotI mode (mkFEnv env) f).whnf d x
         else pure i
       | _ => pure i)
     (projLitToCtor (fueledFns mode env) env d e)
@@ -655,7 +655,7 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (defeqSpineI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i j)
+      (defeqSpineI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       (defeqSpine (fueledFns mode env) env d a b) := by
   show SimC mode env s₀ RelVC
     (Setlec.Cached.withStore (fun st => st.getNode (st.getAppFnI i)) >>=
@@ -671,7 +671,7 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
           if nm = nm' ∧ aargs.length = bargs.length then do
             match ← isEquivListLM us us' with
             | some true =>
-              defEqListI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d
+              defEqListI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
                 aargs bargs
             | _ => pure false
           else pure false
@@ -820,7 +820,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelOC d)
-      (reduceNatI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
+      (reduceNatI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (reduceNat (fueledFns mode env) env d e) := by
   show SimC mode env s₀ (RelOC d)
     (viewI i >>= fun n =>
@@ -834,7 +834,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
           | [] =>
             readbackNM c >>= fun cn =>
             if cn = natSuccName ∧ natLitSupportedF (mkFEnv env) then
-              (coreKnotI (cfgOf mode) (mkFEnv env) f).whnf d b >>= fun w =>
+              (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w =>
               Setlec.Cached.withStore (rawNatLitI? · w) >>= fun rn =>
               match rn with
               | some n => do
@@ -856,11 +856,11 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
                   cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
                   cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
                   natOpStoredF (mkFEnv env) cn = true then
-                (coreKnotI (cfgOf mode) (mkFEnv env) f).whnf d a >>= fun w₁ =>
+                (coreKnotI mode (mkFEnv env) f).whnf d a >>= fun w₁ =>
                 Setlec.Cached.withStore (rawNatLitI? · w₁) >>= fun rn₁ =>
                 match rn₁ with
                 | some n₁ =>
-                  (coreKnotI (cfgOf mode) (mkFEnv env) f).whnf d b >>= fun w₂ =>
+                  (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w₂ =>
                   Setlec.Cached.withStore (rawNatLitI? · w₂) >>= fun rn₂ =>
                   match rn₂ with
                   | some n₂ =>
@@ -873,11 +873,11 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
                 | none => pure none
               else if natOpWfNames.contains cn ∧
                   natLitSupportedF (mkFEnv env) then
-                (coreKnotI (cfgOf mode) (mkFEnv env) f).whnf d a >>= fun w₁ =>
+                (coreKnotI mode (mkFEnv env) f).whnf d a >>= fun w₁ =>
                 Setlec.Cached.withStore (rawNatLitI? · w₁) >>= fun rn₁ =>
                 match rn₁ with
                 | some _ =>
-                  (coreKnotI (cfgOf mode) (mkFEnv env) f).whnf d b >>= fun w₂ =>
+                  (coreKnotI mode (mkFEnv env) f).whnf d b >>= fun w₂ =>
                   Setlec.Cached.withStore (rawNatLitI? · w₂) >>= fun rn₂ =>
                   match rn₂ with
                   | some _ => throw (.notImplemented
@@ -1065,7 +1065,7 @@ theorem reduceNatIfC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) (g : Bool) :
     SimC mode env s₀ (RelOC d)
-      (if g then reduceNatI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i
+      (if g then reduceNatI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i
         else pure none)
       (if g then reduceNat (fueledFns mode env) env d e else pure none) := by
   cases g

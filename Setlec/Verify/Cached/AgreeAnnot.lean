@@ -9,8 +9,8 @@ Census part 4 §3's second and third obligations, at the **cached** tier
 
 At this tier the trusted core's `annotate` **is** the verified body —
 since the twin's retirement (2026-09-06) the trusted core is the one
-knot `coreKnotI` at `cfgT`, whose `annotate` slot is `annotateBodyI`,
-a body that takes no config at all.
+knot `coreKnotI` at `.trusted`, whose `annotate` slot is
+`annotateBodyI`, a body that takes no mode at all.
 
 **T2a and T2b are discharged by the SIGNATURE since 2026-09-06.**  The
 mode rename's second half ungated the `pw` writers (DESIGN.md, "MODE
@@ -18,10 +18,10 @@ RENAME"): writing the datum is part of the real checker's algorithm, so
 the trusted mode annotates exactly as the verified mode does.  With the
 gates gone the annotation pass reads no configuration at any node —
 `annotateBodyI`, `annotatePisI`/`annotateLamsI` and their leaves take no
-`CoreCfg` parameter at all — so the "config collapse on one function"
+`CheckMode` parameter at all — so the "mode collapse on one function"
 obligation is not a theorem any more: there is one function.  The
-statements that compared the two configs' runs (`annotateBodyI_cfg_eq`
-and the two `…PwI_cfgT` collapses) had the trusted config's `pw?` at
+statements that compared the two modes' runs (`annotateBodyI_cfg_eq`
+and the two trusted-config `…PwI` collapses) had the trusted mode's `pw?` at
 `none`; they were deleted with the gate rather than restated, a row
 whose subject no longer exists.
 

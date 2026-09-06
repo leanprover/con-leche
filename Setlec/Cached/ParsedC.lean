@@ -9,22 +9,21 @@ declaration, declarations consumed as `DeclC` records straight from
 the direct parse (`Setlec/Frontend/ExportC.lean`, task #171 — no
 arena, no conversion detour).
 
-`checkDeclsSPCachedD cfg` is what the binary runs in BOTH modes — at
-`cfgP` under `--verified`, at `cfgT` under `--trusted` (the twin driver
+`checkDeclsSPCachedD mode` is what the binary runs in BOTH modes — at
+`.verified` under `--verified`, at `.trusted` under `--trusted` (the twin driver
 `checkDeclsSPCachedDT` / `Setlec/Cached/ParsedT.lean` retired
-2026-09-06; the trusted lane is this driver at the other config, and
-nothing else).  Acceptance at `cfgP` is covered by
+2026-09-06; the trusted lane is this driver at the other mode, and
+nothing else).  Acceptance at `.verified` is covered by
 `no_proof_of_Empty_SPCD_P` (`Setlec/Verify/Cached/MainC.lean`); the two
-configs agree on the install skeletons whenever both accept
+modes agree on the install skeletons whenever both accept
 (`trusted_agrees_P_skels_D`, `Setlec/Verify/Cached/AgreeFloor.lean`).
 
-The driver's parameter is the core's `CoreCfg`, not a `CheckMode`: the
-knot it ties (`coreKnotI cfg`) is config-parametric, and the two
-shipped configs are not both in `cfgOf`'s image
-(`cfgOf_trusted_ne_cfgT`).  The install-time stages that still take a
-`CheckMode` (`checkIotaRulesF`, `checkProjIotaF`, `indBlockCapsF`,
+The driver's parameter is the `CheckMode` itself (task #185; from
+2026-09-06 to then a configuration record stood in for it): the knot it
+ties (`coreKnotI mode`) and the install-time stages
+(`checkIotaRulesF`, `checkProjIotaF`, `indBlockCapsF`,
 `ctorResidualOkF` — each reads only the uninhabited-true `ttChecks`)
-get `cfg.iotaMode`, a literal at each shipped config.
+all take the same mode.
 -/
 
 namespace Setlec.Cached
@@ -50,11 +49,11 @@ inductive DeclC where
 
 /-! ## The parsed-declaration checker -/
 
-variable (cfg : CoreCfg)
+variable (mode : CheckMode)
 
 /-- Parsed `ensureSort` (no per-call conversion). -/
 def opSIxC (fe : FEnv) (d : Nat) (i : ExprC) : CheckCM Level :=
-  ensureSortI (coreKnotI cfg fe checkFuel) d i
+  ensureSortI (coreKnotI mode fe checkFuel) d i
 
 /-- `checkConstantVal` on a converted declaration: the checks of
 `checkConstantValF` with the syntactic passes memoized on the `ExprC`
@@ -73,13 +72,13 @@ def checkConstantValC (fe : FEnv) (cv : ConstantValC) :
     throw (.invalid s!"loose bound variable in type of {cv.name}")
   if cv.type.hasFvar then
     throw (.invalid s!"unexpected free variable in type of {cv.name}")
-  let jty ← (coreKnotI cfg fe checkFuel).annotate 0 cv.type
+  let jty ← (coreKnotI mode fe checkFuel).annotate 0 cv.type
   unless ExprC.allLevelParamsDefined cv.levelParams jty do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe jty do
     throw (.invalid s!"unknown constant in type of {cv.name}")
-  let jsty ← (coreKnotI cfg fe checkFuel).infer 0 jty
-  let _u ← opSIxC cfg fe 0 jsty
+  let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
+  let _u ← opSIxC mode fe 0 jsty
   let tyE := jty
   pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
 
@@ -90,38 +89,38 @@ def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI cfg fe checkFuel).annotate 0 value
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
   unless ExprC.allLevelParamsDefined cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   let vE := jv
   recordCConst cvA.name cvA.type jty (some (vE, jv))
-  let jvt ← (coreKnotI cfg fe checkFuel).infer 0 jv
-  unless ← (coreKnotI cfg fe checkFuel).defeq 0 jvt jty do
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
+  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in definition {cvA.name}")
   pure (fe.push (.defnInfo cvA vE hint))
 
 /-- `checkThmValP` over `ExprC`. -/
 def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     (value : ExprC) : CheckCM FEnv := do
-  let jsty ← (coreKnotI cfg fe checkFuel).infer 0 jty
-  let ul ← opSIxC cfg fe 0 jsty
+  let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
+  let ul ← opSIxC mode fe 0 jsty
   unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
     throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
   unless ExprC.looseBVarsBounded 0 value do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI cfg fe checkFuel).annotate 0 value
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
   unless ExprC.allLevelParamsDefined cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   let vE := jv
   recordCConst cvA.name cvA.type jty (some (vE, jv))
-  let jvt ← (coreKnotI cfg fe checkFuel).infer 0 jv
-  unless ← (coreKnotI cfg fe checkFuel).defeq 0 jvt jty do
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
+  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
   pure (fe.push (.thmInfo cvA vE))
 
@@ -132,14 +131,14 @@ def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
     throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI cfg fe checkFuel).annotate 0 value
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
   unless ExprC.allLevelParamsDefined cvA.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   recordCConst cvA.name cvA.type jty none
-  let jvt ← (coreKnotI cfg fe checkFuel).infer 0 jv
-  unless ← (coreKnotI cfg fe checkFuel).defeq 0 jvt jty do
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
+  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
   pure (fe.push (.axiomInfo cvA))
 
@@ -148,9 +147,9 @@ branch; inductive and basis blocks reuse the `Expr`-level drivers). -/
 def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
-    let (cvA, jty) ← checkConstantValC cfg fe cv
+    let (cvA, jty) ← checkConstantValC mode fe cv
     if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
-      let fe2 ← checkDefnValC cfg fe cvA jty value hint
+      let fe2 ← checkDefnValC mode fe cvA jty value hint
       if natOpNames.contains cvA.name then
         unless natOpGuardF fe2 cvA.name &&
             (natOpDeps cvA.name).all (natOpStoredOkF fe2) do
@@ -158,7 +157,7 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
             s!"nonstandard structural Nat operation environment ({cvA.name})")
         match fe2.find? cvA.name with
         | some (.defnInfo _ value' _) =>
-          let ok ← certifyNatEqs (sharedOpsC cfg fe) fe.env
+          let ok ← certifyNatEqs (sharedOpsC mode fe) fe.env
             ((natOpEquations 0 cvA.name).map fun eq =>
               (Expr.substConst0 cvA.name value' eq.1,
                Expr.substConst0 cvA.name value' eq.2))
@@ -168,22 +167,22 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
         | _ => throw (.internal
             s!"structural Nat operation not stored ({cvA.name})")
       if natDivModNames.contains cvA.name then
-        checkDivModPinF (sharedOpsC cfg fe) fe fe2 cvA.name
+        checkDivModPinF (sharedOpsC mode fe) fe fe2 cvA.name
       pure fe2
     else
-      checkDefnValC cfg fe cvA jty value hint
+      checkDefnValC mode fe cvA jty value hint
   | .thmDecl cv value => do
-    let (cvA, jty) ← checkConstantValC cfg fe cv
-    checkThmValC cfg fe cvA jty value
+    let (cvA, jty) ← checkConstantValC mode fe cv
+    checkThmValC mode fe cvA jty value
   | .opaqueDecl cv value => do
-    let (cvA, jty) ← checkConstantValC cfg fe cv
-    let fe2 ← checkOpaqueValC cfg fe cvA jty value
+    let (cvA, jty) ← checkConstantValC mode fe cv
+    let fe2 ← checkOpaqueValC mode fe cvA jty value
     if reduceOpNames.contains cvA.name then do
       let vE := value
-      checkReducePinF (sharedOpsC cfg fe) fe fe2 cvA.name vE
+      checkReducePinF (sharedOpsC mode fe) fe fe2 cvA.name vE
     pure fe2
   | .axiomDecl cv => do
-    let (cvA, jty) ← checkConstantValC cfg fe cv
+    let (cvA, jty) ← checkConstantValC mode fe cv
     if stdAxiomOkF fe cvA then do
       recordCConst cvA.name cvA.type jty none
       pure (fe.push (.axiomInfo cvA))
@@ -212,11 +211,11 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
     kind.declsA.foldlM installBasisDeclF fe
   | .indDecl block =>
     match directPartsF? fe block with
-    | some p => checkDirectStructS cfg fe p
+    | some p => checkDirectStructS mode fe p
     | none =>
       match directSumPartsF? fe block with
-      | some p => checkDirectSumS cfg fe p
-      | none => checkIndDeclSF cfg fe block
+      | some p => checkDirectSumS mode fe p
+      | none => checkIndDeclSF mode fe block
 
 /-! ## Names and durations for the driver's messages -/
 
@@ -237,7 +236,7 @@ def declCLabel : DeclC → String
 /-- One step of the converted-declaration fold: flush, then check. -/
 def checkDeclSPStepC (fe : FEnv) (pd : DeclC) : CheckCM FEnv := do
   flushC
-  checkDeclSPC cfg fe pd
+  checkDeclSPC mode fe pd
 
 /-- The fold's step with the **position carried and the error tagged**
 (2026-09-07): the accumulator is `(i, fe)`, and a failing step reports
@@ -247,7 +246,7 @@ declaration that failed.  On the accepting side it is
 statement about the plain fold survives the change untouched. -/
 def checkDeclStepIdxC (p : Nat × FEnv) (pd : DeclC) :
     StateT CState (Except (CheckError × Nat)) (Nat × FEnv) := fun s =>
-  match checkDeclSPStepC cfg p.2 pd s with
+  match checkDeclSPStepC mode p.2 pd s with
   | .ok (fe', s') => .ok ((p.1 + 1, fe'), s')
   | .error e => .error (e, p.1)
 
@@ -273,13 +272,13 @@ accumulator now carries the position and the step tags its error with
 it (`checkDeclStepIdxC`), so a rejection *is* `(CheckError × Nat)` and
 the driver reports the declaration by indexing the record array it
 already holds.  The **accept** side is untouched, deliberately:
-`checkDeclsSPCachedD cfg ds = .ok env` is the same sentence it was, so
+`checkDeclsSPCachedD mode ds = .ok env` is the same sentence it was, so
 `no_proof_of_Empty_SPCD_P` and the agreement floor keep their
 statements verbatim and reach the plain fold through `foldIdxC_ok`
 below. -/
-def checkDeclsSPCachedD (cfg : CoreCfg) (ds : List DeclC) :
+def checkDeclsSPCachedD (mode : CheckMode) (ds : List DeclC) :
     Except (CheckError × Nat) Env := do
-  let p ← (ds.foldlM (checkDeclStepIdxC cfg) (0, mkFEnv Env.empty)).run' {}
+  let p ← (ds.foldlM (checkDeclStepIdxC mode) (0, mkFEnv Env.empty)).run' {}
   pure p.2.env
 
 /-! ### The two folds agree on accepts
@@ -295,10 +294,10 @@ up as a **door** in `tests/proofdeps.sh`. -/
 /-- An accepting run of the position-carrying fold is an accepting run
 of the plain fold, at the same environment and residue state.  (The
 error side is where they differ, and is the point of the change.) -/
-theorem foldIdxC_ok (cfg : CoreCfg) (ds : List DeclC) :
+theorem foldIdxC_ok (mode : CheckMode) (ds : List DeclC) :
     ∀ (i : Nat) (fe : FEnv) {p : Nat × FEnv} {s s' : CState},
-      (ds.foldlM (checkDeclStepIdxC cfg) (i, fe)) s = .ok (p, s') →
-      (ds.foldlM (checkDeclSPStepC cfg) fe) s = .ok (p.2, s') := by
+      (ds.foldlM (checkDeclStepIdxC mode) (i, fe)) s = .ok (p, s') →
+      (ds.foldlM (checkDeclSPStepC mode) fe) s = .ok (p.2, s') := by
   induction ds with
   | nil =>
     intro i fe p s s' h
@@ -309,7 +308,7 @@ theorem foldIdxC_ok (cfg : CoreCfg) (ds : List DeclC) :
     intro i fe p s s' h
     rw [List.foldlM_cons] at h ⊢
     simp only [Bind.bind, StateT.bind] at h ⊢
-    cases hstep : checkDeclSPStepC cfg fe pd s with
+    cases hstep : checkDeclSPStepC mode fe pd s with
     | error e =>
       simp only [checkDeclStepIdxC, hstep, Except.bind] at h
       exact nomatch h
@@ -319,19 +318,19 @@ theorem foldIdxC_ok (cfg : CoreCfg) (ds : List DeclC) :
       exact ih (i + 1) fe₁ h
 
 /-- `foldIdxC_ok` at the shape the two capstone proofs use. -/
-theorem foldIdxC_run'_ok (cfg : CoreCfg) (ds : List DeclC) (i : Nat)
+theorem foldIdxC_run'_ok (mode : CheckMode) (ds : List DeclC) (i : Nat)
     (fe : FEnv) {p : Nat × FEnv} {s : CState}
-    (h : (ds.foldlM (checkDeclStepIdxC cfg) (i, fe)).run' s = .ok p) :
-    (ds.foldlM (checkDeclSPStepC cfg) fe).run' s = .ok p.2 := by
+    (h : (ds.foldlM (checkDeclStepIdxC mode) (i, fe)).run' s = .ok p) :
+    (ds.foldlM (checkDeclSPStepC mode) fe).run' s = .ok p.2 := by
   simp only [StateT.run'] at h ⊢
-  cases hrun : (ds.foldlM (checkDeclStepIdxC cfg) (i, fe)) s with
+  cases hrun : (ds.foldlM (checkDeclStepIdxC mode) (i, fe)) s with
   | error e => rw [hrun] at h; exact nomatch h
   | ok pr =>
     obtain ⟨p₁, s₁⟩ := pr
     rw [hrun] at h
     simp only [Functor.map, Except.map, Except.ok.injEq] at h
     subst h
-    rw [foldIdxC_ok cfg ds i fe hrun]
+    rw [foldIdxC_ok mode ds i fe hrun]
     rfl
 
 end Setlec.Cached

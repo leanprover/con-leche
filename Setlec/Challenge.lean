@@ -18,8 +18,8 @@ An accepted stream is therefore not a proof of a contradiction: the
 checker cannot be talked into signing off on `theorem oops : False`.
 
 * `checkDeclsSPCachedD` is the shipped checking function — the one the
-  `setlec` binary runs on the parsed stream; `cfgOf .verified` is the
-  configuration of its default `--verified` mode.
+  `setlec` binary runs on the parsed stream; `.verified` is its
+  default `--verified` mode.
 * `ds : List DeclC` is the parsed stream, `Env` the environment the
   checker builds, `env.consts` the constants it accepted; `.ok env`
   says the checker accepted `ds` and this is what it accepted.
@@ -45,7 +45,7 @@ open Setlec.Cached (DeclC checkDeclsSPCachedD)
 type `False`. -/
 theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
-    (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
+    (accepted : checkDeclsSPCachedD .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
   sorry
 

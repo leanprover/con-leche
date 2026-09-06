@@ -65,8 +65,8 @@ theorem DeclCRel_total : ∀ (pc : DeclC), ∃ d, DeclCRel pc d
 mirror; no conversion pass to peel). -/
 theorem checkDeclsSPCachedD_run {μ : CheckMode}
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
-    ∃ fe s', (ds.foldlM (checkDeclSPStepC (cfgOf μ))
+    (h : checkDeclsSPCachedD μ ds = .ok env') :
+    ∃ fe s', (ds.foldlM (checkDeclSPStepC μ)
         (mkFEnv Env.empty)) ({} : CState) = .ok (fe, s') ∧
       fe.env = env' := by
   -- The driver folds the POSITION-CARRYING step (2026-09-07, so that a
@@ -75,7 +75,7 @@ theorem checkDeclsSPCachedD_run {μ : CheckMode}
   -- statement below it — is the one it was.
   unfold checkDeclsSPCachedD at h
   simp only [Bind.bind, Except.bind] at h
-  cases hf : (ds.foldlM (checkDeclStepIdxC (cfgOf μ))
+  cases hf : (ds.foldlM (checkDeclStepIdxC μ)
       (0, mkFEnv Env.empty)).run' ({} : CState) with
   | error e => rw [hf] at h; exact nomatch h
   | ok p =>
@@ -85,7 +85,7 @@ theorem checkDeclsSPCachedD_run {μ : CheckMode}
         = .ok env' := h
       exact Except.ok.inj h'
     simp only [StateT.run'] at hf
-    cases hrun : (ds.foldlM (checkDeclStepIdxC (cfgOf μ))
+    cases hrun : (ds.foldlM (checkDeclStepIdxC μ)
         (0, mkFEnv Env.empty)) ({} : CState) with
     | error e => rw [hrun] at hf; exact nomatch hf
     | ok pr =>
@@ -93,7 +93,7 @@ theorem checkDeclsSPCachedD_run {μ : CheckMode}
       rw [hrun] at hf
       simp only [Functor.map, Except.map, Except.ok.injEq] at hf
       subst hf
-      exact ⟨pO.2, sO, foldIdxC_ok (cfgOf μ) ds 0 (mkFEnv Env.empty) hrun, rfl⟩
+      exact ⟨pO.2, sO, foldIdxC_ok μ ds 0 (mkFEnv Env.empty) hrun, rfl⟩
 
 /-- The parsed records' carried invariant, in the fold's premise
 shape. -/
@@ -133,7 +133,7 @@ theorem foldSPC_PM (hμ : μ.verifiedChecks = true) :
       EnvSPOk V μ fe.env →
       CSOKF s₀ →
       (∀ pc ∈ ds, ∃ d, DeclCRel pc d) →
-      (ds.foldlM (checkDeclSPStepC (cfgOf μ)) fe) s₀ = .ok (fe', s') →
+      (ds.foldlM (checkDeclSPStepC μ) fe) s₀ = .ok (fe', s') →
       EnvSPOk V μ fe'.env
   | [], fe, fe', s₀, s', _, hm, _, _, h => by
     obtain ⟨hfe, rfl⟩ := pureC_ok h
@@ -146,7 +146,7 @@ theorem foldSPC_PM (hμ : μ.verifiedChecks = true) :
     obtain ⟨d, hd⟩ := hrel pc List.mem_cons_self
     rw [hfe] at hstepC
     obtain ⟨hres₁, hfe₁, F, hF⟩ :=
-      checkDeclSPStepC_run mp.toEnvFacts.wf hres hd hstepC
+      checkDeclSPStepC_run hμ mp.toEnvFacts.wf hres hd hstepC
     exact foldSPC_PM hμ ds fe₁ hfe₁
       (declStepPM hμ mp hE (Setlec.Semantics.checkDeclRun_ofEnvFactsE hF))
       hres₁ (fun p hp => hrel p (List.mem_cons_of_mem _ hp)) h
@@ -154,7 +154,7 @@ theorem foldSPC_PM (hμ : μ.verifiedChecks = true) :
 /-- **Acceptance, shipped direct-parse driver, P route.** -/
 theorem checkDeclsSPCachedD_sound_P (hμ : μ.verifiedChecks = true)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
+    (h : checkDeclsSPCachedD μ ds = .ok env') :
     Nonempty (EnvS2PM V μ env') := by
   obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
   exact (foldSPC_PM hμ ds (mkFEnv Env.empty) rfl
@@ -169,7 +169,7 @@ input-level only. -/
 theorem no_proof_of_Empty_SPCD_P (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
+    (h : checkDeclsSPCachedD μ ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const emptyName [] → False := by
   obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
@@ -181,7 +181,7 @@ block — no hypothesis about how the stream declared `False`. -/
 theorem no_proof_of_False_SPCD_P (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
+    (h : checkDeclsSPCachedD μ ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const falseName [] → False := by
   obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h

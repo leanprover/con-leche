@@ -8,8 +8,7 @@ declarations, then the resulting environment contains no constant of
 type `False`.
 
 * `checkDeclsSPCachedD` is the function the `setlec` binary runs on the
-  parsed export stream; `cfgOf .verified` is the default mode's
-  configuration.
+  parsed export stream; `.verified` is the default mode.
 * `DeclC` is a parsed declaration; `Env` is the environment the checker
   builds; `env.consts` are the constants it accepted.
 * `False` is built in: the checker installs it from its own pin, and a
@@ -27,7 +26,7 @@ open Setlec.Cached (DeclC checkDeclsSPCachedD)
 
 theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
-    (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
+    (accepted : checkDeclsSPCachedD .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
   fun ⟨c, hc, hty⟩ => Cached.no_proof_of_False_SPCD_P V rfl accepted c hc hty
 

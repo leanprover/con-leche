@@ -17,8 +17,8 @@ capstone assembly in `Setlec/Verify/Cached/*`, and the statement a
 reader comes for in `Setlec/MainTheorem.lean`.
 
 **Start at the top row.** `Setlec.no_proof_of_False` is the main
-theorem: it names the shipped configuration outright
-(`cfgOf .verified`), so it carries no mode witness and no residue —
+theorem: it names the shipped mode outright
+(`.verified`), so it carries no mode witness and no residue —
 only `[SetTheory V]` (the standing parametricity of the consistency
 argument, not a hypothesis about the input) and the acceptance itself.
 Everything below it is what it is a corollary of: the *letters*, then
@@ -50042,3 +50042,178 @@ the rule law's iota an induction on the rank of the major;
 occurrences reduce to (a)-(c) at the auxiliary types.  The fibre
 construction above is the base case of that iteration — the functor at
 `X = ∅`.
+## Task #185 — `CoreCfg` retired: the mode is the cores' only parameter (2026-09-06, `agent/modeonly`)
+
+**The directive (verbatim).**  *"let's simplify the main theorem (and
+the rest of the checker) by removing the CheckMode and CoreCfg
+distinction. We only pass the checkMode around, and what are flags on
+corecfg become simple functions on them (which can also evaluate by
+rfl, I don't expect any noticable proof difference). you already list a
+bunch of simp lemmas for accessors, these can be stated on functions
+just the same."*
+
+### What changed
+
+`Setlec/Kernel/CoreCfg.lean` is deleted: `CoreCfg`, `cfgP`, `cfgT`,
+`cfgOf`, `cfgOf_verified_eq_cfgP`, `cfgT_eq_cfgP_verified_off`,
+`cfgOf_trusted_ne_cfgT`, the two skip predicates and the sixteen
+per-config `rfl` rows.  Every core, cached and driver function that
+took `cfg : CoreCfg` takes `mode : CheckMode` (`coreKnotI`,
+`whnfCoreBodyI`, `inferBodyI`, `defeqBodyI`, `iotaRecI`,
+`majorToCtorI`, `structEtaCertWithI`, `checkDeclsSPCachedD`,
+`checkDeclStepIdxC`, the `…S` phase drivers, the progress fold in
+`Main.lean`, …), and every field read is a function on the enum:
+
+| was (`cfg.…`) | is (`mode.…`) | at `.verified` | at `.trusted` | note |
+|---|---|---|---|---|
+| `verified` | `verifiedChecks` (existing) | `true` | `false` | group A: the λ-codomain sort check, the annotation validations, the projection certificate |
+| `certs` | `certs` (**new**) | `true` | `false` | the certificate families (`certAtI`/`certUnlessI`, `betaSkip`, `ioSkip`) |
+| `betaGate` | `betaGate` (existing) | `true` | `false` | read only under a `certs` or `verifiedChecks` read that is off at `.trusted` — the retired `cfgT.betaGate = true` was moot the same way (inversion 22 of "CORET RETIRED") |
+| `ioGate` | `ioGate` (**new**, `\| _ => true`) | `true` | `true` | the cached knot's io slot is the io body at both modes (the licence ruling); `cfgT.ioGate` was `true` |
+| `betaSkip` | `betaSkip` (**new**) | `pw.isNever` | `true` | `!mode.certs \|\| (mode.betaGate && pw.isNever)` |
+| `ioSkip` | `ioSkip` (**new**) | `pw.isNever` | `true` | `!mode.certs \|\| pw.isNever` |
+| `iotaMode` | the mode itself | — | — | the transitional field is gone; the ι cone and the install-time stages take the same `mode` |
+
+`Main.lean` maps `--verified`/`--trusted` straight to the constructors
+(the `let cfg := if mode == .trusted then cfgT else cfgP` line is
+gone).  The main theorems read `checkDeclsSPCachedD .verified ds = .ok
+env` (`Setlec/MainTheorem.lean`, `Setlec/Challenge.lean`, and the
+README's quotation of it — the README edit is exactly that line and
+nothing else, per the grant); the SPCD_P letters are unchanged in
+shape (`μ` with `hμ`, consumed at `.verified` by `rfl`); the agreement
+floor `trusted_agrees_P_*_D` is stated for **any two modes** (`{μP μT :
+CheckMode}`), its shipped instance at `.verified`/`.trusted`.
+
+`Setlec/Verify/BetaGate.lean`'s template bridge (`cfgOf_betaSkip`,
+`cfgOf_verified`, `cfgOf_iotaMode`, `cfgOf_certs`, `cfgOf_ioSkip`,
+`cfgP_betaSkip_eq_verified`) is the mode-function table now: the
+values at the two constructors, all `rfl` (`verifiedChecks_verified`
+… `ioSkip_trusted`, `betaSkip_verified_eq_gate`), plus the three
+conditional forms the simulation tower consumes
+(`certs_of_verifiedChecks`, `betaSkip_of_verifiedChecks`,
+`ioSkip_of_verifiedChecks`), `betaGate_of_verifiedChecks`,
+`certs_eq_verifiedChecks`, and `CheckMode.eq_verified` (below).
+`Cached/CoreC.lean`'s `certAtI_cfgOf`/`certUnlessI_cfgOf`/
+`certAtI_cfgP`/`certAtI_cfgT` are `certAtI_of_verifiedChecks`/
+`certUnlessI_of_verifiedChecks`/`certAtI_verified`/`certAtI_trusted`.
+
+### The `rfl`-eliminability argument, at the enum
+
+`CoreCfg.lean`'s docstring justified a record of `Bool` fields against
+a record of *functions* by measurement: a function-typed field is a
+closure at every β site (+0.36 % instructions on `init-prelude` at
+B2).  That rationale does not apply to a `match` on an enum: `mode.certs`
+compiles to a tag test on the `CheckMode` scalar the caller already
+holds — the same branch the field read compiled to, with the record
+load replaced by nothing.  `rfl`-eliminability is the census's stop
+condition 2 (*"every field computes away by `rfl` at some core"*) and
+it holds at the enum verbatim: each function is a `match` on the two
+constructors, so `CheckMode.certs .trusted = false`, `CheckMode.betaSkip
+.verified pw = pw.isNever`, … are all `rfl`, and at the literal modes
+the branches are gone, not collapsed.  Instruction neutrality is by
+construction — every read has the value the retired record's field had
+at the corresponding config (table above); no measurement was taken
+(a separate measurement task follows if wanted).
+
+### Proof-diff receipts
+
+* **Renames only:** 352 `cfgOf mode` → `mode` (and `cfgOf μ` → `μ`,
+  `cfgOf .verified` → `.verified`, `coreKnotI cfgP` → `coreKnotI
+  .verified`) across `Setlec/Verify/Cached/*`; 10 `simp only
+  [cfgOf_verified, …]` become `simp only […]` (the read now *is*
+  `mode.verifiedChecks`); `Verify/BetaSpine.lean`'s mirror takes
+  `mode` in place of `cfg` beside `mode`, and reads the spec's own
+  `betaGateFires mode pw` at its β sites (what `(cfgOf mode).betaSkip`
+  was by `rfl`), so the pure mirror stays hypothesis-free.
+* **The one structural difference — the user's expectation did not
+  hold, and here is why.**  The cached-vs-spec simulation tower
+  (`SSimC`, `ssimC`, the `DiscC*` clause walks, the `BridgeCS*`
+  bridges, `SimCS`) was stated at *every* mode with no hypothesis.
+  That was true only because `cfgOf .trusted ≠ cfgT`
+  (`cfgOf_trusted_ne_cfgT`): the mode-parametric instance kept
+  `certs := true` at both modes, so the tower's `.trusted` instance was
+  about a configuration nothing shipped.  With the mode as the
+  parameter, the `.trusted` instance **is** the shipped trusted core,
+  which skips the certificate families the spec runs — the simulation
+  is false there.  So the tower carries `hμ : mode.verifiedChecks =
+  true`, the P tier's own hypothesis: **77 theorem statements** gain it
+  (`(hμ : mode.verifiedChecks = true)` as the first explicit binder;
+  `iotaRecC_sim` additionally `(hmi : mi.verifiedChecks = true)` for
+  the ι cone's own mode), **324 call sites** pass it.  The proof side
+  stays a rename in all but the following:
+  * `structUnitCertC_sim`, `structEtaCertWithC_sim` (`DiscC2`),
+    `majorToCtorC_sim`, `iotaRecC_sim` (`DiscC3`): these open with a
+    `show` of the cached body with its `certAtI` wrappers already
+    unfolded, which `rfl` no longer sees through at a variable mode
+    (`if mode.certs then …` is stuck).  They now begin with `obtain rfl
+    := CheckMode.eq_verified hμ` (a verified mode is `.verified`, the
+    enum having two constructors) and continue verbatim at the literal
+    mode, where the wrappers reduce by `rfl` as before.
+  * `whnfAppC_sim`, `betaPeelC_sim` (`DiscC4`): one `rw
+    [betaSkip_of_verifiedChecks hμ]` before the existing `by_cases` on
+    the gate, which now names `betaGateFires mode mb.pw` on both sides.
+  * `inferSpineIOC_sim` (`DiscC4`): the 24 `simp only [cfgOf_ioSkip,
+    …]` become `simp only [ioSkip_of_verifiedChecks hμ, …]`.
+  * `memoEI_inferIO_sim` (`KnotC`): the slot identity is `rfl`
+    (`mode.ioGate` is the literal `true` at a variable mode); `ssimC`'s
+    io case loses its gate-off arm (the spec's `inferTypeIO_off`
+    collapse), which is not an instance of the tower any more — the
+    verified mode's gate is on (`betaGate_of_verifiedChecks`).
+* **Nothing in `Setlec/SetP/*` or the pure `Setlec/Verify/*` tier
+  moved** (the spec `Kernel/Core.lean` is unchanged but for the import
+  and a docstring).  `tests/SetlecTests/Axioms.lean` prints exactly
+  `[propext, Classical.choice, Quot.sound]` for every guarded theorem;
+  statements renamed only where `cfgOf .verified` became `.verified`.
+* `tests/proofdeps-expected.txt`: the seven `Setlec.Kernel.CoreCfg`
+  rows (one per root) go, because the module is gone; no other row
+  moves.
+
+**`ttChecks` stays.**  It is constantly `false` with statically dead
+call sites, but its removal drags the install-time stages
+(`checkIotaRulesF`, `checkProjIotaF`, `indBlockCapsF`,
+`ctorResidualOkF` take a mode for it alone), `Kernel/Modeled.lean`,
+`Kernel/DeclCheck.lean`, `Verify/Extend/Iota.lean`'s eight sites and
+`DiscC2`'s TT-lane arms — fifteen files, signature changes in
+statements the SetP tier consumes — so it is neither cheap nor
+statement-neutral and is left as it was.
+
+### Gates (at the branch tip `bb9028ed`, before the master merge the grant orders)
+
+* `lake build`: exit 0, **warning-free** (a full rebuild from
+  `Setlec/Kernel/Env.lean` up).
+* `lake test`: exit 0; `tests/SetlecTests/Axioms.lean` — **15
+  theorems at `[propext, Classical.choice, Quot.sound]`**, the pin
+  unchanged.
+* `tests/arena.sh`: exit 0 — layering `base 253 / P 167 / caps 3 /
+  umbrella 1; 0 base->lane edges, 0 impl->theory`; proofdeps `3257
+  module rows as pinned across 9 roots; doors: 0` (regenerated once:
+  the seven `Setlec.Kernel.CoreCfg` rows gone, nothing else moved);
+  trust surface `18 escapes in 4 allowlisted files (431 scanned); 0
+  outside`; arena tutorial 90/92 good tests accepted (032/033 declined
+  by design, as before); e2e 91/91; annot 14/14; retired flags 8/8;
+  mode flags 16/16; progress heartbeat 1/1; trusted sweep `138 arena +
+  91 e2e + 14 annot as expected (3 recorded divergences)`.
+* init-full (`_tmp/init-exports/init-full-pre2.ndjson --pre`, 16 GB
+  cap): `--verified` **exit 0, 60 549 declarations accepted** (111 s
+  wall); `--trusted` **exit 0, 60 549 declarations accepted** (101 s
+  wall) — the accept counts of master (DESIGN, "CORET RETIRED").  Wall
+  clock on a shared machine, not a measurement.
+* Grep-clean: no `CoreCfg`, `cfgOf`, `cfgP`, `cfgT` in `Setlec/`,
+  `Main.lean`, `tests/`, `scripts/`, `README.md` or this document's
+  opening (the historical sections above keep the names as history).
+
+### Gates after the master merge (`6c364377`: master `5d39242d` = `agent/ioshape` + `agent/indexed`, their content kept, the renaming and the `hμ` threading applied on top — eight more `BridgeCS3` twins carry `hμ`, among them the indexed lane's `checkDirectFieldSortsIS_sim`; `tests/proofdeps-expected.txt` regenerated once more: the five remaining `Setlec.Kernel.CoreCfg` rows go, nothing else moves)
+
+* `lake build`: exit 0, warning-free.
+* `lake test`: exit 0; axioms **pinned, 11 theorems at `[propext,
+  Classical.choice, Quot.sound]`** (master's 11 guards after ioshape).
+* `tests/arena.sh`: exit 0 — layering `base 254 / P 167 / caps 3 /
+  umbrella 1; 0 base->lane edges, 0 impl->theory`; proofdeps `2522
+  module rows as pinned across 7 roots; doors: 0`; trust surface `18
+  escapes in 4 allowlisted files (432 scanned); 0 outside`; arena
+  tutorial 90/92; e2e 96/96; annot 14/14; retired flags 8/8; mode
+  flags 16/16; progress lane 6/6; trusted sweep `138 arena + 96 e2e +
+  14 annot as expected (3 recorded divergences)`.
+* init-full-pre2 `--pre`, 16 GB cap: `--verified` **exit 0, 60 549
+  accepted** (102 s wall); `--trusted` **exit 0, 60 549 accepted**
+  (96 s wall).

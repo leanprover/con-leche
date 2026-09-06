@@ -264,7 +264,7 @@ path, or a monad-generic loop with callbacks plus a `LawfulMonad IO`
 instance core does not ship.  The user's ruling ends that: run a
 *different, plainly unverified* fold when the heartbeat is on.
 
-It is the same steps in the same order — `checkDeclStepIdxC cfg`, the
+It is the same steps in the same order — `checkDeclStepIdxC mode`, the
 position-carrying step of the verified fold, over the same records from
 the same empty environment and state — with one line printed before
 each declaration.  Nobody should be bothered by the difference between
@@ -290,7 +290,7 @@ died in.  The index is the FOLD position, not the stream's record
 index: the parse folds the basis and `quot` blocks and drops
 taint-skipped records, so the two drift apart by a stream-dependent
 amount.  Calibrate by NAME. -/
-def checkDeclsProgressIO (cfg : Setlec.CoreCfg) (err : IO.FS.Stream)
+def checkDeclsProgressIO (mode : Setlec.CheckMode) (err : IO.FS.Stream)
     (stride total t0 : Nat) :
     List Setlec.Cached.DeclC → Nat → Setlec.FEnv → Setlec.Cached.CState →
       IO (Except (Setlec.CheckError × Nat) Setlec.Env)
@@ -302,8 +302,8 @@ def checkDeclsProgressIO (cfg : Setlec.CoreCfg) (err : IO.FS.Stream)
         {Setlec.Cached.declCLabel pd} \
         t={Setlec.Cached.msSecs (now - t0)}s\n"
       err.flush
-    match Setlec.Cached.checkDeclStepIdxC cfg (i, fe) pd s with
-    | .ok ((i', fe'), s') => checkDeclsProgressIO cfg err stride total t0 ds i' fe' s'
+    match Setlec.Cached.checkDeclStepIdxC mode (i, fe) pd s with
+    | .ok ((i', fe'), s') => checkDeclsProgressIO mode err stride total t0 ds i' fe' s'
     | .error e => return .error e
 
 /-- The progress heartbeat's stride (`SETLEC_PROGRESS=<stride>`;
@@ -325,13 +325,13 @@ the three-mode setting (task #147), validated once by the caller and
 consumed here as configuration; `pre` asserts the input is already
 preprocessed (`--pre`), skipping preprocessor detection and spawn.
 
-**One core at two configs, one parse.**  The interned representation
+**One core at two modes, one parse.**  The interned representation
 and every driver over it retired with the arena (task #172), the R
 core retired with the collapsed model (2026-09-05), and the
 hand-written trusted twin retired into an instantiation
 (2026-09-06), so the stream is parsed directly to `ExprC`
 (`Frontend.parseExportStreamD`, task #171) and checked by the one
-cached driver — at `cfgP` under `--verified` (the default), at `cfgT`
+cached driver — at `.verified` under `--verified` (the default), at `.trusted`
 under `--trusted`.  The verified instance is covered by
 `no_proof_of_Empty_SPCD_P` over `checkDeclsSPCachedD`
 (`Setlec/Verify/Cached/MainC.lean`); the trusted one is unverified by
@@ -406,11 +406,9 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         unless taintSkipped.isEmpty do
           IO.eprintln s!"setlec: declined: \
             {Frontend.taintSummary taintSkipped} ({modeTag})"
-      -- ONE driver, two configs (2026-09-06): the trusted mode is
-      -- the shared bodies at `cfgT`, the verified mode the same
-      -- bodies at `cfgP` (`cfgOf .verified`, `rfl`).
-      let cfg : Setlec.CoreCfg :=
-        if mode == Setlec.CheckMode.trusted then Setlec.cfgT else Setlec.cfgP
+      -- ONE driver, two modes (2026-09-06; task #185): the trusted
+      -- mode is the shared bodies at `.trusted`, the verified mode the
+      -- same bodies at `.verified` — the mode is passed straight down.
       -- **Two loops** (user ruling, 2026-09-07).  Without
       -- `SETLEC_PROGRESS` the driver calls the verified fold
       -- `Setlec.Cached.checkDeclsSPCachedD` directly — the exact
@@ -450,10 +448,10 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
           (← IO.getStderr).flush
       let verdict ←
         if stride > 0 then
-          checkDeclsProgressIO cfg (← IO.getStderr) stride decls.size t0
+          checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0
             decls.toList 0 (Setlec.mkFEnv Setlec.Env.empty) {}
         else
-          pure (Setlec.Cached.checkDeclsSPCachedD cfg decls.toList)
+          pure (Setlec.Cached.checkDeclsSPCachedD mode decls.toList)
       match verdict with
       | .ok env =>
         progressDone decls.size
@@ -520,9 +518,9 @@ def usage : String := String.intercalate "\n" [
   "                    no_proof_of_Empty_SPCD_P over the driver this",
   "                    binary runs (Setlec/Verify/Cached/MainC.lean)",
   "  --trusted         the unverified mode: the SAME checker bodies as",
-  "                    --verified, instantiated at the config with the",
-  "                    certification-only work switched off (cfgT =",
-  "                    cfgP with verified := false, certs := false):",
+  "                    --verified, instantiated at the mode with the",
+  "                    certification-only work switched off (the",
+  "                    verifiedChecks and certs mode functions false):",
   "                    the annotation validations and the lambda-",
   "                    codomain sort check, and the certificate",
   "                    families the reference kernel does not run (the",
@@ -583,11 +581,11 @@ def usage : String := String.intercalate "\n" [
   "raw stream (which then declines at the first inductive); set",
   "SETLEC_INDUCTIVE_MODELS to a nonexistent path to force that.",
   "",
-  "There is ONE core at two configs and one parse: the verified config",
-  "(--verified, the default) and the unverified trusted config",
+  "There is ONE core at two modes and one parse: the verified mode",
+  "(--verified, the default) and the unverified trusted mode",
   "(--trusted).  The stream is read directly to the cached",
   "representation and checked by the one driver, which the capstone",
-  "letter is about at the verified config (no_proof_of_Empty_SPCD_P in",
+  "letter is about at the verified mode (no_proof_of_Empty_SPCD_P in",
   "Setlec/Verify/Cached/MainC.lean).  Retired: --set-model/",
   "--set-model=p (now --verified) and --no-model (now --trusted),",
   "2026-09-06; the --core selector, the interned arena and the",
