@@ -1,5 +1,6 @@
 import Setlec.Verify.Cached.BridgeCP
 import Setlec.SetP.FoldP
+import Setlec.SetP.SemP
 
 /-!
 # The capstone letter of the SHIPPED driver
@@ -171,6 +172,29 @@ theorem no_proof_of_Empty_SPCD_P (V : Type w) [SetTheory V]
       c.toConstantVal.type = .const emptyName [] → False := by
   obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
   exact fun c hc hty => no_constant_of_Empty_P mp c hc hty
+
+/-- **THE MODEL, for the shipped driver** (2026-09-06): whatever the
+checker accepts in a validating mode has a set-theoretic model — a set
+for every constant at every level assignment such that, under `sem`
+(`Setlec/Semantics/Sem.lean`), every stored definition and theorem
+denotes its body and every stored constant is a member of its type.
+The `Empty` letter above is a corollary of this one in the model, since
+`Empty.rec`'s type is uninhabited unless `Empty` denotes the empty set;
+it is kept as the statement that needs no interpretation at all. -/
+theorem model_exists_SPCD_P (V : Type w) [SetTheory V]
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true)
+    {ds : List DeclC} {env' : Env}
+    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
+    ∃ cval : Name → (Name → Nat) → V,
+      (∀ (cv : ConstantVal) (value : Expr),
+        ((∃ hint, ConstantInfo.defnInfo cv value hint ∈ env'.consts) ∨
+          ConstantInfo.thmInfo cv value ∈ env'.consts) →
+        ∀ (φ : Name → Nat) (ρ : Nat → V),
+          sem cval env' φ 0 ρ value = cval cv.name φ) ∧
+      (∀ c ∈ env'.consts, ∀ (φ : Name → Nat) (ρ : Nat → V),
+        cval c.name φ ∈ˢ sem cval env' φ 0 ρ c.toConstantVal.type) := by
+  obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
+  exact mp.model_exists
 
 end PLetters
 

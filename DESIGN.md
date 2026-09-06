@@ -46847,3 +46847,106 @@ the elan proxy (also in the store).
   234/160/2/1, 0 edges either way; proofdeps 1370 rows, 0 doors;
   pindump fresh; arena 90/92, e2e 78/78, annot 14/14, retired flags 8/8,
   mode flags 16/16.  No verdict moved — nothing under `Setlec/` changed.
+
+## THE MODEL CHALLENGE — `sem`, the interpretation in one function, and the comparator challenge stated over it (2026-09-06)
+
+### WHAT
+
+The `Empty` challenge says a syntactic thing; the user asked for the
+*meaning* — "every theorem is inhabited" — without the `EnvS2PM`
+complexity in the statement.  The carrier is only needed to prove it:
+the statement needs two of its fields, and both are about the
+denotation of a stored term.  So:
+
+* **`Setlec/Semantics/Sem.lean`** defines `sem cval env φ d ρ e : V`,
+  the set a checker term denotes given a set `cval n ψ` for every
+  constant at every level assignment — the composite of `denoteP`
+  (resolve constants, read binder annotations, produce an `AVExpr`) and
+  `interp2` (interpret it), written directly on `Expr`.  Bound variables
+  follow the checker's locally nameless discipline (a binder opens its
+  body with `fvar d`, a leaf reads `ρ (d - 1 - idx)`), the regime of a
+  binder is the validated annotation evaluated at `φ`, literals and
+  projections mirror `denoteP` clause for clause, and anything that does
+  not resolve denotes `SetTheory.empty` — so junk can never satisfy a
+  membership.  Imports: `Kernel/{ExprOps,Basis/Names}`, `Verify/Level`
+  (`Level.eval`/`substFn`), `SetModel/Ops` (`piR`/`lamR`).
+* **`Setlec/SetP/SemP.lean`** is the bridge: `sem_of_denoteP` — wherever
+  `denoteP acval` reads `e` to `ta`, `sem (cvalOf acval) … e = interp2 ρ
+  ta`, with `cvalOf acval n ψ := interp2 (fun _ => ∅) (acval n ψ)` (the
+  leaves are closed, `cval_closedL` + `interp2_closed`) — by
+  `denoteP.induct`, mirroring `denoteP_isSome_of_denote`'s fifteen cases,
+  plus three encoding lemmas (`interp2_natLitT2`, `interp2_charListT2`,
+  `interp2_projAV`).  From it `EnvS2PM.model_exists` reads the model off
+  the carrier's `defn_reads`, `type_reads` and `mem_typeP`.  Built on
+  the first pass.
+* **`Setlec/Verify/Cached/MainC.lean`** states it for the shipped driver,
+  `model_exists_SPCD_P`, beside the `Empty` letter, which is its
+  corollary in the model (`Empty.rec`'s type is uninhabited unless
+  `Empty` denotes ∅) and is kept as the statement needing no
+  interpretation at all.
+* **`ChallengeModel.lean` / `SolutionModel.lean` / `comparator-model.json`**:
+
+      theorem Setlec.model_exists (V : Type w) [SetTheory V]
+          (h : Cached.checkDeclsSPCachedD cfgP ds = .ok env') :
+          ∃ cval : Name → (Name → Nat) → V,
+            (∀ cv value, (∃ hint, .defnInfo cv value hint ∈ env'.consts) ∨
+                          .thmInfo cv value ∈ env'.consts →
+              ∀ φ ρ, sem cval env' φ 0 ρ value = cval cv.name φ) ∧
+            (∀ c ∈ env'.consts, ∀ φ ρ,
+              cval c.name φ ∈ˢ sem cval env' φ 0 ρ c.toConstantVal.type)
+
+  Why both clauses, over all constants: either alone is trivially
+  satisfiable (give `False` the leaf `Sort 0`).  Together, the recursor
+  types force the empty inductives to denote ∅ with no appeal to any
+  pin.  `SolutionModel` is a default target; `ChallengeModel` is built by
+  the comparator (the `sorry` rule of the first challenge).
+
+### THE TRUSTED CLOSURE
+
+`ChallengeModel` imports `Setlec.Cached.ParsedC` and
+`Setlec.Semantics.Sem`: **57 modules** — the checker's 39, `Sem`,
+`Verify.Level`, `SetModel.Ops`, `SetTheory.{Core,Basic}` and 14
+`SetTheory.Derive.*`.  Nothing from `TT`, the rest of `Verify`, the
+rest of `Semantics`, or `SetP`.  The reader trusts the checker, the set
+theory, and a 60-line definition of the interpretation.
+
+### VERDICTS
+
+* Comparator on `comparator-model.json`: statements match, axioms
+  `propext`/`Quot.sound`/`Classical.choice`, `Lean default kernel accepts
+  the solution`, `Your solution is okay!`, 1 min 37 s.
+* `lake build` warning-free (622 jobs); `ChallengeModel` alone builds
+  with its one `sorry` warning.
+* `tests/proofdeps.sh`: fifth root `model_SPCD_P` pinned (1724 rows; it
+  reaches the `SPCD_P` closure plus exactly `Semantics.Sem` and
+  `SetP.SemP`; no other row moved); the summary line now counts roots
+  from the expectation file.
+
+### CLOSURE SIMPLIFICATIONS CONSIDERED (not done; the user's call)
+
+1. **`Level.eval`/`substFn` into `Kernel/Level.lean`** (two definitions,
+   ten lines, same namespace).  Drops `Verify.Level` (412 lines, mostly
+   `leq` soundness) from the closure: `Sem` would import no `Verify`
+   module.  Pure code motion.
+2. **`piR`/`lamR` into a module of their own** (say `SetModel/Regime.lean`,
+   importing `Derive.Pi`), `Ops.lean` importing it.  `Ops` imports the
+   `SetTheory.Basic` umbrella, which drags in `Choice`, `Natrec`, `Quot`,
+   `PtFresh` and `Basic` itself — none of which the interpretation
+   touches.  Closure of the set-theory side: 16 → 11 modules
+   (`Core`, `Empty`, `Sep`, `Pair`, `Universe`, `Omega`, `Pt`, `Graphs`,
+   `Pi`, `Univ`, `Sigma`).  Pure code motion; the proofdeps pin moves two
+   rows per capstone with it.
+   Both together: 57 → 51.
+3. **The pins.** `Setlec.Kernel.NatOpPins` reads the committed JSON at
+   elaboration time through `PinGen.Dump` (which imports `Lean`), so the
+   closure contains a 40,910-line data file and its reader.  Their
+   *semantics* is covered by the kernel-checked certificates the proof
+   consumes, so this is no extra trust for the theorem, but it is the
+   one opaque definition a closure auditor meets.  Making the pins plain
+   generated Lean source would remove the reader, not the data.
+4. **`sem`'s string-literal clause** (nine lines) could delegate to the
+   checker's own `strLitToConstructor` expansion, at the price of a
+   different termination measure and a bridge lemma through the
+   constructor form.  Cosmetic.
+5. The checker's 39 are the theorem's subject and cannot shrink without
+   changing the checker.

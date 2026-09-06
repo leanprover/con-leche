@@ -98,4 +98,4 @@ fi
 [ "$fail" = 0 ] || exit 1
 
 caps=$(cut -d' ' -f1 "$EXPECTED" | sort -u | tr '\n' ' ')
-echo "proofdeps: $rows module rows as pinned across 4 capstones ($caps); doors: $ndoors"
+echo "proofdeps: $rows module rows as pinned across $(cut -d" " -f1 "$EXPECTED" | sort -u | wc -l) capstones ($caps); doors: $ndoors"

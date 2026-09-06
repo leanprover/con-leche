@@ -110,9 +110,14 @@ partial def setlecDeps (env : Environment) (todo : List Name)
 * `sound_P` / `foldSPC_PM` — the acceptance corollary and the fold
   under it, pinned separately so a change in the assembly is visible
   even when the letter's own closure is unmoved.
-* `P` — the pure fueled checker the graded tower is stated about. -/
+* `P` — the pure fueled checker the graded tower is stated about.
+* `model_SPCD_P` — the model statement for the shipped driver (a set for
+  every constant under which definitions denote their bodies and every
+  constant inhabits its type, `Setlec/Semantics/Sem.lean`), added
+  2026-09-06 with the model comparator challenge. -/
 private def roots : List (String × Name) :=
   [("SPCD_P", `Setlec.Cached.no_proof_of_Empty_SPCD_P),
+   ("model_SPCD_P", `Setlec.Cached.model_exists_SPCD_P),
    ("sound_P", `Setlec.Cached.checkDeclsSPCachedD_sound_P),
    ("foldSPC_PM", `Setlec.Cached.foldSPC_PM),
    ("P", `Setlec.SetP.no_proof_of_Empty_P)]
