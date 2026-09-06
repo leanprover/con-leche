@@ -411,8 +411,8 @@ theorem infer_forallE_claimIOP (m : EnvS2Core V env)
     have hrow := sound_pi V (u := u.eval φ) (v := v.eval φ)
       hdom.1.1 (fun x hx => (hcod x hx).1) hdom.2
       (fun x hx => (hcod x hx).2)
-    have hzag : pwBit φ mb.pw = 0 ↔ v.eval φ = 0 :=
-      pwBit_of_equiv_zeronessOf hz φ
+    have hzag : pwBit φ mb.pw = 0 ↔ v.eval φ = 0 := by
+      rw [← hz]; exact pwBit_zeronessOf φ v
     have hbridge :
         interp2 V ρ (.pi 0 (pwBit φ mb.pw) tyA baA)
           = interp2 V ρ (.pi (u.eval φ) (v.eval φ) tyA baA) := by
@@ -552,7 +552,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
           ∃ nI tyI bI mbI, body = .lam nI tyI bI mbI := by
         cases body <;> simp [Expr.isLam] at hbl
         exact ⟨_, _, _, _, rfl⟩
-      have hpwEq : Lech.PropWhen.equiv mb.pw mbI.pw = true :=
+      have hpwEq : mb.pw = mbI.pw :=
         hchainC hμ mbI.pw rfl
       obtain ⟨btI, rfl⟩ : ∃ btI,
           bt = .forallE nI (tyI.instantiate1 (.fvar d n ty)) btI mbI := by
@@ -565,7 +565,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
       obtain ⟨tyIA, btIA, -, -, rfl⟩ := denoteP_forallE_inv hbtA
       rw [interp2_pi]
       have hinner : pwBit φ mbI.pw = 0 := by
-        rw [← pwBit_eq_of_equiv hpwEq φ]
+        rw [← hpwEq]
         exact hb0
       rw [hinner]
       exact piR_zero_mem_univZero

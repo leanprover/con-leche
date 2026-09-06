@@ -533,7 +533,7 @@ def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
       let b₁ ← inst1M body₁ fv
       let ba ← internI (.app b fv)
       unless ← r.defeq (depth + 1) b₁ ba do return false
-      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (eta)")
       pure true
     else pure false
@@ -1110,7 +1110,7 @@ def inferLamsOutI (d : Nat) :
     -- node's prop-ness annotation must agree with its inner
     -- neighbour's (the innermost step compares the entry with itself
     -- — vacuously true).
-    if mode.verifiedChecks && !(mb.pw.equiv prevPw) then
+    if mode.verifiedChecks && !(mb.pw == prevPw) then
       throw (.notImplemented "sort-annotation mismatch (lam-cod-chain)")
     let tyAbs ← abstractRangeM tyo d j
     let node ← internI (.forallE n tyAbs cur mb)
@@ -1142,7 +1142,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
         match stk with
         | (_, _, mb₀) :: _ => do
           let pv ← withStore fun st => (st.zeronessOfLIGo {} vb).1
-          unless pv.equiv mb₀.pw do
+          unless pv == mb₀.pw do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
         | [] => pure ()
@@ -1194,7 +1194,7 @@ def inferPisOutI : List (Level × PropWhen) → Level → CStore.PWMemo → Chec
     -- inferred codomain sort (`v` is exactly the spec `∀`-clause's
     -- `v` at this node); the readout is memoized across the fold.
     let (pv, memo) ← withStore fun st => st.zeronessOfLIGo memo v
-    if mode.verifiedChecks && !(pv.equiv pw) then
+    if mode.verifiedChecks && !(pv == pw) then
       throw (.notImplemented "sort-annotation mismatch (forall-cod)")
     let v' ← internLM (.imax u v)
     inferPisOutI rest v' memo
@@ -1374,7 +1374,7 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         let bt ← r.infer (depth + 1) ob
         let v ← ensureSortI r (depth + 1) bt
         if mode.verifiedChecks then
-          unless (Level.zeronessOf v).equiv mb.pw do
+          unless Level.zeronessOf v == mb.pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         let iu ← internLM (.imax u v)
         internI (.sort iu)
@@ -1388,13 +1388,13 @@ def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       if mode.verifiedChecks then
         match body.lamPw with
         | some pwI =>
-          unless mb.pw.equiv pwI do
+          unless mb.pw == pwI do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-chain)")
         | none =>
           let btt ← r.infer (depth + 1) bt
           let vb ← ensureSortI r (depth + 1) btt
-          unless (Level.zeronessOf vb).equiv mb.pw do
+          unless Level.zeronessOf vb == mb.pw do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
       let bAbs ← abstract1M bt depth
@@ -1537,7 +1537,7 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
       pure true
     | some (.lam n₁ ty₁ body₁ m₁), some (.lam n₂ ty₂ body₂ m₂) => do
@@ -1547,7 +1547,7 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
       pure true
     | some (.app _f₁ _a₁), some (.app _f₂ _a₂) => do

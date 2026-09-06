@@ -19,10 +19,10 @@ and never sees a constructor:
 
 * the readout `holds` and its algebra (`holds_inter`,
   `holds_bindZ_go`, `holds_ext`);
-* the comparison `equiv`, which on the canonical representation **is
-  equality** (`equiv_iff_eq`), and is therefore sound and complete for
-  zero-ness agreement at every valuation (`equiv_iff_holds`,
-  `eq_iff_holds`, `equiv_refl`, `holds_eq_of_equiv`);
+* the comparison — which is **equality**: `=`/`==`/`DecidableEq`
+  decide zero-ness agreement at every valuation (`eq_iff_holds`), so
+  the checker's validation and defeq sites compare with `==` and no
+  separate comparison exists (task #197 deleted `equiv`);
 * the `inter`/`bindZ` algebra the substitution laws rest on
   (`inter_assoc`, `bindZ_inter`, `bindZ_go_append`,
   `bindZ_congr_names`, `bindZ_unit`, `paramsDefined_inter_of`).
@@ -396,10 +396,10 @@ representative (task #194): the smart constructor `ifAllZero` sorts
 and deduplicates, `inter`/`bindZ` (hence `Level.substPW`) produce
 canonical output from canonical input, and no other producer exists.
 So syntactic equality decides zero-ness agreement at every valuation
-(`eq_iff_holds`), the comparison `equiv` the checker's validation and
-defeq sites use *is* `=` (`equiv_iff_eq`), the derived `Hashable`
-hashes the set, and the level-instantiation identity law
-(`Level.substPW_self`) holds unconditionally.
+(`eq_iff_holds`): the checker's validation and defeq sites compare
+with `==`, the derived `Hashable` hashes the set, and the
+level-instantiation identity law (`Level.substPW_self`) holds
+unconditionally.
 
 **The representation is hidden, not hidden by convention.**  The datum
 is a one-field structure whose constructor *and* field are `private`,
@@ -423,12 +423,12 @@ private theorem repr_inj {a b : PropWhen} (h : a.repr = b.repr) : a = b := by
 
 /-! ### The comparison, and the instances
 
-`equiv` is structural equality spelled constructor-wise so that the
-name comparisons go through `Name.beq` (the pointer-and-hash-guarded
-equality, `Lech/Kernel/Name.lean`) rather than the derived structural
-walk; `equiv_iff_eq` says it *is* equality, and `DecidableEq` is
-defined from it — so `=`, `==`, `decide` and the checker's `equiv`
-call sites all run the same code.
+`DecidableEq` is structural equality spelled constructor-wise
+(`equivR`) so that the name comparisons go through `Name.beq` (the
+pointer-and-hash-guarded equality, `Lech/Kernel/Name.lean`) rather
+than the derived structural walk; `equivR_iff_eq` says it *is*
+equality.  `==` is the `DecidableEq`, so `=`, `==`, `decide` and every
+checker comparison site run the same code.
 
 `instance` bodies are always exposed, so they may not mention the
 private representation; each therefore goes through a public (sealed)
@@ -446,24 +446,11 @@ private def equivR : PropWhenRepr → PropWhenRepr → Bool
 private theorem equivR_iff_eq (x y : PropWhenRepr) : equivR x y = true ↔ x = y := by
   cases x <;> cases y <;> simp [equivR]
 
-/-- Zero-ness agreement at *every* valuation, decidably.  On the
-canonical representation this is **structural equality**
-(`equiv_iff_eq`) — sound and complete for the semantic question
-(`equiv_iff_holds`); this is the comparison every validation and defeq
-site uses, and the `DecidableEq` instance is defined from it. -/
-def equiv (a b : PropWhen) : Bool := equivR a.repr b.repr
-
-/-- **The canonicity payoff**: the comparison is equality. -/
-theorem equiv_iff_eq (a b : PropWhen) : equiv a b = true ↔ a = b :=
-  (equivR_iff_eq _ _).trans ⟨repr_inj, fun h => h ▸ rfl⟩
-
-/-- `equiv` is reflexive (the fold's vacuous self-comparison steps). -/
-theorem equiv_refl (p : PropWhen) : equiv p p = true :=
-  (equiv_iff_eq p p).mpr rfl
-
-/-- Structural equality, decided by `equiv`. -/
+/-- Structural equality, decided constructor-wise on the hidden
+representation. -/
 def decEq (a b : PropWhen) : Decidable (a = b) :=
-  decidable_of_iff _ (equiv_iff_eq a b)
+  decidable_of_iff (equivR a.repr b.repr = true)
+    ((equivR_iff_eq _ _).trans ⟨repr_inj, fun h => h ▸ rfl⟩)
 
 instance : DecidableEq PropWhen := decEq
 
@@ -703,7 +690,7 @@ the whole downstream surface. -/
 
 /-- Does the datum hold at a valuation — is the codomain sort zero
 there?  (The model side's dispatch bit; the kernel never evaluates
-this, it only compares data by `equiv`.) -/
+this, it only compares data by `==`.) -/
 def holds (φ : Name → Nat) (pw : PropWhen) : Bool :=
   match pw.repr with
   | .never => false
@@ -869,32 +856,6 @@ theorem eq_iff_holds (p q : PropWhen) :
 theorem eq_of_holds {p q : PropWhen} (h : ∀ φ, p.holds φ = q.holds φ) : p = q :=
   (eq_iff_holds p q).mpr h
 
-/-- The comparison decides zero-ness agreement at every valuation:
-sound **and** complete. -/
-theorem equiv_iff_holds (p q : PropWhen) :
-    equiv p q = true ↔ ∀ φ, p.holds φ = q.holds φ :=
-  (equiv_iff_eq p q).trans (eq_iff_holds p q)
-
-@[simp] theorem equiv_never_never : equiv .never .never = true := equiv_refl _
-
-@[simp] theorem equiv_never_ifAllZero (ps : List Name) :
-    equiv .never (ifAllZero ps) = false := by
-  rw [Bool.eq_false_iff]
-  exact fun h => ifAllZero_ne_never ps ((equiv_iff_eq _ _).mp h).symm
-
-@[simp] theorem equiv_ifAllZero_never (ps : List Name) :
-    equiv (ifAllZero ps) .never = false := by
-  rw [Bool.eq_false_iff]
-  exact fun h => ifAllZero_ne_never ps ((equiv_iff_eq _ _).mp h)
-
-@[simp] theorem equiv_ifAllZero (ps qs : List Name) :
-    equiv (ifAllZero ps) (ifAllZero qs) =
-      (ps.all qs.contains && qs.all ps.contains) := by
-  rw [Bool.eq_iff_iff, equiv_iff_eq, ifAllZero_eq_iff]
-  simp only [Bool.and_eq_true, List.all_eq_true, List.contains_iff_mem]
-  exact ⟨fun h => ⟨fun n hn => (h n).mp hn, fun n hn => (h n).mpr hn⟩,
-    fun h n => ⟨h.1 n, h.2 n⟩⟩
-
 /-! ### The producers -/
 
 /-- Intersection of two zero-ness predicates (the `max` rule: a `max`
@@ -1048,20 +1009,6 @@ theorem paramsDefined_inter_of {params : List Name} {p q : PropWhen}
     (p.inter q).paramsDefined params = true := by
   cases p <;> cases q <;>
     simp_all [List.all_append]
-
-/-! ### The bit readouts (task #161 P3)
-
-The P3 proofs consume validated annotations only through the *bit* a
-datum reads out at a ground valuation.  This is the readout law for a
-passed comparison; its companion for a passed *validation* site
-(`holds_of_equiv_zeronessOf`) needs `Level` and lives in
-`Lech/Verify/PropWhen.lean`. -/
-
-/-- Equivalent data read out equal bits at every valuation (the `mp`
-direction of `equiv_iff_holds`, named for the P3 API). -/
-theorem holds_eq_of_equiv {p q : PropWhen} (h : equiv p q = true)
-    (φ : Name → Nat) : p.holds φ = q.holds φ :=
-  (equiv_iff_holds p q).mp h φ
 
 /-- **Parameter locality**: a datum reads its valuation only at its
 own parameters (the `paramsDefined` footprint) — `denoteP`'s

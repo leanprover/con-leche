@@ -604,7 +604,7 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                         -- guard plus `↓reduceIte` decides both.
                         simp only [↓reduceIte]
                         by_cases hpw :
-                            (mode.verifiedChecks && !m₁.pw.equiv m₂.pw) = true
+                            (mode.verifiedChecks && !m₁.pw == m₂.pw) = true
                         · simp only [hpw, ↓reduceIte]
                           exact SimC.throw_bind
                         · simp only [Bool.not_eq_true] at hpw
@@ -676,7 +676,7 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
                         -- guard plus `↓reduceIte` decides both.
                         simp only [↓reduceIte]
                         by_cases hpw :
-                            (mode.verifiedChecks && !m₁.pw.equiv m₂.pw) = true
+                            (mode.verifiedChecks && !m₁.pw == m₂.pw) = true
                         · simp only [hpw, ↓reduceIte]
                           exact SimC.throw_bind
                         · simp only [Bool.not_eq_true] at hpw

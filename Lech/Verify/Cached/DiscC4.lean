@@ -2352,7 +2352,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       obtain rfl := hPv
       by_cases hv : mode.verifiedChecks = true
       · simp only [hv, ↓reduceIte]
-        by_cases hc : (Level.zeronessOf v).equiv m.pw = true
+        by_cases hc : (Level.zeronessOf v == m.pw) = true
         · simp only [hc, ↓reduceIte]
           refine SimC.bind_left (internLM_eff hs₆ (Level.imax u v))
             (fun s₇ iu hs₇ hQiu => ?_)
@@ -2424,7 +2424,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       cases hbp : b.lamPw with
       | some pwI =>
         dsimp only
-        by_cases hc : m.pw.equiv pwI = true
+        by_cases hc : (m.pw == pwI) = true
         · simp only [hc, ↓reduceIte]
           exact hres hs₅
         · simp only [hc, Bool.false_eq_true, ↓reduceIte]
@@ -2437,7 +2437,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
         refine SimC.bind (ensureSortC_sim ih hs₆ hbttd hwbtt)
           (fun s₇ vb lvb hs₇ hPv => ?_)
         obtain rfl := hPv
-        by_cases hc : (Level.zeronessOf vb).equiv m.pw = true
+        by_cases hc : (Level.zeronessOf vb == m.pw) = true
         · simp only [hc, ↓reduceIte]
           exact hres hs₇
         · simp only [hc, Bool.false_eq_true, ↓reduceIte]
