@@ -972,6 +972,76 @@ theorem checkDirectSum_snd_dproj (env : Env) (p : DirectSumParts) :
     PairM.snd_ite, checkDirectSumInd_snd_dproj, checkDirectSumCtors_snd_dproj,
     checkDirectSumRec_snd_dproj]
 
+/-! ### The direct recursive install (task #188) -/
+
+theorem checkDirectFixRules_fst_dproj (envR : Env) (rlps : List Name) (T : Name)
+    (lps : List Name) (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
+    (ctors : List (Name × Nat × Expr × List Nat)) (recC : Name) (rlvls : List Level) :
+    ∀ k j : Nat,
+      (checkDirectFixRules (m := PairM rel) envR rlps T lps elim large nP nIdx tty
+        ctors recC rlvls k j).val.1 =
+        checkDirectFixRules (m := M₁) envR rlps T lps elim large nP nIdx tty ctors recC
+          rlvls k j
+  | 0, _ => rfl
+  | k + 1, j => by
+    unfold checkDirectFixRules
+    simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw, PairM.fst_ite,
+      unwrapOr_fst_dproj,
+      checkDirectFixRules_fst_dproj envR rlps T lps elim large nP nIdx tty ctors recC rlvls
+        k (j + 1)]
+
+theorem checkDirectFixRules_snd_dproj (envR : Env) (rlps : List Name) (T : Name)
+    (lps : List Name) (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
+    (ctors : List (Name × Nat × Expr × List Nat)) (recC : Name) (rlvls : List Level) :
+    ∀ k j : Nat,
+      (checkDirectFixRules (m := PairM rel) envR rlps T lps elim large nP nIdx tty
+        ctors recC rlvls k j).val.2 =
+        checkDirectFixRules (m := M₂) envR rlps T lps elim large nP nIdx tty ctors recC
+          rlvls k j
+  | 0, _ => rfl
+  | k + 1, j => by
+    unfold checkDirectFixRules
+    simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw, PairM.snd_ite,
+      unwrapOr_snd_dproj,
+      checkDirectFixRules_snd_dproj envR rlps T lps elim large nP nIdx tty ctors recC rlvls
+        k (j + 1)]
+
+theorem checkDirectFixRec_fst_dproj (env : Env) (p : DirectFixParts)
+    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
+    (checkDirectFixRec (pairOps o₁ o₂ h) env p cvTa ctorsA).val.1 =
+      checkDirectFixRec o₁ env p cvTa ctorsA := by
+  unfold checkDirectFixRec
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, pairOps_isDefEq_fst, pairOps_inferType_fst,
+    pairOps_ensureSort_fst, unwrapOr_fst_dproj, checkConstantVal_fst_dproj,
+    checkDirectFixRules_fst_dproj]
+
+theorem checkDirectFixRec_snd_dproj (env : Env) (p : DirectFixParts)
+    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
+    (checkDirectFixRec (pairOps o₁ o₂ h) env p cvTa ctorsA).val.2 =
+      checkDirectFixRec o₂ env p cvTa ctorsA := by
+  unfold checkDirectFixRec
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, pairOps_isDefEq_snd, pairOps_inferType_snd,
+    pairOps_ensureSort_snd, unwrapOr_snd_dproj, checkConstantVal_snd_dproj,
+    checkDirectFixRules_snd_dproj]
+
+theorem checkDirectFix_fst_dproj (env : Env) (p : DirectFixParts) :
+    (checkDirectFix (pairOps o₁ o₂ h) env p).val.1 =
+      checkDirectFix o₁ env p := by
+  unfold checkDirectFix
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, checkDirectSumInd_fst_dproj, checkDirectSumCtors_fst_dproj,
+    checkDirectFixRec_fst_dproj]
+
+theorem checkDirectFix_snd_dproj (env : Env) (p : DirectFixParts) :
+    (checkDirectFix (pairOps o₁ o₂ h) env p).val.2 =
+      checkDirectFix o₂ env p := by
+  unfold checkDirectFix
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, checkDirectSumInd_snd_dproj, checkDirectSumCtors_snd_dproj,
+    checkDirectFixRec_snd_dproj]
+
 macro "dfst_step4_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_fst_proj])
@@ -1349,7 +1419,9 @@ theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     · exact checkDirectStruct_fst_dproj env _
     · split
       · exact checkDirectSum_fst_dproj env _
-      · exact checkIndDecl_fst_dproj env block
+      · split
+        · exact checkDirectFix_fst_dproj env _
+        · exact checkIndDecl_fst_dproj env block
 
 theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     (checkDecl mode (pairOps o₁ o₂ h) env d).val.2 =
@@ -1420,7 +1492,9 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     · exact checkDirectStruct_snd_dproj env _
     · split
       · exact checkDirectSum_snd_dproj env _
-      · exact checkIndDecl_snd_dproj env block
+      · split
+        · exact checkDirectFix_snd_dproj env _
+        · exact checkIndDecl_snd_dproj env block
 
 theorem checkDecls_fst_dproj (ds : List Declaration) :
     (checkDecls mode (pairOps o₁ o₂ h) ds).val.1 =

@@ -1,6 +1,7 @@
 import Lech.Verify.FastOps
 import Lech.Verify.EnvBound
 import Lech.Kernel.Direct.SumInstallF
+import Lech.Kernel.Direct.RecInstallF
 
 /-!
 # The indexed checker mirrors agree with the generic checker (task #63)
@@ -415,6 +416,41 @@ theorem consSumCtorsF_mkFEnv (nP : Nat) :
   | c :: cs, env => by
     simp only [consSumCtorsF, consSumCtors, push_mkFEnv,
       consSumCtorsF_mkFEnv nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts⟩]
+
+/-! ## The direct recursive install's mirrors (task #188) -/
+
+section FixMirrors
+
+variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
+
+theorem directFixFieldsOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
+    (ctorsA : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) :
+    directFixFieldsOkF (mkFEnv env₀) T lps nP nIdx ctorsA kinds
+      = directFixFieldsOk env₀ T lps nP nIdx ctorsA kinds := by
+  simp only [directFixFieldsOkF, directFixFieldsOk, constsResolveF_eq] <;> rfl
+
+theorem checkDirectFixRulesF_eq (envR : Env) (rlps : List Name) (T : Name) (lps : List Name)
+    (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
+    (ctors : List (Name × Nat × Expr × List Nat)) (recC : Name) (rlvls : List Level) :
+    ∀ (k j : Nat),
+      checkDirectFixRulesF (m := m) (mkFEnv envR) rlps T lps elim large nP nIdx tty ctors
+          recC rlvls k j
+        = checkDirectFixRules (m := m) envR rlps T lps elim large nP nIdx tty ctors recC
+            rlvls k j
+  | 0, _ => rfl
+  | k + 1, j => by
+    simp only [checkDirectFixRulesF, checkDirectFixRules, constsResolveF_eq,
+      checkDirectFixRulesF_eq envR rlps T lps elim large nP nIdx tty ctors recC rlvls k
+        (j + 1)]
+
+theorem checkDirectFixRecF_eq (ops : CheckerOps m) (env : Env) (p : DirectFixParts)
+    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
+    checkDirectFixRecF ops (mkFEnv env) p cvTa ctorsA
+      = checkDirectFixRec ops env p cvTa ctorsA := by
+  simp only [checkDirectFixRecF, checkDirectFixRec, mkFEnv_env, constsResolveF_eq,
+    checkConstantValF_eq, push_mkFEnv, checkDirectFixRulesF_eq]
+
+end FixMirrors
 
 
 end Lech

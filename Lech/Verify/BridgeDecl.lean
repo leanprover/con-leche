@@ -668,6 +668,43 @@ theorem checkDirectSum_datF (env : Env) (p : DirectSumParts) (F : Nat) :
     FueledM.atF_ite, checkDirectSumInd_datF, checkDirectSumCtors_datF,
     checkDirectSumRec_datF]
 
+/-! ### The direct recursive install (task #188) -/
+
+theorem checkDirectFixRules_datF (envR : Env) (rlps : List Name) (T : Name)
+    (lps : List Name) (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
+    (ctors : List (Name × Nat × Expr × List Nat)) (recC : Name) (rlvls : List Level)
+    (F : Nat) :
+    ∀ k j : Nat,
+      (checkDirectFixRules (m := FueledM) envR rlps T lps elim large nP nIdx tty ctors
+        recC rlvls k j).val F =
+        checkDirectFixRules (m := CheckM) envR rlps T lps elim large nP nIdx tty ctors
+          recC rlvls k j
+  | 0, _ => rfl
+  | k + 1, j => by
+    unfold checkDirectFixRules
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      unwrapOr_atF,
+      checkDirectFixRules_datF envR rlps T lps elim large nP nIdx tty ctors recC rlvls F k
+        (j + 1)]
+
+theorem checkDirectFixRec_datF (env : Env) (p : DirectFixParts)
+    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) (F : Nat) :
+    (checkDirectFixRec (fueledOpsM mode) env p cvTa ctorsA).val F =
+      checkDirectFixRec (fueledOps mode F) env p cvTa ctorsA := by
+  unfold checkDirectFixRec
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
+    fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF,
+    checkDirectFixRules_datF]
+
+theorem checkDirectFix_datF (env : Env) (p : DirectFixParts) (F : Nat) :
+    (checkDirectFix (fueledOpsM mode) env p).val F =
+      checkDirectFix (fueledOps mode F) env p := by
+  unfold checkDirectFix
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, checkDirectSumInd_datF, checkDirectSumCtors_datF,
+    checkDirectFixRec_datF]
+
 macro "datF_step4_alt" : tactic =>
   `(tactic| first
     | (rw [liftFueled_atF])
@@ -893,7 +930,9 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     · exact checkDirectStruct_datF env _ F
     · split
       · exact checkDirectSum_datF env _ F
-      · exact checkIndDecl_datF env block F
+      · split
+        · exact checkDirectFix_datF env _ F
+        · exact checkIndDecl_datF env block F
 
 theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
     (checkDecls mode (fueledOpsM mode) ds).val F =

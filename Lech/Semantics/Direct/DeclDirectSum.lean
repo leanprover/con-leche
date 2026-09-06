@@ -111,20 +111,8 @@ theorem declDirectSumRun_wf {μ : CheckMode} {F : Nat} {env env₂ : Env}
     exact Lech.direct_sum_ctor_typeWF hrun
   exact Lech.direct_sum_rec_wf henv₂ hRec
 
-/-! ## The run-level dispatch
-
-`checkDeclRun_ofEnvFactsE`'s `Ind` slot: the direct structure arm,
-the direct sum arm, the modeled arm — the kernel's own two-stage case
-split (`directParts?`, then `directSumParts?`). -/
-
-/-- The `.indDecl` dispatch at the run level. -/
-def DeclIndRunDispatch (μ : CheckMode) (F : Nat) (env : Env)
-    (block : List ConstantInfo) (env₂ : Env) : Prop :=
-  match Lech.directParts? env block with
-  | some p => DeclDirectRun μ F env p env₂
-  | none =>
-    match Lech.directSumParts? env block with
-    | some p => DeclDirectSumRun μ F env p env₂
-    | none => DeclIndRun μ F env block env₂
+/-! The `.indDecl` run dispatch (`DeclIndRunDispatch`) lives in
+`Lech/Semantics/Direct/DeclDirectFix.lean`, below the recursive arm
+(task #188). -/
 
 end Lech.Semantics

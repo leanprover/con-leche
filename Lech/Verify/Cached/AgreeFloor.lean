@@ -483,15 +483,25 @@ def directSumSkels (p : DirectSumParts) (sk : List InstallSkel) :
     sumCtorSkels p.nP (p.ctors.map fun c => (c.1.name, c.2))
       (.ind p.cvT.name :: sk)
 
+/-- The dispatch below the direct-sum gate: the direct recursive gate
+(task #188; the same skeleton as the sum's — the former, the
+constructors, the recursor with one rule per constructor), then the
+modeled block. -/
+def indDeclFixSkels (block : List ConstantInfo) (sk : List InstallSkel) :
+    List InstallSkel :=
+  match directFixParts? block with
+  | some p => directSumSkels p.toDirectSumParts sk
+  | none => indDeclSkelsModeled block sk
+
 /-- The dispatch below the direct-structure gate: the direct sum gate,
-then the modeled block. -/
+then the direct recursive gate and the modeled block. -/
 def indDeclSumSkels (block : List ConstantInfo) (sk : List InstallSkel) :
     List InstallSkel :=
   match directSumPartsCore? block with
   | some p =>
     if directSumNonRecSk sk p then directSumSkels p sk
-    else indDeclSkelsModeled block sk
-  | none => indDeclSkelsModeled block sk
+    else indDeclFixSkels block sk
+  | none => indDeclFixSkels block sk
 
 /-- The inductive-block clause's specification: the priority dispatch
 (`directPartsF?`, then `directSumPartsF?`, both read at the skeleton)
@@ -1059,6 +1069,128 @@ theorem checkDirectSumS_skels (mode : CheckMode) {fe : FEnv}
   simpa [ciSkel, directSumSkels, hnR, directSumRules_map_ctor _ _ _ _ hlen,
     hctors] using hpush
 
+/-! ### The direct recursive install (task #188) -/
+
+/-- The generators' constructor list is one entry per constructor
+when the kinds are one list per constructor (a local twin of
+`Lech.directFixCtors4_length`, `Lech/Verify/Direct/FixWF.lean`: this
+floor imports no direct-route verification). -/
+private theorem directFixCtors4_length' {ctorsA : List (ConstantVal × Nat)}
+    {kinds : List (List RecFieldKind)} (h : ctorsA.length = kinds.length) :
+    (directFixCtors4 ctorsA kinds).length = ctorsA.length := by
+  simp [directFixCtors4, List.length_zipWith, h]
+
+theorem checkDirectFixRulesF_len (fe : FEnv)
+    (rlps : List Name) (T : Name) (lps : List Name) (elim : Name) (large : Bool)
+    (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat))
+    (recC : Name) (rlvls : List Level) :
+    ∀ (k j : Nat),
+      Yields (checkDirectFixRulesF (m := CheckCM) fe rlps T lps elim large nP nIdx tty ctors
+          recC rlvls k j)
+        (fun rhss => rhss.length = k)
+  | 0, _ => Yields.pure rfl
+  | k + 1, j => by
+    unfold checkDirectFixRulesF
+    refine Yields.bind fun rhs => ?_
+    try ylet
+    split
+    case isTrue =>
+      refine Yields.bind' (checkDirectFixRulesF_len fe rlps T lps elim large
+        nP nIdx tty ctors recC rlvls k (j + 1)) fun rest hrest => ?_
+      exact Yields.pure (by simp [hrest])
+    case isFalse => exact Yields.ofThrowBind
+
+/-- The recursor stage stores the generated recursor at the stream's
+name, with one rule per generator entry. -/
+theorem checkDirectFixRecF_yields (ops : CheckerOps CheckCM) (fe : FEnv)
+    (p : DirectFixParts) (cvTa : ConstantVal)
+    (ctorsA : List (ConstantVal × Nat)) :
+    Yields (checkDirectFixRecF ops fe p cvTa ctorsA)
+      (fun r => r.1.name = p.cvR.name ∧
+        r.2.length = (directFixCtors4 ctorsA p.kinds).length) := by
+  unfold checkDirectFixRecF
+  refine Yields.bind fun cvRi => ?_
+  refine Yields.bind fun recTy => ?_
+  try ylet
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue =>
+  refine Yields.bind fun _sty => ?_
+  refine Yields.bind fun _u => ?_
+  refine Yields.bind fun b => ?_
+  try ylet
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue =>
+  try simp only []
+  refine Yields.bind' (checkDirectFixRulesF_len _ p.cvR.levelParams
+    p.cvT.name p.cvT.levelParams p.elim p.large p.nP p.nIdx cvTa.type
+    (directFixCtors4 ctorsA p.kinds) p.cvR.name (p.cvR.levelParams.map .param)
+    (directFixCtors4 ctorsA p.kinds).length 0)
+    fun rhss hrhss => ?_
+  exact Yields.pure ⟨rfl, by simpa using hrhss⟩
+
+theorem checkDirectFixS_skels (mode : CheckMode) {fe : FEnv}
+    {sk : List InstallSkel} (h : SkelIs fe sk) (p : DirectFixParts) :
+    Yields (checkDirectFixS mode fe p)
+      (fun fe' => SkelIs fe' (directSumSkels p.toDirectSumParts sk)) := by
+  unfold checkDirectFixS
+  -- the three front guards: positivity, the elimination restriction,
+  -- the distinct constructor names
+  try apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => ?pos) (fun _ => ?posBad)
+  case posBad => exact Yields.ofThrowBind
+  case pos =>
+  try apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => ?elim) (fun _ => ?elimBad)
+  case elimBad =>
+    try apply Yields.letFun
+    exact Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => Yields.ofThrowBind)
+  case elim =>
+  try apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => ?dupBad) (fun _ => ?main)
+  case dupBad => exact Yields.ofThrowBind
+  case main =>
+  ybind
+  refine Yields.bind' (checkDirectSumIndF_skels h _ p.toDirectSumParts) fun r₁ h₁ => ?_
+  obtain ⟨fe₁, cvTa⟩ := r₁
+  try simp only []
+  ybind
+  refine Yields.bind' (checkDirectSumCtorsF_names _ fe₁ fe₁ p.cvT.name
+    p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors)
+    fun ctorsA hns => ?_
+  try simp only []
+  -- the field kinds, re-checked
+  try ylet
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue hk =>
+  ybind
+  refine Yields.bind' (checkDirectFixRecF_yields _ _ p cvTa ctorsA)
+    fun r₃ h₃ => ?_
+  obtain ⟨cvRa, rhss⟩ := r₃
+  obtain ⟨hnR, hlen⟩ := h₃
+  try simp only [] at hnR hlen
+  try simp only []
+  refine Yields.pure ?_
+  have hctors : ctorsA.map (·.1.name) = p.ctors.map (·.1.name) := by
+    have := congrArg (List.map Prod.fst) hns
+    simpa [List.map_map, Function.comp_def] using this
+  have hlenA : ctorsA.length = p.kinds.length := by
+    simp only [directFixFieldsOkF, Bool.and_eq_true, beq_iff_eq] at hk
+    exact hk.1
+  have hlen' : rhss.length = ctorsA.length := by
+    rw [hlen, directFixCtors4_length' hlenA]
+  have hbase : SkelIs (consSumCtorsF p.nP ctorsA fe₁)
+      (sumCtorSkels p.nP (p.ctors.map fun c => (c.1.name, c.2))
+        (.ind p.cvT.name :: sk)) := by
+    have hcs := consSumCtorsF_skels p.nP (ctorsA := ctorsA) h₁
+    rwa [hns] at hcs
+  have hpush := hbase.push (.recInfo cvRa p.majorIdx p.rulePrefix
+    (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss))
+  simpa [ciSkel, directSumSkels, hnR, directSumRules_map_ctor _ _ _ _ hlen',
+    hctors] using hpush
+
 /-! ### The tolerated-axiom branch
 
 `toleratedAxiomNames` is exactly `[sorryAx]`, and none of the pinned
@@ -1157,14 +1289,26 @@ theorem checkDeclSPC_skels (mode : CheckMode) {fe : FEnv}
     all_goals exact hfold fe sk h
   | indDecl block =>
     simp only []
+    have hfix : Yields
+        (match directFixParts? block with
+          | some p => checkDirectFixS mode fe p
+          | none => checkIndDeclSF mode fe block)
+        (fun fe' => SkelIs fe' (indDeclFixSkels block sk)) := by
+      unfold indDeclFixSkels
+      cases directFixParts? block with
+      | none => exact checkIndDeclSF_skels mode h block
+      | some p => exact checkDirectFixS_skels mode h p
     have hsum : Yields
         (match directSumPartsF? fe block with
           | some p => checkDirectSumS mode fe p
-          | none => checkIndDeclSF mode fe block)
+          | none =>
+            match directFixParts? block with
+            | some p => checkDirectFixS mode fe p
+            | none => checkIndDeclSF mode fe block)
         (fun fe' => SkelIs fe' (indDeclSumSkels block sk)) := by
       unfold directSumPartsF? indDeclSumSkels
       cases directSumPartsCore? block with
-      | none => exact checkIndDeclSF_skels mode h block
+      | none => exact hfix
       | some p =>
         simp only []
         rw [directSumNonRecF_skel h]
@@ -1172,7 +1316,7 @@ theorem checkDeclSPC_skels (mode : CheckMode) {fe : FEnv}
         · simp only [if_pos hnr]
           exact checkDirectSumS_skels mode h p
         · simp only [if_neg hnr]
-          exact checkIndDeclSF_skels mode h block
+          exact hfix
     unfold directPartsF? indDeclSkels
     cases directPartsCore? block with
     | none => exact hsum

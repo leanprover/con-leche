@@ -293,10 +293,7 @@ def directRecRhsR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
 generators take them. -/
 def directFixCtors4 (ctorsA : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) :
     List (Name × Nat × Expr × List Nat) :=
-  (List.range ctorsA.length).filterMap fun j =>
-    match ctorsA[j]?, kinds[j]? with
-    | some cA, some ks => some (cA.1.name, cA.2, cA.1.type, recIdxOf ks)
-    | _, _ => none
+  List.zipWith (fun cA ks => (cA.1.name, cA.2, cA.1.type, recIdxOf ks)) ctorsA kinds
 
 /-! ## Recognition -/
 

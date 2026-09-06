@@ -187,15 +187,12 @@ theorem Env.findProj?_cons_ne {env : Env} {c₀ : ConstantInfo} {T : Name}
   unfold Env.findProj?
   rw [Env.find?_cons, if_neg hn]
 
-/-- Resolution is monotone under environment extension. -/
-theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} :
-    ∀ {e : Expr}, e.constsResolve env = true →
-      e.constsResolve ⟨c :: env.consts⟩ = true := by
-  have hf : ∀ n, (env.find? n).isSome = true →
-      (Env.find? ⟨c :: env.consts⟩ n).isSome = true := by
-    intro n h
-    rw [Env.find?_cons]
-    split <;> simp_all
+/-- Resolution depends on the environment only through which names it
+finds: every name found in `env` being found in `env'` carries
+resolution over. -/
+theorem Expr.constsResolve_of_find {env env' : Env}
+    (hf : ∀ n, (env.find? n).isSome = true → (env'.find? n).isSome = true) :
+    ∀ {e : Expr}, e.constsResolve env = true → e.constsResolve env' = true := by
   intro e
   induction e with
   | bvar i => intro h; simp [Expr.constsResolve]
@@ -241,6 +238,14 @@ theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} :
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
     exact ⟨hf _ h.1, ih h.2⟩
+
+/-- Resolution is monotone under environment extension. -/
+theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} :
+    ∀ {e : Expr}, e.constsResolve env = true →
+      e.constsResolve ⟨c :: env.consts⟩ = true :=
+  Expr.constsResolve_of_find fun n h => by
+    rw [Env.find?_cons]
+    split <;> simp_all
 
 /-- Resolution survives binder opening. -/
 theorem Expr.constsResolve_instantiate1 {env : Env} {d : Nat} {n : Name} {ty : Expr}
