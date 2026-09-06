@@ -123,9 +123,6 @@ theorem _root_.Lech.IsTGUniverse.omega_mem {U : V}
     (omega : V) ∈ˢ U :=
   hU.mem_of_subset_mem h1 omega_subset_univChain_one
 
-/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
-stubs for these operators were removed 2026-09-06. -/
-
 /- Opaque interface operator (see `Derive/Empty.lean`).  `vsucc` stays
 reducible: `Derive/Natrec.lean` computes with it through `vnat`. -/
 attribute [irreducible] omega
