@@ -463,15 +463,38 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         -- the stream.  It used to print the accept line and *then*
         -- the decline, which reads as an accept in a log and in
         -- anything that greps for one.
+        -- **The headline number is the DECLARATION-RECORD count**
+        -- (task #187, user question "why does the accepted count differ
+        -- from official?").  It used to be `env.consts.length` — the
+        -- number of environment CONSTANTS, which counts an inductive
+        -- block's type former, its constructors, its recursor, its
+        -- projection table and the basis extras separately.  That is a
+        -- property of our representation, not of the input: it moved
+        -- whenever the representation moved (task #175 S1's one
+        -- projection table per structure dropped init-full by 499 with
+        -- no verdict change) and it is not comparable with the official
+        -- checker, which reports how many stream declaration RECORDS it
+        -- accepted.  `decls.size` is exactly that: the parsed `DeclC`
+        -- list the fold consumed, one entry per accepted record (the
+        -- four `quot` records fold into one `basisDecl`, so the count
+        -- sits a few below the file's line count — see the fold-position
+        -- note above).  The environment-constant count stays available
+        -- on stderr under `LECH_VERBOSE=1`.
+        let verboseCounts : IO Unit := do
+          if (← IO.getEnv "LECH_VERBOSE").isSome then
+            IO.eprintln s!"lech: environment: {env.consts.length} constants \
+              from {decls.size} declaration records"
         if taintSkipped.isEmpty then
-          IO.println s!"lech: accepted {env.consts.length} \
+          IO.println s!"lech: accepted {decls.size} \
             declarations ({modeTag})"
+          verboseCounts
           return 0
         else
-          IO.eprintln s!"lech: declined ({env.consts.length} \
+          IO.eprintln s!"lech: declined ({decls.size} \
             declarations checked, {taintSkipped.size} skipped for \
             tolerated axioms) ({modeTag}): \
             {Frontend.taintDetail taintSkipped}"
+          verboseCounts
           return 2
       | .error (e, i) =>
         progressDone i
@@ -557,6 +580,16 @@ def usage : String := String.intercalate "\n" [
   "                    calls checkDeclsSPCachedD, the function the main",
   "                    theorem (Lech.no_proof_of_False) is about; a",
   "                    run with it is not covered by that theorem.",
+  "",
+  "  LECH_VERBOSE=1    add one stderr line beside the verdict giving the",
+  "                    ENVIRONMENT-CONSTANT count as well as the",
+  "                    declaration-record count.  The verdict line counts",
+  "                    accepted declaration RECORDS — what the official",
+  "                    kernel reports, so the two are comparable; an",
+  "                    inductive record installs several constants (type",
+  "                    former, constructors, recursor, projection table),",
+  "                    so the constant count is larger and is a property",
+  "                    of our representation rather than of the input.",
   "",
   "  --pre             assert FILE is already preprocessed output of",
   "                    lech-preprocess (or the stock",
