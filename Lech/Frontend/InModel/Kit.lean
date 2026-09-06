@@ -142,6 +142,29 @@ partial def specFam (T : Name) (lps : List Name) (nP : Nat)
   | .proj s i e => .proj s i (specFam T lps nP members e)
   | e => e
 
+/-- Simultaneous substitution of a parameter block: under `d` binders,
+`bvar (d + j)` (`j < n`, innermost first) becomes `vals[n - 1 - j]`
+(`vals` outermost first, spelled at the frame `d` binders below the
+block's, lifted past the binders passed on the way), and every loose
+`bvar ≥ d + n` is lowered by `n`.  Unlike `instantiateList` the
+replacements are never re-traversed, so they may mention variables of
+the surrounding frame. -/
+partial def substParams (d n : Nat) (vals : List Expr) (e : Expr) : Expr :=
+  go 0 e
+where
+  go (k : Nat) : Expr → Expr
+    | .bvar i =>
+      if i < d + k then .bvar i
+      else if i < d + k + n then (vals.getD (n - 1 - (i - d - k)) default).liftLooseBVars k 0
+      else .bvar (i - n)
+    | .app f a => .app (go k f) (go k a)
+    | .lam nm t b m => .lam nm (go k t) (go (k + 1) b) m
+    | .forallE nm t b m => .forallE nm (go k t) (go (k + 1) b) m
+    | .letE nm t v b => .letE nm (go k t) (go k v) (go (k + 1) b)
+    | .proj s i x => .proj s i (go k x)
+    | .fvar i nm t => .fvar i nm (go k t)
+    | e => e
+
 /-- Does `e` mention any of the names? -/
 def mentionsAny (ns : List Name) : Expr → Bool
   | .bvar _ | .sort _ | .lit _ => false
