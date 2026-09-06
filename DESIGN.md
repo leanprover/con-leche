@@ -53033,3 +53033,53 @@ prepended to every parsed stream, so the headline becomes
 the conflict; this branch contributes the wording, the `LECH_VERBOSE`
 line, the census tool and the greps.  Real streams' counts are
 unaffected.
+
+### 7. Re-gated and re-measured at the master merge (2026-09-06, master `9f8afb32`)
+
+Master moved under this lane while the Mathlib row was running: #191
+(the built-in prelude), #192, **#193 (the native-predicate fix — §4's
+finding, dispatched and landed)**, #194 (canonical `PropWhen`), #196.
+The branch merged it and **the whole battery was re-measured**, because
+a table whose rows come from two binaries is not a table.
+
+Two conflicts, both in files this lane owns.  `Main.lean`: #191's
+arithmetic wins — the headline is
+`decls.size − preludeCount + preludeDropped`, so a stream that
+re-declares a prelude block identically still reports what it declared —
+and this lane's wording and `--help` block are kept, with one correction
+carried into both, that official does NOT report a record count (§1).
+`DESIGN.md`: both sides appended sections; both kept.
+
+**The six streams re-cut with #193's predicate are byte-identical in
+census** to the pre-#193 ones — the disagreeing shape does not occur in
+them — so every count in §1 and §2 stands unchanged (`init-full` 53 895
+records, lech 53 890, official 55 346, 548 native blocks).  The prelude
+arithmetic also leaves them unchanged, as predicted.
+
+The instruction numbers moved once more, and the control run was redone
+on the new binary:
+
+| `init-full` | official | `--trusted` | `--verified` | v÷o |
+|---|---|---|---|---|
+| previous table (`161cd827`, stock stream) | 413.14 G | 794.99 G | 841.70 G | 2.04× |
+| **this binary, that same stock stream** | 413.02 G | 642.38 G | 668.05 G | 1.62× |
+| this binary, regenerated stream | 406.30 G | 631.51 G | 655.22 G | 1.61× |
+
+Official on the control is 413.02 G against 413.14 G, unchanged to
+0.03 %.  So **−20.6 % is the binary** and **−1.9 % more is the stream**;
+the honest ratio (§5) is now **1.61× verified, 1.55× trusted** on
+init-full.
+
+Gates at the merge tip: `lake build` 640 jobs, zero warnings; `lake
+test` green; `tests/arena.sh` exit 0 — arena tutorial 90/92, e2e
+101/101, annot 14/14, retired flags 8/8, mode flags 16/16, prelude
+counts 3/3, progress lane 6/6, trusted sweep 138 + 101 + 14 with its
+three recorded divergences.  `init-full` accepted in both modes on the
+regenerated stream, 53 890 declaration records, exit 0.
+
+**The `mathlib-full` row is deliberately absent from this table.**  Per
+the coordinator's ruling it is taken on a stream RE-CUT with #193's
+fixed predicate — three cells (lech `--verified`, lech `--trusted`,
+official) on that one stream — rather than reported from a stream nobody
+would cut again.  §4's figures stand as the record of the finding and of
+the acceptance datum.

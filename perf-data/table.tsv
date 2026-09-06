@@ -1,21 +1,18 @@
-let-ladder	official	6129894737	0.51	0	22	9.70	Accepted 22 declarations.	
-let-ladder	trusted	8372818289	1.05	0	13	9.70	lech: accepted 13 declarations (--trusted)	
-let-ladder	verified	8372956652	1.01	0	13	9.70	lech: accepted 13 declarations (--verified)	
-beta-ladder	official	10132312765	1.14	0	20	9.70	Accepted 20 declarations.	
-beta-ladder	trusted	40912946862	4.99	0	11	9.48	lech: accepted 11 declarations (--trusted)	
-beta-ladder	verified	40918683319	5.75	0	11	9.76	lech: accepted 11 declarations (--verified)	
-init-prelude	official	3178362264	0.29	0	2509	9.78	Accepted 2509 declarations.	
-init-prelude	trusted	5597815581	0.50	0	2151	9.78	lech: accepted 2151 declarations (--trusted)	
-init-prelude	verified	7212624909	0.65	0	2151	9.78	lech: accepted 2151 declarations (--verified)	
-grind-ring-5	official	14511284465	1.46	0	2927	9.78	Accepted 2927 declarations.	
-grind-ring-5	trusted	26463248742	2.98	0	2607	9.56	lech: accepted 2607 declarations (--trusted)	
-grind-ring-5	verified	28516240019	3.65	0	2607	9.56	lech: accepted 2607 declarations (--verified)	
-app-lam	official	29429172414	6.95	0	34	9.19	Accepted 34 declarations.	
-app-lam	trusted	161600742213	31.82	0	21	8.94	lech: accepted 21 declarations (--trusted)	
-app-lam	verified	161608422025	36.23	0	21	9.04	lech: accepted 21 declarations (--verified)	
-init-full	official	406558770395	57.32	0	55346	19.50	Accepted 55346 declarations.	
-init-full	trusted	641605597607	91.23	0	53890	27.67	lech: accepted 53890 declarations (--trusted)	
-init-full	verified	666087539507	92.00	0	53890	10.30	lech: accepted 53890 declarations (--verified)	
-mathlib-full	official	10627300773938	1946.07	0	683420	7.09	Accepted 683420 declarations.	9639444
-mathlib-full	trusted	2435104582344	266.72	2		12.32	NONE	13441456
-mathlib-full	verified	2486642069422	273.08	2		14.14	NONE	13441668
+let-ladder	official	6130711312	0.57	0	22	33.05	Accepted 22 declarations.	
+let-ladder	trusted	8378614504	1.04	0	13	33.05	lech: accepted 13 declarations (--trusted)	
+let-ladder	verified	8378814343	1.03	0	13	33.05	lech: accepted 13 declarations (--verified)	
+beta-ladder	official	10130987288	1.07	0	20	33.05	Accepted 20 declarations.	
+beta-ladder	trusted	40415743903	4.74	0	11	33.05	lech: accepted 11 declarations (--trusted)	
+beta-ladder	verified	40420633719	4.77	0	11	31.12	lech: accepted 11 declarations (--verified)	
+init-prelude	official	3178595035	0.31	0	2509	29.27	Accepted 2509 declarations.	
+init-prelude	trusted	5551808925	0.49	0	2151	29.27	lech: accepted 2151 declarations (--trusted)	
+init-prelude	verified	7130174493	0.65	0	2151	29.27	lech: accepted 2151 declarations (--verified)	
+grind-ring-5	official	14497816133	1.45	0	2927	27.65	Accepted 2927 declarations.	
+grind-ring-5	trusted	26315105771	3.00	0	2607	27.65	lech: accepted 2607 declarations (--trusted)	
+grind-ring-5	verified	28327066899	3.14	0	2607	25.99	lech: accepted 2607 declarations (--verified)	
+app-lam	official	29403643947	3.36	0	34	25.99	Accepted 34 declarations.	
+app-lam	trusted	161435783443	32.45	0	21	24.63	lech: accepted 21 declarations (--trusted)	
+app-lam	verified	161442858815	48.14	0	21	19.70	lech: accepted 21 declarations (--verified)	
+init-full	official	406304802356	54.24	0	55346	28.87	Accepted 55346 declarations.	
+init-full	trusted	631508126176	109.39	0	53890	28.68	lech: accepted 53890 declarations (--trusted)	
+init-full	verified	655223197150	98.44	0	53890	42.20	lech: accepted 53890 declarations (--verified)	

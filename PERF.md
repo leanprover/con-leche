@@ -2,30 +2,28 @@
 
 | | |
 |---|---|
-| commit measured | `fb2d7bf852715dbc6e95a1d7d53d468c1bf444ce` |
-| tree | clean checkout of `agent/perf-regen` at fb2d7bf8 (master bd4dcf6a plus the task #187 verdict-line fix: the accepted count is the DECLARATION-RECORD count).  The branch tip adds one further commit that touches only comments and the `--help` text, so the measured binary is the one named below and the checking code is the tip's. |
-| date | 2026-09-06T19:45:55+00:00 |
+| commit measured | `66b4190ced90c7e628a2d9c6aadf6ac62bbe18e5` |
+| tree | clean checkout of `agent/perf-regen` at its merge of master 9f8afb32 (tasks #191 prelude, #192, #193 native predicate, #194, #196) plus task #187's verdict-line and tooling commits |
+| date | 2026-09-06T21:37:34+00:00 |
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
 | metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` (the `mathlib-full` row: 22 GB, 8 h, `LECH_PROGRESS=5000`) |
 | streams | preprocessed once off the clock by `lech-preprocess`; both checkers read the same bytes, lech under `--pre` |
-| Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full-pre-idx.ndjson` (5695851612 bytes) |
-| concurrent load | other agents' builds and single-process checkers ran on the machine throughout (load 9-45 of 96 cores); battery cells still ran strictly one at a time, and `instructions:u` is contention-independent |
+| concurrent load | other agents' builds and single-process checkers ran on the machine throughout; battery cells still ran strictly one at a time, and `instructions:u` is contention-independent |
 | official kernel | `<main-checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
 | preprocessor | `<checkout>/.lake/build/bin/lech-preprocess` |
-| lech binary | md5 `da560a6a9aa744209283e711ae3a2b1d` |
+| lech binary | md5 `642fb47bb6f35156100e93d5c329d940` |
 
 ## instructions:u
 
 | stream | official v4.33.0 | trusted `--trusted` | verified `--verified` | trusted ÷ official | verified ÷ official |
 |---|---|---|---|---|---|
-| `let-ladder` | 6.13 G | 8.37 G | 8.37 G | 1.37× | 1.37× |
-| `beta-ladder` | 10.13 G | 40.91 G | 40.92 G | 4.04× | 4.04× |
-| `init-prelude` | 3.18 G | 5.60 G | 7.21 G | 1.76× | 2.27× |
-| `grind-ring-5` | 14.51 G | 26.46 G | 28.52 G | 1.82× | 1.97× |
-| `app-lam` | 29.43 G | 161.60 G | 161.61 G | 5.49× | 5.49× |
-| `init-full` | 406.56 G | 641.61 G | 666.09 G | 1.58× | 1.64× |
-| `mathlib-full` | 10.63 T | (2.44 T, exit 2 — partial) | (2.49 T, exit 2 — partial) | — | — |
+| `let-ladder` | 6.13 G | 8.38 G | 8.38 G | 1.37× | 1.37× |
+| `beta-ladder` | 10.13 G | 40.42 G | 40.42 G | 3.99× | 3.99× |
+| `init-prelude` | 3.18 G | 5.55 G | 7.13 G | 1.75× | 2.24× |
+| `grind-ring-5` | 14.50 G | 26.32 G | 28.33 G | 1.82× | 1.95× |
+| `app-lam` | 29.40 G | 161.44 G | 161.44 G | 5.49× | 5.49× |
+| `init-full` | 406.30 G | 631.51 G | 655.22 G | 1.55× | 1.61× |
 
 ## exit code / accepted declaration records
 
@@ -37,7 +35,6 @@
 | `grind-ring-5` | 0 / 2927 | 0 / 2607 | 0 / 2607 |
 | `app-lam` | 0 / 34 | 0 / 21 | 0 / 21 |
 | `init-full` | 0 / 55346 | 0 / 53890 | 0 / 53890 |
-| `mathlib-full` | 0 / 683420 | 2 / — | 2 / — |
 
 Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
 
@@ -59,24 +56,11 @@ preprocessor left for lech to install directly, split by shape.
 | `grind-ring-5` | 2611 | 2607 | 2927 | 4 | 17 | 106 | 88 | 14 | 4 |
 | `app-lam` | 21 | 21 | 31 | 2 | 0 | 4 | 4 | 0 | 0 |
 | `init-full` | 53895 | 53890 | 55346 | 5 | 57 | 548 | 487 | 47 | 14 |
-| `mathlib-full` | 664981 | 664976 | 683420 | 5 | 502 | 6364 | 5680 | 575 | 109 |
-
-## the Mathlib row, as data (not a measurement)
-
-Wall time and resident memory on a shared 96-core machine are
-**data**, not comparisons — `instructions:u` above is the
-measurement.  These are here because they are the two numbers a
-reader wants before pointing the checker at all of Mathlib.
-
-| | official v4.33.0 | trusted `--trusted` | verified `--verified` |
-|---|---|---|---|
-| wall | 32.4 min | 4.4 min (partial) | 4.6 min (partial) |
-| peak RSS (`time -v`) | 9.19 GiB | 12.82 GiB (partial) | 12.82 GiB (partial) |
 
 ## Notes
 
-* **What changed since the previous table** (`161cd827`, 09:14 the same day).  Both the binary and the streams moved, and a control run separates them: THIS binary on the PREVIOUS table's own `init-full` stream gives official 412.89 G (previous table 413.14 G — unchanged, as it must be), `--trusted` 652.61 G (was 794.99 G) and `--verified` 679.07 G (was 841.70 G).  So −19.3 % of the verified column is the BINARY — the landings between the two tables: task #175's W2c/W3 direct indexed installs, #184's build-time split, #185's `CoreCfg` retirement (the mode is now the cores' only parameter) and #186's rename to Lech; the split among them was not measured — and a further −1.9 % is the REGENERATED stream (666.09 G), cut by the current `lech-preprocess`, whose predicate installs structures, sums and indexed families natively: 548 of init-full's 610 inductive blocks now go through the direct route and only 57 are still modeled.  Every accepted count also changed UNIT (next note), so no count here is comparable with the previous table's.
-* **The `mathlib-full` lech cells do not accept — a finding, not a measurement.**  Both exit 2 (decline) after ~4.5 min at fold position 49 833 of 664 976 (7.5 %) on `missing model for CategoryTheory.Presieve.ofArrows`.  That block (read out of the stream: `numParams` 6, `numIndices` 2, one constructor with one field, non-recursive, non-nested, and a recursor whose level parameters are exactly the type's — the SMALL eliminator of a `Prop`-valued family) passes every conjunct the widened `lech-preprocess` predicate mirrors, so it is left native with no `_model`; lech's direct indexed installer then does not take it, and the frontend, finding neither a native install nor a model, declines.  `LechPreprocess.lean`'s header names the exposure itself: two conjuncts — `directCtorResidOk`'s residual shape and the rules' right-hand sides — are *argued rather than mirrored*, and the `tests/native-agree.sh` it promises does not exist.  So the preprocessor's native class is not conservative with respect to the installer's; closing that gap, and building the agreement check, is task #193, after which the stream is re-cut and the two cells re-run.  This is a predicate disagreement, not a soundness problem and not a checker regression: official accepts the same bytes outright (exit 0, 683 420 declarations), and the SAME binary accepts the PRE-#175 Mathlib stream end to end — 670 977 declaration records, exit 0, 16.10 T instructions:u, 57:02.76 wall, 12.88 GiB peak RSS, matching master `124c083f`'s acceptance run to three seconds (DESIGN task #187 §4).
+* **What changed since the previous table** (`161cd827`, earlier the same day).  Both the binary and the streams moved, and a control run separates them: THIS binary on the PREVIOUS table's own `init-full` stream gives official 413.02 G (previous table 413.14 G — unchanged, as it must be), `--trusted` 642.38 G (was 794.99 G) and `--verified` 668.05 G (was 841.70 G, 2.04× → 1.62× official).  So **−20.6 % of the verified column is the BINARY** — the landings between the two tables: #175 W2c/W3's direct indexed installs, #184's build-time split, #185's `CoreCfg` retirement, #186's rename to Lech, #191's built-in prelude, #192, #193's native-predicate fix and #194's canonical `PropWhen`; the split among them was not measured — and **a further −1.9 % is the REGENERATED stream** (655.22 G), cut by the current `lech-preprocess`, whose predicate installs structures, sums and indexed families natively: 548 of init-full's 610 inductive blocks now go through the direct route and only 57 are still modeled.  Every accepted count also changed UNIT (next note), so no count here is comparable with the previous table's.
+* **`mathlib-full` is not in this table yet, and why.**  The row was measured once, on a stream cut before task #193: official ACCEPTED it (exit 0, 683 420 declarations, 10.63 T instructions:u, 32.4 min, 9.19 GiB peak RSS — and 683 420 is exactly what the census predicts from the file), while both lech cells DECLINED (exit 2) at 7.5 % on `missing model for CategoryTheory.Presieve.ofArrows`: the then-current preprocessor predicate left that indexed `Prop` family native and lech's direct installer did not take it.  That predicate disagreement is fixed (task #193), so the row is re-taken on a stream re-cut with the fixed predicate rather than reported from a stream nobody would cut again.  It was never a checker regression: the SAME binary generation accepts the pre-#175 Mathlib stream end to end — **670 977 declaration records, exit 0, 16.10 T instructions:u, 57:02.76 wall, 12.88 GiB peak RSS** — matching master `124c083f`'s acceptance run to three seconds; that run printed "695 202" only because it counted environment constants, and 670 977 is its own progress lane's fold-step count, so the count fix reconciles the two records exactly.  See DESIGN task #187.
 * **The verdict line counts declaration RECORDS** (task #187).  It
   used to print `env.consts.length`, the number of environment
   CONSTANTS, which counts an inductive block's type former, its
