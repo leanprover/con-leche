@@ -137,25 +137,31 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
               cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
               cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
               natOpStoredF fe cn = true then do
+            -- first argument first; the second only behind a literal
+            -- (official `reduce_bin_nat_op`; the spec's D15 note)
             let w₁ ← r.whnf depth a
-            let w₂ ← r.whnf depth b
-            match ← withStore (rawNatLitI? · w₁),
-                ← withStore (rawNatLitI? · w₂) with
-            | some n₁, some n₂ =>
-              match natOpResult cn n₁ n₂ with
-              | some x => do
-              let r ← internExprM x
-              pure (some r)
+            match ← withStore (rawNatLitI? · w₁) with
+            | some n₁ => do
+              let w₂ ← r.whnf depth b
+              match ← withStore (rawNatLitI? · w₂) with
+              | some n₂ =>
+                match natOpResult cn n₁ n₂ with
+                | some x => do
+                  let r ← internExprM x
+                  pure (some r)
+                | none => pure none
               | none => pure none
-            | _, _ => pure none
+            | none => pure none
           else if natOpWfNames.contains cn ∧ natLitSupportedF fe then do
             let w₁ ← r.whnf depth a
-            let w₂ ← r.whnf depth b
-            match ← withStore (rawNatLitI? · w₁),
-                ← withStore (rawNatLitI? · w₂) with
-            | some _, some _ => throw (.notImplemented
-                s!"native Nat computation on literals ({cn})")
-            | _, _ => pure none
+            match ← withStore (rawNatLitI? · w₁) with
+            | some _ => do
+              let w₂ ← r.whnf depth b
+              match ← withStore (rawNatLitI? · w₂) with
+              | some _ => throw (.notImplemented
+                  s!"native Nat computation on literals ({cn})")
+              | none => pure none
+            | none => pure none
           else pure none
       | _ => pure none
     | _ => pure none

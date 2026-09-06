@@ -2897,7 +2897,8 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
     simp only [reduceNat, Bind.bind, Except.bind, whnf_def] at h
     revert h
     split
-    · intro h
+    · -- first argument first; the second only behind a literal (D15)
+      intro h
       revert h
       cases hw1 : whnf mode env fuel d a with
       | error err => intro h; exact nomatch h
@@ -2905,26 +2906,29 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
       intro h
       dsimp only at h
       revert h
-      cases hw2 : whnf mode env fuel d b with
-      | error err => intro h; exact nomatch h
-      | ok b' =>
-      intro h
-      dsimp only at h
-      revert h
-      match rawNatLit? a', rawNatLit? b' with
-      | some n₁, some n₂ =>
+      match rawNatLit? a' with
+      | none => intro h; simp [pure, Except.pure] at h
+      | some n₁ =>
+        intro h
+        revert h
+        cases hw2 : whnf mode env fuel d b with
+        | error err => intro h; exact nomatch h
+        | ok b' =>
         intro h
         dsimp only at h
-        cases hres : natOpResult c n₁ n₂ with
-        | none => rw [hres] at h; simp [pure, Except.pure] at h
-        | some r =>
-          rw [hres] at h
-          simp only [pure, Except.pure, Except.ok.injEq,
-            Option.some.injEq] at h
-          exact h ▸ natOpResult_shape hres
-      | some _, none => intro h; simp [pure, Except.pure] at h
-      | none, some _ => intro h; simp [pure, Except.pure] at h
-      | none, none => intro h; simp [pure, Except.pure] at h
+        revert h
+        match rawNatLit? b' with
+        | some n₂ =>
+          intro h
+          dsimp only at h
+          cases hres : natOpResult c n₁ n₂ with
+          | none => rw [hres] at h; simp [pure, Except.pure] at h
+          | some r =>
+            rw [hres] at h
+            simp only [pure, Except.pure, Except.ok.injEq,
+              Option.some.injEq] at h
+            exact h ▸ natOpResult_shape hres
+        | none => intro h; simp [pure, Except.pure] at h
     · -- the WF-op decline branch never returns a reduct
       split
       · intro h
@@ -2935,17 +2939,20 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
         intro h
         dsimp only at h
         revert h
-        cases hw2 : whnf mode env fuel d b with
-        | error err => intro h; exact nomatch h
-        | ok b' =>
-        intro h
-        dsimp only at h
-        revert h
-        match rawNatLit? a', rawNatLit? b' with
-        | some _, some _ => intro h; exact nomatch h
-        | some _, none => intro h; simp [pure, Except.pure] at h
-        | none, some _ => intro h; simp [pure, Except.pure] at h
-        | none, none => intro h; simp [pure, Except.pure] at h
+        match rawNatLit? a' with
+        | none => intro h; simp [pure, Except.pure] at h
+        | some _ =>
+          intro h
+          revert h
+          cases hw2 : whnf mode env fuel d b with
+          | error err => intro h; exact nomatch h
+          | ok b' =>
+          intro h
+          dsimp only at h
+          revert h
+          match rawNatLit? b' with
+          | some _ => intro h; exact nomatch h
+          | none => intro h; simp [pure, Except.pure] at h
       · intro h; simp [pure, Except.pure] at h
 
 /-- Unfolding a definition at the head preserves well-scopedness (the
