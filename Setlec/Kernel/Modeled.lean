@@ -691,7 +691,7 @@ def installProjTemplate (env : Env) (T ctorName : Name) (lps : List Name)
     if (env.find? (projTableName T)).isNone ∧
         mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧
         !(List.range nF).all (fun i => (env.find? (projFnName T i)).isSome) then
-      pure ⟨.projInfo ⟨T, lps, nP, ctorName, nF, .zero, #[], [], false⟩ :: env.consts⟩
+      pure ⟨.projInfo ⟨T, lps, nP, ctorName, nF, .zero, Array.replicate nF (.sort .zero), [], false⟩ :: env.consts⟩
     else pure env
   | _ => pure env
 

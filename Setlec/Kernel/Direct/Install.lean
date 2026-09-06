@@ -279,6 +279,20 @@ def checkDirectProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
     m Env := do
   let bodies ← unwrapOr (directProjBodies T nP nF cvCa.type)
     (.internal "direct structure: projection bodies")
+  -- the bodies' scoping, validated once at insertion (the stage's own
+  -- guard, what `EnvWF`'s table clause records): fvar-free, level
+  -- parameters within the structure's, resolving, scoped at the
+  -- parameters and the subject; one per field
+  unless bodies.size = nF ∧ bodies.all (fun b => !b.hasFvar &&
+      b.allLevelParamsDefined lps && b.constsResolve env &&
+      b.looseBVarsBounded (nP + 1)) do
+    throw (.internal "direct structure: projection body scoping")
+  -- the projection-function name family (the modeled route's, the key
+  -- of its η-family predicate) must be free too: a direct family has
+  -- no projection functions, and the model's η law for the block is
+  -- discharged by the tower, never by `EtaFamilyStored`
+  unless (List.range nF).all (fun j => (env.find? (projFnName T j)).isNone) do
+    throw (.invalid "projection name family taken")
   unless (env.find? (projTableName T)).isNone do
     throw (.invalid "projection table taken")
   pure ⟨.projInfo ⟨T, lps, nP, C, nF, resSort, bodies, guards, true⟩ :: env.consts⟩

@@ -145,7 +145,7 @@ def installProjTemplateS (fe : FEnv) (T ctorName : Name) (lps : List Name)
     if (fe.find? (projTableName T)).isNone ∧
         mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧
         !(List.range nF).all (fun i => (fe.find? (projFnName T i)).isSome) then
-      pure (fe.push (.projInfo ⟨T, lps, nP, ctorName, nF, .zero, #[], [], false⟩))
+      pure (fe.push (.projInfo ⟨T, lps, nP, ctorName, nF, .zero, Array.replicate nF (.sort .zero), [], false⟩))
     else pure fe
   | _ => pure fe
 
