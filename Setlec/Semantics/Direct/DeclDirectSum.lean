@@ -2,7 +2,8 @@ import Setlec.Semantics.Direct.DeclDirect
 import Setlec.Verify.Direct.SumWF
 
 /-!
-# `DeclDirectSumRun`: the direct sum declaration relation (task #175 sum-types)
+# `DeclDirectSumRun`: the direct sum declaration relation (task #175
+sum-types, indexed)
 
 The direct sum arm of `checkDecl`'s `.indDecl` clause
 (`checkDirectSum`, `Setlec/Kernel/Direct/SumInstall.lean`), recorded
@@ -10,7 +11,8 @@ as a run relation exactly as `DeclDirectRun`: the two front guards
 (the elimination restriction, the constructors' distinct names), the
 former's run, the constructors' runs at the former's environment, the
 recursor's run at the environment holding all constructors, and the
-install spine.
+install spine.  Task #175 indexed: the stages carry `p.nIdx` and the
+recursor is stored at `p.majorIdx`/`p.rulePrefix`.
 -/
 
 namespace Setlec.Semantics
@@ -31,11 +33,11 @@ def DeclDirectSumRun (μ : CheckMode) (F : Nat) (env : Env)
     (cvRa : ConstantVal) (rhss : List Expr),
     checkDirectSumInd (m := Setlec.CheckM) (fueledOps μ F) env p = .ok (env₁, cvTa) ∧
     checkDirectSumCtors (m := Setlec.CheckM) (fueledOps μ F) env env₁ p.cvT.name
-      p.cvT.levelParams p.nP p.resSort p.isProp p.large cvTa p.ctors = .ok ctorsA ∧
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors = .ok ctorsA ∧
     checkDirectSumRec (m := Setlec.CheckM) (fueledOps μ F) (consSumCtors p.nP ctorsA env₁)
       p cvTa ctorsA = .ok (cvRa, rhss) ∧
-    env₂ = ⟨.recInfo cvRa (p.nP + 1 + p.ctors.length) (p.nP + 1 + p.ctors.length)
-      (directSumRules p.nP (p.nP + 1 + p.ctors.length) cvRa.type ctorsA rhss)
+    env₂ = ⟨.recInfo cvRa p.majorIdx p.rulePrefix
+      (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
       :: (consSumCtors p.nP ctorsA env₁).consts⟩
 
 /-- The bridge inversion: the monad-shape argument, one `cases` per
@@ -77,7 +79,7 @@ theorem declDirectSumRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   rw [hInd] at h
   dsimp only at h
   cases hCtors : checkDirectSumCtors (m := Setlec.CheckM) (fueledOps μ F) env env₁
-      p.cvT.name p.cvT.levelParams p.nP p.resSort p.isProp p.large cvTa p.ctors with
+      p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors with
   | error e => rw [hCtors] at h; exact nomatch h
   | ok ctorsA =>
   rw [hCtors] at h

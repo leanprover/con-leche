@@ -478,8 +478,7 @@ declaration order, then the generated recursor with one rule per
 constructor. -/
 def directSumSkels (p : DirectSumParts) (sk : List InstallSkel) :
     List InstallSkel :=
-  .recr p.cvR.name (p.nP + 1 + p.ctors.length) (p.nP + 1 + p.ctors.length)
-      (p.ctors.map (·.1.name)) ::
+  .recr p.cvR.name p.majorIdx p.rulePrefix (p.ctors.map (·.1.name)) ::
     sumCtorSkels p.nP (p.ctors.map fun c => (c.1.name, c.2))
       (.ind p.cvT.name :: sk)
 
@@ -894,7 +893,7 @@ theorem checkIndDeclSF_skels (cfg : CoreCfg) {fe : FEnv}
         exact absurd hC (hne cvT capsT cvC nP nF hI)
       case h_2 => exact indBase_skels cfg _ _ h _ _
 
-/-! ## The direct sum install's skeleton (task #175 sum-types)
+/-! ## The direct sum install's skeleton (task #175 sum-types, indexed)
 
 Same shape as the structure route's, with the constructor stage run
 over a list: the stored constructors' names and field counts are the
@@ -911,13 +910,13 @@ theorem checkDirectSumIndF_skels {fe : FEnv} {sk : List InstallSkel}
   yields
   all_goals
     (refine Yields.pure ?_
-     have := h.push (.indInfo cvTa {})
+     have := h.push (.indInfo cvTa (directSumCaps p))
      simpa [ciSkel, hn] using this)
 
 theorem checkDirectSumCtorF_name (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
-    (T : Name) (lps : List Name) (nP : Nat) (rs : Level) (isProp large : Bool)
+    (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    Yields (checkDirectSumCtorF ops fe₀ fe T lps nP rs isProp large cvC nF cvTa)
+    Yields (checkDirectSumCtorF ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
       (fun cvCa => cvCa.name = cvC.name) := by
   unfold checkDirectSumCtorF
   refine Yields.bind' (checkConstantValF_name ops fe cvC) fun cvCa hn => ?_
@@ -926,18 +925,18 @@ theorem checkDirectSumCtorF_name (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
 
 /-- The constructor list's names and field counts are the block's. -/
 theorem checkDirectSumCtorsF_names (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
-    (T : Name) (lps : List Name) (nP : Nat) (rs : Level) (isProp large : Bool)
+    (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     ∀ (cs : List (ConstantVal × Nat)),
-      Yields (checkDirectSumCtorsF ops fe₀ fe T lps nP rs isProp large cvTa cs)
+      Yields (checkDirectSumCtorsF ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
         (fun ctorsA => ctorsA.map (fun c => (c.1.name, c.2))
           = cs.map (fun c => (c.1.name, c.2)))
   | [] => Yields.pure rfl
   | c :: cs => by
     unfold checkDirectSumCtorsF
-    refine Yields.bind' (checkDirectSumCtorF_name ops fe₀ fe T lps nP rs isProp
+    refine Yields.bind' (checkDirectSumCtorF_name ops fe₀ fe T lps nP nIdx rs isProp
       large c.1 c.2 cvTa) fun cvCa hn => ?_
-    refine Yields.bind' (checkDirectSumCtorsF_names ops fe₀ fe T lps nP rs isProp
+    refine Yields.bind' (checkDirectSumCtorsF_names ops fe₀ fe T lps nP nIdx rs isProp
       large cvTa cs) fun rest hrest => ?_
     exact Yields.pure (by simp [hn, hrest])
 
@@ -956,9 +955,9 @@ theorem consSumCtorsF_skels (nP : Nat) :
 /-- The generated rules loop returns exactly `k` right-hand sides. -/
 theorem checkDirectSumRulesF_len (ops : CheckerOps CheckCM) (fe : FEnv)
     (rlps : List Name) (T : Name) (lps : List Name) (elim : Name) (large : Bool)
-    (nP : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) :
+    (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) :
     ∀ (k j : Nat),
-      Yields (checkDirectSumRulesF ops fe rlps T lps elim large nP tty ctors k j)
+      Yields (checkDirectSumRulesF ops fe rlps T lps elim large nP nIdx tty ctors k j)
         (fun rhss => rhss.length = k)
   | 0, _ => Yields.pure rfl
   | k + 1, j => by
@@ -969,7 +968,7 @@ theorem checkDirectSumRulesF_len (ops : CheckerOps CheckCM) (fe : FEnv)
     case isTrue =>
       refine Yields.bind fun _rhsTy => ?_
       refine Yields.bind' (checkDirectSumRulesF_len ops fe rlps T lps elim large
-        nP tty ctors k (j + 1)) fun rest hrest => ?_
+        nP nIdx tty ctors k (j + 1)) fun rest hrest => ?_
       exact Yields.pure (by simp [hrest])
     case isFalse => exact Yields.ofThrowBind
 
@@ -995,24 +994,24 @@ theorem checkDirectSumRecF_yields (ops : CheckerOps CheckCM) (fe : FEnv)
   case isFalse => exact Yields.ofThrowBind
   case isTrue =>
   refine Yields.bind' (checkDirectSumRulesF_len ops fe p.cvR.levelParams
-    p.cvT.name p.cvT.levelParams p.elim p.large p.nP cvTa.type
+    p.cvT.name p.cvT.levelParams p.elim p.large p.nP p.nIdx cvTa.type
     (ctorsA.map fun c => (c.1.name, c.2, c.1.type))
     (ctorsA.map fun c => (c.1.name, c.2, c.1.type)).length 0)
     fun rhss hrhss => ?_
   exact Yields.pure ⟨rfl, by simpa using hrhss⟩
 
 /-- The stored rules are one per constructor, in constructor order. -/
-theorem directSumRules_map_ctor (nP mI : Nat) (recTy : Expr) :
+theorem directSumRules_map_ctor (nP mI rP : Nat) (recTy : Expr) :
     ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr},
       rhss.length = ctorsA.length →
-      (directSumRules nP mI recTy ctorsA rhss).map (·.ctor)
+      (directSumRules nP mI rP recTy ctorsA rhss).map (·.ctor)
         = ctorsA.map (·.1.name)
   | [], [], _ => rfl
   | [], _ :: _, h => by simp at h
   | _ :: _, [], h => by simp at h
   | c :: cs, rhs :: rhss, h => by
     simp only [directSumRules, List.map_cons, List.cons.injEq, true_and]
-    exact directSumRules_map_ctor nP mI recTy (by simpa using h)
+    exact directSumRules_map_ctor nP mI rP recTy (by simpa using h)
 
 theorem checkDirectSumS_skels (cfg : CoreCfg) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (p : DirectSumParts) :
@@ -1035,7 +1034,7 @@ theorem checkDirectSumS_skels (cfg : CoreCfg) {fe : FEnv}
   try simp only []
   ybind
   refine Yields.bind' (checkDirectSumCtorsF_names _ fe fe₁ p.cvT.name
-    p.cvT.levelParams p.nP p.resSort p.isProp p.large cvTa p.ctors)
+    p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors)
     fun ctorsA hns => ?_
   try simp only []
   ybind
@@ -1054,10 +1053,9 @@ theorem checkDirectSumS_skels (cfg : CoreCfg) {fe : FEnv}
         (.ind p.cvT.name :: sk)) := by
     have hcs := consSumCtorsF_skels p.nP (ctorsA := ctorsA) h₁
     rwa [hns] at hcs
-  have hpush := hbase.push (.recInfo cvRa (p.nP + 1 + p.ctors.length)
-    (p.nP + 1 + p.ctors.length)
-    (directSumRules p.nP (p.nP + 1 + p.ctors.length) cvRa.type ctorsA rhss))
-  simpa [ciSkel, directSumSkels, hnR, directSumRules_map_ctor _ _ _ hlen,
+  have hpush := hbase.push (.recInfo cvRa p.majorIdx p.rulePrefix
+    (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss))
+  simpa [ciSkel, directSumSkels, hnR, directSumRules_map_ctor _ _ _ _ hlen,
     hctors] using hpush
 
 /-! ### The tolerated-axiom branch
