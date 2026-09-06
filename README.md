@@ -8,7 +8,7 @@ The core idea of this project is: What if we allow the checker implementation to
 
 The checker is practically useful; it can process all of mathlib in TODO minutes and within TODO memory. It is a relatively slow checker (see below for why), roughly 2.5× slower than the official kernel on common workloads.
 
-It was implemented and proven to be consistent by Claude (Fable and Opus), under heavy supervision by Joachim Breitner. See the git history for all the detours and dead ends it took. It is a huge pile of code and a mess. Maybe this will improve over time. Until then: It works and is proven. 
+It was implemented and proven to be consistent by Claude (Fable and Opus), under heavy supervision by Joachim Breitner at the Lean FRO. See the git history for all the detours and dead ends it took. It is a huge pile of code and a mess. Maybe this will improve over time. Until then: It works and is proven. 
 
 This README is actually human written (with AI only doing copy-editing, fact checking and filling in numbers).
 
