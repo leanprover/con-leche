@@ -108,6 +108,22 @@ restrictions are mirrored in the telescope walk.  (Aliasing was tried first and 
 see through `T` into the model's encoding — tagged sigmas etc. — so the
 kernel-level projection/eta/K rules on `T` become untypeable.)
 
+**One more thing the checker reads off the `_model` output (2026-09-06,
+the projection-function rewrite — its own record at the end of this
+file):** for a structure-like member the direct install does not
+serve (mutual, recursive, nested), the frontend rewrites the
+elaborator's projection function `T.f := fun p⃗ self => .proj T i self`
+into a `T.rec` application, and the recursor's elimination level — the
+sort of the field, which the frontend cannot infer — is taken from the
+`Eq` level of the preprocessor's artifact `T._model.proj_i.iota`
+(`Setlec/Frontend/ProjRec.lean`).  So the contract with
+lean-inductive-models includes: for every projectable field `i` of
+every structure-like member it models, a theorem
+`T._model.proj_i.iota : ∀ …, @Eq.{ℓ} F_i … …` with `ℓ` the field's
+sort (its `getLevel`), emitted before the block.  A missing artifact
+costs no verdict beyond the pre-existing decline of the `.proj`.  The
+user's ruling: this dependency on the `_model` output stays for now.
+
 Consequently the environment invariant carries per-stored-constant
 semantic facts abstractly — for every stored fireable recursor rule a
 **total λ-equality** (`RecRulesOk`, task #58): the canonical
@@ -43698,6 +43714,164 @@ tip: `lake build` warning-free (438 jobs), `lake test`, `tests/arena.sh`
 14/14, no-model sweep as recorded (3 divergences), proofdeps 1 363
 rows as pinned, doors 0, layering 0 edges (base 232 / P 160).
 Artefacts: `_tmp/divergence-audit/{arena-d15b.log,initfull-*.out}`.
+## PROJECTION FUNCTIONS OF NON-DIRECT STRUCTURE-LIKES AS RECURSOR APPLICATIONS — the frontend rewrite (2026-09-06, `agent/proj-rec`)
+
+The Mathlib frontier record above ends at a **capability decline**:
+record 154 248 (21.2 %), `projection on a non-structure-like type [at
+def Lean.Meta.Grind.AC.DiseqCnstr.lhs]`.  `DiseqCnstr` is a
+`structure` in a `mutual` block (with `DiseqCnstrProof`, which
+mentions it — the block is recursive), and the official kernel's
+structure-like test is *per member*: one constructor, zero indices,
+whatever the block's recursion (mutual, recursive, nested).  Ours is
+the direct install's (`directParts?`: single type, non-recursive,
+non-nested), and since task #175 W5 `.proj` on anything else declines.
+
+**The user's design (2026-09-06, verbatim):** *"replace these
+projection functions, only for mutual (not direct) inductives, by
+recursor applications, before installation.  Completely transparent to
+the verified code."*  Landed as `Setlec/Frontend/ProjRec.lean` plus the
+parse hook in `Setlec/Frontend/ExportC.lean`; **no change in
+`Kernel/Core`, `Kernel/Direct`, `Cached`, `SetP` or `Verify`** — the
+capstone letter `no_proof_of_Empty_SPCD_P` is stated over any
+`List DeclC`, and the rewrite is a pure transformation of the parsed
+declaration list before the fold.  Direct-shaped blocks are not
+touched (they keep their tower entries).
+
+### 1. The shape recognised
+
+The elaborator's projection function of field `i` (parent projections
+`T.toParent` included; a *proof* field's projection is exported as a
+**theorem** record, not a definition — `Node.h` in the fixture — so
+both record kinds are rewritten):
+
+    def/thm T.f : ∀ p⃗ (self : T p⃗), R          -- R = F_i[f_j := T.f_j p⃗ self, j < i]
+      := fun p⃗ (self : T p⃗) => .proj T i self    -- exactly nP + 1 binders, hints abbrev
+
+Recognition is by shape: the value's lambda body is `.proj T i (bvar
+0)` (`lamBody`), `T` is a recorded owner, the definition's level
+parameters are the block's, `i < nF`, the value has exactly `nP + 1`
+binders and the type `nP + 1` `∀`s.  Any mismatch: the record is left
+as parsed (and declines as before).
+
+**Owners** (`projRecOwners`, recorded at the `inductive` record from
+the export's own data): every member with one constructor and zero
+indices of a block the direct install does *not* serve — the block
+fails `directPartsCore?` (mutual, multi-constructor, indexed, shape)
+or is recursive (the export's `isRec`, or a block name occurring in a
+constructor's binder *domains* — `directNonRec`'s verdict on a
+well-formed stream; the constructor's result names the owner by
+definition, so the result is excluded from the test — the first cut
+tested the whole constructor type and rewrote `LT.lt`, `Fin.val`,
+`Add.add`, …, 43 direct-shaped projections in the slice, all of which
+the checker then *accepted* in recursor form: the rewrite is valid on
+direct owners too, it is merely not wanted there).  Excluded:
+propositional owners (`T : Prop` — the recursor eliminates into `Prop`
+only; the official `infer_proj` restriction on such owners is a
+different question, left alone as instructed) and owners whose
+recursor carries no elimination level parameter.
+
+### 2. The recursor form
+
+    fun p⃗ (self : T p⃗) =>
+      T.rec.{ℓ, u⃗} p⃗ motive_1 … motive_m minor_1 … minor_k self
+
+* **motives**: the owner's is `fun (t : T p⃗) => R` (`R` from the
+  declared type, its parameter references lifted past the new binder;
+  earlier-field references are the *earlier projection functions*,
+  which precede in the stream and are already rewritten and
+  installed); every other motive — the other mutual members', the
+  nested containers' auxiliary ones (`Tree.rec`'s `motive_2` over
+  `List Tree`) — is the constant `PUnit.{ℓ}` over whatever telescope
+  the recursor gives it (indices included);
+* **minors**: the owner constructor's returns field `i` of its
+  telescope (`bvar (k - 1 - i)` among its `k` binders — fields first,
+  then the inductive hypotheses recursion adds, which are ignored;
+  `DiseqCnstr.mk`'s minor carries `h_ih : motive_2 h`); every other
+  minor returns `PUnit.unit.{ℓ}`; the owner's minor is recognised as
+  the one whose codomain's major is headed by the owner constructor;
+* **levels**: `T.rec.{ℓ, u⃗}` — the elimination level first, per the
+  recursor's level-parameter list, then the block's parameters;
+* **every binder domain** of the motives and minors is read off the
+  recursor's own type, level-instantiated and then instantiated step
+  by step with the terms built so far (`Expr.instantiate1Lift`, the
+  open-argument substitution; `buildBinders`), so no telescope is
+  guessed — whatever shape the recursor has, the value is built at
+  exactly its binders.  The body frame is the value's own `nP + 1`
+  binders (parameter `k` at `bvar (nP - k)`, the subject at `bvar 0`).
+
+**The elimination level `ℓ` = the sort of `R`.**  The frontend has no
+type inference and the level is not syntactic in `R`.  It is read off
+the preprocessor's own artifact for the same field,
+`T._model.proj_i.iota : ∀ …, @Eq.{ℓ} α _ _` (lean-inductive-models
+computes `ℓ` with the elaborator's `getLevel` over model types that
+match the public ones syntactically by the preprocessor contract; the
+artifact precedes the block in the stream, and it exists for every
+projectable field of every structure-like member the preprocessor
+models — mutual, nested, recursive, `Prop`-valued fields at `Eq.{0}`
+included).  The `thm` record with that name shape records the level
+(`projLevels`); no artifact, no rewrite.  The constant motives need the
+`PUnit` basis block, whose parse sets `punitSeen`; the artifacts
+themselves use `PUnit` so it is always in a preprocessed stream's cone.
+
+**Checking.**  The rewritten definition goes through the ordinary
+definition path: `annotate`, `infer`, `defeq` against the declared
+type.  The value's inferred type is `motive_T self = (fun t => R) self
+≡ R` by β; the owner minor's actual type `∀ x⃗ ih⃗, F_i[f_j := x_j]`
+against the expected `∀ x⃗ ih⃗, (fun t => R) (C p⃗ x⃗)` needs `T.f_j p⃗ (C
+p⃗ x⃗) ≡ x_j` for the earlier fields — δ on the earlier (rewritten)
+projection function, ι on the recursor: the dependent-field case is
+served by exactly the reduction `.proj` would have needed.
+**Verdict semantics**: a use of `T.f` unfolds to the recursor form and
+ι reduces it on a constructor application where `.proj` would; a
+`.proj T i e` node *elsewhere* in the stream on such an owner still
+declines (a census agent measures how many; not chased here), as does
+structure η on these owners.
+
+### 3. Receipts
+
+* **The DiseqCnstr slice** (`_tmp/proj-rec/diseq-slice-pre.ndjson`,
+  4.4 MB, 1 637 declarations, cut by `_tmp/proj-rec/slice_multi.py` —
+  the frontier's slicer with extra roots, here the seven String-literal
+  support declarations the cone of `.lhs` does not reach but an
+  `_autoParam` string literal in it needs): **exit 2 → accept in both
+  modes**, 2.25 s P / 1.09 s parity, 2 048 constants, exactly one
+  rewrite (`Lean.Meta.Grind.AC.DiseqCnstr.lhs`; names under
+  `SETLEC_PROJREC_TRACE=1`).
+* **Fixtures** (`tests/e2e/src/*.lean` → raw exports, expectation `0`
+  in `tests/e2e-expected.txt`): `mutual_struct_proj` — a `mutual` pair
+  of `structure`s, `Node` with a dependent field (`v : Fin n`), a proof
+  field (`h : v.val < n`, elimination level 0, `PUnit.{0}` motives), a
+  recursive field across the block (`kids : Forest`), `Forest.nodes :
+  Fin 0 → Node` keeping the pair inhabited; six rewrites, `rfl`
+  consumers through every projection, one projection used inside a
+  later definition — accept in both modes (exit 2 before);
+  `nested_struct_proj` — `Tree` with `kids : List Tree` (two motives,
+  four minors, the auxiliary hypothesis ignored) plus the reflexive
+  recursive `Stream'` (`tail : Unit → Stream'`); four rewrites, the
+  nested-recursion consumer `Tree.sum` through `brecOn`, `rfl`s —
+  accept in both modes.
+* **init-full** (`init-full-pre2`, `--pre`, `ulimit -v 16000000`):
+  accept in both modes, 60 549 declarations, 168 s P / 179 s parity
+  (shared machine, verdict only per the cadence); zero rewrites — the
+  stream has no non-direct structure-like projection function, so the
+  rewrite is inert there.
+* Gates at the tip: `lake build` warning-free (440 jobs), `lake test`
+  (the parse result grew a third field), `tests/arena.sh` 0 FAIL —
+  tutorial 90/92 (bad-test verdicts unchanged), e2e 77/77 (the two new
+  fixtures in), annot 14/14, retired/mode flags 8/8 and 14/14, no-model
+  sweep as recorded (3 divergences); proofdeps 1 363 rows as pinned
+  across the 4 capstones, doors 0; layering 0 impl→theory edges (base
+  233 / P 160 — the new frontend module counts as base).
+
+### 4. Tooling
+
+`_tmp/proj-rec/dump_decl.py` (`show`/`block`/`seq`/`projfns` over a
+slice or fixture: declarations with resolved names, block summaries
+with the export's shape data, the projection-function census — the
+recognised shape was read off real records with it: `hints abbrev`,
+`nP + 1` binders, `.proj T i (bvar 0)`, the theorem kind of proof
+fields, the artifact order and `Eq` levels); `slice_multi.py` (the
+slicer with extra roots).
 
 
 ## The Rat frontier: the K rescue ran *after* the major's whnf — a reduction-order divergence, fixed by mirroring `inductive_reduce_rec` (2026-09-06, `agent/rat-frontier`)
