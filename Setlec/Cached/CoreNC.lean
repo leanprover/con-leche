@@ -371,7 +371,7 @@ def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             -- task #100 de-gating: ungated, as in `whnfCoreStepI`
             -- (`projCertI` stays — outside the task-#76 skip list;
             -- task #161 item B1 shrank it to its two `infer` runs)
-            if ← projCertI r fe depth c us args then
+            if ← projCertI r fe depth false c us args then
               k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')

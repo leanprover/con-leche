@@ -714,7 +714,8 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
           entry.fireOk us = true ∧
           whnfCore mode env fuel d
             (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
-          projCertP mode env fuel d entry.ctor us e₃.getAppArgs = .ok true) := by
+          projCertP mode env fuel d mode.betaGate entry.ctor us e₃.getAppArgs
+            = .ok true) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
   simp only [whnfCore_def, whnf_def, projCert_fold,
@@ -744,7 +745,8 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       obtain ⟨hnat, rfl, hi, hlen, hus, hfire⟩ := hcond
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
-      cases hcert : projCertP mode env fuel d entry.ctor us e₃.getAppArgs with
+      cases hcert : projCertP mode env fuel d mode.betaGate entry.ctor us
+          e₃.getAppArgs with
       | error err => rw [hcert] at h; exact nomatch h
       | ok b =>
       rw [hcert] at h
@@ -771,11 +773,11 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
 /-- Inversion for a successful projection certification (task #175 W6):
 the head is a stored constructor and the spine is certified against
 its type at the redex's levels (`iotaCerts`). -/
-theorem projCert_inv {env : Env} {fuel d : Nat} {c : Name}
+theorem projCert_inv {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
     {us : List Level} {args : List Expr}
-    (h : projCertP mode env fuel d c us args = .ok true) :
+    (h : projCertP mode env fuel d lic c us args = .ok true) :
     ∃ cvC nP nF, env.find? c = some (.ctorInfo cvC nP nF) ∧
-      iotaCertsP mode env fuel d false
+      iotaCertsP mode env fuel d lic
         (cvC.type.instantiateLevelParams cvC.levelParams us) args = .ok true := by
   dsimp only [projCertP] at h
   simp only [projCert] at h

@@ -717,13 +717,13 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
   | _ => pure none
 
 /-- Twin of `projCert`. -/
-def projCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+def projCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (lic : Bool)
     (c : Name) (us : List Level) (args : List ExprC) : CheckCM Bool := do
   let cn ← readbackNM c
   match fe.find? cn with
   | some (.ctorInfo _ _ _) => do
     let tyC ← constTyAtM fe c cn us
-    iotaCertsI r fe depth false tyC args
+    iotaCertsI r fe depth lic tyC args
   | _ => pure false
 
 mutual
@@ -851,7 +851,7 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             -- unsound-to-model under the domain-relative collapse);
             -- task #175 W6: the spine against the constructor's type
             -- (see `projCert`).
-            if ← projCertI r fe depth c us args then
+            if ← projCertI r fe depth cfg.betaGate c us args then
               k arg
             else internI (.proj sn i e')
           else internI (.proj sn i e')

@@ -1518,12 +1518,17 @@ which is the same per-argument `inferIO` + `defeq` work the subject's
 run performed inside `inferSpine`, and drops the field's separate
 `inferIO`.  The official kernel's `reduce_proj` certifies nothing —
 this is the F4 conformance residue, which the P lane's `ProjStepP`
-row consumes through `certs_teleP`. -/
-def projCert (r : CoreFns m) (env : Env) (depth : Nat)
+row consumes through `certs_teleLicP`.  The spine is a subterm of the
+subject, so the certificate is *licensed* like the ι slot's
+(`iotaCerts`' docstring): at the verified P mode a `.never` binder's
+certificate is skipped — every field binder of an ordinary `structure`
+— which is the io skip the retired two-run certificate had through
+`inferSpine`. -/
+def projCert (r : CoreFns m) (env : Env) (depth : Nat) (lic : Bool)
     (c : Name) (us : List Level) (args : List Expr) : m Bool := do
   match env.find? c with
   | some (.ctorInfo cvC _ _) =>
-    iotaCerts r env depth false
+    iotaCerts r env depth lic
       (cvC.type.instantiateLevelParams cvC.levelParams us) args
   | _ => pure false
 
@@ -1629,7 +1634,7 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             -- nonzero-sort gate is unsound-to-model under the
             -- domain-relative collapse, so the certificate runs
             -- unconditionally.
-            if ← projCert r env depth c us args then
+            if ← projCert r env depth mode.betaGate c us args then
               r.whnfCore depth arg
             else pure (.proj sn i e')
           else pure (.proj sn i e')

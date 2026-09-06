@@ -59,7 +59,8 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
               e'.getAppArgs.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
-            projCert (fueledFns mode env) env d c us e'.getAppArgs >>= fun b =>
+            projCert (fueledFns mode env) env d cfg.betaGate c us e'.getAppArgs >>=
+              fun b =>
             if b then
               kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
             else pure (.proj sn i e')

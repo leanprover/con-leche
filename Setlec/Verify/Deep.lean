@@ -1091,16 +1091,16 @@ private theorem propIrrel_shift (henv : EnvWF env)
   case fvar => rw [shiftFrom_fvar]
 
 private theorem projCert_shift (henv : EnvWF env) (ih : ShiftClaims mode env fuel)
-    {p d : Nat} (hpd : p ≤ d) {c : Name} {us : List Level} {args : List Expr}
-    (hwargs : ∀ x ∈ args, WScoped d x) :
-    projCert (pureFns mode env fuel) env (d + 1) c us (args.map (shiftFrom p)) =
-      projCert (pureFns mode env fuel) env d c us args := by
+    {p d : Nat} (hpd : p ≤ d) (lic : Bool) {c : Name} {us : List Level}
+    {args : List Expr} (hwargs : ∀ x ∈ args, WScoped d x) :
+    projCert (pureFns mode env fuel) env (d + 1) lic c us (args.map (shiftFrom p)) =
+      projCert (pureFns mode env fuel) env d lic c us args := by
   simp only [projCert]
   split
   · rename_i cvC nP nF hf
     have hnf : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false :=
       const_ty_hasFvar henv hf us
-    have h := iotaCerts_shift henv ih hpd false (WScoped.of_not_hasFvar hnf) hwargs
+    have h := iotaCerts_shift henv ih hpd lic (WScoped.of_not_hasFvar hnf) hwargs
     rwa [shiftFrom_eq_self_of_not_hasFvar (p := p) hnf] at h
   · rfl
 
@@ -1763,7 +1763,7 @@ private theorem whnfCore_step (henv : EnvWF env)
       have hwarg : WScoped d
           (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
         WScoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
-      refine bind_rel_eq _ (projCert_shift henv ih hpd
+      refine bind_rel_eq _ (projCert_shift henv ih hpd mode.betaGate
         (fun x hx => hwe₃.getAppArgs x hx)) ?_
       intro bb _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)

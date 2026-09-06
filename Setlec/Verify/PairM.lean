@@ -588,22 +588,22 @@ theorem etaCert_snd_proj (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta)
   unfold etaCert
   snd_tac
 
-theorem projCert_fst_proj (d : Nat) (c : Name) (us : List Level)
+theorem projCert_fst_proj (d : Nat) (lic : Bool) (c : Name) (us : List Level)
     (args : List Expr) :
-    (projCert (pairFns r₁ r₂ h) env d c us args).val.1 =
-      projCert r₁ env d c us args := by
+    (projCert (pairFns r₁ r₂ h) env d lic c us args).val.1 =
+      projCert r₁ env d lic c us args := by
   unfold projCert
   split
-  · exact iotaCerts_fst d false _ _
+  · exact iotaCerts_fst d lic _ _
   · rfl
 
-theorem projCert_snd_proj (d : Nat) (c : Name) (us : List Level)
+theorem projCert_snd_proj (d : Nat) (lic : Bool) (c : Name) (us : List Level)
     (args : List Expr) :
-    (projCert (pairFns r₁ r₂ h) env d c us args).val.2 =
-      projCert r₂ env d c us args := by
+    (projCert (pairFns r₁ r₂ h) env d lic c us args).val.2 =
+      projCert r₂ env d lic c us args := by
   unfold projCert
   split
-  · exact iotaCerts_snd d false _ _
+  · exact iotaCerts_snd d lic _ _
   · rfl
 
 macro "fst_step2" : tactic =>

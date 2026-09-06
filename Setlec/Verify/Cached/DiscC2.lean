@@ -406,22 +406,22 @@ theorem RelCL.getD {dflt : ExprC} {dfltx : Expr} (hd : RelC dflt dfltx) :
 the constructor's stored type — `constTyAtM` reads it, `iotaCertsC_sim`
 walks it). -/
 theorem projCertC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
-    {c : Name} {us : List Level} {args : List ExprC} {xs : List Expr}
+    {lic : Bool} {c : Name} {us : List Level} {args : List ExprC} {xs : List Expr}
     {s₀ : CState} (hs : CSOK mode env s₀)
     (hargs : RelCL args xs) (hw : ∀ x ∈ xs, Expr.WScoped d x) :
     SimC mode env s₀ RelVC
-      (projCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d c us args)
-      (projCert (fueledFns mode env) env d c us xs) := by
+      (projCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d lic c us args)
+      (projCert (fueledFns mode env) env d lic c us xs) := by
   show SimC mode env s₀ RelVC
     (readbackNM c >>= fun cn =>
       match (mkFEnv env).find? cn with
       | some (.ctorInfo _ _ _) =>
         constTyAtM (mkFEnv env) c cn us >>= fun tyC =>
-        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d false tyC args
+        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d lic tyC args
       | _ => pure false)
     (match env.find? c with
       | some (.ctorInfo cvC _ _) =>
-        iotaCerts (fueledFns mode env) env d false
+        iotaCerts (fueledFns mode env) env d lic
           (cvC.type.instantiateLevelParams cvC.levelParams us) xs
       | _ => pure false)
   refine SimC.bind_left (readbackNM_eff hs c) (fun s₁ cn hs₁ hcn => ?_)

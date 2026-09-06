@@ -292,13 +292,13 @@ theorem etaCert_atF (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta) (b :
   unfold etaCert
   atF_tac
 
-theorem projCert_atF (d : Nat) (c : Name) (us : List Level) (args : List Expr)
-    (F : Nat) :
-    (projCert (fueledFns mode env) env d c us args).val F =
-      projCert (pureFns mode env F) env d c us args := by
+theorem projCert_atF (d : Nat) (lic : Bool) (c : Name) (us : List Level)
+    (args : List Expr) (F : Nat) :
+    (projCert (fueledFns mode env) env d lic c us args).val F =
+      projCert (pureFns mode env F) env d lic c us args := by
   unfold projCert
   split
-  · exact iotaCerts_atF d false F _ _
+  · exact iotaCerts_atF d lic F _ _
   · rfl
 
 macro "atF_step2" : tactic =>

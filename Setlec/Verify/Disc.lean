@@ -555,10 +555,10 @@ theorem etaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   · exact DiscV.pure trivial
 
 theorem projCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} {c : Name} {us : List Level} {args : List Expr}
+    {d : Nat} {lic : Bool} {c : Name} {us : List Level} {args : List Expr}
     (hwargs : ∀ x ∈ args, WScoped d x) :
     DiscV mode env (fun _ => True)
-      (projCert C env d c us args) (projCert G env d c us args) := by
+      (projCert C env d lic c us args) (projCert G env d lic c us args) := by
   unfold projCert
   split
   · rename_i cvC nP nF hf
@@ -908,7 +908,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCert C env d c us e'.getAppArgs >>= fun b =>
+              projCert C env d mode.betaGate c us e'.getAppArgs >>= fun b =>
               if b then
                 (C : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -926,7 +926,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCert G env d c us e'.getAppArgs >>= fun b =>
+              projCert G env d mode.betaGate c us e'.getAppArgs >>= fun b =>
               if b then
                 (G : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))

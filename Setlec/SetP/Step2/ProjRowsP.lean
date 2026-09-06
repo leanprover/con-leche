@@ -3,6 +3,7 @@ import Setlec.SetP.Step2.StuckP
 import Setlec.SetP.Step2.InferIOP
 import Setlec.SetBase.Spine2
 import Setlec.SetP.Step2.TowerKitP
+import Setlec.SetP.Step2.IotaGateP
 import Setlec.SetBase.SpineV
 
 /-!
@@ -253,6 +254,24 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
 
 /-! ## `ProjStepP` -/
 
+/-- **An annotation-level fit is a value-level fit** (task #175 W6):
+`TeleFitPA`'s `inst` residuals un-instantiate step by step
+(`teleFitP_of_inst0`) under the ∀-chain guard — the bridge from the
+licensed walk's output (`certs_teleLicP`) to the tower law's premise. -/
+theorem teleFitP_of_teleFitPA {ρ : Nat → V} :
+    ∀ {T : AVExpr} {as : List AVExpr} {resta : AVExpr},
+      PiChainP as.length T → TeleFitPA V ρ T as resta →
+      TeleFitP V ρ T (as.map (interp2 V ρ)) (interp2 V ρ resta) := by
+  intro T as resta hpc h
+  revert hpc
+  induction h with
+  | nil => intro _; exact .nil
+  | @cons u v A B rest a as hmem hfit ih =>
+    intro hpc
+    have hpcB : PiChainP as.length B := hpc
+    exact .cons hmem (teleFitP_of_inst0 (by rw [List.length_map]; exact hpcB)
+      (ih (PiChainP.inst a 0 hpcB)))
+
 /-- **`ProjStepP`, discharged.**  The stuck branch is a congruence
 under the projection reading (pair: `.proj i`; tower: `projAV i`,
 `AnnotOkP_projAV_congr`).  The firing branch at a pair-backed entry
@@ -414,10 +433,17 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
       ⟨hC.1, fun l hl => by
         rw [Setlec.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfC] at hl
         exact nomatch hl⟩
-    -- the reading's grading, off the stored constant's own
-    obtain ⟨TCa', hTCa', hokTCa, -⟩ := hct 0 entry.ctor _ us hfC rfl
+    -- the reading's grading and the head's membership, off the stored
+    -- constant's own
+    obtain ⟨TCa', hTCa', hokTCa, hmemC0⟩ := hct 0 entry.ctor _ us hfC rfl
       (by show us.length = cvC.levelParams.length; rw [hlpsC]; exact hlenU)
     obtain rfl : TCa = TCa' := Option.some.inj (hTCa.symm.trans hTCa')
+    have hmemC : ∀ σ : Nat → V, Sat2 V Δa σ →
+        interp2 V σ (m.acval entry.ctor (Level.substFn φ entry.levelParams us))
+          ∈ˢ interp2 V σ TCa := by
+      intro σ _
+      rw [← hlpsC]
+      exact hmemC0 σ
     -- the ∀-chain, off the head data's arity pin
     obtain ⟨cvC'', hfC'', -, hstrip⟩ :=
       (m.proj_ok.towerHead hfe htw).2.2.2.2.2.2.1
@@ -428,15 +454,18 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
       exact piChainP_of_stripPis (entry.numParams + entry.numFields)
         (Setlec.Expr.stripPis_instantiateLevelParams_isSome cvC.levelParams us _
           hstrip) hTCd
-    have hfitAll : ∀ σ : Nat → V, Sat2 V Δa σ →
-        ∃ rest, TeleFitP V σ TCa (vs.map (interp2 V σ)) rest :=
-      fun σ hσ => certs_teleP ihd ihis hexi _ e₃.getAppArgs vs TCa hcertI hpc
+    -- the licensed walk (task #175 W6): the spine is a subject subterm,
+    -- so the `.never` slots ride the application's own grading
+    obtain ⟨resta, hfitA, -, -⟩ :=
+      certs_teleLicP ihd ihis hexi _ e₃.getAppArgs vs TCa
+        (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) hcertI
         hTw hbdC hTL hTC hTCd (fun σ' _ => hokTCa σ')
-        (frame_spineP hw₃ hb₃ hL₃ hC₃) hspa hoA σ hσ
+        (frame_spineP hw₃ hb₃ hL₃ hC₃) hspa hoA hok₃' hmemC
     refine ⟨hokE, fun σ hσ => ?_⟩
-    obtain ⟨rest, hfit⟩ := hfitAll σ hσ
+    have hfit : TeleFitP V σ TCa (vs.map (interp2 V σ)) (interp2 V σ resta) :=
+      teleFitP_of_teleFitPA (by rw [← hspa.length]; exact hpc) (hfitA σ hσ)
     rw [interp2_projAV_congr (heq₃ σ hσ), hveq,
-      hB (towerGuardAt_of_fireOk htw hO5 hfire) σ vs rest hlenVs (hok₃' σ hσ) hfit]
+      hB (towerGuardAt_of_fireOk htw hO5 hfire) σ vs _ hlenVs (hok₃' σ hσ) hfit]
     exact heqE σ hσ
 
 end Setlec.SetR.Interp2
