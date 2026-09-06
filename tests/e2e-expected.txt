@@ -551,6 +551,14 @@
 # in-process modeller stands down (it sees the models in the stream);
 # the in-process path itself is gated by tests/inmodel.sh.
 0 inmodel_mutual.ndjson
+# inmodel_mutual_idx.ndjson (task #200 B2): four INDEXED mutual blocks —
+# a Prop pair over Nat, a data pair with a shifted-index constructor and
+# a recursor-spelled size (`rfl` through both model recursors at the
+# indices), members with different index telescopes, a universe-
+# polymorphic index (the tag's universe inferred).  Same routing as
+# inmodel_mutual through the default pipe; tests/inmodel.sh gates the
+# in-process path.
+0 inmodel_mutual_idx.ndjson
 # indexed_one_ctor.ndjson (task #175 SigmaHom, 2026-09-06): an INDEXED
 # one-constructor family in Type (Mathlib's CategoryTheory.Sigma.SigmaHom
 # shape: two indices built from the fields, dependent fields).  Not

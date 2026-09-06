@@ -65,13 +65,17 @@ def modelName (n : Name) : Name := n.str "_model"
 `R._model.iota_j` (`Lech/Kernel/Modeled.lean`'s lookup). -/
 def iotaName (R : Name) (j : Nat) : Name := (modelName R).str s!"iota_{j}"
 
-/-- A level-parameter name not among `lps` (`u`, then `u'`, `u''`, …). -/
+/-- A level-parameter name not among `lps`: `u`, then `u_1`, `u_2`, …
+— the official kernel's `mk_fresh_lvl_name` convention for a
+recursor's elimination level (`inductive.cpp`), so a generated
+recursor's level parameters are the ones Lean's own kernel would
+mint for the same block. -/
 partial def freshLevelName (lps : List Name) (base : String := "u") : Name :=
-  go base
+  if lps.contains (Name.str .anonymous base) then go 1 else Name.str .anonymous base
 where
-  go (s : String) : Name :=
-    let n := Name.str .anonymous s
-    if lps.contains n then go (s ++ "'") else n
+  go (i : Nat) : Name :=
+    let n := Name.str .anonymous s!"{base}_{i}"
+    if lps.contains n then go (i + 1) else n
 
 /-! ## Binders and frames -/
 

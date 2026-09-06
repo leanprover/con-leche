@@ -53584,3 +53584,33 @@ The merged-recursive gate is reported in the READY message: with
 `agent/recursive`'s indexed route (`09891f11`) merged into a
 TEST-ONLY worktree, the raw fixture's auxiliary families install
 directly.
+
+### B2 — indexed mutual members
+
+The same rung with the members' index telescopes on the tag
+(`tag.m : ∀ p⃗ ı⃗_m, tag p⃗`, the tag's sort `W = max 1 (the sorts of
+every member's index domains)` from the inferer — a failure declines
+the block naming the index), the auxiliary family unchanged in shape
+(`specFam` rewrites `T_m p⃗ e⃗` to `aux p⃗ (tag.m p⃗ e⃗)`, the recursor's
+`ih` reads the field's own index expressions off its domain), the
+member models `λ p⃗ ı⃗, aux p⃗ (tag.m p⃗ ı⃗)`, the recursor models taking
+`ı⃗` before the major (`aux.rec p⃗ Mot S⃗ (tag.m p⃗ ı⃗) t`; `tag.rec`'s
+minors are the public motives `M_m : ∀ ı⃗ (t : T_m._model p⃗ ı⃗), Sort ℓ`
+against `∀ ı⃗, MotTag (tag.m p⃗ ı⃗)` by δ), and the iota statements with
+the constructor's index expressions before the major on the left and
+each recursive field's on its `ih` — what `checkIotaThm` pins at
+`mI - rP` index arguments.  Projection artifacts only at index-free
+members (the modeled install ignores an indexed family's, task #175
+SigmaHom).  Two things the fixture taught: Lean promotes a uniform
+index to a PARAMETER for the whole block (`Tm.rec : {a : Nat} → …`),
+so an indexed-mutual fixture needs a constructor at a shifted index;
+and the kernel names a recursor's elimination level `u`, `u_1`, `u_2`
+(`mk_fresh_lvl_name`) — the generated recursors now follow it, which
+is what lean-inductive-models' exact-layout check of the dump wanted.
+Gate (`tests/inmodel.sh`, both fixtures): `inmodel_mutual_idx` — 4
+blocks in-process (`Even`/`Odd` over `Nat`, `Tm`/`Args` with `lam :
+Tm (n+1) → Tm n` and a `rfl` at the recursor-spelled size, `P : Nat →
+Prop` / `Q : Nat → Bool → Prop`, `R`/`S` over `α : Type u`), the
+modelled dump accepts **434 declarations in both modes** (13 blocks
+routed `modeled`); the merged-recursive gate and the suite receipts
+in the READY message.

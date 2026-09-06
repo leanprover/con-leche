@@ -95,22 +95,36 @@ structure MCtor where
   recFields : List (Nat × Nat)
   deriving Repr, Inhabited
 
+/-- Is `e` member `m'` of the block applied to the parameter variables
+(`o` binders below the parameter frame) and `nIdx_{m'}` index
+expressions?  Returns the member. -/
+def memberApp? (members : List (Name × Nat × Nat)) (lps : List Name) (nP o : Nat)
+    (e : Expr) : Option Nat :=
+  match e.getAppFn with
+  | .const x us =>
+    match members.find? (·.1 == x) with
+    | some (_, m', nIdx) =>
+      let args := e.getAppArgs
+      if us == lps.map .param && args.length == nP + nIdx && args.take nP == varsAt o nP
+      then some m' else none
+    | none => none
+  | _ => none
+
 /-- Classify one constructor's fields: each domain is ordinary (no
-member mentioned) or exactly a member at the parameters
-(`T_{m'} p⃗`); anything else is not this rung's (nested, reflexive,
-non-positive). -/
-def classifyCtor (memberNames : List Name) (lps : List Name) (nP : Nat)
+member mentioned) or exactly a member at the parameters and some
+index expressions (`T_{m'} p⃗ e⃗`); anything else is not this rung's
+(nested, reflexive, non-positive).  `members` lists `(T, m, nIdx)`. -/
+def classifyCtor (members : List (Name × Nat × Nat)) (lps : List Name) (nP : Nat)
     (m : Nat) (c : IndCtorRec) : Except String MCtor := do
-  let T := memberNames.getD m .anonymous
+  let memberNames := members.map (·.1)
   let some (bs, resid) := c.cv.type.stripPis (nP + c.nF)
     | throw s!"constructor {c.cv.name} is not a telescope"
-  unless resid == Expr.mkAppN (constP T lps) (varsAt c.nF nP) do
+  unless memberApp? members lps nP c.nF resid == some m do
     throw s!"constructor {c.cv.name} does not return its member at the parameters"
   let mut recFields : List (Nat × Nat) := []
   for i in List.range c.nF do
     let d := (bs.getD (nP + i) default).2.1
-    match (List.range memberNames.length).find? fun m' =>
-        d == Expr.mkAppN (constP (memberNames.getD m' .anonymous) lps) (varsAt i nP) with
+    match memberApp? members lps nP i d with
     | some m' => recFields := recFields ++ [(i, m')]
     | none =>
       if mentionsAny memberNames d then
@@ -123,7 +137,7 @@ def need (what : String) : Option α → Except String α
   | some a => pure a
   | none => throw s!"internal shape failure: {what}"
 
-/-- **The mutual rung** (index-free).  The records, in stream order:
+/-- **The mutual rung** (B1 index-free, B2 indexed).  The records, in stream order:
 the tag block, the auxiliary block, the member/constructor/recursor
 models, the iota theorems, the projection artifacts. -/
 def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
@@ -135,21 +149,22 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   unless k ≥ 2 do throw "not a mutual block"
   for t in b.types do
     unless t.numNested == 0 do throw s!"nested member {t.cv.name} (B3)"
-    unless t.nIdx == 0 do throw s!"indexed member {t.cv.name} (B2)"
     unless !t.isReflexive do throw s!"reflexive member {t.cv.name}"
     unless t.cv.levelParams == lps && t.nP == nP do
       throw s!"member {t.cv.name}: level parameters or parameter count differ"
-  let some (pbs, .sort u) := t0.cv.type.stripPis nP
-    | throw s!"former {T} is not a parameter telescope ending in a sort"
+  let some (pbs, .sort u) := t0.cv.type.stripPis (nP + t0.nIdx)
+    | throw s!"former {T} is not a telescope ending in a sort"
+  let pbs := pbs.take nP
   for t in b.types do
-    match t.cv.type.stripPis nP with
+    match t.cv.type.stripPis (nP + t.nIdx) with
     | some (pbs', .sort u') =>
-      unless piBinders pbs' == piBinders pbs && u' == u do
+      unless piBinders (pbs'.take nP) == piBinders pbs && u' == u do
         throw s!"member {t.cv.name}: parameter telescope or sort differs from {T}'s"
-    | _ => throw s!"former {t.cv.name} is not a parameter telescope ending in a sort"
+    | _ => throw s!"former {t.cv.name} is not a telescope ending in a sort"
   let memberNames := b.types.map (·.cv.name)
   let members : List (Name × Nat × Nat) :=
-    (List.range k).map fun m => (memberNames.getD m .anonymous, m, 0)
+    (List.range k).map fun m => (memberNames.getD m .anonymous, m, (b.types.getD m default).nIdx)
+  let nIdxOf : Nat → Nat := fun m => (b.types.getD m default).nIdx
   -- the constructors, per member, classified
   let mut mctors : List MCtor := []
   for m in List.range k do
@@ -159,7 +174,7 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
         | throw s!"constructor {cn} of {t.cv.name} is not in the block"
       unless c.nP == nP && c.cv.levelParams == lps do
         throw s!"constructor {cn}: parameter count or level parameters differ"
-      mctors := mctors ++ [← classifyCtor memberNames lps nP m c]
+      mctors := mctors ++ [← classifyCtor members lps nP m c]
   let n := mctors.length
   unless b.ctors.length == n do throw "constructors not all owned by a member"
   -- the recursors: `T_m.rec`, one per member, `k` motives, `n` minors,
@@ -181,7 +196,7 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let rlps := if large then elim :: lps else lps
   for m in List.range k do
     let r ← recOf m
-    unless r.nP == nP && r.nM == k && r.nm == n && r.nI == 0 do
+    unless r.nP == nP && r.nM == k && r.nm == n && r.nI == nIdxOf m do
       throw s!"recursor {r.cv.name}: unexpected telescope"
     unless r.cv.levelParams == rlps do throw s!"recursor {r.cv.name}: eliminator shape differs"
     let own := mctors.filter (·.m == m)
@@ -208,18 +223,31 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
     match hs.find? (·.1 == x) with
     | some (_, h) => h
     | none => ctx.heights x
-  -- 1. the tag block
-  let tagTy ← need "tag type" (Expr.replacePiBody nP t0.cv.type (.sort (.succ .zero)))
+  -- 1. the tag block: `tag : ∀ p⃗, Sort W`, `tag.m : ∀ p⃗ ı⃗_m, tag p⃗`
+  -- with `W = max 1 (the sorts of the index domains)` (B2; `Type` at an
+  -- index-free block)
+  let mut W : Level := .succ .zero
+  for t in b.types do
+    let some (ibs, _) := t.cv.type.stripPis (nP + t.nIdx) | throw "unreachable"
+    for j in List.range t.nIdx do
+      let ctxJ := ((ibs.take (nP + j)).map (·.2.1)).reverse
+      let dom := (ibs.getD (nP + j) default).2.1
+      let some ℓj := sortOf ctx.tbl ctxJ dom
+        | throw s!"cannot infer the sort of index {j} of {t.cv.name} (the tag's universe)"
+      W := .max W ℓj
+  let tagTy ← need "tag type" (Expr.replacePiBody nP t0.cv.type (.sort W))
   let tagCtors : List (Name × Nat × Expr × List Nat) ←
     (List.range k).mapM fun m => do
+      let t := b.types.getD m default
       let ty ← need "tag constructor type"
-        (Expr.replacePiBody nP t0.cv.type (Expr.mkAppN (constP tag lps) ps0))
-      pure (tagCtorName T m, 0, ty, [])
+        (Expr.replacePiBody (nP + t.nIdx) t.cv.type
+          (Expr.mkAppN (constP tag lps) (varsAt t.nIdx nP)))
+      pure (tagCtorName T m, t.nIdx, ty, [])
   let tagRecTy ← need "tag recursor type" (recTy tag lps elimTag true nP 0 tagTy tagCtors)
   let tagRules ← (List.range k).mapM fun m => do
     let rhs ← need "tag rule"
       (recRhs tag lps elimTag true nP 0 tagTy tagCtors (tag.str "rec") (.param elimTag :: lps.map .param) m)
-    pure (RecRule.mk (tagCtorName T m) 0 0 .inert rhs)
+    pure (RecRule.mk (tagCtorName T m) (nIdxOf m) 0 .inert rhs)
   out := out.push (.indDecl
     ([.indInfo ⟨tag, lps, tagTy⟩ {}] ++
      tagCtors.map (fun (c, nF, ty, _) => ConstantInfo.ctorInfo ⟨c, lps, ty⟩ nP nF) ++
@@ -239,11 +267,13 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
     ([.indInfo ⟨aux, lps, auxTy⟩ {}] ++
      auxCtors.map (fun (c, nF, ty, _) => ConstantInfo.ctorInfo ⟨c, lps, ty⟩ nP nF) ++
      [.recInfo ⟨aux.str "rec", rlps, auxRecTy⟩ (nP + 1 + n + 1) (nP + 1 + n) auxRules]))
-  -- 3. the member models `T_m._model := λ p⃗, aux p⃗ (tag.m p⃗)`
+  -- 3. the member models `T_m._model := λ p⃗ ı⃗, aux p⃗ (tag.m p⃗ ı⃗)`
   for m in List.range k do
     let t := b.types.getD m default
-    let value ← need "member model" (Expr.pisToLams nP t.cv.type
-      (Expr.mkAppN (constP aux lps) (ps0 ++ [Expr.mkAppN (constP (tagCtorName T m) lps) ps0])))
+    let nI := t.nIdx
+    let value ← need "member model" (Expr.pisToLams (nP + nI) t.cv.type
+      (Expr.mkAppN (constP aux lps) (varsAt nI nP ++
+        [Expr.mkAppN (constP (tagCtorName T m) lps) (varsAt nI nP ++ varsAt 0 nI)])))
     let h := hintFor (hOf heights) value
     heights := (modelName t.cv.name, hintHeight h) :: heights
     out := out.push (.defnDecl ⟨modelName t.cv.name, lps, t.cv.type⟩ value h)
@@ -263,21 +293,25 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   for m in List.range k do
     let r ← recOf m
     let ty := rn r.cv.type
-    let D := rP + 1
+    let nI := nIdxOf m
+    -- the body frame: `p⃗ M⃗ S⃗ ı⃗ t` — `rP + nI + 1` binders
+    let D := rP + nI + 1
+    let e := nI + 1
     -- `Mot := λ (i : tag p⃗) (s : aux p⃗ i), tag.rec p⃗ (λ i', ∀ s, aux p⃗ i' → Sort ℓ) M⃗ i s`
     let motTag : Expr := .lam (.str .anonymous "i")
-      (Expr.mkAppN (constP tag lps) (varsAt (k + n + 3) nP))
+      (Expr.mkAppN (constP tag lps) (varsAt (k + n + e + 2) nP))
       (.forallE (.str .anonymous "s")
-        (Expr.mkAppN (constP aux lps) (varsAt (k + n + 4) nP ++ [.bvar 0])) (.sort ℓ) bm) bm
+        (Expr.mkAppN (constP aux lps) (varsAt (k + n + e + 3) nP ++ [.bvar 0])) (.sort ℓ) bm) bm
     let tagRecApp := Expr.mkAppN (.const (tag.str "rec") (ℓ' :: lps.map .param))
-      (varsAt (k + n + 3) nP ++ [motTag] ++ varsAt (n + 3) k ++ [.bvar 1, .bvar 0])
+      (varsAt (k + n + e + 2) nP ++ [motTag] ++ varsAt (n + e + 2) k ++ [.bvar 1, .bvar 0])
     let mot : Expr := .lam (.str .anonymous "i")
-      (Expr.mkAppN (constP tag lps) (varsAt (k + n + 1) nP))
+      (Expr.mkAppN (constP tag lps) (varsAt (k + n + e) nP))
       (.lam (.str .anonymous "s")
-        (Expr.mkAppN (constP aux lps) (varsAt (k + n + 2) nP ++ [.bvar 0])) tagRecApp bm) bm
+        (Expr.mkAppN (constP aux lps) (varsAt (k + n + e + 1) nP ++ [.bvar 0])) tagRecApp bm) bm
     let body := Expr.mkAppN (.const (aux.str "rec") rlvls)
-      (varsAt (k + n + 1) nP ++ [mot] ++ varsAt 1 n ++
-       [Expr.mkAppN (constP (tagCtorName T m) lps) (varsAt (k + n + 1) nP), .bvar 0])
+      (varsAt (k + n + e) nP ++ [mot] ++ varsAt e n ++
+       [Expr.mkAppN (constP (tagCtorName T m) lps) (varsAt (k + n + e) nP ++ varsAt 1 nI),
+        .bvar 0])
     let value ← need "recursor model" (Expr.pisToLams D ty body)
     let h := hintFor (hOf heights) value
     heights := (modelName r.cv.name, hintHeight h) :: heights
@@ -297,17 +331,23 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
         | throw s!"constructor {mc.c.cv.name}: type is not a telescope"
       -- the field telescope at the statement frame: the parameters
       -- sit above the `k + n` motive and minor binders
-      let some (fieldBs, _) := (ctele.liftLooseBVars (k + n) 0).stripPis nF
+      let some (fieldBs, cresid) := (ctele.liftLooseBVars (k + n) 0).stripPis nF
         | throw s!"constructor {mc.c.cv.name}: field telescope"
+      let doms := fieldBs.map (·.2.1)
       let fields := (List.range nF).map fun i => Expr.bvar (nF - 1 - i)
       let prefixVars := varsAt (nF + k + n) nP ++ varsAt (nF + n) k ++ varsAt nF n
       let ctorApp := Expr.mkAppN (constP (modelName mc.c.cv.name) lps) (varsAt (nF + k + n) nP ++ fields)
-      let α : Expr := .app (.bvar (nF + n + k - 1 - m)) ctorApp
-      let lhs := Expr.mkAppN (.const (modelName r.cv.name) rlvls) (prefixVars ++ [ctorApp])
+      -- the constructor's index expressions, at the statement frame
+      let idxC := cresid.getAppArgs.drop nP
+      let α : Expr := Expr.mkAppN (.bvar (nF + n + k - 1 - m)) (idxC ++ [ctorApp])
+      let lhs := Expr.mkAppN (.const (modelName r.cv.name) rlvls) (prefixVars ++ idxC ++ [ctorApp])
       let rhs := Expr.mkAppN (.bvar (nF + n - 1 - J))
         (fields ++ mc.recFields.map fun (i, tgt) =>
+          -- the recursive field's index expressions, lifted from its
+          -- binder to the statement frame
+          let idxI := ((doms.getD i default).liftLooseBVars (nF - i) 0).getAppArgs.drop nP
           Expr.mkAppN (.const (modelName ((memberNames.getD tgt .anonymous).str "rec")) rlvls)
-            (prefixVars ++ [.bvar (nF - 1 - i)]))
+            (prefixVars ++ idxI ++ [.bvar (nF - 1 - i)]))
       let stmt := mkPis (piBinders prefixBs ++ piBinders fieldBs)
         (Expr.mkAppN (.const eqName [ℓ]) [α, lhs, rhs])
       let value ← need "iota proof" (Expr.pisToLams (rP + nF) stmt
@@ -326,6 +366,7 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       let t := b.types.getD m default
       let own := mctors.filter (·.m == m)
       let [mc] := own | continue
+      if t.nIdx != 0 then continue
       let nF := mc.c.nF
       let cty := rn mc.c.cv.type
       let r ← recOf m
