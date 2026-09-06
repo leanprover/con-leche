@@ -734,6 +734,28 @@ theorem litMajorToCtor_snd_proj (d : Nat) (e : Expr) :
   unfold litMajorToCtor
   snd_tac2
 
+theorem prepareMajor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
+    (prepareMajor mode (pairFns r₁ r₂ h) env d c rules e).val.1 =
+      prepareMajor mode r₁ env d c rules e := by
+  unfold prepareMajor
+  split <;> (repeat (first
+    | rfl
+    | (rw [majorToCtor_fst_proj])
+    | (rw [litMajorToCtor_fst_proj])
+    | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])))
+
+theorem prepareMajor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
+    (prepareMajor mode (pairFns r₁ r₂ h) env d c rules e).val.2 =
+      prepareMajor mode r₂ env d c rules e := by
+  unfold prepareMajor
+  split <;> (repeat (first
+    | rfl
+    | (rw [majorToCtor_snd_proj])
+    | (rw [litMajorToCtor_snd_proj])
+    | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])))
+
 theorem projLitToCtor_fst_proj (d : Nat) (e : Expr) :
     (projLitToCtor (pairFns r₁ r₂ h) env d e).val.1 =
       projLitToCtor r₁ env d e := by
@@ -778,6 +800,7 @@ macro "fst_step3" : tactic =>
     | (rw [structEtaCert_fst_proj])
     | (rw [majorToCtor_fst_proj])
     | (rw [litMajorToCtor_fst_proj])
+    | (rw [prepareMajor_fst_proj])
     | (rw [projLitToCtor_fst_proj])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -809,6 +832,7 @@ macro "snd_step3" : tactic =>
     | (rw [structEtaCert_snd_proj])
     | (rw [majorToCtor_snd_proj])
     | (rw [litMajorToCtor_snd_proj])
+    | (rw [prepareMajor_snd_proj])
     | (rw [projLitToCtor_snd_proj])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])

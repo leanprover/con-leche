@@ -729,6 +729,23 @@ theorem iotaIndexOk_disc (ih : ScopedSim mode env f) {d : Nat}
         (fun x hx => (piResidual_WScoped hres hwty hwm).getAppArgs x
           (List.mem_of_mem_drop hx)) hwi
 
+/-- The major chain's discipline, in either order. -/
+theorem prepareMajor_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
+    {d : Nat} {recName : Name} {rules : List RecRule} {major : Expr}
+    (hmaj : WScoped d major) :
+    DiscV mode env (WScoped d) (prepareMajor mode C env d recName rules major)
+      (prepareMajor mode G env d recName rules major) := by
+  unfold prepareMajor
+  by_cases hk : recRuleK env rules = true
+  · rw [if_pos hk, if_pos hk]
+    refine DiscV.bind (majorToCtor_disc ih henv hmaj) (fun m₁ hm₁ => ?_)
+    refine DiscV.bind (ih.site_whnf henv hm₁) (fun m₂ hm₂ => ?_)
+    exact litMajorToCtor_disc ih henv hm₂
+  · rw [if_neg hk, if_neg hk]
+    refine DiscV.bind (ih.site_whnf henv hmaj) (fun m₀ hm₀ => ?_)
+    refine DiscV.bind (litMajorToCtor_disc ih henv hm₀) (fun m₁ hm₁ => ?_)
+    exact majorToCtor_disc ih henv hm₁
+
 theorem iotaRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
     DiscV mode env (WScopedO d) (iotaRec mode C env d e)
@@ -741,12 +758,7 @@ theorem iotaRec_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   dsimp only []
   split <;> try exact DiscV.pure WScopedO.none
   refine DiscV.bind
-    (ih.site_whnf henv (wscoped_getD hw.getAppArgs _))
-    (fun major₀ hmaj₀ => ?_)
-  refine DiscV.bind (litMajorToCtor_disc ih henv hmaj₀)
-    (fun major₁ hmaj₁ => ?_)
-  refine DiscV.bind
-    (majorToCtor_disc ih henv hmaj₁)
+    (prepareMajor_disc ih henv (wscoped_getD hw.getAppArgs _))
     (fun major hmaj => ?_)
   split <;> try exact DiscV.pure WScopedO.none
   rename_i cj usj heqmfn
