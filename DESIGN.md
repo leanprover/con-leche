@@ -45612,34 +45612,40 @@ changed — those reads gate a *licence*, and a licence on an
 | `defeqStepI` | `(defeq-forall)`, `(defeq-lam)`: the compared binders' data must agree | validation; the defeq verdict does not read the datum |
 | `projCertAtI` | the whole `.proj` certificate family (`projCertI`) | a certificate |
 
-**B — licences, FLAGGED (the trusted mode does MORE work at each).**
-These read `verified`/`betaGate`/`ioGate` to *skip* work on the strength
-of a **validated** datum.  The trusted mode validates nothing, so they
-are off there and the skipped work runs:
+**B — LICENCES, ON IN BOTH MODES.**  *(Rewritten 2026-09-06 by the
+second ruling; see "TRUSTED LICENCES" below.  As first written, this
+group was FLAGGED and three of its rows were inversions — the trusted
+mode did MORE work than the verified one there.)*  These reads *skip*
+work whose correctness rests on an annotation datum.  **Validating**
+that datum is group A and is omitted in the trusted mode; the licence
+that **consumes** it is not certification-only work and stays on —
+trust the writer, skip the validation.
 
-| site | the licence | effect in trusted |
+| site | the licence | state |
 |---|---|---|
-| `whnfCoreStepI` β sites (`cfg.betaSkip`) | skip the per-redex argument certificate at a validated `.never` binder | certificate always runs |
-| `inferSpineIOI` (`unless cfg.verified && mt.pw.isNever`) | skip the per-argument application certificate under the graph-regime licence | certificate always runs |
-| the knot's `inferIO` slot (`cfg.ioGate`) | run `inferBodyIO` (official's `infer_only`) instead of the full inference body | the full body runs |
+| `whnfCoreStepI` β sites (`cfg.betaSkip`) | skip the per-redex argument certificate at a `.never` binder | **on in both** (`cfgT.betaGate = true`) |
+| `inferSpineIOI` (`unless mt.pw.isNever`) | skip the per-argument application certificate under the graph-regime licence | **on in both** — the `cfg.verified` conjunct is *gone*, at the site, at its spec and mirror, and in its inversion lemma |
+| the knot's `inferIO` slot (`cfg.ioGate`) | run `inferBodyIO` (official's `infer_only`) instead of the full inference body | **on in both** (`cfgT.ioGate = true`) |
 | `projCertAtI`'s second Bool (`cfg.betaGate`) | the licensed half of the projection certificate | moot — the family is off in A |
-| `cfg.iotaMode` | the ι cone's `ttChecks` residue | none: `ttChecks` is `false` at both modes |
+| `cfg.iotaMode` | the ι cone's `ttChecks` residue | moot — `ttChecks` is `false` at both modes |
 
-So three of the four are **inversions**: the trusted mode is slower than
-the verified one there, which is the opposite of what the mode is for.
-Resolving them means either extending the licences to unvalidated data
-(a soundness question for the trusted mode) or accepting the inversion
-as the price of the licences resting on validation.  Recorded for the
-ruling; nothing changed here.
+**So the mode's definition is now exactly group A**: `cfgT` is `cfgP`
+with `verified := false` (plus the inert `iotaMode`), and nothing else
+(`cfgT_eq_cfgP_verified_off`, `Setlec/Kernel/CoreCfg.lean`).
 
-**Related, and part of the same second ruling.**  The writers leave an
-**input-supplied** annotation alone (`pwWritten mb.pw`, i.e. any
-non-`.never` datum in the stream).  In the verified mode the validation
-checks of group A catch a wrong one; in the trusted mode nothing does,
-and the ungated `isProofFast` yes arm now reads it.  A stream can
-therefore steer the trusted mode's proof-irrelevance verdict.  That is
-the trusted mode being unverified, which is by design — but it is worth
-saying in one line, because it is the concrete shape "trusted" takes.
+**Related, and settled by the same ruling: the input-supplied
+annotation front door STAYS.**  The writers leave an **input-supplied**
+annotation alone (`pwWritten mb.pw`, i.e. any non-`.never` datum in the
+stream).  In the verified mode the validation checks of group A catch a
+wrong one; in the trusted mode nothing does, and the ungated
+`isProofFast` yes arm — and now the β and io licences — read it.  A
+stream can therefore steer the trusted mode's verdicts.  The user's
+ruling keeps the ability: *"I am happy to leave that ability under the
+'if you break it you get to keep both halves' rule.  The `--trusted`
+mode is only for us anyway."*  So `pwWritten`, the parser's `pw` field
+and the `annot` fixture suite all stay, and the one line worth saying
+is this: **in the trusted mode a supplied annotation is trusted
+unvalidated, by design.**
 
 **Gates, with the ruling in (all green).**  `lake build` warning-free
 (444 jobs); `lake test`; `tests/arena.sh` 0 FAIL — arena 90/92, e2e
@@ -45882,3 +45888,147 @@ init-full-pre2.ndjson`): **accept, 60 549 declarations, both modes**
   the extracted slice accepting).  Any other Type-valued indexed
   one-constructor family with artifacts downstream now installs the
   same way; a `.proj` on one would be the first such node in the corpus.
+
+## TRUSTED LICENCES — group B turned ON in the trusted mode (2026-09-06, `agent/trusted-licences`)
+
+**The user's ruling**, closing the "second ruling" the omission table
+above was recorded for:
+
+> the trusted mode is "the verified core with certification-only steps
+> omitted"; the group B reads are LICENCES — they skip work whose
+> correctness rests on an annotation that verified mode VALIDATES.  In
+> trusted mode the validation is omitted but the licence must still
+> apply: **trust the writer, skip the validation.**
+
+and, on the input-supplied annotation front door:
+
+> I am happy to leave that ability under the "if you break it you get
+> to keep both halves" rule.  The `--trusted` mode is only for us
+> anyway.
+
+So the mode's definition is now **exactly group A**, and the omission
+table's group B rows above were rewritten to "on in both modes".
+
+### THE `cfgT` DIFF — the whole implementation, in four field values
+
+`Setlec/Kernel/CoreCfg.lean`:
+
+| field | `cfgP` | `cfgT` before | `cfgT` after | group |
+|---|---|---|---|---|
+| `betaGate` | `true` | `false` | **`true`** | B (licence) |
+| `ioGate` | `true` | `false` | **`true`** | B (licence) |
+| `verified` | `true` | `false` | `false` | **A — the mode** |
+| `iotaMode` | `.verified` | `.trusted` | `.trusted` | inert (`ttChecks` is `false` at both) |
+
+`cfgT` therefore differs from `cfgP` in **`verified` alone**, plus the
+inert `iotaMode` — pinned as `cfgT_eq_cfgP_verified_off :
+cfgT = { cfgP with verified := false, iotaMode := .trusted }`, by
+`rfl`.  New `rfl` rows `cfgT_betaSkip` / `cfgT_betaGate` /
+`cfgT_ioGate` / `cfgT_verified` / `cfgT_iotaMode_ttChecks` state the
+mode; `cfgT_ioGate` flipped from `= false` to `= true`.
+
+**`cfgOf_trusted_eq_cfgT` is RETIRED, and its retirement is the
+ruling's one structural consequence.**  `cfgOf` maps a `CheckMode` for
+the *mode-parametric* towers and must keep `betaGate := mode.betaGate`
+there: `betaGateFires_off` (the dead-branch collapse) and
+`verified_isNever_of_betaGateFires` (the establishment/consumption
+fence) are both **false** at a `.trusted` whose gates are on, and both
+are load-bearing in the P tier.  So `cfgOf .trusted` and `cfgT` have
+parted company, recorded as `cfgOf_trusted_ne_cfgT`.  Nothing is
+proved about either, so the split costs no theorem — but it means
+`cfgT` is now the shipped trusted core's config and `cfgOf .trusted` a
+spelling nothing ships.
+
+### THE ONE INLINE EDIT: the io licence reads the datum alone
+
+`unless cfg.verified && mt.pw.isNever` → `unless mt.pw.isNever`, at
+`inferSpineIOI` (`Cached/CoreC.lean`), at its spec twin
+`inferBodyIO`'s app clause (`Kernel/Core.lean`) and at the pure mirror
+family `inferStepIO` / `inferSpineIO` / `inferSpineIOPi` /
+`inferSpineIOWhnf` (`Verify/BetaSpine.lean`).  Keeping the conjunct
+would have kept the inversion: `cfg.verified` is group A and is off in
+trusted, so the trusted mode ran a certificate the verified mode
+skips.
+
+**Why this weakens no proof.**  The licence's P-tier consumer,
+`infer_app_claimIOP`'s gated arm (`SetP/Step2/InferIOP.lean`), spent
+only `hg.2` — it fed `pwBit_ne_zero_of_isNever` the **datum** and
+never looked at the mode conjunct.  So `inferTypeCoreIO_app_inv`'s
+disjunct simply drops its left conjunct (`m'.pw.isNever = true ∨ …`),
+the arm's proof loses one `rw [Bool.and_eq_true]`, and
+`io_domain_transfer` is applied exactly as before.  Signature
+consequence, as at the mode rename: with no configuration read left,
+`inferSpineIOI` loses its `CoreCfg` and the four mirrors lose their
+`CheckMode`.
+
+`projCertAtI`'s second `Bool` and `cfg.iotaMode` were left alone:
+both are moot per the table (the projection certificate family is off
+in group A at `cfgT`; `ttChecks` is `false` at both modes), and
+neither cleanup is trivial — `iotaMode` retires with the ι cone's
+parameter, which is its own batch.
+
+### FIXTURE: the io battery's "mode-gated" guard is now "datum-only"
+
+`tests/SetlecTests.lean`'s io-gate battery pinned
+`inferTypeCoreIO .trusted … (ioRedex gateNever) == none` under the
+heading "THE io GATE IS MODE-GATED (law 1 (i))".  That guard was the
+old ruling, so it flipped: `.trusted` now answers
+`some (.sort .zero)`, and a companion guard keeps the arm
+**datum**-exact there (`gateMaybe` still `none`).  The β battery above
+it is untouched — the mode-parametric spec still reads
+`mode.betaGate`, and that is where the P tier's collapse lives.
+
+### FINDING: the flips are verdict- AND performance-neutral TODAY
+
+Reported because the omission table does not say it, and a reader
+would otherwise expect a number.  The table enumerates the config
+reads of `Cached/CoreC.lean`; **the shipped trusted lane is
+`Cached/CoreT.lean`**, a hand-written cert-skipping twin, and it
+reaches only four `CoreC` bodies at `cfgT` — `inferPisI`,
+`inferLamsI`, `etaCertI` and, at the front door, `inferBodyI`.  It
+does *not* use `whnfCoreStepI`/`whnfAppI`/`betaPeelI` (its `whnfCore`
+is `whnfCoreBodyT`), nor `coreKnotI` (its knots are `coreKnotT` /
+`coreKnotFT`), nor `inferBodyIOI`.  Consequently:
+
+* `cfgT.betaGate` and `cfgT.ioGate` are **not read anywhere on the
+  shipped trusted path**, so flipping them changes no run;
+* the io conjunct drop changes nothing at `cfgP` either
+  (`true && x` is `x` by `rfl`);
+* and the three rows the table called inversions were **not
+  inversions in the shipped lane**: `whnfAppT`/`betaPeelT` run *no*
+  β certificate at all, and `inferSpineT` runs *no* per-argument
+  certificate at all — strictly less work than either licence.  The
+  hand-written twin was already past the licence.
+
+So this batch makes the *configuration* say what the mode is, and the
+flips become live when B5/B6 retires `Cached/CoreT.lean` into a full
+instantiation of the shared bodies at `cfgT` — at which point the
+trusted lane inherits the licences instead of the inversions.  That is
+the sequencing the census already planned; the ruling is now recorded
+in the one place that batch will read.
+
+Measured confirmation: every verdict below is byte-identical to the
+mode-rename batch's, and `tests/trusted-expected.txt` needed **no
+change** (its 3 recorded divergences all survive, unchanged and for
+the same reason).
+
+### GATES (all green)
+
+`lake build` warning-free (444 jobs); `lake test` (after the one
+fixture flip above); `tests/arena.sh` **0 FAIL** — arena 90/92, e2e
+78/78, annot 14/14, retired flags 8/8, mode flags 16/16, trusted sweep
+138 arena + 78 e2e + 14 annot with the same 3 recorded divergences;
+layering base 235 / P 160 / caps 2 / umbrella 1, 0 base→lane edges, 0
+impl→theory; proofdeps 1 371 rows across 4 capstones, **0 doors**.
+`init-full-pre2` accepts in BOTH modes: `--trusted` exit 0 / 60 549
+declarations (169 s), `--verified` exit 0 / 60 549 declarations
+(167 s) — wall clock on a shared machine, not a perf figure.
+Every gate above was re-run **after** the `master` merge (which brought
+in `agent/nat-ops-official` and `agent/sigmahom`); the numbers are the
+merged tree's.  Axioms of `no_proof_of_Empty_SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `no_constant_of_Empty_P`,
+`prf_of_isProofFast`, `propIrrelPQ_of_claims`, `propIrrel_inv`,
+`propIrrelC_sim` and `trusted_agrees_P_skels_D`: exactly
+`[propext, Classical.choice, Quot.sound]`.  No perf number was taken —
+the batch is performance-neutral by the finding above, and the perf
+cadence resumes after the grant.
