@@ -915,8 +915,8 @@ theorem structEtaIrrelP_of_claims {m : EnvS2Core V env}
     hokA hokB hokW (fun σ hσ => (heqW σ hσ) ▸ hmemB σ hσ) ρ hρ
 
 /-- The frame conditions of an application's two immediate parts —
-`frame_appFnP`'s one-step twin, the shape the pinned pair's fixed
-four-argument spine is peeled with. -/
+`frame_appFnP`'s one-step twin (the unit-like row peels its spine with
+it). -/
 theorem frame_appP {m : EnvS2Core V env} {d : Nat} {Δa : List AVExpr}
     {f x : Expr} (hw : Expr.WScoped d (.app f x))
     (hb : (Expr.app f x).looseBVarsBounded 0 = true)

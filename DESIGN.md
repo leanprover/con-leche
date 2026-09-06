@@ -121,10 +121,13 @@ blocks discharge them at install from the checked `_model` theorems.
 `whnf`/`isDefEq`/`inferType` soundness consumes only the abstract facts
 and never identifies constants by name.
 
-Only the "basis" inductives get hand-written models: `Eq`, `Nat`, `PSigma'`,
-`PUnit`, `Quot` (plus the direct `Empty` clause). `PSigma'` and `PUnit` get
-custom models (level-zero-or-not case distinction may be needed). These live
-in modules analogous to `derived/` in nanodatg.
+Only the "basis" inductives get hand-written models: `Eq`, `Nat`,
+`PUnit`, `Quot` (plus the direct `Empty` clause).  `PUnit` gets a custom
+model (level-zero-or-not case distinction may be needed).  These live
+in modules analogous to `derived/` in nanodatg.  The preprocessor's
+`PSigma'` was a pinned basis block until task #175 W6 (2026-09-06); it
+is now an ordinary two-field simple structure on the direct install
+path (tower projection entries) — see the W6 record.
 
 Axioms: only the standard axioms are supported; anything else is
 "declined" (lean kernel arena exit convention).  This is a deliberate
@@ -38213,7 +38216,7 @@ accepted terms, so the branch is verdict-dead there).
 | W4c | premise discharge (item 2) + WF-hypothesis discharge + cached sims | pending (frontier enumerated below) |
 | W4 | install soundness (checklist items 1–2) | pending |
 | W5 | rewrite removal (P/parity), flip, battery | pending |
-| W6 | PSigma' retirement (gated) | pending |
+| W6 | PSigma' retirement (gated) | LANDED (2026-09-06; see the W6 record at the end of this file) |
 
 **W2b as landed** (2026-09-05): `directProjArgP`/`directProjResidP`/
 `directProjTyP` (`Kernel/Direct.lean`); `checkDirectProj`
@@ -42583,3 +42586,146 @@ three standard axioms.
 * Not done: stage 4 (not granted).  The design's "residual reader"
   (`residualClass`, the per-call `PUnit` question) is not needed under
   Option U and was not landed.
+
+## TASK #175 W6 — THE `PSigma'` PIN RETIRED (2026-09-06, `agent/w6`)
+
+### 0. What landed
+
+The pinned `PSigma'` basis block is gone: `Kernel/Basis/PSigma.lean`
+(the raw pin, the annotated forms, the two pair projection entries),
+`BasisKind.psigmaK`, the `PSigma'` reserved names and the frontend's
+block match.  The preprocessor's `PSigma'` block — `Sort (max u v)`,
+two fields, the **small** eliminator (its motive lands in `Prop`
+because `max u v` may be zero) — installs through the direct
+simple-structure path like any other recognised block: `directShape`
+already accepted the small-eliminator shape (W4c/O4), so the kernel
+change is a deletion.  With it: `pairEtaCert` and its cached twins
+(the stuck-irrel cascade is four arms; `structEtaCert` covers the
+pair), the `.proj` infer clause's computed two-member fast path (the
+tower branch is the whole clause), and the whole verification of the
+pin — `Verify/ProjPinInv` (`NativeProjPinned`), `SetBase/ProjPins`,
+`SetBase/PSigmaTower`, `SetP/BasisPSigmaP`, `SetP/Step2/ProjPinsP`,
+the pair rows of `ProjRowsP`/`CapsRowsP`/`StuckP`, `PinnedShapes`'
+pair identification, the `PSigma'` rows of `pinnedInfo`/
+`pinnedDirectT`/`BasisBlocks`.  `ProjOkT` is now `(native → tower) ∧
+(tower → TowerHead)`; `ConsHeadP.projHead` follows and `projPair` is
+gone; the two proj inversions state the tower residual
+unconditionally.  Six modules deleted, one added
+(`Verify/ExceptBind.lean`, the relocated `exceptBind_ok`); net
+−5 687 lines across 69 files.  The proofdeps pin: per capstone seven
+modules LEAVE (`Kernel.Basis.PSigma`, `SetBase.PSigmaTower`,
+`SetBase.ProjPins`, `SetBase.Spine2` — reached only through the pair
+rows —, `SetP.BasisPSigmaP`, `SetP.Step2.ProjPinsP`,
+`Verify.ProjPinInv`) and one ENTERS (`Verify.ExceptBind`, the door:
+the helper the closure already reached through `ProjPinInv`).  The
+modeled route's template entries and the projection functions serving
+`recSlotsAll` are untouched.  The semantic vocabulary `BConst.psigma`/
+`.psigmaMk` and `psigmaV2`/`psigmaMkV2` (`SetBase/Value.lean`) stay:
+they are the tower's carrier, not the pin.
+
+### 1. THE FINDING: the tower rule was gated where official is not
+
+With the pin gone, every preprocessed stream **rejected** at the
+preprocessor's own `PSigma'.fst_mk` — `PSigma'.fst (PSigma'.mk a b) ≡ a`
+by `rfl` at *symbolic* `u v`.  The tower rule's fire guard
+(`ProjEntry.fireOk`, W4c/O4) fired only where the structure's sort is
+**provably nonzero** (`Level.isNonZero`), which is neither true nor
+false at `max u v`; the pinned pair entries had been ungated, and
+their model (`sfst_pt`/`ssnd_pt`, `psigmaEta_law2`) was regime-free.
+Official's `reduce_proj` reduces every constructor redex.
+
+The guard is restated as the tower infer branch's own (official
+`infer_proj`'s placement): at a `Prop`-declared family the field's
+guard level must be a proposition at the use; every other family fires
+unconditionally.  The rule therefore fires on every constructor redex
+official reduces, except the data projection of a `Prop`-declared
+structure (`Exists.intro w h`.1) — a node official does not type
+either (`infer_proj`), so no accepted term contains it; that corner is
+an accept-subset of official's reduction, never a soundness gap.
+
+**The model licence at the squash instantiation.**  The tower law's
+iota clause (B) was stated in the graph regime only, off the
+application's grading: a graph-regime λ-tower pins every slot
+membership (graph rigidity).  At a squash instantiation the
+constructor application reads as the point and a bit-`0` grading pins
+nothing — an ill-typed spine's value is the point just as a well-typed
+one's is — so `interp (proj_i (mk x⃗)) = interp x_i` needs the
+selected field's value pinned by a **typing run**.  The pinned row had
+walked `projCert`'s run concretely at arity four
+(`psigmaMkSpineP`); the tower route needs it generically.  So
+`projCert` is now the constructor spine certified against the
+constructor's stored type at the redex's levels (`iotaCerts` — the
+same per-argument `inferIO` + `defeq` `inferSpine` performed inside
+the subject's run; the field's separate `inferIO` is dropped), and
+clause (B) takes the certified fit as a premise under
+`TowerGuardAt`: `entryIotaCoreZero` (`SetP/DirectEntryLawP.lean`)
+proves the squash case — the application is the point
+(`directMkAV_zero`, `foldl_app_pt`, `projS_pt`) and the fit puts the
+field in a proposition's domain (the O5 sort facts of the typing law,
+`mem_univ_zero`).  `towerGuardAt_of_fireOk` is the guard's semantic
+image (`TowerStructPos` is gone); `projStepP_of_claims` consumes
+`projCert_inv`'s run through the ι batch's licensed walk
+`certs_teleLicP` and the bridge `teleFitP_of_teleFitPA`
+(`teleFitP_of_inst0`, the fit un-instantiating under the ∀-chain
+guard).  **The lemma that licenses the fire at a squash instantiation
+is `TowerEntryLawP`'s clause (B) as discharged by `entryIotaCoreZero`
+(assembled in `DirectStageEntryP.stageEntry`), consumed at
+`projStepP_of_claims`.**
+
+The certificate is *licensed* like the ι slot's (`iotaCerts`'s
+`lic`): the spine is a subterm of the subject, so at the verified P
+mode a `.never` binder's certificate is skipped — every field binder
+of an ordinary `structure` — which is the io skip the retired two-run
+certificate had through `inferSpine`.  The parity core validates no
+annotation and takes no licence (`false`).
+
+### 2. Receipts and the measurement the coordinator asked for
+
+All at the merged tip (master `7b944127` = the ι batch + task #168):
+`lake build` 434 jobs warning-free; `lake test` green;
+`tests/arena.sh` exit 0 — tutorial 90/92, e2e 73/73 (`psigma_rec_eta`
+and `084_PSigma.snd` accept through the tower route), annot 14/14,
+retired/mode flags as expected, no-model sweep as expected, proofdeps
+1 357 rows as pinned, doors 0, layering 0 edges; axioms of the four
+capstones exactly `[propext, Classical.choice, Quot.sound]`; no
+`sorry`.  init-full-pre2 under `ulimit -v 16G`, `perf stat -e
+instructions:u`, single runs, **61 048 accepted in every cell**:
+
+| binary | init-full P | init-full parity | grind-ring-5 P | grind-ring-5 parity |
+|---|---|---|---|---|
+| M = master `7b944127` | 999.43 G | 1046.66 G | 37.63 G | 36.93 G |
+| X = W6 retirement + restated guard, the OLD two-run `projCert` | 1001.31 G (+0.19 %) | 1048.16 G (+0.14 %) | 37.82 G (+0.49 %) | 37.03 G (+0.28 %) |
+| F₀ = X + spine certificate, unlicensed (`lic := false`) | 1035.28 G (+3.39 % vs X) | 1085.70 G (+3.58 % vs X) | 38.40 G (+1.53 % vs X) | 37.66 G (+1.72 % vs X) |
+| **F = X + spine certificate, licensed (landed)** | **987.24 G (−1.41 % vs X, −1.22 % vs M)** | **1085.74 G (+3.58 % vs X, +3.73 % vs M)** | **37.55 G (−0.71 % vs X)** | **37.67 G (+1.72 % vs X)** |
+
+Reading: the retirement itself is free (M→X, the guard's extra
+level test); the certificate change alone is X→F₀ — +3.4–3.6 % on
+init-full and +1.5–1.7 % on grind-ring-5 in BOTH modes, the same
+absolute ~35 G, which says the old two-run certificate was cheap not
+because it certified less but because `inferIO e₂` on the whole
+application was a **memo hit** (the application had been inferred
+where it was typed), while the telescope walk re-derives the fit per
+fire.  The licence recovers P mode outright (F beats both X and M:
+the field's separate `inferIO` and the memo lookup are gone, and
+every `.never` slot is skipped), and cannot touch parity.
+
+### 3. Open, docketed
+
+* **The fire guard as an INVARIANT** (the user's docketed follow-up):
+  the certificate is per-fire work that official does not do at all;
+  the design endpoint is a fact established once — at the `.proj`
+  use's typing or at install — and consumed by the reduction rule with
+  no run, which would also close the parity gap.  Not attempted here.
+* **The parity core's `projCert`**: `CoreNC` keeps `projCertI`
+  "outside the task-#76 skip list" (an earlier ruling), and now pays
+  +3.6 % on init-full for a certificate official's `whnf_core` never
+  runs; whether the unverified core should drop it is a policy
+  question for the user, not this batch's.
+* **The reading's non-tower `.proj` clause** (`denoteP`/`denote`/
+  `denote2`'s `i < 2` branch) is now reachable only at entry-less
+  nodes, which never type; collapsing it is a reading-level ride
+  (nine `denoteP.induct` sites and the erasure law) and was not taken.
+* The template entries' `native = false ∧ tower = false` and the
+  `ProjEntry.native` field are now redundant with `tower` on every
+  stored entry; folding the field is a separate cleanup.
+

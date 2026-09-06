@@ -7,42 +7,33 @@ import Setlec.SetP.Step2.IotaGateP
 import Setlec.SetBase.SpineV
 
 /-!
-# The two semantic projection rows (task #161, PROJ/STR install tier)
+# The semantic projection rows (task #161, PROJ/STR install tier;
+task #175 W5/W6, the tower route)
 
-`InferProjStepP` (`Step2/InferP.lean`) and `ProjStepP`
-(`Step2/WhnfP.lean`), discharged.  Both are **pinned-basis** work: the
-projection table admits only `pairFstEntry`/`pairSndEntry`
-(`projEntry_pins`), so no stored family, no capability record and no
-`EnvS2PM` field enters either proof — the recipe is the caps tier's
-pinned-pair row (`pairEtaIrrelP_of_claims`) over the `psigmaV2` /
-`psigmaMkV2` laws in `Interp2/Value.lean`.
+`InferProjStepP`/`InferProjStepIOP` (`Step2/InferP.lean`,
+`Step2/InferIOP.lean`) and `ProjStepP` (`Step2/WhnfP.lean`),
+discharged.  Every native projection-table entry is tower-backed
+(`ProjOkT`, task #175 W6: the pinned `PSigma'` pair entries are
+retired), so every row is the tower law's (`TowerEntryLawP`, keyed on
+the entry by `TowerOkP`):
 
-## What each row costs
+* the two infer rows read the returned type as the checker's peel of
+  the stored entry type (`denoteP_instPisAt_peel`) and take the three
+  conclusions from the law's typing clause (A);
+* `ProjStepP`'s stuck branch is a congruence under the projection
+  reading; its firing branch is the law's iota clause (B) at the
+  constructor application's graded reading, with the certified spine's
+  fit (`projCert`'s `iotaCerts`, through the ι slot's licensed walk
+  `certs_teleLicP`, bridged to the value-level fit by
+  `teleFitP_of_teleFitPA`) as the squash-regime premise.
 
-`InferProjStepP` is the cheap half.  The subject's inferred type
-whnfs to `PSigma' A B`, `mem_psigmaV2_app` inverts that one
-application into the three facts the pair space is made of, and then
-everything is a `Value.lean` law: `sfst_mem2` for the first
-component's membership, `ssnd_mem2` for the second's, and
-`AnnotOk2_proj`'s own existential is *exactly* the triple
-`mem_psigmaV2_app` returns.  The returned type is `projResidualP`'s
-computed residual, so there is no `piResidualV` walk at all.
-
-`ProjStepP`'s firing branch is the expensive half, and the reason is
-structural rather than accidental: `whnfCore`'s projection clause has
-**no type for the scrutinee in its premises**.  What it has is
-`projCert`'s `inferTypeCore` run on the constructor application, and
-the four typing memberships `sfst_mk2`/`ssnd_mk2` need have to be
-walked out of that run — v1 does the same walk generically
-(`tele_of_inferSpineR`); here it is done concretely, because the
-constructor is pinned at arity four and each partial type is its own
-whnf (`whnf_forallE_eq`).
-
-A rigidity shortcut was looked for and does **not** exist: the
-constructor's grading alone puts `interp2 vp` in *some* sigma set, but
-in the `Prop` regime `psigmaMkV2` collapses the whole tower to `pt`,
-so an ill-typed spine's value is a member of a sigma set just as a
-well-typed one's is.  The memberships have to come from the run.
+Why the fit is a premise (the W6 finding): `whnfCore`'s projection
+clause has **no type for the scrutinee in its premises**; at a graph
+instantiation the application's grading pins every slot (graph
+rigidity), but at a squash instantiation the application is the point
+and a grading pins nothing — an ill-typed spine's value is the point
+just as a well-typed one's is.  The memberships have to come from the
+run, and `projCert` is that run.
 -/
 
 namespace Setlec.SetR.Interp2

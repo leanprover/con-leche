@@ -129,6 +129,8 @@ S6 (the residue) added:
 S7 (the de-basing's last wall) added `IndRecsCoreR`, `ProjFnRR`,
 `BasisRules` and `PSigmaTower` — the sixteen syntactic declarations
 the P lane had been resolving *through* the four dying imports.
+(`PSigmaTower` and `ProjPins` were deleted with the pinned `PSigma'`
+block at task #175 W6.)
 
 S8 (**THE ZERO-OPENER**) added `Bridge/*` — the whole
 checker-to-derivation bridge, twenty-two modules, from `Claims` to
