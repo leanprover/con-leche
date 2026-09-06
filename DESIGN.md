@@ -43359,3 +43359,232 @@ parity at 1030.66 G — below W6's X row (1048.16 G, the old two-run
 certificate), since S1's saving compounds.  Artefacts:
 `_tmp/s1/measure-k{2,3}.txt`, `_tmp/s1/arena-k3.log`,
 `_tmp/s1/Axioms.lean`.
+
+## THE DIVERGENCE AUDIT — reduction / defeq strategy vs the official kernel, clause by clause (2026-09-06, `agent/divergence-audit`, phase 1)
+
+**Trigger.**  The K-order bug (`agent/rat-frontier` 8480a8c9: `iotaRec`
+whnf'd the major before the K rescue where `inductive_reduce_rec` runs
+`to_cnstr_when_K` on the raw major) was a *cost* divergence — same
+verdict, exponentially different work — that killed the Mathlib stream.
+The user asked for a systematic sweep for more of the class, naming two
+suspects: the **`eagerReduce` gadget** and the **eq-true (`Bool.true`)
+heuristic**.  This section is the sweep: every clause of official's
+`whnf_core` / `whnf` / `is_def_eq_core` / `inductive_reduce_rec` /
+`quot_reduce_rec` / `reduce_nat` against OUR counterpart, classified.
+
+**Sources.**  Official = `_tmp/lean4-src/src/kernel/` at the toolchain
+tag `v4.33.0` (shallow clone; `type_checker.cpp` 1275 lines,
+`inductive.h/.cpp`, `quot.h`, `declaration.cpp`; the older
+`_tmp/lean4-master-kernel/type_checker.cpp` differs and is not used
+here).  Second reference: lean4lean `_tmp/lean4lean/Lean4Lean/
+TypeChecker.lean` (`isDefEqCore'`, `lazyDeltaReduction`, `whnf'`).
+Ours, on master `a1ee6e41` (the rat-frontier merge was not yet on
+master when this audit was read): the spec `Setlec/Kernel/Core.lean`
+(one body per function, both cores instantiate it), the executable
+twins `Setlec/Cached/CoreC.lean` (P) and `Setlec/Cached/CoreNC.lean`
+(parity, "mirrors official").  Line numbers below are those files' at
+`a1ee6e41`.
+
+**Classes.**  *same* — clause-for-clause; *cost* — same verdict,
+different work (the K-bug class; direction noted: "ours more" / "ours
+less"); *superset* — a reduction/acceptance official does not perform
+(forbidden by the match-reference ruling even when verdict-preserving,
+except the proofIrrel class under the 2026-09-03 conformance ruling);
+*subset* — official reduces/accepts where ours does not; *shape* —
+different result syntax, no verdict or cost consequence found.
+
+### 1. The two named suspects, answered first
+
+**`eagerReduce`** is `def eagerReduce {α : Sort u} (a : α) : α := a`
+(`Init/Core.lean:57`).  The kernel's recognition (`type_checker.cpp
+:160-178`): `infer_app` in *checking* mode (`!infer_only`), after
+inferring `f`'s Pi type and the argument's type, tests
+`is_eager_reduce(app_arg(e))` = head constant `eagerReduce` with
+exactly 2 arguments, and runs the argument's domain check
+`is_def_eq(a_type, d_type)` under `flet<bool> scope(m_eager_reduce,
+true)` (`type_checker.h:51-54`).  The flag is read at exactly two
+sites, both in `is_def_eq_core`'s territory: (i) `lazy_delta_reduction
+:1008` — the defeq-side `reduce_nat` attempt is guarded by "both sides
+fvar-free **or** `m_eager_reduce`"; (ii) the Bool.true heuristic `:1097`
+— "`t` fvar-free **or** `m_eager_reduce`".  That is all "more eagerly"
+means: *with free variables present*, literal folding and the
+whnf-to-`Bool.true` shortcut are still attempted.  No other reduction
+changes.  lean4lean: `TypeChecker.lean:299-301` (the app clause sets
+`Context.eagerReduce`), `:782` and `:820` (the two reads), plus a
+separate whnf fuel (`FuelConfig.whnfEager`).  Producers (v4.33.0
+sources): `Lean.Expr.lean:2415-2418` (`eagerReflBoolTrue/False`), used
+by `grind`'s arithmetic modules only (`Meta/Tactic/Grind/Arith/
+{Simproc,Cutsat/DvdCnstr,Cutsat/ToInt,Propagate}.lean`).  **Ours: no
+recognition anywhere** (`grep eagerReduce Setlec/ Main.lean` → 0 hits);
+the checking-mode app rule is `inferBody`'s `.app` clause
+(`Core.lean:1839-1851`, `r.defeq depth ta ty` = official's
+`is_def_eq(a_type, d_type)` in that order) with no flag, and neither
+guarded site has a second condition.  **Use counts** (const references,
+name table looked up first): init-full-pre2 **1** (`Nat.mul_add_div`,
+decl index 19759 — accepted today); mathlib-full-pre **1** (the same
+theorem; name index 21837).  So today's effect is nil; the class is
+"grind-generated proofs over open terms": at an `eagerReduce` argument
+official folds `Nat` literals inside open terms where ours grinds them
+unarily — exactly the K-bug/`Int32` (task #94) class, verdict-
+preserving until fuel.  Ranked low-urgency, mirror-for-completeness.
+
+**The eq-true heuristic** is `is_def_eq_core:1093-1101`, the SECOND
+clause of `is_def_eq_core` (after `quick_is_def_eq`, before the
+`cheap_proj` `whnf_core` pair and before proof irrelevance): if `s` is
+the constant `Bool.true` and (`t` has no fvars or the eager flag), then
+`whnf(t)` — the full cached `whnf` (`:671`, the `whnf_core → reduce_native
+→ reduce_nat → unfold_definition` loop) — and `true` iff the result is
+`Bool.true`; on failure it falls through (no commit).  Asymmetric: only
+the *right* side (`s`; at the app rule the *expected* domain) is tested
+for `Bool.true`.  lean4lean `:820-821` identical.  **Ours: absent**
+(`boolTrueName` is used only by `natOpResult`).  Verdict: the shortcut
+proves nothing lazy delta cannot — `whnf` = iterated `whnf_core`
++ `reduce_nat` + one unfold, and lazy delta unfolds the delta side one
+step at a time with `whnf_core(cheap_proj)` in between — EXCEPT under
+the eager flag with fvars, where lazy delta's `reduce_nat` is guarded
+and `whnf`'s is not (that is the eagerReduce item again).  Cost: one
+memoised `whnf` versus one lazy-delta iteration per unfolding, each
+iteration in ours re-running the whole `defeqStep` (D3 below).  On
+`decide`-style terms (`of_decide_eq_true p inst (Eq.refl true)`) the
+heuristic does NOT fire even in official — the argument comparison
+there is `true =?= decide p` (inferred left, expected right), `s` is
+not `Bool.true`; it fires on `rfl : decide p = true` /
+`Nat.ble a b = true` shapes and on `eagerReflBoolTrue` uses.  So the
+heuristic is a cost item riding on D3, not a verdict item.
+
+### 2. The table
+
+Official clause (file:line at v4.33.0) → ours (spec `Core.lean` / P
+`CoreC.lean` / parity `CoreNC.lean`) → class → note.
+
+| # | official | ours | class | note |
+|---|---|---|---|---|
+| **whnf_core** `type_checker.cpp:430-513` | | | | |
+| W1 | easy cases return `e`; `MData` unwrapped; let-fvar zeta (`:371-379`) | `whnfCoreBody :1595-1603`; NC `:349-350` | same / shape | ours has no let-fvars (lets are zeta'd at `infer`/`annotate` — DESIGN "letE lazy zeta"); no `MData` |
+| W2 | cache `m_whnf_core` keyed on `e`, skipped when `cheap_rec ∨ cheap_proj` (`:452-455, :509-511`) | `whnfCoreC` memo (`coreKnotNC :743`, `coreKnotI`) | same | ours has no cheap flags, so every result is cached |
+| W3 | App: `whnf_core(f0)`; if λ, instantiate as many args as binders then `whnf_core` (`:476-486`) | `whnfAppNC :296-314` / `betaPeelNC :318-335`; spec `:1604-1627` | same (parity) / cost (P: per-redex argument certificate `inferIO`+`defeq`, the known cert tax) | β peel matches |
+| W4 | App: `f == f0` → `reduce_recursor(e)` ONCE on the whole spine; recursor fires at `≥ major_idx+1` args, extras appended (`:487-498`, `inductive.h:104-110`) | `whnfAppNC :303-309` tries `iotaRecNC` at EVERY spine prefix (`internI (.app v a)` per prefix); `iotaRec` requires EXACT arity `args.length = mI + 1` (`:1386`, NC `:237`), extras handled by the outer walk | cost (ours more, linear in spine length; one allocation + env lookup per prefix) | same verdict; DESIGN F5 records the exactness |
+| W5 | App: head changed → rebuild and `whnf_core` again (`:499-501`) | the same walk continues on the new head | same | |
+| W6 | Proj: `reduce_proj` — struct reduced by `whnf_core` under `cheap_proj`, by `whnf` otherwise; string-literal struct expanded and whnf'd; ctor of the SAME inductive; `nparams+idx < nargs` (`:382-416`) | `whnfCoreBody :1632-1665`; NC `:356-378` — ALWAYS `r.whnf` on the struct, then `projLitToCtor`, table entry, arity | **cost, both directions** (no `cheap_proj` first pass — see D5) / same verdict | ours also REBUILDS the stuck proj over the whnf'd struct (`.proj sn i e'`), official returns the original `e` (`:470`) — shape, feeds D5 |
+| W7 | Let: instantiate body (`:504-506`) | `:1666-1671`; NC `:379-381` | same | |
+| **reduce_recursor** `:356-369` | | | | |
+| R1 | `quot_reduce_rec` first (when quot initialised), then `inductive_reduce_rec` (`:357-366`) | `Quot.lift`/`Quot.ind` are stored as `recInfo` with one rule on `Quot.mk` (`Setlec/Kernel/Basis/Quot.lean:24-26`), reduced by `iotaRec` like any recursor | same verdict / shape | official `quot_reduce_rec` (`quot.h:39-70`): `whnf` the mk argument, `Quot.mk` with exactly 3 args, `f a` + extras; ours: same via the rule; our `majorToCtor` never fires on it (`Quot` is reserved, no caps) |
+| R2 | `cheap_rec` — only ever `false` (lean4lean: "nothing has set it since lean4#9275") | n/a | same | |
+| **inductive_reduce_rec** `inductive.h:76-111` | | | | |
+| I1 | major = `rec_args[major_idx]`; **if `is_k`: `to_cnstr_when_K` on the RAW major**; then `whnf`; then nat-lit → ctor / string-lit → `whnf(ctor form)` / else `to_cnstr_when_structure` (`:85-94`) | master `iotaRec :1387-1389` (NC `:239-241`): `whnf` → `litMajorToCtor` → `majorToCtor` (K and η both AFTER the whnf) | **cost — FIXED on `agent/rat-frontier` 8480a8c9** (`prepareMajor{,I,NC}`; not on master at audit time) | the K-order bug; the fix mirrors `:85-94` exactly |
+| I2 | K guard: `rec_val.is_k()` = block has ONE inductive type ∧ result level `normalizes_to_zero` ∧ one constructor with 0 fields (`inductive.cpp:551-572`) | `caps.ruleK = (nF == 0 && piResultIsProp cvT.type)` (`DeclCheck.lean:289`, `Modeled.lean:718`; `piResultIsProp :150` is `Level.isEquiv u .zero`) ∧ `rules = [rl]` ∧ `cnF = 0` (`majorToCtor :1181-1189`) | same, except **superset V1**: no "not a mutual block" test — a mutual Prop block whose recursor has a single rule (one nullary ctor, the other types empty) K-rescues in ours, never in official | unreachable in real streams; recorded |
+| I3 | `to_cnstr_when_K` (`inductive.h:28-48`): `whnf(infer(major))`, head must be the major's inductive, `mk_nullary_cnstr` (first ctor at the params), `is_def_eq(app_type, infer(fab))` | `majorToCtor :1189-1237`; NC `:163-183` — same steps, same defeq ORDER (whnf'd major type first), plus three scoping guards + `stripPis`/level-arity pins (F6) and, at P, `iotaCerts` on the fabrication + `proofIrrel` (the soundness certificate) | same (parity) / cost (P certs) / **subset (F6)**: the extra guards can silently refuse a rescue official performs | F6 is on record (task #172 B1); no stream has hit it |
+| I4 | `to_cnstr_when_structure` (`:59-71`): `is_non_rec_structure` ∧ not already a ctor app; `whnf(infer(e))` head is the inductive; struct sort NOT `normalizes_to_zero`; `expand_eta_struct` = ctor at params applied to `.proj` nodes — NO certification | `majorToCtor :1238-1298`; NC `:184-214`: `caps.eta`, `piResultNeverZero` (the same non-Prop test, instantiated), then `structEtaCertWith fab major tmaj` (fields vs projections — the pairs are syntactically equal, so `a == b` hits) and the `Name.isProjFnShape recName = false` exclusion (F6) | same verdict where the caps agree; cost ≈ 0 (the certificate's pairs are identical terms) | `caps.eta` is install-computed (`checkEtaThmF`), official's `is_non_rec_structure` is structural — any block where the cap is refused is an accept-subset; none known |
+| I5 | `get_rec_rule_for` by ctor name; `nfields ≤ major_args`; level arity of the recursor; rhs at the recursor's levels, applied to `nparams+nmotives+nminors` rec args, then the major's fields (skipping `major_args − nfields`), then the extras (`:95-110`) | `iotaRec :1390-1451`; NC `:242-279` — rule by ctor; `margs.length = ctorParams + nfields` EXACT (F5); level arity (checker change #9); rhs at `us`; `args.take rP ++ margs.drop ctorParams` | same | plus (both cores) the ctor↔recursor level-linkage comparison and the nested-rule comparands (F5, install-certified modes) and (P) the two `iotaCerts` telescopes + `iotaIndexOk` (cert tax) |
+| I6 | `nat_lit_to_constructor` (`inductive.cpp:1267`), `string_lit_to_constructor` + `whnf` (`:1276`, `inductive.h:90-92`) | `litMajorToCtor :1311-1316`, `projLitToCtor :1327` | same | |
+| **whnf** `:671-711` | | | | |
+| N1 | easy cases uncached; `m_whnf` cache; loop `whnf_core → reduce_native → reduce_nat → unfold_definition` | `whnfStep :1701-1709` (`whnfCore → reduceNat → unfoldDefinition`); `whnfC` memo | same, minus `reduce_native` | |
+| N2 | `reduce_native` (`:576-597`): `Lean.reduceBool c` / `Lean.reduceNat c` run compiled code | none; `Lean.ofReduceBool/Nat` are pinned trust axioms whose USES are skipped at parse and decline the stream at the end (`TrustAxioms.lean`, "taint skip-and-continue") | **subset by design** (decline, exit 2) | the standing no-custom-axiom ruling; not a strategy item |
+| N3 | `unfold_definition` (`:517-564`): `is_delta` = head constant with a value (definitions AND theorems, `declaration.h:230`) at matching level arity; level-polymorphic instantiations cached (`m_unfold`) | `unfoldDefinition :212-234` (defn + thm), `unfoldableHead :236`; `constValAt` memo (`unfoldDefinitionI CoreC:52-72`) | same | |
+| N4 | `reduce_nat` (`:639-668`): `Nat.succ` (1 arg) and 14 binary ops `add sub mul pow gcd mod div beq ble land lor xor shiftLeft shiftRight`, head an EXACT level-free constant, arity exact; `reduce_bin_nat_op` whnf's ARG 1, returns `none` if not a literal WITHOUT touching arg 2 (`:606-614`); `is_nat_lit_ext` = literal or `Nat.zero` (`:599`); `reduce_pow` refuses exponents `> 2^24` (`:616-627`) | `reduceNat :752-798`; `reduceNatI CoreC:83-160` — `match rawNatLit? (← r.whnf a), rawNatLit? (← r.whnf b)` whnf's BOTH arguments before matching (`:787-788`, `CoreC:140-141`); `rawNatLit? :345` accepts `Nat.zero`; additionally reduces **`Nat.pred`** and **`Nat.log2`** (`:764-771`) which official's list lacks; **no pow cap** (`natOpResult :610`, `a ^ b` unbounded) | **D15 cost (ours more) — witnessed**: the second argument is whnf'd even when the first is stuck; **S1 superset**: `pred`/`log2` fast paths; **S2 superset**: no `2^24` pow cap (official grinds `Nat.pow` unfolded instead; ours computes, or allocates without bound) | witness `_tmp/divergence-audit/src/natop_arg_order.lean` (`Nat.add o (slow 40000) = Nat.add (id o) (slow 40000)` with `o` opaque): official 0.221 G (control without the computation 0.204 G — official never evaluates `slow`), parity 16.13 G, P 14.04 G; at `slow 80000` official 0.221 G accepts, **parity exit 3** (fuel, 33.1 G) — the K-bug class, verdict-visible |
+| **is_def_eq_core** `:1086-1162` | | | | |
+| E1 | `quick_is_def_eq` (`:770-793`): equivalence manager (union-find + structural walk modulo it, `use_hash`), then by kind: λ/Π → `is_def_eq_binding` (all nested binders in ONE loop, domain compared only when syntactically different, `:720-747`); Sort → level equivalence; Lit → value equality | `defeqStep :2075` `a == b` (structural); binder/sort/lit dispatch LATER, in the `false,false` arm (`:2169-2240`) one binder per `defeq` call | **cost (ours more)**: (a) no equivalence classes — `f a b =?= f a' b'` with `a ~ a'` known needs the full step; (b) the binder/sort/lit dispatch runs AFTER `whnfCore` (no-op on them) and AFTER `propIrrel` (D4) | |
+| E2 | Bool.true heuristic (`:1093-1101`, §1) | absent | cost (ours more; rides on D3) | |
+| E3 | `whnf_core(t, cheap_proj=true)`, same for `s`; `quick_is_def_eq` again if either changed (`:1110-1116`) | `:2076-2078` — `whnfCore` (never cheap: projections' structs fully whnf'd, W6), `a' == b'` | **D5 cost, both directions**: official's first pass leaves `a.i =?= b.i` with `a`, `b` merely head-normalised and tries `a =?= b` (E7) before ever whnf'ing a struct; ours whnf's both structs (delta included) at the first touch | `tryUnfoldProjApp`/`cheapProj` are on record as deferred (DESIGN "Defeq-side Nat folding", 2026-08-24) |
+| E4 | `is_def_eq_proof_irrel` (`:866-873`): `infer(t)`, `is_prop` (whnf'd sort normalises to zero), `infer(s)`, **`is_def_eq(t_type, s_type)` — commits `false`**; runs ONCE, before lazy delta | `propIrrel :920-943` (P: head-symbol arms `notProofFast`/`isProofFast`, `PropRead.lean:140-147`; parity: the two io inferences + whnf + level test per side) at `:2089`; no type comparison; `false` falls through | proofIrrel class — **STAYS** (2026-09-03 conformance ruling, both halves) | |
+| E5 | `lazy_delta_reduction` loop (`:1003-1029`): per iteration `is_def_eq_offset` (`Nat.zero`/lit 0; `succ`/lit peel, commits) → guarded `reduce_nat` on `t` then `s` (restart `is_def_eq_core` on success) → `reduce_native` → `lazy_delta_reduction_step`; after a delta step ONLY `quick_is_def_eq` (`:965-969`), then the next iteration | `defeqStep :2106-2167`: the loop is `defeqLoop :2292` re-entering the WHOLE step through `k` — after every unfolding: `a == b`, `whnfCore` both, `a' == b'`, **`propIrrel`**, `reduceNat`, then the delta decision | **D3 cost (ours more) — witnessed**: `propIrrel` re-runs at every delta step (official: once); the re-run's answer cannot differ (a proof stays a proof under unfolding), so it is pure waste — DESIGN task #168 census: 8.6 M hoist calls on init-full; witness `delta_chain.lean` (2 000-step lockstep chains, `c2000 = d2000 := rfl`): official 9 M instructions for the theorem (0.547 − 0.539 G control), parity 44 M (1.403 − 1.360 G) = **5× per step**; P the same | offset placement is equivalent (`Nat.succ`/literals are never delta, so official's offset also only decides at the non-delta stage); the `fold` guard is E5's `:1008` (task #94) |
+| E6 | `lazy_delta_reduction_step` (`:914-971`): one side delta → **`try_unfold_proj_app` on the OTHER side first** (`:898-905`: a proj-headed side is `whnf_core`'d with full whnf instead of unfolding the delta side), else unfold + `whnf_core(cheap_proj)`; both delta → `compare(hints)` (`declaration.cpp:24-48`: regular by height, abbrev before regular, opaque last, equal kinds/heights → both); same decl ∧ regular → `failed_before` cache, levels + `is_def_eq_args`, else `cache_failure`; then unfold both | `:2126-2167`; NC `:524-555`: `unfoldableHead` decision, `ReducibilityHint.lt` (`Env.lean:168-181`, checked against `compare` case by case — identical), `sameRegular ∧ sameConstHeads` → `defeqSpine :2038` (levels + args), else unfold both; no failure cache | same order/verdict; **cost**: no `try_unfold_proj_app` (subsumed by D5 — ours already whnf'd the struct), no failure cache (E6b; the `defeqC` memo caches the argument pairs, so a repeat costs `O(nargs)` lookups) | the `sameRegular` guard is the 2026-08-21 ruling |
+| E7 | after the loop: same-name constants with equivalent levels; same fvar; `proj`/`proj` same struct+idx → `lazy_delta_proj_reduction` (`:1038-1055`: lazy-delta the two structs, then compare fields if both became ctor apps, else `is_def_eq_core` on the structs) | `false,false` arm `:2207-2215` (const/fvar), `:2268-2277` (proj: `r.defeq e₁ e₂` on the ALREADY whnf'd structs, then `stuckIrrel`) | same verdict; cost = D5 | |
+| E8 | second `whnf_core` (full, `:1140-1143`) and recurse if anything changed | n/a — ours was full from the start | same | |
+| E9 | `is_def_eq_app` (`:845-862`): heads defeq, equal arg counts, args pairwise | `:2241-2267`; NC `:623-634` — equal counts, heads, `defEqList` | same | official checks heads BEFORE counts; ours counts first — trivial |
+| E10 | `try_eta_expansion` both directions (`:808-820`): `whnf(infer(s))` is a Pi → `is_def_eq(t, λ x:dom(s). s x)` → binding: `(dom t, dom s)` then bodies | `etaCert :1113-1134`; NC `:640-645` — `whnf(inferIO b)` Pi → `defeq ty₂ ty₁` (**argument order reversed**: (dom s, dom t)) → bodies | same verdict; cost-neutral except the memo key and the (absent) Bool.true asymmetry | |
+| E11 | `try_eta_struct` both directions (`:823-839`): **syntactic guard first** — `s`'s head is a constructor with exactly `nparams+nfields` args and `is_non_rec_structure`; only then `is_def_eq(infer t, infer s)` and `proj_i t =?= s_i` | `stuckIrrel :1141-1146` → `structEtaCert :1073-1078`: **`inferIO b` + `whnf` FIRST**, then `structEtaCertWith` tests `a`'s constructor shape (`:1005-1009`); NC `:101-105` the same; unit-like `structUnitCert :1084` | **D13 cost (ours more)**: two inferences + whnfs per stuck pair per direction before the constructor test official does for free | stuck fallback reached 7 566× on init-full (task #168 census) — small today |
+| E12 | `try_string_lit_expansion` (`:1060-1071`): literal vs `String.ofList _` (exact unary app of the const) → `is_def_eq_core(whnf(ctor form), s)` — the expansion is whnf'd FIRST (`String.ofList` is a definition; `String`'s constructor is `String.ofByteArray`, `Prelude.lean:3537`) | `:2199-2206`; NC `:583-598` — same guard, `r.defeq (strLitToConstructor st) b'` with the RAW expansion; the loop then meets `String.ofList l =?= String.ofList l'` at equal regular hints → spine (`l =?= l'`) | cost (ours LESS: official unfolds both to `ofByteArray` forms and compares byte arrays) / same verdict | listed for exactness; no fix proposed unless the user wants byte-for-byte |
+| E13 | `is_def_eq_unit_like` LAST (`:1074-1084`) | `stuckIrrel :1145` (`structUnitCert`) then `proofIrrel :1146` whose unit branch (`:885-888`) covers the basis `PUnit` | same verdict; order differs (ours before the proofIrrel copy) | |
+| E14 | `is_def_eq` wrapper adds every success to the equivalence manager (`:1164-1169`) | `defeqC` memo `(a, b) ↦ Bool` (`coreKnotNC :753`, `memoBI`), true AND false results, exact pair | same verdict (deterministic); cost: E1(a) | |
+| **infer** (checking mode) | | | | |
+| T1 | `infer_app` `!infer_only` (`:165-179`): `ensure_pi(infer f)`, `infer a`, `is_def_eq(a_type, d_type)` — under the eager flag when the argument is `eagerReduce _ _` | `inferBody .app :1839-1851` (`r.defeq depth ta ty`, same order); no flag | **D2 subset-in-strategy** (§1; verdict-preserving until fuel) | fix = a flag threaded to E2/E5's guards |
+| T2 | `infer_lambda` ends with `cheap_beta_reduce(r)` (`:132`) | none | shape | on record (task #172 B1 table) |
+| T3 | `infer_proj` (`:239-284`) walks the ctor type with the field-sort restrictions | `:1852-1886` walks the table entry (task #175 S1) | same verdict (F9 on record) | |
+| T4 | `infer_let` (`:200-222`) type/value checks, let-fvar | `:1887-1898` same checks, zeta'd body | same | |
+
+### 3. Ranked fix list (phase 2 proposals)
+
+Cost-only (no verdict class change; may proceed without a go):
+
+1. **D15 — `reduceNat` argument order** (N4).  Whnf the first argument,
+   bail if not a literal, only then the second — `reduce_bin_nat_op`
+   verbatim.  Witnessed as a verdict-visible fuel death at `slow 80000`
+   (official accepts).  Spec `reduceNat :787-788` (+ the `natOpWfNames`
+   safety net `:792-793`), `reduceNatI CoreC:140-141, :152-153`; P
+   proof: the fold's consumers read the two whnf runs — sequencing
+   them under a `match` on the first cannot lose a produced fact.
+   Smallest change, biggest witnessed effect.
+2. **D3 — proof irrelevance once per `is_def_eq_core`, not per delta
+   step** (E5).  Restructure `defeqStep`/`defeqLoop` into official's
+   two-phase shape: outer (quick, `whnfCore`, quick, `propIrrel`), inner
+   lazy-delta loop (offset, guarded `reduceNat`, delta step, quick
+   check after each unfolding), post-loop structural arms.  Witness:
+   5× per step; init-full carries 8.6 M hoist calls.  This is also
+   where E2 (the Bool.true heuristic) and D2 (the eager flag) slot in
+   naturally, and where D4 (binder/sort/lit dispatch before
+   `propIrrel`) lands as a by-product — see the verdict-class caveat
+   below.  P proof: the per-step facts are produced by the same
+   bodies; only the order of the (unchanged) branches moves.
+3. **D13 — constructor-shape test before the inferences in
+   `structEtaCert`** (E11).  Reorder only.
+4. **W4 — one iota attempt per spine** instead of per prefix.  Touches
+   `iotaRec`'s exact-arity contract and `IotaRowsP`; defer unless
+   measured worth it.
+5. **D5 — `cheap_proj` first pass** (E3/E6/E7/W6).  The largest
+   restructuring (a second `whnfCore` entry, `tryUnfoldProjApp`,
+   `lazyDeltaProjReduction`); on record as deferred; both-direction
+   cost; no witness built (needs `instFoo.1 a` vs expensive-term
+   shapes).  Recommend after 1-3 are measured on init-full.
+
+Verdict-class changes (WAIT for the user's go):
+
+6. **D2 — `eagerReduce` recognition** (T1/E2/E5): an eager flag set by
+   the checking-mode app rule at an `eagerReduce _ _` argument, read at
+   the `reduceNat` fold guard and (if E2 lands) the Bool.true clause.
+   Accept-superset today (verdict-preserving until fuel; 1 use per
+   stream, accepted).  Parity: a `CState` flag saved/restored around
+   the call; P: the fold theorem holds with the guard either way (the
+   guard is strategy) — needs confirming in `Setlec/SetP`.
+7. **E2 — the Bool.true heuristic**: mirror at `defeqStep`'s second
+   clause (right side `Bool.true`, `a'` fvar-free or eager, full
+   `whnf`).  Verdict-preserving (a `whnf` result is what lazy delta
+   reaches); cost win on `rfl : … = true` shapes; P proof: the whnf
+   run is produced like every other whnf.
+8. **D4 — quick dispatch before `propIrrel`** (E1(b)): for λ/λ, Π/Π,
+   sort/sort, lit/lit pairs official never runs proof irrelevance at
+   the node.  Cost win for parity (P's `notProofFast` arm already
+   refuses binders).  BUT it removes an accept-superset instance:
+   today two λ-proofs with non-defeq domains are accepted by
+   `propIrrel` before binder congruence; official (and ours-after)
+   commit `false` at the domains.  Inside the proofIrrel conformance
+   class (the missing type comparison) — the user rules.
+9. **S1/S2 — `Nat.pred`/`Nat.log2` fast paths and the `2^24` pow cap**
+   (N4).  Strategy supersets by the letter of the ruling; removing
+   `pred`/`log2` makes those literal applications grind (official
+   grinds them too); the cap makes `a ^ b` with `b > 2^24` grind
+   instead of computing.  Zero payoff, ruling-compliance only — the
+   user decides.
+10. **V1 — K on a mutual Prop block** (I2): add official's "single
+    inductive type" condition to `ruleK`.  Unreachable in real streams.
+
+Out of scope, recorded: N2 (`reduce_native`, by design), E4 (the
+conformance ruling), F5/F6/F9 (task #172 B1's check-tax table), T2.
+
+### 4. Receipts (phase 1)
+
+Read-only on master `a1ee6e41`; witnesses under
+`_tmp/divergence-audit/{src,out}` (sources also committed at
+`tests/e2e/src/natop_arg_order.lean`, `delta_chain.lean` for phase 2's
+fixtures), exported through `lean-inductive-models/scripts/
+export-fixture.sh` (raw, `--#export`), preprocessed once, both checkers
+on the `.pre` file, `perf stat -e instructions:u`, `ulimit -v 16G`,
+`timeout 3000`, one run at a time:
+
+| stream | official | parity | P |
+|---|---|---|---|
+| `natop_ctrl` (second arg `5`) | 0.204 G | 0.252 G | — |
+| `natop_arg_order` (`slow 40000`) | 0.221 G | 16.13 G | 14.04 G |
+| `natop_2x` (`slow 80000`) | 0.221 G, accept | **exit 3**, 33.08 G | — |
+| `delta_ctrl` (4 002 defs, no theorem) | 0.539 G | 1.360 G | — |
+| `delta_chain` (+ `c2000 = d2000 := rfl`) | 0.547 G | 1.403 G | 1.404 G |
