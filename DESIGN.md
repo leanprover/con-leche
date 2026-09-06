@@ -45288,3 +45288,19 @@ instruction counts of the same binaries are flat.
 measurable payoff on any stream at hand (each saves a handful of iota
 steps per literal use), and no cost; per the user's ruling they stay.
 The only fix worth having in this family was S2 (the cap), landed.
+### 14. Phase 2 closed — status per row (2026-09-06)
+
+| row | status |
+|---|---|
+| D15 (`reduceNat` argument order) | **landed** — master `494173b2` (with the phase-1 table); regression fixture `natop_arg_order` |
+| D3 (proof irrelevance once per entry) | **landed** — master `10eefcf1`; the prize: 5× → 2.4× per delta step on the witness |
+| E2 (the eq-true shortcut) | **landed** — master `10eefcf1` (rode D3) |
+| D13 (struct-eta shape gate before inferring) | **landed** — master `791bf869` |
+| D4 (no proof irrelevance on quick pairs) | **landed** — master `f42cd259`; verdicts unchanged on init-full and the suites |
+| V1 (K on a mutual block) | **withdrawn by inspection** — an install-time invariant already (§11); master `f0009992` (record only) |
+| S1 (`pred`/`log2` fast paths) | **withdrawn by the user** — nobody grinds (§13); the fast paths stay |
+| S2 (the pow cap at 2^24) | **landed** — this branch (`agent/divergence-s12`) |
+| W4 (one iota attempt per spine) | **deferred to the docket** — touches `iotaRec`'s exact-arity contract and `IotaRowsP`; cost linear in spine length, no witness built |
+| D5 (`cheap_proj` first pass, `tryUnfoldProjApp`, `lazyDeltaProjReduction`) | **deferred to the docket** — the largest restructuring (a second `whnfCore` entry + two lazy-delta helpers), both-direction cost, no witness built |
+| eager flag (item 6) | **deferred to the docket** — §8: full six-field threading (283 sites + ~770 lemma mentions) vs defeq-cone-only (57 + ~170, whnf-nested residual); separate memo tables either way; 1 use per stream, accepted; a cost divergence, not a verdict one |
+| E4 (proofIrrel type comparison / fall-through), N2 (`reduce_native`) | **stay** by the standing rulings |
