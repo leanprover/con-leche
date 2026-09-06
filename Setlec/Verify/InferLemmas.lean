@@ -2670,7 +2670,9 @@ theorem natOpResult_shape {c : Name} {a b : Nat} {e₂ : Expr}
   rw [if_neg h4] at h
   by_cases h5 : c = natPowName
   · rw [if_pos h5] at h
-    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+    split at h
+    · exact nomatch h
+    · exact Or.inl ⟨_, (Option.some.inj h).symm⟩
   rw [if_neg h5] at h
   by_cases h6 : c = natDivName
   · rw [if_pos h6] at h
@@ -2744,7 +2746,10 @@ theorem natOpResult_atom {c : Name} {a b : Nat} {e₂ : Expr}
   · rw [if_pos h4] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
   rw [if_neg h4] at h
   by_cases h5 : c = natPowName
-  · rw [if_pos h5] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  · rw [if_pos h5] at h
+    split at h
+    · exact nomatch h
+    · exact Or.inl ⟨_, (Option.some.inj h).symm⟩
   rw [if_neg h5] at h
   by_cases h6 : c = natDivName
   · rw [if_pos h6] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩

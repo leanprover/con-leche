@@ -44854,6 +44854,457 @@ directions: cheap changes buy nothing measurable, and the change that
 buys 2 % costs a universe context threaded through the whole
 verification tier.
 
+## The Mathlib frontier ladder: `.proj` on a mutual-block member — a *recognizer* gap, and the residue outside the projection functions is **zero** (2026-09-06, `agent/next-frontier`)
+
+With the K-order fix on master (`e736f24d`) the full Mathlib stream
+reaches record **154 248 of 727 270 (21.21 %)** and declines:
+
+    setlec: not implemented yet: projection on a non-structure-like type
+      [at def Lean.Meta.Grind.AC.DiseqCnstr.lhs]
+
+This section is the decision-grade characterization of that frontier
+(the fix is a separate task, `agent/proj-rec`).  **The headline is
+§4: across the whole 727 270-record stream, every single `.proj` node
+on a type our recognizer rejects sits inside that type's own
+elaborated projection function.  There are 65 such nodes, 65 such
+declarations, and 0 uses anywhere else.**
+
+### 1. Reproduction on a dependency-cone slice
+
+The reference slicer (`_tmp/rat-frontier/slice_decl.py`) does its
+backward marking by seeking per line, which on the 20 562 189-line
+prefix means ~170 GB of buffered reads *per sweep*; after 35 min and
+2.7 TB of reads it had completed two sweeps and was still growing.  Its
+replacement, `_tmp/next-frontier/slice_fast.py`, keeps the same
+contract (transitive constant cone + `_model` companions; all `in`/`il`
+intern records kept verbatim, which needs no name or level closure)
+but does the marking **in memory** off a flattened array form of the
+expr DAG — two forward passes, **43 s** on the 5.82 GB stream.  It was
+validated by re-slicing the Rat frontier's own target out of
+`rat-slice-pre.ndjson` and having the official kernel accept the result.
+
+Slice: `_tmp/next-frontier/diseq-slice-pre.ndjson`, **44 414 102 B,
+910 205 lines, 1 409 declaration records** (the bulk of the bytes are
+the 839 850 retained name records, not the cone).
+
+| checker (master `e736f24d`, binary `f2d13687…`) | verdict | wall |
+|---|---|---|
+| official v4.33.0 `kernel` | **accept, 1 740 declarations** | 1.75 s |
+| setlec `--set-model=p --pre` | **exit 2** — `projection on a non-structure-like type [at def Lean.Meta.Grind.AC.DiseqCnstr.lhs]` | 7.28 s |
+| setlec `--no-model --pre` | **exit 2** — same message | 5.05 s |
+
+(each `ulimit -v 16000000`, `timeout 3000`; harness
+`_tmp/next-frontier/run-slice.sh`, verdicts in `diseq-verdicts.txt`).
+Both cores decline identically, so this is not a certificate-tier
+artefact; and the K fix is live in this binary (the Rat slice, which
+cost 84.9 s / exit 3 pre-fix, now **accepts in 2.8 s**).
+
+### 2. What the declaration is, and which clause rejects it
+
+From the stream (record 154 247, `_tmp/next-frontier/diseq-block.txt`,
+printed by `_tmp/next-frontier/extract_block.py`):
+
+    INDUCTIVE BLOCK: 2 type(s), 9 ctor(s), 2 rec(s)
+      type Lean.Meta.Grind.AC.DiseqCnstr       -- Sort 1, nP=0, nIdx=0,
+        isRec=True, numNested=0, ctors=[DiseqCnstr.mk]
+      type Lean.Meta.Grind.AC.DiseqCnstrProof  -- Sort 1, nP=0, nIdx=0,
+        isRec=True, 8 ctors (core, erase_dup, erase0, simp_exact,
+        simp_ac, simp_suffix, simp_prefix, simp_middle)
+      ctor DiseqCnstr.mk : (lhs : Lean.Grind.AC.Seq) →
+                           (rhs : Lean.Grind.AC.Seq) →
+                           (h : Lean.Meta.Grind.AC.DiseqCnstrProof) →
+                           Lean.Meta.Grind.AC.DiseqCnstr
+      rec  DiseqCnstr.rec / DiseqCnstrProof.rec — numMotives=2,
+           numMinors=9, k=False, all=[DiseqCnstr, DiseqCnstrProof]
+
+    def Lean.Meta.Grind.AC.DiseqCnstr.lhs
+      value: (fun (self : DiseqCnstr) => (self).DiseqCnstr.0)
+
+`DiseqCnstr` itself is a perfectly ordinary record — **one
+constructor, no indices, no parameters, three fields** — and is
+*officially* structure-like.  It is **not** recursive through `Array`,
+`List` or `Option`, has no indices, and no universe-polymorphic field
+(the block has no level parameters at all).  What it is, is a **member
+of a two-type mutual block**: `DiseqCnstrProof.erase_dup` and friends
+take a `DiseqCnstr` field, so `Lean` emits the two types in one
+`inductive` record with two recursors.
+
+Two clauses of the recognizer fail, either fatal on its own:
+
+* **the block-shape clause** — `directPartsCore?`
+  (`Setlec/Kernel/Direct/Parts.lean:170`) pattern-matches the *whole
+  block* against `[.indInfo cvT _, .ctorInfo cvC nP nF,
+  .recInfo cvR mI rP [rule]]`: exactly one type, one constructor, one
+  recursor carrying one rule.  This block is `[ind, ind, ctor×9,
+  rec×2]`.  No match, `none`.  This is the first and the decisive one.
+* **the non-recursiveness clause** — `directNonRec`
+  (`Parts.lean:376`) requires every constructor binder domain's
+  constants to resolve *in the pre-block environment*; the field
+  `h : DiseqCnstrProof` names the block's own sibling, which does not.
+  (This clause is not incidental: the direct install builds the type
+  former's set-theoretic value out of the field types' interpretations
+  in the old environment, so a self- or sibling-reference is circular.)
+
+Consequently `checkDecl`'s `.indDecl` dispatch
+(`Setlec/Kernel/Checker.lean:492`) falls through to `checkIndDecl`, the
+modeled path, which installs **no** projection table entries for a
+non-`Prop` block.  At the `.proj` node, `annotate`'s `.proj` clause
+(`Setlec/Kernel/Core.lean:2481-2513`; twins `Cached/CoreC.lean:1707`,
+`Verify/Disc.lean:1120,1137`) looks up `env.findProj? T i`, gets
+`none`, checks `findProj? T 0` (also `none`) and throws
+`.notImplemented "projection on a non-structure-like type"` — a
+**positive decline**, exit 2 by the arena convention, exactly as the
+decline discipline requires.
+
+**What official requires.**  `type_checker::infer_proj`
+(`_tmp/lean4-src/src/kernel/type_checker.cpp:239`): whnf the projected
+expression's type, require the head to be a constant equal to the
+node's `proj_sname`, look it up, and require
+
+    length(I_val.get_cnstrs()) == 1 &&
+    args.size() == I_val.get_nparams() + I_val.get_nindices()
+
+then walk the constructor telescope, instantiating parameters and
+substituting earlier `.proj`s (with the `Prop`-structure guard that a
+data field of a proof is not projectable).  **One constructor, no
+indices — that is all.**  Recursion is allowed, nesting is allowed,
+membership in a mutual block is allowed; the whnf-side structure eta
+(`to_ctor_when_structure`) is gated on the same condition.  So the gap
+is precisely:
+
+| | official | setlec |
+|---|---|---|
+| constructors | exactly 1 | exactly 1 |
+| indices | 0 | 0 |
+| block | any (mutual OK) | **single type only** |
+| recursion | allowed | **forbidden** (`directNonRec`) |
+| nesting | allowed | **forbidden** (same clause) |
+| recursor shape | irrelevant | **pinned** (`directShape`) |
+
+### 3. The census: how big the frontier is
+
+`_tmp/next-frontier/census.py` (one forward pass over the 5.82 GB
+stream, ~3.5 min; classification per *type* — official's
+`is_structure_like` is a per-type predicate, so a mutual block's
+members are structure-like individually — plus exact taint propagation
+of every `.proj` through the expr DAG, which is emitted child-before-
+parent so one pass suffices).  Output: `_tmp/next-frontier/census-full.txt`.
+
+    declaration records            727 270  (thm 501 337, def 215 953,
+                                    inductive 6 887, opaque 3 082,
+                                    axiom 7, quot 4)
+    inductive blocks                 6 887  (225 `._model` companions)
+    structure-like TYPES             5 794
+      setlec would accept            5 684  (98.10 %)
+      setlec rejects                   110  (1.90 %)
+        mutual                          96   (79 of them `._model._impl.N`)
+        nested                          11
+        recursive                        2   (`WType`, `PSet`)
+        other                            1   (`PUnit` — a reserved basis name)
+    proj nodes                      33 882  on 5 619 distinct types
+      on a REJECTED type                65  on 22 types  (0.19 %)
+
+The classes are assigned in the priority order **mutual > nested >
+recursive > other**, so a type that is both (the whole
+`Lean.Meta.Grind.Arith.Cutsat.*` family is a 12-type block with
+`numNested = 9`) is counted once, under `mutual`.  The classes are
+labels for *this* census, not separate features: every one of them is
+the same recognizer refusing the same block.
+
+Dropping the preprocessor's own `._model._impl.N` companions (79, all
+mutual, none ever projected on) leaves **31 real rejected types**: 17
+mutual, 11 nested, 2 recursive, 1 basis.  22 of the 31 are projected
+on; the 9 that are not are `PUnit`, `Lean.PrefixTreeNode`, `WType`,
+`Lean.Meta.DiscrTree.Trie`, `PSet`, `Lean.Compiler.LCNF.FunDecl`,
+`Lean.Compiler.LCNF.Cases`, `Lean.Lsp.DocumentSymbol`,
+`Aesop.Frontend.RuleExpr`.
+
+Top types by number of projecting declarations (`projN` = `.proj`
+nodes, `decls` = declarations whose cone contains one, `(b)` = uses
+outside the type's own projection functions — see §4):
+
+| type | class | nF | projN | decls | (b) | first projecting decl | record | % |
+|---|---|---|---|---|---|---|---|---|
+| `Lean.Language.Lean.CommandParsedSnapshot` | nested | 5 | 5 | 5 | 0 | `…​.elabSnap` | 252 180 | 34.67 |
+| `Lean.Elab.Tactic.TacticParsedSnapshot` | nested | 5 | 5 | 5 | 0 | `…​.inner?` | 351 321 | 48.31 |
+| `Lean.Doc.Part` | nested | 5 | 5 | 5 | 0 | `…​.title` | 472 488 | 64.97 |
+| `Lean.Meta.Grind.Arith.CommRing.EqCnstr` | mutual | 4 | 4 | 4 | 0 | `…​.p` | 214 300 | 29.47 |
+| `Lean.Meta.Grind.AC.EqCnstr` | mutual | 4 | 4 | 4 | 0 | `…​.lhs` | 247 316 | 34.01 |
+| `Lean.Meta.Grind.Arith.Cutsat.CooperSplitPred` | mutual | 4 | 4 | 4 | 0 | `…​.c₁` | 483 276 | 66.45 |
+| **`Lean.Meta.Grind.AC.DiseqCnstr`** | **mutual** | 3 | 3 | 3 | 0 | **`…​.lhs`** | **154 248** | **21.21** |
+| `Lean.Meta.Grind.Arith.Cutsat.DvdCnstr` | mutual | 3 | 3 | 3 | 0 | `…​.d` | 214 969 | 29.56 |
+| `Lean.Lsp.Ipc.CallHierarchy` | nested | 3 | 3 | 3 | 0 | `…​.children` | 239 708 | 32.96 |
+| `Lean.Meta.Grind.Arith.Linear.RingIneqCnstr` | mutual | 3 | 3 | 3 | 0 | `…​.p` | 361 170 | 49.66 |
+| `Lean.Meta.Grind.Arith.Linear.IneqCnstr` | mutual | 3 | 3 | 3 | 0 | `…​.p` | 361 204 | 49.67 |
+| `Lean.Meta.Grind.Arith.Cutsat.CooperSplit` | mutual | 3 | 3 | 3 | 0 | `…​.k` | 427 377 | 58.76 |
+| `Lean.Language.SnapshotTree` | nested | 2 | 2 | 2 | 0 | `…​.element` | 252 162 | 34.67 |
+| `Mathlib.Tactic.Translate.Reorder` | nested | 2 | 2 | 2 | 0 | `…​.perm` | 259 701 | 35.71 |
+| `Lean.Meta.Grind.Arith.Linear.RingEqCnstr` | mutual | 2 | 2 | 2 | 0 | `…​.p` | 277 128 | 38.11 |
+| `Lean.Meta.Grind.Arith.Cutsat.EqCnstr` | mutual | 2 | 2 | 2 | 0 | `…​.p` | 298 355 | 41.02 |
+| `Lean.Meta.Grind.Arith.Cutsat.LeCnstr` | mutual | 2 | 2 | 2 | 0 | `…​.p` | 338 607 | 46.56 |
+| `Lean.Meta.Grind.Arith.Linear.DiseqCnstr` | mutual | 2 | 2 | 2 | 0 | `…​.p` | 368 385 | 50.65 |
+| `Lean.Meta.Grind.Arith.Linear.RingDiseqCnstr` | mutual | 2 | 2 | 2 | 0 | `…​.p` | 425 872 | 58.56 |
+| `Lean.Meta.Grind.Arith.Linear.EqCnstr` | mutual | 2 | 2 | 2 | 0 | `…​.p` | 437 199 | 60.12 |
+| `Lean.Meta.Grind.Arith.Cutsat.DiseqCnstr` | mutual | 2 | 2 | 2 | 0 | `…​.p` | 471 386 | 64.82 |
+| `Lean.Lsp.Ipc.ModuleHierarchy` | nested | 2 | 2 | 2 | 0 | `…​.item` | 584 056 | 80.31 |
+
+**The ladder** — the first declaration in the stream that projects on a
+type of each rejection class:
+
+| class | first projecting declaration | record | % of stream |
+|---|---|---|---|
+| **mutual** | `Lean.Meta.Grind.AC.DiseqCnstr.lhs` | **154 248** | **21.21 %** |
+| **nested** | `Lean.Lsp.Ipc.CallHierarchy.children` | **239 708** | **32.96 %** |
+| recursive | — | never | — |
+| other (basis) | — | never | — |
+| not structure-like at all | — | never | — |
+
+So the mutual class alone is worth **11.75 % of the stream** (85 460
+records) before the nested class becomes the wall; and no `.proj` in
+Mathlib ever targets a type that is not officially structure-like, nor
+a single-type recursive one.  Serving *both* classes removes every
+projection decline the stream contains.
+
+### 4. The deciding datum: the residue outside the projection functions is empty
+
+For every one of the 65 hit declarations the census reconstructs the
+shape of the checked value (the taint pass retains the structure of
+tainted nodes, and the globally interned `bvar` nodes are recorded, so
+"`fun … self => .proj T i self`, possibly through a chain of parent
+projections, `self` = `bvar 0`" is decidable statically).  Result:
+
+    (a) the type's own elaborated projection function   65
+    (b) every other declaration                          0
+
+There is **no** other kind of occurrence anywhere in the stream: no
+instance body, no structure-instance/`with` update, no auto-generated
+`match`, no theorem statement, no proof term.  Each of the 22 types
+contributes exactly one projection function per field (`projN = nF =
+decls` in every row above, `toSnapshot` parent projections included),
+which is the syntactic signature of "the elaborator emitted these and
+nothing else uses the node form".
+
+**Consequence for the fix.**  A frontend rewrite that recognises a
+projection function of a non-direct-shaped single-constructor type by
+shape and replaces its value (the route `agent/proj-rec` is taking:
+rewrite to a `T.rec` application with the field-`i` motive) leaves a
+residue of **zero** declarations on this stream: after it, no `.proj`
+node on a rejected type survives, and the projection decline is gone
+for the whole 727 270-record stream, not just past 21.21 %.  The 65
+declarations are listed verbatim in `census-full.txt`; the (b) section
+of that file is empty.
+
+Two caveats that belong with the datum:
+
+* This is a statement about the *stream*, not about the checker.  If
+  some later Mathlib version, or the arena's own tests, contain a
+  `.proj` on a mutual/nested type in an ordinary term, the rewrite does
+  not cover it and the decline returns — the checker's honest verdict
+  would again be exit 2, which is the right behaviour.
+* The census emulates every recognizer clause except `directShape`
+  (the syntactic pin on the generated recursor's shape), which needs
+  the expression structure of the recursor type.  The 5 684 "accepted"
+  are therefore an upper bound.  Empirically it is tight: the stream
+  runs to 21.21 % with **zero** projection declines other than this
+  class, so no accepted type's `directShape` fails on a projected type
+  before that point.
+
+### 5. Tools left behind
+
+* `_tmp/next-frontier/slice_fast.py` — dependency-cone slicer, 43 s
+  instead of the reference slicer's tens of minutes; same contract,
+  validated against the official kernel.  **Use this one.**
+* `_tmp/next-frontier/census.py` — the whole-stream inductive/`.proj`
+  census with exact per-declaration taint; re-runnable in ~3.5 min.
+* `_tmp/next-frontier/extract_block.py` — prints any block or
+  declaration (types, ctors, recursors, rules, values) out of a big
+  stream in one pass.
+* `_tmp/next-frontier/run-slice.sh` — the three-checker slice harness
+  (official / P / parity), each under `ulimit` + `timeout`.
+* `_tmp/next-frontier/cut_cone.py` — emits the stream with the
+  `.proj`-blocked cone removed (see §6).
+
+### 6. Past the decline: the next rung is at 24.10 %, and it is a *different* feature
+
+The frontend has no skip list, so "continue past the decline" was done
+by **cutting the blocked cone out of the stream**:
+`_tmp/next-frontier/cut_cone.py` drops every declaration whose cone
+contains a `.proj` on a rejected type and, transitively, every
+declaration that references one.  The cone is tiny — **660 of 727 270
+records (0.091 %)**, first `Lean.Meta.Grind.AC.DiseqCnstr.lhs`
+(21.209 %), last `Lean.Elab.Tactic.evalCutsat` (99.8 %) — and it
+carries exactly two inductive blocks with it
+(`Lean.Meta.Grind.Arith.CommRing.CommRing` at 29.484 % and
+`Lean.Meta.Grind.AC.Struct` at 34.007 %, whose field types reach the
+removed constants), together with their `_model` artifacts, so the
+result is still a dependency-ordered export.  A census of the cut
+stream confirms **zero** remaining `.proj` on a rejected type.
+
+    _tmp/mathlib-scoping/mathlib-full-pre-nocone.ndjson
+    726 610 records, `--set-model=p --pre`, ulimit -v 22000000,
+    timeout 14400  (harness _tmp/next-frontier/run.sh, tag
+    `nocone-e736f24d`)
+
+    parse 5.82 GB in 270 s (peak 13.24 GiB), check at a steady
+    12.1-12.9 GiB, **exit 2 at 3 361 s, peak RSS 14.34 GiB** (VmHWM;
+    `time -v` 14.68 GiB, 55:52; VmSize 18.06 GiB against the 20.98 GiB
+    cap):
+
+        setlec: not implemented yet: projection constructor residual arity
+          [at inductive CategoryTheory.Sigma.SigmaHom]
+
+    at record **175 281 of 727 270 (24.10 %)**.
+
+**This is a different rung, not the same one moved.**  It is an
+*install-side* decline on an **indexed** single-constructor inductive,
+and no `.proj CategoryTheory.Sigma.SigmaHom i` node exists anywhere in
+the stream — the projection functions here are the preprocessor's
+`_model` artifacts.  The block (record 175 281,
+`_tmp/next-frontier/sigmahom-block.txt`):
+
+    type CategoryTheory.Sigma.SigmaHom
+      levelParams=[w₁,v₁,u₁] numParams=3 numIndices=2 isRec=False
+      ctor SigmaHom.mk numFields=4, residual
+        SigmaHom I C inst ⟨i,X⟩ ⟨i,Y⟩          -- nP + 2 arguments
+
+The preprocessor emits `SigmaHom._model.proj_{0..3}` (records
+175 273-175 280) for it; `checkProjFn` (`Setlec/Kernel/Modeled.lean:564`)
+runs `checkProjShape` (`Setlec/Kernel/CheckerBase.lean:218-226`), whose
+stage-2b pin is
+
+    unless cbody.getAppArgs.length == nP do
+      throw (.notImplemented "projection constructor residual arity")
+
+— the constructor's residual must be the family applied to *exactly the
+parameters*.  With two indices it is applied to five, so the pin fires.
+A positive decline, exit 2, as the discipline requires.
+
+**What this means for the campaign.**  Once the projection-function
+rewrite lands, the stream's next stop is **24.10 %** (up from 21.21 %),
+and the wall changes character: from "the recognizer will not classify
+this block" to "the modeled projection install has no shape for an
+indexed constructor".  The `nested`-class projection rung at 32.96 % is
+*behind* it and will not be reached until the indexed case is settled.
+
+Two caveats on the probe:
+
+* The cut removes 660 declarations that the real fix would keep.  Their
+  absence can only *hide* a failure, never create one, so 24.10 % is a
+  lower bound on what the fix buys: the next frontier is at 24.10 %
+  unless one of those 660 fails earlier.
+* The cut's own first artefact — a `.proj` on the dropped
+  `CommRing` — lies at 29.5 % of the original stream, well past
+  24.10 %, so the answer is not an artefact of the cut.  (Artefacts:
+  `_tmp/next-frontier/cut-cone-report.txt`,
+  `census-nocone.txt`, `nocone-e736f24d-{p,rss}.log`, `-time.txt`,
+  `.exitcode`.)
+* Wall times in this section carry the usual contention caveat (other
+  agents' Lean builds ran concurrently); the verdict, the record index
+  and the RSS profile do not.
+
+**Update at the merge (master `f42cd259`).**  The rewrite this section
+anticipates has since landed as `Setlec/Frontend/ProjRec.lean`
+(`agent/proj-rec`), with `tests/e2e/{mutual,nested}_struct_proj`
+fixtures.  §4's datum is what says its residue on the Mathlib stream is
+zero, and §6's measurement is what says where it lands the campaign:
+**24.10 %**, at `CategoryTheory.Sigma.SigmaHom` — modulo the 660
+declarations the probe cut and the fix keeps.
+### 12. Phase 2, fix 6 — S2 landed: the `pow` exponent cap; S1 withdrawn by the user (`agent/divergence-s12`)
+
+**The ruling (2026-09-06).**  Land the blow-up protection (official
+`reduce_pow`'s cap), KEEP the `Nat.pred`/`Nat.log2` literal fast paths.
+
+**S2.**  Official `reduce_pow` (`type_checker.cpp:616-627`) refuses an
+exponent above `ReducePowMaxExp = 1 << 24` and lets `Nat.pow` unfold;
+`natOpResult natPowName a b` is now `none` for `b > 16777216`.
+(Previously ours computed any `a ^ b` natively — an unbounded
+allocation on a hostile stream.)  Proofs: `natOpResult_shape`/`_atom`
+split the new `if`; `reduceNatSemP_binary`'s pow case reads the reduct
+through the cap.  No new axiom, no `sorry`; capstones at `[propext,
+Classical.choice, Quot.sound]`.
+
+**Measured, in instructions** (`ulimit -v 16G`, `perf stat -e
+instructions:u`, one checker at a time; master `f0009992`'s own binary
+vs executable-only variants of it — A: `pred`/`log2` fast paths
+removed, B: the pow cap alone):
+
+| stream | master parity | A parity | B parity | master P | A P | B P |
+|---|---|---|---|---|---|---|
+| `init-full-pre2` | 812.44 G | 812.06 G | 812.43 G | 842.27 G | 841.84 G | 842.28 G |
+| `grind-ring-5` | 28.265 G | 28.261 G | 28.265 G | 31.644 G | 31.640 G | 31.644 G |
+
+All three accept 60 549 / 3 866 constants.  The pow cap is free (±0.00 %);
+the `pred`/`log2` removal is also flat (−0.05 %, noise-level) — the
+earlier wall-time deltas (+18 % / +32 %) were shared-machine contention,
+not work (§13).
+
+**Gates at the tip** (master `162caa4d` merged): `lake build`
+warning-free (444 jobs), `lake test`, `tests/arena.sh` 0 FAIL (tutorial
+90/92, e2e 78/78 incl. `nat_pow_wrong` = 1, annot 14/14, flags 8/8 +
+14/14, no-model sweep as recorded), proofdeps 1 371 rows as pinned /
+doors 0, layering 0 edges; init-full ACCEPT 60 549 both modes (variant
+B, and re-run at the tip).
+
+### 13. Why the `pred`/`log2` fast paths buy nothing: official does not grind either (investigation, no code)
+
+**(1) Official's literal op set, re-read.**  `type_checker.cpp:29-44`
+declares the globals `g_nat_{zero,succ,add,sub,mul,pow,gcd,mod,div,beq,
+ble,land,lor,xor,shiftLeft,shiftRight}` and `reduce_nat` (`:639-668`)
+dispatches exactly on them: `succ` (one argument) and the fourteen
+binary operations.  `reduce_bin_nat_pred` (`:629-637`) is the folder
+for the *predicates* `beq`/`ble`, not `Nat.pred`; `pred_t`/`pred_s`
+(`:994-995`) are `is_def_eq_offset`'s predecessor peel.  There is no
+`log2` and no `pred` in the list (lean4lean `TypeChecker.lean`'s
+`reduceNat` agrees).  So both of ours ARE supersets — but supersets of
+a cheap route:
+
+**(2) What official does per op on a literal.**
+* `Nat.pred` (`Init/Prelude.lean:1974`: `| 0 => 0 | succ a => a`,
+  compiled to `Nat.rec`/`casesOn`): `unfold_definition`, then
+  `inductive_reduce_rec` with `nat_lit_to_constructor` on the literal
+  major — ONE iota step, the literal peeled one layer.
+* `Nat.log2` (`Init/Data/Nat/Log2.lean:42-45`, "Lean assembly", NOT
+  well-founded recursion): `n.rec (fun _ => nat_lit 0) (fun _ ih n =>
+  ((nat_lit 2).ble n).rec (nat_lit 0) ((ih (n.div (nat_lit 2))).succ))
+  n` — the literal is its own structural fuel; each recursive call peels
+  one `succ` off the fuel via `nat_lit_to_constructor`, folds `Nat.ble
+  2 n` and `Nat.div n 2` with the literal extension, and iota-reduces
+  the `Bool.rec`: `O(log₂ n)` iota steps.  The stream's definition is
+  the 4.29.1 export's; the fixtures show the same cost.
+
+**(3) What ours does without the fast paths** (variant A): the same
+route — `unfoldDefinition`, then `iotaRec`'s `litMajorToCtor` (our
+`nat_lit_to_constructor` site) at the `Nat.rec` major, the `ble`/`div`
+folds — measured flat on init-full and grind-ring-5 (§12) and on the
+fixtures: `nat_log2_ok` 3.525 G (master) vs 3.526 G (A), `nat_ops_edge`
+0.6775 vs 0.6776 G; official on the same fixtures 0.593 G / 0.190 G
+(the gap is the pin certification the fixtures exist to exercise, not
+the reduction).  No grinding on either side; no missing
+literal-to-constructor site.  The +18 %/+32 % wall-time deltas that
+raised the question were contention on the shared machine: the
+instruction counts of the same binaries are flat.
+
+**Conclusion.**  The fast paths are strategy supersets with no
+measurable payoff on any stream at hand (each saves a handful of iota
+steps per literal use), and no cost; per the user's ruling they stay.
+The only fix worth having in this family was S2 (the cap), landed.
+### 14. Phase 2 closed — status per row (2026-09-06)
+
+| row | status |
+|---|---|
+| D15 (`reduceNat` argument order) | **landed** — master `494173b2` (with the phase-1 table); regression fixture `natop_arg_order` |
+| D3 (proof irrelevance once per entry) | **landed** — master `10eefcf1`; the prize: 5× → 2.4× per delta step on the witness |
+| E2 (the eq-true shortcut) | **landed** — master `10eefcf1` (rode D3) |
+| D13 (struct-eta shape gate before inferring) | **landed** — master `791bf869` |
+| D4 (no proof irrelevance on quick pairs) | **landed** — master `f42cd259`; verdicts unchanged on init-full and the suites |
+| V1 (K on a mutual block) | **withdrawn by inspection** — an install-time invariant already (§11); master `f0009992` (record only) |
+| S1 (`pred`/`log2` fast paths) | **withdrawn by the user** — nobody grinds (§13); the fast paths stay |
+| S2 (the pow cap at 2^24) | **landed** — this branch (`agent/divergence-s12`) |
+| W4 (one iota attempt per spine) | **deferred to the docket** — touches `iotaRec`'s exact-arity contract and `IotaRowsP`; cost linear in spine length, no witness built |
+| D5 (`cheap_proj` first pass, `tryUnfoldProjApp`, `lazyDeltaProjReduction`) | **deferred to the docket** — the largest restructuring (a second `whnfCore` entry + two lazy-delta helpers), both-direction cost, no witness built |
+| eager flag (item 6) | **deferred to the docket** — §8: full six-field threading (283 sites + ~770 lemma mentions) vs defeq-cone-only (57 + ~170, whnf-nested residual); separate memo tables either way; 1 use per stream, accepted; a cost divergence, not a verdict one |
+| E4 (proofIrrel type comparison / fall-through), N2 (`reduce_native`) | **stay** by the standing rulings |
+
 ## TASK #175 SigmaHom — the Mathlib frontier at an INDEXED one-constructor family: the model's projections are ignored at install (2026-09-06, `agent/sigmahom`)
 
 With `DiseqCnstr`'s cone cut out
