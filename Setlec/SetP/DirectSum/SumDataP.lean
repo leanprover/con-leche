@@ -304,7 +304,7 @@ structure CtorDataI {env : Env} (m : EnvS2Core V env) (T : Name) (lps : List Nam
   srcBnd : ∀ s ∈ srcs, ∀ l, s = some l → l < nIdx
   srcIdx : ∀ j l, srcs[j]? = some (some l) → ∀ ψ : Name → Nat,
     (Es ψ)[l]? = some (AVExpr.bvar (nF - 1 - j))
-  srcProp : isProp = true → large = true → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+  srcProp : large = true → ∀ ψ : Name → Nat, resSort.eval ψ = 0 → ∀ ρ : Nat → V,
     Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
     FieldsBoundSrc ρ (((ds ψ).drop nP).map (·.2.2)) srcs
 
@@ -540,8 +540,8 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
       rw [denoteP_fvar, show nP + nF - 1 - (nP + j) = nF - 1 - j from by omega] at hread
       rw [hv, Option.some.inj hread]
   · -- the unsourced fields are propositional at a large-eliminating
-    -- `Prop` family
-    intro hp hl ψ ρ hρ
+    -- family instantiated at `Prop`
+    intro hl ψ hw0 ρ hρ
     have hc := claimsAtP_of hμ mp ψ F
     have hC : OpenedP mp.base2 ψ (nP + nF) type' (fvsP ++ xFvs)
         (Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs))
@@ -562,7 +562,7 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
       (srcs := srcsOf xFvs idxArgs sorts nF) rfl hΓlen ?_ 0 (Nat.zero_le _) ρ hρ'
     · rw [List.drop_zero] at h; exact h
     intro j hj hsj ρ hρ
-    obtain ⟨fv, ty, u, hfv, hu, hi, hens, -, hz⟩ := hfields j hj
+    obtain ⟨fv, ty, u, hfv, hu, hi, hens, hleq, hz⟩ := hfields j hj
     have hfvA : (fvsP ++ xFvs)[nP + j]? = some fv := by
       rw [List.getElem?_append_right (by omega), hlenP, Nat.add_sub_cancel_left]
       exact hfv
@@ -570,26 +570,30 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     have hCtx := hC.ctx (i := nP + j) (by omega) hws hleaf
     have hread := hC.doms (nP + j) fv hfvA
     have hmem := (hc.sortRow hi hens hws hb hL hCtx hread ρ hρ).2
-    -- the source is `none`: the sort is `Prop`
-    have hu0 : (Level.isEquiv u .zero == some true) = true := by
-      rw [srcsOf_getElem? _ _ _ _ _ hj] at hsj
-      have hsj' := Option.some.inj hsj
-      have hsu : sorts.getD j .zero = u := by
-        rw [List.getD_eq_getElem?_getD, hu, Option.getD_some]
-      rw [hsu] at hsj'
-      split at hsj'
-      · assumption
-      · rcases hz hp hl with h | h
-        · exact h
-        · exfalso
-          have hfvx : xFvs.getD j default = fv := by
-            rw [List.getD_eq_getElem?_getD, hfv, Option.getD_some]
-          rw [hfvx] at hsj'
-          obtain ⟨i, hi'⟩ := firstIdx_of_mem (List.contains_iff_mem.mp h)
-          rw [hi'] at hsj'
-          exact nomatch hsj'
-    have h0 := Level.isEquiv_sound (beq_iff_eq.mp hu0) ψ
-    rw [h0] at hmem
+    -- the source is `none`: the sort evaluates to `0`
+    have hu0 : u.eval ψ = 0 := by
+      cases hp : isProp with
+      | false =>
+        have hle := Level.leq_sound (hleq hp) ψ
+        omega
+      | true =>
+        rw [srcsOf_getElem? _ _ _ _ _ hj] at hsj
+        have hsj' := Option.some.inj hsj
+        have hsu : sorts.getD j .zero = u := by
+          rw [List.getD_eq_getElem?_getD, hu, Option.getD_some]
+        rw [hsu] at hsj'
+        split at hsj'
+        · next hequ => exact Level.isEquiv_sound (beq_iff_eq.mp hequ) ψ
+        · rcases hz hp hl with h | h
+          · exact Level.isEquiv_sound (beq_iff_eq.mp h) ψ
+          · exfalso
+            have hfvx : xFvs.getD j default = fv := by
+              rw [List.getD_eq_getElem?_getD, hfv, Option.getD_some]
+            rw [hfvx] at hsj'
+            obtain ⟨i, hi'⟩ := firstIdx_of_mem (List.contains_iff_mem.mp h)
+            rw [hi'] at hsj'
+            exact nomatch hsj'
+    rw [hu0] at hmem
     exact hmem
 
 /-! ## The constructor's frames -/
