@@ -1,6 +1,5 @@
 import Lech
 import Lech.Frontend.ExportC
-import LechTests.ZeroSetTests
 import LechTests.PreludeTests
 import LechTests.Axioms
 

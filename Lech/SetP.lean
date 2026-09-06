@@ -9,7 +9,6 @@ import Lech.SetP.Step2.InferIOP
 import Lech.SetP.Step2.WhnfP
 import Lech.SetP.Step2.GateP
 import Lech.SetP.Step2.DefEqP
-import Lech.SetP.Step2.AssemblyP
 import Lech.SetP.Annot.EnvS2Core
 import Lech.SetP.Annot.EnvS2P
 import Lech.SetP.Step2.IrrelP
@@ -80,7 +79,6 @@ import Lech.SetP.IndBottomPlainP
 import Lech.SetP.IndOpenerGradeP
 import Lech.SetP.IndNestedParamP
 import Lech.SetP.IndBottomNestedP
-import Lech.SetP.Annot.BitReads
 import Lech.SetP.IndPinRowP
 import Lech.SetP.IndProjKitP
 import Lech.SetP.IndBottomProjP

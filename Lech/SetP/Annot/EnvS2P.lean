@@ -1,7 +1,12 @@
-import Lech.SetP.Step2.AssemblyP
+import Lech.SetP.Step2.DefEqP
+import Lech.SetP.Step2.InferIOP
+import Lech.SetP.Step2.InferP
+import Lech.SetP.Step2.WhnfP
 import Lech.Semantics.EnvFacts
 import Lech.Semantics.DivModEval
-import Lech.Semantics.SpineV
+import Lech.Verify.Denote
+import Lech.Verify.Denote.OpenVars
+import Lech.Verify.Denote.VClosed
 import Lech.Verify.ProjTele
 
 /-!

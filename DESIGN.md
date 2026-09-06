@@ -86,10 +86,23 @@ theorems above replace all three, claim for claim. Prose references to
 those paths elsewhere in this document are **historical citations**;
 the opening of this section is the one place kept current.
 `Lech/TTVerify/DESIGN.md` is deliberately kept (its §0/§25 are the
-house practices); so is the declarative layer
-`Lech/TT/{Syntax,Subst,Const,Judgment}` + `Lech/TT/Semantics/*`,
-whose `VExpr`/`interp`/`bval` the P tier consumes. Its design record is
-`Lech/TT/DESIGN.md`.
+house practices); so is `Lech/TT/{Syntax,Subst,Const,Judgment}`, and
+**for a reason this sentence used to state wrongly** (it read "so is
+the declarative layer … + `Lech/TT/Semantics/*`, whose
+`VExpr`/`interp`/`bval` the P tier consumes"; task #190 measured it).
+What the tower actually consumes is the **syntax**, not the
+declarative semantics: `VExpr`/`BConst`/`mkAppN` (`TT/Syntax`) and
+`liftN`/`inst`/`arrow` with their laws (`TT/Subst`) are what every
+`Semantics/*` and `SetP/*` module is written in; `TT/Const`'s basis
+constants are read by `Semantics/BasisType`, `SetModel/Value` and —
+`emptyT`, which the `Empty` letter is stated at — `SetP/CapstoneP`;
+`TT/Judgment` is kept alive by `natStepT`/`quotInvT`, which
+`Verify/Denote/SubstAlgebra` uses.  The P tier's `interp2`/`bval2` are
+its **own**, in `Lech/Semantics/*`, and never were `TT`'s.
+`Lech/TT/Semantics/*` — the declarative lane's model and its soundness
+theorem — was deleted at task #190, unread by anything but its own
+umbrella; `TT/Judgment`'s `HasType` relation lost its last reader with
+it. Its design record is `Lech/TT/DESIGN.md`.
 
 **Project goal** (set 2026-08-19): the lean kernel arena *tutorial* tests
 (except those involving custom axioms) are accepted by the checker, and the
@@ -418,7 +431,11 @@ relate the pair's components to the plain instantiations.
 * **Fuel monotonicity** (`Verify/Mono.lean`): `PairM` at
   success-refinement between two `CheckM` runs + one knot induction
   gives `whnfCore/whnf/infer/defeq/annotate/ensureSort` monotonicity.
-* **Cache simulation** (`Verify/Bridge.lean`): `FueledM` packages
+* **Cache simulation** (`Verify/Bridge.lean` — **deleted at task #190**,
+  2026-09-06: its `cached_*_sim`/`scopedSim` battery lost every consumer
+  with the interned arena; the shipped cached tier's simulation is
+  `Verify/Cached/SimC*`.  The paragraph is kept as the design record of
+  what that battery said): `FueledM` packages
   monotone fuel-indexed families; `CacheOK` backs every cache entry by
   a pure run at one fuel valid at *every* depth at which the key is
   well-scoped (see *Depth-free memo keys*); `simRel` (families vs.
@@ -515,7 +532,9 @@ to hold*):
 
 Concretely: the per-entry-point simulation is the *conditional*
 `ScopedSim` (one knot induction, `scopedSim` in
-`Lech/Verify/Bridge.lean`), and the entry-point bridges
+`Lech/Verify/Bridge.lean` — a **historical citation** since task #190
+deleted that module; `ScopedSim` itself lives on in
+`Lech/Verify/Disc.lean`), and the entry-point bridges
 (`cachedOps_*_bridge`) take `henv : EnvWF env` *and* the argument's
 `wscopedB` at the call depth.  The declaration-checker comparand
 `wfOpsM` (`Lech/Verify/BridgeDecl.lean`) conditions per call on
@@ -51149,7 +51168,11 @@ declaration is a property of the declaration, not of how many are
 already in the environment.
 
 Slowest declarations of the whole run (1 s resolution, and every one of
-them is a normal expensive proof, not a pathology):
+them is a normal expensive proof, not a pathology) — **the parenthesis
+is WITHDRAWN by task #189** (see "THE FIVE SLOWEST DECLARATIONS OF THE
+ACCEPTANCE RUN", below): four of these five cost 11 – 75× the official
+kernel on their own dependency cones, and 40 – 90 % of each is
+`Expr.beq` under a memo bucket probe:
 
 | | |
 |---|---|
@@ -51245,6 +51268,605 @@ timestamped progress lines), `accept-rss.log`, `accept-time.txt`,
 `run-progress.sh`, `pace_progress.sh`, `trace_stats.sh` (the harness
 and its readers); and the two killed runs' logs, labelled per §6.
 
+## TASK #189 — THE FIVE SLOWEST DECLARATIONS OF THE ACCEPTANCE RUN: the tail is `Expr.beq`, not the material (2026-09-06, `agent/slowest`)
+
+**The question.**  The Mathlib acceptance run (`_tmp/frontier4/`, 695 202
+declarations, exit 0, 57 min) logged one line per declaration.  Which
+five cost the most, and is the checker doing something stupid on them?
+
+**The answer, in one line.**  All five are *stupid*, and it is the same
+stupidity: **40 – 90 % of each of them is spent inside `Expr.beq` —
+almost all of it under a `Std.HashMap` bucket probe, comparing a memo
+key against a structurally equal but freshly allocated term** — while
+the kernel's own reduction work (whnf, infer, defeq, iota, annotate,
+instantiate) is 4 – 28 %.  Against the official kernel on the *same
+bytes*, the five declarations cost **8.5× to 75×**, where the whole
+`init-full` stream costs 2.04× (PERF.md).  Nothing about the material
+explains that.
+
+### 1. The table
+
+From `_tmp/frontier4/accept-progress.log`: the heartbeat prints
+`t=<elapsed>s` (0.1 s resolution) **before** each declaration, so
+declaration *i*'s cost is the gap to line *i*+1 (`_tmp/slowest/top.py`).
+
+| # | s | fold pos | kind | declaration |
+|---|---|---|---|---|
+| 1 | 9.3 | 321 915 | theorem | `AlgebraicGeometry.isIso_pushoutSection_of_iSup_eq` |
+| 2 | 7.2 | 638 092 | theorem | `AlgebraicGeometry.Scheme.exists_π_app_comp_eq_of_locallyOfFinitePresentation` |
+| 3 | 5.9 | 279 992 | theorem | `_private.Mathlib.Algebra.Lie.Cochain.0.LieModule.Cohomology.d₂₃_aux._proof_17` |
+| 4 | 5.6 | 588 451 | theorem | `_private.…EllipticCurve.IsomOfJ.0.WeierstrassCurve.exists_variableChange_of_char_ne_two_or_three` |
+| 5 | 4.5 | 160 699 | theorem | `CategoryTheory.Limits.colimitLimitToLimitColimit_surjective` |
+
+The next ten, as context (the tail is smooth — no cliff after the five):
+
+| s | declaration |
+|---|---|
+| 4.2 | `…Lie.Cochain.0.LieModule.Cohomology.d₂₃_aux._proof_26` |
+| 3.8 | `…Lie.LieTheorem.0.LieModule.weightSpaceOfIsLieTower_aux` |
+| 3.7 | `AlgebraicGeometry.exists_appTop_π_eq_of_isLimit` |
+| 3.4 | `CategoryTheory.PreOneHypercover.sieve₁_inter` |
+| 3.0 | `groupHomology.H1CoresCoinfOfTrivial_exact` |
+| 3.0 | `Algebra.IsInvariant.exists_smul_of_under_eq_of_profinite` |
+| 2.9 | `CategoryTheory.Functor.IsDenseSubsite.isIso_ranCounit_app_of_isDenseSubsite` |
+| 2.7 | `Std.Tactic.BVDecide.BVExpr.bitblast.goCache._mutual.eq_def` |
+| 2.4 | `AlgebraicGeometry.exists_mem_of_isClosed_of_nonempty` |
+| 2.4 | `TopCat.Sheaf.IsFlasque.epi_of_shortExact` |
+
+The five together are 32.5 s of a 3 192.8 s fold (**1.0 %**), so this is
+a tail study, not a throughput lever — but the tail is where a
+divergence shows itself, and it did.  The previous finder's quick read
+(the acceptance record, §3) named the same five and called every one of
+them "a normal expensive proof, not a pathology".  **That reading is
+withdrawn by this task**: four of the five are pathological.
+
+### 2. The slices
+
+`_tmp/next-frontier/slice_fast.py` on
+`_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson` (the acceptance
+run's own stream, already preprocessed — both checkers read the same
+bytes, lech under `--pre`).  Each slice ends at its target, so the
+target is the last record; `_tmp/slowest/mknotarget.py` drops exactly
+that record to produce the `-notarget` twin, and **target cost = full −
+notarget** in both checkers.
+
+| tag | declaration | decls kept | expr nodes | bytes | target's own type+value DAG |
+|---|---|---|---|---|---|
+| t1 | `isIso_pushoutSection_of_iSup_eq` | 17 710 | 2 320 892 | 227 078 563 | 54 892 |
+| t2 | `exists_π_app_comp_eq_of_locallyOfFinitePresentation` | 29 001 | 4 513 689 | 437 544 286 | 38 695 |
+| t3 | `d₂₃_aux._proof_17` | 1 713 | 314 144 | 104 356 840 | 167 488 |
+| t4 | `exists_variableChange_of_char_ne_two_or_three` | 8 900 | 817 226 | 223 880 577 | 47 682 |
+| t5 | `colimitLimitToLimitColimit_surjective` | 4 522 | 389 947 | 70 574 609 | 25 807 |
+
+**t3 needed a multi-target slice.**  Its dependency cone contains string
+literals but not the `String` support block, so lech *declines* the
+plain cone (exit 2, "string literals before the String support
+declarations" — `strLitSupportedF`, `Lech/Kernel/FEnv.lean:114`).  It
+is sliced with `_tmp/sigmahom/slice_multi_fast.py` and the target plus
+`String,String.ofList,List,List.nil,List.cons,Char,Char.ofNat`.  This
+is a **slicer finding worth keeping**: a cone slice is not in general a
+runnable lech stream, because the literal-support guards are
+environment predicates the cone does not mention.
+
+Slice-local wall time for the target alone (`LECH_PROGRESS=1`, last
+declaration → `fold done`) against the acceptance run's heartbeat gap:
+t1 10.0 s / 9.3 s, t2 9.0 s / 7.2 s, t3 3.0 s / 5.9 s, t4 4.3 s /
+5.6 s, t5 4.0 s / 4.5 s.  The slices reproduce the phenomenon
+(the machine was loaded, so these are the loose numbers here;
+`instructions:u` below is the measurement).
+
+### 3. Instructions: official vs `--trusted` vs `--verified`
+
+`perf stat -e instructions:u`, one cell at a time, `ulimit -v
+16000000`, `timeout 900`, `nice -n 5`, `LECH_SUPERVISED=1`; official =
+`_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel`
+(the binary `scripts/perf-tables.sh` uses).  Repeated cells agreed to
+five significant figures (t1 verified 352.076 G / 352.074 G; t4's four
+lech cells re-run and reproduced to 5 digits), so the differences below
+are far above the noise.
+
+| tag | cfg | full (G) | notarget (G) | **target (G)** | × official |
+|---|---|---|---|---|---|
+| t1 | official | 220.28 | 216.95 | **3.33** | 1.0× |
+| t1 | trusted | 334.24 | 296.85 | **37.39** | 11.2× |
+| t1 | verified | 352.07 | 314.48 | **37.59** | **11.3×** |
+| t2 | official | 396.34 | 395.11 | **1.23** | 1.0× |
+| t2 | trusted | 695.45 | 673.27 | **22.18** | 18.0× |
+| t2 | verified | 788.42 | 745.20 | **43.22** | **35.1×** |
+| t3 | official | 40.43 | 37.03 | **3.40** | 1.0× |
+| t3 | trusted | 86.46 | 57.65 | **28.81** | 8.5× |
+| t3 | verified | 87.34 | 58.46 | **28.88** | **8.5×** |
+| t4 | official | 90.14 | 89.80 | **0.35** | 1.0× |
+| t4 | trusted | 131.13 | 128.67 | **2.46** | 7.1× |
+| t4 | verified | 158.20 | 132.24 | **25.96** | **75.1×** |
+| t5 | official | 32.57 | 31.59 | **0.98** | 1.0× |
+| t5 | trusted | 72.88 | 48.55 | **24.34** | 24.7× |
+| t5 | verified | 75.50 | 51.03 | **24.46** | **24.9×** |
+
+Whole-cone ratios, for scale: t1 1.60×, t2 1.99×, t3 2.16×, t4 1.76×,
+t5 2.32× verified ÷ official — i.e. **the cones are normal
+(≈ PERF.md's 2.04× on init-full) and the target alone is 8.5–75×.**
+Aggregated over the five: 160.1 G verified against 9.29 G official,
+**17.2×**.
+
+**A second, independent split falls out of the same table**: on t2 and
+t4 the *certificates* cost more than the checking.  Verified − trusted
+is 0.20 G (t1), **21.04 G** (t2), 0.07 G (t3), **23.50 G** (t4),
+0.12 G (t5).  On t4 the trusted lane checks the declaration in 2.46 G
+and the verified lane pays 25.96 G — the certification is **10.6×** the
+check.  That is a separate finding from the one below, and it has no
+counterpart in any existing census (task #172 B1's check-tax table is
+per-clause, not per-declaration).
+
+### 4. Where the time goes: `Expr.beq`, under a memo probe
+
+`perf record -F 999` attached to the process **only while it is on the
+target** (`_tmp/slowest/proftarget.sh`: run with `LECH_PROGRESS=1`,
+wait for the target's heartbeat line — the target is the slice's last
+declaration — then record).  Flat profile, `--sort symbol`, verified
+mode, grouped:
+
+| tag | `Expr.beq*` + its own memo | allocator / RC | everything else |
+|---|---|---|---|
+| t1 | 39.3 % | 52.0 % | **8.2 %** |
+| t2 | 43.4 % | 48.7 % | **8.1 %** |
+| t3 | 25.8 % | 46.0 % | 28.3 % |
+| t4 | 43.5 % | 51.6 % | **5.0 %** |
+| t5 | 45.7 % | 50.3 % | **4.0 %** |
+
+Top symbols are the same four everywhere: `Lech_Expr_beqGo`
+(19 – 22 %), `lean_dec_ref_cold` (17 – 23 %), `mi_free` (9 – 12 %),
+`mi_malloc_small` (6 – 9 %), then `beqGo`'s own
+`Std.DHashMap … get?/insert/expand` specialisations (10 – 14 % together)
+and `Lech_Expr_beqB`.  **No core symbol reaches 1 % on t1/t2/t4/t5**
+(the highest is 0.61 %) — `whnfCoreBodyI`,
+`defeqStepI`, `iotaRecI`, `inferBodyI` do not appear in the top 40 at
+all; the highest non-`beq`, non-allocator symbols are
+`ExprC.instantiateRevGo`, `ExprC.abstractRangeGo` and
+`ExprC.instantiate1Go` (0.2 – 2 %).  The allocator/RC block is
+`beqGo`'s: its memo is a `Std.HashMap (USize × USize) Bool` allocated
+**per comparison**, whose boxed `Prod` keys and boxed `Bool` values are
+malloc'd on insert and `lean_dec_ref`'d when the map dies at the end of
+the call.
+
+**Who calls it.**  `perf`'s dwarf call graph is useless on this binary
+(tail calls, no frame pointers), so the session's gdb recipe was used:
+25 samples of `gdb -p PID -batch -ex "thread apply all bt 150"` taken
+while the process was on t1's target (`_tmp/slowest/bt-t1.txt`,
+`gdbsample.sh`).  Taking the **outermost** `Expr.beq*` frame in each
+sample and reading its caller:
+
+| samples | caller of the outermost `beq` |
+|---|---|
+| 10 | `Std.DHashMap.…AssocList.get?` (the `HashMap Expr _` specialisation) |
+| 7 | `Std.DHashMap.…AssocList.get?` at `Lech_Cached_coreKnotI_spec__0` — i.e. `memoEI`/`memoBI` |
+| 3 | the shared `List.beq` specialisation |
+| 2 | truncated at 150 frames |
+| 2 | no `beq` on the stack |
+
+**17 of 25 samples are a hash-map bucket probe.**  Two live stacks
+spell the mechanism out end to end:
+
+```
+lean_dec_ref_cold
+Lech_Expr_beqFast
+Std_DHashMap_…_AssocList_get_x3f_…            ← memo bucket probe
+Lech_Cached_coreKnotI___lam__12               ← a knot field (infer)
+lean_apply_3 / Lech_Cached_inferSpineI ×6
+Lech_Cached_inferLamsLeafI → inferLamsI → inferBodyI
+```
+
+```
+Lech_Cached_ExprC_abstractRange
+Lech_Cached_annotateLamsLeafI → annotateLamsI → annotateBodyI
+Lech_Cached_coreKnotI___lam__10               ← the annotate knot field
+Lech_Cached_checkThmValC → checkDeclStepIdxC → checkDeclsProgressIO
+```
+
+### 5. The mechanism, named
+
+Every memo in the cached checker is keyed by an **expression value**:
+
+* `memoEI` (`Lech/Cached/CoreC.lean:1833`) is
+  `Std.HashMap ExprC ExprC` and backs *five* of the knot's six fields —
+  `whnfCore`, `whnf`, `infer`, `annotate`, `inferIO`
+  (`coreKnotI :1907-1932`);
+* `memoBI` (`:1849`) is `Std.HashMap (ExprC × ExprC) Bool` for `defeq`;
+* `CState` carries `instC : Std.HashMap (ExprC × List ExprC × Nat)
+  ExprC` and friends (`Lech/Cached/StateC.lean:233`).
+
+A probe hashes the key in `O(1)` (the `@[computed_field] data` word) and
+then compares it against each entry in its bucket with `Expr.beq`
+(`Lech/Kernel/Expr.lean:706-815`): pointer test, hash test, then
+`beqB` — an *allocation-free but unmemoised* descent on a 4096-node
+budget — and, when the budget runs out, **a restart from scratch** as
+`beqGo {}`, the memoised descent that allocates the `Std.HashMap`
+above.
+
+The pointer test is what makes that cheap — and it only fires when the
+probed key is *the same object* as the stored one.  In the cached
+("clone") representation it very often is not, because **`internI` is
+`ExprC.ofView`, a plain allocation with no hash-consing**
+(`Lech/Cached/StateC.lean:252`).  Every rebuild — `annotate`'s
+`instListRevM`/`abstractRangeM` telescopes, `betaPeelI`'s `instListM`,
+`whnfAppI`'s `internI (.app v a)` — mints a *fresh* node that is
+structurally equal to one already in the memo and can never be
+pointer-equal to it.  The probe therefore walks the whole DAG, with a
+hash-map insert per node, and the hash test cannot help: entries in one
+bucket have the same hash by construction.
+
+`Lech/Kernel/Expr.lean`'s own docstring (`:694-706`) predicted exactly
+this — *"hash-consing identifies structurally equal terms however they
+arose, so the arena never compares two distinct-but-equal DAGs; the
+clone does exactly that whenever a reduction rebuilds a term the arena
+would have collapsed"* — and priced it as the memo's justification.
+**This task is the missing number: on the acceptance run's hardest
+declarations that clause is 40 – 90 % of the cost, and 8.5 – 75× the
+official kernel.**
+
+**Official does the same algorithm and does not pay for it.**
+`expr_eq_fn` (`_tmp/lean4-src/src/kernel/expr_eq_fn.cpp:23-121`) is
+clause-for-clause our `beqGo`: `is_eqp` pointer test, `hash` test, a
+cache of `(lean_object*, lean_object*)` pairs.  Three differences, all
+in our disfavour:
+
+1. **Its cache is a flat `unordered_set` of address pairs with a custom
+   allocator**, created lazily, storing only "seen" (a completed
+   `false` aborts the whole comparison, so no `false` needs storing).
+   Ours is a persistent `Std.HashMap` with boxed `Prod` keys and boxed
+   `Bool` values, and it is *rebuilt and destroyed per call* — that is
+   the 46 – 52 % allocator/RC block.
+2. **It skips the cache for non-shared nodes** (`is_shared`) and for the
+   root; ours inserts at every node.
+3. **Its terms are far more often pointer-identical**, because official
+   has no annotate pass rebuilding every binder telescope, and its
+   `instantiate`/`whnf_core` return the original object when nothing
+   changed.
+
+So this is not on the divergence audit's list as a reduction-strategy
+item.  It is a **representation** divergence, and it is the cost the
+2026-09-05 deletion of the interned world bought its simplicity with.
+It does connect to one audit row, though: **W4** (`whnfAppI` tries
+`iotaRecI` at *every* spine prefix, interning a fresh `.app` node for
+each — DESIGN "THE DIVERGENCE AUDIT" row W4, priced there as "one
+allocation + env lookup per prefix").  Every one of those fresh nodes
+is a memo key that is *guaranteed* not to be pointer-equal to the
+node the memo already holds, so W4's real price is one full-DAG
+`Expr.beq` at the next probe.  W4 should move up the audit's fix list.
+
+### 6. Verdict per declaration
+
+* **t1 `isIso_pushoutSection_of_iSup_eq` — STUPID.**  11.3× official
+  (37.59 G vs 3.33 G), identical in both modes, 91 % of it in `beq` +
+  its allocator traffic, 17/25 gdb samples at a memo bucket probe under
+  `inferSpineI`/`annotateBodyI`.  Mechanism: §5.  Its DAG is 54 892
+  nodes — small; the material is not the problem.
+* **t2 `exists_π_app_comp_eq_of_locallyOfFinitePresentation` — STUPID,
+  twice.**  18.0× at trusted (§5's mechanism, 92 % `beq`+allocator) and
+  a *further* 21.04 G of certificates on top (35.1× at verified).  The
+  target's DAG is 38 695 nodes and official finishes it in 1.23 G.
+* **t3 `d₂₃_aux._proof_17` — MATERIAL, with a stupid surcharge.**  The
+  only one of the five whose term is genuinely huge (167 488 nodes, an
+  `abel_nf; simp` proof); official pays 3.40 G, its largest of the
+  five.  8.5× is the smallest ratio here, the certificates are free
+  (0.07 G), and the profile is the one that differs: `beqB` (the
+  *unmemoised* budgeted descent) at 19.7 % with `beqGo` at 2 %, and
+  28 % in substitution (`instantiateRevGo`, `abstractRangeGo`,
+  `instantiate1Go`).  Still 26 % `beq` and 46 % allocator, but here the
+  size is real.
+* **t4 `exists_variableChange_of_char_ne_two_or_three` — STUPID, and
+  the certificate tax is the headline.**  Trusted 2.46 G (7.1×),
+  verified 25.96 G (**75.1×**): the certification is 10.6× the check on
+  this one declaration, the largest verified÷trusted ratio anywhere in
+  the project's measurements.  The verified-mode profile is §5's
+  (95 % `beq` + allocator).
+* **t5 `colimitLimitToLimitColimit_surjective` — STUPID.**  24.9×
+  official (24.46 G vs 0.98 G), mode-independent, 96 % `beq` +
+  allocator, 4 % everything else, on a 25 807-node term.  The purest
+  instance of §5 in the set.
+
+### 7. No fix in this task; four proposals
+
+The one-line, verdict-neutral changes available here (`beqBudget`,
+`Lech/Kernel/Expr.lean:749`) are worth at most the 3 – 7.5 % (19.7 % on t3) that
+`beqB` burns before restarting, and touching that file rebuilds the
+tree; nothing else in the mechanism is one line.  So nothing was
+changed.  Proposed, in prize order:
+
+1. **P1 — hash-cons `internI`.**  One intern table in `CState`, so
+   `ExprC.ofView` returns the existing node when it has one.  Every
+   memo probe then decides at the pointer test and `beqGo` stops being
+   reachable from the memos at all.  Prize: the 40 – 90 % above.  Cost:
+   an intern table (memory — the acceptance run peaked at 13.5 GB of
+   22 GB) and one `beq` per *constructed* node instead of per *probed*
+   key — and that one is `O(1)` once the children are interned.  This
+   is deliberately **not** "resurrect the arena": the representation
+   stays `Lech.Expr` with computed fields, only `internI` changes.
+   Reproducers: any of the five slices.  **Measure first**: this task
+   profiled five *declarations*, not a stream — the `Expr.beq` share of
+   a whole `init-full` or Mathlib run is unknown, and the 2.04× overall
+   ratio bounds what P1 can be worth on average even if it collapses
+   the tail.
+2. **P2 — `Expr.beq`'s memo, official's shape.**  A visited-*set* of
+   address pairs (no `Bool`), lazily allocated, skipped for the root
+   and for unshared nodes, and no restart after `beqB` exhausts its
+   budget.  Independent of P1 and much smaller; worth roughly the
+   allocator/RC half of §4's table.
+3. **P3 — raise W4 in the divergence audit.**  Its row prices the
+   per-prefix `internI (.app v a)` as an allocation; §5 shows it also
+   costs a guaranteed full-DAG `beq` at the next memo probe.  Fixing
+   W4 (one iota attempt per spine, official's shape) is a strategy fix
+   *and* a sharing fix.
+4. **P4 — a per-declaration certificate census.**  t2 and t4 pay 21.0 G
+   and 23.5 G of verified-only work on a single theorem (t4: 10.6× the
+   check).  Which family — the β argument certificates in
+   `whnfAppI`/`betaPeelI`, `iotaCerts`, or `annotate`'s validation —
+   is not answered here.  Reproducers: `t2.ndjson`, `t4.ndjson` with
+   `--trusted` vs `--verified`.
+
+### 8. e2e fixtures: none of the five qualifies
+
+The repo's largest committed e2e fixture is 574 KB raw
+(`nat_divmod_ok.ndjson`) / 203 KB gzipped (`nat_xor_ok.ndjson.gz`).
+The five cones are 70.6 – 437.5 MB raw and ≈ 11.5 – 71 MB gzipped —
+the *smallest* is 57× the gzipped ceiling and 123× the raw one.  None
+is committed; `tests/e2e-expected.txt` is unchanged.  They live in
+`_tmp/slowest/slices/` and regenerate with:
+
+```sh
+S=_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson
+python3 _tmp/next-frontier/slice_fast.py "$S" \
+  AlgebraicGeometry.isIso_pushoutSection_of_iSup_eq            _tmp/slowest/slices/t1.ndjson
+python3 _tmp/next-frontier/slice_fast.py "$S" \
+  AlgebraicGeometry.Scheme.exists_π_app_comp_eq_of_locallyOfFinitePresentation \
+                                                               _tmp/slowest/slices/t2.ndjson
+# t3 needs the String support block (see §2)
+python3 _tmp/sigmahom/slice_multi_fast.py "$S" \
+  '_private.Mathlib.Algebra.Lie.Cochain.0.LieModule.Cohomology.d₂₃_aux._proof_17,String,String.ofList,List,List.nil,List.cons,Char,Char.ofNat' \
+                                                               _tmp/slowest/slices/t3.ndjson
+python3 _tmp/next-frontier/slice_fast.py "$S" \
+  '_private.Mathlib.AlgebraicGeometry.EllipticCurve.IsomOfJ.0.WeierstrassCurve.exists_variableChange_of_char_ne_two_or_three' \
+                                                               _tmp/slowest/slices/t4.ndjson
+python3 _tmp/next-frontier/slice_fast.py "$S" \
+  CategoryTheory.Limits.colimitLimitToLimitColimit_surjective  _tmp/slowest/slices/t5.ndjson
+# the -notarget twin of any slice:
+python3 _tmp/slowest/mknotarget.py _tmp/slowest/slices/tN.ndjson _tmp/slowest/slices/tN-notarget.ndjson
+```
+
+A *small* synthetic reproducer of §5 — the analogue of the divergence
+audit's `delta_chain.lean` — would be the right e2e fixture and is left
+to whichever task takes P1 or P2: it needs a proof whose checking
+rebuilds one large term many times (the shape is "an `inferSpineI` over
+a long application whose argument types are big and are re-derived
+rather than shared"), and building it honestly is a task of its own.
+
+### 9. Receipts (`_tmp/slowest/`)
+
+`top.py` (the heartbeat reader), `targets.txt`, `doslice.sh` +
+`slice.log` + `slice-t3b.log` (the five cones), `mknotarget.py`,
+`termsize.py`, `measure.sh` + `cells.tsv` + `table.py` (the 30
+instruction cells of §3), `proftarget.sh` + `perf-t{1..5}-target.data`
++ `proftarget-t*.log` (§4's flat profiles), `proftargetg.sh` +
+`perfg-t1.data` (the dwarf attempt, kept as a negative result),
+`gdbsample.sh` + `bt-t1.txt` (the 25 backtraces), `prog-t*.log` (the
+slice-local heartbeats), `slices/` (the ten `.ndjson` files, 2.1 GB —
+gitignored, regenerate per §8).
+
+## TASK #190 — REMOVE UNUSED CODE: sixteen dead modules, 5 235 lines, −11.1 % of the build (2026-09-06, `agent/deadcode`)
+
+The user's brief was three words — *"remove unused code"*.  What landed is
+**sixteen whole modules, one test file and 5 235 lines**, every one of them
+live, sorry-free, kernel-checked Lean that **nothing in the tree read**: the
+clean build drops from **5 438.2 G to 4 836.6 G `instructions:u` (−601.6 G,
+−11.06 %)** and the `Lech/` olean set from **459.14 MB to 435.46 MB over
+422 → 407 files (−23.69 MB, −5.16 %)**, at **zero verdict change — the
+shipped `bin/lech` is byte-identical to master's** (same md5; the diff
+touches no file in `Main.lean`'s import cone).
+
+It landed in two waves.  The first, nine modules, is what the mechanical
+criterion below certified outright; the second, seven more, is two items
+the batch had parked in §5 as *documented* parkings and the coordinator
+ruled on under the same three-word directive — the declarative lane's
+semantics and the parked canonical zero-ness representation.  Both were
+tier-2 clean by the same census, and one of them (§2) had a **false
+sentence in this document's opening** holding it in place.
+
+### 1. The criterion, and why it is a certificate rather than a guess
+
+Lean's own rule does the work: **a declaration can only be used by a module
+that transitively imports the module declaring it.**  So for a module `M`,
+
+* compute the transitive import closure of every `.lean` file in `Lech/`,
+  `tests/`, `scripts/`, `Main.lean`, `PinDump.lean`, `LechPreprocess.lean`
+  (the `public import` / `import all` forms included — miss those and the
+  graph silently says the whole `module`-system half of `Kernel/` has no
+  importers);
+* take `M`'s declared names, and their last components (dot notation and
+  `open` both reduce to that);
+* search only the modules **downstream** of `M`, with **comments stripped**
+  — the single most important step, because this tree documents its
+  retired machinery heavily and a raw `grep` reports a dead theorem as live
+  from the docstring that eulogises it.
+
+A module all of whose names survive that search is unused *whatever* is
+written about it.  The oracle for the answer is still `lake build`: every
+deletion here was made and then compiled.
+
+Two classes came out, and they need different work:
+
+* **umbrella-only modules** — the only importer is a `lean_lib` root
+  (`Lech.lean`, `Lech/SetP.lean`, `Lech/Semantics.lean`, `Lech/TT.lean`,
+  `Lech/Verify/Cached.lean`).  Deleting one is a file plus one import line.
+* **chain modules whose whole declaration set is dead** — imported by real
+  modules, which import them for nothing they use.  Deleting one means
+  re-pointing its importers at *its* imports; the compiler checks that.
+
+### 2. What was deleted
+
+| module | lines | class | why certain |
+|---|---:|---|---|
+| `Lech/Verify/BridgeDeclPair.lean` | 1 441 | umbrella-only | the pair-monad projection battery, 102 `_fst_dproj`/`_snd_dproj` theorems; task #184 §3 found it consumerless and its punchline `checkDecl_wfOpsM_bridge` gone with the interned executable, and recorded the deletion as "a ruling not ours to make".  This is the ruling. |
+| `Lech/Verify/Bridge.lean` | 500 | chain (`Verify/BridgeDecl`) | the memoized-knot cache-refinement bridge: `cached_{whnfCore,whnf,infer,annotate,defeq,inferIO}_sim` + `scopedSim`.  Its consumers were the `cachedOps_*_bridge` entry-point lemmas, which went with the arena at task #172; the shipped cached tier proves its own simulation in `Verify/Cached/SimC*`. |
+| `Lech/SetP/Annot/BitReads.lean` | 202 | chain (`IndPinRowP`, `IotaRulePlainP`) | `denoteP_isSome_of_denote`, `denotePClosed_isSome_of_denoteClosed` — the reading's totality bridge.  Four modules still *cite* them, all four in comments; no proof uses either. |
+| `Lech/Semantics/Spine2.lean` | 158 | chain (`Step2/ProjRowsP`) | `SlotChain`, `slotChain_fits`, `AnnotOk2_spine_slots`, `AnnotOk2_redex_fits`, `TeleFit2.fold_mem` — tier C seal 2's "what replaces the per-fire `iotaCertsI` walk"; the walk it replaced and the fold that consumed it are both gone. |
+| `Lech/Verify/Denote/HasTypeSubst.lean` | 153 | **orphan** | `LiftCtx`/`InstCtx` and their four `getElem?` lemmas.  No module imports it at all — it is not in any `lean_lib` root's cone and **was not even being built** (no `.olean` on a fully built master).  Its docstring says it stayed "because a live consumer uses them"; that consumer was `SetBase/Weaken.lean`. |
+| `Lech/Verify/Extend/Transport.lean` | 142 | chain (`Extend/Modeled`) | `Env.{find?_recRules_swap,recRules_levelext,recRules_isSome}`, `ConstWF.{recRules_swap,recRules_head_empty}` — the rule-list-swap congruences.  (The memory note "new extension lemmas go through `extend_fresh`/`extend_rec_swap` in `Extend/Transport.lean`" is stale twice over: neither name exists, and nothing goes through the file.) |
+| `Lech/SetP/Step2/AssemblyP.lean` | 101 | chain (`Annot/EnvS2P`) | `checkStep2P5_of_quarters`, `checkSoundP5_of_inputs` — the "5" assembly.  The shipped assembly is `checkStep2P_of_quarters`/`checkSoundP_of_inputs`, elsewhere; the P5 pair has no caller. |
+| `Lech/Semantics/SpineV.lean` | 60 | chain (6 importers) | `projSpinesV`, `etaFabArgsV`, `piResidualV` — value-level spine spec functions.  Six modules import it; none of the six mentions a name from it outside a docstring. |
+| `Lech/Semantics/Bridge/ProjRed.lean` | 49 | umbrella-only | `stripPis_mono`, `stripPis_le`.  Its docstring says in as many words "they stayed because a live consumer uses them" — the consumer was `SetP/DirectFoldEntryP.lean`, retired at task #175 S1.  **This is the one that proves the method's worth**: the file was on all seven `proofdeps` roots' closures, so the pin said "reached"; deleting it compiled with no change anywhere, and the gate reported exactly seven rows LEAVING and zero doors.  A module-level pin cannot tell "a constant of mine is used" from "a constant of mine is reachable". |
+| **wave 1 subtotal** | **2 806** | | |
+| `Lech/TT/Semantics/{Value,Interp,ConstOk,Soundness}.lean` | 1 202 | umbrella-only (4 modules) | the declarative lane's own model (`VVal`, `interp`, `bval`, `ConstOk`) and its soundness theorem `HasType.sound`.  The **only** importer of any of the four is the `Lech.TT` `lean_lib` root and each other; and the sentence in this document's opening that kept them — "whose `VExpr`/`interp`/`bval` the P tier consumes" — was **false for these four**: what the tower consumes is `TT/{Syntax,Subst,Const}`'s syntax and basis, and the P tier's `interp2`/`bval2` are its own, in `Lech/Semantics/*`.  The opening now says so.  Fallout to record: `TT/Judgment`'s `HasType` relation lost its last reader with them (the module stays — `natStepT`/`quotInvT` are used by `Verify/Denote/SubstAlgebra`). |
+| `Lech/Kernel/ZeroSet.lean` | 484 | the P5 trio | the canonical zero-ness datum `ZeroSet`/`ZPropWhen`.  **The checker never imported it**: the shipped binder annotation is the free `PropWhen` (`Kernel/PropWhen.lean`), and outside the trio the only two mentions in the tree are docstrings (`Lech/PinGen.lean:68`, `Kernel/PropWhen.lean:607`). |
+| `Lech/Verify/ZeroSet.lean` | 599 | the P5 trio | its law battery, mirroring `Verify/PropWhen.lean` law for law; 25 of its 66 theorems had no reference at all. |
+| `Lech/Kernel/ZeroSetPin.lean` | 47 | the P5 trio | two `ToExpr` instances that **no instance search could ever reach**, since nothing imported the module. |
+| `tests/LechTests/ZeroSetTests.lean` | 97 | the trio's own test | the trio's only consumer anywhere, and a test of nothing else.  Recorded explicitly because it is the one judgement call in this batch: a guard whose entire subject is deleted goes with it.  (`tests/LechTests.lean` loses the one import.) |
+| **total** | **5 235** | 16 modules + 1 test | |
+
+**On the trio.**  This document's bit-mask design (task #161 P5, "(ii)
+Comparison") already names `Kernel/ZeroSet.lean`, `Kernel/ZeroSetPin.lean`
+and `Verify/ZeroSet.lean` as **deleted** — as a *consequence* of a
+representation swap that has not happened.  They are deleted here for the
+simpler reason that nothing reads them; if that swap is ever made, the
+canonical datum is a `UInt64` word and none of these three files was going
+to be the thing that landed anyway.  Everything they proved is recoverable
+from git.
+
+Import rewiring: `Verify/BridgeDecl` ← `Verify/Disc` + `Kernel/Checker`;
+`Extend/Modeled` ← `Verify/EnvWF`; `IndPinRowP`/`IotaRulePlainP` ←
+`SetP/Annot/Bit`; `Annot/EnvS2P` ← the four `Step2/*` modules `AssemblyP`
+imported; six importers of `SpineV` ← `Verify/Denote{,.OpenVars,.VClosed}`;
+`ProjRowsP` ← `Semantics/Ok2`.  The second wave needed **none** — all
+seven modules were umbrella-only, so only `Lech.lean` (3 lines),
+`Lech/TT.lean` (4) and `tests/LechTests.lean` (1) changed.  No
+declaration, statement, signature or `private` marker changed anywhere in
+the tree.
+
+Two prose citations of a deleted file survive **on purpose**:
+`Lech/PinGen.lean:68` and `Kernel/PropWhen.lean:607` mention
+`Kernel/ZeroSetPin.lean` and `ZPropWhen.holds_congr` inside docstrings.
+Both are now historical citations in this document's usual sense, and
+editing either file's docstrings would change its olean hash and so
+invalidate a ~300-module cone for a comment — task #184 §2's finding,
+applied.  The cheap moment to fix them is the next real edit to those
+files.
+
+### 3. Gates
+
+`lake build` **636 jobs (was 651), 0 warnings**; `lake test` green;
+`tests/arena.sh` end to end — layering `base 241 / P 165 / caps 3 /
+umbrella 1, 0 base->lane edges, 0 impl->theory`; **`proofdeps` 2 515 rows
+across 7 roots, doors 0** (2 522 before: the seven `ProjRed` rows vanished
+in wave 1, which is the only permitted direction, the expectations were
+regenerated **once**, and wave 2 moved not a single row — neither
+`TT/Semantics/*` nor the ZeroSet trio was ever on a capstone's proof
+path); pindump fresh; trust surface 18 escapes in 4 allowlisted files
+(416 scanned), 0 outside; **axioms pinned, 11 theorems at `[propext,
+Classical.choice, Quot.sound]`**; arena tutorial 90/92; e2e 96/96; annot
+14/14; retired flags 8/8; mode flags 16/16; progress lane 6/6; trusted
+sweep 138 + 96 + 14 with the 3 recorded divergences.  `init-full`
+(pre-native stream) accepted in **both** modes, 56 291 declarations each,
+exit 0.  The verdict argument does not rest on those runs, though: the
+**binary is byte-identical to master's**, and the diff touches only
+`Lech/Verify/*`, `Lech/Semantics/*`, `Lech/SetP/*`, three umbrella files
+and the proofdeps expectations.
+
+### 4. What was measured
+
+| | before (`b7fa7331`) | after wave 1 | after wave 2 | Δ total |
+|---|---:|---:|---:|---:|
+| clean-build `instructions:u` | 5 438.2 G | 4 854.4 G | **4 836.6 G** | **−601.6 G, −11.06 %** |
+| Lake jobs | 651 | 643 | 636 | −15 |
+| `Lech/` oleans | 422 files, 459.14 MB | 414, 438.00 MB | 407, **435.46 MB** | −15 files, **−23.69 MB, −5.16 %** |
+
+`BridgeDeclPair` alone accounts for 562.7 G of the instruction drop and
+19.56 MB of the olean drop — task #184 measured that module in isolation and
+predicted "−10.5 % of the whole build's instructions" for deleting it; the
+whole first wave landed at −10.73 %, so its other eight modules contributed
+about 21 G between them, and the second wave's seven another 17.9 G.  **The
+lopsidedness is the finding, not a disappointment**: 2 429 lines of the
+second wave cost 3 % of what 1 441 lines of `BridgeDeclPair` cost, because
+what makes a module expensive is the proofs it elaborates, not its length.
+Dead code is worth removing for what it does to a reader; only *some* of it
+is worth removing for what it does to the clock.  Wall time is not quoted:
+the box was shared throughout.
+
+### 5. What was NOT deleted, and why — the borderline list
+
+Five items are unused by the same mechanical criterion and stay, each for
+a reason a future ruling can overturn.  **Together they are ~800 further
+lines plus a scattering of declarations.**
+
+(Two more were on this list when the batch was first proposed — the
+canonical zero-ness trio and `TT/Semantics/*`, 2 332 lines between them.
+The coordinator ruled on both under the same three-word directive and they
+are in §2's table instead.)
+
+* **The gated-knot P lane, 556 lines** — `Kernel/CoreP.lean` (180),
+  `Kernel/CheckerP.lean` (35), `Verify/CoreP.lean` (245),
+  `SetP/Step2/GateP.lean` (96).  Deliberate: task #161 S9 records the lane
+  as **HELD** with a named roadmap ("only then the claims-tower
+  transposition onto `whnfCoreP`"), and its own docstring says nothing here
+  is reachable from `Main.lean`.
+* **`Lech/TT/Judgment.lean`'s `HasType`** — the declarative typing
+  relation, unread since `TT/Semantics/*` went (§2).  The module stays for
+  `natStepT`/`quotInvT`; the relation itself is now the largest single dead
+  *declaration* in the tree and belongs to the docket in §6.
+* **`Verify/AnnotDefense.lean` (53)** — `DefensiveSitesQuiet` is a
+  *statement only*, under an explicit decide-by-proof mandate.
+* **`SetP/IndPinProbeP.lean` (203)** — a mechanized **refutation** of the
+  nested-pin conjunct; a negative result is a deliverable.
+* **`SetTheory/Derive/Collapse.lean` (351, 15 reference-free theorems)** —
+  the canon-collapse countermodels, cited by name in this document.
+* **`Verify/Cached/AgreeAnnot.lean` (156)** — clean tier 2 (umbrella-only,
+  zero references) but inside the `Verify/Cached/*` fence this batch was
+  given for `agent/recursive`.  Delete it in the batch that owns those
+  files.
+* **`Verify/BridgeDecl.lean`'s `pairOps`** — it had exactly one consumer,
+  `BridgeDeclPair`, so it died in this batch; `bridgeRel`, `wfOpsM_whnf`,
+  `fueledOpsM_annotate_atF` and `checkDecls_datF` were already dead.  Same
+  fence.
+* **The `SetTheory/Derive/*` law lists** (`Pi` 13, `PtFresh` 13, `Omega` 5,
+  `Pt` 5, …) — under the minimal-axiomatization ruling those per-construction
+  modules' law lists *are* the derived interface, not incidental lemmas.
+
+### 6. The rest of the census, for whoever wants it
+
+After this batch, **535 declarations in `Lech/` are referenced nowhere —
+not by another module, not by their own file, not by a test — across 177
+modules** (attribute-bearing declarations, instances, `syntax`/`macro`/`elab`
+and type formers excluded, since those resolve without being named).  The
+top of the list is `Verify/Denote/IndFrame` (20), `Verify/Subst` (18),
+`SetTheory/Derive/Collapse` (15), `Semantics/Kit` (14),
+`SetTheory/Derive/Pi` (14), `Verify/CoreP` (14),
+`SetTheory/Derive/PtFresh` (13), `PinGen/Certs` (12), `SetModel/Value`
+(12), `Verify/BridgeWfImp` (11), `Semantics/Hoist` (10),
+`Verify/Cached/SimCEff` (10), `Verify/InstLevels` (10) — plus `HasType`
+itself, which the type-former exclusion keeps out of the count.  These are
+*inside live modules*, so each is a judgement about whether a law belongs
+to its module's stated interface — which is why this batch stopped at whole
+modules.  **This list is the docket for a later interface pass**, by the
+coordinator's ruling, not a to-do this batch left half done.
+
+### 7. `CheckMode.ttChecks` — measured, not done (tier 4)
+
+`ttChecks` is constantly `false` (`Kernel/Env.lean:76`; guarded by
+`tests/LechTests.lean:42-43`, and `Verify/BetaGate.lean:106` proves
+`ttChecks_eq_false := rfl`).  The charter allowed removing it **only if the
+signature changes are mechanical and no capstone statement changes**.  They
+are not: two of the sixteen sites are inside *statements*, not tests —
+
+* `Verify/Extend/Proj.lean:310` and `Verify/InferLemmas.lean:1948-49` each
+  carry a `(mode.ttChecks = true → …)` conjunct in an install-stage /
+  inference record, so dropping the flag rewrites those records' statements;
+
+the rest are gated call sites in shipped bodies (`Kernel/Core.lean:1079`,
+`Kernel/DeclCheck.lean:228,260,271`, `Kernel/Modeled.lean:44,630,668,756`,
+`Cached/CoreC.lean:464`) and proof-side case splits that would collapse
+(`Verify/BridgeWfImp.lean:810`, `Verify/Deep.lean:884`,
+`Verify/Extend/Proj.lean:464`, `Verify/Cached/BridgeCS2.lean:166`,
+`Verify/Cached/DiscC2.lean:855,935,1088`).  Touching the first group changes
+the functions every capstone is stated about.  Left in place, as the
+modeonly lane's ~15-file estimate predicted.
 ## TASK #191 — THE BUILT-IN PRELUDE AND THE GROUND HOIST: the Nat-op pins no longer depend on the stream's installation order (2026-09-06, `agent/prelude`)
 
 **The report (user, verbatim):** *"a user reported that the NatOpPins
