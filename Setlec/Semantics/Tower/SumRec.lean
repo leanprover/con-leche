@@ -367,10 +367,10 @@ structure RecBaseS (ℓ w : Nat) (ρp : Nat → V) (Fss Ess : List (List AVExpr)
 
 /-- `RecPreS`: the parameter walk ending in `RecBaseS`. -/
 def RecPreS (ℓ w : Nat) (ρ : Nat → V) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
-    (famAt : List V → V) (srcs : List (List (Option Nat)))
+    (famAt : (Nat → V) → List V → V) (srcs : List (List (Option Nat)))
     (dM : Nat × Nat × AVExpr) (dms dis : List (Nat × Nat × AVExpr)) (dt : Nat × Nat × AVExpr) :
     List (Nat × Nat × AVExpr) → Prop
-  | [] => RecBaseS ℓ w ρ Fss Ess Ids famAt srcs dM dms dis dt
+  | [] => RecBaseS ℓ w ρ Fss Ess Ids (famAt ρ) srcs dM dms dis dt
   | d :: pds => AnnotOk2 V ρ d.2.2 ∧
       ∀ a, a ∈ˢ interp2 V ρ d.2.2 → RecPreS ℓ w (cons a ρ) Fss Ess Ids famAt srcs dM dms dis dt pds
 
@@ -426,7 +426,7 @@ theorem underTowerOk_of_recTail {ℓ w : Nat} {Fss Ess : List (List AVExpr)} {Id
 
 /-- **The recursor leaf's `UnderTowerOk`** from `RecPreS`. -/
 theorem underTowerOk_of_recPreS {ℓ w : Nat} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
-    {famAt : List V → V} {srcs : List (List (Option Nat))}
+    {famAt : (Nat → V) → List V → V} {srcs : List (List (Option Nat))}
     {dM : Nat × Nat × AVExpr} {dms dis : List (Nat × Nat × AVExpr)} {dt : Nat × Nat × AVExpr} :
     ∀ {pds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
       RecPreS ℓ w ρ Fss Ess Ids famAt srcs dM dms dis dt pds →
@@ -441,7 +441,7 @@ theorem underTowerOk_of_recPreS {ℓ w : Nat} {Fss Ess : List (List AVExpr)} {Id
 
 /-- **The recursor leaf inhabits its type's reading.** -/
 theorem directSumRecAV_mem {ℓ w : Nat} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
-    {famAt : List V → V} {srcs : List (List (Option Nat))} {ρ : Nat → V}
+    {famAt : (Nat → V) → List V → V} {srcs : List (List (Option Nat))} {ρ : Nat → V}
     {pds : List (Nat × Nat × AVExpr)} {dM : Nat × Nat × AVExpr} {dms dis : List (Nat × Nat × AVExpr)}
     {dt : Nat × Nat × AVExpr}
     (hz : ∀ d ∈ pds ++ [dM] ++ dms ++ dis ++ [dt], (ℓ = 0 ↔ d.2.1 = 0))
@@ -452,7 +452,7 @@ theorem directSumRecAV_mem {ℓ w : Nat} {Fss Ess : List (List AVExpr)} {Ids : L
 
 /-- **The recursor leaf is graded.** -/
 theorem directSumRecAV_ok2 {ℓ w : Nat} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
-    {famAt : List V → V} {srcs : List (List (Option Nat))} {ρ : Nat → V}
+    {famAt : (Nat → V) → List V → V} {srcs : List (List (Option Nat))} {ρ : Nat → V}
     {pds : List (Nat × Nat × AVExpr)} {dM : Nat × Nat × AVExpr} {dms dis : List (Nat × Nat × AVExpr)}
     {dt : Nat × Nat × AVExpr}
     (hz : ∀ d ∈ pds ++ [dM] ++ dms ++ dis ++ [dt], (ℓ = 0 ↔ d.2.1 = 0))

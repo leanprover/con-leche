@@ -461,7 +461,7 @@ theorem sumRecBody_validV {ℓ w : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (
 
 /-- The recursor leaf's P currency. -/
 theorem directSumRecAV_okP {ℓ w : Nat} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
-    {famAt : List V → V} {srcs : List (List (Option Nat))} {ρ : Nat → V}
+    {famAt : (Nat → V) → List V → V} {srcs : List (List (Option Nat))} {ρ : Nat → V}
     {pds : List (Nat × Nat × AVExpr)} {dM : Nat × Nat × AVExpr} {dms dis : List (Nat × Nat × AVExpr)}
     {dt : Nat × Nat × AVExpr}
     (hz : ∀ d ∈ pds ++ [dM] ++ dms ++ dis ++ [dt], (ℓ = 0 ↔ d.2.1 = 0))
