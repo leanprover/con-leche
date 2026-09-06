@@ -36,12 +36,18 @@ discipline).
   proof to go through"), so the lane is never optimized on its own:
   it is the real mode with certain steps omitted (DESIGN.md, "MODE
   RENAME").  Since 2026-09-06 it is literally that: the one cached
-  driver at `cfgT` — `cfgP` with `verified := false` and `certs :=
-  false` (`Setlec/Kernel/CoreCfg.lean`), so what it omits is exactly
-  what `cfg.verified` and `cfg.certs` gate in
-  `Setlec/Cached/CoreC.lean` (DESIGN.md, "CORET RETIRED").
-  `Main.lean` maps the mode to the config; the cached tier never sees
-  a `CheckMode` except through the inert `CoreCfg.iotaMode`.
+  driver (`Setlec/Cached/ParsedC.lean`) at `.trusted`, where
+  `verifiedChecks` and `certs` are `false` — so what it omits is
+  exactly what those two functions gate in `Setlec/Cached/CoreC.lean`
+  (DESIGN.md, "CORET RETIRED").
+
+**The mode is the cores' only parameter** (task #185, 2026-09-06).
+The configuration record that stood between the mode and the
+shipped cores from task #172 B2 to task #185 is gone: every field it
+carried is a function on `CheckMode` below (`ttChecks`,
+`verifiedChecks`, `betaGate`, `ioGate`, `certs`), each a `match` on
+the two constructors, so each read reduces by `rfl` at either mode —
+the record's `rfl`-eliminability argument, at the enum itself.
 
 **HISTORY, because the spelling moved twice.**  There were three
 values until 2026-09-05: `.setModel` at `--set-model=r` (the R lane —
@@ -109,6 +115,79 @@ kernel reads them at different sites. -/
 def CheckMode.betaGate : CheckMode → Bool
   | .verified => true
   | _ => false
+
+/-- Is the **io-grade knot slot** the io body (task #170 / #172 B4)?
+Read once per knot level by the cached knot (`coreKnotI`,
+`Setlec/Cached/CoreC.lean`) to select what the internal inference call
+sites run: the io body, whose application clause skips the
+per-argument certificate at a `.never` binder under the graph-regime
+licence (`Setlec/SetP/IOLicenseP.lean`) — official's `infer_only`.
+**`true` at both modes** since the licence ruling of 2026-09-06 (the
+trusted mode is defined as the verified one minus certification-only
+work, and the io grade is a *licence*, not a certificate; the retired
+trusted configuration record had it `true` too).  It is its own
+function, and not `betaGate`, so that an attribution probe can flip
+one without the other; the
+mode-parametric spec knot (`coreKnot`, `Setlec/Kernel/Core.lean`)
+selects its io slot on `betaGate`, the P tier's own bit, so the two
+agree exactly at `.verified` — the one instance the simulation tower
+is stated at (`memoEI_inferIO_sim`, `Setlec/Verify/Cached/KnotC.lean`).
+Spelled with a wildcard so it is the literal `true` at a *variable*
+mode too. -/
+def CheckMode.ioGate : CheckMode → Bool
+  | _ => true
+
+/-- **The certificate families** (task #76's skip list; the twin's
+retirement, 2026-09-06): the work the checker does *only* so the
+soundness proof can consume it, and that the reference kernel does not
+do — the β-redex argument certificate (`whnfAppI`/`betaPeelI`, through
+`betaSkip`), the io-grade application argument certificate
+(`inferSpineIOI`, through `ioSkip`), the recursor/constructor telescope
+certificates and the canonical-index comparison of ι (`iotaRecI`), the
+plain-rule parameter re-comparison, the type-former and per-projection
+telescope certificates of structure η and unit-like conversion
+(`structEtaCertWithI`, `structUnitCertI`), and the K/η rescue's
+synthetic-spine and proof-irrelevance certificates (`majorToCtorI`).
+Read through `Setlec/Cached/CoreC.lean`'s `certAtI`/`certUnlessI` and
+the two skip predicates below; `true` runs them, `false` (the trusted
+mode) skips them outright.
+
+**Why a second function beside `verifiedChecks`**, when the two agree
+at both constructors.  Both are certification-only work; they differ
+in what the proof towers need of them.  `verifiedChecks` gates checks
+the P tier's *premises* rest on (the λ-codomain sort, the annotation
+validations), so the mode-parametric spec (`Setlec/Kernel/Core.lean`)
+reads it at the same sites the cached core does.  The certificate
+families have **no switch in the spec** — no proved instance ever
+omits them — so the cached core's reads of `certs` are what the
+simulation tower (`Setlec/Verify/Cached/*`) must see through: it is
+stated under `hμ : mode.verifiedChecks = true`, and
+`certs_of_verifiedChecks` (`Setlec/Verify/BetaGate.lean`) turns every
+read into the literal `true` there.  The `.trusted` instance of the
+cached-vs-spec simulation is false, deliberately: the trusted core
+skips what the spec runs. -/
+def CheckMode.certs : CheckMode → Bool
+  | .verified => true
+  | .trusted => false
+
+/-- **The β site's read** (`whnfAppI`/`betaPeelI`): skip the per-redex
+argument certificate wholesale when the certificate families are off,
+else exactly when the β gate is on and the (validated) annotation
+datum is `.never`.  At `.verified` it is the datum (`pw.isNever`, the
+same predicate as the spec's `betaGateFires .verified pw`); at
+`.trusted` the literal `true` — the β certificate is a certificate
+family, skipped outright, so the licence is moot there. -/
+@[inline] def CheckMode.betaSkip (mode : CheckMode) (pw : PropWhen) : Bool :=
+  !mode.certs || (mode.betaGate && pw.isNever)
+
+/-- **The io site's read** (`inferSpineIOI`): skip the per-argument
+application certificate at a `.never` binder (the graph-regime
+licence, `Setlec/SetP/IOLicenseP.lean`), or wholesale when the
+certificate families are off.  At `.verified` it is `pw.isNever` — the
+licence reads the datum and nothing else, as the licence ruling of
+2026-09-06 has it — and at `.trusted` it is `true`. -/
+@[inline] def CheckMode.ioSkip (mode : CheckMode) (pw : PropWhen) : Bool :=
+  !mode.certs || pw.isNever
 
 /-- Data common to all constants: name, universe parameters, type. -/
 structure ConstantVal where

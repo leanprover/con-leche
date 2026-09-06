@@ -1,4 +1,3 @@
-import Setlec.Kernel.CoreCfg
 import Setlec.Kernel.Env
 import Setlec.Kernel.PropRead
 import Setlec.Kernel.Level
@@ -102,9 +101,10 @@ structure CoreFns (m : Type → Type u) where
   it is the io body, whose application clause skips the per-argument
   certificate at a `.never` binder under the graph-regime license
   (`Setlec/SetP/IOLicenseP.lean`).  The **shipped** trusted core
-  selects the io body too (`cfgT.ioGate = true`, the licence ruling of
-  2026-09-06); this mode-parametric spelling is not the thing that
-  ships, so `μ.betaGate` here stays the P tier's own bit. -/
+  selects the io body too (`CheckMode.ioGate` is `true` at both
+  modes, the licence ruling of 2026-09-06); this mode-parametric
+  spelling is not the thing that ships, so `μ.betaGate` here stays the
+  P tier's own bit, and the two agree at `.verified`. -/
   inferIO : Nat → Expr → m Expr
 
 /-- The **io-grade view** of a core record: the record whose full-grade

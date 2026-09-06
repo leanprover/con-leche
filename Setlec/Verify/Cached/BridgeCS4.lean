@@ -161,10 +161,10 @@ private theorem envWF_cons_provRec {env : Env} (henv : EnvWF env)
 stays canonical, the index invariant is maintained, the output
 environment is well-formed, and the step is reproduced by the fueled
 generic step. -/
-theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
+theorem checkIndMemberS_run (hμ : mode.verifiedChecks = true) {blockNames : List Name} {caps : IndCaps}
     {env : Env} (henv : EnvWF env) {ci : ConstantInfo} {fe' : FEnv}
     {s₀ s' : CState} (hwf : CSOKF s₀)
-    (h : checkIndMemberS (cfgOf mode) blockNames caps (mkFEnv env) ci s₀ =
+    (h : checkIndMemberS mode blockNames caps (mkFEnv env) ci s₀ =
       .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
     EnvWF fe'.env ∧
@@ -179,7 +179,7 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
     ⟨rfl, congrArg Prod.snd hflush⟩
   obtain ⟨cvA, s₂, hcm, h⟩ := bindC_ok h
   obtain ⟨hs₂, cvA', ⟨rfl, hwty⟩, F₁, hFm⟩ :=
-    (checkMemberValS_sim henv (flushC_csok hwf)) cvA s₂ hcm
+    (checkMemberValS_sim hμ henv (flushC_csok hwf)) cvA s₂ hcm
   have hFmp : checkMemberVal (fueledOps mode F₁) blockNames env
       ci.toConstantVal = .ok cvA := by
     rw [← checkMemberVal_datF]; exact hFm
@@ -217,11 +217,11 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
   | recInfo cv mI rP rules => exact nomatch h
 
 /-- The member fold of the shared driver. -/
-theorem foldIndMemberS_run {blockNames : List Name} {caps : IndCaps} :
+theorem foldIndMemberS_run (hμ : mode.verifiedChecks = true) {blockNames : List Name} {caps : IndCaps} :
     ∀ (cis : List ConstantInfo) (env : Env) {s₀ : CState}
       {fe' : FEnv} {s' : CState},
       EnvWF env → CSOKF s₀ →
-      (cis.foldlM (checkIndMemberS (cfgOf mode) blockNames caps) (mkFEnv env)) s₀ =
+      (cis.foldlM (checkIndMemberS mode blockNames caps) (mkFEnv env)) s₀ =
         .ok (fe', s') →
       CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
       EnvWF fe'.env ∧
@@ -235,10 +235,10 @@ theorem foldIndMemberS_run {blockNames : List Name} {caps : IndCaps} :
     rw [List.foldlM_cons] at h
     obtain ⟨fe₁, s₁, hstep, h⟩ := bindC_ok h
     obtain ⟨hwf₁, hfe₁, henv₁, F₁, hF₁⟩ :=
-      checkIndMemberS_run henv hwf hstep
+      checkIndMemberS_run hμ henv hwf hstep
     rw [hfe₁] at h
     obtain ⟨hwf', hfe', henv', F₂, hF₂⟩ :=
-      foldIndMemberS_run cis fe₁.env henv₁ hwf₁ h
+      foldIndMemberS_run hμ cis fe₁.env henv₁ hwf₁ h
     refine ⟨hwf', hfe', henv', max F₁ F₂, ?_⟩
     rw [List.foldlM_cons]
     exact atF_bind_intro hF₁ hF₂
@@ -246,12 +246,12 @@ theorem foldIndMemberS_run {blockNames : List Name} {caps : IndCaps} :
 /-! ## The recursor group -/
 
 /-- The provisioning fold of the shared driver. -/
-theorem provisionRecsS_run {blockNames : List Name} :
+theorem provisionRecsS_run (hμ : mode.verifiedChecks = true) {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (env : Env) {s₀ : CState}
       {p : FEnv × List (ConstantVal × Nat × Nat × List RecRule)}
       {s' : CState},
       EnvWF env → CSOKF s₀ →
-      provisionRecsS (cfgOf mode) blockNames (mkFEnv env) recs s₀ = .ok (p, s') →
+      provisionRecsS mode blockNames (mkFEnv env) recs s₀ = .ok (p, s') →
       CSOKF s' ∧ p.1 = mkFEnv p.1.env ∧
       EnvWF p.1.env ∧
       ∃ F, (provisionRecs (fueledOpsM mode) blockNames env recs).val F =
@@ -278,7 +278,7 @@ theorem provisionRecsS_run {blockNames : List Name} :
       congrArg Prod.snd hflush
     obtain ⟨cvA, s₂, hcm, h⟩ := bindC_ok h
     obtain ⟨hs₂, cvA', ⟨rfl, hwty⟩, F₁, hFm⟩ :=
-      (checkMemberValS_sim henv (flushC_csok hwf)) cvA s₂ hcm
+      (checkMemberValS_sim hμ henv (flushC_csok hwf)) cvA s₂ hcm
     have hFmp : checkMemberVal (fueledOps mode F₁) blockNames env
         (ConstantInfo.recInfo cv mI rP rules).toConstantVal = .ok cvA := by
       rw [← checkMemberVal_datF]; exact hFm
@@ -289,7 +289,7 @@ theorem provisionRecsS_run {blockNames : List Name} :
     rw [show (mkFEnv env).push (.recInfo cvA mI rP []) =
       mkFEnv ⟨.recInfo cvA mI rP [] :: env.consts⟩ from rfl] at hrec
     obtain ⟨hwf₃, hfeS, henvS, F₂, hF₂⟩ :=
-      provisionRecsS_run rest _ henv₁ hs₂.residue hrec
+      provisionRecsS_run hμ rest _ henv₁ hs₂.residue hrec
     obtain ⟨feSelf, others⟩ := p'
     obtain ⟨hfe, rfl⟩ := pureC_ok h
     subst hfe
@@ -342,14 +342,14 @@ theorem throwC_bind_ok {α β : Type} {e : CheckError} {k : α → CheckCM β}
 
 /-- The iota fold of the shared driver: all operations run at
 `envSelf`, one shared state across the whole fold. -/
-private theorem iotaFoldS_run {env₂ envSelf : Env}
+private theorem iotaFoldS_run (hμ : mode.verifiedChecks = true) {env₂ envSelf : Env}
     (henv₂ : EnvWF env₂) (henvS : EnvWF envSelf) {f : Name → Name} :
     ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule))
       (acc : FEnv) {s₀ : CState} {fe₃ : FEnv} {s' : CState},
       (∀ c ∈ checked, c.1.type.hasFvar = false) →
       CSOK mode envSelf s₀ →
       (checked.foldlM (fun (acc : FEnv) (c : ConstantVal × Nat × Nat × List RecRule) => do
-          let rules' ← checkIotaRules mode (sharedOpsC (cfgOf mode) (mkFEnv envSelf)) env₂
+          let rules' ← checkIotaRules mode (sharedOpsC mode (mkFEnv envSelf)) env₂
             envSelf f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
             0 c.2.2.2
           pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules'))) acc) s₀ =
@@ -370,12 +370,12 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
     obtain ⟨acc₁, s₁, hstep, h⟩ := bindC_ok h
     obtain ⟨rules', s₂, hir, hstep⟩ := bindC_ok hstep
     obtain ⟨hs₂, rules'', hPr, F₁, hF₁⟩ :=
-      (checkIotaRulesS_sim henv₂ henvS
+      (checkIotaRulesS_sim hμ henv₂ henvS
         (htys c List.mem_cons_self) hs) rules' s₂ hir
     obtain rfl : rules' = rules'' := hPr
     obtain ⟨hacc₁, rfl⟩ := pureC_ok hstep
     subst hacc₁
-    obtain ⟨hwf', hfe', F₂, hF₂⟩ := iotaFoldS_run henv₂ henvS rest
+    obtain ⟨hwf', hfe', F₂, hF₂⟩ := iotaFoldS_run hμ henv₂ henvS rest
       (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules'))
       (fun c' hc' => htys c' (List.mem_cons_of_mem _ hc')) hs₂ h
     refine ⟨hwf', fun hacc => hfe' (by rw [hacc]; rfl), max F₁ F₂, ?_⟩
@@ -427,11 +427,11 @@ private theorem iotaFold_datF {env₂ envSelf : Env} {f : Name → Name}
     exact iotaFold_datF rest e₁ h
 
 /-- The recursor group of the shared driver. -/
-theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
+theorem checkIndRecsS_run (hμ : mode.verifiedChecks = true) {blockNames : List Name} {env₂ : Env}
     {recs : List ConstantInfo} (henv₂ : EnvWF env₂)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true)
     {s₀ : CState} (hwf : CSOKF s₀) {fe₃ : FEnv} {s' : CState}
-    (h : checkIndRecsS (cfgOf mode) blockNames (mkFEnv env₂) recs s₀ =
+    (h : checkIndRecsS mode blockNames (mkFEnv env₂) recs s₀ =
       .ok (fe₃, s')) :
     CSOKF s' ∧ fe₃ = mkFEnv fe₃.env ∧
     EnvWF fe₃.env ∧
@@ -459,7 +459,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
   obtain ⟨p, s₁, hprovR, h⟩ := bindC_ok h
   obtain ⟨feSelf, checked⟩ := p
   obtain ⟨hwf₁, hfeS, henvS, F₁, hF₁⟩ :=
-    provisionRecsS_run recs env₂ henv₂ hwf hprovR
+    provisionRecsS_run hμ recs env₂ henv₂ hwf hprovR
   obtain ⟨u, s₂, hflush, h⟩ := bindC_ok h
   rw [flushC_run] at hflush
   injection hflush with hflush
@@ -479,7 +479,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
   -- the iota fold in the shared state at `envSelf`
   rw [hfeS] at h
   simp only [checkIotaRulesF_eq] at h
-  obtain ⟨hwf', hfe₃, F₂, hF₂⟩ := iotaFoldS_run henv₂ henvS checked
+  obtain ⟨hwf', hfe₃, F₂, hF₂⟩ := iotaFoldS_run hμ henv₂ henvS checked
     (mkFEnv env₂) htys (flushC_csok hwf₁) h
   have hfe₃' : fe₃ = mkFEnv fe₃.env := hfe₃ rfl
   -- both phases at the joined fuel, for the `RulesChain` machinery
@@ -563,10 +563,10 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
 /-! ## The projection phases -/
 
 /-- The projection-function install (mirrors `checkProjFn`). -/
-theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
+theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
     {s₀ : CState} (hs : CSOK mode env s₀) {fe' : FEnv} {s' : CState}
-    (h : checkProjFnS (cfgOf mode) (mkFEnv env) T ctorName lps nP nF i s₀ =
+    (h : checkProjFnS mode (mkFEnv env) T ctorName lps nP nF i s₀ =
       .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
     EnvWF fe'.env ∧
@@ -604,13 +604,13 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
     exact hFlk
   obtain ⟨cnP0, cnF0, hctorE⟩ := checkProjLookups_ctor hLKc0
   obtain ⟨hs₃, rhsA', hPr, F₁, hFr⟩ :=
-    (checkProjRuleS_sim henv hptyf
+    (checkProjRuleS_sim hμ henv hptyf
       (show cvj.type.hasFvar = false from
         (henv _ (find?_mem hctorE)).1) hs₂') rhsA s₃ hrule
   obtain rfl : rhsA = rhsA' := hPr
   obtain ⟨u, s₄, hio, h⟩ := bindC_ok h
   obtain ⟨hs₄, u', hPu, F₂, hFio⟩ :=
-    (checkProjIotaS_sim henv hs₃) u s₄ hio
+    (checkProjIotaS_sim hμ henv hs₃) u s₄ hio
   obtain ⟨hfe, rfl⟩ := pureC_ok h
   subst hfe
   -- the ops-free stages, `CheckM`-level
@@ -706,10 +706,10 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
     simp [hcond] at hf
 
 /-- One projection-function install step. -/
-theorem installProjFnStepS_run {env : Env} (henv : EnvWF env)
+theorem installProjFnStepS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
     {s₀ : CState} (hwf : CSOKF s₀) {fe' : FEnv} {s' : CState}
-    (h : installProjFnStepS (cfgOf mode) T ctorName lps nP nF (mkFEnv env) i s₀ =
+    (h : installProjFnStepS mode T ctorName lps nP nF (mkFEnv env) i s₀ =
       .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
     EnvWF fe'.env ∧
@@ -725,7 +725,7 @@ theorem installProjFnStepS_run {env : Env} (henv : EnvWF env)
     obtain rfl : s₀.flushed = s₁ :=
       congrArg Prod.snd hflush
     obtain ⟨hwf', hfe', henv', F, hF⟩ :=
-      checkProjFnS_run henv (flushC_csok hwf) h
+      checkProjFnS_run hμ henv (flushC_csok hwf) h
     refine ⟨hwf', hfe', henv', F, ?_⟩
     unfold installProjFnStep
     rw [FueledM.atF_ite, if_pos hart]
@@ -739,12 +739,12 @@ theorem installProjFnStepS_run {env : Env} (henv : EnvWF env)
     rfl
 
 /-- The artifact-phase fold. -/
-theorem foldProjFnS_run {T ctorName : Name} {lps : List Name}
+theorem foldProjFnS_run (hμ : mode.verifiedChecks = true) {T ctorName : Name} {lps : List Name}
     {nP nF : Nat} :
     ∀ (idxs : List Nat) (env : Env) {s₀ : CState} {fe' : FEnv}
       {s' : CState},
       EnvWF env → CSOKF s₀ →
-      (idxs.foldlM (installProjFnStepS (cfgOf mode) T ctorName lps nP nF)
+      (idxs.foldlM (installProjFnStepS mode T ctorName lps nP nF)
         (mkFEnv env)) s₀ = .ok (fe', s') →
       CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
       EnvWF fe'.env ∧
@@ -758,10 +758,10 @@ theorem foldProjFnS_run {T ctorName : Name} {lps : List Name}
     rw [List.foldlM_cons] at h
     obtain ⟨fe₁, s₁, hstep, h⟩ := bindC_ok h
     obtain ⟨hwf₁, hfe₁, henv₁, F₁, hF₁⟩ :=
-      installProjFnStepS_run henv hwf hstep
+      installProjFnStepS_run hμ henv hwf hstep
     rw [hfe₁] at h
     obtain ⟨hwf', hfe', henv', F₂, hF₂⟩ :=
-      foldProjFnS_run idxs fe₁.env henv₁ hwf₁ h
+      foldProjFnS_run hμ idxs fe₁.env henv₁ hwf₁ h
     refine ⟨hwf', hfe', henv', max F₁ F₂, ?_⟩
     rw [List.foldlM_cons]
     exact atF_bind_intro hF₁ hF₂

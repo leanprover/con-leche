@@ -32,8 +32,8 @@ checker cannot be talked into signing off on `theorem oops : False`.
 * `checkDeclsSPCachedD` is the *shipped* checking function — the very
   one `Main.lean` folds over the parsed export stream (it is defined in
   `Setlec/Cached/ParsedC.lean`, an implementation module, not a
-  proof-friendly re-statement of one).  `cfgOf .verified` is the
-  configuration it runs at in the binary's default `--verified` mode.
+  proof-friendly re-statement of one).  `.verified` is the mode it
+  runs at under the binary's default `--verified` switch.
 * `ds : List DeclC` is the parsed stream: `DeclC` is one parsed
   declaration record.  `Env` is the environment the checker builds as
   it goes, and `env.consts` lists the constants it has accepted.
@@ -72,7 +72,7 @@ open Setlec.Cached (DeclC checkDeclsSPCachedD)
 type `False`. -/
 theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
-    (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
+    (accepted : checkDeclsSPCachedD .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
   sorry
 

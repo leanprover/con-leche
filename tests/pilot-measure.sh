@@ -131,7 +131,7 @@ EOF
 # the ones that are say `(parity)`.  Whether `--core=cached-parsed` has
 # a real parity engine used to be read OFF THE TREE (`Cached/CoreT.lean`).
 # Since 2026-09-06 that twin is retired and the trusted lane IS the shared
-# cached driver at `cfgT` (DESIGN.md, "CORET RETIRED"), so the cached
+# cached driver at `.trusted` (DESIGN.md, "CORET RETIRED"), so the cached
 # lane is always the trusted engine.
 CACHED_PARITY_WIRED=1
 

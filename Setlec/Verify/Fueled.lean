@@ -19,7 +19,7 @@ namespace Setlec
 
 variable {mode : CheckMode}
 /- Task #172 B2: the ι cone's mode is decoupled from the knot's, so
-that the `whnfCore` template's `cfg.iotaMode` can occupy it while the
+that the `whnfCore` template's ι-cone mode can occupy it while the
 knot stays at the tower's `mode`.  Generalization only — every landed
 call site unifies `mi := mode`. -/
 variable {mi : CheckMode}

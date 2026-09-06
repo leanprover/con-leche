@@ -70,55 +70,55 @@ theorem opE_sim {pick : CoreFnsI → Nat → ExprC → CheckCM ExprC}
     (hsim : ∀ {s₁ : CState} {i : ExprC}, CSOK mode env s₁ →
       RelC i e →
       SimC mode env s₁ (RelEC d)
-        (pick (coreKnotI (cfgOf mode) (mkFEnv env) checkFuel) d i) pf)
+        (pick (coreKnotI mode (mkFEnv env) checkFuel) d i) pf)
     (hs : CSOK mode env s₀) :
-    SimC mode env s₀ (RelW d) (opE (cfgOf mode) (mkFEnv env) pick d e) pf := by
+    SimC mode env s₀ (RelW d) (opE mode (mkFEnv env) pick d e) pf := by
   refine SimC.mono ?_ (hsim hs rfl)
   rintro v' v ⟨rfl, hw⟩
   exact ⟨rfl, hw⟩
 
 /-- Shared `annotate` simulates the fueled family, from any invariant
 state. -/
-theorem opE_annotate_sim (henv : EnvWF env) {d : Nat} {e : Expr}
+theorem opE_annotate_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {e : Expr}
     (hs : CSOK mode env s₀) (hw : Expr.WScoped d e) :
-    SimC mode env s₀ (RelW d) (opE (cfgOf mode) (mkFEnv env) (·.annotate) d e)
+    SimC mode env s₀ (RelW d) (opE mode (mkFEnv env) (·.annotate) d e)
       ((fueledOpsM mode).annotate env d e) :=
   opE_sim (fun hs₁ hden =>
-    (ssimC env henv checkFuel).annotate hs₁ hden hw) hs
+    (ssimC hμ env henv checkFuel).annotate hs₁ hden hw) hs
 
 /-- Shared `inferType` simulates the fueled family. -/
-theorem opE_infer_sim (henv : EnvWF env) {d : Nat} {e : Expr}
+theorem opE_infer_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {e : Expr}
     (hs : CSOK mode env s₀) (hw : Expr.WScoped d e) :
-    SimC mode env s₀ (RelW d) (opE (cfgOf mode) (mkFEnv env) (·.infer) d e)
+    SimC mode env s₀ (RelW d) (opE mode (mkFEnv env) (·.infer) d e)
       ((fueledOpsM mode).inferType env d e) :=
   opE_sim (fun hs₁ hden =>
-    (ssimC env henv checkFuel).infer hs₁ hden hw) hs
+    (ssimC hμ env henv checkFuel).infer hs₁ hden hw) hs
 
 /-- Shared `whnf` simulates the fueled family. -/
-theorem opE_whnf_sim (henv : EnvWF env) {d : Nat} {e : Expr}
+theorem opE_whnf_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {e : Expr}
     (hs : CSOK mode env s₀) (hw : Expr.WScoped d e) :
-    SimC mode env s₀ (RelW d) (opE (cfgOf mode) (mkFEnv env) (·.whnf) d e)
+    SimC mode env s₀ (RelW d) (opE mode (mkFEnv env) (·.whnf) d e)
       ((fueledOpsM mode).whnf env d e) :=
   opE_sim (fun hs₁ hden =>
-    (ssimC env henv checkFuel).whnf hs₁ hden hw) hs
+    (ssimC hμ env henv checkFuel).whnf hs₁ hden hw) hs
 
 /-- Shared `isDefEq` simulates the fueled family. -/
-theorem opB_sim (henv : EnvWF env) {d : Nat} {a b : Expr}
+theorem opB_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {a b : Expr}
     (hs : CSOK mode env s₀) (hwa : Expr.WScoped d a)
     (hwb : Expr.WScoped d b) :
-    SimC mode env s₀ RelVC (opB (cfgOf mode) (mkFEnv env) d a b)
+    SimC mode env s₀ RelVC (opB mode (mkFEnv env) d a b)
       ((fueledOpsM mode).isDefEq env d a b) := by
-  exact (ssimC env henv checkFuel).defeq hs rfl
+  exact (ssimC hμ env henv checkFuel).defeq hs rfl
     rfl hwa hwb
 
 /-- Shared `ensureSort` simulates the fueled family. -/
-theorem opS_sim (henv : EnvWF env) {d : Nat} {e : Expr}
+theorem opS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {e : Expr}
     (hs : CSOK mode env s₀) (hw : Expr.WScoped d e) :
-    SimC mode env s₀ RelVC (opS (cfgOf mode) (mkFEnv env) d e)
+    SimC mode env s₀ RelVC (opS mode (mkFEnv env) d e)
       ((fueledOpsM mode).ensureSort env d e) := by
-  have h1 : SimC mode env s₀ RelVC (opS (cfgOf mode) (mkFEnv env) d e)
+  have h1 : SimC mode env s₀ RelVC (opS mode (mkFEnv env) d e)
       (ensureSort (fueledFns mode env) env d e) :=
-    ensureSortC_sim (ssimC env henv checkFuel) hs rfl hw
+    ensureSortC_sim (ssimC hμ env henv checkFuel) hs rfl hw
   refine SimC.wr h1 (fun u F h => ⟨F, ?_⟩)
   rw [ensureSort_atF, ensureSort_def] at h
   exact h

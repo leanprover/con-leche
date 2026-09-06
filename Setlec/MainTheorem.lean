@@ -12,8 +12,8 @@ The one statement this project exists to make, in its simplest form:
 Everything named in the statement is the shipped article:
 
 * `checkDeclsSPCachedD` is the function `Main.lean` runs on the parsed
-  export stream (`Setlec/Cached/ParsedC.lean`), and `cfgOf .verified`
-  is the configuration the `--verified` mode (the default) runs it at.
+  export stream (`Setlec/Cached/ParsedC.lean`), and `.verified` is the
+  mode the binary's default `--verified` switch runs it at.
 * `DeclC` is a parsed declaration record; `Env` is the environment the
   checker builds; `env.consts` lists the constants it accepted.
 * `False` is a pinned zero-constructor type (`Setlec/Kernel/Basis/
@@ -48,14 +48,14 @@ open Setlec.Cached (DeclC checkDeclsSPCachedD Callbacks checkDeclsSPCachedM)
 type `False`. -/
 theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
-    (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
+    (accepted : checkDeclsSPCachedD .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
   fun ⟨c, hc, hty⟩ => Cached.no_proof_of_False_SPCD_P V rfl accepted c hc hty
 
 /-- The same statement about the pinned `Empty`. -/
 theorem no_proof_of_Empty (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
-    (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
+    (accepted : checkDeclsSPCachedD .verified ds = .ok env) :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const emptyName [] :=
   fun ⟨c, hc, hty⟩ => Cached.no_proof_of_Empty_SPCD_P V rfl accepted c hc hty
 
@@ -78,7 +78,7 @@ the same induction directly.) -/
 theorem no_proof_of_Empty_IO (V : Type w) [SetTheory V]
     (cb : Callbacks IO) (ds : List DeclC) (env : Env)
     (ω ω' : Void IO.RealWorld)
-    (accepted : checkDeclsSPCachedM cb (cfgOf .verified) ds ω
+    (accepted : checkDeclsSPCachedM cb .verified ds ω
       = .ok (.ok env) ω') :
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const emptyName [] :=
   fun ⟨c, hc, hty⟩ =>

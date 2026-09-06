@@ -9,7 +9,6 @@ main_False :: Setlec.Kernel.BasisA
 main_False :: Setlec.Kernel.Checker
 main_False :: Setlec.Kernel.CheckerBase
 main_False :: Setlec.Kernel.Core
-main_False :: Setlec.Kernel.CoreCfg
 main_False :: Setlec.Kernel.CoreIO
 main_False :: Setlec.Kernel.DeclCheck
 main_False :: Setlec.Kernel.Direct.Install
@@ -381,7 +380,6 @@ main :: Setlec.Kernel.BasisA
 main :: Setlec.Kernel.Checker
 main :: Setlec.Kernel.CheckerBase
 main :: Setlec.Kernel.Core
-main :: Setlec.Kernel.CoreCfg
 main :: Setlec.Kernel.CoreIO
 main :: Setlec.Kernel.DeclCheck
 main :: Setlec.Kernel.Direct.Install
@@ -753,7 +751,6 @@ main_IO :: Setlec.Kernel.BasisA
 main_IO :: Setlec.Kernel.Checker
 main_IO :: Setlec.Kernel.CheckerBase
 main_IO :: Setlec.Kernel.Core
-main_IO :: Setlec.Kernel.CoreCfg
 main_IO :: Setlec.Kernel.CoreIO
 main_IO :: Setlec.Kernel.DeclCheck
 main_IO :: Setlec.Kernel.Direct.Install
@@ -1125,7 +1122,6 @@ False_SPCD_P :: Setlec.Kernel.BasisA
 False_SPCD_P :: Setlec.Kernel.Checker
 False_SPCD_P :: Setlec.Kernel.CheckerBase
 False_SPCD_P :: Setlec.Kernel.Core
-False_SPCD_P :: Setlec.Kernel.CoreCfg
 False_SPCD_P :: Setlec.Kernel.CoreIO
 False_SPCD_P :: Setlec.Kernel.DeclCheck
 False_SPCD_P :: Setlec.Kernel.Direct.Install
@@ -1828,7 +1824,6 @@ SPCD_P :: Setlec.Kernel.BasisA
 SPCD_P :: Setlec.Kernel.Checker
 SPCD_P :: Setlec.Kernel.CheckerBase
 SPCD_P :: Setlec.Kernel.Core
-SPCD_P :: Setlec.Kernel.CoreCfg
 SPCD_P :: Setlec.Kernel.CoreIO
 SPCD_P :: Setlec.Kernel.DeclCheck
 SPCD_P :: Setlec.Kernel.Direct.Install
@@ -2199,7 +2194,6 @@ sound_P :: Setlec.Kernel.BasisA
 sound_P :: Setlec.Kernel.Checker
 sound_P :: Setlec.Kernel.CheckerBase
 sound_P :: Setlec.Kernel.Core
-sound_P :: Setlec.Kernel.CoreCfg
 sound_P :: Setlec.Kernel.CoreIO
 sound_P :: Setlec.Kernel.DeclCheck
 sound_P :: Setlec.Kernel.Direct.Install
@@ -2570,7 +2564,6 @@ foldSPC_PM :: Setlec.Kernel.BasisA
 foldSPC_PM :: Setlec.Kernel.Checker
 foldSPC_PM :: Setlec.Kernel.CheckerBase
 foldSPC_PM :: Setlec.Kernel.Core
-foldSPC_PM :: Setlec.Kernel.CoreCfg
 foldSPC_PM :: Setlec.Kernel.CoreIO
 foldSPC_PM :: Setlec.Kernel.DeclCheck
 foldSPC_PM :: Setlec.Kernel.Direct.Install

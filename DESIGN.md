@@ -19,7 +19,7 @@ reader comes for in `Setlec/MainTheorem.lean`.
 **Start at the top rows.** `Setlec.no_proof_of_False`,
 `Setlec.no_proof_of_Empty` and `Setlec.no_proof_of_Empty_IO` are the
 main theorems: they name the
-shipped configuration outright (`cfgOf .verified`), so they carry no
+shipped mode outright (`.verified`), so they carry no
 mode witness and no residue — only `[SetTheory V]` (the standing
 parametricity of the consistency argument, not a hypothesis about the
 input) and the acceptance itself. Everything below them is what they

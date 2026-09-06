@@ -270,13 +270,13 @@ the three-mode setting (task #147), validated once by the caller and
 consumed here as configuration; `pre` asserts the input is already
 preprocessed (`--pre`), skipping preprocessor detection and spawn.
 
-**One core at two configs, one parse.**  The interned representation
+**One core at two modes, one parse.**  The interned representation
 and every driver over it retired with the arena (task #172), the R
 core retired with the collapsed model (2026-09-05), and the
 hand-written trusted twin retired into an instantiation
 (2026-09-06), so the stream is parsed directly to `ExprC`
 (`Frontend.parseExportStreamD`, task #171) and checked by the one
-cached driver — at `cfgP` under `--verified` (the default), at `cfgT`
+cached driver — at `.verified` under `--verified` (the default), at `.trusted`
 under `--trusted`.  The verified instance is covered by
 `no_proof_of_Empty_SPCD_P` over `checkDeclsSPCachedD`
 (`Setlec/Verify/Cached/MainC.lean`); the trusted one is unverified by
@@ -351,11 +351,9 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         unless taintSkipped.isEmpty do
           IO.eprintln s!"setlec: declined: \
             {Frontend.taintSummary taintSkipped} ({modeTag})"
-      -- ONE driver, two configs (2026-09-06): the trusted mode is
-      -- the shared bodies at `cfgT`, the verified mode the same
-      -- bodies at `cfgP` (`cfgOf .verified`, `rfl`).
-      let cfg : Setlec.CoreCfg :=
-        if mode == Setlec.CheckMode.trusted then Setlec.cfgT else Setlec.cfgP
+      -- ONE driver, two modes (2026-09-06; task #185): the trusted
+      -- mode is the shared bodies at `.trusted`, the verified mode the
+      -- same bodies at `.verified` — the mode is passed straight down.
       -- The progress heartbeat (`SETLEC_PROGRESS=<stride>`,
       -- 2026-09-07).  The loop below is the verified one, and the
       -- heartbeat is a CALLBACK it takes: `checkDeclsSPCachedM` runs
@@ -406,7 +404,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
             {decls.size} t={Setlec.Cached.msSecs (now - t0)}s \
             (fold {Setlec.Cached.msSecs (now - tParse)}s)"
           (← IO.getStderr).flush
-      match ← Setlec.Cached.checkDeclsSPCachedM cb cfg decls.toList with
+      match ← Setlec.Cached.checkDeclsSPCachedM cb mode decls.toList with
       | .ok env =>
         progressDone decls.size
         -- A DECLINED stream never says "accepted" (2026-09-07).  The
@@ -472,9 +470,9 @@ def usage : String := String.intercalate "\n" [
   "                    no_proof_of_Empty_SPCD_P over the driver this",
   "                    binary runs (Setlec/Verify/Cached/MainC.lean)",
   "  --trusted         the unverified mode: the SAME checker bodies as",
-  "                    --verified, instantiated at the config with the",
-  "                    certification-only work switched off (cfgT =",
-  "                    cfgP with verified := false, certs := false):",
+  "                    --verified, instantiated at the mode with the",
+  "                    certification-only work switched off (the",
+  "                    verifiedChecks and certs mode functions false):",
   "                    the annotation validations and the lambda-",
   "                    codomain sort check, and the certificate",
   "                    families the reference kernel does not run (the",
@@ -526,11 +524,11 @@ def usage : String := String.intercalate "\n" [
   "raw stream (which then declines at the first inductive); set",
   "SETLEC_INDUCTIVE_MODELS to a nonexistent path to force that.",
   "",
-  "There is ONE core at two configs and one parse: the verified config",
-  "(--verified, the default) and the unverified trusted config",
+  "There is ONE core at two modes and one parse: the verified mode",
+  "(--verified, the default) and the unverified trusted mode",
   "(--trusted).  The stream is read directly to the cached",
   "representation and checked by the one driver, which the capstone",
-  "letter is about at the verified config (no_proof_of_Empty_SPCD_P in",
+  "letter is about at the verified mode (no_proof_of_Empty_SPCD_P in",
   "Setlec/Verify/Cached/MainC.lean).  Retired: --set-model/",
   "--set-model=p (now --verified) and --no-model (now --trusted),",
   "2026-09-06; the --core selector, the interned arena and the",

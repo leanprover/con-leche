@@ -23,7 +23,10 @@ interface, and it is deliberately small:
 * **`verified_isNever_of_betaGateFires`** — a fired gate is a verified
   mode's gate, which is the pair the P tier's licensing theorem is
   stated against.  (The mode-level coverage certificates that used to
-  sit here retired with the mode set they partitioned; see below.)
+  sit here retired with the mode set they partitioned; see below.);
+* **the mode functions' values at the two constructors** (task #185)
+  — the `rfl` table that replaced the configuration-record bridge, and the
+  conditional forms the cached simulation tower reads through.
 
 The module imports `Kernel.Core` and nothing else: it is base-tier.
 -/
@@ -74,39 +77,88 @@ theorem verified_isNever_of_betaGateFires
   rcases Bool.and_eq_true .. |>.mp h with ⟨hg, hn⟩
   cases mode <;> simp_all [CheckMode.betaGate, CheckMode.verifiedChecks]
 
-/-! ## The template bridge (task #172, batch B2)
+/-! ## The mode functions at the two constructors (task #185)
 
-`CoreCfg` (`Setlec/Kernel/CoreCfg.lean`) replaces the mode flag as the
-body template's parameter.  These three are the whole bridge, and all
-three are `rfl`: `cfgOf`'s fields are *projections of a literal
-constructor*, so a config read is the old accessor definitionally even
-at a **variable** mode.  That is what let the template be introduced
-without disturbing a landed statement. -/
+`CheckMode`'s functions (`Setlec/Kernel/Env.lean`) are the cores'
+whole configuration since the configuration record retired: every read a
+shipped core makes is one of `verifiedChecks`, `betaGate`, `ioGate`,
+`certs`, `betaSkip`, `ioSkip`, `ttChecks`, each a `match` on the enum.
+These are their values at the two constructors — all `rfl`, which is
+the record's old `rfl`-eliminability requirement (*"every field
+computes away by `rfl` at each named core"*) stated at the enum
+itself — plus the three conditional forms the mode-parametric
+simulation tower (`Setlec/Verify/Cached/*`) consumes under its
+`hμ : mode.verifiedChecks = true`: at such a mode the certificate
+families are on, the β read is the spec's gate predicate and the io
+read is the datum alone. -/
 
-/-- The template's β field at `cfgOf mode` **is** the gate predicate. -/
-@[simp] theorem cfgOf_betaSkip :
-    (cfgOf mode).betaSkip pw = betaGateFires mode pw := rfl
+@[simp] theorem verifiedChecks_verified :
+    CheckMode.verifiedChecks .verified = true := rfl
+@[simp] theorem verifiedChecks_trusted :
+    CheckMode.verifiedChecks .trusted = false := rfl
+@[simp] theorem certs_verified : CheckMode.certs .verified = true := rfl
+@[simp] theorem certs_trusted : CheckMode.certs .trusted = false := rfl
+/-- The io-grade knot slot is the io body at every mode (the licence
+ruling of 2026-09-06); `rfl` at a variable mode, as the definition is a
+wildcard. -/
+theorem ioGate_eq_true : mode.ioGate = true := rfl
+/-- The TT-lane residue is off at every mode (task #148 T7b). -/
+theorem ttChecks_eq_false : mode.ttChecks = false := rfl
 
-/-- The template's verified field at `cfgOf mode` **is** the accessor. -/
-@[simp] theorem cfgOf_verified :
-    (cfgOf mode).verified = mode.verifiedChecks := rfl
+/-- The two certification-only switches agree at both constructors;
+they stay two functions because they gate different work (see
+`CheckMode.certs`). -/
+theorem certs_eq_verifiedChecks : mode.certs = mode.verifiedChecks := by
+  cases mode <;> rfl
 
-/-- The transitional ι-cone field at `cfgOf mode` **is** the mode. -/
-@[simp] theorem cfgOf_iotaMode : (cfgOf mode).iotaMode = mode := rfl
+/-- **A mode running the verified checks is `.verified`** — the enum has
+two constructors and the other one does not.  This is the simulation
+tower's way through a cached body's certificate switches: after
+`obtain rfl := CheckMode.eq_verified hμ` every `certAtI`/`betaSkip`/
+`ioSkip` read is at the literal `.verified` and reduces by `rfl`, so a
+proof written when the switches were literals
+resumes verbatim (the record's era: task #172 B2 to #185). -/
+theorem CheckMode.eq_verified (h : mode.verifiedChecks = true) :
+    mode = .verified := by
+  cases mode <;> simp_all [CheckMode.verifiedChecks]
 
-/-- The certificate families are ON at every `cfgOf mode` (the twin's
-retirement, 2026-09-06): the spec has no switch for them, so the
-template's field is a literal `true` on every proved instance and
-its reads (`certAtI`, `certUnlessI`, `ioSkip`, the `betaSkip`
-disjunct) are definitionally invisible to the simulation tower. -/
-@[simp] theorem cfgOf_certs : (cfgOf mode).certs = true := rfl
+/-- A mode running the verified checks runs the certificate families. -/
+@[simp] theorem certs_of_verifiedChecks (h : mode.verifiedChecks = true) :
+    mode.certs = true := by
+  rw [certs_eq_verifiedChecks, h]
 
-/-- The io licence at `cfgOf mode` reads the datum alone. -/
-@[simp] theorem cfgOf_ioSkip : (cfgOf mode).ioSkip pw = pw.isNever := rfl
+/-- A mode running the verified checks has the β gate on. -/
+theorem betaGate_of_verifiedChecks (h : mode.verifiedChecks = true) :
+    mode.betaGate = true := by
+  cases mode <;> simp_all [CheckMode.betaGate, CheckMode.verifiedChecks]
 
-/-- **The P core's β branch reads the datum, not a flag**: at `cfgP`
-the skip predicate is the redex's own validated annotation. -/
-theorem cfgP_betaSkip_eq_verified (pw : PropWhen) :
-    cfgP.betaSkip pw = betaGateFires .verified pw := rfl
+/-- **The β site's read at a verified mode is the spec's gate
+predicate**: the certificate families are on, so the skip is exactly
+`betaGateFires`. -/
+@[simp] theorem betaSkip_of_verifiedChecks (h : mode.verifiedChecks = true) :
+    mode.betaSkip pw = betaGateFires mode pw := by
+  simp [CheckMode.betaSkip, betaGateFires, certs_of_verifiedChecks h]
+
+/-- The io licence at a verified mode reads the datum alone. -/
+@[simp] theorem ioSkip_of_verifiedChecks (h : mode.verifiedChecks = true) :
+    mode.ioSkip pw = pw.isNever := by
+  simp [CheckMode.ioSkip, certs_of_verifiedChecks h]
+
+/-- **The P core's β branch reads the datum, not a flag**: at
+`.verified` the skip predicate is the redex's own validated
+annotation. -/
+@[simp] theorem betaSkip_verified :
+    CheckMode.betaSkip .verified pw = pw.isNever := rfl
+/-- The β certificate is a certificate family: skipped at every redex
+in the trusted mode, licence or not. -/
+@[simp] theorem betaSkip_trusted : CheckMode.betaSkip .trusted pw = true := rfl
+@[simp] theorem ioSkip_verified :
+    CheckMode.ioSkip .verified pw = pw.isNever := rfl
+@[simp] theorem ioSkip_trusted : CheckMode.ioSkip .trusted pw = true := rfl
+
+/-- The β read at `.verified` **is** `betaGateFires .verified` — the
+identity the cached core's P instantiation rests on. -/
+theorem betaSkip_verified_eq_gate (pw : PropWhen) :
+    CheckMode.betaSkip .verified pw = betaGateFires .verified pw := rfl
 
 end Setlec

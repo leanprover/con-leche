@@ -8,7 +8,7 @@ induction (lines 22-51) under the recipe (DESIGN.md, task #163).
 
 `SSimC mode env f` (declared in `Setlec/Verify/Cached/DiscC1.lean`) is
 the cached analogue of `SSimI`: at fuel `f`, every cached entry point
-(`Setlec.Cached.coreKnotI (cfgOf mode) (mkFEnv env) f`) simulates the
+(`Setlec.Cached.coreKnotI mode (mkFEnv env) f`) simulates the
 corresponding fueled family on well-scoped inputs.  This module
 proves the *memo-wrapper step*: from per-body simulation walks at fuel
 `f` (`Setlec/Verify/Cached/DiscC4-6.lean`), each entry point simulates
@@ -172,18 +172,18 @@ theorem memoEI_whnfCore_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
-        (whnfCoreBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
+        (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
         (whnfCoreBody mode (fueledFns mode env) env d e))
     {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
-    SimC mode env s₀ (RelEC d) ((coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).whnfCore d i)
+    SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).whnfCore d i)
       ((fueledFns mode env).whnfCore d e) := by
   obtain rfl := hden
   have hden : RelC i i := rfl
   intro v' s' hr
-  rw [show (coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).whnfCore d i =
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).whnfCore d i =
     memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
-      (fun d e => whnfCoreBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -201,7 +201,7 @@ theorem memoEI_whnfCore_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : whnfCoreBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i s₀
+    cases hb : whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀
         with
     | error err =>
       rw [hb] at hr
@@ -227,18 +227,18 @@ theorem memoEI_whnf_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
-        (whnfBodyI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
+        (whnfBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
         (whnfBody (fueledFns mode env) env d e))
     {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
-    SimC mode env s₀ (RelEC d) ((coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).whnf d i)
+    SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).whnf d i)
       ((fueledFns mode env).whnf d e) := by
   obtain rfl := hden
   have hden : RelC i i := rfl
   intro v' s' hr
-  rw [show (coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).whnf d i =
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).whnf d i =
     memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-      (fun d e => whnfBodyI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => whnfBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -255,7 +255,7 @@ theorem memoEI_whnf_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : whnfBodyI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i s₀ with
+    cases hb : whnfBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀ with
     | error err =>
       rw [hb] at hr
       simp only [Bind.bind, Except.bind] at hr
@@ -280,18 +280,18 @@ theorem memoEI_infer_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
-        (inferBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
+        (inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
         (inferBody mode (fueledFns mode env) env d e))
     {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
-    SimC mode env s₀ (RelEC d) ((coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).infer d i)
+    SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).infer d i)
       ((fueledFns mode env).infer d e) := by
   obtain rfl := hden
   have hden : RelC i i := rfl
   intro v' s' hr
-  rw [show (coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).infer d i =
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).infer d i =
     memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-      (fun d e => inferBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -309,7 +309,7 @@ theorem memoEI_infer_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : inferBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i s₀ with
+    cases hb : inferBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀ with
     | error err =>
       rw [hb] at hr
       simp only [Bind.bind, Except.bind] at hr
@@ -338,29 +338,27 @@ theorem memoEI_inferIO_sim (hgb : mode.betaGate = true) (henv : EnvWF env)
     (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
-        (inferBodyIOI (cfgOf mode)
-          (CoreFnsI.ioView (coreKnotI (cfgOf mode) (mkFEnv env) f)) (mkFEnv env) d i)
+        (inferBodyIOI mode
+          (CoreFnsI.ioView (coreKnotI mode (mkFEnv env) f)) (mkFEnv env) d i)
         (inferBodyIO mode (CoreFns.ioView (fueledFns mode env)) env d e))
     {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
     SimC mode env s₀ (RelEC d)
-      ((coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).inferIO d i)
+      ((coreKnotI mode (mkFEnv env) (f + 1)).inferIO d i)
       ((fueledFns mode env).inferIO d e) := by
   obtain rfl := hden
   have hden : RelC i i := rfl
   intro v' s' hr
-  have hslot : (coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).inferIO =
+  have hslot : (coreKnotI mode (mkFEnv env) (f + 1)).inferIO =
       memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
-        (fun d e => inferBodyIOI (cfgOf mode)
-          (CoreFnsI.ioView (coreKnotI (cfgOf mode) (mkFEnv env) f)) (mkFEnv env)
+        (fun d e => inferBodyIOI mode
+          (CoreFnsI.ioView (coreKnotI mode (mkFEnv env) f)) (mkFEnv env)
           d e) := by
-    show (if (cfgOf mode).ioGate then _ else _) = _
-    rw [show (cfgOf mode).ioGate = mode.betaGate from rfl, hgb]
-    -- task #179: the knot's previous level is a `Unit` closure, not a
-    -- `Thunk`, so `simp` beta-reduces the slot to `coreKnotI … f` and
-    -- closes this goal outright (it used to need a `rfl` to see through
-    -- `Thunk.get ⟨·⟩`).
-    simp only [↓reduceIte]
+    -- `mode.ioGate` is the literal `true` at a variable mode (task
+    -- #185, `CheckMode.ioGate`), so the slot's `if` is its then-arm by
+    -- `rfl`; the knot's previous level is a `Unit` closure (task #179),
+    -- which beta-reduces to `coreKnotI … f`.
+    rfl
   rw [hslot] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -378,8 +376,8 @@ theorem memoEI_inferIO_sim (hgb : mode.betaGate = true) (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : inferBodyIOI (cfgOf mode)
-        (CoreFnsI.ioView (coreKnotI (cfgOf mode) (mkFEnv env) f)) (mkFEnv env) d i
+    cases hb : inferBodyIOI mode
+        (CoreFnsI.ioView (coreKnotI mode (mkFEnv env) f)) (mkFEnv env) d i
         s₀ with
     | error err =>
       rw [hb] at hr
@@ -407,18 +405,18 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
-        (annotateBodyI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
+        (annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
         (annotateBody (fueledFns mode env) env d e))
     {s₀ : CState} {d : Nat} {i : ExprC} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
-    SimC mode env s₀ (RelEC d) ((coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).annotate d i)
+    SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).annotate d i)
       ((fueledFns mode env).annotate d e) := by
   obtain rfl := hden
   have hden : RelC i i := rfl
   intro v' s' hr
-  rw [show (coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).annotate d i =
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).annotate d i =
     memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-      (fun d e => annotateBodyI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -436,7 +434,7 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : annotateBodyI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i s₀
+    cases hb : annotateBodyI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀
         with
     | error err =>
       rw [hb] at hr
@@ -463,21 +461,21 @@ theorem memoBI_defeq_sim (henv : EnvWF env)
       CSOK mode env s₀ → RelC i a → RelC j b →
       Expr.WScoped d a → Expr.WScoped d b →
       SimC mode env s₀ RelVC
-        (defeqBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i j)
+        (defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
         (defeqBody mode (fueledFns mode env) env d a b))
     {s₀ : CState} {d : Nat} {i j : ExprC} {a b : Expr}
     (hs : CSOK mode env s₀) (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    SimC mode env s₀ RelVC ((coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).defeq d i j)
+    SimC mode env s₀ RelVC ((coreKnotI mode (mkFEnv env) (f + 1)).defeq d i j)
       ((fueledFns mode env).defeq d a b) := by
   obtain rfl := hdena
   obtain rfl := hdenb
   have hdena : RelC i i := rfl
   have hdenb : RelC j j := rfl
   intro v' s' hr
-  rw [show (coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).defeq d i j =
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).defeq d i j =
     memoBI
-      (fun d i j => defeqBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i j)
+      (fun d i j => defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       d i j from rfl] at hr
   simp only [memoBI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -493,7 +491,7 @@ theorem memoBI_defeq_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : defeqBodyI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i j s₀
+    cases hb : defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j s₀
         with
     | error err =>
       rw [hb] at hr
@@ -525,62 +523,46 @@ end Wrappers
 every fuel.  The wrapper steps tie each entry point at `f + 1` to the
 body walks at `f`, which consume the simulation at `f` as their
 induction hypothesis. -/
-theorem ssimC (env : Env) (henv : EnvWF env) : ∀ f, SSimC mode env f
+theorem ssimC (hμ : mode.verifiedChecks = true) (env : Env) (henv : EnvWF env) : ∀ f, SSimC mode env f
   | 0 => ssimC_zero env
   | f + 1 =>
     { whnfCore := fun hs hden hw =>
         memoEI_whnfCore_sim henv
           (fun hs' hden' hw' =>
-            whnfCoreBodyC_sim (ssimC env henv f) henv hs' hden' hw')
+            whnfCoreBodyC_sim hμ (ssimC hμ env henv f) henv hs' hden' hw')
           hs hden hw
       whnf := fun hs hden hw =>
         memoEI_whnf_sim henv
           (fun hs' hden' hw' =>
-            whnfBodyC_sim (ssimC env henv f) henv hs' hden' hw')
+            whnfBodyC_sim (ssimC hμ env henv f) henv hs' hden' hw')
           hs hden hw
       infer := fun hs hden hw =>
         memoEI_infer_sim henv
           (fun hs' hden' hw' =>
-            inferBodyC_sim (ssimC env henv f) henv hs' hden' hw')
+            inferBodyC_sim (ssimC hμ env henv f) henv hs' hden' hw')
           hs hden hw
       defeq := fun hs hdena hdenb hwa hwb =>
         memoBI_defeq_sim henv
           (fun hs' hdena' hdenb' hwa' hwb' =>
-            defeqBodyC_sim (ssimC env henv f) henv hs' hdena' hdenb'
+            defeqBodyC_sim hμ (ssimC hμ env henv f) henv hs' hdena' hdenb'
               hwa' hwb')
           hs hdena hdenb hwa hwb
       annotate := fun hs hden hw =>
         memoEI_annotate_sim henv
           (fun hs' hden' hw' =>
-            annotateBodyC_sim (ssimC env henv f) henv hs' hden' hw')
+            annotateBodyC_sim (ssimC hμ env henv f) henv hs' hden' hw')
           hs hden hw
       inferIO := fun {s₀} {d} {i} {e} hs hden hw => by
-        -- the io slot (task #172 B4): gate-off, the slot IS the
-        -- full-inference memo closure and the fueled family collapses
-        -- (`inferTypeIO_off`); gate-on, the io memo-wrapper step
-        cases hgb : mode.betaGate with
-        | false =>
-          have hio : (coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).inferIO
-              = (coreKnotI (cfgOf mode) (mkFEnv env) (f + 1)).infer := by
-            show (if (cfgOf mode).ioGate then _ else _) = _
-            rw [show (cfgOf mode).ioGate = mode.betaGate from rfl, hgb]
-            simp only [Bool.false_eq_true, ↓reduceIte]
-            rfl
-          rw [hio]
-          intro v' s' hr
-          obtain ⟨hs', v, hrel, F, hF⟩ :=
-            memoEI_infer_sim henv
-              (fun hs' hden' hw' =>
-                inferBodyC_sim (ssimC env henv f) henv hs' hden' hw')
-              hs hden hw v' s' hr
-          refine ⟨hs', v, hrel, F, ?_⟩
-          show inferTypeIO mode env F d _ = .ok v
-          rw [inferTypeIO_off hgb]
-          exact hF
-        | true =>
-          exact memoEI_inferIO_sim hgb henv
-            (fun hs' hden' hw' =>
-              inferBodyIOC_sim hgb (ssimC env henv f) henv hs' hden' hw')
-            hs hden hw }
+        -- the io slot (task #172 B4): the cached knot's slot is the io
+        -- body at every mode (`CheckMode.ioGate`), the spec's at the
+        -- gated mode — which every verified mode is
+        -- (`betaGate_of_verifiedChecks`, task #185; the gate-off arm
+        -- that used to sit here, with the spec's `inferTypeIO_off`
+        -- collapse, is not an instance of this tower any more)
+        have hgb : mode.betaGate = true := betaGate_of_verifiedChecks hμ
+        exact memoEI_inferIO_sim hgb henv
+          (fun hs' hden' hw' =>
+            inferBodyIOC_sim hμ hgb (ssimC hμ env henv f) henv hs' hden' hw')
+          hs hden hw }
 
 end Setlec.Cached
