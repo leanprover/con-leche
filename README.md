@@ -18,7 +18,7 @@ This README is actually human written (with AI only doing copy-editing, fact che
 * It uses its own term representation, so it does not rely on Lean’s `Lean.Expr`, and thus does not rely on the unverified C++ routines for that type.
 * Term representation is locally nameless, with open variables represented as deBruijn level + type (inspired by nanoda).
 * Memoization of core checker routines via hash maps and hashes pre-computed using `@[computed_field]`, like in the official checker and lean4lean.
-* Only few inductive types are supported natively: `Empty`, `PUnit`, `Eq`, `Nat`, `Quot` and structures. For all other types, this checker relies on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that validates them.
+* Only few inductive types are supported natively: `Empty`, `PUnit`, `Eq`, `Nat`, `Quot` and structures. For all other types, this checker relies on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that validates them. The preprocessor is used as a *library*: `setlec-preprocess` (`SetlecPreprocess.lean`) is its `main` with a predicate naming the blocks this checker installs natively, so no models are generated for those. That is the binary the checker spawns.
 * Accepted incompleteness: Primitive projections are only supported
   - on non-recursive non-indexed structures or
   - inside the projection *functions* that the elaborator produces.

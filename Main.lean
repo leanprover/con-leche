@@ -3,8 +3,9 @@ import Setlec.Frontend.ExportC
 
 /-!
 Command-line driver: `setlec FILE.ndjson` reads a lean4export NDJSON file
-(the lean-inductive-models preprocessor will eventually be run transparently
-first) and checks the declarations in order.
+(the `setlec-preprocess` front end for lean-inductive-models is run
+transparently first, unless `--pre` says the input is already
+preprocessed) and checks the declarations in order.
 
 Exit codes follow the lean kernel arena convention:
 * 0 — all declarations accepted
@@ -21,16 +22,31 @@ def Setlec.CheckError.exitCode : CheckError → UInt32
   | .invalid _ => 1
   | .internal _ => 3
 
-/-- Locate the lean-inductive-models preprocessor: `$SETLEC_INDUCTIVE_MODELS`,
-then `$PATH`, then the development checkout under `_tmp/`. -/
+/-- Locate the preprocessor (task #178: `setlec-preprocess`, the checker's own
+front end for `lean-inductive-models` — the tool's `main` passed setlec's
+`NativeSupport`, so the blocks `directParts?` installs directly come back
+unmodelled; `SetlecPreprocess.lean`).  Search order:
+
+1. `$SETLEC_INDUCTIVE_MODELS` — the explicit override, unchanged; the test
+   harnesses point it at a nonexistent path to run a stream *raw*.
+2. this build's `setlec-preprocess`;
+3. the stock `lean-inductive-models` development checkout under `_tmp/` — the
+   legacy fallback, which costs one `pathExists` and keeps a tree without a
+   built `setlec-preprocess` working (its output is a superset: every block
+   left native here is modelled there, and the direct install ignores the
+   model either way);
+4. `setlec-preprocess` on `$PATH`, resolved at spawn time. -/
 def findPreprocessor : IO (Option String) := do
   if let some p ← IO.getEnv "SETLEC_INDUCTIVE_MODELS" then
     return some p
-  let dev := "_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models"
+  let dev := ".lake/build/bin/setlec-preprocess"
   if ← System.FilePath.pathExists dev then
     return some dev
+  let legacy := "_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models"
+  if ← System.FilePath.pathExists legacy then
+    return some legacy
   -- fall back to PATH resolution by just trying the bare name at spawn time
-  return some "lean-inductive-models"
+  return some "setlec-preprocess"
 
 /-- Does the input contain records the preprocessor must reduce
 (`inductive`/`quot`)?  Streaming scan, line by line — the keys cannot
@@ -224,7 +240,8 @@ def usage : String := String.intercalate "\n" [
   "                    --yolo/SETLEC_NO_PROOF_CERTS and",
   "                    --infer-only/SETLEC_INFER_ONLY",
   "  --pre             assert FILE is already preprocessed output of",
-  "                    lean-inductive-models: skip the preprocessor",
+  "                    setlec-preprocess (or the stock",
+  "                    lean-inductive-models): skip the preprocessor",
   "                    detection scan and spawn entirely",
   "",
   "There is ONE core at two configs and one parse: the verified config",
@@ -335,7 +352,7 @@ def main (args : List String) : IO UInt32 := do
   -- here once and threaded as configuration.  Two cores since the R
   -- core's retirement (2026-09-05): the graded verified one and the
   -- unverified trusted one.
-  -- `--pre`: the input is already-preprocessed lean-inductive-models
+  -- `--pre`: the input is already-preprocessed `setlec-preprocess`
   -- output (explicit user assertion — the checker never sniffs input
   -- content for it); skips the `needsPreprocess` scan and the
   -- preprocessor spawn.
