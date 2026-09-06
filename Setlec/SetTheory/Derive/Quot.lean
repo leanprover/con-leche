@@ -223,15 +223,8 @@ theorem quotSet_eq_pt_countermodel :
   · rintro rfl
     exact ⟨empty, empty_mem_ptTag, (hclass empty empty_mem_ptTag).symm⟩
 
-/- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
-content. -/
-private unsafe def quotSetImpl {V : Type u} [SetTheory V] (_u : Nat) (_A _R : V) : V := unsafeCast ()
-private unsafe def quotClassImpl {V : Type u} [SetTheory V] (_u : Nat) (_A _R _a : V) : V := unsafeCast ()
-private unsafe def quotLiftImpl {V : Type u} [SetTheory V] (_u _v : Nat) (_A _R _f : V) : V := unsafeCast ()
-
-attribute [implemented_by quotSetImpl] quotSet
-attribute [implemented_by quotClassImpl] quotClass
-attribute [implemented_by quotLiftImpl] quotLift
+/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
+stubs for these operators were removed 2026-09-06. -/
 
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] quotSet quotClass quotLift

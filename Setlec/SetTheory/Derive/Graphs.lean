@@ -232,11 +232,8 @@ theorem eq_of_mem_piSet_app_eq {A f g : V} {B B' : V → V}
   rw [← eq_graph_app_of_mem_piSet hf, ← eq_graph_app_of_mem_piSet hg]
   exact graph_congr h
 
-/- Compiler stub (see `Derive/Empty.lean`): never executed, no logical
-content. -/
-private unsafe def appImpl {V : Type u} [SetTheory V] (_f _a : V) : V := unsafeCast ()
-
-attribute [implemented_by appImpl] app
+/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
+stubs for these operators were removed 2026-09-06. -/
 
 /- Opaque interface operator (see `Derive/Empty.lean`). -/
 attribute [irreducible] app

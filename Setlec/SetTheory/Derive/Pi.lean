@@ -393,15 +393,8 @@ theorem lamC_dom_of_ne {A A' : V} {F : V → V} {B : V → V}
   · exact absurd heq graph_ne_pt
   · exact graph_dom_of_mem_piSet hmem
 
-/- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
-content. -/
-private unsafe def pcolImpl {V : Type u} [SetTheory V] (_A _g : V) : V := unsafeCast ()
-private unsafe def piCImpl {V : Type u} [SetTheory V] (_A : V) (_B : V → V) : V := unsafeCast ()
-private unsafe def lamCImpl {V : Type u} [SetTheory V] (_A : V) (_F : V → V) : V := unsafeCast ()
-
-attribute [implemented_by pcolImpl] pcol
-attribute [implemented_by piCImpl] piC
-attribute [implemented_by lamCImpl] lamC
+/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
+stubs for these operators were removed 2026-09-06. -/
 
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] pcol piC lamC

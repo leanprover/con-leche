@@ -123,13 +123,8 @@ theorem _root_.Setlec.IsTGUniverse.omega_mem {U : V}
     (omega : V) ∈ˢ U :=
   hU.mem_of_subset_mem h1 omega_subset_univChain_one
 
-/- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
-content. -/
-private unsafe def omegaImpl {V : Type u} [SetTheory V] : V := unsafeCast ()
-private unsafe def vsuccImpl {V : Type u} [SetTheory V] (_n : V) : V := unsafeCast ()
-
-attribute [implemented_by omegaImpl] omega
-attribute [implemented_by vsuccImpl] vsucc
+/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
+stubs for these operators were removed 2026-09-06. -/
 
 /- Opaque interface operator (see `Derive/Empty.lean`).  `vsucc` stays
 reducible: `Derive/Natrec.lean` computes with it through `vnat`. -/
