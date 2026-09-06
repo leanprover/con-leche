@@ -44806,6 +44806,12 @@ The module boundary and the hiding therefore cost nothing measurable in
 either direction — the codegen is unchanged, and the only movement
 between (a) and (b) is inside the same tenth of a percent.
 
+(The branch was merged forward once more before the seal, to
+`f0009992`; that master's own work moves the absolute numbers a long
+way — init-full P 842.27 G, parity 813.85 G at the final tip, 60 549
+accepted in both — so it is table (b), taken against `e736f24d` with
+both sides built in the same session, that is this change's receipt.)
+
 Verdicts: `tests/arena.sh` 0 FAIL — 90/92 good, 76/76 e2e, 14/14 annot,
 8/8 retired flags, 14/14 mode flags, the 3 recorded no-model
 divergences, layering 0 impl→theory, proofdeps 0 doors (against the
