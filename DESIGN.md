@@ -48774,6 +48774,35 @@ variable unset); the twin fold is the same work plus that print.  The
 supervisor streams the child's stderr line by line rather than
 buffering it to EOF, so the lines arrive while the run is going.
 
+### Linearity of the progress fold, measured
+
+The unverified twin has to be linear too — a printing loop that copies
+the environment's index per declaration would be worse than no progress
+output at all (that is exactly what made the old `traceLoopC` probe
+unusable).  It is written tail-recursively with `fe` and `s` dead at
+the recursive call, and the generated C confirms the shape:
+`.lake/build/ir/Main.c`'s `lp_setlec_checkDeclsProgressIO` builds the
+`(i, fe)` pair and calls `checkDeclStepIdxC` with **no `lean_inc` of
+the `FEnv` or the `CState`** — a `grep` for incs of either inside the
+function's body returns zero — and the recursion rebinds both and
+jumps back to `_start`.
+
+Measured on `scripts/gen_linear_stream.py` (task #182's synthetic
+stream: `N` trivial declarations, constant work each, so instructions
+per declaration must stay flat), `perf stat -e instructions:u`, one run
+per cell, `ulimit -v 16000000`, `SETLEC_SUPERVISED=1`, `--verified
+--pre`, the progress column at `SETLEC_PROGRESS=100000`:
+
+| N | default loop | progress loop | delta |
+|---|---|---|---|
+| 300 000 | 88 590 instr/decl | 88 669 instr/decl | +0.09 % |
+| 1 000 000 | 88 539 instr/decl | 88 628 instr/decl | +0.10 % |
+
+Flat in `N` on both loops (per-declaration cost at 1 000 000 is 0.9994
+resp. 0.9995 of the 300 000 figure) and the two loops agree to a tenth
+of a percent — the printing lane costs the ten lines it prints and
+nothing structural.
+
 **Follow-up left open**: `SETLEC_TRACE_DECLS` (the localisation lane,
 `agent/frontier4`) is the same fold with a line per declaration and can
 share `checkDeclsProgressIO` when it lands.
@@ -49663,3 +49692,23 @@ base→lane and 0 impl→theory, proofdeps 3264 rows / 0 doors, pindump fresh,
 trust surface 18 escapes in 4 allowlisted files (432 scanned) / 0 outside,
 axioms pinned at 15 theorems, tutorial 90/92, e2e 91/91, annot 14/14, flags
 8/8 + 16/16, heartbeat 1/1, trusted sweep with the 3 recorded divergences.
+
+### Gates (2026-09-07, `agent/ioshape` at the merge with master `d09f2c56`)
+
+`lake build` warning-free (651 jobs); `lake test` green; `tests/arena.sh`
+0 FAIL — arena tutorial 90/92, e2e 91/91, annot 14/14, retired flags
+8/8, mode flags 16/16, **progress lane 6/6** (the new suite: stride 1
+exits 0, the verdict line is byte-identical to the default run's, one
+progress line per declaration, the parse/fold-done brackets are there,
+the bad fixture still exits 1, and the rejection still names the failing
+declaration), trusted sweep 138 + 91 + 14 with its three recorded
+divergences — with `tests/layering.sh` (base 254 / P 167 / caps 3 /
+umbrella 1; 0 impl→theory), `tests/trust-surface.sh` (18 escapes in 4
+allowlisted files, 0 outside), the axiom pin (**11 theorems** at the
+three standard axioms) and `tests/proofdeps.sh` (**2 520 rows across 7
+roots, 0 doors**, regenerated once: the `main` and `main_IO` roots left
+with the theorems they pinned, and no other root moved) inside it.
+`init-full` (`init-full-pre-native`, `--pre`) accepted 56 291
+declarations in **both modes, with and without `SETLEC_PROGRESS=5000`**,
+the verdict line byte-identical within each mode (verified 97.5 s /
+98.1 s, trusted 94.2 s / 104.4 s on a loaded machine).
