@@ -12,7 +12,7 @@ def main : IO Unit := do
   for k in blocks do
     for ci in k.decls do
       let cv := ci.toConstantVal
-      match annotateCore .setModel env checkFuel 0 cv.type with
+      match annotateCore .verified env checkFuel 0 cv.type with
       | .error e =>
         IO.println s!"ERROR annotating {cv.name}: {e}"
         return
@@ -26,7 +26,7 @@ def main : IO Unit := do
           let env' : Env := ⟨self :: env.consts⟩
           let mut out : List RecRule := []
           for r in rules do
-            match annotateCore .setModel env' checkFuel 0 r.rhs with
+            match annotateCore .verified env' checkFuel 0 r.rhs with
             | .error e => return .error s!"{e}"
             | .ok rhs' => out := out ++ [{ r with rhs := rhs' }]
           return .ok out
@@ -65,7 +65,7 @@ def main : IO Unit := do
   let mut envS : Env := ⟨[eqA]⟩
   for ci in iffFamily ++ nonemptyFamily do
     let cv := ci.toConstantVal
-    match annotateCore .setModel envS checkFuel 0 cv.type with
+    match annotateCore .verified envS checkFuel 0 cv.type with
     | .error e =>
       IO.println s!"ERROR annotating {cv.name}: {e}"
       return
@@ -84,7 +84,7 @@ def main : IO Unit := do
       IO.println "---8<---"
       envS := ⟨ci' :: envS.consts⟩
   for cv in [propextRaw, choiceRaw] do
-    match annotateCore .setModel envS checkFuel 0 cv.type with
+    match annotateCore .verified envS checkFuel 0 cv.type with
     | .error e =>
       IO.println s!"ERROR annotating {cv.name}: {e}"
       return
@@ -99,7 +99,7 @@ def main : IO Unit := do
     .axiomInfo trustCompilerA,
     .ctorInfo trueIntroCvA 0 0, .indInfo trueCvA {}, natA, eqA]⟩
   for cv in [reduceOpRaw reduceNatName, reduceOpRaw reduceBoolName] do
-    match annotateCore .setModel envT checkFuel 0 cv.type with
+    match annotateCore .verified envT checkFuel 0 cv.type with
     | .error e =>
       IO.println s!"ERROR annotating {cv.name}: {e}"
       return
@@ -108,7 +108,7 @@ def main : IO Unit := do
       IO.println "---8<---"
       envT := ⟨.axiomInfo { cv with type := ty' } :: envT.consts⟩
   for cv in [ofReduceRaw ofReduceNatName, ofReduceRaw ofReduceBoolName] do
-    match annotateCore .setModel envT checkFuel 0 cv.type with
+    match annotateCore .verified envT checkFuel 0 cv.type with
     | .error e =>
       IO.println s!"ERROR annotating {cv.name}: {e}"
       return

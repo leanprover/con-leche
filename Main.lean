@@ -1,4 +1,4 @@
-import Setlec.Cached.ParsedNC
+import Setlec.Cached.ParsedT
 import Setlec.Frontend.ExportC
 
 /-!
@@ -110,9 +110,9 @@ driver over it retired with the arena (task #172), and the R core
 retired with the collapsed model (2026-09-05), so the stream is parsed
 directly to `ExprC` (`Frontend.parseExportStreamD`, task #171) and
 checked by the cached driver — the certified graded fold at
-`--set-model` (= `--set-model=p`), its parity twin at `--no-model`.
+`--verified` (the default), its trusted twin at `--trusted`.
 The certified one is covered by `no_proof_of_Empty_SPCD_P` over
-`checkDeclsSPCachedD` (`Setlec/Verify/Cached/MainC.lean`); the parity
+`checkDeclsSPCachedD` (`Setlec/Verify/Cached/MainC.lean`); the trusted
 one is unverified by design. -/
 def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
@@ -120,13 +120,13 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- readable off the invocation (task #147).
     if (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1" then
       IO.eprintln "setlec: SETLEC_NO_PROOF_CERTS is retired; the \
-        cert-skipping measurement lane is the --no-model mode \
+        cert-skipping measurement lane is the --trusted mode \
         (checking-mode front door included — see DESIGN.md, task #147)"
       return 3
     if (← IO.getEnv "SETLEC_INFER_ONLY") == some "1" then
       IO.eprintln "setlec: SETLEC_INFER_ONLY is retired; the infer-only \
-        internal discipline is part of the --no-model mode, and the \
-        certified mode is --set-model, the default \
+        internal discipline is part of the --trusted mode, and the \
+        certified mode is --verified, the default \
         (see DESIGN.md, task #147)"
       return 3
     -- Streaming frontend (task #57): the preprocessor writes to a temp
@@ -164,8 +164,8 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
           IO.eprintln s!"setlec: declined: {Frontend.taintSummary taintSkipped}"
           return (if code = 0 then 2 else code)
         let foldD : List Setlec.Cached.DeclC → Setlec.CheckM Setlec.Env :=
-          if mode == Setlec.CheckMode.noModel then
-            Setlec.Cached.checkDeclsSPCachedDNM
+          if mode == Setlec.CheckMode.trusted then
+            Setlec.Cached.checkDeclsSPCachedDT
           else Setlec.Cached.checkDeclsSPCachedD mode
         match foldD decls.toList with
         | .ok env =>
@@ -177,8 +177,8 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
           -- message.  No re-parse is needed — the records carry no
           -- arena, so the fold never shared a store with them.
           let stepD := fun fe d s =>
-            if mode == Setlec.CheckMode.noModel then
-              (Setlec.Cached.checkDeclSPStepCNC fe d).run s
+            if mode == Setlec.CheckMode.trusted then
+              (Setlec.Cached.checkDeclSPStepCT fe d).run s
             else (Setlec.Cached.checkDeclSPStepC mode fe d).run s
           let ctx := diagLoopC stepD decls 0
             (Setlec.mkFEnv Setlec.Env.empty) {}
@@ -190,10 +190,9 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
 
 
 def usage : String := String.intercalate "\n" [
-  "usage: setlec [--set-model[=p]|--no-model] [--pre] FILE.ndjson",
+  "usage: setlec [--verified|--trusted] [--pre] FILE.ndjson",
   "",
-  "  --set-model,",
-  "  --set-model=p     the default: verified (graded model,",
+  "  --verified        the default: the verified mode (graded model,",
   "                    annotation-gated checks).  The validated-",
   "                    annotation beta gate skips per-redex argument",
   "                    certificates at provably non-Prop binders, and",
@@ -204,30 +203,35 @@ def usage : String := String.intercalate "\n" [
   "                    certificate family runs.  Covered by",
   "                    no_proof_of_Empty_SPCD_P over the driver this",
   "                    binary runs (Setlec/Verify/Cached/MainC.lean)",
-  "  --no-model        the unverified lane: full checking-mode front",
-  "                    door per declaration (official-kernel parity),",
+  "  --trusted         the unverified mode: the same checker with the",
+  "                    work that exists for CERTIFICATION ONLY dropped",
+  "                    — full checking-mode front door per declaration,",
   "                    infer-only internal re-derivations, and no",
-  "                    certificate families at all.  Replaces the",
-  "                    retired --yolo/SETLEC_NO_PROOF_CERTS and",
-  "                    --infer-only/SETLEC_INFER_ONLY.  The parity",
-  "                    claim is audited: DESIGN.md, \"THE CANONICAL",
-  "                    VERIFICATION-TAX STATEMENT\"",
+  "                    certificate families at all.  Everything",
+  "                    believed necessary for SOUNDNESS stays (which is",
+  "                    not the same as necessary for the soundness",
+  "                    proof to go through), and the mode is never",
+  "                    optimized on its own: it is the real mode with",
+  "                    certain steps omitted.  Replaces the retired",
+  "                    --yolo/SETLEC_NO_PROOF_CERTS and",
+  "                    --infer-only/SETLEC_INFER_ONLY",
   "  --pre             assert FILE is already preprocessed output of",
   "                    lean-inductive-models: skip the preprocessor",
   "                    detection scan and spawn entirely",
   "",
-  "There are TWO cores and one parse: the verified graded core",
-  "(--set-model, the default) and the unverified parity core",
-  "(--no-model).  The stream is read directly to the cached",
-  "representation and checked by the driver the capstone letter is",
-  "about (no_proof_of_Empty_SPCD_P in",
-  "Setlec/Verify/Cached/MainC.lean).  Retired: the --core selector,",
-  "the interned arena and the --install-only/--check-range split",
-  "driver (task #172), and the R core with --set-model=r (2026-09-05,",
-  "with the collapsed-model consistency proof it was the subject of)."]
+  "There are TWO cores and one parse: the verified core (--verified,",
+  "the default) and the unverified trusted core (--trusted).  The",
+  "stream is read directly to the cached representation and checked by",
+  "the driver the capstone letter is about (no_proof_of_Empty_SPCD_P in",
+  "Setlec/Verify/Cached/MainC.lean).  Retired: --set-model/",
+  "--set-model=p (now --verified) and --no-model (now --trusted),",
+  "2026-09-06; the --core selector, the interned arena and the",
+  "--install-only/--check-range split driver (task #172); and the R",
+  "core with --set-model=r (2026-09-05, with the collapsed-model",
+  "consistency proof it was the subject of)."]
 
 structure Args where
-  mode : Setlec.CheckMode := .setModel
+  mode : Setlec.CheckMode := .verified
   pre : Bool := false
   files : Array String := #[]
   bad : Option String := none
@@ -235,31 +239,43 @@ structure Args where
 def parseArgs : List String → Args → Args
   | [], a => a
   -- The verified lane is the GRADED core since the R core's retirement
-  -- (2026-09-05): `--set-model` and `--set-model=p` are the same
-  -- selection, and `no_proof_of_Empty_SPCD_P` is its letter.
-  | "--set-model" :: rest, a => parseArgs rest { a with mode := .setModel }
-  | "--set-model=p" :: rest, a => parseArgs rest { a with mode := .setModel }
+  -- (2026-09-05); `no_proof_of_Empty_SPCD_P` is its letter.
+  | "--verified" :: rest, a => parseArgs rest { a with mode := .verified }
   -- The retired-spelling discipline (task #172): a verdict's
-  -- provenance must be readable off the invocation, so the R lane's
+  -- provenance must be readable off the invocation, so a retired
   -- spelling is a hard error naming what replaced it — never a silent
-  -- alias onto a different core.
+  -- alias.  The mode rename (2026-09-06) is under the same rule: the
+  -- old spellings name a *vocabulary*, not a different core, but they
+  -- are still errors rather than aliases.
+  | "--set-model" :: _, a =>
+    { a with bad := some "--set-model is retired; the verified mode is \
+        --verified, still the default (mode rename 2026-09-06 — see \
+        DESIGN.md, \"MODE RENAME\")" }
+  | "--set-model=p" :: _, a =>
+    { a with bad := some "--set-model=p is retired; the verified mode is \
+        --verified, still the default (mode rename 2026-09-06 — see \
+        DESIGN.md, \"MODE RENAME\")" }
+  | "--no-model" :: _, a =>
+    { a with bad := some "--no-model is retired; the unverified lane is \
+        --trusted (mode rename 2026-09-06 — see DESIGN.md, \"MODE \
+        RENAME\")" }
   | "--set-model=r" :: _, a =>
     { a with bad := some "--set-model=r is retired; the R core (all \
         certificates unconditional) and the collapsed-model consistency \
         proof it was the subject of were deleted 2026-09-05 after the \
         acceptance delta against the graded core measured ZERO. The \
-        verified lane is --set-model (= --set-model=p)" }
+        verified lane is --verified" }
   | "--tt-model" :: _, a =>
     { a with bad := some "--tt-model is retired; the declarative \
         verification lane it selected was deleted with the mode, and \
-        the certified mode is --set-model (default) (task #148 T7b)" }
-  | "--no-model" :: rest, a => parseArgs rest { a with mode := .noModel }
+        the certified mode is --verified (default) (task #148 T7b)" }
+  | "--trusted" :: rest, a => parseArgs rest { a with mode := .trusted }
   | "--yolo" :: _, a =>
     { a with bad := some "--yolo is retired; the cert-skipping lane is \
-        --no-model (checking-mode front door included, task #147)" }
+        --trusted (checking-mode front door included, task #147)" }
   | "--infer-only" :: _, a =>
     { a with bad := some "--infer-only is retired; its discipline is part \
-        of --no-model, and the certified mode is --set-model \
+        of --trusted, and the certified mode is --verified \
         (default) (task #147)" }
   | "--pre" :: rest, a => parseArgs rest { a with pre := true }
   -- Task #172: `--core`, `--install-only` and `--check-range` are hard
@@ -294,22 +310,22 @@ def parseArgs : List String → Args → Args
 /-- The child's argument vector, reassembled from the parsed options. -/
 def childArgs (a : Args) (file : String) : Array String :=
   #[file]
-    -- Two modes, and `.setModel` is the default, so it re-emits
-    -- nothing.  (The dead `.setModel = R` arm this replaced went with
-    -- the constructor when `CheckMode` collapsed to two values.)
+    -- Two modes, and `.verified` is the default, so it re-emits
+    -- nothing.  (The dead R arm this replaced went with the
+    -- constructor when `CheckMode` collapsed to two values.)
     ++ (match a.mode with
-        | .setModel => #[]
-        | .noModel => #["--no-model"])
+        | .verified => #[]
+        | .trusted => #["--trusted"])
     ++ (if a.pre then #["--pre"] else #[])
 
 def main (args : List String) : IO UInt32 := do
   if args.contains "--help" then
     IO.println usage
     return 0
-  -- `--set-model`/`--no-model`: the mode setting (task #147), validated
+  -- `--verified`/`--trusted`: the mode setting (task #147), validated
   -- here once and threaded as configuration.  Two cores since the R
   -- core's retirement (2026-09-05): the graded verified one and the
-  -- unverified parity one.
+  -- unverified trusted one.
   -- `--pre`: the input is already-preprocessed lean-inductive-models
   -- output (explicit user assertion — the checker never sniffs input
   -- content for it); skips the `needsPreprocess` scan and the

@@ -18,11 +18,11 @@
 # exit codes and the decision-relevant stdout line ("setlec: accepted
 # N declarations") are compared.
 #
-# Usage: tests/pilot-parity.sh [--mode=--set-model|--no-model] [tests-dir]
+# Usage: tests/pilot-parity.sh [--mode=--verified|--trusted] [tests-dir]
 set -u
 cd "$(dirname "$0")/.."
 
-MODEFLAG=--set-model
+MODEFLAG=--verified
 args=()
 for a in "$@"; do
   case "$a" in

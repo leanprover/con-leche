@@ -105,7 +105,7 @@ theorem find?_none_of_cons {c : ConstantInfo} {env : Env} {n : Name}
 /-! ## The assembly -/
 
 /-- **The P carrier survives a direct install.** -/
-theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
+theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p : DirectParts} (mp : EnvS2PM V μ env)
     (hE : Setlec.EtaFamiliesClosed env) (hdp : Setlec.directParts? env block = some p)
     (h : Setlec.Semantics.DeclDirectRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by

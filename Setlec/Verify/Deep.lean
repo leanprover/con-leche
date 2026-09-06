@@ -1058,9 +1058,9 @@ the slow branch is `proofIrrel_shift`'s `Prop` branch. -/
 private theorem propIrrel_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    propIrrel mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+    propIrrel (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      propIrrel mode (pureFns mode env fuel) env d a b := by
+      propIrrel (pureFns mode env fuel) env d a b := by
   simp only [propIrrel, notProofFast_shiftFrom, isProofFast_shiftFrom]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
@@ -1782,7 +1782,7 @@ private theorem whnfCore_step (henv : EnvWF env)
       have hwarg : WScoped d
           (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
         WScoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
-      refine bind_rel_eq _ (projCertAt_shift henv ih hpd mode.verified mode.betaGate
+      refine bind_rel_eq _ (projCertAt_shift henv ih hpd mode.verifiedChecks mode.betaGate
         (fun x hx => hwe₃.getAppArgs x hx)) ?_
       intro bb _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
@@ -2237,7 +2237,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
     dsimp only [shiftFrom]
     -- **the io gate**: the datum is the whnf'd type's own binder meta,
     -- which the shift copies verbatim, so both sides take one branch
-    by_cases hg2 : (mode.verified && m'.pw.isNever) = true
+    by_cases hg2 : (mode.verifiedChecks && m'.pw.isNever) = true
     · simp only [hg2, if_true]
       simp only [pure, Except.pure, map_ok]
       rw [← shiftFrom_instantiate1_gen]
@@ -2351,9 +2351,9 @@ private theorem quickPair_shiftFrom {p : Nat} {a b : Expr} :
 private theorem propIrrelIf_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) (g : Bool) :
-    (if g then propIrrel mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+    (if g then propIrrel (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) else pure false) =
-      (if g then propIrrel mode (pureFns mode env fuel) env d a b
+      (if g then propIrrel (pureFns mode env fuel) env d a b
         else pure false) := by
   cases g
   · rfl
@@ -2792,17 +2792,17 @@ private theorem annotate_step (henv : EnvWF env)
   | .sort u => rfl
   | .const n us => rfl
   | .lit (.strVal str) =>
-    show annotateBody mode (pureFns mode env fuel) env (d + 1) (.lit (.strVal str)) =
-      (annotateBody mode (pureFns mode env fuel) env d (.lit (.strVal str))).map
+    show annotateBody (pureFns mode env fuel) env (d + 1) (.lit (.strVal str)) =
+      (annotateBody (pureFns mode env fuel) env d (.lit (.strVal str))).map
         (shiftFrom p)
     simp only [annotateBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .letE n ty v body =>
     simp only [WScoped] at hw
     rw [shiftFrom_letE]
-    show annotateBody mode (pureFns mode env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
-      (annotateBody mode (pureFns mode env fuel) env d (.letE n ty v body)).map
+      (annotateBody (pureFns mode env fuel) env d (.letE n ty v body)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw.1) ?_
@@ -2813,8 +2813,8 @@ private theorem annotate_step (henv : EnvWF env)
       (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
     rwa [shiftFrom_instantiate1_gen] at hbody
   | .lit (.natVal n) =>
-    show annotateBody mode (pureFns mode env fuel) env (d + 1) (.lit (.natVal n)) =
-      (annotateBody mode (pureFns mode env fuel) env d (.lit (.natVal n))).map
+    show annotateBody (pureFns mode env fuel) env (d + 1) (.lit (.natVal n)) =
+      (annotateBody (pureFns mode env fuel) env d (.lit (.natVal n))).map
         (shiftFrom p)
     simp only [annotateBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
@@ -2839,9 +2839,9 @@ private theorem annotate_step (henv : EnvWF env)
     rfl
   | .forallE n ty body mb =>
     simp only [WScoped] at hw
-    show annotateBody mode (pureFns mode env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.forallE n (shiftFrom p ty) (shiftFrom p body) mb) =
-      (annotateBody mode (pureFns mode env fuel) env d (.forallE n ty body mb)).map
+      (annotateBody (pureFns mode env fuel) env d (.forallE n ty body mb)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw.1) ?_
@@ -2869,9 +2869,9 @@ private theorem annotate_step (henv : EnvWF env)
       rfl
   | .lam n ty body mb =>
     simp only [WScoped] at hw
-    show annotateBody mode (pureFns mode env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.lam n (shiftFrom p ty) (shiftFrom p body) mb) =
-      (annotateBody mode (pureFns mode env fuel) env d (.lam n ty body mb)).map
+      (annotateBody (pureFns mode env fuel) env d (.lam n ty body mb)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw.1) ?_
@@ -2899,9 +2899,9 @@ private theorem annotate_step (henv : EnvWF env)
       rfl
   | .proj sn i pe =>
     simp only [WScoped] at hw
-    show annotateBody mode (pureFns mode env fuel) env (d + 1)
+    show annotateBody (pureFns mode env fuel) env (d + 1)
         (.proj sn i (shiftFrom p pe)) =
-      (annotateBody mode (pureFns mode env fuel) env d (.proj sn i pe)).map
+      (annotateBody (pureFns mode env fuel) env d (.proj sn i pe)).map
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw) ?_

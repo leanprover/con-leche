@@ -1,17 +1,18 @@
-# No-model-specific expected exit codes, read by tests/arena.sh's
-# no-model sweep (task #147; successor of tests/yolo-expected.txt,
-# task #139).  Line format:
+# Trusted-mode-specific expected exit codes, read by tests/arena.sh's
+# trusted sweep (task #147; successor of tests/no-model-expected.txt,
+# renamed with the mode at the 2026-09-06 mode rename, itself the
+# successor of tests/yolo-expected.txt, task #139).  Line format:
 #
 #   <exit-code> <suite> <fixture> [mode]
 #
 # with suite ∈ {arena, e2e}, and <fixture>/[mode] spelled exactly as in
 # tests/arena-expected.txt resp. tests/e2e-expected.txt.  A fixture with
-# no line here is expected to give, under `--no-model`, the same exit
-# code the default (`--set-model`) mode gives.
+# no line here is expected to give, under `--trusted`, the same exit
+# code the default (`--verified`) mode gives.
 #
-# What may be recorded here: divergences that are the no-model lane's
+# What may be recorded here: divergences that are the trusted lane's
 # NATURE, each with a comment naming the mechanism.  The lane
-# (Setlec/Kernel/CheckerNC.lean) runs a full checking-mode front door —
+# (`Setlec/Cached/ParsedT.lean`) runs a full checking-mode front door —
 # so the old yolo mode's class-B argument-position escapes are GONE:
 # the three class-B witnesses of task #139 (yolo_arg_escape,
 # yolo_arg_escape_univs, yolo_decline_vs_accept) are all caught at the
@@ -23,7 +24,7 @@
 # A 1-vs-2 pair like that is the mode's nature and gets a line here.
 #
 # NOTHING ELSE belongs here.  A good stream rejected, or a bad stream
-# accepted, under --no-model is a bug in the cert-skipping twins
+# accepted, under --trusted is a bug in the cert-skipping twins
 # (task #139's drift lesson): fix the twin, do not record the flip.
 
 # (Task #161 P5: the yolo_decline_vs_accept override is GONE — the
@@ -33,8 +34,8 @@
 # The annotated fixture suite's decline fixtures (task #161, suite
 # `annot`, tests/annot-expected.txt): the verified mode validates the
 # "pw" sort annotations and positively declines a mismatched claim;
-# the no-model lane ignores annotations entirely (official parity —
-# the reference kernel has no such field), so the underlying
+# the trusted lane writes the same annotations but never VALIDATES them
+# (validation is certification-only work), so the underlying
 # well-typed declarations accept.  The lane's nature, one line per
 # decline fixture.
 0 annot annot_decline_forall.ndjson

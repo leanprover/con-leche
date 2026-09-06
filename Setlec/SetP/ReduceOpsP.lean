@@ -171,7 +171,7 @@ the pre-insertion environment over the one-entry element context; every
 other stored reduce operation crosses by `reduceOpsP_entry_cons`.  See
 the module docstring for the route and for why no regime bit is ever
 read. -/
-theorem reduceOpsP_install (hμ : μ.verified = true)
+theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
     (mp : EnvS2PM V μ env) {F : Nat}
     {cv : ConstantVal} {value type' value' : Expr}
     {A Ta : (Name → Nat) → AVExpr}

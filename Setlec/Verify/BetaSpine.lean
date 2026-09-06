@@ -1670,7 +1670,7 @@ def inferStepIO (mode : CheckMode) (r : CoreFns m) (depth : Nat)
     (tf a : Expr) : m Expr := do
   match ← r.whnf depth tf with
   | .forallE _ ty body mt =>
-    if mode.verified && mt.pw.isNever then
+    if mode.verifiedChecks && mt.pw.isNever then
       pure (body.instantiate1 a)
     else do
       let ta ← r.inferIO depth a
@@ -1687,7 +1687,7 @@ def inferSpineIO (mode : CheckMode) (r : CoreFns m) (depth : Nat) :
   | ty, acc, a :: rest =>
     match ty with
     | .forallE _ dom body mt =>
-      if mode.verified && mt.pw.isNever then
+      if mode.verifiedChecks && mt.pw.isNever then
         inferSpineIO mode r depth body (a :: acc) rest
       else do
         let ta ← r.inferIO depth a
@@ -1697,7 +1697,7 @@ def inferSpineIO (mode : CheckMode) (r : CoreFns m) (depth : Nat) :
     | ty => do
       match ← r.whnf depth (ty.instantiateList acc) with
       | .forallE _ dom body mt =>
-        if mode.verified && mt.pw.isNever then
+        if mode.verifiedChecks && mt.pw.isNever then
           inferSpineIO mode r depth body [a] rest
         else do
           let ta ← r.inferIO depth a
@@ -1710,7 +1710,7 @@ def inferSpineIO (mode : CheckMode) (r : CoreFns m) (depth : Nat) :
 def inferSpineIOPi (mode : CheckMode) (r : CoreFns m) (depth : Nat)
     (dom body : Expr) (mt : BinderMeta) (acc : List Expr) (a : Expr)
     (rest : List Expr) : m Expr :=
-  if mode.verified && mt.pw.isNever then
+  if mode.verifiedChecks && mt.pw.isNever then
     inferSpineIO mode r depth body (a :: acc) rest
   else do
     let ta ← r.inferIO depth a
@@ -1724,7 +1724,7 @@ def inferSpineIOWhnf (mode : CheckMode) (r : CoreFns m) (depth : Nat)
     m Expr := do
   match ← r.whnf depth (ty.instantiateList acc) with
   | .forallE _ dom body mt =>
-    if mode.verified && mt.pw.isNever then
+    if mode.verifiedChecks && mt.pw.isNever then
       inferSpineIO mode r depth body [a] rest
     else do
       let ta ← r.inferIO depth a
@@ -1873,7 +1873,7 @@ theorem inferSpineIO_snoc {d : Nat} :
       unfold inferStepIO
       rw [instList_forallE, whnf_def, whnf_forallE, ok_bind]
       dsimp only
-      by_cases hg2 : (mode.verified && bi.pw.isNever) = true
+      by_cases hg2 : (mode.verifiedChecks && bi.pw.isNever) = true
       · simp only [hg2, ↓reduceIte] at H ⊢
         rw [inferSpineIO_nil] at H
         injection H with h1
@@ -1917,7 +1917,7 @@ theorem inferSpineIO_snoc {d : Nat} :
       cases w₀ with
       | forallE n dom body bi =>
         dsimp only at H ⊢
-        by_cases hg2 : (mode.verified && bi.pw.isNever) = true
+        by_cases hg2 : (mode.verifiedChecks && bi.pw.isNever) = true
         · simp only [hg2, ↓reduceIte] at H ⊢
           rw [inferSpineIO_nil, instList_single] at H
           exact H
@@ -1949,7 +1949,7 @@ theorem inferSpineIO_snoc {d : Nat} :
     · obtain ⟨n, dom, body, bi, rfl⟩ := hpi
       rw [inferSpineIO_pi] at H
       unfold inferSpineIOPi at H
-      by_cases hg2 : (mode.verified && bi.pw.isNever) = true
+      by_cases hg2 : (mode.verifiedChecks && bi.pw.isNever) = true
       · simp only [hg2, ↓reduceIte] at H
         obtain ⟨F₁, w, hw, hstep⟩ :=
           inferSpineIO_snoc xs' body (x :: acc) a F vres H
@@ -1992,7 +1992,7 @@ theorem inferSpineIO_snoc {d : Nat} :
       cases w₀ with
       | forallE n dom body bi =>
         dsimp only at H
-        by_cases hg2 : (mode.verified && bi.pw.isNever) = true
+        by_cases hg2 : (mode.verifiedChecks && bi.pw.isNever) = true
         · simp only [hg2, ↓reduceIte] at H
           obtain ⟨F₁, w, hw, hstep⟩ :=
             inferSpineIO_snoc xs' body [x] a F vres H

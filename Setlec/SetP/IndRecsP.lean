@@ -63,7 +63,7 @@ reading** (`indRecsFoldS`'s P half).  The conclusion is the single row
 `EnvS2PM.swapP` consumes: every recursor stored at the fold's output
 either sits unchanged in the self environment — where `rec_rules`
 already covers it — or carries the rules `iotaRulesP` fired. -/
-theorem indRecsFoldP (hμ : μ.verified = true) {F : Nat}
+theorem indRecsFoldP (hμ : μ.verifiedChecks = true) {F : Nat}
     {blockNames : List Name} {envSelf envBase : Env}
     (mp : EnvS2PM V μ envSelf)
     (hIS : BlockInstalledTT blockNames envSelf mp.base2.cvalE)
@@ -150,7 +150,7 @@ set_option maxHeartbeats 1600000 in
 The v1 carrier at the group's output is a premise — the install runs
 `indRecsS` for it anyway, and taking it here keeps `EnvWF`,
 `RecCtorsStored` and `RecRulesV` out of the P lane entirely. -/
-theorem indRecsP (hμ : μ.verified = true)
+theorem indRecsP (hμ : μ.verifiedChecks = true)
     (hetaP : MemberEtaLawP V) (hunitP : MemberUnitLawP V) {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
     {recs : List ConstantInfo}

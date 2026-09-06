@@ -72,7 +72,7 @@ C), `Lean.trustCompiler` (`axiomTrustCompilerP`, ENDGAME A part 2),
 `ofReduceNat`/`ofReduceBool` (`axiomOfReduceP`, ENDGAME D, on the new
 `ReduceOpsP` field), and the tolerated skip (`axiomSkipP`, which stores
 nothing). -/
-theorem axiomStepPB_of (hμ : μ.verified = true) : AxiomStepPB V μ := by
+theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
   intro _F _env mp _cv _env₂ hR
   obtain ⟨type', hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
@@ -129,7 +129,7 @@ def IndStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
 (`declIndP`, `Interp2/DeclIndP.lean`): the member fold, the recursor
 group (provision/fire/swap), the projection functions and the
 elimination templates, all four at the reading. -/
-theorem indStepPB_of (hμ : μ.verified = true) : IndStepPB V μ := by
+theorem indStepPB_of (hμ : μ.verifiedChecks = true) : IndStepPB V μ := by
   intro _F _env mp _block _env₂ hE h
   exact declIndP hμ mp hE h
 
@@ -151,7 +151,7 @@ non-`ind` kinds have run-only bridges (`checkDeclRun_of`,
 `SetBase/Bridge/DeclRun.lean`) and the `ind` kind arrives through
 `DeclRun`'s `Ind` parameter — so this step consumes exactly what it
 reads, and no step below changed a line. -/
-theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : Declaration}
+theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
     (hrun : DeclRun μ F (Setlec.Semantics.DeclIndRunDispatch μ F env)
       env d env₂) :
@@ -200,7 +200,7 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
       exact indStepPB_of hμ mp hE hrun'
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
-theorem foldPM (hμ : μ.verified = true) {F : Nat} :
+theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       EnvSPOk V μ env →
       ds.foldlM (checkDecl μ (fueledOps μ F)) env = .ok env' →
@@ -229,7 +229,7 @@ theorem foldPM (hμ : μ.verified = true) {F : Nat} :
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'
 theorems). -/
-theorem checkDecls_sound_P_of (hμ : μ.verified = true) {F : Nat}
+theorem checkDecls_sound_P_of (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
     Nonempty (EnvS2PM V μ env') :=
@@ -241,7 +241,7 @@ accepted — the collapse-free model of the validated annotations, at
 the frozen final statement's hypotheses plus the named tier
 bundles. -/
 theorem no_proof_of_Empty_P_of (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verified = true) {F : Nat}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
@@ -257,7 +257,7 @@ which some stored constant has type `Empty`.*
 Hypotheses are **input-level only** — the accepted run, the stored
 constant, its type, plus the validating mode, which is part of the
 goal's letter (the annotated checker *is* the verified mode;
-`--no-model` ignores annotations by design).  No residue: every tier
+`--trusted` ignores annotations by design).  No residue: every tier
 step is discharged (`axiomStepPB_of`, `basisStepPB_of`,
 `indStepPB_of`), so the conditional milestone form
 `no_proof_of_Empty_P_of` above now carries nothing either.  The #16
@@ -267,7 +267,7 @@ hypothesis-minimal precedent, met.
 argument (project rule: consistency proofs stay parametric in the
 `SetTheory` interface), not a hypothesis about the input. -/
 theorem no_proof_of_Empty_P (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verified = true) {F : Nat}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
     ∀ c ∈ env'.consts,

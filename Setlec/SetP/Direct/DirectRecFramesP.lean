@@ -44,7 +44,7 @@ theorem rec_entry {rds : List (Nat × Nat × AVExpr)} {nP : Nat}
 
 set_option maxHeartbeats 3200000 in
 /-- **The recursor's frames.** -/
-theorem recFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+theorem recFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {caps : IndCaps}
     (hccv : Setlec.checkConstantVal (Setlec.fueledOps μ F) env p.cvR = .ok cvRa)
     (hRec : Setlec.checkDirectRecTy (Setlec.fueledOps μ F) env p cvTa cvCa cvRa

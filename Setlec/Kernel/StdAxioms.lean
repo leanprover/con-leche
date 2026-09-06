@@ -115,14 +115,14 @@ soundness proofs, and the type-theory bridge of task #119):
 the rule above).**  The comparison is also up to the binder
 *prop-ness datum*: the pins carry the generated (true) datum, while
 the compared side carries whatever the mode produced — the pass's
-written datum at `--set-model`, the parse placeholder `.never` at
-`--no-model`, where nothing reads annotations at all.  Forgiving it
+written datum at `--verified`, the parse placeholder `.never` at
+`--trusted`, where nothing reads annotations at all.  Forgiving it
 here is safe *because the consumer computes on the pin*: the pin's
 datum is the generated one, so a consumer never sees a placeholder;
-and at `--set-model` the compared side's datum is independently
+and at `--verified` the compared side's datum is independently
 validated against the checker's own inference at the front door
 (a genuinely wrong datum declines there, not here).  Left unforgiven,
-`--no-model` — which writes nothing — would stop matching every
+`--trusted` — which writes nothing — would stop matching every
 annotated pin, i.e. an annotation-only deviation would change a
 verdict, exactly what the binder-info paragraph above forbids. -/
 def Expr.erasePw : Expr → Expr

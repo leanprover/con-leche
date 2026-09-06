@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Regenerate PERF.md from scratch: the three-column stream battery
-# (official / parity / P), preprocessed input on both sides.
+# (official / trusted / verified), preprocessed input on both sides.
 #
 #   scripts/perf-tables.sh              # full battery, writes PERF.md
 #   scripts/perf-tables.sh --render     # re-render PERF.md from the last TSV
@@ -68,12 +68,12 @@ stream_path() {
 # relied on.  One representation, so there is no core axis; the R column
 # went 2026-09-05 with the R core and `--set-model=r` (a hard error now).
 # Nothing retired is measured and nothing retired is printed.
-CONFIG_IDS=(official parity P)
+CONFIG_IDS=(official trusted verified)
 config_cmd() { # $1 = config id, $2 = stream file -> fills CMD
   case "$1" in
     official)  CMD=("$OFFICIAL" "$2") ;;
-    parity)    CMD=("$BIN" --no-model    --pre "$2") ;;
-    P)         CMD=("$BIN" --set-model=p --pre "$2") ;;
+    trusted)   CMD=("$BIN" --trusted  --pre "$2") ;;
+    verified)  CMD=("$BIN" --verified --pre "$2") ;;
     *) echo "unknown config $1" >&2; exit 1 ;;
   esac
 }

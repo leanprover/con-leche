@@ -158,7 +158,7 @@ theorem eval_imax_eq_zero_iff (φ : Name → Nat) (l r : Level) :
 bits of an inferred type are exact against the innermost opened
 body's inferred sort, and the whole type's sort is zero exactly when
 that one is (`imax`'s zero-ness is its right argument's). -/
-theorem piBits_of_infer {env : Env} (hver : mode.verified = true) :
+theorem piBits_of_infer {env : Env} (hver : mode.verifiedChecks = true) :
     ∀ (n : Nat) {F d : Nat} {e t : Expr} {v₀ : Level} {fvs : List Expr}
       {opened : Expr},
       openPisAtFvars n e d = some (fvs, opened) →

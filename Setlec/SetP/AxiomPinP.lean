@@ -45,7 +45,7 @@ front door's recorded run, never from the match verdict.
 
 Concretely, what each remaining branch needs is:
 
-> **`pwBitsAgree`**: at `μ.verified`, for each binder of the stored
+> **`pwBitsAgree`**: at `μ.verifiedChecks`, for each binder of the stored
 > type, `pwBit φ` of the stored datum equals `pwBit φ` of the pin's
 > generated datum.
 
@@ -170,7 +170,7 @@ module docstring's WALL).  The leaf is the stored `True.intro`'s
 annotated valuation, and the membership is that constant's own
 `mem_typeP`, whose type reads to the same `acval trueName ψ` the
 axiom's does. -/
-theorem axiomTrustCompilerP (hμ : μ.verified = true)
+theorem axiomTrustCompilerP (hμ : μ.verifiedChecks = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
     (hcv : ConstantValRun μ F env cv type')
     (hname : cv.name = Setlec.trustCompilerName)
@@ -261,7 +261,7 @@ one currency too coarse for a P leaf, generalized. -/
 /-- **The standard-axiom branch, discharged.**  The leaf is the layer's
 own constant in both halves, so every syntactic obligation is `rfl` or
 a `const` clause, and the whole content is the membership. -/
-theorem axiomStdP (hμ : μ.verified = true)
+theorem axiomStdP (hμ : μ.verifiedChecks = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
     (hcv : ConstantValRun μ F env cv type')
     (hok : Setlec.stdAxiomOk env ⟨cv.name, cv.levelParams, type'⟩

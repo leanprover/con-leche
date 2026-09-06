@@ -223,7 +223,7 @@ mode.  This is the io slot of `CheckStep2P5`
 (`Claims2PIO.lean`). -/
 def InferStepIOP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
-    μ.verified = true →
+    μ.verifiedChecks = true →
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
     InferClaimsIO2P μ m φ fuel →
@@ -351,7 +351,7 @@ moves: the ∀ rule's own checks (domain sort, codomain sort, the
 annotation validation) are kept by `inferBodyIO`, so move 3's
 establishment step and move 4's numeral bridge are unchanged. -/
 theorem infer_forallE_claimIOP (m : EnvS2Core V env)
-    (hμ : μ.verified = true) (hss : SortSemAtIOP m μ φ fuel)
+    (hμ : μ.verifiedChecks = true) (hss : SortSemAtIOP m μ φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCoreIO μ env (fuel + 1) d (.forallE n ty body mb)
@@ -468,7 +468,7 @@ clause consumes the io sort residue only inside the fibre regime
 fact's *leaf* branch — the chain branch is the meta copy +
 impredicativity, run-free, exactly as in the full lane. -/
 theorem infer_lam_claimIOP (m : EnvS2Core V env)
-    (hμ : μ.verified = true) (hss : SortSemAtIOP m μ φ fuel)
+    (hμ : μ.verifiedChecks = true) (hss : SortSemAtIOP m μ φ fuel)
     (ihio : InferClaimsIO2P μ m φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
@@ -670,7 +670,7 @@ theorem infer_letE_claimIOP (m : EnvS2Core V env)
 frozen statement; DESIGN.md, "THE IO LICENSE BATCH").  The inversion's
 certificate disjunct splits the proof:
 
-* **gated arm** (`μ.verified && m'.pw.isNever` — the mode conjunct is
+* **gated arm** (`μ.verifiedChecks && m'.pw.isNever` — the mode conjunct is
   *in* the disjunct, so the clause needs no mode hypothesis): the
   skipped fact `⟦a⟧ ∈ ⟦Aa⟧` is recovered by `io_domain_transfer`
   from the premise's hereditary app slot (`hoist_app`), the io-run's
@@ -891,7 +891,7 @@ dispatched to the eleven clause lemmas, `inferStepP_of`'s mirror.
 Ten are theorems of this file (the literal pair through the run
 transfer); `.proj` routes through the input structure. -/
 theorem inferStepIOP_of (h : InferInputsIOP V μ)
-    (hμ : μ.verified = true) : InferStepIOP μ V := by
+    (hμ : μ.verifiedChecks = true) : InferStepIOP μ V := by
   intro env m φ fuel _hv _ihwc ihw ihd _ihi ihio
   have hss : SortSemAtIOP m μ φ fuel :=
     sortSemAtIOP_of_claims ihw ihio (h.infer_reads_io m φ fuel)

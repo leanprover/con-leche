@@ -12,7 +12,7 @@ whole gated driver is this one instantiation — `checkDecls μ
 stated about.
 
 Nothing here is reachable from `Main.lean`'s import closure: the
-executable is byte-identical to master (`--set-model=p` is **not**
+executable is byte-identical to master (`--verified` is **not**
 wired; see the S9 seal in `DESIGN.md` for why).
 -/
 
