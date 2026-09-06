@@ -46391,7 +46391,13 @@ of the same body would get (`.regular (getMaxHeight env value + 1)` via
 `mkDefinitionValInferringUnsafe`), so the `decide`/`rfl`/`simp [eqA]`
 consumers in `Setlec/SetP/*` see exactly what they saw before.
 `Lean.Elab.Term.evalTerm` is `unsafe`; the three wrappers are the
-standard `@[implemented_by]` pairing.
+standard `@[implemented_by]` pairing.  **That is not a trust point and
+the "no `implemented_by` in checker code" ruling does not reach it:**
+these three live in elaborator-only meta code that runs while the pin
+module elaborates, and everything they produce is a `Declaration` the
+Lean kernel then checks — a wrong evaluation cannot yield a
+well-typed wrong constant silently, and none of it is in the shipped
+checker's execution path.
 
 ### 3. The module structure — and why it moved
 
