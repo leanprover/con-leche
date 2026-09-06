@@ -22,6 +22,32 @@ for the pilot's numbers:
   **itself**, so the result shares memory with the input and later
   pointer comparisons on it are `O(1)` — the analogue of the arena
   returning the same index.
+
+## The memo discipline of the substitution walks (task #177)
+
+The arena's memo key was an `EIdx` — a scalar.  The clone's is a
+*constructed* key, so the probe costs allocations, and profiling put
+`instantiate*Go`/`abstract*Go` plus their `Std.DHashMap` spec sites at
+roughly half of every `--no-model` run.  Three shape rules cut that,
+and each is a property of the walks alone (the values are unchanged —
+`Setlec/Verify/Cached/OpsC.lean` proves each walk equal to its
+`Setlec.Expr` counterpart exactly as before):
+
+1. **The key is built once per node.**  `let key := …` is shared by the
+   probe and the insert, instead of the same tuple being allocated for
+   each.
+2. **The bulk key carries no live prefix.**  `k` is invariant over the
+   life of a table (see `MemoNL`), so it moved from the key into the
+   memo *invariant* (`MemoLInv ws k memo`), and the `bvar` arm's
+   re-entry — the one place `k` shrinks — runs under a fresh table.
+3. **Only compound nodes are memoized.**  The memo probe and insert sit
+   inside the `app`/`lam`/`forallE`/`letE`/`proj` arms; a node with no
+   children to descend into is answered on the spot.  This matters most
+   for the loose `bvar`s, which the cutoff lets through by
+   construction and which are the most numerous nodes a substitution
+   touches — recording a one-word answer under a two-word key was pure
+   loss.  It is why the arms carry the probe rather than the head of
+   the function.
 -/
 
 namespace Setlec.Cached
@@ -84,44 +110,70 @@ def mkAppN (f : ExprC) : List ExprC → ExprC
 /-- Memo table for cursored node→node traversals. -/
 abbrev MemoN := Std.HashMap (ExprC × Nat) ExprC
 
-/-- Memo table for the bulk traversals (node, live prefix, cursor). -/
-abbrev MemoNL := Std.HashMap (ExprC × Nat × Nat) ExprC
+/-- Memo table for the bulk traversals (node, cursor).
 
-/-- Core of `instantiate1` (memoized; nodes whose cached bound is at or
-below the cursor are returned unchanged). -/
+**The live prefix `k` is not part of the key.**  It is constant for the
+whole life of one table: the only place `k` changes is the `bvar` arm's
+re-entry at a replacement, and that re-entry runs under a *fresh*
+table.  Dropping it halves the key — `(ExprC × Nat × Nat)` is two
+`Prod` allocations per probe, `(ExprC × Nat)` is one. -/
+abbrev MemoNL := Std.HashMap (ExprC × Nat) ExprC
+
+/-- Core of `instantiate1` (nodes whose cached bound is at or below the
+cursor are returned unchanged; compound nodes are memoized, atoms are
+answered in place — see this module's memo discipline). -/
 def instantiate1Go (v : ExprC) (memo : MemoN) (e : ExprC) (d : Nat) :
     ExprC × MemoN :=
   if e.bvarB ≤ d then (e, memo) else
-  match memo[(e, d)]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : ExprC × MemoN :=
-      match e with
-      | .bvar i .. =>
-        if i = d then (v, memo)
-        else if i > d then (mkBVar (i - 1), memo) else (e, memo)
-      | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
-      | .app f a .. =>
-        let (f', memo) := instantiate1Go v memo f d
-        let (a', memo) := instantiate1Go v memo a d
-        (mkApp f' a', memo)
-      | .lam n ty body m .. =>
-        let (ty', memo) := instantiate1Go v memo ty d
-        let (b', memo) := instantiate1Go v memo body (d + 1)
-        (mkLam n ty' b' m, memo)
-      | .forallE n ty body m .. =>
-        let (ty', memo) := instantiate1Go v memo ty d
-        let (b', memo) := instantiate1Go v memo body (d + 1)
-        (mkForallE n ty' b' m, memo)
-      | .letE n ty val body .. =>
-        let (ty', memo) := instantiate1Go v memo ty d
-        let (v', memo) := instantiate1Go v memo val d
-        let (b', memo) := instantiate1Go v memo body (d + 1)
-        (mkLetE n ty' v' b', memo)
-      | .proj s i sub .. =>
-        let (s', memo) := instantiate1Go v memo sub d
-        (mkProj s i s', memo)
-    (r, memo.insert (e, d) r)
+  match e with
+  | .bvar i .. =>
+    (if i = d then v else if i > d then mkBVar (i - 1) else e, memo)
+  | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
+  | .app f a .. =>
+    let key := (e, d)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (f', memo) := instantiate1Go v memo f d
+      let (a', memo) := instantiate1Go v memo a d
+      let r := mkApp f' a'
+      (r, memo.insert key r)
+  | .lam n ty body m .. =>
+    let key := (e, d)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := instantiate1Go v memo ty d
+      let (b', memo) := instantiate1Go v memo body (d + 1)
+      let r := mkLam n ty' b' m
+      (r, memo.insert key r)
+  | .forallE n ty body m .. =>
+    let key := (e, d)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := instantiate1Go v memo ty d
+      let (b', memo) := instantiate1Go v memo body (d + 1)
+      let r := mkForallE n ty' b' m
+      (r, memo.insert key r)
+  | .letE n ty val body .. =>
+    let key := (e, d)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := instantiate1Go v memo ty d
+      let (v', memo) := instantiate1Go v memo val d
+      let (b', memo) := instantiate1Go v memo body (d + 1)
+      let r := mkLetE n ty' v' b'
+      (r, memo.insert key r)
+  | .proj sn i sub .. =>
+    let key := (e, d)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (s', memo) := instantiate1Go v memo sub d
+      let r := mkProj sn i s'
+      (r, memo.insert key r)
 
 /-- `Expr.instantiate1` on `ExprC` (fresh per-call memo). -/
 def instantiate1 (e v : ExprC) (d : Nat := 0) : ExprC :=
@@ -136,46 +188,74 @@ measure `(k, sizeOf e)`: the subterm calls keep `k`, the `bvar` call
 decreases it.  The prefix test is written as a dependent `if` — as in
 `instantiateListIGo` — only to put `i - d < k` in scope for that
 obligation; `dite` on the same `Decidable Nat.lt` instance compiles to
-the same code as the `ite` did. -/
+the same code as the `ite` did.
+
+The re-entry runs under a **fresh** memo (that is what keeps `k` out of
+the key, see `MemoNL`) and is guarded: a replacement that is closed at
+the cursor, or a zero-length residual prefix, is its own instantiation,
+so the common case — the checker substitutes `fvar`s — allocates no
+table at all. -/
 def instantiateListGo (vs : Array ExprC) (memo : MemoNL)
     (e : ExprC) (k : Nat) (d : Nat) : ExprC × MemoNL :=
   if k = 0 then (e, memo)
   else if e.bvarB ≤ d then (e, memo)
   else
-    match memo[(e, k, d)]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : ExprC × MemoNL :=
-        match e with
-        | .bvar i .. =>
-          if i < d then (e, memo)
-          else if _h : i - d < k then
-            if h : i - d < vs.size then
-              instantiateListGo vs memo vs[i - d] (i - d) d
-            else (e, memo)
-          else (mkBVar (i - k), memo)
-        | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
-        | .app f a .. =>
-          let (f', memo) := instantiateListGo vs memo f k d
-          let (a', memo) := instantiateListGo vs memo a k d
-          (mkApp f' a', memo)
-        | .lam n ty body m .. =>
-          let (ty', memo) := instantiateListGo vs memo ty k d
-          let (b', memo) := instantiateListGo vs memo body k (d + 1)
-          (mkLam n ty' b' m, memo)
-        | .forallE n ty body m .. =>
-          let (ty', memo) := instantiateListGo vs memo ty k d
-          let (b', memo) := instantiateListGo vs memo body k (d + 1)
-          (mkForallE n ty' b' m, memo)
-        | .letE n ty val body .. =>
-          let (ty', memo) := instantiateListGo vs memo ty k d
-          let (v', memo) := instantiateListGo vs memo val k d
-          let (b', memo) := instantiateListGo vs memo body k (d + 1)
-          (mkLetE n ty' v' b', memo)
-        | .proj s i sub .. =>
-          let (s', memo) := instantiateListGo vs memo sub k d
-          (mkProj s i s', memo)
-      (r, memo.insert (e, k, d) r)
+    match e with
+    | .bvar i .. =>
+      if i < d then (e, memo)
+      else if _h : i - d < k then
+        if h : i - d < vs.size then
+          let w := vs[i - d]
+          if i - d = 0 || w.bvarB ≤ d then (w, memo)
+          else ((instantiateListGo vs {} w (i - d) d).1, memo)
+        else (e, memo)
+      else (mkBVar (i - k), memo)
+    | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
+    | .app f a .. =>
+      let key := (e, d)
+      match memo[key]? with
+      | some r => (r, memo)
+      | none =>
+        let (f', memo) := instantiateListGo vs memo f k d
+        let (a', memo) := instantiateListGo vs memo a k d
+        let r := mkApp f' a'
+        (r, memo.insert key r)
+    | .lam n ty body m .. =>
+      let key := (e, d)
+      match memo[key]? with
+      | some r => (r, memo)
+      | none =>
+        let (ty', memo) := instantiateListGo vs memo ty k d
+        let (b', memo) := instantiateListGo vs memo body k (d + 1)
+        let r := mkLam n ty' b' m
+        (r, memo.insert key r)
+    | .forallE n ty body m .. =>
+      let key := (e, d)
+      match memo[key]? with
+      | some r => (r, memo)
+      | none =>
+        let (ty', memo) := instantiateListGo vs memo ty k d
+        let (b', memo) := instantiateListGo vs memo body k (d + 1)
+        let r := mkForallE n ty' b' m
+        (r, memo.insert key r)
+    | .letE n ty val body .. =>
+      let key := (e, d)
+      match memo[key]? with
+      | some r => (r, memo)
+      | none =>
+        let (ty', memo) := instantiateListGo vs memo ty k d
+        let (v', memo) := instantiateListGo vs memo val k d
+        let (b', memo) := instantiateListGo vs memo body k (d + 1)
+        let r := mkLetE n ty' v' b'
+        (r, memo.insert key r)
+    | .proj sn i sub .. =>
+      let key := (e, d)
+      match memo[key]? with
+      | some r => (r, memo)
+      | none =>
+        let (s', memo) := instantiateListGo vs memo sub k d
+        let r := mkProj sn i s'
+        (r, memo.insert key r)
 termination_by (k, sizeOf e)
 decreasing_by
   all_goals first
@@ -199,41 +279,62 @@ def instantiateRevGo (vs : Array ExprC) (memo : MemoNL)
   if k = 0 then (e, memo)
   else if e.bvarB ≤ d then (e, memo)
   else
-    match memo[(e, k, d)]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : ExprC × MemoNL :=
-        match e with
-        | .bvar i .. =>
-          if i < d then (e, memo)
-          else if _h : i - d < k then
-            if h : i - d < vs.size then
-              instantiateRevGo vs memo
-                (vs[vs.size - 1 - (i - d)]'(by omega)) (i - d) d
-            else (e, memo)
-          else (mkBVar (i - k), memo)
-        | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
-        | .app f a .. =>
-          let (f', memo) := instantiateRevGo vs memo f k d
-          let (a', memo) := instantiateRevGo vs memo a k d
-          (mkApp f' a', memo)
-        | .lam n ty body m .. =>
-          let (ty', memo) := instantiateRevGo vs memo ty k d
-          let (b', memo) := instantiateRevGo vs memo body k (d + 1)
-          (mkLam n ty' b' m, memo)
-        | .forallE n ty body m .. =>
-          let (ty', memo) := instantiateRevGo vs memo ty k d
-          let (b', memo) := instantiateRevGo vs memo body k (d + 1)
-          (mkForallE n ty' b' m, memo)
-        | .letE n ty val body .. =>
-          let (ty', memo) := instantiateRevGo vs memo ty k d
-          let (v', memo) := instantiateRevGo vs memo val k d
-          let (b', memo) := instantiateRevGo vs memo body k (d + 1)
-          (mkLetE n ty' v' b', memo)
-        | .proj s i sub .. =>
-          let (s', memo) := instantiateRevGo vs memo sub k d
-          (mkProj s i s', memo)
-      (r, memo.insert (e, k, d) r)
+    match e with
+    | .bvar i .. =>
+      if i < d then (e, memo)
+      else if _h : i - d < k then
+        if h : i - d < vs.size then
+          let w := vs[vs.size - 1 - (i - d)]'(by omega)
+          if i - d = 0 || w.bvarB ≤ d then (w, memo)
+          else ((instantiateRevGo vs {} w (i - d) d).1, memo)
+        else (e, memo)
+      else (mkBVar (i - k), memo)
+    | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
+    | .app f a .. =>
+      let key := (e, d)
+      match memo[key]? with
+      | some r => (r, memo)
+      | none =>
+        let (f', memo) := instantiateRevGo vs memo f k d
+        let (a', memo) := instantiateRevGo vs memo a k d
+        let r := mkApp f' a'
+        (r, memo.insert key r)
+    | .lam n ty body m .. =>
+      let key := (e, d)
+      match memo[key]? with
+      | some r => (r, memo)
+      | none =>
+        let (ty', memo) := instantiateRevGo vs memo ty k d
+        let (b', memo) := instantiateRevGo vs memo body k (d + 1)
+        let r := mkLam n ty' b' m
+        (r, memo.insert key r)
+    | .forallE n ty body m .. =>
+      let key := (e, d)
+      match memo[key]? with
+      | some r => (r, memo)
+      | none =>
+        let (ty', memo) := instantiateRevGo vs memo ty k d
+        let (b', memo) := instantiateRevGo vs memo body k (d + 1)
+        let r := mkForallE n ty' b' m
+        (r, memo.insert key r)
+    | .letE n ty val body .. =>
+      let key := (e, d)
+      match memo[key]? with
+      | some r => (r, memo)
+      | none =>
+        let (ty', memo) := instantiateRevGo vs memo ty k d
+        let (v', memo) := instantiateRevGo vs memo val k d
+        let (b', memo) := instantiateRevGo vs memo body k (d + 1)
+        let r := mkLetE n ty' v' b'
+        (r, memo.insert key r)
+    | .proj sn i sub .. =>
+      let key := (e, d)
+      match memo[key]? with
+      | some r => (r, memo)
+      | none =>
+        let (s', memo) := instantiateRevGo vs memo sub k d
+        let r := mkProj sn i s'
+        (r, memo.insert key r)
 termination_by (k, sizeOf e)
 decreasing_by
   all_goals first
@@ -248,8 +349,9 @@ def instantiateRev (e : ExprC) (vs : Array ExprC) (d : Nat := 0) : ExprC :=
 
 /-! ## Abstraction -/
 
-/-- Core of `abstract1` (memoized; `d` is the abstracted fvar's level,
-`k` the binder cursor).
+/-- Core of `abstract1` (`d` is the abstracted fvar's level, `k` the
+binder cursor; compound nodes are memoized, the `fvar` leaf is answered
+in place).
 
 **Documented deviation from the arena twin** (`abstract1IGo`, which has
 no such cutoff): a node whose cached fvar range is at or below `d`
@@ -261,73 +363,113 @@ value either way. -/
 def abstract1Go (d : Nat) (memo : MemoN) (e : ExprC) (k : Nat) :
     ExprC × MemoN :=
   if e.fvarB ≤ d then (e, memo) else
-  match memo[(e, k)]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : ExprC × MemoN :=
-      match e with
-      | .fvar idx .. => if idx = d then (mkBVar k, memo) else (e, memo)
-      | .bvar .. | .sort .. | .const .. | .lit .. => (e, memo)
-      | .app f a .. =>
-        let (f', memo) := abstract1Go d memo f k
-        let (a', memo) := abstract1Go d memo a k
-        (mkApp f' a', memo)
-      | .lam n ty body m .. =>
-        let (ty', memo) := abstract1Go d memo ty k
-        let (b', memo) := abstract1Go d memo body (k + 1)
-        (mkLam n ty' b' m, memo)
-      | .forallE n ty body m .. =>
-        let (ty', memo) := abstract1Go d memo ty k
-        let (b', memo) := abstract1Go d memo body (k + 1)
-        (mkForallE n ty' b' m, memo)
-      | .letE n ty val body .. =>
-        let (ty', memo) := abstract1Go d memo ty k
-        let (v', memo) := abstract1Go d memo val k
-        let (b', memo) := abstract1Go d memo body (k + 1)
-        (mkLetE n ty' v' b', memo)
-      | .proj s i sub .. =>
-        let (s', memo) := abstract1Go d memo sub k
-        (mkProj s i s', memo)
-    (r, memo.insert (e, k) r)
+  match e with
+  | .fvar idx .. => (if idx = d then mkBVar k else e, memo)
+  | .bvar .. | .sort .. | .const .. | .lit .. => (e, memo)
+  | .app f a .. =>
+    let key := (e, k)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (f', memo) := abstract1Go d memo f k
+      let (a', memo) := abstract1Go d memo a k
+      let r := mkApp f' a'
+      (r, memo.insert key r)
+  | .lam n ty body m .. =>
+    let key := (e, k)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := abstract1Go d memo ty k
+      let (b', memo) := abstract1Go d memo body (k + 1)
+      let r := mkLam n ty' b' m
+      (r, memo.insert key r)
+  | .forallE n ty body m .. =>
+    let key := (e, k)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := abstract1Go d memo ty k
+      let (b', memo) := abstract1Go d memo body (k + 1)
+      let r := mkForallE n ty' b' m
+      (r, memo.insert key r)
+  | .letE n ty val body .. =>
+    let key := (e, k)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := abstract1Go d memo ty k
+      let (v', memo) := abstract1Go d memo val k
+      let (b', memo) := abstract1Go d memo body (k + 1)
+      let r := mkLetE n ty' v' b'
+      (r, memo.insert key r)
+  | .proj sn i sub .. =>
+    let key := (e, k)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (s', memo) := abstract1Go d memo sub k
+      let r := mkProj sn i s'
+      (r, memo.insert key r)
 
 /-- `Expr.abstract1` on `ExprC`. -/
 def abstract1 (e : ExprC) (d : Nat) (k : Nat := 0) : ExprC :=
   if e.fvarB ≤ d then e else (abstract1Go d {} e k).1
 
-/-- Core of `abstractRange` (bulk abstraction, task #72). -/
+/-- Core of `abstractRange` (bulk abstraction, task #72; same memo
+discipline as `abstract1Go`). -/
 def abstractRangeGo (d k : Nat) (memo : MemoN) (e : ExprC) (c : Nat) :
     ExprC × MemoN :=
   if e.fvarB ≤ d then (e, memo) else
-  match memo[(e, c)]? with
-  | some r => (r, memo)
-  | none =>
-    let (r, memo) : ExprC × MemoN :=
-      match e with
-      | .fvar idx .. =>
-        if d ≤ idx ∧ idx < d + k then (mkBVar (c + (d + k - 1 - idx)), memo)
-        else (e, memo)
-      | .bvar .. | .sort .. | .const .. | .lit .. => (e, memo)
-      | .app f a .. =>
-        let (f', memo) := abstractRangeGo d k memo f c
-        let (a', memo) := abstractRangeGo d k memo a c
-        (mkApp f' a', memo)
-      | .lam n ty body m .. =>
-        let (ty', memo) := abstractRangeGo d k memo ty c
-        let (b', memo) := abstractRangeGo d k memo body (c + 1)
-        (mkLam n ty' b' m, memo)
-      | .forallE n ty body m .. =>
-        let (ty', memo) := abstractRangeGo d k memo ty c
-        let (b', memo) := abstractRangeGo d k memo body (c + 1)
-        (mkForallE n ty' b' m, memo)
-      | .letE n ty val body .. =>
-        let (ty', memo) := abstractRangeGo d k memo ty c
-        let (v', memo) := abstractRangeGo d k memo val c
-        let (b', memo) := abstractRangeGo d k memo body (c + 1)
-        (mkLetE n ty' v' b', memo)
-      | .proj s i sub .. =>
-        let (s', memo) := abstractRangeGo d k memo sub c
-        (mkProj s i s', memo)
-    (r, memo.insert (e, c) r)
+  match e with
+  | .fvar idx .. =>
+    (if d ≤ idx ∧ idx < d + k then mkBVar (c + (d + k - 1 - idx)) else e, memo)
+  | .bvar .. | .sort .. | .const .. | .lit .. => (e, memo)
+  | .app f a .. =>
+    let key := (e, c)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (f', memo) := abstractRangeGo d k memo f c
+      let (a', memo) := abstractRangeGo d k memo a c
+      let r := mkApp f' a'
+      (r, memo.insert key r)
+  | .lam n ty body m .. =>
+    let key := (e, c)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := abstractRangeGo d k memo ty c
+      let (b', memo) := abstractRangeGo d k memo body (c + 1)
+      let r := mkLam n ty' b' m
+      (r, memo.insert key r)
+  | .forallE n ty body m .. =>
+    let key := (e, c)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := abstractRangeGo d k memo ty c
+      let (b', memo) := abstractRangeGo d k memo body (c + 1)
+      let r := mkForallE n ty' b' m
+      (r, memo.insert key r)
+  | .letE n ty val body .. =>
+    let key := (e, c)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := abstractRangeGo d k memo ty c
+      let (v', memo) := abstractRangeGo d k memo val c
+      let (b', memo) := abstractRangeGo d k memo body (c + 1)
+      let r := mkLetE n ty' v' b'
+      (r, memo.insert key r)
+  | .proj sn i sub .. =>
+    let key := (e, c)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (s', memo) := abstractRangeGo d k memo sub c
+      let r := mkProj sn i s'
+      (r, memo.insert key r)
 
 /-- `Expr.abstractRange` on `ExprC` (`k = 0` is the identity and skips
 the traversal, as in the arena). -/

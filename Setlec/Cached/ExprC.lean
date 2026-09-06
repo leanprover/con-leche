@@ -131,7 +131,7 @@ constructor.  The names survive because they are the term the whole
 cached tier and its verification are written in; each is `@[inline]`,
 so nothing is added at runtime. -/
 
-@[inline] def mkBVar (i : Nat) : ExprC := .bvar i
+@[inline] def mkBVar (i : Nat) : ExprC := Expr.mkBvar i
 
 @[inline] def mkFVar (idx : Nat) (n : Name) (ty : ExprC) : ExprC :=
   .fvar idx n ty
@@ -190,7 +190,7 @@ the erasure's "smart constructor erases to the plain constructor"
 lemmas (`mkApp_eq` &c.); with one type they are the constructors'
 own equations, and the tier still rewrites with them. -/
 
-@[simp] theorem mkBVar_eq (i : Nat) : mkBVar i = .bvar i := rfl
+@[simp] theorem mkBVar_eq (i : Nat) : mkBVar i = .bvar i := Expr.mkBvar_eq i
 
 @[simp] theorem mkFVar_eq (idx : Nat) (n : Name) (ty : ExprC) :
     mkFVar idx n ty = .fvar idx n ty := rfl

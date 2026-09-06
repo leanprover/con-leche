@@ -1013,6 +1013,55 @@ instance : LawfulBEq Expr where
   eq_of_beq h := of_decide_eq_true h
   rfl := by simp [BEq.beq, Expr.beq]
 
+/-! ## The shared `bvar` pool (task #177)
+
+A `bvar` node is the smallest thing this checker builds and the one it
+builds most: every substitution shifts loose indices, every abstraction
+introduces one, the parser reads one per occurrence.  Each of those was
+a fresh allocation — and, since the substitution walks stopped
+recording their atoms in the per-walk memo, a fresh allocation that
+nothing shared afterwards.
+
+`bvarPool` is one **static** table of the first `bvarPoolSize` of them.
+It is a closed top-level `def`, so the runtime builds it once at module
+initialization and marks it persistent (`lean_mark_persistent` in the
+generated C): handing out `bvarPool[i]` costs a bounds check and a
+borrowed read, and its reference counting is free.  `mkBvar` is
+representation-transparent (`mkBvar_eq`, `@[simp]`), so pattern
+matching stays on `.bvar` and no statement anywhere changes.
+
+**Where it is used.**  Every *runtime* `bvar` construction goes through
+it, and the routing is one line: `Setlec.Cached.ExprC.mkBVar` is the
+cached tier's only `bvar` builder, so the substitution and abstraction
+walks, `ofView` and the frontend's parser are all covered at once.  The
+remaining `.bvar` literals in the tree are either the pure *spec*
+functions of `Setlec/Kernel/ExprOps.lean` (which must keep the bare
+constructor — they are what the pool is proved transparent against) or
+closed constants such as the cores' `.bvar 0`, which the compiler
+already lifts to a per-module `_init_…_closed__n` and marks persistent
+itself.
+
+The bound covers the corpus with room to spare: the deepest de Bruijn
+index the battery produces is the 4 000-binder λ tower of
+`good/perf/app-lam`. -/
+
+/-- Size of the static `bvar` pool. -/
+def bvarPoolSize : Nat := 4096
+
+@[inherit_doc bvarPoolSize]
+def bvarPool : Array Expr := (Array.range bvarPoolSize).map Expr.bvar
+
+/-- The `bvar` smart constructor: the pooled node below `bvarPoolSize`,
+a fresh one above it.  Same value either way (`mkBvar_eq`). -/
+@[inline] def mkBvar (i : Nat) : Expr :=
+  if h : i < bvarPool.size then bvarPool[i] else .bvar i
+
+@[simp] theorem mkBvar_eq (i : Nat) : mkBvar i = .bvar i := by
+  unfold mkBvar
+  split
+  · simp [bvarPool]
+  · rfl
+
 end Expr
 
 end Setlec
