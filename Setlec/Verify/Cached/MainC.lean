@@ -117,8 +117,7 @@ pure fueled checker the tower is stated about) its only sibling. -/
 section PLetters
 
 open Setlec.SetP (EnvSPOk EnvS2PM declStepPM
-  no_constant_of_Empty_P no_constant_of_False_P no_constant_of_zeroCtorRec_P
-  zeroCtorRecTy)
+  no_constant_of_Empty_P no_constant_of_False_P)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
@@ -184,25 +183,6 @@ theorem no_proof_of_False_SPCD_P (V : Type w) [SetTheory V]
       c.toConstantVal.type = .const falseName [] → False := by
   obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
   exact fun c hc hty => no_constant_of_False_P mp c hc hty
-
-/-- **The general zero-constructor capstone for the shipped driver**
-(task #181): `no_proof_of_zeroCtor_P`'s letter over `checkDeclsSPCachedD`
-— a family with a stored zero-constructor eliminator has no stored
-inhabitant. -/
-theorem no_proof_of_zeroCtor_SPCD_P (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true)
-    {ds : List DeclC} {env' : Env}
-    (h : checkDeclsSPCachedD (cfgOf μ) ds = .ok env') :
-    ∀ (T : Name) (ci : ConstantInfo), env'.find? T = some ci →
-    ∀ R ∈ env'.consts,
-      ∀ (elim mN tN₁ tN₂ : Name) (mb₁ mb₂ mb₃ : BinderMeta),
-      R.toConstantVal.type =
-        zeroCtorRecTy T ci.toConstantVal.levelParams elim mN tN₁ tN₂ mb₁ mb₂ mb₃ →
-    ∀ c ∈ env'.consts, ∀ ls : List Level,
-      c.toConstantVal.type = .const T ls → False := by
-  obtain ⟨mp⟩ := checkDeclsSPCachedD_sound_P (V := V) hμ h
-  exact fun T ci hT R hR _ _ _ _ _ _ _ hRty c hc _ hty =>
-    no_constant_of_zeroCtorRec_P mp hT hR hRty c hc hty
 
 end PLetters
 

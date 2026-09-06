@@ -114,9 +114,7 @@ partial def setlecDeps (env : Environment) (todo : List Name)
 * `P` — the pure fueled checker the graded tower is stated about.
 * `False_SPCD_P` / `False_P` — the same two letters about the pinned
   `False` (task #181), and `main_False` / `main_Empty` the
-  `Setlec/MainTheorem.lean` forms of the shipped-driver letters.
-* `zeroCtor_SPCD_P` / `zeroCtor_P` — the general zero-constructor
-  theorem (task #181, `Setlec/SetP/ZeroCtorP.lean`) at both drivers. -/
+  `Setlec/MainTheorem.lean` forms of the shipped-driver letters. -/
 private def roots : List (String × Name) :=
   [("SPCD_P", `Setlec.Cached.no_proof_of_Empty_SPCD_P),
    ("sound_P", `Setlec.Cached.checkDeclsSPCachedD_sound_P),
@@ -125,9 +123,7 @@ private def roots : List (String × Name) :=
    ("False_SPCD_P", `Setlec.Cached.no_proof_of_False_SPCD_P),
    ("False_P", `Setlec.SetP.no_proof_of_False_P),
    ("main_False", `Setlec.no_proof_of_False),
-   ("main_Empty", `Setlec.no_proof_of_Empty),
-   ("zeroCtor_SPCD_P", `Setlec.Cached.no_proof_of_zeroCtor_SPCD_P),
-   ("zeroCtor_P", `Setlec.SetP.no_proof_of_zeroCtor_P)]
+   ("main_Empty", `Setlec.no_proof_of_Empty)]
 
 /-- The measured rows, in a fixed order: one `<label> :: <module>` per
 `Setlec.*` module the root's proof term reaches, sorted.  The pinned

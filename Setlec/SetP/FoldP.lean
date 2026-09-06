@@ -6,7 +6,6 @@ import Setlec.Semantics.Bridge.Sound
 import Setlec.Semantics.Direct.DeclDirectSumEta
 import Setlec.SetP.DirectSum.DeclDirectSumP
 import Setlec.SetP.BasisFalseP
-import Setlec.SetP.ZeroCtorP
 
 /-!
 # The P declaration fold, and the conditional capstone (task #161, P4)
@@ -47,7 +46,7 @@ open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
 open Setlec.Semantics Setlec.SetModel
-open Setlec (CheckMode Env Expr Name Level ConstantInfo BinderMeta ConstantVal
+open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   Declaration checkDecl checkDecls fueledOps)
 
 universe w
@@ -301,30 +300,5 @@ theorem no_proof_of_False_P (V : Type w) [SetTheory V]
       c.toConstantVal.type = .const falseName [] → False := by
   obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ h
   exact fun c hc hty => no_constant_of_False_P mp c hc hty
-
-/-- **The general zero-constructor capstone** (task #181,
-`ZeroCtorP.lean`): in an accepted environment, a family `T` with a
-stored zero-constructor eliminator — any constant whose type is
-`∀ (motive : T → Sort u) (t : T), motive t` (`zeroCtorRecTy`; binder
-names and annotations free) — has no stored inhabitant at any level
-instance.  Neither the eliminator's name nor the block's install route
-is mentioned: the statement is read off the environment the run
-produced.  `no_proof_of_False_P`/`no_proof_of_Empty_P` are the pinned
-instances; this covers `PEmpty` and every user-declared zero-constructor
-inductive without parameters. -/
-theorem no_proof_of_zeroCtor_P (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-    {ds : List Declaration} {env' : Env}
-    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
-    ∀ (T : Name) (ci : ConstantInfo), env'.find? T = some ci →
-    ∀ R ∈ env'.consts,
-      ∀ (elim mN tN₁ tN₂ : Name) (mb₁ mb₂ mb₃ : BinderMeta),
-      R.toConstantVal.type =
-        zeroCtorRecTy T ci.toConstantVal.levelParams elim mN tN₁ tN₂ mb₁ mb₂ mb₃ →
-    ∀ c ∈ env'.consts, ∀ ls : List Level,
-      c.toConstantVal.type = .const T ls → False := by
-  obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ h
-  exact fun T ci hT R hR _ _ _ _ _ _ _ hRty c hc _ hty =>
-    no_constant_of_zeroCtorRec_P mp hT hR hRty c hc hty
 
 end Setlec.SetP

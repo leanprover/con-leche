@@ -21,7 +21,6 @@ main theorem is `Setlec/MainTheorem.lean`, in its simplest form:
 | `Setlec.no_proof_of_Empty` | … of type `Empty` | the same |
 | `Setlec.Cached.no_proof_of_{False,Empty}_SPCD_P` (`Verify/Cached/MainC.lean`) | the same two letters at every validating mode | the shipped driver `checkDeclsSPCachedD` |
 | `Setlec.SetP.no_proof_of_{False,Empty}_P` (`SetP/FoldP.lean`) | the same two letters | the pure fuelled checker `checkDecls` |
-| `Setlec.SetP.no_proof_of_zeroCtor_{P,SPCD_P}` | a stored family with a stored zero-constructor eliminator has no stored inhabitant | both (task #181) |
 
 All of them stand at exactly `[propext, Classical.choice, Quot.sound]`,
 with input-level hypotheses only; `False` and `Empty` are pinned basis
@@ -48664,15 +48663,14 @@ Two findings against the brief, reported before any design:
    stream declares `False` — and `False` joins the pinned basis blocks
    (§1).  A `False` declared by a stream is matched against the pin or
    refused; the generic route still serves `PEmpty` and every
-   user-declared zero-constructor type (§3 is the theorem about those).
+   user-declared zero-constructor type.
 
 **Indices.**  Zero-constructor *indexed* families stay on the modeled
 route: the indexed-families lane (`agent/indexed`) had not landed when
 this task closed, and its fibre construction is where an indexed empty
 family belongs (a family with no constructors has every fibre empty).
 Follow-up: once `agent/indexed` lands, its recogniser should accept
-`n = 0` the way the sum route does, and §3's theorem needs the
-index-applied form beside the parameter-applied one.
+`n = 0` the way the sum route does.
 
 ### 1. The pin
 
@@ -48767,76 +48765,17 @@ the stream does not get to supply one.  The `Empty` pin and its
 capstones stay as they were; nothing became redundant (the `Empty`
 letter is the one the campaign was measured against).
 
-### 3. The general theorem: a stored zero-constructor eliminator empties its family
+### 3. A general theorem — not pursued (user ruling)
 
-`Setlec/SetP/ZeroCtorP.lean`.  For a family the stream declared —
-`PEmpty`, a user's `inductive Void : Type where` — the P invariant
-does not record the install route, so the theorem is stated from what
-the environment shows: the stored recursor's *type*.
-
-```
-def zeroCtorRecTy (T : Name) (lps : List Name) (elim mN tN₁ tN₂ : Name)
-    (mb₁ mb₂ mb₃ : BinderMeta) : Expr :=
-  ∀ (motive : T.{lps} → Sort elim) (t : T.{lps}), motive t      -- names, annotations free
-
-theorem Setlec.SetP.no_proof_of_zeroCtor_P (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-    {ds : List Declaration} {env' : Env}
-    (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
-    ∀ (T : Name) (ci : ConstantInfo), env'.find? T = some ci →
-    ∀ R ∈ env'.consts, ∀ (elim mN tN₁ tN₂ : Name) (mb₁ mb₂ mb₃ : BinderMeta),
-      R.toConstantVal.type =
-        zeroCtorRecTy T ci.toConstantVal.levelParams elim mN tN₁ tN₂ mb₁ mb₂ mb₃ →
-    ∀ c ∈ env'.consts, ∀ ls : List Level, c.toConstantVal.type = .const T ls → False
-```
-
-and `Setlec.Cached.no_proof_of_zeroCtor_SPCD_P` at the shipped driver.
-The recursor's *name* is not mentioned, nor its rules, nor the block's
-constructors: a block with constructors cannot store a recursor of this
-shape (its minors would be binders in between), so "stores a large
-eliminator of this shape" *is* "stores a zero-constructor inductive",
-read off the environment — and it is exactly the shape the sum route
-generates at `n = 0` and the two pins carry (`ZeroCtorP.lean` ends with
-the two `rfl`s: `emptyRecA`/`falseRecA` are `zeroCtorRecTy` at their
-stored annotations).
-
-**The argument** (`no_constant_of_zeroCtorRec_P`, ~90 lines, on
-`mem_typeP`/`type_okP` alone).  `R`'s value `r` inhabits its type's
-reading, `piR b₃ (piR b₁ X (λ_. univ u)) (λ M. piR b₂ X (λ t. app M t))`
-with `X` the family's leaf value and the `b`s the stored annotations'
-bits.  Instantiate the motive at `M := lamR b₁ X (λ_. ∅)` — in the
-motive space since `∅ ∈ univ u` — and the major at the alleged proof
-`c ∈ X`: `app (app r M) c ∈ app M c`.  The squash regimes are read off
-the validated annotations: `app_mem_piR`'s fibre premise at `b₃ = 0` /
-`b₂ = 0` is precisely `AnnotValidV`'s clause at those binders; and
-`b₁ = 0` is refuted, since validity would then make `Sort u` a truth
-value at the witness `c` (`univ_not_mem_univZero`).  So `b₁ ≠ 0`,
-`app M c = ∅` by `app_lamR_pos`, and `not_mem_empty` closes.  The
-level instance `ls` of the alleged proof is arbitrary: the recursor is
-read at the assignment `substFn 0 lps ls`, where `substFn_map_param`
-and `acval_params` identify the family leaf the two types read.
-
-**Parameters — a finding, not done.**  The brief asked for the
-parameter-applied form `c : T q⃗`.  The proof needs `⟦q_i⟧` to fit the
-recursor's parameter binders, whose readings are the former's type's
-domains `D_i`; what `c`'s grading gives (`AnnotOk2`'s `app` clause) is
-membership in the domain of *some* Π-set containing the leaf's value,
-and `piR_dom_unique` identifies it with `D_i` only when both bits are
-nonzero.  The former's parameter bits are nonzero for every stream the
-annotator produced (a `Sort`-valued Π is never a `Prop`), but the
-validated-annotation invariant is one-directional — `bit = 0 →
-truth-value codomain` — so, as far as the environment invariant knows,
-a parameter binder over an *empty* domain may carry bit `0`, at which
-point the leaf is the proof point and the domain identification is
-unavailable.  Two routes, neither taken: (a) a syntactic hypothesis
-that the stored former's parameter binders carry `.never` (true of
-every accepted stream; env'-level, but a hypothesis about stored
-annotation data rather than membership), or (b) tracing the block's
-install through the fold (a per-name leaf record the fold does not
-currently carry — `declStepPM` returns `Nonempty`).  Decision for the
-user; the parameterless form covers `False`, `Empty`, `PEmpty`, and
-every parameterless user block, and the pinned instances need none of
-it.
+A route-independent theorem for every stream-declared zero-constructor
+family (from a stored eliminator of the shape `∀ (motive : T → Sort u)
+(t : T), motive t`, on `mem_typeP` alone) was written for the
+parameterless case and **dropped on the user's ruling** — *"I don't
+need a theorem about the general case"*; the pinned `False`/`Empty`
+letters are the deliverable.  For the record, its parameter-applied
+form was found to need graph-regime parameter bits on the stored
+former, which the one-directional validated-annotation invariant does
+not give at an empty parameter domain; not pursued.
 
 ### 4. The bogus recursor is a reject
 

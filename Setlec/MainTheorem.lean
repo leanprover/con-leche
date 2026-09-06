@@ -33,9 +33,7 @@ The theorems are corollaries of `Setlec.Cached.no_proof_of_False_SPCD_P`
 and `no_proof_of_Empty_SPCD_P` (`Setlec/Verify/Cached/MainC.lean`),
 which are stated for every validating mode at once; `no_proof_of_False_P`
 and `no_proof_of_Empty_P` (`Setlec/SetP/FoldP.lean`) are the same
-letters for the pure fuelled checker, and `no_proof_of_zeroCtor_P` /
-`no_proof_of_zeroCtor_SPCD_P` the general statement for every stored
-zero-constructor inductive without parameters.  Their axioms are exactly
+letters for the pure fuelled checker.  Their axioms are exactly
 `propext`, `Classical.choice` and `Quot.sound` — checked by the pin in
 `tests/SetlecTests/Axioms.lean`.
 -/

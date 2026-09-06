@@ -38,7 +38,6 @@ import Setlec.SetP.EqTowerP
 import Setlec.SetP.BasisStepP
 import Setlec.SetP.BasisEmptyP
 import Setlec.SetP.BasisFalseP
-import Setlec.SetP.ZeroCtorP
 import Setlec.SetP.LevelsP
 import Setlec.SetP.BasisBlocksP
 import Setlec.SetP.BasisQuotP

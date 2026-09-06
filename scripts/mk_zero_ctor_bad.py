@@ -10,6 +10,20 @@
                                   recursor is not the generated one; the
                                   direct sum install must REJECT.
 
+And the three REDEFINITION twins (user ruling, task #181: `Empty` and
+`False` are pinned, and a stream declaring either name as anything but
+the pinned block is REJECTED):
+
+  empty_redefined.ndjson        — the one-constructor `OfNat` block renamed
+                                  to `Empty` (so `Empty`, `Empty.ofNat`,
+                                  `Empty.mk`, `Empty.rec`): REJECT.
+  false_redefined.ndjson        — `def False : Prop := PEmpty'.{0}` placed
+                                  before the toolchain's `False` block:
+                                  REJECT.
+  false_rec_bad.ndjson          — the toolchain's `False` block with
+                                  `False.rec`'s type replaced by `Type`
+                                  (not the pin any more): REJECT.
+
 Usage: scripts/mk_zero_ctor_bad.py [tests/e2e/zero_ctor.ndjson]
 """
 import json
@@ -84,4 +98,59 @@ for l in lines:
             l = json.dumps(r, separators=(",", ":"))
     out.append(l)
 open("tests/e2e/zero_ctor_bad_rec.ndjson", "w").write("\n".join(out) + "\n")
-print("wrote tests/e2e/zero_ctor_false_proof.ndjson and tests/e2e/zero_ctor_bad_rec.ndjson")
+
+# empty_redefined: the one-constructor `OfNat` block becomes `Empty`
+ofnat_n = name_idx("OfNat")
+out = []
+for l in lines:
+    r = json.loads(l)
+    if "in" in r and r["in"] == ofnat_n:
+        r["str"]["str"] = "Empty"
+        l = json.dumps(r, separators=(",", ":"))
+    out.append(l)
+open("tests/e2e/empty_redefined.ndjson", "w").write("\n".join(out) + "\n")
+
+# false_redefined: `def False : Prop := PEmpty'.{0}` before the `False` block
+pempty_n = name_idx("PEmpty'")
+max_ie = max(r["ie"] for r in recs if "ie" in r)
+pempty0 = max_ie + 1
+out = []
+for l in lines:
+    r = json.loads(l)
+    if "inductive" in r and any(t["name"] == false_n for t in r["inductive"]["types"]):
+        out.append(json.dumps({"ie": pempty0, "const": {"name": pempty_n, "us": [zero_lvl]}},
+                              separators=(",", ":")))
+        out.append(json.dumps({"def": {"all": [false_n], "hints": {"regular": 1},
+                                       "levelParams": [], "name": false_n, "safety": "safe",
+                                       "type": prop_sort, "value": pempty0}},
+                              separators=(",", ":")))
+    out.append(l)
+open("tests/e2e/false_redefined.ndjson", "w").write("\n".join(out) + "\n")
+
+# false_rec_bad: the toolchain's `False.rec` with type `Type`
+false_rec_n = name_idx("False.rec")
+type1 = None
+for r in recs:
+    if "ie" in r and "sort" in r:
+        # `Type` = sort (succ zero): find the level `succ 0`
+        pass
+succ0 = None
+for r in recs:
+    if "il" in r and r.get("succ") == zero_lvl:
+        succ0 = r["il"]
+for r in recs:
+    if "ie" in r and r.get("sort") == succ0:
+        type1 = r["ie"]
+if type1 is None:
+    raise SystemExit("no `Type` expression in the stream")
+out = []
+for l in lines:
+    r = json.loads(l)
+    if "inductive" in r and any(t["name"] == false_n for t in r["inductive"]["types"]):
+        for rec in r["inductive"]["recs"]:
+            if rec["name"] == false_rec_n:
+                rec["type"] = type1
+        l = json.dumps(r, separators=(",", ":"))
+    out.append(l)
+open("tests/e2e/false_rec_bad.ndjson", "w").write("\n".join(out) + "\n")
+print("wrote the five bad twins under tests/e2e/")

@@ -357,10 +357,22 @@
 #                          recursor is not the generated one: the
 #                          direct sum install REJECTS (`.invalid`; until
 #                          #181 a recursor-type mismatch was a decline).
-# Both twins are derived by scripts/mk_zero_ctor_bad.py.
+#   empty_redefined:       the one-constructor `OfNat` block renamed to
+#                          `Empty`: REJECT (`reserved basis name`).
+#   false_redefined:       `def False : Prop := PEmpty'.{0}` ahead of the
+#                          toolchain's `False` block: REJECT.
+#   false_rec_bad:         the toolchain's `False` block with `False.rec`'s
+#                          type replaced by `Type` — not the pin any more:
+#                          REJECT.  (User ruling, task #181: `Empty` and
+#                          `False` stay pinned; a stream declaring either
+#                          name any other way is invalid input.)
+# All five twins are derived by scripts/mk_zero_ctor_bad.py.
 0 zero_ctor.ndjson pre
 1 zero_ctor_false_proof.ndjson pre
 1 zero_ctor_bad_rec.ndjson pre
+1 empty_redefined.ndjson pre
+1 false_redefined.ndjson pre
+1 false_rec_bad.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
