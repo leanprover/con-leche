@@ -110,12 +110,12 @@ private theorem defeqC_etaL_arm (ih : SSimC mode env f) (henv : EnvWF env)
 unfoldings are materialized only here, inside the branch that consumes
 them). -/
 private theorem defeqBothC (_ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {kI : ExprC → ExprC → CheckCM Bool}
-    {kM : Expr → Expr → FueledM Bool}
-    (hk : ∀ {s : CState} {p q : ExprC} {x y : Expr}, CSOK mode env s →
-      RelC p x → RelC q y →
+    {d : Nat} {kI : Bool → ExprC → ExprC → CheckCM Bool}
+    {kM : Bool → Expr → Expr → FueledM Bool}
+    (hk : ∀ (pi : Bool) {s : CState} {p q : ExprC} {x y : Expr},
+      CSOK mode env s → RelC p x → RelC q y →
       Expr.WScoped d x → Expr.WScoped d y →
-      SimC mode env s RelVC (kI p q) (kM x y))
+      SimC mode env s RelVC (kI pi p q) (kM pi x y))
     {i j : ExprC} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
@@ -123,10 +123,10 @@ private theorem defeqBothC (_ih : SSimC mode env f) (henv : EnvWF env)
       (unfoldDefinitionI (mkFEnv env) i >>= fun ua =>
         unfoldDefinitionI (mkFEnv env) j >>= fun ub =>
         match ua, ub with
-        | some a₂, some b₂ => kI a₂ b₂
+        | some a₂, some b₂ => kI false a₂ b₂
         | _, _ => pure false)
       (match unfoldDefinition env a, unfoldDefinition env b with
-        | some a₂, some b₂ => kM a₂ b₂
+        | some a₂, some b₂ => kM false a₂ b₂
         | _, _ => pure false) := by
   refine SimC.bind_left (unfoldDefinitionC_eff hs hdena)
     (fun s₁ ua hs₁ hQa => ?_)
@@ -154,23 +154,24 @@ private theorem defeqBothC (_ih : SSimC mode env f) (henv : EnvWF env)
         cases ub with
         | none => exact absurd hQb (by simp [OptEr])
         | some b₂ =>
-          exact hk hs₂ hQa hQb
+          exact hk _ hs₂ hQa hQb
             (unfoldDefinition_WScoped henv hua hwa)
             (unfoldDefinition_WScoped henv hub hwb)
 
 theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {kI : ExprC → ExprC → CheckCM Bool}
-    {kM : Expr → Expr → FueledM Bool}
-    (hk : ∀ {s : CState} {p q : ExprC} {x y : Expr}, CSOK mode env s →
-      RelC p x → RelC q y →
+    {d : Nat} {kI : Bool → ExprC → ExprC → CheckCM Bool}
+    {kM : Bool → Expr → Expr → FueledM Bool}
+    (hk : ∀ (pi : Bool) {s : CState} {p q : ExprC} {x y : Expr},
+      CSOK mode env s → RelC p x → RelC q y →
       Expr.WScoped d x → Expr.WScoped d y →
-      SimC mode env s RelVC (kI p q) (kM x y))
+      SimC mode env s RelVC (kI pi p q) (kM pi x y))
+    (pi : Bool)
     {i j : ExprC} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (defeqStepI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i j)
-      (defeqStep mode (fueledFns mode env) env d kM a b) := by
+      (defeqStepI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI pi i j)
+      (defeqStep mode (fueledFns mode env) env d kM pi a b) := by
   unfold defeqStepI
   unfold defeqStep
   rw [beq_transferC hdena hdenb]
@@ -178,6 +179,22 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
   · simp only [if_pos hab]
     exact SimC.pure hs rfl
   · simp only [if_neg hab]
+    -- the eq-true shortcut (E2): two store reads for the guard, then the
+    -- guarded `whnf`
+    refine SimC.withStore ?_
+    rw [isBoolTrueI_spec hdenb]
+    refine SimC.withStore ?_
+    rw [hasFvarI_spec hdena]
+    refine SimC.bind (boolTrueShortcutIfC_sim ih hs hdena hwa _)
+      (fun s₀b rbt rbtx hs₀b hPbt => ?_)
+    cases hPbt
+    cases rbt with
+    | true =>
+      simp only [↓reduceIte]
+      exact SimC.pure hs₀b rfl
+    | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    have hs := hs₀b
     refine SimC.bind (ih.whnfCore hs hdena hwa)
       (fun s₁ a' a'x hs₁ hPa => ?_)
     obtain ⟨ha'd, hwa'⟩ := hPa
@@ -190,7 +207,10 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       exact SimC.pure hs₂ rfl
     · simp only [if_neg hab']
       -- hoisted proof irrelevance (the `Prop` branch, task #168)
-      refine SimC.bind (propIrrelC_sim ih hs₂ ha'd hb'd hwa' hwb')
+      -- the D4 quick-pair read
+      refine SimC.withStore ?_
+      rw [quickPairI_spec ha'd hb'd]
+      refine SimC.bind (propIrrelIfC_sim ih hs₂ ha'd hb'd hwa' hwb' _)
         (fun s₂p rpi rpix hs₂p hPpi => ?_)
       cases hPpi
       cases rpi with
@@ -212,7 +232,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
         | none => exact absurd hPo₁ (by simp [RelOC])
         | some a₂x =>
           obtain ⟨ha₂d, hwa₂⟩ := hPo₁
-          exact hk hs₃ ha₂d hb'd hwa₂ hwb'
+          exact hk _ hs₃ ha₂d hb'd hwa₂ hwb'
       | none =>
         cases o₁x with
         | some a₂x => exact absurd hPo₁ (by simp [RelOC])
@@ -225,7 +245,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             | none => exact absurd hPo₂ (by simp [RelOC])
             | some b₂x =>
               obtain ⟨hb₂d, hwb₂⟩ := hPo₂
-              exact hk hs₄ ha'd hb₂d hwa' hwb₂
+              exact hk _ hs₄ ha'd hb₂d hwa' hwb₂
           | none =>
             cases o₂x with
             | some b₂x => exact absurd hPo₂ (by simp [RelOC])
@@ -253,7 +273,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                     cases ua with
                     | none => exact absurd hQa (by simp [OptEr])
                     | some a₂ =>
-                      exact hk hs₅ hQa hb'd
+                      exact hk _ hs₅ hQa hb'd
                         (unfoldDefinition_WScoped henv hua hwa') hwb'
                 | true =>
                   dsimp only
@@ -277,7 +297,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       cases ua with
                       | none => exact absurd hQa (by simp [OptEr])
                       | some a₂ =>
-                        exact hk hs₅ hQa hb'd
+                        exact hk _ hs₅ hQa hb'd
                           (unfoldDefinition_WScoped henv hua hwa') hwb'
                   · rw [if_neg hlt₁, if_neg hlt₁]
                     by_cases hlt₂ : ReducibilityHint.lt
@@ -296,7 +316,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                         cases ub with
                         | none => exact absurd hQb (by simp [OptEr])
                         | some b₂ =>
-                          exact hk hs₅ ha'd hQb hwa'
+                          exact hk _ hs₅ ha'd hQb hwa'
                             (unfoldDefinition_WScoped henv hub hwb')
                     · rw [if_neg hlt₂, if_neg hlt₂]
                       refine SimC.withStore ?_
@@ -335,7 +355,7 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                   cases ub with
                   | none => exact absurd hQb (by simp [OptEr])
                   | some b₂ =>
-                    exact hk hs₅ ha'd hQb hwa'
+                    exact hk _ hs₅ ha'd hQb hwa'
                       (unfoldDefinition_WScoped henv hub hwb')
               | false =>
                 dsimp only
@@ -855,18 +875,20 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
 /-- The lazy-delta *loop* simulates its specification, by induction on
 the shared step budget (task #106). -/
 theorem defeqLoopC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
-    ∀ (n : Nat) {i j : ExprC} {a b : Expr} {s₀ : CState}, CSOK mode env s₀ →
+    ∀ (n : Nat) (pi : Bool) {i j : ExprC} {a b : Expr} {s₀ : CState},
+      CSOK mode env s₀ →
       RelC i a → RelC j b →
       Expr.WScoped d a → Expr.WScoped d b →
       SimC mode env s₀ RelVC
-        (defeqLoopI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i j)
-        (defeqLoop mode (fueledFns mode env) env d n a b)
-  | 0, _, _, _, _, _, _, _, _, _, _ => SimC.throw
-  | n + 1, _, _, _, _, _, hs, hda, hdb, hwa, hwb => by
+        (defeqLoopI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n pi i j)
+        (defeqLoop mode (fueledFns mode env) env d n pi a b)
+  | 0, _, _, _, _, _, _, _, _, _, _, _ => SimC.throw
+  | n + 1, pi, _, _, _, _, _, hs, hda, hdb, hwa, hwb => by
     simp only [defeqLoopI, defeqLoop]
     exact defeqStepC_sim ih henv
-      (fun h1 h2 h3 h4 h5 => defeqLoopC_sim ih henv n h1 h2 h3 h4 h5)
-      hs hda hdb hwa hwb
+      (fun pi' {_ _ _ _ _} h1 h2 h3 h4 h5 =>
+        defeqLoopC_sim ih henv n pi' h1 h2 h3 h4 h5)
+      pi hs hda hdb hwa hwb
 
 theorem defeqBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {i j : ExprC} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
@@ -875,7 +897,7 @@ theorem defeqBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     SimC mode env s₀ RelVC
       (defeqBodyI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       (defeqBody mode (fueledFns mode env) env d a b) :=
-  defeqLoopC_sim ih henv defeqLoopFuel hs hdena hdenb hwa hwb
+  defeqLoopC_sim ih henv defeqLoopFuel true hs hdena hdenb hwa hwb
 
 end Walks
 

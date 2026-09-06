@@ -217,25 +217,25 @@ private def pwLam (pw : PropWhen) : Expr :=
 
 -- (defeq-forall): inequivalent binder annotations on otherwise defeq
 -- ∀s are a positive decline at the verified mode …
-#guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
+#guard defeqStep .setModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [])) (pwForall .never)
   matches .error (.notImplemented _)
 -- … and no check at the unverified lane (official parity).
-#guard defeqStep .noModel stubFns Env.empty 0 (fun a b => pure (a == b))
+#guard defeqStep .noModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [])) (pwForall .never)
   matches .ok true
 -- Equivalent-but-unequal annotations pass: `equiv` is semantic
 -- containment, not list equality.
-#guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
+#guard defeqStep .setModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [.str .anonymous "u", .str .anonymous "u"]))
     (pwForall (.ifAllZero [.str .anonymous "u"]))
   matches .ok true
 
 -- (defeq-lam): the λ congruence arm, same discipline.
-#guard defeqStep .setModel stubFns Env.empty 0 (fun a b => pure (a == b))
+#guard defeqStep .setModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwLam (.ifAllZero [])) (pwLam .never)
   matches .error (.notImplemented _)
-#guard defeqStep .noModel stubFns Env.empty 0 (fun a b => pure (a == b))
+#guard defeqStep .noModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwLam (.ifAllZero [])) (pwLam .never)
   matches .ok true
 
@@ -293,12 +293,12 @@ private def emptyModelAuxName : Name :=
 -- The frontend keeps both declarations (`def Eq._model : Type := Prop`,
 -- `def Empty._model.proj_0 : Type := Prop`) …
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
+  | .ok ⟨ds, _, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
   | .error _ => false
 
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _⟩ =>
+  | .ok ⟨ds, _, _⟩ =>
     (Setlec.Cached.checkDeclsSPCachedD .setModel ds.toList).toBool
   | .error _ => false
 
@@ -341,7 +341,7 @@ private def taintSkipExport : String := String.intercalate "\n" [
 -- The tolerated axiom record and both uses are gone from the parsed
 -- declarations; the later checkable declaration survives …
 #guard match Frontend.parseExportD taintSkipExport with
-  | .ok ⟨ds, sk⟩ =>
+  | .ok ⟨ds, sk, _⟩ =>
     ds.map declCName == #[afterName] &&
     sk == #[(usesAxName, sorryAxName), (usesUseName, sorryAxName)]
   | .error _ => false
@@ -349,13 +349,13 @@ private def taintSkipExport : String := String.intercalate "\n" [
 -- … and the shipped driver accepts what remains (nothing tainted can
 -- reach install: it is absent from the declarations).
 #guard match Frontend.parseExportD taintSkipExport with
-  | .ok ⟨ds, _⟩ =>
+  | .ok ⟨ds, _, _⟩ =>
     (Setlec.Cached.checkDeclsSPCachedD .setModel ds.toList).toBool
   | .error _ => false
 
 -- A stream without tolerated-axiom uses records no skips.
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨_, sk⟩ => sk.isEmpty
+  | .ok ⟨_, sk, _⟩ => sk.isEmpty
   | .error _ => false
 
 /-! ## Level algebra -/
