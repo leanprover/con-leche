@@ -44,9 +44,9 @@ the io lane's application clause skips the per-argument certificate
 * the ∀'s stored `pw` is `.never` (`PropWhen.isNever`, the ∀-`φ`
   uniform form of the claims' positive branch — exact, by
   `isNever_iff_forall_pwBit_ne_zero`), **and**
-* `μ.verified = true` — the mode gate, which is part of the amended
+* `μ.verifiedChecks = true` — the mode gate, which is part of the amended
   law 1's text (clause (i)): the gate may fire only in the modes where
-  the licensing theorems' hypotheses hold.  At `.noModel` the
+  the licensing theorems' hypotheses hold.  At `.trusted` the
   annotations are not validated at all, so the datum means nothing
   there and the certificate runs.
 

@@ -7,12 +7,12 @@
 # absent or "never" claims the binder's codomain is never a
 # proposition; an array of name-table indices claims it is one exactly
 # when all those level parameters are zero ("[]" = always).  The
-# verified mode (--set-model, the default) validates every claim
+# verified mode (--verified, the default) validates every claim
 # against the codomain sort it computes and positively declines a
 # mismatch, naming the site; annotations never steer reduction.  Under
-# --no-model (official parity) the annotations are ignored — the three
+# --trusted (official parity) the annotations are ignored — the three
 # decline fixtures accept there, recorded in
-# tests/no-model-expected.txt.
+# tests/trusted-expected.txt.
 #
 # Task #161 P5 (the annotate pass): the pass WRITES the datum wherever
 # the input carries the parse placeholder (an absent "pw" field, or the

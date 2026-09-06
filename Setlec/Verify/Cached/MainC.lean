@@ -124,7 +124,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 /-- The direct-parse cached fold preserves the P invariant
 (the retired `foldSPC_R2M`'s recipe at `EnvSPOk`; the step is
 `declStepPM`, verbatim). -/
-theorem foldSPC_PM (hμ : μ.verified = true) :
+theorem foldSPC_PM (hμ : μ.verifiedChecks = true) :
     ∀ (ds : List DeclC) (fe : FEnv) {fe' : FEnv} {s₀ s' : CState},
       fe = mkFEnv fe.env →
       EnvSPOk V μ fe.env →
@@ -149,7 +149,7 @@ theorem foldSPC_PM (hμ : μ.verified = true) :
       hres₁ (fun p hp => hrel p (List.mem_cons_of_mem _ hp)) h
 
 /-- **Acceptance, shipped direct-parse driver, P route.** -/
-theorem checkDeclsSPCachedD_sound_P (hμ : μ.verified = true)
+theorem checkDeclsSPCachedD_sound_P (hμ : μ.verifiedChecks = true)
     {ds : List DeclC} {env' : Env}
     (h : checkDeclsSPCachedD μ ds = .ok env') :
     Nonempty (EnvS2PM V μ env') := by
@@ -164,7 +164,7 @@ core it ships with — io-graded skips live — never accepts a stream in
 which some stored constant has type `Empty`.  Hypotheses are
 input-level only. -/
 theorem no_proof_of_Empty_SPCD_P (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verified = true)
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : List DeclC} {env' : Env}
     (h : checkDeclsSPCachedD μ ds = .ok env') :
     ∀ c ∈ env'.consts,

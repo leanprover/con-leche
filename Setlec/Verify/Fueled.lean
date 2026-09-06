@@ -263,8 +263,8 @@ theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
   atF_tac
 
 theorem propIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (propIrrel mi (fueledFns mode env) env d a b).val F =
-      propIrrel mi (pureFns mode env F) env d a b := by
+    (propIrrel (fueledFns mode env) env d a b).val F =
+      propIrrel (pureFns mode env F) env d a b := by
   unfold propIrrel
   atF_tac
 
@@ -568,8 +568,8 @@ theorem defeqBody_atF (d : Nat) (a b : Expr) (F : Nat) :
   defeqLoop_atF d F defeqLoopFuel true a b
 
 theorem annotateBody_atF (d : Nat) (e : Expr) (F : Nat) :
-    (annotateBody mode (fueledFns mode env) env d e).val F =
-      annotateBody mode (pureFns mode env F) env d e := by
+    (annotateBody (fueledFns mode env) env d e).val F =
+      annotateBody (pureFns mode env F) env d e := by
   -- task #161 P5: `annotPwPi`/`annotPwLam` unfold alongside the body,
   -- as in `PairM.lean` — the writes are infer + `ensureSort` calls the
   -- cascade already commutes.

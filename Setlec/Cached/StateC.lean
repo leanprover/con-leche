@@ -213,11 +213,11 @@ structure CState where
   whnfCoreC : Std.HashMap ExprC ExprC := {}
   whnfC : Std.HashMap ExprC ExprC := {}
   inferC : Std.HashMap ExprC ExprC := {}
-  /-- Memo of the *checking-mode* inference (`coreKnotFNC`, the
-  `--no-model` cached parity lane, `Setlec/Cached/CoreNC.lean`), kept
+  /-- Memo of the *checking-mode* inference (`coreKnotFT`, the
+  `--trusted` cached trusted lane, `Setlec/Cached/CoreT.lean`), kept
   apart from `inferC` so a result derived in infer-only mode can never
   be served to a checking-mode query.  Unused — and always empty — on
-  the certified path, which never builds `coreKnotFNC`; the
+  the certified path, which never builds `coreKnotFT`; the
   counterpart of `IState.inferFC` (task #134/#147). -/
   inferFC : Std.HashMap ExprC ExprC := {}
   /-- **The io-grade inference memo** (task #170 / #172 B4): results of

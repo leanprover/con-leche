@@ -36,7 +36,7 @@ structure CoreFnsI where
   — the twin of `CoreFns.inferIO` (`Setlec/Kernel/Core.lean`): what
   every internal inference call site runs.  The knot selects the
   grade's meaning per config (`cfg.ioGate`): the full `infer` at the
-  R/parity configs, the io body (own memo, `CState.inferFC`) at the P
+  R/trusted configs, the io body (own memo, `CState.inferFC`) at the P
   config. -/
   inferIO : Nat → ExprC → CheckCM ExprC
 
@@ -274,14 +274,13 @@ eliminated there (`Setlec/Kernel/CoreCfg.lean`). -/
 variable (cfg : CoreCfg)
 
 /-- Twin of `propIrrel` (task #168): the hoisted `Prop`-branch test
-with the head-symbol "not a proof" arm, gated on `cfg.verified`. -/
+with both head-symbol arms.  Ungated since 2026-09-06 — the readers
+run in both modes, so this body takes no `CoreCfg` at all. -/
 def propIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
-  if cfg.verified &&
-      (notProofFast fe.find? a || notProofFast fe.find? b) then
+  if notProofFast fe.find? a || notProofFast fe.find? b then
     pure false
-  else if cfg.verified && cfg.betaGate &&
-      isProofFast fe.find? a && isProofFast fe.find? b then
+  else if isProofFast fe.find? a && isProofFast fe.find? b then
     pure true
   else
   let ta ← r.inferIO depth a
@@ -847,7 +846,7 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             -- nonzero-sort gate is unsound-to-model under the
             -- domain-relative collapse); task #175 W6: the spine
             -- against the constructor's type (see `projCert`); the
-            -- parity config runs none (`projCertAt`).
+            -- trusted config runs none (`projCertAt`).
             if ← projCertAtI r fe depth cfg.verified cfg.betaGate c us args then
               k arg
             else internI (.proj sn i e')
@@ -1060,7 +1059,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
   inferLamsOutI cfg d stk (k - 1) cur prevPw
 
 /-- λ-telescope inference loop (task #72; used by `inferBodyI`'s and
-`inferBodyNC`'s lam cases): peel the raw λ-chain, checking each opened
+`inferBodyT`'s lam cases): peel the raw λ-chain, checking each opened
 domain to be a type on the way in.  `k` counts the opened binders
 (`≥ 1`: the caller peels the first binder inline), `fvs` their free
 variables innermost-first. -/
@@ -1325,7 +1324,7 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     -- (and the official kernel); the `Prop` branch with the fast arms
     -- (task #168, Option U) — once per entry (`pi`; the spec's D3 note)
     let qp ← withStore (fun st => quickPairI st a' b')
-    if ← (if pi && !qp then propIrrelI cfg r fe depth a' b' else pure false) then
+    if ← (if pi && !qp then propIrrelI r fe depth a' b' else pure false) then
       pure true else
     -- Literal folding only when both sides are fvar-free, mirroring
     -- the official kernel (`type_checker.cpp`, `lazy_delta_reduction`)
@@ -1550,13 +1549,16 @@ def annotPwPiI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (body' : ExprC) :
     let v ← ensureSortI r depth bt
     withStore fun st => (st.zeronessOfLIGo {} v).1
 
-/-- Gated for the telescope loop: `none` = no write. -/
+/-- The telescope loop's write.  UNGATED since 2026-09-06: writing the
+datum is part of the real checker's algorithm (the readers and the
+licences consume it); only *validating* it is certification-only work,
+so the trusted mode annotates exactly as the verified mode does.  The
+`Option` shape is kept — `annotBinderMetaI` still leaves an
+already-written annotation alone. -/
 def annotatePisPwI (r : CoreFnsI) (fe : FEnv) (d k : Nat) (leaf' : ExprC) :
-    CheckCM (Option PropWhen) :=
-  if cfg.verified then do
-    let p ← annotPwPiI r fe (d + k) leaf'
-    pure (some p)
-  else pure none
+    CheckCM (Option PropWhen) := do
+  let p ← annotPwPiI r fe (d + k) leaf'
+  pure (some p)
 
 /-- Leaf phase of `annotatePisI`: bulk-open and annotate the residual
 body, then rebuild outward. -/
@@ -1564,7 +1566,7 @@ def annotatePisLeafI (r : CoreFnsI) (fe : FEnv) (d : Nat) (t : ExprC) (k : Nat)
     (fvs : Array ExprC) (stk : List AnnotBinderEntry) : CheckCM ExprC := do
   let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
-  let pw? ← annotatePisPwI cfg r fe d k leaf'
+  let pw? ← annotatePisPwI r fe d k leaf'
   let cur ← abstractRangeM leaf' d k
   annotateBindersOutI (fun n ty b mb => .forallE n ty b mb) d pw?
     stk (k - 1) cur
@@ -1583,8 +1585,8 @@ def annotatePisI (r : CoreFnsI) (fe : FEnv) (d : Nat) :
       let fv ← internI (.fvar (d + k) n ty')
       annotatePisI r fe d fuel body (k + 1) (fvs.push fv)
         ((n, ty', mb) :: stk)
-    | _ => annotatePisLeafI cfg r fe d t k fvs stk
-  | 0, t, k, fvs, stk => annotatePisLeafI cfg r fe d t k fvs stk
+    | _ => annotatePisLeafI r fe d t k fvs stk
+  | 0, t, k, fvs, stk => annotatePisLeafI r fe d t k fvs stk
 
 /-- The λ chain's datum (task #161 P5): the zero-ness of the sort of
 the innermost body's TYPE; every λ node of the chain shares it (the
@@ -1601,13 +1603,11 @@ def annotPwLamI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (body' : ExprC) :
     let vb ← ensureSortI r depth btt
     withStore fun st => (st.zeronessOfLIGo {} vb).1
 
-/-- Gated for the telescope loop: `none` = no write. -/
+/-- The λ twin of `annotatePisPwI`, ungated with it. -/
 def annotateLamsPwI (r : CoreFnsI) (fe : FEnv) (d k : Nat) (leaf' : ExprC) :
-    CheckCM (Option PropWhen) :=
-  if cfg.verified then do
-    let p ← annotPwLamI r fe (d + k) leaf'
-    pure (some p)
-  else pure none
+    CheckCM (Option PropWhen) := do
+  let p ← annotPwLamI r fe (d + k) leaf'
+  pure (some p)
 
 /-- Leaf phase of `annotateLamsI` (as `annotatePisLeafI`, rebuilding
 λ-nodes). -/
@@ -1615,7 +1615,7 @@ def annotateLamsLeafI (r : CoreFnsI) (fe : FEnv) (d : Nat) (t : ExprC) (k : Nat)
     (fvs : Array ExprC) (stk : List AnnotBinderEntry) : CheckCM ExprC := do
   let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
-  let pw? ← annotateLamsPwI cfg r fe d k leaf'
+  let pw? ← annotateLamsPwI r fe d k leaf'
   let cur ← abstractRangeM leaf' d k
   annotateBindersOutI (fun n ty b mb => .lam n ty b mb) d pw?
     stk (k - 1) cur
@@ -1632,8 +1632,8 @@ def annotateLamsI (r : CoreFnsI) (fe : FEnv) (d : Nat) :
       let fv ← internI (.fvar (d + k) n ty')
       annotateLamsI r fe d fuel body (k + 1) (fvs.push fv)
         ((n, ty', mb) :: stk)
-    | _ => annotateLamsLeafI cfg r fe d t k fvs stk
-  | 0, t, k, fvs, stk => annotateLamsLeafI cfg r fe d t k fvs stk
+    | _ => annotateLamsLeafI r fe d t k fvs stk
+  | 0, t, k, fvs, stk => annotateLamsLeafI r fe d t k fvs stk
 
 /-- Twin of `annotateBody`. -/
 def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
@@ -1664,7 +1664,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
       let ty' ← r.annotate depth ty
       let fv ← internI (.fvar depth n ty')
       let fuel ← peelFuelM
-      annotatePisI cfg r fe depth fuel body 1 #[fv] [(n, ty', mb)]
+      annotatePisI r fe depth fuel body 1 #[fv] [(n, ty', mb)]
     | some (.lam n ty body mb) => do
       -- The λ-loop is chain-identical only on bvar-closed nodes (the
       -- chained tails re-open exactly what they closed); disciplined
@@ -1673,7 +1673,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')
         let fuel ← peelFuelM
-        annotateLamsI cfg r fe depth fuel body 1 #[fv] [(n, ty', mb)]
+        annotateLamsI r fe depth fuel body 1 #[fv] [(n, ty', mb)]
       else do
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')
@@ -1682,7 +1682,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
         let bAbs ← abstract1M body' depth
         -- task #161 P5: the single-binder write (the λ-loop's rule at
         -- a chain of length one; see `annotateLamsLeafI`)
-        let pw ← if cfg.verified && !pwWritten mb.pw then
+        let pw ← if !pwWritten mb.pw then
             annotPwLamI r fe (depth + 1) body'
           else pure mb.pw
         internI (.lam n ty' bAbs ⟨mb.bi, pw⟩)
@@ -1766,7 +1766,7 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
     -- perf-eng E6 (EXPERIMENT, exe-only pricing — reverted before
     -- landing: 194 Verify/Cached references unfold this knot's
     -- equations, a real proof-adaptation bill): Thunk-cache the
-    -- previous fuel level, as `coreKnotNC`'s E1.
+    -- previous fuel level, as `coreKnotT`'s E1.
     let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotI fe fuel⟩
     -- task #172 B2: the template's config is built ONCE per knot
     -- level, not per `whnfCore` call.  Measured: leaving `cfgOf mode`
@@ -1783,7 +1783,7 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       defeq := memoBI
         (fun d a b => defeqBodyI cfg prev.get fe d a b)
       annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI cfg prev.get fe d e)
+        (fun d e => annotateBodyI prev.get fe d e)
       -- **The io slot** (task #170 / #172 B4), selected once per knot
       -- level: at the gated config the io body under its OWN memo
       -- (`CState.inferIOC` — the task-#170 memo ruling: a hit in the io
@@ -1868,6 +1868,6 @@ user's concession; what the template removes is the *flag*, not the
 pass.) -/
 def annotateBodyPC (r : CoreFnsI) (fe : FEnv) :
     Nat → ExprC → CheckCM ExprC :=
-  annotateBodyI cfgP r fe
+  annotateBodyI r fe
 
 end Setlec.Cached

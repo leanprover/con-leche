@@ -50,7 +50,7 @@ twin).  The bottom fires at the *base* environment under
 `Rn := projModelName T i`; `projConsP` then stores the entry, and
 `acvalWith_self` makes the base law's head the installed constant's
 leaf. -/
-theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
+theorem projFnP (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
     {blockNames : List Name} (mp : EnvS2PM V μ env')
     (hR : ProjFnRun μ F env' T ctorName lps nP nF i env₁)
@@ -403,7 +403,7 @@ set_option maxHeartbeats 1600000 in
 The skip branch is a no-op; the block-level premises are re-established
 at each step exactly as in v1 (`EtaPins.step` plus "a projection name
 is never a block name"). -/
-theorem projInstallP (hμ : μ.verified = true) {F : Nat}
+theorem projInstallP (hμ : μ.verifiedChecks = true) {F : Nat}
     {T ctorName : Name} {lps : List Name} {nP nF : Nat}
     {blockNames : List Name}
     (hTblock : blockNames.contains T = true)

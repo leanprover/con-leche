@@ -12,7 +12,8 @@ official	/home/joachim/setlec/_tmp/perfcmp/arena-upstream/checkers/official-v4.3
 preproc	/home/joachim/setlec/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models
 note	the merge of master `8f9e8250` (task #175 W6) with the perf-tables tooling commits; the commits above master touch only `scripts/`
 loadnote	one unrelated single-process checker run (the Mathlib frontier campaign, one core of 96) was live on the machine throughout; battery cells still ran strictly one at a time
-configs	official parity P
+configs	official trusted verified
 reps	1
 timeout	3000
 vlimit	16000000
+stalenote	**Stale, awaiting regeneration.**  The cells are the ones measured at the commit above; nothing was re-measured since.  The table therefore PREDATES the instantiate-opt landing, and the mode rename of 2026-09-06 changed only the column *labels* (`parity` -> `trusted`, `P` -> `verified`) and the flags they name (`--no-model` -> `--trusted`, `--set-model=p` -> `--verified`).

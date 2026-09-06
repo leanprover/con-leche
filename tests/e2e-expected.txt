@@ -327,7 +327,7 @@
 0 psigma_rec_eta.ndjson raw
 
 # The class-B yolo escape, exercised (2026-08-27 fuzz campaign,
-# finding F1).  Under SETLEC_NO_PROOF_CERTS=1 `inferSpineNC` drops the
+# finding F1).  Under SETLEC_NO_PROOF_CERTS=1 `inferSpineT` drops the
 # whole per-argument `infer` — not just the argument/domain `defeq` —
 # so *any* defect living only inside an application ARGUMENT escapes
 # the measurement stack.  These three hand-built streams are the
@@ -365,7 +365,7 @@
 # annotate reaches the unsupported projection shape that used to
 # decline first.  An ordering change on DEFECTIVE input only — a valid
 # stream has no such error — and it makes the certified lane agree with
-# the --no-model lane on this fixture (its override is gone).  The
+# the --trusted lane on this fixture (its override is gone).  The
 # class-B property the fixture pins is unchanged: the defect lives in
 # an application argument.
 1 yolo_decline_vs_accept.ndjson

@@ -597,14 +597,14 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       | true =>
                         -- task #172 B3 method row: the cached side's
                         -- guard reads `(cfgOf mode).verified`, the
-                        -- pure side's `mode.verified`.  They are
+                        -- pure side's `mode.verifiedChecks`.  They are
                         -- `rfl`-equal but their `Decidable` instances
                         -- are not syntactically one, so `split`
                         -- decides only one `if`; `by_cases` on the
                         -- guard plus `↓reduceIte` decides both.
                         simp only [↓reduceIte]
                         by_cases hpw :
-                            (mode.verified && !m₁.pw.equiv m₂.pw) = true
+                            (mode.verifiedChecks && !m₁.pw.equiv m₂.pw) = true
                         · simp only [cfgOf_verified, hpw, ↓reduceIte]
                           exact SimC.throw_bind
                         · simp only [Bool.not_eq_true] at hpw
@@ -669,14 +669,14 @@ theorem defeqStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       | true =>
                         -- task #172 B3 method row: the cached side's
                         -- guard reads `(cfgOf mode).verified`, the
-                        -- pure side's `mode.verified`.  They are
+                        -- pure side's `mode.verifiedChecks`.  They are
                         -- `rfl`-equal but their `Decidable` instances
                         -- are not syntactically one, so `split`
                         -- decides only one `if`; `by_cases` on the
                         -- guard plus `↓reduceIte` decides both.
                         simp only [↓reduceIte]
                         by_cases hpw :
-                            (mode.verified && !m₁.pw.equiv m₂.pw) = true
+                            (mode.verifiedChecks && !m₁.pw.equiv m₂.pw) = true
                         · simp only [cfgOf_verified, hpw, ↓reduceIte]
                           exact SimC.throw_bind
                         · simp only [Bool.not_eq_true] at hpw

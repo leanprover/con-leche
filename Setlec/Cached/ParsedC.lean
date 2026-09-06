@@ -9,9 +9,9 @@ declaration, declarations consumed as `DeclC` records straight from
 the direct parse (`Setlec/Frontend/ExportC.lean`, task #171 — no
 arena, no conversion detour).
 
-`checkDeclsSPCachedD` is what the binary runs at `--set-model[=r|=p]`;
-its parity twin at `--no-model` is `checkDeclsSPCachedDNM`
-(`Setlec/Cached/ParsedNC.lean`).  Acceptance is covered by
+`checkDeclsSPCachedD` is what the binary runs at `--verified[=r|=p]`;
+its trusted twin at `--trusted` is `checkDeclsSPCachedDT`
+(`Setlec/Cached/ParsedT.lean`).  Acceptance is covered by
 `no_proof_of_Empty_SPCD_{R,R2,R2M}` and `no_proof_of_Empty_SPCD_P`
 (`Setlec/Verify/Cached/MainC.lean`).
 -/

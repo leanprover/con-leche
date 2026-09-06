@@ -41,7 +41,7 @@ theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat} {n : Name}
       inferTypeCoreIO mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
       ensureSortCore mode env fuel (d + 1) bt = .ok v ∧
-      (mode.verified = true → (Level.zeronessOf v).equiv m.pw = true) ∧
+      (mode.verifiedChecks = true → (Level.zeronessOf v).equiv m.pw = true) ∧
       t = .sort (.imax u v) := by
   rw [inferTypeCoreIO_succ] at h
   simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure, Bind.bind,
@@ -77,7 +77,7 @@ theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat} {n : Name}
   | ok v =>
   rw [hes] at h
   dsimp only at h
-  by_cases hv : mode.verified = true
+  by_cases hv : mode.verifiedChecks = true
   case neg =>
     rw [if_neg hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -104,11 +104,11 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     ∃ bt,
       inferTypeCoreIO mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
-      (mode.verified = true → body.isLam = false → ∃ btt v,
+      (mode.verifiedChecks = true → body.isLam = false → ∃ btt v,
         inferTypeCoreIO mode env fuel (d + 1) bt = .ok btt ∧
         ensureSortCore mode env fuel (d + 1) btt = .ok v ∧
         (Level.zeronessOf v).equiv m.pw = true) ∧
-      (mode.verified = true → ∀ pwI, body.lamPw = some pwI →
+      (mode.verifiedChecks = true → ∀ pwI, body.lamPw = some pwI →
         m.pw.equiv pwI = true) ∧
       t = .forallE n ty (bt.abstract1 d) m := by
   rw [inferTypeCoreIO_succ] at h
@@ -121,7 +121,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
   | ok bt =>
   rw [hbt] at h
   dsimp only at h
-  by_cases hv : mode.verified = true
+  by_cases hv : mode.verifiedChecks = true
   case neg =>
     rw [if_neg hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -187,7 +187,7 @@ theorem inferIO_lam_meta_copy {env : Env} {fuel d : Nat} {n : Name}
 /-- **Inversion for the application rule of the io lane** — the frozen
 statement (DESIGN.md, "THE IO LICENSE BATCH").  The certificate
 conjunct is a disjunction: either the gate fired
-(`mode.verified && m'.pw.isNever`), or the argument's io inference and
+(`mode.verifiedChecks && m'.pw.isNever`), or the argument's io inference and
 the conversion check ran and passed.  Consumers of the gated arm hold
 the mode conjunct exactly where the licensing theorems
 (`io_domain_transfer`, `SetP/IOLicenseP.lean`) need it. -/
@@ -196,7 +196,7 @@ theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
     ∃ tf n' ty' body' m', inferTypeCoreIO mode env fuel d f = .ok tf ∧
       whnf mode env fuel d tf = .ok (.forallE n' ty' body' m') ∧
       t = body'.instantiate1 a ∧
-      ((mode.verified && m'.pw.isNever) = true ∨
+      ((mode.verifiedChecks && m'.pw.isNever) = true ∨
         ∃ ta, inferTypeCoreIO mode env fuel d a = .ok ta ∧
           isDefEqCore mode env fuel d ta ty' = .ok true) := by
   rw [inferTypeCoreIO_succ] at h
@@ -225,7 +225,7 @@ theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e2, h => exact nomatch h
   dsimp only at h
-  by_cases hg : (mode.verified && m'.pw.isNever) = true
+  by_cases hg : (mode.verifiedChecks && m'.pw.isNever) = true
   · rw [if_pos hg] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact ⟨tf, n', ty', body', m', rfl, hw, h.symm, Or.inl hg⟩
@@ -297,7 +297,7 @@ theorem inferTypeCoreIO_app_inv' {env : Env} {fuel d : Nat}
     ∃ tf n' ty' body' m', inferTypeCoreIO mode env fuel d f = .ok tf ∧
       whnf mode env fuel d tf = .ok (.forallE n' ty' body' m') ∧
       t = body'.instantiate1 a ∧
-      ((mode.verified && m'.pw.isNever) = true ∨
+      ((mode.verifiedChecks && m'.pw.isNever) = true ∨
         ∃ ta, inferTypeCoreIO mode env fuel d a = .ok ta ∧
           isDefEqCore mode env fuel d ta ty' = .ok true) := by
   match fuel, h with
@@ -564,7 +564,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       dsimp only
       rw [hes]
       dsimp only
-      cases hv : mode.verified with
+      cases hv : mode.verifiedChecks with
       | false => simp [hv]
       | true => simp [hv, hval hv]
     | .lam n ty body mb =>
@@ -577,7 +577,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       -- task #168 stage 2: the io λ clause has no domain-sort run
       rw [inferTypeCoreIO_of_full hbt]
       dsimp only
-      cases hv : mode.verified with
+      cases hv : mode.verifiedChecks with
       | false => simp [hv]
       | true =>
         simp only [hv, if_true]
@@ -625,7 +625,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       dsimp only
       rw [hw]
       dsimp only
-      by_cases hg2 : (mode.verified && m'.pw.isNever) = true
+      by_cases hg2 : (mode.verifiedChecks && m'.pw.isNever) = true
       · simp [hg2]
       · simp only [hg2, Bool.false_eq_true, if_false]
         rw [inferTypeCoreIO_of_full hta]

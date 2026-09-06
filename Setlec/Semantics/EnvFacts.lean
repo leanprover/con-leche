@@ -16,7 +16,7 @@ already.  What forced the move is that **both** lanes now build an
 `EnvFacts` — the R lane by `EnvS.toEnvFacts`, the P lane by `EnvS2PM.toEnvFacts`
 — and the P lane may not import `Setlec/SetR/*`.
 
-The bridge (`Setlec/SetR/Bridge/*`) turns a successful `--set-model`
+The bridge (`Setlec/SetR/Bridge/*`) turns a successful `--verified`
 checker run into a derivation of the relation family
 (`Setlec/SetR/Rel.lean`).  Doing so needs a handful of facts about the
 environment it runs against, and **all of them are V-free**: the bridge

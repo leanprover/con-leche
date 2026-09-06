@@ -7,7 +7,7 @@ The tri-core order's ratified mechanism (DESIGN.md, task #172 census
 part 2 §3 and part 8 §1) was **one body template, three named
 flag-free concrete cores**; since the R core's retirement
 (2026-09-05) there are **two** — the verified graded core and the
-unverified parity one — under the census's own rule:
+unverified trusted one — under the census's own rule:
 
 > *A configuration value may survive only where it is (i) universally
 > quantified in a proof, or (ii) definitionally eliminated in a shipped
@@ -29,7 +29,7 @@ way they are:
   `cfg.betaSkip pw` reduces to `false`, so the gated `if` *is* its
   `else` arm — definitionally, and the `else` arm is the pre-gate
   clause byte-for-byte (that was the retired `cfgR`, and it is still
-  `cfgNC`).  At `cfgP` the read reduces to `pw.isNever`, so the
+  `cfgT`).  At `cfgP` the read reduces to `pw.isNever`, so the
   surviving branch inspects the **validated annotation datum** — data,
   not a flag, which is exactly the census's finding 2 distinction.
   (The field itself is a `Bool` and `betaSkip` a definition over it;
@@ -50,7 +50,7 @@ census proved uninhabited-true (part 8 §3(a): `ttChecks = true` has no
 inhabitant, so no theorem can consume it).  Rather than pretend the
 residue is not there, it is a **named field**: `iotaMode` carries the
 mode the ι cone still wants, and at each concrete core it is a literal
-(`cfgP.iotaMode = .setModel` by `rfl`), so the downstream `ttChecks`
+(`cfgP.iotaMode = .verified` by `rfl`), so the downstream `ttChecks`
 branch is *definitionally eliminated* — the rule's clause (ii), and
 the reason the concrete cores are flag-free today even though the ι
 cone has not been templated yet.
@@ -83,7 +83,7 @@ structure CoreCfg where
   /-- Is the **io-grade knot slot** the io body (task #170 / #172 B4)?
   Read once per knot level to select what the internal inference call
   sites run: at `false` the io slot is the full inference body,
-  verbatim (the flag is ignored — the R core and the parity core); at
+  verbatim (the flag is ignored — the R core and the trusted core); at
   `true` it is `inferBodyIO`, whose application clause skips the
   per-argument certificate exactly at a validated `.never` binder
   under the graph-regime license (`Setlec/SetP/IOLicenseP.lean`).
@@ -112,32 +112,32 @@ def cfgP : CoreCfg where
   betaGate := true
   ioGate := true
   verified := true
-  iotaMode := .setModel
+  iotaMode := .verified
 
-/-- **The production-parity core's configuration** (task #172, batch
-B3).  Not a third *verified* core — the parity core is unproven-sound
+/-- **The trusted core's configuration** (task #172, batch
+B3).  Not a third *verified* core — the trusted core is unproven-sound
 by the user's own order — but a named config all the same, because
-`Cached/CoreNC.lean`'s cross-calls into the shared helpers have to say
-which configuration they mean, and `.noModel` is no longer a thing a
+`Cached/CoreT.lean`'s cross-calls into the shared helpers have to say
+which configuration they mean, and `.trusted` is no longer a thing a
 templated helper can take.
 
-Its `verified := false` is the *whole* content of the parity lane's
+Its `verified := false` is the *whole* content of the trusted lane's
 divergence at these seven sites: the λ-codomain sort check and the ∀/λ
 annotation validation are off, which is census class 1
 (acceptance-only guard drops) and is what makes the lane
-official-shaped.  `cfgNC.betaGate` is `false` for the same reason the
-R core's is: there is no validated datum at parity, so there is
+official-shaped.  `cfgT.betaGate` is `false` for the same reason the
+R core's is: there is no validated datum in the trusted mode, so there is
 nothing a gate could read.
 
-B5/B6 retire `Cached/CoreNC.lean` into a full instantiation at this
+B5/B6 retire `Cached/CoreT.lean` into a full instantiation at this
 config; until then it is the residual sharing's name, and naming it is
 route C's own discipline (*the config record's fields are the
-divergence list*) applied to the parity side. -/
-def cfgNC : CoreCfg where
+divergence list*) applied to the trusted side. -/
+def cfgT : CoreCfg where
   betaGate := false
   ioGate := false
   verified := false
-  iotaMode := .noModel
+  iotaMode := .trusted
 
 /-- The transition map from the retiring flag to the template's
 parameter.  Every field is written so that the projection of
@@ -147,29 +147,29 @@ the mode-parametric towers. -/
 def cfgOf (mode : CheckMode) : CoreCfg where
   betaGate := mode.betaGate
   ioGate := mode.betaGate
-  verified := mode.verified
+  verified := mode.verifiedChecks
   iotaMode := mode
 
 /-- **The β site's read.**  Spelled as a definition over the `Bool`
 field rather than as a field of function type, so that a core's β site
 compiles to the retiring flag's own two field reads and no closure
 (see `CoreCfg.betaGate`).  The elimination is unchanged: at a
-`betaGate := false` config (`cfgNC`) the conjunction's left operand is
+`betaGate := false` config (`cfgT`) the conjunction's left operand is
 the literal `false`, so the whole read is `false` by `rfl`, and at
 `cfgP` it is the annotation datum. -/
 @[inline] def CoreCfg.betaSkip (cfg : CoreCfg) (pw : PropWhen) : Bool :=
   cfg.betaGate && pw.isNever
 
-/-- `cfgOf` at `.setModel` **is** the P core's config — by `rfl`,
+/-- `cfgOf` at `.verified` **is** the P core's config — by `rfl`,
 which is the census's finding 1 (the flag-free core is already
 available definitionally) at the record level.  With two modes this and
-`cfgOf_noModel` are the whole transition map. -/
-theorem cfgOf_setModel : cfgOf .setModel = cfgP := rfl
+`cfgOf_trusted_eq_cfgT` are the whole transition map. -/
+theorem cfgOf_verified_eq_cfgP : cfgOf .verified = cfgP := rfl
 
-/-- `cfgOf` at `.noModel` **is** the parity core's config, by `rfl` —
-so the seven parity cross-calls into the shared helpers are, still,
+/-- `cfgOf` at `.trusted` **is** the trusted core's config, by `rfl` —
+so the seven trusted cross-calls into the shared helpers are, still,
 the mode-parametric helper at the mode they always meant. -/
-theorem cfgOf_noModel : cfgOf .noModel = cfgNC := rfl
+theorem cfgOf_trusted_eq_cfgT : cfgOf .trusted = cfgT := rfl
 
 /-! ## The three fields, eliminated at the core
 
@@ -181,12 +181,12 @@ row whose subject no longer exists is not a loosening. -/
 @[simp] theorem cfgP_betaSkip (pw : PropWhen) :
     cfgP.betaSkip pw = pw.isNever := rfl
 @[simp] theorem cfgP_ioGate : cfgP.ioGate = true := rfl
-@[simp] theorem cfgNC_ioGate : cfgNC.ioGate = false := rfl
+@[simp] theorem cfgT_ioGate : cfgT.ioGate = false := rfl
 theorem cfgOf_ioGate (mode : CheckMode) :
     (cfgOf mode).ioGate = mode.betaGate := rfl
 @[simp] theorem cfgP_betaGate : cfgP.betaGate = true := rfl
 @[simp] theorem cfgP_verified : cfgP.verified = true := rfl
-@[simp] theorem cfgP_iotaMode : cfgP.iotaMode = .setModel := rfl
+@[simp] theorem cfgP_iotaMode : cfgP.iotaMode = .verified := rfl
 
 /-- The transitional field's downstream read is eliminated at the P
 core: `ttChecks` is uninhabited-true, so the ι cone's one branch is

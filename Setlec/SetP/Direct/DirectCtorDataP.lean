@@ -112,7 +112,7 @@ structure CtorData {env : Env} (m : EnvS2Core V env) (T : Name)
 
 /-- The constructor's data, from its stage run at the environment
 holding the former. -/
-theorem ctorData_of (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+theorem ctorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa : ConstantVal} {env₀ envC : Env}
     {sorts : List Level} {caps : IndCaps}
     {bs : List (Name × Expr × Setlec.BinderMeta)}

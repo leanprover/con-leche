@@ -42,7 +42,7 @@ theorems are the *entire* new mathematics of verified infer-only:
   `pw = .never` is the whole licensed fragment, forever.
 
 The consumer map (the B4 handoff): `inferBodyIO`'s one gated site
-(`Kernel/CoreIO.lean`, the `unless mode.verified && mt.pw.isNever`
+(`Kernel/CoreIO.lean`, the `unless mode.verifiedChecks && mt.pw.isNever`
 test wrapping the argument certificate) is discharged by
 `io_app_mem` + `pwBit_ne_zero_of_isNever` in the io app clause's gated
 branch; the kept branch (the certificate ran) needs no license.  No
