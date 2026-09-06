@@ -345,14 +345,14 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
   · -- `tower_ok` (task #175 wiring W5): a table entry, a former and a
     -- constructor are never recursors, so every lookup the law reads
     -- is unchanged by the swap, and the readings are `hde`
-    intro φ T i entry hf htw
+    intro φ T i entry hf
     have hfP : env₀.findProj? T i = some entry := by
       obtain ⟨tbl, h3, hi, rfl⟩ := Setlec.Env.findProj?_some hf
       have h0 := (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp h3
       exact Setlec.Env.findProj?_of_table h0 hi
     obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
-      hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP htw
+      hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP
     refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
       hO5, cvC, (hsame _ _

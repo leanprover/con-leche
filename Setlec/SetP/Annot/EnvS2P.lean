@@ -536,8 +536,8 @@ def RecRulesP {V : Type w} [SetTheory V] {env : Env}
 
 /-! ## The tower projection law (task #175 wiring, W5)
 
-A **tower-backed** projection-table entry (`entry.tower = true`, the
-direct-structure install's native entries) is typed by the checker
+A projection-table entry (the direct-structure install's native
+entries — task #175 tower-flag: the only ones) is typed by the checker
 generically — the stored `ty` peeled along the parameters and the
 subject (`inferBody`'s tower branch) — and reduced by the structural
 rule `proj_i (ctor p⃗ x⃗) ↦ x_i`; the reading is the uniform
@@ -658,10 +658,9 @@ provably nonzero, `TowerStructPos`, and the iota law was stated in the
 graph regime only; the squash regime is now licensed by the certified
 spine's fit, see `TowerEntryLawP`'s clause (B).) -/
 theorem towerGuardAt_of_fireOk {entry : ProjEntry} {us : List Level}
-    {φ : Name → Nat} (htw : entry.tower = true) (hO5 : TowerO5 entry)
+    {φ : Name → Nat} (hO5 : TowerO5 entry)
     (hfire : entry.fireOk us = true) : TowerGuardAt φ entry us := by
   unfold ProjEntry.fireOk at hfire
-  rw [htw] at hfire
   refine towerGuardAt_of hO5 (fun hp => ?_)
   rw [hp] at hfire
   simpa using hfire
@@ -742,12 +741,13 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
     -- (C) the structural-η law (task #175 W4c)
     TowerEtaLawP m φ T entry
 
-/-- **The tower projection law, keyed on every stored tower-backed
-entry** (`RecRulesP`'s sibling). -/
+/-- **The tower projection law, keyed on every stored entry**
+(`RecRulesP`'s sibling).  Task #175 tower-flag: every stored table is
+a real one, so the law is uniform — no flag premise. -/
 def TowerOkP {V : Type w} [SetTheory V] {env : Env}
     (m : EnvS2Core V env) (φ : Name → Nat) : Prop :=
   ∀ (T : Name) (i : Nat) (entry : ProjEntry),
-    env.findProj? T i = some entry → entry.tower = true →
+    env.findProj? T i = some entry →
     TowerEntryLawP m φ T i entry
 
 /-- **The P-tier environment invariant, at one mode** (see the module

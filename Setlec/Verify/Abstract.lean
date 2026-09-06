@@ -131,17 +131,18 @@ theorem looseBVarsBounded_abstract1 {d : Nat} :
 
 /-! ## Preservation through `annotate` -/
 
-/-- Inversion for `annotate` on projections: a tower projection-table
-entry typed the node (which stays, with the display name normalized
-to the type's head).  Task #175 wiring W5: the elimination fallbacks
-are gone, so this is the only accepting arm. -/
+/-- Inversion for `annotate` on projections: a projection-table entry
+typed the node (which stays, with the display name normalized to the
+type's head).  Task #175 wiring W5: the elimination fallbacks are
+gone, so this is the only accepting arm; task #175 tower-flag: every
+stored table is one, so the entry's existence is the whole test. -/
 theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     {i : Nat} {e e' : Expr}
     (h : annotateCore mode env (fuel + 1) d (.proj sn i e) = .ok e') :
     ∃ e₂ tt te, annotateCore mode env fuel d e = .ok e₂ ∧
       inferTypeIO mode env fuel d e₂ = .ok tt ∧ whnf mode env fuel d tt = .ok te ∧
       (∃ T us entry, te.getAppFn = .const T us ∧
-          env.findProj? T i = some entry ∧ entry.tower = true ∧
+          env.findProj? T i = some entry ∧
           te.getAppArgs.length = entry.numParams ∧
           e' = .proj T i e₂) := by
   rw [annotateCore_succ] at h
@@ -185,14 +186,9 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   dsimp only at h
   split at h
   case isFalse => exact nomatch h
-  case isTrue hnat =>
-    revert h
-    split
-    case isFalse => intro h; exact nomatch h
-    case isTrue hlen =>
-      intro h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact ⟨T, us, entry, rfl, hfp, hnat, hlen, h.symm⟩
+  case isTrue hlen =>
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨T, us, entry, rfl, hfp, hlen, h.symm⟩
 
 /-- Inversion for `annotate` on applications: the two annotated subterms
 are reassembled, and the application-rule check ran successfully. -/

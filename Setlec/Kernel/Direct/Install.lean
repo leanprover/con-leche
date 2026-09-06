@@ -295,7 +295,7 @@ def checkDirectProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
     throw (.invalid "projection name family taken")
   unless (env.find? (projTableName T)).isNone do
     throw (.invalid "projection table taken")
-  pure ⟨.projInfo ⟨T, lps, nP, C, nF, resSort, bodies, guards, true⟩ :: env.consts⟩
+  pure ⟨.projInfo ⟨T, lps, nP, C, nF, resSort, bodies, guards⟩ :: env.consts⟩
 
 /-- Check and install a **direct simple structure** (task #82): the
 type former, the constructor, the recursor with its single rule, and

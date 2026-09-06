@@ -1985,15 +1985,6 @@ theorem installProjFnStep_wfimp {e : Env} (he : EnvWF e)
     simp only [FueledM.atF_pure] at h
     exact h ▸ rfl
 
-/-- The template install, `wfOpsM mode` run to pure run (the stage is
-ops-free, so the runs coincide). -/
-theorem installProjTemplate_wfimp {T ctorName : Name}
-    {lps : List Name} {nP nF : Nat} {e e' : Env} {F : Nat}
-    (h : (installProjTemplate e T ctorName lps nP nF : FueledM _).val F = .ok e') :
-    (installProjTemplate e T ctorName lps nP nF : CheckM _) = .ok e' := by
-  rw [installProjTemplate_datF] at h
-  exact h
-
 /-! ## Scoping of the structural-Nat certification equations -/
 
 /-- The recurrence equations' sides are well-scoped at depth 2 (their

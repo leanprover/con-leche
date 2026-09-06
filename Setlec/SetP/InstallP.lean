@@ -82,13 +82,13 @@ every old-constant field. -/
 theorem denoteP_cons_fresh {acval : Name → (Name → Nat) → AVExpr}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (hntc : ∀ entry, c₀ ≠ .projInfo entry)
     (hlga : LitGuardsAgree env ⟨c₀ :: env.consts⟩)
     (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound env e) :
     denoteP (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
       = denoteP acval env ψ d e := by
   rw [← denoteP_envExtend (findPreserved_cons hfresh) hlga
-      (Setlec.TTVerify.findProj?_cons_of_base_none hfresh hntc)
+      (Setlec.TTVerify.findProj?_cons_of_base_none hntc)
       d e hcb,
     denoteP_acvalWith_fresh hfresh d e]
 
@@ -101,21 +101,21 @@ prefix-supported literals. -/
 theorem denoteP_cons_fresh_mono {acval : Name → (Name → Nat) → AVExpr}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (hntc : ∀ entry, c₀ ≠ .projInfo entry)
     (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound env e)
     {ea : AVExpr} (h : denoteP acval env ψ d e = some ea) :
     denoteP (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
       = some ea :=
   denoteP_envExtend_mono (findPreserved_cons hfresh)
     (litGuardsMono_cons hfresh)
-    (Setlec.TTVerify.findProj?_cons_of_base_none hfresh hntc) d e hcb
+    (Setlec.TTVerify.findProj?_cons_of_base_none hntc) d e hcb
     (by rw [denoteP_acvalWith_fresh hfresh]; exact h)
 
 /-- **The P cons crossing at any head** (task #175 W4c, module 4): a
 prefix reading of a subject the head's slot does not mention
-(`ConsCrossAt`) survives the cons — the fresh crossing at a non-tower
-head, the tower-slot refinement (`denoteP_envExtend_mono_at`) at a
-tower one. -/
+(`ConsCrossAt`) survives the cons — the fresh crossing at a non-table
+head, the table-slot refinement (`denoteP_envExtend_mono_at`) at a
+table one. -/
 theorem denoteP_cons_mono {acval : Name → (Name → Nat) → AVExpr}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
@@ -124,19 +124,17 @@ theorem denoteP_cons_mono {acval : Name → (Name → Nat) → AVExpr}
     {ea : AVExpr} (h : denoteP acval env ψ d e = some ea) :
     denoteP (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
       = some ea := by
-  by_cases htw : ∃ tbl : Setlec.ProjTable, c₀ = .projInfo tbl ∧
-      tbl.tower = true
-  · obtain ⟨tbl, rfl, htw⟩ := htw
+  by_cases htw : ∃ tbl : Setlec.ProjTable, c₀ = .projInfo tbl
+  · obtain ⟨tbl, rfl⟩ := htw
     refine denoteP_envExtend_mono_at (findPreserved_cons hfresh)
       (litGuardsMono_cons hfresh)
-      (fun sn j e' h0 h1 htw' => findProj?_cons_tower sn j e' h0 h1 htw')
-      d e hcb (hat tbl rfl htw) ?_
+      (fun sn j e' h0 h1 => findProj?_cons_tower sn j e' h0 h1)
+      d e hcb (hat tbl rfl) ?_
     rw [denoteP_acvalWith_fresh hfresh]
     exact h
   · refine denoteP_cons_fresh_mono hfresh ?_ ψ d e hcb h
     intro e' heq
-    exact Classical.byContradiction fun h' =>
-      htw ⟨e', heq, by simpa using h'⟩
+    exact htw ⟨e', heq⟩
 
 /-- The pinned-basis valuation survives any fresh cons that moves no
 other name (`BasisPinnedTT.cons` without the install record — its
@@ -175,7 +173,7 @@ spelling: the `Installs` context the three env-facts share. -/
 theorem installsE {acval : Name → (Name → Nat) → AVExpr}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ = .projInfo entry → entry.tower = false) :
+    (hntc : ∀ entry, c₀ ≠ .projInfo entry) :
     Installs env (fun n ψ => (acval n ψ).erase)
       (fun n ψ => (acvalWith acval c₀.name A n ψ).erase) c₀ :=
   Installs.of_fresh hfresh hntc (fun n hn =>
@@ -198,13 +196,13 @@ structure ConsHeadP (env : Env) (c₀ : ConstantInfo)
     (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
     ∀ (ψ : Name → Nat) (t : VExpr),
       pinnedDirectT c₀.name ψ = some t → (A ψ).erase = t
-  /-- a head tower table's slots are mentioned by no stored piece, so
+  /-- a head table's slots are mentioned by no stored piece, so
   the store's readings survive the cons (task #175 W4c, module 4;
   vacuous at every other head — `ConsCrossEnv.ofNtc`) -/
   projTower : ConsCrossEnv env c₀
-  /-- a head tower table carries its head data, at every field, at the
+  /-- a head table carries its head data, at every field, at the
   extension (task #175 S1) -/
-  projTowerHead : ∀ tbl, c₀ = .projInfo tbl → tbl.tower = true →
+  projTowerHead : ∀ tbl, c₀ = .projInfo tbl →
     ∀ i, i < tbl.numFields → Setlec.TowerHead ⟨c₀ :: env.consts⟩ (tbl.entry i)
   /-- a head recursor's rules' constructors are stored
   (`RecCtorsStored`'s head) -/
@@ -240,7 +238,7 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
     (hwf : EnvWF ⟨c₀ :: env.consts⟩)
     (hvclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase))
     (hnres : Setlec.reservedBasisNames.contains c₀.name = false)
-    (hprojTower : ∀ tbl, c₀ = .projInfo tbl → tbl.tower = false)
+    (hprojTower : ∀ tbl, c₀ ≠ .projInfo tbl)
     (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (Setlec.RecRule.ctor r)
@@ -249,8 +247,7 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
   ⟨hwf, hvclosed,
     fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
     ConsCrossEnv.ofNtc hprojTower,
-    fun tbl heq htw => absurd ((hprojTower tbl heq).symm.trans htw)
-      (by decide),
+    fun tbl heq => absurd heq (hprojTower tbl),
     hctors⟩
 
 /-- **The de-based core at a fresh cons** — `coreOfBase`'s successor

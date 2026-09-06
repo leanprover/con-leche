@@ -133,33 +133,13 @@ theorem denoteP_isSome_of_denote
     obtain ⟨ea, hea⟩ := ihe hE
     cases hfp : env.findProj? sn i with
     | some entry =>
-      rw [hfp] at h
-      dsimp only at h
-      by_cases htw : entry.tower = true
-      · refine ⟨projAV i ea, ?_⟩
-        rw [denoteP, hea]
-        show (match env.findProj? sn i with
-          | some entry => if entry.tower = true then some (projAV i ea)
-              else if i < 2 then some (AVExpr.proj i ea) else none
-          | none => if i < 2 then some (AVExpr.proj i ea) else none)
-            = _
-        rw [hfp]
-        dsimp only
-        rw [if_pos htw]
-      · rw [if_neg htw] at h
-        by_cases hi : i < 2
-        · refine ⟨AVExpr.proj i ea, ?_⟩
-          rw [denoteP, hea]
-          show (match env.findProj? sn i with
-            | some entry => if entry.tower = true then some (projAV i ea)
-                else if i < 2 then some (AVExpr.proj i ea) else none
-            | none => if i < 2 then some (AVExpr.proj i ea) else none)
-              = _
-          rw [hfp]
-          dsimp only
-          rw [if_neg htw, if_pos hi]
-        · rw [if_neg hi] at h
-          exact nomatch h
+      refine ⟨projAV i ea, ?_⟩
+      rw [denoteP, hea]
+      show (match env.findProj? sn i with
+        | some _ => some (projAV i ea)
+        | none => if i < 2 then some (AVExpr.proj i ea) else none)
+          = _
+      rw [hfp]
     | none =>
       rw [hfp] at h
       dsimp only at h
@@ -167,8 +147,7 @@ theorem denoteP_isSome_of_denote
       · refine ⟨AVExpr.proj i ea, ?_⟩
         rw [denoteP, hea]
         show (match env.findProj? sn i with
-          | some entry => if entry.tower = true then some (projAV i ea)
-              else if i < 2 then some (AVExpr.proj i ea) else none
+          | some _ => some (projAV i ea)
           | none => if i < 2 then some (AVExpr.proj i ea) else none)
             = _
         rw [hfp]

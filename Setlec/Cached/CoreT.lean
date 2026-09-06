@@ -378,7 +378,7 @@ def whnfCoreStepT (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         match ← withStore (fun st => st.getNode (st.getAppFnI e')) with
         | some (.const c us) => do
           let args ← withStore (·.getAppArgsI e')
-          if entry.tower ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
+          if (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then do
@@ -485,7 +485,7 @@ def inferBodyT (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
         match fe.findProj? Tn i with
         | some entry => do
           let targs ← withStore (·.getAppArgsI te)
-          if entry.tower ∧ T = sn ∧ targs.length = entry.numParams ∧
+          if T = sn ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
             -- the official `infer_proj` restriction (task #175
             -- W4c/O4), as in the spec body

@@ -46032,3 +46032,115 @@ merged tree's.  Axioms of `no_proof_of_Empty_SPCD_P`,
 `[propext, Classical.choice, Quot.sound]`.  No perf number was taken —
 the batch is performance-neutral by the finding above, and the perf
 cadence resumes after the grant.
+
+## TASK #175 tower-flag — the projection table's KIND FLAG is retired: a family without a table IS a modeled one (2026-09-06, `agent/tower-flag`)
+
+User question, and the answer it carries: *"what do we need the `tower`
+flag for?  Isn't it sufficient to prove that the projection typing and
+iota hold for all enabled projections?"* — yes.  `ProjTable.tower` /
+`ProjEntry.tower` and the modeled route's inert elimination-template
+tables are gone.
+
+### 1. What the flag was doing, and why nothing needed it
+
+Since S1 there is one projection-table constant per structure, under
+`projTableName T`, and two routes could install one:
+
+* the **direct** simple-structure install (`checkDirectProjTable`),
+  which stores the field bodies, the guards and the struct sort —
+  `tower = true`;
+* the **modeled** route (`installProjTemplate`), which stored an
+  *inert* table for a Prop structure some of whose `_model.proj_i`
+  artifacts are absent — empty guards, dummy bodies, `tower = false`.
+  Task #175 wiring W5 had already deleted the recursor-inlining
+  fallback that consumed it, so the inert table "typed no node and
+  fired no reduction": it recorded the family and nothing else.
+
+So the flag partitioned stored tables into "real" and "records the
+family".  But the store already carries that distinction: **a family
+without a table is a modeled one**, and `findProj? = none` is what
+every `.proj` site reads.  Dropping the inert install makes the flag a
+constant `true` on every stored table, and a constant premise is
+deletable.
+
+The one thing the flag did that was *not* redundant was the eta
+spine's spelling choice (`towerSlotsAll` → `.proj T j b` nodes vs
+`recSlotsAll` → projection-function applications).  That question is
+now asked directly: "does the table cover the slot" for the `.proj`
+spelling, `recSlotsAll` for the modeled one.
+
+### 2. What went
+
+Implementation: the two fields, `ProjTable.entry_tower`,
+`installProjTemplate` and `installProjTemplateS`, and their call sites
+in `checkIndDecl` / `checkIndDeclSF` / `checkIndDeclT` (the
+single-constructor arm now ends at the projection-function fold).
+`ConstantInfo.isTowerEntry` becomes "is a `projInfo` constant" —
+still the guard that keeps a table out of `inferTypeCore`'s `.const`
+clause, since a table is not a term.
+
+Verification, all of it *losing a premise* rather than gaining one:
+`ProjEntry.fireOk` (the `!entry.tower ||` disjunct), the two infer
+branches' `entry.tower ∧ …` conjunct, `whnfCore`'s fire, the annotate
+branch (a table entry types the node; **no** table declines at the
+node's own site), `towerSlotsAll`/`towerSlotsAllF`, `ProjOkT` and
+`ProjOkT.towerHead`, `ProjSlotsOk`, `TowerHead`'s consumers,
+`TowerOkP` / `TowerEntryLawP` / `towerGuardAt_of_fireOk`,
+`ConsCrossEnv` / `ConsCrossAt` (and `.ofNtc`, now "the head is not a
+table"), `denoteP_envExtend`, `denoteP_envExtend_mono`,
+`denoteP_envExtend_mono_at`, `findProj?_cons_of_base_none`,
+`findProj?_cons_tower`, `ConsHeadP` and `Installs`' `ntc` clauses.
+
+The run/bridge cone of the template install went with it:
+`projTemplateSkels` and `installProjTemplateS_skels` (AgreeFloor),
+`installProjTemplate_{fst,snd}_dproj` / `_datF` / `_wfimp`
+(`BridgeDecl`, `BridgeWfImp`), `installProjTemplate_inv` and
+`installProjTemplates_find_{new,preserved}` (`Verify/Extend/Proj`),
+`installProjTemplateS_run` (`BridgeCS4`), `DeclIndRun.Templates` with
+`templates_of` / `templates_ext` / `templatesP` / `templateConsP` /
+`templateValP` / `templateVal`, and the P fold's inert-cons step
+`declStepPM_of_projTemplate_cons`.  `DeclIndRun`'s single-constructor
+arm loses its last conjunct (`∃ envP, ProjInstallRun … envP ∧
+Templates … envP env₂` becomes `ProjInstallRun … env₂`).
+
+**The denotation clause.**  All three tiers (`denote`, `denote2`,
+`denoteP`) read a `.proj` node by the uniform iterated spelling
+(`projNV`/`projAV`) at *every* stored entry, and keep the legacy
+`i < 2` pair fallback only where there is **no** table.  That is a
+strict simplification of the clause; its splitter drops from six cases
+to four, so the four `denote.induct` consumers (`Verify/Denote/{Install,
+EnvExt,Shift,Levels}.lean`) renumber `case17…case27` → `case17…case25`.
+`denote_proj_pair` / `denoteP_proj_pair` / `denoteP_proj_inv_pair` now
+take `findProj? = none` rather than "every entry here is non-tower".
+
+### 3. Verdict-neutrality, and the one behaviour that moves
+
+Nothing was ever typed or fired through an inert table, so no accepted
+stream changes.  The one thing that moves is the **reason** on a
+`.proj` at a modeled family that used to carry a template: it was
+`.invalid` (reject, and under a misleading message about propositional
+structures), and is now the `none` branch's `.notImplemented`
+(decline, "projection on a non-structure-like type").  That is exactly
+the SigmaHom ruling's own answer — *a `.proj` on a type without a
+table declines at its own site* — so the two modeled-family cases now
+agree instead of differing by whether the recogniser happened to
+record the family.  No arena or e2e verdict is affected (no test
+projects from such a family).
+
+### 4. Gates
+
+`lake build` warning-free (444 jobs); `lake test` green; `tests/arena.sh`
+0 FAIL apart from the expected proofdeps departure — arena 90/92 good
+accepted, e2e 80/80, annot 14/14, retired flags 8/8, mode flags 16/16,
+trusted sweep 138 + 80 + 14 with the 3 recorded divergences; **every
+verdict unchanged**.  init-full (`--pre init-full-pre2.ndjson`):
+**accept in BOTH modes, 60 549 declarations** — the accepted count did
+*not* drop, i.e. that stream installed no inert table at all, which is
+its own small piece of evidence that the tables were dead weight.  The
+four capstones (`no_proof_of_Empty_SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `SetP.no_proof_of_Empty_P`)
+depend on exactly `[propext, Classical.choice, Quot.sound]`; layering
+holds.  proofdeps regenerated: **1 370 rows, one module LEFT a
+closure** (`P :: Setlec.Verify.Extend.Modeled` — its remaining
+contribution to the P capstone was the template install's inversion),
+**no doors**.

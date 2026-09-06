@@ -126,7 +126,6 @@ theorem declStepPM_of_tower_cons (mp : EnvS2PM V μ env)
     (hfresh : env.find? (ConstantInfo.projInfo tbl).name = none)
     (hnres : Setlec.reservedBasisNames.contains
       (ConstantInfo.projInfo tbl).name = false)
-    (_htw : tbl.tower = true)
     (hwf : Setlec.EnvWF ⟨.projInfo tbl :: env.consts⟩)
     (hnp : ∀ i, NoProjEnv env tbl.structName i)
     (hhead : ∀ i, i < tbl.numFields →
@@ -142,10 +141,10 @@ theorem declStepPM_of_tower_cons (mp : EnvS2PM V μ env)
   have hh : ConsHeadP env (.projInfo tbl) (fun _ => .sort 0) :=
     ⟨hwf, fun _ => trivial,
       fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
-      fun t2 heq _ => by
+      fun t2 heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact hnp,
-      fun t2 heq _ => by
+      fun t2 heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
         exact hhead,
       fun _ _ _ _ heq => nomatch heq⟩

@@ -263,7 +263,7 @@ def whnfCoreStepM (cfg : CoreCfg) (r : CoreFns m) (env : Env) (depth : Nat)
       match e'.getAppFn with
       | .const c us =>
         let args := e'.getAppArgs
-        if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
+        if c = entry.ctor ∧ i < entry.numFields ∧
             args.length = entry.numParams + entry.numFields ∧
             us.length = entry.levelParams.length ∧
             entry.fireOk us = true then

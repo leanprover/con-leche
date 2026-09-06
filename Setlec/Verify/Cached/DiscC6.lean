@@ -295,26 +295,20 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
         exact SimC.throw
       | some entry =>
         dsimp only
-        cases hnat : entry.tower with
-        | false =>
-          simp only [Bool.false_eq_true, ↓reduceIte]
+        refine SimC.withStore ?_
+        simp only [CStore.getAppArgsI, RelCL.length htargs]
+        by_cases hlen : (Expr.getAppArgs te).length = entry.numParams
+        · rw [if_pos hlen, if_pos hlen]
+          exact SimC.of_eff
+            (internI_eff hs₃T (n := ExprView.proj Tw ipN e')) _
+            (fun r hQ => ⟨by
+                show _ = _
+                have h2 : r = Expr.proj Tw ipN e' := hQ
+                rw [h2, he'd], by
+              simp only [Expr.WScoped]
+              exact hwe'⟩)
+        · rw [if_neg hlen, if_neg hlen]
           exact SimC.throw
-        | true =>
-          simp only [↓reduceIte]
-          refine SimC.withStore ?_
-          simp only [CStore.getAppArgsI, RelCL.length htargs]
-          by_cases hlen : (Expr.getAppArgs te).length = entry.numParams
-          · rw [if_pos hlen, if_pos hlen]
-            exact SimC.of_eff
-              (internI_eff hs₃T (n := ExprView.proj Tw ipN e')) _
-              (fun r hQ => ⟨by
-                  show _ = _
-                  have h2 : r = Expr.proj Tw ipN e' := hQ
-                  rw [h2, he'd], by
-                simp only [Expr.WScoped]
-                exact hwe'⟩)
-          · rw [if_neg hlen, if_neg hlen]
-            exact SimC.throw
     | bvar k =>
       rw [show (Expr.getAppFn te) = Expr.bvar k from hfn.symm]
       exact SimC.throw
