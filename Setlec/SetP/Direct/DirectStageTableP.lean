@@ -88,7 +88,7 @@ theorem stageTable (mp : EnvS2PM V μ env)
   have hwf' : Setlec.EnvWF envOut := Setlec.direct_table_wf mp.base2.wf hTbl
   obtain ⟨bodies, hbodies, -, -, hfresh, rfl⟩ := Setlec.checkDirectProjTable_inv hTbl
   let tbl : ProjTable := ⟨p.cvT.name, p.cvT.levelParams, p.nP, p.cvC.name, p.nF, p.resSort,
-    bodies, Setlec.directProjGuards cvCa.type p.nP p.nF sorts, true⟩
+    bodies, Setlec.directProjGuards cvCa.type p.nP p.nF sorts⟩
   obtain ⟨hlenS, hsortsAll⟩ := Setlec.checkDirectFieldSorts_inv hsorts
   -- the field-chain facts, in the frames' spelling
   have hbound : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -214,11 +214,11 @@ theorem stageTable (mp : EnvS2PM V μ env)
     Setlec.reservedBasisNames_not_num _ _
   -- the crossings
   have hcrossT : ConsCrossAt (.projInfo tbl) cvTa.type := by
-    intro t2 he' _ j
+    intro t2 he' j
     cases he'
     exact (hnp j).type _ (Setlec.Semantics.Env.find?_mem hfT)
   have hcrossC : ConsCrossAt (.projInfo tbl) cvCa.type := by
-    intro t2 he' _ j
+    intro t2 he' j
     cases he'
     exact (hnp j).type _ (Setlec.Semantics.Env.find?_mem hfC)
   have hcbT : ConstsBound env cvTa.type :=
@@ -237,9 +237,9 @@ theorem stageTable (mp : EnvS2PM V μ env)
   have hfTbl₂ : (⟨.projInfo tbl :: env.consts⟩ : Env).find? (projTableName p.cvT.name)
       = some (.projInfo tbl) := Setlec.Env.find?_cons_self _ _
   have hprev₂ : ∀ j, j < p.nF →
-      ∃ entry, (⟨.projInfo tbl :: env.consts⟩ : Env).findProj? p.cvT.name j = some entry ∧
-        entry.tower = true :=
-    fun j hj => ⟨tbl.entry j, Setlec.Env.findProj?_of_table hfTbl₂ hj, rfl⟩
+      ∃ entry, (⟨.projInfo tbl :: env.consts⟩ : Env).findProj? p.cvT.name j
+        = some entry :=
+    fun j hj => ⟨tbl.entry j, Setlec.Env.findProj?_of_table hfTbl₂ hj⟩
   -- the head data at every field
   have hhead : ∀ i, i < p.nF → Setlec.TowerHead ⟨.projInfo tbl :: env.consts⟩ (tbl.entry i) :=
     fun i hi => ⟨hresT, hresR, hresC, hi, ⟨cvTa, Setlec.directCaps p, hfT₂, hlpsT⟩,
@@ -248,7 +248,7 @@ theorem stageTable (mp : EnvS2PM V μ env)
       m₂.acval = acvalWith mp.base2.acval (ConstantInfo.projInfo tbl).name (fun _ => .sort 0) →
       ∀ (φ : Name → Nat) (i : Nat), i < tbl.numFields →
         TowerEntryLawP m₂ φ tbl.structName i (tbl.entry i) by
-    obtain ⟨mp', -⟩ := declStepPM_of_tower_cons mp (tbl := tbl) hfresh hnres rfl hwf' hnp hhead hlaw
+    obtain ⟨mp', -⟩ := declStepPM_of_tower_cons mp (tbl := tbl) hfresh hnres hwf' hnp hhead hlaw
     exact ⟨mp'⟩
   -- the fields' laws
   intro m₂ hac φ i hi

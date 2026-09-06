@@ -582,7 +582,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
             cases this
         simp only [fvarLeaves]
         rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, -, hred, -⟩
+          ⟨us, entry, hfn, hf, hi, hlen, hus, -, hred, -⟩
         · simp only [fvarLeaves] at hl
           exact ihLoop he l (hsub₃ l hl)
         · have hl2 := ihCore hred l hl
@@ -713,7 +713,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           · exact hbe₂
           · exact ihLoop hred (strLitToConstructor_looseBVars s 0)
         rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, -, hred, -⟩
+          ⟨us, entry, hfn, hf, hi, hlen, hus, -, hred, -⟩
         · simpa [looseBVarsBounded] using hbe₃
         · exact ihCore hred
             (looseBVarsBounded_getAppArgs hbe₃ _ (getD_mem (by omega)))
@@ -860,7 +860,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       simp only [WScoped] at hwPi
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
     | proj sn i pe =>
-      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
+      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hlen,
         hus, -, rfl, -⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       have hwte := inferTypeCore_WScoped henv fuel hte hw
@@ -989,7 +989,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         simp [fvarLeaves, hb]
       · exact Or.inr hb
     | proj sn i pe =>
-      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
+      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hlen,
         hus, -, rfl, -⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       intro l hl
@@ -1132,7 +1132,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       simp only [looseBVarsBounded, Bool.and_eq_true] at hbPi
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
     | proj sn i pe =>
-      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
+      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hlen,
         hus, -, rfl, -⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded] at hb

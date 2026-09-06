@@ -61,7 +61,7 @@ def MemberEtaLawP (V : Type w) [SetTheory V] : Prop :=
     BlockInstalledTT blockNames env mp.base2.cvalE →
     BlockAcvalInstalled blockNames env mp.base2.acval →
     c₀.toConstantVal = cvA → c₀.name = cvA.name →
-    (∀ entry, c₀ = .projInfo entry → entry.tower = false) →
+    (∀ entry, c₀ ≠ .projInfo entry) →
     ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true → Setlec.reservedBasisNames.contains T = false →

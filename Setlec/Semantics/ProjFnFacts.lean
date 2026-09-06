@@ -310,8 +310,4 @@ theorem projFwd_model_self {T ctorName : Name} {nF i : Nat}
     intro hh
     exact Name.num_ne_str _ _ _ _ (eq_of_beq hh).symm]
 
-/-- The valuation an elimination-template entry takes. -/
-def templateVal : (Name → Nat) → VExpr :=
-  fun _ => .eqE (.sort 0) .prf .prf
-
 end Setlec.Semantics

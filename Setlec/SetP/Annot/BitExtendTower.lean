@@ -4,15 +4,15 @@ import Setlec.Verify.ProjSlots
 /-!
 # `denoteP` across a tower-entry cons (task #175 wiring, W4c S6)
 
-`denoteP_envExtend_mono` refutes a tower head outright: its `hproj`
-premise says every entry the extension adds is non-tower, because a
-`.proj T i` node with *no* entry reads by the pair fallback and would
-move under a tower entry at `(T, i)`.  The direct install conses
-exactly such entries, so its transport needs the refinement below:
-the extension may add **one** tower slot `(T, i)`, and the subject
-has no `.proj T i` node (`Expr.NoProjAt`, `Verify/ProjSlots.lean`,
-whose two dischargers cover every stored expression).  Every other
-clause is `denoteP_envExtend_mono`'s verbatim.
+`denoteP_envExtend_mono` refutes a table head outright: its `hproj`
+premise says the extension adds no entry at all, because a `.proj T i`
+node with *no* entry reads by the pair fallback and would move under
+an entry at `(T, i)`.  The direct install conses exactly such entries,
+so its transport needs the refinement below: the extension may add
+**one** family's slots `(T, i)`, and the subject has no `.proj T i`
+node (`Expr.NoProjAt`, `Verify/ProjSlots.lean`, whose two dischargers
+cover every stored expression).  Every other clause is
+`denoteP_envExtend_mono`'s verbatim.
 -/
 
 namespace Setlec.SetP
@@ -33,7 +33,7 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     (hF : FindPreserved env₀ env) (hG : LitGuardsMono env₀ env)
     (hproj : ∀ (sn : Name) (j : Nat) (entry : Setlec.ProjEntry),
       env₀.findProj? sn j = none → env.findProj? sn j = some entry →
-      entry.tower = true → sn = T) :
+      sn = T) :
     ∀ (d : Nat) (e : Expr), ConstsBound env₀ e → (∀ j, Expr.NoProjAt T j e) →
       ∀ {ea : AVExpr}, denoteP acval env₀ φ d e = some ea →
         denoteP acval env φ d e = some ea := by
@@ -123,16 +123,12 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     have hnpe : ∀ j', Expr.NoProjAt T j' e := fun j' => (hnp' j').2
     have hsnT : sn ≠ T := fun hsn => (hnp' j).1 ⟨hsn, rfl⟩
     obtain ⟨ea', hea', hcase⟩ := denoteP_proj_inv h
-    rcases hcase with ⟨entry, hfp0, htw, rfl⟩ | ⟨hnt0, hj, rfl⟩
-    · -- a tower entry at the prefix persists unchanged
+    rcases hcase with ⟨entry, hfp0, rfl⟩ | ⟨hnt0, hj, rfl⟩
+    · -- a table entry at the prefix persists unchanged
       rw [denoteP, ihe hc hnpe hea', hmono sn j entry hfp0]
-      show (if entry.tower = true then some (projAV j ea')
-          else if j < 2 then some (AVExpr.proj j ea') else none)
-        = some (projAV j ea')
-      rw [if_pos htw]
-    · -- the pair path: any extension-side entry is still tower-free —
-      -- the slots that may have turned tower are `T`'s, and the
-      -- subject has no node there
+      rfl
+    · -- the table-free path: the slots the extension may have added
+      -- are `T`'s, and the subject has no node there
       rw [denoteP, ihe hc hnpe hea']
       cases hfp : env.findProj? sn j with
       | none =>
@@ -140,21 +136,7 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
           = some (AVExpr.proj j ea')
         rw [if_pos hj]
       | some entry =>
-        have hntw : entry.tower = false := by
-          cases hfp0 : env₀.findProj? sn j with
-          | some entry0 =>
-            have hsame := hmono sn j entry0 hfp0
-            rw [hfp] at hsame
-            obtain rfl := Option.some.inj hsame
-            exact hnt0 _ hfp0
-          | none =>
-            cases htw : entry.tower with
-            | false => rfl
-            | true => exact absurd (hproj sn j entry hfp0 hfp htw) hsnT
-        show (if entry.tower = true then some (projAV j ea')
-            else if j < 2 then some (AVExpr.proj j ea') else none)
-          = some (AVExpr.proj j ea')
-        rw [if_neg (by simp [hntw]), if_pos hj]
+        exact absurd (hproj sn j entry hnt0 hfp) hsnT
   | case11 d n hsup =>
     intro _ _ ea h
     rw [denoteP, if_pos hsup] at h
@@ -192,14 +174,14 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
-/-- A tower-table cons adds exactly its own structure's slots: any
-lookup new at the extension is the head's (task #175 S1). -/
+/-- A table cons adds exactly its own structure's slots: any lookup
+new at the extension is the head's (task #175 S1). -/
 theorem findProj?_cons_tower {env : Env} {tbl₀ : Setlec.ProjTable} :
     ∀ (sn : Name) (j : Nat) (entry : Setlec.ProjEntry),
       env.findProj? sn j = none →
       Env.findProj? ⟨.projInfo tbl₀ :: env.consts⟩ sn j = some entry →
-      entry.tower = true → sn = tbl₀.structName := by
-  intro sn j entry h0 h1 _
+      sn = tbl₀.structName := by
+  intro sn j entry h0 h1
   by_cases hn : (Setlec.ConstantInfo.projInfo tbl₀).name = Setlec.projTableName sn
   · exact (Setlec.projTableName_inj hn).symm
   · rw [Setlec.Env.findProj?_cons_ne hn, h0] at h1

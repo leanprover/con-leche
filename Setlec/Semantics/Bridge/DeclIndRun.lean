@@ -522,9 +522,8 @@ at the single inductive member), `hall`/`hbshape`/`hTnres`/`hinvR` (the
 recursor group's and projection phase's carrier inputs) and the
 `indRecsCoreR` swap all existed to feed a `∀ φ` row somewhere below.
 
-`templates_of` (`Bridge/Decl.lean`) is called **verbatim**: the
-elimination-template pass never took a valuation, so the run record
-names the R family's own `Templates` and its bridge is shared. -/
+(Task #175 tower-flag: the elimination-template install is gone, and
+with it the run record's last conjunct.) -/
 theorem declIndRun_of
     {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo}
@@ -563,19 +562,14 @@ theorem declIndRun_of
   by_cases hsl : ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF = true
   case neg =>
     rw [if_neg hsl] at h
-    have h' : installProjTemplate (m := CheckM) envR cvT.name cvC.name
-        cvT.levelParams nP nF = .ok env₂ := h
+    obtain rfl : envR = env₂ := Except.ok.inj h
     exact ⟨hsplit, Or.inl ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt,
       envM, envR, indMembersRunRS _ hmemFold, indRecsRunRS _ hrecsFold,
-      hres, hprojFresh, envR, (by rw [if_neg hsl]; rfl), templates_of h'⟩⟩
+      hres, hprojFresh, (by rw [if_neg hsl]; rfl)⟩⟩
   rw [if_pos hsl] at h
-  split at h
-  case h_1 => exact nomatch h
-  next envP hprojFold =>
   exact ⟨hsplit, Or.inl ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt,
     envM, envR, indMembersRunRS _ hmemFold, indRecsRunRS _ hrecsFold,
-    hres, hprojFresh, envP,
-    (by rw [if_pos hsl]; exact projInstallRunRS (List.range nF) hprojFold),
-    templates_of h⟩⟩
+    hres, hprojFresh,
+    (by rw [if_pos hsl]; exact projInstallRunRS (List.range nF) h)⟩⟩
 
 end Setlec.Semantics
