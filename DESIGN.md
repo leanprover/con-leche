@@ -52365,6 +52365,14 @@ moves least, which is the right sign: its cost is size, not sharing.
 | t1 (whole cone) | verified | 352.074 | 339.803 | −3.5 % |
 | t5 (whole cone) | verified | 75.495 | 69.095 | −8.5 % |
 
+**Re-confirmed on the post-merge master** (`d6aeff20`, i.e. after
+#190, #191 and #193): a fresh baseline binary at that commit
+reproduces the `28cf1037` cells to four significant figures
+(t5 trusted 72.914 vs 72.880 G, t1 trusted 334.288 vs 334.245 G), and
+the merged branch measures target-only t5 −25.1 % / −25.0 % and t1
+−26.9 % / −27.1 % (trusted / verified).  The table above therefore
+stands on current master.
+
 So P2 is a **tail** fix, exactly as #189 predicted: a quarter off the
 pathological declarations, a rounding error on the streams whose
 comparisons are decided by the pointer test.  Verdicts unchanged
