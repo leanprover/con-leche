@@ -61,18 +61,18 @@ sources:
       transcription of a statement in the thesis.
     license: "unknown"
     author_endorsement: "not-contacted"
-  - title: "lean4lean-model"
+  - title: "lean4lean"
     authors:
       - "Mario Carneiro"
     type: other
     id: "https://github.com/digama0/lean4lean"
     relationship: background
     note: >-
-      A Lean formalization of the model construction for Lean's type
-      theory, consulted as a reference checkout during development. Used
-      as background; this project's set model (`Setlec/SetModel/*`,
-      `Setlec/SetP/*`) is an independent development against its own
-      `SetTheory` interface and shares no code with it.
+      A Lean typechecker for Lean's type theory written in Lean, with a
+      metatheory development, consulted as a reference checkout during
+      development. Used as background; this project's set model
+      (`Setlec/SetModel/*`, `Setlec/SetP/*`) is an independent development
+      against its own `SetTheory` interface and shares no code with it.
     license: "unknown"
     author_endorsement: "not-contacted"
 
