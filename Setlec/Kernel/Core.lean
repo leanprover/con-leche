@@ -629,7 +629,11 @@ def natOpResult (c : Name) (a b : Nat) : Option Expr :=
   else if c = natAddName then some (.lit (.natVal (a + b)))
   else if c = natSubName then some (.lit (.natVal (a - b)))
   else if c = natMulName then some (.lit (.natVal (a * b)))
-  else if c = natPowName then some (.lit (.natVal (a ^ b)))
+  else if c = natPowName then
+    -- the divergence audit's S2: official `reduce_pow` refuses exponents
+    -- above `ReducePowMaxExp = 1 << 24` (`type_checker.cpp:616-627`) and
+    -- lets `Nat.pow` unfold instead — the blow-up protection, mirrored
+    if b > 16777216 then none else some (.lit (.natVal (a ^ b)))
   else if c = natDivName then some (.lit (.natVal (a / b)))
   else if c = natModName then some (.lit (.natVal (a % b)))
   else if c = natGcdName then some (.lit (.natVal (Nat.gcd a b)))
