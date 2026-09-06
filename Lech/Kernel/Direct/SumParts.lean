@@ -150,26 +150,63 @@ def directSumPartsCore? (block : List ConstantInfo) : Option DirectSumParts :=
              | some (_, cbody) => directCtorResidOk T lps nP c.2.2 nIdx cbody
              | none => false)) &&
           directSumRulesOk nP n cs rules then
-        match cvT.type.stripPis (nP + nIdx) with
-        | some (_, .sort s) =>
-          let isProp := Level.isEquiv s .zero == some true
-          let ctors := cs.map fun c => (c.1, c.2.2)
-          let rhss := rules.map (·.rhs)
-          let large? : Option Name :=
-            match cvR.levelParams with
-            | elim :: relps =>
-              if relps == lps && !lps.contains elim then some elim else none
-            | [] => none
-          match large? with
-          | some elim => some ⟨cvT, ctors, nP, nIdx, cvR, elim, s, rhss, true, isProp⟩
-          | none =>
-            if cvR.levelParams == lps then
-              some ⟨cvT, ctors, nP, nIdx, cvR, .anonymous, s, rhss, false, isProp⟩
-            else none
-        | _ => none
+        -- the result sort: read off the declared type when it is a
+        -- syntactic telescope ending in a sort; otherwise (task #195: a
+        -- former declared AT A DEFINITION that only unfolds to its
+        -- telescope, `inductive … : Presieve X`) a PLACEHOLDER that the
+        -- install's whnf loop replaces (`checkDirectSumInd`,
+        -- `DirectSumParts.withSort`) — official's own
+        -- `check_inductive_types` reads the telescope through `whnf`
+        let s : Level := match cvT.type.stripPis (nP + nIdx) with
+          | some (_, .sort s) => s
+          | _ => .zero
+        let isProp := Level.isEquiv s .zero == some true
+        let ctors := cs.map fun c => (c.1, c.2.2)
+        let rhss := rules.map (·.rhs)
+        let large? : Option Name :=
+          match cvR.levelParams with
+          | elim :: relps =>
+            if relps == lps && !lps.contains elim then some elim else none
+          | [] => none
+        match large? with
+        | some elim => some ⟨cvT, ctors, nP, nIdx, cvR, elim, s, rhss, true, isProp⟩
+        | none =>
+          if cvR.levelParams == lps then
+            some ⟨cvT, ctors, nP, nIdx, cvR, .anonymous, s, rhss, false, isProp⟩
+          else none
       else none
     | none => none
   | _ => none
+
+/-- The record completed with the former's result sort (task #195):
+the install stage reads the sort off the checked telescope — the
+declared one, or official's whnf'd one — and every later stage runs
+on this record.  `isProp` is recomputed so that the recogniser's
+invariant `isProp = (isEquiv resSort zero == some true)` holds by
+definition. -/
+def DirectSumParts.withSort (p : DirectSumParts) (s : Level) : DirectSumParts :=
+  { p with resSort := s, isProp := Level.isEquiv s .zero == some true }
+
+@[simp] theorem DirectSumParts.withSort_cvT (p : DirectSumParts) (s : Level) :
+    (p.withSort s).cvT = p.cvT := rfl
+@[simp] theorem DirectSumParts.withSort_ctors (p : DirectSumParts) (s : Level) :
+    (p.withSort s).ctors = p.ctors := rfl
+@[simp] theorem DirectSumParts.withSort_nP (p : DirectSumParts) (s : Level) :
+    (p.withSort s).nP = p.nP := rfl
+@[simp] theorem DirectSumParts.withSort_nIdx (p : DirectSumParts) (s : Level) :
+    (p.withSort s).nIdx = p.nIdx := rfl
+@[simp] theorem DirectSumParts.withSort_cvR (p : DirectSumParts) (s : Level) :
+    (p.withSort s).cvR = p.cvR := rfl
+@[simp] theorem DirectSumParts.withSort_elim (p : DirectSumParts) (s : Level) :
+    (p.withSort s).elim = p.elim := rfl
+@[simp] theorem DirectSumParts.withSort_resSort (p : DirectSumParts) (s : Level) :
+    (p.withSort s).resSort = s := rfl
+@[simp] theorem DirectSumParts.withSort_rhss (p : DirectSumParts) (s : Level) :
+    (p.withSort s).rhss = p.rhss := rfl
+@[simp] theorem DirectSumParts.withSort_large (p : DirectSumParts) (s : Level) :
+    (p.withSort s).large = p.large := rfl
+@[simp] theorem DirectSumParts.withSort_isProp (p : DirectSumParts) (s : Level) :
+    (p.withSort s).isProp = (Level.isEquiv s .zero == some true) := rfl
 
 /-- **Non-recursive**: every binder domain of every constructor
 resolves in the pre-block environment (see `directNonRec`). -/

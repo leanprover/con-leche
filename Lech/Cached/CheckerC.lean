@@ -162,14 +162,14 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
 /-- `checkDirectSum` through the index (task #175 sum-types).  One
 flush per environment transition: the former's, the constructors'
 (all at the former's environment), the recursor's. -/
-def checkDirectSumS (fe : FEnv) (p : DirectSumParts) : CheckCM FEnv := do
+def checkDirectSumS (fe : FEnv) (p₀ : DirectSumParts) : CheckCM FEnv := do
+  unless (p₀.ctors.map (·.1.name)).Nodup do
+    throw (.invalid "direct sum: duplicate constructor")
+  flushC
+  let (fe₁, cvTa, p) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct sum: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
-  unless (p.ctors.map (·.1.name)).Nodup do
-    throw (.invalid "direct sum: duplicate constructor")
-  flushC
-  let (fe₁, cvTa) ← checkDirectSumIndF (sharedOpsC mode fe) fe p
   flushC
   let ctorsA ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe fe₁ p.cvT.name p.cvT.levelParams
     p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors

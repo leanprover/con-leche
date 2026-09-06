@@ -41,7 +41,7 @@ predicate rejects) or argued below.
 | `mI == nP + 2 ∧ rP == nP + 2` (with `mI = rnP+rnM+rnm+rnI`, `rP = rnP+rnM+rnm`, from `Lech/Frontend/ExportC.lean`) | `rec.numIndices == 0 ∧ rec.numMotives == 1 ∧ rec.numMinors == 1 ∧ rec.numParams == ctor.numParams` |
 | `rule.ctor == C ∧ rule.nfields == nF` | the same, on `ERecRule` |
 | `rule.rhs.stripLams (nP+2+nF)` is `directRuleBody nF` | *not mirrored* — see below |
-| `cvT.type.stripPis nP` ends in `.sort` | `lechFormerTelescope` — `numParams + numIndices` Π binders then a `Sort`, on the DECLARED type (task #193: `numIndices` alone is NOT this conjunct — a former declared at a definition that unfolds to a telescope, `inductive … : Presieve X`, has indices and no syntactic telescope, and the routes reject it) |
+| `cvT.type.stripPis nP` ends in `.sort` | `lechFormerTelescope` — `numParams + numIndices` Π binders then a `Sort`, on the DECLARED type (task #193: `numIndices` alone is NOT this conjunct — a former declared at a definition that unfolds to a telescope, `inductive … : Presieve X`, has indices and no syntactic telescope; the structure recogniser rejects it, and since task #195 the SUM recogniser reads it through `whnf` — so the pin is the structure arm's only) |
 | large: `cvR.levelParams = elim :: lps`, `elim ∉ lps`; else small: `cvR.levelParams == lps` | the same, on `rec.levelParams` |
 | `directShape` (constructor result `T p⃗`; recursor motive/minor/major domains and `motive t` result) | *not mirrored* — see below |
 | `directNonRec env` (every constructor binder domain resolves in the pre-block environment) | `!type.isRec ∧ type.numNested == 0` |
@@ -98,16 +98,18 @@ route for this block is the pin. -/
 
 /-- **The type former's DECLARED type is a syntactic telescope**
 (task #193): `numParams + numIndices` Π binders ending in a `Sort`.
-This mirrors the recognisers' `cvT.type.stripPis (nP + nIdx)` ending in
-`.sort` — a conjunct the predicate used to read off `numIndices` alone,
-which is wrong for a former declared AT A DEFINITION that only
+This mirrors the STRUCTURE recogniser's `cvT.type.stripPis nP` ending
+in `.sort` — a conjunct the predicate used to read off `numIndices`
+alone, which is wrong for a former declared AT A DEFINITION that only
 *unfolds* to a telescope: `inductive Presieve.ofArrows … : Presieve X`
 (Mathlib; `Presieve X := ∀ ⦃Y⦄, Set (Y ⟶ X)`) has `numIndices = 2` from
-the kernel's `whnf`, but its stored type ends in `Presieve C inst X`,
-and the direct routes — whose generators and whose P-tier former
-reading are syntactic over the declared telescope — do not take it.
-Read with `Lean.Expr`'s binder structure only; no environment, no
-unfolding, so the direction is exact. -/
+the kernel's `whnf`, but its stored type ends in `Presieve C inst X`.
+Since task #195 the SUM route reads such a type through the whnf loop
+and takes it, so this pin applies to the structure arm only (no
+structure of init-full or Mathlib is declared that way — the task #195
+census — but the arm's recogniser is syntactic, so the mirror stays
+exact).  Read with `Lean.Expr`'s binder structure only; no environment,
+no unfolding. -/
 def lechFormerTelescope (type : EIndType) : Bool :=
   go (type.numParams + type.numIndices) type.type
 where
@@ -129,8 +131,17 @@ two conjuncts argued rather than mirrored, as at the structure class. -/
 def lechNativeSum (type : EIndType) (ctors : List ECtor) (rec : ERec) : Bool :=
   -- any number of constructors other than one, or an indexed family
   (ctors.length != 1 || type.numIndices != 0) &&
-  -- the former's declared type: `∀ p⃗ ı⃗, Sort w` syntactically (#193)
-  lechFormerTelescope type &&
+  -- the former's type: NOT pinned here (task #195).  The sum route's
+  -- install reads the telescope through official's own whnf loop
+  -- (`whnfTelescope`, `Lech/Kernel/Direct/SumInstall.lean`), so a former
+  -- declared at a definition (`inductive … : Presieve X`) is in the
+  -- class; that every Lean-produced record's type DOES whnf to
+  -- `numParams + numIndices` binders and a sort is how Lean computed
+  -- `numIndices` in the first place — an argued conjunct, like the
+  -- shape pins below, gated by `tests/native-audit.sh` (which holds on
+  -- all 23 such blocks of Mathlib, the task #195 census).  Task #193's
+  -- `lechFormerTelescope` stays on the STRUCTURE arm, whose recogniser
+  -- still reads the declared type syntactically.
   -- the member: non-recursive, non-nested, safe
   !type.isRec && type.numNested == 0 &&
     !type.isUnsafe && type.all == [type.name] &&
