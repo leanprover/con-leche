@@ -214,16 +214,16 @@ structure CState where
   whnfC : Std.HashMap ExprC ExprC := {}
   inferC : Std.HashMap ExprC ExprC := {}
   /-- **The io-grade inference memo** (task #170 / #172 B4): results of
-  the certified knot's `inferIO` slot at the gated config
-  (`cfg.ioGate`), kept apart from `inferC` per the task-#170 memo
+  the knot's `inferIO` slot at `mode.ioGate` (both modes), kept apart
+  from `inferC` per the task-#170 memo
   ruling — *"since caching has no access to semantic reasoning (yet)
   we need two memos, one with and one without the flag"* — because an
   io entry witnesses fewer checks than the full-infer claims consume.
   Its invariant is the io claims' weaker (premise-form) one
   (`CSOK.inferIOC`, `Verify/Cached/DiscC1.lean`).  Official's own
   layout: the C++ kernel keys its infer cache by `infer_only`.  At
-  gate-off configs the slot shares `inferC` and this map stays
-  empty. -/
+  `ioGate = false` (no mode any more) the slot shares `inferC` and
+  this map stays empty. -/
   inferIOC : Std.HashMap ExprC ExprC := {}
   defeqC : Std.HashMap (ExprC × ExprC) Bool := {}
   annotC : Std.HashMap ExprC ExprC := {}

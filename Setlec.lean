@@ -5,7 +5,6 @@ import Setlec.Kernel.ExprOps
 import Setlec.Kernel.Level
 import Setlec.Kernel.Env
 import Setlec.Kernel.PropRead
-import Setlec.Kernel.CoreCfg
 import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.CoreIO
 import Setlec.Kernel.CoreP

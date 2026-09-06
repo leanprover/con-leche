@@ -16,8 +16,8 @@ conversions the cached lane rewrites by are the `*_datF` family, which stayed
 in `Setlec.Verify.BridgeDecl`; the punchline this battery was written for
 (`checkDecl_wfOpsM_bridge`, named in the old module docstring) no longer
 exists.  That is exactly why the file can sit off the build's critical path:
-it is reached only from the `Setlec` umbrella, so it stays built,
-sorry-free and gated, without any chain module waiting for it.
+it is reached only from the `Setlec` umbrella, so it stays built, sorry-free
+and gated, without any chain module waiting for it.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -830,73 +830,111 @@ theorem checkDirectSumInd_snd_dproj (env : Env) (p : DirectSumParts) :
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, unwrapOr_snd_dproj, checkConstantVal_snd_dproj]
 
+/-- `checkDirectFieldSortsI` (task #175 indexed) through the first
+projection. -/
+theorem checkDirectFieldSortsI_fst_dproj (env : Env) (isProp large : Bool)
+    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) :
+    ∀ j : Nat,
+      (checkDirectFieldSortsI (pairOps o₁ o₂ h) env isProp large s nP fvs idxArgs
+          j).val.1 =
+        checkDirectFieldSortsI o₁ env isProp large s nP fvs idxArgs j
+  | 0 => rfl
+  | j + 1 => by
+    unfold checkDirectFieldSortsI
+    simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+      PairM.fst_ite, pairOps_inferType_fst, pairOps_ensureSort_fst,
+      liftFueled_fst_proj, unwrapOr_fst_dproj,
+      checkDirectFieldSortsI_fst_dproj env isProp large s nP fvs idxArgs j]
+
+/-- `checkDirectFieldSortsI` (task #175 indexed) through the second
+projection. -/
+theorem checkDirectFieldSortsI_snd_dproj (env : Env) (isProp large : Bool)
+    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) :
+    ∀ j : Nat,
+      (checkDirectFieldSortsI (pairOps o₁ o₂ h) env isProp large s nP fvs idxArgs
+          j).val.2 =
+        checkDirectFieldSortsI o₂ env isProp large s nP fvs idxArgs j
+  | 0 => rfl
+  | j + 1 => by
+    unfold checkDirectFieldSortsI
+    simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+      PairM.snd_ite, pairOps_inferType_snd, pairOps_ensureSort_snd,
+      liftFueled_snd_proj, unwrapOr_snd_dproj,
+      checkDirectFieldSortsI_snd_dproj env isProp large s nP fvs idxArgs j]
+
 theorem checkDirectSumCtor_fst_dproj (env₀ env : Env) (T : Name) (lps : List Name)
-    (nP : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
+    (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
     (cvTa : ConstantVal) :
-    (checkDirectSumCtor (pairOps o₁ o₂ h) env₀ env T lps nP rs isProp large cvC nF cvTa).val.1 =
-      checkDirectSumCtor o₁ env₀ env T lps nP rs isProp large cvC nF cvTa := by
+    (checkDirectSumCtor (pairOps o₁ o₂ h) env₀ env T lps nP nIdx rs isProp large
+      cvC nF cvTa).val.1 =
+      checkDirectSumCtor o₁ env₀ env T lps nP nIdx rs isProp large cvC nF cvTa := by
   unfold checkDirectSumCtor
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, unwrapOr_fst_dproj, checkConstantVal_fst_dproj,
-    checkDirectFieldSorts_fst_dproj, checkDirectDomsAt_fst_dproj]
+    checkDirectFieldSortsI_fst_dproj, checkDirectDomsAt_fst_dproj]
 
 theorem checkDirectSumCtor_snd_dproj (env₀ env : Env) (T : Name) (lps : List Name)
-    (nP : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
+    (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
     (cvTa : ConstantVal) :
-    (checkDirectSumCtor (pairOps o₁ o₂ h) env₀ env T lps nP rs isProp large cvC nF cvTa).val.2 =
-      checkDirectSumCtor o₂ env₀ env T lps nP rs isProp large cvC nF cvTa := by
+    (checkDirectSumCtor (pairOps o₁ o₂ h) env₀ env T lps nP nIdx rs isProp large
+      cvC nF cvTa).val.2 =
+      checkDirectSumCtor o₂ env₀ env T lps nP nIdx rs isProp large cvC nF cvTa := by
   unfold checkDirectSumCtor
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, unwrapOr_snd_dproj, checkConstantVal_snd_dproj,
-    checkDirectFieldSorts_snd_dproj, checkDirectDomsAt_snd_dproj]
+    checkDirectFieldSortsI_snd_dproj, checkDirectDomsAt_snd_dproj]
 
 theorem checkDirectSumCtors_fst_dproj (env₀ env : Env) (T : Name) (lps : List Name)
-    (nP : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) :
+    (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) :
     ∀ cs : List (ConstantVal × Nat),
-      (checkDirectSumCtors (pairOps o₁ o₂ h) env₀ env T lps nP rs isProp large cvTa cs).val.1 =
-        checkDirectSumCtors o₁ env₀ env T lps nP rs isProp large cvTa cs
+      (checkDirectSumCtors (pairOps o₁ o₂ h) env₀ env T lps nP nIdx rs isProp large
+        cvTa cs).val.1 =
+        checkDirectSumCtors o₁ env₀ env T lps nP nIdx rs isProp large cvTa cs
   | [] => rfl
   | c :: cs => by
     unfold checkDirectSumCtors
     simp only [PairM.fst_bind, PairM.fst_pure, checkDirectSumCtor_fst_dproj,
-      checkDirectSumCtors_fst_dproj env₀ env T lps nP rs isProp large cvTa cs]
+      checkDirectSumCtors_fst_dproj env₀ env T lps nP nIdx rs isProp large cvTa cs]
 
 theorem checkDirectSumCtors_snd_dproj (env₀ env : Env) (T : Name) (lps : List Name)
-    (nP : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) :
+    (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) :
     ∀ cs : List (ConstantVal × Nat),
-      (checkDirectSumCtors (pairOps o₁ o₂ h) env₀ env T lps nP rs isProp large cvTa cs).val.2 =
-        checkDirectSumCtors o₂ env₀ env T lps nP rs isProp large cvTa cs
+      (checkDirectSumCtors (pairOps o₁ o₂ h) env₀ env T lps nP nIdx rs isProp large
+        cvTa cs).val.2 =
+        checkDirectSumCtors o₂ env₀ env T lps nP nIdx rs isProp large cvTa cs
   | [] => rfl
   | c :: cs => by
     unfold checkDirectSumCtors
     simp only [PairM.snd_bind, PairM.snd_pure, checkDirectSumCtor_snd_dproj,
-      checkDirectSumCtors_snd_dproj env₀ env T lps nP rs isProp large cvTa cs]
+      checkDirectSumCtors_snd_dproj env₀ env T lps nP nIdx rs isProp large cvTa cs]
 
 theorem checkDirectSumRules_fst_dproj (env : Env) (rlps : List Name) (T : Name)
-    (lps : List Name) (elim : Name) (large : Bool) (nP : Nat) (tty : Expr)
+    (lps : List Name) (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
     (ctors : List (Name × Nat × Expr)) :
     ∀ k j : Nat,
-      (checkDirectSumRules (pairOps o₁ o₂ h) env rlps T lps elim large nP tty ctors k j).val.1 =
-        checkDirectSumRules o₁ env rlps T lps elim large nP tty ctors k j
+      (checkDirectSumRules (pairOps o₁ o₂ h) env rlps T lps elim large nP nIdx tty
+        ctors k j).val.1 =
+        checkDirectSumRules o₁ env rlps T lps elim large nP nIdx tty ctors k j
   | 0, _ => rfl
   | k + 1, j => by
     unfold checkDirectSumRules
     simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw, PairM.fst_ite,
       pairOps_inferType_fst, unwrapOr_fst_dproj,
-      checkDirectSumRules_fst_dproj env rlps T lps elim large nP tty ctors k (j + 1)]
+      checkDirectSumRules_fst_dproj env rlps T lps elim large nP nIdx tty ctors k (j + 1)]
 
 theorem checkDirectSumRules_snd_dproj (env : Env) (rlps : List Name) (T : Name)
-    (lps : List Name) (elim : Name) (large : Bool) (nP : Nat) (tty : Expr)
+    (lps : List Name) (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
     (ctors : List (Name × Nat × Expr)) :
     ∀ k j : Nat,
-      (checkDirectSumRules (pairOps o₁ o₂ h) env rlps T lps elim large nP tty ctors k j).val.2 =
-        checkDirectSumRules o₂ env rlps T lps elim large nP tty ctors k j
+      (checkDirectSumRules (pairOps o₁ o₂ h) env rlps T lps elim large nP nIdx tty
+        ctors k j).val.2 =
+        checkDirectSumRules o₂ env rlps T lps elim large nP nIdx tty ctors k j
   | 0, _ => rfl
   | k + 1, j => by
     unfold checkDirectSumRules
     simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw, PairM.snd_ite,
       pairOps_inferType_snd, unwrapOr_snd_dproj,
-      checkDirectSumRules_snd_dproj env rlps T lps elim large nP tty ctors k (j + 1)]
+      checkDirectSumRules_snd_dproj env rlps T lps elim large nP nIdx tty ctors k (j + 1)]
 
 theorem checkDirectSumRec_fst_dproj (env : Env) (p : DirectSumParts)
     (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
@@ -1397,7 +1435,6 @@ theorem checkDecls_snd_dproj (ds : List Declaration) :
   unfold checkDecls
   rw [foldlM_snd]
   simp only [checkDecl_snd_dproj]
-
 end DeclBattery
 
 

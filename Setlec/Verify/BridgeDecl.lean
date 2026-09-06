@@ -3,29 +3,31 @@ import Setlec.Verify.Bridge
 /-!
 # The cache-refinement bridge, part C: the declaration checker
 
-The declaration checker is monad-polymorphic over a `CheckerOps` record, so
-the same pair-monad game applies: `bridgeRel` relates monotone fueled families
-to plain executable computations ("success on the executable side is
-reproduced at some fuel"), the fueled/cached operation records are related by
-part B's entry-point bridges, and the projection batteries push the pairing
-through every declaration-checker function.
+The declaration checker is monad-polymorphic over a `CheckerOps`
+record, so the same pair-monad game applies: `bridgeRel` relates
+monotone fueled families to plain executable computations
+("success on the executable side is reproduced at some fuel"), the
+fueled/cached operation records are related by part B's entry-point
+bridges, and the projection batteries push the pairing through every
+declaration-checker function.  The punchline: a successful
+`checkDecls mode (wfOpsM mode)` run is reproduced by `checkDecls mode (fueledOps mode F)`
+for some fuel `F`.
 
 **The file split (task #184, the build-time audit).**  This module is the
 *consumed* half: the operation records (`bridgeRel`, `OpsRel`, `pairOps`,
-`fueledOpsM`, `wfOpsM` and the five `wfOpsM_*` equations) and the `atF`
-battery — for every `check*` function, `(… (fueledOpsM mode) …).val F =
-… (fueledOps mode F) …`, which is what `Verify/BridgeWfImp` and the cached
-lane's `Verify/Cached/Bridge*` rewrite by.  The pair-monad projection battery
-(`X_fst_dproj` / `X_snd_dproj`, 102 theorems that nothing outside their own
-file consumes) moved to `Setlec/Verify/BridgeDeclPair.lean`, which the
-`Setlec` umbrella imports so that it stays built and gated.
+`fueledOpsM`, `wfOpsM` and the `wfOpsM_*` equations) and the `atF` battery
+— for every `check*` function, `(… (fueledOpsM …) …).val F = … (fueledOps …
+F) …`, which is what `Verify/BridgeWfImp` and the cached lane's
+`Verify/Cached/Bridge*` rewrite by.  The pair-monad projection battery
+(`X_fst_dproj` / `X_snd_dproj`, theorems that nothing outside their own file
+consumes) moved to `Setlec/Verify/BridgeDeclPair.lean`, which the `Setlec`
+umbrella imports so that it stays built and gated.
 
 Why: the two batteries share nothing but the declarations above, and together
-they were one 2 240-line node costing 57 s — the largest — on a critical path
-of 203 s.  Apart, the projection battery elaborates in parallel with the rest
-of the tree and only the consumed half stays on the chain.  Nothing about any
-statement changed, and the module name did not move, so the frozen
-proof-dependency pin is untouched.
+they were the largest node on the build's critical path (57 s of 203 s).
+Apart, the projection battery elaborates in parallel and only the consumed
+half stays on the chain.  No statement changed and the module name did not
+move, so the frozen proof-dependency pin (`tests/proofdeps.sh`) is untouched.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -183,6 +185,7 @@ theorem wfOpsM_whnf {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
     (wfOpsM mode).whnf env d e = (fueledOpsM mode).whnf env d e := by
   dsimp only [wfOpsM, fueledOpsM]
   exact if_pos ⟨henv, hg⟩
+
 /-! ## The `atF` battery: fueled-family runs are fueled-ops runs -/
 
 theorem foldlM_atF {α β : Type} (g : β → α → FueledM β) (F : Nat) :
@@ -592,39 +595,60 @@ theorem checkDirectSumInd_datF (env : Env) (p : DirectSumParts) (F : Nat) :
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF]
 
+/-- `checkDirectFieldSortsI` (task #175 indexed) at fuel `F`. -/
+theorem checkDirectFieldSortsI_datF (env : Env) (isProp large : Bool)
+    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) (F : Nat) :
+    ∀ j : Nat,
+      (checkDirectFieldSortsI (fueledOpsM mode) env isProp large s nP fvs idxArgs
+          j).val F =
+        checkDirectFieldSortsI (fueledOps mode F) env isProp large s nP fvs idxArgs j
+  | 0 => rfl
+  | j + 1 => by
+    unfold checkDirectFieldSortsI
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
+      liftFueled_atF, unwrapOr_atF,
+      checkDirectFieldSortsI_datF env isProp large s nP fvs idxArgs F j]
+
 theorem checkDirectSumCtor_datF (env₀ env : Env) (T : Name) (lps : List Name)
-    (nP : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
+    (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
     (cvTa : ConstantVal) (F : Nat) :
-    (checkDirectSumCtor (fueledOpsM mode) env₀ env T lps nP rs isProp large cvC nF cvTa).val F =
-      checkDirectSumCtor (fueledOps mode F) env₀ env T lps nP rs isProp large cvC nF cvTa := by
+    (checkDirectSumCtor (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
+      cvC nF cvTa).val F =
+      checkDirectSumCtor (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
+        cvC nF cvTa := by
   unfold checkDirectSumCtor
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
-    checkDirectFieldSorts_datF, checkDirectDomsAt_datF]
+    checkDirectFieldSortsI_datF, checkDirectDomsAt_datF]
 
 theorem checkDirectSumCtors_datF (env₀ env : Env) (T : Name) (lps : List Name)
-    (nP : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) (F : Nat) :
+    (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvTa : ConstantVal) (F : Nat) :
     ∀ cs : List (ConstantVal × Nat),
-      (checkDirectSumCtors (fueledOpsM mode) env₀ env T lps nP rs isProp large cvTa cs).val F =
-        checkDirectSumCtors (fueledOps mode F) env₀ env T lps nP rs isProp large cvTa cs
+      (checkDirectSumCtors (fueledOpsM mode) env₀ env T lps nP nIdx rs isProp large
+        cvTa cs).val F =
+        checkDirectSumCtors (fueledOps mode F) env₀ env T lps nP nIdx rs isProp large
+          cvTa cs
   | [] => rfl
   | c :: cs => by
     unfold checkDirectSumCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, checkDirectSumCtor_datF,
-      checkDirectSumCtors_datF env₀ env T lps nP rs isProp large cvTa F cs]
+      checkDirectSumCtors_datF env₀ env T lps nP nIdx rs isProp large cvTa F cs]
 
 theorem checkDirectSumRules_datF (env : Env) (rlps : List Name) (T : Name)
-    (lps : List Name) (elim : Name) (large : Bool) (nP : Nat) (tty : Expr)
+    (lps : List Name) (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
     (ctors : List (Name × Nat × Expr)) (F : Nat) :
     ∀ k j : Nat,
-      (checkDirectSumRules (fueledOpsM mode) env rlps T lps elim large nP tty ctors k j).val F =
-        checkDirectSumRules (fueledOps mode F) env rlps T lps elim large nP tty ctors k j
+      (checkDirectSumRules (fueledOpsM mode) env rlps T lps elim large nP nIdx tty
+        ctors k j).val F =
+        checkDirectSumRules (fueledOps mode F) env rlps T lps elim large nP nIdx tty
+          ctors k j
   | 0, _ => rfl
   | k + 1, j => by
     unfold checkDirectSumRules
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
       fueledOpsM_inferType_atF, unwrapOr_atF,
-      checkDirectSumRules_datF env rlps T lps elim large nP tty ctors F k (j + 1)]
+      checkDirectSumRules_datF env rlps T lps elim large nP nIdx tty ctors F k (j + 1)]
 
 theorem checkDirectSumRec_datF (env : Env) (p : DirectSumParts)
     (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) (F : Nat) :

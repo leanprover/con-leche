@@ -2,18 +2,20 @@ import Setlec.SetP.Direct.DirectIntroP
 import Setlec.Semantics.Tower.SumWire
 
 /-!
-# The sum leaves' bit validity and P packages (task #175 sum-types)
+# The sum leaves' bit validity and P packages (task #175 sum-types,
+indexed)
 
-`AnnotValidV` for the three sum leaves.  The case split and the
-injection carry no `.pi` node (hereditary plumbing); the squash
-carrier's and the recursor's motive `.pi` nodes carry the genuine
-clause — a zero codomain bit over a truth value — discharged from
-`piR_zero_mem_univZero` (the squash carrier) and from the motive's
-own applications being truth values at a zero elimination level (the
-recursor, `RecHypS.hM0`).  The recursor's validity is one more
-induction on the remaining constructor count (`caseRec_validV`), and
-the tail walk `underTowerValid_of_recTailS` mirrors the membership
-walk of `SumRec.lean`.
+`AnnotValidV` for the three sum leaves at an indexed family.  The
+case split and the injection carry no `.pi` node (hereditary
+plumbing); the squash carrier's, the index equation's and the
+recursor's motive `.pi` nodes carry the genuine clause — a zero
+codomain bit over a truth value — discharged from
+`piR_zero_mem_univZero` (the squash carrier, the equation chain) and
+from the motive's own applications being truth values at a zero
+elimination level (the recursor, `RecHypS.hM0`).  The restricted
+chains (`rChain`) are bit-valid from the fields' validity at the
+shifted frame and the index readings' validity at fitting field
+frames (`rChain_validV`).
 -/
 
 namespace Setlec.SetP
@@ -27,7 +29,20 @@ universe uv
 
 variable {V : Type uv} [SetTheory V]
 
-/-! ## The case split -/
+/-! ## Kit -/
+
+theorem AnnotValidV.mkAppN_inv {ρ : Nat → V} :
+    ∀ {args : List AVExpr} {f : AVExpr}, AnnotValidV V ρ (AVExpr.mkAppN f args) →
+      AnnotValidV V ρ f ∧ ∀ a ∈ args, AnnotValidV V ρ a
+  | [], _, h => ⟨h, fun _ ha => nomatch ha⟩
+  | a :: args, f, h => by
+    rw [AVExpr.mkAppN_cons] at h
+    obtain ⟨hfa, hall⟩ := AnnotValidV.mkAppN_inv h
+    rw [AnnotValidV_app] at hfa
+    exact ⟨hfa.1, fun a' ha' => by
+      rcases List.mem_cons.mp ha' with rfl | ha'
+      · exact hfa.2
+      · exact hall a' ha'⟩
 
 theorem numeralAV_validV (i : Nat) (σ : Nat → V) : AnnotValidV V σ (numeralAV i) := by
   induction i with
@@ -77,11 +92,123 @@ theorem caseAVAt_validV {w : Nat} :
       rw [shiftE_step]
       exact fun T' hT' => hT T' (List.mem_cons_of_mem _ hT')
 
-/-! ## The carrier -/
+/-! ## The index equation -/
+
+/-- The equation chain is a truth value (every node is a
+`Prop`-product). -/
+theorem eqChainAV_mem_univZero : ∀ (eqs : List (AVExpr × AVExpr)) (ρ : Nat → V),
+    interp2 V ρ (eqChainAV eqs) ∈ˢ (univZero : V)
+  | [], _ => by
+    show (empty : V) ∈ˢ univZero
+    rw [← univ_zero]; exact empty_mem_univ 0
+  | (_, _) :: _, _ => piR_zero_mem_univZero
+
+theorem eqChainAV_validV :
+    ∀ {eqs : List (AVExpr × AVExpr)} {ρ : Nat → V},
+      (∀ e ∈ eqs, AnnotValidV V ρ e.1 ∧ AnnotValidV V ρ e.2) →
+      AnnotValidV V ρ (eqChainAV eqs)
+  | [], _, _ => trivial
+  | (a, b) :: r, ρ, h => by
+    show AnnotValidV V ρ (.pi 0 0 (.eqE (.sort 0) a b) ((eqChainAV r).liftN 1 0))
+    rw [AnnotValidV_pi, AnnotValidV_eqE]
+    refine ⟨h (a, b) List.mem_cons_self, fun x _ => ?_, fun _ x _ => ?_⟩
+    · rw [AnnotValidV_liftN, show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
+      exact eqChainAV_validV fun e he => h e (List.mem_cons_of_mem _ he)
+    · rw [interp2_liftN, show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
+      exact eqChainAV_mem_univZero r ρ
+
+/-- The index equation is bit-valid from its sides' validity. -/
+theorem idxEqAV_validV {eqs : List (AVExpr × AVExpr)} {ρ : Nat → V}
+    (h : ∀ e ∈ eqs, AnnotValidV V ρ e.1 ∧ AnnotValidV V ρ e.2) :
+    AnnotValidV V ρ (idxEqAV eqs) := by
+  show AnnotValidV V ρ (.pi 0 0 (eqChainAV eqs) (.const .empty [0]))
+  rw [AnnotValidV_pi]
+  exact ⟨eqChainAV_validV h, fun _ _ => trivial,
+    fun _ _ _ => by rw [← univ_zero]; exact empty_mem_univ 0⟩
+
+theorem idxEqAV_nil_validV (ρ : Nat → V) : AnnotValidV V ρ (idxEqAV []) :=
+  idxEqAV_validV fun _ h => nomatch h
+
+/-- A chain extended by one field valid at every fitting frame. -/
+theorem FieldsValid_append_one {E : AVExpr} :
+    ∀ {Fs : List AVExpr} {ρ : Nat → V}, FieldsValid ρ Fs →
+      (∀ bs : List V, SpineFit ρ Fs bs → AnnotValidV V (consList bs ρ) E) →
+      FieldsValid ρ (Fs ++ [E])
+  | [], ρ, _, hE => ⟨by simpa [consList] using hE [] trivial, fun _ _ => trivial⟩
+  | F :: Fs, ρ, hv, hE => by
+    refine ⟨hv.1, fun a ha => ?_⟩
+    refine FieldsValid_append_one (hv.2 a ha) fun bs hsp => ?_
+    have := hE (a :: bs) ⟨ha, hsp⟩
+    rwa [consList_cons] at this
+
+/-- The lifted chain's validity is the chain's at the shifted frame. -/
+theorem FieldsValid_liftFields {n : Nat} :
+    ∀ {Fs : List AVExpr} {k : Nat} {σ : Nat → V},
+      FieldsValid σ (liftFields n k Fs) ↔ FieldsValid (shiftE n k σ) Fs
+  | [], _, _ => Iff.rfl
+  | F :: Fs, k, σ => by
+    simp only [liftFields_cons, FieldsValid, AnnotValidV_liftN, interp2_liftN]
+    refine and_congr Iff.rfl (forall_congr' fun a => imp_congr Iff.rfl ?_)
+    rw [cons_shiftE]
+    exact FieldsValid_liftFields
+
+/-- **The restricted chain is bit-valid** from the fields' validity at
+the shifted frame and the index readings' validity at fitting field
+frames. -/
+theorem rChain_validV {d nIdx : Nat} {Fs Es : List AVExpr} {σ : Nat → V}
+    (hv : FieldsValid (shiftE d 0 σ) Fs)
+    (hE : ∀ bs : List V, SpineFit (shiftE d 0 σ) Fs bs →
+      ∀ E ∈ Es, AnnotValidV V (consList bs (shiftE d 0 σ)) E) :
+    FieldsValid σ (rChain d nIdx Fs Es) := by
+  unfold rChain
+  refine FieldsValid_append_one (FieldsValid_liftFields.mpr hv) fun bs hsp => ?_
+  have hsp' : SpineFit (shiftE d 0 σ) Fs bs := (spineFit_liftFields d).mp hsp
+  have hlen : bs.length = Fs.length := hsp'.length_eq
+  refine idxEqAV_validV fun e he => ?_
+  obtain ⟨l, -, rfl⟩ := List.mem_map.mp he
+  refine ⟨?_, trivial⟩
+  show AnnotValidV V (consList bs σ) ((Es.getD l default).liftN d Fs.length)
+  rw [AnnotValidV_liftN, ← hlen, shiftE_consList_len]
+  by_cases hl : l < Es.length
+  · exact hE bs hsp' _ (getD_mem_of_lt hl)
+  · rw [getD_eq_default_of_le (by omega)]
+    trivial
 
 /-- Per-constructor hereditary validity. -/
 def SumFieldsValid (ρ : Nat → V) (Fss : List (List AVExpr)) : Prop :=
   ∀ Fs ∈ Fss, FieldsValid ρ Fs
+
+/-- The restricted chains are bit-valid. -/
+theorem rChains_validV {d nIdx : Nat} {Fss Ess : List (List AVExpr)} {σ : Nat → V}
+    (hv : SumFieldsValid (shiftE d 0 σ) Fss)
+    (hE : ∀ j, j < Fss.length → ∀ bs : List V, SpineFit (shiftE d 0 σ) (Fss.getD j []) bs →
+      ∀ E ∈ Ess.getD j [], AnnotValidV V (consList bs (shiftE d 0 σ)) E) :
+    SumFieldsValid σ (rChains d nIdx Fss Ess) := by
+  intro Fs' hFs'
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hFs'
+  rw [rChains_getElem?] at hj
+  cases hF : Fss[j]? with
+  | none => rw [hF] at hj; exact nomatch hj
+  | some Fs =>
+    cases hEs : Ess[j]? with
+    | none => rw [hF, hEs] at hj; exact nomatch hj
+    | some Es =>
+      rw [hF, hEs] at hj
+      obtain rfl := Option.some.inj hj
+      have hjn : j < Fss.length := (List.getElem?_eq_some_iff.mp hF).1
+      refine rChain_validV (hv Fs (List.mem_of_getElem? hF)) fun bs hsp E hE' => ?_
+      have hFs : Fss.getD j [] = Fs := by rw [List.getD_eq_getElem?_getD, hF]; rfl
+      have hEsD : Ess.getD j [] = Es := by rw [List.getD_eq_getElem?_getD, hEs]; rfl
+      exact hE j hjn bs (hFs ▸ hsp) E (hEsD ▸ hE')
+
+/-- The unit-restricted chains are bit-valid. -/
+theorem uChains_validV {ρ : Nat → V} {Fss : List (List AVExpr)} (hv : SumFieldsValid ρ Fss) :
+    SumFieldsValid ρ (uChains Fss) := by
+  intro Fs' hFs'
+  obtain ⟨Fs, hFs, rfl⟩ := List.mem_map.mp hFs'
+  exact FieldsValid_append_one (hv Fs hFs) fun _ _ => idxEqAV_nil_validV _
+
+/-! ## The carrier -/
 
 theorem towers_validV {w : Nat} {ρ : Nat → V} {Fss : List (List AVExpr)}
     (hv : SumFieldsValid ρ Fss) : ∀ T ∈ Fss.map (towerBodyAV w), AnnotValidV V ρ T := by
@@ -138,16 +265,72 @@ theorem sumInjAtAV_validV {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : shiftE
   simp only [AnnotValidV_app, AnnotValidV_const, AnnotValidV_lam]
   exact ⟨⟨⟨⟨trivial, trivial⟩, trivial, fun k _ => case_validV_at hsh hv k⟩, ht⟩, hp⟩
 
+/-- The proof-field-terminated tupler is bit-valid at a fitting frame
+(graph regime). -/
+theorem mkTowerGoUPos_validV {w : Nat} {E : AVExpr} :
+    ∀ {Fs : List AVExpr} {ρp : Nat → V} {bs : List V},
+      FieldsValid ρp (Fs ++ [E]) → SpineFit ρp Fs bs →
+      AnnotValidV V (consList bs ρp) (mkTowerGoUPos w E Fs)
+  | [], ρp, [], hv, _ => by
+    show AnnotValidV V ρp (.app (.app (.app (.app (.const .psigmaMk [w, w]) E)
+        (.lam (w + 1) E (.const .punit [w + 1]))) .prf) (.const .punitUnit []))
+    simp only [AnnotValidV_app, AnnotValidV_const, AnnotValidV_lam, AnnotValidV_prf]
+    exact ⟨⟨⟨⟨trivial, hv.1⟩, hv.1, fun _ _ => trivial⟩, trivial⟩, trivial⟩
+  | [], _, _ :: _, _, hsp => hsp.elim
+  | _ :: _, _, [], _, hsp => hsp.elim
+  | F :: Fs, ρp, b :: bs, hv, hsp => by
+    have hlen : bs.length = Fs.length := hsp.2.length_eq
+    have hshift : shiftE (Fs.length + 1) 0 (consList bs (cons b ρp)) = ρp := by
+      rw [← hlen,
+        show bs.length + 1 = bs.length + (0 + 1) by rw [Nat.zero_add],
+        shiftE_consList_add bs (0 + 1) (cons b ρp), Nat.zero_add,
+        shiftE_succ_cons, shiftE_zero_zero]
+    have hA : interp2 V (consList bs (cons b ρp)) (F.liftN (Fs.length + 1))
+        = interp2 V ρp F := by
+      rw [interp2_liftN, hshift]
+    rw [List.cons_append] at hv
+    show AnnotValidV V (consList bs (cons b ρp))
+      (.app (.app (.app (.app (.const .psigmaMk [w, w])
+          (F.liftN (Fs.length + 1)))
+          (.lam (w + 1) (F.liftN (Fs.length + 1))
+            ((towerBodyAV w (Fs ++ [E])).liftN (Fs.length + 1) 1)))
+          (.bvar Fs.length))
+        (mkTowerGoUPos w E Fs))
+    rw [AnnotValidV_app]
+    refine ⟨?_, mkTowerGoUPos_validV (hv.2 b hsp.1) hsp.2⟩
+    rw [AnnotValidV_app]
+    refine ⟨?_, by rw [AnnotValidV_bvar]; trivial⟩
+    rw [AnnotValidV_app]
+    refine ⟨?_, ?_⟩
+    · rw [AnnotValidV_app]
+      refine ⟨by rw [AnnotValidV_const]; trivial, ?_⟩
+      rw [AnnotValidV_liftN, hshift]
+      exact hv.1
+    · rw [AnnotValidV_lam]
+      refine ⟨by rw [AnnotValidV_liftN, hshift]; exact hv.1, ?_⟩
+      intro x hx
+      rw [hA] at hx
+      rw [AnnotValidV_liftN, ← cons_shiftE, hshift]
+      exact towerBodyAV_validV (hv.2 x hx)
+
+/-- The tupler is bit-valid at a fitting frame, both regimes. -/
+theorem mkTowerGoU_validV {w : Nat} {E : AVExpr} {Fs : List AVExpr} {ρp : Nat → V}
+    {bs : List V} (hv : FieldsValid ρp (Fs ++ [E])) (hsp : SpineFit ρp Fs bs) :
+    AnnotValidV V (consList bs ρp) (mkTowerGoU w Fs E) := by
+  by_cases hw : w = 0
+  · subst hw; rw [mkTowerGoU_zero]; trivial
+  · rw [mkTowerGoU_pos hw]; exact mkTowerGoUPos_validV hv hsp
+
 /-- The constructor's body is bit-valid at a fitting field frame. -/
 theorem sumInj_validV_at_fields {w j : Nat} {ρp : Nat → V} {Fs : List AVExpr}
     {Fss : List (List AVExpr)} {bs : List V}
-    (hv : SumFieldsValid ρp Fss) (hvF : FieldsValid ρp Fs)
-    (hb : w ≠ 0 → FieldsBound w ρp Fs) (hsp : SpineFit ρp Fs bs) :
+    (hv : SumFieldsValid ρp Fss) (hvF : FieldsValid ρp Fs) (hsp : SpineFit ρp Fs bs) :
     AnnotValidV V (consList bs ρp)
-      (sumInjAtAV w Fss Fs.length (numeralAV j) (mkTowerGo w Fs)) := by
+      (sumInjAtAV w Fss Fs.length (numeralAV j) (mkTowerGoU w Fs (idxEqAV []))) := by
   have hlen : bs.length = Fs.length := hsp.length_eq
   have hsh : shiftE Fs.length 0 (consList bs ρp) = ρp := by rw [← hlen]; exact shiftE_consList bs ρp
-  exact sumInjAtAV_validV hsh hv (numeralAV_validV j _) (mkTowerGo_validV hvF hb hsp)
+  exact sumInjAtAV_validV hsh hv (numeralAV_validV j _)
+    (mkTowerGoU_validV (FieldsValid_append_one hvF fun _ _ => idxEqAV_nil_validV _) hsp)
 
 /-- The constructor leaf's P currency. -/
 theorem directSumMkAV_okP {w j : Nat} {bodyC : AVExpr} {ρ : Nat → V}
@@ -155,7 +338,8 @@ theorem directSumMkAV_okP {w j : Nat} {bodyC : AVExpr} {ρ : Nat → V}
     (hz : ∀ d ∈ pds ++ fds, (w = 0 ↔ d.2.1 = 0))
     (hpre : MkPreS w j ρ (fds.map (·.2.2)) Fss bodyC pds)
     (hval : UnderTowerValid ρ
-      (sumInjAtAV w Fss (fds.map (·.2.2)).length (numeralAV j) (mkTowerGo w (fds.map (·.2.2))))
+      (sumInjAtAV w Fss (fds.map (·.2.2)).length (numeralAV j)
+        (mkTowerGoU w (fds.map (·.2.2)) (idxEqAV [])))
       (pds ++ fds)) :
     AnnotOkP V ρ (directSumMkAV w j (pds ++ fds) (fds.map (·.2.2)) Fss) :=
   ⟨directSumMkAV_ok2 hz hpre, mkLamsC_validV hval⟩
@@ -165,51 +349,66 @@ theorem directSumMkAV_okP {w j : Nat} {bodyC : AVExpr} {ρ : Nat → V}
 theorem major_proj_validV (i : Nat) (σ : Nat → V) : AnnotValidV V σ (.proj i (.bvar 0)) := by
   rw [AnnotValidV_proj]; trivial
 
+theorem motAppAV_validV (n nIdx D' : Nat) (σ : Nat → V) :
+    AnnotValidV V σ (motAppAV n nIdx D') :=
+  mkAppN_validV trivial fun a ha => by
+    obtain ⟨l, -, rfl⟩ := List.mem_map.mp ha
+    trivial
+
+theorem srcAV_validV (nIdx D' : Nat) (s : Option Nat) (σ : Nat → V) :
+    AnnotValidV V σ (srcAV nIdx D' s) := by
+  cases s <;> trivial
+
 /-- The stage motive body is bit-valid at a tag in `ω`: its `.pi`
 node's zero clause is the motive's application being a truth value. -/
-theorem motiveBody_validV {ℓ w n D : Nat} {ρp σ : Nat → V} {Fss : List (List AVExpr)} {M : V}
-    {ms : Nat → V} (hfr : RecFrameS n D ρp M ms σ) (hyp : RecHypS ℓ w ρp Fss M ms)
-    (hv : SumFieldsValid ρp Fss) (j : Nat) {k : V} (hk : k ∈ˢ (omega : V)) :
-    AnnotValidV V (cons k σ) (caseMotiveBodyAV ℓ w Fss D j) := by
-  obtain ⟨i, rfl⟩ := mem_omega_iff.mp hk
-  obtain ⟨hread, -⟩ := motiveBody_facts hfr hyp j hk
-  have hsh1 : shiftE (D + 1) 0 (cons (vnat i) σ) = ρp := hfr.sh1 _
-  show AnnotValidV V (cons (vnat i) σ) (.pi w ℓ _ _)
+theorem motiveBody_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
+    {Ids : List AVExpr} {famAt : List V → V}
+    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypS ℓ w ρ₀ Fss Ess Ids famAt)
+    (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
+    (j : Nat) (k : V) :
+    AnnotValidV V (cons k σ)
+      (caseMotiveBodyAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+        Fss.length Ids.length D j) := by
+  have hsh1 : shiftE (D + 1) 0 (cons k σ) = ρ₀ := by rw [shiftE_succ_cons]; exact hfr
+  show AnnotValidV V (cons k σ) (.pi w ℓ _ _)
   rw [AnnotValidV_pi]
   refine ⟨?_, fun y _ => ?_, fun h0 y hy => ?_⟩
   · refine caseAVAt_validV ?_ trivial
     rw [hsh1]
     exact fun T hT => towers_validV hv T (List.mem_of_mem_drop hT)
   · rw [AnnotValidV_app]
-    refine ⟨trivial, sumInjAtAV_validV (by rw [shiftE_step, hfr.sh]) hv
+    refine ⟨motAppAV_validV _ _ _ _, sumInjAtAV_validV (by rw [shiftE_step]; exact hfr) hv
       (succsAV_validV j trivial) trivial⟩
   · -- the zero clause: the motive's application is a truth value
-    have hpi := hread
-    rw [motSem_vnat] at hpi
-    -- read the codomain off the product's fibre
-    show interp2 V (cons y (cons (vnat i) σ))
-      (.app (.bvar (D + 1)) (sumInjAtAV w Fss (D + 2) (succsAV j (.bvar 1)) (.bvar 0)))
+    show interp2 V (cons y (cons k σ))
+      (.app (motAppAV Fss.length Ids.length (D + 2))
+        (sumInjAtAV w _ (D + 2) (succsAV j (.bvar 1)) (.bvar 0)))
       ∈ˢ (univZero : V)
-    rw [interp2_app, interp2_bvar, hfr.tag2]
+    rw [interp2_app, (motApp_facts (hfr.step y k) hyp).1]
     exact hyp.hM0 h0 _
 
-theorem motive_validV {ℓ w n D : Nat} {ρp σ : Nat → V} {Fss : List (List AVExpr)} {M : V}
-    {ms : Nat → V} (hfr : RecFrameS n D ρp M ms σ) (hyp : RecHypS ℓ w ρp Fss M ms)
-    (hv : SumFieldsValid ρp Fss) (j : Nat) :
-    AnnotValidV V σ (caseMotiveAV ℓ w Fss D j) := by
-  show AnnotValidV V σ (.lam (imaxN w ℓ + 1) natAV (caseMotiveBodyAV ℓ w Fss D j))
+theorem motive_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
+    {Ids : List AVExpr} {famAt : List V → V}
+    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypS ℓ w ρ₀ Fss Ess Ids famAt)
+    (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
+    (j : Nat) :
+    AnnotValidV V σ
+      (caseMotiveAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+        Fss.length Ids.length D j) := by
+  show AnnotValidV V σ (.lam (imaxN w ℓ + 1) natAV _)
   rw [AnnotValidV_lam]
-  exact ⟨trivial, fun k hk => motiveBody_validV hfr hyp hv j hk⟩
+  exact ⟨trivial, fun k _ => motiveBody_validV hfr hyp hv j k⟩
 
-theorem base_validV {ℓ w n D : Nat} {ρp σ : Nat → V} {Fss : List (List AVExpr)} {M : V}
-    {ms : Nat → V} (hfr : RecFrameS n D ρp M ms σ) (hv : SumFieldsValid ρp Fss) (j : Nat) :
-    AnnotValidV V σ (caseBaseAV ℓ w Fss D j) := by
+theorem base_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss' : List (List AVExpr)}
+    {ar : Nat → Nat} {n nIdx : Nat}
+    (hfr : RecFrameS D ρ₀ σ) (hv : SumFieldsValid ρ₀ Fss') (j : Nat) :
+    AnnotValidV V σ (caseBaseAV ℓ w Fss' ar n nIdx D j) := by
   show AnnotValidV V σ (.lam ℓ _ _)
   rw [AnnotValidV_lam]
   refine ⟨?_, fun y _ => ?_⟩
-  · rw [AnnotValidV_liftN, hfr.sh]
-    by_cases hj : j < Fss.length
-    · have hjF : Fss[j]? = some (Fss.getD j []) := by
+  · rw [AnnotValidV_liftN, hfr]
+    by_cases hj : j < Fss'.length
+    · have hjF : Fss'[j]? = some (Fss'.getD j []) := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]; rfl
       exact towerBodyAV_validV (hv _ (List.mem_of_getElem? hjF))
     · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
@@ -219,11 +418,14 @@ theorem base_validV {ℓ w n D : Nat} {ρp σ : Nat → V} {Fss : List (List AVE
       exact projAV_validV trivial
 
 /-- The case recursor is bit-valid. -/
-theorem caseRec_validV {ℓ w n : Nat} {ρp : Nat → V} {Fss : List (List AVExpr)} {M : V}
-    {ms : Nat → V} (hyp : RecHypS ℓ w ρp Fss M ms) (hv : SumFieldsValid ρp Fss) :
+theorem caseRec_validV {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List AVExpr)}
+    {Ids : List AVExpr} {famAt : List V → V} (hyp : RecHypS ℓ w ρ₀ Fss Ess Ids famAt)
+    (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)) :
     ∀ (r : Nat) {D j : Nat} {σ : Nat → V} {kx : AVExpr},
-      RecFrameS n D ρp M ms σ → AnnotValidV V σ kx →
-      AnnotValidV V σ (caseRecAV ℓ w Fss r D j kx)
+      RecFrameS D ρ₀ σ → AnnotValidV V σ kx →
+      AnnotValidV V σ
+        (caseRecAV ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
+          (fun j => (Fss.getD j []).length) Fss.length Ids.length r D j kx)
   | 0, _, _, σ, _, _, _ => by
     show AnnotValidV V σ (.lam ℓ (.const .empty [w]) .prf)
     rw [AnnotValidV_lam]
@@ -231,102 +433,42 @@ theorem caseRec_validV {ℓ w n : Nat} {ρp : Nat → V} {Fss : List (List AVExp
   | r + 1, D, j, σ, kx, hfr, hk => by
     refine natRecAV_validV (motive_validV hfr hyp hv j) (base_validV hfr hv j) ?_ hk
     rw [AnnotValidV_lam]
-    refine ⟨trivial, fun b hb => ?_⟩
+    refine ⟨trivial, fun b _ => ?_⟩
     rw [AnnotValidV_lam]
-    refine ⟨motiveBody_validV hfr hyp hv j hb, fun a _ => ?_⟩
+    refine ⟨motiveBody_validV hfr hyp hv j b, fun a _ => ?_⟩
     exact caseRec_validV hyp hv r (hfr.step a b) trivial
 
-theorem sumRecBody_validV {ℓ w : Nat} {ρp σ : Nat → V} {Fss : List (List AVExpr)} {M : V}
-    {ms : Nat → V} (hfr : RecFrameS Fss.length (Fss.length + 2) ρp M ms σ)
-    (hyp : RecHypS ℓ w ρp Fss M ms) (hv : SumFieldsValid ρp Fss) :
-    AnnotValidV V σ (sumRecBodyAV ℓ w Fss) := by
-  show AnnotValidV V σ (.app _ _)
-  rw [AnnotValidV_app]
-  exact ⟨caseRec_validV hyp hv Fss.length hfr (major_proj_validV 0 σ), major_proj_validV 1 σ⟩
-
-/-- The validity walk down the minor chain (the twin of
-`underTowerOk_of_recTail`). -/
-theorem underTowerValid_of_recTailS {ℓ w : Nat} {ρp : Nat → V} {Fss : List (List AVExpr)} {M : V}
-    {dt : Nat × Nat × AVExpr} (hok : SumFieldsOkB w ρp Fss) (hv : SumFieldsValid ρp Fss)
-    (hwl : w = 0 → Fss.length = 0 ∨ ℓ = 0)
-    (hM : M ∈ˢ piR (ℓ + 1) (sumSet w (sumFibre w ρp Fss)) fun _ => (univ ℓ : V)) :
-    ∀ {dms : List (Nat × Nat × AVExpr)} {j : Nat} {σ : Nat → V},
-      j + dms.length = Fss.length → TailFrame ρp M j σ →
-      (∀ j', j' < j → σ (j - 1 - j') ∈ˢ minorSpC ℓ M (ctorVal w j') (Fss.getD j' []) ρp []) →
-      RecTailS ℓ w ρp Fss M dt dms j σ →
-      (∀ d ∈ dms, ∀ σ' : Nat → V, AnnotValidV V σ' d.2.2) →
-      (∀ σ' : Nat → V, AnnotValidV V σ' dt.2.2) →
-      UnderTowerValid σ (sumRecBodyAV ℓ w Fss) (dms ++ [dt])
-  | [], j, σ, hj, hfr, hms, htail, _, hvt => by
-    simp only [List.length_nil, Nat.add_zero] at hj
-    subst hj
-    refine ⟨hvt σ, fun t ht => ?_⟩
-    have hfrS : RecFrameS Fss.length (Fss.length + 2) ρp M
-        (fun j' => σ (Fss.length - 1 - j')) (cons t σ) :=
-      { sh := by rw [shiftE_succ_cons, hfr.sh]
-        hD := Nat.le_refl _
-        hM := by
-          show cons t σ (Fss.length + 2 - 1) = M
-          rw [show Fss.length + 2 - 1 = Fss.length + 1 from rfl, cons_succ, hfr.hM]
-        hm := by
-          intro j' hj'
-          show cons t σ (Fss.length + 2 - 2 - j') = σ (Fss.length - 1 - j')
-          rw [show Fss.length + 2 - 2 - j' = (Fss.length - 1 - j') + 1 from by omega, cons_succ] }
-    have hyp : RecHypS ℓ w ρp Fss M (fun j' => σ (Fss.length - 1 - j')) :=
-      ⟨hok, hM, fun j' hj' => hms j' hj', hwl⟩
-    exact sumRecBody_validV hfrS hyp hv
-  | d :: dms, j, σ, hj, hfr, hms, htail, hvd, hvt => by
-    refine ⟨hvd d List.mem_cons_self σ, fun m hm => ?_⟩
-    refine underTowerValid_of_recTailS hok hv hwl hM (dms := dms) (j := j + 1) (σ := cons m σ)
-      (by simp only [List.length_cons] at hj; omega) (hfr.push m) ?_ (htail.2.2 m hm)
-      (fun d' hd' => hvd d' (List.mem_cons_of_mem _ hd')) hvt
-    intro j' hj'
-    rcases Nat.lt_or_ge j' j with hlt | hge
-    · show cons m σ (j + 1 - 1 - j') ∈ˢ _
-      rw [show j + 1 - 1 - j' = (j - 1 - j') + 1 from by omega, cons_succ]
-      exact hms j' hlt
-    · have hjj : j' = j := by omega
-      rw [hjj]
-      show cons m σ (j + 1 - 1 - j) ∈ˢ _
-      rw [show j + 1 - 1 - j = 0 from by omega, cons_zero, ← htail.2.1]
-      exact hm
-
-/-- The recursor leaf's validity premise from `RecPreS` plus the
-entries' validity (every entry is valid at every environment: the
-readings of stored types, `AnnotOkP`). -/
-theorem underTowerValid_of_recPreS {ℓ w : Nat} {Fss : List (List AVExpr)}
-    {dM : Nat × Nat × AVExpr} {dms : List (Nat × Nat × AVExpr)} {dt : Nat × Nat × AVExpr}
-    (hvFss : ∀ ρ : Nat → V, SumFieldsOkB w ρ Fss → SumFieldsValid ρ Fss)
-    (hvd : ∀ d ∈ dms, ∀ σ' : Nat → V, AnnotValidV V σ' d.2.2)
-    (hvt : ∀ σ' : Nat → V, AnnotValidV V σ' dt.2.2)
-    (hvM : ∀ σ' : Nat → V, AnnotValidV V σ' dM.2.2) :
-    ∀ {pds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
-      RecPreS ℓ w ρ Fss dM dms dt pds →
-      (∀ d ∈ pds, ∀ σ' : Nat → V, AnnotValidV V σ' d.2.2) →
-      UnderTowerValid ρ (sumRecBodyAV ℓ w Fss) (pds ++ [dM] ++ dms ++ [dt])
-  | d :: pds, ρ, h, hvp =>
-    ⟨hvp d List.mem_cons_self ρ, fun a ha =>
-      underTowerValid_of_recPreS hvFss hvd hvt hvM (h.2 a ha)
-        (fun d' hd' => hvp d' (List.mem_cons_of_mem _ hd'))⟩
-  | [], ρp, h, _ => by
-    refine ⟨hvM ρp, fun M hM => ?_⟩
-    rw [h.eqM] at hM
-    have hfr : TailFrame ρp M 0 (cons M ρp) :=
-      { sh := by rw [show (0 : Nat) + 1 = 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
-        hM := rfl }
-    have := underTowerValid_of_recTailS h.hok (hvFss ρp h.hok) h.hwl hM (dms := dms) (j := 0)
-      (σ := cons M ρp) (by rw [h.hlen, Nat.zero_add]) hfr
-      (fun j' hj' => absurd hj' (Nat.not_lt_zero _)) (h.tail M (h.eqM ▸ hM)) hvd hvt
-    simpa using this
+/-- **The recursor body is bit-valid** at the frame under the K-frame,
+both regimes. -/
+theorem sumRecBody_validV {ℓ w : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
+    {Ids : List AVExpr} {famAt : List V → V} {srcs : List (List (Option Nat))}
+    (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypS ℓ w ρ₀ Fss Ess Ids famAt)
+    (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)) :
+    AnnotValidV V σ (sumRecBodyAV ℓ w Fss Ess srcs Ids.length) := by
+  by_cases hw : w = 0
+  · subst hw
+    rw [sumRecBodyAV_zero]
+    cases Fss.length with
+    | zero => trivial
+    | succ n =>
+      show AnnotValidV V σ (AVExpr.mkAppN (.bvar _) ((srcs.getD 0 []).map (srcAV Ids.length 1)))
+      exact mkAppN_validV trivial fun a ha => by
+        obtain ⟨s, -, rfl⟩ := List.mem_map.mp ha
+        exact srcAV_validV _ _ _ _
+  · rw [sumRecBodyAV_pos hw]
+    rw [AnnotValidV_app]
+    exact ⟨caseRec_validV hyp hv Fss.length hfr (major_proj_validV 0 σ), major_proj_validV 1 σ⟩
 
 /-- The recursor leaf's P currency. -/
-theorem directSumRecAV_okP {ℓ w : Nat} {Fss : List (List AVExpr)} {ρ : Nat → V}
-    {pds : List (Nat × Nat × AVExpr)} {dM : Nat × Nat × AVExpr} {dms : List (Nat × Nat × AVExpr)}
+theorem directSumRecAV_okP {ℓ w : Nat} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
+    {famAt : (Nat → V) → List V → V} {srcs : List (List (Option Nat))} {ρ : Nat → V}
+    {pds : List (Nat × Nat × AVExpr)} {dM : Nat × Nat × AVExpr} {dms dis : List (Nat × Nat × AVExpr)}
     {dt : Nat × Nat × AVExpr}
-    (hz : ∀ d ∈ pds ++ [dM] ++ dms ++ [dt], (ℓ = 0 ↔ d.2.1 = 0))
-    (hpre : RecPreS ℓ w ρ Fss dM dms dt pds)
-    (hval : UnderTowerValid ρ (sumRecBodyAV ℓ w Fss) (pds ++ [dM] ++ dms ++ [dt])) :
-    AnnotOkP V ρ (directSumRecAV ℓ w (pds ++ [dM] ++ dms ++ [dt]) Fss) :=
+    (hz : ∀ d ∈ pds ++ [dM] ++ dms ++ dis ++ [dt], (ℓ = 0 ↔ d.2.1 = 0))
+    (hpre : RecPreS ℓ w ρ Fss Ess Ids famAt srcs dM dms dis dt pds)
+    (hval : UnderTowerValid ρ (sumRecBodyAV ℓ w Fss Ess srcs Ids.length)
+      (pds ++ [dM] ++ dms ++ dis ++ [dt])) :
+    AnnotOkP V ρ (directSumRecAV ℓ w (pds ++ [dM] ++ dms ++ dis ++ [dt]) Fss Ess srcs Ids.length) :=
   ⟨directSumRecAV_ok2 hz hpre, mkLamsC_validV hval⟩
 
 end Setlec.SetP

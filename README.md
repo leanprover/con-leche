@@ -41,7 +41,7 @@ In [`Setlec/MainTheorem.lean`](./Setlec/MainTheorem.lean) we prove that if the `
 ```lean
 theorem no_proof_of_False (V : Type w) [SetTheory V]
   (ds : List DeclC) (env : Env)
-  (accepted : checkDeclsSPCachedD (cfgOf .verified) ds = .ok env) :
+  (accepted : checkDeclsSPCachedD .verified ds = .ok env) :
   ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName []
 ```
 

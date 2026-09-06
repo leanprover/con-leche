@@ -110,15 +110,16 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
     | _ => pure major) := rfl
 
 /-- Port of `majorToCtorI_sim`. -/
-theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
+theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {recName : Name} {rules : List RecRule} {i : ExprC}
     {major : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i major) (hmaj : Expr.WScoped d major) :
     SimC mode env s₀ (RelEC d)
-      (majorToCtorI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d recName
+      (majorToCtorI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d recName
         rules i)
       (majorToCtor mode (fueledFns mode env) env d recName rules major) := by
-  show SimC mode env s₀ (RelEC d)
+  obtain rfl := CheckMode.eq_verified hμ
+  show SimC .verified env s₀ (RelEC d)
     (Setlec.Cached.withStore (fun st => isCtorAppI (mkFEnv env) st i) >>=
       fun ctor =>
       if ctor then pure i else
@@ -131,8 +132,8 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             match (mkFEnv env).find? T with
             | some (.indInfo cvT caps) =>
               if caps.ruleK = true ∧ cnF = 0 then
-                (coreKnotI (cfgOf mode) (mkFEnv env) f).inferIO d i >>= fun tm =>
-                (coreKnotI (cfgOf mode) (mkFEnv env) f).whnf d tm >>= fun tmaj =>
+                (coreKnotI .verified (mkFEnv env) f).inferIO d i >>= fun tm =>
+                (coreKnotI .verified (mkFEnv env) f).whnf d tm >>= fun tmaj =>
                 Setlec.Cached.withStore
                     (fun st => st.getNode (st.getAppFnI tmaj)) >>= fun n =>
                 match n with
@@ -152,15 +153,15 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       if g then
                         constTyAtM (mkFEnv env) ctorI rl.ctor ust >>=
                           fun tyCtor =>
-                        iotaCertsI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env)
+                        iotaCertsI (coreKnotI .verified (mkFEnv env) f) (mkFEnv env)
                             d false tyCtor (margs.take cnP) >>= fun rc =>
                         if rc then
-                          (coreKnotI (cfgOf mode) (mkFEnv env) f).inferIO d fab >>=
+                          (coreKnotI .verified (mkFEnv env) f).inferIO d fab >>=
                             fun tfab =>
-                          (coreKnotI (cfgOf mode) (mkFEnv env) f).defeq d tmaj
+                          (coreKnotI .verified (mkFEnv env) f).defeq d tmaj
                               tfab >>= fun rd =>
                           if rd then
-                            proofIrrelI (coreKnotI (cfgOf mode) (mkFEnv env) f)
+                            proofIrrelI (coreKnotI .verified (mkFEnv env) f)
                                 (mkFEnv env) d fab i >>= fun r =>
                             if r then pure fab
                             else pure i
@@ -172,8 +173,8 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                 | _ => pure i
               else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
                   Name.isProjFnShape recName = false then
-                (coreKnotI (cfgOf mode) (mkFEnv env) f).inferIO d i >>= fun tm =>
-                (coreKnotI (cfgOf mode) (mkFEnv env) f).whnf d tm >>= fun tmaj =>
+                (coreKnotI .verified (mkFEnv env) f).inferIO d i >>= fun tm =>
+                (coreKnotI .verified (mkFEnv env) f).whnf d tm >>= fun tmaj =>
                 Setlec.Cached.withStore
                     (fun st => st.getNode (st.getAppFnI tmaj)) >>= fun n =>
                 match n with
@@ -202,15 +203,15 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                       if g then
                         constTyAtM (mkFEnv env) ctorI rl.ctor ust >>=
                           fun tyCtor =>
-                        iotaCertsI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env)
+                        iotaCertsI (coreKnotI .verified (mkFEnv env) f) (mkFEnv env)
                             d false tyCtor (margs ++ projs) >>= fun rc =>
                         if rc then
-                          structEtaCertWithI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f)
+                          structEtaCertWithI .verified (coreKnotI .verified (mkFEnv env) f)
                               (mkFEnv env) d fab i tmaj >>= fun r =>
                           if r then pure fab
                           else if caps.etaFields = 0 ∧
                               cvj.levelParams.length = ust.length then
-                            proofIrrelI (coreKnotI (cfgOf mode) (mkFEnv env) f)
+                            proofIrrelI (coreKnotI .verified (mkFEnv env) f)
                                 (mkFEnv env) d fab i >>= fun r' =>
                             if r' then pure fab
                             else pure i
@@ -225,7 +226,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           | _ => pure i
         | _ => pure i
       | _ => pure i)
-    (majorToCtor mode (fueledFns mode env) env d recName rules major)
+    (majorToCtor .verified (fueledFns .verified env) env d recName rules major)
   rw [majorToCtor_unfold]
   refine SimC.withStore ?_
   obtain rfl := hden
@@ -496,7 +497,7 @@ theorem majorToCtorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
                             exact SimC.pure hs₅d ⟨hden, hmaj⟩
                           | true =>
                             simp only [↓reduceIte]
-                            refine SimC.bind (structEtaCertWithC_sim ih
+                            refine SimC.bind (structEtaCertWithC_sim hμ ih
                               henv hs₅d hQfab' hden rfl
                               hwfab hmaj hwtmaj)
                               (fun s₆ r r' hs₆ hPr => ?_)
@@ -631,7 +632,7 @@ theorem iotaIndexOkC_sim (ih : SSimC mode env f) {d : Nat} {mI rP cnP : Nat}
     (hmargs : RelCL margs ys) (hwys : ∀ y ∈ ys, Expr.WScoped d y)
     (hidx : RelCL idx is) (hwis : ∀ x ∈ is, Expr.WScoped d x) :
     SimC mode env s₀ RelVC
-      (iotaIndexOkI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d mI rP cnP
+      (iotaIndexOkI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d mI rP cnP
         tyCtor margs idx)
       (iotaIndexOk (fueledFns mode env) env d mI rP cnP tyx ys is) := by
   by_cases hmr : mI = rP
@@ -684,14 +685,14 @@ private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
     (hmargs : RelCL margs majorx.getAppArgs) :
     SimC mode env s₀ (RelOC d)
       (constTyAtM (mkFEnv env) cI c us >>= fun tyRec =>
-        iotaCertsI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d mi.betaGate
+        iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d mi.betaGate
             tyRec (args.take mI ++ [major]) >>= fun r₂ =>
         if r₂ then
           constTyAtM (mkFEnv env) jI cj usj >>= fun tyCtor =>
-          iotaCertsI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d
+          iotaCertsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
               mi.betaGate tyCtor margs >>= fun r₃ =>
           if r₃ then
-            iotaIndexOkI (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d mI rP
+            iotaIndexOkI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d mI rP
                 rl.ctorParams tyCtor margs ((args.take mI).drop rP) >>=
               fun r₄ =>
             if r₄ then
@@ -799,19 +800,19 @@ theorem recRuleKOf_mkFEnv (env : Env) (rules : List RecRule) :
 
 /-- Simulation of the major chain, in either order (the K flag is read
 identically on both sides). -/
-theorem prepareMajorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
+theorem prepareMajorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {recName : Name} {rules : List RecRule} {i : ExprC}
     {major : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i major) (hmaj : Expr.WScoped d major) :
     SimC mode env s₀ (RelEC d)
-      (prepareMajorI (cfgOf mode) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d recName
+      (prepareMajorI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d recName
         rules i)
       (prepareMajor mode (fueledFns mode env) env d recName rules major) := by
   unfold prepareMajorI prepareMajor
   rw [recRuleKOf_mkFEnv]
   by_cases hk : recRuleK env rules = true
   · rw [if_pos hk, if_pos hk]
-    refine SimC.bind (majorToCtorC_sim ih henv hs hden hmaj)
+    refine SimC.bind (majorToCtorC_sim hμ ih henv hs hden hmaj)
       (fun s₁ m₁ m₁x hs₁ hP₁ => ?_)
     obtain ⟨hd₁, hw₁⟩ := hP₁
     refine SimC.bind (ih.whnf hs₁ hd₁ hw₁) (fun s₂ m₂ m₂x hs₂ hP₂ => ?_)
@@ -823,7 +824,7 @@ theorem prepareMajorC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     refine SimC.bind (litMajorToCtorC_sim ih hs₁ hd₁ hw₁)
       (fun s₂ m₂ m₂x hs₂ hP₂ => ?_)
     obtain ⟨hd₂, hw₂⟩ := hP₂
-    exact majorToCtorC_sim ih henv hs₂ hd₂ hw₂
+    exact majorToCtorC_sim hμ ih henv hs₂ hd₂ hw₂
 
 private theorem iotaRec_unfold (mi : CheckMode) (env : Env) (d : Nat)
     (e : Expr) :
@@ -901,16 +902,18 @@ private theorem iotaRec_unfold (mi : CheckMode) (env : Env) (d : Nat)
 /-- Port of `iotaRecI_sim`.  The ι mode `mi` is separate from the
 knot's `mode` (the ι batch: `iotaRecI` now reads `mi.betaGate` for the
 slot licence, so the two are no longer identified by the `ttChecks`
-collapse; the walks apply this at `cfg.iotaMode`). -/
-theorem iotaRecC_sim (ih : SSimC mode env f) (henv : EnvWF env)
-    {mi : CheckMode} {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState}
+collapse; the walks apply this at the ι cone's own mode `mi`). -/
+theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
+    {mi : CheckMode} (hmi : mi.verifiedChecks = true) {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelOC d)
-      (iotaRecI (cfgOf mi) (coreKnotI (cfgOf mode) (mkFEnv env) f) (mkFEnv env) d i)
+      (iotaRecI mi (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
       (iotaRec mi (fueledFns mode env) env d ex) := by
+  obtain rfl := CheckMode.eq_verified hμ
+  obtain rfl := CheckMode.eq_verified hmi
   unfold iotaRecI
-  rw [iotaRec_unfold mi]
+  rw [iotaRec_unfold .verified]
   refine SimC.withStore ?_
   obtain rfl := hden
   have hden : RelC i i := rfl
@@ -941,7 +944,7 @@ theorem iotaRecC_sim (ih : SSimC mode env f) (henv : EnvWF env)
             (internI_eff hs (n := ExprView.bvar 0))
             (fun s₁ bvar0 hs₁ hQ0 => ?_)
           have hQ0' : RelC bvar0 (Expr.bvar 0) := hQ0
-          refine SimC.bind (prepareMajorC_sim ih henv hs₁
+          refine SimC.bind (prepareMajorC_sim hμ ih henv hs₁
             (RelCL.getD hQ0' mI hargs) (wscoped_getD hw.getAppArgs _))
             (fun s₄ major majorx hs₄ hP₂ => ?_)
           obtain ⟨rfl, hmaj⟩ := hP₂

@@ -12,7 +12,7 @@
 #
 # What may be recorded here: divergences that are the trusted lane's
 # NATURE, each with a comment naming the mechanism.  The lane
-# (since 2026-09-06 the one cached driver at `cfgT`, `Setlec/Cached/
+# (since 2026-09-06 the one cached driver at `.trusted`, `Setlec/Cached/
 # ParsedC.lean` + `CoreC.lean`) runs a full checking-mode front door —
 # so the old yolo mode's class-B argument-position escapes are GONE:
 # the three class-B witnesses of task #139 (yolo_arg_escape,

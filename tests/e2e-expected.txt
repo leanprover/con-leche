@@ -374,6 +374,41 @@
 1 false_redefined.ndjson pre
 1 false_rec_bad.ndjson pre
 
+# The direct INDEXED install (task #175 indexed, 2026-09-06): the sum
+# route widened to non-recursive, non-nested families with indices —
+# any number of constructors, the carrier at an index tuple the tagged
+# union of the constructor towers restricted to the index equation.
+# Exported through the widened `setlec-preprocess` (every indexed block
+# native), so they assert `--pre`.
+#   direct_idx_eq:   an `Eq`-clone (`MyEq`: Prop, one constructor, no
+#                    field, one index) — LARGE elimination (`cast` into
+#                    `Sort v`), iota on `refl`, and the K rescue on a
+#                    neutral major (`k_use`).
+#   direct_idx_vec:  `Vec' α : Nat → Type u` (three constructors at three
+#                    index values) and `Par : Nat → Type` (two): iota on
+#                    every constructor with constant, index-reading and
+#                    small (into `Prop`) motives.
+#   direct_idx_prop: `IsSucc n (n+1)` and `Both n` (one constructor, a
+#                    data field occurring in the indices: LARGE
+#                    elimination by official's subsingleton criterion,
+#                    the field read back off the index), `Rel` (two
+#                    constructors: small only), `Hidden (n+1)` (a data
+#                    field not literally in the indices: small only).
+#   direct_idx_prop_large_bad: `Hidden.rec`'s motive patched to `Sort u`
+#                    (a large eliminator with a data field outside the
+#                    indices) — REJECTED at the constructor stage
+#                    (`checkDirectFieldSortsI`, official's
+#                    `elim_only_at_universe_zero`).
+#   direct_idx_prop_idx_bad: `Rel.symm`'s second minor replaced by the
+#                    first (`fun n => Rel.r n : ∀ n, Rel 0 n` where
+#                    `∀ n, Rel n 0` is expected) — an index mismatch at
+#                    a minor premise, REJECTED.
+0 direct_idx_eq.ndjson pre
+0 direct_idx_vec.ndjson pre
+0 direct_idx_prop.ndjson pre
+1 direct_idx_prop_large_bad.ndjson pre
+1 direct_idx_prop_idx_bad.ndjson pre
+
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
 # fixture source, exactly as the lean-inductive-models preprocessor
@@ -538,4 +573,10 @@
 # the non-indexed half, is `native` — the direct simple-structure route
 # takes it — so this fixture also pins that the native predicate does
 # not swallow the indexed one.)
-2 pre_decline_imax_field.ndjson
+#   Task #175 indexed (2026-09-06): `PadImaxIdx` IS in the direct
+#   indexed class now (a non-recursive one-constructor family with one
+#   index), `setlecNativeSum` leaves it native, the tool exits 0 and the
+#   checker installs it directly — a decline-for-missing-model turned
+#   accept, the widening's intended direction; the fixture now pins
+#   that the indexed owner goes native and installs.
+0 pre_decline_imax_field.ndjson

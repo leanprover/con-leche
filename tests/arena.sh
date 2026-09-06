@@ -388,18 +388,49 @@ else
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
 
-# The progress heartbeat (`SETLEC_PROGRESS=<stride>`, 2026-09-07): the
-# variable emits `setlec: progress` lines on STDERR and changes no
-# verdict — the fold is the verified one, and the per-declaration lines
-# come from an identity hook inside it.
-prog_err=$(SETLEC_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
-prog_code=$?
-if [ "$prog_code" = 0 ] && [ -n "$(printf '%s' "$prog_err" | grep '^setlec: progress ')" ]; then
-  echo "progress heartbeat: 1/1 as expected"
-else
-  echo "PROGRESS FAIL: SETLEC_PROGRESS=1 exit $prog_code, stderr: $prog_err"
-  fail=1
-fi
+# The progress lane (`SETLEC_PROGRESS=<stride>`, 2026-09-07).  Two
+# folds, one verdict: without the variable the driver runs the verified
+# `checkDeclsSPCachedD`, with it the unverified `checkDeclsProgressIO`
+# — the same steps with a line printed before each declaration.  The
+# checks below are the contract: the lane prints, it prints EVERY
+# declaration at stride 1 (that is the localisation mode: a dying run
+# names the declaration it died in on its last line), and it changes no
+# verdict, on an accepting and on a rejecting fixture alike.
+prog_ok=0
+prog_total=0
+prog_check() { # <description> <condition-result>
+  prog_total=$((prog_total+1))
+  if [ "$2" = ok ]; then
+    prog_ok=$((prog_ok+1))
+  else
+    echo "PROGRESS FAIL: $1"; fail=1
+  fi
+}
+# the accepting fixture: exit 0 with and without the variable, same
+# stdout verdict line, and one progress line per declaration at stride 1
+prog_out=$(timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null); prog_code=$?
+prog_err1=$(SETLEC_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_out1=$(SETLEC_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null)
+prog_code1=$?
+prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^setlec: progress [0-9]')
+prog_decls=$(printf '%s' "$prog_out1" | sed -n 's/^setlec: accepted \([0-9]*\) .*/\1/p')
+prog_check "stride 1 exits 0 on the accepting fixture" \
+  "$([ "$prog_code1" = 0 ] && echo ok)"
+prog_check "the verdict line is unchanged by the variable" \
+  "$([ "$prog_out" = "$prog_out1" ] && [ "$prog_code" = "$prog_code1" ] && echo ok)"
+prog_check "stride 1 prints one line per declaration" \
+  "$([ -n "$prog_decls" ] && [ "$prog_lines" = "$prog_decls" ] && echo ok)"
+prog_check "the lane brackets the run (parse done / fold done)" \
+  "$(printf '%s' "$prog_err1" | grep -q 'progress parse done' && \
+     printf '%s' "$prog_err1" | grep -q 'progress fold done' && echo ok)"
+# the rejecting fixture: still exit 1, still naming the declaration
+prog_errB=$(SETLEC_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_BAD" 2>&1 >/dev/null)
+prog_codeB=$?
+prog_check "stride 1 still rejects the bad fixture (exit 1)" \
+  "$([ "$prog_codeB" = 1 ] && echo ok)"
+prog_check "the rejection still names the failing declaration" \
+  "$(printf '%s' "$prog_errB" | grep -q '\[at .*, fold position [0-9]' && echo ok)"
+echo "progress lane: $prog_ok/$prog_total as expected"
 
 # The mode sweep (task #147): both suites again with `--trusted`
 # (certified expectations plus the recorded overrides in

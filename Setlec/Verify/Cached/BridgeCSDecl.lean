@@ -151,18 +151,18 @@ generic `checkDecl` (at the cached shared operations) followed by
 `mkFEnv` — the `CheckCM` twin of `checkDeclSF_nonind`. -/
 theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
     (hnotind : ∀ block, d ≠ .indDecl block) :
-    checkDeclSF (cfgOf mode) (mkFEnv env) d
-      = checkDecl mode (sharedOpsC (cfgOf mode) (mkFEnv env)) env d
+    checkDeclSF mode (mkFEnv env) d
+      = checkDecl mode (sharedOpsC mode (mkFEnv env)) env d
           >>= fun e => pure (mkFEnv e) := by
   cases d with
   | indDecl block => exact absurd rfl (hnotind block)
   | defnDecl cv value hint =>
     show (do
-        let cv ← checkConstantValF (sharedOpsC (cfgOf mode) (mkFEnv env))
+        let cv ← checkConstantValF (sharedOpsC mode (mkFEnv env))
           (mkFEnv env) cv
         if natOpNames.contains cv.name ||
             natDivModNames.contains cv.name then
-          let fe2 ← checkDefnValF (sharedOpsC (cfgOf mode) (mkFEnv env)) (mkFEnv env)
+          let fe2 ← checkDefnValF (sharedOpsC mode (mkFEnv env)) (mkFEnv env)
             cv value hint
           if natOpNames.contains cv.name then
             unless natOpGuardF fe2 cv.name &&
@@ -171,7 +171,7 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
                 s!"nonstandard structural Nat operation environment ({cv.name})")
             match fe2.find? cv.name with
             | some (.defnInfo _ value' _) =>
-              let ok ← certifyNatEqs (sharedOpsC (cfgOf mode) (mkFEnv env))
+              let ok ← certifyNatEqs (sharedOpsC mode (mkFEnv env))
                 (mkFEnv env).env
                 ((natOpEquations 0 cv.name).map fun eq =>
                   (Expr.substConst0 cv.name value' eq.1,
@@ -182,11 +182,11 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
             | _ => throw (.internal
                 s!"structural Nat operation not stored ({cv.name})")
           if natDivModNames.contains cv.name then
-            checkDivModPinF (sharedOpsC (cfgOf mode) (mkFEnv env)) (mkFEnv env) fe2
+            checkDivModPinF (sharedOpsC mode (mkFEnv env)) (mkFEnv env) fe2
               cv.name
           pure fe2
         else
-          checkDefnValF (sharedOpsC (cfgOf mode) (mkFEnv env)) (mkFEnv env)
+          checkDefnValF (sharedOpsC mode (mkFEnv env)) (mkFEnv env)
             cv value hint : CheckCM FEnv) = _
     unfold checkDecl
     simp only [checkConstantValF_eq, mkFEnv_env, bind_assoc]
@@ -221,20 +221,20 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
         rfl
   | thmDecl cv value =>
     show (do
-        let cv ← checkConstantValF (sharedOpsC (cfgOf mode) (mkFEnv env))
+        let cv ← checkConstantValF (sharedOpsC mode (mkFEnv env))
           (mkFEnv env) cv
-        checkThmValF (sharedOpsC (cfgOf mode) (mkFEnv env)) (mkFEnv env) cv value :
+        checkThmValF (sharedOpsC mode (mkFEnv env)) (mkFEnv env) cv value :
         CheckCM FEnv) = _
     unfold checkDecl
     simp only [checkConstantValF_eq, checkThmValF_pushC, bind_assoc]
   | opaqueDecl cv value =>
     show (do
-        let cv ← checkConstantValF (sharedOpsC (cfgOf mode) (mkFEnv env))
+        let cv ← checkConstantValF (sharedOpsC mode (mkFEnv env))
           (mkFEnv env) cv
-        let fe2 ← checkOpaqueValF (sharedOpsC (cfgOf mode) (mkFEnv env))
+        let fe2 ← checkOpaqueValF (sharedOpsC mode (mkFEnv env))
           (mkFEnv env) cv value
         if reduceOpNames.contains cv.name then
-          checkReducePinF (sharedOpsC (cfgOf mode) (mkFEnv env)) (mkFEnv env) fe2
+          checkReducePinF (sharedOpsC mode (mkFEnv env)) (mkFEnv env) fe2
             cv.name value
         pure fe2 : CheckCM FEnv) = _
     unfold checkDecl
@@ -245,7 +245,7 @@ theorem checkDeclSFC_nonind (env : Env) (d : Declaration)
       ite_bindC, throwC_bind_eq] <;> rfl
   | axiomDecl cv =>
     show (do
-        let cvA ← checkConstantValF (sharedOpsC (cfgOf mode) (mkFEnv env))
+        let cvA ← checkConstantValF (sharedOpsC mode (mkFEnv env))
           (mkFEnv env) cv
         if stdAxiomOkF (mkFEnv env) cvA then
           pure ((mkFEnv env).push (.axiomInfo cvA))
@@ -339,10 +339,10 @@ theorem checkDirectProjTableS_run {T C : Name} {lps : List Name} {nP nF : Nat}
 set_option maxHeartbeats 1600000 in
 /-- The direct simple-structure install at the cached driver is
 reproduced by the pure fueled `checkDirectStruct`. -/
-theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
+theorem checkDirectStructS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {p : DirectParts} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : checkDirectStructS (cfgOf mode) (mkFEnv env) p s₀ = .ok (feOut, s')) :
+    (h : checkDirectStructS mode (mkFEnv env) p s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDirectStruct (fueledOps mode F) env p = .ok feOut.env := by
   unfold checkDirectStructS at h
@@ -355,7 +355,7 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
   simp only [bind_assoc, pure_bind] at h
   obtain ⟨q1, s₁, hind, h⟩ := bindC_ok h
   obtain ⟨hs₁, q1', hP1, F₁, hF₁⟩ :=
-    (checkDirectIndS_sim henv (flushC_csok hwf)) q1 s₁ hind
+    (checkDirectIndS_sim hμ henv (flushC_csok hwf)) q1 s₁ hind
   obtain ⟨rfl, -⟩ := hP1
   obtain ⟨env₁, cvTa⟩ := q1
   have hF₁p : checkDirectInd (fueledOps mode F₁) env p = .ok (env₁, cvTa) := by
@@ -370,7 +370,7 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
   simp only [bind_assoc, pure_bind] at h
   obtain ⟨q2, s₂, hct, h⟩ := bindC_ok h
   obtain ⟨hs₂, q2', hP2, F₂, hF₂⟩ :=
-    (checkDirectCtorS_sim henv₁ hTf (flushC_csok hs₁.residue)) q2 s₂ hct
+    (checkDirectCtorS_sim hμ henv₁ hTf (flushC_csok hs₁.residue)) q2 s₂ hct
   obtain ⟨rfl, -⟩ := hP2
   obtain ⟨env₂, cvCa, sorts⟩ := q2
   have hF₂p : checkDirectCtor (fueledOps mode F₂) env env₁ p cvTa
@@ -385,7 +385,7 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
   rw [checkDirectRecF_eq] at h
   obtain ⟨q3, s₃, hrc, h⟩ := bindC_ok h
   obtain ⟨hs₃, q3', hP3, F₃, hF₃⟩ :=
-    (checkDirectRecS_sim henv₂ (flushC_csok hs₂.residue)) q3 s₃ hrc
+    (checkDirectRecS_sim hμ henv₂ (flushC_csok hs₂.residue)) q3 s₃ hrc
   obtain rfl : q3 = q3' := hP3
   obtain ⟨cvRa, rhsA⟩ := q3
   have hF₃p : checkDirectRec (fueledOps mode F₃) env₂ p cvTa cvCa
@@ -430,10 +430,10 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
 set_option maxHeartbeats 1600000 in
 /-- The direct sum install at the cached driver is reproduced by the
 pure fueled `checkDirectSum` (task #175 sum-types). -/
-theorem checkDirectSumS_run {env : Env} (henv : EnvWF env)
+theorem checkDirectSumS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {p : DirectSumParts} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : checkDirectSumS (cfgOf mode) (mkFEnv env) p s₀ = .ok (feOut, s')) :
+    (h : checkDirectSumS mode (mkFEnv env) p s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDirectSum (fueledOps mode F) env p = .ok feOut.env := by
   unfold checkDirectSumS at h
@@ -454,7 +454,7 @@ theorem checkDirectSumS_run {env : Env} (henv : EnvWF env)
   simp only [bind_assoc, pure_bind] at h
   obtain ⟨q1, s₁, hind, h⟩ := bindC_ok h
   obtain ⟨hs₁, q1', hP1, F₁, hF₁⟩ :=
-    (checkDirectSumIndS_sim henv (flushC_csok hwf)) q1 s₁ hind
+    (checkDirectSumIndS_sim hμ henv (flushC_csok hwf)) q1 s₁ hind
   obtain ⟨rfl, -⟩ := hP1
   obtain ⟨env₁, cvTa⟩ := q1
   have hF₁p : checkDirectSumInd (fueledOps mode F₁) env p = .ok (env₁, cvTa) := by
@@ -468,10 +468,10 @@ theorem checkDirectSumS_run {env : Env} (henv : EnvWF env)
   rw [checkDirectSumCtorsF_eq] at h
   obtain ⟨ctorsA, s₂, hct, h⟩ := bindC_ok h
   obtain ⟨hs₂, ctorsA', hP2, F₂, hF₂⟩ :=
-    (checkDirectSumCtorsS_sim henv₁ hTf (flushC_csok hs₁.residue)) ctorsA s₂ hct
+    (checkDirectSumCtorsS_sim hμ henv₁ hTf (flushC_csok hs₁.residue)) ctorsA s₂ hct
   obtain rfl : ctorsA = ctorsA' := hP2
   have hF₂p : checkDirectSumCtors (fueledOps mode F₂) env env₁ p.cvT.name
-      p.cvT.levelParams p.nP p.resSort p.isProp p.large cvTa p.ctors
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
       = .ok ctorsA := by
     rw [← checkDirectSumCtors_datF]; exact hF₂
   -- the constructors' conses
@@ -494,7 +494,7 @@ theorem checkDirectSumS_run {env : Env} (henv : EnvWF env)
   rw [checkDirectSumRecF_eq] at h
   obtain ⟨q3, s₃, hrc, h⟩ := bindC_ok h
   obtain ⟨hs₃, q3', hP3, F₃, hF₃⟩ :=
-    (checkDirectSumRecS_sim henv₂ (flushC_csok hs₂.residue)) q3 s₃ hrc
+    (checkDirectSumRecS_sim hμ henv₂ (flushC_csok hs₂.residue)) q3 s₃ hrc
   obtain rfl : q3 = q3' := hP3
   obtain ⟨cvRa, rhss⟩ := q3
   have hF₃p : checkDirectSumRec (fueledOps mode F₃) (consSumCtors p.nP ctorsA env₁)
@@ -509,7 +509,7 @@ theorem checkDirectSumS_run {env : Env} (henv : EnvWF env)
   have g₁ : checkDirectSumInd (fueledOps mode G) env p = .ok (env₁, cvTa) := by
     rw [← checkDirectSumInd_datF]; exact FueledM.up hle₁ hF₁
   have g₂ : checkDirectSumCtors (fueledOps mode G) env env₁ p.cvT.name
-      p.cvT.levelParams p.nP p.resSort p.isProp p.large cvTa p.ctors
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
       = .ok ctorsA := by
     rw [← checkDirectSumCtors_datF]; exact FueledM.up hle₂ hF₂
   have g₃ : checkDirectSumRec (fueledOps mode G) (consSumCtors p.nP ctorsA env₁)
@@ -527,10 +527,10 @@ theorem checkDirectSumS_run {env : Env} (henv : EnvWF env)
 
 /-- The inductive block at the cached driver is reproduced by the
 pure fueled `checkIndDecl`. -/
-theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
+theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : checkIndDeclSF (cfgOf mode) (mkFEnv env) block s₀ = .ok (feOut, s')) :
+    (h : checkIndDeclSF mode (mkFEnv env) block s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkIndDecl mode (fueledOps mode F) env block = .ok feOut.env := by
   unfold checkIndDeclSF at h
@@ -553,17 +553,14 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
       rw [← indBlockCapsF_eq]; exact hcapsv
     obtain ⟨fe₂, s₂, hfold, h⟩ := bindC_ok h
     obtain ⟨hwf₂, hfe₂, henv₂, F₁, hF₁⟩ :=
-      foldIndMemberS_run _ env henv hwf hfold
+      foldIndMemberS_run hμ _ env henv hwf hfold
     obtain ⟨fe₃, s₃, hrecs, h⟩ := bindC_ok h
     rw [hfe₂] at hrecs
     obtain ⟨hwf₃, hfe₃, henv₃, F₂, hF₂⟩ :=
-      checkIndRecsS_run henv₂ hbnAll hwf₂ hrecs
+      checkIndRecsS_run hμ henv₂ hbnAll hwf₂ hrecs
     rw [hfe₃] at h
     simp only [mkFEnv_find?] at h
     rw [ctorResidualOkF_eq] at h
-    -- the driver is config-parametric (2026-09-06): its install-time
-    -- `CheckMode` is `(cfgOf mode).iotaMode`, which is `mode` by `rfl`
-    rw [show (cfgOf mode).iotaMode = mode from rfl] at h
     by_cases hctorRes : ctorResidualOk mode fe₃.env cvT.name cvC.name
         cvT.levelParams nP nF caps.eta = true
     case neg =>
@@ -631,7 +628,7 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
         exact (hne' cvT c0 cvC nP nF heq1 heq2).elim
     rw [if_pos hsl] at h
     obtain ⟨hwf₄, hfe₄, henv₄, F₃, hF₃⟩ :=
-      foldProjFnS_run _ fe₃.env henv₃ hwf₃ h
+      foldProjFnS_run hμ _ fe₃.env henv₃ hwf₃ h
     refine ⟨hwf₄, hfe₄, max F₁ (max F₂ F₃), ?_⟩
     have hF₁p := FueledM.up (Nat.le_max_left F₁ (max F₂ F₃)) hF₁
     rw [foldlM_atF] at hF₁p
@@ -691,10 +688,10 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
     rename_i x1 x2 hne
     obtain ⟨fe₂, s₂, hfold, h⟩ := bindC_ok h
     obtain ⟨hwf₂, hfe₂, henv₂, F₁, hF₁⟩ :=
-      foldIndMemberS_run _ env henv hwf hfold
+      foldIndMemberS_run hμ _ env henv hwf hfold
     rw [hfe₂] at h
     obtain ⟨hwf₃, hfe₃, henv₃, F₂, hF₂⟩ :=
-      checkIndRecsS_run henv₂ hbnAll hwf₂ h
+      checkIndRecsS_run hμ henv₂ hbnAll hwf₂ h
     refine ⟨hwf₃, hfe₃, max F₁ F₂, ?_⟩
     have hF₁p := FueledM.up (Nat.le_max_left F₁ F₂) hF₁
     rw [foldlM_atF] at hF₁p
@@ -725,15 +722,15 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
 artifact-free simple structure goes to `checkDirectStructS`, everything
 else to `checkIndDeclSF`, and either way the pure fueled `checkDecl`
 reproduces the run. -/
-theorem checkIndOrDirectSF_run {env : Env} (henv : EnvWF env)
+theorem checkIndOrDirectSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
     (h : (match directPartsF? (mkFEnv env) block with
-          | some p => checkDirectStructS (cfgOf mode) (mkFEnv env) p
+          | some p => checkDirectStructS mode (mkFEnv env) p
           | none =>
             match directSumPartsF? (mkFEnv env) block with
-            | some p => checkDirectSumS (cfgOf mode) (mkFEnv env) p
-            | none => checkIndDeclSF (cfgOf mode) (mkFEnv env) block) s₀ =
+            | some p => checkDirectSumS mode (mkFEnv env) p
+            | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDecl mode (fueledOps mode F) env (.indDecl block) =
@@ -749,7 +746,7 @@ theorem checkIndOrDirectSF_run {env : Env} (henv : EnvWF env)
   cases hdp : directParts? env block with
   | some p =>
     rw [hdp] at h
-    obtain ⟨hres, hfe, F, hF⟩ := checkDirectStructS_run henv hwf h
+    obtain ⟨hres, hfe, F, hF⟩ := checkDirectStructS_run hμ henv hwf h
     exact ⟨hres, hfe, F, hF⟩
   | none =>
     rw [hdp] at h
@@ -757,24 +754,24 @@ theorem checkIndOrDirectSF_run {env : Env} (henv : EnvWF env)
     cases hsp : directSumParts? env block with
     | some p =>
       rw [hsp] at h
-      obtain ⟨hres, hfe, F, hF⟩ := checkDirectSumS_run henv hwf h
+      obtain ⟨hres, hfe, F, hF⟩ := checkDirectSumS_run hμ henv hwf h
       exact ⟨hres, hfe, F, hF⟩
     | none =>
       rw [hsp] at h
-      obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run henv hwf h
+      obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run hμ henv hwf h
       exact ⟨hres, hfe, F, hF⟩
 
 /-- The per-declaration bridge: a successful cached shared-state run
 over a well-formed environment is reproduced by the pure fueled
 checker, and the resulting index is `mkFEnv` of its environment. -/
-theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
+theorem checkDeclSharedF_bridge (hμ : mode.verifiedChecks = true) {env : Env} {d : Declaration}
     {fe' : FEnv} (henv : EnvWF env)
-    (h : checkDeclSharedF (cfgOf mode) (mkFEnv env) d = .ok fe') :
+    (h : checkDeclSharedF mode (mkFEnv env) d = .ok fe') :
     fe' = mkFEnv fe'.env ∧
     ∃ F, checkDecl mode (fueledOps mode F) env d = .ok fe'.env := by
   unfold checkDeclSharedF at h
   simp only [StateT.run'] at h
-  cases hrun : checkDeclSF (cfgOf mode) (mkFEnv env) d ({} : CState) with
+  cases hrun : checkDeclSF mode (mkFEnv env) d ({} : CState) with
   | error e =>
     rw [hrun] at h
     simp only [Functor.map, Except.map] at h
@@ -787,7 +784,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
     have hwf0 : CSOKF ({} : CState) := CSOKF.empty
     cases d with
     | indDecl block =>
-      obtain ⟨-, hfe, F, hF⟩ := checkIndOrDirectSF_run henv hwf0 hrun
+      obtain ⟨-, hfe, F, hF⟩ := checkIndOrDirectSF_run hμ henv hwf0 hrun
       exact ⟨hfe, F, hF⟩
     | defnDecl cv value hint =>
       rw [checkDeclSFC_nonind env _ (fun _ h => Declaration.noConfusion h)]
@@ -796,7 +793,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
       obtain ⟨hfe, rfl⟩ := pureC_ok hrun
       subst hfe
       obtain ⟨hs', v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (CSOK.empty env)
+        (checkDeclS_nonind_sim hμ henv (CSOK.empty env)
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
@@ -809,7 +806,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
       obtain ⟨hfe, rfl⟩ := pureC_ok hrun
       subst hfe
       obtain ⟨hs', v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (CSOK.empty env)
+        (checkDeclS_nonind_sim hμ henv (CSOK.empty env)
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
@@ -822,7 +819,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
       obtain ⟨hfe, rfl⟩ := pureC_ok hrun
       subst hfe
       obtain ⟨hs', v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (CSOK.empty env)
+        (checkDeclS_nonind_sim hμ henv (CSOK.empty env)
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
@@ -835,7 +832,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
       obtain ⟨hfe, rfl⟩ := pureC_ok hrun
       subst hfe
       obtain ⟨hs', v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (CSOK.empty env)
+        (checkDeclS_nonind_sim hμ henv (CSOK.empty env)
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
@@ -848,7 +845,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
       obtain ⟨hfe, rfl⟩ := pureC_ok hrun
       subst hfe
       obtain ⟨hs', v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (CSOK.empty env)
+        (checkDeclS_nonind_sim hμ henv (CSOK.empty env)
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
