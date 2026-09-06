@@ -738,4 +738,232 @@ theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss Eiss rds)
 
 end FixKI
 
+/-! ## The rank recursion -/
+
+open Classical in
+/-- The numeral of a tag (junk off `ω`). -/
+noncomputable def natIdx (k : V) : Nat :=
+  if h : ∃ i, k = vnat i then Classical.choose h else 0
+
+theorem natIdx_vnat (i : Nat) : natIdx (vnat i : V) = i := by
+  unfold natIdx
+  rw [dif_pos ⟨i, rfl⟩]
+  exact (vnat_inj (Classical.choose_spec (⟨i, rfl⟩ : ∃ i', (vnat i : V) = vnat i'))).symm
+
+/-- One step of the recursion at constructor `j`: the minor folded
+along the fields and then along `g` at the recursive components. -/
+noncomputable def stepBr (ms : Nat → V) (recs : Nat → List Nat) (j : Nat) (g : V → V)
+    (fs : List V) : V :=
+  (fs ++ (recs j).map fun i => g (fs.getD i pt)).foldl SetTheory.app (ms j)
+
+theorem stepBr_congr {ms : Nat → V} {recs : Nat → List Nat} {j : Nat} {g g' : V → V} {fs : List V}
+    (h : ∀ i ∈ recs j, g (fs.getD i pt) = g' (fs.getD i pt)) :
+    stepBr ms recs j g fs = stepBr ms recs j g' fs := by
+  unfold stepBr
+  congr 2
+  exact List.map_congr_left h
+
+/-- The rank recursion: `n` unfoldings of the step from junk. -/
+noncomputable def fixSem (ms : Nat → V) (recs : Nat → List Nat) (ar : Nat → Nat) :
+    Nat → V → V
+  | 0, _ => pt
+  | n + 1, t => stepBr ms recs (natIdx (sfst t)) (fixSem ms recs ar n)
+      (projList (ar (natIdx (sfst t))) (ssnd t))
+
+theorem fixSem_inj {ms : Nat → V} {recs : Nat → List Nat} {ar : Nat → Nat} (n j : Nat)
+    {fs : List V} (hlen : fs.length = ar j) :
+    fixSem ms recs ar (n + 1) (inj j (mkTower (fs ++ [pt]))) = stepBr ms recs j (fixSem ms recs ar n) fs := by
+  show stepBr ms recs (natIdx (sfst (inj j (mkTower (fs ++ [pt]))))) (fixSem ms recs ar n)
+    (projList (ar (natIdx (sfst (inj j (mkTower (fs ++ [pt])))))) (ssnd (inj j (mkTower (fs ++ [pt]))))) = _
+  rw [sfst_inj, natIdx_vnat, ssnd_inj]
+  congr 1
+  have h1 : projList (fs.length + 1) (mkTower (fs ++ [pt])) = fs ++ [pt] :=
+    projList_mkTower _ _ (by simp)
+  have h2 := projList_take (fs.length + 1) fs.length (mkTower (fs ++ [pt])) (Nat.le_succ _)
+  rw [h1, List.take_left] at h2
+  rw [← hlen, ← h2]
+
+open Classical in
+/-- The stage of a member of a fibrewise iterate at a tuple (junk off
+it). -/
+noncomputable def rkFam (Φ : Nat → V) (tup t : V) : Nat :=
+  if h : ∃ n, t ∈ˢ SetTheory.app (Φ n) tup then Classical.choose h else 0
+
+theorem mem_rkFam {Φ : Nat → V} {tup t : V} (h : ∃ n, t ∈ˢ SetTheory.app (Φ n) tup) :
+    t ∈ˢ SetTheory.app (Φ (rkFam Φ tup t)) tup := by
+  unfold rkFam
+  rw [dif_pos h]
+  exact Classical.choose_spec h
+
+/-- The semantic fold of a minor-space member along a fitting spine. -/
+theorem minorSpI_fold {ℓ : Nat} {c : List V → V} (hc0 : ℓ = 0 → ∀ acc, c acc ∈ˢ (univZero : V)) :
+    ∀ {Fs : List AVExpr} {ρf : Nat → V} {acc : List V} {m : V} {as : List V},
+      m ∈ˢ minorSpI ℓ c Fs ρf acc → SpineFit ρf Fs as →
+      as.foldl SetTheory.app m ∈ˢ c (acc ++ as)
+  | [], _, acc, m, [], hm, _ => by simpa [minorSpI] using hm
+  | [], _, _, _, _ :: _, _, hsp => hsp.elim
+  | _ :: _, _, _, _, [], _, hsp => hsp.elim
+  | F :: Fs, ρf, acc, m, a :: as, hm, hsp => by
+    have happ : SetTheory.app m a ∈ˢ minorSpI ℓ c Fs (cons a ρf) (acc ++ [a]) :=
+      app_mem_piR hm hsp.1 (fun h0 x _ => minorSpI_zero_univZero h0 (hc0 h0) Fs (cons x ρf) (acc ++ [x]))
+    have := minorSpI_fold hc0 (Fs := Fs) (as := as) happ hsp.2
+    rw [List.append_assoc, List.singleton_append] at this
+    rw [List.foldl_cons]
+    exact this
+
+section KRec
+
+variable {ℓ w u : Nat} {K : Nat → V} {Fss Ess Fss₀ : List (List AVExpr)} {Ids : List AVExpr}
+  {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+
+/-- The recursion's data at a K-frame. -/
+noncomputable def fixSemK (K : Nat → V) (Fss : List (List AVExpr)) (Ids : List AVExpr)
+    (rss : List (List Bool)) : Nat → V → V :=
+  fixSem (frMs Fss.length Ids.length K)
+    (fun j => recIdx (rss.getD j []) (Fss.getD j []).length) (fun j => (Fss.getD j []).length)
+
+/-- The fibrewise iterates at a K-frame. -/
+noncomputable def iterK (u w : Nat) (K : Nat → V) (Fss Ess Fss₀ : List (List AVExpr))
+    (Ids : List AVExpr) (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) : Nat → V :=
+  famIter u w (frP Fss.length Ids.length K) Ids rss Eiss Fss₀ Ess
+
+/-- The family at a K-frame. -/
+noncomputable def famK (u w : Nat) (K : Nat → V) (Fss Ess Fss₀ : List (List AVExpr))
+    (Ids : List AVExpr) (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) : V :=
+  fixFamI u w (frP Fss.length Ids.length K) Ids Ids.length rss Eiss Fss₀ Ess
+
+theorem iterK_le_fam (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss Eiss) (n : Nat) :
+    FamLe (idxSet u (frP Fss.length Ids.length K) Ids) (iterK u w K Fss Ess Fss₀ Ids rss Eiss n)
+      (famK u w K Fss Ess Fss₀ Ids rss Eiss) := by
+  intro i hi
+  unfold famK
+  rw [fixFamI_app_eq_famU h.hX hi]
+  exact famIter_le_famU h.hX n i hi
+
+/-- A member of a stage at a tuple: the decomposition and the facts
+the recursion consumes. -/
+theorem stage_elim (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss Eiss) (hw : w ≠ 0) {n : Nat}
+    {is : List V} (hsp : SpineFit (frP Fss.length Ids.length K) Ids is) {t : V}
+    (ht : t ∈ˢ SetTheory.app (iterK u w K Fss Ess Fss₀ Ids rss Eiss (n + 1)) (tupW u is)) :
+    ∃ j fs, t = inj j (mkTower (fs ++ [pt])) ∧ j < Fss.length ∧
+      fs.length = (Fss.getD j []).length ∧
+      SpineFit (frP Fss.length Ids.length K) (Fss.getD j []) fs ∧
+      idxValsAt (frP Fss.length Ids.length K) (Ess.getD j []) fs = is ∧
+      (∀ l, l < fs.length → (rss.getD j []).getD l false = true →
+        fs.getD l pt ∈ˢ SetTheory.app (iterK u w K Fss Ess Fss₀ Ids rss Eiss n)
+          (tupW u ((((Eiss.getD j []).getD l []).map
+            (interp2 V (consList (fs.take l) (frP Fss.length Ids.length K)))))) ∧
+        SpineFit (frP Fss.length Ids.length K) Ids
+          (((Eiss.getD j []).getD l []).map
+            (interp2 V (consList (fs.take l) (frP Fss.length Ids.length K))))) := by
+  have ht' : t ∈ˢ fixStepI u w (frP Fss.length Ids.length K) Ids Ids.length rss Eiss Fss₀ Ess
+      (iterK u w K Fss Ess Fss₀ Ids rss Eiss n) (tupW u is) := by
+    unfold iterK famIter at ht
+    rwa [famFI_app (tupW_mem hsp)] at ht
+  obtain ⟨j, fs, rfl, hj₀, hlen₀, hspX, hall⟩ := fixStepI_elim hw ht'
+  obtain ⟨hl₀, hlE, hEs, hlenj, hc⟩ := h.hreal
+  have hj : j < Fss.length := by omega
+  have hfit := h.hX.hfit _ (famIter_mem h.hX n) _ (tupW_mem hsp) j hj₀
+  have hspR := spineFit_real_of_XI h.hX.hI (iterK_le_fam h n) (Fss₀.getD j []) (Fss.getD j []) 0 [] fs rfl
+    (hc j hj) hfit hspX
+  have hlen : fs.length = (Fss.getD j []).length := by rw [hlen₀]; exact hlenj j hj
+  refine ⟨j, fs, rfl, hj, hlen, hspR, ?_, ?_⟩
+  · rw [← hlen₀] at hall
+    exact idxValsAt_of_eqsXI h.hX.hI hsp (hEs j hj) hall
+  · intro l hl hrl
+    have hmem := fitsXI_rec_mem h.hX.hI (Fss₀.getD j []) 0 [] fs rfl hfit hspX l hl
+      (by rw [Nat.zero_add]; exact hrl)
+    rw [Nat.zero_add, List.nil_append] at hmem
+    have hat := chainRealI_at (Fss₀.getD j []) (Fss.getD j []) 0 [] fs rfl (hc j hj) (by simpa using hspR) l
+      (by omega) (by rw [Nat.zero_add]; exact hrl)
+    rw [Nat.zero_add, List.nil_append] at hat
+    exact ⟨hmem, hat.2.1⟩
+
+/-- **The rank recursion lands in the motive** (nonzero elimination
+level, graph regime). -/
+theorem fixSemK_mem (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss Eiss) (hw : w ≠ 0) (hℓ : ℓ ≠ 0) :
+    ∀ (n : Nat) (is : List V) (t : V), SpineFit (frP Fss.length Ids.length K) Ids is →
+      t ∈ˢ SetTheory.app (iterK u w K Fss Ess Fss₀ Ids rss Eiss n) (tupW u is) →
+      fixSemK K Fss Ids rss n t ∈ˢ SetTheory.app (is.foldl SetTheory.app (frM Fss.length Ids.length K)) t
+  | 0, is, _, hsp, ht => by
+    unfold iterK famIter at ht
+    rw [app_graph (tupW_mem hsp)] at ht
+    exact absurd ht (not_mem_empty _)
+  | n + 1, is, t, hsp, ht => by
+    obtain ⟨j, fs, rfl, hj, hlen, hspR, hidx, hrec⟩ := stage_elim h hw hsp ht
+    unfold fixSemK
+    rw [fixSem_inj n j hlen]
+    unfold stepBr
+    rw [List.foldl_append]
+    have hfold := minorSpI_fold (fun h0 => absurd h0 hℓ) (h.hyp.hms j hj) hspR
+    rw [List.nil_append] at hfold
+    have hC0 : ℓ = 0 → concI w (frP Fss.length Ids.length K) (frM Fss.length Ids.length K) (Ess.getD j []) j fs
+        ∈ˢ (univZero : V) := fun h0 => absurd h0 hℓ
+    have := ihSpL_fold hC0 (As := ihDomsI (frP Fss.length Ids.length K) (frM Fss.length Ids.length K) rss Eiss
+        (fun j => (Fss.getD j []).length) j fs)
+      (vs := (recIdx (rss.getD j []) (Fss.getD j []).length).map fun i =>
+        fixSemK K Fss Ids rss n (fs.getD i pt)) hfold (by simp [ihDomsI]) ?_
+    · unfold concI ctorValI at this
+      rw [hidx, if_neg hw] at this
+      exact this
+    · intro l hl
+      unfold ihDomsI at hl
+      rw [List.length_map] at hl
+      have hi : (recIdx (rss.getD j []) (Fss.getD j []).length)[l]
+          ∈ recIdx (rss.getD j []) (Fss.getD j []).length := List.getElem_mem hl
+      obtain ⟨hik, hri⟩ := mem_recIdx.mp hi
+      unfold ihDomsI
+      rw [List.getD_eq_getElem?_getD (i := l), List.getElem?_map, List.getElem?_eq_getElem hl,
+        Option.map_some, Option.getD_some, List.getD_eq_getElem?_getD (i := l), List.getElem?_map,
+        List.getElem?_eq_getElem hl, Option.map_some, Option.getD_some]
+      obtain ⟨hmem, hvsp⟩ := hrec _ (by omega) hri
+      exact fixSemK_mem h hw hℓ n _ _ hvsp hmem
+
+/-- **Stability**: above a member's stage the recursion is constant. -/
+theorem fixSemK_stable (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss Eiss) (hw : w ≠ 0) :
+    ∀ (n : Nat) (is : List V) (t : V), SpineFit (frP Fss.length Ids.length K) Ids is →
+      t ∈ˢ SetTheory.app (iterK u w K Fss Ess Fss₀ Ids rss Eiss n) (tupW u is) →
+      ∀ m, n ≤ m → fixSemK K Fss Ids rss m t = fixSemK K Fss Ids rss n t
+  | 0, is, _, hsp, ht, _, _ => by
+    unfold iterK famIter at ht
+    rw [app_graph (tupW_mem hsp)] at ht
+    exact absurd ht (not_mem_empty _)
+  | n + 1, is, t, hsp, ht, m, hnm => by
+    obtain ⟨j, fs, rfl, hj, hlen, -, -, hrec⟩ := stage_elim h hw hsp ht
+    obtain ⟨m', rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
+    unfold fixSemK
+    rw [fixSem_inj n j hlen, fixSem_inj m' j hlen]
+    refine stepBr_congr fun i hi => ?_
+    obtain ⟨hik, hri⟩ := mem_recIdx.mp hi
+    obtain ⟨hmem, hvsp⟩ := hrec i (by rw [hlen]; simpa using hik) hri
+    exact fixSemK_stable h hw n _ _ hvsp hmem m' (by omega)
+
+/-- **Inhabitation at a zero elimination level** (graph regime): the
+motive is inhabited at every member of every stage. -/
+theorem fixSemK_inhab (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss Eiss) (hw : w ≠ 0) (h0 : ℓ = 0) :
+    ∀ (n : Nat) (is : List V) (t : V), SpineFit (frP Fss.length Ids.length K) Ids is →
+      t ∈ˢ SetTheory.app (iterK u w K Fss Ess Fss₀ Ids rss Eiss n) (tupW u is) →
+      ∃ y, y ∈ˢ SetTheory.app (is.foldl SetTheory.app (frM Fss.length Ids.length K)) t
+  | 0, is, _, hsp, ht => by
+    unfold iterK famIter at ht
+    rw [app_graph (tupW_mem hsp)] at ht
+    exact absurd ht (not_mem_empty _)
+  | n + 1, is, t, hsp, ht => by
+    obtain ⟨j, fs, rfl, hj, hlen, hspR, hidx, hrec⟩ := stage_elim h hw hsp ht
+    have hms := h.hyp.hms j hj
+    rw [h0] at hms
+    obtain ⟨x, hx⟩ := minorSpI_zero_inhab hms hspR
+    rw [List.nil_append] at hx
+    have := ihSpL_zero_inhab hx ?_
+    · unfold concI ctorValI at this
+      rwa [hidx, if_neg hw] at this
+    · intro A hA
+      unfold ihDomsI at hA
+      obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hA
+      obtain ⟨hik, hri⟩ := mem_recIdx.mp hi
+      obtain ⟨hmem, hvsp⟩ := hrec i (by rw [hlen]; simpa using hik) hri
+      exact fixSemK_inhab h hw h0 n _ _ hvsp hmem
+
+end KRec
+
 end Lech.Semantics
