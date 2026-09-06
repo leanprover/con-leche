@@ -43411,3 +43411,201 @@ the worktree removed), resume record `_tmp/pw-bitmask-land/HANDOFF.md`
 (state, module counts, the twelve-class repair recipe, the discharged
 judgment items and where they live, the open ones).  The measurement
 script is `_tmp/pw-bitmask-land/measure.sh`.
+
+## The Rat frontier: the K rescue ran *after* the major's whnf — a reduction-order divergence, fixed by mirroring `inductive_reduce_rec` (2026-09-06, `agent/rat-frontier`)
+
+The full Mathlib stream died at record 126 329
+(`_private.Std.Time.Date.Unit.Week.0.Std.Time.Week.Offset.ofMilliseconds._proof_1`,
+"fuel exhausted: infer", both cores; the record above).  The user's
+direction: export the declaration into its own stream, reproduce,
+investigate against the official kernel — "there is no special support
+for `Rat` or `Int` in a kernel; it must be a reduction heuristics
+divergence".  It was.  Not `Rat`, not `Int`, not the `Bool.true`
+shortcut: the **order of the K rescue and the major's whnf** in the
+iota rule.
+
+### 1. Reproduction on a dependency-cone slice
+
+`_tmp/rat-frontier/slice_decl.py <stream> <decl> <out>` walks the
+`ndjson` DAG backwards from the declaration (three passes — names and
+levels forward, a backward marking iterated to a fixpoint because an
+inductive block's own `const` nodes are emitted *before* its record,
+then a forward emit), keeping the transitive constant cone, the
+`_model` companions of every kept block, and the intern records they
+need.  On the 907 MB prefix ending at the record it produced
+`_tmp/rat-frontier/rat-slice-pre.ndjson`: **7 330 226 B, 135 522
+lines, 2 595 records** (2 852 constants), in 2 min 51 s.
+
+| checker (tip `3993fb54`, pre-fix) | verdict | wall |
+|---|---|---|
+| official v4.33.0 `kernel` | **accept**, 2 852 declarations | 0.54 s |
+| setlec `--set-model=p --pre` | exit 3, `fuel exhausted: infer` | 84.9 s |
+| setlec `--no-model --pre` | exit 3, `fuel exhausted: whnfCore` | 29.6 s |
+
+So the slice is the whole finding, 800× smaller than the prefix.
+
+### 2. Where the fuel went: a throwaway depth probe
+
+A debug build (never committed; the patch is
+`_tmp/rat-frontier/debug-probe.patch`) wrapped every slot of both knots
+(`coreKnotI`, `coreKnotNC`) with a `dbgTrace` of the call's head at
+chosen fuel marks, so the 100 000-deep recursion could be read as a
+stack sample.  Findings, innermost first:
+
+* From fuel ≈ 99 960 down to 0 the chain is one **linear descent**: at
+  each level `whnf (Nat.rec (λt. PProd …) (PProd.mk …) (λn n_ih. …) N)`
+  → `whnfCore` → the app case → `whnf` of the `succ` predecessor, i.e.
+  the `Nat.brecOn` tower of a *structurally recursive proof* being
+  unrolled unarily.  The literal reads `604 787` at fuel 99 962,
+  `604 556` at 99 500, `579 806` at 50 000, `554 808` at 5: **two knot
+  levels per unit, 604 800 = 7 · 86 400 units to go** — 1.2 M levels
+  against a 100 000 budget, which is also why `checkFuel × 16` turned
+  the fuel wall into a memory wall.
+* The proof being unrolled is **`Nat.eq_of_beq_eq_true`** (its
+  `Nat.brecOn` over `Nat.beq`), reached as the *major* of an `Eq.rec`
+  inside the unfolding of the *theorem* `Int.decEq._proof_1 a b h`
+  (`h ▸ rfl`), itself the major of the `Eq.ndrec` that
+  `instDecidableEqRat`'s `h ▸` produces while `decide` whnfs the
+  instance.  The exact top of the chain (fuel 99 992 → 99 989):
+  `whnfCore Eq.ndrec` → `whnfCore Eq.rec` → **`whnf
+  (Int.decEq._proof_1 …)`** → its body `Eq.rec Nat a (motive) (rfl …) b
+  (Nat.eq_of_beq_eq_true X Y hb)` → **`whnf (Nat.eq_of_beq_eq_true X Y
+  hb)`** → the tower.
+* Both whnfs are `iotaRec`'s own: `Core.lean:1391` head-normalized the
+  major **before** `majorToCtor` (the K rescue).  On an `Eq.rec` whose
+  major is a theorem application that means delta-unfolding the proof
+  and grinding whatever recursion it contains.
+
+### 3. The divergence, against the references
+
+Official `inductive_reduce_rec` (`src/kernel/inductive.cpp`, called
+from `type_checker::reduce_recursor`, `type_checker.cpp:399`):
+
+    expr major = rec_args[major_idx];
+    if (rec_val.is_k()) major = to_ctor_when_K(env, rec_val, major, whnf, infer_type, is_def_eq);
+    major = whnf(major);
+    if (is_nat_lit(major)) major = nat_lit_to_constructor(major);
+    else if (is_string_lit(major)) major = string_lit_to_constructor(major);
+    else major = to_ctor_when_structure(env, rec_val.get_major_induct(), major, whnf, infer_type);
+
+`to_ctor_when_K` reads **only the major's type** (`whnf(infer_type(e))`,
+`mk_nullary_ctor` from its parameters, `is_def_eq(app_type, new_type)`)
+and never touches the major; the whnf comes *after*, on `Eq.refl` when
+the rescue succeeded.  lean4lean is the same
+(`Inductive/Reduce.lean:66-72`: `if info.k then major ← toCtorWhenK …
+major`, then `match ← whnf major with …`).  On this term the official
+path checks `Eq Int (ofNat a) (ofNat b) ≡ Eq Int (ofNat a) (ofNat a)`,
+i.e. `b ≡ a` — two `Nat` expressions that the literal fast paths fold —
+and fires with `Eq.refl`; neither `Int.decEq._proof_1` nor
+`Nat.eq_of_beq_eq_true` is ever opened.
+
+Ours ran `whnf`, then the literal conversion, then `majorToCtor` (K and
+structure-eta in one function).  For the K branch that is the opposite
+order; a **reduction-strategy divergence** in the sense of the
+match-reference ruling — not a superset but a permutation, and one that
+detonates on any structurally recursive proof used as an `Eq.rec` major
+over a big literal.  The two other candidates the direction named were
+checked and are not it: (a) the official `Bool.true` shortcut
+(`is_def_eq_core`, `type_checker.cpp:1181`: an fvar-free `t` against
+the constant `Bool.true` gets a full `whnf`) does **not** fire on this
+declaration — the pair is `is_def_eq(true, decide P inst)` with `true`
+on the *left* (`infer_app` compares `a_type` against `d_type`), so
+official reaches `decide` through lazy delta and its `whnf_core`'s
+major whnf exactly as we do; (b) `reduce_nat` fires at the same sites
+(the `Nat.beq`/`Nat.gcd`/`Nat.div` folds all show in the probe as
+single steps).  `eagerReduce` (`m_eager_reduce`) only relaxes the
+fvar guards on those two and is irrelevant to this closed term.
+
+### 4. The fix: `prepareMajor`, one function, the official order
+
+`Setlec/Kernel/Core.lean`:
+
+* `recRuleKOf find? rules` / `recRuleK env rules` — the K flag read off
+  the environment: a single rule whose constructor has no fields and
+  whose inductive carries `caps.ruleK` (= `nF == 0 && result Prop`).
+  It is exactly the guard of `majorToCtor`'s K branch, so on a
+  K-flagged recursor `majorToCtor` can only take the K branch (an
+  inductive proposition fails the eta branch's provably-nonzero guard)
+  and on any other recursor it can only take the eta branch.
+* `prepareMajor mode r env depth recName rules major`:
+  `if recRuleK env rules then majorToCtor; whnf; litMajorToCtor else
+  whnf; litMajorToCtor; majorToCtor`.  Each rescue at its official site,
+  neither attempted twice (a second K attempt after the whnf would be a
+  strategy superset; the literal conversion after the whnf in the K
+  branch is official's, a no-op on a proof).
+* `iotaRec` binds once on it.  Twins `prepareMajorI` (`CoreC.lean`,
+  over `majorToCtorI`) and `prepareMajorNC` (`CoreNC.lean`, over
+  `majorToCtorNC`), the K flag at `FEnv.find?`.
+
+`majorToCtor`, `litMajorToCtor` and their ~80 proof references are
+untouched.
+
+### 5. The proof: one induction principle, every consumer an instance
+
+`prepareMajorP_ind` (`Verify/InferLemmas.lean`): a property preserved
+by each of `whnf`, `litMajorToCtorP` and `majorToCtorP` is carried from
+the raw major to the prepared one, whichever order ran.  `iotaRec_inv`
+now carries the single conjunct `prepareMajorP … = .ok major` (the two
+intermediate majors are gone from its existentials); its consumers —
+`whnfPres_WScoped`, the leaf and bound-variable walks (`InferLeaves`),
+`iotaRec_WScoped`/`iotaRec_shift` (`Deep`), and the P tier's
+`frame_prepareMajorP`, `iotaReadsP_of`, `iotaStepP_of` (`IotaRowsP`,
+package predicates: reading ∧ grading ∧ `interp2` equation ∧ frames ∧
+`CtxOkP`, chained by `.trans`) — are its instances and never name the
+order.  The compositional families gained one lemma each from the
+three existing ones: `prepareMajor_{fst,snd}_proj` (+ the `step3`
+cascades), `prepareMajor_atF`, `prepareMajor_disc`, `prepareMajor_shift`,
+`prepareMajorC_sim` (with `recRuleKOf_mkFEnv`).  No new axiom, no
+licence; proofdeps: 1 364 rows as pinned across the 4 capstones, 0
+doors; layering: 0 impl→theory edges.
+
+### 6. Receipts
+
+* Slice: exit 3 → **accept in 1.9 s (P) / 1.8 s (parity)**.
+* Regression fixture `tests/e2e/k_major_raw.ndjson`
+  (`tests/e2e/src/k_major_raw.lean`: `Eq.rec … (k_major_raw_beq_true
+  604800)` computing a `Nat`): pre-fix exit 3 in both modes (19.7 s P /
+  5.6 s parity), post-fix accept 0.18 s, official accept.
+* `lake build` warning-free; `lake test`; `tests/arena.sh` 0 FAIL
+  (90/92 tutorial good tests accepted — 032/033 are the by-design
+  declines — e2e 73/73, annot 14/14, no-model sweep as expected with
+  the 3 recorded divergences unchanged).
+* init-full (`init-full-pre2`, `--pre`, `ulimit -v 16000000`):
+  P **983.44** G instructions (baseline 987.26 G), parity
+  **1085.43** G (baseline 1085.84 G; S1 will move parity).
+* The 126 328-record prefix + the failing record
+  (`mathlib-prefix126329-pre.ndjson`): **accept, 139 018 declarations, 1 051 s, peak RSS 10.05 GB** (pre-fix: exit 3 at 1 922 s).
+* The full Mathlib stream in P mode (`ulimit -v 22000000`, `timeout
+  14400`, `_tmp/rat-frontier/run.sh`): parse in ≤ 330 s (peak 13.28 GB), then
+  checking at a steady 12.0–12.8 GB; **exit 2 at 3 512 s, peak RSS
+  13.61 GB** (VmHWM; VmSize flat at 16.01 GB against the 20.98 GB cap):
+
+      setlec: not implemented yet: projection on a non-structure-like type
+        [at def Lean.Meta.Grind.AC.DiseqCnstr.lhs]
+
+  a *positive decline*, not a crash — at record **154 248 of 727 270
+  (21.2 %)**, stream line 20 562 189, in the check phase; every
+  declaration before it (including record 126 329 and the whole
+  `Std.Time`/`Rat` neighbourhood) accepted.  The wall time carries a
+  contention caveat (another agent's init-full perf cell ran
+  concurrently for part of it); the verdict and the RSS profile do not.
+  Harness copy: `_tmp/rat-frontier/run.sh`; logs
+  `_tmp/rat-frontier/8480a8c9-{prefix126329,full}-{p,rss}.log`.
+
+### 7. What this leaves open
+
+* **The next frontier is a capability decline, not a divergence**:
+  `.proj` on a type the projection table does not classify as
+  structure-like, at `Lean.Meta.Grind.AC.DiseqCnstr.lhs` (record
+  154 248, 21.2 %).  Per the cadence ruling (2026-09-06) it is recorded
+  here and **not investigated** on this branch; a new agent takes it.
+  The frontier moved from 17.4 % (exit 3, fuel) to 21.2 % (exit 2,
+  declared unsupported feature).
+* The slicer (`_tmp/rat-frontier/slice_decl.py`) turns any frontier
+  declaration into a sub-10 MB reproduction in ~3 min; the depth probe
+  (`debug-probe.patch`) reads a fuel-exhausting recursion as a stack
+  sample.  Both are the first thing to reach for at the next exit 3.
+* The cadence ruling: frontier fixes land after the gates (build, lake
+  test, arena, proofdeps, init-full accept in both modes) plus the
+  extracted slice; the full-stream rerun is a campaign measurement, not
+  a fix's gate.
