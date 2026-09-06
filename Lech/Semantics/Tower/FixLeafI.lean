@@ -282,12 +282,12 @@ theorem fixStepI_univ (hok : FixChainsOkI u w ρp Ids nIdx rss Eiss Fss Ess) {X 
 theorem famFI_mem (hok : FixChainsOkI u w ρp Ids nIdx rss Eiss Fss Ess) {X : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) :
     famFI u w ρp Ids nIdx rss Eiss Fss Ess X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) :=
-  lamR_mem fun t ht => fixStepI_univ hok hX ht
+  lamR_mem fun _ ht => fixStepI_univ hok hX ht
 
 theorem famFI_app {X t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
     SetTheory.app (famFI u w ρp Ids nIdx rss Eiss Fss Ess X) t
       = fixStepI u w ρp Ids nIdx rss Eiss Fss Ess X t :=
-  app_lamR_pos (Nat.succ_ne_zero w) ht
+  app_lamR_pos (a := t) (Nat.succ_ne_zero w) ht
 
 theorem fixFunVI_mem (hok : FixChainsOkI u w ρp Ids nIdx rss Eiss Fss Ess) :
     fixFunVI u w ρp Ids nIdx rss Eiss Fss Ess ∈ˢ lfpFamFunSpace V u w (idxSet u ρp Ids) :=
@@ -386,6 +386,30 @@ def ParamsOkXI (u w : Nat) (ρ : Nat → V) (Ids : List AVExpr) (rss : List (Lis
       ∀ a, a ∈ˢ interp2 V ρ d.2.2 → ParamsOkXI u w (cons a ρ) Ids rss Eiss Fss Ess pps
 
 omit [SetTheory V] in
+theorem frameIdx_succ (n : Nat) (ρ : Nat → V) : frameIdx (n + 1) ρ = ρ n :: frameIdx n ρ := by
+  unfold frameIdx
+  rw [List.range_succ_eq_map, List.map_cons, List.map_map]
+  show ρ (n + 1 - 1 - 0) :: _ = _
+  rw [show n + 1 - 1 - 0 = n from rfl]
+  congr 1
+  apply List.map_congr_left
+  intro l _
+  show ρ (n + 1 - 1 - (l + 1)) = ρ (n - 1 - l)
+  rw [show n + 1 - 1 - (l + 1) = n - 1 - l from by omega]
+
+omit [SetTheory V] in
+/-- The index tuple of a consed spine. -/
+theorem frameIdx_consList' : ∀ (is : List V) (ρ : Nat → V),
+    frameIdx is.length (consList is ρ) = is
+  | [], _ => rfl
+  | a :: as, ρ => by
+    rw [consList_cons, List.length_cons, frameIdx_succ, frameIdx_consList' as (cons a ρ)]
+    congr 1
+    have := consList_apply_add as (cons a ρ) 0
+    rw [Nat.zero_add] at this
+    exact this
+
+omit [SetTheory V] in
 /-- A frame is its index tuple over its shift. -/
 theorem consList_frameIdx : ∀ (n : Nat) (ρ : Nat → V),
     consList (frameIdx n ρ) (shiftE n 0 ρ) = ρ
@@ -393,16 +417,7 @@ theorem consList_frameIdx : ∀ (n : Nat) (ρ : Nat → V),
     show consList [] (shiftE 0 0 ρ) = ρ
     rw [consList_nil, shiftE_zero_zero]
   | n + 1, ρ => by
-    have hfr : frameIdx (n + 1) ρ = ρ n :: frameIdx n ρ := by
-      unfold frameIdx
-      rw [List.range_succ_eq_map, List.map_cons, List.map_map]
-      show ρ (n + 1 - 1 - 0) :: _ = _
-      rw [show n + 1 - 1 - 0 = n from rfl]
-      congr 1
-      apply List.map_congr_left
-      intro l _
-      show ρ (n + 1 - 1 - (l + 1)) = ρ (n - 1 - l)
-      rw [show n + 1 - 1 - (l + 1) = n - 1 - l from by omega]
+    have hfr : frameIdx (n + 1) ρ = ρ n :: frameIdx n ρ := frameIdx_succ n ρ
     have hsh : cons (ρ n) (shiftE (n + 1) 0 ρ) = shiftE n 0 ρ := by
       funext i
       cases i with
