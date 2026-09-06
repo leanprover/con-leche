@@ -18,8 +18,8 @@ retirement (2026-09-05), validated once at startup and threaded as
 configuration, never re-read at runtime (the `directStructsEnabled`
 discipline).
 
-* `.setModel` (the default, `--set-model`, spelled `--set-model=p`
-  too): the verified lane.  The surface the **graded** set-theoretic
+* `.verified` (the default, `--verified`): the verified lane.  The
+  surface the **graded** set-theoretic
   model proves — `no_proof_of_Empty_SPCD_P`
   (`Setlec/Verify/Cached/MainC.lean`) is its letter over the driver
   this binary runs.  The seven TT-lane checks (tasks #126, #129, #130,
@@ -29,24 +29,33 @@ discipline).
   `Setlec/Kernel/Core.lean`) — and the io-graded knot slot skips the
   per-argument application certificate under the same licence.  Every
   other certificate family runs unconditionally.
-* `.noModel` (`--no-model`): the unverified lane — full front-door
-  check per declaration (official-kernel parity), infer-only internal
-  discipline (task #134), and **no certificate families at all**
-  (task #76).  Selected by a different driver stack
-  (`Setlec/Kernel/CheckerNM.lean`).
+* `.trusted` (`--trusted`): the unverified lane — the same checker
+  with the work that exists **for certification only** omitted: full
+  front-door check per declaration, infer-only internal discipline
+  (task #134), and **no certificate families at all** (task #76).
+  What must not be dropped is everything believed necessary for
+  *soundness* (which is different from "necessary for our soundness
+  proof to go through"), so the lane is never optimized on its own:
+  it is the real mode with certain steps omitted (DESIGN.md, "MODE
+  RENAME").  Selected by its own driver stack
+  (`Setlec/Cached/ParsedT.lean`).
 
-**HISTORY, because the spelling moved.**  There were three values
-until 2026-09-05: `.setModel` (the R lane — every certificate
-unconditional), `.setModel` (the graded lane) and `.noModel`.  The
-user's ruling removed the collapsed-model consistency proof, and the R
-core went with the proof it was the subject of, the acceptance delta
-between the two verified lanes having measured **zero**.  The graded
-value then took the retired one's name: there is one verified mode, so
-it is `.setModel`, and `--set-model=r` is a hard error rather than an
-alias onto a different core. -/
+**HISTORY, because the spelling moved twice.**  There were three
+values until 2026-09-05: `.setModel` at `--set-model=r` (the R lane —
+every certificate unconditional), `.setModelP` at `--set-model=p` (the
+graded lane) and `.noModel`.  The user's ruling removed the
+collapsed-model consistency proof, and the R core went with the proof
+it was the subject of, the acceptance delta between the two verified
+lanes having measured **zero**; the graded value then took the retired
+one's name, `.setModel`.  On 2026-09-06 the *vocabulary* was renamed
+to say what the two modes are for rather than which artefact proves
+them: `.setModel` → `.verified` (`--set-model`/`--set-model=p` →
+`--verified`) and `.noModel` → `.trusted` (`--no-model` →
+`--trusted`).  Every retired spelling is a hard error naming its
+successor, never a silent alias (DESIGN.md, "MODE RENAME"). -/
 inductive CheckMode where
-  | setModel
-  | noModel
+  | verified
+  | trusted
   deriving DecidableEq, Repr, Inhabited
 
 /-- Are the seven TT-lane checks enabled?  The one accessor the kernel
@@ -59,15 +68,16 @@ def CheckMode.ttChecks : CheckMode → Bool
   | _ => false
 
 /-- Are the *verified* mode's extra checks enabled — the checks the
-model lane wants and the unverified lane must not run, because it is
-the official-parity lane?  The second accessor the kernel branches on
+model lane wants and the trusted lane must not run, because they are
+needed for the soundness *proof* rather than for soundness?  The
+second accessor the kernel branches on
 (task #152: the λ-rule's codomain-sort check, `inferBody`'s `.lam`
 clause).  This is deliberately **not** `ttChecks`: the λ codomain sort
 is a premise of the set lane's annotation pass (`Setlec/SetP`), so it
-must run at `.setModel`; and it is a check the reference kernel's
-`infer_lambda` does not run, so it must not run at `.noModel`. -/
-def CheckMode.verified : CheckMode → Bool
-  | .noModel => false
+must run at `.verified`; and it is a check the reference kernel's
+`infer_lambda` does not run, so it must not run at `.trusted`. -/
+def CheckMode.verifiedChecks : CheckMode → Bool
+  | .trusted => false
   | _ => true
 
 /-- Is the **β-certificate gate** on (task #161)?  The third accessor
@@ -79,20 +89,22 @@ Two disciplines ride on this accessor being a *mode* accessor rather
 than a second knot:
 
 * **the establishment/consumption asymmetry fence** — the gate reads a
-  *validated* annotation (only meaningful where `verified = true`) and
+  *validated* annotation (only meaningful where
+  `verifiedChecks = true`) and
   wraps the **test** only, so no certificate a possibly-zero datum
   needs is ever skipped;
 * **the dead-branch collapse** — at `betaGate = false` the gated test
   is definitionally the ungated one (`betaTest_of_gate_off`), which is
-  what keeps the parity lane's proofs one rewrite away from their
+  what keeps the trusted lane's proofs one rewrite away from their
   pre-gate form.
 
 Since the R core's retirement the gate is on at the *only* verified
-mode, so `betaGate` and `verified` now agree except at `.noModel`.
+mode, so `betaGate` and `verifiedChecks` now agree except at
+`.trusted`.
 They stay two accessors because they gate different checks and the
 kernel reads them at different sites. -/
 def CheckMode.betaGate : CheckMode → Bool
-  | .setModel => true
+  | .verified => true
   | _ => false
 
 /-- Data common to all constants: name, universe parameters, type. -/

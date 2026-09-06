@@ -16,7 +16,7 @@ conclusions here read `cv.type.erasePw.eraseNames = pinA.type.erasePw
 pinA.type.eraseNames`.  That is not a weakening of what is *proved*:
 `ConstantVal.matchesPin` itself now compares through `Expr.erasePw`
 (the pins carry the generated prop-ness data while the compared side
-carries whatever the mode produced — nothing at `--no-model`), so the
+carries whatever the mode produced — nothing at `--trusted`), so the
 stronger statement is simply no longer true of the hypothesis.  The
 consumers lose nothing: what they need of these equalities is the
 denotation, and `denote_erasePw` (`Verify/Denote/Inst.lean`) says

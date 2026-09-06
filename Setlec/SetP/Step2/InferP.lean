@@ -19,7 +19,7 @@ example** for the whole infer quarter: every binder clause of the swap
 runs the same four moves —
 
 1. the run inversion delivers the P2 validation conjunct
-   (`(zeronessOf v).equiv mb.pw`, at `μ.verified`) alongside the sort
+   (`(zeronessOf v).equiv mb.pw`, at `μ.verifiedChecks`) alongside the sort
    runs — no `sortOfE` cross-fuel gymnastics, the annotation's numeral
    is `pwBit φ mb.pw` *definitionally* (`denoteP_forallE_inv`);
 2. `SortSemP` (the routed residue, `SortSem2` with `sortOfE` unfolded
@@ -35,8 +35,8 @@ runs the same four moves —
    now a rewrite.
 
 **Mode pinning.**  The claims (`Claims2P`) quantify `μ`, but the
-*step proofs* hold at `μ.verified = true` only: the validation
-conjuncts are conditional on the mode, and at `.noModel` a stored bit
+*step proofs* hold at `μ.verifiedChecks = true` only: the validation
+conjuncts are conditional on the mode, and at `.trusted` a stored bit
 is unvalidated.  The P-tier assembly (and the capstone) is a
 verified-mode statement — which is the design: the annotated checker's
 consistency proof covers the mode that validates.
@@ -250,7 +250,7 @@ theorem infer_fvar_claimP (m : EnvS2Core V env)
 /-- **`.forallE`, P currency** — see the module docstring; the four
 moves annotated inline. -/
 theorem infer_forallE_claimP (m : EnvS2Core V env)
-    (hμ : μ.verified = true) (hss : SortSemAtP m μ φ fuel)
+    (hμ : μ.verifiedChecks = true) (hss : SortSemAtP m μ φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.forallE n ty body mb)
@@ -354,7 +354,7 @@ on the body:
   canonical lane's `LamCodSort2` residue (the per-node sort run the
   #152 chain guard lost) dissolves into the model's own law. -/
 theorem infer_lam_claimP (m : EnvS2Core V env)
-    (hμ : μ.verified = true) (hss : SortSemAtP m μ φ fuel)
+    (hμ : μ.verifiedChecks = true) (hss : SortSemAtP m μ φ fuel)
     (hsss : SortSemAtIOSP m μ φ fuel)
     (ihi : InferClaims2P μ m φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Setlec.BinderMeta}
@@ -1081,7 +1081,7 @@ P tier's own:
 
 **The step is verified-only.**  The claims stay mode-generic — they
 have to, since `checkSound2P` inducts over them at whatever mode the
-install fixed — but the *step* holds at `μ.verified = true`: the ∀ and
+install fixed — but the *step* holds at `μ.verifiedChecks = true`: the ∀ and
 λ clauses read validation conjuncts that the run inversions produce
 only at that mode.  See the module docstring. -/
 
@@ -1116,7 +1116,7 @@ the mode pinned: the four claims at `fuel` give the inference claim at
 `fuel + 1`, at a validating mode. -/
 def InferStepP (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvS2Core V env) (φ : Name → Nat) (fuel : Nat),
-    μ.verified = true →
+    μ.verifiedChecks = true →
     WhnfCoreClaims2P μ m φ fuel → WhnfClaims2P μ m φ fuel →
     DefEqClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
     InferClaimsIO2P μ m φ fuel →
@@ -1130,7 +1130,7 @@ theorem inferStepP_of (h : InferInputsP V μ)
     (hsssF : ∀ {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
       (fuel : Nat), WhnfClaims2P μ m φ fuel → InferClaims2P μ m φ fuel →
       InferClaimsIO2P μ m φ fuel → SortSemAtIOSP m μ φ fuel)
-    (hμ : μ.verified = true) :
+    (hμ : μ.verifiedChecks = true) :
     InferStepP μ V := by
   intro env m φ fuel _hv _ihwc ihw ihd ihi ihio
   have hss : SortSemAtP m μ φ fuel :=

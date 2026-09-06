@@ -44,7 +44,7 @@ same reason `IrrelP.lean`'s proof irrelevance was:
   of the two annotations: the λ's own `pwBit φ m₁.pw` must be the
   ∀-type's `pwBit φ m₂.pw`, and task #161 P2 put exactly that
   certificate into `etaCert`'s tail (`m₁.pw.equiv m₂.pw` at
-  `μ.verified`), so `pwBit_eq_of_equiv` closes it.  This is the
+  `μ.verifiedChecks`), so `pwBit_eq_of_equiv` closes it.  This is the
   extraction idiom of `DefEqP.lean`'s "THE KEY DELTA" blocks, at the η
   site.
 
@@ -552,7 +552,7 @@ theorem denotePStrLit_of_guard {m : EnvS2Core V env} :
 `etaCert` (`Kernel/Core.lean:1027`) infers the stuck side's type,
 reduces it to a `∀`, defeqs the domains, defeqs the λ's opened body
 against `app b x`, and — task #161 P2 — certifies `m₁.pw.equiv m₂.pw`
-at `μ.verified`.  Read at `interp2` those are exactly `lamR_eta`'s
+at `μ.verifiedChecks`.  Read at `interp2` those are exactly `lamR_eta`'s
 premises:
 
 * the certificate identifies the two **bits** (`pwBit_eq_of_equiv`),
@@ -571,7 +571,7 @@ rule for the same content; here there is no rule, only the law. -/
 written by a verified-mode run — and the two totality factors are the
 routed `InferReadsP`/`WhnfReadsP`; no new residue. -/
 theorem etaCertStepP_of_claims {m : EnvS2Core V env}
-    (hμ : μ.verified = true)
+    (hμ : μ.verifiedChecks = true)
     (ihw : WhnfClaims2P μ m φ fuel) (ihd : DefEqClaims2P μ m φ fuel)
     (ihis : InferClaimsIOS2P μ m φ fuel)
     (hir : InferReadsIOSP m μ φ fuel) (hwr : WhnfReadsP m μ φ fuel) :

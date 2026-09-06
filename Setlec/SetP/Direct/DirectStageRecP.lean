@@ -58,7 +58,7 @@ theorem recOpenedAll (mp : EnvS2PM V μ env)
     openedP_of_peel hopAll htf' hbt' (hRD.read ψ) (hRD.len ψ) (hRD.okTy ψ)⟩
 
 /-- **The P step at the recursor's cons.** -/
-theorem stageRec (hμ : μ.verified = true) (hE : Setlec.EtaFamiliesClosed env)
+theorem stageRec (hμ : μ.verifiedChecks = true) (hE : Setlec.EtaFamiliesClosed env)
     (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {rhsA : Expr}
     (hccv : Setlec.checkConstantVal (Setlec.fueledOps μ F) env p.cvR = .ok cvRa)

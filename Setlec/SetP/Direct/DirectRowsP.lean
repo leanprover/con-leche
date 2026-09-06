@@ -38,7 +38,7 @@ structure ClaimsAtP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
   sort : SortSemAtP m μ φ F
 
 /-- A P carrier answers them (the sealed capstone). -/
-theorem claimsAtP_of (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+theorem claimsAtP_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     (φ : Name → Nat) (F : Nat) : ClaimsAtP μ mp.base2 φ F :=
   have h := checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem mp φ) F
   have hr : InferReadsP mp.base2 μ φ F :=

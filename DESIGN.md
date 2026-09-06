@@ -45304,3 +45304,264 @@ The only fix worth having in this family was S2 (the cap), landed.
 | D5 (`cheap_proj` first pass, `tryUnfoldProjApp`, `lazyDeltaProjReduction`) | **deferred to the docket** — the largest restructuring (a second `whnfCore` entry + two lazy-delta helpers), both-direction cost, no witness built |
 | eager flag (item 6) | **deferred to the docket** — §8: full six-field threading (283 sites + ~770 lemma mentions) vs defeq-cone-only (57 + ~170, whnf-nested residual); separate memo tables either way; 1 use per stream, accepted; a cost divergence, not a verdict one |
 | E4 (proofIrrel type comparison / fall-through), N2 (`reduce_native`) | **stay** by the standing rulings |
+## MODE RENAME — `--verified` / `--trusted`, and the fast `isProof` arms ungated (2026-09-06, `agent/mode-rename`)
+
+**The user's ruling.**  The two modes were named after the artefacts
+that (do or do not) prove them — `--set-model` / `--no-model`,
+`.setModel` / `.noModel`, "the P core" / "the parity core".  They are
+now named after what they *are*:
+
+| old | new |
+|---|---|
+| `CheckMode.setModel` | `CheckMode.verified` |
+| `CheckMode.noModel` | `CheckMode.trusted` |
+| `CheckMode.verified` (the ACCESSOR) | `CheckMode.verifiedChecks` |
+| `--set-model`, `--set-model=p` | `--verified` (still the default) |
+| `--no-model` | `--trusted` |
+| `cfgNC` | `cfgT` |
+| `Setlec/Cached/CoreNC.lean` | `Setlec/Cached/CoreT.lean` |
+| `Setlec/Cached/ParsedNC.lean` | `Setlec/Cached/ParsedT.lean` |
+| every `…NC` identifier tag (`stuckIrrelNC`, `coreKnotFNC`, `sharedOpsCNC`, …) | `…T` |
+| `checkDeclsSPCachedDNM` | `checkDeclsSPCachedDT` |
+| `cfgOf_setModel` / `cfgOf_noModel` | `cfgOf_verified_eq_cfgP` / `cfgOf_trusted_eq_cfgT` |
+| `betaGate_on_setModel` / `betaGate_off_noModel` | `betaGate_on_verified` / `betaGate_off_trusted` |
+| `cfgP_betaSkip_eq_setModel` | `cfgP_betaSkip_eq_verified` |
+| `parity_agrees_P_*` (`Verify/Cached/AgreeFloor.lean`) | `trusted_agrees_P_*` |
+| `tests/no-model-expected.txt` | `tests/trusted-expected.txt` |
+| `tests/arena.sh`: `SWEEP=nomodel`, `NM_EXPECTED`, `NM_OVR` | `SWEEP=trusted`, `T_EXPECTED`, `T_OVR` |
+| `scripts/perf-tables.sh`: `CONFIG_IDS=(official parity P)` | `(official trusted verified)` |
+
+Two entries need saying out loud.
+
+* **The accessor had to move.**  A constructor `CheckMode.verified` and
+  a function `CheckMode.verified` cannot share a name, so the mode
+  accessor became `CheckMode.verifiedChecks` — which reads like its
+  sibling `CheckMode.ttChecks`, and says what it is: *does this mode
+  run the verified lane's extra checks*.  `CoreCfg.verified` (the
+  record field, a different namespace) is untouched, so **`cfg.verified`
+  stays** exactly as it was, at every one of its call and proof sites.
+* **The SetP tier keeps its `P`.**  `P` names the graded *model*, not
+  the mode; `cfgP`, `foldSPC_PM`, `no_proof_of_Empty_SPCD_P`,
+  `PropIrrelPQ` and the whole `Setlec/SetP/*` naming are unchanged.
+
+### WHAT THE TRUSTED MODE IS FOR (the user's purpose statement, verbatim)
+
+> how fast would the checker be if we dropped all *additional* work
+> that we have to for certification only. What must not be dropped is
+> everything that we believe to be necessary for soundness (that's
+> different from 'necessary for our soundness proof to go through')
+
+> we don't want to optimize that mode alone … it should always be like
+> the real mode with just certain steps/checks omitted
+
+**This supersedes "parity" and its "mirrors official" reading.**  The
+trusted mode is not a re-implementation of the official kernel and its
+number is not a conformance claim; conformance against official is the
+**divergence audit's** subject (`agent/divergence-audit`, the record
+above), which owns the clause-by-clause comparison and the "parity
+mirrors official" annotations at the individual sites.  What the
+trusted column measures is the *certification tax*: the same checker,
+minus the work that exists only so the soundness proof can be written.
+Two consequences the name now makes obvious:
+
+* a trusted-only optimization is out of bounds.  The mode is defined
+  as the real mode with steps omitted, so anything that makes it
+  faster *without* making the verified mode faster is a divergence to
+  be removed, not a win to be recorded;
+* the trusted mode is **unverified by construction** and stays so.  No
+  capstone covers it; `trusted_agrees_P_skels_D` and its siblings are
+  a floor (same accepted skeletons when both accept), not a letter.
+
+Current-tense prose in the tree follows the ruling ("the trusted core",
+"the trusted lane").  **Historical records keep their own names** —
+this record, the retired `Setlec/Kernel/CoreNC.lean` /
+`Setlec/Kernel/CheckerNC.lean` / `CheckerNM` provenance lines in the
+cached twins' docstrings, and every dated DESIGN.md section above.
+Rewriting them would claim modules that never existed.
+
+**Retired spellings are hard errors, not aliases** — the discipline
+`--set-model=r` already followed (*a verdict's provenance must be
+readable off the invocation*).  `--set-model`, `--set-model=p` and
+`--no-model` each exit 3 naming their successor; `tests/arena.sh`'s
+mode-flag suite grew from 14 to 16 cases to pin that.
+
+**PERF.md** was relabelled, not re-measured: the columns are now
+`official / trusted / verified`, `perf-data/`'s config ids were
+renamed in place so `--render` still works, and a first note records
+that the table predates the instantiate-opt landing and awaits
+regeneration.
+
+### THE SECOND HALF: task #168's fast arms, ungated
+
+The head-symbol readers (`notProofFast` / `isProofFast`,
+`Setlec/Kernel/PropRead.lean`) ran only in the verified mode: the no
+arm behind `mode.verifiedChecks`, the yes arm behind
+`mode.verifiedChecks && mode.betaGate`.  **The user's ruling is that
+the fast readers are part of "the real mode", so the trusted mode
+inherits them.**  Under the purpose statement above this is forced: a
+reader that *replaces an inference* is not certification-only work, so
+dropping it would be a trusted-only pessimization — the mirror image
+of the optimization the ruling forbids.
+
+Both gates are gone from `propIrrel` (`Kernel/Core.lean`) and
+`propIrrelI` (`Cached/CoreC.lean`).  With no configuration read left,
+the section variables drop out of both signatures: `propIrrel` now has
+`proofIrrel`'s exact shape (no `CheckMode`), `propIrrelI` takes no
+`CoreCfg`.  `propIrrelP mode env fuel` is unchanged (its `mode` goes
+to `pureFns`), so **no P-tier statement moved**; only the sites that
+spell the body directly did (`Disc`, `Deep`, `Fueled`, `PairM`,
+`Knot`, `DiscC2`, the two cached cores).
+
+Proof side, verified lane never weakened:
+
+* `propIrrel_inv` loses the two mode conjuncts of its fast disjunct —
+  now `isProofFast a ∧ isProofFast b`, a *stronger* inversion (it
+  holds at every mode);
+* `propIrrelPQ_of_claims` destructures `⟨hfa, hfb⟩`.  The licence
+  `prf_of_isProofFast` never read a mode gate, so the P row licenses
+  exactly the "yes" verdicts it always did;
+* `propIrrelC_sim` splits on the two ungated conditions; the two sides
+  agree because the arms are the same pure read (`mkFEnv_find?`).
+
+Nothing was ever proved *about* the trusted core, so no proof relied
+on the gate being false there.
+
+**Verdict risk, and the hard stop.**  Ungating is verdict-changing for
+the trusted mode exactly where a reader and the slow path disagree,
+which the #168 landing census never observed — but that census ran in
+the VERIFIED mode.  `tests/arena.sh` stayed 0 FAIL and `--verified`
+init-full stayed at 60 549 / exit 0 — **but `--trusted` init-full
+BROKE**, which stopped the batch and produced the finding and the
+ruling below.
+
+### STOP-FINDING (2026-09-06): the trusted mode writes no `pw`, so the NO arm misfires there
+
+    ulimit -v 16000000; ./.lake/build/bin/setlec \
+      _tmp/init-exports/init-full-pre2.ndjson --trusted --pre
+    setlec: internal error: fuel exhausted: whnfCore
+            [at theorem Char.utf8Size_eq_one_iff]          exit 3
+
+Bisected inside the batch, one run per cell on `init-full-pre2`:
+
+| cached `propIrrelI` at `cfgT` | `--trusted` init-full |
+|---|---|
+| both arms gated (the rename commit, pre-ungating) | **0** / 60 549 |
+| NO arm ungated only | **3** — fuel exhausted, `whnfCore` |
+| YES arm ungated only | **0** / 60 549 |
+| both arms ungated (as ruled) | **3** — fuel exhausted, `whnfCore` |
+
+So the **no arm alone** is the breakage; the yes arm — the licensed
+one — is free in the trusted mode.
+
+**Root cause, read off the tree.**  `PropWhen` derives `Inhabited`, so
+its default is the FIRST constructor, `.never` — "the codomain sort is
+nonzero at every valuation", i.e. *never a proposition*.  The `pw`
+writers are themselves gated: `annotatePisPwI` / `annotateLamsPwI`
+(`Cached/CoreC.lean`) are `if cfg.verified then … else pure none`, so
+**the trusted mode writes no annotation at all** and every binder keeps
+the parser's `.never` default.  `typeSortPW` reads a ∀'s binder datum
+directly (`| .forallE _ _ _ m => some m.pw`), so in the trusted mode it
+answers `.never` for genuine propositions; `notProofFast` is
+`!pw.isProp`, which is then `true`, and the hoisted proof-irrelevance
+shortcut is refused on real proofs.  Defeq must then compare proof
+terms structurally, and `whnfCore` runs out of fuel.
+
+This is exactly the fact the retired gate encoded ("the trusted core
+validates no annotation, so it reads none") — but the honest statement
+is sharper than "validates": it **writes** none.  A reader is only as
+good as the datum, and the trusted mode has no datum.
+
+**THE RULING (option 2): ungate the WRITERS too.**  It follows from
+the purpose statement rather than being a trade against it.  *Writing*
+the datum is part of the real checker's algorithm — the readers and the
+licences consume it; what is certification-only is **validating** it and
+producing certificates.  A mode defined as "the real mode with certain
+steps omitted" therefore annotates exactly as the verified mode does,
+and omits only the validation.
+
+Ungated with the readers (all four writers, spec and cached twin):
+
+* `annotatePisPw` / `annotateLamsPw` (`Verify/BinderLoop.lean`) and
+  `annotatePisPwI` / `annotateLamsPwI` (`Cached/CoreC.lean`) — the
+  telescope leaves' write, which was `if verified then some p else none`;
+* `annotateBody`'s single-binder ∀ and λ writes (`Kernel/Core.lean`) and
+  the cached λ one (`Cached/CoreC.lean`), which were
+  `if verified && !pwWritten mb.pw then …`.
+
+**Consequence on the signatures, again**: with no configuration read
+left the annotation pass is config-free end to end — `annotateBody`,
+`annotatePis`/`annotateLams` and their leaves and wraps take no
+`CheckMode`, `annotateBodyI`/`annotatePisI`/`annotateLamsI` no
+`CoreCfg`.  Proof side: `AnnotPwOk` loses its Bool (the "no datum"
+alternative is unreachable, so the invariant says `False` there) and
+`annotatePisPw_inv`/`annotateLamsPw_inv` lose their case split;
+`annotatePisPwC_sim`/`annotateLamsPwC_sim` lose theirs.
+`Verify/Cached/AgreeAnnot.lean`'s T2a/T2b obligations are **discharged
+by the signature** now — `annotateBodyI_cfg_eq` and the two
+`…PwI_cfgT` collapses had the trusted config's `pw?` at `none` and were
+deleted with the gate (a row whose subject no longer exists); the
+erasure content they rested on is kept.
+
+### WHAT THE TRUSTED MODE OMITS — the definition of the mode from now on
+
+Every remaining configuration read in the shipped core
+(`Cached/CoreC.lean`, with its `Kernel/Core.lean` twin).  **Group A** is
+the mode: certification-only work, dropped.  **Group B** is flagged, not
+changed — those reads gate a *licence*, and a licence on an
+**unvalidated** annotation is a second ruling, not this batch's.
+
+**A — certification-only, dropped at `cfgT` (`verified = false`).**
+
+| site | what it skips | why certification-only |
+|---|---|---|
+| `etaCertI` | `(eta)`: the two binders' `pw` must agree | validates the datum; the η verdict itself does not read it |
+| `inferLamsOutI` | `(lam-cod-chain)`: a λ node's datum must equal its inner neighbour's | validation of the chain rule |
+| `inferLamsLeafI` | the λ-codomain **sort check** + `(lam-cod-leaf)` | official's `infer_lambda` runs neither; the sort check is the P annotation pass's premise |
+| `inferPisOutI` | `(forall-cod)`: a ∀ node's datum vs its inferred codomain sort | validation |
+| `inferBodyIOI` ∀ clause | `(forall-cod)` at the io grade | validation |
+| `inferBodyIOI` λ clause | `(lam-cod-chain)` / `(lam-cod-leaf)` at the io grade | validation |
+| `defeqStepI` | `(defeq-forall)`, `(defeq-lam)`: the compared binders' data must agree | validation; the defeq verdict does not read the datum |
+| `projCertAtI` | the whole `.proj` certificate family (`projCertI`) | a certificate |
+
+**B — licences, FLAGGED (the trusted mode does MORE work at each).**
+These read `verified`/`betaGate`/`ioGate` to *skip* work on the strength
+of a **validated** datum.  The trusted mode validates nothing, so they
+are off there and the skipped work runs:
+
+| site | the licence | effect in trusted |
+|---|---|---|
+| `whnfCoreStepI` β sites (`cfg.betaSkip`) | skip the per-redex argument certificate at a validated `.never` binder | certificate always runs |
+| `inferSpineIOI` (`unless cfg.verified && mt.pw.isNever`) | skip the per-argument application certificate under the graph-regime licence | certificate always runs |
+| the knot's `inferIO` slot (`cfg.ioGate`) | run `inferBodyIO` (official's `infer_only`) instead of the full inference body | the full body runs |
+| `projCertAtI`'s second Bool (`cfg.betaGate`) | the licensed half of the projection certificate | moot — the family is off in A |
+| `cfg.iotaMode` | the ι cone's `ttChecks` residue | none: `ttChecks` is `false` at both modes |
+
+So three of the four are **inversions**: the trusted mode is slower than
+the verified one there, which is the opposite of what the mode is for.
+Resolving them means either extending the licences to unvalidated data
+(a soundness question for the trusted mode) or accepting the inversion
+as the price of the licences resting on validation.  Recorded for the
+ruling; nothing changed here.
+
+**Related, and part of the same second ruling.**  The writers leave an
+**input-supplied** annotation alone (`pwWritten mb.pw`, i.e. any
+non-`.never` datum in the stream).  In the verified mode the validation
+checks of group A catch a wrong one; in the trusted mode nothing does,
+and the ungated `isProofFast` yes arm now reads it.  A stream can
+therefore steer the trusted mode's proof-irrelevance verdict.  That is
+the trusted mode being unverified, which is by design — but it is worth
+saying in one line, because it is the concrete shape "trusted" takes.
+
+**Gates, with the ruling in (all green).**  `lake build` warning-free
+(444 jobs); `lake test`; `tests/arena.sh` 0 FAIL — arena 90/92, e2e
+78/78, annot 14/14, retired flags 8/8, mode flags 16/16, trusted sweep
+138 arena + 78 e2e + 14 annot with the same 3 recorded divergences
+(they survive for a sharper reason now: the trusted lane *writes* the
+annotations and still does not validate them); layering 0 edges;
+proofdeps 1 371 rows, 0 doors.  **init-full-pre2 accepts in BOTH modes,
+60 549 constants, exit 0.**  Axioms of `no_proof_of_Empty_SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `no_constant_of_Empty_P`,
+`prf_of_isProofFast`, `propIrrelPQ_of_claims`, `propIrrel_inv`,
+`propIrrelC_sim` and `trusted_agrees_P_skels_D`: exactly
+`[propext, Classical.choice, Quot.sound]`.  No number was measured —
+the perf cadence puts the annotation cost in trusted after the grant.

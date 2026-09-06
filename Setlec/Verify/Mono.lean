@@ -66,8 +66,8 @@ theorem defeqBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (a b : Expr) :
   rwa [defeqBody_fst_proj, defeqBody_snd_proj] at this
 
 theorem annotateBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (e : Expr) :
-    MRefines (annotateBody mode r₁ env d e) (annotateBody mode r₂ env d e) := by
-  have := (annotateBody mode (pairFns r₁ r₂ h) env d e).property
+    MRefines (annotateBody r₁ env d e) (annotateBody r₂ env d e) := by
+  have := (annotateBody (pairFns r₁ r₂ h) env d e).property
   rwa [annotateBody_fst_proj, annotateBody_snd_proj] at this
 
 theorem inferBodyIO_mono (h : FnsRefines r₁ r₂) (d : Nat) (e : Expr) :

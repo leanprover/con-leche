@@ -171,7 +171,7 @@ seal's item 1, discharged.  The innermost codomain is the `Eq`-spine
 (`inferTypeCore_eqSpineS`: it infers to `Prop`), and the telescope
 collapse carries that bit outward through the two remaining binders,
 which is why this is one fact and not three. -/
-theorem propext_bitsP (hμ : μ.verified = true)
+theorem propext_bitsP (hμ : μ.verifiedChecks = true)
     (hEq : env.find? eqName = some eqA)
     {n₁ n₂ n₃ : Name} {m₁ m₂ m₃ : BinderMeta}
     {F d : Nat} {stype : Expr}
@@ -267,7 +267,7 @@ stored type carry the bit the pin's own datum computes — zero exactly
 when the level parameter is.  The innermost codomain is the outer
 binder's variable, whose sort is `Sort u`, and the telescope collapse
 carries it to the outer binder. -/
-theorem choice_bitsP (hμ : μ.verified = true)
+theorem choice_bitsP (hμ : μ.verifiedChecks = true)
     {n₁ n₂ : Name} {m₁ m₂ : BinderMeta} {F d : Nat} {stype : Expr}
     (hrun : inferTypeCore μ env F d
       (.forallE n₁ (.sort (.param uN))

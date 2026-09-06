@@ -28,7 +28,7 @@ for the pilot's numbers:
 The arena's memo key was an `EIdx` — a scalar.  The clone's is a
 *constructed* key, so the probe costs allocations, and profiling put
 `instantiate*Go`/`abstract*Go` plus their `Std.DHashMap` spec sites at
-roughly half of every `--no-model` run.  Three shape rules cut that,
+roughly half of every `--trusted` run.  Three shape rules cut that,
 and each is a property of the walks alone (the values are unchanged —
 `Setlec/Verify/Cached/OpsC.lean` proves each walk equal to its
 `Setlec.Expr` counterpart exactly as before):

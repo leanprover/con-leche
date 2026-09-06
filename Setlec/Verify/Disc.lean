@@ -341,8 +341,8 @@ theorem proofIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
 read on both sides. -/
 theorem propIrrel_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
-    DiscV mode env (fun _ => True) (propIrrel mode C env d a b)
-      (propIrrel mode G env d a b) := by
+    DiscV mode env (fun _ => True) (propIrrel C env d a b)
+      (propIrrel G env d a b) := by
   unfold propIrrel
   split
   · exact DiscV.pure trivial
@@ -915,7 +915,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCertAt C env d mode.verified mode.betaGate c us e'.getAppArgs >>= fun b =>
+              projCertAt C env d mode.verifiedChecks mode.betaGate c us e'.getAppArgs >>= fun b =>
               if b then
                 (C : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -933,7 +933,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCertAt G env d mode.verified mode.betaGate c us e'.getAppArgs >>= fun b =>
+              projCertAt G env d mode.verifiedChecks mode.betaGate c us e'.getAppArgs >>= fun b =>
               if b then
                 (G : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -991,8 +991,8 @@ theorem whnfBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
 set_option maxHeartbeats 1600000 in
 theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    DiscV mode env (WScoped d) (annotateBody mode C env d e)
-      (annotateBody mode G env d e) := by
+    DiscV mode env (WScoped d) (annotateBody C env d e)
+      (annotateBody G env d e) := by
   match e with
   | .bvar i => exact DiscV.pure (by simp [WScoped])
   | .fvar idx n ty =>
@@ -1060,14 +1060,14 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        if mode.verified && !pwWritten mb.pw then
+        if !pwWritten mb.pw then
           annotPwPi C env (d + 1) body' >>= fun pw =>
             pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
         else pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        if mode.verified && !pwWritten mb.pw then
+        if !pwWritten mb.pw then
           annotPwPi G env (d + 1) body' >>= fun pw =>
             pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
         else pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
@@ -1090,14 +1090,14 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        if mode.verified && !pwWritten mb.pw then
+        if !pwWritten mb.pw then
           annotPwLam C env (d + 1) body' >>= fun pw =>
             pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
         else pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        if mode.verified && !pwWritten mb.pw then
+        if !pwWritten mb.pw then
           annotPwLam G env (d + 1) body' >>= fun pw =>
             pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
         else pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
@@ -1534,8 +1534,8 @@ pruned branch is `pure false` on both records. -/
 theorem propIrrelIf_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) (g : Bool) :
     DiscV mode env (fun _ => True)
-      (if g then propIrrel mode C env d a b else pure false)
-      (if g then propIrrel mode G env d a b else pure false) := by
+      (if g then propIrrel C env d a b else pure false)
+      (if g then propIrrel G env d a b else pure false) := by
   cases g
   · exact DiscV.pure trivial
   · exact propIrrel_disc ih henv hwa hwb

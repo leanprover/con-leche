@@ -245,15 +245,15 @@ theorem cached_annotate_sim (env : Env) (henv : EnvWF env) (f : Nat)
   intro σ hσ v σ' hrun
   rw [show (cachedFns mode env (f + 1)).annotate d e =
     memoE (·.annot) (fun st mp => { st with annot := mp })
-      (fun d e => annotateBody mode (cachedFns mode env f) env d e) d e from rfl]
+      (fun d e => annotateBody (cachedFns mode env f) env d e) d e from rfl]
     at hrun
-  have hbody : ∀ v σ', annotateBody mode (cachedFns mode env f) env d e σ =
+  have hbody : ∀ v σ', annotateBody (cachedFns mode env f) env d e σ =
       .ok (v, σ') →
       (∃ F, annotateCore mode env (F + 1) d e = .ok v) ∧ CacheOK mode env σ' := by
     intro v σ' hb
     have hgb := (annotateBody_disc ih henv (WScoped.of_wscopedB hg)
       σ hσ v σ' hb).1
-    have hpair := (annotateBody mode
+    have hpair := (annotateBody
       (pairFns (fueledFns mode env) (gFns mode env f) (gFns_rel ih))
       env d e).property
     rw [annotateBody_fst_proj, annotateBody_snd_proj] at hpair
@@ -275,7 +275,7 @@ theorem cached_annotate_sim (env : Env) (henv : EnvWF env) (f : Nat)
     rw [hl] at hrun
     try dsimp only at hrun
     try simp only [StateT.bind] at hrun
-    cases hb : annotateBody mode (cachedFns mode env f) env d e σ with
+    cases hb : annotateBody (cachedFns mode env f) env d e σ with
     | error err =>
       rw [hb] at hrun
       simp only [Bind.bind, Except.bind] at hrun

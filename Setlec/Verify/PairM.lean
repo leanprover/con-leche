@@ -493,14 +493,14 @@ theorem proofIrrel_snd_proj (d : Nat) (a b : Expr) :
   snd_tac
 
 theorem propIrrel_fst_proj (d : Nat) (a b : Expr) :
-    (propIrrel mode (pairFns r₁ r₂ h) env d a b).val.1 =
-      propIrrel mode r₁ env d a b := by
+    (propIrrel (pairFns r₁ r₂ h) env d a b).val.1 =
+      propIrrel r₁ env d a b := by
   unfold propIrrel
   fst_tac
 
 theorem propIrrel_snd_proj (d : Nat) (a b : Expr) :
-    (propIrrel mode (pairFns r₁ r₂ h) env d a b).val.2 =
-      propIrrel mode r₂ env d a b := by
+    (propIrrel (pairFns r₁ r₂ h) env d a b).val.2 =
+      propIrrel r₂ env d a b := by
   unfold propIrrel
   snd_tac
 
@@ -1109,14 +1109,14 @@ theorem defeqBody_snd_proj (d : Nat) (a b : Expr) :
 -- binds in front of the level-4 rewrites — no new lemma is needed, the
 -- calls are exactly the kind the `letE`/`proj` clauses already make.
 theorem annotateBody_fst_proj (d : Nat) (e : Expr) :
-    (annotateBody mode (pairFns r₁ r₂ h) env d e).val.1 =
-      annotateBody mode r₁ env d e := by
+    (annotateBody (pairFns r₁ r₂ h) env d e).val.1 =
+      annotateBody r₁ env d e := by
   unfold annotateBody annotPwPi annotPwLam
   fst_tac4
 
 theorem annotateBody_snd_proj (d : Nat) (e : Expr) :
-    (annotateBody mode (pairFns r₁ r₂ h) env d e).val.2 =
-      annotateBody mode r₂ env d e := by
+    (annotateBody (pairFns r₁ r₂ h) env d e).val.2 =
+      annotateBody r₂ env d e := by
   unfold annotateBody annotPwPi annotPwLam
   snd_tac4
 

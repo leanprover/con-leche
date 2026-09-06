@@ -45,7 +45,7 @@ theorem mkPisAV_drop_okP :
 
 set_option maxHeartbeats 12800000 in
 /-- **The direct block's rule fires at the readings.** -/
-theorem recRuleLaw (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+theorem recRuleLaw (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {caps : IndCaps} {rhsA : Expr}
     (hccv : Setlec.checkConstantVal (Setlec.fueledOps μ F) env p.cvR = .ok cvRa)
     (hRec : Setlec.checkDirectRecTy (Setlec.fueledOps μ F) env p cvTa cvCa cvRa

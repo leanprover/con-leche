@@ -81,7 +81,7 @@ site (the β certificate) made the head-normalisation quarter consume
 the slot claim at the same fuel; the four-way form survives as the
 projection `checkSoundAtP` below, so every landed consumer stands
 verbatim. -/
-theorem checkSoundAtP5 (hμ : μ.verified = true)
+theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
     {m : EnvS2Core V env} (h : TierInputsAtP V μ m φ) :
     ∀ fuel : Nat,
       WhnfCoreClaims2P μ m φ fuel ∧ WhnfClaims2P μ m φ fuel ∧
@@ -243,7 +243,7 @@ theorem checkSoundAtP5 (hμ : μ.verified = true)
 /-- The four sealed claims at every fuel — the joint induction's first
 four conjuncts, kept under the landed name so every consumer stands
 verbatim. -/
-theorem checkSoundAtP (hμ : μ.verified = true)
+theorem checkSoundAtP (hμ : μ.verifiedChecks = true)
     {m : EnvS2Core V env} (h : TierInputsAtP V μ m φ) :
     ∀ fuel : Nat,
       WhnfCoreClaims2P μ m φ fuel ∧ WhnfClaims2P μ m φ fuel ∧
@@ -253,7 +253,7 @@ theorem checkSoundAtP (hμ : μ.verified = true)
 
 /-- The io claim at every fuel — the joint induction's fifth
 conjunct. -/
-theorem checkSoundAtIOP (hμ : μ.verified = true)
+theorem checkSoundAtIOP (hμ : μ.verifiedChecks = true)
     {m : EnvS2Core V env} (h : TierInputsAtP V μ m φ) :
     ∀ fuel : Nat, InferClaimsIO2P μ m φ fuel := fun fuel =>
   (checkSoundAtP5 hμ h fuel).2.2.2.2

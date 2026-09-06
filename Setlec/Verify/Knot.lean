@@ -50,7 +50,7 @@ theorem defeqLoopFuel_succ : ∃ n, defeqLoopFuel = n + 1 :=
 
 @[simp] theorem pureFns_annotate (env : Env) (f d : Nat) (e : Expr) :
     (pureFns mode env (f + 1)).annotate d e =
-      annotateBody mode (pureFns mode env f) env d e := rfl
+      annotateBody (pureFns mode env f) env d e := rfl
 
 theorem whnfCore_succ (env : Env) (f d : Nat) (e : Expr) :
     whnfCore mode env (f + 1) d e = whnfCoreBody mode (pureFns mode env f) env d e := rfl
@@ -65,7 +65,7 @@ theorem isDefEqCore_succ (env : Env) (f d : Nat) (a b : Expr) :
     isDefEqCore mode env (f + 1) d a b = defeqBody mode (pureFns mode env f) env d a b := rfl
 
 theorem annotateCore_succ (env : Env) (f d : Nat) (e : Expr) :
-    annotateCore mode env (f + 1) d e = annotateBody mode (pureFns mode env f) env d e := rfl
+    annotateCore mode env (f + 1) d e = annotateBody (pureFns mode env f) env d e := rfl
 
 /-! ## The io lane (task #161 stage 2)
 
@@ -237,7 +237,7 @@ abbrev proofIrrelP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr �
     CheckM Bool := proofIrrel (pureFns mode env fuel) env
 
 abbrev propIrrelP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
-    CheckM Bool := propIrrel mode (pureFns mode env fuel) env
+    CheckM Bool := propIrrel (pureFns mode env fuel) env
 
 abbrev stuckIrrelP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
     CheckM Bool := stuckIrrel mode (pureFns mode env fuel) env
@@ -303,7 +303,7 @@ theorem defEqList_fold (env : Env) (fuel : Nat) :
 theorem proofIrrel_fold (env : Env) (fuel : Nat) :
     proofIrrel (pureFns mode env fuel) env = proofIrrelP mode env fuel := rfl
 theorem propIrrel_fold (env : Env) (fuel : Nat) :
-    propIrrel mode (pureFns mode env fuel) env = propIrrelP mode env fuel := rfl
+    propIrrel (pureFns mode env fuel) env = propIrrelP mode env fuel := rfl
 theorem stuckIrrel_fold (env : Env) (fuel : Nat) :
     stuckIrrel mode (pureFns mode env fuel) env = stuckIrrelP mode env fuel := rfl
 theorem structEtaCert_fold (env : Env) (fuel : Nat) :

@@ -1,4 +1,4 @@
-import Setlec.Cached.ParsedNC
+import Setlec.Cached.ParsedT
 
 /-!
 # T2a / T2b — `annotate`'s config identity and the `pw` writes
@@ -7,24 +7,31 @@ import Setlec.Cached.ParsedNC
 Census part 4 §3's second and third obligations, at the **cached** tier
 (the user's drop-the-interned ruling).
 
-At this tier the parity core's `annotate` **is** the certified body at
-`cfgNC` (task #172 B3: the parity core's *config*, the mode
-accessor's successor) — `Cached/CoreNC.lean` ties
-`annotate := memoEINC … (fun d e => annotateBodyI cfgNC prev.get fe d e)`
-— so the two obligations are a *config collapse on one function*, stated
-in the T1 shape: a **shared** `r`, one unfolding of the body.
+At this tier the trusted core's `annotate` **is** the certified body —
+`Cached/CoreT.lean` ties
+`annotate := memoEIT … (fun d e => annotateBodyI prev.get fe d e)`.
 
-* **T2a** (`annotateBodyI_cfg_eq`): at a shared `r` the two configs'
-  `annotateBodyI` are the *same action* at every node that is not a
-  binder — and B3's templating **strengthened** it: the statement now
-  quantifies over every `CoreCfg`, not only the three a mode maps to.  A freeze-time finding, recorded because it narrows T2c: the
-  `.proj` clause is **config-free**, so it is inside T2a, not carried to
-  T2c.  What is left in T2c is entirely the two cores' `r` differing
-  (class 2) — nothing about `annotateBody` itself.
-* **T2b** (`annotateBindersOutI_erasePwC` and the two leaf clauses):
-  at the two binder telescopes the configs differ *only* by the datum
-  written into the rebuilt binder's `BinderMeta.pw`, which is exactly
-  what `erasePw` forgets.
+**T2a and T2b are discharged by the SIGNATURE since 2026-09-06.**  The
+mode rename's second half ungated the `pw` writers (DESIGN.md, "MODE
+RENAME"): writing the datum is part of the real checker's algorithm, so
+the trusted mode annotates exactly as the verified mode does.  With the
+gates gone the annotation pass reads no configuration at any node —
+`annotateBodyI`, `annotatePisI`/`annotateLamsI` and their leaves take no
+`CoreCfg` parameter at all — so the "config collapse on one function"
+obligation is not a theorem any more: there is one function.  The
+statements that compared the two configs' runs (`annotateBodyI_cfg_eq`
+and the two `…PwI_cfgT` collapses) had the trusted config's `pw?` at
+`none`; they were deleted with the gate rather than restated, a row
+whose subject no longer exists.
+
+What survives is the *content* the obligations rested on, still used to
+say what the pass may and may not change:
+
+* `annotateBindersOutI_erasePwC` — the rebuild loop's output does not
+  depend on the datum written, whatever `pw?` it carries;
+* the two leaf clauses (`annotatePisLeafI_erasePwC`,
+  `annotateLamsLeafI_erasePwC`) — the leaf's output is determined
+  modulo `erasePwC`, which is exactly the `pw` field.
 
 The cached representation is **pure** — `viewI = pure ∘ view`,
 `internI = pure ∘ ofView`, `abstractRangeM`/`instListRevM` pure — so no
@@ -37,33 +44,6 @@ namespace Setlec.Cached
 open Setlec
 
 /-! ## T2a — the clause-level config identity -/
-
-/-- The two binder nodes: the only clauses of `annotateBodyI` in which
-the config occurs at all. -/
-def ExprC.isBinderNode : ExprC → Bool
-  | .lam .. | .forallE .. => true
-  | _ => false
-
-set_option maxRecDepth 10000 in
-/-- **T2a.**  At a shared `r`, `annotateBodyI` does not depend on the
-config at any non-binder node — *including* `.proj`, `.letE` and the two
-literal clauses.  `rfl`-grade, clause by clause. -/
-theorem annotateBodyI_cfg_eq (cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv)
-    (d : Nat) (e : ExprC) (h : ExprC.isBinderNode e = false) :
-    annotateBodyI cfgNC r fe d e = annotateBodyI cfg r fe d e := by
-  cases e with
-  | bvar _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | fvar _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | sort _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | const _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | app _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | letE _ _ _ _ =>
-    simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | lit l =>
-    cases l <;> simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | proj _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
-  | lam _ _ _ _ => exact absurd h (by simp [ExprC.isBinderNode])
-  | forallE _ _ _ _ => exact absurd h (by simp [ExprC.isBinderNode])
 
 /-! ## T2b — the `pw`-erasure at the cached representation -/
 
@@ -98,18 +78,6 @@ theorem annotBinderMetaI_bi (pw? : Option PropWhen) (mb : BinderMeta) :
   cases pw? with
   | none => rfl
   | some p => by_cases h : pwWritten mb.pw <;> simp [annotBinderMetaI, h]
-
-/-- At `cfgNC` the telescope loops write nothing — the gate is the
-config's `verified` field and nothing else, and it is a literal
-`false` there (task #172 B3: the mode accessor became a config
-field; the collapse is still `rfl`). -/
-@[simp] theorem annotatePisPwI_cfgNC (r : CoreFnsI) (fe : FEnv) (d k : Nat)
-    (leaf' : ExprC) :
-    annotatePisPwI cfgNC r fe d k leaf' = pure none := rfl
-
-@[simp] theorem annotateLamsPwI_cfgNC (r : CoreFnsI) (fe : FEnv) (d k : Nat)
-    (leaf' : ExprC) :
-    annotateLamsPwI cfgNC r fe d k leaf' = pure none := rfl
 
 /-- **T2b, the rebuild loop.**  `annotateBindersOutI`'s output does not
 depend on the datum written: two runs whose inputs agree modulo
@@ -159,91 +127,29 @@ theorem ofView_lam_erasePwC (n : Name) (ty b₁ b₂ : ExprC)
     = ExprC.mkLam n _ (ExprC.erasePwC b₂) ⟨m₂.bi, .never⟩
   rw [hb, hm]
 
-/-! ### T2b at the two gated clauses
+/-! ### T2b at the two telescope leaves
 
-The two telescope leaves are the *only* places the annotation pass
-consults the config.  Both runs start from the same state and call the
-same `r`, so they reach the rebuild loop with the same leaf; from there
-the datum is all that differs, and `erasePwC` forgets it.
+The two leaves used to be the only places the annotation pass consulted
+the config; since the writers were ungated they consult none, so what is
+left to say is that the leaf determines its output modulo the `pw`
+field. -/
 
-Scoped to *accept*, as everywhere in B7: the verified run's datum
-computation calls `r.infer`, which may fail where the parity run does
-not (a class-1, acceptance-only divergence). -/
-
-theorem annotatePisLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (d : Nat)
+theorem annotatePisLeafI_erasePwC (r : CoreFnsI) (fe : FEnv) (d : Nat)
     (t : ExprC) (k : Nat) (fvs : Array ExprC) (stk : List AnnotBinderEntry)
     {s : CState} {a₁ a₂ : ExprC} {s₁ s₂ : CState}
-    (h₁ : annotatePisLeafI cfgNC r fe d t k fvs stk s = .ok (a₁, s₁))
-    (h₂ : annotatePisLeafI cfg r fe d t k fvs stk s = .ok (a₂, s₂)) :
+    (h₁ : annotatePisLeafI r fe d t k fvs stk s = .ok (a₁, s₁))
+    (h₂ : annotatePisLeafI r fe d t k fvs stk s = .ok (a₂, s₂)) :
     ExprC.erasePwC a₁ = ExprC.erasePwC a₂ := by
-  have e₁ : annotatePisLeafI cfgNC r fe d t k fvs stk s
-      = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
-          (fun p => annotateBindersOutI
-            (fun n ty b mb => ExprView.forallE n ty b mb) d none stk (k - 1)
-            (ExprC.abstractRange p.1 d k) p.2) := rfl
-  have e₂ : annotatePisLeafI cfg r fe d t k fvs stk s
-      = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
-          (fun p => (annotatePisPwI cfg r fe d k p.1 p.2).bind
-            (fun q => annotateBindersOutI
-              (fun n ty b mb => ExprView.forallE n ty b mb) d q.1 stk (k - 1)
-              (ExprC.abstractRange p.1 d k) q.2)) := rfl
-  rw [e₁] at h₁; rw [e₂] at h₂
-  cases hA : r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s with
-  | error e => rw [hA] at h₁; cases h₁
-  | ok p =>
-    rw [hA] at h₁ h₂
-    simp only [Except.bind] at h₁ h₂
-    cases hB : annotatePisPwI cfg r fe d k p.1 p.2 with
-    | error e => rw [hB] at h₂; cases h₂
-    | ok q =>
-      rw [hB] at h₂
-      simp only at h₂
-      have hh := annotateBindersOutI_erasePwC
-        (fun n ty b mb => ExprView.forallE n ty b mb)
-        (fun n ty b₁ b₂ m₁ m₂ hb hm =>
-          ofView_forallE_erasePwC n ty b₁ b₂ m₁ m₂ hb hm)
-        d stk none q.1 (k - 1) (ExprC.abstractRange p.1 d k)
-        (ExprC.abstractRange p.1 d k) p.2 q.2 rfl
-      rw [h₁, h₂] at hh
-      simp only [Except.map] at hh
-      exact Except.ok.inj hh
+  have ha : a₁ = a₂ := congrArg Prod.fst (Except.ok.inj (h₁.symm.trans h₂))
+  rw [ha]
 
-theorem annotateLamsLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (d : Nat)
+theorem annotateLamsLeafI_erasePwC (r : CoreFnsI) (fe : FEnv) (d : Nat)
     (t : ExprC) (k : Nat) (fvs : Array ExprC) (stk : List AnnotBinderEntry)
     {s : CState} {a₁ a₂ : ExprC} {s₁ s₂ : CState}
-    (h₁ : annotateLamsLeafI cfgNC r fe d t k fvs stk s = .ok (a₁, s₁))
-    (h₂ : annotateLamsLeafI cfg r fe d t k fvs stk s = .ok (a₂, s₂)) :
+    (h₁ : annotateLamsLeafI r fe d t k fvs stk s = .ok (a₁, s₁))
+    (h₂ : annotateLamsLeafI r fe d t k fvs stk s = .ok (a₂, s₂)) :
     ExprC.erasePwC a₁ = ExprC.erasePwC a₂ := by
-  have e₁ : annotateLamsLeafI cfgNC r fe d t k fvs stk s
-      = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
-          (fun p => annotateBindersOutI
-            (fun n ty b mb => ExprView.lam n ty b mb) d none stk (k - 1)
-            (ExprC.abstractRange p.1 d k) p.2) := rfl
-  have e₂ : annotateLamsLeafI cfg r fe d t k fvs stk s
-      = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
-          (fun p => (annotateLamsPwI cfg r fe d k p.1 p.2).bind
-            (fun q => annotateBindersOutI
-              (fun n ty b mb => ExprView.lam n ty b mb) d q.1 stk (k - 1)
-              (ExprC.abstractRange p.1 d k) q.2)) := rfl
-  rw [e₁] at h₁; rw [e₂] at h₂
-  cases hA : r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s with
-  | error e => rw [hA] at h₁; cases h₁
-  | ok p =>
-    rw [hA] at h₁ h₂
-    simp only [Except.bind] at h₁ h₂
-    cases hB : annotateLamsPwI cfg r fe d k p.1 p.2 with
-    | error e => rw [hB] at h₂; cases h₂
-    | ok q =>
-      rw [hB] at h₂
-      simp only at h₂
-      have hh := annotateBindersOutI_erasePwC
-        (fun n ty b mb => ExprView.lam n ty b mb)
-        (fun n ty b₁ b₂ m₁ m₂ hb hm =>
-          ofView_lam_erasePwC n ty b₁ b₂ m₁ m₂ hb hm)
-        d stk none q.1 (k - 1) (ExprC.abstractRange p.1 d k)
-        (ExprC.abstractRange p.1 d k) p.2 q.2 rfl
-      rw [h₁, h₂] at hh
-      simp only [Except.map] at hh
-      exact Except.ok.inj hh
+  have ha : a₁ = a₂ := congrArg Prod.fst (Except.ok.inj (h₁.symm.trans h₂))
+  rw [ha]
 
 end Setlec.Cached

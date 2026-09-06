@@ -4,7 +4,7 @@ import Setlec.SetP.Step2.WhnfP
 # The β-gate's license, at the P currency (task #161, S12)
 
 `Setlec/Kernel/CoreP.lean`'s gate skips the per-redex β certificate at
-a λ whose validated datum is `.never`, under `mode.verified`.  S9
+a λ whose validated datum is `.never`, under `mode.verifiedChecks`.  S9
 sealed *that* the gate is licensed — the claim's positive branch
 consumes nothing — and pinned the gate LIVE with five `#guard`s.  This
 module is the license as a **theorem**: the two facts a transposed β
@@ -54,12 +54,12 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-- **The gate's condition, read at the claims' split.**  The kernel
-tests `mode.verified && mb.pw.isNever`; the claims split on
+tests `mode.verifiedChecks && mb.pw.isNever`; the claims split on
 `pwBit φ mb.pw = 0` at the ambient valuation.  A fired gate puts the
 datum on the positive side at *every* `φ` — the ∀-`φ` uniform form of
 the split, and the sound half of `isNever_iff_forall_pwBit_ne_zero`. -/
 theorem gate_pwBit_ne_zero {mode : CheckMode} {mb : BinderMeta}
-    (hg : (mode.verified && mb.pw.isNever) = true) (φ : Name → Nat) :
+    (hg : (mode.verifiedChecks && mb.pw.isNever) = true) (φ : Name → Nat) :
     pwBit φ mb.pw ≠ 0 :=
   pwBit_ne_zero_of_isNever (by
     rcases Bool.and_eq_true .. |>.mp hg with ⟨-, h⟩; exact h) φ
@@ -74,7 +74,7 @@ the whole content of the gate: the run the kernel deletes
 `hmem`, and at a `.never` datum `AnnotOkP_beta_zero` is not the arm
 taken. -/
 theorem AnnotOkP_beta_gate {mode : CheckMode} {mb : BinderMeta}
-    (hg : (mode.verified && mb.pw.isNever) = true)
+    (hg : (mode.verifiedChecks && mb.pw.isNever) = true)
     {A b a : AVExpr} {φ : Name → Nat} {ρ : Nat → V}
     (h : AnnotOkP V ρ (.app (.lam (pwBit φ mb.pw) A b) a)) :
     interp2 V ρ (.app (.lam (pwBit φ mb.pw) A b) a)
@@ -89,7 +89,7 @@ gate that arm is *unreachable*: no transposed obligation can reach for
 a certificate the gate skipped, and the establishment/consumption
 asymmetry survives the transposition intact. -/
 theorem gate_zero_kind_unreachable {mode : CheckMode} {mb : BinderMeta}
-    (hg : (mode.verified && mb.pw.isNever) = true) {φ : Name → Nat}
+    (hg : (mode.verifiedChecks && mb.pw.isNever) = true) {φ : Name → Nat}
     (hz : pwBit φ mb.pw = 0) : False :=
   gate_pwBit_ne_zero hg φ hz
 

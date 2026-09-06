@@ -1,7 +1,7 @@
 import Setlec.Cached.CoreC
 
 /-!
-# The cert-skipping cached core (the `--no-model` cached parity lane)
+# The cert-skipping cached core (the `--trusted` cached trusted lane)
 
 A twin of the kernel's cert-skipping interned core
 (`Setlec/Kernel/CoreNC.lean`) over `ExprC`: **every function below
@@ -20,8 +20,8 @@ why — is documented once, in `Setlec/Kernel/CoreNC.lean`'s module
 docstring; this clone adds no new judgement.  Measurement-only:
 nothing in `Setlec/Verify/*` or `Setlec/SetR/*` may import this
 module, and none of the consistency statements cover these knots.
-Main reaches these bodies only through the `--no-model
---core=cached-parsed` driver (`Setlec/Cached/ParsedNC.lean`).
+Main reaches these bodies only through the `--trusted
+--core=cached-parsed` driver (`Setlec/Cached/ParsedT.lean`).
 
 Representational deltas (each is a `CoreC`-convention substitution,
 not a behavioral one): `CheckIM`→`CheckCM`, `EIdx`→`ExprC`,
@@ -38,19 +38,19 @@ open Setlec
 `Setlec/Kernel/CoreNC.lean`'s `inferSpineNC`): the telescope walk
 without the possibly-Prop argument re-checks (references are
 infer-only here). -/
-def inferSpineNC (r : CoreFnsI) (depth : Nat) :
+def inferSpineT (r : CoreFnsI) (depth : Nat) :
     ExprC → Array ExprC → List ExprC → CheckCM ExprC
   | ty, acc, [] => instListRevM ty acc
   | ty, acc, a :: rest => do
     match ← viewI ty with
     | some (.forallE _ _dom body _) =>
-      inferSpineNC r depth body (acc.push a) rest
+      inferSpineT r depth body (acc.push a) rest
     | _ => do
       let ty' ← instListRevM ty acc
       let w ← r.whnf depth ty'
       match ← viewI w with
       | some (.forallE _ _dom body _) =>
-        inferSpineNC r depth body #[a] rest
+        inferSpineT r depth body #[a] rest
       | _ => throw (.invalid "function expected")
 
 /-- Cert-skipping twin of `structEtaCertWithI` (port of
@@ -58,7 +58,7 @@ def inferSpineNC (r : CoreFnsI) (depth : Nat) :
 the level comparison, the parameter comparison and the per-field defeq
 against the projections (what lean4lean's `tryEtaStructCore` checks);
 skips the type-former and per-projection telescope certifications. -/
-def structEtaCertWithNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+def structEtaCertWithT (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (a b wtb : ExprC) : CheckCM Bool := do
   match ← withStore (fun st => st.getNode (st.getAppFnI a)) with
   | some (.const c us) => do
@@ -98,14 +98,14 @@ def structEtaCertWithNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 
 /-- Cert-skipping twin of `structEtaCertI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `structEtaCertNC`). -/
-def structEtaCertNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
+def structEtaCertT (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
   -- the constructor-shape gate first (D13), as in the spec
   let sh ← withStore (fun st => etaCtorShapeI fe st a)
   if sh then
     let tb ← r.infer depth b
     let wtb ← r.whnf depth tb
-    structEtaCertWithNC r fe depth a b wtb
+    structEtaCertWithT r fe depth a b wtb
   else pure false
 
 /-- Cert-skipping twin of `structUnitCertI` (port of
@@ -113,7 +113,7 @@ def structEtaCertNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
 shape guard and the defeq of the two whnf'd types (what lean4lean's
 `isDefEqUnitLike` checks); skips the type-former telescope
 certification. -/
-def structUnitCertNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
+def structUnitCertT (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
   let ta ← r.infer depth a
   let wta ← r.whnf depth ta
@@ -138,11 +138,11 @@ def structUnitCertNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
 /-- Cert-skipping twin of `stuckIrrelI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `stuckIrrelNC`; `proofIrrelI` does no
 proof-only work and is reused). -/
-def stuckIrrelNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
+def stuckIrrelT (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
-  if ← structEtaCertNC r fe depth a b then pure true
-  else if ← structEtaCertNC r fe depth b a then pure true
-  else if ← structUnitCertNC r fe depth a b then pure true
+  if ← structEtaCertT r fe depth a b then pure true
+  else if ← structEtaCertT r fe depth b a then pure true
+  else if ← structUnitCertT r fe depth a b then pure true
   else proofIrrelI r fe depth a b
 
 /-- Cert-skipping twin of `majorToCtorI` (port of
@@ -151,8 +151,8 @@ fabrication check is the official kernel's `toCtorWhenK` test — defeq
 of the (whnf'd) major's type against the fabricated constructor
 application's inferred type; NC differs from the certified twin only
 in dropping the `proofIrrelI` soundness certificate that follows it.
-The eta fabrication runs `structEtaCertWithNC`. -/
-def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+The eta fabrication runs `structEtaCertWithT`. -/
+def majorToCtorT (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (recName : Name) (rules : List RecRule) (major : ExprC) :
     CheckCM ExprC := do
   if ← withStore (fun st => isCtorAppI fe st major) then pure major else
@@ -205,7 +205,7 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 if ← withStore (fun st => st.wscopedBI depth fab &&
                     st.looseBVarsBoundedI 0 fab &&
                     st.leafGuardI fab major) then do
-                  if ← structEtaCertWithNC r fe depth fab major tmaj then
+                  if ← structEtaCertWithT r fe depth fab major tmaj then
                     pure fab
                   else if caps.etaFields = 0 ∧
                       cvj.levelParams.length = ust.length then
@@ -222,18 +222,18 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
   | _ => pure major
 
 /-- Cert-skipping twin of `prepareMajorI`: the same official order
-(`prepareMajor`'s docstring) over `majorToCtorNC`. -/
-def prepareMajorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+(`prepareMajor`'s docstring) over `majorToCtorT`. -/
+def prepareMajorT (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (recName : Name) (rules : List RecRule) (major : ExprC) :
     CheckCM ExprC := do
   if recRuleKOf fe.find? rules then do
-    let majorK ← majorToCtorNC r fe depth recName rules major
+    let majorK ← majorToCtorT r fe depth recName rules major
     let major₀ ← r.whnf depth majorK
     litMajorToCtorI r fe depth major₀
   else do
     let major₀ ← r.whnf depth major
     let major₁ ← litMajorToCtorI r fe depth major₀
-    majorToCtorNC r fe depth recName rules major₁
+    majorToCtorT r fe depth recName rules major₁
 
 /-- Cert-skipping twin of `iotaRecI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `iotaRecNC`): keeps every check
@@ -242,7 +242,7 @@ level linkage, the nested-rule comparand values and the
 projection-rule parameter comparison; skips the two telescope
 certifications, the ordinary plain-rule parameter re-comparison and
 the canonical-index comparison. -/
-def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
+def iotaRecT (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
     CheckCM (Option ExprC) := do
   match ← withStore (fun st => st.getNode (st.getAppFnI e)) with
   | some (.const c us) => do
@@ -254,7 +254,7 @@ def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
       -- recursor's level arity before the rule's RHS is instantiated.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length then do
         let bvar0 ← internI (.bvar 0)
-        let major ← prepareMajorNC r fe depth cn rules (args.getD mI bvar0)
+        let major ← prepareMajorT r fe depth cn rules (args.getD mI bvar0)
         match ← withStore (fun st => st.getNode (st.getAppFnI major)) with
         | some (.const cj usj) => do
           let cjn ← readbackNM cj
@@ -309,20 +309,20 @@ mutual
 `Setlec/Kernel/CoreNC.lean`'s `whnfAppNC`): a λ-binder always
 beta-reduces (no per-redex argument re-check).  The head-normalization
 loop's continuation `k` is threaded through (task #172 batch B1b, E1). -/
-def whnfAppNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+def whnfAppT (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : ExprC → CheckCM ExprC) :
     ExprC → List ExprC → CheckCM ExprC
   | v, [] => pure v
   | v, a :: rest => do
     match ← viewI v with
-    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth k body [a] rest
+    | some (.lam _ _ty body _mb) => betaPeelT r fe depth k body [a] rest
     | _ => do
       let fa ← internI (.app v a)
-      match ← iotaRecNC r fe depth fa with
+      match ← iotaRecT r fe depth fa with
       | some e'' => do
         let v' ← k e''
-        whnfAppNC r fe depth k v' rest
-      | none => whnfAppNC r fe depth k fa rest
+        whnfAppT r fe depth k v' rest
+      | none => whnfAppT r fe depth k fa rest
 termination_by _ args => (args.length, 0)
 decreasing_by
   all_goals first
@@ -331,7 +331,7 @@ decreasing_by
 
 /-- Cert-skipping twin of `betaPeelI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `betaPeelNC`). -/
-def betaPeelNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+def betaPeelT (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : ExprC → CheckCM ExprC) :
     ExprC → List ExprC → List ExprC → CheckCM ExprC
   | t, acc, [] => do
@@ -339,11 +339,11 @@ def betaPeelNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     k e'
   | t, acc, a :: rest => do
     match ← viewI t with
-    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth k body (a :: acc) rest
+    | some (.lam _ _ty body _mb) => betaPeelT r fe depth k body (a :: acc) rest
     | _ => do
       let e' ← instListM t acc
       let v ← k e'
-      whnfAppNC r fe depth k v (a :: rest)
+      whnfAppT r fe depth k v (a :: rest)
 termination_by _ _acc args => (args.length, 1)
 decreasing_by
   all_goals first
@@ -355,11 +355,11 @@ end
 /-- Cert-skipping twin of `whnfCoreStepI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `whnfCoreStepNC`): one head-normalization
 step with the loop's continuation `k` abstracted.  The app clause
-differs through `whnfAppNC`, and the proj clause drops the
+differs through `whnfAppT`, and the proj clause drops the
 constructor-telescope certification `projTeleCertI` (task #126) and,
 since 2026-09-06 (parity mirrors official), the spine certificate
 `projCertI` too: official's `reduce_proj` runs none. -/
-def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+def whnfCoreStepT (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : ExprC → CheckCM ExprC) (e : ExprC) : CheckCM ExprC := do
     match ← viewI e with
     | some (.sort _) | some (.fvar ..) | some (.forallE ..)
@@ -368,7 +368,7 @@ def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let v ← r.whnfCore depth h
-      whnfAppNC r fe depth k v args
+      whnfAppT r fe depth k v args
     | some (.proj sn i pe) => do
       let e' ← r.whnf depth pe
       let e' ← projLitToCtorI r fe depth e'
@@ -386,7 +386,7 @@ def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             let arg := args.getD (entry.numParams + i) bvar0
             -- parity mirrors official (2026-09-06): `reduce_proj`
             -- reduces every constructor redex with no certificate, so
-            -- the parity core runs none — `projCertAt` at
+            -- the trusted core runs none — `projCertAt` at
             -- `verified = false` in the shared body
             k arg
           else internI (.proj sn i e')
@@ -399,25 +399,25 @@ def whnfCoreStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       throw (.notImplemented "whnf beyond the supported fragment")
     | none => throw (.internal "interned node missing")
 
-/-- Cert-skipping twin of `whnfCoreLoopI`: iterate `whnfCoreStepNC` on
+/-- Cert-skipping twin of `whnfCoreLoopI`: iterate `whnfCoreStepT` on
 its own step budget. -/
-def whnfCoreLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+def whnfCoreLoopT (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → ExprC → CheckCM ExprC
   | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
   | n + 1, e =>
-    whnfCoreStepNC r fe depth (whnfCoreLoopNC r fe depth n) e
+    whnfCoreStepT r fe depth (whnfCoreLoopT r fe depth n) e
 
 /-- Cert-skipping twin of `whnfCoreBodyI`: the head-normalization loop
 at its own step budget. -/
-def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
-  fun depth e => whnfCoreLoopNC r fe depth whnfCoreLoopFuel e
+def whnfCoreBodyT (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
+  fun depth e => whnfCoreLoopT r fe depth whnfCoreLoopFuel e
 
 /-- Cert-skipping twin of `inferBodyI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `inferBodyNC`; the app clause differs,
-through `inferSpineNC`; the proj clause drops `projParamCertI`, task
+through `inferSpineT`; the proj clause drops `projParamCertI`, task
 #129).  The binder-loop fuel is `peelFuelM` (the `CoreC` convention —
 there is no arena node count here). -/
-def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
+def inferBodyT (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
   fun depth e => do
     match ← viewI e with
     | some (.sort u) => do
@@ -455,9 +455,9 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       | some (.sort u) => do
         let fv ← internI (.fvar depth n ty)
         let fuel ← peelFuelM
-        -- At `.noModel` the ∀-annotation validation is off (task
-        -- #161), matching the spec's parity lane.
-        inferPisI cfgNC r depth fuel body 1 #[fv] [(u, mb.pw)]
+        -- At `.trusted` the ∀-annotation validation is off (task
+        -- #161), matching the spec's trusted lane.
+        inferPisI cfgT r depth fuel body 1 #[fv] [(u, mb.pw)]
       | _ => throw (.invalid "expected a sort")
     | some (.lam n ty body mb) => do
       let tty ← r.infer depth ty
@@ -465,17 +465,17 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
       match ← viewI wtty with
       | some (.sort _) => do
         -- Binder-telescope loop (task #72), shared with `inferBodyI`.
-        -- At `.noModel` the λ-codomain sort check is off (task #152:
-        -- official-kernel parity is this lane's whole point).
+        -- At `.trusted` the λ-codomain sort check is off (task #152:
+        -- dropping certification-only work is this lane's point).
         let fv ← internI (.fvar depth n ty)
         let fuel ← peelFuelM
-        inferLamsI cfgNC r depth fuel body 1 #[fv] [(n, ty, mb)]
+        inferLamsI cfgT r depth fuel body 1 #[fv] [(n, ty, mb)]
       | _ => throw (.invalid "expected a sort")
     | some (.app _ _) => do
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let tf ← r.infer depth h
-      inferSpineNC r depth tf #[] args
+      inferSpineT r depth tf #[] args
     | some (.proj sn i pe) => do
       let tpe ← r.infer depth pe
       let te ← r.whnf depth tpe
@@ -518,8 +518,8 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
 
 /-- Cert-skipping twin of `defeqStepI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `defeqStepNC`; only the stuck-term
-fallback differs, through `stuckIrrelNC`). -/
-def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+fallback differs, through `stuckIrrelT`). -/
+def defeqStepT (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : Bool → ExprC → ExprC → CheckCM Bool) (pi : Bool) (a b : ExprC) :
     CheckCM Bool := do
     if a == b then pure true else
@@ -533,7 +533,7 @@ def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     if a' == b' then pure true else
     -- proof irrelevance once per entry (`pi`; the spec's D3 note)
     let qp ← withStore (fun st => quickPairI st a' b')
-    if ← (if pi && !qp then propIrrelI cfgNC r fe depth a' b' else pure false) then
+    if ← (if pi && !qp then propIrrelI r fe depth a' b' else pure false) then
       pure true else
     -- fvar-free guard on defeq-side literal folding, as in
     -- `defeqBodyI` (official kernel `lazy_delta_reduction`; lean4lean
@@ -585,51 +585,51 @@ def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.lit l₁), some (.lit l₂) => pure (l₁ == l₂)
     | some (.lit (.natVal n)), some (.const c us) =>
       if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
-      else stuckIrrelNC r fe depth a' b'
+      else stuckIrrelT r fe depth a' b'
     | some (.const c us), some (.lit (.natVal n)) =>
       if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
-      else stuckIrrelNC r fe depth a' b'
+      else stuckIrrelT r fe depth a' b'
     | some (.lit (.natVal nn)), some (.app f x) => do
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
         if ← beqNameM c natSuccName then do
           let kl ← internI (.lit (.natVal k))
           r.defeq depth kl x
-        else stuckIrrelNC r fe depth a' b'
-      | _, _ => stuckIrrelNC r fe depth a' b'
+        else stuckIrrelT r fe depth a' b'
+      | _, _ => stuckIrrelT r fe depth a' b'
     | some (.app f x), some (.lit (.natVal nn)) => do
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
         if ← beqNameM c natSuccName then do
           let kl ← internI (.lit (.natVal k))
           r.defeq depth x kl
-        else stuckIrrelNC r fe depth a' b'
-      | _, _ => stuckIrrelNC r fe depth a' b'
+        else stuckIrrelT r fe depth a' b'
+      | _, _ => stuckIrrelT r fe depth a' b'
     | some (.lit (.strVal s)), some (.app fO _x) => do
       match ← viewI fO with
       | some (.const cO usO) =>
         if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
           let sc ← internExprM (strLitToConstructor s)
           r.defeq depth sc b'
-        else stuckIrrelNC r fe depth a' b'
-      | _ => stuckIrrelNC r fe depth a' b'
+        else stuckIrrelT r fe depth a' b'
+      | _ => stuckIrrelT r fe depth a' b'
     | some (.app fO _x), some (.lit (.strVal s)) => do
       match ← viewI fO with
       | some (.const cO usO) =>
         if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
           let sc ← internExprM (strLitToConstructor s)
           r.defeq depth a' sc
-        else stuckIrrelNC r fe depth a' b'
-      | _ => stuckIrrelNC r fe depth a' b'
+        else stuckIrrelT r fe depth a' b'
+      | _ => stuckIrrelT r fe depth a' b'
     | some (.fvar i _ _), some (.fvar j _ _) =>
       if i == j then pure true
-      else stuckIrrelNC r fe depth a' b'
+      else stuckIrrelT r fe depth a' b'
     | some (.const n us), some (.const n' us') =>
       if n = n' then do
         if ← liftFueled "level comparison" (← isEquivListLM us us') then
           pure true
-        else stuckIrrelNC r fe depth a' b'
-      else stuckIrrelNC r fe depth a' b'
+        else stuckIrrelT r fe depth a' b'
+      else stuckIrrelT r fe depth a' b'
     | some (.forallE n₁ ty₁ body₁ _m₁), some (.forallE n₂ ty₂ body₂ _m₂) => do
       -- no binder-annotation comparison; see `defeqBody`
       unless ← r.defeq depth ty₁ ty₂ do return false
@@ -654,41 +654,41 @@ def defeqStepNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
         let h₂ ← withStore (fun st => st.getAppFnI b')
         if ← r.defeq depth h₁ h₂ then do
           if ← defEqListI r fe depth as₁ as₂ then pure true
-          else stuckIrrelNC r fe depth a' b'
-        else stuckIrrelNC r fe depth a' b'
-      else stuckIrrelNC r fe depth a' b'
+          else stuckIrrelT r fe depth a' b'
+        else stuckIrrelT r fe depth a' b'
+      else stuckIrrelT r fe depth a' b'
     | some (.proj s₁ i₁ e₁), some (.proj s₂ i₂ e₂) => do
       if s₁ == s₂ && i₁ == i₂ then do
         if ← r.defeq depth e₁ e₂ then pure true
-        else stuckIrrelNC r fe depth a' b'
-      else stuckIrrelNC r fe depth a' b'
+        else stuckIrrelT r fe depth a' b'
+      else stuckIrrelT r fe depth a' b'
     | some (.lam n₁ ty₁ body₁ m₁), _ => do
-      if ← etaCertI cfgNC r fe depth n₁ ty₁ body₁ m₁ b' then pure true
-      else stuckIrrelNC r fe depth a' b'
+      if ← etaCertI cfgT r fe depth n₁ ty₁ body₁ m₁ b' then pure true
+      else stuckIrrelT r fe depth a' b'
     | _, some (.lam n₂ ty₂ body₂ m₂) => do
-      if ← etaCertI cfgNC r fe depth n₂ ty₂ body₂ m₂ a' then pure true
-      else stuckIrrelNC r fe depth a' b'
-    | some _, some _ => stuckIrrelNC r fe depth a' b'
+      if ← etaCertI cfgT r fe depth n₂ ty₂ body₂ m₂ a' then pure true
+      else stuckIrrelT r fe depth a' b'
+    | some _, some _ => stuckIrrelT r fe depth a' b'
     | _, _ => throw (.internal "interned node missing")
 
 /-- Cert-skipping twin of `defeqLoopI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `defeqLoopNC`). -/
-def defeqLoopNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+def defeqLoopT (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → Bool → ExprC → ExprC → CheckCM Bool
   | 0, _, _, _ => throw (.internal "fuel exhausted: defeq loop")
   | fl + 1, pi, a, b =>
-    defeqStepNC r fe depth (defeqLoopNC r fe depth fl) pi a b
+    defeqStepT r fe depth (defeqLoopT r fe depth fl) pi a b
 
 /-- Cert-skipping twin of `defeqBodyI` (port of
 `Setlec/Kernel/CoreNC.lean`'s `defeqBodyNC`). -/
-def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → ExprC → CheckCM Bool :=
-  fun depth a b => defeqLoopNC r fe depth defeqLoopFuel true a b
+def defeqBodyT (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → ExprC → CheckCM Bool :=
+  fun depth a b => defeqLoopT r fe depth defeqLoopFuel true a b
 
 /-- perf-eng E2 (port of `Setlec/Kernel/CoreNC.lean`'s `memoEINC`):
 `@[inline]` twin of `memoEI`, scoped to the measurement-only NC knot —
 after inlining, the getter/setter lambdas beta-reduce away and the
 memo probe compiles into the record field's own closure. -/
-@[inline] private def memoEINC (get' : CState → Std.HashMap ExprC ExprC)
+@[inline] private def memoEIT (get' : CState → Std.HashMap ExprC ExprC)
     (set' : CState → Std.HashMap ExprC ExprC → CState)
     (f : Nat → ExprC → CheckCM ExprC) : Nat → ExprC → CheckCM ExprC :=
   fun d e => do
@@ -712,9 +712,9 @@ infer-only inference of the same node compute the same type, but the
 former also *validated* the arguments, so serving it to an infer-only
 query loses nothing.  The converse share would serve an unvalidated
 type to a checking-mode query and must never be added — the front
-door (`coreKnotFNC.infer`) stays a plain `memoEINC (·.inferFC)`.
+door (`coreKnotFT.infer`) stays a plain `memoEIT (·.inferFC)`.
 
-Lifetimes coincide: `checkDeclSPStepCNC` clears `inferC` (via
+Lifetimes coincide: `checkDeclSPStepCT` clears `inferC` (via
 `flushC`) and `inferFC` (via `flushInferFC`) back to back at every
 declaration boundary. -/
 def memoEIO (f : Nat → ExprC → CheckCM ExprC) : Nat → ExprC → CheckCM ExprC :=
@@ -734,8 +734,8 @@ def memoEIO (f : Nat → ExprC → CheckCM ExprC) : Nat → ExprC → CheckCM Ex
         pure r
 
 /-- perf-eng E2: `@[inline]` twin of `memoBI` (port of
-`Setlec/Kernel/CoreNC.lean`'s `memoBINC`; see `memoEINC`). -/
-@[inline] private def memoBINC (f : Nat → ExprC → ExprC → CheckCM Bool) :
+`Setlec/Kernel/CoreNC.lean`'s `memoBINC`; see `memoEIT`). -/
+@[inline] private def memoBIT (f : Nat → ExprC → ExprC → CheckCM Bool) :
     Nat → ExprC → ExprC → CheckCM Bool :=
   fun d a b => do
     match (← get).defeqC[(a, b)]? with
@@ -754,7 +754,7 @@ kept; the `whnf` and `annotate` bodies are the certified ones — their
 behavior differences come entirely through the record).  The
 consistency proofs are pinned to `coreKnotI`; this knot is
 measurement-only. -/
-def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
+def coreKnotT (fe : FEnv) : Nat → CoreFnsI
   | 0 =>
     { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
@@ -765,32 +765,32 @@ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
   | fuel + 1 =>
     -- perf-eng E1: the previous fuel level is built at most once per
     -- record (Thunk-cached) instead of once per cache-missing call.
-    let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotNC fe fuel⟩
-    { whnfCore := memoEINC (·.whnfCoreC)
+    let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotT fe fuel⟩
+    { whnfCore := memoEIT (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => whnfCoreBodyNC prev.get fe d e)
-      whnf := memoEINC (·.whnfC) (fun st mp => { st with whnfC := mp })
+        (fun d e => whnfCoreBodyT prev.get fe d e)
+      whnf := memoEIT (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI prev.get fe d e)
-      infer := memoEIO (fun d e => inferBodyNC prev.get fe d e)
+      infer := memoEIO (fun d e => inferBodyT prev.get fe d e)
       -- task #172 B4 (field added to the shared record): the internal
-      -- knot's inference IS the io grade at parity — bind the io slot to
+      -- knot's inference IS the io grade in the trusted mode — bind the io slot to
       -- the same memoized closure (nothing in the NC bodies reads it).
-      inferIO := memoEIO (fun d e => inferBodyNC prev.get fe d e)
-      defeq := memoBINC
-        (fun d a b => defeqBodyNC prev.get fe d a b)
-      annotate := memoEINC (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI cfgNC prev.get fe d e) }
+      inferIO := memoEIO (fun d e => inferBodyT prev.get fe d e)
+      defeq := memoBIT
+        (fun d a b => defeqBodyT prev.get fe d a b)
+      annotate := memoEIT (·.annotC) (fun st mp => { st with annotC := mp })
+        (fun d e => annotateBodyI prev.get fe d e) }
 
-/-- The `--no-model` cached **checking-mode front-door knot** (port of
+/-- The `--trusted` cached **checking-mode front-door knot** (port of
 `Setlec/Kernel/CoreNC.lean`'s `coreKnotFNC`; the task-#134 `coreKnotF`
 pattern over the cert-skipping internals).  `infer` is the certified
-`inferBodyI` at `.noModel` — the official kernel's checking-mode
+`inferBodyI` at `.trusted` — the official kernel's checking-mode
 `infer_type_core(e, infer_only := false)`; `annotate` is tied to
 itself for the same reason.  `whnfCore`/`whnf`/`defeq` are
-`coreKnotNC`'s, so every inference *reduction* performs internally is
+`coreKnotT`'s, so every inference *reduction* performs internally is
 infer-only and certificate-free.  The checking-mode inference memo is
 `inferFC`, kept apart from the infer-only `inferC`. -/
-def coreKnotFNC (fe : FEnv) : Nat → CoreFnsI
+def coreKnotFT (fe : FEnv) : Nat → CoreFnsI
   | 0 =>
     { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
@@ -799,21 +799,21 @@ def coreKnotFNC (fe : FEnv) : Nat → CoreFnsI
       annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
       inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
-    -- perf-eng E1: share one `coreKnotNC` build across the three
+    -- perf-eng E1: share one `coreKnotT` build across the three
     -- reduction fields, and Thunk-cache the recursive front-door level.
-    let nc := coreKnotNC fe (fuel + 1)
-    let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotFNC fe fuel⟩
+    let nc := coreKnotT fe (fuel + 1)
+    let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotFT fe fuel⟩
     { whnfCore := nc.whnfCore
       whnf := nc.whnf
       defeq := nc.defeq
-      infer := memoEINC (·.inferFC) (fun st mp => { st with inferFC := mp })
-        (fun d e => inferBodyI cfgNC prev.get fe d e)
+      infer := memoEIT (·.inferFC) (fun st mp => { st with inferFC := mp })
+        (fun d e => inferBodyI cfgT prev.get fe d e)
       -- task #172 B4: the front-door knot never serves internal calls;
       -- its io slot is the internal (cert-skipping) knot's inference,
-      -- which is what an internal caller would mean at parity.
+      -- which is what an internal caller would mean in the trusted mode.
       inferIO := nc.infer
-      annotate := memoEINC (·.annotC) (fun st mp => { st with annotC := mp })
-        (fun d e => annotateBodyI cfgNC prev.get fe d e) }
+      annotate := memoEIT (·.annotC) (fun st mp => { st with annotC := mp })
+        (fun d e => annotateBodyI prev.get fe d e) }
 
 /-- Drop the checking-mode inference memo (port of
 `Setlec/Kernel/CoreNC.lean`'s `flushInferFC`); called back to back

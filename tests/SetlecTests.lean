@@ -20,35 +20,36 @@ these guards pin the actual values.  One `#guard` per pinned value,
 each naming the theorem family that depends on it. -/
 
 -- `CheckMode` has TWO values since the SetR removal (2026-09-05), and
--- `.setModel` -- the verified graded lane, `--set-model` and
--- `--set-model=p` -- is the first constructor, so it is both the
--- `Inhabited` default and `Main.lean`'s `Args.mode`.  Those agreed by
--- accident before and agree by construction now.
+-- `.verified` -- the verified graded lane, `--verified` -- is the
+-- first constructor, so it is both the `Inhabited` default and
+-- `Main.lean`'s `Args.mode`.  Those agreed by accident before and
+-- agree by construction now.  (The constructors were `.setModel` /
+-- `.noModel` until the mode rename of 2026-09-06.)
 --
 -- The β-certificate gate is ON at it and only at it: the two accessors
--- `betaGate` and `verified` now separate the same two modes, which is
--- what "two cores" means at the mode level.
-#guard (default : CheckMode) == .setModel
-#guard CheckMode.betaGate .setModel == true
-#guard CheckMode.betaGate .noModel == false
+-- `betaGate` and `verifiedChecks` now separate the same two modes,
+-- which is what "two cores" means at the mode level.
+#guard (default : CheckMode) == .verified
+#guard CheckMode.betaGate .verified == true
+#guard CheckMode.betaGate .trusted == false
 
 -- The seven-check gate is OFF at every mode since task #148 T7b: the
 -- declarative lane that turned it on (and its `.ttModel` value) was
 -- deleted with the mode.  The gated call sites are kept, statically
 -- unreachable; these guards are what would notice a mode being added
 -- back without the lane that justifies it.
-#guard CheckMode.ttChecks .setModel == false
-#guard CheckMode.ttChecks .noModel == false
+#guard CheckMode.ttChecks .verified == false
+#guard CheckMode.ttChecks .trusted == false
 
 -- The λ-codomain-sort gate (task #152, `inferBody`'s `.lam` clause):
 -- ON in the verified lane — the set lane's annotation pass reads the
--- fact off `inferTypeCore_lam_inv`'s `mode.verified = true → …`
+-- fact off `inferTypeCore_lam_inv`'s `mode.verifiedChecks = true → …`
 -- conjunct, so compiling this `false` at a verified mode would make
--- that conjunct vacuous — and OFF at `.noModel`, which is the
--- official-parity lane (the reference kernel's `infer_lambda` does not
+-- that conjunct vacuous — and OFF at `.trusted`, which is the
+-- trusted lane (the reference kernel's `infer_lambda` does not
 -- sort-check the body's type).
-#guard CheckMode.verified .setModel == true
-#guard CheckMode.verified .noModel == false
+#guard CheckMode.verifiedChecks .verified == true
+#guard CheckMode.verifiedChecks .trusted == false
 
 -- The direct simple-structure master switch ships OFF since task #148
 -- T0b (it shipped ON from #119/#120 until 2026-08-27).  BOTH verified
@@ -63,12 +64,12 @@ def dummyAxiom : Declaration :=
 
 -- An arbitrary custom axiom is a positive decline at its own record
 -- (user ruling: only the tolerated whitelist may be declared).
-#guard checkDecl .setModel (pureOps .setModel) Env.empty dummyAxiom matches .error (.notImplemented _)
+#guard checkDecl .verified (pureOps .verified) Env.empty dummyAxiom matches .error (.notImplemented _)
 
 -- A tolerated axiom (whitelist: exactly sorryAx, task #95) is
 -- well-formedness-checked but not installed — the environment is
 -- unchanged (the frontend declines any later use).
-#guard match checkDecl .setModel (pureOps .setModel) Env.empty
+#guard match checkDecl .verified (pureOps .verified) Env.empty
     (.axiomDecl { name := .str .anonymous "sorryAx", levelParams := [],
                   type := .sort .zero }) with
   | .ok e => e.consts.isEmpty
@@ -77,19 +78,19 @@ def dummyAxiom : Declaration :=
 -- The compiler-trust family is no longer tolerated: it *installs*
 -- (task #95), so without its pinned prerequisites (the True family)
 -- a trustCompiler record is a positive decline at its own record.
-#guard checkDecl .setModel (pureOps .setModel) Env.empty
+#guard checkDecl .verified (pureOps .verified) Env.empty
     (.axiomDecl { name := (Name.anonymous.str "Lean").str "trustCompiler",
                   levelParams := [], type := .sort .zero })
   matches .error (.notImplemented _)
 
 -- A garbage axiom record (its type is not a type) still rejects.
-#guard checkDecl .setModel (pureOps .setModel) Env.empty
+#guard checkDecl .verified (pureOps .verified) Env.empty
     (.axiomDecl { name := .str .anonymous "foo", levelParams := [],
                   type := .bvar 0 })
   matches .error _
 
 -- The empty list of declarations is accepted.
-#guard (checkDecls .setModel (pureOps .setModel) []).toBool == true
+#guard (checkDecls .verified (pureOps .verified) []).toBool == true
 
 /-! ## Sort-fragment definitions -/
 
@@ -99,34 +100,34 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
     (.regular 0)
 
 -- `def basicDef : Type := Prop` (tutorial test 001)
-#guard (checkDecls .setModel (pureOps .setModel) [mkDef "basicDef" [] (.sort (.succ .zero)) (.sort .zero)]).toBool
+#guard (checkDecls .verified (pureOps .verified) [mkDef "basicDef" [] (.sort (.succ .zero)) (.sort .zero)]).toBool
 
 -- `def bad : Prop := Type` is rejected (type mismatch).
-#guard checkDecls .setModel (pureOps .setModel) [mkDef "bad" [] (.sort .zero) (.sort (.succ .zero))]
+#guard checkDecls .verified (pureOps .verified) [mkDef "bad" [] (.sort .zero) (.sort (.succ .zero))]
   matches .error (.invalid _)
 
 -- Duplicate universe parameters are rejected.
-#guard checkDecls .setModel (pureOps .setModel) [mkDef "dup" ["u", "u"] (.sort (.succ .zero)) (.sort .zero)]
+#guard checkDecls .verified (pureOps .verified) [mkDef "dup" ["u", "u"] (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- Undeclared universe parameter in the type is rejected.
-#guard checkDecls .setModel (pureOps .setModel) [mkDef "undecl" [] (.sort (.succ (.param (.str .anonymous "u"))))
+#guard checkDecls .verified (pureOps .verified) [mkDef "undecl" [] (.sort (.succ (.param (.str .anonymous "u"))))
     (.sort (.param (.str .anonymous "u")))]
   matches .error (.invalid _)
 
 -- Duplicate declarations are rejected.
-#guard checkDecls .setModel (pureOps .setModel) [mkDef "d" [] (.sort (.succ .zero)) (.sort .zero),
+#guard checkDecls .verified (pureOps .verified) [mkDef "d" [] (.sort (.succ .zero)) (.sort .zero),
                    mkDef "d" [] (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- `def levelComp4.{u} : Type 0 := Sort (imax u 0)` (tutorial test 018)
-#guard (checkDecls .setModel (pureOps .setModel) [mkDef "levelComp4" ["u"] (.sort (.succ .zero))
+#guard (checkDecls .verified (pureOps .verified) [mkDef "levelComp4" ["u"] (.sort (.succ .zero))
     (.sort (.imax (.param (.str .anonymous "u")) .zero))]).toBool
 
 /-! ## Dependent function types -/
 
 -- `def arrowType : Type := Prop → Prop` (tutorial test 003)
-#guard (checkDecls .setModel (pureOps .setModel) [mkDef "arrowType" [] (.sort (.succ .zero))
+#guard (checkDecls .verified (pureOps .verified) [mkDef "arrowType" [] (.sort (.succ .zero))
   (.forallE (.str .anonymous "a") (.sort .zero) (.sort .zero) ⟨.default, .never⟩)]).toBool
 
 -- `def dependentType : Prop := ∀ (p : Prop), p` (tutorial test 004):
@@ -134,7 +135,7 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 -- `.ifAllZero []` ("the codomain is always a proposition"): the
 -- verified mode validates annotations and declines a `.never` on a
 -- Prop-codomain binder.
-#guard (checkDecls .setModel (pureOps .setModel) [mkDef "dependentType" [] (.sort .zero)
+#guard (checkDecls .verified (pureOps .verified) [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩)]).toBool
 
 -- … and the same declaration with the unannotated (`.never`) binder is
@@ -146,18 +147,18 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 -- `"pw": "never"` is indistinguishable from an absent field and is
 -- silently corrected rather than falsified, so the falsifiable claims
 -- are exactly the `ifAllZero` ones (see the `bad*` guards below).
-#guard (checkDecls .setModel (pureOps .setModel) [mkDef "dependentType" [] (.sort .zero)
+#guard (checkDecls .verified (pureOps .verified) [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]).toBool
-#guard (checkDecls .noModel (pureOps .noModel) [mkDef "dependentType" [] (.sort .zero)
+#guard (checkDecls .trusted (pureOps .trusted) [mkDef "dependentType" [] (.sort .zero)
   (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]).toBool
 
 -- `∀ (p : Prop), p : Type` is rejected (it is a Prop).
-#guard checkDecls .setModel (pureOps .setModel) [mkDef "bad2" [] (.sort (.succ .zero))
+#guard checkDecls .verified (pureOps .verified) [mkDef "bad2" [] (.sort (.succ .zero))
     (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩)]
   matches .error (.invalid _)
 
 -- Input expressions containing fvars are rejected.
-#guard checkDecls .setModel (pureOps .setModel) [mkDef "sneaky" [] (.sort (.succ .zero))
+#guard checkDecls .verified (pureOps .verified) [mkDef "sneaky" [] (.sort (.succ .zero))
     (.fvar 0 (.str .anonymous "x") (.sort (.succ .zero)))]
   matches .error (.invalid _)
 
@@ -168,18 +169,18 @@ private def mkThm (n : String) (type value : Expr) : Declaration :=
 
 -- `theorem t : ∀ (p : Prop), p → p`-shaped: a Prop-typed theorem is accepted
 -- when its (in-fragment) value matches.
-#guard (checkDecls .setModel (pureOps .setModel) [mkThm "t"
+#guard (checkDecls .verified (pureOps .verified) [mkThm "t"
     (.forallE (.str .anonymous "p") (.sort .zero) (.sort .zero) ⟨.default, .never⟩)
     (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)])
   matches .error (.invalid _)  -- value `∀ p, p : Prop` vs type `Prop → Prop : Prop`? mismatch
 
 -- A theorem whose type is not a proposition is rejected (tutorial 012).
-#guard checkDecls .setModel (pureOps .setModel) [mkThm "bad3" (.sort (.succ .zero)) (.sort .zero)]
+#guard checkDecls .verified (pureOps .verified) [mkThm "bad3" (.sort (.succ .zero)) (.sort .zero)]
   matches .error (.invalid _)
 
 -- A theorem stating an accepted Prop with a matching proof-shaped value:
 -- `theorem t2 : Prop-valued-forall` where value has exactly that type.
-#guard (checkDecls .setModel (pureOps .setModel) [mkDef "prp" [] (.sort .zero)
+#guard (checkDecls .verified (pureOps .verified) [mkDef "prp" [] (.sort .zero)
     (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩),
   mkThm "t2" (.sort .zero) (.const (.str .anonymous "prp") [])]).toBool == false
   -- (const prp : Prop, but Prop ≠ prp's type Prop... value `prp : Prop`; type `Prop`:
@@ -217,25 +218,25 @@ private def pwLam (pw : PropWhen) : Expr :=
 
 -- (defeq-forall): inequivalent binder annotations on otherwise defeq
 -- ∀s are a positive decline at the verified mode …
-#guard defeqStep .setModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
+#guard defeqStep .verified stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [])) (pwForall .never)
   matches .error (.notImplemented _)
--- … and no check at the unverified lane (official parity).
-#guard defeqStep .noModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
+-- … and no check at the unverified (trusted) lane.
+#guard defeqStep .trusted stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [])) (pwForall .never)
   matches .ok true
 -- Equivalent-but-unequal annotations pass: `equiv` is semantic
 -- containment, not list equality.
-#guard defeqStep .setModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
+#guard defeqStep .verified stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [.str .anonymous "u", .str .anonymous "u"]))
     (pwForall (.ifAllZero [.str .anonymous "u"]))
   matches .ok true
 
 -- (defeq-lam): the λ congruence arm, same discipline.
-#guard defeqStep .setModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
+#guard defeqStep .verified stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwLam (.ifAllZero [])) (pwLam .never)
   matches .error (.notImplemented _)
-#guard defeqStep .noModel stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
+#guard defeqStep .trusted stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwLam (.ifAllZero [])) (pwLam .never)
   matches .ok true
 
@@ -247,12 +248,12 @@ private def etaStuckTy (pw : PropWhen) : Expr := pwForall pw
 private def etaStuckF (pw : PropWhen) : Expr :=
   .fvar 0 (.str .anonymous "f") (etaStuckTy pw)
 
-#guard etaCert .setModel (pureFns .setModel Env.empty 100) Env.empty 1
+#guard etaCert .verified (pureFns .verified Env.empty 100) Env.empty 1
     (.str .anonymous "p") (.sort .zero)
     (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.default, .never⟩
     (etaStuckF (.ifAllZero []))
   matches .error (.notImplemented _)
-#guard etaCert .noModel (pureFns .noModel Env.empty 100) Env.empty 1
+#guard etaCert .trusted (pureFns .trusted Env.empty 100) Env.empty 1
     (.str .anonymous "p") (.sort .zero)
     (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.default, .never⟩
     (etaStuckF (.ifAllZero []))
@@ -299,7 +300,7 @@ private def emptyModelAuxName : Name :=
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
   | .ok ⟨ds, _, _⟩ =>
-    (Setlec.Cached.checkDeclsSPCachedD .setModel ds.toList).toBool
+    (Setlec.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
   | .error _ => false
 
 /-! ## Frontend: taint skip-and-continue
@@ -350,7 +351,7 @@ private def taintSkipExport : String := String.intercalate "\n" [
 -- reach install: it is absent from the declarations).
 #guard match Frontend.parseExportD taintSkipExport with
   | .ok ⟨ds, _, _⟩ =>
-    (Setlec.Cached.checkDeclsSPCachedD .setModel ds.toList).toBool
+    (Setlec.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
   | .error _ => false
 
 -- A stream without tolerated-axiom uses records no skips.
@@ -401,7 +402,7 @@ The constructor form pins the reference kernels' exact spelling
 
 The gated knot is only worth its duplication if the gate is (a) LIVE —
 it reduces a redex the ungated `whnfCore` leaves stuck — and (b)
-MODE-GATED, per law 1 clause (i): at `--no-model` the annotation is not
+MODE-GATED, per law 1 clause (i): at `--trusted` the annotation is not
 validated, so the datum must mean nothing there.  Both are pinned
 here, in the vacuity-protection discipline of the config audit above.
 
@@ -420,37 +421,37 @@ private def gateRedex (mb : BinderMeta) : Expr :=
 private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
 
 -- The UNGATED-KNOT guards retired 2026-09-05: they read
---     whnfCore .setModel … == some (gateStuck …)      at BOTH data
+--     whnfCore .verified … == some (gateStuck …)      at BOTH data
 -- and pinned that the ungated knot runs the per-redex certificate
--- unconditionally (the task-#100 de-gating).  `.setModel` was the R
+-- unconditionally (the task-#100 de-gating).  `.verified` was the R
 -- mode then; the R core and its mode value are deleted, so the guards
 -- pinned a mode that no longer exists.  What survives of the property
--- is (c) below, at `--no-model` — the only ungated mode left.
+-- is (c) below, at `--trusted` — the only ungated mode left.
 
 -- (a) THE GATE IS LIVE: at a validated `.never` binder the gated knot
 -- skips the certificate and reduces.  If this guard ever reads
 -- `some (gateStuck …)` the duplicated knot has become a no-op.
-#guard (whnfCoreP .setModel Env.empty 100 0 (gateRedex gateNever)).toOption
+#guard (whnfCoreP .verified Env.empty 100 0 (gateRedex gateNever)).toOption
   == some (.sort .zero)
 
 -- (b) THE GATE IS DATUM-EXACT: at a possibly-zero datum the
 -- certificate runs unconditionally — the establishment/consumption
 -- asymmetry fence.
-#guard (whnfCoreP .setModel Env.empty 100 0 (gateRedex gateMaybe)).toOption
+#guard (whnfCoreP .verified Env.empty 100 0 (gateRedex gateMaybe)).toOption
   == some (gateStuck gateMaybe)
 
--- (c) THE GATE IS MODE-GATED (law 1 (i)): at `--no-model` the
+-- (c) THE GATE IS MODE-GATED (law 1 (i)): at `--trusted` the
 -- annotation is not validated, so the gated knot is the ungated one —
 -- and, since the R core's retirement, this is also the tree's only
 -- witness that the UNGATED knot runs the certificate unconditionally
 -- (the task-#100 de-gating), at both data.
-#guard (whnfCoreP .noModel Env.empty 100 0 (gateRedex gateNever)).toOption
+#guard (whnfCoreP .trusted Env.empty 100 0 (gateRedex gateNever)).toOption
   == some (gateStuck gateNever)
-#guard (whnfCoreP .noModel Env.empty 100 0 (gateRedex gateMaybe)).toOption
+#guard (whnfCoreP .trusted Env.empty 100 0 (gateRedex gateMaybe)).toOption
   == some (gateStuck gateMaybe)
-#guard (whnfCore .noModel Env.empty 100 0 (gateRedex gateNever)).toOption
+#guard (whnfCore .trusted Env.empty 100 0 (gateRedex gateNever)).toOption
   == some (gateStuck gateNever)
-#guard CheckMode.verified .noModel == false
+#guard CheckMode.verifiedChecks .trusted == false
 
 /-! ## The io gate (the io-license batch, `Setlec/Kernel/CoreIO.lean`)
 
@@ -473,24 +474,24 @@ private def ioRedex (mb : BinderMeta) : Expr :=
 
 -- (a) THE io GATE IS LIVE: at a `.never` binder the io lane skips the
 -- argument certificate and computes the type.
-#guard (inferTypeCoreIO .setModel Env.empty 6 1 (ioRedex gateNever)).toOption
+#guard (inferTypeCoreIO .verified Env.empty 6 1 (ioRedex gateNever)).toOption
   == some (.sort .zero)
 
 -- (b) THE io GATE IS DATUM-EXACT: at a possibly-zero datum the
 -- certificate runs unconditionally (the squash fence,
 -- `io_membership_fails_at_squash`).
-#guard (inferTypeCoreIO .setModel Env.empty 6 1 (ioRedex gateMaybe)).toOption
+#guard (inferTypeCoreIO .verified Env.empty 6 1 (ioRedex gateMaybe)).toOption
   == none
 
--- (c) THE io GATE IS MODE-GATED (law 1 (i)): at `--no-model` the
+-- (c) THE io GATE IS MODE-GATED (law 1 (i)): at `--trusted` the
 -- annotation is not validated, so the certificate runs even at
 -- `.never`.
-#guard (inferTypeCoreIO .noModel Env.empty 6 1 (ioRedex gateNever)).toOption
+#guard (inferTypeCoreIO .trusted Env.empty 6 1 (ioRedex gateNever)).toOption
   == none
 
 -- (d) THE FULL LANE IS STRICTER AT BOTH DATA: the io grade narrows
 -- exactly one check, so the gated arm is not absorbed by the kept one.
-#guard (inferTypeCore .setModel Env.empty 6 1 (ioRedex gateNever)).toOption
+#guard (inferTypeCore .verified Env.empty 6 1 (ioRedex gateNever)).toOption
   == none
 
 end SetlecTests

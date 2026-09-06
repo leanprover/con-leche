@@ -36,15 +36,15 @@ binder arms of `defeqStep` (`Kernel/Core.lean`) end with the task-#161
 check
 
 ```
-    if mode.verified && !(m₁.pw.equiv m₂.pw) then
+    if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
       throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
     pure true
 ```
 
-so a run that reached `.ok true` at `μ.verified = true` **certifies**
+so a run that reached `.ok true` at `μ.verifiedChecks = true` **certifies**
 `m₁.pw.equiv m₂.pw`, and `pwBit_eq_of_equiv` turns that into equal
 numerals.  The obligation an outside supplier used to owe is now a
-fact the run itself hands over: the quarter takes `hμ : μ.verified =
+fact the run itself hands over: the quarter takes `hμ : μ.verifiedChecks =
 true` (a hypothesis of the *stuck claim* and of the *step*, never of
 the claims, which stay mode-generic) and no `hbs` at all.
 
@@ -290,7 +290,7 @@ def DefEqSpineP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ba) →
       ∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ aa = interp2 V ρ ba
 
-/-- **The stuck configuration**, P currency.  `hμ : μ.verified = true`
+/-- **The stuck configuration**, P currency.  `hμ : μ.verifiedChecks = true`
 is *not* here: it is a hypothesis of the theorem that discharges this
 Prop, so the routed shape stays mode-generic. -/
 def DefEqStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
@@ -855,10 +855,10 @@ theorem acval_const_congrP {m : EnvS2Core V env} (hap : AcvalParamsP m)
 `hbs : BinderSortAgree2A` is **gone**.  Its two uses were the
 `obtain rfl : v₁ = v₂` lines in cases 11 and 12; each is replaced by
 the run's own certificate, extracted from the ok-true tail of the
-binder arm at `hμ : μ.verified = true` and turned into an equation by
+binder arm at `hμ : μ.verifiedChecks = true` and turned into an equation by
 `pwBit_eq_of_equiv`.  Nothing else in the block changes shape. -/
 theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
-    (hμ : μ.verified = true)
+    (hμ : μ.verifiedChecks = true)
     (ihd : DefEqClaims2P μ m φ fuel) (hsi : StuckIrrelPQ μ m φ fuel)
     (hstr : DenotePStrLit m φ) (hap : AcvalParamsP m)
     (happ : AppCongrStuckP μ m φ fuel) (heta : EtaCertStepP μ m φ fuel) :
@@ -1255,7 +1255,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
   spelled as ten hypotheses: at this width the list is the noise and
   the structure is the signal, and a consumer that discharges one
   residue can update one field.
-* `μ.verified = true` is a hypothesis of the **step**, not of the
+* `μ.verifiedChecks = true` is a hypothesis of the **step**, not of the
   claims.  `DefEqClaims2P` stays mode-generic — it must, it is frozen
   text — and the mode pin sits exactly where the validation conjuncts
   are read, which is `defeqStuck_claimP`'s two binder cases.  This is
@@ -1314,7 +1314,7 @@ structure DefEqInputsP (μ : CheckMode) (V : Type w) [SetTheory V] :
 /-- **The defeq quarter, P currency.**  Ten routed residues and one
 mode pin; **no `BinderSortAgree`** — residue 9's successor is the run's
 own `equiv` certificate, read at `hμ` inside `defeqStuck_claimP`. -/
-theorem defEqStepP_of (hμ : μ.verified = true)
+theorem defEqStepP_of (hμ : μ.verifiedChecks = true)
     (hin : DefEqInputsP μ V) : DefEqStepP μ V := by
   intro env m φ fuel ihwc ihw ihd _ihi
   exact defeq_claimsP

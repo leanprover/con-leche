@@ -20,14 +20,14 @@ harvest layer builds toward them:
   consistency of the checker on sort-annotated syntax, hypothesis
   minimal, the #16 precedent):
 
-  `no_proof_of_Empty_P : ∀ (V) [SetTheory V] {μ}, μ.verified = true →
+  `no_proof_of_Empty_P : ∀ (V) [SetTheory V] {μ}, μ.verifiedChecks = true →
    ∀ {F ds env'}, checkDecls μ (fueledOps μ F) ds = .ok env' →
    ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] →
    False`
 
   Input-level hypotheses ONLY: the accepted run, the stored constant,
   its type — plus the validating mode, which is part of the goal's
-  letter (the annotated checker IS the verified mode; `--no-model`
+  letter (the annotated checker IS the verified mode; `--trusted`
   ignores annotations by design).  No residue hypotheses: the
   intermediate, install-tier-conditional form is a *milestone shape*,
   never the close (the conditional-forms ruling).
