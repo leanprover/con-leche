@@ -892,7 +892,7 @@ theorem eqRecValT2_congr {ψ₁ ψ₂ : Name → Nat} (hu : ψ₁ uN = ψ₂ uN)
   have hb : pwBit ψ₁ (Setlec.PropWhen.ifAllZero [u1N])
       = pwBit ψ₂ (Setlec.PropWhen.ifAllZero [u1N]) := by
     unfold pwBit
-    simp [Setlec.PropWhen.holds, hu1]
+    simp [hu1]
   rw [eqRecValT2, eqRecValT2, hb, hu, hu1, eqValT2_congr hu,
     eqReflValT2_congr hu]
 

@@ -43539,7 +43539,7 @@ Official clause (file:line at v4.33.0) → ours (spec `Core.lean` / P
 | R2 | `cheap_rec` — only ever `false` (lean4lean: "nothing has set it since lean4#9275") | n/a | same | |
 | **inductive_reduce_rec** `inductive.h:76-111` | | | | |
 | I1 | major = `rec_args[major_idx]`; **if `is_k`: `to_cnstr_when_K` on the RAW major**; then `whnf`; then nat-lit → ctor / string-lit → `whnf(ctor form)` / else `to_cnstr_when_structure` (`:85-94`) | master `iotaRec :1387-1389` (NC `:239-241`): `whnf` → `litMajorToCtor` → `majorToCtor` (K and η both AFTER the whnf) | **cost — FIXED on `agent/rat-frontier` 8480a8c9** (`prepareMajor{,I,NC}`; not on master at audit time) | the K-order bug; the fix mirrors `:85-94` exactly |
-| I2 | K guard: `rec_val.is_k()` = block has ONE inductive type ∧ result level `normalizes_to_zero` ∧ one constructor with 0 fields (`inductive.cpp:551-572`) | `caps.ruleK = (nF == 0 && piResultIsProp cvT.type)` (`DeclCheck.lean:289`, `Modeled.lean:718`; `piResultIsProp :150` is `Level.isEquiv u .zero`) ∧ `rules = [rl]` ∧ `cnF = 0` (`majorToCtor :1181-1189`) | same, except **superset V1**: no "not a mutual block" test — a mutual Prop block whose recursor has a single rule (one nullary ctor, the other types empty) K-rescues in ours, never in official | unreachable in real streams; recorded |
+| I2 | K guard: `rec_val.is_k()` = block has ONE inductive type ∧ result level `normalizes_to_zero` ∧ one constructor with 0 fields (`inductive.cpp:551-572`) | `caps.ruleK = (nF == 0 && piResultIsProp cvT.type)` (`DeclCheck.lean:289`, `Modeled.lean:718`; `piResultIsProp :150` is `Level.isEquiv u .zero`) ∧ `rules = [rl]` ∧ `cnF = 0` (`majorToCtor :1181-1189`) | same — the "not a mutual block" condition is enforced at INSTALL: every path that sets `ruleK` matches a block with exactly one inductive type and one constructor (`checkIndDecl`/`CheckerC:189`/`ParsedNC:157`: `[.indInfo cvT _], [.ctorInfo cvC nP nF]`; `directPartsCore?`: `[.indInfo, .ctorInfo, .recInfo _ _ _ [rule]]`; the pinned basis blocks are single-type) — **V1 withdrawn** (§11; the audit's first reading looked at the fire-time guard only) | |
 | I3 | `to_cnstr_when_K` (`inductive.h:28-48`): `whnf(infer(major))`, head must be the major's inductive, `mk_nullary_cnstr` (first ctor at the params), `is_def_eq(app_type, infer(fab))` | `majorToCtor :1189-1237`; NC `:163-183` — same steps, same defeq ORDER (whnf'd major type first), plus three scoping guards + `stripPis`/level-arity pins (F6) and, at P, `iotaCerts` on the fabrication + `proofIrrel` (the soundness certificate) | same (parity) / cost (P certs) / **subset (F6)**: the extra guards can silently refuse a rescue official performs | F6 is on record (task #172 B1); no stream has hit it |
 | I4 | `to_cnstr_when_structure` (`:59-71`): `is_non_rec_structure` ∧ not already a ctor app; `whnf(infer(e))` head is the inductive; struct sort NOT `normalizes_to_zero`; `expand_eta_struct` = ctor at params applied to `.proj` nodes — NO certification | `majorToCtor :1238-1298`; NC `:184-214`: `caps.eta`, `piResultNeverZero` (the same non-Prop test, instantiated), then `structEtaCertWith fab major tmaj` (fields vs projections — the pairs are syntactically equal, so `a == b` hits) and the `Name.isProjFnShape recName = false` exclusion (F6) | same verdict where the caps agree; cost ≈ 0 (the certificate's pairs are identical terms) | `caps.eta` is install-computed (`checkEtaThmF`), official's `is_non_rec_structure` is structural — any block where the cap is refused is an accept-subset; none known |
 | I5 | `get_rec_rule_for` by ctor name; `nfields ≤ major_args`; level arity of the recursor; rhs at the recursor's levels, applied to `nparams+nmotives+nminors` rec args, then the major's fields (skipping `major_args − nfields`), then the extras (`:95-110`) | `iotaRec :1390-1451`; NC `:242-279` — rule by ctor; `margs.length = ctorParams + nfields` EXACT (F5); level arity (checker change #9); rhs at `us`; `args.take rP ++ margs.drop ctorParams` | same | plus (both cores) the ctor↔recursor level-linkage comparison and the nested-rule comparands (F5, install-certified modes) and (P) the two `iotaCerts` telescopes + `iotaIndexOk` (cert tax) |
@@ -44312,6 +44312,547 @@ flags 8/8 + 14/14, no-model sweep as recorded).  No verdict moved.
 pay a `propIrrel`), P 1.3981 G; `natop_arg_order` parity 0.264 G (was
 0.280 G), P 0.269 G; `lake build` warning-free (438 jobs), `lake test`,
 proofdeps 1 363 rows / doors 0, layering 0 edges.
+## Task #177 — the substitution walks' memo discipline (2026-09-06, agent/instantiate-opt)
+
+**The user's question:** *"instantiate is a very hot function for us —
+can we optimize it?"*  Method as ruled: profile first, one candidate at
+a time, verdicts unchanged, the perf number is the go/no-go, proof work
+only after a confirmed win.  Baseline = master `3993fb54`, whose cells
+reproduce PERF.md's table exactly (app-lam 208.62/208.97 G, init-full
+1085.56/987.05 G).
+
+### 1. The profile
+
+`perf record -F 199/99`, `instructions:u` symbol buckets, `ulimit -v
+16G`, `nice 5`, `SETLEC_SUPERVISED=1`, `--pre` streams; app-lam,
+grind-ring-5 and init-full in both modes (`_tmp/inst-opt/*.data`).
+
+| bucket | app-lam np | grind np | init-full np |
+|---|---|---|---|
+| `lean_dec_ref_cold` + `mi_free` + page collect + `mi_malloc` + `del_core_other` | 40.2 % | 35.1 % | 34.2 % |
+| kernel page-fault/`munmap` symbols | ~19 % | ~1 % | ~2 % |
+| `instantiate*Go` / `abstractRangeGo` (self) | 6.6 % | 4.3 % | 4.5 % |
+| the walks' `Std.DHashMap` spec sites (insert / get / expand) | 11.2 % | 8.1 % | 6.3 % |
+| `Expr.beqB`/`beqFast` (defeq descent, not this task) | 0.7 % | 5.1 % | 6.7 % |
+| `Expr.bvarBoundGo`'s own memo (the saturated-field fallback) | — | 2.4 % | 2.6 % |
+
+The generated C named the cause exactly.  For **every visited node** the
+walk allocated **four `Prod` cells** — two to build `(e, k, d)` for the
+probe and two more to build the same tuple again for the insert — plus
+the `ExprC × Memo` result pair, against **one** allocation for the
+rebuilt node.  The memo key, an `EIdx` scalar in the arena, is a
+*constructed* value here, and that is the whole gap.
+
+### 2. Candidates, each measured separately
+
+Screening set app-lam / grind-ring-5 / beta-ladder, `--no-model`, one
+run per cell (`_tmp/inst-opt/cells.tsv`); percentages are *incremental*
+against the row above.
+
+| # | candidate | app-lam | grind-ring-5 | beta-ladder | kept |
+|---|---|---|---|---|---|
+| A | build the key once (`let key := …`, shared by probe and insert) | −8.8 % | −3.6 % | −9.5 % | **yes** |
+| B | drop the live prefix `k` from the bulk key; the `bvar` re-entry runs under a fresh table, guarded so a cursor-closed replacement allocates none | −7.8 % | −3.8 % | −7.6 % | **yes** |
+| C | atoms answered outside the memo, via an `Option`-returning `@[inline]` helper | **+0.8 %** | −4.8 % | **+0.6 %** | **no** |
+| C′ | as C, but only the non-allocating atom answers bypass the memo | +0.9 % | −4.7 % | +0.7 % | **no** |
+| D | atoms answered outside the memo by moving the probe *into the compound arms* — one flat match, no `Option` | −7.8 % | −7.2 % | −9.4 % | **yes** |
+| E | a shared pool of the first 4096 `bvar` nodes for the walks' shifted atoms | −0.0 % | −0.4 % | −0.0 % | **yes** (RSS) |
+| F | pre-size the bulk memo at `vs.size` | +0.0 % | **+1.5 %** | +0.1 % | **no** |
+
+**C vs D is the session's finding.**  They compute the same thing and
+differ only in *how* the atom test is expressed: C returns
+`Option ExprC` from an `@[inline]` helper, D puts the probe in the arms
+of one flat match.  `some r` is a heap allocation, paid at every
+*compound* node (where the helper returns `none` only after the
+allocation is elaborated away — it is not), so C hands back at the
+compound nodes what it saves at the atoms: an 8.6 pp swing on app-lam
+between two spellings of one idea.  The first shape a restructure
+suggests was measured and rejected; the winning shape duplicates four
+lines of probe per arm and is the one to keep.  D also broke structural
+recursion in its natural spelling (`match e with | .bvar .. => … | _ =>
+match e with …`, whose `_` branch does not refine `e`) — the flat match
+is what makes the same code terminate *and* run fast.
+
+### 3. Candidates closed without a measurement, and why
+
+* **(a) early exit on the packed `bvarB`** — already there, at the head
+  of every `…Go` and at every entry point, and `d` is incremented under
+  binders so the cutoff is applied at the right offset at every node.
+  Nothing to add.
+* **(b) node-identity preservation** (return the original node when no
+  child changed) — **cannot fire in these walks**, because the cached
+  ranges are *exact*.  `bvarB e > d` means `e` really does contain a
+  loose `bvar` at or above `d`, which instantiation always changes; so
+  a node that reaches the rebuild always rebuilds to something new.
+  The same argument closes `abstract1`/`abstractRange` at their call
+  sites (`d` is the level just pushed, `d + k` the current level, so no
+  `fvar` in the term escapes the abstracted range).  This is a *finding
+  about the computed fields*, not a measurement: exactness already buys
+  what identity preservation would.
+* **(c) an allocation-free `ptrAddrUnsafe`-keyed probe table** —
+  **closed by the standing ruling, not by measurement.**
+  `implemented_by` is forbidden, and `ptrAddrUnsafe` cannot appear in a
+  `csimp` twin: an `unsafe def` is not a term of the logic, so
+  `f = fFast` cannot even be *stated*.  The safe primitive
+  `withPtrAddr a k h` demands `h : ∀ u₁ u₂, k u₁ = k u₂` — the result
+  must be provably independent of the address.  An address-keyed memo
+  can be made address-independent (store the `ExprC` and validate the
+  hit structurally), but the proof needs the *table's* invariant, which
+  is established by the very recursion the call sits inside and is not
+  a property of the continuation `k`.  So the safe primitive cannot
+  host this table.  The tree does have one such table —
+  `Expr.beqGo`'s address-pair memo — and it lives under `beqFast`,
+  i.e. census row 1, the one `implemented_by` escape the ruling
+  grandfathers and forbids extending.  A/B/D took the same allocations
+  out by a different route: 4 key cells per node → 1 at compound nodes,
+  0 at atoms.
+* **(d) one pass over the whole argument array** — already the shipped
+  shape: `instantiateListGo`/`instantiateRevGo` are single bulk passes
+  carrying the live prefix `k`, and `instSpine` takes the bulk form
+  whenever the spine spans the telescope.  The `instSpineChain`
+  fallback appears in no profile.
+* **(e) `@[specialize]`/`@[inline]` on higher-order helpers** — the
+  walks have none; the `Std.DHashMap` operations are already
+  monomorphized per call site (visible in the profile's symbol names).
+  The one closure-shaped helper this session *introduced* is candidate
+  C, and it was measured and rejected.
+
+### 4. The RSS follow-up, and the static `bvar` pool
+
+D's atoms are no longer memoized, so they are no longer *shared*: peak
+RSS rose +1.2 % on app-lam and +3–6 % on init-full.  Verified first that
+the unchanged atoms already return the original node **by reference**
+(`fvar`/`sort`/`const`/`lit` and the below-cursor `bvar` return `e`; a
+substituted `bvar` returns the replacement object) — so the only
+unshared atoms were the *shifted* `bvar (i − 1)` / `bvar (i − k)` and
+abstraction's fresh `bvar k`.
+
+A first attempt scoped the pool to the cached tier and routed only the
+walks: it recovered init-full (925 → 854 MB) but left app-lam's +1.2 %.
+The **user's design**, which replaced it, is one static table at the
+`Expr` level, routed at *every* runtime `bvar` construction:
+
+```
+def bvarPoolSize : Nat := 4096
+def bvarPool : Array Expr := (Array.range bvarPoolSize).map Expr.bvar
+@[inline] def mkBvar (i : Nat) : Expr :=
+  if h : i < bvarPool.size then bvarPool[i] else .bvar i
+@[simp] theorem mkBvar_eq (i : Nat) : mkBvar i = .bvar i
+```
+
+* **It is built once.**  Checked in the generated C, not assumed:
+  `bvarPool` is an `_init_…` constant obtained through `lean_obj_once`
+  and then `lean_mark_persistent`ed, so the table is created at module
+  initialization and its nodes' reference counting is a no-op.
+* **The bound is 4096, not the suggested ~2048**, because the corpus's
+  own deepest index is `good/perf/app-lam`'s 4 000-binder tower: a pool
+  that stops short of the fixture that motivated it would miss it.
+* **The routing is one line.**  `Cached.ExprC.mkBVar := Expr.mkBvar`,
+  and `mkBVar` is the cached tier's only `bvar` builder, so the
+  substitution and abstraction walks, `ofView` and the frontend's
+  parser are covered at once.  Census of what is deliberately *not*
+  routed: the pure spec functions of `Kernel/ExprOps.lean` (they must
+  keep the bare constructor — they are what the pool is proved
+  transparent against) and the closed `.bvar 0` literals of the cores
+  and the pinned basis terms, which the compiler already lifts to
+  per-module `_init_…_closed__n` constants and marks persistent itself.
+  Nothing hot builds a `bvar` outside the pool.
+* **Proof bill: one line.**  `mkBVar_eq` stopped being `rfl`, so
+  `ofView_spec` closes by `simp [ofView, ofViewE]`; every other user
+  already went through the `@[simp]` equation.
+
+The global pool is equal or marginally better than the per-tier one on
+instructions (init-full −0.10 %, grind-ring-5 −0.08 %, app-lam ±0.00 %)
+and strictly better on retention, so the per-tier pool was dropped.
+
+### 5. Result
+
+Measured against the **merged** master tip `e736f24d`, not against
+PERF.md: S1's projection table and the rat-frontier K rescue landed
+mid-session and moved the accept counts (app-lam 94, grind-ring-5 3866,
+beta-ladder 53, init-full 60 549), so PERF.md's rows are a different
+pipeline.  Baseline binary = this tree with `Kernel/Expr.lean`,
+`Cached/ExprC.lean` and `Cached/ExprOpsC.lean` at master.
+
+| stream | parity before → after | P before → after |
+|---|---|---|
+| `app-lam` | 208.62 → **161.70 G** (−22.5 %) | 208.78 → **161.90 G** (−22.5 %) |
+| `beta-ladder` | 40.78 → **30.91 G** (−24.2 %) | 52.07 → **40.88 G** (−21.5 %) |
+| `grind-ring-5` | 36.45 → **31.17 G** (−14.5 %) | 37.05 → **31.79 G** (−14.2 %) |
+| `init-full` | 1030.47 → **888.58 G** (−13.8 %) | 980.49 → **846.88 G** (−13.6 %) |
+
+| peak RSS (VmHWM from `/proc`) | parity | P |
+|---|---|---|
+| `app-lam` | 4124 → **4091 MB** (−0.8 %) | 4138 → **4132 MB** (−0.1 %) |
+| `init-full` | 904 → **866 MB** (−4.2 %) | 916 → **858 MB** (−6.3 %) |
+
+Verdicts identical everywhere: init-full 60 549 accepted in both modes,
+`tests/arena.sh` 0 FAIL (arena 90/92, e2e 76/76, annot 14/14, retired
+and mode flags, the `--no-model` sweep with its three recorded
+divergences), `lake test` green, layering and `tests/proofdeps.sh`
+unchanged (1363 rows, 0 doors), build warning-free.
+
+### 6. The proof shape
+
+The walks' **definitions** changed, so `Setlec/Verify/Cached/OpsC.lean`
+re-establishes them; their **statements** did not, so nothing
+downstream of that file moved (no `SimC`, `BridgeC*` or `DiscC*` edit,
+no capstone edit).  Three mechanical changes:
+
+* `MemoLInv` gained the live prefix `k` as a *parameter* and lost it
+  from the key — the invariant now reads "one table, one prefix", which
+  is exactly what candidate B made true;
+* the leaf cases lost their memo clause (`⟨hm, rfl⟩` where they had
+  `⟨hm.insert rfl, rfl⟩`), and the `bvar`/`fvar` atom cases lost theirs;
+* the compound cases gained a `dsimp only` where the arm's `match` now
+  has to reduce before the memo `split`, and their trailing
+  `simp only [hp, hq]` became unused (the `rcases hp : …` already
+  rewrites the goal in the new shape) and was dropped.
+
+The `bvar` arm's fresh-memo re-entry needs one new step: under
+`i − d = 0` the residual prefix is `[]` (`instantiateList_nil`), under
+`w.bvarB ≤ d` the replacement is its own instantiation
+(`instantiateList_eq_self`), and otherwise the strong induction on `k`
+applies at `MemoLInv.empty`.  `Expr.mkBvar_eq` is a one-line theorem, `@[simp]`, so the
+pool is invisible to every proof but `ofView_spec`, which stopped being
+`rfl`.
+
+Capstone axioms exactly `[propext, Classical.choice, Quot.sound]` on
+all three (`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
+`foldSPC_PM`).
+
+### 7. What this leaves for the next round
+
+* **`Expr.bvarBoundGo`'s own memo** (2.4 % grind, 2.6 % init-full): the
+  saturated-field fallback keys a `Std.HashMap` the same way the walks
+  used to.  Same three rules apply; it lives in
+  `Setlec/Kernel/Expr.lean`, which task #168's `PropWhen` work is
+  editing, so it was left alone deliberately.
+* **The result pair.**  Every node still allocates its
+  `ExprC × Memo` return.  Removing it means an `ST`-ref memo and a
+  monadic walk — a real proof bill, and the first thing to price if
+  another 5–10 % is wanted from these functions.
+* **`lean_copy_expand_array` (6.2 %) and `lean_mark_mt` (7.6 %) on
+  init-full** are outside the walks and unattributed; whoever profiles
+  next should start there.
+* Architecturally the floor recorded at task #161 still stands: the
+  cached representation hash-conses nothing, so it memo-keys
+  intermediates that official and lean4lean simply do not build.
+
+### 11. V1 — withdrawn by inspection: `ruleK` is already installed under official's non-mutual condition (`agent/divergence-v1`, DESIGN-only)
+
+The audit's I2 row read the K guard at its FIRE site (`majorToCtor`:
+`caps.ruleK ∧ cnF = 0 ∧ rules = [rl]`) and flagged the missing "not a
+mutual declaration" conjunct of official's `init_K_target`
+(`inductive.cpp:551-572`).  The conjunct lives at the INSTALL, where
+`caps.ruleK` is computed, and every path that can set it true already
+requires a single-type, single-constructor block:
+
+* the modeled install `checkIndDecl` (`Modeled.lean:784`) and its
+  cached twins (`CheckerC.lean:189`, `ParsedNC.lean:157`) compute
+  `indBlockCaps(F)` only in the arm
+  `[.indInfo cvT _], [.ctorInfo cvC nP nF]` of a match on the block's
+  inductives and constructors — one of each, else no caps;
+* the direct install's `directPartsCore?` (`Direct/Parts.lean:167-169`)
+  matches `[.indInfo cvT _, .ctorInfo cvC nP nF, .recInfo cvR mI rP
+  [rule]]` — one type, one constructor, one rule — before `directCaps`
+  sets `ruleK := p.nF == 0 && p.isProp`;
+* the pinned basis blocks (`Eq` with `ruleK := true`; `Nat`, `PUnit`,
+  `Empty`, `Quot`, the axioms' blocks with `false`) are single-type by
+  construction.
+
+So a mutual Prop block never gets `ruleK = true`, exactly as official
+never marks a mutual recursor `is_k`.  The other two official
+conjuncts are matched at the same sites (`nF == 0`; `piResultIsProp` =
+`Level.isEquiv u .zero`, i.e. `normalizes_to_zero`).  No code change;
+the table row is corrected above.
+
+## THE SMALL-LIST `pw` CONSTRUCTORS (2026-09-06, `agent/pw-small`)
+
+**User task, verbatim:** *"let an opus agent apply a cheap
+optimization where singleton and duoton lists are folded into the PW
+data structure via dedicated constructors.  This change should be
+fully encapsulated by the data structure.  Lists only larger than 2."*
+
+The cheap sibling of the parked positional bitmask (previous section):
+same census, same target — the `List Name` cell chain behind the
+binder annotation — but no universe context, so no architecture
+impact.  It landed; the measured payoff is **about nothing**, and
+that is the section's finding.
+
+### 1. The representation
+
+    inductive PropWhen where
+      | never                                  -- nonzero everywhere
+      | always                                 -- ifAllZero []
+      | one  (p : Name)                        -- ifAllZero [p]
+      | two  (p q : Name)                      -- ifAllZero [p, q]
+      | many (p q r : Name) (rest : List Name) -- ifAllZero (p::q::r::rest)
+
+`many` stores its **first three entries plus the tail**, not a bare
+list.  That is the whole trick that keeps the change free of a
+well-formedness obligation: `ifAllZero (p :: q :: r :: rest)` reduces
+to `many p q r rest` *definitionally*, so the constructors are in
+definitional bijection with `List Name`, `ifAllZero` is a total
+normalizing function with no invariant to carry, and the view
+eliminator's `ifAllZero` case typechecks by `rfl` in every arm.  A
+bare `many (ps : List Name)` would have needed either a `3 ≤ ps.length`
+proof field or a non-canonical junk representation; neither is needed.
+
+Canonical form is therefore enforced by the smart constructor and is
+*definitional*, not a WF proof — the option the task asked to prefer.
+The datum is still an unordered, possibly-duplicated parameter set in
+list clothing: `ifAllZero` does no sorting and no deduplication, which
+is what keeps `substPW_self`/`substPW_comp` unconditional.
+
+### 2. The API — and the encapsulation argument
+
+Outside `namespace PropWhen`, **nothing mentions `always`, `one`,
+`two` or `many`** (checked: `grep -rn "PropWhen.always\|PropWhen.one\|
+PropWhen.two\|PropWhen.many\|\.always\b"` over `Setlec/`, `tests/`,
+`Main.lean`, `AnnotateBasis.lean` matches only `Kernel/Expr.lean`).
+The interface is:
+
+| name | what it is | who uses it |
+|---|---|---|
+| `PropWhen.never` | still a constructor | everywhere, unchanged |
+| `PropWhen.ifAllZero : List Name → PropWhen` | the old constructor, now an `@[inline]` normalizing **smart constructor** | every construction site, unchanged source text |
+| `PropWhen.toList` / `toList?` | the parameter list (`never ↦ []` / `none`) | the three sites that genuinely need the list |
+| `PropWhen.casesZ` | the `never \| ifAllZero ps` **view**, registered `@[cases_eliminator, induction_eliminator, elab_as_elim]` | every `cases pw with \| never \| ifAllZero ps` — verbatim as before |
+| `holds`, `isNever`, `hasParams`, `paramsDefined`, `inter`, `bindZ`, `equiv` | defined constructor-wise (fast), each re-stated in the old `never`/`ifAllZero` form as an `@[simp]` equation pair | the equations, not the definitions, are what proofs consume |
+
+`@[cases_eliminator]`/`@[induction_eliminator]` is what makes the
+change invisible to the proof tier: `cases pw with | never => … |
+ifAllZero ps => …` still elaborates, still binds `ps : List Name`, and
+still leaves goals about `ifAllZero ps`.  The only thing that stopped
+working is *definitional* unfolding at a variable list — `holds φ
+(ifAllZero ps)` is no longer `rfl`-equal to `ps.all …` — so the sites
+that leaned on that now cite the `@[simp]` equation instead.
+
+**No statement outside `Kernel/Expr.lean`, `Kernel/ZeroSet.lean`,
+`Verify/PropWhen.lean` and `Verify/ZeroSet.lean` changed.**  Every edit
+elsewhere is a tactic edit inside an unchanged theorem.  Two lemmas
+*moved* (statements identical): `PropWhen.inter_nil` and
+`PropWhen.inter_never_right`, from `Verify/PropWhen.lean` to
+`Kernel/Expr.lean` beside the definition, so they can be `@[simp]` for
+the constructor-wise proofs.  Two are new and internal:
+`PropWhen.inter_assoc` and `PropWhen.bindZ_go_append` (list-level
+replacements for the old proofs' constructor case splits).
+
+### 3. The census of routed sites
+
+Sites that *pattern-matched* on `.ifAllZero`/`.never` or needed the
+list.  Everything else — every `.ifAllZero ps` in *term* position,
+including the 156 in `SetP/BasisBlocksP.lean`, the 40 in
+`Kernel/Basis/Quot.lean` and the 17 test fixtures — needed **no
+change at all**, because the smart constructor keeps the source text
+valid.
+
+| file | site | route taken |
+|---|---|---|
+| `Kernel/Core.lean:2334` | `pwWritten` | `!pw.isNever` |
+| `Kernel/ZeroSet.lean:471` | `ZPropWhen.ofFree` | `toList?` + two `@[simp]` equations (`ofFree_never`, `ofFree_ifAllZero`) |
+| `PinGen.lean:94` | `ToExpr PropWhen` | `toList?`; still emits `Setlec.PropWhen.ifAllZero <list>` |
+| `Kernel/ExprOps.lean:797,808` | `substPW_eq_self`, `paramsDefined_of_not_hasParams` | `simp [PropWhen.hasParams] at h` → `simp at h` (the delta-unfold blocked the spec lemma) |
+| `Verify/PropRead.lean:163` | `peelNeverPis_instantiateLevelParams` | `nomatch hnev` → `simp at hnev` |
+| `SetP/Annot/Bit.lean:101,116` | `pwBit_ne_zero_of_isNever`, `isNever_iff_forall_pwBit_ne_zero` | same two moves |
+| `SetP/Step2/IrrelFastP.lean:79,88,95` | `pwBit_eq_zero_of_isProp`, `alwaysZero_iff_forall_pwBit_eq_zero` | drop `Setlec.PropWhen.holds` from the `simp` hint list |
+| `SetP/BasisEmptyP.lean:119,148,156` | the three `pwBit_ifAllZero_*` shapes | ditto |
+| `SetP/BasisEqP.lean:895` | `eqRecValT2_congr` | ditto |
+| `Verify/PropWhen.lean` (14 proofs) | the whole law battery | `show`s that relied on `bindZ f (ifAllZero ps) ≡ bindZ.go f ps` now `rw [bindZ_ifAllZero]` first; `simp [inter, holds, equiv, paramsDefined]` hints dropped |
+| `Verify/ZeroSet.lean:536,541,546,584` | the free↔canonical bridge | `rfl` → `simp`; `holds_substPW_free` is now just `Level.holds_substPW` |
+
+`Frontend/ExportC.lean`'s `parsePwD` and `parsePw` build with the
+smart constructor and did not change; nothing prints a `pw` field.
+
+**Byte-identical generator output.**  `AnnotateBasis.lean` prints the
+committed `Basis/*.lean`, `StdAxioms.lean` and `TrustAxioms.lean`
+literals with `repr`, so the *derived* `Repr` was load-bearing.  It is
+replaced by a hand-written instance that reproduces the old
+two-constructor derivation exactly (`Repr.addAppParen (Format.group
+(Format.nest (if prec ≥ 1024 then 1 else 2) …)) prec`, the shape
+`Lean/Elab/Deriving/Repr.lean` emits).  Verified mechanically: all
+**29** records the generator prints appear verbatim (indented by two)
+in the committed files, before and after the change, and the two
+generator runs are `diff -q` identical.
+
+### 4. The module boundary — the representation is hidden, not hidden
+by convention (user follow-up, same session)
+
+**User question:** why are `PropWhen`'s operations not in their own
+module exposing only an API?  They are now, and the boundary is
+enforced by the compiler.
+
+**The split.**  `Setlec/Kernel/Name.lean` and
+`Setlec/Kernel/PropWhen.lean` come out of `Setlec/Kernel/Expr.lean`, in
+that order: the datum needs `Name` and nothing else, so it sits *below*
+the expression type it annotates.  `Expr.lean` publicly imports
+`PropWhen`, so no other file's imports changed.  Layering holds: the
+module imports `Setlec.Kernel.Name` and nothing else — nothing from
+`SetTheory`/`SetModel`/`Semantics`/`SetP`/`Verify`.
+
+**The representation.**  `PropWhenRepr` (the five constructors) is a
+`private inductive`; `PropWhen` is a one-field structure whose
+constructor *and* field are `private`:
+
+    private inductive PropWhenRepr where
+      | never | always | one (p) | two (p q) | many (p q r) (rest)
+    structure PropWhen where
+      private ofRepr ::
+      private repr : PropWhenRepr
+
+Checked, not asserted (`_tmp/leak.lean`): outside the module
+`Setlec.PropWhenRepr` is an unknown identifier, `⟨_⟩` is refused
+("Constructor for `Setlec.PropWhen` is marked as private"), `pw.repr`
+is refused, `PropWhen.ofRepr` does not resolve.  `never` is a
+*definition* now rather than a constructor; `.never` reads the same at
+every use site.
+
+**The exported surface** — this list is the whole of it:
+
+| kind | names |
+|---|---|
+| type | `PropWhen` |
+| constructors | `never`, `ifAllZero : List Name → PropWhen` |
+| views | `toList`, `toList?`, `casesZ` (registered `@[cases_eliminator, induction_eliminator, elab_as_elim]`) |
+| observers | `holds`, `isNever`, `hasParams`, `paramsDefined`, `inter`, `bindZ`, `bindZ.go`, `equiv` |
+| instances | `DecidableEq` (via `decEq`), `Hashable` (via `hash'`), `Inhabited`, `Repr` (via `reprPrec'`) |
+| shape equations | `toList_never`, `toList_ifAllZero`, `toList?_never`, `toList?_ifAllZero`, `ifAllZero_ne_never`, `ifAllZero_toList` |
+| observer equations (`@[simp]`) | `holds_never/_ifAllZero`, `isNever_never/_ifAllZero`, `hasParams_never/_ifAllZero`, `paramsDefined_never/_ifAllZero`, `inter_never_left/_never_right/_ifAllZero/_nil`, `nil_inter`, `inter_eq_toList`, `bindZ_never`, `bindZ_go_nil`, `bindZ_ifAllZero`, `equiv_never_never/_never_ifAllZero/_ifAllZero_never/_ifAllZero` |
+| laws | `holds_inter`, `holds_bindZ_go`, `holds_ext`, `equiv_iff_holds`, `equiv_refl`, `holds_eq_of_equiv`, `paramsDefined_inter_of`, `inter_assoc`, `bindZ_inter`, `bindZ_go_append`, `bindZ_congr_names`, `bindZ_unit` |
+
+The laws moved in from `Setlec/Verify/PropWhen.lean` under the
+`CLAUDE.md` Std.HashMap exception (a self-contained data-structure
+verification may live with the structure), statements unchanged.  What
+stayed behind is exactly what is *not* about the datum alone: the
+`Level`-facing laws (`zeronessOf_sound`, `holds_of_equiv_zeronessOf`,
+`zeronessOf_subst`, `substPW_self`, `substPW_comp`,
+`substPW_paramsDefined`, `zeronessOf_paramsDefined`, `holds_substPW`),
+which live above `Level` and are now pure consumers of the API —
+`Verify/PropWhen.lean` shrank 443 → 263 lines.  `Kernel/ZeroSet.lean`
+and `Verify/ZeroSet.lean` were already consumers (`toList?` plus the
+exported equations) and needed no change.
+
+**THE FINDING: hiding a representation in Lean's module system means
+*sealing*, and sealing here is free.**  An `@[expose]`d public
+declaration may not mention a private one — so a private representation
+forces the whole module out of `@[expose]` (`public section` only), and
+with it every `rfl`, `decide` and `#guard` that downstream might reduce
+through a `PropWhen` body, `DecidableEq Expr` included.  Whether that
+is affordable is not a matter of opinion, so it was measured before it
+was chosen: sealing the module (one line) and rebuilding gives **0
+errors and 0 warnings across all 442 modules, and `lake test` green**.
+The exported lemma set was already sufficient; nothing outside the
+module had been reaching through it.  Two mechanical consequences
+inside the module: `bindZ.go` becomes a top-level
+`def PropWhen.bindZ.go` (a `where` auxiliary of a sealed def is private
+and could not be named by the exported laws — the *statements* that
+mention it are unchanged), and the equation lemmas are tactic proofs
+rather than `rfl`, since an exported theorem may not rest on a sealed
+body (`simp [holds]` works: equation lemmas are exported; `:= rfl` does
+not: the kernel would have to unfold).
+
+**Runtime cost of the wrapper: none.**  Lean erases the one-field
+structure.  The generated C for `Level.zeronessOf` is byte-for-byte
+what it was before the wrapper — `lean_box(1)` for `ifAllZero []`, a
+single `lean_alloc_ctor(2, 1, 0)` for `ifAllZero [n]`, no intermediate
+list.
+
+**The proof-dependency pin moved, and it is the split, not a door.**
+`tests/proofdeps-expected.txt` gains exactly 8 rows —
+`Setlec.Kernel.Name` and `Setlec.Kernel.PropWhen` in each of the four
+capstones' closures — and loses none; `Setlec.Kernel.Expr`, which those
+two were carved out of, is still in all four.  Same constants, new
+module names.  Regenerated with `tests/proofdeps.sh --list`, justified
+here as the gate requires.
+
+### 5. The receipts
+
+`perf stat -e instructions:u`, `ulimit -v 16000000`, VmHWM sampled once
+a second over the process tree (no `/usr/bin/time` on this box; other
+agents' checker runs share the machine, so the sampler descends *our*
+pid tree rather than matching by name — an earlier by-name sample read
+13.9 GB off someone else's run).  init-full-pre2, `--pre`; 60 549
+accepted in every cell.  Run-to-run spread on init-full instructions is
+0.001–0.01 % (two runs per cell), so everything below is above noise
+and all of it is negligible.
+
+**(a) The datum change alone**, measured at the branch point
+`58c39103` against the same worktree before and after — this is the
+apples-to-apples number for the small-list constructors:
+
+| stream / mode | master `58c39103` | `agent/pw-small` | Δ |
+|---|---|---|---|
+| init-full P (`--set-model`) | 984.584 / 984.575 G | 983.149 / 983.201 G | **−0.14 %** |
+| init-full parity (`--no-model`) | 1030.849 / 1030.953 G | 1031.246 / 1031.281 G | **+0.03 %** |
+| grind-ring-5 (median of 3) | 46.895 G | 46.800 G | **−0.20 %** |
+| init-full P VmHWM | 933 884 kB | 933 396 / 935 912 kB | ≈ 0 |
+| init-full parity VmHWM | 919 692 kB | 924 672 / 916 104 kB | ≈ 0 (spread 0.9 %) |
+| grind-ring-5 VmHWM | 267 588 kB | 264 028 kB | −1.3 % |
+
+**(b) The landed branch, after the module split and the hiding**,
+against post-merge master `e736f24d` built in its own worktree:
+
+| stream / mode | master `e736f24d` | `agent/pw-small` tip | Δ |
+|---|---|---|---|
+| init-full P | 980.735 G | 980.314 / 980.219 G | **−0.05 %** |
+| init-full parity | 1030.695 / 1030.717 G | 1031.935 / 1031.997 G | **+0.12 %** |
+| grind-ring-5 (median of 3) | 46.817 G | 46.772 G | **−0.10 %** |
+| init-full P VmHWM | 940 192 kB | 938 652 kB | −0.16 % |
+| init-full parity VmHWM | 925 496 kB | 921 164 kB | −0.47 % |
+| grind-ring-5 VmHWM | 270 352 kB | 270 644 kB | +0.11 % |
+
+The module boundary and the hiding therefore cost nothing measurable in
+either direction — the codegen is unchanged, and the only movement
+between (a) and (b) is inside the same tenth of a percent.
+
+(The branch was merged forward once more before the seal, to
+`f0009992`; that master's own work moves the absolute numbers a long
+way — init-full P 842.27 G, parity 813.85 G at the final tip, 60 549
+accepted in both — so it is table (b), taken against `e736f24d` with
+both sides built in the same session, that is this change's receipt.)
+
+Verdicts: `tests/arena.sh` 0 FAIL — 90/92 good, 76/76 e2e, 14/14 annot,
+8/8 retired flags, 14/14 mode flags, the 3 recorded no-model
+divergences, layering 0 impl→theory, proofdeps 0 doors (against the
+regenerated 1371-row pin, §4); `lake build` warning-free; `lake test`
+green; the annotate-basis generator's output `diff -q` identical across
+every stage; the four capstones' axioms exactly `[propext,
+Classical.choice, Quot.sound]`.
+
+**Why so little — and it was predictable.**  The census already said
+the payload is 0.075 % of peak RSS.  What this change actually saves
+is *one heap object per non-empty datum*: `ifAllZero [p]` was a
+16-byte datum plus a 24-byte cons cell, `one p` is a single 16-byte
+object, and `ifAllZero []` is now `lean_box(1)`, a scalar with no
+object at all.  Against the census's 34 095 distinct data / 33 232
+cons cells (1.34 MB) that is ~0.8 MB, i.e. 0.09 % of RSS — which is
+exactly the size of the observed RSS deltas.  The instruction side
+gets the derived `Hashable`/`DecidableEq` and `equiv` on one fewer
+level of indirection, `inter` answering `always`/singleton pairs
+without an append, and `bindZ` answering a singleton with no `inter`
+at all; the code generator turns `zeronessOf` into `lean_box(1)` /
+`lean_box(0)` / one `alloc_ctor` with no intermediate list
+(inspected in `Kernel/Level.c`).  It adds up to a seventh of a
+percent.
+
+The parity mode's +0.03 % (+0.12 % at the tip) is the mirror:
+`--no-model` spends proportionally less of its time where the datum is
+read, so the slightly deeper `inter`/`equiv` decision trees are not
+paid back.  Reproducible across two runs per cell against a 0.01 %
+spread, and still negligible.
+
+**The standing verdict this confirms.**  The packed-bitmask landing
+measured −1.8 % / −2.3 % and the user parked it as "not worth the
+architecture impact".  This variant costs *no* architecture — the
+representation is now *provably* invisible above the module (a private
+inductive behind a private-constructor wrapper, in its own sealed
+module — §4), the P tier never learned it exists — and correspondingly
+buys about a tenth of that.
+The `pw` datum is now closed as a performance lever in both
+directions: cheap changes buy nothing measurable, and the change that
+buys 2 % costs a universe context threaded through the whole
+verification tier.
 
 ## MODE RENAME — `--verified` / `--trusted`, and the fast `isProof` arms ungated (2026-09-06, `agent/mode-rename`)
 

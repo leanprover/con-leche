@@ -802,7 +802,7 @@ theorem _root_.Setlec.Level.substPW_eq_self {ks : List Name}
   | ifAllZero ps =>
     cases ps with
     | nil => rfl
-    | cons p ps => simp [PropWhen.hasParams] at h
+    | cons p ps => simp at h
 
 /-- Parameter-free data are defined under any parameter list. -/
 theorem _root_.Setlec.PropWhen.paramsDefined_of_not_hasParams
@@ -813,7 +813,7 @@ theorem _root_.Setlec.PropWhen.paramsDefined_of_not_hasParams
   | ifAllZero ps =>
     cases ps with
     | nil => rfl
-    | cons p ps => simp [PropWhen.hasParams] at h
+    | cons p ps => simp at h
 
 /-- Level-parameter instantiation is the identity on level-param-free
 expressions. -/

@@ -2488,9 +2488,7 @@ and the *only* input annotations preserved are the `ifAllZero` ones.
 -/
 
 /-- Is this datum a real (non-placeholder) input annotation? -/
-@[inline] def pwWritten : PropWhen → Bool
-  | .never => false
-  | .ifAllZero _ => true
+@[inline] def pwWritten (pw : PropWhen) : Bool := !pw.isNever
 
 /-- The datum a rebuilt binder ends up with: the one threaded in from
 the node below (the chain rule), unless it carries a real input

@@ -1,3 +1,5 @@
+import Setlec.Kernel.Name
+import Setlec.Kernel.PropWhen
 import Setlec.Kernel.Expr
 import Setlec.Kernel.ExprOps
 import Setlec.Kernel.Level

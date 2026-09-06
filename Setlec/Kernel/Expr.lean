@@ -1,13 +1,14 @@
 module
 
-public import Std.Data.HashMap
+public import Setlec.Kernel.PropWhen
 /- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
 is that it is *definitionally* `k ()` — which is what
-`Name.beqPtr_eq` and `Level.beqPtr_eq` prove.  `import all` makes that
-body visible **in this module only**; those two theorems are the public
-relay, so no importer needs it, and the executed `Name.beq`/`Level.beq`
-stay the plain `decide (· = ·)` that the kernel can still reduce. -/
+`Level.beqPtr_eq` proves.  `import all` makes that body visible **in
+this module only**; that theorem is the public relay, so no importer
+needs it, and the executed `Level.beq` stays the plain
+`decide (· = ·)` that the kernel can still reduce. -/
 import all Init.Util
+
 
 /-!
 # Kernel expressions
@@ -29,93 +30,6 @@ Design decisions (see DESIGN.md):
 
 namespace Setlec
 
-/-- Hierarchical names, same shape as `Lean.Name` — including the
-cached hash, which lives in a `@[computed_field]` exactly as
-`Lean.Name`'s does (`@[computed_field, inline] hash : Name → UInt64`,
-`Init/Prelude.lean`; the C runtime stores it in the object header and
-reads it with `lean_name_hash_ptr`).  Logically the field is a
-*function of the value*, so it is invisible to every statement:
-`DecidableEq` is still the derived structural equality, and the field
-only spares the `Hashable` instance a walk (task #176 P3). -/
-inductive Name where
-  | anonymous
-  | str (pre : Name) (s : String)
-  | num (pre : Name) (n : Nat)
-with
-  /-- The cached hash of a name (official: the `uint64` in the `Name`
-  object's header). -/
-  @[computed_field] hashData : Name → UInt64
-    | .anonymous => 1723
-    | .str p s => mixHash (mixHash 1 p.hashData) (hash s)
-    | .num p n => mixHash (mixHash 2 p.hashData) (hash n)
-deriving DecidableEq, Repr, Inhabited
-
-/-- Hashing a name is an `O(1)` field read, not a structural walk with
-a byte-wise `String` hash per limb. -/
-instance : Hashable Name := ⟨Name.hashData⟩
-
-/-- Name equality in the official kernel's shape (task #176 P1):
-**pointer** (`lean_name_eq`'s `if (n1 == n2) return true`), then the
-**cached hash** (`lean_name_hash_ptr`), then the structural walk —
-`_tmp/lean4-master-kernel/lean4_object.cpp:2762`.  This is the
-*implementation* of `Name.beq`; `Name.beqPtr_eq` proves the two guards
-redundant. -/
-@[inline] def Name.beqPtr (a b : Name) : Bool :=
-  withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
-    (fun h => by subst h; simp)
-
-/-- Both guards are redundant: `withPtrEq a b k h` is *defined* as
-`k ()`, and `hashData` is a function of the value, so a hash mismatch
-**is** an inequality. -/
-theorem Name.beqPtr_eq (a b : Name) : Name.beqPtr a b = decide (a = b) := by
-  show (a.hashData == b.hashData && decide (a = b)) = decide (a = b)
-  by_cases h : a = b
-  · subst h; simp
-  · simp [h]
-
-/-- The executed name equality.  Definitionally `decide (a = b)` — so
-the kernel, `by decide` and `#guard` still see plain structural
-equality — with `beqPtr` substituted by the compiler on the strength
-of the `@[csimp]` equation below. -/
-def Name.beq (a b : Name) : Bool := decide (a = b)
-
-/-- **The compiler substitution, on a kernel-checked equality.**
-`@[csimp]` (not `@[implemented_by]`) is what replaces `Name.beq` by
-`Name.beqPtr` in compiled code — *"do not use `implemented_by`.  If
-you can prove them equal, use `csimp`"* (user ruling, 2026-09-05).
-Nothing here is taken on faith: `withPtrEq a b k h` is *defined* as
-`k ()` and its obligation is discharged at `beqPtr`, and `hashData` is
-a function of the value, so the hash guard cannot reject an equal
-pair.  This is therefore **not** an escape of `Expr.beqFast`'s class
-and adds no census row. -/
-@[csimp] theorem Name.beq_eq_beqPtr : @Name.beq = @Name.beqPtr := by
-  funext a b; exact (Name.beqPtr_eq a b).symm
-
-instance : BEq Name := ⟨Name.beq⟩
-
-/-- `Name.beq` is lawful — it *is* `decide (· = ·)`. -/
-instance : LawfulBEq Name where
-  eq_of_beq h := of_decide_eq_true h
-  rfl := by simp [BEq.beq, Name.beq]
-
-namespace Name
-
-/-- Conversion from `Lean.Name` (dropping macro scopes is the caller's duty). -/
-def ofLeanName : Lean.Name → Name
-  | .anonymous => .anonymous
-  | .str p s => .str (ofLeanName p) s
-  | .num p n => .num (ofLeanName p) n
-
-protected def toString : Name → String
-  | .anonymous => "[anonymous]"
-  | .str .anonymous s => s
-  | .str p s => p.toString ++ "." ++ s
-  | .num .anonymous n => toString n
-  | .num p n => p.toString ++ "." ++ toString n
-
-instance : ToString Name := ⟨Name.toString⟩
-
-end Name
 
 /-- Universe levels, mirroring `Lean.Level` without metavariables —
 including the cached hash, which `Lean.Level` also keeps in a
@@ -183,112 +97,6 @@ inductive BinderInfo where
   | strictImplicit
   | instImplicit
   deriving DecidableEq, Repr, Inhabited, Hashable
-
-/-- The zero-ness datum of a binder's codomain sort — the regime
-discriminator of the validated-annotation design (task #161).  For
-every level `l`, the set `Z(l) := {φ | eval φ l = 0}` of zeroing
-valuations is either empty (`never`) or of the form "every parameter
-in `ps` is zero" (`ifAllZero ps`; `ps = []` = always zero) — see
-`Level.zeronessOf` and the mechanized battery in
-`Setlec.Verify.PropWhen`.
-
-`ps` is an unordered, possibly-duplicated parameter *set in list
-clothing*: all structural operations (`inter`, `bindZ`,
-`Level.substPW`) are shape-preserving — no sorting, no
-deduplication — which is what makes level instantiation's identity
-and composition laws hold *unconditionally*
-(`Level.substPW_self`/`substPW_comp`).  Comparison is by the
-containment test `equiv`, which is sound **and complete** for
-zero-ness agreement at every valuation (`Verify.PropWhen`); the
-checker's validation and defeq sites compare with `equiv`, never
-with `==`. -/
-inductive PropWhen where
-  | never
-  | ifAllZero (ps : List Name)
-  deriving DecidableEq, Repr, Inhabited, Hashable
-
-namespace PropWhen
-
-/-- Does the datum hold at a valuation — is the codomain sort zero
-there?  (The model side's dispatch bit; the kernel never evaluates
-this, it only compares data by `equiv`.) -/
-def holds (φ : Name → Nat) : PropWhen → Bool
-  | .never => false
-  | .ifAllZero ps => ps.all fun n => φ n == 0
-
-/-- Is the datum `never` — "the codomain sort is nonzero at *every*
-valuation", the graph regime everywhere?  This is the **only**
-kernel-decidable reading of the annotation that the verification tier
-licenses a check-skip on (task #161 bucket 2): the P-tier claims split
-their certificate cases on `pwBit φ m.pw = 0`, and `isNever` is
-exactly the ∀-`φ` uniform version of the positive branch —
-`pwBit φ .never = 1` at every `φ`, and no other datum has that
-property (`.ifAllZero ps` holds at the all-zero valuation).  Sound
-*and* exact: `PropWhen.holds_eq_false_iff_isNever`
-(`Verify/PropWhen.lean`) and `pwBit_ne_zero_of_isNever` /
-`isNever_iff_forall_pwBit_ne_zero` (`SetR/Annot/Bit.lean`).
-
-The datum may be read **only** to skip a re-check; it must never
-select a reduct, a computed type, or a comparison result (law 1 as
-amended at task #161: "annotations never change a reduct or a computed
-type; annotation-gated check-skipping is permitted where the skip's
-soundness is a P-tier theorem *and* the gate fires only where the
-licensing theorems' hypotheses hold — `μ.verifiedChecks = true`").  Every
-executable call site therefore carries the `μ.verifiedChecks` conjunct; see
-`inferBodyIO` (`Kernel/CoreIO.lean`). -/
-def isNever : PropWhen → Bool
-  | .never => true
-  | .ifAllZero _ => false
-
-/-- Does the datum mention any level parameter — is `Level.substPW`
-ever non-trivial on it?  Folded into `Expr.hasLevelParam` and the
-eager `eparamBs` recurrence (task #87), so the has-param shortcut of
-the interned level-instantiation walk stays exact. -/
-def hasParams : PropWhen → Bool
-  | .never => false
-  | .ifAllZero ps => !ps.isEmpty
-
-/-- Are all parameters of the datum among `params`?  Folded into
-`Expr.allLevelParamsDefined` (task #161): level instantiation's
-composition law (`Level.substPW_comp`) is *false* for data whose
-parameters escape the declaration's — exactly as for the levels
-themselves. -/
-def paramsDefined (params : List Name) : PropWhen → Bool
-  | .never => true
-  | .ifAllZero ps => ps.all params.contains
-
-/-- Intersection of two zero-ness predicates (the `max` rule: a `max`
-is zero iff both sides are): `never` absorbs, sets append. -/
-def inter : PropWhen → PropWhen → PropWhen
-  | .never, _ => .never
-  | _, .never => .never
-  | .ifAllZero ps, .ifAllZero qs => .ifAllZero (ps ++ qs)
-
-/-- Substitute each parameter of the datum by a whole datum and
-intersect ("all of `ps` zero" becomes "all replacements zero") — the
-monadic bind of the zero-ness reading.  Shape-preserving: parameters
-mapped to `ifAllZero [n]` reproduce the input list exactly, which is
-what the unconditional substitution laws rest on. -/
-def bindZ (f : Name → PropWhen) : PropWhen → PropWhen
-  | .never => .never
-  | .ifAllZero ps => go ps
-where
-  go : List Name → PropWhen
-  | [] => .ifAllZero []
-  | n :: rest => (f n).inter (go rest)
-
-/-- Decidable zero-ness agreement at *every* valuation: mutual
-containment of the parameter sets (`never` only agrees with `never` —
-`ifAllZero` data hold at the all-zero valuation, `never` nowhere).
-Sound and complete (`Verify.PropWhen`); this is the comparison every
-validation and defeq site uses. -/
-def equiv : PropWhen → PropWhen → Bool
-  | .never, .never => true
-  | .ifAllZero ps, .ifAllZero qs =>
-    ps.all qs.contains && qs.all ps.contains
-  | _, _ => false
-
-end PropWhen
 
 /-- Metadata carried by a binder (`forallE`, `lam`): the display
 `BinderInfo` and the codomain prop-ness annotation `pw` (task #161 —
@@ -1013,6 +821,56 @@ instance : LawfulBEq Expr where
   eq_of_beq h := of_decide_eq_true h
   rfl := by simp [BEq.beq, Expr.beq]
 
+/-! ## The shared `bvar` pool (task #177)
+
+A `bvar` node is the smallest thing this checker builds and the one it
+builds most: every substitution shifts loose indices, every abstraction
+introduces one, the parser reads one per occurrence.  Each of those was
+a fresh allocation — and, since the substitution walks stopped
+recording their atoms in the per-walk memo, a fresh allocation that
+nothing shared afterwards.
+
+`bvarPool` is one **static** table of the first `bvarPoolSize` of them.
+It is a closed top-level `def`, so the runtime builds it once at module
+initialization and marks it persistent (`lean_mark_persistent` in the
+generated C): handing out `bvarPool[i]` costs a bounds check and a
+borrowed read, and its reference counting is free.  `mkBvar` is
+representation-transparent (`mkBvar_eq`, `@[simp]`), so pattern
+matching stays on `.bvar` and no statement anywhere changes.
+
+**Where it is used.**  Every *runtime* `bvar` construction goes through
+it, and the routing is one line: `Setlec.Cached.ExprC.mkBVar` is the
+cached tier's only `bvar` builder, so the substitution and abstraction
+walks, `ofView` and the frontend's parser are all covered at once.  The
+remaining `.bvar` literals in the tree are either the pure *spec*
+functions of `Setlec/Kernel/ExprOps.lean` (which must keep the bare
+constructor — they are what the pool is proved transparent against) or
+closed constants such as the cores' `.bvar 0`, which the compiler
+already lifts to a per-module `_init_…_closed__n` and marks persistent
+itself.
+
+The bound covers the corpus with room to spare: the deepest de Bruijn
+index the battery produces is the 4 000-binder λ tower of
+`good/perf/app-lam`. -/
+
+/-- Size of the static `bvar` pool. -/
+def bvarPoolSize : Nat := 4096
+
+@[inherit_doc bvarPoolSize]
+def bvarPool : Array Expr := (Array.range bvarPoolSize).map Expr.bvar
+
+/-- The `bvar` smart constructor: the pooled node below `bvarPoolSize`,
+a fresh one above it.  Same value either way (`mkBvar_eq`). -/
+@[inline] def mkBvar (i : Nat) : Expr :=
+  if h : i < bvarPool.size then bvarPool[i] else .bvar i
+
+@[simp] theorem mkBvar_eq (i : Nat) : mkBvar i = .bvar i := by
+  unfold mkBvar
+  split
+  · simp [bvarPool]
+  · rfl
+
 end Expr
 
 end Setlec
+
