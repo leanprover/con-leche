@@ -1,7 +1,7 @@
 import Setlec.SetP.CtxOkPKit
 import Setlec.SetP.Annot.BitLemmas
-import Setlec.SetBase.DefEqStep2
-import Setlec.SetBase.Hoist
+import Setlec.Semantics.DefEqStep2
+import Setlec.Semantics.Hoist
 import Setlec.SetP.Step2.ProjAVKitP
 
 /-!
@@ -73,10 +73,12 @@ package helpers carry a `dq_` prefix so that the concurrently-written
 whnf quarter can keep the unprefixed names.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode CheckM Env Expr Name Level PropWhen isDefEqCore
   whnfCore defeqStep defeqLoop defeqBody defeqLoopFuel pureFns)
 
@@ -1271,4 +1273,4 @@ theorem defEqStepP_of (hμ : μ.verified = true)
         (hin.heta env m φ fuel))
       (hin.hspine env m φ fuel))
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

@@ -18,10 +18,12 @@ the fired index pin are both applications of the *same* arity, and the
 stage reads their arguments off pointwise.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name)
 
 universe w
@@ -59,7 +61,7 @@ theorem instSeqP_app : ∀ (as : List AVExpr) (t : Nat) (f a : AVExpr),
   | cons b bs ih =>
     intro t f a
     rw [AVExpr.instSeq_cons, AVExpr.instSeq_cons, AVExpr.instSeq_cons,
-      Setlec.SetR.AVExpr.inst_app, ih]
+      Setlec.Semantics.AVExpr.inst_app, ih]
 
 /-- Spine instantiation distributes over an application
 (`instSeq_mkAppN`). -/
@@ -72,7 +74,7 @@ theorem instSeqP_mkAppN : ∀ (as : List AVExpr) (t : Nat) (f : AVExpr)
   induction args generalizing f with
   | nil => rfl
   | cons a args ih =>
-    rw [Setlec.SetR.AVExpr.mkAppN_cons, ih, instSeqP_app]
+    rw [Setlec.Semantics.AVExpr.mkAppN_cons, ih, instSeqP_app]
     rfl
 
 /-- Applications of equal arity are equal only at equal heads and
@@ -92,8 +94,8 @@ theorem AVExpr.mkAppN_inj :
     cases bs with
     | nil => exact nomatch hlen
     | cons b bs =>
-      rw [Setlec.SetR.AVExpr.mkAppN_cons,
-        Setlec.SetR.AVExpr.mkAppN_cons] at h
+      rw [Setlec.Semantics.AVExpr.mkAppN_cons,
+        Setlec.Semantics.AVExpr.mkAppN_cons] at h
       obtain ⟨h1, rfl⟩ := ih h (by simpa using hlen)
       injection h1 with h2 h3
       exact ⟨h2, by rw [h3]⟩
@@ -127,4 +129,4 @@ theorem teleFitPA_rest_eq :
         show k + 1 - 1 - 1 = k - 1 from by omega, Nat.add_sub_cancel,
         Nat.zero_add]
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

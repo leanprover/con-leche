@@ -1,6 +1,6 @@
 import Setlec.SetP.Step2.IotaKitP
 import Setlec.SetP.Step2.StuckP
-import Setlec.SetBase.SpineV
+import Setlec.Semantics.SpineV
 
 /-!
 # The stuck-major rescues, P currency (task #161, iota tier)
@@ -39,10 +39,12 @@ are graded because the certificate inferred them, not because their
 own telescopes were re-walked.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps projFnName inferTypeCore whnf)
 
@@ -393,7 +395,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
     obtain ⟨TVja, hTVja, hokTVja, hmemCj⟩ :=
       hct d rl.ctor _ ust hfcj rfl (by exact hlenCj)
     dsimp only [Setlec.ConstantInfo.toConstantVal] at hTVja hmemCj
-    have hwfj := m.wf _ (Setlec.SetR.Env.find?_mem hfcj)
+    have hwfj := m.wf _ (Setlec.Semantics.Env.find?_mem hfcj)
     have hnfj : (cvj.type.instantiateLevelParams cvj.levelParams
         ust).hasFvar = false := by
       rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfj.1
@@ -633,7 +635,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               rw [hlpp]; exact hlenus2
             obtain ⟨tpa, htpa, hoktpa, hmemp⟩ :=
               hct d (projFnName T j) _ ust hfp rfl hlenp
-            have hwfp := m.wf _ (Setlec.SetR.Env.find?_mem hfp)
+            have hwfp := m.wf _ (Setlec.Semantics.Env.find?_mem hfp)
             have hnfp : (cvp.type.instantiateLevelParams cvp.levelParams
                 ust).hasFvar = false := by
               rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfp.1
@@ -722,4 +724,4 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
             hokF hokm ρ hρ).symm,
           hwF, hbB, hLF, hCF⟩
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

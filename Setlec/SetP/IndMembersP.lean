@@ -1,6 +1,6 @@
-import Setlec.SetBase.IndBlockRun
+import Setlec.Semantics.IndBlockRun
 import Setlec.SetP.IndCapsP
-import Setlec.SetBase.EnvRCons
+import Setlec.Semantics.EnvFactsCons
 
 /-!
 # The member phase, P tier (task #161, IND TIER)
@@ -36,10 +36,12 @@ conjunct, which is exactly the conjunct v1's `BlockInstalledTT.step`
 consumes for the same purpose.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps ReducibilityHint)
 
@@ -55,7 +57,7 @@ variable {μ : CheckMode} {env : Env} {F : Nat}
 def MemberEtaLawP (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {F : Nat} {blockNames : List Name} {env : Env}
     (mp : EnvS2PM V μ env) {cv cvA : ConstantVal} {c₀ : ConstantInfo},
-    MemberValRunR μ F env blockNames cv cvA →
+    MemberValRun μ F env blockNames cv cvA →
     BlockInstalledTT blockNames env mp.base2.cvalE →
     BlockAcvalInstalled blockNames env mp.base2.acval →
     c₀.toConstantVal = cvA → c₀.name = cvA.name →
@@ -93,7 +95,7 @@ must prove. -/
 def MemberUnitLawP (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {F : Nat} {blockNames : List Name} {env : Env}
     (mp : EnvS2PM V μ env) {cv cvA : ConstantVal} {c₀ : ConstantInfo},
-    MemberValRunR μ F env blockNames cv cvA →
+    MemberValRun μ F env blockNames cv cvA →
     BlockInstalledTT blockNames env mp.base2.cvalE →
     BlockAcvalInstalled blockNames env mp.base2.acval →
     c₀.toConstantVal = cvA → c₀.name = cvA.name →
@@ -112,7 +114,7 @@ theorem memberInstallPM (hetaP : MemberEtaLawP V)
     (hunitP : MemberUnitLawP V)
     {blockNames : List Name} (mp : EnvS2PM V μ env)
     {cv cvA : ConstantVal} {c₀ : ConstantInfo}
-    (hmv : MemberValRunR μ F env blockNames cv cvA)
+    (hmv : MemberValRun μ F env blockNames cv cvA)
     (hI : BlockInstalledTT blockNames env mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
     (hbn : blockNames.contains cvA.name = true)
@@ -243,7 +245,7 @@ theorem indMembersPM (hetaP : MemberEtaLawP V)
             blockNames.contains caps.etaCtor = true) ∧
           (caps.eta = true → 0 < caps.etaFields →
             env.find? (Setlec.projFnName cv.name 0) = none)) →
-      IndMembersRunR μ F blockNames caps env members env₂ →
+      IndMembersRun μ F blockNames caps env members env₂ →
       BlockInstalledTT blockNames env mp.base2.cvalE →
       BlockAcvalInstalled blockNames env mp.base2.acval →
       Setlec.EtaFamiliesClosedO blockNames env →
@@ -317,7 +319,7 @@ theorem provisionRecsPM (hetaP : MemberEtaLawP V)
       {envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
-      Setlec.SetR.ProvisionRecsRunR μ F blockNames envAcc
+      Setlec.Semantics.ProvisionRecsRun μ F blockNames envAcc
         recs envSelf checked →
       BlockInstalledTT blockNames envAcc mp.base2.cvalE →
       BlockAcvalInstalled blockNames envAcc mp.base2.acval →
@@ -348,4 +350,4 @@ theorem provisionRecsPM (hetaP : MemberEtaLawP V)
       (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
       hrec hI₁ hIA₁ hEC₁ hBP₁
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

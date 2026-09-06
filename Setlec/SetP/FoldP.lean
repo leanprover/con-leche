@@ -1,9 +1,9 @@
 import Setlec.SetP.AxiomReduceP
 import Setlec.SetP.DeclIndP
-import Setlec.SetP.DeclDirectP
-import Setlec.SetBase.IndBlockR
-import Setlec.SetBase.Bridge.Sound
-import Setlec.SetBase.DeclDirectEta
+import Setlec.SetP.Direct.DeclDirectP
+import Setlec.Semantics.IndBlockFacts
+import Setlec.Semantics.Bridge.Sound
+import Setlec.Semantics.Direct.DeclDirectEta
 
 /-!
 # The P declaration fold, and the conditional capstone (task #161, P4)
@@ -20,7 +20,7 @@ The η half of the fold invariant is `declEtaStepRun`
 kind**: S3 left `indDecl` premised on `declIndS memberKeyS mp.base` —
 the one kind whose η-closure was proved interleaved with the `EnvS`
 member/recursor folds — and S5's ind unit (`declIndEtaClosed`,
-`SetBase/IndBlockR.lean`) proves it from `DeclIndR` alone.  No install
+`SetBase/IndBlockR.lean`) proves it from `DeclIndRun` alone.  No install
 obligation is consulted for the η half; the harvests keep their own
 uses of `divModPinS` and `reducePinS`, which are value-kind
 obligations, not fold ones.  The v1 base at every prefix is
@@ -38,10 +38,12 @@ The routed bundles, by tier:
   is `hμ` alone.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   Declaration checkDecl checkDecls fueledOps)
 
@@ -56,12 +58,12 @@ the pin tier's four branches are stated against it and the census is
 read off these signatures. -/
 def AxiomStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   -- task #161 S4: the relation premise is now the run projection
-  -- (`DeclAxiomRunR`), which names no valuation — so the carrier `_mp`
+  -- (`DeclAxiomRun`), which names no valuation — so the carrier `_mp`
   -- no longer appears in the premise's *type*.  It stays as the
   -- invariant the four branches consume.
   ∀ {F : Nat} {env : Env} (_mp : EnvS2PM V μ env)
     {cv : ConstantVal} {env₂ : Env},
-    DeclAxiomRunR μ F env cv env₂ →
+    DeclAxiomRun μ F env cv env₂ →
     Nonempty (EnvS2PM V μ env₂)
 
 /-- **`AxiomStepPB`, discharged — THE PIN BUNDLE IS CLOSED.**  All four
@@ -84,13 +86,13 @@ theorem axiomStepPB_of (hμ : μ.verified = true) : AxiomStepPB V μ := by
 def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {env : Env}, EnvS2PM V μ env →
     ∀ {kind : Setlec.BasisKind} {env₂ : Env},
-      DeclBasisR env kind env₂ →
+      DeclBasisRun env kind env₂ →
       Nonempty (EnvS2PM V μ env₂)
 
 /-- **`BasisStepPB`, discharged** (task #161, ENDGAME H): all six
 pinned basis blocks install at the P tier.  Exactly `declBasisS`'s
 dispatch shape, and — as there — `quotK` is the one branch whose
-`DeclBasisR` guard is not vacuous: it needs `Eq` in the prefix, which
+`DeclBasisRun` guard is not vacuous: it needs `Eq` in the prefix, which
 is what the block's `Eq` bridge consumes. -/
 theorem basisStepPB_of : BasisStepPB V μ := by
   intro env mp kind env₂ h
@@ -120,7 +122,7 @@ def IndStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {F : Nat} {env : Env} (_mp : EnvS2PM V μ env)
     {block : List ConstantInfo} {env₂ : Env},
     Setlec.EtaFamiliesClosed env →
-    DeclIndRunR μ F env block env₂ →
+    DeclIndRun μ F env block env₂ →
     Nonempty (EnvS2PM V μ env₂)
 
 /-- **`IndStepPB`, discharged — THE INDUCTIVE TIER IS CLOSED**
@@ -147,22 +149,22 @@ residual B ("a projection composed with a bridge is not a projection").
 The projection is now done by the *producer* instead — the five
 non-`ind` kinds have run-only bridges (`checkDeclRun_of`,
 `SetBase/Bridge/DeclRun.lean`) and the `ind` kind arrives through
-`DeclRunR`'s `Ind` parameter — so this step consumes exactly what it
+`DeclRun`'s `Ind` parameter — so this step consumes exactly what it
 reads, and no step below changed a line. -/
 theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
-    (hrun : DeclRunR μ F (Setlec.SetR.DeclIndRunDispatchR μ F env)
+    (hrun : DeclRun μ F (Setlec.Semantics.DeclIndRunDispatch μ F env)
       env d env₂) :
     EnvSPOk V μ env₂ := by
   -- the η half: `declEtaStepRun` (task #161 S3, the census's C4), now
   -- MODEL-FREE at every kind.  S3's stop-and-name left `indDecl`'s
   -- η-closure premised on `declIndS memberKeyS mp.base`; S5's ind unit
-  -- (`SetBase/IndBlockR.lean`) proves it from `DeclIndR` alone, so the
+  -- (`SetBase/IndBlockR.lean`) proves it from `DeclIndRun` alone, so the
   -- fold consults no install obligation for its η half at all.
   -- task #175 wiring W5: the η half is FLAG-AGNOSTIC — the `.indDecl`
   -- dispatch's own case split (`declIndRunDispatchEtaClosed`)
-  refine ⟨?_, Setlec.SetR.declEtaStepRun
-    (fun h' => Setlec.SetR.declIndRunDispatchEtaClosed hE h') hE hrun⟩
+  refine ⟨?_, Setlec.Semantics.declEtaStepRun
+    (fun h' => Setlec.Semantics.declIndRunDispatchEtaClosed hE h') hE hrun⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := hrun
@@ -187,8 +189,8 @@ theorem declStepPM (hμ : μ.verified = true) {F : Nat} {env env₂ : Env} {d : 
     -- the `.indDecl` dispatch: the recognised direct class installs
     -- directly (task #175 W4c), everything else through the modeled
     -- path — the kernel's own `directParts?` case split
-    have hrun' : Setlec.SetR.DeclIndRunDispatchR μ F env block env₂ := hrun
-    unfold Setlec.SetR.DeclIndRunDispatchR at hrun'
+    have hrun' : Setlec.Semantics.DeclIndRunDispatch μ F env block env₂ := hrun
+    unfold Setlec.Semantics.DeclIndRunDispatch at hrun'
     cases hdp : Setlec.directParts? env block with
     | some p =>
       rw [hdp] at hrun'
@@ -215,14 +217,14 @@ theorem foldPM (hμ : μ.verified = true) {F : Nat} :
       obtain ⟨⟨mp⟩, hE⟩ := hm
       exact foldPM hμ ds env1
         (declStepPM hμ mp hE
-          -- **the RUN bridge, from the P carrier's own `EnvR`**
+          -- **the RUN bridge, from the P carrier's own `EnvFacts`**
           -- (task #161 S11a).  S7 (Wall C step (e)) made the bridge
           -- model-free, so the fold's last v1 round trip became the
-          -- projection `EnvS2PM.toEnvR`; S11a makes it
+          -- projection `EnvS2PM.toEnvFacts`; S11a makes it
           -- *derivation*-free at the five non-`ind` kinds, so the only
           -- route from here into the relation tier is the `Ind`
-          -- premise `checkDeclRun_ofEnvRE` fills with `declIndRR`.
-          (Setlec.SetR.checkDeclRun_ofEnvRE hd)) h
+          -- premise `checkDeclRun_ofEnvFactsE` fills with `declIndRR`.
+          (Setlec.Semantics.checkDeclRun_ofEnvFactsE hd)) h
 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'
@@ -272,4 +274,4 @@ theorem no_proof_of_Empty_P (V : Type w) [SetTheory V]
       c.toConstantVal.type = .const emptyName [] → False :=
   fun c hc hty => no_proof_of_Empty_P_of V hμ h c hc hty
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

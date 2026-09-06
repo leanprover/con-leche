@@ -31,10 +31,12 @@ constructor's run spine `sp` and the mixed value spine `mix` stay
 abstract exactly as in v1.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
@@ -328,4 +330,4 @@ theorem zipperP {m : EnvS2Core V env} {F : Nat}
   exact ⟨sat2_of_tower htowerS hzslen hallK,
     teleFitPA_of_tower (rP + cnF) htowerS hzslen hallK⟩
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

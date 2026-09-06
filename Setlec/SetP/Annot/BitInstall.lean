@@ -1,5 +1,5 @@
 import Setlec.SetP.Annot.BitClosed
-import Setlec.SetBase.Install2
+import Setlec.Semantics.Install2
 import Setlec.Verify.EnvGuards
 
 /-!
@@ -28,10 +28,12 @@ are valuation- and spine-independent and simply vanish:
   by name at exactly this instance.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level PropWhen
   natLitSupported strLitSupported)
 
@@ -171,4 +173,4 @@ theorem denoteP_mkAppN_swap {acval : Name → (Name → Nat) → AVExpr}
     rw [denoteP, hswap fx hf, ha]
     rfl
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

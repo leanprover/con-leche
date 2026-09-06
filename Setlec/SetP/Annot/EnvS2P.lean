@@ -1,7 +1,7 @@
 import Setlec.SetP.Step2.AssemblyP
-import Setlec.SetBase.EnvR
-import Setlec.SetBase.DivModEval
-import Setlec.SetBase.SpineV
+import Setlec.Semantics.EnvFacts
+import Setlec.Semantics.DivModEval
+import Setlec.Semantics.SpineV
 
 /-!
 # `EnvS2PM` — the P-tier environment invariant (task #161, P4)
@@ -37,10 +37,12 @@ that a `Nonempty (EnvS2PM …)` carried through the declaration fold
 makes the induction's hypotheses *facts*.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName RecRule)
 
@@ -57,7 +59,7 @@ operation's defining equations read under `denoteP` and hold as
 the plain assignment (the heads are level-monomorphic).
 
 Supplied as an `EnvS2PM` field: established at the operation's own
-install from the recorded `isDefEqCore` runs (`NatEqsRunR`) through
+install from the recorded `isDefEqCore` runs (`NatEqsRun`) through
 `DefEqClaims2P` — the run-certificate route (`Interp2/NatEqsP.lean`)
 — and preserved across every other fresh cons.  Consumed by the
 numeral-transport inductions (`Sound/NatOps`' shape at `interp2`),
@@ -407,11 +409,11 @@ theorem TeleFitPA.take {V : Type w} [SetTheory V] {ρ : Nat → V} :
 (`VExpr.instRevChain`'s `AVExpr` twin, `Verify/Denote/OpenVars.lean:80`
 — outermost argument consumed first, each at cut `0`, lifted past the
 arguments still to come). -/
-def _root_.Setlec.SetR.AVExpr.instRevChain :
+def _root_.Setlec.SetP.AVExpr.instRevChain :
     List AVExpr → AVExpr → AVExpr
   | [], X => X
   | v :: vs, X =>
-    Setlec.SetR.AVExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
+    Setlec.SetP.AVExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
 
 /-- **The constructor residual's index pin** (`IotaIndexPinV`'s
 mirror, v1-verbatim at `AVExpr`): the residual decomposes as a spine
@@ -467,7 +469,7 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
               = some TVa →
             TeleFitPA V ρ TVa zs restR →
             AnnotOkP V ρ
-              (Setlec.SetR.AVExpr.instRevChain zs vpa)) ∧
+              (Setlec.SetP.AVExpr.instRevChain zs vpa)) ∧
       ∀ (cvj : ConstantVal) (cnP cnF : Nat),
         env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
       ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AVExpr)
@@ -492,7 +494,7 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
                   cv.levelParams us)) = some vpa →
             interp2 V ρ (ys.getD i default)
               = interp2 V ρ
-                  (Setlec.SetR.AVExpr.instRevChain (xs.take rP)
+                  (Setlec.SetP.AVExpr.instRevChain (xs.take rP)
                     vpa)) →
         IotaIndexPinP (V := V) ρ restC (RecRule.ctorParams rl)
           mI rP xs →
@@ -568,15 +570,15 @@ its clause). -/
 
 /-- The syntactic Π-peel along a list of readings: the fit's residual
 without the memberships (`TeleFitPA`'s spine, data only). -/
-def _root_.Setlec.SetR.AVExpr.peelPis : AVExpr → List AVExpr → Option AVExpr
+def _root_.Setlec.SetP.AVExpr.peelPis : AVExpr → List AVExpr → Option AVExpr
   | T, [] => some T
-  | .pi _ _ _ B, a :: as => Setlec.SetR.AVExpr.peelPis (B.inst a) as
+  | .pi _ _ _ B, a :: as => Setlec.SetP.AVExpr.peelPis (B.inst a) as
   | _, _ :: _ => none
 
 /-- A fit's residual is the peel's. -/
 theorem TeleFitPA.peelPis {V : Type w} [SetTheory V] {ρ : Nat → V} :
     ∀ {T rest : AVExpr} {as : List AVExpr}, TeleFitPA V ρ T as rest →
-      Setlec.SetR.AVExpr.peelPis T as = some rest := by
+      Setlec.SetP.AVExpr.peelPis T as = some rest := by
   intro T rest as h
   induction h with
   | nil => rfl
@@ -700,7 +702,7 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
           AnnotOkP V ρ x →
           interp2 V ρ x ∈ˢ interp2 V ρ (AVExpr.mkAppN
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
-          Setlec.SetR.AVExpr.peelPis Ta (vs ++ [x]) = some rest →
+          Setlec.SetP.AVExpr.peelPis Ta (vs ++ [x]) = some rest →
           AnnotOkP V ρ (projAV i x) ∧ AnnotOkP V ρ rest ∧
             interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest)) ∧
       -- (B) the iota law: the projection of a *graded* constructor
@@ -834,8 +836,8 @@ assignment `Level.substFn φ ks us`, carried to the instantiated form
 by `denotePInstLevels` (an equality: no arity premise, no fuel). -/
 theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
   intro d n ci us hf hnt hlen
-  have hmem := Setlec.SetR.Env.find?_mem hf
-  have hname := Setlec.SetR.Env.find?_name hf
+  have hmem := Setlec.Semantics.Env.find?_mem hf
+  have hname := Setlec.Semantics.Env.find?_name hf
   obtain ⟨ta, hta⟩ :=
     m.type_reads ci hmem (Level.substFn φ ci.toConstantVal.levelParams us)
   have hwf := m.base2.wf ci hmem
@@ -882,10 +884,10 @@ theorem notTower_of_atom (m : EnvS2PM V μ env) {c : ConstantInfo}
   | _ => rfl
 
 /-- **The bridge invariant, from the P invariant** (task #161 S7,
-Wall C step (e)) — `EnvS.toEnvR`'s P-side twin, and the last thing
+Wall C step (e)) — `EnvS.toEnvFacts`'s P-side twin, and the last thing
 `EnvS2PM.base` was for.  Every field is a projection:
 
-| `EnvR` field | source |
+| `EnvFacts` field | source |
 |---|---|
 | `cval`, `cval_closed`, `wf`, `proj_ok` | `base2`'s own |
 | `val_params` | `acval_params`, erased |
@@ -896,8 +898,8 @@ Wall C step (e)) — `EnvS.toEnvR`'s P-side twin, and the last thing
 
 Nothing of the collapsed model is consulted, and the P lane's
 `checkDeclR_ofEnvRE` runs on this. -/
-def toEnvR {V : Type w} [SetTheory V] {μ : CheckMode}
-    {env : Env} (m : EnvS2PM V μ env) : Setlec.SetR.EnvR env where
+def toEnvFacts {V : Type w} [SetTheory V] {μ : CheckMode}
+    {env : Env} (m : EnvS2PM V μ env) : Setlec.Semantics.EnvFacts env where
   cval := m.base2.cvalE
   cval_closed := m.base2.cval_closed
   wf := m.base2.wf
@@ -928,9 +930,9 @@ def toEnvR {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- The P bridge invariant keeps the carrier's valuation —
 definitionally. -/
-theorem toEnvR_cval {V : Type w} [SetTheory V] {μ : CheckMode}
+theorem toEnvFacts_cval {V : Type w} [SetTheory V] {μ : CheckMode}
     {env : Env} (m : EnvS2PM V μ env) :
-    (toEnvR m).cval = m.base2.cvalE := rfl
+    (toEnvFacts m).cval = m.base2.cvalE := rfl
 
 end EnvS2PM
 
@@ -980,4 +982,4 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
     rw [this] at hf
     exact nomatch hf
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

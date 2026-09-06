@@ -22,10 +22,12 @@ lift-invariant), which the constant and literal clauses need and which
 has nothing to do with sorts.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level PropWhen)
 
 variable {env : Env} {φ : Name → Nat}
@@ -235,4 +237,4 @@ theorem denoteP_weaken_top
   rw [Setlec.Expr.shiftFrom_eq_self hw.fvarsBelow, Nat.sub_self] at h
   exact h
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

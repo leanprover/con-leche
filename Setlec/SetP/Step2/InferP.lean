@@ -4,11 +4,11 @@ import Setlec.SetP.Annot.BitLemmas
 import Setlec.SetP.Annot.BitInst
 import Setlec.SetP.Annot.ValidVSpine
 import Setlec.Verify.InferLemmas
-import Setlec.SetBase.Frame
-import Setlec.SetBase.Skeleton
-import Setlec.SetBase.Hoist
-import Setlec.SetBase.LitStep2
-import Setlec.SetBase.LitParams
+import Setlec.Semantics.Frame
+import Setlec.Semantics.Skeleton
+import Setlec.Semantics.Hoist
+import Setlec.Semantics.LitStep2
+import Setlec.Semantics.LitParams
 
 /-!
 # The infer quarter, P currency — the worked ∀ clause (task #161, P3.5)
@@ -46,10 +46,12 @@ at the grading the clause's own residue supplies — the D-tier's
 self-propagation argument, inherited.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level whnf inferTypeCore)
 
 universe w
@@ -1164,4 +1166,4 @@ theorem inferStepP_of (h : InferInputsP V μ)
   | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
     exact h.proj m φ fuel hrun hws hb hLb hC hea hta
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

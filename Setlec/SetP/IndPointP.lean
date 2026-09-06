@@ -26,7 +26,7 @@ projections.**  `DefEqClaims2P` wants the a-side — an argument of the
 statement's left-hand side — and the b-side — an argument of the
 constructor residual — graded.  The a-side comes from the statement
 side's own grading (`hokLhs`, which the bottom reads off the
-`checkIotaSidesTy` inference run `IotaRunsR` records) by
+`checkIotaSidesTy` inference run `IotaRuns` records) by
 `AnnotOkP_mkAppN_args`; the b-side from `instPisAt_resP_graded` at the
 run's completed spine memberships (`hspMem`), again by
 `AnnotOkP_mkAppN_args`.  The spine memberships are the zipper's own
@@ -41,10 +41,12 @@ premises here.  They descend from the statement's own
 residual (`instPisAt_WScoped`/`instPisAt_bounded`, residual halves).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   isDefEqCore DefEqListOk)
 
@@ -536,4 +538,4 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
         omega)]
     rfl
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

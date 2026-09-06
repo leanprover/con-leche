@@ -67,10 +67,12 @@ check the *semantic* invariant bundle and not only the syntactic one.
 to supply facts `EnvWF` does not.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName RecRule)
 
@@ -113,7 +115,7 @@ theorem acval_basis_pinned {m : EnvS2Core V env}
   cases hh : m.acval n ψ with
   | const c' us' =>
     rw [hh] at h2
-    simp only [Setlec.SetR.AVExpr.erase, VExpr.const.injEq] at h2
+    simp only [Setlec.Semantics.AVExpr.erase, VExpr.const.injEq] at h2
     rw [h2.1, h2.2]
   | _ => rw [hh] at h2; exact nomatch h2
 
@@ -240,7 +242,7 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
       exact denoteP_cons_mono hfresh
         ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
-          (Setlec.SetR.Env.find?_mem hfE) us) hTVa
+          (Setlec.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x hlents hfit hmem
       rw [hac, acvalWith_ne hnT] at hmem
       have hfab : etaFabArgs2
@@ -272,9 +274,9 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
       exact denoteP_cons_mono hfresh
         ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
-          (Setlec.SetR.Env.find?_mem hfE) us) hTVa
+          (Setlec.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x y hlents hfit hx hy
       rw [hac, acvalWith_ne hnT] at hx hy
       exact hlaw ρ ts rest x y hlents hfit hx hy
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

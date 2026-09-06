@@ -1,4 +1,4 @@
-import Setlec.SetBase.IndBlockRun
+import Setlec.Semantics.IndBlockRun
 import Setlec.SetP.ProjConsP
 
 /-!
@@ -29,10 +29,12 @@ P tier: `rec_rules` is an `EnvS2PM` field, so the bottom cannot fire at
 the extension.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule RecRuleFire IndCaps ProjEntry BinderMeta projFnName
   projModelName projFwd ReducibilityHint inferTypeCore isDefEqCore)
@@ -51,7 +53,7 @@ leaf. -/
 theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
     {blockNames : List Name} (mp : EnvS2PM V μ env')
-    (hR : ProjFnRunR μ F env' T ctorName lps nP nF i env₁)
+    (hR : ProjFnRun μ F env' T ctorName lps nP nF i env₁)
     (hinv : ProjPhaseInvS T ctorName nF env' mp.base2.cvalE)
     (hinvA : ProjPhaseAcvalP T ctorName nF env' mp.base2.acval)
     (hIB : BlockInstalledTT blockNames env' mp.base2.cvalE)
@@ -250,10 +252,10 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
   -- **the install's model-free half** (task #161 S7, Wall C): the
   -- phase and block invariants at the installed environment are
   -- `projFnInv`'s and the store's `EnvWF` and the head rule's
-  -- constructor are `projFnR_head`'s — both off `ProjFnR` alone.
+  -- constructor are `projFn_head`'s — both off `ProjFnR` alone.
   obtain ⟨hinv₁, hIB₁⟩ :=
     projFnInv (cval := mp.base2.cvalE) hRid hinv hIB hbshape
-  obtain ⟨hwf₁, hctors₁⟩ := projFnR_head mp.base2.wf hRid
+  obtain ⟨hwf₁, hctors₁⟩ := projFn_head mp.base2.wf hRid
   have hnotb : blockNames.contains (projFnName T i) = false := by
     cases hc : blockNames.contains (projFnName T i) with
     | false => rfl
@@ -409,7 +411,7 @@ theorem projInstallP (hμ : μ.verified = true) {F : Nat}
       n.isProjFnShape = false) :
     ∀ (fields : List Nat) {env' : Env} (mp : EnvS2PM V μ env')
       {env₄ : Env},
-      ProjInstallRunR μ F T ctorName lps nP nF env' fields env₄ →
+      ProjInstallRun μ F T ctorName lps nP nF env' fields env₄ →
       ProjPhaseInvS T ctorName nF env' mp.base2.cvalE →
       ProjPhaseAcvalP T ctorName nF env' mp.base2.acval →
       BlockInstalledTT blockNames env' mp.base2.cvalE →
@@ -591,7 +593,7 @@ Nothing but the model survives it, so nothing is carried out. -/
 theorem templatesP {T ctorName : Name} {lps : List Name} {nP nF : Nat} :
     ∀ (fields : List Nat) {env' : Env} (_mp : EnvS2PM V μ env')
       {env₂ : Env},
-      DeclIndR.TemplatesR T ctorName lps nP nF env' fields env₂ →
+      DeclIndRun.Templates T ctorName lps nP nF env' fields env₂ →
       Nonempty (EnvS2PM V μ env₂) := by
   intro fields
   induction fields with
@@ -609,4 +611,4 @@ theorem templatesP {T ctorName : Name} {lps : List Name} {nP nF : Nat} :
         templateConsP mp hstruct hidx hnat htower hlps hty hpnone
       exact ih mp' hrec
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

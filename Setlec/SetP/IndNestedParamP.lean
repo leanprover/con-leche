@@ -47,10 +47,12 @@ Three things are worth naming:
   transport is `nestedParamSupplyP`, the wrapper below.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name isDefEqCore inferTypeCore
   DefEqListOk TypedListOk)
 
@@ -610,4 +612,4 @@ theorem nestedParamSupplyP {m : EnvS2Core V env} {F : Nat}
   rw [hbridge q hq] at hdw
   exact hmem dw hdw
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

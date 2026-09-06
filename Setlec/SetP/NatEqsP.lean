@@ -1,7 +1,7 @@
 import Setlec.SetP.InstallP
 import Setlec.SetP.Step2.NatP
-import Setlec.SetBase.NatFrag
-import Setlec.SetBase.DeclRun
+import Setlec.Semantics.NatFrag
+import Setlec.Semantics.DeclRun
 
 /-!
 # The structural-`Nat` recurrences, established at `interp2` from run
@@ -11,7 +11,7 @@ The literal tier's wall (`Step2/NatP.lean`) is exactly one law wide:
 the stored operations' recurrences at `interp2`.  This file builds the
 recorded resumption route — **establishment from run certificates**:
 `DeclDefnR` records one `isDefEqCore` run per substituted equation
-(`NatEqsRunR`, the H1 exposure), and `DefEqClaims2P` at the
+(`NatEqsRun`, the H1 exposure), and `DefEqClaims2P` at the
 pre-insertion environment converts each run into an `interp2` equality
 at the two-variable `Nat` context.  The v1 route (`NatEqsR`'s `DefEq`
 + `DefEq.sound`) is *not* transferable — its soundness lives at the
@@ -42,10 +42,12 @@ suppliers (`natOpsP_install` bespoke at the operation's own install,
 `natOpsP_cons_fresh` at every other fresh cons).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported)
 
@@ -573,8 +575,8 @@ theorem natBinHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
     (hcodLp : codCi.toConstantVal.levelParams = []) :
     NatBinHeadP mp.base2 ψ (.const o [])
       (fun ρ => interp2 V ρ (mp.base2.acval codN ψ)) := by
-  have hmemE := Setlec.SetR.Env.find?_mem hf
-  have hnm : cvo.name = o := Setlec.SetR.Env.find?_name hf
+  have hmemE := Setlec.Semantics.Env.find?_mem hf
+  have hnm : cvo.name = o := Setlec.Semantics.Env.find?_name hf
   have hta : denoteP mp.base2.acval env ψ 0
       (ConstantInfo.defnInfo cvo vo ho).toConstantVal.type
       = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval Setlec.natName ψ)
@@ -605,8 +607,8 @@ theorem natUnHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
     (hlpN : ciN.toConstantVal.levelParams = []) :
     NatUnHeadP mp.base2 ψ (.const o [])
       (fun ρ => interp2 V ρ (mp.base2.acval Setlec.natName ψ)) := by
-  have hmemE := Setlec.SetR.Env.find?_mem hf
-  have hnm : cvo.name = o := Setlec.SetR.Env.find?_name hf
+  have hmemE := Setlec.Semantics.Env.find?_mem hf
+  have hnm : cvo.name = o := Setlec.Semantics.Env.find?_name hf
   have hta : denoteP mp.base2.acval env ψ 0
       (ConstantInfo.defnInfo cvo vo ho).toConstantVal.type
       = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval Setlec.natName ψ)
@@ -1100,7 +1102,7 @@ theorem natSelfHeadP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
 
 /-- **`NatOpsP` at the operation's own install** — the run-certificate
 conversion, end to end: the recorded `isDefEqCore` runs on the
-substituted recurrences (`NatEqsRunR`) become `interp2` equalities
+substituted recurrences (`NatEqsRun`) become `interp2` equalities
 through `DefEqClaims2P` at the pre-insertion environment, and the
 substitution crossing (`denoteP_substConst0`) restates them as the raw
 equations' readings at the extension. -/
@@ -1120,7 +1122,7 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       (Setlec.natOpStoredOk
         (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env))
       = true)
-    (hruns : NatEqsRunR μ F env
+    (hruns : NatEqsRun μ F env
       ((Setlec.natOpEquations 0 c).map fun eq =>
         (Expr.substConst0 c value' eq.1,
          Expr.substConst0 c value' eq.2)))
@@ -1503,4 +1505,4 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       · simpa +decide [Expr.substConst0] using hla
       · simpa +decide [Expr.substConst0] using hra
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

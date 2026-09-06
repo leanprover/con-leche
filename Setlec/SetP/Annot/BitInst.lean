@@ -1,5 +1,5 @@
 import Setlec.SetP.Annot.BitShift
-import Setlec.SetBase.Denote2Closed
+import Setlec.Semantics.Denote2Closed
 import Setlec.Verify.Denote.Inst
 
 /-!
@@ -55,9 +55,11 @@ Verbatim v1's, and for v1's reason: at depth `D + 1` the variable
 — which makes `inst`'s built-in lift *be* the depth shift.
 -/
 
-namespace Setlec.SetR
-
-namespace AVExpr
+-- The lift identities extend `Setlec.Semantics.AVExpr` itself (dot
+-- notation and the unqualified `liftN_*` names resolve there), so this
+-- block stays in the semantic tier's namespace.
+namespace Setlec.Semantics.AVExpr
+open Setlec.SetModel
 
 /-! ### Two lift identities the depth-lift needs
 
@@ -108,12 +110,15 @@ theorem liftN_liftN : ∀ (e : AVExpr) (n m k : Nat),
   | proj i e ihe =>
     intro n m k; rw [liftN_proj, liftN_proj, ihe]; rfl
 
-end AVExpr
+end Setlec.Semantics.AVExpr
 
-namespace Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
+
 
 open Setlec.TT Setlec.TTVerify
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level PropWhen)
 
 variable {env : Env} {φ : Name → Nat}
@@ -367,6 +372,5 @@ theorem denoteP_beta
     Nat.sub_self] at h
   exact h
 
-end Interp2
 
-end Setlec.SetR
+end Setlec.SetP

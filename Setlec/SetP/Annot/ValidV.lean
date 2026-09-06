@@ -1,5 +1,5 @@
 import Setlec.SetP.Annot.Bit
-import Setlec.SetBase.Ok2
+import Setlec.Semantics.Ok2
 
 /-!
 # `AnnotValidV` — bit validity, on the bit (task #161, P3.2)
@@ -37,10 +37,12 @@ pair (`AnnotValidV_liftN`/`AnnotValidV_inst`) + the level-crossing
 laws (`denotePInstLevels` upstream of any `interp2` fact).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Name Level PropWhen)
 
 universe w
@@ -279,4 +281,4 @@ theorem AnnotValidV_inst0 {e a : AVExpr} {ρ : Nat → V}
   have h := AnnotValidV_inst V e a 0 ρ (by rwa [shiftE_zero_zero])
   rwa [shiftE_zero_zero, instE_zero] at h
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

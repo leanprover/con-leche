@@ -29,10 +29,12 @@ The `Expr`-only halves of v1's kit — `instPisAt_length`,
 mention no valuation at all, so there is nothing to transpose.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name BinderMeta)
 
 universe w
@@ -275,4 +277,4 @@ theorem WScoped_sharpen : ∀ {e : Expr} {d d' : Nat}, Expr.WScoped d e →
     simp only [Expr.WScoped] at h ⊢
     exact ih h (fun l hl' => hl l (by simp [Expr.fvarLeaves, hl']))
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

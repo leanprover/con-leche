@@ -25,10 +25,12 @@ The establishment at the operation's own install is part 2
 (`Interp2/DivModCertP.lean`).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported)
 
@@ -349,4 +351,4 @@ theorem reduceOpsP_cons_fresh {m : EnvS2Core V env}
     · exact absurd hcN hnn
   exact reduceOpsP_entry_cons hprev hfresh m₂ hac hcN hne hf₂ hpin
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

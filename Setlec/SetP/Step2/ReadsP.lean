@@ -3,10 +3,10 @@ import Setlec.SetP.Step2.InferIOP
 import Setlec.SetP.Step2.WhnfP
 import Setlec.SetP.Step2.DefEqP
 import Setlec.SetP.Step2.StuckP
-import Setlec.SetBase.SpineV
+import Setlec.Semantics.SpineV
 import Setlec.SetP.Step2.TowerKitP
 import Setlec.SetP.Annot.EnvS2P
-import Setlec.SetBase.LitParams
+import Setlec.Semantics.LitParams
 
 /-!
 # The totality consolidation (task #161, P4 batch 6)
@@ -64,10 +64,12 @@ They are bundled as `ReadsInputsP`; the suppliers at the end of the
 file take that bundle and produce five of the six residues.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level whnf whnfCore inferTypeCore)
 
 universe w
@@ -397,8 +399,8 @@ private theorem whnfCoreReads_leaf {m : EnvS2Core V env}
     rcases hleaf with ⟨u, rfl⟩ | ⟨idx, n, ty, rfl⟩ |
       ⟨n, ty, body, bi, rfl⟩ | ⟨n, ty, body, mb, rfl⟩ |
       ⟨n, us, rfl⟩ | ⟨l, rfl⟩ <;>
-      simp only [whnfCoreR_sort, whnfCoreR_fvar, whnfCoreR_forallE,
-        whnfCoreR_lam, whnfCoreR_const, whnfCoreR_lit,
+      simp only [whnfCore_leaf_sort, whnfCore_leaf_fvar, whnfCore_leaf_forallE,
+        whnfCore_leaf_lam, whnfCore_leaf_const, whnfCore_leaf_lit,
         Except.ok.injEq] at h <;>
       exact h.symm
   subst he
@@ -999,4 +1001,4 @@ theorem ReadsInputsP.ofEnvS2PM (mp : EnvS2PM V μ env)
   nat := hnat
   tower_ok := mp.tower_ok φ
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

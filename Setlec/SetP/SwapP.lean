@@ -24,10 +24,12 @@ are what the group install proves (the last through `iotaRulesP`), and
 taking them here keeps the transport free of the per-rule content.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps)
 
@@ -379,4 +381,4 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hfT') us hus
       exact ⟨TVa, by rw [← hde]; exact hTVa, hok, hlaw'⟩
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

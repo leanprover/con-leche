@@ -41,7 +41,9 @@ The mode hypothesis `μ.verified = true` is load-bearing exactly once
 (the defeq binder arms' certificate extraction) and threaded uniformly.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec (CheckMode Env Name)
 
@@ -96,4 +98,4 @@ theorem checkSoundP5_of_inputs (hμ : μ.verified = true)
           InferClaimsIO2P μ m φ fuel :=
   checkSound2P5 (checkStep2P5_of_quarters hμ hwin hdin hiin) m φ
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

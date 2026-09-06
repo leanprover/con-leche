@@ -35,10 +35,12 @@ unit half needs no family premise at all (the ratified repair), so
 its split is two-way where the eta half's is four-way.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps ReducibilityHint)
 
@@ -187,7 +189,7 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
       · rw [hac]
         exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
           (constsBound_instType mp.base2.wf
-            (Setlec.SetR.Env.find?_mem hfE) us) hTVa
+            (Setlec.Semantics.Env.find?_mem hfE) us) hTVa
       · intro ρ ts rest x hlents hfit hmem
         rw [hac, acvalWith_ne hnT] at hmem
         have hfab : etaFabArgs2
@@ -226,9 +228,9 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
       · rw [hac]
         exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
           (constsBound_instType mp.base2.wf
-            (Setlec.SetR.Env.find?_mem hfE) us) hTVa
+            (Setlec.Semantics.Env.find?_mem hfE) us) hTVa
       · intro ρ ts rest x y hlents hfit hmx hmy
         rw [hac, acvalWith_ne hT0] at hmx hmy
         exact hlaw ρ ts rest x y hlents hfit hmx hmy
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

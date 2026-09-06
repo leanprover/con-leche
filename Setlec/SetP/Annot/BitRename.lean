@@ -29,10 +29,12 @@ into a literal, and the string clause's seven leaves are read by name
 off the environment rather than off the subject.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo)
 
 variable {env : Env} {φ : Name → Nat}
@@ -183,4 +185,4 @@ theorem denoteP_renameConsts_resolve {f : Name → Name}
     | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
     | (simp [Expr.sizeB])
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

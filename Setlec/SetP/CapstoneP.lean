@@ -45,10 +45,12 @@ environment, with only the *install-tier* bundles as premises; this
 file's `no_constant_of_Empty_P` then closes the capstone.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo)
 
 universe w
@@ -159,4 +161,4 @@ theorem TierInputsAtP.ofSem (mp : EnvS2PM V μ env) (φ : Name → Nat) :
     (fun _fuel ihw => reduceNatStepP_of mp ihw)
     (fun _fuel ihw => reduceNatStepPQ_of mp ihw)
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

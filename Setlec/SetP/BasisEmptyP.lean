@@ -46,10 +46,12 @@ disagree where anything looks.
 Nothing in this file chooses a numeral.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   emptyA emptyRecA emptyName uN)
 
@@ -256,13 +258,13 @@ theorem extendEmptyRecP (mp : EnvS2PM V μ env)
 The dispatch mirrors `declBasisS_emptyK` link for link, and drives the
 two lanes in lockstep: each cons runs the v1 install first (for the
 `EnvS` base and its `cval` equation) and then the P install on top of
-it.  `BasisInstallR` is a right-nested `∧` chain, so the walk is an
+it.  `BasisInstallRun` is a right-nested `∧` chain, so the walk is an
 `obtain` and two steps — there is no fold to invert. -/
 
 /-- **The `Empty` block, installed at the P tier.**  `BasisStepPB`'s
 `emptyK` branch. -/
 theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
-    (h : Setlec.SetR.BasisInstallR env Setlec.BasisKind.emptyK.declsA env₂) :
+    (h : Setlec.Semantics.BasisInstallRun env Setlec.BasisKind.emptyK.declsA env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   rw [show Setlec.BasisKind.emptyK.declsA = [emptyA, emptyRecA] from rfl]
     at h
@@ -352,4 +354,4 @@ theorem basis_rec_rules_nonempty (kind : Setlec.BasisKind)
   case emptyK => exact absurd rfl hk
   all_goals decide
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

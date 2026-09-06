@@ -34,10 +34,12 @@ With this branch the whole pin bundle closes: `axiomStepPB_of`
 four branches, and `FoldP`'s `hax` premise is gone.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta inferTypeCore)
 
@@ -293,9 +295,9 @@ theorem ofReduce_memP (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   have hEmem : interp2 V ρ (mp.base2.acval
       (Setlec.reduceElemName (Setlec.ofReduceOp cvA.name)) ψ)
       ∈ˢ (univ 1 : V) := by
-    have h := mp.mem_typeP ciE (Setlec.SetR.Env.find?_mem hfE) (mp.notTower_of_atom (Setlec.SetR.Env.find?_mem hfE) (by rw [htyE]; rfl)) ψ
+    have h := mp.mem_typeP ciE (Setlec.Semantics.Env.find?_mem hfE) (mp.notTower_of_atom (Setlec.Semantics.Env.find?_mem hfE) (by rw [htyE]; rfl)) ψ
       (.sort 1) (by rw [htyE, denoteP_sort]; rfl) ρ
-    rwa [Setlec.SetR.Env.find?_name hfE, interp2_sort] at h
+    rwa [Setlec.Semantics.Env.find?_name hfE, interp2_sort] at h
   -- three `Prop`-level products, all `pt`-inhabited
   show (pt : V) ∈ˢ _
   simp only [interp2_pi, interp2_app, interp2_bvar, cons_zero,
@@ -323,7 +325,7 @@ or a `simp` on a leaf clause and the whole content is the
 membership. -/
 theorem axiomOfReduceP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
-    (hcv : ConstantValRunR μ F env cv type')
+    (hcv : ConstantValRun μ F env cv type')
     (hor : cv.name = Setlec.ofReduceNatName ∨
       cv.name = Setlec.ofReduceBoolName)
     (hok : Setlec.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩
@@ -356,4 +358,4 @@ theorem axiomOfReduceP (hμ : μ.verified = true)
 -- `Interp2/FoldP.lean`: `AxiomStepPB` is stated there, beside the two
 -- bundles still routed.)
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

@@ -1,7 +1,8 @@
-sha	8690a41b6a69f6d0281cd40a46dae2a0c1036d0a
-shashort	8690a41b
+sha	10d130f2dfa62eaa34a01cb322d006ce64540bb3
+shashort	10d130f2
+binsha	0dd12f73c6ee3d9dbfef6d70cbd7d79818e45673
 dirty	0
-date	2026-09-03T20:02:21+00:00
+date	2026-09-06T01:37:21+00:00
 host	bubblewrap
 cpu	AMD EPYC 9455 48-Core Processor
 cores	96
@@ -9,8 +10,9 @@ mem	125 GB
 kernelver	6.12.100
 official	/home/joachim/setlec/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel
 preproc	/home/joachim/setlec/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models
-reps	3
-timeout	1800
-binsha	644f03171fc5485ab3a6e131d180e2d18df109ce
-cachednc	no
-interned	yes
+note	the merge of master `8f9e8250` (task #175 W6) with the perf-tables tooling commits; the commits above master touch only `scripts/`
+loadnote	one unrelated single-process checker run (the Mathlib frontier campaign, one core of 96) was live on the machine throughout; battery cells still ran strictly one at a time
+configs	official parity P
+reps	1
+timeout	3000
+vlimit	16000000

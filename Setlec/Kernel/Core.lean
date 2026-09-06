@@ -1775,7 +1775,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         -- ∀ clause's own `ensureSort` move, on the body's inferred
         -- type.  It is what the set lane's annotation pass needs —
         -- `HasSort (A :: Δ) B v` — and what no metatheorem supplies
-        -- (`Setlec/SetR/DESIGN.md` findings A3, B5, A5: validity for
+        -- (`docs/SetR-DESIGN.md` findings A3, B5, A5: validity for
         -- `Infer` is refuted at the application clause, so the fact
         -- has to be computed).  The reference kernel's `infer_lambda`
         -- does not run it, so `.noModel` — the official-parity lane —

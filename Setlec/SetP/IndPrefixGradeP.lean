@@ -11,7 +11,7 @@ part-4 entry above names the shape the surviving stages need: at a
 positions upward, spending position `i`'s checked equality to earn
 position `i + 1`'s b-side grading.  This file runs that induction for
 the recursor-prefix walk (`hdePre`), which is the branch whose rows
-`IotaRunsR` already carries.
+`IotaRuns` already carries.
 
 It is here for two reasons.  It is the zipper's prefix half and the
 successor keeps it; and it **mechanizes the part-4 finding's positive
@@ -36,10 +36,12 @@ own slot for opener `m`.  That coincidence is what lets `Sat2` at the
 statement frame feed the recursor tower's descent at all.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
@@ -363,4 +365,4 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
   rw [interp2_liftN, interp2_liftN, hshiftEnv ρ'] at hfire
   exact hfire
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

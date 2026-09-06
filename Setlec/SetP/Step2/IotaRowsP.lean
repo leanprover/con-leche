@@ -1,7 +1,7 @@
 import Setlec.SetP.Step2.MajorP
 import Setlec.SetP.Step2.IotaGateP
 import Setlec.SetP.Step2.ReadsP
-import Setlec.SetBase.DefEqList
+import Setlec.Semantics.DefEqList
 
 /-!
 # The two ι rows, discharged (task #161, iota tier)
@@ -51,7 +51,7 @@ census entry the row is charged to.
 structural simplifications the P currency buys:
 
 * the law's first conjunct `rP ≤ mI` and its carried `Ra` replace
-  v1's `EnvR.rec_params_le` and `EnvR.rec_rhs_denotes`, so **no new
+  v1's `EnvFacts.rec_params_le` and `EnvFacts.rec_rhs_denotes`, so **no new
   environment field appears for the row**;
 * the law's `xs` is already the recursor's *index* prefix and its last
   argument is already the constructor spine, so v1's
@@ -69,10 +69,12 @@ plus the `denoteP_openRev` bridge), the index pin
 law.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule inferTypeCore whnf iotaRecP)
 
@@ -209,7 +211,7 @@ theorem constTypeP_pkg {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       (ci.toConstantVal.type.instantiateLevelParams
         ci.toConstantVal.levelParams us).looseBVarsBounded 0 = true := by
   obtain ⟨ta, hta, hok, hmem⟩ := hct 0 n ci us hf hnt hlen
-  have hwf := m.wf _ (Setlec.SetR.Env.find?_mem hf)
+  have hwf := m.wf _ (Setlec.Semantics.Env.find?_mem hf)
   have hnf : (ci.toConstantVal.type.instantiateLevelParams
       ci.toConstantVal.levelParams us).hasFvar = false := by
     rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwf.1
@@ -311,7 +313,7 @@ theorem recRhsP_depth {m : EnvS2Core V env}
       ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
         us).looseBVarsBounded 0 = true := by
   obtain ⟨-, -, -, -, -, hrec', -⟩ :=
-    m.wf _ (Setlec.SetR.Env.find?_mem hf)
+    m.wf _ (Setlec.Semantics.Env.find?_mem hf)
   obtain ⟨hRnf, -, -, hRbd, -⟩ := hrec' cv mI rP rules rfl rl hmem
   have hnf : ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
       us).hasFvar = false := by
@@ -706,7 +708,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
             = interp2 V ρ (AVExpr.instRevChain ((xs.take mI).take rP) vpa) := by
       intro lvls pins hn i hi vpa hvpa
       obtain ⟨-, -, -, -, -, hrec', -⟩ :=
-        m.wf _ (Setlec.SetR.Env.find?_mem hfrec)
+        m.wf _ (Setlec.Semantics.Env.find?_mem hfrec)
       obtain ⟨-, -, -, -, hnest⟩ := hrec' cv mI rP rules rfl r hrmem
       obtain ⟨-, -, hpinsWf, -⟩ := hnest lvls pins hn
       have hcmp : (Setlec.recFireComparands r cv.levelParams us
@@ -878,4 +880,4 @@ theorem iotaStepP_of {m : EnvS2Core V env}
       · exact ((hfrE y (List.mem_of_mem_take hy')).2.2.2).2 l hly
       · exact ((hfrC y (List.mem_of_mem_drop hy')).2.2.2).2 l hly
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

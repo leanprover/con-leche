@@ -23,10 +23,12 @@ validated-annotation reading:
   the constant and literal clauses read the environment).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level PropWhen)
 
 variable {env : Env} {φ : Name → Nat}
@@ -251,4 +253,4 @@ theorem denoteP_natLit_inv {d n : Nat} {ea : AVExpr}
   · next hg => exact ⟨hg, (Option.some.inj h).symm⟩
   · exact nomatch h
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

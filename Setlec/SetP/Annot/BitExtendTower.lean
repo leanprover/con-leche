@@ -15,10 +15,12 @@ whose two dischargers cover every stored expression).  Every other
 clause is `denoteP_envExtend_mono`'s verbatim.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level PropWhen
   natLitSupported strLitSupported)
 
@@ -211,4 +213,4 @@ theorem findProj?_cons_tower {env : Env} {entry₀ : Setlec.ProjEntry} :
   · rw [if_neg hn, h0] at h1
     exact nomatch h1
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

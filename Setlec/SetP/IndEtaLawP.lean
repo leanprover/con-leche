@@ -1,5 +1,5 @@
 import Setlec.SetP.IndUnitLawP
-import Setlec.SetBase.SpineV
+import Setlec.Semantics.SpineV
 
 /-!
 # The η key, P tier (task #161, IND TIER part 2, item 1a)
@@ -37,10 +37,12 @@ former is the case where the bridge is the install itself
 the invariant (`hIA`).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps ReducibilityHint BinderMeta)
 
@@ -170,7 +172,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
         have h := hTmE; rw [hfm] at h
         exact (Setlec.ConstantInfo.defnInfo.inj (Option.some.inj h)).1
       obtain ⟨-, -, hty, -⟩ :=
-        mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfE)
+        mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfE)
       exact blockTypeReadEq mp hIB hIA hty hren ψ
   have hcbT : ConstsBound env cvT.type := by
     by_cases hT0 : T = c₀.name
@@ -183,7 +185,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
         rw [Setlec.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hfT
         exact hfT
       obtain ⟨-, -, hty, -⟩ :=
-        mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfE)
+        mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfE)
       exact constsBound_of_constsResolve _ hty
   intro us hus
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
@@ -373,4 +375,4 @@ theorem memberEtaLawP : MemberEtaLawP V := by
     hSuniv hxS hRS] at hlanded
   exact eq_of_mem_eqv hlanded
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

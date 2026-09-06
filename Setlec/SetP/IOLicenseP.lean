@@ -1,4 +1,4 @@
-import Setlec.SetBase.Ops
+import Setlec.SetModel.Ops
 
 /-!
 # The io license kit (task #161 stage 2, the io-license batch)
@@ -50,7 +50,8 @@ other skip site exists — the io grade narrows the application clause
 and nothing else.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.SetModel
 
 open SetTheory
 
@@ -130,4 +131,4 @@ theorem io_membership_fails_at_squash :
   · rw [app_pt]
     exact not_mem_empty pt
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

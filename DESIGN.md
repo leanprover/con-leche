@@ -15,7 +15,7 @@ project prompt and is updated as decisions evolve.
 `no_proof_of_Empty{,_input}{,_C,_S,_SP}_R`, `checkDecl_sound_R`,
 `no_constant_of_Empty_R` — stand hypothesis-free at exactly
 `[propext, Classical.choice, Quot.sound]`. Its design record is
-`Setlec/SetR/DESIGN.md`.
+`docs/SetR-DESIGN.md`.
 
 **Two tiers were retired at T7/T7b, by user ruling.** The direct `Expr`
 set model and its consistency proof (`Setlec/Model/*`, 83 files / 62,992
@@ -28,7 +28,7 @@ citations. `Setlec/TTVerify/DESIGN.md` is deliberately kept (its §0/§25
 are the house practices); so is the declarative layer
 `Setlec/TT/{Syntax,Subst,Const,Judgment}` + `Setlec/TT/Semantics/*`,
 because `Setlec/SetR/*` consumes `VExpr`, `interp`, `bval` and
-`HasType.const`/`HasType.sound` — see `Setlec/SetR/DESIGN.md` "T7b" for
+`HasType.const`/`HasType.sound` — see `docs/SetR-DESIGN.md` "T7b" for
 the consumer measurement that fixed that boundary. Its design record is
 `Setlec/TT/DESIGN.md`.
 
@@ -10125,7 +10125,7 @@ streams the reference kernel accepts*.  The grant's rationale, on the
 record: **front-door checks are cheap — they do not affect reduction,
 and they benefit from the infer caches.**
 
-### Why it was owed (`Setlec/SetR/DESIGN.md`, findings A3 → B5 → A5)
+### Why it was owed (`docs/SetR-DESIGN.md`, findings A3 → B5 → A5)
 
 Task #100 stage 6 deleted the λ-annotation re-check along with the
 stored annotations, leaving `inferBody`'s `.lam` clause in the
@@ -10147,7 +10147,7 @@ is what the #151 annotation lane ran into:
   paragraph escalated the fork to the user: reinstate a kernel check
   (A), or bet on an unproved metatheory (B5″).
 
-**The fork is resolved: A, mode-gated.**  `Setlec/SetR/DESIGN.md`'s
+**The fork is resolved: A, mode-gated.**  `docs/SetR-DESIGN.md`'s
 new section records it on the lane's side.
 
 ### The check
@@ -10207,11 +10207,11 @@ body type).  The obstacle, stated so it is not rediscovered:
   fixture, same objection.
 
 **The lane-side record is owed, deliberately.**  This section is the
-resolution of `Setlec/SetR/DESIGN.md`'s A5 fork (repair **A**, granted
+resolution of `docs/SetR-DESIGN.md`'s A5 fork (repair **A**, granted
 with the exception above); the matching "A5 RESOLVED" note belongs in
 that file, but it was in flight under the T5 agent when this landed and
 an edit collision there is not worth a doc placement.  Whoever touches
-`Setlec/SetR/DESIGN.md` next should point A5's *Consequence* paragraph
+`docs/SetR-DESIGN.md` next should point A5's *Consequence* paragraph
 here — the technical content the lane needs is the next two paragraphs.
 
 **Nothing is lost to the lane, but the lane owes an induction.**  At an
@@ -10365,7 +10365,7 @@ structure BinderMeta where       structure IBinderMeta where
 ```
 
 * **Why two levels.**  `Interp2`'s F4 refutation
-  (`Setlec/SetR/DESIGN.md` "F4", mechanized as `lam_cod_sort_needed`
+  (`docs/SetR-DESIGN.md` "F4", mechanized as `lam_cod_sort_needed`
   in `Interp2/TierA.lean`) proves a structural interpretation's λ
   clause *cannot* be sound from the domain sort alone: the regime
   (squash vs graph) is the **codomain** sort's zero-ness.  `piR v A B`
@@ -10377,7 +10377,7 @@ structure BinderMeta where       structure IBinderMeta where
   sort is then `imax u v` for a ∀, read off the term with no
   inference.
 * **Why not `letE`.**  `interp2`'s `letE` clause is ζ (substitute the
-  value) and reads no annotation (`Setlec/SetR/DESIGN.md`, "The two
+  value) and reads no annotation (`docs/SetR-DESIGN.md`, "The two
   regimes": "`letE`: ζ needs no annotation"); the kernel likewise
   ζ-eliminates `letE` before any structural comparison
   (`Core.lean:1487-1492`), so no defeq arm ever compares one.  An
@@ -38676,7 +38676,7 @@ it deserves its own row:
 
 ### 8. WHAT STAGE A DELIBERATELY DID NOT DO
 
-* **`Setlec/SetR/DESIGN.md` is KEPT** (18 524 lines), with a preamble
+* **`docs/SetR-DESIGN.md` is KEPT** (18 524 lines), with a preamble
   saying the tier is gone.  It is not an archive: six live
   `Setlec/SetBase/*` modules — `Rel`, `Ok2`, `Syntax`, `Kit` among them
   — cite it **by path** for the deviations from the official kernel
@@ -42729,6 +42729,250 @@ every `.never` slot is skipped), and cannot touch parity.
   `ProjEntry.native` field are now redundant with `tower` on every
   stored entry; folding the field is a separate cleanup.
 
+## CLEANUP PASS A — MODULE MOVES AND RENAMES (2026-09-06, `agent/cleanup-a`)
+
+### 0. What landed, and the rule it ran on
+
+Six commits, each a coherent move family, each building warning-free
+with `lake test`, `tests/layering.sh` and the proofdeps pin green at
+its own tip.  **No functional edit anywhere**: every `.lean` change is
+an `import` line, a `namespace`/`end`/`open` line, a qualified name, a
+`git mv`, or a verbatim block extraction (stage 6, checked
+mechanically — the reconstruction of the old file from the new ones is
+line-identical modulo blank lines).  Docstrings keep their historical
+spellings: a sentence such as *"namespace (`Setlec.SetR.Interp2`)
+unchanged"* in a module header is true of the batch it describes, and
+this record is where the rename is stated.  The one prose exception is
+the umbrella (`Setlec/Semantics.lean`), which now says what the tier
+is before repeating the task-#161 history verbatim.
+
+The user's two rulings: *"SetModel or Semantics/SetInterp are decent
+names"* for the split of `Setlec/SetBase/*`, and *"move everything
+related to direct structures installation into their own module
+directory"*.
+
+### 1. The move table
+
+Basenames are preserved everywhere (a DESIGN citation such as
+`DirectEntryLawP` still names the file); only directories change.
+`git mv` throughout, so `git log --follow` works.
+
+| stage | from | to | modules |
+|---|---|---|---|
+| 1 | `Setlec/SetBase/{Ops,Value,TupleTower}` | `Setlec/SetModel/` | 3 — the Expr-free tier: `piR`/`lamR`/`app`, the built-in value towers, the tuple tower |
+| 1 | `Setlec/SetBase/{TowerIntro,TowerLeaf,TowerMk,TowerRec,TowerWire}` | `Setlec/Semantics/Tower/` | 5 — the tower introduction machinery (reads annotated field domains, so Expr-facing) |
+| 1 | `Setlec/SetBase/{DeclDirect,DeclDirectEta}` | `Setlec/Semantics/Direct/` | 2 — the direct-structure declaration records and their η half |
+| 1 | `Setlec/SetBase/Bridge/*` | `Setlec/Semantics/Bridge/` | 5 |
+| 1 | every other `Setlec/SetBase/*` | `Setlec/Semantics/` | 39 |
+| 1 | `Setlec/SetBase.lean` | `Setlec/Semantics.lean` + new `Setlec/SetModel.lean` | umbrellas |
+| 3 | `Setlec/SetR/DESIGN.md` | `docs/SetR-DESIGN.md` | the retired tier's §-file leaves the source tree; every citation by path follows (one is a comment in `Kernel/Core.lean`) |
+| 4 | `Setlec/SetP/{Direct*P,DeclDirectP,TowerConsP}` | `Setlec/SetP/Direct/` | 40 — the P-tier install-soundness family |
+| 5 | `Setlec/Verify/{DirectInv,DirectPartsInv,DirectResid,DirectWF}` | `Setlec/Verify/Direct/` | 4 |
+| 6 | `Setlec/Kernel/Direct.lean` | `Setlec/Kernel/Direct/Parts.lean` | the recogniser and the projection-type generators |
+| 6 | `Setlec/Kernel/Checker.lean` lines 17–405 (`directCaps` … `checkDirectStruct`) | `Setlec/Kernel/Direct/Install.lean` | **extracted verbatim**, same import context (`Modeled`, `TrustAxioms`); `Checker` imports it |
+| 6 | `Setlec/Kernel/DeclCheck.lean` lines 798–1055 (the `Mirrors` section's direct tail) | `Setlec/Kernel/Direct/InstallF.lean` | **extracted verbatim**; imports `DeclCheck`; `Cached/CheckerC` and `Verify/FastOps` (the two direct importers of `DeclCheck` that use the mirrors) import it |
+
+The Expr-freeness criterion, applied: a module is `SetModel` iff its
+statements mention neither `Expr` nor `AVExpr`.  That leaves exactly
+three modules — `Univ` (listed by the user under "universes") states
+`interp2_univ_cod_inversion` over `AVExpr` and `EqTower` is `VExpr`
+data, so both are `Semantics`; `TupleTower` keeps its own namespace
+`Setlec.SetTheory.Tower`, which was never `SetR` and is honest.  A
+small pure tier is the finding, not a failure: 31 `Semantics` modules
+never reach the `SetModel` namespace at all (they cannot even `open`
+it — Lean rejects an `open` of a namespace the imports do not
+populate), which is the split made visible.
+
+Not moved, by decision: `Step2/TowerKitP`, `Annot/BitExtendTower`,
+`EqTowerP`, `IndLamTowerP`, `IndTowerReadP` (towers, but the `.proj`
+rows', the basis `Eq` block's and the modeled λ-tower's — not the
+direct install's); the cached drivers' `checkDirectStructS`/`…NC`
+(two definitions each inside `Cached/CheckerC` and `Cached/ParsedNC`,
+the driver's own dispatch — not worth a module).
+
+### 2. The rename table
+
+| old | new | where |
+|---|---|---|
+| namespace `Setlec.SetR.Interp2` | `Setlec.SetModel` | `SetModel/{Ops,Value}` |
+| namespace `Setlec.SetR.Interp2` | `Setlec.Semantics` | every other module that declared it (180) |
+| namespace `Setlec.SetR` | `Setlec.Semantics` | the 30 modules that declared it (28 base, `SetP/Annot/BitInst`, `SetP/BitAgree`) |
+| nested `namespace Interp2` blocks | dissolved | `Semantics/Syntax`, `Semantics/Denote2Closed`, `SetP/Annot/BitInst` |
+| `whnfCoreR_{sort,fvar,forallE,lam,const,lit}` | `whnfCore_leaf_*` | `Semantics/WhnfCoreLeaf` (+ `Step2/WhnfP`, `Step2/ReadsP`) — the six `rfl` facts about the kernel's `whnfCore`, the case Stage C named |
+| `Setlec.SetR.checkDeclRun_ofEnvRE`, `Setlec.SetR.Interp2.EnvS2PM.empty` (qualified) | `Setlec.Semantics.…` | `Verify/Cached/MainC`, `tests/ProofDeps` root `P` |
+
+The two namespaces fold into one because `Setlec.SetR.Interp2` was
+never a sub-tier of `Setlec.SetR` — the `Interp2` was the name of the
+second interpretation (task #151), and the split it once marked is
+now the `SetModel`/`Semantics` directory split.  Resolution
+consequence, stated so nobody re-derives it: inside `namespace
+Setlec.Semantics` a module sees `SetModel` names only through `open
+Setlec.SetModel` (inserted after every `namespace Setlec.Semantics` in
+the 179 modules whose imports reach `Ops`/`Value`), and namespace
+candidates beat opened ones, so a `Setlec.foo`/`Setlec.SetModel.foo`
+pair would now resolve to the former where before it was ambiguous.
+The build found no such pair.  The P tier keeps `Setlec.Semantics` as
+its namespace: it always shared the base namespace, and giving it
+`Setlec.SetP` is one further `sed` plus an `open` per module — not
+taken, not needed.
+
+**The R-tag census, left for a grant.**  Beyond `whnfCoreR_*`, 38
+declarations spelled `<X>R` survive (248 code uses over 47 files):
+the run-record family (`DeclRunR`, `DeclIndRunR`, `IndRecsRunR`,
+`IndMembersRunR`, `ConstantValRunR`, `ProvisionRecsRunR`, `Decl*RunR`,
+`Iota*RunR`, …), the bridge invariant `EnvR` (17 uses, 7 files) and
+its `toEnvR`, the records `BasisInstallR`, `DeclDirectR`,
+`DirectProjFoldR`, `RuleFactsR`, `TemplatesR`, `DeclBasisR`.  In all
+of these the `R` is the retired lane's tag (Stage C kept
+`DeclIndR.TemplatesR` for exactly this reason).  *Not* R-tier:
+`piR`/`lamR` (regime), `directProjTyR` (residual, kernel),
+`quotLiftR`, `unitPropR`, `defeqC_etaR_arm`, `bindR`.  The honest
+names are one `sed` each (`…RunR` → `…Run`, `EnvR` → `EnvFacts` or
+`EnvInv`, `DeclDirectR` → `DeclDirectRun`), but 47 files is the whole
+record tier and the consolidation review of the direct-structure proof
+modules is reading those files now; the rename is part B's, on a
+grant, with the names chosen once.
+
+### 3. The gates, and what the proofdeps pin says
+
+* `tests/layering.sh`: `THEORY_PFX` and the hint texts name
+  `Setlec.SetModel.`/`Setlec.Semantics.` instead of `Setlec.SetBase.`;
+  census `base 230 / P 163 / caps 2 / umbrella 1; 0 base->lane, 0
+  impl->theory` (base +2 = the two extracted kernel modules).  The
+  CLAUDE.md layering bullet names the new directories and the
+  per-layer `Direct/` convention.
+* `tests/proofdeps-expected.txt` regenerated at stages 2, 4, 5 and 6.
+  **A renamed module is neither a door nor a departure**: at each of
+  stages 2/4/5 the diff between the old pin and the new rows, modulo
+  the move table, is empty — the four closures are the same sets under
+  new names.  Stage 6 is a *split*: the one row `Setlec.Kernel.Direct`
+  becomes `Direct.Parts` + `Direct.Install` on all four capstones and
+  additionally `Direct.InstallF` on the three cached ones (`P`, the
+  pure fueled checker, does not reach the index mirrors — the pin now
+  says so).  1 357 → 1 364 rows, doors 0.
+* Worktree note (an hour lost): `tests/arena.sh` runs the binary from
+  the worktree, whose `_tmp/` holds only the fixtures; without
+  `_tmp/lean-inductive-models` and `_tmp/init-exports` linked in from
+  the main checkout every inductive fixture **declines (exit 2)** —
+  "preprocessor exited 255" — which is not a checker regression but
+  looks exactly like one.
+
+### 4. Receipts (branch tip, master `8f9e8250` merged = no-op)
+
+* `lake build` warning-free at every stage; `lake test` exit 0;
+* `tests/arena.sh` exit 0: tutorial 90/92, e2e 73/73, annot 14/14,
+  retired flags 8/8, mode flags 14/14, no-model sweep as expected (3
+  recorded divergences), proofdeps 1 364 rows / doors 0, layering as
+  above;
+* init-full-pre2 (`--pre`, `ulimit -v 16G`, `perf stat -e
+  instructions:u`, single runs, one session, the two cells strictly
+  sequential): **61 048 accepted** in both modes; P **987.27 G** /
+  167.2 s (W6 landed: 987.24 G, +0.003 %), parity **1085.83 G** /
+  184.5 s (W6 landed: 1085.74 G, +0.008 %) — a module move cannot change
+  the instruction stream, and the numbers are within the
+  single-run noise band the ladder audit measured (0.02–0.04 %);
+* no `sorry`, no new axiom, no statement changed.
+
+### 5. Ledger
+
+> *A rename is verified by the diff modulo the rename table, and only
+> by that.*  Building green says the tree still elaborates; the empty
+> diff between the old proofdeps pin and the new rows under the move
+> table says the closures did not move, which is the property a
+> renaming batch owes.
+
+> *Code-only renames; prose is history.*  A mechanical sweep over
+> docstrings turns "namespace unchanged" into a false sentence; the
+> honest record of a rename is one table in this file, and the
+> module headers stay as written when they were true.
+
+## CLEANUP PASS B — THE R TAG AND THE P NAMESPACE (2026-09-06, `agent/cleanup-b`)
+
+Granted off pass A's finding 1 and finding 3, on master `697a74e6`.
+Two commits, both mechanical under a table, both audited as pass A
+was (the whole diff, minus the table's rewrites, minus
+`namespace`/`end`/`open` lines, listed and read).
+
+### 1. B1 — the retired lane's tag, dropped (one convention)
+
+The convention: **a record of what the checker's run established is a
+`…Run`; a record of facts about an environment is `…Facts`; a
+namespace is named for what it holds.**  The `R` on all of these was
+the collapsed lane's tag (task #161's "run conjuncts → P, derivation
+conjuncts → R" split), and the lane is gone.
+
+| old | new | old | new |
+|---|---|---|---|
+| `DeclRunR` | `DeclRun` | `DeclIndRunR` | `DeclIndRun` |
+| `ConstantValRunR` | `ConstantValRun` | `ValueFrontRunR` | `ValueFrontRun` |
+| `DeclDefnRunR` / `DeclThmRunR` / `DeclOpaqueRunR` / `DeclAxiomRunR` | `…Run` | `DivModPinRunR` / `ReducePinRunR` / `NatEqsRunR` | `…Run` |
+| `IndMembersRunR` / `IndRecsRunR` / `IndRecsFoldRunR` | `…Run` | `ProvisionRecsRunR` / `MemberValRunR` | `…Run` |
+| `IotaRuleRunR` / `IotaRulesRunR` / `IotaThmRunR` / `IotaThmNRunR` | `…Run` | `ProjFnRunR` / `ProjInstallRunR` | `…Run` |
+| `iotaRulesFactsRunR` | `iotaRulesFactsRun` | `DeclIndRunDispatchR` | `DeclIndRunDispatch` |
+| `declIndRunRR` | `declIndRun_of` (its siblings' spelling) | every `xRunR_*` lemma | `xRun_*` |
+| `BasisInstallR` | `BasisInstallRun` | `DeclDirectR` | `DeclDirectRun` |
+| `DirectProjFoldR` | `DirectProjFoldRun` | `DeclBasisR` / `declBasisR` | `DeclBasisRun` / `declBasisRun` |
+| `IotaRunsR` | `IotaRuns` | `RuleFactsR` | `RuleFacts` |
+| `DeclIndR.TemplatesR` | `DeclIndRun.Templates` (`templatesR_*` → `templates_*`) | `projFnR_head` | `projFn_head` |
+| `EnvR` | `EnvFacts` (its own docstring's word) | `EnvS2PM.toEnvR` | `toEnvFacts` |
+| `checkDeclRun_ofEnvRE` | `checkDeclRun_ofEnvFactsE` | | |
+| module `Semantics/EnvR` | `Semantics/EnvFacts` | module `Semantics/EnvRCons` | `Semantics/EnvFactsCons` |
+| module `Semantics/IndBlockR` | `Semantics/IndBlockFacts` | module `Semantics/IndRecsCoreR` | `Semantics/IndRecsCore` |
+| module `Semantics/ProjFnRR` | `Semantics/ProjFnFacts` | | |
+
+Left alone, as ruled: `piR`/`lamR` (regime), `directProjTyR`
+(residual), `quotLiftR`; also `unitPropR`, `defeqC_etaR_arm`, `bindR`,
+and hypothesis/field names (`hokR`, `invR`, `lenR`, `okR`) — none is
+the lane's tag.  Docstrings **follow** this rename (unlike pass A's
+namespace rename): a docstring naming a declaration should name one
+that exists, and no historical claim turns false by it.  The census
+was taken at the environment level (`_tmp/cleanup-b/RCensus.lean`,
+every `Setlec.*` constant with an `R`-tagged component), not by grep,
+so structure fields and auto-generated names were in view — 62 table
+rows, 509 changed lines over 51 files, all mechanical under the table.
+The proofdeps pin: zero diff modulo the five module renames.
+
+### 2. B2 — `Setlec.SetP` (finding 3, its own commit)
+
+Every `Setlec/SetP` module now declares `namespace Setlec.SetP` and
+opens `Setlec.Semantics`; the 379 qualified uses of P-defined names
+follow (`Setlec.Semantics.X` → `Setlec.SetP.X`, decided against the
+environment's list of 4 659 constants P defines), as do `MainC`'s
+`open` list and the proofdeps root `P` (`Setlec.SetP.no_proof_of_Empty_P`).
+Module rows do not move, so the pin is untouched.
+
+It was *nearly* one sed.  Three exceptions, each marked at the site:
+
+* `SetP/Annot/BitInst`'s lift-identity block and the whole of
+  `SetP/BitAgree` **extend `Setlec.Semantics.AVExpr`** — `e.liftN_zero`,
+  `e.BitAgree`, the unqualified `liftN_*` names inside the block — and
+  dot notation resolves in the type's namespace, so both stay in
+  `Setlec.Semantics` (BitAgree opens `Setlec.SetP` for `AnnotValidV`).
+  Their nine names keep their `Setlec.Semantics.AVExpr.*` spellings.
+* `SetP/AxiomMemP` names `Setlec.Semantics.pt_not_mem_univZero`
+  explicitly: inside `namespace Setlec.Semantics` the namespace
+  candidate beat `SetTheory.pt_not_mem_univZero` (opened); inside
+  `Setlec.SetP` both arrive through `open` and Lean reports the term
+  ambiguous.  Pass A's record predicted this class; it fired once.
+
+Not noisy, therefore kept.  The resolution rule it documents: a P
+module that adds lemmas into a Semantics type's namespace must say so
+(`namespace Setlec.Semantics.T`), which is now visible in the source
+instead of implicit in a shared namespace.
+
+### 3. Receipts (branch tip, master `697a74e6`)
+
+* `lake build` warning-free (B1 102 s, B2 131 s); `lake test` exit 0;
+* `tests/arena.sh` exit 0 after each commit: tutorial 90/92, e2e
+  73/73, annot 14/14, flags 8/8 + 14/14, no-model sweep as expected,
+  proofdeps 1 364 rows / doors 0, layering `base 230 / P 163 / caps 2;
+  0/0`;
+* init-full-pre2 (`--pre`, 16G, `perf stat -e instructions:u`,
+  sequential single runs): **61 048 accepted** in both modes; P
+  **987.26 G** / 166.1 s (pass A: 987.27 G, −0.001 %), parity
+  **1085.84 G** / 192.3 s (pass A: 1085.83 G, +0.001 %);
+* no `sorry`, no new axiom, no statement changed.
+
 ## The Mathlib frontier in P mode: 17.4 % of the stream, and the wall is a `decide`-over-`Rat` divergence, not memory (2026-09-06, queue item 5)
 
 The full preprocessed Mathlib stream
@@ -42913,3 +43157,4 @@ names, and building a general skip list was explicitly out of scope.
   of magnitude — and the retained-list growth would put the peak at
   ~16–17 GiB, still inside the 22 GB cap but with the streaming-parse
   fix (§2) it would be ~5 GiB.
+

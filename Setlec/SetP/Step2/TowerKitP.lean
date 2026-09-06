@@ -23,10 +23,12 @@ law itself (`TowerOkP`, `Annot/EnvS2P.lean`):
   down (`ProjAVKitP`, which `DefEqP` — below the law — also reads).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ProjEntry)
 
 universe w
@@ -159,7 +161,7 @@ theorem towerEntry_ty_wf (hwf : Setlec.EnvWF env) {T : Name} {i : Nat}
     entry.ty.hasFvar = false ∧ entry.ty.looseBVarsBounded 0 = true ∧
       entry.ty.constsResolve env = true := by
   obtain ⟨h1, -, h3, h4, -⟩ :=
-    hwf _ (Setlec.SetR.Env.find?_mem (Setlec.Env.findProj?_some hfe))
+    hwf _ (Setlec.Semantics.Env.find?_mem (Setlec.Env.findProj?_some hfe))
   exact ⟨h1, h4, h3⟩
 
 /-- The entry type's level instantiation is closed. -/
@@ -188,4 +190,4 @@ theorem towerEntry_ty_at_depth {m : EnvS2Core V env} {T : Name} {i : Nat}
     denoteP_closed m.acval_erase m.cval_closed hnf hb hTa 1 k
   exact ⟨denoteP_depth_of_closed m.acval_closed hnf hcl hTa, hcl⟩
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

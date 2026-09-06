@@ -1,5 +1,4 @@
-import Setlec.SetBase.IndBlockRun
-
+import Setlec.Semantics.IndBlockRun
 import Setlec.SetP.IotaRulePlainP
 
 import Setlec.SetP.IndPinRowP
@@ -27,11 +26,13 @@ at `Level.substFn φ lps us` on the stored pin, and
 two.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
 
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta RecRule isDefEqCore inferTypeCore DefEqListOk TypedListOk)
@@ -62,7 +63,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
-    (hkit : IotaRuleRunR μ F env₂ envSelf f cvA.name
+    (hkit : IotaRuleRun μ F env₂ envSelf f cvA.name
       cvA.levelParams cvA.type mI rP j r r')
     {lvls : List Level} {pins : List Expr}
     (hfireN : RecRule.fire r' = .nested lvls pins) (φ : Name → Nat) :
@@ -491,7 +492,7 @@ theorem iotaRuleP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hbnA : blockNames.contains cvA.name = true)
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
-    (hkit : IotaRuleRunR μ F env₂ envSelf f cvA.name
+    (hkit : IotaRuleRun μ F env₂ envSelf f cvA.name
       cvA.levelParams cvA.type mI rP j r r')
     (hfire : RecRule.fire r' ≠ .inert) (φ : Name → Nat) :
     RecRuleLawP mp.base2 φ cvA.name cvA mI rP r' := by
@@ -525,7 +526,7 @@ theorem iotaRulesP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     (hself : envSelf.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA) :
     ∀ (j : Nat) (rules rules' : List RecRule),
-      IotaRulesRunR μ F env₂ envSelf f cvA.name
+      IotaRulesRun μ F env₂ envSelf f cvA.name
         cvA.levelParams cvA.type mI rP j rules rules' →
       ∀ rl ∈ rules', RecRule.fire rl ≠ .inert → ∀ φ : Name → Nat,
         RecRuleLawP mp.base2 φ cvA.name cvA mI rP rl := by
@@ -545,4 +546,4 @@ theorem iotaRulesP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
         heqfind hkit hfire φ
     · exact ih (j + 1) rest' hrec rl hrl'
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

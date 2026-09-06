@@ -31,10 +31,12 @@ The quarter-level ∀-env assemblies (`AssemblyP.lean`) remain the
 frozen quarter statements; this file is what the fold consumes.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name)
 
 universe w
@@ -279,4 +281,4 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
   nat_stepQ := hnatQ
   caps_ok := mp.caps_ok
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

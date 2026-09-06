@@ -1,5 +1,5 @@
 import Setlec.SetP.IndRecsP
-import Setlec.SetBase.ProjPhase
+import Setlec.Semantics.ProjPhase
 
 /-!
 # The projection phase's renaming and valuation invariant, P tier
@@ -18,10 +18,12 @@ clauses are *literally* v1's (`RenameOkP` and `RenameOkT` share them),
 and only the valuation clause is re-proved at the annotated valuation.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps projFnName projModelName projFwd ReducibilityHint)
 
@@ -150,4 +152,4 @@ theorem projPhaseAcvalP_cons {T ctorName : Name} {nF : Nat}
         acvalWith_ne (hne _ (hmodelNeP j))]
       exact hinvA.2.2 j hj (hdown _ hjneP hP) ψ
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

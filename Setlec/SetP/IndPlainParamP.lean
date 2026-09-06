@@ -29,10 +29,12 @@ parameter positions are the instantiated pins, and the row that types
 them is `IotaThmNR`'s `TypedListOk`, not a `DefEqListOk`.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
@@ -219,4 +221,4 @@ theorem plainParamSupplyP {m : EnvS2Core V env} {F : Nat}
   have h := (hladder q hq ρ' (hsatB ρ' hsat) dw hdw).2
   simpa using h
 
-end Setlec.SetR.Interp2
+end Setlec.SetP

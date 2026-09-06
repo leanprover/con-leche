@@ -4,7 +4,7 @@ import Setlec.SetP.DivModCertP
 import Setlec.SetP.CapsP
 import Setlec.SetP.RecRulesPCons
 import Setlec.SetP.ReduceOpsP
-import Setlec.SetBase.DeclRun
+import Setlec.Semantics.DeclRun
 
 /-!
 # The harvest, value kinds (task #161, P4 — the fold's species)
@@ -43,10 +43,12 @@ refutable at a support-completing install, and the monotone crossing
 the harvests carry no literal-tier premise at all.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetP
+open Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint inferTypeCore isDefEqCore)
 
@@ -156,7 +158,7 @@ theorem harvestDefnP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     {env₂ : Env}
-    (hR : DeclDefnRunR μ F env cv value hint env₂) :
+    (hR : DeclDefnRun μ F env cv value hint env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
@@ -534,7 +536,7 @@ are destructured away with `-`. -/
 theorem harvestThmP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (hR : DeclThmRunR μ F env cv value env₂) :
+    (hR : DeclThmRun μ F env cv value env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
@@ -866,7 +868,7 @@ itself. -/
 theorem harvestAxiomP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → AVExpr}
-    (hcv : ConstantValRunR μ F env cv type')
+    (hcv : ConstantValRun μ F env cv type')
     (hAvclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase))
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -1048,7 +1050,7 @@ no `defn_eq`/`thm_ok` detour. -/
 theorem harvestOpaqueP (hμ : μ.verified = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
-    (hR : DeclOpaqueRunR μ F env cv value env₂) :
+    (hR : DeclOpaqueRun μ F env cv value env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨type', value', hcv, hvfr, rfl, hred⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
@@ -1294,4 +1296,4 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
       (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
-end Setlec.SetR.Interp2
+end Setlec.SetP
