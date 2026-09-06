@@ -70,7 +70,7 @@ structure RecData {env : Env} (m : EnvS2Core V env) (cvR : ConstantVal)
 
 /-- The recursor's data, from its `checkConstantVal` run and the
 recursor-type stage's shape. -/
-theorem recData_of (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+theorem recData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal}
     (hccv : Setlec.checkConstantVal (Setlec.fueledOps μ F) env p.cvR = .ok cvRa)
     (hRec : Setlec.checkDirectRecTy (Setlec.fueledOps μ F) env p cvTa cvCa cvRa

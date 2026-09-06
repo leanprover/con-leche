@@ -8,7 +8,7 @@ re-measuring (`perf-tables.sh --render`).
 
 LAYOUT RULE (user, 2026-09-05): *three columns, instructions only, one
 run per cell, no superseded noise.*  The file shows the current matrix —
-official, parity (`--no-model`), P (`--set-model=p`) — with the exit code
+official, trusted (`--trusted`), verified (`--verified`) — with the exit code
 and accepted-declaration count beside every cell, and nothing else.  No
 historical columns, no retired flags, no "was X" annotations; prose stays
 at a few lines.
@@ -52,11 +52,11 @@ cells, stream_order = read_cells(tsv)
 # only if the run declared it (meta `configs`) and it produced cells.
 LABELS = {
     "official": "official v4.33.0",
-    "parity":   "parity `--no-model`",
-    "P":        "P `--set-model=p`",
+    "trusted":  "trusted `--trusted`",
+    "verified": "verified `--verified`",
 }
 present = [c for s in stream_order for c in cells[s]]
-declared = meta.get("configs", "official parity P").split()
+declared = meta.get("configs", "official trusted verified").split()
 live = [c for c in declared if c in LABELS and c in present]
 
 
@@ -102,14 +102,14 @@ A("")
 A("## instructions:u")
 A("")
 A("| stream | " + " | ".join(LABELS[c] for c in live)
-  + " | parity ÷ official | P ÷ official |")
+  + " | trusted ÷ official | verified ÷ official |")
 A("|" + "---|" * (len(live) + 3))
 for s in stream_order:
     base_rec = cells[s].get("official")
     base = base_rec["instr"] if ok(base_rec) else 0
     row = [instr_text(cells[s].get(c)) for c in live]
-    row.append(ratio_text(cells[s].get("parity"), base))
-    row.append(ratio_text(cells[s].get("P"), base))
+    row.append(ratio_text(cells[s].get("trusted"), base))
+    row.append(ratio_text(cells[s].get("verified"), base))
     A(f"| `{s}` | " + " | ".join(row) + " |")
 A("")
 
@@ -129,14 +129,16 @@ A("")
 
 A("## Notes")
 A("")
+if meta.get("stalenote"):
+    A(f"* {meta['stalenote']}")
 A("* **Cross-pipeline, not same-work.**  Both sides read the same bytes,")
 A("  but every setlec cell checks a *modeled* encoding of the inductive")
 A("  blocks plus an `annotate` pass with no official counterpart, while")
 A("  official checks that file with native inductive/recursor support.")
 A("  Hence the accepted-declaration counts differ too.")
-A("* **`--no-model` under-checks install-only kinds** (axioms, inductive")
+A("* **`--trusted` under-checks install-only kinds** (axioms, inductive")
 A("  blocks, quot, the pinned-cert branches run at io grade), which")
-A("  flatters the parity column on inductive-heavy streams.")
+A("  flatters the trusted column on inductive-heavy streams.")
 A("* One run per cell on a shared machine: `instructions:u` is")
 A("  contention-independent, so a cell may overlap other work; wall time")
 A("  is not reported for that reason.")

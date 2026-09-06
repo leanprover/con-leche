@@ -483,7 +483,7 @@ value is `eq_lawP`'s (the field, at the pin's own level instantiation
 `u ↦ 1`), and `iff_forces_eqP` supplies the equation. -/
 
 /-- **`propext` inhabits its stored type's reading.** -/
-theorem propext_memP (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+theorem propext_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {cvA : ConstantVal} (hok : Setlec.stdAxiomOk env cvA = true)
     (hn : cvA.name = propextName) {F d : Nat} {stype : Expr}
     (hrun : Setlec.inferTypeCore μ env F d cvA.type = .ok stype)
@@ -880,7 +880,7 @@ witness's two `lamR`s and the reading's two `piR`s agree on zero-ness
 and `lamR_mem_zero_agree` crosses each.  `dneg_eq_nonemptyP` identifies
 the witness's double-negation domain with the checker's stored
 `Nonempty`. -/
-theorem choice_memP (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+theorem choice_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {cvA : ConstantVal} (hok : Setlec.stdAxiomOk env cvA = true)
     (hn : cvA.name = choiceName) {F d : Nat} {stype : Expr}
     (hrun : Setlec.inferTypeCore μ env F d cvA.type = .ok stype)

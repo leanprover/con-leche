@@ -45,10 +45,10 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
   obtain rfl : a = i := hdena.symm
   obtain rfl : b = j := hdenb.symm
   show SimC mode env s₀ RelVC
-    (if mode.verified &&
+    (if mode.verifiedChecks &&
         (notProofFast (mkFEnv env).find? a || notProofFast (mkFEnv env).find? b)
       then pure false
-      else if mode.verified && mode.betaGate &&
+      else if mode.verifiedChecks && mode.betaGate &&
         isProofFast (mkFEnv env).find? a && isProofFast (mkFEnv env).find? b
       then pure true else
       (coreKnotI mode (mkFEnv env) f).inferIO d a >>= fun ta =>
@@ -75,12 +75,12 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     (propIrrel mode (fueledFns mode env) env d a b)
   rw [show (mkFEnv env).find? = env.find? from funext (mkFEnv_find? env)]
   unfold propIrrel
-  by_cases hc : (mode.verified &&
+  by_cases hc : (mode.verifiedChecks &&
       (notProofFast env.find? a || notProofFast env.find? b)) = true
   · rw [if_pos hc, if_pos hc]
     exact SimC.pure hs rfl
   · rw [if_neg hc, if_neg hc]
-    by_cases hy : (mode.verified && mode.betaGate &&
+    by_cases hy : (mode.verifiedChecks && mode.betaGate &&
         isProofFast env.find? a && isProofFast env.find? b) = true
     · rw [if_pos hy, if_pos hy]
       exact SimC.pure hs rfl
@@ -343,7 +343,7 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
           (coreKnotI mode (mkFEnv env) f).defeq (d + 1) b₁ ba
             >>= fun r₂ =>
           if r₂ = true then
-            if (mode.verified && !(m₁.pw.equiv m₂.pw)) = true then
+            if (mode.verifiedChecks && !(m₁.pw.equiv m₂.pw)) = true then
               (throw (.notImplemented "sort-annotation mismatch (eta)")
                 : CheckCM Unit) >>= fun _ => pure true
             else pure true
@@ -360,7 +360,7 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
             (body₁x.instantiate1 (.fvar d n₁ ty₁x))
             (.app bx (.fvar d n₁ ty₁x)) >>= fun r₂ =>
           if r₂ = true then
-            if (mode.verified && !(m₁.pw.equiv m₂.pw)) = true then
+            if (mode.verifiedChecks && !(m₁.pw.equiv m₂.pw)) = true then
               (throw (.notImplemented "sort-annotation mismatch (eta)")
                 : FueledM Unit) >>= fun _ => pure true
             else pure true

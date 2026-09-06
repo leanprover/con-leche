@@ -90,7 +90,7 @@ structure FormerData {env : Env} (m : EnvS2Core V env) (cvT : ConstantVal)
 
 /-- The former's data, from its `checkConstantVal` run at the
 pre-block environment and the annotated telescope shape. -/
-theorem formerData_of (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {cvT cvTa : ConstantVal} {nP : Nat} {resSort : Level}
     {bs : List (Name × Expr × Setlec.BinderMeta)}
     (hccv : Setlec.checkConstantVal (Setlec.fueledOps μ F) env cvT = .ok cvTa)

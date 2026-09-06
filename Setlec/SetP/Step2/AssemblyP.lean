@@ -37,7 +37,7 @@ routed is of two kinds only:
   fragment, and checker outputs stay in fragment — the upgrade path
   `Claims2P.lean`'s docstring names.
 
-The mode hypothesis `μ.verified = true` is load-bearing exactly once
+The mode hypothesis `μ.verifiedChecks = true` is load-bearing exactly once
 (the defeq binder arms' certificate extraction) and threaded uniformly.
 -/
 
@@ -69,7 +69,7 @@ boundary — no full-lane claim is discharged from an io claim, by
 construction). -/
 
 /-- **The five-way step, from the quarters.** -/
-theorem checkStep2P5_of_quarters (hμ : μ.verified = true)
+theorem checkStep2P5_of_quarters (hμ : μ.verifiedChecks = true)
     (hwin : WhnfInputsP V μ) (hdin : DefEqInputsP μ V)
     (hiin : InferInputsIOP V μ) : CheckStep2P5 μ V :=
   fun env m φ fuel h1 h2 h3 h4 h5 =>
@@ -88,7 +88,7 @@ theorem checkStep2P5_of_quarters (hμ : μ.verified = true)
 and the io claim hold at every fuel, at a validating mode, given the
 routed input bundles.  This is what B4's driver-side skip baking
 consumes at each io call site. -/
-theorem checkSoundP5_of_inputs (hμ : μ.verified = true)
+theorem checkSoundP5_of_inputs (hμ : μ.verifiedChecks = true)
     (hwin : WhnfInputsP V μ) (hdin : DefEqInputsP μ V)
     (hiin : InferInputsIOP V μ) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) :

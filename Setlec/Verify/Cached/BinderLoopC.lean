@@ -137,14 +137,14 @@ theorem inferLamsOutC_sim {d : Nat} :
       subst hmb
       show SimC mode env s₀ RelDC
         (do
-          if mode.verified && !(mb.pw.equiv prevPw) then
+          if mode.verifiedChecks && !(mb.pw.equiv prevPw) then
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-chain)")
           let tyAbs ← abstractRangeM tyo d j
           let node ← internI (.forallE n tyAbs cur mb)
           inferLamsOutI (cfgOf mode) d rest (j - 1) node mb.pw)
         (do
-          if mode.verified && !(mb.pw.equiv prevPw) then
+          if mode.verifiedChecks && !(mb.pw.equiv prevPw) then
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-chain)")
           inferLamsOut (m := FueledM) mode d rx (j - 1)
@@ -193,7 +193,7 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
     exact inferLamsOutC_sim hs₅ hstk hQcur
   all_goals
     dsimp only [ExprC.view, Expr.lamPw]
-    by_cases hv : mode.verified = true
+    by_cases hv : mode.verifiedChecks = true
     case neg =>
       simp only [Bool.not_eq_true] at hv
       simp only [cfgOf_verified, hv, ↓reduceIte]
@@ -397,13 +397,13 @@ theorem inferPisOutC_sim :
         (do
           let (pv, memo) ← Setlec.Cached.withStore fun st =>
             st.zeronessOfLIGo memo v
-          if mode.verified && !(pv.equiv pw) then
+          if mode.verifiedChecks && !(pv.equiv pw) then
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
           internLM (.imax u v) >>= fun v' =>
             inferPisOutI (cfgOf mode) rest v' memo)
         (do
-          if mode.verified && !((Level.zeronessOf v).equiv pw) then
+          if mode.verifiedChecks && !((Level.zeronessOf v).equiv pw) then
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
           inferPisOut (m := FueledM) mode rx (.imax u v))
@@ -553,7 +553,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
     ((do
       let bt ← (fueledFns mode env).infer (d + 1)
         (bodyx.instantiate1 (.fvar d nm tyx))
-      if mode.verified then
+      if mode.verifiedChecks then
         match bodyx.lamPw with
         | some pwI =>
           unless mbx.pw.equiv pwI do
@@ -568,7 +568,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
       pure (Expr.forallE nm tyx (bt.abstract1 d) mbx)) : FueledM Expr).val F
     = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx))
         >>= fun bt => (do
-          if mode.verified then
+          if mode.verifiedChecks then
             match bodyx.lamPw with
             | some pwI =>
               unless mbx.pw.equiv pwI do
@@ -584,7 +584,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
   rw [FueledM.atF_bind]
   congr 1
   funext bt
-  by_cases hv : mode.verified = true
+  by_cases hv : mode.verifiedChecks = true
   case neg => rw [if_neg hv, if_neg hv]; rfl
   rw [if_pos hv, if_pos hv]
   cases hbp : bodyx.lamPw with
@@ -622,7 +622,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
       (do
         let bt ← (fueledFns mode env).infer (d + 1)
           (bodyx.instantiate1 (.fvar d nm tyx))
-        if mode.verified then
+        if mode.verifiedChecks then
           match bodyx.lamPw with
           | some pwI =>
             unless (⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI do
@@ -678,12 +678,12 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
         Bool.false_eq_true, ↓reduceIte] at htail
       unfold inferLamsWrap at htail
       dsimp only
-      by_cases hg : (mode.verified
+      by_cases hg : (mode.verifiedChecks
           && !((⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI)) = true
       · rw [if_pos hg] at htail
         exact nomatch htail
       rw [if_neg hg] at htail
-      by_cases hv : mode.verified = true
+      by_cases hv : mode.verifiedChecks = true
       · rw [if_pos hv]
         have hpw : (⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI = true := by
           by_cases hc : (⟨mbbi, mbpw⟩ : BinderMeta).pw.equiv pwI = true
@@ -699,7 +699,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
         cases bodyx <;> first | rfl | exact nomatch hbp
       simp only [hbl, Bool.not_false, Bool.and_true] at htail
       dsimp only
-      by_cases hv : mode.verified = true
+      by_cases hv : mode.verifiedChecks = true
       case neg =>
         rw [if_neg hv] at htail ⊢
         unfold inferLamsWrap at htail
@@ -734,7 +734,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
         (Expr.WScoped.instantiate1 hwty 0 hwbody)
     have hres : vv = Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, mbpw⟩ := by
       revert hF
-      by_cases hv : mode.verified = true
+      by_cases hv : mode.verifiedChecks = true
       case neg =>
         rw [if_neg hv]
         intro hF
@@ -779,14 +779,14 @@ private theorem inferPiTail_atF {env : Env} (d : Nat) (nm : Name)
       let v ← ensureSort (fueledFns mode env) env (d + 1)
         (← (fueledFns mode env).infer (d + 1)
           (bodyx.instantiate1 (.fvar d nm tyx)))
-      if mode.verified then
+      if mode.verifiedChecks then
         unless (Level.zeronessOf v).equiv pw do
           throw (.notImplemented "sort-annotation mismatch (forall-cod)")
       pure (Expr.sort (.imax lu v))) : FueledM Expr).val F
     = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx))
         >>= fun bt => ensureSortCore mode env F (d + 1) bt >>= fun v =>
         (do
-          if mode.verified then
+          if mode.verifiedChecks then
             unless (Level.zeronessOf v).equiv pw do
               throw (.notImplemented
                 "sort-annotation mismatch (forall-cod)")
@@ -797,7 +797,7 @@ private theorem inferPiTail_atF {env : Env} (d : Nat) (nm : Name)
   rw [FueledM.atF_bind, ensureSort_atF]
   congr 1
   funext v
-  by_cases hv : mode.verified = true
+  by_cases hv : mode.verifiedChecks = true
   case neg => rw [if_neg hv, if_neg hv]; rfl
   rw [if_pos hv, if_pos hv]
   by_cases hz : (Level.zeronessOf v).equiv pw = true
@@ -821,7 +821,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
         let v ← ensureSort (fueledFns mode env) env (d + 1)
           (← (fueledFns mode env).infer (d + 1)
             (bodyx.instantiate1 (.fvar d nmx tyx)))
-        if mode.verified then
+        if mode.verifiedChecks then
           unless (Level.zeronessOf v).equiv pw do
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
@@ -858,7 +858,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
     have hv' : ensureSortCore mode env F' (d + 1) bt = .ok v := hv
     rw [hv', okB_bind]
     dsimp only at hwrap ⊢
-    by_cases hver : mode.verified = true
+    by_cases hver : mode.verifiedChecks = true
     case neg =>
       rw [if_neg hver] at hwrap ⊢
       unfold inferPisWrap at hwrap
@@ -879,7 +879,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
     obtain ⟨bt, hbt, hF⟩ := bind_okB hF
     obtain ⟨v, hv, hF⟩ := bind_okB hF
     revert hF
-    by_cases hver : mode.verified = true
+    by_cases hver : mode.verifiedChecks = true
     case neg =>
       rw [if_neg hver]
       intro hF
@@ -1048,7 +1048,7 @@ theorem annotatePisPwC_sim (ih : SSimC mode env f) {d k : Nat}
   -- syntactically even when the propositions do not.  `by_cases` on
   -- the decided condition plus `simp only [.., ↓reduceIte]` is B2's
   -- own idiom and it decides both sides at once.
-  by_cases hv : mode.verified = true
+  by_cases hv : mode.verifiedChecks = true
   · simp only [cfgOf_verified, hv, ↓reduceIte]
     refine SimC.bind (annotPwPiC_sim ih hs hl hw)
       (fun s₁ p px hs₁ hP => ?_)
@@ -1068,7 +1068,7 @@ theorem annotateLamsPwC_sim (ih : SSimC mode env f) {d k : Nat}
       (annotateLamsPwI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d k leaf')
       (annotateLamsPw mode (fueledFns mode env) env d k leafx) := by
   unfold annotateLamsPwI annotateLamsPw
-  by_cases hv : mode.verified = true
+  by_cases hv : mode.verifiedChecks = true
   · simp only [cfgOf_verified, hv, ↓reduceIte]
     refine SimC.bind (annotPwLamC_sim ih hs hl hw)
       (fun s₁ p px hs₁ hP => ?_)
@@ -1294,14 +1294,14 @@ private theorem annPiTail_atF {env : Env} (d : Nat) (nm : Name)
     ((do
       let body' ← (fueledFns mode env).annotate (d + 1)
         (bodyx.instantiate1 (.fvar d nm tyx'))
-      if mode.verified && !pwWritten mx.pw then
+      if mode.verifiedChecks && !pwWritten mx.pw then
         annotPwPi (fueledFns mode env) env (d + 1) body' >>= fun pw =>
           pure (Expr.forallE nm tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
       else pure (Expr.forallE nm tyx' (body'.abstract1 d) ⟨mx.bi, mx.pw⟩))
       : FueledM Expr).val F
     = (annotateCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx'))
         >>= fun body' =>
-        if mode.verified && !pwWritten mx.pw then
+        if mode.verifiedChecks && !pwWritten mx.pw then
           annotPwPi (pureFns mode env F) env (d + 1) body' >>= fun pw =>
             pure (Expr.forallE nm tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
         else pure (Expr.forallE nm tyx' (body'.abstract1 d)
@@ -1333,7 +1333,7 @@ theorem annotatePisC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
       (do
         let body' ← (fueledFns mode env).annotate (d + 1)
           (bodyx.instantiate1 (.fvar d nmx tyx'))
-        if mode.verified && !pwWritten mx.pw then
+        if mode.verifiedChecks && !pwWritten mx.pw then
           annotPwPi (fueledFns mode env) env (d + 1) body' >>= fun pw =>
             pure (Expr.forallE nmx tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
         else pure (Expr.forallE nmx tyx' (body'.abstract1 d)
@@ -1400,14 +1400,14 @@ private theorem annLamTail_atF {env : Env} (d : Nat) (nmx : Name)
     ((do
       let body' ← (fueledFns mode env).annotate (d + 1)
         (bodyx.instantiate1 (.fvar d nmx tyx'))
-      if mode.verified && !pwWritten mx.pw then
+      if mode.verifiedChecks && !pwWritten mx.pw then
         annotPwLam (fueledFns mode env) env (d + 1) body' >>= fun pw =>
           pure (Expr.lam nmx tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
       else pure (Expr.lam nmx tyx' (body'.abstract1 d) ⟨mx.bi, mx.pw⟩))
       : FueledM Expr).val F
     = (annotateCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nmx tyx'))
         >>= fun body' =>
-        if mode.verified && !pwWritten mx.pw then
+        if mode.verifiedChecks && !pwWritten mx.pw then
           annotPwLam (pureFns mode env F) env (d + 1) body' >>= fun pw =>
             pure (Expr.lam nmx tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
         else pure (Expr.lam nmx tyx' (body'.abstract1 d)
@@ -1438,7 +1438,7 @@ theorem annotateLamsC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
       (do
         let body' ← (fueledFns mode env).annotate (d + 1)
           (bodyx.instantiate1 (.fvar d nmx tyx'))
-        if mode.verified && !pwWritten mx.pw then
+        if mode.verifiedChecks && !pwWritten mx.pw then
           annotPwLam (fueledFns mode env) env (d + 1) body' >>= fun pw =>
             pure (Expr.lam nmx tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
         else pure (Expr.lam nmx tyx' (body'.abstract1 d)

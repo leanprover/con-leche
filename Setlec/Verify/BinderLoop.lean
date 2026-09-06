@@ -60,7 +60,7 @@ def inferLamsOut (mode : CheckMode) (d : Nat) :
     List InferLamEntryX → Nat → Expr → PropWhen → m Expr
   | [], _j, cur, _prevPw => pure cur
   | (n, tyo, mb) :: rest, j, cur, prevPw => do
-    if mode.verified && !(mb.pw.equiv prevPw) then
+    if mode.verifiedChecks && !(mb.pw.equiv prevPw) then
       throw (.notImplemented "sort-annotation mismatch (lam-cod-chain)")
     inferLamsOut mode d rest (j - 1)
       (Expr.forallE n (tyo.abstractRange d j) cur mb) mb.pw
@@ -113,7 +113,7 @@ def inferLamsLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
   match t with
   | .lam .. => pure ()
   | _ =>
-    if mode.verified then
+    if mode.verifiedChecks then
       -- task #172 B4: the type-of-a-type leaf at the io grade
       let btt ← r.inferIO (d + k) bt
       match ← r.whnf (d + k) btt with
@@ -154,7 +154,7 @@ def inferPisOut (mode : CheckMode) :
     List (Level × PropWhen) → Level → m Level
   | [], v => pure v
   | (u, pw) :: rest, v => do
-    if mode.verified && !((Level.zeronessOf v).equiv pw) then
+    if mode.verifiedChecks && !((Level.zeronessOf v).equiv pw) then
       throw (.notImplemented "sort-annotation mismatch (forall-cod)")
     inferPisOut mode rest (.imax u v)
 
@@ -215,7 +215,7 @@ datum, computed once here — the leaf's own if the residual annotates to
 a ∀, else the leaf codomain sort's zero-ness). -/
 def annotatePisPw (mode : CheckMode) (r : CoreFns m) (env : Env) (d k : Nat)
     (leaf' : Expr) : m (Option PropWhen) :=
-  if mode.verified then do
+  if mode.verifiedChecks then do
     let p ← annotPwPi r env (d + k) leaf'
     pure (some p)
   else pure none
@@ -245,7 +245,7 @@ def annotatePis (mode : CheckMode) (r : CoreFns m) (env : Env) (d : Nat) :
 is the innermost λ's own, else the sort of the body's type). -/
 def annotateLamsPw (mode : CheckMode) (r : CoreFns m) (env : Env) (d k : Nat)
     (leaf' : Expr) : m (Option PropWhen) :=
-  if mode.verified then do
+  if mode.verifiedChecks then do
     let p ← annotPwLam r env (d + k) leaf'
     pure (some p)
   else pure none
@@ -281,7 +281,7 @@ def inferLamsWrap (mode : CheckMode) (d : Nat) :
     List InferLamEntryX → Nat → Expr → PropWhen → m Expr
   | [], _j, bt, _prevPw => pure bt
   | (n, tyo, mb) :: rest, j, bt, prevPw => do
-    if mode.verified && !(mb.pw.equiv prevPw) then
+    if mode.verifiedChecks && !(mb.pw.equiv prevPw) then
       throw (.notImplemented "sort-annotation mismatch (lam-cod-chain)")
     inferLamsWrap mode d rest (j - 1)
       (.forallE n tyo (bt.abstract1 (d + j)) mb) mb.pw
@@ -293,7 +293,7 @@ wrap of the peeled binders. -/
 def inferLamsTail (mode : CheckMode) (r : CoreFns m) (env : Env)
     (d : Nat) (t : Expr) (k : Nat) (stk : List InferLamEntryX)
     (bt : Expr) : m Expr := do
-  if mode.verified && !t.isLam then
+  if mode.verifiedChecks && !t.isLam then
     let btt ← r.inferIO (d + k) bt
     let vb ← ensureSort r env (d + k) btt
     match stk with
@@ -318,7 +318,7 @@ def inferPisWrap (mode : CheckMode) (r : CoreFns m) (env : Env)
   | [], _j, bt => pure bt
   | (u, pw) :: rest, j, bt => do
     let v ← ensureSort r env (d + j + 1) bt
-    if mode.verified then
+    if mode.verifiedChecks then
       unless (Level.zeronessOf v).equiv pw do
         throw (.notImplemented "sort-annotation mismatch (forall-cod)")
     inferPisWrap mode r env d rest (j - 1) (.sort (.imax u v))
@@ -331,7 +331,7 @@ def annotatePisWrap (mode : CheckMode) (r : CoreFns m) (env : Env) (d : Nat) :
     List AnnotBinderEntryX → Nat → Expr → m Expr
   | [], _j, body' => pure body'
   | (n, ty', mb) :: rest, j, body' => do
-    let pw ← if mode.verified && !pwWritten mb.pw then
+    let pw ← if mode.verifiedChecks && !pwWritten mb.pw then
         annotPwPi r env (d + j + 1) body'
       else pure mb.pw
     annotatePisWrap mode r env d rest (j - 1)
@@ -342,7 +342,7 @@ def annotateLamsWrap (mode : CheckMode) (r : CoreFns m) (env : Env) (d : Nat) :
     List AnnotBinderEntryX → Nat → Expr → m Expr
   | [], _j, body' => pure body'
   | (n, ty', mb) :: rest, j, body' => do
-    let pw ← if mode.verified && !pwWritten mb.pw then
+    let pw ← if mode.verifiedChecks && !pwWritten mb.pw then
         annotPwLam r env (d + j + 1) body'
       else pure mb.pw
     annotateLamsWrap mode r env d rest (j - 1)
@@ -465,7 +465,7 @@ theorem inferTypeCore_forallE_eq (env : Env) (F d : Nat) (n : Name)
            inferTypeCore mode env F (d + 1)
                (body.instantiate1 (.fvar d n ty)) >>= fun bt =>
              ensureSortCore mode env F (d + 1) bt >>= fun v => do
-               if mode.verified then
+               if mode.verifiedChecks then
                  unless (Level.zeronessOf v).equiv mb.pw do
                    throw (.notImplemented
                      "sort-annotation mismatch (forall-cod)")
@@ -482,7 +482,7 @@ theorem inferTypeCore_lam_eq (env : Env) (F d : Nat) (n : Name)
            inferTypeCore mode env F (d + 1)
                (body.instantiate1 (.fvar d n ty)) >>= fun bt =>
              (do
-               if mode.verified then
+               if mode.verifiedChecks then
                  match body.lamPw with
                  | some pwI =>
                    unless mb.pw.equiv pwI do
@@ -503,7 +503,7 @@ theorem annotateCore_forallE_eq (env : Env) (F d : Nat) (n : Name)
       = (annotateCore mode env F d ty >>= fun ty' =>
          annotateCore mode env F (d + 1)
              (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-           if mode.verified && !pwWritten mb.pw then
+           if mode.verifiedChecks && !pwWritten mb.pw then
              annotPwPi (pureFns mode env F) env (d + 1) body' >>= fun pw =>
                pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
            else pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩)) := rfl
@@ -514,7 +514,7 @@ theorem annotateCore_lam_eq (env : Env) (F d : Nat) (n : Name)
       = (annotateCore mode env F d ty >>= fun ty' =>
          annotateCore mode env F (d + 1)
              (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-           if mode.verified && !pwWritten mb.pw then
+           if mode.verifiedChecks && !pwWritten mb.pw then
              annotPwLam (pureFns mode env F) env (d + 1) body' >>= fun pw =>
                pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
            else pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩)) := rfl
@@ -565,7 +565,7 @@ theorem inferLamsOut_atF (d : Nat) :
   | (_n, _tyo, mb) :: rest, j, _cur, prevPw, F => by
     unfold inferLamsOut
     dsimp only
-    by_cases hg : (mode.verified && !(mb.pw.equiv prevPw)) = true
+    by_cases hg : (mode.verifiedChecks && !(mb.pw.equiv prevPw)) = true
     · simp only [if_pos hg]
       rfl
     · simp only [if_neg hg]
@@ -583,7 +583,7 @@ theorem inferLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
     try exact inferLamsOut_atF d stk (k - 1) _ _ F
   all_goals
     dsimp only
-    by_cases hv : mode.verified = true
+    by_cases hv : mode.verifiedChecks = true
     case neg =>
       simp only [if_neg hv]
       exact inferLamsOut_atF d stk (k - 1) _ _ F
@@ -641,7 +641,7 @@ theorem inferPisOut_atF :
   | (u, pw) :: rest, v, F => by
     unfold inferPisOut
     dsimp only
-    by_cases hg : (mode.verified && !((Level.zeronessOf v).equiv pw))
+    by_cases hg : (mode.verifiedChecks && !((Level.zeronessOf v).equiv pw))
         = true
     · simp only [if_pos hg]
       rfl
@@ -802,7 +802,7 @@ theorem inferLamsOut_wrap {d : Nat} :
     intro j bt prevPw hlen
     unfold inferLamsOut inferLamsWrap
     dsimp only
-    by_cases hg : (mode.verified && !(mb.pw.equiv prevPw)) = true
+    by_cases hg : (mode.verifiedChecks && !(mb.pw.equiv prevPw)) = true
     · simp only [if_pos hg]
       rfl
     simp only [if_neg hg]
@@ -883,7 +883,7 @@ theorem inferLamsLeaf_sound {d : Nat} {t : Expr}
     intro hrun
     dsimp only at hrun ⊢
     simp only [Expr.isLam, Bool.not_false, Bool.and_true]
-    by_cases hv : mode.verified = true
+    by_cases hv : mode.verifiedChecks = true
     case neg =>
       rw [if_neg hv] at hrun ⊢
       exact hout hrun
@@ -1007,12 +1007,12 @@ theorem inferLams_sound {d : Nat} :
         simp only [hbl, Bool.not_true, Bool.and_false,
           Bool.false_eq_true, ↓reduceIte] at htail
         unfold inferLamsWrap at htail
-        by_cases hg : (mode.verified && !(mb.pw.equiv pwI)) = true
+        by_cases hg : (mode.verifiedChecks && !(mb.pw.equiv pwI)) = true
         · rw [if_pos hg] at htail
           exact nomatch htail
         rw [if_neg hg] at htail
         dsimp only
-        by_cases hv : mode.verified = true
+        by_cases hv : mode.verifiedChecks = true
         · rw [if_pos hv]
           have hpw : mb.pw.equiv pwI = true := by
             by_cases hc : mb.pw.equiv pwI = true
@@ -1030,7 +1030,7 @@ theorem inferLams_sound {d : Nat} :
             | exact nomatch hbp
         simp only [hbl, Bool.not_false, Bool.and_true] at htail
         dsimp only
-        by_cases hv : mode.verified = true
+        by_cases hv : mode.verifiedChecks = true
         case neg =>
           rw [if_neg hv] at htail ⊢
           rw [pure_bind]
@@ -1076,7 +1076,7 @@ theorem inferPisWrap_mono {d : Nat} :
     rw [ensureSort_def] at hv
     rw [ensureSort_def, ensureSortCore_mono hle hv, okB_bind]
     dsimp only at h ⊢
-    by_cases hver : mode.verified = true
+    by_cases hver : mode.verifiedChecks = true
     case neg =>
       rw [if_neg hver] at h ⊢
       exact ih hle h
@@ -1103,7 +1103,7 @@ theorem inferPisWrap_sort {d : Nat} :
     intro j v F hF
     show (ensureSort (pureFns mode env F) env (d + j + 1) (.sort v) >>=
       fun v' => (do
-        if mode.verified then
+        if mode.verifiedChecks then
           unless (Level.zeronessOf v').equiv pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         inferPisWrap mode (pureFns mode env F) env d rest (j - 1)
@@ -1117,9 +1117,9 @@ theorem inferPisWrap_sort {d : Nat} :
     rw [pure_bind]
     unfold inferPisOut
     dsimp only
-    by_cases hg : (mode.verified && !((Level.zeronessOf v).equiv pw))
+    by_cases hg : (mode.verifiedChecks && !((Level.zeronessOf v).equiv pw))
         = true
-    · have hver : mode.verified = true := by
+    · have hver : mode.verifiedChecks = true := by
         rcases Bool.and_eq_true .. |>.mp hg with ⟨h1, -⟩
         exact h1
       have hz : ¬ ((Level.zeronessOf v).equiv pw = true) := by
@@ -1128,7 +1128,7 @@ theorem inferPisWrap_sort {d : Nat} :
       rw [if_pos hg, if_pos hver, if_neg hz]
       rfl
     · rw [if_neg hg]
-      by_cases hver : mode.verified = true
+      by_cases hver : mode.verifiedChecks = true
       · have hz : (Level.zeronessOf v).equiv pw = true := by
           by_cases hc : (Level.zeronessOf v).equiv pw = true
           · exact hc
@@ -1178,7 +1178,7 @@ theorem inferPisLeaf_sound {d : Nat} {t : Expr}
     rw [inferTypeCore_mono (Nat.le_max_left F 2) hbt, okB_bind]
     show (ensureSort (pureFns mode env (max F 2)) env (d + (k - 1) + 1)
         bt >>= fun v' => (do
-      if mode.verified then
+      if mode.verifiedChecks then
         unless (Level.zeronessOf v').equiv pw do
           throw (.notImplemented "sort-annotation mismatch (forall-cod)")
       inferPisWrap mode (pureFns mode env (max F 2)) env d rest
@@ -1189,7 +1189,7 @@ theorem inferPisLeaf_sound {d : Nat} {t : Expr}
     rw [pure_bind]
     unfold inferPisOut at hout
     dsimp only at hout
-    by_cases hg : (mode.verified && !((Level.zeronessOf v).equiv pw))
+    by_cases hg : (mode.verifiedChecks && !((Level.zeronessOf v).equiv pw))
         = true
     · rw [if_pos hg] at hout
       exact nomatch hout
@@ -1201,7 +1201,7 @@ theorem inferPisLeaf_sound {d : Nat} {t : Expr}
         (Nat.le_max_right F 2), hout]
       rw [← hres]
       rfl
-    by_cases hver : mode.verified = true
+    by_cases hver : mode.verifiedChecks = true
     · have hz : (Level.zeronessOf v).equiv pw = true := by
         by_cases hc : (Level.zeronessOf v).equiv pw = true
         · exact hc
@@ -1277,7 +1277,7 @@ theorem inferPis_sound {d : Nat} :
       rw [show d + k + 1 = d + (k + 1) from by omega] at hv
       rw [ensureSortCore_mono (Nat.le_max_right F F') hv, okB_bind]
       dsimp only at hwrap ⊢
-      by_cases hver : mode.verified = true
+      by_cases hver : mode.verifiedChecks = true
       case neg =>
         rw [if_neg hver] at hwrap ⊢
         rw [pure_bind]
@@ -1331,7 +1331,7 @@ theorem annotateBindersOut_wrap
     (hwrap_nil : ∀ j bt, wrap [] j bt = pure bt)
     (hwrap_cons : ∀ n ty' mb rest j bt,
       wrap ((n, ty', mb) :: rest) j bt
-        = (if mode.verified && !pwWritten mb.pw then
+        = (if mode.verifiedChecks && !pwWritten mb.pw then
             pwf (d + j + 1) bt >>= fun pw =>
               wrap rest (j - 1) (mk n ty' (bt.abstract1 (d + j)) ⟨mb.bi, pw⟩)
           else wrap rest (j - 1)
@@ -1339,7 +1339,7 @@ theorem annotateBindersOut_wrap
     ∀ (stk : List AnnotBinderEntryX) (j : Nat) (bt : Expr)
       (pw? : Option PropWhen),
       stk.length = j + 1 →
-      AnnotPwOk mode.verified (pwf (d + j + 1) bt) pw? →
+      AnnotPwOk mode.verifiedChecks (pwf (d + j + 1) bt) pw? →
       annotateBindersOut (m := CheckM) mk d pw? stk j
           (bt.abstractRange d (j + 1))
         = wrap stk j bt := by
@@ -1352,7 +1352,7 @@ theorem annotateBindersOut_wrap
     rw [hwrap_cons]
     -- the datum both sides settle on at this level
     have hq : ∃ q : PropWhen,
-        (if mode.verified && !pwWritten mb.pw then
+        (if mode.verifiedChecks && !pwWritten mb.pw then
             pwf (d + j + 1) bt >>= fun pw =>
               wrap rest (j - 1) (mk n ty' (bt.abstract1 (d + j)) ⟨mb.bi, pw⟩)
           else wrap rest (j - 1)
@@ -1362,11 +1362,11 @@ theorem annotateBindersOut_wrap
       simp only [annotBinderMeta]
       cases pw? with
       | none =>
-        have hnv : mode.verified = false := hinv
+        have hnv : mode.verifiedChecks = false := hinv
         refine ⟨mb.pw, ?_, rfl⟩
         simp [hnv]
       | some pw =>
-        obtain ⟨hv, hpw⟩ : mode.verified = true ∧ _ = Except.ok pw := hinv
+        obtain ⟨hv, hpw⟩ : mode.verifiedChecks = true ∧ _ = Except.ok pw := hinv
         by_cases hw : pwWritten mb.pw
         · exact ⟨mb.pw, by simp [hw], by simp [hw]⟩
         · refine ⟨pw, ?_, by simp [hw]⟩
@@ -1409,9 +1409,9 @@ theorem annotateBindersOut_wrap
       -- just built: `hmkRd` then `hpwf_read`
       have hj : d + (j - 1) + 1 = d + j := by omega
       cases pw? with
-      | none => exact (hinv : mode.verified = false)
+      | none => exact (hinv : mode.verifiedChecks = false)
       | some pw =>
-        refine ⟨(hinv : mode.verified = true ∧ _ = Except.ok pw).1, ?_⟩
+        refine ⟨(hinv : mode.verifiedChecks = true ∧ _ = Except.ok pw).1, ?_⟩
         rw [hj]
         exact hpwf_read _ _ _ (hmkRd n ty' (bt.abstract1 (d + j)) ⟨mb.bi, q⟩)
 
@@ -1426,7 +1426,7 @@ theorem annotatePisWrap_cons (r : CoreFns CheckM) (env : Env) (d : Nat)
     (n : Name) (ty' : Expr) (mb : BinderMeta)
     (rest : List AnnotBinderEntryX) (j : Nat) (bt : Expr) :
     annotatePisWrap mode r env d ((n, ty', mb) :: rest) j bt
-      = (if mode.verified && !pwWritten mb.pw then
+      = (if mode.verifiedChecks && !pwWritten mb.pw then
           annotPwPi r env (d + j + 1) bt >>= fun pw =>
             annotatePisWrap mode r env d rest (j - 1)
               (.forallE n ty' (bt.abstract1 (d + j)) ⟨mb.bi, pw⟩)
@@ -1443,7 +1443,7 @@ theorem annotateLamsWrap_cons (r : CoreFns CheckM) (env : Env) (d : Nat)
     (n : Name) (ty' : Expr) (mb : BinderMeta)
     (rest : List AnnotBinderEntryX) (j : Nat) (bt : Expr) :
     annotateLamsWrap mode r env d ((n, ty', mb) :: rest) j bt
-      = (if mode.verified && !pwWritten mb.pw then
+      = (if mode.verifiedChecks && !pwWritten mb.pw then
           annotPwLam r env (d + j + 1) bt >>= fun pw =>
             annotateLamsWrap mode r env d rest (j - 1)
               (.lam n ty' (bt.abstract1 (d + j)) ⟨mb.bi, pw⟩)
@@ -1552,10 +1552,10 @@ theorem annotateLamsWrap_mono {env : Env} {F F' : Nat} (hle : F ≤ F')
 theorem annotatePisPw_inv {env : Env} {F d k : Nat}
     {leaf' : Expr} {pw? : Option PropWhen}
     (h : annotatePisPw mode (pureFns mode env F) env d k leaf' = .ok pw?) :
-    AnnotPwOk mode.verified
+    AnnotPwOk mode.verifiedChecks
       (annotPwPi (pureFns mode env F) env (d + k) leaf') pw? := by
   unfold annotatePisPw at h
-  by_cases hv : mode.verified = true
+  by_cases hv : mode.verifiedChecks = true
   · rw [if_pos hv] at h
     revert h
     cases hp : annotPwPi (pureFns mode env F) env (d + k) leaf' with
@@ -1563,19 +1563,19 @@ theorem annotatePisPw_inv {env : Env} {F d k : Nat}
     | ok pw =>
       intro h
       simp only [okB_bind, pure, Except.pure, Except.ok.injEq] at h
-      exact (h ▸ (⟨hv, rfl⟩ : mode.verified = true ∧ _ = Except.ok pw))
+      exact (h ▸ (⟨hv, rfl⟩ : mode.verifiedChecks = true ∧ _ = Except.ok pw))
   · rw [if_neg hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact (h ▸ (by show mode.verified = false; simpa using hv))
+    exact (h ▸ (by show mode.verifiedChecks = false; simpa using hv))
 
 /-- The λ twin of `annotatePisPw_inv`. -/
 theorem annotateLamsPw_inv {env : Env} {F d k : Nat}
     {leaf' : Expr} {pw? : Option PropWhen}
     (h : annotateLamsPw mode (pureFns mode env F) env d k leaf' = .ok pw?) :
-    AnnotPwOk mode.verified
+    AnnotPwOk mode.verifiedChecks
       (annotPwLam (pureFns mode env F) env (d + k) leaf') pw? := by
   unfold annotateLamsPw at h
-  by_cases hv : mode.verified = true
+  by_cases hv : mode.verifiedChecks = true
   · rw [if_pos hv] at h
     revert h
     cases hp : annotPwLam (pureFns mode env F) env (d + k) leaf' with
@@ -1583,10 +1583,10 @@ theorem annotateLamsPw_inv {env : Env} {F d k : Nat}
     | ok pw =>
       intro h
       simp only [okB_bind, pure, Except.pure, Except.ok.injEq] at h
-      exact (h ▸ (⟨hv, rfl⟩ : mode.verified = true ∧ _ = Except.ok pw))
+      exact (h ▸ (⟨hv, rfl⟩ : mode.verifiedChecks = true ∧ _ = Except.ok pw))
   · rw [if_neg hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact (h ▸ (by show mode.verified = false; simpa using hv))
+    exact (h ▸ (by show mode.verifiedChecks = false; simpa using hv))
 
 /-- Leaf-phase soundness for the annotate ∀-loop. -/
 theorem annotatePisLeaf_sound {d : Nat} {t : Expr}

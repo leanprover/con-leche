@@ -112,7 +112,7 @@ the innermost codomain is an `Eq`-spine over the nose-pinned `Eq`
 remaining binders — one fact, not three.  Note what is *not* used: the
 element type is the spine's type argument, and the peel never reads
 it, so nothing about the stored `Nat`/`Bool` enters. -/
-theorem ofReduce_bitsP (hμ : μ.verified = true)
+theorem ofReduce_bitsP (hμ : μ.verifiedChecks = true)
     (hEq : env.find? eqName = some eqA)
     {E c : Name} {n₁ n₂ n₃ : Name} {m₁ m₂ m₃ : BinderMeta}
     {d : Nat} {stype : Expr}
@@ -192,7 +192,7 @@ reading.**  Three `pt_mem_piR_zero_of`s (every bit is `0`, so every
 product is a truth value); the innermost fibre is where `ReduceOpsP`
 pays: the hypothesis spine's value is `eqv (op x) y`, the conclusion's
 is `eqv x y`, and the field says those are the same set. -/
-theorem ofReduce_memP (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {cvA : ConstantVal} (hok : Setlec.ofReduceAxOk env cvA = true)
     (hor : cvA.name = Setlec.ofReduceNatName ∨
       cvA.name = Setlec.ofReduceBoolName)
@@ -323,7 +323,7 @@ canonical proof — the same witness the v1 key installs
 (`ofReduceKeyS_mem`), which is why every syntactic obligation is `rfl`
 or a `simp` on a leaf clause and the whole content is the
 membership. -/
-theorem axiomOfReduceP (hμ : μ.verified = true)
+theorem axiomOfReduceP (hμ : μ.verifiedChecks = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
     (hcv : ConstantValRun μ F env cv type')
     (hor : cv.name = Setlec.ofReduceNatName ∨

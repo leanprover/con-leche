@@ -247,9 +247,9 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
             simp only [Expr.WScoped]
             exact ⟨hwty', Setlec.WScoped.abstract1 0 hwbody'⟩⟩)
       -- task #172 B3 method row: the cached guard reads
-      -- `(cfgOf mode).verified`, the pure one `mode.verified`; a bare
+      -- `(cfgOf mode).verified`, the pure one `mode.verifiedChecks`; a bare
       -- `split` decides only one of the two `if`s.
-      by_cases hpw : (mode.verified && !pwWritten m.pw) = true
+      by_cases hpw : (mode.verifiedChecks && !pwWritten m.pw) = true
       · simp only [cfgOf_verified, hpw, ↓reduceIte]
         refine SimC.bind (annotPwLamC_sim ih hs₈ hbody'd hwbody')
           (fun s₉ pw pwx hs₉ hPpw => ?_)

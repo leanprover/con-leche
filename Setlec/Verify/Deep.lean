@@ -1782,7 +1782,7 @@ private theorem whnfCore_step (henv : EnvWF env)
       have hwarg : WScoped d
           (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
         WScoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
-      refine bind_rel_eq _ (projCertAt_shift henv ih hpd mode.verified mode.betaGate
+      refine bind_rel_eq _ (projCertAt_shift henv ih hpd mode.verifiedChecks mode.betaGate
         (fun x hx => hwe₃.getAppArgs x hx)) ?_
       intro bb _
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
@@ -2237,7 +2237,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
     dsimp only [shiftFrom]
     -- **the io gate**: the datum is the whnf'd type's own binder meta,
     -- which the shift copies verbatim, so both sides take one branch
-    by_cases hg2 : (mode.verified && m'.pw.isNever) = true
+    by_cases hg2 : (mode.verifiedChecks && m'.pw.isNever) = true
     · simp only [hg2, if_true]
       simp only [pure, Except.pure, map_ok]
       rw [← shiftFrom_instantiate1_gen]

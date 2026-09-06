@@ -97,9 +97,9 @@ structure CoreFns (m : Type → Type u) where
   carries a validated annotation invariant (`AnnotOkP` in the P
   claims) is re-inferred without re-establishing it.  The knot decides
   the grade's meaning per mode: at a gate-off mode (`μ.betaGate =
-  false` — the R core, the parity core) this is the full `infer`,
+  false` — the R core, the trusted core) this is the full `infer`,
   verbatim (the flag is ignored, task #170's R clause); at the gated
-  mode (`.setModel`, the P core) it is the io body, whose application
+  mode (`.verified`, the P core) it is the io body, whose application
   clause skips the per-argument certificate exactly at a validated
   `.never` binder under the graph-regime license
   (`Setlec/SetP/IOLicenseP.lean`). -/
@@ -121,7 +121,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 `mode` take it as their first explicit argument (after the monad
 instances).  Only the seven TT-lane check sites branch on it, through
 `CheckMode.ttChecks`; at `.ttModel` the checker is exactly the pre-#147
-one, at `.setModel` (the default) the seven checks are skipped. -/
+one, at `.verified` (the default) the seven checks are skipped. -/
 variable (mode : CheckMode)
 
 /-- Lift a fuel-style partial result; `none` is an internal error. -/
@@ -944,17 +944,17 @@ proof" arm** at the verified modes: a side whose validated datum says
 `Setlec/Kernel/PropRead.lean`).  Refusing is always sound — the P row
 is stated at `.ok true` — and the arm's obligation is *agreement* with
 the slow path on validated data, recorded by the landing census
-(DESIGN.md, task #168: 0 disagreements).  The gate is `mode.verified`:
-the parity core validates no annotation, so it reads none.  The
+(DESIGN.md, task #168: 0 disagreements).  The gate is `mode.verifiedChecks`:
+the trusted core validates no annotation, so it reads none.  The
 **"yes" arm** (`isProofFast` on both sides → `true`) is the
 squash-regime licence, stage 3 of the same design; it is gated on the
 P flag (`mode.betaGate`) like every licensed skip. -/
 def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
-  if mode.verified &&
+  if mode.verifiedChecks &&
       (notProofFast env.find? a || notProofFast env.find? b) then
     pure false
-  else if mode.verified && mode.betaGate &&
+  else if mode.verifiedChecks && mode.betaGate &&
       isProofFast env.find? a && isProofFast env.find? b then
     -- the yes arm (task #168 stage 3): both heads' validated data say
     -- "a proposition at every valuation" — the squash-regime licence
@@ -1179,7 +1179,7 @@ def etaCert (mode : CheckMode) (r : CoreFns m) (_env : Env) (depth : Nat)
       unless ← r.defeq (depth + 1)
           (body₁.instantiate1 (.fvar depth n₁ ty₁))
           (.app b (.fvar depth n₁ ty₁)) do return false
-      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (eta)")
       pure true
     else pure false
@@ -1663,7 +1663,7 @@ model's licence for the fire at a squash instantiation.  The parity
 core is the official kernel's: `reduce_proj` reduces every
 constructor redex with no certificate (`type_checker.cpp`), so at
 `verified = false` no certificate runs and the rule fires
-unconditionally.  The parity lane stays an accept-superset of the P
+unconditionally.  The trusted lane stays an accept-superset of the P
 lane, which is all the agreement floor
 (`Verify/Cached/AgreeFloor.lean`) asks of it. -/
 def projCertAt (r : CoreFns m) (env : Env) (depth : Nat) (verified lic : Bool)
@@ -1673,7 +1673,7 @@ def projCertAt (r : CoreFns m) (env : Env) (depth : Nat) (verified lic : Bool)
 /-- **THE β SITE'S GATE** (task #161): does the mode's β gate fire at
 this binder?
 
-At `mode.betaGate` (i.e. at `.setModel`, and nowhere else) a λ-binder
+At `mode.betaGate` (i.e. at `.verified`, and nowhere else) a λ-binder
 whose *validated* annotation datum is `.never` — "the codomain sort is
 nonzero at every valuation" — licenses skipping the certificate: the
 sealed P claim's positive branch (`AnnotOkP_beta_gate`,
@@ -1771,10 +1771,10 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             -- (task #175 W6; see `projCert`).  Task #100 de-gating:
             -- the former nonzero-sort gate is unsound-to-model under
             -- the domain-relative collapse, so the certificate runs
-            -- unconditionally there; the parity mode runs none
+            -- unconditionally there; the trusted mode runs none
             -- (`projCertAt`: official's `reduce_proj` certifies
             -- nothing).
-            if ← projCertAt r env depth mode.verified mode.betaGate c us args then
+            if ← projCertAt r env depth mode.verifiedChecks mode.betaGate c us args then
               r.whnfCore depth arg
             else pure (.proj sn i e')
           else pure (.proj sn i e')
@@ -1898,7 +1898,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | .sort u => do
         let v ← ensureSort r env (depth + 1)
           (← r.infer (depth + 1) (body.instantiate1 (.fvar depth n ty)))
-        if mode.verified then
+        if mode.verifiedChecks then
           unless (Level.zeronessOf v).equiv mb.pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         pure (.sort (.imax u v))
@@ -1918,7 +1918,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         -- (`docs/SetR-DESIGN.md` findings A3, B5, A5: validity for
         -- `Infer` is refuted at the application clause, so the fact
         -- has to be computed).  The reference kernel's `infer_lambda`
-        -- does not run it, so `.noModel` — the official-parity lane —
+        -- does not run it, so `.trusted` — the trusted lane —
         -- does not either.
         --
         -- It fires once per λ **chain**, at the innermost binder (the
@@ -1929,7 +1929,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         -- granularity the interned telescope loop (task #72) can
         -- reproduce: it opens a whole λ-chain in bulk and never
         -- materializes the intermediate opened types.
-        if mode.verified then
+        if mode.verifiedChecks then
           match body.lamPw with
           | some pwI =>
             -- Task #161, the chain rule: an outer λ's codomain is the
@@ -2063,7 +2063,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | .sort u => do
         let v ← ensureSort r env (depth + 1)
           (← r.infer (depth + 1) (body.instantiate1 (.fvar depth n ty)))
-        if mode.verified then
+        if mode.verifiedChecks then
           unless (Level.zeronessOf v).equiv mb.pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         pure (.sort (.imax u v))
@@ -2077,7 +2077,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- — it is what makes the λ datum trustworthy.
       let bt ← r.infer (depth + 1)
         (body.instantiate1 (.fvar depth n ty))
-      if mode.verified then
+      if mode.verifiedChecks then
         match body.lamPw with
         | some pwI =>
           unless mb.pw.equiv pwI do
@@ -2102,9 +2102,9 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         -- certificate runs unconditionally — the squash regime's
         -- membership is model-class-wide unrecoverable
         -- (`io_membership_fails_at_squash`), and that fence is
-        -- absolute.  `mode.verified` is the law's mode gate: the
+        -- absolute.  `mode.verifiedChecks` is the law's mode gate: the
         -- annotation is only *validated* at the verified modes.
-        unless mode.verified && mt.pw.isNever do
+        unless mode.verifiedChecks && mt.pw.isNever do
           let ta ← r.infer depth a
           unless ← r.defeq depth ta ty do
             throw (.invalid "application type mismatch")
@@ -2381,7 +2381,7 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
       unless ← r.defeq (depth + 1)
           (body₁.instantiate1 (.fvar depth n₁ ty₁))
           (body₂.instantiate1 (.fvar depth n₂ ty₂)) do return false
-      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
       pure true
     | .lam n₁ ty₁ body₁ m₁, .lam n₂ ty₂ body₂ m₂ => do
@@ -2389,7 +2389,7 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
       unless ← r.defeq (depth + 1)
           (body₁.instantiate1 (.fvar depth n₁ ty₁))
           (body₂.instantiate1 (.fvar depth n₂ ty₂)) do return false
-      if mode.verified && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
       pure true
     | .app f₁ a₁, .app f₂ a₂ => do
@@ -2590,14 +2590,14 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- body via the ∀/λ rules)
       let ty' ← r.annotate depth ty
       let body' ← r.annotate (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-      let pw ← if mode.verified && !pwWritten mb.pw then
+      let pw ← if mode.verifiedChecks && !pwWritten mb.pw then
           annotPwPi r env (depth + 1) body'
         else pure mb.pw
       pure (.forallE n ty' (body'.abstract1 depth) ⟨mb.bi, pw⟩)
     | .lam n ty body mb => do
       let ty' ← r.annotate depth ty
       let body' ← r.annotate (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-      let pw ← if mode.verified && !pwWritten mb.pw then
+      let pw ← if mode.verifiedChecks && !pwWritten mb.pw then
           annotPwLam r env (depth + 1) body'
         else pure mb.pw
       pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi, pw⟩)

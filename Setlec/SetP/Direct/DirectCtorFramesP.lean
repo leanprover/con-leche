@@ -143,7 +143,7 @@ theorem fieldsBound_of_frame {Γ : List AVExpr} {k nP nF w : Nat}
 and the field chain graded at the constructor's, from the data of both
 constants at the environment holding the former and the stage's
 runs. -/
-theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
+theorem ctorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa : ConstantVal} {env₀ envC : Env}
     {sorts : List Level} {caps : IndCaps}
     (hCtor : Setlec.checkDirectCtor (Setlec.fueledOps μ F) env₀ env p cvTa

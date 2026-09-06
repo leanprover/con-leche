@@ -24,8 +24,8 @@
 # The pre-flip codes are recorded in the two expectation files.
 #
 # THE MODE SWEEP (task #147; one mode fewer since #148 T7b).  The
-# checker has one two-valued mode: `--set-model` (the default — the
-# surface the set model proves) and `--no-model` (the unverified lane:
+# checker has one two-valued mode: `--verified` (the default — the
+# surface the set model proves) and `--trusted` (the unverified lane:
 # checking-mode front door, infer-only internals, no certificate
 # families; it absorbs the retired --yolo/SETLEC_NO_PROOF_CERTS and
 # --infer-only/SETLEC_INFER_ONLY).  `--tt-model` selected the seven
@@ -33,10 +33,10 @@
 # deleted at #148 T7b and the flag is a hard error now, so its sweep —
 # which had claimed and shown byte-identity with the default on every
 # fixture — went with it.  The certified sections run at the default
-# (`--set-model`); afterwards both suites run again
+# (`--verified`); afterwards both suites run again
 #
-#   * with `--no-model`, against the certified expectations plus the
-#     recorded overrides in tests/no-model-expected.txt (the successor
+#   * with `--trusted`, against the certified expectations plus the
+#     recorded overrides in tests/trusted-expected.txt (the successor
 #     of tests/yolo-expected.txt — see that file's header for what may
 #     be recorded: partial-stack divergences of the unverified lane,
 #     each with the defect it stops or starts detecting differently).
@@ -61,7 +61,7 @@ BIN=.lake/build/bin/setlec
 EXPECTED=tests/arena-expected.txt
 E2E_EXPECTED=tests/e2e-expected.txt
 ANNOT_EXPECTED=tests/annot-expected.txt
-NM_EXPECTED=tests/no-model-expected.txt
+T_EXPECTED=tests/trusted-expected.txt
 
 if [ ! -d "$TESTS_DIR" ]; then
   # The arena tests are vendored (pinned snapshot, 2026-08-19,
@@ -79,32 +79,32 @@ fi
 lake build setlec >/dev/null || exit 3
 
 
-# The no-model overrides, keyed "<suite> <fixture> <mode>" (mode empty
+# The trusted-mode overrides, keyed "<suite> <fixture> <mode>" (mode empty
 # for arena lines and for plain e2e lines).  See the file's header for
 # when a line belongs in here.
-declare -A NM_OVR=()
-if [ -f "$NM_EXPECTED" ]; then
+declare -A T_OVR=()
+if [ -f "$T_EXPECTED" ]; then
   while read -r yexp ysuite yrel ymode; do
     case "$yexp" in ''|'#'*) continue;; esac
-    NM_OVR["$ysuite $yrel ${ymode:-}"]=$yexp
-  done < "$NM_EXPECTED"
+    T_OVR["$ysuite $yrel ${ymode:-}"]=$yexp
+  done < "$T_EXPECTED"
 fi
 
-# SWEEP is `cert` for the default (--set-model) pass and `nomodel` for
-# the --no-model pass; it selects the mode flag, the override table and
+# SWEEP is `cert` for the default (--verified) pass and `trusted` for
+# the --trusted pass; it selects the mode flag, the override table and
 # the failure wording.
 SWEEP=cert
 MODEFLAG=""
 
 # Resolve $want for one fixture: the certified expectation, overridden
-# in the no-model sweep if tests/no-model-expected.txt records a
+# in the trusted sweep if tests/trusted-expected.txt records a
 # divergence.
 resolve() { # <expectation-field> <suite> <fixture> <mode>
   want=$1
   want_src=certified
-  if [ "$SWEEP" = nomodel ]; then
-    local o=${NM_OVR["$2 $3 ${4:-}"]:-}
-    if [ -n "$o" ]; then want=$o; want_src="tests/no-model-expected.txt"; fi
+  if [ "$SWEEP" = trusted ]; then
+    local o=${T_OVR["$2 $3 ${4:-}"]:-}
+    if [ -n "$o" ]; then want=$o; want_src="tests/trusted-expected.txt"; fi
   fi
   return 0
 }
@@ -114,7 +114,7 @@ resolve() { # <expectation-field> <suite> <fixture> <mode>
 # the certified one unless overridden), so it is worded as such.
 mismatch() { # <prefix> <fixture> <want> <got>
   case "$SWEEP" in
-    nomodel) echo "NO-MODEL DIVERGENCE $2: $want_src expects exit $3, --no-model got $4";;
+    trusted) echo "TRUSTED-MODE DIVERGENCE $2: $want_src expects exit $3, --trusted got $4";;
     *) echo "$1 $2: expected exit $3, got $4";;
   esac
   fail=1
@@ -232,7 +232,7 @@ annot_half() {
 # THE CERTIFIED SWEEP, RESTORED (task #161 P5, 2026-09-01).  The P2..P5
 # suspension is over: the annotate pass writes the `pw` datum for every
 # binder of every unannotated stream, so the arena and e2e suites run at
-# `--set-model` again — validated, not merely checked.  A regression in
+# `--verified` again — validated, not merely checked.  A regression in
 # the pass shows up here as a `sort-annotation mismatch (<site>)`
 # decline against a certified expectation.  The annotated fixture suite
 # stays and is now the pass's *negative* gate: the annot_decline_*
@@ -280,13 +280,16 @@ split_case 3 --core production "$SPLIT_GOOD"      # …in the two-token spelling
 echo "retired flags: $split_ok/$split_total as expected"
 
 # The mode flags (task #147): the modes parse and judge the smoke
-# fixtures alike — the verified graded lane (`--set-model`, spelled
-# `--set-model=p` too) and the parity lane (`--no-model`) — and the
-# RETIRED flags/environment variables error out with a pointer to the
-# new modes rather than being silently ignored.  `--set-model=r` joined
-# them 2026-09-05: the R core and the collapsed-model consistency proof
-# it was the subject of were deleted, and the spelling must not
-# silently alias onto a different core.
+# fixtures alike — the verified lane (`--verified`, the default) and
+# the trusted lane (`--trusted`) — and the RETIRED flags/environment
+# variables error out with a pointer to the new modes rather than being
+# silently ignored.  `--set-model=r` joined them 2026-09-05: the R core
+# and the collapsed-model consistency proof it was the subject of were
+# deleted, and the spelling must not silently alias onto a different
+# core.  `--set-model`, `--set-model=p` and `--no-model` joined them at
+# the mode rename (2026-09-06): they name the same two cores under the
+# old vocabulary, and even so they are hard errors, not aliases — a
+# verdict's provenance must be readable off the invocation.
 mode_ok=0
 mode_total=0
 mode_case() {
@@ -300,16 +303,18 @@ mode_case() {
     mode_ok=$((mode_ok+1))
   fi
 }
-mode_case 0 --set-model "$SPLIT_GOOD"              # the default, spelled out
+mode_case 0 --verified "$SPLIT_GOOD"               # the default, spelled out
+mode_case 1 --verified "$SPLIT_BAD"                # …and it still rejects
+mode_case 0 --trusted "$SPLIT_GOOD"                # trusted lane: accepts
+mode_case 1 --trusted "$SPLIT_BAD"                 # front door still rejects
+mode_case 3 --set-model "$SPLIT_GOOD"              # RENAMED: hard error
+mode_case 3 --set-model=p "$SPLIT_GOOD"            # …the `=p` spelling too
+mode_case 3 --no-model "$SPLIT_GOOD"               # RENAMED: hard error
+mode_case 3 --no-model "$SPLIT_BAD"                # …on a bad stream too
 mode_case 3 --tt-model "$SPLIT_GOOD"               # retired flag: hard error
-mode_case 0 --no-model "$SPLIT_GOOD"               # unverified lane: accepts
-mode_case 1 --no-model "$SPLIT_BAD"                # front door still rejects
-mode_case 3 --no-model --install-only "$SPLIT_GOOD" # retired flag: hard error
+mode_case 3 --trusted --install-only "$SPLIT_GOOD" # retired flag: hard error
 mode_case 3 --set-model=r "$SPLIT_GOOD"            # RETIRED R lane: hard error
 mode_case 3 --set-model=r "$SPLIT_BAD"             # …on a bad stream too
-mode_case 0 --set-model=p "$SPLIT_GOOD"            # the P lane, spelled out
-mode_case 1 --set-model=p "$SPLIT_BAD"             # …and it still rejects
-mode_case 1 --set-model "$SPLIT_BAD"               # the default rejects
 mode_case 3 --yolo "$SPLIT_GOOD"                   # retired flag: hard error
 mode_case 3 --infer-only "$SPLIT_GOOD"             # retired flag: hard error
 mode_total=$((mode_total+1))
@@ -330,30 +335,30 @@ else
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
 
-# The mode sweep (task #147): both suites again with `--no-model`
+# The mode sweep (task #147): both suites again with `--trusted`
 # (certified expectations plus the recorded overrides in
-# tests/no-model-expected.txt).  See the header.
+# tests/trusted-expected.txt).  See the header.
 if [ "$MODE_SWEEPS" = on ]; then
-  SWEEP=nomodel
-  MODEFLAG=--no-model
-  nm_fail_before=$fail
+  SWEEP=trusted
+  MODEFLAG=--trusted
+  t_fail_before=$fail
   arena_half
-  nm_arena=$arena_checked
+  t_arena=$arena_checked
   e2e_half
   annot_half
   SWEEP=cert
   MODEFLAG=""
-  if [ "$fail" = "$nm_fail_before" ]; then
+  if [ "$fail" = "$t_fail_before" ]; then
     # "as expected" rather than "agree": the overridden fixtures
     # deliberately do not agree — they are the recorded divergences of
     # the unverified lane, counted here so a silently emptied
-    # tests/no-model-expected.txt is visible in the summary line.
-    echo "no-model sweep: $nm_arena arena + $e2e_total e2e +" \
+    # tests/trusted-expected.txt is visible in the summary line.
+    echo "trusted sweep: $t_arena arena + $e2e_total e2e +" \
          "$annot_total annot as expected" \
-         "(${#NM_OVR[@]} recorded divergences)"
+         "(${#T_OVR[@]} recorded divergences)"
   else
-    echo "no-model sweep: DIVERGED — see the lines above" \
-         "(tests/no-model-expected.txt header: what may be recorded)"
+    echo "trusted sweep: DIVERGED — see the lines above" \
+         "(tests/trusted-expected.txt header: what may be recorded)"
   fi
 fi
 

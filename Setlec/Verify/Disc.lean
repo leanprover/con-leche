@@ -915,7 +915,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCertAt C env d mode.verified mode.betaGate c us e'.getAppArgs >>= fun b =>
+              projCertAt C env d mode.verifiedChecks mode.betaGate c us e'.getAppArgs >>= fun b =>
               if b then
                 (C : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -933,7 +933,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length ∧
                 entry.fireOk us = true then
-              projCertAt G env d mode.verified mode.betaGate c us e'.getAppArgs >>= fun b =>
+              projCertAt G env d mode.verifiedChecks mode.betaGate c us e'.getAppArgs >>= fun b =>
               if b then
                 (G : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -1060,14 +1060,14 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        if mode.verified && !pwWritten mb.pw then
+        if mode.verifiedChecks && !pwWritten mb.pw then
           annotPwPi C env (d + 1) body' >>= fun pw =>
             pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
         else pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        if mode.verified && !pwWritten mb.pw then
+        if mode.verifiedChecks && !pwWritten mb.pw then
           annotPwPi G env (d + 1) body' >>= fun pw =>
             pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
         else pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
@@ -1090,14 +1090,14 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        if mode.verified && !pwWritten mb.pw then
+        if mode.verifiedChecks && !pwWritten mb.pw then
           annotPwLam C env (d + 1) body' >>= fun pw =>
             pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
         else pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
             (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
-        if mode.verified && !pwWritten mb.pw then
+        if mode.verifiedChecks && !pwWritten mb.pw then
           annotPwLam G env (d + 1) body' >>= fun pw =>
             pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
         else pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))

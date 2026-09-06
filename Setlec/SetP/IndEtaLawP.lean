@@ -56,7 +56,7 @@ variable {μ : CheckMode} {env : Env} {F : Nat}
 /-- **The `Eq` spine's third slot inhabits the type slot** —
 `EqLawV.dom`'s P counterpart, and v1's finding-4 repair one currency
 over.  The fabricated constructor application is typed by no
-`--set-model` check; what types it is the *pinned* `Eq` former's own
+`--verified` check; what types it is the *pinned* `Eq` former's own
 graph, against the statement's grading. -/
 theorem eqThird_mem (mp : EnvS2PM V μ env)
     (heqfE : env.find? eqName = some eqA) (χ : Name → Nat)

@@ -39,13 +39,13 @@ fires, so the gated `if`'s `else` arm — the pre-gate clause, verbatim
     betaGateFires mode pw = false := by
   simp [betaGateFires, h]
 
-/-- The gate is off at `.noModel`. -/
-@[simp] theorem betaGate_off_noModel :
-    CheckMode.betaGate .noModel = false := rfl
+/-- The gate is off at `.trusted`. -/
+@[simp] theorem betaGate_off_trusted :
+    CheckMode.betaGate .trusted = false := rfl
 
-/-- The gate is on at `.setModel` — the one verified mode. -/
-@[simp] theorem betaGate_on_setModel :
-    CheckMode.betaGate .setModel = true := rfl
+/-- The gate is on at `.verified` — the one verified mode. -/
+@[simp] theorem betaGate_on_verified :
+    CheckMode.betaGate .verified = true := rfl
 
 /-! ## The coverage certificates, RETIRED (2026-09-05)
 
@@ -70,9 +70,9 @@ theorem isNever_of_betaGateFires (h : betaGateFires mode pw = true) :
 licensing theorem (`AnnotOkP_beta_gate`) is stated against. -/
 theorem verified_isNever_of_betaGateFires
     (h : betaGateFires mode pw = true) :
-    (mode.verified && pw.isNever) = true := by
+    (mode.verifiedChecks && pw.isNever) = true := by
   rcases Bool.and_eq_true .. |>.mp h with ⟨hg, hn⟩
-  cases mode <;> simp_all [CheckMode.betaGate, CheckMode.verified]
+  cases mode <;> simp_all [CheckMode.betaGate, CheckMode.verifiedChecks]
 
 /-! ## The template bridge (task #172, batch B2)
 
@@ -89,14 +89,14 @@ without disturbing a landed statement. -/
 
 /-- The template's verified field at `cfgOf mode` **is** the accessor. -/
 @[simp] theorem cfgOf_verified :
-    (cfgOf mode).verified = mode.verified := rfl
+    (cfgOf mode).verified = mode.verifiedChecks := rfl
 
 /-- The transitional ι-cone field at `cfgOf mode` **is** the mode. -/
 @[simp] theorem cfgOf_iotaMode : (cfgOf mode).iotaMode = mode := rfl
 
 /-- **The P core's β branch reads the datum, not a flag**: at `cfgP`
 the skip predicate is the redex's own validated annotation. -/
-theorem cfgP_betaSkip_eq_setModel (pw : PropWhen) :
-    cfgP.betaSkip pw = betaGateFires .setModel pw := rfl
+theorem cfgP_betaSkip_eq_verified (pw : PropWhen) :
+    cfgP.betaSkip pw = betaGateFires .verified pw := rfl
 
 end Setlec

@@ -6,7 +6,7 @@
 | tree | the merge of master `8f9e8250` (task #175 W6) with the perf-tables tooling commits; the commits above master touch only `scripts/` |
 | date | 2026-09-06T01:37:21+00:00 |
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
-| columns | official v4.33.0 · parity `--no-model` · P `--set-model=p` |
+| columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
 | metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` |
 | streams | preprocessed once off the clock by `lean-inductive-models`; both checkers read the same bytes, setlec under `--pre` |
 | concurrent load | one unrelated single-process checker run (the Mathlib frontier campaign, one core of 96) was live on the machine throughout; battery cells still ran strictly one at a time |
@@ -15,7 +15,7 @@
 
 ## instructions:u
 
-| stream | official v4.33.0 | parity `--no-model` | P `--set-model=p` | parity ÷ official | P ÷ official |
+| stream | official v4.33.0 | trusted `--trusted` | verified `--verified` | trusted ÷ official | verified ÷ official |
 |---|---|---|---|---|---|
 | `let-ladder` | 6.16 G | 9.83 G | 9.84 G | 1.60× | 1.60× |
 | `beta-ladder` | 10.15 G | 40.78 G | 52.08 G | 4.02× | 5.13× |
@@ -26,7 +26,7 @@
 
 ## exit code / accepted declarations
 
-| stream | official v4.33.0 | parity `--no-model` | P `--set-model=p` |
+| stream | official v4.33.0 | trusted `--trusted` | verified `--verified` |
 |---|---|---|---|
 | `let-ladder` | 0 / 62 | 0 / 69 | 0 / 69 |
 | `beta-ladder` | 0 / 50 | 0 / 56 | 0 / 56 |
@@ -39,6 +39,12 @@ Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
 
 ## Notes
 
+* **Stale, awaiting regeneration.**  Nothing below was re-measured
+  since the commit named above: the table PREDATES the instantiate-opt
+  landing, and the 2026-09-06 mode rename changed the column *labels*
+  only (`parity` → `trusted`, `P` → `verified`, and the flags they
+  name: `--no-model` → `--trusted`, `--set-model=p` → `--verified`).
+  Same cells, new vocabulary.
 * **Cross-pipeline, not same-work.**  Both sides read the same bytes,
   but every setlec cell checks a *modeled* encoding of the inductive
   blocks plus an `annotate` pass with no official counterpart, while
@@ -52,9 +58,9 @@ Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
   above says 61 048 (grind-ring-5: 3 866 for 3 946) with exit 0 in both
   modes and no verdict changed; the next regeneration's drop is that
   collapse, not a verdict change.
-* **`--no-model` under-checks install-only kinds** (axioms, inductive
+* **`--trusted` under-checks install-only kinds** (axioms, inductive
   blocks, quot, the pinned-cert branches run at io grade), which
-  flatters the parity column on inductive-heavy streams.
+  flatters the trusted column on inductive-heavy streams.
 * One run per cell on a shared machine: `instructions:u` is
   contention-independent, so a cell may overlap other work; wall time
   is not reported for that reason.

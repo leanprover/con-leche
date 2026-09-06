@@ -233,8 +233,8 @@ select a reduct, a computed type, or a comparison result (law 1 as
 amended at task #161: "annotations never change a reduct or a computed
 type; annotation-gated check-skipping is permitted where the skip's
 soundness is a P-tier theorem *and* the gate fires only where the
-licensing theorems' hypotheses hold — `μ.verified = true`").  Every
-executable call site therefore carries the `μ.verified` conjunct; see
+licensing theorems' hypotheses hold — `μ.verifiedChecks = true`").  Every
+executable call site therefore carries the `μ.verifiedChecks` conjunct; see
 `inferBodyIO` (`Kernel/CoreIO.lean`). -/
 def isNever : PropWhen → Bool
   | .never => true

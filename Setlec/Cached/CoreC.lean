@@ -36,7 +36,7 @@ structure CoreFnsI where
   — the twin of `CoreFns.inferIO` (`Setlec/Kernel/Core.lean`): what
   every internal inference call site runs.  The knot selects the
   grade's meaning per config (`cfg.ioGate`): the full `infer` at the
-  R/parity configs, the io body (own memo, `CState.inferFC`) at the P
+  R/trusted configs, the io body (own memo, `CState.inferFC`) at the P
   config. -/
   inferIO : Nat → ExprC → CheckCM ExprC
 
@@ -873,7 +873,7 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             -- nonzero-sort gate is unsound-to-model under the
             -- domain-relative collapse); task #175 W6: the spine
             -- against the constructor's type (see `projCert`); the
-            -- parity config runs none (`projCertAt`).
+            -- trusted config runs none (`projCertAt`).
             if ← projCertAtI r fe depth cfg.verified cfg.betaGate c us args then
               k arg
             else internI (.proj sn i e')
@@ -1086,7 +1086,7 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : ExprC) (k : Nat)
   inferLamsOutI cfg d stk (k - 1) cur prevPw
 
 /-- λ-telescope inference loop (task #72; used by `inferBodyI`'s and
-`inferBodyNC`'s lam cases): peel the raw λ-chain, checking each opened
+`inferBodyT`'s lam cases): peel the raw λ-chain, checking each opened
 domain to be a type on the way in.  `k` counts the opened binders
 (`≥ 1`: the caller peels the first binder inline), `fvs` their free
 variables innermost-first. -/
@@ -1792,7 +1792,7 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
     -- perf-eng E6 (EXPERIMENT, exe-only pricing — reverted before
     -- landing: 194 Verify/Cached references unfold this knot's
     -- equations, a real proof-adaptation bill): Thunk-cache the
-    -- previous fuel level, as `coreKnotNC`'s E1.
+    -- previous fuel level, as `coreKnotT`'s E1.
     let prev : Thunk CoreFnsI := ⟨fun _ => coreKnotI fe fuel⟩
     -- task #172 B2: the template's config is built ONCE per knot
     -- level, not per `whnfCore` call.  Measured: leaving `cfgOf mode`

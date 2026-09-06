@@ -1,4 +1,4 @@
-import Setlec.Cached.ParsedNC
+import Setlec.Cached.ParsedT
 
 /-!
 # T2a / T2b — `annotate`'s config identity and the `pw` writes
@@ -7,10 +7,10 @@ import Setlec.Cached.ParsedNC
 Census part 4 §3's second and third obligations, at the **cached** tier
 (the user's drop-the-interned ruling).
 
-At this tier the parity core's `annotate` **is** the certified body at
-`cfgNC` (task #172 B3: the parity core's *config*, the mode
-accessor's successor) — `Cached/CoreNC.lean` ties
-`annotate := memoEINC … (fun d e => annotateBodyI cfgNC prev.get fe d e)`
+At this tier the trusted core's `annotate` **is** the certified body at
+`cfgT` (task #172 B3: the trusted core's *config*, the mode
+accessor's successor) — `Cached/CoreT.lean` ties
+`annotate := memoEIT … (fun d e => annotateBodyI cfgT prev.get fe d e)`
 — so the two obligations are a *config collapse on one function*, stated
 in the T1 shape: a **shared** `r`, one unfolding of the body.
 
@@ -50,7 +50,7 @@ config at any non-binder node — *including* `.proj`, `.letE` and the two
 literal clauses.  `rfl`-grade, clause by clause. -/
 theorem annotateBodyI_cfg_eq (cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv)
     (d : Nat) (e : ExprC) (h : ExprC.isBinderNode e = false) :
-    annotateBodyI cfgNC r fe d e = annotateBodyI cfg r fe d e := by
+    annotateBodyI cfgT r fe d e = annotateBodyI cfg r fe d e := by
   cases e with
   | bvar _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
   | fvar _ _ _ => simp only [annotateBodyI, viewI, ExprC.view, pure_bind]
@@ -99,17 +99,17 @@ theorem annotBinderMetaI_bi (pw? : Option PropWhen) (mb : BinderMeta) :
   | none => rfl
   | some p => by_cases h : pwWritten mb.pw <;> simp [annotBinderMetaI, h]
 
-/-- At `cfgNC` the telescope loops write nothing — the gate is the
+/-- At `cfgT` the telescope loops write nothing — the gate is the
 config's `verified` field and nothing else, and it is a literal
 `false` there (task #172 B3: the mode accessor became a config
 field; the collapse is still `rfl`). -/
-@[simp] theorem annotatePisPwI_cfgNC (r : CoreFnsI) (fe : FEnv) (d k : Nat)
+@[simp] theorem annotatePisPwI_cfgT (r : CoreFnsI) (fe : FEnv) (d k : Nat)
     (leaf' : ExprC) :
-    annotatePisPwI cfgNC r fe d k leaf' = pure none := rfl
+    annotatePisPwI cfgT r fe d k leaf' = pure none := rfl
 
-@[simp] theorem annotateLamsPwI_cfgNC (r : CoreFnsI) (fe : FEnv) (d k : Nat)
+@[simp] theorem annotateLamsPwI_cfgT (r : CoreFnsI) (fe : FEnv) (d k : Nat)
     (leaf' : ExprC) :
-    annotateLamsPwI cfgNC r fe d k leaf' = pure none := rfl
+    annotateLamsPwI cfgT r fe d k leaf' = pure none := rfl
 
 /-- **T2b, the rebuild loop.**  `annotateBindersOutI`'s output does not
 depend on the datum written: two runs whose inputs agree modulo
@@ -167,16 +167,16 @@ same `r`, so they reach the rebuild loop with the same leaf; from there
 the datum is all that differs, and `erasePwC` forgets it.
 
 Scoped to *accept*, as everywhere in B7: the verified run's datum
-computation calls `r.infer`, which may fail where the parity run does
+computation calls `r.infer`, which may fail where the trusted run does
 not (a class-1, acceptance-only divergence). -/
 
 theorem annotatePisLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (d : Nat)
     (t : ExprC) (k : Nat) (fvs : Array ExprC) (stk : List AnnotBinderEntry)
     {s : CState} {a₁ a₂ : ExprC} {s₁ s₂ : CState}
-    (h₁ : annotatePisLeafI cfgNC r fe d t k fvs stk s = .ok (a₁, s₁))
+    (h₁ : annotatePisLeafI cfgT r fe d t k fvs stk s = .ok (a₁, s₁))
     (h₂ : annotatePisLeafI cfg r fe d t k fvs stk s = .ok (a₂, s₂)) :
     ExprC.erasePwC a₁ = ExprC.erasePwC a₂ := by
-  have e₁ : annotatePisLeafI cfgNC r fe d t k fvs stk s
+  have e₁ : annotatePisLeafI cfgT r fe d t k fvs stk s
       = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
           (fun p => annotateBindersOutI
             (fun n ty b mb => ExprView.forallE n ty b mb) d none stk (k - 1)
@@ -211,10 +211,10 @@ theorem annotatePisLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (d 
 theorem annotateLamsLeafI_erasePwC (cfg : CoreCfg) (r : CoreFnsI) (fe : FEnv) (d : Nat)
     (t : ExprC) (k : Nat) (fvs : Array ExprC) (stk : List AnnotBinderEntry)
     {s : CState} {a₁ a₂ : ExprC} {s₁ s₂ : CState}
-    (h₁ : annotateLamsLeafI cfgNC r fe d t k fvs stk s = .ok (a₁, s₁))
+    (h₁ : annotateLamsLeafI cfgT r fe d t k fvs stk s = .ok (a₁, s₁))
     (h₂ : annotateLamsLeafI cfg r fe d t k fvs stk s = .ok (a₂, s₂)) :
     ExprC.erasePwC a₁ = ExprC.erasePwC a₂ := by
-  have e₁ : annotateLamsLeafI cfgNC r fe d t k fvs stk s
+  have e₁ : annotateLamsLeafI cfgT r fe d t k fvs stk s
       = (r.annotate (d + k) (ExprC.instantiateRev t fvs 0) s).bind
           (fun p => annotateBindersOutI
             (fun n ty b mb => ExprView.lam n ty b mb) d none stk (k - 1)

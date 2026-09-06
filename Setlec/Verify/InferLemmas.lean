@@ -195,7 +195,7 @@ sort** (task #152), delivered at the verified modes only: it is the
 `HasSort (A :: Δ) B v` premise the set lane's annotation pass needs at
 every λ node, in the shape the checker computes it (infer, then whnf
 to a sort — `Setlec/SetR/Annot/Pass.lean`'s `HasSort` unfolded along
-the bridge).  At `.noModel` — the official-parity lane, which does not
+the bridge).  At `.trusted` — the trusted lane, which does not
 run the check — it is vacuous. -/
 theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty body t : Expr} {m : BinderMeta}
@@ -205,11 +205,11 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       whnf mode env fuel d tty = .ok (.sort u) ∧
       inferTypeCore mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
-      (mode.verified = true → body.isLam = false → ∃ btt v,
+      (mode.verifiedChecks = true → body.isLam = false → ∃ btt v,
         inferTypeIO mode env fuel (d + 1) bt = .ok btt ∧
         whnf mode env fuel (d + 1) btt = .ok (.sort v) ∧
         (Level.zeronessOf v).equiv m.pw = true) ∧
-      (mode.verified = true → ∀ pwI, body.lamPw = some pwI →
+      (mode.verifiedChecks = true → ∀ pwI, body.lamPw = some pwI →
         m.pw.equiv pwI = true) ∧
       t = .forallE n ty (bt.abstract1 d) m := by
   rw [inferTypeCore_succ] at h
@@ -240,7 +240,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
   rw [hbt] at h
   dsimp only at h
   -- the annotation-validation block (tasks #152/#161), verified modes
-  by_cases hv : mode.verified = true
+  by_cases hv : mode.verifiedChecks = true
   case neg =>
     rw [if_neg hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -377,7 +377,7 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
       inferTypeCore mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
       ensureSortCore mode env fuel (d + 1) bt = .ok v ∧
-      (mode.verified = true → (Level.zeronessOf v).equiv m.pw = true) ∧
+      (mode.verifiedChecks = true → (Level.zeronessOf v).equiv m.pw = true) ∧
       t = .sort (.imax u v) := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
@@ -412,7 +412,7 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
   | ok v =>
   rw [hes] at h
   dsimp only at h
-  by_cases hv : mode.verified = true
+  by_cases hv : mode.verifiedChecks = true
   case neg =>
     rw [if_neg hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -716,7 +716,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
           entry.fireOk us = true ∧
           whnfCore mode env fuel d
             (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
-          projCertAtP mode env fuel d mode.verified mode.betaGate entry.ctor us
+          projCertAtP mode env fuel d mode.verifiedChecks mode.betaGate entry.ctor us
             e₃.getAppArgs = .ok true) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
@@ -747,7 +747,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       obtain ⟨hnat, rfl, hi, hlen, hus, hfire⟩ := hcond
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
-      cases hcert : projCertAtP mode env fuel d mode.verified mode.betaGate entry.ctor us
+      cases hcert : projCertAtP mode env fuel d mode.verifiedChecks mode.betaGate entry.ctor us
           e₃.getAppArgs with
       | error err => rw [hcert] at h; exact nomatch h
       | ok b =>
@@ -775,8 +775,8 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
 /-- At the verified mode the fire's gate runs the certificate
 (`projCertAt`; parity mirrors official, 2026-09-06). -/
 theorem projCertAtP_verified {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
-    {us : List Level} {args : List Expr} (hv : mode.verified = true)
-    (h : projCertAtP mode env fuel d mode.verified lic c us args = .ok true) :
+    {us : List Level} {args : List Expr} (hv : mode.verifiedChecks = true)
+    (h : projCertAtP mode env fuel d mode.verifiedChecks lic c us args = .ok true) :
     projCertP mode env fuel d lic c us args = .ok true := by
   simp only [projCertAtP, projCertAt, hv, ↓reduceIte] at h
   exact h
@@ -1624,7 +1624,7 @@ sorts are `Prop` by the slow branch.  The fast "not a proof" arm only
 ever answers `false`, so it contributes nothing here. -/
 theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : propIrrelP mode env fuel d a b = .ok true) :
-    (mode.verified = true ∧ mode.betaGate = true ∧
+    (mode.verifiedChecks = true ∧ mode.betaGate = true ∧
       isProofFast env.find? a = true ∧ isProofFast env.find? b = true) ∨
     ∃ ta sta uT tb stb vT,
       inferTypeIO mode env fuel d a = .ok ta ∧
@@ -2236,7 +2236,7 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : 
       isDefEqCore mode env fuel d ty₂ ty₁ = .ok true ∧
       isDefEqCore mode env fuel (d + 1) (body₁.instantiate1 (.fvar d n₁ ty₁))
         (.app b (.fvar d n₁ ty₁)) = .ok true ∧
-      (mode.verified = true → m₁.pw.equiv m₂.pw = true) := by
+      (mode.verifiedChecks = true → m₁.pw.equiv m₂.pw = true) := by
   dsimp only [etaCertP] at h
   simp only [etaCert, Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def, defeq_def] at h
@@ -2280,7 +2280,7 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : 
   | false => simp [pure, Except.pure] at h
   | true =>
   simp only [↓reduceIte] at h
-  by_cases hpw : (mode.verified && !(m₁.pw.equiv m₂.pw)) = true
+  by_cases hpw : (mode.verifiedChecks && !(m₁.pw.equiv m₂.pw)) = true
   · rw [if_pos hpw] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
   · rw [if_neg hpw] at h

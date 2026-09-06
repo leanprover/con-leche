@@ -705,8 +705,8 @@ R letter retired 2026-09-05)
 
 **THE MEASUREMENT the batch was dispatched for.**  The walks above are
 generic in `cfg`, so one proof serves every instantiation; the
-capstone is pinned at `cfgOf mode`, and `cfgOf .setModel` **is**
-`cfgP` by `rfl` (`cfgOf_setModel`).  The per-core letter is therefore
+capstone is pinned at `cfgOf mode`, and `cfgOf .verified` **is**
+`cfgP` by `rfl` (`cfgOf_verified_eq_cfgP`).  The per-core letter is therefore
 `exact` with no conversion step and no restated lemma: the tower
 **INSTANTIATES**, and per concrete core the whnfCore family costs
 **one proof line** (a term application) and **zero** new proof steps.
@@ -718,13 +718,13 @@ measurement it recorded is not lost — it is the same one this letter
 records, at the core that ships. -/
 
 /-- The P core's head normalization simulates the specification. -/
-theorem whnfCoreBodyPC_sim (ih : SSimC .setModel env f) (henv : EnvWF env)
+theorem whnfCoreBodyPC_sim (ih : SSimC .verified env f) (henv : EnvWF env)
     {d : Nat} {i : ExprC} {ex : Expr} {s₀ : CState}
-    (hs : CSOK .setModel env s₀)
+    (hs : CSOK .verified env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
-    SimC .setModel env s₀ (RelEC d)
-      (whnfCoreBodyPC (coreKnotI .setModel (mkFEnv env) f) (mkFEnv env) d i)
-      (whnfCoreBody .setModel (fueledFns .setModel env) env d ex) :=
+    SimC .verified env s₀ (RelEC d)
+      (whnfCoreBodyPC (coreKnotI .verified (mkFEnv env) f) (mkFEnv env) d i)
+      (whnfCoreBody .verified (fueledFns .verified env) env d ex) :=
   whnfCoreBodyC_sim ih henv hs hden hw
 
 end Walks
@@ -1361,7 +1361,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         rw [Expr.instantiateList_cons]
         exact Expr.WScoped.instantiate1_gen hwxa 0 hcomp.2
       try dsimp only
-      by_cases hg2 : (mode.verified && mb.pw.isNever) = true
+      by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
       · simp only [cfgOf_verified, hg2, ↓reduceIte]
         exact inferSpineIOC_sim ih henv hs rfl
           (by rw [toListRev_push]; exact RelCL.cons hax hacc) hwsub
@@ -1408,7 +1408,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verified && mb.pw.isNever) = true
+        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
         · simp only [cfgOf_verified, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
@@ -1462,7 +1462,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verified && mb.pw.isNever) = true
+        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
         · simp only [cfgOf_verified, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
@@ -1516,7 +1516,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verified && mb.pw.isNever) = true
+        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
         · simp only [cfgOf_verified, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
@@ -1570,7 +1570,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verified && mb.pw.isNever) = true
+        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
         · simp only [cfgOf_verified, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
@@ -1624,7 +1624,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verified && mb.pw.isNever) = true
+        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
         · simp only [cfgOf_verified, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
@@ -1678,7 +1678,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verified && mb.pw.isNever) = true
+        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
         · simp only [cfgOf_verified, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
@@ -1732,7 +1732,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verified && mb.pw.isNever) = true
+        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
         · simp only [cfgOf_verified, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
@@ -1786,7 +1786,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verified && mb.pw.isNever) = true
+        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
         · simp only [cfgOf_verified, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
@@ -1840,7 +1840,7 @@ theorem inferSpineIOC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : Expr.WScoped d ((Expr.instantiateList body [xa])) := by
           rw [instList_single]
           exact Expr.WScoped.instantiate1_gen hwxa 0 hwtb.2
-        by_cases hg2 : (mode.verified && mb.pw.isNever) = true
+        by_cases hg2 : (mode.verifiedChecks && mb.pw.isNever) = true
         · simp only [cfgOf_verified, hg2, ↓reduceIte]
           exact inferSpineIOC_sim ih henv hs₂ rfl
             (by rw [toListRev_singleton]; exact RelCL.cons hax RelCL.nil)
@@ -2348,7 +2348,7 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
         (fun s₆ v lv hs₆ hPv => ?_)
       obtain rfl := hPv
       dsimp only [cfgOf_verified]
-      by_cases hv : mode.verified = true
+      by_cases hv : mode.verifiedChecks = true
       · simp only [hv, ↓reduceIte]
         by_cases hc : (Level.zeronessOf v).equiv m.pw = true
         · simp only [hc, ↓reduceIte]
@@ -2418,7 +2418,7 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
           simp only [Expr.WScoped]
           exact ⟨hwtb.1, Setlec.WScoped.abstract1 0 hwbt⟩⟩)
     dsimp only [cfgOf_verified]
-    by_cases hv : mode.verified = true
+    by_cases hv : mode.verifiedChecks = true
     · simp only [hv, ↓reduceIte]
       cases hbp : b.lamPw with
       | some pwI =>

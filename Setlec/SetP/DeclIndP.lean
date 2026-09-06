@@ -42,7 +42,7 @@ set_option maxHeartbeats 3200000 in
 /-- **The modeled-inductive block install, P tier.**  The v1 carriers
 are taken from the v1 phases (`indRecsS` at the group), which the
 install runs anyway; the P phases carry the annotated invariants. -/
-theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
+theorem declIndP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} (mp : EnvS2PM V μ env)
     (hE : Setlec.EtaFamiliesClosed env)
     (h : DeclIndRun μ F env block env₂) :

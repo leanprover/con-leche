@@ -15,7 +15,7 @@ untouched, so **every R capstone stays verbatim and mode-generic**, and
 the executable is byte-identical to master by construction — nothing
 here is reachable from `Main.lean`'s import closure.
 
-The wiring (`--set-model=p`, the interned and cached twins, the memo
+The wiring (`--verified`, the interned and cached twins, the memo
 discipline) is **HELD** at the stop recorded in `DESIGN.md`, "Task #161
 SEPARATION — S9 SEALED": the P capstone's proof path still reaches
 `Red.beta` through one constant, `checkDeclR_ofEnvRE`, and until the
@@ -42,8 +42,8 @@ that fence is absolute.  Task #100's de-gating ruling is untouched:
 which is unsound-to-model under the domain-relative collapse; this one
 reads a **validated annotation** and is licensed by a P-tier theorem.
 
-`mode.verified` is law 1's mode gate (clause (i)): the annotation is
-only validated in the verified modes, so at `.noModel` the datum means
+`mode.verifiedChecks` is law 1's mode gate (clause (i)): the annotation is
+only validated in the verified modes, so at `.trusted` the datum means
 nothing and the certificate runs.  The gate wraps the **test** only —
 both arms are `whnfCoreBody`'s verbatim, so reducts stay
 annotation-blind (clause (iii)).
@@ -73,7 +73,7 @@ def whnfCoreBodyP (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | .lam n ty body mb => do
         -- **THE β SITE.**  The gate wraps the test only; both arms are
         -- `whnfCoreBody`'s verbatim.
-        if ← (if mode.verified && mb.pw.isNever then pure true else do
+        if ← (if mode.verifiedChecks && mb.pw.isNever then pure true else do
                 let ta ← r.infer depth a
                 r.defeq depth ta ty) then
           r.whnfCore depth (body.instantiate1 a)
@@ -98,7 +98,7 @@ def whnfCoreBodyP (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             -- the projection certificate is NOT gated: the asymmetry
             -- fence keeps every zero-kind certificate, and the
             -- projection slot has no `pw` datum of its own
-            if ← projCertAt r env depth mode.verified mode.betaGate c us args then
+            if ← projCertAt r env depth mode.verifiedChecks mode.betaGate c us args then
               r.whnfCore depth arg
             else pure (.proj sn i e')
           else pure (.proj sn i e')

@@ -21,7 +21,7 @@ carries exactly three kinds of fact, and the split is the whole point:
   work at the `.app` clause and nowhere else;
 * **the one changed clause** (`whnfCoreP_app_inv`) — `whnf_app_inv`'s
   twin.  The β disjunct's certificate is replaced by a *disjunction*:
-  either the gate fired (`mode.verified && mb.pw.isNever`) or the
+  either the gate fired (`mode.verifiedChecks && mb.pw.isNever`) or the
   certificate ran and passed.  Nothing else in the inversion moves;
   the ι and stuck disjuncts are character-for-character the ungated
   ones, because the gate wraps the **test** only.
@@ -156,7 +156,7 @@ set_option linter.unusedSimpArgs false in
 /-- **`whnf_app_inv`'s gated twin.**  The shape is the ungated one with
 a single edit: the β disjunct's certificate premise becomes
 
-    (mode.verified && mb.pw.isNever) = true ∨
+    (mode.verifiedChecks && mb.pw.isNever) = true ∨
       ∃ ta, infer a = .ok ta ∧ defeq ta ty = .ok true
 
 — "either the gate fired, or the certificate ran and passed".  The
@@ -179,7 +179,7 @@ theorem whnfCoreP_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     ∃ f', whnfCoreP mode env fuel d f = .ok f' ∧
       ((∃ n ty body mb, f' = .lam n ty body mb ∧
           whnfCoreP mode env fuel d (body.instantiate1 a) = .ok e' ∧
-          ((mode.verified && mb.pw.isNever) = true ∨
+          ((mode.verifiedChecks && mb.pw.isNever) = true ∨
             ∃ ta, inferTypeCoreP mode env fuel d a = .ok ta ∧
               isDefEqCoreP mode env fuel d ta ty = .ok true)) ∨
         (∃ e'', iotaRec mode (pureFnsP mode env fuel) env d (.app f' a)
@@ -208,7 +208,7 @@ theorem whnfCoreP_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
   | .proj s' i' e'', h => ?_
   case _ =>
     dsimp only at h
-    by_cases hg : (mode.verified && mb.pw.isNever) = true
+    by_cases hg : (mode.verifiedChecks && mb.pw.isNever) = true
     · rw [if_pos hg] at h
       exact Or.inl ⟨n, ty, body, mb, rfl, h, Or.inl hg⟩
     · rw [if_neg hg] at h

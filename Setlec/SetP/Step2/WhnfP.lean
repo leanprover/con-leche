@@ -59,7 +59,7 @@ therefore the right obligation to route.
 
 ## Mode
 
-`WhnfCoreStepP`/`WhnfStepP` carry `μ.verified = true` for assembly
+`WhnfCoreStepP`/`WhnfStepP` carry `μ.verifiedChecks = true` for assembly
 uniformity with the infer quarter (`Step2/InferP.lean`'s docstring
 records why the step proofs are verified-only).  **Neither quarter's
 proof reads it** — flagged here rather than dropped, because the
@@ -895,7 +895,7 @@ structure WhnfInputsP (V : Type w) [SetTheory V] (μ : CheckMode) :
 /-- **`whnfCoreStepP_of` — the head-normalisation quarter, P
 currency.**  `hμ` is *unused* (flagged in the module docstring); it is
 carried so the four quarters assemble under one mode hypothesis. -/
-theorem whnfCoreStepP_of (_hμ : μ.verified = true)
+theorem whnfCoreStepP_of (_hμ : μ.verifiedChecks = true)
     (hin : WhnfInputsP V μ) : WhnfCoreStepP μ V :=
   fun _env m φ fuel ihwc _ ihd ihi ihio =>
     whnfCore_claimsP m (hin.core_exists m φ fuel)
@@ -905,7 +905,7 @@ theorem whnfCoreStepP_of (_hμ : μ.verified = true)
 
 /-- **`whnfStepP_of` — the reduction loop, P currency.**  `hμ` unused,
 as above. -/
-theorem whnfStepP_of (_hμ : μ.verified = true)
+theorem whnfStepP_of (_hμ : μ.verifiedChecks = true)
     (hin : WhnfInputsP V μ) : WhnfStepP μ V :=
   fun _env m φ fuel ihwc ihw _ _ _ =>
     whnf_claimsP m (hin.core_exists m φ fuel) ihwc

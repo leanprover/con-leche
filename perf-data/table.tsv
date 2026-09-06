@@ -1,18 +1,18 @@
 let-ladder	official	6161740551	0.57	0	62	4.02	Accepted 62 declarations.
-let-ladder	parity	9831982290	1.22	0	69	4.02	setlec: accepted 69 declarations
-let-ladder	P	9835073187	1.16	0	69	4.02	setlec: accepted 69 declarations
+let-ladder	trusted	9831982290	1.22	0	69	4.02	setlec: accepted 69 declarations
+let-ladder	verified	9835073187	1.16	0	69	4.02	setlec: accepted 69 declarations
 beta-ladder	official	10145539985	1.12	0	50	4.02	Accepted 50 declarations.
-beta-ladder	parity	40784939915	4.81	0	56	4.02	setlec: accepted 56 declarations
-beta-ladder	P	52080689546	5.88	0	56	4.09	setlec: accepted 56 declarations
+beta-ladder	trusted	40784939915	4.81	0	56	4.02	setlec: accepted 56 declarations
+beta-ladder	verified	52080689546	5.88	0	56	4.09	setlec: accepted 56 declarations
 init-prelude	official	3913636552	0.35	0	3489	4.01	Accepted 3489 declarations.
-init-prelude	parity	9107891052	0.96	0	3653	4.01	setlec: accepted 3653 declarations
-init-prelude	P	11304351589	1.21	0	3653	4.01	setlec: accepted 3653 declarations
+init-prelude	trusted	9107891052	0.96	0	3653	4.01	setlec: accepted 3653 declarations
+init-prelude	verified	11304351589	1.21	0	3653	4.01	setlec: accepted 3653 declarations
 grind-ring-5	official	15729368727	1.59	0	3775	4.01	Accepted 3775 declarations.
-grind-ring-5	parity	37498574950	4.43	0	3946	3.93	setlec: accepted 3946 declarations
-grind-ring-5	P	37382414767	4.46	0	3946	4.01	setlec: accepted 3946 declarations
+grind-ring-5	trusted	37498574950	4.43	0	3946	3.93	setlec: accepted 3946 declarations
+grind-ring-5	verified	37382414767	4.46	0	3946	4.01	setlec: accepted 3946 declarations
 app-lam	official	29442312715	3.85	0	88	4.01	Accepted 88 declarations.
-app-lam	parity	208621008740	41.29	0	97	4.65	setlec: accepted 97 declarations
-app-lam	P	208968031816	38.75	0	97	5.49	setlec: accepted 97 declarations
+app-lam	trusted	208621008740	41.29	0	97	4.65	setlec: accepted 97 declarations
+app-lam	verified	208968031816	38.75	0	97	5.49	setlec: accepted 97 declarations
 init-full	official	412933144826	52.17	0	60060	4.73	Accepted 60060 declarations.
-init-full	parity	1085558714244	184.94	0	61048	6.02	setlec: accepted 61048 declarations
-init-full	P	987050440950	171.60	0	61048	6.63	setlec: accepted 61048 declarations
+init-full	trusted	1085558714244	184.94	0	61048	6.02	setlec: accepted 61048 declarations
+init-full	verified	987050440950	171.60	0	61048	6.63	setlec: accepted 61048 declarations

@@ -25,7 +25,7 @@ sort is zero at every valuation.
 Trust: the readers consume annotations the checker validates
 (`(forall-cod)`, `(lam-cod-leaf)`/`(lam-cod-chain)` in `inferBody`;
 the stored types were validated at install), so they may only be
-*consulted* at the verified modes (`mode.verified`) — the parity core
+*consulted* at the verified modes (`mode.verifiedChecks`) — the trusted core
 writes no data and the parser default stays.  The **"definitely not a
 proof" arm** (`notProofFast`) needs no model theorem: refusing the
 proof-irrelevance shortcut is always sound; its obligation is

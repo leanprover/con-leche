@@ -154,7 +154,7 @@ theorem natHeadsP_cons_fresh (mp : EnvS2PM V μ env)
   simpa only [e1, e2, e3] using this
 
 /-- **The `defn` harvest** (see the module docstring). -/
-theorem harvestDefnP (hμ : μ.verified = true)
+theorem harvestDefnP (hμ : μ.verifiedChecks = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     {env₂ : Env}
@@ -533,7 +533,7 @@ semantic `.sort 0` front) are **not spent**: the type's P reading and
 its grading come from `ConstantValR`'s own run, exactly as in the
 species, and the P invariant stores no is-a-proposition field.  They
 are destructured away with `-`. -/
-theorem harvestThmP (hμ : μ.verified = true)
+theorem harvestThmP (hμ : μ.verifiedChecks = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclThmRun μ F env cv value env₂) :
@@ -865,7 +865,7 @@ tier works; the wrapper crosses it.
 `DeclAxiomR`'s fourth branch — the tolerated skip — needs none of
 this: it stores nothing (`env₂ = env`), so its P invariant is `mp`
 itself. -/
-theorem harvestAxiomP (hμ : μ.verified = true)
+theorem harvestAxiomP (hμ : μ.verifiedChecks = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → AVExpr}
     (hcv : ConstantValRun μ F env cv type')
@@ -1047,7 +1047,7 @@ the annotate link), and the harvest is the species with the erasure
 link read **directly** off the exposed equation — no `denote_install`,
 no `defn_eq`/`thm_ok` detour. -/
 
-theorem harvestOpaqueP (hμ : μ.verified = true)
+theorem harvestOpaqueP (hμ : μ.verifiedChecks = true)
     (mp : EnvS2PM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclOpaqueRun μ F env cv value env₂) :
