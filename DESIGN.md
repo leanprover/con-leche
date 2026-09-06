@@ -44312,3 +44312,134 @@ flags 8/8 + 14/14, no-model sweep as recorded).  No verdict moved.
 pay a `propIrrel`), P 1.3981 G; `natop_arg_order` parity 0.264 G (was
 0.280 G), P 0.269 G; `lake build` warning-free (438 jobs), `lake test`,
 proofdeps 1 363 rows / doors 0, layering 0 edges.
+
+## MODE RENAME — `--verified` / `--trusted`, and the fast `isProof` arms ungated (2026-09-06, `agent/mode-rename`)
+
+**The user's ruling.**  The two modes were named after the artefacts
+that (do or do not) prove them — `--set-model` / `--no-model`,
+`.setModel` / `.noModel`, "the P core" / "the parity core".  They are
+now named after what they *are*:
+
+| old | new |
+|---|---|
+| `CheckMode.setModel` | `CheckMode.verified` |
+| `CheckMode.noModel` | `CheckMode.trusted` |
+| `CheckMode.verified` (the ACCESSOR) | `CheckMode.verifiedChecks` |
+| `--set-model`, `--set-model=p` | `--verified` (still the default) |
+| `--no-model` | `--trusted` |
+| `cfgNC` | `cfgT` |
+| `Setlec/Cached/CoreNC.lean` | `Setlec/Cached/CoreT.lean` |
+| `Setlec/Cached/ParsedNC.lean` | `Setlec/Cached/ParsedT.lean` |
+| every `…NC` identifier tag (`stuckIrrelNC`, `coreKnotFNC`, `sharedOpsCNC`, …) | `…T` |
+| `checkDeclsSPCachedDNM` | `checkDeclsSPCachedDT` |
+| `cfgOf_setModel` / `cfgOf_noModel` | `cfgOf_verified_eq_cfgP` / `cfgOf_trusted_eq_cfgT` |
+| `betaGate_on_setModel` / `betaGate_off_noModel` | `betaGate_on_verified` / `betaGate_off_trusted` |
+| `cfgP_betaSkip_eq_setModel` | `cfgP_betaSkip_eq_verified` |
+| `parity_agrees_P_*` (`Verify/Cached/AgreeFloor.lean`) | `trusted_agrees_P_*` |
+| `tests/no-model-expected.txt` | `tests/trusted-expected.txt` |
+| `tests/arena.sh`: `SWEEP=nomodel`, `NM_EXPECTED`, `NM_OVR` | `SWEEP=trusted`, `T_EXPECTED`, `T_OVR` |
+| `scripts/perf-tables.sh`: `CONFIG_IDS=(official parity P)` | `(official trusted verified)` |
+
+Two entries need saying out loud.
+
+* **The accessor had to move.**  A constructor `CheckMode.verified` and
+  a function `CheckMode.verified` cannot share a name, so the mode
+  accessor became `CheckMode.verifiedChecks` — which reads like its
+  sibling `CheckMode.ttChecks`, and says what it is: *does this mode
+  run the verified lane's extra checks*.  `CoreCfg.verified` (the
+  record field, a different namespace) is untouched, so **`cfg.verified`
+  stays** exactly as it was, at every one of its call and proof sites.
+* **The SetP tier keeps its `P`.**  `P` names the graded *model*, not
+  the mode; `cfgP`, `foldSPC_PM`, `no_proof_of_Empty_SPCD_P`,
+  `PropIrrelPQ` and the whole `Setlec/SetP/*` naming are unchanged.
+
+### WHAT THE TRUSTED MODE IS FOR (the user's purpose statement, verbatim)
+
+> how fast would the checker be if we dropped all *additional* work
+> that we have to for certification only. What must not be dropped is
+> everything that we believe to be necessary for soundness (that's
+> different from 'necessary for our soundness proof to go through')
+
+> we don't want to optimize that mode alone … it should always be like
+> the real mode with just certain steps/checks omitted
+
+**This supersedes "parity" and its "mirrors official" reading.**  The
+trusted mode is not a re-implementation of the official kernel and its
+number is not a conformance claim; conformance against official is the
+**divergence audit's** subject (`agent/divergence-audit`, the record
+above), which owns the clause-by-clause comparison and the "parity
+mirrors official" annotations at the individual sites.  What the
+trusted column measures is the *certification tax*: the same checker,
+minus the work that exists only so the soundness proof can be written.
+Two consequences the name now makes obvious:
+
+* a trusted-only optimization is out of bounds.  The mode is defined
+  as the real mode with steps omitted, so anything that makes it
+  faster *without* making the verified mode faster is a divergence to
+  be removed, not a win to be recorded;
+* the trusted mode is **unverified by construction** and stays so.  No
+  capstone covers it; `trusted_agrees_P_skels_D` and its siblings are
+  a floor (same accepted skeletons when both accept), not a letter.
+
+Current-tense prose in the tree follows the ruling ("the trusted core",
+"the trusted lane").  **Historical records keep their own names** —
+this record, the retired `Setlec/Kernel/CoreNC.lean` /
+`Setlec/Kernel/CheckerNC.lean` / `CheckerNM` provenance lines in the
+cached twins' docstrings, and every dated DESIGN.md section above.
+Rewriting them would claim modules that never existed.
+
+**Retired spellings are hard errors, not aliases** — the discipline
+`--set-model=r` already followed (*a verdict's provenance must be
+readable off the invocation*).  `--set-model`, `--set-model=p` and
+`--no-model` each exit 3 naming their successor; `tests/arena.sh`'s
+mode-flag suite grew from 14 to 16 cases to pin that.
+
+**PERF.md** was relabelled, not re-measured: the columns are now
+`official / trusted / verified`, `perf-data/`'s config ids were
+renamed in place so `--render` still works, and a first note records
+that the table predates the instantiate-opt landing and awaits
+regeneration.
+
+### THE SECOND HALF: task #168's fast arms, ungated
+
+The head-symbol readers (`notProofFast` / `isProofFast`,
+`Setlec/Kernel/PropRead.lean`) ran only in the verified mode: the no
+arm behind `mode.verifiedChecks`, the yes arm behind
+`mode.verifiedChecks && mode.betaGate`.  **The user's ruling is that
+the fast readers are part of "the real mode", so the trusted mode
+inherits them.**  Under the purpose statement above this is forced: a
+reader that *replaces an inference* is not certification-only work, so
+dropping it would be a trusted-only pessimization — the mirror image
+of the optimization the ruling forbids.
+
+Both gates are gone from `propIrrel` (`Kernel/Core.lean`) and
+`propIrrelI` (`Cached/CoreC.lean`).  With no configuration read left,
+the section variables drop out of both signatures: `propIrrel` now has
+`proofIrrel`'s exact shape (no `CheckMode`), `propIrrelI` takes no
+`CoreCfg`.  `propIrrelP mode env fuel` is unchanged (its `mode` goes
+to `pureFns`), so **no P-tier statement moved**; only the sites that
+spell the body directly did (`Disc`, `Deep`, `Fueled`, `PairM`,
+`Knot`, `DiscC2`, the two cached cores).
+
+Proof side, verified lane never weakened:
+
+* `propIrrel_inv` loses the two mode conjuncts of its fast disjunct —
+  now `isProofFast a ∧ isProofFast b`, a *stronger* inversion (it
+  holds at every mode);
+* `propIrrelPQ_of_claims` destructures `⟨hfa, hfb⟩`.  The licence
+  `prf_of_isProofFast` never read a mode gate, so the P row licenses
+  exactly the "yes" verdicts it always did;
+* `propIrrelC_sim` splits on the two ungated conditions; the two sides
+  agree because the arms are the same pure read (`mkFEnv_find?`).
+
+Nothing was ever proved *about* the trusted core, so no proof relied
+on the gate being false there.
+
+**Verdict risk, and the hard stop.**  Ungating is verdict-changing for
+the trusted mode exactly where a reader and the slow path disagree,
+which the #168 landing census never observed (init-full 7 553 298
+calls, arena 80 111 calls, **0 disagreements either way**).  The gate
+run confirms it: `tests/arena.sh` 0 FAIL with arena 90/92, e2e 78/78,
+annot 14/14, mode flags 16/16 and the trusted sweep's same three
+recorded divergences; init-full accepted in both modes.  No number was
+measured — the perf cadence puts that after the grant.
