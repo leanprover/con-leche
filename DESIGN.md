@@ -52167,3 +52167,202 @@ untouched.
   gate then flags tokens inside *other* strings.  The new modules avoid
   continued strings (`++`); the pre-existing ones in `Main.lean` happen
   to be even in number.  Left as a note for the gate's owner.
+
+## TASK #194 — THE `PropWhen` REPRESENTATION IS CANONICAL BY CONSTRUCTION (2026-09-06, `agent/pwnorm`)
+
+**User directive, verbatim:** *"We have the sealed API, so this should
+be painless.  So do normalize and add invariants to the constructors
+(ordered for .two, sorted for .many).  (It may be easier if the
+more-than-two constructor takes just a list, not three elements and a
+list, with a length > 2 invariant in the type)."*
+
+It was painless: one module changed (`Lech/Kernel/PropWhen.lean`),
+two docstrings followed (`Kernel/Level.lean`, `Verify/PropWhen.lean`),
+and **no proof outside the module changed** — `Verify/PropWhen.lean`'s
+`substPW_self`/`substPW_comp`/`zeronessOf_subst`/`holds_substPW`
+compile as they were, because the law battery kept every statement.
+
+### 1. The representation
+
+    private inductive PropWhenRepr where
+      | never
+      | always
+      | one  (p : Name)
+      | two  (p q : Name) (h : p < q)
+      | many (ps : List Name) (h : PropWhen.Sorted ps ∧ 2 < ps.length)
+
+`Sorted ps := List.Pairwise (· < ·) ps` — strictly ascending, which is
+"sorted and duplicate-free" in one clause.  The invariants are `Prop`
+fields, carried by the constructors: there is no value of the type
+that is not the canonical representative of its parameter set, so
+canonicity is never re-established and never checked at runtime.  The
+`many` constructor takes the bare list plus the invariant, as the
+directive suggested — the old `many p q r rest` trick existed only to
+avoid an invariant, and once one is carried anyway the list is
+simpler.  `deriving Hashable, Inhabited` handles the `Prop` fields
+(they are skipped); `DecidableEq` is *not* derived (see §2).
+
+**The order on `Name`.**  The tree had none (the `NNode` arena keys
+by interned index, the level arena stores raw names), so the module
+defines `Name.cmp`: structural lexicographic, constructor order
+`anonymous < str < num`, prefix first, then the payload by the core
+`compare` on `String`/`Nat` — the shape of `Lean.Name.quickLt` minus
+the hash short-cut, which would make the order depend on hashing.
+`a < b` is `cmp a b = .lt`, with `LT`/`Decidable` instances and the
+strict-total-order laws `lt_irrefl`, `lt_trans`, `lt_asymm`,
+`ne_of_lt`, `lt_trichotomy` (from `cmp_self`, `eq_of_cmp`, `cmp_swap`,
+`cmp_trans`; the payload halves come from `Std.TransCmp` /
+`Std.LawfulEqCmp` / `Std.OrientedCmp` of the core instances).  Mined
+from the deleted `Kernel/ZeroSet.lean` (`git show f7cfe8e0^:…`), as
+the task suggested; the module still imports only `Lech.Kernel.Name`.
+
+**The sorted-list layer** (`namespace PropWhen`, public): `merge`
+(the ordered union, `mem_merge`, `sorted_merge`, `all_merge`), `canon`
+(fold singletons in: `mem_canon`, `sorted_canon`, `all_canon`,
+`canon_eq_self` on sorted input, `canon_canon`), and the theorem the
+module rests on, `sorted_ext : Sorted as → Sorted bs → (∀ n, n ∈ as ↔
+n ∈ bs) → as = bs`.
+
+**The producers normalize.**  `ifAllZero [] / [p]` build `always` /
+`one p` with no comparison and no list cell (`@[inline]`, so
+`.ifAllZero [n]` at `Level.zeronessOf` still compiles to a single
+`lean_alloc_ctor(2,1,0)` — checked in `Kernel/Level.c`, byte-identical
+to the small-list constructors' shape); `ifAllZero [p, q]` is **one**
+`cmp` (`two'`: `.lt ↦ two p q`, `.eq ↦ one p`, `.gt ↦ two q p`); only
+length ≥ 3 runs `canon`.  `inter` answers `never`/`always`/`one×one`
+without touching a list (the `one×one` arm is `two'`); the general
+arm is `ofSorted (merge a.toList b.toList)`.  `bindZ` is unchanged in
+shape and canonical because `inter` is.  `Level.substPW` is `bindZ`.
+
+### 2. The comparison is equality
+
+`equiv` is still the API name at all 57 call sites; it is now
+structural equality spelled constructor-wise (`equivR`) so that the
+name comparisons go through `Name.beq` (the pointer-and-hash-guarded
+equality) rather than the derived structural walk.  The exported
+theorem is
+
+    equiv_iff_eq : equiv a b = true ↔ a = b
+
+and **`DecidableEq PropWhen` is defined from it** (`decEq :=
+decidable_of_iff _ (equiv_iff_eq a b)`), so `=`, `==`, `decide`,
+`equiv` and the derived `DecidableEq`/`BEq` of `BinderMeta` and `Expr`
+all run the *same* code — the C for `equiv`, `decEq` and
+`instDecidableEq` is three one-line calls to `equivR`.  Consequently:
+
+* `eq_iff_holds : p = q ↔ ∀ φ, p.holds φ = q.holds φ` (new; the
+  ZeroSet module's `eq_iff_holds`, now on the real datum) and
+  `equiv_iff_holds` is its composite with `equiv_iff_eq`.
+* `ifAllZero_eq_iff : ifAllZero ps = ifAllZero qs ↔ (∀ n, n ∈ ps ↔ n ∈
+  qs)` — the unique-representative theorem; `ifAllZero_canon`,
+  `eq_of_toList`, `eq_of_mem_iff`, `mem_toList_ifAllZero`,
+  `sorted_toList` are its companions.
+* **The packed hash word is canonical.**  `Hashable PropWhen` is the
+  derived hash of the representation, and equal sets are equal
+  representations, so two `equiv` data hash equal — the `Expr`
+  computed-field hash (`Kernel/Expr.lean`, through `BinderMeta`'s
+  derived `Hashable`) and `Expr.beq` now agree with `equiv` on the
+  `pw` contribution.  **For the perf lane (`agent/beqmemo`):** the
+  question whether non-canonical `pw` data ever caused memo misses (a
+  hash/`==` mismatch between `equiv`-equal metas) is moot from this
+  landing on — there are no two distinct `equiv`-equal data.
+
+### 3. The laws: what changed shape
+
+Statements unchanged, proofs redone (all inside the module):
+
+| law | before | now |
+|---|---|---|
+| `holds_ifAllZero`, `paramsDefined_ifAllZero`, `hasParams_ifAllZero` | 4-arm `simp` on the constructor | one `toList` characterization each (`holds_eq_toList`, `paramsDefined_eq_toList`, `hasParams_eq_toList`) + `toList_ifAllZero` + `all_canon` / `isEmpty_canon` |
+| `holds_inter` | 25-arm `simp` | `toList_inter` (`merge`) + `all_merge`, `never` cases separately |
+| `inter_ifAllZero`, `bindZ_ifAllZero` | `simp [inter, ifAllZero, toList]` per shape pair | **extensionality**: `eq_of_holds` + the `holds` equations (`List.all_append`; `bindZ_go_canon` via `holds_bindZ_go`) |
+| `equiv_never_*`, `equiv_ifAllZero` | 16-arm `simp` | `equiv_iff_eq` + `ifAllZero_ne_never` / `ifAllZero_eq_iff` |
+| `equiv_iff_holds`, `equiv_refl`, `holds_eq_of_equiv` | the containment argument (`mem_of_holds_eq`) | `equiv_iff_eq ∘ eq_iff_holds`; the separating-valuation argument moved into `eq_iff_holds` (`mem_of_all_eq`) |
+| `inter_never_right`, `paramsDefined_inter_of`, `inter_assoc`, `bindZ_go_append`, `bindZ_inter`, `bindZ_congr_names`, `bindZ_unit`, `holds_ext`, `holds_bindZ_go` | — | **unchanged**, they go through the exported equations only |
+
+Statements that *had* to change (the shape equations, not laws):
+`toList_ifAllZero : (ifAllZero ps).toList = canon ps` and
+`toList?_ifAllZero : … = some (canon ps)` (were `= ps`); neither is
+used outside the module.  `casesZ` keeps its type exactly — the
+`ifAllZero` case is offered for *every* list, canonical or not, which
+is sound because the smart constructor normalizes — and its `two`/
+`many` arms transport along `ifAllZero [p, q] = ⟨two p q h⟩` /
+`ifAllZero ps = ⟨many ps h⟩` (`Eq.mpr`, the private lemmas
+`ifAllZero_two`/`ifAllZero_many`).  New laws: `inter_comm`,
+`inter_self` (equalities, by canonicity).
+
+**Amendment 2 resolved.**  `Level.substPW_self` is unconditional
+again for the reason the ZeroSet lane predicted (`substPWZ_self`):
+the counterexample was a *normalizing* `substPW` applied to a
+*non-canonical* datum, and no such datum exists now.  Its datum half
+is `bindZ_unit` — an equality, proved exactly as before through
+`inter_ifAllZero`.  `substPW_comp` keeps its `paramsDefined`
+hypothesis, which is representation-independent (a parameter outside
+the inner substitution's domain is substituted on the left and
+cannot be on the right); no other law needs any hypothesis.
+`instantiateLevelParams_self` (`Verify/InstLevels.lean`) stands as it
+did, now over a datum that cannot be non-canonical.
+
+### 4. Findings
+
+* **Deriving handles `Prop` fields** — `deriving Hashable, Inhabited`
+  on the invariant-carrying inductive works (proof fields are
+  skipped), and the generated `.injEq` lemmas omit them
+  (`two p q h = two p' q' h'` simps to `p = p' ∧ q = q'`), so
+  `equivR_iff_eq` is one `cases x <;> cases y <;> simp [equivR]`.
+* **`rfl` is refused on an exported theorem about a sealed body** even
+  when the body is a `foldr` — `canon_nil`/`canon_cons` need `by simp
+  [canon]` (the error says so explicitly).  `merge` is well-founded
+  recursion, hence irreducible; everything about it goes through its
+  equation lemmas (`simp [merge]`, `fun_induction`).
+* `simp_all` does not substitute an equation it holds
+  (`h : ps = []`) into a `Prop` field hypothesis that mentions the same
+  variable; `eq_of_toList`'s cross-shape arms need `subst h` first.
+
+### 5. The receipts: perf
+
+`perf stat -e instructions:u`, `ulimit -v 16000000`, `timeout 1800`,
+`nice -n 5`, `LECH_SUPERVISED=1`, `init-full-pre-native.ndjson --pre`,
+one cell at a time; master = the branch point `9eb3bda0` built in its
+own worktree (`_tmp/pwnorm-base`), the branch = `7f857dad`.  All four
+cells: exit 0, **54 346 accepted**.
+
+| mode | master `9eb3bda0` | `agent/pwnorm` | Δ |
+|---|---|---|---|
+| init-full `--verified` | 669.910 G | 658.697 G | **−1.67 %** |
+| init-full `--trusted` | 643.761 G | 633.354 G | **−1.62 %** |
+
+The expectation was neutral; the change is a gain well above the
+0.01 % run-to-run spread, and it has one cause, read off the generated
+C.  Master's `DecidableEq PropWhen` was the *derived* instance, and
+`BinderMeta`'s derived `decEq` — which is what `Expr.beq`/`DecidableEq
+Expr` reach at every binder — called
+`instDecidableEqPropWhenRepr_decEq`, which compares names with the
+structural `instDecidableEqName` (11 call sites in the old
+`PropWhen.c`) and `inc`/`dec`s each `pw` around the call.  Now
+`DecidableEq PropWhen` is `equiv`, i.e. `equivR`, whose three name
+comparisons are `Name.beq` = `Name.beqPtr` after `@[csimp]`: pointer,
+then cached `hashData`, then the structural walk (6 `lean_ptr_addr`,
+6 `hashData` reads, 3 structural fallbacks in `equivR`'s body), on
+borrowed arguments.  Task #189 measured `Expr.beq` as the tail of the
+acceptance run; this is that comparison getting the same guard the
+`Name` inside it already had everywhere else.  The datum-shaped work
+of the change (the sort) never runs on init-full: no datum there has
+three parameters, and the 16 two-name data cost one `cmp` each.
+
+### 6. Gates
+
+`lake build` 640 jobs, 0 errors, 0 warnings; `lake test` green (the
+new canonicity guards: order, duplicates, `hash`, `inter`
+commutative/idempotent, `substPW` at the own parameters,
+`zeronessOf` of a `max` with a repeated parameter).  `tests/arena.sh`
+0 FAIL: layering 0 impl→theory (the module still imports only
+`Lech.Kernel.Name`); proofdeps 2515 rows as pinned, 0 doors; pindump
+fresh (no committed pin carries a two-name datum, so the sorted
+`Repr`/dump output is byte-identical); trust surface 0 outside the
+allowlist; axioms pinned (11 theorems at `[propext, Classical.choice,
+Quot.sound]`); arena 90/92 good, e2e 100/100, annot 14/14, retired
+flags 8/8, mode flags 16/16, prelude counts 3/3, progress lane 6/6,
+trusted sweep 138 + 100 + 14 with the 3 recorded divergences.
+init-full accepted in both modes with the same counts (§5).  Master
+merged (it had moved by a README edit only).
