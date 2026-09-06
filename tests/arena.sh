@@ -441,12 +441,15 @@ prog_err1=$(LECH_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_out1=$(LECH_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null)
 prog_code1=$?
 prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^lech: progress [0-9]')
-prog_decls=$(printf '%s' "$prog_out1" | sed -n 's/^lech: accepted \([0-9]*\) .*/\1/p')
+# one line per FOLD record: the stream's records after the built-in
+# prelude's (task #191) — the total the closing "fold done: N/N" line
+# names; the verdict line counts the stream's records only
+prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^lech: progress fold done: [0-9]*\/\([0-9]*\) .*/\1/p')
 prog_check "stride 1 exits 0 on the accepting fixture" \
   "$([ "$prog_code1" = 0 ] && echo ok)"
 prog_check "the verdict line is unchanged by the variable" \
   "$([ "$prog_out" = "$prog_out1" ] && [ "$prog_code" = "$prog_code1" ] && echo ok)"
-prog_check "stride 1 prints one line per declaration" \
+prog_check "stride 1 prints one line per fold record" \
   "$([ -n "$prog_decls" ] && [ "$prog_lines" = "$prog_decls" ] && echo ok)"
 prog_check "the lane brackets the run (parse done / fold done)" \
   "$(printf '%s' "$prog_err1" | grep -q 'progress parse done' && \
