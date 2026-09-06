@@ -695,10 +695,41 @@ def installProjTemplate (env : Env) (T ctorName : Name) (lps : List Name)
     else pure env
   | _ => pure env
 
+/-- **Official's structure-likeness, read off the block's own
+constructor** (`is_non_rec_structure`, `src/kernel/inductive.cpp`: one
+constructor and *no indices*; the recursion half is decided by the
+projection artifacts' own shape).  An index-free single-constructor
+family's constructor targets the family at exactly its parameters,
+`T p⃗` — the same conjunct `checkDirectCtor` pins on the direct route —
+while an indexed family's targets `T p⃗ i⃗`.
+
+Task #175 SigmaHom (2026-09-06): the preprocessor also emits
+`T._model.proj_i` artifacts for an *indexed* one-constructor family
+(its indexed-fibre projection tranche; `CategoryTheory.Sigma.SigmaHom`
+in Mathlib), and consuming them as projection functions declined at
+`checkProjShape`'s residual pin, where the official kernel accepts the
+block.  User ruling: indexed types are not structure-like — the model's
+projections are **ignored** at install (the artifacts stay ordinary
+definitions), and a `.proj` on such a type declines at its own site,
+as it does for every type without a table (official rejects it).  So
+the projection phase of `checkIndDecl` runs only when this holds.
+
+The subject is the block's *incoming* constructor type, not the stored
+one: the decision is then a function of the block, which is what the
+parity↔P agreement floor's skeleton specification
+(`indDeclSkelsModeled`) can compute.  It is a gate, not a pin — the
+installs it admits are checked in full by `checkProjFn`. -/
+def ctorTargetsFam (ctorTy : Expr) (T : Name) (lps : List Name)
+    (nP nF : Nat) : Bool :=
+  match ctorTy.stripPis (nP + nF) with
+  | some (_, cbody) => cbody == directFam T lps nP nF
+  | none => false
+
 /-- One projection-function install step (skipped where the model's
 projection artifact is absent; a family with such fields gets the
 elimination-template table afterwards, `installProjTemplate`, so the
-artifact phase never sees a template table). -/
+artifact phase never sees a template table).  The whole fold is
+skipped for a block that is not structure-like (`ctorTargetsFam`). -/
 def installProjFnStep (ops : CheckerOps m) (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) : m Env :=
   if (e.find? (projModelName T i)).isSome then
@@ -759,8 +790,10 @@ checked against its `_model` counterpart (type up to the public↔model
 renaming, iota rules against the model's `iota_j` theorems), then
 stored as a real inductive-kind constant.  Single-constructor blocks
 determine their capability record first (recorded on the inductive)
-and additionally install the projection functions the model documents
-(skipped where the artifacts are absent).  The K flag is computed from
+and, when structure-like (`ctorTargetsFam`: the constructor targets
+the family at exactly its parameters — no indices), additionally
+install the projection functions the model documents (skipped where
+the artifacts are absent).  The K flag is computed from
 shape exactly as the official kernel does — an inductive proposition
 with a single constructor taking only the parameters; the reduction
 site carries the semantic load (proof irrelevance), so no model
@@ -793,9 +826,14 @@ def checkIndDecl (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
     unless (List.range nF).all
         (fun j => (env₃.find? (projFnName cvT.name j)).isNone) do
       throw (.invalid "projection name family taken")
-    let env₄ ← (List.range nF).foldlM
-      (installProjFnStep mode ops cvT.name cvC.name cvT.levelParams nP nF)
-      env₃
+    -- the projection functions: structure-like blocks only (task #175
+    -- SigmaHom; an indexed family's model projections are ignored)
+    let env₄ ←
+      if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
+        (List.range nF).foldlM
+          (installProjFnStep mode ops cvT.name cvC.name cvT.levelParams nP nF)
+          env₃
+      else pure env₃
     installProjTemplate env₄ cvT.name cvC.name cvT.levelParams nP nF
   | _, _ => do
     let env₂ ← nonrecs.foldlM (checkIndMember ops blockNames {}) env

@@ -274,7 +274,7 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
       rfl
     -- the projection fold and the templates
     obtain ⟨mp₃, -, -, -, -⟩ :=
-      projInstallP hμ hTblock hbshape (List.range nF) mp₂ hproj hinvR
+      projInstallP hμ hTblock hbshape _ mp₂ hproj hinvR
         hinvAR hI₂ hIA₂ hpinsR hCblockR hFieldsR
     exact templatesP mp₃ htpl
   · -- the generic arm: an empty capability record

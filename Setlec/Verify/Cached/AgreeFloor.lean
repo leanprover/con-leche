@@ -362,7 +362,9 @@ def indDeclSkelsModeled (block : List ConstantInfo) (sk : List InstallSkel) :
   match block.filter isIndCI, block.filter isCtorCI with
   | [.indInfo cvT _], [.ctorInfo cvC nP nF] =>
     projTemplateSkels cvT.name cvC.name nP nF
-      ((List.range nF).foldl (projFnStepSkels cvT.name cvC.name nP) base)
+      (if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
+        (List.range nF).foldl (projFnStepSkels cvT.name cvC.name nP) base
+       else base)
   | _, _ => base
 
 /-! ### The direct simple-structure clause (task #175 W4c)
@@ -875,15 +877,26 @@ theorem checkIndDeclSF_skels (mode : CheckMode) {fe : FEnv}
         split
         case isFalse => exact Yields.ofThrowBind
         case isTrue =>
-          refine Yields.bind'
-            (Yields.foldlM_rel (R := SkelIs)
-              (g := projFnStepSkels cvT.name cvC.name nP)
-              (fun acc i sk' hacc =>
-                installProjFnStepS_skels mode hacc cvT.name cvC.name
-                  cvT.levelParams nP nF i) (List.range nF) fe₃ _ h₃)
-            fun fe₄ h₄ => ?_
-          exact installProjTemplateS_skels h₄ cvT.name cvC.name
-            cvT.levelParams nP nF
+          -- the projection phase runs on structure-like blocks only
+          -- (task #175 SigmaHom): a decision of the block's own
+          -- constructor type, so the skeleton spec computes it
+          by_cases hsl : ctorTargetsFam cvC.type cvT.name cvT.levelParams
+              nP nF = true
+          · simp only [if_pos hsl]
+            refine Yields.bind'
+              (Yields.foldlM_rel (R := SkelIs)
+                (g := projFnStepSkels cvT.name cvC.name nP)
+                (fun acc i sk' hacc =>
+                  installProjFnStepS_skels mode hacc cvT.name cvC.name
+                    cvT.levelParams nP nF i) (List.range nF) fe₃ _ h₃)
+              fun fe₄ h₄ => ?_
+            exact installProjTemplateS_skels h₄ cvT.name cvC.name
+              cvT.levelParams nP nF
+          · simp only [if_neg hsl]
+            refine Yields.bind' (Yields.pure (P := fun fe' => SkelIs fe' _) h₃)
+              fun fe₄ h₄ => ?_
+            exact installProjTemplateS_skels h₄ cvT.name cvC.name
+              cvT.levelParams nP nF
     case h_2 hne =>
       split
       case h_1 cvT capsT cvC nP nF hI hC =>
@@ -1196,15 +1209,23 @@ theorem checkIndDeclNC_skels {fe : FEnv} {sk : List InstallSkel}
         split
         case isFalse => exact Yields.ofThrowBind
         case isTrue =>
-          refine Yields.bind'
-            (Yields.foldlM_rel (R := SkelIs)
-              (g := projFnStepSkels cvT.name cvC.name nP)
-              (fun acc i sk' hacc =>
-                installProjFnStepNC_skels hacc cvT.name cvC.name
-                  cvT.levelParams nP nF i) (List.range nF) fe₃ _ h₃)
-            fun fe₄ h₄ => ?_
-          exact installProjTemplateS_skels h₄ cvT.name cvC.name
-            cvT.levelParams nP nF
+          by_cases hsl : ctorTargetsFam cvC.type cvT.name cvT.levelParams
+              nP nF = true
+          · simp only [if_pos hsl]
+            refine Yields.bind'
+              (Yields.foldlM_rel (R := SkelIs)
+                (g := projFnStepSkels cvT.name cvC.name nP)
+                (fun acc i sk' hacc =>
+                  installProjFnStepNC_skels hacc cvT.name cvC.name
+                    cvT.levelParams nP nF i) (List.range nF) fe₃ _ h₃)
+              fun fe₄ h₄ => ?_
+            exact installProjTemplateS_skels h₄ cvT.name cvC.name
+              cvT.levelParams nP nF
+          · simp only [if_neg hsl]
+            refine Yields.bind' (Yields.pure (P := fun fe' => SkelIs fe' _) h₃)
+              fun fe₄ h₄ => ?_
+            exact installProjTemplateS_skels h₄ cvT.name cvC.name
+              cvT.levelParams nP nF
     case h_2 hne =>
       split
       case h_1 cvT capsT cvC nP nF hI hC =>

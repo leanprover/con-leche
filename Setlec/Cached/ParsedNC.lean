@@ -165,8 +165,11 @@ def checkIndDeclNC (fe : FEnv) (block : List ConstantInfo) :
     unless (List.range nF).all
         (fun j => (fe₃.find? (projFnName cvT.name j)).isNone) do
       throw (.invalid "projection name family taken")
-    let fe₄ ← (List.range nF).foldlM
-      (installProjFnStepNC cvT.name cvC.name cvT.levelParams nP nF) fe₃
+    let fe₄ ←
+      if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
+        (List.range nF).foldlM
+          (installProjFnStepNC cvT.name cvC.name cvT.levelParams nP nF) fe₃
+      else pure fe₃
     installProjTemplateS fe₄ cvT.name cvC.name cvT.levelParams nP nF
   | _, _ => do
     let fe₂ ← nonrecs.foldlM (checkIndMemberNC blockNames {}) fe
