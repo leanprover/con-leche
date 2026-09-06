@@ -1,11 +1,11 @@
-# Expected exit codes for setlec's own end-to-end fixtures, read by
+# Expected exit codes for lech's own end-to-end fixtures, read by
 # tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).  Line format:
 # "<expectation> <fixture> [mode]", mode ∈ {raw, pre}.
 #
 # An expectation is a single exit code.  (The direct simple-structure
 # route is the priority route for every recognised block since task
 # #175 W4c — no master switch, no artifact-absence gate; see
-# tests/arena-expected.txt's header and `Setlec/Kernel/Direct.lean`.)
+# tests/arena-expected.txt's header and `Lech/Kernel/Direct.lean`.)
 0 indexed_vec.ndjson
 0 std_axioms.ndjson
 0 prop_proj.ndjson
@@ -19,7 +19,7 @@
 # shape lean-inductive-models emits no _model.proj_i artifacts — and
 # cannot in general: the projections only exist at certain level
 # instantiations (here u=0 collapsing the fields to Prop), while the
-# artifacts would have to be level-polymorphic.  setlec's
+# artifacts would have to be level-polymorphic.  lech's
 # recursor-inlining fallback is therefore the permanent mechanism for
 # this shape: it builds the elimination at the use site's concrete
 # levels.  (All-Prop structures DO get artifacts; a Prop structure
@@ -310,8 +310,8 @@
 # The direct SUM install (task #175 sum-types, 2026-09-06): non-recursive,
 # non-indexed inductives with any number of constructors other than one
 # — the tagged disjoint union of one tuple tower per constructor.  The
-# fixtures were exported through `setlec-preprocess` (the widened
-# `setlecNative` leaves every such block unmodelled: not one `_model`
+# fixtures were exported through `lech-preprocess` (the widened
+# `lechNative` leaves every such block unmodelled: not one `_model`
 # declaration in the streams), so they assert `--pre`.
 #   direct_sum_enum:   a three-constructor enumeration (`Color`), iota
 #                      on every constructor through `Color.rec` and
@@ -337,7 +337,7 @@
 0 direct_sum_or.ndjson pre
 1 direct_sum_or_large_bad.ndjson pre
 # Zero-constructor inductives at every level (task #181, 2026-09-06),
-# exported through `setlec-preprocess` (every block native, no `_model`
+# exported through `lech-preprocess` (every block native, no `_model`
 # declaration in the stream), so they assert `--pre`:
 #   zero_ctor:             `PEmpty'` (universe-polymorphic, `Sort u`),
 #                          `Vacant α n` (a type and a Nat parameter,
@@ -346,7 +346,7 @@
 #                          large eliminator used — and `absurd'` through
 #                          the toolchain's `False`, which the checker
 #                          installs from its own pin
-#                          (`Setlec/Kernel/Basis/False.lean`).
+#                          (`Lech/Kernel/Basis/False.lean`).
 #   zero_ctor_false_proof: the stream plus `bogus : False := Prop` (an
 #                          ill-typed value): REJECT.  The capstone
 #                          `no_proof_of_False` says no accepted stream
@@ -378,7 +378,7 @@
 # route widened to non-recursive, non-nested families with indices —
 # any number of constructors, the carrier at an index tuple the tagged
 # union of the constructor towers restricted to the index equation.
-# Exported through the widened `setlec-preprocess` (every indexed block
+# Exported through the widened `lech-preprocess` (every indexed block
 # native), so they assert `--pre`.
 #   direct_idx_eq:   an `Eq`-clone (`MyEq`: Prop, one constructor, no
 #                    field, one index) — LARGE elimination (`cast` into
@@ -412,7 +412,7 @@
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
 # fixture source, exactly as the lean-inductive-models preprocessor
-# splices the tight pair, so the block matches setlec's pin -- a
+# splices the tight pair, so the block matches lech's pin -- a
 # non-matching block would be rejected as a reserved basis name).
 # `Eq.refl (motive t) (minor t.1 t.2)` at a *neutral* `t` forces both
 # eta sides: `motive (PSigma'.mk a b t.1 t.2) == motive t` (defeq-side
@@ -428,7 +428,7 @@
 0 psigma_rec_eta.ndjson raw
 
 # The class-B yolo escape, exercised (2026-08-27 fuzz campaign,
-# finding F1).  Under SETLEC_NO_PROOF_CERTS=1 `inferSpineT` drops the
+# finding F1).  Under LECH_NO_PROOF_CERTS=1 `inferSpineT` drops the
 # whole per-argument `infer` — not just the argument/domain `defeq` —
 # so *any* defect living only inside an application ARGUMENT escapes
 # the measurement stack.  These three hand-built streams are the
@@ -483,7 +483,7 @@
 0 basis_binderinfo.ndjson raw
 0 basis_binderinfo_rec.ndjson raw
 # irrel_commit (task #161 residual round 2, BOOL FALL-THROUGH vs
-# OFFICIAL'S COMMIT SEMANTICS): the fixture that separates setlec's
+# OFFICIAL'S COMMIT SEMANTICS): the fixture that separates lech's
 # fall-through from the official kernel's commit.  At the argument pair
 # `F a` vs `F (Acc.intro x g)` proof irrelevance FAILS in every kernel
 # (the two propositions — a stuck `Acc.rec` application and its iota
@@ -493,7 +493,7 @@
 # Official COMMITS at the proof-irrelevance failure
 # (type_checker.cpp:1202-1203, lean4lean TypeChecker.lean:855-856) and
 # REJECTS (verified: Lean v4.33.0 "(kernel) declaration type mismatch";
-# lean4lean throws a kernel exception).  setlec's `proofIrrel` returns a
+# lean4lean throws a kernel exception).  lech's `proofIrrel` returns a
 # `Bool`, the `false` falls through, and the congruence accepts — with
 # AND without the pending proofIrrel common-type restriction.
 # Expectation 0 records the CURRENT (divergent) verdict; it flips to 1
@@ -502,7 +502,7 @@
 # natop_arg_order.ndjson: the divergence audit's D15 regression (DESIGN.md
 # "THE DIVERGENCE AUDIT") — `Nat.add o (slow 80000) = Nat.add (id o)
 # (slow 80000)` with `o` opaque: official's reduce_bin_nat_op never
-# evaluates the second argument (the first is stuck); before D15 setlec
+# evaluates the second argument (the first is stuck); before D15 lech
 # whnf'd both and died of fuel (exit 3)
 0 natop_arg_order.ndjson
 # delta_chain.ndjson: the audit's D3 witness shape (two 300-step lockstep
@@ -510,7 +510,7 @@
 # lazy-delta restructuring is measured on
 0 delta_chain.ndjson
 # mutual_struct_proj / nested_struct_proj (the projection-function
-# rewrite, Setlec/Frontend/ProjRec.lean, 2026-09-06): the elaborator's
+# rewrite, Lech/Frontend/ProjRec.lean, 2026-09-06): the elaborator's
 # `T.f := fun self => self.i` on structure-likes the direct install
 # does not serve — a MUTUAL pair of structures (dependent field, proof
 # field at elimination level 0, recursive field across the block), a
@@ -568,14 +568,14 @@
 # is an indexed one-constructor owner whose single field is a function
 # type, so its level has an `imax` that the declared `max`-shaped
 # carrier does not absorb in normal form — no generation arm models it,
-# the tool reports the decline and exits 2, and setlec declines (2)
+# the tool reports the decline and exits 2, and lech declines (2)
 # rather than checking a stream it knows is missing a model.  (`PadImax`,
 # the non-indexed half, is `native` — the direct simple-structure route
 # takes it — so this fixture also pins that the native predicate does
 # not swallow the indexed one.)
 #   Task #175 indexed (2026-09-06): `PadImaxIdx` IS in the direct
 #   indexed class now (a non-recursive one-constructor family with one
-#   index), `setlecNativeSum` leaves it native, the tool exits 0 and the
+#   index), `lechNativeSum` leaves it native, the tool exits 0 and the
 #   checker installs it directly — a decline-for-missing-model turned
 #   accept, the widening's intended direction; the fixture now pins
 #   that the indexed owner goes native and installs.

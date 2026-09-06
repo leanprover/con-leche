@@ -1,6 +1,6 @@
-# Setlec – a lean checker that's never False
+# Lech – a lean checker that's never False
 
-Setlec is an external checker for the Lean theorem prover that is proven (in Lean) to be consistent in that it does not accept a proof of False.
+Lech is an external checker for the Lean theorem prover that is proven (in Lean) to be consistent in that it does not accept a proof of False.
 
 The core idea of this project is: What if we allow the checker implementation to do extra work (annotations, checks) that is not strictly necessary for soundness, but makes the proof easier.
 
@@ -11,6 +11,8 @@ The checker is practically useful; it can process all of mathlib in TODO minutes
 It was implemented and proven to be consistent by Claude (Fable and Opus), under heavy supervision by Joachim Breitner at the Lean FRO. See the git history for all the detours and dead ends it took. It is a huge pile of code and a mess. Maybe this will improve over time. Until then: It works and is proven. 
 
 This README is actually human written (with AI only doing copy-editing, fact checking and filling in numbers).
+
+The project was called Setlec until 2026-09-06.
 
 ## Design of the checker implementation
 
@@ -36,7 +38,7 @@ The idea of the consistency proof is that we define a model in set theory, class
 
 ## The main theorem
 
-In [`Setlec/MainTheorem.lean`](./Setlec/MainTheorem.lean) we prove that if the `checkDeclsSPCachedD` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
+In [`Lech/MainTheorem.lean`](./Lech/MainTheorem.lean) we prove that if the `checkDeclsSPCachedD` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
 
 ```lean
 theorem no_proof_of_False (V : Type w) [SetTheory V]
@@ -53,9 +55,9 @@ The parser is not covered by the verification.
 
 ### Set theory assumption
 
-The set model we assume in `[SetTheory V]` is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form. Choice is inherited from Lean as the meta-logic. See [`Setlec/SetTheory/Core.lean`](./Setlec/SetTheory/Core.lean) for the precise formulation of our set theory.
+The set model we assume in `[SetTheory V]` is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form. Choice is inherited from Lean as the meta-logic. See [`Lech/SetTheory/Core.lean`](./Lech/SetTheory/Core.lean) for the precise formulation of our set theory.
 
-We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`Setlec/SetTheory/Aczel.lean`](./Setlec/SetTheory/Aczel.lean)); that assumption is similar to the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model).
+We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`Lech/SetTheory/Aczel.lean`](./Lech/SetTheory/Aczel.lean)); that assumption is similar to the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model).
 
 
 ### Level annotation

@@ -219,7 +219,7 @@ Older, complementary: **J. Kuper, "Proving the genericity lemma by leftmost redu
 
 ## 2(d) The modern framing of "what a conversion checker certification needs"
 
-**Meven Lennon-Bertrand, "What does it take to certify a conversion checker?", FSCD 2025, LIPIcs; extended version arXiv:2502.15500v3.** Code: <https://github.com/CoqHott/logrel-coq/tree/fscd25>. The most directly applicable paper to a Setlec-style project.
+**Meven Lennon-Bertrand, "What does it take to certify a conversion checker?", FSCD 2025, LIPIcs; extended version arXiv:2502.15500v3.** Code: <https://github.com/CoqHott/logrel-coq/tree/fscd25>. The most directly applicable paper to a Lech-style project.
 
 - Abstract: "*While in that context the property of normalisation has attracted the most light, we instead emphasize the importance of **injectivity** properties, showing that they alone are both crucial and sufficient to certify most desirable properties of conversion checkers. **We also explore the certification of a fully untyped conversion checker, with respect to a typed specification**, and show that the story is mostly unchanged, although the exact injectivity properties needed are subtly different.*"
 - §1: "*An important takeaway of our work is that, in a sense, **talking about untyped conversion is misleading: we should rather be talking about term-directed typed conversion**. … Yet types are still present in invariants, silently keeping the algorithm on rails.*"

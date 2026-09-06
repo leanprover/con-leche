@@ -14,7 +14,7 @@
    sneaking back in would reject it.
 
    Committed as a *raw* lean4export result and run with
-   `SETLEC_INDUCTIVE_MODELS=/nonexistent` (the `raw` marker in
+   `LECH_INDUCTIVE_MODELS=/nonexistent` (the `raw` marker in
    `tests/e2e-expected.txt`), so no preprocessor invents a `_model`
    declaration of its own.
 -/

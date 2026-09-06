@@ -1,4 +1,4 @@
-# Setlec CI (2026-09-06, external review §5.1: "add a CI workflow …
+# Lech CI (2026-09-06, external review §5.1: "add a CI workflow …
 # until then the headline is unverifiable").
 #
 # ---------------------------------------------------------------------
@@ -7,8 +7,8 @@
 #   lake build       every library and executable, and it must be
 #                    WARNING-FREE (a `warning:` line fails the job —
 #                    the project rule, enforced nowhere else).
-#   lake test        the `SetlecTests` library: the `#guard`/`example`
-#                    suite AND `tests/SetlecTests/Axioms.lean`, whose
+#   lake test        the `LechTests` library: the `#guard`/`example`
+#                    suite AND `tests/LechTests/Axioms.lean`, whose
 #                    six `#print axioms` guards pin the consistency
 #                    capstones at exactly
 #                    [propext, Classical.choice, Quot.sound].
@@ -41,7 +41,7 @@
 #     are noise.
 #   * anything needing the `lean-inductive-models` checkout in `_tmp/`
 #     beyond the pinned Lake dependency (the preprocessor IS built here,
-#     as `setlec-preprocess`, because `lake build` builds it).
+#     as `lech-preprocess`, because `lake build` builds it).
 #
 # ---------------------------------------------------------------------
 # NOTES ON THE ENVIRONMENT
@@ -121,11 +121,11 @@ jobs:
             exit 1
           fi
 
-      # `lake test` builds the SetlecTests library.  The suite is
+      # `lake test` builds the LechTests library.  The suite is
       # `#guard`/`example`-based and the axiom pin is
       # `#guard_msgs in #print axioms`, so *elaboration* is the test:
       # a failure is a build error with the offending message inline.
-      # The warning check is repeated here on purpose: `SetlecTests` is
+      # The warning check is repeated here on purpose: `LechTests` is
       # NOT a default target, so the `lake build` step above never
       # reaches it — the same reason `tests/pindump.sh` re-checks
       # warnings for `natop-pins-export`.

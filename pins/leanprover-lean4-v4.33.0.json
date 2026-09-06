@@ -1,14 +1,14 @@
 {
-"format":"setlec-natop-pins/1",
-"_README":"GENERATED FILE — do not edit.  The pinned Nat-operation defining expressions and their certificate proof blobs, as share tables (see Setlec/PinGen/Dump.lean for the encoding).  Spliced into Setlec/Kernel/NatOpPins.lean by #load_natop_pins.",
+"format":"lech-natop-pins/1",
+"_README":"GENERATED FILE — do not edit.  The pinned Nat-operation defining expressions and their certificate proof blobs, as share tables (see Lech/PinGen/Dump.lean for the encoding).  Spliced into Lech/Kernel/NatOpPins.lean by #load_natop_pins.",
 "_regenerate":"lake exe natop-pins-export   — then commit the result; tests/pindump.sh (run from tests/arena.sh) diffs this file against a fresh regeneration and fails if it is stale.",
 "toolchain":"leanprover/lean4:v4.33.0",
 "leanVersion":"4.33.0",
 "ops":[
 {
 "op":"Nat.mod",
-"pinName":"Setlec.natModDeclPin",
-"proofsName":"Setlec.natModCertProofs",
+"pinName":"Lech.natModDeclPin",
+"proofsName":"Lech.natModCertProofs",
 "pin":
 {"root":301,"entries":[
 ["ns","anon","x"],
@@ -6244,8 +6244,8 @@
 },
 {
 "op":"Nat.div",
-"pinName":"Setlec.natDivDeclPin",
-"proofsName":"Setlec.natDivCertProofs",
+"pinName":"Lech.natDivDeclPin",
+"proofsName":"Lech.natDivCertProofs",
 "pin":
 {"root":286,"entries":[
 ["ns","anon","x"],
@@ -11735,8 +11735,8 @@
 },
 {
 "op":"Nat.gcd",
-"pinName":"Setlec.natGcdDeclPin",
-"proofsName":"Setlec.natGcdCertProofs",
+"pinName":"Lech.natGcdDeclPin",
+"proofsName":"Lech.natGcdCertProofs",
 "pin":
 {"root":149,"entries":[
 ["ns","anon","m"],
@@ -14031,8 +14031,8 @@
 },
 {
 "op":"Nat.shiftLeft",
-"pinName":"Setlec.natShiftLeftDeclPin",
-"proofsName":"Setlec.natShiftLeftCertProofs",
+"pinName":"Lech.natShiftLeftDeclPin",
+"proofsName":"Lech.natShiftLeftCertProofs",
 "pin":
 {"root":85,"entries":[
 ["ns","anon","x"],
@@ -14593,8 +14593,8 @@
 },
 {
 "op":"Nat.shiftRight",
-"pinName":"Setlec.natShiftRightDeclPin",
-"proofsName":"Setlec.natShiftRightCertProofs",
+"pinName":"Lech.natShiftRightDeclPin",
+"proofsName":"Lech.natShiftRightCertProofs",
 "pin":
 {"root":80,"entries":[
 ["ns","anon","x"],
@@ -15017,8 +15017,8 @@
 },
 {
 "op":"Nat.land",
-"pinName":"Setlec.natLandDeclPin",
-"proofsName":"Setlec.natLandCertProofs",
+"pinName":"Lech.natLandDeclPin",
+"proofsName":"Lech.natLandCertProofs",
 "pin":
 {"root":6,"entries":[
 ["ns","anon","Nat"],
@@ -22047,8 +22047,8 @@
 },
 {
 "op":"Nat.lor",
-"pinName":"Setlec.natLorDeclPin",
-"proofsName":"Setlec.natLorCertProofs",
+"pinName":"Lech.natLorDeclPin",
+"proofsName":"Lech.natLorCertProofs",
 "pin":
 {"root":6,"entries":[
 ["ns","anon","Nat"],
@@ -31436,8 +31436,8 @@
 },
 {
 "op":"Nat.xor",
-"pinName":"Setlec.natXorDeclPin",
-"proofsName":"Setlec.natXorCertProofs",
+"pinName":"Lech.natXorDeclPin",
+"proofsName":"Lech.natXorCertProofs",
 "pin":
 {"root":15,"entries":[
 ["ns","anon","Nat"],

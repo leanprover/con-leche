@@ -96,10 +96,10 @@ our proof technique will help unblock both projects."
   those conjectures for Lean's real theory yet (no inductives beyond ℕ/Id, no K-flavoured
   proof irrelevance, no defeq algorithm), but it changes the outlook from "open, no
   technique" to "technique demonstrated on the hard fragments (η + non-normalising +
-  weak metatheory), scaling in progress". Any setlec claim of the form "lean4lean's
+  weak metatheory), scaling in progress". Any lech claim of the form "lean4lean's
   injectivity is an open conjecture" should now carry this citation as the active
   frontier. Note the technique proves properties of *declarative typed conversion*, not
-  of an executable checker, and uses a *domain* model, not a set model — so setlec's
+  of an executable checker, and uses a *domain* model, not a set model — so lech's
   "nobody has verified an executable DTT checker against a set model" novelty claim is
   untouched.
 - **(a) — indirect.** The paper is the field's cleanest confirmation of the premise
@@ -109,7 +109,7 @@ our proof technique will help unblock both projects."
   and is not a substitute for the Θ engine. One strategic pointer (§5, p. 25): with
   inversions "established by other means, it seems possible to rely on confluence to
   show other properties" — i.e., semantic-inversion-first, typed-confluence-second,
-  citing Carneiro 2019. That is structurally the setlec architecture (model first,
+  citing Carneiro 2019. That is structurally the lech architecture (model first,
   syntactic engine second) stated as a program by others; usable as external validation
   in DESIGN-level argumentation, not as a lemma.
 - **(b) — mostly negative information, which is itself useful.** The paper does *not*
@@ -120,8 +120,8 @@ our proof technique will help unblock both projects."
   contradicts nor helps slice 2. **No current ruling changes.**
 
 **Verdict.** Not "slightly related" — this is the most on-target external development
-for setlec's (c) frontier, though it delivers a technique and a program rather than a
-lemma setlec can import today.
+for lech's (c) frontier, though it delivers a technique and a program rather than a
+lemma lech can import today.
 
 ---
 
@@ -176,23 +176,23 @@ Two theories over CIC^obs (observational equality in SProp):
   this paper is the *design blueprint* for that move — ambient decidable theory with
   propositional unfolding + an opt-in definitional mode that is conservative — and it
   documents Lean already half-way there (opaque wf proofs since v4.19). Strengthens the
-  outlook; no setlec action needed now, but if Lean adopts a T=Acc-shaped kernel, the
+  outlook; no lech action needed now, but if Lean adopts a T=Acc-shaped kernel, the
   checker's whnf-fuel frontier at wf-recursion unfoldings (init-full memory) would
   shrink by design.
-- **(c)**: the §5 model is the closest published relative of setlec's own set-theoretic
+- **(c)**: the §5 model is the closest published relative of lech's own set-theoretic
   tier: IZF + ω Grothendieck universes, formalized (modulo the paper-only SOGAT step),
   Ω interpreted as P{∅} with proof irrelevance for free, Acc via the impredicative
   set-theoretic encoding, and — most transferable — the **head-tag/label triple trick**
   for making type formers injective *in the model*, delivering semantic no-confusion
-  (Assumption A) for closed terms. If setlec ever needs model-level Π-injectivity or a
+  (Assumption A) for closed terms. If lech ever needs model-level Π-injectivity or a
   "no closed proof of Eq between differently-headed types" fact, this is the reference
   construction. It models a *declarative theory*, not an executable checker, so the
-  setlec novelty claim stands.
+  lech novelty claim stands.
 - **(a)/(b)**: essentially none. The canonicity logical relation deliberately never
   evaluates proofs and says nothing about untyped algorithmic conversion; nothing here
   touches RuS, the dichotomy engine, or verdict stability.
 
-**Verdict.** Genuinely "slightly related" for the two live lanes; its value to setlec
+**Verdict.** Genuinely "slightly related" for the two live lanes; its value to lech
 is concentrated in (c) (the formalized IZF model with head-tagged types) and in
 corroborating the Acc-outlook memory. One paragraph of relevance, kept: it is the
 paper that turns "Lean's Acc+proofIrrel undecidability" from folklore-with-citations
@@ -239,7 +239,7 @@ Main results:
    Implemented as Rocq Ltac2 tactics; TranspMotive itself implemented in a PR slated
    for Rocq 9.3.
 
-Proof technique for (1) — the part that matters to setlec:
+Proof technique for (1) — the part that matters to lech:
 - Normalization is **typed through and through**. Normal forms include a pseudo-term
   ✠_P for "an arbitrary proof of P" (proofs are never reduced, only typed — §4.2: the
   usual whnf-based clause "would not work here: indeed, by Abel and Coquand's [2020]
@@ -284,7 +284,7 @@ Proof technique for (1) — the part that matters to setlec:
      ruling that untyped verdict-stability cannot be licensed for the proofIrrel slice
      stands, now with a stronger citation than issue #3213 folklore.
   2. *A third option for the blocked app case.* The convert-middleman is a reusable
-     recipe for precisely the shape of setlec's blocker: needing to transport a
+     recipe for precisely the shape of lech's blocker: needing to transport a
      reducibility/CodesK witness along a mere conversion (the spine-shortcut coherence)
      during the fundamental proof, before congruence/no-confusion are available. The
      recipe: add a semantic stuck-coercion to the domain of codes, prove its
@@ -298,7 +298,7 @@ Proof technique for (1) — the part that matters to setlec:
   3. *Slice-2 upgrade in outlook.* For the βη + SProp-Eq + strong-transport fragment
      there now exists a complete, formalized, *typed* decision procedure with
      injectivity (Cor 4.15) — i.e. the "kernel pays by re-inferring types" strategy has
-     a machine-checked completeness counterpart for the first time. If setlec's slice 2
+     a machine-checked completeness counterpart for the first time. If lech's slice 2
      is ever specified as "certified against a typed reference algorithm", this is that
      reference. (Still short of Lean: no general inductives, no K for Id — their Eq has
      UIP definitionally by SProp placement, which is the Lean situation — and no Acc.)
@@ -316,12 +316,12 @@ Proof technique for (1) — the part that matters to setlec:
   telescope substitution is not injective, so any dichotomy clause whose guard compares
   computed normal forms will exhibit exactly the substituted-side/unsubstituted-side
   divergence the Θ lane already fights; the paper confirms this is intrinsic, not an
-  artifact of setlec's kernel.
+  artifact of lech's kernel.
 - **(c)**: consistency here is inherited from Pujet et al.'s set model via CIC^obs
   (Assumption A again discharged semantically by head-tagged types); still no
   executable checker verified against a set model — novelty claim intact. The
   evaluation-via-erasure theorem is also the first formal justification schema for
-  `native_decide`-style mechanisms, relevant background if setlec ever meets streams
+  `native_decide`-style mechanisms, relevant background if lech ever meets streams
   using ofReduceBool/ofReduceNat (currently out of scope: no-nonstandard-axioms ruling
   treats tolerated-axiom uses by skip-and-decline).
 
@@ -354,7 +354,7 @@ candidate for the "re-plan the app case" branch of the ruling.
   partially-mechanized attack (paper 1, with Carneiro as first author and a Lean
   formalization earmarked for Lean4Lean). Watch for the de-anonymized artifact and a
   proof-irrelevance-with-K extension — that extension is the piece that would matter
-  to setlec's slice 2.
+  to lech's slice 2.
 
 ---
 
@@ -384,7 +384,7 @@ this scratchpad):
    CIC^obs), Cor 5.6 (propositional canonicity), Thm 6.1 (erasure correctness), the ✠
    pseudo-normal-form / typed-context-indexed-reduction design, the strict-canonicity
    open conjecture, and the §7 comparison to Felicissimo–Winterhalter typed confluence.
-4. The three existing setlec surveys' section headings (only headings, per instructions)
+4. The three existing lech surveys' section headings (only headings, per instructions)
    contain none of these three papers.
 
 ## COULD NOT VERIFY
@@ -401,5 +401,5 @@ this scratchpad):
    not read). Its formalization covers only two proof-relevant universe levels (stated
    by the authors; the countable-hierarchy presentation is paper-level).
 4. All performance numbers (papers 2/3) taken at face value.
-5. Whether the convert-middleman technique actually composes with setlec's glued-NbE /
+5. Whether the convert-middleman technique actually composes with lech's glued-NbE /
    CodesK machinery (design question, not a literature fact).

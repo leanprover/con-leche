@@ -277,7 +277,7 @@ PDF: https://www.cse.chalmers.se/~nad/publications/danielsson-semantics-partiali
 ### 2.6 Adjacent data points on fuel in verified kernels
 
 - **MetaCoq.** https://metacoq.github.io/v1.2-8.16/MetaCoq.SafeChecker.PCUICSafeReduce.html header: *"We implement the reduction machine of Coq **without relying on fuel**. Instead we assume strong normalization of the system (for well-typed terms) and proceed by well-founded induction."* The fuel-based MetaCoq checker exists but, per the project's own description surfaced in search, is the *unverified* one. So: MetaCoq deliberately moved fuel *out* of the verified artifact.
-- **Lean4Lean** (Carneiro), https://arxiv.org/pdf/2403.14064 — the closest analogue to Setlec's setting, and it goes the *other* way. §3.2.1:
+- **Lean4Lean** (Carneiro), https://arxiv.org/pdf/2403.14064 — the closest analogue to Lech's setting, and it goes the *other* way. §3.2.1:
   > "It is unlikely that we can prove termination of a typechecker for Lean in Lean… we are up against Gödel's incompleteness theorem… Besides this, **the Lean type theory is known not to terminate**. Coquand and Abel constructed a counterexample to strong normalization using reduction of proofs, and this can be shown to impact definitional equality checks even for regular types… So we use what is arguably the standard solution for defining partial functions in a language like Lean or Rocq: **use a fuel parameter**, a natural number which counts the number of nested recursive calls to one of the `Methods`, and throw a `deepRecursion` error if we run out of fuel."
   
   And crucially, the specification style: *"whnf `e` returns the WHNF of `e`. From a modeling perspective, **the main important property is that if it returns `e′` and `e` is well-typed then `Γ ⊢ e ≡ e′` is provable**."* — i.e. **soundness-only, conditioned on returning**. Fuel exhaustion is simply "did not return", and no lemma ever needs a convergence premise because every lemma is already gated on a successful return. A footnote explicitly rejects Bove–Capretta here: *"we do not want to use this as the kernel API is fixed to match Lean's actual kernel function, and we also actually want it to time out on extreme cases."*
@@ -317,7 +317,7 @@ I'll flag this as my synthesis rather than a citation. Your machine is fueled, s
 - **∃-at-the-boundary** (McTT `rel_exp`, `rel_mod_eval`; AÖV's whnf clauses): `R(t,ρ,t',ρ') :⟺ ∃ v v' n n'. eval n t ρ = some v ∧ eval n' t' ρ' = some v' ∧ v ≈ v'`. Existentially quantifying the *fuel* here is the fuel-analogue of the graph relation; you then need a fuel-monotonicity lemma to serve the role AÖV's Lemma 2.5 serves — that is your unavoidable "determinism" obligation, and it should be proved once and used via a rewrite tactic, exactly as McTT does with `functional_eval_rewrite_clear`.
 - **∀-inside-structural-clauses** (McTT `glu_univ_elem_core_pi`): `∀ b, ⟦B⟧ρ↦c ↘ b → …`. Useful precisely where you'd otherwise have to *produce* a convergence witness inside a negative position.
 
-The one option with no precedent I could find is (b): threading convergence as a premise on each transitivity/uniqueness lemma. McTT is the closest published analogue to Setlec, and it explicitly does not do this.
+The one option with no precedent I could find is (b): threading convergence as a premise on each transitivity/uniqueness lemma. McTT is the closest published analogue to Lech, and it explicitly does not do this.
 
 ---
 
