@@ -46922,31 +46922,57 @@ theory, and a 60-line definition of the interpretation.
   `SetP.SemP`; no other row moved); the summary line now counts roots
   from the expectation file.
 
-### CLOSURE SIMPLIFICATIONS CONSIDERED (not done; the user's call)
+### THE CLOSURE AT THE DECLARATION LEVEL (the user's redirection)
 
-1. **`Level.eval`/`substFn` into `Kernel/Level.lean`** (two definitions,
-   ten lines, same namespace).  Drops `Verify.Level` (412 lines, mostly
-   `leq` soundness) from the closure: `Sem` would import no `Verify`
-   module.  Pure code motion.
-2. **`piR`/`lamR` into a module of their own** (say `SetModel/Regime.lean`,
-   importing `Derive.Pi`), `Ops.lean` importing it.  `Ops` imports the
-   `SetTheory.Basic` umbrella, which drags in `Choice`, `Natrec`, `Quot`,
-   `PtFresh` and `Basic` itself — none of which the interpretation
-   touches.  Closure of the set-theory side: 16 → 11 modules
-   (`Core`, `Empty`, `Sep`, `Pair`, `Universe`, `Omega`, `Pt`, `Graphs`,
-   `Pi`, `Univ`, `Sigma`).  Pure code motion; the proofdeps pin moves two
-   rows per capstone with it.
-   Both together: 57 → 51.
-3. **The pins.** `Setlec.Kernel.NatOpPins` reads the committed JSON at
-   elaboration time through `PinGen.Dump` (which imports `Lean`), so the
-   closure contains a 40,910-line data file and its reader.  Their
-   *semantics* is covered by the kernel-checked certificates the proof
-   consumes, so this is no extra trust for the theorem, but it is the
-   one opaque definition a closure auditor meets.  Making the pins plain
-   generated Lean source would remove the reader, not the data.
-4. **`sem`'s string-literal clause** (nine lines) could delegate to the
-   checker's own `strLitToConstructor` expansion, at the price of a
-   different termination measure and a bridge lemma through the
-   constructor form.  Cosmetic.
-5. The checker's 39 are the theorem's subject and cannot shrink without
-   changing the checker.
+Modules are the wrong unit: the comparator walks *declarations* — every
+constant reachable from the statement's type through types, definition
+and opaque values, an inductive's constructors and a recursor's rules
+(`runForUsedConsts`; theorem proofs are not followed, and a statement's
+meaning does not depend on them).  Measured with that walk (the script
+is in the session scratchpad; a copy as `tests/ChallengeDeps.lean` is a
+natural follow-up):
+
+| statement | constants | generated (`match_`, `_proof_`, `rec`, …) | hand-written |
+|---|---|---|---|
+| `no_proof_of_Empty` | 2 999 | 1 227 | 1 772 |
+| `model_exists` | 3 075 | 1 259 | 1 816 |
+
+Hand-written, by origin, for `model_exists`: `Init` 810, `Kernel` 620,
+`Cached` 240, `Std` 108 (all `DHashMap` internals), `SetTheory` 27,
+`Semantics` 7, `Verify` 2 (`Level.eval`, `substFn`), `SetModel` 2
+(`piR`, `lamR`).  The model statement adds **76 constants** to the
+`Empty` one, 38 of them hand-written: the `sem` family, the two regime
+operators, and 27 set-theory constants (`Mem`, `app`, `graph`, `piSet`,
+`kpair`, `sfst`, `ssnd`, `sep`, `sing`, `upair`, `power`, `sUnion`,
+`image`, `pt`, `unitSet`, `truthVal`, `univZero`, `univChain`, `univ`,
+`empty`, …).  That is the whole semantics an auditor reads.
+
+Consequences:
+
+* **The module moves considered above are moot.**  Relocating
+  `Level.eval` or `piR` changes which files sit in the import closure,
+  not which declarations the statement reaches; the auditor's reading
+  list is identical.  Not done.
+* **The pins are not the opaque item feared above.**  `PinGen.Dump`
+  and `Lean` are *absent* from the declaration closure — the JSON is
+  read at elaboration time and what remains are 34 `Kernel.NatOpPins`
+  constants that are plain terms.  The module-level worry dissolves.
+* **The checker is 97 % of the closure and is the theorem's subject.**
+  Inside it the only levers are checker changes: the error-message path
+  (about 150 `Format`/`Repr`/`ToString` constants reached through
+  `s!"…"` interpolation in `CheckError.invalid` messages — removable by
+  carrying structured errors and printing in `Main.lean`; intrusive,
+  cosmetic) and the memo tables (`Std.DHashMap`, 171 constants, plus
+  the `Cached` tier) — the pure fueled `checkDecls` closes at 1 727
+  constants against the shipped driver's 2 999, but it is not what the
+  binary runs and no theorem ties the two drivers together directly, so
+  a challenge over it would trade the closure for a gap outside the
+  comparator's guarantee.
+* **`Classical.choice` is in the model statement's closure** through
+  `sfst`/`ssnd` (`Classical.choose`) and `truthVal`'s `if p then …`;
+  choice-free Kuratowski projections and a `sep`-defined truth value
+  would remove eight constants.  Cosmetic; the axiom is permitted.
+
+`sem`'s string-literal clause delegating to `strLitToConstructor` (a
+different termination measure and one more bridge lemma) is the only
+simplification of the semantics side itself, and it is cosmetic too.
