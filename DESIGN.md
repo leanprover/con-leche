@@ -44007,33 +44007,143 @@ two-constructor derivation exactly (`Repr.addAppParen (Format.group
 in the committed files, before and after the change, and the two
 generator runs are `diff -q` identical.
 
-### 4. The receipts
+### 4. The module boundary — the representation is hidden, not hidden
+by convention (user follow-up, same session)
 
-Baseline = the branch point `58c39103`, measured in this worktree in
-this session; `perf stat -e instructions:u`, `ulimit -v 16000000`,
-VmHWM sampled once a second over the process tree (no
-`/usr/bin/time` on this box; other agents' checker runs share the
-machine, so the sampler descends *our* pid tree rather than matching
-by name — an earlier by-name sample read 13.9 GB off someone else's
-run).  init-full-pre2, `--pre`; 60 549 accepted in every cell.
+**User question:** why are `PropWhen`'s operations not in their own
+module exposing only an API?  They are now, and the boundary is
+enforced by the compiler.
 
-| stream / mode | master | `agent/pw-small` | Δ |
+**The split.**  `Setlec/Kernel/Name.lean` and
+`Setlec/Kernel/PropWhen.lean` come out of `Setlec/Kernel/Expr.lean`, in
+that order: the datum needs `Name` and nothing else, so it sits *below*
+the expression type it annotates.  `Expr.lean` publicly imports
+`PropWhen`, so no other file's imports changed.  Layering holds: the
+module imports `Setlec.Kernel.Name` and nothing else — nothing from
+`SetTheory`/`SetModel`/`Semantics`/`SetP`/`Verify`.
+
+**The representation.**  `PropWhenRepr` (the five constructors) is a
+`private inductive`; `PropWhen` is a one-field structure whose
+constructor *and* field are `private`:
+
+    private inductive PropWhenRepr where
+      | never | always | one (p) | two (p q) | many (p q r) (rest)
+    structure PropWhen where
+      private ofRepr ::
+      private repr : PropWhenRepr
+
+Checked, not asserted (`_tmp/leak.lean`): outside the module
+`Setlec.PropWhenRepr` is an unknown identifier, `⟨_⟩` is refused
+("Constructor for `Setlec.PropWhen` is marked as private"), `pw.repr`
+is refused, `PropWhen.ofRepr` does not resolve.  `never` is a
+*definition* now rather than a constructor; `.never` reads the same at
+every use site.
+
+**The exported surface** — this list is the whole of it:
+
+| kind | names |
+|---|---|
+| type | `PropWhen` |
+| constructors | `never`, `ifAllZero : List Name → PropWhen` |
+| views | `toList`, `toList?`, `casesZ` (registered `@[cases_eliminator, induction_eliminator, elab_as_elim]`) |
+| observers | `holds`, `isNever`, `hasParams`, `paramsDefined`, `inter`, `bindZ`, `bindZ.go`, `equiv` |
+| instances | `DecidableEq` (via `decEq`), `Hashable` (via `hash'`), `Inhabited`, `Repr` (via `reprPrec'`) |
+| shape equations | `toList_never`, `toList_ifAllZero`, `toList?_never`, `toList?_ifAllZero`, `ifAllZero_ne_never`, `ifAllZero_toList` |
+| observer equations (`@[simp]`) | `holds_never/_ifAllZero`, `isNever_never/_ifAllZero`, `hasParams_never/_ifAllZero`, `paramsDefined_never/_ifAllZero`, `inter_never_left/_never_right/_ifAllZero/_nil`, `nil_inter`, `inter_eq_toList`, `bindZ_never`, `bindZ_go_nil`, `bindZ_ifAllZero`, `equiv_never_never/_never_ifAllZero/_ifAllZero_never/_ifAllZero` |
+| laws | `holds_inter`, `holds_bindZ_go`, `holds_ext`, `equiv_iff_holds`, `equiv_refl`, `holds_eq_of_equiv`, `paramsDefined_inter_of`, `inter_assoc`, `bindZ_inter`, `bindZ_go_append`, `bindZ_congr_names`, `bindZ_unit` |
+
+The laws moved in from `Setlec/Verify/PropWhen.lean` under the
+`CLAUDE.md` Std.HashMap exception (a self-contained data-structure
+verification may live with the structure), statements unchanged.  What
+stayed behind is exactly what is *not* about the datum alone: the
+`Level`-facing laws (`zeronessOf_sound`, `holds_of_equiv_zeronessOf`,
+`zeronessOf_subst`, `substPW_self`, `substPW_comp`,
+`substPW_paramsDefined`, `zeronessOf_paramsDefined`, `holds_substPW`),
+which live above `Level` and are now pure consumers of the API —
+`Verify/PropWhen.lean` shrank 443 → 263 lines.  `Kernel/ZeroSet.lean`
+and `Verify/ZeroSet.lean` were already consumers (`toList?` plus the
+exported equations) and needed no change.
+
+**THE FINDING: hiding a representation in Lean's module system means
+*sealing*, and sealing here is free.**  An `@[expose]`d public
+declaration may not mention a private one — so a private representation
+forces the whole module out of `@[expose]` (`public section` only), and
+with it every `rfl`, `decide` and `#guard` that downstream might reduce
+through a `PropWhen` body, `DecidableEq Expr` included.  Whether that
+is affordable is not a matter of opinion, so it was measured before it
+was chosen: sealing the module (one line) and rebuilding gives **0
+errors and 0 warnings across all 442 modules, and `lake test` green**.
+The exported lemma set was already sufficient; nothing outside the
+module had been reaching through it.  Two mechanical consequences
+inside the module: `bindZ.go` becomes a top-level
+`def PropWhen.bindZ.go` (a `where` auxiliary of a sealed def is private
+and could not be named by the exported laws — the *statements* that
+mention it are unchanged), and the equation lemmas are tactic proofs
+rather than `rfl`, since an exported theorem may not rest on a sealed
+body (`simp [holds]` works: equation lemmas are exported; `:= rfl` does
+not: the kernel would have to unfold).
+
+**Runtime cost of the wrapper: none.**  Lean erases the one-field
+structure.  The generated C for `Level.zeronessOf` is byte-for-byte
+what it was before the wrapper — `lean_box(1)` for `ifAllZero []`, a
+single `lean_alloc_ctor(2, 1, 0)` for `ifAllZero [n]`, no intermediate
+list.
+
+**The proof-dependency pin moved, and it is the split, not a door.**
+`tests/proofdeps-expected.txt` gains exactly 8 rows —
+`Setlec.Kernel.Name` and `Setlec.Kernel.PropWhen` in each of the four
+capstones' closures — and loses none; `Setlec.Kernel.Expr`, which those
+two were carved out of, is still in all four.  Same constants, new
+module names.  Regenerated with `tests/proofdeps.sh --list`, justified
+here as the gate requires.
+
+### 5. The receipts
+
+`perf stat -e instructions:u`, `ulimit -v 16000000`, VmHWM sampled once
+a second over the process tree (no `/usr/bin/time` on this box; other
+agents' checker runs share the machine, so the sampler descends *our*
+pid tree rather than matching by name — an earlier by-name sample read
+13.9 GB off someone else's run).  init-full-pre2, `--pre`; 60 549
+accepted in every cell.  Run-to-run spread on init-full instructions is
+0.001–0.01 % (two runs per cell), so everything below is above noise
+and all of it is negligible.
+
+**(a) The datum change alone**, measured at the branch point
+`58c39103` against the same worktree before and after — this is the
+apples-to-apples number for the small-list constructors:
+
+| stream / mode | master `58c39103` | `agent/pw-small` | Δ |
 |---|---|---|---|
-| init-full P (`--set-model`) | 984.584 G / 984.575 G | 983.149 G / 983.201 G | **−0.14 %** |
-| init-full parity (`--no-model`) | 1030.849 G / 1030.953 G | 1031.246 G / 1031.281 G | **+0.03 %** |
-| grind-ring-5 (`--set-model`, median of 3) | 46.895 G | 46.800 G | **−0.20 %** |
+| init-full P (`--set-model`) | 984.584 / 984.575 G | 983.149 / 983.201 G | **−0.14 %** |
+| init-full parity (`--no-model`) | 1030.849 / 1030.953 G | 1031.246 / 1031.281 G | **+0.03 %** |
+| grind-ring-5 (median of 3) | 46.895 G | 46.800 G | **−0.20 %** |
 | init-full P VmHWM | 933 884 kB | 933 396 / 935 912 kB | ≈ 0 |
 | init-full parity VmHWM | 919 692 kB | 924 672 / 916 104 kB | ≈ 0 (spread 0.9 %) |
 | grind-ring-5 VmHWM | 267 588 kB | 264 028 kB | −1.3 % |
 
-Run-to-run spread on init-full instructions is 0.001 % (two baseline
-runs each), so the P and grind-ring-5 wins and the parity loss are all
-*real* and all *negligible*.  Verdicts: `tests/arena.sh` output
-**byte-identical** to the baseline run (0 FAIL, 90/92 good, 73/73 e2e,
-14/14 annot, 8/8 retired flags, 14/14 mode flags, the 3 recorded
-no-model divergences); `lake build` warning-free; `lake test` green;
-the four capstones' axioms exactly `[propext, Classical.choice,
-Quot.sound]`.
+**(b) The landed branch, after the module split and the hiding**,
+against post-merge master `e736f24d` built in its own worktree:
+
+| stream / mode | master `e736f24d` | `agent/pw-small` tip | Δ |
+|---|---|---|---|
+| init-full P | 980.735 G | 980.314 / 980.219 G | **−0.05 %** |
+| init-full parity | 1030.695 / 1030.717 G | 1031.935 / 1031.997 G | **+0.12 %** |
+| grind-ring-5 (median of 3) | 46.817 G | 46.772 G | **−0.10 %** |
+| init-full P VmHWM | 940 192 kB | 938 652 kB | −0.16 % |
+| init-full parity VmHWM | 925 496 kB | 921 164 kB | −0.47 % |
+| grind-ring-5 VmHWM | 270 352 kB | 270 644 kB | +0.11 % |
+
+The module boundary and the hiding therefore cost nothing measurable in
+either direction — the codegen is unchanged, and the only movement
+between (a) and (b) is inside the same tenth of a percent.
+
+Verdicts: `tests/arena.sh` 0 FAIL — 90/92 good, 76/76 e2e, 14/14 annot,
+8/8 retired flags, 14/14 mode flags, the 3 recorded no-model
+divergences, layering 0 impl→theory, proofdeps 0 doors (against the
+regenerated 1371-row pin, §4); `lake build` warning-free; `lake test`
+green; the annotate-basis generator's output `diff -q` identical across
+every stage; the four capstones' axioms exactly `[propext,
+Classical.choice, Quot.sound]`.
 
 **Why so little — and it was predictable.**  The census already said
 the payload is 0.075 % of peak RSS.  What this change actually saves
@@ -44051,15 +44161,19 @@ at all; the code generator turns `zeronessOf` into `lean_box(1)` /
 (inspected in `Kernel/Level.c`).  It adds up to a seventh of a
 percent.
 
-The parity mode's +0.03 % is the mirror: `--no-model` spends
-proportionally less of its time where the datum is read, so the
-slightly deeper `inter`/`equiv` decision trees are not paid back.
+The parity mode's +0.03 % (+0.12 % at the tip) is the mirror:
+`--no-model` spends proportionally less of its time where the datum is
+read, so the slightly deeper `inter`/`equiv` decision trees are not
+paid back.  Reproducible across two runs per cell against a 0.01 %
+spread, and still negligible.
 
 **The standing verdict this confirms.**  The packed-bitmask landing
 measured −1.8 % / −2.3 % and the user parked it as "not worth the
 architecture impact".  This variant costs *no* architecture — the
-representation is invisible above the module, the P tier never
-learned it exists — and correspondingly buys about a tenth of that.
+representation is now *provably* invisible above the module (a private
+inductive behind a private-constructor wrapper, in its own sealed
+module — §4), the P tier never learned it exists — and correspondingly
+buys about a tenth of that.
 The `pw` datum is now closed as a performance lever in both
 directions: cheap changes buy nothing measurable, and the change that
 buys 2 % costs a universe context threaded through the whole
