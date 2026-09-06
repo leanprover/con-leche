@@ -15,7 +15,7 @@
    * `Nada` — in `Type`;
 
    and `absurd'` goes through the toolchain's `False`, which the
-   checker installs as a pinned basis block (`Setlec/Kernel/Basis/
+   checker installs as a pinned basis block (`Lech/Kernel/Basis/
    False.lean`), so the stream's raw `False` block is matched against
    the pin rather than installed by the sum route.
 

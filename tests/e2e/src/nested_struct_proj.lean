@@ -3,7 +3,7 @@
 /- End-to-end test: the projection functions of a NESTED structure
    (`kids : List Tree`) and of a directly RECURSIVE one (`Stream'.tail :
    Unit → Stream'`), rewritten to recursor applications by the frontend
-   (`Setlec/Frontend/ProjRec.lean`, 2026-09-06; the mutual twin is
+   (`Lech/Frontend/ProjRec.lean`, 2026-09-06; the mutual twin is
    `mutual_struct_proj.lean`).
 
    `Tree.rec` carries two motives (the tree's and the auxiliary one

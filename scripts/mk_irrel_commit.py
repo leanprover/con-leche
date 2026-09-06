@@ -16,7 +16,7 @@ single theorem whose check forces a defeq step at which
 The official kernel COMMITS at the proof-irrelevance failure
 (`type_checker.cpp:1202-1203`: a `l_false` from `is_def_eq_proof_irrel`
 returns from `is_def_eq_core` outright), so it never reaches the
-congruence and REJECTS.  setlec's `proofIrrel` returns a `Bool` and a
+congruence and REJECTS.  lech's `proofIrrel` returns a `Bool` and a
 `false` falls through to the rest of the cascade, which accepts.
 
   python3 scripts/mk_irrel_commit.py \

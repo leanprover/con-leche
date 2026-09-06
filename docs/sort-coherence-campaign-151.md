@@ -5,7 +5,7 @@ the validated-annotation design (checker-validated sort annotations;
 see §7).  This document is the campaign's citable summary.  The full
 design memory is the `docs/SetR-DESIGN.md` ledger (branch
 `agent/cert-tax`, final SHA f46e96850f5cbbed8a4bf0e5a720e3ba0227972c) and the batch book
-`Setlec/SetR/Annot/SortCoh/ThetaRunBatch.md` (branch
+`Lech/SetR/Annot/SortCoh/ThetaRunBatch.md` (branch
 `agent/theta-runbatch`, final SHA cb2c2ed3); the NbE lane's
 record is on `agent/nbe-lr` (final SHA eb3591d2).  Literature survey:
 `docs/lit-standardization-setmodels-2026-09.md`; diagnosis and

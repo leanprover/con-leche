@@ -1,9 +1,9 @@
-import Setlec.Cached.ParsedC
-import Setlec.Frontend.ExportC
+import Lech.Cached.ParsedC
+import Lech.Frontend.ExportC
 
 /-!
-Command-line driver: `setlec FILE.ndjson` reads a lean4export NDJSON file
-(the `setlec-preprocess` front end for lean-inductive-models is run
+Command-line driver: `lech FILE.ndjson` reads a lean4export NDJSON file
+(the `lech-preprocess` front end for lean-inductive-models is run
 transparently first, unless `--pre` says the input is already
 preprocessed) and checks the declarations in order.
 
@@ -33,7 +33,7 @@ never default to the system temp directory.
 
 **THE PREPROCESSOR'S VERDICT IS OURS** (user ruling, 2026-09-07).  The
 tool is spawned `--quiet --no-type-check-generated` (its kernel
-re-check of the model islands is work setlec repeats declaration by
+re-check of the model islands is work lech repeats declaration by
 declaration; its structural checks stay, `--type-check-input` stays
 off), and a nonzero exit is *passed through* — 1 reject, 2 decline,
 anything else an error — instead of the old fallback that re-checked
@@ -42,9 +42,9 @@ cannot be *run* still falls back to the raw stream; that is the one
 remaining fallback.
 -/
 
-open Setlec
+open Lech
 
-def Setlec.CheckError.exitCode : CheckError → UInt32
+def Lech.CheckError.exitCode : CheckError → UInt32
   | .notImplemented _ => 2
   | .invalid _ => 1
   | .internal _ => 3
@@ -62,41 +62,41 @@ def resolveTool (p : String) : IO (Option String) := do
           return some cand
   return none
 
-/-- Locate the preprocessor (task #178: `setlec-preprocess`, the checker's own
-front end for `lean-inductive-models` — the tool's `main` passed setlec's
+/-- Locate the preprocessor (task #178: `lech-preprocess`, the checker's own
+front end for `lean-inductive-models` — the tool's `main` passed lech's
 `NativeSupport`, so the blocks `directParts?` installs directly come back
-unmodelled; `SetlecPreprocess.lean`).  Search order:
+unmodelled; `LechPreprocess.lean`).  Search order:
 
-1. `$SETLEC_INDUCTIVE_MODELS` — the explicit override, unchanged; the test
+1. `$LECH_INDUCTIVE_MODELS` — the explicit override, unchanged; the test
    harnesses point it at a nonexistent path to run a stream *raw*.
-2. this build's `setlec-preprocess`;
+2. this build's `lech-preprocess`;
 3. the stock `lean-inductive-models` development checkout under `_tmp/` — the
    legacy fallback, which costs one `pathExists` and keeps a tree without a
-   built `setlec-preprocess` working (its output is a superset: every block
+   built `lech-preprocess` working (its output is a superset: every block
    left native here is modelled there, and the direct install ignores the
    model either way);
-4. `setlec-preprocess` on `$PATH`.
+4. `lech-preprocess` on `$PATH`.
 
 **Every branch resolves to a path that EXISTS, or to `none`** (task
-#180): since a nonzero preprocessor exit is now setlec's verdict, "the
+#180): since a nonzero preprocessor exit is now lech's verdict, "the
 tool is not there" has to be decided *before* the spawn — Lean's
 `IO.Process.spawn` does not fail for a missing binary, it succeeds and
 the child exits 255 after printing "could not execute external
 process", which is indistinguishable at the exit-code level from a tool
 that ran and failed.  So the `$PATH` step is resolved here rather than
-at spawn time, and a `$SETLEC_INDUCTIVE_MODELS` naming nothing that
+at spawn time, and a `$LECH_INDUCTIVE_MODELS` naming nothing that
 exists means "no preprocessor" — which is exactly what the `raw` test
 fixtures mean by pointing it at `/nonexistent`. -/
 def findPreprocessor : IO (Option String) := do
-  if let some p ← IO.getEnv "SETLEC_INDUCTIVE_MODELS" then
+  if let some p ← IO.getEnv "LECH_INDUCTIVE_MODELS" then
     return ← resolveTool p
-  let dev := ".lake/build/bin/setlec-preprocess"
+  let dev := ".lake/build/bin/lech-preprocess"
   if ← System.FilePath.pathExists dev then
     return some dev
   let legacy := "_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models"
   if ← System.FilePath.pathExists legacy then
     return some legacy
-  resolveTool "setlec-preprocess"
+  resolveTool "lech-preprocess"
 
 /-- Does the input contain records the preprocessor must reduce
 (`inductive`/`quot`)?  Streaming scan, line by line — the keys cannot
@@ -115,16 +115,16 @@ partial def needsPreprocess (file : String) : IO Bool := do
 /-- What the input side of a run produced: either a parse (successful
 or not) of the stream the checker is to check, or a verdict of the
 *preprocessor's* own that is, per the user's ruling of 2026-09-07,
-setlec's verdict. -/
+lech's verdict. -/
 inductive InputResult where
   /-- the stream was read and parsed (`.error` = the checker's own
   decline or a malformed stream) -/
   | parsed (res : Except Frontend.FrontendError Frontend.ParseResultD)
   /-- the preprocessor rejected/declined/failed; `code` is already
-  translated to setlec's exit code -/
+  translated to lech's exit code -/
   | preVerdict (code : UInt32)
 
-/-- Translate a nonzero preprocessor exit code into setlec's, and say
+/-- Translate a nonzero preprocessor exit code into lech's, and say
 so on stderr.  **"A preprocessor reject is our reject"** (user ruling,
 2026-09-07): `lean-inductive-models` follows the same arena contract we
 do (its README: 1 rejected by a requested structural or kernel check,
@@ -142,16 +142,16 @@ but never its failures) — except for the per-owner decline lines, which
 are success-path reports; hence the pointer in the decline message. -/
 def preprocessorVerdict (code : UInt32) (modeTag : String) : IO UInt32 := do
   if code = 1 then
-    IO.eprintln s!"setlec: the preprocessor rejected the input (message \
+    IO.eprintln s!"lech: the preprocessor rejected the input (message \
       above) ({modeTag})"
     return 1
   else if code = 2 then
-    IO.eprintln s!"setlec: declined: the preprocessor declined to model a \
-      block (re-run setlec-preprocess without --quiet for the owner names) \
+    IO.eprintln s!"lech: declined: the preprocessor declined to model a \
+      block (re-run lech-preprocess without --quiet for the owner names) \
       ({modeTag})"
     return 2
   else
-    IO.eprintln s!"setlec: the preprocessor failed (exit {code}) ({modeTag})"
+    IO.eprintln s!"lech: the preprocessor failed (exit {code}) ({modeTag})"
     return 3
 
 /-- Read a handle to EOF and discard it.  Used only when the parse
@@ -179,7 +179,7 @@ so no output flag is passed at all.
 line per generated model — thousands on `init-full`) and nothing else:
 every failure message is printed unconditionally.
 `--no-type-check-generated` switches off the tool's *kernel* re-check
-of each generated model island: setlec checks those generated
+of each generated model island: lech checks those generated
 definitions and theorems itself, as ordinary declarations of the
 stream it is handed, so running Lean's kernel over them first is
 duplicated work and buys no trust we would otherwise lack.  The two
@@ -197,7 +197,7 @@ first.
 `none` means "the tool could not be run" — the *only* remaining
 fallback to the raw input (the checker then declines at the first
 inductive); it is what the `raw` test fixtures exercise by pointing
-`SETLEC_INDUCTIVE_MODELS` at a nonexistent path.  A nonzero exit is a
+`LECH_INDUCTIVE_MODELS` at a nonexistent path.  A nonzero exit is a
 `.preVerdict` (see `preprocessorVerdict`).  A checker decline reached
 before the tool exits is ours: the child is killed first, since we have
 stopped draining its pipe and a blocked writer would never exit.  A *parse
@@ -246,16 +246,16 @@ def parseInput (file : String) (pre : Bool) (modeTag : String) :
   | none => raw
 
 /-- `declPName` for the direct-parse `DeclC` records (task #171).  The
-formatting itself lives beside the checker (`Setlec.Cached.declCLabel`)
+formatting itself lives beside the checker (`Lech.Cached.declCLabel`)
 because the progress heartbeat's compiled hook prints it too, and the
 two must never drift apart. -/
-def declCName : Setlec.Cached.DeclC → String := Setlec.Cached.declCLabel
+def declCName : Lech.Cached.DeclC → String := Lech.Cached.declCLabel
 
 /-- **The progress lane's fold — UNVERIFIED, and the only unverified
-loop in the driver** (`SETLEC_PROGRESS`, user ruling 2026-09-07).
+loop in the driver** (`LECH_PROGRESS`, user ruling 2026-09-07).
 
-The default run calls `Setlec.Cached.checkDeclsSPCachedD` — the pure
-function `Setlec.no_proof_of_False` is about — and prints nothing per
+The default run calls `Lech.Cached.checkDeclsSPCachedD` — the pure
+function `Lech.no_proof_of_False` is about — and prints nothing per
 declaration.  A pure fold cannot print, and the ways to make it print
 without leaving the verified statement behind all cost more than the
 printing is worth: a compiled-only hook (`@[implemented_by]`, refused
@@ -269,7 +269,7 @@ position-carrying step of the verified fold, over the same records from
 the same empty environment and state — with one line printed before
 each declaration.  Nobody should be bothered by the difference between
 these two trivial folds; what matters is that the difference is
-*stated*: a run with `SETLEC_PROGRESS` set is not covered by the main
+*stated*: a run with `LECH_PROGRESS` set is not covered by the main
 theorem, and a run without it is.
 
 **Written tail-recursively, threading `fe` and `s` LINEARLY** (task
@@ -283,41 +283,41 @@ the recursive call, so the C carries no `lean_inc` of either before the
 step (checked in `.lake/build/ir/Main.c`), and the cost per declaration
 is flat.
 
-**Stride 1 is the localisation lane.**  With `SETLEC_PROGRESS=1` every
+**Stride 1 is the localisation lane.**  With `LECH_PROGRESS=1` every
 declaration is announced before it is checked, so a run that dies — an
 OOM, a timeout, a `SIGKILL` — names on its last line the declaration it
 died in.  The index is the FOLD position, not the stream's record
 index: the parse folds the basis and `quot` blocks and drops
 taint-skipped records, so the two drift apart by a stream-dependent
 amount.  Calibrate by NAME. -/
-def checkDeclsProgressIO (mode : Setlec.CheckMode) (err : IO.FS.Stream)
+def checkDeclsProgressIO (mode : Lech.CheckMode) (err : IO.FS.Stream)
     (stride total t0 : Nat) :
-    List Setlec.Cached.DeclC → Nat → Setlec.FEnv → Setlec.Cached.CState →
-      IO (Except (Setlec.CheckError × Nat) Setlec.Env)
+    List Lech.Cached.DeclC → Nat → Lech.FEnv → Lech.Cached.CState →
+      IO (Except (Lech.CheckError × Nat) Lech.Env)
   | [], _, fe, _ => return .ok fe.env
   | pd :: ds, i, fe, s => do
     if stride > 0 && i % stride == 0 then
       let now ← IO.monoMsNow
-      err.putStr s!"setlec: progress {i}/{total} \
-        {Setlec.Cached.declCLabel pd} \
-        t={Setlec.Cached.msSecs (now - t0)}s\n"
+      err.putStr s!"lech: progress {i}/{total} \
+        {Lech.Cached.declCLabel pd} \
+        t={Lech.Cached.msSecs (now - t0)}s\n"
       err.flush
-    match Setlec.Cached.checkDeclStepIdxC mode (i, fe) pd s with
+    match Lech.Cached.checkDeclStepIdxC mode (i, fe) pd s with
     | .ok ((i', fe'), s') => checkDeclsProgressIO mode err stride total t0 ds i' fe' s'
     | .error e => return .error e
 
-/-- The progress heartbeat's stride (`SETLEC_PROGRESS=<stride>`;
+/-- The progress heartbeat's stride (`LECH_PROGRESS=<stride>`;
 2026-09-07).  `none` — the variable unset — is off; a value that is not
 a decimal numeral is a hard error, per the provenance discipline the
 retired-variable arms follow (a run's output must be readable off its
 invocation, never silently degraded).  `0` is the explicit "off". -/
 def progressStride : IO (Except String Nat) := do
-  match ← IO.getEnv "SETLEC_PROGRESS" with
+  match ← IO.getEnv "LECH_PROGRESS" with
   | none => return .ok 0
   | some s =>
     match s.toNat? with
     | some n => return .ok n
-    | none => return .error s!"SETLEC_PROGRESS must be a declaration stride \
+    | none => return .error s!"LECH_PROGRESS must be a declaration stride \
         (a decimal numeral; 0 or unset is off), got {repr s}"
 
 /-- The real driver (run in the supervised child process).  `mode` is
@@ -334,20 +334,20 @@ hand-written trusted twin retired into an instantiation
 cached driver — at `.verified` under `--verified` (the default), at `.trusted`
 under `--trusted`.  The verified instance is covered by
 `no_proof_of_Empty_SPCD_P` over `checkDeclsSPCachedD`
-(`Setlec/Verify/Cached/MainC.lean`); the trusted one is unverified by
+(`Lech/Verify/Cached/MainC.lean`); the trusted one is unverified by
 design and agrees with it on the install skeletons whenever both
 accept (`trusted_agrees_P_skels_shipped`). -/
 def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
     -- readable off the invocation (task #147).
-    if (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1" then
-      IO.eprintln "setlec: SETLEC_NO_PROOF_CERTS is retired; the \
+    if (← IO.getEnv "LECH_NO_PROOF_CERTS") == some "1" then
+      IO.eprintln "lech: LECH_NO_PROOF_CERTS is retired; the \
         cert-skipping measurement lane is the --trusted mode \
         (checking-mode front door included — see DESIGN.md, task #147)"
       return 3
-    if (← IO.getEnv "SETLEC_INFER_ONLY") == some "1" then
-      IO.eprintln "setlec: SETLEC_INFER_ONLY is retired; the infer-only \
+    if (← IO.getEnv "LECH_INFER_ONLY") == some "1" then
+      IO.eprintln "lech: LECH_INFER_ONLY is retired; the infer-only \
         internal discipline is part of the --trusted mode, and the \
         certified mode is --verified, the default \
         (see DESIGN.md, task #147)"
@@ -355,7 +355,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- The opt-in progress heartbeat (2026-09-07): validated here, once,
     -- before any work is done.
     let stride ← match ← progressStride with
-      | .error msg => IO.eprintln s!"setlec: {msg}"; return 3
+      | .error msg => IO.eprintln s!"lech: {msg}"; return 3
       | .ok n => pure n
     let t0 ← IO.monoMsNow
     -- Every VERDICT line names the mode (2026-09-07): a `--trusted`
@@ -377,22 +377,22 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       -- and is never an accept (it is reached only on a nonzero exit)
       return code
     | .parsed (.error (.unsupported what)) =>
-      IO.eprintln s!"setlec: declined: {what} ({modeTag})"
+      IO.eprintln s!"lech: declined: {what} ({modeTag})"
       return 2
     | .parsed (.error (.parseError line msg)) =>
-      IO.eprintln s!"setlec: {file}:{line}: {msg}"
+      IO.eprintln s!"lech: {file}:{line}: {msg}"
       return 3
     | .parsed (.ok ⟨decls, taintSkipped, projRewrites⟩) =>
       -- the projection-function rewrite's receipt (2026-09-06,
-      -- `Setlec/Frontend/ProjRec.lean`): how many non-direct
+      -- `Lech/Frontend/ProjRec.lean`): how many non-direct
       -- structure-like projection functions the parse replaced by
       -- recursor applications
       if projRewrites.size > 0 then
-        IO.eprintln s!"setlec: {projRewrites.size} projection functions of \
+        IO.eprintln s!"lech: {projRewrites.size} projection functions of \
           non-direct structure-likes rewritten to recursor form"
-        if (← IO.getEnv "SETLEC_PROJREC_TRACE").isSome then
+        if (← IO.getEnv "LECH_PROJREC_TRACE").isSome then
           for n in projRewrites do
-            IO.eprintln s!"setlec:   rewritten {n}"
+            IO.eprintln s!"lech:   rewritten {n}"
       -- Taint-skip verdict (user directive 2026-08-24): declarations
       -- using tolerated axioms were *skipped* during parsing (they
       -- are absent from `decls`, so nothing tainted can be checked
@@ -404,15 +404,15 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       -- accepting case is the arm below: it never prints "accepted".)
       let taintNote : IO Unit := do
         unless taintSkipped.isEmpty do
-          IO.eprintln s!"setlec: declined: \
+          IO.eprintln s!"lech: declined: \
             {Frontend.taintSummary taintSkipped} ({modeTag})"
       -- ONE driver, two modes (2026-09-06; task #185): the trusted
       -- mode is the shared bodies at `.trusted`, the verified mode the
       -- same bodies at `.verified` — the mode is passed straight down.
       -- **Two loops** (user ruling, 2026-09-07).  Without
-      -- `SETLEC_PROGRESS` the driver calls the verified fold
-      -- `Setlec.Cached.checkDeclsSPCachedD` directly — the exact
-      -- function `Setlec.no_proof_of_False` (`Setlec/MainTheorem.lean`)
+      -- `LECH_PROGRESS` the driver calls the verified fold
+      -- `Lech.Cached.checkDeclsSPCachedD` directly — the exact
+      -- function `Lech.no_proof_of_False` (`Lech/MainTheorem.lean`)
       -- is about.  With it, the driver calls `checkDeclsProgressIO`
       -- above: the same steps in the same order, in `IO`, printing one
       -- line before each declaration — plainly unverified, and said so
@@ -427,13 +427,13 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       -- taint-skipping stream loses more (measured on
       -- `init-full-pre-native`: 54 351 records against 54 346 fold
       -- positions, offset 0 through position 5 000 and 5 by the end;
-      -- the `SETLEC_TRACE_DECLS` lane's `+4` is the Mathlib stream's
+      -- the `LECH_TRACE_DECLS` lane's `+4` is the Mathlib stream's
       -- own total).  The declaration NAME on the line is the
       -- portable handle.
       let tParse ← IO.monoMsNow
       if stride > 0 then
-        IO.eprintln s!"setlec: progress parse done: {decls.size} \
-          declarations t={Setlec.Cached.msSecs (tParse - t0)}s \
+        IO.eprintln s!"lech: progress parse done: {decls.size} \
+          declarations t={Lech.Cached.msSecs (tParse - t0)}s \
           (preprocess and parse; the progress lane's fold is \
           UNVERIFIED — see --help)"
         (← IO.getStderr).flush
@@ -442,16 +442,16 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       let progressDone : Nat → IO Unit := fun reached => do
         if stride > 0 then
           let now ← IO.monoMsNow
-          IO.eprintln s!"setlec: progress fold done: {reached}/\
-            {decls.size} t={Setlec.Cached.msSecs (now - t0)}s \
-            (fold {Setlec.Cached.msSecs (now - tParse)}s)"
+          IO.eprintln s!"lech: progress fold done: {reached}/\
+            {decls.size} t={Lech.Cached.msSecs (now - t0)}s \
+            (fold {Lech.Cached.msSecs (now - tParse)}s)"
           (← IO.getStderr).flush
       let verdict ←
         if stride > 0 then
           checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0
-            decls.toList 0 (Setlec.mkFEnv Setlec.Env.empty) {}
+            decls.toList 0 (Lech.mkFEnv Lech.Env.empty) {}
         else
-          pure (Setlec.Cached.checkDeclsSPCachedD mode decls.toList)
+          pure (Lech.Cached.checkDeclsSPCachedD mode decls.toList)
       match verdict with
       | .ok env =>
         progressDone decls.size
@@ -464,11 +464,11 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         -- the decline, which reads as an accept in a log and in
         -- anything that greps for one.
         if taintSkipped.isEmpty then
-          IO.println s!"setlec: accepted {env.consts.length} \
+          IO.println s!"lech: accepted {env.consts.length} \
             declarations ({modeTag})"
           return 0
         else
-          IO.eprintln s!"setlec: declined ({env.consts.length} \
+          IO.eprintln s!"lech: declined ({env.consts.length} \
             declarations checked, {taintSkipped.size} skipped for \
             tolerated axioms) ({modeTag}): \
             {Frontend.taintDetail taintSkipped}"
@@ -489,7 +489,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         -- records into one `basisDecl` and drops a few others, so
         -- `init-full` runs at offset 0 for most of the stream and
         -- ends 5 short (54 351 declaration records, 54 346 fold
-        -- positions), while the `SETLEC_TRACE_DECLS` lane measured
+        -- positions), while the `LECH_TRACE_DECLS` lane measured
         -- +4 on the Mathlib stream.  The declaration NAME is the
         -- portable handle (`_tmp/frontier3/decl_index.py <stream>
         -- <name>` turns it into a record index and a percentage).
@@ -497,14 +497,14 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
             s!" [at {declCName decls[i]}, fold position {i}]"
           else s!" [at fold position {i}]"
         let now ← IO.monoMsNow
-        IO.eprintln s!"setlec: {e}{loc} ({modeTag}) \
-          t={Setlec.Cached.msSecs (now - t0)}s"
+        IO.eprintln s!"lech: {e}{loc} ({modeTag}) \
+          t={Lech.Cached.msSecs (now - t0)}s"
         taintNote
         return e.exitCode
 
 
 def usage : String := String.intercalate "\n" [
-  "usage: setlec [--verified|--trusted] [--pre] FILE.ndjson",
+  "usage: lech [--verified|--trusted] [--pre] FILE.ndjson",
   "",
   "  --verified        the default: the verified mode (graded model,",
   "                    annotation-gated checks).  The validated-",
@@ -516,7 +516,7 @@ def usage : String := String.intercalate "\n" [
   "                    #135/#136/#137/#146) are off; every other",
   "                    certificate family runs.  Covered by",
   "                    no_proof_of_Empty_SPCD_P over the driver this",
-  "                    binary runs (Setlec/Verify/Cached/MainC.lean)",
+  "                    binary runs (Lech/Verify/Cached/MainC.lean)",
   "  --trusted         the unverified mode: the SAME checker bodies as",
   "                    --verified, instantiated at the mode with the",
   "                    certification-only work switched off (the",
@@ -533,11 +533,11 @@ def usage : String := String.intercalate "\n" [
   "                    proof to go through), and the mode is never",
   "                    optimized on its own: it is the real mode with",
   "                    certain steps omitted.  Replaces the retired",
-  "                    --yolo/SETLEC_NO_PROOF_CERTS and",
-  "                    --infer-only/SETLEC_INFER_ONLY",
-  "  SETLEC_PROGRESS=<stride>",
+  "                    --yolo/LECH_NO_PROOF_CERTS and",
+  "                    --infer-only/LECH_INFER_ONLY",
+  "  LECH_PROGRESS=<stride>",
   "                    opt-in progress heartbeat on STDERR: one",
-  "                    'setlec: progress <i>/<N> <decl> t=<s>s' line",
+  "                    'lech: progress <i>/<N> <decl> t=<s>s' line",
   "                    every <stride> declarations, plus one line when",
   "                    the parse finishes and one when the fold does.",
   "                    t= is the elapsed time since the run started, so",
@@ -555,38 +555,38 @@ def usage : String := String.intercalate "\n" [
   "                    printed before each declaration, because a pure",
   "                    fold cannot print.  A run WITHOUT this variable",
   "                    calls checkDeclsSPCachedD, the function the main",
-  "                    theorem (Setlec.no_proof_of_False) is about; a",
+  "                    theorem (Lech.no_proof_of_False) is about; a",
   "                    run with it is not covered by that theorem.",
   "",
   "  --pre             assert FILE is already preprocessed output of",
-  "                    setlec-preprocess (or the stock",
+  "                    lech-preprocess (or the stock",
   "                    lean-inductive-models): skip the preprocessor",
   "                    detection scan and spawn entirely",
   "",
   "THE PREPROCESSOR.  Unless --pre says otherwise, an input containing",
-  "inductive/quot records is run through setlec-preprocess, which",
+  "inductive/quot records is run through lech-preprocess, which",
   "reduces inductives to the modelled basis.  It is spawned with",
-  "--quiet --no-type-check-generated (setlec checks the generated",
+  "--quiet --no-type-check-generated (lech checks the generated",
   "declarations itself; its structural model checks stay on, and the",
   "input is never submitted to Lean's kernel), it writes its export to",
-  "its stdout, and setlec parses that pipe as it is produced: no",
+  "its stdout, and lech parses that pipe as it is produced: no",
   "temporary file is created, by either process, anywhere.",
   "",
   "A PREPROCESSOR REJECT IS OUR REJECT.  The tool follows the same",
   "arena exit-code contract; its verdict is passed through — exit 1",
   "(its kernel rejected a block: a non-positive occurrence, a wrong",
-  "parameter count) is setlec's reject, exit 2 its decline, any other",
+  "parameter count) is lech's reject, exit 2 its decline, any other",
   "failure an error (3), each with the tool's own message on stderr.",
   "Only a preprocessor that cannot be RUN falls back to checking the",
   "raw stream (which then declines at the first inductive); set",
-  "SETLEC_INDUCTIVE_MODELS to a nonexistent path to force that.",
+  "LECH_INDUCTIVE_MODELS to a nonexistent path to force that.",
   "",
   "There is ONE core at two modes and one parse: the verified mode",
   "(--verified, the default) and the unverified trusted mode",
   "(--trusted).  The stream is read directly to the cached",
   "representation and checked by the one driver, which the capstone",
   "letter is about at the verified mode (no_proof_of_Empty_SPCD_P in",
-  "Setlec/Verify/Cached/MainC.lean).  Retired: --set-model/",
+  "Lech/Verify/Cached/MainC.lean).  Retired: --set-model/",
   "--set-model=p (now --verified) and --no-model (now --trusted),",
   "2026-09-06; the --core selector, the interned arena and the",
   "--install-only/--check-range split driver (task #172); and the R",
@@ -594,7 +594,7 @@ def usage : String := String.intercalate "\n" [
   "consistency proof it was the subject of)."]
 
 structure Args where
-  mode : Setlec.CheckMode := .verified
+  mode : Lech.CheckMode := .verified
   pre : Bool := false
   files : Array String := #[]
   bad : Option String := none
@@ -689,13 +689,13 @@ def main (args : List String) : IO UInt32 := do
   -- here once and threaded as configuration.  Two cores since the R
   -- core's retirement (2026-09-05): the graded verified one and the
   -- unverified trusted one.
-  -- `--pre`: the input is already-preprocessed `setlec-preprocess`
+  -- `--pre`: the input is already-preprocessed `lech-preprocess`
   -- output (explicit user assertion — the checker never sniffs input
   -- content for it); skips the `needsPreprocess` scan and the
   -- preprocessor spawn.
   let a := parseArgs args {}
   if let some msg := a.bad then
-    IO.eprintln s!"setlec: {msg}"
+    IO.eprintln s!"lech: {msg}"
     IO.eprintln usage
     return 3
   let pre := a.pre
@@ -710,13 +710,13 @@ def main (args : List String) : IO UInt32 := do
     -- exit 3 (error), per the arena convention that 1 means "invalid
     -- input proof".  Progress output streams through (stdout is
     -- inherited); stderr is buffered for inspection and re-printed.
-    if (← IO.getEnv "SETLEC_SUPERVISED").isSome then
+    if (← IO.getEnv "LECH_SUPERVISED").isSome then
       checkMain file a.mode pre
     else
       let child ← IO.Process.spawn {
         cmd := (← IO.appPath).toString
         args := childArgs a file
-        env := #[("SETLEC_SUPERVISED", some "1")]
+        env := #[("LECH_SUPERVISED", some "1")]
         stdout := .inherit
         stderr := .piped }
       -- The child's stderr is STREAMED, line by line, rather than read
@@ -736,7 +736,7 @@ def main (args : List String) : IO UInt32 := do
         if (line.splitOn "INTERNAL PANIC").length > 1 then panicked := true
       let code ← child.wait
       if code = 1 ∧ panicked then
-        IO.eprintln "setlec: internal panic in the checker process"
+        IO.eprintln "lech: internal panic in the checker process"
         return 3
       return code
   | _ =>

@@ -77,7 +77,7 @@ def ratio_text(r, base):
 L = []
 A = L.append
 
-A("# PERF.md — the setlec performance battery")
+A("# PERF.md — the lech performance battery")
 A("")
 A("| | |")
 A("|---|---|")
@@ -92,7 +92,7 @@ A("| columns | " + " · ".join(LABELS[c] for c in live) + " |")
 A(f"| metric | `perf stat -e instructions:u`, one run per cell, "
   f"`ulimit -v {meta.get('vlimit', '?')}`, `timeout {meta.get('timeout', '?')}`, `nice -n 5` |")
 A("| streams | preprocessed once off the clock by `lean-inductive-models`; "
-  "both checkers read the same bytes, setlec under `--pre` |")
+  "both checkers read the same bytes, lech under `--pre` |")
 if meta.get("loadnote"):
     A(f"| concurrent load | {meta['loadnote']} |")
 A(f"| official kernel | `{meta.get('official', '?')}` |")
@@ -132,7 +132,7 @@ A("")
 if meta.get("stalenote"):
     A(f"* {meta['stalenote']}")
 A("* **Cross-pipeline, not same-work.**  Both sides read the same bytes,")
-A("  but every setlec cell checks a *modeled* encoding of the inductive")
+A("  but every lech cell checks a *modeled* encoding of the inductive")
 A("  blocks plus an `annotate` pass with no official counterpart, while")
 A("  official checks that file with native inductive/recursor support.")
 A("  Hence the accepted-declaration counts differ too.")
@@ -142,7 +142,7 @@ A("  flatters the trusted column on inductive-heavy streams.")
 A("* One run per cell on a shared machine: `instructions:u` is")
 A("  contention-independent, so a cell may overlap other work; wall time")
 A("  is not reported for that reason.")
-A("* Regenerate with `lake build setlec && scripts/perf-tables.sh`;")
+A("* Regenerate with `lake build lech && scripts/perf-tables.sh`;")
 A("  `--render` re-renders from `perf-data/` without measuring, and")
 A("  `PERF_STREAMS=… PERF_APPEND=1` re-runs a single stream.  Raw cells")
 A("  (with wall time and load, recorded but not printed) are tracked in")

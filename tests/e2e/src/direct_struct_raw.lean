@@ -5,7 +5,7 @@
 
    This fixture is committed as a *raw* lean4export result (regenerate
    with `LEAN_INDUCTIVE_MODELS_FILTER=0`), and `tests/arena.sh` runs it
-   with `SETLEC_INDUCTIVE_MODELS=/nonexistent` (the `raw` marker in
+   with `LECH_INDUCTIVE_MODELS=/nonexistent` (the `raw` marker in
    `tests/e2e-expected.txt`), so there is not a single `_model`
    declaration in the stream and not a single one produced at run time.
    Everything here is checked through `checkDirectStruct`.
