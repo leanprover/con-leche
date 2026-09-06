@@ -201,20 +201,153 @@ and composition laws hold *unconditionally*
 containment test `equiv`, which is sound **and complete** for
 zero-ness agreement at every valuation (`Verify.PropWhen`); the
 checker's validation and defeq sites compare with `equiv`, never
-with `==`. -/
+with `==`.
+
+**Representation (2026-09-06).**  The census (DESIGN.md, "THE PACKED
+`pw` DATUM" §1) found the parameter lists tiny: on init-full 605 492
+data are `ifAllZero []`, 123 332 are one name, 16 are two names and
+**none** is longer.  The small cases therefore get dedicated
+constructors — `always`, `one`, `two` — and only lists of length ≥ 3
+keep a `List` cell chain (`many`, stored as its first three entries
+plus the tail, so the representation is in *definitional* bijection
+with `List Name` and needs no well-formedness side condition).
+
+The representation is **fully encapsulated**: outside this namespace
+nothing mentions `always`/`one`/`two`/`many`.  Terms are built with the
+smart constructor `ifAllZero` (a normalizing function, not a
+constructor); `never` is a constructor as before; case analysis goes
+through `casesZ`, registered as the `cases`/`induction` eliminator, so
+`cases pw with | never | ifAllZero ps` reads exactly as it did; the
+list of a non-`never` datum is `toList`/`toList?`.  Every observer
+(`holds`, `isNever`, `hasParams`, `paramsDefined`, `inter`, `bindZ`,
+`equiv`) keeps its old specification as a `_never`/`_ifAllZero`
+equation pair proved right below its (now constructor-wise)
+definition. -/
 inductive PropWhen where
+  /-- The codomain sort is nonzero at every valuation. -/
   | never
-  | ifAllZero (ps : List Name)
-  deriving DecidableEq, Repr, Inhabited, Hashable
+  /-- The codomain sort is zero at every valuation (`ifAllZero []`). -/
+  | always
+  /-- `ifAllZero [p]`. -/
+  | one (p : Name)
+  /-- `ifAllZero [p, q]`. -/
+  | two (p q : Name)
+  /-- `ifAllZero (p :: q :: r :: rest)` — three names or more. -/
+  | many (p q r : Name) (rest : List Name)
+  deriving DecidableEq, Inhabited, Hashable
 
 namespace PropWhen
+
+/-! ### The encapsulation boundary
+
+`ifAllZero`, `toList`, `toList?` and `casesZ` are the whole interface
+to the shape; everything below is stated over them. -/
+
+/-- **Smart constructor**: "every parameter in `ps` is zero".  The old
+`PropWhen.ifAllZero` constructor, now a normalizing function — it picks
+the dedicated small-case constructor for `ps` of length ≤ 2 and the
+`many` chain otherwise.  Shape-preserving: `toList (ifAllZero ps) = ps`
+for *every* `ps`, duplicates and order included. -/
+@[inline] def ifAllZero : List Name → PropWhen
+  | [] => .always
+  | [p] => .one p
+  | [p, q] => .two p q
+  | p :: q :: r :: rest => .many p q r rest
+
+/-- The parameter list of a datum (`never` reads as `[]` — use
+`toList?` where the distinction matters). -/
+def toList : PropWhen → List Name
+  | .never => []
+  | .always => []
+  | .one p => [p]
+  | .two p q => [p, q]
+  | .many p q r rest => p :: q :: r :: rest
+
+/-- The parameter list of a non-`never` datum; `none` at `never`.  The
+view that inverts `ifAllZero`. -/
+def toList? : PropWhen → Option (List Name)
+  | .never => none
+  | pw => some pw.toList
+
+@[simp] theorem toList_never : toList .never = [] := rfl
+
+@[simp] theorem toList_ifAllZero (ps : List Name) :
+    (ifAllZero ps).toList = ps := by
+  match ps with
+  | [] | [_] | [_, _] | _ :: _ :: _ :: _ => rfl
+
+@[simp] theorem toList?_never : toList? .never = none := rfl
+
+@[simp] theorem toList?_ifAllZero (ps : List Name) :
+    (ifAllZero ps).toList? = some ps := by
+  match ps with
+  | [] | [_] | [_, _] | _ :: _ :: _ :: _ => rfl
+
+/-- **The view**: every datum is `never` or `ifAllZero ps`.  Registered
+as the `cases`/`induction` eliminator, so case analysis outside this
+namespace is written — and reads — exactly as it did against the
+two-constructor datum. -/
+@[elab_as_elim, cases_eliminator, induction_eliminator]
+def casesZ {motive : PropWhen → Sort u} (never : motive .never)
+    (ifAllZero : (ps : List Name) → motive (PropWhen.ifAllZero ps)) :
+    (pw : PropWhen) → motive pw
+  | .never => never
+  | .always => ifAllZero []
+  | .one p => ifAllZero [p]
+  | .two p q => ifAllZero [p, q]
+  | .many p q r rest => ifAllZero (p :: q :: r :: rest)
+
+/-- Reassembling a datum from its list — the `casesZ` companion. -/
+theorem ifAllZero_toList : ∀ {pw : PropWhen}, pw ≠ .never →
+    ifAllZero pw.toList = pw
+  | .never, h => absurd rfl h
+  | .always, _ | .one _, _ | .two _ _, _ | .many _ _ _ _, _ => rfl
+
+/-- The smart constructor never produces `never`. -/
+@[simp] theorem ifAllZero_ne_never : ∀ ps : List Name, ifAllZero ps ≠ .never
+  | [] | [_] | [_, _] | _ :: _ :: _ :: _ => fun h => nomatch h
+
+/-- The old datum's `Repr`, kept **byte-identical**: the annotate-basis
+generator (`AnnotateBasis.lean`) prints the committed `Basis/*.lean`,
+`StdAxioms.lean` and `TrustAxioms.lean` literals with `repr`, and those
+literals name the smart constructor.  This reproduces exactly what
+`deriving Repr` emitted for `never | ifAllZero (ps : List Name)`. -/
+instance : Repr PropWhen where
+  reprPrec pw prec :=
+    Repr.addAppParen
+      (Std.Format.group (Std.Format.nest (if prec ≥ 1024 then 1 else 2)
+        (match pw.toList? with
+          | none => Std.Format.text "Setlec.PropWhen.never"
+          | some ps =>
+            Std.Format.text "Setlec.PropWhen.ifAllZero" ++ Std.Format.line ++
+              reprArg ps)))
+      prec
+
+/-! ### The observers
+
+Each is defined constructor-wise (so the small cases touch no list
+cells) and immediately re-stated in the old `never`/`ifAllZero` form —
+those equations, not the definitions, are what every proof consumes. -/
 
 /-- Does the datum hold at a valuation — is the codomain sort zero
 there?  (The model side's dispatch bit; the kernel never evaluates
 this, it only compares data by `equiv`.) -/
 def holds (φ : Name → Nat) : PropWhen → Bool
   | .never => false
-  | .ifAllZero ps => ps.all fun n => φ n == 0
+  | .always => true
+  | .one p => φ p == 0
+  | .two p q => (φ p == 0) && (φ q == 0)
+  | .many p q r rest =>
+    (φ p == 0) && (φ q == 0) && (φ r == 0) && rest.all fun n => φ n == 0
+
+@[simp] theorem holds_never (φ : Name → Nat) : holds φ .never = false := rfl
+
+@[simp] theorem holds_ifAllZero (φ : Name → Nat) (ps : List Name) :
+    holds φ (ifAllZero ps) = ps.all fun n => φ n == 0 := by
+  match ps with
+  | [] => rfl
+  | [_] | [_, _] => simp [holds, ifAllZero]
+  | _ :: _ :: _ :: _ => simp [holds, ifAllZero, Bool.and_assoc]
 
 /-- Is the datum `never` — "the codomain sort is nonzero at *every*
 valuation", the graph regime everywhere?  This is the **only**
@@ -238,7 +371,14 @@ executable call site therefore carries the `μ.verified` conjunct; see
 `inferBodyIO` (`Kernel/CoreIO.lean`). -/
 def isNever : PropWhen → Bool
   | .never => true
-  | .ifAllZero _ => false
+  | _ => false
+
+@[simp] theorem isNever_never : isNever .never = true := rfl
+
+@[simp] theorem isNever_ifAllZero (ps : List Name) :
+    isNever (ifAllZero ps) = false := by
+  match ps with
+  | [] | [_] | [_, _] | _ :: _ :: _ :: _ => rfl
 
 /-- Does the datum mention any level parameter — is `Level.substPW`
 ever non-trivial on it?  Folded into `Expr.hasLevelParam` and the
@@ -246,7 +386,15 @@ eager `eparamBs` recurrence (task #87), so the has-param shortcut of
 the interned level-instantiation walk stays exact. -/
 def hasParams : PropWhen → Bool
   | .never => false
-  | .ifAllZero ps => !ps.isEmpty
+  | .always => false
+  | _ => true
+
+@[simp] theorem hasParams_never : hasParams .never = false := rfl
+
+@[simp] theorem hasParams_ifAllZero (ps : List Name) :
+    hasParams (ifAllZero ps) = !ps.isEmpty := by
+  match ps with
+  | [] | [_] | [_, _] | _ :: _ :: _ :: _ => rfl
 
 /-- Are all parameters of the datum among `params`?  Folded into
 `Expr.allLevelParamsDefined` (task #161): level instantiation's
@@ -255,14 +403,70 @@ parameters escape the declaration's — exactly as for the levels
 themselves. -/
 def paramsDefined (params : List Name) : PropWhen → Bool
   | .never => true
-  | .ifAllZero ps => ps.all params.contains
+  | .always => true
+  | .one p => params.contains p
+  | .two p q => params.contains p && params.contains q
+  | .many p q r rest =>
+    params.contains p && params.contains q && params.contains r &&
+      rest.all params.contains
+
+@[simp] theorem paramsDefined_never (params : List Name) :
+    paramsDefined params .never = true := rfl
+
+@[simp] theorem paramsDefined_ifAllZero (params ps : List Name) :
+    paramsDefined params (ifAllZero ps) = ps.all params.contains := by
+  match ps with
+  | [] => rfl
+  | [_] | [_, _] => simp [paramsDefined, ifAllZero]
+  | _ :: _ :: _ :: _ => simp [paramsDefined, ifAllZero, Bool.and_assoc]
 
 /-- Intersection of two zero-ness predicates (the `max` rule: a `max`
-is zero iff both sides are): `never` absorbs, sets append. -/
+is zero iff both sides are): `never` absorbs, sets append.  The
+`always`/singleton cases are answered without touching a list cell —
+they are 99.99 % of the calls (the census). -/
 def inter : PropWhen → PropWhen → PropWhen
   | .never, _ => .never
   | _, .never => .never
-  | .ifAllZero ps, .ifAllZero qs => .ifAllZero (ps ++ qs)
+  | .always, q => q
+  | p, .always => p
+  | .one a, .one b => .two a b
+  | p, q => ifAllZero (p.toList ++ q.toList)
+
+@[simp] theorem inter_never_left (q : PropWhen) : inter .never q = .never := rfl
+
+/-- `never` absorbs on the right too. -/
+@[simp] theorem inter_never_right : ∀ p : PropWhen, p.inter .never = .never
+  | .never | .always | .one _ | .two _ _ | .many _ _ _ _ => rfl
+
+/-- `ifAllZero []` is the left unit of `inter`. -/
+@[simp] theorem nil_inter : ∀ q : PropWhen, (ifAllZero []).inter q = q
+  | .never | .always | .one _ | .two _ _ | .many _ _ _ _ => rfl
+
+/-- The shape of `inter` away from `never`: the parameter lists append
+(the fast constructor arms are exactly this, spelled out). -/
+theorem inter_eq_toList : ∀ {p q : PropWhen}, p ≠ .never → q ≠ .never →
+    p.inter q = ifAllZero (p.toList ++ q.toList)
+  | .never, _, hp, _ => absurd rfl hp
+  | .always, .never, _, hq | .one _, .never, _, hq
+  | .two _ _, .never, _, hq | .many _ _ _ _, .never, _, hq => absurd rfl hq
+  | .always, .always, _, _ | .always, .one _, _, _
+  | .always, .two _ _, _, _ | .always, .many _ _ _ _, _, _
+  | .one _, .always, _, _ | .two _ _, .always, _, _
+  | .one _, .one _, _, _ | .one _, .two _ _, _, _
+  | .one _, .many _ _ _ _, _, _ | .two _ _, .one _, _, _
+  | .two _ _, .two _ _, _, _ | .two _ _, .many _ _ _ _, _, _
+  | .many _ _ _ _, .one _, _, _ | .many _ _ _ _, .two _ _, _, _
+  | .many _ _ _ _, .many _ _ _ _, _, _ => rfl
+  | .many _ _ _ _, .always, _, _ => by simp [inter, toList, ifAllZero]
+
+@[simp] theorem inter_ifAllZero (ps qs : List Name) :
+    inter (ifAllZero ps) (ifAllZero qs) = ifAllZero (ps ++ qs) := by
+  rw [inter_eq_toList (ifAllZero_ne_never ps) (ifAllZero_ne_never qs),
+    toList_ifAllZero, toList_ifAllZero]
+
+/-- `ifAllZero []` is the right unit of `inter`. -/
+@[simp] theorem inter_nil : ∀ p : PropWhen, p.inter (ifAllZero []) = p
+  | .never | .always | .one _ | .two _ _ | .many _ _ _ _ => rfl
 
 /-- Substitute each parameter of the datum by a whole datum and
 intersect ("all of `ps` zero" becomes "all replacements zero") — the
@@ -271,11 +475,32 @@ mapped to `ifAllZero [n]` reproduce the input list exactly, which is
 what the unconditional substitution laws rest on. -/
 def bindZ (f : Name → PropWhen) : PropWhen → PropWhen
   | .never => .never
-  | .ifAllZero ps => go ps
+  | .always => .always
+  | .one p => f p
+  | .two p q => (f p).inter (f q)
+  | .many p q r rest => (f p).inter ((f q).inter ((f r).inter (go rest)))
 where
   go : List Name → PropWhen
-  | [] => .ifAllZero []
+  | [] => .always
   | n :: rest => (f n).inter (go rest)
+
+@[simp] theorem bindZ_never (f : Name → PropWhen) :
+    bindZ f .never = .never := rfl
+
+@[simp] theorem bindZ_go_nil (f : Name → PropWhen) :
+    bindZ.go f [] = ifAllZero [] := rfl
+
+@[simp] theorem bindZ_ifAllZero (f : Name → PropWhen) (ps : List Name) :
+    bindZ f (ifAllZero ps) = bindZ.go f ps := by
+  match ps with
+  | [] => rfl
+  | [p] => exact (inter_nil (f p)).symm
+  | [p, q] =>
+    show (f p).inter (f q) = (f p).inter ((f q).inter (ifAllZero []))
+    rw [inter_nil]
+  | p :: q :: r :: rest =>
+    show (f p).inter ((f q).inter ((f r).inter (bindZ.go f rest))) = _
+    rfl
 
 /-- Decidable zero-ness agreement at *every* valuation: mutual
 containment of the parameter sets (`never` only agrees with `never` —
@@ -284,9 +509,52 @@ Sound and complete (`Verify.PropWhen`); this is the comparison every
 validation and defeq site uses. -/
 def equiv : PropWhen → PropWhen → Bool
   | .never, .never => true
-  | .ifAllZero ps, .ifAllZero qs =>
-    ps.all qs.contains && qs.all ps.contains
-  | _, _ => false
+  | .never, _ => false
+  | _, .never => false
+  | .always, .always => true
+  | .one a, .one b => a == b
+  | p, q => p.toList.all q.toList.contains && q.toList.all p.toList.contains
+
+@[simp] theorem equiv_never_never : equiv .never .never = true := rfl
+
+@[simp] theorem equiv_never_ifAllZero (ps : List Name) :
+    equiv .never (ifAllZero ps) = false := by
+  match ps with
+  | [] | [_] | [_, _] | _ :: _ :: _ :: _ => rfl
+
+@[simp] theorem equiv_ifAllZero_never (ps : List Name) :
+    equiv (ifAllZero ps) .never = false := by
+  match ps with
+  | [] | [_] | [_, _] | _ :: _ :: _ :: _ => rfl
+
+/-- The shape of `equiv` away from `never`: mutual containment of the
+parameter lists (the fast constructor arms are exactly this). -/
+theorem equiv_eq_toList : ∀ {p q : PropWhen}, p ≠ .never → q ≠ .never →
+    p.equiv q = (p.toList.all q.toList.contains &&
+      q.toList.all p.toList.contains)
+  | .never, _, hp, _ => absurd rfl hp
+  | .always, .never, _, hq | .one _, .never, _, hq
+  | .two _ _, .never, _, hq | .many _ _ _ _, .never, _, hq => absurd rfl hq
+  | .always, .always, _, _ | .always, .one _, _, _
+  | .always, .two _ _, _, _ | .always, .many _ _ _ _, _, _
+  | .one _, .always, _, _ | .two _ _, .always, _, _
+  | .many _ _ _ _, .always, _, _
+  | .one _, .two _ _, _, _ | .one _, .many _ _ _ _, _, _
+  | .two _ _, .one _, _, _ | .two _ _, .two _ _, _, _
+  | .two _ _, .many _ _ _ _, _, _ | .many _ _ _ _, .one _, _, _
+  | .many _ _ _ _, .two _ _, _, _
+  | .many _ _ _ _, .many _ _ _ _, _, _ => rfl
+  | .one a, .one b, _, _ => by
+    show (a == b) = _
+    by_cases h : a = b
+    · subst h; simp [toList]
+    · simp [toList, h, Ne.symm h]
+
+@[simp] theorem equiv_ifAllZero (ps qs : List Name) :
+    equiv (ifAllZero ps) (ifAllZero qs) =
+      (ps.all qs.contains && qs.all ps.contains) := by
+  rw [equiv_eq_toList (ifAllZero_ne_never ps) (ifAllZero_ne_never qs),
+    toList_ifAllZero, toList_ifAllZero]
 
 end PropWhen
 

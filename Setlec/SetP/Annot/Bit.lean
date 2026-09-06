@@ -98,7 +98,7 @@ theorem pwBit_ne_zero_of_isNever {pw : PropWhen}
     pwBit φ pw ≠ 0 := by
   cases pw with
   | never => rw [pwBit_ne_zero_iff]; rfl
-  | ifAllZero ps => exact nomatch h
+  | ifAllZero ps => simp at h
 
 /-- **Exactness of the gate's condition**: `never` is *the* datum that
 is positive at every valuation — an `ifAllZero` datum lands in the
@@ -113,7 +113,7 @@ theorem isNever_iff_forall_pwBit_ne_zero {pw : PropWhen} :
     | never => rfl
     | ifAllZero ps =>
       exact absurd (pwBit_eq_zero_iff.mpr
-        (by simp [Setlec.PropWhen.holds])) (h (fun _ => 0))
+        (by simp)) (h (fun _ => 0))
 
 /-- Checker-compared data (`PropWhen.equiv`, the P2 validation and
 defeq sites) contribute **equal** numerals — not merely zero-agreeing

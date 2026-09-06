@@ -32,15 +32,12 @@ namespace Setlec.PropWhen
 
 theorem holds_inter (φ : Name → Nat) (p q : PropWhen) :
     (p.inter q).holds φ = (p.holds φ && q.holds φ) := by
-  cases p <;> cases q <;> simp [inter, holds, List.all_append]
-
-theorem inter_nil (p : PropWhen) : p.inter (.ifAllZero []) = p := by
-  cases p <;> simp [inter]
+  cases p <;> cases q <;> simp [List.all_append]
 
 theorem holds_bindZ_go (φ : Name → Nat) (f : Name → PropWhen) :
     ∀ ps : List Name,
       (bindZ.go f ps).holds φ = ps.all fun n => (f n).holds φ
-  | [] => by simp [bindZ.go, holds]
+  | [] => by rw [bindZ_go_nil, holds_ifAllZero]; rfl
   | n :: rest => by
     simp [bindZ.go, holds_inter, holds_bindZ_go φ f rest]
 
@@ -52,9 +49,9 @@ private theorem beq_zero_and (x y : Nat) :
 
 theorem zeronessOf_sound (φ : Name → Nat) :
     ∀ l : Level, (Level.zeronessOf l).holds φ = (Level.eval φ l == 0)
-  | .zero => by simp [Level.zeronessOf, holds, Level.eval]
-  | .succ l => by simp [Level.zeronessOf, holds, Level.eval]
-  | .param n => by simp [Level.zeronessOf, holds, Level.eval]
+  | .zero => by simp [Level.zeronessOf, Level.eval]
+  | .succ l => by simp [Level.zeronessOf, Level.eval]
+  | .param n => by simp [Level.zeronessOf, Level.eval]
   | .max a b => by
     rw [Level.zeronessOf, holds_inter, zeronessOf_sound φ a,
       zeronessOf_sound φ b, beq_zero_and]
@@ -96,7 +93,7 @@ private theorem mem_of_holds_eq {ps qs : List Name}
   · exact hout
   exfalso
   have hn := h fun m => if m = n then 1 else 0
-  simp only [holds] at hn
+  simp only [holds_ifAllZero] at hn
   have hbs : (qs.all fun m => (if m = n then (1 : Nat) else 0) == 0)
       = true :=
     List.all_eq_true.mpr fun m hm => by
@@ -119,13 +116,13 @@ theorem equiv_iff_holds (p q : PropWhen) :
     cases p with
     | never => cases q with
       | never => rfl
-      | ifAllZero qs => simp [equiv] at h
+      | ifAllZero qs => simp at h
     | ifAllZero ps => cases q with
-      | never => simp [equiv] at h
+      | never => simp at h
       | ifAllZero qs =>
-        simp only [equiv, Bool.and_eq_true, List.all_eq_true] at h
+        simp only [equiv_ifAllZero, Bool.and_eq_true, List.all_eq_true] at h
         obtain ⟨hpq, hqp⟩ := h
-        show ps.all _ = qs.all _
+        rw [holds_ifAllZero, holds_ifAllZero]
         exact all_eq_of_mem_iff
           (fun n => ⟨fun hn => by
               simpa [List.contains_iff_mem] using hpq n hn,
@@ -137,15 +134,15 @@ theorem equiv_iff_holds (p q : PropWhen) :
       | never => rfl
       | ifAllZero qs =>
         have := h fun _ => 0
-        simp [holds] at this
+        simp at this
     | ifAllZero ps => cases q with
       | never =>
         have := h fun _ => 0
-        simp [holds] at this
+        simp at this
       | ifAllZero qs =>
         have h1 := mem_of_holds_eq h
         have h2 := mem_of_holds_eq fun φ => (h φ).symm
-        show (ps.all qs.contains && qs.all ps.contains) = true
+        rw [equiv_ifAllZero]
         rw [Bool.and_eq_true]
         exact ⟨List.all_eq_true.mpr fun n hn => by
             simpa [List.contains_iff_mem] using h1 n hn,
@@ -157,7 +154,7 @@ theorem paramsDefined_inter_of {params : List Name} {p q : PropWhen}
     (hq : q.paramsDefined params = true) :
     (p.inter q).paramsDefined params = true := by
   cases p <;> cases q <;>
-    simp_all [inter, paramsDefined, List.all_append]
+    simp_all [List.all_append]
 
 /-- `equiv` is reflexive (the fold's vacuous self-comparison steps). -/
 theorem equiv_refl (p : PropWhen) : equiv p p = true :=
@@ -189,8 +186,8 @@ theorem holds_ext {ps : List Name} {pw : PropWhen}
   cases pw with
   | never => rfl
   | ifAllZero qs =>
-    simp only [paramsDefined, List.all_eq_true] at hdef
-    show (qs.all fun n => φ₁ n == 0) = qs.all fun n => φ₂ n == 0
+    simp only [paramsDefined_ifAllZero, List.all_eq_true] at hdef
+    rw [holds_ifAllZero, holds_ifAllZero]
     induction qs with
     | nil => rfl
     | cons n rest ih =>
@@ -208,9 +205,21 @@ theorem holds_of_equiv_zeronessOf {v : Setlec.Level} {pw : PropWhen}
 
 /-! ## `bindZ` algebra -/
 
-theorem inter_never_right (p : PropWhen) :
-    p.inter .never = .never := by
-  cases p <;> rfl
+/-- `inter` is associative (the datum is a set union in list
+clothing). -/
+theorem inter_assoc (a b c : PropWhen) :
+    (a.inter b).inter c = a.inter (b.inter c) := by
+  cases a <;> cases b <;> cases c <;> simp [List.append_assoc]
+
+/-- The `bindZ` fold over an append splits — the list-level half of
+`bindZ_inter`. -/
+theorem bindZ_go_append (g : Name → PropWhen) : ∀ ps qs : List Name,
+    bindZ.go g (ps ++ qs) = (bindZ.go g ps).inter (bindZ.go g qs)
+  | [], qs => (nil_inter (bindZ.go g qs)).symm
+  | n :: rest, qs => by
+    show (g n).inter (bindZ.go g (rest ++ qs))
+      = ((g n).inter (bindZ.go g rest)).inter (bindZ.go g qs)
+    rw [bindZ_go_append g rest qs, inter_assoc]
 
 theorem bindZ_inter (g : Name → PropWhen) (p q : PropWhen) :
     (p.inter q).bindZ g = (p.bindZ g).inter (q.bindZ g) := by
@@ -218,23 +227,8 @@ theorem bindZ_inter (g : Name → PropWhen) (p q : PropWhen) :
   | never => rfl
   | ifAllZero ps =>
     cases q with
-    | never =>
-      show bindZ g ((PropWhen.ifAllZero ps).inter .never)
-        = (bindZ.go g ps).inter .never
-      rw [inter_never_right, inter_never_right]
-      rfl
-    | ifAllZero qs =>
-      show bindZ.go g (ps ++ qs) = (bindZ.go g ps).inter (bindZ.go g qs)
-      induction ps with
-      | nil =>
-        show bindZ.go g qs = (PropWhen.ifAllZero []).inter (bindZ.go g qs)
-        cases bindZ.go g qs <;> rfl
-      | cons n rest ih =>
-        show (g n).inter (bindZ.go g (rest ++ qs)) = _
-        rw [ih]
-        show _ = ((g n).inter (bindZ.go g rest)).inter (bindZ.go g qs)
-        cases g n <;> cases bindZ.go g rest <;> cases bindZ.go g qs <;>
-          simp [inter]
+    | never => simp
+    | ifAllZero qs => simp [bindZ_go_append]
 
 theorem bindZ_congr_names {f g : Name → PropWhen} :
     ∀ {ps : List Name}, (∀ n ∈ ps, f n = g n) →
@@ -247,16 +241,18 @@ theorem bindZ_congr_names {f g : Name → PropWhen} :
 /-- `bindZ` at the unit (`n ↦ ifAllZero [n]`) reproduces the datum —
 shape and all. -/
 theorem bindZ_unit : ∀ pw : PropWhen,
-    pw.bindZ (fun n => .ifAllZero [n]) = pw
-  | .never => rfl
-  | .ifAllZero ps => go ps
+    pw.bindZ (fun n => .ifAllZero [n]) = pw := by
+  intro pw
+  cases pw with
+  | never => rfl
+  | ifAllZero ps => rw [bindZ_ifAllZero]; exact bindZ_unit.go ps
 where
   go : ∀ ps : List Name,
       bindZ.go (fun n => PropWhen.ifAllZero [n]) ps = .ifAllZero ps
   | [] => rfl
   | n :: rest => by
     show (PropWhen.ifAllZero [n]).inter _ = _
-    rw [go rest]
+    rw [go rest, inter_ifAllZero]
     rfl
 
 end Setlec.PropWhen
@@ -272,10 +268,7 @@ theorem zeronessOf_subst (ks : List Name) (vs : List Level) :
       zeronessOf (subst ks vs l) = substPW ks vs (zeronessOf l)
   | .zero => rfl
   | .succ l => rfl
-  | .param n => by
-    show zeronessOf (subst.go ks vs n) =
-      (zeronessOf (subst.go ks vs n)).inter (.ifAllZero [])
-    rw [inter_nil]
+  | .param n => rfl
   | .max a b => by
     show (zeronessOf (subst ks vs a)).inter (zeronessOf (subst ks vs b))
       = substPW ks vs ((zeronessOf a).inter (zeronessOf b))
@@ -308,6 +301,7 @@ theorem substPW_self (ks : List Name) (pw : PropWhen) :
     cases pw with
     | never => rfl
     | ifAllZero ps =>
+      rw [bindZ_ifAllZero, bindZ_ifAllZero]
       exact bindZ_congr_names fun n _ => by rw [subst_go_self]; rfl
   rw [this, bindZ_unit]
 
@@ -345,9 +339,16 @@ theorem substPW_comp {ks : List Name} {us : List Level}
   cases pw with
   | never => rfl
   | ifAllZero pws =>
+    rw [show substPW ps vs (PropWhen.ifAllZero pws)
+          = bindZ.go (fun n => zeronessOf (subst.go ps vs n)) pws from
+        bindZ_ifAllZero _ _,
+      show substPW ps (vs.map (Level.subst ks us)) (PropWhen.ifAllZero pws)
+          = bindZ.go
+              (fun n => zeronessOf (subst.go ps (vs.map (Level.subst ks us)) n))
+              pws from bindZ_ifAllZero _ _]
     show (bindZ.go (fun n => zeronessOf (subst.go ps vs n)) pws).bindZ _
       = bindZ.go (fun n => zeronessOf (subst.go ps (vs.map _) n)) pws
-    simp only [PropWhen.paramsDefined, List.all_eq_true] at hdef
+    simp only [PropWhen.paramsDefined_ifAllZero, List.all_eq_true] at hdef
     induction pws with
     | nil => rfl
     | cons n rest ih =>
@@ -368,7 +369,7 @@ theorem zeronessOf_paramsDefined {ps' : List Name} :
   | .zero, _ => rfl
   | .succ _, _ => rfl
   | .param n, h => by
-    simpa [zeronessOf, PropWhen.paramsDefined, allParamsDefined] using h
+    simpa [zeronessOf, allParamsDefined] using h
   | .max a b, h => by
     rw [allParamsDefined, Bool.and_eq_true] at h
     exact PropWhen.paramsDefined_inter_of
@@ -408,8 +409,10 @@ theorem substPW_paramsDefined {ks : List Name} {us : List Level}
   cases pw with
   | never => rfl
   | ifAllZero pws =>
-    show (bindZ.go _ pws).paramsDefined ps' = true
-    simp only [PropWhen.paramsDefined, List.all_eq_true] at h
+    rw [show substPW ks us (PropWhen.ifAllZero pws)
+          = bindZ.go (fun n => zeronessOf (subst.go ks us n)) pws from
+        bindZ_ifAllZero _ _]
+    simp only [PropWhen.paramsDefined_ifAllZero, List.all_eq_true] at h
     induction pws with
     | nil => rfl
     | cons n rest ih =>
@@ -428,12 +431,15 @@ this where the canonical lane needed the open checker metatheorems
 `Setlec/SetR/Interp2/Step2/Levels.lean`). -/
 theorem holds_substPW (φ : Name → Nat) (ks : List Name)
     (vs : List Level) : ∀ pw : PropWhen,
-    (substPW ks vs pw).holds φ = pw.holds (substFn φ ks vs)
-  | .never => rfl
-  | .ifAllZero ps => by
-    show (PropWhen.bindZ.go _ ps).holds φ
-      = ps.all fun n => substFn φ ks vs n == 0
-    rw [holds_bindZ_go]
+    (substPW ks vs pw).holds φ = pw.holds (substFn φ ks vs) := by
+  intro pw
+  cases pw with
+  | never => rfl
+  | ifAllZero ps =>
+    rw [show substPW ks vs (PropWhen.ifAllZero ps)
+          = PropWhen.bindZ.go (fun n => zeronessOf (subst.go ks vs n)) ps from
+        bindZ_ifAllZero _ _,
+      holds_bindZ_go, PropWhen.holds_ifAllZero]
     induction ps with
     | nil => rfl
     | cons n rest ih =>

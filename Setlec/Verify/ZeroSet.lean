@@ -536,17 +536,20 @@ open Setlec.ZeroSet
 @[simp] theorem holds_toFree (φ : Name → Nat) : ∀ z : ZPropWhen,
     z.toFree.holds φ = z.holds φ
   | .never => rfl
-  | .ifAllZero _ => rfl
+  | .ifAllZero _ => by simp [toFree, holds]
 
 @[simp] theorem paramsDefined_toFree (params : List Name) :
     ∀ z : ZPropWhen, z.toFree.paramsDefined params = z.paramsDefined params
   | .never => rfl
-  | .ifAllZero _ => rfl
+  | .ifAllZero _ => by simp [toFree, paramsDefined]
 
 @[simp] theorem holds_ofFree (φ : Name → Nat) : ∀ p : PropWhen,
-    (ofFree p).holds φ = p.holds φ
-  | .never => rfl
-  | .ifAllZero ps => by
+    (ofFree p).holds φ = p.holds φ := by
+  intro p
+  cases p with
+  | never => rfl
+  | ifAllZero ps =>
+    rw [ofFree_ifAllZero, Setlec.PropWhen.holds_ifAllZero]
     show (ofList ps).names.all _ = ps.all _
     exact all_eq_of_mem_iff (fun _ => by simp) _
 
@@ -583,16 +586,8 @@ theorem ofFree_zeronessOf (l : Level) :
 
 private theorem holds_substPW_free (φ : Name → Nat) (ks : List Name)
     (vs : List Level) : ∀ p : PropWhen,
-    (Level.substPW ks vs p).holds φ = p.holds (Level.substFn φ ks vs)
-  | .never => rfl
-  | .ifAllZero ps => by
-    show (Setlec.PropWhen.bindZ.go _ ps).holds φ = ps.all _
-    rw [Setlec.PropWhen.holds_bindZ_go]
-    have hf : (fun n => (Level.zeronessOf (Level.subst.go ks vs n)).holds φ)
-        = (fun n => (Level.substFn φ ks vs n == 0)) := by
-      funext n
-      rw [Setlec.PropWhen.zeronessOf_sound, Level.eval_subst_go]
-    rw [hf]
+    (Level.substPW ks vs p).holds φ = p.holds (Level.substFn φ ks vs) :=
+  Setlec.Level.holds_substPW φ ks vs
 
 /-- The pushforwards agree across the bridge — so the free-side
 substitution battery transfers to the canonical side. -/
