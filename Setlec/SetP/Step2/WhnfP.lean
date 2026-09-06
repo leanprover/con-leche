@@ -66,10 +66,11 @@ proof reads it** — flagged here rather than dropped, because the
 capstone binds the four steps at one mode hypothesis.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level BinderMeta Literal whnf
   whnfCore whnfBody whnfLoop whnfStep whnfLoopFuel pureFns
   inferTypeCore iotaRecP reduceNatP unfoldDefinition ConstantInfo
@@ -909,4 +910,4 @@ theorem whnfStepP_of (_hμ : μ.verified = true)
     whnf_claimsP m (hin.core_exists m φ fuel) ihwc
       (hin.nat m φ fuel ihw) (deltaP_of m (hin.defn m))
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -52,10 +52,11 @@ projection install in v1 too (`Install/EtaLawS.lean`, the
 `caps_ok` open at every ind-tier cons and never guesses a route.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint)
 
@@ -313,4 +314,4 @@ theorem declStepPM_of_projTemplate_cons (mp : EnvS2PM V μ env)
         (fun _ _ _ _ h => nomatch h) m₂
         hac φ
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -11,10 +11,11 @@ still empty), and the rule's law is `recRuleLaw` when the rule is
 plain (an inert rule owes nothing).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta RecRule)
 
@@ -190,7 +191,7 @@ theorem stageRec (hμ : μ.verified = true) (hE : Setlec.EtaFamiliesClosed env)
       have hFD₂ : FormerData m₂ cvTa p.nP p.resSort pps :=
         hFD.cross (c₀ := c₀) (A := A) hfresh (hcross _)
           (constsBound_of_constsResolve _
-            (mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfT)).2.2.1) m₂ hac
+            (mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfT)).2.2.1) m₂ hac
       have hleafT₂ : ∀ ψ, m₂.acval p.cvT.name ψ
           = directTyAV (p.resSort.eval ψ) (pps ψ) (((ds ψ).drop p.nP).map (·.2.2)) := by
         intro ψ
@@ -262,4 +263,4 @@ theorem stageRec (hμ : μ.verified = true) (hE : Setlec.EtaFamiliesClosed env)
       apply hfire
       simp [hplain]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

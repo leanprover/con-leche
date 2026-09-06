@@ -36,10 +36,11 @@ just as a well-typed one's is.  The memberships have to come from the
 run, and `projCert` is that run.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ProjEntry
   inferTypeCore whnf whnfCore)
 
@@ -400,7 +401,7 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
     obtain ⟨cvC', nP', nF', hfC', hcertI⟩ := Setlec.projCert_inv hcert
     obtain ⟨rfl, -, -⟩ :=
       ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfC'))
-    have hwfC := m.wf _ (Setlec.SetR.Env.find?_mem hfC)
+    have hwfC := m.wf _ (Setlec.Semantics.Env.find?_mem hfC)
     have hnfC : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar
         = false := by
       rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfC.1
@@ -459,4 +460,4 @@ theorem projStepP_of_claims {m : EnvS2Core V env}
       hB (towerGuardAt_of_fireOk htw hO5 hfire) σ vs _ hlenVs (hok₃' σ hσ) hfit]
     exact heqE σ hσ
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

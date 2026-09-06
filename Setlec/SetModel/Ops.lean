@@ -39,7 +39,7 @@ the graph regime never produces, contains, or consults it.  See
 `Setlec/SetR/DESIGN.md`, tier B, "`pt` is demoted, not deleted".
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetModel
 
 open SetTheory
 
@@ -347,4 +347,4 @@ theorem lamR_pos_empty {v : Nat} (hv : v ≠ 0) (F : V → V) :
   obtain ⟨x, hx, -⟩ := mem_graph.mp hz
   exact not_mem_empty x hx
 
-end Setlec.SetR.Interp2
+end Setlec.SetModel

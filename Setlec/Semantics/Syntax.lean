@@ -59,7 +59,7 @@ annotated term through a β/ζ/telescope step without re-deriving any
 sort fact.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT
 
@@ -287,10 +287,10 @@ end AVExpr
 
 Re-based here from `SetR/Interp2/EmptyPin2.lean` at THE SEPARATION's S2
 (task #161): pure syntax, and both lanes read a constant back out of an
-erasure with it.  Its namespace (`Setlec.SetR.Interp2`) is unchanged, so
-the block below re-opens it. -/
+erasure with it.  (Its namespace was `Setlec.SetR.Interp2`, re-opened
+by a nested block here until the 2026-09-06 namespace rename folded
+both into `Setlec.Semantics`.) -/
 
-namespace Interp2
 
 open Setlec.TT (BConst)
 
@@ -316,6 +316,5 @@ theorem erase_eq_const {ea : AVExpr} {c : BConst} {us : List Nat}
   | proj i e => rw [AVExpr.erase_proj] at h; exact nomatch h
   | prf => rw [AVExpr.erase_prf] at h; exact nomatch h
 
-end Interp2
 
-end Setlec.SetR
+end Setlec.Semantics

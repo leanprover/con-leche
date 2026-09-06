@@ -22,10 +22,11 @@ complete: once the row lands, `hokApp` is the truthfulness transport's
 own output at the frame's openers.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level isDefEqCore)
 
 universe w
@@ -247,4 +248,4 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       List.getElem?_eq_none (by rw [hzslen]; omega)]
     rfl
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

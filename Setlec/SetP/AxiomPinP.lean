@@ -136,10 +136,11 @@ Three of `DeclAxiomR`'s four branches, then.  The fourth is the second
 WALL above.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal)
 
 universe w
@@ -317,4 +318,4 @@ theorem axiomStdP (hμ : μ.verified = true)
       rw [if_neg hn, if_neg hn2] at hok
       exact nomatch hok
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

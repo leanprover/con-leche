@@ -19,7 +19,7 @@ The statement is verbatim, in its original namespace
 (`Setlec.SetR.Interp2`), so every consumer sees the same name.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
 
 open Setlec (Expr Name)
 
@@ -44,4 +44,4 @@ theorem frame_open2 {d : Nat} {n : Name} {ty body : Expr}
     · exact hbty
     · exact hLty l h3
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

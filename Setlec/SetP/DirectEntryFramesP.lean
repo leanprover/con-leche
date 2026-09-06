@@ -18,10 +18,11 @@ identified with the block's —
   spine fits them.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
@@ -403,4 +404,4 @@ theorem entryFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   rw [heq ρ hρ, hfdomA, ← hlen', interp2_instSeq, hFi]
   exact interp2_congr_below V _ (nP + i) _ _ hFiBelow (chainP_entry_agree nP i ρ)
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -50,10 +50,11 @@ run-inversion conjuncts instead —
 | `SortAgree` (env crossing) | dropped: `denoteP_envExtend` needs `FindPreserved`/`LitGuardsAgree` only |
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name whnf whnfCore inferTypeCore)
 
 universe w
@@ -185,4 +186,4 @@ theorem checkSound2P {μ : CheckMode} {env : Env}
     obtain ⟨ihwc, ihw, ihd, ihi⟩ := ih
     exact hstep env m φ fuel ihwc ihw ihd ihi
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

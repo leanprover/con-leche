@@ -30,10 +30,11 @@ at *unknown* regime bits from `type_okP`'s `AnnotValidV` — so no bit
 positivity is taken anywhere.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported)
 
@@ -231,8 +232,8 @@ theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     DmBinV (interp2 V ρ (mp.base2.acval Setlec.natName ψ))
       (interp2 V ρ (mp.base2.acval codN ψ))
       (interp2 V ρ (mp.base2.acval o ψ)) := by
-  have hmemE := Setlec.SetR.Env.find?_mem hf
-  have hnm : cio.name = o := Setlec.SetR.Env.find?_name hf
+  have hmemE := Setlec.Semantics.Env.find?_mem hf
+  have hnm : cio.name = o := Setlec.Semantics.Env.find?_name hf
   have hta : denoteP mp.base2.acval env ψ 0 cio.toConstantVal.type
       = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval Setlec.natName ψ)
           (.pi 0 (pwBit ψ mb₂.pw) (mp.base2.acval Setlec.natName ψ)
@@ -259,8 +260,8 @@ theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     DmUnV (interp2 V ρ (mp.base2.acval Setlec.natName ψ))
       (interp2 V ρ (mp.base2.acval codN ψ))
       (interp2 V ρ (mp.base2.acval o ψ)) := by
-  have hmemE := Setlec.SetR.Env.find?_mem hf
-  have hnm : cio.name = o := Setlec.SetR.Env.find?_name hf
+  have hmemE := Setlec.Semantics.Env.find?_mem hf
+  have hnm : cio.name = o := Setlec.Semantics.Env.find?_name hf
   have hta : denoteP mp.base2.acval env ψ 0 cio.toConstantVal.type
       = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval Setlec.natName ψ)
           (mp.base2.acval codN ψ)) := by
@@ -1867,9 +1868,9 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         = some (.sort 1) := by
       rw [hty]
       exact denoteP_sort _ _ _
-    have h := mp.mem_typeP ci (Setlec.SetR.Env.find?_mem hf)
-      (mp.notTower_of_atom (Setlec.SetR.Env.find?_mem hf) (by rw [hty]; rfl)) ψ _ hta ρ
-    rw [show ci.name = n from Setlec.SetR.Env.find?_name hf,
+    have h := mp.mem_typeP ci (Setlec.Semantics.Env.find?_mem hf)
+      (mp.notTower_of_atom (Setlec.Semantics.Env.find?_mem hf) (by rw [hty]; rfl)) ψ _ hta ρ
+    rw [show ci.name = n from Setlec.Semantics.Env.find?_name hf,
       interp2_sort] at h
     exact h
   -- a stored constant whose type is a stored level-mono constant
@@ -1884,9 +1885,9 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         = some (mp.base2.acval t ψ) := by
       rw [hty]
       exact denoteP_levelless_const hft hlpt
-    have h := mp.mem_typeP ci (Setlec.SetR.Env.find?_mem hf)
-      (mp.notTower_of_atom (Setlec.SetR.Env.find?_mem hf) (by rw [hty]; rfl)) ψ _ hta ρ
-    rwa [show ci.name = n from Setlec.SetR.Env.find?_name hf] at h
+    have h := mp.mem_typeP ci (Setlec.Semantics.Env.find?_mem hf)
+      (mp.notTower_of_atom (Setlec.Semantics.Env.find?_mem hf) (by rw [hty]; rfl)) ψ _ hta ρ
+    rwa [show ci.name = n from Setlec.Semantics.Env.find?_name hf] at h
   refine
     { eqStored := hdown _ _ hnE hEq2
       natNe := hnN
@@ -2306,4 +2307,4 @@ theorem divModP_install {F : Nat} (mp : EnvS2PM V μ env)
       simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
         reduceIte, dmLeaf] using h
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

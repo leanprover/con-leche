@@ -54,7 +54,8 @@ semantically load-bearing, the clause to revisit is this one and only
 this one.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
 
@@ -180,4 +181,4 @@ noncomputable def interp2 : (Nat → V) → AVExpr → V
       (if i = 0 then sfst (interp2 V ρ e) else ssnd (interp2 V ρ e)) := rfl
 @[simp] theorem interp2_prf (ρ : Nat → V) : interp2 V ρ .prf = pt := rfl
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

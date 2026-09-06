@@ -25,7 +25,7 @@ Since task #175 W4c the direct route is the priority route: every
 consumer of the dispatch cases on the kernel's own `directParts?`.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   DirectParts RecRule fueledOps checkDirectInd checkDirectCtor
@@ -129,4 +129,4 @@ def DeclIndRunDispatchR (μ : CheckMode) (F : Nat) (env : Env)
   | some p => DeclDirectR μ F env p env₂
   | none => DeclIndRunR μ F env block env₂
 
-end Setlec.SetR
+end Setlec.Semantics

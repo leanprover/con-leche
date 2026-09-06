@@ -13,10 +13,11 @@ law read the rule's right-hand side without any bit correspondence
 between the rule's λ-annotations and the recursor's elimination level.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
@@ -156,4 +157,4 @@ theorem mkAppN_okP_of_lam :
       · left; rw [h0, lamR_zero, app_pt]
       · right; rw [app_lamR_pos (Nat.pos_iff_ne_zero.mp hpos) hsp.1]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

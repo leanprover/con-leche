@@ -20,7 +20,7 @@ file's own surviving theorem.  It went with the R tier
 built it.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 open Setlec.TT Setlec.TTVerify
 universe w
 
@@ -64,4 +64,4 @@ theorem checkDeclRun_ofEnvRE
         intro hh
         exact declIndRunRR hh) h
 
-end Setlec.SetR
+end Setlec.Semantics

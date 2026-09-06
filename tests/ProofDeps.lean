@@ -115,7 +115,7 @@ private def roots : List (String × Name) :=
   [("SPCD_P", `Setlec.Cached.no_proof_of_Empty_SPCD_P),
    ("sound_P", `Setlec.Cached.checkDeclsSPCachedD_sound_P),
    ("foldSPC_PM", `Setlec.Cached.foldSPC_PM),
-   ("P", `Setlec.SetR.Interp2.no_proof_of_Empty_P)]
+   ("P", `Setlec.Semantics.no_proof_of_Empty_P)]
 
 /-- The measured rows, in a fixed order: one `<label> :: <module>` per
 `Setlec.*` module the root's proof term reaches, sorted.  The pinned

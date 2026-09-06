@@ -18,10 +18,11 @@ constructor stage's `constsResolve env₀` re-check is exactly this
 fact.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta ProjEntry projFnName)
 
@@ -105,7 +106,7 @@ theorem find?_none_of_cons {c : ConstantInfo} {env : Env} {n : Name}
 theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p : DirectParts} (mp : EnvS2PM V μ env)
     (hE : Setlec.EtaFamiliesClosed env) (hdp : Setlec.directParts? env block = some p)
-    (h : Setlec.SetR.DeclDirectR μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
+    (h : Setlec.Semantics.DeclDirectR μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hccvR, hRec, hRule, hslots,
     hfold⟩ := h
   obtain ⟨hProp, hRname, hClps, hresT, hresC, hresR, helim⟩ := Setlec.directParts?_inv hdp
@@ -201,7 +202,7 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
   have hTC : p.cvT.name ≠ cvCa.name := by
     intro h; rw [h, hCfreshI] at hfT_I; exact nomatch hfT_I
   have hcbT_I : ConstsBound (⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩ : Env) cvTa.type :=
-    constsBound_of_constsResolve _ (mpI.base2.wf _ (Setlec.SetR.Env.find?_mem hfT_I)).2.2.1
+    constsBound_of_constsResolve _ (mpI.base2.wf _ (Setlec.Semantics.Env.find?_mem hfT_I)).2.2.1
   have hcbC : ConstsBound (⟨.indInfo cvTa (Setlec.directCaps p) :: env.consts⟩ : Env) cvCa.type :=
     constsBound_of_constsResolve _ (by rw [hCtype]; exact htrC)
   have hFD_C : FormerData mpC.base2 cvTa p.nP p.resSort pps :=
@@ -267,9 +268,9 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
   have hCR : p.cvC.name ≠ cvRa.name := by
     intro h; rw [h, hRfresh] at hfC_C; exact nomatch hfC_C
   have hcbT_C := constsBound_of_constsResolve _
-    (mpC.base2.wf _ (Setlec.SetR.Env.find?_mem hfT_C)).2.2.1
+    (mpC.base2.wf _ (Setlec.Semantics.Env.find?_mem hfT_C)).2.2.1
   have hcbC_C := constsBound_of_constsResolve _
-    (mpC.base2.wf _ (Setlec.SetR.Env.find?_mem hfC_C)).2.2.1
+    (mpC.base2.wf _ (Setlec.Semantics.Env.find?_mem hfC_C)).2.2.1
   obtain ⟨hnfRhs, -, hannRhs, -⟩ := Setlec.checkDirectRule_shape hRule
   -- the not-yet-installed slots are mentioned by no stored piece
   have hfreshI : ∀ j, j < p.nF →
@@ -343,4 +344,4 @@ theorem declDirectP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
   exact foldEntriesP hμ hsorts hlpsT hlpsC (by rw [hstripC]; rfl) hProp hpshapeT hpshapeC hresT
     (by rw [← hRname]; exact hresR) hresC hiff hfields (List.range p.nF) 0 (by simp) hfold hinv
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

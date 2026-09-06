@@ -61,7 +61,8 @@ Two further facts fall out and are proved below:
   contain `pt`.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
 
@@ -185,4 +186,4 @@ theorem interp2_sort_mem (V : Type w) [SetTheory V] (ρ : Nat → V) (n : Nat) :
 theorem interp2_sort_mono (V : Type w) [SetTheory V] (ρ : Nat → V) {m n : Nat}
     (h : m ≤ n) : interp2 V ρ (.sort m) ⊆ˢ interp2 V ρ (.sort n) := univ_mono h
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

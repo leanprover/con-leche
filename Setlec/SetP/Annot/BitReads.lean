@@ -24,10 +24,11 @@ denotation, through this bridge.  Nothing is routed and no row is
 owed.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo)
 
 /-- **A term that denotes reads.**  The two recursions share every
@@ -218,4 +219,4 @@ theorem denotePClosed_isSome_of_denoteClosed
     ∃ ea, denoteP acval env φ 0 e = some ea :=
   denoteP_isSome_of_denote 0 e h
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

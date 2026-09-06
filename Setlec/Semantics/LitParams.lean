@@ -16,7 +16,7 @@ They came out with the two-edit sever: `Step2/InferP` and
 namespace (`Setlec.SetR`) unchanged.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 /-- The `Nat` family's stored declaration carries no level parameters
 (read off `natLitSupported`'s `natIndOk` conjunct). -/
@@ -45,4 +45,4 @@ theorem stringName_levelParams_nil {env : Env}
   simp only [stringTyOk, Bool.and_eq_true] at h2
   simpa [List.isEmpty_iff] using h2.1
 
-end Setlec.SetR
+end Setlec.Semantics

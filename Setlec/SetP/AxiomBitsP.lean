@@ -42,10 +42,11 @@ below are what make move 2 fuel-free: the run's fuel is whatever
 succeeds, by monotonicity.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta inferTypeCore whnf ensureSortCore)
 
@@ -295,4 +296,4 @@ theorem choice_bitsP (hμ : μ.verified = true)
     exact imax_eq_zero_iff _ _
   exact ⟨hb1, hb2⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -17,7 +17,7 @@ carrier's own valuation.
 Statements verbatim from their old home; the namespace is unchanged.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 open Setlec.TT Setlec.TTVerify
 
 /-- **The projection phase's fold invariant** ([set] transpose of
@@ -108,4 +108,4 @@ theorem projFwd_renameOkT {T ctorName : Name} {nF : Nat} {env' : Env}
         from rfl)]
       exact (hfound n ci₂ hf₂).2 ψ
 
-end Setlec.SetR
+end Setlec.Semantics

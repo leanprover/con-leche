@@ -12,10 +12,11 @@ residual's sort membership at the opened frame.  Derived once from the
 entry stage's runs (`entryData_of`).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
@@ -139,4 +140,4 @@ theorem EntryData.cross {m : EnvS2Core V env} {ptyA : Expr} {lps : List Name}
   rw [hac]
   exact denoteP_cons_mono hfresh hat ψ 0 hcb (h.read ψ)
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

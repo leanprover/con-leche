@@ -26,11 +26,12 @@ at `Level.substFn φ lps us` on the stored pin, and
 two.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
 
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta RecRule isDefEqCore inferTypeCore DefEqListOk TypedListOk)
@@ -544,4 +545,4 @@ theorem iotaRulesP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
         heqfind hkit hfire φ
     · exact ih (j + 1) rest' hrec rl hrl'
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

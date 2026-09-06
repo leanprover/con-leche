@@ -21,10 +21,11 @@ on (see `BitShift.lean`): its sole use in the original is inside
 `denote2_shiftFrom`, whose mirror does not take it.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level PropWhen)
 
 /-- **`denoteP`'s closedness law.**  A closed subject's validated
@@ -65,4 +66,4 @@ theorem denoteP_depth_of_closed {env : Env} {φ : Name → Nat}
     rw [hs]
     simp [hcl]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

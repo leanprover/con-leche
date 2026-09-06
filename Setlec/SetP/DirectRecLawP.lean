@@ -11,10 +11,11 @@ body is the minor applied to the fields (the residual's instantiation
 sequence), and the frames' `RecBase` feeds `recLawCore`.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta RecRule)
 
@@ -135,7 +136,7 @@ theorem recRuleLaw (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   have hpinsP := Setlec.checkDirectDomsAt_inv hdomsP
   have hpinsL := Setlec.checkDefEqList_inv hdl
   -- the constructor's stored type
-  obtain ⟨hCf, -, -, hCb, -⟩ := mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfC)
+  obtain ⟨hCf, -, -, hCb, -⟩ := mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfC)
   simp only [ConstantInfo.toConstantVal] at hCf hCb
   -- the recursor's own name
   have hRC : p.cvC.name ≠ p.cvR.name := by
@@ -202,7 +203,7 @@ theorem recRuleLaw (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   -- the recursor and constructor types' readings, at the extension
   have hcbT : ConstsBound env type' := constsBound_of_constsResolve _ htr'
   have hcbC : ConstsBound env cvCa.type :=
-    constsBound_of_constsResolve _ (mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfC)).2.2.1
+    constsBound_of_constsResolve _ (mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfC)).2.2.1
   have hRD₂ := hRD.cross (c₀ := .recInfo { p.cvR with type := type' } (p.nP + 2) (p.nP + 2)
     [⟨p.cvC.name, p.nF, p.nP, .plain, rhsA⟩]) hfresh (hcross _) hcbT m₂ hac
   have hCD₂ := hCD.cross (c₀ := .recInfo { p.cvR with type := type' } (p.nP + 2) (p.nP + 2)
@@ -380,4 +381,4 @@ theorem recRuleLaw (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   rw [hleafR₂, hleafC₂]
   exact hcore
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

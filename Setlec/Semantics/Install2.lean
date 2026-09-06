@@ -52,10 +52,11 @@ environment grows.  That is a named gap, not an omission — see the
 survey's supplier requests.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name natLitSupported strLitSupported)
 
 universe w
@@ -279,4 +280,4 @@ theorem acvalWith_ok2 {V : Type w} [SetTheory V]
   · rw [acvalWith_ne hm]
     exact h m ψ ρ
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

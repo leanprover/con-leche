@@ -35,7 +35,7 @@ in a namespace block, because five live consumers spell it that way.
 (`annotateCore μ env F d e = .ok e'`) are V-free side conditions.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -200,4 +200,4 @@ def DeclDirectR (μ : CheckMode) (F : Nat) (env : Env)
         (directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa env₃
         (List.range p.nF) env₂)
 
-end Setlec.SetR
+end Setlec.Semantics

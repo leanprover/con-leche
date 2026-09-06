@@ -31,10 +31,11 @@ domain reads at depth `q` to the tower slot `Γ.getD (K - 1 - q)` —
 slot transported across `denoteP_lift`.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name BinderMeta)
 
 universe w
@@ -496,4 +497,4 @@ theorem projSpineMemP
     omega]
   exact hslot
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

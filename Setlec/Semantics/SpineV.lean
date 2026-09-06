@@ -26,7 +26,7 @@ namespace prefix's home moved, and `Setlec.SetR` is unchanged, so no
 consumer needed a rename.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT
 open Setlec.TTVerify
@@ -57,4 +57,4 @@ def piResidualV : VExpr → List VExpr → Option VExpr
   | .pi _ B, a :: as => piResidualV (B.inst a) as
   | _, _ :: _ => none
 
-end Setlec.SetR
+end Setlec.Semantics

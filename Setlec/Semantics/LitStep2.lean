@@ -30,10 +30,11 @@ guards' inversion plumbing, exactly as v1 factors `natHeads_facts` out
 of `natLit_facts`.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -122,4 +123,4 @@ well; the clause itself lives in `Step2/InferQ.lean` and is the
 inference quarter's to re-point. -/
 
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

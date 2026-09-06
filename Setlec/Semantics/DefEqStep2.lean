@@ -22,10 +22,11 @@ that are not — the capability rescues (`structEta`, `structUnit`,
 respectively, and appear here only as names.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -115,4 +116,4 @@ theorem deqStep2_eta {v : Nat} {A f : V} {B : V → V}
     (hf : f ∈ˢ piR v A B) :
     lamR v A (fun x => SetTheory.app f x) = f := lamR_eta hf
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -27,10 +27,11 @@ twice more — the reading's `lamR 0` and the value law's squash regime
 are the same point.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
 
@@ -2270,7 +2271,7 @@ vacuous: `Eq` must already be stored, and that is exactly what the
 `Eq` bridge consumes. -/
 theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
     (hEq : env.find? eqName = some eqA)
-    (h : Setlec.SetR.BasisInstallR env
+    (h : Setlec.Semantics.BasisInstallR env
       Setlec.BasisKind.quotK.declsA env₁) :
     Nonempty (EnvS2PM V μ env₁) := by
   rw [show Setlec.BasisKind.quotK.declsA
@@ -2505,4 +2506,4 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
 
 end Quot
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -42,7 +42,7 @@ weaker fact keeps the bridge free of any semantic content, which is the
 whole point of the factoring.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -155,4 +155,4 @@ theorem Env.find?_mem {env : Env} {n : Name} {ci : ConstantInfo}
   unfold Setlec.Env.find? at h
   exact List.mem_of_find?_eq_some h
 
-end Setlec.SetR
+end Setlec.Semantics

@@ -17,10 +17,11 @@ names.)  The leaf's walks are the entry frame's; the entry's law is
 `entryLawP`, assembled from the three semantic cores over the frames.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta ProjEntry projFnName)
 
@@ -240,7 +241,7 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   -- the constructor type at the guard's zeroing instantiation
   -- (`directGuardSigma`): the frames are stated at the valuations it
   -- fixes, which are all the valuations the entry's law is owed at
-  obtain ⟨hCf0, -, -, hCb0, -⟩ := mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfC)
+  obtain ⟨hCf0, -, -, hCb0, -⟩ := mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfC)
   simp only [ConstantInfo.toConstantVal] at hCf0 hCb0
   have hCfσ : (cvCa.type.instantiateLevelParams p.cvT.levelParams
       (Setlec.directGuardSigma p.resSort p.cvT.levelParams guard)).hasFvar = false := by
@@ -282,20 +283,20 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   have hcrossT : ConsCrossAt (.projInfo entry) cvTa.type := by
     intro e' he' _
     cases he'
-    exact hnp.type _ (Setlec.SetR.Env.find?_mem hfT)
+    exact hnp.type _ (Setlec.Semantics.Env.find?_mem hfT)
   have hcrossC : ConsCrossAt (.projInfo entry) cvCa.type := by
     intro e' he' _
     cases he'
-    exact hnp.type _ (Setlec.SetR.Env.find?_mem hfC)
+    exact hnp.type _ (Setlec.Semantics.Env.find?_mem hfC)
   have hcrossE : ConsCrossAt (.projInfo entry) ptyA := by
     intro e' he' _
     cases he'
     exact Setlec.annotateCore_noProjAt μ hann
       (by rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hnf) hfresh
   have hcbT : ConstsBound env cvTa.type :=
-    constsBound_of_constsResolve _ (mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfT)).2.2.1
+    constsBound_of_constsResolve _ (mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfT)).2.2.1
   have hcbC : ConstsBound env cvCa.type :=
-    constsBound_of_constsResolve _ (mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfC)).2.2.1
+    constsBound_of_constsResolve _ (mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfC)).2.2.1
   have hcbE : ConstsBound env ptyA := constsBound_of_constsResolve _ hcr
   -- the leaf: the point
   let A : (Name → Nat) → AVExpr := fun _ => .prf
@@ -436,4 +437,4 @@ theorem stageEntry (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
         rw [hacC']
         exact entryEtaCore (hCD.len _) (hFD.len _) (hpok _) (hiff _) (hbound _) ts x hlents hsp hmem'
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

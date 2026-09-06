@@ -43,10 +43,11 @@ refutable at a support-completing install, and the monotone crossing
 the harvests carry no literal-tier premise at all.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint inferTypeCore isDefEqCore)
 
@@ -1294,4 +1295,4 @@ theorem harvestOpaqueP (hμ : μ.verified = true)
       (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

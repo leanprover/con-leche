@@ -28,7 +28,7 @@ module by what its statements mention, not by the namespace it sits
 in.*  The `…R` in the names is now historical spelling only.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 variable {mode : CheckMode} {env : Env} {fuel d : Nat}
 
@@ -61,4 +61,4 @@ every `iotaRec = none`, and every uncertified redex. -/
 @[simp] theorem whnfCoreR_lit (l : Literal) :
     whnfCore mode env (fuel + 1) d (.lit l) = .ok (.lit l) := rfl
 
-end Setlec.SetR
+end Setlec.Semantics

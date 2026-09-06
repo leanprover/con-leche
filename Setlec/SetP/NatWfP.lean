@@ -19,10 +19,11 @@ valuation (`divModClausesP_gcd` …), instead of a page-wide type
 ascription inline in the induction.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported)
 
@@ -719,4 +720,4 @@ theorem natOpV2_xor (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
             (Nat.ble_eq_true_of_le (by omega : 1 ≤ a))]
       exact rfl
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

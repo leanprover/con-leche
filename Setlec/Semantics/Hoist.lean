@@ -21,10 +21,11 @@ satisfiability example, which is about `CtxOk2` and therefore 2U.
 Statements verbatim, namespace (`Setlec.SetR.Interp2`) unchanged.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -322,4 +323,4 @@ example :
     AnnotOk2.of_pi (fun _ _ => by simp) (fun _ _ => by simp)
   exact ⟨hpi _ sat2_sort0_empty, (AnnotOk2.hoist_pi hpi).1⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

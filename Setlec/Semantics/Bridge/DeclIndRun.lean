@@ -45,7 +45,7 @@ four run→derivation lemmas to save them.  The seal carries both
 prices.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -567,4 +567,4 @@ theorem declIndRunRR
     hres, hprojFresh, envP,
     projInstallRunRS (List.range nF) hprojFold, templatesR_of _ h⟩⟩
 
-end Setlec.SetR
+end Setlec.Semantics

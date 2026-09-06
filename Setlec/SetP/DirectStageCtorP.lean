@@ -12,10 +12,11 @@ former's real leaf along the parameters (`formerFold`), the frames
 identified.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts)
 
 universe w
@@ -351,7 +352,7 @@ theorem stageCtor
         hFD.cross (c₀ := .ctorInfo cvCa p.nP p.nF) (A := A) hfresh
           (ConsCrossAt.ofNtc fun _ h => nomatch h)
           (constsBound_of_constsResolve _
-            (mpI.base2.wf _ (Setlec.SetR.Env.find?_mem hfT)).2.2.1) m₂ hac
+            (mpI.base2.wf _ (Setlec.Semantics.Env.find?_mem hfT)).2.2.1) m₂ hac
       have hleafT₂ : ∀ ψ, m₂.acval p.cvT.name ψ
           = directTyAV (p.resSort.eval ψ) (pps ψ) (Fs ψ) := by
         intro ψ
@@ -406,4 +407,4 @@ theorem stageCtor
         · intro ψ ρ; have := hpok ψ ρ; rwa [hFs0 ψ] at this
         · intro ψ; show p.nP = (pps ψ).length; rw [hFD.len ψ]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

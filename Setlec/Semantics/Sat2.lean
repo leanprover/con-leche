@@ -19,7 +19,8 @@ model-free in exactly the same sense (a `List AVExpr`, a valuation, and
 Statements verbatim, namespace (`Setlec.SetR.Interp2`) unchanged.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
 
@@ -76,4 +77,4 @@ theorem interp2C_trans {Δa : List AVExpr} {a b c : AVExpr}
 
 end
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

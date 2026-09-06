@@ -66,10 +66,11 @@ file cannot produce — are the already-routed `InferReadsP` and
 created here.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level inferTypeCore whnf
   isDefEqCore isUnitLikeTy)
 
@@ -725,4 +726,4 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
   rw [interp2_lam, lamR_congr hpt, hbit]
   exact lamR_eta (by rw [← hdom ρ hρ]; exact hmem ρ hρ)
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

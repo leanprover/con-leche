@@ -21,10 +21,11 @@ Semantic and syntactic pieces of a tower entry's install:
   spine (`spineFit_eq_replicate_pt`).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
@@ -49,8 +50,8 @@ spine of the tower's length is the body's instantiation sequence
 theorem peelPis_of_piTeleP :
     ∀ (k : Nat) {T : AVExpr} {Γ : List AVExpr} {R : AVExpr},
       PiTeleP k T Γ R → ∀ {ws : List AVExpr}, ws.length = k →
-      Setlec.SetR.AVExpr.peelPis T ws
-        = some (Setlec.SetR.AVExpr.instSeq ws (k - 1) R) := by
+      Setlec.Semantics.AVExpr.peelPis T ws
+        = some (Setlec.Semantics.AVExpr.instSeq ws (k - 1) R) := by
   intro k
   induction k with
   | zero =>
@@ -66,8 +67,8 @@ theorem peelPis_of_piTeleP :
     have hlen' : ws'.length = k := by simpa using hlen
     have hinst := htail.inst w 0
     have := ihk hinst hlen'
-    rw [show Setlec.SetR.AVExpr.instSeq (w :: ws') (k + 1 - 1) R
-        = Setlec.SetR.AVExpr.instSeq ws' (k - 1) (R.inst w k) from by
+    rw [show Setlec.Semantics.AVExpr.instSeq (w :: ws') (k + 1 - 1) R
+        = Setlec.Semantics.AVExpr.instSeq ws' (k - 1) (R.inst w k) from by
       rw [AVExpr.instSeq_cons]
       simp only [Nat.add_sub_cancel]]
     rw [show (0 : Nat) + k = k from Nat.zero_add k] at this
@@ -77,8 +78,8 @@ theorem peelPis_of_piTeleP :
 sequence of its domain. -/
 theorem instSeq_pi_dom :
     ∀ (ws : List AVExpr) (t u v : Nat) (A B : AVExpr),
-      ∃ B', Setlec.SetR.AVExpr.instSeq ws t (.pi u v A B)
-        = .pi u v (Setlec.SetR.AVExpr.instSeq ws t A) B'
+      ∃ B', Setlec.Semantics.AVExpr.instSeq ws t (.pi u v A B)
+        = .pi u v (Setlec.Semantics.AVExpr.instSeq ws t A) B'
   | [], _, _, _, _, B => ⟨B, rfl⟩
   | w :: ws, t, u, v, A, B => by
     rw [AVExpr.instSeq_cons, AVExpr.instSeq_cons, AVExpr.inst_pi]
@@ -263,4 +264,4 @@ theorem interp2_mkAppN_foldl (ρ : Nat → V) (as : List AVExpr) (f : AVExpr) :
       = (as.map (interp2 V ρ)).foldl SetTheory.app (interp2 V ρ f) := by
   rw [interp2_mkAppN, List.foldl_map]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

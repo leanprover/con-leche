@@ -43,7 +43,7 @@ premise is `EnvR.val_params` verbatim.  Nothing semantic is involved.
 Model-free by construction: no `V`, no `SetTheory`, no `EnvS`.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -291,4 +291,4 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
 /-! ## The group phase, at the `EnvR` level -/
 
 
-end Setlec.SetR
+end Setlec.Semantics

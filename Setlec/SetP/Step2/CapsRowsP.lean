@@ -51,10 +51,11 @@ metatheorem, which has no v1 counterpart because v1's fit never needed
 one.  Recorded as a finding, not a wall.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName inferTypeCore whnf isDefEqCore)
 
@@ -106,7 +107,7 @@ tower typing law's residual, named without a checker run to read it
 off). -/
 theorem peelPis_of_piChainP : ∀ (as : List AVExpr) {T : AVExpr},
     PiChainP as.length T →
-      ∃ rest, Setlec.SetR.AVExpr.peelPis T as = some rest
+      ∃ rest, Setlec.Semantics.AVExpr.peelPis T as = some rest
   | [], T, _ => ⟨T, rfl⟩
   | a :: as, T, h => by
     obtain ⟨u, v, A, B, rfl, hB⟩ := piChainP_succ_inv h
@@ -563,7 +564,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
         fun h => absurd h htow⟩
   -- the former's type: closed, so its reading at depth `0` is its
   -- reading at every depth, and all four frames are free
-  have hwfT := m.wf _ (Setlec.SetR.Env.find?_mem hfT)
+  have hwfT := m.wf _ (Setlec.Semantics.Env.find?_mem hfT)
   have hnfT : (cvT.type.instantiateLevelParams cvT.levelParams us').hasFvar
       = false := by
     rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfT.1
@@ -807,7 +808,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
       obtain ⟨tpa, htpa, hoktpa, hmemp⟩ :=
         hct d (projFnName T j) _ us' hfp rfl hlenp
       -- the projection type's frames
-      have hwfp := m.wf _ (Setlec.SetR.Env.find?_mem hfp)
+      have hwfp := m.wf _ (Setlec.Semantics.Env.find?_mem hfp)
       have hnfp : (cvp.type.instantiateLevelParams cvp.levelParams
           us').hasFvar = false := by
         rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfp.1
@@ -1017,7 +1018,7 @@ theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
   -- the (repaired) unit law, and its carried reading at depth `d`
   obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
     hcaps.2 T cvT caps hfind hunit hres φ us' hlenUs
-  have hwfT := m.wf _ (Setlec.SetR.Env.find?_mem hfind)
+  have hwfT := m.wf _ (Setlec.Semantics.Env.find?_mem hfind)
   have hnfT : (cvT.type.instantiateLevelParams cvT.levelParams
       us').hasFvar = false := by
     rw [Setlec.Expr.hasFvar_instantiateLevelParams]; exact hwfT.1
@@ -1074,4 +1075,4 @@ theorem structUnitIrrelP_of_claims {m : EnvS2Core V env}
   exact hlaw ρ (tsa.map (interp2 V ρ)) rest (interp2 V ρ aa)
     (interp2 V ρ ba) hlenTs hfitT hmx hmy
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

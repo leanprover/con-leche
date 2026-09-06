@@ -12,10 +12,11 @@ the elimination sort (`recMotive`), the minor binder the minor space
 (`recMinor`), the major binder the carrier (`recMajor`).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
@@ -137,7 +138,7 @@ theorem recFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   have hpinsP := Setlec.checkDirectDomsAt_inv hdomsP
   have hpinsF := Setlec.checkDirectDomsAt_inv hdomsF
   -- the constructor's stored type
-  obtain ⟨hCf, -, -, hCb, -⟩ := mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfC)
+  obtain ⟨hCf, -, -, hCb, -⟩ := mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfC)
   simp only [ConstantInfo.toConstantVal] at hCf hCb
   -- the bits of the motive and of the minor
   obtain ⟨FM, tjM, uM, hjM, huM⟩ :=
@@ -320,4 +321,4 @@ theorem recFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
           exact hmajor _ hρm
   exact ⟨fun ψ => (hframes ψ).1, fun ψ => (hframes ψ).2⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -13,7 +13,7 @@ collapsed lane at the axiom install, the graded lane at
 Statements verbatim from their old home; the namespace is unchanged.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 /-- `eraseNames` fixes a bare constant (local twin of the TT lane's
 `eraseNames_const_inv`). -/
@@ -33,4 +33,4 @@ theorem erasePw_const_invS {e : Expr} {n : Name} {us : List Level}
     | exact nomatch h
 
 
-end Setlec.SetR
+end Setlec.Semantics

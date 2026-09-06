@@ -14,10 +14,11 @@ structure altogether (`noProjEnv_of_fresh`), and each block constant
 is consed with its own pieces' `NoProjAt` (`NoProjEnv.cons`).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal RecRule ProjEntry
   natName natZeroName natSuccName eqName)
 
@@ -247,4 +248,4 @@ theorem declStepPM_of_inert_cons (mp : EnvS2PM V μ env)
   · exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower
       (fun e2 heq => by obtain rfl := ConstantInfo.projInfo.inj heq; exact htw) _ rfl φ
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

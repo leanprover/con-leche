@@ -15,10 +15,11 @@ The block's own capability laws, from the leaves' semantic summary:
   point and so is the constructor's application.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
 
 universe w
@@ -136,4 +137,4 @@ theorem directEtaLawP0 {m : EnvS2Core V env} {φ' : Name → Nat} {T : Name}
       rw [hfd]
       rfl
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -17,10 +17,11 @@ context-correlation `CtxOkP` for any term over its variables
 identification runs at a padded slot, the rule's law at the real one).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
@@ -369,4 +370,4 @@ theorem compOpenedP_of {m : EnvS2Core V env} {nP nF : Nat} {tyR : Expr}
   rw [shiftE_zero]
   exact hok
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

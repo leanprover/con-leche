@@ -18,10 +18,11 @@ grading are invariant under a lift's index (`interp2_congr_lifts`,
 `annotOkP_congr_lifts`).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal BinderMeta)
 
 universe w
@@ -611,4 +612,4 @@ theorem eval_foldl_max_if_zero_iff (ψ : Name → Nat) (used : Nat → Bool) (s 
       · rintro ⟨⟨h0, ha⟩, hl⟩; exact ⟨h0, ha, hl⟩
       · rintro ⟨h0, ha, hl⟩; exact ⟨⟨h0, ha⟩, hl⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

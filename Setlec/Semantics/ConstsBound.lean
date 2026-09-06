@@ -25,7 +25,7 @@ fact (a guard inversion producing two `isSome` obligations) and
 Statements verbatim, namespace (`Setlec.SetR.Interp2`) unchanged.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
 
 open Setlec.TTVerify
 open Setlec (CheckMode Env Expr Name Level ConstantInfo
@@ -255,4 +255,4 @@ theorem envWF_constsBound {env : Env} (hwf : EnvWF env) :
     fun cv value heq =>
       constsBound_of_constsResolve _ (hthm cv value heq).2.2.1⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -43,7 +43,7 @@ second component through it (one source of truth), and the P fold
 consumes it instead of `declIndS memberKeyS mp.base`.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -256,4 +256,4 @@ theorem recRulePlain_params_le {recTy : Expr} {mI rP cnP : Nat}
   omega
 
 
-end Setlec.SetR
+end Setlec.Semantics

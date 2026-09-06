@@ -45,7 +45,7 @@ no `EnvS`.  Both lanes consume it — the R lane through
 `Bridge/DeclInd.lean`, the P lane through its own ind tier.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -453,4 +453,4 @@ theorem projFnInv {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     BlockInstalledTT.fresh_cons hIB hnotb hfresh
       (fun n ψ hn => congrFun (cvalWith_ne hn) ψ)⟩
 
-end Setlec.SetR
+end Setlec.Semantics

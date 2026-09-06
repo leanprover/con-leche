@@ -13,10 +13,11 @@ and the fields are points otherwise).  The application of the
 right-hand side is graded (`mkAppN_okP_of_lam`).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
@@ -255,4 +256,4 @@ theorem recLawCore {ℓ w nP nF : Nat} {rds ds : List (Nat × Nat × AVExpr)}
     · exact hxs_ok a h
     · exact hys_ok a (List.mem_of_mem_drop h)
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -17,7 +17,7 @@ a relation, and they stayed because a live consumer uses them.  *A
 spec function's home is decided by what its statement mentions* — the
 interned batch's rule, applied to a residue instead of a move.
 -/
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 /-- `stripPis` is monotone downwards. -/
 theorem stripPis_mono : ∀ (k : Nat) {E : Expr},
@@ -45,4 +45,4 @@ theorem stripPis_le : ∀ {k n : Nat}, k ≤ n → ∀ {E : Expr},
     · obtain rfl : k = n + 1 := by omega
       exact hE
 
-end Setlec.SetR
+end Setlec.Semantics

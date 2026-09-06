@@ -45,7 +45,8 @@ over a vacuous domain rather than a proof-point argument.
 `natStepSpace_eq`, restated here as `natStepSpace2_eq`.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
 open Setlec.TT (BConst lv)
@@ -340,4 +341,4 @@ theorem bval2_mem_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
   | propext => exact bval2_mem_propext V us ρ
   | choice => exact bval2_mem_choice V us ρ
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

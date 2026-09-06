@@ -16,7 +16,7 @@ the crossing until the `BasisEmptyP → Install/BasisS` import died.
 Statements verbatim from their old home; names unchanged.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec
 /-- `Nat.rec`'s two stored rules. -/
@@ -163,4 +163,4 @@ theorem eqRecA_eq :
     eqRecA = .recInfo eqRecA.toConstantVal 5 4 [eqRecRule] := rfl
 
 
-end Setlec.SetR
+end Setlec.Semantics

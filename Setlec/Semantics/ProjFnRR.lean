@@ -40,7 +40,7 @@ for the group's swapped rules.
 Model-free by construction: no `V`, no `SetTheory`, no `EnvS`.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -313,4 +313,4 @@ theorem projFwd_model_self {T ctorName : Name} {nF i : Nat}
 def templateVal : (Name → Nat) → VExpr :=
   fun _ => .eqE (.sort 0) .prf .prf
 
-end Setlec.SetR
+end Setlec.Semantics

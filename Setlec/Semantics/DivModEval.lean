@@ -22,7 +22,7 @@ Statements verbatim from their old home; the namespace is unchanged.
 
 universe w
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 open Setlec.TT Setlec.TTVerify SetTheory
 
 variable {V : Type w} [SetTheory V]
@@ -387,4 +387,4 @@ theorem divModClausesV_divmod {V : Type w} [SetTheory V] {val : Name → V} {c :
     simpa +decide only [DivModClausesV, if_false, if_true,
       reduceCtorEq, decide_true, decide_false] using h
 
-end Setlec.SetR
+end Setlec.Semantics

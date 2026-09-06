@@ -90,10 +90,11 @@ already names, where it names it", and it is the statement layer's —
 see the DESIGN entry for this seal.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level)
 
 universe w
@@ -198,4 +199,4 @@ theorem denoteP_pin_shape {env : Env} (m : EnvS2Core V env)
     denoteP_fvar]
   simp [hlp]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -50,7 +50,8 @@ exactly in the slots `erase` forgets.  See `Step2Cons.lean`'s
 `ValueResidues2M.params` docstring for where it stalls.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
 open Setlec (Env Expr Name CheckMode)
@@ -120,7 +121,6 @@ theorem inst_eq_self : ∀ (e : AVExpr) {k : Nat},
 
 end AVExpr
 
-namespace Interp2
 
 /-- **`denote_closed`'s twin.**  A closed subject's canonical
 annotation is closed, in the lifting form `EnvS2U.acval_closed` and
@@ -142,6 +142,5 @@ theorem denote2_closed {mode : CheckMode}
     (VExpr.bvarsBelow.mono (Nat.zero_le k)
       (denote_closed hcl hnf hb (denote2_erase hlink 0 e h))) n
 
-end Interp2
 
-end Setlec.SetR
+end Setlec.Semantics

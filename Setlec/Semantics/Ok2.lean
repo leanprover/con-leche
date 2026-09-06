@@ -63,10 +63,11 @@ reads the slot off unchanged, with `slotChain_fits` carrying and
 dropping the new component (it uses positivity only).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -379,4 +380,4 @@ theorem AnnotOk2_app_of {u v : Nat} {ρ : Nat → V} {f a Aa Ba : AVExpr}
   rw [AnnotOk2_app]
   exact ⟨hokf, hoka, appSlot_of_pi V hf ha hcod⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -34,10 +34,11 @@ own STOP condition (a genuine instability counterexample would be a
 design finding, not a proof gap).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level inferTypeCore whnf
   natLitSupported strLitSupported)
 
@@ -384,4 +385,4 @@ theorem denote2_erase {mode : CheckMode}
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

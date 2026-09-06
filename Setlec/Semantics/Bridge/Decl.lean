@@ -30,7 +30,7 @@ the template fold, and `checkDeclRun_of`'s basis arm for the pair
 below.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -173,4 +173,4 @@ theorem declBasisR {μ : CheckMode} {F : Nat} {env env₂ : Env}
   · simp only [if_neg hk] at h
     exact ⟨fun hh => absurd hh hk, foldlM_installBasisDecl_invR _ h⟩
 
-end Setlec.SetR
+end Setlec.Semantics

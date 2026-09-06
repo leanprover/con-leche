@@ -25,9 +25,10 @@ tower leaves are built over.  Two syntactic facts carry the module:
   variables' annotations, each at its own depth.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
-open Setlec Setlec.SetR Setlec.TTVerify
+open Setlec Setlec.Semantics Setlec.TTVerify Setlec.SetModel
 
 /-! ## The unmentioned leaf -/
 
@@ -195,4 +196,4 @@ theorem denoteP_openPis {acval : Name → (Name → Nat) → AVExpr} {env : Env}
     | .proj _ _ _, hop =>
       simp [openPisAtFvars] at hop
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

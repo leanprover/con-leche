@@ -29,10 +29,11 @@ P tier: `rec_rules` is an `EnvS2PM` field, so the bottom cannot fire at
 the extension.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule RecRuleFire IndCaps ProjEntry BinderMeta projFnName
   projModelName projFwd ReducibilityHint inferTypeCore isDefEqCore)
@@ -609,4 +610,4 @@ theorem templatesP {T ctorName : Name} {lps : List Name} {nP nF : Nat} :
         templateConsP mp hstruct hidx hnat htower hlps hty hpnone
       exact ih mp' hrec
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

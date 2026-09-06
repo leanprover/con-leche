@@ -27,7 +27,7 @@ took a valuation, so the run family names it verbatim and its lemma
 serves both.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -937,4 +937,4 @@ theorem declIndEtaClosedRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
         (indMembersRunR_mono _ hmem _ _ hfC)⟩
     · exact absurd he (by decide)
 
-end Setlec.SetR
+end Setlec.Semantics

@@ -39,7 +39,7 @@ This module is model-free by construction: no `V`, no `SetTheory`, no
 blocker), this file moves with it.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -140,4 +140,4 @@ theorem declEtaStepRun {μ : CheckMode} {F : Nat}
 `.indDecl` dispatch's η half is proved for BOTH arms and the instance
 reads the kernel's own case split instead of the flag. -/
 
-end Setlec.SetR
+end Setlec.Semantics

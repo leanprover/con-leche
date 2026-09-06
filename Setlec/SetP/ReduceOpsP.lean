@@ -68,10 +68,11 @@ beside its `eq_lawP` sibling — the law mentions two stored leaves, so
 it crosses every cons that is neither of them).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal)
 
 universe w
@@ -386,4 +387,4 @@ theorem reduceOpsP_install (hμ : μ.verified = true)
   rw [hclA ρ (cons x ρ) ψ]
   exact heq
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

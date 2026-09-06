@@ -18,10 +18,11 @@ the earlier entries and the field-sort run supplying the guard's
 levelwise content.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta ProjEntry projFnName)
 
@@ -142,7 +143,7 @@ theorem foldStepP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
       have := Level.leq_sound (hleq (by rw [hProp]; exact hne)) ψ
       omega
     -- the unused earlier fields are free in the projected field's type
-    have hCf : cvCa.type.hasFvar = false := (hinv.wf _ (Setlec.SetR.Env.find?_mem hinv.findC)).1
+    have hCf : cvCa.type.hasFvar = false := (hinv.wf _ (Setlec.Semantics.Env.find?_mem hinv.findC)).1
     obtain ⟨fvsA, oA, hopAll⟩ := openPisAtFvars_of_stripPis_isSome (p.nP + p.nF) 0 hstripC
     have hlenA : fvsA.length = p.nP + p.nF := openPisAtFvars_length _ hopAll
     have hfree : ∀ (ψ : Name → Nat) (j : Nat), j < k →
@@ -150,7 +151,7 @@ theorem foldStepP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
         ∃ X : AVExpr, (((ds ψ).drop p.nP).map (·.2.2)).getD k default = X.liftN 1 (k - 1 - j) := by
       intro ψ j hj hun
       have hsome : (cvCa.type.stripPis (p.nP + j + 1)).isSome = true :=
-        Setlec.SetR.stripPis_le (by omega) hstripC
+        Setlec.Semantics.stripPis_le (by omega) hstripC
       obtain ⟨⟨bs, rest⟩, hst⟩ := Option.isSome_iff_exists.mp hsome
       have hrest : rest.hasLooseBVar 0 = false := by
         unfold Setlec.directUsedLater at hun
@@ -219,15 +220,15 @@ theorem foldStepP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
     have hcrossT : ConsCrossAt (.projInfo entry) cvTa.type := by
       intro e' he' _
       cases he'
-      exact hnpK.type _ (Setlec.SetR.Env.find?_mem hinv.findT)
+      exact hnpK.type _ (Setlec.Semantics.Env.find?_mem hinv.findT)
     have hcrossC : ConsCrossAt (.projInfo entry) cvCa.type := by
       intro e' he' _
       cases he'
-      exact hnpK.type _ (Setlec.SetR.Env.find?_mem hinv.findC)
+      exact hnpK.type _ (Setlec.Semantics.Env.find?_mem hinv.findC)
     have hcbT : ConstsBound env cvTa.type :=
-      constsBound_of_constsResolve _ (hinv.wf _ (Setlec.SetR.Env.find?_mem hinv.findT)).2.2.1
+      constsBound_of_constsResolve _ (hinv.wf _ (Setlec.Semantics.Env.find?_mem hinv.findT)).2.2.1
     have hcbC : ConstsBound env cvCa.type :=
-      constsBound_of_constsResolve _ (hinv.wf _ (Setlec.SetR.Env.find?_mem hinv.findC)).2.2.1
+      constsBound_of_constsResolve _ (hinv.wf _ (Setlec.Semantics.Env.find?_mem hinv.findC)).2.2.1
     have hfreshE : env.find? (ConstantInfo.projInfo entry).name = none := hfreshK
     refine ⟨⟨mp', hFD.cross (c₀ := .projInfo entry) hfreshE hcrossT hcbT mp'.base2 hac,
       hCD.cross (c₀ := .projInfo entry) hfreshE hneT hcrossC hcbC mp'.base2 hac, ?_, ?_⟩,
@@ -293,15 +294,15 @@ theorem foldStepP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
     have hcrossT : ConsCrossAt (.projInfo entry) cvTa.type := by
       intro e' he' _
       cases he'
-      exact hnpK.type _ (Setlec.SetR.Env.find?_mem hinv.findT)
+      exact hnpK.type _ (Setlec.Semantics.Env.find?_mem hinv.findT)
     have hcrossC : ConsCrossAt (.projInfo entry) cvCa.type := by
       intro e' he' _
       cases he'
-      exact hnpK.type _ (Setlec.SetR.Env.find?_mem hinv.findC)
+      exact hnpK.type _ (Setlec.Semantics.Env.find?_mem hinv.findC)
     have hcbT : ConstsBound env cvTa.type :=
-      constsBound_of_constsResolve _ (hinv.wf _ (Setlec.SetR.Env.find?_mem hinv.findT)).2.2.1
+      constsBound_of_constsResolve _ (hinv.wf _ (Setlec.Semantics.Env.find?_mem hinv.findT)).2.2.1
     have hcbC : ConstsBound env cvCa.type :=
-      constsBound_of_constsResolve _ (hinv.wf _ (Setlec.SetR.Env.find?_mem hinv.findC)).2.2.1
+      constsBound_of_constsResolve _ (hinv.wf _ (Setlec.Semantics.Env.find?_mem hinv.findC)).2.2.1
     have hfreshE : env.find? (ConstantInfo.projInfo entry).name = none := hfreshI
     obtain ⟨mp', hac⟩ := declStepPM_of_inert_cons mp (entry := entry) hfreshE hnres rfl rfl
       rfl hwf'
@@ -378,7 +379,7 @@ theorem foldEntriesP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V))) :
     ∀ (l : List Nat) (k : Nat), l = (List.range p.nF).drop k →
       ∀ {env env₂ : Env},
-      Setlec.SetR.DirectProjFoldR μ F p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
+      Setlec.Semantics.DirectProjFoldR μ F p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
         p.resSort (Setlec.directProjSlots p)
         (Setlec.directProjGuards cvCa.type p.nP p.nF sorts) cvTa cvCa env l env₂ →
       FoldInvP V μ p cvTa cvCa sorts pps ds k env →
@@ -404,4 +405,4 @@ theorem foldEntriesP (hμ : μ.verified = true) {F : Nat} {p : DirectParts}
       (foldStepP hμ hsorts hlpsT hlpsC hstripC hProp hTshape hCshape hresT hresR hresC
         hiff hfields hk hstep hinv)
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

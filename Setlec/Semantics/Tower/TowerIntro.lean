@@ -50,7 +50,8 @@ graph instantiations, the proof-field legality (`infer_proj`'s Prop
 restriction, semantically) at squash ones.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
 open Setlec.SetTheory.Tower
@@ -274,4 +275,4 @@ theorem towerSet_zero_univZero_teleOfFields {Fs : List AVExpr}
     towerSet 0 (teleOfFields ρ Fs) ∈ˢ (univZero : V) :=
   towerSet_zero_mem_univZero _
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

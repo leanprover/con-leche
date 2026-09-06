@@ -64,9 +64,9 @@ numeral error the *only* thing that can go wrong here — a structural
 error cannot survive it.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
 
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec.TT (BConst lv)
 
 /-! ## Annotated smart constructors
@@ -235,4 +235,4 @@ theorem type2_erase (c : BConst) (us : List Nat) :
       Setlec.TT.quotMkT, Setlec.TT.arrow, Setlec.TT.relT,
       Setlec.TT.negT, AVExpr.mkAppN, Setlec.TT.VExpr.mkAppN]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

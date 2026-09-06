@@ -24,10 +24,11 @@ are `BlockAcvalInstalled` at `T` and at the constructor; its third is
 vacuous, the projection slots being fresh there).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR
+open Setlec.Semantics Setlec.SetModel
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps projFnName projModelName Declaration)
 
@@ -289,4 +290,4 @@ theorem declIndP (hμ : μ.verified = true) {F : Nat} {env env₂ : Env}
         hbnRec (hallGen hmem) hEC₁ hBP₁ hrecs
     exact ⟨mp₂⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

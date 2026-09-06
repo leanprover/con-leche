@@ -58,7 +58,7 @@ is gone:
   fact *already* annotation-driven — the recorded precedent.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.SetModel
 
 open SetTheory
 open Setlec.TT (BConst lv)
@@ -532,4 +532,4 @@ noncomputable def bval2 : BConst → List Nat → V
   | .propext, _ => pt
   | .choice, us => choiceV2 V (lv us 0)
 
-end Setlec.SetR.Interp2
+end Setlec.SetModel

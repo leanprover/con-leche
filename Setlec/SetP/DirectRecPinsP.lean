@@ -14,10 +14,11 @@ The three facts the recursor's own opening supplies directly:
 * `recMajor` — the major binder's reading is the carrier.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
@@ -372,4 +373,4 @@ theorem recMajor {m : EnvS2Core V env} {F : Nat} (hc : ClaimsAtP μ m φ F)
   intro ρ hρ
   rw [heq ρ hρ, (hrow ρ hρ).2]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

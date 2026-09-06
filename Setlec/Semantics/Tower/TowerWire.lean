@@ -24,7 +24,8 @@ readings' own `denoteP` congruence, discharged where the readings are
 made.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT
 
@@ -304,4 +305,4 @@ theorem liftN_eq_self_of_closed {e : AVExpr}
     AVExpr.liftN n e k = e :=
   AVExpr.liftN_eq_self e (VExpr.bvarsBelow.mono (Nat.zero_le k) h) n
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

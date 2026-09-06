@@ -49,7 +49,7 @@ proving `DeclIndR`: nothing here replaces it, and the two families are
 independent consumers of the same checker inversions.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -436,4 +436,4 @@ def DeclIndRunR (μ : CheckMode) (F : Nat) (env : Env)
       IndMembersRunR μ F blockNames {} env nonrecs envM ∧
       IndRecsRunR μ F blockNames envM recs env₂))
 
-end Setlec.SetR
+end Setlec.Semantics

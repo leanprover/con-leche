@@ -21,10 +21,11 @@ bridges the two:
 * `sat2_of_spineFit`: a fitting spine satisfies the entries it fits.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
-open Setlec Setlec.SetR Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec Setlec.Semantics Setlec.TTVerify SetTheory Setlec.SetModel
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -248,4 +249,4 @@ theorem spineFit_of_sat2 :
       rw [e]
       exact this
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

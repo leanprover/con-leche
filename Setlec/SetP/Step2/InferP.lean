@@ -46,10 +46,11 @@ at the grading the clause's own residue supplies — the D-tier's
 self-propagation argument, inherited.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level whnf inferTypeCore)
 
 universe w
@@ -1164,4 +1165,4 @@ theorem inferStepP_of (h : InferInputsP V μ)
   | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
     exact h.proj m φ fuel hrun hws hb hLb hC hea hta
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -23,7 +23,7 @@ the kernel's own `directParts?` dispatch and no longer consult
 the former master switch (gone at W4c).
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   DirectParts fueledOps checkDirectInd checkDirectCtor checkConstantVal
@@ -224,4 +224,4 @@ theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
   · exact declDirectR_etaClosed hE h
   · exact declIndEtaClosedRun hE h
 
-end Setlec.SetR
+end Setlec.Semantics

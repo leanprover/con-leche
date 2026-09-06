@@ -13,10 +13,11 @@ eliminator.  These are the premises the former's real leaf and the
 constructor's leaf consume.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts)
 
 universe w
@@ -176,7 +177,7 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
   simp only at htf' hbt' hopC hsorts
   have hlenP : fvsP.length = p.nP := openPisAtFvars_length _ hopC
   have hopAll := openPisAtFvars_add p.nP hopC (by rw [Nat.zero_add]; exact hopX)
-  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (Setlec.SetR.Env.find?_mem hfT)
+  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (Setlec.Semantics.Env.find?_mem hfT)
   simp only [ConstantInfo.toConstantVal] at hTf hTb
   obtain ⟨hlenS, hfields⟩ := Setlec.checkDirectFieldSorts_inv hsorts
   have hpins := Setlec.checkDirectDomsAt_inv hdoms
@@ -305,4 +306,4 @@ theorem ctorFrames (hμ : μ.verified = true) (mp : EnvS2PM V μ env)
       exact this
   exact ⟨fun ψ => (hframes ψ).1, fun ψ => (hframes ψ).2⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

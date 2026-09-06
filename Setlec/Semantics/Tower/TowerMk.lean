@@ -27,7 +27,8 @@ graph regime, `pt_mem_tower` at squash).  The premises are
 `FieldsBound` + `SpineFit`, nothing else.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
 open Setlec.SetTheory.Tower
@@ -542,4 +543,4 @@ theorem directMkAV_zero {ds : List (Nat × Nat × AVExpr)}
     rfl
   | d :: ds => exact mkLamsAV_zero_head d.2.2 _ _ ρ
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

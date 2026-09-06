@@ -14,7 +14,7 @@ for `iota_stepR`, `Interp2/Step2/IotaRowsP.lean` for the graded lane's
 Statements verbatim from their old home; the namespace is unchanged.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 variable {mode : CheckMode} {env : Env}
 
 /-- The level comparand reads no arguments, in either fire branch. -/
@@ -64,4 +64,4 @@ theorem defEqListP_length {env : Env} {fuel d : Nat} :
     | cons y ys => simpa using ih (defEqList_step_inv h).2
 
 
-end Setlec.SetR
+end Setlec.Semantics

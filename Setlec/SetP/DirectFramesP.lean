@@ -18,10 +18,11 @@ wire-side currency of `TowerWire`) and the Π-bit congruence
 (`piR_congr_bit`).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
-open Setlec Setlec.SetR Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec Setlec.Semantics Setlec.TT Setlec.TTVerify SetTheory Setlec.SetModel
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -197,4 +198,4 @@ theorem paramFrames {m : EnvS2Core V env} {F : Nat}
       (fun ρ hρ => hC.okΓ (i + 1) (by omega) ρ hρ)
       (fun ρ hρ => hT.okΓ (i + 1) (by omega) ρ ((hsat ρ).mp hρ)) ρ hρ
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

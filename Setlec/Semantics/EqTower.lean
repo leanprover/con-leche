@@ -16,7 +16,7 @@ graded lane's `Interp2/EqTowerP.lean` states its annotated towers'
 Statements verbatim from their old home; the namespace is unchanged.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 open Setlec.TT
 
 /-- `Eq`'s valuation: the former, eta-expanded. -/
@@ -70,4 +70,4 @@ theorem eqRecValT_closed (ψ : Name → Nat) : VExpr.Closed (eqRecValT
   all_goals first | trivial | omega
 
 
-end Setlec.SetR
+end Setlec.Semantics

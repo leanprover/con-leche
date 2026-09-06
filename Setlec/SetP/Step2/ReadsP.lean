@@ -64,10 +64,11 @@ They are bundled as `ReadsInputsP`; the suppliers at the end of the
 file take that bundle and produce five of the six residues.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level whnf whnfCore inferTypeCore)
 
 universe w
@@ -999,4 +1000,4 @@ theorem ReadsInputsP.ofEnvS2PM (mp : EnvS2PM V μ env)
   nat := hnat
   tower_ok := mp.tower_ok φ
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

@@ -28,10 +28,11 @@ per-fire `iotaCertsI` walk at a positive-kind telescope.
   (`TeleFitV`'s value-level, kinded analogue).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -154,4 +155,4 @@ theorem AnnotOk2_redex_fits {ρ : Nat → V} {f : AVExpr}
     (g := fun r a => app r a)]
   exact hmem
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

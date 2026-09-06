@@ -24,10 +24,11 @@ Three suppliers meet here, and none of them is routed:
   `nestedPinGradeP`'s certificate premise is guarded by.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name isDefEqCore inferTypeCore
   TypedListOk)
 
@@ -167,4 +168,4 @@ theorem nestedPinRowP {m : EnvS2Core V env} {F : Nat}
   obtain rfl : w1 = w2 := Option.some.inj (hw1.symm.trans hw2)
   exact hokw2
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

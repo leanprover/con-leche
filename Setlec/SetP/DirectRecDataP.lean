@@ -13,10 +13,11 @@ parameters.  Derived once from the stage's runs (`recData_of`) and
 crossed to the recursor's own extension (`RecData.cross`).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
@@ -182,4 +183,4 @@ theorem RecData.cross {m : EnvS2Core V env} {cvR : ConstantVal}
   below := h.below
   params := h.params
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

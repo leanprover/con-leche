@@ -59,7 +59,7 @@ cval`; when the ind unit lands, callers instantiate `Ind :=
 DeclIndRunR μ F env` and **`DeclRunR`'s own text does not change**.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -236,4 +236,4 @@ left to project FROM.  The run records below them are now the only
 source of truth, which is what S11a was aiming at — the projections
 were the compatibility shim across the transition. -/
 
-end Setlec.SetR
+end Setlec.Semantics

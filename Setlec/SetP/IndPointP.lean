@@ -41,10 +41,11 @@ premises here.  They descend from the statement's own
 residual (`instPisAt_WScoped`/`instPisAt_bounded`, residual halves).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   isDefEqCore DefEqListOk)
 
@@ -536,4 +537,4 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
         omega)]
     rfl
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

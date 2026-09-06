@@ -10,10 +10,11 @@ the whole frame — from the recursor context's gradings and the frames'
 the leaf's laws are spelled over.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory Setlec.SetTheory.Tower
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
@@ -119,4 +120,4 @@ theorem recLeafFacts {ℓ w : Nat} {Fs : List AVExpr} {rds : List (Nat × Nat ×
   rw [hsplit]
   exact ⟨directRecAV_okP hz hpre hval, directRecAV_mem hz hpre⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

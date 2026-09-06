@@ -80,10 +80,11 @@ hereditary premise — which is why it could be the last row written and
 still cost one line.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 
 universe w
 
@@ -299,4 +300,4 @@ theorem sound_proj_snd {ρ : Nat → V} {ea : AVExpr}
   rw [interp2_proj]
   simpa using ssnd_mem_gen V hA hB hp
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

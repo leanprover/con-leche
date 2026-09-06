@@ -45,7 +45,7 @@ term* nothing — the separation's criterion is the proof-term closure,
 not the import graph, which is S9's own finding.
 -/
 
-namespace Setlec.SetR
+namespace Setlec.Semantics
 
 open Setlec.TT Setlec.TTVerify
 
@@ -502,4 +502,4 @@ theorem checkDeclRun_of {μ : CheckMode} {F : Nat}
   | basisDecl kind => exact declBasisR h
   | indDecl block => exact hind h
 
-end Setlec.SetR
+end Setlec.Semantics

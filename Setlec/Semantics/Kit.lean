@@ -39,7 +39,8 @@ a value is `pt`, and the graph regime never mentions it except to deny
 it.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
 
@@ -372,4 +373,4 @@ theorem interp2_eqE_reflect {ρ : Nat → V} {T a b : AVExpr} {x : V}
     (hx : x ∈ˢ interp2 V ρ (.eqE T a b)) : interp2 V ρ a = interp2 V ρ b :=
   mem_eqv hx
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

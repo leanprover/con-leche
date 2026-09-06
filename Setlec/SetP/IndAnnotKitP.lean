@@ -22,10 +22,11 @@ leaves are the *public* frame's openers: the per-position
 identification is precisely the equation `CtxOkP` asks for.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open Setlec.TT Setlec.TTVerify SetTheory
-open Setlec.SetR (AVExpr)
+open Setlec.Semantics (AVExpr)
 open Setlec (Env Expr Name)
 
 universe w
@@ -142,4 +143,4 @@ theorem ctxOkP_of_walked_openers {env : Env} {m : EnvS2Core V env}
   exact ⟨hwty.1, hwty.2.fvarsBelow, tya, Aa l.1, htya,
     hent l.1 hlt, heq, hok⟩
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

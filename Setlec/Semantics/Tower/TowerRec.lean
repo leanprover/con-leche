@@ -29,7 +29,8 @@ instantiations is not a separate law: the same base goes through with
 conclusion is `app M pt`.
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
 open Setlec.SetTheory.Tower
@@ -490,4 +491,4 @@ theorem recBodyAV_fold_mk {n : Nat} {bs : List V} (h : bs.length = n)
     interp2 V σ (recBodyAV n) = bs.foldl SetTheory.app (σ 1) := by
   rw [recBodyAV_interp, hmaj, map_range_projS_mkTower h]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics

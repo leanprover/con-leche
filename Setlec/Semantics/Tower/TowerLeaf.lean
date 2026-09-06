@@ -34,7 +34,8 @@ instance of the pinned pair former's product membership.  Bit validity
 (stage 4).
 -/
 
-namespace Setlec.SetR.Interp2
+namespace Setlec.Semantics
+open Setlec.SetModel
 
 open SetTheory
 open Setlec.SetTheory.Tower
@@ -531,4 +532,4 @@ theorem directTyAV_fold {w : Nat} {Fs : List AVExpr}
       exact Nat.succ_ne_zero w) hsp',
     towerBodyAV_interp hb]
 
-end Setlec.SetR.Interp2
+end Setlec.Semantics
