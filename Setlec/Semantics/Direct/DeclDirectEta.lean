@@ -184,17 +184,4 @@ theorem declDirectRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     (show envC.find? cvRa.name = none by rw [hnR]; exact hfR)
     (fun _ _ heq => nomatch heq)
 
-/-! ## The dispatch, flag-agnostic -/
-
-/-- The `.indDecl` run dispatch keeps the η-families closed, by the
-kernel's own `directParts?` case split. -/
-theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
-    {env envI : Env} {block : List ConstantInfo}
-    (hE : EtaFamiliesClosed env)
-    (h : DeclIndRunDispatch μ F env block envI) : EtaFamiliesClosed envI := by
-  unfold DeclIndRunDispatch at h
-  split at h
-  · exact declDirectRun_etaClosed hE h
-  · exact declIndEtaClosedRun hE h
-
 end Setlec.Semantics

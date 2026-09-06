@@ -79,17 +79,4 @@ theorem declDirectRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   intro h
   exact h
 
-/-! ## The run-level dispatch
-
-`checkDeclRun_ofEnvFactsE`'s `Ind` slot, post-#175: the direct arm is
-already a run relation, so the dispatch pairs it with `DeclIndRun`.
-Consumers case on the kernel's `directParts?` (the priority gate). -/
-
-/-- The `.indDecl` dispatch at the run level. -/
-def DeclIndRunDispatch (μ : CheckMode) (F : Nat) (env : Env)
-    (block : List ConstantInfo) (env₂ : Env) : Prop :=
-  match Setlec.directParts? env block with
-  | some p => DeclDirectRun μ F env p env₂
-  | none => DeclIndRun μ F env block env₂
-
 end Setlec.Semantics

@@ -1,4 +1,4 @@
-import Setlec.Semantics.Direct.DeclDirect
+import Setlec.Semantics.Direct.DeclDirectSum
 import Setlec.Semantics.Bridge.DeclRun
 import Setlec.Semantics.Bridge.DeclIndRun
 
@@ -61,7 +61,12 @@ theorem checkDeclRun_ofEnvFactsE
         intro hh
         exact declDirectRun_of hh
       | none =>
-        intro hh
-        exact declIndRun_of hh) h
+        cases hds : directSumParts? env block with
+        | some p =>
+          intro hh
+          exact declDirectSumRun_of hh
+        | none =>
+          intro hh
+          exact declIndRun_of hh) h
 
 end Setlec.Semantics
