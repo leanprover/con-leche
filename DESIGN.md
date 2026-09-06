@@ -12,31 +12,43 @@ project prompt and is updated as decisions evolve.
 
 **Where the consistency proof lives** (current, since the SetR removal of
 2026-09-05): the **graded ("P") tier**, `Setlec/SetP/*`, with the
-capstone assembly in `Setlec/Verify/Cached/*`. Six theorems are pinned,
-all at exactly `[propext, Classical.choice, Quot.sound]`. **Two of them
-are the letters** — `no_proof_of_Empty_SPCD_P` (the shipped driver) and
-`no_proof_of_Empty_P` (the pure fueled checker) — and those two are
-hypothesis-free beyond `[SetTheory V]`, the mode witness `hμ` and the
-acceptance itself. The other four are the assembly under them and do
-carry working hypotheses (the invariant, the fold's state conditions);
-they are pinned because a change in the assembly should be visible even
-when a letter's own footprint is unmoved.
+capstone assembly in `Setlec/Verify/Cached/*`, and the statement a
+reader comes for in `Setlec/MainTheorem.lean`.
+
+**Start at the top two rows.** `Setlec.no_proof_of_Empty` and
+`Setlec.no_proof_of_Empty_IO` are the main theorems: they name the
+shipped configuration outright (`cfgOf .verified`), so they carry no
+mode witness and no residue — only `[SetTheory V]` (the standing
+parametricity of the consistency argument, not a hypothesis about the
+input) and the acceptance itself. Everything below them is what they
+are corollaries of: the four *letters*, then the assembly under those,
+which does carry working hypotheses (the invariant, the fold's state
+conditions) and is pinned so that a change in the assembly is visible
+even when a letter's own footprint is unmoved.
 
 | theorem | file | what it says |
 |---|---|---|
-| `Setlec.Cached.no_proof_of_Empty_SPCD_P` | `Setlec/Verify/Cached/MainC.lean` | **the shipped driver's letter** — the binary's verified mode, over the direct-parse cached core it actually runs, never accepts a stream storing a constant of type `Empty` |
-| `Setlec.Cached.checkDeclsSPCachedD_sound_P` | `Setlec/Verify/Cached/MainC.lean` | the acceptance corollary under it: an accepted cached run yields the model invariant `EnvS2PM` at the final environment |
-| `Setlec.Cached.foldSPC_PM` | `Setlec/Verify/Cached/MainC.lean` | the fold that threads that invariant step by step (an assembly lemma: fold-state hypotheses) |
+| `Setlec.no_proof_of_Empty` | `Setlec/MainTheorem.lean` | **THE MAIN THEOREM** — if the checker in its default `--verified` mode accepts a stream, the resulting environment holds no constant of type `Empty` |
+| `Setlec.no_proof_of_Empty_IO` | `Setlec/MainTheorem.lean` | **the same, for the loop the binary runs** — `checkDeclsSPCachedM` in `IO`, for *any* callbacks (a callback sees the fold position and the record, returns `Unit`, and cannot influence the verdict) |
+| `Setlec.Cached.no_proof_of_Empty_SPCD_P` | `Setlec/Verify/Cached/MainC.lean` | the shipped driver's letter, stated for every validating mode at once |
+| `Setlec.Cached.no_proof_of_Empty_SPCD_IO` | `Setlec/Verify/Cached/MainC.lean` | its `IO`-loop sibling |
 | `Setlec.SetP.no_proof_of_Empty_P` | `Setlec/SetP/FoldP.lean` | **the pure letter** — the same conclusion for the pure fueled checker `checkDecls μ (fueledOps μ F)`, at every fuel |
 | `Setlec.SetP.no_proof_of_Empty_P_of` | `Setlec/SetP/FoldP.lean` | its install-tier-conditional form, the shape the harvest closes |
+| `Setlec.Cached.checkDeclsSPCachedD_sound_P` | `Setlec/Verify/Cached/MainC.lean` | the acceptance corollary under the driver's letter: an accepted cached run yields the model invariant `EnvS2PM` at the final environment |
+| `Setlec.Cached.foldSPC_PM` | `Setlec/Verify/Cached/MainC.lean` | the fold that threads that invariant step by step (an assembly lemma: fold-state hypotheses) |
+| `Setlec.Cached.checkDeclsSPCachedM_eq` | `Setlec/Cached/ParsedC.lean` | not a consistency statement but the *computational* one the `IO` letters stand on: the callback loop's result **is** the pure driver's |
 | `Setlec.SetP.no_constant_of_Empty_P` | `Setlec/SetP/CapstoneP.lean` | the business end: an environment carrying the P invariant stores no constant of type `Empty` (the invariant is its hypothesis; the harvest is what discharges it) |
 
 The axiom footprint is **pinned in the tree, not only claimed**:
 `tests/SetlecTests/Axioms.lean` (built by `lake test`, reported by `tests/arena.sh`
 as the `axioms:` line) carries a `#guard_msgs in #print axioms` for each
-of the six, so a drifting axiom footprint is a test failure. The
-module-level dependency closure of the first four is pinned in parallel
-by `tests/proofdeps.sh`.
+of the ten, so a drifting axiom footprint is a test failure. Six of
+them — `no_proof_of_Empty`, `no_proof_of_Empty_IO`,
+`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
+`foldSPC_PM` and `no_proof_of_Empty_P` — additionally have their
+module-level dependency closure pinned by `tests/proofdeps.sh`; the
+two gates measure different things (what a proof term ASSUMES vs which
+modules it REACHES) and neither implies the other.
 
 **Three tiers were retired, by user ruling.** The direct `Expr` set
 model and its consistency proof (`Setlec/Model/*`, 83 files / 62,992
@@ -48897,22 +48909,48 @@ module-level pin measures where the proof term GOES, not what it
 ASSUMES.  So "exactly `[propext, Classical.choice, Quot.sound]`" was a
 sentence in a 48 000-line journal.
 
-Six guards now stand in the test library, one per pinned theorem —
-the two letters and the four assembly steps under them:
-`no_proof_of_Empty_SPCD_P`, `checkDeclsSPCachedD_sound_P`,
-`foldSPC_PM` (the three of `Setlec/Verify/Cached/MainC.lean`),
-`no_proof_of_Empty_P`, `no_proof_of_Empty_P_of`
-(`Setlec/SetP/FoldP.lean`) and `no_constant_of_Empty_P`
-(`Setlec/SetP/CapstoneP.lean`).
+Guards now stand in the test library, one per pinned theorem.  Six
+were written against `f1932977` — the two letters
+(`no_proof_of_Empty_SPCD_P`, `no_proof_of_Empty_P`) and the four
+assembly steps under them (`checkDeclsSPCachedD_sound_P`,
+`foldSPC_PM`, `no_proof_of_Empty_P_of`, `no_constant_of_Empty_P`) —
+and **all six passed first try, at exactly the three standard
+axioms.**  The claim was true; it simply was not checkable.
 
-**All six passed first try, at exactly the three standard axioms.**
-The claim was true; it simply was not checkable.  It is now a build
-error to break it — `lake test` elaborates the module, and
-`tests/arena.sh` reports the `axioms:` line beside layering /
-proofdeps / pindump.
+Four more joined at the landing merge, when `Setlec/MainTheorem.lean`
+and the `IO` loop reached master: `Setlec.no_proof_of_Empty` and
+`Setlec.no_proof_of_Empty_IO` (the two MAIN THEOREMS, now the top of
+the module's table and of this document's opening),
+`Setlec.Cached.no_proof_of_Empty_SPCD_IO`, and
+`Setlec.Cached.checkDeclsSPCachedM_eq`.  The last is not a consistency
+statement but the *computational* one the `IO` letters stand on — the
+callback loop's result IS the pure driver's — and it is pinned for
+exactly that reason: it is what makes the `IO` letters statements about
+the loop the binary runs rather than about a twin.  **Ten guards, all
+at the three standard axioms, all passing.**
+
+It is now a build error to break any of them — `lake test` elaborates
+the module, and `tests/arena.sh` reports the `axioms:` line beside
+layering / proofdeps / pindump / trust-surface.
 
 The module imports the capstones and nothing imports it, so it cannot
-enter any capstone's closure; the proofdeps rows are unmoved.
+enter any capstone's closure.
+
+**The proofdeps roots went from four to six** at the same merge:
+`Setlec.no_proof_of_Empty` and `Setlec.no_proof_of_Empty_IO` are now
+pinned module-wise too, since they are what a reader checks first.  The
+regeneration is +742 rows and **zero drift on the four pre-existing
+labels** — byte-identical to the pin written against `f1932977`, so
+master's main theorem, `IO` loop and task #180 added nothing to the
+letters' closures.  The two new labels measure 371 modules each against
+`SPCD_P`'s 370, and the difference is exactly
+
+    Setlec.MainTheorem
+
+and nothing else, in both directions and for both roots.  That is the
+property worth having and it is now mechanized: **the headline theorems
+reach nothing the letters they wrap do not** — the `IO` sibling
+included, which reaches no module beyond what `MainC` already does.
 
 ### 2. The trust-surface gate (`tests/trust-surface.sh`)
 
@@ -48925,7 +48963,7 @@ quantities, and the project now has all three:
 
 | gate | measures |
 |---|---|
-| `tests/proofdeps.sh` | which MODULES a capstone's proof term reaches |
+| `tests/proofdeps.sh` | which MODULES a pinned root's proof term reaches |
 | `tests/SetlecTests/Axioms.lean` | what the PROOF TERM assumes (logical TCB) |
 | `tests/trust-surface.sh` | what the COMPILED CODE assumes (runtime TCB) |
 

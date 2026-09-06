@@ -1,3 +1,4 @@
+import Setlec.MainTheorem
 import Setlec.Verify.Cached.MainC
 import Setlec.SetP.FoldP
 import Setlec.SetP.CapstoneP
@@ -34,21 +35,54 @@ It is under the `SetlecTests` library (`lake test`), so it can never
 enter a capstone's own dependency closure — `tests/proofdeps.sh` would
 report the door if it ever did.
 
-**The six pinned theorems** — the four capstone roots
-`tests/proofdeps.sh` pins module-wise, plus the two further letters of
-the graded tier:
+**The ten pinned theorems.**  The two main theorems first — those are
+the statements a reader comes for — then the letters they are
+corollaries of, then the assembly under those.  Six of them are also
+`tests/proofdeps.sh`'s roots — `no_proof_of_Empty`,
+`no_proof_of_Empty_IO`, `no_proof_of_Empty_SPCD_P`,
+`checkDeclsSPCachedD_sound_P`, `foldSPC_PM`, `no_proof_of_Empty_P` —
+which pin the MODULES their proof terms reach.  The other four are
+pinned here only.  The two gates measure different things and neither
+implies the other.
 
 | theorem | what it says |
 |---|---|
-| `no_proof_of_Empty_SPCD_P` | the shipped driver's letter |
-| `checkDeclsSPCachedD_sound_P` | the acceptance corollary under it |
-| `foldSPC_PM` | the fold that threads the model invariant |
+| `Setlec.no_proof_of_Empty` | **THE MAIN THEOREM**: an accepted stream yields no constant of type `Empty` |
+| `Setlec.no_proof_of_Empty_IO` | the same, for the callback-carrying `IO` loop the binary runs |
+| `no_proof_of_Empty_SPCD_P` | the shipped driver's letter, at every validating mode |
+| `no_proof_of_Empty_SPCD_IO` | its `IO`-loop sibling |
 | `no_proof_of_Empty_P` | the pure fueled checker's letter |
 | `no_proof_of_Empty_P_of` | its install-tier-conditional milestone shape |
+| `checkDeclsSPCachedD_sound_P` | the acceptance corollary under the driver's letter |
+| `foldSPC_PM` | the fold that threads the model invariant |
+| `checkDeclsSPCachedM_eq` | the `IO` loop's result IS the pure driver's (the bridge the `IO` letters stand on) |
 | `no_constant_of_Empty_P` | the business end at the invariant |
+
+`checkDeclsSPCachedM_eq` is not a consistency statement but a
+*computational* one, and it is pinned for exactly that reason: it is
+what makes the `IO` letters mean something about the loop the binary
+runs rather than about a twin, so its footprint has to be as clean as
+theirs.
 -/
 
 namespace SetlecTests.Axioms
+
+/-! ## The main theorems (`Setlec/MainTheorem.lean`)
+
+The two statements the project exists to make.  Everything below them
+is what they are corollaries of. -/
+
+/--
+info: 'Setlec.no_proof_of_Empty' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms Setlec.no_proof_of_Empty
+
+/--
+info: 'Setlec.no_proof_of_Empty_IO' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms Setlec.no_proof_of_Empty_IO
 
 /-! ## The shipped driver (`Setlec/Verify/Cached/MainC.lean`) -/
 
@@ -69,6 +103,25 @@ info: 'Setlec.Cached.foldSPC_PM' depends on axioms: [propext, Classical.choice, 
 -/
 #guard_msgs in
 #print axioms Setlec.Cached.foldSPC_PM
+
+/--
+info: 'Setlec.Cached.no_proof_of_Empty_SPCD_IO' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms Setlec.Cached.no_proof_of_Empty_SPCD_IO
+
+/-! ## The `IO` loop's bridge (`Setlec/Cached/ParsedC.lean`)
+
+Not a consistency statement — a computational one: the callback-carrying
+loop's result *is* the pure driver's.  It is pinned because it is what
+makes the two `IO` letters above statements about the loop the binary
+actually runs. -/
+
+/--
+info: 'Setlec.Cached.checkDeclsSPCachedM_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms Setlec.Cached.checkDeclsSPCachedM_eq
 
 /-! ## The pure fueled checker (`Setlec/SetP/FoldP.lean`) -/
 

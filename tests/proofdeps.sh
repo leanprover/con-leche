@@ -30,7 +30,10 @@
 # subject.  A gate whose targets do not exist measures nothing.
 #
 # WHAT IT MEASURES NOW: a FROZEN MODULE-LEVEL DEPENDENCY PIN.  For each
-# of the four surviving capstones, `tests/ProofDeps.lean` prints the
+# of the six pinned roots — the two MAIN THEOREMS (`Setlec/
+# MainTheorem.lean`, added 2026-09-07) and the four capstone letters
+# and assembly lemmas they are corollaries of — `tests/ProofDeps.lean`
+# prints the
 # exact set of `Setlec.*` modules its type and proof term reach at the
 # constant level, sorted; `tests/proofdeps-expected.txt` is the frozen
 # expectation and this gate is a diff.  Drift shows up as a named module
@@ -45,7 +48,8 @@
 # tests/proofdeps-expected.txt`) and say so in the seal.  A
 # `MISSING-ROOT` row also fails: a renamed capstone must not silently
 # turn the walk vacuous, and a root whose closure came back empty prints
-# no rows at all, which the diff reports as 351 missing lines.
+# no rows at all, which the diff reports as that root's whole row block
+# missing (~370 lines).
 #
 # Usage: tests/proofdeps.sh [--list]   (--list prints the measured rows,
 # for regenerating the expectation after a batch).
@@ -98,4 +102,5 @@ fi
 [ "$fail" = 0 ] || exit 1
 
 caps=$(cut -d' ' -f1 "$EXPECTED" | sort -u | tr '\n' ' ')
-echo "proofdeps: $rows module rows as pinned across 4 capstones ($caps); doors: $ndoors"
+ncaps=$(cut -d' ' -f1 "$EXPECTED" | sort -u | wc -l)
+echo "proofdeps: $rows module rows as pinned across $ncaps roots ($caps); doors: $ndoors"
