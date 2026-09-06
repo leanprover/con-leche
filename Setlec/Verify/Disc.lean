@@ -482,9 +482,11 @@ theorem structEtaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     DiscV mode env (fun _ => True) (structEtaCert mode C env d a b)
       (structEtaCert mode G env d a b) := by
   unfold structEtaCert
-  refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
-  refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
-  exact structEtaCertWith_disc ih henv hwa hwb hwtb
+  split
+  · refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
+    refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
+    exact structEtaCertWith_disc ih henv hwa hwb hwtb
+  · exact DiscV.pure trivial
 
 theorem structUnitCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :

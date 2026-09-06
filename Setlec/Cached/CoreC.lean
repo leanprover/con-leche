@@ -444,9 +444,13 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 /-- Twin of `structEtaCert`. -/
 def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
     CheckCM Bool := do
-  let tb ← r.inferIO depth b
-  let wtb ← r.whnf depth tb
-  structEtaCertWithI cfg.iotaMode r fe depth a b wtb
+  -- the constructor-shape gate first (D13), as in the spec
+  let sh ← withStore (fun st => etaCtorShapeI fe st a)
+  if sh then
+    let tb ← r.inferIO depth b
+    let wtb ← r.whnf depth tb
+    structEtaCertWithI cfg.iotaMode r fe depth a b wtb
+  else pure false
 
 /-- Twin of `structUnitCert`. -/
 def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :

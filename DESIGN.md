@@ -44014,3 +44014,88 @@ tip: `lake build` warning-free (438 jobs), `lake test`, `tests/arena.sh`
 0 FAIL (tutorial 90/92, e2e 75/75, annot 14/14, flags 8/8 + 14/14,
 no-model sweep as recorded), proofdeps 1 363 rows / doors 0, layering
 0 edges.  No init-full cell (perf after the grant).
+### 8. The eager flag (item 6) — DEFERRED to its own task (2026-09-06, after the D3 grant)
+
+**What it is** (§1): `m_eager_reduce`, dynamic checker state set for
+the duration of ONE argument's domain check when the argument is
+`eagerReduce _ _` (`infer_app`, `type_checker.cpp:170-175`), read at
+exactly two sites — the defeq-side `reduce_nat` guard (`:1008`) and
+the eq-true clause (`:1097`) — where it lifts the fvar guard.  Both
+read sites exist in ours now (`defeqStep`'s fold guard, the E2 guard),
+both read `hasFvar` alone.  Not a mode: a per-call parameter like the
+depth; concrete cores would not need it to compute away.
+
+**Why it is deferred — the two shapes sized against the tree:**
+
+1. *Full threading* (exact): the flag must reach every nested defeq
+   under the check, including those inside `whnf` (the K-rescue type
+   check `to_cnstr_when_K`, eta-struct's type comparison).  The record
+   fields are the per-call state; the spec monad (`CheckM = Except`)
+   has no reader, and the `SimC` proofs relate twin and spec step by
+   step, so the spec must carry it too.  As an explicit argument of
+   the six `CoreFns` fields: **283 body call sites** (`r.whnf d e`,
+   …) and **~770 lemma mentions** (every `Setlec.whnf μ env fuel d e`
+   /`.defeq d a b` statement in `Verify/` and `SetP/`).
+2. *Defeq-cone only*: a `defeqE` grade slot with an `eagerView` (the
+   `inferIO`/`ioView` precedent) or a `Bool` on `defeq` alone — 57 body
+   sites + ~170 lemma mentions, but the whnf-nested corner (K-rescue
+   and eta-struct defeqs inside a `whnf` under an eager check) stays
+   non-eager: a residual in exactly the K-rescue shape the rat-frontier
+   fix was about (bounded by the literal's size, as `Nat.add 2 100000
+   =?= f x` grinds 100 000 unary steps there).  The P side would also
+   need the E slot's claim family: the Step2 claims are stated
+   concretely at `Setlec.defeq μ env fuel`, so the slot needs its own
+   cascade.
+
+**Memo tables** (the coordinator's question): under either shape the
+eager runs get SEPARATE tables (`defeqEC`, and `whnfCoreEC`/`whnfEC`
+if the tower is doubled) — no cross-serving in either direction, so a
+non-eager `false`/stuck entry can never mask an eager success and an
+eager success is never served to a non-eager query; the non-eager
+tables stay as they are.  (Official's failure cache has the same
+subtlety at `failed_before`, keyed on the pair only.)
+
+**Usage**: 1 declaration per stream (init-full-pre2 and
+mathlib-full-pre: `Nat.mul_add_div`), accepted today.  **Status: an
+open COST divergence, not a verdict one** — the flag only enables
+reductions (literal folding, the eq-true whnf) on fvar-bearing sides,
+each verdict-preserving until fuel.  Producers: `grind`'s arithmetic
+modules only.
+
+### 9. Phase 2, fix 4 — D13 landed: the constructor-shape gate before the eta-struct inferences (`agent/divergence-d13`)
+
+**The clause.**  Official `try_eta_struct_core(t, s)`
+(`type_checker.cpp:823-839`) reads `s`'s head — a constructor applied
+to exactly `nparams + nfields` arguments of a non-recursive structure —
+BEFORE `is_def_eq(infer_type(t), infer_type(s))`; on a non-constructor
+side it infers nothing.  Ours (`structEtaCert a b`) inferred and
+whnf'd `b`'s type first and only then let `structEtaCertWith` read
+`a`'s head — two inferences + a whnf per stuck pair per direction that
+official never runs (7 566 stuck-fallback reaches on init-full, task
+#168 census: small today, the class is the audit's).
+
+**The change.**  `etaCtorShape env a` (head a stored constructor, spine
+length `= cnP + cnF`), and `structEtaCert` is `if etaCtorShape env a
+then (the inferences + structEtaCertWith) else pure false`; twins
+`etaCtorShapeC/I` (`StateC.lean`, the `isCtorAppC/I` pattern) gate
+`structEtaCertI`/`structEtaCertNC` through one store read.  The
+capability checks (`caps.eta`, the official `is_non_rec_structure`
+analogue) stay inside `structEtaCertWith`; the gate is exactly the
+syntactic part official reads first.  Verdict-neutral: a failing gate
+is a pair `structEtaCertWith` would have refused at its own head test.
+
+**Proofs.**  `etaCtorShapeI_spec` (`GuardsC`), `etaCtorShape_shiftFrom`
++ the `ite_congr'` step in `structEtaCert_shift` (`Deep`), a `split` in
+`structEtaCert_disc` (`Disc`), the `isFalse` case of `structEtaCert_inv`
+(`InferLemmas`), the gate peel + `by_cases` in `structEtaCertC_sim`
+(`DiscC2`); `_atF`/`_proj` lemmas unchanged (their tactics `split`).
+No new axiom, no `sorry`; capstones at `[propext, Classical.choice,
+Quot.sound]`.
+
+**Receipts** (worktree binary; no init-full cell before the grant):
+`delta_chain` 1.3785 / 1.3981 G, `natop_arg_order` 0.280 / 0.269 G
+(unchanged — neither witness reaches the stuck fallback); gates at
+the tip: `lake build` warning-free (438 jobs), `lake test`,
+`tests/arena.sh` 0 FAIL (tutorial 90/92, e2e 76/76, annot 14/14, flags
+8/8 + 14/14, no-model sweep as recorded), proofdeps 1 363 rows / doors
+0, layering 0 edges.

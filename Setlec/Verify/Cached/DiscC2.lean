@@ -1204,13 +1204,27 @@ theorem structEtaCertC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       (structEtaCertI (cfgOf mode) (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
       (structEtaCert mode (fueledFns mode env) env d a b) := by
   show SimC mode env s₀ RelVC
-    ((coreKnotI mode (mkFEnv env) f).inferIO d j >>= fun tb =>
-      (coreKnotI mode (mkFEnv env) f).whnf d tb >>= fun wtb =>
-      structEtaCertWithI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
-        i j wtb)
-    ((fueledFns mode env).inferIO d b >>= fun tb =>
+    (Setlec.Cached.withStore (fun st => etaCtorShapeI (mkFEnv env) st i) >>=
+      fun sh =>
+      if sh = true then
+        (coreKnotI mode (mkFEnv env) f).inferIO d j >>= fun tb =>
+        (coreKnotI mode (mkFEnv env) f).whnf d tb >>= fun wtb =>
+        structEtaCertWithI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
+          i j wtb
+      else pure false)
+    (if etaCtorShape env a = true then
+      (fueledFns mode env).inferIO d b >>= fun tb =>
       (fueledFns mode env).whnf d tb >>= fun wtb =>
-      structEtaCertWith mode (fueledFns mode env) env d a b wtb)
+      structEtaCertWith mode (fueledFns mode env) env d a b wtb
+    else pure false)
+  -- the constructor-shape gate (D13): one store read, the same `Bool`
+  refine SimC.withStore ?_
+  rw [etaCtorShapeI_spec hdena]
+  by_cases hsh : etaCtorShape env a = true
+  case neg =>
+    rw [if_neg hsh, if_neg hsh]
+    exact SimC.pure hs rfl
+  rw [if_pos hsh, if_pos hsh]
   refine SimC.bind (ih.inferIO hs hdenb hwb) (fun s₁ tb tbx hs₁ hP => ?_)
   obtain ⟨htbd, hwtb⟩ := hP
   refine SimC.bind (ih.whnf hs₁ htbd hwtb) (fun s₂ wtb wtbx hs₂ hP₂ => ?_)

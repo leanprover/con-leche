@@ -1081,6 +1081,19 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
     | _ => pure false
   | _ => pure false
 
+/-- The constructor shape official's `try_eta_struct_core` tests before
+inferring anything (`type_checker.cpp:824-829`): the candidate's head is
+a stored constructor applied to exactly its parameters and fields.
+(`structEtaCertWith` re-reads the same head; this is the gate that
+keeps the inferences behind it.) -/
+def etaCtorShape (env : Env) (a : Expr) : Bool :=
+  match a.getAppFn with
+  | .const c _ =>
+    match env.find? c with
+    | some (.ctorInfo _ cnP cnF) => a.getAppArgs.length == cnP + cnF
+    | _ => false
+  | _ => false
+
 /-- Structural eta certification for a stored eta-capable structure:
 `a` is a fully applied constructor of a structure whose recorded
 capabilities include eta, `b` inhabits that structure type, the
@@ -1090,10 +1103,17 @@ type application is additionally certified against the type former's
 telescope (the memberships the stored eta law consumes). -/
 def structEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
-  -- task #172 B4: io grade
-  let tb ← r.inferIO depth b
-  let wtb ← r.whnf depth tb
-  structEtaCertWith mode r env depth a b wtb
+  -- The constructor-shape test FIRST (the divergence audit's D13):
+  -- official `try_eta_struct_core` (`type_checker.cpp:824-829`) reads
+  -- `s`'s head and arity syntactically and infers nothing unless they
+  -- fit; ours inferred and whnf'd `b`'s type on every stuck pair, both
+  -- directions, before `structEtaCertWith` looked at `a`'s head.
+  if etaCtorShape env a then
+    -- task #172 B4: io grade
+    let tb ← r.inferIO depth b
+    let wtb ← r.whnf depth tb
+    structEtaCertWith mode r env depth a b wtb
+  else pure false
 
 /-- Unit-likeness certification: `a` and `b` inhabit the same stored
 unit-like family (the types are definitionally equal and the type
