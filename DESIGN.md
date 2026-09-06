@@ -50202,6 +50202,18 @@ statement-neutral and is left as it was.
   `Main.lean`, `tests/`, `scripts/`, `README.md` or this document's
   opening (the historical sections above keep the names as history).
 
-The merge with master (`agent/ioshape`, `agent/indexed`) happens at
-the landing grant, their content kept and this renaming applied on top;
-the gates are re-run there and the numbers appended to this section.
+### Gates after the master merge (`6c364377`: master `5d39242d` = `agent/ioshape` + `agent/indexed`, their content kept, the renaming and the `hμ` threading applied on top — eight more `BridgeCS3` twins carry `hμ`, among them the indexed lane's `checkDirectFieldSortsIS_sim`; `tests/proofdeps-expected.txt` regenerated once more: the five remaining `Setlec.Kernel.CoreCfg` rows go, nothing else moves)
+
+* `lake build`: exit 0, warning-free.
+* `lake test`: exit 0; axioms **pinned, 11 theorems at `[propext,
+  Classical.choice, Quot.sound]`** (master's 11 guards after ioshape).
+* `tests/arena.sh`: exit 0 — layering `base 254 / P 167 / caps 3 /
+  umbrella 1; 0 base->lane edges, 0 impl->theory`; proofdeps `2522
+  module rows as pinned across 7 roots; doors: 0`; trust surface `18
+  escapes in 4 allowlisted files (432 scanned); 0 outside`; arena
+  tutorial 90/92; e2e 96/96; annot 14/14; retired flags 8/8; mode
+  flags 16/16; progress lane 6/6; trusted sweep `138 arena + 96 e2e +
+  14 annot as expected (3 recorded divergences)`.
+* init-full-pre2 `--pre`, 16 GB cap: `--verified` **exit 0, 60 549
+  accepted** (102 s wall); `--trusted` **exit 0, 60 549 accepted**
+  (96 s wall).
