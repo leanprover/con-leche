@@ -291,7 +291,7 @@ index: the parse folds the basis and `quot` blocks and drops
 taint-skipped records, so the two drift apart by a stream-dependent
 amount.  Calibrate by NAME. -/
 def checkDeclsProgressIO (mode : Lech.CheckMode) (err : IO.FS.Stream)
-    (stride total t0 : Nat) :
+    (stride total t0 : Nat) (trace : Bool) :
     List Lech.Cached.DeclC → Nat → Lech.FEnv → Lech.Cached.CState →
       IO (Except (Lech.CheckError × Nat) Lech.Env)
   | [], _, fe, _ => return .ok fe.env
@@ -302,8 +302,34 @@ def checkDeclsProgressIO (mode : Lech.CheckMode) (err : IO.FS.Stream)
         {Lech.Cached.declCLabel pd} \
         t={Lech.Cached.msSecs (now - t0)}s\n"
       err.flush
+    -- THE ROUTE TRACE (`LECH_ROUTE_TRACE`, task #193): one line per
+    -- inductive block naming the install route the checker is about
+    -- to take — the recognisers run here on the same environment the
+    -- step sees, so the line is exactly the dispatch of
+    -- `checkIndDeclSF` (`Lech/Cached/CheckerC.lean`).  This is the
+    -- instrument `tests/native-audit.sh` compares against the
+    -- preprocessor's `native` lines: a block left native there must
+    -- read `struct` or `sum` here.
+    if trace then
+      match pd with
+      | .indDecl block =>
+        let route :=
+          if (Lech.directPartsF? fe block).isSome then "struct"
+          else if (Lech.directSumPartsF? fe block).isSome then "sum"
+          else "modeled"
+        err.putStr s!"lech: route \
+          {(block.head?.map (·.name)).getD .anonymous} {route}\n"
+        err.flush
+      | .basisDecl k =>
+        -- a pinned basis block: matched by the parse before any
+        -- recogniser runs, installed from the pin
+        err.putStr s!"lech: route \
+          {(k.decls.head?.map (·.name)).getD .anonymous} basis\n"
+        err.flush
+      | _ => pure ()
     match Lech.Cached.checkDeclStepIdxC mode (i, fe) pd s with
-    | .ok ((i', fe'), s') => checkDeclsProgressIO mode err stride total t0 ds i' fe' s'
+    | .ok ((i', fe'), s') =>
+      checkDeclsProgressIO mode err stride total t0 trace ds i' fe' s'
     | .error e => return .error e
 
 /-- The progress heartbeat's stride (`LECH_PROGRESS=<stride>`;
@@ -357,6 +383,11 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     let stride ← match ← progressStride with
       | .error msg => IO.eprintln s!"lech: {msg}"; return 3
       | .ok n => pure n
+    -- The route trace (`LECH_ROUTE_TRACE`, task #193): one `lech:
+    -- route <block> <struct|sum|modeled>` line per inductive block,
+    -- on the progress lane (so a traced run is as unverified as a
+    -- heartbeat run, and says so).
+    let trace := (← IO.getEnv "LECH_ROUTE_TRACE").isSome
     let t0 ← IO.monoMsNow
     -- Every VERDICT line names the mode (2026-09-07): a `--trusted`
     -- run — the unverified lane — must never be mistaken for a
@@ -447,8 +478,8 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
             (fold {Lech.Cached.msSecs (now - tParse)}s)"
           (← IO.getStderr).flush
       let verdict ←
-        if stride > 0 then
-          checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0
+        if stride > 0 || trace then
+          checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0 trace
             decls.toList 0 (Lech.mkFEnv Lech.Env.empty) {}
         else
           pure (Lech.Cached.checkDeclsSPCachedD mode decls.toList)
@@ -557,6 +588,17 @@ def usage : String := String.intercalate "\n" [
   "                    calls checkDeclsSPCachedD, the function the main",
   "                    theorem (Lech.no_proof_of_False) is about; a",
   "                    run with it is not covered by that theorem.",
+  "  LECH_ROUTE_TRACE=1",
+  "                    the install-route audit (task #193): one",
+  "                    'lech: route <block> <struct|sum|modeled>' line",
+  "                    on STDERR per inductive block, naming the route",
+  "                    the checker takes for it (the direct structure",
+  "                    route, the direct sum/indexed route, or the",
+  "                    preprocessor's model).  tests/native-audit.sh",
+  "                    compares these against lech-preprocess's",
+  "                    'native' lines: a block the predicate leaves",
+  "                    native must read struct or sum here.  Runs on",
+  "                    the progress lane's UNVERIFIED fold (above).",
   "",
   "  --pre             assert FILE is already preprocessed output of",
   "                    lech-preprocess (or the stock",

@@ -165,6 +165,18 @@ if tests/pindump.sh; then :; else fail=1; fi
 # and neither sees the other's.
 if tests/trust-surface.sh; then :; else fail=1; fi
 
+# THE NATIVE-PREDICATE AUDIT (task #193).  `lech-preprocess` leaves a
+# block unmodelled when `lechNative` says the checker installs it
+# directly; the checker installs it directly when a RECOGNISER takes
+# it.  The predicate is a hand-written mirror of the recognisers over a
+# second `Expr` type and drifted once at Mathlib scale (a former
+# declared at a definition: `numIndices` said "indexed family", the
+# recogniser's telescope pin said "no" — a "missing model" decline).
+# This runs both over every good arena fixture, block by block
+# (`LECH_ROUTE_TRACE`, Main.lean), and fails on any native block the
+# recogniser rejects.  `tests/native-audit.sh --full` adds init-full.
+if tests/native-audit.sh; then :; else fail=1; fi
+
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
 # theorems, the four letters, the assembly under them and the `IO`
 # loop's bridge — and, since task #181, the `False` letters — carry `#guard_msgs in #print axioms`
