@@ -586,7 +586,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvS2PM V μ env)
   have hwf1 : EnvWF ⟨punitA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
   obtain ⟨mp1⟩ := extendPUnitP mp hf1  hwf1
   have hP1 : (⟨punitA :: env.consts⟩ : Env).find? punitName
       = some punitA := by
@@ -596,7 +596,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvS2PM V μ env)
   have hwf2 : EnvWF ⟨punitUnitA :: punitA :: env.consts⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     show Expr.constsResolve _ punitUnitA.toConstantVal.type = true
     have hf : (⟨punitUnitA :: punitA :: env.consts⟩ : Env).find?
         punitName = some punitA := by
@@ -624,7 +624,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvS2PM V μ env)
       ⟨punitRecA :: punitUnitA :: punitA :: env.consts⟩ := by
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
-      (fun _ _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     · show Expr.constsResolve _ punitRecA.toConstantVal.type = true
       rw [show punitRecA.toConstantVal.type
           = Expr.forallE (Name.anonymous.str "motive")
@@ -1888,7 +1888,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
   have hwf1 : EnvWF ⟨natA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
   have hf2 : (⟨natA :: env.consts⟩ : Env).find? natZeroA.name = none :=
     Option.isNone_iff_eq_none.mp h2
   obtain ⟨mp1⟩ := extendNatP mp hf1
@@ -1901,7 +1901,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
   have hwf2 : EnvWF ⟨natZeroA :: natA :: env.consts⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     show Expr.constsResolve _ natZeroA.toConstantVal.type = true
     have hf : (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natName
         = some natA := by
@@ -1924,7 +1924,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
   have hwf3 : EnvWF ⟨natSuccA :: natZeroA :: natA :: env.consts⟩ := by
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     show Expr.constsResolve _ natSuccA.toConstantVal.type = true
     have hf : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩
         : Env).find? natName = some natA := by
@@ -1959,7 +1959,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
       rw [Setlec.Env.find?_cons, if_neg (by decide)]; exact hS3
     refine EnvWF.cons hwf3 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
-      (fun _ _ heq => nomatch heq)⟩
+      (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     · show Expr.constsResolve _ natRecA.toConstantVal.type = true
       rw [show natRecA.toConstantVal.type
           = Expr.forallE (Name.anonymous.str "motive")

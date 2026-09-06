@@ -106,19 +106,7 @@ theorem no_constant_of_Empty_P (mp : EnvS2PM V μ env)
           (Level.substFn (fun _ => 0)
             ci.toConstantVal.levelParams []) :=
         (Option.some.inj hta).symm
-      -- a tower entry's type is a telescope, never `Empty`
-      have hnt : c.isTowerEntry = false := by
-        cases c with
-        | projInfo e =>
-          cases htw : e.tower
-          · simp [ConstantInfo.isTowerEntry, htw]
-          · exfalso
-            have hstrip := mp.tower_ty _ hc e rfl htw
-            simp only [ConstantInfo.toConstantVal] at hty
-            rw [hty] at hstrip
-            simp [Expr.stripPis] at hstrip
-        | _ => rfl
-      have hmem := mp.mem_typeP c hc hnt (fun _ => 0) _ hta0
+      have hmem := mp.mem_typeP c hc (fun _ => 0) _ hta0
         (fun _ => (SetTheory.empty : V))
       -- **the pin, discharged by the carrier itself** (task #161 S7):
       -- `Empty` is stored in this branch, so `basis_pinnedL` — the

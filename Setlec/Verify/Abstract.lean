@@ -131,7 +131,7 @@ theorem looseBVarsBounded_abstract1 {d : Nat} :
 
 /-! ## Preservation through `annotate` -/
 
-/-- Inversion for `annotate` on projections: a native projection-table
+/-- Inversion for `annotate` on projections: a tower projection-table
 entry typed the node (which stays, with the display name normalized
 to the type's head).  Task #175 wiring W5: the elimination fallbacks
 are gone, so this is the only accepting arm. -/
@@ -141,7 +141,7 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     ∃ e₂ tt te, annotateCore mode env fuel d e = .ok e₂ ∧
       inferTypeIO mode env fuel d e₂ = .ok tt ∧ whnf mode env fuel d tt = .ok te ∧
       (∃ T us entry, te.getAppFn = .const T us ∧
-          env.findProj? T i = some entry ∧ entry.native = true ∧
+          env.findProj? T i = some entry ∧ entry.tower = true ∧
           te.getAppArgs.length = entry.numParams ∧
           e' = .proj T i e₂) := by
   rw [annotateCore_succ] at h

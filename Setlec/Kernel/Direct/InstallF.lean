@@ -203,78 +203,28 @@ def checkDirectRuleF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
   pure rhsA
 
 
-/-- `checkDirectProj` through the index.  `rt?` is the incrementally
-threaded constructor residual `directProjResid T lps nP cvCa.type i`
-(the caller's invariant — `checkDirectProjsS` maintains it by
-construction), so the generated projection type is read off it in one
-step instead of redoing the `i` earlier substitutions
-(`directProjTy_eq_resid`). -/
-def checkDirectProjEntryF (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (resSort guard : Level) (cvCa : ConstantVal)
-    (pty : Expr) (fe : FEnv) (i : Nat) : m FEnv := do
-  unless !pty.hasFvar && pty.looseBVarsBounded 0 do
-    throw (.notImplemented "direct structure: projection type scoping")
-  let σ := directGuardSigma resSort lps guard
-  let ptyσ := pty.instantiateLevelParams lps σ
-  let ctyσ := cvCa.type.instantiateLevelParams lps σ
-  let ptyA ← ops.annotate fe.env 0 ptyσ
-  unless ptyA.allLevelParamsDefined lps && ptyA.constsResolveF fe &&
-      ptyA.looseBVarsBounded 0 && !ptyA.hasFvar do
-    throw (.notImplemented "direct structure: projection type wellformedness")
-  unless (ptyA.stripPis (nP + 1)).isSome do
-    throw (.notImplemented "direct structure: projection type telescope")
-  let sty ← ops.inferType fe.env 0 ptyA
-  let _u ← ops.ensureSort fe.env 0 sty
-  unless (fe.find? (projFnName T i)).isNone do
-    throw (.invalid "projection name taken")
-  checkProjShape (m := m) ptyA ctyσ nP nF
-  let (fvsP, prest) ← unwrapOr (openPisAtFvarsF nP ptyA 0)
-    (.notImplemented "direct structure: projection type telescope")
-  let famApp := Expr.mkAppN (.const T σ) fvsP
-  let (sbs, _) ← unwrapOr (prest.stripPis 1)
-    (.notImplemented "direct structure: projection subject telescope")
-  let sdom ← unwrapOr ((sbs[0]?).map (·.2.1))
-    (.notImplemented "direct structure: projection subject telescope")
-  unless ← ops.isDefEq fe.env nP sdom famApp do
-    throw (.notImplemented "direct structure: projection subject domain")
-  let (tFvs, resid) ← unwrapOr (openPisAtFvars 1 prest nP)
-    (.notImplemented "direct structure: projection subject telescope")
-  let tfv ← unwrapOr tFvs[0]?
-    (.internal "direct structure: projection subject index")
-  let (cdomsP, _) ← unwrapOr (Expr.instPisAtF fvsP ctyσ)
-    (.notImplemented "direct structure: projection parameter telescope")
-  checkDirectDomsAtF ops fe 0 fvsP cdomsP nP
-  let projArgs := (List.range i).map fun j => Expr.proj T j tfv
-  let (_, cresid) ← unwrapOr (Expr.instPisAtF (fvsP ++ projArgs) ctyσ)
-    (.notImplemented "direct structure: projection field telescope")
-  let fdom ← unwrapOr (match cresid with
-      | .forallE _ d _ _ => some d
-      | _ => none)
-    (.notImplemented "direct structure: projection field telescope")
-  unless ← ops.isDefEq fe.env (nP + 1) resid fdom do
-    throw (.notImplemented "direct structure: projection residual")
-  pure (fe.push (.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, resSort,
-    true, false, true⟩))
-
-/-- `checkDirectProj` through the index (the entry decision, the
-guard level). -/
-def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (resSort : Level) (slots : List Bool)
-    (guards : List Level) (cvTa cvCa : ConstantVal) (rt? : Option Expr)
-    (fe : FEnv) (i : Nat) : m FEnv :=
-  if slots.getD i false then do
-    let pty ← unwrapOr (directProjTyR T lps nP nF i cvTa.type rt?)
-      (.notImplemented "direct structure: projection type")
-    if directSlotAdmit resSort lps cvCa.type nP guards i then
-      checkDirectProjEntryF ops T C lps nP nF resSort (guards.getD i .zero)
-        cvCa pty fe i
-    else do
-      unless (fe.find? (projFnName T i)).isNone do
-        throw (.invalid "projection name taken")
-      pure (fe.push (.projInfo
-        (directInertEntry T i lps nP C nF (guards.getD i .zero) resSort)))
-  else pure fe
+/-- `checkDirectProjTable` through the index (task #175 S1). -/
+def checkDirectProjTableF (T C : Name) (lps : List Name) (nP nF : Nat)
+    (resSort : Level) (guards : List Level) (cvCa : ConstantVal) (fe : FEnv) :
+    m FEnv := do
+  let bodies ← unwrapOr (directProjBodies T nP nF cvCa.type)
+    (.internal "direct structure: projection bodies")
+  -- the bodies' scoping, validated once at insertion (the stage's own
+  -- guard, what `EnvWF`'s table clause records): fvar-free, level
+  -- parameters within the structure's, resolving, scoped at the
+  -- parameters and the subject; one per field
+  unless bodies.size = nF ∧ bodies.all (fun b => !b.hasFvar &&
+      b.allLevelParamsDefined lps && b.constsResolveF fe &&
+      b.looseBVarsBounded (nP + 1)) do
+    throw (.internal "direct structure: projection body scoping")
+  -- the projection-function name family (the modeled route's, the key
+  -- of its η-family predicate) must be free too: a direct family has
+  -- no projection functions, and the model's η law for the block is
+  -- discharged by the tower, never by `EtaFamilyStored`
+  unless (List.range nF).all (fun j => (fe.find? (projFnName T j)).isNone) do
+    throw (.invalid "projection name family taken")
+  unless (fe.find? (projTableName T)).isNone do
+    throw (.invalid "projection table taken")
+  pure (fe.push (.projInfo ⟨T, lps, nP, C, nF, resSort, bodies, guards, true⟩))
 
 end Mirrors
-
-end Setlec

@@ -359,7 +359,7 @@ theorem deltaP_of (m : EnvS2Core V env) (hdi : AcvalDefnInstP m) :
             (value.instantiateLevelParams cv.levelParams us)
             e.getAppArgs := (Option.some.inj hud).symm
         exact deltaP_core m hfn hfind rfl hlen
-          (by obtain ⟨-, -, -, -, -, -, ht⟩ :=
+          (by obtain ⟨-, -, -, -, -, -, ht, -⟩ :=
                 m.wf _ (find?_mem hfind)
               exact (ht cv value rfl).1)
           (acvalDefnInstP_subst hdi φ (Or.inr (find?_mem hfind))) hea

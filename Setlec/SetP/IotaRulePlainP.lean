@@ -226,7 +226,7 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     have hta : denoteP mp.base2.acval envSelf ψ 0 cvt.type = some ta := by
       rwa [hciTcv] at hta0
     exact ⟨ta, hta, fun ρ =>
-      ⟨⟨_, mp.mem_typeP ciT (Env.find?_mem hciTS) (Setlec.isTowerEntry_false_of_find? hciTS (fun _ _ h => Name.noConfusion h)) ψ ta hta0 ρ⟩,
+      ⟨⟨_, mp.mem_typeP ciT (Env.find?_mem hciTS) ψ ta hta0 ρ⟩,
         mp.type_okP ciT (Env.find?_mem hciTS) ψ ta hta0 ρ⟩⟩
   -- the equation head and its three arguments
   obtain ⟨ℓA, hheadEq⟩ : ∃ ℓA,

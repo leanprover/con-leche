@@ -565,6 +565,6 @@ theorem declIndRun_of
   exact ⟨hsplit, Or.inl ⟨cvT, capsT, cvC, nP, nF, hIfilt, hCfilt,
     envM, envR, indMembersRunRS _ hmemFold, indRecsRunRS _ hrecsFold,
     hres, hprojFresh, envP,
-    projInstallRunRS (List.range nF) hprojFold, templates_of _ h⟩⟩
+    projInstallRunRS (List.range nF) hprojFold, templates_of h⟩⟩
 
 end Setlec.Semantics

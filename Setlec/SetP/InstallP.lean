@@ -124,13 +124,13 @@ theorem denoteP_cons_mono {acval : Name → (Name → Nat) → AVExpr}
     {ea : AVExpr} (h : denoteP acval env ψ d e = some ea) :
     denoteP (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
       = some ea := by
-  by_cases htw : ∃ entry : Setlec.ProjEntry, c₀ = .projInfo entry ∧
-      entry.tower = true
-  · obtain ⟨entry, rfl, htw⟩ := htw
+  by_cases htw : ∃ tbl : Setlec.ProjTable, c₀ = .projInfo tbl ∧
+      tbl.tower = true
+  · obtain ⟨tbl, rfl, htw⟩ := htw
     refine denoteP_envExtend_mono_at (findPreserved_cons hfresh)
       (litGuardsMono_cons hfresh)
       (fun sn j e' h0 h1 htw' => findProj?_cons_tower sn j e' h0 h1 htw')
-      d e hcb (hat entry rfl htw) ?_
+      d e hcb (hat tbl rfl htw) ?_
     rw [denoteP_acvalWith_fresh hfresh]
     exact h
   · refine denoteP_cons_fresh_mono hfresh ?_ ψ d e hcb h
@@ -198,17 +198,14 @@ structure ConsHeadP (env : Env) (c₀ : ConstantInfo)
     (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
     ∀ (ψ : Name → Nat) (t : VExpr),
       pinnedDirectT c₀.name ψ = some t → (A ψ).erase = t
-  /-- a native head projection entry is tower-backed (`ProjOkT`'s
-  head; task #175 W6) -/
-  projHead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
-    entry.tower = true
-  /-- a head tower entry's slot is mentioned by no stored piece, so the
-  store's readings survive the cons (task #175 W4c, module 4; vacuous
-  at every other head — `ConsCrossEnv.ofNtc`) -/
+  /-- a head tower table's slots are mentioned by no stored piece, so
+  the store's readings survive the cons (task #175 W4c, module 4;
+  vacuous at every other head — `ConsCrossEnv.ofNtc`) -/
   projTower : ConsCrossEnv env c₀
-  /-- a head tower entry carries its head data at the extension -/
-  projTowerHead : ∀ entry, c₀ = .projInfo entry → entry.tower = true →
-    Setlec.TowerHead ⟨c₀ :: env.consts⟩ entry
+  /-- a head tower table carries its head data, at every field, at the
+  extension (task #175 S1) -/
+  projTowerHead : ∀ tbl, c₀ = .projInfo tbl → tbl.tower = true →
+    ∀ i, i < tbl.numFields → Setlec.TowerHead ⟨c₀ :: env.consts⟩ (tbl.entry i)
   /-- a head recursor's rules' constructors are stored
   (`RecCtorsStored`'s head) -/
   ctorsHead : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
@@ -226,16 +223,15 @@ theorem ConsHeadP.ofBasis {c₀ : ConstantInfo}
     (hpinned : ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name)
     (hleaf : ∀ (ψ : Name → Nat) (t : VExpr),
       pinnedDirectT c₀.name ψ = some t → (A ψ).erase = t)
-    (hnotproj : ∀ entry, c₀ ≠ .projInfo entry)
+    (hnotproj : ∀ tbl, c₀ ≠ .projInfo tbl)
     (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (Setlec.RecRule.ctor r)
           = some (.ctorInfo cvj cnP cnF)) :
     ConsHeadP env c₀ A :=
   ⟨hwf, hvclosed, fun _ => ⟨hpinned, hleaf⟩,
-    fun entry heq => absurd heq (hnotproj entry),
-    fun entry heq => absurd heq (hnotproj entry),
-    fun entry heq => absurd heq (hnotproj entry), hctors⟩
+    fun tbl heq => absurd heq (hnotproj tbl),
+    fun tbl heq => absurd heq (hnotproj tbl), hctors⟩
 
 /-- **The head obligations of an ordinary (non-reserved) cons**: the
 pin clause is vacuous. -/
@@ -244,9 +240,7 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
     (hwf : EnvWF ⟨c₀ :: env.consts⟩)
     (hvclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase))
     (hnres : Setlec.reservedBasisNames.contains c₀.name = false)
-    (hprojHead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
-      entry.tower = true)
-    (hprojTower : ∀ entry, c₀ = .projInfo entry → entry.tower = false)
+    (hprojTower : ∀ tbl, c₀ = .projInfo tbl → tbl.tower = false)
     (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (Setlec.RecRule.ctor r)
@@ -254,8 +248,8 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
     ConsHeadP env c₀ A :=
   ⟨hwf, hvclosed,
     fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
-    hprojHead, ConsCrossEnv.ofNtc hprojTower,
-    fun entry heq htw => absurd ((hprojTower entry heq).symm.trans htw)
+    ConsCrossEnv.ofNtc hprojTower,
+    fun tbl heq htw => absurd ((hprojTower tbl heq).symm.trans htw)
       (by decide),
     hctors⟩
 
@@ -291,9 +285,7 @@ def coreCons (m : EnvS2Core V env) {c₀ : ConstantInfo}
         rw [show acvalWith m.acval c₀.name A c₀.name = A from
           acvalWith_self]
         exact (hh.pin hres).2 ψ t hp⟩)
-  proj_ok := ProjOkT.cons m.proj_ok hfresh
-    hh.projHead
-    hh.projTowerHead
+  proj_ok := ProjOkT.cons m.proj_ok hfresh hh.projTowerHead
   rec_ctors := Setlec.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
   acval_closed := acvalWith_closed m.acval_closed hAclosed
   acval_params := acvalWith_params m.acval_params hAparams
@@ -320,7 +312,7 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
       denoteP (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, AnnotOkP V ρ ta)
-    (hmemNew : c₀.isTowerEntry = false → ∀ (ψ : Name → Nat) (ta : AVExpr),
+    (hmemNew : ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp2 V ρ (A ψ) ∈ˢ interp2 V ρ ta)
@@ -388,18 +380,18 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
           ((hcompM ψ _ (hbound _ h).1 (hh.projTower.type h) hta').symm.trans
             hta)
       exact mp.type_okP c h ψ ta' hta' ρ
-  have hmt : ∀ c ∈ (⟨c₀ :: env.consts⟩ : Env).consts, c.isTowerEntry = false →
+  have hmt : ∀ c ∈ (⟨c₀ :: env.consts⟩ : Env).consts,
       ∀ (ψ : Name → Nat) (ta : AVExpr),
       denoteP (acvalWith mp.base2.acval c₀.name A)
           ⟨c₀ :: env.consts⟩ ψ 0 c.toConstantVal.type = some ta →
       ∀ ρ : Nat → V,
         interp2 V ρ (acvalWith mp.base2.acval c₀.name A c.name ψ)
           ∈ˢ interp2 V ρ ta := by
-    intro c hc hnt ψ ta hta ρ
+    intro c hc ψ ta hta ρ
     rcases List.mem_cons.mp hc with rfl | h
     · rw [show acvalWith mp.base2.acval c.name A c.name = A from
         acvalWith_self]
-      exact hmemNew hnt ψ ta hta ρ
+      exact hmemNew ψ ta hta ρ
     · obtain ⟨ta', hta'⟩ := mp.type_reads c h ψ
       obtain rfl : ta' = ta :=
         Option.some.inj
@@ -407,7 +399,7 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
             hta)
       rw [show acvalWith mp.base2.acval c₀.name A c.name
             = mp.base2.acval c.name from acvalWith_ne (hne _ h)]
-      exact mp.mem_typeP c h hnt ψ ta' hta' ρ
+      exact mp.mem_typeP c h ψ ta' hta' ρ
   have hdr : ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
       ((∃ hint : ReducibilityHint,
           ConstantInfo.defnInfo cv value hint
@@ -450,11 +442,6 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
     type_reads := htr
     type_okP := hto
     mem_typeP := hmt
-    tower_ty := by
-      intro c hc e hce htw
-      rcases List.mem_cons.mp hc with rfl | h
-      · exact (hh.projTowerHead e hce htw).2.2.2.2.2.2.2
-      · exact mp.tower_ty c h e hce htw
     defn_reads := hdr
     nat_heads := hnh
     nat_ops := hnat_ops
@@ -519,7 +506,7 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     ∃ mp' : EnvS2PM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A :=
   declStepPM_of_cons_guarded mp hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk
-    (fun _ => hmemNew) hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
+    hmemNew hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
     htower_ok
 
 end Setlec.SetP

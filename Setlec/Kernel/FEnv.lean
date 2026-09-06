@@ -84,12 +84,18 @@ def push (fe : FEnv) (ci : ConstantInfo) : FEnv :=
   ⟨⟨ci :: fe.env.consts⟩, fe.idx.insert ci.name (fe.visibleBelow, ci),
    fe.visibleBelow + 1⟩
 
+/-- Indexed projection-table lookup (`= Env.findProj?` for `mkFEnv`). -/
+def findProj? (fe : FEnv) (T : Name) (i : Nat) : Option ProjEntry :=
+  match fe.find? (projTableName T) with
+  | some (.projInfo tbl) => if i < tbl.numFields then some (tbl.entry i) else none
+  | _ => none
+
 /-- `towerSlotsAll` through the index. -/
 def towerSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=
   (List.range nF).all fun j =>
-    match fe.find? (projFnName T j) with
-    | some (.projInfo e) => e.tower
-    | _ => false
+    match fe.findProj? T j with
+    | some e => e.tower
+    | none => false
 
 /-- `recSlotsAll` through the index. -/
 def recSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=
@@ -97,12 +103,6 @@ def recSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=
     match fe.find? (projFnName T j) with
     | some (.recInfo _ _ _ _) => true
     | _ => false
-
-/-- Indexed projection-table lookup (`= Env.findProj?` for `mkFEnv`). -/
-def findProj? (fe : FEnv) (T : Name) (i : Nat) : Option ProjEntry :=
-  match fe.find? (projFnName T i) with
-  | some (.projInfo e) => some e
-  | _ => none
 
 end FEnv
 

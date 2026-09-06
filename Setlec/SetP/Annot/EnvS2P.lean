@@ -2,6 +2,7 @@ import Setlec.SetP.Step2.AssemblyP
 import Setlec.Semantics.EnvFacts
 import Setlec.Semantics.DivModEval
 import Setlec.Semantics.SpineV
+import Setlec.Verify.ProjTele
 
 /-!
 # `EnvS2PM` — the P-tier environment invariant (task #161, P4)
@@ -670,12 +671,20 @@ docstring): the entry's stored data agrees with the stored former and
 constructor (whose η capability is the entry's at a non-`Prop` family
 — task #175 W4c/O4), the O5 bound, and at every level instantiation
 the typing law and the iota law hold under the `Prop` guard at the
-entry's own type reading and the constructor's, and the family's
-structural-η law holds (clause (C), `TowerEtaLawP`). -/
+entry's own body reading and the constructor's, and the family's
+structural-η law holds (clause (C), `TowerEtaLawP`).
+
+Task #175 S1: the entry stores a *body* scoped at the parameters and
+the subject, not a type; the typing law is stated over the reading
+of `projTele (nP + 1) body` — the body under `nP + 1` dummy binders
+(`Setlec/Verify/ProjTele.lean`) — whose `instPisAt` peel along the
+parameters and the subject is exactly the checker's one
+`instantiateList` (`ProjEntry.typeAt`, `instPisAt_typeAt`).  The
+dummy binders carry the reading only; the law never reads them. -/
 def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
     (m : EnvS2Core V env) (φ : Name → Nat)
     (T : Name) (i : Nat) (entry : ProjEntry) : Prop :=
-  entry.native = true ∧ entry.structName = T ∧ entry.idx = i ∧
+  entry.structName = T ∧ entry.idx = i ∧
   i < entry.numFields ∧
   (∃ (cvT : ConstantVal) (capsT : IndCaps),
     env.find? T = some (.indInfo cvT capsT) ∧
@@ -693,7 +702,8 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
       -- (A) the typing law
       (∃ Ta : AVExpr,
         denoteP m.acval env φ 0
-          (entry.ty.instantiateLevelParams entry.levelParams us) = some Ta ∧
+          (Setlec.projTele (entry.numParams + 1)
+            (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta ∧
         (TowerGuardAt φ entry us →
         ∀ (ρ : Nat → V) (vs : List AVExpr) (x rest : AVExpr),
           vs.length = entry.numParams →
@@ -759,22 +769,16 @@ structure EnvS2PM (μ : CheckMode) (env : Env) where
   type_okP : ∀ c ∈ env.consts, ∀ (ψ : Name → Nat) (ta : AVExpr),
     denoteP base2.acval env ψ 0 c.toConstantVal.type = some ta →
     ∀ ρ : Nat → V, AnnotOkP V ρ ta
-  /-- stored constants inhabit their types' readings — except the
-  tower-backed projection-table entries (task #175 W4c P3 module 7):
-  a table entry is not a term (`inferTypeCore` rejects a `.const`
-  naming one), and its type may be uninhabited at a level
-  instantiation where the structure is a proposition with a data
-  field a later field depends on -/
-  mem_typeP : ∀ c ∈ env.consts, c.isTowerEntry = false →
+  /-- stored constants inhabit their types' readings (task #175 S1:
+  a projection table's constant type is the closed dummy `Sort 1`
+  and its leaf is `Sort 0`, so the row holds of tables too — the
+  W4c-era `isTowerEntry` guard is gone; that a table is not a term is
+  `inferTypeCore`'s own rejection of a `.const` naming one) -/
+  mem_typeP : ∀ c ∈ env.consts,
     ∀ (ψ : Name → Nat) (ta : AVExpr),
     denoteP base2.acval env ψ 0 c.toConstantVal.type = some ta →
     ∀ ρ : Nat → V,
       interp2 V ρ (base2.acval c.name ψ) ∈ˢ interp2 V ρ ta
-  /-- a stored tower entry's type is a telescope over its parameters
-  and the subject (the capstone reads it: a table entry never has
-  type `Empty`) -/
-  tower_ty : ∀ c ∈ env.consts, ∀ e : ProjEntry, c = .projInfo e → e.tower = true →
-    (e.ty.stripPis (e.numParams + 1)).isSome = true
   /-- stored definition and theorem values read, to the constant's own
   leaf (existence — the fuel-free upgrade of `acval_defn`) -/
   defn_reads : AcvalDefnInstP base2
@@ -835,7 +839,7 @@ bundle-supplying layer.**  The three type fields at the composed
 assignment `Level.substFn φ ks us`, carried to the instantiated form
 by `denotePInstLevels` (an equality: no arity premise, no fuel). -/
 theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
-  intro d n ci us hf hnt hlen
+  intro d n ci us hf _hnt hlen
   have hmem := Setlec.Semantics.Env.find?_mem hf
   have hname := Setlec.Semantics.Env.find?_name hf
   obtain ⟨ta, hta⟩ :=
@@ -862,25 +866,16 @@ theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
       ci.toConstantVal.type
   refine ⟨ta, ?_, m.type_okP ci hmem _ ta hta, ?_⟩
   · rw [hcross]; exact hdepth
-  · have := m.mem_typeP ci hmem hnt _ ta hta
+  · have := m.mem_typeP ci hmem _ ta hta
     rwa [hname] at this
 
-/-- A stored constant whose type is not a `∀` is not a tower entry
-(a tower entry's type is a telescope over its parameters and the
-subject). -/
-theorem notTower_of_atom (m : EnvS2PM V μ env) {c : ConstantInfo}
-    (hc : c ∈ env.consts) (hatom : c.toConstantVal.type.stripPis 1 = none) :
-    c.isTowerEntry = false := by
+/-- A stored constant whose type is a constant application is not a
+tower table (a table's constant type is the closed dummy `Sort 1`,
+task #175 S1; the capstone reads it: a table never has type `Empty`). -/
+theorem notTower_of_type_const {c : ConstantInfo} {n : Name} {us : List Level}
+    (hty : c.toConstantVal.type = .const n us) : c.isTowerEntry = false := by
   cases c with
-  | projInfo e =>
-    cases htw : e.tower
-    · simp [ConstantInfo.isTowerEntry, htw]
-    · exfalso
-      have hstrip := m.tower_ty _ hc e rfl htw
-      simp only [ConstantInfo.toConstantVal] at hatom
-      revert hatom hstrip
-      generalize e.ty = t
-      cases t <;> intro hstrip hatom <;> simp [Expr.stripPis] at hstrip hatom
+  | projInfo tbl => simp [ConstantInfo.toConstantVal] at hty
   | _ => rfl
 
 /-- **The bridge invariant, from the P invariant** (task #161 S7,
@@ -950,7 +945,6 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
   type_reads := fun c hc => nomatch hc
   type_okP := fun c hc => nomatch hc
   mem_typeP := fun c hc => nomatch hc
-  tower_ty := fun c hc => nomatch hc
   defn_reads := fun ψ cv value hmem => by
     rcases hmem with ⟨hint, hdt⟩ | hdt
     · exact nomatch hdt

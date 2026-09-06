@@ -1,6 +1,7 @@
 import Setlec.SetP.Annot.EnvS2P
 import Setlec.SetP.Step2.StuckP
 import Setlec.SetP.Step2.ProjAVKitP
+import Setlec.Verify.ProjTele
 
 /-!
 # The tower-entry kit for the P `.proj` rows (task #175 wiring, W5 S3)
@@ -152,42 +153,59 @@ theorem denoteP_instPisAt_peel
       (fun x hx => hargs x (List.mem_cons_of_mem _ hx)) hbody' hsp'
     exact ⟨restA, hrestA, hpeel⟩
 
-/-! ## The stored entry type is closed -/
+/-! ## The stored body's telescope is closed (task #175 S1) -/
 
-/-- A stored table entry's type is closed and resolves (`EnvWF`'s
-`ConstWF` at the `projInfo` member). -/
-theorem towerEntry_ty_wf (hwf : Setlec.EnvWF env) {T : Name} {i : Nat}
-    {entry : ProjEntry} (hfe : env.findProj? T i = some entry) :
-    entry.ty.hasFvar = false ∧ entry.ty.looseBVarsBounded 0 = true ∧
-      entry.ty.constsResolve env = true := by
-  obtain ⟨h1, -, h3, h4, -⟩ :=
-    hwf _ (Setlec.Semantics.Env.find?_mem (Setlec.Env.findProj?_some hfe))
-  exact ⟨h1, h4, h3⟩
+/-- A stored tower entry's body telescope is closed: the body is
+fvar-free and scoped at the parameters and the subject (`EnvWF`'s
+table clause), and `projTele` binds exactly those. -/
+theorem towerEntry_tele_closed (hwf : Setlec.EnvWF env) {T : Name} {i : Nat}
+    {entry : ProjEntry} (hfe : env.findProj? T i = some entry) (us : List Level) :
+    (Setlec.projTele (entry.numParams + 1)
+      (entry.body.instantiateLevelParams entry.levelParams us)).hasFvar = false ∧
+    (Setlec.projTele (entry.numParams + 1)
+      (entry.body.instantiateLevelParams entry.levelParams us)).looseBVarsBounded 0
+      = true := by
+  rw [Setlec.projTele_hasFvar, Setlec.projTele_looseBVarsBounded, Nat.zero_add]
+  exact ⟨Setlec.projEntry_body_hasFvar hwf hfe us,
+    Setlec.projEntry_body_looseBVars hwf hfe us⟩
 
-/-- The entry type's level instantiation is closed. -/
-theorem towerEntry_tyI_closed (hwf : Setlec.EnvWF env) {T : Name}
-    {i : Nat} {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
-    (us : List Level) :
-    (entry.ty.instantiateLevelParams entry.levelParams us).hasFvar = false ∧
-      (entry.ty.instantiateLevelParams entry.levelParams us).looseBVarsBounded 0
-        = true := by
-  obtain ⟨h1, h2, -⟩ := towerEntry_ty_wf hwf hfe
-  exact ⟨by rw [Expr.hasFvar_instantiateLevelParams]; exact h1,
-    by rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact h2⟩
-
-/-- **The entry type's reading is depth-free** — closed subject,
+/-- **The body telescope's reading is depth-free** — closed subject,
 closed reading, `denoteP_depth_of_closed`. -/
-theorem towerEntry_ty_at_depth {m : EnvS2Core V env} {T : Name} {i : Nat}
+theorem towerEntry_tele_at_depth {m : EnvS2Core V env} {T : Name} {i : Nat}
     {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
     {us : List Level} {Ta : AVExpr}
     (hTa : denoteP m.acval env φ 0
-      (entry.ty.instantiateLevelParams entry.levelParams us) = some Ta) :
+      (Setlec.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) :
     (∀ d : Nat, denoteP m.acval env φ d
-      (entry.ty.instantiateLevelParams entry.levelParams us) = some Ta) ∧
+      (Setlec.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) ∧
     ∀ k : Nat, Ta.liftN 1 k = Ta := by
-  obtain ⟨hnf, hb⟩ := towerEntry_tyI_closed m.wf hfe us
+  obtain ⟨hnf, hb⟩ := towerEntry_tele_closed m.wf hfe us
   have hcl : ∀ k : Nat, Ta.liftN 1 k = Ta := fun k =>
     denoteP_closed m.acval_erase m.cval_closed hnf hb hTa 1 k
   exact ⟨denoteP_depth_of_closed m.acval_closed hnf hcl hTa, hcl⟩
+
+/-- **The checker's projection type reads as the telescope's peel**
+(task #175 S1): `ProjEntry.typeAt` is the `instPisAt` peel of the body
+telescope along the arguments and the subject, so its reading is the
+syntactic peel of the telescope's reading along the readings. -/
+theorem denoteP_typeAt_peel {m : EnvS2Core V env} {T : Name} {i : Nat}
+    {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
+    {us : List Level} {Ta : AVExpr} {d : Nat}
+    (hTa : denoteP m.acval env φ 0
+      (Setlec.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta)
+    {targs : List Expr} {pe : Expr} (hlen : targs.length = entry.numParams)
+    (hframes : ∀ a ∈ targs ++ [pe], Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true)
+    {vs : List AVExpr}
+    (hsp : DenoteSpineP m.acval env φ d (targs ++ [pe]) vs) :
+    ∃ restA, denoteP m.acval env φ d (entry.typeAt us targs pe) = some restA ∧
+      AVExpr.peelPis Ta vs = some restA := by
+  obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa
+  exact denoteP_instPisAt_peel m.acval_closed (acval_inst_self m) (targs ++ [pe])
+    (Setlec.instPisAt_typeAt entry us hlen pe)
+    (Expr.WScoped.of_not_hasFvar (towerEntry_tele_closed m.wf hfe us).1)
+    hframes (hTad d) hsp
 
 end Setlec.SetP

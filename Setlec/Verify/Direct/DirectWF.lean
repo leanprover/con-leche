@@ -37,6 +37,15 @@ local macro_rules
         | (exfalso; exact directThrow_ne_ok
             (by simpa [bind, Except.bind] using ‹_›)))
 
+/-- A successful `unwrapOr` names its option. -/
+theorem unwrapOr_ok {α : Type} {x : Option α} {e : CheckError} {a : α}
+    (h : (unwrapOr x e : CheckM α) = .ok a) : x = some a := by
+  cases x with
+  | none => exact absurd h (by simp [unwrapOr, throw, throwThe, MonadExceptOf.throw])
+  | some b =>
+    simp only [unwrapOr, pure, Except.pure, Except.ok.injEq] at h
+    rw [h]
+
 /-- Introduction for `ConstWF` with the clause types spelled out (the
 `thmInfo` clause defaulted, as every constant installed by the direct
 path is an inductive-kind one). -/
@@ -77,8 +86,17 @@ theorem directConstWF {env : Env} {c : ConstantInfo}
       value.constsResolve env = true ∧
       value.looseBVarsBounded 0 = true := by
         intro cv value h
+        exact ConstantInfo.noConfusion h)
+    (h8 : ∀ tbl, c = .projInfo tbl →
+      tbl.bodies.size = tbl.numFields ∧
+      ∀ (i : Nat) (b : Expr), tbl.bodies[i]? = some b →
+        b.hasFvar = false ∧
+        b.allLevelParamsDefined tbl.levelParams = true ∧
+        b.constsResolve env = true ∧
+        b.looseBVarsBounded (tbl.numParams + 1) = true := by
+        intro tbl h
         exact ConstantInfo.noConfusion h) :
-    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h7⟩
+    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
 
 /-- A checked inductive-kind cons is well-formed (its `ConstWF` is the
 four type-slot facts; every value clause is refuted by the kind). -/
@@ -199,68 +217,57 @@ theorem direct_rec_wf {env : Env} (henv : EnvWF env)
   cases hcond : Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP <;>
     simp [hcond] at hf
 
-/-- The projection-entry install, inverted to its stored entry and the
-stage's own well-formedness guard on the annotated type. -/
-theorem checkDirectProjEntry_facts {env envOut : Env} {T C : Name}
-    {lps : List Name} {nP nF i F : Nat} {rs guard : Level}
-    {cvCa : ConstantVal} {pty : Expr}
-    (h : checkDirectProjEntry (fueledOps mode F) T C lps nP nF rs guard cvCa
-      pty env i = .ok envOut) :
-    ∃ ptyA : Expr,
-      envOut = ⟨.projInfo ⟨T, i, lps, nP, C, nF, ptyA, guard, rs,
-        true, false, true⟩ :: env.consts⟩ ∧
-      ptyA.hasFvar = false ∧
-      ptyA.allLevelParamsDefined lps = true ∧
-      ptyA.constsResolve env = true ∧
-      ptyA.looseBVarsBounded 0 = true := by
-  unfold checkDirectProjEntry at h
-  by_cases h0 : (!pty.hasFvar && Expr.looseBVarsBounded 0 pty) = true
-  case neg => rw [if_neg h0] at h; close_throw
-  rw [if_pos h0] at h
-  obtain ⟨ptyA, -, h⟩ := exceptBind_ok h
-  by_cases h1 : (Expr.allLevelParamsDefined lps ptyA &&
-      Expr.constsResolve env ptyA && Expr.looseBVarsBounded 0 ptyA &&
-      !ptyA.hasFvar) = true
-  case neg => rw [if_neg h1] at h; close_throw
-  rw [if_pos h1] at h
-  simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h1
-  refine ⟨ptyA, ?_, h1.2, h1.1.1.1, h1.1.1.2, h1.1.2⟩
+/-! ## Stage 5: the projection table (task #175 S1) -/
+
+/-- The table stage's run, inverted: the bodies are the generator's,
+they pass the scoping guard, the table name is fresh, and the output
+is the table consed. -/
+theorem checkDirectProjTable_inv {env envOut : Env} {T C : Name}
+    {lps : List Name} {nP nF : Nat} {rs : Level} {guards : List Level}
+    {cvCa : ConstantVal}
+    (h : checkDirectProjTable (m := CheckM) T C lps nP nF rs guards cvCa env
+      = .ok envOut) :
+    ∃ bodies : Array Expr,
+      directProjBodies T nP nF cvCa.type = some bodies ∧
+      (bodies.size = nF ∧ bodies.all (fun b => !b.hasFvar &&
+        b.allLevelParamsDefined lps && b.constsResolve env &&
+        b.looseBVarsBounded (nP + 1)) = true) ∧
+      (List.range nF).all (fun j => (env.find? (projFnName T j)).isNone) = true ∧
+      env.find? (projTableName T) = none ∧
+      envOut = ⟨.projInfo ⟨T, lps, nP, C, nF, rs, bodies, guards, true⟩
+        :: env.consts⟩ := by
+  unfold checkDirectProjTable at h
+  obtain ⟨bodies, hb, h⟩ := exceptBind_ok h
+  have hb' := unwrapOr_ok hb
   repeat' first
     | (obtain ⟨_, _, h⟩ := exceptBind_ok h)
     | split at h
   all_goals first
     | (try dsimp only at h
        simp only [pure, Except.pure, Except.ok.injEq] at h
-       exact h.symm)
+       refine ⟨bodies, hb', by assumption, by assumption,
+         Option.isNone_iff_eq_none.mp (by assumption), h.symm⟩)
     | close_throw
 
-/-- One projection slot of the direct path at the run level: the
-environment it produces is well-formed (a skipped slot is the
-identity). -/
-theorem direct_proj_wf {env envOut : Env} (henv : EnvWF env)
-    {T C : Name} {lps : List Name} {nP nF i F : Nat} {rs : Level}
-    {slots : List Bool} {guards : List Level} {cvTa cvCa : ConstantVal}
-    (h : checkDirectProj (fueledOps mode F) T C lps nP nF rs slots guards
-      cvTa cvCa env i = .ok envOut) :
+/-- The projection-table stage at the run level (task #175 S1): the
+environment it produces is well-formed — the table's constant type is
+the closed `Sort 1`, and the bodies' scoping is the stage's own guard. -/
+theorem direct_table_wf {env envOut : Env} (henv : EnvWF env)
+    {T C : Name} {lps : List Name} {nP nF : Nat} {rs : Level}
+    {guards : List Level} {cvCa : ConstantVal}
+    (h : checkDirectProjTable (m := CheckM) T C lps nP nF rs guards cvCa env
+      = .ok envOut) :
     EnvWF envOut := by
-  unfold checkDirectProj at h
-  split at h
-  · obtain ⟨pty, -, h⟩ := exceptBind_ok h
-    split at h
-    · obtain ⟨ptyA, rfl, hfv, hlp, hres, hbv⟩ := checkDirectProjEntry_facts h
-      exact EnvWF.cons henv (directConstWF hfv hlp
-        (Expr.constsResolve_mono hres) hbv
-        (fun _ _ _ heq => nomatch heq)
-        (fun _ _ _ _ heq => nomatch heq))
-    · -- the inert entry: a closed `Sort 1`
-      split at h
-      · simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h
-        exact EnvWF.cons henv (directConstWF rfl rfl rfl rfl
-          (fun _ _ _ heq => nomatch heq)
-          (fun _ _ _ _ heq => nomatch heq))
-      · close_throw
-  · simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact h ▸ henv
+  obtain ⟨bodies, -, ⟨hsize, hall⟩, -, -, rfl⟩ := checkDirectProjTable_inv h
+  refine EnvWF.cons henv (directConstWF rfl rfl rfl rfl
+    (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ _ heq => nomatch heq) ?_)
+  intro tbl heq
+  obtain rfl := ConstantInfo.projInfo.inj heq
+  refine ⟨hsize, fun i b hb => ?_⟩
+  have hmem : b ∈ bodies := Array.mem_of_getElem? hb
+  have hb' := (Array.all_eq_true_iff_forall_mem.mp hall) b hmem
+  simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hb'
+  exact ⟨hb'.1.1.1, hb'.1.1.2, Expr.constsResolve_mono hb'.1.2, hb'.2⟩
 
 end Setlec

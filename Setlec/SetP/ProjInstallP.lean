@@ -231,7 +231,7 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
       ∀ ρ : Nat → V, (∃ pv : V, pv ∈ˢ interp2 V ρ ta) ∧
         AnnotOkP V ρ ta := by
     intro ψ
-    obtain ⟨ta, hta, hok, hmem⟩ := mp.acval_memTypeP hthmE rfl ψ
+    obtain ⟨ta, hta, hok, hmem⟩ := mp.acval_memTypeP hthmE ψ
     exact ⟨ta, hta, fun ρ => ⟨⟨_, hmem ρ⟩, hok ρ⟩⟩
   -- **the bottom fires, at the base environment**
   have hbot := indBottomProjP (V := V) (Rn := projModelName T i)
@@ -287,7 +287,7 @@ theorem projFnP (hμ : μ.verified = true) {F : Nat} {env' env₁ : Env}
   have hptyReadPre : ∀ (ψ : Name → Nat), ∃ ta : AVExpr,
       denoteP mp.base2.acval env' ψ 0 pty = some ta := by
     intro ψ
-    obtain ⟨ta, hta, -, -⟩ := mp.acval_memTypeP hfm rfl ψ
+    obtain ⟨ta, hta, -, -⟩ := mp.acval_memTypeP hfm ψ
     refine ⟨ta, ?_⟩
     rw [← denoteP_renameConsts hroP pty 0,
       Expr.renameConsts_congr_resolve (g := projFwd T ctorName nF)
@@ -478,137 +478,86 @@ and, unlike the *spine padding* of part 4 (where `.prf` fails
 entry's obligation is `eqv pt pt ∈ˢ univ 0` — `eqv_mem_univ`, which is
 blind to its arguments. -/
 
-/-- The reading tier's elimination-template leaf. -/
+/-- The reading tier's elimination-template leaf: `Sort 0`, a member of
+the table's dummy type `Sort 1`. -/
 def templateValP : (Name → Nat) → AVExpr :=
-  fun _ => .eqE (.sort 0) .prf .prf
+  fun _ => .sort 0
 
-set_option maxHeartbeats 1600000 in
-/-- **One elimination-template entry installs, at both tiers**
-(`templateConsS`). -/
+/-- **The elimination-template table installs** (`templateConsS`;
+task #175 S1: one inert table per family). -/
 theorem templateConsP {env' : Env} (mp : EnvS2PM V μ env')
-    {T : Name} {lps : List Name} {i : Nat} {entry : ProjEntry}
-    (hstruct : entry.structName = T) (hidx : entry.idx = i)
-    (hnat : entry.native = false)
-    (htower : entry.tower = false)
-    (hlps : entry.levelParams = lps)
-    (hty : entry.ty = .sort .zero)
-    (hpnone : (env'.find? (projFnName T i)).isNone = true) :
-    ∃ mp' : EnvS2PM V μ ⟨.projInfo entry :: env'.consts⟩,
-      mp'.base2.cvalE
-        = cvalWith mp.base2.cvalE (projFnName T i) templateVal := by
-  have hname : (ConstantInfo.projInfo entry).name = projFnName T i := by
-    show projFnName entry.structName entry.idx = projFnName T i
-    rw [hstruct, hidx]
-  have hfresh : env'.find? (ConstantInfo.projInfo entry).name = none := by
-    rw [hname]; exact Option.isNone_iff_eq_none.mp hpnone
+    {T ctorName : Name} {lps : List Name} {nP nF : Nat}
+    (hpnone : env'.find? (projTableName T) = none) :
+    Nonempty (EnvS2PM V μ ⟨.projInfo
+      ⟨T, lps, nP, ctorName, nF, .zero, Array.replicate nF (.sort .zero), [], false⟩
+      :: env'.consts⟩) := by
+  let tbl : Setlec.ProjTable :=
+    ⟨T, lps, nP, ctorName, nF, .zero, Array.replicate nF (.sort .zero), [], false⟩
+  have hname : (ConstantInfo.projInfo tbl).name = projTableName T := rfl
+  have hfresh : env'.find? (ConstantInfo.projInfo tbl).name = none := hpnone
   have hnres : Setlec.reservedBasisNames.contains
-      (ConstantInfo.projInfo entry).name = false := by
+      (ConstantInfo.projInfo tbl).name = false := by
     rw [hname]; exact Setlec.reservedBasisNames_not_num _ _
-  have htyE : (ConstantInfo.projInfo entry).toConstantVal.type
-      = Expr.sort .zero := hty
-  -- the stored type reads to `univ 0`, at every assignment
+  -- the dummy type reads to `univ 1`, at every assignment
   have htyRead : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval
-          (ConstantInfo.projInfo entry).name templateValP)
-        ⟨.projInfo entry :: env'.consts⟩ ψ 0
-        (ConstantInfo.projInfo entry).toConstantVal.type
-        = some (.sort 0) := by
+          (ConstantInfo.projInfo tbl).name templateValP)
+        ⟨.projInfo tbl :: env'.consts⟩ ψ 0
+        (ConstantInfo.projInfo tbl).toConstantVal.type
+        = some (.sort 1) := by
     intro ψ
-    rw [htyE, denoteP]
+    show denoteP _ _ ψ 0 (.sort (.succ .zero)) = _
+    rw [denoteP_sort]
     rfl
-  have hcvA : (ConstantInfo.projInfo entry).toConstantVal
-      = ⟨projFnName T i, lps, .sort .zero⟩ := by
-    show (⟨projFnName entry.structName entry.idx, entry.levelParams,
-      entry.ty⟩ : ConstantVal) = _
-    rw [hstruct, hidx, hlps, hty]
-  have hheadP : ConsHeadP env' (.projInfo entry) templateValP := by
-    refine ⟨?_, (fun _ => ⟨trivial, trivial, trivial⟩),
+  have hheadP : ConsHeadP env' (.projInfo tbl) templateValP := by
+    refine ⟨?_, (fun _ => trivial),
       (fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h)),
-      (fun e2 heq hnat2 => by
+      (ConsCrossEnv.ofNtc fun t2 heq => by
         obtain rfl := ConstantInfo.projInfo.inj heq
-        rw [hnat] at hnat2
-        exact nomatch hnat2),
-      (ConsCrossEnv.ofNtc fun e2 heq => by
+        rfl),
+      (fun t2 heq htw => by
         obtain rfl := ConstantInfo.projInfo.inj heq
-        exact htower),
-      (fun e2 heq htw => by
-        obtain rfl := ConstantInfo.projInfo.inj heq
-        exact absurd (htower.symm.trans htw) (by decide)),
+        exact nomatch htw),
       (fun _ _ _ _ heq => nomatch heq)⟩
-    refine Setlec.EnvWF.cons mp.base2.wf ⟨?_, ?_, ?_, ?_,
+    refine Setlec.EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq),
       (fun cv2 mI2 rP2 rules2 heq => ConstantInfo.noConfusion heq),
-      (fun cv2 v2 heq => ConstantInfo.noConfusion heq)⟩ <;>
-      rw [hcvA] <;> rfl
-  have htyOkH : ∀ (ψ : Name → Nat) (ta : AVExpr),
-      denoteP (acvalWith mp.base2.acval
-          (ConstantInfo.projInfo entry).name templateValP)
-        ⟨.projInfo entry :: env'.consts⟩ ψ 0
-        (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, AnnotOkP V ρ ta := by
-    intro ψ ta hta ρ
-    obtain rfl : (AVExpr.sort 0) = ta :=
-      Option.some.inj ((htyRead ψ).symm.trans hta)
-    exact ⟨trivial, trivial⟩
-  have hmemH : ∀ (ψ : Name → Nat) (ta : AVExpr),
-      denoteP (acvalWith mp.base2.acval
-          (ConstantInfo.projInfo entry).name templateValP)
-        ⟨.projInfo entry :: env'.consts⟩ ψ 0
-        (ConstantInfo.projInfo entry).toConstantVal.type = some ta →
-      ∀ ρ : Nat → V,
-        interp2 V ρ (templateValP ψ) ∈ˢ interp2 V ρ ta := by
-    intro ψ ta hta ρ
-    obtain rfl : (AVExpr.sort 0) = ta :=
-      Option.some.inj ((htyRead ψ).symm.trans hta)
-    show interp2 V ρ (AVExpr.eqE (.sort 0) .prf .prf) ∈ˢ
-      interp2 V ρ (AVExpr.sort 0)
-    rw [interp2_eqE, interp2_sort]
-    exact eqv_mem_univ _ _
-  obtain ⟨mp', hmp'⟩ :=
+      (fun cv2 v2 heq => ConstantInfo.noConfusion heq), ?_⟩
+    intro t2 heq
+    obtain rfl := ConstantInfo.projInfo.inj heq
+    refine ⟨by show (Array.replicate nF (Expr.sort .zero)).size = nF; simp,
+      fun i b hb => ?_⟩
+    have hb' : b = .sort .zero := by
+      rw [show tbl.bodies = Array.replicate nF (.sort .zero) from rfl,
+        Array.getElem?_replicate] at hb
+      split at hb
+      · exact (Option.some.inj hb).symm
+      · exact nomatch hb
+    subst hb'
+    exact ⟨rfl, rfl, rfl, rfl⟩
+  obtain ⟨mp', -⟩ :=
     declStepPM_of_projTemplate_cons mp (A := templateValP) hfresh hnres
       hheadP (fun ψ k => rfl) (fun ψ₁ ψ₂ _ => rfl)
-      (fun ψ ρ => by
-        show AnnotOk2 V ρ (AVExpr.eqE (.sort 0) .prf .prf)
-        rw [AnnotOk2_eqE]
-        exact ⟨trivial, trivial⟩)
-      (fun ψ ρ => by
-        show AnnotValidV V ρ (AVExpr.eqE (.sort 0) .prf .prf)
-        rw [AnnotValidV_eqE]
-        exact ⟨trivial, trivial⟩)
-      (fun ψ => ⟨_, htyRead ψ⟩) htyOkH hmemH htower
-  refine ⟨mp', ?_⟩
-  funext n ψ
-  rw [← mp'.base2.acval_erase n ψ, hmp']
-  by_cases hn : n = (ConstantInfo.projInfo entry).name
-  · subst hn
-    rw [acvalWith_self, hname, cvalWith_self]
-    rfl
-  · rw [acvalWith_ne hn, mp.base2.acval_erase,
-      cvalWith_ne (show n ≠ projFnName T i by
-        rw [← hname]; exact hn)]
+      (fun ψ ρ => by show AnnotOk2 V ρ (.sort 0); rw [AnnotOk2_sort]; trivial)
+      (fun ψ ρ => by show AnnotValidV V ρ (.sort 0); rw [AnnotValidV_sort]; trivial)
+      (fun ψ => ⟨_, htyRead ψ⟩)
+      (fun ψ ta hta ρ => by
+        obtain rfl := Option.some.inj ((htyRead ψ).symm.trans hta)
+        exact ⟨by rw [AnnotOk2_sort]; trivial, by rw [AnnotValidV_sort]; trivial⟩)
+      (fun ψ ta hta ρ => by
+        obtain rfl := Option.some.inj ((htyRead ψ).symm.trans hta)
+        exact interp2_sort_mem V ρ 0)
+      rfl
+  exact ⟨mp'⟩
 
-set_option maxHeartbeats 1600000 in
-/-- **The elimination-template fold, at both tiers** (`templatesS`).
+/-- **The elimination-template install, at both tiers** (`templatesS`).
 Nothing but the model survives it, so nothing is carried out. -/
-theorem templatesP {T ctorName : Name} {lps : List Name} {nP nF : Nat} :
-    ∀ (fields : List Nat) {env' : Env} (_mp : EnvS2PM V μ env')
-      {env₂ : Env},
-      DeclIndRun.Templates T ctorName lps nP nF env' fields env₂ →
-      Nonempty (EnvS2PM V μ env₂) := by
-  intro fields
-  induction fields with
-  | nil =>
-    intro env' mp env₂ h
-    obtain rfl := h
-    exact ⟨mp⟩
-  | cons i rest ih =>
-    intro env' mp env₂ h
-    obtain ⟨env'', hstep, hrec⟩ := h
-    rcases hstep with rfl | ⟨entry, hstruct, hidx, hnat, htower, hlps,
-      hty, hpnone, rfl⟩
-    · exact ih mp hrec
-    · obtain ⟨mp', hcval'⟩ :=
-        templateConsP mp hstruct hidx hnat htower hlps hty hpnone
-      exact ih mp' hrec
+theorem templatesP {T ctorName : Name} {lps : List Name} {nP nF : Nat}
+    {env' : Env} (mp : EnvS2PM V μ env') {env₂ : Env}
+    (h : DeclIndRun.Templates T ctorName lps nP nF env' env₂) :
+    Nonempty (EnvS2PM V μ env₂) := by
+  rcases h with rfl | ⟨hpnone, rfl⟩
+  · exact ⟨mp⟩
+  · exact templateConsP mp hpnone
 
 end Setlec.SetP

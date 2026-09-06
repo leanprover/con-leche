@@ -284,7 +284,7 @@ theorem iffVal_app₂_memP (mp : EnvS2PM V μ env)
     show denoteP mp.base2.acval env ψ 0 cvI.type = _
     rw [hsh]
     simp [denoteP_forallE, denoteP_sort, Expr.instantiate1, Level.eval]
-  have hmem := mp.mem_typeP _ (Env.find?_mem hfI) (by rfl) ψ _ hden ρ
+  have hmem := mp.mem_typeP _ (Env.find?_mem hfI) ψ _ hden ρ
   have hval := (mp.type_okP _ (Env.find?_mem hfI) ψ _ hden ρ).2
   rw [Env.find?_name hfI] at hmem
   have h1 := app_mem_pi_validV hmem (by rw [interp2_sort]; exact hA) hval
@@ -394,7 +394,7 @@ theorem iff_forces_eqP (mp : EnvS2PM V μ env)
     rw [hsh]
     simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
       Expr.instantiate1, hI, hIi, Level.eval]
-  have hmem := mp.mem_typeP _ (Env.find?_mem hfIr) (by rfl) _ _ hden ρ
+  have hmem := mp.mem_typeP _ (Env.find?_mem hfIr) _ _ hden ρ
   have hval := (mp.type_okP _ (Env.find?_mem hfIr) _ _ hden ρ).2
   rw [Env.find?_name hfIr] at hmem
   rw [hIval] at hmem hval
@@ -673,7 +673,7 @@ theorem nonemptyVal_app_memP (mp : EnvS2PM V μ env)
     show denoteP mp.base2.acval env ψ 0 cvN.type = _
     rw [hsh]
     simp [denoteP_forallE, denoteP_sort, Expr.instantiate1, Level.eval]
-  have hmem := mp.mem_typeP _ (Env.find?_mem hfN) (by rfl) ψ _ hden ρ
+  have hmem := mp.mem_typeP _ (Env.find?_mem hfN) ψ _ hden ρ
   have hval := (mp.type_okP _ (Env.find?_mem hfN) ψ _ hden ρ).2
   rw [Env.find?_name hfN] at hmem
   have h1 := app_mem_pi_validV hmem (by rw [interp2_sort]; exact hA) hval
@@ -707,7 +707,7 @@ theorem nonemptyIntroVal_app₂_memP (mp : EnvS2PM V μ env)
     rw [hsh]
     simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
       Expr.instantiate1, hN, Level.eval]
-  have hmem := mp.mem_typeP _ (Env.find?_mem hfNi) (by rfl) ψ _ hden ρ
+  have hmem := mp.mem_typeP _ (Env.find?_mem hfNi) ψ _ hden ρ
   have hval := (mp.type_okP _ (Env.find?_mem hfNi) ψ _ hden ρ).2
   rw [Env.find?_name hfNi] at hmem
   have hNc : ∀ ρ' : Nat → V,
@@ -779,7 +779,7 @@ theorem nonemptyVal_forcesP (mp : EnvS2PM V μ env)
     rw [hsh]
     simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
       Expr.instantiate1, hN, hNi, Level.eval]
-  have hmem := mp.mem_typeP _ (Env.find?_mem hfNr) (by rfl) ψ _ hden ρ
+  have hmem := mp.mem_typeP _ (Env.find?_mem hfNr) ψ _ hden ρ
   have hval := (mp.type_okP _ (Env.find?_mem hfNr) ψ _ hden ρ).2
   rw [Env.find?_name hfNr] at hmem
   have hNc : ∀ ρ' : Nat → V,

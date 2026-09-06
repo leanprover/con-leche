@@ -44,6 +44,14 @@ Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
   blocks plus an `annotate` pass with no official counterpart, while
   official checks that file with native inductive/recursor support.
   Hence the accepted-declaration counts differ too.
+* **The setlec "accepted N declarations" count is the number of stored
+  environment constants** (`env.consts.length`), not of stream
+  declarations.  Since task #175 S1 (2026-09-06) a direct structure's
+  projection table is ONE constant per structure instead of one per
+  field, so the same init-full stream prints **60 549** where the table
+  above says 61 048 (grind-ring-5: 3 866 for 3 946) with exit 0 in both
+  modes and no verdict changed; the next regeneration's drop is that
+  collapse, not a verdict change.
 * **`--no-model` under-checks install-only kinds** (axioms, inductive
   blocks, quot, the pinned-cert branches run at io grade), which
   flatters the parity column on inductive-heavy streams.

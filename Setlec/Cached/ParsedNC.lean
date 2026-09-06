@@ -122,19 +122,6 @@ def installProjFnStepNC (T ctorName : Name) (lps : List Name)
     checkProjFnNC fe T ctorName lps nP nF i
   else pure fe
 
-/-- `checkDirectProjsS` at the cert-skipping ops. -/
-def checkDirectProjsNC (T C : Name) (lps : List Name) (nP nF : Nat)
-    (resSort : Level) (slots : List Bool) (guards : List Level)
-    (cvTa cvCa : ConstantVal) :
-    (todo i : Nat) → Option Expr → FEnv → CheckCM FEnv
-  | 0, _, _, fe => pure fe
-  | todo + 1, i, rt?, fe => do
-    flushC
-    let fe' ← checkDirectProjF (sharedOpsCNC fe) T C lps nP nF resSort
-      slots guards cvTa cvCa rt? fe i
-    checkDirectProjsNC T C lps nP nF resSort slots guards cvTa cvCa todo
-      (i + 1) (rt?.bind (Expr.instPisAtLift [directProjArgP T i])) fe'
-
 /-- `checkDirectStructS` at the cert-skipping ops. -/
 def checkDirectStructNC (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
   flushC
@@ -150,13 +137,8 @@ def checkDirectStructNC (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
       if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
         .plain else .inert,
       rhsA⟩])
-  unless (List.range p.nF).all
-      (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
-    throw (.invalid "projection name family taken")
-  checkDirectProjsNC p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
-    p.resSort (directProjSlots p) (directProjGuards cvCa.type p.nP p.nF sorts)
-    cvTa cvCa p.nF 0
-    (Expr.instPisAtLift (directProjPs p.nP) cvCa.type) fe₃
+  checkDirectProjTableF (m := CheckCM) p.cvT.name p.cvC.name p.cvT.levelParams
+    p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) cvCa fe₃
 
 /-- `checkIndDeclSF` at the cert-skipping ops. -/
 def checkIndDeclNC (fe : FEnv) (block : List ConstantInfo) :
@@ -185,8 +167,7 @@ def checkIndDeclNC (fe : FEnv) (block : List ConstantInfo) :
       throw (.invalid "projection name family taken")
     let fe₄ ← (List.range nF).foldlM
       (installProjFnStepNC cvT.name cvC.name cvT.levelParams nP nF) fe₃
-    (List.range nF).foldlM
-      (installProjTemplateStepS cvT.name cvC.name cvT.levelParams nP nF) fe₄
+    installProjTemplateS fe₄ cvT.name cvC.name cvT.levelParams nP nF
   | _, _ => do
     let fe₂ ← nonrecs.foldlM (checkIndMemberNC blockNames {}) fe
     checkIndRecsNC blockNames fe₂ recs

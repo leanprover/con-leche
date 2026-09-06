@@ -16,7 +16,7 @@ every stored expression:
   reads `find? s`), so when `T` is not stored there is no `.proj T _`
   node at all: the pre-block constants;
 * `annotateCore_projSlotsOk` — the annotation pass emits a `.proj`
-  node only where a *native* table entry types it
+  node only where a *tower* table entry types it
   (`annotateCore_proj_inv`'s first arm; the other arm rewrites the
   node away and re-annotates), hereditarily through the fvar types
   the pass threads (`Expr.ProjSlotsOk`).  So an annotated expression
@@ -247,11 +247,11 @@ theorem noProjAt_of_constsResolve {env : Env} (hT : env.find? T = none) :
 
 /-! ## `ProjSlotsOk` and `FvarTysOk` -/
 
-/-- Every `.proj s j` node's slot holds a *native* entry, hereditarily
-(through fvar types). -/
+/-- Every `.proj s j` node's slot holds a tower-backed entry,
+hereditarily (through fvar types). -/
 def ProjSlotsOk (env : Env) : Expr → Prop
   | .proj s j e => (∃ entry : ProjEntry, env.findProj? s j = some entry ∧
-      entry.native = true) ∧ ProjSlotsOk env e
+      entry.tower = true) ∧ ProjSlotsOk env e
   | .app f a => ProjSlotsOk env f ∧ ProjSlotsOk env a
   | .lam _ ty b _ => ProjSlotsOk env ty ∧ ProjSlotsOk env b
   | .forallE _ ty b _ => ProjSlotsOk env ty ∧ ProjSlotsOk env b
@@ -284,7 +284,7 @@ variable {env : Env}
 @[simp] theorem projSlotsOk_proj {s : Name} {j : Nat} {e : Expr} :
     ProjSlotsOk env (.proj s j e) ↔
       (∃ entry : ProjEntry, env.findProj? s j = some entry ∧
-        entry.native = true) ∧ ProjSlotsOk env e := by
+        entry.tower = true) ∧ ProjSlotsOk env e := by
   rw [ProjSlotsOk]
 @[simp] theorem projSlotsOk_app {f a : Expr} :
     ProjSlotsOk env (.app f a) ↔ ProjSlotsOk env f ∧ ProjSlotsOk env a := by
@@ -587,7 +587,7 @@ theorem ProjSlotsOk.abstract1 :
 
 /-- **The annotation source**: an occupied slot at every `.proj` node
 means an *empty* slot's node is absent. -/
-theorem ProjSlotsOk.noProjAt (hslot : env.find? (projFnName T i) = none) :
+theorem ProjSlotsOk.noProjAt (hslot : env.findProj? T i = none) :
     ∀ e : Expr, ProjSlotsOk env e → NoProjAt T i e := by
   intro e
   induction e with
@@ -621,9 +621,8 @@ theorem ProjSlotsOk.noProjAt (hslot : env.find? (projFnName T i) = none) :
     obtain ⟨⟨entry, hfe, -⟩, he⟩ := h
     refine noProjAt_proj.mpr ⟨?_, ihe he⟩
     rintro ⟨rfl, rfl⟩
-    have := Env.findProj?_some hfe
-    rw [hslot] at this
-    exact nomatch this
+    rw [hslot] at hfe
+    exact nomatch hfe
 
 end Expr
 
@@ -632,7 +631,7 @@ end Expr
 variable (mode : CheckMode)
 
 /-- **The annotation walk**: every `.proj` node of an annotated
-expression sits at a native table slot (hereditarily), provided the
+expression sits at a tower table slot (hereditarily), provided the
 input's fvar annotations do — which is vacuous for the checker's
 closed inputs and preserved by the pass's own openings. -/
 theorem annotateCore_projSlotsOk {env : Env} :
@@ -733,7 +732,7 @@ closed input at an environment where the slot `(T, i)` is empty has no
 theorem annotateCore_noProjAt {env : Env} {fuel d : Nat} {e e' : Expr}
     {T : Name} {i : Nat}
     (h : annotateCore mode env fuel d e = .ok e') (hfv : e.hasFvar = false)
-    (hslot : env.find? (projFnName T i) = none) :
+    (hslot : env.findProj? T i = none) :
     Expr.NoProjAt T i e' :=
   Expr.ProjSlotsOk.noProjAt hslot e'
     (annotateCore_projSlotsOk mode fuel e h (Expr.FvarTysOk.of_not_hasFvar e hfv))

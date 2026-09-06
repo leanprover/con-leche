@@ -55,11 +55,12 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
       | some entry =>
         match e'.getAppFn with
         | .const c us =>
-          if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
+          if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
               e'.getAppArgs.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
-            projCert (fueledFns mode env) env d cfg.betaGate c us e'.getAppArgs >>=
+            projCertAt (fueledFns mode env) env d cfg.verified cfg.betaGate c us
+                e'.getAppArgs >>=
               fun b =>
             if b then
               kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
@@ -602,7 +603,7 @@ theorem whnfCoreStepC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           refine SimC.bind_left
             (internI_eff hs₁ (n := ExprView.bvar 0))
             (fun s₂ bvar0 hs₂ hQ0 => ?_)
-          refine SimC.bind (projCertC_sim ih henv hs₂ hargs
+          refine SimC.bind (projCertAtC_sim ih henv hs₂ hargs
               (fun x hx => hwe'.getAppArgs x hx))
             (fun s₃ b b' hs₃ hPb => ?_)
           obtain rfl : b = b' := hPb
@@ -2135,33 +2136,17 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
           ExprC.getAppArgs_spec te
         rw [htargs.length]
         split
-        · -- task #175 wiring W2c: the tower residual — `ExprC = Expr`
-          -- (the identity world), so the two scrutinees coincide
-          -- once `RelCL` rewrites the spine
+        · -- task #175 S1: the body at the spine and the subject —
+          -- `ExprC = Expr` (the identity world), so the two results
+          -- coincide once `RelCL` rewrites the spine
+          rename_i hcond
           rw [htargs]
           have hres : SimC mode env s₂' (RelEC d)
-              (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                  (entry.ty.instantiateLevelParams entry.levelParams us) with
-                | some (_, resid) => internExprM resid
-                | none => throw (CheckError.internal "malformed projection entry"))
-              (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                  (entry.ty.instantiateLevelParams entry.levelParams us) with
-                | some (_, resid) => (pure resid : FueledM Expr)
-                | none => throw (CheckError.internal "malformed projection entry")) := by
-            cases hpi : Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                (entry.ty.instantiateLevelParams entry.levelParams
-                  us) with
-            | none => exact SimC.throw
-            | some q =>
-              obtain ⟨ds, resid⟩ := q
-              refine SimC.pure hs₂ ⟨rfl, ?_⟩
-              refine (instPisAt_WScoped _ _ hpi
-                (projEntry_ty_WScoped henv hfp us) ?_).2
-              intro a ha
-              rcases List.mem_append.mp ha with ha | ha
-              · exact hwte.getAppArgs a ha
-              · rcases List.mem_singleton.mp ha with rfl
-                exact hwpe
+              (internExprM (entry.typeAt us (Expr.getAppArgs te) pe))
+              (pure (entry.typeAt us (Expr.getAppArgs te) pe) : FueledM Expr) :=
+            SimC.pure hs₂ ⟨rfl, projEntry_typeAt_WScoped henv hfp us
+              hcond.2.2.1
+              (fun a ha => hwte.getAppArgs a ha) hwpe⟩
           -- the Prop guard (task #175 W4c) runs no walk of its own
           split
           · split
@@ -2519,32 +2504,16 @@ theorem inferBodyIOC_sim (hgb : mode.betaGate = true)
           ExprC.getAppArgs_spec te
         rw [htargs.length]
         split
-        · -- task #175 wiring W2c: the tower residual, as in
+        · -- task #175 S1: the body at the spine and the subject, as in
           -- `inferBodyC_sim`
+          rename_i hcond
           rw [htargs]
           have hres : SimC mode env s₂' (RelEC d)
-              (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                  (entry.ty.instantiateLevelParams entry.levelParams us) with
-                | some (_, resid) => internExprM resid
-                | none => throw (CheckError.internal "malformed projection entry"))
-              (match Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                  (entry.ty.instantiateLevelParams entry.levelParams us) with
-                | some (_, resid) => (pure resid : FueledM Expr)
-                | none => throw (CheckError.internal "malformed projection entry")) := by
-            cases hpi : Expr.instPisAt (Expr.getAppArgs te ++ [pe])
-                (entry.ty.instantiateLevelParams entry.levelParams
-                  us) with
-            | none => exact SimC.throw
-            | some q =>
-              obtain ⟨ds, resid⟩ := q
-              refine SimC.pure hs₂ ⟨rfl, ?_⟩
-              refine (instPisAt_WScoped _ _ hpi
-                (projEntry_ty_WScoped henv hfp us) ?_).2
-              intro a ha
-              rcases List.mem_append.mp ha with ha | ha
-              · exact hwte.getAppArgs a ha
-              · rcases List.mem_singleton.mp ha with rfl
-                exact hwpe
+              (internExprM (entry.typeAt us (Expr.getAppArgs te) pe))
+              (pure (entry.typeAt us (Expr.getAppArgs te) pe) : FueledM Expr) :=
+            SimC.pure hs₂ ⟨rfl, projEntry_typeAt_WScoped henv hfp us
+              hcond.2.2.1
+              (fun a ha => hwte.getAppArgs a ha) hwpe⟩
           -- the Prop guard (task #175 W4c) runs no walk of its own
           split
           · split

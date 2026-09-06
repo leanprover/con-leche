@@ -90,7 +90,7 @@ def whnfCoreBodyP (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         match e'.getAppFn with
         | .const c us =>
           let args := e'.getAppArgs
-          if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
+          if entry.tower ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length ∧
               entry.fireOk us = true then
@@ -98,7 +98,7 @@ def whnfCoreBodyP (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             -- the projection certificate is NOT gated: the asymmetry
             -- fence keeps every zero-kind certificate, and the
             -- projection slot has no `pw` datum of its own
-            if ← projCert r env depth mode.betaGate c us args then
+            if ← projCertAt r env depth mode.verified mode.betaGate c us args then
               r.whnfCore depth arg
             else pure (.proj sn i e')
           else pure (.proj sn i e')

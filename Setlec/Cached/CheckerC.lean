@@ -136,53 +136,25 @@ def installProjFnStepS (T ctorName : Name) (lps : List Name)
     checkProjFnS mode fe T ctorName lps nP nF i
   else pure fe
 
-/-- The Prop-fallback elimination-template entry (mirrors
+/-- The Prop-fallback elimination-template table (mirrors
 `installProjTemplate`; operation-free, lookups through the index). -/
 def installProjTemplateS (fe : FEnv) (T ctorName : Name) (lps : List Name)
-    (nP nF i : Nat) : CheckCM FEnv := do
+    (nP nF : Nat) : CheckCM FEnv := do
   match fe.find? (T.str "rec") with
-  | some (.recInfo cvR mI rP [rule]) =>
-    if (fe.find? (projFnName T i)).isNone ∧
-        mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧ i < nF then
-      pure (fe.push (.projInfo ⟨T, i, lps, nP, ctorName, nF, .sort .zero,
-        .zero, .zero, false,
-        cvR.levelParams.length = lps.length + 1, false⟩))
+  | some (.recInfo _cvR mI rP [rule]) =>
+    if (fe.find? (projTableName T)).isNone ∧
+        mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧
+        !(List.range nF).all (fun i => (fe.find? (projFnName T i)).isSome) then
+      pure (fe.push (.projInfo ⟨T, lps, nP, ctorName, nF, .zero, Array.replicate nF (.sort .zero), [], false⟩))
     else pure fe
   | _ => pure fe
-
-/-- One elimination-template install step (mirrors
-`installProjTemplateStep`). -/
-def installProjTemplateStepS (T ctorName : Name) (lps : List Name)
-    (nP nF : Nat) (fe : FEnv) (i : Nat) : CheckCM FEnv :=
-  if (fe.find? (projFnName T i)).isNone then
-    installProjTemplateS fe T ctorName lps nP nF i
-  else pure fe
-
-/-- The projection fold of the direct install, with the constructor
-residual `directProjResid T lps nP cvCa.type i` threaded alongside the
-index (`todo` counts the remaining fields, `i` the current one): each
-step consumes the residual for `i` and extends it by a **single**
-`instantiate1Lift` — the earlier projections' substitutions are never
-redone, which is what keeps wide structures out of the cubic
-regime. -/
-def checkDirectProjsS (T C : Name) (lps : List Name) (nP nF : Nat)
-    (resSort : Level) (slots : List Bool) (guards : List Level)
-    (cvTa cvCa : ConstantVal) :
-    (todo i : Nat) → Option Expr → FEnv → CheckCM FEnv
-  | 0, _, _, fe => pure fe
-  | todo + 1, i, rt?, fe => do
-    flushC
-    let fe' ← checkDirectProjF (sharedOpsC mode fe) T C lps nP nF resSort
-      slots guards cvTa cvCa rt? fe i
-    checkDirectProjsS T C lps nP nF resSort slots guards cvTa cvCa todo
-      (i + 1) (rt?.bind (Expr.instPisAtLift [directProjArgP T i])) fe'
 
 /-- `checkDirectStruct` through the index. -/
 def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
   -- one `flushC` per environment transition, as everywhere else in this
   -- file: the memo caches are only valid for the environment that
-  -- created them, and this driver walks five of them (the block's
-  -- provisional environments plus one per projection).
+  -- created them, and this driver walks four of them (the block's
+  -- provisional environments)
   flushC
   let (fe₁, cvTa) ← checkDirectIndF (sharedOpsC mode fe) fe p
   flushC
@@ -196,13 +168,8 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
       if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
         .plain else .inert,
       rhsA⟩])
-  unless (List.range p.nF).all
-      (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
-    throw (.invalid "projection name family taken")
-  checkDirectProjsS mode p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
-    p.resSort (directProjSlots p) (directProjGuards cvCa.type p.nP p.nF sorts)
-    cvTa cvCa p.nF 0
-    (Expr.instPisAtLift (directProjPs p.nP) cvCa.type) fe₃
+  checkDirectProjTableF (m := CheckCM) p.cvT.name p.cvC.name p.cvT.levelParams
+    p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) cvCa fe₃
 
 /-- The modeled inductive block (mirrors `checkIndDecl`), returning
 the extended index. -/
@@ -232,8 +199,7 @@ def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
     let fe₄ ← (List.range nF).foldlM
       (installProjFnStepS mode cvT.name cvC.name cvT.levelParams nP nF)
       fe₃
-    (List.range nF).foldlM
-      (installProjTemplateStepS cvT.name cvC.name cvT.levelParams nP nF) fe₄
+    installProjTemplateS fe₄ cvT.name cvC.name cvT.levelParams nP nF
   | _, _ => do
     let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames {}) fe
     checkIndRecsS mode blockNames fe₂ recs

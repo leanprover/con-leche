@@ -20,16 +20,75 @@ theorem projFnName_inj {T T' : Name} {i i' : Nat}
   simp only [projFnName, Name.num.injEq, Name.str.injEq] at h
   exact ⟨h.1.1, h.2⟩
 
-/-- Unfold a successful projection-table lookup to the stored
-constant. -/
+/-- The projection-table name shape is injective (task #175 S1). -/
+theorem projTableName_inj {T T' : Name} (h : projTableName T = projTableName T') :
+    T = T' := by
+  simp only [projTableName, Name.num.injEq, Name.str.injEq] at h
+  exact h.1.1
+
+/-- A table name is never a projection-function name. -/
+theorem projTableName_ne_projFnName (T T' : Name) (i : Nat) :
+    projTableName T ≠ projFnName T' i := by
+  simp [projTableName, projFnName]
+
+/-- Unfold a successful projection-table lookup to the stored table:
+the structure's table is stored, the index is in range, and the entry
+is the table's view at it (task #175 S1). -/
 theorem Env.findProj?_some {env : Env} {T : Name} {i : Nat}
     {entry : ProjEntry} (h : env.findProj? T i = some entry) :
-    env.find? (projFnName T i) = some (.projInfo entry) := by
+    ∃ tbl : ProjTable, env.find? (projTableName T) = some (.projInfo tbl) ∧
+      i < tbl.numFields ∧ entry = tbl.entry i := by
   unfold Env.findProj? at h
   split at h
-  next e heq => exact (Option.some.inj h) ▸ heq
+  next tbl heq =>
+    split at h
+    · next hi => exact ⟨tbl, heq, hi, (Option.some.inj h).symm⟩
+    · exact nomatch h
   next => exact nomatch h
 
+/-- The lookup at a stored table, in range. -/
+theorem Env.findProj?_of_table {env : Env} {T : Name} {tbl : ProjTable}
+    (h : env.find? (projTableName T) = some (.projInfo tbl)) {i : Nat}
+    (hi : i < tbl.numFields) : env.findProj? T i = some (tbl.entry i) := by
+  unfold Env.findProj?
+  rw [h]
+  exact if_pos hi
+
+/-- The lookup at a stored table, out of range. -/
+theorem Env.findProj?_of_table_ge {env : Env} {T : Name} {tbl : ProjTable}
+    (h : env.find? (projTableName T) = some (.projInfo tbl)) {i : Nat}
+    (hi : ¬ i < tbl.numFields) : env.findProj? T i = none := by
+  unfold Env.findProj?
+  rw [h]
+  exact if_neg hi
+
+/-- No table stored, no entry. -/
+theorem Env.findProj?_none_of_fresh {env : Env} {T : Name}
+    (h : env.find? (projTableName T) = none) (i : Nat) : env.findProj? T i = none := by
+  unfold Env.findProj?
+  rw [h]
+
+/-- A stored table's view fixes the entry's data. -/
+@[simp] theorem ProjTable.entry_structName (tbl : ProjTable) (i : Nat) :
+    (tbl.entry i).structName = tbl.structName := rfl
+@[simp] theorem ProjTable.entry_idx (tbl : ProjTable) (i : Nat) :
+    (tbl.entry i).idx = i := rfl
+@[simp] theorem ProjTable.entry_levelParams (tbl : ProjTable) (i : Nat) :
+    (tbl.entry i).levelParams = tbl.levelParams := rfl
+@[simp] theorem ProjTable.entry_numParams (tbl : ProjTable) (i : Nat) :
+    (tbl.entry i).numParams = tbl.numParams := rfl
+@[simp] theorem ProjTable.entry_ctor (tbl : ProjTable) (i : Nat) :
+    (tbl.entry i).ctor = tbl.ctor := rfl
+@[simp] theorem ProjTable.entry_numFields (tbl : ProjTable) (i : Nat) :
+    (tbl.entry i).numFields = tbl.numFields := rfl
+@[simp] theorem ProjTable.entry_body (tbl : ProjTable) (i : Nat) :
+    (tbl.entry i).body = tbl.bodies.getD i default := rfl
+@[simp] theorem ProjTable.entry_fieldSort (tbl : ProjTable) (i : Nat) :
+    (tbl.entry i).fieldSort = tbl.guards.getD i .zero := rfl
+@[simp] theorem ProjTable.entry_structSort (tbl : ProjTable) (i : Nat) :
+    (tbl.entry i).structSort = tbl.structSort := rfl
+@[simp] theorem ProjTable.entry_tower (tbl : ProjTable) (i : Nat) :
+    (tbl.entry i).tower = tbl.tower := rfl
 
 /-- Syntactic well-formedness of one stored constant w.r.t. `env`. -/
 def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
@@ -75,7 +134,18 @@ def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
     value.hasFvar = false ∧
     value.allLevelParamsDefined cv.levelParams = true ∧
     value.constsResolve env = true ∧
-    value.looseBVarsBounded 0 = true)
+    value.looseBVarsBounded 0 = true) ∧
+  -- a projection table's bodies (task #175 S1): closed with respect to
+  -- free variables, level parameters within the structure's list,
+  -- resolving, and scoped at the parameters and the subject; there
+  -- are exactly `numFields` of them
+  (∀ tbl, c = .projInfo tbl →
+    tbl.bodies.size = tbl.numFields ∧
+    ∀ (i : Nat) (b : Expr), tbl.bodies[i]? = some b →
+      b.hasFvar = false ∧
+      b.allLevelParamsDefined tbl.levelParams = true ∧
+      b.constsResolve env = true ∧
+      b.looseBVarsBounded (tbl.numParams + 1) = true)
 
 /-- Every stored constant is syntactically well-formed. -/
 def EnvWF (env : Env) : Prop := ∀ c ∈ env.consts, ConstWF env c
@@ -112,6 +182,13 @@ theorem Env.find?_cons_of_isSome {c : ConstantInfo} {env : Env} {n : Name}
   split
   · next heq => rw [← heq] at h; rw [hfresh] at h; simp at h
   · rfl
+
+/-- A cons at another name does not change a table lookup. -/
+theorem Env.findProj?_cons_ne {env : Env} {c₀ : ConstantInfo} {T : Name}
+    (hn : c₀.name ≠ projTableName T) (i : Nat) :
+    Env.findProj? ⟨c₀ :: env.consts⟩ T i = env.findProj? T i := by
+  unfold Env.findProj?
+  rw [Env.find?_cons, if_neg hn]
 
 /-- Resolution is monotone under environment extension. -/
 theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} :
@@ -376,13 +453,18 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
   intro c' hc'
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
-  · obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := henv c' hmem
+  · obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := henv c' hmem
     refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value hint heq =>
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
       ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_,
       fun cv value heq =>
         let ⟨g1, g2, g3, g4⟩ := h7 cv value heq
-        ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩⟩
+        ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩,
+      fun tbl heq =>
+        let ⟨g0, g⟩ := h8 tbl heq
+        ⟨g0, fun i b hb =>
+          let ⟨g1, g2, g3, g4⟩ := g i b hb
+          ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩⟩⟩
     intro cv mI rP rules heq r hr
     obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP rules heq r hr
     refine ⟨g1, g2, Expr.constsResolve_mono g3, g4, ?_⟩
