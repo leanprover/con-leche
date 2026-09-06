@@ -239,40 +239,6 @@ theorem Sat2_cons_of_tail {Δ : List AVExpr} {A : AVExpr} {ρ : Nat → V}
     funext i; cases i <;> rfl
   rwa [e] at h
 
-/-! ## Two contexts, identified -/
-
-/-- **Two contexts of one length whose entries interpret alike under
-both have the same satisfying valuations**, at every depth. -/
-theorem frameIdent {Γ₁ Γ₂ : List AVExpr} {n : Nat} (h1 : Γ₁.length = n)
-    (h2 : Γ₂.length = n)
-    (hent : ∀ i, i < n →
-      (∀ ρ : Nat → V, Sat2 V (Γ₁.drop (n - i)) ρ ↔ Sat2 V (Γ₂.drop (n - i)) ρ) →
-      ∀ ρ : Nat → V, Sat2 V (Γ₁.drop (n - i)) ρ →
-      interp2 V ρ (Γ₁.getD (n - 1 - i) default) = interp2 V ρ (Γ₂.getD (n - 1 - i) default)) :
-    ∀ i, i ≤ n → ∀ ρ : Nat → V, Sat2 V (Γ₁.drop (n - i)) ρ ↔ Sat2 V (Γ₂.drop (n - i)) ρ := by
-  intro i
-  induction i with
-  | zero =>
-    intro _ ρ
-    rw [Nat.sub_zero, List.drop_eq_nil_of_le (by omega), List.drop_eq_nil_of_le (by omega)]
-  | succ i ih =>
-    intro hi ρ
-    have hiff := ih (by omega)
-    rw [drop_succ_eq_getD_cons h1 (by omega), drop_succ_eq_getD_cons h2 (by omega)]
-    constructor
-    · intro h
-      obtain ⟨hx, ht⟩ := Sat2_cons_inv h
-      have ht' := (hiff _).mp ht
-      refine Sat2_cons_of_tail ht' ?_
-      rw [← hent i (by omega) hiff _ ht]
-      exact hx
-    · intro h
-      obtain ⟨hx, ht⟩ := Sat2_cons_inv h
-      have ht' := (hiff _).mpr ht
-      refine Sat2_cons_of_tail ht' ?_
-      rw [hent i (by omega) hiff _ ht']
-      exact hx
-
 /-! ## The minor space as a Π-tower reading -/
 
 /-- **The minor space is the interpreted Π-tower** over field domains
@@ -314,5 +280,124 @@ theorem interp_minorSp_of_tele {ℓ w : Nat} {M : V} :
       have := hbase (a :: as) ⟨ha, hsp⟩
       rw [consList_cons] at this
       rw [this, List.append_cons]
+
+/-! ## Lifted domains, field spines, and frame arithmetic (from the retired
+`DirectRecMinorP`, task #175 S2) -/
+
+theorem liftDoms_take (n : Nat) :
+    ∀ (ds : List (Nat × Nat × AVExpr)) (k j : Nat),
+      (liftDoms n k ds).take j = liftDoms n k (ds.take j)
+  | [], _, _ => by simp [liftDoms]
+  | _ :: ds, k, 0 => rfl
+  | _ :: ds, k, j + 1 => by
+    simp only [liftDoms, List.take_succ_cons, liftDoms_take n ds (k + 1) j]
+
+/-- A fit of lifted domains is a fit of the domains at the shifted
+frame. -/
+theorem spineFit_liftDoms (n : Nat) :
+    ∀ {ds : List (Nat × Nat × AVExpr)} {k : Nat} {σ : Nat → V} {as : List V},
+      SpineFit σ ((liftDoms n k ds).map (·.2.2)) as ↔
+        SpineFit (shiftE n k σ) (ds.map (·.2.2)) as
+  | [], _, _, [] => Iff.rfl
+  | [], _, _, _ :: _ => Iff.rfl
+  | _ :: _, _, _, [] => Iff.rfl
+  | d :: ds, k, σ, a :: as => by
+    simp only [liftDoms, List.map_cons, SpineFit, interp2_liftN]
+    rw [← shiftE_cons_succ']
+    exact and_congr Iff.rfl (spineFit_liftDoms n)
+
+theorem spineFit_append_inv :
+    ∀ {Ds₁ Ds₂ : List AVExpr} {ρ : Nat → V} {as : List V},
+      SpineFit ρ (Ds₁ ++ Ds₂) as →
+      ∃ as₁ as₂, as = as₁ ++ as₂ ∧ SpineFit ρ Ds₁ as₁ ∧ SpineFit (consList as₁ ρ) Ds₂ as₂
+  | [], _, ρ, as, h => ⟨[], as, rfl, trivial, h⟩
+  | _ :: _, _, _, [], h => h.elim
+  | D :: Ds₁, Ds₂, ρ, a :: as, h => by
+    obtain ⟨as₁, as₂, rfl, h1, h2⟩ := spineFit_append_inv (Ds₁ := Ds₁) h.2
+    exact ⟨a :: as₁, as₂, rfl, ⟨h.1, h1⟩, h2⟩
+
+omit [SetTheory V] in
+/-- A consed spine's entries below its length are the spine's, from the
+top. -/
+theorem consList_apply_lt :
+    ∀ (as : List V) (σ : Nat → V) (k : Nat), k < as.length →
+      consList as σ k = (as[as.length - 1 - k]?).getD (σ 0)
+  | [], _, _, hk => absurd hk (Nat.not_lt_zero _)
+  | a :: as, σ, k, hk => by
+    rw [consList_cons]
+    rcases Nat.lt_or_ge k as.length with h | h
+    · rw [consList_apply_lt as (cons a σ) k h, List.length_cons,
+        show as.length + 1 - 1 - k = (as.length - 1 - k) + 1 from by omega,
+        List.getElem?_cons_succ, List.getElem?_eq_getElem (by omega), Option.getD_some,
+        Option.getD_some]
+    · obtain rfl : k = as.length := by simp at hk; omega
+      have := consList_apply_add as (cons a σ) 0
+      rw [Nat.zero_add] at this
+      rw [this, List.length_cons, show as.length + 1 - 1 - as.length = 0 from by omega,
+        List.getElem?_cons_zero, Option.getD_some, cons_zero]
+
+/-- The field variables, read at a consed field spine, are the spine. -/
+theorem map_fieldBvars_interp {nF : Nat} {as : List V} (hlen : as.length = nF)
+    (σ : Nat → V) :
+    ((List.range nF).map fun k => (AVExpr.bvar (nF - 1 - k))).map (interp2 V (consList as σ))
+      = as := by
+  apply List.ext_getElem
+  · simp [hlen]
+  · intro i h1 h2
+    simp only [List.getElem_map, List.getElem_range, interp2_bvar]
+    have hi : i < nF := by simpa using h1
+    rw [consList_apply_lt as σ (nF - 1 - i) (by omega), hlen,
+      show nF - 1 - (nF - 1 - i) = i from by omega, List.getElem?_eq_getElem h2,
+      Option.getD_some]
+
+theorem stripPisAV_liftN_inv (n' c : Nat) :
+    ∀ (n : Nat) {e : AVExpr} {gds : List (Nat × Nat × AVExpr)} {R : AVExpr},
+      stripPisAV n (e.liftN n' c) = some (gds, R) →
+      ∃ gds₀ R₀, stripPisAV n e = some (gds₀, R₀) ∧ gds = liftDoms n' c gds₀ ∧
+        R = R₀.liftN n' (c + n)
+  | 0, e, gds, R, h => by
+    simp only [stripPisAV, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨[], e, rfl, rfl, by simp⟩
+  | n + 1, e, gds, R, h => by
+    match e, h with
+    | .pi u v A B, h =>
+      simp only [AVExpr.liftN_pi, stripPisAV] at h
+      cases h1 : stripPisAV n (B.liftN n' (c + 1)) with
+      | none => rw [h1] at h; exact nomatch h
+      | some p =>
+        obtain ⟨gds', R'⟩ := p
+        rw [h1] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨gds₀, R₀, hst, rfl, rfl⟩ := stripPisAV_liftN_inv n' (c + 1) n h1
+        refine ⟨(u, v, A) :: gds₀, R₀, by simp [stripPisAV, hst], rfl, ?_⟩
+        rw [show c + 1 + n = c + (n + 1) from by omega]
+    | .bvar _, h | .sort _, h | .const _ _, h | .app _ _, h | .lam _ _ _, h
+    | .letE _ _ _, h | .eqE _ _ _, h | .proj _ _, h | .prf, h =>
+      simp [AVExpr.liftN, stripPisAV] at h
+
+theorem mem_take_of_le {α : Type _} {l : List α} {a : α} {n n' : Nat}
+    (h : a ∈ l.take n) (hn : n ≤ n') : a ∈ l.take n' := by
+  obtain ⟨q, hq⟩ := List.getElem?_of_mem h
+  have hq' : q < n := by
+    have := (List.getElem?_eq_some_iff.mp hq).1
+    simp at this; omega
+  rw [List.getElem?_take_of_lt hq'] at hq
+  exact List.mem_of_getElem? (by rw [List.getElem?_take_of_lt (i := q) (j := n') (by omega)]; exact hq)
+
+omit [SetTheory V] in
+/-- The consed reversed range at a shifted frame is the shift. -/
+theorem consList_range_reverse_shift (j : Nat) (ρ : Nat → V) :
+    consList ((List.range j).reverse.map ρ) (fun i => ρ (i + j + 2)) = shiftE 2 j ρ := by
+  have h1 : (List.range j).reverse.map ρ = (List.range j).reverse.map (shiftE 2 j ρ) := by
+    apply List.map_congr_left
+    intro k hk
+    have : k < j := by simpa using hk
+    simp [shiftE, this]
+  have h2 : (fun i => ρ (i + j + 2)) = fun i => shiftE 2 j ρ (i + j) := by
+    funext i; simp only [shiftE]; rw [if_neg (by omega)]
+  rw [h1, h2]
+  exact consList_range_reverse j (shiftE 2 j ρ)
 
 end Setlec.SetP

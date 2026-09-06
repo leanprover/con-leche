@@ -9513,6 +9513,13 @@ their pin literals differ in how tightly they are pinned by proofs:
   `ErasedEq.of_eraseNames` + `interp_erasedEq` bridge a `matchesPin`
   hit exactly as before.  A regeneration through `AnnotateBasis.lean`
   must preserve this normalization (noted in the module header).
+  *(SUPERSEDED 2026-09-06, `agent/basis-literals`: there is no
+  regeneration step any more — the annotated forms are computed from
+  the raw pins by `#annotate_basis` while the pin module elaborates,
+  and the annotation pass writes `pw` and nothing else, so the
+  normalization holds by construction.  EVERY paragraph in this file
+  that names `AnnotateBasis.lean` as the way to regenerate the basis
+  literals is superseded the same way; see the record at the end.)*
 
 **Rejected alternative.**  Making `Expr.eraseNames` erase the
 annotation and dropping the `m = m'` conjunct from `Expr.ErasedEq` was
@@ -46752,6 +46759,387 @@ tool and still carry `_model` artifacts for direct-installed blocks.  That
 is inert and they are deliberately left as pre-#178 baselines; a fixture
 regenerated from now on should go through `setlec-preprocess`
 (recorded in `tests/arena.sh`'s e2e header).
+
+## TASK #175 S2 — THE RECURSOR IS GENERATED AND COMPARED (2026-09-06, `agent/s2-rec`)
+
+### 0. What landed
+
+Two commits off master `0bf7fd57` (the nat-ops-official merge), gated at the
+branch's own tip (the coordinator's protocol: no master merge before the
+report):
+
+| commit | content |
+|---|---|
+| `13910564` | kernel: `directRecTy`/`directRecRhs` generate the recursor type and rule; `checkDirectRec` keeps `checkConstantVal` on the stream's recursor, infers the generated type and rule, compares the two types by **one closed `isDefEq`**, and stores the *generated* recursor; the index twin, both cached drivers, the run records, the pair/fueled/wf mirrors, the cached sims, the agreement-floor skeletons |
+| `8e7f403c` | proofs: the generated forms read syntactically (`Verify/Direct/DirectRec.lean`, `SetP/Direct/DirectRecReadP.lean`); `recFrames` is a computation; `recRuleLaw`'s λ-domain fit is `spineFit_of_sat2`; five recursor-frame modules deleted |
+
+Net against master: 31 files, **+2 672 / −3 841** (the SetP tier alone
+−2 685 / +1 517; the review's projection was −2 300 / +600 — the reading
+module is larger than the estimate because it spells both the type's and
+the rule's readings out, see §2).
+
+### 1. The design, and the one departure from the brief
+
+**The generated forms** (`Setlec/Kernel/Direct/Parts.lean`).  Over the
+annotated type former `tty = ∀ p⃗, Sort w` and the annotated constructor
+`cty = ∀ p⃗ f⃗, T p⃗`, with `ℓ := directElimLevel elim large` and the
+elimination datum `pw := Level.zeronessOf ℓ`:
+
+    recTy_fab := replacePisPw pw nP tty
+                   (∀ {motive : ∀ (t : T p⃗), Sort ℓ}
+                      (mk : minorTy) (t : T p⃗ [under 2]), motive t)
+    minorTy   := replacePisPw pw nF ((cty.stripPis nP).2.liftLooseBVars 1 0)
+                   (motive (C p⃗ f⃗) [motive at bvar nF, params under 1+nF])
+    rhs_fab   := pisToLamsPw pw nP tty
+                   (λ {motive} (mk : minorTy),
+                      pisToLamsPw pw nF ((cty.stripPis nP).2.liftLooseBVars 2 0)
+                        (minor f⃗ [minor at bvar nF]))
+
+`Expr.replacePisPw`/`Expr.pisToLamsPw` re-emit the first `k` binders of a
+telescope with their domains verbatim and their codomain datum reset to
+`pw`, over a new body; the field telescope is the constructor's strip past
+the parameters, *lifted* under the motive (and the minor, for the rule) —
+`liftLooseBVars`, no capture-avoiding substitution, since the substitutes
+are variables.  Every generated binder carries `pw`: each codomain is
+`motive t : Sort ℓ` through `imax`'s right-argument rule, so the datum is
+exactly what the verified-mode inference validates at `(forall-cod)` and
+`(lam-cod-*)`, and what the stream's annotated recursor carries at the same
+binders (the defeq sites compare data by `PropWhen.equiv`, and `equiv` is
+semantic — `equiv_iff_holds`).  The motive's own binder `(t : T p⃗)` has
+codomain `Sort ℓ : Sort (ℓ+1)`, hence `.never`.  The generators take a
+**list** of constructors (one minor premise and one rule per constructor,
+`directMinorsPis`/`directMinorsLams`, minor `j` sitting `j + 1` binders
+below the parameters) though the recogniser admits one; the proofs are at
+the singleton (`directRecTy_single`/`directRecRhs_single`).
+
+**The stage** (`checkDirectRec`, `Kernel/Direct/Install.lean`): the
+ordinary constant check on the stream's recursor (freshness, reservation,
+level parameters, annotate + infer — the input has to be annotated for the
+datum comparison), the generated type and rule with the four `EnvWF`
+scoping guards (internal on failure — they cannot fail on an accepted
+block), `inferType` + `ensureSort` on the generated type, **`isDefEq env
+0 cvRi.type recTy_fab`** (a mismatch declines: our generator differs from
+Lean's), `inferType` on the generated rule, and the cons of
+`⟨p.cvR.name, p.cvR.levelParams, recTy_fab⟩` with the single rule
+`rhs_fab`.  Gone: `directShape`'s re-check on the annotated constants, the
+`nP + nF` `checkDirectDomsAt` pins at the opened frames, the motive's and
+major's `isDefEq` at depth `nP`/`nP + 2`, the rule's annotate run and its
+`checkDefEqList` over `nP + 2 + nF` λ-domains.  `checkDirectDomsAt` itself
+stays (the constructor stage's parameter pins against the type former's).
+
+**The departure: what is stored is the generated recursor, not the
+stream's.**  The brief kept the stream's type stored and transferred its
+membership through `DefEqClaims2P` at `Δa = []`.  The membership half of
+that works (the closed `isDefEq` gives the two readings' interpretations
+equal, and the generated form's leaf inhabits its own reading).  The rule
+law does not: `RecRuleLawP` hands the fired rule a spine that fits the
+*stored* type's reading, and the fold of the leaf λ-tower along that spine
+(`mkLamsAV_fold_graded`) needs the spine to fit the leaf's **own** domains
+— entrywise identification of the stored reading's binder data with the
+generated one's, which the whole-type defeq does not give (at a
+propositional motive both readings are truth values and carry no domain at
+all; at a data motive it would need a graph-domain extraction argument).
+Entrywise identification is exactly what the deleted frame modules got
+from the per-binder pins.  Storing the generated form dissolves the
+question: the stored reading *is* the generated one, the comparison
+carries no proof obligation, and this is what the reference kernels do
+(official generates its recursor and stores it; the stream's is not
+consulted at all).  Verdicts: the stored type is definitionally the
+stream's, so downstream inference agrees up to `isDefEq`; the gates
+below found no change.
+
+### 2. The proof shape
+
+* **Syntactic** (`Verify/Direct/DirectRec.lean`, 614 lines): the two
+  walks under `instantiate1`/`instSeq` and under `stripPis`
+  (`replacePisPw_instSeq`, `pisToLamsPw_instSeq`,
+  `replacePisPw_stripPis`); the lifted field telescope instantiated at
+  the parameter variables and the extra binders' variables is the
+  constructor's residual at the parameters alone
+  (`instSeq_minorTele` = `instSeq_liftLooseBVars_prefix`, which existed);
+  the closed spellings instantiate to the variables
+  (`map_instSeq_directPsAt`, `instSeq_minorBody`, `instSeq_ruleBody`);
+  `instPisAt_of_stripPis` (the peel is the strip's body instantiated);
+  no generated node is a `.proj` node (`Expr.NoProjAt.directRecTy`/
+  `.directRecRhs`, for the tower law's `NoProjEnv`).  The review's "one
+  new shift lemma" is not needed: reading the residual one/two deeper is
+  `denoteP_lift` on the closed residual, and the per-entry lift is
+  `liftN_mkPisAV`.
+* **Readings** (`SetP/Direct/DirectRecReadP.lean`, 859 lines):
+  `denoteP_replacePisPw`/`denoteP_pisToLamsPw` — a walk over an opened
+  telescope reads to the tower over the telescope's own domain readings,
+  bits reset, over the body at the opening's variables; then
+  `denoteP_directRecTy` (the type reads to `mkPisAV (recDataAV …) (motive
+  t)` with the three special entries spelled — `motiveAV`, `minorAV` over
+  `liftDoms 1 0 (ds.drop nP)`, `majorAV`) and `denoteP_directRecRhs` (the
+  rule reads to `mkLamsAV (ruleDataAV …) (minor f⃗)`, the field data
+  lifted two under).  `recData_of`: the reading is syntactic, the bits are
+  the datum's (`zeronessOf_sound`), the grading is the generated type's
+  own inference run (`inferRow`), the level dependence is
+  `denoteP_params_ext`.  `ruleData_of` likewise from the rule's inference
+  run.  The old `RecData` record and its `.cross` are unchanged, so the
+  stage's consumers see the same interface with an explicit `rds`.
+* **Frames** (`DirectRecFramesP`): `RecBase` is a computation — the
+  parameter frames coincide outright (the recursor's parameter entries are
+  the type former's, bits aside), the motive entry is `famSpine_val` plus
+  `piR_congr_bit`, the minor entry is `interp_minorSp_of_tele` over
+  `liftDoms 1 0` (the field domains agree along a fitting chain through
+  `shiftE_consList_len`; the core is the constructor leaf's fold, the same
+  computation `recMinor` ended in), the major entry is `famSpine_val` two
+  under; the entries' gradings come from the opened type's record
+  (`OpenedP.okΓ`).  `recOpenedAll` opens the generated type by
+  `replacePisPw_stripPis` + `stripPis_append` — no run inversion.
+* **The rule law** (`DirectRecLawP`): the rule's λ-domains are the
+  frame's own entries (`ruleDataAV_map_dom`), so the fit `recLawCore`
+  takes is `spineFit_of_sat2` at the reversed data — `recLawFits` (332
+  lines) is gone.  `recLawCore` is untouched.
+* **Deleted** (1 884 lines): `DirectRecKitP` (177, not even on the proof
+  path), `DirectRecCompP` (374), `DirectRecPinsP` (377), `DirectRecMinorP`
+  (622), `DirectRecLawFitsP` (334); plus the frame halves of
+  `DirectRecFramesP` (325 → 312, now a computation) and `DirectRecLawP`
+  (385 → 279), `RecData`'s run-inversion derivation (`DirectRecDataP` 187
+  → 96), and the Verify inversions `checkDirectRecTy_shape`/
+  `checkDirectRule_shape`, `checkDirectRecTy_wfimp`/`checkDirectRule_wfimp`
+  (≈ 370 lines), `checkDirectRecTyS_sim`/`checkDirectRuleS_sim` (≈ 250).
+  The generic kit the deleted modules held (`spineFit_liftDoms`,
+  `spineFit_append_inv`, `map_fieldBvars_interp`, `frameVals` and its
+  lemmas) moved to `DirectRecKit2P`/`DirectRecLawKitP`.
+* **Bits.**  The minor's field binders carry ℓ-bits (the ctor's w-bits are
+  in `ds`, untouched); every consumer is bit-agnostic
+  (`interp_minorSp_of_tele` takes any bits zero-agreeing with ℓ,
+  `RecBase`'s `FieldsOkB` is over the domains only, `Sat2` reads domains
+  only), so `rebit` only ever has to keep the domains
+  (`rebit_map_dom`).
+
+### 3. Notes for the sum-types extension
+
+The generators already fold over a constructor list; the recogniser
+(`directPartsCore?`), `DirectParts` (one `cvC`, one `nF`, one `rhs`), the
+install's `ctors := [(p.cvC.name, p.nF, cvCa.type)]` and the stored rule
+list are what change, and on the proof side `directRecTy_single`/
+`directRecRhs_single` become per-constructor unfoldings, `recDataAV` gets
+one minor entry per constructor (each `minorAV` at its own offset
+`o = j + 1`), and `recRuleLaw` is stated per rule.  The reading lemmas
+`denoteP_replacePisPw`/`denoteP_pisToLamsPw` and the syntactic kit are
+already offset-generic (`directPsAt o`, `directCtorSpineAt … o`,
+`instSeq_minorTele tfvs extras`).
+
+### 4. Receipts
+
+All at the branch tip `c2daaf38` (three commits over master `0bf7fd57`;
+master not merged — gated at the tip per the coordinator's protocol):
+`lake build` warning-free (441 jobs); `lake test` green;
+`tests/arena.sh` exit 0 — layering base 236 / P 156, 0 base→lane and 0
+impl→theory edges; proofdeps **1 363** rows as pinned across the four
+capstones, doors 0 (regenerated: `DirectRecCompP`, `DirectRecLawFitsP`,
+`DirectRecMinorP`, `DirectRecPinsP` leave all four cones — `DirectRecKitP`
+was never on the proof path — and `SetP.Direct.DirectRecReadP`,
+`Verify.Direct.DirectRec` enter all four; 1 371 → 1 363); arena tutorial
+90/92 good (the two custom-axiom declines by design), e2e 78/78, annot
+14/14, retired flags 8/8, mode flags 16/16, trusted sweep as expected
+with the 3 recorded divergences; the four capstones' axioms exactly
+`[propext, Classical.choice, Quot.sound]` (`_tmp/s2/axioms-tip.out`); no
+`sorry`, no new axiom.
+
+init-full-pre2 (`ulimit -v 16000000; timeout 3000`, single runs):
+`--pre --verified` **accepted 60 549** (exit 0, 159 s wall);
+`--pre --trusted` **accepted 60 549** (exit 0, 146 s).  The Mathlib prefix
+slice `_tmp/next-frontier/diseq-slice-pre.ndjson` accepts (1 790
+declarations, exit 0; it was exit 2 for the P and parity binaries in
+the frontier record).  The direct-structure fixtures
+`tests/e2e/direct_struct_raw.ndjson` (52) and `direct_nested_dep.ndjson`
+(49) accept.  Outputs under `_tmp/s2/`.
+
+One detour on the way: the first tip emitted the motive binder as
+`.implicit` and declined every stream past `propext` — the
+standard-axiom pins (`stdAxiomOk`, `ConstantVal.matchesPin`) compare the
+stored `Iff.rec`/`Nonempty.rec` against the exported shapes up to names
+and data but not binder infos, and the export carries `.default` at the
+recursor's own binders.  The generator now emits the export's infos
+(`c2daaf38`); a syntactic pin on a *generated* constant is exactly the
+kind of coupling the multi-constructor extension should keep in view.
+No performance measurement (a granted design — no perf before the
+grant).
+
+**Post-merge receipts** (master `32499485` merged into the branch — the
+CoreT retirement dropped `Cached/ParsedT.lean` and the trusted
+`checkDirectStructT_skels`; the sim and driver now take `cfg`/`cfgOf
+mode`): `lake build` warning-free (613 jobs), `lake test` green,
+`tests/arena.sh` exit 0 (layering 0 edges, proofdeps **1 362** rows as
+pinned with doors 0, pindump fresh, 90/92 · 78/78 · 14/14 · 8/8 · 16/16,
+trusted sweep with the 3 recorded divergences), init-full-pre2
+`--pre --verified` 60 549 (169 s) and `--pre --trusted` 60 549 (154 s),
+the Mathlib slice 1 790 accepted, the four capstones' axioms exactly
+`[propext, Classical.choice, Quot.sound]`.
+
+## THE BASIS LITERALS, DERIVED — hand-written raw pins + `#annotate_basis` (2026-09-06, `agent/basis-literals`)
+
+**The defect.**  The pinned basis blocks, the standard-axiom
+prerequisite families and the compiler-trust pins are *stored
+annotated*: `installBasisDecl` puts the `*A` constants into the
+environment verbatim and the model proofs read their `pw` data off
+them.  Those constants were a **paste**: `AnnotateBasis.lean` (the
+`annotate-basis` `[[lean_exe]]`) ran the checker's annotation over the
+raw pins and printed `Repr`, and the output was copied into
+`Setlec/Kernel/Basis/*.lean`, `StdAxioms.lean` and `TrustAxioms.lean`
+as ~1 900 lines of fully-qualified constructor spellings.  Nothing in
+the build re-ran the generator, so the literals were a committed cache
+with **no checked relation to their source** — a stale paste would
+have been invisible, and the raw pins beside them (the things a human
+can check against `Init.Prelude`) were themselves one-line
+machine-shaped dumps.
+
+**The shape the user ruled for** (2026-09-06 night): *hand-written raw
+types plus elaboration-time annotation, no pins file, generator
+deleted.*
+
+### 1. The raw pins, hand-written (`Setlec/Kernel/Basis/Builder.lean`, 110 lines)
+
+One definition per constant (`eqRaw`, `eqReflRaw`, `eqRecRaw`,
+`natRaw`, …, `quotSoundRaw`; `iffRaw`/`iffIntroRaw`/`iffRecRaw`,
+`nonemptyRaw`/…, `propextRaw`, `choiceRaw`, and the two parameterized
+trust builders), written through a builder whose every helper is ONE
+`Expr` constructor application at the raw binder annotation:
+
+| helper | is |
+|---|---|
+| `pi x ty b` / `piI` / `piA` | `.forallE (bn x) ty b ⟨.default⧸.implicit, .never⟩`, `piA` at the anonymous binder |
+| `lm x ty b` / `lmI` | the `.lam` twins |
+| `bv i`, `srt u`, `prop`, `type1`, `cnst n us` | `.bvar` / `.sort` / `Sort 0` / `Sort 1` / `.const` |
+| `ap2`…`ap4` | left-nested `.app` chains |
+| `rule c n rhs` | `⟨c, n, 0, .inert, rhs⟩` — the parse placeholders |
+| `uN`/`u`, `vN`/`v`, `u1N`/`u1` | the three universe parameters the exporter names |
+
+Nothing is abbreviated away: a pin lines up against `Init.Prelude`
+binder by binder and index by index, and shared sub-terms (a
+recursor's motive, `Quot`'s relation argument) are `private def`s with
+a docstring saying which binder context their indices are relative to.
+The pin modules shrank from 1 871 to 893 lines (Eq 201→62, Nat
+218→66, PUnit 116→50, Empty 64→34, Quot 444→116, StdAxioms 491→303,
+TrustAxioms 293→219, Basis 44→43).
+
+### 2. The annotation, at elaboration time (`Setlec/Kernel/BasisGen.lean`, 330 lines)
+
+Two commands, following the `#load_natop_pins` precedent
+(`Setlec/PinGen/Dump.lean`): compute the value in meta code, quote it
+back to a `Lean.Expr`, `addDecl` + `compileDecl`.
+
+```
+#annotate_basis over <env : List ConstantInfo>   -- ConstantInfo pins,
+  | eqA := eqRaw                                 -- env threaded
+  | ...
+#annotate_pins  over <env : List ConstantInfo>   -- ConstantVal pins,
+  | propextA := propextRaw                       -- same env for each
+```
+
+The leading `|` is what keeps the entries from parsing as one applied
+term.  `over` is elaborated and evaluated at `List ConstantInfo`, so
+it may name constants an earlier command in the same file defined
+(`StdAxioms` passes `[eqA]`, then the whole `Iff`/`Nonempty` prefix;
+`TrustAxioms` passes its pinned prerequisite list, then that list plus
+the two annotated reduce operations).
+
+`annotateInfo` is the install path's recipe verbatim: the **type**
+through `annotateCore .verified env checkFuel 0`; for a recursor, the
+install-computed rule fields first (`ctorParams` off the stored
+constructor, `fire` off `Expr.recRulePlain`) and then each rule's
+**rhs** over the environment extended with the recursor itself (which
+`Nat.rec`'s successor rule needs).  An `annotateCore` error is an
+elaboration error, `throwErrorAt` the raw term — checked with a
+deliberate failure (a `.projInfo` raw errors at the splice).
+
+The splice gives each constant the reducibility hint an ordinary `def`
+of the same body would get (`.regular (getMaxHeight env value + 1)` via
+`mkDefinitionValInferringUnsafe`), so the `decide`/`rfl`/`simp [eqA]`
+consumers in `Setlec/SetP/*` see exactly what they saw before.
+`Lean.Elab.Term.evalTerm` is `unsafe`; the three wrappers are the
+standard `@[implemented_by]` pairing.  **That is not a trust point and
+the "no `implemented_by` in checker code" ruling does not reach it:**
+these three live in elaborator-only meta code that runs while the pin
+module elaborates, and everything they produce is a `Declaration` the
+Lean kernel then checks — a wrong evaluation cannot yield a
+well-typed wrong constant silently, and none of it is in the shipped
+checker's execution path.
+
+### 3. The module structure — and why it moved
+
+Running the annotation needs `Setlec.Kernel.TypeChecker` →
+`Setlec.Kernel.Core` → `Setlec.Kernel.Basis`.  So the annotated forms
+**cannot** live in a module the core imports.  The split:
+
+* `Setlec.Kernel.Basis{,.Names,.Builder,.Eq,.Nat,.PUnit,.Empty,.Quot}` —
+  RAW only, below the core, unchanged as an import of `Core.lean`
+  (the frontend matches incoming records against `BasisKind.decls`);
+* `Setlec.Kernel.BasisA` (new, 52 lines) — the 17 basis `*A` constants
+  and `BasisKind.declsA`, above `TypeChecker`;
+* `StdAxioms` / `TrustAxioms` keep their `*A` constants in place and
+  gain the commands (both now import `BasisA` + `BasisGen`);
+* `Verify/EnvPreds` and `Semantics/BasisRules` follow the move
+  (`Setlec.Kernel.Basis` → `Setlec.Kernel.BasisA`).
+
+**The `import Lean` blast radius, measured before choosing.**
+`BasisGen` imports `Lean`.  `Lean` is *already* in 273 of the tree's
+429 modules' import closures (via `Setlec/Kernel/NatOpPins.lean`'s
+`meta import Setlec.PinGen.Dump` — a `meta import` does propagate to a
+classic importer, confirmed by probe).  Putting the annotated forms
+above `TypeChecker` rather than below it keeps the core and the
+untainted proof modules clean: the delta is **5 modules**
+(`Kernel.StdAxioms`, `Semantics.BasisRules`, `Semantics.EqTower`,
+`Semantics.EraseInv`, `Verify.EnvPreds`).  Had the literals stayed in
+`Basis/Eq.lean`, `Lean` would have entered `Setlec.Kernel.Core` and
+with it ~130 proof modules that today do not see Lean's instances and
+simp set.  The module-system alternative (`module` + `meta import`,
+the NatOpPins pattern) does NOT avoid this: a classic importer imports
+a `module` at `.private` level and gets its meta closure, so it would
+have needed every importer up the chain converted too.
+
+### 4. The receipt — byte-identity, twice
+
+Before the generator was deleted, `BasisReceipt.lean` (1 344 lines,
+commit `d8c62f0c`, deleted in this one) held **master's literals
+verbatim** under a `Receipt` namespace and checked
+
+    example : <new> = Receipt.<old>Old := by rfl
+
+for all 38 of them — the 9 raw blocks (`eqBasis`, `natBasis`,
+`punitBasis`, `emptyBasis`, `quotBasis`, `iffFamily`, `propextRaw`,
+`nonemptyFamily`, `choiceRaw`) and the 29 annotated constants (17
+basis + `iffA`/`iffIntroA`/`iffRecA`/`nonemptyA`/`nonemptyIntroA`/
+`nonemptyRecA`/`propextA`/`choiceA` + `reduceNatCvA`/`reduceBoolCvA`/
+`ofReduceNatA`/`ofReduceBoolA`).  All pass, kernel-checked.
+
+Independently: the OLD generator, re-run against the NEW hand-written
+raw pins, produced output **byte-identical** to its pre-change output
+(1 207 lines, `diff` clean).  That is the second, source-side receipt:
+the hand-written raws are the same values as the machine-shaped ones.
+
+### 5. What was deleted
+
+* `AnnotateBasis.lean` — 117 lines;
+* its `[[lean_exe]] name = "annotate-basis"` in `lakefile.toml`;
+* `AnnotateBasis` from `tests/layering.sh`'s `IMPL_ROOTS` and extra
+  roots (the gate still reports 0 base→lane and 0 impl→theory edges);
+* `BasisReceipt.lean` — 1 344 lines, once its receipt was taken;
+* ~978 lines of pasted literals from the eight pin modules.
+
+`tests/pindump.sh`'s header comment, which named the discipline after
+`annotate-basis`, now names it after what it is (a
+committed-generator-output freshness ratchet) and records that the
+basis half of it no longer needs a gate: a literal that is recomputed
+on every build cannot go stale.
+
+### 6. Why this is stronger than a freshness gate
+
+The obvious alternative was to keep the paste and add a
+`tests/basis-literals.sh` that regenerates and `diff`s (the
+`pindump.sh` shape).  Deriving beats gating here because the derivation
+is *cheap and total*: annotating 27 small closed types costs
+milliseconds inside an elaboration that already runs, so there is no
+committed artifact to be stale, no toolchain-named file, no
+regeneration instruction in any document, and one fewer executable in
+the build.  The pin dump keeps its gate because its computation is not
+cheap (it reads kernel-checked certificate proof terms out of a second
+library) and its build ordering was the defect task #176 fixed.
 
 ## The affine frontier: a MEMORY blow-up from the `.proj` inference clause — the executable path ran the spec's tree-walking `instantiateList`, copying every DAG subject (2026-09-06, `agent/affine-fix`)
 

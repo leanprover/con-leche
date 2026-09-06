@@ -1,4 +1,4 @@
-import Setlec.SetP.Direct.DirectRecLawFitsP
+import Setlec.SetP.Direct.DirectRecLawKitP
 
 /-!
 # The recursor rule's law, semantically (task #175 W4c, P3 module 6, part 18)

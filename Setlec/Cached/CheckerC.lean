@@ -148,9 +148,7 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
   flushC
   let (fe₂, cvCa, sorts) ← checkDirectCtorF (sharedOpsC cfg fe₁) fe fe₁ p cvTa
   flushC
-  let cvRa ← checkConstantValF (sharedOpsC cfg fe₂) fe₂ p.cvR
-  checkDirectRecTyF (sharedOpsC cfg fe₂) fe₂ p cvTa cvCa cvRa
-  let rhsA ← checkDirectRuleF (sharedOpsC cfg fe₂) fe₂ p cvCa cvRa
+  let (cvRa, rhsA) ← checkDirectRecF (sharedOpsC cfg fe₂) fe₂ p cvTa cvCa
   let fe₃ := fe₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
     [⟨p.cvC.name, p.nF, p.nP,
       if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then

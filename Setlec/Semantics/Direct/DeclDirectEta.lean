@@ -88,6 +88,28 @@ theorem checkDirectCtor_inv {μ : CheckMode} {F : Nat} {env₀ env envC : Env}
        exact ⟨_, by assumption, rfl, rfl⟩)
     | close_throw
 
+/-- Stage 3 admits the stream's recursor by the ordinary constant check
+and conses the *generated* recursor at the stream's name and level
+parameters (task #175 S2). -/
+theorem checkDirectRec_inv {μ : CheckMode} {F : Nat} {env : Env}
+    {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {rhsA : Expr}
+    (h : checkDirectRec (m := Setlec.CheckM) (fueledOps μ F) env p cvTa cvCa
+      = .ok (cvRa, rhsA)) :
+    ∃ cv : ConstantVal,
+      checkConstantVal (m := Setlec.CheckM) (fueledOps μ F) env p.cvR = .ok cv ∧
+      cvRa.name = p.cvR.name ∧ cvRa.levelParams = p.cvR.levelParams := by
+  unfold checkDirectRec at h
+  obtain ⟨cvRi, hcv, h⟩ := Setlec.exceptBind_ok h
+  repeat' first
+    | (obtain ⟨_, _, h⟩ := Setlec.exceptBind_ok h)
+    | split at h
+    | (dsimp only at h)
+  all_goals first
+    | (simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+       obtain ⟨rfl, rfl⟩ := h
+       exact ⟨cvRi, hcv, rfl, rfl⟩)
+    | close_throw
+
 /-- The table stage's run: the tower table consed at a fresh table
 name (task #175 S1). -/
 theorem checkDirectProjTable_shape {T C : Name}
@@ -119,7 +141,7 @@ theorem checkDirectProjTable_etaClosed {T C : Name}
 theorem declDirectRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectParts} (hE : EtaFamiliesClosed env)
     (h : DeclDirectRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hCV, -, -,
+  obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hRec,
     hfold⟩ := h
   obtain ⟨cvT', hcvT, -, hI⟩ := checkDirectInd_inv hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
@@ -127,11 +149,11 @@ theorem declDirectRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
   obtain ⟨cvC', hcvC, -, hC⟩ := checkDirectCtor_inv hCtor
   obtain ⟨hfC, -, -, -, -, -, _, _, _, -, -, -, -, -, hCeq⟩ :=
     Setlec.checkConstantVal_inv hcvC
-  obtain ⟨hfR, -, -, -, -, -, _, _, _, -, -, -, -, -, hReq⟩ :=
+  obtain ⟨cvRi, hCV, hnR, -⟩ := checkDirectRec_inv hRec
+  obtain ⟨hfR, -, -, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
     Setlec.checkConstantVal_inv hCV
   have hnT : cvT'.name = p.cvT.name := by rw [hTeq]
   have hnC : cvC'.name = p.cvC.name := by rw [hCeq]
-  have hnR : cvRa.name = p.cvR.name := by rw [hReq]
   -- the former claims eta (`directCaps`, task #175 W4c), so the family
   -- is closed only once its constructor is consed: at `envC` the new
   -- former's constructor is the head, and every prefix family keeps

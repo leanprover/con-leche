@@ -486,6 +486,15 @@ theorem checkConstantValF_name (ops : CheckerOps CheckCM) (fe : FEnv)
   yields
   all_goals (apply Yields.pure; rfl)
 
+/-- The recursor stage stores the generated recursor at the stream's
+name (task #175 S2). -/
+theorem checkDirectRecF_name (ops : CheckerOps CheckCM) (fe : FEnv)
+    (p : DirectParts) (cvTa cvCa : ConstantVal) :
+    Yields (checkDirectRecF ops fe p cvTa cvCa) (fun r => r.1.name = p.cvR.name) := by
+  unfold checkDirectRecF
+  yields
+  all_goals (apply Yields.pure; rfl)
+
 theorem checkMemberValF_name (ops : CheckerOps CheckCM)
     (blockNames : List Name) (fe : FEnv) (cv : ConstantVal) :
     Yields (checkMemberValF ops blockNames fe cv)
@@ -760,10 +769,9 @@ theorem checkDirectStructS_skels (cfg : CoreCfg) {fe : FEnv}
   obtain ⟨fe₂, cvCa, sorts⟩ := r₂
   simp only []
   ybind
-  refine Yields.bind' (checkConstantValF_name _ fe₂ p.cvR) fun cvRa hnR => ?_
-  ybind
-  with_reducible apply Yields.bind
-  intro rhsA
+  refine Yields.bind' (checkDirectRecF_name _ fe₂ p cvTa cvCa) fun r₃ hnR => ?_
+  obtain ⟨cvRa, rhsA⟩ := r₃
+  simp only [] at hnR
   try simp only []
   generalize (if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
       RecRuleFire.plain else RecRuleFire.inert) = fire

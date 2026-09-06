@@ -58,10 +58,11 @@ official `src/kernel/inductive/inductive.cpp`; nanoda
   `λ p⃗ motive minor f⃗, minor f⃗` (`mkRecRules`, `Add.lean:441-447`).
 
 The per-field universe bound (`Add.lean:225-228`,
-nanoda `check_ctor`, `inductive.rs:809`) and the definitional pins of the
-recursor's binder domains against the constructor's need inference and
-`isDefEq`, so they live in the monadic `checkDirectStruct`
-(`Setlec/Kernel/Checker.lean`).
+nanoda `check_ctor`, `inductive.rs:809`) needs inference, and the
+recursor is **generated** here (`directRecTy`/`directRecRhs`, task
+#175 S2) and compared against the stream's by one closed `isDefEq`;
+both live in the monadic `checkDirectStruct`
+(`Setlec/Kernel/Direct/Install.lean`).
 
 The direct path installs **native tower-backed projection entries**
 (`checkDirectProj`, task #175 wiring): `.proj T i` nodes are typed by
@@ -92,6 +93,169 @@ def directCtorSpine (C : Name) (lps : List Name) (nP nF : Nat) : Expr :=
 to the field variables. -/
 def directRuleBody (nF : Nat) : Expr :=
   Expr.mkAppN (.bvar nF) ((List.range nF).map fun j => Expr.bvar (nF - 1 - j))
+
+/-! ## The generated recursor (task #175 S2: fabricate-and-compare)
+
+The reference kernels *generate* the recursor from the block
+(lean4lean `Inductive/Add.lean:326-483`, official
+`inductive.cpp`'s `mk_rec_infos`) and store what they generated.  So
+does the direct route: the recursor type and its rule are built here,
+syntactically, from the **annotated** type former and constructor
+types, and the stream's recursor is compared against the generated
+type by one closed `isDefEq` (`checkDirectRec`).  What is stored is
+the generated form — which is what makes its reading syntactic in the
+model (`Setlec/SetP/Direct/DirectRecReadP.lean`): no pin at an opened
+frame is consumed anywhere.
+
+The generators are written over a **list** of constructors (one minor
+premise and one rule per constructor) though the recogniser admits
+one: the multi-constructor extension changes the recogniser and the
+proofs, not the generated shapes.
+
+**Binder infos** are the export's: the former's parameter binders keep
+theirs, every generated binder is `.default` (the standard-axiom pins,
+`stdAxiomOk`, compare the stored `Iff.rec`/`Nonempty.rec` against the
+exported shapes up to names and data but not infos).
+
+**Binder data.**  Every binder the generator introduces or re-emits at
+the recursor's own telescope carries the elimination datum
+`Level.zeronessOf ℓ`: the codomain of each is `motive t : Sort ℓ`
+(through `imax`'s right-argument rule), so this is exactly what the
+verified-mode inference validates (`(forall-cod)`, `(lam-cod-*)`) and
+what the stream's annotated recursor carries at the same binders (the
+defeq sites compare data by `PropWhen.equiv`).  The motive's own
+binder `(t : T p⃗)` has codomain `Sort ℓ : Sort (ℓ+1)`, hence `.never`.
+The domains are re-emitted verbatim, their inner data untouched. -/
+
+/-- The parameter variables as seen from under `o` extra binders:
+`p_k = bvar (o + nP - 1 - k)` — `directFam`'s argument spine. -/
+def directPsAt (o nP : Nat) : List Expr :=
+  (List.range nP).map fun k => Expr.bvar (o + nP - 1 - k)
+
+theorem directFam_eq (T : Name) (lps : List Name) (nP o : Nat) :
+    directFam T lps nP o = Expr.mkAppN (.const T (lps.map .param)) (directPsAt o nP) := rfl
+
+/-- The recursor's elimination level: the fresh parameter at the large
+eliminator, `zero` at the small one. -/
+def directElimLevel (elim : Name) (large : Bool) : Level :=
+  if large then .param elim else .zero
+
+/-- The constructor applied to the parameter and field variables, as
+spelled under `o` binders between the parameters and the fields (the
+motive and the earlier minor premises); `directCtorSpine` is the
+`o = 1` case (`directCtorSpine_eq_at`). -/
+def directCtorSpineAt (C : Name) (lps : List Name) (o nP nF : Nat) : Expr :=
+  Expr.mkAppN (.const C (lps.map .param))
+    (directPsAt (o + nF) nP ++ (List.range nF).map fun j => Expr.bvar (nF - 1 - j))
+
+theorem directCtorSpine_eq_at (C : Name) (lps : List Name) (nP nF : Nat) :
+    directCtorSpine C lps nP nF = directCtorSpineAt C lps 1 nP nF := by
+  unfold directCtorSpine directCtorSpineAt directPsAt
+  congr 2
+  apply List.map_congr_left
+  intro k _
+  congr 1
+  omega
+
+/-- The last string component of a name, as a binder name (`T.mk ↦
+mk`). -/
+def Name.lastStr : Name → Name
+  | .str _ s => .str .anonymous s
+  | n => n
+
+/-- Replace the body under the first `k` `∀`-binders, resetting their
+codomain data to `pw` (the domains and binder infos are kept). -/
+def Expr.replacePisPw (pw : PropWhen) : Nat → Expr → Expr → Option Expr
+  | 0, _, b => some b
+  | k + 1, .forallE n ty rest m, b =>
+    (replacePisPw pw k rest b).map fun r => .forallE n ty r ⟨m.bi, pw⟩
+  | _ + 1, _, _ => none
+
+/-- Convert the first `k` `∀`-binders into `λ`-binders with datum `pw`
+over a body (`pisToLams` with the datum supplied instead of the
+`.never` placeholder). -/
+def Expr.pisToLamsPw (pw : PropWhen) : Nat → Expr → Expr → Option Expr
+  | 0, _, b => some b
+  | k + 1, .forallE n ty rest m, b =>
+    (pisToLamsPw pw k rest b).map fun r => .lam n ty r ⟨m.bi, pw⟩
+  | _ + 1, _, _ => none
+
+/-- The motive's domain `∀ (t : T p⃗), Sort ℓ`, at the parameters'
+frame. -/
+def directMotiveTy (T : Name) (lps : List Name) (nP : Nat) (ℓ : Level) : Expr :=
+  .forallE (.str .anonymous "t") (directFam T lps nP 0) (.sort ℓ) ⟨.default, .never⟩
+
+/-- A constructor's minor premise: its field telescope — the
+constructor type's binders past the parameters, lifted under the `o`
+binders between the parameters and the fields (the motive and the
+earlier minor premises), every field binder's datum reset to the
+elimination datum — ending in `motive (C p⃗ f⃗)`. -/
+def directMinorTy (C : Name) (lps : List Name) (nP nF o : Nat) (pw : PropWhen)
+    (cty : Expr) : Option Expr :=
+  (cty.stripPis nP).bind fun q =>
+    Expr.replacePisPw pw nF (q.2.liftLooseBVars o 0)
+      (.app (.bvar (nF + o - 1)) (directCtorSpineAt C lps o nP nF))
+
+/-- The minor premises' `∀`-telescope over `body`, one per constructor
+(`(C, nF, cty)`), the first sitting `o` binders below the parameters. -/
+def directMinorsPis (lps : List Name) (nP : Nat) (pw : PropWhen) :
+    List (Name × Nat × Expr) → Nat → Expr → Option Expr
+  | [], _, body => some body
+  | (C, nF, cty) :: cs, o, body =>
+    (directMinorTy C lps nP nF o pw cty).bind fun mty =>
+      (directMinorsPis lps nP pw cs (o + 1) body).map fun rest =>
+        .forallE (Name.lastStr C) mty rest ⟨.default, pw⟩
+
+/-- The `λ` twin of `directMinorsPis` (the rule's minor binders). -/
+def directMinorsLams (lps : List Name) (nP : Nat) (pw : PropWhen) :
+    List (Name × Nat × Expr) → Nat → Expr → Option Expr
+  | [], _, body => some body
+  | (C, nF, cty) :: cs, o, body =>
+    (directMinorTy C lps nP nF o pw cty).bind fun mty =>
+      (directMinorsLams lps nP pw cs (o + 1) body).map fun rest =>
+        .lam (Name.lastStr C) mty rest ⟨.default, pw⟩
+
+/-- **The generated recursor type**
+
+    ∀ p⃗ {motive : ∀ (t : T p⃗), Sort ℓ} (minor_C : ∀ f⃗, motive (C p⃗ f⃗))…
+      (t : T p⃗), motive t
+
+over the type former's parameter binders (`tty = ∀ p⃗, Sort w`, the
+annotated stored type) and the constructors' field telescopes (their
+annotated stored types). -/
+def directRecTy (T : Name) (lps : List Name) (elim : Name) (large : Bool)
+    (nP : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) : Option Expr :=
+  let ℓ := directElimLevel elim large
+  let pw := Level.zeronessOf ℓ
+  let n := ctors.length
+  (directMinorsPis lps nP pw ctors 1
+      (.forallE (.str .anonymous "t") (directFam T lps nP (n + 1))
+        (.app (.bvar (n + 1)) (.bvar 0)) ⟨.default, pw⟩)).bind fun minors =>
+    Expr.replacePisPw pw nP tty
+      (.forallE (.str .anonymous "motive") (directMotiveTy T lps nP ℓ) minors
+        ⟨.default, pw⟩)
+
+/-- **The generated rule** for constructor `j`:
+`λ p⃗ motive minor⃗ f⃗_j, minor_j f⃗_j`, its `λ`-domains verbatim the
+recursor type's `Π`-domains (the field domains under the `n + 1`
+binders of the motive and the minors). -/
+def directRecRhs (T : Name) (lps : List Name) (elim : Name) (large : Bool)
+    (nP : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) (j : Nat) :
+    Option Expr :=
+  let ℓ := directElimLevel elim large
+  let pw := Level.zeronessOf ℓ
+  let n := ctors.length
+  match ctors[j]? with
+  | none => none
+  | some (_, nF, cty) =>
+    (cty.stripPis nP).bind fun q =>
+    (Expr.pisToLamsPw pw nF (q.2.liftLooseBVars (n + 1) 0)
+        (Expr.mkAppN (.bvar (nF + n - 1 - j))
+          ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))).bind fun inner =>
+    (directMinorsLams lps nP pw ctors 1 inner).bind fun minors =>
+    Expr.pisToLamsPw pw nP tty
+      (.lam (.str .anonymous "motive") (directMotiveTy T lps nP ℓ) minors
+        ⟨.default, pw⟩)
 
 /-- The pieces of a recognised simple-structure block. -/
 structure DirectParts where
@@ -134,8 +298,10 @@ The binder-domain correspondences are deliberately **not** here: the
 reference kernels compare the constructor's parameter domains to the
 type former's by `isDefEq` (`Add.lean:220-222`) and build the
 recursor's telescope from `whnf`-peeled domains (`Add.lean:79-95`), so
-a syntactic pin would wrongly reject; `checkDirectStruct` pins them
-definitionally over the opened telescopes instead. -/
+a syntactic pin would wrongly reject; `checkDirectCtor` pins the
+parameter domains definitionally over the opened telescopes, and the
+recursor is generated and compared as a whole (`checkDirectRec`, task
+#175 S2). -/
 def directShape (T C : Name) (lps : List Name) (elim : Name) (large : Bool)
     (nP nF : Nat) (tty cty rty : Expr) : Bool :=
   match tty.stripPis nP, cty.stripPis (nP + nF), rty.stripPis (nP + 3) with

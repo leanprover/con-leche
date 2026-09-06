@@ -57,7 +57,7 @@ for dirpath, _, files in os.walk('Setlec'):
         if f.endswith('.lean'):
             rel = os.path.join(dirpath, f)
             mods[rel[:-5].replace('/', '.')] = rel
-for extra in ('Setlec.lean', 'Main.lean', 'AnnotateBasis.lean'):
+for extra in ('Setlec.lean', 'Main.lean'):
     if os.path.exists(extra):
         mods[extra[:-5]] = extra
 
@@ -74,7 +74,7 @@ for name, rel in mods.items():
 # is base.  (The old `neutral` class — a module under `Setlec/SetR/`
 # that no R capstone reached — retired with that directory.)
 IMPL_DIRS   = ('Setlec/Kernel/', 'Setlec/Cached/', 'Setlec/Frontend/')
-IMPL_ROOTS  = ('Main', 'AnnotateBasis')
+IMPL_ROOTS  = ('Main',)
 THEORY_PFX  = ('Setlec.Verify.', 'Setlec.SetTheory.',
                'Setlec.SetP.', 'Setlec.SetModel.', 'Setlec.Semantics.',
                'Setlec.TT.')
