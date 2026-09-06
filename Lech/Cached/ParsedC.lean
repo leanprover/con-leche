@@ -281,6 +281,13 @@ def checkDeclsSPCachedD (mode : CheckMode) (ds : List DeclC) :
   let p ← (ds.foldlM (checkDeclStepIdxC mode) (0, mkFEnv Env.empty)).run' {}
   pure p.2.env
 
+/-- **TASK #196 MEASUREMENT ONLY — NEVER LANDS.**  `checkDeclsSPCachedD`
+returning the memo-traffic counters beside the environment. -/
+def checkDeclsSPCachedDCounted (mode : CheckMode) (ds : List DeclC) :
+    Except (CheckError × Nat) (Env × Array Nat) := do
+  let (p, s) ← (ds.foldlM (checkDeclStepIdxC mode) (0, mkFEnv Env.empty)).run {}
+  pure (p.2.env, s.recordSizes.ctr)
+
 /-! ### The two folds agree on accepts
 
 `foldIdxC_ok` and its `run'` corollary live here, beside the two folds,
