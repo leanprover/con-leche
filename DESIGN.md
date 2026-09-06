@@ -50845,3 +50845,402 @@ Comparator, run for real against `landrun`: `Your solution is okay!` on
 `Lech.Challenge` / `Lech.MainTheorem` for `Lech.no_proof_of_False`, axioms
 within `[propext, Classical.choice, Quot.sound]`, solution replayed through the
 Lean kernel.
+
+## The Mathlib ladder is complete to 45.4 % with no wall — and the "pace decay" that looked like the next frontier was the localisation lane's own loop, not the checker (2026-09-06, `agent/frontier4`)
+
+This lane set out to find the rung after `agent/affine-fix`.  There
+isn't one within reach: both recorded memory rungs are retired, 45.4 %
+of the stream passes with no decline, reject, panic or fuel message,
+and no declaration costs more than five seconds.  The apparent
+throughput collapse that this record originally reported as the new
+frontier was **an artefact of the instrument**, and the retraction is
+the most useful thing in it.
+
+### 1. The stream and the denominators
+
+`_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson` (5 708 171 489 B,
+**670 982** declaration records) — the `lech-preprocess`-produced
+stream, in which the direct-shaped structures come back *unmodelled*.
+It is 56 288 records shorter than the modelled `mathlib-full-pre.ndjson`
+that `agent/frontier3` measured (727 270), so **every percentage here is
+on a different denominator than the earlier ladder's**:
+
+| rung | declaration | native record | native % | modelled % (frontier3) |
+|---|---|---|---|---|
+| 4 | `AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen` | 152 603 | **22.74 %** | 24.97 % |
+| 5 | `Algebra.tensorH1CotangentOfIsLocalization_toLinearMap` | 198 370 | **29.56 %** | 32.22 % |
+
+Percentages between the two streams are not comparable without this
+table.  `_tmp/frontier3/decl_index.py` produces it in ~3 min.
+
+### 2. What the runs establish about the CHECKER
+
+Verified mode, `ulimit -v 22000000`, over master `2664b1dd`+ and
+`5d0b12f0`+.  These facts are per-declaration and survive the
+instrument problem below, because the localisation loop runs the *same*
+`checkDeclSPStepC` the fold runs — its defect is cost per step, not
+which verdict a step gives:
+
+* **Rung 4 and rung 5 are retired outright by the affine fix.**  Both
+  were checked with the same trace timestamp as their neighbours, i.e.
+  in **under one second**:
+
+      1788708384 TRACE 152597 theorem AlgebraicGeometry.isIso_ΓSpec_adjunction_unit_app_basicOpen
+      1788708384 TRACE 152598 theorem AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen
+      1788708384 TRACE 152599 def AlgebraicGeometry.IsAffineHom.casesOn
+
+      1788709066 TRACE 198364 theorem Algebra.H1Cotangent.map.eq_1
+      1788709067 TRACE 198365 theorem Algebra.tensorH1CotangentOfIsLocalization_toLinearMap
+      1788709068 TRACE 198366 theorem Algebra.H1Cotangent.isLocalizedModule
+
+  frontier3's reading — "a class, not a declaration; only a
+  defeq/whnf strategy change retires it" — was right about the class
+  and the class went with `ProjEntry.typeAtI`.
+* **No successor rung appeared.**  The furthest run reached record
+  304 754 = **45.42 %** with no decline, no reject, no panic, no fuel
+  message.  Every previously recorded rung (17.4 % Rat K-order, 21.2 %
+  `.proj` on a mutual-block member, 24.10 % SigmaHom, and now 4 and 5)
+  is behind us.
+* **Nothing is slow.**  Over those 304 754 declarations the slowest
+  single one is **5 s** (`CategoryTheory.Limits.colimitLimitToLimitColimit_surjective`,
+  record 160 704), the next 4 s, the next 2 s, and the rest at or below
+  the log's 1 s resolution.  These are *upper bounds* — each interval
+  includes the lane's own per-step overhead.
+* **Memory is flat.**  RSS sits at ~12.1 GiB for the entire check in
+  every run — the parsed stream and nothing else; VmHWM 13.15 GiB is
+  the parse peak (5.71 GB read in 150 s).  The affine-class blow-up is
+  simply absent, and there is no accumulation.
+
+### 3. The retraction: the quadratic loop was the INSTRUMENT
+
+This record first reported a per-5 % chunk rate decaying 559 → 72
+decl/s and concluded that the frontier had become "a throughput curve"
+with a quadratic cost per accepted constant.  **That conclusion is
+withdrawn.**  `agent/fenv-linear` (`72def1a5`) measured the shipped
+fold directly on synthetic streams and found it **linear** — 89 k
+instructions per declaration, flat from 100 k to 3 M declarations.
+
+The quadratic loop was the localisation lane this agent wrote:
+
+    for d in decls do
+      …
+      match stepF fe d s with
+      | .ok (fe', s') => fe := fe'; s := s'
+
+A `for … in` over `mut` accumulators makes the compiled code
+`lean_inc` **both** the `FEnv` and the `CState` before each step, so
+both hashmaps are shared at their next insert and copy their bucket
+arrays — **per declaration**.  Measured: 1.65 M instructions/decl at
+50 k declarations, 3.2 M at 100 k, doubling with N.  Against the fold's
+flat 89 k that is the entire observed decay.
+
+So **both Mathlib pace tables measured the lane, not the checker**, and
+so did the "~25 % faster after the linear audit" comparison: the
+`Thunk CoreFnsI` removal changed how much the *lane's* copies cost.
+The tables are kept in `_tmp/frontier4/launcher-linear.log` as a record
+of the artefact, and must not be quoted as checker throughput.  What
+survives is §2 — which never depended on the rate.
+
+The lesson is a reference-counting one and belongs with "No unmemoized
+traversals": **a hand-written driver loop over `mut` state is not a
+substitute for the fold**, even when it calls the same step function.
+Linearity of the accumulator is a property of the loop's compiled form,
+not of the step, and a `for … in` over `mut` accumulators does not have
+it.  Any future instrument over the declaration list must be
+tail-recursive, and must be checked against `scripts/gen_linear_stream.py`
+with `perf stat -e instructions:u` at two sizes before its numbers are
+believed.
+
+### 4. Consequence: the trace lane does NOT land
+
+`Main.lean`'s `traceLoopC` (the `SETLEC_TRACE_DECLS` lane this agent
+built from frontier3's uncommitted patch) is **abandoned**, and this
+branch carries no `Main.lean` change.  The official mechanism is the
+`agent/ioshape` lane's **`LECH_PROGRESS`** IO fold: tail-recursive,
+linear, verified by measurement, and at stride 1 it prints every
+declaration before checking it — the same localisation, but inside the
+real fold, so it **produces a verdict**.
+
+That last point was the design constraint this lane identified and it
+is worth keeping even though its implementation is discarded.  A
+localisation loop that rebuilds the environment beside
+`checkDeclsSPCachedD` is *structurally incapable of accepting*: the
+fold is what `no_proof_of_Empty_SPCD_P` is about, so an "accept" out of
+a hand-rolled twin would be an unverified claim wearing the checker's
+exit code — the task #147 provenance rule, silent in this direction.
+`traceLoopC` handled that defensively (banner, fixed non-accepting exit
+3, location-only on error, six `tests/arena.sh` checks pinning all of
+it).  `LECH_PROGRESS` dissolves the problem instead of guarding it,
+which is the better answer: there is only ever one fold.  The arena
+checks worth carrying over in that form are: progress lines appear on
+the accepting fixture **and the verdict is still 0**; on the rejecting
+fixture the last progress line names the failing declaration **and the
+verdict is still 1**.
+
+### 5. Reading a progress index: the offset is not a constant
+
+`agent/frontier3` recorded that the trace index is "a constant +4 below
+the stream's declaration-record index".  It is neither +4 nor constant.
+
+A progress index counts the *fold's* position (0-based); the stream's
+record index is 1-based and larger, because the parse folds records
+away — each pinned basis block becomes one `basisDecl`, absorbing that
+block's `_model` companions; the `quot` block likewise; taint-skipped
+declarations vanish outright.  So the offset **starts at +1 and drifts
+upward through the prelude**, then is constant once the last basis
+block has gone by.  Measured on `mathlib-full-pre-native.ndjson`: fold
+position 0 = record 1, and the offset is **+5** from before fold
+position 1 000 onward (checked at 1 000 / 10 000 / 20 000 / 152 598 /
+198 365; the five `basisDecl`s sit at fold positions 3, 4, 12, 386 and
+29 879).  frontier3's own table already showed +5 — its `TRACE 181 570`
+was record 181 575.
+
+**So never assume an offset.**  Take a *name* off the progress line and
+hand it to `_tmp/frontier3/decl_index.py <stream.ndjson> <name>…`,
+which reports the record index and the percentage; calibrate on the
+stream in hand, at an index near the one of interest.
+
+### 6. The instruments that did work (`_tmp/frontier4/`)
+
+Kept for the acceptance run, and reusable against `LECH_PROGRESS`
+output unchanged (both emit `<epoch> <line>`):
+
+* `run-trace.sh` — frontier harness with the 22 GB cap, the timeout,
+  the RSS/read-offset sampler, and **every stderr line timestamped**
+  through an unbuffered `awk` (`systime()`), so one log is both a
+  progress signal and a per-declaration duration record.
+* `pace.sh` — pace table (elapsed, overall and per-5 %-chunk decl/s),
+  ETA, and the top-N slowest declarations, off such a log.
+* `trace_stats.sh` — the stall check (seconds since the last progress
+  line), for polling a live run.
+* The diagnosis recipe that caught the artefact, and would catch the
+  next one: when the rate decays while RSS is flat and no single
+  declaration is slow, the cost is per-accepted-constant, so look at
+  the *live* process — `perf record -p` for 25 s (here:
+  `lean_del_core_other` 30.4 %, `lean_copy_expand_array` 30.4 %,
+  `lean_mark_mt` 12.5 %) and `gdb -p` samples (`thread apply all bt` —
+  Lean runs `main` on a worker thread).  Both pointed at bucket-array
+  copies on the environment insert, which is what sent the question to
+  `agent/fenv-linear`.
+* Logs: `beb8c2bb-{p,rss}.log` (a plain run with no progress output —
+  2 h 08 min flat at 12.1 GiB and it could not say where it was, which
+  is the argument for `LECH_PROGRESS` in one line);
+  `trace-{trace,p,rss}-quadratic.log` (45.42 %);
+  `linear-{trace,p,rss}.log`, `launcher-linear.log`,
+  `pace-linear-atkill.txt` (the artefact tables).
+
+### 7. What is still open
+
+**No Mathlib verdict is claimed.**  No run reached the end of the
+stream, and the lane that ran furthest could not have produced a
+verdict in any case.  The acceptance run is the one to make once
+`LECH_PROGRESS` lands: full native stream, `LECH_PROGRESS=1`,
+22 GB cap, ≥ 6 h, pace table every 5 % — preceded by re-running
+`scripts/gen_linear_stream.py` at N = 300 000 and 1 000 000 under
+`perf stat -e instructions:u` to confirm the per-declaration cost is
+flat on the binary actually being run.
+
+### 8. Caveat
+
+Other lanes' builds and checker runs shared the machine throughout (at
+times two other `lech` processes).  Wall times carry that caveat —
+though after §3 no wall time here is load-bearing anyway.  Record
+indices, per-declaration durations at 1 s resolution, the RSS profile
+and the per-declaration verdicts do not.
+
+## ALL OF MATHLIB IS ACCEPTED: 695 202 declarations, exit 0, 57 minutes, 13.5 GB (2026-09-06, `agent/frontier4`)
+
+The goal the Mathlib ladder was climbing towards is reached.  The full
+Mathlib export, checked in the verified mode, is **accepted**: no
+decline, no reject, no fuel exhaustion, no memory wall.  The record
+below is the run, the receipts, and the retraction of the "throughput
+frontier" this same lane reported hours earlier.
+
+### 1. The verdict
+
+`_tmp/frontier4/accept-p.log`, verbatim (the binary predates the
+Setlec → Lech rename, so its own output says `setlec`):
+
+    # run-progress.sh tag=accept (SETLEC_PROGRESS=1 — THE ACCEPTANCE RUN; the exit code is the verdict)
+    # start   2026-09-06T18:08:44+00:00 (epoch 1788718124)
+    # binary  22e087c94376640fbe7af51d5d8f12f0  /home/joachim/setlec/.claude/worktrees/frontier4/.lake/build/bin/setlec
+    # mode    --verified --pre
+    # stream  /home/joachim/setlec/_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson (5708171489 bytes)
+    # limits  ulimit -v 22000000 KB, timeout 28800 s
+    setlec: accepted 695202 declarations (--verified)
+    # end     2026-09-06T19:05:45+00:00
+    # wall    3421 s
+    # exit    0  (0 accept, 1 reject, 2 decline, 3 error)
+    # traced  670979 declarations
+    # last    1788721516 setlec: progress fold done: 670977/670977 t=3392.5s (fold 3192.8s)
+    # peakRSS 13191.9 MB (sampler VmHWM)
+
+`/usr/bin/env time -v`: user 3 254.22 s, system 137.96 s, elapsed
+56:59.97, **maximum resident set size 13 508 488 KB = 12.88 GiB
+(13.51 GB)**.  Under the 22 GB virtual cap throughout; the 8 h timeout
+was never approached.
+
+**695 202 constants from 670 977 fold steps** — a declaration *record*
+carrying an inductive block installs its types, constructors and
+recursors together, so the constant count exceeds the record count.
+
+The binary is master `124c083f` (the merge of `agent/ioshape`) built in
+this worktree, md5 `22e087c94376640fbe7af51d5d8f12f0`, `lake build` 651
+jobs warning-free.
+
+### 2. The stream this is a verdict about
+
+`_tmp/mathlib-scoping/mathlib-full-pre-native.ndjson`, 5 708 171 489 B,
+**670 982 declaration records**, `lean4export` 3.1.0 from Lean 4.29.1
+(githash `f72c35b3f637c8c6571d353742168ab66cc22c00`).
+
+It is the **native** preprocessed stream — produced by
+`lech-preprocess` against `lean-inductive-models` commit **`45d1346`**
+("Route every inductive block through one entry, with native support"),
+which carries the **pre-#175 direct predicate**.  That matters for what
+the verdict covers: this stream *predates task #175's widened
+predicate*, so **indexed families were still modeled here, not
+installed directly**.  A stream regenerated with the widened predicate
+routes more blocks through the direct installation path and is a
+different — and not yet run — acceptance subject.
+
+The native stream is also 56 288 records shorter than the modelled
+`mathlib-full-pre.ndjson` the earlier ladder used (727 270), so
+percentages are not comparable between the two without the conversion
+table in the ladder section above.
+
+The parse folds five pinned basis blocks away: 670 982 records enter,
+**670 977** fold steps come out — the `+5` offset that section
+predicted, confirmed by the checker's own `parse done` line.
+
+### 3. The pace, at every 5 %
+
+`LECH_PROGRESS=1` (stride 1: one line before every declaration), stderr
+timestamped by the harness.  "chunk" is the rate over the preceding 5 %.
+
+| mark | elapsed | overall | chunk |
+|---|---|---|---|
+| 5 % | 1.0 min | 559 decl/s | 559 decl/s |
+| 10 % | 2.5 min | 447 | 373 |
+| 15 % | 4.9 min | 344 | 235 |
+| 20 % | 6.6 min | 341 | 332 |
+| 25 % | 8.7 min | 321 | 260 |
+| 30 % | 11.8 min | 284 | 179 |
+| 35 % | 14.6 min | 269 | 206 |
+| 40 % | 17.1 min | 261 | 218 |
+| 45 % | 20.0 min | 252 | 195 |
+| 50 % | 23.0 min | 243 | 183 |
+| 55 % | 25.6 min | 240 | 214 |
+| 60 % | 28.4 min | 236 | 200 |
+| 65 % | 31.4 min | 232 | 193 |
+| 70 % | 34.9 min | 224 | 157 |
+| 75 % | 38.7 min | 217 | 148 |
+| 80 % | 43.2 min | 207 | 125 |
+| 85 % | 45.8 min | 207 | 210 |
+| 90 % | 48.4 min | 208 | 216 |
+| 95 % | 50.7 min | 210 | 245 |
+| 100 % | 53.2 min | 210 | — |
+
+**The chunk rate does not decay** — it wobbles between 125 and 373
+decl/s with the difficulty of the material and *recovers to 245 at
+95 %*, and the overall rate is flat at 207-210 decl/s from the 80 %
+mark on.  That is the signature of a linear fold: the cost per
+declaration is a property of the declaration, not of how many are
+already in the environment.
+
+Slowest declarations of the whole run (1 s resolution, and every one of
+them is a normal expensive proof, not a pathology):
+
+| | |
+|---|---|
+| 9 s | `AlgebraicGeometry.isIso_pushoutSection_of_iSup_eq` |
+| 7 s | `AlgebraicGeometry.Scheme.exists_π_app_comp_eq_of_locallyOfFinitePresentation` |
+| 6 s | `…IsomOfJ.0.WeierstrassCurve.exists_variableChange_of_char_ne_two_or_three` |
+| 6 s | `…Lie.Cochain.0.LieModule.Cohomology.d₂₃_aux._proof_17` |
+| 5 s | `CategoryTheory.Limits.colimitLimitToLimitColimit_surjective` |
+
+### 4. Memory: flat, then one step at the end
+
+The RSS sampler (30 s interval, `accept-rss.log`):
+
+| phase | RSS |
+|---|---|
+| parse (t=0 → 200 s) | 0.07 → 12.09 GB, VmHWM 13.09 GB at the parse peak |
+| fold (t=200 → 3 050 s) | **flat 12.08 - 12.11 GB** for the whole 47 min |
+| tail (t≈3 050 → 3 392 s) | 12.10 → 13.19 GB |
+| peak | 13.19 GB sampler VmHWM / 13.51 GB `time -v` max RSS |
+
+Nothing accumulates through the check: the resident set is the parsed
+stream and stays there.  The final ~0.9 GB step is the environment's
+constant list being finished at the end of the fold.  Against the 22 GB
+cap there is 8 GB of headroom, and against the affine rung's 18.7 GB
+panic there is no comparison to make — that class is gone.
+
+### 5. The loop that produced it
+
+The run used the **`LECH_PROGRESS=1` progress loop**, not the default
+`checkDeclsSPCachedD` fold.  The user ruled that acceptable as the
+acceptance producer: the progress loop is the openly-unverified IO twin
+of the verified fold, its verdict line is byte-identical to the default
+loop's (pinned by the `agent/ioshape` progress-lane arena suite), and
+running with stride 1 is what makes a 57-minute run auditable — every
+declaration is named before it is checked, so a hang or a crash would
+have been localised instead of nameless.  The capstone still speaks
+about the verified fold; this run is the evidence that the fold's work
+completes on the corpus, declaration by declaration.
+
+### 6. The retraction that had to happen first
+
+Earlier the same day this lane reported the frontier as "a throughput
+curve" with a chunk rate decaying 559 → 72 decl/s, and named a cost
+quadratic in the environment size.  **That was the instrument, not the
+checker** (see the ladder section above): the `SETLEC_TRACE_DECLS`
+localisation loop this agent wrote used `for … in` over `mut`
+accumulators, which makes the compiled code `lean_inc` both the `FEnv`
+and the `CState` before each step, so both hashmaps copied their bucket
+arrays per declaration.  `agent/fenv-linear` measured the shipped fold
+on synthetic streams and found it flat.
+
+The two killed runs are kept as receipts **of the artefact only**, and
+must not be quoted as checker throughput:
+
+| run | binary | reached | note |
+|---|---|---|---|
+| `trace-*-quadratic` | pre-`agent/ioshape` | 45.42 % in 4 049 s | instrument artefact |
+| `linear-*` | `255eb70a` | 30.39 % in 1 410 s | instrument artefact |
+
+Set against them, the acceptance run did **100 %** in 3 193 s of fold —
+faster than either killed run reached half the stream.  The corrective
+was verified before the run rather than after: on this exact binary,
+`scripts/gen_linear_stream.py` at N = 300 000 and 1 000 000 under
+`perf stat -e instructions:u` gave **88 385** and **88 322**
+instructions per declaration, flat to 0.07 %.
+
+### 7. What this closes, and what it does not
+
+Closed: the Mathlib ladder.  Every recorded rung — 17.4 % (the Rat
+K-order divergence), 21.2 % (`.proj` on a mutual-block member), 24.10 %
+(`SigmaHom`), 22.74 % and 29.56 % of this stream (the two affine-class
+memory rungs) — is behind us, and no rung replaced them.  The corpus is
+no longer where the checker's limits are found.
+
+Not closed:
+
+* The verdict is on the **pre-#175** native stream (§2).  A stream cut
+  with the widened direct predicate routes indexed families through the
+  direct install and needs its own run.
+* The producing loop is the unverified progress twin (§5).  A run of
+  the default verified fold over the same stream would tie the verdict
+  to the capstone's own subject; it costs one 57-minute run.
+* Nothing here is a *performance* claim.  57 minutes and 13.5 GB on a
+  shared machine is a datum, not a comparison; the reference kernel was
+  not run on this stream.
+
+### 8. Receipts (`_tmp/frontier4/`)
+
+`accept-p.log` (header + verdict), `accept-progress.log` (670 979
+timestamped progress lines), `accept-rss.log`, `accept-time.txt`,
+`accept.exitcode` (0), `accept-binary.md5`, `launcher-accept.log`;
+`syn/perfstat.log` (the linearity check on the acceptance binary);
+`run-progress.sh`, `pace_progress.sh`, `trace_stats.sh` (the harness
+and its readers); and the two killed runs' logs, labelled per §6.
