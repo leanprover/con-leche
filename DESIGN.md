@@ -46760,7 +46760,8 @@ proof, and `comparator.json` naming the theorem and the permitted axioms
     theorem Setlec.no_proof_of_Empty (V : Type w) [SetTheory V]
         {ds : List Cached.DeclC} {env' : Env}
         (h : Cached.checkDeclsSPCachedD cfgP ds = .ok env') :
-        ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] → False
+        ∀ c ∈ env'.consts,
+          c.toConstantVal.type = .const (.str .anonymous "Empty") [] → False
 
 `Solution.lean` restates it verbatim (it must *not* import `Challenge`:
 the comparator builds the two modules separately and compares the two

@@ -14,7 +14,7 @@ namespace Setlec
 
 theorem no_proof_of_Empty (V : Type w) [SetTheory V]
     (h : Cached.checkDeclsSPCachedD cfgP ds = .ok env') :
-    ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] → False :=
+    ∀ c ∈ env'.consts, c.toConstantVal.type = .const (.str .anonymous "Empty") [] → False :=
   Cached.no_proof_of_Empty_SPCD_P V (μ := .verified) rfl h
 
 end Setlec
