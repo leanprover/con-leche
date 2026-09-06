@@ -147,6 +147,16 @@ if tests/proofdeps.sh; then :; else fail=1; fi
 # regenerate and diff.
 if tests/pindump.sh; then :; else fail=1; fi
 
+# THE TRUST-SURFACE GATE (2026-09-06, external review §5.6).  The
+# layering gate fences one direction of trust (the implementation may
+# not import the theory); this one fences the other — no compiler
+# escape (`unsafe`, `implemented_by`, `computed_field`, `native_decide`,
+# …) outside the allowlisted trusted-surface files, whose justification
+# is the script's header.  It is the companion of the axiom pin above:
+# `#print axioms` sees the LOGICAL TCB, this one sees the RUNTIME TCB,
+# and neither sees the other's.
+if tests/trust-surface.sh; then :; else fail=1; fi
+
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The six
 # consistency capstones carry `#guard_msgs in #print axioms` guards in
 # `tests/SetlecTests/Axioms.lean`, pinning them at exactly

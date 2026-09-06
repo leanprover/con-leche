@@ -63,11 +63,8 @@ theorem natrec_mem_vsucc {M z s n : V}
   | succ k ih =>
     exact hs (vnat k) (vnat_mem_omega k) (natIter z s k) ih
 
-/- Compiler stub (see `Derive/Empty.lean`): never executed, no logical
-content. -/
-private unsafe def natrecImpl {V : Type u} [SetTheory V] (_z _s _n : V) : V := unsafeCast ()
-
-attribute [implemented_by natrecImpl] natrec
+/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
+stubs for these operators were removed 2026-09-06. -/
 
 /- Opaque interface operator (see `Derive/Empty.lean`). -/
 attribute [irreducible] natrec
