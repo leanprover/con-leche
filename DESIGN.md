@@ -51867,6 +51867,307 @@ the rest are gated call sites in shipped bodies (`Kernel/Core.lean:1079`,
 `Verify/Cached/DiscC2.lean:855,935,1088`).  Touching the first group changes
 the functions every capstone is stated about.  Left in place, as the
 modeonly lane's ~15-file estimate predicted.
+## TASK #191 — THE BUILT-IN PRELUDE AND THE GROUND HOIST: the Nat-op pins no longer depend on the stream's installation order (2026-09-06, `agent/prelude`)
+
+**The report (user, verbatim):** *"a user reported that the NatOpPins
+are sensitive to installation order of, say, Bool. to fix this I
+suggest you add Bool and what else is needed to the hand written
+pinned declaration, and actually add them to the env initially and
+unconditionally (our own little prelude). when they come later in the
+stream, just compare and decline if different."*  And the ruling on
+the shape, once the two designs were on the table: *"yes, don't change
+how Bool is installed! just change when it is added to the env!"*
+
+### 1. The reproduction, and what the sensitivity actually is
+
+A pin-certified operation's install (`checkDivModPin`) needs three
+things stored *before* the operation: the constants of the pinned
+defining expression (`divModPinGuard`'s `constsResolve`), the
+constants of the certificate proofs (`divModCertGuard`), and the
+guards' ground (`divModEnvGuard`: `natOpDeps c` stored as definitions,
+the pinned `Eq`, `Bool.true`/`Bool.false` at type `Bool`).  Most of
+that is in the operation's **own dependency closure** — its type and
+value reach it, so any well-formed stream declares it first — but the
+certificate *statements* (`divModCertStmts`) are spelled over
+constants the value never touches: `Nat.shiftLeft`'s over `Nat.ble`,
+`Nat.sub`, the `Bool` values and `Eq` (its value is `x <<< (n+1) =
+(2*x) <<< n`, `Nat.mul` and nothing else), the bitwise operations'
+over `Nat.mul`.  So the presence of those at the install depends on
+the stream's *order*.
+
+Computed mechanically on `init-full-pre-native` and on the 4.33
+pins (`_tmp/prelude/closure.py`: pin ∪ certificate constants minus the
+operation's transitive stream closure, by declaring record):
+
+| operation | order-sensitive ground (not in its own closure) |
+|---|---|
+| `Nat.mod`, `Nat.div`, `Nat.gcd`, `Nat.shiftRight` | none |
+| `Nat.shiftLeft` | `Bool`, `Eq`, `Nat.ble`, `Nat.sub` |
+| `Nat.land`, `Nat.lor`, `Nat.xor` | `Nat.mul` |
+
+And it is not a hypothetical order.  `lean4export` walks
+`env.constants` — a hash map — in hash order and emits each constant
+after its dependencies, so independent declarations come out in
+whatever order the roots are reached.  `tests/e2e/src/natop_order.lean`
+is three `rfl` theorems (`Nat.shiftLeft 3 4 = 48`, `Nat.ble 1 2 =
+true`, `Nat.sub 5 3 = 2`); its **unmodified raw export**
+(`tests/e2e/natop_order.ndjson`, `--#export shlEx bleEx subEx`) emits
+`Nat.shiftLeft` at record 23 and `Bool`, `Nat.ble`, `Nat.sub` after it.
+Master's verdict: **exit 2, `unsupported Nat.div/mod environment
+(Nat.shiftLeft)`** — a decline on a stream the official kernel accepts.
+That is the report, as a three-line file.
+
+### 2. The design: (B), with one correction the cone analysis forced
+
+Two shapes were on the table: (A) more hand-written pinned basis
+blocks (`Kernel/Basis/Bool.lean` … with SetP install proofs each), or
+(B) a prelude of the toolchain's own export records, checked by the
+ordinary routes and prepended to every parsed stream.  (B) was the
+recommendation and the user's ruling settled it; nothing of (A) was
+built.  What the cone analysis added:
+
+**The full cone minus the ops cannot be the prelude, and a smaller
+set is exactly right.**  The coordinator's sketch said "the
+dependency-ordered cone of declarations the pinned Nat ops need …
+minus the basis blocks and minus the Nat ops themselves".  Computed
+(`Lech/PinGen/Prelude.lean`, `sensitiveOf`/`classifyOp`), that cone
+has three parts, and only one of them belongs in a prelude:
+
+1. **The pinned basis blocks** (`Eq`, `Nat`, and — for uniformity of
+   "first in every fold" — `PUnit`, `Empty`, `False`, `Quot` with
+   `Quot.sound`).  Already hand-pinned and model-proved; they used to
+   be installed when the stream's record arrived, now they are
+   installed first.
+2. **`Bool`** — the only order-sensitive record owner that is neither
+   a basis block nor a stream-certified operation.  Its export
+   spelling is stable across every toolchain the tree has seen, so a
+   syntactic "compare and decline if different" is safe.
+3. **The residual: `Nat.ble`, `Nat.sub`, `Nat.mul`** — the structural
+   ops the statements are spelled over.  These are certified at
+   install by *definitional* recurrence equations (`certifyNatEqs`),
+   deliberately not by a syntactic pin, and that is what a prelude
+   copy would destroy: **every committed fixture is a 4.29 export
+   against a 4.33 build, and `Nat.add`/`Nat.sub`/`Nat.mul`/`Nat.ble`
+   changed spelling in between** — 4.29 inlines the `brecOn`
+   functional, 4.33 names it (`Nat.add._f`; probed with `#print` under
+   both toolchains, `_tmp/prelude/pp/`).  A prelude `Nat.ble` would
+   have declined `nat_ops`, `nat_divmod_ok`, every `nat_*` slice and
+   the arena's `good/init-prelude`.  Everything else in the cone
+   (`Decidable`, `Nat.le`, `WellFounded.Nat.fix`, …) is in the
+   operation's own closure and needs no help.
+
+   The residual is handled by the *other* pure pre-fold
+   transformation: **the hoist** (`Lech/Frontend/NatOpGround.lean`).
+   After the parse, for every pinned operation record whose
+   `natOpDeps` ground is declared later in the stream, the ground's
+   transitive dependency closure (within the stream) is moved ahead of
+   the operation.  A dependency-closed set moved earlier is still a
+   valid stream, the moved records still see their whole closure, and
+   the pass is a no-op (array returned untouched, no sort) on every
+   stream whose ground precedes its operations — the toolchain's own
+   export order, `init-full`, Mathlib.
+
+So "in the env initially and unconditionally" is realised as **"first
+in every fold"**: the verified fold `checkDeclsSPCachedD .verified ds`
+runs over `ds = prelude ++ stream'`, where `stream'` is the parsed
+stream minus its identical copies of prelude records, ground-hoisted.
+The main theorem quantifies over `ds`; the frontend sits below it,
+exactly like the projection rewrite of `Lech/Frontend/ProjRec.lean`.
+**Nothing in the kernel, the cached driver or the proofs changed**
+(`tests/proofdeps.sh`: 2522 module rows, 0 doors, no row moved; the
+axiom pin: 11 theorems at `[propext, Classical.choice, Quot.sound]`).
+
+### 3. What landed
+
+* **The generator** (`Lech/PinGen/Prelude.lean`, new; `Lech/PinGen.lean`
+  refactored into `computeOps`/`opDumpsOf`; `PinDump.lean`): per
+  operation, `need c` (pin ∪ certificate constants ∪ the guards'
+  ground), `closure c` (`coneOf`), `sensitive c` by declaring record
+  (`ownerOf`: constructors and recursors are present exactly when
+  their block is); `classifyOp` splits it into basis / prelude /
+  residual and **fails the generation** on anything else (an
+  order-sensitive constant that is neither preludable — its closure
+  reaches a stream-certified operation — nor an operation).  The
+  prelude is then serialized as **lean4export-format ndjson** by a port
+  of lean4export's `Export.lean` writer (`xConstant` and friends;
+  metadata stripped, `nondep` normalised, inductive blocks and the
+  `Quot` package as units), roots `[Eq, Nat, PUnit, Empty, False,
+  Quot, Quot.sound] ++ members`.  Written beside the dump as
+  `pins/<toolchain>.prelude.ndjson` (229 lines, 11 declaration
+  records: 5 inductive blocks, 4 `quot` records, `Quot.sound`, the
+  `Bool` block).
+* **The dump format** (`Lech/PinGen/Dump.lean`) bumps to
+  `lech-natop-pins/2`: `preludeFile`, `preludeMembers` (`["Bool"]`),
+  `preludeNames` (23 names), `orderResidual` (per operation, as in the
+  table above).  The pins themselves are byte-identical to `/1`.
+* **The frontend** (`Lech/Frontend/Prelude.lean`, new;
+  `Lech/Frontend/ExportC.lean`): `builtinPreludeText` embeds the file
+  with `include_str`; `builtinPreludeE` parses it with the ordinary
+  `parseExportD` into 7 `DeclC` records (the basis blocks through the
+  same pin match as any stream's — which is also what validates the
+  serializer's spelling of them: a mis-serialized `Nat` block would
+  parse as an alias and reject at the head of every run) and indexes
+  them (`PreludeIx`: by kind for basis blocks, by every declared name
+  otherwise).  Every parse takes a `PreludeIx`, starts with `PUnit`
+  seen for the projection rewrite, prepends the prelude's records to
+  its result, and routes every declaration push through `pushDecl`:
+  a basis block the prelude holds is dropped by kind; a record under
+  a prelude name is dropped when `DeclC.sameCanon` (same kind, equal
+  up to `ConstantInfo.canon` — the basis-matching canonical form:
+  binder names, binder infos and level-parameter names erased) and
+  **declines** the stream otherwise (`declaration Bool differs from
+  the checker's built-in prelude (the toolchain's own Bool, installed
+  first)`).  Records under prelude names are budgeted like basis
+  blocks (the canon comparison walks the tree).  `ParseResultD` gains
+  `preludeCount`, `preludeDropped`, `hoisted`.
+* **The hoist** (`Lech/Frontend/NatOpGround.lean`, new): a memoized
+  used-constants walk over the `ExprC` DAG (`Std.HashSet ExprC`,
+  pointer-first), `DeclC.usedConsts`, and `hoistNatOpGround`: name
+  index, per-operation closure of its later ground restricted to the
+  records after it, then one sort by `(target, moved-before-op, index)`
+  — only when something moves.
+* **The driver** (`Main.lean`): the prelude is resolved once per run
+  (a prelude that does not parse is exit 3 before any input is read),
+  handed to both parse paths (file and preprocessor pipe), and the
+  **verdict line now counts the STREAM's declaration records** —
+  `decls.size - preludeCount + preludeDropped`: the prelude's records
+  excluded, a stream record dropped as an identical prelude copy
+  included (it IS installed, from the prelude, and the official
+  checker counts it).  `LECH_VERBOSE=1` prints the environment's
+  constant count beside it (the number the line used to carry, a
+  property of our representation).  The hoist is reported on stderr
+  with the moved names.  This is the same headline-number decision the
+  PERF lane's `agent/perf-regen` reached independently for the
+  official comparison ("accepted declaration RECORDS"); the two land
+  on the same line, and the coordinator's ruling at this landing is
+  that the reconciliation happens at THAT lane's merge, which takes
+  the prelude adjustment (`- preludeCount + preludeDropped`).
+* **Tests.**  `tests/LechTests/PreludeTests.lean`: the prelude parses,
+  holds exactly 7 records / 6 basis kinds / the 4 `Bool` names and no
+  basis name in the by-name index, is **accepted by the verified fold
+  at both modes from the empty environment** (23 constants), and
+  parsed against itself drops all 7 records.  `tests/pindump.sh`
+  regenerates and diffs BOTH files and checks both `include_str`s and
+  the dump's `preludeFile`.  e2e (`tests/e2e-expected.txt`):
+  `natop_order` (the raw export, §1) **0**; `natop_before_eq`
+  (`scripts/mk_reorder_fixture.py Nat.ble Nat.sub Nat.shiftLeft` —
+  the operation after its ground, all before `Eq`: the prelude's own
+  case) **0**; `natop_before_ble` (`Nat.shiftLeft` hoisted first,
+  ahead of `Nat.ble`/`Nat.sub`: the hoist's own case) **0**;
+  `prelude_bool_redefined` (`scripts/mk_prelude_bool_bad.py`: `Bool :
+  Type 1`, a valid inductive the official kernel accepts) **2** with
+  the message naming `Bool`.  All three accepting fixtures are the
+  same 35 records in three orders, and `tests/arena.sh`'s new
+  `prelude counts` section checks all three report `accepted 35
+  declarations` — the record count is invariant under the prelude's
+  existence (4 of the 35 are prelude duplicates: `Nat`, `PUnit`,
+  `Bool`, `Eq`) and under reordering.
+* **Docs**: `pins/README.md` (the file pair, the prelude's membership
+  as a computed set, trust), `--help` (THE BUILT-IN PRELUDE,
+  `LECH_VERBOSE`), the module headers.
+
+### 4. The interplay, verified
+
+* **(i) `lech-preprocess`** sees the raw stream before the prelude
+  exists and is untouched: `Bool` (a two-constructor enumeration) is
+  native for it, so the stream's `Bool` arrives as an `inductive`
+  record, parses to the same `indDecl` as the prelude's, and is
+  dropped.  The stock tool's `pre` fixtures carry `Bool._model.*`
+  artifacts beside the block; those are ordinary definitions and stay
+  inert as before.  Every prelude block is directly installable (basis
+  from the pins, `Bool` through the direct sum route), so the prelude
+  is NOT run through the preprocessor at generation time and carries
+  no `_model` family — the "if `Acc` is in the cone" branch of the
+  task did not arise, because the cone members that would need
+  modelling (`Nat.le`, `Decidable`, …) are all in the operations' own
+  closures (§2).
+* **(ii) `reservedBasisNames`** and the basis pin match precede the
+  dedupe unchanged: the prelude's basis blocks parse to `basisDecl`s
+  (never through the reserved-name check), its `Bool` names are not
+  reserved, and — deliberately — **basis names are not in the
+  prelude's by-name index**, so a stream's mismatching `Empty`/`False`
+  keeps REJECTING through the reserved-name check
+  (`empty_redefined`/`false_redefined`/`false_rec_bad` still 1), while
+  a mismatching `Bool` DECLINES (the user's word).  The asymmetry is
+  intended and pinned: a basis redefinition is invalid input (task
+  #181's ruling), a differing `Bool` is a feature the checker
+  positively does not support.
+* **(iii) Streams from the empty environment**: `gen_linear_stream`'s
+  `def cN : Sort 1 := Sort 0` streams and every hand-written e2e stream
+  now fold 7 prelude records first.  The verdict line is unaffected
+  (`accepted 1000 declarations` at N = 1000; the constant count, 1023,
+  is on `LECH_VERBOSE`).  The PERF lane's record-based count
+  (`agent/perf-regen`, `decls.size`) becomes `decls.size -
+  preludeCount + preludeDropped` at the merge — the prelude records
+  are identifiable by count, as the task asked, and the dropped
+  copies are counted back.
+* **(iv) `scripts/gen_linear_stream.py`**: unchanged; per-declaration
+  instruction counts gain a constant (the prelude fold, ~7 records).
+* **(v) Taint**: a tainted record is dropped before it reaches
+  `pushDecl`; the prelude carries no tolerated axiom; taint fixtures
+  unchanged (e2e 100/100).
+* **(vi) `tests/pindump.sh`** covers the prelude file, both
+  `include_str`s and the dump's `preludeFile` (§3).
+* **(vii) The format tag** bumped to `/2`.
+
+### 5. Gates
+
+Build warning-free; `lake test` (axiom pin 11 theorems, the prelude
+guards); `tests/arena.sh`: layering 0 impl→theory edges, proofdeps
+2522 rows / 0 doors / no row moved, pindump both files fresh, trust
+surface 0 outside the allowlist, arena tutorial 90/92 good accepted
+(unchanged; no `CHANGE` line — **no arena verdict moved**), e2e
+100/100, annot 14/14, retired flags 8/8, mode flags 16/16, prelude
+counts 3/3, progress lane 6/6, trusted sweep as recorded.  `init-full`
+(`init-full-pre-native.ndjson --pre`, both modes): **exit 0, 54 346
+declarations** (the stream's records; master's line said 56 291 —
+the environment-constant count, which `LECH_VERBOSE` now reports as
+exactly 56 291 constants from 54 346 fold records, 7 prelude records
+in, 7 stream copies dropped: **the environment is identical to
+master's** — the stream declares every prelude block itself, so the
+prelude adds no constant, and the hoist moved nothing).  The
+Comparator pair (`Lech/Challenge.lean` / `Lech/MainTheorem.lean`) is
+untouched.
+
+### 6. Findings
+
+* **The reproduction is the plain export.**  No hand reordering was
+  needed to hit the report: lean4export's hash-order DFS emits
+  `Nat.shiftLeft` before `Bool` on a three-theorem file.  The tree's
+  fixtures never showed it because they are Init slices in Init's own
+  order.
+* **The structural ops cannot be pinned syntactically, and that is a
+  design fact, not a shortcut** (§2): the `._f` split between 4.29
+  and 4.33 is exactly the kind of drift the recurrence certification
+  was built to absorb.  Any future "put X in the prelude" must pass
+  the same test — `classifyOp` fails generation on a preludable
+  candidate whose closure reaches a stream-certified operation, and
+  `orderResidual` in the dump is where a toolchain bump would show a
+  new residual.
+* **The hoist is a reorder of the stream, reported, never silent**:
+  `lech: 7 declarations hoisted ahead of the pinned Nat operations
+  they ground: Nat.ble.match_1, Nat.ble, Unit, Unit.unit,
+  Nat.pow.match_1, Nat.pred, Nat.sub` on `natop_order`.  Fold
+  positions (`LECH_PROGRESS`) therefore count from the prelude's first
+  record and, on a hoisted stream, differ from the export's order; the
+  declaration NAME remains the portable handle, as before.
+* **Verdict monotonicity of the hoist**, for the record: a hoisted
+  record is checked in a smaller environment than it would have been
+  — its own closure plus the prelude — and the checks that read the
+  environment beyond a declaration's dependencies (`natOpGuard`,
+  `strLitSupported`, the reserved names, duplicates) are either
+  closure-internal for the records the hoist moves (a structural
+  op's `natOpDeps`) or unaffected.  A stream whose hoisted ground is
+  itself invalid now rejects at the ground instead of declining at
+  the operation — a more precise verdict on invalid input, never an
+  accept.
+* **`tests/trust-surface.sh` strips string literals with a regex that
+  does not cross a backslash-newline**, so one backslash-continued
+  `s!"…"` string flips quote parity for the rest of the file and the
+  gate then flags tokens inside *other* strings.  The new modules avoid
+  continued strings (`++`); the pre-existing ones in `Main.lean` happen
+  to be even in number.  Left as a note for the gate's owner.
+
 
 ## TASK #193 — THE NATIVE PREDICATE WAS LOOSER THAN THE RECOGNISER: a former declared at a definition (2026-09-06, `agent/indexed-fix`)
 
@@ -51936,7 +52237,7 @@ mode 16/16 · progress 6/6, the trusted sweep.  init-full stock
 predicate (`init-full-pre-fix.ndjson`, 548 native) `--verified` 55 835 /
 `--trusted` 55 835 — all exit 0, identical to the indexed landing's
 baseline.  **The Presieve cone**: cut from the raw Mathlib export with
-the String-support constants (`_tmp/indexed-fix/slice_multi_fast.py`,
+the String-support constants (`/home/joachim/setlec/_tmp/indexed-fix/slice_multi_fast.py` in the main checkout's `_tmp/` — not committed, the sigmahom slicer is not under `scripts/` either,
 the sigmahom slicer fixed for lean4export's key-sorted raw records —
 `"ie"` is not the first key of an `app`/`bvar`/`const` line there, and
 the child scan must start at the line's head), preprocessed with the

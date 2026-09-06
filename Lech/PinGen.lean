@@ -544,13 +544,13 @@ strips imported proofs. -/
 (the executable's `main` does it); `Lech.PinGen.Certs` is an import
 of the generator executable, so Lake has built its olean by the time
 this runs. -/
-def computeDump : IO PinDumpFile := do
+def computeOps : IO (Environment × Array (OpSpec × Lech.Expr × List Lech.Expr)) := do
   let prefixes ← match loadPrefixes natopPrefixJson with
     | .ok m => pure m
     | .error e => throw (IO.userError s!"bad scripts/natop_prefix.json: {e}")
   let genEnv ← importModules (loadExts := false) (level := .private)
     #[{module := `Init}, {module := `Lech.PinGen.Certs}] {} 0
-  let mut ops : Array PinOpDump := #[]
+  let mut results : Array (OpSpec × Lech.Expr × List Lech.Expr) := #[]
   for spec in opSpecs do
     let (r, _, _) ←
       try
@@ -560,13 +560,21 @@ def computeDump : IO PinDumpFile := do
           { env := genEnv }
       catch e =>
         throw (IO.userError s!"pin generation for {spec.op} failed: {e}")
-    ops := ops.push {
-      op := spec.op.toString
-      pinName := spec.pinName.toString
-      proofsName := spec.proofsName.toString
-      pin := blobOf r.1
-      proofs := (r.2.map blobOf).toArray }
-  return { toolchain := toolchainString, leanVersion := Lean.versionString, ops }
+    results := results.push (spec, r)
+  return (genEnv, results)
+
+/-- The dump's per-operation half, from `computeOps`' results.  The
+prelude half (task #191) is computed by `Lech/PinGen/Prelude.lean`,
+which sits above this module; `computeDumpAndPrelude` there assembles
+the whole file. -/
+def opDumpsOf (results : Array (OpSpec × Lech.Expr × List Lech.Expr)) :
+    Array PinOpDump :=
+  results.map fun (spec, pin, proofs) => {
+    op := spec.op.toString
+    pinName := spec.pinName.toString
+    proofsName := spec.proofsName.toString
+    pin := blobOf pin
+    proofs := (proofs.map blobOf).toArray }
 
 
 /-! ## Compiler-trust pins (task #95)
