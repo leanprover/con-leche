@@ -614,6 +614,17 @@ theorem AnnotOk2_mkPisAV_inv {R : AVExpr} :
       rw [consList_cons]
       exact (AnnotOk2_mkPisAV_inv (hB a ha)).2 as hsp'
 
+omit [SetTheory V] in
+/-- A lifted telescope entry carries an original entry's bits. -/
+theorem mem_liftTele2 {i : Nat} {tl : List (Nat × Nat × AVExpr)} {d : Nat × Nat × AVExpr}
+    (hd : d ∈ liftTele2 i tl) : ∃ d' ∈ tl, d.2.1 = d'.2.1 := by
+  unfold liftTele2 at hd
+  obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hd
+  have hk' : k < tl.length := List.mem_range.mp hk
+  refine ⟨tl.getD k default, ?_, rfl⟩
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk']
+  exact List.getElem_mem hk'
+
 /-- The recursive slots' fit, hereditarily along the X-chain at
 `(X, t)`: at each recursive position the slot fits (`SlotFit`). -/
 def SlotsFitX (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rs : List Bool)
