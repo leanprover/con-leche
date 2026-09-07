@@ -327,6 +327,38 @@ theorem ihArgAV_interp (hfr : RecFrameS D ρ₀ σ) (y : V) (i : Nat) (tl : List
 
 end IhFrame
 
+/-! ## The ih values at a constructor payload -/
+
+theorem projList_mkTower_take {fs : List V} {i : Nat} (hi : i ≤ fs.length) :
+    projList i (mkTower (fs ++ [pt])) = fs.take i := by
+  have h1 : projList (fs.length + 1) (mkTower (fs ++ [pt])) = fs ++ [pt] := projList_mkTower _ _ (by simp)
+  have h2 := projList_take (fs.length + 1) i (mkTower (fs ++ [pt])) (by omega)
+  rw [h1, List.take_append_of_le_length hi] at h2
+  exact h2.symm
+
+theorem projS_mkTower_getD {fs : List V} {i : Nat} (hi : i < fs.length) :
+    projS i (mkTower (fs ++ [pt])) = fs.getD i pt := by
+  rw [projS_mkTower i (fs ++ [pt]) (by simp; omega), List.getElem_append_left hi,
+    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some]
+
+/-- The ih values at a constructor value are the λ-towers at the
+fields' prefixes of the function at the block, the calls' index values
+and the field applied to the telescope's values. -/
+theorem ihValsI_mk {ℓ : Nat} {ρp : Nat → V} {rV : V} {kspine : List V} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {ar : Nat → Nat}
+    {j : Nat} {fs : List V} (hlen : fs.length = ar j) :
+    ihValsI ℓ ρp rV kspine rss tlss Eiss ar j (mkTower (fs ++ [pt]))
+      = (recIdx (rss.getD j []) (ar j)).map fun i =>
+          lamTower ℓ (consList (fs.take i) ρp) ((tlss.getD j []).getD i []) fun σ' =>
+            (kspine ++ (((Eiss.getD j []).getD i []).map (interp2 V σ')) ++
+              [(frameIdx ((tlss.getD j []).getD i []).length σ').foldl SetTheory.app (fs.getD i pt)]).foldl
+              SetTheory.app rV := by
+  unfold ihValsI
+  apply List.map_congr_left
+  intro i hi
+  obtain ⟨hik, -⟩ := mem_recIdx.mp hi
+  rw [projList_mkTower_take (by omega), projS_mkTower_getD (by omega)]
+
 /-! ## The ih obligation at every field -/
 
 namespace FixKI
