@@ -154,7 +154,7 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
         .plain else .inert,
       rhsA⟩])
   checkDirectProjTableF (m := CheckCM) p.cvT.name p.cvC.name p.cvT.levelParams
-    p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) cvCa fe₃
+    p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) 0 cvCa fe₃
 
 /-- `checkDirectSum` through the index (task #175 sum-types).  One
 flush per environment transition: the former's, the constructors'
@@ -163,13 +163,13 @@ def checkDirectSumS (fe : FEnv) (p₀ : DirectSumParts) : CheckCM FEnv := do
   unless (p₀.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct sum: duplicate constructor")
   flushC
-  let (fe₁, cvTa, p) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀
+  let (fe₁, cvTa, p) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀ directSumCaps
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct sum: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
   flushC
-  let ctorsA ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe fe₁ p.cvT.name p.cvT.levelParams
-    p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
+  let (ctorsA, _) ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe fe₁ p.cvT.name
+    p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
   let fe₂ := consSumCtorsF p.nP ctorsA fe₁
   flushC
   let (cvRa, rhss) ← checkDirectSumRecF (sharedOpsC mode fe₂) fe₂ p cvTa ctorsA
@@ -190,6 +190,7 @@ def checkDirectFixS (fe : FEnv) (p : DirectFixParts) : CheckCM FEnv := do
     throw (.invalid "direct rec: duplicate constructor")
   flushC
   let (fe₁, cvTa, p₁) ← checkDirectSumIndF (sharedOpsC mode fe) fe p.toDirectSumParts
+    (fun _ => directFixCaps p)
   unless p₁.resSort == p.resSort do
     throw (.internal "direct rec: type former result sort")
   flushC
@@ -197,15 +198,16 @@ def checkDirectFixS (fe : FEnv) (p : DirectFixParts) : CheckCM FEnv := do
     (.internal "direct rec: type former telescope")
   let _isorts ← checkDirectFieldSortsIF (sharedOpsC mode fe₁) fe₁ true false p.resSort p.nP
     (tq.1.drop p.nP) [] p.nIdx
-  let ctorsA ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p.cvT.name p.cvT.levelParams
-    p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
+  let (ctorsA, sortss) ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p.cvT.name
+    p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
   unless directFixFieldsOkF fe p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds do
     throw (.internal "direct rec: field kinds")
   let fe₂ := consSumCtorsF p.nP ctorsA fe₁
   flushC
   let (cvRa, rhss) ← checkDirectFixRecF (sharedOpsC mode fe₂) fe₂ p cvTa ctorsA
-  pure (fe₂.push (.recInfo cvRa p.majorIdx p.rulePrefix
-    (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)))
+  -- the projection table at a structure-like block (task #210 Part A)
+  checkDirectFixTableF (m := CheckCM) p ctorsA sortss (fe₂.push (.recInfo cvRa p.majorIdx
+    p.rulePrefix (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)))
 
 /-- The modeled inductive block (mirrors `checkIndDecl`), returning
 the extended index. -/

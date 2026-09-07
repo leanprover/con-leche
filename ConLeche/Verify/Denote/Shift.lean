@@ -429,8 +429,8 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     rw [denote_proj, h1, h2] at h
     simp only [Option.some.injEq] at h
     simp only [Expr.WScoped] at hws
-    obtain rfl : v = projNV i B := h.symm
-    exact projNV_bvarsBelow i (ihe hws hb h1)
+    obtain rfl : v = projNV (i + entry.off) B := h.symm
+    exact projNV_bvarsBelow _ (ihe hws hb h1)
   | case19 d sn i e B h1 h2 h3 ihe =>
     intro hws hb v h
     rw [denote_proj, h1, h2] at h

@@ -439,3 +439,294 @@ theorem map_instSeq_directRecPrefixAt (tfvs extras xFvs : List Expr) {nP n nF : 
     rfl
 
 end ConLeche
+
+/-! ## No projection nodes in the generated recursor (task #210 Part A)
+
+The table stage of a structure-like block on the fixpoint route needs
+`NoProjEnv` at the recursor's cons: the generated recursor type and
+rules mention no `.proj T j` node the former's and the constructors'
+types do not (the sum route's `NoProjAt.directRecTy_list` for the
+generators with the inductive hypotheses). -/
+
+namespace ConLeche
+
+namespace Expr
+
+variable {T : Name} {i : Nat}
+
+theorem NoProjAt.getAppArgs : ∀ {e : Expr}, NoProjAt T i e → ∀ a ∈ e.getAppArgs, NoProjAt T i a
+  | .app f a, h, b, hb => by
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hb
+    rw [noProjAt_app] at h
+    rcases hb with hb | rfl
+    · exact NoProjAt.getAppArgs h.1 b hb
+    · exact h.2
+  | .bvar _, _, _, hb | .fvar _ _, _, _, hb | .sort _, _, _, hb | .const _ _, _, _, hb
+  | .lam _ _ _, _, _, hb | .forallE _ _ _, _, _, hb | .letE _ _ _, _, _, hb | .lit _, _, _, hb
+  | .proj _ _ _, _, _, hb => by simp [Expr.getAppArgs] at hb
+
+/-- The binder domains of a stripped telescope carry no projection node
+of their body's telescope. -/
+theorem NoProjAt.stripPis_doms :
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      e.stripPis k = some (bs, body) → NoProjAt T i e → ∀ d ∈ bs, NoProjAt T i d.1
+  | 0, e, bs, body, h, _ => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1]; intro d hd; exact absurd hd List.not_mem_nil
+  | k + 1, e, bs, body, h, he => by
+    match e, h with
+    | .forallE ty rest m, h =>
+      simp only [Expr.stripPis] at h
+      cases hs : rest.stripPis k with
+      | none => rw [hs] at h; exact nomatch h
+      | some q =>
+        rw [hs] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, -⟩ := h
+        rw [noProjAt_forallE] at he
+        intro d hd
+        rcases List.mem_cons.mp hd with rfl | hd
+        · exact he.1
+        · exact NoProjAt.stripPis_doms k hs he.2 d hd
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
+      simp [Expr.stripPis] at h
+
+theorem NoProjAt.piBinders : ∀ {e : Expr}, NoProjAt T i e →
+    (∀ d ∈ (Expr.piBinders e).1, NoProjAt T i d.1) ∧ NoProjAt T i (Expr.piBinders e).2
+  | .forallE ty b m, h => by
+    rw [noProjAt_forallE] at h
+    obtain ⟨hbs, hbody⟩ := NoProjAt.piBinders h.2
+    refine ⟨fun d hd => ?_, hbody⟩
+    simp only [Expr.piBinders, List.mem_cons] at hd
+    rcases hd with rfl | hd
+    · exact h.1
+    · exact hbs d hd
+  | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+  | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    ⟨fun d hd => by simp [Expr.piBinders] at hd, h⟩
+
+theorem NoProjAt.mkPisOf : ∀ {bs : List (Expr × BinderMeta)} {b : Expr},
+    (∀ d ∈ bs, NoProjAt T i d.1) → NoProjAt T i b → NoProjAt T i (Expr.mkPisOf bs b)
+  | [], _, _, hb => hb
+  | (ty, m) :: bs, b, hbs, hb => by
+    simp only [Expr.mkPisOf, noProjAt_forallE]
+    exact ⟨hbs _ List.mem_cons_self,
+      NoProjAt.mkPisOf (fun d hd => hbs d (List.mem_cons_of_mem _ hd)) hb⟩
+
+theorem NoProjAt.mkLamsOf : ∀ {bs : List (Expr × BinderMeta)} {b : Expr},
+    (∀ d ∈ bs, NoProjAt T i d.1) → NoProjAt T i b → NoProjAt T i (Expr.mkLamsOf bs b)
+  | [], _, _, hb => hb
+  | (ty, m) :: bs, b, hbs, hb => by
+    simp only [Expr.mkLamsOf, noProjAt_lam]
+    exact ⟨hbs _ List.mem_cons_self,
+      NoProjAt.mkLamsOf (fun d hd => hbs d (List.mem_cons_of_mem _ hd)) hb⟩
+
+theorem NoProjAt.directTeleVars (m : Nat) : ∀ a ∈ directTeleVars m, NoProjAt T i a := by
+  intro a ha
+  obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha
+  simp
+
+theorem NoProjAt.directIdxAt {nF o j l m : Nat} {e : Expr} (h : NoProjAt T i e) :
+    NoProjAt T i (directIdxAt nF o j l m e) :=
+  h.liftLooseBVars.liftLooseBVars
+
+theorem NoProjAt.directTeleAt {nF o j l : Nat} {pw : PropWhen}
+    {tele : List (Expr × BinderMeta)} (h : ∀ d ∈ tele, NoProjAt T i d.1) :
+    ∀ d ∈ directTeleAt nF o j l pw tele, NoProjAt T i d.1 := by
+  intro d hd
+  obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hd
+  have hlt : k < tele.length := List.mem_range.mp hk
+  refine NoProjAt.directIdxAt (h _ ?_)
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+  exact List.getElem_mem hlt
+
+theorem NoProjAt.directFieldTeleOf {cty : Expr} {nP nF j : Nat} (h : NoProjAt T i cty) :
+    ∀ d ∈ directFieldTeleOf cty nP nF j, NoProjAt T i d.1 := by
+  unfold ConLeche.directFieldTeleOf
+  cases hs : cty.stripPis (nP + nF) with
+  | none => intro d hd; simp at hd
+  | some q =>
+    obtain ⟨cbs, cbody⟩ := q
+    intro d hd
+    dsimp only at hd
+    have hdoms := NoProjAt.stripPis_doms (nP + nF) hs h
+    by_cases hlt : nP + j < cbs.length
+    · have hmem : cbs.getD (nP + j) default ∈ cbs := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+        exact List.getElem_mem hlt
+      exact (NoProjAt.piBinders (hdoms _ hmem)).1 d hd
+    · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)] at hd
+      have hdef : (Expr.piBinders (default : Expr × BinderMeta).1).1 = [] := rfl
+      rw [Option.getD_none, hdef] at hd
+      exact absurd hd List.not_mem_nil
+
+theorem NoProjAt.directFieldIdxOf {cty : Expr} {nP nF j : Nat} (h : NoProjAt T i cty) :
+    ∀ e ∈ directFieldIdxOf cty nP nF j, NoProjAt T i e := by
+  unfold ConLeche.directFieldIdxOf
+  cases hs : cty.stripPis (nP + nF) with
+  | none => intro e he; simp at he
+  | some q =>
+    obtain ⟨cbs, cbody⟩ := q
+    intro e he
+    dsimp only at he
+    have hdoms := NoProjAt.stripPis_doms (nP + nF) hs h
+    by_cases hlt : nP + j < cbs.length
+    · have hmem : cbs.getD (nP + j) default ∈ cbs := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+        exact List.getElem_mem hlt
+      exact NoProjAt.getAppArgs (NoProjAt.piBinders (hdoms _ hmem)).2 e (List.mem_of_mem_drop he)
+    · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)] at he
+      have hdef : (Expr.piBinders (default : Expr × BinderMeta).1).2.getAppArgs = [] := rfl
+      rw [Option.getD_none, hdef, List.drop_nil] at he
+      exact absurd he List.not_mem_nil
+
+theorem NoProjAt.directRecPrefixAt (nP n nF e : Nat) :
+    ∀ a ∈ directRecPrefixAt nP n nF e, NoProjAt T i a := by
+  intro a ha
+  simp only [ConLeche.directRecPrefixAt, List.mem_append, List.mem_singleton, List.mem_map] at ha
+  rcases ha with (ha | rfl) | ⟨k, -, rfl⟩
+  · exact NoProjAt.directPsAt _ _ a ha
+  · simp
+  · simp
+
+theorem NoProjAt.directIhApp {recC : Name} {rlvls : List Level} {pw : PropWhen}
+    {nP n nF j : Nat} {tele : List (Expr × BinderMeta)} {idx : List Expr}
+    (ht : ∀ d ∈ tele, NoProjAt T i d.1) (hidx : ∀ e ∈ idx, NoProjAt T i e) :
+    NoProjAt T i (directIhApp recC rlvls pw nP n nF j tele idx) := by
+  unfold ConLeche.directIhApp
+  refine NoProjAt.mkLamsOf (NoProjAt.directTeleAt ht) ?_
+  refine NoProjAt.mkAppN (by simp) ?_
+  intro a ha
+  simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
+  rcases ha with (ha | ⟨e, he, rfl⟩) | rfl
+  · exact NoProjAt.directRecPrefixAt _ _ _ _ a ha
+  · exact NoProjAt.directIdxAt (hidx e he)
+  · exact NoProjAt.mkAppN (by simp) (NoProjAt.directTeleVars _)
+
+theorem NoProjAt.directRuleBodyR {recC : Name} {rlvls : List Level} {pw : PropWhen}
+    {nP n nF j : Nat} {recIdx : List Nat} {teleOf : Nat → List (Expr × BinderMeta)}
+    {idxOf : Nat → List Expr}
+    (ht : ∀ k, ∀ d ∈ teleOf k, NoProjAt T i d.1) (hidx : ∀ k, ∀ e ∈ idxOf k, NoProjAt T i e) :
+    NoProjAt T i (directRuleBodyR recC rlvls pw nP n nF j recIdx teleOf idxOf) := by
+  unfold ConLeche.directRuleBodyR
+  refine NoProjAt.mkAppN (by simp) ?_
+  intro a ha
+  simp only [List.mem_append, List.mem_map] at ha
+  rcases ha with ⟨k, -, rfl⟩ | ⟨k, -, rfl⟩
+  · simp
+  · exact NoProjAt.directIhApp (ht k) (hidx k)
+
+theorem NoProjAt.directIhPis {nF o : Nat} {pw : PropWhen} {teleOf : Nat → List (Expr × BinderMeta)}
+    {idxOf : Nat → List Expr}
+    (ht : ∀ k, ∀ d ∈ teleOf k, NoProjAt T i d.1) (hidx : ∀ k, ∀ e ∈ idxOf k, NoProjAt T i e) :
+    ∀ {is : List Nat} {l : Nat} {body : Expr}, NoProjAt T i body →
+      NoProjAt T i (directIhPis nF o pw teleOf idxOf is l body)
+  | [], _, _, hb => hb
+  | k :: is, l, body, hb => by
+    simp only [ConLeche.directIhPis, noProjAt_forallE]
+    refine ⟨NoProjAt.mkPisOf (NoProjAt.directTeleAt (ht k)) ?_, NoProjAt.directIhPis ht hidx hb⟩
+    refine NoProjAt.mkAppN (by simp) ?_
+    intro a ha
+    simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
+    rcases ha with ⟨e, he, rfl⟩ | rfl
+    · exact NoProjAt.directIdxAt (hidx k e he)
+    · exact NoProjAt.mkAppN (by simp) (NoProjAt.directTeleVars _)
+
+theorem NoProjAt.directMinorTyR {C : Name} {lps : List Name} {nP nF o : Nat} {pw : PropWhen}
+    {cty mty : Expr} {recIdx : List Nat} (h : directMinorTyR C lps nP nF o pw cty recIdx = some mty)
+    (hC : NoProjAt T i cty) : NoProjAt T i mty := by
+  obtain ⟨cbs, fbs, crest0, res, hs, hr, hm⟩ := directMinorTyR_unfold h
+  have hcrest : NoProjAt T i crest0 := NoProjAt.stripPis nP hs hC
+  refine NoProjAt.replacePisPw nF hm hcrest.liftLooseBVars ?_
+  refine NoProjAt.directIhPis (fun k => NoProjAt.directFieldTeleOf hC)
+    (fun k => NoProjAt.directFieldIdxOf hC) ?_
+  refine NoProjAt.liftLooseBVars ?_
+  refine NoProjAt.mkAppN (by simp) ?_
+  intro a ha
+  simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
+  rcases ha with ⟨e, he, rfl⟩ | rfl
+  · exact (NoProjAt.getAppArgs (NoProjAt.stripPis nF hr hcrest) e (List.mem_of_mem_drop he)).liftLooseBVars
+  · exact NoProjAt.directCtorSpineAt _ _ _ _ _
+
+theorem NoProjAt.directMinorsPisR {lps : List Name} {nP : Nat} {pw : PropWhen} :
+    ∀ {ctors : List (Name × Nat × Expr × List Nat)} {o : Nat} {body mins : Expr},
+      directMinorsPisR lps nP pw ctors o body = some mins →
+      (∀ c ∈ ctors, NoProjAt T i c.2.2.1) → NoProjAt T i body → NoProjAt T i mins
+  | [], _, body, mins, h, _, hb => by rw [directMinorsPisR_nil h]; exact hb
+  | (C, nF, cty, recIdx) :: cs, o, body, mins, h, hcs, hb => by
+    obtain ⟨mty, rest, hmty, hrest, rfl⟩ := directMinorsPisR_cons h
+    rw [noProjAt_forallE]
+    exact ⟨NoProjAt.directMinorTyR hmty (hcs _ List.mem_cons_self),
+      NoProjAt.directMinorsPisR hrest (fun c hc => hcs c (List.mem_cons_of_mem _ hc)) hb⟩
+
+theorem NoProjAt.directMinorsLamsR {lps : List Name} {nP : Nat} {pw : PropWhen} :
+    ∀ {ctors : List (Name × Nat × Expr × List Nat)} {o : Nat} {body mins : Expr},
+      directMinorsLamsR lps nP pw ctors o body = some mins →
+      (∀ c ∈ ctors, NoProjAt T i c.2.2.1) → NoProjAt T i body → NoProjAt T i mins
+  | [], _, body, mins, h, _, hb => by rw [directMinorsLamsR_nil h]; exact hb
+  | (C, nF, cty, recIdx) :: cs, o, body, mins, h, hcs, hb => by
+    obtain ⟨mty, rest, hmty, hrest, rfl⟩ := directMinorsLamsR_cons h
+    rw [noProjAt_lam]
+    exact ⟨NoProjAt.directMinorTyR hmty (hcs _ List.mem_cons_self),
+      NoProjAt.directMinorsLamsR hrest (fun c hc => hcs c (List.mem_cons_of_mem _ hc)) hb⟩
+
+theorem NoProjAt.directFamI (T' : Name) (lps : List Name) (nP nIdx e o : Nat) :
+    NoProjAt T i (directFamI T' lps nP nIdx e o) := by
+  unfold ConLeche.directFamI
+  refine NoProjAt.mkAppN (by simp) ?_
+  intro a ha
+  rcases List.mem_append.mp ha with h | h
+  · exact NoProjAt.directPsAt _ _ a h
+  · exact NoProjAt.directPsAt _ _ a h
+
+theorem NoProjAt.directMotiveTyI {T' : Name} {lps : List Name} {nP nIdx : Nat} {ℓ : Level}
+    {itele mty : Expr} (h : directMotiveTyI T' lps nP nIdx ℓ itele = some mty)
+    (hI : NoProjAt T i itele) : NoProjAt T i mty := by
+  unfold ConLeche.directMotiveTyI at h
+  refine NoProjAt.replacePisPw nIdx h hI ?_
+  simp only [noProjAt_forallE, noProjAt_sort, and_true]
+  exact NoProjAt.directFamI _ _ _ _ _ _
+
+/-- **The generated recursor type at a recursive block has no `.proj`
+node** the type former's and the constructors' types do not have. -/
+theorem NoProjAt.directRecTyR {T' : Name} {lps : List Name} {elim : Name} {large : Bool}
+    {nP nIdx : Nat} {tty recTy : Expr} {ctors : List (Name × Nat × Expr × List Nat)}
+    (h : directRecTyR T' lps elim large nP nIdx tty ctors = some recTy)
+    (hT : NoProjAt T i tty) (hC : ∀ c ∈ ctors, NoProjAt T i c.2.2.1) : NoProjAt T i recTy := by
+  obtain ⟨tbs, itele, motiveTy, major, minors, hs, hmot, hmaj, hmin, hr⟩ := directRecTyR_unfold h
+  have hI : NoProjAt T i itele := NoProjAt.stripPis nP hs hT
+  refine NoProjAt.replacePisPw nP hr hT ?_
+  simp only [noProjAt_forallE]
+  refine ⟨NoProjAt.directMotiveTyI hmot hI, NoProjAt.directMinorsPisR hmin hC ?_⟩
+  refine NoProjAt.replacePisPw nIdx hmaj hI.liftLooseBVars ?_
+  simp only [noProjAt_forallE]
+  refine ⟨NoProjAt.directFamI _ _ _ _ _ _, NoProjAt.mkAppN (by simp) ?_⟩
+  intro a ha
+  rcases List.mem_append.mp ha with h | h
+  · exact NoProjAt.directPsAt _ _ a h
+  · rcases List.mem_singleton.mp h with rfl; simp
+
+/-- **The generated rules at a recursive block have no `.proj` node**
+the type former's and the constructors' types do not have. -/
+theorem NoProjAt.directRecRhsR {T' : Name} {lps : List Name} {elim : Name} {large : Bool}
+    {nP nIdx j : Nat} {tty rhs : Expr} {ctors : List (Name × Nat × Expr × List Nat)}
+    {recC : Name} {rlvls : List Level}
+    (h : directRecRhsR T' lps elim large nP nIdx tty ctors recC rlvls j = some rhs)
+    (hT : NoProjAt T i tty) (hC : ∀ c ∈ ctors, NoProjAt T i c.2.2.1) : NoProjAt T i rhs := by
+  obtain ⟨C, nF, cty, recIdx, tbs, cbs, itele, motiveTy, crest0, inner, minors, hj, hs, hmot, hcs,
+    hinner, hmins, hr⟩ := directRecRhsR_unfold h
+  have hI : NoProjAt T i itele := NoProjAt.stripPis nP hs hT
+  have hcty : NoProjAt T i cty := hC _ (List.mem_of_getElem? hj)
+  have hcrest : NoProjAt T i crest0 := NoProjAt.stripPis nP hcs hcty
+  have hinnerP : NoProjAt T i inner :=
+    NoProjAt.pisToLamsPw nF hinner hcrest.liftLooseBVars
+      (NoProjAt.directRuleBodyR (fun k => NoProjAt.directFieldTeleOf hcty)
+        (fun k => NoProjAt.directFieldIdxOf hcty))
+  refine NoProjAt.pisToLamsPw nP hr hT ?_
+  rw [noProjAt_lam]
+  exact ⟨NoProjAt.directMotiveTyI hmot hI, NoProjAt.directMinorsLamsR hmins hC hinnerP⟩
+
+end Expr
+
+end ConLeche

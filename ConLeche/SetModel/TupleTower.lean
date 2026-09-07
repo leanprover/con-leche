@@ -95,6 +95,25 @@ noncomputable def projList : Nat → V → List V
   | 0, _ => []
   | n + 1, x => sfst x :: projList n (ssnd x)
 
+/-- The `k`-fold second projection (task #210 Part A): the tuple tower
+below `k` leading pair components — `projS (i + k) x = projS i (dropS k
+x)`, so a projection table with offset `k` reads its fields off
+`dropS k` of the subject (`k = 1` at the fixpoint route's tagged
+tower, whose first component is the constructor tag). -/
+noncomputable def dropS : Nat → V → V
+  | 0, x => x
+  | k + 1, x => dropS k (ssnd x)
+
+theorem projS_add_dropS : ∀ (i k : Nat) (x : V), projS (i + k) x = projS i (dropS k x)
+  | _, 0, _ => rfl
+  | i, k + 1, x => by
+    show projS (i + k) (ssnd x) = projS i (dropS k (ssnd x))
+    exact projS_add_dropS i k (ssnd x)
+
+theorem dropS_pt : ∀ k : Nat, dropS k (pt : V) = pt
+  | 0 => rfl
+  | k + 1 => by show dropS k (ssnd pt) = pt; rw [ssnd_pt, dropS_pt k]
+
 /-- The `i`-th field set of a telescope at a prefix valuation
 (`empty` out of range — never consumed in range). -/
 noncomputable def teleNth : {n : Nat} → TeleS V n → Nat → List V → V
@@ -219,6 +238,21 @@ theorem projS_mkTower : ∀ (i : Nat) (as : List V) (h : i < as.length),
     show projS i (ssnd (spair a (mkTower as))) = as[i]'(Nat.lt_of_succ_lt_succ h)
     rw [ssnd_spair]
     exact projS_mkTower i as (Nat.lt_of_succ_lt_succ h)
+
+/-- The projection list of a point-terminated tower is the fields'
+prefix (task #210: the fixpoint route's constructor payload). -/
+theorem projList_mkTower_take {fs : List V} {i : Nat} (hi : i ≤ fs.length) :
+    projList i (mkTower (fs ++ [pt])) = fs.take i := by
+  have h1 : projList (fs.length + 1) (mkTower (fs ++ [pt])) = fs ++ [pt] := projList_mkTower _ _ (by simp)
+  have h2 := projList_take (fs.length + 1) i (mkTower (fs ++ [pt])) (by omega)
+  rw [h1, List.take_append_of_le_length hi] at h2
+  exact h2.symm
+
+/-- A field projection of a point-terminated tower, `getD`-form. -/
+theorem projS_mkTower_getD {fs : List V} {i : Nat} (hi : i < fs.length) :
+    projS i (mkTower (fs ++ [pt])) = fs.getD i pt := by
+  rw [projS_mkTower i (fs ++ [pt]) (by simp; omega), List.getElem_append_left hi,
+    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some]
 
 /-- **Eta + elim** (graph regime): every carrier member IS the tower
 of its own projections, and those projections fit the telescope. -/

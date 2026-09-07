@@ -137,8 +137,8 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
   have hlenVs : vs.length = entry.numParams := by
     rw [← hspt.length]; exact hlenArgs
   have hlaw' : ∀ σ : Nat → V, Sat2 V Δa σ →
-      AnnotOkP V σ (projAV i vp) ∧ AnnotOkP V σ ta ∧
-        interp2 V σ (projAV i vp) ∈ˢ interp2 V σ ta := fun σ hσ =>
+      AnnotOkP V σ (projAV (i + entry.off) vp) ∧ AnnotOkP V σ ta ∧
+        interp2 V σ (projAV (i + entry.off) vp) ∈ˢ interp2 V σ ta := fun σ hσ =>
     hA (towerGuardAt_of hO5 hguard) σ vs vp ta hlenVs (hokTe σ hσ)
       (hokPe σ hσ) ((heqTe σ hσ) ▸ hmemPe σ hσ) hpeel
   exact ⟨fun σ hσ => (hlaw' σ hσ).1, fun σ hσ => (hlaw' σ hσ).2.1,
@@ -175,7 +175,7 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
   -- form: the full lane established it; the io lane reads it)
   have hokPe : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ vp := by
     intro ρ hρ
-    rcases hrd with ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩
+    rcases hrd with ⟨_, -, rfl⟩ | ⟨-, -, rfl⟩
     · exact AnnotOkP_projAV_hoist (hok ρ hρ)
     · exact ⟨AnnotOk2.hoist_proj (V := V) (fun σ hσ => (hok σ hσ).1) ρ hρ,
         (AnnotValidV_proj V ρ i vp) ▸ (hok ρ hρ).2⟩
@@ -232,8 +232,8 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
   have hlenVs : vs.length = entry.numParams := by
     rw [← hspt.length]; exact hlenArgs
   have hlaw' : ∀ σ : Nat → V, Sat2 V Δa σ →
-      AnnotOkP V σ (projAV i vp) ∧ AnnotOkP V σ ta ∧
-        interp2 V σ (projAV i vp) ∈ˢ interp2 V σ ta := fun σ hσ =>
+      AnnotOkP V σ (projAV (i + entry.off) vp) ∧ AnnotOkP V σ ta ∧
+        interp2 V σ (projAV (i + entry.off) vp) ∈ˢ interp2 V σ ta := fun σ hσ =>
     hA (towerGuardAt_of hO5 hguard) σ vs vp ta hlenVs (hokTe σ hσ)
       (hokPe σ hσ) ((heqTe σ hσ) ▸ hmemPe σ hσ) hpeel
   exact ⟨fun σ hσ => (hlaw' σ hσ).2.1, fun σ hσ => (hlaw' σ hσ).2.2⟩
@@ -287,7 +287,7 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
   obtain ⟨vp, hvp, hrd⟩ := denoteP_proj_inv hea
   have hokVp : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ vp := by
     intro σ hσ
-    rcases hrd with ⟨-, -, -, rfl⟩ | ⟨-, -, rfl⟩
+    rcases hrd with ⟨_, -, -, rfl⟩ | ⟨-, -, rfl⟩
     · exact AnnotOkP_projAV_hoist (hokA σ hσ)
     · refine ⟨?_, ?_⟩
       · have h1 := (hokA σ hσ).1; rw [AnnotOk2_proj] at h1; exact h1.1
@@ -333,8 +333,9 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
     obtain rfl : v₃ = v₃' := Option.some.inj (hv₃.symm.trans hv₃')
     rcases hrd with ⟨entry, hfe, rfl⟩ | ⟨hnt, hi2, rfl⟩
     · -- a stored entry: `projAV` congruence
-      rcases hrd' with ⟨-, -, rfl⟩ | ⟨hnt', -, -⟩
-      · exact ⟨fun σ hσ => AnnotOkP_projAV_congr (heq₃ σ hσ) (hok₃ σ hσ)
+      rcases hrd' with ⟨entry', hfe', rfl⟩ | ⟨hnt', -, -⟩
+      · obtain rfl : entry = entry' := Option.some.inj (hfe.symm.trans hfe')
+        exact ⟨fun σ hσ => AnnotOkP_projAV_congr (heq₃ σ hσ) (hok₃ σ hσ)
           (hokA σ hσ), fun σ hσ => interp2_projAV_congr (heq₃ σ hσ)⟩
       · rw [hnt'] at hfe; exact nomatch hfe
     · -- table-free

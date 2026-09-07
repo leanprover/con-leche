@@ -129,7 +129,7 @@ def denote2 (mode : CheckMode) (acval : Name → (Name → Nat) → AVExpr)
     -- the entry-kind branch (task #175 wiring W3), clause-parallel
     -- with `denote` and `denoteP`
     match env.findProj? sn i with
-    | some _ => some (projAV i ea)
+    | some entry => some (projAV (i + entry.off) ea)
     | none => if i < 2 then some (.proj i ea) else none
   | _, .lit (.natVal n) =>
     if natLitSupported env then
@@ -302,7 +302,7 @@ theorem denote2_erase {mode : CheckMode}
     · rw [hea] at h; exact nomatch h
     rw [hea] at h
     replace h : (match env.findProj? sn i with
-        | some _ => some (projAV i ea')
+        | some entry => some (projAV (i + entry.off) ea')
         | none => if i < 2 then some (AVExpr.proj i ea') else none)
           = some ea := h
     rw [denote_proj, ihe hea]

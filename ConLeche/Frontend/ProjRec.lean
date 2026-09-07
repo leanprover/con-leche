@@ -1,4 +1,4 @@
-import ConLeche.Kernel.Direct.Parts
+import ConLeche.Kernel.Direct.RecParts
 import ConLeche.Kernel.Level
 
 /-!
@@ -248,6 +248,10 @@ def projRecOwners (block : List ConstantInfo)
     ctors.any fun (_, _, cty) => (stripPisAll cty).1.any fun (d, _) =>
       blockNames.any fun n => occursConst n d
   if (directPartsCore? block).isSome && !recursive then []
+  -- a block the fixpoint route takes serves its structure-like
+  -- member's `.proj` nodes natively (task #210 Part A: the projection
+  -- table at a one-constructor, index-free block), so no rewrite
+  else if (directFixParts? block).isSome then []
   else
     types.filterMap fun (T, lps, tty, nP, nI, cs, _) => do
       let [C] := cs | none

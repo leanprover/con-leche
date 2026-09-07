@@ -185,6 +185,7 @@ main_False :: ConLeche.SetP.DirectFix.FixCtorCrossP
 main_False :: ConLeche.SetP.DirectFix.FixCtorReadsP
 main_False :: ConLeche.SetP.DirectFix.FixCtorsLoopP
 main_False :: ConLeche.SetP.DirectFix.FixDataP
+main_False :: ConLeche.SetP.DirectFix.FixEntryLawP
 main_False :: ConLeche.SetP.DirectFix.FixIntroP
 main_False :: ConLeche.SetP.DirectFix.FixLeafOkP
 main_False :: ConLeche.SetP.DirectFix.FixNoBVarP
@@ -203,6 +204,7 @@ main_False :: ConLeche.SetP.DirectFix.FixRuleOkP
 main_False :: ConLeche.SetP.DirectFix.FixShadowP
 main_False :: ConLeche.SetP.DirectFix.FixStageFormerP
 main_False :: ConLeche.SetP.DirectFix.FixStageRecP
+main_False :: ConLeche.SetP.DirectFix.FixStageTableP
 main_False :: ConLeche.SetP.DirectFix.FixTeleBoundP
 main_False :: ConLeche.SetP.DirectFix.FixWitnessP
 main_False :: ConLeche.SetP.DirectSum.DeclDirectSumP
@@ -608,6 +610,7 @@ False_SPCD_P :: ConLeche.SetP.DirectFix.FixCtorCrossP
 False_SPCD_P :: ConLeche.SetP.DirectFix.FixCtorReadsP
 False_SPCD_P :: ConLeche.SetP.DirectFix.FixCtorsLoopP
 False_SPCD_P :: ConLeche.SetP.DirectFix.FixDataP
+False_SPCD_P :: ConLeche.SetP.DirectFix.FixEntryLawP
 False_SPCD_P :: ConLeche.SetP.DirectFix.FixIntroP
 False_SPCD_P :: ConLeche.SetP.DirectFix.FixLeafOkP
 False_SPCD_P :: ConLeche.SetP.DirectFix.FixNoBVarP
@@ -626,6 +629,7 @@ False_SPCD_P :: ConLeche.SetP.DirectFix.FixRuleOkP
 False_SPCD_P :: ConLeche.SetP.DirectFix.FixShadowP
 False_SPCD_P :: ConLeche.SetP.DirectFix.FixStageFormerP
 False_SPCD_P :: ConLeche.SetP.DirectFix.FixStageRecP
+False_SPCD_P :: ConLeche.SetP.DirectFix.FixStageTableP
 False_SPCD_P :: ConLeche.SetP.DirectFix.FixTeleBoundP
 False_SPCD_P :: ConLeche.SetP.DirectFix.FixWitnessP
 False_SPCD_P :: ConLeche.SetP.DirectSum.DeclDirectSumP
@@ -1020,6 +1024,7 @@ False_P :: ConLeche.SetP.DirectFix.FixCtorCrossP
 False_P :: ConLeche.SetP.DirectFix.FixCtorReadsP
 False_P :: ConLeche.SetP.DirectFix.FixCtorsLoopP
 False_P :: ConLeche.SetP.DirectFix.FixDataP
+False_P :: ConLeche.SetP.DirectFix.FixEntryLawP
 False_P :: ConLeche.SetP.DirectFix.FixIntroP
 False_P :: ConLeche.SetP.DirectFix.FixLeafOkP
 False_P :: ConLeche.SetP.DirectFix.FixNoBVarP
@@ -1038,6 +1043,7 @@ False_P :: ConLeche.SetP.DirectFix.FixRuleOkP
 False_P :: ConLeche.SetP.DirectFix.FixShadowP
 False_P :: ConLeche.SetP.DirectFix.FixStageFormerP
 False_P :: ConLeche.SetP.DirectFix.FixStageRecP
+False_P :: ConLeche.SetP.DirectFix.FixStageTableP
 False_P :: ConLeche.SetP.DirectFix.FixTeleBoundP
 False_P :: ConLeche.SetP.DirectFix.FixWitnessP
 False_P :: ConLeche.SetP.DirectSum.DeclDirectSumP
@@ -1415,6 +1421,7 @@ SPCD_P :: ConLeche.SetP.DirectFix.FixCtorCrossP
 SPCD_P :: ConLeche.SetP.DirectFix.FixCtorReadsP
 SPCD_P :: ConLeche.SetP.DirectFix.FixCtorsLoopP
 SPCD_P :: ConLeche.SetP.DirectFix.FixDataP
+SPCD_P :: ConLeche.SetP.DirectFix.FixEntryLawP
 SPCD_P :: ConLeche.SetP.DirectFix.FixIntroP
 SPCD_P :: ConLeche.SetP.DirectFix.FixLeafOkP
 SPCD_P :: ConLeche.SetP.DirectFix.FixNoBVarP
@@ -1433,6 +1440,7 @@ SPCD_P :: ConLeche.SetP.DirectFix.FixRuleOkP
 SPCD_P :: ConLeche.SetP.DirectFix.FixShadowP
 SPCD_P :: ConLeche.SetP.DirectFix.FixStageFormerP
 SPCD_P :: ConLeche.SetP.DirectFix.FixStageRecP
+SPCD_P :: ConLeche.SetP.DirectFix.FixStageTableP
 SPCD_P :: ConLeche.SetP.DirectFix.FixTeleBoundP
 SPCD_P :: ConLeche.SetP.DirectFix.FixWitnessP
 SPCD_P :: ConLeche.SetP.DirectSum.DeclDirectSumP
@@ -1838,6 +1846,7 @@ sound_P :: ConLeche.SetP.DirectFix.FixCtorCrossP
 sound_P :: ConLeche.SetP.DirectFix.FixCtorReadsP
 sound_P :: ConLeche.SetP.DirectFix.FixCtorsLoopP
 sound_P :: ConLeche.SetP.DirectFix.FixDataP
+sound_P :: ConLeche.SetP.DirectFix.FixEntryLawP
 sound_P :: ConLeche.SetP.DirectFix.FixIntroP
 sound_P :: ConLeche.SetP.DirectFix.FixLeafOkP
 sound_P :: ConLeche.SetP.DirectFix.FixNoBVarP
@@ -1856,6 +1865,7 @@ sound_P :: ConLeche.SetP.DirectFix.FixRuleOkP
 sound_P :: ConLeche.SetP.DirectFix.FixShadowP
 sound_P :: ConLeche.SetP.DirectFix.FixStageFormerP
 sound_P :: ConLeche.SetP.DirectFix.FixStageRecP
+sound_P :: ConLeche.SetP.DirectFix.FixStageTableP
 sound_P :: ConLeche.SetP.DirectFix.FixTeleBoundP
 sound_P :: ConLeche.SetP.DirectFix.FixWitnessP
 sound_P :: ConLeche.SetP.DirectSum.DeclDirectSumP
@@ -2261,6 +2271,7 @@ foldSPC_PM :: ConLeche.SetP.DirectFix.FixCtorCrossP
 foldSPC_PM :: ConLeche.SetP.DirectFix.FixCtorReadsP
 foldSPC_PM :: ConLeche.SetP.DirectFix.FixCtorsLoopP
 foldSPC_PM :: ConLeche.SetP.DirectFix.FixDataP
+foldSPC_PM :: ConLeche.SetP.DirectFix.FixEntryLawP
 foldSPC_PM :: ConLeche.SetP.DirectFix.FixIntroP
 foldSPC_PM :: ConLeche.SetP.DirectFix.FixLeafOkP
 foldSPC_PM :: ConLeche.SetP.DirectFix.FixNoBVarP
@@ -2279,6 +2290,7 @@ foldSPC_PM :: ConLeche.SetP.DirectFix.FixRuleOkP
 foldSPC_PM :: ConLeche.SetP.DirectFix.FixShadowP
 foldSPC_PM :: ConLeche.SetP.DirectFix.FixStageFormerP
 foldSPC_PM :: ConLeche.SetP.DirectFix.FixStageRecP
+foldSPC_PM :: ConLeche.SetP.DirectFix.FixStageTableP
 foldSPC_PM :: ConLeche.SetP.DirectFix.FixTeleBoundP
 foldSPC_PM :: ConLeche.SetP.DirectFix.FixWitnessP
 foldSPC_PM :: ConLeche.SetP.DirectSum.DeclDirectSumP
@@ -2673,6 +2685,7 @@ P :: ConLeche.SetP.DirectFix.FixCtorCrossP
 P :: ConLeche.SetP.DirectFix.FixCtorReadsP
 P :: ConLeche.SetP.DirectFix.FixCtorsLoopP
 P :: ConLeche.SetP.DirectFix.FixDataP
+P :: ConLeche.SetP.DirectFix.FixEntryLawP
 P :: ConLeche.SetP.DirectFix.FixIntroP
 P :: ConLeche.SetP.DirectFix.FixLeafOkP
 P :: ConLeche.SetP.DirectFix.FixNoBVarP
@@ -2691,6 +2704,7 @@ P :: ConLeche.SetP.DirectFix.FixRuleOkP
 P :: ConLeche.SetP.DirectFix.FixShadowP
 P :: ConLeche.SetP.DirectFix.FixStageFormerP
 P :: ConLeche.SetP.DirectFix.FixStageRecP
+P :: ConLeche.SetP.DirectFix.FixStageTableP
 P :: ConLeche.SetP.DirectFix.FixTeleBoundP
 P :: ConLeche.SetP.DirectFix.FixWitnessP
 P :: ConLeche.SetP.DirectSum.DeclDirectSumP

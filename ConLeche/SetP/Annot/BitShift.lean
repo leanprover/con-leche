@@ -189,9 +189,9 @@ theorem denoteP_shiftFrom
         · rfl
         · rfl
       | some entry =>
-        show some (projAV i (AVExpr.liftN 1 ea (d - p)))
+        show some (projAV (i + entry.off) (AVExpr.liftN 1 ea (d - p)))
           = Option.map (fun x => AVExpr.liftN 1 x (d - p))
-            (some (projAV i ea))
+            (some (projAV (i + entry.off) ea))
         simp only [Option.map_some, projAV_liftN]
   | .lit (.natVal k), d, _, _ => by
     simp only [ConLeche.Expr.shiftFrom, denoteP]

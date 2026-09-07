@@ -118,13 +118,16 @@ domain at the subject's projection spine.  The grading in the squash
 regime rides the official guard's content (`hguard`) and the unused
 earlier fields' invariance (`hfree`). -/
 theorem bodyFrames {env : Env} (m : EnvS2Core V env)
-    {nP nF i : Nat} {T : Name} {cty : Expr} {cds : List Expr}
+    {nP nF i off : Nat} {T : Name} {cty : Expr} {cds : List Expr}
     {bodyC : Expr} {mbC : BinderMeta} {body : Expr}
     (hcf : Expr.instPisAt (ConLeche.fvsD nP ++ ConLeche.projArgsD T i nP) cty
       = some (cds, .forallE
           (Expr.instSpine (ConLeche.fvsD nP ++ [ConLeche.tfvD nP]) nP body) bodyC mbC))
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
-    (hprev : ∀ j, j < i → ∃ entry, env.findProj? T j = some entry)
+    -- the earlier fields' entries, at the table's projection offset
+    -- (task #210 Part A: the tagged tower of the fixpoint route reads
+    -- its fields at offset `1`)
+    (hprev : ∀ j, j < i → ∃ entry, env.findProj? T j = some entry ∧ entry.off = off)
     (hi : i < nF)
     {ds : List (Nat × Nat × AVExpr)} {bodyA : AVExpr} {ψ : Name → Nat} {w : Nat}
     (hlenDs : ds.length = nP + nF) (hbelow : DomsBelow 0 ds)
@@ -132,8 +135,6 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
     {sorts : List Level}
     (hokB : ∀ ρ : Nat → V, Sat2 V ((ds.take nP).map (·.2.2)).reverse ρ →
       FieldsOkB w ρ ((ds.drop nP).map (·.2.2)) ∧ FieldsValid ρ ((ds.drop nP).map (·.2.2)))
-    (hbound : ∀ ρ : Nat → V, Sat2 V ((ds.take nP).map (·.2.2)).reverse ρ → w ≠ 0 →
-      FieldsBound w ρ ((ds.drop nP).map (·.2.2)))
     (hsorts : ∀ ρ : Nat → V, Sat2 V ((ds.take nP).map (·.2.2)).reverse ρ →
       ∀ j, j < nF → ∀ as : List V,
         SpineFit ρ (((ds.drop nP).map (·.2.2)).take j) as →
@@ -141,20 +142,33 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
           ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V))
     {used : Nat → Bool}
     (hfree : ∀ j, j < i → used j = false →
-      ∃ X : AVExpr, ((ds.drop nP).map (·.2.2)).getD i default = X.liftN 1 (i - 1 - j)) :
+      ∃ X : AVExpr, ((ds.drop nP).map (·.2.2)).getD i default = X.liftN 1 (i - 1 - j))
+    -- THE SUBJECT'S FRAME, abstractly (task #210 Part A): whatever
+    -- carrier the subject `ρ 0` lives in, at a squash instance it is
+    -- the point and the fields admit a fitting spine; in the graph
+    -- regime the subject's projection tuple (below the offset) fits
+    -- the fields; and the subject's projection readings are graded
+    (Frame : (Nat → V) → Prop)
+    (hsq : ∀ ρ : Nat → V, Frame ρ →
+      Sat2 V ((ds.take nP).map (·.2.2)).reverse (fun j => ρ (j + 1)) → w = 0 →
+      ρ 0 = pt ∧ ∃ as' : List V, SpineFit (fun j => ρ (j + 1)) ((ds.drop nP).map (·.2.2)) as')
+    (hgr : ∀ ρ : Nat → V, Frame ρ →
+      Sat2 V ((ds.take nP).map (·.2.2)).reverse (fun j => ρ (j + 1)) → w ≠ 0 →
+      SpineFit (fun j => ρ (j + 1)) ((ds.drop nP).map (·.2.2)) (projList nF (dropS off (ρ 0))))
+    (hokProj : ∀ ρ : Nat → V, Frame ρ →
+      Sat2 V ((ds.take nP).map (·.2.2)).reverse (fun j => ρ (j + 1)) →
+      ∀ j, j < nF → AnnotOk2 V ρ (projAV (j + off) (.bvar 0))) :
     ∃ fdomA : AVExpr,
       denoteP m.acval env ψ (nP + 1)
         (Expr.instSpine (ConLeche.fvsD nP ++ [ConLeche.tfvD nP]) nP body) = some fdomA ∧
       ((w = 0 → ∀ j, j < i → used j = true → (sorts.getD j .zero).eval ψ = 0) →
-        ∀ ρ : Nat → V,
-          ρ 0 ∈ˢ towerSet w (teleOfFields (fun j => ρ (j + 1)) ((ds.drop nP).map (·.2.2))) →
+        ∀ ρ : Nat → V, Frame ρ →
           Sat2 V ((ds.take nP).map (·.2.2)).reverse (fun j => ρ (j + 1)) →
           AnnotOkP V ρ fdomA) ∧
-      (∀ ρ : Nat → V,
-        ρ 0 ∈ˢ towerSet w (teleOfFields (fun j => ρ (j + 1)) ((ds.drop nP).map (·.2.2))) →
+      (∀ ρ : Nat → V, Frame ρ →
         Sat2 V ((ds.take nP).map (·.2.2)).reverse (fun j => ρ (j + 1)) →
         interp2 V ρ fdomA
-          = interp2 V (consList (projList i (ρ 0)) (fun j => ρ (j + 1)))
+          = interp2 V (consList (projList i (dropS off (ρ 0))) (fun j => ρ (j + 1)))
               (((ds.drop nP).map (·.2.2)).getD i default)) := by
   -- the constructor type's reading at the body's depth
   have hctyRead : denoteP m.acval env ψ (nP + 1) cty = some (mkPisAV ds bodyA) :=
@@ -190,13 +204,13 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
   have hspX := denoteSpineP_entryProjs (acval := m.acval) (env := env) (φ := ψ)
     (nP := nP) (sdom := .sort .zero) hprev
   have hsp : DenoteSpineP m.acval env ψ (nP + 1) (ConLeche.fvsD nP ++ ConLeche.projArgsD T i nP)
-      (entryParamBvars nP ++ entryProjAVs i) :=
+      (entryParamBvars nP ++ entryProjAVs off i) :=
     DenoteSpineP.append hspP hspX
   obtain ⟨restA, hrest, hpeel⟩ := denoteP_instPisAt_peel m.acval_closed
     (acval_inst_self m) _ hcf hctyW hargs hctyRead hsp
   obtain ⟨fdomA, ba, hfdA, -, rfl⟩ := denoteP_forallE_inv hrest
   -- the peel is the instantiation sequence of the field domain
-  have hlenVs : (entryParamBvars nP ++ entryProjAVs i).length = nP + i := by
+  have hlenVs : (entryParamBvars nP ++ entryProjAVs off i).length = nP + i := by
     simp [entryParamBvars_length, entryProjAVs_length]
   have hsplitDs : ds = ds.take (nP + i) ++ ds.drop (nP + i) :=
     (List.take_append_drop _ _).symm
@@ -215,7 +229,7 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
     rfl
   rw [hdropDs] at hpeel'
   simp only [mkPisAV] at hpeel'
-  obtain ⟨B', hB'⟩ := instSeq_pi_dom (entryParamBvars nP ++ entryProjAVs i) (nP + i - 1)
+  obtain ⟨B', hB'⟩ := instSeq_pi_dom (entryParamBvars nP ++ entryProjAVs off i) (nP + i - 1)
     (ds.getD (nP + i) default).1 (ds.getD (nP + i) default).2.1
     (ds.getD (nP + i) default).2.2
     (mkPisAV (ds.drop (nP + i + 1)) bodyA)
@@ -230,7 +244,7 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
     have := DomsBelow.getD_below (nP + i) hbelow (by omega)
     rwa [Nat.zero_add] at this
   have hlenFs : ((ds.drop nP).map (·.2.2)).length = nF := by simp [hlenDs]
-  have hlen' : (entryParamBvars nP ++ entryProjAVs i).length - 1 = nP + i - 1 := by
+  have hlen' : (entryParamBvars nP ++ entryProjAVs off i).length - 1 = nP + i - 1 := by
     rw [hlenVs]
   refine ⟨fdomA, hfdA, ?_, ?_⟩
   · -- the grading at the frame
@@ -239,14 +253,12 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
     -- graph regime the projections fit; at a squash instance they are
     -- the point spine, which differs from a fitting prefix only at
     -- unused slots, where the field is a lift
-    have hokPre : AnnotOkP V (consList (projList i (ρ 0)) (fun j => ρ (j + 1)))
+    have hokPre : AnnotOkP V (consList (projList i (dropS off (ρ 0))) (fun j => ρ (j + 1)))
         (((ds.drop nP).map (·.2.2)).getD i default) := by
       by_cases hw : w = 0
-      · rw [hw] at hx
-        obtain ⟨hpt, as', hfits⟩ := towerSet_zero_elim _ hx
-        have hspAs := fitsS_teleOfFields.mp hfits
+      · obtain ⟨hpt, as', hspAs⟩ := hsq ρ hx hsat hw
         obtain ⟨hpre, -⟩ := spineFit_prefix_next hspAs (by rw [hlenFs]; exact hi)
-        rw [hpt, projList_pt]
+        rw [hpt, dropS_pt, projList_pt]
         have hlenTake : (as'.take i).length = i :=
           spineFit_take_length hspAs (by rw [hlenFs]; omega)
         rw [annotOkP_congr_lifts i
@@ -254,34 +266,28 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
           (consList_prefix_agree hlenTake _).2]
         exact ⟨fieldsOkB_getD (hokB _ hsat).1 (by rw [hlenFs]; exact hi) hpre,
           fieldsValid_getD (hokB _ hsat).2 (by rw [hlenFs]; exact hi) hpre⟩
-      · obtain ⟨hspAll, -⟩ := towerSet_elim_teleOfFields hw hx
+      · have hspAll := hgr ρ hx hsat hw
         obtain ⟨hpre, -⟩ := spineFit_prefix_next hspAll (by rw [hlenFs]; exact hi)
-        rw [hlenFs, projList_take nF i _ (Nat.le_of_lt hi)] at hpre
+        rw [projList_take nF i _ (Nat.le_of_lt hi)] at hpre
         exact ⟨fieldsOkB_getD (hokB _ hsat).1 (by rw [hlenFs]; exact hi) hpre,
           fieldsValid_getD (hokB _ hsat).2 (by rw [hlenFs]; exact hi) hpre⟩
     -- the readings' gradings at the frame
-    have hokArgs : ∀ w' ∈ entryParamBvars nP ++ entryProjAVs i, AnnotOkP V ρ w' := by
+    have hokArgs : ∀ w' ∈ entryParamBvars nP ++ entryProjAVs off i, AnnotOkP V ρ w' := by
       intro w' hw'
       rcases List.mem_append.mp hw' with hw' | hw'
       · obtain ⟨k, -, rfl⟩ := List.mem_map.mp hw'
         exact ⟨trivial, trivial⟩
       · obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hw'
         have hj' : j < i := List.mem_range.mp hj
-        refine ⟨?_, projAV_validV trivial⟩
-        by_cases hw0 : w = 0
-        · rw [hw0] at hx
-          obtain ⟨hpt, -⟩ := towerSet_zero_elim _ hx
-          exact annotOk2_projAV_pt trivial (by rw [interp2_bvar, hpt])
-        · exact annotOk2_projAV_tower (hbound _ hsat hw0) hx trivial (by rw [interp2_bvar])
-            (by rw [hlenFs]; omega)
+        exact ⟨hokProj ρ hx hsat j (by omega), projAV_validV trivial⟩
     rw [hfdomA, ← hlen']
     refine annotOkP_instSeq _ hokArgs ?_
-    rw [(AnnotOkP_congr_below _ (nP + i) _ _ hFiBelow (chainP_entry_agree nP i ρ))]
+    rw [(AnnotOkP_congr_below _ (nP + i) _ _ hFiBelow (chainP_entry_agree nP off i ρ))]
     rw [← hFi]
     exact hokPre
   · -- the value at the frame
     intro ρ _ _
     rw [hfdomA, ← hlen', interp2_instSeq, hFi]
-    exact interp2_congr_below V _ (nP + i) _ _ hFiBelow (chainP_entry_agree nP i ρ)
+    exact interp2_congr_below V _ (nP + i) _ _ hFiBelow (chainP_entry_agree nP off i ρ)
 
 end ConLeche.SetP

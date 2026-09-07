@@ -522,10 +522,10 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
       denote cval ⟨c₀ :: env.consts⟩ φ d e = denote cval env φ d e := by
   have hbranch : ∀ (sn : Name) (i : Nat) (ve : VExpr),
       (match Env.findProj? ⟨c₀ :: env.consts⟩ sn i with
-        | some _ => some (projNV i ve)
+        | some entry => some (projNV (i + entry.off) ve)
         | none => if i < 2 then some (.proj i ve) else none)
       = (match env.findProj? sn i with
-        | some _ => some (projNV i ve)
+        | some entry => some (projNV (i + entry.off) ve)
         | none => if i < 2 then some (.proj i ve) else none) := by
     intro sn i ve
     by_cases hn : c₀.name = projTableName sn

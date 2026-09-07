@@ -79,13 +79,13 @@ theorem checkDirectSumTele_shape {env : Env} {cv : ConstantVal} {n : Nat}
     exact Or.inr ⟨_, hccv⟩
 
 theorem checkDirectSumInd_shape {env envI : Env} {p p' : DirectSumParts}
-    {cvTa : ConstantVal} {F : Nat}
-    (h : checkDirectSumInd (fueledOps mode F) env p = .ok (envI, cvTa, p')) :
+    {cvTa : ConstantVal} {F : Nat} {capsOf : DirectSumParts → IndCaps}
+    (h : checkDirectSumInd (fueledOps mode F) env p capsOf = .ok (envI, cvTa, p')) :
     ∃ (cvT : ConstantVal) (s : Level),
       cvT.name = p.cvT.name ∧ cvT.levelParams = p.cvT.levelParams ∧
       checkConstantVal (fueledOps mode F) env cvT = .ok cvTa ∧
       p' = p.withSort s ∧
-      envI = ⟨.indInfo cvTa (directSumCaps p') :: env.consts⟩ ∧
+      envI = ⟨.indInfo cvTa (capsOf p') :: env.consts⟩ ∧
       ∃ bs, cvTa.type.stripPis (p.nP + p.nIdx) = some (bs, .sort s) := by
   unfold checkDirectSumInd at h
   obtain ⟨cvTa₀, hccv₀, h⟩ := exceptBind_ok h
@@ -212,15 +212,15 @@ theorem checkDirectFieldSortsI_inv {env : Env} {isProp large : Bool}
 
 theorem checkDirectSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
-    {nF : Nat} {F : Nat}
+    {nF : Nat} {F : Nat} {sorts : List Level}
     (h : checkDirectSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-      cvC nF cvTa = .ok cvCa) :
+      cvC nF cvTa = .ok (cvCa, sorts)) :
     checkConstantVal (fueledOps mode F) env cvC = .ok cvCa ∧
     (∃ cbs es, cvCa.type.stripPis (nP + nF)
       = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (directPsAt nF nP ++ es)) ∧
       es.length = nIdx) ∧
     ∃ (fvsP : List Expr) (crest : Expr) (tfvs : List Expr) (trest : Expr)
-      (xFvs : List Expr) (idxArgs : List Expr) (sorts : List Level),
+      (xFvs : List Expr) (idxArgs : List Expr),
       openPisAtFvars nP cvCa.type 0 = some (fvsP, crest) ∧
       openPisAtFvars nP cvTa.type 0 = some (tfvs, trest) ∧
       checkDirectDomsAt (fueledOps mode F) env 0 fvsP
@@ -264,14 +264,14 @@ theorem checkDirectSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
   case neg => rw [if_neg h4] at h; close_throw
   rw [if_pos h4] at h
   obtain ⟨sorts', hsorts, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  subst h
+  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, rfl⟩ := h
   -- the two residual tests, read back as spines
   simp only [directCtorResidOk, Bool.and_eq_true, beq_iff_eq] at hc
   simp only [Bool.and_eq_true, beq_iff_eq] at h2
   obtain ⟨es, hes, hesl⟩ := residual_shape hc.1.1 hc.2 hc.1.2
   refine ⟨hccv, ⟨cbs, es, by rw [hq', hes], hesl⟩,
-    fvsP, crest, tfvs, trest, xFvs, xrest.getAppArgs.drop nP, sorts',
+    fvsP, crest, tfvs, trest, xFvs, xrest.getAppArgs.drop nP,
     hcq', htq', by cases u; exact hdoms, ?_, ?_, ?_, ?_, hsorts⟩
   · rw [hxq']
     congr 1
@@ -286,32 +286,36 @@ theorem checkDirectSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
 the input and every entry is its constructor's run. -/
 theorem checkDirectSumCtors_inv {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal} {F : Nat} :
-    ∀ {cs ctorsA : List (ConstantVal × Nat)},
+    ∀ {cs ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)},
       checkDirectSumCtors (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-        cvTa cs = .ok ctorsA →
-      ctorsA.length = cs.length ∧
+        cvTa cs = .ok (ctorsA, sortss) →
+      ctorsA.length = cs.length ∧ sortss.length = cs.length ∧
       ∀ (j : Nat) (c cA : ConstantVal × Nat), cs[j]? = some c → ctorsA[j]? = some cA →
         cA.2 = c.2 ∧
+        ∃ sorts, sortss[j]? = some sorts ∧
         checkDirectSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-          c.1 c.2 cvTa = .ok cA.1
-  | [], ctorsA, h => by
-    simp only [checkDirectSumCtors, pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    exact ⟨rfl, fun j c cA hc _ => by simp at hc⟩
-  | c :: cs, ctorsA, h => by
+          c.1 c.2 cvTa = .ok (cA.1, sorts)
+  | [], ctorsA, sortss, h => by
+    simp only [checkDirectSumCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨rfl, rfl, fun j c cA hc _ => by simp at hc⟩
+  | c :: cs, ctorsA, sortss, h => by
     unfold checkDirectSumCtors at h
-    obtain ⟨cvCa, hc, h⟩ := exceptBind_ok h
-    obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    obtain ⟨hlen, hall⟩ := checkDirectSumCtors_inv hrest
-    refine ⟨by simp [hlen], ?_⟩
+    obtain ⟨q, hc, h⟩ := exceptBind_ok h
+    obtain ⟨cvCa, sorts⟩ := q
+    try simp only at h
+    obtain ⟨q', hrest, h⟩ := exceptBind_ok h
+    obtain ⟨rest, srest⟩ := q'
+    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    obtain ⟨hlen, hlenS, hall⟩ := checkDirectSumCtors_inv hrest
+    refine ⟨by simp [hlen], by simp [hlenS], ?_⟩
     intro j c' cA hc' hcA
     cases j with
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hc' hcA
       subst hc'; subst hcA
-      exact ⟨rfl, hc⟩
+      exact ⟨rfl, sorts, rfl, hc⟩
     | succ j =>
       simp only [List.getElem?_cons_succ] at hc' hcA
       exact hall j c' cA hc' hcA

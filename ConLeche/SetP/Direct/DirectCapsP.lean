@@ -31,6 +31,42 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 theorem projFnName_isProjFnShape (T : Name) (j : Nat) :
     (projFnName T j).isProjFnShape = true := rfl
 
+/-- **The block's own capability laws at a carrier** (task #210 Part
+A): what `capsOkP_cons_direct` asks of the family being installed at
+each of its conses — the η law where the family claims η and is
+stored complete, the unit law where it claims unit-likeness.  A stage
+takes it as a hypothesis about the carrier it builds; the assembly
+discharges it from the leaves (or vacuously: `capsLawsAt_of_none`,
+`capsLawsAt_vacuous`). -/
+def CapsLawsAt {env : Env} (m : EnvS2Core V env) (T : Name) (cvT : ConstantVal)
+    (caps : IndCaps) : Prop :=
+  (caps.eta = true → ConLeche.EtaFamilyStored env T caps →
+    ∀ φ' : Name → Nat, EtaLawP m φ' T cvT caps) ∧
+  (caps.unitlike = true → ∀ φ' : Name → Nat, UnitLawP m φ' T cvT caps)
+
+/-- A record claiming nothing owes nothing. -/
+theorem capsLawsAt_of_none {env : Env} (m : EnvS2Core V env) {T : Name} {cvT : ConstantVal}
+    {caps : IndCaps} (hE : caps.eta = false) (hU : caps.unitlike = false) :
+    CapsLawsAt m T cvT caps :=
+  ⟨fun he => absurd (hE.symm.trans he) Bool.false_ne_true,
+   fun hu => absurd (hU.symm.trans hu) Bool.false_ne_true⟩
+
+/-- A record claiming η at a family with a field and no unit-likeness
+owes nothing while its projection-function family is free: the η
+half's premise `EtaFamilyStored` stores a projection function at every
+field, and the first slot is fresh. -/
+theorem capsLawsAt_vacuous {env : Env} (m : EnvS2Core V env) {T : Name} {cvT : ConstantVal}
+    {caps : IndCaps} (hU : caps.unitlike = false)
+    (hE : caps.eta = true → 0 < caps.etaFields ∧ env.find? (projFnName T 0) = none) :
+    CapsLawsAt m T cvT caps := by
+  refine ⟨fun he hfam => ?_, fun hu => absurd (hU.symm.trans hu) Bool.false_ne_true⟩
+  exfalso
+  obtain ⟨hpos, hfresh⟩ := hE he
+  obtain ⟨-, -, hslots⟩ := hfam
+  obtain ⟨cv, mI, rP, rules, hf⟩ := hslots 0 hpos
+  rw [hfresh] at hf
+  exact nomatch hf
+
 /-- **`CapsOkP` at a block-member cons.**  The head is fresh, not
 projection-shaped, and either the block's former itself or not an
 inductive at all; every other stored family's capability constructor

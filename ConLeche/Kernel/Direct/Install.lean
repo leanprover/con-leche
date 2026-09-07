@@ -223,7 +223,7 @@ fails that guard at every use (`invalid`, as official).  The body
 walk cannot fail on a constructor type `checkDirectCtor` accepted
 (it peels exactly `nP + nF` binders), so its failure is internal. -/
 def checkDirectProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
-    (resSort : Level) (guards : List Level) (cvCa : ConstantVal) (env : Env) :
+    (resSort : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal) (env : Env) :
     m Env := do
   let bodies ← unwrapOr (directProjBodies T nP nF cvCa.type)
     (.internal "direct structure: projection bodies")
@@ -243,7 +243,7 @@ def checkDirectProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
     throw (.invalid "projection name family taken")
   unless (env.find? (projTableName T)).isNone do
     throw (.invalid "projection table taken")
-  pure ⟨.projInfo ⟨T, lps, nP, C, nF, resSort, bodies, guards⟩ :: env.consts⟩
+  pure ⟨.projInfo ⟨T, lps, nP, C, nF, resSort, bodies, guards, off⟩ :: env.consts⟩
 
 /-- Check and install a **direct simple structure** (task #82): the
 type former, the constructor, the recursor with its single rule, and
@@ -266,6 +266,6 @@ def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
           .plain else .inert,
         rhsA⟩] :: env₂.consts⟩
   checkDirectProjTable p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
-    p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) cvCa env₃
+    p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) 0 cvCa env₃
 
 end ConLeche
