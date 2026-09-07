@@ -3,13 +3,13 @@
 | | |
 |---|---|
 | commit measured | `96344cd145c54d4bc4674ba854dfc3d94a6ce14c` |
-| tree | task #207 + task #210 Part B: RAW streams on both sides (the lean-inductive-models preprocessor is gone, so both checkers read the same raw lean4export bytes and do the same job), measured on the merged tree — every inductive block installs through the ONE fixpoint route. No cell here is comparable with any earlier PERF.md. |
+| tree | master at the commit above: every inductive block installs through the one fixpoint route (task #210 Part B). No cell here is comparable with any earlier PERF.md. |
 | date | 2026-09-07T19:09:51+00:00 |
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
 | metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` (the `mathlib-full` row: 22 GB, 8 h, `CON_LECHE_PROGRESS=5000`) |
-| streams | RAW `lean4export` NDJSON; both checkers read the same bytes and do the same job (task #207: there is no preprocessing step, so these numbers are not comparable with any earlier PERF.md) |
-| Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes, raw) |
+| streams | `lean4export` NDJSON, read unchanged by both checkers |
+| Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes) |
 | official kernel | `<checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
 | con-leche binary | md5 `e5c5c0540d27fda0635982ef15e5c7ec` |
 
@@ -41,15 +41,15 @@ Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
 
 ## the input: what each stream contains
 
-Properties of the raw FILE, computed by
+Properties of the FILE, computed by
 `scripts/stream-census.py` — nobody's environment representation
 enters here.  `records` is the number of declaration records in the
 file; `con-leche` and `official` are what each checker's verdict line
 reports on it, both derived from the file alone (see the count note
 below).  `modeled` counts blocks the STREAM carries a `_model`
-family for — 0 on every raw stream since task #207; `native` is the
-rest, which con-leche installs itself (a direct route, or a model
-it generates in-process), split by shape.
+family for (0 on every stream here); `native` is the rest, which
+con-leche installs itself (a direct route, or a model it generates
+in-process), split by shape.
 
 **The `con-leche` column is the FILE's count and is lower than the
 verdict line's** on any stream with a mutual or nested block: the
@@ -87,8 +87,8 @@ reader wants before pointing the checker at all of Mathlib.
 
 ## Notes
 
-* **Nothing here is comparable with the previous table.**  Every published cell before this one was measured on a PREPROCESSED stream, with `con-leche --pre` on one side and the same preprocessed bytes on official's.  Task #207 dropped the preprocessor and task #210 Part B put every inductive block on the one fixpoint route, so both checkers now read the RAW `lean4export` export and do the same job. The like-for-like control, `init-full` `--verified`: **668.05 G** on the preprocessed stream (previous table) -> **673.17 G** raw at the drop -> **678.46 G** here, i.e. **+0.8 %** for installing the blocks ourselves and **+0.8 %** again for Part B; official goes 413.02 G -> 403.64 G (**-2.3 %**), the raw stream carrying no model families.  So the init-full ratio WORSENS, 1.62x -> **1.68x** verified and 1.55x -> **1.63x** trusted.  (#215's 782.62 G "through the default pipe" was never a third con-leche number: `perf stat` follows children, so it was con-leche PLUS the preprocessor it spawned.)
-* **All of Mathlib, all three checkers, one RAW stream — and the ratio improves.** The `mathlib-full` row is the whole raw export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells with no preprocessing step anywhere. **Every cell accepts**: official 670 627 declarations, con-leche 656 667 declaration records in BOTH modes -> **1.34x verified, 1.25x trusted**, against 1.45x/1.32x on the previous table's PREPROCESSED stream, and better than `init-full`'s 1.68x/1.63x: the corpus does not punish the checker at scale, and it punishes it less now than it did through the tool.  Wall 31.6 / 38.0 / 42.6 min, peak RSS 9.17 / 12.56 / 12.57 GiB; the con-leche cells ran under `CON_LECHE_PROGRESS=5000` (measured cost on init-full -0.0006 %).  NB the earlier milestone "all of Mathlib accepted, 2026-09-06" was measured on the PREPROCESSED stream; this is the first RAW one.  It was briefly FALSE in between: on task #207's drop alone both con-leche cells declined at fold position 50 008 on `CategoryTheory.MorphismProperty.multiplicativeClosure`, a block whose type former is declared at a `def` that only unfolds to its index telescope (#206-A3/A5) and which the external preprocessor had been covering; task #210 Part B's former-sort completion closed it.  See DESIGN task #207.
+* **Nothing here is comparable with any earlier table.**  Task #210 Part B put every inductive block on the one fixpoint route, and the streams and the census are those of this tree; older tables measured a different checker on different inputs.
+* **All of Mathlib, all three checkers, one stream.** The `mathlib-full` row is the whole export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells. **Every cell accepts**: official 670 627 declarations, con-leche 656 667 declaration records in BOTH modes -> **1.34x verified, 1.25x trusted**; the smaller `init-full` stream sits at 1.68x / 1.63x. The count difference is the official binary's counting (see below), not a verdict difference.
 * **The verdict line counts declaration RECORDS** (task #187).  It
   used to print `env.consts.length`, the number of environment
   CONSTANTS, which counts an inductive block's type former, its
@@ -107,12 +107,12 @@ reader wants before pointing the checker at all of Mathlib.
   functions of the input file alone, and the census table above
   reproduces each of them exactly from the bytes.
 * **Same bytes, same job — but not the same work.**  Both sides read
-  the same raw file and install every inductive block themselves
-  (task #207).  con-leche installs most blocks through a direct
-  route and a mutual/nested one through a `_model` family it
-  GENERATES and then checks as ordinary declarations (the
-  certification tax), and runs an `annotate` pass with no official
-  counterpart; official has native inductive/recursor support.
+  the same file and install every inductive block themselves.
+  con-leche installs single blocks through its fixpoint route and a
+  mutual/nested one through a `_model` family it GENERATES and then
+  checks as ordinary declarations (the certification tax), and runs
+  an `annotate` pass with no official counterpart; official has
+  native inductive/recursor support.
 * **`--trusted` under-checks install-only kinds** (axioms, inductive
   blocks, quot, the pinned-cert branches run at io grade), which
   flatters the trusted column on inductive-heavy streams.
@@ -123,8 +123,8 @@ reader wants before pointing the checker at all of Mathlib.
 * Regenerate with `lake build con-leche && scripts/perf-tables.sh`;
   `--render` re-renders from `perf-data/` without measuring, and
   `PERF_STREAMS=… PERF_APPEND=1` re-runs a single stream.  The
-  `mathlib-full` row needs its raw stream exported by hand first.
-  Raw cells (with
+  `mathlib-full` row needs its stream exported by hand first.
+  Per-cell data (with
   wall time and load) are tracked in `perf-data/table.tsv`, the input
   census in `perf-data/census.tsv`, provenance in `perf-data/meta.txt`.
 
