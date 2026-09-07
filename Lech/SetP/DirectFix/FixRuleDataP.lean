@@ -32,7 +32,7 @@ omit [SetTheory V] in
 theorem constsBound_stripPis {env₀ : Env} :
     ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
       ConstsBound env₀ e → e.stripPis n = some (bs, body) →
-      (∀ b ∈ bs, ConstsBound env₀ b.2.1) ∧ ConstsBound env₀ body
+      (∀ b ∈ bs, ConstsBound env₀ b.1) ∧ ConstsBound env₀ body
   | 0, e, bs, body, he, hst => by
     simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hst
     obtain ⟨rfl, rfl⟩ := hst
