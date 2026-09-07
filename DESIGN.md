@@ -58640,6 +58640,17 @@ read that decides the answer outright, as `looseBVarsBounded`/`hasFvar`
 read the packed range fields — never a threshold, and the record says
 which.
 
+**Part D, scoped by ruling.**  User ruling: *"also the changes to
+nested, the current impl is fine"* — nested blocks stay with the
+in-process modeller's mutual/nested arm as it is (`ind_nest_inf`,
+`ind_nest_via_refl` stay positive declines); no container composition
+on the fix route.  Part D is exactly three conformance items, each a
+fixture flip to official's verdict: the whnf'd-telescope reading of
+formers and constructor fields on the one arm (the frontier block
+below, arena 053/118/119, the `ind_*` A3/A5 fixtures), the
+`directUsedLater` fall-through, and the definitional rule comparison;
+the frontier block's cone is the slice.
+
 **Part D's first target, recorded here.**  The tool-drop lane's PERF
 run found ALL OF MATHLIB declining on the raw stream at the pre-Part-B
 binary at `CategoryTheory.MorphismProperty.multiplicativeClosure`
