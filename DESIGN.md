@@ -58542,6 +58542,142 @@ inmodel, 6 basis, 0 modeled; the Stage-B five-cone slice accepted,
 census **183 fix**, 1 inmodel, 6 basis (was 137 struct + 16 sum + 30
 fix).  `tower_struct`: 0.38 G.  No Mathlib-scale run.
 
+### Part C — the structure, sum and non-recursive indexed routes deleted
+
+**The instrument.**  Deleting a route that the fixpoint route grew out
+of is not a directory removal: the fix route's own stages are the sum
+route's (`checkDirectSumInd`/`Ctors`, `SumStageCtorP`,
+`SumStageFormerP`, the `SumRec*` readers), its shape record is
+`DirectSumParts`, its projection table is the structure route's
+(`checkDirectProjTable`), and its P assembly builds on the
+`SetP/Direct/*` kits.  So Part C worked at the DECLARATION level with a
+per-constant liveness census (`_tmp` script, the shape of
+`tests/ProofDeps.lean` at constants instead of modules): live = the
+seven capstone closures ∪ the executable's closure from `main` with
+every `@[csimp]` theorem and `implemented_by` target seeded ∪ the
+tests', pins' and challenge's constants; scoped to the route modules
+(`Kernel/Direct`, the Cached arms, `Semantics/Direct` + `Tower/Sum*`,
+`Verify/Direct` + `Cached/BridgeCS*` + the `CheckerF`/`FastOps` twins,
+`SetP/Direct`, `SetP/DirectSum`, `SetP/DirectFix`).  **412 declarations
+cut** in one pass, nine modules emptied and removed (exactly the nine
+the proofdeps pin reported as having LEFT every closure at Part B:
+`Semantics.Direct.{DeclDirect, DeclDirectSum}`,
+`SetP.Direct.{DirectEntryLawP, DirectRecDataP, DirectRecLawCoreP,
+DirectRecLawP, DirectRecWalksP, DirectStageRecP}`,
+`SetP.DirectSum.SumRecLawP`), their import lines spliced into the
+importers.  **The live constant count is unchanged: 6 787 before and
+after** — the census's own proof that nothing reachable was touched.
+
+**Two things a closure census cannot see, learned by the build.**
+(1) *Syntactic-only uses*: a `simp` argument the simplifier does not
+end up needing leaves no trace in the proof term, so `mkFEnv_env`,
+`mkFEnv_find?_fun`, `constsResolveF_eq_fun`, `throwC_bind_eq`,
+`foldIdxC_run'_ok`, `rebit_nil`/`rebit_cons` and the `@[simp]`
+projection lemmas `DirectFixParts.complete_*` /
+`DirectSumParts.withSort_*` read as dead and are needed; they were
+restored on purpose, and the residual census below names them.
+(2) *Results are not corollaries*: `AgreeFloor`'s
+`trusted_agrees_P_*` theorems (the agreement floor) and `BridgeDecl`'s
+`checkDecls_datF` bridge (a standing design instrument, "both routes
+permanent") are top-level results no capstone reaches; the census
+called them dead and the first cut of `BridgeDecl` was reverted.  The
+rule adopted for the result-bearing files (`BridgeDecl`, `BridgeWfImp`,
+`AgreeFloor`, `BridgeCSDecl`, `CheckerF`): only declarations *about* a
+deleted function go — the `checkDirect{Ind,Ctor,Rec,Struct,
+FieldSorts}_{datF,wfimp}` and `checkDirectSum{Rec,Rules,}_datF` lemmas,
+the `checkDirect{Struct,Sum}S_{run,skels}` and `direct{,Sum}NonRecF_skel`
+rows — by name, never by census.  One genuinely dead chain went with
+the routes because the binary never calls it: the shared-F entry
+`checkDeclSF`/`checkDeclSharedF` (the driver runs `checkDeclStepIdxC`)
+and its bridge `checkDeclSharedF_bridge → checkDeclSFC_nonind →
+checkDeclS_nonind_sim → check*ValF_pushC`.
+
+**What is gone, by layer.**  Kernel: `checkDirectStruct` and its stages
+(`checkDirectInd/Ctor/Rec/FieldSorts`, the projection-function
+generators `directProjResid/Ty`), `checkDirectSum` (the top-level sum
+installer; its stages stay as the one route's), `directSumParts?`,
+`directNonRec`/`directSumNonRec`, the F/FA twins of all of these, the
+`DirectParts` readers the modeller does not use; Cached:
+`checkDirectStructS`, `checkDirectSumS`, the shared-F entry; Semantics:
+`DeclDirectRun`, `DeclDirectSumRun`, the struct/sum η-closure lemmas,
+the sum recursor's semantics (`Tower/SumRec`, most of `SumRecCase`,
+`SumWire`'s below-lemmas, `SumCase`'s selectors); Verify: the `_eq`,
+`_datF`, `_wfimp`, `_skels`, `_run`, `_pushC` twins of every deleted
+function, `DirectInv`/`SumInv`/`DirectRec`/`SumRec`'s inversions of
+them; P tier: the two assemblies `declDirectP`/`declDirectSumP`, the
+struct route's recursor stage and laws (`DirectStageRecP`,
+`DirectRecLaw*`, `DirectRecWalksP`, `DirectRecDataP`), the sum route's
+recursor laws (`SumRecLawP`, `SumStageRecP`'s six), the entry law of the
+bare tower (`DirectEntryLawP`), and the dead halves of the readers.
+Tests/scripts: `tests/route-census.sh` counts `fix`/`inmodel`/`basis`
+only (a `struct` or `sum` line now FAILS as an unknown route);
+CLAUDE.md's per-route sentence; the kernel route files' headers say what
+survives (`Install.lean` = the projection table's checks,
+`SumInstall.lean` = the one route's shared stages, `SumParts.lean` =
+the shape record, `Parts.lean` = the generators and the modeller's
+`DirectParts`).  Directory names are history now (`Direct`, `DirectSum`
+hold the fixpoint assembly's kits) — renaming them is churn for no
+proof and was not done.
+
+**The residual census** (dead by closure, kept, for the quiet-time
+docket): the syntactic-only lemmas above; `DirectParts`' projections
+(the record itself is the in-process modeller's); `TaggedSum`'s
+`sumRec*`/`sumSet_ne_pt` (model lemmas without a consumer);
+`Kernel.TypeCheckerC` (`KCache`, `CheckSM`, `memoB/E` — 12, pre-existing);
+and outside the route scope, as at Part B, `Kernel.{CheckerP, CoreP}`,
+`Semantics.WhnfCoreLeaf`, `SetP.IndPinProbeP`, `SetP.Step2.GateP`,
+`SetTheory.Derive.{Collapse, Pi, PtFresh}`, `Verify.{AnnotDefense,
+CoreP, Scoped}`, `Verify.Cached.AgreeAnnot`,
+`Verify.Denote.{InstSimp, SubstAlgebra}` — whole modules no root reaches.
+
+**The memos' price stands — no size cutoff.**  User ruling on the
++0.80 % Part B measured on init-full ("take the memo size cutoff off
+the list, I don't like heuristics"): the per-declaration `@[csimp]`
+memos keep their cost; no size or depth threshold guards a memo
+anywhere in Parts C/D.  If a memo is ever found measurably costly on
+small terms, the answer is a STRUCTURAL reason to skip it — a field
+read that decides the answer outright, as `looseBVarsBounded`/`hasFvar`
+read the packed range fields — never a threshold, and the record says
+which.
+
+**Part D's first target, recorded here.**  The tool-drop lane's PERF
+run found ALL OF MATHLIB declining on the raw stream at the pre-Part-B
+binary at `CategoryTheory.MorphismProperty.multiplicativeClosure`
+(Prop-valued, recursive, three constructors, three indices): its type
+former is declared at a DEF, `CategoryTheory.MorphismProperty C`, that
+only unfolds to the index telescope.  Part B's placeholder covers a
+non-syntactic *sort*, not a hidden *telescope* — `stripPis` reads no
+indices there and the recogniser refuses (#206-A3/A5).  Part D's item
+one is the whnf'd telescope reading on the one arm, with the three
+tutorial A5 declines (053/118/119) and that block's cone
+(`_tmp/indexed-fix/slice_multi_fast.py` on `mathlib-full.ndjson`) as
+its slices.  For the record: coverage censuses must be FOLDS — the
+parse-only `CON_LECHE_INMODEL_CENSUS` cannot see a recogniser refusal.
+
+**Gates** (`agent/one-route-c` at the Part C tip, from master
+`329d24ae` — Part B — with no master movement to merge; the trimmed set,
+once).  `lake build` warning-free; `lake test`; `tests/arena.sh`
+(`env -i`): tutorial 87/92 (as at Part B: 032/033 by design, 053/118/119
+the #206-A5 declines of Part D), e2e 156/156, annot 14/14, retired flags
+8/8, mode flags 18/18, prelude counts 3/3, progress lane 6/6, DAG-tower
+gate 2/2, trusted sweep 138 + 156 + 14 with its 3 recorded divergences,
+axioms pinned (11 theorems at `[propext, Classical.choice,
+Quot.sound]`); `tests/proofdeps.sh` **unchanged against the pin** —
+no module entered or left any capstone's closure, the deletion's
+second proof (the first is the live count); `tests/layering.sh`: base
+272 / P 189 / caps 3 / umbrella 1 (was 274 / 196 / 3 / 1), 0 base→lane,
+0 impl→theory; `tests/trust-surface.sh`: 18 escapes in 4 allowlisted
+files (472 scanned, was 481), 0 outside; `tests/inmodel.sh` OK;
+`tests/route-census.sh`: 87 streams, 658 blocks — **136 fix, 0 inmodel,
+522 basis, 0 modeled** (the `struct`/`sum` classes no longer exist).
+**init-full raw** (`--verified`, `perf stat -e instructions:u`, route
+trace on): accepted **53 118**, exit 0; census **584 fix, 6 basis, 1
+inmodel** (`Lean.Syntax`), 0 modeled — Part B's census exactly;
+**678.68 G instructions** against Part B's 678.67 G (a deletion costs
+nothing, as it should).  **Mathlib slices** (raw, `--verified`):
+`slice-small` 1 626 fix / 26 inmodel / 6 basis, the five-cone slice
+183 fix / 1 inmodel / 6 basis — unchanged.  No Mathlib-scale run.
+
 ## TASK #215 — THE TREE-SIZE BUDGET, DELETED (2026-09-07, `agent/jzero`)
 
 User ruling, verbatim: *"delete it if it is unlikely to help (and we
