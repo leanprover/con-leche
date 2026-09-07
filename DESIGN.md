@@ -56086,6 +56086,19 @@ telescope readings' contract is unchanged; the two-carrier congruence
 pins each entry to a reading's Π-entry — domain bit `0`, codomain bit
 at most `1` — so the bits agree through the `w`-regime iff).
 
+**Docket (coordinator, 2026-09-07, after the A1 landing `abb38616`).**
+(1) `CategoryTheory.ObjectProperty.{colimits,limits}Closure` (sort at a
+definition, `NOT-A-SORT` for the fix arm's `stripPis` reading) are the
+#195-whnf-on-the-fix-arm follow-up: listed for the conformance batch's
+docket, not fixed here.  (2) The audit fixtures `ind_reflexive_tool`,
+`ind_nest_inf`, `ind_nest_via_refl` keep their raw lines until Stage B
+lands, then flip.  A2 continues on `agent/reflexive-a2` (`Acc`,
+`Acc.below`: the subsingleton large-elimination clause, the ih
+telescopes re-bit to the elimination regime, the recursion theorem by
+lfp induction; fixture = an `Acc` clone and init-full's `Acc` cone
+accepting; then init-full raw through the default pipe must need the
+tool for nothing).
+
 ## TASK #204 — THE lean4lean-model BRIDGE: Carneiro's hypothesis implies Lech's, in Lean (2026-09-07, `agent/bridge`)
 
 **Question (user).**  "Can you have an agent prove that Mario's
