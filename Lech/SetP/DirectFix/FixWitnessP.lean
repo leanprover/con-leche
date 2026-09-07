@@ -165,13 +165,6 @@ noncomputable def shapeSet (u w nP : Nat) (ρp : Nat → V) (Ids : List AVExpr)
       as'.length = (Fss.getD j []).length ∧
       idxValsAt ρp (Ess.getD j []) as' = isOfW u Ids.length t
 
-theorem projList_mkTower_append : ∀ (as bs : List V), projList as.length (mkTower (as ++ bs)) = as
-  | [], _ => rfl
-  | a :: as, bs => by
-    show sfst (spair a (mkTower (as ++ bs))) :: projList as.length (ssnd (spair a (mkTower (as ++ bs))))
-      = a :: as
-    rw [sfst_spair, ssnd_spair, projList_mkTower_append as bs]
-
 /-- The tag of a tagged tuple. -/
 noncomputable def shapeTag (a : V) : Nat := natIdx (sfst a)
 

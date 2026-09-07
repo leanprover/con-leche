@@ -94,6 +94,10 @@ theorem ssnd_spair (a b : V) : ssnd (spair a b) = b := by
   have hs2 := Classical.choose_spec hs
   exact (kpair_inj hs2).2.symm
 
+theorem spair_eq_kpair (a b : V) : spair a b = kpair a b := by unfold spair; rfl
+theorem sfst_kpair (a b : V) : sfst (kpair a b) = a := by rw [← spair_eq_kpair]; exact sfst_spair a b
+theorem ssnd_kpair (a b : V) : ssnd (kpair a b) = b := by rw [← spair_eq_kpair]; exact ssnd_spair a b
+
 theorem sfst_pt : sfst (pt : V) = pt := by
   unfold sfst
   rw [dif_neg]

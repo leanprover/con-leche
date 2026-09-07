@@ -44,9 +44,6 @@ variable {V : Type u} [SetTheory V]
 
 /-! ## Pair projections on `kpair` -/
 
-theorem spair_eq_kpair (a b : V) : spair a b = kpair a b := by unfold spair; rfl
-theorem sfst_kpair (a b : V) : sfst (kpair a b) = a := by rw [← spair_eq_kpair]; exact sfst_spair a b
-theorem ssnd_kpair (a b : V) : ssnd (kpair a b) = b := by rw [← spair_eq_kpair]; exact ssnd_spair a b
 
 /-! ## The spaces reachable from an index -/
 
