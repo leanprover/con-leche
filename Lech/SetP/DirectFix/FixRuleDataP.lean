@@ -138,7 +138,7 @@ theorem CtorReadR.cross {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {lp
     -- the opened variable's type is bounded
     obtain ⟨hfvs, -⟩ := openPisAtFvars_constsBound (nP + c.2.1) hcb hop
     have hb := hfvs x (List.mem_of_getElem? hx)
-    obtain ⟨nm, ty, hy⟩ := (opening_vars_at hop).2.1 (nP + i) x hx
+    obtain ⟨ty, hy⟩ := (opening_vars_at hop).2.1 (nP + i) x hx
     rw [hy, constsBound_fvar] at hb
     rw [hy]
     exact hb

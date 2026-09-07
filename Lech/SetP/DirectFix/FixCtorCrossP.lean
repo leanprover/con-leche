@@ -83,7 +83,7 @@ theorem FixCtorDataI.cross {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps 
   have hxcb : ∀ (i : Nat) (x : Expr), xFvs[i]? = some x → ConstsBound env x.fvarTypeD := by
     intro i x hx
     have hb := hfvs x (List.mem_append_right _ (List.mem_of_getElem? hx))
-    obtain ⟨nm, ty, rfl⟩ := h.xIdx i x hx
+    obtain ⟨ty, rfl⟩ := h.xIdx i x hx
     rw [constsBound_fvar] at hb
     exact hb
   exact {
@@ -125,7 +125,7 @@ theorem FixCtorDataI.cross {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps 
       · rw [hac]
         refine denoteP_cons_mono hfresh (hat _) ψ (nP + i + k) ?_ (hdoms k a hka)
         have hb := hafvs a (List.mem_of_getElem? hka)
-        obtain ⟨nm, ty, hy⟩ := (opening_vars_at hop).2.1 k a hka
+        obtain ⟨ty, hy⟩ := (opening_vars_at hop).2.1 k a hka
         rw [hy, constsBound_fvar] at hb
         rw [hy]
         exact hb
