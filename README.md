@@ -12,6 +12,8 @@ It was implemented and proven to be consistent by Claude (Fable and Opus), under
 
 This README is actually human written (with AI only doing copy-editing, fact checking and filling in numbers). It is probably the only human written thing in this repository.
 
+There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
+
 ## Design of the checker implementation
 
 * The checker is implemented in Lean.
