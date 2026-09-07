@@ -5,6 +5,10 @@ iteration protocol. Keep it up to date when decisions change.
 
 * Build: `lake build` (must stay warning-free). Tests: `lake test`
   (`tests/ConLecheTests.lean`, `#guard`/`example`-based, fails at build time).
+* `OVERVIEW.md`'s line-anchored links are gated by
+  `tests/overview-links.sh` (run from `tests/arena.sh` and CI): if you move
+  or change linked lines, re-read the citing paragraph and run
+  `tests/overview-links.sh --update`.
 * Goal: the lean kernel arena tutorial tests (without custom axioms) are
   accepted and the checker is verified consistent.
 * Iterate one feature at a time; every feature lands together with its
