@@ -57867,6 +57867,13 @@ in `SetTheory/Core.lean`).  No capstone statement, pin, or proofdeps row
 changes (the module was in no root's closure).  Historical mentions in
 this journal and `docs/` stay as written.
 
+> **RETIRED AT TASK #215** — the budget below (the constant, the
+> `CON_LECHE_TREE_BUDGET` override, the named size decline, the
+> per-entry size counter and `budgetedName`) is **gone**.  #215 removed
+> the walkers instead of the declarations and put adversarial DAG-tower
+> *fixtures* in its place; the record kept below is the audit that made
+> the removal possible.  See "TASK #215" at the end of this file.
+
 ## TASK #213 — THE FRONTEND TREE-SIZE BUDGET: named, overridable, and one class lifted (2026-09-07, `agent/budget`)
 
 **The report (user, verbatim verdict):** `lech: declined: declaration's
@@ -58054,3 +58061,134 @@ input.  Mechanically the release itself is free once liveness is known —
 dropping the `HashMap` entry drops the last reference and the runtime's
 reference counting reclaims the subtree — so the missing thing is
 exactly the liveness information, not the freeing.
+
+## TASK #214 — THE JZERO RECORD: WHAT WAS LARGE (2026-09-07, `agent/jzero`)
+
+A user report: `ModularCurve.JZeroGoodReductionSpecialization_alt`, the
+22-field structure that had already broken two other tools (a 676-second
+fold elsewhere, and Lean's own olean writer), declined on con-leche's
+frontend tree-size budget.  The read-only audit (`_tmp/jzero/REPORT.md`,
+`scripts/jzero_{sizes,drill,ladder}.py`).
+
+**What is large.**  The block is a **5 038-entry DAG — 0.22 % of the
+stream's 2 290 293 expression entries — that unfolds to 78 394 796
+nodes.**
+
+| component | DAG | unshared tree |
+|---|---:|---:|
+| type former | 591 | 402 223 |
+| constructor `.mk` (nP 7, nF 8) | 3 288 | 19 598 675 |
+| recursor `.rec` | 3 420 | 19 598 731 |
+| **recursor rule RHS** | **4 464** | **38 795 167** |
+
+The tripping record is the **rule RHS**, and the reason is exact: it is
+`λ p⃗ motive minor f₁…f₈ ⇒ minor f₁…f₈`, so it carries the eight field
+types **twice** — once as its own λ-binder domains (19 196 430) and once
+inside the minor premise it binds (19 196 471).  19.6 M is under the old
+2^25 cap; 2 × 19.6 M is not.  The constructor and recursor types, which
+are the same content once, both passed.
+
+**Where the sharing comes from.**  Mathlib instance nesting, not indices
+and not recursion.  In one field type (DAG 796 → tree 5 358 375, 6 732×)
+`Rat` occurs 666 617 times as a single DAG node, `AlgebraicClosure ℚ`
+435 690, `ValuationSubring …` 86 832.  The multiplier is the coercion
+chain `QuotientAddGroup.Quotient.addGroup → AddGroup.toSubNegMonoid →
+SubNegMonoid.toAddMonoid → AddMonoid.toAddZeroClass →
+AddZeroClass.toAddZero`, each rung taking the previous instance as an
+argument and appearing twice itself, over the carrier tower
+`ℚ → AlgebraicClosure ℚ → ValuationSubring _ → ↥v →
+IsLocalRing.ResidueField ↥v`.  Every field's type is a dependent
+statement about the earlier fields, so each repeats the whole telescope.
+
+**Handling a recursor needs none of it.**  `directPartsCore?`
+(`Kernel/Direct/Parts.lean:466`) reads the rule as
+`rule.rhs.stripLams (nP + 2 + nF)` and compares a 17-node body;
+`stripPis`/`stripLams` hand domains back **by reference**.  A
+non-recursive field's type is needed for the telescope spine, its sort
+(memoised `inferType`) and the const-resolution gate — never for the
+rule.
+
+**The consumer census** (the answer to "which code path hits it"):
+spine-linear — `directPartsCore?`, `directShape`, `blockRecOf`;
+DAG-safe — `Expr.beq` (memoised since #192), the `Cached.ExprC`
+substitutions, `constsResolveFC`, the `inferC`/`whnfC`/`defeqC`/`annotC`
+caches; **unmemoized** — `Frontend.canonExpr`, `Frontend.occursConst`,
+`Expr.constsResolveF` (via `directNonRecF`, and nine more sites in
+`SumInstallF`/`RecInstallF`), `Expr.instantiate1Lift` (via
+`directProjBodies` — the only substitution with no `Cached/ExprOpsC.lean`
+twin), `Expr.hasLooseBVar` (via `directProjGuards`), and the modeled
+route's `Expr.renameConsts` / `openPisAtFvars`.
+
+## TASK #215 — THE TREE-SIZE BUDGET, DELETED (2026-09-07, `agent/jzero`)
+
+User ruling, verbatim: *"delete it if it is unlikely to help (and we
+know such DAGs appear in practice)."*  The budget declined a legitimate
+Mathlib declaration and told the reporter nothing they could act on.
+#215 removes the **reasons** it existed and replaces the limit with a
+**gate**.
+
+### What went
+
+`declTreeSizeBudget`, `budgetedName`, `sizeSentinel`, `StateD.sizes`,
+`StateD.treeBudget`, `StateD.budgetedD`, every `budgeted` parameter and
+branch in `Export.lean`/`ExportC.lean`, the `CON_LECHE_TREE_BUDGET`
+override with its `Main.treeBudget` read and help text, the named size
+decline (`sizeDeclineMsgD`), and the arena's budget section.  #213's
+record above carries a pointer here.
+
+### What replaced each walker
+
+| walker | disposition |
+|---|---|
+| `Frontend.canonExpr` via the basis-pin match | **name pre-filter** (`ExportC.lean`): `canon` renames only *level parameters*, so a block can match a pin only when its members' names are the pin's, member for member.  The candidate is selected by name first and no canonical form is built for any block that is not one of the five.  User ruling: *"The name filter should be enough."* |
+| `Expr.renameConsts` (`Kernel/ExprOps.lean`) | **memoised**, swapped in by `@[csimp]` (`renameConstsGo`, `renameConsts_eq_renameConstsFast`) — kernel-checked against the pure definition, no trust point, no proof moved |
+| `Expr.instantiate1` inside `openPisAtFvars` | **memoised**, `@[csimp]` (`instantiate1Go`, `instantiate1_eq_instantiate1Fast`).  #213 warned an unconditional memo here might cost what `beq`'s did (+33 % on init-prelude); measured, it does not — see below |
+| `Frontend.occursConst` via `projRecOwners` | **memoised** in `beqFast`'s budgeted-descent shape (4096-node allocation-free descent, then a memo of the subterms known not to mention `n`); one caller, no proof depends on it.  Taken from the one-route lane's staged `agent/one-route-p` 8fda3e6d, which moved into this task once the `tower_struct` profile showed it at **79.7 %** |
+
+### The gate that replaced the limit
+
+`scripts/mk_tower_fixtures.py` builds streams carrying a **shared tower
+of depth 60** — about 2^60 nodes unshared, ~190 entries as a DAG,
+`T_0 = Nat.zero`, `T_{k+1} = (K T_k) T_k`, every `T_k` defeq to
+`Nat.zero` so the record really installs — placed in one record kind
+each.  An unmemoized walk never finishes on one, so a regression makes a
+*test* hang and names the walker, instead of making a legitimate
+declaration decline.
+
+| fixture | verdict | walker it exposes |
+|---|---|---|
+| `tower_thm` (theorem type + value) | **accepts** — committed, in `tests/e2e-expected.txt` | — |
+| `budget_block` / `budget_model` (the retired budget's own fixtures) | **accept**, uncapped — kept | — |
+| `tower_struct` (structure constructor field type, the JZero shape) | **hangs** | `Expr.constsResolveF` via `directNonRecF` (`Kernel/Direct/InstallF.lean:25`) — 19.8 % self plus the `FEnv.find?` lookups it drives, ≈ 60 % of the run.  This is **P3**, staged on `agent/one-route-p` 8fda3e6d; the fixture is committed but **not** wired into the harness until that lands |
+| `tower_axiom` (pinned axiom name, tower type) | **OOM (exit 3)** | `Expr.erasePw` via `ConstantVal.matchesPin` (`Kernel/StdAxioms.lean`) and `ConstantInfo.canon` for `Quot.sound`.  User ruling: *"A DAG mine in an axiom under a prelude name is not a concern that should hold us up."*  → docket |
+| `tower_quot`, `tower_prelude` | **OOM / hang** | `ConstantInfo.canon` against the `Quot` pin, and `DeclC.sameCanon` for a prelude-named record.  Both are fixed by a *short-circuiting* `canonEq` (a lockstep comparison bounded by the pin), prototyped and reverted under the name-filter ruling → docket |
+
+**Docket (quiet time):** the per-kind tower matrix above — the axiom,
+quotient and prelude-named mines, plus a projection-body tower — and the
+`canonEq`/`erasePw` short-circuiting that closes them.
+
+### Measurements
+
+`init-core` (3 436 declarations), the memo-tax check #213 asked for:
+
+| mode | master `99bdfb87` | #215 | delta |
+|---|---:|---:|---:|
+| `--trusted` | 9 950 410 160 | 9 961 015 732 | +0.11 % |
+| `--verified` | 10 136 641 491 | 10 147 234 300 | +0.10 % |
+
+No +33 % tax: the pure `Expr.instantiate1` is not the hot path (the
+cached core runs `Cached.ExprC.instantiate1`, which has had a cutoff and
+a memo all along); the pure one is the shared declaration checker's, and
+that is low-frequency.
+
+The JZero stream (130 MB, 2 455 508 lines, 22 470 declarations), which
+**declined** on master:
+
+| | master (budget lifted by hand) | #215 (no budget) |
+|---|---:|---:|
+| verdict | accept | **accept, by default** |
+| instructions:u | 421 220 723 468 | 397 430 810 591 |
+| peak RSS | 3 253 672 kB | 1 625 280 kB |
+
+The −1.63 GB is the name pre-filter alone: the 78 394 796-node canonical
+rebuild is simply not built any more.

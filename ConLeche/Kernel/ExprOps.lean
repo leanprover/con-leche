@@ -35,6 +35,150 @@ def instantiate1 (e : Expr) (v : Expr) (d : Nat := 0) : Expr :=
   | .lit l => .lit l
   | .proj s i e => .proj s i (instantiate1 e v d)
 
+/-! ### `instantiate1`, memoized (task #215)
+
+The third row of task #213's tree-size-budget audit: `instantiate1`
+inside `openPisAtFvars` (`ConLeche/Kernel/CheckerBase.lean`) opens a
+`∀`-telescope one binder at a time, and each step rebuilds the whole
+remaining telescope — `O(tree)` per binder on a DAG-shared type.
+
+As with `renameConsts` above, the memoized walk is swapped in by
+`@[csimp]`: kernel-checked, no trust point, and the pure definition
+stays what every proof consumes.  The memo is keyed by the *node and
+the cursor* (`instantiate1`'s answer depends on both) and dropped after
+each call, since it also depends on `v`. -/
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def Inst1MemoInv (v : Expr) (memo : Std.HashMap (Expr × Nat) Expr) : Prop :=
+  ∀ (k : Expr × Nat) (r : Expr), memo[k]? = some r → r = instantiate1 k.1 v k.2
+
+theorem Inst1MemoInv.empty {v : Expr} : Inst1MemoInv v {} := by
+  intro k r h; simp at h
+
+theorem Inst1MemoInv.insert {v : Expr} {memo : Std.HashMap (Expr × Nat) Expr}
+    (hm : Inst1MemoInv v memo) {e : Expr} {d : Nat} {r : Expr}
+    (heq : r = instantiate1 e v d) :
+    Inst1MemoInv v (memo.insert (e, d) r) := by
+  intro k r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k r' hk
+
+/-- Memoized `instantiate1`. -/
+def instantiate1Go (v : Expr) (memo : Std.HashMap (Expr × Nat) Expr)
+    (e : Expr) (d : Nat) : Expr × Std.HashMap (Expr × Nat) Expr :=
+  match e with
+  | .bvar i => (if i = d then v else if i > d then .bvar (i - 1) else .bvar i, memo)
+  | .fvar idx ty => (.fvar idx ty, memo)
+  | .sort u => (.sort u, memo)
+  | .const n us => (.const n us, memo)
+  | .lit l => (.lit l, memo)
+  | e =>
+    match memo[(e, d)]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap (Expr × Nat) Expr :=
+        match e with
+        | .app f a =>
+          let (f', memo) := instantiate1Go v memo f d
+          let (a', memo) := instantiate1Go v memo a d
+          (.app f' a', memo)
+        | .lam ty body bi =>
+          let (t, memo) := instantiate1Go v memo ty d
+          let (b, memo) := instantiate1Go v memo body (d + 1)
+          (.lam t b bi, memo)
+        | .forallE ty body bi =>
+          let (t, memo) := instantiate1Go v memo ty d
+          let (b, memo) := instantiate1Go v memo body (d + 1)
+          (.forallE t b bi, memo)
+        | .letE ty val body =>
+          let (t, memo) := instantiate1Go v memo ty d
+          let (w, memo) := instantiate1Go v memo val d
+          let (b, memo) := instantiate1Go v memo body (d + 1)
+          (.letE t w b, memo)
+        | .proj s i sub =>
+          let (u, memo) := instantiate1Go v memo sub d
+          (.proj s i u, memo)
+        | e => (e, memo)
+      (r, memo.insert (e, d) r)
+
+/-- **The memoized walk is `instantiate1`.** -/
+theorem instantiate1Go_spec {v : Expr} :
+    ∀ (e : Expr) (d : Nat) (memo : Std.HashMap (Expr × Nat) Expr),
+      Inst1MemoInv v memo →
+      (instantiate1Go v memo e d).1 = instantiate1 e v d ∧
+        Inst1MemoInv v (instantiate1Go v memo e d).2 := by
+  intro e
+  induction e with
+  | bvar i => intro d memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty _ => intro d memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro d memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro d memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro d memo hm; exact ⟨rfl, hm⟩
+  | app a b iha ihb =>
+    intro d memo hm
+    rw [instantiate1Go]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha d memo hm
+      obtain ⟨h3, h4⟩ := ihb d _ h2
+      refine ⟨by simp [instantiate1, h1, h3], ?_⟩
+      exact h4.insert (by simp [instantiate1, h1, h3])
+  | lam ty body bi iht ihb =>
+    intro d memo hm
+    rw [instantiate1Go]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht d memo hm
+      obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
+      refine ⟨by simp [instantiate1, h1, h3], ?_⟩
+      exact h4.insert (by simp [instantiate1, h1, h3])
+  | forallE ty body bi iht ihb =>
+    intro d memo hm
+    rw [instantiate1Go]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht d memo hm
+      obtain ⟨h3, h4⟩ := ihb (d + 1) _ h2
+      refine ⟨by simp [instantiate1, h1, h3], ?_⟩
+      exact h4.insert (by simp [instantiate1, h1, h3])
+  | letE ty val body iht ihv ihb =>
+    intro d memo hm
+    rw [instantiate1Go]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht d memo hm
+      obtain ⟨h3, h4⟩ := ihv d _ h2
+      obtain ⟨h5, h6⟩ := ihb (d + 1) _ h4
+      refine ⟨by simp [instantiate1, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [instantiate1, h1, h3, h5])
+  | proj s i sub ih =>
+    intro d memo hm
+    rw [instantiate1Go]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih d memo hm
+      refine ⟨by simp [instantiate1, h1], ?_⟩
+      exact h2.insert (by simp [instantiate1, h1])
+
+/-- The executed `instantiate1` (one memoized DAG walk). -/
+def instantiate1Fast (e v : Expr) (d : Nat := 0) : Expr :=
+  (instantiate1Go v {} e d).1
+
+@[csimp] theorem instantiate1_eq_instantiate1Fast :
+    @instantiate1 = @instantiate1Fast := by
+  funext e v d
+  exact (instantiate1Go_spec e d {} Inst1MemoInv.empty).1.symm
+
 /-- Bulk instantiation (task #50): substitute the replacement list `vs`
 for the bound variables `bvar d, bvar (d + 1), …` in one traversal —
 `vs[0]` replaces `bvar d` (the *innermost* binder of a peeled
@@ -368,6 +512,166 @@ def renameConsts (f : Name → Name) : Expr → Expr
   -- (`denote`/`denoteP`, which consult the table at the struct name)
   -- rename-invariant by construction (DESIGN, "W5 opening seam").
   | .proj s i e => .proj s i (renameConsts f e)
+
+/-! ### `renameConsts`, memoized (task #215)
+
+`renameConsts` is a plain structural **rebuild**, so on a DAG-shared
+argument it costs `O(tree)`, not `O(DAG)` — the second row of task
+#213's tree-size-budget audit, and one of the two walkers that kept the
+budget on inductive blocks.  It is on the executed path of the modeled
+inductive install (`ConLeche/Kernel/Modeled.lean`,
+`ConLeche/Kernel/DeclCheck.lean`), which meets whole annotated member
+types.
+
+The memoized walk below is swapped in by `@[csimp]`, so this is a
+*kernel-checked* replacement of the compiled code and no trust point:
+the pure definition above is what every proof consumes, and
+`renameConstsGo_spec` proves the two equal.  The memo is keyed by the
+node itself — the probe is the cached `data` word plus `Expr.beq`,
+whose first test is pointer equality — and it is dropped after each
+call, since the answer depends on `f`.
+
+No node budget here (unlike `beqFast`): `renameConsts` is reached only
+from the modeled install, once per member type, never from a hot
+small-term path — measured on `init-full` at the task's gate. -/
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def RenameMemoInv (f : Name → Name) (memo : Std.HashMap Expr Expr) : Prop :=
+  ∀ k v, memo[k]? = some v → v = renameConsts f k
+
+theorem RenameMemoInv.empty {f : Name → Name} : RenameMemoInv f {} := by
+  intro k v h; simp at h
+
+theorem RenameMemoInv.insert {f : Name → Name} {memo : Std.HashMap Expr Expr}
+    (hm : RenameMemoInv f memo) {e r : Expr} (heq : r = renameConsts f e) :
+    RenameMemoInv f (memo.insert e r) := by
+  intro k v hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k v hk
+
+/-- Memoized `renameConsts`. -/
+def renameConstsGo (f : Name → Name) (memo : Std.HashMap Expr Expr) :
+    Expr → Expr × Std.HashMap Expr Expr
+  | e@(.bvar _) => (e, memo)
+  | e@(.sort _) => (e, memo)
+  | e@(.lit _) => (e, memo)
+  | .const n us => (.const (f n) us, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap Expr Expr :=
+        match e with
+        | .fvar i ty =>
+          let (t, memo) := renameConstsGo f memo ty
+          (.fvar i t, memo)
+        | .app a b =>
+          let (a', memo) := renameConstsGo f memo a
+          let (b', memo) := renameConstsGo f memo b
+          (.app a' b', memo)
+        | .lam ty body m =>
+          let (t, memo) := renameConstsGo f memo ty
+          let (b, memo) := renameConstsGo f memo body
+          (.lam t b m, memo)
+        | .forallE ty body m =>
+          let (t, memo) := renameConstsGo f memo ty
+          let (b, memo) := renameConstsGo f memo body
+          (.forallE t b m, memo)
+        | .letE ty v body =>
+          let (t, memo) := renameConstsGo f memo ty
+          let (v', memo) := renameConstsGo f memo v
+          let (b, memo) := renameConstsGo f memo body
+          (.letE t v' b, memo)
+        | .proj s i sub =>
+          let (u, memo) := renameConstsGo f memo sub
+          (.proj s i u, memo)
+        | e => (e, memo)
+      (r, memo.insert e r)
+
+/-- **The memoized walk is `renameConsts`.** -/
+theorem renameConstsGo_spec {f : Name → Name} :
+    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, RenameMemoInv f memo →
+      (renameConstsGo f memo e).1 = renameConsts f e ∧
+        RenameMemoInv f (renameConstsGo f memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty ih =>
+    intro memo hm
+    rw [renameConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      refine ⟨by simp [renameConsts, h1], ?_⟩
+      exact h2.insert (by simp [renameConsts, h1])
+  | app a b iha ihb =>
+    intro memo hm
+    rw [renameConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [renameConsts, h1, h3], ?_⟩
+      exact h4.insert (by simp [renameConsts, h1, h3])
+  | lam ty body m iht ihb =>
+    intro memo hm
+    rw [renameConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [renameConsts, h1, h3], ?_⟩
+      exact h4.insert (by simp [renameConsts, h1, h3])
+  | forallE ty body m iht ihb =>
+    intro memo hm
+    rw [renameConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [renameConsts, h1, h3], ?_⟩
+      exact h4.insert (by simp [renameConsts, h1, h3])
+  | letE ty v body iht ihv ihb =>
+    intro memo hm
+    rw [renameConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihv h2
+      obtain ⟨h5, h6⟩ := ihb h4
+      refine ⟨by simp [renameConsts, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [renameConsts, h1, h3, h5])
+  | proj s i sub ih =>
+    intro memo hm
+    rw [renameConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      refine ⟨by simp [renameConsts, h1], ?_⟩
+      exact h2.insert (by simp [renameConsts, h1])
+
+/-- The executed `renameConsts` (one memoized DAG walk). -/
+def renameConstsFast (f : Name → Name) (e : Expr) : Expr :=
+  (renameConstsGo f {} e).1
+
+@[csimp] theorem renameConsts_eq_renameConstsFast :
+    @renameConsts = @renameConstsFast := by
+  funext f e
+  exact (renameConstsGo_spec e RenameMemoInv.empty).1.symm
 
 /-- Strip `k` leading lambdas: the binder list (outermost first) and
 the body. -/
