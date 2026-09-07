@@ -77,11 +77,26 @@ def checkDirectFieldSortsIFA (ops : CheckerOps m) (fe : FEnv) (isProp large : Bo
     let rest ← checkDirectFieldSortsIFA ops fe isProp large s nP fvs idxArgs j
     pure (rest ++ [u])
 
+/-- `normCtorVal` through the index (the whnf walk at `fe.env`, the
+re-check through `checkConstantValF`). -/
+def normCtorValF (ops : CheckerOps m) (fe : FEnv) (T : Name) (nP nF : Nat)
+    (cvC cvCa : ConstantVal) : m ConstantVal := do
+  let (cbs, _) ← unwrapOr (cvCa.type.stripPis nP)
+    (.notImplemented "direct sum: constructor telescope")
+  let (fvsP, crest) ← unwrapOr (openPisAtFvars nP cvCa.type 0)
+    (.notImplemented "direct sum: constructor telescope")
+  let pbs := List.zipWith (fun (x : Expr) (b : Expr × BinderMeta) => (x.fvarTypeD, b.2)) fvsP cbs
+  let (fbs, resid) ← normFieldDoms ops fe.env T nP nF crest
+  let ty' := closeTelescope (pbs ++ fbs) 0 resid
+  if ty' == cvCa.type then pure cvCa
+  else checkConstantValF ops fe { cvC with type := ty' }
+
 /-- `checkDirectSumCtor` through the index. -/
 def checkDirectSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
-  let cvCa ← checkConstantValF ops fe cvC
+  let cvCa₀ ← checkConstantValF ops fe cvC
+  let cvCa ← normCtorValF ops fe T nP nF cvC cvCa₀
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
   unless directCtorResidOk T lps nP nF nIdx cbody do

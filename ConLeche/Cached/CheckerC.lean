@@ -169,27 +169,30 @@ the constructors' stages are the sum route's mirrors, the resolution
 guard pointed at the former's environment; one flush per environment
 transition. -/
 def checkDirectFixS (fe : FEnv) (p₀ : DirectFixParts) : CheckCM FEnv := do
-  if p₀.kinds.any (fun ks => ks.any (· == .negative)) then
-    throw (.invalid "direct rec: non positive occurrence of the inductive type")
   unless (p₀.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   flushC
   let (fe₁, cvTa, p₁) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀.toDirectSumParts
     (fun p₁ => directFixCaps (p₀.complete p₁))
-  let p := p₀.complete p₁
-  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
+  let p₂ := p₀.complete p₁
+  if p₂.large && !p₂.resSort.isNeverZero && decide (2 ≤ p₂.ctors.length) then
     throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
   flushC
-  let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) cvTa.type 0)
+  let tq ← unwrapOr (openPisAtFvars (p₂.nP + p₂.nIdx) cvTa.type 0)
     (.internal "direct rec: type former telescope")
-  let _isorts ← checkDirectFieldSortsIF (sharedOpsC mode fe₁) fe₁ true false p.resSort p.nP
-    (tq.1.drop p.nP) [] p.nIdx
-  let (ctorsA, sortss) ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p.cvT.name
-    p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
+  let _isorts ← checkDirectFieldSortsIF (sharedOpsC mode fe₁) fe₁ true false p₂.resSort p₂.nP
+    (tq.1.drop p₂.nP) [] p₂.nIdx
+  let (ctorsA, sortss) ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₂.cvT.name
+    p₂.cvT.levelParams p₂.nP p₂.nIdx p₂.resSort p₂.isProp p₂.large cvTa p₂.ctors
+  let kinds ← classifyFixKinds (m := CheckCM) p₂.cvT.name p₂.cvT.levelParams p₂.nP p₂.nIdx ctorsA
+  let p := p₂.withKinds kinds
   unless directFixFieldsOkF directWalkersC fe p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA
       p.kinds do
     throw (.internal "direct rec: field kinds")
+  unless directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
+      ctorsA p.kinds p.rhss do
+    throw (.invalid "direct rec: recursor rules are not the generated ones")
   let fe₂ := consSumCtorsF p.nP ctorsA fe₁
   flushC
   let (cvRa, rhss) ← checkDirectFixRecF (sharedOpsC mode fe₂) directWalkersC fe₂ p cvTa ctorsA

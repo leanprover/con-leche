@@ -529,6 +529,159 @@ def liftLooseBVarsFast (amount c : Nat) (e : Expr) : Expr :=
   funext amount c e
   exact (liftLooseBVarsGo_spec e c {} LiftMemoInv.empty).1.symm
 
+/-! ### `resetMeta` (task #210 Part D)
+
+Every binder's datum reset to the parse placeholder `⟨.never⟩`: the
+stream's recursor rules are compared syntactically against the
+generated ones (official's replay compares an exported recursor
+structurally with the one it generates), and the generated body is
+built from ANNOTATED pieces — the stored constructor's normalised field
+telescopes and index expressions — while the stream's carries the
+placeholder everywhere.  The pure walk is the spec; the executed one is
+memoized by `@[csimp]` (the `mentionsConst` arrangement). -/
+
+def resetMeta : Expr → Expr
+  | .app f a => .app (resetMeta f) (resetMeta a)
+  | .lam ty b _ => .lam (resetMeta ty) (resetMeta b) ⟨.never⟩
+  | .forallE ty b _ => .forallE (resetMeta ty) (resetMeta b) ⟨.never⟩
+  | .letE ty v b => .letE (resetMeta ty) (resetMeta v) (resetMeta b)
+  | .proj s i e => .proj s i (resetMeta e)
+  | .fvar i ty => .fvar i (resetMeta ty)
+  | e => e
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def ResetMemoInv (memo : Std.HashMap Expr Expr) : Prop :=
+  ∀ (k r : Expr), memo[k]? = some r → r = resetMeta k
+
+theorem ResetMemoInv.empty : ResetMemoInv {} := by
+  intro k r h; simp at h
+
+theorem ResetMemoInv.insert {memo : Std.HashMap Expr Expr} (hm : ResetMemoInv memo)
+    {e r : Expr} (heq : r = resetMeta e) : ResetMemoInv (memo.insert e r) := by
+  intro k r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k r' hk
+
+/-- Memoized `resetMeta`. -/
+def resetMetaGo (memo : Std.HashMap Expr Expr) : Expr → Expr × Std.HashMap Expr Expr
+  | .bvar i => (.bvar i, memo)
+  | .sort u => (.sort u, memo)
+  | .const n us => (.const n us, memo)
+  | .lit l => (.lit l, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap Expr Expr :=
+        match e with
+        | .fvar i ty =>
+          let (t, memo) := resetMetaGo memo ty
+          (.fvar i t, memo)
+        | .app f a =>
+          let (f', memo) := resetMetaGo memo f
+          let (a', memo) := resetMetaGo memo a
+          (.app f' a', memo)
+        | .lam ty body _ =>
+          let (t, memo) := resetMetaGo memo ty
+          let (b, memo) := resetMetaGo memo body
+          (.lam t b ⟨.never⟩, memo)
+        | .forallE ty body _ =>
+          let (t, memo) := resetMetaGo memo ty
+          let (b, memo) := resetMetaGo memo body
+          (.forallE t b ⟨.never⟩, memo)
+        | .letE ty val body =>
+          let (t, memo) := resetMetaGo memo ty
+          let (w, memo) := resetMetaGo memo val
+          let (b, memo) := resetMetaGo memo body
+          (.letE t w b, memo)
+        | .proj s i sub =>
+          let (u, memo) := resetMetaGo memo sub
+          (.proj s i u, memo)
+        | e => (e, memo)
+      (r, memo.insert e r)
+
+/-- **The memoized walk is `resetMeta`.** -/
+theorem resetMetaGo_spec :
+    ∀ (e : Expr) (memo : Std.HashMap Expr Expr), ResetMemoInv memo →
+      (resetMetaGo memo e).1 = resetMeta e ∧ ResetMemoInv (resetMetaGo memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty ih =>
+    intro memo hm
+    rw [resetMetaGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [resetMeta, h1], ?_⟩
+      exact h2.insert (by simp [resetMeta, h1])
+  | app a b iha ihb =>
+    intro memo hm
+    rw [resetMetaGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [resetMeta, h1, h3], ?_⟩
+      exact h4.insert (by simp [resetMeta, h1, h3])
+  | lam ty body bi iht ihb =>
+    intro memo hm
+    rw [resetMetaGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [resetMeta, h1, h3], ?_⟩
+      exact h4.insert (by simp [resetMeta, h1, h3])
+  | forallE ty body bi iht ihb =>
+    intro memo hm
+    rw [resetMetaGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [resetMeta, h1, h3], ?_⟩
+      exact h4.insert (by simp [resetMeta, h1, h3])
+  | letE ty val body iht ihv ihb =>
+    intro memo hm
+    rw [resetMetaGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihv _ h2
+      obtain ⟨h5, h6⟩ := ihb _ h4
+      refine ⟨by simp [resetMeta, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [resetMeta, h1, h3, h5])
+  | proj s i sub ih =>
+    intro memo hm
+    rw [resetMetaGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [resetMeta, h1], ?_⟩
+      exact h2.insert (by simp [resetMeta, h1])
+
+/-- The executed `resetMeta` (one memoized DAG walk). -/
+def resetMetaFast (e : Expr) : Expr := (resetMetaGo {} e).1
+
+@[csimp] theorem resetMeta_eq_resetMetaFast : @resetMeta = @resetMetaFast := by
+  funext e
+  exact (resetMetaGo_spec e {} ResetMemoInv.empty).1.symm
+
 /-- Lower every loose bound variable `≥ cutoff + amount` by `amount`
 (loose variables inside the window `[cutoff, cutoff + amount)` are left
 untouched — callers certify their absence by the `liftLooseBVars`
