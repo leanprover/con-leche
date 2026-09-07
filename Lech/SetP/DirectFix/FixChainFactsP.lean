@@ -274,7 +274,7 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
         DenoteSpineP mp.base2.acval env ψ (nP + i + ((tss ψ).getD i []).length)
           (body.getAppArgs.drop nP) ((Eiss ψ).getD i []) := by
     intro i x hx hk hi
-    obtain ⟨afvs, body, hop, hdoms, hsp⟩ := hD.reflOpen ψ i x hx hk
+    obtain ⟨afvs, body, hop, -, hdoms, hsp⟩ := hD.reflOpen ψ i x hx hk
     obtain ⟨x', hx', hws, hlf⟩ := hdom i hi
     rw [hx] at hx'
     obtain rfl := Option.some.inj hx'

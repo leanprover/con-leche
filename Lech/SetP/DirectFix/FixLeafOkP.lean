@@ -160,6 +160,28 @@ theorem AnnotValidV_mkPisAV_of {w : Nat} {R : AVExpr} :
       have := h0 hw [x] ⟨hx, trivial⟩
       simpa [consList] using this
 
+/-- **A valid Π-tower's pieces**: the domains are valid along the
+telescope, and the body is valid at every fitting spine. -/
+theorem AnnotValidV_mkPisAV_inv {R : AVExpr} :
+    ∀ {gds : List (Nat × Nat × AVExpr)} {σ : Nat → V},
+      AnnotValidV V σ (mkPisAV gds R) →
+      FieldsValid σ (gds.map (·.2.2)) ∧
+      ∀ as, SpineFit σ (gds.map (·.2.2)) as → AnnotValidV V (consList as σ) R
+  | [], σ, h => ⟨trivial, fun as hsp => by
+      cases as with
+      | nil => simpa [mkPisAV, consList] using h
+      | cons a as => exact hsp.elim⟩
+  | d :: gds, σ, h => by
+    simp only [mkPisAV, AnnotValidV_pi] at h
+    obtain ⟨hv, hB, -⟩ := h
+    refine ⟨⟨hv, fun x hx => (AnnotValidV_mkPisAV_inv (hB x hx)).1⟩, fun as hsp => ?_⟩
+    cases as with
+    | nil => exact hsp.elim
+    | cons a as =>
+      obtain ⟨ha, hsp'⟩ := hsp
+      rw [consList_cons]
+      exact (AnnotValidV_mkPisAV_inv (hB a ha)).2 as hsp'
+
 /-- The validity facts beside `ChainFacts`: at a recursive field the
 telescope is valid along the shadow spine and the index expressions
 are valid under every fitting telescope spine (task #202). -/
