@@ -575,17 +575,26 @@ private def processLineCoreD (st : StateD) (j : Json)
     -- data: index/constructor counts, recursion flag, motive/minor
     -- counts)
     let st ← registerProjOwners st v block
-    let blockC := block.map ConstantInfo.canon
-    if blockC = BasisKind.eqK.decls.map ConstantInfo.canon then
-      return pushDecl st (.basisDecl .eqK)
-    else if blockC = BasisKind.natK.decls.map ConstantInfo.canon then
-      return pushDecl st (.basisDecl .natK)
-    else if blockC = BasisKind.punitK.decls.map ConstantInfo.canon then
-      return pushDecl { st with punitSeen := true } (.basisDecl .punitK)
-    else if blockC = BasisKind.emptyK.decls.map ConstantInfo.canon then
-      return pushDecl st (.basisDecl .emptyK)
-    else if blockC = BasisKind.falseK.decls.map ConstantInfo.canon then
-      return pushDecl st (.basisDecl .falseK)
+    -- TASK #214 PROTOTYPE — the basis-pin NAME pre-filter.
+    -- `ConstantInfo.canon` rebuilds the block as a *tree*
+    -- (`Frontend.canonExpr`, unmemoized): on a heavily DAG-shared block
+    -- that is the frontend's single largest cost, and the tree-size
+    -- budget exists to bound exactly it.  But `canon` renames only level
+    -- parameters — it leaves every constant NAME alone — so a block can
+    -- match a pin only when its members' names are the pin's, member for
+    -- member.  Filter on the names first (a handful of `Name` compares)
+    -- and rebuild nothing at all for every block that is not a basis
+    -- block, which is all but five of them.
+    let blockNames := block.map (·.name)
+    let pinHit : Option BasisKind :=
+      ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
+          k.decls.map (·.name) == blockNames).filter fun k =>
+        block.map ConstantInfo.canon = k.decls.map ConstantInfo.canon
+    if let some k := pinHit then
+      if k == BasisKind.punitK then
+        return pushDecl { st with punitSeen := true } (.basisDecl k)
+      else
+        return pushDecl st (.basisDecl k)
     else
       if modeled then
         -- THE IN-PROCESS MODELLER (task #200): a mutual or nested block

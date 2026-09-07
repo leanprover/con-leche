@@ -469,6 +469,7 @@ def constsResolveFCGo (fe : FEnv) (memo : Std.HashMap ExprC Bool)
 def constsResolveFC (fe : FEnv) (e : ExprC) : Bool :=
   (constsResolveFCGo fe {} e).1
 
+
 /-- Record an accepted constant's converted type/value, tagged with the
 very `Expr` objects pushed into the environment (the counterpart of
 `recordIConst`). -/

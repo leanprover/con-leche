@@ -21,6 +21,37 @@ checker it existed to compare against.
 
 namespace ConLeche.Cached
 
+/-! ### TASK #214 PROTOTYPE — the inductive arm's missing memo
+
+`directNonRecF` (`ConLeche/Kernel/Direct/InstallF.lean`) — the direct
+structure route's non-recursiveness gate — runs the *tree-walking*
+`Expr.constsResolveF` over every constructor binder domain.  The
+driver's other three record kinds (`def`/`thm`/`opaque`) already go
+through `constsResolveFC` above; the inductive arm is the one that was
+left behind, and it is the arm that meets whole constructor
+telescopes.  On Mathlib's
+`ModularCurve.JZeroGoodReductionSpecialization_alt` its eight field
+domains are a 3.3 k-node DAG that unfolds to 19.6 M nodes.
+
+Nothing new is trusted and nothing new needs proving: the agreement
+`(constsResolveFCGo fe memo e).1 = Expr.constsResolveF fe e` is
+`constsResolveFCGo_spec` in `ConLeche/Verify/Cached/GuardsC.lean`
+(task #171), so `directNonRecFC = directNonRecF` follows by
+congruence, and `directPartsFC? = directPartsF?` with it. -/
+
+/-- `directNonRecF` with the memoized constant-resolution walk. -/
+def directNonRecFC (fe : FEnv) (p : DirectParts) : Bool :=
+  match p.cvC.type.stripPis (p.nP + p.nF) with
+  | some (cbs, _) => cbs.all fun b => constsResolveFC fe b.1
+  | none => false
+
+/-- `directPartsF?` with the memoized gate. -/
+def directPartsFC? (fe : FEnv) (block : List ConstantInfo) :
+    Option DirectParts :=
+  match directPartsCore? block with
+  | some p => if directNonRecFC fe p then some p else none
+  | none => none
+
 open ConLeche
 
 variable (mode : CheckMode)
@@ -307,7 +338,7 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDeclF fe
   | .indDecl block =>
-    match directPartsF? fe block with
+    match directPartsFC? fe block with  -- TASK #214 PROTOTYPE
     | some p => checkDirectStructS mode fe p
     | none =>
       match directSumPartsF? fe block with
