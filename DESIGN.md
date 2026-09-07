@@ -56834,7 +56834,7 @@ separate job (`workflow_dispatch` + pushes touching `bridge/**` or
 **The theorem** (`ConLecheBridge/Carneiro.lean`):
 
 ```lean
-theorem carneiro_implies_con-leche :
+theorem carneiro_implies_conleche :
     OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V)
 ```
 
@@ -56871,7 +56871,7 @@ ordinals below `κ.ord` have a strict upper bound below it
 `Cardinal.eq` gives a bijection of the (shrunk) member types, and
 `equinumerous_of_card_eq` extends it to the global function
 `ConLeche.Equinumerous` asks for.  Nothing beyond his hypothesis was used.
-`#guard_msgs in #print axioms carneiro_implies_con-leche`: `propext`,
+`#guard_msgs in #print axioms carneiro_implies_conleche`: `propext`,
 `Classical.choice`, `Quot.sound`.
 
 **FINDING — the briefed converse-countermodel is wrong; the two
