@@ -190,16 +190,11 @@ theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
   | indDecl block =>
-    -- the `.indDecl` dispatch: the recognised direct classes install
-    -- directly (task #175 W4c: structures, sums; task #188: recursive
-    -- types), everything else through the modeled path — the kernel's
-    -- own three-stage case split
+    -- the `.indDecl` dispatch: a RECOGNISED block installs directly
+    -- (ONE ROUTE, task #210), everything else through the modeled path
+    -- — the kernel's own two-way case split (task #219)
     have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block env₂ := hrun
     unfold ConLeche.Semantics.DeclIndRunDispatch at hrun'
-    by_cases hm : ConLeche.blockIsModeled env.find? block = true
-    · rw [if_pos hm] at hrun'
-      exact indStepPB_of hμ mp hE hrun'
-    rw [if_neg hm] at hrun'
     cases hdf : ConLeche.directFixParts? block with
     | some p =>
       rw [hdf] at hrun'

@@ -575,40 +575,15 @@ would refuse a recursive occurrence hidden under a definition, which
 official whnf's away (audit #206-A5, Part D).  A block with a
 NON-POSITIVE occurrence is admitted so that the install rejects it
 exactly as official's positivity check would, before anything else is
-looked at.  A nested block is never this route's: it carries an
-in-process `_model` family, and the dispatch reads that first.  A
-reflexive field is taken at every sort (task #202); a block with no
-constructor is this route's too (`FixKI₀.hsq` at most one). -/
+looked at.  A **mutual or nested** block is never this route's: its
+export carries several type formers, resp. several recursors (the
+kernel's nested→mutual specialisation mints one per mimic), and
+`directSumSplit` — one former, one recursor — refuses both shapes
+outright, measured over every block of Mathlib (task #219).  Those
+blocks are the in-process modeller's.  A reflexive field is taken at
+every sort (task #202); a block with no constructor is this route's
+too (`FixKI₀.hsq` at most one). -/
 def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
   (directFixShape? block).map fun p => ⟨p, [], directFixRecPinOk p block⟩
-
-/-- The one route's reading of a block's RAW constructors: does the
-syntactic classification (`recCtorKinds`) find no occurrence the route
-does not model?  On the raw stream a nested occurrence (`List T`) and
-a definition redex over one (`Id' T`) look alike — both `.unsupported`
-— and only the install, whnf'ing, tells them apart; here the reading
-decides the DISPATCH together with the presence of a model
-(`blockIsModeled`). -/
-def rawKindsOk (p : DirectSumParts) : Bool :=
-  match p.ctors.mapM (recCtorKinds p.cvT.name p.cvT.levelParams p.nP p.nIdx) with
-  | some ks => ks.all fun k => k.all (· != .unsupported)
-  | none => false
-
-/-- Is the block the modeled path's (task #210 Part D)?  It carries an
-in-process `_model` family (the mutual and nested blocks, task #200)
-AND the one route's raw reading refuses it (`rawKindsOk`, or the shape
-is not the route's at all).  The first conjunct keeps a redex-hidden
-occurrence (`Id' T`, arena 053) where no model exists on the route,
-which whnf's it; the second keeps a block the route takes with a stale
-model beside it (the preprocessor-era fixture streams' `PProd'._model`)
-on the route, its projection table with it. -/
-def blockIsModeled (find? : Name → Option ConstantInfo) (block : List ConstantInfo) : Bool :=
-  match block with
-  | .indInfo cvT _ :: _ =>
-    (find? (cvT.name.str "_model")).isSome &&
-    (match directFixShape? block with
-     | some p => !rawKindsOk p
-     | none => true)
-  | _ => false
 
 end ConLeche

@@ -50,9 +50,10 @@ install does not serve is replaced, before it reaches the checker, by
 the recursor application the module documents.  Three bookkeeping
 tables feed it — the owners of every parsed inductive block
 (`projOwners`), the field sorts read off the `T._model.proj_i.iota`
-artifacts the in-process modeller emits (`projLevels`; task #207: the
-in-process modeller is the only source of them), and whether the
-`PUnit` basis block has been seen (the constant motives need it).
+artifacts the in-process modeller GENERATES (`projLevels`; task #219:
+the generated records are the only source, and the scan runs on them
+alone), and whether the `PUnit` basis block has been seen (the
+constant motives need it).
 -/
 
 namespace ConLeche.Frontend
@@ -138,7 +139,7 @@ structure StateD where
   name (`ConLeche/Frontend/ProjRec.lean`) -/
   projOwners : Std.HashMap Name ProjRecOwner := {}
   /-- field sorts, by artifact iota name `T._model.proj_i.iota` (the
-  in-process modeller's own; task #207) -/
+  in-process modeller's own, and only those; task #219) -/
   projLevels : Std.HashMap Name Level := {}
   /-- the `PUnit` basis block has been parsed -/
   punitSeen : Bool := false
@@ -149,8 +150,7 @@ structure StateD where
   prelude : PreludeIx := {}
   /-- the declared types of every declaration pushed so far (the
   prelude's included), by name: the in-process modeller's sort inferer
-  reads them, and its "does the stream carry a model for this block"
-  test looks up `T._model` here (task #200) -/
+  reads them (task #200) -/
   constTypes : Std.HashMap Name (List Name × ExprC) := {}
   /-- the definitional heights of the definitions pushed so far (the
   hints of the generated definitions are computed from them, task #200) -/
@@ -161,6 +161,17 @@ structure StateD where
   /-- the blocks modelled in-process, in stream order (for the receipt
   and the route trace) -/
   inModelled : Array Name := #[]
+  /-- how many records the in-process modeller GENERATED and pushed
+  (task #219): they are declarations of the fold like any other, but
+  they are not records of the FILE, so the driver's headline count
+  subtracts them and `scripts/stream-census.py` predicts the verdict
+  off the file again -/
+  genRecords : Nat := 0
+  /-- each generated record's leading name ↦ the block it models (task
+  #219): the driver names the block when a generated record is the one
+  that fails, so a failure the file cannot be indexed for is still
+  attributable -/
+  genOwner : Std.HashMap Name Name := {}
   /-- for the debug dump (`CON_LECHE_INMODEL_DUMP`): per modelled block, its
   ordinal among the stream's `inductive` records and the generated
   records -/
@@ -407,9 +418,10 @@ private def projRewriteD (st : StateD) (cv : ConstantVal) (vl : ExprC) :
   projRecValue o l cv.type vl i
 
 /-- An artifact `T._model.proj_i.iota` names the field's sort in its
-`Eq` level: recorded for the projection rewrite.  Since task #207 the
-in-process modeller is the only source of these artifacts (a
-hand-written stream may still carry one; the scan is the same). -/
+`Eq` level: recorded for the projection rewrite.  Run on the records
+the in-process modeller GENERATES and on those alone (task #219): a
+stream record is an ordinary declaration whatever it is called, and
+the rewrite's field sorts come from the modeller's own family. -/
 private def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
   if isProjIotaName cvp.name then
     match projIotaLevel cvp.type with
@@ -421,12 +433,23 @@ private def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
   else st
 
 /-- Push one record the in-process modeller generated (task #200):
-`pushDecl`, plus the projection-iota registration a stream theorem
-gets. -/
+`pushDecl`, plus the projection-iota registration (the ONLY place it
+runs since task #219 — a stream record is an ordinary declaration
+whatever it is called). -/
 private def pushGenD (st : StateD) (d : DeclC) : StateD ⊕ String :=
   match d with
   | .thmDecl cv _ => pushDecl (noteProjIota st cv) d
   | _ => pushDecl st d
+
+/-- Book a record the in-process modeller generated for block `T0`
+(task #219): a declaration of the FOLD, never a record of the file, so
+the driver's headline count subtracts it and a failure at it is
+reported with the block it models. -/
+private def noteGen (st : StateD) (d : DeclC) (T0 : Name) : StateD :=
+  let m := st.genOwner
+  let st := { st with genOwner := {} }
+  { st with genRecords := st.genRecords + 1,
+            genOwner := d.names.foldl (fun m n => m.insert n T0) m }
 
 /-- The export's shape data of an inductive record, for the in-process
 modeller (task #200). -/
@@ -500,9 +523,6 @@ private def processLineCoreD (st : StateD) (j : Json) :
   else if let .ok v := j.getObjVal? "thm" then
     let cvp ← parseConstantValD st v
     let vl ← getDeclD st v "value"
-    -- an artifact `T._model.proj_i.iota` names the field's sort in its
-    -- `Eq` level: recorded for the projection rewrite
-    let st := noteProjIota st cvp
     -- a proof field's projection function is exported as a theorem
     -- (the elaborator's choice for a `Prop`-valued field): the same
     -- rewrite applies (2026-09-06)
@@ -593,7 +613,9 @@ private def processLineCoreD (st : StateD) (j : Json) :
         return pushDecl st (.basisDecl k)
     else
       -- THE IN-PROCESS MODELLER (task #200; the ONLY model source
-      -- since task #207): a mutual or nested block gets its `_model`
+      -- since task #207, and since task #219 the only one there IS —
+      -- a stream `_model` record is an ordinary declaration and is
+      -- never consulted): a mutual or nested block gets its `_model`
       -- family generated here and pushed ahead of it; the block then
       -- installs through the modeled route.  A generator decline is
       -- the run's decline, naming the class (the residual: infinitary
@@ -604,11 +626,7 @@ private def processLineCoreD (st : StateD) (j : Json) :
         let m := st.indBlocks
         let st := { st with indBlocks := {} }
         { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
-      -- `constTypes.contains (T0.str "_model")`: a HAND-WRITTEN stream
-      -- may still declare a model family of its own (no exporter emits
-      -- one since #207), and the modeller must not generate a second.
-      if st.inModel && InModel.wants b &&
-          !st.constTypes.contains (T0.str "_model") then
+      if st.inModel && InModel.wants b then
         let ctx : InModel.Ctx :=
           ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
         match InModel.generate ctx b with
@@ -621,8 +639,13 @@ private def processLineCoreD (st : StateD) (j : Json) :
         | .ok gen =>
           let mut st1 := st
           for d in gen do
+            let before := st1.decls.size
             match pushGenD st1 d with
-            | .inl st' => st1 := st'
+            | .inl st' =>
+              -- a generated record is a declaration of the FOLD and not
+              -- a record of the file (task #219): booked here, so the
+              -- verdict line reports the file's own count
+              st1 := if st'.decls.size > before then noteGen st' d T0 else st'
             | r => return r
           st1 := { st1 with
             inModelled := st1.inModelled.push T0,
@@ -803,6 +826,13 @@ structure ParseResultD where
   hoisted : Array Name := #[]
   /-- the blocks modelled in-process (task #200), in stream order -/
   inModelled : Array Name := #[]
+  /-- how many of `decls` the in-process modeller generated, and which
+  block each of them models (task #219): the driver subtracts the count
+  from its headline number — a generated record is a declaration of the
+  fold, never a record of the file — and names the block when one of
+  them is the record that fails -/
+  genRecords : Nat := 0
+  genOwner : Std.HashMap Name Name := {}
   /-- the in-process modeller's generated records per block, keyed by
   the block's ordinal among the stream's `inductive` records (for the
   debug dump only) -/
@@ -825,8 +855,8 @@ pinned operation's stream-certified ground hoisted ahead of it
 private def ParseResultD.ofState (st : StateD) : ParseResultD :=
   let (decls, hoisted) := hoistNatOpGround st.decls
   ⟨st.prelude.decls ++ decls, st.taintSkipped, st.projRewrites,
-   st.prelude.decls.size, st.preludeDropped, hoisted, st.inModelled, st.inModelGen,
-   st.inModelDeclined⟩
+   st.prelude.decls.size, st.preludeDropped, hoisted, st.inModelled,
+   st.genRecords, st.genOwner, st.inModelGen, st.inModelDeclined⟩
 
 /-- Twin of `feedLine`. -/
 private def feedLineD (st : StateD) (line : String) (lineNo : Nat) :

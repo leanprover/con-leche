@@ -59691,3 +59691,192 @@ naming the index (the #200 residual, unchanged; a finding, below).
   levels").  Both rungs now emit them only under a large eliminator;
   nothing is lost (official's `is_structure_like` is single-type, so a
   mutual member never carries `.proj`).
+
+## TASK #219 — STREAM `_model` RECORDS ARE ORDINARY DECLARATIONS (2026-09-07, `agent/nomodel`)
+
+**The user's ruling, verbatim:** *"Why do we even still support
+`_model` in the input?  The only models now come from our own
+installer, surely we can wire it so that is transparent."*
+
+Task #200 put the modeller in process, task #207 dropped the
+preprocessor, and task #210 Part D scheduled the leftovers for
+deletion.  This task removes the input-model concept: the in-process
+modeller (`ConLeche/Frontend/InModel/*`) is the only model source, its
+records are transparent, and a stream record whose name carries a
+`_model` component is a declaration like any other, with **no effect
+on any inductive block**.
+
+### The finding that made the dispatch free
+
+The dispatch was the hard part on paper.  Since Part D it read
+`blockIsModeled`: a `T._model` constant IN THE ENVIRONMENT **and** the
+one route's raw reading refusing the block.  The first conjunct is a
+name lookup — exactly the input-model consultation the ruling
+removes — and the second exists only for the preprocessor-era fixture
+streams.  Replacing the lookup by a tag on the record would have
+changed `Declaration`, i.e. the fold's element type, for a routing
+bit.
+
+It is not needed.  `directSumSplit` (`Kernel/Direct/SumParts.lean`)
+matches `[ctorInfo…, recInfo]` after ONE `indInfo`: **one type former,
+one recursor**.  A mutual block has several formers; a nested block has
+several recursors, because the kernel's nested→mutual specialisation
+mints one per mimic.  So the fixpoint route's recogniser refuses every
+block the modeller wants, on shape, before any model is looked for.
+Measured on the raw exports:
+
+| stream | inductive blocks | mutual | nested | one former AND one recursor among them |
+|---|---:|---:|---:|---:|
+| `init-full` | 588 | 0 | 1 (`Lean.Syntax`, 3 recursors) | **0** |
+| `prefix-log2` | 1 057 | 0 | 9 | **0** |
+| `slice-small` | 1 605 | 1 | 26 | **0** |
+| `mathlib-full` | 6 644 | 13 | 41 | **0** |
+
+The dispatch is therefore the RECOGNISER ALONE:
+
+    match directFixParts? block with
+    | some p => checkDirectFix ops env p
+    | none   => checkIndDecl mode ops env block
+
+— the fixpoint route if it takes the block, else the modeled route on
+the model the in-process modeller generated in the same parse, else
+`checkIndDecl`'s positive decline naming the block.  `blockIsModeled`
+and `rawKindsOk` are **deleted** (`Kernel/Direct/RecParts.lean`), and
+with them the `find?`-threading in every mirror: `DeclIndRunDispatch`
+(`Semantics/Direct/DeclDirectFix.lean`), `Semantics/Bridge/Sound.lean`,
+`SetP/FoldP.lean`, `Verify/BridgeDecl.lean`,
+`Verify/Cached/{AgreeFloor,BridgeCP,BridgeCSDecl}.lean` — each lost one
+`by_cases` arm, and `AgreeFloor`'s `indDeclSkels` lost its environment
+argument entirely (`checkIndOrDirectSF_run` lost the `hmk` bridging
+lemma with it).  The proof obligations did not change; they got
+shorter.  `checkDeclsSPCachedD`'s statement is verbatim.
+
+### The frontend stops consulting the stream
+
+* the modeller's stand-down guard `!st.constTypes.contains (T0.str
+  "_model")` is gone (`Frontend/ExportC.lean`).  A stream that declares
+  a model family for a block the modeller wants now gets a **duplicate
+  declaration** reject, which is the honest verdict: the checker
+  generated that name itself;
+* `noteProjIota` runs on the records the modeller GENERATES
+  (`pushGenD`) and on those alone.  The stream's `thm` arm no longer
+  scans for `T._model.proj_i.iota` artifacts, so the projection
+  rewrite's field sorts come from the in-process family and nowhere
+  else — 22 rewrites on `slice-small`, every one of them at a level
+  read off a family generated in the same parse, `grep -c '"_model"'`
+  on the slice being 0.
+
+### Item 2's shape: the records are BOOKED, not tagged
+
+The generation stays where it is — at the block's record, pushing the
+generated declarations ahead of the block — and the fold is untouched.
+What changes is the bookkeeping: `StateD.genRecords` counts the
+records the modeller pushed and `StateD.genOwner` maps each of their
+names to the block it models (`noteGen`).  The driver subtracts
+`genRecords` from its headline count and, when a generated record is
+the one that fails, names its block:
+
+    con-leche: invalid: duplicate declaration TA._model._impl.tag
+      [at inductive TA._model._impl.tag, a generated model record of
+       inductive TA, fold position 33]
+
+This is the brief's "acceptable shape" without a tag on `Declaration`:
+the fold's element type is unchanged, the P tier reads the same stored
+declarations, and the receipt says how many records were generated.
+Moving the generation INTO the install step was considered and
+rejected: the modeller is a frontend module and `Kernel/*` cannot
+import it (the layering runs the other way), so the records would have
+had to ride on `Declaration.indDecl` and be checked by a recursive
+`checkDecl` — the fold's type and its every mirror, for a routing bit
+the recogniser already provides.
+
+**The verdict line reports the FILE's record count again.**
+`scripts/stream-census.py` predicts it exactly: on `init-full`,
+`fold = 53 088` against `accepted 53 088`.  Between #200 and #219 the
+gap was the generated family's size (30 on `init-full`, 2 168 on
+`mathlib-full`); #207's finding "the stream census no longer predicts
+the verdict count" is **closed**.  The census lost its `modeled`
+column — a `_model` record classifies nothing — and PERF.md's accepted
+counts were derived for the change (each con-leche cell lost exactly
+its stream's published gap); the instruction cells are untouched,
+since the same records are checked and only the counting moved.
+
+### The fixtures
+
+The 34 committed e2e streams that carried preprocessor-era model
+families are raw:
+
+* **regenerated from their `.lean` sources** with the new
+  `scripts/export-fixture.sh` (the recipe used to live in the dropped
+  lean-inductive-models; the toolchain pin is the corpus's, Lean
+  v4.29.1 and `lean4export` at `caccfbe`): `direct_nested_dep`,
+  `indexed_nested_aux`, `nested_pin_names`.  The last two are nested
+  blocks that used to arrive with the tool's model and now go through
+  the in-process modeller (`TV`: 23 generated records; `PTree`: 21);
+* **model records dropped from the committed slice** — the
+  declarations, and then the expression and name table entries only
+  they kept alive, which is what a raw slice carries — for the 27 that
+  have no source: the `nat_*` operation slices, `trust_*`,
+  `indexed_one_ctor_proj`, `presieve_ofarrows_cone`.  Not one `_model`
+  string survives in any of them.  Every verdict is unchanged;
+  `presieve_ofarrows_cone`'s `Lean.Syntax` is now modelled in process
+  (accepted 503 declarations, was 638 with the model records in the
+  file).
+
+Three fixtures keep `_model` NAMES on purpose, and are the ruling's
+own controls: `model_name_plain` (a plain `def Foo._model` beside `def
+Foo` must accept), `budget_model` (the same at DAG scale — a
+2^28-node definition named `DagTower._model`), and
+`yolo_decline_vs_accept`, whose defective theorem happens to be called
+`PProd'._model.eta` and is checked, and rejected, as the ordinary
+declaration it is.
+
+**Deleted:** `direct_nested_dep_broken.ndjson` — the positive
+control's twin with the `Box._model` family HEAD removed, pinning that
+a model generator's skip rule must be dependency-aware.  There is no
+such generator.  `scripts/mk_nested_pin_fixture.py` went with it: its
+perturbation spelled a pin lambda under a different binder name, and
+that is not expressible twice over — the modeller writes both sides,
+and since task #205 `Expr` carries no binder name at all.  The
+`_model` companion rules in `mk_natop_fixture.py`,
+`mk_trust_fixture.py` and `resume_slice.py` are deleted with the
+concept they served.
+
+### `tests/inmodel.sh` stage 2
+
+The dump (`CON_LECHE_INMODEL_DUMP`, the raw input with the generated
+records spliced in) is **no longer re-checked**.  It cannot be: the
+modeller does not stand down for a stream model, so a re-check rejects
+on the duplicate — the ruling in action.  The stage now checks that
+the dump carries exactly the records the receipt reports as generated
+(declaration records, not lines).  What the re-check used to gate —
+that every generated record type-checks — the RAW run already gates:
+the fold checks each of them as a declaration.
+
+### Gates
+
+`lake build` warning-free (527 jobs); `lake test`; `tests/arena.sh`
+(`env -i`): tutorial **90/92**, e2e **160/160** (161 − the deleted
+twin), annot 14/14, retired flags 8/8, mode flags 18/18, prelude
+counts 3/3, progress lane 6/6, DAG-tower 2/2, trusted sweep 138 + 160
++ 14 with its 3 recorded divergences, axioms pinned (11 theorems at
+`[propext, Classical.choice, Quot.sound]`); `tests/layering.sh` base
+272 / P 189 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory;
+`tests/proofdeps.sh` 2 851 rows across 7 roots, 0 doors —
+**unchanged**, as expected (nothing moved between modules);
+`tests/trust-surface.sh` 18 escapes in 4 allowlisted files (472
+scanned), 0 outside; `tests/inmodel.sh` OK; `tests/route-census.sh`
+90 streams, 682 blocks — 142 fix, 0 inmodel, 540 basis, **0
+modeled**; `tests/overview-links.sh` OK (57 links).
+
+**init-full**, raw, default mode, `perf stat -e instructions:u`:
+accepted **53 088** (the file's 53 093 records less the 4 folded `quot`
+records and the tolerated-axiom skip — `scripts/stream-census.py`'s
+`fold`, to the record), exit 0, **679.12 G instructions** against
+PERF.md's published 678.46 G and Part D's 679.51 G: parity, as
+expected — the dispatch does one recogniser call where it did a name
+lookup and a raw kinds walk first.  Route census (separate run):
+**584 fix / 6 basis / 1 inmodel** (`Lean.Syntax`) — Part D's exactly.
+**Mathlib small slice**, with `CON_LECHE_PROJREC_TRACE=1`: accepts,
+22 projection functions rewritten, every level off the in-process
+family.

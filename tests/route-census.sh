@@ -25,10 +25,15 @@
 #   * inmodel              a `_model` family generated in-process
 #                          (task #200) — the checker's own too
 #   * basis                a pinned basis block, matched by the parse
-#   * modeled           →  FAIL on a raw stream: the block's model came
-#                          from the STREAM, and no exporter emits one
-#                          since task #207 (a hand-written stream may;
-#                          such a stream does not belong in this gate)
+#   * modeled           →  FAIL: the block is on NO route — the
+#                          recogniser refused it and the in-process
+#                          modeller did not model it, so the install
+#                          declines.  (Before task #219 the label also
+#                          covered a model arriving from the stream;
+#                          such a record is an ordinary declaration now
+#                          and has no effect on any block, so a
+#                          `modeled` line means a decline and nothing
+#                          else.)
 #   * "no install route"→  FAIL: the block reached the fold bare (the
 #                          decline `ConLeche/Kernel/DeclCheck.lean`
 #                          prints).  On a *good* fixture that is a

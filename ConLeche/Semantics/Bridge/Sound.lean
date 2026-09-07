@@ -50,17 +50,12 @@ theorem checkDeclRun_ofEnvFactsE
     DeclRun μ F (DeclIndRunDispatch μ F env) env d env₂ :=
   checkDeclRun_of
     -- FLAG-AGNOSTIC (task #175 wiring W4): case on the `.indDecl`
-    -- clause's own `directParts?` dispatch — `declDirectRun_of` on the
-    -- direct arm, `declIndRun_of` on the modeled one.
+    -- clause's own `directFixParts?` dispatch — `declDirectFixRun_of`
+    -- on the direct arm, `declIndRun_of` on the modeled one.
     (fun {block} hh => by
       rw [checkDecl] at hh
       rw [DeclIndRunDispatch]
       revert hh
-      by_cases hm : ConLeche.blockIsModeled env.find? block = true
-      · rw [if_pos hm, if_pos hm]
-        intro hh
-        exact declIndRun_of hh
-      rw [if_neg hm, if_neg hm]
       cases hdf : directFixParts? block with
       | some p =>
         intro hh

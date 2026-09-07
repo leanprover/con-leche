@@ -646,15 +646,13 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
         injection hv
       exact hF₂p
 
-/-- The inductive-block dispatch of the cached driver: a recognised
-artifact-free simple structure goes to `checkDirectStructS`, everything
-else to `checkIndDeclSF`, and either way the pure fueled `checkDecl`
-reproduces the run. -/
+/-- The inductive-block dispatch of the cached driver: a RECOGNISED
+block goes to `checkDirectFixS`, everything else to `checkIndDeclSF`,
+and either way the pure fueled `checkDecl` reproduces the run. -/
 theorem checkIndOrDirectSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : (if blockIsModeled (mkFEnv env).find? block then checkIndDeclSF mode (mkFEnv env) block
-          else match directFixParts? block with
+    (h : (match directFixParts? block with
           | some p => checkDirectFixS mode (mkFEnv env) p
           | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
       .ok (feOut, s')) :
@@ -662,25 +660,9 @@ theorem checkIndOrDirectSF_run (hμ : mode.verifiedChecks = true) {env : Env} (h
     ∃ F, checkDecl mode (fueledOps mode F) env (.indDecl block) =
       .ok feOut.env := by
   show CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, (if blockIsModeled env.find? block then checkIndDecl mode (fueledOps mode F) env block
-      else match directFixParts? block with
+    ∃ F, (match directFixParts? block with
       | some p => checkDirectFix (fueledOps mode F) env p
       | none => checkIndDecl mode (fueledOps mode F) env block) = .ok feOut.env
-  have hmk : blockIsModeled (mkFEnv env).find? block = blockIsModeled env.find? block := by
-    cases block with
-    | nil => rfl
-    | cons c rest =>
-      cases c with
-      | indInfo cvT caps => simp only [blockIsModeled, mkFEnv_find?]
-      | _ => rfl
-  rw [hmk] at h
-  by_cases hm : blockIsModeled env.find? block = true
-  · rw [if_pos hm] at h
-    simp only [if_pos hm]
-    obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run hμ henv hwf h
-    exact ⟨hres, hfe, F, hF⟩
-  rw [if_neg hm] at h
-  simp only [if_neg hm]
   cases hfp : directFixParts? block with
   | some p =>
     rw [hfp] at h

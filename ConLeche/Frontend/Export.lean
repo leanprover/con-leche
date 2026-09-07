@@ -21,8 +21,8 @@ index cannot retroactively change anything built earlier.
 **This file is the representation-free half** — the pieces the parse
 proper is written against and would otherwise duplicate:
 
-* `canonLevel`/`canonExpr`/`ConstantInfo.canon`, the `_model`-name
-  canonicalization;
+* `canonLevel`/`canonExpr`/`ConstantInfo.canon`, the level-parameter
+  canonicalization the basis and prelude matching compare up to;
 * `FrontendError`, the taint and tree-size sentinels, the budget and
   the budgeted-name predicate;
 * the small `Json` readers (`getIdx`, `getIdxs`, `parseBinderInfo`,

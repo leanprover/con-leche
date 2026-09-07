@@ -5,6 +5,12 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
+== Main.lean#L419
+   419          -- +4 on the Mathlib stream.  The declaration NAME is the
+
+== Main.lean#L37
+    37  def ConLeche.CheckError.exitCode : CheckError → UInt32
+
 == ConLeche/MainTheorem.lean#L27-L31
     27  theorem no_proof_of_False (V : Type w) [SetTheory V]
     28      (ds : List DeclC) (env : Env)
@@ -17,19 +23,19 @@
     86  #print axioms ConLeche.no_proof_of_False
 
 == ConLeche/Frontend/ExportC.lean#L884
-   884  def parseExportStreamD (path : System.FilePath)
+   884    for line in contents.splitToList (· == '\n') do
 
 == Main.lean#L331
-   331            pure (ConLeche.Cached.checkDeclsSPCachedD mode decls.toList)
+   331            let now ← IO.monoMsNow
 
 == ConLeche/Cached/ParsedC.lean#L276-L279
-   276  `checkDeclsSPCachedD mode ds = .ok env` is the same sentence it was, so
-   277  `no_proof_of_Empty_SPCD_P` and the agreement floor keep their
-   278  statements verbatim and reach the plain fold through `foldIdxC_ok`
-   279  below. -/
+   276  `no_proof_of_Empty_SPCD_P` and the agreement floor keep their
+   277  statements verbatim and reach the plain fold through `foldIdxC_ok`
+   278  below. -/
+   279  def checkDeclsSPCachedD (mode : CheckMode) (ds : List DeclC) :
 
 == ConLeche/Cached/ParsedC.lean#L244
-   244  the `CheckError` together with `i`, the fold position of the
+   244  declaration that failed.  On the accepting side it is
 
 == ConLeche/Verify/Cached/MainC.lean#L155-L163
    155  theorem checkDeclsSPCachedD_sound_P (hμ : μ.verifiedChecks = true)
@@ -94,14 +100,14 @@
   2655            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/SetP/FoldP.lean#L291-L298
-   291  whose stored declaration and leaf are fixed by the pin, so — exactly as
-   292  for `Empty` — the statement carries no hypothesis about how the stream
-   293  declared `False`.  Hypotheses are input-level only: the validating
-   294  mode, the accepted run, the stored constant, its type. -/
-   295  theorem no_proof_of_False_P (V : Type w) [SetTheory V]
-   296      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   297      {ds : List Declaration} {env' : Env}
-   298      (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+   291      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   292      {ds : List Declaration} {env' : Env}
+   293      (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+   294      ∀ c ∈ env'.consts,
+   295        c.toConstantVal.type = .const falseName [] → False := by
+   296    obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ h
+   297    exact fun c hc hty => no_constant_of_False_P mp c hc hty
+   298  
 
 == ConLeche/SetP/FoldP.lean#L158
    158  theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
@@ -177,7 +183,7 @@
    103    deriving DecidableEq, Repr, Hashable
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1268
-  1268  theorem checkDeclsSPCachedD_skels {mode : CheckMode} {ds : List DeclC}
+  1268  `.trusted` / `.verified` (`trusted_agrees_P_skels_shipped`). -/
 
 == ConLeche/VExpr/Syntax.lean#L165-L179
    165  inductive VExpr where
@@ -736,4 +742,48 @@
    200  theorem carneiro_implies_conleche :
    201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
+
+== ConLeche/Kernel/StdAxioms.lean#L34-L46
+    34  def propextName : Name := anonymous |>.str "propext"
+    35  
+    36  /-- The name `Classical.choice`. -/
+    37  def choiceName : Name := (anonymous |>.str "Classical") |>.str "choice"
+    38  
+    39  /-- The axioms tolerated as *declarations* (dropped by the frontend,
+    40  never installed; any use is skipped and taints the run): exactly
+    41  `sorryAx` (user ruling).  The `Init` compiler-trust family
+    42  (`Lean.trustCompiler`, `Lean.ofReduceNat`, `Lean.ofReduceBool`) is
+    43  *installed* instead (task #95, `ConLeche/Kernel/TrustAxioms.lean`); any
+    44  other non-pinned axiom is a positive decline at its own record. -/
+    45  def toleratedAxiomNames : List Name :=
+    46    [ anonymous |>.str "sorryAx" ]
+
+== ConLeche/Kernel/TrustAxioms.lean#L8-L34
+     8  /-!
+     9  # The compiler-trust axiom family (task #95)
+    10  
+    11  `Init`'s compiler-trust scaffolding is installed instead of
+    12  taint-skipped:
+    13  
+    14  * `Lean.trustCompiler : True` is trivially realizable — it is
+    15    installed as an *opaque* (stored `thmInfo`, exactly like a checked
+    16    `opaque` declaration) with value `True.intro`, over a pinned `True`
+    17    family.  No new meta-axiom: the model is `True.intro`'s own
+    18    interpretation.
+    19  * `Lean.reduceNat` / `Lean.reduceBool` then check as ordinary
+    20    `opaque`s (their exported values are identity functions modulo the
+    21    `have := trustCompiler` wrapper); at install their stored values are
+    22    pinned against the toolchain's own definitions
+    23    (`ConLeche/Kernel/TrustPins.lean`, generated at build time) by
+    24    definitional equality — the task-#47 pattern: drift declines,
+    25    never silently.
+    26  * `Lean.ofReduceNat` / `Lean.ofReduceBool` are pinned axioms over
+    27    those stored opaques (the task-#34 standard-axioms machinery).  With
+    28    the stored reduce operation certified to be the identity (a
+    29    definitional-equality certificate at the axiom's own install,
+    30    `checkOfReduceAx`), `∀ a b, reduceNat a = b → a = b` interprets to
+    31    an inhabited proposition (the hypothesis *is* the conclusion), so
+    32    both axioms are true in the set model with the proof point as value.
+    33  
+    34  `sorryAx` remains the only tolerated (skip-taint) axiom.
 

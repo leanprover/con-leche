@@ -6,6 +6,39 @@
 > the set-theoretic assumption it rests on, with links into the source
 > on `master`.
 
+## 0. Using the checker
+
+The binary reads a Lean export in `lean4export`'s NDJSON format and
+prints one verdict line:
+
+```
+con-leche [--verified|--trusted] FILE.ndjson
+```
+
+`--verified` is the default and the mode the theorem is about;
+`--trusted` runs the same checker bodies with the certification-only
+work switched off, is faster, and is outside the theorem
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L419)).
+The exit code follows the lean kernel arena convention
+([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L37)):
+
+| exit | verdict | meaning |
+|---|---|---|
+| 0 | `accepted N declarations` | every declaration checked; `N` counts the stream's declaration records |
+| 1 | `rejected` | a declaration is invalid: a type error, a bad inductive block, a proof of the wrong statement |
+| 2 | `declined` | the checker positively detected a feature it does not support, and says which; nothing is claimed about the stream |
+| 3 | error | bad usage, malformed input, or an internal failure of unclear cause |
+
+The distinction between 1 and 2 is deliberate: a reject is a verdict
+about the input, a decline is a statement about the checker. A decline
+is never used for "something unexpectedly went wrong"; that is exit 3,
+which verification is meant to make rare. Only exit 0 carries the
+theorem's guarantee.
+
+`CON_LECHE_PROGRESS=<stride>` prints a heartbeat line before every
+`stride`-th declaration on stderr; it runs a separate, unverified copy
+of the fold (see §2).
+
 ## 1. What is proved
 
 The statement is one theorem about the function the `con-leche` binary
@@ -238,8 +271,14 @@ Inductive blocks are not trusted from the stream. Three cases:
   and its model; ConLeche originally ran that tool as a preprocessor and
   now performs the same construction in process
   ([the modeller's kit in `ConLeche/Frontend/InModel/Kit.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/InModel/Kit.lean#L1-L12)).
-  The model is generated and checked; nothing external is trusted. A
-  nested occurrence under a binder is outside the scheme and declines
+  The model is generated and checked; nothing external is trusted, and
+  nothing is read from the input: a stream record whose name happens to
+  carry a `_model` component is an ordinary declaration with no effect
+  on any block, and the install dispatch is the RECOGNISER alone — a
+  mutual or nested block carries several type formers, resp. several
+  recursors, so the fixpoint route's recogniser refuses it outright and
+  no model lookup is needed to route it. A nested occurrence under a
+  binder is outside the scheme and declines
   ([the modeller's residual in `ConLeche/Frontend/InModel/Nested.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/InModel/Nested.lean#L43-L50)).
 
 A block no route takes is a positive decline naming its class, never
@@ -313,13 +352,77 @@ So the assumption is no stronger than the one already accepted for
 Lean's own consistency. The main repository does not depend on Mathlib;
 the bridge builds in its own CI job.
 
-## 8. What the theorem does not cover
+**Why this does not contradict Gödel.** The theorem is proved in Lean
+and says that a Lean kernel checker never accepts a proof of `False`,
+which sounds like Lean proving its own consistency. It is not: the
+statement is relative to a model of the `SetTheory` interface, and the
+existence of such a model is exactly the assumption Lean cannot
+discharge about itself. Lean's own universes provide any *finite*
+prefix of the universe chain, but never the whole ω-chain at once,
+because a universe level is not a term. So what the theorem shows is
+"if there is a set-theoretic universe with ω many Grothendieck
+universes, then Lean's kernel rules, as this checker implements them,
+are consistent", and that hypothesis sits strictly above Lean's own
+strength, as Carneiro's analysis shows and the bridge makes precise.
+This is the standard shape of a relative consistency proof, and the
+place where Gödel's theorem is respected is the one hypothesis the
+proof cannot remove.
 
-* The parser: the theorem is about the parsed declaration list. The
-  frontend's transformations (prelude, dedupe, the Nat-op reordering,
-  the projection-function rewrite in `ConLeche/Frontend/ProjRec.lean`,
-  the in-process models) are pure functions of the stream that produce
-  a list the fold then checks.
+## 8. Axioms
+
+A stream may use exactly the standard axioms `propext` and
+`Classical.choice`, after their types and the shapes of the inductives
+they quantify over are pinned to the toolchain's
+([the pinned standard axioms in `ConLeche/Kernel/StdAxioms.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/StdAxioms.lean#L34-L46));
+both are true in the model, `propext` by extensionality of
+propositions and `Classical.choice` by global choice. `Quot.sound` is
+part of the pinned `Quot` block. Any other axiom declaration is a
+positive decline at its own record, with one tolerated exception:
+`sorryAx` is dropped rather than declined, and every declaration that
+uses it is skipped and taints the run, so a stream with a `sorry` in
+it declines at the end rather than at the first library file that
+happens to mention the axiom.
+
+The compiler-trust family, `Lean.trustCompiler`, `Lean.reduceBool`,
+`Lean.reduceNat` and the axioms `Lean.ofReduceBool` and
+`Lean.ofReduceNat`, is neither rejected nor trusted: `trustCompiler`
+installs as an opaque with value `True.intro`, the two reduce
+operations install as ordinary opaques pinned to the toolchain's
+definitions, and the two axioms are accepted only after the install
+certifies, by definitional equality, that the stored reduce operation
+is the identity, at which point each axiom's statement is an inhabited
+proposition in the model
+([the compiler-trust family in `ConLeche/Kernel/TrustAxioms.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/TrustAxioms.lean#L8-L34)).
+Proofs by `native_decide` and `bv_decide` are declined: each such
+proof adds an axiom of its own to the environment, recording the
+result the native evaluator computed, and that axiom is not a pinned
+one, so the stream declines at its record. ConLeche never runs native
+code and never evaluates a decision procedure on a proof's behalf.
+(The `ofReduceBool` mechanism above is the older, deprecated route to
+the same trust, kept only because streams from the toolchain still
+declare it.)
+
+## 9. What the theorem does not cover
+
+* The frontend. The theorem is about the list of declarations the
+  fold receives, not about the export file. Between the two sit pure
+  transformations of the parsed stream: the prelude is prepended and
+  duplicates dropped, a pinned Nat operation's dependencies are moved
+  ahead of it, a projection function is rewritten to its recursor form
+  (`ConLeche/Frontend/ProjRec.lean`), and the models of mutual and
+  nested blocks are generated — here and nowhere else; the input is
+  never read for one, and the generated records are counted as what
+  they are, declarations of the fold rather than records of the file.
+  Two guarantees have to be kept apart
+  here. What §5 and §6 establish is that everything the frontend
+  *generates* is checked: a model's declarations and a Nat operation's
+  certificates are ordinary declarations to the fold, so a wrong
+  generation cannot be accepted. What the frontend does *not* establish
+  is that the list it hands over means the same as the export: a
+  rewrite that changed a declaration's statement would be checked and
+  accepted as the changed statement. The rewrites are written to be
+  meaning-preserving and each is small and inspectable, but that is a
+  review claim, not a theorem.
 * `--trusted` mode and the `CON_LECHE_PROGRESS` lane.
 * Non-acceptance: a decline or a reject carries no claim. The verdict
   line reports the count of accepted stream records.
@@ -327,14 +430,14 @@ the bridge builds in its own CI job.
   semantic comparison of universe levels and a proof-irrelevance
   fall-through, both licensed by the soundness proof.
 
-## 9. Module map
+## 10. Module map
 
 | Directory | Contents |
 |---|---|
 | `Main.lean` | The driver: argument parsing, the stream parse, the two folds, verdict and exit codes. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the fixpoint route (`Direct/`), the modeled route (`Modeled.lean`), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: interned expressions, memo state, the cached core and declaration step, the parsed-record fold. |
-| `ConLeche/Frontend/` | The export parser (`Export*.lean`), the built-in prelude, the Nat-op ground reordering, the projection-function rewrite, the in-process modeller (`InModel/`). |
+| `ConLeche/Frontend/` | The export parser (`Export*.lean`), the built-in prelude, the Nat-op ground reordering, the projection-function rewrite, the in-process modeller (`InModel/`) — the only source of a block's model. |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/VExpr/` | The erased term language, its substitution algebra and the basis constants. |
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
@@ -347,7 +450,7 @@ the bridge builds in its own CI job.
 | `tests/` | The Lean test library (axiom pin, proof-dependency roots), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |
 
-## 10. Gates
+## 11. Gates
 
 `tests/arena.sh` is the standard battery: the layering fence, the
 proof-term module pin (`tests/proofdeps.sh`, which fails if a new

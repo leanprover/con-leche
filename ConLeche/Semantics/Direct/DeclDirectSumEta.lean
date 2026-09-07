@@ -195,9 +195,7 @@ theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
     (h : DeclIndRunDispatch μ F env block envI) : EtaFamiliesClosed envI := by
   unfold DeclIndRunDispatch at h
   split at h
+  · exact declDirectFixRun_etaClosed hE h
   · exact declIndEtaClosedRun hE h
-  · split at h
-    · exact declDirectFixRun_etaClosed hE h
-    · exact declIndEtaClosedRun hE h
 
 end ConLeche.Semantics

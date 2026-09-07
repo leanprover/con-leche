@@ -2,9 +2,8 @@
 """Build small e2e fixtures for the pin-certified Nat operations from a
 lean4export 3.x ndjson stream, by *dependency-closure slicing*: keep
 only the declarations transitively needed to install the operation
-(including any `_model` companion families the stream carries and the
-pin/certificate ground constants, whose names are supplied via a roots
-json produced from the generated pins), plus
+(with the pin/certificate ground constants, whose names are supplied
+via a roots json produced from the generated pins), plus
 
 * accept fixture: a literal `Eq.refl`-style theorem
   `opFact : op a [b] = r` exercising the certified literal fast path;
@@ -211,15 +210,6 @@ def main() -> None:
                 out.add(names[n])
         return out
 
-    # ---- model-companion index: declared name -> companion decl lines
-    companions: dict[str, list[int]] = {}
-    for li in decl_lines:
-        for dn in decl_names[li]:
-            if "_model" in dn:
-                base = dn.split("._model")[0]
-                # base may itself have trailing components (rec, ctor)
-                companions.setdefault(base, []).append(li)
-
     # ---- closure
     roots = set(pin_roots) | {opname, "Nat", "Eq", "Eq.refl"}
     included: set[int] = set()
@@ -242,11 +232,6 @@ def main() -> None:
             continue
         included.add(li)
         dep = decl_ref_names(li)
-        # model companions of every name declared by this record
-        for dn in decl_names[li]:
-            for cli in companions.get(dn, []):
-                if cli not in included:
-                    dep |= set(decl_names[cli])
         for d in dep:
             if d in declmap and d not in seen_names:
                 seen_names.add(d)

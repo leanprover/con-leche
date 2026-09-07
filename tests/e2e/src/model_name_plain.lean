@@ -16,6 +16,14 @@
    Committed as a *raw* lean4export result: nothing invents a `_model`
    declaration of its own (task #207 — there is no preprocessor, and
    the in-process modeller does not want this block).
+
+   Task #219 made this the load-bearing control it always claimed to
+   be.  A stream `_model` record used to be READ — the modeller stood
+   down for one and the install dispatch routed a block on its
+   presence — so "not special" meant only "not reserved".  It is
+   literally not special now: nothing in the frontend or the dispatch
+   looks at the name, and a record called `Foo._model` installs, or
+   does not, on its own merits alone.
 -/
 
 def Foo : Nat := Nat.zero

@@ -474,24 +474,21 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDecl env
   | .indDecl block =>
-    -- Task #82: an *artifact-free* recognised simple structure is
-    -- installed directly, from the reference checks alone
-    -- (`ConLeche/Kernel/Direct.lean`).  `directParts?` is a conservative
-    -- filter that also requires the block's `_model` companions to be
-    -- absent, so a stream that carries a model of its own keeps
-    -- today's route byte for byte; the module split
-    -- (`CheckerBase ← Modeled ← Checker`) is why
-    -- the dispatch lives here and not inside `checkIndDecl`.
-    -- The direct sum route (task #175 sum-types) takes the blocks with
-    -- ONE ROUTE (task #210): the fixpoint route takes every block whose
-    -- fields are ordinary, finitary-recursive or reflexive — the
-    -- structure and sum routes it replaced were deleted at Part C;
-    -- what it refuses (nested, a redex over a recursive field, a
-    -- recursive field a later binder mentions) is the modeled path's
-    -- ONE ROUTE (task #210 Part D): a block with an in-process `_model`
-    -- family (mutual, nested) that the raw reading refuses is the modeled
-    -- path's; every other block of the shape is the fixpoint route's
-    if blockIsModeled env.find? block then checkIndDecl mode ops env block else
+    -- ONE ROUTE (task #210): the fixpoint route takes every block it
+    -- RECOGNISES — one type former, one recursor, ordinary,
+    -- finitary-recursive or reflexive fields (the structure and sum
+    -- routes it replaced were deleted at Part C).  Everything else is
+    -- the modeled path's, and its model is the in-process modeller's
+    -- (`ConLeche/Frontend/InModel.lean`), whose records precede the
+    -- block in the very same parse; `checkIndDecl` DECLINES, naming the
+    -- block, when there is none.  The dispatch is the RECOGNISER alone
+    -- (task #219): a mutual or nested block carries several type
+    -- formers, resp. several recursors, so `directSumSplit` refuses it
+    -- outright and no model lookup is needed to route it — which is why
+    -- a stream record that happens to be named `T._model` has no effect
+    -- on any block.  The module split (`CheckerBase ← Modeled ←
+    -- Checker`) is why the dispatch lives here and not inside
+    -- `checkIndDecl`.
     match directFixParts? block with
     | some p => checkDirectFix ops env p
     | none => checkIndDecl mode ops env block
