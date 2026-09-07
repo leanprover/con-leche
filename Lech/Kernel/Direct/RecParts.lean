@@ -443,6 +443,11 @@ def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
     | some kinds =>
       if kinds.any (fun ks => ks.any (· == .negative)) then some ⟨p, kinds⟩
       else if kinds.any (fun ks => ks.any (· == .unsupported)) then none
+      -- a reflexive field is taken only at a `Prop`-valued block (task
+      -- #202, Stage A): elsewhere the block falls through to the
+      -- modeled path (the fixpoint route's membership bound for
+      -- `Type`-valued reflexive blocks is Stage B)
+      else if kinds.any (fun ks => ks.any (· == .reflexive)) && !p.isProp then none
       else if kinds.any (fun ks => ks.any fun k => k == .recursive || k == .reflexive) then
         if directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) p.nP p.ctors.length
             p.ctors kinds p.rhss then

@@ -188,10 +188,10 @@ occurrence, an index expression through the block or an earlier
 recursive field — is NOT native (the recogniser admits it only to
 reject or to fall through to the modeled path, and leaving such a block
 modeled changes no verdict the route could accept). -/
-def lechFixFieldsOk (T : Lean.Name) (lps : List Lean.Name) (nP nIdx : Nat) :
+def lechFixFieldsOk (T : Lean.Name) (lps : List Lean.Name) (nP nIdx : Nat) (allowRefl : Bool) :
     Lean.Expr → Nat → Nat → Bool
   | .forallE _ dom body _, k, i =>
-    if k < nP then lechFixFieldsOk T lps nP nIdx body (k + 1) i
+    if k < nP then lechFixFieldsOk T lps nP nIdx allowRefl body (k + 1) i
     else
       let noT := fun (e : Lean.Expr) => (e.find? fun e => e.isConstOf T).isNone
       -- the domain's own `∀`-telescope (empty at a finitary field, the
@@ -201,13 +201,14 @@ def lechFixFieldsOk (T : Lean.Name) (lps : List Lean.Name) (nP nIdx : Nat) :
         | e, m => (m, e)
       let (m, fam) := peel dom 0
       (noT dom ||
-        (fam.getAppFn == Lean.mkConst T (lps.map .param) &&
+        ((m == 0 || allowRefl) &&
+          fam.getAppFn == Lean.mkConst T (lps.map .param) &&
           fam.getAppNumArgs == nP + nIdx &&
           fam.getAppArgs.toList.take nP ==
             ((List.range nP).map fun j => Lean.mkBVar (m + i + nP - 1 - j)) &&
           (fam.getAppArgs.toList.drop nP).all noT &&
           !body.hasLooseBVar 0)) &&
-      lechFixFieldsOk T lps nP nIdx body (k + 1) (i + 1)
+      lechFixFieldsOk T lps nP nIdx allowRefl body (k + 1) (i + 1)
   | e, _, _ => (e.getAppArgs.toList.drop nP).all fun a => (a.find? fun e => e.isConstOf T).isNone
 
 /-- THE DIRECT FIXED-POINT CLASS (task #188): a RECURSIVE, non-nested,
@@ -230,7 +231,9 @@ def lechNativeFix (type : EIndType) (ctors : List ECtor) (rec : ERec) : Bool :=
     ctor.levelParams == type.levelParams &&
     ctor.numParams == type.numParams && !ctor.isUnsafe &&
     !lechReservedBasisNames.contains ctor.name &&
-    lechFixFieldsOk type.name type.levelParams type.numParams type.numIndices ctor.type 0 0) &&
+    -- a reflexive field only at a `Prop`-valued block (task #202, Stage A)
+    lechFixFieldsOk type.name type.levelParams type.numParams type.numIndices
+      (type.type.getForallBody == Lean.mkSort Lean.Level.zero) ctor.type 0 0) &&
   -- the recursor: `T.rec`, the family's indices, one motive, one minor
   -- and one rule per constructor in constructor order
   rec.name == type.name.str "rec" && rec.numIndices == type.numIndices &&
