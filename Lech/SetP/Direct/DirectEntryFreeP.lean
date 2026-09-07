@@ -129,7 +129,7 @@ theorem fvarLeaves_instantiate1_of_not_hasLooseBVar :
     exact ihe v k hk l hl
 
 omit [SetTheory V] in
-theorem fvar_hasLooseBVar (idx : Nat) (nm : Name) (ty : Expr) (i : Nat) :
+theorem fvar_hasLooseBVar (idx : Nat) (ty : Expr) (i : Nat) :
     (Expr.fvar idx ty).hasLooseBVar i = false := rfl
 
 omit [SetTheory V] in
@@ -196,7 +196,7 @@ theorem openPisAtFvars_leaf_free :
           obtain ⟨hr, -⟩ := Expr.stripPis_instantiate1_eq (v := .fvar d dom) (m + 1) 0 hst' hst''
           rw [Nat.zero_add] at hr
           have hfree' : rest''.hasLooseBVar 0 = false := by
-            rw [hr, hasLooseBVar_instantiate1_lt (fvar_hasLooseBVar d nm dom) rest' 0 (m + 1)
+            rw [hr, hasLooseBVar_instantiate1_lt (fvar_hasLooseBVar d dom) rest' 0 (m + 1)
               (by omega)]
             exact hfree
           have hleaves' : ∀ l ∈ (body.instantiate1 (.fvar d dom)).fvarLeaves,
@@ -237,7 +237,7 @@ theorem natLitT2_liftN {za sa : AVExpr} {k : Nat} (hz : za.liftN 1 k = za)
 
 /-- The `let` clause's inversion (`denoteP_forallE_inv`'s twin). -/
 theorem denoteP_letE_inv' {acval : Name → (Name → Nat) → AVExpr} {env : Env} {φ : Name → Nat}
-    {d : Nat} {n : Name} {ty val body : Expr} {ea : AVExpr}
+    {d : Nat} {ty val body : Expr} {ea : AVExpr}
     (h : denoteP acval env φ d (.letE ty val body) = some ea) :
     ∃ ta va ba, denoteP acval env φ d ty = some ta ∧ denoteP acval env φ d val = some va ∧
       denoteP acval env φ (d + 1) (body.instantiate1 (.fvar d ty)) = some ba ∧
@@ -275,7 +275,7 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
     rw [denoteP] at h
     obtain rfl := Option.some.inj h
     simp only [Expr.WScoped] at hw
-    have hne : idx ≠ q := hl (idx, nm, ty) (by simp [Expr.fvarLeaves])
+    have hne : idx ≠ q := hl (idx, ty) (by simp [Expr.fvarLeaves])
     rcases Nat.lt_or_gt_of_ne hne with hlt | hgt
     · refine ⟨.bvar (d - 2 - idx), ?_⟩
       rw [AVExpr.liftN_bvar, if_neg (by omega)]
