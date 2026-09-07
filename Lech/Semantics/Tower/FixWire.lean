@@ -107,10 +107,10 @@ theorem ihArgAV_below {k nP n nIdx D i : Nat} {Eis : List AVExpr}
 /-- The inductive-hypothesis arguments of every constructor at every
 payload frame. -/
 theorem ihArgsI_below {k nP n nIdx : Nat} {rss : List (List Bool)}
-    {Eiss : List (List (List AVExpr))} {ar : Nat → Nat}
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {ar : Nat → Nat}
     (hE : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [], VExpr.bvarsBelow (nP + i) E.erase)
     (D j : Nat) :
-    ∀ a ∈ ihArgsI nP n nIdx rss Eiss ar D j,
+    ∀ a ∈ ihArgsI nP n nIdx rss tlss Eiss ar D j,
       VExpr.bvarsBelow (k + 1 + nP + 1 + n + nIdx + D + 1) a.erase := by
   intro a ha
   obtain ⟨i, -, rfl⟩ := List.mem_map.mp ha
@@ -158,13 +158,13 @@ theorem caseRecAVI_below {ℓ w n nIdx K : Nat} (hK : nIdx + n < K) {Fss : List 
 /-- The recursor body is bounded one below the K-frame
 `K = k + 1 + nP + 1 + n + nIdx`. -/
 theorem fixRecBodyAVI_below {ℓ w k nP nIdx : Nat} {Fss Ess : List (List AVExpr)}
-    {Ids : List AVExpr} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    {Ids : List AVExpr} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))}
     (hIds : Ids.length = nIdx)
     (h : ∀ Fs' ∈ rChains (nIdx + Fss.length + 1) nIdx Fss Ess,
       FieldsBelow (k + 1 + nP + 1 + Fss.length + nIdx) Fs')
     (hE : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [], VExpr.bvarsBelow (nP + i) E.erase) :
     VExpr.bvarsBelow (k + 1 + nP + 1 + Fss.length + nIdx + 1)
-      (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss).erase := by
+      (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss).erase := by
   by_cases hw : w = 0
   · subst hw
     rw [fixRecBodyAVI_zero]
@@ -173,7 +173,7 @@ theorem fixRecBodyAVI_below {ℓ w k nP nIdx : Nat} {Fss Ess : List (List AVExpr
     refine ⟨?_, show (0 : Nat) < k + 1 + nP + 1 + Fss.length + nIdx + 1 by omega⟩
     have := caseRecAVI_below (ℓ := ℓ) (w := w) (K := k + 1 + nP + 1 + Fss.length + nIdx)
       (ar := fun j => (Fss.getD j []).length)
-      (ihArgs := ihArgsI nP Fss.length nIdx rss Eiss (fun j => (Fss.getD j []).length))
+      (ihArgs := ihArgsI nP Fss.length nIdx rss tlss Eiss (fun j => (Fss.getD j []).length))
       (show nIdx + Fss.length < k + 1 + nP + 1 + Fss.length + nIdx by omega) h
       (fun D j => ihArgsI_below (k := k) (rss := rss) (ar := fun j => (Fss.getD j []).length) hE D j)
       Fss.length (D := 1) (j := 0)
@@ -207,14 +207,14 @@ theorem domsBelow_mono : ∀ {ds : List (Nat × Nat × AVExpr)} {k k' : Nat}, k 
 conclusion mentions the motive, the indices and the major, its body is
 the case split one below the K-frame. -/
 theorem directFixRecAVI_below {ℓ w nP s : Nat} {Fss Ess : List (List AVExpr)}
-    {Ids : List AVExpr} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    {Ids : List AVExpr} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))}
     {rds : List (Nat × Nat × AVExpr)} (k : Nat)
     (hd : DomsBelow 0 rds) (hlen : rds.length = nP + 1 + Fss.length + Ids.length + 1)
     (_hIds : Ids.length = Ids.length)
     (hFss : ∀ Fs' ∈ rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess,
       FieldsBelow (nP + 1 + Fss.length + Ids.length) Fs')
     (hE : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [], VExpr.bvarsBelow (nP + i) E.erase) :
-    VExpr.bvarsBelow k (directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds s).erase := by
+    VExpr.bvarsBelow k (directFixRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).erase := by
   have hconc : ∀ m, VExpr.bvarsBelow (m + rds.length) (recConcAV Fss.length Ids.length).erase := by
     intro m
     have hlt : Ids.length + Fss.length < m + rds.length - 1 := by rw [hlen]; omega
@@ -223,16 +223,16 @@ theorem directFixRecAVI_below {ℓ w nP s : Nat} {Fss Ess : List (List AVExpr)}
     exact ⟨this, show (0 : Nat) < m + rds.length by rw [hlen]; omega⟩
   have hTy : ∀ m, VExpr.bvarsBelow m (recTyAV Fss.length Ids.length rds).erase := fun m =>
     mkPisAV_below_of (domsBelow_mono (Nat.zero_le m) hd) (hconc m)
-  have hstep : ∀ m, VExpr.bvarsBelow m (fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds s).erase := by
+  have hstep : ∀ m, VExpr.bvarsBelow m (fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).erase := by
     intro m
     refine ⟨hTy m, ?_⟩
     refine mkLamsC_below (domsBelow_mono (Nat.zero_le (m + 1)) hd) ?_
     have := fixRecBodyAVI_below (ℓ := ℓ) (w := w) (k := m) (nP := nP) (nIdx := Ids.length)
-      (Fss := Fss) (Ess := Ess) (Ids := Ids) (rss := rss) (Eiss := Eiss) rfl
+      (Fss := Fss) (Ess := Ess) (Ids := Ids) (rss := rss) (tlss := tlss) (Eiss := Eiss) rfl
       (fun Fs' hFs' => fieldsBelow_mono (by omega) (hFss Fs' hFs')) hE
     rwa [show m + 1 + nP + 1 + Fss.length + Ids.length + 1 = m + 1 + rds.length from by
       rw [hlen]; omega] at this
-  have hsig : VExpr.bvarsBelow k (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds s).erase := by
+  have hsig : VExpr.bvarsBelow k (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).erase := by
     refine ⟨⟨trivial, hTy k⟩, hTy k, ?_⟩
     refine ⟨?_, ⟨?_, show (0 : Nat) < k + 1 by omega⟩, show (0 : Nat) < k + 1 by omega⟩
     · rw [AVExpr.erase_liftN]

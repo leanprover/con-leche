@@ -55850,28 +55850,33 @@ Two ways out, and the split they induce:
    λ over the field's domain applied to the recursive call.
 **Stage B (after the ruling): `Type`-valued reflexive blocks.**
 
-### RULING (user, via the coordinator, 2026-09-07): Stage B is an in-process `_model`, not a model extension
+### RULING (user, via the coordinator, 2026-09-07, revised the same day): Stage B is the DIRECT route, via path coding in the set model
 
-The five `Type`-valued reflexive blocks (`WType`, `PSet`,
+First ruling (superseded): an in-process W-tree `_model` on the #200
+pattern.  Revised on the user's question "is it not easier to define
+the coding paths in set theory and thus do a direct, not modelled,
+construction?" — yes.  Stage B keeps the fixpoint route for the five
+`Type`-valued reflexive blocks (`WType`, `PSet`,
 `FirstOrder.Language.Term`, `Turing.PartrecToTM2.Λ'`,
-`PFunctor.Approx.CofixA`) are NOT taken by extending the fixpoint
-route's model — no union clause on `IsTGUniverse`, no tree-coding of
-the least fixed point.  After Stage A lands (A1 + A2, `Acc` native),
-Stage B ports lean-inductive-models' W-tree arm over `Lech.Expr` in
-`Lech/Frontend/InModel/*` on the #200 pattern: the carrier coded as
-trees (sets of labelled paths inside a function space built from the
-basis operations), constructors and recursor as definitions by
-well-founded recursion on the coding (why `Acc` must be native first),
-the `_model` slots, the iota theorems, `proj_i` where structure-like —
-generated at parse time, checked by the fold, installed through the
-unchanged modeled route; `lechNative` in lockstep; the native audit
-learns the class; fixtures for a W-type, a `PSet`-shaped and a
-first-order-term-shaped block; the five Mathlib cones accepting.  The
-set-theory interface stays untouched.  WHY it suffices: the model
-route never builds a least fixed point — every generated declaration
-is a definition over the basis, and its carrier's membership in
-`univ w` is power-set/subset closure, which Tarski's form gives — the
-same reason those blocks already check today through the tool.  The
-uniform fixpoint treatment of the five goes to the quiet-time docket
-as a refinement.  Stage B runs on a fresh branch after Stage A's
-READY.
+`PFunctor.Approx.CofixA`), option (b) of the finding above: the
+carrier stays the least fixed point — for an infinitary functor
+defined as the intersection of the pre-fixed points inside
+`univChain (n + 1)` (`univChain n` is `F`-closed when the parameters
+and field domains are its members), with the Knaster–Tarski
+fixed-point equation and induction principle — and `μ ∈ univChain n`
+is proved by an INJECTION into a member: each tree ↦ its set of
+labelled paths (a subset of a `List (Σ a, B a) × A`-shaped member
+built from the basis operations), defined by the same membership-WF
+recursion the recursor uses, injective by lfp induction; Tarski's
+clause then gives membership (`|μ| ≤ |a member| < |univ|`).  The
+lemma is to be GENERIC in the constructor data so it also subsumes
+the finitary ω-iterate and the `Prop` top-family witnesses — one
+closure-witness lemma, no case split (a simplification of A1's
+`XChainsOk.hwit` disjunction, which is the interim).  Everything else
+as planned: `.reflexive` kind, pointwise ih, membership-WF recursor;
+the set-theory interface untouched; A2 (`Acc`) first, then Stage B
+with fixtures for a W-type, a `PSet`-shaped and a first-order-term-
+shaped block and the five Mathlib cones accepting on route `fix`.
+WHY the direct route: no certification tax (a generated `_model`
+family would be checked declaration by declaration), one route for
+all recursive blocks, no generated family to maintain in lockstep.
