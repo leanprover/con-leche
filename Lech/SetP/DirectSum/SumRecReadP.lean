@@ -770,9 +770,9 @@ theorem denoteP_motiveI {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {lp
         ⟨.never⟩))
       = .forallE (Expr.mkAppN (.const T (lps.map .param)) (tfvs ++ ifvs))
           (.sort ℓ) ⟨.never⟩ := by
-    rw [Expr.instSeq_forallE tfvs (nP - 1 + nIdx) _ _ _ _ (by omega), hdom1,
+    rw [Expr.instSeq_forallE tfvs (nP - 1 + nIdx) _ _ _ (by omega), hdom1,
       Expr.instSeq_eq_self _ _ (e := Expr.sort ℓ) rfl,
-      Expr.instSeq_forallE ifvs (nIdx - 1) _ _ _ _ (by omega), hdom2,
+      Expr.instSeq_forallE ifvs (nIdx - 1) _ _ _ (by omega), hdom2,
       Expr.instSeq_eq_self _ _ (e := Expr.sort ℓ) rfl]
   rw [hbody] at hmotive
   have hspine := denoteP_famSpine_at (m := m) (ψ := ψ) hfT hlpsT (o := 0) hlenT hlenI hidxT
@@ -828,7 +828,7 @@ theorem denoteP_directRecTyI {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
     stripPisAV_mkPisAV_take nP ppsAll _ (by omega)
   rw [denoteP_replacePisPw nP hrec hopT hTread hst, Nat.zero_add]
   -- the motive binder, instantiated at the parameters
-  rw [Expr.instSeq_forallE tfvs (nP - 1) _ _ _ _ (by omega),
+  rw [Expr.instSeq_forallE tfvs (nP - 1) _ _ _ (by omega),
     instSeq_idx_congr (sp := tfvs) (t := nP - 1 + 1) (t' := nP) minors hnil]
   have hmotive := denoteP_motiveI hfT hlpsT hsT hmot hTf hstripT hTread hlenP hlenT hidxT hspW
   rw [denoteP_forallE, hmotive]
@@ -948,7 +948,7 @@ theorem denoteP_directRecTyI {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
           (Expr.mkAppN (.fvar nP tyM) (ifvs ++ [.bvar 0])) ⟨pw⟩ := by
     rw [Expr.instSeq_forallE (tfvs ++ extras') (nP + 1 + n - 1 + nIdx) _ _ _ _
         (by rw [hlenTE]; omega), hdom1, hcod1,
-      Expr.instSeq_forallE ifvs (nIdx - 1) _ _ _ _ (by omega), hdom2, hcod2]
+      Expr.instSeq_forallE ifvs (nIdx - 1) _ _ _ (by omega), hdom2, hcod2]
   rw [hbody] at hmajR
   -- the major's reading
   have hspine := denoteP_famSpine_at (m := m) (ψ := ψ) hfT hlpsT (o := 1 + n) hlenT hlenI hidxT
@@ -1048,7 +1048,7 @@ theorem denoteP_directRecRhsI {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
     stripPisAV_mkPisAV_take nP ppsAll _ (by omega)
   rw [denoteP_pisToLamsPw nP hr hopT hTread hst, Nat.zero_add]
   -- the motive binder
-  rw [Lech.instSeq_lam tfvs (nP - 1) _ _ _ _ (by omega),
+  rw [Lech.instSeq_lam tfvs (nP - 1) _ _ _ (by omega),
     instSeq_idx_congr (sp := tfvs) (t := nP - 1 + 1) (t' := nP) minors hnil]
   have hmotive := denoteP_motiveI hfT hlpsT hsT hmot hTf hstripT hTread hlenP hlenT hidxT hspW
   rw [denoteP_lam, hmotive]
