@@ -547,6 +547,8 @@ theorem stageFixRec {p : DirectFixParts} (hE : ConLeche.EtaFamiliesClosedExcept 
       (∀ n, n ≠ cvRa.name → m₂.acval n = mp.base2.acval n) →
       FormerData m₂ cvTa (p.nP + p.nIdx) p.resSort ppsAll →
       (∀ ψ, m₂.acval p.cvT.name ψ = mp.base2.acval p.cvT.name ψ) →
+      (∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
+        ∀ ψ, m₂.acval cA.1.name ψ = mp.base2.acval cA.1.name ψ) →
       CapsLawsAt m₂ p.cvT.name cvTa caps)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     {tfvs : List Expr} {trest : Expr}
@@ -1076,11 +1078,16 @@ theorem stageFixRec {p : DirectFixParts} (hE : ConLeche.EtaFamiliesClosedExcept 
         constsBound_of_constsResolve _
           (mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)).2.2.1
       refine hTlaws m₂ (fun n hn => ?_)
-        (hFD.cross (c₀ := c₀) hfresh (hcross _) hcbT m₂ hac) (fun ψ => ?_)
+        (hFD.cross (c₀ := c₀) hfresh (hcross _) hcbT m₂ hac) (fun ψ => ?_) (fun j cA hj ψ => ?_)
       · rw [hac]
         exact acvalWith_ne hn
       · rw [hac]
         exact congrFun (acvalWith_ne hTR) ψ
+      · obtain ⟨hf, -, -⟩ := hcf j cA hj
+        have hCR : cA.1.name ≠ cvRa.name := by
+          intro h; rw [h, hfresh] at hf; exact nomatch hf
+        rw [hac]
+        exact congrFun (acvalWith_ne hCR) ψ
   · -- `rec_rules`
     intro m₂ hac φ'
     refine recRulesP_cons_rec mp (c₀ := c₀) (A := A) hfresh rfl m₂ hac φ' ?_

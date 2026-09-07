@@ -53,10 +53,11 @@ index count, as at the sum route's `Eq`); nothing at any other block.
 The projection TABLE (`checkDirectFixTable`) does not depend on this
 record: official's `infer_proj` types `.proj` on any one-constructor
 index-free family, recursive or not.  At a FIELDLESS constructor the
-record claims unit-likeness and not η: official's `try_eta_struct`
-there compares no fields, which `is_def_eq_unit_like` already decides
-— the same verdicts, and the only capability law the route owes is
-the unit law (`FixZeroFieldP.lean`), read off the former's fold alone.  (Granting η at a recursive
+record claims BOTH unit-likeness and η, as official's `is_structure_like`
+does: the recursor's major-premise rescue (`Core.lean`, the
+`etaFields = 0` arm — arena `073_typeSingletonRecReduction`) keys on η,
+and the η law owed there is the constructor at the parameters
+(`FixZeroFieldP.fixFibreEtaLaw0`).  (Granting η at a recursive
 structure-like was tried and is UNSOUND IN PRACTICE though sound in
 the model: on `ind_nest_via_refl` the tool's nested model over a
 reflexive `W1 α = sup (a : α) (f : Nat → W1 α)` made `isDefEq` spin
@@ -66,7 +67,7 @@ sum route's domain (never one constructor without an index) this is
 def directFixCaps (p : DirectFixParts) : IndCaps :=
   match p.ctors with
   | [c] =>
-    { eta := p.nIdx == 0 && !p.isProp && c.2 != 0 &&
+    { eta := p.nIdx == 0 && !p.isProp &&
         !(p.kinds.any fun ks => ks.any fun k => k == .recursive || k == .reflexive)
       etaCtor := c.1.name
       etaParams := p.nP

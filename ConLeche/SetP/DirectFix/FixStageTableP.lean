@@ -57,7 +57,7 @@ theorem rChains_single_nil (Fs : List AVExpr) :
 theorem _root_.ConLeche.directFixCaps_single {p : DirectFixParts} {c : ConstantVal × Nat}
     (h : p.ctors = [c]) :
     ConLeche.directFixCaps p =
-      { eta := p.nIdx == 0 && !p.isProp && c.2 != 0 &&
+      { eta := p.nIdx == 0 && !p.isProp &&
           !(p.kinds.any fun ks => ks.any fun k => k == .recursive || k == .reflexive),
         etaCtor := c.1.name, etaParams := p.nP,
         etaFields := c.2, unitlike := p.nIdx == 0 && c.2 == 0, unitParams := p.nP,
@@ -72,15 +72,22 @@ theorem fixTableFamFree {p : DirectFixParts} {ctorsA : List (ConstantVal × Nat)
     {sortss : List (List Level)} {env₃ env₂ : Env}
     (hTbl : ConLeche.checkDirectFixTable (m := ConLeche.CheckM) p ctorsA sortss env₃ = .ok env₂)
     (hlenA : ctorsA.length = p.ctors.length) (hlenS : sortss.length = p.ctors.length)
-    (hnFc : ∀ cA c, ctorsA = [cA] → p.ctors = [c] → cA.2 = c.2) :
+    (hnFc : ∀ cA c, ctorsA = [cA] → p.ctors = [c] → cA.2 = c.2)
+    (hU : (ConLeche.directFixCaps p).unitlike = false) :
     (ConLeche.directFixCaps p).eta = true →
       env₃.find? (projFnName p.cvT.name 0) = none := by
   intro he
-  unfold ConLeche.directFixCaps at he
-  split at he
+  have he' := he
+  unfold ConLeche.directFixCaps at he'
+  split at he'
   · next c hc =>
-    simp only [Bool.and_eq_true, beq_iff_eq, bne_iff_ne, ne_eq] at he
-    obtain ⟨⟨⟨hnIdx, -⟩, hnF⟩, -⟩ := he
+    simp only [Bool.and_eq_true, beq_iff_eq] at he'
+    obtain ⟨⟨hnIdx, -⟩, -⟩ := he'
+    rw [ConLeche.directFixCaps_single hc] at hU
+    have hU' : (p.nIdx == 0 && c.2 == 0) = false := hU
+    rw [hnIdx] at hU'
+    simp only [beq_self_eq_true, Bool.true_and, beq_eq_false_iff_ne, ne_eq] at hU'
+    have hnF : c.2 ≠ 0 := hU'
     rw [hc, List.length_singleton] at hlenA hlenS
     obtain ⟨cA, rfl⟩ := List.length_eq_one_iff.mp hlenA
     obtain ⟨sorts, rfl⟩ := List.length_eq_one_iff.mp hlenS
@@ -89,7 +96,7 @@ theorem fixTableFamFree {p : DirectFixParts} {ctorsA : List (ConstantVal × Nat)
     have hpos : 0 < cA.2 := by rw [hnFc cA c rfl hc]; omega
     have := List.all_eq_true.mp hfree 0 (List.mem_range.mpr hpos)
     exact Option.isNone_iff_eq_none.mp this
-  · exact nomatch he
+  · exact nomatch he'
 
 /-- The block's capability laws are vacuous (task #210 Part A): the
 constructor has a field, so the block is never unit-like; its η claim
@@ -101,15 +108,19 @@ theorem fixCapsLawsAt_vacuous {env' : Env} (m' : EnvS2Core V env') {p : DirectFi
       env'.find? (projFnName p.cvT.name 0) = none) :
     CapsLawsAt m' p.cvT.name cvTa (ConLeche.directFixCaps p) := by
   refine capsLawsAt_vacuous m' hU fun he => ⟨?_, hfr he⟩
-  revert he
-  unfold ConLeche.directFixCaps
-  split
+  have he' := he
+  unfold ConLeche.directFixCaps at he'
+  split at he'
   · next c hc =>
-    intro he
-    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at he
+    simp only [Bool.and_eq_true, beq_iff_eq] at he'
+    obtain ⟨⟨hnIdx, -⟩, -⟩ := he'
+    rw [ConLeche.directFixCaps_single hc] at hU ⊢
+    have hU' : (p.nIdx == 0 && c.2 == 0) = false := hU
+    rw [hnIdx] at hU'
+    simp only [beq_self_eq_true, Bool.true_and, beq_eq_false_iff_ne, ne_eq] at hU'
     show 0 < c.2
     omega
-  · intro h; exact nomatch h
+  · exact nomatch he'
 
 /-- `NoProjEnv` across the constructors' conses. -/
 theorem noProjEnv_consSumCtors {T : Name} {i nP : Nat} :
@@ -621,7 +632,7 @@ theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {p : DirectF
         intro he
         rw [hcapsR] at he ⊢
         simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at he
-        refine ⟨by rw [← hProp]; exact he.1.1.2, hCname.symm, rfl, hnFc'.symm⟩
+        refine ⟨by rw [← hProp]; exact he.1.2, hCname.symm, rfl, hnFc'.symm⟩
       -- the recursor's constant and its freshness
       obtain ⟨cvRi, recTy, sty, u, hccvR, hgenR, -, -, -, -, -, -, -, hrules, hcvRa⟩ :=
         ConLeche.checkDirectFixRec_shape hRec

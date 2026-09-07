@@ -63,9 +63,14 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
     -- invariant reaches (task #210 Part A)
     (caps : IndCaps)
     (leafT : (Name → Nat) → AVExpr)
-    (hTlawsOf : ∀ {env' : Env} (m' : EnvS2Core V env'), Inv m' →
+    (hTlawsOf : ∀ {env' : Env} (m' : EnvS2Core V env') (k : Nat) (cA : ConstantVal × Nat),
+      ctorsA[k]? = some cA → Inv m' →
       FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll →
-      (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) → CapsLawsAt m' p.cvT.name cvTa caps)
+      (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) →
+      (∀ ψ, m'.acval cA.1.name ψ
+        = directSumMkAV (p.resSort.eval ψ) k (dsF k ψ) (((dsF k ψ).drop p.nP).map (·.2.2))
+            (uChains (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0)))) →
+      CapsLawsAt m' p.cvT.name cvTa caps)
     (hfold : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP).map (·.2.2)) bs →
@@ -135,19 +140,19 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       constsBound_of_constsResolve _ (mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)).2.2.1
     have hcross : ∀ e : Expr, ConsCrossAt (.ctorInfo cA.1 p.nP cA.2) e :=
       fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
-    obtain ⟨mpC, hacC⟩ := stageCtorGen (j := k) hE mp hCtor hfresh htr hfT
-      (fun m₂ hag => by
+    obtain ⟨mpC, hacC⟩ := stageCtorGen (j := k) hE mp hCtor hfresh htr hfT hlpsT hlpsC
+      (fun m₂ hag hleafC₂ => by
         have hac : m₂.acval = acvalWith mp.base2.acval cA.1.name
             (fun ψ => m₂.acval cA.1.name ψ) := by
           funext n ψ
           by_cases hn : n = cA.1.name
           · subst hn; exact (congrFun acvalWith_self ψ).symm
           · rw [hag n hn]; exact (congrFun (acvalWith_ne hn) ψ).symm
-        exact hTlawsOf m₂ (hInv mp.base2 cA (fun ψ => m₂.acval cA.1.name ψ) m₂
+        exact hTlawsOf m₂ k cA hcAk (hInv mp.base2 cA (fun ψ => m₂.acval cA.1.name ψ) m₂
             (List.mem_of_getElem? hcAk) hfresh hac hinv)
           (hFD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh (hcross _) hcbT m₂ hac)
-          (fun ψ => by rw [hag _ hTC]; exact hleafT ψ))
-      hlpsT hlpsC hFD hCD
+          (fun ψ => by rw [hag _ hTC]; exact hleafT ψ) hleafC₂)
+      hFD hCD
       hfoldC hFsj hEsj hFssParams hFssBelow (hiff k cA hcAk)
       (fun ψ ρ hρ => hFssOkP ψ ρ ((hiff k cA hcAk ψ ρ).mpr hρ)) (hIdx k cA hcAk)
     -- the invariants at the extension

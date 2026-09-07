@@ -145,4 +145,57 @@ theorem fixFibreUnitLaw {m : EnvS2Core V env} {φ' : Name → Nat} {T : Name}
         | cons _ _ => exact hspy.elim
         | nil => rfl
 
+/-- **The fieldless η law at the fixpoint leaf**: a member is the one
+tagged empty tuple, and the constructor along the parameters is that
+tuple (the point at a squash instance) — the fabricated η spine at no
+field is the constructor at the parameters. -/
+theorem fixFibreEtaLaw0 {m : EnvS2Core V env} {φ' : Name → Nat} {T : Name}
+    {cvT : ConstantVal} {caps : IndCaps}
+    {u w : (Name → Nat) → Nat} {pps ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
+    {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AVExpr)))}
+    {eiss : (Name → Nat) → List (List (List AVExpr))} {Fss₀ Ess : (Name → Nat) → List (List AVExpr)}
+    (hfields : caps.etaFields = 0)
+    (hleaf : ∀ ψ, m.acval T ψ
+      = directFixTyAVI (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ))
+    (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
+      SpineFit ρ ((pps ψ).map (·.2.2)) ts →
+      ts.foldl SetTheory.app (interp2 V ρ
+          (directFixTyAVI (u ψ) (w ψ) (pps ψ) [] rss (tlss ψ) (eiss ψ) (Fss₀ ψ) (Ess ψ)))
+        = sumSet (w ψ) (sumFibre (w ψ) (consList ts ρ) [[] ++ [idxEqAV []]]))
+    (hleafC : ∀ ψ, m.acval caps.etaCtor ψ = directSumMkAV (w ψ) 0 (ds ψ) [] (uChains [[]]))
+    (hread : ∀ ψ, denoteP m.acval env ψ 0 cvT.type
+      = some (mkPisAV (pps ψ) (.sort (w ψ))))
+    (hokTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      AnnotOkP V ρ (mkPisAV (pps ψ) (.sort (w ψ))))
+    (hfit : ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V),
+      SpineFit ρ ((pps ψ).map (·.2.2)) as → SpineFit ρ ((ds ψ).map (·.2.2)) as)
+    (hpar : ∀ ψ, caps.etaParams = (pps ψ).length) :
+    EtaLawP m φ' T cvT caps := by
+  intro us _
+  refine ⟨mkPisAV (pps (Level.substFn φ' cvT.levelParams us))
+    (.sort (w (Level.substFn φ' cvT.levelParams us))), ?_, hokTy _, ?_⟩
+  · rw [denotePInstLevels m φ' cvT.levelParams us 0 cvT.type]
+    exact hread _
+  · intro ρ ts rest x hlen hfitT hx
+    have hsp := spineFit_of_teleFitP (by rw [hlen, hpar]) hfitT
+    rw [hleaf, hfold _ ρ ts hsp] at hx
+    rw [hfields]
+    simp only [etaFabArgs2, projSpines2, List.range_zero, List.map_nil, List.append_nil]
+    rw [hleafC]
+    by_cases hw : w (Level.substFn φ' cvT.levelParams us) = 0
+    · rw [hw] at hx
+      obtain ⟨rfl, -⟩ := fixFibre_zero_elim hx
+      rw [hw, directSumMkAV_zero, foldl_app_pt]
+    · obtain ⟨fs, rfl, hspx, -⟩ := fixFibre_elim (Fs := []) hw hx
+      cases fs with
+      | cons _ _ => exact hspx.elim
+      | nil =>
+        have hfd := directSumMkAV_fold hw (j := 0) (pds := ds _) (fds := []) (Fss := uChains [[]])
+          (ρ := ρ) (as := ts) (bs := []) (by simpa using hfit _ ρ ts hsp) trivial
+          (SumFieldsOkB_uChains fun _ h => by
+            simp only [List.mem_singleton] at h
+            subst h; trivial) rfl
+        simp only [List.append_nil, List.map_nil] at hfd
+        rw [hfd]
+
 end ConLeche.SetP
