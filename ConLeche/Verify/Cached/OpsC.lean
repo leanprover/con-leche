@@ -2065,58 +2065,60 @@ theorem instantiate1LiftB_spec {v : ExprC} : ∀ (e : ExprC) (fuel d : Nat) (r :
   induction e with
   | bvar i =>
     intro fuel d r h
-    rw [instantiate1LiftB.eq_def] at h
-    split at h
-    · rename_i hcut
-      obtain rfl := Option.some.inj h
-      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
-    · simp only [Option.some.injEq] at h
+    by_cases hcut : (Expr.bvar i).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
       subst h
-      by_cases hid : i = d
-      · simp [Expr.instantiate1Lift, hid]
-      · by_cases hid' : i > d
-        · simp [Expr.instantiate1Lift, hid, hid']
-        · simp [Expr.instantiate1Lift, hid, hid']
+      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel <;> simp only [Option.some.injEq] at h <;> subst h <;>
+        by_cases hid : i = d <;> by_cases hid' : i > d <;>
+        simp [Expr.instantiate1Lift, hid, hid']
   | fvar idx ty _ =>
     intro fuel d r h
-    rw [instantiate1LiftB.eq_def] at h
-    split at h
-    · rename_i hcut
-      obtain rfl := Option.some.inj h
+    by_cases hcut : (Expr.fvar idx ty).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
       exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
-    · simp only [Option.some.injEq] at h; subst h; rfl
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel <;> simp only [Option.some.injEq] at h <;> subst h <;> rfl
   | sort u =>
     intro fuel d r h
-    rw [instantiate1LiftB.eq_def] at h
-    split at h
-    · rename_i hcut
-      obtain rfl := Option.some.inj h
+    by_cases hcut : (Expr.sort u).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
       exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
-    · simp only [Option.some.injEq] at h; subst h; rfl
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel <;> simp only [Option.some.injEq] at h <;> subst h <;> rfl
   | const n us =>
     intro fuel d r h
-    rw [instantiate1LiftB.eq_def] at h
-    split at h
-    · rename_i hcut
-      obtain rfl := Option.some.inj h
+    by_cases hcut : (Expr.const n us).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
       exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
-    · simp only [Option.some.injEq] at h; subst h; rfl
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel <;> simp only [Option.some.injEq] at h <;> subst h <;> rfl
   | lit l =>
     intro fuel d r h
-    rw [instantiate1LiftB.eq_def] at h
-    split at h
-    · rename_i hcut
-      obtain rfl := Option.some.inj h
+    by_cases hcut : (Expr.lit l).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
       exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
-    · simp only [Option.some.injEq] at h; subst h; rfl
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel <;> simp only [Option.some.injEq] at h <;> subst h <;> rfl
   | app f a ihf iha =>
     intro fuel d r h
-    rw [instantiate1LiftB.eq_def] at h
-    split at h
-    · rename_i hcut
-      obtain rfl := Option.some.inj h
+    by_cases hcut : (Expr.app f a).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
       exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
-    · cases fuel with
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel with
       | zero => simp at h
       | succ fuel =>
         simp only at h
@@ -2133,16 +2135,17 @@ theorem instantiate1LiftB_spec {v : ExprC} : ∀ (e : ExprC) (fuel d : Nat) (r :
           | some a' =>
             simp only [Option.some.injEq] at h
             subst h
-            rw [mkApp_eq, ihf f fuel d f' (by rw [hpf]), iha a fuel₁ d a' (by rw [hpa])]
+            rw [mkApp_eq, ihf fuel d f' (by rw [hpf]), iha fuel₁ d a' (by rw [hpa])]
             rfl
   | lam ty bd m iht ihb =>
     intro fuel d r h
-    rw [instantiate1LiftB.eq_def] at h
-    split at h
-    · rename_i hcut
-      obtain rfl := Option.some.inj h
+    by_cases hcut : (Expr.lam ty bd m).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
       exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
-    · cases fuel with
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel with
       | zero => simp at h
       | succ fuel =>
         simp only at h
@@ -2159,16 +2162,17 @@ theorem instantiate1LiftB_spec {v : ExprC} : ∀ (e : ExprC) (fuel d : Nat) (r :
           | some b' =>
             simp only [Option.some.injEq] at h
             subst h
-            rw [mkLam_eq, iht ty fuel d ty' (by rw [hpf]), ihb bd fuel₁ (d + 1) b' (by rw [hpa])]
+            rw [mkLam_eq, iht fuel d ty' (by rw [hpf]), ihb fuel₁ (d + 1) b' (by rw [hpa])]
             rfl
   | forallE ty bd m iht ihb =>
     intro fuel d r h
-    rw [instantiate1LiftB.eq_def] at h
-    split at h
-    · rename_i hcut
-      obtain rfl := Option.some.inj h
+    by_cases hcut : (Expr.forallE ty bd m).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
       exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
-    · cases fuel with
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel with
       | zero => simp at h
       | succ fuel =>
         simp only at h
@@ -2185,17 +2189,18 @@ theorem instantiate1LiftB_spec {v : ExprC} : ∀ (e : ExprC) (fuel d : Nat) (r :
           | some b' =>
             simp only [Option.some.injEq] at h
             subst h
-            rw [mkForallE_eq, iht ty fuel d ty' (by rw [hpf]),
-              ihb bd fuel₁ (d + 1) b' (by rw [hpa])]
+            rw [mkForallE_eq, iht fuel d ty' (by rw [hpf]),
+              ihb fuel₁ (d + 1) b' (by rw [hpa])]
             rfl
   | letE ty val bd iht ihv ihb =>
     intro fuel d r h
-    rw [instantiate1LiftB.eq_def] at h
-    split at h
-    · rename_i hcut
-      obtain rfl := Option.some.inj h
+    by_cases hcut : (Expr.letE ty val bd).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
       exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
-    · cases fuel with
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel with
       | zero => simp at h
       | succ fuel =>
         simp only at h
@@ -2218,17 +2223,18 @@ theorem instantiate1LiftB_spec {v : ExprC} : ∀ (e : ExprC) (fuel d : Nat) (r :
             | some b' =>
               simp only [Option.some.injEq] at h
               subst h
-              rw [mkLetE_eq, iht ty fuel d ty' (by rw [hpf]), ihv val fuel₁ d v' (by rw [hpv]),
-                ihb bd fuel₂ (d + 1) b' (by rw [hpa])]
+              rw [mkLetE_eq, iht fuel d ty' (by rw [hpf]), ihv fuel₁ d v' (by rw [hpv]),
+                ihb fuel₂ (d + 1) b' (by rw [hpa])]
               rfl
   | proj sn i sub ih =>
     intro fuel d r h
-    rw [instantiate1LiftB.eq_def] at h
-    split at h
-    · rename_i hcut
-      obtain rfl := Option.some.inj h
+    by_cases hcut : (Expr.proj sn i sub).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
       exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
-    · cases fuel with
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel with
       | zero => simp at h
       | succ fuel =>
         simp only at h
@@ -2239,7 +2245,7 @@ theorem instantiate1LiftB_spec {v : ExprC} : ∀ (e : ExprC) (fuel d : Nat) (r :
         | some s' =>
           simp only [Option.some.injEq] at h
           subst h
-          rw [mkProj_eq, ih sub fuel d s' (by rw [hpf])]
+          rw [mkProj_eq, ih fuel d s' (by rw [hpf])]
           rfl
 
 /-- **`instantiate1Lift`'s twin computes `Expr.instantiate1Lift`.** -/

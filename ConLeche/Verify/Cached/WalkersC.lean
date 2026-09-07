@@ -53,7 +53,9 @@ theorem directProjBodiesC_eq (T : Name) (nP nF : Nat) (cty : Expr) :
     directProjBodiesC T nP nF cty = directProjBodies T nP nF cty := by
   unfold directProjBodiesC directProjBodies
   rw [instPisAtLiftC_eq]
-  split <;> simp only [directProjBodiesGoC_eq]
+  cases Expr.instPisAtLift (directProjPs nP) cty with
+  | none => rfl
+  | some r => simp only [directProjBodiesGoC_eq]
 
 /-- **The driver's walkers are the plain ones.** -/
 theorem directWalkersC_eq_plain : directWalkersC = DirectWalkers.plain := by

@@ -446,16 +446,18 @@ theorem checkDirectFixRulesF_eq (envR : Env) (rlps : List Name) (T : Name) (lps 
             rlvls k j
   | 0, _ => rfl
   | k + 1, j => by
-    simp only [checkDirectFixRulesF, checkDirectFixRules, DirectWalkers.plain, constsResolveF_eq,
+    simp only [checkDirectFixRulesF, checkDirectFixRules,
       checkDirectFixRulesF_eq envR rlps T lps elim large nP nIdx tty ctors recC rlvls k
         (j + 1)]
+    simp only [DirectWalkers.plain, constsResolveF_eq]
 
 theorem checkDirectFixRecF_eq (ops : CheckerOps m) (env : Env) (p : DirectFixParts)
     (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
     checkDirectFixRecF ops .plain (mkFEnv env) p cvTa ctorsA
       = checkDirectFixRec ops env p cvTa ctorsA := by
-  simp only [checkDirectFixRecF, checkDirectFixRec, mkFEnv_env, DirectWalkers.plain,
-    constsResolveF_eq, checkConstantValF_eq, push_mkFEnv, checkDirectFixRulesF_eq]
+  simp only [checkDirectFixRecF, checkDirectFixRec, mkFEnv_env, checkConstantValF_eq,
+    push_mkFEnv, checkDirectFixRulesF_eq]
+  simp only [DirectWalkers.plain, constsResolveF_eq]
 
 end FixMirrors
 

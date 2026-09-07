@@ -162,50 +162,49 @@ descent only past the budget.  `instantiate1Lift_spec`
 
 /-- The budgeted descent: the plain rebuild on a node budget, `none`
 when it runs out (nothing built is kept). -/
-def instantiate1LiftB (v : ExprC) : Nat → ExprC → Nat → Option ExprC × Nat
-  | fuel, e, d =>
-    if e.bvarB ≤ d then (some e, fuel) else
-    match fuel, e with
-    | _, .bvar i .. =>
-      (some (if i = d then Expr.liftLooseBVars d 0 v else if i > d then mkBVar (i - 1) else e),
-        fuel)
-    | _, .fvar .. | _, .sort .. | _, .const .. | _, .lit .. => (some e, fuel)
-    | 0, _ => (none, 0)
-    | fuel + 1, .app f a .. =>
-      match instantiate1LiftB v fuel f d with
-      | (some f', fuel) =>
-        match instantiate1LiftB v fuel a d with
-        | (some a', fuel) => (some (mkApp f' a'), fuel)
-        | r => r
+def instantiate1LiftB (v : ExprC) (fuel : Nat) (e : ExprC) (d : Nat) : Option ExprC × Nat :=
+  if e.bvarB ≤ d then (some e, fuel) else
+  match fuel, e with
+  | _, .bvar i .. =>
+    (some (if i = d then Expr.liftLooseBVars d 0 v else if i > d then mkBVar (i - 1) else e),
+      fuel)
+  | _, .fvar .. | _, .sort .. | _, .const .. | _, .lit .. => (some e, fuel)
+  | 0, _ => (none, 0)
+  | fuel + 1, .app f a .. =>
+    match instantiate1LiftB v fuel f d with
+    | (some f', fuel) =>
+      match instantiate1LiftB v fuel a d with
+      | (some a', fuel) => (some (mkApp f' a'), fuel)
       | r => r
-    | fuel + 1, .lam ty body m .. =>
-      match instantiate1LiftB v fuel ty d with
-      | (some ty', fuel) =>
+    | r => r
+  | fuel + 1, .lam ty body m .. =>
+    match instantiate1LiftB v fuel ty d with
+    | (some ty', fuel) =>
+      match instantiate1LiftB v fuel body (d + 1) with
+      | (some b', fuel) => (some (mkLam ty' b' m), fuel)
+      | r => r
+    | r => r
+  | fuel + 1, .forallE ty body m .. =>
+    match instantiate1LiftB v fuel ty d with
+    | (some ty', fuel) =>
+      match instantiate1LiftB v fuel body (d + 1) with
+      | (some b', fuel) => (some (mkForallE ty' b' m), fuel)
+      | r => r
+    | r => r
+  | fuel + 1, .letE ty val body .. =>
+    match instantiate1LiftB v fuel ty d with
+    | (some ty', fuel) =>
+      match instantiate1LiftB v fuel val d with
+      | (some v', fuel) =>
         match instantiate1LiftB v fuel body (d + 1) with
-        | (some b', fuel) => (some (mkLam ty' b' m), fuel)
+        | (some b', fuel) => (some (mkLetE ty' v' b'), fuel)
         | r => r
       | r => r
-    | fuel + 1, .forallE ty body m .. =>
-      match instantiate1LiftB v fuel ty d with
-      | (some ty', fuel) =>
-        match instantiate1LiftB v fuel body (d + 1) with
-        | (some b', fuel) => (some (mkForallE ty' b' m), fuel)
-        | r => r
-      | r => r
-    | fuel + 1, .letE ty val body .. =>
-      match instantiate1LiftB v fuel ty d with
-      | (some ty', fuel) =>
-        match instantiate1LiftB v fuel val d with
-        | (some v', fuel) =>
-          match instantiate1LiftB v fuel body (d + 1) with
-          | (some b', fuel) => (some (mkLetE ty' v' b'), fuel)
-          | r => r
-        | r => r
-      | r => r
-    | fuel + 1, .proj sn i sub .. =>
-      match instantiate1LiftB v fuel sub d with
-      | (some s', fuel) => (some (mkProj sn i s'), fuel)
-      | r => r
+    | r => r
+  | fuel + 1, .proj sn i sub .. =>
+    match instantiate1LiftB v fuel sub d with
+    | (some s', fuel) => (some (mkProj sn i s'), fuel)
+    | r => r
 
 /-- The memoised descent, in `instantiate1Go`'s shape. -/
 def instantiate1LiftGo (v : ExprC) (memo : MemoN) (e : ExprC) (d : Nat) :
