@@ -70,7 +70,7 @@ theorem LeavesBounded.app_intro {f a : Expr}
   · exact ha l hl
 
 /-- `LeavesBounded` at a free variable. -/
-theorem LeavesBounded.fvar_intro {idx : Nat} {n : Name} {ty : Expr}
+theorem LeavesBounded.fvar_intro {idx : Nat} {ty : Expr}
     (hb : ty.looseBVarsBounded 0 = true) (hty : Expr.LeavesBounded ty) :
     Expr.LeavesBounded (.fvar idx ty) := by
   intro l hl

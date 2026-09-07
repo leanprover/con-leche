@@ -103,8 +103,8 @@ of `DenAStk`. -/
 def RelAStk (d : Nat) :
     List AnnotBinderEntry → List AnnotBinderEntryX → Nat → Prop
   | [], [], _ => True
-  | (ty', bi) :: r, (nx, tyx', bix) :: rx, j =>
-    (n = nx ∧ bi = bix ∧ RelC ty' tyx' ∧ Expr.WScoped (d + j) tyx') ∧
+  | (ty', bi) :: r, (tyx', bix) :: rx, j =>
+    (bi = bix ∧ RelC ty' tyx' ∧ Expr.WScoped (d + j) tyx') ∧
       RelAStk d r rx (j - 1)
   | _, _, _ => False
 
@@ -887,11 +887,11 @@ theorem annotBinderMetaI_eq (pw? : Option PropWhen) (mb : BinderMeta) :
   cases pw? <;> rfl
 
 theorem annotateBindersOutC_sim
-    {mk : Name → ExprC → ExprC → BinderMeta → ExprC}
-    {mkX : Name → Expr → Expr → BinderMeta → Expr}
+    {mk : ExprC → ExprC → BinderMeta → ExprC}
+    {mkX : Expr → Expr → BinderMeta → Expr}
     (hmk : ∀ (n : Name) (ty : ExprC) (tyx : Expr) (b : ExprC) (bx : Expr)
       (mi : BinderMeta), RelC ty tyx → RelC b bx →
-        mk n ty b mi = mkX n tyx bx mi) {d : Nat} :
+        mk ty b mi = mkX tyx bx mi) {d : Nat} :
     ∀ {stk : List AnnotBinderEntry} {stkx : List AnnotBinderEntryX}
       {j : Nat} {pw? : Option PropWhen} {cur : ExprC} {curx : Expr}
       {s₀ : CState},
@@ -906,25 +906,24 @@ theorem annotateBindersOutC_sim
     | nil => exact SimC.pure hs hcur
     | cons ex rx => exact absurd hstk (by simp [RelAStk])
   | cons e rest ihOut =>
-    obtain ⟨n, ty', bi⟩ := e
+    obtain ⟨ty', bi⟩ := e
     intro stkx j pw? cur curx s₀ hs hstk hcur
     cases stkx with
     | nil => exact absurd hstk (by simp [RelAStk])
     | cons ex rx =>
-      obtain ⟨nx, tyx', bix⟩ := ex
-      obtain ⟨⟨hnnm, hbmr, hty', hwty'⟩, hrest⟩ := hstk
-      subst hnnm
+      obtain ⟨tyx', bix⟩ := ex
+      obtain ⟨⟨hbmr, hty', hwty'⟩, hrest⟩ := hstk
       subst hbmr
       show SimC mode env s₀ RelDC
         (do
           let tyAbs ← abstractRangeM ty' d j
-          let node ← pure (mk n tyAbs cur (annotBinderMetaI pw? bi))
+          let node ← pure (mk tyAbs cur (annotBinderMetaI pw? bi))
           annotateBindersOutI mk d
             (pw?.map fun _ => (annotBinderMetaI pw? bi).pw)
             rest (j - 1) node)
         (annotateBindersOut (m := FueledM) mkX d
           (pw?.map fun _ => (annotBinderMeta pw? bi).pw) rx (j - 1)
-          (mkX n (tyx'.abstractRange d j) curx (annotBinderMeta pw? bi)))
+          (mkX (tyx'.abstractRange d j) curx (annotBinderMeta pw? bi)))
       -- task #161 P5: both folds thread the datum just written; the
       -- clone's meta rewrite is definitional here
       simp only [annotBinderMetaI_eq]
