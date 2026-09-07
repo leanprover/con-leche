@@ -89,24 +89,24 @@ theorem consList_fields_params {nP nF : Nat} {ρ : Nat → V} {bs : List V} (hle
 
 /-- **The constructor leaf's hereditary premises**: `MkPreS` along
 the parameters and `UnderTowerValid` along the whole frame. -/
-theorem ctorWalksS {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvT cvC : ConstantVal}
+theorem ctorWalksGen {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvT cvC : ConstantVal}
     {nP nF nIdx j : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
     {ppsAll ds : (Name → Nat) → List (Nat × Nat × AVExpr)} {Es : (Name → Nat) → List AVExpr}
     {srcs : List (Option Nat)}
     {Fss Ess : (Name → Nat) → List (List AVExpr)}
     (hFD : FormerData m cvT (nP + nIdx) resSort ppsAll)
     (hCD : CtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs)
-    (hleafT : ∀ ψ, m.acval T ψ
-      = directSumTyAV (resSort.eval ψ) (ppsAll ψ) (rChains nIdx nIdx (Fss ψ) (Ess ψ)))
+    (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ →
+      ∀ bs : List V, SpineFit ρ (((ds ψ).drop nP).map (·.2.2)) bs →
+        interp2 V (consList bs ρ) (ctorBodyAVI m T nP nF ψ (Es ψ))
+          = sumSet (resSort.eval ψ) (sumFibre (resSort.eval ψ) (consList (idxValsAt ρ (Es ψ) bs) ρ)
+              (rChains nIdx nIdx (Fss ψ) (Ess ψ))))
     (hFsj : ∀ ψ, (Fss ψ)[j]? = some (((ds ψ).drop nP).map (·.2.2)))
     (hEsj : ∀ ψ, (Ess ψ)[j]? = some (Es ψ))
     (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ ↔
         Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ)
-    (hFssOk : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      Sat2 V ((ppsAll ψ).map (·.2.2)).reverse ρ →
-      SumFieldsOkB (resSort.eval ψ) ρ (rChains nIdx nIdx (Fss ψ) (Ess ψ)) ∧
-      SumFieldsValid ρ (rChains nIdx nIdx (Fss ψ) (Ess ψ)))
     (hFssOkP : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
       SumFieldsOkB (resSort.eval ψ) ρ (Fss ψ) ∧ SumFieldsValid ρ (Fss ψ))
@@ -153,10 +153,6 @@ theorem ctorWalksS {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvT cvC :
     have hil : i < (ds ψ).length := by omega
     exact ⟨_, List.getElem?_eq_getElem hil,
       by rw [getD_reverse_of_peel hlenDs hi (List.getElem?_eq_getElem hil)]⟩
-  have hpok : ∀ ρ₀ : Nat → V,
-      ParamsOkS (resSort.eval ψ) ρ₀ (rChains nIdx nIdx (Fss ψ) (Ess ψ)) (ppsAll ψ) := fun ρ₀ =>
-    (formerWalksS hFD hFssOk ψ ρ₀).1
-  have hK : VExpr.bvarsBelow 0 (m.acval T ψ).erase := m.cval_closedL T ψ
   have hchain : (rChains nIdx nIdx (Fss ψ) (Ess ψ))[j]? = some (rChain nIdx nIdx Fs (Es ψ)) := by
     rw [rChains_getElem?, hFsj ψ, hEsj ψ]
   constructor
@@ -174,39 +170,11 @@ theorem ctorWalksS {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvT cvC :
     have hρt : Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ := (hiff ψ ρ).mpr hρ
     have hokFss := (hFssOkP ψ ρ hρ).1
     refine ⟨SumFieldsOkB_uChains hokFss, by rw [uChains_getElem?, hFsj ψ]; rfl, fun bs hsp => ?_⟩
-    have hlenB : bs.length = nF := by rw [hsp.length_eq, hlenFs]
-    -- the parameter spine, at the frame below the parameters
-    have hspP := spineFit_of_sat2 (Δ₀ := []) (Ds := ((ppsAll ψ).take nP).map (·.2.2))
-      (by rw [List.append_nil]; exact hρt)
-    have hlenTake : (((ppsAll ψ).take nP).map (·.2.2)).length = nP := by
-      rw [List.length_map, List.length_take, hFD.len ψ]; omega
-    rw [hlenTake] at hspP
-    have hρ0 : consList ((List.range nP).reverse.map ρ) (fun j => ρ (j + nP)) = ρ :=
-      consList_range_reverse nP ρ
-    -- the index spine
-    have hspI : SpineFit (consList ((List.range nP).reverse.map ρ) (fun j => ρ (j + nP)))
-        (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs) := by
-      rw [hρ0]; exact hIdx ψ ρ hρ bs hsp
-    have hspAll : SpineFit (fun j => ρ (j + nP)) ((ppsAll ψ).map (·.2.2))
-        ((List.range nP).reverse.map ρ ++ idxValsAt ρ (Es ψ) bs) := by
-      rw [← List.take_append_drop nP (ppsAll ψ), List.map_append]
-      exact hspP.append hspI
     have hlenI : (idxValsAt ρ (Es ψ) bs).length = nIdx := by
       simp [idxValsAt, hCD.lenE ψ]
-    -- the body's value: the former's leaf folded along the spine
-    have hσ : ∀ j, consList bs ρ (j + nF) = ρ j := fun j => by
-      rw [← hlenB]; exact consList_apply_add bs ρ j
-    have hbody : interp2 V (consList bs ρ) (ctorBodyAVI m T nP nF ψ (Es ψ))
-        = ((List.range nP).reverse.map ρ ++ idxValsAt ρ (Es ψ) bs).foldl SetTheory.app
-            (interp2 V (fun j => ρ (j + nP)) (m.acval T ψ)) := by
-      unfold ctorBodyAVI
-      rw [interp2_mkAppN, ← List.foldl_map (f := interp2 V (consList bs ρ)) (g := SetTheory.app),
-        List.map_append, paramBvars_eq_paramBvarsAt, map_paramBvarsAt_interp hσ,
-        interp2_closed (V := V) hK _ (fun j => ρ (j + nP))]
-      rfl
     refine ⟨sumFibre (resSort.eval ψ) (consList (idxValsAt ρ (Es ψ) bs) ρ)
       (rChains nIdx nIdx (Fss ψ) (Ess ψ)), ?_, ?_⟩
-    · rw [hbody, hleafT, sumFormerFold (hpok _) hspAll, consList_append, hρ0]
+    · exact hfold ψ ρ hρt bs hsp
     · -- the point-terminated tuple lives in the fibre at the index tuple
       rw [sumFibre_of_getElem? hchain]
       have hshift : shiftE nIdx 0 (consList (idxValsAt ρ (Es ψ) bs) ρ) = ρ := by
@@ -243,8 +211,111 @@ theorem ctorWalksS {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvT cvC :
     have := sumInj_validV_at_fields (w := resSort.eval ψ) (j := j) (uChains_validV hvAll) hvF hspF
     rwa [consList_range_reverse] at this
 
-/-- **The P step at a sum constructor's cons.** -/
-theorem stageSumCtor
+
+/-- **The sum former's fold at a constructor's spine**: the leaf at the
+parameter variables and the index readings is the fibre at the index
+values. -/
+theorem sumFold_of_leaf {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvT cvC : ConstantVal}
+    {nP nF nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+    {ppsAll ds : (Name → Nat) → List (Nat × Nat × AVExpr)} {Es : (Name → Nat) → List AVExpr}
+    {srcs : List (Option Nat)}
+    {Fss Ess : (Name → Nat) → List (List AVExpr)}
+    (hFD : FormerData m cvT (nP + nIdx) resSort ppsAll)
+    (hCD : CtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs)
+    (hleafT : ∀ ψ, m.acval T ψ
+      = directSumTyAV (resSort.eval ψ) (ppsAll ψ) (rChains nIdx nIdx (Fss ψ) (Ess ψ)))
+    (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ ↔
+        Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ)
+    (hFssOk : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V ((ppsAll ψ).map (·.2.2)).reverse ρ →
+      SumFieldsOkB (resSort.eval ψ) ρ (rChains nIdx nIdx (Fss ψ) (Ess ψ)) ∧
+      SumFieldsValid ρ (rChains nIdx nIdx (Fss ψ) (Ess ψ)))
+    (hIdx : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
+      ∀ bs : List V, SpineFit ρ (((ds ψ).drop nP).map (·.2.2)) bs →
+        SpineFit ρ (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs))
+    (ψ : Name → Nat) (ρ : Nat → V)
+    (hρt : Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ)
+    (bs : List V) (hsp : SpineFit ρ (((ds ψ).drop nP).map (·.2.2)) bs) :
+    interp2 V (consList bs ρ) (ctorBodyAVI m T nP nF ψ (Es ψ))
+      = sumSet (resSort.eval ψ) (sumFibre (resSort.eval ψ) (consList (idxValsAt ρ (Es ψ) bs) ρ)
+          (rChains nIdx nIdx (Fss ψ) (Ess ψ))) := by
+  have hρ : Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ := (hiff ψ ρ).mp hρt
+  have hlenDs := hCD.len ψ
+  have hlenFs : ((((ds ψ).drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
+  have hpok : ∀ ρ₀ : Nat → V,
+      ParamsOkS (resSort.eval ψ) ρ₀ (rChains nIdx nIdx (Fss ψ) (Ess ψ)) (ppsAll ψ) := fun ρ₀ =>
+    (formerWalksS hFD hFssOk ψ ρ₀).1
+  have hK : VExpr.bvarsBelow 0 (m.acval T ψ).erase := m.cval_closedL T ψ
+  have hlenB : bs.length = nF := by rw [hsp.length_eq, hlenFs]
+  -- the parameter spine, at the frame below the parameters
+  have hspP := spineFit_of_sat2 (Δ₀ := []) (Ds := ((ppsAll ψ).take nP).map (·.2.2))
+    (by rw [List.append_nil]; exact hρt)
+  have hlenTake : (((ppsAll ψ).take nP).map (·.2.2)).length = nP := by
+    rw [List.length_map, List.length_take, hFD.len ψ]; omega
+  rw [hlenTake] at hspP
+  have hρ0 : consList ((List.range nP).reverse.map ρ) (fun j => ρ (j + nP)) = ρ :=
+    consList_range_reverse nP ρ
+  -- the index spine
+  have hspI : SpineFit (consList ((List.range nP).reverse.map ρ) (fun j => ρ (j + nP)))
+      (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs) := by
+    rw [hρ0]; exact hIdx ψ ρ hρ bs hsp
+  have hspAll : SpineFit (fun j => ρ (j + nP)) ((ppsAll ψ).map (·.2.2))
+      ((List.range nP).reverse.map ρ ++ idxValsAt ρ (Es ψ) bs) := by
+    rw [← List.take_append_drop nP (ppsAll ψ), List.map_append]
+    exact hspP.append hspI
+  -- the body's value: the former's leaf folded along the spine
+  have hσ : ∀ j, consList bs ρ (j + nF) = ρ j := fun j => by
+    rw [← hlenB]; exact consList_apply_add bs ρ j
+  have hbody : interp2 V (consList bs ρ) (ctorBodyAVI m T nP nF ψ (Es ψ))
+      = ((List.range nP).reverse.map ρ ++ idxValsAt ρ (Es ψ) bs).foldl SetTheory.app
+          (interp2 V (fun j => ρ (j + nP)) (m.acval T ψ)) := by
+    unfold ctorBodyAVI
+    rw [interp2_mkAppN, ← List.foldl_map (f := interp2 V (consList bs ρ)) (g := SetTheory.app),
+      List.map_append, paramBvars_eq_paramBvarsAt, map_paramBvarsAt_interp hσ,
+      interp2_closed (V := V) hK _ (fun j => ρ (j + nP))]
+    rfl
+  rw [hbody, hleafT, sumFormerFold (hpok _) hspAll, consList_append, hρ0]
+
+/-- `ctorWalksGen` at the sum's leaf. -/
+theorem ctorWalksS {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvT cvC : ConstantVal}
+    {nP nF nIdx j : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
+    {ppsAll ds : (Name → Nat) → List (Nat × Nat × AVExpr)} {Es : (Name → Nat) → List AVExpr}
+    {srcs : List (Option Nat)}
+    {Fss Ess : (Name → Nat) → List (List AVExpr)}
+    (hFD : FormerData m cvT (nP + nIdx) resSort ppsAll)
+    (hCD : CtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs)
+    (hleafT : ∀ ψ, m.acval T ψ
+      = directSumTyAV (resSort.eval ψ) (ppsAll ψ) (rChains nIdx nIdx (Fss ψ) (Ess ψ)))
+    (hFsj : ∀ ψ, (Fss ψ)[j]? = some (((ds ψ).drop nP).map (·.2.2)))
+    (hEsj : ∀ ψ, (Ess ψ)[j]? = some (Es ψ))
+    (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ ↔
+        Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ)
+    (hFssOk : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V ((ppsAll ψ).map (·.2.2)).reverse ρ →
+      SumFieldsOkB (resSort.eval ψ) ρ (rChains nIdx nIdx (Fss ψ) (Ess ψ)) ∧
+      SumFieldsValid ρ (rChains nIdx nIdx (Fss ψ) (Ess ψ)))
+    (hFssOkP : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
+      SumFieldsOkB (resSort.eval ψ) ρ (Fss ψ) ∧ SumFieldsValid ρ (Fss ψ))
+    (hIdx : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
+      ∀ bs : List V, SpineFit ρ (((ds ψ).drop nP).map (·.2.2)) bs →
+        SpineFit ρ (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs))
+    (ψ : Name → Nat) (ρ : Nat → V) :
+    MkPreS (resSort.eval ψ) j ρ (((ds ψ).drop nP).map (·.2.2)) (uChains (Fss ψ))
+        (ctorBodyAVI m T nP nF ψ (Es ψ)) ((ds ψ).take nP) ∧
+      UnderTowerValid ρ
+        (sumInjAtAV (resSort.eval ψ) (uChains (Fss ψ)) (((ds ψ).drop nP).map (·.2.2)).length
+          (numeralAV j) (mkTowerGoU (resSort.eval ψ) (((ds ψ).drop nP).map (·.2.2)) (idxEqAV [])))
+        ((ds ψ).take nP ++ (ds ψ).drop nP) :=
+  ctorWalksGen hFD hCD (sumFold_of_leaf hFD hCD hleafT hiff hFssOk hIdx) hFsj hEsj hiff hFssOkP hIdx
+    ψ ρ
+
+/-- **The P step at a sum-shaped constructor's cons**, for a given fibre fold. -/
+theorem stageCtorGen
     (hE : Lech.EtaFamiliesClosed env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
@@ -265,8 +336,12 @@ theorem stageSumCtor
     {Fss Ess : (Name → Nat) → List (List AVExpr)}
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
     (hCD : CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs)
-    (hleafT : ∀ ψ, mp.base2.acval T ψ
-      = directSumTyAV (resSort.eval ψ) (ppsAll ψ) (rChains nIdx nIdx (Fss ψ) (Ess ψ)))
+    (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ →
+      ∀ bs : List V, SpineFit ρ (((ds ψ).drop nP).map (·.2.2)) bs →
+        interp2 V (consList bs ρ) (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ))
+          = sumSet (resSort.eval ψ) (sumFibre (resSort.eval ψ) (consList (idxValsAt ρ (Es ψ) bs) ρ)
+              (rChains nIdx nIdx (Fss ψ) (Ess ψ))))
     (hFsj : ∀ ψ, (Fss ψ)[j]? = some (((ds ψ).drop nP).map (·.2.2)))
     (hEsj : ∀ ψ, (Ess ψ)[j]? = some (Es ψ))
     (hFssParams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -275,10 +350,6 @@ theorem stageSumCtor
     (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ ↔
         Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ)
-    (hFssOk : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      Sat2 V ((ppsAll ψ).map (·.2.2)).reverse ρ →
-      SumFieldsOkB (resSort.eval ψ) ρ (rChains nIdx nIdx (Fss ψ) (Ess ψ)) ∧
-      SumFieldsValid ρ (rChains nIdx nIdx (Fss ψ) (Ess ψ)))
     (hFssOkP : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
       SumFieldsOkB (resSort.eval ψ) ρ (Fss ψ) ∧ SumFieldsValid ρ (Fss ψ))
@@ -313,7 +384,7 @@ theorem stageSumCtor
       (by rw [Nat.zero_add]; exact uChains_below (hFssBelow ψ))
       (by show nP + (((ds ψ).drop nP).map (·.2.2)).length = (ds ψ).length
           simp [hCD.len ψ])
-  have hwalks := ctorWalksS hFD hCD hleafT hFsj hEsj hiff hFssOk hFssOkP hIdx
+  have hwalks := ctorWalksGen hFD hCD hfold hFsj hEsj hiff hFssOkP hIdx
   have hz : ∀ ψ, ∀ d ∈ (ds ψ).take nP ++ (ds ψ).drop nP,
       (resSort.eval ψ = 0 ↔ d.2.1 = 0) := by
     intro ψ d hd
@@ -378,5 +449,54 @@ theorem stageSumCtor
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
       exact ⟨fun he => absurd (hcapsE.symm.trans he) Bool.false_ne_true,
         fun hu => absurd (hcapsU.symm.trans hu) Bool.false_ne_true⟩
+
+/-- **The P step at a sum constructor's cons.** -/
+theorem stageSumCtor
+    (hE : Lech.EtaFamiliesClosed env)
+    {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
+    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
+    (mp : EnvS2PM V μ env)
+    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
+      isProp large cvC nF cvTa = .ok cvCa)
+    (hfresh : env.find? cvCa.name = none)
+    (htr : cvCa.type.constsResolve env = true)
+    (hfT : env.find? T = some (.indInfo cvTa caps))
+    (hcapsE : caps.eta = false) (hcapsU : caps.unitlike = false)
+    (hlpsT : cvTa.levelParams = lps)
+    (hlpsC : cvCa.levelParams = lps)
+    {idxArgs : List Expr}
+    {ppsAll ds : (Name → Nat) → List (Nat × Nat × AVExpr)} {Es : (Name → Nat) → List AVExpr}
+    {srcs : List (Option Nat)}
+    {Fss Ess : (Name → Nat) → List (List AVExpr)}
+    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
+    (hCD : CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs)
+    (hleafT : ∀ ψ, mp.base2.acval T ψ
+      = directSumTyAV (resSort.eval ψ) (ppsAll ψ) (rChains nIdx nIdx (Fss ψ) (Ess ψ)))
+    (hFsj : ∀ ψ, (Fss ψ)[j]? = some (((ds ψ).drop nP).map (·.2.2)))
+    (hEsj : ∀ ψ, (Ess ψ)[j]? = some (Es ψ))
+    (hFssParams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ q ∈ lps, ψ₁ q = ψ₂ q) → Fss ψ₁ = Fss ψ₂)
+    (hFssBelow : ∀ ψ : Name → Nat, ∀ Fs ∈ Fss ψ, FieldsBelow nP Fs)
+    (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ ↔
+        Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ)
+    (hFssOk : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V ((ppsAll ψ).map (·.2.2)).reverse ρ →
+      SumFieldsOkB (resSort.eval ψ) ρ (rChains nIdx nIdx (Fss ψ) (Ess ψ)) ∧
+      SumFieldsValid ρ (rChains nIdx nIdx (Fss ψ) (Ess ψ)))
+    (hFssOkP : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
+      SumFieldsOkB (resSort.eval ψ) ρ (Fss ψ) ∧ SumFieldsValid ρ (Fss ψ))
+    (hIdx : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
+      ∀ bs : List V, SpineFit ρ (((ds ψ).drop nP).map (·.2.2)) bs →
+        SpineFit ρ (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs)) :
+    ∃ mp' : EnvS2PM V μ ⟨.ctorInfo cvCa nP nF :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
+        (fun ψ => directSumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2))
+          (uChains (Fss ψ))) :=
+  stageCtorGen hE mp hCtor hfresh htr hfT hcapsE hcapsU hlpsT hlpsC hFD hCD
+    (sumFold_of_leaf hFD hCD hleafT hiff hFssOk hIdx) hFsj hEsj hFssParams hFssBelow hiff
+    hFssOkP hIdx
 
 end Lech.SetP
