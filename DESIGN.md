@@ -56140,6 +56140,160 @@ unique element; `rStar_mem`/`rStar_fixed` get the third regime (the
 ℓ ≠ 0`); `FixPre.hwℓ` is replaced by the three-way regime descriptor
 (the run record's `hwl` weakens to the two-constructor clause).
 
+**A2.2 (landed on the branch `agent/reflexive-a2`, 2026-09-07; the
+previous agent's session was killed mid-edit by a machine reboot and
+the work was resumed from the uncommitted tree).**
+
+*The model* (`Lech/SetModel/RecGraph`, `Expr`-free): the recursor's
+graph `recGraph ℓ I pred B st` is the least fixed point of the graph
+functor over the family's tuples; `recGraph_singleton_of_preds` is the
+local step (predecessors' fibres singletons ⇒ the fibre a singleton),
+`recGraph_exists_unique` the induction over the `Acc` family, `recSel`
+the selector and `recSel_eq` the recursion equation (the selector at a
+tuple is the step at the selector's graph over the predecessors).
+
+*The semantics tier.*  `FixRecI` was split: `FixRecCoreI` (the ih
+arguments, the K-frame package `FixKI₀`/`FixKI`, the rank recursion
+over the ω-iterate, the spelled recursor, the premise `FixPre`, the
+walk frames, the squash regime's stages), `FixSquashI` (the squash
+regime: the ih frame read, the pure kit moved out of the P tier, the
+sources, **the squash data at a tuple** — `sqSpine` (the fields read
+off the tuple's indices), `sqPred` (the recursive calls' index tuples
+along the telescopes), `sqB` (the motive's fibre), `sqIhs`/`sqSt` (the
+minor at the source spine and the ih λ-towers of a graph choice),
+`sqGraph` — **the recursion theorem at the family** `sqGraph_singleton`
+(by `lfpFamSet_induction` over the family's functor with `P i x :=`
+the graph's fibre at `i` is a singleton: a proof at a sub-family is a
+spine fitting the X-chain there, its recursive slots' `Prop`-regime
+products give the predecessors' inhabitation, the spine is the source
+spine by the subsingleton criterion), `fam_spine_of_mem`,
+`sqFixBody_facts` (the body's grading, value and membership at a
+K-frame) and `sqK_facts` (the selector at every tuple of the family
+lies in the motive's fibre and satisfies the recursion equation with
+the ih values `sqIhValsK`)), `IhSpell` (the spellings shared with the
+readings: `ihIdxAt`/`ihIdxAtM`/`ihTeleAtR`, `ihAppAVb` — the ih
+application generic in the elimination bit and the extras, the sources
+`srcOfEs`/`srcList`, and **the squash regime's recursor body**
+`sqFixBodyAV` = `(λ f⃗. m f⃗ ih⃗) src⃗`: the constructor's field telescope
+bound at the elimination bit, the minor at the field variables and the
+ih applications, applied to the fields read off the index variables —
+a β-redex, so the body's value is the minor at the source spine and
+the ih towers).  `FixRecI` keeps the tail: the candidate `gStar` at
+THREE regimes (the point at `ℓ = 0`, the ω-iterate's stage value at
+`w ≠ 0`, `recSel (sqGraph …)` at `w = 0 ∧ ℓ ≠ 0`), `gStar_leaf`,
+`rStar_mem`, `leaf_eq` (graph regime) and `leaf_eq_sq` (squash
+regime: the body's value is the selector's recursion equation, the ih
+towers agreeing leafwise by `lamTower_congr_bottom` — the telescopes
+and index expressions are scoped at the field's frame, `FixPre.hTbelow`/
+`hEbelow`), `rStar_fixed` over both, and **`directFixRecAVI_iota_sq`**:
+at a fitting spine `p⃗ M m⃗ ı⃗ t` the recursor is the (only) minor at the
+source spine and `sqIhValsK` of the recursor itself (`sqIhValsK_bottom`
+moves the ih towers off the function's bottom).  `FixPre.hfin` is
+`finitary ∨ w = 0` (the old `hwℓ : w = 0 → ℓ = 0` is gone);
+`FixKI₀.hsq : w = 0 → ℓ ≠ 0 → Fss.length = 1 ∧ FieldsOkB 0 … ∧ (every
+field with `srcOfEs … = none` is a truth value at every fitting prefix
+spine)` is the subsingleton criterion's semantic form.  `FixWire`:
+`sqFixBodyAV_below` (the bound of the β-redex: `ihAppAVb_below`,
+`ihTeleAtGo_below`, `prefixVarsAV_below`; `fixRecBodyAVI_below` and
+`directFixRecAVI_below` take the fields' own bound `∀ Fs ∈ Fss,
+FieldsBelow nP Fs`).
+
+*The P tier.*  The kernel's `directTeleAt`/`directIhApp`/
+`directRuleBodyR` carry the elimination regime's `pw` (A2.1), so the
+reading lane (`FixRecReadP`) reads the moved telescopes at the
+elimination bit: `denoteP_ihDom`/`denoteP_ihApp`/`denoteP_ruleCoreR`
+conclude with `rebit (pwBit ψ pw) tl`; `ihPisAV` re-bits inside and
+`fixRuleCoreAV` takes the bit `b` (`FixRecReadDefsP`).  Consumers:
+`interp_ihPisAV`/`interp_minorAVAtR` lose the per-entry bits
+hypothesis (the re-bit entries agree with `ℓ` by `hbz`);
+`ihAppAV_facts`/`fixRuleOkP` at the re-bit telescopes (`hdom_eq`: the
+domains are the same, `rebit_map_dom`); **`ihAppAV_rebit`**: the
+rule's ih application at a re-bit telescope IS `ihAppAVb b (fun _ => R)
+… 0 …`, so `interp_fixRuleCoreAV` reads the rule's core to the minor's
+fold at the fields and `sqIhValsK` (by `interp_ihAppAVb` and
+`lamTower_bit_agree`; the finitary shape is `sqIhValsK_fin`).  The law
+(`fixRecLawCore`) takes `hbz` and splits `ℓ ≠ 0` on `w`: the squash
+branch is `directFixRecAVI_iota_sq` at the proof point with the
+fields identified with the source spine (`Lech.Semantics.srcVals_of_fit`
+off `FixKI₀.hsq`, the index values `hidxEq`, one constructor so `j = 0`).
+`hsq` is built in `fixKFrame_of` from two new premises threaded through
+`fixPre_of`/`fixRuleOkP`/`stageFixRec`: `hsingle : w = 0 → ℓ ≠ 0 → n =
+1` (from the run record's clause `p.large → isNeverZero ∨ ctors < 2`
+with `Level.isNeverZero_sound`, and `0 < ctors.length` — a new conjunct
+of `directFixParts?_inv`: a block on the fix route has a recursive
+field, hence a constructor) and `hprop` (from the constructors'
+`CtorDataI.srcProp`/`srcIdx`/`srcLen` — the sum route's reading of
+`checkDirectFieldSortsI`: an unsourced position of `srcsOf` is a
+`Prop`, and a position sourced by the kernel is found by `srcOfEs`
+(`srcOfEs_none`), so `srcOfEs … = none` forces the kernel's `none`;
+`fieldsBoundSrc_at` reads `FieldsBoundSrc` at a position).  Validity:
+`sqFixBodyAV_validV` (`FixIntroP`; the moved-telescope kit
+`AnnotValidV_ihIdxAtM`/`fieldsValid_ihTeleAtGo` moved there from
+`FixRuleKitP`, `underTowerValid_of_fieldsValid`), fed by
+`fixRecBodyValid_of_sat`'s K-frame split (`kframe_split3`).  Cached:
+`AgreeFloor` follows the single-throw guard; `BridgeCSDecl` (A2.2's
+first commit).
+
+*Deviations from the plan.*  None of substance.  The run record's
+eliminator clause (`p.large → isNeverZero ∨ ctors.length < 2`) is
+official's `elim_only_at_universe_zero` exactly, not a restriction;
+the ω-iterate stays for `w ≠ 0` (the plan's "three regimes"); the
+recursion theorem is instantiated at the family through `sqGraph`
+rather than a stand-alone `Step` fixed point (the plan's spelling),
+which is the same statement at the K-frame.
+
+*Gates (branch tip = this record's commit).*  `lake build`
+warning-free; `lake test`; `tests/arena.sh` (138 arena + 174 e2e + 14
+annot, the trusted sweep with its 3 recorded divergences);
+`tests/layering.sh` (base 272 / P 191 / caps 3 / umbrella 1; 0
+base→lane, 0 impl→theory); `tests/native-audit.sh` (92 streams, 132
+native blocks — 68 struct, 43 sum, 21 fix); `tests/inmodel.sh`;
+`tests/proofdeps.sh` regenerated ONCE: +28 rows = the four modules
+`FixRecCoreI`, `FixSquashI`, `IhSpell` (the split of `FixRecI`, which
+was already on every capstone's path) and `SetModel.RecGraph` (the
+recursion theorem — the planned new pure-set module) × the 7 roots;
+doors 0.  **init-full raw through the default pipe** (no `--pre`, no
+tool): accepted 53127 declarations in `--verified` and `--trusted`;
+piped (`lech-preprocess` then `--pre`): 53127 in both modes; the route
+census (`LECH_ROUTE_TRACE=1`): 592 blocks — 478 struct, 55 sum, 52 fix
+(`Acc`, `Acc.below`, `Lean.Order.iterates`, `Lean.Order.iterates.below`
+among them), 6 basis, 1 inmodel (`Lean.Syntax`), **0 modeled — the
+tool is needed for nothing.**  Fixture `direct_fix_acc` regenerated
+with `Acc'.below` in the export (the `Acc.below`-shaped two-index
+`Prop` block with the large eliminator): 13 declarations accepted in
+both modes, `Acc'` and `Acc'.below` on the `fix` route.  Mathlib
+slice (raw `mathlib-full.ndjson`, targets `WellFounded.min_mem`,
+`WellFounded.induction_bot'`, `Acc.induction_bot` — the `Acc` cone with
+`Acc.rec`'s large elimination; `_tmp/indexed-fix/slice_multi_fast.py`,
+117 declaration records): accepted 114 declarations in both modes,
+`Acc` on the `fix` route (6 basis, 8 struct, 3 sum beside it).  No
+Mathlib-scale run.
+
+*Restrictions beyond official's kernel that remain on the fixpoint
+route (findings for the conformance batch; the corpus census is
+evidence, not the target), per stage.*  Stage A1 (unchanged): (i) the
+fix arm's syntactic former reading (`stripPis`, task #193's conjunct)
+— `CategoryTheory.ObjectProperty.{colimits,limits}Closure` declare
+their sort at a definition and fall through (the #195 whnf-on-the-fix-
+arm follow-up); (ii) #188's fall-through "a recursive field mentioned
+by a later binder domain or index expression → modeled"; (iii) the
+recogniser compares the stream's rules with the canonical bodies
+syntactically (at the parse placeholder).  Stage A2: (iv) a reflexive
+field is taken only at a `Prop`-valued block (`directFixParts?`'s
+guard; the `Type`-valued membership bound is Stage B) — the
+finitary-or-`Prop` gate `FixPre.hfin` is its model-side twin.  NOT
+restrictions (official's exact conditions): the elimination clause
+(two or more constructors with a large eliminator at a sort that may be
+`Prop` is `.invalid`; one constructor is the subsingleton case) and
+the per-field criterion (`Level.isEquiv u .zero` or the field IS one
+of the residual's index arguments — official's `is_prop(field) ||
+field occurs as an index`), any number of fields, any telescopes, any
+index expressions, any parameter telescope.
+
+*Docket (unchanged).*  (1) the two `ObjectProperty` closures are the
+#195 follow-up; (2) the audit fixtures `ind_reflexive_tool`,
+`ind_nest_inf`, `ind_nest_via_refl` keep their raw lines until Stage B.
+
 ## TASK #204 — THE lean4lean-model BRIDGE: Carneiro's hypothesis implies Lech's, in Lean (2026-09-07, `agent/bridge`)
 
 **Question (user).**  "Can you have an agent prove that Mario's

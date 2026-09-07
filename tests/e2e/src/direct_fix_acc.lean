@@ -1,4 +1,4 @@
---#export Acc'.zero_intro Acc'.fix_intro Acc'.inv
+--#export Acc'.zero_intro Acc'.fix_intro Acc'.inv Acc'.below
 
 /-! Task #202 Stage A2: an `Acc` clone — a `Prop`-valued reflexive block
 with ONE constructor and the LARGE eliminator (official's subsingleton
