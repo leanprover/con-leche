@@ -314,7 +314,7 @@ theorem projEtaLawP : ProjEtaLawP V := by
       (K := mp.base2.acval K ψ) (fun q => d - 1 - (0 + q)) hσ
       (acval_interp2_closedC mp.base2 _ ψ σ ρ)
   -- the major's slot
-  obtain ⟨nx, mx, hxb⟩ := hxdom
+  obtain ⟨mx, hxb⟩ := hxdom
   have hAx : Ax = AVExpr.mkAppN (mp.base2.acval (T.str "_model") ψ)
       ((List.range caps.etaParams).map fun q =>
         AVExpr.bvar (caps.etaParams - 1 - (0 + q))) := by
@@ -443,7 +443,7 @@ theorem projEtaLawP : ProjEtaLawP V := by
         (hKle _ _ hTmE hTmlps (caps.etaParams + 1) (by omega))
         (DenoteSpineP.cons
           (denoteP_fvar mp.base2.acval (caps.etaParams + 1)
-            caps.etaParams Name.anonymous (.sort .zero))
+            caps.etaParams (.sort .zero))
           (DenoteSpineP.cons
             (denoteP_mkAppN
               (DenoteSpineP.append
