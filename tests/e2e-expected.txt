@@ -13,11 +13,11 @@
 # effect on any inductive block.  The 34 fixture streams that carried
 # preprocessor-era model families were therefore regenerated: three
 # from their `.lean` sources with `scripts/export-fixture.sh`
-# (direct_nested_dep, indexed_nested_aux, nested_pin_names) and 28 —
-# the nat_* slices, trust_*, budget_model, indexed_one_ctor_proj,
-# presieve_ofarrows_cone — by dropping the model DECLARATION records
-# from the committed slice, which is what a raw slice carries.  No
-# verdict moved.  `direct_nested_dep_broken.ndjson` was DELETED: it was
+# (direct_nested_dep, indexed_nested_aux, nested_pin_names) and 27 —
+# the nat_* slices, trust_*, indexed_one_ctor_proj,
+# presieve_ofarrows_cone — by dropping the model declaration records
+# from the committed slice together with the table entries only they
+# kept alive, which is what a raw slice carries.  No verdict moved.  `direct_nested_dep_broken.ndjson` was DELETED: it was
 # the positive-control's twin with the `Box._model` family head removed,
 # and it existed to pin that a model generator's skip rule must be
 # dependency-aware — there is no such generator and no such rule.  Two

@@ -59813,10 +59813,12 @@ families are raw:
   `indexed_nested_aux`, `nested_pin_names`.  The last two are nested
   blocks that used to arrive with the tool's model and now go through
   the in-process modeller (`TV`: 23 generated records; `PTree`: 21);
-* **model records dropped from the committed slice** — what a raw
-  slice carries — for the 28 that have no source: the `nat_*`
-  operation slices, `trust_*`, `indexed_one_ctor_proj`,
-  `presieve_ofarrows_cone`.  Every verdict is unchanged;
+* **model records dropped from the committed slice** — the
+  declarations, and then the expression and name table entries only
+  they kept alive, which is what a raw slice carries — for the 27 that
+  have no source: the `nat_*` operation slices, `trust_*`,
+  `indexed_one_ctor_proj`, `presieve_ofarrows_cone`.  Not one `_model`
+  string survives in any of them.  Every verdict is unchanged;
   `presieve_ofarrows_cone`'s `Lean.Syntax` is now modelled in process
   (accepted 503 declarations, was 638 with the model records in the
   file).

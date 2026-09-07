@@ -6,7 +6,7 @@
 # link or the prose, then regenerate.
 
 == Main.lean#L419
-   419          -- portable handle (`_tmp/frontier3/decl_index.py <stream>
+   419          -- +4 on the Mathlib stream.  The declaration NAME is the
 
 == Main.lean#L37
     37  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -26,7 +26,7 @@
    884    for line in contents.splitToList (· == '\n') do
 
 == Main.lean#L331
-   331            IO.eprintln s!"con-leche: progress fold done: {reached}/\
+   331            let now ← IO.monoMsNow
 
 == ConLeche/Cached/ParsedC.lean#L276-L279
    276  `no_proof_of_Empty_SPCD_P` and the agreement floor keep their

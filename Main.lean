@@ -7,10 +7,10 @@ import ConLeche.Frontend.InModelDump
 Command-line driver: `con-leche FILE.ndjson` reads a **raw** lean4export
 NDJSON file and checks the declarations in order.  There is no
 preprocessor and no external dependency (task #207): every inductive
-block is installed by a direct route, or through a `_model` family the
-frontend generates in-process at parse time
+block is installed by the fixed-point route, or through a `_model`
+family the frontend generates in-process at parse time
 (`ConLeche/Frontend/InModel/*`) and then checks as ordinary
-declarations of the stream.
+declarations; no model is ever read from the input (task #219).
 
 Exit codes follow the lean kernel arena convention:
 * 0 — all declarations accepted
@@ -216,9 +216,10 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
     -- Streaming frontend (task #57, task #180): the parse reads the
     -- file line by line, so neither a wholesale text buffer nor a
     -- scratch file exists in this process.
-    -- THE IN-PROCESS MODELLER (task #200; the only model source since
-    -- task #207): mutual and nested blocks get their `_model` family
-    -- generated at parse time (`ConLeche/Frontend/InModel.lean`);
+    -- THE IN-PROCESS MODELLER (task #200; the ONLY model source, and
+    -- since task #219 the only one there is): mutual and nested blocks
+    -- get their `_model` family generated at parse time
+    -- (`ConLeche/Frontend/InModel.lean`);
     -- `CON_LECHE_INMODEL=0` turns it off, `CON_LECHE_INMODEL_DUMP=OUT`
     -- writes the raw input with the generated records spliced in (the
     -- generator's debug gate).
@@ -494,29 +495,32 @@ def usage : String := String.intercalate "\n" [
   "                    'con-leche: route <block> <struct|sum|fix|inmodel|modeled>'",
   "                    line",
   "                    on STDERR per inductive block, naming the route",
-  "                    the checker takes for it (the direct structure",
-  "                    route, the direct sum/indexed route, the direct",
-  "                    fixed-point route (task #188), the in-process",
-  "                    model (task #200), or a model the STREAM itself",
-  "                    carries).  tests/route-census.sh pins the",
-  "                    per-route counts over every good fixture: on a",
-  "                    raw stream no block may read 'modeled', since",
-  "                    nothing emits a _model family since task #207.",
+  "                    the checker takes for it (the fixed-point route",
+  "                    (task #188/#210), the in-process model (task",
+  "                    #200), a pinned basis block, or 'modeled' — a",
+  "                    block on NO route, which declines).",
+  "                    tests/route-census.sh pins the per-route counts",
+  "                    over every good fixture: no block may read",
+  "                    'modeled'.",
   "                    Runs on the progress lane's UNVERIFIED fold",
   "                    (above).",
   "",
   "  CON_LECHE_INMODEL=0    turn the IN-PROCESS MODELLER off (task #200).  By",
-  "                    default a mutual or nested inductive block the",
-  "                    stream carries no `_model` family for gets one",
-  "                    generated at parse time (ConLeche/Frontend/InModel/*)",
-  "                    and pushed ahead of the block; the generated",
-  "                    records are checked by the fold like any stream",
-  "                    declaration, and the block installs through the",
-  "                    modeled route.  A generator decline is the run's",
-  "                    decline, naming the class.  The route trace reads",
-  "                    `inmodel` for such a block.  DEBUG SWITCH ONLY:",
-  "                    the in-process modeller is the checker's only",
-  "                    model source (task #207), so with the flag off",
+  "                    default every mutual or nested inductive block",
+  "                    gets a model generated at parse time",
+  "                    (ConLeche/Frontend/InModel/*) and pushed ahead of",
+  "                    the block; the generated records are checked by",
+  "                    the fold like any declaration -- and counted as",
+  "                    what they are, declarations of the fold rather",
+  "                    than records of the file, so the verdict line",
+  "                    reports the file's own count (task #219).  A",
+  "                    generator decline is the run's decline, naming",
+  "                    the class.  The route trace reads `inmodel` for",
+  "                    such a block.  DEBUG SWITCH ONLY: the in-process",
+  "                    modeller is the checker's only model source --",
+  "                    a stream record named `T._model` is an ordinary",
+  "                    declaration and routes nothing (task #219) -- so",
+  "                    with the flag off",
   "                    every mutual or nested block reaches the fold",
   "                    bare and the run declines with 'no install",
   "                    route for'.",
@@ -570,13 +574,16 @@ def usage : String := String.intercalate "\n" [
   "",
   "NO PREPROCESSOR (task #207).  The input is a RAW lean4export stream:",
   "there is no external tool, no dependency and no spawn.  Every",
-  "inductive block is installed by a direct route — structures, sums,",
-  "indexed families, finitary fixed points and reflexive blocks — or",
-  "through a `_model` family the frontend generates IN-PROCESS at parse",
-  "time and then checks as ordinary declarations of the stream.  The",
-  "generator is not trusted: a wrong record is rejected or declined by",
-  "the fold, never accepted; it decides coverage only.  A block no",
-  "route takes declines (exit 2) naming its class.",
+  "inductive block is installed by the fixed-point route — structures,",
+  "sums, indexed families, finitary fixed points and reflexive blocks —",
+  "or through a `_model` family the frontend generates IN-PROCESS at",
+  "parse time and then checks as ordinary declarations.  No model is",
+  "ever read from the input (task #219): a stream record whose name",
+  "carries a `_model` component is an ordinary declaration with no",
+  "effect on any block.  The generator is not trusted: a wrong record",
+  "is rejected or declined by the fold, never accepted; it decides",
+  "coverage only.  A block no route takes declines (exit 2) naming",
+  "its class.",
   "",
   "There is ONE core at two modes and one parse: the verified mode",
   "(--verified, the default) and the unverified trusted mode",
