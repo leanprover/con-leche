@@ -363,7 +363,7 @@ theorem srcAV_validV (nIdx D' : Nat) (s : Option Nat) (σ : Nat → V) :
 node's zero clause is the motive's application being a truth value. -/
 theorem motiveBody_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
     {Ids : List AVExpr} {famAt : List V → V}
-    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypS ℓ w ρ₀ Fss Ess Ids famAt)
+    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt)
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (j : Nat) (k : V) :
     AnnotValidV V (cons k σ)
@@ -384,12 +384,12 @@ theorem motiveBody_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List
       (.app (motAppAV Fss.length Ids.length (D + 2))
         (sumInjAtAV w _ (D + 2) (succsAV j (.bvar 1)) (.bvar 0)))
       ∈ˢ (univZero : V)
-    rw [interp2_app, (motApp_facts (hfr.step y k) hyp.toRecHypCore).1]
+    rw [interp2_app, (motApp_facts (hfr.step y k) hyp).1]
     exact hyp.hM0 h0 _
 
 theorem motive_validV {ℓ w D : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)}
     {Ids : List AVExpr} {famAt : List V → V}
-    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypS ℓ w ρ₀ Fss Ess Ids famAt)
+    (hfr : RecFrameS D ρ₀ σ) (hyp : RecHypCore ℓ w ρ₀ Fss Ess Ids famAt)
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (j : Nat) :
     AnnotValidV V σ
@@ -431,11 +431,11 @@ theorem caseRec_validV {ℓ w : Nat} {ρ₀ : Nat → V} {Fss Ess : List (List A
     rw [AnnotValidV_lam]
     exact ⟨trivial, fun _ _ => trivial⟩
   | r + 1, D, j, σ, kx, hfr, hk => by
-    refine natRecAV_validV (motive_validV hfr hyp hv j) (base_validV hfr hv j) ?_ hk
+    refine natRecAV_validV (motive_validV hfr hyp.toRecHypCore hv j) (base_validV hfr hv j) ?_ hk
     rw [AnnotValidV_lam]
     refine ⟨trivial, fun b _ => ?_⟩
     rw [AnnotValidV_lam]
-    refine ⟨motiveBody_validV hfr hyp hv j b, fun a _ => ?_⟩
+    refine ⟨motiveBody_validV hfr hyp.toRecHypCore hv j b, fun a _ => ?_⟩
     exact caseRec_validV hyp hv r (hfr.step a b) trivial
 
 /-- **The recursor body is bit-valid** at the frame under the K-frame,

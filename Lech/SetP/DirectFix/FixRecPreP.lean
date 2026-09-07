@@ -125,6 +125,66 @@ theorem consList_kframe (ps : List V) (M : V) (ms is : List V) (ρb : Nat → V)
     consList (((ps ++ [M]) ++ ms) ++ is) ρb = consList is (consList ms (cons M (consList ps ρb))) := by
   rw [consList_append, consList_append, consList_append, consList_cons, consList_nil]
 
+/-- **The K-frame split** of a spine fitting the recursor's binder
+data below the major: the parameters, the motive (in its reading),
+the minors (in their ih-extended readings) and a fitting index tuple. -/
+theorem fixSpine_split {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : Level}
+    {nP nIdx n ℓ w b : Nat}
+    {pps ips : List (Nat × Nat × AVExpr)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
+    {cds : List CtorDatumR} (hn : cds.length = n)
+    {Fss Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    (hminor : ∀ ρp : Nat → V, Sat2 V ((pps.map (·.2.2)).reverse) ρp →
+      ∀ j cd, cds[j]? = some cd → ∀ (M : V) (ms : List V), ms.length = j →
+        interp2 V (consList ms (cons M ρp))
+            (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1 cd.2.2.2.2.2)
+          = minorSpI ℓ (fun fs => ihSpL ℓ (concI w ρp M (Ess.getD j []) j fs)
+              (ihDomsI ρp M rss Eiss (fun j' => (Fss.getD j' []).length) j fs))
+            (Fss.getD j []) ρp [])
+    (ρb : Nat → V) (as : List V)
+    (hsp : SpineFit ρb (((pps.map (·.2.2) ++ [motiveAVI m T ψ nP nIdx elimL ips]) ++
+        (fixMinorsData m ψ nP b cds 1).map (·.2.2)) ++ (liftDoms (n + 1) 0 ips).map (·.2.2)) as) :
+    ∃ (ps : List V) (M : V) (ms is : List V),
+      as = ((ps ++ [M]) ++ ms) ++ is ∧ ps.length = nP ∧ ms.length = n ∧ is.length = nIdx ∧
+      Sat2 V ((pps.map (·.2.2)).reverse) (consList ps ρb) ∧
+      M ∈ˢ interp2 V (consList ps ρb) (motiveAVI m T ψ nP nIdx elimL ips) ∧
+      (∀ j, j < n → ms.getD j pt ∈ˢ minorSpI ℓ
+        (fun fs => ihSpL ℓ (concI w (consList ps ρb) M (Ess.getD j []) j fs)
+          (ihDomsI (consList ps ρb) M rss Eiss (fun j' => (Fss.getD j' []).length) j fs))
+        (Fss.getD j []) (consList ps ρb) []) ∧
+      SpineFit (consList ps ρb) (ips.map (·.2.2)) is := by
+  have hlenMD : (fixMinorsData m ψ nP b cds 1).length = n := by rw [fixMinorsData_length, hn]
+  obtain ⟨b₁, is, rfl, hsp₁, hspI⟩ := spineFit_append_inv hsp
+  obtain ⟨c₁, ms, rfl, hsp₂, hspM⟩ := spineFit_append_inv hsp₁
+  obtain ⟨ps, m₁, rfl, hspP, hspMot⟩ := spineFit_append_inv hsp₂
+  obtain ⟨M, rfl, hM⟩ := spineFit_singleton hspMot
+  have hlenPs : ps.length = nP := by rw [hspP.length_eq, List.length_map, hlenP]
+  have hlenMs : ms.length = n := by rw [hspM.length_eq, List.length_map, hlenMD]
+  have hlenIs : is.length = nIdx := by
+    rw [hspI.length_eq, List.length_map, liftDoms_length, hlenI]
+  have hρp : Sat2 V ((pps.map (·.2.2)).reverse) (consList ps ρb) := by
+    have := sat2_of_spineFit (Δ₀ := []) (Sat2_nil V ρb) hspP
+    rwa [List.append_nil] at this
+  have hframe : consList (ps ++ [M]) ρb = cons M (consList ps ρb) := by
+    rw [consList_append, consList_cons, consList_nil]
+  rw [hframe] at hspM
+  have hframe' : consList ((ps ++ [M]) ++ ms) ρb = consList ms (cons M (consList ps ρb)) := by
+    rw [consList_append, hframe]
+  rw [hframe'] at hspI
+  refine ⟨ps, M, ms, is, rfl, hlenPs, hlenMs, hlenIs, hρp, hM, ?_, ?_⟩
+  · -- the minors
+    intro j hj
+    obtain ⟨cd, hcd⟩ : ∃ cd, cds[j]? = some cd := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    have hmem := FixKI.spineFit_getD_mem' hspM (l := j) (by rw [List.length_map, hlenMD]; exact hj)
+    simp only [List.getD_eq_getElem?_getD, List.getElem?_map, fixMinorsData_getElem?, hcd,
+      Option.map_some, Option.getD_some] at hmem
+    have hread := hminor (consList ps ρb) hρp j cd hcd M (ms.take j)
+      (by rw [List.length_take, hlenMs]; omega)
+    rw [hread] at hmem
+    exact hmem
+  · -- the indices
+    rw [spineFit_liftDoms_iff, shiftE_minors hlenMs] at hspI
+    exact hspI
+
 /-! ## The premise -/
 
 set_option maxHeartbeats 3200000 in
@@ -204,51 +264,6 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
       List.take_append_of_le_length (by omega : nP + 1 + n ≤ X.length),
       List.take_of_length_le (by omega : X.length ≤ nP + 1 + n), ← hX]
     simp only [List.map_append, List.map_cons, List.map_nil, rebit_map_dom]
-  -- **the K-frame split** of a fitting spine
-  have hsplit : ∀ (ρb : Nat → V) (as : List V),
-      SpineFit ρb (((pps.map (·.2.2) ++ [motiveAVI m T ψ nP nIdx elimL ips]) ++
-        (fixMinorsData m ψ nP b cds 1).map (·.2.2)) ++ (liftDoms (n + 1) 0 ips).map (·.2.2)) as →
-      ∃ (ps : List V) (M : V) (ms is : List V),
-        as = ((ps ++ [M]) ++ ms) ++ is ∧ ps.length = nP ∧ ms.length = n ∧ is.length = nIdx ∧
-        Sat2 V ((pps.map (·.2.2)).reverse) (consList ps ρb) ∧
-        M ∈ˢ interp2 V (consList ps ρb) (motiveAVI m T ψ nP nIdx elimL ips) ∧
-        (∀ j, j < n → ms.getD j pt ∈ˢ minorSpI ℓ
-          (fun fs => ihSpL ℓ (concI w (consList ps ρb) M (Ess.getD j []) j fs)
-            (ihDomsI (consList ps ρb) M rss Eiss (fun j' => (Fss.getD j' []).length) j fs))
-          (Fss.getD j []) (consList ps ρb) []) ∧
-        SpineFit (consList ps ρb) (ips.map (·.2.2)) is := by
-    intro ρb as hsp
-    obtain ⟨b₁, is, rfl, hsp₁, hspI⟩ := spineFit_append_inv hsp
-    obtain ⟨c₁, ms, rfl, hsp₂, hspM⟩ := spineFit_append_inv hsp₁
-    obtain ⟨ps, m₁, rfl, hspP, hspMot⟩ := spineFit_append_inv hsp₂
-    obtain ⟨M, rfl, hM⟩ := spineFit_singleton hspMot
-    have hlenPs : ps.length = nP := by rw [hspP.length_eq, List.length_map, hlenP]
-    have hlenMs : ms.length = n := by rw [hspM.length_eq, List.length_map, hlenMD]
-    have hlenIs : is.length = nIdx := by
-      rw [hspI.length_eq, List.length_map, liftDoms_length, hlenI]
-    have hρp : Sat2 V ((pps.map (·.2.2)).reverse) (consList ps ρb) := by
-      have := sat2_of_spineFit (Δ₀ := []) (Sat2_nil V ρb) hspP
-      rwa [List.append_nil] at this
-    have hframe : consList (ps ++ [M]) ρb = cons M (consList ps ρb) := by
-      rw [consList_append, consList_cons, consList_nil]
-    rw [hframe] at hspM
-    have hframe' : consList ((ps ++ [M]) ++ ms) ρb = consList ms (cons M (consList ps ρb)) := by
-      rw [consList_append, hframe]
-    rw [hframe'] at hspI
-    refine ⟨ps, M, ms, is, rfl, hlenPs, hlenMs, hlenIs, hρp, hM, ?_, ?_⟩
-    · -- the minors
-      intro j hj
-      obtain ⟨cd, hcd⟩ : ∃ cd, cds[j]? = some cd := ⟨_, List.getElem?_eq_getElem (by omega)⟩
-      have hmem := FixKI.spineFit_getD_mem' hspM (l := j) (by rw [List.length_map, hlenMD]; exact hj)
-      simp only [List.getD_eq_getElem?_getD, List.getElem?_map, fixMinorsData_getElem?, hcd,
-        Option.map_some, Option.getD_some] at hmem
-      have hread := (hframes (consList ps ρb) hρp).2.2.2.2 j cd hcd M (ms.take j)
-        (by rw [List.length_take, hlenMs]; omega)
-      rw [hread] at hmem
-      exact hmem
-    · -- the indices
-      rw [spineFit_liftDoms_iff, shiftE_minors hlenMs] at hspI
-      exact hspI
   -- **the K-frame package** at a split
   have hpack : ∀ (ρb : Nat → V) (ps : List V) (M : V) (ms is : List V),
       ps.length = nP → ms.length = n → is.length = nIdx →
@@ -291,7 +306,8 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
     obtain ⟨t', rfl, ht⟩ := spineFit_singleton hspT
     obtain ⟨rfl, ht'⟩ := List.append_inj' heq rfl
     obtain rfl := List.singleton_inj.mp ht'
-    obtain ⟨ps, M, ms, is, rfl, hlenPs, hlenMs, hlenIs, hρp, hM, hms, hfit⟩ := hsplit ρb as hsp'
+    obtain ⟨ps, M, ms, is, rfl, hlenPs, hlenMs, hlenIs, hρp, hM, hms, hfit⟩ := fixSpine_split (T := T) (elimL := elimL) hlenP hlenI hn
+      (fun ρp hρp => (hframes ρp hρp).2.2.2.2) ρb as hsp'
     obtain ⟨hK, hmaj⟩ := hpack ρb ps M ms is hlenPs hlenMs hlenIs hρp hM hms hfit
     rw [consList_kframe] at ht ⊢
     refine ⟨hK, ?_⟩
@@ -330,7 +346,8 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
     rw [hdoms] at hsp
     obtain ⟨as, ts, rfl, hsp', hspT⟩ := spineFit_append_inv hsp
     obtain ⟨t, rfl, ht⟩ := spineFit_singleton hspT
-    obtain ⟨ps, M, ms, is, rfl, hlenPs, hlenMs, hlenIs, hρp, hM, hms, hfit⟩ := hsplit ρb as hsp'
+    obtain ⟨ps, M, ms, is, rfl, hlenPs, hlenMs, hlenIs, hρp, hM, hms, hfit⟩ := fixSpine_split (T := T) (elimL := elimL) hlenP hlenI hn
+      (fun ρp hρp => (hframes ρp hρp).2.2.2.2) ρb as hsp'
     obtain ⟨hK, -⟩ := hpack ρb ps M ms is hlenPs hlenMs hlenIs hρp hM hms hfit
     have hlenIs' : is.length = (ips.map (·.2.2)).length := by rw [hlenIds]; exact hlenIs
     have hlenMs' : ms.length = Fss.length := by rw [hlenFs]; exact hlenMs
