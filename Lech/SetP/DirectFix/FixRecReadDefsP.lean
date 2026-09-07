@@ -140,9 +140,10 @@ theorem fixRecDataAV_length {m : EnvS2Core V env} {T : Name} {ψ : Name → Nat}
 /-! ## The rules -/
 
 /-- The recursor's leading spine `p⃗ motive m⃗` read under the `nF`
-fields of a rule (`directRecPrefixAt nP n nF 0`'s reading). -/
+fields of a rule (`directRecPrefixAt nP n nF 0`'s reading: the
+parameters sit `nF + n + 1` binders above the fields). -/
 def recPrefixBvars (nP n nF : Nat) : List AVExpr :=
-  paramBvarsAt nP (nF + n + 1) ++ [.bvar (nF + n)] ++
+  paramBvarsAt nP (nP + nF + n + 1) ++ [.bvar (nF + n)] ++
     (List.range n).map fun l => AVExpr.bvar (nF + n - 1 - l)
 
 /-- The ih application in a rule for recursive field `i`: the recursor's
