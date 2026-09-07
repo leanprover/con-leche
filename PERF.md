@@ -9,8 +9,8 @@
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
 | metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` (the `mathlib-full` row: 22 GB, 8 h, `CON_LECHE_PROGRESS=5000`) |
 | streams | RAW `lean4export` NDJSON; both checkers read the same bytes and do the same job (task #207: there is no preprocessing step, so these numbers are not comparable with any earlier PERF.md) |
-| Mathlib stream | `/home/joachim/setlec/.claude/worktrees/tooldrop/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes, raw) |
-| official kernel | `/home/joachim/setlec/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
+| Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes, raw) |
+| official kernel | `<checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
 | con-leche binary | md5 `8eb8790c9c93659142491a61930e375a` |
 
 ## instructions:u
@@ -23,6 +23,7 @@
 | `grind-ring-5` | 13.40 G | 25.29 G | 26.11 G | 1.89× | 1.95× |
 | `app-lam` | 29.40 G | 158.01 G | 158.01 G | 5.37× | 5.37× |
 | `init-full` | 403.46 G | 654.11 G | 673.17 G | 1.62× | 1.67× |
+| `mathlib-full` | 10.54 T | (3.15 T, exit 2 — partial) | (3.19 T, exit 2 — partial) | — | — |
 
 ## exit code / accepted declaration records
 
@@ -34,6 +35,7 @@
 | `grind-ring-5` | 0 / 2429 | 0 / 2211 | 0 / 2211 |
 | `app-lam` | 0 / 34 | 0 / 21 | 0 / 21 |
 | `init-full` | 0 / 54472 | 0 / 53118 | 0 / 53118 |
+| `mathlib-full` | 0 / 670627 | 2 / — | 2 / — |
 
 Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
 
@@ -68,9 +70,24 @@ counts.
 | `grind-ring-5` | 2185 | 2181 | 2429 | 4 | 0 | 101 | 78 | 16 | 7 |
 | `app-lam` | 21 | 21 | 31 | 2 | 0 | 4 | 4 | 0 | 0 |
 | `init-full` | 53093 | 53088 | 54472 | 5 | 0 | 583 | 477 | 59 | 47 |
+| `mathlib-full` | 654504 | 654499 | 670627 | 5 | 0 | 6639 | 5683 | 634 | 322 |
+
+## the Mathlib row, as data (not a measurement)
+
+Wall time and resident memory on a shared 96-core machine are
+**data**, not comparisons — `instructions:u` above is the
+measurement.  These are here because they are the two numbers a
+reader wants before pointing the checker at all of Mathlib.
+
+| | official v4.33.0 | trusted `--trusted` | verified `--verified` |
+|---|---|---|---|
+| wall | 31.3 min | 4.5 min (partial) | 4.8 min (partial) |
+| peak RSS (`time -v`) | 9.17 GiB | 8.60 GiB (partial) | 8.61 GiB (partial) |
 
 ## Notes
 
+* **Nothing here is comparable with the previous table.**  Every published cell before this one was measured on a PREPROCESSED stream, with `con-leche --pre` on one side and the same preprocessed bytes on official's; task #207 dropped the preprocessor, so both checkers now read the RAW `lean4export` export and do the same job — con-leche installs every inductive block itself.  The like-for-like control, on `init-full` `--verified`: **668.05 G** on the preprocessed stream (previous table) against **673.17 G** raw — **+0.8 %**, the price of installing the blocks ourselves.  Official moves the other way, 413.02 G → 403.46 G (**−2.3 %**), since the raw stream carries no model families; hence the ratio 1.62× → **1.67×** verified and 1.55× → **1.62×** trusted.  (#215's 782.62 G for "init-full through the default pipe" is not a third con-leche number: `perf stat` follows children, so it was con-leche PLUS the preprocessor it spawned.)
+* **All of Mathlib no longer accepts on the RAW stream, and this row records it.**  The whole raw export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B) is read by all three cells.  Official accepts, 670 627 declarations, 10.54 T instructions, 31.3 min, 9.17 GiB.  Both con-leche cells **DECLINE (exit 2)** at fold position 50 008 of 656 667, after 4.5–4.8 min: `no install route for inductive block CategoryTheory.MorphismProperty.multiplicativeClosure`.  The block is a `Prop`-valued, recursive, three-constructor family with three indices, and its type former is declared AT A DEFINITION (`CategoryTheory.MorphismProperty C`, a `def`) that only *unfolds* to the index telescope.  Task #195 gave the direct SUM arm official's whnf reading of such a former; the FIXPOINT arm still reads `stripPis`, so the route stands down and no model is generated.  That is the known def-headed-former class — audit finding #206-A3/A5, pinned by `tests/e2e/ind_defhead_fix.ndjson` (expected 2) — and the external preprocessor was covering it: the 2026-09-06 full-Mathlib accept (1.45× verified / 1.32× trusted) was on the PREPROCESSED stream.  The two con-leche cells are therefore partial and no full-Mathlib ratio is published here.  The parse itself is healthy: 51 blocks modelled in-process, 0 declined, 65 projection functions rewritten.  Fixing it is the conformance batch's (extend #195's whnf'd-telescope reading to the fix arm).
 * **The verdict line counts declaration RECORDS** (task #187).  It
   used to print `env.consts.length`, the number of environment
   CONSTANTS, which counts an inductive block's type former, its

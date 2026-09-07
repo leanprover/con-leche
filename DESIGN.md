@@ -58695,11 +58695,76 @@ legend now says this; the exit-code table carries the verdict counts.
 not this task's, and is left alone: changing it would move every
 pinned count in the tree.)
 
-### PERF.md
+### PERF.md, regenerated on RAW streams
 
-Wholly regenerated on RAW streams — every published cell before this
-task was measured on a preprocessed stream with `--pre` on the con-leche
-side.  The methodological change is stated in the file: both checkers
-now read the same raw bytes and do the SAME job, inductive blocks
-included, which con-leche used to have done for it.  **No cell is
-comparable with an earlier PERF.md.**
+Every published cell before this task was measured on a preprocessed
+stream with `--pre` on the con-leche side.  The methodological change
+is stated in the file: both checkers now read the same raw bytes and do
+the SAME job, inductive blocks included, which con-leche used to have
+done for it.  **No cell is comparable with an earlier PERF.md.**
+Measured at `b33f38d9`, one run per cell, `perf stat -e instructions:u`
+(the tip's binary is md5-identical — the only later change to a
+compiled file is a source comment).
+
+| stream | official | trusted | verified | t÷o | v÷o |
+|---|---:|---:|---:|---:|---:|
+| `let-ladder` | 6.13 G | 8.31 G | 8.31 G | 1.36× | 1.36× |
+| `beta-ladder` | 10.13 G | 39.43 G | 39.43 G | 3.89× | 3.89× |
+| `init-prelude` | 2.21 G | 4.41 G | 4.55 G | 2.00× | 2.06× |
+| `grind-ring-5` | 13.40 G | 25.29 G | 26.11 G | 1.89× | 1.95× |
+| `app-lam` | 29.40 G | 158.01 G | 158.01 G | 5.37× | 5.37× |
+| `init-full` | 403.46 G | 654.11 G | 673.17 G | **1.62×** | **1.67×** |
+| `mathlib-full` | 10.54 T | (3.15 T, exit 2) | (3.19 T, exit 2) | — | — |
+
+The like-for-like control is `init-full` `--verified`: **668.05 G** on
+the preprocessed stream (previous table) against **673.17 G** raw —
+**+0.8 %**, the price of installing the blocks ourselves — while
+official goes 413.02 G → 403.46 G (**−2.3 %**, the raw stream carries
+no model families).  The published ratio therefore WORSENS, 1.62× →
+1.67× verified and 1.55× → 1.62× trusted, against a checker that is now
+doing the same job.  Better to underpromise.
+
+### THE FINDING THIS TASK'S OWN GATE PRODUCED: all of Mathlib no longer accepts on the raw stream
+
+The `mathlib-full` row is the one that matters, and it is a **decline**.
+Official accepts the raw 5 636 308 621-byte export — 670 627
+declarations, 10.54 T instructions, 31.3 min, 9.17 GiB.  Both con-leche
+cells **exit 2** after 4.5–4.8 min, at fold position 50 008 of 656 667:
+
+```
+con-leche: not implemented yet: no install route for inductive block
+CategoryTheory.MorphismProperty.multiplicativeClosure: no direct route
+recognises it and no model for … was generated
+```
+
+**The class.**  The block is `Prop`-valued, recursive, three
+constructors, three indices, NOT nested, NOT reflexive — and its type
+former is declared **at a definition**: the former's result is
+`CategoryTheory.MorphismProperty C`, a `def` (`hints regular 1`) that
+only *unfolds* to `∀ {X Y : C}, (X ⟶ Y) → Prop`.  Task #195 gave the
+direct SUM arm official's whnf reading of exactly such a former
+(Mathlib's `Presieve.ofArrows`); **the FIXPOINT arm still reads
+`stripPis`**, so `directFixParts?` stands down, `InModel.wants` does not
+take the block (it is neither mutual nor nested), and nothing models it.
+This is residual class 4 of the #207 checklist — the one it recorded as
+*vacuous on both corpora* — and audit finding #206-A3/A5, already pinned
+by `tests/e2e/ind_defhead_fix.ndjson` (expected `2`).
+
+**Why the checklist missed it.**  Its Mathlib census was
+`CON_LECHE_INMODEL_CENSUS=1`, which is **parse-only**: it reports what
+the in-process modeller does with the mutual/nested blocks and never
+runs the fold, so it cannot see a block the *direct recognisers* refuse
+at check time.  The lesson for the next inventory: a coverage census
+must be a FOLD, not a parse.
+
+**What it costs.**  The standing "ALL OF MATHLIB ACCEPTED (2026-09-06)"
+milestone was measured on the PREPROCESSED stream (1.45× verified /
+1.32× trusted, in the previous PERF.md); the tool was covering this
+block.  On the raw stream the corpus stops at 7.6 % of the fold.  The
+parse itself is healthy — 51 blocks modelled in-process, **0 declined**,
+65 projection functions rewritten — so this is one recogniser conjunct,
+not a structural gap.  **The fix is to extend #195's whnf'd-telescope
+reading of the former to the fix arm**, i.e. Part D of task #210 / the
+conformance batch; it is the same work item as the three arena tutorial
+declines (053/118/119), which are the *field*-side half of the same
+def-headed/redex-headed story.

@@ -1,21 +1,21 @@
-let-ladder	official	6130711312	0.57	0	22	33.05	Accepted 22 declarations.	
-let-ladder	trusted	8378614504	1.04	0	13	33.05	con-leche: accepted 13 declarations (--trusted)	
-let-ladder	verified	8378814343	1.03	0	13	33.05	con-leche: accepted 13 declarations (--verified)	
-beta-ladder	official	10130987288	1.07	0	20	33.05	Accepted 20 declarations.	
-beta-ladder	trusted	40415743903	4.74	0	11	33.05	con-leche: accepted 11 declarations (--trusted)	
-beta-ladder	verified	40420633719	4.77	0	11	31.12	con-leche: accepted 11 declarations (--verified)	
-init-prelude	official	3178595035	0.31	0	2509	29.27	Accepted 2509 declarations.	
-init-prelude	trusted	5551808925	0.49	0	2151	29.27	con-leche: accepted 2151 declarations (--trusted)	
-init-prelude	verified	7130174493	0.65	0	2151	29.27	con-leche: accepted 2151 declarations (--verified)	
-grind-ring-5	official	14497816133	1.45	0	2927	27.65	Accepted 2927 declarations.	
-grind-ring-5	trusted	26315105771	3.00	0	2607	27.65	con-leche: accepted 2607 declarations (--trusted)	
-grind-ring-5	verified	28327066899	3.14	0	2607	25.99	con-leche: accepted 2607 declarations (--verified)	
-app-lam	official	29403643947	3.36	0	34	25.99	Accepted 34 declarations.	
-app-lam	trusted	161435783443	32.45	0	21	24.63	con-leche: accepted 21 declarations (--trusted)	
-app-lam	verified	161442858815	48.14	0	21	19.70	con-leche: accepted 21 declarations (--verified)	
-init-full	official	406304802356	54.24	0	55346	28.87	Accepted 55346 declarations.	
-init-full	trusted	631508126176	109.39	0	53890	28.68	con-leche: accepted 53890 declarations (--trusted)	
-init-full	verified	655223197150	98.44	0	53890	42.20	con-leche: accepted 53890 declarations (--verified)	
-mathlib-full	verified	15417141946242	3248.10	0	665087	7.68	con-leche: accepted 665087 declarations (--verified)	13467428
-mathlib-full	trusted	14075609935248	2863.83	0	665087	12.58	con-leche: accepted 665087 declarations (--trusted)	13468444
-mathlib-full	official	10635859854457	2010.56	0	683531	5.73	Accepted 683531 declarations.	9637000
+let-ladder	official	6131634845	0.88	0	22	49.76	Accepted 22 declarations.	
+let-ladder	trusted	8309294100	1.56	0	13	49.76	con-leche: accepted 13 declarations (--trusted)	
+let-ladder	verified	8309492386	1.32	0	13	49.76	con-leche: accepted 13 declarations (--verified)	
+beta-ladder	official	10126365895	1.27	0	20	49.76	Accepted 20 declarations.	
+beta-ladder	trusted	39430603365	5.51	0	11	49.14	con-leche: accepted 11 declarations (--trusted)	
+beta-ladder	verified	39434465941	5.75	0	11	48.33	con-leche: accepted 11 declarations (--verified)	
+init-prelude	official	2207122029	0.25	0	2056	49.10	Accepted 2056 declarations.	
+init-prelude	trusted	4410631414	0.49	0	1803	49.10	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 1803 de	
+init-prelude	verified	4552388119	0.52	0	1803	49.10	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 1803 de	
+grind-ring-5	official	13403216368	1.79	0	2429	49.10	Accepted 2429 declarations.	
+grind-ring-5	trusted	25288395492	3.29	0	2211	48.21	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 2211 de	
+grind-ring-5	verified	26107284955	3.23	0	2211	48.21	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 2211 de	
+app-lam	official	29399629312	3.32	0	34	46.20	Accepted 34 declarations.	
+app-lam	trusted	158008114341	32.23	0	21	45.78	con-leche: accepted 21 declarations (--trusted)	
+app-lam	verified	158011635646	32.35	0	21	53.68	con-leche: accepted 21 declarations (--verified)	
+init-full	official	403455104511	47.43	0	54472	54.89	Accepted 54472 declarations.	
+init-full	trusted	654112667041	102.74	0	53118	27.99	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 53118 d	
+init-full	verified	673168778871	76.09	0	53118	61.65	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 53118 d	
+mathlib-full	official	10535074703731	1880.78	0	670627	17.71	Accepted 670627 declarations.	9615988
+mathlib-full	trusted	3154932382546	271.81	2		2.89	NONE	9022124
+mathlib-full	verified	3189384092763	286.62	2		2.28	NONE	9023724
