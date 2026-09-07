@@ -87,9 +87,9 @@ recursor at the block, the field's index values and the field is
 graded, valid, and lies in the ih domain — the motive at the index
 values and the field. -/
 theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat × AVExpr)}
-    {Fss Ess : List (List AVExpr)} {Ids : List AVExpr} {rss : List (List Bool)}
+    {Fss₀ Fss Ess : List (List AVExpr)} {Ids : List AVExpr} {rss : List (List Bool)}
     {Eiss : List (List (List AVExpr))}
-    (h : FixPre V ℓ w u nP Fss Ess Fss Ids rss Eiss rds s)
+    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s)
     (hFss : Fss.length = n) (hIds : Ids.length = nIdx) (hjn : j < n)
     {Fs : List AVExpr} (hFsj : Fss[j]? = some Fs) (hlenFs : Fs.length = nF)
     {R : AVExpr} (hR : R = directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds s)
@@ -98,8 +98,8 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
     (hlen₁ : as₁.length = nP) (hlenm : ms.length = n) (hlen₂ : as₂.length = nF)
     (hRok : AnnotOkP V (consList as₂ (consList ms (cons M (consList as₁ ρ)))) R)
     (hspB : SpineFit ρ ((rds.take (nP + 1 + n)).map (·.2.2)) ((as₁ ++ [M]) ++ ms))
-    (hreal : ChainsRealI (fixFamI u w (consList as₁ ρ) Ids nIdx rss Eiss Fss Ess) u
-      (consList as₁ ρ) Ids rss Eiss Fss Fss Ess)
+    (hreal : ChainsRealI (fixFamI u w (consList as₁ ρ) Ids nIdx rss Eiss Fss₀ Ess) u
+      (consList as₁ ρ) Ids rss Eiss Fss₀ Fss Ess)
     (hEisV : ∀ E ∈ (Eiss.getD j []).getD i [],
       AnnotValidV V (consList (as₂.take i) (consList as₁ ρ)) E)
     (hsp₂ : SpineFit (consList as₁ ρ) Fs as₂)
@@ -118,7 +118,7 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
   have hFsD : Fss.getD j [] = Fs := by rw [List.getD_eq_getElem?_getD, hFsj]; rfl
   have hlenIds : Ids.length = nIdx := hIds
   -- the real chain at the field
-  have hc := chainRealI_at Fs Fs 0 [] as₂ rfl (by rw [← hFsD]; exact hreal.2.2.2.2 j hjF)
+  have hc := chainRealI_at (Fss₀.getD j []) Fs 0 [] as₂ rfl (by rw [← hFsD]; exact hreal.2.2.2.2 j hjF)
     (by simpa using hsp₂) i (by rw [hlenFs]; exact hik) (by rw [Nat.zero_add]; exact hri)
   rw [Nat.zero_add, List.nil_append] at hc
   obtain ⟨hEok, hvsp, heq⟩ := hc
@@ -126,7 +126,7 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
     = vals at hvsp heq ⊢
   -- the field lies in the family at the index values
   have hfield : as₂.getD i pt ∈ˢ SetTheory.app
-      (fixFamI u w (consList as₁ ρ) Ids nIdx rss Eiss Fss Ess) (tupW u vals) := by
+      (fixFamI u w (consList as₁ ρ) Ids nIdx rss Eiss Fss₀ Ess) (tupW u vals) := by
     have := FixKI.spineFit_getD_mem' hsp₂ (by rw [hlenFs]; exact hik)
     rw [heq] at this
     exact this
@@ -216,12 +216,12 @@ theorem fixRuleOkP {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL :
     (hb : pwBit ψ (Level.zeronessOf elimL) = b) (hbz : ℓ = 0 ↔ b = 0)
     {pps ips : List (Nat × Nat × AVExpr)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
     {cds : List CtorDatumR} (hn : cds.length = n)
-    {Fss Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    {Fss₀ Fss Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
     (hlenFs : Fss.length = n) (hlenEs : Ess.length = n)
     (hEs : ∀ j, j < n → (Ess.getD j []).length = nIdx)
     (hEisLen : ∀ j i, i ∈ recIdx (rss.getD j []) (Fss.getD j []).length →
       ((Eiss.getD j []).getD i []).length = nIdx)
-    (h : FixPre V ℓ w u nP Fss Ess Fss (ips.map (·.2.2)) rss Eiss
+    (h : FixPre V ℓ w u nP Fss Ess Fss₀ (ips.map (·.2.2)) rss Eiss
       (fixRecDataAV m T ψ nP nIdx elimL pps ips cds) s)
     (okΓ : ∀ i, i < nP + n + nIdx + 2 → ∀ ρ : Nat → V,
       Sat2 V (((((fixRecDataAV m T ψ nP nIdx elimL pps ips cds).map (·.2.2)).reverse)).drop
@@ -233,16 +233,16 @@ theorem fixRuleOkP {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL :
       (fixRecDataAV m T ψ nP nIdx elimL pps ips cds) s)
     (hRcl : VExpr.bvarsBelow 0 R.erase) (hRok : ∀ ρ : Nat → V, AnnotOkP V ρ R)
     (hframes : ∀ ρp : Nat → V, Sat2 V ((pps.map (·.2.2)).reverse) ρp →
-      XChainsOk u w ρp (ips.map (·.2.2)) rss Eiss Fss Ess ∧
-      ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess) u ρp
-        (ips.map (·.2.2)) rss Eiss Fss Fss Ess ∧
+      XChainsOk u w ρp (ips.map (·.2.2)) rss Eiss Fss₀ Ess ∧
+      ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss₀ Ess) u ρp
+        (ips.map (·.2.2)) rss Eiss Fss₀ Fss Ess ∧
       (∀ j, j < n → FieldsOkB w ρp (Fss.getD j []) ∧
         ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
           (∀ E ∈ Ess.getD j [], AnnotOk2 V (consList bs ρp) E) ∧
           SpineFit ρp (ips.map (·.2.2)) (idxValsAt ρp (Ess.getD j []) bs)) ∧
       (∀ σ : Nat → V, interp2 V σ (m.acval T ψ)
         = interp2 V (fun k => ρp (k + nP))
-            (directFixTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss Eiss Fss Ess)) ∧
+            (directFixTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss Eiss Fss₀ Ess)) ∧
       (∀ j cd, cds[j]? = some cd → ∀ (M : V) (ms : List V), ms.length = j →
         interp2 V (consList ms (cons M ρp))
             (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1 cd.2.2.2.2.2)

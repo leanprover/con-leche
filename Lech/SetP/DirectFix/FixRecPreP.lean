@@ -195,7 +195,7 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
     (hwℓ : w = 0 → ℓ = 0) (hs0 : s = 0 ↔ ℓ = 0)
     {pps ips : List (Nat × Nat × AVExpr)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
     {cds : List CtorDatumR} (hn : cds.length = n)
-    {Fss Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    {Fss₀ Fss Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
     (hlenFs : Fss.length = n) (hlenEs : Ess.length = n)
     (hEs : ∀ j, j < n → (Ess.getD j []).length = nIdx)
     (hEisLen : ∀ j i, i ∈ recIdx (rss.getD j []) (Fss.getD j []).length →
@@ -213,23 +213,23 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
       interp2 V ρ (mkPisAV (fixRecDataAV m T ψ nP nIdx elimL pps ips cds) (recConcAV n nIdx))
         ∈ˢ (univ s : V))
     (hframes : ∀ ρp : Nat → V, Sat2 V ((pps.map (·.2.2)).reverse) ρp →
-      XChainsOk u w ρp (ips.map (·.2.2)) rss Eiss Fss Ess ∧
-      ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess) u ρp
-        (ips.map (·.2.2)) rss Eiss Fss Fss Ess ∧
+      XChainsOk u w ρp (ips.map (·.2.2)) rss Eiss Fss₀ Ess ∧
+      ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss₀ Ess) u ρp
+        (ips.map (·.2.2)) rss Eiss Fss₀ Fss Ess ∧
       (∀ j, j < n → FieldsOkB w ρp (Fss.getD j []) ∧
         ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
           (∀ E ∈ Ess.getD j [], AnnotOk2 V (consList bs ρp) E) ∧
           SpineFit ρp (ips.map (·.2.2)) (idxValsAt ρp (Ess.getD j []) bs)) ∧
       (∀ σ : Nat → V, interp2 V σ (m.acval T ψ)
         = interp2 V (fun k => ρp (k + nP))
-            (directFixTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss Eiss Fss Ess)) ∧
+            (directFixTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss Eiss Fss₀ Ess)) ∧
       (∀ j cd, cds[j]? = some cd → ∀ (M : V) (ms : List V), ms.length = j →
         interp2 V (consList ms (cons M ρp))
             (minorAVAtR m cd.1 ψ nP cd.2.1 b (1 + j) cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1 cd.2.2.2.2.2)
           = minorSpI ℓ (fun fs => ihSpL ℓ (concI w ρp M (Ess.getD j []) j fs)
               (ihDomsI ρp M rss Eiss (fun j' => (Fss.getD j' []).length) j fs))
             (Fss.getD j []) ρp [])) :
-    FixPre V ℓ w u nP Fss Ess Fss (ips.map (·.2.2)) rss Eiss
+    FixPre V ℓ w u nP Fss Ess Fss₀ (ips.map (·.2.2)) rss Eiss
       (fixRecDataAV m T ψ nP nIdx elimL pps ips cds) s := by
   have hlenIds : ((ips.map (·.2.2))).length = nIdx := by rw [List.length_map, hlenI]
   generalize hrds : fixRecDataAV m T ψ nP nIdx elimL pps ips cds = rds
@@ -274,10 +274,10 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
           (ihDomsI (consList ps ρb) M rss Eiss (fun j' => (Fss.getD j' []).length) j fs))
         (Fss.getD j []) (consList ps ρb) []) →
       SpineFit (consList ps ρb) (ips.map (·.2.2)) is →
-      FixKI₀ ℓ w u (consList is (consList ms (cons M (consList ps ρb)))) Fss Ess Fss
+      FixKI₀ ℓ w u (consList is (consList ms (cons M (consList ps ρb)))) Fss Ess Fss₀
         (ips.map (·.2.2)) rss Eiss ∧
       interp2 V (consList is (consList ms (cons M (consList ps ρb)))) (majorAVAt m T ψ nP nIdx n)
-        = SetTheory.app (fixFamI u w (consList ps ρb) (ips.map (·.2.2)) nIdx rss Eiss Fss Ess)
+        = SetTheory.app (fixFamI u w (consList ps ρb) (ips.map (·.2.2)) nIdx rss Eiss Fss₀ Ess)
             (tupW u is) := by
     intro ρb ps M ms is _ hlenMs _ hρp hM hms hfit
     obtain ⟨hX, hreal, hfields, hleafT, -⟩ := hframes (consList ps ρb) hρp

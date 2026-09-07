@@ -114,9 +114,9 @@ theorem interp_fixRuleCoreAV {nP n nF j : Nat} {as₁ ms as₂ : List V} {M : V}
 set_option maxHeartbeats 6400000 in
 /-- **The recursive recursor rule's law at the readings.** -/
 theorem fixRecLawCore {ℓ w u s nP nF nIdx n j : Nat} {rds ds : List (Nat × Nat × AVExpr)}
-    {Fss Ess : List (List AVExpr)} {Ids : List AVExpr} {rss : List (List Bool)}
+    {Fss₀ Fss Ess : List (List AVExpr)} {Ids : List AVExpr} {rss : List (List Bool)}
     {Eiss : List (List (List AVExpr))} {Es : List AVExpr}
-    (h : FixPre V ℓ w u nP Fss Ess Fss Ids rss Eiss rds s)
+    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s)
     (hFss : Fss.length = n) (hIds : Ids.length = nIdx)
     (hlenDs : ds.length = nP + nF) (hjn : j < n)
     (hFsj : Fss[j]? = some ((ds.drop nP).map (·.2.2))) (hEsj : Ess[j]? = some Es)

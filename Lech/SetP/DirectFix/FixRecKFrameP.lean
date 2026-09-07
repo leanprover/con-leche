@@ -162,18 +162,18 @@ the parameter frame, the carrier applied to the parameter variables
 and an index spine is the family's fibre at the spine's tuple. -/
 theorem fixFamAt_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {nP nIdx w u : Nat}
     {pps ips : List (Nat × Nat × AVExpr)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
-    {Fss Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    {Fss₀ Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
     {ρp : Nat → V} (hsatP : Sat2 V ((pps.map (·.2.2)).reverse) ρp)
-    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss Eiss Fss Ess)
+    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss Eiss Fss₀ Ess)
     (hleafT : ∀ σ : Nat → V, interp2 V σ (m.acval T ψ)
       = interp2 V (fun k => ρp (k + nP))
-          (directFixTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss Eiss Fss Ess))
+          (directFixTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss Eiss Fss₀ Ess))
     {as : List V} (hlenAs : as.length = nIdx) (as₀ : List V)
     (hspAs : SpineFit ρp (ips.map (·.2.2)) as) :
     interp2 V (consList as (consList as₀ ρp))
         (AVExpr.mkAppN (m.acval T ψ)
           (paramBvarsAt nP (nP + (as₀.length + nIdx)) ++ fieldBvars nIdx))
-      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess) (tupW u as) := by
+      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss₀ Ess) (tupW u as) := by
   have hlenIds : ((ips.map (·.2.2))).length = nIdx := by rw [List.length_map, hlenI]
   have hlenAll : (pps ++ ips).length = nP + ((ips.map (·.2.2))).length := by
     simp [hlenP, hlenI, hlenIds]
@@ -183,11 +183,11 @@ theorem fixFamAt_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {nP nId
   have htakeAll : Sat2 V ((((pps ++ ips).take nP).map (·.2.2)).reverse) ρp := by
     rw [List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
     exact hsatP
-  have hX' : XChainsOk u w ρp (((pps ++ ips).drop nP).map (·.2.2)) rss Eiss Fss Ess := by
+  have hX' : XChainsOk u w ρp (((pps ++ ips).drop nP).map (·.2.2)) rss Eiss Fss₀ Ess := by
     rw [hdropAll]; exact hX
   have hleafT' : ∀ σ : Nat → V, interp2 V σ (m.acval T ψ)
       = interp2 V (fun k => ρp (k + nP))
-          (directFixTyAVI u w (pps ++ ips) (((pps ++ ips).drop nP).map (·.2.2)) rss Eiss Fss Ess) := by
+          (directFixTyAVI u w (pps ++ ips) (((pps ++ ips).drop nP).map (·.2.2)) rss Eiss Fss₀ Ess) := by
     rw [hdropAll]; exact hleafT
   have hlenAll' : (pps ++ ips).length = nP + (((pps ++ ips).drop nP).map (·.2.2)).length := by
     rw [hdropAll]; exact hlenAll
@@ -205,16 +205,16 @@ theorem fixFamAt_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {nP nId
 the frame's index tuple. -/
 theorem interp_majorAVAt {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {nP nIdx n w u : Nat}
     {pps ips : List (Nat × Nat × AVExpr)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
-    {Fss Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    {Fss₀ Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
     {ρp : Nat → V} (hsatP : Sat2 V ((pps.map (·.2.2)).reverse) ρp)
-    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss Eiss Fss Ess)
+    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss Eiss Fss₀ Ess)
     (hleafT : ∀ σ : Nat → V, interp2 V σ (m.acval T ψ)
       = interp2 V (fun k => ρp (k + nP))
-          (directFixTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss Eiss Fss Ess))
+          (directFixTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss Eiss Fss₀ Ess))
     {M : V} {ms : List V} (hlenM : ms.length = n) {is : List V}
     (hfit : SpineFit ρp (ips.map (·.2.2)) is) :
     interp2 V (consList is (consList ms (cons M ρp))) (majorAVAt m T ψ nP nIdx n)
-      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess) (tupW u is) := by
+      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss₀ Ess) (tupW u is) := by
   have hlenIs : is.length = nIdx := by rw [hfit.length_eq, List.length_map, hlenI]
   unfold majorAVAt
   have h := fixFamAt_of hlenP hlenI hsatP hX hleafT hlenIs (M :: ms) hfit
@@ -232,22 +232,22 @@ the carrier's fibre at the tuple. -/
 theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : Level}
     {nP nIdx n ℓ w u : Nat} (hℓ : elimL.eval ψ = ℓ)
     {pps ips : List (Nat × Nat × AVExpr)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
-    {Fss Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    {Fss₀ Fss Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
     (hlenFs : Fss.length = n) (hlenEs : Ess.length = n)
     (hEs : ∀ j, j < n → (Ess.getD j []).length = nIdx)
     (hEisLen : ∀ j i, i ∈ recIdx (rss.getD j []) (Fss.getD j []).length →
       ((Eiss.getD j []).getD i []).length = nIdx)
     {ρp : Nat → V} (hsatP : Sat2 V ((pps.map (·.2.2)).reverse) ρp)
-    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss Eiss Fss Ess)
-    (hreal : ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess) u ρp
-      (ips.map (·.2.2)) rss Eiss Fss Fss Ess)
+    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss Eiss Fss₀ Ess)
+    (hreal : ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss₀ Ess) u ρp
+      (ips.map (·.2.2)) rss Eiss Fss₀ Fss Ess)
     (hfields : ∀ j, j < n → FieldsOkB w ρp (Fss.getD j []) ∧
       ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
         (∀ E ∈ Ess.getD j [], AnnotOk2 V (consList bs ρp) E) ∧
         SpineFit ρp (ips.map (·.2.2)) (idxValsAt ρp (Ess.getD j []) bs))
     (hleafT : ∀ σ : Nat → V, interp2 V σ (m.acval T ψ)
       = interp2 V (fun k => ρp (k + nP))
-          (directFixTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss Eiss Fss Ess))
+          (directFixTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss Eiss Fss₀ Ess))
     {M : V} (hM : M ∈ˢ interp2 V ρp (motiveAVI m T ψ nP nIdx elimL ips))
     {ms : List V} (hlenM : ms.length = n)
     (hms : ∀ j, j < n → ms.getD j pt ∈ˢ minorSpI ℓ
@@ -255,15 +255,15 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
         (ihDomsI ρp M rss Eiss (fun j' => (Fss.getD j' []).length) j fs))
       (Fss.getD j []) ρp [])
     {is : List V} (hfit : SpineFit ρp (ips.map (·.2.2)) is) :
-    FixKI₀ ℓ w u (consList is (consList ms (cons M ρp))) Fss Ess Fss (ips.map (·.2.2)) rss Eiss ∧
+    FixKI₀ ℓ w u (consList is (consList ms (cons M ρp))) Fss Ess Fss₀ (ips.map (·.2.2)) rss Eiss ∧
     interp2 V (consList is (consList ms (cons M ρp))) (majorAVAt m T ψ nP nIdx n)
-      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess) (tupW u is) := by
+      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss₀ Ess) (tupW u is) := by
   have hlenIds : ((ips.map (·.2.2))).length = nIdx := by rw [List.length_map, hlenI]
   have hlenIs : is.length = nIdx := by rw [hfit.length_eq, hlenIds]
   have hlenIs' : is.length = (ips.map (·.2.2)).length := by rw [hlenIds]; exact hlenIs
   have hlenM' : ms.length = Fss.length := by rw [hlenFs]; exact hlenM
-  have hfamL : fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss Ess
-      = fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess := by rw [hlenIds]
+  have hfamL : fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss₀ Ess
+      = fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss₀ Ess := by rw [hlenIds]
   -- the K-frame's accessors
   have hfrP := kframe_frP (ρp := ρp) (M := M) (n := n) (nIdx := nIdx) hlenIs hlenM
   have hfrIdx := kframe_frameIdx (ρp := ρp) (M := M) (ms := ms) hlenIs
@@ -275,7 +275,7 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
   -- the motive's value: the nested product over the index telescope
   have hMtele : M ∈ˢ piTele (ℓ + 1) (teleOfFields ρp (ips.map (·.2.2)))
       (fun is' => piR (ℓ + 1)
-        (SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss Ess)
+        (SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss₀ Ess)
           (tupW u is'))
         fun _ => (univ ℓ : V)) [] := by
     have hMv := hM
@@ -286,7 +286,7 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
         exact ⟨fun h => absurd h (pwBit_ne_zero_of_isNever rfl ψ),
           fun h => absurd h (Nat.succ_ne_zero _)⟩)
       (B := fun is' => piR (ℓ + 1)
-        (SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss Ess)
+        (SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss₀ Ess)
           (tupW u is'))
         fun _ => (univ ℓ : V)) ?_, rebit_map_dom] at hMv
     · exact hMv
@@ -300,11 +300,11 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
       ⟨fun h => absurd h (pwBit_ne_zero_of_isNever rfl ψ), fun h => absurd h (Nat.succ_ne_zero _)⟩]
     rfl
   -- the carrier's fibre at the tuple is the sum of the real fibres
-  have hfibre : SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess) (tupW u is)
+  have hfibre : SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss₀ Ess) (tupW u is)
       = sumSet w (sumFibre w (consList is (consList ms (cons M ρp)))
           (rChains (nIdx + n + 1) nIdx Fss Ess)) := by
     have hreal' : ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss
-        Fss Ess) u ρp (ips.map (·.2.2)) rss Eiss Fss Fss Ess := by
+        Fss₀ Ess) u ρp (ips.map (·.2.2)) rss Eiss Fss₀ Fss Ess := by
       rw [hfamL]; exact hreal
     have h := fixFamI_app_eq_sum hX hreal' hfit
     rw [hfamL, hlenIds] at h
@@ -318,7 +318,7 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
   have hcore : RecHypCore ℓ w (consList is (consList ms (cons M ρp))) Fss Ess (ips.map (·.2.2))
       (fun is' => SetTheory.app
         (fixFamI u w (frP Fss.length (ips.map (·.2.2)).length (consList is (consList ms (cons M ρp))))
-          (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss Ess) (tupW u is')) := by
+          (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss₀ Ess) (tupW u is')) := by
     refine ⟨?_, ?_, by rw [hlenEs, hlenFs], ?_, ?_, ?_⟩
     · -- the restricted chains are graded at the K-frame
       intro Fs' hFs'

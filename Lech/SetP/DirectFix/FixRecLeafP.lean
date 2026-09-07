@@ -28,10 +28,10 @@ variable {V : Type w} [SetTheory V]
 
 /-- **The body's validity** at a frame satisfying the recursor's binder
 data. -/
-theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss Ess : List (List AVExpr)}
+theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List AVExpr)}
     {Ids : List AVExpr} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
     {rds : List (Nat × Nat × AVExpr)}
-    (h : FixPre V ℓ w u nP Fss Ess Fss Ids rss Eiss rds s)
+    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s)
     (hFss : Fss.length = n) (hIds : Ids.length = nIdx)
     (hvFss : ∀ ρp : Nat → V, Sat2 V (((rds.take nP).map (·.2.2)).reverse) ρp →
       SumFieldsValid ρp Fss ∧
@@ -92,10 +92,10 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss Ess : List (List
   exact hEis j (by rw [← hFss]; exact hj) i hi fs hfs E hE'
 
 /-- **The recursor leaf's P currency and membership**, at every frame. -/
-theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss Ess : List (List AVExpr)}
+theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List AVExpr)}
     {Ids : List AVExpr} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
     {rds : List (Nat × Nat × AVExpr)}
-    (h : FixPre V ℓ w u nP Fss Ess Fss Ids rss Eiss rds s)
+    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s)
     (hFss : Fss.length = n) (hIds : Ids.length = nIdx)
     (okΓ : ∀ i, i < nP + n + nIdx + 2 → ∀ ρ : Nat → V,
       Sat2 V ((((rds.map (·.2.2)).reverse)).drop (nP + n + nIdx + 2 - i)) ρ →
