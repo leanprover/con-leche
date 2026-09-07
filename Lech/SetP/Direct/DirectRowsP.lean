@@ -182,11 +182,11 @@ theorem openedP_of {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
     have hik : i < k := by
       have := (List.getElem?_eq_some_iff.mp hx).1
       omega
-    obtain ⟨nm, ty, rfl⟩ := hidx i x hx
+    obtain ⟨ty, rfl⟩ := hidx i x hx
     rw [Nat.zero_add] at *
     have hw := hwsF _ (List.mem_of_getElem? hx)
     simp only [Expr.WScoped] at hw
-    refine ⟨⟨nm, ty, rfl⟩, hw.2, ?_, hLB _ (List.mem_of_getElem? hx), ?_⟩
+    refine ⟨⟨ty, rfl⟩, hw.2, ?_, hLB _ (List.mem_of_getElem? hx), ?_⟩
     · simpa [Expr.fvarTypeD] using hbF _ (List.mem_of_getElem? hx)
     · intro l hl
       refine hopener l (Or.inr ⟨_, List.mem_of_getElem? hx, ?_⟩)
