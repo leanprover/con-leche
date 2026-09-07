@@ -196,6 +196,10 @@ theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     -- own three-stage case split
     have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block env₂ := hrun
     unfold ConLeche.Semantics.DeclIndRunDispatch at hrun'
+    by_cases hm : ConLeche.blockIsModeled env.find? block = true
+    · rw [if_pos hm] at hrun'
+      exact indStepPB_of hμ mp hE hrun'
+    rw [if_neg hm] at hrun'
     cases hdf : ConLeche.directFixParts? block with
     | some p =>
       rw [hdf] at hrun'

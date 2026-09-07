@@ -23,13 +23,13 @@
    331            pure (ConLeche.Cached.checkDeclsSPCachedD mode decls.toList)
 
 == ConLeche/Cached/ParsedC.lean#L276-L279
-   276  def checkDeclsSPCachedD (mode : CheckMode) (ds : List DeclC) :
-   277      Except (CheckError × Nat) Env := do
-   278    let p ← (ds.foldlM (checkDeclStepIdxC mode) (0, mkFEnv Env.empty)).run' {}
-   279    pure p.2.env
+   276  `checkDeclsSPCachedD mode ds = .ok env` is the same sentence it was, so
+   277  `no_proof_of_Empty_SPCD_P` and the agreement floor keep their
+   278  statements verbatim and reach the plain fold through `foldIdxC_ok`
+   279  below. -/
 
 == ConLeche/Cached/ParsedC.lean#L244
-   244  def checkDeclStepIdxC (p : Nat × FEnv) (pd : DeclC) :
+   244  the `CheckError` together with `i`, the fold position of the
 
 == ConLeche/Verify/Cached/MainC.lean#L155-L163
    155  theorem checkDeclsSPCachedD_sound_P (hμ : μ.verifiedChecks = true)
@@ -94,14 +94,14 @@
   2655            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/SetP/FoldP.lean#L291-L298
-   291  theorem no_proof_of_False_P (V : Type w) [SetTheory V]
-   292      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   293      {ds : List Declaration} {env' : Env}
-   294      (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
-   295      ∀ c ∈ env'.consts,
-   296        c.toConstantVal.type = .const falseName [] → False := by
-   297    obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ h
-   298    exact fun c hc hty => no_constant_of_False_P mp c hc hty
+   291  whose stored declaration and leaf are fixed by the pin, so — exactly as
+   292  for `Empty` — the statement carries no hypothesis about how the stream
+   293  declared `False`.  Hypotheses are input-level only: the validating
+   294  mode, the accepted run, the stored constant, its type. -/
+   295  theorem no_proof_of_False_P (V : Type w) [SetTheory V]
+   296      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   297      {ds : List Declaration} {env' : Env}
+   298      (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
 
 == ConLeche/SetP/FoldP.lean#L158
    158  theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
@@ -176,8 +176,8 @@
    102    pw : PropWhen
    103    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1219
-  1219  theorem checkDeclsSPCachedD_skels {mode : CheckMode} {ds : List DeclC}
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1268
+  1268  theorem checkDeclsSPCachedD_skels {mode : CheckMode} {ds : List DeclC}
 
 == ConLeche/VExpr/Syntax.lean#L165-L179
    165  inductive VExpr where
@@ -483,14 +483,14 @@
     14  
     15  **Why.**  A user report (2026-09-06): the Nat-op pins were sensitive
 
-== ConLeche/Kernel/Direct/RecParts.lean#L611
-   611  def directFixKinds? (p : DirectSumParts) : Option (List (List RecFieldKind)) :=
+== ConLeche/Kernel/Direct/SumInstall.lean#L158
+   158  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
 
-== ConLeche/Kernel/Direct/RecParts.lean#L243
-   243  /-- Official `check_positivity`'s telescope walk on a field domain that
+== ConLeche/Kernel/Direct/RecInstall.lean#L212
+   212  def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
 
-== ConLeche/Kernel/Direct/RecInstall.lean#L211
-   211  def checkDirectFix (ops : CheckerOps m) (env : Env) (p₀ : DirectFixParts) : m Env := do
+== ConLeche/Kernel/Direct/RecInstall.lean#L228
+   228  def checkDirectFix (ops : CheckerOps m) (env : Env) (p₀ : DirectFixParts) : m Env := do
 
 == ConLeche/SetModel/Value.lean#L517-L524
    517  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w

@@ -203,7 +203,7 @@ theorem fixTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
       interp2 V (consList bs (consList as' ρp)) (((tss ψ).getD i []).getD k default).2.2
         ∈ˢ (univ (resSort.eval ψ) : V) := by
   -- the run's pieces
-  obtain ⟨hccv, -, fvsP', crest', tfvs, trest, xFvs', idxArgs', hopC, -, -, hopX, -, -, -,
+  obtain ⟨⟨_, hccv⟩, -, fvsP', crest', tfvs, trest, xFvs', idxArgs', hopC, -, -, hopX, -, -, -,
     hsorts⟩ := ConLeche.checkDirectSumCtor_shape hCtor
   obtain ⟨crest, hopP, hopXX⟩ := hD.opens
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))

@@ -488,6 +488,10 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- structure and sum routes it replaced were deleted at Part C;
     -- what it refuses (nested, a redex over a recursive field, a
     -- recursive field a later binder mentions) is the modeled path's
+    -- ONE ROUTE (task #210 Part D): a block with an in-process `_model`
+    -- family (mutual, nested) that the raw reading refuses is the modeled
+    -- path's; every other block of the shape is the fixpoint route's
+    if blockIsModeled env.find? block then checkIndDecl mode ops env block else
     match directFixParts? block with
     | some p => checkDirectFix ops env p
     | none => checkIndDecl mode ops env block

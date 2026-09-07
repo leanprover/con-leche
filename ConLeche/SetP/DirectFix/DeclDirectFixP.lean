@@ -61,9 +61,17 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     {block : List ConstantInfo} {p₀ : DirectFixParts} (mp : EnvS2PM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.directFixParts? block = some p₀)
     (h : ConLeche.Semantics.DeclDirectFixRun μ F env p₀ env₂) : Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨hneg, hnd₀, cvTa, env₁, p₁, p, ctorsA, sortss, cvRa, rhss, tfvs, trest, isorts, hInd, rfl,
-    hwl, hopT2, hsorts, hCtors, hFOk, hRec, hTbl⟩ := h
-  obtain ⟨hshape, -, hlenK₀⟩ := ConLeche.directFixParts?_inv hdp
+  obtain ⟨hnd₀, envP, cvTaP, p₁P, ctorsP, sortssP, kinds, hIndP, hCtorsP, hK, cvTa, env₁, p₁, p,
+    ctorsA, sortss, cvRa, rhss, tfvs, trest, isorts, hInd, rfl, hwl, hopT2, hsorts, hCtors, hFOk,
+    -, hRec, hTbl⟩ := h
+  obtain ⟨hshape, -⟩ := ConLeche.directFixParts?_inv hdp
+  -- the kinds: classified on the provisional constructors, one list per
+  -- constructor (task #210 Part D)
+  have hlenK₀ : kinds.length = p₀.ctors.length := by
+    obtain ⟨-, -, -, hlK⟩ := ConLeche.classifyFixKinds_inv hK
+    obtain ⟨hlP, -, -⟩ := ConLeche.checkDirectSumCtors_inv hCtorsP
+    obtain ⟨-, sP, -, -, -, rfl, -, -, -⟩ := ConLeche.checkDirectSumInd_shape hIndP
+    rw [hlK, hlP]; simp
   obtain ⟨-, hRname₀, hClps₀, hresT₀, hresR₀, helimR₀, hRlps₀, -, -⟩ :=
     ConLeche.directFixShape?_inv hshape
   -- the former: its run completed the record with the sort it read
@@ -73,19 +81,27 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   obtain ⟨cvT, s, hTname₀₀, hTlps₀₀, hccvT, rfl, rfl, bsT, hstripT₀⟩ :=
     ConLeche.checkDirectSumInd_shape hInd
   try dsimp only at hCtors hRec hTbl hFOk hsorts hopT2 hwl
-  have hpT : (p₀.complete (p₀.toDirectSumParts.withSort s)).cvT = p₀.cvT := by simp
-  have hpC : (p₀.complete (p₀.toDirectSumParts.withSort s)).ctors = p₀.ctors := by simp
-  have hpK : (p₀.complete (p₀.toDirectSumParts.withSort s)).kinds = p₀.kinds := by simp
-  have hpP : (p₀.complete (p₀.toDirectSumParts.withSort s)).nP = p₀.nP := by simp
-  have hpI : (p₀.complete (p₀.toDirectSumParts.withSort s)).nIdx = p₀.nIdx := by simp
-  have hpR : (p₀.complete (p₀.toDirectSumParts.withSort s)).cvR = p₀.cvR := by simp
-  have hpE : (p₀.complete (p₀.toDirectSumParts.withSort s)).elim = p₀.elim := by simp
-  have hpL : (p₀.complete (p₀.toDirectSumParts.withSort s)).large = p₀.large := by simp
-  have hpS : (p₀.complete (p₀.toDirectSumParts.withSort s)).resSort = s := by simp
-  have hpProp : (p₀.complete (p₀.toDirectSumParts.withSort s)).isProp
-      = (Level.isEquiv (p₀.complete (p₀.toDirectSumParts.withSort s)).resSort .zero
-          == some true) := by simp
-  generalize hp : p₀.complete (p₀.toDirectSumParts.withSort s) = p at hCtors hRec hTbl hFOk hsorts hopT2 hwl hpT hpC hpK hpP hpI hpR hpE hpL hpS hpProp
+  have hpT : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).cvT = p₀.cvT := by
+    simp [ConLeche.DirectFixParts.withKinds]
+  have hpC : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).ctors = p₀.ctors := by
+    simp [ConLeche.DirectFixParts.withKinds]
+  have hpK : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).kinds = kinds := rfl
+  have hpP : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).nP = p₀.nP := by
+    simp [ConLeche.DirectFixParts.withKinds]
+  have hpI : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).nIdx = p₀.nIdx := by
+    simp [ConLeche.DirectFixParts.withKinds]
+  have hpR : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).cvR = p₀.cvR := by
+    simp [ConLeche.DirectFixParts.withKinds]
+  have hpE : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).elim = p₀.elim := by
+    simp [ConLeche.DirectFixParts.withKinds]
+  have hpL : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).large = p₀.large := by
+    simp [ConLeche.DirectFixParts.withKinds]
+  have hpS : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).resSort = s := by
+    simp [ConLeche.DirectFixParts.withKinds]
+  have hpProp : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).isProp
+      = (Level.isEquiv ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).resSort
+          .zero == some true) := by simp [ConLeche.DirectFixParts.withKinds]
+  generalize hp : (p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds = p at hCtors hRec hTbl hFOk hsorts hopT2 hwl hpT hpC hpK hpP hpI hpR hpE hpL hpS hpProp
   have hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true) := hpProp
   have hnd : (p.ctors.map (·.1.name)).Nodup := by rw [hpC]; exact hnd₀
   have hlenK : p.kinds.length = p.ctors.length := by rw [hpK, hpC]; exact hlenK₀
@@ -146,7 +162,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       have := (List.getElem?_eq_some_iff.mp hj).1; omega
     obtain ⟨hnF, sorts, hsj, hCtor⟩ := hall j (p.ctors[j]) cA (List.getElem?_eq_getElem hjl) hj
     rw [← hnF] at hCtor
-    obtain ⟨hccvC, -, -⟩ := ConLeche.checkDirectSumCtor_shape hCtor
+    obtain ⟨⟨_, hccvC⟩, -, -⟩ := ConLeche.checkDirectSumCtor_shape hCtor
     obtain ⟨hfindC, -, hpshapeC, -, -, -, typeC, -, -, -, -, htrC, -, -, htyC⟩ :=
       ConLeche.checkConstantVal_inv hccvC
     refine ⟨p.ctors[j], List.getElem?_eq_getElem hjl, by rw [htyC], ?_, ?_, ?_,

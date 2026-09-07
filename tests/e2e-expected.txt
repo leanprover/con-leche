@@ -479,6 +479,17 @@
 #   direct_fix_acc_large: `Up n (n+1)` with ONE recursive constructor
 #                     and the large eliminator (the data field is an
 #                     index): taken, as `Loop` (task #202 Stage A2).
+#   direct_fix_vec_idx_occ_bad, direct_fix_vec_res_occ_bad (task #210
+#                     Part D): `Vec'.cons` with an occurrence of the
+#                     block inside an INDEX expression — the recursive
+#                     field's index `(fun β => n) (Vec' α n)`, resp. the
+#                     result's `(fun β => Nat.succ n) (Vec' α n)`.  Both
+#                     whnf to the original index, but official's
+#                     `is_valid_ind_app` runs `has_ind_occ` on every
+#                     index argument unreduced: "non valid occurrence",
+#                     resp. "invalid return type" — REJECTED (1), as
+#                     `recFamOk` / `recCtorKinds`' residual check do
+#                     (`.negative`); before Part D a decline.
 #   direct_fix_vec_ih_idx_bad: `Vec'.rec`'s `v_ih` binder patched to
 #                     `motive (Nat.succ n) v` — the hypothesis at the
 #                     wrong index, REJECTED (the patched recursor type
@@ -545,6 +556,8 @@
 0 direct_fix_le.ndjson
 0 direct_fix_acc_large.ndjson
 1 direct_fix_vec_ih_idx_bad.ndjson
+1 direct_fix_vec_idx_occ_bad.ndjson
+1 direct_fix_vec_res_occ_bad.ndjson
 0 direct_fix_refl.ndjson
 1 direct_fix_refl_neg_bad.ndjson
 1 direct_fix_refl_ih_bad.ndjson
@@ -821,7 +834,12 @@
 #   #206-A5, the same class as ind_pos_whnf_id/fn and the three arena
 #   good tests recorded in tests/arena-expected.txt; the preprocessor
 #   was masking it here.  `PadImaxIdx` itself still installs directly.
-2 pre_decline_imax_field.ndjson
+#   Task #210 Part D (2026-09-07): 0.  The fixpoint route normalises
+#   the field domain (`normPosDom`): the redex mentions the block and
+#   whnf's to `N`, which no longer mentions it — nor the recursive
+#   field `x` it was applied to, so the model's later-use guard
+#   (`directUsedLater`) has nothing to fire on.  Official's verdict.
+0 pre_decline_imax_field.ndjson
 
 # THE BUILT-IN PRELUDE AND THE GROUND HOIST (task #191, 2026-09-06;
 # ConLeche/Frontend/Prelude.lean, ConLeche/Frontend/NatOpGround.lean).  The
@@ -923,14 +941,13 @@
 #
 # --- A5 / crack C5: a recursive occurrence hidden under a DEFINITION.
 # --- Official whnf's the field before classifying it; the fixpoint
-# --- route's positivity check is syntactic.  Audit follow-up 5.
-# --- ind_pos_whnf_fn is the reflexive case (the tool errors);
-# --- ind_pos_whnf_id its finitary twin, which the tool models — the
-# --- regression guard.
-# TODO(#206-A5) official: 0 — piped (until #207): the preprocessor failed (exit 3)
-# TODO(#206-A5) official: 0 — today: no install route for R
-2 ind_pos_whnf_fn.ndjson
-2 ind_pos_whnf_id.ndjson
+# --- route's positivity check was syntactic.  Audit follow-up 5.
+# --- ind_pos_whnf_fn is the reflexive case, ind_pos_whnf_id its
+# --- finitary twin.  Task #210 Part D (2026-09-07): both ACCEPT —
+# --- the route normalises the field domains by official's positivity
+# --- walk before classifying them (`normPosDom`); official's verdict.
+0 ind_pos_whnf_fn.ndjson
+0 ind_pos_whnf_id.ndjson
 #
 # --- A6 / crack C6: the projection FUNCTIONS of a finitary RECURSIVE
 # --- structure.  A silent regression of #188 (the block went native, so

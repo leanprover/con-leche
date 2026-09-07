@@ -435,4 +435,162 @@ def directProjBodies (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr)
   | some r => (directProjBodiesGo T nF 0 r).map List.toArray
   | none => none
 
+/-- Does the constant `T` occur in `e`?  A syntactic walk (`fvar`
+annotations included; a `.proj` node names its structure). -/
+def Expr.mentionsConst (T : Name) : Expr → Bool
+  | .bvar _ | .sort _ | .lit _ => false
+  | .const n _ => n == T
+  | .fvar _ ty => ty.mentionsConst T
+  | .app f a => f.mentionsConst T || a.mentionsConst T
+  | .lam ty b _ | .forallE ty b _ => ty.mentionsConst T || b.mentionsConst T
+  | .letE ty v b => ty.mentionsConst T || v.mentionsConst T || b.mentionsConst T
+  | .proj s _ e => s == T || e.mentionsConst T
+
+/-! ### `mentionsConst`, memoized (task #210 Part B)
+
+The recogniser's positivity walk asks `mentionsConst` of every field
+domain and index argument; on a DAG-shared field type (task #215's
+`tower_struct`: a depth-60 doubling tower in a structure field) the
+tree walk does not finish.  As with `instantiate1` and `renameConsts`
+(`ConLeche/Kernel/ExprOps.lean`, task #215) the memoized walk is
+swapped in by `@[csimp]`: kernel-checked, no trust point, the pure
+definition stays what every proof consumes.  The memo is keyed by the
+node and dropped after each call (the answer depends on `T`). -/
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def MentionsMemoInv (T : Name) (memo : Std.HashMap Expr Bool) : Prop :=
+  ∀ (k : Expr) (r : Bool), memo[k]? = some r → r = k.mentionsConst T
+
+theorem MentionsMemoInv.empty {T : Name} : MentionsMemoInv T {} := by
+  intro k r h; simp at h
+
+theorem MentionsMemoInv.insert {T : Name} {memo : Std.HashMap Expr Bool}
+    (hm : MentionsMemoInv T memo) {e : Expr} {r : Bool} (heq : r = e.mentionsConst T) :
+    MentionsMemoInv T (memo.insert e r) := by
+  intro k r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k r' hk
+
+/-- Memoized `mentionsConst`. -/
+def Expr.mentionsConstGo (T : Name) (memo : Std.HashMap Expr Bool) :
+    Expr → Bool × Std.HashMap Expr Bool
+  | .bvar _ => (false, memo)
+  | .sort _ => (false, memo)
+  | .lit _ => (false, memo)
+  | .const n _ => (n == T, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Bool × Std.HashMap Expr Bool :=
+        match e with
+        | .fvar _ ty => mentionsConstGo T memo ty
+        | .app f a =>
+          let (b₁, memo) := mentionsConstGo T memo f
+          let (b₂, memo) := mentionsConstGo T memo a
+          (b₁ || b₂, memo)
+        | .lam ty body _ =>
+          let (b₁, memo) := mentionsConstGo T memo ty
+          let (b₂, memo) := mentionsConstGo T memo body
+          (b₁ || b₂, memo)
+        | .forallE ty body _ =>
+          let (b₁, memo) := mentionsConstGo T memo ty
+          let (b₂, memo) := mentionsConstGo T memo body
+          (b₁ || b₂, memo)
+        | .letE ty val body =>
+          let (b₁, memo) := mentionsConstGo T memo ty
+          let (b₂, memo) := mentionsConstGo T memo val
+          let (b₃, memo) := mentionsConstGo T memo body
+          (b₁ || b₂ || b₃, memo)
+        | .proj s _ sub =>
+          let (b, memo) := mentionsConstGo T memo sub
+          (s == T || b, memo)
+        | e => (e.mentionsConst T, memo)
+      (r, memo.insert e r)
+
+/-- **The memoized walk is `mentionsConst`.** -/
+theorem Expr.mentionsConstGo_spec {T : Name} :
+    ∀ (e : Expr) (memo : Std.HashMap Expr Bool), MentionsMemoInv T memo →
+      (mentionsConstGo T memo e).1 = e.mentionsConst T ∧
+        MentionsMemoInv T (mentionsConstGo T memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty ih =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [mentionsConst, h1], ?_⟩
+      exact h2.insert (by simp [mentionsConst, h1])
+  | app a b iha ihb =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [mentionsConst, h1, h3], ?_⟩
+      exact h4.insert (by simp [mentionsConst, h1, h3])
+  | lam ty body bi iht ihb =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [mentionsConst, h1, h3], ?_⟩
+      exact h4.insert (by simp [mentionsConst, h1, h3])
+  | forallE ty body bi iht ihb =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [mentionsConst, h1, h3], ?_⟩
+      exact h4.insert (by simp [mentionsConst, h1, h3])
+  | letE ty val body iht ihv ihb =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihv _ h2
+      obtain ⟨h5, h6⟩ := ihb _ h4
+      refine ⟨by simp [mentionsConst, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [mentionsConst, h1, h3, h5])
+  | proj s i sub ih =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [mentionsConst, h1], ?_⟩
+      exact h2.insert (by simp [mentionsConst, h1])
+
+/-- The executed `mentionsConst` (one memoized DAG walk). -/
+def Expr.mentionsConstFast (T : Name) (e : Expr) : Bool :=
+  (mentionsConstGo T {} e).1
+
+@[csimp] theorem Expr.mentionsConst_eq_mentionsConstFast :
+    @Expr.mentionsConst = @Expr.mentionsConstFast := by
+  funext T e
+  exact (mentionsConstGo_spec e {} MentionsMemoInv.empty).1.symm
+
 end ConLeche

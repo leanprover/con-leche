@@ -128,31 +128,18 @@ theorem List.mapM_option_length {α β : Type} {f : α → Option β} :
     obtain ⟨b, -, bs, hbs, rfl⟩ := h
     simp [List.mapM_option_length hbs]
 
-/-- `directFixParts?` pins the shape and the kinds (a reflexive field is
-taken at every sort since task #202 Stage B). -/
+/-- The recogniser is shape-only (task #210 Part D): the record's kinds
+are the placeholder the install fills. -/
 theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
     (h : directFixParts? block = some p) :
-    directFixShape? block = some p.toDirectSumParts ∧
-    directFixKinds? p.toDirectSumParts = some p.kinds ∧
-    p.kinds.length = p.ctors.length := by
+    directFixShape? block = some p.toDirectSumParts ∧ p.kinds = [] := by
   unfold directFixParts? at h
-  split at h
-  · next p' hshape =>
-    split at h
-    · next kinds hkinds =>
-      have hlen : kinds.length = p'.ctors.length := by
-        unfold directFixKinds? at hkinds
-        exact List.mapM_option_length hkinds
-      split at h
-      · obtain rfl := Option.some.inj h
-        exact ⟨hshape, hkinds, hlen⟩
-      · split at h
-        · exact nomatch h
-        · split at h
-          · obtain rfl := Option.some.inj h
-            exact ⟨hshape, hkinds, hlen⟩
-          · exact nomatch h
-    · exact nomatch h
-  · exact nomatch h
+  cases hs : directFixShape? block with
+  | none => rw [hs] at h; exact nomatch h
+  | some p' =>
+    rw [hs] at h
+    simp only [Option.map_some, Option.some.injEq] at h
+    subst h
+    exact ⟨rfl, rfl⟩
 
 end ConLeche
