@@ -393,13 +393,14 @@ certifies, by definitional equality, that the stored reduce operation
 is the identity, at which point each axiom's statement is an inhabited
 proposition in the model
 ([the compiler-trust family in `ConLeche/Kernel/TrustAxioms.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/TrustAxioms.lean#L8-L34)).
-The consequence for `native_decide` and `bv_decide` proofs, which
-appeal to `ofReduceBool`, is that ConLeche never runs native code: the
-boolean the proof claims reduces to `true` must reduce to `true` under
-the checker's own reduction, which for a large decision procedure
-means a very long reduction rather than a rejection. Such proofs
-are correct in the model and are accepted when that reduction
-completes.
+Proofs by `native_decide` and `bv_decide` are declined: each such
+proof adds an axiom of its own to the environment, recording the
+result the native evaluator computed, and that axiom is not a pinned
+one, so the stream declines at its record. ConLeche never runs native
+code and never evaluates a decision procedure on a proof's behalf.
+(The `ofReduceBool` mechanism above is the older, deprecated route to
+the same trust, kept only because streams from the toolchain still
+declare it.)
 
 ## 9. What the theorem does not cover
 
