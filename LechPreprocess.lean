@@ -346,27 +346,19 @@ def lechNative : NativeSupport := fun block =>
       !lechReservedBasisNames.contains ctor.name &&
       !lechReservedBasisNames.contains rec.name)
   | .induct [type] ctors [rec] => lechNativeSum type ctors rec || lechNativeFix type ctors rec
-  | _ => false
-
-/-- `lechNative` plus the in-process class (task #200): the blocks lech
-models itself (`Lech/Frontend/InModel/*`) come out unmodelled.
-TRANSITIONAL: selected by `LECH_INMODEL_NATIVE=1` until the direct
-fixpoint route (task #188) installs the generated auxiliary families
-at indices — before that, a block left native here reaches the fold
-with an auxiliary family no route installs, a decline; with the stock
-predicate the tool models the block and the in-process modeller
-stands down (it sees the model in the stream). -/
-def lechNativeInModelAll : NativeSupport := fun block =>
-  lechNative block ||
-  match block with
+  -- the in-process class (task #200): mutual and nested blocks lech
+  -- models itself (`Lech/Frontend/InModel/*`), their auxiliary families
+  -- installed by the fixed-point route (task #188).  Since the flip
+  -- (2026-09-07) this is the default: a block left native here that the
+  -- generator then declines is the run's decline naming the reason —
+  -- the exact residual class (DESIGN, task #200 closing section).
   | .induct types ctors recs => lechNativeInModel types ctors recs
   | _ => false
 
 /-- `lech-preprocess [OPTIONS] IN.ndjson` — `lean-inductive-models` with
 lech's native-support predicate.  Every option and exit code is the tool's
-own (see its README); the only difference is that the blocks
-`Lech.directPartsCore?`/`Lech.directSumPartsCore?` install directly come
-out unmodelled. -/
-def main (args : List String) : IO UInt32 := do
-  let inModel := (← IO.getEnv "LECH_INMODEL_NATIVE") == some "1"
-  InductiveModels.main args (native := if inModel then lechNativeInModelAll else lechNative)
+own (see its README); the only difference is that the blocks lech installs
+directly (`Lech.directPartsCore?`/`directSumPartsCore?`/`directFixParts?`)
+or models in-process (mutual and nested blocks) come out unmodelled. -/
+def main (args : List String) : IO UInt32 :=
+  InductiveModels.main args (native := lechNative)
