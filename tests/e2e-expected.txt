@@ -986,3 +986,15 @@
 0 let_bad_thm.ndjson raw
 1 let_bad_value_used.ndjson
 1 let_bad_value_used.ndjson raw
+# The frontend tree-size budget (task #213; scripts/mk_budget_fixtures.py).
+# budget_model is dag_tower with its 2^28-node definition renamed
+# `DagTower._model`: master DECLINED it (the budget applied to every
+# `_model`-named record, while the in-process modeller's identical
+# records were never budgeted), the audit lifted that class, so it now
+# accepts exactly like its unrenamed twin.
+0 budget_model.ndjson
+# budget_block is a one-field structure block whose field type carries a
+# ~2^12-node DAG tower: an inductive block IS still budgeted, so it
+# accepts here at the default 2^25 and declines under
+# CON_LECHE_TREE_BUDGET=1000 — the budget section of tests/arena.sh.
+0 budget_block.ndjson raw
