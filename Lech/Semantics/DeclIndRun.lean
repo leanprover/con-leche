@@ -48,7 +48,7 @@ independent consumers of the same checker inversions.
 
 namespace Lech.Semantics
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.Verify
 
 /-! ## The block members -/
 

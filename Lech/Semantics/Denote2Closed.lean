@@ -53,7 +53,7 @@ exactly in the slots `erase` forgets.  See `Step2Cons.lean`'s
 namespace Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.Verify
 open Lech (Env Expr Name CheckMode)
 
 namespace AVExpr

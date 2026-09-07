@@ -1,11 +1,10 @@
-import Lech.TT.Syntax
+import Lech.VExpr.Syntax
 
 /-!
 # Lifting and instantiation
 
-The two de Bruijn operations the judgment needs: `liftN` (weakening,
-used by the `bvar` rule and by η) and `inst` (single substitution, used
-by application, β and ζ).
+The two de Bruijn operations every reading of a stored term needs:
+`liftN` (weakening) and `inst` (single substitution).
 
 **This module is deliberately tiny.**  lean4lean's corresponding file
 is ~800 lines and 123 theorems of substitution boilerplate, roughly a
@@ -13,13 +12,14 @@ third of its declarative layer, because its metatheory (Church–Rosser,
 unique typing, weakening, inversion) is *syntactic* and every step has
 to commute lifts and substitutions past each other.  Here the only
 metatheorem is soundness, which goes straight to the model, so the
-substitution facts that are actually needed are two *semantic* lemmas
-(`interp_liftN`, `interp_inst`, in `Lech/TT/Semantics/Interp.lean`)
-and nothing else.  Everything below is definitions plus their
-constructor-wise `rfl` equations.
+substitution facts that are actually needed are *semantic* ones
+(`Lech/Semantics/*`).  Everything below is definitions plus their
+constructor-wise `rfl` equations; what syntactic commutation the
+bridge does need is filed with the bridge, in
+`Lech/Verify/Denote/SubstAlgebra.lean`.
 -/
 
-namespace Lech.TT
+namespace Lech.VExpr
 namespace VExpr
 
 /-- Weakening: insert `n` fresh binders at depth `k`. -/
@@ -104,4 +104,4 @@ can be used without `open VExpr`, which would collide with
 `SetTheory.app`.) -/
 def arrow (A B : VExpr) : VExpr := .pi A B.lift
 
-end Lech.TT
+end Lech.VExpr

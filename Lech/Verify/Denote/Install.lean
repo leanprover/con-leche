@@ -14,7 +14,7 @@ environment-extension transport machinery for `denote` is `V`-free and
 lane-independent — both the TT lane (`EnvTT`'s field transports) and
 the [set] lane (`EnvS`'s, task #148 T5) consume it — so it lives where
 both can import it.  Statements unchanged; the namespace stays
-`Lech.TTVerify` so no call site moves.
+`Lech.Verify` so no call site moves.
 
 Contents: `EnvExtends` + `denote_mono` (denotations survive a larger
 environment), `denote_cval_congr` (and a changed valuation),
@@ -29,9 +29,9 @@ ordinary value-carrying install chooses).  The TT-specific transports
 
 set_option linter.unusedVariables false
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
-open Lech.TT
+open Lech.VExpr
 
 /-- `env₂` extends `env₁`: every constant stored in `env₁` is stored in
 `env₂`, unchanged.  (The checker's installs are cons-extensions with a
@@ -265,10 +265,10 @@ names `natLitT` and `strLitT` actually read — rather than as a blanket
 *trivially true and useless*.
 
 **The failure mode, and how it relates to the ease-of-proof signal of
-`Lech/TTVerify/DESIGN.md` §0.**  A statement can typecheck, prove,
+DESIGN.md's "House practices".**  A statement can typecheck, prove,
 and be worth nothing because a hypothesis subsumes its conclusion — and
 unlike a *wrong* statement it leaves no trace, since everything
-downstream still compiles.  §0 says a proof going through without
+downstream still compiles.  The practice says a proof going through without
 adaptation is evidence the statement has the right shape.  Both are
 true, and they are **ordered, not in tension**:
 
@@ -487,7 +487,7 @@ theorem levelParamsAt_cons_of_ne {env : Env} {c₀ : ConstantInfo} {n : Name}
 `denote_mono` moves a denotation from the smaller environment to the
 larger one.  The environment invariant needs the other direction as
 well, and it needs it for a reason that only shows up when a *field* is
-transported rather than a term (`Lech/TTVerify/DESIGN.md` §8.1): a
+transported rather than a term: a
 law that takes a denotation as a **hypothesis** is stated about the
 larger environment after the install, so discharging it from the
 smaller environment's law means running that hypothesis down, not up.
@@ -1036,4 +1036,4 @@ theorem cvalAt_self {cval : TConstVal} {env : Env} {n : Name}
     cvalAt cval env n value n ψ = v := by
   simp [cvalAt, h]
 
-end Lech.TTVerify
+end Lech.Verify

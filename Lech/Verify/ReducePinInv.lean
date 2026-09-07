@@ -15,7 +15,7 @@ only the identity certificate; `SetR`'s `ReducePinR` also records the
 guards and the pin comparison, and the proof always had them.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 variable {mode : CheckMode} {F : Nat}
 
@@ -104,4 +104,4 @@ theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
   | false => simp [throw, throwThe, MonadExceptOf.throw] at h
   | true => exact ⟨valA, pinA, rfl, rfl, hp1, hp2⟩
 
-end Lech.TTVerify
+end Lech.Verify

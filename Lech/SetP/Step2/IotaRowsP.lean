@@ -73,7 +73,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule inferTypeCore whnf iotaRecP)
@@ -725,7 +725,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     have hnested : ∀ lvls pins, RecRule.fire r = .nested lvls pins →
         ∀ i, i < RecRule.ctorParams r →
         ∀ vpa : AVExpr,
-          denoteP m.acval env φ rP (Lech.TTVerify.openRev 0 rP
+          denoteP m.acval env φ rP (Lech.Verify.openRev 0 rP
             ((pins.getD i default).instantiateLevelParams cv.levelParams us))
             = some vpa →
           interp2 V ρ (ys.getD i default)

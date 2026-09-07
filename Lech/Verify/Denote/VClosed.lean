@@ -1,4 +1,4 @@
-import Lech.TT.Subst
+import Lech.VExpr.Subst
 
 /-!
 # Closed `VExpr`s
@@ -26,11 +26,11 @@ context, which for a term means it has no loose variables.
 
 The two lemmas below are structural inductions and nothing more; this
 is not the beginning of a syntactic metatheory (cf.
-`Lech/TT/DESIGN.md` §6), and like `Lech/TTVerify/Inversion.lean`
+`Lech/VExpr/DESIGN.md` §6), and like `Lech/TTVerify/Inversion.lean`
 they live on the bridge side so that they stay marked as a bridge need.
 -/
 
-namespace Lech.TT
+namespace Lech.VExpr
 namespace VExpr
 
 /-- `v` mentions no de Bruijn index `≥ n`. -/
@@ -122,4 +122,4 @@ theorem inst_eq_self_of_closed {v : VExpr} (h : Closed v) (a : VExpr)
   inst_eq_self (bvarsBelow.mono (Nat.zero_le k) h) a
 
 end VExpr
-end Lech.TT
+end Lech.VExpr

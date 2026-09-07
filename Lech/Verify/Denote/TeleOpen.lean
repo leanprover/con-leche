@@ -33,7 +33,7 @@ differ is `instSeq_bvar`, and the difference is instructive:
 `liftN c x` — the lifts the consumer's own `inst` then absorbs.
 -/
 
-namespace Lech.TT
+namespace Lech.VExpr
 namespace VExpr
 
 /-! ## `VExpr.instSeq` -/
@@ -189,11 +189,11 @@ theorem instSeq_bvar_hit : ∀ (as : List VExpr) (c i : Nat) (x : VExpr),
       simpa using hx
 
 end VExpr
-end Lech.TT
+end Lech.VExpr
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
-open Lech.TT
+open Lech.VExpr
 
 /-! ## Opening a telescope's binders
 
@@ -534,4 +534,4 @@ theorem projStmtParts {sty : Expr} {nP nF i : Nat}
       hbv (nF - 1 - i) (by omega),
       show nP + nF - 1 - (nF - 1 - i) = nP + i from by omega]
 
-end Lech.TTVerify
+end Lech.Verify

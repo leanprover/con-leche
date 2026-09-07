@@ -29,7 +29,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
@@ -54,8 +54,8 @@ theorem denoteP_pinned_const {m : EnvS2Core V env}
     (hf : env.find? n = some ci)
     (hres : Lech.reservedBasisNames.contains n = true)
     (hlen : ls.length = ci.toConstantVal.levelParams.length)
-    {c : Lech.TT.BConst} {us : List Nat}
-    (hpd : Lech.TTVerify.pinnedDirectT n
+    {c : Lech.VExpr.BConst} {us : List Nat}
+    (hpd : Lech.Verify.pinnedDirectT n
       (Level.substFn ψ ci.toConstantVal.levelParams ls)
         = some (VExpr.const c us)) (d : Nat) :
     denoteP (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d
@@ -133,7 +133,7 @@ theorem denoteP_punitUnitA_type (ψ : Name → Nat)
       = Expr.const punitName [Level.param uN] from rfl]
   refine denoteP_pinned_const (m := m) (by decide) hP (by decide)
     (by rfl) ?_ 0
-  simp +decide [Lech.TTVerify.pinnedDirectT, Lech.TT.lv]
+  simp +decide [Lech.Verify.pinnedDirectT, Lech.VExpr.lv]
   show Level.substFn ψ [uN] [Level.param uN] uN = ψ uN
   simp [Level.substFn]
   rfl
@@ -155,13 +155,13 @@ theorem denoteP_punitRec_leaves (ψ : Name → Nat)
   · intro d l
     refine denoteP_pinned_const (m := m) (by decide) hP (by decide)
       (by rfl) ?_ d
-    simp +decide [Lech.TTVerify.pinnedDirectT]
+    simp +decide [Lech.Verify.pinnedDirectT]
     show Level.substFn ψ [uN] [l] uN = Level.eval ψ l
     simp [Level.substFn]
   · intro d l
     refine denoteP_pinned_const (m := m) (by decide) hU (by decide)
       (by rfl) ?_ d
-    simp +decide [Lech.TTVerify.pinnedDirectT]
+    simp +decide [Lech.Verify.pinnedDirectT]
     show Level.substFn ψ [uN] [l] uN = Level.eval ψ l
     simp [Level.substFn]
 
@@ -373,7 +373,7 @@ theorem punitRecLawP {m : EnvS2Core V env}
         [Level.substFn φ punitUnitA.toConstantVal.levelParams usj uN] := by
     rw [hac, acvalWith_ne (by decide)]
     refine acval_basis_pinned (m := m) hU (by decide) ?_
-    simp +decide [Lech.TTVerify.pinnedDirectT]
+    simp +decide [Lech.Verify.pinnedDirectT]
   -- the recursor's own type, identified with the given reading
   obtain rfl : TVa = .pi 0 (pwBit ψ (.ifAllZero [u1N]))
       (.pi 0 (pwBit ψ .never) (.const .punit [ψ uN]) (.sort (ψ u1N)))
@@ -408,7 +408,7 @@ theorem punitRecLawP {m : EnvS2Core V env}
       show punitRecRule.ctorParams = 0 from rfl,
       List.take, List.drop, List.cons_append, List.nil_append,
       List.append_nil, AVExpr.mkAppN_cons, AVExpr.mkAppN_nil,
-      hrecL, hctorL, interp2_app, interp2_const, bval2, Lech.TT.lv,
+      hrecL, hctorL, interp2_app, interp2_const, bval2, Lech.VExpr.lv,
       List.getD_cons_zero, List.getD_cons_succ]
     rw [punitRecV2_app V hMmot hm (pt_mem_unitSet (V := V)),
       punitRaP_interp]
@@ -461,7 +461,7 @@ theorem extendPUnitP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT punitA.name ψ
+        rw [show Lech.Verify.pinnedDirectT punitA.name ψ
           = some (VExpr.const .punit [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -497,7 +497,7 @@ theorem extendPUnitUnitP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT punitUnitA.name ψ
+        rw [show Lech.Verify.pinnedDirectT punitUnitA.name ψ
           = some (VExpr.const .punitUnit [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -534,7 +534,7 @@ theorem extendPUnitRecP (mp : EnvS2PM V μ env)
     (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT punitRecA.name ψ
+        rw [show Lech.Verify.pinnedDirectT punitRecA.name ψ
           = some (VExpr.const .punitRec [ψ uN, ψ u1N]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -697,7 +697,7 @@ theorem denoteP_natLeaf {c₀ : ConstantInfo} (ψ : Name → Nat)
     denoteP (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d
         (.const natName []) = some (AVExpr.const .nat []) := by
   refine denoteP_pinned_const (m := m) hne hN (by decide) (by rfl) ?_ d
-  simp +decide [Lech.TTVerify.pinnedDirectT]
+  simp +decide [Lech.Verify.pinnedDirectT]
 
 /-- `Nat.zero`'s type reading. -/
 theorem denoteP_natZeroA_type (ψ : Name → Nat)
@@ -759,10 +759,10 @@ theorem denoteP_natRec_leaves (ψ : Name → Nat)
     fun d => ?_, fun d => ?_⟩
   · refine denoteP_pinned_const (m := m) (by decide) hZ (by decide)
       (by rfl) ?_ d
-    simp +decide [Lech.TTVerify.pinnedDirectT]
+    simp +decide [Lech.Verify.pinnedDirectT]
   · refine denoteP_pinned_const (m := m) (by decide) hS (by decide)
       (by rfl) ?_ d
-    simp +decide [Lech.TTVerify.pinnedDirectT]
+    simp +decide [Lech.Verify.pinnedDirectT]
 
 /-- **`Nat.rec`'s type reading.**  Seven binders; six carry
 `.ifAllZero [u]` and the motive's domain carries `.never`. -/
@@ -857,7 +857,7 @@ theorem extendNatP (mp : EnvS2PM V μ env)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT natA.name ψ
+        rw [show Lech.Verify.pinnedDirectT natA.name ψ
           = some (VExpr.const .nat []) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -896,7 +896,7 @@ theorem extendNatZeroP (mp : EnvS2PM V μ env)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT natZeroA.name ψ
+        rw [show Lech.Verify.pinnedDirectT natZeroA.name ψ
           = some (VExpr.const .natZero []) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -937,7 +937,7 @@ theorem extendNatSuccP (mp : EnvS2PM V μ env)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT natSuccA.name ψ
+        rw [show Lech.Verify.pinnedDirectT natSuccA.name ψ
           = some (VExpr.const .natSucc []) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -962,12 +962,12 @@ theorem extendNatSuccP (mp : EnvS2PM V μ env)
         = AVExpr.const .natZero [] := by
       rw [hac, acvalWith_ne (by decide)]
       refine acval_basis_pinned (m := mp.base2) hZ (by decide) ?_
-      simp +decide [Lech.TTVerify.pinnedDirectT]
+      simp +decide [Lech.Verify.pinnedDirectT]
     have hNl : m₂.acval natName (Level.substFn φ [] [])
         = AVExpr.const .nat [] := by
       rw [hac, acvalWith_ne (by decide)]
       refine acval_basis_pinned (m := mp.base2) hN (by decide) ?_
-      simp +decide [Lech.TTVerify.pinnedDirectT]
+      simp +decide [Lech.Verify.pinnedDirectT]
     have hSl : m₂.acval natSuccName (Level.substFn φ [] [])
         = AVExpr.const .natSucc [] := by
       rw [hac, show natSuccName = natSuccA.name from rfl,
@@ -1201,7 +1201,7 @@ theorem natSuccRaP_interp (ψ : Name → Nat) (ρ : Nat → V) :
                     n))))) := by
   simp only [natSuccRaP, interp2_lam, interp2_app, interp2_bvar,
     interp2_const, cons, bval2, natMotiveTyP_interp,
-    natStepTyP_interp, Lech.TT.lv, List.getD_cons_zero]
+    natStepTyP_interp, Lech.VExpr.lv, List.getD_cons_zero]
 
 /-- **The recursive spine is graded**, once and for all: four
 `bconst_app_data` steps at `Nat.rec`'s own `type2` binders, with the
@@ -1216,7 +1216,7 @@ theorem natRecSpine_ok2 {u : Nat} (ρ : Nat → V) {e1 e2 e3 e4 : AVExpr}
     (m4 : interp2 V ρ e4 ∈ˢ (omega : V)) :
     AnnotOk2 V ρ
       (.app (.app (.app (.app (.const .natRec [u]) e1) e2) e3) e4) := by
-  have hlv : Lech.TT.lv [u] 0 = u := rfl
+  have hlv : Lech.VExpr.lv [u] 0 = u := rfl
   have d1 : interp2 V ρ (arrowA 1 (u + 1) natT2 (.sort u))
       = natMotiveSpace V u := by
     simp [arrowA, natT2, AVExpr.lift, AVExpr.liftN, interp2_pi,
@@ -1371,7 +1371,7 @@ theorem natSuccRaP_okP (ψ : Name → Nat) (ρ : Nat → V) :
           (.bvar 2)) (.bvar 1)) (.bvar 0))
         = app (app (app (app (natRecV2 V (ψ uN)) M) z) s) n := by
       simp [interp2_app, interp2_bvar, interp2_const, cons, bval2,
-        Lech.TT.lv]
+        Lech.VExpr.lv]
     have eapp : interp2 V (cons n (cons s (cons z (cons M ρ))))
         (AVExpr.app (.bvar 1) (.bvar 0)) = app s n := by
       simp [interp2_app, interp2_bvar, cons]
@@ -1689,7 +1689,7 @@ theorem natRecZeroLawP {m : EnvS2Core V env}
     rw [show RecRule.ctor natRecZeroRule = natZeroName from rfl, hac,
       acvalWith_ne (by decide)]
     refine acval_basis_pinned (m := m) hZ (by decide) ?_
-    simp +decide [Lech.TTVerify.pinnedDirectT]
+    simp +decide [Lech.Verify.pinnedDirectT]
   have hrecL : m₂.acval natRecA.name
       (Level.substFn φ natRecA.toConstantVal.levelParams us)
       = AVExpr.const .natRec [ψ uN] := by
@@ -1698,7 +1698,7 @@ theorem natRecZeroLawP {m : EnvS2Core V env}
   · simp only [show natRecZeroRule.ctorParams = 0 from rfl,
       List.take, List.drop, List.cons_append, List.nil_append,
       List.append_nil, AVExpr.mkAppN_cons, AVExpr.mkAppN_nil, hrecL,
-      hctorL, interp2_app, interp2_const, bval2, Lech.TT.lv,
+      hctorL, interp2_app, interp2_const, bval2, Lech.VExpr.lv,
       List.getD_cons_zero]
     rw [natRecV2_app V hM hz hs (natzero_mem (V := V)), natrec_zero,
       natZeroRaP_interp]
@@ -1752,7 +1752,7 @@ theorem natRecSuccLawP {m : EnvS2Core V env}
     rw [show RecRule.ctor natRecSuccRule = natSuccName from rfl, hac,
       acvalWith_ne (by decide)]
     refine acval_basis_pinned (m := m) hS (by decide) ?_
-    simp +decide [Lech.TTVerify.pinnedDirectT]
+    simp +decide [Lech.Verify.pinnedDirectT]
   have hrecL : m₂.acval natRecA.name
       (Level.substFn φ natRecA.toConstantVal.levelParams us)
       = AVExpr.const .natRec [ψ uN] := by
@@ -1782,7 +1782,7 @@ theorem natRecSuccLawP {m : EnvS2Core V env}
   refine ⟨?_, ?_⟩
   · simp only [List.take, List.drop, List.cons_append, List.nil_append,
       AVExpr.mkAppN_cons, AVExpr.mkAppN_nil, hrecL,
-      hctorL, interp2_app, interp2_const, bval2, Lech.TT.lv,
+      hctorL, interp2_app, interp2_const, bval2, Lech.VExpr.lv,
       List.getD_cons_zero, show natRecSuccRule.ctorParams = 0 from rfl]
     rw [natSuccV2_app V hn',
       natRecV2_app V hM hz hs' (natsucc_mem hn'), natrec_succ _ _ hn',
@@ -1836,7 +1836,7 @@ theorem extendNatRecP (mp : EnvS2PM V μ env)
     (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT natRecA.name ψ
+        rw [show Lech.Verify.pinnedDirectT natRecA.name ψ
           = some (VExpr.const .natRec [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)

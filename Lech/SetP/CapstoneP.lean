@@ -49,7 +49,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo)
 
@@ -97,7 +97,7 @@ empty set by erasure injectivity plus `basis_pinnedL`.  The `Empty` and
 theorem no_constant_of_emptyPin_P (mp : EnvS2PM V μ env) {n : Name} {u : Nat}
     (hres : Lech.reservedBasisNames.contains n = true)
     (hpin : ∀ ψ : Name → Nat,
-      Lech.TTVerify.pinnedDirectT n ψ = some (emptyT u))
+      Lech.Verify.pinnedDirectT n ψ = some (emptyT u))
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const n []) : False := by
   obtain ⟨ta, hta0⟩ := mp.type_reads c hc (fun _ => 0)
@@ -137,7 +137,7 @@ theorem no_constant_of_Empty_P (mp : EnvS2PM V μ env)
   -- prediction cashed: the premise dies with `EnvS2PM.base`, it is
   -- not replaced.
   no_constant_of_emptyPin_P mp (u := 1) (by decide)
-    (fun ψ => by simp +decide [Lech.TTVerify.pinnedDirectT, Lech.TT.emptyT])
+    (fun ψ => by simp +decide [Lech.Verify.pinnedDirectT, Lech.VExpr.emptyT])
     c hc hty
 
 /-- **The capstone's business end, about `False`** (task #181): an
@@ -148,7 +148,7 @@ theorem no_constant_of_False_P (mp : EnvS2PM V μ env)
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const falseName []) : False :=
   no_constant_of_emptyPin_P mp (u := 0) (by decide)
-    (fun ψ => by simp +decide [Lech.TTVerify.pinnedDirectT, Lech.TT.emptyT])
+    (fun ψ => by simp +decide [Lech.Verify.pinnedDirectT, Lech.VExpr.emptyT])
     c hc hty
 
 /-! ## The remaining bill: none

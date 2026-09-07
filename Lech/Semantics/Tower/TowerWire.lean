@@ -27,7 +27,7 @@ made.
 namespace Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT
+open Lech.VExpr
 
 /-! ## Bound-variable bounds, at the erasure -/
 
@@ -90,7 +90,7 @@ theorem DomsBelow.fields {k : Nat} :
 
 namespace VExprAux
 
-open Lech.TT.VExpr
+open Lech.VExpr.VExpr
 
 /-- Lifting raises a bound by exactly the inserted count, at any
 cut. -/

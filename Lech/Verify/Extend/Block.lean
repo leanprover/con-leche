@@ -13,12 +13,12 @@ equal up to display names, valuation aliased), its three preservation
 lemmas, and `cvalAlias` (a modeled member's valuation is its `_model`
 companion's).  All V-free and lane-shared: both the TT lane's
 `checkIndMemberTT` fold and the [set] lane's `declIndS` fold consume
-them; the namespace stays `Lech.TTVerify` so no call site moves.
+them; the namespace stays `Lech.Verify` so no call site moves.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
-open Lech.TT
+open Lech.VExpr
 
 /-! ## The block fold invariant -/
 
@@ -170,4 +170,4 @@ theorem cvalAlias_closed {cval : TConstVal} {n mn : Name}
     exact hcl c ψ
 
 
-end Lech.TTVerify
+end Lech.Verify

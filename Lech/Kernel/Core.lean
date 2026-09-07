@@ -29,7 +29,7 @@ their own fuel.  The official kernel's *infer-only* mode is deferred
 until the refinement bridge's fuel-determinism machinery lands
 (DESIGN.md).
 
-Verification: `Lech.SetR.*` and `Lech.TTVerify.*` (claims),
+Verification: `Lech.SetP.*` and `Lech.Verify.*` (claims),
 `Lech.Verify.*` (inversions), both stated against the bodies with
 hypotheses about the record and discharged by one induction at the
 knot.

@@ -29,7 +29,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech Lech.Semantics Lech.TTVerify Lech.SetModel
+open Lech Lech.Semantics Lech.Verify Lech.SetModel
 
 /-! ## The unmentioned leaf -/
 

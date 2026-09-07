@@ -19,6 +19,6 @@ mention neither `Expr` nor the annotated syntax `AVExpr`.
   `Lech.SetTheory.Tower`, unchanged).
 
 `Ops` and `Value` carry the namespace `Lech.SetModel`.  The tier
-imports only `Lech/SetTheory/*` and `Lech/TT/*`; the Expr-facing
+imports only `Lech/SetTheory/*` and `Lech/VExpr/*`; the Expr-facing
 denotation and claims stand above it in `Lech/Semantics/*`.
 -/

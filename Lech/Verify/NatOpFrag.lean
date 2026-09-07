@@ -24,11 +24,11 @@ which is stated over an `EnvTT`.
 
 -- the namespace follows the house convention of the other shared-tier
 -- files that the TT lane grew into (`Verify/Denote/SubstConst.lean`
--- is `Lech/Verify/*` in `Lech.TTVerify` too), so nothing
+-- is `Lech/Verify/*` in `Lech.Verify` too), so nothing
 -- downstream re-qualifies
-namespace Lech.TTVerify
+namespace Lech.Verify
 
-open Lech.TT
+open Lech.VExpr
 
 variable {env : Env}
 
@@ -352,4 +352,4 @@ theorem natOpGuard_succTy {env : Env} {c : Name} (h : natOpGuard env c = true) :
       intro hty; exact nomatch hty
   · exact nomatch hs
 
-end Lech.TTVerify
+end Lech.Verify

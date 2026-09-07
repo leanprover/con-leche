@@ -93,7 +93,7 @@ TOOLCHAIN=$(cat lean-toolchain)
 # The library roots (the lakefile's `defaultTargets` plus the certificate
 # library and the `lech` executable's root).  `Lech.Challenge` and the
 # test library are deliberately absent; see the header.
-ROOTS=(Lech Lech.TT Lech.SetModel Lech.Semantics Lech.SetP
+ROOTS=(Lech Lech.VExpr Lech.SetModel Lech.Semantics Lech.SetP
        Lech.Verify.Cached Lech.MainTheorem Lech.PinGen.Certs Main)
 
 # ---------------------------------------------------------------- 1/4

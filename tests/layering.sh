@@ -19,7 +19,7 @@
 # loosening).  What survives is the part of the fence that was never
 # about the R/P split:
 #   * any base→lane edge         (BASE PURITY — `Lech/{Kernel,Verify,
-#     SetTheory,TT,SetModel,Semantics}/*` stand BELOW the model lane and may not
+#     SetTheory,VExpr,SetModel,Semantics}/*` stand BELOW the model lane and may not
 #     import `Lech/SetP/*`), AND
 #   * any implementation→theory edge   (the CLAUDE.md rule:
 #     `Lech/{Kernel,Cached,Frontend}/*` and `Main.lean` may never
@@ -77,7 +77,7 @@ IMPL_DIRS   = ('Lech/Kernel/', 'Lech/Cached/', 'Lech/Frontend/')
 IMPL_ROOTS  = ('Main',)
 THEORY_PFX  = ('Lech.Verify.', 'Lech.SetTheory.',
                'Lech.SetP.', 'Lech.SetModel.', 'Lech.Semantics.',
-               'Lech.TT.')
+               'Lech.VExpr.')
 CAPS        = {'Lech.Verify.Cached.MainC', 'Lech.Verify.Cached',
                'Lech.MainTheorem'}
 UMBRELLAS   = {'Lech'}                  # `Lech.SetP` is gated as P
@@ -113,7 +113,7 @@ def report(title, items, hint):
         print(f'    {hint}')
 
 report('base module importing the model lane', basev,
-       'Lech/{Kernel,Verify,SetTheory,TT,SetModel,Semantics}/* stand BELOW the '
+       'Lech/{Kernel,Verify,SetTheory,VExpr,SetModel,Semantics}/* stand BELOW the '
        'lane; nothing there may import Lech/SetP/*.')
 report('implementation importing theory', implv,
        'CLAUDE.md: Lech/Kernel/*, Main.lean must never import '

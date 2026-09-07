@@ -31,7 +31,7 @@ that was inside it.
 
 namespace Lech.Semantics
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.Verify
 
 
 /-- The structural-`Nat` recurrences' **checker runs** (task #161 P4

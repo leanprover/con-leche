@@ -17,9 +17,9 @@ design's T1 lists exactly this kind of move — "relocate the V-free
 denote stack to a neutral home"; this is the slice the bridge forced.)
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
-open Lech.TT
+open Lech.VExpr
 
 /-! ## The denotation reads only an expression's own level parameters
 
@@ -409,4 +409,4 @@ theorem denote_instLevels {env : Env} {cval : TConstVal}
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim
 
-end Lech.TTVerify
+end Lech.Verify

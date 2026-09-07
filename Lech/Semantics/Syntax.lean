@@ -1,12 +1,12 @@
-import Lech.TT.Subst
+import Lech.VExpr.Subst
 
 /-!
 # `AVExpr`: the sort-annotated variant of `VExpr` (task #151, tier A)
 
-`VExpr` (`Lech/TT/Syntax.lean`) carries **no** universe information at
+`VExpr` (`Lech/VExpr/Syntax.lean`) carries **no** universe information at
 its binders: `pi A B` and `lam A b` are the bare formers, and the
 interpretation reads them through the *collapsed* operators `piC`/`lamC`
-(`Lech/TT/Semantics/Interp.lean`), which is what makes the
+(`Lech/VExpr/Semantics/Interp.lean`), which is what makes the
 universe-cohabitation wall of the T5 c5 record (`docs/SetR-DESIGN.md`)
 unavoidable — `pt ∈ˢ piC A (fun _ => univ 0)` holds, so no *typing* can
 separate a proposition's inhabitant from the proof point.
@@ -25,7 +25,7 @@ numeral sorts**:
 `docs/SetR-DESIGN.md`'s tier-A section):
 
 * **Ground numerals, not `Level`s.**  `VExpr` already evaluates every
-  level expression at its use site (`Lech/TT/Syntax.lean`'s "universe
+  level expression at its use site (`Lech/VExpr/Syntax.lean`'s "universe
   levels are concrete `Nat`s"), so an annotation is a `Nat`.  There is
   no level substitution to commute with, which is what makes the whole
   substitution metatheory below *inert*.
@@ -43,14 +43,14 @@ numeral sorts**:
   premise is not lost: it is still in the derivation, and
   `Lech/SetR/Annot/Pass.lean`'s `HasSort` names it.)
 * **`eqE` keeps its (unannotated, unread) type slot**, exactly as
-  `VExpr` does — see `Lech/TT/Syntax.lean` on why `eqE`'s type slot is
+  `VExpr` does — see `Lech/VExpr/Syntax.lean` on why `eqE`'s type slot is
   never constrained.
 
 ## The structural kit
 
 `erase` forgets the annotations; `liftN`/`inst` are the de Bruijn
 operations, defined *clause for clause* against
-`Lech/TT/Subst.lean`'s.  Their whole content is the pair of
+`Lech/VExpr/Subst.lean`'s.  Their whole content is the pair of
 commutations `erase_liftN` / `erase_inst`: **annotations are inert data
 under substitution** — instantiation rewrites subterms and never
 touches a numeral — so the annotated operations project onto the plain
@@ -61,7 +61,7 @@ sort fact.
 
 namespace Lech.Semantics
 
-open Lech.TT
+open Lech.VExpr
 
 /-- `VExpr` with ground numeral sorts at the binder formers.  Node for
 node the same syntax; see the module docstring for the annotation
@@ -292,7 +292,7 @@ by a nested block here until the 2026-09-06 namespace rename folded
 both into `Lech.Semantics`.) -/
 
 
-open Lech.TT (BConst)
+open Lech.VExpr (BConst)
 
 /-- **`erase` is injective at the constant clause.**  Every other
 `AVExpr` constructor erases to a different `VExpr` constructor, so a

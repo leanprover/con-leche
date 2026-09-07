@@ -64,7 +64,7 @@ universe w
 /-! ## Variable environments
 
 Pure `Nat → V` plumbing; no set theory is involved, so this section
-carries no `SetTheory` instance.  These are `Lech.TT.Semantics`'
+carries no `SetTheory` instance.  These are `Lech.VExpr.Semantics`'
 `cons`/`shiftE`/`instE` with `V` implicit; they are duplicated rather
 than imported so that `Interp2/*` depends on **no** module built over
 the collapse operators. -/
@@ -162,7 +162,7 @@ noncomputable def interp2 : (Nat → V) → AVExpr → V
     interp2 V ρ (.bvar i) = ρ i := rfl
 @[simp] theorem interp2_sort (ρ : Nat → V) (u : Nat) :
     interp2 V ρ (.sort u) = univ u := rfl
-@[simp] theorem interp2_const (ρ : Nat → V) (c : Lech.TT.BConst)
+@[simp] theorem interp2_const (ρ : Nat → V) (c : Lech.VExpr.BConst)
     (us : List Nat) : interp2 V ρ (.const c us) = bval2 V c us := rfl
 @[simp] theorem interp2_app (ρ : Nat → V) (f a : AVExpr) :
     interp2 V ρ (.app f a) = SetTheory.app (interp2 V ρ f) (interp2 V ρ a) := rfl

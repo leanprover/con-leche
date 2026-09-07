@@ -45,7 +45,7 @@ telescopes, and the basis reductions.  Built when the second of those
 needed it, not speculatively.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 /-- Compute `Expr.instantiate1` through a concrete telescope: unfold,
 normalise the depth arithmetic, decide the comparisons.  See the module
@@ -58,4 +58,4 @@ macro_rules
     `(tactic| simp only [Expr.instantiate1, Nat.reduceAdd, Nat.reduceSub,
         gt_iff_lt, Nat.reduceLT, Nat.reduceEqDiff, reduceIte] $[$loc]?)
 
-end Lech.TTVerify
+end Lech.Verify

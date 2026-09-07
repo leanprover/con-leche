@@ -8,7 +8,7 @@ The transpose of `interp_substFvarAt` / `interp_beta`
 (`Lech/Model/Subst.lean`), and the bottleneck every interesting
 clause of `CheckStepTT` runs through: the checker's `infer` on
 `.app f a` returns the *expression* `B.instantiate1 a`, while
-`HasType.app` concludes at the *term* `(⟦B⟧).inst ⟦a⟧`, and those have
+an application's type is the *term* `(⟦B⟧).inst ⟦a⟧`, and those have
 to agree.
 
 ## Where the transpose is nicer than the original
@@ -40,9 +40,9 @@ with itself.  It needs neither.
 
 set_option linter.unusedVariables false
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
-open Lech.TT
+open Lech.VExpr
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
@@ -381,4 +381,4 @@ theorem denote_matchesPin {cval : TConstVal} {env : Env} {φ : Name → Nat}
   rw [← denote_erasePw cv.type d, ← denote_erasePw pin.type d]
   exact denote_erasedEq (h.2 ▸ Expr.ErasedEq.rfl _) d
 
-end Lech.TTVerify
+end Lech.Verify

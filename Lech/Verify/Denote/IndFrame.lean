@@ -25,16 +25,16 @@ machinery — `PiTele` (a `.pi` tower's domains as a de Bruijn context),
 the cross-frame instantiation (`instPisAt_denote_cross` — the
 load-bearing "instantiate-then-denote = denote-then-instantiate"
 identity), the spine-reading lemmas, and `lamCtx`.  All V-free and
-`Deq`/`HasType`-free; both verification lanes' bottoms consume them.
-The namespace stays `Lech.TTVerify` so no call site moves.
+`Deq`- and judgment-free; both verification lanes' bottoms consume them.
+The namespace stays `Lech.Verify` so no call site moves.
 -/
 
 set_option maxHeartbeats 1600000
 set_option linter.unusedVariables false
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
-open Lech.TT
+open Lech.VExpr
 
 /-- Indexing a list by its own `range` is mapping it. -/
 theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)
@@ -59,7 +59,7 @@ def dummyPropT : VExpr := .pi (.sort 0) (.bvar 0)
 innermost binder first, so the *outermost* domain is the last entry —
 with the body after `k` binders.  Each entry is as written in the
 tower, its dependencies pointing at the entries after it, which is
-exactly how `HasType.bvar` reads a context. -/
+exactly how a de Bruijn variable rule reads a context. -/
 inductive PiTele : Nat → VExpr → List VExpr → VExpr → Prop
   | nil {T : VExpr} : PiTele 0 T [] T
   | cons {k : Nat} {A B R : VExpr} {Γ : List VExpr} :
@@ -197,8 +197,8 @@ theorem openPisAtFvars_leaves :
 succeeds yields the `.pi` tower's context, the denoted opened body, and
 each opener's annotation denoted *at its own depth* to its tower
 entry.  (Consumers lift with `denote_lift`; the entry `Γ.getD (k-1-i)`
-is the `i`-th binder's domain as written, which is where `HasType.bvar`
-wants it.) -/
+is the `i`-th binder's domain as written, which is where a variable
+rule wants it.) -/
 theorem openPisAtFvars_denoteTele {cval : TConstVal} {env : Env}
     {ψ : Name → Nat} :
     ∀ (k : Nat) {e : Expr} {j : Nat} {fvs : List Expr} {body : Expr}
@@ -2448,4 +2448,4 @@ theorem getAppArgs_length_renameConsts {f : Name → Name} :
   | lit l => rfl
   | proj s i e => rfl
 
-end Lech.TTVerify
+end Lech.Verify

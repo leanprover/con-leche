@@ -19,7 +19,7 @@ open Lech.SetModel
 
 open SetTheory
 open Lech.SetTheory.Tower
-open Lech.TT (VExpr)
+open Lech.VExpr (VExpr)
 
 universe uv
 

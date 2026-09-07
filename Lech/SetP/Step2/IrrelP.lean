@@ -27,7 +27,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level inferTypeCore whnf
   isUnitLikeTy)
@@ -141,7 +141,7 @@ private theorem unit_side_pt {m : EnvS2Core V env}
   obtain ⟨-, heqW⟩ := ihw hwta hwt hbt hLt hCt htaa hwtaa hokTa
   -- the unit-like type is the pinned `PUnit`
   obtain ⟨us, rfl, hfind⟩ :=
-    Lech.TTVerify.unitLike_eq_punit m.basis_pinned hu
+    Lech.Verify.unitLike_eq_punit m.basis_pinned hu
   -- its reading is the annotated `PUnit` leaf
   rw [denoteP, hfind] at hwtaa
   dsimp only at hwtaa
@@ -154,7 +154,7 @@ private theorem unit_side_pt {m : EnvS2Core V env}
   -- the leaf is the pinned constant, and its `interp2` is `unitSet`
   have hpin : m.cvalE Lech.punitName
       (Level.substFn φ Lech.punitA.toConstantVal.levelParams us)
-      = Lech.TT.punitT
+      = Lech.VExpr.punitT
         (Level.substFn φ Lech.punitA.toConstantVal.levelParams us
           Lech.uN) :=
     (m.basis_pinned Lech.punitName _ hfind (by decide)).2 _ _ rfl
