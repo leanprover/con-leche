@@ -53389,6 +53389,340 @@ warning-free, `lake test`, arena exit 0 (native audit 169/0, e2e
 53 890 / 53 890, the 23-cone 2 949 both modes, full audit 970/0 — all
 identical to the tip's.
 
+## TASK #200 — IN-PROCESS MODELS OF NESTED AND MUTUAL BLOCKS (2026-09-06, `agent/inmodel`)
+
+**The user's directive (verbatim):** *"For nested and mutual: What we
+can also do is copy lean-inductive-model's modelling of nested and
+mutual and combine it with the existing modelled installation, but do
+it all on our Expr and without the preprocessor. A bit extra runtime
+work (certification tax actually), but the quickest path to dropping
+the inductive-model dependency."*
+
+### Part A — the design, as accepted
+
+**What the tool does, and what of it the checker reads.**
+lean-inductive-models' mutual rung declares two new inductive blocks —
+a *tag* enumeration `T._model._impl.tag : ∀ p⃗, Sort W` with one
+constructor per member carrying that member's index telescope, and one
+*auxiliary family* `T._model._impl.aux : ∀ p⃗ (t : tag p⃗), Sort u` whose
+constructors are the members' with every `T_m p⃗ e⃗` rewritten to
+`aux p⃗ (tag.m p⃗ e⃗)` — and lets Lean's kernel mint their recursors; the
+public slots are `T_m._model := λ p⃗ ı⃗, aux p⃗ (tag.m p⃗ ı⃗)`, the
+constructors verbatim, and `T_m.rec._model` = `aux.rec` at a motive
+that dispatches on the tag by `tag.rec`, the minors passing through
+unchanged, so every iota theorem is `Eq.refl`.  Its nested rung runs
+the kernel's own nested→mutual specialisation (mimic members for the
+nested occurrences, in the kernel's motive order) and then an
+isomorphism per mimic (`pack`/`unpack`, `unpackPack`/`packUnpack`,
+`congrPack`), the recursor models transporting along them, the iota
+theorems by one `Eq.rec` per packed position.  Below that the tool
+reduces the auxiliary family to its five-member basis (the W-tree
+`_wcore` island, carve/tuple/Church arms) — the tier this task does
+NOT port: **our base is the direct fixpoint route (task #188, at
+indices)**, which installs the auxiliary family from the reference
+checks alone.  Of the tool's output the checker consumes exactly the
+public slots (`Lech/Kernel/Modeled.lean`: the member/constructor/
+recursor models, type `==` the public type under the group renaming up
+to binder names; the `iota_j` theorems; `proj_i`/`proj_i.iota` of
+structure-like members, whose `Eq` level `Lech/Frontend/ProjRec.lean`
+reads; `eta`/`unitlike`, which the tool emits only for NON-recursive
+structure-likes — so mutual/nested blocks have none today either).
+`MutualOneLayer` (definitional projections for the tool's own
+consumers), the `--check-*` modes, `KernelCheck`, `Plan` as a
+standalone (the exported recursor is the oracle: motive `m`'s domain
+is the member/mimic carrier, each minor's telescope the mimic
+constructor's fields with the `ih` binders saying which fields recurse
+to which member) are not ported.
+
+**The census** (`_tmp/inmodel/{census,shape_census}.py` in the main
+checkout, raw exports): init-full has 588 blocks — 478 direct
+structures, 57 direct sums, 48 recursive (the #188 class), **4
+reflexive** (`Acc`, `Acc.below`, `Lean.Order.iterates`, `.below`),
+**1 nested** (`Lean.Syntax`, through `Array`, `numNested = 2`), 0
+mutual.  Mathlib: 6644 blocks — 5671 / 630 / 251 direct-or-#188,
+**41 reflexive**, **38 nested, 10 mutual, 3 mutual+nested**.  Of those
+51: all index-free except `Lists.Equiv`/`.below` (Prop, 2–3 indices,
+small eliminator) and `Mathlib.Tactic.Ring.ExBase` (4 indices); zero
+reflexive fields, zero nested occurrences under a binder, zero later
+fields depending on a packed field; containers `Array`/`List`/`Prod`/
+`Option`/`Except` and a few Lean structures; four blocks nest through
+`Lean.Widget.TaggedText`, itself nested (a cyclic mimic group); the
+two Prop mutual blocks are small-elim.  Mutual blocks with several
+members eliminate into Prop only when Prop (official
+`elim_only_at_universe_zero`), so "Prop + large" can arise only at a
+nested single-type block.
+
+**The port, as built.**  A new frontend module tree,
+`Lech/Frontend/InModel{,/Kit,/Mutual}.lean`, invoked from the direct
+parse (`Lech/Frontend/ExportC.lean`) at a mutual or nested block's
+record *when the stream carries no `T._model`*: it produces `DeclC`
+records — the tag block, the auxiliary block, the public slots, the
+iota theorems, the projection artifacts — that are pushed AHEAD of
+the block, below the verified fold, exactly like the prelude and the
+projection rewrite (the main theorem quantifies over the parsed list
+and never learns they were generated).  **Soundness needs nothing from
+the generator**: every record is checked by the fold as a stream
+declaration (the certification tax: the models' type checks, one
+defeq per iota rule) and the block installs through the unchanged
+modeled route, whose install-time checks compare the stream's block
+against those checked models; a wrong record rejects at that record
+or declines at the install, never accepts.  The generator's
+correctness decides coverage only, and every decline names its reason
+(`lech: declined: in-process model of T: …`), so the residual is
+exact.  Everything the generator needs beyond the block is a
+declaration table the parse now keeps (`StateD.constTypes`,
+`heights`: the declared types and definitional heights of everything
+pushed so far, the prelude included) — a **syntactic sort inferer**
+(`Kit.inferTy`: const types instantiated, Π/λ/sort rules, head-β only,
+no unfolding) gives the `Eq` level of a `proj_i.iota` (and, at B2, the
+tag's universe); where it fails the artifact is skipped or the block
+declines.  Hints are the kernel's rule, one above the highest constant
+the value mentions.
+
+**The residual after #188 + #200, and the dependency question:** the
+reflexive blocks (init-full's `Acc`!), infinitary nested occurrences,
+#188's own fall-throughs, Prop nested blocks with a large eliminator,
+`imax`-bounded universes.  So `lean_inductive_models` cannot be
+dropped by these two tasks alone — `Acc` blocks init-full — and a
+route for reflexive/Prop inductives is a separate design (raised with
+the user); after #200 the tool's job on init-full shrinks to the four
+reflexive blocks.  **Coordinator rulings (2026-09-06):** the order
+B1 index-free mutual → B2 indexed mutual → B3 nested → B4 cyclic
+groups and mutual+nested; `agent/recursive` may be merged into a
+worktree for TESTING ONLY; until #188 is on master every sub-step is
+gated against the debug dump AND the merged-recursive binary, final
+gates on master when #188 lands; the reflexive/Prop residual is not
+this lane's.
+
+### B1 — index-free mutual blocks (this landing)
+
+*The construction* (`Lech/Frontend/InModel/Mutual.lean`, `genMutual`;
+the recursor generator `Kit.recTy`/`recRhs` is `directRecTyI`/
+`directRecRhsI` of `Lech/Kernel/Direct/Parts.lean` with the `ih`
+binders of the official `mk_rec_infos` threaded in — the fixpoint
+route regenerates and compares the auxiliary family's recursor by one
+`isDefEq`, so binder names are display-only but the argument order
+and the `ih` placement are the kernel's).  For a block `T_1 … T_k`
+over one parameter telescope `p⃗` at sort `u`:
+
+* `tag : ∀ p⃗, Type`, constructors `tag.m : ∀ p⃗, tag p⃗` — an
+  enumeration the DIRECT SUM route installs (route trace `sum`);
+* `aux : ∀ p⃗ (t : tag p⃗), Sort u`, constructor `aux.m.C : ∀ p⃗ f⃗',
+  aux p⃗ (tag.m p⃗)` per public constructor with every field `T_{m'} p⃗`
+  rewritten to `aux p⃗ (tag.m' p⃗)` (`Kit.specFam`), the recursor with
+  one `ih : motive (tag.m' p⃗) f_i` per recursive field — the FIXPOINT
+  route's, at indices;
+* `T_m._model := λ p⃗, aux p⃗ (tag.m p⃗)`; `C._model := λ p⃗ f⃗, aux.m.C p⃗
+  f⃗` (its declared type the public one renamed; the λ-domains are the
+  renamed public ones, the application typed by δ);
+  `T_m.rec._model := λ p⃗ M⃗ S⃗ t, aux.rec p⃗ Mot S⃗ (tag.m p⃗) t` with
+  `Mot := λ i s, tag.rec.{imax u (ℓ+1)} p⃗ (λ i', ∀ s, aux p⃗ i' → Sort ℓ)
+  M⃗ i s` — the public minors pass through unchanged, since
+  `Mot (tag.m' p⃗) f ≡ M_{m'} f` and `aux.m.C p⃗ f⃗ ≡ C._model p⃗ f⃗` by δι;
+* `T_m.rec._model.iota_j : ∀ p⃗ M⃗ S⃗ f⃗, @Eq.{ℓ} (M_m (C._model p⃗ f⃗))
+  (T_m.rec._model p⃗ M⃗ S⃗ (C._model p⃗ f⃗)) (S_J f⃗ (T_{m'}.rec._model p⃗ M⃗
+  S⃗ f_i)…)` by `Eq.refl` (δι through `aux.rec` and `tag.rec`; the
+  statement's left side is what `checkIotaThm` pins structurally, its
+  right side the rule's applied right-hand side β-reduced);
+* for a structure-like non-Prop member: `T_m._model.proj_i` — the
+  model recursor at the constant motive `λ _, F_i[f_j := proj_j p⃗ t]`,
+  every other motive `PUnit`, built by the projection rewrite's own
+  builder (`projRecValue` on a model-side owner record) — and
+  `proj_i.iota` by `Eq.refl` at the field's sort from the inferer.
+  The modeled install runs its projection phase only at single-type
+  blocks, so at a mutual block these feed exactly the rewrite's
+  `projLevels`; they are emitted honestly anyway (the contract is the
+  tool's).
+
+*Declines* (the residual instrument): nested members (B3), indexed
+members (B2), a reflexive member (the export's flag), a field
+mentioning the block other than as a plain member application, members
+whose level parameters / parameter telescope / sort differ, a Prop
+block with a large eliminator (cannot arise at a mutual block).
+
+*The transition.*  The generated auxiliary family is an indexed
+recursive inductive; with the fixpoint route not yet on master, a raw
+mutual block modelled in-process declines at that family ("missing
+model for `T._model._impl.aux`").  So `lech-preprocess`'s native
+predicate gains the in-process class (`lechNativeInModel`, mirrored
+conjunct for conjunct as at the other classes) **only under
+`LECH_INMODEL_NATIVE=1`** (`lechNativeInModelAll`): by default the
+tool still models mutual blocks and the in-process modeller stands
+down on seeing `T._model` in the stream — zero verdict change on any
+default run — and the flag flips to the default when #188 lands.
+`LECH_INMODEL=0` turns the modeller off; `LECH_INMODEL_DUMP=OUT` writes
+the raw input with the generated records spliced in ahead of each
+block (`Lech/Frontend/{ExportWrite,InModelDump}.lean`, lean4export
+3.1 records at table indices above the input's maximum — the tool's
+parser keeps a sparse table beside its dense one).  The route trace
+reads `inmodel` for an in-process block.
+
+*Gates.*  `tests/inmodel.sh` (in `tests/arena.sh`): for each raw
+fixture, the raw run (exit 2 at the auxiliary family before #188, 0
+after — either recorded, anything else FAIL), the dump through
+`LECH_INMODEL_NATIVE=1 lech-preprocess --no-check` (the tool's
+structural checks audit model roles lech never consumes — `proj_0` of
+a Prop structure-like) and back through `lech --pre` in both modes
+(must accept), and the off switch.  Fixture
+`tests/e2e/src/inmodel_mutual.lean` (`--#export`, raw): `Even`/`Odd`
+(cross recursion, several constructors, `rfl`s forcing iota through
+both recursors), `Node`/`Forest` (structure-like pair at `Type u`,
+four projection rewrites at the generated artifacts' levels), `A`/`B`
+(Prop pair, `noA` by mutual induction into `False`).  Result: 3 blocks
+modelled in-process; the modelled dump accepts **158 declarations in
+`--verified` and `--trusted`** (8 blocks routed `modeled`: the three
+public blocks, their three auxiliary families and the two carve
+skeletons the tool adds); through the default pipe the fixture
+accepts tool-modelled (e2e expectation `0`).  `tests/e2e/
+mutual_struct_proj` is reflexive (`nodes : Fin 0 → Node`) and stays
+the tool's, by the predicate and by the generator's decline alike.
+
+*Receipts:* build warning-free, `lake test` (the positional
+`ParseResultD` patterns widened by the two new fields), `tests/arena.sh`
+exit 0 (see the landing merge for the counts), `tests/inmodel.sh` OK.
+The merged-recursive gate is reported in the READY message: with
+`agent/recursive`'s indexed route (`09891f11`) merged into a
+TEST-ONLY worktree, the raw fixture's auxiliary families install
+directly.
+
+### B2 — indexed mutual members
+
+The same rung with the members' index telescopes on the tag
+(`tag.m : ∀ p⃗ ı⃗_m, tag p⃗`, the tag's sort `W = max 1 (the sorts of
+every member's index domains)` from the inferer — a failure declines
+the block naming the index), the auxiliary family unchanged in shape
+(`specFam` rewrites `T_m p⃗ e⃗` to `aux p⃗ (tag.m p⃗ e⃗)`, the recursor's
+`ih` reads the field's own index expressions off its domain), the
+member models `λ p⃗ ı⃗, aux p⃗ (tag.m p⃗ ı⃗)`, the recursor models taking
+`ı⃗` before the major (`aux.rec p⃗ Mot S⃗ (tag.m p⃗ ı⃗) t`; `tag.rec`'s
+minors are the public motives `M_m : ∀ ı⃗ (t : T_m._model p⃗ ı⃗), Sort ℓ`
+against `∀ ı⃗, MotTag (tag.m p⃗ ı⃗)` by δ), and the iota statements with
+the constructor's index expressions before the major on the left and
+each recursive field's on its `ih` — what `checkIotaThm` pins at
+`mI - rP` index arguments.  Projection artifacts only at index-free
+members (the modeled install ignores an indexed family's, task #175
+SigmaHom).  Two things the fixture taught: Lean promotes a uniform
+index to a PARAMETER for the whole block (`Tm.rec : {a : Nat} → …`),
+so an indexed-mutual fixture needs a constructor at a shifted index;
+and the kernel names a recursor's elimination level `u`, `u_1`, `u_2`
+(`mk_fresh_lvl_name`) — the generated recursors now follow it, which
+is what lean-inductive-models' exact-layout check of the dump wanted.
+Gate (`tests/inmodel.sh`, both fixtures): `inmodel_mutual_idx` — 4
+blocks in-process (`Even`/`Odd` over `Nat`, `Tm`/`Args` with `lam :
+Tm (n+1) → Tm n` and a `rfl` at the recursor-spelled size, `P : Nat →
+Prop` / `Q : Nat → Bool → Prop`, `R`/`S` over `α : Type u`), the
+modelled dump accepts **434 declarations in both modes** (13 blocks
+routed `modeled`); the merged-recursive gate and the suite receipts
+in the READY message.
+
+### B3 — nested blocks (and, by the same code path, mutual-and-nested)
+
+`Lech/Frontend/InModel/Nested.lean`, the general rung.  **The exported
+recursor family is the oracle** for the kernel's nested→mutual
+reduction: motive `m`'s domain `∀ ı⃗ (t : Carrier), Sort ℓ` names a
+member — real (`T_m p⃗ ı⃗`) or a *mimic* (`I As ı⃗`, the container at its
+pins, the pins lowered to the parameter frame and checked free of the
+index variables) — in the kernel's order; minor `J`'s domain
+`∀ f⃗ ih⃗, motive_m e⃗ (C As f⃗)` names its constructor, its fields (the
+count from the block's constructor at a real member, from
+`T.rec_{j+1}`'s rule at a mimic; the domains lowered past the motives
+and minors and head-β-reduced, since a container at a dependent pin
+`DMap α (fun _ => T α)` leaves `(fun _ => T α) k` in the minor) and,
+through the `ih` binders, which fields recurse to which member — a
+count that must agree with the whole-carrier matches, and any other
+field must be free of the block (an occurrence under a binder is
+infinitary nesting: declined).  The auxiliary family has one member
+per motive; `specAll` rewrites every whole carrier occurrence to
+`aux p⃗ (tag.m p⃗ e⃗)`.  Containers must be plain (one type, not nested;
+`StateD.indBlocks` keeps the parsed block records for the check) and
+the mimics acyclic under "a field of one has the other's carrier"
+(topological emission order); the rest is B4.
+
+The isomorphisms, in that order: `_impl.unpack` (one `aux.rec` at the
+dispatching motive — the identity carrier at a real member, `Carrier_j`
+at a mimic; a mimic constructor's minor rebuilds the container
+constructor with the mimic-typed fields' hypotheses and the
+real-member fields *unchanged* — their hypothesis would be an opaque
+`aux.rec` rebuild, the first bug the fixture caught), per mimic
+`pack_j` (the container's recursor; self-recursive fields take the
+hypothesis, other mimics' fields `pack_{j'}`, real members pass),
+`unpack_j` (a wrapper), `congrPack_j` (a definition, so it unfolds to
+`Eq.refl` at `Eq.refl`), `unpackPack_j` (the container's recursor into
+`Prop`, the congruence chain `congrChain` over the moved positions —
+`S'_k := F l⃗ = F (r_1..r_k, l_{k+1}..)`, `S'_n = Eq.refl`, one `Eq.rec`
+per step; the spine builder is frame-aware, the second bug), then
+`_impl.packUnpack` (one `aux.rec` into `Prop` for all mimics; `s = s` at
+a real member) and its wrappers.  Then the constructor models (packing
+mimic-typed fields), `_impl.rec` (`aux.rec` at `M_m` / `M_{r+j} ∘
+unpack_j`, the public minors adapted: a mimic constructor's by
+unpacking its mimic-typed fields — no transport, `unpack` computes on
+the auxiliary constructor — a real constructor's by unpacking them and
+transporting the result along `packUnpack_j` per packed position, one
+`Eq.rec` each at the motive `M_m e⃗ (aux.m.C … z …)`), the member
+recursors (`_impl.rec` at the member's tag) and the mimic recursors
+(`_impl.rec` at `pack_j x`, back along `unpackPack_j x`), the iota
+theorems — `Eq.refl` where nothing is packed, else the nested
+`Eq.rec` over the packed positions described in the section head
+(the generalised statement is built once as a function of the
+per-position `(z_k, h_k)`; the LHS is the unfolded recursor, at a real
+constructor the transport chain along `congrPack_j u_k z_k h_k`, at a
+mimic constructor the outer transport along the congruence chain; the
+declared statement's LHS matches the instance by δι and proof
+irrelevance) — and `proj_i`/`proj_i.iota` of a structure-like owner
+(`aux.rec` at the constant motive, unpacking a packed field; the iota
+`unpackPack_j f_i` or `Eq.refl`).
+
+Gate: `tests/inmodel.sh` now runs `inmodel_nested` (7 blocks: `Tree`
+through `List` with below/brecOn recursion and a `rfl`, `TV` through the
+indexed `Vec`, `Op` through `Option` and `Prod`, `W` through
+`Wrap`→`List`, `PT` at the dependent pin, the structure `NTree` with
+two projection rewrites, the mutual-and-nested `A`/`B` — **785
+declarations accepted in both modes**, 29 blocks routed `modeled`),
+`nested_rec` (322) and `nested_struct_proj` (351, with the reflexive
+`Stream'` left to the tool by the predicate and the generator alike).
+**`Lean.Syntax` — the one nested block of init-full — models
+in-process**: its cone (`Lean.Syntax.getKind`/`getArgs`/`setArgs`/
+`identKind` + the String-support roots, cut by
+`_tmp/indexed-fix/slice_multi_fast.py`) accepts 620 declarations in
+both modes through the dump gate.  The transitional predicate
+(`lechNativeInModel`, still under `LECH_INMODEL_NATIVE=1`) covers the
+nested class as "every field free of the block or a constant-headed
+application" — the container's shape is invisible to it, so a block it
+leaves native and the generator declines is the run's decline naming
+the reason.  The in-tree `.gz` fixtures `nested_pin_names` and
+`indexed_nested_aux` are *preprocessed* streams: the modeller stands
+down on them (the "model present" test), as designed.
+
+### The Mathlib census of the in-process rungs (after B3), and B4's scope
+
+`LECH_INMODEL_CENSUS=1` is a parse-only run: a generator decline is
+recorded and the block pushed bare, so one parse lists every
+mutual/nested block's outcome (the driver stops before the fold).
+Over a types-only cone of Mathlib's 51 nested/mutual blocks
+(`_tmp/inmodel/slice_types.py` in the main checkout: the declarations
+reachable from the blocks through TYPES, values' trees kept but their
+constants not followed — 103 MB): **46 blocks generate in-process, 5
+decline**, all five with one reason — *the container is itself
+nested*: `Lean.Elab.InfoTree` through `Lean.PersistentArrayNode`, and
+`Lean.Widget.MsgEmbed`, `Lean.Widget.HighlightedMsgEmbed`,
+`Lean.Server.Test.Runner.Client.{MsgEmbed,HighlightedMsgEmbed}` through
+`Lean.Widget.TaggedText`.  (Generation is the parse-level verdict; the
+fold's acceptance of the generated records at Mathlib scale is a
+Mathlib run's, not affordable on this lane.)
+
+**B4 = container groups.**  A container that is itself nested (or a
+member of a mutual block) has a recursor with several motives, and the
+kernel's flattening puts every member of the container's family —
+instantiated at the pins — among OUR mimics.  So `pack`/`unpackPack`
+for such a group are ONE application of each group member's recursor
+with the group's motives `λ ı⃗ x, aux p⃗ (tag.k p⃗ ı⃗)` and minors for
+every group constructor (our aux constructors for the same container
+constructor at the same pins), the "self-recursive field takes the
+hypothesis" rule becoming "group-member-typed field takes the
+hypothesis", and the emission order topological over groups.  The
+group is read off the container's block record and its first
+recursor's motives (`readMems` on the container, the container's
+parameters substituted by the pins).
 ## THE ARENA SUITE (all but Mathlib) — every upstream test has a verdict, 0 incorrect; `init`, `Std` and `cslib` ACCEPTED (2026-09-06, `agent/arena-suite`; §9 the post-rename re-run, §10 `cslib`, §7 what was cancelled and why; record committed under `scripts/arena/results/`)
 
 The local battery only ever saw the arena's *tutorial* group (a vendored
@@ -54192,3 +54526,225 @@ soundness for the P tier's fast-path clause); it is a strategy change
 under the match-reference ruling and waits for the user's go, together
 with D5 (`cheap_proj`) which is the other half of why a fast-path miss
 is expensive at all.
+## TASK #198 — REMOVING THE INTERNING-ERA ABSTRACTIONS (2026-09-06, `agent/deintern`)
+
+The checker once had an interned expression arena: hash-consed nodes in
+an `EStore`, `EIdx`/`LIdx`/`NIdx` children, a `CheckIM := StateT IState
+CheckM` monad whose every operation genuinely read or grew a store.
+That world is deleted (the interned tier and `Lech/SetR/*`, 2026-09-05;
+`ExprC` became an abbreviation for `Lech.Expr` at task #172 B3a).  What
+survived is its *shape*: a unit `CStore` whose methods ignore their
+first argument, a family of `CheckCM` wrappers that are all `pure . f`,
+a one-level `ExprView` that was "the genericization seam for interned
+representations (task #26)" by its own docstring, and an `internI` that
+is a plain allocation.
+
+**USER, verbatim:** *"internI is just a pure ofView.  This looks like
+we have a lot of abstractions that we needed when we still did
+interning, and can go now.  CStore as well.  And probably lots more."*
+And on the follow-up: *"ExprView can probably go as well?"*
+
+### The census
+
+Classes: **(a)** identity/trivial wrapper (`pure . f`, `id`, or a
+forward through a unit argument -- nothing computed, no invariant
+carried); **(b)** live abstraction (the name still separates two
+*different* things); **(c)** dead (never used outside its own
+definition and its verification twin).  "verify" counts proof-site
+mentions outside `Lech/Verify/Cached/SimCEff.lean`, which is the
+wrappers' own effect-spec module and dies with them -- that count is
+the deciding datum for removal.
+
+#### 0. The view round-trip (the head of the list)
+
+| item | file | what it is | impl | verify | class |
+|---|---|---|---|---|---|
+| `Lech.ExprView` | `Kernel/Core.lean:58` | one-level view inductive, ten constructors mirroring `Expr`'s | 12 | 67 | **(a)** |
+| `Lech.Expr.view` | `Kernel/Core.lean:70` | `Expr -> ExprView Expr`, constructor for constructor | - | 123 | **(a)** |
+| `Lech.viewM` | `Kernel/Core.lean:1849` | `pure e.view` -- the pure core's destructuring step | 4 | 123 | **(a)** |
+| `Cached.ExprC.view` | `Cached/ExprOpsC.lean:63` | **a second, identical copy** of `Expr.view` | 3 | - | **(a)** |
+| `Cached.ExprC.ofView` | `Cached/ExprOpsC.lean:76` | ten `mk*` calls, each `rfl` | 3 | 11 | **(a)** |
+| `Cached.ofViewE` | `Verify/Cached/OpsC.lean:98` | **a third copy** -- the `Expr`-side view builder | 0 | 13 | **(a)** |
+| `ofView_spec`, `ofViewE_view` | `Verify/Cached/OpsC.lean:110,119` | a lemma between two identical functions, and the round-trip | - | 3 | **(a)** |
+| `Cached.viewI` | `Cached/StateC.lean:248` | `pure (some e.view)` -- and the `Option` is arena residue (an index lookup could miss; a node cannot) | 42 | 68 | **(a)** |
+| `Cached.internI` | `Cached/StateC.lean:252` | `pure (ExprC.ofView n)`; all 44 call sites apply it to a *literal* view constructor | 44 | 59 | **(a)** |
+
+#### 1. `CStore` -- the vestigial unit store
+
+`structure CStore where dummy : Unit`, with `withStore (f : CStore ->
+a) : CheckCM a := pure (f default)`.  Its own docstring said it:
+*"`ExprC` needs no store, but the clone keeps the shape of every such
+call so that it mirrors its interned original character for
+character."*  The interned original is deleted, so the mirror has
+nothing to mirror.  Twenty methods, all `(a)` except three that are
+`(c)`:
+
+`getNode` (13 uses; definitionally `viewI`), `getAppFnI` (7),
+`getAppArgsI` (17), `wscopedBI` (2), `looseBVarsBoundedI` (2),
+`leafGuardI` (2), `hasFvarI` (4), `zeronessOfLIGo` (4),
+`isUnitLikeTyI` (2), `isCtorAppI` (1), `etaCtorShapeI` (1),
+`quickPairI` (1), `headHintI` (2), `unfoldableHeadI` (2),
+`sameConstHeadsI` (1), `rawNatLitI?` (5), `isBoolTrueI` (1);
+**dead**: `stripPisBodyI`, `constsResolveFI`, `allLevelParamsDefinedI`.
+`withStore` itself: 66 impl mentions, 110 verify (59 `SimC.withStore`
+peels, 3 `CEff.withStore`, ~20 statement echoes).
+
+#### 2. Identity `*M` wrappers in `CheckCM` (`Cached/StateC.lean`)
+
+All `pure (...)`; the interned twins were genuinely monadic.  Live
+**(b)** and untouched: `instListM`, `simplifyLM`, `isNonZeroLM`,
+`isEquivLM`, `storedTyIdxM`, `storedValIdxM`, `constTyAtM`,
+`constValAtM`, `ruleRhsAtM`, `recordCConst`, `flushC` -- each reads or
+writes a persistent memo and carries a `CSOK` clause.
+
+| wrapper | impl | `_eff` sites | | wrapper | impl | `_eff` sites |
+|---|---|---|---|---|---|---|
+| `internExprM` | 15 | 17 | | `peelFuelM` | 5 | 5 |
+| `internNameM` | 6 | 7 | | `bvarBoundM` | 2 | 1 |
+| `readbackNM` | 14 | 15 | | `inst1M` | 14 | 12 |
+| `beqNameM` | 10 | 9 | | `instListRevM` | 15 | 30 |
+| `projFnIdxM` | 3 | 2 | | `abstract1M` | 3 | 2 |
+| `internLM` | 9 | 10 | | `abstractRangeM` | 6 | 8 |
+| `readbackLevelsM` | 2 | 1 | | `mkAppNM` | 9 | 8 |
+| `substLevelTreesM` | 3 | 2 | | `instSpineM` | 2 | 1 |
+| `viewLM` **(c)** | 0 | 0 | | `piResidualM` | 2 | 1 |
+| `readbackLevelM` **(c)** | 0 | 0 | | `pisToLamsM` **(c)** | 0 | 0 |
+| `substLM` **(c)** | 0 | 0 | | `instLevelParamsM` | 6 | 1 |
+| `substLevelTreeM` **(c)** | 0 | 0 | | `zeronessOfM` **(c)** | 0 | 0 |
+
+Orphaned *with* the (c) rows: `ExprC.pisToLams` (only caller
+`pisToLamsM`) and `pisToLams_spec`; `ExprC.stripPisBody` (only caller
+`CStore.stripPisBodyI`) and `stripPisBody_spec`.
+
+#### 3. What stays, and why
+
+| item | class | why it stays |
+|---|---|---|
+| `CState` (14 memo fields) | **(b)** | the real per-declaration state; every field is read and every one has a `CSOK` clause (199 verify mentions) |
+| `CConstE` | **(b)** | the `Expr` pointer tag it carries is validated at every use; that is a computation, not a wrapper |
+| `FEnv` / `mkFEnv` (684 mentions) | **(b)** | a hash index over `Env`, not an interning residue |
+| `ExprC` (the abbrev) | **(b)** | it is the *namespace* that separates the memoized executed operations (`ExprC.instantiate1` -- a `Std.HashMap`-memoized DAG walk) from the pure specs (`Expr.instantiate1`); the whole `*_spec` battery is about that difference |
+| `DeclC` | **(b)** | its `basisDecl`/`indDecl` shape differs from `Decl`'s; not an identity wrapper |
+| `Verify/Cached/Erase.lean` | **(b)** | already the post-seam module: field exactness for the computed fields, nothing arena-shaped left |
+
+Already gone, confirmed by grep (no action): `EStore`, `ENode`, `EIdx`,
+`LIdx`, `NIdx`, `NNode`, `IState`, `CheckIM`, `eraseC`, `WFc`,
+`WExprC`, `WDeclC`, `ofExpr`, `ofExprFast`, `toExpr`, `hashSpec`,
+`beqSpec`, `zeroC`, `MemoErase`.
+
+
+### What was removed
+
+Eight commits, `−1 891 / +1 228` lines over 37 source files (the DESIGN
+census is the ninth).  Nothing in the eleven pinned axiom guards or the
+seven `tests/proofdeps.sh` roots changed in meaning: every removal
+below is the unfolding of an identity wrapper, and no module vanished
+(`proofdeps: 2515 module rows as pinned across 7 roots; doors: 0`).
+
+| batch | what went | where |
+|---|---|---|
+| **B1** dead | `viewLM`, `readbackLevelM`, `substLM`, `substLevelTreeM`, `zeronessOfM`, `pisToLamsM`, `CStore.stripPisBodyI`, `CStore.constsResolveFI`, `CStore.allLevelParamsDefinedI`, `ExprC.pisToLams`, `ExprC.stripPisBody` + `viewLM_eff`, `readbackLevelM_eff`, `substLM_eff`, `substLevelTreeM_eff`, `zeronessOfM_eff`, `pisToLamsM_eff`, `pisToLams_spec`, `stripPisBody_spec`, `stripPisBodyI_spec` | −147 lines, no statement anywhere else touched |
+| **B2** `CStore` | the unit structure, its twenty forwarding methods, `withStore`, `isBoolTrueI`.  62 reads in `CoreC` become the operation itself: 13 `st.getNode (st.getAppFnI e)` are `viewI (ExprC.getAppFn e)` (definitionally the same term), 49 are `pure (f a)`.  `CStore.PWMemo`/`zeronessOfLIGo` — the one method that computed anything — become `PWMemo`/`zeronessOfLGo` | `SimC.withStore`/`CEff.withStore` become `SimC.pureB`/`CEff.pureB` (peel `pure x >>= k`, same continuation goal) at all 62 sites; the twelve store-shaped agreement lemmas lose `{st : CStore}` and take the primed name of the guard they are about |
+| **B3** `internI` | `internI (.const c us)` is `pure (Expr.const c us)` at all 44 sites; `ExprC.ofView`, `ofViewE`, `ofView_spec`, `ofViewE_view` | `internI_eff` → `pureC_eff` (59 sites) + `pureBvar_eff` (the two `bvar 0` allocations go through `Expr.mkBvar`); four `rw [show ofViewE …]` and two `dsimp only [ofViewE]` deleted |
+| **B4** `viewI` | 54 `match ← viewI e with \| some (.const c us) =>` become `match e with \| .const c us =>` — a bind *and* an `Option` gone, the latter being the arena's (an index lookup could miss, a node cannot); three `\| _ => throw (.internal "interned node missing")` arms go with it | `SimC.view`/`CEff.view` and their 68 peel sites deleted; 28 statement echoes follow the bodies, three of which become `unfold` because a `match` on a free variable auto-generalizes hypotheses mentioning it |
+| **B5** `ExprView` | the inductive, `Lech.Expr.view`, `Lech.viewM`, `Cached.ExprC.view`, `view_spec` | `viewM, Expr.view` drops out of 54 `simp` sets across `Verify/Deep`, `Verify/Disc`, `Verify/Infer*Leaves`, `Verify/InferIOLemmas` and `SetP/Step2`; 78 further simp arguments (`Bind.bind`, `Except.bind`, `pure_bind`, …) became unused and were removed |
+| **B6** `ConstantValC` | replaced by `Lech.ConstantVal` in `DeclC` | 6 verify sites |
+| **B7** intern/readback wrappers | `internExprM`, `internNameM`, `readbackNM`, `internLM`, `readbackLevelsM`, `beqNameM`, `projFnIdxM` — all `pure` of their argument | the six value-fact effect lemmas collapse to one `pureEq_eff`; `internExprM_eff` to `pureC_eff`; `ruleRhsAtM`'s `let raw ← internExprM rl.rhs` bind goes entirely |
+| **prose** | "the clone", "the interned twin", "`IState.ienv`", "one interned state per declaration", "the arena's node count" in `Lech/Cached/*` docstrings | prose only; dated, attributed history stays |
+
+**The one trap worth naming.**  Dot notation resolves through the
+*declared field type*, so removing an `ExprC`-typed field silently
+changes which function a `.method` picks: `cv.type.hasFvar` went from
+`ExprC.hasFvar` (an `O(1)` computed-field read) to `Expr.hasFvar` (a
+walk) the moment `ConstantValC` became `ConstantVal`.  The site is now
+spelled `ExprC.hasFvar cv.type` and `DeclC`'s docstring says why.  Any
+future removal of an `ExprC`-typed field must check the same thing —
+the `ExprC` namespace is *live*, and this is how it is entered.
+
+### What stays, and why
+
+Beyond the (b) rows of the census:
+
+* **`peelFuelM`** (`pure peelFuel`, 5 proof sites) and **`bvarBoundM`**
+  (`pure e.bvarB`, 1) — wrappers, but each names a *decision* (the
+  telescope's fuel; the `O(1)` field read that licenses a skip) rather
+  than mirroring a deleted operation.
+* **the `ExprC`-operation wrappers** — `inst1M`, `instListRevM` (30
+  proof sites), `abstract1M`, `abstractRangeM`, `mkAppNM`,
+  `instSpineM`, `piResidualM`, `instLevelParamsM`,
+  `substLevelTreesM`.  Each is `pure (ExprC.op …)` and each `_eff` is
+  the operation's spec agreement — real content, not a transport.
+  Inlining them would rename ~60 proof sites for no change in what is
+  proved; the value is in the reader's ability to see the executed
+  operation named at the monad.  ~1 hour, mechanical, no risk.
+* **`RelC` / `RelCL`** (`v' = v`, `l = xs`; 251 + 161 verify mentions,
+  **0** implementation mentions) — the interning era's index-to-term
+  relation, now the identity.  Removing it is a global substitution
+  into `Eq` that would touch every `Verify/Cached` proof and change the
+  *spelling* of statements that the proofdeps and axiom gates pin.
+  Deferred deliberately: the change is large, purely cosmetic, and
+  would make the diff of any concurrent lane unreadable.  ~3 hours,
+  and it should be its own task.
+* **`ExprC.mkBVar` … `mkProj` and their ten `rfl` `mk*_eq` simp
+  lemmas** — constructor aliases.  Removing them is a rename of ~30
+  sites, not a simplification; and `ExprC.mkBVar` is the one place the
+  shared-small-node `Expr.mkBvar` is reached by the tier.
+* **`Lech/Frontend/ExportC.lean`'s arena prose** — that module's
+  header explains *why the direct parse is shaped the way it is* by
+  contrast with the parser it replaced.  It is history, and it is
+  dated.
+
+### Gates
+
+`lake build` warning-free (the `linter.unusedSimpArgs` cleanup above is
+part of that); `lake test`; `tests/arena.sh` green — layering `0
+impl->theory`, proofdeps `2515` rows **as pinned** across 7 roots with
+`0` doors (no row moved: nothing removed here was a module boundary),
+trust surface `18` escapes in `4` allowlisted files (unchanged), axioms
+pinned at the eleven theorems, arena 90/92, e2e 103/103, annot 14/14,
+flags 8+16, prelude 3/3, progress 6/6, trusted sweep as expected.
+
+`init-full`, both modes, `perf stat -e instructions:u`, same machine,
+same stream (53 890 accepted, exit 0 in every cell) — measured twice,
+before and after merging the master the branch lands on:
+
+| mode | master `5f155d4e` | branch | Δ | master `eff9aeee` | branch merged | Δ |
+|---|---|---|---|---|---|---|
+| `--verified` | 819.00 G | 818.38 G | −0.08 % | 807.72 G | 807.21 G | **−0.06 %** |
+| `--trusted` | 795.38 G | 794.77 G | −0.08 % | 785.65 G | 785.16 G | **−0.06 %** |
+
+Neutral, as expected: every wrapper removed was `@[inline]`, so the
+code generator had already erased them.  The change is to what a reader
+has to hold in their head, not to what the machine does.
+
+### B4 — container groups (landed on `agent/inmodel-b4`)
+
+As scoped above: a mimic's container block record and its first
+recursor's motives give the container's family (`readMems` on the
+container), each family member's carrier at the pins — the container's
+parameters substituted simultaneously (`Kit.substParams`; the fold
+semantics of `instantiateList` re-traverses open replacements, which
+mangled a dependent pin) and level-instantiated — is matched to one of
+our mimics, and the group carries each member's recursor name (`I_k.rec`
+or `I_1.rec_j`).  `pack_t`/`unpackPack_t` for every group member are
+that member's recursor at the group's motives and the minors of every
+group constructor (our aux constructors in the container family's
+order; a group-member-typed field takes the hypothesis, another mimic's
+field `pack`/`unpackPack` of that mimic, real members and plain fields
+pass); the spine's pins are the constructor's own container's, not the
+group head's.  Groups are ordered topologically by the mimics they
+reference outside themselves.  The congruence chain's motive had the
+already-moved positions on the wrong side — invisible while no
+container constructor had two mimic-typed fields (`List.cons` at
+`TT M` has), now `S'_k` = the first `k` moved positions at `l`, the rest
+at `r`.  Fixture `tests/e2e/src/inmodel_groups.lean`: `TT` (nested,
+`TaggedText`-shaped), `M` through `TT M`, the mutual `F`/`G`, `N` through
+`F N`, `H` through `TT (List H)` — **579 declarations in both modes**
+through the dump gate; 626 through the default pipe (tool-modelled).
+One more bug the Mathlib census caught after the fixture passed: the
+container's carrier skeleton was level-instantiated AFTER the pins were
+substituted, so a container level parameter whose NAME coincides with
+the block's (`u`, everywhere) was rewritten inside the pins; levels are
+instantiated on the bare skeleton first (`P (α : Type u)` through
+`Box.{u}` in the fixture pins it, 625 declarations).  **The Mathlib
+census now reads 51/51 modelled, 0 declined.**
