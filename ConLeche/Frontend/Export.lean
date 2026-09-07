@@ -126,40 +126,59 @@ def taintSentinel : String := "\x00uses-skipped-axiom"
 /-- Internal sentinel converted to a decline at the record level. -/
 def sizeSentinel : String := "\x00tree-size-budget"
 
-/-- Cap on a declaration's *unshared tree size* (nodes of the
-expression tree with all sharing expanded).  `2^25`: at and beyond this
-scale the remaining tree-materializing consumers could not represent
-the declaration anyway; every stream the checker supports today is far
-below it, while adversarial DAG towers are cleanly declined.  Since
-parse-time interning (task #78) the budget no longer applies to
+/-- **Default** cap on a declaration's *unshared tree size* (nodes of
+the expression tree with all sharing expanded); `CON_LECHE_TREE_BUDGET`
+overrides it per run and `CON_LECHE_TREE_BUDGET=0` lifts it entirely
+(`Main.lean`, `StateD.treeBudget`).  `2^25`: at and beyond this scale
+the remaining tree-materializing consumers could not represent the
+declaration anyway; every stream the checker supports today is far
+below it, while adversarial DAG towers are cleanly declined.
+
+Since parse-time interning (task #78) the budget no longer applies to
 ordinary definition/theorem/opaque records (whose whole pipeline is
-DAG-preserving; arena `good/perf/app-lam` accepts) — it guards exactly
-the consumers that still materialize or walk trees:
+DAG-preserving; arena `good/perf/app-lam` accepts).  Task #213 audited
+what is left and lifted one more class — `_model`-named records; see
+`budgetedName`.  What remains budgeted, each with the *unmemoized*
+walker that is the reason:
 
-* inductive and quotient blocks (read back for basis-pin matching, and
-  the install pipeline compares member types/rule right-hand sides
-  against `_model` artifacts with tree traversals),
-* axiom records (standard-axiom pin matching walks the stored type),
-* records whose name contains a `_model` component (their stored types
-  are consumed by tree traversals at a later inductive install:
-  iota/eta/unitlike statements, model types, projection models),
-* the certified `Nat` operations (`natOpNames`/`natDivModNames`; the
+* inductive and quotient blocks — `canonExpr` (above) rebuilds every
+  parsed block's member types and rule right-hand sides for the
+  basis-pin match, unmemoized, on **every** block; downstream the
+  modeled install adds `Expr.renameConsts`
+  (`ConLeche/Kernel/ExprOps.lean`) and the `Expr.instantiate1` inside
+  `openPisAtFvars` (`ConLeche/Kernel/CheckerBase.lean`),
+* axiom records — a *pinned* axiom name (`propext`, `Classical.choice`,
+  `Quot.sound`, the compiler-trust family) has its stored type walked
+  by `Expr.erasePw` (`ConLeche/Kernel/StdAxioms.lean`) and, for
+  `Quot.sound`, by `ConstantInfo.canon`; a stream may spell a pinned
+  name with any type at all, so the walk is reachable,
+* records under a built-in prelude name (task #191) — the dedupe
+  compares them with `DeclC.sameCanon`, i.e. `ConstantInfo.canon`,
+* the certified `Nat` operations (`natOpNames`/`natDivModNames`) — the
   install-time certification substitutes the stored value into the
-  recurrence equations and re-interns the result). -/
+  vendored certificate proofs and the recurrence equations
+  (`Expr.substConstAll`/`substConst0`) and runs the syntactic guards
+  over the result. -/
 def declTreeSizeBudget : Nat := 33554432
-
-/-- Any name component is `_model` (the preprocessor's model-family
-shape: `T._model`, `T._model.iota_j`, `T._model.proj_i.iota`, …). -/
-def anyComponentModel : Name → Bool
-  | .anonymous => false
-  | .str p s => s == "_model" || anyComponentModel p
-  | .num p _ => anyComponentModel p
 
 /-- Does the budget apply to a definition/theorem/opaque record of
 this name?  (Inductive, quotient and axiom records are always
-budgeted.) -/
+budgeted; a record under a built-in prelude name is budgeted by
+`StateD.budgetedD`.)
+
+**Task #213 lifted the `_model` clause.**  It used to also answer
+`true` for any name with a `_model` component, on the ground that the
+preprocessor's artifacts are consumed by tree traversals at a later
+inductive install (`openPisAtFvars` on an `iota_j` statement is indeed
+unmemoized).  Two facts retired it: the in-process modeller (task
+#200) *generates* exactly those records and pushes them straight into
+the declaration list (`pushGenD`), never through `getDeclD`, so the
+native route has never budgeted them — the clause only penalised the
+stream that arrived through the external tool; and that tool is being
+retired.  User ruling, 2026-09-07: *"we have the internal one.  No
+need to limit the size of these defs."* -/
 def budgetedName (n : Name) : Bool :=
-  anyComponentModel n || natOpNames.contains n || natDivModNames.contains n
+  natOpNames.contains n || natDivModNames.contains n
 
 private abbrev M := Except String
 
