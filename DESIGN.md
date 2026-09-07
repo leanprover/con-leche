@@ -58689,6 +58689,167 @@ nothing, as it should).  **Mathlib slices** (raw, `--verified`):
 `slice-small` 1 626 fix / 26 inmodel / 6 basis, the five-cone slice
 183 fix / 1 inmodel / 6 basis — unchanged.  No Mathlib-scale run.
 
+### Part D — the three conformance items, each a fixture flip to official's verdict
+
+Branch `agent/one-route-d` from master `738cfa2e` (Part C); master
+merged through `1aaed328` (OVERVIEW, PERF, README prose only — no
+re-gate).  Scope as ruled: the whnf'd reading of constructor field
+types on the one arm (field side — the frontier block
+`CategoryTheory.MorphismProperty.multiplicativeClosure` already accepts
+on Part B's tree, and ALL OF MATHLIB accepts raw in both modes there;
+its cone stays the regression slice), the `directUsedLater`
+fall-through, and the rule comparison; no nested/container work, no
+thresholds.  The restriction list at the end is the point of the
+record: **empty on the fixpoint route**, with the one remaining
+`ind_*` decline (A3/A4) the in-process modeller's by ruling.
+
+**Item 1 — the field domains, normalised by official's positivity
+walk.**  Official `check_positivity` whnf's the field domain, and —
+while the block occurs — walks under its Π binders (a Π domain
+mentioning the block is "non positive occurrence"), whnf'ing each body;
+`is_rec_argument` whnf's through the Πs the same way.  A field whose
+type only whnf's to an occurrence (`constType (T α) (T α)`, `Id' T`,
+`Nat → Id' T`) is recursive for official and invisible to a syntactic
+reading — audit finding #206-A5, arena 053/118/119, `ind_pos_whnf_id`/
+`_fn`, `pre_decline_imax_field`.  The design is *normalise, don't
+claim*: `normPosDom` (`Kernel/Direct/SumInstall.lean`) REPLACES the
+declared domain by the form official classifies — a domain the block
+does not occur in is kept as declared, unreduced (official whnf's it
+and discards the result; reduction cannot introduce the block); one it
+occurs in is whnf'd at its own depth, and while the block still occurs
+walked under its Π binders with each body whnf'd (a Π domain mentioning
+the block is INVALID); the fuel (1024) bounds the walk, exhaustion a
+positive decline.  `normFieldDoms` opens the constructor's field
+telescope at free variables as `whnfTelescope` opens the former's;
+`normCtorVal` closes it back (`closeTelescope`) and, when anything
+changed, checks the rebuilt type as the constructor's type in its
+place FROM SCRATCH (`checkConstantVal`) — nothing about the reduction is
+trusted; the verified tier sees a constant of the declared name whose
+type is *some* `ty'` (`normCtorVal_inv`: `∃ ty', checkConstantVal env
+{cvC with type := ty'} = .ok cvCa`, the first conjunct of
+`checkDirectSumCtor_shape`), and every downstream fact is about the
+checked `cvCa`.  Task #195's arrangement at the type former, now at the
+fields; the P tier never needed a whnf claim (`WhnfClaims2P`) for it.
+What the environment stores is the checked constant — the constructor
+with its NORMALISED type, definitionally the declared one: every later
+verdict is the same (types are compared by `isDefEq`), and the
+recursor's minor premises (compared by `isDefEq`, below) and the rules'
+bodies (binder types are stripped before the comparison) do not see the
+difference.  Recorded as the one syntactic deviation of the item.
+
+**The kinds, classified at install — the provisional pass.**  The
+field kinds used to be read at recognition (`directFixKinds?`, on the
+raw stream) and consumed by the former's capability record
+(`directFixCaps` reads `p.kinds`: η's `!is_rec` conjunct).  Now they
+are an install OUTPUT — `classifyFixKinds` (`Kernel/Direct/
+RecInstall.lean`) runs `recCtorKinds` on the constructors AS STORED,
+i.e. normalised — but the former, which needs them, is installed before
+the constructors.  `checkDirectFix` therefore runs a **provisional
+pass**: the former with an empty capability record into a throwaway
+environment, the constructors at it (normalised, checked), the kinds
+off those; then the real former with `directFixCaps ((p₀.complete
+p₁).withKinds kinds)`, the constructors again at the real environment,
+`directFixFieldsOk`, the rules, the recursor, the table.  The
+recogniser is shape-only (`directFixShape?`; `directFixParts? block :=
+(directFixShape? block).map (⟨·, []⟩)`), `DirectFixParts.withKinds`
+sets the kinds with two simp lemmas, and the dispatch is by MODEL
+PRESENCE AND RAW REFUSAL (`blockIsModeled`: a `T._model` constant in
+the environment AND the raw syntactic reading `rawKindsOk` refusing the
+block — a nested occurrence, indistinguishable on the raw stream from a
+redex over one — takes the modeled path, else the fix route) at
+`Kernel/Checker.lean` and `Cached/ParsedC.lean`.  The first draft
+dispatched on model presence alone and the arena caught it: the
+preprocessor-era fixture streams carry stale `PProd'._model` /
+`Box._model` families beside blocks the route takes, and the modeled
+path has no projection table (18 e2e fixtures at "projection on a
+non-structure-like type").  `DeclDirectFixRun` (`Semantics/Direct/
+DeclDirectFix.lean`) states the run with the provisional block as
+existentials (`envP cvTaP p₁P ctorsP sortssP kinds`, then the real
+install at `p = (p₀.complete p₁).withKinds kinds`); the cached side
+(`checkDirectFixS`, `checkDirectFixS_run`, `classifyFixKindsC_ok`) and
+the skeletons (`AgreeFloor`) follow it; `classifyFixKinds_inv` gives
+the mapM equation, no `.negative`, no `.unsupported`, and the length.
+
+**Item 3 — the rule comparison, and why it is NOT `isDefEq`.**  The
+brief said "the definitional rule comparison".  It was tried: comparing
+the stream's rule bodies with the generated ones by `isDefEq` fails at
+EVERY block with "sort-annotation mismatch (defeq-lam)" — the stream's
+rules are UNANNOTATED λ-terms (lean4export writes what the kernel
+generated, never type-checked as terms), and the checker's `isDefEq`
+runs on annotated terms.  What official does: `add_inductive` GENERATES
+the rules and never compares them to anything; a replay (the arena's
+F1 stub-recursor tests, which are REJECTS) compares the exported
+recursor structurally.  So the comparison at install stays syntactic —
+`directFixRulesOk` restored in `RecParts.lean`, the stream's rule body
+against `Expr.resetMeta (directRuleBodyR …)` on the NORMALISED
+constructors, i.e. up to binder metadata (`resetMeta`, memoised via
+`resetMetaGo`/`resetMetaFast`, `@[csimp]` with a proven spec,
+`Kernel/ExprOps.lean`), with the λ binders stripped: exactly what
+`mk_rec_rules` produces on the same inputs.  The recursor's TYPE is
+compared by `isDefEq` (as before: `checkDirectFixRec`), which is where
+the normalised minor premises meet the stream's raw ones.  Flagged to
+the coordinator as the deviation from the brief's wording; no fixture
+changed verdict on it.
+
+**Item 2 — `directUsedLater`, and the finding that emptied the list.**
+The guard marks a recursive field that a LATER binder or the residual
+mentions `.unsupported` (the model reads the ordinary domains and the
+index expressions at a frame whose recursive slots hold an arbitrary
+value).  It fired on `pre_decline_imax_field`'s `Foreign0.step (child :
+Foreign0) (tag : idf (Foreign0 → Type) (fun _ => N) child)`: the
+domain whnf's to `N`.  Two things were wrong, and official's source
+(`inductive.cpp` at v4.29.1, fetched and quoted in the session) settles
+both.  (i) A domain the block occurs in only before whnf must be
+REPLACED by the whnf'd form (first draft kept the declared one when the
+whnf'd form was block-free): official classifies it as an ordinary
+field, and with `N` in place the later binder no longer mentions
+`child`.  (ii) `is_valid_ind_app` runs **`has_ind_occ` on every index
+argument** (`for (i = m_nparams; i < args.size(); i++) if
+(has_ind_occ(args[i])) return false;`) — an occurrence of the block in
+an index expression, of a recursive field's family application or of
+the constructor's result, is official's REJECT ("non valid
+occurrence", "invalid return type"), not an accept the route fails to
+model.  `recFamOk`'s index conjunct and `recCtorKinds`' residual check
+are therefore `.negative` (INVALID), where they were `.unsupported`
+(decline); two bad twins of `direct_fix_vec` pin it
+(`scripts/mk_direct_fix_occ_bad.py`: `v : Vec' α ((fun β => n) (Vec' α
+n))`, resp. the result at `(fun β => Nat.succ n) (Vec' α n)` — both
+whnf to the original index, official does not whnf index arguments —
+REJECT).  With (i) and (ii), `directUsedLater` at a recursive field
+CANNOT FIRE on a constructor official accepts: a term containing a
+variable of type `T p⃗ e⃗` contains the constant `T` (its consumer's
+domain is a subterm of the constructor's type, and a `T`-free term is
+not definitionally the block — reduction in the environment holding
+`T` as a fresh former introduces no `T`), and the normalised later
+domains that mention `T` are Π-chains with `T`-free domains ending in
+the family at `T`-free indices, or invalid; the residual's indices are
+`T`-free by the same conjunct.  So the guard is the model's own
+invariant (`NoBVar` over the ordinary domains and the index tuple,
+`SetP/DirectFix/Fix{Chains,Witness,LeafOk,NoBVar}P.lean`), never a
+verdict of its own; it stays, with the argument in its docstring.
+Nested occurrences (`.unsupported`, another constant at the head) are
+the modeled path's by ruling.
+
+**Fixtures.**  Arena 053/118/119: 2 → 0 (note B rewritten; tutorial
+90/92, the two declines the custom-axiom tests 032/033).  e2e
+`ind_pos_whnf_id`/`_fn`: 2 → 0, the `TODO(#206-A5)` lines gone;
+`pre_decline_imax_field`: 2 → 0; `direct_fix_vec_idx_occ_bad`,
+`direct_fix_vec_res_occ_bad`: new, 1.  `ind_defhead_mutual` (A3) and
+the A4 pair stay 2: the mutual arm is the in-process modeller's
+(`Frontend/InModel/Mutual.lean:158`, a syntactic `stripPis … .sort`
+on the former), the arm the user ruled "the current impl is fine"; the
+`TODO(#206-A3/A4)` lines stay as the honest divergence markers.  The
+remaining `TODO(#206-…)` lines are A7 (by design, W5), A10 (unsafe
+inductive: a decline is the intended verdict) and S1 (the let-value
+gap), none on this route.  `ind_nest_via_refl` stays the modeller's
+decline as ruled.
+
+**OVERVIEW.**  The fixpoint-route paragraph re-pointed
+(`normPosDom`, `classifyFixKinds`, `checkDirectFix`'s new line;
+`directFixKinds?` and the syntactic positivity walk are gone);
+`tests/overview-links.sh --update`, expectation committed with the
+change.
+
 ## TASK #215 — THE TREE-SIZE BUDGET, DELETED (2026-09-07, `agent/jzero`)
 
 User ruling, verbatim: *"delete it if it is unlikely to help (and we

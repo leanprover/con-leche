@@ -487,12 +487,33 @@ constructor is this route's too (`FixKI₀.hsq` at most one). -/
 def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
   (directFixShape? block).map fun p => ⟨p, []⟩
 
-/-- Does the block carry an in-process `_model` family (the mutual and
-nested blocks, task #200)?  The dispatch sends those to the modeled
-path before the one route looks at the shape (task #210 Part D). -/
-def blockHasModel (find? : Name → Option ConstantInfo) (block : List ConstantInfo) : Bool :=
+/-- The one route's reading of a block's RAW constructors: does the
+syntactic classification (`recCtorKinds`) find no occurrence the route
+does not model?  On the raw stream a nested occurrence (`List T`) and
+a definition redex over one (`Id' T`) look alike — both `.unsupported`
+— and only the install, whnf'ing, tells them apart; here the reading
+decides the DISPATCH together with the presence of a model
+(`blockIsModeled`). -/
+def rawKindsOk (p : DirectSumParts) : Bool :=
+  match p.ctors.mapM (recCtorKinds p.cvT.name p.cvT.levelParams p.nP p.nIdx) with
+  | some ks => ks.all fun k => k.all (· != .unsupported)
+  | none => false
+
+/-- Is the block the modeled path's (task #210 Part D)?  It carries an
+in-process `_model` family (the mutual and nested blocks, task #200)
+AND the one route's raw reading refuses it (`rawKindsOk`, or the shape
+is not the route's at all).  The first conjunct keeps a redex-hidden
+occurrence (`Id' T`, arena 053) where no model exists on the route,
+which whnf's it; the second keeps a block the route takes with a stale
+model beside it (the preprocessor-era fixture streams' `PProd'._model`)
+on the route, its projection table with it. -/
+def blockIsModeled (find? : Name → Option ConstantInfo) (block : List ConstantInfo) : Bool :=
   match block with
-  | .indInfo cvT _ :: _ => (find? (cvT.name.str "_model")).isSome
+  | .indInfo cvT _ :: _ =>
+    (find? (cvT.name.str "_model")).isSome &&
+    (match directFixShape? block with
+     | some p => !rawKindsOk p
+     | none => true)
   | _ => false
 
 end ConLeche

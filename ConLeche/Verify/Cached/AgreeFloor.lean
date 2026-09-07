@@ -461,9 +461,10 @@ def directFixSkels (p : DirectFixParts) (sk : List InstallSkel) : List InstallSk
 block), then the modeled block. -/
 def indDeclSkels (block : List ConstantInfo) (sk : List InstallSkel) :
     List InstallSkel :=
-  -- a block with an in-process `_model` family is the modeled path's
-  -- (task #210 Part D); the skeleton list decides as the index does
-  if blockHasModel (fun n => (skFind? sk n).map fun _ => .indInfo default {}) block then
+  -- a block with an in-process `_model` family that the raw reading
+  -- refuses is the modeled path's (task #210 Part D); the skeleton list
+  -- decides as the index does
+  if blockIsModeled (fun n => (skFind? sk n).map fun _ => .indInfo default {}) block then
     indDeclSkelsModeled block sk
   else
   match directFixParts? block with
@@ -1198,15 +1199,15 @@ theorem checkDeclSPC_skels (mode : CheckMode) {fe : FEnv}
   | indDecl block =>
     simp only []
     unfold indDeclSkels
-    have hm : blockHasModel fe.find? block
-        = blockHasModel (fun n => (skFind? sk n).map fun _ => .indInfo default {}) block := by
+    have hm : blockIsModeled fe.find? block
+        = blockIsModeled (fun n => (skFind? sk n).map fun _ => .indInfo default {}) block := by
       cases block with
       | nil => rfl
       | cons c rest =>
         cases c with
         | indInfo cvT caps =>
-          simp only [blockHasModel, Option.isSome_map]
-          exact h.isSome' _
+          simp only [blockIsModeled, Option.isSome_map]
+          rw [h.isSome']
         | _ => rfl
     rw [← hm]
     split

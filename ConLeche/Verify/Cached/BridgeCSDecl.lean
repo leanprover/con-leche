@@ -653,7 +653,7 @@ reproduces the run. -/
 theorem checkIndOrDirectSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : (if blockHasModel (mkFEnv env).find? block then checkIndDeclSF mode (mkFEnv env) block
+    (h : (if blockIsModeled (mkFEnv env).find? block then checkIndDeclSF mode (mkFEnv env) block
           else match directFixParts? block with
           | some p => checkDirectFixS mode (mkFEnv env) p
           | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
@@ -662,19 +662,19 @@ theorem checkIndOrDirectSF_run (hμ : mode.verifiedChecks = true) {env : Env} (h
     ∃ F, checkDecl mode (fueledOps mode F) env (.indDecl block) =
       .ok feOut.env := by
   show CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, (if blockHasModel env.find? block then checkIndDecl mode (fueledOps mode F) env block
+    ∃ F, (if blockIsModeled env.find? block then checkIndDecl mode (fueledOps mode F) env block
       else match directFixParts? block with
       | some p => checkDirectFix (fueledOps mode F) env p
       | none => checkIndDecl mode (fueledOps mode F) env block) = .ok feOut.env
-  have hmk : blockHasModel (mkFEnv env).find? block = blockHasModel env.find? block := by
+  have hmk : blockIsModeled (mkFEnv env).find? block = blockIsModeled env.find? block := by
     cases block with
     | nil => rfl
     | cons c rest =>
       cases c with
-      | indInfo cvT caps => simp only [blockHasModel, mkFEnv_find?]
+      | indInfo cvT caps => simp only [blockIsModeled, mkFEnv_find?]
       | _ => rfl
   rw [hmk] at h
-  by_cases hm : blockHasModel env.find? block = true
+  by_cases hm : blockIsModeled env.find? block = true
   · rw [if_pos hm] at h
     simp only [if_pos hm]
     obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run hμ henv hwf h

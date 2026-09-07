@@ -56,7 +56,7 @@ theorem checkDeclRun_ofEnvFactsE
       rw [checkDecl] at hh
       rw [DeclIndRunDispatch]
       revert hh
-      by_cases hm : ConLeche.blockHasModel env.find? block = true
+      by_cases hm : ConLeche.blockIsModeled env.find? block = true
       · rw [if_pos hm, if_pos hm]
         intro hh
         exact declIndRun_of hh

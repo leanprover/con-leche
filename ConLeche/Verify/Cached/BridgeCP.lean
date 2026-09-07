@@ -619,7 +619,7 @@ theorem checkDeclSPStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
     exact hF
   cases hrel with
   | @indDecl block =>
-    have hrun : (if blockHasModel (mkFEnv env).find? block then
+    have hrun : (if blockIsModeled (mkFEnv env).find? block then
           checkIndDeclSF mode (mkFEnv env) block
         else match directFixParts? block with
         | some p => checkDirectFixS mode (mkFEnv env) p

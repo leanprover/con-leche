@@ -109,7 +109,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDeclsSPCachedD_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1219)).
+  ([theorem `checkDeclsSPCachedD_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1268)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.
@@ -201,13 +201,13 @@ Inductive blocks are not trusted from the stream. Three cases:
   block's shape; the install normalises every constructor field domain
   by official's positivity walk — weak head normal form before
   classifying, again under each Π binder
-  ([function `normPosDom` in `ConLeche/Kernel/Direct/SumInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/SumInstall.lean#L153)) —
+  ([function `normPosDom` in `ConLeche/Kernel/Direct/SumInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/SumInstall.lean#L158)) —
   and classifies each field on the constructors it stored
   ([function `classifyFixKinds` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L212)),
   runs official's checks — universe bound, elimination restriction and
   index occurrence — generates the recursor and its rules, and compares
   the generated recursor with the stream's; the whole install is one entry
-  ([function `checkDirectFix` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L229)).
+  ([function `checkDirectFix` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L228)).
   In the model the block's carrier is the least fixed point of its
   family functor over the index fibres
   ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Value.lean#L517-L524));
