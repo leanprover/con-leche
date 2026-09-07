@@ -180,7 +180,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
           exact ⟨a, b⟩
         exact hthm0
   obtain ⟨hrPmI, -, hpinsWf0, -⟩ := nestedRuleShape_inv hshape
-  obtain ⟨-, -, -, pre, nmD, domD, bodyD, bmD, D,
+  obtain ⟨-, -, -, pre, domD, bodyD, bmD, D,
     -, -, -, hpinsLen⟩ := nestedRuleShape_inv hshape
   have hpinsWf : ∀ p ∈ pins, p.hasFvar = false ∧
       p.looseBVarsBounded rP = true :=
@@ -400,7 +400,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar (hpinsWf p hp).1] at hl'
         exact nomatch hl'
       · obtain ⟨q0, hq0⟩ := List.getElem?_of_mem hx
-        exact hlbFvsP _ _ _ (hopenerLeafP q0 x hq0 l hlx)
+        exact hlbFvsP _ _ (hopenerLeafP q0 x hq0 l hlx)
   have hpinsGetD : ∀ q, q < cnPK →
       (pins.map (Expr.instSpine (fvsP.take rP) (rP - 1))).getD q default
         = Expr.instSpine (fvsP.take rP) (rP - 1) (pins.getD q default) := by
