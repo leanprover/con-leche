@@ -125,7 +125,7 @@ body. -/
 theorem replacePisPw_stripPis {pw : PropWhen} :
     ∀ (k : Nat) {e b r : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
       Expr.replacePisPw pw k e b = some r → e.stripPis k = some (bs, body) →
-      r.stripPis k = some (bs.map fun x => (x.1, x.2.1, (⟨pw⟩ : BinderMeta)), b)
+      r.stripPis k = some (bs.map fun x => (x.1, (⟨pw⟩ : BinderMeta)), b)
   | 0, e, b, r, bs, body, h, hs => by
     simp only [Expr.replacePisPw, Option.some.injEq] at h
     simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at hs
@@ -208,18 +208,18 @@ theorem instPisAt_of_stripPis :
 /-- An instantiation sequence pushes through a `λ` (the twin of
 `instSeq_forallE`). -/
 theorem instSeq_lam :
-    ∀ (args : List Expr) (t : Nat) (n : Name) (d b : Expr)
+    ∀ (args : List Expr) (t : Nat) (d b : Expr)
       (m : BinderMeta), args.length ≤ t + 1 →
       instSeq args t (.lam d b m) =
         .lam (instSeq args t d) (instSeq args (t + 1) b) m := by
   intro args
   induction args with
-  | nil => intro t n d b m _; rfl
+  | nil => intro t d b m _; rfl
   | cons a as ih =>
-    intro t n d b m hlen
+    intro t d b m hlen
     show instSeq as (t - 1)
       (.lam (d.instantiate1 a t) (b.instantiate1 a (t + 1)) m) = _
-    rw [ih (t - 1) n (d.instantiate1 a t) (b.instantiate1 a (t + 1)) m
+    rw [ih (t - 1) (d.instantiate1 a t) (b.instantiate1 a (t + 1)) m
       (by simp only [List.length_cons] at hlen; omega)]
     show Expr.lam (instSeq as (t - 1) (d.instantiate1 a t))
         (instSeq as (t - 1 + 1) (b.instantiate1 a (t + 1))) m =

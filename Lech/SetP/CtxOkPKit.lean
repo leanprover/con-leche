@@ -40,7 +40,7 @@ theorem length {d : Nat} {Δa : List AVExpr} {e : Expr}
 
 /-- What the `.fvar` clause reads off the discipline: the whole leaf
 package at the leaf itself. -/
-theorem fvar_leaf {d idx : Nat} {n : Name} {ty : Expr}
+theorem fvar_leaf {d idx : Nat} {ty : Expr}
     {Δa : List AVExpr}
     (h : CtxOkP m φ d Δa (.fvar idx ty)) :
     idx < d ∧ Expr.fvarsBelow idx ty ∧
@@ -51,7 +51,7 @@ theorem fvar_leaf {d idx : Nat} {n : Name} {ty : Expr}
           interp2 V ρ tya
             = interp2 V (fun j => ρ (j + (d - 1 - idx) + 1)) Aa) ∧
         (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ tya) :=
-  h.2 (idx, n, ty) (by simp [Expr.fvarLeaves])
+  h.2 (idx, ty) (by simp [Expr.fvarLeaves])
 
 /-- No leaves, nothing to say. -/
 theorem of_fvarLeaves_nil {d : Nat} {Δa : List AVExpr} {e : Expr}
@@ -107,35 +107,35 @@ theorem app_arg {d : Nat} {Δa : List AVExpr} {f x : Expr}
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl
 
-theorem forallE_ty {d : Nat} {Δa : List AVExpr} {n : Name}
+theorem forallE_ty {d : Nat} {Δa : List AVExpr}
     {ty body : Expr} {mb : Lech.BinderMeta}
     (hC : CtxOkP m φ d Δa (.forallE ty body mb)) :
     CtxOkP m φ d Δa ty :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_left _ hl
 
-theorem forallE_body {d : Nat} {Δa : List AVExpr} {n : Name}
+theorem forallE_body {d : Nat} {Δa : List AVExpr}
     {ty body : Expr} {mb : Lech.BinderMeta}
     (hC : CtxOkP m φ d Δa (.forallE ty body mb)) :
     CtxOkP m φ d Δa body :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl
 
-theorem lam_ty {d : Nat} {Δa : List AVExpr} {n : Name}
+theorem lam_ty {d : Nat} {Δa : List AVExpr}
     {ty body : Expr} {mb : Lech.BinderMeta}
     (hC : CtxOkP m φ d Δa (.lam ty body mb)) :
     CtxOkP m φ d Δa ty :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_left _ hl
 
-theorem lam_body {d : Nat} {Δa : List AVExpr} {n : Name}
+theorem lam_body {d : Nat} {Δa : List AVExpr}
     {ty body : Expr} {mb : Lech.BinderMeta}
     (hC : CtxOkP m φ d Δa (.lam ty body mb)) :
     CtxOkP m φ d Δa body :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl
 
-theorem letE_ty {d : Nat} {Δa : List AVExpr} {n : Name}
+theorem letE_ty {d : Nat} {Δa : List AVExpr}
     {ty val body : Expr}
     (hC : CtxOkP m φ d Δa (.letE ty val body)) :
     CtxOkP m φ d Δa ty :=
@@ -143,7 +143,7 @@ theorem letE_ty {d : Nat} {Δa : List AVExpr} {n : Name}
     rw [Expr.fvarLeaves]
     exact List.mem_append_left _ (List.mem_append_left _ hl)
 
-theorem letE_val {d : Nat} {Δa : List AVExpr} {n : Name}
+theorem letE_val {d : Nat} {Δa : List AVExpr}
     {ty val body : Expr}
     (hC : CtxOkP m φ d Δa (.letE ty val body)) :
     CtxOkP m φ d Δa val :=
@@ -151,7 +151,7 @@ theorem letE_val {d : Nat} {Δa : List AVExpr} {n : Name}
     rw [Expr.fvarLeaves]
     exact List.mem_append_left _ (List.mem_append_right _ hl)
 
-theorem letE_body {d : Nat} {Δa : List AVExpr} {n : Name}
+theorem letE_body {d : Nat} {Δa : List AVExpr}
     {ty val body : Expr}
     (hC : CtxOkP m φ d Δa (.letE ty val body)) :
     CtxOkP m φ d Δa body :=
@@ -165,7 +165,7 @@ theorem proj_arg {d : Nat} {Δa : List AVExpr} {sn : Name}
   hC.of_subset fun _ hl => by rw [Expr.fvarLeaves]; exact hl
 
 /-- A leaf's annotation is itself covered. -/
-theorem fvar_ty {d idx : Nat} {Δa : List AVExpr} {n : Name}
+theorem fvar_ty {d idx : Nat} {Δa : List AVExpr}
     {ty : Expr} (hC : CtxOkP m φ d Δa (.fvar idx ty)) :
     CtxOkP m φ d Δa ty :=
   hC.of_subset fun _ hl => by
@@ -208,7 +208,7 @@ private theorem fvarsBelow_of_leavesP : ∀ (e : Expr) {d : Nat},
   induction e with
   | fvar idx ty ih =>
     intro d h
-    exact h (idx, n, ty) (by simp [Lech.Expr.fvarLeaves])
+    exact h (idx, ty) (by simp [Lech.Expr.fvarLeaves])
   | app f a ihf iha =>
     intro d h
     exact ⟨ihf (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
@@ -237,14 +237,14 @@ The `fvar` case is the whole content: the *leaf's own*
 Private local copy of `Dispatch.lean`'s `wScoped_of_leaves`. -/
 private theorem wScoped_of_leavesP : ∀ (e : Expr) {d : Nat},
     Expr.fvarsBelow d e →
-    (∀ l ∈ e.fvarLeaves, Expr.fvarsBelow l.1 l.2.2) →
+    (∀ l ∈ e.fvarLeaves, Expr.fvarsBelow l.1 l.2) →
     Expr.WScoped d e := by
   intro e
   induction e with
   | fvar idx ty ih =>
     intro d hfb h
     rw [Lech.Expr.WScoped]
-    refine ⟨hfb, ih (h (idx, n, ty) (by simp [Lech.Expr.fvarLeaves]))
+    refine ⟨hfb, ih (h (idx, ty) (by simp [Lech.Expr.fvarLeaves]))
       (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
   | app f a ihf iha =>
     intro d hfb h
@@ -309,7 +309,7 @@ theorem weakenTop {d : Nat} {Δa : List AVExpr} {Ba : AVExpr} {e : Expr}
   have hw : Expr.WScoped d e := hC.wScoped
   refine ⟨by simp [hC.1], fun l hl => ?_⟩
   obtain ⟨hlt, hfb, tya, Aa, hden, hi, hlink, hok⟩ := hC.2 l hl
-  have hwl : Expr.WScoped d l.2.2 :=
+  have hwl : Expr.WScoped d l.2 :=
     (Lech.Expr.WScoped_leaves e hw l hl).2.mono (by omega)
   refine ⟨by omega, hfb, tya.liftN 1 0, Aa, ?_, ?_, ?_, ?_⟩
   · rw [denoteP_weaken_top m.acval_closed hwl, hden]
@@ -330,7 +330,7 @@ merged.  `hdom` is verbatim the `CtxOk2` original's — it is
 *opened variable's* grading, at `AnnotOkP` because that is what
 `CtxOkP`'s leaf package carries. -/
 theorem openCongC {d : Nat} {Δa : List AVExpr} {body ty : Expr}
-    {n : Name} {ta₁ ta₂ : AVExpr}
+    {ta₁ ta₂ : AVExpr}
     (hb : CtxOkP m φ d Δa body) (ht : CtxOkP m φ d Δa ty)
     (hty : denoteP m.acval env φ d ty = some ta₂)
     (hok₂ : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta₂)
@@ -366,7 +366,7 @@ two ρ-local gradings hoisted out of `hdom`.  Kept because the sealed
 `CtxOk2.openCong`/`CtxOk2D.openCong` signatures are cited; `hdom` is
 verbatim theirs with `AnnotOk2` raised to `AnnotOkP`. -/
 theorem openCong {d : Nat} {Δa : List AVExpr} {body ty : Expr}
-    {n : Name} {ta₁ ta₂ : AVExpr}
+    {ta₁ ta₂ : AVExpr}
     (hb : CtxOkP m φ d Δa body) (ht : CtxOkP m φ d Δa ty)
     (hty : denoteP m.acval env φ d ty = some ta₂)
     (hok₁ : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta₁)
@@ -380,7 +380,7 @@ theorem openCong {d : Nat} {Δa : List AVExpr} {body ty : Expr}
 /-- **`CtxOk2Open`'s body in the P currency.**  Argument order is
 `CtxOk2.openS`'s (type first); the `fvarsBelow` argument the sealed
 signature carries is dropped because `wScoped` supplies it. -/
-theorem openS {d : Nat} {Δa : List AVExpr} {n : Name}
+theorem openS {d : Nat} {Δa : List AVExpr}
     {ty body : Expr} {ta : AVExpr}
     (ht : CtxOkP m φ d Δa ty) (hb : CtxOkP m φ d Δa body)
     (hty : denoteP m.acval env φ d ty = some ta)
@@ -397,7 +397,7 @@ reach their recursive call.  Stated outside the namespace because
 `open` is not a namespace-relative identifier; `CtxOk2.open` and
 `CtxOk2D.open` are declared the same way. -/
 theorem CtxOkP.open {d : Nat} {Δa : List AVExpr} {body ty : Expr}
-    {n : Name} {ta : AVExpr}
+    {ta : AVExpr}
     (hb : CtxOkP m φ d Δa body) (ht : CtxOkP m φ d Δa ty)
     (hty : denoteP m.acval env φ d ty = some ta)
     (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) :
