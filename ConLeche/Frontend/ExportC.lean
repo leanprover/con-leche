@@ -321,7 +321,8 @@ private def parseLevelEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
 /-- Twin of `parseExprEntry`: build the `ExprC` node from the
 children's table values (the derived fields are the compiler's, task
 #172 B3a), with the taint/size bookkeeping unchanged. -/
-private def parseExprEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
+private def parseExprEntryD (st : StateD) (j : Json) (i : Nat)
+    (budget : Nat) : M StateD := do
   let (e, taintConst) ←
     if let .ok v := j.getObjVal? "bvar" then do
       pure (ExprC.mkBVar (← v.getNat?), none)
@@ -374,8 +375,11 @@ private def parseExprEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
   let cs ← exprEntryChildren j
   let taint : Option Name :=
     taintConst <|> cs.findSome? (fun c => st.tainted[c]?)
-  let size : Nat := if st.treeBudget = 0 then 1 else
-    min st.treeBudget (cs.foldl (fun acc c => acc + (st.sizes[c]?.getD 1)) 1)
+  -- the budget is the saturation cap, exactly as the constant was
+  -- before task #213 made it a field; at `0` (unlimited) the `min` is
+  -- `0`, the entry is not recorded below, and `getDeclD`'s guard is off
+  let size : Nat := min budget
+    (cs.foldl (fun acc c => acc + (st.sizes[c]?.getD 1)) 1)
   let st := { st with exprs := st.exprs.insert i e }
   let st := if size > 1 then
     let m := st.sizes
@@ -475,13 +479,13 @@ private def blockRecOf (st : StateD) (v : Json) : M InModel.BlockRec := do
 records.  Every branch, guard and error string mirrors the arena
 parser's. -/
 private def processLineCoreD (st : StateD) (j : Json)
-    (modeled : Bool := false) : M (StateD ⊕ String) := do
+    (modeled : Bool) (budget : Nat) : M (StateD ⊕ String) := do
   if let .ok v := j.getObjVal? "in" then
     return .inl (← parseNameEntryD st j (← v.getNat?))
   else if let .ok v := j.getObjVal? "il" then
     return .inl (← parseLevelEntryD st j (← v.getNat?))
   else if let .ok v := j.getObjVal? "ie" then
-    return .inl (← parseExprEntryD st j (← v.getNat?))
+    return .inl (← parseExprEntryD st j (← v.getNat?) budget)
   else if (j.getObjVal? "meta").isOk then
     return .inl st
   else if let .ok v := j.getObjVal? "axiom" then
@@ -717,8 +721,21 @@ keeps it from computing a 10^1160-digit `Nat` on a DAG tower), so the
 exact unshared size is not known here — only that some expression of
 the record reached the cap.  `why` names the walker that is the reason
 this kind is budgeted at all; the census is in `budgetedName`'s and
-`declTreeSizeBudget`'s docstrings. -/
-private def sizeDeclineMsgD (st : StateD) (j : Json)
+`declTreeSizeBudget`'s docstrings.
+
+**It takes `budget` and `inPrelude`, not the `StateD`, and that is
+load-bearing** (measured: `+48 %` instructions on `init-core` when it
+took the state).  This function is called from `processLineD`'s
+`tryCatch` *handler*, so anything it mentions is captured across the
+`processLineCoreD` call — and a captured `StateD` puts the parse
+tables at reference count 2 for the whole of it, so every `names`,
+`exprs` or `decls` insert inside copies the table wholesale.  That is
+the task-#78 copy-on-write pathology (DESIGN, "The whole-arena
+copy-on-write strikes"), per declaration record rather than per arena
+mutation, and it compounds with the table's size: on `init-full` it
+turned a one-minute run into twenty-five.  Everything the message
+needs is therefore reduced to two scalars *before* the call. -/
+private def sizeDeclineMsgD (budget : Nat) (inPrelude : Bool) (j : Json)
     (scan : Option (List Name × List Nat)) : String :=
   let name := (scan.bind (·.1.head?)).getD .anonymous
   let kind : String :=
@@ -736,16 +753,16 @@ private def sizeDeclineMsgD (st : StateD) (j : Json)
     else if natOpNames.contains name || natDivModNames.contains name then
       "the pinned Nat-operation certification substitutes the stored value "
         ++ "into the vendored certificate proofs"
-    else if st.prelude.byName.contains name then
+    else if inPrelude then
       "the built-in prelude dedupe compares this record against the "
         ++ "checker's own copy as a tree"
     else "this record kind is still walked as a tree"
-  s!"{name} ({kind}): unshared tree size ≥ {st.treeBudget} nodes exceeds "
-    ++ s!"the frontend tree-size budget (CON_LECHE_TREE_BUDGET={st.treeBudget}; {why})"
+  s!"{name} ({kind}): unshared tree size ≥ {budget} nodes exceeds "
+    ++ s!"the frontend tree-size budget (CON_LECHE_TREE_BUDGET={budget}; {why})"
 
 /-- Twin of `processLine` (the taint policy). -/
 private def processLineD (st : StateD) (j : Json)
-    (modeled : Bool := false) : M (StateD ⊕ String) := do
+    (modeled : Bool) (budget : Nat) : M (StateD ⊕ String) := do
   if let .ok v := j.getObjVal? "axiom" then
     let name ← getNameD st v "name"
     if toleratedAxiomNames.contains name then
@@ -764,11 +781,25 @@ private def processLineD (st : StateD) (j : Json)
       return .inl { st with
         taintedNames := m,
         taintSkipped := sk.push (names.headD .anonymous, root) }
-  tryCatch (processLineCoreD st j modeled) fun e =>
+  -- The prelude flag is read HERE and not in the handler below: a
+  -- handler that mentions `st` holds the parse tables at RC 2 across
+  -- `processLineCoreD`, and every insert inside then copies them (see
+  -- `sizeDeclineMsgD`).  The budget is a parameter for the same
+  -- reason, one level up.
+  let inPrelude : Bool :=
+    match scan.bind (·.1.head?) with
+    | some n => st.prelude.byName.contains n
+    | none => false
+  -- a `match`, not `tryCatch`: the handler is no longer closed (it
+  -- names the two data above), and a capturing closure would be
+  -- allocated on EVERY line rather than shared as a constant
+  match processLineCoreD st j modeled budget with
+  | .ok r => pure r
+  | .error e =>
     if e = taintSentinel then
       pure (.inr "declaration uses a skipped (non-pinned) axiom")
     else if e = sizeSentinel then
-      pure (.inr (sizeDeclineMsgD st j scan))
+      pure (.inr (sizeDeclineMsgD budget inPrelude j scan))
     else throw e
 
 /-! ## The byte fast path's direct apply functions -/
@@ -779,7 +810,8 @@ private inductive FastResD where
   | fallback (st : StateD)
 
 /-- Semantic phase for a hot `{"ie":…}` line, direct construction. -/
-private def fastApplyIED (st : StateD) (i : Nat) (fn : FastNode) : FastResD :=
+private def fastApplyIED (st : StateD) (i : Nat) (fn : FastNode)
+    (budget : Nat) : FastResD :=
   let mk : Option (ExprC × List Nat) :=
     match fn with
     | .app f a => do
@@ -813,8 +845,8 @@ private def fastApplyIED (st : StateD) (i : Nat) (fn : FastNode) : FastResD :=
         && !st.taintedNames.isEmpty then .fallback st
     else
       let taint : Option Name := cs.findSome? (fun c => st.tainted[c]?)
-      let size : Nat := if st.treeBudget = 0 then 1 else
-        min st.treeBudget (cs.foldl (fun acc c => acc + (st.sizes[c]?.getD 1)) 1)
+      let size : Nat := min budget
+        (cs.foldl (fun acc c => acc + (st.sizes[c]?.getD 1)) 1)
       let st := { st with exprs := st.exprs.insert i node }
       let st := if size > 1 then
         let m := st.sizes
@@ -837,9 +869,9 @@ private def fastApplyIND (st : StateD) (i pre : Nat) (s : String) : FastResD :=
 
 /-- The fast path over the direct state (shares `fastParse` with the
 arena parser — the byte layer produces stream indices). -/
-private def fastEntryD (st : StateD) (line : String) : FastResD :=
+private def fastEntryD (st : StateD) (line : String) (budget : Nat) : FastResD :=
   match fastParse line.toUTF8 with
-  | some (.ie i n) => fastApplyIED st i n
+  | some (.ie i n) => fastApplyIED st i n budget
   | some (.inStr i pre s) => fastApplyIND st i pre s
   | none => .fallback st
 
@@ -893,14 +925,14 @@ private def ParseResultD.ofState (st : StateD) : ParseResultD :=
 
 /-- Twin of `feedLine`. -/
 private def feedLineD (st : StateD) (line : String) (lineNo : Nat)
-    (modeled : Bool) : Except FrontendError StateD :=
+    (modeled : Bool) (budget : Nat) : Except FrontendError StateD :=
   if line.trimAscii.isEmpty then .ok st
   else
-    match fastEntryD st line with
+    match fastEntryD st line budget with
     | .handled (.ok st) => .ok st
     | .handled (.error msg) => .error (.parseError lineNo msg)
     | .fallback st =>
-      match Json.parse line >>= (fun j => processLineD st j modeled) with
+      match Json.parse line >>= (fun j => processLineD st j modeled budget) with
       | .error msg => .error (.parseError lineNo msg)
       | .ok (.inr what) => .error (.unsupported what)
       | .ok (.inl st) => .ok st
@@ -916,7 +948,7 @@ def parseExportD (contents : String) (modeled : Bool := false)
   let mut lineNo := 0
   for line in contents.splitToList (· == '\n') do
     lineNo := lineNo + 1
-    st ← feedLineD st line lineNo modeled
+    st ← feedLineD st line lineNo modeled budget
   return .ofState st
 
 /-- Streaming direct parse off an open handle (twin of
@@ -939,7 +971,7 @@ partial def parseExportHandleD (h : IO.FS.Handle)
     if raw.isEmpty then
       return .ok (.ofState st)
     let line := if raw.back == '\n' then (raw.dropEnd 1).copy else raw
-    match feedLineD st line (lineNo + 1) modeled with
+    match feedLineD st line (lineNo + 1) modeled budget with
     | .error e => return .error e
     | .ok st => loop (lineNo + 1) st
   loop 0 (.init prelude inModel census budget)

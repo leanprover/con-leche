@@ -50099,7 +50099,45 @@ are the same inductions.  What is new, in P-tier order:
   reading the WHOLE opened residual `T p⃗ e⃗` at the recursor frame and
   inverting its spine (`denoteSpineP_idxArgs_lift`).
 
-### 4. Fixtures (`tests/e2e/direct_idx_*`, exported through the widened `con-leche-preprocess`, all `--pre`)
+### 4. The linearity trap this task fell into, measured
+
+The first working version cost **+48 % instructions** on `init-core`
+(9.95 G → 14.74 G, same verdict).  Two independent instances of the
+same task-#78 pathology — *a second live reference to the parse state
+turns every `{ st with … }` update from an in-place mutation into a
+whole-object copy* — and both were invisible in the source:
+
+1. **A `tryCatch` handler that mentions `st`.**  The named message
+   needs the budget and the prelude table, so the handler read them
+   off `st` — which holds the `StateD` at RC 2 across the whole
+   `processLineCoreD` call, so every `names`/`exprs`/`decls` insert
+   inside copies its table.  Per declaration record, against a table
+   that grows with the stream: on `init-full` that turned a
+   one-minute run into twenty-five.  Fix: reduce what the handler
+   needs to scalars computed *before* the call (`budget`,
+   `inPrelude`), and use a `match` rather than a capturing closure so
+   the handler is not re-allocated per line.
+2. **Two projections of `st` in one expression.**  `min st.treeBudget
+   (cs.foldl … st.sizes …)` in the two size counters — `st.treeBudget`
+   beside the pre-existing `st.sizes` read — was worth **48 M
+   instructions on 94 657 expression entries, ~507 each**: exactly one
+   26-field `StateD` copy per entry.  Hoisting the projection to the
+   head of the function does **not** help (the projection count is
+   unchanged); the budget has to arrive as a *parameter*, so the
+   counter projects `st` once as it always did.  It is now threaded
+   `parseExportD`/`parseExportHandleD` → `feedLineD` → `fastEntryD` /
+   `processLineD` → `fastApplyIED` / `processLineCoreD` →
+   `parseExprEntryD`.  `StateD.treeBudget` survives only for
+   `getDeclD`, which is on the declaration path and updates no field.
+
+Final A/B against master's binary on `init-core`, `perf stat -e
+instructions:u`: trusted 9.9517 G → 9.9523 G, verified 10.1379 G →
+10.1385 G — **+0.006 %**, i.e. parity.  The lesson is the one #78
+already recorded, and it is worth restating in the imperative: **in
+the parser, never read a second field of the state near a `with`-update,
+and never let an error handler mention the state.**
+
+### 5. Fixtures (`tests/e2e/direct_idx_*`, exported through the widened `con-leche-preprocess`, all `--pre`)
 
 `direct_idx_eq` (an `Eq`-clone: large elimination into `Sort v`, iota
 on `refl`, the K rescue on a neutral major — accept), `direct_idx_vec`
@@ -57936,7 +57974,45 @@ as a follow-up, not done here: the analogous memo on `beq` measured
 +33 % on `init-prelude` when it was applied unconditionally, so the
 swap needs the same budgeted-descent treatment `beqFast` got.
 
-### 4. Fixtures
+### 4. The linearity trap this task fell into, measured
+
+The first working version cost **+48 % instructions** on `init-core`
+(9.95 G → 14.74 G, same verdict).  Two independent instances of the
+same task-#78 pathology — *a second live reference to the parse state
+turns every `{ st with … }` update from an in-place mutation into a
+whole-object copy* — and both were invisible in the source:
+
+1. **A `tryCatch` handler that mentions `st`.**  The named message
+   needs the budget and the prelude table, so the handler read them
+   off `st` — which holds the `StateD` at RC 2 across the whole
+   `processLineCoreD` call, so every `names`/`exprs`/`decls` insert
+   inside copies its table.  Per declaration record, against a table
+   that grows with the stream: on `init-full` that turned a
+   one-minute run into twenty-five.  Fix: reduce what the handler
+   needs to scalars computed *before* the call (`budget`,
+   `inPrelude`), and use a `match` rather than a capturing closure so
+   the handler is not re-allocated per line.
+2. **Two projections of `st` in one expression.**  `min st.treeBudget
+   (cs.foldl … st.sizes …)` in the two size counters — `st.treeBudget`
+   beside the pre-existing `st.sizes` read — was worth **48 M
+   instructions on 94 657 expression entries, ~507 each**: exactly one
+   26-field `StateD` copy per entry.  Hoisting the projection to the
+   head of the function does **not** help (the projection count is
+   unchanged); the budget has to arrive as a *parameter*, so the
+   counter projects `st` once as it always did.  It is now threaded
+   `parseExportD`/`parseExportHandleD` → `feedLineD` → `fastEntryD` /
+   `processLineD` → `fastApplyIED` / `processLineCoreD` →
+   `parseExprEntryD`.  `StateD.treeBudget` survives only for
+   `getDeclD`, which is on the declaration path and updates no field.
+
+Final A/B against master's binary on `init-core`, `perf stat -e
+instructions:u`: trusted 9.9517 G → 9.9523 G, verified 10.1379 G →
+10.1385 G — **+0.006 %**, i.e. parity.  The lesson is the one #78
+already recorded, and it is worth restating in the imperative: **in
+the parser, never read a second field of the state near a `with`-update,
+and never let an error handler mention the state.**
+
+### 5. Fixtures
 
 `scripts/mk_budget_fixtures.py` generates both.
 
@@ -57958,7 +58034,7 @@ code, that it names the declaration *and* the record kind, that it
 names the budget in force, that `0` is unlimited, and that a
 non-numeral is exit 3.
 
-### 5. Memory scaling — read-only finding, no change
+### 6. Memory scaling — read-only finding, no change
 
 The 37.3 GB RSS at 40 % of a 37.77 GB stream is not the budget's doing
 and the budget cannot help it: `StateD.exprs` retains **every** interned
