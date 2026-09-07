@@ -373,10 +373,10 @@ theorem checkDirectSumTeleS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF
 /-- Stage 1 (the type former) of the sum route at the shared
 operations. -/
 theorem checkDirectSumIndS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : DirectSumParts}
-    (hs : CSOK mode env s₀) :
+    {capsOf : DirectSumParts → IndCaps} (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 (Prod.fst (Prod.snd v)).type)
-      (checkDirectSumInd (sharedOpsC mode (mkFEnv env)) env p)
-      (checkDirectSumInd (fueledOpsM mode) env p) := by
+      (checkDirectSumInd (sharedOpsC mode (mkFEnv env)) env p capsOf)
+      (checkDirectSumInd (fueledOpsM mode) env p capsOf) := by
   unfold checkDirectSumInd
   refine SimC.bind (checkConstantValS_sim hμ henv hs)
     (fun s₁ cvTa₀ cvTa₀' hs₁ hP => ?_)
@@ -489,11 +489,14 @@ theorem checkDirectSumCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvW
     unfold checkDirectSumCtors
     dsimp only [sharedOpsC]
     refine SimC.bind (checkDirectSumCtorS_sim hμ henv hTf hs)
-      (fun s₁ cvCa cvCa' hs₁ hP => ?_)
-    obtain rfl : cvCa = cvCa' := hP
+      (fun s₁ q q' hs₁ hP => ?_)
+    obtain rfl : q = q' := hP
+    obtain ⟨cvCa, sorts⟩ := q
+    dsimp only
     refine SimC.bind (checkDirectSumCtorsS_sim hμ henv hTf hs₁)
       (fun s₂ rest rest' hs₂ hR => ?_)
     obtain rfl : rest = rest' := hR
+    obtain ⟨rest, srest⟩ := rest
     exact SimC.pure hs₂ rfl
 
 /-- The generated rules loop at the shared operations: each right-hand

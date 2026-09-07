@@ -163,8 +163,16 @@ theorem stageFixFormer (mp : EnvS2PM V μ env)
       ∀ t, t ∈ˢ idxSet (u ψ) ρp (((pps ψ).drop p.nP).map (·.2.2)) →
       SumFieldsValid (cons t (cons X ρp))
         (chainsXI (u ψ) (((pps ψ).drop p.nP).map (·.2.2)) (((pps ψ).drop p.nP).map (·.2.2)).length
-          rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ))) :
-    ∃ mp' : EnvS2PM V μ ⟨.indInfo cvTa (ConLeche.directSumCaps p) :: env.consts⟩,
+          rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ)))
+    -- the block's capability record and its laws at the cons (task #210
+    -- Part A)
+    (caps : IndCaps)
+    (hTlaws : ∀ m₂ : EnvS2Core V ⟨.indInfo cvTa caps :: env.consts⟩,
+      m₂.acval = acvalWith mp.base2.acval cvTa.name
+        (fun ψ => directFixTyAVI (u ψ) (p.resSort.eval ψ) (pps ψ) (((pps ψ).drop p.nP).map (·.2.2))
+          rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ)) →
+      CapsLawsAt m₂ cvTa.name cvTa caps) :
+    ∃ mp' : EnvS2PM V μ ⟨.indInfo cvTa caps :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvTa.name
         (fun ψ => directFixTyAVI (u ψ) (p.resSort.eval ψ) (pps ψ) (((pps ψ).drop p.nP).map (·.2.2))
           rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ)) := by
@@ -175,7 +183,7 @@ theorem stageFixFormer (mp : EnvS2PM V μ env)
     rw [hname, ← hname₀]; exact hfind
   have htr : cvTa.type.constsResolve env = true := by rw [hty]; exact htr'
   have hcb : ConstsBound env cvTa.type := constsBound_of_constsResolve _ htr
-  have hwfI : ConLeche.EnvWF ⟨.indInfo cvTa (ConLeche.directSumCaps p) :: env.consts⟩ :=
+  have hwfI : ConLeche.EnvWF ⟨.indInfo cvTa caps :: env.consts⟩ :=
     ConLeche.envWF_cons_ind mp.base2.wf hccv
   have hIdsLen : ∀ ψ, ((((pps ψ).drop p.nP).map (·.2.2))).length = p.nIdx := by
     intro ψ; simp [hFD.len ψ]
@@ -187,18 +195,18 @@ theorem stageFixFormer (mp : EnvS2PM V μ env)
   have hwalks := fixLeafWalks hFD hIdx hX hXV
   have hreadI : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval cvTa.name A)
-        ⟨.indInfo cvTa (ConLeche.directSumCaps p) :: env.consts⟩ ψ 0 cvTa.type
+        ⟨.indInfo cvTa caps :: env.consts⟩ ψ 0 cvTa.type
         = some (mkPisAV (pps ψ) (.sort (p.resSort.eval ψ))) := fun ψ =>
-    denoteP_cons_mono (c₀ := .indInfo cvTa (ConLeche.directSumCaps p)) hfresh
+    denoteP_cons_mono (c₀ := .indInfo cvTa caps) hfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) ψ 0 hcb (hFD.read ψ)
   have hnresI : ConLeche.reservedBasisNames.contains
-      (ConstantInfo.indInfo cvTa (ConLeche.directSumCaps p)).name = false := by
+      (ConstantInfo.indInfo cvTa caps).name = false := by
     show ConLeche.reservedBasisNames.contains cvTa.name = false
     rw [hname, ← hname₀]; exact hnres
-  have hpshapeI : (ConstantInfo.indInfo cvTa (ConLeche.directSumCaps p)).name.isProjFnShape = false := by
+  have hpshapeI : (ConstantInfo.indInfo cvTa caps).name.isProjFnShape = false := by
     show cvTa.name.isProjFnShape = false
     rw [hname, ← hname₀]; exact hpshape
-  refine declStepPM_of_ind_member_cons mp (c₀ := .indInfo cvTa (ConLeche.directSumCaps p))
+  refine declStepPM_of_ind_member_cons mp (c₀ := .indInfo cvTa caps)
     (A := A) hfresh hnresI (Or.inl ⟨_, _, rfl⟩)
     (ConsHeadP.ofFresh hwfI (fun ψ => hAbelow ψ) hnresI
       (fun _ h => nomatch h)
@@ -221,16 +229,16 @@ theorem stageFixFormer (mp : EnvS2PM V μ env)
     obtain rfl := Option.some.inj ((hreadI ψ).symm.trans hta)
     exact directFixTyAVI_mem (hwalks ψ ρ).1
   · intro m₂ hac
-    refine capsOkP_cons_direct mp (c₀ := .indInfo cvTa (ConLeche.directSumCaps p))
+    refine capsOkP_cons_direct mp (c₀ := .indInfo cvTa caps)
       (A := A) (T := cvTa.name) hfresh
       (ConsCrossEnv.ofNtc fun _ h => nomatch h) hpshapeI
-      (Or.inl ⟨cvTa, ConLeche.directSumCaps p, rfl, rfl⟩)
+      (Or.inl ⟨cvTa, caps, rfl, rfl⟩)
       (fun T' cvT' caps' hf _ hres hcape => hE₀ T' cvT' caps' hf hcape hres)
       m₂ hac ?_
-    intro cvT caps hf _
-    have hself := ConLeche.Env.find?_cons_self (ConstantInfo.indInfo cvTa (ConLeche.directSumCaps p)) env
+    intro cvT caps' hf _
+    have hself := ConLeche.Env.find?_cons_self (ConstantInfo.indInfo cvTa caps) env
     obtain ⟨rfl, rfl⟩ :=
       ConstantInfo.indInfo.inj (Option.some.inj (hself.symm.trans hf))
-    exact ⟨fun he => absurd he Bool.false_ne_true, fun hu => absurd hu Bool.false_ne_true⟩
+    exact hTlaws m₂ hac
 
 end ConLeche.SetP

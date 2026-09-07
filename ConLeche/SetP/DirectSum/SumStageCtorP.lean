@@ -315,19 +315,23 @@ theorem ctorWalksS {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvT cvC :
     ψ ρ
 
 /-- **The P step at a sum-shaped constructor's cons**, for a given fibre fold. -/
-theorem stageCtorGen
-    (hE : ConLeche.EtaFamiliesClosed env)
-    {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
+theorem stageCtorGen {T : Name}
+    (hE : ConLeche.EtaFamiliesClosedExcept env T)
+    {F : Nat} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     (mp : EnvS2PM V μ env)
+    {sorts : List Level}
     (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok cvCa)
+      isProp large cvC nF cvTa = .ok (cvCa, sorts))
     -- the constructor is fresh at the cons's environment and its type
     -- resolves there
     (hfresh : env.find? cvCa.name = none)
     (htr : cvCa.type.constsResolve env = true)
     (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hcapsE : caps.eta = false) (hcapsU : caps.unitlike = false)
+    -- the block's own capability laws at the cons (task #210 Part A),
+    -- at any carrier agreeing with this one off the constructor's name
+    (hTlaws : ∀ m₂ : EnvS2Core V ⟨.ctorInfo cvCa nP nF :: env.consts⟩,
+      (∀ n, n ≠ cvCa.name → m₂.acval n = mp.base2.acval n) → CapsLawsAt m₂ T cvTa caps)
     (hlpsT : cvTa.levelParams = lps)
     (hlpsC : cvCa.levelParams = lps)
     {idxArgs : List Expr}
@@ -440,28 +444,31 @@ theorem stageCtorGen
       (T := T) hfresh (ConsCrossEnv.ofNtc fun _ h => nomatch h) hpshapeC
       (Or.inr fun _ _ h => nomatch h) ?_ m₂ hac ?_
     · intro T' cvT' caps' hf hne hres hcape
-      exact hE T' cvT' caps' hf hcape hres
+      exact hE T' cvT' caps' hf hne hcape hres
     · intro cvT caps' hf _
       have hfT' : (⟨.ctorInfo cvCa nP nF :: env.consts⟩ : Env).find? T
           = some (.indInfo cvTa caps) := by
         rw [ConLeche.Env.find?_cons, if_neg (fun h => hTC h.symm)]
         exact hfT
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
-      exact ⟨fun he => absurd (hcapsE.symm.trans he) Bool.false_ne_true,
-        fun hu => absurd (hcapsU.symm.trans hu) Bool.false_ne_true⟩
+      refine hTlaws m₂ fun n hn => ?_
+      rw [hac]
+      exact acvalWith_ne hn
 
 /-- **The P step at a sum constructor's cons.** -/
-theorem stageSumCtor
-    (hE : ConLeche.EtaFamiliesClosed env)
-    {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
+theorem stageSumCtor {T : Name}
+    (hE : ConLeche.EtaFamiliesClosedExcept env T)
+    {F : Nat} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     (mp : EnvS2PM V μ env)
+    {sorts : List Level}
     (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok cvCa)
+      isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfresh : env.find? cvCa.name = none)
     (htr : cvCa.type.constsResolve env = true)
     (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hcapsE : caps.eta = false) (hcapsU : caps.unitlike = false)
+    (hTlaws : ∀ m₂ : EnvS2Core V ⟨.ctorInfo cvCa nP nF :: env.consts⟩,
+      (∀ n, n ≠ cvCa.name → m₂.acval n = mp.base2.acval n) → CapsLawsAt m₂ T cvTa caps)
     (hlpsT : cvTa.levelParams = lps)
     (hlpsC : cvCa.levelParams = lps)
     {idxArgs : List Expr}
@@ -495,7 +502,7 @@ theorem stageSumCtor
       mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
         (fun ψ => directSumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2))
           (uChains (Fss ψ))) :=
-  stageCtorGen hE mp hCtor hfresh htr hfT hcapsE hcapsU hlpsT hlpsC hFD hCD
+  stageCtorGen hE mp hCtor hfresh htr hfT hTlaws hlpsT hlpsC hFD hCD
     (sumFold_of_leaf hFD hCD hleafT hiff hFssOk hIdx) hFsj hEsj hFssParams hFssBelow hiff
     hFssOkP hIdx
 

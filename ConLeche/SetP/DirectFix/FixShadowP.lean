@@ -213,8 +213,9 @@ context. -/
 theorem fixShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env}
+    {sorts : List Level}
     (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok cvCa)
+      isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     {Es : (Name → Nat) → List AVExpr} {srcs : List (Option Nat)} {ks : List RecFieldKind}
@@ -232,7 +233,7 @@ theorem fixShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
     (∀ ρ : Nat → V, Sat2 V (shadowCtx nP ks (nP + nF) (((ds ψ).map (·.2.2)).reverse)) ρ →
       AnnotOkP V ρ (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ))) := by
   -- the run's pieces
-  obtain ⟨hccv, -, fvsP', crest', tfvs, trest, xFvs', idxArgs', sorts, hopC, -, -, hopX, -, -, -,
+  obtain ⟨hccv, -, fvsP', crest', tfvs, trest, xFvs', idxArgs', hopC, -, -, hopX, -, -, -,
     hsorts⟩ := ConLeche.checkDirectSumCtor_shape hCtor
   obtain ⟨crest, hopP, hopXX⟩ := hD.opens
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))

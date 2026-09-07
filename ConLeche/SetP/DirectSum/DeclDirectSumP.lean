@@ -129,9 +129,9 @@ set_option maxHeartbeats 6400000 in
 /-- **The constructors' conses, in order.** -/
 theorem sumCtorsLoop (hμ : μ.verifiedChecks = true)
     {F : Nat} {p : DirectSumParts} {env₀ envI : Env} {cvTa : ConstantVal}
-    {ctors ctorsA : List (ConstantVal × Nat)}
+    {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     (hCtors : ConLeche.checkDirectSumCtors (ConLeche.fueledOps μ F) env₀ envI p.cvT.name
-      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok ctorsA)
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok (ctorsA, sortss))
     (hnd : (ctorsA.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hlpsA : ∀ cA ∈ ctorsA, cA.1.levelParams = p.cvT.levelParams)
@@ -191,10 +191,10 @@ theorem sumCtorsLoop (hμ : μ.verifiedChecks = true)
   | cA :: rest, k, env, mp, hrest, hk, hE, hfT, hFD, hleafT, hcons, hpend => by
     have hcAk : ctorsA[k]? = some cA := by
       have := hrest 0; simpa using this.symm
-    obtain ⟨hlen, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
+    obtain ⟨hlen, -, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
     have hkl : k < ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hcAk).1; omega
-    obtain ⟨hnF, hCtor⟩ := hall k (ctors[k]) cA (List.getElem?_eq_getElem hkl) hcAk
+    obtain ⟨hnF, _, -, hCtor⟩ := hall k (ctors[k]) cA (List.getElem?_eq_getElem hkl) hcAk
     rw [← hnF] at hCtor
     obtain ⟨hfresh, htr, hidxRes, hCD⟩ := hpend k cA (Nat.le_refl _) hcAk
     have hlpsC : cA.1.levelParams = p.cvT.levelParams := hlpsA cA (List.mem_of_getElem? hcAk)
@@ -208,7 +208,8 @@ theorem sumCtorsLoop (hμ : μ.verifiedChecks = true)
       intro ψ
       rw [essOf_getElem?, ctorDataList_getElem?, hcAk, Nat.zero_add]; rfl
     -- the stage
-    obtain ⟨mpC, hacC⟩ := stageSumCtor (j := k) hE mp hCtor hfresh htr hfT rfl rfl hlpsT hlpsC hFD hCD
+    obtain ⟨mpC, hacC⟩ := stageSumCtor (j := k) (hE.except _) mp hCtor hfresh htr hfT
+      (fun m₂ _ => capsLawsAt_of_none m₂ rfl rfl) hlpsT hlpsC hFD hCD
       hleafT hFsj hEsj hFssParams hFssBelow (hiff k cA hcAk)
       hFssOk (fun ψ ρ hρ => hFssOkP ψ ρ ((hiff k cA hcAk ψ ρ).mpr hρ)) (hIdx k cA hcAk)
     -- the invariants at the extension
@@ -311,9 +312,11 @@ theorem declDirectSumP_core (hμ : μ.verifiedChecks = true) {F : Nat} {env : En
     (hTname₀ : cvT.name = p.cvT.name) (hTlps₀ : cvT.levelParams = p.cvT.levelParams)
     (hccvT : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
     (hstripT : ∃ bsT, cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
+    {sortss : List (List Level)}
     (hCtors : ConLeche.checkDirectSumCtors (ConLeche.fueledOps μ F) env
       ⟨.indInfo cvTa (ConLeche.directSumCaps p) :: env.consts⟩ p.cvT.name
-      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors = .ok ctorsA)
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
+      = .ok (ctorsA, sortss))
     (hRec : ConLeche.checkDirectSumRec (ConLeche.fueledOps μ F)
       (ConLeche.consSumCtors p.nP ctorsA ⟨.indInfo cvTa (ConLeche.directSumCaps p) :: env.consts⟩)
       p cvTa ctorsA = .ok (cvRa, rhss)) :
@@ -348,24 +351,25 @@ theorem declDirectSumP_core (hμ : μ.verifiedChecks = true) {F : Nat} {env : En
     · obtain ⟨cvC', hfC'⟩ := hE T'' cvT'' caps hf he hr
       exact ⟨cvC', ConLeche.Env.find?_cons_of_fresh hTfresh hfC'⟩
   -- the constructors' runs
-  obtain ⟨hlenA, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
+  obtain ⟨hlenA, -, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
   have hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ c : ConstantVal × Nat, p.ctors[j]? = some c ∧
       cA.1.name = c.1.name ∧ cA.1.levelParams = p.cvT.levelParams ∧
       (⟨.indInfo cvTa (ConLeche.directSumCaps p) :: env.consts⟩ : Env).find? cA.1.name = none ∧
       cA.1.type.constsResolve ⟨.indInfo cvTa (ConLeche.directSumCaps p) :: env.consts⟩ = true ∧
-      ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env
+      ∃ sorts : List Level, ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env
         ⟨.indInfo cvTa (ConLeche.directSumCaps p) :: env.consts⟩
-        p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large c.1 cA.2 cvTa = .ok cA.1 := by
+        p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large c.1 cA.2 cvTa
+        = .ok (cA.1, sorts) := by
     intro j cA hj
     have hjl : j < p.ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hj).1; omega
-    obtain ⟨hnF, hCtor⟩ := hall j (p.ctors[j]) cA (List.getElem?_eq_getElem hjl) hj
+    obtain ⟨hnF, sorts, -, hCtor⟩ := hall j (p.ctors[j]) cA (List.getElem?_eq_getElem hjl) hj
     rw [← hnF] at hCtor
     obtain ⟨hccvC, -, -⟩ := ConLeche.checkDirectSumCtor_shape hCtor
     obtain ⟨hfindC, -, -, -, -, -, typeC, -, -, -, -, htrC, -, -, htyC⟩ :=
       ConLeche.checkConstantVal_inv hccvC
-    refine ⟨p.ctors[j], List.getElem?_eq_getElem hjl, by rw [htyC], ?_, ?_, ?_, hCtor⟩
+    refine ⟨p.ctors[j], List.getElem?_eq_getElem hjl, by rw [htyC], ?_, ?_, ?_, sorts, hCtor⟩
     · rw [htyC]
       exact (hClps _ (List.getElem_mem hjl)).1
     · show Env.find? _ cA.1.name = none
@@ -391,6 +395,7 @@ theorem declDirectSumP_core (hμ : μ.verifiedChecks = true) {F : Nat} {env : En
   -- storing the former
   obtain ⟨mpI₀, hacI₀⟩ := stageSumFormer mp hE hccvT hTname₀ hFD (fun _ => []) (fun _ _ _ => rfl)
     (fun _ _ h => nomatch h) (fun _ _ _ => ⟨(fun _ h => nomatch h), (fun _ h => nomatch h)⟩)
+    (ConLeche.directSumCaps p) (fun m₂ _ => capsLawsAt_of_none m₂ rfl rfl)
   have hex₀ : ∀ j : Nat, ∃ q : List Expr × ((Name → Nat) → List (Nat × Nat × AVExpr)) ×
       ((Name → Nat) → List AVExpr) × List (Option Nat),
       ∀ cA : ConstantVal × Nat, ctorsA[j]? = some cA →
@@ -405,7 +410,7 @@ theorem declDirectSumP_core (hμ : μ.verifiedChecks = true) {F : Nat} {env : En
     cases hj : ctorsA[j]? with
     | none => exact ⟨([], fun _ => [], fun _ => [], []), fun _ h => nomatch h⟩
     | some cA =>
-      obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
+      obtain ⟨c, -, -, -, -, -, _, hCtor⟩ := hrunOf j cA hj
       obtain ⟨idxArgs, ds, Es, srcs, hres, hopen, hCD⟩ :=
         sumCtorData_of hμ mpI₀ hCtor hfT_I hlpsT hstripT
       exact ⟨(idxArgs, ds, Es, srcs), fun cA' h => by
@@ -448,7 +453,7 @@ theorem declDirectSumP_core (hμ : μ.verifiedChecks = true) {F : Nat} {env : En
             (∀ E ∈ esF₀ j ψ, AnnotOkP V (consList bs ρ) E) ∧
             SpineFit ρ (((ppsAll ψ).drop p.nP).map (·.2.2)) (idxValsAt ρ (esF₀ j ψ) bs))) := by
     intro j cA hj
-    obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
+    obtain ⟨c, -, -, -, -, -, _, hCtor⟩ := hrunOf j cA hj
     obtain ⟨hiff, hfields⟩ := sumCtorFrames hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ (hdsF₀ j cA hj) hleafT₀
     exact ⟨hiff, fun ψ ρ h => ⟨(hfields ψ ρ h).1, (hfields ψ ρ h).2.1, (hfields ψ ρ h).2.2.2⟩⟩
   -- the field-chain facts of a data function
@@ -594,7 +599,7 @@ theorem declDirectSumP_core (hμ : μ.verifiedChecks = true) {F : Nat} {env : En
     (fun ψ₁ ψ₂ hφ => by
       obtain ⟨h1, h2⟩ := hFssParams₀ ψ₁ ψ₂ (fun q hq => hφ q (by rw [hlpsT]; exact hq))
       rw [h1, h2])
-    hRBelow₀ hFssOk₀
+    hRBelow₀ hFssOk₀ (ConLeche.directSumCaps p) (fun m₂ _ => capsLawsAt_of_none m₂ rfl rfl)
   -- the constructors' data at the real former, their readings identified
   have hex : ∀ j : Nat, ∃ q : List Expr × ((Name → Nat) → List (Nat × Nat × AVExpr)) ×
       ((Name → Nat) → List AVExpr) × List (Option Nat),
@@ -610,7 +615,7 @@ theorem declDirectSumP_core (hμ : μ.verifiedChecks = true) {F : Nat} {env : En
     cases hj : ctorsA[j]? with
     | none => exact ⟨([], fun _ => [], fun _ => [], []), fun _ h => nomatch h⟩
     | some cA =>
-      obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
+      obtain ⟨c, -, -, -, -, -, _, hCtor⟩ := hrunOf j cA hj
       obtain ⟨idxArgs, ds, Es, srcs, hres, hopen, hCD⟩ :=
         sumCtorData_of hμ mpI hCtor hfT_I hlpsT hstripT
       exact ⟨(idxArgs, ds, Es, srcs), fun cA' h => by
@@ -644,8 +649,8 @@ theorem declDirectSumP_core (hμ : μ.verifiedChecks = true) {F : Nat} {env : En
   have hdsEq : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA → ∀ ψ,
       (dsF j ψ).drop p.nP = (dsF₀ j ψ).drop p.nP := by
     intro j cA hj ψ
-    obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
-    obtain ⟨-, -, fvsP, crest, tfvs', trest', xFvs, idxArgs', sorts, hopC, -, -, hopX, -, hxres, -, -⟩ :=
+    obtain ⟨c, -, -, -, -, -, _, hCtor⟩ := hrunOf j cA hj
+    obtain ⟨-, -, fvsP, crest, tfvs', trest', xFvs, idxArgs', hopC, -, -, hopX, -, hxres, -, -⟩ :=
       ConLeche.checkDirectSumCtor_shape hCtor
     have hopAll := openPisAtFvars_add p.nP hopC (by rw [Nat.zero_add]; exact hopX)
     have hlenP : fvsP.length = p.nP := openPisAtFvars_length _ hopC
@@ -704,7 +709,7 @@ theorem declDirectSumP_core (hμ : μ.verifiedChecks = true) {F : Nat} {env : En
             (∀ E ∈ esF j ψ, AnnotOkP V (consList bs ρ) E) ∧
             SpineFit ρ (((ppsAll ψ).drop p.nP).map (·.2.2)) (idxValsAt ρ (esF j ψ) bs))) := by
     intro j cA hj
-    obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
+    obtain ⟨c, -, -, -, -, -, _, hCtor⟩ := hrunOf j cA hj
     obtain ⟨hiff, hfields⟩ := sumCtorFrames hμ mpI hCtor hfT_I hProp' hFD_I (hdsF j cA hj) hleafT_I
     exact ⟨hiff, fun ψ ρ h => ⟨(hfields ψ ρ h).1, (hfields ψ ρ h).2.1, (hfields ψ ρ h).2.2.2⟩⟩
   obtain ⟨hFssParams, hFssBelow, -, hFssOkP, hFssOk⟩ :=
@@ -745,7 +750,8 @@ theorem declDirectSumP_core (hμ : μ.verifiedChecks = true) {F : Nat} {env : En
     simp only [DirectSumParts.majorIdx, DirectSumParts.rulePrefix, hlenA]
   have hrP : p.rulePrefix = p.nP + 1 + ctorsA.length := by
     simp only [DirectSumParts.rulePrefix, hlenA]
-  obtain ⟨mp₃, -⟩ := stageSumRec hE_C hμ mpC hmI hrP hRec hstripT hfT_C rfl rfl hlpsT hopT helimR hRlps
+  obtain ⟨mp₃, -⟩ := stageSumRec (hE_C.except _) hμ mpC hmI hrP hRec hstripT hfT_C
+    (fun m₂ _ => capsLawsAt_of_none m₂ rfl rfl) hlpsT hopT helimR hRlps
     hFD_C hcf_C hidxRes_C hleafT_C hleafC_C (fun j cA hj => (hframes j cA hj).1)
     (fun j cA hj => (hframes j cA hj).2) hFssOk hwl
   exact ⟨mp₃⟩
@@ -759,7 +765,7 @@ theorem declDirectSumP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     {block : List ConstantInfo} {p : DirectSumParts} (mp : EnvS2PM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.directSumParts? env block = some p)
     (h : ConLeche.Semantics.DeclDirectSumRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨hnd, cvTa, envI, p', ctorsA, cvRa, rhss, hInd, helim, hCtors, hRec, rfl⟩ := h
+  obtain ⟨hnd, cvTa, envI, p', ctorsA, sortss, cvRa, rhss, hInd, helim, hCtors, hRec, rfl⟩ := h
   obtain ⟨-, -, -, hClps, -, -, helimR, hRlps, -, -⟩ := ConLeche.directSumParts?_inv hdp
   obtain ⟨cvT, s, hTname, hTlps, hccvT, hps, rfl, bsT, hstripT⟩ :=
     ConLeche.checkDirectSumInd_shape hInd

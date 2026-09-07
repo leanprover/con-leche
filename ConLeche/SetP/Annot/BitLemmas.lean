@@ -72,7 +72,7 @@ theorem denoteP_proj (acval : Name → (Name → Nat) → AVExpr)
       = (do
         let ea ← denoteP acval env φ d e
         match env.findProj? s i with
-        | some _ => some (projAV i ea)
+        | some entry => some (projAV (i + entry.off) ea)
         | none => if i < 2 then some (.proj i ea) else none) := by
   rw [denoteP]
   rfl
@@ -91,7 +91,7 @@ theorem denoteP_proj_pair (acval : Name → (Name → Nat) → AVExpr)
   | none => rfl
   | some ea =>
     show (match env.findProj? s i with
-      | some _ => some (projAV i ea)
+      | some entry => some (projAV (i + entry.off) ea)
       | none => if i < 2 then some (AVExpr.proj i ea) else none)
         = if i < 2 then some (AVExpr.proj i ea) else none
     rw [hnt]
@@ -143,7 +143,7 @@ theorem denoteP_proj_inv {d : Nat} {s : Name} {i : Nat} {e : Expr}
     {ea : AVExpr}
     (h : denoteP acval env φ d (.proj s i e) = some ea) :
     ∃ ia, denoteP acval env φ d e = some ia ∧
-      ((∃ entry, env.findProj? s i = some entry ∧ ea = projAV i ia) ∨
+      ((∃ entry, env.findProj? s i = some entry ∧ ea = projAV (i + entry.off) ia) ∨
        (env.findProj? s i = none ∧ i < 2 ∧ ea = .proj i ia)) := by
   rw [denoteP] at h
   cases he : denoteP acval env φ d e with
@@ -151,7 +151,7 @@ theorem denoteP_proj_inv {d : Nat} {s : Name} {i : Nat} {e : Expr}
   | some ia =>
     rw [he] at h
     replace h : (match env.findProj? s i with
-        | some _ => some (projAV i ia)
+        | some entry => some (projAV (i + entry.off) ia)
         | none => if i < 2 then some (AVExpr.proj i ia) else none)
           = some ea := h
     cases hfp : env.findProj? s i with

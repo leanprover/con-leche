@@ -112,10 +112,10 @@ theorem denoteP_envExtend {env₀ env : Env}
     | none => rfl
     | some ea =>
       show (match env₀.findProj? sn i with
-          | some _ => some (projAV i ea)
+          | some entry => some (projAV (i + entry.off) ea)
           | none => if i < 2 then some (AVExpr.proj i ea) else none)
         = (match env.findProj? sn i with
-          | some _ => some (projAV i ea)
+          | some entry => some (projAV (i + entry.off) ea)
           | none => if i < 2 then some (AVExpr.proj i ea) else none)
       cases hfp0 : env₀.findProj? sn i with
       | some entry => rw [hmono sn i entry hfp0]

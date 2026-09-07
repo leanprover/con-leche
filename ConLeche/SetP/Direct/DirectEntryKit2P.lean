@@ -183,16 +183,19 @@ theorem fieldsValid_getD {Fs : List AVExpr} {ρ : Nat → V}
 def entryParamBvars (nP : Nat) : List AVExpr :=
   (List.range nP).map fun k => AVExpr.bvar (nP - k)
 
-/-- The readings of the earlier projections of the subject. -/
-def entryProjAVs (i : Nat) : List AVExpr :=
-  (List.range i).map fun j => projAV j (.bvar 0)
+/-- The readings of the earlier projections of the subject, at the
+table's projection offset `off` (task #210 Part A: `projS (j + off)`
+is field `j` of a carrier whose tuple tower sits below `off` leading
+pair components). -/
+def entryProjAVs (off i : Nat) : List AVExpr :=
+  (List.range i).map fun j => projAV (j + off) (.bvar 0)
 
 omit [SetTheory V] in
 theorem entryParamBvars_length (nP : Nat) : (entryParamBvars nP).length = nP := by
   simp [entryParamBvars]
 
 omit [SetTheory V] in
-theorem entryProjAVs_length (i : Nat) : (entryProjAVs i).length = i := by
+theorem entryProjAVs_length (off i : Nat) : (entryProjAVs off i).length = i := by
   simp [entryProjAVs]
 
 /-- The opened parameters read to `entryParamBvars` at depth `nP + 1`. -/
@@ -217,36 +220,36 @@ theorem denoteSpineP_entryParams {acval : Name → (Name → Nat) → AVExpr} {e
 /-- The earlier projections of the subject read to `entryProjAVs` at
 depth `nP + 1`, through the stored tower entries. -/
 theorem denoteSpineP_entryProjs {acval : Name → (Name → Nat) → AVExpr} {env : Env}
-    {φ : Name → Nat} {nP : Nat} {T : Name} {sdom : Expr}
-    (hprev : ∀ j, j < i → ∃ entry, env.findProj? T j = some entry) :
+    {φ : Name → Nat} {nP off : Nat} {T : Name} {sdom : Expr}
+    (hprev : ∀ j, j < i → ∃ entry, env.findProj? T j = some entry ∧ entry.off = off) :
     DenoteSpineP acval env φ (nP + 1)
-      ((List.range i).map fun j => Expr.proj T j (.fvar nP sdom)) (entryProjAVs i) := by
+      ((List.range i).map fun j => Expr.proj T j (.fvar nP sdom)) (entryProjAVs off i) := by
   unfold entryProjAVs
   suffices ∀ (l : List Nat), (∀ j ∈ l, j < i) →
       DenoteSpineP acval env φ (nP + 1)
         (l.map fun j => Expr.proj T j (.fvar nP sdom))
-        (l.map fun j => projAV j (.bvar 0)) from
+        (l.map fun j => projAV (j + off) (.bvar 0)) from
     this (List.range i) (fun j hj => List.mem_range.mp hj)
   intro l
   induction l with
   | nil => intro _; exact .nil
   | cons j l ih =>
     intro hl
-    obtain ⟨entry, hfe⟩ := hprev j (hl j List.mem_cons_self)
+    obtain ⟨entry, hfe, hoff⟩ := hprev j (hl j List.mem_cons_self)
     simp only [List.map_cons]
     refine .cons ?_ (ih fun j' hj' => hl j' (List.mem_cons_of_mem _ hj'))
     rw [denoteP_proj_tower hfe (denoteP_fvar acval (nP + 1) nP sdom),
-      show nP + 1 - 1 - nP = 0 from by omega]
+      show nP + 1 - 1 - nP = 0 from by omega, hoff]
 
 /-- **The chain frame agrees with the projection spine's frame** below
 the field's depth: the parameter readings pick the frame's parameter
 values, the projection readings the subject's projections. -/
-theorem chainP_entry_agree (nP i : Nat) (ρ : Nat → V) :
+theorem chainP_entry_agree (nP off i : Nat) (ρ : Nat → V) :
     ∀ n, n < nP + i →
-      chainP V ρ (entryParamBvars nP ++ entryProjAVs i) n
-        = consList (projList i (ρ 0)) (fun j => ρ (j + 1)) n := by
+      chainP V ρ (entryParamBvars nP ++ entryProjAVs off i) n
+        = consList (projList i (dropS off (ρ 0))) (fun j => ρ (j + 1)) n := by
   intro n hn
-  have hlen : (entryParamBvars nP ++ entryProjAVs i).length = nP + i := by
+  have hlen : (entryParamBvars nP ++ entryProjAVs off i).length = nP + i := by
     simp [entryParamBvars_length, entryProjAVs_length]
   rw [chainP_lt (by rw [hlen]; exact hn), hlen]
   rcases Nat.lt_or_ge n i with hni | hni
@@ -259,15 +262,14 @@ theorem chainP_entry_agree (nP i : Nat) (ρ : Nat → V) :
     rw [consList_apply_lt _ _ _ (by rw [projList_length]; exact hni), projList_length,
       projList_eq_map_range, List.getElem?_map, List.getElem?_range (by omega)]
     simp only [Option.map_some, Option.getD_some]
-    congr 1
-    omega
+    rw [projS_add_dropS, show nP + i - 1 - n - nP = i - 1 - n from by omega]
   · -- a parameter slot
     rw [List.getD_eq_getElem?_getD, List.getElem?_append_left
       (by rw [entryParamBvars_length]; omega)]
     unfold entryParamBvars
     rw [List.getElem?_map, List.getElem?_range (by omega)]
     simp only [Option.map_some, Option.getD_some, interp2_bvar]
-    have := consList_apply_add (projList i (ρ 0)) (fun j => ρ (j + 1)) (n - i)
+    have := consList_apply_add (projList i (dropS off (ρ 0))) (fun j => ρ (j + 1)) (n - i)
     rw [projList_length, show n - i + i = n from by omega] at this
     rw [this]
     congr 1

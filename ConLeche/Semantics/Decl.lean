@@ -129,6 +129,6 @@ def DeclDirectRun (μ : CheckMode) (F : Nat) (env : Env)
      -- bodies off the annotated constructor type and the guard levels
      checkDirectProjTable (m := ConLeche.CheckM) p.cvT.name p.cvC.name
         p.cvT.levelParams p.nP p.nF p.resSort
-        (directProjGuards cvCa.type p.nP p.nF sorts) cvCa env₃ = .ok env₂)
+        (directProjGuards cvCa.type p.nP p.nF sorts) 0 cvCa env₃ = .ok env₂)
 
 end ConLeche.Semantics

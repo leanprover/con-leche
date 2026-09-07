@@ -490,9 +490,9 @@ theorem sumRecOpenedAll (mp : EnvS2PM V μ env)
 
 set_option maxHeartbeats 6400000 in
 /-- **The P step at the sum recursor's cons.** -/
-theorem stageSumRec (hE : ConLeche.EtaFamiliesClosed env)
+theorem stageSumRec {p : DirectSumParts} (hE : ConLeche.EtaFamiliesClosedExcept env p.cvT.name)
     (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
-    {F : Nat} {p : DirectSumParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
+    {F : Nat} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {rhss : List Expr} {mI rP : Nat}
     (hmI : mI = p.nP + 1 + ctorsA.length + p.nIdx) (hrP : rP = p.nP + 1 + ctorsA.length)
     (hRec : ConLeche.checkDirectSumRec (ConLeche.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
@@ -500,7 +500,12 @@ theorem stageSumRec (hE : ConLeche.EtaFamiliesClosed env)
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {caps : IndCaps}
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
-    (hcapsE : caps.eta = false) (hcapsU : caps.unitlike = false)
+    -- the block's own capability laws at the cons (task #210 Part A),
+    -- at any carrier agreeing with this one off the recursor's name
+    (hTlaws : ∀ m₂ : EnvS2Core V ⟨.recInfo cvRa mI rP
+        (ConLeche.directSumRules p.nP mI rP cvRa.type ctorsA rhss) :: env.consts⟩,
+      (∀ n, n ≠ cvRa.name → m₂.acval n = mp.base2.acval n) →
+      CapsLawsAt m₂ p.cvT.name cvTa caps)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
@@ -727,14 +732,15 @@ theorem stageSumRec (hE : ConLeche.EtaFamiliesClosed env)
       (ConsCrossEnv.ofNtc fun _ h => nomatch h) hpshapeC
       (Or.inr fun _ _ h => nomatch h) ?_ m₂ hac ?_
     · intro T' cvT' caps' hf hne hres hcape
-      exact hE T' cvT' caps' hf hcape hres
+      exact hE T' cvT' caps' hf hne hcape hres
     · intro cvT caps' hf _
       have hfT' : (⟨c₀ :: env.consts⟩ : Env).find? p.cvT.name = some (.indInfo cvTa caps) := by
         rw [ConLeche.Env.find?_cons, if_neg (fun h => hTR h.symm)]
         exact hfT
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
-      exact ⟨fun he => absurd (hcapsE.symm.trans he) Bool.false_ne_true,
-        fun hu => absurd (hcapsU.symm.trans hu) Bool.false_ne_true⟩
+      refine hTlaws m₂ fun n hn => ?_
+      rw [hac]
+      exact acvalWith_ne hn
   · -- `rec_rules`
     intro m₂ hac φ'
     refine recRulesP_cons_rec mp (c₀ := c₀) (A := A) hfresh rfl m₂ hac φ' ?_

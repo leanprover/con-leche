@@ -23,7 +23,8 @@ namespace ConLeche.Semantics
 
 open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   DirectSumParts DirectFixParts RecRule fueledOps checkDirectSumInd checkDirectSumCtors
-  checkDirectFixRec checkDirectFix consSumCtors directSumRules directFixFieldsOk)
+  checkDirectFixRec checkDirectFix checkDirectFixTable consSumCtors directSumRules
+  directFixFieldsOk directFixCaps)
 
 /-- **The direct recursive declaration, as checked**: the stage runs
 of `checkDirectFix`.  `env` is the pre-block environment. -/
@@ -37,26 +38,30 @@ def DeclDirectFixRun (μ : CheckMode) (F : Nat) (env : Env)
   (p.large = true → p.resSort.isNeverZero = true ∨ p.ctors.length < 2) ∧
   (p.ctors.map (·.1.name)).Nodup ∧
   ∃ (cvTa : ConstantVal) (env₁ : Env) (p₁ : DirectSumParts)
-    (ctorsA : List (ConstantVal × Nat))
+    (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level))
     (cvRa : ConstantVal) (rhss : List Expr) (tfvs : List Expr) (trest : Expr)
     (isorts : List Level),
     -- the former's run completes the record with the sort it read
     -- (task #195); the recursive route runs on its own syntactic record
-    -- and pins the two sorts equal
+    -- and pins the two sorts equal; the former carries the block's
+    -- capability record (`directFixCaps`, task #210 Part A)
     checkDirectSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p.toDirectSumParts
-      = .ok (env₁, cvTa, p₁) ∧
+      (fun _ => directFixCaps p) = .ok (env₁, cvTa, p₁) ∧
     p₁.resSort = p.resSort ∧
     openPisAtFvars (p.nP + p.nIdx) cvTa.type 0 = some (tfvs, trest) ∧
     ConLeche.checkDirectFieldSortsI (m := ConLeche.CheckM) (fueledOps μ F) env₁ true false p.resSort
       p.nP (tfvs.drop p.nP) [] p.nIdx = .ok isorts ∧
     checkDirectSumCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁ p.cvT.name
-      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors = .ok ctorsA ∧
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
+      = .ok (ctorsA, sortss) ∧
     directFixFieldsOk env p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds = true ∧
     checkDirectFixRec (m := ConLeche.CheckM) (fueledOps μ F) (consSumCtors p.nP ctorsA env₁)
       p cvTa ctorsA = .ok (cvRa, rhss) ∧
-    env₂ = ⟨.recInfo cvRa p.majorIdx p.rulePrefix
-      (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
-      :: (consSumCtors p.nP ctorsA env₁).consts⟩
+    -- the projection table at a structure-like block (task #210 Part A)
+    checkDirectFixTable (m := ConLeche.CheckM) p ctorsA sortss
+      ⟨.recInfo cvRa p.majorIdx p.rulePrefix
+        (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
+        :: (consSumCtors p.nP ctorsA env₁).consts⟩ = .ok env₂
 
 /-- The bridge inversion: the monad-shape argument, one `cases` per
 bind, the guards by cases. -/
@@ -90,7 +95,8 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   rw [if_pos hnd] at h
   try simp only [bind, Except.bind] at h
-  cases hInd : checkDirectSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p.toDirectSumParts with
+  cases hInd : checkDirectSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p.toDirectSumParts
+      (fun _ => directFixCaps p) with
   | error e => rw [hInd] at h; exact nomatch h
   | ok r₁ =>
   obtain ⟨env₁, cvTa, p₁⟩ := r₁
@@ -119,7 +125,8 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   cases hCtors : checkDirectSumCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁
       p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors with
   | error e => rw [hCtors] at h; exact nomatch h
-  | ok ctorsA =>
+  | ok r₂ =>
+  obtain ⟨ctorsA, sortss⟩ := r₂
   rw [hCtors] at h
   dsimp only at h
   by_cases hk : directFixFieldsOk env p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA
@@ -135,18 +142,18 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   | ok r₃ =>
   obtain ⟨cvRa, rhss⟩ := r₃
   rw [hRec] at h
-  simp only [Except.ok.injEq] at h
-  exact ⟨by simpa using hneg, helim, hnd, cvTa, env₁, p₁, ctorsA, cvRa, rhss, tfvs, trest, isorts,
-    hInd, by simpa using hsort, htq, hsorts, hCtors, hk, hRec, h.symm⟩
+  dsimp only at h
+  exact ⟨by simpa using hneg, helim, hnd, cvTa, env₁, p₁, ctorsA, sortss, cvRa, rhss, tfvs, trest,
+    isorts, hInd, by simpa using hsort, htq, hsorts, hCtors, hk, hRec, h⟩
 
 /-- The direct recursive arm keeps the environment well-formed. -/
 theorem declDirectFixRun_wf {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectFixParts} (henv : ConLeche.EnvWF env)
     (h : DeclDirectFixRun μ F env p env₂) : ConLeche.EnvWF env₂ := by
-  obtain ⟨-, -, -, cvTa, env₁, p₁, ctorsA, cvRa, rhss, -, -, -, hInd, -, -, -, hCtors, -, hRec,
-    rfl⟩ := h
+  obtain ⟨-, -, -, cvTa, env₁, p₁, ctorsA, sortss, cvRa, rhss, -, -, -, hInd, -, -, -, hCtors, -,
+    hRec, hTbl⟩ := h
   obtain ⟨henv₁, -⟩ := ConLeche.direct_sum_ind_wf henv hInd
-  obtain ⟨hlen, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
+  obtain ⟨hlen, -, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
   have henv₂ : ConLeche.EnvWF (consSumCtors p.nP ctorsA env₁) := by
     refine ConLeche.envWF_consSumCtors henv₁ ?_
     intro c hc
@@ -154,9 +161,9 @@ theorem declDirectFixRun_wf {μ : CheckMode} {F : Nat} {env env₂ : Env}
     have hj' : j < p.ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hj).1
       omega
-    obtain ⟨-, hrun⟩ := hall j (p.ctors[j]) c (List.getElem?_eq_getElem hj') hj
+    obtain ⟨-, _, -, hrun⟩ := hall j (p.ctors[j]) c (List.getElem?_eq_getElem hj') hj
     exact ConLeche.direct_sum_ctor_typeWF hrun
-  exact ConLeche.direct_fix_rec_wf henv₂ hRec
+  exact ConLeche.direct_fix_table_wf (ConLeche.direct_fix_rec_wf henv₂ hRec) hTbl
 
 /-! ## The run-level dispatch
 

@@ -303,7 +303,7 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
   · -- stuck: the projection of the reduced scrutinee, at whichever
     -- entry kind the node's name carries (task #175 wiring W5)
     rcases hrd with ⟨entry, hfe, -⟩ | ⟨hnt, hi2, -⟩
-    · exact ⟨projAV i v₃, denoteP_proj_tower hfe hv₃⟩
+    · exact ⟨projAV (i + entry.off) v₃, denoteP_proj_tower hfe hv₃⟩
     · refine ⟨.proj i v₃, ?_⟩
       rw [denoteP_proj_pair m.acval (env := env) (φ := φ) _ _ _ _ hnt, hv₃]
       exact if_pos hi2

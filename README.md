@@ -112,8 +112,9 @@ And on top of that there is surely plenty of optimizations still possible.
 
 This project was published when it was barely useable – able to process mathlib within reasonable memory usage and not absurdly slow. There is more to be done:
 
-* Faster code.
+* Make it faster.
 * Direct support for mutual and nested types, dropping the run-time model generation.
+* Use a verified bignum library for `Nat` handling.
 * Lots of proof refactoring to clean up oddities and detours introduced by path dependencies.
 
 

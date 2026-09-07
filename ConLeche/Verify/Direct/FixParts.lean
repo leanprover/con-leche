@@ -140,7 +140,12 @@ theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
     directFixShape? block = some p.toDirectSumParts ∧
     directFixKinds? p.toDirectSumParts = some p.kinds ∧
     p.kinds.length = p.ctors.length ∧
-    0 < p.ctors.length := by
+    0 < p.ctors.length ∧
+    -- some constructor has a non-positive field (the install rejects)
+    -- or a recursive one (task #210 Part A: so a structure-like block
+    -- on this route has a field — it is never unit-like)
+    (p.kinds.any (fun ks => ks.any (· == .negative)) = true ∨
+      p.kinds.any (fun ks => ks.any fun k => k == .recursive || k == .reflexive) = true) := by
   unfold directFixParts? at h
   split at h
   · next p' hshape =>
@@ -158,14 +163,14 @@ theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
       split at h
       · next hneg =>
         obtain rfl := Option.some.inj h
-        exact ⟨hshape, hkinds, hlen, hpos _ hneg⟩
+        exact ⟨hshape, hkinds, hlen, hpos _ hneg, Or.inl hneg⟩
       · split at h
         · exact nomatch h
         · split at h
           · next hany =>
             split at h
             · obtain rfl := Option.some.inj h
-              exact ⟨hshape, hkinds, hlen, hpos _ hany⟩
+              exact ⟨hshape, hkinds, hlen, hpos _ hany, Or.inr hany⟩
             · exact nomatch h
           · exact nomatch h
     · exact nomatch h

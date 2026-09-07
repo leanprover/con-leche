@@ -182,7 +182,7 @@ def denoteP (acval : Name → (Name → Nat) → AVExpr)
     -- introduction machinery's); the pair/absent side is the pre-W3
     -- clause
     match env.findProj? sn i with
-    | some _ => some (projAV i ea)
+    | some entry => some (projAV (i + entry.off) ea)
     | none => if i < 2 then some (.proj i ea) else none
   | _, .lit (.natVal n) =>
     if natLitSupported env then
@@ -320,7 +320,7 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     · rw [hea] at h; exact nomatch h
     rw [hea] at h
     replace h : (match env.findProj? sn i with
-        | some _ => some (projAV i ea')
+        | some entry => some (projAV (i + entry.off) ea')
         | none => if i < 2 then some (AVExpr.proj i ea') else none)
           = some ea := h
     rw [denote_proj, ihe hea]

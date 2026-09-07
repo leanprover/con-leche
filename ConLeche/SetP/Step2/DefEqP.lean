@@ -1214,8 +1214,9 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
         simp only [Expr.WScoped] at hwa hwb
         simp only [Expr.looseBVarsBounded] at hba hbb
         rcases hrd₁ with ⟨entry, hfe, rfl⟩ | ⟨hnt, -, rfl⟩
-        · rcases hrd₂ with ⟨-, -, rfl⟩ | ⟨hnt', -, -⟩
-          · exact interp2_projAV_congr (ihd hde hwa hba
+        · rcases hrd₂ with ⟨entry', hfe', rfl⟩ | ⟨hnt', -, -⟩
+          · obtain rfl : entry = entry' := Option.some.inj (hfe.symm.trans hfe')
+            exact interp2_projAV_congr (ihd hde hwa hba
               (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
               hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
               hCa.proj_arg hCb.proj_arg he₁ he₂

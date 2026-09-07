@@ -329,18 +329,6 @@ end IhFrame
 
 /-! ## The ih values at a constructor payload -/
 
-theorem projList_mkTower_take {fs : List V} {i : Nat} (hi : i ≤ fs.length) :
-    projList i (mkTower (fs ++ [pt])) = fs.take i := by
-  have h1 : projList (fs.length + 1) (mkTower (fs ++ [pt])) = fs ++ [pt] := projList_mkTower _ _ (by simp)
-  have h2 := projList_take (fs.length + 1) i (mkTower (fs ++ [pt])) (by omega)
-  rw [h1, List.take_append_of_le_length hi] at h2
-  exact h2.symm
-
-theorem projS_mkTower_getD {fs : List V} {i : Nat} (hi : i < fs.length) :
-    projS i (mkTower (fs ++ [pt])) = fs.getD i pt := by
-  rw [projS_mkTower i (fs ++ [pt]) (by simp; omega), List.getElem_append_left hi,
-    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some]
-
 /-- The ih values at a constructor value are the λ-towers at the
 fields' prefixes of the function at the block, the calls' index values
 and the field applied to the telescope's values. -/

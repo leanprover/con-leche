@@ -107,8 +107,9 @@ data at a carrier storing the former as a λ-tower over the parameters
 theorem fixChainValidFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
+    {sorts : List Level}
     (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok cvCa)
+      isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AVExpr)}
@@ -368,8 +369,9 @@ theorem fixCtorPick_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     {bs : List (Expr × BinderMeta)} {ks : List RecFieldKind}
+    {sorts : List Level}
     (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok cvCa)
+      isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
     (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort))
@@ -393,8 +395,9 @@ theorem fixCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort))
     (hFOk : ConLeche.directFixFieldsOk env₀ T lps nP nIdx ctorsA kinds = true)
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
-      ∃ c : ConstantVal × Nat, ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx
-        resSort isProp large c.1 cA.2 cvTa = .ok cA.1) :
+      ∃ (c : ConstantVal × Nat) (sorts : List Level),
+        ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx
+          resSort isProp large c.1 cA.2 cvTa = .ok (cA.1, sorts)) :
     ∃ (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AVExpr))
       (esF : Nat → (Name → Nat) → List AVExpr) (srcsF : Nat → List (Option Nat))
       (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
@@ -411,7 +414,7 @@ theorem fixCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     | none => exact ⟨⟨[], fun _ => [], fun _ => [], [], [], [], .bvar 0, fun _ => [], fun _ => []⟩,
         fun _ h => nomatch h⟩
     | some cA =>
-      obtain ⟨c, hCtor⟩ := hrunOf j cA hj
+      obtain ⟨c, sorts, hCtor⟩ := hrunOf j cA hj
       obtain ⟨ks, hks, hksLen, hopened⟩ := ConLeche.directFixFieldsOk_inv hFOk hj
       have hksD : kinds.getD j [] = ks := by rw [List.getD_eq_getElem?_getD, hks]; rfl
       obtain ⟨q, hq⟩ := fixCtorPick_of hμ mp hCtor hfT hlpsT hstripT hksLen hopened

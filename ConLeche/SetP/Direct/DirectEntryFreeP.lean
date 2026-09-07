@@ -364,8 +364,8 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
     obtain ⟨ia, hia, hcase⟩ := denoteP_proj_inv h
     simp only [Expr.WScoped] at hw
     obtain ⟨Xe, rfl⟩ := ihe hw hq (fun l hl' => hl l (by simpa [Expr.fvarLeaves] using hl')) hia
-    rcases hcase with ⟨-, -, -, rfl⟩ | ⟨-, -, rfl⟩
-    · exact ⟨projAV i Xe, by rw [projAV_liftN]⟩
+    rcases hcase with ⟨entry, -, rfl⟩ | ⟨-, -, rfl⟩
+    · exact ⟨projAV (i + entry.off) Xe, by rw [projAV_liftN]⟩
     · exact ⟨.proj i Xe, by rw [AVExpr.liftN_proj]⟩
   | case11 d n hsup =>
     intro _ q _ _ ea h

@@ -156,7 +156,7 @@ def checkDirectRecF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
 
 /-- `checkDirectProjTable` through the index (task #175 S1). -/
 def checkDirectProjTableF (T C : Name) (lps : List Name) (nP nF : Nat)
-    (resSort : Level) (guards : List Level) (cvCa : ConstantVal) (fe : FEnv) :
+    (resSort : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal) (fe : FEnv) :
     m FEnv := do
   let bodies ← unwrapOr (directProjBodies T nP nF cvCa.type)
     (.internal "direct structure: projection bodies")
@@ -176,6 +176,6 @@ def checkDirectProjTableF (T C : Name) (lps : List Name) (nP nF : Nat)
     throw (.invalid "projection name family taken")
   unless (fe.find? (projTableName T)).isNone do
     throw (.invalid "projection table taken")
-  pure (fe.push (.projInfo ⟨T, lps, nP, C, nF, resSort, bodies, guards⟩))
+  pure (fe.push (.projInfo ⟨T, lps, nP, C, nF, resSort, bodies, guards, off⟩))
 
 end Mirrors

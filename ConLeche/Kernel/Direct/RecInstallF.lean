@@ -103,6 +103,17 @@ def checkDirectFixRecF (ops : CheckerOps m) (fe : FEnv) (p : DirectFixParts)
     cvTa.type ctors p.cvR.name (p.cvR.levelParams.map .param) ctors.length 0
   pure (cvRa, rhss)
 
+/-- `checkDirectFixTable` through the index (task #210 Part A). -/
+def checkDirectFixTableF (p : DirectFixParts) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (fe : FEnv) : m FEnv :=
+  match ctorsA, sortss with
+  | [cA], [sorts] =>
+    if p.nIdx == 0 then
+      checkDirectProjTableF p.cvT.name cA.1.name p.cvT.levelParams p.nP cA.2 p.resSort
+        (directProjGuards cA.1.type p.nP cA.2 sorts) 1 cA.1 fe
+    else pure fe
+  | _, _ => pure fe
+
 end Mirrors
 
 end ConLeche

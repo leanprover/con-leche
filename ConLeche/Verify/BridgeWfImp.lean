@@ -2719,11 +2719,11 @@ theorem checkDirectRec_wfimp {env : Env} (henv : EnvWF env)
 /-- The projection table, `wfOpsM mode` run to pure run (the stage is
 ops-free, task #175 S1). -/
 theorem checkDirectProjTable_wfimp {T C : Name} {lps : List Name}
-    {nP nF : Nat} {rs : Level} {guards : List Level} {cvCa : ConstantVal}
+    {nP nF : Nat} {rs : Level} {guards : List Level} {off : Nat} {cvCa : ConstantVal}
     {env v : Env} {F : Nat}
-    (h : (checkDirectProjTable T C lps nP nF rs guards cvCa env : FueledM Env).val F
+    (h : (checkDirectProjTable T C lps nP nF rs guards off cvCa env : FueledM Env).val F
       = Except.ok v) :
-    (checkDirectProjTable T C lps nP nF rs guards cvCa env : CheckM Env)
+    (checkDirectProjTable T C lps nP nF rs guards off cvCa env : CheckM Env)
       = Except.ok v := by
   rw [checkDirectProjTable_datF] at h
   exact h
