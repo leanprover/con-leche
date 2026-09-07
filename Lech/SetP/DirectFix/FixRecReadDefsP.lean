@@ -296,6 +296,14 @@ structure CtorReadR {env : Env} (m : EnvS2Core V env) (ψ : Name → Nat) (T : N
     openPisAtFvars (nP + c.2.1) c.2.2.1 0 = some (fvs, o) →
     ∀ x, fvs[nP + i]? = some x →
       denoteP m.acval env ψ (nP + i) x.fvarTypeD = some (cd.2.2.1.getD (nP + i) default).2.2
+  /-- a recursive field's domain, under its own telescope, is an
+  application of `nP + nIdx` arguments — the parameters and the index
+  expressions `directFieldIdxOf` (task #202: without the arity the
+  field's readings cannot be separated from the family's leaf, which
+  may itself be an application) -/
+  fieldArity : ∀ i ∈ c.2.2.2, ∀ (cbs : List (Name × Expr × BinderMeta)) (body : Expr),
+    c.2.2.1.stripPis (nP + c.2.1) = some (cbs, body) →
+    (((cbs.getD (nP + i) default).2.1.piBinders).2.getAppArgs).length = nP + nIdx
   /-- a recursive field's entry: the Π-tower over its telescope of the
   family at the parameter variables and the field's index readings
   (task #202; a finitary field: the family at the readings) -/
@@ -320,6 +328,158 @@ theorem CtorReadsR.length_eq {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
       CtorReadsR m ψ T lps nP nIdx ctors cds → cds.length = ctors.length
   | _, _, .nil => rfl
   | _, _, .cons _ h => by simp [CtorReadsR.length_eq h]
+
+/-! ## The telescope toolkit (task #202)
+
+The kernel spells a reflexive field's own telescope with
+`Expr.piBinders` (`directFieldTeleOf`); the readings need its
+elementary laws — the round trip, its stability under the frame's
+instantiation (whose arguments are free variables), and the openers'
+count. -/
+
+@[simp] theorem Expr.piBinders_forallE (n : Name) (ty b : Expr) (mt : BinderMeta) :
+    (Expr.forallE n ty b mt).piBinders = ((n, ty, mt) :: (b.piBinders).1, (b.piBinders).2) := rfl
+
+/-- **A Π-tower is its own binders over its own body.** -/
+theorem Expr.mkPisOf_piBinders : ∀ e : Expr, Expr.mkPisOf (e.piBinders).1 (e.piBinders).2 = e
+  | .forallE n ty b mt => by
+    rw [Expr.piBinders_forallE]
+    show Expr.forallE n ty (Expr.mkPisOf (b.piBinders).1 (b.piBinders).2) mt = _
+    rw [Expr.mkPisOf_piBinders b]
+  | .bvar _ | .fvar .. | .sort _ | .const .. | .app .. | .lam .. | .letE .. | .lit _
+  | .proj .. => rfl
+
+/-- Substituting a free variable moves a Π-tower's body but not its
+binder count. -/
+theorem Expr.piBinders_instantiate1_fvar {i : Nat} {nm : Name} {tya : Expr} (e : Expr) :
+    ∀ k : Nat,
+      ((e.instantiate1 (.fvar i nm tya) k).piBinders).1.length = (e.piBinders).1.length ∧
+      ((e.instantiate1 (.fvar i nm tya) k).piBinders).2
+        = ((e.piBinders).2).instantiate1 (.fvar i nm tya) (k + (e.piBinders).1.length) := by
+  induction e with
+  | forallE n ty b mt _ ihb =>
+    intro k
+    obtain ⟨hl, hb⟩ := ihb (k + 1)
+    show (((Expr.forallE n (ty.instantiate1 _ k) (b.instantiate1 _ (k + 1)) mt)).piBinders).1.length
+        = _ ∧ _
+    rw [Expr.piBinders_forallE, Expr.piBinders_forallE]
+    refine ⟨by simp only [List.length_cons, hl], ?_⟩
+    show ((b.instantiate1 (.fvar i nm tya) (k + 1)).piBinders).2 = _
+    rw [hb]
+    congr 1
+    simp only [List.length_cons]
+    omega
+  | bvar j =>
+    intro k
+    show (((Expr.bvar j).instantiate1 (.fvar i nm tya) k).piBinders).1.length = ([] : List _).length ∧
+      (((Expr.bvar j).instantiate1 (.fvar i nm tya) k).piBinders).2
+        = (Expr.bvar j).instantiate1 (.fvar i nm tya) (k + ([] : List _).length)
+    simp only [List.length_nil, Nat.add_zero, Expr.instantiate1]
+    split
+    · exact ⟨rfl, rfl⟩
+    · split <;> exact ⟨rfl, rfl⟩
+  | _ => intro k; exact ⟨rfl, rfl⟩
+
+/-- The frame's instantiation moves a Π-tower's body but not its
+binder count (the frame's entries are free variables). -/
+theorem Expr.piBinders_instSeq :
+    ∀ (L : List Expr) (t : Nat) (e : Expr),
+      (∀ a ∈ L, ∃ (i : Nat) (nm : Name) (ty : Expr), a = Expr.fvar i nm ty) →
+      L.length ≤ t + 1 →
+      ((Expr.instSeq L t e).piBinders).1.length = (e.piBinders).1.length ∧
+      ((Expr.instSeq L t e).piBinders).2
+        = Expr.instSeq L (t + (e.piBinders).1.length) ((e.piBinders).2)
+  | [], _, _, _, _ => ⟨rfl, rfl⟩
+  | a :: L, t, e, hfv, hlen => by
+    obtain ⟨i, nm, tya, rfl⟩ := hfv a List.mem_cons_self
+    obtain ⟨hl1, hb1⟩ := Expr.piBinders_instantiate1_fvar (i := i) (nm := nm) (tya := tya) e t
+    have hfv' : ∀ x ∈ L, ∃ (i : Nat) (nm : Name) (ty : Expr), x = Expr.fvar i nm ty :=
+      fun x hx => hfv x (List.mem_cons_of_mem _ hx)
+    have hlen' : L.length ≤ t - 1 + 1 := by
+      simp only [List.length_cons] at hlen
+      omega
+    obtain ⟨hl2, hb2⟩ := Expr.piBinders_instSeq L (t - 1) (e.instantiate1 (.fvar i nm tya) t)
+      hfv' hlen'
+    have hstep : Expr.instSeq (Expr.fvar i nm tya :: L) t e
+        = Expr.instSeq L (t - 1) (e.instantiate1 (Expr.fvar i nm tya) t) := rfl
+    have hstep2 : Expr.instSeq (Expr.fvar i nm tya :: L) (t + (e.piBinders).1.length)
+          ((e.piBinders).2)
+        = Expr.instSeq L (t + (e.piBinders).1.length - 1)
+            (((e.piBinders).2).instantiate1 (Expr.fvar i nm tya)
+              (t + (e.piBinders).1.length)) := rfl
+    refine ⟨by rw [hstep, hl2, hl1], ?_⟩
+    rw [hstep, hstep2, hb2, hb1, hl1]
+    rcases Nat.eq_zero_or_pos t with rfl | hpos
+    · have : L = [] := List.eq_nil_of_length_eq_zero (by simp only [List.length_cons] at hlen; omega)
+      subst this
+      rfl
+    · rw [show t - 1 + (e.piBinders).1.length = t + (e.piBinders).1.length - 1 from by omega]
+
+/-- A Π-tower strips exactly its own binders. -/
+theorem Expr.stripPis_piBinders : ∀ e : Expr, e.stripPis (e.piBinders).1.length = some e.piBinders
+  | .forallE n ty b mt => by
+    rw [Expr.piBinders_forallE]
+    simp only [List.length_cons, Expr.stripPis]
+    rw [Expr.stripPis_piBinders b]
+    rfl
+  | .bvar _ | .fvar .. | .sort _ | .const .. | .app .. | .lam .. | .letE .. | .lit _
+  | .proj .. => rfl
+
+/-- A binder-free Π-tower is its own body. -/
+theorem Expr.piBinders_nil_body : ∀ {e : Expr}, (e.piBinders).1 = [] → (e.piBinders).2 = e
+  | .forallE _ _ _ _, h => by rw [Expr.piBinders_forallE] at h; exact nomatch h
+  | .bvar _, _ | .fvar .., _ | .sort _, _ | .const .., _ | .app .., _ | .lam .., _
+  | .letE .., _ | .lit _, _ | .proj .., _ => rfl
+
+/-- An application spine has no leading `∀`. -/
+theorem Expr.piBinders_nil_of_getAppFn_const {e : Expr} {c : Name} {us : List Level}
+    (h : e.getAppFn = .const c us) : (e.piBinders).1 = [] := by
+  match e with
+  | .forallE _ _ _ _ => exact nomatch h
+  | .bvar _ | .fvar .. | .sort _ | .const .. | .app .. | .lam .. | .letE .. | .lit _
+  | .proj .. => rfl
+
+/-- **An opened variable's type is its binder's domain instantiated at
+the earlier variables.** -/
+theorem openPisAtFvars_fvarTypeD :
+    ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr}
+      {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      openPisAtFvars n e d = some (fvs, o) →
+      e.stripPis n = some (bs, body) →
+      ∀ (i : Nat) (b : Name × Expr × BinderMeta) (x : Expr),
+        bs[i]? = some b → fvs[i]? = some x →
+        x.fvarTypeD = Expr.instSeq (fvs.take i) (i - 1) b.2.1
+  | 0, e, d, fvs, o, bs, body, hop, hst, i, b, x, hb, _ => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hst
+    rw [← hst.1] at hb
+    exact nomatch hb
+  | n + 1, e, d, fvs, o, bs, body, hop, hst, i, b, x, hb, hx => by
+    match e, hop, hst with
+    | .forallE nm dom bd mb, hop, hst =>
+      simp only [openPisAtFvars] at hop
+      split at hop
+      · next fvs₁ e₁ h₁ =>
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        simp only [Expr.stripPis, Option.map_eq_some_iff] at hst
+        obtain ⟨⟨bs', body₀⟩, hst', heq⟩ := hst
+        simp only [Prod.mk.injEq] at heq
+        obtain ⟨rfl, rfl⟩ := heq
+        cases i with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hb hx
+          subst hb; subst hx
+          rfl
+        | succ i =>
+          simp only [List.getElem?_cons_succ] at hb hx
+          obtain ⟨bs'', hst'', hdoms⟩ :=
+            Lech.stripPis_instantiate1_full (v := .fvar d nm dom) n 0 hst'
+          have hb'' := hdoms i b hb
+          rw [Nat.zero_add] at hb''
+          have ih := openPisAtFvars_fvarTypeD n h₁ hst'' i _ x hb'' hx
+          rw [ih, List.take_succ_cons]
+          rfl
+      · exact nomatch hop
 
 theorem CtorReadsR.getElem? {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {lps : List Name}
     {nP nIdx : Nat} :

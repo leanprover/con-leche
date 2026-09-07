@@ -120,6 +120,52 @@ theorem DenoteSpineP.map_map {acval : Name → (Name → Nat) → AVExpr} {d d' 
       exact .cons (hfg a _ List.mem_cons_self hd)
         (DenoteSpineP.map_map htl fun x v hx hv => hfg x v (List.mem_cons_of_mem _ hx) hv)
 
+/-! ## Frames of the same variables -/
+
+/-- Two frames of the same variables read an expression the same: the
+variables' annotations do not matter (`denoteP_erasedEq`). -/
+theorem denoteP_instSeq_congr {m : EnvS2Core V env} {ψ : Name → Nat} {d t : Nat} {e : Expr}
+    {L L' : List Expr} (hlen : L.length = L'.length)
+    (hidx : ∀ (k : Nat) (a b : Expr), L[k]? = some a → L'[k]? = some b →
+      ∃ (q : Nat) (nm nm' : Name) (ty ty' : Expr),
+        a = Expr.fvar q nm ty ∧ b = Expr.fvar q nm' ty') :
+    denoteP m.acval env ψ d (Expr.instSeq L t e)
+      = denoteP m.acval env ψ d (Expr.instSeq L' t e) := by
+  refine denoteP_erasedEq (Expr.instSeq_erasedEq_args L L' t (Expr.ErasedEq.rfl e) ?_ hlen) d
+  intro k a b ha hb
+  obtain ⟨q, nm, nm', ty, ty', rfl, rfl⟩ := hidx k a b ha hb
+  exact Eq.refl _
+
+/-- A frame of the variables `0 … D-1` is the canonical opening. -/
+theorem denoteP_instSeq_canon {m : EnvS2Core V env} {ψ : Name → Nat} {d t D : Nat} {e : Expr}
+    {L : List Expr} (hlen : L.length = D)
+    (hidx : ∀ (k : Nat) (x : Expr), L[k]? = some x → ∃ nm ty, x = Expr.fvar k nm ty) :
+    denoteP m.acval env ψ d (Expr.instSeq L t e)
+      = denoteP m.acval env ψ d (Expr.instSeq (openFvars 0 D) t e) := by
+  refine denoteP_instSeq_congr (by simp [hlen]) ?_
+  intro k a b ha hb
+  obtain ⟨nm, ty, rfl⟩ := hidx k a ha
+  have hk : k < D := by
+    rw [← hlen]
+    exact (List.getElem?_eq_some_iff.mp ha).1
+  rw [openFvars_getElem? hk, Nat.zero_add] at hb
+  obtain rfl := (Option.some.inj hb).symm
+  exact ⟨k, nm, _, ty, _, rfl, rfl⟩
+
+/-- A canonical opening's variables are scoped. -/
+theorem openFvars_WScoped {base k d : Nat} (h : base + k ≤ d) :
+    ∀ (q : Nat) (x : Expr), (openFvars base k)[q]? = some x → Expr.WScoped d x := by
+  intro q x hq
+  have hqk : q < k := by
+    rcases Nat.lt_or_ge q k with h' | h'
+    · exact h'
+    · rw [List.getElem?_eq_none (by simp; omega)] at hq
+      exact nomatch hq
+  rw [openFvars_getElem? hqk] at hq
+  obtain rfl := (Option.some.inj hq).symm
+  simp only [Expr.WScoped]
+  exact ⟨by omega, trivial⟩
+
 /-! ## The `ih` binders' index expressions -/
 
 /-- A field's index expressions inherit the constructor type's

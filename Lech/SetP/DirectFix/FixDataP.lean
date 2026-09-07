@@ -179,6 +179,7 @@ structure FixCtorDataI {env : Env} (m : EnvS2Core V env) (env₀ : Env) (T : Nam
   reflOpen : ∀ ψ i x, xFvs[i]? = some x → ks.getD i .ordinary = .reflexive →
     ∃ afvs body,
       openPisAtFvars ((tss ψ).getD i []).length x.fvarTypeD (nP + i) = some (afvs, body) ∧
+      ((tss ψ).getD i []).length = (x.fvarTypeD.piBinders).1.length ∧
       (∀ k a, afvs[k]? = some a →
         denoteP m.acval env ψ (nP + i + k) a.fvarTypeD
           = some (((tss ψ).getD i []).getD k default).2.2) ∧
@@ -578,7 +579,8 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   · intro ψ i x hx hk
     have hi : i < nF := by rw [← hlenX]; exact (List.getElem?_eq_some_iff.mp hx).1
     rw [hTssGet ψ i hi, hEissGet ψ i hi]
-    exact (hEisR ψ i ⟨hk, hi⟩).2.2.1 x hx
+    obtain ⟨afvs, body, hop, hdoms, hsp⟩ := (hEisR ψ i ⟨hk, hi⟩).2.2.1 x hx
+    exact ⟨afvs, body, hop, (hEisR ψ i ⟨hk, hi⟩).2.1 x hx, hdoms, hsp⟩
   · intro ψ i hk hi
     rw [hEissGet ψ i hi]
     exact (hEisR ψ i ⟨hk, hi⟩).1
