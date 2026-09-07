@@ -481,43 +481,35 @@ prog_check "the rejection still names the failing declaration" \
   "$(printf '%s' "$prog_errB" | grep -q '\[at .*, fold position [0-9]' && echo ok)"
 echo "progress lane: $prog_ok/$prog_total as expected"
 
-# THE FRONTEND TREE-SIZE BUDGET (task #213).  `CON_LECHE_TREE_BUDGET`
-# overrides the default 2^25 cap on a declaration's *unshared* tree
-# size; `0` is unlimited; a non-numeral is a hard error.  The decline
-# must NAME the offender — which declaration, which record kind, which
-# budget — which is what the user report that opened the task could not
-# read off the old wording.  The two fixtures are the e2e half's
-# (budget_block accepts at the default, budget_model is the lifted
-# `_model` class); here we drive the same streams at other budgets.
-budget_ok=0
-budget_total=0
-budget_check() { # <description> <condition-result>
-  budget_total=$((budget_total+1))
+# THE DAG-TOWER GATE (task #215).  The frontend tree-size budget is
+# gone; what stands in its place is a fixture, not a limit.
+# `tests/e2e/tower_*.ndjson` (scripts/mk_tower_fixtures.py) put a shared
+# tower of depth 60 — about 2^60 nodes unshared, ~190 entries as a DAG —
+# into one record kind each.  A walk that is not DAG-safe never
+# finishes on one, so the fixture hangs and names the walker; the e2e
+# half runs the ones that pass today, and DESIGN's #215 record carries
+# the matrix of the ones that do not (they are quiet-time work).
+tower_ok=0
+tower_total=0
+tower_check() { # <description> <condition-result>
+  tower_total=$((tower_total+1))
   if [ "$2" = ok ]; then
-    budget_ok=$((budget_ok+1))
+    tower_ok=$((tower_ok+1))
   else
-    echo "BUDGET FAIL: $1"; fail=1
+    echo "TOWER FAIL: $1"; fail=1
   fi
 }
-b_out=$(CON_LECHE_INDUCTIVE_MODELS=/nonexistent CON_LECHE_TREE_BUDGET=1000 \
-  timeout 60 "$BIN" tests/e2e/budget_block.ndjson 2>&1 >/dev/null); b_code=$?
-budget_check "a block over the budget declines (exit 2)" \
-  "$([ "$b_code" = 2 ] && echo ok)"
-budget_check "the decline names the declaration and the record kind" \
-  "$(printf '%s' "$b_out" | grep -q 'declined: Big (inductive block)' && echo ok)"
-budget_check "the decline names the budget in force" \
-  "$(printf '%s' "$b_out" | grep -q 'CON_LECHE_TREE_BUDGET=1000' && echo ok)"
-b_code=0
-CON_LECHE_INDUCTIVE_MODELS=/nonexistent CON_LECHE_TREE_BUDGET=0 \
-  timeout 60 "$BIN" tests/e2e/budget_block.ndjson >/dev/null 2>&1 || b_code=$?
-budget_check "CON_LECHE_TREE_BUDGET=0 is unlimited (the block accepts)" \
-  "$([ "$b_code" = 0 ] && echo ok)"
-b_code=0
-CON_LECHE_TREE_BUDGET=notanumber timeout 60 "$BIN" tests/e2e/budget_block.ndjson \
-  >/dev/null 2>&1 || b_code=$?
-budget_check "a non-numeral budget is a hard error (exit 3)" \
-  "$([ "$b_code" = 3 ] && echo ok)"
-echo "tree-size budget: $budget_ok/$budget_total as expected"
+t_code=0
+CON_LECHE_INDUCTIVE_MODELS=/nonexistent \
+  timeout 60 "$BIN" --pre tests/e2e/tower_thm.ndjson >/dev/null 2>&1 || t_code=$?
+tower_check "a depth-60 tower in a theorem's type and value accepts" \
+  "$([ "$t_code" = 0 ] && echo ok)"
+t_code=0
+CON_LECHE_INDUCTIVE_MODELS=/nonexistent \
+  timeout 60 "$BIN" tests/e2e/budget_block.ndjson >/dev/null 2>&1 || t_code=$?
+tower_check "the retired budget's block fixture still accepts, uncapped" \
+  "$([ "$t_code" = 0 ] && echo ok)"
+echo "DAG-tower gate: $tower_ok/$tower_total as expected"
 
 # The mode sweep (task #147): both suites again with `--trusted`
 # (certified expectations plus the recorded overrides in

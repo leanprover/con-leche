@@ -207,7 +207,7 @@ error* drains instead of killing, so that a tool which failed
 mid-stream — leaving us a truncated record — still gets to state its
 verdict, which then wins over our reading of its debris. -/
 def preprocessParse (tool file modeTag : String) (prelude : Frontend.PreludeIx)
-    (inModel : Bool) (budget : Nat) : IO (Option InputResult) := do
+    (inModel : Bool) : IO (Option InputResult) := do
   let child ← try
       IO.Process.spawn
         { cmd := tool
@@ -215,7 +215,7 @@ def preprocessParse (tool file modeTag : String) (prelude : Frontend.PreludeIx)
           stdin := .null, stdout := .piped, stderr := .inherit }
     catch _ => return none
   match ← Frontend.parseExportHandleD child.stdout (modeled := true) prelude inModel
-      (census := false) (budget := budget) with
+      (census := false) with
   | .error (.unsupported what) =>
     try child.kill catch _ => pure ()
     let _ ← child.wait
@@ -239,15 +239,15 @@ either straight from the file (`--pre`, or an input with nothing for
 the preprocessor to do, or a preprocessor that could not be run) or
 through the preprocessor's pipe — or the preprocessor's own verdict. -/
 def parseInput (file : String) (pre : Bool) (modeTag : String)
-    (prelude : Frontend.PreludeIx) (inModel : Bool) (budget : Nat) : IO InputResult := do
+    (prelude : Frontend.PreludeIx) (inModel : Bool) : IO InputResult := do
   let census := (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1"
   let raw : IO InputResult :=
     InputResult.parsed <$>
-      Frontend.parseExportStreamD file (modeled := true) prelude inModel census budget
+      Frontend.parseExportStreamD file (modeled := true) prelude inModel census
   if pre then return ← raw
   unless ← needsPreprocess file do return ← raw
   let some tool ← findPreprocessor | raw
-  match ← preprocessParse tool file modeTag prelude inModel budget with
+  match ← preprocessParse tool file modeTag prelude inModel with
   | some res => return res
   | none => raw
 
@@ -348,26 +348,6 @@ def progressStride : IO (Except String Nat) := do
     | none => return .error s!"CON_LECHE_PROGRESS must be a declaration stride \
         (a decimal numeral; 0 or unset is off), got {repr s}"
 
-/-- The frontend tree-size budget (`CON_LECHE_TREE_BUDGET=<nodes>`, task
-#213).  Unset is `Frontend.declTreeSizeBudget` (2^25); `0` is
-*unlimited* (no size is tracked at all); a value that is not a decimal
-numeral is a hard error, on the same provenance discipline as
-`CON_LECHE_PROGRESS` — a run's verdict must be readable off its
-invocation.
-
-The budget bounds a declaration's *unshared* tree size for the record
-kinds whose stored artifacts still meet an unmemoized tree walker; the
-census, and what task #213 took out of it, is in
-`ConLeche/Frontend/Export.lean` (`declTreeSizeBudget`, `budgetedName`). -/
-def treeBudget : IO (Except String Nat) := do
-  match ← IO.getEnv "CON_LECHE_TREE_BUDGET" with
-  | none => return .ok Frontend.declTreeSizeBudget
-  | some s =>
-    match s.toNat? with
-    | some n => return .ok n
-    | none => return .error s!"CON_LECHE_TREE_BUDGET must be a node count \
-        (a decimal numeral; 0 is unlimited), got {repr s}"
-
 /-- The real driver (run in the supervised child process).  `mode` is
 the three-mode setting (task #147), validated once by the caller and
 consumed here as configuration; `pre` asserts the input is already
@@ -403,11 +383,6 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- The opt-in progress heartbeat (2026-09-07): validated here, once,
     -- before any work is done.
     let stride ← match ← progressStride with
-      | .error msg => IO.eprintln s!"con-leche: {msg}"; return 3
-      | .ok n => pure n
-    -- The frontend tree-size budget (task #213): validated here too,
-    -- before the first record is read.
-    let budget ← match ← treeBudget with
       | .error msg => IO.eprintln s!"con-leche: {msg}"; return 3
       | .ok n => pure n
     -- The route trace (`CON_LECHE_ROUTE_TRACE`, task #193): one `con-leche:
@@ -452,7 +427,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- turns it off, `CON_LECHE_INMODEL_DUMP=OUT` writes the raw input with the
     -- generated records spliced in (the generator's debug gate).
     let inModel := (← IO.getEnv "CON_LECHE_INMODEL") != some "0"
-    match ← parseInput file pre modeTag prelude inModel budget with
+    match ← parseInput file pre modeTag prelude inModel with
     | .preVerdict code =>
       -- the preprocessor's verdict is ours (user ruling 2026-09-07);
       -- `preVerdict` has already printed the line, which names the mode
@@ -706,18 +681,6 @@ def usage : String := String.intercalate "\n" [
   "                    calls checkDeclsSPCachedD, the function the main",
   "                    theorem (ConLeche.no_proof_of_False) is about; a",
   "                    run with it is not covered by that theorem.",
-  "  CON_LECHE_TREE_BUDGET=<nodes>",
-  "                    the frontend's cap on a declaration's UNSHARED",
-  "                    tree size, in nodes (default 33554432 = 2^25);",
-  "                    0 is unlimited.  It applies only to the record",
-  "                    kinds whose stored artifacts still meet an",
-  "                    unmemoized tree walk — inductive and quotient",
-  "                    blocks, axiom records, records under a built-in",
-  "                    prelude name, and the certified Nat operations",
-  "                    — never to an ordinary def/theorem/opaque, whose",
-  "                    whole pipeline is DAG-preserving.  A record over",
-  "                    the cap DECLINES (exit 2) with a line naming the",
-  "                    declaration, its record kind and this budget.",
   "  CON_LECHE_ROUTE_TRACE=1",
   "                    the install-route audit (task #193): one",
   "                    'con-leche: route <block> <struct|sum|fix|inmodel|modeled>'",
