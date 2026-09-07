@@ -11,9 +11,10 @@ shared tier by task #123's criterion, and both soundness routes read
 them.  Relocated verbatim from `Lech/TTVerify/StdAxiomKey.lean`.
 
 **Task #161 P5 — the shape statements track the pin exactly.**  Six
-conclusions here read `cv.type.erasePw = pinA.type.erasePw
-.eraseNames` where they used to read `cv.type.eraseNames =
-pinA.type.eraseNames`.  That is not a weakening of what is *proved*:
+conclusions here read `cv.type.erasePw = pinA.type.erasePw` where
+they used to read `cv.type.eraseNames = pinA.type.eraseNames` (task
+#205 removed the names from `Expr`, so the erasure went with them).
+That is not a weakening of what is *proved*:
 `ConstantVal.matchesPin` itself now compares through `Expr.erasePw`
 (the pins carry the generated prop-ness data while the compared side
 carries whatever the mode produced — nothing at `--trusted`), so the

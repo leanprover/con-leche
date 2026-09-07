@@ -359,8 +359,8 @@ def renameConsts (f : Name → Name) : Expr → Expr
   | .lit l => .lit l
   -- Task #175 wiring W5: a `.proj` node's struct name is NOT renamed.
   -- The renaming exists for the modeled-block contract (a public
-  -- block's types against its `_model` artifacts, `eqUpToNames` and
-  -- the fire comparands); a block's own projections can never be
+  -- block's types against its `_model` artifacts, compared with `==`
+  -- since task #205, and the fire comparands); a block's own projections can never be
   -- spelled inside its types (their entries do not exist when the
   -- types are annotated), and a `.proj` on any *other* structure names
   -- it the same on both sides — so the rename never had a matching

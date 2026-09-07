@@ -119,7 +119,8 @@ assumed; a premise for it would be a conditional form, and
   axiom whose type is a **bare constant**.  `.const` carries no binder
   and therefore no datum, so `erasePw`'s forgiveness is empty on it
   and the pin fixes `type' = .const trueName []` **on the nose**
-  (`erasePw_const_invS ∘ eraseNames_const_invS`).  The wall above
+  (`erasePw_const_invS`; its `eraseNames` twin went with the names,
+  task #205).  The wall above
   simply is not there, and the branch goes through: the leaf is the
   stored `True.intro`'s annotated valuation and `hmemA` is
   `EnvS2PM.mem_typeP` at that constant, both readings being the same
