@@ -55702,6 +55702,60 @@ its section above) — the in-process modeller's preprocessor predicate
 becomes the default once the fixpoint route is on master; its gate
 `tests/inmodel.sh` already records both states.
 
+### TASK #200 CLOSING — the flip, and the exact residual after #188 + #200 (2026-09-07, `agent/inmodel-flip`)
+
+With the fixed-point route on master (#188, `dbe2ac33`) the
+transitional gate is gone: `lechNative` (`LechPreprocess.lean`) now
+leaves the in-process class — mutual and nested blocks, every field
+free of the block or a whole constant-headed occurrence — to lech by
+default (`lechNativeInModelAll` and `LECH_INMODEL_NATIVE` deleted), the
+native audit counts `inmodel` as a native route, and the standing gate's
+raw runs accept outright.
+
+**Receipts** (tip of `agent/inmodel-flip`, off `dbe2ac33`): build
+warning-free, `lake test`, `tests/arena.sh` exit 0 (e2e 117/117, tutorial
+90/92, trusted sweep with the 3 recorded divergences), **`tests/native-
+audit.sh --full`: 93 streams, 708 native blocks — 547 struct, 97 sum, 62
+fix, 1 inmodel, 1 basis, 0 unrecognised, 0 unreached** — the one
+`inmodel` block is `Lean.Syntax`, and no in-process block declined.
+**The raw init-full export through the default pipe: `Lean.Syntax`
+modelled in-process, exactly four blocks still the tool's — `Acc`,
+`Acc.below`, `Lean.Order.iterates`, `Lean.Order.iterates.below` (the
+reflexive ones) — accepted 53 164 declarations in both modes** (#188's
+regeneration, where the tool still modelled `Syntax`, counted 53 184:
+the tool's model family for it has 20 more records than ours; the
+stream's own declarations are the same set).  The stock stream is
+unchanged at 58 604 / 58 604.  `tests/inmodel.sh`: `inmodel_mutual` 95,
+`inmodel_mutual_idx` 113, `inmodel_nested` 282, `nested_rec` 57,
+`inmodel_groups` 176 accepted on the raw runs (both modes), the dump
+path as before; `nested_struct_proj`'s raw `--pre` run stops at the
+reflexive `Stream'` (no tool on a `--pre` run), through the pipe it
+accepts.
+
+**The exact residual class — what still needs `lech-preprocess` after
+#188 + #200:**
+
+1. **reflexive blocks** (a constructor field `∀ y⃗, T …`): init-full's
+   four (`Acc` and its `below`, `Lean.Order.iterates` and its `below`),
+   Mathlib's 41 (`WType`, `PSet`, `FirstOrder.Language.Term`, …) — the
+   fixed-point route is finitary, the in-process rungs decline them;
+2. **infinitary nesting** (a nested occurrence under a binder inside a
+   container's parameter, `List (Nat → T)`): the mimic's field is a
+   `∀`, the generator declines; none in init-full or Mathlib;
+3. a **`Prop` nested block with a large eliminator**: the auxiliary
+   family has more constructors than the member, so it eliminates into
+   `Prop` only (the generator declines); mutual `Prop` blocks cannot
+   have one (official `elim_only_at_universe_zero`); none in the corpus;
+4. #188's own fall-throughs (a recursive field mentioned by a later
+   binder domain or an index expression — vacuous on real streams) and
+   `imax`-bounded universes the tool declines too.
+
+Everything else — every recursive block (#188), every mutual and nested
+block including nested containers and mutual containers (#200; the
+Mathlib census: 51/51) — is lech's own.  So the `lean_inductive_models`
+require, the `lech-preprocess` executable and the pipe in `Main.lean`
+stay for class 1 alone (`Acc` is in init-full); a route for reflexive
+inductives is the separate design the coordinator raised with the user.
 ## TASK #202 — REFLEXIVE CONSTRUCTORS: the fixpoint route extended (2026-09-07, `agent/reflexive` off master `dbe2ac33`, IN PROGRESS)
 
 **Charter** (the user's directive "we want to cover all inductives"):
