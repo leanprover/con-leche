@@ -31,7 +31,20 @@ sort may be `Prop` is `.invalid` at two or more constructors; at one
 constructor it is the subsingleton case, taken with the per-field
 criterion at `checkDirectFieldSortsI` — the recursive squash regime's
 large eliminator, task #202 Stage A2), the constructors' distinct
-names.  The index-threaded twins are
+names.
+
+**The recursor pin is the LAST of the block's checks** (task #220):
+everything the stream's recursor RECORD claims — its name, its level
+parameters, its argument sums, its rules — is compared at
+`checkDirectFixRec`/`directFixRulesOk`, where a mismatch is `.invalid`,
+and none of it is a condition of recognition.  Official never reads the
+exported recursor as an input either: `add_inductive` generates one and
+the replay compares the record with it structurally
+(`checkPostponedRecursors`, `Lean4Checker/Replay.lean` — "Invalid
+recursor", "No such recursor").  So a block whose recursor record is a
+stub is rejected by its own type and constructors, with official's
+message, instead of being declined for a recursor this route was going
+to generate anyway.  The index-threaded twins are
 `ConLeche/Kernel/Direct/RecInstallF.lean`.
 -/
 

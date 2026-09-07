@@ -492,11 +492,11 @@
 == ConLeche/Kernel/Direct/SumInstall.lean#L158
    158  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
 
-== ConLeche/Kernel/Direct/RecInstall.lean#L224
-   224  def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
+== ConLeche/Kernel/Direct/RecInstall.lean#L237
+   237  def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
 
-== ConLeche/Kernel/Direct/RecInstall.lean#L240
-   240  def checkDirectFix (ops : CheckerOps m) (env : Env) (p₀ : DirectFixParts) : m Env := do
+== ConLeche/Kernel/Direct/RecInstall.lean#L253
+   253  def checkDirectFix (ops : CheckerOps m) (env : Env) (p₀ : DirectFixParts) : m Env := do
 
 == ConLeche/SetModel/Value.lean#L517-L524
    517  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w

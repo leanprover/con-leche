@@ -239,12 +239,12 @@ Inductive blocks are not trusted from the stream. Three cases:
   classifying, again under each Π binder
   ([function `normPosDom` in `ConLeche/Kernel/Direct/SumInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/SumInstall.lean#L158)) —
   and classifies each field on the constructors it stored
-  ([function `classifyFixKinds` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L224)),
+  ([function `classifyFixKinds` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L237)),
   runs official's checks — universe bound, elimination restriction and
   index occurrence — generates the recursor and its rules, and compares
   the generated recursor with the stream's, rejecting a record that is
   not it; the whole install is one entry
-  ([function `checkDirectFix` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L240)).
+  ([function `checkDirectFix` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L253)).
   The two halves are deliberately independent (task #220): a block whose
   recursor record is a stub is still rejected by its own type and
   constructors, as official rejects it, instead of being declined for a

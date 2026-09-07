@@ -60017,3 +60017,19 @@ parameters not the generated ones; the occurrence the rules recurse
 through is rewritten with them, so the reject is the pin being tested
 and not the rule comparison).
 
+**Receipts.**  `lake build` warning-free; `lake test`; `tests/arena.sh`
+exit 0 (tutorial **90/92** unchanged, the ten F1 rows now `1`, the bad
+sweep's "never accepted" invariant holding, e2e 166/166, the trusted
+sweep at its three recorded divergences); `tests/layering.sh` (0
+base→lane, 0 impl→theory); `tests/trust-surface.sh` (18 escapes in 4
+allowlisted files); `tests/proofdeps.sh` (2 851 rows, doors 0 — no row
+moved); `tests/route-census.sh` (90 streams, 682 blocks — 142 fix, 0
+inmodel, 540 basis, 0 modeled); `tests/overview-links.sh` after one
+`--update` (57 links; §5's fixpoint paragraph re-read and rewritten —
+where the counts come from, and that the recursor comparison rejects).
+**init-full**, raw, default mode: accepted **53 088**, exit 0, route
+census **584 fix / 6 basis / 1 inmodel** — #219's numbers to the
+declaration and to the block — at **679.17 G instructions:u** against
+#219's 679.12 G, i.e. parity (+0.008 %): the recogniser trades a
+recursor-driven subtraction for a Π-spine walk of the type former.
+
