@@ -314,7 +314,6 @@
 {"ie":246,"app":{"arg":1,"fn":245}}
 {"ie":247,"lam":{"binderInfo":"default","body":246,"name":18,"type":42}}
 {"ie":248,"app":{"arg":247,"fn":228}}
-{"def":{"all":[46],"hints":{"regular":1},"levelParams":[],"name":46,"safety":"safe","type":72,"value":248}}
 {"in":50,"str":{"pre":45,"str":"false"}}
 {"in":51,"str":{"pre":50,"str":"_model"}}
 {"ie":249,"const":{"name":46,"us":[]}}
@@ -324,13 +323,11 @@
 {"ie":253,"app":{"arg":45,"fn":252}}
 {"ie":254,"const":{"name":42,"us":[3]}}
 {"ie":255,"app":{"arg":254,"fn":253}}
-{"def":{"all":[51],"hints":{"regular":1},"levelParams":[],"name":51,"safety":"safe","type":249,"value":255}}
 {"in":52,"str":{"pre":45,"str":"true"}}
 {"in":53,"str":{"pre":52,"str":"_model"}}
 {"ie":256,"app":{"arg":45,"fn":48}}
 {"ie":257,"app":{"arg":256,"fn":252}}
 {"ie":258,"app":{"arg":254,"fn":257}}
-{"def":{"all":[53],"hints":{"regular":1},"levelParams":[],"name":53,"safety":"safe","type":249,"value":258}}
 {"in":54,"str":{"pre":45,"str":"rec"}}
 {"in":55,"str":{"pre":54,"str":"_model"}}
 {"ie":259,"forallE":{"binderInfo":"default","body":13,"name":13,"type":249}}
@@ -440,7 +437,6 @@
 {"ie":354,"lam":{"binderInfo":"default","body":353,"name":57,"type":263}}
 {"ie":355,"lam":{"binderInfo":"default","body":354,"name":56,"type":261}}
 {"ie":356,"lam":{"binderInfo":"implicit","body":355,"name":12,"type":259}}
-{"def":{"all":[55],"hints":{"regular":2},"levelParams":[6],"name":55,"safety":"safe","type":267,"value":356}}
 {"in":64,"str":{"pre":55,"str":"iota_0"}}
 {"ie":357,"app":{"arg":260,"fn":9}}
 {"ie":358,"app":{"arg":357,"fn":147}}
@@ -459,7 +455,6 @@
 {"ie":371,"lam":{"binderInfo":"default","body":370,"name":57,"type":263}}
 {"ie":372,"lam":{"binderInfo":"default","body":371,"name":56,"type":261}}
 {"ie":373,"lam":{"binderInfo":"implicit","body":372,"name":12,"type":259}}
-{"thm":{"all":[64],"levelParams":[6],"name":64,"type":368,"value":373}}
 {"in":65,"str":{"pre":55,"str":"iota_1"}}
 {"ie":374,"app":{"arg":262,"fn":9}}
 {"ie":375,"app":{"arg":374,"fn":147}}
@@ -474,7 +469,6 @@
 {"ie":384,"lam":{"binderInfo":"default","body":383,"name":57,"type":263}}
 {"ie":385,"lam":{"binderInfo":"default","body":384,"name":56,"type":261}}
 {"ie":386,"lam":{"binderInfo":"implicit","body":385,"name":12,"type":259}}
-{"thm":{"all":[65],"levelParams":[6],"name":65,"type":381,"value":386}}
 {"ie":387,"const":{"name":45,"us":[]}}
 {"ie":388,"forallE":{"binderInfo":"default","body":13,"name":13,"type":387}}
 {"ie":389,"const":{"name":50,"us":[]}}
@@ -500,7 +494,6 @@
 {"ie":406,"app":{"arg":405,"fn":82}}
 {"ie":407,"lam":{"binderInfo":"default","body":406,"name":26,"type":73}}
 {"ie":408,"lam":{"binderInfo":"implicit","body":407,"name":4,"type":13}}
-{"def":{"all":[67],"hints":{"regular":1},"levelParams":[6,25],"name":67,"safety":"safe","type":404,"value":408}}
 {"in":68,"str":{"pre":66,"str":"mk"}}
 {"in":69,"str":{"pre":68,"str":"_model"}}
 {"ie":409,"const":{"name":67,"us":[2,4]}}
@@ -518,7 +511,6 @@
 {"ie":421,"lam":{"binderInfo":"default","body":420,"name":28,"type":3}}
 {"ie":422,"lam":{"binderInfo":"default","body":421,"name":26,"type":73}}
 {"ie":423,"lam":{"binderInfo":"implicit","body":422,"name":4,"type":13}}
-{"def":{"all":[69],"hints":{"regular":1},"levelParams":[6,25],"name":69,"safety":"safe","type":415,"value":423}}
 {"in":70,"str":{"pre":66,"str":"rec"}}
 {"in":71,"str":{"pre":70,"str":"_model"}}
 {"ie":424,"app":{"arg":3,"fn":409}}
@@ -544,7 +536,6 @@
 {"ie":444,"lam":{"binderInfo":"implicit","body":443,"name":12,"type":426}}
 {"ie":445,"lam":{"binderInfo":"implicit","body":444,"name":26,"type":73}}
 {"ie":446,"lam":{"binderInfo":"implicit","body":445,"name":4,"type":13}}
-{"def":{"all":[71],"hints":{"regular":2},"levelParams":[6,25],"name":71,"safety":"safe","type":439,"value":446}}
 {"in":72,"str":{"pre":71,"str":"iota_0"}}
 {"ie":447,"const":{"name":1,"us":[0]}}
 {"ie":448,"app":{"arg":188,"fn":427}}
@@ -576,7 +567,6 @@
 {"ie":474,"lam":{"binderInfo":"implicit","body":473,"name":12,"type":426}}
 {"ie":475,"lam":{"binderInfo":"implicit","body":474,"name":26,"type":73}}
 {"ie":476,"lam":{"binderInfo":"implicit","body":475,"name":4,"type":13}}
-{"thm":{"all":[72],"levelParams":[6,25],"name":72,"type":467,"value":476}}
 {"in":73,"str":{"pre":67,"str":"proj_0"}}
 {"ie":477,"forallE":{"binderInfo":"default","body":9,"name":33,"type":425}}
 {"ie":478,"forallE":{"binderInfo":"default","body":477,"name":26,"type":73}}
@@ -584,7 +574,6 @@
 {"ie":480,"lam":{"binderInfo":"default","body":112,"name":33,"type":425}}
 {"ie":481,"lam":{"binderInfo":"default","body":480,"name":26,"type":73}}
 {"ie":482,"lam":{"binderInfo":"implicit","body":481,"name":4,"type":13}}
-{"def":{"all":[73],"hints":"abbrev","levelParams":[6,25],"name":73,"safety":"safe","type":479,"value":482}}
 {"in":74,"str":{"pre":73,"str":"iota"}}
 {"ie":483,"const":{"name":73,"us":[2,4]}}
 {"ie":484,"app":{"arg":25,"fn":483}}
@@ -604,7 +593,6 @@
 {"ie":498,"lam":{"binderInfo":"default","body":497,"name":28,"type":3}}
 {"ie":499,"lam":{"binderInfo":"implicit","body":498,"name":26,"type":73}}
 {"ie":500,"lam":{"binderInfo":"implicit","body":499,"name":4,"type":13}}
-{"thm":{"all":[74],"levelParams":[6,25],"name":74,"type":496,"value":500}}
 {"in":75,"str":{"pre":67,"str":"proj_1"}}
 {"ie":501,"forallE":{"binderInfo":"default","body":3,"name":33,"type":425}}
 {"ie":502,"forallE":{"binderInfo":"default","body":501,"name":26,"type":73}}
@@ -612,7 +600,6 @@
 {"ie":504,"lam":{"binderInfo":"default","body":124,"name":33,"type":425}}
 {"ie":505,"lam":{"binderInfo":"default","body":504,"name":26,"type":73}}
 {"ie":506,"lam":{"binderInfo":"implicit","body":505,"name":4,"type":13}}
-{"def":{"all":[75],"hints":"abbrev","levelParams":[6,25],"name":75,"safety":"safe","type":503,"value":506}}
 {"in":76,"str":{"pre":75,"str":"iota"}}
 {"ie":507,"app":{"arg":9,"fn":169}}
 {"ie":508,"const":{"name":75,"us":[2,4]}}
@@ -631,7 +618,6 @@
 {"ie":521,"lam":{"binderInfo":"default","body":520,"name":28,"type":3}}
 {"ie":522,"lam":{"binderInfo":"implicit","body":521,"name":26,"type":73}}
 {"ie":523,"lam":{"binderInfo":"implicit","body":522,"name":4,"type":13}}
-{"thm":{"all":[76],"levelParams":[6,25],"name":76,"type":517,"value":523}}
 {"in":77,"str":{"pre":67,"str":"eta"}}
 {"ie":524,"const":{"name":1,"us":[5]}}
 {"ie":525,"app":{"arg":9,"fn":409}}
@@ -675,7 +661,6 @@
 {"ie":563,"lam":{"binderInfo":"default","body":562,"name":27,"type":425}}
 {"ie":564,"lam":{"binderInfo":"default","body":563,"name":26,"type":73}}
 {"ie":565,"lam":{"binderInfo":"implicit","body":564,"name":4,"type":13}}
-{"thm":{"all":[77],"levelParams":[6,25],"name":77,"type":542,"value":565}}
 {"ie":566,"const":{"name":66,"us":[2,4]}}
 {"ie":567,"app":{"arg":25,"fn":566}}
 {"ie":568,"app":{"arg":9,"fn":567}}
@@ -740,7 +725,6 @@
 {"ie":620,"app":{"arg":619,"fn":599}}
 {"ie":621,"lam":{"binderInfo":"default","body":620,"name":26,"type":73}}
 {"ie":622,"lam":{"binderInfo":"default","body":621,"name":4,"type":13}}
-{"def":{"all":[79],"hints":{"regular":1},"levelParams":[6,25],"name":79,"safety":"safe","type":597,"value":622}}
 {"in":80,"str":{"pre":78,"str":"mk"}}
 {"in":81,"str":{"pre":80,"str":"_model"}}
 {"ie":623,"const":{"name":79,"us":[2,4]}}
@@ -779,7 +763,6 @@
 {"ie":656,"lam":{"binderInfo":"default","body":655,"name":28,"type":3}}
 {"ie":657,"lam":{"binderInfo":"default","body":656,"name":26,"type":73}}
 {"ie":658,"lam":{"binderInfo":"default","body":657,"name":4,"type":13}}
-{"def":{"all":[81],"hints":{"regular":1},"levelParams":[6,25],"name":81,"safety":"safe","type":629,"value":658}}
 {"in":82,"str":{"pre":78,"str":"rec"}}
 {"in":83,"str":{"pre":82,"str":"_model"}}
 {"ie":659,"app":{"arg":3,"fn":623}}
@@ -909,7 +892,6 @@
 {"ie":781,"lam":{"binderInfo":"implicit","body":780,"name":12,"type":661}}
 {"ie":782,"lam":{"binderInfo":"implicit","body":781,"name":26,"type":73}}
 {"ie":783,"lam":{"binderInfo":"implicit","body":782,"name":4,"type":13}}
-{"def":{"all":[83],"hints":{"regular":2},"levelParams":[3,6,25],"name":83,"safety":"safe","type":674,"value":783}}
 {"in":84,"str":{"pre":83,"str":"iota_0"}}
 {"ie":784,"app":{"arg":188,"fn":662}}
 {"ie":785,"app":{"arg":26,"fn":784}}
@@ -939,7 +921,6 @@
 {"ie":809,"lam":{"binderInfo":"implicit","body":808,"name":12,"type":661}}
 {"ie":810,"lam":{"binderInfo":"implicit","body":809,"name":26,"type":73}}
 {"ie":811,"lam":{"binderInfo":"implicit","body":810,"name":4,"type":13}}
-{"thm":{"all":[84],"levelParams":[3,6,25],"name":84,"type":803,"value":811}}
 {"in":85,"str":{"pre":79,"str":"proj_0"}}
 {"ie":812,"forallE":{"binderInfo":"default","body":9,"name":33,"type":660}}
 {"ie":813,"forallE":{"binderInfo":"default","body":812,"name":26,"type":73}}
@@ -958,7 +939,6 @@
 {"ie":826,"lam":{"binderInfo":"default","body":825,"name":33,"type":660}}
 {"ie":827,"lam":{"binderInfo":"default","body":826,"name":26,"type":73}}
 {"ie":828,"lam":{"binderInfo":"default","body":827,"name":4,"type":13}}
-{"def":{"all":[85],"hints":"abbrev","levelParams":[6,25],"name":85,"safety":"safe","type":814,"value":828}}
 {"in":86,"str":{"pre":85,"str":"iota"}}
 {"ie":829,"const":{"name":85,"us":[2,4]}}
 {"ie":830,"app":{"arg":25,"fn":829}}
@@ -979,7 +959,6 @@
 {"ie":845,"lam":{"binderInfo":"default","body":844,"name":28,"type":3}}
 {"ie":846,"lam":{"binderInfo":"implicit","body":845,"name":26,"type":73}}
 {"ie":847,"lam":{"binderInfo":"implicit","body":846,"name":4,"type":13}}
-{"thm":{"all":[86],"levelParams":[6,25],"name":86,"type":842,"value":847}}
 {"in":87,"str":{"pre":79,"str":"proj_1"}}
 {"ie":848,"forallE":{"binderInfo":"default","body":3,"name":33,"type":660}}
 {"ie":849,"forallE":{"binderInfo":"default","body":848,"name":26,"type":73}}
@@ -996,7 +975,6 @@
 {"ie":860,"lam":{"binderInfo":"default","body":859,"name":33,"type":660}}
 {"ie":861,"lam":{"binderInfo":"default","body":860,"name":26,"type":73}}
 {"ie":862,"lam":{"binderInfo":"default","body":861,"name":4,"type":13}}
-{"def":{"all":[87],"hints":"abbrev","levelParams":[6,25],"name":87,"safety":"safe","type":850,"value":862}}
 {"in":88,"str":{"pre":87,"str":"iota"}}
 {"ie":863,"const":{"name":87,"us":[2,4]}}
 {"ie":864,"app":{"arg":25,"fn":863}}
@@ -1013,7 +991,6 @@
 {"ie":875,"lam":{"binderInfo":"default","body":874,"name":28,"type":3}}
 {"ie":876,"lam":{"binderInfo":"implicit","body":875,"name":26,"type":73}}
 {"ie":877,"lam":{"binderInfo":"implicit","body":876,"name":4,"type":13}}
-{"thm":{"all":[88],"levelParams":[6,25],"name":88,"type":872,"value":877}}
 {"in":89,"str":{"pre":79,"str":"eta"}}
 {"ie":878,"const":{"name":1,"us":[10]}}
 {"ie":879,"app":{"arg":819,"fn":878}}
@@ -1056,7 +1033,6 @@
 {"ie":916,"lam":{"binderInfo":"default","body":915,"name":27,"type":660}}
 {"ie":917,"lam":{"binderInfo":"default","body":916,"name":26,"type":73}}
 {"ie":918,"lam":{"binderInfo":"default","body":917,"name":4,"type":13}}
-{"thm":{"all":[89],"levelParams":[6,25],"name":89,"type":894,"value":918}}
 {"ie":919,"const":{"name":78,"us":[2,4]}}
 {"ie":920,"app":{"arg":25,"fn":919}}
 {"ie":921,"app":{"arg":9,"fn":920}}
@@ -1340,7 +1316,6 @@
 {"ie":1141,"app":{"arg":1140,"fn":1126}}
 {"ie":1142,"lam":{"binderInfo":"default","body":1141,"name":138,"type":42}}
 {"ie":1143,"lam":{"binderInfo":"default","body":1142,"name":4,"type":1122}}
-{"def":{"all":[134],"hints":{"regular":1},"levelParams":[6],"name":134,"safety":"safe","type":1124,"value":1143}}
 {"in":139,"str":{"pre":133,"str":"mk"}}
 {"in":140,"str":{"pre":139,"str":"_model"}}
 {"in":141,"str":{"pre":0,"str":"ofNat"}}
@@ -1362,7 +1337,6 @@
 {"ie":1159,"lam":{"binderInfo":"default","body":1158,"name":141,"type":3}}
 {"ie":1160,"lam":{"binderInfo":"default","body":1159,"name":138,"type":42}}
 {"ie":1161,"lam":{"binderInfo":"default","body":1160,"name":4,"type":1122}}
-{"def":{"all":[140],"hints":{"regular":1},"levelParams":[6],"name":140,"safety":"safe","type":1149,"value":1161}}
 {"in":142,"str":{"pre":133,"str":"rec"}}
 {"in":143,"str":{"pre":142,"str":"_model"}}
 {"ie":1162,"app":{"arg":3,"fn":1144}}
@@ -1445,7 +1419,6 @@
 {"ie":1238,"lam":{"binderInfo":"implicit","body":1237,"name":12,"type":1164}}
 {"ie":1239,"lam":{"binderInfo":"implicit","body":1238,"name":138,"type":42}}
 {"ie":1240,"lam":{"binderInfo":"implicit","body":1239,"name":4,"type":1122}}
-{"def":{"all":[143],"hints":{"regular":2},"levelParams":[3,6],"name":143,"safety":"safe","type":1177,"value":1240}}
 {"in":144,"str":{"pre":143,"str":"iota_0"}}
 {"ie":1241,"app":{"arg":26,"fn":1165}}
 {"ie":1242,"app":{"arg":25,"fn":1241}}
@@ -1472,7 +1445,6 @@
 {"ie":1263,"lam":{"binderInfo":"implicit","body":1262,"name":12,"type":1164}}
 {"ie":1264,"lam":{"binderInfo":"implicit","body":1263,"name":138,"type":42}}
 {"ie":1265,"lam":{"binderInfo":"implicit","body":1264,"name":4,"type":1122}}
-{"thm":{"all":[144],"levelParams":[3,6],"name":144,"type":1258,"value":1265}}
 {"in":145,"str":{"pre":134,"str":"proj_0"}}
 {"ie":1266,"forallE":{"binderInfo":"default","body":9,"name":33,"type":1163}}
 {"ie":1267,"forallE":{"binderInfo":"default","body":1266,"name":138,"type":42}}
@@ -1487,7 +1459,6 @@
 {"ie":1276,"lam":{"binderInfo":"default","body":1275,"name":33,"type":1163}}
 {"ie":1277,"lam":{"binderInfo":"default","body":1276,"name":138,"type":42}}
 {"ie":1278,"lam":{"binderInfo":"default","body":1277,"name":4,"type":1122}}
-{"def":{"all":[145],"hints":"abbrev","levelParams":[6],"name":145,"safety":"safe","type":1268,"value":1278}}
 {"in":146,"str":{"pre":145,"str":"iota"}}
 {"ie":1279,"const":{"name":1,"us":[8]}}
 {"ie":1280,"app":{"arg":9,"fn":1279}}
@@ -1509,7 +1480,6 @@
 {"ie":1296,"lam":{"binderInfo":"default","body":1295,"name":141,"type":3}}
 {"ie":1297,"lam":{"binderInfo":"implicit","body":1296,"name":138,"type":42}}
 {"ie":1298,"lam":{"binderInfo":"implicit","body":1297,"name":4,"type":1122}}
-{"thm":{"all":[146],"levelParams":[6],"name":146,"type":1292,"value":1298}}
 {"in":147,"str":{"pre":134,"str":"eta"}}
 {"ie":1299,"app":{"arg":1146,"fn":1279}}
 {"ie":1300,"app":{"arg":1,"fn":1299}}
@@ -1539,7 +1509,6 @@
 {"ie":1324,"lam":{"binderInfo":"default","body":1323,"name":27,"type":1163}}
 {"ie":1325,"lam":{"binderInfo":"default","body":1324,"name":138,"type":42}}
 {"ie":1326,"lam":{"binderInfo":"default","body":1325,"name":4,"type":1122}}
-{"thm":{"all":[147],"levelParams":[6],"name":147,"type":1306,"value":1326}}
 {"ie":1327,"const":{"name":133,"us":[2]}}
 {"ie":1328,"app":{"arg":9,"fn":1327}}
 {"ie":1329,"app":{"arg":3,"fn":1328}}

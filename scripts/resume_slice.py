@@ -13,13 +13,13 @@ valid `con-leche` stream:
 * of the records *before* the cut, exactly the transitive dependency
   closure reachable from the kept suffix is kept -- constants named in
   kept records' types/values/recursor rules, recursively.  Inductive
-  blocks are single records, so they are kept whole.  The
-  `_model` companions of every kept declaration are kept
-  (the existing slicers' rule; `Kernel/Checker.lean`'s `directParts?`
-  *requires* a block's companions to be absent to take the direct
-  route, so dropping one would silently change the install route, and
-  `projRewriteD` needs the block's `_model.proj_i.iota` artifacts).
-  The pinned basis blocks (`Eq`, `Nat`, `PUnit`, `Empty`), every `quot`
+  blocks are single records, so they are kept whole.  (Until task
+  #219 the `_model` companions of every kept declaration were kept
+  too: the install dispatch read them and the projection rewrite read
+  their `proj_i.iota` artifacts.  Both come from the in-process
+  modeller now, and a stream `_model` record is an ordinary
+  declaration, so there is no companion rule.)  The pinned basis
+  blocks (`Eq`, `Nat`, `PUnit`, `Empty`), every `quot`
   record and every `axiom` record are kept unconditionally -- `PUnit`
   gates the projection rewrite (`punitSeen`), the quotient basis needs
   the pinned `Eq`, and an axiom record is where a non-standard axiom's
@@ -138,7 +138,6 @@ class Names:
     def __init__(self):
         self.pre = array('i', [0])
         self.seg = [""]
-        self.model = set()      # indices whose segment is `_model`
         self._res = {0: ""}
 
     def add(self, i, pre, seg):
@@ -147,8 +146,6 @@ class Names:
             self.pre.append(0)
         self.pre[i] = pre
         self.seg[i] = seg
-        if seg == "_model":
-            self.model.add(i)
 
     def full(self, i):
         r = self._res.get(i)
@@ -164,18 +161,6 @@ class Names:
             s = (s + "." if s else "") + self.seg[k]
             self._res[k] = s
         return s
-
-    def model_owner(self, i):
-        """`T` if `i` is `T._model…`, else None (`slice_fast`'s
-        `"._model" in n` rule, done on indices)."""
-        model = self.model
-        pre = self.pre
-        j = i
-        while j:
-            if j in model:
-                return pre[j]
-            j = pre[j]
-        return None
 
 
 def parse_decl(rec):
@@ -222,7 +207,6 @@ class Scan:
         self.d_kind = []
         self.forced = []            # ordinals kept unconditionally
         self.decl_of_name = {}
-        self.companions = {}        # owner name idx -> [decl ordinal]
         # prefix expression DAG, flattened (slice_fast's layout)
         self.kid_flat = array('i')
         self.kid_off = array('l', [0])
@@ -254,13 +238,8 @@ class Scan:
         self.d_refs.append(refs)
         self.d_kind.append(kind)
         setdefault = self.decl_of_name.setdefault
-        owner_of = self.nm.model_owner
-        comps = self.companions
         for n in names:
             setdefault(n, d)
-            o = owner_of(n)
-            if o is not None:
-                comps.setdefault(o, []).append(d)
         if kind in ("axiom", "quot"):
             self.forced.append(d)
         elif kind == "inductive" and self.nm.full(names[0]) in BASIS_TYPE_NAMES:
@@ -394,9 +373,8 @@ def mark(sc):
     kept_decl = bytearray(n_decl)
     kid_flat, kid_off, cref = sc.kid_flat, sc.kid_off, sc.cref
     d_roots, d_refs, d_names = sc.d_roots, sc.d_refs, sc.d_names
-    companions, decl_of_name = sc.companions, sc.decl_of_name
+    decl_of_name = sc.decl_of_name
     want = list(sc.seed_name)
-    todo = []
     stack = []
 
     def walk(root):
@@ -422,10 +400,6 @@ def mark(sc):
         for e in d_roots[d]:
             walk(e)
         want.extend(d_refs[d])
-        for n in d_names[d]:
-            cs = companions.get(n)
-            if cs:
-                todo.extend(cs)
 
     for d in range(sc.cut_d, n_decl):
         keep(d)
@@ -434,13 +408,10 @@ def mark(sc):
     for e in sc.seed_expr:
         walk(e)
     get = decl_of_name.get
-    while want or todo:
-        while todo:
-            keep(todo.pop())
-        while want:
-            d = get(want.pop())
-            if d is not None and not kept_decl[d]:
-                keep(d)
+    while want:
+        d = get(want.pop())
+        if d is not None and not kept_decl[d]:
+            keep(d)
     n_pre_kept = kept_decl[:sc.cut_d].count(1)
     n_expr_kept = seen.count(1)
     # how much of that the suffix asks for *directly* -- the rest is the

@@ -22,13 +22,21 @@ representation:
                   block (-1), and records using a tolerated axiom are
                   skipped at parse (`sorryAx` and friends).
 
-and the BLOCK census: which inductive records the stream carries a
-`_model` companion for (`modeled` — since task #207 no exporter emits
-one, so this is 0 on every raw stream and nonzero only for a
-hand-written or spliced one) and which con-leche therefore installs
-itself (`native`: a direct route, or a `_model` family generated
-in-process), split by shape — indexed (numIndices > 0), structure (no
-indices, one constructor), sum (no indices, not one constructor).
+and the BLOCK census: every inductive record con-leche installs itself
+(`native`: a direct route, or a `_model` family generated in process),
+split by shape — indexed (numIndices > 0), structure (no indices, one
+constructor), sum (no indices, not one constructor) — beside the
+pinned basis blocks.
+
+`fold` PREDICTS THE VERDICT LINE.  Between tasks #200 and #219 it did
+not: the in-process modeller pushed its generated records into the
+parsed list and the driver counted them, so the verdict ran ahead of
+the file by the size of every generated model family (exactly 30 on
+`init-full`, 2 168 on `mathlib-full`).  Task #219 books those records
+as what they are — declarations of the fold, never records of the file
+— and the two agree again.  There is no `modeled` column any more: a
+`_model` record in a stream is an ordinary declaration and has no
+effect on any block.
 
     scripts/stream-census.py STREAM.ndjson [...]
 """
@@ -38,8 +46,7 @@ import sys
 TOLERATED = {"sorryAx"}
 QUOT_EXTRA = {"Quot.sound"}
 # the pinned basis blocks (`ConLeche.reservedBasisNames`): recognised at the
-# parse and folded to a `basisDecl`, so they are neither modeled nor
-# natively installed
+# parse and folded to a `basisDecl`, so they are not installed by a route
 PINNED = {"Eq", "Nat", "PUnit", "Empty", "False"}
 
 
@@ -55,7 +62,6 @@ def census(path):
     tolerated = 0
     quot_axioms = 0
     inds = []          # (name, n_ctors, n_indices)
-    modeled = set()    # base names that have a `_model` companion
     ind_names = []
     with open(path, "r") as f:
         for line in f:
@@ -85,8 +91,6 @@ def census(path):
                             tolerated += 1
                         if nm in QUOT_EXTRA:
                             quot_axioms += 1
-                    if kind == "def" and nm.endswith("._model"):
-                        modeled.add(nm[: -len("._model")])
                     break
             else:
                 if "inductive" in o:
@@ -103,7 +107,7 @@ def census(path):
                                  max((t.get("numIndices", 0) for t in ts),
                                      default=0)))
     pinned = [b for b in inds if b[0] in PINNED]
-    native = [b for b in inds if b[0] not in modeled and b[0] not in PINNED]
+    native = [b for b in inds if b[0] not in PINNED]
     idx = [b for b in native if b[3] > 0]
     struct = [b for b in native if b[3] == 0 and b[2] == 1]
     summ = [b for b in native if b[3] == 0 and b[2] != 1]
@@ -117,7 +121,6 @@ def census(path):
         "tolerated": tolerated,
         "inductive": len(inds),
         "pinned": len(pinned),
-        "modeled": len(inds) - len(native) - len(pinned),
         "native": len(native),
         "native_structures": len(struct),
         "native_sums": len(summ),
@@ -128,7 +131,7 @@ def census(path):
 def main(argv):
     rows = [census(p) for p in argv[1:]]
     keys = ["records", "official", "fold", "quot", "quot_axioms", "tolerated",
-            "inductive", "pinned", "modeled", "native", "native_structures",
+            "inductive", "pinned", "native", "native_structures",
             "native_sums", "native_indexed"]
     print("stream\t" + "\t".join(keys))
     for r in rows:

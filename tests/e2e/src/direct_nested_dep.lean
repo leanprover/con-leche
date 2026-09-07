@@ -1,31 +1,23 @@
 --#export Dep.use
 
-/- End-to-end control for the cross-dependency constraint the direct
-   install introduces (task #82).
+/- End-to-end control for a CROSS-BLOCK dependency: `Box` is a
+   structure, `Dep` a two-constructor sum whose `wrap` field is a
+   `Box`, and both install on the fixpoint route (task #210).
 
-   `Box` is a direct-class simple structure; `Dep` is a *modeled*
-   inductive (two constructors) whose constructor mentions `Box`, so
-   the modeller builds `Dep._model` **out of** `Box._model`.
+   Until task #219 this fixture was about something else: the export
+   carried the preprocessor's `Box._model` and `Dep._model` families,
+   `Dep`'s model was built OUT OF `Box`'s, and the point was that a
+   model generator's skip rule has to be dependency-aware.  Its
+   negative twin `direct_nested_dep_broken.ndjson` — this export with
+   the `Box._model` family head deleted, so a surviving artifact
+   referenced an undeclared constant — was deleted with the concept:
+   models come from the in-process modeller now
+   (`ConLeche/Frontend/InModel/*`), a stream `_model` record is an
+   ordinary declaration, and there is no skip rule to get wrong.
 
-   This is the POSITIVE control of the pair: the export keeps `Box`'s
-   artifacts, so `Box` goes modeled (artifact presence wins under the
-   direct path's `directNoModel` gating) and everything checks.
-
-   The NEGATIVE half, `direct_nested_dep_broken.ndjson`, is this very
-   export with the `Box._model` *family head* deleted, so a surviving
-   artifact (`Box.mk._model`) references a constant that is no longer
-   declared.  Expected: a clean **reject** (exit 1) naming the missing
-   constant — "unknown constant Box._model [at def Box.mk._model]".
-   That is the failure mode a dependency-*unaware* skip rule in a
-   model generator would produce, and it pins that it fails
-   *safe*: the checker never accepts a stream whose artifacts reference
-   models that were not generated.  See DESIGN.md, "The endgame:
-   ind-models' skip rule must be dependency-aware".
-
-   (Measured on the init-prelude stream: exactly one of 149 inductive
-   blocks — `Trans` — has a model that references another block's
-   model, namely `LT`'s.  So cross-block model dependencies are rare
-   but real, and the skip rule has to compute them.) -/
+   (Measured on the init-prelude stream when it still mattered:
+   exactly one of 149 inductive blocks — `Trans` — had a model that
+   referenced another block's model, namely `LT`'s.) -/
 
 structure Box (α : Type) where
   val : α

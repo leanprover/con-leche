@@ -4,7 +4,7 @@ from a lean4export 3.x ndjson stream, by dependency-closure slicing
 (same approach as mk_natop_fixture.py): keep the declarations
 transitively needed to install `Lean.trustCompiler`, `Lean.reduceNat`,
 `Lean.ofReduceNat`, `Lean.reduceBool` and `Lean.ofReduceBool`
-(including any `_model` companions the stream carries), plus
+plus
 
 * accept fixture: a theorem *using* `Lean.ofReduceNat`'s type
   vacuously (`useOfReduceNat := Lean.ofReduceNat`) — the installed
@@ -195,13 +195,6 @@ def main() -> None:
                 out.add(names[n])
         return out
 
-    companions: dict[str, list[int]] = {}
-    for li in decl_lines:
-        for dn in decl_names[li]:
-            if "_model" in dn:
-                base = dn.split("._model")[0]
-                companions.setdefault(base, []).append(li)
-
     roots = {"Lean.trustCompiler", "Lean.reduceNat", "Lean.ofReduceNat",
              "Lean.reduceBool", "Lean.ofReduceBool",
              "Nat", "Bool", "True", "Eq", "Eq.refl"}
@@ -215,10 +208,6 @@ def main() -> None:
             continue
         included.add(li)
         dep = decl_ref_names(li)
-        for dn in decl_names[li]:
-            for cli in companions.get(dn, []):
-                if cli not in included:
-                    dep |= set(decl_names[cli])
         for d in dep:
             if d in declmap and d not in seen_names:
                 seen_names.add(d)

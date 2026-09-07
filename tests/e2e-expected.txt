@@ -7,12 +7,25 @@
 # spawn), and a fixture could appear twice with two verdicts.  The
 # preprocessor is gone: every RUN is raw, every fixture has one
 # verdict, and where the two disagreed the `raw` row is the one kept.
-# (34 of the fixture STREAMS still carry `_model` records a
-# preprocessor wrote before #207 — the nat_* slices, trust_*,
-# direct_nested_dep*, nested_pin_names, indexed_one_ctor_proj,
-# presieve_ofarrows_cone, … — and they stay: they are what exercises a
-# model arriving from the INPUT, which the checker still supports for
-# hand-written and spliced streams.)
+# Task #219: stream-provided `_model` records are no longer supported —
+# the in-process modeller is the only model source, and a record whose
+# name carries a `_model` component is an ordinary declaration with no
+# effect on any inductive block.  The 34 fixture streams that carried
+# preprocessor-era model families were therefore regenerated: three
+# from their `.lean` sources with `scripts/export-fixture.sh`
+# (direct_nested_dep, indexed_nested_aux, nested_pin_names) and 28 —
+# the nat_* slices, trust_*, budget_model, indexed_one_ctor_proj,
+# presieve_ofarrows_cone — by dropping the model DECLARATION records
+# from the committed slice, which is what a raw slice carries.  No
+# verdict moved.  `direct_nested_dep_broken.ndjson` was DELETED: it was
+# the positive-control's twin with the `Box._model` family head removed,
+# and it existed to pin that a model generator's skip rule must be
+# dependency-aware — there is no such generator and no such rule.  Two
+# fixtures keep `_model` NAMES on purpose: `model_name_plain` (the
+# negative control — a plain `def Foo._model` must accept) and
+# `yolo_decline_vs_accept` (its defective theorem happens to be called
+# `PProd'._model.eta`; it is checked, and rejected, as the ordinary
+# declaration it is).
 #
 # An expectation is a single exit code.  (The direct simple-structure
 # route is the priority route for every recognised block since task
@@ -107,9 +120,9 @@
 # so acceptance would require e.g. add 11 12 ≡ 24: a wrong fast-path
 # value would ACCEPT, a missing fast path would exit 3 — only the
 # correct certified computation rejects (1).  (The base exports were
-# preprocessed, and the patch had to come after that step, or the
-# preprocessor's own kernel check crashed the run; the tool went at
-# task #207 and the streams stand as they are.)
+# preprocessed and the patch had to come after that step, or the
+# preprocessor's own kernel check crashed the run; task #219 dropped
+# the model records the tool had added, leaving the raw slice.)
 1 nat_add_wrong.ndjson
 1 nat_sub_wrong.ndjson
 1 nat_mul_wrong.ndjson
@@ -159,20 +172,19 @@
 # and `size_example`'s rfl fires them on concrete majors.
 0 nested_rec.ndjson
 
-# nested_pin_names.ndjson (tests/e2e/src/nested_pin_names.lean, run
-# through the preprocessor and then perturbed by
-# scripts/mk_nested_pin_fixture.py; the tool went at task #207 and the
-# committed stream stands as it is — it is one of the streams that
-# carry their own `_model` family):
+# nested_pin_names.ndjson (tests/e2e/src/nested_pin_names.lean; RAW
+# since task #219, regenerated with scripts/export-fixture.sh):
 # nested-auxiliary rules whose stored pins contain a *binder* (the
-# dependent nested occurrence `DMap α (fun _ => PTree α)`), with the
-# iota theorems' majors spelling the pin lambda under a different
-# binder name than the recursor type — the drift the export format
-# permits (arenas intern name-insensitively; owner ruling 2026-08-21)
-# and the exact shape that declined Mathlib at
-# `Lean.PrefixTreeNode.rec_3`.  `checkIotaThmN` pins the major up to
-# display-only binder names; `total_example`'s rfl fires the rules on
-# concrete majors.
+# dependent nested occurrence `DMap α (fun _ => PTree α)`) — the exact
+# shape that declined Mathlib at `Lean.PrefixTreeNode.rec_3`;
+# `total_example`'s rfl fires the rules on concrete majors.  The
+# fixture used to be the preprocessor's output perturbed by
+# scripts/mk_nested_pin_fixture.py, so that the iota theorems' majors
+# spelled the pin lambda under a DIFFERENT BINDER NAME than the
+# recursor type.  That perturbation is not expressible any more, twice
+# over: the models come from the in-process modeller (task #219), which
+# writes both sides itself, and since task #205 `Expr` carries no
+# binder name at all, so there is nothing left to drift.
 0 nested_pin_names.ndjson
 
 # indexed_nested_aux.ndjson (tests/e2e/src/indexed_nested_aux.lean):
@@ -280,8 +292,16 @@
 # suffix reservation - which is exactly what this pins.
 0 model_name_plain.ndjson
 0 direct_struct_raw.ndjson
+# direct_nested_dep.ndjson: a cross-block dependency — the sum `Dep`'s
+# constructor mentions the structure `Box` — both on the fixpoint
+# route.  RAW since task #219 (regenerated with
+# scripts/export-fixture.sh): the fixture used to carry the
+# preprocessor's `Box._model`/`Dep._model` families, and its twin
+# `direct_nested_dep_broken.ndjson` (the same export with the
+# `Box._model` family HEAD deleted, leaving a dangling artifact) was
+# deleted with them — it pinned that a model generator's skip rule
+# must be dependency-aware, and there is no such generator.
 0 direct_nested_dep.ndjson
-1 direct_nested_dep_broken.ndjson
 # malformed_midstream.ndjson: a truncated JSON record after valid
 # lines — malformed input is a hard error (exit 3) with the line
 # number, identically under the streaming frontend (task #57).
@@ -425,15 +445,14 @@
 0 direct_idx_defhead.ndjson
 #   presieve_ofarrows_cone (task #195): the dependency cone of Mathlib's
 #                    `CategoryTheory.Presieve.ofArrows` (with the
-#                    String-support constants), cut from a stream the
-#                    preprocessor had written — so this fixture still
-#                    CARRIES `_model` records, deliberately: it is one
-#                    of the two streams that exercise a model arriving
-#                    from the INPUT (task #207).  The block whose
-#                    "missing model"
-#                    decline at 7.5 % of the regenerated Mathlib stream
-#                    was task #193's finding; it installs directly here
-#                    (638 declarations, both modes).
+#                    String-support constants).  The block whose
+#                    "missing model" decline at 7.5 % of the
+#                    regenerated Mathlib stream was task #193's
+#                    finding; it installs here (503 declarations, both
+#                    modes).  The cone was cut from a stream the
+#                    preprocessor had written; task #219 dropped its
+#                    model records, so `Lean.Syntax` is the raw nested
+#                    block the in-process modeller models.
 0 presieve_ofarrows_cone.ndjson
 
 # The direct FIXED-POINT route (task #188): RECURSIVE inductive types
@@ -646,9 +665,10 @@
 # drops that argument's universe-arity, non-function-application,
 # binder-domain-is-a-sort and projection-shape checks.
 1 yolo_arg_escape_univs.ndjson
-# yolo_decline_vs_accept: a `PProd'._model` family (out of the stream)
-# whose
-# `eta` theorem reaches an unsupported projection shape (`projection
+# yolo_decline_vs_accept: a purpose-built defective family whose
+# `PProd'._model.eta` theorem — an ORDINARY declaration, the `_model`
+# component of its name meaning nothing since task #219 — reaches an
+# unsupported projection shape (`projection
 # on a non-structure type`) from inside an application argument.  The
 # certified stack positively DECLINES it (2); yolo never infers the
 # argument, so the unsupported feature is never detected and the
