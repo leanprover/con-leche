@@ -176,11 +176,11 @@ theorem denoteSpineP_ihIdx {m : EnvS2Core V env} {ψ : Name → Nat}
   obtain ⟨hlen0, hidx0, hcl0, hw0⟩ := opening_vars hop0 hCf
   have hclP : ∀ a ∈ P, a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := hidxP q a hq
+    obtain ⟨ty, rfl⟩ := hidxP q a hq
     rfl
   have hclF : ∀ a ∈ F, a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := hidxF q a hq
+    obtain ⟨ty, rfl⟩ := hidxF q a hq
     rfl
   have htake : ∀ (k : Nat) (x : Expr),
       (fvs0.take (nP + i))[k]? = some x → fvs0[k]? = some x ∧ k < nP + i := by
@@ -220,15 +220,15 @@ theorem denoteSpineP_ihIdx {m : EnvS2Core V env} {ψ : Name → Nat}
       exact (hw0 k x hq0).mono (by omega))
     (fun k a b ha hb => by
       obtain ⟨ha0, halt⟩ := htake k a ha
-      obtain ⟨nma, tya, rfl⟩ := hidx0 k a ha0
+      obtain ⟨tya, rfl⟩ := hidx0 k a ha0
       by_cases hk : k < nP
       · rw [List.getElem?_append_left (by rw [hP]; omega)] at hb
-        obtain ⟨nmb, tyb, rfl⟩ := hidxP k b hb
+        obtain ⟨tyb, rfl⟩ := hidxP k b hb
         exact ⟨k, nma, nmb, tya, tyb, rfl, by rw [if_pos hk]⟩
       · rw [List.getElem?_append_right (by rw [hP]; omega), hP] at hb
         have hb' : F[k - nP]? = some b := by
           rw [← hb, List.getElem?_take, if_pos (show k - nP < i from by omega)]
-        obtain ⟨nmb, tyb, rfl⟩ := hidxF (k - nP) b hb'
+        obtain ⟨tyb, rfl⟩ := hidxF (k - nP) b hb'
         refine ⟨k, nma, nmb, tya, tyb, rfl, ?_⟩
         rw [if_neg hk]
         congr 1
@@ -262,15 +262,15 @@ theorem frameIdx {P X F I : List Expr} {nP o nF : Nat}
         exact hidxP k x hx
       · rw [List.getElem?_append_right (by rw [hP]; omega), hP] at hx
         obtain ⟨nm, ty, hy⟩ := hidxX (k - nP) x hx
-        exact ⟨nm, ty, by rw [hy]; congr 1; omega⟩
+        exact ⟨ty, by rw [hy]; congr 1; omega⟩
     · rw [List.getElem?_append_right (by simp [hP, hX]; omega)] at hx
       simp only [List.length_append, hP, hX] at hx
       obtain ⟨nm, ty, hy⟩ := hidxF (k - (nP + o)) x hx
-      exact ⟨nm, ty, by rw [hy]; congr 1; omega⟩
+      exact ⟨ty, by rw [hy]; congr 1; omega⟩
   · rw [List.getElem?_append_right (by simp [hP, hX, hF]; omega)] at hx
     simp only [List.length_append, hP, hX, hF] at hx
     obtain ⟨nm, ty, hy⟩ := hidxI (k - (nP + o + nF)) x hx
-    exact ⟨nm, ty, by rw [hy]; congr 1; omega⟩
+    exact ⟨ty, by rw [hy]; congr 1; omega⟩
 
 /-! ## The `ih` binders -/
 
@@ -423,7 +423,7 @@ theorem denoteP_instSeq_lift {m : EnvS2Core V env} {ψ : Name → Nat} {d d' t :
   have herased : Expr.ErasedEq (Expr.instSeq L t e) (Expr.instSeq L₀ t e) := by
     refine Expr.instSeq_erasedEq_args _ _ t (Expr.ErasedEq.rfl e) ?_ (by rw [hlen₀])
     intro k a₁ a₂ ha₁ ha₂
-    obtain ⟨nm, ty, rfl⟩ := hidxL k a₁ ha₁
+    obtain ⟨ty, rfl⟩ := hidxL k a₁ ha₁
     rw [hidx₀ k a₂ ha₂]
     exact Eq.refl _
   have hw : Expr.WScoped d (Expr.instSeq L₀ t e) := by
@@ -505,11 +505,11 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
     Lech.hasFvar_getAppArgs (Lech.stripPis_not_hasFvar (nP + nF) hsAll hCf).2 e (hesMem e he)
   have hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := hidxT q a hq
+    obtain ⟨ty, rfl⟩ := hidxT q a hq
     rfl
   have hclE : ∀ a ∈ extras, a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := hidxE q a hq
+    obtain ⟨ty, rfl⟩ := hidxE q a hq
     rfl
   have hcb0 : crest0.looseBVarsBounded nP = true := by
     have := Expr.stripPis_body_bounded nP hsC hCb
@@ -531,7 +531,7 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
     hcreadO hstX
   obtain ⟨hlenX, hidxX, hclX⟩ := opening_vars_at hopX
   obtain ⟨mfv, hhead⟩ : ∃ mfv, extras[0]? = some mfv := ⟨_, List.getElem?_eq_getElem ho⟩
-  obtain ⟨nmM, tyM, rfl⟩ := hidxE 0 mfv hhead
+  obtain ⟨tyM, rfl⟩ := hidxE 0 mfv hhead
   rw [Nat.add_zero] at hhead
   -- the frame, as one instantiation sequence
   have hcomb : ∀ Y : Expr,
@@ -551,7 +551,7 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
     simpa using h
   have hcl3 : ∀ a ∈ tfvs ++ extras ++ xFvs, a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := hidx3 q a hq
+    obtain ⟨ty, rfl⟩ := hidx3 q a hq
     rfl
   have hlen3 : (tfvs ++ extras ++ xFvs).length = nP + extras.length + nF := by
     simp [hlenT, hlenX]
@@ -694,7 +694,7 @@ theorem denoteP_minorsPisR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} 
     obtain ⟨ci, hfC, hlpsC⟩ := hc.find
     obtain ⟨mty, rest, hmty, hrest, rfl⟩ := Lech.directMinorsPisR_cons hmin
     have hlenTE : (tfvs ++ extras).length = nP + extras.length := by simp [hlenT]
-    rw [Expr.instSeq_forallE (tfvs ++ extras) (nP + extras.length - 1) _ _ _ _ (by omega),
+    rw [Expr.instSeq_forallE (tfvs ++ extras) (nP + extras.length - 1) _ _ _ (by omega),
       show nP + extras.length - 1 + 1 = nP + extras.length from by omega,
       denoteP_forallE,
       denoteP_minorAtR hfT hlpsT hfC hlpsC hmty hc.hasFvar hc.bounded hc.resid hc.read hc.len
@@ -783,7 +783,7 @@ theorem denoteP_minorsLamsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name}
     obtain ⟨ci, hfC, hlpsC⟩ := hc.find
     obtain ⟨mty, rest, hmty, hrest, rfl⟩ := Lech.directMinorsLamsR_cons hmin
     have hlenTE : (tfvs ++ extras).length = nP + extras.length := by simp [hlenT]
-    rw [Lech.instSeq_lam (tfvs ++ extras) (nP + extras.length - 1) _ _ _ _ (by omega),
+    rw [Lech.instSeq_lam (tfvs ++ extras) (nP + extras.length - 1) _ _ _ (by omega),
       show nP + extras.length - 1 + 1 = nP + extras.length from by omega,
       denoteP_lam,
       denoteP_minorAtR hfT hlpsT hfC hlpsC hmty hc.hasFvar hc.bounded hc.resid hc.read hc.len
@@ -898,7 +898,7 @@ theorem denoteP_directRecTyR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
   -- the index telescope, under the motive and the minors
   have hclE' : ∀ a ∈ extras', a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := hidxE' q a hq
+    obtain ⟨ty, rfl⟩ := hidxE' q a hq
     rfl
   have hclTE : ∀ a ∈ tfvs ++ extras', a.looseBVarsBounded 0 = true := by
     intro a ha
@@ -908,7 +908,7 @@ theorem denoteP_directRecTyR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
   have hlenTE : (tfvs ++ extras').length = nP + 1 + n := by simp [hlenT, hlenE']; omega
   obtain ⟨mfv', hhead⟩ : ∃ x, extras'[0]? = some x :=
     ⟨_, List.getElem?_eq_getElem (by omega)⟩
-  obtain ⟨nmM, tyM, rfl⟩ := hidxE' 0 mfv' hhead
+  obtain ⟨tyM, rfl⟩ := hidxE' 0 mfv' hhead
   rw [Nat.add_zero] at hhead
   have htb0 : itele.looseBVarsBounded nP = true := by
     have := Expr.stripPis_body_bounded nP hsT hTb; rwa [Nat.zero_add] at this
@@ -1126,14 +1126,14 @@ theorem denoteP_ruleCoreR {m : EnvS2Core V env} {ψ : Name → Nat}
       ∃ ty, x = Expr.fvar (nP + (n + 1) + k) ty := by
     intro k x hx
     obtain ⟨nm, ty, hy⟩ := hidxX k x hx
-    exact ⟨nm, ty, by rw [hy]; congr 1; omega⟩
+    exact ⟨ty, by rw [hy]; congr 1; omega⟩
   have hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := hidxT q a hq
+    obtain ⟨ty, rfl⟩ := hidxT q a hq
     rfl
   have hclE : ∀ a ∈ extras, a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := hidxE q a hq
+    obtain ⟨ty, rfl⟩ := hidxE q a hq
     rfl
   have hlenTE : (tfvs ++ extras).length = nP + (n + 1) := by simp [hlenT, hlenE]
   have hcombR : ∀ Y : Expr,
@@ -1183,7 +1183,7 @@ theorem denoteP_ruleCoreR {m : EnvS2Core V env} {ψ : Name → Nat}
         obtain ⟨nm, ty, hy⟩ := hLidx k x (by
           rw [List.getElem?_append_left hklt]
           exact hx)
-        exact ⟨nm, ty, by rw [hy, Nat.zero_add]⟩)
+        exact ⟨ty, by rw [hy, Nat.zero_add]⟩)
     have he : ((List.range (tfvs ++ extras).length).map fun k =>
         AVExpr.bvar (nP + 1 + n + nF - 1 - (0 + k))) = recPrefixBvars nP n nF := by
       rw [recPrefixBvars_eq, hlenTE,
@@ -1311,7 +1311,7 @@ theorem denoteP_directRecRhsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
   rw [hX, hread]
   have hclE' : ∀ a ∈ extras', a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := hidxE' q a hq
+    obtain ⟨ty, rfl⟩ := hidxE' q a hq
     rfl
   have hlenTE : (tfvs ++ extras').length = nP + 1 + n := by simp [hlenT, hlenE']; omega
   have hcb0 : crest0.looseBVarsBounded nP = true := by

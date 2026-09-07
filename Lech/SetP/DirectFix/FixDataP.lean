@@ -148,8 +148,8 @@ theorem denoteSpineP_params {acval : Name → (Name → Nat) → AVExpr} {φ : N
     DenoteSpineP acval env φ D fvsP (paramBvarsAt nP D) := by
   have := denoteSpineP_fvars (acval := acval) (env := env) (φ := φ) D fvsP 0
     (fun k x hx => by
-      obtain ⟨nm, ty, h⟩ := hidx k x hx
-      exact ⟨nm, ty, by rw [h, Nat.zero_add]⟩)
+      obtain ⟨ty, h⟩ := hidx k x hx
+      exact ⟨ty, by rw [h, Nat.zero_add]⟩)
   rw [hlen] at this
   have he : ((List.range nP).map fun k => AVExpr.bvar (D - 1 - (0 + k))) = paramBvarsAt nP D := by
     unfold paramBvarsAt
@@ -186,8 +186,8 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   obtain ⟨hlenX, hidxX, -⟩ := opening_vars_at hopX
   have hidxX' : ∀ k x, xFvs[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty := hidxX
   have hidxP' : ∀ k x, fvsP[k]? = some x → ∃ ty, x = Expr.fvar k ty := fun k x hx => by
-    obtain ⟨nm, ty, h⟩ := hidxP k x hx
-    exact ⟨nm, ty, by rw [h, Nat.zero_add]⟩
+    obtain ⟨ty, h⟩ := hidxP k x hx
+    exact ⟨ty, by rw [h, Nat.zero_add]⟩
   have hopAll : openPisAtFvars (nP + nF) cvCa.type 0 = some (fvsP ++ xFvs, xrest) :=
     openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopX)
   -- every field's opened domain reads to its entry
