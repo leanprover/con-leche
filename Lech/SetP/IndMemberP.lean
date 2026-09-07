@@ -121,7 +121,7 @@ theorem memberKeyP (mp : EnvS2PM V μ env) {blockNames : List Name}
   rw [← hta]
   show denoteP mp.base2.acval env ψ 0 type'
     = denoteP mp.base2.acval env ψ 0 cvm.type
-  rw [← denoteP_erasedEq ((eq_of_beq hren ▸ Expr.ErasedEq.rfl _)) 0]
+  rw [← denoteP_erasedEq (Expr.ErasedEq.of_eq (eq_of_beq hren)) 0]
   exact (denoteP_renameConsts_resolve hup hval type' 0 htr).symm
 
 /-! ## The member install -/

@@ -95,7 +95,7 @@ theorem stripPis_denotePTele :
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
         ∀ (i0 : Nat) (b : Expr × BinderMeta), bs[i0]? = some b →
           denoteP acval env φ (j + i0)
-            (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
+            (Expr.instSeq (openFvars j i0) (i0 - 1) b.1) =
             some (Γ.getD (k - 1 - i0) default) := by
   intro k
   induction k with
@@ -201,14 +201,14 @@ theorem stripPis_denotePTele :
             rw [show k + 1 - 1 - (i0 + 1) = k - 1 - i0 from by omega,
               List.getElem?_append_left (by omega)]]
           show denoteP acval env φ (j + (i0 + 1))
-            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.2.1)
+            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.1)
             = _
           rw [show openFvars j (i0 + 1) = .fvar j
               (.sort .zero) :: openFvars (j + 1) i0 from rfl,
             show Expr.instSeq (.fvar j (.sort .zero)
-                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.2.1 =
+                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.1 =
               Expr.instSeq (openFvars (j + 1) i0) (i0 - 1)
-                (b.2.1.instantiate1 (.fvar j
+                (b.1.instantiate1 (.fvar j
                   (.sort .zero)) i0) from by
               simp [Expr.instSeq],
             show j + (i0 + 1) = j + 1 + i0 from by omega]
@@ -557,7 +557,7 @@ theorem denoteSpineP_openFvars :
       = Lech.Expr.fvar j (.sort .zero)
         :: openFvars (j + 1) k from rfl, hlist]
     exact DenoteSpineP.cons
-      (denoteP_fvar acval d j Name.anonymous (.sort .zero))
+      (denoteP_fvar acval d j (.sort .zero))
       (ih (j + 1) d (by omega))
 
 /-- The opened parameter spine, evaluated: it applies the head to the

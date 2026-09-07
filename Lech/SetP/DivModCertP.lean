@@ -219,7 +219,7 @@ theorem dmUnV_of_parts (m : EnvS2Core V env) {ψ : Name → Nat}
 theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     {o : Name} {cio : ConstantInfo}
     (hf : env.find? o = some cio)
-    {n₁ n₂ : Name} {mb₁ mb₂ : Lech.BinderMeta} {codN : Name}
+    {mb₁ mb₂ : Lech.BinderMeta} {codN : Name}
     (hty : cio.toConstantVal.type
       = .forallE (.const Lech.natName [])
       (.forallE (.const Lech.natName []) (.const codN []) mb₂)
@@ -249,7 +249,7 @@ theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
 theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     {o : Name} {cio : ConstantInfo}
     (hf : env.find? o = some cio)
-    {n₁ : Name} {mb₁ : Lech.BinderMeta} {codN : Name}
+    {mb₁ : Lech.BinderMeta} {codN : Name}
     (hty : cio.toConstantVal.type
       = .forallE (.const Lech.natName []) (.const codN []) mb₁)
     {ciN codCi : ConstantInfo}
@@ -297,8 +297,7 @@ def dmNatFrag (bins uns : List Name) : Expr → Bool
       uns.contains n && us.isEmpty && dmNatFrag bins uns a
   | .const n us => (n == Lech.natZeroName) && us.isEmpty
   | .fvar i ty =>
-      ((i == 0 && nm == Name.anonymous.str "x") ||
-        (i == 1 && nm == Name.anonymous.str "y")) &&
+      ((i == 0) || (i == 1)) &&
         ty == Expr.const Lech.natName []
   | _ => false
 
@@ -516,8 +515,8 @@ form.** -/
 theorem ctxOkP_pinnedLift {m : EnvS2Core V env} {ψ : Name → Nat}
     {d : Nat} {Δa : List AVExpr} {e : Expr}
     (hlen : Δa.length = d)
-    (hslot : ∀ l ∈ e.fvarLeaves, l.1 < d ∧ Expr.fvarsBelow l.1 l.2.2 ∧
-      ∃ tya, denoteP m.acval env ψ d l.2.2 = some tya ∧
+    (hslot : ∀ l ∈ e.fvarLeaves, l.1 < d ∧ Expr.fvarsBelow l.1 l.2 ∧
+      ∃ tya, denoteP m.acval env ψ d l.2 = some tya ∧
         tya = (Δa.getD (d - 1 - l.1) default).liftN (d - l.1) 0 ∧
         ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ tya) :
     CtxOkP m ψ d Δa e := by
@@ -622,7 +621,7 @@ condition the frame asks for is a consequence of the grammar, not a
 `by decide` at each call site. -/
 
 /-- A frame variable is well-scoped at any depth above its index. -/
-theorem dmFvarWScoped {d i : Nat} {n : Name} {ty : Expr} (hi : i < d)
+theorem dmFvarWScoped {d i : Nat} {ty : Expr} (hi : i < d)
     (hty : Expr.WScoped i ty) : Expr.WScoped d (Expr.fvar i ty) := by
   simp only [Expr.WScoped]
   exact ⟨hi, hty⟩
@@ -1749,7 +1748,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     rwa [Lech.Env.find?_cons, if_neg (fun hh => hnn hh.symm)] at hf
   -- the numeral heads, at the prefix
   obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hfN2, hfZ2, hfS2,
-    hlpN, hlpZ, hlpS, htyN, htyZ, nmS, mbS, htyS⟩ :=
+    hlpN, hlpZ, hlpS, htyN, htyZ, mbS, htyS⟩ :=
     Lech.natLitSupported_inv hs
   have hfN : env.find? Lech.natName
       = some (.indInfo cvN capsN) := hdown _ _ hnN hfN2
@@ -1783,7 +1782,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     exact ⟨cvn, vn, hintn, hdown _ _ hnc hfn2, hd.1, hpinn⟩
   obtain ⟨cvb, vb, hintb, hfble, hlpble, hpinb⟩ :=
     hstoredDep _ hbleDep hbleNe
-  obtain ⟨nmb, nmb2, mbb, mbb2, codb, htyb, hcodb⟩ :=
+  obtain ⟨mbb, mbb2, codb, htyb, hcodb⟩ :=
     natOpTyPinned_binaryE (by decide) hpinb
   obtain ⟨rfl, ciB, hfB2, hlpB, htyB⟩ := natOpCod_ble hcodb
   have hfB : env.find? Lech.boolName = some ciB :=
@@ -1956,7 +1955,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     by_cases hnc : n = c
     · -- the operation itself, through the value front door
       subst hnc
-      obtain ⟨nmT, nmT2, mbT, mbT2, codT, htyT2, hcodT⟩ :=
+      obtain ⟨mbT, mbT2, codT, htyT2, hcodT⟩ :=
         natOpTyPinned_binaryE hnu (htyS2 ▸ hpinS2)
       have hcodN : codT = Expr.const Lech.natName [] := by
         unfold Lech.natOpCod at hcodT
@@ -1966,7 +1965,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         simpa using hcodT
       subst hcodN
       have hTshape := denoteP_pinnedBinTy (codN := Lech.natName)
-        (n₁ := nmT) (n₂ := nmT2) (mb₁ := mbT) (mb₂ := mbT2)
+        (mb₁ := mbT) (mb₂ := mbT2)
         mp.base2 ψ hfN hlpN hfN hlpN
       rw [← htyT2] at hTshape
       obtain heq : Ta ψ = _ :=
@@ -1977,7 +1976,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         (heq ▸ hTok ψ ρ)
     · obtain ⟨cvn, vn, hintn, hfn, hlpn, hpinn⟩ :=
         hstoredDep n hnd hnc
-      obtain ⟨nmn, nmn2, mbn, mbn2, codn, htyn, hcodn⟩ :=
+      obtain ⟨mbn, mbn2, codn, htyn, hcodn⟩ :=
         natOpTyPinned_binaryE hnu hpinn
       have hcodN : codn = Expr.const Lech.natName [] := by
         unfold Lech.natOpCod at hcodn

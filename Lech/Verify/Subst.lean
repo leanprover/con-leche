@@ -160,6 +160,11 @@ theorem ErasedEq.rfl : ∀ (e : Expr), ErasedEq e e := by
   intro e
   induction e <;> simp_all [ErasedEq]
 
+/-- Equal terms are `ErasedEq` (the shape the `==` comparisons of the
+kernel hand their consumers, `eq_of_beq` first). -/
+theorem ErasedEq.of_eq {a b : Expr} (h : a = b) : ErasedEq a b :=
+  h ▸ ErasedEq.rfl a
+
 theorem ErasedEq.instantiate1 :
     ∀ {e e' v v' : Expr} {k : Nat}, ErasedEq e e' → ErasedEq v v' →
       ErasedEq (e.instantiate1 v k) (e'.instantiate1 v' k) := by

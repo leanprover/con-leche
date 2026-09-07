@@ -126,7 +126,7 @@ theorem reduceOp_shapeS {c : Name} {type' : Expr}
     (hc : c ∈ Lech.reduceOpNames)
     (h : type'.erasePw
       = (Lech.reduceOpCvA c).type.erasePw) :
-    ∃ n₀ mb₀, type' = .forallE (Lech.reduceElemTy c)
+    ∃ mb₀, type' = .forallE (Lech.reduceElemTy c)
       (Lech.reduceElemTy c) mb₀ := by
   have hcases : c = Lech.reduceNatName ∨ c = Lech.reduceBoolName := by
     simpa [Lech.reduceOpNames] using hc
@@ -140,12 +140,12 @@ theorem reduceOp_shapeS {c : Name} {type' : Expr}
         Lech.reduceBoolName, Lech.natName, Lech.boolName,
         Expr.erasePw]
   rw [hshape] at h
-  obtain ⟨n', ty', b', m', rfl, hty', hb'⟩ := erasePwNames_forallE_invS h
+  obtain ⟨ty', b', m', rfl, hty', hb'⟩ := erasePwNames_forallE_invS h
   have hE := reduceElemTy_constS c
   rw [hE] at hty' hb'
   obtain rfl := erasePwNames_const_invS hty'
   obtain rfl := erasePwNames_const_invS hb'
-  exact ⟨n', m', by rw [hE]⟩
+  exact ⟨m', by rw [hE]⟩
 
 -- (`reduceElem_sort` in `Verify/OfReducePin.lean` already says the
 -- element inductive is stored level-free at `Sort 1`; the earlier
@@ -159,7 +159,7 @@ annotation is the element type (a bare constant, so the hereditary
 recursion stops there). -/
 theorem reduceCertVar_fvarLeaves (c : Name) :
     (Lech.reduceCertVar c).fvarLeaves
-      = [(0, Lech.Name.anonymous.str "a", Lech.reduceElemTy c)] := by
+      = [(0, Lech.reduceElemTy c)] := by
   have hE := reduceElemTy_constS c
   simp [Lech.reduceCertVar, hE, Expr.fvarLeaves]
 
@@ -238,7 +238,7 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
     (ConstantInfo.axiomInfo.inj (Option.some.inj hf₂)).symm
   simp only [ConstantVal.matchesPin, Bool.and_eq_true, decide_eq_true_eq,
     beq_iff_eq] at hpin
-  obtain ⟨n₀, mb₀, htyShape⟩ := reduceOp_shapeS hcN hpin.2
+  obtain ⟨mb₀, htyShape⟩ := reduceOp_shapeS hcN hpin.2
   subst htyShape
   -- the type's reading: a one-step `.pi` over the element leaf
   have hinst : (Lech.reduceElemTy cv.name).instantiate1
@@ -273,8 +273,7 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
   have hLCert : Expr.LeavesBounded (Lech.reduceCertVar cv.name) := by
     intro l hl
     rw [hcertLeaves] at hl
-    obtain rfl : l = (0, Lech.Name.anonymous.str "a",
-        Lech.reduceElemTy cv.name) := by simpa using hl
+    obtain rfl : l = (0, Lech.reduceElemTy cv.name) := by simpa using hl
     rw [hEty]; rfl
   have hwsApp : Expr.WScoped 1
       (Expr.app valA (Lech.reduceCertVar cv.name)) := by
@@ -301,8 +300,7 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
     intro ψ
     refine ⟨rfl, fun l hl => ?_⟩
     rw [hcertLeaves] at hl
-    obtain rfl : l = (0, Lech.Name.anonymous.str "a",
-        Lech.reduceElemTy cv.name) := by simpa using hl
+    obtain rfl : l = (0, Lech.reduceElemTy cv.name) := by simpa using hl
     refine ⟨Nat.zero_lt_one, by rw [hEty]; trivial,
       mp.base2.acval (Lech.reduceElemName cv.name) ψ,
       elemAP mp.base2 cv.name ψ, hdenE ψ 1, rfl, fun ρ' _ => ?_,

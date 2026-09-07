@@ -147,7 +147,7 @@ theorem blockTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
     by_cases hb : blockNames.contains n = true
     · rw [if_pos hb]; exact hIA n hb ci hfn ψ'
     · rw [if_neg hb]
-  rw [← denoteP_erasedEq ((eq_of_beq hren ▸ Expr.ErasedEq.rfl _)) 0]
+  rw [← denoteP_erasedEq (Expr.ErasedEq.of_eq (eq_of_beq hren)) 0]
   exact (denoteP_renameConsts_resolve hup hval ty 0 htr).symm
 
 /-- The member cons's instance: `MemberValR` supplies both data. -/
