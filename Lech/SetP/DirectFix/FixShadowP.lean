@@ -125,13 +125,13 @@ theorem shadowCtxOk {m : EnvS2Core V env} {ψ : Name → Nat} {k : Nat} {e : Exp
   have hidx : ∀ i x, fvs[i]? = some x → ∃ ty, x = Expr.fvar i ty :=
     fun i x hx => (hO.var i x hx).1
   -- a leaf's opener sits at its own position
-  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2.2) := by
+  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2) := by
     intro l hl
     obtain ⟨p, hp⟩ := List.getElem?_of_mem (hleaf l hl)
-    obtain ⟨nm, ty, hx⟩ := hidx p _ hp
-    obtain ⟨rfl, -, -⟩ : l.1 = p ∧ l.2.1 = nm ∧ l.2.2 = ty := by
-      injection hx with a b c
-      exact ⟨a, b, c⟩
+    obtain ⟨ty, hx⟩ := hidx p _ hp
+    obtain ⟨rfl, -⟩ : l.1 = p ∧ l.2 = ty := by
+      injection hx with a b
+      exact ⟨a, b⟩
     exact hp
   have hgetD : ∀ j, (hj : j < k) → fvs.getD j default = fvs[j]'(by rw [hlenF]; exact hj) := by
     intro j hj
@@ -150,7 +150,7 @@ theorem shadowCtxOk {m : EnvS2Core V env} {ψ : Name → Nat} {k : Nat} {e : Exp
     rw [List.getElem?_take_of_lt hj, shadowFvs_getElem? (by omega)] at hy
     obtain rfl := Option.some.inj hy
     split
-    · exact ⟨_, _, rfl⟩
+    · exact ⟨_, rfl⟩
     · rw [hgetD j (by omega)]
       exact hidx j _ (List.getElem?_eq_getElem (by omega))
   · intro y hy
@@ -165,7 +165,7 @@ theorem shadowCtxOk {m : EnvS2Core V env} {ψ : Name → Nat} {k : Nat} {e : Exp
     · simp only [Expr.WScoped]
       exact ⟨hji, trivial⟩
     · rw [hgetD j (by omega)]
-      obtain ⟨⟨nm, ty, hx⟩, hw, -, -, -⟩ := hO.var j _ (List.getElem?_eq_getElem (by omega))
+      obtain ⟨⟨ty, hx⟩, hw, -, -, -⟩ := hO.var j _ (List.getElem?_eq_getElem (by omega))
       rw [hx] at hw ⊢
       simp only [Expr.fvarTypeD] at hw
       simp only [Expr.WScoped]
