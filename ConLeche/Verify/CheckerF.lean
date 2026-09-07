@@ -286,6 +286,11 @@ theorem checkDirectFieldSortsIFA_eq (ops : CheckerOps m) (fe : FEnv)
       List.getElem?_toArray,
       checkDirectFieldSortsIFA_eq ops fe isProp large s nP fvs idxArgs j]
 
+theorem normCtorValF_eq (ops : CheckerOps m) (env : Env) (T : Name) (nP nF : Nat)
+    (cvC cvCa : ConstantVal) :
+    normCtorValF ops (mkFEnv env) T nP nF cvC cvCa = normCtorVal ops env T nP nF cvC cvCa := by
+  simp only [normCtorValF, normCtorVal, mkFEnv_env, checkConstantValF_eq]
+
 theorem checkDirectSumCtorF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
@@ -293,7 +298,7 @@ theorem checkDirectSumCtorF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name
         large cvC nF cvTa
       = checkDirectSumCtor ops env₀ env T lps nP nIdx resSort isProp large cvC nF
         cvTa := by
-  simp only [checkDirectSumCtorF, checkDirectSumCtor, checkConstantValF_eq,
+  simp only [checkDirectSumCtorF, checkDirectSumCtor, checkConstantValF_eq, normCtorValF_eq,
     checkDirectDomsAtFA_eq, checkDirectDomsAtF_eq, openPisAtFvarsF_eq,
     checkDirectFieldSortsIFA_eq, checkDirectFieldSortsIF_eq, constsResolveF_eq]
 

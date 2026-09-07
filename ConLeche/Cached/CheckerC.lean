@@ -172,21 +172,30 @@ def checkDirectFixS (fe : FEnv) (p₀ : DirectFixParts) : CheckCM FEnv := do
   unless (p₀.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   flushC
+  -- the provisional pass (task #210 Part D): the kinds, classified on
+  -- the constructors normalised at a throwaway former
+  let (feP, cvTaP, p₁P) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀.toDirectSumParts
+    (fun _ => {})
+  let p₂P := p₀.complete p₁P
+  flushC
+  let (ctorsP, _) ← checkDirectSumCtorsF (sharedOpsC mode feP) feP feP p₂P.cvT.name
+    p₂P.cvT.levelParams p₂P.nP p₂P.nIdx p₂P.resSort p₂P.isProp p₂P.large cvTaP p₂P.ctors
+  let kinds ← classifyFixKinds (m := CheckCM) p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP p₂P.nIdx
+    ctorsP
+  flushC
   let (fe₁, cvTa, p₁) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀.toDirectSumParts
-    (fun p₁ => directFixCaps (p₀.complete p₁))
-  let p₂ := p₀.complete p₁
-  if p₂.large && !p₂.resSort.isNeverZero && decide (2 ≤ p₂.ctors.length) then
+    (fun p₁ => directFixCaps ((p₀.complete p₁).withKinds kinds))
+  let p := (p₀.complete p₁).withKinds kinds
+  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
   flushC
-  let tq ← unwrapOr (openPisAtFvars (p₂.nP + p₂.nIdx) cvTa.type 0)
+  let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) cvTa.type 0)
     (.internal "direct rec: type former telescope")
-  let _isorts ← checkDirectFieldSortsIF (sharedOpsC mode fe₁) fe₁ true false p₂.resSort p₂.nP
-    (tq.1.drop p₂.nP) [] p₂.nIdx
-  let (ctorsA, sortss) ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₂.cvT.name
-    p₂.cvT.levelParams p₂.nP p₂.nIdx p₂.resSort p₂.isProp p₂.large cvTa p₂.ctors
-  let kinds ← classifyFixKinds (m := CheckCM) p₂.cvT.name p₂.cvT.levelParams p₂.nP p₂.nIdx ctorsA
-  let p := p₂.withKinds kinds
+  let _isorts ← checkDirectFieldSortsIF (sharedOpsC mode fe₁) fe₁ true false p.resSort p.nP
+    (tq.1.drop p.nP) [] p.nIdx
+  let (ctorsA, sortss) ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p.cvT.name
+    p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
   unless directFixFieldsOkF directWalkersC fe p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA
       p.kinds do
     throw (.internal "direct rec: field kinds")

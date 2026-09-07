@@ -656,7 +656,7 @@ theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {p : DirectF
           :: envC.consts⟩ : Env).find? cA.1.name = some (.ctorInfo cA.1 p.nP cA.2) :=
         ConLeche.Env.find?_cons_of_fresh hRfresh hfC_C
       -- the constructor type's shape
-      obtain ⟨hccvC, ⟨cbs, es, hstrip, -⟩, -⟩ := ConLeche.checkDirectSumCtor_shape hCtor
+      obtain ⟨⟨_, hccvC⟩, ⟨cbs, es, hstrip, -⟩, -⟩ := ConLeche.checkDirectSumCtor_shape hCtor
       have hstripC : (cA.1.type.stripPis (p.nP + cA.2)).isSome = true := by
         rw [hstrip]; rfl
       -- the structure's slots are mentioned by no stored piece: no table

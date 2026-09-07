@@ -229,36 +229,49 @@ rules, and — at a structure-like block — the projection table
 def checkDirectFix (ops : CheckerOps m) (env : Env) (p₀ : DirectFixParts) : m Env := do
   unless (p₀.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
+  -- THE PROVISIONAL PASS (task #210 Part D): the block's capability
+  -- record (`directFixCaps`) needs the fields' kinds — official's
+  -- `is_rec` — and the kinds need the constructors normalised at an
+  -- environment where the former resolves.  So the former is first
+  -- installed with an EMPTY record in a throwaway environment, the
+  -- constructors normalised and checked there, and the kinds
+  -- classified from those; the real former then carries the record
+  -- at the kinds, and every later stage runs on the completed record
+  -- `p`.  (Official adds the whole block in one step; this is the
+  -- same information in two.)
+  let (envP, cvTaP, p₁P) ← checkDirectSumInd ops env p₀.toDirectSumParts (fun _ => {})
+  let p₂P := p₀.complete p₁P
+  let (ctorsP, _) ← checkDirectSumCtors ops envP envP p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP
+    p₂P.nIdx p₂P.resSort p₂P.isProp p₂P.large cvTaP p₂P.ctors
+  let kinds ← classifyFixKinds p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP p₂P.nIdx ctorsP
   -- the former's run completes the record with the sort it read
   -- (task #195: a former declared at a definition that only unfolds
   -- to its telescope); every later stage runs on the completed record
   -- `p`, whose capability record the former already carries
   let (env₁, cvTa, p₁) ← checkDirectSumInd ops env p₀.toDirectSumParts
-    (fun p₁ => directFixCaps (p₀.complete p₁))
-  let p₂ := p₀.complete p₁
+    (fun p₁ => directFixCaps ((p₀.complete p₁).withKinds kinds))
+  let p := (p₀.complete p₁).withKinds kinds
   -- a large eliminator on a block whose sort may be `Prop`: two or more
   -- constructors is `.invalid` (official's `elim_only_at_universe_zero`);
   -- one constructor is the subsingleton case, taken (task #202 Stage
   -- A2) with the per-field criterion at `checkDirectFieldSortsI`
-  if p₂.large && !p₂.resSort.isNeverZero && decide (2 ≤ p₂.ctors.length) then
+  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
   -- the index binders' universes, exposed for the model's index-tuple
   -- universe: the former's telescope opened at variables, each index
   -- domain's sort inferred (no bound is checked — `isProp` set,
   -- `large` unset — the sorts are read, not compared)
-  let tq ← unwrapOr (openPisAtFvars (p₂.nP + p₂.nIdx) cvTa.type 0)
+  let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) cvTa.type 0)
     (.internal "direct rec: type former telescope")
-  let _isorts ← checkDirectFieldSortsI ops env₁ true false p₂.resSort p₂.nP (tq.1.drop p₂.nP) []
-    p₂.nIdx
+  let _isorts ← checkDirectFieldSortsI ops env₁ true false p.resSort p.nP (tq.1.drop p.nP) []
+    p.nIdx
   -- the constructors' field domains may mention the block: the
-  -- resolution guard is pointed at the former's environment; their
-  -- kinds are classified on the stored (normalised) constructors and
-  -- re-checked afterwards
-  let (ctorsA, sortss) ← checkDirectSumCtors ops env₁ env₁ p₂.cvT.name p₂.cvT.levelParams p₂.nP
-    p₂.nIdx p₂.resSort p₂.isProp p₂.large cvTa p₂.ctors
-  let kinds ← classifyFixKinds p₂.cvT.name p₂.cvT.levelParams p₂.nP p₂.nIdx ctorsA
-  let p := p₂.withKinds kinds
+  -- resolution guard is pointed at the former's environment; the kinds
+  -- classified at the provisional pass are re-checked on the stored
+  -- (normalised) constructors
+  let (ctorsA, sortss) ← checkDirectSumCtors ops env₁ env₁ p.cvT.name p.cvT.levelParams p.nP
+    p.nIdx p.resSort p.isProp p.large cvTa p.ctors
   unless directFixFieldsOk env p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds do
     throw (.internal "direct rec: field kinds")
   -- the stream's rules are the generated ones (official's replay
