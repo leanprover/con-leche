@@ -426,6 +426,16 @@ theorem checkDirectFixRecS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF 
       (checkDirectFixRec (fueledOpsM mode) env p cvTa ctorsA) := by
   unfold checkDirectFixRec
   dsimp only [sharedOpsC]
+  -- the recursor pin (task #220): both sides throw at the same guard
+  by_cases hn : (p.cvR.name == p.cvT.name.str "rec") = true
+  case neg => simp only [if_neg hn]; intro v' s' hr; exact nomatch hr
+  simp only [if_pos hn]
+  by_cases hlp : directFixRecLpsOk p.toDirectSumParts = true
+  case neg => simp only [if_neg hlp]; intro v' s' hr; exact nomatch hr
+  simp only [if_pos hlp]
+  by_cases hpin : p.recPinned = true
+  case neg => simp only [if_neg hpin]; intro v' s' hr; exact nomatch hr
+  simp only [if_pos hpin]
   refine SimC.bind (checkConstantValS_sim hμ henv hs) (fun s₁ cvRi cvRi' hs₁ hP => ?_)
   obtain ⟨rfl, hwI⟩ := hP
   try dsimp only

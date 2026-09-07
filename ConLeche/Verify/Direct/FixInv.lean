@@ -74,6 +74,57 @@ theorem checkDirectFixRules_inv {envR : Env} {rlps : List Name} {T : Name}
         rw [show j + (i + 1) = j + 1 + i from by omega]; exact hgen
       exact ⟨rhs', hget', hgen', hlp, hres, hbv, hfv⟩
 
+/-- **The recursor record's pins** (task #220): a successful recursor
+stage says the block's recursor record is NAMED the one official
+generates (`T.rec`) and carries its level parameters — the block's own,
+with the fresh elimination parameter in front at the large eliminator.
+Before task #220 both were recogniser conjuncts, so a block whose
+recursor record was a stub fell through to a DECLINE; they are now
+install checks whose failure REJECTS (official's replay finds no such
+generated recursor, or one that differs from it), and this is where the
+P tier reads them off. -/
+theorem checkDirectFixRec_pins {env : Env} {p : DirectFixParts}
+    {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
+    {r : ConstantVal × List Expr} {F : Nat}
+    (h : checkDirectFixRec (fueledOps mode F) env p cvTa ctorsA = .ok r) :
+    p.cvR.name = p.cvT.name.str "rec" ∧
+    (p.large = true → p.elim ∈ p.cvR.levelParams) ∧
+    (∀ q ∈ p.cvT.levelParams, q ∈ p.cvR.levelParams) := by
+  unfold checkDirectFixRec at h
+  by_cases hn : (p.cvR.name == p.cvT.name.str "rec") = true
+  case neg =>
+    exfalso
+    rw [if_neg hn] at h
+    first
+      | exact fixThrow_ne_ok h
+      | exact fixThrow_ne_ok (by simpa [bind, Except.bind] using h)
+  rw [if_pos hn] at h
+  try simp only [bind, Except.bind] at h
+  by_cases hlp : directFixRecLpsOk p.toDirectSumParts = true
+  case neg =>
+    exfalso
+    rw [if_neg hlp] at h
+    first
+      | exact fixThrow_ne_ok h
+      | exact fixThrow_ne_ok (by simpa [bind, Except.bind] using h)
+  unfold directFixRecLpsOk at hlp
+  refine ⟨beq_iff_eq.mp hn, ?_, ?_⟩
+  · intro hL
+    rw [if_pos hL] at hlp
+    simp only [beq_iff_eq] at hlp
+    rw [hlp]
+    exact List.mem_cons_self
+  · intro q hq
+    by_cases hL : p.large = true
+    · rw [if_pos hL] at hlp
+      simp only [beq_iff_eq] at hlp
+      rw [hlp]
+      exact List.mem_cons_of_mem _ hq
+    · rw [if_neg hL] at hlp
+      simp only [beq_iff_eq] at hlp
+      rw [hlp]
+      exact hq
+
 /-- The recursor stage's shape. -/
 theorem checkDirectFixRec_shape {env : Env} {p : DirectFixParts}
     {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {F : Nat}
@@ -96,6 +147,34 @@ theorem checkDirectFixRec_shape {env : Env} {p : DirectFixParts}
         (directFixCtors4 ctorsA p.kinds).length 0 = .ok rhss ∧
       cvRa = ⟨p.cvR.name, p.cvR.levelParams, recTy⟩ := by
   unfold checkDirectFixRec at h
+  -- the recursor pin (task #220): the name and the record's structure
+  by_cases hn : (p.cvR.name == p.cvT.name.str "rec") = true
+  case neg =>
+    exfalso
+    rw [if_neg hn] at h
+    first
+      | exact fixThrow_ne_ok h
+      | exact fixThrow_ne_ok (by simpa [bind, Except.bind] using h)
+  rw [if_pos hn] at h
+  try simp only [bind, Except.bind] at h
+  by_cases hlp : directFixRecLpsOk p.toDirectSumParts = true
+  case neg =>
+    exfalso
+    rw [if_neg hlp] at h
+    first
+      | exact fixThrow_ne_ok h
+      | exact fixThrow_ne_ok (by simpa [bind, Except.bind] using h)
+  rw [if_pos hlp] at h
+  try simp only [bind, Except.bind] at h
+  by_cases hpin : p.recPinned = true
+  case neg =>
+    exfalso
+    rw [if_neg hpin] at h
+    first
+      | exact fixThrow_ne_ok h
+      | exact fixThrow_ne_ok (by simpa [bind, Except.bind] using h)
+  rw [if_pos hpin] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨cvRi, hcv, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨recTy, hrt, h⟩ := exceptBind_ok h

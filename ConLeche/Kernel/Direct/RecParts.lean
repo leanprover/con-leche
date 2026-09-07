@@ -175,6 +175,16 @@ def recIdxOf (ks : List RecFieldKind) : List Nat :=
 structure DirectFixParts extends DirectSumParts where
   /-- per constructor, per field: its kind -/
   kinds : List (List RecFieldKind)
+  /-- **the stream's recursor record passed the structural pin**
+  (task #220): its rule count, each rule's constructor and field count,
+  and the two argument sums the record claims are the generated ones.
+  The recogniser records the verdict instead of refusing the block, and
+  the recursor stage THROWS on `false` — official's replay generates the
+  recursor and compares the exported one with it structurally
+  (`checkPostponedRecursors`, `Lean4Checker/Replay.lean`), so a record
+  that contradicts the generated recursor is invalid input, not a
+  feature this route lacks. -/
+  recPinned : Bool
   deriving Repr
 
 /-- **The record completed by the former's stage** (task #210 Part B):
@@ -182,12 +192,14 @@ the sum parts the former's run returned (its result sort read through
 `whnf`, task #195) with the recogniser's field kinds.  A definition,
 not a literal, so that a proof's `dsimp` keeps it in one piece. -/
 def DirectFixParts.complete (p₀ : DirectFixParts) (p₁ : DirectSumParts) : DirectFixParts :=
-  ⟨p₁, p₀.kinds⟩
+  ⟨p₁, p₀.kinds, p₀.recPinned⟩
 
 @[simp] theorem DirectFixParts.complete_toDirectSumParts (p₀ : DirectFixParts)
     (p₁ : DirectSumParts) : (p₀.complete p₁).toDirectSumParts = p₁ := rfl
 @[simp] theorem DirectFixParts.complete_kinds (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
     (p₀.complete p₁).kinds = p₀.kinds := rfl
+@[simp] theorem DirectFixParts.complete_recPinned (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).recPinned = p₀.recPinned := rfl
 @[simp] theorem DirectFixParts.complete_cvT (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
     (p₀.complete p₁).cvT = p₁.cvT := rfl
 @[simp] theorem DirectFixParts.complete_ctors (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
@@ -400,13 +412,100 @@ def directFixRulesOk (recC : Name) (rlvls : List Level) (pw : PropWhen) (nP n : 
        | none => false)
     | _, _, _ => false
 
-/-! ## Recognition -/
+/-! ## Recognition
 
-/-- The block's shape at a recursive block: `directSumPartsCore?`
-without its one-constructor exclusion and without the rule bodies
-(which need the field kinds); the index count is read off the
-recursor as there.  The rules' names and field counts are pinned
-here; their bodies by `directFixRulesOk`. -/
+**The type-and-constructor gate, split off the recursor pin**
+(task #220).  Official never reads the exported recursor as an *input*:
+`add_inductive` takes the type formers, the constructors and the
+parameter count, checks them (`check_inductive_types`,
+`check_constructors`, `check_positivity`) and GENERATES the recursor;
+the replay then compares each exported recursor record with the
+generated one, structurally, and a mismatch is a REJECT ("Invalid
+recursor", "No such recursor" — `Lean4Checker/Replay.lean`).  So the
+recogniser below reads the block's parameter and index counts the way
+official reads them — the parameters off the CONSTRUCTORS (every
+constructor carries the block's count), the indices off the type
+former's own telescope — and pins nothing of the recursor record
+beyond the level-parameter shape that decides which recursor is
+generated.  Everything the recursor record claims is compared at the
+install (`directFixRecPinOk` here, the name and the type and the rule
+bodies at `checkDirectFixRec`/`directFixRulesOk`), where a mismatch
+REJECTS.  Before task #220 those pins sat in the recogniser, so a block
+whose recursor record was a stub fell through to a DECLINE and the
+semantic checks that would have rejected it — positivity, the field
+universes, the constructor result — never ran (arena finding F1). -/
+
+/-- **The block's parameter and index counts** (task #220), read as
+official reads them and not off the recursor record: `nP` is the count
+every CONSTRUCTOR carries (official compares the constructor records
+against the ones it generates at the declaration's count, so a
+constructor disagreeing with the block is invalid input either way),
+and `nIdx` is what is left of the type former's own Π-telescope
+(`check_inductive_types` peels the parameters and counts the rest).
+At a CONSTRUCTOR-LESS block no constructor carries the count and at a
+former declared AT A DEFINITION (task #195) the syntactic telescope is
+not the one official walks; in both cases the recursor record's own
+argument sums are the only reading available and are used as before —
+a block of either shape with a broken recursor record still declines. -/
+def directFixCounts? (cvT : ConstantVal) (cs : List (ConstantVal × Nat × Nat))
+    (mI rP : Nat) : Option (Nat × Nat) :=
+  let fromRec : Option (Nat × Nat) :=
+    if rP < cs.length + 1 || mI < rP then none else some (rP - (cs.length + 1), mI - rP)
+  match cs with
+  | [] => fromRec
+  | c :: _ =>
+    match cvT.type.piBinders with
+    | (bs, .sort _) => if c.2.1 ≤ bs.length then some (c.2.1, bs.length - c.2.1) else none
+    | _ =>
+      match fromRec with
+      | some (nP, nIdx) => if nP == c.2.1 then some (nP, nIdx) else none
+      | none => none
+
+/-- **The recursor record's structural pin** (task #220): the two
+argument sums the record claims (`DirectSumParts.majorIdx`,
+`DirectSumParts.rulePrefix`, spelled out here because they are defined
+with the install stages that consume them — the
+individual counts official compares are exactly these two sums plus the
+block's own), one rule per constructor in constructor order, each rule
+naming its constructor with its field count.  Official's replay
+compares the exported recursor with the generated one by structural
+equality, so a `false` here is a REJECT, thrown at the recursor stage
+(`checkDirectFixRec`); the recogniser only records it, so that the
+block's TYPE and CONSTRUCTORS are checked first and their own rejects
+come out with official's message. -/
+def directFixRecPinOk (p : DirectSumParts) (block : List ConstantInfo) : Bool :=
+  match block with
+  | .indInfo _ _ :: rest =>
+    match directSumSplit rest with
+    | some (cs, _, mI, rP, rules) =>
+      rP == p.nP + 1 + p.ctors.length && mI == p.nP + 1 + p.ctors.length + p.nIdx &&
+      rules.length == p.ctors.length &&
+      (List.range p.ctors.length).all fun j =>
+        match rules[j]?, cs[j]? with
+        | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
+        | _, _ => false
+    | none => false
+  | _ => false
+
+/-- **The recursor record's level-parameter pin** (task #220): the
+recursor official generates carries the block's own level parameters,
+with a fresh elimination parameter in front at the LARGE eliminator.
+The recogniser reads which of the two the record claims and records
+the verdict here; `checkDirectFixRec` throws on `false`, as official's
+replay rejects a recursor whose level parameters are not the generated
+ones. -/
+def directFixRecLpsOk (p : DirectSumParts) : Bool :=
+  if p.large then p.cvR.levelParams == p.elim :: p.cvT.levelParams
+  else p.cvR.levelParams == p.cvT.levelParams
+
+/-- The block's shape at a recursive block: the type former, the
+constructors and the counts (`directFixCounts?`), with the rules'
+right-hand sides as exported and the recursor's level-parameter shape
+(which decides whether the LARGE or the small eliminator is the one
+generated, and so belongs to the shape).  Nothing else of the recursor
+record is pinned here — see the section docstring; the rules' bodies
+are `directFixRulesOk`'s and their metadata `directFixRecPinOk`'s, both
+at the install. -/
 def directFixShape? (block : List ConstantInfo) : Option DirectSumParts :=
   match block with
   | .indInfo cvT _ :: rest =>
@@ -414,23 +513,13 @@ def directFixShape? (block : List ConstantInfo) : Option DirectSumParts :=
     | some (cs, cvR, mI, rP, rules) =>
       let T := cvT.name
       let lps := cvT.levelParams
-      let n := cs.length
-      if rP < n + 1 || mI < rP then none else
-      let nP := rP - (n + 1)
-      let nIdx := mI - rP
-      if cvR.name == T.str "rec" &&
-          reservedBasisNames.contains T == false &&
+      match directFixCounts? cvT cs mI rP with
+      | none => none
+      | some (nP, nIdx) =>
+      if reservedBasisNames.contains T == false &&
           reservedBasisNames.contains cvR.name == false &&
           cs.all (fun c => c.2.1 == nP && c.1.levelParams == lps &&
-            reservedBasisNames.contains c.1.name == false &&
-            (match c.1.type.stripPis (nP + c.2.2) with
-             | some (_, cbody) => directCtorResidOk T lps nP c.2.2 nIdx cbody
-             | none => false)) &&
-          rules.length == n &&
-          (List.range n).all (fun j =>
-            match rules[j]?, cs[j]? with
-            | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
-            | _, _ => false) then
+            reservedBasisNames.contains c.1.name == false) then
         -- the result sort: read off the declared type when it is a
         -- syntactic telescope ending in a sort; otherwise (task #195, a
         -- former declared AT A DEFINITION that only unfolds to its
@@ -444,6 +533,13 @@ def directFixShape? (block : List ConstantInfo) : Option DirectSumParts :=
         let isProp := Level.isEquiv s .zero == some true
         let ctors := cs.map fun c => (c.1, c.2.2)
         let rhss := rules.map (·.rhs)
+        -- WHICH ELIMINATOR the block's recursor is: the LARGE one
+        -- carries a fresh elimination level parameter in front of the
+        -- block's, the small one the block's own.  A record that is
+        -- neither is read as the small eliminator with the pin
+        -- FAILING (task #220: `directFixRecLpsOk`, thrown at
+        -- `checkDirectFixRec`) rather than refusing the block, so that
+        -- its type and constructors are checked first
         let large? : Option Name :=
           match cvR.levelParams with
           | elim :: relps =>
@@ -451,10 +547,7 @@ def directFixShape? (block : List ConstantInfo) : Option DirectSumParts :=
           | [] => none
         match large? with
         | some elim => some ⟨cvT, ctors, nP, nIdx, cvR, elim, s, rhss, true, isProp⟩
-        | none =>
-          if cvR.levelParams == lps then
-            some ⟨cvT, ctors, nP, nIdx, cvR, .anonymous, s, rhss, false, isProp⟩
-          else none
+        | none => some ⟨cvT, ctors, nP, nIdx, cvR, .anonymous, s, rhss, false, isProp⟩
       else none
     | none => none
   | _ => none
@@ -469,6 +562,8 @@ def DirectFixParts.withKinds (p : DirectFixParts) (ks : List (List RecFieldKind)
 
 @[simp] theorem DirectFixParts.withKinds_kinds (p : DirectFixParts)
     (ks : List (List RecFieldKind)) : (p.withKinds ks).kinds = ks := rfl
+@[simp] theorem DirectFixParts.withKinds_recPinned (p : DirectFixParts)
+    (ks : List (List RecFieldKind)) : (p.withKinds ks).recPinned = p.recPinned := rfl
 @[simp] theorem DirectFixParts.withKinds_toDirectSumParts (p : DirectFixParts)
     (ks : List (List RecFieldKind)) : (p.withKinds ks).toDirectSumParts = p.toDirectSumParts := rfl
 
@@ -487,8 +582,12 @@ kernel's nested→mutual specialisation mints one per mimic), and
 outright, measured over every block of Mathlib (task #219).  Those
 blocks are the in-process modeller's.  A reflexive field is taken at
 every sort (task #202); a block with no constructor is this route's
-too (`FixKI₀.hsq` at most one). -/
+too (`FixKI₀.hsq` at most one).  What the block's RECURSOR RECORD claims is
+not a condition of recognition (task #220): its structural pin travels
+with the record (`directFixRecPinOk`) and the install throws on it, so
+that a block whose recursor record is a stub is REJECTED by its own
+type and constructors rather than declined. -/
 def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
-  (directFixShape? block).map fun p => ⟨p, []⟩
+  (directFixShape? block).map fun p => ⟨p, [], directFixRecPinOk p block⟩
 
 end ConLeche

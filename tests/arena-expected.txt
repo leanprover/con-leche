@@ -16,20 +16,38 @@
 # con-leche's own.  Two groups of rows moved with the drop, and both
 # are recorded here deliberately rather than papered over.
 #
-# A. FIFTEEN bad tutorial tests fall back to a DECLINE (2) — the
-#    verdicts they had before task #180 (arena finding F1).  045, 048,
-#    051 and 055 decline earlier still, at a non-standard axiom, and
-#    never reach their inductive at all.  The other eleven (047, 049,
-#    050, 052, 054, 059, 071, 116, 117, 135, 136) carry a STUB RECURSOR
-#    record (`nP=0 nM=0 nm=0 rules=[]`) or a misnamed recursor, which
-#    every direct recogniser refuses at its recursor pin — before the
-#    semantic check that would reject (positivity, field universe,
-#    constructor residual) can run.  Recovering the reject means
-#    splitting the recognisers into a type+constructor gate that may
-#    REJECT and a recursor pin that today only falls through; that is a
-#    verified-tier refactor and its own task (the #207 checklist, §3.3a).
-#    138 keeps its 1: the direct sum route's own pairwise
-#    duplicate-constructor guard rejects it.
+# A. TASK #220 (2026-09-07) — the fixpoint route's TYPE-AND-CONSTRUCTOR
+#    GATE now rejects independently of the recursor pin, and TEN of the
+#    fifteen F1 rows are back at the reference verdict, REJECT (1):
+#    049, 050, 054 ("invalid constructor return type", official's
+#    `is_valid_ind_app` on the constructor's result), 052, 116 ("non
+#    positive occurrence"), 059 ("field universe too large"), 117 (the
+#    constructor's declared type is ill-typed — `reflOccInIndex` is
+#    applied to the `Nat` binder), 071 ("recursor rules are not the
+#    generated ones") and 135, 136 ("the block's recursor is not the
+#    generated T.rec").  Official reads no recursor from the stream:
+#    `add_inductive` GENERATES it and the replay then compares each
+#    exported recursor record with the generated one structurally,
+#    rejecting a mismatch ("Invalid recursor", "No such recursor" —
+#    Lean4Checker/Replay.lean), which is why a stub or misnamed record
+#    is a reject and not a decline.  138 keeps its 1 from the route's
+#    own pairwise duplicate-constructor guard.
+#
+#    FIVE rows stay at 2, both for stated reasons:
+#      * 045, 048, 051, 055 decline earlier still, at a NON-STANDARD
+#        AXIOM, and never reach their inductive at all (standing user
+#        ruling: a non-standard axiom is never accepted; the reference
+#        verdict is 1 for a reason con-leche reaches later than the
+#        reference does).
+#      * 047 declares `numParams = 2` on a type former with ONE Π
+#        binder and has neither a constructor nor a recursor record.
+#        Official rejects it at "number of parameters mismatch", read
+#        off the inductive record's own `numParams` — which
+#        `ConstantInfo.indInfo` does not carry (con-leche has never read
+#        it: before #220 the count came off the recursor, since #220 off
+#        the constructors).  Recovering this row means carrying the
+#        declared count through the frontend into the block; it is not
+#        this task's.
 #
 # B. THREE good tutorial tests fell to a DECLINE (2) at task #207, so
 #    the accepted count read 87/92: 053_reduceCtorParam.mk,
@@ -148,14 +166,14 @@
 1 bad/tutorial/046_inductLevelParam.ndjson
 2 bad/tutorial/047_inductTooFewParams.ndjson
 2 bad/tutorial/048_inductWrongCtorParams.ndjson
-2 bad/tutorial/049_inductWrongCtorResParams.ndjson
-2 bad/tutorial/050_inductWrongCtorResLevel.ndjson
+1 bad/tutorial/049_inductWrongCtorResParams.ndjson
+1 bad/tutorial/050_inductWrongCtorResLevel.ndjson
 2 bad/tutorial/051_inductInIndex.ndjson
-2 bad/tutorial/052_indNeg.ndjson
-2 bad/tutorial/054_reduceCtorType.mk.ndjson
+1 bad/tutorial/052_indNeg.ndjson
+1 bad/tutorial/054_reduceCtorType.mk.ndjson
 2 bad/tutorial/055_indNegReducible.ndjson
-2 bad/tutorial/059_typeWithTooHighTypeField.mk.ndjson
-2 bad/tutorial/071_BogusRecursor.ndjson
+1 bad/tutorial/059_typeWithTooHighTypeField.mk.ndjson
+1 bad/tutorial/071_BogusRecursor.ndjson
 1 bad/tutorial/085_projOutOfRange.ndjson
 2 bad/tutorial/086_projNotStruct.ndjson
 1 bad/tutorial/088_projProp2.ndjson
@@ -182,8 +200,8 @@
 1 bad/tutorial/113_funEtaBad.ndjson
 1 bad/tutorial/114_etaRuleK.ndjson
 1 bad/tutorial/115_etaCtor.ndjson
-2 bad/tutorial/116_reflOccLeft.ndjson
-2 bad/tutorial/117_reflOccInIndex.ndjson
+1 bad/tutorial/116_reflOccLeft.ndjson
+1 bad/tutorial/117_reflOccInIndex.ndjson
 1 bad/tutorial/124_accRecNoEta.ndjson
 1 bad/tutorial/131_dup_defs.ndjson
 1 bad/tutorial/132_dup_ind_def.ndjson
@@ -197,8 +215,8 @@
 # freshness check.
 1 bad/tutorial/133_dup_ctor_def.ndjson
 1 bad/tutorial/134_dup_rec_def.ndjson
-2 bad/tutorial/135_misnamed_rec_user.ndjson
-2 bad/tutorial/136_dup_rec_def2.ndjson
+1 bad/tutorial/135_misnamed_rec_user.ndjson
+1 bad/tutorial/136_dup_rec_def2.ndjson
 1 bad/tutorial/137_dup_ctor_rec.ndjson
 # 138_DupConCon (task #175 sum-types, 2026-09-06): a two-constructor
 # block whose constructors share a name.  The direct SUM route checks

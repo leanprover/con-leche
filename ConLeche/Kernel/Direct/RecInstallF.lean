@@ -84,6 +84,13 @@ def checkDirectFixRulesF (w : DirectWalkers) (feR : FEnv) (rlps : List Name) (T 
 def checkDirectFixRecF (ops : CheckerOps m) (w : DirectWalkers) (fe : FEnv) (p : DirectFixParts)
     (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
     m (ConstantVal × List Expr) := do
+  -- the recursor pin (task #220), as in `checkDirectFixRec`
+  unless p.cvR.name == p.cvT.name.str "rec" do
+    throw (.invalid "direct rec: the block's recursor is not the generated T.rec")
+  unless directFixRecLpsOk p.toDirectSumParts do
+    throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
+  unless p.recPinned do
+    throw (.invalid "direct rec: the recursor record is not the generated recursor")
   let cvRi ← checkConstantValF ops fe p.cvR
   let T := p.cvT.name
   let lps := p.cvT.levelParams

@@ -7,31 +7,33 @@ import ConLeche.Kernel.Direct.RecParts
 `directFixShape?` is the sum route's core recogniser without the
 one-constructor exclusion; `directFixParts?` adds the field kinds
 (`directFixKinds?`, one list per constructor).  The inversions give
-the pins the P tier consumes: the `isProp` datum, the recursor's
-name and level parameters, the constructors' level parameters and
-residual shapes, the rules' count, and the kinds' count.
+the pins the P tier consumes: the `isProp` datum, the recursor's level
+parameters, the constructors' level parameters and the kinds'
+placeholder.  What the recogniser pinned before task #220 and no longer
+does — the recursor's NAME, its rule count and rule metadata, the
+constructors' result shape — is checked at the install, where a
+mismatch REJECTS (`checkDirectFixRec`, `checkDirectSumCtor`); the facts
+the P tier still needs come from those stages' own inversions
+(`checkDirectFixRec_name`).
 -/
 
 namespace ConLeche
 
 variable {mode : CheckMode}
 
-/-- `directFixShape?` pins the sum route's data (no one-constructor
-exclusion). -/
+/-- `directFixShape?` pins the block's data (task #220: everything the
+recursor RECORD claims — its name, its level parameters, its rule count
+and rule metadata — is the RECURSOR PIN's, thrown at
+`checkDirectFixRec`, and no longer the recogniser's; so is the
+constructors' result shape, official's "invalid return type", thrown at
+`checkDirectSumCtor`). -/
 theorem directFixShape?_inv {block : List ConstantInfo} {p : DirectSumParts}
     (h : directFixShape? block = some p) :
     p.isProp = (Level.isEquiv p.resSort .zero == some true) ∧
-    p.cvR.name = p.cvT.name.str "rec" ∧
     (∀ c ∈ p.ctors, c.1.levelParams = p.cvT.levelParams ∧
       reservedBasisNames.contains c.1.name = false) ∧
     reservedBasisNames.contains p.cvT.name = false ∧
-    reservedBasisNames.contains p.cvR.name = false ∧
-    (p.large = true → p.elim ∈ p.cvR.levelParams) ∧
-    (∀ q ∈ p.cvT.levelParams, q ∈ p.cvR.levelParams) ∧
-    p.rhss.length = p.ctors.length ∧
-    (∀ c ∈ p.ctors, ∃ cbs es, c.1.type.stripPis (p.nP + c.2)
-      = some (cbs, Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
-        (directPsAt c.2 p.nP ++ es)) ∧ es.length = p.nIdx) := by
+    reservedBasisNames.contains p.cvR.name = false := by
   unfold directFixShape? at h
   split at h
   · next cvT caps rest =>
@@ -40,79 +42,28 @@ theorem directFixShape?_inv {block : List ConstantInfo} {p : DirectSumParts}
       try dsimp only at h
       split at h
       · exact nomatch h
-      · next hbnd =>
+      · next nPnIdx nP nIdx hcnt =>
         try dsimp only at h
         split at h
         · next hc =>
           simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true] at hc
-          generalize hs : (match Expr.stripPis (rP - (cs.length + 1) + (mI - rP)) cvT.type with
+          generalize hs : (match Expr.stripPis (nP + nIdx) cvT.type with
             | some (_, .sort s) => s
             | _ => .zero) = s at h
           try dsimp only at h
-          have hrules : rules.length = cs.length := hc.1.2
           have hcs : ∀ c ∈ cs.map (fun c => (c.1, c.2.2)),
               c.1.levelParams = cvT.levelParams ∧
               reservedBasisNames.contains c.1.name = false := by
             intro c hc'
             obtain ⟨c', hc'', rfl⟩ := List.mem_map.mp hc'
-            have := hc.1.1.2 c' hc''
+            have := hc.2 c' hc''
             try simp only [Bool.and_eq_true, beq_iff_eq] at this
-            exact ⟨this.1.1.2, this.1.2⟩
-          have hres : ∀ c ∈ cs.map (fun c => (c.1, c.2.2)),
-              ∃ cbs es, c.1.type.stripPis (rP - (cs.length + 1) + c.2)
-                = some (cbs, Expr.mkAppN (.const cvT.name (cvT.levelParams.map .param))
-                  (directPsAt c.2 (rP - (cs.length + 1)) ++ es)) ∧
-                es.length = mI - rP := by
-            intro c hc'
-            obtain ⟨c', hc'', rfl⟩ := List.mem_map.mp hc'
-            have hcc := hc.1.1.2 c' hc''
-            try simp only [Bool.and_eq_true, beq_iff_eq] at hcc
-            have hm := hcc.2
-            split at hm
-            · next cbs cbody hstrip =>
-              simp only [directCtorResidOk, Bool.and_eq_true, beq_iff_eq] at hm
-              obtain ⟨es, hes, hesl⟩ := residual_shape hm.1.1 hm.2 hm.1.2
-              exact ⟨cbs, es, by rw [hstrip, hes], hesl⟩
-            · exact absurd hm Bool.false_ne_true
+            exact ⟨this.1.2, this.2⟩
           split at h
-          · next lq elim' hlarge =>
-            obtain rfl := Option.some.inj h
-            have hlps : ∀ q ∈ cvT.levelParams, q ∈ cvR.levelParams := by
-              split at hlarge
-              · next e relps hlp =>
-                split at hlarge
-                · next hcond =>
-                  simp only [Bool.and_eq_true, beq_iff_eq] at hcond
-                  intro q hq
-                  rw [hlp]
-                  exact List.mem_cons_of_mem _ (by rw [hcond.1]; exact hq)
-                · exact nomatch hlarge
-              · exact nomatch hlarge
-            refine ⟨rfl, hc.1.1.1.1.1, hcs, hc.1.1.1.1.2, hc.1.1.1.2, ?_, hlps, ?_, hres⟩
-            · intro _
-              show elim' ∈ cvR.levelParams
-              split at hlarge
-              · next e relps hlp =>
-                split at hlarge
-                · obtain rfl := Option.some.inj hlarge
-                  rw [hlp]
-                  exact List.mem_cons_self
-                · exact nomatch hlarge
-              · exact nomatch hlarge
-            · simp [hrules]
-          · next lq hlarge =>
-            split at h
-            · next hcond =>
-              obtain rfl := Option.some.inj h
-              refine ⟨rfl, hc.1.1.1.1.1, hcs, hc.1.1.1.1.2, hc.1.1.1.2, ?_, ?_, ?_, hres⟩
-              · intro hl
-                exact absurd hl Bool.false_ne_true
-              · intro q hq
-                simp only [beq_iff_eq] at hcond
-                show q ∈ cvR.levelParams
-                rw [hcond]; exact hq
-              · simp [hrules]
-            · exact nomatch h
+          · obtain rfl := Option.some.inj h
+            exact ⟨rfl, hcs, hc.1.1, hc.1.2⟩
+          · obtain rfl := Option.some.inj h
+            exact ⟨rfl, hcs, hc.1.1, hc.1.2⟩
         · exact nomatch h
     · exact nomatch h
   · exact nomatch h

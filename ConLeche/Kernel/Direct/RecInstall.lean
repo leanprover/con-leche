@@ -31,7 +31,20 @@ sort may be `Prop` is `.invalid` at two or more constructors; at one
 constructor it is the subsingleton case, taken with the per-field
 criterion at `checkDirectFieldSortsI` — the recursive squash regime's
 large eliminator, task #202 Stage A2), the constructors' distinct
-names.  The index-threaded twins are
+names.
+
+**The recursor pin is the LAST of the block's checks** (task #220):
+everything the stream's recursor RECORD claims — its name, its level
+parameters, its argument sums, its rules — is compared at
+`checkDirectFixRec`/`directFixRulesOk`, where a mismatch is `.invalid`,
+and none of it is a condition of recognition.  Official never reads the
+exported recursor as an input either: `add_inductive` generates one and
+the replay compares the record with it structurally
+(`checkPostponedRecursors`, `Lean4Checker/Replay.lean` — "Invalid
+recursor", "No such recursor").  So a block whose recursor record is a
+stub is rejected by its own type and constructors, with official's
+message, instead of being declined for a recursor this route was going
+to generate anyway.  The index-threaded twins are
 `ConLeche/Kernel/Direct/RecInstallF.lean`.
 -/
 
@@ -165,6 +178,18 @@ holding the recursor's constant. -/
 def checkDirectFixRec (ops : CheckerOps m) (env : Env) (p : DirectFixParts)
     (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
     m (ConstantVal × List Expr) := do
+  -- THE RECURSOR PIN (task #220), split off the type-and-constructor
+  -- gate above and thrown here: official generates the recursor and its
+  -- replay compares the exported record with the generated one
+  -- structurally, so a record naming something other than the generated
+  -- `T.rec` ("No such recursor") or contradicting it in its argument
+  -- sums or its rules ("Invalid recursor") is INVALID INPUT
+  unless p.cvR.name == p.cvT.name.str "rec" do
+    throw (.invalid "direct rec: the block's recursor is not the generated T.rec")
+  unless directFixRecLpsOk p.toDirectSumParts do
+    throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
+  unless p.recPinned do
+    throw (.invalid "direct rec: the recursor record is not the generated recursor")
   let cvRi ← checkConstantVal ops env p.cvR
   let T := p.cvT.name
   let lps := p.cvT.levelParams

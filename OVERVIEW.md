@@ -142,7 +142,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDeclsSPCachedD_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1268)).
+  ([theorem `checkDeclsSPCachedD_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1278)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.
@@ -231,16 +231,24 @@ Inductive blocks are not trusted from the stream. Three cases:
 * **The fixpoint route** takes every other single, non-nested block:
   any number of parameters, indices, constructors and fields, recursive
   and reflexive fields, `Prop` or `Type`. The recogniser reads the
-  block's shape; the install normalises every constructor field domain
+  block's shape — its parameter count off the constructors, its index
+  count off the type former's telescope, as official reads them, and
+  nothing of the stream's recursor record, which official never reads as
+  an input either; the install normalises every constructor field domain
   by official's positivity walk — weak head normal form before
   classifying, again under each Π binder
   ([function `normPosDom` in `ConLeche/Kernel/Direct/SumInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/SumInstall.lean#L158)) —
   and classifies each field on the constructors it stored
-  ([function `classifyFixKinds` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L212)),
+  ([function `classifyFixKinds` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L237)),
   runs official's checks — universe bound, elimination restriction and
   index occurrence — generates the recursor and its rules, and compares
-  the generated recursor with the stream's; the whole install is one entry
-  ([function `checkDirectFix` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L228)).
+  the generated recursor with the stream's, rejecting a record that is
+  not it; the whole install is one entry
+  ([function `checkDirectFix` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L253)).
+  The two halves are deliberately independent (task #220): a block whose
+  recursor record is a stub is still rejected by its own type and
+  constructors, as official rejects it, instead of being declined for a
+  recursor the checker was going to generate anyway.
   In the model the block's carrier is the least fixed point of its
   family functor over the index fibres
   ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Value.lean#L517-L524));
