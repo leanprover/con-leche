@@ -165,6 +165,17 @@ if tests/pindump.sh; then :; else fail=1; fi
 # and neither sees the other's.
 if tests/trust-surface.sh; then :; else fail=1; fi
 
+# THE OVERVIEW LINK GATE (task #216).  `OVERVIEW.md` is the guided tour
+# of the proof, and nearly every claim in it is anchored at a LINE RANGE
+# of a source file.  Line anchors rot silently — one added `import`
+# slides every anchor in a module — so the gate copies the cited lines
+# into a committed text (`tests/overview-links-expected.txt`) and diffs.
+# A diff is not "the docs are broken": it means a citation moved (update
+# the `#L<a>-L<b>`) or its text changed (re-read the paragraph that
+# cites it, then `tests/overview-links.sh --update`).  Source-tree only,
+# no build, milliseconds.
+if tests/overview-links.sh; then :; else fail=1; fi
+
 # THE INSTALL-ROUTE CENSUS (task #207, the successor of task #193's
 # native-predicate audit).  There is no external predicate to compare
 # the recognisers against any more — the preprocessor and its mirror

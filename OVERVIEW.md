@@ -156,7 +156,7 @@ direction only
 They are proved by one simultaneous induction on fuel, clause by
 clause
 ([`ConLeche/SetP/Step2/WhnfP.lean#L468-L488`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Step2/WhnfP.lean#L468-L488),
-[`ConLeche/SetP/Step2/DefEqP.lean#L1328-L1340`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Step2/DefEqP.lean#L1328-L1340),
+[`ConLeche/SetP/Step2/DefEqP.lean#L1328-L1337`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Step2/DefEqP.lean#L1328-L1337),
 [`ConLeche/SetP/Step2/InferP.lean#L1128-L1135`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Step2/InferP.lean#L1128-L1135)).
 This is where the usual difficulty of intensional soundness proofs, the
 injectivity of Π needed to invert the typing of `f` in an application,

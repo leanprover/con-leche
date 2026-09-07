@@ -12,7 +12,7 @@
 #                    six `#print axioms` guards pin the consistency
 #                    capstones at exactly
 #                    [propext, Classical.choice, Quot.sound].
-#   tests/arena.sh   the standard battery, which is itself six gates
+#   tests/arena.sh   the standard battery, which is itself seven gates
 #                    plus four suites:
 #                      * tests/layering.sh       import fence
 #                      * tests/proofdeps.sh      proof-term module pin
@@ -20,6 +20,12 @@
 #                                                freshness
 #                      * tests/trust-surface.sh  compiler-escape
 #                                                allowlist
+#                      * tests/overview-links.sh OVERVIEW.md's line
+#                                                anchors vs. the tree
+#                                                (task #216) — it needs
+#                                                no build and no
+#                                                separate step here:
+#                                                arena.sh is its caller
 #                      * the axiom pin (as the `axioms:` line)
 #                      * the vendored arena tutorial snapshot
 #                        (tests/arena/lean-arena-tests.tar.gz — pinned

@@ -59029,3 +59029,62 @@ side.  The methodological change is stated in the file: both checkers
 now read the same raw bytes and do the SAME job, inductive blocks
 included, which con-leche used to have done for it.  **No cell is
 comparable with an earlier PERF.md.**
+
+## TASK #216 — THE OVERVIEW LINK GATE (2026-09-07, `agent/overview`)
+
+`OVERVIEW.md` (the AI-written guided tour of the proof, added on this
+branch) makes nearly every claim by *citing a line range*:
+`https://github.com/leanprover/lech/blob/master/<path>#L<a>-L<b>`.  Line
+anchors are the most perishable documentation there is — one added
+`import` slides every anchor in a module by one, and nothing in the
+build notices — and worse, an anchor can stay *in range* while the lines
+under it come to say something else, which no existence check catches.
+
+**The gate** (`tests/overview-links.sh`).  It does not judge the prose;
+it makes the CITED TEXT a committed artefact.  It extracts every
+`blob/master` link from `OVERVIEW.md` in document order, copies the
+linked lines — with their line numbers — into one text, and diffs that
+against `tests/overview-links-expected.txt`.  Consequently:
+
+* **a citation MOVED** → the numbers in the text change → fail; the
+  reminder to update the `#L<a>-L<b>` anchor;
+* **the cited lines CHANGED** → the text changes → fail; the reminder to
+  re-read the paragraph that cites them, since the document may now be
+  stale in a way no tool can see;
+* the file is gone, or shorter than the anchor → a hard error naming the
+  link;
+* a link that pins a commit (`blob/<sha>/…`) → a hard error: the
+  document must track `master`, or the tour quietly drifts from the tree
+  it describes.
+
+Non-blob links (external URLs, in-document anchors) are ignored.  The
+owner/repo part of the URL is matched loosely on purpose, so the gate
+survives the next rename without a script edit; the *ref* is what is
+pinned.
+
+**How to update.**  After checking that the prose still matches the new
+lines: `tests/overview-links.sh --update`, and commit the expectation
+with the change that moved the lines.  The rule is in `CLAUDE.md` beside
+the build/test bullet.
+
+**Wiring.**  `tests/arena.sh`, beside `layering`/`proofdeps`/`pindump`/
+`trust-surface` (source-tree only, no build, milliseconds); CI needs no
+step of its own — `bash tests/arena.sh` is already a CI step, and the
+workflow's gate list names it.
+
+**What the first run found.**  The gate paid for itself before it was
+committed: `ConLeche/SetP/Step2/DefEqP.lean#L1328-L1340` was already out
+of range (the file has 1 339 lines); the intended subject is
+`defEqStepP_of`, so the anchor is now `#L1328-L1337`, the whole theorem.
+Its two siblings in the same sentence were left alone and reported to
+the coordinator: `InferP.lean#L1128-L1135` is `inferStepP_of` (the
+quarter's step theorem) but `WhnfP.lean#L468-L488` is
+`whnfCore_packageP`, a per-clause packaging helper, where the analogue
+would be `whnfCoreStepP_of`/`whnfStepP_of` (`WhnfP.lean` L898/L908).
+The relative paths named in prose (`tests/ConLecheTests/Axioms.lean`,
+`tests/pindump.sh`, `pins/`, `scripts/`, every module-map directory,
+`ConLeche/Frontend/Export*.lean`, `ConLeche/SetP/Ind*`) were audited by
+hand and all exist; those are NOT link-extracted, by design — this gate
+is about the line anchors.
+
+**Size.**  40 links across 33 files, 699 lines of expectation.

@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+# tests/overview-links.sh — THE OVERVIEW LINK GATE (task #216).
+#
+# WHY THIS EXISTS.  `OVERVIEW.md` is a guided tour of the proof whose
+# claims are anchored: nearly every paragraph cites a *line range* of a
+# source file through a `blob/master/<path>#L<a>-L<b>` link.  Line
+# anchors are the most perishable kind of documentation there is —
+# inserting one `import` at the top of a module silently slides every
+# anchor into it by one, and nothing in the build notices.  Worse, a
+# link can keep pointing at valid lines that no longer say what the
+# prose claims, which no existence check would catch.
+#
+# WHAT IT CHECKS.  The gate does not try to decide whether the prose is
+# true; it makes the *cited text* a committed artefact.  It extracts
+# every `blob/master` link from `OVERVIEW.md` in document order, copies
+# the linked lines (with their line numbers) into one text, and diffs
+# that against `tests/overview-links-expected.txt`.  Hence:
+#
+#   * moving the linked lines changes the line numbers in the text and
+#     fails the gate — the reminder to update the link;
+#   * editing the linked lines changes the text and fails the gate —
+#     the reminder to re-read the paragraph that cites them, because
+#     the document may now be stale in a way no tool can see;
+#   * deleting the file, or shrinking it past the anchor, is a hard
+#     error naming the link.
+#
+# The failure is never "you broke the docs, restore them": it is "the
+# citation moved, look at what cites it".  After checking that the
+# prose still matches, regenerate with
+#
+#     tests/overview-links.sh --update
+#
+# and commit the expectation with the change that moved the lines.
+#
+# WHAT IS AN ERROR RATHER THAN A DIFF.  A link that pins a commit —
+# `blob/<sha>/…` — is rejected outright: the document must track
+# `master`, or the gate would be pinning a snapshot and the tour would
+# quietly drift from the tree it describes.  Links that are not of the
+# repository-blob form (external URLs, anchors within the document) are
+# ignored; they are not this gate's business.
+#
+# WHAT IT DOES NOT CHECK.  Prose-only relative mentions (`tests/…`,
+# directory names in the module map) are not link-extracted; they were
+# audited once at task #216 and are cheap to re-audit by hand.  The gate
+# also says nothing about links in `README.md` or `DESIGN.md`.
+#
+# NO BUILD REQUIRED.  This is a pure source-tree gate: it reads
+# `OVERVIEW.md` and the cited files and nothing else, so it costs
+# milliseconds and runs in `tests/arena.sh` beside the other fences.
+
+set -u
+cd "$(dirname "$0")/.."
+
+DOC=OVERVIEW.md
+EXPECTED=tests/overview-links-expected.txt
+
+update=0
+case "${1:-}" in
+  --update) update=1 ;;
+  "") ;;
+  *) echo "usage: tests/overview-links.sh [--update]" >&2; exit 2 ;;
+esac
+
+if [ ! -f "$DOC" ]; then
+  echo "overview-links: FAIL — $DOC not found" >&2
+  exit 1
+fi
+
+tmp=$(mktemp) || exit 3
+trap 'rm -f "$tmp"' EXIT
+
+# The extractor.  Reads the document, walks the links in order, and
+# writes the segment text to $2 (or reports EVERY structural error it
+# finds — a run that renames a module should see all its dead links at
+# once, not one per invocation — and exits 1).
+if ! python3 - "$DOC" "$tmp" <<'PY'
+import re, sys, os
+
+doc, out = sys.argv[1], sys.argv[2]
+
+# github.com/<owner>/<repo>/blob/<ref>/<path>#L<a>[-L<b>]
+#
+# The owner/repo are matched loosely on purpose: the project has been
+# renamed before and the gate should survive the next rename without a
+# script edit.  The <ref> is what matters, and it must be `master`.
+LINK = re.compile(
+    r'https://github\.com/([^/\s)]+)/([^/\s)]+)/blob/([^/\s)]+)/'
+    r'([^)\s#]+)#L(\d+)(?:-L(\d+))?')
+
+with open(doc, encoding='utf-8') as f:
+    text = f.read()
+
+errors = []
+segments = []
+files = set()
+
+for m in LINK.finditer(text):
+    owner, repo, ref, path, a, b = m.groups()
+    link = m.group(0)
+    if ref != 'master':
+        errors.append(
+            f"{link}\n    pins the ref `{ref}`; OVERVIEW.md must link `master`.")
+        continue
+    a = int(a)
+    b = int(b) if b is not None else a
+    anchor = f"#L{a}" if b == a else f"#L{a}-L{b}"
+    if not os.path.isfile(path):
+        errors.append(f"{link}\n    file `{path}` does not exist.")
+        continue
+    with open(path, encoding='utf-8') as f:
+        lines = f.read().split('\n')
+    # A trailing newline yields a final empty element; it is not a line.
+    if lines and lines[-1] == '':
+        lines.pop()
+    n = len(lines)
+    if a < 1 or b < a or b > n:
+        errors.append(
+            f"{link}\n    range L{a}-L{b} is outside `{path}` (which has {n} lines).")
+        continue
+    files.add(path)
+    body = ''.join(f"{i:6d}  {lines[i-1]}\n" for i in range(a, b + 1))
+    segments.append(f"== {path}{anchor}\n{body}")
+
+if errors:
+    sys.stderr.write("overview-links: FAIL — %d bad link(s):\n" % len(errors))
+    for e in errors:
+        sys.stderr.write("  " + e + "\n")
+    sys.exit(1)
+
+header = (
+    "# GENERATED by tests/overview-links.sh --update — do not edit by hand.\n"
+    "#\n"
+    "# Every line-anchored link of OVERVIEW.md, in document order, with the\n"
+    "# lines it points at.  A diff here means a citation moved or its text\n"
+    "# changed: re-read the paragraph in OVERVIEW.md that cites it, fix the\n"
+    "# link or the prose, then regenerate.\n"
+    "\n")
+
+with open(out, 'w', encoding='utf-8') as f:
+    f.write(header)
+    f.write("\n".join(segments))
+    if segments:
+        f.write("\n")
+PY
+then
+  exit 1
+fi
+
+# The summary counts, read back off the generated text: the header
+# lines ARE the link list, so no second channel is needed.
+nlinks=$(grep -c '^== ' "$tmp")
+nfiles=$(grep '^== ' "$tmp" | sed 's/#L.*//' | sort -u | wc -l)
+
+if [ "$update" = 1 ]; then
+  if [ -f "$EXPECTED" ] && cmp -s "$tmp" "$EXPECTED"; then
+    echo "overview-links: $nlinks links, $nfiles files, expectation already current"
+  else
+    cp "$tmp" "$EXPECTED"
+    echo "overview-links: $nlinks links, $nfiles files, wrote $EXPECTED"
+  fi
+  exit 0
+fi
+
+if [ ! -f "$EXPECTED" ]; then
+  echo "overview-links: FAIL — $EXPECTED missing; run tests/overview-links.sh --update" >&2
+  exit 1
+fi
+
+if diff -u "$EXPECTED" "$tmp"; then
+  echo "overview-links: $nlinks links, $nfiles files, OK"
+  exit 0
+fi
+
+cat >&2 <<'MSG'
+
+overview-links: FAIL — the cited lines are not what OVERVIEW.md was
+written against.  `-` is the committed expectation, `+` the tree.
+
+  * If a citation MOVED (the text is the same, the numbers shifted),
+    update the `#L<a>-L<b>` anchor in OVERVIEW.md.
+  * If the cited lines CHANGED, re-read the paragraph in OVERVIEW.md
+    that cites them — the document may now be stale.
+
+Then regenerate:  tests/overview-links.sh --update
+MSG
+exit 1
