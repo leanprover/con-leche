@@ -387,8 +387,8 @@ the subject. -/
 private theorem whnfCoreReads_leaf {m : EnvS2Core V env}
     {d : Nat} {e e' : Expr} {ea : AVExpr}
     (hleaf : (∃ u, e = .sort u) ∨ (∃ idx ty, e = .fvar idx ty) ∨
-      (∃ n ty body bi, e = .forallE ty body bi) ∨
-      (∃ n ty body mb, e = .lam ty body mb) ∨
+      (∃ ty body bi, e = .forallE ty body bi) ∨
+      (∃ ty body mb, e = .lam ty body mb) ∨
       (∃ n us, e = .const n us) ∨ (∃ l, e = .lit l))
     (h : whnfCore μ env (fuel + 1) d e = .ok e')
     (hea : denoteP m.acval env φ d e = some ea) :
@@ -408,7 +408,7 @@ private theorem whnfCoreReads_leaf {m : EnvS2Core V env}
 reduct's annotation is the body's, instantiated at the value's. -/
 private theorem whnfCoreReads_letE {m : EnvS2Core V env}
     (ihwc : WhnfCoreReadsP m μ φ fuel)
-    {d : Nat} {nn : Name} {tt vv bb e' : Expr} {ea : AVExpr}
+    {d : Nat} {tt vv bb e' : Expr} {ea : AVExpr}
     (h : whnfCore μ env (fuel + 1) d (.letE tt vv bb) = .ok e')
     (hws : Expr.WScoped d (.letE tt vv bb))
     (hb : (Expr.letE tt vv bb).looseBVarsBounded 0 = true)
@@ -439,7 +439,7 @@ private theorem whnfCoreReads_letE {m : EnvS2Core V env}
   have hred : denoteP m.acval env φ d (bb.instantiate1 vv)
       = some (ba.inst va) := by
     rw [denoteP_beta m.acval_closed (acval_inst_self m)
-      (n := nn) (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
+      (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
       hba]
     rfl
   exact ihwc h (Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2)
@@ -497,7 +497,7 @@ private theorem whnfCoreReads_app {m : EnvS2Core V env}
     rcases hl with hl | hl
     · exact hlrf l (Lech.whnfCore_fvarLeaves m.wf fuel hwf l hl)
     · exact hlra l hl
-  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, -⟩ |
+  rcases hcase with ⟨ty, body, mm, rfl, hbeta, -⟩ |
     ⟨e'', hio, hwe''⟩ | rfl
   · -- β: the reduct is the λ's body opened at the argument
     obtain ⟨tya, ba, htya, hbb, rfl⟩ := denoteP_lam_inv hfa'
@@ -512,7 +512,7 @@ private theorem whnfCoreReads_app {m : EnvS2Core V env}
     have hred : denoteP m.acval env φ d (body.instantiate1 a)
         = some (ba.inst aa) := by
       rw [denoteP_beta m.acval_closed (acval_inst_self m)
-        (n := n) (ty := ty) hwf'.2.fvarsBelow hws.2 hb.2 haa 0, hbb]
+        (ty := ty) hwf'.2.fvarsBelow hws.2 hb.2 haa 0, hbb]
       rfl
     exact ihwc hbeta (Expr.WScoped.instantiate1_gen hws.2 0 hwf'.2)
       (Expr.looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
@@ -537,10 +537,10 @@ theorem whnfCoreReadsP_succ {m : EnvS2Core V env}
     exact whnfCoreReads_leaf (Or.inr (Or.inl ⟨idx, ty, rfl⟩)) h hea
   | .forallE ty body bi =>
     exact whnfCoreReads_leaf
-      (Or.inr (Or.inr (Or.inl ⟨n, ty, body, bi, rfl⟩))) h hea
+      (Or.inr (Or.inr (Or.inl ⟨ty, body, bi, rfl⟩))) h hea
   | .lam ty body mb =>
     exact whnfCoreReads_leaf
-      (Or.inr (Or.inr (Or.inr (Or.inl ⟨n, ty, body, mb, rfl⟩)))) h hea
+      (Or.inr (Or.inr (Or.inr (Or.inl ⟨ty, body, mb, rfl⟩)))) h hea
   | .const n us =>
     exact whnfCoreReads_leaf
       (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl ⟨n, us, rfl⟩))))) h hea
@@ -670,7 +670,7 @@ theorem inferReads_sort {m : EnvS2Core V env}
 /-- `.fvar`: the inferred type is the leaf's stored annotation, and its
 reading is exactly what `LeafReadsP` provides. -/
 theorem inferReads_fvar {m : EnvS2Core V env}
-    {d idx : Nat} {n : Name} {ty t : Expr}
+    {d idx : Nat} {ty t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.fvar idx ty) = .ok t)
     (hlr : LeafReadsP m φ d (.fvar idx ty)) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
@@ -680,7 +680,7 @@ theorem inferReads_fvar {m : EnvS2Core V env}
   split at h
   · simp only [Except.ok.injEq] at h
     subst h
-    exact hlr (idx, n, ty) (by simp [Expr.fvarLeaves])
+    exact hlr (idx, ty) (by simp [Expr.fvarLeaves])
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `.const`: the subject's own reading pins `env.find?` and the arity,
@@ -769,7 +769,7 @@ theorem inferReads_strLit {m : EnvS2Core V env}
 
 /-- `.forallE`: the inferred type is `.sort (.imax u v)`. -/
 private theorem inferReads_forallE {m : EnvS2Core V env}
-    {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
     (h : inferTypeCore μ env (fuel + 1) d (.forallE ty body mb)
       = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
@@ -783,7 +783,7 @@ transported across the `abstract1`/`instantiate1` round trip — which is
 where the leaf premise has to be *opened* (`LeafReadsP.openS`). -/
 private theorem inferReads_lam {m : EnvS2Core V env}
     (ihi : InferReadsP m μ φ fuel)
-    {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
     {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.lam ty body mb) = .ok t)
     (hws : Expr.WScoped d (.lam ty body mb))
@@ -802,7 +802,7 @@ private theorem inferReads_lam {m : EnvS2Core V env}
     hLb l (by simp [Expr.fvarLeaves, hl])
   obtain ⟨tyA, ba, htyA, hba, -⟩ := denoteP_lam_inv hea
   obtain ⟨hwopen, hbopen, hLopen⟩ :=
-    frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
+    frame_open2 hws.1 hb.1 hws.2 hb.2 hLty hLbody
   -- the abstraction round trip (`infer_lam_claimP`'s move)
   have hleaf :
       Expr.LeafCond d ty (body.instantiate1 (.fvar d ty)) := by
@@ -813,7 +813,7 @@ private theorem inferReads_lam {m : EnvS2Core V env}
         omega)
     · rw [Expr.fvarLeaves] at h2
       rcases List.mem_cons.mp h2 with rfl | h3
-      · exact ⟨rfl, rfl⟩
+      · exact rfl
       · exact absurd hd (by
           have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
           omega)
@@ -826,7 +826,7 @@ private theorem inferReads_lam {m : EnvS2Core V env}
     abstract1_instantiate1 bt 0 hcons hbtb
   obtain ⟨bta, hbta⟩ :=
     ihi hbt hwopen hbopen hLopen
-      (LeafReadsP.openS (n := n) hws.1 hws.2
+      (LeafReadsP.openS hws.1 hws.2
         (hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]))
         (hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]))
         htyA)
@@ -849,7 +849,7 @@ private theorem inferReads_app {m : EnvS2Core V env}
     (hlr : LeafReadsP m φ d (.app f a))
     (hea : denoteP m.acval env φ d (.app f a) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
-  obtain ⟨tf, n', ty', body', mt', hif, hwf, rfl, -⟩ :=
+  obtain ⟨tf, ty', body', mt', hif, hwf, rfl, -⟩ :=
     Lech.inferTypeCore_app_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -876,7 +876,7 @@ private theorem inferReads_app {m : EnvS2Core V env}
   simp only [Expr.WScoped] at hwW
   refine ⟨b'a.inst aa, ?_⟩
   rw [denoteP_beta m.acval_closed (acval_inst_self m)
-    (n := n') (ty := ty') hwW.2.fvarsBelow hws.2 hb.2 haa 0, hb'a]
+    (ty := ty') hwW.2.fvarsBelow hws.2 hb.2 haa 0, hb'a]
   rfl
 
 /-- `.letE`: the ζ-shaped recursion — the checker infers the body
@@ -884,7 +884,7 @@ private theorem inferReads_app {m : EnvS2Core V env}
 node's own three readings. -/
 private theorem inferReads_letE {m : EnvS2Core V env}
     (ihi : InferReadsP m μ φ fuel)
-    {d : Nat} {nn : Name} {tt vv bb t : Expr} {ea : AVExpr}
+    {d : Nat} {tt vv bb t : Expr} {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.letE tt vv bb) = .ok t)
     (hws : Expr.WScoped d (.letE tt vv bb))
     (hb : (Expr.letE tt vv bb).looseBVarsBounded 0 = true)
@@ -915,7 +915,7 @@ private theorem inferReads_letE {m : EnvS2Core V env}
   have hred : denoteP m.acval env φ d (bb.instantiate1 vv)
       = some (ba.inst va) := by
     rw [denoteP_beta m.acval_closed (acval_inst_self m)
-      (n := nn) (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
+      (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
       hba]
     rfl
   exact ihi hbody (Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2)
