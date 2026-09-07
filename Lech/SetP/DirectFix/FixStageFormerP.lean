@@ -42,23 +42,24 @@ theorem fixLeafWalks {m : EnvS2Core V env} {cvT : ConstantVal} {nP nIdx : Nat}
     {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hFD : FormerData m cvT (nP + nIdx) resSort pps)
     {u : (Name → Nat) → Nat} {rss : List (List Bool)}
+    {tlss : (Name → Nat) → List (List (List (Nat × Nat × AVExpr)))}
     {Eiss : (Name → Nat) → List (List (List AVExpr))} {Fss Ess : (Name → Nat) → List (List AVExpr)}
     (hIdx : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat2 V (((pps ψ).take nP).map (·.2.2)).reverse ρp →
       IdxOk (u ψ) ρp (((pps ψ).drop nP).map (·.2.2)) ∧ FieldsValid ρp (((pps ψ).drop nP).map (·.2.2)))
     (hX : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat2 V (((pps ψ).take nP).map (·.2.2)).reverse ρp →
-      XChainsOk (u ψ) (resSort.eval ψ) ρp (((pps ψ).drop nP).map (·.2.2)) rss (Eiss ψ) (Fss ψ) (Ess ψ))
+      XChainsOk (u ψ) (resSort.eval ψ) ρp (((pps ψ).drop nP).map (·.2.2)) rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ))
     (hXV : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat2 V (((pps ψ).take nP).map (·.2.2)).reverse ρp →
       ∀ X, X ∈ˢ lfpFamSpace V (resSort.eval ψ) (idxSet (u ψ) ρp (((pps ψ).drop nP).map (·.2.2))) →
       ∀ t, t ∈ˢ idxSet (u ψ) ρp (((pps ψ).drop nP).map (·.2.2)) →
       SumFieldsValid (cons t (cons X ρp))
         (chainsXI (u ψ) (((pps ψ).drop nP).map (·.2.2)) (((pps ψ).drop nP).map (·.2.2)).length
-          rss (Eiss ψ) (Fss ψ) (Ess ψ)))
+          rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ)))
     (ψ : Name → Nat) (ρ : Nat → V) :
-    ParamsOkXI (u ψ) (resSort.eval ψ) ρ (((pps ψ).drop nP).map (·.2.2)) rss (Eiss ψ) (Fss ψ) (Ess ψ)
+    ParamsOkXI (u ψ) (resSort.eval ψ) ρ (((pps ψ).drop nP).map (·.2.2)) rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ)
         (pps ψ) ∧
       UnderTowerValid ρ
         (.app ((fixBodyAVI (u ψ) (resSort.eval ψ) (((pps ψ).drop nP).map (·.2.2))
-            (((pps ψ).drop nP).map (·.2.2)).length rss (Eiss ψ) (Fss ψ) (Ess ψ)).liftN
+            (((pps ψ).drop nP).map (·.2.2)).length rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ)).liftN
               (((pps ψ).drop nP).map (·.2.2)).length 0)
           (mkTowerGo (u ψ) (((pps ψ).drop nP).map (·.2.2))))
         (pps ψ) := by
@@ -79,11 +80,11 @@ theorem fixLeafWalks {m : EnvS2Core V env} {cvT : ConstantVal} {nP nIdx : Nat}
   have hIdsLen : ((((pps ψ).drop nP).map (·.2.2))).length = nIdx := by simp [hFD.len ψ]
   -- the base facts at a frame satisfying the whole telescope
   have hbase : ∀ ρ : Nat → V, Sat2 V (((pps ψ).map (·.2.2)).reverse) ρ →
-      FixBaseI (u ψ) (resSort.eval ψ) ρ (((pps ψ).drop nP).map (·.2.2)) rss (Eiss ψ) (Fss ψ)
+      FixBaseI (u ψ) (resSort.eval ψ) ρ (((pps ψ).drop nP).map (·.2.2)) rss (tlss ψ) (Eiss ψ) (Fss ψ)
         (Ess ψ) ∧
       AnnotValidV V ρ
         (.app ((fixBodyAVI (u ψ) (resSort.eval ψ) (((pps ψ).drop nP).map (·.2.2))
-            (((pps ψ).drop nP).map (·.2.2)).length rss (Eiss ψ) (Fss ψ) (Ess ψ)).liftN
+            (((pps ψ).drop nP).map (·.2.2)).length rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ)).liftN
               (((pps ψ).drop nP).map (·.2.2)).length 0)
           (mkTowerGo (u ψ) (((pps ψ).drop nP).map (·.2.2)))) := by
     intro ρ hρ
@@ -112,7 +113,7 @@ theorem fixLeafWalks {m : EnvS2Core V env} {cvT : ConstantVal} {nP nIdx : Nat}
   generalize hIdsE : (((pps ψ).drop nP).map (·.2.2)) = Ids at hbase ⊢
   constructor
   · have hw := hereditaryWalk (V := V)
-      (Q := fun ρ ds => ParamsOkXI (u ψ) (resSort.eval ψ) ρ Ids rss (Eiss ψ) (Fss ψ) (Ess ψ) ds)
+      (Q := fun ρ ds => ParamsOkXI (u ψ) (resSort.eval ψ) ρ Ids rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ) ds)
       hlenΓ (hFD.len ψ) hent okΓ
       (fun ρ hρ => (hbase ρ hρ).1)
       (fun ρ d ds hd hok hrec => ⟨hFD.bits ψ d hd, hok.1, hrec⟩)
@@ -120,7 +121,7 @@ theorem fixLeafWalks {m : EnvS2Core V env} {cvT : ConstantVal} {nP nIdx : Nat}
     simpa using hw
   · have hw := hereditaryWalk (V := V)
       (Q := fun ρ ds => UnderTowerValid ρ
-        (.app ((fixBodyAVI (u ψ) (resSort.eval ψ) Ids Ids.length rss (Eiss ψ) (Fss ψ) (Ess ψ)).liftN
+        (.app ((fixBodyAVI (u ψ) (resSort.eval ψ) Ids Ids.length rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ)).liftN
               Ids.length 0)
           (mkTowerGo (u ψ) Ids)) ds)
       hlenΓ (hFD.len ψ) hent okΓ
@@ -141,10 +142,11 @@ theorem stageFixFormer (mp : EnvS2PM V μ env)
     {pps : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort pps)
     (u : (Name → Nat) → Nat) (rss : List (List Bool))
+    (tlss : (Name → Nat) → List (List (List (Nat × Nat × AVExpr))))
     (Eiss : (Name → Nat) → List (List (List AVExpr))) (Fss Ess : (Name → Nat) → List (List AVExpr))
     (hParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q) →
-      u ψ₁ = u ψ₂ ∧ Eiss ψ₁ = Eiss ψ₂ ∧ Fss ψ₁ = Fss ψ₂ ∧ Ess ψ₁ = Ess ψ₂)
-    (hbelow : ∀ ψ, ∀ chain ∈ chainsXI (u ψ) (((pps ψ).drop p.nP).map (·.2.2)) p.nIdx rss (Eiss ψ)
+      u ψ₁ = u ψ₂ ∧ tlss ψ₁ = tlss ψ₂ ∧ Eiss ψ₁ = Eiss ψ₂ ∧ Fss ψ₁ = Fss ψ₂ ∧ Ess ψ₁ = Ess ψ₂)
+    (hbelow : ∀ ψ, ∀ chain ∈ chainsXI (u ψ) (((pps ψ).drop p.nP).map (·.2.2)) p.nIdx rss (tlss ψ) (Eiss ψ)
       (Fss ψ) (Ess ψ), FieldsBelow (p.nP + 2) chain)
     (hIdx : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((pps ψ).take p.nP).map (·.2.2)).reverse ρp →
@@ -152,7 +154,7 @@ theorem stageFixFormer (mp : EnvS2PM V μ env)
       FieldsValid ρp (((pps ψ).drop p.nP).map (·.2.2)))
     (hX : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((pps ψ).take p.nP).map (·.2.2)).reverse ρp →
-      XChainsOk (u ψ) (p.resSort.eval ψ) ρp (((pps ψ).drop p.nP).map (·.2.2)) rss (Eiss ψ) (Fss ψ)
+      XChainsOk (u ψ) (p.resSort.eval ψ) ρp (((pps ψ).drop p.nP).map (·.2.2)) rss (tlss ψ) (Eiss ψ) (Fss ψ)
         (Ess ψ))
     (hXV : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((pps ψ).take p.nP).map (·.2.2)).reverse ρp →
@@ -161,11 +163,11 @@ theorem stageFixFormer (mp : EnvS2PM V μ env)
       ∀ t, t ∈ˢ idxSet (u ψ) ρp (((pps ψ).drop p.nP).map (·.2.2)) →
       SumFieldsValid (cons t (cons X ρp))
         (chainsXI (u ψ) (((pps ψ).drop p.nP).map (·.2.2)) (((pps ψ).drop p.nP).map (·.2.2)).length
-          rss (Eiss ψ) (Fss ψ) (Ess ψ))) :
+          rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ))) :
     ∃ mp' : EnvS2PM V μ ⟨.indInfo cvTa (Lech.directSumCaps p) :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvTa.name
         (fun ψ => directFixTyAVI (u ψ) (p.resSort.eval ψ) (pps ψ) (((pps ψ).drop p.nP).map (·.2.2))
-          rss (Eiss ψ) (Fss ψ) (Ess ψ)) := by
+          rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ)) := by
   obtain ⟨hfind, hnres, hpshape, -, -, -, type', -, -, -, -, htr', -, -, hty⟩ :=
     Lech.checkConstantVal_inv hccv
   have hname : cvTa.name = p.cvT.name := by rw [hty]; exact hname₀
@@ -179,7 +181,7 @@ theorem stageFixFormer (mp : EnvS2PM V μ env)
     intro ψ; simp [hFD.len ψ]
   let A : (Name → Nat) → AVExpr :=
     fun ψ => directFixTyAVI (u ψ) (p.resSort.eval ψ) (pps ψ) (((pps ψ).drop p.nP).map (·.2.2))
-      rss (Eiss ψ) (Fss ψ) (Ess ψ)
+      rss (tlss ψ) (Eiss ψ) (Fss ψ) (Ess ψ)
   have hAbelow : ∀ ψ, VExpr.bvarsBelow 0 (A ψ).erase := fun ψ =>
     directFixTyAVI_below (hFD.below ψ) (hFD.len ψ) (hIdsLen ψ) (hbelow ψ) rfl
   have hwalks := fixLeafWalks hFD hIdx hX hXV
@@ -206,9 +208,9 @@ theorem stageFixFormer (mp : EnvS2PM V μ env)
     ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · intro ψ₁ ψ₂ hφ
     obtain ⟨hp, hw⟩ := hFD.params ψ₁ ψ₂ hφ
-    obtain ⟨hu, hEiss, hFss, hEss⟩ := hParams ψ₁ ψ₂ hφ
-    show directFixTyAVI _ _ _ _ _ _ _ _ = directFixTyAVI _ _ _ _ _ _ _ _
-    rw [hp, hw, hu, hEiss, hFss, hEss]
+    obtain ⟨hu, htlss, hEiss, hFss, hEss⟩ := hParams ψ₁ ψ₂ hφ
+    show directFixTyAVI _ _ _ _ _ _ _ _ _ = directFixTyAVI _ _ _ _ _ _ _ _ _
+    rw [hp, hw, hu, htlss, hEiss, hFss, hEss]
   · exact fun ψ ρ => directFixTyAVI_ok2 (hwalks ψ ρ).1
   · exact fun ψ ρ => (directFixTyAVI_okP (hwalks ψ ρ).1 (hwalks ψ ρ).2).2
   · exact fun ψ => ⟨_, hreadI ψ⟩

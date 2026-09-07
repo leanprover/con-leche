@@ -73,6 +73,7 @@ theorem fibre_projList_fit (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) 
 constructor's fibre: the index expressions are valid at the fitting
 projections. -/
 theorem ihArgsI_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = [])
     (hfr : RecFrameS D ρ₀ σ) {j : Nat} (hj : j < Fss.length)
     (hEV : ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length, ∀ fs : List V,
       SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
@@ -83,9 +84,10 @@ theorem ihArgsI_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw 
       AnnotValidV V (cons y σ) a := by
   have hspP := fibre_projList_fit hyp hw hj hy
   intro a ha
+  rw [ihArgsI_fin hfin] at ha
   obtain ⟨i, hi, rfl⟩ := List.mem_map.mp ha
   obtain ⟨hik, -⟩ := mem_recIdx.mp hi
-  unfold ihArgAV
+  unfold ihArgAV₀
   refine mkAppN_validV trivial fun a ha => ?_
   rcases List.mem_append.mp ha with ha | ha
   · rcases List.mem_append.mp ha with ha | ha
@@ -104,7 +106,7 @@ theorem ihArgsI_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw 
 
 /-- Constructor `j`'s branch with ih arguments is bit-valid. -/
 theorem fixBase_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
-    (hfr : RecFrameS D ρ₀ σ)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) (hfr : RecFrameS D ρ₀ σ)
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (hEV : ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
@@ -142,7 +144,7 @@ theorem fixBase_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw 
           rw [interp2_liftN, hfr, List.getD_eq_getElem?_getD, hjF, Option.getD_some,
             towerBodyAV_interp (hokF.toBound)] at hy
           exact hy
-        exact ihArgsI_validV hyp hw hfr hj (hEV j hj) hy' a ha
+        exact ihArgsI_validV hyp hw hfin hfr hj (hEV j hj) hy' a ha
       · -- no ih arguments at a stage past the constructors
         exfalso
         have h0 : (Fss.getD j []).length = 0 := by
@@ -153,6 +155,7 @@ theorem fixBase_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw 
 
 /-- **The case recursor with ih arguments is bit-valid.** -/
 theorem fixCaseRec_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = [])
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (hEV : ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
@@ -171,16 +174,17 @@ theorem fixCaseRec_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (
     exact ⟨trivial, fun _ _ => trivial⟩
   | r + 1, D, j, σ, kx, hfr, hk => by
     refine natRecAV_validV (motive_validV hfr hyp.toRecHypCore hv j)
-      (fixBase_validV hyp hw hfr hv hEV j) ?_ hk
+      (fixBase_validV hyp hw hfin hfr hv hEV j) ?_ hk
     rw [AnnotValidV_lam]
     refine ⟨trivial, fun b _ => ?_⟩
     rw [AnnotValidV_lam]
     refine ⟨motiveBody_validV hfr hyp.toRecHypCore hv j b, fun a _ => ?_⟩
-    exact fixCaseRec_validV hyp hw hv hEV r (hfr.step a b) trivial
+    exact fixCaseRec_validV hyp hw hfin hv hEV r (hfr.step a b) trivial
 
 /-- **The recursor body is bit-valid** at the frame under the K-frame,
 both regimes. -/
 theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms)
+    (hfin : w ≠ 0 → ∀ j i, (tlss.getD j []).getD i [] = [])
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (hEV : ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
@@ -192,7 +196,7 @@ theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ�
     rw [fixRecBodyAVI_zero]
     trivial
   · rw [fixRecBodyAVI_pos hw, AnnotValidV_app]
-    exact ⟨fixCaseRec_validV hyp hw hv hEV Fss.length hfr (major_proj_validV 0 σ),
+    exact ⟨fixCaseRec_validV hyp hw (hfin hw) hv hEV Fss.length hfr (major_proj_validV 0 σ),
       major_proj_validV 1 σ⟩
 
 end IhValid
