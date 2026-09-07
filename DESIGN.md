@@ -55701,3 +55701,97 @@ change is #200's accounting, not a verdict).
 its section above) — the in-process modeller's preprocessor predicate
 becomes the default once the fixpoint route is on master; its gate
 `tests/inmodel.sh` already records both states.
+
+## TASK #202 — REFLEXIVE CONSTRUCTORS: the fixpoint route extended (2026-09-07, `agent/reflexive` off master `dbe2ac33`, IN PROGRESS)
+
+**Charter** (the user's directive "we want to cover all inductives"):
+a recursive field `Π a⃗ : A⃗, T p⃗ e⃗(a⃗)` (`A⃗` free of the block) is a
+function-space slot into the family's fibres; the recursor's ih for it
+is pointwise (`ih : ∀ a⃗, motive ⟨e⃗(a⃗)⟩ (f a⃗)`); kernel
+`.reflexive` kind with `lechFixFieldsOk` in lockstep; the subsingleton
+large-elimination clause for `Acc`.  Priority `Acc` → `Acc.below` /
+`Lean.Order.iterates` → `WType` / `PSet` → the Mathlib census.
+
+### The census (raw exports, `isReflexive` blocks)
+
+init-full: 4 — `Acc` (nP 2, nIdx 1, 1 ctor, LARGE, `Prop`), `Acc.below`
+(nP 3, nIdx 2, LARGE, `Prop`), `Lean.Order.iterates` (nP 3, nIdx 1, 2
+ctors, small) and its `.below`.  Mathlib: **41**
+(`_tmp/reflexive/mathlib-reflexive-census.txt`): 36 are `Prop`-valued
+closure predicates with a small eliminator (`GenerateOpen`,
+`ChainClosure`, `GenerateMeasurable`, `Saturate`, `Primrec'`,
+`Partrec'`, `Wequiv`, … and their `.below`s) or `Acc`/`Acc.below`;
+**5 are `Type`-valued with a large eliminator**: `WType`, `PSet`,
+`FirstOrder.Language.Term`, `Turing.PartrecToTM2.Λ'`,
+`PFunctor.Approx.CofixA`.  No mutual or nested reflexive block.
+
+### FINDING — the closure witness, and what the Tarski-form universe does NOT give
+
+The route's carrier is `lfpFamSet`, the least closed family; the laws
+need a closed member to exist.  For finitary constructors the
+ω-iterate is it (`famU`).  With a function-space slot it is not: a
+member of the tower over `Π a : A, X ⟨e(a)⟩` has components at
+unboundedly many stages (the `ℕ`-branching W-type has elements of rank
+`ω + 1`).  The natural replacement — iterate to an ordinal below the
+universe's cardinal, or bound the least fixed point by a union — needs
+the universe **closed under unions of its members** (Grothendieck's
+clause).  `IsTGUniverse` (`Lech/SetTheory/Core.lean`) is Tarski's form:
+transitive, subsets and powersets of members are members, and every
+subset of `U` is a member or equinumerous with `U`.  **Union-closure
+is not derivable from it**: `H(κ)` for a singular strong-limit `κ`
+(hereditarily-small sets) satisfies all four clauses and is not closed
+under the union of a member (a cofinal small set of small sets).  So
+"the closure witness through the Tarski-form universe bound" is not
+available as such; the fibres of an infinitary least fixed point are
+provably SUBSETS of `univ w` but their MEMBERSHIP in `univ w` needs a
+cardinality bound.
+
+Two ways out, and the split they induce:
+
+* **`Prop`-valued blocks need no bound.**  At `w = 0` the fibres are
+  subsets of `univZero`, and the top family `i ↦ univZero` IS a member
+  of `famSpace 0 I` and is closed (the functor maps `famSpace` to
+  itself) — the witness is free.  This covers every init-full reflexive
+  block (`Acc` included — its sort is `Prop`; its LARGE eliminator is
+  the subsingleton case) and 36 of Mathlib's 41.
+* **`Type`-valued blocks** (Mathlib's 5) need either (a) an interface
+  clause — union-closure of the universes (`univChain_union`), the
+  intended models `V_{κ_n}` satisfy it, a strengthening of
+  `SetTheory` the user rules on (the minimal-axiomatization directive
+  prefers derived fields; this one is NOT derivable) — after which the
+  witness is the transfinite iterate, needing internal ordinals and
+  ∈-recursion (regularity + `image` suffice; sizable); or (b) a direct
+  size bound: an injective coding of the least fixed point's members
+  into a fixed set of tree codes `Labels^(Addresses)` in `univ w`
+  (addresses = finite sequences over the branching domains, coded as
+  subsets of `ω × A`), by recursion on the least fixed point — no
+  ordinals, no new clause, but a second recursion-theorem instance.
+  DECISION REQUESTED from the user; Stage B waits on it.
+
+### Plan
+
+**Stage A (no decision needed): `Prop`-valued reflexive blocks and
+`Acc`'s large elimination.**
+1. Model: the recursion theorem by `lfpFamSet_induction` — the
+   recursor's graph as the least fixed point of a relation functor
+   over pairs, functional and total by induction, the fixed point of
+   the spelled `Step` its graph (replaces `fixSem`'s stage recursion,
+   which is the ω-iterate's and goes with it); the tower functor's
+   function-space slot `Π a⃗ : A⃗, X ⟨e⃗(a⃗)⟩` (`xEntry`: `mkPisAV`
+   over the lifted domains applied to the tupler at the index
+   expressions), monotone and closed as before; the closure witness
+   at `w = 0` (top family).
+2. Kernel: `recPositivity`'s `k > 0` arm returns `.reflexive` (the
+   domains of the field's own telescope free of the block, the result
+   `recFamOk`); `directIhPis` generates the pointwise ih; the
+   `elim_only_at_universe_zero` mirror admits a one-constructor `Prop`
+   block whose fields are all `Prop`-valued or index expressions
+   (official's subsingleton criterion; `Acc.intro`'s field is a
+   `Prop`-valued function); `lechFixFieldsOk` in lockstep; fixtures:
+   an `Acc` clone (large), a `Prop` closure predicate (small), bad
+   twins (an ih patched to the non-pointwise shape; a negative
+   occurrence under the binder).
+3. P tier: the reading of a reflexive field's domain (a Π-telescope
+   ending in the family), the ih reading, the rule's ih argument as a
+   λ over the field's domain applied to the recursive call.
+**Stage B (after the ruling): `Type`-valued reflexive blocks.**
