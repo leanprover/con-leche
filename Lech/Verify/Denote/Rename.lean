@@ -12,7 +12,7 @@ with.
 constant has no `_model` counterpart, so nothing has to be renamed.  A
 modeled block's install does: the capability pins describe the
 `T._model` artifact, while the laws (`EtaLawTT`, `UnitLawTT`) are
-stated at the **public** former, and `checkMemberVal`'s `eqUpToNames`
+stated at the **public** former, and `checkMemberVal`'s comparison
 relates the two only *through* `renameConsts`.
 
 **Retraction, recorded rather than quietly fixed.**  This module first
@@ -149,7 +149,7 @@ theorem RenEqT.instantiate1 {f : Name → Name} {e₁ e₂ a₁ a₂ : Expr} {k 
 their binders were called and whatever they were annotated with:
 `renameConsts` reaches only the annotation, and erasure compares only
 the index.  This is what lets one alignment step open *both* sides. -/
-theorem RenEqT.fvar {f : Name → Name} {i : Nat} {n n' : Name}
+theorem RenEqT.fvar {f : Name → Name} {i : Nat}
     {ty ty' : Expr} : RenEqT f (.fvar i ty) (.fvar i ty') := by
   show Expr.ErasedEq (.fvar i (ty.renameConsts f)) (.fvar i ty')
   rfl
@@ -159,7 +159,7 @@ renaming; their residuals are unconstrained. -/
 def PiDomsRenEqT (f : Name → Name) : Nat → Expr → Expr → Prop
   | 0, _, _ => True
   | k + 1, .forallE d₁ b₁ _, e₂ =>
-    ∃ n₂ d₂ b₂ m₂, e₂ = .forallE d₂ b₂ m₂ ∧ RenEqT f d₁ d₂ ∧
+    ∃ d₂ b₂ m₂, e₂ = .forallE d₂ b₂ m₂ ∧ RenEqT f d₁ d₂ ∧
       PiDomsRenEqT f k b₁ b₂
   | _ + 1, _, _ => False
 
@@ -176,8 +176,8 @@ theorem PiDomsRenEqT.instantiate1 {f : Name → Name} {a₁ a₂ : Expr}
     intro e₁ e₂ j h
     match e₁, h with
     | .forallE d₁ b₁ m₁, h =>
-      obtain ⟨n₂, d₂, b₂, m₂, rfl, hd, hb⟩ := h
-      exact ⟨n₂, d₂.instantiate1 a₂ j, b₂.instantiate1 a₂ (j + 1), m₂, rfl,
+      obtain ⟨d₂, b₂, m₂, rfl, hd, hb⟩ := h
+      exact ⟨d₂.instantiate1 a₂ j, b₂.instantiate1 a₂ (j + 1), m₂, rfl,
         RenEqT.instantiate1 hd ha, ih (j + 1) hb⟩
 
 /-- Pointwise domain relatedness assembles the prefix relation. -/
@@ -187,7 +187,7 @@ theorem PiDomsRenEqT.of_pointwise {f : Name → Name} :
       e₁.stripPis k = some (bs₁, body₁) →
       e₂.stripPis k = some (bs₂, body₂) →
       (∀ (i : Nat) (b₁ b₂ : Expr × BinderMeta),
-        bs₁[i]? = some b₁ → bs₂[i]? = some b₂ → RenEqT f b₁.2.1 b₂.2.1) →
+        bs₁[i]? = some b₁ → bs₂[i]? = some b₂ → RenEqT f b₁.1 b₂.1) →
       PiDomsRenEqT f k e₁ e₂ := by
   intro k
   induction k with
@@ -211,7 +211,7 @@ theorem PiDomsRenEqT.of_pointwise {f : Name → Name} :
       obtain ⟨hb2, -⟩ : (d₂, m₂) :: p2.1 = bs₂ ∧ p2.2 = body₂ := by
         cases h2; exact ⟨rfl, rfl⟩
       subst hb1 hb2
-      refine ⟨n₂, d₂, b₂, m₂, rfl, ?_, ?_⟩
+      refine ⟨d₂, b₂, m₂, rfl, ?_, ?_⟩
       · exact hdoms 0 (d₁, m₁) (d₂, m₂) rfl rfl
       · exact ih hs1 hs2 (fun i c₁ c₂ hc₁ hc₂ =>
           hdoms (i + 1) c₁ c₂ (by simpa using hc₁) (by simpa using hc₂))

@@ -42,7 +42,7 @@ theorem denoteP_sort (acval : Name → (Name → Nat) → AVExpr)
   rw [denoteP]
 
 theorem denoteP_fvar (acval : Name → (Name → Nat) → AVExpr)
-    (d idx : Nat) (n : Name) (ty : Expr) :
+    (d idx : Nat) (ty : Expr) :
     denoteP acval env φ d (.fvar idx ty)
       = some (.bvar (d - 1 - idx)) := by
   rw [denoteP]
@@ -97,7 +97,7 @@ theorem denoteP_proj_pair (acval : Name → (Name → Nat) → AVExpr)
     rw [hnt]
 
 theorem denoteP_forallE (acval : Name → (Name → Nat) → AVExpr)
-    (d : Nat) (n : Name) (ty body : Expr) (mb : Lech.BinderMeta) :
+    (d : Nat) (ty body : Expr) (mb : Lech.BinderMeta) :
     denoteP acval env φ d (.forallE ty body mb)
       = (do
         let ta ← denoteP acval env φ d ty
@@ -107,7 +107,7 @@ theorem denoteP_forallE (acval : Name → (Name → Nat) → AVExpr)
   rw [denoteP]
 
 theorem denoteP_lam (acval : Name → (Name → Nat) → AVExpr)
-    (d : Nat) (n : Name) (ty body : Expr) (mb : Lech.BinderMeta) :
+    (d : Nat) (ty body : Expr) (mb : Lech.BinderMeta) :
     denoteP acval env φ d (.lam ty body mb)
       = (do
         let ta ← denoteP acval env φ d ty
@@ -180,7 +180,7 @@ theorem denoteP_proj_inv_pair {d : Nat} {s : Name} {i : Nat} {e : Expr}
   · rw [hnt] at hfp; exact nomatch hfp
   · exact ⟨ia, hia, hlt, rfl⟩
 
-theorem denoteP_forallE_inv {d : Nat} {n : Name} {ty bd : Expr}
+theorem denoteP_forallE_inv {d : Nat} {ty bd : Expr}
     {mb : Lech.BinderMeta} {ea : AVExpr}
     (h : denoteP acval env φ d (.forallE ty bd mb) = some ea) :
     ∃ ta ba, denoteP acval env φ d ty = some ta ∧
@@ -198,7 +198,7 @@ theorem denoteP_forallE_inv {d : Nat} {n : Name} {ty bd : Expr}
       rw [ht, hb] at h
       exact ⟨ta, ba, rfl, rfl, (Option.some.inj h).symm⟩
 
-theorem denoteP_lam_inv {d : Nat} {n : Name} {ty bd : Expr}
+theorem denoteP_lam_inv {d : Nat} {ty bd : Expr}
     {mb : Lech.BinderMeta} {ea : AVExpr}
     (h : denoteP acval env φ d (.lam ty bd mb) = some ea) :
     ∃ ta ba, denoteP acval env φ d ty = some ta ∧

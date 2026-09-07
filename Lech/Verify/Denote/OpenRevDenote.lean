@@ -125,7 +125,7 @@ theorem openRev_WScoped {e : Expr} {d : Nat}
     show Expr.WScoped (d + (n + 1))
       ((openRev d n e).instantiate1 (.fvar (d + n) _) 0)
     have h1 := Expr.WScoped.instantiate1 (d := d + n)
-      (n := Name.anonymous) (ty := .sort .zero)
+      (ty := .sort .zero)
       (by simp [Expr.WScoped]) 0 ih
     exact h1.mono (by omega)
 
@@ -297,7 +297,7 @@ theorem Expr.fvarsBelow_of_fvarLeaves :
   induction e <;> intro n h <;>
     simp only [Expr.fvarsBelow, Expr.fvarLeaves] at h ⊢ <;>
     try trivial
-  case fvar idx ty ih => exact h (idx, nm, ty) List.mem_cons_self
+  case fvar idx ty ih => exact h (idx, ty) List.mem_cons_self
   case app f a ihf iha =>
     exact ⟨ihf fun l hl => h l (List.mem_append_left _ hl),
       iha fun l hl => h l (List.mem_append_right _ hl)⟩

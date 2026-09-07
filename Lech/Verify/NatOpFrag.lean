@@ -311,7 +311,7 @@ theorem natOpGuard_zeroTy {env : Env} {c : Name} (h : natOpGuard env c = true) :
 
 /-- The pinned `Nat.succ`'s stored declaration. -/
 theorem natOpGuard_succTy {env : Env} {c : Name} (h : natOpGuard env c = true) :
-    ∃ ci nm mb, env.find? natSuccName = some ci ∧
+    ∃ ci mb, env.find? natSuccName = some ci ∧
       ci.toConstantVal.levelParams = [] ∧
       ci.toConstantVal.type
         = .forallE (.const natName []) (.const natName []) mb := by
@@ -330,7 +330,7 @@ theorem natOpGuard_succTy {env : Env} {c : Name} (h : natOpGuard env c = true) :
       intro hty
       simp only [Bool.and_eq_true, beq_iff_eq] at hty
       obtain ⟨rfl, rfl⟩ := hty
-      exact ⟨_, nm, mb, hfd, hlp, by simp [ConstantInfo.toConstantVal, hcvs]⟩
+      exact ⟨_, mb, hfd, hlp, by simp [ConstantInfo.toConstantVal, hcvs]⟩
     | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
     | .lam _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _
     | .forallE (.bvar _) _ _ | .forallE (.fvar _ _) _ _

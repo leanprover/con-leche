@@ -350,7 +350,7 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
               (.bvar (nF - 1 - i))) ∧
           ∀ (i0 : Nat) (b b' : Expr × BinderMeta), i0 < nP + nF →
             sbinders[i0]? = some b → cbinders[i0]? = some b' →
-            b.2.1 = b'.2.1.renameConsts (projFwd T ctorName nF)) ∧
+            b.1 = b'.1.renameConsts (projFwd T ctorName nF)) ∧
         ∃ fvsI sbodyO,
           openPisAtFvars (nP + nF) tcv.type 0 = some (fvsI, sbodyO) ∧
           (∃ tl, inferTypeCore μ env' F (nP + nF)

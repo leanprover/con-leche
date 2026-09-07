@@ -52,7 +52,7 @@ no annotation to read it off. -/
 theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     (h : whnfCore mode env (fuel + 1) d (.app f a) = .ok e') :
     ∃ f', whnfCore mode env fuel d f = .ok f' ∧
-      ((∃ n ty body m, f' = .lam ty body m ∧
+      ((∃ ty body m, f' = .lam ty body m ∧
           whnfCore mode env fuel d (body.instantiate1 a) = .ok e' ∧
           (betaGateFires mode m.pw = true ∨
             ∃ ta, inferTypeIO mode env fuel d a = .ok ta ∧
@@ -85,7 +85,7 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     dsimp only at h
     by_cases hg : betaGateFires mode m.pw = true
     · rw [if_pos hg] at h
-      exact Or.inl ⟨n, ty, body, m, rfl, h, Or.inl hg⟩
+      exact Or.inl ⟨ty, body, m, rfl, h, Or.inl hg⟩
     · rw [if_neg hg] at h
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
@@ -101,7 +101,7 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
       cases bb with
       | true =>
         simp only [if_true] at h
-        exact Or.inl ⟨n, ty, body, m, rfl, h, Or.inr ⟨ta, rfl, hde⟩⟩
+        exact Or.inl ⟨ty, body, m, rfl, h, Or.inr ⟨ta, rfl, hde⟩⟩
       | false =>
         simp only [Bool.false_eq_true, if_false, pure, Except.pure,
           Except.ok.injEq] at h
@@ -126,7 +126,7 @@ theorem whnf_app_inv_ungated {env : Env} {fuel d : Nat} {f a e' : Expr}
     (hg : mode.betaGate = false)
     (h : whnfCore mode env (fuel + 1) d (.app f a) = .ok e') :
     ∃ f', whnfCore mode env fuel d f = .ok f' ∧
-      ((∃ n ty body m, f' = .lam ty body m ∧
+      ((∃ ty body m, f' = .lam ty body m ∧
           whnfCore mode env fuel d (body.instantiate1 a) = .ok e' ∧
           ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
             isDefEqCore mode env fuel d ta ty = .ok true) ∨
@@ -135,12 +135,12 @@ theorem whnf_app_inv_ungated {env : Env} {fuel d : Nat} {f a e' : Expr}
         e' = .app f' a) := by
   obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
   refine ⟨f', hwf, ?_⟩
-  rcases hcase with ⟨n, ty, body, m, hf', hbeta, hc⟩ | hrest
+  rcases hcase with ⟨ty, body, m, hf', hbeta, hc⟩ | hrest
   · rcases hc with hfired | hcert
     · rw [betaGateFires_off hg] at hfired; exact absurd hfired (by simp)
     · obtain ⟨ta, hta, hde⟩ := hcert
       rw [inferTypeIO_off hg] at hta
-      exact Or.inl ⟨n, ty, body, m, hf', hbeta, ta, hta, hde⟩
+      exact Or.inl ⟨ty, body, m, hf', hbeta, ta, hta, hde⟩
   · exact Or.inr hrest
 
 /-- Inversion for one iteration of the reduction loop
@@ -197,7 +197,7 @@ every λ node, in the shape the checker computes it (infer, then whnf
 to a sort — `Lech/SetR/Annot/Pass.lean`'s `HasSort` unfolded along
 the bridge).  At `.trusted` — the trusted lane, which does not
 run the check — it is vacuous. -/
-theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
+theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCore mode env (fuel + 1) d (.lam ty body m) = .ok t) :
     ∃ tty u bt,
@@ -308,7 +308,7 @@ own: the codomain check the λ clause ran (chain or leaf) *is* the
 validation of the copied datum, and the `denoteP` readings of the λ
 and of its inferred type dispatch on the same regime numeral
 `pwBit φ m.pw` by their clause equations. -/
-theorem infer_lam_meta_copy {env : Env} {fuel d : Nat} {n : Name}
+theorem infer_lam_meta_copy {env : Env} {fuel d : Nat}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCore mode env (fuel + 1) d (.lam ty body m) = .ok t) :
     ∃ bt, t = .forallE ty bt m := by
@@ -321,7 +321,7 @@ possibly-Prop gate of task #49 is unsound-to-model under the
 domain-relative collapse). -/
 theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
     (h : inferTypeCore mode env (fuel + 1) d (.app f a) = .ok t) :
-    ∃ tf n' ty' body' m', inferTypeCore mode env fuel d f = .ok tf ∧
+    ∃ tf ty' body' m', inferTypeCore mode env fuel d f = .ok tf ∧
       whnf mode env fuel d tf = .ok (.forallE ty' body' m') ∧
       t = body'.instantiate1 a ∧
       ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
@@ -364,12 +364,12 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   | false => simp [throw, throwThe, MonadExceptOf.throw] at h
   | true =>
     simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tf, n', ty', body', m', rfl, hw, h.symm, ta, rfl, hde⟩
+    exact ⟨tf, ty', body', m', rfl, hw, h.symm, ta, rfl, hde⟩
 
 /-- Inversion for the ∀-rule of `inferTypeCore` (task #100 stage 6:
 the codomain sort is inferred from the opened body — the stored
 annotation is not read). -/
-theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
+theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCore mode env (fuel + 1) d (.forallE ty body m) = .ok t) :
     ∃ tty u bt v, inferTypeCore mode env fuel d ty = .ok tty ∧
@@ -461,7 +461,7 @@ theorem Expr.WScoped.getAppFn {d : Nat} :
 /-- Inversion for the let-rule of `inferTypeCore` (task #100 stage 6:
 the official kernel's `infer_let` checks moved here from the deleted
 annotation pass). -/
-theorem inferTypeCore_letE_inv {env : Env} {fuel d : Nat} {n : Name}
+theorem inferTypeCore_letE_inv {env : Env} {fuel d : Nat}
     {ty v b t : Expr}
     (h : inferTypeCore mode env (fuel + 1) d (.letE ty v b) = .ok t) :
     ∃ tty s tv, inferTypeCore mode env fuel d ty = .ok tty ∧
@@ -511,7 +511,7 @@ which is what this module is for, and both the set model's proj case
 and the `Lech/SetR/*` bridge's R6 clause consume them.  Statements
 unchanged. -/
 
-theorem whnf_forallE_eq {env : Env} {fuel d : Nat} {n : Name}
+theorem whnf_forallE_eq {env : Env} {fuel d : Nat}
     {t b e' : Expr} {mb : BinderMeta}
     (h : whnf mode env fuel d (.forallE t b mb) = .ok e') :
     e' = .forallE t b mb := by
@@ -530,7 +530,7 @@ theorem whnf_forallE_eq {env : Env} {fuel d : Nat} {n : Name}
 
 theorem inferTypeCore_app_inv' {env : Env} {fuel d : Nat}
     {f a t : Expr} (h : inferTypeCore mode env fuel d (.app f a) = .ok t) :
-    ∃ tf n' ty' body' m', inferTypeCore mode env fuel d f = .ok tf ∧
+    ∃ tf ty' body' m', inferTypeCore mode env fuel d f = .ok tf ∧
       whnf mode env fuel d tf = .ok (.forallE ty' body' m') ∧
       t = body'.instantiate1 a ∧
       ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
@@ -538,9 +538,9 @@ theorem inferTypeCore_app_inv' {env : Env} {fuel d : Nat}
   match fuel, h with
   | 0, h => rw [inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
-    obtain ⟨tf, n', ty', body', m', h1, h2, h3, ta, h4, h5⟩ :=
+    obtain ⟨tf, ty', body', m', h1, h2, h3, ta, h4, h5⟩ :=
       inferTypeCore_app_inv h
-    exact ⟨tf, n', ty', body', m', inferTypeCore_mono (Nat.le_succ _) h1,
+    exact ⟨tf, ty', body', m', inferTypeCore_mono (Nat.le_succ _) h1,
       whnf_mono (Nat.le_succ _) h2, h3, ta,
       inferTypeCore_mono (Nat.le_succ _) h4,
       isDefEqCore_mono (Nat.le_succ _) h5⟩
@@ -1522,7 +1522,7 @@ theorem defeqSpine_inv {env : Env} {fuel d : Nat} {a b : Expr}
 ι-slot licence fired (the binder's datum is `.never` and the walk went
 on without a run) or the certificate ran. -/
 theorem iotaCerts_step_inv_gate {env : Env} {fuel d : Nat} {lic : Bool}
-    {n : Name} {ty body : Expr} {m : BinderMeta} {arg : Expr}
+    {ty body : Expr} {m : BinderMeta} {arg : Expr}
     {rest : List Expr}
     (h : iotaCertsP mode env fuel d lic (.forallE ty body m) (arg :: rest) =
       .ok true) :
@@ -1557,7 +1557,7 @@ theorem iotaCerts_step_inv_gate {env : Env} {fuel d : Nat} {lic : Bool}
 
 /-- Inversion of one certification step at an unlicensed walk (the
 rescue's synthetic certifications): the certificate ran. -/
-theorem iotaCerts_step_inv {env : Env} {fuel d : Nat} {n : Name}
+theorem iotaCerts_step_inv {env : Env} {fuel d : Nat}
     {ty body : Expr} {m : BinderMeta} {arg : Expr} {rest : List Expr}
     (h : iotaCertsP mode env fuel d false (.forallE ty body m) (arg :: rest) =
       .ok true) :
@@ -2227,10 +2227,10 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
     he1, he2, he3, he4, he5, rfl, hwtb, hde, h⟩
 
 /-- Inversion of a successful eta certification. -/
-theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr}
+theorem etaCert_inv {env : Env} {fuel d : Nat} {ty₁ body₁ b : Expr}
     {m₁ : BinderMeta}
-    (h : etaCertP mode env fuel d n₁ ty₁ body₁ m₁ b = .ok true) :
-    ∃ tb n₂ ty₂ fb m₂,
+    (h : etaCertP mode env fuel d ty₁ body₁ m₁ b = .ok true) :
+    ∃ tb ty₂ fb m₂,
       inferTypeIO mode env fuel d b = .ok tb ∧
       whnf mode env fuel d tb = .ok (.forallE ty₂ fb m₂) ∧
       isDefEqCore mode env fuel d ty₂ ty₁ = .ok true ∧
@@ -2284,7 +2284,7 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : 
   · rw [if_pos hpw] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
   · rw [if_neg hpw] at h
-    refine ⟨tb, n₂, ty₂, fb, m₂, rfl, hwtb, hd1, rfl, ?_⟩
+    refine ⟨tb, ty₂, fb, m₂, rfl, hwtb, hd1, rfl, ?_⟩
     intro hv
     by_cases he : (m₁.pw == m₂.pw) = true
     · exact eq_of_beq he
@@ -3008,7 +3008,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
         simp only [WScoped] at hw
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
         have hwf' : WScoped d f' := ihCore hwf hw.1
-        rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, -⟩ |
+        rcases hcase with ⟨ty, body, mm, rfl, hbeta, -⟩ |
           ⟨e'', hio, hwe''⟩ | rfl
         · simp only [WScoped] at hwf'
           exact ihCore hbeta (WScoped.instantiate1_gen hw.2 0 hwf'.2)

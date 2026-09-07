@@ -353,7 +353,7 @@ theorem denoteP_beta
       (acval n ψ).liftN 1 k = acval n ψ)
     (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AVExpr) (k : Nat),
       (acval n ψ).inst y k = acval n ψ)
-    {d : Nat} {n : Name} {ty body a : Expr} {x : AVExpr}
+    {d : Nat} {ty body a : Expr} {x : AVExpr}
     (hfb : Expr.fvarsBelow d body) (hwa : Expr.WScoped d a)
     (hba : a.looseBVarsBounded 0 = true)
     (ha : denoteP acval env φ d a = some x) (k : Nat) :
