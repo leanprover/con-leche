@@ -137,7 +137,7 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
     obtain ⟨ty, rfl⟩ := hshapeS q x hx
     rw [show fvs.getD q default = Expr.fvar q ty from by
         rw [List.getD, hx]; rfl, hbvsgetD q hq]
-    exact denoteP_fvar m.acval (K) q nm ty
+    exact denoteP_fvar m.acval (K) q ty
   have hchainbvs : ∀ (τ : Nat → V) (i : Nat), i < K →
       chainP V τ bvs i = τ i := by
     intro τ i hi

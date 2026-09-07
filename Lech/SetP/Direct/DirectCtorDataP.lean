@@ -53,8 +53,8 @@ theorem denoteSpineP_indexed {acval : Name → (Name → Nat) → AVExpr} {d : N
       congr 1; omega
     rw [hmap]
     exact denoteSpineP_indexed fvs (off + 1) fun j y hy => by
-        obtain ⟨nm', ty', hy'⟩ := h (j + 1) y (by simpa using hy)
-        exact ⟨nm', ty', by rw [hy']; congr 1; omega⟩
+        obtain ⟨ty', hy'⟩ := h (j + 1) y (by simpa using hy)
+        exact ⟨ty', by rw [hy']; congr 1; omega⟩
 
 /-- The parameter-variable spine of the constructor's opened body, in
 the reading's spelling. -/
@@ -115,7 +115,7 @@ holding the former. -/
 theorem ctorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa : ConstantVal} {env₀ envC : Env}
     {sorts : List Level} {caps : IndCaps}
-    {bs : List (Name × Expr × Lech.BinderMeta)}
+    {bs : List (Expr × Lech.BinderMeta)}
     (hCtor : Lech.checkDirectCtor (Lech.fueledOps μ F) env₀ env p cvTa
       = .ok (envC, cvCa, sorts))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
