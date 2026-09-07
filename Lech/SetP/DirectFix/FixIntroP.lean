@@ -186,7 +186,7 @@ both regimes. -/
 theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms)
     (hfin : w ≠ 0 → ∀ j i, (tlss.getD j []).getD i [] = [])
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
-    (hEV : ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
+    (hEV : w ≠ 0 → ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
       ∀ E ∈ (Eiss.getD j []).getD i [],
         AnnotValidV V (consList (fs.take i) (frP Fss.length Ids.length ρ₀)) E) :
@@ -196,7 +196,7 @@ theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ�
     rw [fixRecBodyAVI_zero]
     trivial
   · rw [fixRecBodyAVI_pos hw, AnnotValidV_app]
-    exact ⟨fixCaseRec_validV hyp hw (hfin hw) hv hEV Fss.length hfr (major_proj_validV 0 σ),
+    exact ⟨fixCaseRec_validV hyp hw (hfin hw) hv (hEV hw) Fss.length hfr (major_proj_validV 0 σ),
       major_proj_validV 1 σ⟩
 
 end IhValid

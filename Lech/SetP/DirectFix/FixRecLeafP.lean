@@ -39,7 +39,9 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : Lis
         ∀ E ∈ Ess.getD j [], AnnotValidV V (consList bs ρp) E) ∧
       (∀ j, j < n → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
         ∀ fs : List V, SpineFit ρp (Fss.getD j []) fs →
-        ∀ E ∈ (Eiss.getD j []).getD i [], AnnotValidV V (consList (fs.take i) ρp) E))
+        FieldsValid (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) ∧
+        ∀ bs : List V, SpineFit (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) bs →
+        ∀ E ∈ (Eiss.getD j []).getD i [], AnnotValidV V (consList bs (consList (fs.take i) ρp)) E))
     (σ : Nat → V) (hsat : Sat2 V (((rds.map (·.2.2)).reverse)) σ) :
     AnnotValidV V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) := by
   have hsp := spineFit_of_sat2 (Δ₀ := []) (Ds := rds.map (·.2.2))
@@ -87,9 +89,12 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : Lis
       intro j hj bs hsp' E hE'
       exact hE j (by rw [← hFss]; exact hj) bs hsp' E hE'
   refine fixRecBody_validV hfr hK.hyp (fun hw => h.hfin.resolve_right fun hh => hw hh.1) hv' ?_
-  intro j hj i hi fs hfs E hE'
+  intro hw j hj i hi fs hfs E hE'
+  have hfin := h.hfin.resolve_right fun hh => hw hh.1
   rw [hfrP] at hfs ⊢
-  exact hEis j (by rw [← hFss]; exact hj) i hi fs hfs E hE'
+  obtain ⟨-, hbs⟩ := hEis j (by rw [← hFss]; exact hj) i hi fs hfs
+  have := hbs [] (by rw [hfin j i]; trivial) E hE'
+  simpa using this
 
 /-- **The recursor leaf's P currency and membership**, at every frame. -/
 theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List AVExpr)}
@@ -107,7 +112,9 @@ theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List
         ∀ E ∈ Ess.getD j [], AnnotValidV V (consList bs ρp) E) ∧
       (∀ j, j < n → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
         ∀ fs : List V, SpineFit ρp (Fss.getD j []) fs →
-        ∀ E ∈ (Eiss.getD j []).getD i [], AnnotValidV V (consList (fs.take i) ρp) E)) :
+        FieldsValid (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) ∧
+        ∀ bs : List V, SpineFit (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) bs →
+        ∀ E ∈ (Eiss.getD j []).getD i [], AnnotValidV V (consList bs (consList (fs.take i) ρp)) E)) :
     ∀ ρ : Nat → V,
       AnnotOkP V ρ (directFixRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) ∧
       interp2 V ρ (directFixRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
