@@ -1,6 +1,7 @@
 import Lech.SetP.DirectFix.FixStageRecP
 import Lech.SetP.DirectFix.FixStageFormerP
 import Lech.SetP.DirectFix.FixCtorsLoopP
+import Lech.SetP.DirectFix.FixCtorCrossP
 
 /-!
 # Kit for the direct recursive install's assembly (task #188)
@@ -310,5 +311,122 @@ theorem fixCtorPick_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   obtain ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, hD⟩ :=
     fixCtorData_of hμ mp hCtor hfT hlpsT hstripT hks hopened
   exact ⟨⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss⟩, hD⟩
+
+/-- **The constructors' data functions** at a carrier storing the
+former: every constructor's recursive data, its kind list the guard's. -/
+theorem fixCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
+    {F : Nat} {T : Name} {lps : List Name} {nP nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {cvTa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
+    {bs : List (Name × Expr × BinderMeta)} {ctorsA : List (ConstantVal × Nat)}
+    {kinds : List (List RecFieldKind)}
+    (hfT : env.find? T = some (.indInfo cvTa caps))
+    (hlpsT : cvTa.levelParams = lps)
+    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort))
+    (hFOk : Lech.directFixFieldsOk env₀ T lps nP nIdx ctorsA kinds = true)
+    (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
+      ∃ c : ConstantVal × Nat, Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₁ env T lps nP nIdx
+        resSort isProp large c.1 cA.2 cvTa = .ok cA.1) :
+    ∃ (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AVExpr))
+      (esF : Nat → (Name → Nat) → List AVExpr) (srcsF : Nat → List (Option Nat))
+      (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
+      (eissF : Nat → (Name → Nat) → List (List AVExpr)),
+      ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
+        FixCtorDataI mp.base2 env₀ T lps cA.1 nP cA.2 nIdx resSort isProp large (idxF j) (dsF j)
+          (esF j) (srcsF j) (kinds.getD j []) (fvsPF j) (xFvsF j) (xrestF j) (eissF j) := by
+  have hex : ∀ j : Nat, ∃ q : FixCtorPick, ∀ cA : ConstantVal × Nat, ctorsA[j]? = some cA →
+      FixCtorDataI mp.base2 env₀ T lps cA.1 nP cA.2 nIdx resSort isProp large q.idxArgs q.ds
+        q.Es q.srcs (kinds.getD j []) q.fvsP q.xFvs q.xrest q.Eiss := by
+    intro j
+    cases hj : ctorsA[j]? with
+    | none => exact ⟨⟨[], fun _ => [], fun _ => [], [], [], [], .bvar 0, fun _ => []⟩,
+        fun _ h => nomatch h⟩
+    | some cA =>
+      obtain ⟨c, hCtor⟩ := hrunOf j cA hj
+      obtain ⟨ks, hks, hksLen, hopened⟩ := Lech.directFixFieldsOk_inv hFOk hj
+      have hksD : kinds.getD j [] = ks := by rw [List.getD_eq_getElem?_getD, hks]; rfl
+      obtain ⟨q, hq⟩ := fixCtorPick_of hμ mp hCtor hfT hlpsT hstripT hksLen hopened
+      refine ⟨q, fun cA' h => ?_⟩
+      obtain rfl := Option.some.inj h
+      rw [hksD]
+      exact hq
+  let q : Nat → FixCtorPick := fun j => Classical.choose (hex j)
+  exact ⟨fun j => (q j).idxArgs, fun j => (q j).ds, fun j => (q j).Es, fun j => (q j).srcs,
+    fun j => (q j).fvsP, fun j => (q j).xFvs, fun j => (q j).xrest, fun j => (q j).Eiss,
+    fun j => Classical.choose_spec (hex j)⟩
+
+/-! ## The data at two carriers -/
+
+/-- **A recursive constructor's data at two carriers** differing only
+at the former: the openings and the residual's index arguments are
+syntactic, the index readings, the recursive slots' index expressions
+and the ordinary fields' domains read the same (none mentions the
+former). -/
+theorem fixCtorDataI_ident {acval : Name → (Name → Nat) → AVExpr} {T : Name}
+    {A₁ A₂ : (Name → Nat) → AVExpr} {env₀ : Env}
+    {m₁ m₂ : EnvS2Core V env} (hac₁ : m₁.acval = acvalWith acval T A₁)
+    (hac₂ : m₂.acval = acvalWith acval T A₂) (hfresh : env₀.find? T = none)
+    {lps : List Name} {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {idx₁ idx₂ : List Expr}
+    {ds₁ ds₂ : (Name → Nat) → List (Nat × Nat × AVExpr)} {Es₁ Es₂ : (Name → Nat) → List AVExpr}
+    {srcs₁ srcs₂ : List (Option Nat)} {ks : List RecFieldKind}
+    {fvsP₁ fvsP₂ xFvs₁ xFvs₂ : List Expr} {xrest₁ xrest₂ : Expr}
+    {Eiss₁ Eiss₂ : (Name → Nat) → List (List AVExpr)}
+    (h₁ : FixCtorDataI m₁ env₀ T lps cvC nP nF nIdx resSort isProp large idx₁ ds₁ Es₁ srcs₁ ks
+      fvsP₁ xFvs₁ xrest₁ Eiss₁)
+    (h₂ : FixCtorDataI m₂ env₀ T lps cvC nP nF nIdx resSort isProp large idx₂ ds₂ Es₂ srcs₂ ks
+      fvsP₂ xFvs₂ xrest₂ Eiss₂) :
+    idx₁ = idx₂ ∧ fvsP₁ = fvsP₂ ∧ xFvs₁ = xFvs₂ ∧ xrest₁ = xrest₂ ∧
+    (∀ ψ, Es₁ ψ = Es₂ ψ) ∧ (∀ ψ, Eiss₁ ψ = Eiss₂ ψ) ∧
+    ∀ ψ i, i < nF → ks.getD i .ordinary ≠ .recursive →
+      ((ds₁ ψ).getD (nP + i) default).2.2 = ((ds₂ ψ).getD (nP + i) default).2.2 := by
+  obtain ⟨crest₁, hopP₁, hopX₁⟩ := h₁.opens
+  obtain ⟨crest₂, hopP₂, hopX₂⟩ := h₂.opens
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP₁.symm.trans hopP₂))
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopX₁.symm.trans hopX₂))
+  have hidx : idx₁ = idx₂ := by rw [h₁.idxEq, h₂.idxEq]
+  subst hidx
+  refine ⟨rfl, rfl, rfl, rfl, ?_, ?_, ?_⟩
+  · intro ψ
+    refine CtorDataI.Es_eq hac₁ hac₂ hfresh h₁.toCtorDataI h₂.toCtorDataI ?_ ψ
+    rw [h₁.idxEq]
+    exact h₁.opened.residRes
+  · intro ψ
+    have hl₁ := h₁.eissLen ψ
+    have hl₂ := h₂.eissLen ψ
+    apply List.ext_getElem?
+    intro i
+    rcases Nat.lt_or_ge i nF with hi | hi
+    · have hx : xFvs₁[i]? = some (xFvs₁[i]'(by rw [h₁.xLen]; exact hi)) :=
+        List.getElem?_eq_getElem _
+      have hD : (Eiss₁ ψ).getD i [] = (Eiss₂ ψ).getD i [] := by
+        rcases h₁.opened.kinds i hi with hk | hk
+        · rw [h₁.ordNone ψ i (by rw [hk]; exact nofun), h₂.ordNone ψ i (by rw [hk]; exact nofun)]
+        · have hr₁ := h₁.eisRead ψ i _ hx hk
+          have hr₂ := h₂.eisRead ψ i _ hx hk
+          obtain ⟨-, -, -, hres, -, -⟩ := h₁.opened.recF i _ hx hk
+          rw [hac₁] at hr₁
+          rw [hac₂] at hr₂
+          have hr₁' := DenoteSpineP.congr hr₁ fun a ha =>
+            denoteP_acvalWith_unmentioned₂ (A₂ := A₂) hfresh (nP + i) a (hres a ha)
+          exact DenoteSpineP.unique hr₁' hr₂
+      rw [List.getElem?_eq_getElem (by omega), List.getElem?_eq_getElem (by omega)]
+      congr 1
+      rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (by omega), List.getElem?_eq_getElem (by omega)] at hD
+      exact hD
+    · rw [List.getElem?_eq_none (by omega), List.getElem?_eq_none (by omega)]
+  · intro ψ i hi hnr
+    have hx : xFvs₁[i]? = some (xFvs₁[i]'(by rw [h₁.xLen]; exact hi)) :=
+      List.getElem?_eq_getElem _
+    have hk : ks.getD i .ordinary = .ordinary := by
+      rcases h₁.opened.kinds i hi with hk | hk
+      · exact hk
+      · exact absurd hk hnr
+    have hd₁ := h₁.domRead ψ i _ hx
+    have hd₂ := h₂.domRead ψ i _ hx
+    rw [hac₁] at hd₁
+    rw [hac₂] at hd₂
+    rw [denoteP_acvalWith_unmentioned₂ (A₂ := A₂) hfresh (nP + i) _ (h₁.opened.ord i _ hx hk)] at hd₁
+    exact Option.some.inj (hd₁.symm.trans hd₂)
 
 end Lech.SetP
