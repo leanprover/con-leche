@@ -134,8 +134,7 @@ theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
     (h : directFixParts? block = some p) :
     directFixShape? block = some p.toDirectSumParts ∧
     directFixKinds? p.toDirectSumParts = some p.kinds ∧
-    p.kinds.length = p.ctors.length ∧
-    0 < p.ctors.length := by
+    p.kinds.length = p.ctors.length := by
   unfold directFixParts? at h
   split at h
   · next p' hshape =>
@@ -145,21 +144,14 @@ theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
         unfold directFixKinds? at hkinds
         exact List.mapM_option_length hkinds
       split at h
-      · exact nomatch h
-      · next hne =>
-        have hpos : 0 < p'.ctors.length := by
-          cases hc : p'.ctors with
-          | nil => rw [hc] at hne; exact absurd rfl hne
-          | cons _ _ => simp
-        split at h
-        · obtain rfl := Option.some.inj h
-          exact ⟨hshape, hkinds, hlen, hpos⟩
+      · obtain rfl := Option.some.inj h
+        exact ⟨hshape, hkinds, hlen⟩
+      · split at h
+        · exact nomatch h
         · split at h
+          · obtain rfl := Option.some.inj h
+            exact ⟨hshape, hkinds, hlen⟩
           · exact nomatch h
-          · split at h
-            · obtain rfl := Option.some.inj h
-              exact ⟨hshape, hkinds, hlen, hpos⟩
-            · exact nomatch h
     · exact nomatch h
   · exact nomatch h
 

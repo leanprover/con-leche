@@ -265,7 +265,7 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
       (fun fs => ihSpL ℓ (concI w ρp M (Ess.getD j []) j fs)
         (ihDomsI ℓ ρp M rss tlss Eiss (fun j' => (Fss.getD j' []).length) j fs))
       (Fss.getD j []) ρp [])
-    (hsingle : w = 0 → ℓ ≠ 0 → n = 1)
+    (hsingle : w = 0 → ℓ ≠ 0 → n ≤ 1)
     (hprop : w = 0 → ℓ ≠ 0 → ∀ j, j < n → ∀ i, i < (Fss.getD j []).length →
       srcOfEs (Ess.getD j []) (Fss.getD j []).length i = none →
       ∀ fs : List V, SpineFit ρp ((Fss.getD j []).take i) fs →
@@ -389,13 +389,21 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
   · -- the squash regime (task #202 A2): one constructor, its fields a
     -- `Prop` chain, the unsourced fields propositions
     intro hw0 hℓ0
-    have hn1 : n = 1 := hsingle hw0 hℓ0
-    refine ⟨by rw [hlenFs, hn1], ?_, ?_⟩
+    have hn1 : n ≤ 1 := hsingle hw0 hℓ0
+    refine ⟨by rw [hlenFs]; exact hn1, ?_, ?_⟩
     · rw [kframe_frP hlenIs' hlenM']
-      have := (hfields 0 (by rw [hn1]; exact Nat.zero_lt_one)).1
-      rwa [hw0] at this
+      rcases Nat.eq_zero_or_pos n with hz | hpos
+      · -- no constructor (task #210 Part B): the empty field list
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by rw [hlenFs]; omega)]
+        exact trivial
+      · have := (hfields 0 hpos).1
+        rwa [hw0] at this
     · rw [kframe_frP hlenIs' hlenM']
-      exact hprop hw0 hℓ0 0 (by rw [hn1]; exact Nat.zero_lt_one)
+      rcases Nat.eq_zero_or_pos n with hz | hpos
+      · intro j hj
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by rw [hlenFs]; omega)] at hj
+        exact absurd hj (Nat.not_lt_zero _)
+      · exact hprop hw0 hℓ0 0 hpos
   · exact interp_majorAVAt hlenP hlenI hsatP hX hleafT hlenM hfit
 
 end ConLeche.SetP

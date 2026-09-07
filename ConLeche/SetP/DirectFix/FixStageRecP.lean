@@ -616,8 +616,7 @@ theorem stageFixRec {p : DirectFixParts} (hE : ConLeche.EtaFamiliesClosedExcept 
         ∀ bs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) bs →
         ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
           AnnotValidV V (consList bs ρp) E))
-    (hwl : p.large = true → p.resSort.isNeverZero = true ∨ ctorsA.length < 2)
-    (hpos : 0 < ctorsA.length) :
+    (hwl : p.large = true → p.resSort.isNeverZero = true ∨ ctorsA.length < 2) :
     ∃ (sAV : (Name → Nat) → Nat)
       (mp' : EnvS2PM V μ ⟨.recInfo cvRa mI rP (ConLeche.directSumRules p.nP mI rP cvRa.type ctorsA rhss)
         :: env.consts⟩),
@@ -709,8 +708,8 @@ theorem stageFixRec {p : DirectFixParts} (hE : ConLeche.EtaFamiliesClosedExcept 
     · exfalso; apply hl0; rw [← hElimL]; simp [ConLeche.directElimLevel, hpl, Level.eval]
     · rfl
   -- the squash regime (task #202 A2): a large eliminator at a `Prop`
-  -- instance has one constructor
-  have hsingle : ∀ ψ, p.resSort.eval ψ = 0 → elimL.eval ψ ≠ 0 → ctorsA.length = 1 := by
+  -- instance has at most one constructor (none since task #210 Part B)
+  have hsingle : ∀ ψ, p.resSort.eval ψ = 0 → elimL.eval ψ ≠ 0 → ctorsA.length ≤ 1 := by
     intro ψ hw0 hl0
     rcases hwl (hlarge_of ψ hl0) with hnz | hlt
     · exact absurd hw0 (ConLeche.Level.isNeverZero_sound ψ _ hnz)

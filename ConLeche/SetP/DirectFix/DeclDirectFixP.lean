@@ -63,7 +63,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     (h : ConLeche.Semantics.DeclDirectFixRun μ F env p₀ env₂) : Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨hneg, hnd₀, cvTa, env₁, p₁, p, ctorsA, sortss, cvRa, rhss, tfvs, trest, isorts, hInd, rfl,
     hwl, hopT2, hsorts, hCtors, hFOk, hRec, hTbl⟩ := h
-  obtain ⟨hshape, -, hlenK₀, hpos₀⟩ := ConLeche.directFixParts?_inv hdp
+  obtain ⟨hshape, -, hlenK₀⟩ := ConLeche.directFixParts?_inv hdp
   obtain ⟨-, hRname₀, hClps₀, hresT₀, hresR₀, helimR₀, hRlps₀, -, -⟩ :=
     ConLeche.directFixShape?_inv hshape
   -- the former: its run completed the record with the sort it read
@@ -89,7 +89,6 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true) := hpProp
   have hnd : (p.ctors.map (·.1.name)).Nodup := by rw [hpC]; exact hnd₀
   have hlenK : p.kinds.length = p.ctors.length := by rw [hpK, hpC]; exact hlenK₀
-  have hpos : 0 < p.ctors.length := by rw [hpC]; exact hpos₀
   have hClps : ∀ c ∈ p.ctors, c.1.levelParams = p.cvT.levelParams ∧
       ConLeche.reservedBasisNames.contains c.1.name = false := by rw [hpC, hpT]; exact hClps₀
   have helimR : p.large = true → p.elim ∈ p.cvR.levelParams := by
@@ -908,7 +907,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       (fun ψ => by rw [hleaf' ψ]; exact hleafT_C ψ))
     hlpsT hopT helimR hRlps hFD_C hlenK' hks hcf_C hidxRes_C hUparams hleafT_C' hleafC_C
     (fun j cA hj => (hframes j cA hj).1) hframesR
-    (fun hl => (hwl hl).imp_right fun h => by rw [hlenA]; exact h) (by rw [hlenA]; exact hpos)
+    (fun hl => (hwl hl).imp_right fun h => by rw [hlenA]; exact h)
   -- the projection table at a structure-like block (task #210 Parts A, B)
   exact declDirectFixTable rfl rfl hTbl mpC mp₃ hac₃ hProp hRname hClps hresT hresR
     (by rw [← hTname₀]; exact hpshapeT)

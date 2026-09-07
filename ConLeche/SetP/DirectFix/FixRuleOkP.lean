@@ -401,7 +401,7 @@ theorem fixRuleOkP {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL :
         FieldsValid (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) ∧
         ∀ bs : List V, SpineFit (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) bs →
         ∀ E ∈ (Eiss.getD j []).getD i [], AnnotValidV V (consList bs (consList (fs.take i) ρp)) E))
-    (hsingle : w = 0 → ℓ ≠ 0 → n = 1)
+    (hsingle : w = 0 → ℓ ≠ 0 → n ≤ 1)
     (hprop : w = 0 → ℓ ≠ 0 → ∀ ρp : Nat → V, Sat2 V ((pps.map (·.2.2)).reverse) ρp →
       ∀ j, j < n → ∀ i, i < (Fss.getD j []).length →
       srcOfEs (Ess.getD j []) (Fss.getD j []).length i = none →

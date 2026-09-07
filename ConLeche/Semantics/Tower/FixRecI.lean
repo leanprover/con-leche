@@ -542,13 +542,12 @@ theorem leaf_eq_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
   obtain ⟨ps, ms, is, M, rfl, hlenP, hlenM, hlenI⟩ := kframe_split3 hlen_as
   have hlen₀ : (ps ++ [M] ++ ms).length = nP + 1 + Fss.length := by
     simp only [List.length_append, List.length_singleton]; omega
-  obtain ⟨hsingle, -, -⟩ := h0.hsq rfl hℓ
+  obtain ⟨hle, -, -⟩ := h0.hsq rfl hℓ
   rw [consList_kframe] at hKI ht₁ h0 ht
   have hfrP₀ := kframe_frP' (ρP := consList ps ρb) (M := M) hlenI hlenM
   have hfrP₁ := kframe_frP' (ρP := consList ps (cons (rStar ℓ 0 u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) ρb))
     (M := M) hlenI hlenM
   have hfrM₀ := kframe_frM' (ρP := consList ps ρb) (M := M) hlenI hlenM
-  have hfrMs₀ := kframe_frMs' (ρP := consList ps ρb) (M := M) hlenI hlenM (by omega)
   have hfrI₀ := kframe_frameIdx' (nIdx := Ids.length) hlenI (consList ms (cons M (consList ps ρb)))
   have ht' : t ∈ˢ SetTheory.app (fixFamI u 0 (consList ps ρb) Ids Ids.length rss tlss Eiss Fss₀ Ess)
       (tupW u is) := by
@@ -559,6 +558,12 @@ theorem leaf_eq_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
     unfold famK at ht₁; rwa [hfrP₁, kframe_frameIdx' hlenI] at ht₁
   have hfit : SpineFit (consList ps ρb) Ids is := by
     have := h0.hyp.hfit; rwa [hfrP₀, hfrI₀] at this
+  have hsingle : Fss.length = 1 := by
+    have hX := h0.hX
+    have hreal := h0.hreal
+    rw [hfrP₀] at hX hreal
+    exact fam_single_of_mem hX hreal hle hfit ht'
+  have hfrMs₀ := kframe_frMs' (ρP := consList ps ρb) (M := M) hlenI hlenM (by omega)
   -- the left-hand side: the body's value
   rw [← consList_snoc', consList_kframe, fixRecBodyAVI_sq hℓ]
   have hf := sqFixBody_facts hℓ hlenP hlenM hlenI hKI ht₁'
