@@ -55833,7 +55833,8 @@ tree, and what happened to it:
 | `Kernel/ExprOps.lean` `Expr.eqUpToNames` (`checkMemberVal`, the modeled-block contract; the nested-rule major pin) | up to names, everything else exact | kept, one-paragraph note: on stream-vs-stream pairs it coincides with `==`; the proofs consume `ErasedEq.of_eqUpToNames` at ~20 sites (`Verify/Extend/*`, `Semantics/DeclIndRun`, `SetP/IndMemberP`, `IndUnitLawP`, `BridgeCS2`, …), and swapping it for `==` would restate the same theorem at `rfl` for no behavioural gain |
 | the defeq binder arms (`Core.lean`, `CoreC.lean`; task #201) | open both bodies at `.fvar depth n₂ ty₂` | unchanged: `n₂` is the binder's own name, `.anonymous` |
 | `pisToLams`, `replacePiBody`, `stripPis`/`stripLams`, the substitution and level-instantiation walks, `renameConsts` | copy the name through | unchanged (copies of `.anonymous`) |
-| `Frontend/ExportWrite.lean` (the prelude sidecar writer) | writes `"name":<idx>` and `binderInfo` | unchanged; writes the anonymous index and `default` — the regenerated sidecar shows it |
+| `Frontend/ExportWrite.lean` (the in-model dump writer) | writes `"name":<idx>` and `binderInfo` | unchanged; writes the anonymous index and `default` |
+| `PinGen/Prelude.lean` (the built-in prelude sidecar `pins/<toolchain>.prelude.ndjson`) | serialised from the toolchain's own environment (`Lean.Expr`, a port of lean4export) | unchanged by this task (its regeneration is byte-identical); the parser strips it at load like any stream |
 | `PinGen/Dump.lean` share table (`exLam`/`exForall`/`exLet` entries carry a name ref and a `bi`) | — | format unchanged; the regenerated dump's entries reference the anonymous name |
 | error messages | none prints a binder or `fvar` name: every `s!"…{n}…"` in `Core.lean`/`CoreC.lean`/`DeclCheck.lean` is a *constant* name (`unknown constant {n}` …); `Name.toString .anonymous = "[anonymous]"` is never reached from a binder | nothing lost |
 | the progress/trace lines | declaration names | unaffected |
@@ -55905,6 +55906,126 @@ argument (`packData _ …`), so no proof moved for this.  `beqFast`'s
 docstring did not change a claim: its cheap reject is the whole word
 `a.data`, which is still a function of `a`.
 
-### 4. Fixture and receipts
+### 4. The fixture, and what it took to make an α-twin reach the checker
 
-*(filled in below at the seal)*
+`tests/e2e/src/binder_name_proj.lean` → `tests/e2e/binder_name_proj.ndjson`
+(`scripts/mk_binder_twin_fixture.py --proj`, a `raw` line, expectation
+`0`):
+
+    noncomputable def h (f : Nat → Nat) (x : Nat) : Nat × Nat :=
+      Nat.rec (motive := fun _ => Nat × Nat) (x, f 0) (fun _ ih => ih) 40000
+    theorem w2 : ∀ (x : Nat), (h (fun y => y) x).2 = (h (fun y => y) x).2 := fun _ => rfl
+
+The statement the checker sees is `.proj Prod 1 (h (fun y => y) x) =
+.proj Prod 1 (h (fun tw_1 => tw_1) x)` with the right-hand λ a
+distinct table node at binder info `implicit` — a pair that differs
+in display data alone, under a `.proj` whose struct is a 40 000-step
+`Nat.rec` tower (`whnf` grinds it unarily, ~43 k instructions per
+step, measured on a 2 000-step probe forced through `Eq.refl 0`).
+Three findings on the way, each of which hid the residual from the
+first cut of the fixture:
+
+1. **lean4export interns up to α.**  A source spelling two binder
+   names exports ONE node (`Lean.Expr`'s `BEq` is `eqv`), so the twin
+   has to be manufactured on the export: the script deep-copies the
+   right-hand side under fresh names and `implicit`.
+2. **The elaborator's `p.2` is `Prod.snd p`, not `.proj`.**  Two
+   `Prod.snd` applications are decided by the lazy-delta same-head
+   spine congruence (E6: `sameRegular ∧ sameConstHeads → defeqSpine`),
+   which compares `h (λ…) x =?= h (λ…) x` the same way and reaches the
+   λ pair through two more spine steps — the struct is never whnf'd,
+   before or after this task.  The residual's shape needs the kernel
+   projection node itself (what a real stream has once the projection
+   function has been unfolded — the task #201 trace's
+   `Prod.snd ExprC MemoN (abstract1Go …)` was exactly that); `--proj`
+   rewrites the shared `Prod.snd Nat Nat s` node to `.proj Prod 1 s`
+   in place, so the value's `rfl` and both sides of the statement see
+   it.
+3. **The preprocessor is an α-normaliser.**  `lech-preprocess`
+   (lean-inductive-models) re-exports the stream through `Lean.Expr`,
+   whose hash-consing is α-equivalence, so on a piped run the twin
+   collapses back into one node before lech reads it — master
+   accepted the first fixture at the raw export's cost, and a traced
+   master binary (`dbgTrace` at `defeqStepI` and the `whnfCoreBodyI`
+   projection clause) showed the declared type arriving with `fun y`
+   on BOTH sides.  Hence the `raw` line.  This also says where the
+   α-variants that matter in production come from: not the input
+   (which the tool normalises whenever it runs) but the **checker's own
+   fabrications** — the pins (`Nat.rec`'s `motive`/`t`, `Eq`'s `α`, …
+   on master), `pisToLams` copies, the generated recursors, the
+   `_model` families — meeting stream spellings; the fixture is the
+   synthetic witness of the mechanism those go through.
+
+**Receipts** (`perf stat -e instructions:u`, `ulimit -v 16G`,
+`timeout`, one run per cell; master = `a77ac1d6` built in its own
+worktree, alpha = this branch at the seal; wall time is not a
+measurement on this machine):
+
+| stream | mode | master | alpha |
+|---|---|---|---|
+| `binder_name_proj` (raw, the twin) | `--verified` | accept, **3.38 G** | accept, **0.37 G** |
+| `binder_name_proj` (raw, the twin) | `--trusted` | accept, 3.18 G | accept, 0.37 G |
+| the same export without the twin (raw) | `--verified` | accept, 0.37 G | accept, 0.37 G |
+| the 2 000-step probe twin (raw) | `--verified` | 0.52 G (= 0.37 + 2 × 76 M) | 0.37 G |
+| `binder_shared_local` (#201's fixture, piped) | `--verified` / `--trusted` | 0.79 G / 0.79 G (90 decl.) | 0.79 G / 0.79 G (90 decl.) |
+
+The twin's 3.0 G on master is the two structs' `whnf` (the traced
+binary's `PROJWHNF` fires three times on the raw twin, never on the
+piped one); on alpha the `Eq` pair is `==` and nothing below it runs.
+
+**The five `_tmp/slowest/slices` cells and init-full**, master vs
+alpha, `--pre` on the slices (target-only = full − the same slice
+without the target declaration; `_tmp/alpha/cells-{master,alpha}.tsv`,
+`_tmp/alpha/measure.sh`):
+
+| slice | mode | master full | alpha full | Δ | master target-only | alpha target-only | Δ |
+|---|---|---|---|---|---|---|---|
+| t1 | verified | 310.74 G | 304.98 G | -1.9 % | 24.62 G | 24.32 G | -1.2 % |
+| t1 | trusted | 296.25 G | 291.10 G | -1.7 % | 24.49 G | 24.16 G | -1.3 % |
+| t2 | verified | 696.19 G | 685.09 G | -1.6 % | 36.71 G | 37.66 G | +2.6 % |
+| t2 | trusted | 607.51 G | 596.86 G | -1.8 % | 16.59 G | 16.45 G | -0.8 % |
+| t3 | verified | 79.95 G | 65.74 G | -17.8 % | 23.73 G | 11.43 G | -51.9 % |
+| t3 | trusted | 79.22 G | 65.09 G | -17.8 % | 23.67 G | 11.41 G | -51.8 % |
+| t4 | verified | 148.83 G | 135.15 G | -9.2 % | 20.00 G | 7.08 G | -64.6 % |
+| t4 | trusted | 128.16 G | 126.33 G | -1.4 % | 2.24 G | 1.10 G | -50.8 % |
+| t5 | verified | 65.62 G | 65.31 G | -0.5 % | 16.73 G | 16.91 G | +1.1 % |
+| t5 | trusted | 63.72 G | 63.40 G | -0.5 % | 16.76 G | 16.87 G | +0.6 % |
+| init-full | verified | 798.51 G | 789.58 G | -1.1 % | | | |
+| init-full | trusted | 778.81 G | 770.27 G | -1.1 % | | | |
+
+* **init-full** (raw, the tool in the pipe): **−1.1 % both modes**,
+  accepted **53 164 declarations in all four cells** (the same
+  in-process `Lean.Syntax` model line), verdicts unchanged.  The
+  saving is every fast-path hit that used to miss on a pin's or a
+  fabricated binder's display name (`Nat.rec`'s `motive`/`t`, `Eq`'s
+  `α`/`a`/`b`, …, against the stream's spellings) — task #201's
+  `−1.4 %` came from the same class one step earlier.
+* **t3 (`d₂₃_aux._proof_17`) and t4
+  (`exists_variableChange_of_char_ne_two_or_three`)**: the target-only
+  cost falls by **−52 % (t3, both modes) and −65 % / −51 % (t4)** — a
+  large part of what those two targets paid was fast-path misses on
+  display data (the slowest campaign's table put them at 8.5× and
+  75× official's target-only cost; now 3.4× and 20× `--verified`,
+  3.1× `--trusted` on t4).  Which α-variants those were (pins,
+  `pisToLams` copies, generated binders — the classes in §2) was not
+  profiled here; the point of the normal form is that it no longer
+  matters.  On t4 `--verified` the full cell drops 9.2 %.
+* t1, t2, t5: −0.5 … −1.9 % on the full cells; the target-only
+  deltas (−1.3 … +2.6 %) are differences of two large cells and
+  within the memo-order noise a changed hash induces (t2
+  `--verified`'s +0.95 G target-only sits on a −11.1 G full cell).
+* No cell moved by more than the sign expected: nothing got worse
+  that a name-blind fast path could have made worse.
+
+**Gates at the seal** (`tests/arena.sh`, `_tmp/alpha/arena2.log`):
+`lake build` warning-free (699 jobs), `lake test`, layering 0/0,
+proofdeps 2 821 rows as pinned across 7 roots, doors 0 (rows moved
+only by relocation), pindump fresh (dump regenerated — the entries'
+name refs are the anonymous name now; the prelude sidecar
+byte-identical), trust surface 0 outside the allowlist, native audit
+0 unrecognised, axioms pinned (11 theorems at the three standard),
+tutorial 90/92, **e2e 118/118** (the new `raw` fixture in), annot
+14/14, retired/mode flags 8/8 + 16/16, prelude counts 3/3, progress
+lane 6/6, trusted sweep as expected (the 3 recorded divergences).
+Artefacts: `_tmp/alpha/` (builds, cells, the traced-master probe
+outputs `dbg-twinp*.out`, the export scratch dirs).
