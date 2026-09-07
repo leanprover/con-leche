@@ -1268,7 +1268,8 @@ structure FixPre (V : Type uv) [SetTheory V] (ℓ w u nP : Nat) (Fss Ess Fss₀ 
   hRecTy : ∀ ρb : Nat → V,
     interp2 V ρb (recTyAV Fss.length Ids.length rds) ∈ˢ (univ (s) : V) ∧
     AnnotOk2 V ρb (recTyAV Fss.length Ids.length rds)
-  hEbelow : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [], VExpr.bvarsBelow (nP + i) E.erase
+  hEbelow : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [],
+    VExpr.bvarsBelow (nP + i + ((tlss.getD j []).getD i []).length) E.erase
 
 /-! ## K-frames of the walk -/
 
@@ -1979,7 +1980,8 @@ theorem frM_bottom {as₀ is : List V} (hl₀ : as₀.length = nP + 1 + Fss.leng
   exact agreeOff_consList_ge as₀ ρ₁ ρ₂ _ (by omega)
 
 /-- A recursive field's index values do not see the bottom. -/
-theorem idxVals_bottom (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s) {as₀ is : List V}
+theorem idxVals_bottom (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) {as₀ is : List V}
     (hl₀ : as₀.length = nP + 1 + Fss.length) (hli : is.length = Ids.length) (ρ₁ ρ₂ : Nat → V)
     (j i : Nat) (y : V) :
     ((Eiss.getD j []).getD i []).map
@@ -1990,7 +1992,9 @@ theorem idxVals_bottom (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss
   apply List.map_congr_left
   intro E hE
   rw [← consList_append, ← consList_append]
-  exact interp2_closed_bottom (h.hEbelow j i E hE) (as := as₀.take nP ++ projList i y)
+  have hb := h.hEbelow j i E hE
+  rw [hfin, List.length_nil, Nat.add_zero] at hb
+  exact interp2_closed_bottom hb (as := as₀.take nP ++ projList i y)
     (by rw [List.length_append, List.length_take, projList_length]; omega) ρ₁ ρ₂
 
 omit [SetTheory V] in
@@ -2084,7 +2088,8 @@ theorem leaf_eq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
     have h2 := projList_take (fs.length + 1) i (mkTower (fs ++ [pt])) (by rw [hlen]; omega)
     rw [h1, List.take_append_of_le_length (by rw [hlen]; omega)] at h2
     exact h2.symm
-  rw [frKSpine_of nP Fss.length Ids.length hl₀ hli, idxVals_bottom h hl₀ hli (cons _ ρb) ρb j i, hproj]
+  rw [frKSpine_of nP Fss.length Ids.length hl₀ hli, idxVals_bottom h hfin hl₀ hli (cons _ ρb) ρb j i,
+    hproj]
   -- the ih value: the candidate at the block, the index values and the field
   have hvals_len : (((Eiss.getD j []).getD i []).map
       (interp2 V (consList (fs.take i) (frP Fss.length Ids.length (consList (as₀ ++ is) ρb))))).length
@@ -2396,7 +2401,7 @@ theorem directFixRecAVI_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tls
     rw [h1, List.take_append_of_le_length (by rw [hlen]; omega)] at h2
     exact h2.symm
   rw [frKSpine_of nP Fss.length Ids.length hl₀ hli, frKSpine_of nP Fss.length Ids.length hl₀ hli,
-    idxVals_bottom h hl₀ hli (cons _ ρb) ρb j i, hproj]
+    idxVals_bottom h (h.hfin.resolve_right fun hh => hw hh.1) hl₀ hli (cons _ ρb) ρb j i, hproj]
 
 end Rec
 
