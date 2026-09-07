@@ -693,10 +693,15 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
   (∃ (cvT : ConstantVal) (capsT : IndCaps),
     env.find? T = some (.indInfo cvT capsT) ∧
     cvT.levelParams = entry.levelParams ∧
-    capsT.eta = !(Level.isEquiv entry.structSort .zero == some true) ∧
-    capsT.etaCtor = entry.ctor ∧
-    capsT.etaParams = entry.numParams ∧
-    capsT.etaFields = entry.numFields) ∧
+    -- the η record, IF the family claims η (task #210 Part A: a
+    -- recursive structure-like stores a table but claims no η —
+    -- official's `is_structure_like` has `!is_rec`): the family is
+    -- not a proposition, and the record names this table's shape
+    (capsT.eta = true →
+      (Level.isEquiv entry.structSort .zero == some true) = false ∧
+      capsT.etaCtor = entry.ctor ∧
+      capsT.etaParams = entry.numParams ∧
+      capsT.etaFields = entry.numFields)) ∧
   TowerO5 entry ∧
   ∃ cvC : ConstantVal,
     env.find? entry.ctor

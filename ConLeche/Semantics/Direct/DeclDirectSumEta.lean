@@ -172,7 +172,7 @@ theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
   have hfreshT : env.find? cvTa.name = none := by rw [hn, ← hTn]; exact hfT
   -- the former's cons: the other families stay closed
   have hE₁ : EtaFamiliesClosedExcept
-      ⟨.indInfo cvTa (directFixCaps (p.toDirectSumParts.withSort s)) :: env.consts⟩
+      ⟨.indInfo cvTa (directFixCaps p) :: env.consts⟩
       p.cvT.name :=
     (hE.except p.cvT.name).cons hfreshT (fun cv caps heq _ => Or.inr (by
       obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj heq
@@ -191,7 +191,7 @@ theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
         ConLeche.checkConstantVal_inv hccv
       rw [hCeq]
   have hfreshC : ∀ c ∈ ctorsA,
-      (⟨.indInfo cvTa (directFixCaps (p.toDirectSumParts.withSort s)) :: env.consts⟩ : Env).find?
+      (⟨.indInfo cvTa (directFixCaps p) :: env.consts⟩ : Env).find?
         c.1.name = none := by
     intro c hc
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
@@ -206,7 +206,7 @@ theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     rw [hn']; exact hfC
   have hE₂ : EtaFamiliesClosedExcept
       (consSumCtors p.nP ctorsA
-        ⟨.indInfo cvTa (directFixCaps (p.toDirectSumParts.withSort s)) :: env.consts⟩)
+        ⟨.indInfo cvTa (directFixCaps p) :: env.consts⟩)
       p.cvT.name :=
     consSumCtors_etaClosedExcept hE₁ hfreshC (by rw [hnames]; exact hnd)
   -- the block's own family: its constructor is stored by the conses
@@ -216,18 +216,18 @@ theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     have := hfreshC c hc
     rw [hcn, ← hn] at this
     exact nomatch this.symm.trans (ConLeche.Env.find?_cons_self
-      (ConstantInfo.indInfo cvTa (directFixCaps (p.toDirectSumParts.withSort s))) env)
+      (ConstantInfo.indInfo cvTa (directFixCaps p)) env)
   have hE₂' : EtaFamiliesClosed
       (consSumCtors p.nP ctorsA
-        ⟨.indInfo cvTa (directFixCaps (p.toDirectSumParts.withSort s)) :: env.consts⟩) := by
+        ⟨.indInfo cvTa (directFixCaps p) :: env.consts⟩) := by
     refine hE₂.closed ?_
     intro cvT' caps hf he _
     rw [consSumCtors_find?_of_not_mem hTnot, ← hn] at hf
     obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj
       ((ConLeche.Env.find?_cons_self
-        (ConstantInfo.indInfo cvTa (directFixCaps (p.toDirectSumParts.withSort s))) env).symm.trans hf))
+        (ConstantInfo.indInfo cvTa (directFixCaps p)) env).symm.trans hf))
     -- η is claimed only at one constructor
-    simp only [ConLeche.directFixCaps, ConLeche.DirectSumParts.withSort_ctors] at he ⊢
+    simp only [ConLeche.directFixCaps] at he ⊢
     revert he hlen hnames hall
     cases hcs : p.ctors with
     | nil => intro _ _ _ he; exact nomatch he
@@ -255,7 +255,7 @@ theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
   refine checkDirectFixTable_etaClosed hTbl ?_
   refine EtaFamiliesClosed.cons_nonind hE₂' ?_ (fun _ _ heq => nomatch heq)
   show (consSumCtors p.nP ctorsA
-    ⟨.indInfo cvTa (directFixCaps (p.toDirectSumParts.withSort s)) :: env.consts⟩).find?
+    ⟨.indInfo cvTa (directFixCaps p) :: env.consts⟩).find?
       cvRa.name = none
   rw [hnR]; exact hfR
 

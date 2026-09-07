@@ -504,7 +504,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               entry.levelParams = cvT.levelParams := by
             intro j hj
             obtain ⟨entry, hfe⟩ := ConLeche.towerSlotsAll_slot htow j hj
-            obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', -, -, -, -⟩, -⟩ :=
+            obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', -⟩, -⟩ :=
               htower T j entry hfe
             have hcvT' : cvT' = cvT := by
               rw [hfT] at hfT'
@@ -523,15 +523,15 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
             obtain ⟨entry, hfe, hlpe⟩ :=
               hslotE j (List.mem_range.mp hj)
             rw [← ConLeche.Env.findProj?_off hfe]
-            obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j,
+            obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, -, himpj⟩, hO5j,
               _, -, -, hlawj, -⟩ := htower T j entry hfe
             have hcapsTj : capsTj = caps := by
               rw [hfT] at hfTj
               exact (ConstantInfo.indInfo.inj (Option.some.inj hfTj)).2.symm
-            rw [hcapsTj] at hparj hetaj
+            obtain ⟨hnpj, -, hparj, -⟩ := himpj (by rw [hcapsTj]; exact heta)
             have hgj : TowerGuardAt φ entry ust :=
               towerGuardAt_of hO5j
-                (fun hp => by rw [heta, hp] at hetaj; exact nomatch hetaj)
+                (fun hp => by rw [hp] at hnpj; exact nomatch hnpj)
             obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj ust (by rw [hlpe]; exact hlenus2)
             obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa
             have hlenVs : tsa.length = entry.numParams := by

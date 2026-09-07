@@ -1,22 +1,24 @@
 --#export Chain.eta Chain.eta_use
 
 /- End-to-end fixture (task #210 Part A): structure η at a RECURSIVE
-   structure-like block — a pinned ACCEPT-SUPERSET.  Official's
+   structure-like block — a conformance guard.  Official's
    `is_structure_like` (kernel/inductive.cpp) requires one constructor,
    no index AND `!is_rec()`, so its `try_eta_struct` never fires on
    `Chain` and `c = Chain.mk c.h c.t := rfl` is REJECTED ("Not a
-   definitional equality").  con-leche's fixpoint route installs the
-   block with the structure route's capability record (`directFixCaps`:
-   η through `Chain.mk`, the fields read off the tagged tower), and the
-   P tier proves the η law at the one-constructor fibre
-   (`fixEntryEtaCore`), so the theorems are ACCEPTED.  Licensed by the
-   consistency proof (as the proofIrrel divergences are); recorded here
-   so the design stays visible.
+   definitional equality").  con-leche's fixpoint route stores the
+   block's projection table (its `.proj` nodes type and reduce, as
+   official's `infer_proj` does) but its capability record
+   (`directFixCaps`) claims η only at a block with no recursive or
+   reflexive field, so the theorems are REJECTED too.  Granting η here
+   was tried — the P tier proves the η law at the one-constructor fibre
+   (`fixEntryEtaCore`) — and withdrawn: on `ind_nest_via_refl` the
+   tool's nested model over a reflexive structure-like made `isDefEq`
+   spin through η-expansion; official's `!is_rec` is load-bearing.
 
    The elaborator refuses to write the statements down, so they are
    added through the probe kit of task #208 (kernel check skipped).
 
-   official: 1.  con-leche: 0. -/
+   official: 1.  con-leche: 1. -/
 
 import Lean
 open Lean Elab Command

@@ -46,7 +46,7 @@ def DeclDirectFixRun (μ : CheckMode) (F : Nat) (env : Env)
     -- and pins the two sorts equal; the former carries the block's
     -- capability record (`directFixCaps`, task #210 Part A)
     checkDirectSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p.toDirectSumParts
-      directFixCaps = .ok (env₁, cvTa, p₁) ∧
+      (fun _ => directFixCaps p) = .ok (env₁, cvTa, p₁) ∧
     p₁.resSort = p.resSort ∧
     openPisAtFvars (p.nP + p.nIdx) cvTa.type 0 = some (tfvs, trest) ∧
     ConLeche.checkDirectFieldSortsI (m := ConLeche.CheckM) (fueledOps μ F) env₁ true false p.resSort
@@ -96,7 +96,7 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   rw [if_pos hnd] at h
   try simp only [bind, Except.bind] at h
   cases hInd : checkDirectSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p.toDirectSumParts
-      directFixCaps with
+      (fun _ => directFixCaps p) with
   | error e => rw [hInd] at h; exact nomatch h
   | ok r₁ =>
   obtain ⟨env₁, cvTa, p₁⟩ := r₁

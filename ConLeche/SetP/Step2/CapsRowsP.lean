@@ -658,14 +658,14 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
         entry.levelParams = cvT.levelParams := by
       intro j hj
       obtain ⟨entry, hfe⟩ := ConLeche.towerSlotsAll_slot htow j hj
-      obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', -, -, -, -⟩, -⟩ :=
+      obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', -⟩, -⟩ :=
         htower T j entry hfe
       have hcvT' : cvT' = cvT := by
         rw [hfT] at hfT'
         exact (ConstantInfo.indInfo.inj (Option.some.inj hfT')).1.symm
       exact ⟨entry, hfe, by rw [← hlpsT', hcvT']⟩
     obtain ⟨e0, hfe0⟩ := ConLeche.towerSlotsAll_slot htow 0 h0
-    obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', -, hctr', hpar', hfld'⟩,
+    obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', himp'⟩,
       -, -, -, -, -, hetaL⟩ := htower T 0 e0 hfe0
     have hcvT' : cvT' = cvT := by
       rw [hfT] at hfT'
@@ -673,6 +673,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
     have hcapsT' : capsT' = caps := by
       rw [hfT] at hfT'
       exact (ConstantInfo.indInfo.inj (Option.some.inj hfT')).2.symm
+    obtain ⟨-, hctr', hpar', hfld'⟩ := himp' (by rw [hcapsT']; exact heta)
     rw [hcvT'] at hlpsT'
     rw [hcapsT'] at hctr' hpar' hfld'
     obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
@@ -696,16 +697,16 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
       obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
       obtain ⟨entry, hfe, hlpe⟩ := hslotE j (List.mem_range.mp hj)
       rw [← hoffE j entry hfe]
-      obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j, _,
+      obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, -, himpj⟩, hO5j, _,
         -, -, hlawj, -⟩ := htower T j entry hfe
       have hcapsTj : capsTj = caps := by
         rw [hfT] at hfTj
         exact (ConstantInfo.indInfo.inj (Option.some.inj hfTj)).2.symm
-      rw [hcapsTj] at hparj hetaj
+      obtain ⟨hnpj, -, hparj, -⟩ := himpj (by rw [hcapsTj]; exact heta)
       -- the family is not a proposition (it claims η), so the guard
       -- holds at every valuation by O5
       have hgj : TowerGuardAt φ entry us' :=
-        towerGuardAt_of hO5j (fun hp => by rw [heta, hp] at hetaj; exact nomatch hetaj)
+        towerGuardAt_of hO5j (fun hp => by rw [hp] at hnpj; exact nomatch hnpj)
       obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj us' (by rw [hlpe]; exact hlenus)
       obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa
       have hlenVs : tsa.length = entry.numParams := by

@@ -614,7 +614,7 @@ theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
     (checkDirectSumIndS_sim hμ henv (flushC_csok hwf)) q1 s₁ hind
   obtain ⟨rfl, -⟩ := hP1
   obtain ⟨env₁, cvTa, p₁⟩ := q1
-  have hF₁p : checkDirectSumInd (fueledOps mode F₁) env p.toDirectSumParts directFixCaps
+  have hF₁p : checkDirectSumInd (fueledOps mode F₁) env p.toDirectSumParts (fun _ => directFixCaps p)
       = .ok (env₁, cvTa, p₁) := by
     rw [← checkDirectSumInd_datF]; exact hF₁
   obtain ⟨henv₁, hTf⟩ := direct_sum_ind_wf henv hF₁p
@@ -706,7 +706,7 @@ theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       ∃ G, F₁ ≤ G ∧ F₀ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₆ ≤ G :=
     ⟨max F₁ (max F₀ (max F₂ (max F₃ F₆))), by omega, by omega, by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
-  have g₁ : checkDirectSumInd (fueledOps mode G) env p.toDirectSumParts directFixCaps
+  have g₁ : checkDirectSumInd (fueledOps mode G) env p.toDirectSumParts (fun _ => directFixCaps p)
       = .ok (env₁, cvTa, p₁) := by
     rw [← checkDirectSumInd_datF]; exact FueledM.up hle₁ hF₁
   have g₀ : checkDirectFieldSortsI (fueledOps mode G) env₁ true false p.resSort p.nP

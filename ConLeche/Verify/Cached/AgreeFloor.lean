@@ -1227,7 +1227,7 @@ theorem checkDirectFixS_skels (mode : CheckMode) {fe : FEnv}
   case dupBad => exact Yields.ofThrowBind
   case main =>
   ybind
-  refine Yields.bind' (checkDirectSumIndF_skels h _ p.toDirectSumParts directFixCaps)
+  refine Yields.bind' (checkDirectSumIndF_skels h _ p.toDirectSumParts (fun _ => directFixCaps p))
     fun r₁ h₁ => ?_
   obtain ⟨fe₁, cvTa, p₁⟩ := r₁
   obtain ⟨h₁, s, hps⟩ := h₁

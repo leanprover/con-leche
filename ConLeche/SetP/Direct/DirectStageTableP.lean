@@ -270,10 +270,13 @@ theorem stageTable (mp : EnvS2PM V μ env)
   -- the body, opened at the variables
   obtain ⟨cds, bodyB, mbB, hcf⟩ :=
     ConLeche.directProjBody_open hbodies hstripC hCb hi
-  refine ⟨rfl, rfl, hi, ⟨cvTa, ConLeche.directCaps p, hfT₂, hlpsT, ?_, rfl, rfl, rfl⟩,
+  refine ⟨rfl, rfl, hi, ⟨cvTa, ConLeche.directCaps p, hfT₂, hlpsT, fun he => ⟨?_, rfl, rfl, rfl⟩⟩,
     hO5 i hi, cvCa, hfC₂, hlpsC, ?_, ?_⟩
-  · show (!p.isProp) = !(Level.isEquiv p.resSort .zero == some true)
-    rw [hProp]
+  · have he' : (!p.isProp) = true := he
+    rw [← hProp]
+    cases hp : p.isProp
+    · rfl
+    · rw [hp] at he'; exact nomatch he'
   · -- the per-instantiation laws
     intro us _
     -- the body's frame at the instantiation

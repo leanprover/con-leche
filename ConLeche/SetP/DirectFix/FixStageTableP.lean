@@ -82,10 +82,12 @@ theorem fixCtorFieldPos {env₀ : Env} {T : Name} {lps : List Name} {nP nIdx : N
   omega
 
 /-- The capability record at a structure-like block, spelled out. -/
-theorem _root_.ConLeche.directFixCaps_single {p : DirectSumParts} {c : ConstantVal × Nat}
+theorem _root_.ConLeche.directFixCaps_single {p : DirectFixParts} {c : ConstantVal × Nat}
     (h : p.ctors = [c]) :
     ConLeche.directFixCaps p =
-      { eta := p.nIdx == 0 && !p.isProp, etaCtor := c.1.name, etaParams := p.nP,
+      { eta := p.nIdx == 0 && !p.isProp &&
+          !(p.kinds.any fun ks => ks.any fun k => k == .recursive || k == .reflexive),
+        etaCtor := c.1.name, etaParams := p.nP,
         etaFields := c.2, unitlike := p.nIdx == 0 && c.2 == 0, unitParams := p.nP,
         ruleK := c.2 == 0 && p.isProp } := by
   unfold ConLeche.directFixCaps
@@ -99,14 +101,14 @@ theorem fixTableFamFree {p : DirectFixParts} {ctorsA : List (ConstantVal × Nat)
     (hTbl : ConLeche.checkDirectFixTable (m := ConLeche.CheckM) p ctorsA sortss env₃ = .ok env₂)
     (hlenA : ctorsA.length = p.ctors.length) (hlenS : sortss.length = p.ctors.length)
     (hFsPos : ∀ cA, ctorsA = [cA] → 0 < cA.2) :
-    (ConLeche.directFixCaps p.toDirectSumParts).eta = true →
+    (ConLeche.directFixCaps p).eta = true →
       env₃.find? (projFnName p.cvT.name 0) = none := by
   intro he
   unfold ConLeche.directFixCaps at he
   split at he
   · next c hc =>
     simp only [Bool.and_eq_true, beq_iff_eq] at he
-    obtain ⟨hnIdx, -⟩ := he
+    obtain ⟨⟨hnIdx, -⟩, -⟩ := he
     rw [hc, List.length_singleton] at hlenA hlenS
     obtain ⟨cA, rfl⟩ := List.length_eq_one_iff.mp hlenA
     obtain ⟨sorts, rfl⟩ := List.length_eq_one_iff.mp hlenS
@@ -122,9 +124,9 @@ is premised on the projection-function family being stored. -/
 theorem fixCapsLawsAt_vacuous {env' : Env} (m' : EnvS2Core V env') {p : DirectFixParts}
     {cvTa : ConstantVal}
     (hFsPos : ∀ c, p.ctors = [c] → 0 < c.2)
-    (hfr : (ConLeche.directFixCaps p.toDirectSumParts).eta = true →
+    (hfr : (ConLeche.directFixCaps p).eta = true →
       env'.find? (projFnName p.cvT.name 0) = none) :
-    CapsLawsAt m' p.cvT.name cvTa (ConLeche.directFixCaps p.toDirectSumParts) := by
+    CapsLawsAt m' p.cvT.name cvTa (ConLeche.directFixCaps p) := by
   refine capsLawsAt_vacuous m' ?_ fun he => ⟨?_, hfr he⟩
   · unfold ConLeche.directFixCaps
     split
@@ -165,9 +167,8 @@ theorem stageFixTable (mp : EnvS2PM V μ env)
       p.cvT.levelParams p.nP nF p.resSort
       (ConLeche.directProjGuards cvCa.type p.nP nF sorts) 1 cvCa env = .ok envOut)
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
-    (hcapsEta : caps.eta = !(Level.isEquiv p.resSort .zero == some true))
-    (hcapsCtor : caps.etaCtor = cvCa.name) (hcapsP : caps.etaParams = p.nP)
-    (hcapsF : caps.etaFields = nF)
+    (hcaps : caps.eta = true → (Level.isEquiv p.resSort .zero == some true) = false ∧
+      caps.etaCtor = cvCa.name ∧ caps.etaParams = p.nP ∧ caps.etaFields = nF)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hfC : env.find? cvCa.name = some (.ctorInfo cvCa p.nP nF))
     (hlpsC : cvCa.levelParams = p.cvT.levelParams)
@@ -391,7 +392,7 @@ theorem stageFixTable (mp : EnvS2PM V μ env)
   -- the body, opened at the variables
   obtain ⟨cds, bodyB, mbB, hcf⟩ :=
     ConLeche.directProjBody_open hbodies hstripC hCb hi
-  refine ⟨rfl, rfl, hi, ⟨cvTa, caps, hfT₂, hlpsT, hcapsEta, hcapsCtor, hcapsP, hcapsF⟩,
+  refine ⟨rfl, rfl, hi, ⟨cvTa, caps, hfT₂, hlpsT, hcaps⟩,
     hO5 i hi, cvCa, hfC₂, hlpsC, ?_, ?_⟩
   · -- the per-instantiation laws
     intro us _
@@ -525,7 +526,7 @@ A): at a structure-like block the P carrier survives the table's cons
 theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {block : List ConstantInfo} {p : DirectFixParts}
     {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     {rhss : List Expr}
-    (h₁ : env₁ = ⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩)
+    (h₁ : env₁ = ⟨.indInfo cvTa (ConLeche.directFixCaps p) :: env.consts⟩)
     (hC : envC = ConLeche.consSumCtors p.nP ctorsA env₁)
     (hTbl : ConLeche.checkDirectFixTable (m := ConLeche.CheckM) p ctorsA sortss
       ⟨.recInfo cvRa p.majorIdx p.rulePrefix
@@ -561,7 +562,7 @@ theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {block : Lis
       ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env₁
         p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large c.1 cA.2 cvTa
         = .ok (cA.1, sorts))
-    (hfT_C : envC.find? p.cvT.name = some (.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts)))
+    (hfT_C : envC.find? p.cvT.name = some (.indInfo cvTa (ConLeche.directFixCaps p)))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hTfresh : env.find? p.cvT.name = none)
     (htrT : cvTa.type.constsResolve env = true)
@@ -641,19 +642,16 @@ theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {block : Lis
       have hresR : ConLeche.reservedBasisNames.contains (p.cvT.name.str "rec") = false := by
         rw [← hRname]; exact hresR₀
       -- the capability record at a structure-like block
-      have hcaps := ConLeche.directFixCaps_single (p := p.toDirectSumParts) hc'
-      have hcapsEta : (ConLeche.directFixCaps p.toDirectSumParts).eta
-          = !(Level.isEquiv p.resSort .zero == some true) := by
-        rw [hcaps]
-        show (p.nIdx == 0 && !p.isProp) = _
-        rw [hnIdx', hProp]
-        simp only [beq_self_eq_true, Bool.true_and]
-      have hcapsCtor : (ConLeche.directFixCaps p.toDirectSumParts).etaCtor = cA.1.name := by
-        rw [hcaps, hCname]
-      have hcapsP : (ConLeche.directFixCaps p.toDirectSumParts).etaParams = p.nP := by
-        rw [hcaps]
-      have hcapsF : (ConLeche.directFixCaps p.toDirectSumParts).etaFields = cA.2 := by
-        rw [hcaps, hnFc']
+      have hcapsR := ConLeche.directFixCaps_single (p := p) hc'
+      have hcaps : (ConLeche.directFixCaps p).eta = true →
+          (Level.isEquiv p.resSort .zero == some true) = false ∧
+          (ConLeche.directFixCaps p).etaCtor = cA.1.name ∧
+          (ConLeche.directFixCaps p).etaParams = p.nP ∧
+          (ConLeche.directFixCaps p).etaFields = cA.2 := by
+        intro he
+        rw [hcapsR] at he ⊢
+        simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at he
+        refine ⟨by rw [← hProp]; exact he.1.2, hCname.symm, rfl, hnFc'.symm⟩
       -- the recursor's constant and its freshness
       obtain ⟨cvRi, recTy, sty, u, hccvR, hgenR, -, -, -, -, -, -, -, hrules, hcvRa⟩ :=
         ConLeche.checkDirectFixRec_shape hRec
@@ -670,7 +668,7 @@ theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {block : Lis
       have hfT₃ : (⟨.recInfo cvRa p.majorIdx p.rulePrefix
           (ConLeche.directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss)
           :: envC.consts⟩ : Env).find? p.cvT.name
-          = some (.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts)) :=
+          = some (.indInfo cvTa (ConLeche.directFixCaps p)) :=
         ConLeche.Env.find?_cons_of_fresh hRfresh hfT_C
       have hfC₃ : (⟨.recInfo cvRa p.majorIdx p.rulePrefix
           (ConLeche.directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss)
@@ -716,7 +714,7 @@ theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {block : Lis
         have h0 : NoProjEnv env p.cvT.name j := noProjEnv_of_fresh hwfEnv hTfresh j
         have h1 : NoProjEnv env₁ p.cvT.name j := by
           rw [h₁]
-          exact h0.cons (c₀ := .indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts))
+          exact h0.cons (c₀ := .indInfo cvTa (ConLeche.directFixCaps p))
             (NoProjHead.ofType (hnpT j) (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
               (fun _ _ _ _ h => nomatch h) (fun _ h => nomatch h))
         have h2 : NoProjEnv envC p.cvT.name j := by
@@ -830,7 +828,7 @@ theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {block : Lis
       have hframes₀ := hframes 0 cA rfl
       obtain ⟨sorts'', hsj', hlenS, hleq, hsortsAll⟩ := hsortsOf 0 cA rfl
       obtain rfl : sorts = sorts'' := Option.some.inj hsj'
-      refine stageFixTable mp₃ hTbl hfT₃ hcapsEta hcapsCtor hcapsP hcapsF hlpsT hfC₃ hlpsC hstripC
+      refine stageFixTable mp₃ hTbl hfT₃ hcaps hlpsT hfC₃ hlpsC hstripC
         hProp hTshape hCshape hresT hresR hresC hnp₃ hFD₃ hCD₃.read hCD₃.len hCD₃.below hlenS hleq
         hleafT₃ hleafC₃ hfoldAt ?_ ?_ ?_ ?_
       · intro ψ ρ

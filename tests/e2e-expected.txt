@@ -571,24 +571,23 @@
 #                     iota reduces the left side to `t`, REJECTED.
 #   direct_fix_struct_eta: structure η at the recursive `Chain` (`c =
 #                     Chain.mk c.1 c.2 := Eq.refl c`, added with the kernel
-#                     check skipped) — a pinned ACCEPT-SUPERSET: official's
-#                     `is_structure_like` excludes recursive blocks
-#                     (`!is_rec()`), so it REJECTS; con-leche's η law at the
-#                     one-constructor fibre is proven (`fixEntryEtaCore`),
-#                     so it ACCEPTS.  Official: 1.
-#   direct_fix_struct_eta_bad: `c = Chain.mk c.1 c` (well-typed) — η
-#                     identifies `c` with the constructor at its OWN
-#                     projections only, REJECTED.
+#                     check skipped) — REJECTED, as official: its
+#                     `is_structure_like` is `!is_rec()` too, so no
+#                     `try_eta_struct` at a recursive block; con-leche's
+#                     `directFixCaps` claims η only at a block without a
+#                     recursive or reflexive field.  (Granting it here was
+#                     tried: sound in the model, but `ind_nest_via_refl`'s
+#                     tool-modelled nesting over a reflexive structure-like
+#                     then spun `isDefEq` — official's `!is_rec` is
+#                     load-bearing.)  Official: 1.
 0 direct_fix_struct_proj.ndjson
 0 direct_fix_struct_proj.ndjson raw
 1 direct_fix_struct_proj_idx_bad.ndjson
 1 direct_fix_struct_proj_idx_bad.ndjson raw
 1 direct_fix_struct_proj_iota_bad.ndjson
 1 direct_fix_struct_proj_iota_bad.ndjson raw
-0 direct_fix_struct_eta.ndjson
-0 direct_fix_struct_eta.ndjson raw
-1 direct_fix_struct_eta_bad.ndjson
-1 direct_fix_struct_eta_bad.ndjson raw
+1 direct_fix_struct_eta.ndjson
+1 direct_fix_struct_eta.ndjson raw
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the

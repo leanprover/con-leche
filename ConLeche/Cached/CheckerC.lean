@@ -190,7 +190,7 @@ def checkDirectFixS (fe : FEnv) (p : DirectFixParts) : CheckCM FEnv := do
     throw (.invalid "direct rec: duplicate constructor")
   flushC
   let (fe₁, cvTa, p₁) ← checkDirectSumIndF (sharedOpsC mode fe) fe p.toDirectSumParts
-    directFixCaps
+    (fun _ => directFixCaps p)
   unless p₁.resSort == p.resSort do
     throw (.internal "direct rec: type former result sort")
   flushC

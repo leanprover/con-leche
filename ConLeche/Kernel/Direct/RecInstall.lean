@@ -40,19 +40,30 @@ namespace ConLeche
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- The capabilities a block on the fixpoint route earns (task #210
-Part A): at a STRUCTURE-LIKE block — one constructor, no index,
-official's `is_structure_like` — structure eta at a non-`Prop` sort
-(the tagged tower's own elimination law: a member is the constructor
-at its projections), unit-likeness when the constructor has no field
-(the fibre is then the one tagged empty tuple), and rule K exactly
-at official's `is_K_target` (a `Prop` result, one constructor taking
-only the parameters — at any index count, as at the sum route's `Eq`);
-nothing at any other block.  On the sum route's domain (never one
-constructor without an index) this is `directSumCaps`. -/
-def directFixCaps (p : DirectSumParts) : IndCaps :=
+Part A): at a STRUCTURE-LIKE block — one constructor, no index, and NO
+recursive or reflexive field: official's `is_structure_like` is
+`ncnstrs == 1 && nindices == 0 && !is_rec` (kernel/inductive.cpp), and
+its `try_eta_struct` / `is_def_eq_unit_like` fire nowhere else —
+structure eta at a non-`Prop` sort (the tagged tower's own elimination
+law: a member is the constructor at its projections) and
+unit-likeness when the constructor has no field (the fibre is then the
+one tagged empty tuple); rule K exactly at official's `is_K_target` (a
+`Prop` result, one constructor taking only the parameters — at any
+index count, as at the sum route's `Eq`); nothing at any other block.
+The projection TABLE (`checkDirectFixTable`) does not depend on this
+record: official's `infer_proj` types `.proj` on any one-constructor
+index-free family, recursive or not.  (Granting η at a recursive
+structure-like was tried and is UNSOUND IN PRACTICE though sound in
+the model: on `ind_nest_via_refl` the tool's nested model over a
+reflexive `W1 α = sup (a : α) (f : Nat → W1 α)` made `isDefEq` spin
+through η-expansion — official's `!is_rec` is load-bearing.)  On the
+sum route's domain (never one constructor without an index) this is
+`directSumCaps`. -/
+def directFixCaps (p : DirectFixParts) : IndCaps :=
   match p.ctors with
   | [c] =>
-    { eta := p.nIdx == 0 && !p.isProp
+    { eta := p.nIdx == 0 && !p.isProp &&
+        !(p.kinds.any fun ks => ks.any fun k => k == .recursive || k == .reflexive)
       etaCtor := c.1.name
       etaParams := p.nP
       etaFields := c.2
@@ -204,7 +215,7 @@ def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env
       whose sort may be Prop")
   unless (p.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
-  let (env₁, cvTa, p₁) ← checkDirectSumInd ops env p.toDirectSumParts directFixCaps
+  let (env₁, cvTa, p₁) ← checkDirectSumInd ops env p.toDirectSumParts (fun _ => directFixCaps p)
   -- the former's run completes the record with the sort it read
   -- (task #195); this route's recogniser read the declared telescope
   -- syntactically, so the two must agree

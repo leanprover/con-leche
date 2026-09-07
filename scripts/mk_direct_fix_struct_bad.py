@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive the bad twins of the task #210 Part A structure-like fixtures.
+"""Derive the bad twins of the task #210 Part A structure-like fixture.
 
   direct_fix_struct_proj_idx_bad.ndjson  — `Chain.h := fun self => self.2`
                                   (the projection index patched from 0 to
@@ -14,16 +14,9 @@
                                   proof left `Eq.refl _`: the projection
                                   iota reduces the left side to `t`, which
                                   is not `Chain.mk 3 t`; REJECT.
-  direct_fix_struct_eta_bad.ndjson — `Chain.eta`'s statement patched from
-                                  `c = Chain.mk c.1 c.2` to
-                                  `c = Chain.mk c.1 c` (well-typed): the
-                                  η law identifies `c` with the
-                                  constructor at its OWN projections only;
-                                  REJECT.
 
 Usage: scripts/mk_direct_fix_struct_bad.py
-  (reads tests/e2e/direct_fix_struct_proj.ndjson and
-   tests/e2e/direct_fix_struct_eta.ndjson)
+  (reads tests/e2e/direct_fix_struct_proj.ndjson)
 """
 import json
 
@@ -106,27 +99,4 @@ thm2["thm"]["type"] = new_ty
 out2 = recs[:k] + new_recs + [thm2] + recs[k + 1:]
 write("tests/e2e/direct_fix_struct_proj_iota_bad.ndjson", out2)
 
-# --- twin 3: off the η fixture ----------------------------------------------
-recs, exprs, full, name_idx = load("tests/e2e/direct_fix_struct_eta.ndjson")
-eta_n = name_idx("Chain.eta")
-max_ie = max(exprs)
-k, d = decl_of(recs, "thm", eta_n)
-ty = exprs[d["thm"]["type"]]                       # ∀ c, Eq Chain c (Chain.mk c.0 c.1)
-eq_app = exprs[ty["forallE"]["body"]]              # app (app (app Eq Chain) c) (mk c.0 c.1)
-mk_app = exprs[eq_app["app"]["arg"]]               # app (app Chain.mk c.0) c.1
-p1 = exprs[mk_app["app"]["arg"]]
-if "proj" not in p1 or p1["proj"]["idx"] != 1:
-    raise SystemExit("Chain.eta's statement is not `c = Chain.mk c.0 c.1`")
-c_bvar = p1["proj"]["struct"]                      # bvar 0
-new_mk = max_ie + 1
-new_eq = max_ie + 2
-new_ty = max_ie + 3
-new_recs = [{"app": {"arg": c_bvar, "fn": mk_app["app"]["fn"]}, "ie": new_mk},
-            {"app": {"arg": new_mk, "fn": eq_app["app"]["fn"]}, "ie": new_eq},
-            {"forallE": dict(ty["forallE"], body=new_eq), "ie": new_ty}]
-thm3 = json.loads(json.dumps(d))
-thm3["thm"]["type"] = new_ty
-out3 = recs[:k] + new_recs + [thm3] + recs[k + 1:]
-write("tests/e2e/direct_fix_struct_eta_bad.ndjson", out3)
-print("wrote direct_fix_struct_proj_idx_bad.ndjson, direct_fix_struct_proj_iota_bad.ndjson, "
-      "direct_fix_struct_eta_bad.ndjson")
+print("wrote direct_fix_struct_proj_idx_bad.ndjson, direct_fix_struct_proj_iota_bad.ndjson")
