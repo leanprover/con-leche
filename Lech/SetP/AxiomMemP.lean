@@ -141,21 +141,21 @@ and the binder metas free — the same mechanical inversion
 theorem iff_shapeS {ty : Expr}
     (h : ty.erasePw
       = iffA.toConstantVal.type.erasePw) :
-    ∃ n₁ n₂ m₁ m₂, ty = .forallE (.sort .zero)
+    ∃ m₁ m₂, ty = .forallE (.sort .zero)
       (.forallE (.sort .zero) (.sort .zero) m₂) m₁ := by
   simp only [iffA, ConstantInfo.toConstantVal, Expr.erasePw] at h
-  obtain ⟨n₁, ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS hty₁
-  obtain ⟨n₂, ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain ⟨ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   obtain rfl := erasePwNames_sort_invS hty₂
   obtain rfl := erasePwNames_sort_invS hb₂
-  exact ⟨n₁, n₂, m₁, m₂, rfl⟩
+  exact ⟨m₁, m₂, rfl⟩
 
 /-- The stored `Iff.intro`'s shape. -/
 theorem iffIntro_shapeS {ty : Expr}
     (h : ty.erasePw
       = iffIntroA.toConstantVal.type.erasePw) :
-    ∃ n₁ n₂ n₃ n₄ n₅ n₆ m₁ m₂ m₃ m₄ m₅ m₆,
+    ∃ m₁ m₂ m₃ m₄ m₅ m₆,
       ty = .forallE (.sort .zero)
         (.forallE (.sort .zero)
           (.forallE (.forallE (.bvar 1) (.bvar 1) m₄)
@@ -163,16 +163,16 @@ theorem iffIntro_shapeS {ty : Expr}
               (.app (.app (.const iffName []) (.bvar 3)) (.bvar 2))
               m₅) m₃) m₂) m₁ := by
   simp only [iffIntroA, ConstantInfo.toConstantVal, Expr.erasePw] at h
-  obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS ht₁
-  obtain ⟨n₂, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   obtain rfl := erasePwNames_sort_invS ht₂
-  obtain ⟨n₃, t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
-  obtain ⟨n₄, t₄, b₄, m₄, rfl, ht₄, hb₄⟩ := erasePwNames_forallE_invS ht₃
+  obtain ⟨t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
+  obtain ⟨t₄, b₄, m₄, rfl, ht₄, hb₄⟩ := erasePwNames_forallE_invS ht₃
   obtain rfl := erasePwNames_bvar_invS ht₄
   obtain rfl := erasePwNames_bvar_invS hb₄
-  obtain ⟨n₅, t₅, b₅, m₅, rfl, ht₅, hb₅⟩ := erasePwNames_forallE_invS hb₃
-  obtain ⟨n₆, t₆, b₆, m₆, rfl, ht₆, hb₆⟩ := erasePwNames_forallE_invS ht₅
+  obtain ⟨t₅, b₅, m₅, rfl, ht₅, hb₅⟩ := erasePwNames_forallE_invS hb₃
+  obtain ⟨t₆, b₆, m₆, rfl, ht₆, hb₆⟩ := erasePwNames_forallE_invS ht₅
   obtain rfl := erasePwNames_bvar_invS ht₆
   obtain rfl := erasePwNames_bvar_invS hb₆
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hb₅
@@ -180,7 +180,7 @@ theorem iffIntro_shapeS {ty : Expr}
   obtain rfl := erasePwNames_const_invS hf'
   obtain rfl := erasePwNames_bvar_invS ha'
   obtain rfl := erasePwNames_bvar_invS ha
-  exact ⟨n₁, n₂, n₃, n₄, n₅, n₆, m₁, m₂, m₃, m₄, m₅, m₆, rfl⟩
+  exact ⟨m₁, m₂, m₃, m₄, m₅, m₆, rfl⟩
 
 /-- The stored `Iff.rec`'s shape.  Five telescope binders and four
 nested ones; the motive's codomain `Sort u` is what
@@ -188,8 +188,7 @@ nested ones; the motive's codomain `Sort u` is what
 theorem iffRec_shapeS {ty : Expr}
     (h : ty.erasePw
       = iffRecA.toConstantVal.type.erasePw) :
-    ∃ na nb nmo nt nin nmp nr nmpr nan nma
-      m₁ m₂ m₃ m₄ m₅ mt mmp mr mmpr ma,
+    ∃ m₁ m₂ m₃ m₄ m₅ mt mmp mr mmpr ma,
       ty = .forallE (.sort .zero)
         (.forallE (.sort .zero)
           (.forallE
@@ -207,13 +206,13 @@ theorem iffRec_shapeS {ty : Expr}
                 (.app (.app (.const iffName []) (.bvar 3)) (.bvar 2))
                 (.app (.bvar 2) (.bvar 0)) m₅) m₄) m₃) m₂) m₁ := by
   simp only [iffRecA, ConstantInfo.toConstantVal, Expr.erasePw] at h
-  obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS ht₁
-  obtain ⟨n₂, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   obtain rfl := erasePwNames_sort_invS ht₂
-  obtain ⟨n₃, t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
+  obtain ⟨t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
   -- the motive's type
-  obtain ⟨nt, tt, bt, mt, rfl, htt, hbt⟩ := erasePwNames_forallE_invS ht₃
+  obtain ⟨tt, bt, mt, rfl, htt, hbt⟩ := erasePwNames_forallE_invS ht₃
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS htt
   obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
   obtain rfl := erasePwNames_const_invS hf'
@@ -221,13 +220,13 @@ theorem iffRec_shapeS {ty : Expr}
   obtain rfl := erasePwNames_bvar_invS ha
   obtain rfl := erasePwNames_sort_invS hbt
   -- the minor
-  obtain ⟨n₄, t₄, b₄, m₄, rfl, ht₄, hb₄⟩ := erasePwNames_forallE_invS hb₃
-  obtain ⟨n₅, t₅, b₅, m₅, rfl, ht₅, hb₅⟩ := erasePwNames_forallE_invS ht₄
-  obtain ⟨nr, tr, br, mr, rfl, htr, hbr⟩ := erasePwNames_forallE_invS ht₅
+  obtain ⟨t₄, b₄, m₄, rfl, ht₄, hb₄⟩ := erasePwNames_forallE_invS hb₃
+  obtain ⟨t₅, b₅, m₅, rfl, ht₅, hb₅⟩ := erasePwNames_forallE_invS ht₄
+  obtain ⟨tr, br, mr, rfl, htr, hbr⟩ := erasePwNames_forallE_invS ht₅
   obtain rfl := erasePwNames_bvar_invS htr
   obtain rfl := erasePwNames_bvar_invS hbr
-  obtain ⟨na, ta, ba, ma, rfl, hta, hba⟩ := erasePwNames_forallE_invS hb₅
-  obtain ⟨nt', tt', bt', mt', rfl, htt', hbt'⟩ :=
+  obtain ⟨ta, ba, ma, rfl, hta, hba⟩ := erasePwNames_forallE_invS hb₅
+  obtain ⟨tt', bt', mt', rfl, htt', hbt'⟩ :=
     erasePwNames_forallE_invS hta
   obtain rfl := erasePwNames_bvar_invS htt'
   obtain rfl := erasePwNames_bvar_invS hbt'
@@ -243,7 +242,7 @@ theorem iffRec_shapeS {ty : Expr}
   obtain rfl := erasePwNames_bvar_invS hc₂
   obtain rfl := erasePwNames_bvar_invS hc₁
   -- the major
-  obtain ⟨nt'', tt'', bt'', mt'', rfl, htt'', hbt''⟩ :=
+  obtain ⟨tt'', bt'', mt'', rfl, htt'', hbt''⟩ :=
     erasePwNames_forallE_invS hb₄
   obtain ⟨p, q, rfl, hp, hq⟩ := erasePwNames_app_invS htt''
   obtain ⟨p', q', rfl, hp', hq'⟩ := erasePwNames_app_invS hp
@@ -253,8 +252,7 @@ theorem iffRec_shapeS {ty : Expr}
   obtain ⟨r, s, rfl, hr, hs⟩ := erasePwNames_app_invS hbt''
   obtain rfl := erasePwNames_bvar_invS hr
   obtain rfl := erasePwNames_bvar_invS hs
-  exact ⟨n₁, n₂, n₃, nt, n₄, n₅, nr, na, nt', nt'',
-    m₁, m₂, m₃, m₄, mt'', mt, m₅, mr, ma, mt', rfl⟩
+  exact ⟨m₁, m₂, m₃, m₄, mt'', mt, m₅, mr, ma, mt', rfl⟩
 
 /-! ## The stored `Iff` family's `interp2` memberships
 
@@ -273,7 +271,7 @@ theorem iffVal_app₂_memP (mp : EnvS2PM V μ env)
     SetTheory.app (SetTheory.app
         (interp2 V ρ (mp.base2.acval iffName ψ)) A) B
       ∈ˢ (univ 0 : V) := by
-  obtain ⟨n₁, n₂, m₁, m₂, hsh⟩ := iff_shapeS htyI
+  obtain ⟨m₁, m₂, hsh⟩ := iff_shapeS htyI
   have hden : denoteP mp.base2.acval env ψ 0
       (ConstantInfo.indInfo cvI caps).toConstantVal.type
       = some (.pi 0 (pwBit ψ m₁.pw) (.sort 0)
@@ -344,8 +342,8 @@ theorem iff_forces_eqP (mp : EnvS2PM V μ env)
       (interp2 V ρ (mp.base2.acval iffName ψ)) A) B) :
     A = B := by
   refine Classical.byContradiction fun hne => ?_
-  obtain ⟨na, nb, nmo, nt, nin, nmp, nr, nmpr, nan, nma,
-    m₁, m₂, m₃, m₄, m₅, mt, mmp, mr, mmpr, ma, hsh⟩ := iffRec_shapeS htyIr
+  obtain ⟨m₁, m₂, m₃, m₄, m₅, mt, mmp, mr, mmpr, ma, hsh⟩ :=
+    iffRec_shapeS htyIr
   -- the parameterless family members do not read the assignment, so
   -- the recursor may be read at **any** level assignment
   have hIval : mp.base2.acval iffName (fun _ => 0)
@@ -496,7 +494,7 @@ theorem propext_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     simp only [ConstantVal.matchesPin, Bool.and_eq_true,
       beq_iff_eq] at hApin
     exact hApin.2
-  obtain ⟨n₁, n₂, n₃, m₁, m₂, m₃, hsh⟩ := propext_shapeS hApinT
+  obtain ⟨m₁, m₂, m₃, hsh⟩ := propext_shapeS hApinT
   rw [hsh] at hrun hta
   obtain ⟨hb₁, hb₂, hb₃⟩ := propext_bitsP hμ hEq hrun ψ
   -- the `Eq` former's one level parameter is pinned to `1`
@@ -564,35 +562,35 @@ refuted consequent is `univZero ∈ˢ univZero`. -/
 theorem nonempty_shapeS {ty : Expr}
     (h : ty.erasePw
       = nonemptyA.toConstantVal.type.erasePw) :
-    ∃ n₁ m₁, ty = .forallE (.sort (.param uN)) (.sort .zero) m₁ := by
+    ∃ m₁, ty = .forallE (.sort (.param uN)) (.sort .zero) m₁ := by
   simp only [nonemptyA, ConstantInfo.toConstantVal, Expr.erasePw] at h
-  obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS ht₁
   obtain rfl := erasePwNames_sort_invS hb₁
-  exact ⟨n₁, m₁, rfl⟩
+  exact ⟨m₁, rfl⟩
 
 /-- The stored `Nonempty.intro`'s shape. -/
 theorem nonemptyIntro_shapeS {ty : Expr}
     (h : ty.erasePw
       = nonemptyIntroA.toConstantVal.type.erasePw) :
-    ∃ n₁ n₂ m₁ m₂, ty = .forallE (.sort (.param uN))
+    ∃ m₁ m₂, ty = .forallE (.sort (.param uN))
       (.forallE (.bvar 0)
         (.app (.const nonemptyName [.param uN]) (.bvar 1)) m₂) m₁ := by
   simp only [nonemptyIntroA, ConstantInfo.toConstantVal, Expr.erasePw] at h
-  obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS ht₁
-  obtain ⟨n₂, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   obtain rfl := erasePwNames_bvar_invS ht₂
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hb₂
   obtain rfl := erasePwNames_const_invS hf
   obtain rfl := erasePwNames_bvar_invS ha
-  exact ⟨n₁, n₂, m₁, m₂, rfl⟩
+  exact ⟨m₁, m₂, rfl⟩
 
 /-- The stored `Nonempty.rec`'s shape. -/
 theorem nonemptyRec_shapeS {ty : Expr}
     (h : ty.erasePw
       = nonemptyRecA.toConstantVal.type.erasePw) :
-    ∃ nα nmo nt nin nv nma m₁ m₂ m₃ m₄ mt mv,
+    ∃ m₁ m₂ m₃ m₄ mt mv,
       ty = .forallE (.sort (.param uN))
         (.forallE
           (.forallE
@@ -607,18 +605,18 @@ theorem nonemptyRec_shapeS {ty : Expr}
               (.app (.const nonemptyName [.param uN]) (.bvar 2))
               (.app (.bvar 2) (.bvar 0)) m₄) m₃) m₂) m₁ := by
   simp only [nonemptyRecA, ConstantInfo.toConstantVal, Expr.erasePw] at h
-  obtain ⟨nα, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
+  obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS ht₁
-  obtain ⟨nmo, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   -- the motive's type
-  obtain ⟨nt, tt, bt, mt, rfl, htt, hbt⟩ := erasePwNames_forallE_invS ht₂
+  obtain ⟨tt, bt, mt, rfl, htt, hbt⟩ := erasePwNames_forallE_invS ht₂
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS htt
   obtain rfl := erasePwNames_const_invS hf
   obtain rfl := erasePwNames_bvar_invS ha
   obtain rfl := erasePwNames_sort_invS hbt
   -- the minor
-  obtain ⟨nin, t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
-  obtain ⟨nv, tv, bv, mv, rfl, htv, hbv⟩ := erasePwNames_forallE_invS ht₃
+  obtain ⟨t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
+  obtain ⟨tv, bv, mv, rfl, htv, hbv⟩ := erasePwNames_forallE_invS ht₃
   obtain rfl := erasePwNames_bvar_invS htv
   obtain ⟨g, c, rfl, hg, hc⟩ := erasePwNames_app_invS hbv
   obtain rfl := erasePwNames_bvar_invS hg
@@ -628,14 +626,14 @@ theorem nonemptyRec_shapeS {ty : Expr}
   obtain rfl := erasePwNames_bvar_invS hc₂
   obtain rfl := erasePwNames_bvar_invS hc₁
   -- the major
-  obtain ⟨nma, tm, bm, m₄, rfl, htm, hbm⟩ := erasePwNames_forallE_invS hb₃
+  obtain ⟨tm, bm, m₄, rfl, htm, hbm⟩ := erasePwNames_forallE_invS hb₃
   obtain ⟨p, q, rfl, hp, hq⟩ := erasePwNames_app_invS htm
   obtain rfl := erasePwNames_const_invS hp
   obtain rfl := erasePwNames_bvar_invS hq
   obtain ⟨r, s, rfl, hr, hs⟩ := erasePwNames_app_invS hbm
   obtain rfl := erasePwNames_bvar_invS hr
   obtain rfl := erasePwNames_bvar_invS hs
-  exact ⟨nα, nmo, nt, nin, nv, nma, m₁, m₂, m₃, m₄, mt, mv, rfl⟩
+  exact ⟨m₁, m₂, m₃, m₄, mt, mv, rfl⟩
 
 /-- A member of the `Nonempty` family, referenced at its own level
 parameter, reads to its leaf at the plain assignment. -/
@@ -660,7 +658,7 @@ theorem nonemptyVal_app_memP (mp : EnvS2PM V μ env)
     (ψ : Name → Nat) (ρ : Nat → V) {A : V} (hA : A ∈ˢ univ (ψ uN)) :
     SetTheory.app (interp2 V ρ (mp.base2.acval nonemptyName ψ)) A
       ∈ˢ (univ 0 : V) := by
-  obtain ⟨n₁, m₁, hsh⟩ := nonempty_shapeS htyN
+  obtain ⟨m₁, hsh⟩ := nonempty_shapeS htyN
   have hden : denoteP mp.base2.acval env ψ 0
       (ConstantInfo.indInfo cvN capsN).toConstantVal.type
       = some (.pi 0 (pwBit ψ m₁.pw) (.sort (ψ uN)) (.sort 0)) := by
@@ -686,7 +684,7 @@ theorem nonemptyIntroVal_app₂_memP (mp : EnvS2PM V μ env)
     SetTheory.app (SetTheory.app
         (interp2 V ρ (mp.base2.acval nonemptyIntroName ψ)) A) a
       ∈ˢ SetTheory.app (interp2 V ρ (mp.base2.acval nonemptyName ψ)) A := by
-  obtain ⟨n₁, n₂, m₁, m₂, hsh⟩ := nonemptyIntro_shapeS htyNi
+  obtain ⟨m₁, m₂, hsh⟩ := nonemptyIntro_shapeS htyNi
   have hN : ∀ e, denoteP mp.base2.acval env ψ e
       (.const nonemptyName [.param uN])
       = some (mp.base2.acval nonemptyName ψ) :=
@@ -743,7 +741,7 @@ theorem nonemptyVal_forcesP (mp : EnvS2PM V μ env)
       (interp2 V ρ (mp.base2.acval nonemptyName ψ)) A) :
     ∃ x, x ∈ˢ A := by
   refine Classical.byContradiction fun hno => ?_
-  obtain ⟨nα, nmo, nt, nin, nv, nma, m₁, m₂, m₃, m₄, mt, mv, hsh⟩ :=
+  obtain ⟨m₁, m₂, m₃, m₄, mt, mv, hsh⟩ :=
     nonemptyRec_shapeS htyNr
   have hN : ∀ e, denoteP mp.base2.acval env ψ e
       (.const nonemptyName [.param uN])
@@ -890,7 +888,7 @@ theorem choice_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     simp only [ConstantVal.matchesPin, Bool.and_eq_true,
       beq_iff_eq] at hApin
     exact hApin.2
-  obtain ⟨n₁, n₂, m₁, m₂, hsh⟩ := choice_shapeS hApinT
+  obtain ⟨m₁, m₂, hsh⟩ := choice_shapeS hApinT
   rw [hsh] at hrun hta
   obtain ⟨hb₁, hb₂⟩ := choice_bitsP hμ hrun ψ
   have hN : ∀ e, denoteP mp.base2.acval env ψ e
