@@ -57258,16 +57258,39 @@ across the 7 roots, which is neither a door nor a departure.
 **init-full raw through the default pipe**: accepted **53 127**
 declarations in `--verified` and in `--trusted`, matching master.
 
-`tests/arena.sh` is **RED at this tip and equally red on master
-`a92f687b`** — the same seven checks, verified by running the script
-in the master checkout with a freshly built binary: `E2E FAIL`
-`pre_decline_imax_field` (expected 0, got 2), `ind_mutual_param_defeq`
-(2→0), `ind_mutual_sort_defeq` (2→1), `ind_rec_struct_proj` (2→0), and
-`PRELUDE COUNT FAIL` on `natop_{order,before_eq,before_ble}` (expected
-35, got 88).  Everything else in the script passes on both
-(tutorial 90/92, e2e 170/174, annot 14/14, flags 8/8 and 16/16,
-progress 6/6, inmodel OK, axioms pinned at the three standard ones,
-trusted sweep as recorded).  Reported, not touched: this task changed
-no executable behaviour, so the fixture expectations are a separate
-lane's to regenerate.
+`tests/arena.sh` **green** (exit 0): tutorial 90/92 good tests
+accepted, e2e 174/174, annot 14/14, retired flags 8/8, mode flags
+16/16, prelude counts 3/3, progress lane 6/6, inmodel OK, axioms
+pinned (11 theorems at `[propext, Classical.choice, Quot.sound]`),
+trusted sweep 138 arena + 174 e2e + 14 annot with the three recorded
+divergences.
+
+**A gate-hygiene finding, recorded because it cost a full false
+alarm.**  The first run of this battery reported seven failures — four
+`E2E FAIL` (`pre_decline_imax_field` 0→2, `ind_mutual_param_defeq`
+2→0, `ind_mutual_sort_defeq` 2→1, `ind_rec_struct_proj` 2→0) and three
+`PRELUDE COUNT FAIL` (`natop_{order,before_eq,before_ble}`, expected 35
+accepted, got 88) — and they reproduced against a master binary, which
+made them look pre-existing.  They were not master's and they were not
+this branch's: they were **the operator's own environment**.  The run
+had `LECH_INDUCTIVE_MODELS` exported at the *stock*
+`lean-inductive-models` binary — CLAUDE.md's recipe for a fresh
+worktree whose `_tmp/` is empty — but a worktree that has built
+`lech-preprocess` needs no such override, and the stock tool carries no
+`NativeSupport` predicate, so every block the direct routes handle
+natively got **modeled** instead.  That is exactly the observed shape:
+declines turning into accepts, and an accepted count of 88 instead of
+35 (the model declarations).  Under `env -i HOME=$HOME PATH=$PATH bash
+tests/arena.sh` the battery is green.
+
+> **A `LECH_*` override in the shell is part of the gate's input.**
+> Before believing a fixture-expectation failure — especially one that
+> "reproduces on master" — run the battery under `env -i` and diff.  A
+> variable set to work around a *missing* artifact keeps acting after
+> the artifact is built.
+
+The DESIGN record briefly carried the wrong conclusion ("arena RED on
+master `a92f687b`"); it is corrected here rather than quietly edited,
+because the failure mode — an environment variable that survives its
+reason — is the transferable part.
 
