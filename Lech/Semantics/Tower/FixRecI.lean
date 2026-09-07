@@ -328,15 +328,12 @@ theorem consList_frKSpine (nP n nIdx : Nat) (ρ₀ : Nat → V) :
 sitting `m` binders up by the projections of the payload below them. -/
 def substProjAt (m : Nat) : Nat → AVExpr → AVExpr
   | 0, e => e
-  | i + 1, e => substProjAt m i (e.inst (projAV i (.bvar (i + m))) m)
+  | i + 1, e => substProjAt m i (e.inst (projAV i (.bvar i)) m)
 
 omit [SetTheory V] in
 theorem substProjAt_zero : ∀ (i : Nat) (e : AVExpr), substProjAt 0 i e = substProj i e
   | 0, _ => rfl
-  | i + 1, e => by
-    show substProjAt 0 i (e.inst (projAV i (.bvar (i + 0))) 0) = substProj i (e.inst (projAV i (.bvar i)))
-    rw [Nat.add_zero]
-    exact substProjAt_zero i _
+  | i + 1, e => substProjAt_zero i _
 
 /-- A recursive field's telescope at the payload frame: binder `k`'s
 domain lifted past the `(p⃗, M, m⃗)` block under the `i` field variables

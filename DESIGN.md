@@ -55779,7 +55779,7 @@ closure predicates with a small eliminator (`GenerateOpen`,
 `FirstOrder.Language.Term`, `Turing.PartrecToTM2.Λ'`,
 `PFunctor.Approx.CofixA`.  No mutual or nested reflexive block.
 
-### FINDING — the closure witness, and what the Tarski-form universe does NOT give
+### FINDING — the closure witness needs a size bound the interface cannot count (corrected 2026-09-07 by the bridge lane, task #204)
 
 The route's carrier is `lfpFamSet`, the least closed family; the laws
 need a closed member to exist.  For finitary constructors the
@@ -55788,17 +55788,26 @@ member of the tower over `Π a : A, X ⟨e(a)⟩` has components at
 unboundedly many stages (the `ℕ`-branching W-type has elements of rank
 `ω + 1`).  The natural replacement — iterate to an ordinal below the
 universe's cardinal, or bound the least fixed point by a union — needs
-the universe **closed under unions of its members** (Grothendieck's
-clause).  `IsTGUniverse` (`Lech/SetTheory/Core.lean`) is Tarski's form:
-transitive, subsets and powersets of members are members, and every
-subset of `U` is a member or equinumerous with `U`.  **Union-closure
-is not derivable from it**: `H(κ)` for a singular strong-limit `κ`
-(hereditarily-small sets) satisfies all four clauses and is not closed
-under the union of a member (a cofinal small set of small sets).  So
-"the closure witness through the Tarski-form universe bound" is not
-available as such; the fibres of an infinitary least fixed point are
-provably SUBSETS of `univ w` but their MEMBERSHIP in `univ w` needs a
-cardinality bound.
+the universe **closed under unions of its member-indexed families**
+(Grothendieck's clause).  `IsTGUniverse` (`Lech/SetTheory/Core.lean`)
+is Tarski's form: transitive, subsets and powersets of members are
+members, and every subset of `U` is a member or equinumerous with `U`.
+CORRECTED: a first draft here claimed `H(κ)` for a singular strong
+limit `κ` as a countermodel — wrong (task #204, proved on Mathlib's
+`ZFSet`: for `κ = ℶ_ω`, `y = {V_{ω+n} | n < ω}` is a subset of `H(κ)`,
+not a member, not equinumerous — Tarski's clause fails).  In general a
+transitive Tarski-form universe has REGULAR cardinality (it contains
+all its subsets of size `< |U|`, which number `κ^{<κ} > κ` at a
+singular `κ`, König): `IsTGUniverse U ↔ U ∈ {∅, V_ω} ∪ {V_κ | κ
+inaccessible}`.  So union-closure IS semantically implied by the
+interface — a `univChain_union` field would add no axiomatic content —
+but it is NOT cheaply derivable inside it (the derivation is a
+cardinal-counting argument our `SetTheory` carrier lacks the
+arithmetic for): the field is NOT added and the derivation NOT
+attempted.  The fibres of an infinitary least fixed point are provably
+SUBSETS of `univ w`; their MEMBERSHIP comes from a size bound obtained
+differently — the path coding / "small algebra with a mono" lemma
+below, which needs only power-set/subset closure and Tarski's clause.
 
 Two ways out, and the split they induce:
 
