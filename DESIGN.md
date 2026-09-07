@@ -59880,3 +59880,140 @@ lookup and a raw kinds walk first.  Route census (separate run):
 **Mathlib small slice**, with `CON_LECHE_PROJREC_TRACE=1`: accepts,
 22 projection functions rewritten, every level off the in-process
 family.
+
+## TASK #220 — THE TYPE-AND-CONSTRUCTOR GATE, SPLIT OFF THE RECURSOR PIN (2026-09-07, `agent/recsplit`)
+
+**The problem, exactly.**  `directFixShape?` read the block's parameter
+and index counts off the stream's RECURSOR record (`nP = rulePrefix -
+(n+1)`, `nIdx = majorIdx - rulePrefix`) and pinned that record's name,
+its rule count and each rule's constructor and field count.  So a block
+whose recursor record is a **stub** — `nP=0 nM=0 nm=0 nIdx=0 rules=[]`,
+which is what the arena's hand-written bad streams carry — was refused
+by the *recogniser*, fell through to the modeled path and DECLINED,
+and the semantic checks the checker already owns (positivity, the field
+universes, the constructor result) never ran.  That is arena finding
+F1: eleven bad tutorial tests declined where the reference rejects
+(#207's record, `tests/arena-expected.txt` group A; the #207 checklist
+§3.3a scoped the fix as its own task).
+
+**What official does — measured, not inferred.**  The arena's reference
+checker is Lean4Checker's replay (`checkers/official/Main.lean` →
+`Lean.Environment.replay'`).  Its `.inductInfo` arm builds
+`Declaration.inductDecl lparams nparams types` from the type formers
+and the constructors and calls `addDeclCore`: **the exported recursor
+is never an input to the kernel.**  `add_inductive`
+(`src/kernel/inductive.cpp`) then checks the formers
+(`check_inductive_types`: a whnf'd Π-telescope, `i != m_nparams` is
+"number of parameters mismatch", the residual a sort), the constructors
+(`check_constructors`: the parameter domains by `is_def_eq`, the field
+universes against the result level, `check_positivity`, and
+`is_valid_ind_app` on the result — "invalid return type"), and
+GENERATES the recursor.  The exported `recInfo` records are
+*postponed* and compared at the end, structurally:
+
+```
+def checkPostponedRecursors : M Unit := do
+  for ctor in (← get).postponedRecursors do
+    match (← get).env.find? ctor, (← read).newConstants[ctor]? with
+    | some (.recInfo info), some (.recInfo info') =>
+      if ! (info == info') then throw <| IO.userError s!"Invalid recursor {ctor}"
+    | _, _ => throw <| IO.userError s!"No such recursor {ctor}"
+```
+
+So **a stub recursor record is a REJECT for official, not a decline**
+("Invalid recursor"), and a record under a name the kernel never
+generates — `T.not_rec` — is a reject too ("No such recursor").  A
+stream that declares no recursor record at all is not checked against
+one; that case stays a decline here.
+
+**The split.**  The recogniser now reads the counts the way official
+reads them and pins nothing of the recursor record:
+
+* `directFixCounts?` (`Kernel/Direct/RecParts.lean`) — `nP` is the
+  count every CONSTRUCTOR carries, `nIdx` what is left of the type
+  former's own Π-telescope.  At a constructor-less block, and at a
+  former declared AT A DEFINITION whose syntactic telescope is not the
+  one official walks (task #195), no such reading exists and the
+  recursor record's argument sums are used as before — a block of
+  either shape with a broken recursor record still declines.
+* `directFixRecPinOk` — the record's two argument sums against the
+  generated ones, its rule count, each rule's constructor and field
+  count.  The verdict travels on the record (`DirectFixParts.recPinned`)
+  instead of refusing the block.
+* `directFixRecLpsOk` — the record's level parameters: the block's own
+  (the small eliminator) or a fresh one in front (the large one).  A
+  record that is neither is read as the small eliminator with this pin
+  FAILING, rather than refusing the block.
+* `checkDirectFixRec` (and its `…F` twin) throws `.invalid` on the
+  recursor's name, on `directFixRecLpsOk` and on `recPinned`, in that
+  order, before anything else it does.
+* `checkDirectSumCtor`'s constructor-result check is official's
+  `is_valid_ind_app`, so its failure is now `.invalid` ("invalid
+  constructor return type"), not `.notImplemented`.
+
+**Why this cannot reject a block official accepts.**  Every pin that
+moved is a RELAXATION of official's own `==` on the `RecursorVal`: we
+compare the recursor's type by `isDefEq` and its rule bodies up to
+binder metadata (task #210 Part B), its name and level parameters and
+argument sums exactly.  So a failure of any of them implies official's
+structural comparison fails, i.e. official rejects.  The other
+direction is untouched: a block the route does not model still declines
+at `classifyFixKinds` (a nested occurrence) or at the positivity walk's
+fuel, both of which run BEFORE the recursor stage.
+
+**The verified tier.**  `directFixShape?_inv` loses exactly the facts
+that moved — the recursor's name, its level parameters, the rules'
+count and the constructors' result shape — and the P tier reads the two
+it needs off the STAGE instead (`checkDirectFixRec_pins`,
+`Verify/Direct/FixInv.lean`).  The rest of `Verify/Direct/FixParts.lean`
+is unchanged in content.  No P-tier proof weakens: an earlier reject
+only removes cases from a run relation that already quantifies over
+successful runs.  The four monadic inversions of `checkDirectFixRec`
+gained one case per guard (`FixInv`, `BridgeCS3`, `AgreeFloor`;
+`CheckerF`'s `checkDirectFixRecF_eq` and `BridgeDecl`'s fuel bridge
+needed no change — the guards are fuel- and ops-independent and
+syntactically identical on both sides).
+
+**The arena, after.**  Ten of the fifteen F1 rows are back at the
+reference verdict, REJECT (1):
+
+| test | why official rejects | con-leche's message |
+|---|---|---|
+| 049 | ctor result at the parameters in the wrong order | `direct sum: invalid constructor return type` |
+| 050 | ctor result at the wrong level arguments | `direct sum: invalid constructor return type` |
+| 054 | ctor type is `id Type reduceCtorType`, not the block | `direct sum: invalid constructor return type` |
+| 052 | `(indNeg → indNeg) → indNeg` | `direct sum: non positive occurrence of the inductive type` |
+| 116 | `(Nat → reflOccLeft → Nat) → reflOccLeft` | `direct sum: non positive occurrence of the inductive type` |
+| 059 | a `Type` field in a `Type 0` block | `direct sum: field universe too large` |
+| 117 | the constructor's declared type is ILL-TYPED (`reflOccInIndex` applied to the `Nat` binder — the de Bruijn index is `#0`, not `#1`) | `invalid: application type mismatch` |
+| 071 | stub recursor beside an intact block | `direct rec: recursor rules are not the generated ones` |
+| 135 | recursor record named `misnamed_rec.not_rec` | `direct rec: the block's recursor is not the generated T.rec` |
+| 136 | recursor record named `dup_rec_def2.not_rec` | `direct rec: the block's recursor is not the generated T.rec` |
+
+138 keeps its `1` from the route's own duplicate-constructor guard.
+**Five rows stay at `2`, both for stated reasons.**  045, 048, 051 and
+055 decline earlier still, at a NON-STANDARD AXIOM, and never reach
+their inductive (standing ruling: a non-standard axiom is never
+accepted; the reference verdict is `1` for a reason con-leche reaches
+later than the reference does).  **047 is a finding**: it declares
+`numParams = 2` on a type former with ONE Π binder and carries neither
+a constructor nor a recursor record, and official rejects it at "number
+of parameters mismatch" — read off the *inductive record's own*
+`numParams`, which `ConstantInfo.indInfo` does not carry.  con-leche has
+never read that field (before #220 the count came off the recursor,
+since #220 off the constructors), so the parameter count a stream
+DECLARES is, to this checker, only ever cross-checked, never trusted —
+which is sound, and is why this row cannot move without carrying the
+declared count through the frontend into the block.  Recorded, not
+papered over.
+
+**Fixtures.**  `scripts/mk_ind_stub_bad.py` derives six twins of
+`tests/e2e/direct_fix_nat.ndjson`, one per rejected class, each with a
+broken recursor record: `ind_stub_rec` (the stub alone — the pin's own
+reject), `ind_stub_pos`, `ind_stub_resid`, `ind_stub_univ` (the stub
+beside a block the gate rejects on its own), `ind_stub_recname` and
+`ind_stub_reclps` (the block intact, the record's name resp. level
+parameters not the generated ones; the occurrence the rules recurse
+through is rewritten with them, so the reject is the pin being tested
+and not the rule comparison).
+
