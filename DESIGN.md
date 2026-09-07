@@ -56099,6 +56099,47 @@ lfp induction; fixture = an `Acc` clone and init-full's `Acc` cone
 accepting; then init-full raw through the default pipe must need the
 tool for nothing).
 
+### Stage A2 — the recursive squash regime's large eliminator (2026-09-07, `agent/reflexive-a2`)
+
+**A2.1 (landed on the branch).**  Kernel: `checkDirectFix`/`checkDirectFixS`
+lift the one-constructor decline (a large eliminator on a block whose
+sort may be `Prop` is `.invalid` at two or more constructors, taken at
+one — `checkDirectFieldSortsI`'s per-field subsingleton criterion,
+official's `elim_only_at_universe_zero`, already gates the fields);
+`directFixKinds?` takes reflexive fields at any `Prop` block;
+`directTeleAt`/`directIhApp`/`directRuleBodyR` take the elimination
+regime's `pw` and re-bit the ih telescopes with it (the ih Π-tower and
+the rule's λ-tower live at the motive's level); the recogniser's
+`directFixRulesOk` compares at the parse placeholder `⟨.never⟩` (the
+stream's rules and the raw constructor types are at it; the installed
+rules carry the regime's bit).  Preprocess lockstep (`allowRefl :=
+Prop-valued`).  Fixture `direct_fix_acc` (`Acc'`, `Acc'.fix` with iota
+by `rfl`); `direct_fix_prop_large`/`direct_fix_acc_large` flip to
+accepted.
+
+**A2.2 (the model), the plan.**  At `w = 0`, `ℓ ≠ 0` the major is the
+proof point and the block has ONE constructor whose data fields are
+index expressions (`idxArgs.contains fv`): the rule body is spelled at
+the recursor frame as `m x⃗(ı⃗) ih⃗` with the data fields read off the
+index variables, the `Prop` fields the point, and each ih a λ-tower of
+the recursive call at the field's index expressions (`squashBodyAVI`,
+replacing `fixRecBodyAVI`'s `.prf` arm when `ℓ ≠ 0`).  Its fixed point
+is the **recursion theorem by lfp induction** (`Lech/SetModel/RecGraph`,
+`Expr`-free): over an index set `I`, predecessor sets `pred i`, a step
+`st i g` bounded by `B i ∈ univ ℓ`, the graph functor `Ψ S i = {v ∈ B i |
+∃ g ∈ Π_{j ∈ pred i} S j, v = st i g}` is monotone with the closed family
+`B`; its least fixed point `G` has a SINGLETON fibre at every `i` whose
+`Acc`-family fibre (`lfpFamSet 0 I Φ`, `Φ X i = truthVal (Cond i ∧ ∀ j ∈
+pred i, X j inhabited)`) is inhabited — by `lfpFamSet_induction` with
+`P i x := G i inhabited ∧ subsingleton`: the predecessors' fibres are
+singletons, the graph `g` of their elements witnesses existence
+(`lfpFamSet_fixed`), and any `v ∈ G i` is `st i g'` with `g' = g` by
+function extensionality.  The recursor's leaf is the λ-tower over the
+unique element; `rStar_mem`/`rStar_fixed` get the third regime (the
+ω-iterate at `w ≠ 0`, the point at `ℓ = 0`, the graph at `w = 0 ∧
+ℓ ≠ 0`); `FixPre.hwℓ` is replaced by the three-way regime descriptor
+(the run record's `hwl` weakens to the two-constructor clause).
+
 ## TASK #204 — THE lean4lean-model BRIDGE: Carneiro's hypothesis implies Lech's, in Lean (2026-09-07, `agent/bridge`)
 
 **Question (user).**  "Can you have an agent prove that Mario's
