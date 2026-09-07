@@ -222,7 +222,7 @@ def lechNativeFix (type : EIndType) (ctors : List ECtor) (rec : ERec) : Bool :=
   -- type `∀ p⃗ ı⃗, Sort u` syntactically (`directFixShape?` reads the
   -- telescope by `stripPis` as the structure arm does — task #193's
   -- conjunct, not task #195's whnf reading of the sum arm)
-  type.isRec && !type.isReflexive && type.numNested == 0 && lechFormerTelescope type &&
+  type.isRec && type.numNested == 0 && lechFormerTelescope type &&
     !type.isUnsafe && type.all == [type.name] &&
     type.ctors == ctors.map (·.name) &&
   -- every constructor: this member's, at its level parameters, its
@@ -231,9 +231,11 @@ def lechNativeFix (type : EIndType) (ctors : List ECtor) (rec : ERec) : Bool :=
     ctor.levelParams == type.levelParams &&
     ctor.numParams == type.numParams && !ctor.isUnsafe &&
     !lechReservedBasisNames.contains ctor.name &&
-    -- a reflexive field only at a `Prop`-valued block (task #202, Stage A)
+    -- a reflexive field only at a `Prop`-valued block with the small
+    -- eliminator (task #202, Stage A1; `directFixKinds?`'s guard)
     lechFixFieldsOk type.name type.levelParams type.numParams type.numIndices
-      (type.type.getForallBody == Lean.mkSort Lean.Level.zero) ctor.type 0 0) &&
+      (type.type.getForallBody == Lean.mkSort Lean.Level.zero &&
+        rec.levelParams == type.levelParams) ctor.type 0 0) &&
   -- the recursor: `T.rec`, the family's indices, one motive, one minor
   -- and one rule per constructor in constructor order
   rec.name == type.name.str "rec" && rec.numIndices == type.numIndices &&

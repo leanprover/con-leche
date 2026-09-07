@@ -114,11 +114,12 @@ theorem fixChainValidFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V �
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     {Es : (Name → Nat) → List AVExpr} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AVExpr)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AVExpr))}
     (hD : FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es
-      srcs ks fvsP xFvs xrest Eiss)
+      srcs ks fvsP xFvs xrest Eiss tss)
     (ψ : Name → Nat) (ρp : Nat → V)
     (hρp : Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
-    ChainValidFacts nP nF ρp ks (((ds ψ).drop nP).map (·.2.2)) (Eiss ψ) (Es ψ) := by
+    ChainValidFacts nP nF ρp ks (tss ψ) (((ds ψ).drop nP).map (·.2.2)) (Eiss ψ) (Es ψ) := by
   have hlenDs := hD.len ψ
   -- the parameter frames identified
   have hiff := (ctorFramesGen hμ mp hCtor hfT hProp hFD hD.toCtorDataI hleafT).1 ψ ρp
@@ -134,12 +135,27 @@ theorem fixChainValidFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V �
     obtain ⟨hokP, -⟩ := hkey (nP + i) (by omega) _ hsat
     rw [reverse_getD_field hlenDs hi] at hokP
     refine ⟨hokP.2, fun hr => ?_⟩
-    have hk : ks.getD i .ordinary = .recursive := by
-      have := hr.2; rwa [Nat.add_sub_cancel_left] at this
-    have hentry := hD.recEntry ψ i hk hi
-    rw [drop_map_getD hlenDs hi, hentry] at hokP
-    obtain ⟨-, hargs⟩ := AnnotValidV.mkAppN_inv hokP.2
-    exact fun E hE => hargs E (List.mem_append_right _ hE)
+    have hk := hr.2
+    rw [Nat.add_sub_cancel_left] at hk
+    rcases hk with hk | hk
+    · -- a finitary field: no telescope, the readings at the spine
+      rw [hD.tssNone ψ i (by rw [hk]; intro h; cases h)]
+      have hentry := hD.recEntry ψ i hk hi
+      rw [drop_map_getD hlenDs hi, hentry] at hokP
+      obtain ⟨-, hargs⟩ := AnnotValidV.mkAppN_inv hokP.2
+      refine ⟨trivial, fun bs hbs E hE => ?_⟩
+      cases bs with
+      | nil => simpa using hargs E (List.mem_append_right _ hE)
+      | cons b bs => exact hbs.elim
+    · -- a reflexive field (task #202): the Π-tower's pieces
+      have hentry := hD.reflEntry ψ i hk hi
+      rw [drop_map_getD hlenDs hi, hentry] at hokP
+      obtain ⟨hTV, hB⟩ := AnnotValidV_mkPisAV_inv hokP.2
+      refine ⟨hTV, fun bs hbs E hE => ?_⟩
+      have := hB bs hbs
+      rw [← consList_append] at this
+      obtain ⟨-, hargs⟩ := AnnotValidV.mkAppN_inv this
+      exact hargs E (List.mem_append_right _ hE)
   · intro as' hsp' E hE
     have hsat : Sat2 V (shadowCtx nP ks (nP + nF) (((ds ψ).map (·.2.2)).reverse))
         (consList as' ρp) := by
@@ -233,16 +249,17 @@ theorem xChainsOk_of {u w nP n : Nat} {ρp : Nat → V} {Ids : List AVExpr}
     {Fss Ess : List (List AVExpr)}
     (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids) (hlenF : Fss.length = n)
     (hrss : ∀ j, j < n → rss.getD j [] = rsOf (ksF j))
-    (hC : ∀ j, j < n → ChainFacts u w nP (Fss.getD j []).length ρp Ids (ksF j) (Fss.getD j [])
-      (Eiss.getD j []) (Ess.getD j []))
-    (hCV : ∀ j, j < n → ChainValidFacts nP (Fss.getD j []).length ρp (ksF j) (Fss.getD j [])
-      (Eiss.getD j []) (Ess.getD j [])) :
+    (hwit : (∀ j i, (tlss.getD j []).getD i [] = []) ∨ w = 0)
+    (hC : ∀ j, j < n → ChainFacts u w nP (Fss.getD j []).length ρp Ids (ksF j) (tlss.getD j [])
+      (Fss.getD j []) (Eiss.getD j []) (Ess.getD j []))
+    (hCV : ∀ j, j < n → ChainValidFacts nP (Fss.getD j []).length ρp (ksF j) (tlss.getD j [])
+      (Fss.getD j []) (Eiss.getD j []) (Ess.getD j [])) :
     XChainsOk u w ρp Ids rss tlss Eiss Fss Ess ∧
     ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
       SumFieldsValid (cons t (cons X ρp)) (chainsXI u Ids Ids.length rss tlss Eiss Fss Ess) := by
   have hmem : ∀ chain ∈ chainsXI u Ids Ids.length rss tlss Eiss Fss Ess, ∃ j, j < n ∧
-      chain = chainXI u Ids Ids.length (rsOf (ksF j)) (Eiss.getD j []) (Fss.getD j [])
-        (Ess.getD j []) := by
+      chain = chainXI u Ids Ids.length (rsOf (ksF j)) (tlss.getD j []) (Eiss.getD j [])
+        (Fss.getD j []) (Ess.getD j []) := by
     intro chain hc
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
     rw [chainsXI_getElem?] at hj
@@ -252,7 +269,8 @@ theorem xChainsOk_of {u w nP n : Nat} {ρp : Nat → V} {Ids : List AVExpr}
       rw [← hrss j (by omega)]
       exact (Option.some.inj hj).symm
     · exact nomatch hj
-  refine ⟨⟨hI, fun X hX t ht chain hc => ?_, fun X hX t ht j hj => ?_⟩, fun X hX t ht chain hc => ?_⟩
+  refine ⟨⟨hI, fun X hX t ht chain hc => ?_, fun X hX t ht j hj => ?_, hwit⟩,
+    fun X hX t ht chain hc => ?_⟩
   · obtain ⟨j, hj, rfl⟩ := hmem chain hc
     exact (fixChain_of hI hX ht (hC j hj)).1
   · rw [hrss j (by omega)]
@@ -293,6 +311,7 @@ structure FixCtorPick where
   xFvs : List Expr
   xrest : Expr
   Eiss : (Name → Nat) → List (List AVExpr)
+  tss : (Name → Nat) → List (List (Nat × Nat × AVExpr))
 
 /-- `fixCtorData_of`, its witnesses bundled. -/
 theorem fixCtorPick_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
@@ -307,10 +326,10 @@ theorem fixCtorPick_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     (hks : ks.length = nF)
     (hopened : Lech.directFixOpenedOk env₀ T lps nP nIdx cvCa.type nF ks = true) :
     ∃ q : FixCtorPick, FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large
-      q.idxArgs q.ds q.Es q.srcs ks q.fvsP q.xFvs q.xrest q.Eiss := by
-  obtain ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, hD⟩ :=
+      q.idxArgs q.ds q.Es q.srcs ks q.fvsP q.xFvs q.xrest q.Eiss q.tss := by
+  obtain ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, tss, hD⟩ :=
     fixCtorData_of hμ mp hCtor hfT hlpsT hstripT hks hopened
-  exact ⟨⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss⟩, hD⟩
+  exact ⟨⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, tss⟩, hD⟩
 
 /-- **The constructors' data functions** at a carrier storing the
 former: every constructor's recursive data, its kind list the guard's. -/
@@ -329,16 +348,17 @@ theorem fixCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     ∃ (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AVExpr))
       (esF : Nat → (Name → Nat) → List AVExpr) (srcsF : Nat → List (Option Nat))
       (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
-      (eissF : Nat → (Name → Nat) → List (List AVExpr)),
+      (eissF : Nat → (Name → Nat) → List (List AVExpr))
+      (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AVExpr))),
       ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
         FixCtorDataI mp.base2 env₀ T lps cA.1 nP cA.2 nIdx resSort isProp large (idxF j) (dsF j)
-          (esF j) (srcsF j) (kinds.getD j []) (fvsPF j) (xFvsF j) (xrestF j) (eissF j) := by
+          (esF j) (srcsF j) (kinds.getD j []) (fvsPF j) (xFvsF j) (xrestF j) (eissF j) (tssF j) := by
   have hex : ∀ j : Nat, ∃ q : FixCtorPick, ∀ cA : ConstantVal × Nat, ctorsA[j]? = some cA →
       FixCtorDataI mp.base2 env₀ T lps cA.1 nP cA.2 nIdx resSort isProp large q.idxArgs q.ds
-        q.Es q.srcs (kinds.getD j []) q.fvsP q.xFvs q.xrest q.Eiss := by
+        q.Es q.srcs (kinds.getD j []) q.fvsP q.xFvs q.xrest q.Eiss q.tss := by
     intro j
     cases hj : ctorsA[j]? with
-    | none => exact ⟨⟨[], fun _ => [], fun _ => [], [], [], [], .bvar 0, fun _ => []⟩,
+    | none => exact ⟨⟨[], fun _ => [], fun _ => [], [], [], [], .bvar 0, fun _ => [], fun _ => []⟩,
         fun _ h => nomatch h⟩
     | some cA =>
       obtain ⟨c, hCtor⟩ := hrunOf j cA hj
@@ -352,7 +372,7 @@ theorem fixCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   let q : Nat → FixCtorPick := fun j => Classical.choose (hex j)
   exact ⟨fun j => (q j).idxArgs, fun j => (q j).ds, fun j => (q j).Es, fun j => (q j).srcs,
     fun j => (q j).fvsP, fun j => (q j).xFvs, fun j => (q j).xrest, fun j => (q j).Eiss,
-    fun j => Classical.choose_spec (hex j)⟩
+    fun j => (q j).tss, fun j => Classical.choose_spec (hex j)⟩
 
 /-! ## The data at two carriers -/
 
