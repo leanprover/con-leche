@@ -94,4 +94,25 @@ theorem direct_fix_rec_wf {env : Env} (henv : EnvWF env)
   intro lvls pins hf
   exact absurd hf (hfire lvls pins)
 
+/-- The field-kinds guard, per constructor: the kind list has one
+entry per field and the opened form passes the guard at the pre-block
+environment. -/
+theorem directFixFieldsOk_inv {env₀ : Env} {T : Name} {lps : List Name} {nP nIdx : Nat}
+    {ctorsA : List (ConstantVal × Nat)} {kinds : List (List RecFieldKind)}
+    (h : directFixFieldsOk env₀ T lps nP nIdx ctorsA kinds = true)
+    {j : Nat} {cA : ConstantVal × Nat} (hj : ctorsA[j]? = some cA) :
+    ∃ ks, kinds[j]? = some ks ∧ ks.length = cA.2 ∧
+      directFixOpenedOk env₀ T lps nP nIdx cA.1.type cA.2 ks = true := by
+  simp only [directFixFieldsOk, Bool.and_eq_true, beq_iff_eq, List.all_eq_true, List.mem_range] at h
+  obtain ⟨hlen, hall⟩ := h
+  have hjl : j < ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
+  have := hall j hjl
+  rw [hj] at this
+  cases hk : kinds[j]? with
+  | none => rw [hk] at this; exact nomatch this
+  | some ks =>
+    rw [hk] at this
+    simp only [Bool.and_eq_true, beq_iff_eq] at this
+    exact ⟨ks, rfl, this.1, this.2⟩
+
 end Lech
