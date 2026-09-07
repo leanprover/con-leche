@@ -174,17 +174,6 @@ partial def toLechLevel : Lean.Level → Except String Lech.Level
   | .param n => .ok (.param (toLechName n))
   | .mvar _ => .error "level mvar"
 
-def toLechBI : Lean.BinderInfo → Lech.BinderInfo
-  | .default => .default
-  | .implicit => .implicit
-  | .strictImplicit => .strictImplicit
-  | .instImplicit => .instImplicit
-
-/-- Binder names are display-only in the checker; erase hygiene scopes so
-the generated pins stay small. -/
-def sanitizeBinderName (n : Lean.Name) : Lech.Name :=
-  toLechName n.eraseMacroScopes
-
 /-- Conversion; `letE` is zeta-expanded (pins are compared by
 definitional equality, and let-free pins keep the pin machinery
 independent of the kernel's letE rules), `mdata` stripped, binder
@@ -195,14 +184,15 @@ partial def toLech : Lean.Expr → Except String Lech.Expr
   | .const c us => do
     .ok (.const (toLechName c) (← us.mapM toLechLevel))
   | .app f a => Lech.Expr.app <$> toLech f <*> toLech a
-  | .lam n ty b bi => do
+  | .lam _ ty b _ => do
     -- pw: parse-default placeholder at P1; the P2 generator computes
-    -- the codomain prop-ness from the host elaborator (task #161)
-    .ok (.lam (sanitizeBinderName n) (← toLech ty) (← toLech b)
-      ⟨toLechBI bi, .never⟩)
-  | .forallE n ty b bi => do
-    .ok (.forallE (sanitizeBinderName n) (← toLech ty) (← toLech b)
-      ⟨toLechBI bi, .never⟩)
+    -- the codomain prop-ness from the host elaborator (task #161);
+    -- name and binder info: the checker's single normal form
+    -- (`.anonymous`, `.default` — task #203, as the frontend strips
+    -- a stream and the pin builder emits the hand-written pins)
+    .ok (.lam .anonymous (← toLech ty) (← toLech b) ⟨.default, .never⟩)
+  | .forallE _ ty b _ => do
+    .ok (.forallE .anonymous (← toLech ty) (← toLech b) ⟨.default, .never⟩)
   | .letE _ _ v b _ => toLech (b.instantiate1 v)
   | .lit (.natVal n) => .ok (.lit (.natVal n))
   | .lit (.strVal s) => .ok (.lit (.strVal s))
