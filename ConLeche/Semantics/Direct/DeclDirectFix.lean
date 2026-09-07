@@ -190,10 +190,10 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
 the modeled arm — the kernel's own case split (`directFixParts?`; ONE
 ROUTE, task #210 Part B). -/
 
-/-- The `.indDecl` dispatch at the run level. -/
+/-- The `.indDecl` dispatch at the run level (the recogniser alone
+since task #219). -/
 def DeclIndRunDispatch (μ : CheckMode) (F : Nat) (env : Env)
     (block : List ConstantInfo) (env₂ : Env) : Prop :=
-  if ConLeche.blockIsModeled env.find? block then DeclIndRun μ F env block env₂ else
   match ConLeche.directFixParts? block with
   | some p => DeclDirectFixRun μ F env p env₂
   | none => DeclIndRun μ F env block env₂

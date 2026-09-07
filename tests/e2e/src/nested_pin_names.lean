@@ -2,16 +2,19 @@
 
 /- End-to-end test: nested-auxiliary iota rules whose stored parameter
    instantiations contain *binders* (a dependent nested occurrence:
-   `DMap α (fun _ => PTree α)`), with the iota theorems' majors
-   spelling the pin lambda under a *different binder name* than the
-   recursor type (post-export perturbation, see
-   `scripts/mk_nested_pin_fixture.py`) — the drift the export format
-   permits (arenas intern name-insensitively) and the shape that
-   declined the Mathlib stream at `Lean.PrefixTreeNode.rec_3`.
-   `checkIotaThmN` must pin the major up to display-only binder names.
-   `PTree.total`'s below/brecOn machinery only typechecks when the
-   auxiliary rules fire, and `total_example`'s `rfl` forces them on
-   concrete majors. -/
+   `DMap α (fun _ => PTree α)`) — the shape that declined the Mathlib
+   stream at `Lean.PrefixTreeNode.rec_3`.  `PTree.total`'s
+   below/brecOn machinery only typechecks when the auxiliary rules
+   fire, and `total_example`'s `rfl` forces them on concrete majors.
+
+   RAW since task #219 (`scripts/export-fixture.sh`).  The committed
+   stream used to be this export run through the preprocessor and then
+   perturbed (`scripts/mk_nested_pin_fixture.py`), so that the iota
+   theorems' majors spelled the pin lambda under a *different binder
+   name* than the recursor type — the drift the export format permits.
+   That perturbation is gone twice over: the models are generated in
+   process, by the same code that writes the recursor type, and since
+   task #205 `Expr` carries no binder name at all. -/
 
 inductive DMap (α : Type) (β : α → Type) where
   | leaf

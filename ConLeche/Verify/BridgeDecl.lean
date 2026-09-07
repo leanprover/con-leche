@@ -969,10 +969,8 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
   | indDecl block =>
     dsimp only
     split
+    · exact checkDirectFix_datF env _ F
     · exact checkIndDecl_datF env block F
-    · split
-      · exact checkDirectFix_datF env _ F
-      · exact checkIndDecl_datF env block F
 
 theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
     (checkDecls mode (fueledOpsM mode) ds).val F =

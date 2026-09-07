@@ -5,20 +5,25 @@
 # (`ConLeche/Frontend/InModel/*`) generates the `_model` families of its
 # mutual/nested blocks at parse time.  The generated AUXILIARY family is a
 # recursive indexed inductive the direct fixpoint route (task #188)
-# installs, so the raw run ACCEPTS outright; the generator is
-# additionally gated through the DEBUG DUMP: `CON_LECHE_INMODEL_DUMP`
-# writes the raw input with the generated records spliced in, and that
-# stream — which now carries a `_model` family of its own, so the
-# modeller stands down and the block takes the MODELED route — must
-# ACCEPT in both modes.  (Until task #207 the dump was handed to
-# `con-leche-preprocess` first, to model the generated auxiliary
-# families; the fixpoint route installs them natively.)
+# installs, so the raw run ACCEPTS outright.
+#
+# THE DUMP IS NO LONGER RE-CHECKED (task #219).  `CON_LECHE_INMODEL_DUMP`
+# still writes the raw input with the generated records spliced in — the
+# instrument for reading what the modeller built — but that stream is
+# not a valid input any more: stream `_model` records are ordinary
+# declarations now, the modeller does not stand down for them, and
+# re-checking the dump rejects on the duplicate declaration.  That is
+# the ruling in action, so the stage that re-checked it is replaced by
+# a count check: the dump carries exactly the records the receipt says
+# were generated.  (What the re-check used to gate — that every
+# generated record type-checks — the RAW run already gates: the fold
+# checks each of them as a declaration.)
 #
 #   * raw run (in-process modelling on): exit 0, or exit 2 at a block
 #     no route installs — either is recorded, a REJECT or an error
 #     fails;
-#   * dump re-checked: exit 0 in `--verified` and `--trusted`, else
-#     FAIL, with every in-process block routed `modeled`;
+#   * the dump: written, and longer than the input by exactly the
+#     number of generated records the receipt reports;
 #   * `CON_LECHE_INMODEL=0` on the raw export: the blocks reach the fold bare
 #     and the run declines with "no install route" (the flag is honoured).
 #
@@ -70,20 +75,17 @@ for f in "${fixtures[@]}"; do
     *) echo "  FAIL $name: raw run exit $rawexit:"; tail -3 "$WORK/raw.log"; fail=1; continue;;
   esac
   [ -f "$WORK/dump.ndjson" ] || { echo "  FAIL $name: no dump written"; fail=1; continue; }
-  # 2. the dump — the raw input with the generated `_model` records
-  #    spliced in — must accept in both modes, and every in-process
-  #    block must now take the MODELED route (the stream carries its
-  #    model, so the modeller stands down)
-  for mode in --verified --trusted; do
-    CON_LECHE_ROUTE_TRACE=1 timeout 600 "$BIN" $mode "$WORK/dump.ndjson" > "$WORK/check.log" 2>&1
-    cexit=$?
-    if [ "$cexit" != 0 ]; then
-      echo "  FAIL $name ($mode): exit $cexit on the modelled dump:"; tail -3 "$WORK/check.log"; fail=1; continue
-    fi
-    nmod=$(grep -c "^con-leche: route .* modeled$" "$WORK/check.log")
-    acc=$(sed -n 's/^con-leche: accepted \([0-9]*\) declarations.*/\1/p' "$WORK/check.log")
-    echo "  $name ($mode): accepted $acc declarations, $nmod blocks routed modeled"
-  done
+  # 2. the dump — the raw input with the generated records spliced in —
+  #    carries exactly the records the receipt reports as generated
+  gen=$(sed -n 's/^con-leche: [0-9]* inductive blocks modelled in-process: .*(\([0-9]*\) generated records.*/\1/p' "$WORK/raw.log")
+  gen=${gen:-0}
+  recs() { grep -c '^{"\(def\|thm\|axiom\|opaque\|inductive\|quot\)"' "$1"; }
+  added=$(( $(recs "$WORK/dump.ndjson") - $(recs "$f") ))
+  if [ "$added" != "$gen" ]; then
+    echo "  FAIL $name: dump has $added extra records, receipt says $gen generated"; fail=1; continue
+  fi
+  echo "  $name: dump carries the $gen generated records (not re-checked: a stream \
+model is an ordinary declaration since task #219, so the modeller would generate a second)"
   # 3. the off switch
   CON_LECHE_INMODEL=0 timeout 300 "$BIN" "$f" > "$WORK/off.log" 2>&1
   oexit=$?

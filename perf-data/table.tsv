@@ -5,17 +5,17 @@ beta-ladder	official	10125602910	1.02	0	20	3.51	Accepted 20 declarations.
 beta-ladder	trusted	39430795053	4.43	0	11	3.51	con-leche: accepted 11 declarations (--trusted)	
 beta-ladder	verified	39435489835	4.45	0	11	3.31	con-leche: accepted 11 declarations (--verified)	
 init-prelude	official	2206959735	0.19	0	2056	3.12	Accepted 2056 declarations.	
-init-prelude	trusted	4609460349	0.37	0	1803	3.12	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 1803 de	
-init-prelude	verified	4750756567	0.38	0	1803	3.12	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 1803 de	
+init-prelude	trusted	4609460349	0.37	0	1773	3.12	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 1773 de	
+init-prelude	verified	4750756567	0.38	0	1773	3.12	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 1773 de	
 grind-ring-5	official	13396419360	1.24	0	2429	3.12	Accepted 2429 declarations.	
-grind-ring-5	trusted	26972562414	2.54	0	2211	3.12	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 2211 de	
-grind-ring-5	verified	27786590739	2.62	0	2211	3.03	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 2211 de	
+grind-ring-5	trusted	26972562414	2.54	0	2181	3.12	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 2181 de	
+grind-ring-5	verified	27786590739	2.62	0	2181	3.03	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 2181 de	
 app-lam	official	29414488313	3.09	0	34	3.03	Accepted 34 declarations.	
 app-lam	trusted	158021702335	22.99	0	21	2.87	con-leche: accepted 21 declarations (--trusted)	
 app-lam	verified	158026234405	22.82	0	21	2.41	con-leche: accepted 21 declarations (--verified)	
 init-full	official	403638027465	46.56	0	54472	2.36	Accepted 54472 declarations.	
-init-full	trusted	659455570683	74.85	0	53118	2.34	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 53118 d	
-init-full	verified	678459860530	77.22	0	53118	2.37	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 53118 d	
+init-full	trusted	659455570683	74.85	0	53088	2.34	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 53088 d	
+init-full	verified	678459860530	77.22	0	53088	2.37	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax con-leche: accepted 53088 d	
 mathlib-full	official	10532415696213	1898.14	0	670627	3.62	Accepted 670627 declarations.	9614856
-mathlib-full	trusted	13145061436434	2281.77	0	656667	1.64	con-leche: accepted 656667 declarations (--trusted)	13170156
-mathlib-full	verified	14137059490301	2557.85	0	656667	1.61	con-leche: accepted 656667 declarations (--verified)	13176052
+mathlib-full	trusted	13145061436434	2281.77	0	654499	1.64	con-leche: accepted 654499 declarations (--trusted)	13170156
+mathlib-full	verified	14137059490301	2557.85	0	654499	1.61	con-leche: accepted 654499 declarations (--verified)	13176052

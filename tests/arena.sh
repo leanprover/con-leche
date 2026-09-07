@@ -249,13 +249,13 @@ arena_half() {
 # the module with the arena's lean4export and committing its NDJSON,
 # gzipped when large).
 #
-# 34 committed fixtures still carry `_model` records a preprocessor
-# wrote before #207 (the nat_* operation slices, trust_*,
-# direct_nested_dep*, indexed_one_ctor_proj, presieve_ofarrows_cone,
-# nested_pin_names, …).  They are kept deliberately: they are the
-# streams that exercise a model arriving from the INPUT rather than
-# from the in-process modeller — a path the checker still has, for
-# hand-written and spliced streams.
+# Every stream here is raw (task #219: there is no input-model path —
+# the in-process modeller is the only model source and a `_model`
+# record in a stream is an ordinary declaration).  The 34 fixtures that
+# carried preprocessor-era model families were regenerated; three
+# fixtures keep `_model` NAMES on purpose, as the controls that the
+# name is not special: `model_name_plain`, `budget_model` and
+# `yolo_decline_vs_accept`.
 e2e_half() {
   e2e_ok=0
   e2e_total=0

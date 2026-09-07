@@ -271,8 +271,14 @@ Inductive blocks are not trusted from the stream. Three cases:
   and its model; ConLeche originally ran that tool as a preprocessor and
   now performs the same construction in process
   ([the modeller's kit in `ConLeche/Frontend/InModel/Kit.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/InModel/Kit.lean#L1-L12)).
-  The model is generated and checked; nothing external is trusted. A
-  nested occurrence under a binder is outside the scheme and declines
+  The model is generated and checked; nothing external is trusted, and
+  nothing is read from the input: a stream record whose name happens to
+  carry a `_model` component is an ordinary declaration with no effect
+  on any block, and the install dispatch is the RECOGNISER alone — a
+  mutual or nested block carries several type formers, resp. several
+  recursors, so the fixpoint route's recogniser refuses it outright and
+  no model lookup is needed to route it. A nested occurrence under a
+  binder is outside the scheme and declines
   ([the modeller's residual in `ConLeche/Frontend/InModel/Nested.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/InModel/Nested.lean#L43-L50)).
 
 A block no route takes is a positive decline naming its class, never
@@ -404,7 +410,10 @@ declare it.)
   duplicates dropped, a pinned Nat operation's dependencies are moved
   ahead of it, a projection function is rewritten to its recursor form
   (`ConLeche/Frontend/ProjRec.lean`), and the models of mutual and
-  nested blocks are generated. Two guarantees have to be kept apart
+  nested blocks are generated — here and nowhere else; the input is
+  never read for one, and the generated records are counted as what
+  they are, declarations of the fold rather than records of the file.
+  Two guarantees have to be kept apart
   here. What §5 and §6 establish is that everything the frontend
   *generates* is checked: a model's declarations and a Nat operation's
   certificates are ordinary declarations to the fold, so a wrong
@@ -428,7 +437,7 @@ declare it.)
 | `Main.lean` | The driver: argument parsing, the stream parse, the two folds, verdict and exit codes. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the fixpoint route (`Direct/`), the modeled route (`Modeled.lean`), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: interned expressions, memo state, the cached core and declaration step, the parsed-record fold. |
-| `ConLeche/Frontend/` | The export parser (`Export*.lean`), the built-in prelude, the Nat-op ground reordering, the projection-function rewrite, the in-process modeller (`InModel/`). |
+| `ConLeche/Frontend/` | The export parser (`Export*.lean`), the built-in prelude, the Nat-op ground reordering, the projection-function rewrite, the in-process modeller (`InModel/`) — the only source of a block's model. |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/VExpr/` | The erased term language, its substitution algebra and the basis constants. |
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |

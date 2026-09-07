@@ -7,10 +7,10 @@ import ConLeche.Frontend.InModelDump
 Command-line driver: `con-leche FILE.ndjson` reads a **raw** lean4export
 NDJSON file and checks the declarations in order.  There is no
 preprocessor and no external dependency (task #207): every inductive
-block is installed by a direct route, or through a `_model` family the
-frontend generates in-process at parse time
+block is installed by the fixed-point route, or through a `_model`
+family the frontend generates in-process at parse time
 (`ConLeche/Frontend/InModel/*`) and then checks as ordinary
-declarations of the stream.
+declarations; no model is ever read from the input (task #219).
 
 Exit codes follow the lean kernel arena convention:
 * 0 — all declarations accepted
@@ -105,9 +105,11 @@ def checkDeclsProgressIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     -- step sees, so the line is exactly the dispatch of
     -- `checkIndDeclSF` (`ConLeche/Cached/CheckerC.lean`).  It is the
     -- route census's instrument (`tests/route-census.sh`): every block
-    -- must read `struct`, `sum`, `fix`, `inmodel` or `basis` — a
-    -- `modeled` line on a raw stream means the block's model came
-    -- from the stream itself, and nothing emits one since task #207.
+    -- must read `fix`, `inmodel` or `basis` — a `modeled` line means
+    -- the block is on NO route (the recogniser refused it and the
+    -- in-process modeller did not model it), so the install declines.
+    -- Since task #219 a `_model` record in the stream is an ordinary
+    -- declaration and cannot route a block.
     if trace then
       match pd with
       | .indDecl block =>
@@ -214,9 +216,10 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
     -- Streaming frontend (task #57, task #180): the parse reads the
     -- file line by line, so neither a wholesale text buffer nor a
     -- scratch file exists in this process.
-    -- THE IN-PROCESS MODELLER (task #200; the only model source since
-    -- task #207): mutual and nested blocks get their `_model` family
-    -- generated at parse time (`ConLeche/Frontend/InModel.lean`);
+    -- THE IN-PROCESS MODELLER (task #200; the ONLY model source, and
+    -- since task #219 the only one there is): mutual and nested blocks
+    -- get their `_model` family generated at parse time
+    -- (`ConLeche/Frontend/InModel.lean`);
     -- `CON_LECHE_INMODEL=0` turns it off, `CON_LECHE_INMODEL_DUMP=OUT`
     -- writes the raw input with the generated records spliced in (the
     -- generator's debug gate).
@@ -229,11 +232,14 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
       IO.eprintln s!"con-leche: {file}:{line}: {msg}"
       return 3
     | .ok ⟨decls, taintSkipped, projRewrites, preludeCount,
-           preludeDropped, hoisted, inModelled, inModelGen, inModelDeclined⟩ =>
+           preludeDropped, hoisted, inModelled, genRecords, genOwner,
+           inModelGen, inModelDeclined⟩ =>
       -- the in-process modeller's receipt (task #200)
       if inModelled.size > 0 then
         IO.eprintln s!"con-leche: {inModelled.size} inductive blocks modelled \
-          in-process: {String.intercalate ", " (inModelled.toList.map toString)}"
+          in-process: {String.intercalate ", " (inModelled.toList.map toString)} \
+          ({genRecords} generated records, checked by the fold as \
+          declarations and not counted as records of the file)"
       -- the census (`CON_LECHE_INMODEL_CENSUS=1`): every mutual/nested block's
       -- outcome, then stop — the parse only, no fold
       if (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1" then
@@ -301,11 +307,15 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
       -- others, a taint-skipping stream loses more, and — since task
       -- #200 — the in-process modeller ADDS records the file does not
       -- contain, so the fold can run AHEAD of the file's index.
-      -- Measured on raw `init-full` (task #207): 53 093 declaration
-      -- records in the file against 53 118 fold positions, the +25
-      -- being `Lean.Syntax`'s generated model family (30 records) less
-      -- the 5 folded and skipped ones.  The declaration NAME on the
-      -- line is the portable handle.
+      -- Measured on raw `init-full`: 53 093 declaration records in the
+      -- file against 53 118 fold positions, the +25 being
+      -- `Lean.Syntax`'s generated model family (30 records) less the
+      -- 5 folded and skipped ones.  Since task #219 the generated
+      -- records are subtracted from the VERDICT's count (they are
+      -- declarations of the fold, never records of the file) and a
+      -- generated record that fails is named with its block; the fold
+      -- POSITION still counts them.  The declaration NAME on the line
+      -- is the portable handle.
       let tParse ← IO.monoMsNow
       if stride > 0 then
         IO.eprintln s!"con-leche: progress parse done: {decls.size - preludeCount} \
@@ -367,7 +377,10 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
         -- stream and is checked against both checkers' actual output.
         -- The environment-constant count stays on stderr under
         -- `CON_LECHE_VERBOSE=1`.
-        let streamRecords := decls.size - preludeCount + preludeDropped
+        -- ... and minus the records the in-process modeller generated
+        -- (task #219): they are checked as declarations, but they are
+        -- not in the file, and the headline number is the FILE's.
+        let streamRecords := decls.size - preludeCount + preludeDropped - genRecords
         let verboseCounts : IO Unit := do
           if (← IO.getEnv "CON_LECHE_VERBOSE").isSome then
             IO.eprintln s!"con-leche: environment: {env.consts.length} constants \
@@ -407,7 +420,14 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
         -- portable handle (`_tmp/frontier3/decl_index.py <stream>
         -- <name>` turns it into a record index and a percentage).
         let loc := if h : i < decls.size then
-            s!" [at {declCName decls[i]}, fold position {i}]"
+            let d := decls[i]
+            match d.names.findSome? (fun n => genOwner[n]?) with
+            | some T =>
+              -- a record the in-process modeller generated: the file has
+              -- no position for it, so the BLOCK it models is the handle
+              s!" [at {declCName d}, a generated model record of \
+                inductive {T}, fold position {i}]"
+            | none => s!" [at {declCName d}, fold position {i}]"
           else s!" [at fold position {i}]"
         let now ← IO.monoMsNow
         IO.eprintln s!"con-leche: {e}{loc} ({modeTag}) \
@@ -475,29 +495,32 @@ def usage : String := String.intercalate "\n" [
   "                    'con-leche: route <block> <struct|sum|fix|inmodel|modeled>'",
   "                    line",
   "                    on STDERR per inductive block, naming the route",
-  "                    the checker takes for it (the direct structure",
-  "                    route, the direct sum/indexed route, the direct",
-  "                    fixed-point route (task #188), the in-process",
-  "                    model (task #200), or a model the STREAM itself",
-  "                    carries).  tests/route-census.sh pins the",
-  "                    per-route counts over every good fixture: on a",
-  "                    raw stream no block may read 'modeled', since",
-  "                    nothing emits a _model family since task #207.",
+  "                    the checker takes for it (the fixed-point route",
+  "                    (task #188/#210), the in-process model (task",
+  "                    #200), a pinned basis block, or 'modeled' — a",
+  "                    block on NO route, which declines).",
+  "                    tests/route-census.sh pins the per-route counts",
+  "                    over every good fixture: no block may read",
+  "                    'modeled'.",
   "                    Runs on the progress lane's UNVERIFIED fold",
   "                    (above).",
   "",
   "  CON_LECHE_INMODEL=0    turn the IN-PROCESS MODELLER off (task #200).  By",
-  "                    default a mutual or nested inductive block the",
-  "                    stream carries no `_model` family for gets one",
-  "                    generated at parse time (ConLeche/Frontend/InModel/*)",
-  "                    and pushed ahead of the block; the generated",
-  "                    records are checked by the fold like any stream",
-  "                    declaration, and the block installs through the",
-  "                    modeled route.  A generator decline is the run's",
-  "                    decline, naming the class.  The route trace reads",
-  "                    `inmodel` for such a block.  DEBUG SWITCH ONLY:",
-  "                    the in-process modeller is the checker's only",
-  "                    model source (task #207), so with the flag off",
+  "                    default every mutual or nested inductive block",
+  "                    gets a model generated at parse time",
+  "                    (ConLeche/Frontend/InModel/*) and pushed ahead of",
+  "                    the block; the generated records are checked by",
+  "                    the fold like any declaration -- and counted as",
+  "                    what they are, declarations of the fold rather",
+  "                    than records of the file, so the verdict line",
+  "                    reports the file's own count (task #219).  A",
+  "                    generator decline is the run's decline, naming",
+  "                    the class.  The route trace reads `inmodel` for",
+  "                    such a block.  DEBUG SWITCH ONLY: the in-process",
+  "                    modeller is the checker's only model source --",
+  "                    a stream record named `T._model` is an ordinary",
+  "                    declaration and routes nothing (task #219) -- so",
+  "                    with the flag off",
   "                    every mutual or nested block reaches the fold",
   "                    bare and the run declines with 'no install",
   "                    route for'.",
@@ -551,13 +574,16 @@ def usage : String := String.intercalate "\n" [
   "",
   "NO PREPROCESSOR (task #207).  The input is a RAW lean4export stream:",
   "there is no external tool, no dependency and no spawn.  Every",
-  "inductive block is installed by a direct route — structures, sums,",
-  "indexed families, finitary fixed points and reflexive blocks — or",
-  "through a `_model` family the frontend generates IN-PROCESS at parse",
-  "time and then checks as ordinary declarations of the stream.  The",
-  "generator is not trusted: a wrong record is rejected or declined by",
-  "the fold, never accepted; it decides coverage only.  A block no",
-  "route takes declines (exit 2) naming its class.",
+  "inductive block is installed by the fixed-point route — structures,",
+  "sums, indexed families, finitary fixed points and reflexive blocks —",
+  "or through a `_model` family the frontend generates IN-PROCESS at",
+  "parse time and then checks as ordinary declarations.  No model is",
+  "ever read from the input (task #219): a stream record whose name",
+  "carries a `_model` component is an ordinary declaration with no",
+  "effect on any block.  The generator is not trusted: a wrong record",
+  "is rejected or declined by the fold, never accepted; it decides",
+  "coverage only.  A block no route takes declines (exit 2) naming",
+  "its class.",
   "",
   "There is ONE core at two modes and one parse: the verified mode",
   "(--verified, the default) and the unverified trusted mode",

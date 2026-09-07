@@ -60,10 +60,10 @@ def read_census(path):
         return rows
     for line in open(path):
         f = line.rstrip("\n").split("\t")
-        if len(f) < 14 or f[0] == "stream":
+        if len(f) < 13 or f[0] == "stream":
             continue
         keys = ["records", "official", "fold", "quot", "quot_axioms",
-                "tolerated", "inductive", "pinned", "modeled", "native",
+                "tolerated", "inductive", "pinned", "native",
                 "native_structures", "native_sums", "native_indexed"]
         rows[f[0]] = {k: int(v) for k, v in zip(keys, f[1:])}
     return rows
@@ -168,32 +168,35 @@ if census:
     A("enters here.  `records` is the number of declaration records in the")
     A("file; `con-leche` and `official` are what each checker's verdict line")
     A("reports on it, both derived from the file alone (see the count note")
-    A("below).  `modeled` counts blocks the STREAM carries a `_model`")
-    A("family for (0 on every stream here); `native` is the rest, which")
-    A("con-leche installs itself (a direct route, or a model it generates")
-    A("in-process), split by shape.")
+    A("below).  `pinned` counts the basis blocks the parse matches;")
+    A("`native` is every other inductive block, which con-leche installs")
+    A("itself (the fixpoint route, or a model it generates in process),")
+    A("split by shape.")
     A("")
-    A("**The `con-leche` column is the FILE's count and is lower than the")
-    A("verdict line's** on any stream with a mutual or nested block: the")
-    A("in-process modeller pushes its generated records ahead of the block")
-    A("and the fold counts them, but they are not in the file, so this")
-    A("census cannot see them.  On `init-prelude`, `grind-ring-5` and")
-    A("`init-full` the gap is exactly 30 — `Lean.Syntax`'s generated")
-    A("family; on `mathlib-full` it is 2 168, for the 51 blocks modelled")
-    A("in-process there.  (`CON_LECHE_INMODEL_DUMP`'s output censuses to")
-    A("the verdict number exactly.)  Before #207 the models arrived IN the file,")
-    A("so the two agreed.  The exit-code table above carries the verdict")
-    A("counts.")
+    A("**The `con-leche` column IS the verdict line's count.**  Between")
+    A("tasks #200 and #219 it was not: the in-process modeller pushed its")
+    A("generated records into the parsed list and the fold counted them,")
+    A("so the verdict ran ahead of the file by the size of every generated")
+    A("model family (30 on `init-prelude`, `grind-ring-5` and `init-full`")
+    A("— `Lean.Syntax`'s; 2 168 on `mathlib-full`, for the 51 blocks")
+    A("modelled in process there).  Task #219 books those records as what")
+    A("they are — declarations of the fold, never records of the file —")
+    A("and the census predicts the verdict again.  The accepted counts in")
+    A("the exit-code table above were DERIVED for that change, not")
+    A("re-measured: each con-leche cell lost exactly its stream's gap,")
+    A("which is the number this census already published.  The")
+    A("instruction cells are untouched (they do not move: the same")
+    A("records are checked, only counted differently).")
     A("")
-    A("| stream | records | con-leche | official | pinned | modeled | native | structures | sums | indexed |")
-    A("|" + "---|" * 10)
+    A("| stream | records | con-leche | official | pinned | native | structures | sums | indexed |")
+    A("|" + "---|" * 9)
     for s in stream_order:
         c = census.get(s)
         if not c:
-            A(f"| `{s}` | — | — | — | — | — | — | — | — | — |")
+            A(f"| `{s}` | — | — | — | — | — | — | — | — |")
             continue
         A(f"| `{s}` | {c['records']} | {c['fold']} | {c['official']} | "
-          f"{c['pinned']} | {c['modeled']} | {c['native']} | "
+          f"{c['pinned']} | {c['native']} | "
           f"{c['native_structures']} | {c['native_sums']} | {c['native_indexed']} |")
     A("")
 
