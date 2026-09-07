@@ -57,7 +57,7 @@ The parser is not covered by the verification.
 
 The set model we assume in `[SetTheory V]` is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form. Choice is inherited from Lean as the meta-logic. See [`ConLeche/SetTheory/Core.lean`](./ConLeche/SetTheory/Core.lean) for the precise formulation of our set theory.
 
-We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`ConLeche/SetTheory/Aczel.lean`](./ConLeche/SetTheory/Aczel.lean)); that assumption is similar to the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model).
+The interface is instantiated on Mathlib's `ZFSet` from the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model): the theorem `carneiro_implies_conleche` in [`bridge/lean4lean-model`](./bridge/lean4lean-model) (a separate Lake package, since the main development does not depend on Mathlib).
 
 Future work: The assumption that we need a ω-chain is maybe unnecessary strong. Every concrete stream has an upper bound of universe levels it needs, and we could assume only a chain of length `k`. For every concrete `k` we can prove their existence in lean without further assumptions, just not for all `k`.
 
