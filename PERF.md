@@ -31,11 +31,11 @@
 |---|---|---|---|
 | `let-ladder` | 0 / 22 | 0 / 13 | 0 / 13 |
 | `beta-ladder` | 0 / 20 | 0 / 11 | 0 / 11 |
-| `init-prelude` | 0 / 2056 | 0 / 1803 | 0 / 1803 |
-| `grind-ring-5` | 0 / 2429 | 0 / 2211 | 0 / 2211 |
+| `init-prelude` | 0 / 2056 | 0 / 1773 | 0 / 1773 |
+| `grind-ring-5` | 0 / 2429 | 0 / 2181 | 0 / 2181 |
 | `app-lam` | 0 / 34 | 0 / 21 | 0 / 21 |
-| `init-full` | 0 / 54472 | 0 / 53118 | 0 / 53118 |
-| `mathlib-full` | 0 / 670627 | 0 / 656667 | 0 / 656667 |
+| `init-full` | 0 / 54472 | 0 / 53088 | 0 / 53088 |
+| `mathlib-full` | 0 / 670627 | 0 / 654499 | 0 / 654499 |
 
 Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
 
@@ -46,32 +46,35 @@ Properties of the FILE, computed by
 enters here.  `records` is the number of declaration records in the
 file; `con-leche` and `official` are what each checker's verdict line
 reports on it, both derived from the file alone (see the count note
-below).  `modeled` counts blocks the STREAM carries a `_model`
-family for (0 on every stream here); `native` is the rest, which
-con-leche installs itself (a direct route, or a model it generates
-in-process), split by shape.
+below).  `pinned` counts the basis blocks the parse matches;
+`native` is every other inductive block, which con-leche installs
+itself (the fixpoint route, or a model it generates in process),
+split by shape.
 
-**The `con-leche` column is the FILE's count and is lower than the
-verdict line's** on any stream with a mutual or nested block: the
-in-process modeller pushes its generated records ahead of the block
-and the fold counts them, but they are not in the file, so this
-census cannot see them.  On `init-prelude`, `grind-ring-5` and
-`init-full` the gap is exactly 30 — `Lean.Syntax`'s generated
-family; on `mathlib-full` it is 2 168, for the 51 blocks modelled
-in-process there.  (`CON_LECHE_INMODEL_DUMP`'s output censuses to
-the verdict number exactly.)  Before #207 the models arrived IN the file,
-so the two agreed.  The exit-code table above carries the verdict
-counts.
+**The `con-leche` column IS the verdict line's count.**  Between
+tasks #200 and #219 it was not: the in-process modeller pushed its
+generated records into the parsed list and the fold counted them,
+so the verdict ran ahead of the file by the size of every generated
+model family (30 on `init-prelude`, `grind-ring-5` and `init-full`
+— `Lean.Syntax`'s; 2 168 on `mathlib-full`, for the 51 blocks
+modelled in process there).  Task #219 books those records as what
+they are — declarations of the fold, never records of the file —
+and the census predicts the verdict again.  The accepted counts in
+the exit-code table above were DERIVED for that change, not
+re-measured: each con-leche cell lost exactly its stream's gap,
+which is the number this census already published.  The
+instruction cells are untouched (they do not move: the same
+records are checked, only counted differently).
 
-| stream | records | con-leche | official | pinned | modeled | native | structures | sums | indexed |
-|---|---|---|---|---|---|---|---|---|---|
-| `let-ladder` | 13 | 13 | 19 | 2 | 0 | 2 | 2 | 0 | 0 |
-| `beta-ladder` | 11 | 11 | 17 | 3 | 0 | 1 | 1 | 0 | 0 |
-| `init-prelude` | 1777 | 1773 | 2056 | 5 | 0 | 121 | 104 | 14 | 3 |
-| `grind-ring-5` | 2185 | 2181 | 2429 | 4 | 0 | 101 | 78 | 16 | 7 |
-| `app-lam` | 21 | 21 | 31 | 2 | 0 | 4 | 4 | 0 | 0 |
-| `init-full` | 53093 | 53088 | 54472 | 5 | 0 | 583 | 477 | 59 | 47 |
-| `mathlib-full` | 654504 | 654499 | 670627 | 5 | 0 | 6639 | 5683 | 634 | 322 |
+| stream | records | con-leche | official | pinned | native | structures | sums | indexed |
+|---|---|---|---|---|---|---|---|---|
+| `let-ladder` | 13 | 13 | 19 | 2 | 2 | 2 | 0 | 0 |
+| `beta-ladder` | 11 | 11 | 17 | 3 | 1 | 1 | 0 | 0 |
+| `init-prelude` | 1777 | 1773 | 2056 | 5 | 121 | 104 | 14 | 3 |
+| `grind-ring-5` | 2185 | 2181 | 2429 | 4 | 101 | 78 | 16 | 7 |
+| `app-lam` | 21 | 21 | 31 | 2 | 4 | 4 | 0 | 0 |
+| `init-full` | 53093 | 53088 | 54472 | 5 | 583 | 477 | 59 | 47 |
+| `mathlib-full` | 654504 | 654499 | 670627 | 5 | 6639 | 5683 | 634 | 322 |
 
 ## the Mathlib row, as data (not a measurement)
 

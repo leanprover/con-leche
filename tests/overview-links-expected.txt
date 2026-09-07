@@ -6,7 +6,7 @@
 # link or the prose, then regenerate.
 
 == Main.lean#L419
-   419  def usage : String := String.intercalate "\n" [
+   419          -- portable handle (`_tmp/frontier3/decl_index.py <stream>
 
 == Main.lean#L37
     37  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -23,19 +23,19 @@
     86  #print axioms ConLeche.no_proof_of_False
 
 == ConLeche/Frontend/ExportC.lean#L884
-   884  def parseExportStreamD (path : System.FilePath)
+   884    for line in contents.splitToList (· == '\n') do
 
 == Main.lean#L331
-   331            pure (ConLeche.Cached.checkDeclsSPCachedD mode decls.toList)
+   331            IO.eprintln s!"con-leche: progress fold done: {reached}/\
 
 == ConLeche/Cached/ParsedC.lean#L276-L279
-   276  `checkDeclsSPCachedD mode ds = .ok env` is the same sentence it was, so
-   277  `no_proof_of_Empty_SPCD_P` and the agreement floor keep their
-   278  statements verbatim and reach the plain fold through `foldIdxC_ok`
-   279  below. -/
+   276  `no_proof_of_Empty_SPCD_P` and the agreement floor keep their
+   277  statements verbatim and reach the plain fold through `foldIdxC_ok`
+   278  below. -/
+   279  def checkDeclsSPCachedD (mode : CheckMode) (ds : List DeclC) :
 
 == ConLeche/Cached/ParsedC.lean#L244
-   244  the `CheckError` together with `i`, the fold position of the
+   244  declaration that failed.  On the accepting side it is
 
 == ConLeche/Verify/Cached/MainC.lean#L155-L163
    155  theorem checkDeclsSPCachedD_sound_P (hμ : μ.verifiedChecks = true)
@@ -100,14 +100,14 @@
   2655            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/SetP/FoldP.lean#L291-L298
-   291  whose stored declaration and leaf are fixed by the pin, so — exactly as
-   292  for `Empty` — the statement carries no hypothesis about how the stream
-   293  declared `False`.  Hypotheses are input-level only: the validating
-   294  mode, the accepted run, the stored constant, its type. -/
-   295  theorem no_proof_of_False_P (V : Type w) [SetTheory V]
-   296      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   297      {ds : List Declaration} {env' : Env}
-   298      (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+   291      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   292      {ds : List Declaration} {env' : Env}
+   293      (h : checkDecls μ (fueledOps μ F) ds = .ok env') :
+   294      ∀ c ∈ env'.consts,
+   295        c.toConstantVal.type = .const falseName [] → False := by
+   296    obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ h
+   297    exact fun c hc hty => no_constant_of_False_P mp c hc hty
+   298  
 
 == ConLeche/SetP/FoldP.lean#L158
    158  theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
@@ -183,7 +183,7 @@
    103    deriving DecidableEq, Repr, Hashable
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1268
-  1268  theorem checkDeclsSPCachedD_skels {mode : CheckMode} {ds : List DeclC}
+  1268  `.trusted` / `.verified` (`trusted_agrees_P_skels_shipped`). -/
 
 == ConLeche/VExpr/Syntax.lean#L165-L179
    165  inductive VExpr where
