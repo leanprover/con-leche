@@ -61,7 +61,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     (h : Lech.Semantics.DeclDirectFixRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨-, hwl, hnd, cvTa, env₁, p₁, ctorsA, cvRa, rhss, tfvs, trest, isorts, hInd, hsort,
     hopT2, hsorts, hCtors, hFOk, hRec, rfl⟩ := h
-  obtain ⟨hshape, -, hlenK, hguard, hpos⟩ := Lech.directFixParts?_inv hdp
+  obtain ⟨hshape, -, hlenK, hpos⟩ := Lech.directFixParts?_inv hdp
   obtain ⟨hProp, -, hClps, -, -, helimR, hRlps, -, -⟩ := Lech.directFixShape?_inv hshape
   -- the former: its run completed the record with the sort it read
   -- (task #195), pinned equal to the syntactic one — so the record is
