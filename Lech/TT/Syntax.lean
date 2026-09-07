@@ -146,20 +146,16 @@ inductive BConst where
   elimination into `Sort u` (no `Nonempty`, which is a modeled
   inductive and unfolds). -/
   | choice
-  /-- `lfp.{u} : (Sort u → Sort u) → Sort u` — the least pre-fixed point
-  of a set-level functor inside `Sort u` (task #188: the carrier of a
-  directly installed recursive inductive type).  A model-side constant
-  with no kernel counterpart: no stream declares it, only the direct
-  route's leaves spell it.  Its value is total (`lfpSet`, the empty set
-  when the functor has no closed member), so it inhabits this type with
-  no certificate; the fixed-point laws hold under the semantic
-  hypothesis that a closed member exists. -/
-  | lfp
   /-- `lfpFam.{u,w} : Π (I : Sort u), ((I → Sort w) → (I → Sort w)) → I → Sort w`
   — the least pre-fixed point of a functor on FAMILIES over `I` (task
-  #188, indexed: the carrier of a directly installed recursive family,
-  `lfpFamSet`, `Lech/SetTheory/Derive/LfpFam.lean`).  Model-side only, like
-  `lfp`; total (the empty family when no closed family exists). -/
+  #188: the carrier of a directly installed recursive inductive type,
+  indexed from the start — `lfpFamSet`, `Lech/SetTheory/Derive/LfpFam.lean`).
+  A model-side constant with no kernel counterpart: no stream declares
+  it, only the direct route's leaves spell it.  Its value is total (the
+  empty family when no closed family exists), so it inhabits this type
+  with no certificate; the fixed-point laws hold under the semantic
+  hypothesis that a closed family exists.  (The non-indexed `lfp` of
+  the route's checkpoint was removed once the indexed leaf landed.) -/
   | lfpFam
   deriving Repr, DecidableEq, Inhabited
 
@@ -224,7 +220,7 @@ of a rule. -/
 def BConst.numLevels : BConst → Nat
   | .nat | .natZero | .natSucc | .propext => 0
   | .natRec | .punit | .punitUnit | .empty
-  | .quot | .quotMk | .quotInd | .quotSound | .choice | .lfp => 1
+  | .quot | .quotMk | .quotInd | .quotSound | .choice => 1
   | .lfpFam => 2
   | .punitRec | .psigma | .psigmaMk
   | .emptyRec | .quotLift => 2

@@ -99,11 +99,6 @@ noncomputable def choiceV (u : Nat) : V :=
   lamC (univ u) fun A =>
     lamC (piC (piC A fun _ => empty) fun _ => empty) fun _ => schoice A
 
-/-- `lfp.{u}` (task #188): the least pre-fixed point of a set-level
-functor inside `Sort u` (`lfpSet`, `Lech/SetTheory/Derive/Lfp.lean`). -/
-noncomputable def lfpV (u : Nat) : V :=
-  lamC (piC (univ u) fun _ => univ u) fun F => lfpSet u F
-
 /-- `lfpFam.{u,w}` (task #188, indexed).  The collapsed model is not the
 one the direct routes are proved against (they live on the P tier), so
 the inhabitant here is the EMPTY family — any member of the type will
@@ -315,7 +310,6 @@ noncomputable def bval : BConst → List Nat → V
   | .quotSound, _ => pt
   | .propext, _ => pt
   | .choice, us => choiceV V (lv us 0)
-  | .lfp, us => lfpV V (lv us 0)
   | .lfpFam, us => lfpFamV V (lv us 0) (lv us 1)
 
 end Lech.TT

@@ -51345,3 +51345,214 @@ later recursive field's domain or of the constructor's result) — the
 grading of the functor at an arbitrary family `X` needs the index
 expressions typed at frames whose recursive slots hold junk; violators
 fall through to the modeled path (`.unsupported`), they are not declined.
+
+### LANDED (2026-09-07): the P tier, the assembly, the fold arm — the route is verified end to end
+
+**What the shipped checker does.** `checkDecl`'s `.indDecl` clause
+dispatches in three stages (`directParts?` structures, then
+`directSumParts?` sums, then `directFixParts?` recursive types —
+`Lech/Kernel/Direct/RecParts.lean`); a recursive block whose
+constructors' fields are ordinary or *finitary recursive at the
+family's own index expressions* (`recCtorKinds`, positivity mirroring
+official `check_positivity`; `.negative` rejects, `.unsupported` —
+reflexive, nested, an index expression through the block, a recursive
+field mentioned by anything after it — falls through to the modeled
+path, it is NOT a decline) installs natively: the former by the sum
+route's stage, the constructors by the sum route's stage at the
+former's environment with a positivity re-check on the annotated
+types (`directFixFieldsOk`), the recursor generated with ih minors
+(`directRecTyR`, `directMinorTyR`, `directIhPis`) and the rules
+(`directRuleBodyR`) scoped, not inferred (`checkDirectFixRules`), and
+compared by one `isDefEq` against the stream's recursor
+(`Lech/Kernel/Direct/RecInstall.lean`, `RecInstallF.lean`).  The
+`Prop`-valued large eliminator: `elim_only_at_universe_zero` as at the
+sum route (a provably nonzero sort, the one-constructor `Prop` case
+declined).  `lech-preprocess`'s predicate `lechNativeFix`
+(`LechPreprocess.lean`) is the recogniser mirrored conjunct for
+conjunct, so the regenerated stream carries no `_model` artifact for a
+block in the class.
+
+**The P tier (`Lech/SetP/DirectFix/*`, 26 modules) and its
+decisions.**
+
+* *The leaf's fields versus the real fields (`Fss₀` / `Fss`).*  The
+  former's leaf `directFixTyAVI u w pps Ids rss Eiss Fss₀ Ess` is read
+  at a carrier where the constructors' recursive field domains cannot
+  yet be read as the family (the former is what is being installed).
+  So the former is staged TWICE: first the sum route's stage with the
+  empty chain list (a dummy leaf; there the constructors' data —
+  `FixCtorDataI`: domains, index readings, the recursive slots' index
+  expressions `Eiss`, the openings — and the former's index telescope
+  (`idxOk_of`/`idxValid_of`) are read), then the fixed-point stage
+  `stageFixFormer` over the X-chains built from that data: the leaf's
+  X-chains use the dummy-read fields `Fss₀` only at the ordinary
+  positions and `X ⟨e⃗_i⟩` at the recursive ones, so what the dummy leaf
+  put in a recursive slot is irrelevant.  The constructors' data is
+  then re-read at the real former (`Fss`) and identified with the
+  dummy data everywhere except at the recursive slots
+  (`fixCtorDataI_ident`: openings and residual index arguments are
+  syntactic; `Es`, `Eiss` and the ordinary domains mention no former,
+  `denoteP_acvalWith_unmentioned₂` + `DenoteSpineP.congr`); the
+  recursive slots' real readings are the family at the index tuple
+  (`recEntry` + `fixLeafApp`), which is `ChainsRealI … Fss₀ Fss Ess`
+  (`chainRealI_of`) — the hypothesis under which the family's fibre
+  unfolds to the sum route's restricted tagged union over the REAL
+  fields (`fixFamI_app_eq_sum`), which is exactly the fold the
+  constructors' stage consumes (`ctorsLoopGen`, the sum's loop with
+  the leaf abstract and an invariant threaded across the conses:
+  every constructor's `FixCtorDataI` crossing each cons,
+  `FixCtorDataI.cross`).  Every recursor-side module carries the split
+  (`FixPre V ℓ w u nP Fss Ess Fss₀ …`, `FixKI₀ … Fss Ess Fss₀ …`).
+* *The recursor leaf's sort is a parameter.*  `FixRecI` spells the
+  fixed point on the sigma type at sort `s` with `hs0 : s = 0 ↔ ℓ = 0`
+  and `hRecTy : … ∈ univ s`; the assembly supplies `s := fixSortAV
+  elimL u lps ψ` — `0` when the elimination level is zero, else
+  `max 1 (u.eval (restrictΨ lps ψ))` where `u` is the sort the
+  install read for the recursor's type (`fixRecData_of`).
+  `restrictΨ lps ψ` (`ψ` zeroed outside the constant's level
+  parameters) is how a sort or a tuple universe read at `ψ` becomes a
+  function of the constant's own parameters (`hUparams`, the carrier's
+  `params` law) without a lemma that the read levels mention only
+  them; the same trick gives `uAV ψ := idxUniv (restrictΨ …) isorts`
+  for the index tuple's universe.
+* *The rules are graded semantically.*  The kernel scopes a rule at
+  the environment holding the recursor's rule-less cons and does not
+  infer it; `fixRuleOkP` proves `AnnotOkP` of the rule's reading
+  (`mkLamsAV (fixRuleDataAV …) (fixRuleCoreAV R …)`) from the
+  recursor leaf's facts (`ihAppAV_facts`: the ih application at a
+  field spine reads into the motive at the recursive field's value,
+  through `chainRealI_at`), the constructor data and the K-frame split
+  (`fixBlock_split`) — no kernel change.  The rule's reading at the
+  cons (`fixRuleData_of`) needs the constructor readings to cross the
+  cons (`CtorReadsR.cross`) and the environment-bound facts
+  (`ConstsBound`, monotone along `cons`).
+* *The shadow context* (`FixShadowP`): the grading of the functor at an
+  arbitrary family `X` needs the constructor's later binders graded at
+  frames whose recursive slots hold junk; the shadow context replaces
+  each recursive slot's domain by `pt`'s type and the opened-form
+  guard (`directFixOpenedOk` → `FixOpened`) is what makes every later
+  binder and every index expression leaf-free of the recursive
+  variables (`noBVar_of_leaf_free`), so their readings are the same at
+  the shadow frame (`ChainFacts.nb/nbE/nbEs`).
+* *Index sorts.*  The former's index binders' sorts are the ones
+  `checkDirectFieldSortsI` read at the former's opened telescope
+  (`idxOk_of` joins them into `idxUniv`); the run relation
+  (`DeclDirectFixRun`) records that check.
+* *The assembly* (`DeclDirectFixP.lean`): `declDirectFixP hμ mp hE hdp
+  h : Nonempty (EnvS2PM V μ env₂)`, the `directFixParts?` arm of the P
+  fold (`FoldP.lean`).  Its kit (`FixAssemblyKitP.lean`): the two
+  routes' data lists identified (`fssOfR_fixCtorDataList`,
+  `essOfR_fixCtorDataList`), the chain validity facts
+  (`fixChainValidFacts_of`, the validity halves of the shadow
+  gradings), the X-chains of all constructors from the per-constructor
+  facts (`xChainsOk_of`), the data functions chosen per constructor
+  (`fixCtorFuns_of`, `FixCtorPick`).
+
+**The non-indexed `lfp` basis constant is GONE.**  The indexed leaf
+spells `lfpFam` only; the checkpoint's `lfp` (`BConst.lfp`, `lfpV`,
+`lfpV2`, their membership laws) was dead and is removed from
+`TT/Syntax`, `TT/Const`, `TT/Semantics/Value`, `TT/Semantics/ConstOk`,
+`SetModel/Value`, `Semantics/BasisType`, `Semantics/BasisOk`
+(`Lech/SetTheory/Derive/Lfp.lean` stays: `LfpFam.lean` builds on it).
+
+**Restrictions (findings, per the rule that provability-driven
+deviations are reported).**
+1. A recursive field may not be mentioned by any later binder domain
+   nor by any index expression (a later recursive field's or the
+   constructor's result): `.unsupported`, modeled path.  Official
+   accepts such blocks; the route's functor grading at junk families
+   needs the leaf-freeness.  On init-full no block in the class is
+   lost to it (every recursive non-reflexive non-nested block goes
+   native, census below).
+2. Reflexive constructors (a field `… → T p⃗ e⃗`) are `.unsupported` —
+   the modeled path, NOT a decline (the coordinator's directive: all
+   inductives are to be covered; task #202 extends the fixpoint route
+   to them, see "What #202 needs" below).
+3. A `Prop`-valued block with one constructor and a large eliminator
+   is DECLINED (exit 2): `elim_only_at_universe_zero`'s subsingleton
+   case, as at the sum route (`direct_fix_prop_large`,
+   `direct_fix_acc_large`).  `Acc` in init-full is this case and stays
+   on the preprocessor.
+
+**Files by layer** (branch `agent/recursive`, 69 commits on master
+`916158e3`).  Kernel: `Lech/Kernel/Direct/{RecParts,RecInstall,
+RecInstallF}.lean` (new), `Lech/Kernel/Checker.lean`,
+`Lech/Cached/{CheckerC,ParsedC}.lean` (the dispatch arm),
+`LechPreprocess.lean` (`lechNativeFix`).  Verify:
+`Lech/Verify/Direct/{FixInv,FixParts,FixRec,FixWF}.lean` (new),
+`Lech/Verify/{BridgeDecl,BridgeDeclPair,CheckerF,EnvWF}.lean`,
+`Lech/Verify/Cached/*` (the bridge twins).  SetTheory:
+`Lech/SetTheory/Derive/{Lfp,LfpFam}.lean` (new), `Basic.lean`.
+SetModel: `Iter.lean`, `TowerMono.lean` (new), `Value.lean`
+(`lfpFamV2`).  Semantics: `NoBVar.lean`, `Tower/{FixLeafI,FixFamI,
+FixCaseI,FixRecI,FixWire}.lean`, `Direct/DeclDirectFix.lean` (new),
+`BasisType/BasisOk`, `Tower/*` and `Direct/DeclDirectSumEta.lean`
+(the η closure of the arm), `Bridge/*`, `TT/{Syntax,Const}`,
+`TT/Semantics/*` (`lfpFam`).  SetP: `Lech/SetP/DirectFix/*` (26 new
+modules), `Lech/SetP/DirectSum/*` (`RecHypCore` split, `stageCtorGen`,
+`ctorFramesGen`, `motive_validV` generalised), `FoldP.lean`.  Tests:
+`tests/e2e/direct_fix_{nat,tree,prop,prop_large,nat_neg_bad,
+nat_ih_bad,vec,le,acc_large,vec_ih_idx_bad}.ndjson` (+ sources,
+generators `scripts/mk_direct_fix_bad.py`, `mk_direct_fix_idx_bad.py`),
+`tests/e2e-expected.txt`, `tests/proofdeps-expected.txt`.
+
+**Gates at the branch tip.**
+* `lake build`: exit 0, warning-free.  `lake test`: exit 0, the axiom
+  pin (11 theorems at `[propext, Classical.choice, Quot.sound]`).
+* `tests/arena.sh`: exit 0 — `tests/proofdeps-expected.txt`
+  regenerated ONCE: the route's 44 modules (kernel `RecParts/
+  RecInstall/RecInstallF`, the four `Verify/Direct/Fix*`,
+  `Derive/{Lfp,LfpFam}`, `SetModel/{Iter,TowerMono}`,
+  `Semantics/{NoBVar, Tower/Fix*, Direct/DeclDirectFix}`, the 26
+  `SetP/DirectFix/*`) enter all seven roots (2 828 rows, 0 doors
+  after; no row left); arena tutorial 90/92 (032/033 declined by
+  design); e2e 106/106; annot 14/14; retired flags 8/8; mode flags
+  16/16; progress lane 6/6; trusted sweep `138 arena + 106 e2e + 14
+  annot as expected (3 recorded divergences)`; layering `base 273 /
+  P 193 / caps 3 / umbrella 1; 0 base->lane edges, 0 impl->theory`;
+  trust surface 18 escapes in 4 allowlisted files (477 scanned), 0
+  outside.
+* init-full, stock stream (`init-full-pre.ndjson`, `--pre`, 16 GB
+  cap): `--verified` 60 549 accepted (exit 0), `--trusted` 60 549
+  (exit 0) — unchanged.
+* init-full REGENERATED with the widened `lech-preprocess`
+  (`init-full-pre-fix.ndjson`, from the raw `init-full.ndjson`):
+  `--verified` 55 074 accepted (exit 0), `--trusted` 55 074
+  (exit 0).  The 761 declarations fewer than the sum-types stream
+  (55 835) are the `_model` artifacts of the recursive blocks, no
+  longer emitted.  Native-block census of the regenerated stream
+  (blocks by kind, native iff no `T._model` in the stream): **585
+  native of 592** — 479 structures, 43 of 44 sums (`Eq` reserved), 14
+  indexed families, **18 recursive + 31 recursive indexed = all 49
+  recursive non-reflexive non-nested blocks** (`List`, `Nat.le`,
+  `List.Mem`, `List.Perm`, `List.Sublist`, `Lean.Name`, `Std.Format`,
+  `Lean.ParserDescr`, the `Grind`/`Linear` expression trees, the
+  `.below` auxiliaries, …); modeled: 4 reflexive, 1 mutual, 1 nested.
+  (The stock stream has 4 native blocks; the sum-types stream 552.)
+* Mathlib slices (stock-preprocessed): `diseq-slice-pre.ndjson`
+  `--verified` 1 790 / `--trusted` 1 790 (exit 0);
+  `sigmahom-comp-slice-pre.ndjson` 1 296 / 1 296 (exit 0) — unchanged.
+
+**What #202 (reflexive constructors) needs on top.**  The tower
+functor gains function-space fields into fibres (a slot
+`Π a⃗ : A⃗, X ⟨e⃗(a⃗)⟩`, `A⃗` free of the block); `lfpFamSet`'s closure
+witness can no longer be the ω-iterate (an infinitary constructor's
+member has components at unboundedly many stages): the witness is the
+universe bound through the Tarski-form field of `SetTheory` (the
+choice to be recorded when made); the recursor stays
+membership-well-founded recursion with the ih for a function field
+pointwise (`ih : ∀ a⃗, motive ⟨e⃗(a⃗)⟩ (f a⃗)`) — `FixCaseI`'s ih argument
+becomes a λ over the field's domain applied to the recursive call, and
+`FixRecI`'s rank recursion over the ω-iterate is replaced by the
+well-founded one.  Kernel side: `recCtorKinds` gains `.reflexive`,
+`directIhPis` the pointwise ih, `lechFixFieldsOk` in lockstep.  The
+`Acc` target (priority, it keeps init-full on the preprocessor) is
+ALSO the one-constructor `Prop` large-elimination case (finding 3):
+official admits it by the subsingleton criterion (every field of the
+one constructor is `Prop`-valued or appears in the result's indices),
+so #202 needs that clause in the route's `elim_only_at_universe_zero`
+mirror and its model — a `Prop`-family fibre has at most one member,
+and the large recursor's fixed point at that member is what the
+subsingleton case must produce.  Further targets: `Acc.below`,
+`Lean.Order.iterates`, `WType`, `PSet`; a census of Mathlib's 41
+reflexive blocks.
