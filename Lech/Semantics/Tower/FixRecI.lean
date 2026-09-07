@@ -333,7 +333,7 @@ def substProjAt (m : Nat) : Nat → AVExpr → AVExpr
 omit [SetTheory V] in
 theorem substProjAt_zero : ∀ (i : Nat) (e : AVExpr), substProjAt 0 i e = substProj i e
   | 0, _ => rfl
-  | i + 1, e => substProjAt_zero i _
+  | i + 1, _ => substProjAt_zero i _
 
 /-- A recursive field's telescope at the payload frame: binder `k`'s
 domain lifted past the `(p⃗, M, m⃗)` block under the `i` field variables

@@ -1,5 +1,6 @@
 import Lech.SetP.DirectSum.SumRecReadP
 import Lech.SetP.DirectFix.FixDataP
+import Lech.Semantics.Tower.FixRecI
 
 /-!
 # The generated recursive recursor's readings: the targets (task #188)
@@ -37,17 +38,72 @@ fields — `directIdxAt`'s reading. -/
 def ihIdxAt (nF o i l : Nat) (E : AVExpr) : AVExpr :=
   (E.liftN (nF - i + l) 0).liftN o (nF + l)
 
+/-- `directIdxAt nF o i l m`'s reading: field `i`'s expression sitting
+under `m` binders of the field's own telescope, moved as `ihIdxAt`
+moves it (task #202). -/
+def ihIdxAtM (nF o i l m : Nat) (E : AVExpr) : AVExpr :=
+  (E.liftN (nF - i + l) m).liftN o (nF + l + m)
+
+theorem ihIdxAtM_zero (nF o i l : Nat) (E : AVExpr) : ihIdxAtM nF o i l 0 E = ihIdxAt nF o i l E :=
+  rfl
+
+/-- `directTeleAt`'s reading: field `i`'s telescope (its entries read
+at the field's own frame, binder `k` under `k` earlier telescope
+binders) moved to the ih binder's frame. -/
+def ihTeleAtGo (nF o i l : Nat) : Nat → List (Nat × Nat × AVExpr) → List (Nat × Nat × AVExpr)
+  | _, [] => []
+  | k, d :: tl => (d.1, d.2.1, ihIdxAtM nF o i l k d.2.2) :: ihTeleAtGo nF o i l (k + 1) tl
+
+/-- The whole telescope moved (binder `k` under `k` earlier ones). -/
+def ihTeleAtR (nF o i l : Nat) (tl : List (Nat × Nat × AVExpr)) : List (Nat × Nat × AVExpr) :=
+  ihTeleAtGo nF o i l 0 tl
+
+@[simp] theorem ihTeleAtR_nil (nF o i l : Nat) : ihTeleAtR nF o i l [] = [] := rfl
+
+theorem ihTeleAtGo_length (nF o i l : Nat) :
+    ∀ (k : Nat) (tl : List (Nat × Nat × AVExpr)), (ihTeleAtGo nF o i l k tl).length = tl.length
+  | _, [] => rfl
+  | k, _ :: tl => by simp [ihTeleAtGo, ihTeleAtGo_length nF o i l (k + 1) tl]
+
+theorem ihTeleAtR_length (nF o i l : Nat) (tl : List (Nat × Nat × AVExpr)) :
+    (ihTeleAtR nF o i l tl).length = tl.length := ihTeleAtGo_length nF o i l 0 tl
+
+theorem mem_ihTeleAtGo {nF o i l : Nat} :
+    ∀ {k : Nat} {tl : List (Nat × Nat × AVExpr)} {d : Nat × Nat × AVExpr},
+      d ∈ ihTeleAtGo nF o i l k tl → ∃ d' ∈ tl, d.2.1 = d'.2.1
+  | _, [], _, h => nomatch h
+  | k, d' :: tl, d, h => by
+    simp only [ihTeleAtGo, List.mem_cons] at h
+    rcases h with rfl | h
+    · exact ⟨d', List.mem_cons_self, rfl⟩
+    · obtain ⟨d'', hd'', he⟩ := mem_ihTeleAtGo h
+      exact ⟨d'', List.mem_cons_of_mem _ hd'', he⟩
+
 /-- The ih binder's domain for recursive field `i` at ih position `l`:
-the motive at the field's index readings and the field. -/
-def ihDomAV (nF o i l : Nat) (Eis : List AVExpr) : AVExpr :=
-  AVExpr.mkAppN (.bvar (nF + o - 1 + l))
-    (Eis.map (ihIdxAt nF o i l) ++ [.bvar (nF - 1 - i + l)])
+under the field's telescope, the motive at the field's index readings
+and the field applied to the telescope's variables (a finitary field:
+the motive at the readings and the field). -/
+def ihDomAV (nF o i l : Nat) (tl : List (Nat × Nat × AVExpr)) (Eis : List AVExpr) : AVExpr :=
+  mkPisAV (ihTeleAtR nF o i l tl)
+    (AVExpr.mkAppN (.bvar (nF + o - 1 + l + tl.length))
+      (Eis.map (ihIdxAtM nF o i l tl.length) ++
+        [AVExpr.mkAppN (.bvar (nF - 1 - i + l + tl.length)) (teleVarsAV tl.length)]))
+
+theorem ihDomAV_nil (nF o i l : Nat) (Eis : List AVExpr) :
+    ihDomAV nF o i l [] Eis
+      = AVExpr.mkAppN (.bvar (nF + o - 1 + l))
+          (Eis.map (ihIdxAt nF o i l) ++ [.bvar (nF - 1 - i + l)]) := by
+  simp only [ihDomAV, ihTeleAtR_nil, mkPisAV, List.length_nil, Nat.add_zero, teleVarsAV,
+    List.range_zero, List.map_nil, AVExpr.mkAppN]
+  rfl
 
 /-- The ih binders' Π-tower over the recursive positions. -/
-def ihPisAV (nF o b : Nat) (Eiss : List (List AVExpr)) : List Nat → Nat → AVExpr → AVExpr
+def ihPisAV (nF o b : Nat) (tls : List (List (Nat × Nat × AVExpr))) (Eiss : List (List AVExpr)) :
+    List Nat → Nat → AVExpr → AVExpr
   | [], _, body => body
   | i :: is, l, body =>
-    .pi 0 b (ihDomAV nF o i l (Eiss.getD i [])) (ihPisAV nF o b Eiss is (l + 1) body)
+    .pi 0 b (ihDomAV nF o i l (tls.getD i []) (Eiss.getD i []))
+      (ihPisAV nF o b tls Eiss is (l + 1) body)
 
 /-- The minor premise's domain reading at a recursive block: the
 constructor's field data lifted `o` under (bits reset to `b`), the ih
@@ -55,9 +111,9 @@ binders, the motive at the constructor's index readings and spine
 lifted above the ih binders. -/
 def minorAVAtR {env : Env} (m : EnvS2Core V env) (C : Name) (ψ : Name → Nat) (nP nF b o : Nat)
     (ds : List (Nat × Nat × AVExpr)) (Es : List AVExpr) (recIdx : List Nat)
-    (Eiss : List (List AVExpr)) : AVExpr :=
+    (tls : List (List (Nat × Nat × AVExpr))) (Eiss : List (List AVExpr)) : AVExpr :=
   mkPisAV (rebit b (liftDoms o 0 (ds.drop nP)))
-    (ihPisAV nF o b Eiss recIdx 0
+    (ihPisAV nF o b tls Eiss recIdx 0
       ((AVExpr.mkAppN (.bvar (nF + o - 1))
         ((Es.map fun E => E.liftN o nF) ++
           [AVExpr.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)])).liftN
@@ -65,27 +121,29 @@ def minorAVAtR {env : Env} (m : EnvS2Core V env) (C : Name) (ψ : Name → Nat) 
 
 /-- A recursive constructor datum: name, field count, field data,
 index readings, recursive positions, per-field index-expression
-readings. -/
+readings, per-field telescopes (empty at a finitary field; task
+#202). -/
 abbrev CtorDatumR :=
-  Name × Nat × List (Nat × Nat × AVExpr) × List AVExpr × List Nat × List (List AVExpr)
+  Name × Nat × List (Nat × Nat × AVExpr) × List AVExpr × List Nat × List (List AVExpr) ×
+    List (List (Nat × Nat × AVExpr))
 
 /-- The minor entries, one per constructor datum, from offset `o`. -/
 def fixMinorsData {env : Env} (m : EnvS2Core V env) (ψ : Name → Nat) (nP b : Nat) :
     List CtorDatumR → Nat → List (Nat × Nat × AVExpr)
   | [], _ => []
-  | (C, nF, ds, Es, recIdx, Eiss) :: cs, o =>
-    (0, b, minorAVAtR m C ψ nP nF b o ds Es recIdx Eiss) :: fixMinorsData m ψ nP b cs (o + 1)
+  | (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o =>
+    (0, b, minorAVAtR m C ψ nP nF b o ds Es recIdx tls Eiss) :: fixMinorsData m ψ nP b cs (o + 1)
 
 theorem fixMinorsData_length {m : EnvS2Core V env} {ψ : Name → Nat} {nP b : Nat} :
     ∀ (cds : List CtorDatumR) (o : Nat), (fixMinorsData m ψ nP b cds o).length = cds.length
   | [], _ => rfl
-  | (_, _, _, _, _, _) :: cs, o => by simp [fixMinorsData, fixMinorsData_length cs (o + 1)]
+  | (_, _, _, _, _, _, _) :: cs, o => by simp [fixMinorsData, fixMinorsData_length cs (o + 1)]
 
 theorem mem_fixMinorsData {m : EnvS2Core V env} {ψ : Name → Nat} {nP b : Nat} :
     ∀ {cds : List CtorDatumR} {o : Nat} {d : Nat × Nat × AVExpr},
       d ∈ fixMinorsData m ψ nP b cds o → d.2.1 = b
   | [], _, _, h => nomatch h
-  | (_, _, _, _, _, _) :: cs, o, d, h => by
+  | (_, _, _, _, _, _, _) :: cs, o, d, h => by
     simp only [fixMinorsData, List.mem_cons] at h
     rcases h with rfl | h
     · rfl
@@ -95,10 +153,10 @@ theorem fixMinorsData_getElem? {m : EnvS2Core V env} {ψ : Name → Nat} {nP b :
     ∀ (cds : List CtorDatumR) (o j : Nat),
       (fixMinorsData m ψ nP b cds o)[j]?
         = (cds[j]?).map fun cd => (0, b, minorAVAtR m cd.1 ψ nP cd.2.1 b (o + j) cd.2.2.1 cd.2.2.2.1
-            cd.2.2.2.2.1 cd.2.2.2.2.2)
+            cd.2.2.2.2.1 cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
   | [], _, _ => rfl
-  | (C, nF, ds, Es, recIdx, Eiss) :: cs, o, 0 => by simp [fixMinorsData]
-  | (C, nF, ds, Es, recIdx, Eiss) :: cs, o, j + 1 => by
+  | (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, 0 => by simp [fixMinorsData]
+  | (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, j + 1 => by
     simp only [fixMinorsData, List.getElem?_cons_succ]
     rw [fixMinorsData_getElem? cs (o + 1) j]
     congr 2
@@ -146,20 +204,42 @@ def recPrefixBvars (nP n nF : Nat) : List AVExpr :=
   paramBvarsAt nP (nP + nF + n + 1) ++ [.bvar (nF + n)] ++
     (List.range n).map fun l => AVExpr.bvar (nF + n - 1 - l)
 
-/-- The ih application in a rule for recursive field `i`: the recursor's
-leaf `R` at the block's variables, the field's index readings moved
-under the fields (with the motive and `n` minors as the extras) and the
-field. -/
-def ihAppAV (R : AVExpr) (nP n nF i : Nat) (Eis : List AVExpr) : AVExpr :=
-  AVExpr.mkAppN R (recPrefixBvars nP n nF ++ Eis.map (ihIdxAt nF (n + 1) i 0) ++
-    [.bvar (nF - 1 - i)])
+/-- The recursor's leading spine under `m` more binders
+(`directRecPrefixAt nP n nF m`'s reading). -/
+def recPrefixBvarsM (nP n nF m : Nat) : List AVExpr :=
+  paramBvarsAt nP (nP + nF + n + 1 + m) ++ [.bvar (nF + n + m)] ++
+    (List.range n).map fun l => AVExpr.bvar (nF + n - 1 - l + m)
+
+theorem recPrefixBvarsM_zero (nP n nF : Nat) : recPrefixBvarsM nP n nF 0 = recPrefixBvars nP n nF := by
+  simp [recPrefixBvarsM, recPrefixBvars]
+
+/-- The ih application in a rule for recursive field `i`: under the
+field's telescope (a λ-tower with the telescope's own bits), the
+recursor's leaf `R` at the block's variables, the field's index
+readings moved under the fields (with the motive and `n` minors as the
+extras) and the field applied to the telescope's variables (a finitary
+field: no telescope). -/
+def ihAppAV (R : AVExpr) (nP n nF i : Nat) (tl : List (Nat × Nat × AVExpr)) (Eis : List AVExpr) :
+    AVExpr :=
+  mkLamsAV ((ihTeleAtR nF (n + 1) i 0 tl).map fun d => (d.2.1, d.2.2))
+    (AVExpr.mkAppN R (recPrefixBvarsM nP n nF tl.length ++
+      Eis.map (ihIdxAtM nF (n + 1) i 0 tl.length) ++
+      [AVExpr.mkAppN (.bvar (nF - 1 - i + tl.length)) (teleVarsAV tl.length)]))
+
+theorem ihAppAV_nil (R : AVExpr) (nP n nF i : Nat) (Eis : List AVExpr) :
+    ihAppAV R nP n nF i [] Eis
+      = AVExpr.mkAppN R (recPrefixBvars nP n nF ++ Eis.map (ihIdxAt nF (n + 1) i 0) ++
+          [.bvar (nF - 1 - i)]) := by
+  simp only [ihAppAV, ihTeleAtR_nil, List.map_nil, mkLamsAV, List.length_nil, recPrefixBvarsM_zero,
+    Nat.add_zero, teleVarsAV, List.range_zero, AVExpr.mkAppN]
+  rfl
 
 /-- Rule `j`'s core at a recursive block: minor `j` at the field
 variables and the ih applications. -/
-def fixRuleCoreAV (R : AVExpr) (nP nF n j : Nat) (recIdx : List Nat) (Eiss : List (List AVExpr)) :
-    AVExpr :=
+def fixRuleCoreAV (R : AVExpr) (nP nF n j : Nat) (recIdx : List Nat)
+    (tls : List (List (Nat × Nat × AVExpr))) (Eiss : List (List AVExpr)) : AVExpr :=
   AVExpr.mkAppN (.bvar (nF + n - 1 - j))
-    (fieldBvars nF ++ recIdx.map fun i => ihAppAV R nP n nF i (Eiss.getD i []))
+    (fieldBvars nF ++ recIdx.map fun i => ihAppAV R nP n nF i (tls.getD i []) (Eiss.getD i []))
 
 /-- **Rule `j`'s binder data** at a recursive block: the recursor's
 parameter, motive and minor entries, then constructor `j`'s field data
@@ -202,20 +282,29 @@ structure CtorReadR {env : Env} (m : EnvS2Core V env) (ψ : Name → Nat) (T : N
   recIdxBnd : ∀ i ∈ c.2.2.2, i < c.2.1
   /-- the recursive positions are strictly increasing (`recIdxOf`) -/
   recIdxSorted : c.2.2.2.Pairwise (· < ·)
-  eissLen : cd.2.2.2.2.2.length = c.2.1
-  eisLen : ∀ i ∈ c.2.2.2, (cd.2.2.2.2.2.getD i []).length = nIdx
-  /-- a recursive field's index expressions, read at the field's own
-  depth `nP + i` with the parameters and the earlier fields as
-  variables, in an opening of the constructor's telescope -/
-  eisRead : ∀ i ∈ c.2.2.2, ∀ (fvs : List Expr) (o : Expr),
+  eissLen : cd.2.2.2.2.2.1.length = c.2.1
+  eisLen : ∀ i ∈ c.2.2.2, (cd.2.2.2.2.2.1.getD i []).length = nIdx
+  tlsLen : cd.2.2.2.2.2.2.length = c.2.1
+  /-- a recursive field's telescope has as many binders as the raw
+  type's (`directFieldTeleOf`; none at a finitary field) -/
+  teleLen : ∀ i ∈ c.2.2.2,
+    (Lech.directFieldTeleOf c.2.2.1 nP c.2.1 i).length = (cd.2.2.2.2.2.2.getD i []).length
+  /-- a recursive field's domain, at the field's own depth `nP + i`
+  with the parameters and the earlier fields as variables (an opening
+  of the constructor's telescope), reads to its entry -/
+  fieldRead : ∀ i ∈ c.2.2.2, ∀ (fvs : List Expr) (o : Expr),
     openPisAtFvars (nP + c.2.1) c.2.2.1 0 = some (fvs, o) →
-    DenoteSpineP m.acval env ψ (nP + i)
-      ((Lech.directFieldIdxOf c.2.2.1 nP c.2.1 i).map
-        (Expr.instSeq (fvs.take (nP + i)) (nP + i - 1)))
-      (cd.2.2.2.2.2.getD i [])
+    ∀ x, fvs[nP + i]? = some x →
+      denoteP m.acval env ψ (nP + i) x.fvarTypeD = some (cd.2.2.1.getD (nP + i) default).2.2
+  /-- a recursive field's entry: the Π-tower over its telescope of the
+  family at the parameter variables and the field's index readings
+  (task #202; a finitary field: the family at the readings) -/
   recEntry : ∀ i ∈ c.2.2.2,
     (cd.2.2.1.getD (nP + i) default).2.2
-      = AVExpr.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + i) ++ cd.2.2.2.2.2.getD i [])
+      = mkPisAV (cd.2.2.2.2.2.2.getD i [])
+          (AVExpr.mkAppN (m.acval T ψ)
+            (paramBvarsAt nP (nP + i + (cd.2.2.2.2.2.2.getD i []).length) ++
+              cd.2.2.2.2.2.1.getD i []))
 
 /-- The constructors' reading premises, positionally. -/
 inductive CtorReadsR {env : Env} (m : EnvS2Core V env) (ψ : Name → Nat) (T : Name)

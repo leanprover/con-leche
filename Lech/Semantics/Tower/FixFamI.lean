@@ -322,6 +322,8 @@ theorem consList_snoc' (a : V) (as : List V) (ρ : Nat → V) :
 omit [SetTheory V] in
 theorem length_snoc' (a : V) (as : List V) : (as ++ [a]).length = as.length + 1 := by simp
 
+-- `u` (the slot's tuple level) is unused by the fit itself; kept for uniformity
+set_option linter.unusedVariables false in
 /-- **A recursive slot's fit** at the frame `(ρp, as)`: the field's
 telescope graded there with its codomain bits at the family's regime,
 and under every fitting telescope spine the index expressions graded
