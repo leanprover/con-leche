@@ -59,6 +59,6 @@ def builtinPreludeText : String :=
 in principle be corrupted, and a prelude that does not parse must be a
 loud error rather than a silently empty prelude. -/
 def builtinPreludeE : Except FrontendError PreludeIx :=
-  (PreludeIx.ofDecls ·.decls) <$> parseExportD builtinPreludeText (modeled := true)
+  (PreludeIx.ofDecls ·.decls) <$> parseExportD builtinPreludeText
 
 end ConLeche.Frontend

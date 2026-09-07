@@ -165,22 +165,21 @@ if tests/pindump.sh; then :; else fail=1; fi
 # and neither sees the other's.
 if tests/trust-surface.sh; then :; else fail=1; fi
 
-# THE NATIVE-PREDICATE AUDIT (task #193).  `con-leche-preprocess` leaves a
-# block unmodelled when `conlecheNative` says the checker installs it
-# directly; the checker installs it directly when a RECOGNISER takes
-# it.  The predicate is a hand-written mirror of the recognisers over a
-# second `Expr` type and drifted once at Mathlib scale (a former
-# declared at a definition: `numIndices` said "indexed family", the
-# recogniser's telescope pin said "no" — a "missing model" decline).
-# This runs both over every good arena fixture, block by block
-# (`CON_LECHE_ROUTE_TRACE`, Main.lean), and fails on any native block the
-# recogniser rejects.  `tests/native-audit.sh --full` adds init-full.
-if tests/native-audit.sh; then :; else fail=1; fi
+# THE INSTALL-ROUTE CENSUS (task #207, the successor of task #193's
+# native-predicate audit).  There is no external predicate to compare
+# the recognisers against any more — the preprocessor and its mirror
+# went together — so this gate pins what the ONE implementation does:
+# every inductive block of every good arena fixture must route
+# `struct`, `sum`, `fix`, `inmodel` or `basis`
+# (`CON_LECHE_ROUTE_TRACE`, Main.lean), never `modeled` (a model out of
+# the stream) and never "no install route" (a block reaching the fold
+# bare).  `tests/route-census.sh --full` adds init-full.
+if tests/route-census.sh; then :; else fail=1; fi
 
-# THE IN-PROCESS MODELLER'S GATE (task #200): the raw mutual/nested
-# fixtures through the generator, the debug dump modelled by the tool
-# for the generated auxiliary families, accepted in both modes; and the
-# off switch.  See tests/inmodel.sh's header.
+# THE IN-PROCESS MODELLER'S GATE (task #200; the modeller is the only
+# model source since #207): the raw mutual/nested fixtures through the
+# generator, the debug dump re-checked in both modes, and the off
+# switch.  See tests/inmodel.sh's header.
 if tests/inmodel.sh; then :; else fail=1; fi
 
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
@@ -233,21 +232,21 @@ arena_half() {
 }
 
 # --- the e2e half --------------------------------------------------
-# Own end-to-end tests (committed exports of tests/e2e/src/*.lean;
-# regenerate with lean-inductive-models' scripts/export-fixture.sh,
-# FIXTURE_DIR=tests/e2e/src OUT_DIR=tests/e2e FILTER=0).
+# Own end-to-end tests: committed RAW `lean4export` streams of
+# tests/e2e/src/*.lean (task #207 — there is no preprocessing step any
+# more; regenerate a fixture by exporting the module with the arena's
+# lean4export and committing its NDJSON, gzipped when large).
 #
-# The committed `pre` fixtures were preprocessed by the STOCK tool, so
-# they still carry `_model` artifacts for blocks the direct install
-# recognises; that is inert (the W4c priority gate ignores them) and
-# they are deliberately left alone as pre-#178 baselines.  A fixture
-# regenerated from now on should go through `con-leche-preprocess`.
+# Two committed fixtures still carry `_model` artifacts a preprocessor
+# wrote before #207 (indexed_one_ctor_proj, presieve_ofarrows_cone):
+# they are kept deliberately, as the streams that exercise a model
+# arriving from the INPUT rather than from the in-process modeller.
 e2e_half() {
   e2e_ok=0
   e2e_total=0
-  while read -r exp rel mode; do
+  while read -r exp rel; do
     case "$exp" in ''|'#'*) continue;; esac
-    resolve "$exp" e2e "$rel" "${mode:-}"
+    resolve "$exp" e2e "$rel" ""
     e2e_total=$((e2e_total+1))
     src="tests/e2e/$rel"
     if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
@@ -256,21 +255,7 @@ e2e_half() {
       gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
       src="$tmpf"
     fi
-    # a `raw` fixture is a plain lean4export result: run it with the
-    # preprocessor made unavailable, so the stream really carries no
-    # `_model` declarations and the direct install path is exercised
-    if [ "${mode:-}" = raw ]; then
-      CON_LECHE_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
-    elif [ "${mode:-}" = pre ]; then
-      # `pre` fixtures assert the --pre flag: the input is taken as
-      # already preprocessed — no detection scan, no spawn.  The
-      # preprocessor is left *available*, so a fixture whose verdict
-      # depends on not preprocessing (std_axioms declines at the raw
-      # `Iff` block) catches a broken/ignored flag.
-      timeout 60 "$BIN" $MODEFLAG --pre "$src" >/dev/null 2>&1
-    else
-      timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
-    fi
+    timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
     got=$?
     if [ "$got" != "$want" ]; then
       mismatch "E2E FAIL" "$rel" "$want" "$got"
@@ -500,13 +485,11 @@ tower_check() { # <description> <condition-result>
   fi
 }
 t_code=0
-CON_LECHE_INDUCTIVE_MODELS=/nonexistent \
-  timeout 60 "$BIN" --pre tests/e2e/tower_thm.ndjson >/dev/null 2>&1 || t_code=$?
+timeout 60 "$BIN" tests/e2e/tower_thm.ndjson >/dev/null 2>&1 || t_code=$?
 tower_check "a depth-60 tower in a theorem's type and value accepts" \
   "$([ "$t_code" = 0 ] && echo ok)"
 t_code=0
-CON_LECHE_INDUCTIVE_MODELS=/nonexistent \
-  timeout 60 "$BIN" tests/e2e/budget_block.ndjson >/dev/null 2>&1 || t_code=$?
+timeout 60 "$BIN" tests/e2e/budget_block.ndjson >/dev/null 2>&1 || t_code=$?
 tower_check "the retired budget's block fixture still accepts, uncapped" \
   "$([ "$t_code" = 0 ] && echo ok)"
 echo "DAG-tower gate: $tower_ok/$tower_total as expected"

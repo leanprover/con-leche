@@ -336,7 +336,9 @@ def checkMemberValF (ops : CheckerOps m) (blockNames : List Name)
   if cvA.name.isModelSuffix then
     throw (.invalid s!"model-shaped member name {cvA.name}")
   let some (.defnInfo cvm _mval _) := fe.find? (cvA.name.str "_model")
-    | throw (.notImplemented s!"missing model for {cvA.name}")
+    | throw (.notImplemented s!"no install route for inductive block \
+        {blockNames.headD cvA.name}: no direct route recognises it and no \
+        model for {cvA.name} was generated")
   unless cvm.levelParams = cvA.levelParams do
     throw (.notImplemented s!"model level parameters mismatch for {cvA.name}")
   unless cvA.type.renameConsts f == cvm.type do

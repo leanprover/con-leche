@@ -3,11 +3,11 @@ import ConLeche.Kernel.Basis.Builder
 /-!
 # The pinned `PUnit` basis block
 
-The raw pin — the `PUnit` block exactly as the lean-inductive-models
-preprocessor emits it, which is the toolchain's `Init.Prelude`
-declaration at the parser's raw binder annotations, plus the pinned
-capabilities (η and unit-likeness, which the preprocessor does not
-emit and the checker does not re-derive for a basis block).  The
+The raw pin — the `PUnit` block exactly as an export carries it: the
+toolchain's `Init.Prelude` declaration at the parser's raw binder
+annotations, plus the pinned capabilities (η and unit-likeness, which
+no export carries and the checker does not re-derive for a basis
+block).  The
 *annotated* forms (`punitA`, …) are computed from these by the
 checker's own annotation pass at elaboration time; see
 `ConLeche/Kernel/BasisA.lean`.

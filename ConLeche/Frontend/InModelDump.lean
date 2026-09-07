@@ -5,10 +5,10 @@ import ConLeche.Frontend.ExportWrite
 
 `CON_LECHE_INMODEL_DUMP=OUT` writes a copy of the raw input with the records
 the in-process modeller generated for each block spliced in ahead of
-that block's `inductive` record — a stream `con-leche-preprocess` can model
-the rest of (the generated auxiliary family in particular), which is
-the generator's gate while the direct fixpoint route (task #188) is
-not yet at indices.  Not on the checking path; the splice is keyed by
+that block's `inductive` record — a stream you can diff or re-check,
+and the generator's gate (`tests/inmodel.sh` re-checks the dump: every
+in-process block must then route `modeled`, since the stream now
+carries its model).  Not on the checking path; the splice is keyed by
 the block's ordinal among the input's `inductive` records, and the
 spliced records use table indices above the input's maximum.
 -/

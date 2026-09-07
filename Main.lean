@@ -4,10 +4,13 @@ import ConLeche.Frontend.Prelude
 import ConLeche.Frontend.InModelDump
 
 /-!
-Command-line driver: `con-leche FILE.ndjson` reads a lean4export NDJSON file
-(the `con-leche-preprocess` front end for lean-inductive-models is run
-transparently first, unless `--pre` says the input is already
-preprocessed) and checks the declarations in order.
+Command-line driver: `con-leche FILE.ndjson` reads a **raw** lean4export
+NDJSON file and checks the declarations in order.  There is no
+preprocessor and no external dependency (task #207): every inductive
+block is installed by a direct route, or through a `_model` family the
+frontend generates in-process at parse time
+(`ConLeche/Frontend/InModel/*`) and then checks as ordinary
+declarations of the stream.
 
 Exit codes follow the lean kernel arena convention:
 * 0 — all declarations accepted
@@ -17,31 +20,16 @@ Exit codes follow the lean kernel arena convention:
 * 3 — bad usage, malformed input, or an internal failure of unclear cause
 
 **NO TEMPORARY FILES** (task #180, 2026-09-07).  The checker writes
-nothing outside its own stdout/stderr.  The preprocessor used to be run
-with `-o TMPFILE` and the scratch file parsed afterwards; since the
-tool's default output target *is* stdout and the frontend reads its
-input strictly forward, one `getLine` at a time
-(`Frontend.parseExportHandleD`), the tool is spawned with a piped
-stdout and its export goes straight into the parser.  A Mathlib-scale
-raw export therefore never materialises anywhere — not on disk, and in
+nothing outside its own stdout/stderr, and reads its input strictly
+forward, one `getLine` at a time (`Frontend.parseExportHandleD`), so a
+Mathlib-scale export never materialises anywhere — not on disk, and in
 particular not in `/tmp`, which is commonly a RAM-backed tmpfs where a
-multi-gigabyte scratch file would be charged to memory.  The scratch
-file is gone rather than relocated, so there is nothing left to clean
-up on any exit path (a crash, an OOM kill of the supervised child, a
-`--pre` run).  The rule for anything that *does* need scratch space —
-the test scripts, which gunzip fixtures — is: honour `TMPDIR` if set,
-otherwise `./_tmp/tmp` (the project's on-disk scratch convention);
-never default to the system temp directory.
-
-**THE PREPROCESSOR'S VERDICT IS OURS** (user ruling, 2026-09-07).  The
-tool is spawned `--quiet --no-type-check-generated` (its kernel
-re-check of the model islands is work con-leche repeats declaration by
-declaration; its structural checks stay, `--type-check-input` stays
-off), and a nonzero exit is *passed through* — 1 reject, 2 decline,
-anything else an error — instead of the old fallback that re-checked
-the raw stream and reported a missing model.  A preprocessor that
-cannot be *run* still falls back to the raw stream; that is the one
-remaining fallback.
+multi-gigabyte scratch file would be charged to memory.  There is
+nothing to clean up on any exit path.  The rule for anything that
+*does* need scratch space — the test scripts, which gunzip fixtures —
+is: honour `TMPDIR` if set, otherwise `./_tmp/tmp` (the project's
+on-disk scratch convention); never default to the system temp
+directory.
 -/
 
 open ConLeche
@@ -51,205 +39,13 @@ def ConLeche.CheckError.exitCode : CheckError → UInt32
   | .invalid _ => 1
   | .internal _ => 3
 
-/-- Resolve a tool name to an existing path: as given if it names
-something that exists, else looked up on `$PATH`; `none` if neither. -/
-def resolveTool (p : String) : IO (Option String) := do
-  if ← System.FilePath.pathExists p then
-    return some p
-  if let some path ← IO.getEnv "PATH" then
-    for dir in path.splitOn ":" do
-      if !dir.isEmpty then
-        let cand := dir ++ "/" ++ p
-        if ← System.FilePath.pathExists cand then
-          return some cand
-  return none
-
-/-- Locate the preprocessor (task #178: `con-leche-preprocess`, the checker's own
-front end for `lean-inductive-models` — the tool's `main` passed con-leche's
-`NativeSupport`, so the blocks `directParts?` installs directly come back
-unmodelled; `ConLechePreprocess.lean`).  Search order:
-
-1. `$CON_LECHE_INDUCTIVE_MODELS` — the explicit override, unchanged; the test
-   harnesses point it at a nonexistent path to run a stream *raw*.
-2. this build's `con-leche-preprocess`;
-3. the stock `lean-inductive-models` development checkout under `_tmp/` — the
-   legacy fallback, which costs one `pathExists` and keeps a tree without a
-   built `con-leche-preprocess` working (its output is a superset: every block
-   left native here is modelled there, and the direct install ignores the
-   model either way);
-4. `con-leche-preprocess` on `$PATH`.
-
-**Every branch resolves to a path that EXISTS, or to `none`** (task
-#180): since a nonzero preprocessor exit is now con-leche's verdict, "the
-tool is not there" has to be decided *before* the spawn — Lean's
-`IO.Process.spawn` does not fail for a missing binary, it succeeds and
-the child exits 255 after printing "could not execute external
-process", which is indistinguishable at the exit-code level from a tool
-that ran and failed.  So the `$PATH` step is resolved here rather than
-at spawn time, and a `$CON_LECHE_INDUCTIVE_MODELS` naming nothing that
-exists means "no preprocessor" — which is exactly what the `raw` test
-fixtures mean by pointing it at `/nonexistent`. -/
-def findPreprocessor : IO (Option String) := do
-  if let some p ← IO.getEnv "CON_LECHE_INDUCTIVE_MODELS" then
-    return ← resolveTool p
-  let dev := ".lake/build/bin/con-leche-preprocess"
-  if ← System.FilePath.pathExists dev then
-    return some dev
-  let legacy := "_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models"
-  if ← System.FilePath.pathExists legacy then
-    return some legacy
-  resolveTool "con-leche-preprocess"
-
-/-- Does the input contain records the preprocessor must reduce
-(`inductive`/`quot`)?  Streaming scan, line by line — the keys cannot
-span a line boundary (ndjson, no newlines inside a record). -/
-partial def needsPreprocess (file : String) : IO Bool := do
-  let h ← IO.FS.Handle.mk file .read
-  let rec loop : IO Bool := do
-    let line ← h.getLine
-    if line.isEmpty then
-      return false
-    if line.contains "\"inductive\"" || line.contains "\"quot\"" then
-      return true
-    loop
-  loop
-
-/-- What the input side of a run produced: either a parse (successful
-or not) of the stream the checker is to check, or a verdict of the
-*preprocessor's* own that is, per the user's ruling of 2026-09-07,
-con-leche's verdict. -/
-inductive InputResult where
-  /-- the stream was read and parsed (`.error` = the checker's own
-  decline or a malformed stream) -/
-  | parsed (res : Except Frontend.FrontendError Frontend.ParseResultD)
-  /-- the preprocessor rejected/declined/failed; `code` is already
-  translated to con-leche's exit code -/
-  | preVerdict (code : UInt32)
-
-/-- Translate a nonzero preprocessor exit code into con-leche's, and say
-so on stderr.  **"A preprocessor reject is our reject"** (user ruling,
-2026-09-07): `lean-inductive-models` follows the same arena contract we
-do (its README: 1 rejected by a requested structural or kernel check,
-2 a requested generation route declined an unsupported owner, 3 parser/
-IO/CLI/internal error), and its kernel *is* Lean's — a block it rejects
-(a non-positive occurrence, a wrong parameter count) is invalid input,
-not a limitation of ours.  Until now such a run fell back to checking
-the *raw* stream, which then declined for a missing model: 29 arena bad
-tests expecting a reject got a decline out of it (finding F1).  That
-fallback is gone; only a preprocessor that cannot be *run* falls back.
-
-The tool's own diagnostics are on our stderr already (it is spawned
-with `stderr := .inherit`, and `--quiet` silences its success reports
-but never its failures) — except for the per-owner decline lines, which
-are success-path reports; hence the pointer in the decline message. -/
-def preprocessorVerdict (code : UInt32) (modeTag : String) : IO UInt32 := do
-  if code = 1 then
-    IO.eprintln s!"con-leche: the preprocessor rejected the input (message \
-      above) ({modeTag})"
-    return 1
-  else if code = 2 then
-    IO.eprintln s!"con-leche: declined: the preprocessor declined to model a \
-      block (re-run con-leche-preprocess without --quiet for the owner names) \
-      ({modeTag})"
-    return 2
-  else
-    IO.eprintln s!"con-leche: the preprocessor failed (exit {code}) ({modeTag})"
-    return 3
-
-/-- Read a handle to EOF and discard it.  Used only when the parse
-stopped early on a malformed line: we must stop the *writer* from
-blocking on a pipe nobody drains before we can ask for its exit code,
-and the tool's verdict is worth more than a fast exit here — a tool
-that failed mid-stream has stopped writing anyway, so the drain is
-short exactly when it matters. -/
-partial def drainHandle (h : IO.FS.Handle) : IO Unit := do
-  let line ← h.getLine
-  if line.isEmpty then return () else drainHandle h
-
-/-- Run the preprocessor over the input, reducing inductives to the
-modelled basis, and parse **its standard output as it is written**
-(task #180): the tool is spawned with a piped stdout and the parser
-reads that pipe line by line, so neither process holds the reduced
-stream whole and nothing is written to disk.  (Task #57 had the tool
-write a temp file, `-o path`, which the checker then parsed; the
-streaming pipe replaces it.  The tool's own working memory — ~650 MB
-on init-full — is its own, residual until lean-inductive-models itself
-streams.)  Its stdout is the export by default (`outputTarget := "-"`),
-so no output flag is passed at all.
-
-**The flags.**  `--quiet` silences the per-owner success reports (a
-line per generated model — thousands on `init-full`) and nothing else:
-every failure message is printed unconditionally.
-`--no-type-check-generated` switches off the tool's *kernel* re-check
-of each generated model island: con-leche checks those generated
-definitions and theorems itself, as ordinary declarations of the
-stream it is handed, so running Lean's kernel over them first is
-duplicated work and buys no trust we would otherwise lack.  The two
-*structural* checks stay on (`--check-input`/`--check-output`, the
-tool's defaults: model families are checked for shape), and
-`--type-check-input` stays off — submitting the untrusted input to
-Lean's kernel is exactly the job we are here to do ourselves.
-
-The child's stderr is *inherited*: with `--quiet` the tool prints only
-fatal errors there, and inheriting means they reach the user (through
-the supervisor's buffered stderr) instead of being swallowed by an
-output capture, and no second pipe can fill while we are draining the
-first.
-
-`none` means "the tool could not be run" — the *only* remaining
-fallback to the raw input (the checker then declines at the first
-inductive); it is what the `raw` test fixtures exercise by pointing
-`CON_LECHE_INDUCTIVE_MODELS` at a nonexistent path.  A nonzero exit is a
-`.preVerdict` (see `preprocessorVerdict`).  A checker decline reached
-before the tool exits is ours: the child is killed first, since we have
-stopped draining its pipe and a blocked writer would never exit.  A *parse
-error* drains instead of killing, so that a tool which failed
-mid-stream — leaving us a truncated record — still gets to state its
-verdict, which then wins over our reading of its debris. -/
-def preprocessParse (tool file modeTag : String) (prelude : Frontend.PreludeIx)
-    (inModel : Bool) : IO (Option InputResult) := do
-  let child ← try
-      IO.Process.spawn
-        { cmd := tool
-          args := #["--quiet", "--no-type-check-generated", file]
-          stdin := .null, stdout := .piped, stderr := .inherit }
-    catch _ => return none
-  match ← Frontend.parseExportHandleD child.stdout (modeled := true) prelude inModel
-      (census := false) with
-  | .error (.unsupported what) =>
-    try child.kill catch _ => pure ()
-    let _ ← child.wait
-    return some (.parsed (.error (.unsupported what)))
-  | .error e =>
-    drainHandle child.stdout
-    let code ← child.wait
-    if code = 0 then
-      return some (.parsed (.error e))
-    else
-      return some (.preVerdict (← preprocessorVerdict code modeTag))
-  | .ok r =>
-    let code ← child.wait
-    if code = 0 then
-      return some (.parsed (.ok r))
-    else
-      return some (.preVerdict (← preprocessorVerdict code modeTag))
-
-/-- The whole input side of a run: the parsed declarations, obtained
-either straight from the file (`--pre`, or an input with nothing for
-the preprocessor to do, or a preprocessor that could not be run) or
-through the preprocessor's pipe — or the preprocessor's own verdict. -/
-def parseInput (file : String) (pre : Bool) (modeTag : String)
-    (prelude : Frontend.PreludeIx) (inModel : Bool) : IO InputResult := do
+/-- The whole input side of a run: the parsed declarations, read
+straight from the file.  Since task #207 there is nothing else —
+no preprocessor detection, no spawn, no pipe. -/
+def parseInput (file : String) (prelude : Frontend.PreludeIx) (inModel : Bool) :
+    IO (Except Frontend.FrontendError Frontend.ParseResultD) := do
   let census := (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1"
-  let raw : IO InputResult :=
-    InputResult.parsed <$>
-      Frontend.parseExportStreamD file (modeled := true) prelude inModel census
-  if pre then return ← raw
-  unless ← needsPreprocess file do return ← raw
-  let some tool ← findPreprocessor | raw
-  match ← preprocessParse tool file modeTag prelude inModel with
-  | some res => return res
-  | none => raw
+  Frontend.parseExportStreamD file prelude inModel census
 
 /-- `declPName` for the direct-parse `DeclC` records (task #171).  The
 formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)
@@ -307,10 +103,11 @@ def checkDeclsProgressIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     -- inductive block naming the install route the checker is about
     -- to take — the recognisers run here on the same environment the
     -- step sees, so the line is exactly the dispatch of
-    -- `checkIndDeclSF` (`ConLeche/Cached/CheckerC.lean`).  This is the
-    -- instrument `tests/native-audit.sh` compares against the
-    -- preprocessor's `native` lines: a block left native there must
-    -- read `struct`, `sum` or `fix` here.
+    -- `checkIndDeclSF` (`ConLeche/Cached/CheckerC.lean`).  It is the
+    -- route census's instrument (`tests/route-census.sh`): every block
+    -- must read `struct`, `sum`, `fix`, `inmodel` or `basis` — a
+    -- `modeled` line on a raw stream means the block's model came
+    -- from the stream itself, and nothing emits one since task #207.
     if trace then
       match pd with
       | .indDecl block =>
@@ -352,8 +149,7 @@ def progressStride : IO (Except String Nat) := do
 
 /-- The real driver (run in the supervised child process).  `mode` is
 the three-mode setting (task #147), validated once by the caller and
-consumed here as configuration; `pre` asserts the input is already
-preprocessed (`--pre`), skipping preprocessor detection and spawn.
+consumed here as configuration.
 
 **One core at two modes, one parse.**  The interned representation
 and every driver over it retired with the arena (task #172), the R
@@ -367,7 +163,7 @@ under `--trusted`.  The verified instance is covered by
 (`ConLeche/Verify/Cached/MainC.lean`); the trusted one is unverified by
 design and agrees with it on the install skeletons whenever both
 accept (`trusted_agrees_P_skels_shipped`). -/
-def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
+def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
     -- readable off the invocation (task #147).
@@ -417,32 +213,25 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         IO.eprintln s!"con-leche: the built-in prelude is unsupported ({what}); \
           regenerate it with `lake exe natop-pins-export` ({modeTag})"
         return 3
-    -- Streaming frontend (task #57, task #180): the preprocessor's
-    -- stdout *is* the parser's input — the parse reads it line by line
-    -- off the pipe, so neither a wholesale text buffer nor a scratch
-    -- file exists in this process.  `--pre` (an explicit user
-    -- assertion, never content sniffing) skips detection and the
-    -- preprocessor spawn.
-    -- THE IN-PROCESS MODELLER (task #200): mutual and nested blocks
-    -- without a model in the stream get their `_model` family generated
-    -- at parse time (`ConLeche/Frontend/InModel.lean`); `CON_LECHE_INMODEL=0`
-    -- turns it off, `CON_LECHE_INMODEL_DUMP=OUT` writes the raw input with the
-    -- generated records spliced in (the generator's debug gate).
+    -- Streaming frontend (task #57, task #180): the parse reads the
+    -- file line by line, so neither a wholesale text buffer nor a
+    -- scratch file exists in this process.
+    -- THE IN-PROCESS MODELLER (task #200; the only model source since
+    -- task #207): mutual and nested blocks get their `_model` family
+    -- generated at parse time (`ConLeche/Frontend/InModel.lean`);
+    -- `CON_LECHE_INMODEL=0` turns it off, `CON_LECHE_INMODEL_DUMP=OUT`
+    -- writes the raw input with the generated records spliced in (the
+    -- generator's debug gate).
     let inModel := (← IO.getEnv "CON_LECHE_INMODEL") != some "0"
-    match ← parseInput file pre modeTag prelude inModel with
-    | .preVerdict code =>
-      -- the preprocessor's verdict is ours (user ruling 2026-09-07);
-      -- `preVerdict` has already printed the line, which names the mode
-      -- and is never an accept (it is reached only on a nonzero exit)
-      return code
-    | .parsed (.error (.unsupported what)) =>
+    match ← parseInput file prelude inModel with
+    | .error (.unsupported what) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
-    | .parsed (.error (.parseError line msg)) =>
+    | .error (.parseError line msg) =>
       IO.eprintln s!"con-leche: {file}:{line}: {msg}"
       return 3
-    | .parsed (.ok ⟨decls, taintSkipped, projRewrites, preludeCount,
-                    preludeDropped, hoisted, inModelled, inModelGen, inModelDeclined⟩) =>
+    | .ok ⟨decls, taintSkipped, projRewrites, preludeCount,
+           preludeDropped, hoisted, inModelled, inModelGen, inModelDeclined⟩ =>
       -- the in-process modeller's receipt (task #200)
       if inModelled.size > 0 then
         IO.eprintln s!"con-leche: {inModelled.size} inductive blocks modelled \
@@ -513,7 +302,8 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       -- fixed offset above it — the parse folds the four `quot`
       -- records into one `basisDecl` and drops a few others, and a
       -- taint-skipping stream loses more (measured on
-      -- `init-full-pre-native`: 54 351 records against 54 346 fold
+      -- `init-full` (task #207 re-measured raw): 53 132 records
+      -- against 53 127 fold
       -- positions, offset 0 through position 5 000 and 5 by the end;
       -- the `CON_LECHE_TRACE_DECLS` lane's `+4` is the Mathlib stream's
       -- own total).  The declaration NAME on the line is the
@@ -524,8 +314,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
           declarations after the {preludeCount} built-in prelude records \
           ({preludeDropped} stream copies of prelude records dropped) \
           t={ConLeche.Cached.msSecs (tParse - t0)}s \
-          (preprocess and parse; the progress lane's fold is \
-          UNVERIFIED — see --help)"
+          (parse; the progress lane's fold is UNVERIFIED — see --help)"
         (← IO.getStderr).flush
       -- The closing line: how far the loop got (`= N` on an accept,
       -- the failing position otherwise) and how long it took.
@@ -630,7 +419,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
 
 
 def usage : String := String.intercalate "\n" [
-  "usage: con-leche [--verified|--trusted] [--pre] FILE.ndjson",
+  "usage: con-leche [--verified|--trusted] FILE.ndjson",
   "",
   "  --verified        the default: the verified mode (graded model,",
   "                    annotation-gated checks).  The validated-",
@@ -690,12 +479,14 @@ def usage : String := String.intercalate "\n" [
   "                    on STDERR per inductive block, naming the route",
   "                    the checker takes for it (the direct structure",
   "                    route, the direct sum/indexed route, the direct",
-  "                    fixed-point route (task #188), or the",
-  "                    preprocessor's model).  tests/native-audit.sh",
-  "                    compares these against con-leche-preprocess's",
-  "                    'native' lines: a block the predicate leaves",
-  "                    native must read struct or sum here.  Runs on",
-  "                    the progress lane's UNVERIFIED fold (above).",
+  "                    fixed-point route (task #188), the in-process",
+  "                    model (task #200), or a model the STREAM itself",
+  "                    carries).  tests/route-census.sh pins the",
+  "                    per-route counts over every good fixture: on a",
+  "                    raw stream no block may read 'modeled', since",
+  "                    nothing emits a _model family since task #207.",
+  "                    Runs on the progress lane's UNVERIFIED fold",
+  "                    (above).",
   "",
   "  CON_LECHE_INMODEL=0    turn the IN-PROCESS MODELLER off (task #200).  By",
   "                    default a mutual or nested inductive block the",
@@ -704,11 +495,15 @@ def usage : String := String.intercalate "\n" [
   "                    and pushed ahead of the block; the generated",
   "                    records are checked by the fold like any stream",
   "                    declaration, and the block installs through the",
-  "                    modeled route exactly as a preprocessed one.  A",
-  "                    generator decline is the run's decline, naming the",
-  "                    reason.  The route trace reads `inmodel` for such",
-  "                    a block.  With the flag off the block reaches the",
-  "                    fold bare and declines with 'missing model'.",
+  "                    modeled route.  A generator decline is the run's",
+  "                    decline, naming the class.  The route trace reads",
+  "                    `inmodel` for such a block.  DEBUG SWITCH ONLY:",
+  "                    the in-process modeller is the checker's only",
+  "                    model source (task #207), so with the flag off",
+  "                    every mutual or nested block reaches the fold",
+  "                    bare and the run declines with 'no model for'.",
+  "                    A verdict produced with it set is not the",
+  "                    checker's verdict on the stream.",
   "  CON_LECHE_INMODEL_DUMP=OUT",
   "                    write a copy of the raw input with the generated",
   "                    records spliced in ahead of each modelled block",
@@ -736,11 +531,7 @@ def usage : String := String.intercalate "\n" [
   "                    scripts/stream-census.py derives both from a",
   "                    stream.",
   "",
-  "  --pre             assert FILE is already preprocessed output of",
-  "                    con-leche-preprocess (or the stock",
-  "                    lean-inductive-models): skip the preprocessor",
-  "                    detection scan and spawn entirely",
-  "",
+
   "THE BUILT-IN PRELUDE (task #191).  Every run installs, first and",
   "unconditionally, the checker's own little prelude — the six pinned",
   "basis blocks (Eq, Nat, PUnit, Empty, False, Quot) and the toolchain's",
@@ -759,23 +550,15 @@ def usage : String := String.intercalate "\n" [
   "list below the verified fold; the main theorem is about the fold",
   "over prelude ++ stream.",
   "",
-  "THE PREPROCESSOR.  Unless --pre says otherwise, an input containing",
-  "inductive/quot records is run through con-leche-preprocess, which",
-  "reduces inductives to the modelled basis.  It is spawned with",
-  "--quiet --no-type-check-generated (con-leche checks the generated",
-  "declarations itself; its structural model checks stay on, and the",
-  "input is never submitted to Lean's kernel), it writes its export to",
-  "its stdout, and con-leche parses that pipe as it is produced: no",
-  "temporary file is created, by either process, anywhere.",
-  "",
-  "A PREPROCESSOR REJECT IS OUR REJECT.  The tool follows the same",
-  "arena exit-code contract; its verdict is passed through — exit 1",
-  "(its kernel rejected a block: a non-positive occurrence, a wrong",
-  "parameter count) is con-leche's reject, exit 2 its decline, any other",
-  "failure an error (3), each with the tool's own message on stderr.",
-  "Only a preprocessor that cannot be RUN falls back to checking the",
-  "raw stream (which then declines at the first inductive); set",
-  "CON_LECHE_INDUCTIVE_MODELS to a nonexistent path to force that.",
+  "NO PREPROCESSOR (task #207).  The input is a RAW lean4export stream:",
+  "there is no external tool, no dependency and no spawn.  Every",
+  "inductive block is installed by a direct route — structures, sums,",
+  "indexed families, finitary fixed points and reflexive blocks — or",
+  "through a `_model` family the frontend generates IN-PROCESS at parse",
+  "time and then checks as ordinary declarations of the stream.  The",
+  "generator is not trusted: a wrong record is rejected or declined by",
+  "the fold, never accepted; it decides coverage only.  A block no",
+  "route takes declines (exit 2) naming its class.",
   "",
   "There is ONE core at two modes and one parse: the verified mode",
   "(--verified, the default) and the unverified trusted mode",
@@ -791,7 +574,6 @@ def usage : String := String.intercalate "\n" [
 
 structure Args where
   mode : ConLeche.CheckMode := .verified
-  pre : Bool := false
   files : Array String := #[]
   bad : Option String := none
 
@@ -836,7 +618,9 @@ def parseArgs : List String → Args → Args
     { a with bad := some "--infer-only is retired; its discipline is part \
         of --trusted, and the certified mode is --verified \
         (default) (task #147)" }
-  | "--pre" :: rest, a => parseArgs rest { a with pre := true }
+  | "--pre" :: _, a =>
+    { a with bad := some "--pre is retired; there is no preprocessor — \
+        every input is a raw lean4export stream (task #207)" }
   -- Task #172: `--core`, `--install-only` and `--check-range` are hard
   -- errors, not silently ignored — the rule the retired mode
   -- environment variables already follow: a verdict's provenance must
@@ -875,7 +659,6 @@ def childArgs (a : Args) (file : String) : Array String :=
     ++ (match a.mode with
         | .verified => #[]
         | .trusted => #["--trusted"])
-    ++ (if a.pre then #["--pre"] else #[])
 
 def main (args : List String) : IO UInt32 := do
   if args.contains "--help" then
@@ -885,16 +668,11 @@ def main (args : List String) : IO UInt32 := do
   -- here once and threaded as configuration.  Two cores since the R
   -- core's retirement (2026-09-05): the graded verified one and the
   -- unverified trusted one.
-  -- `--pre`: the input is already-preprocessed `con-leche-preprocess`
-  -- output (explicit user assertion — the checker never sniffs input
-  -- content for it); skips the `needsPreprocess` scan and the
-  -- preprocessor spawn.
   let a := parseArgs args {}
   if let some msg := a.bad then
     IO.eprintln s!"con-leche: {msg}"
     IO.eprintln usage
     return 3
-  let pre := a.pre
   match a.files.toList with
   | [file] =>
     -- OOM supervision: the Lean runtime's out-of-memory handler
@@ -907,7 +685,7 @@ def main (args : List String) : IO UInt32 := do
     -- input proof".  Progress output streams through (stdout is
     -- inherited); stderr is buffered for inspection and re-printed.
     if (← IO.getEnv "CON_LECHE_SUPERVISED").isSome then
-      checkMain file a.mode pre
+      checkMain file a.mode
     else
       let child ← IO.Process.spawn {
         cmd := (← IO.appPath).toString

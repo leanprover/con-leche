@@ -301,8 +301,8 @@ def sameRegular : ReducibilityHint → ReducibilityHint → Bool
 
 end ReducibilityHint
 
-/-- The trusted basis inductives (hand-written set models; everything
-else is reduced to these by the lean-inductive-models preprocessor). -/
+/-- The trusted basis inductives (hand-written set models; a modelled
+block's `_model` family is built over these). -/
 inductive BasisKind where
   | eqK | natK | punitK | emptyK | falseK | quotK
   deriving DecidableEq, Repr, Inhabited
@@ -454,9 +454,9 @@ inductive Declaration where
   opaques. -/
   | opaqueDecl (val : ConstantVal) (value : Expr)
   | basisDecl (kind : BasisKind)
-  /-- A preprocessed (modeled) inductive block: type formers,
-  constructors and recursors, installed opaquely after checking each
-  member against its `_model` counterpart. -/
+  /-- An inductive block: type formers, constructors and recursors.
+  Installed by a direct route, or — the modeled route — opaquely
+  after checking each member against its `_model` counterpart. -/
   | indDecl (block : List ConstantInfo)
   deriving DecidableEq, Repr, Inhabited
 

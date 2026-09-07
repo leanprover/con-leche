@@ -24,10 +24,9 @@
 # emits, so its streams are safe for all three checkers.
 #
 # Shape coverage: the def-only shapes plus `fields`.  All streams are
-# fed to the references raw (they check inductive blocks natively);
-# con-leche runs `fields`/`ctors` through its own pipeline (preprocessor
-# or direct install), so those rows compare *pipelines*, not identical
-# code paths — read them accordingly.  `ctors` is excluded by default
+# fed to the references raw, and so is con-leche (task #207: every
+# checker here installs inductive blocks natively, so the rows compare
+# the same code paths).  `ctors` is excluded by default
 # because its stream is Theta(n^2) bytes (each of the n rule RHSs
 # binds all n minors), which makes per-n exponents misleading across
 # checkers; add it to SHAPES below if you want it anyway.

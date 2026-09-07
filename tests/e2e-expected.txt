@@ -1,13 +1,18 @@
 # Expected exit codes for con-leche's own end-to-end fixtures, read by
 # tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).  Line format:
-# "<expectation> <fixture> [mode]", mode ∈ {raw, pre}.
+# "<expectation> <fixture>" — ONE line per fixture.
+#
+# Until task #207 a row could carry a third field, `raw` (run with the
+# preprocessor made unavailable) or `pre` (run with --pre, skipping the
+# spawn), and a fixture could appear twice with two verdicts.  The
+# preprocessor is gone: every stream is raw, every fixture has one
+# verdict, and where the two disagreed the `raw` row is the one kept.
 #
 # An expectation is a single exit code.  (The direct simple-structure
 # route is the priority route for every recognised block since task
 # #175 W4c — no master switch, no artifact-absence gate; see
 # tests/arena-expected.txt's header and `ConLeche/Kernel/Direct.lean`.)
 0 indexed_vec.ndjson
-0 std_axioms.ndjson
 0 prop_proj.ndjson
 # nat_ops.ndjson: all seven structural-Nat fast-path operations
 # (pred/add/sub/mul/pow/beq/ble) exercised on 2^64-scale literals; the
@@ -81,7 +86,6 @@
 0 let_rec_rhs.ndjson
 
 0 opaque_decl.ndjson
-0 nat_ops.ndjson
 # nat_ops_nonstandard.ndjson: hand-patched from a plain export —
 # Nat.add's value replaced by (fun x y => x).  The structural-Nat
 # fast-path certification must positively decline the nonstandard
@@ -265,10 +269,10 @@
 # plain `def Foo._model` is an ordinary stream and stays accepted
 # (`_model` names are not special).  Rejected (exit 1) by a blanket
 # suffix reservation - which is exactly what this pins.
-0 model_name_plain.ndjson raw
-0 direct_struct_raw.ndjson raw
+0 model_name_plain.ndjson
+0 direct_struct_raw.ndjson
 0 direct_nested_dep.ndjson
-1 direct_nested_dep_broken.ndjson raw
+1 direct_nested_dep_broken.ndjson
 # malformed_midstream.ndjson: a truncated JSON record after valid
 # lines — malformed input is a hard error (exit 3) with the line
 # number, identically under the streaming frontend (task #57).
@@ -305,8 +309,7 @@
 # not the artifacts exist (the priority gate), so both lines accept and
 # the spawn-skip is no longer observable through a verdict here — the
 # `raw`/`pre` lines' byte-identity is what the pass now pins.
-0 std_axioms.ndjson pre
-0 direct_struct_raw.ndjson pre
+0 std_axioms.ndjson
 # The direct SUM install (task #175 sum-types, 2026-09-06): non-recursive,
 # non-indexed inductives with any number of constructors other than one
 # — the tagged disjoint union of one tuple tower per constructor.  The
@@ -332,10 +335,10 @@
 #                      the install must REJECT (the model's iota law
 #                      would be inconsistent: both constructor values
 #                      are the proof point).
-0 direct_sum_enum.ndjson pre
-0 direct_sum_option.ndjson pre
-0 direct_sum_or.ndjson pre
-1 direct_sum_or_large_bad.ndjson pre
+0 direct_sum_enum.ndjson
+0 direct_sum_option.ndjson
+0 direct_sum_or.ndjson
+1 direct_sum_or_large_bad.ndjson
 # Zero-constructor inductives at every level (task #181, 2026-09-06),
 # exported through `con-leche-preprocess` (every block native, no `_model`
 # declaration in the stream), so they assert `--pre`:
@@ -367,12 +370,12 @@
 #                          `False` stay pinned; a stream declaring either
 #                          name any other way is invalid input.)
 # All five twins are derived by scripts/mk_zero_ctor_bad.py.
-0 zero_ctor.ndjson pre
-1 zero_ctor_false_proof.ndjson pre
-1 zero_ctor_bad_rec.ndjson pre
-1 empty_redefined.ndjson pre
-1 false_redefined.ndjson pre
-1 false_rec_bad.ndjson pre
+0 zero_ctor.ndjson
+1 zero_ctor_false_proof.ndjson
+1 zero_ctor_bad_rec.ndjson
+1 empty_redefined.ndjson
+1 false_redefined.ndjson
+1 false_rec_bad.ndjson
 
 # The direct INDEXED install (task #175 indexed, 2026-09-06): the sum
 # route widened to non-recursive, non-nested families with indices —
@@ -403,11 +406,11 @@
 #                    first (`fun n => Rel.r n : ∀ n, Rel 0 n` where
 #                    `∀ n, Rel n 0` is expected) — an index mismatch at
 #                    a minor premise, REJECTED.
-0 direct_idx_eq.ndjson pre
-0 direct_idx_vec.ndjson pre
-0 direct_idx_prop.ndjson pre
-1 direct_idx_prop_large_bad.ndjson pre
-1 direct_idx_prop_idx_bad.ndjson pre
+0 direct_idx_eq.ndjson
+0 direct_idx_vec.ndjson
+0 direct_idx_prop.ndjson
+1 direct_idx_prop_large_bad.ndjson
+1 direct_idx_prop_idx_bad.ndjson
 #   direct_idx_defhead (task #193, flipped at task #195): `OfFn f :
 #                    Pred α` — an indexed one-constructor family declared
 #                    AT A DEFINITION (`Pred α := α → Prop`) that only
@@ -419,7 +422,7 @@
 #                    AT THE WHNF'D TELESCOPE, so the block goes DIRECT
 #                    (route `sum`, beside the control `Rel`).  Exported
 #                    through the #195 `con-leche-preprocess` (both native).
-0 direct_idx_defhead.ndjson pre
+0 direct_idx_defhead.ndjson
 #   presieve_ofarrows_cone (task #195): the dependency cone of Mathlib's
 #                    `CategoryTheory.Presieve.ofArrows` (with the
 #                    String-support constants), preprocessed by the #195
@@ -427,7 +430,7 @@
 #                    decline at 7.5 % of the regenerated Mathlib stream
 #                    was task #193's finding; it installs directly here
 #                    (638 declarations, both modes).
-0 presieve_ofarrows_cone.ndjson pre
+0 presieve_ofarrows_cone.ndjson
 
 # The direct FIXED-POINT route (task #188): RECURSIVE inductive types
 # through the direct install — the carrier is the Knaster–Tarski least
@@ -528,26 +531,24 @@
 #                     over five constructors); consumers eliminate into
 #                     `Type` (dependent motives, a `match` on the index
 #                     inside a motive), iota by `rfl`.
-0 direct_fix_nat.ndjson pre
-0 direct_fix_tree.ndjson pre
-0 direct_fix_prop.ndjson pre
-0 direct_fix_prop_large.ndjson pre
-1 direct_fix_nat_neg_bad.ndjson pre
-1 direct_fix_nat_ih_bad.ndjson pre
-0 direct_fix_vec.ndjson pre
-0 direct_fix_le.ndjson pre
-0 direct_fix_acc_large.ndjson pre
-1 direct_fix_vec_ih_idx_bad.ndjson pre
-0 direct_fix_refl.ndjson pre
-1 direct_fix_refl_neg_bad.ndjson pre
-1 direct_fix_refl_ih_bad.ndjson pre
-0 direct_fix_acc.ndjson pre
+0 direct_fix_nat.ndjson
+0 direct_fix_tree.ndjson
+0 direct_fix_prop.ndjson
+0 direct_fix_prop_large.ndjson
+1 direct_fix_nat_neg_bad.ndjson
+1 direct_fix_nat_ih_bad.ndjson
+0 direct_fix_vec.ndjson
+0 direct_fix_le.ndjson
+0 direct_fix_acc_large.ndjson
+1 direct_fix_vec_ih_idx_bad.ndjson
+0 direct_fix_refl.ndjson
+1 direct_fix_refl_neg_bad.ndjson
+1 direct_fix_refl_ih_bad.ndjson
+0 direct_fix_acc.ndjson
 0 direct_fix_wtype.ndjson
-0 direct_fix_wtype.ndjson raw
-1 direct_fix_wtype_neg_bad.ndjson pre
-1 direct_fix_wtype_ih_bad.ndjson pre
+1 direct_fix_wtype_neg_bad.ndjson
+1 direct_fix_wtype_ih_bad.ndjson
 0 direct_fix_term.ndjson
-0 direct_fix_term.ndjson raw
 # STRUCTURE-LIKE recursive blocks (task #210 Part A: one constructor, no
 # index — the fixpoint route conses the block's PROJECTION TABLE at the
 # tagged tower's offset 1 and pins the structure route's capability
@@ -581,13 +582,9 @@
 #                     then spun `isDefEq` — official's `!is_rec` is
 #                     load-bearing.)  Official: 1.
 0 direct_fix_struct_proj.ndjson
-0 direct_fix_struct_proj.ndjson raw
 1 direct_fix_struct_proj_idx_bad.ndjson
-1 direct_fix_struct_proj_idx_bad.ndjson raw
 1 direct_fix_struct_proj_iota_bad.ndjson
-1 direct_fix_struct_proj_iota_bad.ndjson raw
 1 direct_fix_struct_eta.ndjson
-1 direct_fix_struct_eta.ndjson raw
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
@@ -605,7 +602,7 @@
 # term the rescue could produce is a proof and proof irrelevance
 # identifies the two sides.  The fixture pins that agreement -- it must
 # stay 0 whether or not the rescue is ever made to fire here.
-0 psigma_rec_eta.ndjson raw
+0 psigma_rec_eta.ndjson
 
 # The class-B yolo escape, exercised (2026-08-27 fuzz campaign,
 # finding F1).  Under CON_LECHE_NO_PROOF_CERTS=1 `inferSpineT` drops the
@@ -623,7 +620,7 @@
 # result type really is `p`, so only the argument check can see that
 # `rfl : 0 = 0` is not a proof of `p`: rejected here, accepted under
 # yolo, which therefore "proves" ∀ p : Prop, p.
-1 yolo_arg_escape.ndjson raw
+1 yolo_arg_escape.ndjson
 # yolo_arg_escape_univs: `def w9 : Nat := (fun x : Nat => Nat.zero)
 #   Nat.zero.{1}` — the escaping defect is a wrong universe-argument
 # count on a constant in argument position, not a type mismatch at
@@ -631,7 +628,7 @@
 # not one particular error: dropping the per-argument `infer` also
 # drops that argument's universe-arity, non-function-application,
 # binder-domain-is-a-sort and projection-shape checks.
-1 yolo_arg_escape_univs.ndjson raw
+1 yolo_arg_escape_univs.ndjson
 # yolo_decline_vs_accept: a preprocessed `PProd'._model` family whose
 # `eta` theorem reaches an unsupported projection shape (`projection
 # on a non-structure type`) from inside an application argument.  The
@@ -660,8 +657,8 @@
 # reserved name `Nat` (exit 1 — a *soundness-shaped* false reject).
 # The frontend now maps every parsed binder to `.default`, so the
 # deviation cannot exist downstream at all.
-0 basis_binderinfo.ndjson raw
-0 basis_binderinfo_rec.ndjson raw
+0 basis_binderinfo.ndjson
+0 basis_binderinfo_rec.ndjson
 # irrel_commit (task #161 residual round 2, BOOL FALL-THROUGH vs
 # OFFICIAL'S COMMIT SEMANTICS): the fixture that separates con-leche's
 # fall-through from the official kernel's commit.  At the argument pair
@@ -705,7 +702,7 @@
 # whnf'd both structs in full (3.38 G instructions against 0.37 G).
 # RAW: the preprocessor's re-export hash-conses up to α and would
 # collapse the twin before con-leche sees it.  Official accepts.
-0 binder_name_proj.ndjson raw
+0 binder_name_proj.ndjson
 # mutual_struct_proj / nested_struct_proj (the projection-function
 # rewrite, ConLeche/Frontend/ProjRec.lean, 2026-09-06): the elaborator's
 # `T.f := fun self => self.i` on structure-likes the direct install
@@ -717,7 +714,15 @@
 # consumers force iota through them.  Pre-rewrite verdict: 2
 # ("projection on a non-structure-like type", the Mathlib frontier's
 # decline at Lean.Meta.Grind.AC.DiseqCnstr.lhs).
-0 mutual_struct_proj.ndjson
+# TASK #207: 2.  The reflexive-member class went native at #202, but
+# only for a block of its own: a MUTUAL block with a reflexive member
+# still goes to the in-process modeller, whose mutual rung declines it
+# ("in-process model of MutualStructProj.Node: reflexive member").
+# The preprocessor used to model it; there is no tool any more, so
+# this is the residual class the mutual rung owes — a positive decline
+# naming it.  (nested_struct_proj, the same fixture family, ACCEPTS:
+# its reflexive member is not in a mutual block.)
+2 mutual_struct_proj.ndjson
 0 nested_struct_proj.ndjson
 # inmodel_mutual.ndjson (task #200 B1, the in-process modeller): three
 # index-free MUTUAL blocks — a data pair with cross recursion, a
@@ -769,7 +774,7 @@
 # stream: `infer_proj` (type_checker.cpp) requires one constructor and
 # `args = nparams + nindices`, not `is_non_rec_structure` — a
 # conservative decline on our side, recorded as a finding in DESIGN.md.
-2 indexed_one_ctor_proj.ndjson pre
+2 indexed_one_ctor_proj.ndjson
 # proj_share.ndjson (tests/e2e/src/proj_share.lean; the affine frontier,
 # 2026-09-06): raw `.proj Box 0 b` nodes on a structure whose parameter
 # is a 27-node DAG with a 2^27-node tree (`big% 26`, lean4export
@@ -781,17 +786,15 @@
 # affine frontier").  Now through the memoized `ExprC` instantiation
 # (`ProjEntry.typeAtI`); official accepts in milliseconds, so do both
 # modes.  Pre-fix: out-of-memory under the 16 GB cap.
-0 proj_share.ndjson raw
-# pre_reject_nonpositive.ndjson (task #180, 2026-09-07): the arena's
-# bad/tutorial/052_indNeg, vendored here as an e2e case for the verdict
-# mapping.  `indNeg.mk`'s first argument has a non-positive occurrence
-# of the type being declared, so the PREPROCESSOR's kernel rejects the
-# block while generating its model and exits 1 — and a preprocessor
-# reject is our reject (user ruling 2026-09-07): exit 1 with the tool's
-# message on stderr.  Until then the checker fell back to the raw
-# stream and declined for a missing model (exit 2; arena finding F1).
-1 pre_reject_nonpositive.ndjson
-# pre_decline_imax_field.ndjson (task #180, 2026-09-07):
+0 proj_share.ndjson
+# pre_reject_nonpositive.ndjson was here until task #207: the arena's
+# bad/tutorial/052_indNeg, vendored to pin "a preprocessor reject is
+# our reject".  There is no external verdict to pass through any more,
+# so the mapping the fixture tested no longer exists; the stream itself
+# is still checked, as bad/tutorial/052_indNeg in the arena suite
+# (tests/arena-expected.txt), where its verdict is recorded.
+# pre_decline_imax_field.ndjson (task #180, 2026-09-07; the `pre_`
+# prefix is historical — the stream is a plain raw export):
 # lean-inductive-models' own `prim_shape_declines` fixture.  `PadImaxIdx`
 # is an indexed one-constructor owner whose single field is a function
 # type, so its level has an `imax` that the declared `max`-shaped
@@ -807,7 +810,14 @@
 #   checker installs it directly — a decline-for-missing-model turned
 #   accept, the widening's intended direction; the fixture now pins
 #   that the indexed owner goes native and installs.
-0 pre_decline_imax_field.ndjson
+#   Task #207 (2026-09-07): 2.  With the tool gone the stream's
+#   `Foreign`/`Foreign0` blocks decide it — a constructor field whose
+#   type is a DEFINITION REDEX (`idf (∀ Foreign i, Sort 3) (fun _ => N)
+#   x`) that only whnf's to something classifiable.  Audit finding
+#   #206-A5, the same class as ind_pos_whnf_id/fn and the three arena
+#   good tests recorded in tests/arena-expected.txt; the preprocessor
+#   was masking it here.  `PadImaxIdx` itself still installs directly.
+2 pre_decline_imax_field.ndjson
 
 # THE BUILT-IN PRELUDE AND THE GROUND HOIST (task #191, 2026-09-06;
 # ConLeche/Frontend/Prelude.lean, ConLeche/Frontend/NatOpGround.lean).  The
@@ -881,46 +891,39 @@
 # --- recogniser and ProjRec's owner test are syntactic.  Audit
 # --- follow-up 3 (extend #195's whnfTelescope to the structure arm).
 # TODO(#206-A1) official: 0 — "projection on a non-structure-like type" at def S.n
-2 ind_defhead_struct.ndjson
 # TODO(#206-A1) official: 0 — raw: "missing model for S"
-2 ind_defhead_struct.ndjson raw
+2 ind_defhead_struct.ndjson
 #
 # --- A2 / crack C2: def-headed former at a K-TARGET / unit-like Prop.
 # --- The tool's own U._model.unitlike statement check fails (exit 3).
 # --- Audit follow-up 3.
 # TODO(#206-A2) official: 0 — the preprocessor failed (exit 3)
-3 ind_defhead_k.ndjson
 # TODO(#206-A2) official: 0 — raw: "missing model for U"
-2 ind_defhead_k.ndjson raw
+2 ind_defhead_k.ndjson
 #
 # --- A3 / crack C3: def-headed formers on a MUTUAL block.  Audit
 # --- follow-up 3.
 # TODO(#206-A3) official: 0 — the preprocessor failed (exit 3)
-3 ind_defhead_mutual.ndjson
 # TODO(#206-A3) official: 0 — raw: "former MA is not a telescope ending in a sort"
-2 ind_defhead_mutual.ndjson raw
+2 ind_defhead_mutual.ndjson
 #
 # --- the clean arms of the same family (regression guards): the
 # --- RECURSIVE def-headed block and a β-redex former, both modelled by
 # --- the tool.  If follow-up 3 lands, these must stay 0 piped and are
 # --- the natural candidates to move 2 -> 0 raw.
-0 ind_defhead_fix.ndjson
-2 ind_defhead_fix.ndjson raw
-0 ind_former_redex.ndjson
-2 ind_former_redex.ndjson raw
+2 ind_defhead_fix.ndjson
+2 ind_former_redex.ndjson
 #
 # --- A4 / crack C4: mutual members whose parameter telescopes (…param…)
 # --- or result sorts (…sort…) are DEFEQ but not syntactically equal.
 # --- The in-process modeller compares with `==`; official with
 # --- `is_def_eq`/`is_equivalent`.  Audit follow-up 4.
 # TODO(#206-A4) official: 0 — "member MB2: parameter telescope or sort differs from MA2's"
+# TODO(#206-A4) official: 0 — same decline raw
 2 ind_mutual_param_defeq.ndjson
-# TODO(#206-A4) official: 0 — same decline raw
-2 ind_mutual_param_defeq.ndjson raw
 # TODO(#206-A4) official: 0 — "member MD: parameter telescope or sort differs from MC's"
-2 ind_mutual_sort_defeq.ndjson
 # TODO(#206-A4) official: 0 — same decline raw
-2 ind_mutual_sort_defeq.ndjson raw
+2 ind_mutual_sort_defeq.ndjson
 #
 # --- A5 / crack C5: a recursive occurrence hidden under a DEFINITION.
 # --- Official whnf's the field before classifying it; the fixpoint
@@ -929,11 +932,9 @@
 # --- ind_pos_whnf_id its finitary twin, which the tool models — the
 # --- regression guard.
 # TODO(#206-A5) official: 0 — the preprocessor failed (exit 3)
-3 ind_pos_whnf_fn.ndjson
 # TODO(#206-A5) official: 0 — raw: "missing model for R"
-2 ind_pos_whnf_fn.ndjson raw
-0 ind_pos_whnf_id.ndjson
-2 ind_pos_whnf_id.ndjson raw
+2 ind_pos_whnf_fn.ndjson
+2 ind_pos_whnf_id.ndjson
 #
 # --- A6 / crack C6: the projection FUNCTIONS of a finitary RECURSIVE
 # --- structure.  A silent regression of #188 (the block went native, so
@@ -943,7 +944,6 @@
 # --- `Chain.h := fun self => self.1` types and its iota fires, piped and
 # --- raw alike (cf. direct_fix_struct_proj).  Official: 0.
 0 ind_rec_struct_proj.ndjson
-0 ind_rec_struct_proj.ndjson raw
 #
 # --- A7 / crack C7: raw `.proj` nodes on structure-likes the direct
 # --- route does not serve.  A DOCUMENTED decline (design rule W5), not a
@@ -953,13 +953,11 @@
 # --- MUTUAL structure's raw `.proj` (def MA.n_proj), as
 # --- ind_proj_mutual_nested does.
 # TODO(#206-A7) official: 0 — by design (W5); declines at MA.n_proj
-2 ind_rec_struct_proj_raw.ndjson
 # TODO(#206-A7) official: 0 — by design (W5); declines at MA.n_proj
-2 ind_rec_struct_proj_raw.ndjson raw
+2 ind_rec_struct_proj_raw.ndjson
+# TODO(#206-A7) official: 0 — by design (W5)
 # TODO(#206-A7) official: 0 — by design (W5)
 2 ind_proj_mutual_nested.ndjson
-# TODO(#206-A7) official: 0 — by design (W5)
-2 ind_proj_mutual_nested.ndjson raw
 #
 # --- A9: reflexive blocks, infinitary nesting, nesting through a
 # --- reflexive container.  Piped the tool models them all.  Raw: the
@@ -970,22 +968,18 @@
 # --- nesting": the auxiliary family's isomorphisms with a function-typed
 # --- field need function extensionality), not of the fix route.
 0 ind_reflexive_tool.ndjson
-0 ind_reflexive_tool.ndjson raw
-0 ind_nest_inf.ndjson
 # TODO(#200 residual) official: 0 — raw: the in-process modeller declines a reflexive member
-2 ind_nest_inf.ndjson raw
-0 ind_nest_via_refl.ndjson
+2 ind_nest_inf.ndjson
 # TODO(#200 residual) official: 0 — raw: the in-process modeller declines a reflexive member
-2 ind_nest_via_refl.ndjson raw
+2 ind_nest_via_refl.ndjson
 #
 # --- A10 / crack C8: `unsafe inductive`.  Official skips positivity and
 # --- accepts; con-leche's PARSER throws, so the run errors (3) where unsafe
 # --- DEFINITIONS decline positively (2, arena 141/142).  Audit
 # --- follow-up 6 (one line in ExportC.lean:550).
 # TODO(#206-A10) official: 0 — the preprocessor fails on the block too (exit 3)
-3 ind_unsafe.ndjson
 # TODO(#206-A10) official: 0 — raw: our parser throws "unsafe inductive"; a decline (2) is the intended verdict
-3 ind_unsafe.ndjson raw
+3 ind_unsafe.ndjson
 #
 # --- §2 "probed and clean": shapes nobody had a fixture for and both
 # --- checkers accept.  Pure regression guards — zero-constructor INDEXED
@@ -995,17 +989,11 @@
 # --- a syntactic sort, the same container at two pins / doubly nested,
 # --- and Prop blocks nested through Prop containers.
 0 ind_empty_idx.ndjson
-0 ind_empty_idx.ndjson raw
 0 ind_sort_u.ndjson
-0 ind_sort_u.ndjson raw
 0 ind_mutual_zero_ctor.ndjson
-0 ind_mutual_zero_ctor.ndjson raw
 0 ind_idx_defhead_sort.ndjson
-0 ind_idx_defhead_sort.ndjson raw
 0 ind_nest_two_pins.ndjson
-0 ind_nest_two_pins.ndjson raw
 0 ind_nest_prop.ndjson
-0 ind_nest_prop.ndjson raw
 #
 # --- S1 / crack C9: the `let` value/type checks are ABSENT (the audit's
 # --- only unlicensed accept-superset, and not an inductive matter).
@@ -1017,19 +1005,15 @@
 # --- flips them to 1.  let_bad_value_used is the control the reduct's
 # --- own type check already catches.
 # TODO(#206-S1) official: 1 — "(kernel) let-declaration type mismatch 'x'"
+# TODO(#206-S1) official: 1 — same, raw
 0 let_bad_value.ndjson
-# TODO(#206-S1) official: 1 — same, raw
-0 let_bad_value.ndjson raw
 # TODO(#206-S1) official: 1 — "type expected … Bool.true"
+# TODO(#206-S1) official: 1 — same, raw
 0 let_bad_type.ndjson
-# TODO(#206-S1) official: 1 — same, raw
-0 let_bad_type.ndjson raw
 # TODO(#206-S1) official: 1 — "(kernel) let-declaration type mismatch 'x'"
-0 let_bad_thm.ndjson
 # TODO(#206-S1) official: 1 — same, raw
-0 let_bad_thm.ndjson raw
+0 let_bad_thm.ndjson
 1 let_bad_value_used.ndjson
-1 let_bad_value_used.ndjson raw
 # The DAG-tower fixtures (task #215; scripts/mk_tower_fixtures.py) and
 # the two fixtures the retired tree-size budget left behind.  With the
 # budget gone all of these are plain accepts; what they gate is that the
@@ -1038,5 +1022,5 @@
 # yet (axiom, quotient, prelude-named, inductive) is in DESIGN's #215
 # record, with the walker each one exposes.
 0 budget_model.ndjson
-0 budget_block.ndjson raw
-0 tower_thm.ndjson raw
+0 budget_block.ndjson
+0 tower_thm.ndjson
