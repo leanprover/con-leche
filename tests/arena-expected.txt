@@ -31,20 +31,20 @@
 #    138 keeps its 1: the direct sum route's own pairwise
 #    duplicate-constructor guard rejects it.
 #
-# B. THREE good tutorial tests fall to a DECLINE (2), so the accepted
-#    count reads 87/92 and not 90/92: 053_reduceCtorParam.mk,
+# B. THREE good tutorial tests fell to a DECLINE (2) at task #207, so
+#    the accepted count read 87/92: 053_reduceCtorParam.mk,
 #    118_reduceCtorParamRefl.mk and 119_reduceCtorParamRefl2.mk.  All
 #    three are the SAME class — a constructor field whose type is a
 #    DEFINITION REDEX that only whnf's to a recursive occurrence
 #    (`constType (T α) (T α)`).  Official whnf's the field before
-#    classifying it (`is_positive`/`is_rec_argument`); con-leche's
-#    fixpoint positivity check is syntactic, so the block is
-#    `.unsupported` and no model is generated for it.  This is audit
-#    finding #206-A5, already pinned by the e2e fixtures
-#    ind_pos_whnf_id / ind_pos_whnf_fn (both 2) — the tool was masking
-#    it on these three streams.  A whnf-aware field reading in the
-#    fixpoint route is the fix, and it is the conformance batch's, not
-#    this lane's.
+#    classifying it (`check_positivity`/`is_rec_argument`); con-leche's
+#    fixpoint positivity check was syntactic (audit finding #206-A5,
+#    the e2e fixtures ind_pos_whnf_id / ind_pos_whnf_fn).  Task #210
+#    Part D (2026-09-07): the fixpoint route normalises every field
+#    domain the block occurs in by official's positivity walk before
+#    classifying it (`normPosDom`, ConLeche/Kernel/Direct/SumInstall.lean),
+#    and all three ACCEPT (0): 90/92, the two remaining declines the
+#    custom-axiom tests 032/033.
 0 good/tutorial/001_basicDef.ndjson
 0 good/tutorial/003_arrowType.ndjson
 0 good/tutorial/004_dependentType.ndjson
@@ -82,7 +82,7 @@
 0 good/tutorial/041_eqType.ndjson
 0 good/tutorial/042_natDef.ndjson
 0 good/tutorial/043_rbTreeDef.ndjson
-2 good/tutorial/053_reduceCtorParam.mk.ndjson
+0 good/tutorial/053_reduceCtorParam.mk.ndjson
 0 good/tutorial/056_predWithTypeField.ndjson
 0 good/tutorial/057_typeWithTypeField.ndjson
 0 good/tutorial/058_typeWithTypeFieldPoly.ndjson
@@ -125,8 +125,8 @@
 0 good/tutorial/109_structEta.ndjson
 0 good/tutorial/111_funEta.ndjson
 0 good/tutorial/112_funEtaDep.ndjson
-2 good/tutorial/118_reduceCtorParamRefl.mk.ndjson
-2 good/tutorial/119_reduceCtorParamRefl2.mk.ndjson
+0 good/tutorial/118_reduceCtorParamRefl.mk.ndjson
+0 good/tutorial/119_reduceCtorParamRefl2.mk.ndjson
 0 good/tutorial/120_rTreeRec.ndjson
 0 good/tutorial/121_rtreeRecReduction.ndjson
 0 good/tutorial/122_accRecType.ndjson

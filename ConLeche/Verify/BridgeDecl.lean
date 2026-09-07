@@ -603,6 +603,65 @@ theorem checkDirectFieldSortsI_datF (env : Env) (isProp large : Bool)
       liftFueled_atF, unwrapOr_atF,
       checkDirectFieldSortsI_datF env isProp large s nP fvs idxArgs F j]
 
+/-- Official's positivity walk as a normalisation (task #210 Part D)
+at fuel `F`. -/
+theorem normPosDom_datF (env : Env) (T : Name) (F : Nat) (fuel : Nat) :
+    ∀ (d : Nat) (e : Expr),
+      (normPosDom (fueledOpsM mode) env T d fuel e).val F =
+        normPosDom (fueledOps mode F) env T d fuel e := by
+  induction fuel with
+  | zero =>
+    intro d e
+    unfold normPosDom
+    simp only [FueledM.atF_throw]
+  | succ fuel ih =>
+    intro d e
+    unfold normPosDom
+    split
+    · simp only [FueledM.atF_pure]
+    simp only [FueledM.atF_bind, fueledOpsM_whnf_atF]
+    congr 1
+    funext w
+    split
+    · simp only [FueledM.atF_pure]
+    · split
+      · rename_i dom body bm _
+        split
+        · simp only [FueledM.atF_throw]
+        · simp only [FueledM.atF_bind, FueledM.atF_pure,
+            ih (d + 1) (body.instantiate1 (.fvar d dom))]
+      · simp only [FueledM.atF_pure]
+
+theorem normFieldDoms_datF (env : Env) (T : Name) (F : Nat) (n : Nat) :
+    ∀ (i : Nat) (e : Expr),
+      (normFieldDoms (fueledOpsM mode) env T i n e).val F =
+        normFieldDoms (fueledOps mode F) env T i n e := by
+  induction n with
+  | zero =>
+    intro i e
+    unfold normFieldDoms
+    simp only [FueledM.atF_pure]
+  | succ n ih =>
+    intro i e
+    match e with
+    | .forallE dom body bm =>
+      simp only [normFieldDoms, FueledM.atF_bind, normPosDom_datF env T F 1024 i dom]
+      congr 1
+      funext dom'
+      simp only [FueledM.atF_bind, FueledM.atF_pure,
+        ih (i + 1) (body.instantiate1 (.fvar i dom))]
+    | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ _ | .letE _ _ _
+    | .lit _ | .proj _ _ _ =>
+      simp only [normFieldDoms, FueledM.atF_throw]
+
+theorem normCtorVal_datF (env : Env) (T : Name) (nP nF : Nat) (cvC cvCa : ConstantVal)
+    (F : Nat) :
+    (normCtorVal (fueledOpsM mode) env T nP nF cvC cvCa).val F =
+      normCtorVal (fueledOps mode F) env T nP nF cvC cvCa := by
+  unfold normCtorVal
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    unwrapOr_atF, checkConstantVal_datF, normFieldDoms_datF]
+
 theorem checkDirectSumCtor_datF (env₀ env : Env) (T : Name) (lps : List Name)
     (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
     (cvTa : ConstantVal) (F : Nat) :
@@ -612,7 +671,7 @@ theorem checkDirectSumCtor_datF (env₀ env : Env) (T : Name) (lps : List Name)
         cvC nF cvTa := by
   unfold checkDirectSumCtor
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, normCtorVal_datF,
     checkDirectFieldSortsI_datF, checkDirectDomsAt_datF]
 
 theorem checkDirectSumCtors_datF (env₀ env : Env) (T : Name) (lps : List Name)
@@ -670,13 +729,23 @@ theorem checkDirectFixTable_datF (p : DirectFixParts) (ctorsA : List (ConstantVa
     · rfl
   · rfl
 
+/-- The kinds' classification at fuel `F` (task #210 Part D):
+operation-free, so the fuel is irrelevant. -/
+theorem classifyFixKinds_datF (T : Name) (lps : List Name) (nP nIdx : Nat)
+    (ctorsA : List (ConstantVal × Nat)) (F : Nat) :
+    (classifyFixKinds (m := FueledM) T lps nP nIdx ctorsA).val F =
+      classifyFixKinds (m := CheckM) T lps nP nIdx ctorsA := by
+  unfold classifyFixKinds
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    unwrapOr_atF]
+
 theorem checkDirectFix_datF (env : Env) (p : DirectFixParts) (F : Nat) :
     (checkDirectFix (fueledOpsM mode) env p).val F =
       checkDirectFix (fueledOps mode F) env p := by
   unfold checkDirectFix
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, checkDirectSumInd_datF, checkDirectSumCtors_datF, checkDirectFixTable_datF,
-    checkDirectFixRec_datF, unwrapOr_atF, checkDirectFieldSortsI_datF]
+    checkDirectFixRec_datF, unwrapOr_atF, checkDirectFieldSortsI_datF, classifyFixKinds_datF]
 
 macro "datF_step4_alt" : tactic =>
   `(tactic| first
@@ -900,8 +969,10 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
   | indDecl block =>
     dsimp only
     split
-    · exact checkDirectFix_datF env _ F
     · exact checkIndDecl_datF env block F
+    · split
+      · exact checkDirectFix_datF env _ F
+      · exact checkIndDecl_datF env block F
 
 theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
     (checkDecls mode (fueledOpsM mode) ds).val F =

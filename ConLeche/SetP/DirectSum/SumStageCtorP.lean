@@ -224,7 +224,7 @@ theorem stageCtorGen {T : Name}
       mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
         (fun ψ => directSumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2))
           (uChains (Fss ψ))) := by
-  obtain ⟨hccv, -, -⟩ := ConLeche.checkDirectSumCtor_shape hCtor
+  obtain ⟨⟨_, hccv⟩, -, -⟩ := ConLeche.checkDirectSumCtor_shape hCtor
   obtain ⟨-, hnres, hpshape, -, hlbt, hitf, type', -, -, hann', htp, -, -, -, hty⟩ :=
     ConLeche.checkConstantVal_inv hccv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt

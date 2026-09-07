@@ -80,16 +80,19 @@ block's own family is closed once its constructor is stored). -/
 theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p₀ : ConLeche.DirectFixParts} (hE : EtaFamiliesClosed env)
     (h : DeclDirectFixRun μ F env p₀ env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨-, hnd, cvTa, env₁, p₁, p, ctorsA, sortss, cvRa, rhss, -, -, -, hInd, rfl, -, -, -,
-    hCtors, -, hRec, hTbl⟩ := h
+  obtain ⟨hnd, -, -, -, -, -, kinds, -, -, -, cvTa, env₁, p₁, p, ctorsA, sortss, cvRa, rhss, -, -,
+    -, hInd, rfl, -, -, -, hCtors, -, -, hRec, hTbl⟩ := h
   obtain ⟨cvT, s, hTn, -, hcvT, rfl, rfl, -⟩ := ConLeche.checkDirectSumInd_shape hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
     ConLeche.checkConstantVal_inv hcvT
   -- the completed record, as one name
   try dsimp only at hCtors hRec hTbl
-  have hpT : (p₀.complete (p₀.toDirectSumParts.withSort s)).cvT = p₀.cvT := by simp
-  have hpC : (p₀.complete (p₀.toDirectSumParts.withSort s)).ctors = p₀.ctors := by simp
-  generalize hp : p₀.complete (p₀.toDirectSumParts.withSort s) = p at hCtors hRec hTbl hpT hpC
+  have hpT : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).cvT = p₀.cvT := by
+    simp [ConLeche.DirectFixParts.withKinds]
+  have hpC : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).ctors
+      = p₀.ctors := by simp [ConLeche.DirectFixParts.withKinds]
+  generalize hp : (p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds = p
+    at hCtors hRec hTbl hpT hpC
   have hn : cvTa.name = p.cvT.name := by rw [hTeq, hpT]; exact hTn
   replace hnd : (p.ctors.map (·.1.name)).Nodup := by rw [hpC]; exact hnd
   have hfreshT : env.find? cvTa.name = none := by rw [hn, hpT, ← hTn]; exact hfT
@@ -109,7 +112,7 @@ theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
       have hj : j < p.ctors.length := by simpa using h2
       obtain ⟨-, _, -, hrun⟩ := hall j (p.ctors[j]) (ctorsA[j])
         (List.getElem?_eq_getElem hj) (List.getElem?_eq_getElem (by omega))
-      obtain ⟨hccv, -, -⟩ := ConLeche.checkDirectSumCtor_shape hrun
+      obtain ⟨⟨_, hccv⟩, -, -⟩ := ConLeche.checkDirectSumCtor_shape hrun
       obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hCeq⟩ :=
         ConLeche.checkConstantVal_inv hccv
       rw [hCeq]
@@ -122,7 +125,7 @@ theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
       have := (List.getElem?_eq_some_iff.mp hj).1
       omega
     obtain ⟨-, _, -, hrun⟩ := hall j (p.ctors[j]) c (List.getElem?_eq_getElem hj') hj
-    obtain ⟨hccv, -, -⟩ := ConLeche.checkDirectSumCtor_shape hrun
+    obtain ⟨⟨_, hccv⟩, -, -⟩ := ConLeche.checkDirectSumCtor_shape hrun
     obtain ⟨hfC, -, -, -, -, -, _, _, _, -, -, -, -, -, hCeq⟩ :=
       ConLeche.checkConstantVal_inv hccv
     have hn' : c.1.name = (p.ctors[j]).1.name := by rw [hCeq]
@@ -192,7 +195,9 @@ theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
     (h : DeclIndRunDispatch μ F env block envI) : EtaFamiliesClosed envI := by
   unfold DeclIndRunDispatch at h
   split at h
-  · exact declDirectFixRun_etaClosed hE h
   · exact declIndEtaClosedRun hE h
+  · split at h
+    · exact declDirectFixRun_etaClosed hE h
+    · exact declIndEtaClosedRun hE h
 
 end ConLeche.Semantics

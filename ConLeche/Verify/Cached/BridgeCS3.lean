@@ -200,6 +200,86 @@ theorem checkDirectSumIndS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF 
   simp only [if_pos h1]
   exact SimC.pure hs₃ ⟨rfl, hTw⟩
 
+/-- Official's positivity walk (task #210 Part D) at the shared
+operations: every `whnf` is the shared one, on a well-scoped input at
+its depth. -/
+theorem normPosDomS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (T : Name) :
+    ∀ {fuel d : Nat} {e : Expr} {s₀ : CState}, CSOK mode env s₀ → WScoped d e →
+      SimC mode env s₀ RelVC
+        (normPosDom (sharedOpsC mode (mkFEnv env)) env T d fuel e)
+        (normPosDom (fueledOpsM mode) env T d fuel e)
+  | 0, d, e, s₀, hs, hw => by
+    unfold normPosDom
+    exact SimC.throw
+  | fuel + 1, d, e, s₀, hs, hw => by
+    unfold normPosDom
+    dsimp only [sharedOpsC]
+    split
+    · exact SimC.pure hs rfl
+    refine SimC.bind (opE_whnf_sim hμ henv hs hw) (fun s₁ w w' hs₁ hR => ?_)
+    obtain ⟨rfl, hw'⟩ := hR
+    split
+    · exact SimC.pure hs₁ rfl
+    · split
+      · next dom body bm =>
+        simp only [WScoped] at hw'
+        split
+        · exact SimC.throw
+        · refine SimC.bind (normPosDomS_sim hμ henv T hs₁ (WScoped.instantiate1 hw'.1 0 hw'.2))
+            (fun s₂ b b' hs₂ hB => ?_)
+          obtain rfl : b = b' := hB
+          exact SimC.pure hs₂ rfl
+      · exact SimC.pure hs₁ rfl
+
+theorem normFieldDomsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (T : Name) :
+    ∀ {n i : Nat} {e : Expr} {s₀ : CState}, CSOK mode env s₀ → WScoped i e →
+      SimC mode env s₀ RelVC
+        (normFieldDoms (sharedOpsC mode (mkFEnv env)) env T i n e)
+        (normFieldDoms (fueledOpsM mode) env T i n e)
+  | 0, i, e, s₀, hs, hw => by
+    unfold normFieldDoms
+    exact SimC.pure hs rfl
+  | n + 1, i, e, s₀, hs, hw => by
+    match e with
+    | .forallE dom body bm =>
+      simp only [normFieldDoms]
+      simp only [WScoped] at hw
+      refine SimC.bind (normPosDomS_sim hμ henv T hs hw.1) (fun s₁ d d' hs₁ hD => ?_)
+      obtain rfl : d = d' := hD
+      refine SimC.bind (normFieldDomsS_sim hμ henv T hs₁ (WScoped.instantiate1 hw.1 0 hw.2))
+        (fun s₂ q q' hs₂ hQ => ?_)
+      obtain rfl : q = q' := hQ
+      exact SimC.pure hs₂ rfl
+    | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ _ | .letE _ _ _
+    | .lit _ | .proj _ _ _ =>
+      simp only [normFieldDoms]
+      exact SimC.throw
+
+theorem normCtorValS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {T : Name}
+    {nP nF : Nat} {cvC cvCa : ConstantVal} (hs : CSOK mode env s₀)
+    (hCw : WScoped 0 cvCa.type) :
+    SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 v.type)
+      (normCtorVal (sharedOpsC mode (mkFEnv env)) env T nP nF cvC cvCa)
+      (normCtorVal (fueledOpsM mode) env T nP nF cvC cvCa) := by
+  unfold normCtorVal
+  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ q q' hs₁ hQ => ?_)
+  obtain ⟨rfl, -⟩ := hQ
+  obtain ⟨cbs, _⟩ := q
+  dsimp only
+  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ r r' hs₂ hR => ?_)
+  obtain ⟨rfl, hop⟩ := hR
+  obtain ⟨fvsP, crest⟩ := r
+  dsimp only
+  obtain ⟨-, hcrW0⟩ := openPisAtFvars_WScoped nP cvCa.type 0 hop hCw
+  have hcrW : WScoped nP crest := by rwa [Nat.zero_add] at hcrW0
+  refine SimC.bind (normFieldDomsS_sim hμ henv T hs₂ hcrW) (fun s₃ u u' hs₃ hU => ?_)
+  obtain rfl : u = u' := hU
+  obtain ⟨fbs, resid⟩ := u
+  dsimp only
+  split
+  · exact SimC.pure hs₃ ⟨rfl, hCw⟩
+  · exact checkConstantValS_sim hμ henv hs₃
+
 /-- Stage 2 (one constructor, the constructor and its field count
 explicit) at the shared operations. -/
 theorem checkDirectSumCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env₀ : Env} {T : Name}
@@ -214,6 +294,9 @@ theorem checkDirectSumCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF
   unfold checkDirectSumCtor
   dsimp only [sharedOpsC]
   refine SimC.bind (checkConstantValS_sim hμ henv hs)
+    (fun s₀' cvCa₀ cvCa₀' hs₀' hP₀ => ?_)
+  obtain ⟨rfl, hCw₀⟩ := hP₀
+  refine SimC.bind (normCtorValS_sim hμ henv hs₀' hCw₀)
     (fun s₁ cvCa cvCa' hs₁ hP => ?_)
   obtain ⟨rfl, hCw⟩ := hP
   refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ q q' hs₂ hQ => ?_)

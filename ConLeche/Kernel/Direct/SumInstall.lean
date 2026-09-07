@@ -134,6 +134,72 @@ def checkDirectFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool
     let rest ← checkDirectFieldSortsI ops env isProp large s nP fvs idxArgs j
     pure (rest ++ [u])
 
+/-- **Official's positivity walk, as a normalisation** (task #210 Part
+D, audit #206-A5): `check_positivity` (`inductive.cpp`) reduces a
+constructor field's type to weak head normal form before classifying
+it, and again under every Π binder of a reflexive field.  A field whose
+type only whnf's to an occurrence of the block (`Id' T`, `Nat → Id' T`)
+is recursive for official and invisible to a syntactic reading.  So the
+field's domain is REPLACED by the form official classifies: whnf'd at
+its own depth, and — while the block occurs — walked under its Π
+binders (a Π domain mentioning the block is official's "non positive
+occurrence", INVALID), each body whnf'd in turn.  A domain the block
+does not occur in is kept as declared, unreduced (official whnf's it
+too, and discards the result: reduction cannot introduce the block);
+one it occurs in only before whnf (`idf (T → Type) (fun _ => N) t`,
+which official classifies as an ordinary field) is REPLACED by the
+whnf'd form, so that the field no longer mentions the block nor, with
+it, any earlier recursive field (`directUsedLater`).  The result is
+definitionally equal to the declared domain; the constructor is
+re-checked from scratch on the rebuilt type (`normCtorVal`), so
+nothing about the reduction is trusted — task #195's arrangement at
+the type former, now at the fields.  `fuel` bounds the Π walk (a
+reflexive field's own telescope); exhaustion is a positive decline. -/
+def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
+  | _, 0, _ => throw (.notImplemented "direct sum: positivity walk fuel")
+  | d, fuel + 1, e => do
+    if !e.mentionsConst T then pure e else
+    let w ← ops.whnf env d e
+    if !w.mentionsConst T then pure w else
+    match w with
+    | .forallE dom body bm =>
+      if dom.mentionsConst T then
+        throw (.invalid "direct sum: non positive occurrence of the inductive type")
+      else do
+        let body' ← normPosDom ops env T (d + 1) fuel (body.instantiate1 (.fvar d dom))
+        pure (.forallE dom (body'.abstract1 d) bm)
+    | _ => pure w
+
+/-- The constructor's field binders with their domains normalised
+(`normPosDom`), opened at the free variables `i ..< i + n` as
+`whnfTelescope` opens the former's; the residual returned scoped at
+those variables. -/
+def normFieldDoms (ops : CheckerOps m) (env : Env) (T : Name) :
+    Nat → Nat → Expr → m (List (Expr × BinderMeta) × Expr)
+  | _, 0, e => pure ([], e)
+  | i, n + 1, .forallE dom body bm => do
+    let dom' ← normPosDom ops env T i 1024 dom
+    let (bs, r) ← normFieldDoms ops env T (i + 1) n (body.instantiate1 (.fvar i dom))
+    pure ((dom', bm) :: bs, r)
+  | _, _ + 1, _ => throw (.notImplemented "direct sum: constructor field telescope")
+
+/-- The checked constructor with its field domains normalised: the
+parameter binders as declared, the field binders through
+`normFieldDoms`, closed back into a telescope (`closeTelescope`) and
+— when anything changed — checked as the constructor's type in its
+place, from scratch. -/
+def normCtorVal (ops : CheckerOps m) (env : Env) (T : Name) (nP nF : Nat)
+    (cvC cvCa : ConstantVal) : m ConstantVal := do
+  let (cbs, _) ← unwrapOr (cvCa.type.stripPis nP)
+    (.notImplemented "direct sum: constructor telescope")
+  let (fvsP, crest) ← unwrapOr (openPisAtFvars nP cvCa.type 0)
+    (.notImplemented "direct sum: constructor telescope")
+  let pbs := List.zipWith (fun (x : Expr) (b : Expr × BinderMeta) => (x.fvarTypeD, b.2)) fvsP cbs
+  let (fbs, resid) ← normFieldDoms ops env T nP nF crest
+  let ty' := closeTelescope (pbs ++ fbs) 0 resid
+  if ty' == cvCa.type then pure cvCa
+  else checkConstantVal ops env { cvC with type := ty' }
+
 /-- Stage 2, one constructor's type: the ordinary constant check, the
 annotated result shape (the family at the parameters followed by
 `nIdx` index expressions), the parameter pins against the type
@@ -149,7 +215,8 @@ structure-like block on the fixpoint route are computed from them). -/
 def checkDirectSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
-  let cvCa ← checkConstantVal ops env cvC
+  let cvCa₀ ← checkConstantVal ops env cvC
+  let cvCa ← normCtorVal ops env T nP nF cvC cvCa₀
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
   unless directCtorResidOk T lps nP nF nIdx cbody do

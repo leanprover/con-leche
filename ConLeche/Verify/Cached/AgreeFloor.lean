@@ -461,6 +461,12 @@ def directFixSkels (p : DirectFixParts) (sk : List InstallSkel) : List InstallSk
 block), then the modeled block. -/
 def indDeclSkels (block : List ConstantInfo) (sk : List InstallSkel) :
     List InstallSkel :=
+  -- a block with an in-process `_model` family that the raw reading
+  -- refuses is the modeled path's (task #210 Part D); the skeleton list
+  -- decides as the index does
+  if blockIsModeled (fun n => (skFind? sk n).map fun _ => .indInfo default {}) block then
+    indDeclSkelsModeled block sk
+  else
   match directFixParts? block with
   | some p => directFixSkels p sk
   | none => indDeclSkelsModeled block sk
@@ -829,13 +835,26 @@ theorem checkDirectSumIndF_skels {fe : FEnv} {sk : List InstallSkel}
      have := h.push (.indInfo cvTa (capsOf (p.withSort s)))
      simpa [ciSkel, hn'] using this)
 
+/-- The normalisation stores a constant of the declared name (task
+#210 Part D). -/
+theorem normCtorValF_name (ops : CheckerOps CheckCM) (fe : FEnv) (T : Name) (nP nF : Nat)
+    (cvC cvCa : ConstantVal) (hn : cvCa.name = cvC.name) :
+    Yields (normCtorValF ops fe T nP nF cvC cvCa) (fun r => r.name = cvC.name) := by
+  unfold normCtorValF
+  yields
+  all_goals (dsimp only; split)
+  all_goals first
+    | (apply Yields.pure; exact hn)
+    | exact Yields.mono (checkConstantValF_name ops fe _) (fun _ h => h)
+
 theorem checkDirectSumCtorF_name (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
     Yields (checkDirectSumCtorF ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
       (fun r => r.1.name = cvC.name) := by
   unfold checkDirectSumCtorF
-  refine Yields.bind' (checkConstantValF_name ops fe cvC) fun cvCa hn => ?_
+  refine Yields.bind' (checkConstantValF_name ops fe cvC) fun cvCa₀ hn₀ => ?_
+  refine Yields.bind' (normCtorValF_name ops fe T nP nF cvC cvCa₀ hn₀) fun cvCa hn => ?_
   yields
   all_goals (apply Yields.pure; exact hn)
 
@@ -987,25 +1006,37 @@ theorem checkDirectFixS_skels (mode : CheckMode) {fe : FEnv}
     Yields (checkDirectFixS mode fe p)
       (fun fe' => SkelIs fe' (directFixSkels p sk)) := by
   unfold checkDirectFixS
-  -- the two front guards: positivity, the distinct constructor names
-  try apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => ?pos) (fun _ => ?posBad)
-  case posBad => exact Yields.ofThrowBind
-  case pos =>
+  -- the front guard: the distinct constructor names
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => ?dupBad) (fun _ => ?main)
   case dupBad => exact Yields.ofThrowBind
   case main =>
   ybind
+  -- the provisional pass (task #210 Part D): a throwaway former, the
+  -- constructors at it, the kinds — nothing of it is kept
+  refine Yields.bind' (checkDirectSumIndF_skels h _ p.toDirectSumParts (fun _ => {}))
+    fun rP hP => ?_
+  obtain ⟨feP, cvTaP, p₁P⟩ := rP
+  obtain ⟨hP, sP, hpsP⟩ := hP
+  try simp only [] at hpsP
+  subst hpsP
+  try simp only []
+  ybind
+  refine Yields.bind' (checkDirectSumCtorsF_names _ feP feP _ _ _ _ _ _ _ cvTaP _)
+    fun rP₂ _ => ?_
+  obtain ⟨ctorsP, sortssP⟩ := rP₂
+  try simp only []
+  refine Yields.bind fun kinds => ?_
+  ybind
   refine Yields.bind' (checkDirectSumIndF_skels h _ p.toDirectSumParts
-    (fun p₁ => directFixCaps (p.complete p₁))) fun r₁ h₁ => ?_
+    (fun p₁ => directFixCaps ((p.complete p₁).withKinds kinds))) fun r₁ h₁ => ?_
   obtain ⟨fe₁, cvTa, p₁⟩ := r₁
   obtain ⟨h₁, s, hps⟩ := h₁
   try simp only [] at hps
   subst hps
   try simp only []
-  generalize hp' : p.complete (p.toDirectSumParts.withSort s) = p'
-  have hp'T : p'.cvT = p.cvT := by rw [← hp']; simp
+  generalize hp' : (p.complete (p.toDirectSumParts.withSort s)).withKinds kinds = p'
+  have hp'T : p'.cvT = p.cvT := by rw [← hp']; simp [DirectFixParts.withKinds]
   -- the elimination restriction, on the completed record
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => ?elim) (fun _ => ?elimBad)
@@ -1026,6 +1057,11 @@ theorem checkDirectFixS_skels (mode : CheckMode) {fe : FEnv}
   split
   case isFalse => exact Yields.ofThrowBind
   case isTrue hk =>
+  -- the stream's rules against the generated ones
+  try ylet
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue _ =>
   ybind
   refine Yields.bind' (checkDirectFixRecF_yields _ _ p' cvTa ctorsA)
     fun r₃ h₃ => ?_
@@ -1163,9 +1199,22 @@ theorem checkDeclSPC_skels (mode : CheckMode) {fe : FEnv}
   | indDecl block =>
     simp only []
     unfold indDeclSkels
-    cases directFixParts? block with
-    | none => exact checkIndDeclSF_skels mode h block
-    | some p => exact checkDirectFixS_skels mode h p
+    have hm : blockIsModeled fe.find? block
+        = blockIsModeled (fun n => (skFind? sk n).map fun _ => .indInfo default {}) block := by
+      cases block with
+      | nil => rfl
+      | cons c rest =>
+        cases c with
+        | indInfo cvT caps =>
+          simp only [blockIsModeled, Option.isSome_map]
+          rw [h.isSome']
+        | _ => rfl
+    rw [← hm]
+    split
+    · exact checkIndDeclSF_skels mode h block
+    · cases directFixParts? block with
+      | none => exact checkIndDeclSF_skels mode h block
+      | some p => exact checkDirectFixS_skels mode h p
 
 theorem checkDeclSPStepC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :

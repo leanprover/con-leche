@@ -233,7 +233,7 @@ theorem fixShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
     (∀ ρ : Nat → V, Sat2 V (shadowCtx nP ks (nP + nF) (((ds ψ).map (·.2.2)).reverse)) ρ →
       AnnotOkP V ρ (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ))) := by
   -- the run's pieces
-  obtain ⟨hccv, -, fvsP', crest', tfvs, trest, xFvs', idxArgs', hopC, -, -, hopX, -, -, -,
+  obtain ⟨⟨_, hccv⟩, -, fvsP', crest', tfvs, trest, xFvs', idxArgs', hopC, -, -, hopX, -, -, -,
     hsorts⟩ := ConLeche.checkDirectSumCtor_shape hCtor
   obtain ⟨crest, hopP, hopXX⟩ := hD.opens
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))

@@ -35,7 +35,7 @@ theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
       cvC nF cvTa = .ok (cvCa, sorts)) :
     cvCa.type.hasFvar = false ∧ cvCa.type.allLevelParamsDefined cvCa.levelParams = true ∧
     cvCa.type.constsResolve env = true ∧ cvCa.type.looseBVarsBounded 0 = true := by
-  obtain ⟨hccv, -, -⟩ := checkDirectSumCtor_shape h
+  obtain ⟨⟨_, hccv⟩, -, -⟩ := checkDirectSumCtor_shape h
   exact checkConstantVal_typeWF hccv
 
 /-- A name fresh above the constructors' conses is fresh below them
