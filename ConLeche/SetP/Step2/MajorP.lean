@@ -529,6 +529,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               rw [hfT] at hfTj
               exact (ConstantInfo.indInfo.inj (Option.some.inj hfTj)).2.symm
             obtain ⟨hnpj, -, hparj, -⟩ := himpj (by rw [hcapsTj]; exact heta)
+            rw [hcapsTj] at hparj
             have hgj : TowerGuardAt φ entry ust :=
               towerGuardAt_of hO5j
                 (fun hp => by rw [hp] at hnpj; exact nomatch hnpj)

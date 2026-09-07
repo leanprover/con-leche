@@ -703,6 +703,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
         rw [hfT] at hfTj
         exact (ConstantInfo.indInfo.inj (Option.some.inj hfTj)).2.symm
       obtain ⟨hnpj, -, hparj, -⟩ := himpj (by rw [hcapsTj]; exact heta)
+      rw [hcapsTj] at hparj
       -- the family is not a proposition (it claims η), so the guard
       -- holds at every valuation by O5
       have hgj : TowerGuardAt φ entry us' :=

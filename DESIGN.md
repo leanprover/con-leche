@@ -58054,3 +58054,231 @@ input.  Mechanically the release itself is free once liveness is known —
 dropping the `HashMap` entry drops the last reference and the runtime's
 reference counting reclaims the subtree — so the missing thing is
 exactly the liveness information, not the freeing.
+
+---
+
+## TASK #210 — ONE ROUTE: every inductive block through the fixpoint route (2026-09-07, `agent/one-route`)
+
+**The brief.**  One installer: the structure, sum and non-recursive
+indexed installers go, every block installs through `checkDirectFix`,
+and the one-constructor capabilities (`.proj`, structure η, K,
+unit-likeness) are theorems about the fix carrier rather than a
+separate route.  Landed in parts, each gated: Part A (this record) —
+the capabilities at one-constructor blocks on the fix route; Part B —
+the constant-functor arm (non-recursive blocks through `fix`); Part C
+— the deletions; Part D — conformance items.  User directive: universal
+coverage, no shortcuts, no more restrictive than official; a
+restriction is a finding.
+
+### Part A — capabilities at a structure-like block on the fixpoint route
+
+**What a `.proj` node means on the fix carrier.**  A member of the
+family at its parameters is `inj j (mkTower (fs ++ [pt]))` — the
+constructor tag in front, the fields' point-terminated tuple behind
+(`fixFamI_app_eq_sum`: the fibre is `sumSet w (sumFibre w ρ' (rChains …))`,
+at one constructor and no index `sumSet w (sumFibre w ρ' [Fs ++ [idxEqAV []]])`).
+Field `i` is therefore `projS (i + 1) x`, not `projS i x`: the model
+reads a projection node at an OFFSET.  That is the whole design of Part
+A: the projection table (`ProjTable`, task #175 S1) carries `off : Nat`
+— `0` at the structure route's bare tower, `1` at the fixpoint route's
+tagged tower — and the three denotations (`denoteP`, `denote2`, the
+erased `denote`) read `.proj T i e` as `projAV (i + entry.off) ea`.  The
+kernel never looks at it (the typing, iota and η rules are syntactic in
+the table's bodies); only the model does.  `dropS k` (`projS_add_dropS :
+projS (i + k) x = projS i (dropS k x)`) is the tower lemma that lets
+every "the projections of the subject" statement be spelled below the
+offset (`bodyFrames`'s `projList nF (dropS off (ρ 0))`).
+
+**The kernel.**  `checkDirectFix` runs the sum route's stages with the
+block's own capability record `directFixCaps` (`checkDirectSumInd`
+takes `capsOf`), keeps the constructors' field sorts
+(`checkDirectSumCtor(s)` return them beside the annotated constructors —
+the table's guard levels are official's join over the used earlier
+slots, `directProjGuards`, computed from them), and ends in a fourth
+stage, `checkDirectFixTable`: at ONE constructor and NO index it conses
+the structure route's projection table (`checkDirectProjTable … 1 cvCa`,
+offset 1); at any other block it conses nothing.  `directFixCaps` at a
+one-constructor block: `eta := nIdx == 0 && !isProp`, `unitlike := nIdx
+== 0 && nF == 0`, `ruleK := nF == 0 && isProp`, the ctor/params/fields
+of the η law; `{}` otherwise.  The cached driver (`checkDirectFixTableF`)
+and the `S` twin mirror it; the frontend's projection-function rewrite
+(`ProjRec`) stands down at a block `directFixParts?` takes — the
+block's `.proj` nodes are native, no `_model.proj_i.iota` is needed —
+and the preprocessor's Stage-B stopgap conjunct (a reflexive
+structure-like at `Type` left to the tool for exactly this reason) is
+gone.
+
+**The proof.**  Two invariant obligations at the table's cons on this
+route that the structure route did not have:
+
+* *The capability laws of the former's record are vacuous below the
+  table.*  `EnvS2PM.caps_ok` owes the η law of a stored `caps.eta =
+  true` record only under `EtaFamilyStored` (the projection FUNCTION
+  family `T.proj.i` stored at every field) — and the fix route stores a
+  TABLE, never a projection function, so the first slot `projFnName T
+  0` is free at every environment below and at the table's
+  (`fixTableFamFree`, read backwards from `checkDirectProjTable`'s own
+  freshness guard through `consSumCtors_find?_none`).  The unit-like
+  half is real but the flag is `false`: a block on this route has a
+  recursive field (`fixCtorFieldPos`: positivity passed and some kind
+  is recursive or reflexive, so the one constructor has a field).
+  `CapsLawsAt` packages the two halves; `capsLawsAt_vacuous` discharges
+  them; the former, constructor and recursor stages take the block's
+  laws as a hypothesis at any carrier agreeing with theirs off the
+  consed name (`hTlaws`), and the assembly supplies `fixCapsLawsAt_vacuous`.
+* *The η-family closure with one exception.*  `EtaFamiliesClosed` (task
+  #83) is threaded beside the carrier; the fix former is consed with
+  `eta = true` BEFORE its constructor exists, so the closure holds for
+  every family but `T` (`EtaFamiliesClosedExcept env T`, with `.except`,
+  `.cons`, `.closed`) until the table restores it.
+
+The table stage itself (`stageFixTable`, `SetP/DirectFix/FixStageTableP.lean`)
+is `stageTable` read against the fibre: `bodyFrames` was generalised to
+an abstract subject frame (`Frame ρ`, with the squash decomposition
+`hsq`, the graph fit `hgr` below the offset, the projection readings'
+grading `hokProj`) and is instantiated at `ρ 0 ∈ˢ sumSet w (sumFibre w
+ρ' [Fs ++ [idxEqAV []]])` through `fixFibre_elim` / `fixFibre_zero_elim`
+/ `annotOk2_projAV_succ_fibre`; the three laws are the fix entry cores
+(`FixEntryLawP.lean`: `fixEntryTypingCore`, `fixEntryIotaCore` /
+`fixEntryIotaCoreZero`, `fixEntryEtaCore` — the iota cores read the
+constructor leaf's fold `directSumMkAV_fold` and `projS_mkTower_getD`,
+the η core rebuilds `inj 0 (mkTower (fs ++ [pt]))` from `projS (j + 1)`;
+the two tower lemmas `projList_mkTower_take` / `projS_mkTower_getD`
+moved from `Tower/FixIhI` to `SetModel/TupleTower`, where they belong).
+The family-at-the-parameters fold the cores need — `ts.foldl app
+(interp2 V ρ (directFixTyAVI …)) = sumSet w (sumFibre w (consList ts ρ)
+[Fs ++ [idxEqAV []]])` — is `directFixTyAVI_fold` + `fixFamI_app_eq_sum`
+at `Ids = []`, `rChains 0 0 [Fs] [[]] = [Fs ++ [idxEqAV []]]`
+(`rChains_single_nil`, `liftFields_zero`).  `declDirectFixTable` is the
+assembly-facing wrapper: the case split on `checkDirectFixTable`
+(nothing consed at a block that is not structure-like), the block's
+data specialised to one constructor and no index, and the `NoProjEnv`
+bookkeeping across the former's, the constructor's
+(`noProjEnv_consSumCtors`) and the generated recursor's conses
+(`NoProjAt.directRecTyR` / `directRecRhsR` over the R generators,
+appended to `Verify/Direct/FixRec.lean`).
+
+**η at a recursive structure-like: NOT granted — official's `!is_rec`
+is load-bearing.**  Official's `is_structure_like` (kernel/inductive.cpp)
+is "one constructor, no index AND `!is_rec()`", so `try_eta_struct` and
+`is_def_eq_unit_like` never fire on a recursive structure-like — `c =
+Chain.mk c.h c.t := rfl` is REJECTED by official ("Not a definitional
+equality"; probed at v4.29.1) — while `infer_proj` does not look at
+`is_rec`, so `.proj` typing and iota are official's.  Part A first
+pinned `eta := true` at every non-`Prop` structure-like block on the
+route (the P tier proves the η law at the fibre, `fixEntryEtaCore`, so
+it is SOUND) — and `ind_nest_via_refl` then ran past 600 s where master
+takes 1 s: with the preprocessor's stopgap gone, the reflexive
+structure-like `W1 α = sup (a : α) (f : Nat → W1 α)` is native on `fix`
+with η, the tool still models the block nested over it (`ViaRefl`),
+and checking `ViaRefl.rec._model.iota_1` made `isDefEq` spin through
+η-expansion at the reflexive field.  Sound in the model, divergent in
+the checker; official's `!is_rec` is the reason it terminates there.
+So `directFixCaps` — now on `DirectFixParts`, `checkDirectSumInd` gets
+`fun _ => directFixCaps p` — claims η only when no field kind is
+recursive or reflexive (`!(p.kinds.any …)`), which on this Part's route
+(every block has one) is never: the whole η discharge machinery above
+is exercised only at Part B, where non-recursive structures arrive and
+η is official's.  The projection TABLE does not depend on the record;
+the table's entry law (`TowerEntryLawP`) used to pin the stored
+record's flag to exactly `!isProp` — a coupling from the structure
+route — and now states the η record under `capsT.eta = true → …`
+(`(isEquiv structSort zero == some true) = false ∧ etaCtor = … ∧
+etaParams = … ∧ etaFields = …`), which is all its two readers
+(`CapsRowsP`'s tower-backed η row, `MajorP`) ever used, since both run
+under the kernel's `caps.eta = true` guard.  `direct_fix_struct_eta`
+pins the verdict (1, official 1).  Unit-likeness never arises on the
+route (a block has a field).  Part A's deviation from official: none.
+
+**What moved, by layer.**  Kernel: `Kernel/Env.lean` (`ProjTable.off`,
+`ProjEntry.off`), `Kernel/Direct/{Install,InstallF}.lean` (the table
+check's `off`), `Kernel/Direct/{SumInstall,SumInstallF}.lean` (`capsOf`,
+the sorts returned), `Kernel/Direct/{RecInstall,RecInstallF}.lean`
+(`directFixCaps`, `checkDirectFixTable(F)`), `Cached/CheckerC.lean`,
+`Frontend/ProjRec.lean`, `ConLechePreprocess.lean`.  SetModel:
+`TupleTower.lean` (`dropS`, `projS_add_dropS`, the two tower lemmas).
+Semantics: `Canon.lean`, `Direct/{DeclDirectSum,DeclDirectFix,
+DeclDirectSumEta,DeclDirectEta}.lean`, `Tower/FixIhI.lean`.  Verify:
+`EnvWF.lean` (`Env.projOff`, `findProj?_off`), `EnvGuards.lean`
+(`EtaFamiliesClosedExcept`), `Denote.lean`, `Denote/{Install,Shift}.lean`,
+`Direct/{SumInv,SumWF,FixWF,FixParts,FixRec}.lean`, `BridgeDecl.lean`,
+`BridgeWfImp.lean`, `Cached/{BridgeCS3,BridgeCSDecl,AgreeFloor}.lean`.
+SetP: `Annot/{Bit,BitLemmas,BitExtend,BitShift,BitInst,EnvS2P}.lean`,
+`Step2/*` (the `.proj` denotation branches), `Direct/{DirectCapsP,
+DirectEntryKit2P,DirectBodyFramesP,DirectStageTableP,…}.lean`,
+`DirectSum/{SumStageFormerP,SumStageCtorP,SumStageRecP,SumDataP,
+DeclDirectSumP}.lean`, `DirectFix/{FixStageFormerP,FixCtorsLoopP,
+FixStageRecP,FixDataP,FixShadowP,FixTeleBoundP,FixChainFactsP,
+FixAssemblyKitP,DeclDirectFixP}.lean` and the two new modules
+`DirectFix/FixEntryLawP.lean`, `DirectFix/FixStageTableP.lean`.
+Fixtures: `direct_fix_struct_proj` (+ `_idx_bad`, `_iota_bad`),
+`direct_fix_struct_eta` (the conformance guard),
+`scripts/mk_direct_fix_struct_bad.py`;
+`ind_rec_struct_proj` 2 → **0** piped and raw (audit A6 / follow-up 2
+closed); `ind_rec_struct_proj_raw` stays 2 with its decline moved from
+`Chain.h` to the mutual structure's raw `.proj` (`MA.n_proj`, A7, W5).
+
+**Restrictions beyond official that remain on the route** (unchanged
+from Stage B; findings for Part D): (i) the fix arm's syntactic former
+reading (`stripPis`); (ii) the `directUsedLater` fall-through (a
+recursive field mentioned by a later binder domain or index expression
+→ modeled); (iii) the syntactic rule comparison at the parse
+placeholder.  Part A adds none.  Not restrictions: `.proj` at any
+field of any one-constructor index-free block (any parameters, any
+dependent fields, any universe ≤ the block's, the `Prop` squash regime
+with official's guard), the index past the fields rejected as
+official's `infer_proj`.
+
+**Gates** (`agent/one-route` at the Part A tip, master `99bdfb87` —
+task #213 — merged at `e1f70d09`; the gates ran ONCE on that merged
+tree, trimmed to the user's ruling "only one init-full run should
+suffice usually": init-full raw in the default mode under `perf stat`,
+piped once because the frontend's projection rewrite and the
+preprocessor's predicate moved).  `lake build` warning-free (the last
+unused binder dropped after the chain, rebuilt clean); `lake test`;
+`tests/arena.sh` (`env -i` clean form): tutorial 90/92 (032/033 by
+design), e2e 190/190, annot 14/14, retired flags 8/8, mode flags 16/16,
+prelude counts 3/3, progress lane 6/6, tree-size budget 5/5, trusted
+sweep 138 + 190 + 14 with its 3 recorded divergences, axioms pinned
+(11 theorems at `[propext, Classical.choice, Quot.sound]`);
+`tests/layering.sh`: base 273 / P 195 / caps 3 / umbrella 1, 0 base→lane,
+0 impl→theory; `tests/trust-surface.sh`: 18 escapes in 4 allowlisted
+files (480 scanned), 0 outside; `tests/proofdeps.sh` regenerated ONCE:
+2 884 → 2 898 rows, the delta exactly the two new modules
+`SetP.DirectFix.FixEntryLawP`, `SetP.DirectFix.FixStageTableP` × the 7
+roots (+14), 0 departures; `tests/inmodel.sh` OK; `tests/native-audit.sh
+--full`: 93 streams, 682 native blocks — 525 struct, 85 sum, 70 fix, 1
+inmodel, 1 basis, 0 unrecognised, 0 unreached.  **init-full raw through
+the default pipe** (`--verified`, under `perf stat -e instructions:u`):
+accepted **53 127** declarations, exit 0; route census 592 blocks — 478
+struct, 55 sum, 52 fix, 6 basis, 1 inmodel, 0 modeled;
+**783.06 G instructions** against master's 782.93 G (+0.02 %, noise —
+the table stage runs at the 52 fix blocks' one-constructor members
+only).  Piped (`con-leche-preprocess`, then `--pre`): 53 127, the same
+census.  **Mathlib slice** (raw `mathlib-full.ndjson`,
+`_tmp/indexed-fix/slice_multi_fast.py`, the Stage-B five reflexive
+structure-like cones `WType`, `PSet`, `FirstOrder.Language.Term`,
+`PFunctor.Approx.CofixA`, `Turing.PartrecToTM2.Λ'`; 3 914 199 records —
+Mathlib has no finitary one-constructor recursive block, so these are
+the recursive-structure cones there are): accepted in `--verified` raw
+and piped, census 30 fix, 137 struct, 16 sum, 6 basis, 1 inmodel, 0
+modeled.  No Mathlib-scale run.
+
+**The JZero audit (task #214), and what of it is Part A's.**  Its
+finding for this route: rule handling never inspects field types under
+binders (`stripLams`/`stripPis` are spine-linear), so the fix route's
+own reads are cheap; the whole-tree walkers on the inductive-block path
+are the recogniser's occurrence check (`Frontend.occursConst`, on every
+constructor domain of every block), the index-side installer's
+constant-resolution gate (`Expr.constsResolveF`, seven sites in
+`RecInstallF.lean`) and the projection bodies' substitution
+(`Expr.instantiate1Lift`, no cutoff, no cached twin; with the O(nF²)
+`hasLooseBVar` calls of `directProjGuards` beside it).  Part A lands
+WITHOUT those fixes (the coordinator's ruling: Part A's tip is the
+gated commit); they are on `agent/one-route-p` — the memoised
+`occursConstFast`, the `bvarB` cutoff `hasLooseBVarB` in
+`directUsedLater`, the `DirectWalkers` record the cached driver fills
+with `constsResolveFC` and a budgeted-descent `ExprC.instantiate1Lift`
+twin (`directWalkersC_eq_plain`) — and land with Part B.  Part A's
+recogniser change touches none of the call sites the JZero lane
+memoises (`Frontend.canonExpr`, `Expr.renameConsts`, `openPisAtFvars`).

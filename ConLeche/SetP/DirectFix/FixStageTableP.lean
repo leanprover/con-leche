@@ -186,7 +186,6 @@ theorem stageFixTable (mp : EnvS2PM V μ env)
       = some (mkPisAV (ds ψ) (ctorBodyAVI mp.base2 p.cvT.name p.nP nF ψ (Es ψ))))
     (hCDlen : ∀ ψ, (ds ψ).length = p.nP + nF)
     (hCDbelow : ∀ ψ, DomsBelow 0 (ds ψ))
-    (hlenS : sorts.length = nF)
     (hleq : ∀ k, k < nF → p.isProp = false → Level.leq (sorts.getD k .zero) p.resSort = some true)
     {u : (Name → Nat) → Nat} {rss : List (List Bool)}
     {tlss : (Name → Nat) → List (List (List (Nat × Nat × AVExpr)))}
@@ -826,10 +825,10 @@ theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {block : Lis
         rw [rChains_single_nil]
       -- the constructor's frames
       have hframes₀ := hframes 0 cA rfl
-      obtain ⟨sorts'', hsj', hlenS, hleq, hsortsAll⟩ := hsortsOf 0 cA rfl
+      obtain ⟨sorts'', hsj', -, hleq, hsortsAll⟩ := hsortsOf 0 cA rfl
       obtain rfl : sorts = sorts'' := Option.some.inj hsj'
       refine stageFixTable mp₃ hTbl hfT₃ hcaps hlpsT hfC₃ hlpsC hstripC
-        hProp hTshape hCshape hresT hresR hresC hnp₃ hFD₃ hCD₃.read hCD₃.len hCD₃.below hlenS hleq
+        hProp hTshape hCshape hresT hresR hresC hnp₃ hFD₃ hCD₃.read hCD₃.len hCD₃.below hleq
         hleafT₃ hleafC₃ hfoldAt ?_ ?_ ?_ ?_
       · intro ψ ρ
         have := hframes₀.1 ψ ρ

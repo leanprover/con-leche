@@ -273,6 +273,7 @@ theorem stageTable (mp : EnvS2PM V μ env)
   refine ⟨rfl, rfl, hi, ⟨cvTa, ConLeche.directCaps p, hfT₂, hlpsT, fun he => ⟨?_, rfl, rfl, rfl⟩⟩,
     hO5 i hi, cvCa, hfC₂, hlpsC, ?_, ?_⟩
   · have he' : (!p.isProp) = true := he
+    show (Level.isEquiv p.resSort .zero == some true) = false
     rw [← hProp]
     cases hp : p.isProp
     · rfl
