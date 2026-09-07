@@ -294,67 +294,25 @@ end Slot
 section Fam
 
 variable {u w : Nat} {ρp : Nat → V} {Ids : List AVExpr} {rss : List (List Bool)}
-  {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
+  {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
 
 /-- The X-chain entry at position `i` (the head of `chainXIGo` there). -/
-def xEntry (u : Nat) (Ids : List AVExpr) (rs : List Bool) (Eis : List (List AVExpr)) (F : AVExpr)
+def xEntry (u : Nat) (Ids : List AVExpr) (rs : List Bool) (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) (F : AVExpr)
     (i : Nat) : AVExpr :=
-  if rs.getD i false then
-    .app (.bvar (i + 1))
-      (AVExpr.mkAppN ((tuplerAV u Ids).liftN (i + 2) 0) ((Eis.getD i []).map (·.liftN 2 i)))
+  if rs.getD i false then slotXI u Ids (tls.getD i []) (Eis.getD i []) i
   else F.liftN 2 i
 
 omit [SetTheory V] in
-theorem chainXIGo_cons (rs : List Bool) (Eis : List (List AVExpr)) (F : AVExpr) (Fs : List AVExpr)
+theorem chainXIGo_cons (rs : List Bool) (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) (F : AVExpr) (Fs : List AVExpr)
     (i : Nat) :
-    chainXIGo u Ids rs Eis (F :: Fs) i = xEntry u Ids rs Eis F i :: chainXIGo u Ids rs Eis Fs (i + 1) :=
+    chainXIGo u Ids rs tls Eis (F :: Fs) i = xEntry u Ids rs tls Eis F i :: chainXIGo u Ids rs tls Eis Fs (i + 1) :=
   rfl
 
 omit [SetTheory V] in
-theorem chainXIGo_length (rs : List Bool) (Eis : List (List AVExpr)) :
-    ∀ (Fs : List AVExpr) (i : Nat), (chainXIGo u Ids rs Eis Fs i).length = Fs.length
+theorem chainXIGo_length (rs : List Bool) (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) :
+    ∀ (Fs : List AVExpr) (i : Nat), (chainXIGo u Ids rs tls Eis Fs i).length = Fs.length
   | [], _ => rfl
-  | _ :: Fs, i => by simp [chainXIGo, chainXIGo_length rs Eis Fs (i + 1)]
-
-/-- The recursive slots' fit, hereditarily along the X-chain at
-`(X, t)`: at each recursive position the index expressions are graded
-at the parameter frame under the prefix and their values fit the index
-telescope. -/
-def SlotsFitX (u : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rs : List Bool)
-    (Eis : List (List AVExpr)) (X t : V) : Nat → List V → List AVExpr → Prop
-  | _, _, [] => True
-  | i, as, F :: Fs =>
-    (rs.getD i false = true →
-      (∀ E ∈ Eis.getD i [], AnnotOk2 V (consList as ρp) E) ∧
-      SpineFit ρp Ids ((Eis.getD i []).map (interp2 V (consList as ρp)))) ∧
-    ∀ a, a ∈ˢ interp2 V (consList as (cons t (cons X ρp))) (xEntry u Ids rs Eis F i) →
-      SlotsFitX u ρp Ids rs Eis X t (i + 1) (as ++ [a]) Fs
-
-/-- **The functor's full premise**: the index telescope graded, the
-X-chains graded at every family and tuple, the recursive slots
-fitting there. -/
-structure XChainsOk (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : Prop where
-  hI : IdxOk u ρp Ids
-  hok : FixChainsOkI u w ρp Ids Ids.length rss Eiss Fss Ess
-  hfit : ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
-    ∀ j, j < Fss.length →
-      SlotsFitX u ρp Ids (rss.getD j []) (Eiss.getD j []) X t 0 [] (Fss.getD j [])
-
-theorem lfpFamSpace_eq (w : Nat) (I : V) : lfpFamSpace V w I = famSpace w I :=
-  piR_pos (Nat.succ_ne_zero w)
-
-/-- A recursive entry reads the family at the tuple (no membership of
-the family needed for the value). -/
-theorem xEntry_rec (hI : IdxOk u ρp Ids) {X : V}
-    {rs : List Bool} {Eis : List (List AVExpr)} (F : AVExpr) (as : List V) (t : V)
-    (hri : rs.getD as.length false = true)
-    (hEok : ∀ E ∈ Eis.getD as.length [], AnnotOk2 V (consList as ρp) E)
-    (hsp : SpineFit ρp Ids ((Eis.getD as.length []).map (interp2 V (consList as ρp)))) :
-    interp2 V (consList as (cons t (cons X ρp))) (xEntry u Ids rs Eis F as.length)
-      = SetTheory.app X (tupW u ((Eis.getD as.length []).map (interp2 V (consList as ρp)))) := by
-  unfold xEntry
-  rw [if_pos hri, interp2_app, interp2_bvar, Xframe_X, (tuplerApp_facts (X := X) (t := t) hI as hEok hsp).1]
+  | _ :: Fs, i => by simp [chainXIGo, chainXIGo_length rs tls Eis Fs (i + 1)]
 
 omit [SetTheory V] in
 theorem consList_snoc' (a : V) (as : List V) (ρ : Nat → V) :
@@ -364,10 +322,229 @@ theorem consList_snoc' (a : V) (as : List V) (ρ : Nat → V) :
 omit [SetTheory V] in
 theorem length_snoc' (a : V) (as : List V) : (as ++ [a]).length = as.length + 1 := by simp
 
+/-- **A recursive slot's fit** at the frame `(ρp, as)`: the field's
+telescope graded there with its codomain bits at the family's regime,
+and under every fitting telescope spine the index expressions graded
+and their values fitting the index telescope.  At a finitary field
+(`tl = []`) the spine is empty and this is the old clause. -/
+def SlotFit (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (tl : List (Nat × Nat × AVExpr))
+    (Eis : List AVExpr) (as : List V) : Prop :=
+  FieldsOkB w (consList as ρp) (tl.map (·.2.2)) ∧ (∀ d ∈ tl, (d.2.1 = 0 ↔ w = 0)) ∧
+  ∀ bs : List V, SpineFit (consList as ρp) (tl.map (·.2.2)) bs →
+    (∀ E ∈ Eis, AnnotOk2 V (consList (as ++ bs) ρp) E) ∧
+    SpineFit ρp Ids (Eis.map (interp2 V (consList (as ++ bs) ρp)))
+
+/-- **The recursive slot's value** at a family `X`: the nested product
+over the field's telescope of the family at the tuple of the index
+expressions (task #202); at a finitary field the family at the tuple. -/
+noncomputable def slotSet (w u : Nat) (ρ : Nat → V) (tl : List (Nat × Nat × AVExpr))
+    (Eis : List AVExpr) (X : V) : V :=
+  piTele w (teleOfFields ρ (tl.map (·.2.2)))
+    (fun bs => SetTheory.app X (tupW u (Eis.map (interp2 V (consList bs ρ))))) []
+
+theorem slotSet_nil (w u : Nat) (ρ : Nat → V) (Eis : List AVExpr) (X : V) :
+    slotSet w u ρ [] Eis X = SetTheory.app X (tupW u (Eis.map (interp2 V ρ))) := rfl
+
+omit [SetTheory V] in
+theorem liftTele2_cons (i : Nat) (d : Nat × Nat × AVExpr) (tl : List (Nat × Nat × AVExpr)) :
+    liftTele2 i (d :: tl) = (d.1, d.2.1, d.2.2.liftN 2 i) :: liftTele2 (i + 1) tl := by
+  unfold liftTele2
+  rw [List.length_cons, List.range_succ_eq_map, List.map_cons, List.map_map]
+  simp only [List.getD_cons_zero, Nat.add_zero]
+  congr 1
+  apply List.map_congr_left
+  intro k _
+  simp only [Function.comp_def, List.getD_cons_succ]
+  rw [show i + (k + 1) = i + 1 + k from by omega]
+
+/-- The lifted telescope reads at the X-frame as the telescope reads
+at the parameter frame under the fields. -/
+theorem spineFit_liftTele2 {ρp : Nat → V} (t X : V) :
+    ∀ (tl : List (Nat × Nat × AVExpr)) (as bs : List V),
+      SpineFit (consList as (cons t (cons X ρp))) ((liftTele2 as.length tl).map (·.2.2)) bs ↔
+        SpineFit (consList as ρp) (tl.map (·.2.2)) bs
+  | [], _, [] => Iff.rfl
+  | [], _, _ :: _ => Iff.rfl
+  | _ :: _, _, [] => by simp [liftTele2_cons, SpineFit]
+  | d :: tl, as, b :: bs => by
+    rw [liftTele2_cons, List.map_cons, List.map_cons]
+    show b ∈ˢ interp2 V (consList as (cons t (cons X ρp))) (d.2.2.liftN 2 as.length) ∧ _ ↔
+      b ∈ˢ interp2 V (consList as ρp) d.2.2 ∧ _
+    rw [interp2_chainXI_ord, consList_snoc', consList_snoc']
+    have := spineFit_liftTele2 (ρp := ρp) t X tl (as ++ [b]) bs
+    rw [length_snoc'] at this
+    rw [this]
+
+/-- The nested product over the lifted telescope at the X-frame is the
+nested product over the telescope at the parameter frame under the
+fields (the body reads the accumulated spine at the latter). -/
+theorem piTele_liftTele2 {w : Nat} {ρp : Nat → V} (t X : V) {B : List V → V} :
+    ∀ (tl : List (Nat × Nat × AVExpr)) (as acc : List V),
+      piTele w (teleOfFields (consList as (cons t (cons X ρp))) ((liftTele2 as.length tl).map (·.2.2))) B acc
+        = piTele w (teleOfFields (consList as ρp) (tl.map (·.2.2))) B acc
+  | [], _, _ => rfl
+  | d :: tl, as, acc => by
+    rw [liftTele2_cons, List.map_cons, List.map_cons]
+    simp only [teleOfFields, piTele]
+    rw [interp2_chainXI_ord]
+    refine piR_congr fun a _ => ?_
+    rw [consList_snoc', consList_snoc']
+    have := piTele_liftTele2 (w := w) (ρp := ρp) t X (B := B) tl (as ++ [a]) (acc ++ [a])
+    rw [length_snoc'] at this
+    exact this
+
+/-- `piR` is monotone in its fibres. -/
+theorem piR_mono {v : Nat} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
+    piR v A B ⊆ˢ piR v A B' := by
+  rcases Nat.eq_zero_or_pos v with rfl | hv
+  · rw [piR_zero, piR_zero]
+    intro z hz
+    obtain ⟨hp, rfl⟩ := mem_truthVal.mp hz
+    exact mem_truthVal.mpr ⟨fun x hx => (hp x hx).elim fun y hy => ⟨y, h x hx y hy⟩, rfl⟩
+  · have hv' : v ≠ 0 := Nat.pos_iff_ne_zero.mp hv
+    intro f hf
+    obtain ⟨hg, hB, -, -⟩ := mem_piR_pos hv' hf
+    rw [piR_pos hv', ← hg]
+    exact graph_mem_piSet fun x hx => h x hx _ (hB x hx)
+
+/-- The nested product is monotone in its body over the fitting
+spines. -/
+theorem piTele_mono {v : Nat} {B B' : List V → V} :
+    ∀ {k : Nat} {T : TeleS V k} {acc : List V},
+      (∀ as, FitsS T as → B (acc ++ as) ⊆ˢ B' (acc ++ as)) →
+      piTele v T B acc ⊆ˢ piTele v T B' acc
+  | _, .nil, acc, h => by
+    simp only [piTele]
+    have := h [] trivial
+    simpa using this
+  | _, .cons A T, acc, h => by
+    simp only [piTele]
+    refine piR_mono fun a ha => ?_
+    refine piTele_mono fun as has => ?_
+    have := h (a :: as) ⟨ha, has⟩
+    simpa [List.append_assoc] using this
+
+/-- **The slot's value is monotone** in the family. -/
+theorem slotSet_mono {w u : Nat} {ρp : Nat → V} {Ids : List AVExpr} {X Y : V}
+    (hXY : FamLe (idxSet u ρp Ids) X Y) {tl : List (Nat × Nat × AVExpr)} {Eis : List AVExpr}
+    {as : List V} (hfit : SlotFit u w ρp Ids tl Eis as) :
+    slotSet w u (consList as ρp) tl Eis X ⊆ˢ slotSet w u (consList as ρp) tl Eis Y := by
+  unfold slotSet
+  refine piTele_mono fun bs hbs => ?_
+  simp only [List.nil_append]
+  rw [← consList_append]
+  exact hXY _ (tupW_mem (hfit.2.2 bs (fitsS_teleOfFields.mp hbs)).2)
+
+/-- **A Π-tower over domains at the family's regime is the nested
+product** over the domains' telescope, the body at the accumulated
+spine (the P tier's `interp_mkPisAV_piTele`, here for the leaf). -/
+theorem interp_mkPisAV_piTele {v : Nat} {B : List V → V} {R : AVExpr} :
+    ∀ {gds : List (Nat × Nat × AVExpr)} {σ : Nat → V} {acc : List V},
+      (∀ d ∈ gds, (d.2.1 = 0 ↔ v = 0)) →
+      (∀ as : List V, SpineFit σ (gds.map (·.2.2)) as → interp2 V (consList as σ) R = B (acc ++ as)) →
+      interp2 V σ (mkPisAV gds R) = piTele v (teleOfFields σ (gds.map (·.2.2))) B acc
+  | [], σ, acc, _, hbase => by
+    have := hbase [] trivial
+    simp only [consList, List.append_nil] at this
+    simp only [mkPisAV]
+    exact this
+  | d :: gds, σ, acc, hbits, hbase => by
+    simp only [mkPisAV, interp2_pi]
+    show piR d.2.1 (interp2 V σ d.2.2) (fun x => interp2 V (cons x σ) (mkPisAV gds R))
+      = piR v (interp2 V σ d.2.2)
+          (fun a => piTele v (teleOfFields (cons a σ) (gds.map (·.2.2))) B (acc ++ [a]))
+    refine piR_zero_agree (hbits d List.mem_cons_self) fun a ha => ?_
+    refine interp_mkPisAV_piTele (R := R) (fun d' hd' => hbits d' (List.mem_cons_of_mem _ hd')) ?_
+    intro as hsp
+    have := hbase (a :: as) ⟨ha, hsp⟩
+    rw [consList_cons] at this
+    rw [this, List.append_assoc, List.singleton_append]
+
+/-- A finitary slot's fit is the index expressions' grading and fit at
+the frame. -/
+theorem SlotFit.fin {u w : Nat} {ρp : Nat → V} {Ids : List AVExpr} {Eis : List AVExpr} {as : List V}
+    (h : SlotFit u w ρp Ids [] Eis as) :
+    (∀ E ∈ Eis, AnnotOk2 V (consList as ρp) E) ∧
+      SpineFit ρp Ids (Eis.map (interp2 V (consList as ρp))) := by
+  have := h.2.2 [] trivial
+  simpa using this
+
+/-- **The recursive slot at the X-frame** reads to its value. -/
+theorem slotXI_interp {w u : Nat} {ρp : Nat → V} {Ids : List AVExpr} (hI : IdxOk u ρp Ids) {X : V}
+    (as : List V) (t : V)
+    {tl : List (Nat × Nat × AVExpr)} {Eis : List AVExpr} (hfit : SlotFit u w ρp Ids tl Eis as) :
+    interp2 V (consList as (cons t (cons X ρp))) (slotXI u Ids tl Eis as.length)
+      = slotSet w u (consList as ρp) tl Eis X := by
+  unfold slotXI slotSet
+  rw [← piTele_liftTele2 t X tl as []]
+  refine interp_mkPisAV_piTele (v := w) ?_ ?_
+  · intro d hd
+    unfold liftTele2 at hd
+    obtain ⟨k, hk, rfl⟩ := List.mem_map.mp hd
+    have hk' : k < tl.length := List.mem_range.mp hk
+    have hmem : tl.getD k default ∈ tl := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk']
+      exact List.getElem_mem hk'
+    show (tl.getD k default).2.1 = 0 ↔ w = 0
+    exact hfit.2.1 _ hmem
+  · intro bs hbs
+    rw [(spineFit_liftTele2 t X tl as bs)] at hbs
+    have hlen : bs.length = tl.length := by
+      have := hbs.length_eq; simpa using this
+    obtain ⟨hEok, hsp⟩ := hfit.2.2 bs hbs
+    have hval := (tuplerApp_facts (X := X) (t := t) hI (as ++ bs) hEok hsp).1
+    simp only [List.nil_append]
+    rw [← consList_append, interp2_app, interp2_bvar,
+      show as.length + 1 + tl.length = (as ++ bs).length + 1 from by simp [hlen]; omega,
+      show as.length + 2 + tl.length = (as ++ bs).length + 2 from by simp [hlen]; omega,
+      show as.length + tl.length = (as ++ bs).length from by simp [hlen],
+      Xframe_X, hval, consList_append]
+
+/-- The recursive slots' fit, hereditarily along the X-chain at
+`(X, t)`: at each recursive position the slot fits (`SlotFit`). -/
+def SlotsFitX (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rs : List Bool)
+    (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) (X t : V) :
+    Nat → List V → List AVExpr → Prop
+  | _, _, [] => True
+  | i, as, F :: Fs =>
+    (rs.getD i false = true → SlotFit u w ρp Ids (tls.getD i []) (Eis.getD i []) as) ∧
+    ∀ a, a ∈ˢ interp2 V (consList as (cons t (cons X ρp))) (xEntry u Ids rs tls Eis F i) →
+      SlotsFitX u w ρp Ids rs tls Eis X t (i + 1) (as ++ [a]) Fs
+
+/-- **The functor's full premise**: the index telescope graded, the
+X-chains graded at every family and tuple, the recursive slots
+fitting there. -/
+structure XChainsOk (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : Prop where
+  hI : IdxOk u ρp Ids
+  hok : FixChainsOkI u w ρp Ids Ids.length rss tlss Eiss Fss Ess
+  hfit : ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
+    ∀ j, j < Fss.length →
+      SlotsFitX u w ρp Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) X t 0 [] (Fss.getD j [])
+  /-- the closure witness: finitary (every telescope empty — the
+  ω-iterate is closed) or `Prop`-valued (the top family is closed) -/
+  hwit : (∀ j i, (tlss.getD j []).getD i [] = []) ∨ w = 0
+
+theorem lfpFamSpace_eq (w : Nat) (I : V) : lfpFamSpace V w I = famSpace w I :=
+  piR_pos (Nat.succ_ne_zero w)
+
+/-- A recursive entry reads the family at the tuple (no membership of
+the family needed for the value). -/
+theorem xEntry_rec (hI : IdxOk u ρp Ids) {X : V}
+    {rs : List Bool} {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)}
+    (F : AVExpr) (as : List V) (t : V)
+    (hri : rs.getD as.length false = true)
+    (hfit : SlotFit u w ρp Ids (tls.getD as.length []) (Eis.getD as.length []) as) :
+    interp2 V (consList as (cons t (cons X ρp))) (xEntry u Ids rs tls Eis F as.length)
+      = slotSet w u (consList as ρp) (tls.getD as.length []) (Eis.getD as.length []) X := by
+  unfold xEntry
+  rw [if_pos hri]
+  exact slotXI_interp hI as t hfit
+
 /-- An ordinary entry reads the domain. -/
-theorem xEntry_ord {X : V} {rs : List Bool} {Eis : List (List AVExpr)} (F : AVExpr) (as : List V)
+theorem xEntry_ord {X : V} {rs : List Bool} {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)} (F : AVExpr) (as : List V)
     (t : V) (hri : rs.getD as.length false = false) :
-    interp2 V (consList as (cons t (cons X ρp))) (xEntry u Ids rs Eis F as.length)
+    interp2 V (consList as (cons t (cons X ρp))) (xEntry u Ids rs tls Eis F as.length)
       = interp2 V (consList as ρp) F := by
   unfold xEntry
   rw [if_neg (by rw [hri]; exact Bool.false_ne_true)]
@@ -376,14 +553,14 @@ theorem xEntry_ord {X : V} {rs : List Bool} {Eis : List (List AVExpr)} (F : AVEx
 /-- **Monotonicity of the X-chain telescope** in the family. -/
 theorem chainXIGo_tele_sub (hI : IdxOk u ρp Ids) {X Y : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) (hXY : FamLe (idxSet u ρp Ids) X Y)
-    {rs : List Bool} {Eis : List (List AVExpr)} {t : V} {n nF : Nat} {Es : List AVExpr} :
+    {rs : List Bool} {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)} {t : V} {n nF : Nat} {Es : List AVExpr} :
     ∀ (Fs : List AVExpr) (i : Nat) (as : List V), as.length = i →
-      SlotsFitX u ρp Ids rs Eis X t i as Fs → as.length + Fs.length = nF →
+      SlotsFitX u w ρp Ids rs tls Eis X t i as Fs → as.length + Fs.length = nF →
       TeleS.Sub
         (teleOfFields (consList as (cons t (cons X ρp)))
-          (chainXIGo u Ids rs Eis Fs i ++ [idxEqAV (eqsXI n nF Es)]))
+          (chainXIGo u Ids rs tls Eis Fs i ++ [idxEqAV (eqsXI n nF Es)]))
         (teleOfFields (consList as (cons t (cons Y ρp)))
-          (chainXIGo u Ids rs Eis Fs i ++ [idxEqAV (eqsXI n nF Es)]))
+          (chainXIGo u Ids rs tls Eis Fs i ++ [idxEqAV (eqsXI n nF Es)]))
   | [], i, as, hi, _, hnF => by
     simp only [chainXIGo, List.nil_append, teleOfFields]
     rw [interp2_termXI (X := X) (Y := Y) (by simpa using hnF)]
@@ -394,9 +571,9 @@ theorem chainXIGo_tele_sub (hI : IdxOk u ρp Ids) {X Y : V}
     simp only [teleOfFields]
     refine .cons ?_ fun a ha => ?_
     · by_cases hri : rs.getD as.length false = true
-      · obtain ⟨hEok, hsp⟩ := hfit.1 hri
-        rw [xEntry_rec hI (X := X) F as t hri hEok hsp, xEntry_rec hI (X := Y) F as t hri hEok hsp]
-        exact hXY _ (tupW_mem hsp)
+      · rw [xEntry_rec hI (X := X) F as t hri (hfit.1 hri),
+          xEntry_rec hI (X := Y) F as t hri (hfit.1 hri)]
+        exact slotSet_mono hXY (hfit.1 hri)
       · have hri' : rs.getD as.length false = false := by simpa using hri
         rw [xEntry_ord F as t hri', xEntry_ord F as t hri']
         exact Subset.refl _
@@ -406,19 +583,18 @@ theorem chainXIGo_tele_sub (hI : IdxOk u ρp Ids) {X Y : V}
 
 /-- The fit predicate restricts along a smaller family. -/
 theorem slotsFitX_mono (hI : IdxOk u ρp Ids) {X X' : V} (hX'X : FamLe (idxSet u ρp Ids) X' X)
-    {rs : List Bool} {Eis : List (List AVExpr)} {t : V} :
+    {rs : List Bool} {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)} {t : V} :
     ∀ (Fs : List AVExpr) (i : Nat) (as : List V), as.length = i →
-      SlotsFitX u ρp Ids rs Eis X t i as Fs → SlotsFitX u ρp Ids rs Eis X' t i as Fs
+      SlotsFitX u w ρp Ids rs tls Eis X t i as Fs → SlotsFitX u w ρp Ids rs tls Eis X' t i as Fs
   | [], _, _, _, _ => trivial
   | F :: Fs, i, as, hi, hfit => by
     subst hi
     refine ⟨hfit.1, fun a ha => ?_⟩
-    have ha' : a ∈ˢ interp2 V (consList as (cons t (cons X ρp))) (xEntry u Ids rs Eis F as.length) := by
+    have ha' : a ∈ˢ interp2 V (consList as (cons t (cons X ρp))) (xEntry u Ids rs tls Eis F as.length) := by
       by_cases hri : rs.getD as.length false = true
-      · obtain ⟨hEok, hsp⟩ := hfit.1 hri
-        rw [xEntry_rec hI (X := X') F as t hri hEok hsp] at ha
-        rw [xEntry_rec hI (X := X) F as t hri hEok hsp]
-        exact hX'X _ (tupW_mem hsp) a ha
+      · rw [xEntry_rec hI (X := X') F as t hri (hfit.1 hri)] at ha
+        rw [xEntry_rec hI (X := X) F as t hri (hfit.1 hri)]
+        exact slotSet_mono hX'X (hfit.1 hri) a ha
       · have hri' : rs.getD as.length false = false := by simpa using hri
         rw [xEntry_ord F as t hri'] at ha
         rw [xEntry_ord F as t hri']
@@ -426,42 +602,42 @@ theorem slotsFitX_mono (hI : IdxOk u ρp Ids) {X X' : V} (hX'X : FamLe (idxSet u
     exact slotsFitX_mono hI hX'X Fs (as.length + 1) (as ++ [a]) (length_snoc' a as) (hfit.2 a ha')
 
 /-- **The functor is monotone** in the family. -/
-theorem fixStepI_mono (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {X Y : V}
+theorem fixStepI_mono (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {X Y : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) (hXY : FamLe (idxSet u ρp Ids) X Y) {t : V}
     (ht : t ∈ˢ idxSet u ρp Ids) :
-    fixStepI u w ρp Ids Ids.length rss Eiss Fss Ess X t
-      ⊆ˢ fixStepI u w ρp Ids Ids.length rss Eiss Fss Ess Y t := by
+    fixStepI u w ρp Ids Ids.length rss tlss Eiss Fss Ess X t
+      ⊆ˢ fixStepI u w ρp Ids Ids.length rss tlss Eiss Fss Ess Y t := by
   unfold fixStepI
   refine sumSet_mono fun j => ?_
   unfold sumFibre
   by_cases hj : j < Fss.length
   · rw [chainsXI_getElem?, if_pos hj]
     show towerSet w (teleOfFields (cons t (cons X ρp)) (chainXI u Ids Ids.length (rss.getD j [])
-      (Eiss.getD j []) (Fss.getD j []) (Ess.getD j []))) ⊆ˢ towerSet w (teleOfFields (cons t (cons Y ρp))
-      (chainXI u Ids Ids.length (rss.getD j []) (Eiss.getD j []) (Fss.getD j []) (Ess.getD j [])))
+      (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) (Ess.getD j []))) ⊆ˢ towerSet w (teleOfFields (cons t (cons Y ρp))
+      (chainXI u Ids Ids.length (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) (Ess.getD j [])))
     refine towerSet_mono ?_
     unfold chainXI
     exact chainXIGo_tele_sub h.hI hX hXY (Fss.getD j []) 0 [] rfl (h.hfit X hX t ht j hj) (by simp)
   · rw [chainsXI_getElem?, if_neg hj]
     exact Subset.refl _
 
-theorem famFI_le (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {X Y : V}
+theorem famFI_le (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {X Y : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) (hXY : FamLe (idxSet u ρp Ids) X Y) :
-    FamLe (idxSet u ρp Ids) (famFI u w ρp Ids Ids.length rss Eiss Fss Ess X)
-      (famFI u w ρp Ids Ids.length rss Eiss Fss Ess Y) := by
+    FamLe (idxSet u ρp Ids) (famFI u w ρp Ids Ids.length rss tlss Eiss Fss Ess X)
+      (famFI u w ρp Ids Ids.length rss tlss Eiss Fss Ess Y) := by
   intro t ht
   rw [famFI_app ht, famFI_app ht]
   exact fixStepI_mono h hX hXY ht
 
-theorem fixFunVI_mono (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) :
-    MonoFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss Eiss Fss Ess) := by
+theorem fixFunVI_mono (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) :
+    MonoFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) := by
   intro X Y hX hY hXY
   rw [← lfpFamSpace_eq] at hX hY
   rw [fixFunVI_app hX, fixFunVI_app hY]
   exact famFI_le h hX hXY
 
-theorem fixFunVI_maps (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) :
-    MapsFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss Eiss Fss Ess) := by
+theorem fixFunVI_maps (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) :
+    MapsFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) := by
   intro X hX
   rw [← lfpFamSpace_eq] at hX ⊢
   rw [fixFunVI_app hX]
@@ -471,26 +647,26 @@ theorem fixFunVI_maps (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) :
 
 /-- The finite iterates of the functor from the empty family. -/
 noncomputable def famIter (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : Nat → V
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : Nat → V
   | 0 => graph (fun _ => empty) (idxSet u ρp Ids)
-  | n + 1 => famFI u w ρp Ids Ids.length rss Eiss Fss Ess (famIter u w ρp Ids rss Eiss Fss Ess n)
+  | n + 1 => famFI u w ρp Ids Ids.length rss tlss Eiss Fss Ess (famIter u w ρp Ids rss tlss Eiss Fss Ess n)
 
 /-- The ω-iterate family: the fibrewise union of the iterates. -/
 noncomputable def famU (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : V :=
-  graph (fun t => natUnion fun n => SetTheory.app (famIter u w ρp Ids rss Eiss Fss Ess n) t)
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : V :=
+  graph (fun t => natUnion fun n => SetTheory.app (famIter u w ρp Ids rss tlss Eiss Fss Ess n) t)
     (idxSet u ρp Ids)
 
-theorem famIter_mem (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) :
-    ∀ n, famIter u w ρp Ids rss Eiss Fss Ess n ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)
+theorem famIter_mem (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) :
+    ∀ n, famIter u w ρp Ids rss tlss Eiss Fss Ess n ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)
   | 0 => by
     rw [lfpFamSpace_eq]
     exact graph_mem_famSpace fun _ _ => empty_mem_univ w
   | n + 1 => famFI_mem h.hok (famIter_mem h n)
 
-theorem famIter_le_succ (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) :
-    ∀ n, FamLe (idxSet u ρp Ids) (famIter u w ρp Ids rss Eiss Fss Ess n)
-      (famIter u w ρp Ids rss Eiss Fss Ess (n + 1))
+theorem famIter_le_succ (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) :
+    ∀ n, FamLe (idxSet u ρp Ids) (famIter u w ρp Ids rss tlss Eiss Fss Ess n)
+      (famIter u w ρp Ids rss tlss Eiss Fss Ess (n + 1))
   | 0 => by
     intro t ht
     show SetTheory.app (graph (fun _ => empty) (idxSet u ρp Ids)) t ⊆ˢ _
@@ -498,9 +674,9 @@ theorem famIter_le_succ (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) :
     exact empty_subset _
   | n + 1 => famFI_le h (famIter_mem h n) (famIter_le_succ h n)
 
-theorem famIter_mono (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {m n : Nat} (hmn : m ≤ n) :
-    FamLe (idxSet u ρp Ids) (famIter u w ρp Ids rss Eiss Fss Ess m)
-      (famIter u w ρp Ids rss Eiss Fss Ess n) := by
+theorem famIter_mono (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {m n : Nat} (hmn : m ≤ n) :
+    FamLe (idxSet u ρp Ids) (famIter u w ρp Ids rss tlss Eiss Fss Ess m)
+      (famIter u w ρp Ids rss tlss Eiss Fss Ess n) := by
   induction n with
   | zero =>
     have : m = 0 := Nat.le_zero.mp hmn
@@ -511,35 +687,36 @@ theorem famIter_mono (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {m n : Nat} (h
     · exact FamLe.refl _ _
 
 theorem famU_app {t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
-    SetTheory.app (famU u w ρp Ids rss Eiss Fss Ess) t
-      = natUnion fun n => SetTheory.app (famIter u w ρp Ids rss Eiss Fss Ess n) t :=
+    SetTheory.app (famU u w ρp Ids rss tlss Eiss Fss Ess) t
+      = natUnion fun n => SetTheory.app (famIter u w ρp Ids rss tlss Eiss Fss Ess n) t :=
   app_graph ht
 
-theorem famU_mem (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) :
-    famU u w ρp Ids rss Eiss Fss Ess ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) := by
+theorem famU_mem (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) :
+    famU u w ρp Ids rss tlss Eiss Fss Ess ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) := by
   rw [lfpFamSpace_eq]
   refine graph_mem_famSpace fun t ht => natUnion_mem_univ fun n => ?_
   have := famIter_mem h n
   rw [lfpFamSpace_eq] at this
   exact famSpace_app this ht
 
-theorem famIter_le_famU (_h : XChainsOk u w ρp Ids rss Eiss Fss Ess) (n : Nat) :
-    FamLe (idxSet u ρp Ids) (famIter u w ρp Ids rss Eiss Fss Ess n)
-      (famU u w ρp Ids rss Eiss Fss Ess) := by
+theorem famIter_le_famU (_h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) (n : Nat) :
+    FamLe (idxSet u ρp Ids) (famIter u w ρp Ids rss tlss Eiss Fss Ess n)
+      (famU u w ρp Ids rss tlss Eiss Fss Ess) := by
   intro t ht x hx
   rw [famU_app ht]
   exact mem_natUnion.mpr ⟨n, hx⟩
 
 /-- **Finitarity**: a tuple fitting the X-chain at the ω-iterate fits
 it at some finite stage. -/
-theorem fitsXI_iter (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {t : V} (ht : t ∈ˢ idxSet u ρp Ids)
-    {rs : List Bool} {Eis : List (List AVExpr)} {n' nF : Nat} {Es : List AVExpr} :
+theorem fitsXI_iter (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {t : V} (ht : t ∈ˢ idxSet u ρp Ids)
+    {rs : List Bool} {tls : List (List (Nat × Nat × AVExpr))} (hfin : ∀ i, tls.getD i [] = [])
+    {Eis : List (List AVExpr)} {n' nF : Nat} {Es : List AVExpr} :
     ∀ (Fs : List AVExpr) (i : Nat) (as bs : List V), as.length = i → as.length + Fs.length = nF →
-      SlotsFitX u ρp Ids rs Eis (famU u w ρp Ids rss Eiss Fss Ess) t i as Fs →
-      SpineFit (consList as (cons t (cons (famU u w ρp Ids rss Eiss Fss Ess) ρp)))
-        (chainXIGo u Ids rs Eis Fs i ++ [idxEqAV (eqsXI n' nF Es)]) bs →
-      ∃ n, SpineFit (consList as (cons t (cons (famIter u w ρp Ids rss Eiss Fss Ess n) ρp)))
-        (chainXIGo u Ids rs Eis Fs i ++ [idxEqAV (eqsXI n' nF Es)]) bs
+      SlotsFitX u w ρp Ids rs tls Eis (famU u w ρp Ids rss tlss Eiss Fss Ess) t i as Fs →
+      SpineFit (consList as (cons t (cons (famU u w ρp Ids rss tlss Eiss Fss Ess) ρp)))
+        (chainXIGo u Ids rs tls Eis Fs i ++ [idxEqAV (eqsXI n' nF Es)]) bs →
+      ∃ n, SpineFit (consList as (cons t (cons (famIter u w ρp Ids rss tlss Eiss Fss Ess n) ρp)))
+        (chainXIGo u Ids rs tls Eis Fs i ++ [idxEqAV (eqsXI n' nF Es)]) bs
   | [], i, as, bs, hi, hnF, _, hf => by
     refine ⟨0, ?_⟩
     simp only [chainXIGo, List.nil_append] at hf ⊢
@@ -548,8 +725,8 @@ theorem fitsXI_iter (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {t : V} (ht : t
     | cons b bs =>
       obtain ⟨hb, hrest⟩ := hf
       refine ⟨?_, ?_⟩
-      · rw [interp2_termXI (X := famIter u w ρp Ids rss Eiss Fss Ess 0)
-          (Y := famU u w ρp Ids rss Eiss Fss Ess) (by simpa using hnF)]
+      · rw [interp2_termXI (X := famIter u w ρp Ids rss tlss Eiss Fss Ess 0)
+          (Y := famU u w ρp Ids rss tlss Eiss Fss Ess) (by simpa using hnF)]
         exact hb
       · cases bs with
         | nil => trivial
@@ -562,15 +739,17 @@ theorem fitsXI_iter (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {t : V} (ht : t
     | cons b bs =>
       obtain ⟨hb, hrest⟩ := hf
       rw [consList_snoc'] at hrest
-      obtain ⟨n₁, hn₁⟩ := fitsXI_iter h ht Fs (as.length + 1) (as ++ [b]) bs (length_snoc' b as)
+      obtain ⟨n₁, hn₁⟩ := fitsXI_iter h ht hfin Fs (as.length + 1) (as ++ [b]) bs (length_snoc' b as)
         (by simp at hnF ⊢; omega) (hfit.2 b hb) hrest
       by_cases hri : rs.getD as.length false = true
-      · obtain ⟨hEok, hsp⟩ := hfit.1 hri
+      · have hf0 : SlotFit u w ρp Ids [] (Eis.getD as.length []) as := by
+          rw [← hfin as.length]; exact hfit.1 hri
+        obtain ⟨hEok, hsp⟩ := SlotFit.fin hf0
         have hb' := hb
-        rw [xEntry_rec h.hI F as t hri hEok hsp, famU_app (tupW_mem hsp)] at hb'
+        rw [xEntry_rec h.hI F as t hri (hfit.1 hri), hfin, slotSet_nil, famU_app (tupW_mem hsp)] at hb'
         obtain ⟨n₀, hn₀⟩ := mem_natUnion.mp hb'
         refine ⟨max n₀ n₁, ?_, ?_⟩
-        · rw [xEntry_rec h.hI F as t hri hEok hsp]
+        · rw [xEntry_rec h.hI F as t hri (hfit.1 hri), hfin, slotSet_nil]
           exact famIter_mono h (Nat.le_max_left n₀ n₁) _ (tupW_mem hsp) b hn₀
         · rw [consList_snoc']
           refine (fitsS_teleOfFields.mp (FitsS.mono ?_ (fitsS_teleOfFields.mpr hn₁)))
@@ -584,37 +763,38 @@ theorem fitsXI_iter (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {t : V} (ht : t
         · rw [consList_snoc']; exact hn₁
 
 /-- **The ω-iterate family is closed.** -/
-theorem famU_closed (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) :
+theorem famU_closed (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) :
     FamLe (idxSet u ρp Ids)
-      (famFI u w ρp Ids Ids.length rss Eiss Fss Ess (famU u w ρp Ids rss Eiss Fss Ess))
-      (famU u w ρp Ids rss Eiss Fss Ess) := by
+      (famFI u w ρp Ids Ids.length rss tlss Eiss Fss Ess (famU u w ρp Ids rss tlss Eiss Fss Ess))
+      (famU u w ρp Ids rss tlss Eiss Fss Ess) := by
   intro t ht x hx
   rw [famFI_app ht] at hx
   rw [famU_app ht, mem_natUnion]
   -- a member of the fibre at the ω-iterate: some constructor's tower at a finite stage
   have key : ∀ j, j < Fss.length → ∀ a,
-      a ∈ˢ towerSet w (teleOfFields (cons t (cons (famU u w ρp Ids rss Eiss Fss Ess) ρp))
-        (chainXI u Ids Ids.length (rss.getD j []) (Eiss.getD j []) (Fss.getD j []) (Ess.getD j []))) →
-      ∃ n, a ∈ˢ towerSet w (teleOfFields (cons t (cons (famIter u w ρp Ids rss Eiss Fss Ess n) ρp))
-        (chainXI u Ids Ids.length (rss.getD j []) (Eiss.getD j []) (Fss.getD j []) (Ess.getD j []))) := by
+      a ∈ˢ towerSet w (teleOfFields (cons t (cons (famU u w ρp Ids rss tlss Eiss Fss Ess) ρp))
+        (chainXI u Ids Ids.length (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) (Ess.getD j []))) →
+      ∃ n, a ∈ˢ towerSet w (teleOfFields (cons t (cons (famIter u w ρp Ids rss tlss Eiss Fss Ess n) ρp))
+        (chainXI u Ids Ids.length (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) (Ess.getD j []))) := by
     intro j hj a ha
     have hfit := h.hfit _ (famU_mem h) t ht j hj
     rcases Nat.eq_zero_or_pos w with rfl | hw
     · obtain ⟨rfl, bs, hbs⟩ := towerSet_zero_elim _ ha
-      obtain ⟨n, hn⟩ := fitsXI_iter h ht (Fss.getD j []) 0 [] bs rfl (by simp) hfit
+      obtain ⟨n, hn⟩ := fitsXI_iter h ht (hfin j) (Fss.getD j []) 0 [] bs rfl (by simp) hfit
         (fitsS_teleOfFields.mp hbs)
       exact ⟨n, pt_mem_tower (fitsS_teleOfFields.mpr hn)⟩
     · have hw' : w ≠ 0 := Nat.pos_iff_ne_zero.mp hw
       obtain ⟨hbs, heta⟩ := towerSet_elim_teleOfFields hw' ha
-      obtain ⟨n, hn⟩ := fitsXI_iter h ht (Fss.getD j []) 0 [] _ rfl (by simp) hfit hbs
+      obtain ⟨n, hn⟩ := fitsXI_iter h ht (hfin j) (Fss.getD j []) 0 [] _ rfl (by simp) hfit hbs
       refine ⟨n, ?_⟩
       rw [heta]
       exact mkTower_mem hw' (fitsS_teleOfFields.mpr hn)
   -- the fibre's members at a constructor
-  have fib : ∀ j a, a ∈ˢ sumFibre w (cons t (cons (famU u w ρp Ids rss Eiss Fss Ess) ρp))
-        (chainsXI u Ids Ids.length rss Eiss Fss Ess) j →
-      ∃ n, a ∈ˢ sumFibre w (cons t (cons (famIter u w ρp Ids rss Eiss Fss Ess n) ρp))
-        (chainsXI u Ids Ids.length rss Eiss Fss Ess) j := by
+  have fib : ∀ j a, a ∈ˢ sumFibre w (cons t (cons (famU u w ρp Ids rss tlss Eiss Fss Ess) ρp))
+        (chainsXI u Ids Ids.length rss tlss Eiss Fss Ess) j →
+      ∃ n, a ∈ˢ sumFibre w (cons t (cons (famIter u w ρp Ids rss tlss Eiss Fss Ess n) ρp))
+        (chainsXI u Ids Ids.length rss tlss Eiss Fss Ess) j := by
     intro j a ha
     unfold sumFibre at ha ⊢
     by_cases hj : j < Fss.length
@@ -628,51 +808,68 @@ theorem famU_closed (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) :
   · obtain ⟨rfl, j, a, ha⟩ := sumSet_zero_elim hx
     obtain ⟨n, hn⟩ := fib j a ha
     refine ⟨n + 1, ?_⟩
-    show pt ∈ˢ SetTheory.app (famFI u 0 ρp Ids Ids.length rss Eiss Fss Ess _) t
+    show pt ∈ˢ SetTheory.app (famFI u 0 ρp Ids Ids.length rss tlss Eiss Fss Ess _) t
     rw [famFI_app ht]
     exact pt_mem_sumSet_zero (i := j) (a := a) hn
   · have hw' : w ≠ 0 := Nat.pos_iff_ne_zero.mp hw
     obtain ⟨j, a, ha, rfl⟩ := sumSet_elim hw' hx
     obtain ⟨n, hn⟩ := fib j a ha
     refine ⟨n + 1, ?_⟩
-    show inj j a ∈ˢ SetTheory.app (famFI u w ρp Ids Ids.length rss Eiss Fss Ess _) t
+    show inj j a ∈ˢ SetTheory.app (famFI u w ρp Ids Ids.length rss tlss Eiss Fss Ess _) t
     rw [famFI_app ht]
     exact inj_mem hw' hn
 
-/-- **A closed family exists**: the ω-iterate. -/
-theorem fixFunVI_closed_exists (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) :
-    ∃ L, IsClosedFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss Eiss Fss Ess) L := by
-  refine ⟨famU u w ρp Ids rss Eiss Fss Ess, ?_, ?_⟩
-  · rw [← lfpFamSpace_eq]; exact famU_mem h
-  · rw [fixFunVI_app (famU_mem h)]
-    exact famU_closed h
+/-- **A closed family exists**: the ω-iterate at a finitary block, the
+top family `i ↦ {pt}` at a `Prop`-valued one (task #202: with a
+function-space slot the ω-iterate is not closed; every fibre at `w = 0`
+is a subset of `{pt}`). -/
+theorem fixFunVI_closed_exists (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) :
+    ∃ L, IsClosedFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L := by
+  rcases h.hwit with hfin | hw0
+  · refine ⟨famU u w ρp Ids rss tlss Eiss Fss Ess, ?_, ?_⟩
+    · rw [← lfpFamSpace_eq]; exact famU_mem h
+    · rw [fixFunVI_app (famU_mem h)]
+      exact famU_closed h hfin
+  · subst hw0
+    have htop : graph (fun _ => unitSet) (idxSet u ρp Ids) ∈ˢ lfpFamSpace V 0 (idxSet u ρp Ids) := by
+      rw [lfpFamSpace_eq]
+      exact graph_mem_famSpace fun _ _ => by rw [univ_zero]; exact mem_univZero.mpr (Subset.refl _)
+    refine ⟨graph (fun _ => unitSet) (idxSet u ρp Ids), by rw [← lfpFamSpace_eq]; exact htop, ?_⟩
+    rw [fixFunVI_app htop]
+    intro t ht x hx
+    rw [famFI_app ht] at hx
+    rw [app_graph ht]
+    have := fixStepI_univ h.hok htop ht
+    rw [univ_zero] at this
+    exact mem_univZero.mp this x hx
 
 /-! ## The carrier's laws -/
 
 theorem fixFamI_mem (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) :
-    fixFamI u w ρp Ids Ids.length rss Eiss Fss Ess ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) :=
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) :
+    fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) :=
   lfpFamSet_mem_space V w _ _
 
 /-- **The fixed-point equation**, fibrewise: the fibre at `t` is the
 functor's fibre at the carrier. -/
-theorem fixFamI_app_eq (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
-    fixStepI u w ρp Ids Ids.length rss Eiss Fss Ess (fixFamI u w ρp Ids Ids.length rss Eiss Fss Ess) t
-      = SetTheory.app (fixFamI u w ρp Ids Ids.length rss Eiss Fss Ess) t := by
+theorem fixFamI_app_eq (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
+    fixStepI u w ρp Ids Ids.length rss tlss Eiss Fss Ess (fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) t
+      = SetTheory.app (fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) t := by
   have := app_lfpFamSet_eq (fixFunVI_closed_exists h) (fixFunVI_mono h) (fixFunVI_maps h) ht
   unfold fixFamI at this ⊢
   rwa [fixFunVI_app (lfpFamSet_mem_space V w _ _), famFI_app ht] at this
 
 /-- **The carrier is the ω-iterate**, fibrewise. -/
-theorem fixFamI_app_eq_famU (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
-    SetTheory.app (fixFamI u w ρp Ids Ids.length rss Eiss Fss Ess) t
-      = SetTheory.app (famU u w ρp Ids rss Eiss Fss Ess) t := by
+theorem fixFamI_app_eq_famU (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) {t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
+    SetTheory.app (fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) t
+      = SetTheory.app (famU u w ρp Ids rss tlss Eiss Fss Ess) t := by
   refine Subset.antisymm ?_ ?_
   · refine lfpFamSet_le ⟨?_, ?_⟩ t ht
     · rw [← lfpFamSpace_eq]; exact famU_mem h
-    · rw [fixFunVI_app (famU_mem h)]; exact famU_closed h
-  · have hn : ∀ n, FamLe (idxSet u ρp Ids) (famIter u w ρp Ids rss Eiss Fss Ess n)
-        (fixFamI u w ρp Ids Ids.length rss Eiss Fss Ess) := by
+    · rw [fixFunVI_app (famU_mem h)]; exact famU_closed h hfin
+  · have hn : ∀ n, FamLe (idxSet u ρp Ids) (famIter u w ρp Ids rss tlss Eiss Fss Ess n)
+        (fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) := by
       intro n
       induction n with
       | zero =>
@@ -682,7 +879,7 @@ theorem fixFamI_app_eq_famU (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {t : V}
         exact empty_subset _
       | succ n ih =>
         intro t ht
-        show SetTheory.app (famFI u w ρp Ids Ids.length rss Eiss Fss Ess _) t ⊆ˢ _
+        show SetTheory.app (famFI u w ρp Ids Ids.length rss tlss Eiss Fss Ess _) t ⊆ˢ _
         rw [famFI_app ht, ← fixFamI_app_eq h ht]
         exact fixStepI_mono h (famIter_mem h n) ih ht
     intro x hx
@@ -698,18 +895,17 @@ real chain at the frame `(ρp, as)`: at a recursive position the index
 expressions are graded and fit, and the real domain reads to the
 carrier at their tuple; at an ordinary position the two are the same
 term. -/
-def ChainRealI (μ : V) (u : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rs : List Bool)
-    (Eis : List (List AVExpr)) : Nat → List V → List AVExpr → List AVExpr → Prop
+def ChainRealI (μ : V) (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rs : List Bool)
+    (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) :
+    Nat → List V → List AVExpr → List AVExpr → Prop
   | _, _, [], [] => True
   | i, as, F₀ :: Fs₀, F :: Fs =>
     (if rs.getD i false then
-      (∀ E ∈ Eis.getD i [], AnnotOk2 V (consList as ρp) E) ∧
-      SpineFit ρp Ids ((Eis.getD i []).map (interp2 V (consList as ρp))) ∧
-      interp2 V (consList as ρp) F
-        = SetTheory.app μ (tupW u ((Eis.getD i []).map (interp2 V (consList as ρp))))
+      SlotFit u w ρp Ids (tls.getD i []) (Eis.getD i []) as ∧
+      interp2 V (consList as ρp) F = slotSet w u (consList as ρp) (tls.getD i []) (Eis.getD i []) μ
      else F = F₀) ∧
     ∀ a, a ∈ˢ interp2 V (consList as ρp) F →
-      ChainRealI μ u ρp Ids rs Eis (i + 1) (as ++ [a]) Fs₀ Fs
+      ChainRealI μ u w ρp Ids rs tls Eis (i + 1) (as ++ [a]) Fs₀ Fs
   | _, _, _, _ => False
 
 /-- The lifted real entry reads the domain at the parameter frame. -/
@@ -731,12 +927,12 @@ theorem sigmaSet_congr' {w : Nat} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A
 /-- The X-chain tower at the carrier and a tuple is the real
 restricted tower at the index spine. -/
 theorem towerSet_chainXI_eq (hI : IdxOk u ρp Ids) {μ : V} {is : List V} (hsp : SpineFit ρp Ids is)
-    {rs : List Bool} {Eis : List (List AVExpr)} {nF : Nat} {Es : List AVExpr}
+    {rs : List Bool} {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)} {nF : Nat} {Es : List AVExpr}
     (hEs : Es.length = Ids.length) :
     ∀ (Fs₀ Fs : List AVExpr) (i : Nat) (as : List V), as.length = i →
-      ChainRealI μ u ρp Ids rs Eis i as Fs₀ Fs → as.length + Fs.length = nF →
+      ChainRealI μ u w ρp Ids rs tls Eis i as Fs₀ Fs → as.length + Fs.length = nF →
       towerSet w (teleOfFields (consList as (cons (tupW u is) (cons μ ρp)))
-          (chainXIGo u Ids rs Eis Fs₀ i ++ [idxEqAV (eqsXI Ids.length nF Es)]))
+          (chainXIGo u Ids rs tls Eis Fs₀ i ++ [idxEqAV (eqsXI Ids.length nF Es)]))
         = towerSet w (teleOfFields (consList as (consList is ρp))
           (liftFields Ids.length i Fs ++ [idxEqAV (idxEqsAt Ids.length Ids.length nF Es)]))
   | [], [], i, as, hi, _, hnF => by
@@ -757,13 +953,13 @@ theorem towerSet_chainXI_eq (hI : IdxOk u ρp Ids) {μ : V} {is : List V} (hsp :
     rw [chainXIGo_cons, liftFields_cons, List.cons_append, List.cons_append]
     simp only [teleOfFields, towerSet]
     obtain ⟨hhead, htail⟩ := hc
-    have hA : interp2 V (consList as (cons (tupW u is) (cons μ ρp))) (xEntry u Ids rs Eis F₀ as.length)
+    have hA : interp2 V (consList as (cons (tupW u is) (cons μ ρp))) (xEntry u Ids rs tls Eis F₀ as.length)
         = interp2 V (consList as (consList is ρp)) (F.liftN Ids.length as.length) := by
       rw [interp2_liftIdx F as is hislen]
       by_cases hri : rs.getD as.length false = true
       · rw [if_pos hri] at hhead
-        obtain ⟨hEok, hsp', heq⟩ := hhead
-        rw [xEntry_rec hI F₀ as (tupW u is) hri hEok hsp', heq]
+        obtain ⟨hf, heq⟩ := hhead
+        rw [xEntry_rec hI F₀ as (tupW u is) hri hf, heq]
       · have hri' : rs.getD as.length false = false := by simpa using hri
         rw [if_neg (by rw [hri']; exact Bool.false_ne_true)] at hhead
         rw [xEntry_ord F₀ as (tupW u is) hri', hhead]
@@ -775,20 +971,20 @@ theorem towerSet_chainXI_eq (hI : IdxOk u ρp Ids) {μ : V} {is : List V} (hsp :
     rwa [interp2_liftIdx F as is hislen] at ha
 
 /-- `ChainsRealI`: `ChainRealI` for every constructor, at the carrier. -/
-def ChainsRealI (μ : V) (u : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss₀ Fss Ess : List (List AVExpr)) : Prop :=
+def ChainsRealI (μ : V) (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss₀ Fss Ess : List (List AVExpr)) : Prop :=
   Fss₀.length = Fss.length ∧ Ess.length = Fss.length ∧
   (∀ j, j < Fss.length → (Ess.getD j []).length = Ids.length) ∧
   (∀ j, j < Fss.length → (Fss₀.getD j []).length = (Fss.getD j []).length) ∧
   ∀ j, j < Fss.length →
-    ChainRealI μ u ρp Ids (rss.getD j []) (Eiss.getD j []) 0 [] (Fss₀.getD j []) (Fss.getD j [])
+    ChainRealI μ u w ρp Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) 0 [] (Fss₀.getD j []) (Fss.getD j [])
 
 /-- **The carrier's fibre at an index spine is the indexed sum route's
 restricted tagged union** there. -/
-theorem fixFamI_app_eq_sum (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {Fss' : List (List AVExpr)}
-    (hreal : ChainsRealI (fixFamI u w ρp Ids Ids.length rss Eiss Fss Ess) u ρp Ids rss Eiss Fss Fss' Ess)
+theorem fixFamI_app_eq_sum (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {Fss' : List (List AVExpr)}
+    (hreal : ChainsRealI (fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) u w ρp Ids rss tlss Eiss Fss Fss' Ess)
     {is : List V} (hsp : SpineFit ρp Ids is) :
-    SetTheory.app (fixFamI u w ρp Ids Ids.length rss Eiss Fss Ess) (tupW u is)
+    SetTheory.app (fixFamI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) (tupW u is)
       = sumSet w (sumFibre w (consList is ρp) (rChains Ids.length Ids.length Fss' Ess)) := by
   rw [← fixFamI_app_eq h (tupW_mem hsp)]
   unfold fixStepI
@@ -799,7 +995,7 @@ theorem fixFamI_app_eq_sum (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {Fss' : 
   · have hjF : j < Fss.length := by omega
     rw [chainsXI_getElem?, if_pos hjF, rChains_getElem?, List.getElem?_eq_getElem hj,
       List.getElem?_eq_getElem (by omega)]
-    show towerSet w (teleOfFields (cons (tupW u is) (cons _ ρp)) (chainXI u Ids Ids.length _ _ _ _))
+    show towerSet w (teleOfFields (cons (tupW u is) (cons _ ρp)) (chainXI u Ids Ids.length _ _ _ _ _))
       = towerSet w (teleOfFields (consList is ρp) (rChain Ids.length Ids.length Fss'[j] Ess[j]))
     unfold chainXI rChain
     have hg1 : Fss'[j] = Fss'.getD j [] := by
@@ -819,10 +1015,12 @@ theorem fixFamI_app_eq_sum (h : XChainsOk u w ρp Ids rss Eiss Fss Ess) {Fss' : 
 
 /-- The recursive components of a tuple fitting the X-chain at `X` lie
 in `X` at their own index tuples. -/
-theorem fitsXI_rec_mem (hI : IdxOk u ρp Ids) {X t : V} {rs : List Bool} {Eis : List (List AVExpr)} :
+theorem fitsXI_rec_mem (hI : IdxOk u ρp Ids) {X t : V} {rs : List Bool}
+    {tls : List (List (Nat × Nat × AVExpr))} (hfin : ∀ i, tls.getD i [] = [])
+    {Eis : List (List AVExpr)} :
     ∀ (Fs : List AVExpr) (i : Nat) (as bs : List V), as.length = i →
-      SlotsFitX u ρp Ids rs Eis X t i as Fs →
-      SpineFit (consList as (cons t (cons X ρp))) (chainXIGo u Ids rs Eis Fs i) bs →
+      SlotsFitX u w ρp Ids rs tls Eis X t i as Fs →
+      SpineFit (consList as (cons t (cons X ρp))) (chainXIGo u Ids rs tls Eis Fs i) bs →
       ∀ l, l < bs.length → rs.getD (i + l) false = true →
         bs.getD l pt ∈ˢ SetTheory.app X
           (tupW u ((Eis.getD (i + l) []).map (interp2 V (consList (as ++ bs.take l) ρp))))
@@ -836,12 +1034,11 @@ theorem fitsXI_rec_mem (hI : IdxOk u ρp Ids) {X t : V} {rs : List Bool} {Eis : 
     cases l with
     | zero =>
       rw [Nat.add_zero] at hr
-      obtain ⟨hEok, hsp⟩ := hfit.1 hr
-      rw [xEntry_rec hI F as t hr hEok hsp] at hb
+      rw [xEntry_rec hI F as t hr (hfit.1 hr), hfin, slotSet_nil] at hb
       simpa using hb
     | succ l =>
       rw [consList_snoc'] at hrest
-      have := fitsXI_rec_mem hI Fs (as.length + 1) (as ++ [b]) bs (length_snoc' b as) (hfit.2 b hb) hrest l
+      have := fitsXI_rec_mem hI hfin Fs (as.length + 1) (as ++ [b]) bs (length_snoc' b as) (hfit.2 b hb) hrest l
         (by simpa using hl) (by rw [show as.length + 1 + l = as.length + (l + 1) from by omega]; exact hr)
       rw [show as.length + 1 + l = as.length + (l + 1) from by omega] at this
       simpa [List.append_assoc] using this
@@ -849,11 +1046,11 @@ theorem fitsXI_rec_mem (hI : IdxOk u ρp Ids) {X t : V} {rs : List Bool} {Eis : 
 /-- A tuple fitting the X-chain at a family below the carrier fits the
 real chain. -/
 theorem spineFit_real_of_XI (hI : IdxOk u ρp Ids) {μ X t : V} (hXμ : FamLe (idxSet u ρp Ids) X μ)
-    {rs : List Bool} {Eis : List (List AVExpr)} :
+    {rs : List Bool} {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)} :
     ∀ (Fs₀ Fs : List AVExpr) (i : Nat) (as bs : List V), as.length = i →
-      ChainRealI μ u ρp Ids rs Eis i as Fs₀ Fs →
-      SlotsFitX u ρp Ids rs Eis X t i as Fs₀ →
-      SpineFit (consList as (cons t (cons X ρp))) (chainXIGo u Ids rs Eis Fs₀ i) bs →
+      ChainRealI μ u w ρp Ids rs tls Eis i as Fs₀ Fs →
+      SlotsFitX u w ρp Ids rs tls Eis X t i as Fs₀ →
+      SpineFit (consList as (cons t (cons X ρp))) (chainXIGo u Ids rs tls Eis Fs₀ i) bs →
       SpineFit (consList as ρp) Fs bs
   | [], [], _, _, [], _, _, _, _ => trivial
   | [], [], _, _, _ :: _, _, _, _, h => h.elim
@@ -868,10 +1065,10 @@ theorem spineFit_real_of_XI (hI : IdxOk u ρp Ids) {μ X t : V} (hXμ : FamLe (i
     have hb' : b ∈ˢ interp2 V (consList as ρp) F := by
       by_cases hri : rs.getD as.length false = true
       · rw [if_pos hri] at hhead
-        obtain ⟨hEok, hsp, heq⟩ := hhead
-        rw [xEntry_rec hI F₀ as t hri hEok hsp] at hb
+        obtain ⟨hf, heq⟩ := hhead
+        rw [xEntry_rec hI F₀ as t hri hf] at hb
         rw [heq]
-        exact hXμ _ (tupW_mem hsp) b hb
+        exact slotSet_mono hXμ hf b hb
       · have hri' : rs.getD as.length false = false := by simpa using hri
         rw [if_neg (by rw [hri']; exact Bool.false_ne_true)] at hhead
         rw [xEntry_ord F₀ as t hri'] at hb
@@ -886,10 +1083,10 @@ theorem spineFit_real_of_XI (hI : IdxOk u ρp Ids) {μ X t : V} (hXμ : FamLe (i
 fibre at `(X, t)` is the injection of a point-terminated tuple fitting
 constructor `j`'s X-chain, with the index equation holding. -/
 theorem fixStepI_elim {w : Nat} (hw : w ≠ 0) {X t x : V}
-    (hx : x ∈ˢ fixStepI u w ρp Ids Ids.length rss Eiss Fss Ess X t) :
+    (hx : x ∈ˢ fixStepI u w ρp Ids Ids.length rss tlss Eiss Fss Ess X t) :
     ∃ j fs, x = inj j (mkTower (fs ++ [pt])) ∧ j < Fss.length ∧
       fs.length = (Fss.getD j []).length ∧
-      SpineFit (cons t (cons X ρp)) (chainXIGo u Ids (rss.getD j []) (Eiss.getD j []) (Fss.getD j []) 0) fs ∧
+      SpineFit (cons t (cons X ρp)) (chainXIGo u Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) 0) fs ∧
       EqAll (consList fs (cons t (cons X ρp))) (eqsXI Ids.length (Fss.getD j []).length (Ess.getD j [])) := by
   unfold fixStepI at hx
   obtain ⟨j, a, ha, rfl⟩ := sumSet_elim hw hx
@@ -909,9 +1106,9 @@ theorem fixStepI_elim {w : Nat} (hw : w ≠ 0) {X t x : V}
 
 /-- **Stage elimination** (squash regime). -/
 theorem fixStepI_zero_elim {X t x : V}
-    (hx : x ∈ˢ fixStepI u 0 ρp Ids Ids.length rss Eiss Fss Ess X t) :
+    (hx : x ∈ˢ fixStepI u 0 ρp Ids Ids.length rss tlss Eiss Fss Ess X t) :
     x = pt ∧ ∃ j fs, j < Fss.length ∧ fs.length = (Fss.getD j []).length ∧
-      SpineFit (cons t (cons X ρp)) (chainXIGo u Ids (rss.getD j []) (Eiss.getD j []) (Fss.getD j []) 0) fs ∧
+      SpineFit (cons t (cons X ρp)) (chainXIGo u Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) 0) fs ∧
       EqAll (consList fs (cons t (cons X ρp))) (eqsXI Ids.length (Fss.getD j []).length (Ess.getD j [])) := by
   unfold fixStepI at hx
   obtain ⟨rfl, j, a, ha⟩ := sumSet_zero_elim hx
