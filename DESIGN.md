@@ -56077,6 +56077,15 @@ B)** — `WType`, `PSet`, `FirstOrder.Language.Term`,
 `Acc.below` (A2), `Lean.Order.iterates`, `Lean.Order.iterates.below`
 (A1).
 
+**Merge record (2026-09-07).**  `agent/reflexive` merged master
+`e9d0ae4d` (task #205: no binder names/infos on `Expr`; task #208): the
+kernel's telescope generators and readers (`Expr.piBinders`,
+`directTeleAt`, `mkPisOf`/`mkLamsOf`) take `(type, meta)` binders; the
+telescope readings' contract is unchanged; the two-carrier congruence
+(`fixCtorDataI_ident`) now also identifies the telescopes (`tssPiBits`
+pins each entry to a reading's Π-entry — domain bit `0`, codomain bit
+at most `1` — so the bits agree through the `w`-regime iff).
+
 ## TASK #204 — THE lean4lean-model BRIDGE: Carneiro's hypothesis implies Lech's, in Lean (2026-09-07, `agent/bridge`)
 
 **Question (user).**  "Can you have an agent prove that Mario's
@@ -56739,12 +56748,3 @@ node to allocate, hash and compare; no `Name.beq` per binder in
 deltas inside the difference-of-large-cells noise (t2 `--verified`'s
 +0.48 G target-only sits on a −6.5 G full cell).  Verdicts and
 accepted counts identical in every cell.
-
-**Merge record (2026-09-07).**  `agent/reflexive` merged master
-`e9d0ae4d` (task #205: no binder names/infos on `Expr`; task #208): the
-kernel's telescope generators and readers (`Expr.piBinders`,
-`directTeleAt`, `mkPisOf`/`mkLamsOf`) take `(type, meta)` binders; the
-telescope readings' contract is unchanged; the two-carrier congruence
-(`fixCtorDataI_ident`) now also identifies the telescopes (`tssPiBits`
-pins each entry to a reading's Π-entry — domain bit `0`, codomain bit
-at most `1` — so the bits agree through the `w`-regime iff).
