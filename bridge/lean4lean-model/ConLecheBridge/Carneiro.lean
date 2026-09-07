@@ -26,7 +26,7 @@ proves, in Lean, that his hypothesis implies ours:
   von Neumann hierarchy).  The ZF⁻ fields are Mathlib's; the work is
   `isTGUniverse_vonNeumann`: `V_ κ` for `κ` inaccessible is a
   Grothendieck universe in Tarski's form.
-* `carneiro_implies_con-leche : OmegaInaccessibles.{u} →
+* `carneiro_implies_conleche : OmegaInaccessibles.{u} →
   Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V)`.
 
 The proof of Tarski's cardinality clause (a subset of `V_ κ` is a member
@@ -197,14 +197,14 @@ noncomputable def setTheoryOfCarneiro (h : OmegaInaccessibles.{u}) : ConLeche.Se
 cardinals (lean4lean-model's `OmegaInaccessibles`) give a model of
 ConLeche's `SetTheory` interface — on Mathlib's `ZFSet.{u}`, with the
 universe chain `V_ (κ n).ord`. -/
-theorem carneiro_implies_con-leche :
+theorem carneiro_implies_conleche :
     OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
   fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
 /--
-info: 'ConLecheBridge.carneiro_implies_con-leche' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLecheBridge.carneiro_implies_conleche' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms carneiro_implies_con-leche
+#print axioms carneiro_implies_conleche
 
 end ConLecheBridge
