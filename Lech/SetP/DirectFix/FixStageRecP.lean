@@ -581,7 +581,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
         ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
           AnnotValidV V (consList bs ρp) E))
     (hwl : p.large = true → p.resSort.isNeverZero = true)
-    (hrefl : (∃ (ψ : Name → Nat) (j i : Nat), (tssF j ψ).getD i [] ≠ []) →
+    (hrefl : (∃ (ψ : Name → Nat) (j i : Nat), j < ctorsA.length ∧ (tssF j ψ).getD i [] ≠ []) →
       ∀ ψ : Name → Nat, p.resSort.eval ψ = 0) :
     ∃ (sAV : (Name → Nat) → Nat)
       (mp' : EnvS2PM V μ ⟨.recInfo cvRa mI rP (Lech.directSumRules p.nP mI rP cvRa.type ctorsA rhss)
@@ -690,7 +690,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
       by_cases hj : j < ctorsA.length
       · obtain ⟨cA, hjA⟩ := hcAof j hj
         rw [hTlsjD ψ j cA hjA] at hne
-        have hw0 := hrefl ⟨ψ, j, i, hne⟩ ψ
+        have hw0 := hrefl ⟨ψ, j, i, hj, hne⟩ ψ
         exact ⟨hw0, hwℓ ψ hw0⟩
       · rw [hTlsNone ψ j hj] at hne
         exact absurd rfl hne
@@ -700,7 +700,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
     by_cases hj : j < ctorsA.length
     · obtain ⟨cA, hjA⟩ := hcAof j hj
       rw [hTlsjD ψ j cA hjA] at hd
-      have hw0 := hrefl ⟨ψ, j, i, List.ne_nil_of_mem hd⟩ ψ
+      have hw0 := hrefl ⟨ψ, j, i, hj, List.ne_nil_of_mem hd⟩ ψ
       have hb := (hcf j cA hjA).2.2.tssBits ψ i d hd
       exact ⟨fun _ => hwℓ ψ hw0, fun _ => hb.mpr hw0⟩
     · rw [hTlsNone ψ j hj] at hd
