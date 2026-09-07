@@ -34,7 +34,7 @@ variable {V : Type w} [SetTheory V] {env : Env}
 /-! ## Instantiation at variables and the argument spine -/
 
 /-- Substituting a variable maps an application's arguments. -/
-theorem Expr.getAppArgs_instantiate1_fvar {i : Nat} {nm : Name} {t : Expr} :
+theorem Expr.getAppArgs_instantiate1_fvar {i : Nat} {t : Expr} :
     ∀ (e : Expr) (k : Nat),
       (e.instantiate1 (.fvar i t) k).getAppArgs
         = e.getAppArgs.map (fun a => a.instantiate1 (.fvar i t) k) := by
@@ -55,11 +55,11 @@ theorem Expr.getAppArgs_instantiate1_fvar {i : Nat} {nm : Name} {t : Expr} :
 /-- Instantiation at variables maps an application's arguments. -/
 theorem Expr.getAppArgs_instSeq_fvars :
     ∀ (as : List Expr) (t : Nat) (e : Expr),
-      (∀ a ∈ as, ∃ (i : Nat) (nm : Name) (ty : Expr), a = Expr.fvar i ty) →
+      (∀ a ∈ as, ∃ (i : Nat) (ty : Expr), a = Expr.fvar i ty) →
       (Expr.instSeq as t e).getAppArgs = e.getAppArgs.map (Expr.instSeq as t)
   | [], _, e, _ => by simp [Expr.instSeq]
   | a :: as, t, e, hfv => by
-    obtain ⟨i, nm, ty, rfl⟩ := hfv a List.mem_cons_self
+    obtain ⟨i, ty, rfl⟩ := hfv a List.mem_cons_self
     show (Expr.instSeq as (t - 1) (e.instantiate1 (.fvar i ty) t)).getAppArgs = _
     rw [Expr.getAppArgs_instSeq_fvars as (t - 1) _ (fun a ha => hfv a (List.mem_cons_of_mem _ ha)),
       Expr.getAppArgs_instantiate1_fvar, List.map_map]
@@ -76,7 +76,7 @@ theorem openPisAtFvars_fvarTypeD :
       e.stripPis n = some (bs, body) →
       ∀ (i : Nat) (b : Expr × BinderMeta) (x : Expr),
         bs[i]? = some b → fvs[i]? = some x →
-        x.fvarTypeD = Expr.instSeq (fvs.take i) (i - 1) b.2.1
+        x.fvarTypeD = Expr.instSeq (fvs.take i) (i - 1) b.1
   | 0, e, d, fvs, o, bs, body, hop, hst, i, b, x, hb, _ => by
     simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hst
     rw [← hst.1] at hb
@@ -251,11 +251,11 @@ theorem fixCtorReadsR_of {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps : 
         ⟨_, List.getElem?_eq_getElem (by rw [Lech.Expr.stripPis_length _ hst]; omega)⟩
       have hty := openPisAtFvars_fvarTypeD (nP + cA.2) hopAll hst (nP + i') b x hb hxA
       have hfvars : ∀ a ∈ (fvsPF i ++ xFvsF i).take (nP + i'),
-          ∃ (k : Nat) (nm : Name) (ty : Expr), a = Expr.fvar k ty := by
+          ∃ (k : Nat) (ty : Expr), a = Expr.fvar k ty := by
         intro a ha
         obtain ⟨q, hq⟩ := List.getElem?_of_mem (List.mem_of_mem_take ha)
-        obtain ⟨nm, ty, rfl⟩ := (opening_vars_at hopAll).2.1 q a hq
-        exact ⟨_, nm, ty, rfl⟩
+        obtain ⟨ty, rfl⟩ := (opening_vars_at hopAll).2.1 q a hq
+        exact ⟨_, ty, rfl⟩
       have hargs : (directFieldIdxOf cA.1.type nP cA.2 i').map
           (Expr.instSeq ((fvsPF i ++ xFvsF i).take (nP + i')) (nP + i' - 1))
           = x.fvarTypeD.getAppArgs.drop nP := by
