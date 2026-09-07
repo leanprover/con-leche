@@ -189,7 +189,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       Expr.fvar l.1 l.2 ∈ fvs → l.1 < rP + cnF := by
     intro l hl
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hl
-    obtain ⟨nm', ty', heq⟩ := hshapeS q _ hq
+    obtain ⟨ty', heq⟩ := hshapeS q _ hq
     have hql : q < fvs.length := (List.getElem?_eq_some_iff.mp hq).1
     injection heq with h1 _
     rw [h1, ← hfvslen]
