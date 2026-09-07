@@ -308,11 +308,11 @@ section Walks2
 
 variable {env : Env} {f : Nat}
 
-/-- Port of `etaCertI_sim`.  The name and binder-meta bridges collapse:
-the cached representation stores `Name`s and `BinderMeta`s directly, so
-`hn₁` and `hbm₁` are identities and the spec side reads the very
-arguments the twin is given. -/
-theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
+/-- Port of `etaCertI_sim`.  The binder-meta bridge collapses: the
+cached representation stores `BinderMeta`s directly, so `hbm₁` is an
+identity and the spec side reads the very arguments the twin is
+given. -/
+theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat}
     {ty₁ body₁ b : ExprC} {ty₁x body₁x bx : Expr} {m₁ : BinderMeta}
     {s₀ : CState} (hs : CSOK mode env s₀)
     (hty : RelC ty₁ ty₁x) (hbody : RelC body₁ body₁x) (hb : RelC b bx)
@@ -320,8 +320,8 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
     (hwb : Expr.WScoped d bx) :
     SimC mode env s₀ RelVC
       (etaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
-        n₁ ty₁ body₁ m₁ b)
-      (etaCert mode (fueledFns mode env) env d n₁ ty₁x body₁x m₁ bx) := by
+        ty₁ body₁ m₁ b)
+      (etaCert mode (fueledFns mode env) env d ty₁x body₁x m₁ bx) := by
   show SimC mode env s₀ RelVC
     ((coreKnotI mode (mkFEnv env) f).inferIO d b >>= fun tb =>
       (coreKnotI mode (mkFEnv env) f).whnf d tb >>= fun wtb =>
