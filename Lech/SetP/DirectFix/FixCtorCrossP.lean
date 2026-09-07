@@ -115,6 +115,7 @@ theorem FixCtorDataI.cross {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps 
     tssLen := h.tssLen
     tssNone := h.tssNone
     tssBits := h.tssBits
+    tssPiBits := h.tssPiBits
     tssBelow := h.tssBelow
     tssParams := h.tssParams
     reflOpen := fun ψ i x hx hk => by

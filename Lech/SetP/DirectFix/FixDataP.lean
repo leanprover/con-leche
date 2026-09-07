@@ -130,6 +130,50 @@ theorem fixOpened_of {env₀ : Env} {T : Name} {lps : List Name} {nP nIdx : Nat}
 
 /-! ## The constructor's data -/
 
+/-- The leading Π-entries of a Π-telescope's reading carry the reading's
+bits: domain bit `0`, codomain bit a `pwBit` (so at most `1`). -/
+theorem stripPisAV_denoteP_bits {acval : Name → (Name → Nat) → AVExpr} {env : Env}
+    {φ : Name → Nat} :
+    ∀ (n : Nat) {d : Nat} {e : Expr} {fvs : List Expr} {o : Expr} {ea : AVExpr}
+      {pps : List (Nat × Nat × AVExpr)} {b : AVExpr},
+      openPisAtFvars n e d = some (fvs, o) → denoteP acval env φ d e = some ea →
+      stripPisAV n ea = some (pps, b) → ∀ p ∈ pps, p.1 = 0 ∧ p.2.1 ≤ 1
+  | 0, _, _, _, _, _, _, _, _, _, hst => by
+    simp only [stripPisAV, Option.some.injEq, Prod.mk.injEq] at hst
+    obtain ⟨rfl, -⟩ := hst
+    exact fun _ h => nomatch h
+  | n + 1, d, e, fvs, o, ea, pps, b, hop, hr, hst => by
+    match e, hop with
+    | .forallE nm ty bd mb, hop =>
+      obtain ⟨ta, ba, -, hba, rfl⟩ := denoteP_forallE_inv hr
+      simp only [openPisAtFvars] at hop
+      split at hop
+      · next fvs' o' hop' =>
+        simp only [stripPisAV] at hst
+        cases hst' : stripPisAV n ba with
+        | none => rw [hst'] at hst; exact nomatch hst
+        | some q =>
+          rw [hst'] at hst
+          simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hst
+          obtain ⟨rfl, -⟩ := hst
+          intro p hp
+          simp only [List.mem_cons] at hp
+          rcases hp with rfl | hp
+          · refine ⟨rfl, ?_⟩
+            show pwBit φ mb.pw ≤ 1
+            unfold pwBit; split <;> omega
+          · exact stripPisAV_denoteP_bits n hop' hba hst' p hp
+      · exact nomatch hop
+    | .bvar _, hop => nomatch hop
+    | .fvar _ _ _, hop => nomatch hop
+    | .sort _, hop => nomatch hop
+    | .const _ _, hop => nomatch hop
+    | .app _ _, hop => nomatch hop
+    | .lam _ _ _ _, hop => nomatch hop
+    | .letE _ _ _ _, hop => nomatch hop
+    | .proj _ _ _, hop => nomatch hop
+    | .lit _, hop => nomatch hop
+
 /-- **A recursive constructor's data** at a carrier storing the former
 (see the module docstring). -/
 structure FixCtorDataI {env : Env} (m : EnvS2Core V env) (env₀ : Env) (T : Name)
@@ -171,6 +215,9 @@ structure FixCtorDataI {env : Env} (m : EnvS2Core V env) (env₀ : Env) (T : Nam
   tssNone : ∀ ψ i, ks.getD i .ordinary ≠ .reflexive → (tss ψ).getD i [] = []
   /-- the telescope's codomain bits are at the family's regime -/
   tssBits : ∀ ψ i, ∀ d ∈ (tss ψ).getD i [], (d.2.1 = 0 ↔ resSort.eval ψ = 0)
+  /-- the telescope entries are readings' Π-entries: domain bit `0`,
+  codomain bit at most `1` -/
+  tssPiBits : ∀ ψ i, ∀ d ∈ (tss ψ).getD i [], d.1 = 0 ∧ d.2.1 ≤ 1
   tssBelow : ∀ ψ i, DomsBelow (nP + i) ((tss ψ).getD i [])
   tssParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvC.levelParams, ψ₁ q = ψ₂ q) → tss ψ₁ = tss ψ₂
   /-- a reflexive field's telescope, opened at the field's depth: its
@@ -349,7 +396,8 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
           DenoteSpineP mp.base2.acval env ψ (nP + i + tl.length) (body.getAppArgs.drop nP) Eis) ∧
         ((ds ψ).getD (nP + i) default).2.2
           = mkPisAV tl (AVExpr.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP (nP + i + tl.length) ++ Eis)) ∧
-        (∀ d ∈ tl, (d.2.1 = 0 ↔ resSort.eval ψ = 0)) := by
+        (∀ d ∈ tl, (d.2.1 = 0 ↔ resSort.eval ψ = 0)) ∧
+        (∀ d ∈ tl, d.1 = 0 ∧ d.2.1 ≤ 1) := by
     intro ψ i hk hi
     have hil : i < xFvs.length := by omega
     obtain ⟨x, hx⟩ : ∃ x, xFvs[i]? = some x := ⟨_, List.getElem?_eq_getElem hil⟩
@@ -380,7 +428,8 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
       (by rw [List.length_append, hlenP, List.length_drop, hlenA, Nat.add_sub_cancel_left]; exact hstripT) hib
     have hvb := ensureSortCore_sort_eq hensb
     rw [hvb] at hbits
-    refine ⟨tl, Eis, hlen, fun x' hx' => ?_, fun x' hx' => ?_, by rw [hentry, hR, hlenT], ?_⟩
+    refine ⟨tl, Eis, hlen, fun x' hx' => ?_, fun x' hx' => ?_, by rw [hentry, hR, hlenT], ?_,
+      stripPisAV_denoteP_bits _ hopA (hdomRead ψ i x hx) hst⟩
     · obtain rfl := Option.some.inj (hx.symm.trans hx')
       exact hlenT
     · obtain rfl := Option.some.inj (hx.symm.trans hx')
@@ -420,7 +469,8 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
         DenoteSpineP mp.base2.acval env ψ (nP + i + (Tl ψ i).length) (body.getAppArgs.drop nP) (Eis ψ i)) ∧
       ((ds ψ).getD (nP + i) default).2.2
         = mkPisAV (Tl ψ i) (AVExpr.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP (nP + i + (Tl ψ i).length) ++ Eis ψ i)) ∧
-      (∀ d ∈ Tl ψ i, (d.2.1 = 0 ↔ resSort.eval ψ = 0)) := by
+      (∀ d ∈ Tl ψ i, (d.2.1 = 0 ↔ resSort.eval ψ = 0)) ∧
+      (∀ d ∈ Tl ψ i, d.1 = 0 ∧ d.2.1 ≤ 1) := by
     intro ψ i h
     have hnr : ¬ (ks.getD i .ordinary = .recursive ∧ i < nF) := fun hh => hnotboth i hh.1 h.1
     simp only [Eis, Tl, dif_neg hnr, dif_pos h]
@@ -474,7 +524,7 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   refine ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, Tss, ⟨hCD, hO, ⟨crest, hopP, hopX⟩, hks,
     hlenX, hlenP, hidxX',
     hidxP', hidxEq, hdomRead, fun ψ => by simp [Eiss], ?_, ?_, ?_, ?_, ?_, ?_, fun ψ => by simp [Tss],
-    ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
   · intro ψ i x hx hk
     have hi : i < nF := by rw [← hlenX]; exact (List.getElem?_eq_some_iff.mp hx).1
     rw [hEissGet ψ i hi]
@@ -548,7 +598,16 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     split at hd
     · next hi =>
       by_cases hk' : ks.getD i .ordinary = .reflexive
-      · exact (hEisR ψ i ⟨hk', hi⟩).2.2.2.2 d hd
+      · exact (hEisR ψ i ⟨hk', hi⟩).2.2.2.2.1 d hd
+      · rw [hTlNone ψ i hk'] at hd
+        exact nomatch hd
+    · exact nomatch hd
+  · intro ψ i d hd
+    rw [hTssGet' ψ i] at hd
+    split at hd
+    · next hi =>
+      by_cases hk' : ks.getD i .ordinary = .reflexive
+      · exact (hEisR ψ i ⟨hk', hi⟩).2.2.2.2.2 d hd
       · rw [hTlNone ψ i hk'] at hd
         exact nomatch hd
     · exact nomatch hd
