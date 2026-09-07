@@ -26,7 +26,7 @@ This README is actually human written (with AI only doing copy-editing, fact che
     The modelling code is taken from [lean-inductive-models](https://github.com/nomeata/lean-inductive-models). During development, that tool was run as a preprocessor to handle almost all inductive types, and this was very conductive to bootstrap the project. Later the naive support was extended and we dropped the dependency.
 
 * Accepted incompleteness: Primitive projections are only supported
-  - on non-recursive non-indexed structures or
+  - for structures that are not mutually recursive
   - inside the projection *functions* that the elaborator produces.
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
 
