@@ -579,6 +579,41 @@ theorem slotXI_ok2 {w u : Nat} {ρp : Nat → V} {Ids : List AVExpr} (hI : IdxOk
     rw [← consList_append]
     exact (recSlot_facts hI hX (as ++ bs) t (hfit.2.2 bs hsp).1 (hfit.2.2 bs hsp).2).2.2
 
+/-- A finitary slot fits from the index expressions' grading and fit
+at the frame (the converse of `SlotFit.fin`). -/
+theorem SlotFit.of_fin {u w : Nat} {ρp : Nat → V} {Ids : List AVExpr} {Eis : List AVExpr}
+    {as : List V} (hok : ∀ E ∈ Eis, AnnotOk2 V (consList as ρp) E)
+    (hsp : SpineFit ρp Ids (Eis.map (interp2 V (consList as ρp)))) :
+    SlotFit u w ρp Ids [] Eis as := by
+  refine ⟨trivial, fun _ h => (List.not_mem_nil h).elim, fun bs hbs => ?_⟩
+  cases bs with
+  | nil => simpa using And.intro hok hsp
+  | cons b bs => exact hbs.elim
+
+/-- **A graded Π-tower's pieces**: at a `Prop`-regime family the
+domains are graded along the telescope, and the body is graded at
+every fitting spine. -/
+theorem AnnotOk2_mkPisAV_inv {R : AVExpr} :
+    ∀ {gds : List (Nat × Nat × AVExpr)} {σ : Nat → V},
+      AnnotOk2 V σ (mkPisAV gds R) →
+      FieldsOkB 0 σ (gds.map (·.2.2)) ∧
+      ∀ as, SpineFit σ (gds.map (·.2.2)) as → AnnotOk2 V (consList as σ) R
+  | [], σ, h => ⟨trivial, fun as hsp => by
+      cases as with
+      | nil => simpa [mkPisAV, consList] using h
+      | cons a as => exact hsp.elim⟩
+  | d :: gds, σ, h => by
+    simp only [mkPisAV, AnnotOk2_pi] at h
+    obtain ⟨hok, hB⟩ := h
+    refine ⟨⟨hok, fun h0 => absurd rfl h0, fun x hx => (AnnotOk2_mkPisAV_inv (hB x hx)).1⟩,
+      fun as hsp => ?_⟩
+    cases as with
+    | nil => exact hsp.elim
+    | cons a as =>
+      obtain ⟨ha, hsp'⟩ := hsp
+      rw [consList_cons]
+      exact (AnnotOk2_mkPisAV_inv (hB a ha)).2 as hsp'
+
 /-- The recursive slots' fit, hereditarily along the X-chain at
 `(X, t)`: at each recursive position the slot fits (`SlotFit`). -/
 def SlotsFitX (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rs : List Bool)
