@@ -16,3 +16,6 @@ app-lam	verified	161442858815	48.14	0	21	19.70	lech: accepted 21 declarations (-
 init-full	official	406304802356	54.24	0	55346	28.87	Accepted 55346 declarations.	
 init-full	trusted	631508126176	109.39	0	53890	28.68	lech: accepted 53890 declarations (--trusted)	
 init-full	verified	655223197150	98.44	0	53890	42.20	lech: accepted 53890 declarations (--verified)	
+mathlib-full	verified	15417141946242	3248.10	0	665087	7.68	lech: accepted 665087 declarations (--verified)	13467428
+mathlib-full	trusted	14075609935248	2863.83	0	665087	12.58	lech: accepted 665087 declarations (--trusted)	13468444
+mathlib-full	official	10635859854457	2010.56	0	683531	5.73	Accepted 683531 declarations.	9637000

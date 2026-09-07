@@ -53083,3 +53083,53 @@ fixed predicate — three cells (lech `--verified`, lech `--trusted`,
 official) on that one stream — rather than reported from a stream nobody
 would cut again.  §4's figures stand as the record of the finding and of
 the acceptance datum.
+
+### 8. ALL OF MATHLIB, ALL THREE CHECKERS, ONE STREAM (2026-09-07)
+
+With #193 merged, the Mathlib row was taken properly: the stream re-cut
+by the merged `lech-preprocess` and **all three cells run on those same
+bytes**, serially, one Mathlib-scale process at a time.  Every one
+accepts.
+
+| `mathlib-full` | official v4.33.0 | lech `--trusted` | lech `--verified` |
+|---|---|---|---|
+| exit | 0 | 0 | 0 |
+| accepted | 683 531 | 665 087 | 665 087 |
+| instructions:u | 10.64 T | 14.08 T | 15.42 T |
+| ÷ official | 1.00× | **1.32×** | **1.45×** |
+| wall | 33.5 min (2 010.56 s) | 47.7 min (2 863.83 s) | 54.1 min (3 248.10 s) |
+| peak RSS (`time -v`) | 9.19 GiB | 12.85 GiB | 12.84 GiB |
+
+Both accepted counts are **exactly** what §1's census predicts from the
+file (683 531 and 665 087), which is the row's own integrity check: the
+two verdict lines are now functions of the input, so they can be
+predicted before either checker runs, and they were.
+
+**This is the first full-Mathlib ratio on identical bytes**, and it is
+BETTER than init-full's: **1.45× verified, 1.32× trusted**, against
+1.61×/1.55× on init-full.  Mathlib is not where the checker's cost
+concentrates; the adversarial ladders still are (`app-lam` 5.49×).
+
+The stream: `_tmp/mathlib-scoping/mathlib-full-pre-idx.ndjson`,
+5 696 387 898 B, cut in **391 s** (exit 0, 8.77 GiB peak) by
+`lech-preprocess` md5 `973c19bd3f47a9016c407684807a5928` at this
+branch's merge tip, from `mathlib-full.ndjson` (`lean4export` 3.1.0,
+Lean 4.29.1, githash `f72c35b3f637c8c6571d353742168ab66cc22c00`).  The
+lech cells ran under `LECH_PROGRESS=5000` per the user's standing
+ruling, with timestamped stderr kept at
+`_tmp/perf-tables/mathlib-full.{verified,trusted}.err`; the harness,
+the `time -v` reports and the RSS samples are under `_tmp/perf-regen/`.
+
+**What #193 changed, in the census.**  The re-cut stream against §4's:
+native blocks 6 364 → **6 341**, of which indexed 109 → **86**, and
+modeled 502 → **525**.  Exactly **23 indexed families** moved from
+native to modeled — the class the installer would not take — and the
+file grew 536 KB with their `_model` artifacts.  That is the whole cost
+of the fix, and it bought the acceptance.
+
+**The record this supersedes.**  `124c083f`'s acceptance run (57:00,
+12.88 GiB, printed "695 202") was on the PRE-#175 stream, where indexed
+families were modeled throughout; this lane reproduced it on the merged
+binary at 57:02.76 and 670 977 records (§4).  The row above is on the
+current predicate, so it is the one to quote from now on: **54.1
+minutes and 12.84 GiB for all of Mathlib in the verified mode.**
