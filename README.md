@@ -20,15 +20,12 @@ This README is actually human written (with AI only doing copy-editing, fact che
 * It uses its own term representation, so it does not rely on Lean’s `Lean.Expr`, and thus does not rely on the unverified C++ routines for that type.
 * Term representation is locally nameless, with open variables represented as deBruijn level + type (inspired by [nanoda](https://github.com/ammkrn/nanoda_lib)).
 * Memoization of core checker routines via hash maps and hashes pre-computed using `@[computed_field]`, like in the official checker and [lean4lean](https://github.com/digama0/lean4lean/).
-* The checker supports some inductive types natively:
+* The checker has two strategies for handling inductives:
 
-  * `False`, `Empty`, `PUnit`, `Eq`, `Nat`, `Quot`
-  * Non-recursive inductives (structures, sums, indexed families)
-  * Recursive inductives, indexed or not, whose recursive fields are
-    finitary (no reflexive/function-typed recursive fields, no nested
-    or mutual recursion)
+  * Non-mutual non-nested inductives are supported natively: The checker checks the shape of the inductives, and the proof can models them abstractly.
+  * For mutual and nested inductives the checker creates, at runtime, an explicit model of these inductives, with theorems proving the iota rules of the recursor. The proof then leans on these models to justify the inductive. This step requires extensionality in the model to turn the propositional equality into a definitional equality.
 
-  For everything else is uses [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models. ConLeche checks these models as normal definitions, and then checks that they faithfully model the given inductive. The lean-inductive-models code is thus outside the trusted code base of ConLeche.
+    The modelling code is taken from [lean-inductive-models](https://github.com/nomeata/lean-inductive-models). During development, that tool was run as a preprocessor to handle almost all inductive types, and this was very conductive to bootstrap the project. Later the naive support was extended and we dropped the dependency.
 
 * Accepted incompleteness: Primitive projections are only supported
   - on non-recursive non-indexed structures or
@@ -118,7 +115,7 @@ And on top of that there is surely plenty of optimizations still possible.
 This project was published when it was barely useable – able to process mathlib within reasonable memory usage and not absurdly slow. There is more to be done:
 
 * Faster code.
-* Direct support for more and more inductive types, thus reducing the dependency on `lean-inductive-models.`
+* Direct support for mutual and nested types, dropping the run-time model generation.
 * Lots of proof refactoring to clean up oddities and detours introduced by path dependencies.
 
 
