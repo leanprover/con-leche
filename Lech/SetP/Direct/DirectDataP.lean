@@ -92,7 +92,7 @@ structure FormerData {env : Env} (m : EnvS2Core V env) (cvT : ConstantVal)
 pre-block environment and the annotated telescope shape. -/
 theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {cvT cvTa : ConstantVal} {nP : Nat} {resSort : Level}
-    {bs : List (Name × Expr × Lech.BinderMeta)}
+    {bs : List (Expr × Lech.BinderMeta)}
     (hccv : Lech.checkConstantVal (Lech.fueledOps μ F) env cvT = .ok cvTa)
     (hstrip : cvTa.type.stripPis nP = some (bs, .sort resSort)) :
     ∃ pps : (Name → Nat) → List (Nat × Nat × AVExpr),

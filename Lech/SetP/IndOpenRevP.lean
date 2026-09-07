@@ -248,7 +248,7 @@ theorem pinOpenRevReadsP
     rcases hx : os[q]? with _ | x
     · rw [List.getElem?_eq_none_iff, hoslen] at hx
       omega
-    obtain ⟨nm, ty, rfl⟩ := hshape q x hx
+    obtain ⟨ty, rfl⟩ := hshape q x hx
     have h1 : os.getD q default = Expr.fvar q ty := by
       rw [List.getD, hx]
       rfl
@@ -258,7 +258,7 @@ theorem pinOpenRevReadsP
       rw [List.getD, List.getElem?_map, List.getElem?_range hq]
       rfl
     rw [h1, h2]
-    exact denoteP_fvar acval (rP + cnF) q nm ty
+    exact denoteP_fvar acval (rP + cnF) q ty
   have hkey := denoteP_openRev (acval := acval) (env := env) (φ := φ)
     hacl hainst os (e := p) (d := rP + cnF)
     (fun a ha => ⟨hwsOs a ha, hbOs a ha⟩)
@@ -335,7 +335,7 @@ theorem pinCrossP
     rcases hx : os[q]? with _ | x
     · rw [List.getElem?_eq_none_iff, hoslen] at hx
       omega
-    obtain ⟨nm, ty, rfl⟩ := hshape q x hx
+    obtain ⟨ty, rfl⟩ := hshape q x hx
     have h1 : os.getD q default = Expr.fvar q ty := by
       rw [List.getD, hx]
       rfl
@@ -345,7 +345,7 @@ theorem pinCrossP
       rw [List.getD, List.getElem?_map, List.getElem?_range hq]
       rfl
     rw [h1, h2]
-    exact denoteP_fvar acval (rP + cnF) q nm ty
+    exact denoteP_fvar acval (rP + cnF) q ty
   -- the instantiation, read through the reverse opening
   have hkey := denoteP_openRev (acval := acval) (env := env) (φ := φ)
     hacl hainst os (e := p) (d := rP + cnF)
