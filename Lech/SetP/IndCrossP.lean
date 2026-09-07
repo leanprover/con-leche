@@ -250,7 +250,7 @@ theorem WScoped_sharpen : ∀ {e : Expr} {d d' : Nat}, Expr.WScoped d e →
   | fvar idx ty _ih =>
     intro d d' h hl
     simp only [Expr.WScoped] at h ⊢
-    exact ⟨hl (idx, nm, ty) (by simp [Expr.fvarLeaves]), h.2⟩
+    exact ⟨hl (idx, ty) (by simp [Expr.fvarLeaves]), h.2⟩
   | app f a ihf iha =>
     intro d d' h hl
     simp only [Expr.WScoped] at h ⊢
