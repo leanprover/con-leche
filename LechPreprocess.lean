@@ -225,6 +225,18 @@ def lechNativeFix (type : EIndType) (ctors : List ECtor) (rec : ERec) : Bool :=
   type.isRec && type.numNested == 0 && lechFormerTelescope type &&
     !type.isUnsafe && type.all == [type.name] &&
     type.ctors == ctors.map (·.name) &&
+  -- a REFLEXIVE STRUCTURE-LIKE at a non-`Prop` sort (one constructor,
+  -- no indices, a field under a binder — `Stream'`-shaped) is left to
+  -- the tool although the checker's recogniser takes it (the
+  -- predicate may be stricter than the recogniser, never looser): the
+  -- frontend's projection-function rewrite (`Lech/Frontend/ProjRec`)
+  -- reads its elimination level off the tool's `_model.proj_i.iota`
+  -- artifact, which the tool emits only for a block it models.
+  -- Native projections at one-constructor blocks on the fix route are
+  -- task #210's prerequisite; until then this keeps the piped verdict
+  -- of such a structure's projection functions (task #202 Stage B).
+  !(type.isReflexive && ctors.length == 1 && type.numIndices == 0 &&
+    type.type.getForallBody != Lean.mkSort Lean.Level.zero) &&
   -- every constructor: this member's, at its level parameters, its
   -- fields ordinary or finitary recursive
   ctors.all (fun ctor => ctor.induct == type.name &&

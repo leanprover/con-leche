@@ -56461,6 +56461,274 @@ index expressions, any parameter telescope.
 #195 follow-up; (2) the audit fixtures `ind_reflexive_tool`,
 `ind_nest_inf`, `ind_nest_via_refl` keep their raw lines until Stage B.
 
+### Stage B — `Type`-valued reflexive blocks: the direct route at every sort (2026-09-07, `agent/reflexive-b`)
+
+**The problem.**  Stage A took a reflexive field only at a `Prop`-valued
+block: at `Prop` the family's fibres are truth values, so the closed
+member family the least-fixed-point needs is the top family, and the
+large eliminator's recursion equation is solved over the tuples.  At
+`Type` neither works — a function-space slot `∀ a⃗, T ı⃗(a⃗)` makes the
+ω-iterate NOT closed (the fixpoint is reached at an ordinal beyond ω),
+and the recursor's value depends on the ELEMENT, not the tuple.  Two
+constructions replace them, both pure sets, both parametric in
+`SetTheory`; the recogniser's `Prop`-only guard, the preprocessor's
+lockstep `allowRefl` and the model's finitary-or-`Prop` premise are
+gone.
+
+**B1 — the closed member (`Lech/SetModel/Container`, `Expr`-free).**
+`container_closed_exists`: for a member-container functor `Φ` over an
+index set `I` — its elements at `i` decompose as `mk a g` with `a` in a
+SHAPE set `A i ∈ univ w`, `g ∈ piSet (B a) (fun p => app X (tgt a p))`
+over a POSITION set `B a ∈ univ w` with targets in `I`, and `mk`
+preserving membership — a closed member family exists at `w ≠ 0`.  The
+witness is NOT an injection into a fixed member (the brief's plan): it
+is the family of DECODED ACCESSIBLE TREE CODES.  A code is a set of
+tagged paths (`codeSpace`, built from the shapes/positions reachable
+from the index — `shapes`/`positions`/`paths` by the universe's
+`famUnion`/`image`/`sigmaPairs`/`piSet` closure, so `I ∈ univ w` is not
+needed), `HasRoot`/`lab`/`subCode` read a code's root label and
+sub-codes, `decode` is the RecGraph selector over the `Acc` family of
+codes whose sub-codes at every position are accessible
+(`codeStep`/`decodeGraph`/`accCodes`), and `L i := image decode (accCodes
+i)`; `Φ L ⊆ L` because every `mk a g` is the decoding of `mkCode a (the
+sub-codes chosen from g's values by `choose`)`, itself accessible.
+The Tarski clause enters through `covered_mem` (the diagonal) and the
+member closures; no `∈ˢ`-injectivity lemma of the universe is used.
+
+**B2 — the tower instance (`Lech/SetP/DirectFix/FixWitnessP`).**  The
+family functor `famFI` is such a container: shapes are the SHADOW
+tuples `inj j (mkTower (shadowOf ks fs ++ [pt]))` (the recursive slots
+of a constructor spine replaced by the shadow value — `shapeSet`, a
+`sep` over the shadow fields' tower, so a shape needs no membership of
+the family), positions the tagged telescope spines of the recursive
+fields (`posSet`, `recTags`/`spineSet`), targets the calls' tuples
+(`posTgt`), and the builder re-curries the slots by `lamTower` off the
+graph (`mkShape`; `piTele_eta` is the η-law of a nested product).
+`fixStep_elim_container` decomposes every element of the functor's
+fibre (`fixStepI_elim`, `fitsXI_slot_mem`, `shadowOf_fits` — the
+X-chain fit's shadow fits the shadow fields since the ordinary domains
+do not mention the recursive slots, `ChainFacts.nb`, and the recursive
+slots read `Sort 0`), and `fixClosed_of` yields the closed family.
+`XChainsOk.hwit` (finitary ∨ `w = 0`) became `hclosed : ∃ L, IsClosedFam
+…`, supplied by `xChainsOk_of` — `fixClosed_of` at `w ≠ 0`, the top
+family (`fixFunVI_closed_zero`) at `w = 0`; `DeclDirectFixP`'s
+finitary-or-`Prop` witness is gone.
+
+**B3 — the recursor over the elements (`Lech/Semantics/Tower/FixElemI`,
+`FixIhI`).**  The abstract recursion theorem (`RecGraph`, A2) is
+instantiated at the ELEMENTS: `elemSet` = the pairs `(t, x)` with `x`
+in the family's fibre at `t`; `elemPred` = for each recursive field and
+each spine fitting its telescope, the call's tuple paired with the
+field applied to the spine; `elemB` = the motive at the tuple's indices
+and the element; `elemSt` = the element's minor (from the minors' LIST
+`frMsL`, so the graph depends on the K-frame's block only —
+`elemGraph_block`) at its fields and the ih λ-towers of a graph choice
+(`elemIhs`).  `elemGraph_singleton` is the recursion theorem at the
+family by `lfpFamSet_induction` (the recursive slots of a constructor
+value over the induction family fold, along their telescopes, INTO that
+family at the calls' tuples — `slotSet_fold_mem` — so every
+predecessor's fibre is a singleton); `elemK_facts` gives the selector's
+membership in the motive and its recursion equation at every K-frame
+(`elemSt_mem`: the minor's ih tower is inhabited pointwise by the graph's
+values, `elemB_mem` from the motive's Π-tower `hMtele`);
+`famK_inhab_zero_pos` is the zero-level inhabitation by the same
+induction.  `FixIhI` discharges the ih obligation at EVERY field
+(`FixKI.ihArgsOk_tele`): the moved telescope `ihTeleAt` and the moved
+index expressions (`substProjAt` under binders — `interp2_substProjAt`,
+`AnnotOk2_substProjAt`, `instE_consList`) read at the payload frame
+into the field's own frame (`ihIdxM_interp`, `lamTower_ihTeleAt`,
+`piTele_ihTeleAt`, `domsWalk_ihTeleAt`, `spineFit_ihTeleAt`); the ih
+argument reads to the ih value (`ihArgAV_interp`: the λ-tower of the
+function at the block, the calls' index values and the field applied
+to the telescope's values — `ihValsI_mk` at a constructor payload), is
+graded (`mkLamsC_factsB` over `underTowerOkB_of_leaves`, the leaf's
+chain `h.app_chain`) and lies in the ih domain (`piTele_ihTeleAt`).
+`FixRecI`'s candidate `gStar` at `w ≠ 0` is now `recSel (elemGraph …)
+(kpair (tupW u ı⃗) t)`; `gStar_leaf`, `leaf_eq` (the body's iota
+`body_iota` at telescoped ih towers against the recursion equation —
+the towers agreeing leafwise by `lamTower_congr_bottom`, the leaf the
+candidate's fold at the call's element by `rStar_fold`), and
+**`directFixRecAVI_iota`** state the iota with the ih as λ-towers
+(`sqIhValsK`'s shape, which the P tier's rule reading already had:
+`interp_fixRuleCoreAV`), no finitary case.  DELETED: `FixPre.hfin`, the
+ω-iterate recursor regime (`fixSem`/`stepBr`/`rkFam`/`fixSemK`/`iterK`/
+`stage_elim`/`fixSemK_mem`/`_stable`/`_inhab`, the finitary ih shapes
+`ihArgAV₀`/`ihArgsI₀`/`ihDomsI₀`/`ihValsI₀` and `_fin` laws) and the
+ω-iterate family (`famIter`/`famU`/`famU_closed`/`fitsXI_iter`/
+`fixFamI_app_eq_famU`); `sqIhValsK_fin`.
+
+**B3.4 — the P tier.**  The one place the `Prop` assumption was
+load-bearing beyond the premise: `ChainFacts` at a reflexive field
+needs `SlotFit.1 : FieldsOkB w …` of the TELESCOPE — every domain in
+`univ w` — and `AnnotOk2_mkPisAV_inv` gives the Π-tower's grading only
+at regime `0` (the Π-type's own bound `∈ univ w` does not determine its
+domains': a product with an empty fibre is empty whatever the domain).
+The bound comes from the KERNEL's field-sort check
+(`checkDirectFieldSortsI`: `Level.leq u resSort` on the field's inferred
+sort `u = imax u₀ (imax u₁ … w')`): `piDoms_of_infer`
+(`FixTeleBoundP`) walks the Π-inference along the opening
+(`inferTypeCore_forall_inv`) and shows each domain's sort ≤ the type's
+when the type's is nonzero (`imax` is then `max`); the type's sort is
+nonzero because the telescope's bits are at the family's regime
+(`tssBits`, `stripPisAV_bits` against `piBits_of_infer`'s zeroness
+equivalence) and the family's is; `teleBound_walk` opens the binders
+one by one (`CtxOkP.open` on the context discipline of the field's own
+type, `shadowCtxOk`) and reads each domain through the sort claim
+(`sortRow`) into `univ (eval u_k) ⊆ univ w`; `fixTeleBound_of` states it
+at the constructor data.  `fixChainFacts_of` lost `hrefl0`;
+`fieldsOkB_of_pointwise`/`FieldsOkB.ok2_at` (now in `FixFamI`) assemble
+the slot's `FieldsOkB w`.  Validity: `ihArgsI_validV` at telescoped
+fields (`AnnotValidV_substProjAt`, `ihIdxM_validV`,
+`fieldsValid_ihTeleAt`; the hypothesis form is the one
+`fixRecBodyValid_of_sat` already carried).  `FixRecLawP`'s `w ≠ 0`
+branch is the general iota against `interp_fixRuleCoreAV` by `rfl`.
+`FixRecPreP`/`FixStageRecP`/`DeclDirectFixP` lose the finitary-or-`Prop`
+plumbing (`hfin`, `hrefl`, `hisPropRefl`, `hreflOf`).
+
+**B4 — the kernel and the fixtures.**  `directFixParts?` no longer
+returns `none` at a reflexive field of a non-`Prop` block;
+`lechFixFieldsOk` lost `allowRefl`; `directFixParts?_inv` lost the
+guard clause.  The cached twin shares the recogniser.  Fixtures (raw
+exports, `--#export`, both modes): `direct_fix_wtype` — the W-type
+`W' α β` (`sup (a : α) (f : β a → W' α β)`) and `PSet' : Type 1` (`mk (α
+: Type) (f : α → PSet')`: the telescope domain a `Type`, the universe
+bound at the family's regime), consumers into `Type`/`Type 1`/`Prop`
+with iota by `rfl`; its twins `direct_fix_wtype_neg_bad` (the field
+under a negative binder: REJECT, positivity) and `direct_fix_wtype_ih_bad`
+(`f_ih : Type`: REJECT, recursor comparison) by
+`scripts/mk_direct_fix_refl_bad.py`; `direct_fix_term` — the first-order-
+term-shaped `Term' F α` (`func (n) (f : F n) (ts : Fin n → Term' F α)`,
+the telescope's domain reading an earlier data field), the
+`CofixA`-shaped INDEXED `CofixA' A B n` (reflexive at the predecessor
+index) and the `Λ'`-shaped `Lam'` (reflexive and finitary fields over
+five constructors), consumers with dependent motives and a `match` on
+the index inside a motive, iota by `rfl`.  The audit fixture
+`ind_reflexive_tool` (`W'`, a `Type`-valued W-shape) flips 2 → 0 raw.
+
+*Findings.*  (0) **Reflexive structure-likes at `Type` stay modeled
+when piped** — `nested_struct_proj`'s `Stream'` (`tail : Unit →
+Stream'`, one constructor) went native on the fix route and its
+projection function `Stream'.head` then DECLINED: the frontend's
+projection-function rewrite (`Lech/Frontend/ProjRec`, 2026-09-06)
+reads the field's elimination level off the tool's `_model.proj_i.iota`
+artifact, which exists only for a block the tool models.  Until task
+#210 serves projections natively at one-constructor fix blocks (its
+stated prerequisite, which also closes audit item 1), `lechNativeFix`
+leaves a reflexive one-constructor zero-index non-`Prop` block to the
+tool (the predicate may be stricter than the recogniser, never looser
+— `tests/native-audit.sh`'s rule); the checker's recogniser still takes
+such a block on a raw run, where a raw `.proj` on it is the W5 decline
+(`tests/inmodel.sh` records `nested_struct_proj`'s raw verdict as such;
+before Stage B the same raw run declined at "missing model for
+`Stream'`").  In Mathlib this affects `PSet` and `WType` (one
+constructor each; no projection functions — they are `inductive`s —
+so their cones accept natively raw and modeled piped).  (1) The two
+other A9 audit fixtures, `ind_nest_inf` (`List
+(Nat → T)`) and `ind_nest_via_refl` (nesting through a reflexive
+container), stay raw declines: they are the IN-PROCESS MODELLER's
+documented residual ("an occurrence under a binder — infinitary
+nesting", task #200 — the auxiliary family's isomorphisms at a
+function-typed field need function extensionality), not the fix
+route's; the auxiliary families themselves would now install.  Docket
+for #200/#210.  (2) The slicers `_tmp/next-frontier/slice_fast.py` and
+`_tmp/sigmahom/slice_multi_fast.py` fail on the current export with
+`TypeError: 'int' object is not subscriptable`; use
+`_tmp/indexed-fix/slice_multi_fast.py` (works; not fixed in passing).
+(3) The `Type`-valued telescope bound is a genuine model-side
+requirement the sum route never had; it is discharged from the kernel's
+existing field-sort check — no new kernel check.
+
+*Deviations from the brief's plan.*  The closed member is the
+decoded-codes family (B1 above), not an injection `F T ↪ T` by path
+coding: the injection would have needed a member `T` closed under the
+constructions AND `μF ↪ T`, while the decoding needs only the shapes'
+and positions' memberships; same theorem, fewer hypotheses.  The
+recursion theorem is instantiated at the elements' pairs rather than a
+new fixed point (as A2 did at the tuples).
+
+*What task #210 (ONE ROUTE: the fix route takes all inductives) needs
+from the fix route, as seen from here.*  A non-recursive block is the
+CONSTANT functor case of everything above: `famFI` with no recursive
+slot has `posSet = ∅`, so the container's positions are empty, the
+closed member is the shapes' family itself (`shapeSet` — already a
+member: every shape tuple is in `univ w`, no decoding), and the
+recursor's graph has no predecessors (`elemPred = ∅`: `elemSt` is the
+minor at the fields, `elemGraph_singleton` is one `recGraph_singleton_of
+_preds` step without the induction).  A non-indexed block is `nIdx =
+0` with `idxSet = {pt}` (`tupW 0 [] = pt`), already the degenerate case
+of every tuple lemma (`isOfW_tupW` at `u = 0`).  The tuple-shaped
+carrier `inj j (mkTower (fs ++ [pt]))` gives the one-constructor
+capabilities for free: `projS i (mkTower (fs ++ [pt])) = fs.getD i pt`
+(`projS_mkTower_getD`) IS the projection's semantics and
+`x = inj 0 (mkTower (projList nF (ssnd x) ++ [pt]))` (the fibre's
+`fixStepI_elim`/`famK_elim` decomposition) IS the η-law, so the
+structure route's `proj_i`/eta/K/unit-like laws are theorems about the
+fix carrier rather than a separate installer — the recursive-structure
+projections of audit item 1 come with them.  The recogniser split is
+then: `directFixShape?` (the former's telescope, the constructors'
+shapes) unchanged, `directFixKinds?` returning all-ordinary kinds for a
+non-recursive block (today `directFixParts?` returns `none` when no
+field is recursive — that `none` becomes the constant-functor arm), and
+the structure/sum installers' checks that are NOT already in the fix
+arm (the structure-like predicate for projections, the unit-like/K
+flags) folded into `checkDirectFix` as capability pins; the sum route's
+`sumSet`/`sumFibre` model coincides with `fixStepI` at the constant
+functor (`fixFamI_app_eq_sum` already identifies the fibres).
+
+*Gates (branch tip = this record's commit; base = master `fe4dc38a`,
+the #209 rename merged at `22fe0c65` — merge cost: 0 conflicts, the
+word-boundary rename applied to the two branch-only modules that
+`open Lech.TT Lech.TTVerify` (`FixWitnessP`, `FixTeleBoundP`), one full
+rebuild).*  `lake build` warning-free; `lake test`; `tests/arena.sh`
+(`env -i` clean form: 138 arena + 180 e2e + 14 annot, the trusted sweep
+with its 3 recorded divergences); `tests/layering.sh` (base 274 / P 193
+/ caps 3 / umbrella 1; 0 base→lane, 0 impl→theory);
+`tests/native-audit.sh` (92 streams, 98 native blocks — 48 struct, 31
+sum, 19 fix; 0 unrecognised, 0 unreached); `tests/inmodel.sh` (OK,
+`nested_struct_proj`'s raw verdict the W5 projection decline recorded
+above); `tests/proofdeps.sh` regenerated ONCE: +35 rows = the five new
+modules `SetModel.Container`, `Tower.FixIhI`, `Tower.FixElemI`,
+`SetP.DirectFix.FixWitnessP`, `SetP.DirectFix.FixTeleBoundP` × the 7
+roots, doors 0.  **init-full raw through the default pipe** (no `--pre`,
+no tool): accepted 53127 declarations in `--verified` and `--trusted`;
+piped (`lech-preprocess` then `--pre`): 53127 in both; route census
+(raw and piped alike): 592 blocks — 478 struct, 55 sum, 52 fix, 6 basis,
+1 inmodel, **0 modeled — the tool is needed for nothing** (init-full has
+no reflexive structure-like at `Type`).  Fixtures: `direct_fix_wtype`
+18 declarations accepted in both modes (`W'`, `PSet'` on `fix`),
+`direct_fix_term` 65 (`Term'`, `CofixA'`, `Lam'` on `fix`), the twins
+rejected in both modes with the intended messages ("non positive
+occurrence", "recursor type is not the generated one").  **Mathlib
+slice** (raw `mathlib-full.ndjson`, `_tmp/indexed-fix/
+slice_multi_fast.py`, targets `WType.depth_lt_depth_mk`,
+`WType.elim_injective`, `PSet.Equiv.euc`, `PSet.Mem.ext`,
+`FirstOrder.Language.Term.relabel_relabel`,
+`FirstOrder.Language.Term.realize_func`,
+`PFunctor.Approx.truncate_eq_of_agree`, `PFunctor.Approx.head_succ'`,
+`Turing.PartrecToTM2.tr_read`, `Turing.PartrecToTM2.tr_ret_respects`;
+3190 declaration records): accepted 3216 declarations in both modes;
+the five `Type`-valued reflexive cones `WType`, `PSet`,
+`FirstOrder.Language.Term`, `PFunctor.Approx.CofixA`,
+`Turing.PartrecToTM2.Λ'` all on the `fix` route (census: 30 fix, 137
+struct, 16 sum, 6 basis, 1 inmodel, 0 modeled).  No Mathlib-scale run.
+
+*Restrictions beyond official's kernel that remain on the fixpoint
+route (findings for the conformance batch), per stage.*  Stage A1
+(unchanged): (i) the fix arm's syntactic former reading (`stripPis`,
+task #193's conjunct) — `CategoryTheory.ObjectProperty.{colimits,
+limits}Closure` declare their sort at a definition and fall through;
+(ii) #188's fall-through "a recursive field mentioned by a later binder
+domain or index expression → modeled" (`directUsedLater`); (iii) the
+recogniser compares the stream's rules with the canonical bodies
+syntactically (at the parse placeholder).  Stage A2: none remaining —
+(iv) "a reflexive field only at a `Prop`-valued block" is LIFTED by
+Stage B.  Stage B: none new.  NOT restrictions (official's exact
+conditions): the elimination clause, the per-field criterion, any
+number of fields, any telescopes (any domains, dependent on earlier
+fields and earlier telescope binders, at any universe ≤ the block's),
+any index expressions under the telescopes, any parameter telescope,
+any number of constructors, reflexive and finitary fields mixed.
+
 ## TASK #204 — THE lean4lean-model BRIDGE: Carneiro's hypothesis implies Lech's, in Lean (2026-09-07, `agent/bridge`)
 
 **Question (user).**  "Can you have an agent prove that Mario's

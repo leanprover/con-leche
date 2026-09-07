@@ -56,6 +56,15 @@ for f in "${fixtures[@]}"; do
     2) if grep -q "missing model for " "$WORK/raw.log"; then
          at=$(sed -n 's/.*missing model for \([^ ]*\) .*/\1/p' "$WORK/raw.log" | head -1)
          echo "  $name: raw run declines at $at (a block no route installs and the tool is absent on a --pre run: the residual class, e.g. reflexive); ${blocks:-0} blocks in-process"
+       elif grep -q "projection on a non-structure-like type" "$WORK/raw.log"; then
+         # a projection function of a recursive structure the fixpoint
+         # route installs natively (task #202 Stage B: reflexive
+         # structure-likes at `Type`): no `_model.proj_i.iota` artifact
+         # on a raw run, so the frontend's projection rewrite does not
+         # fire and the raw `.proj` declines by design rule W5 — task
+         # #210's prerequisite (native projections on the fix route)
+         at=$(sed -n 's/.*\[at \(def [^,]*\),.*/\1/p' "$WORK/raw.log" | head -1)
+         echo "  $name: raw run declines at the projection function $at of a natively installed recursive structure (W5; task #210); ${blocks:-0} blocks in-process"
        else
          echo "  FAIL $name: raw run declined elsewhere:"; tail -3 "$WORK/raw.log"; fail=1; continue
        fi;;
