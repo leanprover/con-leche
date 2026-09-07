@@ -58570,11 +58570,29 @@ one-block difference is **the tool's own `PSigma'` family**, spliced
 into every stream it re-exported: `grep -c "PSigma'"` is 0 on
 `init-full.ndjson` and nonzero on `init-full-pre-idx.ndjson`.  It
 installed through the direct structure route, which is why the census
-differs by exactly one `struct`.  The −14 % of instructions is the same
-change of input plus the loss of the tool's re-export; it is not a
-checker improvement and must not be read as one.  The in-process
-receipt is unchanged: `1 inductive blocks modelled in-process:
-Lean.Syntax`, `inmodel census: 1 modelled, 0 declined`.
+differs by exactly one `struct`.  The in-process receipt is unchanged:
+`1 inductive blocks modelled in-process: Lean.Syntax`, `inmodel census:
+1 modelled, 0 declined`.
+
+**Do NOT read the instruction column as a −14 % win.**  `perf stat`
+follows children, so #215's 782.62 G was con-leche *plus the
+preprocessor it spawned*.  The like-for-like comparison is against the
+previous PERF.md's `--pre` cell — con-leche alone, on the preprocessed
+stream:
+
+| init-full, `--verified` | instructions:u |
+|---|---:|
+| on the PREPROCESSED stream (previous PERF.md, `--pre`) | 668.05 G |
+| on the RAW stream (this task) | **673.17 G** |
+| con-leche + the spawned tool (#215's default-pipe figure) | 782.62 G |
+
+So installing the inductive blocks ourselves costs **+0.8 %** on
+init-full, and the whole pipeline is 14 % cheaper because the tool's
+own work is gone.  Official moves the other way — 413.02 G → 403.46 G,
+**−2.3 %**, since the raw stream carries no model families — so the
+published ratio moves from 1.62× to 1.67× verified (1.55× → 1.62×
+trusted).  That is the honest direction and it is the right trade: a
+worse ratio against a checker that is now doing the same job.
 
 ### The stream-model path is kept, and still exercised
 
