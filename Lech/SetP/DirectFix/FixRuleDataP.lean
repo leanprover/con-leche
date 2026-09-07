@@ -128,29 +128,20 @@ theorem CtorReadR.cross {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {lp
   have hTac : m₂.acval T ψ = m.acval T ψ := by rw [hac, acvalWith_ne hT]
   obtain ⟨ci, hci, hlps⟩ := h.find
   refine ⟨h.name, h.nF, ⟨ci, Lech.Env.find?_cons_of_fresh hfresh hci, hlps⟩, h.hasFvar, h.bounded,
-    h.resid, ?_, h.len, h.lenE, h.recIdx, h.recIdxBnd, h.recIdxSorted, h.eissLen, h.eisLen, ?_, ?_⟩
+    h.resid, ?_, h.len, h.lenE, h.recIdx, h.recIdxBnd, h.recIdxSorted, h.eissLen, h.eisLen,
+    h.tlsLen, h.teleLen, ?_, h.fieldArity, ?_⟩
   · rw [hTac, hac]
     exact denoteP_cons_mono hfresh (hat _) ψ 0 hcb h.read
-  · intro i hi fvs o hop
+  · intro i hi fvs o hop x hx
     rw [hac]
-    refine DenoteSpineP.cons_mono hfresh hat ?_ (h.eisRead i hi fvs o hop)
-    -- the instantiated index expressions are bounded
-    obtain ⟨cbs, es, hst, -⟩ := h.resid
-    obtain ⟨hbs, -⟩ := constsBound_stripPis (nP + c.2.1) hcb hst
+    refine denoteP_cons_mono hfresh (hat _) ψ (nP + i) ?_ (h.fieldRead i hi fvs o hop x hx)
+    -- the opened variable's type is bounded
     obtain ⟨hfvs, -⟩ := openPisAtFvars_constsBound (nP + c.2.1) hcb hop
-    intro a ha
-    obtain ⟨e, he, rfl⟩ := List.mem_map.mp ha
-    refine constsBound_instSeq _ _ _ (fun x hx => hfvs x (List.mem_of_mem_take hx)) ?_
-    unfold Lech.directFieldIdxOf at he
-    rw [hst] at he
-    have hlt : nP + i < cbs.length := by
-      rw [Lech.Expr.stripPis_length _ hst]
-      have := h.recIdxBnd i hi
-      omega
-    have hmem : cbs.getD (nP + i) default ∈ cbs := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt, Option.getD_some]
-      exact List.getElem_mem hlt
-    exact constsBound_getAppArgs _ (hbs _ hmem) e (List.mem_of_mem_drop he)
+    have hb := hfvs x (List.mem_of_getElem? hx)
+    obtain ⟨nm, ty, hy⟩ := (opening_vars_at hop).2.1 (nP + i) x hx
+    rw [hy, constsBound_fvar] at hb
+    rw [hy]
+    exact hb
   · intro i hi
     rw [hTac]
     exact h.recEntry i hi
@@ -191,11 +182,12 @@ theorem fixRuleData_of (mp : EnvS2PM V μ env)
     {esF : Nat → (Name → Nat) → List AVExpr} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
     {eissF : Nat → (Name → Nat) → List (List AVExpr)}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AVExpr))}
     (hlenK : p.kinds.length = ctorsA.length)
     (hks : ∀ i, i < ctorsA.length → p.kinds[i]? = some (ksF i))
     (hcf : ∀ i cA, ctorsA[i]? = some cA →
       FixCtorFactsAt mp.base2 env₀ p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp
-        p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF i cA)
+        p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF i cA)
     {mI rP : Nat} {rules : List Lech.RecRule}
     (hfresh : env.find? cvRa.name = none) (hT : p.cvT.name ≠ cvRa.name)
     {A : (Name → Nat) → AVExpr}
@@ -208,8 +200,9 @@ theorem fixRuleData_of (mp : EnvS2PM V μ env)
       ∀ ψ : Name → Nat, denoteP m₂.acval ⟨.recInfo cvRa mI rP rules :: env.consts⟩ ψ 0 rhs
         = some (mkLamsAV (fixRuleDataAV m₂ p.cvT.name ψ p.nP p.nIdx
             (Lech.directElimLevel p.elim p.large) ((ppsAll ψ).take p.nP) ((ppsAll ψ).drop p.nP)
-            (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0) (dsF j ψ))
-          (fixRuleCoreAV (A ψ) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (eissF j ψ))) := by
+            (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) (dsF j ψ))
+          (fixRuleCoreAV (A ψ) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψ)
+            (eissF j ψ))) := by
   obtain ⟨cvRi, recTy, sty, u, -, -, -, -, -, -, -, -, -, hrules, rfl⟩ :=
     Lech.checkDirectFixRec_shape hRec
   obtain ⟨hTf, -, -, -, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)
@@ -238,7 +231,7 @@ theorem fixRuleData_of (mp : EnvS2PM V μ env)
       obtain ⟨-, -, hCres, -, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hf)
       exact constsBound_of_constsResolve _ hCres
   have hcr₂ : ∀ ψ, CtorReadsR m₂ ψ p.cvT.name p.cvT.levelParams p.nP p.nIdx
-      (Lech.directFixCtors4 ctorsA p.kinds) (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0) :=
+      (Lech.directFixCtors4 ctorsA p.kinds) (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) :=
     fun ψ => CtorReadsR.cross hfresh hT hcross m₂ hac (fixCtorReadsR_of ψ hlenK hks hcf) hcbC
   -- the former and the recursor at the cons
   have hcbT : ConstsBound env cvTa.type := by
@@ -252,8 +245,8 @@ theorem fixRuleData_of (mp : EnvS2PM V μ env)
   have hfR₂ : (⟨.recInfo ⟨p.cvR.name, p.cvR.levelParams, recTy⟩ mI rP rules :: env.consts⟩ : Env).find?
       p.cvR.name = some (.recInfo ⟨p.cvR.name, p.cvR.levelParams, recTy⟩ mI rP rules) :=
     Lech.Env.find?_cons_self _ _
-  have hjd : ∀ ψ, (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)[j]?
-      = some (cA.1.name, cA.2, dsF j ψ, esF j ψ, Lech.recIdxOf (ksF j), eissF j ψ) := by
+  have hjd : ∀ ψ, (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)[j]?
+      = some (cA.1.name, cA.2, dsF j ψ, esF j ψ, Lech.recIdxOf (ksF j), eissF j ψ, tssF j ψ) := by
     intro ψ
     rw [fixCtorDataList_getElem?, hj, Nat.zero_add]
     rfl
@@ -263,7 +256,8 @@ theorem fixRuleData_of (mp : EnvS2PM V μ env)
     (hcr₂ ψ) hfR₂ rfl hgen hTf (by rw [hstripT]; rfl) hopT (hFD₂.read ψ) (hFD₂.len ψ) (hjd ψ)
   rw [fixCtorDataList_length] at this
   rw [this, hac]
-  show some (mkLamsAV _ (fixRuleCoreAV (acvalWith mp.base2.acval p.cvR.name A p.cvR.name ψ) _ _ _ _ _ _)) = _
+  show some (mkLamsAV _ (fixRuleCoreAV (acvalWith mp.base2.acval p.cvR.name A p.cvR.name ψ)
+    _ _ _ _ _ _ _)) = _
   rw [acvalWith_self]
 
 end Lech.SetP
