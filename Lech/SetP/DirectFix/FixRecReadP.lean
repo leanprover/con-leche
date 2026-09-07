@@ -10,15 +10,18 @@ the generated recursive recursor type reads to the Π-tower over
 (`Lech/SetP/DirectFix/FixRecReadDefsP.lean`).
 
 The one genuinely new reading is the `ih` binder's domain
-`motive e⃗_i f_i`.  Its index expressions are read by the constructor
-premise (`CtorReadR.eisRead`) at the constructor's OWN opening — the
-parameters and the `i` earlier fields at indices `0 … nP + i - 1` —
+`∀ a⃗, motive e⃗_i(a⃗) (f_i a⃗)`.  A recursive field's own telescope and
+its domain's index expressions are read at the constructor's OWN
+opening — the parameters, the `i` earlier fields, then the telescope's
+own openers (`FieldReadAt`, off `CtorReadR` by `fieldReadAt_of`) —
 while the recursor's frame puts the fields `o` slots higher (the
-motive and the earlier minors sit between).  Moving between the two
-frames is exactly `Expr.shiftFrom`, iterated `o` times
-(`denoteP_instSeq_shift`), which lifts the reading by `o` at the cut
-`d - nP`; taking `d` to be the frame depth `nP + nF + l` reached by
-`denoteP_lift` first, the two lifts are precisely `ihIdxAt`'s.
+motive and the earlier minors sit between) and `nF - i + l` binders
+above.  Moving between the two frames is `Expr.shiftFrom` iterated
+(`denoteP_instSeq_shift`), twice: once to insert the fields and the
+earlier hypotheses below the field's own frame, once to insert the
+`o` extras between the parameters and the fields — precisely
+`ihIdxAtM`'s two lifts, the telescope's openers staying innermost
+(task #202).
 -/
 
 namespace Lech.SetP

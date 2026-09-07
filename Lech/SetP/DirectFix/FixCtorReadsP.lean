@@ -8,15 +8,15 @@ import Lech.Verify.Direct.DirectBody
 
 The per-constructor facts of a recursive block (`FixCtorDataI`,
 `FixDataP.lean` — the sum route's data with the field kinds, the
-opened form and the per-field index readings) yield the reading
-premises `CtorReadsR` (`FixRecReadDefsP.lean`) the generated
-recursor's reading theorems consume.  The one bridge: a recursive
-field's index expressions off the raw constructor type
-(`directFieldIdxOf`), instantiated at the opening's variables, are the
-opened variable's type's index arguments — an opened variable's type
-is its binder's domain instantiated at the earlier variables
-(`openPisAtFvars_fvarTypeD`), and instantiation at variables maps the
-argument spine (`getAppArgs_instSeq_fvars`).
+opened form, the per-field telescopes and index readings) yield the
+reading premises `CtorReadsR` (`FixRecReadDefsP.lean`) the generated
+recursor's reading theorems consume.  The bridge is that an opened
+variable's type is its binder's domain instantiated at the earlier
+variables (`openPisAtFvars_fvarTypeD`), and that instantiation at
+variables changes neither the domain's leading `∀`-count
+(`Expr.piBinders_instSeq`, whence `teleLen` off `reflOpen`'s binder
+count) nor its body's argument count (`getAppArgs_instSeq_fvars`,
+whence `fieldArity` off the opened form).
 -/
 
 namespace Lech.SetP
