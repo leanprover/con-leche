@@ -3,7 +3,7 @@
 binder names and binder infos: a pair of terms that differ ONLY in
 display data.
 
-    scripts/mk_binder_twin_fixture.py <in.ndjson> <out.ndjson> THM
+    scripts/mk_binder_twin_fixture.py [--proj] <in.ndjson> <out.ndjson> THM
 
 THM's type must be `∀ (x : T), @Eq A L L` with both sides the SAME
 expression-table node (lean4export interns α-equivalent terms as one
@@ -15,6 +15,16 @@ name — and the theorem's type is re-pointed at `∀ (x : T), @Eq A L L'`
 with `L'` the copy.  The value is untouched, so the checker compares
 the value's inferred `L = L` against the declared `L = L'`.
 
+With `--proj`, the side `L` must be `Prod.snd A B s` (the projection
+FUNCTION, which is how the elaborator exports `p.2`), and that table
+node is rewritten IN PLACE to the kernel projection `.proj Prod 1 s`
+before cloning — so the value's `rfl` (which references the same node)
+and both sides of the statement are `.proj`-headed.  Two `Prod.snd`
+applications meet the lazy-delta same-head spine congruence and never
+whnf their struct; two `.proj` nodes that are not `==` go through
+`whnfCore`'s projection clause, which whnf's the struct in full (the
+divergence audit's D5) — the shape of the task #201 residual.
+
 What it is for (task #203): the official kernel's equality and hash
 ignore binder names and infos, so this pair is decided by its
 structural walk; a checker whose `==` reads the display data misses
@@ -22,17 +32,29 @@ its fast path here and, with the difference sitting inside a
 `.proj`-headed struct's argument, whnf's the struct in full (the task
 #201 residual).  `tests/e2e/binder_name_proj.ndjson` is
 `tests/e2e/src/binder_name_proj.lean`'s raw export through this
-script with THM = `w2`.
+script with `--proj` and THM = `w2`.
+
+The result must be checked RAW (`LECH_INDUCTIVE_MODELS=/nonexistent`,
+a `raw` line in `tests/e2e-expected.txt`): the preprocessor
+(`lech-preprocess`, lean-inductive-models) re-exports the stream
+through `Lean.Expr`, whose hash-consing is α-equivalence, so a piped
+run collapses the clone back into the original node and the pair never
+reaches the checker.
 """
 import json
 import sys
 
 
 def main() -> int:
-    if len(sys.argv) != 4:
+    args = sys.argv[1:]
+    proj = False
+    if args and args[0] == "--proj":
+        proj = True
+        args = args[1:]
+    if len(args) != 3:
         print(__doc__.strip(), file=sys.stderr)
         return 2
-    src, out, thm = sys.argv[1], sys.argv[2], sys.argv[3]
+    src, out, thm = args
 
     lines = [ln.rstrip("\n") for ln in open(src, encoding="utf-8")]
     names: dict[int, str] = {0: ""}
@@ -75,6 +97,34 @@ def main() -> int:
         print("statement is not `L = L` on one node", file=sys.stderr)
         return 1
     rhs = body["app"]["arg"]
+
+    rewritten: dict[int, str] = {}
+    if proj:
+        # L = app (app (app (const Prod.snd) A) B) s  ->  proj Prod 1 s
+        node = exprs[rhs]
+        try:
+            a1 = exprs[node["app"]["fn"]]
+            a2 = exprs[a1["app"]["fn"]]
+            head = exprs[a2["app"]["fn"]]
+            hname = head["const"]["name"]
+        except (KeyError, TypeError):
+            print("--proj: side is not a `Prod.snd A B s` application",
+                  file=sys.stderr)
+            return 1
+        if names.get(hname) != "Prod.snd":
+            print(f"--proj: head is {names.get(hname)!r}, not Prod.snd",
+                  file=sys.stderr)
+            return 1
+        prod = next((i for i, n in names.items() if n == "Prod"), None)
+        if prod is None:
+            print("--proj: no name-table entry for Prod", file=sys.stderr)
+            return 1
+        newnode = {"ie": rhs,
+                   "proj": {"idx": 1, "struct": node["app"]["arg"],
+                            "typeName": prod}}
+        exprs[rhs] = newnode
+        rewritten[rhs] = json.dumps(newnode, separators=(",", ":"),
+                                    sort_keys=True)
 
     new_lines: list[str] = []
     fresh = {"in": max_in, "ie": max_ie, "tw": 0}
@@ -140,6 +190,9 @@ def main() -> int:
 
     with open(out, "w", encoding="utf-8") as f:
         for ln in lines[:thm_line]:
+            o = json.loads(ln)
+            if "ie" in o and o["ie"] in rewritten:
+                ln = rewritten[o["ie"]]
             f.write(ln + "\n")
         for ln in new_lines:
             f.write(ln + "\n")
