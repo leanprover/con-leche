@@ -477,6 +477,21 @@
 #                     `motive (Nat.succ n) v` — the hypothesis at the
 #                     wrong index, REJECTED (the patched recursor type
 #                     is ill-typed before the S2 comparison is reached).
+# REFLEXIVE constructors (task #202, Stage A1: `Prop`-valued blocks with
+# the small eliminator):
+#   direct_fix_refl:  `Iter f n` with `step (n) (h : ∀ k, Nat.le k n →
+#                     Iter f k)` — a function-space field into the
+#                     fibres at the bound variable, the inductive
+#                     hypothesis pointwise (`∀ k a, motive k (h k a)`),
+#                     and the two-index `Reach r x y` with a reflexive
+#                     field beside a finitary one; consumers fire iota
+#                     on both (`elim_step` by `rfl`).
+#   direct_fix_refl_neg_bad: `Iter.step`'s field patched to
+#                     `∀ k, Iter f k → Nat.le k n` — a non-positive
+#                     occurrence under the binder, REJECTED (positivity).
+#   direct_fix_refl_ih_bad: `Iter.rec`'s `h_ih` binder patched to
+#                     `∀ k a, motive n (h k a)` — the hypothesis at the
+#                     wrong index, REJECTED (ill-typed recursor type).
 0 direct_fix_nat.ndjson pre
 0 direct_fix_tree.ndjson pre
 0 direct_fix_prop.ndjson pre
@@ -487,6 +502,9 @@
 0 direct_fix_le.ndjson pre
 2 direct_fix_acc_large.ndjson pre
 1 direct_fix_vec_ih_idx_bad.ndjson pre
+0 direct_fix_refl.ndjson pre
+1 direct_fix_refl_neg_bad.ndjson pre
+1 direct_fix_refl_ih_bad.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
