@@ -58576,6 +58576,26 @@ checker improvement and must not be read as one.  The in-process
 receipt is unchanged: `1 inductive blocks modelled in-process:
 Lean.Syntax`, `inmodel census: 1 modelled, 0 declined`.
 
+### The Mathlib slices, raw
+
+Two raw slices of the full export, both **exit 0** with no tool and no
+stream model:
+
+| slice | declarations | struct | sum | fix | inmodel | basis | modeled |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `slice-small.ndjson` (458 MB) | 95 642 | 1 275 | 259 | 92 | 26 | 6 | **0** |
+| `prefix-log2.ndjson` (256 MB) | 39 582 | 931 | 75 | 55 | 9 | 6 | **0** |
+
+`slice-small` is also the **projection-level check**: `grep -c '"_model"'`
+on it is 0, and the run rewrites **22 projection functions** to recursor
+form (`Lean.Language.SnapshotTree.element`,
+`Lean.Elab.Tactic.TacticParsedSnapshot.stx`,
+`Lean.Lsp.Ipc.CallHierarchy.children`, …) — every one of those needed
+`T._model.proj_i.iota`'s `Eq` level, and every one of them read it off a
+family the **in-process modeller** generated in the same parse.
+`init-full` rewrites none (since #210 Part A the fix route's `.proj`
+nodes are native), which is the other half of the same check.
+
 ### Gates
 
 `lake build` warning-free, including from an empty `.lake/build/bin`

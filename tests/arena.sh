@@ -345,7 +345,9 @@ echo "retired flags: $split_ok/$split_total as expected"
 # core.  `--set-model`, `--set-model=p` and `--no-model` joined them at
 # the mode rename (2026-09-06): they name the same two cores under the
 # old vocabulary, and even so they are hard errors, not aliases — a
-# verdict's provenance must be readable off the invocation.
+# verdict's provenance must be readable off the invocation.  `--pre`
+# joined them at task #207, when the preprocessor it asserted about was
+# dropped: every input is a raw lean4export stream now.
 mode_ok=0
 mode_total=0
 mode_case() {
@@ -371,6 +373,8 @@ mode_case 3 --tt-model "$SPLIT_GOOD"               # retired flag: hard error
 mode_case 3 --trusted --install-only "$SPLIT_GOOD" # retired flag: hard error
 mode_case 3 --set-model=r "$SPLIT_GOOD"            # RETIRED R lane: hard error
 mode_case 3 --set-model=r "$SPLIT_BAD"             # …on a bad stream too
+mode_case 3 --pre "$SPLIT_GOOD"                    # RETIRED at #207: hard error
+mode_case 3 --pre "$SPLIT_BAD"                     # …on a bad stream too
 mode_case 3 --yolo "$SPLIT_GOOD"                   # retired flag: hard error
 mode_case 3 --infer-only "$SPLIT_GOOD"             # retired flag: hard error
 mode_total=$((mode_total+1))
