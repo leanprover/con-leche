@@ -99,10 +99,6 @@ namespace Lech.TT
 impredicative, every other codomain takes the `max`. -/
 def imax (u v : Nat) : Nat := if v = 0 then 0 else Nat.max u v
 
-@[simp] theorem imax_zero (u : Nat) : imax u 0 = 0 := rfl
-
-theorem imax_of_ne {u v : Nat} (h : v ≠ 0) : imax u v = Nat.max u v := if_neg h
-
 /-- The closed, finite alphabet of built-in constants: the pinned basis
 type formers with their constructors, recursors and projections, plus
 the two pinned standard axioms that are not equations. -/

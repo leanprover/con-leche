@@ -1,7 +1,7 @@
 import Lech.Kernel.Checker
 import Lech.Verify.Level
 import Lech.Verify.EnvWF
-import Lech.TT.Judgment
+import Lech.TT.Const
 
 /-!
 # Denotation of kernel expressions into the declarative type theory

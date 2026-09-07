@@ -1,23 +1,20 @@
-import Lech.TT.Judgment
+import Lech.TT.Const
 
 /-!
 # The substitution algebra of `VExpr`
 
 The commutation identities between `VExpr.liftN` and `VExpr.inst`
 (`Lech/TT/Subst.lean`), plus their consequences for the types of the
-built-in constants and for the smart constructors that appear in the
-rules of `HasType`.  They exist to serve
-`Lech/Verify/Denote/HasTypeSubst.lean`, which needs lifting and
-instantiation to commute in every rule whose conclusion mentions
-`inst` or an inner `liftN`.
+built-in constants and for the smart constructors of
+`Lech/TT/Const.lean`.  The denotation needs lifting and instantiation
+to commute wherever it pushes a substitution through a basis term.
 
 **Why this lives on the bridge side and not in `Lech/TT/*`.**  The
-layer deliberately has *no syntactic metatheory* —
+term language deliberately has *no syntactic metatheory* —
 `Lech/TT/Subst.lean` is definitions plus constructor-wise `rfl`
 equations, and advertises that (lean4lean's counterpart is ~123
-theorems).  These identities are a bridge need, exactly like
-`Lech/Verify/Denote/Weaken.lean` and `Lech/TTVerify/Inversion.lean`, so
-they are filed with the bridge to keep the accounting honest.
+theorems).  These identities are a bridge need, so they are filed with
+the bridge to keep the accounting honest.
 
 Every identity is proved by structural induction on the expression
 with the cuts generalized; the `bvar` cases are `omega` case splits and
@@ -371,13 +368,11 @@ constant. -/
 
 /-! ## Distribution over the smart constructors
 
-The rules of `HasType` are written with the smart constructors of
-`Lech/TT/Const.lean` and the premise-type formers `natStepT` /
-`quotInvT` (`Lech/TT/Judgment.lean`).  The lemmas below push `liftN`
-and `inst` through each of them, so that the `HasType` inductions can
-normalize every rule's premises and conclusion by `simp only`.  The
-applicative ones are `rfl`; `arrow`, `relT`, `natStepT` and `quotInvT`
-contain inner lifts and need the commutation identities above. -/
+The smart constructors of `Lech/TT/Const.lean`.  The lemmas below
+push `liftN` and `inst` through each of them, so that a consumer can
+normalize a basis term by `simp only`.  The applicative ones are
+`rfl`; `arrow` and `relT` contain inner lifts and need the commutation
+identities above. -/
 
 section Distrib
 open VExpr
@@ -471,50 +466,6 @@ variable (a : VExpr) (n k : Nat)
     (relT A).inst a k = relT (A.inst a k) := by
   simp only [relT, inst_pi, inst_sort, VExpr.lift]
   rw [inst_liftN_comm A (show 0 + 1 ≤ k + 1 by omega) a, Nat.add_sub_cancel]
-
-@[simp] theorem liftN_natStepT (M : VExpr) :
-    (natStepT M).liftN n k = natStepT (M.liftN n k) := by
-  simp only [natStepT, liftN_pi, liftN_app, liftN_natT, liftN_natSuccT,
-    liftN_bvar, if_pos (show (0:Nat) < k + 1 by omega),
-    if_pos (show (1:Nat) < k + 1 + 1 by omega)]
-  rw [liftN_liftN_comm M (Nat.zero_le k) 1 n,
-    liftN_liftN_comm M (Nat.zero_le k) 2 n]
-
-@[simp] theorem inst_natStepT (M : VExpr) :
-    (natStepT M).inst a k = natStepT (M.inst a k) := by
-  simp only [natStepT, inst_pi, inst_app, inst_natT, inst_natSuccT, inst_bvar,
-    if_pos (show (0:Nat) < k + 1 by omega),
-    if_pos (show (1:Nat) < k + 1 + 1 by omega)]
-  rw [inst_liftN_comm M (show 0 + 1 ≤ k + 1 by omega) a,
-    inst_liftN_comm M (show 0 + 2 ≤ k + 1 + 1 by omega) a]
-  simp
-
-@[simp] theorem liftN_quotInvT (A r B f : VExpr) :
-    (quotInvT A r B f).liftN n k =
-      quotInvT (A.liftN n k) (r.liftN n k) (B.liftN n k) (f.liftN n k) := by
-  simp only [quotInvT, liftN_pi, liftN_eqE, liftN_app, mkAppN_cons, mkAppN_nil,
-    liftN_bvar, if_pos (show (1:Nat) < k + 1 + 1 + 1 by omega),
-    if_pos (show (2:Nat) < k + 1 + 1 + 1 by omega),
-    if_pos (show (1:Nat) < k + 1 + 1 by omega),
-    if_pos (show (0:Nat) < k + 1 + 1 by omega)]
-  rw [liftN_liftN_comm A (Nat.zero_le k) 1 n,
-    liftN_liftN_comm r (Nat.zero_le k) 2 n,
-    liftN_liftN_comm B (Nat.zero_le k) 3 n,
-    liftN_liftN_comm f (Nat.zero_le k) 3 n]
-
-@[simp] theorem inst_quotInvT (A r B f : VExpr) :
-    (quotInvT A r B f).inst a k =
-      quotInvT (A.inst a k) (r.inst a k) (B.inst a k) (f.inst a k) := by
-  simp only [quotInvT, inst_pi, inst_eqE, inst_app, mkAppN_cons, mkAppN_nil,
-    inst_bvar, if_pos (show (1:Nat) < k + 1 + 1 + 1 by omega),
-    if_pos (show (2:Nat) < k + 1 + 1 + 1 by omega),
-    if_pos (show (1:Nat) < k + 1 + 1 by omega),
-    if_pos (show (0:Nat) < k + 1 + 1 by omega)]
-  rw [inst_liftN_comm A (show 0 + 1 ≤ k + 1 by omega) a,
-    inst_liftN_comm r (show 0 + 2 ≤ k + 1 + 1 by omega) a,
-    inst_liftN_comm B (show 0 + 3 ≤ k + 1 + 1 + 1 by omega) a,
-    inst_liftN_comm f (show 0 + 3 ≤ k + 1 + 1 + 1 by omega) a]
-  simp
 
 end Distrib
 
