@@ -209,19 +209,18 @@ def checkDirectSumS (fe : FEnv) (p₀ : DirectSumParts) : CheckCM FEnv := do
 the constructors' stages are the sum route's mirrors, the resolution
 guard pointed at the former's environment; one flush per environment
 transition. -/
-def checkDirectFixS (fe : FEnv) (p : DirectFixParts) : CheckCM FEnv := do
-  if p.kinds.any (fun ks => ks.any (· == .negative)) then
+def checkDirectFixS (fe : FEnv) (p₀ : DirectFixParts) : CheckCM FEnv := do
+  if p₀.kinds.any (fun ks => ks.any (· == .negative)) then
     throw (.invalid "direct rec: non positive occurrence of the inductive type")
+  unless (p₀.ctors.map (·.1.name)).Nodup do
+    throw (.invalid "direct rec: duplicate constructor")
+  flushC
+  let (fe₁, cvTa, p₁) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀.toDirectSumParts
+    (fun p₁ => directFixCaps (p₀.complete p₁))
+  let p := p₀.complete p₁
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
-  unless (p.ctors.map (·.1.name)).Nodup do
-    throw (.invalid "direct rec: duplicate constructor")
-  flushC
-  let (fe₁, cvTa, p₁) ← checkDirectSumIndF (sharedOpsC mode fe) fe p.toDirectSumParts
-    (fun _ => directFixCaps p)
-  unless p₁.resSort == p.resSort do
-    throw (.internal "direct rec: type former result sort")
   flushC
   let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) cvTa.type 0)
     (.internal "direct rec: type former telescope")
@@ -339,15 +338,11 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDeclF fe
   | .indDecl block =>
-    match directPartsF? fe block with
-    | some p => checkDirectStructS mode fe p
-    | none =>
-      match directSumPartsF? fe block with
-      | some p => checkDirectSumS mode fe p
-      | none =>
-        match directFixParts? block with
-        | some p => checkDirectFixS mode fe p
-        | none => checkIndDeclSF mode fe block
+    -- ONE ROUTE (task #210 Part B): the fixpoint route is tried first
+    -- and takes every block the two other recognisers took
+    match directFixParts? block with
+    | some p => checkDirectFixS mode fe p
+    | none => checkIndDeclSF mode fe block
 
 /-- The shared-state checker step the binary runs: the index is
 threaded *across* declarations (built once for the whole stream; each

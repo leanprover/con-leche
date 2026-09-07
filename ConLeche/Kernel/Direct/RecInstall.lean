@@ -52,7 +52,11 @@ one tagged empty tuple); rule K exactly at official's `is_K_target` (a
 index count, as at the sum route's `Eq`); nothing at any other block.
 The projection TABLE (`checkDirectFixTable`) does not depend on this
 record: official's `infer_proj` types `.proj` on any one-constructor
-index-free family, recursive or not.  (Granting η at a recursive
+index-free family, recursive or not.  At a FIELDLESS constructor the
+record claims unit-likeness and not η: official's `try_eta_struct`
+there compares no fields, which `is_def_eq_unit_like` already decides
+— the same verdicts, and the only capability law the route owes is
+the unit law (`FixZeroFieldP.lean`), read off the former's fold alone.  (Granting η at a recursive
 structure-like was tried and is UNSOUND IN PRACTICE though sound in
 the model: on `ind_nest_via_refl` the tool's nested model over a
 reflexive `W1 α = sup (a : α) (f : Nat → W1 α)` made `isDefEq` spin
@@ -62,7 +66,7 @@ sum route's domain (never one constructor without an index) this is
 def directFixCaps (p : DirectFixParts) : IndCaps :=
   match p.ctors with
   | [c] =>
-    { eta := p.nIdx == 0 && !p.isProp &&
+    { eta := p.nIdx == 0 && !p.isProp && c.2 != 0 &&
         !(p.kinds.any fun ks => ks.any fun k => k == .recursive || k == .reflexive)
       etaCtor := c.1.name
       etaParams := p.nP
@@ -203,9 +207,18 @@ block's capability record, `directFixCaps`), the constructors (at the
 former's environment), the kinds re-checked, the recursor with its
 rules, and — at a structure-like block — the projection table
 (`checkDirectFixTable`, task #210 Part A). -/
-def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env := do
-  if p.kinds.any (fun ks => ks.any (· == .negative)) then
+def checkDirectFix (ops : CheckerOps m) (env : Env) (p₀ : DirectFixParts) : m Env := do
+  if p₀.kinds.any (fun ks => ks.any (· == .negative)) then
     throw (.invalid "direct rec: non positive occurrence of the inductive type")
+  unless (p₀.ctors.map (·.1.name)).Nodup do
+    throw (.invalid "direct rec: duplicate constructor")
+  -- the former's run completes the record with the sort it read
+  -- (task #195: a former declared at a definition that only unfolds
+  -- to its telescope); every later stage runs on the completed record
+  -- `p`, whose capability record the former already carries
+  let (env₁, cvTa, p₁) ← checkDirectSumInd ops env p₀.toDirectSumParts
+    (fun p₁ => directFixCaps (p₀.complete p₁))
+  let p := p₀.complete p₁
   -- a large eliminator on a block whose sort may be `Prop`: two or more
   -- constructors is `.invalid` (official's `elim_only_at_universe_zero`);
   -- one constructor is the subsingleton case, taken (task #202 Stage
@@ -213,14 +226,6 @@ def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
-  unless (p.ctors.map (·.1.name)).Nodup do
-    throw (.invalid "direct rec: duplicate constructor")
-  let (env₁, cvTa, p₁) ← checkDirectSumInd ops env p.toDirectSumParts (fun _ => directFixCaps p)
-  -- the former's run completes the record with the sort it read
-  -- (task #195); this route's recogniser read the declared telescope
-  -- syntactically, so the two must agree
-  unless p₁.resSort == p.resSort do
-    throw (.internal "direct rec: type former result sort")
   -- the index binders' universes, exposed for the model's index-tuple
   -- universe: the former's telescope opened at variables, each index
   -- domain's sort inferred (no bound is checked — `isProp` set,

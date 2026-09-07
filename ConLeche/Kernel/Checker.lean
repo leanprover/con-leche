@@ -487,15 +487,13 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- The direct recursive route (task #188) takes the blocks in which
     -- the type former occurs in a constructor field: recognised
     -- syntactically after the two non-recursive routes.
-    match directParts? env block with
-    | some p => checkDirectStruct ops env p
-    | none =>
-      match directSumParts? env block with
-      | some p => checkDirectSum ops env p
-      | none =>
-        match directFixParts? block with
-        | some p => checkDirectFix ops env p
-        | none => checkIndDecl mode ops env block
+    -- ONE ROUTE (task #210 Part B): the fixpoint route takes every
+    -- block the structure and sum recognisers took (its constant-
+    -- functor arm), so those two arms are gone from the dispatch; their
+    -- installers stay unreferenced until Part C deletes them
+    match directFixParts? block with
+    | some p => checkDirectFix ops env p
+    | none => checkIndDecl mode ops env block
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

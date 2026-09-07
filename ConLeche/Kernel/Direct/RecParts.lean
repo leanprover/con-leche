@@ -185,6 +185,38 @@ structure DirectFixParts extends DirectSumParts where
   kinds : List (List RecFieldKind)
   deriving Repr
 
+/-- **The record completed by the former's stage** (task #210 Part B):
+the sum parts the former's run returned (its result sort read through
+`whnf`, task #195) with the recogniser's field kinds.  A definition,
+not a literal, so that a proof's `dsimp` keeps it in one piece. -/
+def DirectFixParts.complete (p₀ : DirectFixParts) (p₁ : DirectSumParts) : DirectFixParts :=
+  ⟨p₁, p₀.kinds⟩
+
+@[simp] theorem DirectFixParts.complete_toDirectSumParts (p₀ : DirectFixParts)
+    (p₁ : DirectSumParts) : (p₀.complete p₁).toDirectSumParts = p₁ := rfl
+@[simp] theorem DirectFixParts.complete_kinds (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).kinds = p₀.kinds := rfl
+@[simp] theorem DirectFixParts.complete_cvT (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).cvT = p₁.cvT := rfl
+@[simp] theorem DirectFixParts.complete_ctors (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).ctors = p₁.ctors := rfl
+@[simp] theorem DirectFixParts.complete_nP (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).nP = p₁.nP := rfl
+@[simp] theorem DirectFixParts.complete_nIdx (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).nIdx = p₁.nIdx := rfl
+@[simp] theorem DirectFixParts.complete_cvR (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).cvR = p₁.cvR := rfl
+@[simp] theorem DirectFixParts.complete_elim (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).elim = p₁.elim := rfl
+@[simp] theorem DirectFixParts.complete_resSort (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).resSort = p₁.resSort := rfl
+@[simp] theorem DirectFixParts.complete_rhss (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).rhss = p₁.rhss := rfl
+@[simp] theorem DirectFixParts.complete_large (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).large = p₁.large := rfl
+@[simp] theorem DirectFixParts.complete_isProp (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).isProp = p₁.isProp := rfl
+
 /-! ## The generated recursor with inductive hypotheses -/
 
 /-- The parameter, motive and minor variables as seen from under the
@@ -400,23 +432,30 @@ def directFixShape? (block : List ConstantInfo) : Option DirectSumParts :=
             match rules[j]?, cs[j]? with
             | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
             | _, _ => false) then
-        match cvT.type.stripPis (nP + nIdx) with
-        | some (_, .sort s) =>
-          let isProp := Level.isEquiv s .zero == some true
-          let ctors := cs.map fun c => (c.1, c.2.2)
-          let rhss := rules.map (·.rhs)
-          let large? : Option Name :=
-            match cvR.levelParams with
-            | elim :: relps =>
-              if relps == lps && !lps.contains elim then some elim else none
-            | [] => none
-          match large? with
-          | some elim => some ⟨cvT, ctors, nP, nIdx, cvR, elim, s, rhss, true, isProp⟩
-          | none =>
-            if cvR.levelParams == lps then
-              some ⟨cvT, ctors, nP, nIdx, cvR, .anonymous, s, rhss, false, isProp⟩
-            else none
-        | _ => none
+        -- the result sort: read off the declared type when it is a
+        -- syntactic telescope ending in a sort; otherwise (task #195, a
+        -- former declared AT A DEFINITION that only unfolds to its
+        -- telescope) a PLACEHOLDER that the install's whnf loop replaces
+        -- (`checkDirectSumInd`, `DirectSumParts.withSort`; task #210
+        -- Part B lifts the fix route's syntactic reading, the sum route's
+        -- former stage being the one it runs)
+        let s : Level := match cvT.type.stripPis (nP + nIdx) with
+          | some (_, .sort s) => s
+          | _ => .zero
+        let isProp := Level.isEquiv s .zero == some true
+        let ctors := cs.map fun c => (c.1, c.2.2)
+        let rhss := rules.map (·.rhs)
+        let large? : Option Name :=
+          match cvR.levelParams with
+          | elim :: relps =>
+            if relps == lps && !lps.contains elim then some elim else none
+          | [] => none
+        match large? with
+        | some elim => some ⟨cvT, ctors, nP, nIdx, cvR, elim, s, rhss, true, isProp⟩
+        | none =>
+          if cvR.levelParams == lps then
+            some ⟨cvT, ctors, nP, nIdx, cvR, .anonymous, s, rhss, false, isProp⟩
+          else none
       else none
     | none => none
   | _ => none
@@ -425,38 +464,41 @@ def directFixShape? (block : List ConstantInfo) : Option DirectSumParts :=
 def directFixKinds? (p : DirectSumParts) : Option (List (List RecFieldKind)) :=
   p.ctors.mapM (recCtorKinds p.cvT.name p.cvT.levelParams p.nP p.nIdx)
 
-/-- Recognise a direct recursive block: the shape, some field
-mentioning the block (else it is not this route: a non-recursive block
-is the structure's or the sum's), and — when every field is ordinary
-or a finitary recursive one — the rules' bodies.  A block with a
-NON-POSITIVE occurrence is admitted WITHOUT the rule check so that the
-install rejects it exactly as the official kernel's positivity check
-would, before anything else is looked at (no other route could accept
-it).  A block with an UNSUPPORTED occurrence (reflexive, nested, under
-a redex) is NOT this route's: it falls through to the modeled path,
-which accepts what the preprocessor could model — a positive decline
-here would regress the verdict of every such block (found on the
-arena's `RTree`, 2026-09-06). -/
+/-- Recognise a direct block — ONE ROUTE (task #210 Part B): the
+shape, the fields' kinds, and — when every field is ordinary, a
+finitary recursive one or a reflexive one — the rules' bodies.  A
+NON-recursive block (every kind ordinary, any number of constructors
+including none, any index count) is the CONSTANT-FUNCTOR arm of the
+same install: what the retired structure and sum routes took.  A block
+with a NON-POSITIVE occurrence is admitted WITHOUT the rule check so
+that the install rejects it exactly as the official kernel's positivity
+check would, before anything else is looked at.  A block with an
+UNSUPPORTED occurrence (nested, under a redex, a recursive field a later
+binder mentions) is NOT this route's: it falls through to the modeled
+path, which accepts what the preprocessor could model — a positive
+decline here would regress the verdict of every such block (found on
+the arena's `RTree`, 2026-09-06).  A reflexive field is taken at every
+sort (task #202).  A block with NO constructor is not this route's
+either (Part B's residual, for Part C): official grants it the large
+eliminator whatever its sort, and the route's squash regime — the
+large eliminator at a `Prop` instance — is proven at ONE constructor
+(`FixKI₀.hsq`); it is modeled (the tool's, or the in-process
+modeller's, encoding of the empty family), as it was before task #175. -/
 def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
   match directFixShape? block with
   | some p =>
     match directFixKinds? p with
     | some kinds =>
-      if kinds.any (fun ks => ks.any (· == .negative)) then some ⟨p, kinds⟩
+      if p.ctors.isEmpty then none
+      else if kinds.any (fun ks => ks.any (· == .negative)) then some ⟨p, kinds⟩
       else if kinds.any (fun ks => ks.any (· == .unsupported)) then none
-      -- a reflexive field is taken at every sort (task #202: Stage A the
-      -- `Prop`-valued blocks, Stage B the `Type`-valued ones — the
-      -- family's closed member by the container construction, the
-      -- recursor by the recursion theorem over the elements)
-      else if kinds.any (fun ks => ks.any fun k => k == .recursive || k == .reflexive) then
-        -- the stream's rules are at the parse placeholder `⟨.never⟩`
-        -- (as are the raw constructor types the bodies are generated
-        -- from), so the comparison is at that bit; the installed rules
-        -- (`directRecRhsR`) carry the elimination regime's
-        if directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
-            p.ctors kinds p.rhss then
-          some ⟨p, kinds⟩
-        else none
+      -- the stream's rules are at the parse placeholder `⟨.never⟩` (as
+      -- are the raw constructor types the bodies are generated from),
+      -- so the comparison is at that bit; the installed rules
+      -- (`directRecRhsR`) carry the elimination regime's
+      else if directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP
+          p.ctors.length p.ctors kinds p.rhss then
+        some ⟨p, kinds⟩
       else none
     | none => none
   | none => none

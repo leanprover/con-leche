@@ -161,15 +161,21 @@ which its constructor's cons completes — the other families stay
 closed across the former's cons, `EtaFamiliesClosedExcept`, and the
 block's own family is closed once its constructor is stored). -/
 theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {p : ConLeche.DirectFixParts} (hE : EtaFamiliesClosed env)
-    (h : DeclDirectFixRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨-, -, hnd, cvTa, env₁, p₁, ctorsA, sortss, cvRa, rhss, -, -, -, hInd, -, -, -, hCtors, -,
-    hRec, hTbl⟩ := h
+    {p₀ : ConLeche.DirectFixParts} (hE : EtaFamiliesClosed env)
+    (h : DeclDirectFixRun μ F env p₀ env₂) : EtaFamiliesClosed env₂ := by
+  obtain ⟨-, hnd, cvTa, env₁, p₁, p, ctorsA, sortss, cvRa, rhss, -, -, -, hInd, rfl, -, -, -,
+    hCtors, -, hRec, hTbl⟩ := h
   obtain ⟨cvT, s, hTn, -, hcvT, rfl, rfl, -⟩ := ConLeche.checkDirectSumInd_shape hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
     ConLeche.checkConstantVal_inv hcvT
-  have hn : cvTa.name = p.cvT.name := by rw [hTeq]; exact hTn
-  have hfreshT : env.find? cvTa.name = none := by rw [hn, ← hTn]; exact hfT
+  -- the completed record, as one name
+  try dsimp only at hCtors hRec hTbl
+  have hpT : (p₀.complete (p₀.toDirectSumParts.withSort s)).cvT = p₀.cvT := by simp
+  have hpC : (p₀.complete (p₀.toDirectSumParts.withSort s)).ctors = p₀.ctors := by simp
+  generalize hp : p₀.complete (p₀.toDirectSumParts.withSort s) = p at hCtors hRec hTbl hpT hpC
+  have hn : cvTa.name = p.cvT.name := by rw [hTeq, hpT]; exact hTn
+  replace hnd : (p.ctors.map (·.1.name)).Nodup := by rw [hpC]; exact hnd
+  have hfreshT : env.find? cvTa.name = none := by rw [hn, hpT, ← hTn]; exact hfT
   -- the former's cons: the other families stay closed
   have hE₁ : EtaFamiliesClosedExcept
       ⟨.indInfo cvTa (directFixCaps p) :: env.consts⟩
@@ -269,11 +275,7 @@ theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
     (h : DeclIndRunDispatch μ F env block envI) : EtaFamiliesClosed envI := by
   unfold DeclIndRunDispatch at h
   split at h
-  · exact declDirectRun_etaClosed hE h
-  · split at h
-    · exact declDirectSumRun_etaClosed hE h
-    · split at h
-      · exact declDirectFixRun_etaClosed hE h
-      · exact declIndEtaClosedRun hE h
+  · exact declDirectFixRun_etaClosed hE h
+  · exact declIndEtaClosedRun hE h
 
 end ConLeche.Semantics

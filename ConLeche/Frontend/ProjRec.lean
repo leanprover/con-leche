@@ -126,101 +126,6 @@ def occursConst (n : Name) : Expr → Bool
   | .proj _ _ e => occursConst n e
   | _ => false
 
-/-! ### `occursConst`, memoised (task #214, P2)
-
-`projRecOwners` below runs `occursConst` over **every constructor
-binder domain of every inductive block** in the stream, to decide
-whether the block is recursive.  Structural recursion means `O(tree)`:
-on `ModularCurve.JZeroGoodReductionSpecialization_alt` the eight field
-domains are a 3.3k-node DAG that unfolds to 19.6 M nodes.  Same shape
-as `Expr.beqFast`: a budgeted allocation-free descent, then a memoised
-one.  Only `false` is recorded — a `true` aborts the walk, so no `true`
-is ever re-queried.  `occursConst` has exactly one caller and no proof
-depends on it, so the memoised walk is simply what that caller uses;
-the pure definition above stays as its specification. -/
-
-/-- Allocation-free descent on a node budget; `none` when it runs out. -/
-def occursConstB (n : Name) : Nat → Expr → Option Bool × Nat
-  | fuel, .const m _ => (some (m == n), fuel)
-  | fuel, .bvar _ => (some false, fuel)
-  | fuel, .fvar _ _ => (some false, fuel)
-  | fuel, .sort _ => (some false, fuel)
-  | fuel, .lit _ => (some false, fuel)
-  | 0, _ => (none, 0)
-  | fuel + 1, .app f a =>
-    match occursConstB n fuel f with
-    | (some false, fuel) => occursConstB n fuel a
-    | r => r
-  | fuel + 1, .lam ty b _ =>
-    match occursConstB n fuel ty with
-    | (some false, fuel) => occursConstB n fuel b
-    | r => r
-  | fuel + 1, .forallE ty b _ =>
-    match occursConstB n fuel ty with
-    | (some false, fuel) => occursConstB n fuel b
-    | r => r
-  | fuel + 1, .letE t v b =>
-    match occursConstB n fuel t with
-    | (some false, fuel) =>
-      match occursConstB n fuel v with
-      | (some false, fuel) => occursConstB n fuel b
-      | r => r
-    | r => r
-  | fuel + 1, .proj _ _ e => occursConstB n fuel e
-
-/-- The memoised descent: the set holds the subterms already shown NOT
-to mention `n`. -/
-def occursConstGo (n : Name) (seen : Std.HashSet Expr) : Expr →
-    Bool × Std.HashSet Expr
-  | .const m _ => (m == n, seen)
-  | .bvar _ | .fvar .. | .sort _ | .lit _ => (false, seen)
-  | e@(.app f a) =>
-    if seen.contains e then (false, seen) else
-      match occursConstGo n seen f with
-      | (false, seen) =>
-        match occursConstGo n seen a with
-        | (false, seen) => (false, seen.insert e)
-        | r => r
-      | r => r
-  | e@(.lam ty b _) =>
-    if seen.contains e then (false, seen) else
-      match occursConstGo n seen ty with
-      | (false, seen) =>
-        match occursConstGo n seen b with
-        | (false, seen) => (false, seen.insert e)
-        | r => r
-      | r => r
-  | e@(.forallE ty b _) =>
-    if seen.contains e then (false, seen) else
-      match occursConstGo n seen ty with
-      | (false, seen) =>
-        match occursConstGo n seen b with
-        | (false, seen) => (false, seen.insert e)
-        | r => r
-      | r => r
-  | e@(.letE t v b) =>
-    if seen.contains e then (false, seen) else
-      match occursConstGo n seen t with
-      | (false, seen) =>
-        match occursConstGo n seen v with
-        | (false, seen) =>
-          match occursConstGo n seen b with
-          | (false, seen) => (false, seen.insert e)
-          | r => r
-        | r => r
-      | r => r
-  | e@(.proj _ _ sub) =>
-    if seen.contains e then (false, seen) else
-      match occursConstGo n seen sub with
-      | (false, seen) => (false, seen.insert e)
-      | r => r
-
-/-- The executed `occursConst` (see above). -/
-def occursConstFast (n : Name) (e : Expr) : Bool :=
-  match (occursConstB n 4096 e).1 with
-  | some r => r
-  | none => (occursConstGo n {} e).1
-
 /-- The body under every leading `λ` (the projection shape's
 pre-filter: the node under the value's binders). -/
 def lamBody : Expr → Expr
@@ -341,7 +246,7 @@ def projRecOwners (block : List ConstantInfo)
   -- the owner by definition)
   let recursive := types.any (·.2.2.2.2.2.2) ||
     ctors.any fun (_, _, cty) => (stripPisAll cty).1.any fun (d, _) =>
-      blockNames.any fun n => occursConstFast n d
+      blockNames.any fun n => occursConst n d
   if (directPartsCore? block).isSome && !recursive then []
   -- a block the fixpoint route takes serves its structure-like
   -- member's `.proj` nodes natively (task #210 Part A: the projection

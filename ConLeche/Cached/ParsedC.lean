@@ -210,15 +210,9 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDeclF fe
   | .indDecl block =>
-    match directPartsF? fe block with
-    | some p => checkDirectStructS mode fe p
-    | none =>
-      match directSumPartsF? fe block with
-      | some p => checkDirectSumS mode fe p
-      | none =>
-        match directFixParts? block with
-        | some p => checkDirectFixS mode fe p
-        | none => checkIndDeclSF mode fe block
+    match directFixParts? block with
+    | some p => checkDirectFixS mode fe p
+    | none => checkIndDeclSF mode fe block
 
 /-! ## Names and durations for the driver's messages -/
 

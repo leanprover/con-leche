@@ -541,16 +541,18 @@ theorem stageFixRec {p : DirectFixParts} (hE : ConLeche.EtaFamiliesClosedExcept 
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
     -- the block's own capability laws at the cons (task #210 Part A),
     -- at any carrier agreeing with this one off the recursor's name
+    {ppsAll : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hTlaws : ∀ m₂ : EnvS2Core V ⟨.recInfo cvRa mI rP
         (ConLeche.directSumRules p.nP mI rP cvRa.type ctorsA rhss) :: env.consts⟩,
       (∀ n, n ≠ cvRa.name → m₂.acval n = mp.base2.acval n) →
+      FormerData m₂ cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      (∀ ψ, m₂.acval p.cvT.name ψ = mp.base2.acval p.cvT.name ψ) →
       CapsLawsAt m₂ p.cvT.name cvTa caps)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
     (helim : p.large = true → p.elim ∈ p.cvR.levelParams)
     (hRlps' : ∀ q ∈ p.cvT.levelParams, q ∈ p.cvR.levelParams)
-    {ppsAll : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll)
     {env₀ : Env} {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AVExpr)}
     {esF : Nat → (Name → Nat) → List AVExpr} {srcsF : Nat → List (Option Nat)}
@@ -1071,9 +1073,15 @@ theorem stageFixRec {p : DirectFixParts} (hE : ConLeche.EtaFamiliesClosedExcept 
         rw [ConLeche.Env.find?_cons, if_neg (fun h => hTR h.symm)]
         exact hfT
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
-      refine hTlaws m₂ fun n hn => ?_
-      rw [hac]
-      exact acvalWith_ne hn
+      have hcbT : ConstsBound env cvTa.type :=
+        constsBound_of_constsResolve _
+          (mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)).2.2.1
+      refine hTlaws m₂ (fun n hn => ?_)
+        (hFD.cross (c₀ := c₀) hfresh (hcross _) hcbT m₂ hac) (fun ψ => ?_)
+      · rw [hac]
+        exact acvalWith_ne hn
+      · rw [hac]
+        exact congrFun (acvalWith_ne hTR) ψ
   · -- `rec_rules`
     intro m₂ hac φ'
     refine recRulesP_cons_rec mp (c₀ := c₀) (A := A) hfresh rfl m₂ hac φ' ?_

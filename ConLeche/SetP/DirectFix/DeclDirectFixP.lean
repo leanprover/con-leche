@@ -1,5 +1,6 @@
 import ConLeche.SetP.DirectFix.FixAssemblyKitP
 import ConLeche.SetP.DirectFix.FixStageTableP
+import ConLeche.SetP.DirectFix.FixZeroFieldP
 import ConLeche.Semantics.Direct.DeclDirectFix
 import ConLeche.Verify.Direct.FixParts
 
@@ -57,23 +58,52 @@ theorem spineFit_take {Fs : List AVExpr} {ρ : Nat → V} {as : List V}
 set_option maxHeartbeats 25600000 in
 /-- **The P carrier survives a direct recursive install.** -/
 theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {p : DirectFixParts} (mp : EnvS2PM V μ env)
-    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.directFixParts? block = some p)
-    (h : ConLeche.Semantics.DeclDirectFixRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨hneg, hwl, hnd, cvTa, env₁, p₁, ctorsA, sortss, cvRa, rhss, tfvs, trest, isorts, hInd, hsort,
-    hopT2, hsorts, hCtors, hFOk, hRec, hTbl⟩ := h
-  obtain ⟨hshape, -, hlenK, hpos, hkinds⟩ := ConLeche.directFixParts?_inv hdp
-  obtain ⟨hProp, -, hClps, -, -, helimR, hRlps, -, -⟩ := ConLeche.directFixShape?_inv hshape
+    {block : List ConstantInfo} {p₀ : DirectFixParts} (mp : EnvS2PM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.directFixParts? block = some p₀)
+    (h : ConLeche.Semantics.DeclDirectFixRun μ F env p₀ env₂) : Nonempty (EnvS2PM V μ env₂) := by
+  obtain ⟨hneg, hnd₀, cvTa, env₁, p₁, p, ctorsA, sortss, cvRa, rhss, tfvs, trest, isorts, hInd, rfl,
+    hwl, hopT2, hsorts, hCtors, hFOk, hRec, hTbl⟩ := h
+  obtain ⟨hshape, -, hlenK₀, hpos₀⟩ := ConLeche.directFixParts?_inv hdp
+  obtain ⟨-, hRname₀, hClps₀, hresT₀, hresR₀, helimR₀, hRlps₀, -, -⟩ :=
+    ConLeche.directFixShape?_inv hshape
   -- the former: its run completed the record with the sort it read
-  -- (task #195), pinned equal to the syntactic one — so the record is
-  -- the recogniser's
-  obtain ⟨cvT, s, hTname₀, hTlps₀, hccvT, hps, rfl, bsT, hstripT⟩ :=
+  -- (task #195; task #210 Part B: on this route too) — every later
+  -- stage runs on the completed record `p`, and the recogniser's
+  -- invariants transport to it by the completion's projections
+  obtain ⟨cvT, s, hTname₀₀, hTlps₀₀, hccvT, rfl, rfl, bsT, hstripT₀⟩ :=
     ConLeche.checkDirectSumInd_shape hInd
-  have hs : s = p.resSort := by subst hps; exact hsort
-  subst hs
-  have hp₁ : p₁ = p.toDirectSumParts := by
-    rw [hps]; exact ConLeche.DirectSumParts.withSort_self _ hProp
-  subst hp₁
+  try dsimp only at hCtors hRec hTbl hFOk hsorts hopT2 hwl
+  have hpT : (p₀.complete (p₀.toDirectSumParts.withSort s)).cvT = p₀.cvT := by simp
+  have hpC : (p₀.complete (p₀.toDirectSumParts.withSort s)).ctors = p₀.ctors := by simp
+  have hpK : (p₀.complete (p₀.toDirectSumParts.withSort s)).kinds = p₀.kinds := by simp
+  have hpP : (p₀.complete (p₀.toDirectSumParts.withSort s)).nP = p₀.nP := by simp
+  have hpI : (p₀.complete (p₀.toDirectSumParts.withSort s)).nIdx = p₀.nIdx := by simp
+  have hpR : (p₀.complete (p₀.toDirectSumParts.withSort s)).cvR = p₀.cvR := by simp
+  have hpE : (p₀.complete (p₀.toDirectSumParts.withSort s)).elim = p₀.elim := by simp
+  have hpL : (p₀.complete (p₀.toDirectSumParts.withSort s)).large = p₀.large := by simp
+  have hpS : (p₀.complete (p₀.toDirectSumParts.withSort s)).resSort = s := by simp
+  have hpProp : (p₀.complete (p₀.toDirectSumParts.withSort s)).isProp
+      = (Level.isEquiv (p₀.complete (p₀.toDirectSumParts.withSort s)).resSort .zero
+          == some true) := by simp
+  generalize hp : p₀.complete (p₀.toDirectSumParts.withSort s) = p at hCtors hRec hTbl hFOk hsorts hopT2 hwl hpT hpC hpK hpP hpI hpR hpE hpL hpS hpProp
+  have hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true) := hpProp
+  have hnd : (p.ctors.map (·.1.name)).Nodup := by rw [hpC]; exact hnd₀
+  have hlenK : p.kinds.length = p.ctors.length := by rw [hpK, hpC]; exact hlenK₀
+  have hpos : 0 < p.ctors.length := by rw [hpC]; exact hpos₀
+  have hClps : ∀ c ∈ p.ctors, c.1.levelParams = p.cvT.levelParams ∧
+      ConLeche.reservedBasisNames.contains c.1.name = false := by rw [hpC, hpT]; exact hClps₀
+  have helimR : p.large = true → p.elim ∈ p.cvR.levelParams := by
+    rw [hpL, hpE, hpR]; exact helimR₀
+  have hRlps : ∀ q ∈ p.cvT.levelParams, q ∈ p.cvR.levelParams := by rw [hpT, hpR]; exact hRlps₀
+  have hRname : p.cvR.name = p.cvT.name.str "rec" := by rw [hpR, hpT]; exact hRname₀
+  have hresT : ConLeche.reservedBasisNames.contains p.cvT.name = false := by
+    rw [hpT]; exact hresT₀
+  have hresR : ConLeche.reservedBasisNames.contains p.cvR.name = false := by
+    rw [hpR]; exact hresR₀
+  have hTname₀ : cvT.name = p.cvT.name := by rw [hpT]; exact hTname₀₀
+  have hTlps₀ : cvT.levelParams = p.cvT.levelParams := by rw [hpT]; exact hTlps₀₀
+  have hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort) := by
+    rw [hpP, hpI, hpS]; exact hstripT₀
   obtain ⟨hfindT, -, hpshapeT, -, -, -, typeT, -, -, -, -, htrT, -, -, htyT⟩ :=
     ConLeche.checkConstantVal_inv hccvT
   have hTname : cvTa.name = p.cvT.name := by rw [htyT]; exact hTname₀
@@ -180,41 +210,73 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hppsR : ∀ ψ, ppsAll (restrictΨ p.cvT.levelParams ψ) = ppsAll ψ := by
     intro ψ
     exact (hFD.params _ _ fun q hq => restrictΨ_agree _ _ q (by rw [← hlpsT]; exact hq)).1
-  -- THE BLOCK'S CAPABILITY LAWS ARE VACUOUS (task #210 Part A): a
-  -- recursive block's constructor has a field, so the block is never
-  -- unit-like, and its η claim is premised on the projection-function
-  -- family being stored, which the table stage keeps free — at every
-  -- environment below the table's
-  have hFsPos : ∀ cA, ctorsA = [cA] → 0 < cA.2 := fixCtorFieldPos hFOk hlenK hlenA hneg hkinds
-  have hFsPosC : ∀ c, p.ctors = [c] → 0 < c.2 := by
-    intro c hc
-    have hlen1 : ctorsA.length = 1 := by rw [hlenA, hc]; rfl
-    obtain ⟨cA, hA⟩ := List.length_eq_one_iff.mp hlen1
-    have h1 := hFsPos cA hA
-    have h2 := (hall 0 c cA (by rw [hc]; rfl) (by rw [hA]; rfl)).1
-    omega
+  -- THE BLOCK'S CAPABILITY LAWS (task #210 Parts A and B): η is
+  -- claimed only at a constructor with a field, and its premise — the
+  -- projection-function family stored — fails below and at the table's
+  -- environment (the table keeps the family free); unit-likeness is
+  -- claimed at one fieldless index-free constructor, where the family
+  -- at its parameters is the one tagged empty tuple (`FixZeroFieldP`)
+  have hnFc : ∀ (j : Nat) (cA c : ConstantVal × Nat), ctorsA[j]? = some cA →
+      p.ctors[j]? = some c → cA.2 = c.2 :=
+    fun j cA c hj hc => (hall j c cA hc hj).1
   have hfreshFam : (ConLeche.directFixCaps p).eta = true →
       (⟨.recInfo cvRa p.majorIdx p.rulePrefix
         (ConLeche.directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
         :: (ConLeche.consSumCtors p.nP ctorsA
           ⟨.indInfo cvTa (ConLeche.directFixCaps p) :: env.consts⟩).consts⟩ : Env).find?
         (projFnName p.cvT.name 0) = none :=
-    fixTableFamFree hTbl hlenA hlenS hFsPos
-  have hcapsVac : ∀ {env' : Env} (m' : EnvS2Core V env'),
-      ((ConLeche.directFixCaps p).eta = true →
-        env'.find? (projFnName p.cvT.name 0) = none) →
-      CapsLawsAt m' p.cvT.name cvTa (ConLeche.directFixCaps p) :=
-    fun m' hfr => fixCapsLawsAt_vacuous m' hFsPosC hfr
+    fixTableFamFree hTbl hlenA hlenS
+      (fun cA c hA hc => hnFc 0 cA c (by rw [hA]; rfl) (by rw [hc]; rfl))
   have hfreshFam₁ : (ConLeche.directFixCaps p).eta = true →
       (⟨.indInfo cvTa (ConLeche.directFixCaps p) :: env.consts⟩ : Env).find?
         (projFnName p.cvT.name 0) = none :=
     fun he => ConLeche.consSumCtors_find?_none (find?_none_of_cons (hfreshFam he))
+  have hunitOf : (ConLeche.directFixCaps p).unitlike = true →
+      ∃ c, p.ctors = [c] ∧ p.nIdx = 0 ∧ c.2 = 0 := by
+    intro hu
+    unfold ConLeche.directFixCaps at hu
+    split at hu
+    · next c hc =>
+      simp only [Bool.and_eq_true, beq_iff_eq] at hu
+      exact ⟨c, hc, hu.1, hu.2⟩
+    · exact nomatch hu
+  have hunitParams : ∀ ψ, (ConLeche.directFixCaps p).unitlike = true →
+      (ConLeche.directFixCaps p).unitParams = (ppsAll ψ).length := by
+    intro ψ hu
+    obtain ⟨c, hc, hI, -⟩ := hunitOf hu
+    rw [ConLeche.directFixCaps_single hc]
+    show p.nP = (ppsAll ψ).length
+    rw [hFD.len ψ, hI, Nat.add_zero]
+  have hetaUnit : (ConLeche.directFixCaps p).unitlike = true →
+      (ConLeche.directFixCaps p).eta = true → False := by
+    intro hu he
+    obtain ⟨c, hc, -, hz⟩ := hunitOf hu
+    rw [ConLeche.directFixCaps_single hc] at he
+    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at he
+    exact he.1.2 hz
+  -- the laws at the dummy former's leaf (the family is empty)
+  have hcapsLaws₀ : ∀ {env' : Env} (m' : EnvS2Core V env'),
+      ((ConLeche.directFixCaps p).eta = true →
+        env'.find? (projFnName p.cvT.name 0) = none) →
+      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      (∀ ψ, m'.acval p.cvT.name ψ = directSumTyAV (p.resSort.eval ψ) (ppsAll ψ) []) →
+      CapsLawsAt m' p.cvT.name cvTa (ConLeche.directFixCaps p) := by
+    intro env' m' hfr hFD' hleaf
+    by_cases hu : (ConLeche.directFixCaps p).unitlike = true
+    · refine ⟨fun he _ => absurd he (hetaUnit hu), fun _ φ' => ?_⟩
+      exact fixEmptyUnitLaw hleaf hFD'.read hFD'.okTy (fun ψ => hunitParams ψ hu)
+    · exact fixCapsLawsAt_vacuous m' (by simpa using hu) hfr
   -- the dummy former: the constructors' readings and the index
   -- telescope need a carrier storing the former
   obtain ⟨mpI₀, hacI₀⟩ := stageSumFormer mp hE hccvT hTname₀ hFD (fun _ => []) (fun _ _ _ => rfl)
     (fun _ _ h => nomatch h) (fun _ _ _ => ⟨(fun _ h => nomatch h), (fun _ h => nomatch h)⟩)
     (ConLeche.directFixCaps p)
-    (fun m₂ _ => by rw [hTname]; exact hcapsVac m₂ hfreshFam₁)
+    (fun m₂ hac => by
+      rw [hTname]
+      exact hcapsLaws₀ m₂ hfreshFam₁
+        (hFD.cross (c₀ := .indInfo cvTa (ConLeche.directFixCaps p)) hTfresh
+          (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT m₂ hac)
+        (fun ψ => by rw [hac, ← hTname]; exact congrFun acvalWith_self ψ))
   have hFD_I₀ : FormerData mpI₀.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll :=
     hFD.cross (c₀ := .indInfo cvTa (ConLeche.directFixCaps p)) hTfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT mpI₀.base2 hacI₀
@@ -302,6 +364,62 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       rw [hlenFs₀ ψ j cA hjA, hFss₀D ψ j cA hjA, hEss₀D ψ j cA hjA, hEiss₀D ψ j cA hjA,
         hTlss₀D ψ j cA hjA]
       exact (hC₀ j cA hjA ψ ρp hρp).2
+  let leafT : (Name → Nat) → AVExpr := fun ψ =>
+    directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)
+  -- the laws at the fixpoint leaf: unit-likeness (one fieldless
+  -- index-free constructor) folds the leaf to the one tagged empty
+  -- tuple (`FixZeroFieldP`); η stays vacuous by the family's freshness
+  have hcapsLaws : ∀ {env' : Env} (m' : EnvS2Core V env'),
+      ((ConLeche.directFixCaps p).eta = true →
+        env'.find? (projFnName p.cvT.name 0) = none) →
+      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) →
+      CapsLawsAt m' p.cvT.name cvTa (ConLeche.directFixCaps p) := by
+    intro env' m' hfr hFD' hleaf
+    by_cases hu : (ConLeche.directFixCaps p).unitlike = true
+    · refine ⟨fun he _ => absurd he (hetaUnit hu), fun _ φ' => ?_⟩
+      obtain ⟨c, hc, hI, hz⟩ := hunitOf hu
+      obtain ⟨cA, hA⟩ := List.length_eq_one_iff.mp (by rw [hlenA, hc]; rfl : ctorsA.length = 1)
+      have h0 : ctorsA[0]? = some cA := by rw [hA]; rfl
+      have hzA : cA.2 = 0 := by
+        rw [hnFc 0 cA c h0 (by rw [hc]; rfl)]; exact hz
+      have hIds0 : ∀ ψ, Ids ψ = [] := fun ψ =>
+        List.length_eq_zero_iff.mp (by rw [hlenIds, hI])
+      have hFss0 : ∀ ψ, Fss₀ ψ = [[]] := by
+        intro ψ
+        obtain ⟨Fs, hFs⟩ := List.length_eq_one_iff.mp (by rw [hlenFss₀, hA]; rfl : (Fss₀ ψ).length = 1)
+        have := hlenFs₀ ψ 0 cA h0
+        rw [hFs, hzA] at this
+        simp only [List.getD_cons_zero] at this
+        rw [hFs, List.length_eq_zero_iff.mp this]
+      have hEss0 : ∀ ψ, Ess₀ ψ = [[]] := by
+        intro ψ
+        obtain ⟨Es, hEs⟩ := List.length_eq_one_iff.mp (by rw [hlenEss₀, hA]; rfl : (Ess₀ ψ).length = 1)
+        have hE0 : Es = esF₀ 0 ψ := by
+          have := hEss₀D ψ 0 cA h0
+          rwa [hEs] at this
+        have hlen : (esF₀ 0 ψ).length = 0 := by
+          have := (hcf₀ 0 cA h0).lenE ψ
+          rwa [hI] at this
+        rw [hEs, hE0, List.length_eq_zero_iff.mp hlen]
+      have hleaf' : ∀ ψ, m'.acval p.cvT.name ψ
+          = directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) [] rss (Tlss₀ ψ) (Eiss₀ ψ)
+              (Fss₀ ψ) (Ess₀ ψ) := by
+        intro ψ; rw [hleaf ψ]; show directFixTyAVI _ _ _ (Ids ψ) _ _ _ _ _ = _; rw [hIds0]
+      refine fixFibreUnitLaw (u := uAV) (w := fun ψ => p.resSort.eval ψ) (rss := rss)
+        (tlss := Tlss₀) (eiss := Eiss₀) (Fss₀ := Fss₀) (Ess := Ess₀) hleaf' ?_ hFD'.read hFD'.okTy
+        (fun ψ => hunitParams ψ hu)
+      intro ψ ρ ts hsp
+      have hlenP : (ppsAll ψ).length = p.nP := by rw [hFD.len ψ, hI, Nat.add_zero]
+      have hρp : Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse (consList ts ρ) := by
+        rw [List.take_of_length_le (Nat.le_of_eq hlenP)]
+        simpa using sat2_of_spineFit (Sat2_nil V ρ) hsp
+      have hX := (hX₀ ψ (consList ts ρ) hρp).1
+      rw [hIds0] at hX
+      refine fixFoldSingle (Fs := []) hlenP (hEss0 ψ) hsp hX ?_
+      rw [hFss0, hEss0]
+      exact chainsRealI_zero
+    · exact fixCapsLawsAt_vacuous m' (by simpa using hu) hfr
   -- the real former
   have hlpsA : ∀ cA ∈ ctorsA, cA.1.levelParams = p.cvT.levelParams := by
     intro cA hcA
@@ -354,7 +472,12 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         exact (hcf₀ j cA hjA).belowE ψ E hE)
     hIdx (fun ψ ρp hρp => (hX₀ ψ ρp hρp).1) (fun ψ ρp hρp => (hX₀ ψ ρp hρp).2)
     (ConLeche.directFixCaps p)
-    (fun m₂ _ => by rw [hTname]; exact hcapsVac m₂ hfreshFam₁)
+    (fun m₂ hac => by
+      rw [hTname]
+      exact hcapsLaws m₂ hfreshFam₁
+        (hFD.cross (c₀ := .indInfo cvTa (ConLeche.directFixCaps p)) hTfresh
+          (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT m₂ hac)
+        (fun ψ => by rw [hac, ← hTname]; exact congrFun acvalWith_self ψ))
   have hacI' : mpI.base2.acval = acvalWith mp.base2.acval p.cvT.name
       (fun ψ => directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ)
         (Ess₀ ψ)) := by
@@ -582,8 +705,6 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       obtain ⟨i, hi⟩ := List.getElem?_of_mem hcdm
       obtain ⟨cA, hiA, rfl⟩ := hcdMem ψ i cd hi
       exact ((hframes i cA hiA).2 ψ ρ (((hframes i cA hiA).1 ψ ρ).mp hρ)).2.1
-  let leafT : (Name → Nat) → AVExpr := fun ψ =>
-    directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)
   have hfold : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP).map (·.2.2)) bs →
@@ -659,8 +780,8 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   obtain ⟨mpC, hE_C, hfT_C, hFD_C, hleafT_C, hconsAll, hinvC⟩ := ctorsLoopGen hμ hCtors hndA hlpsT
     hlpsA hFssParams hFssBelow (fun j cA hj => (hframes j cA hj).1) hFssOkP
     (fun j cA hj ψ ρ hρ bs hsp => ((hframes j cA hj).2 ψ ρ hρ).2.2 bs hsp |>.2)
-    Inv hInv (ConLeche.directFixCaps p)
-    (fun m' hinv => hcapsVac m' hinv.2.1) leafT hfold
+    Inv hInv (ConLeche.directFixCaps p) leafT
+    (fun m' hinv hFD' hleaf' => hcapsLaws m' hinv.2.1 hFD' hleaf') hfold
     ctorsA 0 _ mpI (fun i => by rw [Nat.zero_add]) (Nat.zero_add _) hE_I hfT_I hFD_I hleafT_I
     (fun i cA hi _ => absurd hi (Nat.not_lt_zero _))
     (fun i cA _ hi => by
@@ -783,13 +904,15 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       have hf := (hframes j cA hjA).2 ψ ρp (((hframes j cA hjA).1 ψ ρp).mp hρp)
       exact ((hf.2.2 bs hsp).1 E hE).2
   obtain ⟨sAV, mp₃, hac₃⟩ := stageFixRec (fssZ := Fss₀) hE_C hμ mpC hmI hrP rfl rfl hRec hstripT hfT_C
-    (fun m₂ _ => hcapsVac m₂ hfreshFam)
+    (fun m₂ _ hFD' hleaf' => hcapsLaws m₂ hfreshFam hFD'
+      (fun ψ => by rw [hleaf' ψ]; exact hleafT_C ψ))
     hlpsT hopT helimR hRlps hFD_C hlenK' hks hcf_C hidxRes_C hUparams hleafT_C' hleafC_C
     (fun j cA hj => (hframes j cA hj).1) hframesR
     (fun hl => (hwl hl).imp_right fun h => by rw [hlenA]; exact h) (by rw [hlenA]; exact hpos)
-  -- the projection table at a structure-like block (task #210 Part A)
-  exact declDirectFixTable rfl rfl hTbl mpC mp₃ hac₃ hProp hshape (by rw [← hTname₀]; exact hpshapeT)
-    mp.base2.wf hlenA hFsPos (fun j cA c hj hc => (hall j c cA hc hj).1) hrunOf hfT_C hlpsT hTfresh'
+  -- the projection table at a structure-like block (task #210 Parts A, B)
+  exact declDirectFixTable rfl rfl hTbl mpC mp₃ hac₃ hProp hRname hClps hresT hresR
+    (by rw [← hTname₀]; exact hpshapeT)
+    mp.base2.wf hlenA hnFc hrunOf hfT_C hlpsT hTfresh'
     (by rw [hTtype]; exact htrT) hFD_C hcf_C hleafT_C' hleafC_C hframes hsortsOf
     (fun ψ ρp h => ⟨(hframesR ψ ρp h).1, (hframesR ψ ρp h).2.1⟩) hRec
 

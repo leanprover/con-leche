@@ -62,8 +62,10 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
     -- the block's capability record and its laws at every carrier the
     -- invariant reaches (task #210 Part A)
     (caps : IndCaps)
-    (hTlawsOf : ∀ {env' : Env} (m' : EnvS2Core V env'), Inv m' → CapsLawsAt m' p.cvT.name cvTa caps)
     (leafT : (Name → Nat) → AVExpr)
+    (hTlawsOf : ∀ {env' : Env} (m' : EnvS2Core V env'), Inv m' →
+      FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll →
+      (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) → CapsLawsAt m' p.cvT.name cvTa caps)
     (hfold : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP).map (·.2.2)) bs →
@@ -129,23 +131,27 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       unfold ctorBodyAVI
       rw [hleafT ψ]
       exact hfold k cA hcAk ψ ρ hρ bs hsp
+    have hcbT : ConstsBound env cvTa.type :=
+      constsBound_of_constsResolve _ (mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)).2.2.1
+    have hcross : ∀ e : Expr, ConsCrossAt (.ctorInfo cA.1 p.nP cA.2) e :=
+      fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
     obtain ⟨mpC, hacC⟩ := stageCtorGen (j := k) hE mp hCtor hfresh htr hfT
-      (fun m₂ hag => hTlawsOf m₂ (hInv mp.base2 cA (fun ψ => m₂.acval cA.1.name ψ) m₂
-        (List.mem_of_getElem? hcAk) hfresh
-        (by
+      (fun m₂ hag => by
+        have hac : m₂.acval = acvalWith mp.base2.acval cA.1.name
+            (fun ψ => m₂.acval cA.1.name ψ) := by
           funext n ψ
           by_cases hn : n = cA.1.name
           · subst hn; exact (congrFun acvalWith_self ψ).symm
-          · rw [hag n hn]; exact (congrFun (acvalWith_ne hn) ψ).symm) hinv))
+          · rw [hag n hn]; exact (congrFun (acvalWith_ne hn) ψ).symm
+        exact hTlawsOf m₂ (hInv mp.base2 cA (fun ψ => m₂.acval cA.1.name ψ) m₂
+            (List.mem_of_getElem? hcAk) hfresh hac hinv)
+          (hFD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh (hcross _) hcbT m₂ hac)
+          (fun ψ => by rw [hag _ hTC]; exact hleafT ψ))
       hlpsT hlpsC hFD hCD
       hfoldC hFsj hEsj hFssParams hFssBelow (hiff k cA hcAk)
       (fun ψ ρ hρ => hFssOkP ψ ρ ((hiff k cA hcAk ψ ρ).mpr hρ)) (hIdx k cA hcAk)
     -- the invariants at the extension
-    have hcbT : ConstsBound env cvTa.type :=
-      constsBound_of_constsResolve _ (mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)).2.2.1
     have hcbC : ConstsBound env cA.1.type := constsBound_of_constsResolve _ htr
-    have hcross : ∀ e : Expr, ConsCrossAt (.ctorInfo cA.1 p.nP cA.2) e :=
-      fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
     have hE' : ConLeche.EtaFamiliesClosedExcept ⟨.ctorInfo cA.1 p.nP cA.2 :: env.consts⟩
         p.cvT.name :=
       hE.cons hfresh (fun _ _ heq => nomatch heq)
@@ -208,7 +214,7 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
     have hinv' : Inv mpC.base2 :=
       hInv mp.base2 cA _ mpC.base2 (List.mem_of_getElem? hcAk) hfresh hacC hinv
     exact ctorsLoopGen hμ hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
-      caps hTlawsOf leafT hfold rest (k + 1) _ mpC hrest' (by simp at hk; omega) hE' hfT' hFD'
+      caps leafT hTlawsOf hfold rest (k + 1) _ mpC hrest' (by simp at hk; omega) hE' hfT' hFD'
       hleafT' hcons' hpend' hinv'
 
 

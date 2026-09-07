@@ -315,9 +315,7 @@ def checkDeclsProgressIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
       match pd with
       | .indDecl block =>
         let route :=
-          if (ConLeche.directPartsF? fe block).isSome then "struct"
-          else if (ConLeche.directSumPartsF? fe block).isSome then "sum"
-          else if (ConLeche.directFixParts? block).isSome then "fix"
+          if (ConLeche.directFixParts? block).isSome then "fix"
           else if inModelled.contains ((block.head?.map (·.name)).getD .anonymous)
             then "inmodel"
           else "modeled"
