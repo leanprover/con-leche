@@ -25,7 +25,7 @@ and pulling that into `NatOpFrag` would push it onto the TT lane's
 cone for one definition.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 open Lech.VExpr
 
@@ -124,4 +124,4 @@ theorem natFrag_subst_syntax {c : Name} {v : Expr}
   | .letE _ _ _, h | .proj _ _ _, h | .lit _, h => by
     simp [natFragOk] at h
 
-end Lech.TTVerify
+end Lech.Verify

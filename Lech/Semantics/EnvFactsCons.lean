@@ -47,7 +47,7 @@ no `EnvS`.  Both lanes consume it — the R lane through
 
 namespace Lech.Semantics
 
-open Lech.VExpr Lech.TTVerify
+open Lech.VExpr Lech.Verify
 
 /-- A block member's kind: an `.indInfo`, a `.ctorInfo`, or a
 *rule-less* `.recInfo` (the provisioning's shape).  Named because six

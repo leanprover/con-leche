@@ -25,7 +25,7 @@ door, and let the inferences that reduction and definitional equality
 perform on their own intermediate terms re-derive types **without
 re-checking application arguments** (`infer_type_core(e, infer_only)`,
 lean4lean's `inferType (inferOnly := true)`).  Lech cannot copy that
-wholesale: `Typable e → InferOnly e t → HasType e t` is refuted
+wholesale: `Typable e → InferOnly e t → (e really has type t)` is refuted
 (spike `inferonly-metatheory`), and its semantic residue survives at
 the *squash* regime — closed `V`-values satisfy every premise of the
 premise-form io claim with `app ⟦f⟧ ⟦a⟧ ∉ ⟦B'⟧⟦a⟧`

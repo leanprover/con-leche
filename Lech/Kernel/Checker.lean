@@ -14,7 +14,7 @@ common `checkConstantVal` live in `Lech/Kernel/CheckerBase.lean`;
 the modeled-inductive install in `Lech/Kernel/Modeled.lean`; the
 direct simple-structure install in `Lech/Kernel/Direct/Install.lean`.
 Verification: `Lech.Verify.*`, `Lech.SetR.Main` (the set route)
-and `Lech.TTVerify.Main` (the declarative route).
+and `Lech.Verify.Main` (the declarative route).
 -/
 
 namespace Lech

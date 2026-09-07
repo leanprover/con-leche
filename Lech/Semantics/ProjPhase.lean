@@ -18,7 +18,7 @@ Statements verbatim from their old home; the namespace is unchanged.
 -/
 
 namespace Lech.Semantics
-open Lech.VExpr Lech.TTVerify
+open Lech.VExpr Lech.Verify
 
 /-- **The projection phase's fold invariant** ([set] transpose of
 `ProjPhaseInv`): the parent type and the constructor still carry their

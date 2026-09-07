@@ -16,7 +16,7 @@ field they consume (`BasisPinnedTT` — itself relocated here-adjacent,
 them without importing the TT lane.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 open Lech.VExpr
 
@@ -135,4 +135,4 @@ theorem unitLike_eq_punit {env : Env} {cval : TConstVal}
   rw [show pinnedInfo punitName = punitA from rfl] at hp
   exact ⟨us, rfl, hp ▸ hfc⟩
 
-end Lech.TTVerify
+end Lech.Verify

@@ -29,8 +29,9 @@ campaign design document (architecture, the full rule tables, the task
 sequence, the risk register) is the #148 design deliverable; this file
 records what T2 **built**, where it **deviates** from the design's §1
 as written, and what T3 (bridge) and T4 (soundness) need to know that
-the design document does not say.  House practices are
-`Lech/TTVerify/DESIGN.md` §0/§25 (binding).
+the design document does not say.  House practices were `Lech/TTVerify/DESIGN.md` §0/§25; that file was
+deleted with its subject at task #209 and what is still live of it is
+DESIGN.md's **House practices** section (binding).
 
 ## Promoted practices (binding here; candidates for §0/§25)
 

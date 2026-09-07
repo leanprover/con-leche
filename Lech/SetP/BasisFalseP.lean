@@ -24,7 +24,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   falseA falseRecA falseName uN)
@@ -60,7 +60,7 @@ theorem extendFalseP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT falseA.name ψ
+        rw [show Lech.Verify.pinnedDirectT falseA.name ψ
           = some (VExpr.const .empty [0]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -97,9 +97,9 @@ theorem denoteP_falseRecA_type {m : EnvS2Core V env}
           (.pi 0 (pwBit ψ .never) (.const .empty [0]) (.sort (ψ uN)))
           (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .empty [0])
             (.app (.bvar 1) (.bvar 0)))) := by
-  have hpd : Lech.TTVerify.pinnedDirectT falseName ψ
+  have hpd : Lech.Verify.pinnedDirectT falseName ψ
       = some (VExpr.const .empty [0]) := by
-    simp +decide [Lech.TTVerify.pinnedDirectT]
+    simp +decide [Lech.Verify.pinnedDirectT]
   have hleaf : acvalWith m.acval falseRecA.name A falseName ψ
       = AVExpr.const .empty [0] := by
     rw [acvalWith_ne (by decide)]
@@ -159,7 +159,7 @@ theorem extendFalseRecP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT falseRecA.name ψ
+        rw [show Lech.Verify.pinnedDirectT falseRecA.name ψ
           = some (VExpr.const .emptyRec [0, ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)

@@ -35,7 +35,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint)
@@ -88,7 +88,7 @@ theorem denoteP_cons_fresh {acval : Name → (Name → Nat) → AVExpr}
     denoteP (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
       = denoteP acval env ψ d e := by
   rw [← denoteP_envExtend (findPreserved_cons hfresh) hlga
-      (Lech.TTVerify.findProj?_cons_of_base_none hntc)
+      (Lech.Verify.findProj?_cons_of_base_none hntc)
       d e hcb,
     denoteP_acvalWith_fresh hfresh d e]
 
@@ -108,7 +108,7 @@ theorem denoteP_cons_fresh_mono {acval : Name → (Name → Nat) → AVExpr}
       = some ea :=
   denoteP_envExtend_mono (findPreserved_cons hfresh)
     (litGuardsMono_cons hfresh)
-    (Lech.TTVerify.findProj?_cons_of_base_none hntc) d e hcb
+    (Lech.Verify.findProj?_cons_of_base_none hntc) d e hcb
     (by rw [denoteP_acvalWith_fresh hfresh]; exact h)
 
 /-- **The P cons crossing at any head** (task #175 W4c, module 4): a

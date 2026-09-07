@@ -39,7 +39,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (Env Expr Name Level ConstantInfo ConstantVal)
 
@@ -115,15 +115,15 @@ theorem acvalAt_one (hp : AcvalParamsAt env acval) (nm : Name)
     (hshape : ∀ ci, f (some ci) = true →
       ci.toConstantVal.levelParams.length = 1)
     (ψ₁ ψ₂ : Name → Nat) :
-    acval nm (Level.substFn ψ₁ (Lech.TTVerify.levelParamsAt env nm) [.zero])
+    acval nm (Level.substFn ψ₁ (Lech.Verify.levelParamsAt env nm) [.zero])
       = acval nm
-        (Level.substFn ψ₂ (Lech.TTVerify.levelParamsAt env nm) [.zero]) := by
+        (Level.substFn ψ₂ (Lech.Verify.levelParamsAt env nm) [.zero]) := by
   cases hx : env.find? nm with
   | none => rw [hx, hnone] at hfok; exact nomatch hfok
   | some ci =>
-    have hlp : Lech.TTVerify.levelParamsAt env nm
+    have hlp : Lech.Verify.levelParamsAt env nm
         = ci.toConstantVal.levelParams := by
-      simp [Lech.TTVerify.levelParamsAt, hx]
+      simp [Lech.Verify.levelParamsAt, hx]
     rw [hx] at hfok
     rw [hlp]
     exact acvalAt_oneParam hp hx (hshape ci hfok) _ _

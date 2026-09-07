@@ -40,7 +40,7 @@ siblings, now in `Lech/Verify/EnvGuards.lean` and
 here.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 open Lech.VExpr
 
@@ -291,4 +291,4 @@ theorem denote_renameConsts_resolve {f : Name → Name}
     | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
     | (simp [Expr.sizeB])
 
-end Lech.TTVerify
+end Lech.Verify

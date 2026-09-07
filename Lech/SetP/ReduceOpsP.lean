@@ -72,7 +72,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal)
 
@@ -209,7 +209,7 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
     hred (List.contains_iff_mem.mpr hcN)
   obtain rfl : valA = value' := Except.ok.inj (hannA.symm.trans hannv)
   -- the element inductive is stored, level-free, and is not the cons
-  obtain ⟨ciE, hfE, hlpE, -⟩ := Lech.TTVerify.reduceElem_sort helemOk
+  obtain ⟨ciE, hfE, hlpE, -⟩ := Lech.Verify.reduceElem_sort helemOk
   have hneE : Lech.reduceElemName cv.name ≠ cv.name := by
     intro h; rw [h, hfresh] at hfE; exact nomatch hfE
   have hEty := reduceElemTy_constS cv.name

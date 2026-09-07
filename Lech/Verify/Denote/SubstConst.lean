@@ -26,7 +26,7 @@ so the lemma is restricted to the fragment the equations live in
 over constants and two free variables, with no binder anywhere.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 open Lech.VExpr
 
@@ -112,4 +112,4 @@ theorem denote_substConst0 {env : Env} {cval : TConstVal}
   | proj _ _ _ => intro hfr; simp [shallowE] at hfr
   | lit _ => intro hfr; simp [shallowE] at hfr
 
-end Lech.TTVerify
+end Lech.Verify

@@ -27,7 +27,6 @@ nothing outside the four modules ever imported them, and the P tier's
 with them — went at task #209, together with the premise-type formers
 `natStepT`/`quotInvT` and their four substitution lemmas in
 `Verify/Denote/SubstAlgebra`, which nothing outside those rules ever
-mentioned.  The two lane records (`Lech/TT/DESIGN.md`,
-`Lech/TTVerify/DESIGN.md`) went with them; what of them is still
-live is DESIGN.md's "House practices" section.
+mentioned.  The two lane records went with them; what of them is
+still live is DESIGN.md's "House practices" section.
 -/

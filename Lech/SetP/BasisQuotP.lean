@@ -31,7 +31,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
@@ -60,7 +60,7 @@ theorem denoteP_quotLeaf {c₀ : ConstantInfo} (ψ : Name → Nat)
         (.const quotName [l])
       = some (AVExpr.const .quot [l.eval ψ]) := by
   refine denoteP_pinned_const (m := m) hne hQ (by decide) (by rfl) ?_ d
-  simp +decide [Lech.TTVerify.pinnedDirectT]
+  simp +decide [Lech.Verify.pinnedDirectT]
   show Level.substFn ψ [uN] [l] uN = Level.eval ψ l
   simp [Level.substFn]
 
@@ -72,7 +72,7 @@ theorem denoteP_quotMkLeaf {c₀ : ConstantInfo} (ψ : Name → Nat)
         (.const quotMkName [l])
       = some (AVExpr.const .quotMk [l.eval ψ]) := by
   refine denoteP_pinned_const (m := m) hne hM (by decide) (by rfl) ?_ d
-  simp +decide [Lech.TTVerify.pinnedDirectT]
+  simp +decide [Lech.Verify.pinnedDirectT]
   show Level.substFn ψ [uN] [l] uN = Level.eval ψ l
   simp [Level.substFn]
 
@@ -175,7 +175,7 @@ theorem extendQuotP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT quotA.name ψ
+        rw [show Lech.Verify.pinnedDirectT quotA.name ψ
           = some (VExpr.const .quot [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -213,7 +213,7 @@ theorem extendQuotMkP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT quotMkA.name ψ
+        rw [show Lech.Verify.pinnedDirectT quotMkA.name ψ
           = some (VExpr.const .quotMk [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -766,7 +766,7 @@ theorem extendQuotIndP (mp : EnvS2PM V μ env)
     (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT quotIndA.name ψ
+        rw [show Lech.Verify.pinnedDirectT quotIndA.name ψ
           = some (VExpr.const .quotInd [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -1136,7 +1136,7 @@ theorem extendQuotSoundP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inr (by decide))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT quotSoundA.name ψ
+        rw [show Lech.Verify.pinnedDirectT quotSoundA.name ψ
           = some (VExpr.const .quotSound [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -2140,7 +2140,7 @@ theorem quotLiftLawP {m : EnvS2Core V env}
         [Level.substFn φ quotMkA.toConstantVal.levelParams usj uN] := by
     rw [hac, acvalWith_ne (by decide)]
     refine acval_basis_pinned (m := m) hM (by decide) ?_
-    simp +decide [Lech.TTVerify.pinnedDirectT]
+    simp +decide [Lech.Verify.pinnedDirectT]
   have hctorL : m₂.acval quotMkName
       (Level.substFn φ quotMkA.toConstantVal.levelParams usj)
       = AVExpr.const .quotMk [ψ uN] := by rw [hctorL0, hulev]
@@ -2227,7 +2227,7 @@ theorem extendQuotLiftP (mp : EnvS2PM V μ env)
     (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT quotLiftA.name ψ
+        rw [show Lech.Verify.pinnedDirectT quotLiftA.name ψ
           = some (VExpr.const .quotLift [ψ uN, ψ vN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)

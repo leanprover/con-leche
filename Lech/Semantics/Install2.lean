@@ -55,7 +55,7 @@ survey's supplier requests.
 namespace Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name natLitSupported strLitSupported)
 

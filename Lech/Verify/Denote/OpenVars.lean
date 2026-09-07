@@ -19,7 +19,7 @@ binders' own — which is what lets a single opening stand for every
 telescope an alignment relates.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 /-- The `k` opening variables of a telescope at depth `d`, outermost
 first. -/
@@ -108,4 +108,4 @@ theorem openRev_instantiate1_top {a : Expr}
   rw [Nat.add_zero] at h
   exact h
 
-end Lech.TTVerify
+end Lech.Verify

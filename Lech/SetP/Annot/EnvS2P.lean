@@ -47,7 +47,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName RecRule)
@@ -464,7 +464,7 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
         ∀ i, i < RecRule.ctorParams rl →
         ∃ vpa : AVExpr,
           denoteP m.acval env φ rP
-            (Lech.TTVerify.openRev 0 rP
+            (Lech.Verify.openRev 0 rP
               ((pins.getD i default).instantiateLevelParams
                 cv.levelParams us)) = some vpa ∧
           ∀ (ρ : Nat → V) (zs : List AVExpr) (TVa restR : AVExpr),
@@ -495,7 +495,7 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
           ∀ i, i < RecRule.ctorParams rl →
           ∀ vpa : AVExpr,
             denoteP m.acval env φ rP
-              (Lech.TTVerify.openRev 0 rP
+              (Lech.Verify.openRev 0 rP
                 ((pins.getD i default).instantiateLevelParams
                   cv.levelParams us)) = some vpa →
             interp2 V ρ (ys.getD i default)

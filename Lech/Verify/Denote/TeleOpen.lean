@@ -191,7 +191,7 @@ theorem instSeq_bvar_hit : ∀ (as : List VExpr) (c i : Nat) (x : VExpr),
 end VExpr
 end Lech.VExpr
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 open Lech.VExpr
 
@@ -534,4 +534,4 @@ theorem projStmtParts {sty : Expr} {nP nF i : Nat}
       hbv (nF - 1 - i) (by omega),
       show nP + nF - 1 - (nF - 1 - i) = nP + i from by omega]
 
-end Lech.TTVerify
+end Lech.Verify

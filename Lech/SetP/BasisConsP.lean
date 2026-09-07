@@ -71,7 +71,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName RecRule)
@@ -106,7 +106,7 @@ theorem acval_basis_pinned {m : EnvS2Core V env}
     {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
     (hres : Lech.reservedBasisNames.contains n = true)
     {c : Lech.VExpr.BConst} {us : List Nat} {ψ : Name → Nat}
-    (hd : Lech.TTVerify.pinnedDirectT n ψ
+    (hd : Lech.Verify.pinnedDirectT n ψ
       = some (VExpr.const c us)) :
     m.acval n ψ = .const c us := by
   have h1 := (m.basis_pinned n ci hf hres).2 _ ψ hd

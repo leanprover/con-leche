@@ -85,24 +85,23 @@ zero acceptance delta between the two verified configurations. The P
 theorems above replace all three, claim for claim. Prose references to
 those paths elsewhere in this document are **historical citations**;
 the opening of this section is the one place kept current.
-`Lech/TTVerify/DESIGN.md` is deliberately kept (its §0/§25 are the
-house practices); so is `Lech/TT/{Syntax,Subst,Const,Judgment}`, and
-**for a reason this sentence used to state wrongly** (it read "so is
-the declarative layer … + `Lech/TT/Semantics/*`, whose
-`VExpr`/`interp`/`bval` the P tier consumes"; task #190 measured it).
-What the tower actually consumes is the **syntax**, not the
-declarative semantics: `VExpr`/`BConst`/`mkAppN` (`TT/Syntax`) and
-`liftN`/`inst`/`arrow` with their laws (`TT/Subst`) are what every
-`Semantics/*` and `SetP/*` module is written in; `TT/Const`'s basis
-constants are read by `Semantics/BasisType`, `SetModel/Value` and —
-`emptyT`, which the `Empty` letter is stated at — `SetP/CapstoneP`;
-`TT/Judgment` is kept alive by `natStepT`/`quotInvT`, which
-`Verify/Denote/SubstAlgebra` uses.  The P tier's `interp2`/`bval2` are
-its **own**, in `Lech/Semantics/*`, and never were `TT`'s.
-`Lech/TT/Semantics/*` — the declarative lane's model and its soundness
-theorem — was deleted at task #190, unread by anything but its own
-umbrella; `TT/Judgment`'s `HasType` relation lost its last reader with
-it. Its design record is `Lech/TT/DESIGN.md`.
+**Nothing of the declarative lane is left** (task #209).  What the
+tower consumes is the **syntax**, not the declarative semantics —
+`VExpr`/`BConst`/`mkAppN`, `liftN`/`inst`/`arrow` with their laws, and
+the basis constants — so at #209 those three modules moved out from
+under the retired theory's name to `Lech/VExpr/{Syntax,Subst,Const}`
+(`namespace Lech.VExpr`), and `Lech/TT/*` is gone.  They are read by
+`Semantics/BasisType`, `SetModel/Value` and — `emptyT`, which the
+`Empty` letter is stated at — `SetP/CapstoneP`; the P tier's
+`interp2`/`bval2` are its **own**, in `Lech/Semantics/*`, and never
+were the lane's.  `Lech/TT/Semantics/*` (the lane's model and its
+soundness theorem) went at task #190 unread; `TT/Judgment`'s `HasType`
+relation lost its last reader with it and went at #209, together with
+the two premise-type formers it carried and the `Lech.TTVerify`
+namespace, which now labels nothing (renamed to `Lech.Verify`, its
+modules' own).  Both lane records — `Lech/TT/DESIGN.md` and
+`Lech/TTVerify/DESIGN.md` — were deleted with their subject; what of
+them is still live is the **House practices** section below.
 
 **Project goal** (set 2026-08-19): the lean kernel arena *tutorial* tests
 (except those involving custom axioms) are accepted by the checker, and the
@@ -375,6 +374,174 @@ three stay declined by design under the axiom ceiling.
    any task touching hot-path state threading, memo/arena mutation, or per-node
    arithmetic: it distills the Lean runtime's RC/linearity model together with this
    project's measured RC-2 incidents, diagnosis toolkit and codegen landmines.
+
+## House practices
+
+*Rescued at task #209 from the two records of the retired declarative
+lane — `Lech/TTVerify/DESIGN.md` §0 and §25 and `Lech/TT/DESIGN.md`
+§3.1 — when those files were deleted with their subject.  The
+instances are all from that lane; the rules are not, which is why they
+outlive it.  Citations of the form `Lech/TT{,Verify}/DESIGN.md §N`
+elsewhere in this document are citations of a **deleted file** and
+resolve only in git history (last present at `c57b3a8f^`).*
+
+### Mechanize a consumer, or you are not finished
+
+> **Mechanize a consumer of any new definition — rule, former,
+> constant, invariant, predicate — before believing it is complete.**
+> Write the proof that actually uses it, in the first lemma that needs
+> it.  Until a consumer elaborates, "obviously sufficient" is a
+> conjecture, not a claim.
+
+The evidence was three for three: `congrEq` was missing until the
+`Eq.rec` derivation was attempted, `congrProj` until the projection
+former was, and the bridge's context correspondence `CtxOk` was found
+incomplete only by attempting the lemma that opens a binder
+(`Expr.fvarLeaves` is hereditary, so a freshly opened variable brings
+leaves the definition could not place).  All three *read* as complete.
+The first two were missing rules, the third an invariant in another
+module hierarchy — which is why the rule is phrased over definitions
+and not over rule tables.
+
+The corollary for reviewers: a change that adds a definition but no
+consumer of it has demonstrated nothing, however plausible it reads.
+
+**And when mechanization does expose a gap, say which kind it was.**
+`CtxOk`'s fix strengthened the invariant with a condition the
+checker's scope guards already establish — free: no call site changes,
+nothing new owed.  A strengthening the callers do *not* have is a
+finding of a different and worse kind, a real new obligation the
+checker may not be able to discharge.  The two carry very different
+news.
+
+### Follow the set model: look for the counterpart before designing
+
+> **Before designing a lemma, look for its set-model counterpart — not
+> to reuse the proof, but because the counterpart's *existence*,
+> *size*, or *absence* usually settles whether the statement is
+> right.**
+
+`denote_mono` replaced a whole `Extend/Transport` family with one
+lemma, and it was the family's *size* that was the signal.
+`certs_typed` turned out to be `certs_fit`, already proved on the
+other side, so the counterpart's *existence* settled the prediction
+before a line was written.  A **missing** counterpart is informative
+too, and is not permission to proceed: it means either a genuine
+saving or a statement that owes its own justification.
+
+**The observable signal, checkable in existing code.**  When a
+correspondence is *predicted before* the definition is written, its
+consumer applies **without adaptation**.  When it is *fitted
+afterwards*, the consumer needs a shim — a reassociation, a side
+lemma, an argument massaged into shape.  So a shim at a use site is a
+hint that the definition was written to the wrong shape and adjusted
+to fit, and is worth re-deriving from the consumer's needs rather than
+patching.
+
+> **Transpose the model's statement, not your reading of it.**  Where
+> the transpose deviates — a clause dropped, a quantifier widened —
+> that is a claim about the original, and it needs the same evidence
+> any other claim does.
+
+### Read the call sites: the five tells
+
+> **If several consumers each carry the same fact by hand, the
+> abstraction they consume is missing it.**
+
+| what you see at the use sites | what it says |
+|---|---|
+| a shim | the definition has the wrong **shape** |
+| the same bookkeeping repeated | it is missing a **hypothesis** |
+| a conjunct destructured to `-` | it was **offered** a hypothesis and declined it |
+| no use site can exist | it was **sliced where the code does not slice** |
+| a "trivial" lemma that will not go through | the **relation carries more than you thought** |
+
+The first four are read off the consumers — including, in the fourth
+case, off their *absence*: a lemma that is true, compiles, and can
+never be applied is one that cut a sequential body at a point the body
+does not expose.  The fifth is the only one read off the *definition*,
+and it fires earliest of all, before there is a consumer at all: a
+relation's plausible reflexivity lemma refused to go through because
+the relation was genuinely **partial** (not "these two types are
+alike" but "this spine fits both", with the spine doing work).  So
+*when a new relation appears, try its trivial lemmas immediately; the
+ones that refuse are describing the relation.*
+
+### Measure rare shapes; the suite does not cover them
+
+> **A fixture suite being green says nothing about argument shapes it
+> never contains.**  Before assuming a shape "never occurs", count it
+> in the real stream.
+
+The instance and its number: `Eq` is partially applied **once** in
+~2000 occurrences in init-prelude, and **zero** times across all 36
+e2e fixtures that mention it.  A design that special-cased the full
+spine would have gone green on the entire suite and failed only on the
+real input.  "Fixtures 100 % green, real stream fails" is the most
+expensive failure mode this project has, because it sends you looking
+at your change rather than at your coverage.
+
+Note also what made it hard: **arity is not greppable.**  The export is
+a hash-consed index graph, so the question took a walk over the
+expression table.  A property nobody can check casually is one nobody
+will check — an argument for turning it into a *fixture* rather than a
+note, so the next person inherits the check instead of the reasoning.
+
+### An observation parked as an aside is an unexplored branch
+
+The `.proj` resolution was blocked for a turn by an analysis whose
+refutation was already sitting in the same notes, filed as an aside.
+Not "I did not look" but "I looked, wrote it down, and did not follow
+it".  **Before concluding, re-read your own asides and ask which of
+them, followed, would change the conclusion.**  Cheaper written down
+than relearned.
+
+### A check whose input is produced by a cache measures the cache
+
+Lean emits a file's warnings only when it *compiles* that file, so a
+warnings check run against a fully cached `lake build` is not a weak
+check — it is **no check at all**.  That is how a warning
+(`DeclBasis.lean:881`, an unused binder) reached master while every
+landing report claimed a warning-free build: the warning was emitted
+exactly once, into a command filtered with `grep -E "^error"`, and
+every later build was cached.  When a landing's gate depends on
+freshly emitted diagnostics, invalidate the relevant oleans first:
+
+```
+rm -f .lake/build/lib/lean/Lech/<touched dir>/*.olean
+lake build 2>&1 | grep -E "^(error|warning)"      # must print nothing
+```
+
+The general rule: **a check whose input is produced by a cache must
+first invalidate that cache, or it is measuring the cache.**  The same
+reasoning applies to any "we ran it and saw nothing" gate.
+
+### Own the errors, and the false trails they leave
+
+The retired lane's closing record kept a list of its own mistakes,
+because two of them are recurrences waiting to happen:
+
+* `Except.bind_ok` **shadows**, it does not clear — a term-mode
+  `obtain` leaves the source hypothesis, so a following `subst` can be
+  a leftover acting on stale material;
+* a **stale olean** can produce a nonsensical `intro`.  When an
+  intro'd hypothesis has a type that makes no sense (a `Name` where a
+  proposition was expected), check the import chain's oleans before
+  the proof.
+
+### Telescope shape, and what a residue is
+
+The checker is telescope-shaped throughout: its recursors, its iota
+rules and its certificate frames are all built by walking the same
+telescope, so a relation that walks it too meets the others already
+aligned — and an obligation that does *not* decompose against it is a
+signal the obligation is stated wrong.  The diagnostic has a named
+residue, which is what keeps it usable: de Bruijn **absorb**
+bookkeeping (normalising `((liftN 3 M).inst z 2).inst s 1).inst n` down
+to `M`) is arithmetic on facts that are already correct, not an
+adapter.  An adapter *reorders, reshapes, or supplies something the
+telescope failed to give*.  A "no rewriting at all" pass criterion
+would have failed this test and would have been wrong.
 
 ## Environment notes
 

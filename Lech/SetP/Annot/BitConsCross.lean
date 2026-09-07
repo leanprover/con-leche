@@ -30,7 +30,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify
+open Lech.VExpr Lech.Verify
 open Lech.Semantics (AVExpr)
 open Lech (Env Expr Name Level ConstantInfo ConstantVal RecRule)
 
@@ -91,7 +91,7 @@ theorem ConsCrossAt.fvar_sort {c₀ : ConstantInfo} (idx : Nat)
 
 theorem ConsCrossAt.openRev {c₀ : ConstantInfo} {e : Expr}
     (h : ConsCrossAt c₀ e) (d : Nat) :
-    ∀ n : Nat, ConsCrossAt c₀ (Lech.TTVerify.openRev d n e)
+    ∀ n : Nat, ConsCrossAt c₀ (Lech.Verify.openRev d n e)
   | 0 => h
   | n + 1 =>
     ConsCrossAt.instantiate1 (ConsCrossAt.openRev h d n)

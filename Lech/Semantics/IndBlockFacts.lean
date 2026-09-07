@@ -45,7 +45,7 @@ consumes it instead of `declIndS memberKeyS mp.base`.
 
 namespace Lech.Semantics
 
-open Lech.VExpr Lech.TTVerify
+open Lech.VExpr Lech.Verify
 
 /-- **The block's capability pins**, from the capability record's own
 definition: `indBlockCaps`' two Booleans *are* `checkEtaThm` and

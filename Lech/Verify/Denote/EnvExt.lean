@@ -12,7 +12,7 @@ correspondence preserving those — the workhorse of the recursor-group
 swap in both verification lanes.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 open Lech.VExpr
 
@@ -123,4 +123,4 @@ theorem denote_env_ext {cval : TConstVal} {env₁ env₂ : Env}
 /-! ## The swap relation -/
 
 
-end Lech.TTVerify
+end Lech.Verify

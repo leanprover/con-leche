@@ -68,7 +68,7 @@ denotes `.bvar 0` at every level.**  `fvar d` at depth `d + 1` and
 
 set_option linter.unusedVariables false
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 open Lech.VExpr
 
@@ -502,4 +502,4 @@ theorem denote_depth_closed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       simp only [Option.map_some]
       rw [VExpr.liftN_eq_self_of_closed (denote_closed hcl hnf hb hv)]
 
-end Lech.TTVerify
+end Lech.Verify

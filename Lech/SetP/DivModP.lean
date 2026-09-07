@@ -29,7 +29,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported)
@@ -195,7 +195,7 @@ theorem divModP_entry_cons {m : EnvS2Core V env} {φ : Name → Nat}
       acvalWith_ne hnn]
   have hnat : m₂.acval Lech.natName φ = m.acval Lech.natName φ :=
     hmove _ (by simp [dmValNames])
-  refine ⟨Lech.TTVerify.natOpGuard_cons hfresh hg,
+  refine ⟨Lech.Verify.natOpGuard_cons hfresh hg,
     fun ρ x y hx hy => ?_⟩
   rw [hnat] at hx hy
   exact (divModClausesV_congr hcN

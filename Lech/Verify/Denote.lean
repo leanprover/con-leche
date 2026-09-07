@@ -4,9 +4,19 @@ import Lech.Verify.EnvWF
 import Lech.VExpr.Const
 
 /-!
-# Denotation of kernel expressions into the declarative type theory
+# Denotation of kernel expressions into the erased term language
 
 `denote cval env φ d e` maps a kernel `Expr` to a `Lech.VExpr.VExpr`.
+
+**Provenance note (task #209).**  This function was written as the
+front half of a *declarative* verification lane: a typing judgment
+`HasType` over `VExpr` with a model above it.  That lane is gone
+(tasks #148, #190, #209) and `denote` survives as the semantics
+tier's reading of a stored term.  The design rationale below names
+rules of the deleted judgment where that is what decided a clause's
+shape; those names no longer resolve to anything in the tree, and are
+kept because the *reasons* still bind — see DESIGN.md's task #209
+section.
 It is **the structural transpose of `Lech/Model/Interp.lean`'s
 `interpExpr`**, clause for clause, and the reader should hold the two
 side by side: everything below is `interpExpr` with the set-theoretic
@@ -40,7 +50,7 @@ binder, `1` under two, i.e. `.bvar (d' - 1 - d)` at depth `d'`.  So
 `ρ` and `updV` have no counterpart: the leaf clause computes what the
 valuation would have stored.  Correspondingly the counterpart of
 `FvarsOk` (which constrains `ρ`) is `CtxOk` (which constrains the de
-Bruijn context `Δ`); see `Lech/TTVerify/EnvTT.lean`.
+Bruijn context `Δ`).
 
 ## Delta is `rfl`, because `denote` never delta-reduces either
 
@@ -52,7 +62,7 @@ an *equation between denotations that already holds*, not a rule of the
 type theory — which is the concrete sense in which the reduction
 strategy drops out of the consistency argument.
 
-(`Lech/VExpr/DESIGN.md` §2.1 describes the denotation as unfolding
+(An early design described the denotation as unfolding
 constants by well-founded recursion on the environment.  Carrying a
 valuation instead is the same thing done the way the set model already
 does it: the recursion on the environment becomes the *incremental
@@ -69,7 +79,7 @@ to preserve, if any clause is ever tempted to compute:
 > **A structural `denote` is what keeps the bridge's substitution
 > metatheory small.**
 
-`Lech/TTVerify/DESIGN.md` §7 does the accounting: four lemmas, where
+The accounting the retired lane's record did: four lemmas, where
 a computing `denote` needs lifting to commute with instantiation and
 with itself, and four becomes six and keeps going.
 
@@ -79,22 +89,21 @@ substitute `⟦value⟧` into the denoted body, i.e. emit `b.inst xv`.
 That was the original choice here and it is **withdrawn**: a `denote`
 that performs a substitution forces the bridge's own metatheory to
 prove that lifting commutes with instantiation, and then that lifting
-commutes with lifting, and the swamp `Lech/VExpr/DESIGN.md` §6 is proud
+commutes with lifting, and the swamp `Lech/VExpr/Subst.lean` is proud
 of avoiding (lean4lean's 123 syntactic lemmas) reappears one layer
 down.  The shift lemma (`Lech/Verify/Denote/Shift.lean`) is where this
 showed up concretely: with `b.inst xv` its `letE` case needs two
 commutation lemmas; with `.letE A xv b` it is structural and needs
 none.
 
-So a `let` denotes to the layer's own `VExpr.letE`, `HasType.letE`
-types it, and a consumer that wants the reduct gets it from
-`HasType.zeta`, which is premise-free and exists for exactly this.  The
-cost is one rule application at the zeta clause of `whnfCore`; the
-saving is that the bridge keeps the property the layer advertises —
-its substitution metatheory stays small.
+So a `let` denotes to `VExpr.letE`, and a consumer that wants the
+reduct gets it from a premise-free zeta equation.  The cost is one
+rule application at the zeta clause of `whnfCore`; the saving is that
+the reading keeps the property the term language advertises — its
+substitution metatheory stays small.
 
 (The clause also denotes the type annotation, which `interpExpr` does
-not read.  `HasType.letE` needs it, and stored terms carry no `letE`
+not read.  A substituting `letE` rule needs it, and stored terms carry no `letE`
 today — the checker zeta-expands at annotation time — so nothing is
 lost until task #117 lands, at which point the checker's own `letE`
 rule supplies exactly this premise.)
@@ -112,17 +121,18 @@ them, and a *relational* denotation is not an option either: the defeq
 claim of the fuel induction needs both sides denoted by the *same*
 function, or the two existentials do not meet.
 
-So the layer gained `VExpr.proj` (task #119; `Lech/VExpr/Syntax.lean`
-§3, `Lech/VExpr/DESIGN.md`), a former carrying exactly what the
-checker's node carries, whose typing rules read `A` and `B` off the
+So the term language gained `VExpr.proj` (task #119;
+`Lech/VExpr/Syntax.lean`), a former carrying exactly what the
+checker's node carries, whose typing read `A` and `B` off the
 premise.  This clause is then the plain transpose of `interpExpr`'s,
-`i < 2` guard included, and the layer came out *smaller*: `psigmaFst`
-and `psigmaSnd` are derivable from the former and left `BConst`.
+`i < 2` guard included, and the alphabet came out *smaller*:
+`psigmaFst` and `psigmaSnd` are derivable from the former and left
+`BConst`.
 -/
 
 set_option linter.unusedVariables false
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 open Lech.VExpr
 
@@ -361,4 +371,4 @@ theorem denote_strLit (cval : TConstVal) (env : Env) (φ : Name → Nat)
       (if strLitSupported env then some (strLitT cval env φ s) else none) := by
   rw [denote]
 
-end Lech.TTVerify
+end Lech.Verify

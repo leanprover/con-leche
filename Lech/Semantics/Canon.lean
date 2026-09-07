@@ -37,7 +37,7 @@ design finding, not a proof gap).
 namespace Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify
+open Lech.VExpr Lech.Verify
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level inferTypeCore whnf
   natLitSupported strLitSupported)
@@ -78,7 +78,7 @@ def charListT2 (nilA consA ofNatA za sa : AVExpr) :
 /-- The uniform projection spellings erase onto each other:
 `projAV`'s image is `projNV` (task #175 wiring W3). -/
 theorem erase_projAV : ∀ (i : Nat) (ea : AVExpr),
-    (projAV i ea).erase = Lech.TTVerify.projNV i ea.erase
+    (projAV i ea).erase = Lech.Verify.projNV i ea.erase
   | 0, _ => rfl
   | i + 1, ea => erase_projAV i (.proj 1 ea)
 
@@ -340,7 +340,7 @@ theorem denote2_erase {mode : CheckMode}
     rw [denote_strLit, if_pos hsup]
     refine congrArg some ?_ |>.symm
     show VExpr.app _ _ = _
-    rw [Lech.TTVerify.strLitT]
+    rw [Lech.Verify.strLitT]
     congr 1
     · exact hlink _ _
     · refine charListT2_erase ?_ ?_ (hlink _ _) (hlink _ _)

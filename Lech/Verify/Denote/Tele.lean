@@ -12,11 +12,11 @@ here as the hypothesis of the declarative lane's fired modeled-iota
 contract.  That lane was retired (task #148 T7b) and the set route
 states its own fit as `TeleFitV` over memberships, so the typed walk
 had no consumer left and went with it.  The spine half stayed: it is
-denotation-only, `HasType`-free, and both the bridge's `majorToCtor`
+denotation-only, judgment-free, and both the bridge's `majorToCtor`
 rescues and the iota clause's redex reassembly run on it.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 open Lech.VExpr
 
@@ -167,4 +167,4 @@ theorem denote_mkAppN_inv {cval : TConstVal} {env : Env} {φ : Name → Nat}
         rw [← Option.some.inj hfa]; rfl⟩
     · exact nomatch hfa
 
-end Lech.TTVerify
+end Lech.Verify

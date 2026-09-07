@@ -42,7 +42,7 @@ Model-free by construction: no `V`, no `SetTheory`, no `EnvS`.
 
 namespace Lech.Semantics
 
-open Lech.VExpr Lech.TTVerify
+open Lech.VExpr Lech.Verify
 
 /-- The stored projection entry: a degenerate recursor, at whatever
 rule list the caller installs.  (Moved to the base at task #161 S7 —

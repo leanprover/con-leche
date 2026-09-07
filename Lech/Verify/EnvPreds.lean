@@ -15,8 +15,8 @@ These were written inside `Lech/Model/IndModel.lean` and
 them mentions a valuation, a set-theoretic universe or the `SetTheory`
 class: they are statements about what the *checker's* environment
 stores.  Relocated verbatim so both the set model and the declarative
-type-theory bridge can import them (task #123, `Lech/TTVerify/DESIGN.md`
-§14.1).
+type-theory bridge can import them (task #123; the lane and its
+record are gone, task #209).
 
 Task #148's T1 added the rest of that class: `pinnedInfo` (with its two
 `*_cases` inversions) from `Lech/Model/BasisVal.lean`, and `ProjOkT`

@@ -15,7 +15,7 @@ All four inversions and the premise were written in
 `Lech/Model/Interp.lean`, under that module's `variable (V) [SetTheory
 V]`, but none of them mentions a valuation.  Relocated verbatim so the
 declarative type-theory bridge can consume them instead of restating
-them (task #123, `Lech/TTVerify/DESIGN.md` §14.1).
+them (task #123; the lane and its record are gone, task #209).
 
 `EtaFamiliesClosed` joined them in task #148's T1, from
 `Lech/Model/Interp.lean` and against `EnvTT.lean`'s restatement of

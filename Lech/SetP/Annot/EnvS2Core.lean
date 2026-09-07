@@ -37,7 +37,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo)
 
@@ -128,7 +128,7 @@ because the carrier used to borrow the field. -/
 theorem EnvS2Core.cvalE_pinned {env : Env} (m : EnvS2Core V env)
     {n : Name} (hres : Lech.reservedBasisNames.contains n = true)
     (hst : (env.find? n).isSome = true) (ψ : Name → Nat) {t : VExpr}
-    (hpin : Lech.TTVerify.pinnedDirectT n ψ = some t) :
+    (hpin : Lech.Verify.pinnedDirectT n ψ = some t) :
     m.cvalE n ψ = t := by
   cases hf : env.find? n with
   | none => rw [hf] at hst; exact nomatch hst

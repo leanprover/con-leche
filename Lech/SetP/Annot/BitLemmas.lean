@@ -27,7 +27,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.VExpr Lech.TTVerify
+open Lech.VExpr Lech.Verify
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level PropWhen)
 

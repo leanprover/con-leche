@@ -27,7 +27,7 @@ Statements verbatim, namespace (`Lech.SetR.Interp2`) unchanged.
 
 namespace Lech.Semantics
 
-open Lech.TTVerify
+open Lech.Verify
 open Lech (CheckMode Env Expr Name Level ConstantInfo
   natLitSupported strLitSupported)
 

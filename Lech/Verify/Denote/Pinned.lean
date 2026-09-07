@@ -16,7 +16,7 @@ are `Lech/Verify/EnvPreds.lean`'s `uN`/`vN`/`u1N` (the `uN`/`vN`/
 fourth item).
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 open Lech.VExpr
 
@@ -72,11 +72,11 @@ clause matches a constructor head against `entry.ctor`, and only the
 valuation clause turns that into `⟦e'⟧ = psigmaMkT u v A B a b`, which
 is the shape `projFstMk` is stated at.
 
-**The declaration clause came back** (`Lech/TTVerify/DESIGN.md` §12.10).
+**The declaration clause came back** (the retired lane's record, §12.10).
 It was dropped on the first transposition as "syntactic, no consumer",
 and `ProofIrrelStepTT`'s unit-like branch is the consumer: `isUnitLikeTy`
 accepts a `.const c _` whose `c.str "rec"` is *reserved*, so identifying
-`c` as `PUnit` — which is what `HasType.punitEta` is stated at — is
+`c` as `PUnit` — which is what the unit-like eta law is stated at — is
 exactly reading the four other reserved recursors' pinned shapes and
 finding that none of them is single-rule, zero-field and index-free.
 Without the clause the branch is unprovable; with it, it is a `decide`. -/
@@ -93,4 +93,4 @@ theorem BasisPinnedTT.empty (cval : TConstVal) :
   intro n ci h
   simp [Env.find?, Env.empty] at h
 
-end Lech.TTVerify
+end Lech.Verify

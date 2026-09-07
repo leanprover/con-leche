@@ -243,8 +243,9 @@ by design.  So `Iff.rec` (resp. `Nonempty.rec`) has to be pinned
 alongside the type, and `Iff.intro` (resp. `Nonempty.intro`) with it,
 because the recursor's minor premise is stated at the constructor.
 Only the recursors' *types* are used — never their reduction rules
-(`Lech/TTVerify/StdAxiomKey.lean`, and `Lech/TTVerify/DESIGN.md`
-§8.4 for why that distinction carries a scheduling consequence).  The
+(the retired declarative lane's `StdAxiomKey.lean` and its record,
+both deleted — see DESIGN.md's task #209 section — for why that
+distinction carries a scheduling consequence).  The
 pins predate that argument; it is recorded here because it is the
 reason they are right. -/
 def stdAxiomOk (env : Env) (cvA : ConstantVal) : Bool :=

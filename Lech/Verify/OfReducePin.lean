@@ -10,7 +10,7 @@ consume these and neither may import the other, so they live in the
 shared tier (task #148 T6).
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 open Lech.VExpr
 
@@ -105,4 +105,4 @@ theorem matchesPin_invT {cv pin : ConstantVal}
     decide_eq_true_eq] at h
   exact ⟨h.1.1, h.1.2⟩
 
-end Lech.TTVerify
+end Lech.Verify
