@@ -1071,27 +1071,27 @@ theorem fixRecBodyAVI_pos {w : Nat} (hw : w ≠ 0) (ℓ nP : Nat) (Fss Ess : Lis
 
 /-- The one-step unfolding `λ r. λ p⃗ M m⃗ ı⃗ t. body`. -/
 def fixStepAVI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) :
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) (s : Nat) :
     AVExpr :=
-  .lam (recSortOf rds) (recTyAV Fss.length Ids.length rds)
+  .lam (s) (recTyAV Fss.length Ids.length rds)
     (mkLamsC ℓ rds (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss))
 
 /-- `Σ' (r : RecTy), Step r = r`. -/
 def fixSigAVI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) :
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) (s : Nat) :
     AVExpr :=
-  AVExpr.mkAppN (.const .psigma [recSortOf rds, 0]) [recTyAV Fss.length Ids.length rds,
+  AVExpr.mkAppN (.const .psigma [s, 0]) [recTyAV Fss.length Ids.length rds,
     .lam 1 (recTyAV Fss.length Ids.length rds)
       (.eqE ((recTyAV Fss.length Ids.length rds).liftN 1 0)
-        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds).liftN 1 0) (.bvar 0)) (.bvar 0))]
+        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0))]
 
 /-- The selected fixed point `(choice Σ prf).1` — **the recursor leaf**
 (a closed term). -/
 def fixSelAVI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) :
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) (s : Nat) :
     AVExpr :=
-  .proj 0 (AVExpr.mkAppN (.const .choice [recSortOf rds])
-    [fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds, .prf])
+  .proj 0 (AVExpr.mkAppN (.const .choice [s])
+    [fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds s, .prf])
 
 /-! ## The premise -/
 
@@ -1127,12 +1127,13 @@ the index and major binders admit the ih spine, the conclusion is a
 truth value at level zero, and the recursor's type reads to a graded
 member of its sort's universe. -/
 structure FixPre (V : Type uv) [SetTheory V] (ℓ w u nP : Nat) (Fss Ess Fss₀ : List (List AVExpr)) (Ids : List AVExpr)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) :
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) (s : Nat) :
     Prop where
   hz : ∀ d ∈ rds, (ℓ = 0 ↔ d.2.1 = 0)
   hlen : rds.length = nP + 1 + Fss.length + Ids.length + 1
   hclosed : ∀ k d, rds[k]? = some d → VExpr.bvarsBelow k d.2.2.erase
   hwℓ : w = 0 → ℓ = 0
+  hs0 : s = 0 ↔ ℓ = 0
   hdoms : ∀ ρb : Nat → V, DomsWalk ρb rds
   hK : ∀ (ρb : Nat → V) (as : List V) (t : V), SpineFit ρb (rds.map (·.2.2)) (as ++ [t]) →
     FixKI₀ ℓ w u (consList as ρb) Fss Ess Fss₀ Ids rss Eiss ∧
@@ -1147,7 +1148,7 @@ structure FixPre (V : Type uv) [SetTheory V] (ℓ w u nP : Nat) (Fss Ess Fss₀ 
   hconc0 : ℓ = 0 → ∀ (ρb : Nat → V) (as' : List V), SpineFit ρb (rds.map (·.2.2)) as' →
     interp2 V (consList as' ρb) (recConcAV Fss.length Ids.length) ∈ˢ (univZero : V)
   hRecTy : ∀ ρb : Nat → V,
-    interp2 V ρb (recTyAV Fss.length Ids.length rds) ∈ˢ (univ (recSortOf rds) : V) ∧
+    interp2 V ρb (recTyAV Fss.length Ids.length rds) ∈ˢ (univ (s) : V) ∧
     AnnotOk2 V ρb (recTyAV Fss.length Ids.length rds)
   hEbelow : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [], VExpr.bvarsBelow (nP + i) E.erase
 
@@ -1313,10 +1314,10 @@ end KRecZero
 
 section Rec
 
-variable {ℓ w u nP : Nat} {Fss Ess Fss₀ : List (List AVExpr)} {Ids : List AVExpr}
+variable {ℓ w u nP s : Nat} {Fss Ess Fss₀ : List (List AVExpr)} {Ids : List AVExpr}
   {rss : List (List Bool)} {Eiss : List (List (List AVExpr))} {rds : List (Nat × Nat × AVExpr)}
 
-theorem recConcAV_below (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) :
+theorem recConcAV_below (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) :
     VExpr.bvarsBelow rds.length (recConcAV Fss.length Ids.length).erase := by
   have hlt : Ids.length + Fss.length < rds.length - 1 := by rw [h.hlen]; omega
   have := motAppAV_below (D' := 1) (K := rds.length - 1) hlt
@@ -1324,22 +1325,15 @@ theorem recConcAV_below (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds
   exact ⟨this, show 0 < rds.length by rw [h.hlen]; omega⟩
 
 /-- The recursor type's reading is bottom-independent. -/
-theorem recTy_bottom (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρ₁ ρ₂ : Nat → V) :
+theorem recTy_bottom (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (ρ₁ ρ₂ : Nat → V) :
     interp2 V ρ₁ (recTyAV Fss.length Ids.length rds) = interp2 V ρ₂ (recTyAV Fss.length Ids.length rds) := by
   unfold recTyAV
   have := mkPisAV_closed_bottom (C := recConcAV Fss.length Ids.length) (ds := rds) (as := [])
     (ρ₁ := ρ₁) (ρ₂ := ρ₂) (by simpa using h.hclosed) (by simpa using recConcAV_below h)
   simpa using this
 
-theorem recSort_zero_iff (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) :
-    recSortOf rds = 0 ↔ ℓ = 0 := by
-  cases hr : rds with
-  | nil => have := h.hlen; rw [hr] at this; simp at this
-  | cons d ds =>
-    show imaxN d.1 d.2.1 = 0 ↔ ℓ = 0
-    rw [imaxN_eq_zero_iff]
-    have := h.hz d (by rw [hr]; exact .head _)
-    exact this.symm
+theorem recSort_zero_iff (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) :
+    s = 0 ↔ ℓ = 0 := h.hs0
 
 /-- A spine fitting a chain fits a prefix of it. -/
 theorem spineFit_prefix {ρ : Nat → V} {Ds : List AVExpr} {as bs : List V}
@@ -1371,7 +1365,7 @@ theorem towerWalk_of_leaves {m : Nat} {C : AVExpr} {g : (Nat → V) → V} :
 
 /-- The K-frame package with the function, at a walk K-frame over
 `cons r ρb` with `r` in the recursor's type. -/
-theorem fixKI_of (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb : Nat → V) {r : V}
+theorem fixKI_of (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (ρb : Nat → V) {r : V}
     (hr : r ∈ˢ interp2 V ρb (recTyAV Fss.length Ids.length rds)) {as : List V} {t : V}
     (hsp : SpineFit (cons r ρb) (rds.map (·.2.2)) (as ++ [t])) :
     FixKI ℓ w u nP (consList as (cons r ρb)) Fss Ess Fss₀ Ids rss Eiss rds := by
@@ -1403,7 +1397,7 @@ theorem fixKI_of (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb 
 
 /-- **The recursor body's facts** at a walk leaf: graded, in the
 conclusion, a truth value at level zero. -/
-theorem body_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb : Nat → V) {r : V}
+theorem body_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (ρb : Nat → V) {r : V}
     (hr : r ∈ˢ interp2 V ρb (recTyAV Fss.length Ids.length rds)) {as : List V} {t : V}
     (hsp : SpineFit (cons r ρb) (rds.map (·.2.2)) (as ++ [t])) :
     AnnotOk2 V (consList (as ++ [t]) (cons r ρb)) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss) ∧
@@ -1484,19 +1478,19 @@ theorem body_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρ
 
 /-- The semantic step at a bottom. -/
 noncomputable def stepVI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr))
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) (s : Nat)
     (ρb : Nat → V) : V :=
-  lamR (recSortOf rds) (interp2 V ρb (recTyAV Fss.length Ids.length rds)) fun r =>
+  lamR s (interp2 V ρb (recTyAV Fss.length Ids.length rds)) fun r =>
     lamTower ℓ (cons r ρb) rds fun σ => interp2 V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss)
 
 /-- **The step's facts**: its value, its membership in
 `RecTy → RecTy`, its grading. -/
-theorem stepAV_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb : Nat → V) :
-    interp2 V ρb (fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds) = stepVI ℓ w nP Fss Ess Ids rss Eiss rds ρb ∧
-    stepVI ℓ w nP Fss Ess Ids rss Eiss rds ρb
-      ∈ˢ piR (recSortOf rds) (interp2 V ρb (recTyAV Fss.length Ids.length rds))
+theorem stepAV_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (ρb : Nat → V) :
+    interp2 V ρb (fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds s) = stepVI ℓ w nP Fss Ess Ids rss Eiss rds s ρb ∧
+    stepVI ℓ w nP Fss Ess Ids rss Eiss rds s ρb
+      ∈ˢ piR (s) (interp2 V ρb (recTyAV Fss.length Ids.length rds))
           (fun _ => interp2 V ρb (recTyAV Fss.length Ids.length rds)) ∧
-    AnnotOk2 V ρb (fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds) := by
+    AnnotOk2 V ρb (fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds s) := by
   have hleaf : ∀ r, r ∈ˢ interp2 V ρb (recTyAV Fss.length Ids.length rds) →
       ∀ bs, SpineFit (cons r ρb) (rds.map (·.2.2)) bs →
         AnnotOk2 V (consList bs (cons r ρb)) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss) ∧
@@ -1536,7 +1530,7 @@ theorem stepAV_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (
 
 /-- The recursive route's data at a K-frame `(ρb, r, p⃗, M, m⃗, ı⃗)`:
 the block `(p⃗, M, m⃗)` and the index tuple. -/
-theorem kframe_split (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) {ρ : Nat → V} {as : List V}
+theorem kframe_split (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) {ρ : Nat → V} {as : List V}
     {t : V} (hsp : SpineFit ρ (rds.map (·.2.2)) (as ++ [t])) :
     ∃ as₀ is, as = as₀ ++ is ∧ as₀.length = nP + 1 + Fss.length ∧ is.length = Ids.length := by
   have hlen_as : as.length = nP + 1 + Fss.length + Ids.length := by
@@ -1561,7 +1555,7 @@ theorem frP_block {ρb : Nat → V} {as₀ is : List V} (hl₀ : as₀.length = 
 /-- **The body's iota** at a walk leaf whose major is a constructor
 value: the minor at the fields and the ih values (the function at the
 block, the field's index values, the field). -/
-theorem body_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (hw : w ≠ 0) (hℓ : ℓ ≠ 0)
+theorem body_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (hw : w ≠ 0) (hℓ : ℓ ≠ 0)
     (ρb : Nat → V) {r : V} (hr : r ∈ˢ interp2 V ρb (recTyAV Fss.length Ids.length rds))
     {as : List V} {t : V} (hsp : SpineFit (cons r ρb) (rds.map (·.2.2)) (as ++ [t]))
     {j : Nat} (hj : j < Fss.length) {fs : List V} (hlen : fs.length = (Fss.getD j []).length)
@@ -1658,7 +1652,7 @@ theorem conc_leaf {K : Nat → V} (h0 : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rs
 
 /-- **The candidate's body lands in the conclusion** at every walk
 leaf. -/
-theorem gStar_leaf (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb : Nat → V)
+theorem gStar_leaf (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (ρb : Nat → V)
     {as : List V} {t : V} (hsp : SpineFit ρb (rds.map (·.2.2)) (as ++ [t])) :
     gStar ℓ u w Fss Ess Fss₀ Ids rss Eiss (consList (as ++ [t]) ρb)
       ∈ˢ interp2 V (consList (as ++ [t]) ρb) (recConcAV Fss.length Ids.length) := by
@@ -1686,7 +1680,7 @@ theorem gStar_leaf (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρ
     exact fixSemK_mem h0 hw hℓ _ _ t hfit (mem_rkFam ⟨n, hn⟩)
 
 /-- **The candidate inhabits the recursor's type.** -/
-theorem rStar_mem (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb : Nat → V) :
+theorem rStar_mem (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (ρb : Nat → V) :
     rStar ℓ w u Fss Ess Fss₀ Ids rss Eiss rds ρb ∈ˢ interp2 V ρb (recTyAV Fss.length Ids.length rds) := by
   unfold rStar recTyAV
   refine lamTower_mem h.hz (towerWalk_of_leaves fun bs hsp => ?_)
@@ -1698,7 +1692,7 @@ theorem rStar_mem (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb
     exact ⟨gStar_leaf h ρb hsp, fun h0 => h.hconc0 h0 ρb _ hsp⟩
 
 /-- The candidate's application along a fitting spine (nonzero level). -/
-theorem rStar_fold (_h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (hℓ : ℓ ≠ 0) (ρb : Nat → V)
+theorem rStar_fold (_h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (hℓ : ℓ ≠ 0) (ρb : Nat → V)
     {bs : List V} (hsp : SpineFit ρb (rds.map (·.2.2)) bs) :
     bs.foldl SetTheory.app (rStar ℓ w u Fss Ess Fss₀ Ids rss Eiss rds ρb)
       = gStar ℓ u w Fss Ess Fss₀ Ids rss Eiss (consList bs ρb) :=
@@ -1721,7 +1715,7 @@ theorem frM_bottom {as₀ is : List V} (hl₀ : as₀.length = nP + 1 + Fss.leng
   exact agreeOff_consList_ge as₀ ρ₁ ρ₂ _ (by omega)
 
 /-- A recursive field's index values do not see the bottom. -/
-theorem idxVals_bottom (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) {as₀ is : List V}
+theorem idxVals_bottom (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) {as₀ is : List V}
     (hl₀ : as₀.length = nP + 1 + Fss.length) (hli : is.length = Ids.length) (ρ₁ ρ₂ : Nat → V)
     (j i : Nat) (y : V) :
     ((Eiss.getD j []).getD i []).map
@@ -1767,7 +1761,7 @@ theorem iterK_block {ρb : Nat → V} {as₀ is is' : List V}
 
 /-- **The candidate's body is the unfolding's body** at every walk
 leaf: the fixed-point equation, leafwise. -/
-theorem leaf_eq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (hw : w ≠ 0) (hℓ : ℓ ≠ 0)
+theorem leaf_eq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (hw : w ≠ 0) (hℓ : ℓ ≠ 0)
     (ρb : Nat → V) {as : List V} {t : V}
     (hsp : SpineFit (cons (rStar ℓ w u Fss Ess Fss₀ Ids rss Eiss rds ρb) ρb) (rds.map (·.2.2)) (as ++ [t])) :
     interp2 V (consList (as ++ [t]) (cons (rStar ℓ w u Fss Ess Fss₀ Ids rss Eiss rds ρb) ρb))
@@ -1858,10 +1852,10 @@ theorem leaf_eq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (hw : 
     ← fixSemK_stable h0 hw rk _ _ hvfit hmemrk (max m' rk) (Nat.le_max_right _ _)]
 
 /-- **The candidate is a fixed point of the step.** -/
-theorem rStar_fixed (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb : Nat → V) :
-    SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds ρb) (rStar ℓ w u Fss Ess Fss₀ Ids rss Eiss rds ρb)
+theorem rStar_fixed (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (ρb : Nat → V) :
+    SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds s ρb) (rStar ℓ w u Fss Ess Fss₀ Ids rss Eiss rds ρb)
       = rStar ℓ w u Fss Ess Fss₀ Ids rss Eiss rds ρb := by
-  by_cases hu : recSortOf rds = 0
+  by_cases hu : s = 0
   · have hℓ : ℓ = 0 := (recSort_zero_iff h).mp hu
     unfold stepVI rStar
     rw [hu, lamR_zero, app_pt]
@@ -1894,25 +1888,25 @@ theorem rStar_fixed (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (�
 
 /-- The sigma type's fibre function. -/
 noncomputable def sigBKI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr))
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) (s : Nat)
     (ρb : Nat → V) : V :=
   lamR 1 (interp2 V ρb (recTyAV Fss.length Ids.length rds)) fun r =>
-    eqv (SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds ρb) r) r
+    eqv (SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds s ρb) r) r
 
 /-- The sigma type's value. -/
 noncomputable def sigKI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr))
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) (s : Nat)
     (ρb : Nat → V) : V :=
-  sigmaSet (recSortOf rds) (interp2 V ρb (recTyAV Fss.length Ids.length rds))
-    fun r => SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss Eiss rds ρb) r
+  sigmaSet s (interp2 V ρb (recTyAV Fss.length Ids.length rds))
+    fun r => SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb) r
 
 theorem sigBKI_app {ρb : Nat → V} {r : V} (hr : r ∈ˢ interp2 V ρb (recTyAV Fss.length Ids.length rds)) :
-    SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss Eiss rds ρb) r
-      = eqv (SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds ρb) r) r :=
+    SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb) r
+      = eqv (SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds s ρb) r) r :=
   app_lamR_pos Nat.one_ne_zero hr
 
 theorem sigBKI_mem (ρb : Nat → V) :
-    sigBKI ℓ w nP Fss Ess Ids rss Eiss rds ρb
+    sigBKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb
       ∈ˢ psigmaFibreSpace V 0 (interp2 V ρb (recTyAV Fss.length Ids.length rds)) :=
   lamR_mem fun _ _ => by rw [univ_zero]; exact eqv_mem_univZero _ _
 
@@ -1934,189 +1928,189 @@ theorem pt_mem_dnegSpace2' {A x : V} (hx : x ∈ˢ A) : (pt : V) ∈ˢ dnegSpace
   exact pt_mem_unitSet
 
 /-- **The sigma type's facts**: its value, its formation, its grading. -/
-theorem fixSigAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb : Nat → V) :
-    interp2 V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds) = sigKI ℓ w nP Fss Ess Ids rss Eiss rds ρb ∧
-      sigKI ℓ w nP Fss Ess Ids rss Eiss rds ρb ∈ˢ (univ (recSortOf rds) : V) ∧
-      AnnotOk2 V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds) := by
+theorem fixSigAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (ρb : Nat → V) :
+    interp2 V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds s) = sigKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb ∧
+      sigKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb ∈ˢ (univ (s) : V) ∧
+      AnnotOk2 V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds s) := by
   obtain ⟨hTu, hTok⟩ := h.hRecTy ρb
   obtain ⟨hsv, hsm, hsok⟩ := stepAV_facts h ρb
-  have hu0 : recSortOf rds = 0 → interp2 V ρb (recTyAV Fss.length Ids.length rds) ∈ˢ (univZero : V) := by
+  have hu0 : s = 0 → interp2 V ρb (recTyAV Fss.length Ids.length rds) ∈ˢ (univZero : V) := by
     intro h0; have := hTu; rwa [h0, univ_zero] at this
   -- the pieces under the sigma's λ
   have hT1 : ∀ r : V, interp2 V (cons r ρb) ((recTyAV Fss.length Ids.length rds).liftN 1 0)
       = interp2 V ρb (recTyAV Fss.length Ids.length rds) := by
     intro r; rw [interp2_liftN, shiftE_succ_cons, shiftE_zero_zero]
-  have hs1 : ∀ r : V, interp2 V (cons r ρb) ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds).liftN 1 0)
-      = stepVI ℓ w nP Fss Ess Ids rss Eiss rds ρb := by
+  have hs1 : ∀ r : V, interp2 V (cons r ρb) ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds s).liftN 1 0)
+      = stepVI ℓ w nP Fss Ess Ids rss Eiss rds s ρb := by
     intro r; rw [interp2_liftN, shiftE_succ_cons, shiftE_zero_zero, hsv]
-  have hs1ok : ∀ r : V, AnnotOk2 V (cons r ρb) ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds).liftN 1 0) := by
+  have hs1ok : ∀ r : V, AnnotOk2 V (cons r ρb) ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds s).liftN 1 0) := by
     intro r; rw [AnnotOk2_liftN, shiftE_succ_cons, shiftE_zero_zero]; exact hsok
   have hbody : ∀ r : V, r ∈ˢ interp2 V ρb (recTyAV Fss.length Ids.length rds) →
       interp2 V (cons r ρb) (.eqE ((recTyAV Fss.length Ids.length rds).liftN 1 0)
-        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds).liftN 1 0) (.bvar 0)) (.bvar 0))
-        = eqv (SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds ρb) r) r ∧
+        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0))
+        = eqv (SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds s ρb) r) r ∧
       AnnotOk2 V (cons r ρb) (.eqE ((recTyAV Fss.length Ids.length rds).liftN 1 0)
-        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds).liftN 1 0) (.bvar 0)) (.bvar 0)) := by
+        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0)) := by
     intro r hr
     refine ⟨?_, ?_⟩
     · rw [interp2_eqE, interp2_app, hs1, interp2_bvar, cons_zero]
     · rw [AnnotOk2_eqE, AnnotOk2_app]
-      refine ⟨⟨hs1ok r, trivial, recSortOf rds, interp2 V ρb (recTyAV Fss.length Ids.length rds),
+      refine ⟨⟨hs1ok r, trivial, s, interp2 V ρb (recTyAV Fss.length Ids.length rds),
         fun _ => interp2 V ρb (recTyAV Fss.length Ids.length rds), ?_, ?_, fun h0 _ _ => hu0 h0⟩, trivial⟩
       · rw [hs1]; exact hsm
       · rw [interp2_bvar, cons_zero]; exact hr
   have hlamv : interp2 V ρb (.lam 1 (recTyAV Fss.length Ids.length rds)
       (.eqE ((recTyAV Fss.length Ids.length rds).liftN 1 0)
-        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds).liftN 1 0) (.bvar 0)) (.bvar 0)))
-      = sigBKI ℓ w nP Fss Ess Ids rss Eiss rds ρb := by
+        (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0)))
+      = sigBKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb := by
     unfold sigBKI
     rw [interp2_lam]
     exact lamR_congr fun r hr => (hbody r hr).1
-  have hps := psigmaV2_mem_gen (V := V) (recSortOf rds) 0
+  have hps := psigmaV2_mem_gen (V := V) (s) 0
   rw [max_zero'] at hps
-  have hv : interp2 V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds) = sigKI ℓ w nP Fss Ess Ids rss Eiss rds ρb := by
-    show SetTheory.app (SetTheory.app (psigmaV2 V (recSortOf rds) 0)
+  have hv : interp2 V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds s) = sigKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb := by
+    show SetTheory.app (SetTheory.app (psigmaV2 V (s) 0)
       (interp2 V ρb (recTyAV Fss.length Ids.length rds))) (interp2 V ρb (.lam 1 _ _)) = _
     rw [hlamv, psigmaV2_app V hTu (sigBKI_mem ρb), max_zero']
     rfl
   refine ⟨hv, ?_, ?_⟩
-  · have := sigma_mem_univ (u := recSortOf rds) (v := 0) hTu
+  · have := sigma_mem_univ (u := s) (v := 0) hTu
       (fun r hr => psigmaFibre_apply V (sigBKI_mem (ℓ := ℓ) (w := w) (nP := nP) (Fss := Fss) (Ess := Ess)
-        (Ids := Ids) (rss := rss) (Eiss := Eiss) (rds := rds) ρb) hr)
+        (Ids := Ids) (rss := rss) (Eiss := Eiss) (rds := rds) (s := s) ρb) hr)
     rwa [max_zero'] at this
-  · show AnnotOk2 V ρb (.app (.app (.const .psigma [recSortOf rds, 0]) _) _)
+  · show AnnotOk2 V ρb (.app (.app (.const .psigma [s, 0]) _) _)
     rw [AnnotOk2_app]
     refine ⟨?_, ?_, ?_⟩
     · rw [AnnotOk2_app]
-      exact ⟨trivial, hTok, recSortOf rds + 1, univ (recSortOf rds),
-        fun A => piR (recSortOf rds + 1) (psigmaFibreSpace V 0 A) fun _ => (univ (recSortOf rds) : V),
+      exact ⟨trivial, hTok, s + 1, univ (s),
+        fun A => piR (s + 1) (psigmaFibreSpace V 0 A) fun _ => (univ (s) : V),
         hps, hTu, fun h => absurd h (Nat.succ_ne_zero _)⟩
     · rw [AnnotOk2_lam]
       refine ⟨hTok, fun r hr => (hbody r hr).2, fun _ => (univ 0 : V), fun r hr => ?_,
         fun h => absurd h Nat.one_ne_zero⟩
       rw [(hbody r hr).1, univ_zero]; exact eqv_mem_univZero _ _
-    · refine ⟨recSortOf rds + 1, psigmaFibreSpace V 0 (interp2 V ρb (recTyAV Fss.length Ids.length rds)),
-        fun _ => (univ (recSortOf rds) : V), ?_, ?_, fun h => absurd h (Nat.succ_ne_zero _)⟩
-      · show SetTheory.app (psigmaV2 V (recSortOf rds) 0) (interp2 V ρb (recTyAV Fss.length Ids.length rds)) ∈ˢ _
+    · refine ⟨s + 1, psigmaFibreSpace V 0 (interp2 V ρb (recTyAV Fss.length Ids.length rds)),
+        fun _ => (univ (s) : V), ?_, ?_, fun h => absurd h (Nat.succ_ne_zero _)⟩
+      · show SetTheory.app (psigmaV2 V (s) 0) (interp2 V ρb (recTyAV Fss.length Ids.length rds)) ∈ˢ _
         exact app_mem_piR_pos (Nat.succ_ne_zero _) hps hTu
       · rw [hlamv]; exact sigBKI_mem ρb
 
 /-- **The selected fixed point** — the recursor leaf's value: in the
 recursor's type, a fixed point of the step, graded. -/
-theorem fixSelAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb : Nat → V) :
-    interp2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds)
+theorem fixSelAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (ρb : Nat → V) :
+    interp2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds s)
         ∈ˢ interp2 V ρb (recTyAV Fss.length Ids.length rds) ∧
-      SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds ρb)
-          (interp2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds))
-        = interp2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds) ∧
-      AnnotOk2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds) := by
+      SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds s ρb)
+          (interp2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds s))
+        = interp2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds s) ∧
+      AnnotOk2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds s) := by
   obtain ⟨hSv, hSu, hSok⟩ := fixSigAVI_facts h ρb
   obtain ⟨hTu, hTok⟩ := h.hRecTy ρb
-  have hu0 : recSortOf rds = 0 → interp2 V ρb (recTyAV Fss.length Ids.length rds) ∈ˢ (univZero : V) := by
+  have hu0 : s = 0 → interp2 V ρb (recTyAV Fss.length Ids.length rds) ∈ˢ (univZero : V) := by
     intro h0; have := hTu; rwa [h0, univ_zero] at this
   -- the sigma type is inhabited by the candidate
   have hr₀ := rStar_mem h ρb
   have hfix₀ := rStar_fixed h ρb
-  have hSne : ∃ x, x ∈ˢ sigKI ℓ w nP Fss Ess Ids rss Eiss rds ρb := by
-    by_cases hu : recSortOf rds = 0
+  have hSne : ∃ x, x ∈ˢ sigKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb := by
+    by_cases hu : s = 0
     · refine ⟨pt, ?_⟩
       unfold sigKI
-      rw [hu]
+      subst hu
       exact pt_mem_sigma (a := rStar ℓ w u Fss Ess Fss₀ Ids rss Eiss rds ρb) (b := pt) hr₀
         (by rw [sigBKI_app hr₀, hfix₀]; exact pt_mem_eqv_self _)
     · refine ⟨spair (rStar ℓ w u Fss Ess Fss₀ Ids rss Eiss rds ρb) pt, ?_⟩
       exact spair_mem hu hr₀ (by rw [sigBKI_app hr₀, hfix₀]; exact pt_mem_eqv_self _)
-  have hchoice : interp2 V ρb (AVExpr.mkAppN (.const .choice [recSortOf rds])
-      [fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds, .prf]) = schoice (sigKI ℓ w nP Fss Ess Ids rss Eiss rds ρb) := by
-    show SetTheory.app (SetTheory.app (choiceV2 V (recSortOf rds))
-      (interp2 V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds))) pt = _
+  have hchoice : interp2 V ρb (AVExpr.mkAppN (.const .choice [s])
+      [fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds s, .prf]) = schoice (sigKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb) := by
+    show SetTheory.app (SetTheory.app (choiceV2 V (s))
+      (interp2 V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds s))) pt = _
     rw [hSv]
     exact choiceV2_app V hSu (pt_mem_dnegSpace2' hSne.choose_spec)
   have hsel := schoice_mem hSne.choose_spec
   obtain ⟨a, b, ha, hb, hz, hpos⟩ := mem_sigma_elim hsel
   rw [sigBKI_app ha] at hb
-  have hfixa : SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds ρb) a = a := eq_of_mem_eqv hb
-  have hval : interp2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds) = a := by
-    show sfst (interp2 V ρb (AVExpr.mkAppN (.const .choice [recSortOf rds]) [_, .prf])) = a
+  have hfixa : SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss Eiss rds s ρb) a = a := eq_of_mem_eqv hb
+  have hval : interp2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds s) = a := by
+    show sfst (interp2 V ρb (AVExpr.mkAppN (.const .choice [s]) [_, .prf])) = a
     rw [hchoice]
-    by_cases hu : recSortOf rds = 0
+    by_cases hu : s = 0
     · rw [hz hu, sfst_pt]
       exact (eq_pt_of_mem_univZero (hu0 hu) ha).symm
     · rw [hpos hu, sfst_spair]
   refine ⟨by rw [hval]; exact ha, by rw [hval]; exact hfixa, ?_⟩
-  have hchoiceV : choiceV2 V (recSortOf rds) ∈ˢ piR (recSortOf rds) (univ (recSortOf rds) : V)
-      (fun A => piR (recSortOf rds) (dnegSpace2 V A) fun _ => A) :=
+  have hchoiceV : choiceV2 V (s) ∈ˢ piR (s) (univ (s) : V)
+      (fun A => piR (s) (dnegSpace2 V A) fun _ => A) :=
     lamR_mem fun _ _ => lamR_mem fun _ hh => schoice_mem (exists_mem_of_dneg2 V hh).choose_spec
-  show AnnotOk2 V ρb (.proj 0 (AVExpr.mkAppN (.const .choice [recSortOf rds])
-    [fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds, .prf]))
+  show AnnotOk2 V ρb (.proj 0 (AVExpr.mkAppN (.const .choice [s])
+    [fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds s, .prf]))
   rw [AnnotOk2_proj]
-  refine ⟨?_, by omega, recSortOf rds, 0, interp2 V ρb (recTyAV Fss.length Ids.length rds),
-    fun r => SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss Eiss rds ρb) r, ?_, ?_, ?_⟩
-  · show AnnotOk2 V ρb (.app (.app (.const .choice [recSortOf rds]) _) .prf)
+  refine ⟨?_, by omega, s, 0, interp2 V ρb (recTyAV Fss.length Ids.length rds),
+    fun r => SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb) r, ?_, ?_, ?_⟩
+  · show AnnotOk2 V ρb (.app (.app (.const .choice [s]) _) .prf)
     rw [AnnotOk2_app]
-    refine ⟨?_, trivial, recSortOf rds, dnegSpace2 V (sigKI ℓ w nP Fss Ess Ids rss Eiss rds ρb),
-      fun _ => sigKI ℓ w nP Fss Ess Ids rss Eiss rds ρb, ?_, ?_, ?_⟩
+    refine ⟨?_, trivial, s, dnegSpace2 V (sigKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb),
+      fun _ => sigKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb, ?_, ?_, ?_⟩
     · rw [AnnotOk2_app]
-      refine ⟨trivial, hSok, recSortOf rds, univ (recSortOf rds),
-        fun A => piR (recSortOf rds) (dnegSpace2 V A) fun _ => A, hchoiceV, hSv ▸ hSu, fun hu0 A _ => ?_⟩
-      show piR (recSortOf rds) _ _ ∈ˢ _
+      refine ⟨trivial, hSok, s, univ (s),
+        fun A => piR (s) (dnegSpace2 V A) fun _ => A, hchoiceV, hSv ▸ hSu, fun hu0 A _ => ?_⟩
+      show piR (s) _ _ ∈ˢ _
       rw [hu0]; exact piR_zero_mem_univZero
-    · show SetTheory.app (choiceV2 V (recSortOf rds)) (interp2 V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds)) ∈ˢ _
+    · show SetTheory.app (choiceV2 V (s)) (interp2 V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds s)) ∈ˢ _
       rw [hSv]
       refine app_mem_piR hchoiceV hSu (fun hu0 A _ => ?_)
-      show piR (recSortOf rds) _ _ ∈ˢ _
+      show piR (s) _ _ ∈ˢ _
       rw [hu0]; exact piR_zero_mem_univZero
     · exact pt_mem_dnegSpace2' hSne.choose_spec
     · intro hu0 _ _
-      rw [hu0] at hSu
+      subst hu0
       rwa [univ_zero] at hSu
   · rw [hchoice, max_zero']; exact hsel
   · exact hTu
   · intro r hr
-    show SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss Eiss rds ρb) r ∈ˢ _
+    show SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss Eiss rds s ρb) r ∈ˢ _
     rw [sigBKI_app hr, univ_zero]; exact eqv_mem_univZero _ _
 
 /-! ## The leaf -/
 
 /-- The recursor leaf: the selected fixed point (a closed term). -/
 def directFixRecAVI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AVExpr)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) :
+    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (rds : List (Nat × Nat × AVExpr)) (s : Nat) :
     AVExpr :=
-  fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds
+  fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds s
 
 /-- **The leaf inhabits the recursor's type's reading.** -/
-theorem directFixRecAVI_mem (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb : Nat → V) :
-    interp2 V ρb (directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds)
+theorem directFixRecAVI_mem (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (ρb : Nat → V) :
+    interp2 V ρb (directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds s)
       ∈ˢ interp2 V ρb (mkPisAV rds (recConcAV Fss.length Ids.length)) :=
   (fixSelAVI_facts h ρb).1
 
 /-- **The leaf is graded.** -/
-theorem directFixRecAVI_ok2 (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (ρb : Nat → V) :
-    AnnotOk2 V ρb (directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds) :=
+theorem directFixRecAVI_ok2 (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (ρb : Nat → V) :
+    AnnotOk2 V ρb (directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds s) :=
   (fixSelAVI_facts h ρb).2.2
 
 /-- **The recursor's iota**: at a fitting spine whose major is
 constructor `j`'s value, the recursor at the spine is minor `j` at the
 fields and at the inductive hypotheses — the recursor itself at the
 block, the recursive field's index values and the field. -/
-theorem directFixRecAVI_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds) (hw : w ≠ 0)
+theorem directFixRecAVI_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s) (hw : w ≠ 0)
     (hℓ : ℓ ≠ 0) (ρb : Nat → V) {as : List V} {t : V} (hsp : SpineFit ρb (rds.map (·.2.2)) (as ++ [t]))
     {j : Nat} (hj : j < Fss.length) {fs : List V} (hlen : fs.length = (Fss.getD j []).length)
     (hmaj : t = inj j (mkTower (fs ++ [pt]))) :
-    (as ++ [t]).foldl SetTheory.app (interp2 V ρb (directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds))
+    (as ++ [t]).foldl SetTheory.app (interp2 V ρb (directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds s))
       = (fs ++ (recIdx (rss.getD j []) (Fss.getD j []).length).map fun i =>
           (frKSpine nP Fss.length Ids.length (consList as ρb) ++
             (((Eiss.getD j []).getD i []).map
               (interp2 V (consList (fs.take i) (frP Fss.length Ids.length (consList as ρb))))) ++
             [fs.getD i pt]).foldl SetTheory.app
-            (interp2 V ρb (directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds))).foldl SetTheory.app
+            (interp2 V ρb (directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds s))).foldl SetTheory.app
           (frMs Fss.length Ids.length (consList as ρb) j) := by
   obtain ⟨hR, hfix, -⟩ := fixSelAVI_facts h ρb
-  have hu : recSortOf rds ≠ 0 := fun h0 => hℓ ((recSort_zero_iff h).mp h0)
+  have hu : s ≠ 0 := fun h0 => hℓ ((recSort_zero_iff h).mp h0)
   have hcl : ∀ k d, rds[k]? = some d → VExpr.bvarsBelow (([] : List V).length + k) d.2.2.erase := by
     simpa using h.hclosed
   -- the spine fits over the function too
-  have hsp' : SpineFit (cons (interp2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds)) ρb)
+  have hsp' : SpineFit (cons (interp2 V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds s)) ρb)
       (rds.map (·.2.2)) (as ++ [t]) :=
     spineFit_closed_bottom (as := []) (ρ₁ := ρb) hcl hsp
   obtain ⟨as₀, is, rfl, hl₀, hli⟩ := kframe_split h hsp
