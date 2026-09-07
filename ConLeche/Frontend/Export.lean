@@ -123,62 +123,35 @@ this should be unreachable; if it fires anyway it is converted to a
 decline at the record level (the pre-change behavior). -/
 def taintSentinel : String := "\x00uses-skipped-axiom"
 
-/-- Internal sentinel converted to a decline at the record level. -/
-def sizeSentinel : String := "\x00tree-size-budget"
+/-! ### The tree-size budget, retired at task #215
 
-/-- **Default** cap on a declaration's *unshared tree size* (nodes of
-the expression tree with all sharing expanded); `CON_LECHE_TREE_BUDGET`
-overrides it per run and `CON_LECHE_TREE_BUDGET=0` lifts it entirely
-(`Main.lean`, `StateD.treeBudget`).  `2^25`: at and beyond this scale
-the remaining tree-materializing consumers could not represent the
-declaration anyway; every stream the checker supports today is far
-below it, while adversarial DAG towers are cleanly declined.
+The frontend used to cap a declaration's *unshared tree size*
+(`declTreeSizeBudget = 2^25`, `CON_LECHE_TREE_BUDGET`, `sizeSentinel`,
+`budgetedName`, the per-entry `sizes` counter).  It existed because
+four record kinds were read by **unmemoized** tree walks, and a
+heavily DAG-shared declaration would have unfolded them into billions
+of nodes — Mathlib's `ModularCurve.JZeroGoodReductionSpecialization_alt`
+is a 5 038-entry DAG whose recursor rule is 38 795 167 nodes unshared,
+and it is the record that hit the cap in practice.
 
-Since parse-time interning (task #78) the budget no longer applies to
-ordinary definition/theorem/opaque records (whose whole pipeline is
-DAG-preserving; arena `good/perf/app-lam` accepts).  Task #213 audited
-what is left and lifted one more class — `_model`-named records; see
-`budgetedName`.  What remains budgeted, each with the *unmemoized*
-walker that is the reason:
+Task #215 removed the reasons instead of the declarations:
 
-* inductive and quotient blocks — `canonExpr` (above) rebuilds every
-  parsed block's member types and rule right-hand sides for the
-  basis-pin match, unmemoized, on **every** block; downstream the
-  modeled install adds `Expr.renameConsts`
-  (`ConLeche/Kernel/ExprOps.lean`) and the `Expr.instantiate1` inside
-  `openPisAtFvars` (`ConLeche/Kernel/CheckerBase.lean`),
-* axiom records — a *pinned* axiom name (`propext`, `Classical.choice`,
-  `Quot.sound`, the compiler-trust family) has its stored type walked
-  by `Expr.erasePw` (`ConLeche/Kernel/StdAxioms.lean`) and, for
-  `Quot.sound`, by `ConstantInfo.canon`; a stream may spell a pinned
-  name with any type at all, so the walk is reachable,
-* records under a built-in prelude name (task #191) — the dedupe
-  compares them with `DeclC.sameCanon`, i.e. `ConstantInfo.canon`,
-* the certified `Nat` operations (`natOpNames`/`natDivModNames`) — the
-  install-time certification substitutes the stored value into the
-  vendored certificate proofs and the recurrence equations
-  (`Expr.substConstAll`/`substConst0`) and runs the syntactic guards
-  over the result. -/
-def declTreeSizeBudget : Nat := 33554432
+* the **basis-pin match** selects its candidate by *name* first
+  (`ExportC.lean`), so `canonExpr` runs only on a block whose members
+  are named exactly as one of the five pins';
+* `Expr.renameConsts` and the `Expr.instantiate1` inside
+  `openPisAtFvars` are **memoized DAG walks**, swapped in by
+  `@[csimp]` in `ConLeche/Kernel/ExprOps.lean` — kernel-checked
+  against the pure definitions, so no proof and no trust point moved.
 
-/-- Does the budget apply to a definition/theorem/opaque record of
-this name?  (Inductive, quotient and axiom records are always
-budgeted; a record under a built-in prelude name is budgeted by
-`StateD.budgetedD`.)
-
-**Task #213 lifted the `_model` clause.**  It used to also answer
-`true` for any name with a `_model` component, on the ground that the
-preprocessor's artifacts are consumed by tree traversals at a later
-inductive install (`openPisAtFvars` on an `iota_j` statement is indeed
-unmemoized).  Two facts retired it: the in-process modeller (task
-#200) *generates* exactly those records and pushes them straight into
-the declaration list (`pushGenD`), never through `getDeclD`, so the
-native route has never budgeted them — the clause only penalised the
-stream that arrived through the external tool; and that tool is being
-retired.  User ruling, 2026-09-07: *"we have the internal one.  No
-need to limit the size of these defs."* -/
-def budgetedName (n : Name) : Bool :=
-  natOpNames.contains n || natDivModNames.contains n
+What replaces the cap is a **gate, not a limit**: the adversarial
+DAG-tower fixtures in `tests/e2e` put a shared tower of depth 60
+(about `2^60` nodes unshared, 60 entries as a DAG) into every record
+kind the frontend reads.  An unmemoized walk over one of them never
+finishes, so the fixture fails and names the walker — which is what a
+regression should do, rather than telling a user with a legitimate
+declaration "no".  User ruling, 2026-09-07: *"delete it if it is
+unlikely to help (and we know such DAGs appear in practice)."* -/
 
 private abbrev M := Except String
 
