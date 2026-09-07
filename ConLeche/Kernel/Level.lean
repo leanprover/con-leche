@@ -263,4 +263,148 @@ def Expr.allLevelParamsDefined (params : List Name) : Expr → Bool
   | .lit _ => true
   | .proj _ _ e => e.allLevelParamsDefined params
 
+/-! ### `allLevelParamsDefined`, memoized (task #210 Part B)
+
+The recursor-generation checks ask it of the recursor's type and of
+every rule body; a tree walk does not finish on a DAG-shared field
+type (task #215's `tower_struct`).  Swapped in by `@[csimp]` (the
+arrangement of `ConLeche/Kernel/ExprOps.lean`): kernel-checked, no
+trust point, the pure walk stays the spec.  Keyed by the node, dropped
+after each call (the answer depends on `params`). -/
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def LPMemoInv (params : List Name) (memo : Std.HashMap Expr Bool) : Prop :=
+  ∀ (k : Expr) (r : Bool), memo[k]? = some r → r = k.allLevelParamsDefined params
+
+theorem LPMemoInv.empty {params : List Name} : LPMemoInv params {} := by
+  intro k r h; simp at h
+
+theorem LPMemoInv.insert {params : List Name} {memo : Std.HashMap Expr Bool}
+    (hm : LPMemoInv params memo) {e : Expr} {r : Bool}
+    (heq : r = e.allLevelParamsDefined params) :
+    LPMemoInv params (memo.insert e r) := by
+  intro k r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k r' hk
+
+/-- Memoized `allLevelParamsDefined`. -/
+def Expr.allLevelParamsDefinedGo (params : List Name) (memo : Std.HashMap Expr Bool) :
+    Expr → Bool × Std.HashMap Expr Bool
+  | .bvar _ => (true, memo)
+  | .sort u => (u.allParamsDefined params, memo)
+  | .const _ us => (us.all (Level.allParamsDefined params), memo)
+  | .lit _ => (true, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Bool × Std.HashMap Expr Bool :=
+        match e with
+        | .fvar _ t => allLevelParamsDefinedGo params memo t
+        | .app f a =>
+          let (b₁, memo) := allLevelParamsDefinedGo params memo f
+          let (b₂, memo) := allLevelParamsDefinedGo params memo a
+          (b₁ && b₂, memo)
+        | .lam t b m =>
+          let (b₁, memo) := allLevelParamsDefinedGo params memo t
+          let (b₂, memo) := allLevelParamsDefinedGo params memo b
+          (b₁ && b₂ && m.pw.paramsDefined params, memo)
+        | .forallE t b m =>
+          let (b₁, memo) := allLevelParamsDefinedGo params memo t
+          let (b₂, memo) := allLevelParamsDefinedGo params memo b
+          (b₁ && b₂ && m.pw.paramsDefined params, memo)
+        | .letE t v b =>
+          let (b₁, memo) := allLevelParamsDefinedGo params memo t
+          let (b₂, memo) := allLevelParamsDefinedGo params memo v
+          let (b₃, memo) := allLevelParamsDefinedGo params memo b
+          (b₁ && b₂ && b₃, memo)
+        | .proj _ _ sub => allLevelParamsDefinedGo params memo sub
+        | e => (e.allLevelParamsDefined params, memo)
+      (r, memo.insert e r)
+
+/-- **The memoized walk is `allLevelParamsDefined`.** -/
+theorem Expr.allLevelParamsDefinedGo_spec {params : List Name} :
+    ∀ (e : Expr) (memo : Std.HashMap Expr Bool), LPMemoInv params memo →
+      (allLevelParamsDefinedGo params memo e).1 = e.allLevelParamsDefined params ∧
+        LPMemoInv params (allLevelParamsDefinedGo params memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty ih =>
+    intro memo hm
+    rw [allLevelParamsDefinedGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [allLevelParamsDefined, h1], ?_⟩
+      exact h2.insert (by simp [allLevelParamsDefined, h1])
+  | app a b iha ihb =>
+    intro memo hm
+    rw [allLevelParamsDefinedGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [allLevelParamsDefined, h1, h3], ?_⟩
+      exact h4.insert (by simp [allLevelParamsDefined, h1, h3])
+  | lam ty body bi iht ihb =>
+    intro memo hm
+    rw [allLevelParamsDefinedGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [allLevelParamsDefined, h1, h3], ?_⟩
+      exact h4.insert (by simp [allLevelParamsDefined, h1, h3])
+  | forallE ty body bi iht ihb =>
+    intro memo hm
+    rw [allLevelParamsDefinedGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [allLevelParamsDefined, h1, h3], ?_⟩
+      exact h4.insert (by simp [allLevelParamsDefined, h1, h3])
+  | letE ty val body iht ihv ihb =>
+    intro memo hm
+    rw [allLevelParamsDefinedGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihv _ h2
+      obtain ⟨h5, h6⟩ := ihb _ h4
+      refine ⟨by simp [allLevelParamsDefined, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [allLevelParamsDefined, h1, h3, h5])
+  | proj s i sub ih =>
+    intro memo hm
+    rw [allLevelParamsDefinedGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [allLevelParamsDefined, h1], ?_⟩
+      exact h2.insert (by simp [allLevelParamsDefined, h1])
+
+/-- The executed `allLevelParamsDefined` (one memoized DAG walk). -/
+def Expr.allLevelParamsDefinedFast (params : List Name) (e : Expr) : Bool :=
+  (allLevelParamsDefinedGo params {} e).1
+
+@[csimp] theorem Expr.allLevelParamsDefined_eq_allLevelParamsDefinedFast :
+    @Expr.allLevelParamsDefined = @Expr.allLevelParamsDefinedFast := by
+  funext params e
+  exact (allLevelParamsDefinedGo_spec e {} LPMemoInv.empty).1.symm
+
 end ConLeche

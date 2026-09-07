@@ -414,7 +414,8 @@ deriving DecidableEq, Repr, Inhabited
 
 `hash` and `hasLP` are exact bit reads.  `bvarBRaw`/`fvarBRaw` are the
 *saturating* reads: below `satRange` they are the exact bound
-(`bvarBRaw_exact`, `fvarBRaw_exact` in `Verify/Cached/Erase.lean`); at
+(`bvarBRaw_exact` in `Kernel/ExprOps.lean`, `fvarBRaw_exact` in
+`Verify/Cached/Erase.lean`); at
 `satRange` they mean "at least that", and `Expr.bvarB`/`Expr.fvarB`
 (`Kernel/ExprOps.lean`) recover exactness there with a memoized
 walk. -/
