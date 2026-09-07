@@ -100,23 +100,6 @@ theorem shadowOf_getD_rec {nP : Nat} {ks : List RecFieldKind} {fs : List V} {l :
 
 /-! ## Graded field chains from pointwise facts -/
 
-/-- `FieldsOkB` from the entries' grading at every fitting prefix. -/
-theorem fieldsOkB_of_pointwise {w : Nat} :
-    ∀ {Fs : List AVExpr} {ρ : Nat → V},
-      (∀ i, i < Fs.length → ∀ as : List V, SpineFit ρ (Fs.take i) as →
-        AnnotOk2 V (consList as ρ) (Fs.getD i default) ∧
-        (w ≠ 0 → interp2 V (consList as ρ) (Fs.getD i default) ∈ˢ (univ w : V))) →
-      FieldsOkB w ρ Fs
-  | [], _, _ => trivial
-  | F :: Fs, ρ, h => by
-    have h0 := h 0 (by simp) [] trivial
-    simp only [consList_nil, List.getD_cons_zero] at h0
-    refine ⟨h0.1, h0.2, fun a ha => ?_⟩
-    refine fieldsOkB_of_pointwise fun i hi as hsp => ?_
-    have := h (i + 1) (by simpa using hi) (a :: as) (by
-      rw [List.take_succ_cons]; exact ⟨ha, hsp⟩)
-    simpa [consList_cons] using this
-
 /-- **The shadow fields are graded** (at a positive sort): the ordinary
 domains by the chain facts at shadow spines, the recursive slots
 `Sort 0` — a member of every positive universe. -/

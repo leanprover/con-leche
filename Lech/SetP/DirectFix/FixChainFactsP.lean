@@ -1,4 +1,5 @@
 import Lech.SetP.DirectFix.FixChainsP
+import Lech.SetP.DirectFix.FixTeleBoundP
 
 /-!
 # The chain facts of a recursive constructor, and the index telescope
@@ -184,8 +185,7 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
     (hD : FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es
       srcs ks fvsP xFvs xrest Eiss tss)
     (u : Nat) (ψ : Name → Nat) (ρp : Nat → V)
-    (hρp : Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp)
-    (hrefl0 : (∃ i, i < nF ∧ ks.getD i .ordinary = .reflexive) → resSort.eval ψ = 0) :
+    (hρp : Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
     ChainFacts u (resSort.eval ψ) nP nF ρp (((ppsAll ψ).drop nP).map (·.2.2)) ks (tss ψ)
       (((ds ψ).drop nP).map (·.2.2)) (Eiss ψ) (Es ψ) := by
   -- the openings, the opened record
@@ -385,20 +385,27 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
       rw [drop_map_getD hlenDs hi, hentry] at hokP
       obtain ⟨hok, hfit⟩ := fitAt as' i hlenA hokP.1 (hD.eisLen ψ i hk hi)
       exact SlotFit.of_fin hok hfit
-    · -- a reflexive field (task #202): the family is `Prop`-valued and
-      -- the entry a Π-tower over the telescope
-      have hw0 : resSort.eval ψ = 0 := hrefl0 ⟨i, hi, hk⟩
+    · -- a reflexive field (task #202): the entry a Π-tower over the
+      -- telescope; at a `Type`-valued block the telescope's domains are
+      -- bounded at the family's regime (`fixTeleBound_of`, Stage B)
       have hentry := hD.reflEntry ψ i hk hi
       rw [drop_map_getD hlenDs hi, hentry] at hokP
       obtain ⟨hF, hB⟩ := AnnotOk2_mkPisAV_inv hokP.1
-      rw [hw0]
-      refine ⟨hF, fun d hd => by rw [hD.tssBits ψ i d hd, hw0], fun bs hsp => ?_⟩
-      have hokB := hB bs hsp
-      rw [← consList_append] at hokB
-      have hlenAB : (as' ++ bs).length = i + ((tss ψ).getD i []).length := by
-        rw [List.length_append, hlenA, hsp.length_eq, List.length_map]
-      rw [Nat.add_assoc] at hokB
-      exact fitAt (as' ++ bs) _ hlenAB hokB (hD.eisLenRefl ψ i hk hi)
+      refine ⟨?_, fun d hd => hD.tssBits ψ i d hd, fun bs hsp => ?_⟩
+      · refine fieldsOkB_of_pointwise fun k hkT bs hbs => ?_
+        rw [List.length_map] at hkT
+        rw [getD_map_snd hkT]
+        have hbs' : SpineFit (consList as' ρp) ((((tss ψ).getD i []).take k).map (·.2.2)) bs := by
+          rw [List.map_take]; exact hbs
+        refine ⟨?_, fun hw => (fixTeleBound_of hμ mp hCtor hProp hD ψ hw hi hk hρp' hsp' k hkT bs hbs').2⟩
+        have := hF.ok2_at k (by rw [List.length_map]; exact hkT) bs hbs
+        rwa [getD_map_snd hkT] at this
+      · have hokB := hB bs hsp
+        rw [← consList_append] at hokB
+        have hlenAB : (as' ++ bs).length = i + ((tss ψ).getD i []).length := by
+          rw [List.length_append, hlenA, hsp.length_eq, List.length_map]
+        rw [Nat.add_assoc] at hokB
+        exact fitAt (as' ++ bs) _ hlenAB hokB (hD.eisLenRefl ψ i hk hi)
   · -- the residual's index readings, graded at a shadow-fitting field spine
     intro as' hsp' E hE
     have hsat : Sat2 V (shadowCtx nP ks (nP + nF) (((ds ψ).map (·.2.2)).reverse))

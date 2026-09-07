@@ -231,41 +231,6 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     simp [(hcf₀ j cA hj).len ψ]
   have hksLen : ∀ j cA, ctorsA[j]? = some cA → (ksF j).length = cA.2 :=
     fun j cA hj => (hcf₀ j cA hj).ksLen
-  -- a reflexive field forces the `Prop` regime (the recogniser's guard,
-  -- task #202 Stage A1; negative kinds are excluded by the openings)
-  have hisPropRefl : ∀ j cA, ctorsA[j]? = some cA →
-      (∃ i, i < cA.2 ∧ (ksF j).getD i .ordinary = .reflexive) →
-      ∀ ψ : Name → Nat, p.resSort.eval ψ = 0 := by
-    intro j cA hj ⟨i, hi, hk⟩ ψ
-    have hjn : j < ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
-    have hany : (p.kinds.any fun ks => ks.any (· == .reflexive)) = true := by
-      rw [List.any_eq_true]
-      refine ⟨ksF j, List.mem_of_getElem? (hks j hjn), ?_⟩
-      rw [List.any_eq_true]
-      refine ⟨(ksF j).getD i .ordinary, ?_, by rw [hk]; rfl⟩
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hksLen j cA hj]; exact hi)]
-      exact List.getElem_mem _
-    have hnoneg : ¬ (p.kinds.any fun ks => ks.any (· == .negative)) = true := by
-      intro hneg
-      rw [List.any_eq_true] at hneg
-      obtain ⟨ks, hks', hn⟩ := hneg
-      rw [List.any_eq_true] at hn
-      obtain ⟨k, hkmem, hkn⟩ := hn
-      obtain ⟨j', hj'⟩ := List.getElem?_of_mem hks'
-      have hj'n : j' < ctorsA.length := by
-        rw [← hlenK']; exact (List.getElem?_eq_some_iff.mp hj').1
-      obtain ⟨cA', hjA'⟩ : ∃ cA', ctorsA[j']? = some cA' := ⟨_, List.getElem?_eq_getElem hj'n⟩
-      have hksj : ks = ksF j' := Option.some.inj (hj'.symm.trans (hks j' hj'n))
-      obtain ⟨i', hi'⟩ := List.getElem?_of_mem hkmem
-      have hi'lt : i' < cA'.2 := by
-        rw [← hksLen j' cA' hjA', ← hksj]; exact (List.getElem?_eq_some_iff.mp hi').1
-      have hkd : (ksF j').getD i' .ordinary = .negative := by
-        rw [List.getD_eq_getElem?_getD, ← hksj, hi']
-        exact beq_iff_eq.mp hkn
-      rcases (hcf₀ j' cA' hjA').opened.kinds i' hi'lt with h | h | h <;> rw [hkd] at h <;> cases h
-    have hisProp := hguard.resolve_left hnoneg hany
-    have h0 := Level.isEquiv_sound (beq_iff_eq.mp (hProp' hisProp)) ψ
-    simpa [Level.eval] using h0
   -- the chain facts at the dummy former
   have hC₀ : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
@@ -275,8 +240,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         (eissF₀ j ψ) (esF₀ j ψ) := by
     intro j cA hj ψ ρp hρp
     obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
-    exact ⟨fixChainFacts_of hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hleafT₀ (hcf₀ j cA hj) (uAV ψ) ψ ρp hρp
-        (fun h => hisPropRefl j cA hj h ψ),
+    exact ⟨fixChainFacts_of hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hleafT₀ (hcf₀ j cA hj) (uAV ψ) ψ ρp hρp,
       fixChainValidFacts_of hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hleafT₀ (hcf₀ j cA hj) ψ ρp hρp⟩
   have hTlss₀D : ∀ ψ j cA, ctorsA[j]? = some cA → (Tlss₀ ψ).getD j [] = tssF₀ j ψ :=
     fun ψ j cA hj => tlssOfR_fixCtorDataList_getD hj
@@ -286,16 +250,6 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by
       rw [tlssOfR_length, fixCtorDataList_length]; omega)]
     rfl
-  -- a nonempty telescope is a reflexive field's (`tssNone`), within the fields
-  have hreflOf : ∀ ψ j cA, ctorsA[j]? = some cA → ∀ i, (tssF₀ j ψ).getD i [] ≠ [] →
-      i < cA.2 ∧ (ksF j).getD i .ordinary = .reflexive := by
-    intro ψ j cA hj i hne
-    have hi : i < cA.2 := Classical.byContradiction fun hge => by
-      apply hne
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by
-        rw [(hcf₀ j cA hj).tssLen ψ]; omega)]
-      rfl
-    exact ⟨hi, Classical.byContradiction fun hk => hne ((hcf₀ j cA hj).tssNone ψ i hk)⟩
   have hX₀ : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
       XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) ∧
@@ -459,7 +413,6 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     intro j cA hj ψ ρp hρp
     obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
     exact fixChainFacts_of hμ mpI hCtor hfT_I hProp' hFD_I hleafT_I' (hcf j cA hj) (uAV ψ) ψ ρp hρp
-      (fun h => hisPropRefl j cA hj h ψ)
   -- the real chains against the leaf's
   have hreal : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
@@ -770,10 +723,6 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     rfl rfl hlpsT hopT helimR hRlps hFD_C hlenK' hks hcf_C hidxRes_C hUparams hleafT_C' hleafC_C
     (fun j cA hj => (hframes j cA hj).1) hframesR
     (fun hl => (hwl hl).imp_right fun h => by rw [hlenA]; exact h) (by rw [hlenA]; exact hpos)
-    (fun ⟨ψ, j, i, hj, hne⟩ => by
-      obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
-      rw [(hident j cA hjA).2.2.2.1 ψ] at hne
-      exact hisPropRefl j cA hjA ⟨i, hreflOf ψ j cA hjA i hne⟩)
   exact ⟨mp₃⟩
 
 end Lech.SetP

@@ -809,6 +809,43 @@ theorem fixFamI_app_eq (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {t : V}
   unfold fixFamI at this ⊢
   rwa [fixFunVI_app (lfpFamSet_mem_space V w _ _), famFI_app ht] at this
 
+/-! ## `FieldsOkB`, pointwise -/
+
+/-- `FieldsOkB` from the per-position facts at every fitting prefix. -/
+theorem fieldsOkB_of_pointwise {w : Nat} :
+    ∀ {Fs : List AVExpr} {ρ : Nat → V},
+      (∀ i, i < Fs.length → ∀ as : List V, SpineFit ρ (Fs.take i) as →
+        AnnotOk2 V (consList as ρ) (Fs.getD i default) ∧
+        (w ≠ 0 → interp2 V (consList as ρ) (Fs.getD i default) ∈ˢ (univ w : V))) →
+      FieldsOkB w ρ Fs
+  | [], _, _ => trivial
+  | F :: Fs, ρ, h => by
+    have h0 := h 0 (by simp) [] trivial
+    simp only [consList_nil, List.getD_cons_zero] at h0
+    refine ⟨h0.1, h0.2, fun a ha => fieldsOkB_of_pointwise fun i hi as hsp => ?_⟩
+    have := h (i + 1) (by simpa using hi) (a :: as) ⟨ha, hsp⟩
+    simpa only [consList_cons, List.getD_cons_succ] using this
+
+/-- The per-position grading of `FieldsOkB`. -/
+theorem FieldsOkB.ok2_at {w : Nat} :
+    ∀ {Fs : List AVExpr} {ρ : Nat → V}, FieldsOkB w ρ Fs →
+      ∀ i, i < Fs.length → ∀ as : List V, SpineFit ρ (Fs.take i) as →
+        AnnotOk2 V (consList as ρ) (Fs.getD i default)
+  | [], _, _, _, hi, _, _ => absurd hi (Nat.not_lt_zero _)
+  | F :: Fs, ρ, h, 0, _, [], _ => h.1
+  | _ :: _, _, _, 0, _, _ :: _, hsp => hsp.elim
+  | _ :: _, _, _, _ + 1, _, [], hsp => hsp.elim
+  | F :: Fs, ρ, h, i + 1, hi, a :: as, hsp => by
+    simp only [consList_cons, List.getD_cons_succ]
+    exact FieldsOkB.ok2_at (h.2.2 a hsp.1) i (by simpa using hi) as hsp.2
+
+omit [SetTheory V] in
+theorem getD_map_snd {tl : List (Nat × Nat × AVExpr)} {k : Nat} (hk : k < tl.length) :
+    (tl.map (·.2.2)).getD k default = (tl.getD k default).2.2 := by
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map,
+    List.getElem?_eq_getElem hk]
+  rfl
+
 /-! ## The identification with the real chains -/
 
 /-- `ChainRealI μ … i as Fs₀ Fs`: constructor's real chain `Fs` against

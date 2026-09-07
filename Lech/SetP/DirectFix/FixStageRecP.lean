@@ -610,9 +610,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
         ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
           AnnotValidV V (consList bs ρp) E))
     (hwl : p.large = true → p.resSort.isNeverZero = true ∨ ctorsA.length < 2)
-    (hpos : 0 < ctorsA.length)
-    (hrefl : (∃ (ψ : Name → Nat) (j i : Nat), j < ctorsA.length ∧ (tssF j ψ).getD i [] ≠ []) →
-      ∀ ψ : Name → Nat, p.resSort.eval ψ = 0) :
+    (hpos : 0 < ctorsA.length) :
     ∃ (sAV : (Name → Nat) → Nat)
       (mp' : EnvS2PM V μ ⟨.recInfo cvRa mI rP (Lech.directSumRules p.nP mI rP cvRa.type ctorsA rhss)
         :: env.consts⟩),
@@ -711,24 +709,6 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
     · exact absurd hw0 (Lech.Level.isNeverZero_sound ψ _ hnz)
     · omega
   have hs0 : ∀ ψ, sAV ψ = 0 ↔ elimL.eval ψ = 0 := fun ψ => fixSortAV_zero_iff elimL u _ ψ
-  -- the finitary-or-`Prop` gate and the telescope bits (task #202)
-  have hfin : ∀ ψ, (∀ j i,
-      ((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [] = []) ∨
-      p.resSort.eval ψ = 0 := by
-    intro ψ
-    by_cases hall : ∀ j i, ((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [] = []
-    · exact Or.inl hall
-    · right
-      obtain ⟨j, i, hne⟩ : ∃ j i,
-          ((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [] ≠ [] :=
-        Classical.byContradiction fun hc =>
-          hall fun j i => Classical.byContradiction fun h => hc ⟨j, i, h⟩
-      by_cases hj : j < ctorsA.length
-      · obtain ⟨cA, hjA⟩ := hcAof j hj
-        rw [hTlsjD ψ j cA hjA] at hne
-        exact hrefl ⟨ψ, j, i, hj, hne⟩ ψ
-      · rw [hTlsNone ψ j hj] at hne
-        exact absurd rfl hne
   -- the subsingleton criterion (task #202 A2): at a `Prop` instance
   -- with a large eliminator, a field not sourced by an index
   -- expression is a proposition (the kernel's `checkDirectFieldSortsI`)
@@ -918,7 +898,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
     intro ψ
     rw [hrdsE ψ]
     refine fixPre_of rfl rfl (hbz ψ) (hs0 ψ) (hlenPps ψ) (hlenIps ψ) (hn ψ) (hlenFs ψ)
-      (hlenEs ψ) (hEs ψ) (hEisLen ψ) (hEbelow ψ) (hfin ψ) (hsingle ψ) (hprop ψ) (hTlsBelow ψ)
+      (hlenEs ψ) (hEs ψ) (hEisLen ψ) (hEbelow ψ) (hsingle ψ) (hprop ψ) (hTlsBelow ψ)
       ?_ ?_ ?_ ?_ (hframes' ψ)
     · have := hRD.below ψ; rw [hrdsE ψ] at this; exact this
     · have := (hR ψ).okΓ; rw [hrdsE ψ] at this; exact this

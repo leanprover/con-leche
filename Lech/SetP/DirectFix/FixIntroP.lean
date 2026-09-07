@@ -46,6 +46,42 @@ theorem AnnotValidV_substProj (σ : Nat → V) (y : V) :
       rwa [Nat.zero_add, projList_length] at this
     rw [hy, consList_snoc', ← projList_snoc]
 
+/-- `substProjAt` under binders preserves bit validity. -/
+theorem AnnotValidV_substProjAt (σ : Nat → V) (y : V) (bs : List V) :
+    ∀ (i : Nat) (e : AVExpr),
+      AnnotValidV V (consList bs (cons y σ)) (substProjAt bs.length i e) ↔
+        AnnotValidV V (consList bs (consList (projList i y) (cons y σ))) e
+  | 0, _ => Iff.rfl
+  | i + 1, e => by
+    show AnnotValidV V (consList bs (cons y σ))
+      (substProjAt bs.length i (e.inst (projAV i (.bvar i)) bs.length)) ↔ _
+    have hp : AnnotValidV V (shiftE bs.length 0 (consList bs (consList (projList i y) (cons y σ))))
+        (projAV i (.bvar i)) := by
+      rw [shiftE_consList]
+      exact projAV_validV (by rw [AnnotValidV_bvar]; trivial)
+    rw [AnnotValidV_substProjAt σ y bs i, AnnotValidV_inst V _ _ _ _ hp, shiftE_consList, projAV_interp,
+      interp2_bvar]
+    have hy : consList (projList i y) (cons y σ) i = y := by
+      have := consList_apply_add (projList i y) (cons y σ) 0
+      rwa [Nat.zero_add, projList_length] at this
+    rw [hy, instE_consList', consList_snoc', ← projList_snoc]
+
+/-- `UnderTowerValid` from the domains' validity and the leaf's at
+every fitting spine. -/
+theorem underTowerValid_of_fieldsValid {b : AVExpr} :
+    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
+      FieldsValid ρ (ds.map (·.2.2)) →
+      (∀ as, SpineFit ρ (ds.map (·.2.2)) as → AnnotValidV V (consList as ρ) b) →
+      UnderTowerValid ρ b ds
+  | [], ρ, _, hb => by
+    show AnnotValidV V ρ b
+    simpa using hb [] trivial
+  | d :: ds, ρ, hv, hb => by
+    rw [List.map_cons] at hv
+    refine ⟨hv.1, fun a ha => underTowerValid_of_fieldsValid (hv.2 a ha) fun as hsp => ?_⟩
+    have := hb (a :: as) ⟨ha, hsp⟩
+    rwa [consList_cons] at this
+
 /-! ## The ih arguments -/
 
 section IhValid
@@ -69,49 +105,95 @@ theorem fibre_projList_fit (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) 
   rw [liftFields_length] at helim
   exact (spineFit_liftFields (Ids.length + Fss.length + 1)).mp helim.1
 
+/-- A field's index expression moved under telescope binders at the
+payload frame is valid exactly when it is at the field's own frame. -/
+theorem ihIdxM_validV (hfr : RecFrameS D ρ₀ σ) (y : V) (i : Nat) (bs : List V) (E : AVExpr) :
+    AnnotValidV V (consList bs (cons y σ))
+        (substProjAt bs.length i (E.liftN (D + Ids.length + Fss.length + 2) (i + bs.length))) ↔
+      AnnotValidV V (consList bs (consList (projList i y) (frP Fss.length Ids.length ρ₀))) E := by
+  rw [AnnotValidV_substProjAt, AnnotValidV_liftN, ← consList_append,
+    show i + bs.length = (projList i y ++ bs).length from by rw [List.length_append, projList_length],
+    shiftE_consList_len, shiftE_payload hfr, consList_append]
+
+/-- The moved telescope's validity at the payload frame. -/
+theorem fieldsValid_ihTeleAtGoP (hfr : RecFrameS D ρ₀ σ) (y : V) (i : Nat) :
+    ∀ (tl : List (Nat × Nat × AVExpr)) (as : List V),
+      FieldsValid (consList as (consList (projList i y) (frP Fss.length Ids.length ρ₀))) (tl.map (·.2.2)) →
+      FieldsValid (consList as (cons y σ)) ((ihTeleAtGoP Ids.length Fss.length D i as.length tl).map (·.2.2))
+  | [], _, _ => trivial
+  | d :: tl, as, hF => by
+    show FieldsValid _ (substProjAt as.length i (d.2.2.liftN (D + Ids.length + Fss.length + 2) (i + as.length)) ::
+      (ihTeleAtGoP Ids.length Fss.length D i (as.length + 1) tl).map (·.2.2))
+    rw [List.map_cons] at hF
+    obtain ⟨hv, hrest⟩ := hF
+    refine ⟨(ihIdxM_validV hfr y i as _).mpr hv, fun a ha => ?_⟩
+    rw [ihIdxM_interp hfr y i as] at ha
+    rw [consList_snoc']
+    have := fieldsValid_ihTeleAtGoP hfr y i tl (as ++ [a]) (by rw [← consList_snoc']; exact hrest a ha)
+    rw [length_snoc'] at this
+    exact this
+
+theorem fieldsValid_ihTeleAt (hfr : RecFrameS D ρ₀ σ) (y : V) (i : Nat) (tl : List (Nat × Nat × AVExpr))
+    (h : FieldsValid (consList (projList i y) (frP Fss.length Ids.length ρ₀)) (tl.map (·.2.2))) :
+    FieldsValid (cons y σ) ((ihTeleAt Ids.length Fss.length D i tl).map (·.2.2)) := by
+  rw [ihTeleAt_eq_go]
+  have := fieldsValid_ihTeleAtGoP hfr y i tl [] (by simpa using h)
+  simpa using this
+
 /-- **The ih arguments are bit-valid** at a payload of the
-constructor's fibre: the index expressions are valid at the fitting
-projections. -/
+constructor's fibre: λ-towers over the moved telescopes (valid at the
+fitting projections) whose leaves apply the function at the block, the
+index expressions (valid under the telescope) and the field. -/
 theorem ihArgsI_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
-    (hfin : ∀ j i, (tlss.getD j []).getD i [] = [])
     (hfr : RecFrameS D ρ₀ σ) {j : Nat} (hj : j < Fss.length)
     (hEV : ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length, ∀ fs : List V,
       SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
+      FieldsValid (consList (fs.take i) (frP Fss.length Ids.length ρ₀))
+        (((tlss.getD j []).getD i []).map (·.2.2)) ∧
+      ∀ bs : List V, SpineFit (consList (fs.take i) (frP Fss.length Ids.length ρ₀))
+        (((tlss.getD j []).getD i []).map (·.2.2)) bs →
       ∀ E ∈ (Eiss.getD j []).getD i [],
-        AnnotValidV V (consList (fs.take i) (frP Fss.length Ids.length ρ₀)) E)
+        AnnotValidV V (consList bs (consList (fs.take i) (frP Fss.length Ids.length ρ₀))) E)
     {y : V} (hy : y ∈ˢ sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) j) :
     ∀ a ∈ ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length) D j,
       AnnotValidV V (cons y σ) a := by
   have hspP := fibre_projList_fit hyp hw hj hy
   intro a ha
-  rw [ihArgsI_fin hfin] at ha
+  unfold ihArgsI at ha
   obtain ⟨i, hi, rfl⟩ := List.mem_map.mp ha
   obtain ⟨hik, -⟩ := mem_recIdx.mp hi
-  unfold ihArgAV₀
+  obtain ⟨hTV, hEV'⟩ := hEV i hi _ hspP
+  rw [projList_take _ _ _ (Nat.le_of_lt hik)] at hTV hEV'
+  rw [ihArgAV_eq]
+  refine mkLamsC_validV (underTowerValid_of_fieldsValid (fieldsValid_ihTeleAt hfr y i _ hTV)
+    fun bs hbs => ?_)
+  have hbs' := (spineFit_ihTeleAt hfr y i _ bs).mp hbs
+  have hlenbs : bs.length = ((tlss.getD j []).getD i []).length := by
+    rw [hbs'.length_eq, List.length_map]
+  unfold ihArgBody
+  rw [← hlenbs]
   refine mkAppN_validV trivial fun a ha => ?_
-  rcases List.mem_append.mp ha with ha | ha
-  · rcases List.mem_append.mp ha with ha | ha
-    · obtain ⟨l, -, rfl⟩ := List.mem_map.mp ha
-      trivial
-    · obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
-      rw [AnnotValidV_substProj, AnnotValidV_liftN]
-      have h := shiftE_consList_len (D + Ids.length + Fss.length + 2) (projList i y) (cons y σ)
-      rw [projList_length] at h
-      rw [h, shiftE_payload hfr]
-      have := hEV i hi _ hspP E hE
-      rwa [projList_take _ _ _ (Nat.le_of_lt hik)] at this
-  · rw [List.mem_singleton] at ha
-    subst ha
-    exact projAV_validV trivial
+  simp only [List.mem_append, List.mem_map, List.mem_singleton] at ha
+  rcases ha with (ha | ⟨E, hE, rfl⟩) | rfl
+  · obtain ⟨_, -, rfl⟩ := List.mem_map.mp ha
+    trivial
+  · exact (ihIdxM_validV hfr y i bs E).mpr (hEV' bs hbs' E hE)
+  · refine mkAppN_validV (projAV_validV trivial) fun a ha => ?_
+    obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha
+    trivial
 
 /-- Constructor `j`'s branch with ih arguments is bit-valid. -/
 theorem fixBase_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
-    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) (hfr : RecFrameS D ρ₀ σ)
+    (hfr : RecFrameS D ρ₀ σ)
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (hEV : ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
+      FieldsValid (consList (fs.take i) (frP Fss.length Ids.length ρ₀))
+        (((tlss.getD j []).getD i []).map (·.2.2)) ∧
+      ∀ bs : List V, SpineFit (consList (fs.take i) (frP Fss.length Ids.length ρ₀))
+        (((tlss.getD j []).getD i []).map (·.2.2)) bs →
       ∀ E ∈ (Eiss.getD j []).getD i [],
-        AnnotValidV V (consList (fs.take i) (frP Fss.length Ids.length ρ₀)) E)
+        AnnotValidV V (consList bs (consList (fs.take i) (frP Fss.length Ids.length ρ₀))) E)
     (j : Nat) :
     AnnotValidV V σ
       (caseBaseAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
@@ -144,7 +226,7 @@ theorem fixBase_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw 
           rw [interp2_liftN, hfr, List.getD_eq_getElem?_getD, hjF, Option.getD_some,
             towerBodyAV_interp (hokF.toBound)] at hy
           exact hy
-        exact ihArgsI_validV hyp hw hfin hfr hj (hEV j hj) hy' a ha
+        exact ihArgsI_validV hyp hw hfr hj (hEV j hj) hy' a ha
       · -- no ih arguments at a stage past the constructors
         exfalso
         have h0 : (Fss.getD j []).length = 0 := by
@@ -155,12 +237,15 @@ theorem fixBase_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw 
 
 /-- **The case recursor with ih arguments is bit-valid.** -/
 theorem fixCaseRec_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw : w ≠ 0)
-    (hfin : ∀ j i, (tlss.getD j []).getD i [] = [])
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (hEV : ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
+      FieldsValid (consList (fs.take i) (frP Fss.length Ids.length ρ₀))
+        (((tlss.getD j []).getD i []).map (·.2.2)) ∧
+      ∀ bs : List V, SpineFit (consList (fs.take i) (frP Fss.length Ids.length ρ₀))
+        (((tlss.getD j []).getD i []).map (·.2.2)) bs →
       ∀ E ∈ (Eiss.getD j []).getD i [],
-        AnnotValidV V (consList (fs.take i) (frP Fss.length Ids.length ρ₀)) E) :
+        AnnotValidV V (consList bs (consList (fs.take i) (frP Fss.length Ids.length ρ₀))) E) :
     ∀ (r : Nat) {D j : Nat} {σ : Nat → V} {kx : AVExpr},
       RecFrameS D ρ₀ σ → AnnotValidV V σ kx →
       AnnotValidV V σ
@@ -174,22 +259,25 @@ theorem fixCaseRec_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (
     exact ⟨trivial, fun _ _ => trivial⟩
   | r + 1, D, j, σ, kx, hfr, hk => by
     refine natRecAV_validV (motive_validV hfr hyp.toRecHypCore hv j)
-      (fixBase_validV hyp hw hfin hfr hv hEV j) ?_ hk
+      (fixBase_validV hyp hw hfr hv hEV j) ?_ hk
     rw [AnnotValidV_lam]
     refine ⟨trivial, fun b _ => ?_⟩
     rw [AnnotValidV_lam]
     refine ⟨motiveBody_validV hfr hyp.toRecHypCore hv j b, fun a _ => ?_⟩
-    exact fixCaseRec_validV hyp hw hfin hv hEV r (hfr.step a b) trivial
+    exact fixCaseRec_validV hyp hw hv hEV r (hfr.step a b) trivial
 
 /-- **The recursor body is bit-valid** at the frame under the K-frame,
 all three regimes (the squash regime's body by `hsq`, task #202 A2). -/
 theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms)
-    (hfin : w ≠ 0 → ∀ j i, (tlss.getD j []).getD i [] = [])
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (hEV : w ≠ 0 → ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
+      FieldsValid (consList (fs.take i) (frP Fss.length Ids.length ρ₀))
+        (((tlss.getD j []).getD i []).map (·.2.2)) ∧
+      ∀ bs : List V, SpineFit (consList (fs.take i) (frP Fss.length Ids.length ρ₀))
+        (((tlss.getD j []).getD i []).map (·.2.2)) bs →
       ∀ E ∈ (Eiss.getD j []).getD i [],
-        AnnotValidV V (consList (fs.take i) (frP Fss.length Ids.length ρ₀)) E)
+        AnnotValidV V (consList bs (consList (fs.take i) (frP Fss.length Ids.length ρ₀))) E)
     (hsq : w = 0 → ℓ ≠ 0 → AnnotValidV V σ
       (sqFixBodyAV ℓ nP Fss.length Ids.length (Fss.getD 0 []) (Ess.getD 0 []) (rss.getD 0 [])
         (tlss.getD 0 []) (Eiss.getD 0 []))) :
@@ -202,7 +290,7 @@ theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ�
     · rw [fixRecBodyAVI_sq hℓ]
       exact hsq rfl hℓ
   · rw [fixRecBodyAVI_pos hw, AnnotValidV_app]
-    exact ⟨fixCaseRec_validV hyp hw (hfin hw) hv (hEV hw) Fss.length hfr (major_proj_validV 0 σ),
+    exact ⟨fixCaseRec_validV hyp hw hv (hEV hw) Fss.length hfr (major_proj_validV 0 σ),
       major_proj_validV 1 σ⟩
 
 /-! ## The ih-moved telescopes' validity (task #202) -/
@@ -243,22 +331,6 @@ theorem fieldsValid_ihTeleAtGo {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : 
       (by rw [← consList_snoc']; exact hrest a ha)
     rw [length_snoc'] at this
     exact this
-
-/-- `UnderTowerValid` from the domains' validity and the leaf's at
-every fitting spine. -/
-theorem underTowerValid_of_fieldsValid {b : AVExpr} :
-    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
-      FieldsValid ρ (ds.map (·.2.2)) →
-      (∀ as, SpineFit ρ (ds.map (·.2.2)) as → AnnotValidV V (consList as ρ) b) →
-      UnderTowerValid ρ b ds
-  | [], ρ, _, hb => by
-    show AnnotValidV V ρ b
-    simpa using hb [] trivial
-  | d :: ds, ρ, hv, hb => by
-    rw [List.map_cons] at hv
-    refine ⟨hv.1, fun a ha => underTowerValid_of_fieldsValid (hv.2 a ha) fun as hsp => ?_⟩
-    have := hb (a :: as) ⟨ha, hsp⟩
-    rwa [consList_cons] at this
 
 /-- **The squash regime's body is bit-valid** at a K-frame (task #202
 A2): the constructor's field telescope lifted under the frame, the

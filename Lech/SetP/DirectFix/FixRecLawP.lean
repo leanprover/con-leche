@@ -397,13 +397,13 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
         have has₂ : as₂ = srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) :=
           Lech.Semantics.srcVals_of_fit hprop (by rw [hFsjD]; exact hsp₂) (by rw [hEsjD]; exact hidxEq)
         rw [hiota, interp_fixRuleCoreAV hbz hlen₁ hlenm hlen₂ hjn hRcl, ← has₂, hFsjD, hlenFs]
-      · have hfin := h.hfin.resolve_right hw
-        have hmaj : t = inj j (mkTower (as₂ ++ [pt])) := by rw [hmkv, if_neg hw]
+      · have hmaj : t = inj j (mkTower (as₂ ++ [pt])) := by rw [hmkv, if_neg hw]
         have hiota := directFixRecAVI_iota h hw hℓ0 ρ hspR' hjF
           (fs := as₂) (by rw [hFsjD, hlen₂, hlenFs]) hmaj
         rw [← hR] at hiota
         rw [hiota, hKfr, hfrMs, hfrK, hfrP, hFsjD, hlenFs,
-          interp_fixRuleCoreAV hbz hlen₁ hlenm hlen₂ hjn hRcl, sqIhValsK_fin (fun i => hfin j i)]
+          interp_fixRuleCoreAV hbz hlen₁ hlenm hlen₂ hjn hRcl]
+        rfl
   · intro hxs_ok hys_ok
     refine mkAppN_okP_of_lam (hokRa ρ) ?_ (by rw [← hRa]; exact (hokRa ρ).1)
       (Or.inr (by rw [hRa])) hfit

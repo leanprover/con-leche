@@ -203,7 +203,6 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
       ((Eiss.getD j []).getD i []).length = nIdx)
     (hEbelow : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [],
       VExpr.bvarsBelow (nP + i + ((tlss.getD j []).getD i []).length) E.erase)
-    (hfin : (∀ j i, (tlss.getD j []).getD i [] = []) ∨ w = 0)
     (hsingle : w = 0 → ℓ ≠ 0 → n = 1)
     (hprop : w = 0 → ℓ ≠ 0 → ∀ ρp : Nat → V, Sat2 V ((pps.map (·.2.2)).reverse) ρp →
       ∀ j, j < n → ∀ i, i < (Fss.getD j []).length →
@@ -294,7 +293,7 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
     obtain ⟨hX, hreal, hfields, hleafT, -⟩ := hframes (consList ps ρb) hρp
     exact fixKFrame_of hℓ hlenP hlenI hlenFs hlenEs hEs hEisLen hρp hX hreal hfields hleafT hM
       hlenMs hms hsingle (fun hw0 hℓ0 => hprop hw0 hℓ0 (consList ps ρb) hρp) hfit
-  refine ⟨?_, ?_, ?_, hfin, hs0, ?_, ?_, ?_, ?_, ?_, hEbelow, hTbelow⟩
+  refine ⟨?_, ?_, ?_, hs0, ?_, ?_, ?_, ?_, ?_, hEbelow, hTbelow⟩
   · -- `hz`
     intro d hd
     rw [← hrds] at hd
