@@ -438,8 +438,10 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       -- container's parameters sit above them)
       let carrI := carrierAt ⟨I1, lpsI, nPI, [], .zero, cb.types.length, memsI, [], false, .anonymous⟩
         memI memI.nIdx (varsAt 0 memI.nIdx) false
-      let carr0 := substParams memI.nIdx nPI (mem.pins.map (·.liftLooseBVars memI.nIdx 0)) carrI
-      let carr := carr0.instantiateLevelParams lpsI mem.lv
+      -- levels first (the container's level names may coincide with the
+      -- block's, which the pins mention), then the pins
+      let carr := substParams memI.nIdx nPI (mem.pins.map (·.liftLooseBVars memI.nIdx 0))
+        (carrI.instantiateLevelParams lpsI mem.lv)
       let some (t, _) := matchCarrier fam memI.nIdx carr
         | throw s!"container {mem.I}: family member {memI.I} at the pins is not among the mimics"
       tags := tags ++ [t]

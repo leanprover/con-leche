@@ -54741,4 +54741,10 @@ at `r`.  Fixture `tests/e2e/src/inmodel_groups.lean`: `TT` (nested,
 `TaggedText`-shaped), `M` through `TT M`, the mutual `F`/`G`, `N` through
 `F N`, `H` through `TT (List H)` — **579 declarations in both modes**
 through the dump gate; 626 through the default pipe (tool-modelled).
-With this, the Mathlib census reads 51/51 (see the READY message).
+One more bug the Mathlib census caught after the fixture passed: the
+container's carrier skeleton was level-instantiated AFTER the pins were
+substituted, so a container level parameter whose NAME coincides with
+the block's (`u`, everywhere) was rewritten inside the pins; levels are
+instantiated on the bare skeleton first (`P (α : Type u)` through
+`Box.{u}` in the fixture pins it, 625 declarations).  **The Mathlib
+census now reads 51/51 modelled, 0 declined.**

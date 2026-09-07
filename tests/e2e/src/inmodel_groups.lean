@@ -1,4 +1,4 @@
---#export InModelGroups.m_example InModelGroups.n_example InModelGroups.h_example
+--#export InModelGroups.m_example InModelGroups.n_example InModelGroups.h_example InModelGroups.p_example
 
 /- End-to-end test: CONTAINER GROUPS modelled IN-PROCESS (task #200,
    B4).  A block nesting through a container that is itself nested or
@@ -55,5 +55,18 @@ noncomputable def H.size (h : H) : Nat :=
     0 (fun _ _ ih1 ih2 => ih1 + ih2) h
 
 theorem h_example : H.size (H.mk (TT.node [TT.text [H.mk (TT.text [])]])) = 2 := rfl
+
+structure Box (α : Type u) where
+  val : α
+
+inductive P (α : Type u) where
+  | leaf : α → P α
+  | wrap : Box (P α) → P α
+
+noncomputable def P.depth {α : Type u} (p : P α) : Nat :=
+  P.rec (motive_1 := fun _ => Nat) (motive_2 := fun _ => Nat)
+    (fun _ => 0) (fun _ ih => ih + 1) (fun _ ih => ih) p
+
+theorem p_example : P.depth (P.wrap ⟨P.wrap ⟨P.leaf (7 : Nat)⟩⟩) = 2 := rfl
 
 end InModelGroups
