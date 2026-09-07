@@ -41,7 +41,8 @@ def checkDirectSumTeleF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal) (n :
     pure (cvTa, s)
 
 /-- `checkDirectSumInd` through the index. -/
-def checkDirectSumIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectSumParts) :
+def checkDirectSumIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectSumParts)
+    (capsOf : DirectSumParts → IndCaps) :
     m (FEnv × ConstantVal × DirectSumParts) := do
   let cvTa₀ ← checkConstantValF ops fe p.cvT
   let (cvTa, s) ← checkDirectSumTeleF ops fe p.cvT (p.nP + p.nIdx) cvTa₀
@@ -50,7 +51,7 @@ def checkDirectSumIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectSumParts) :
   unless tbody == Expr.sort s do
     throw (.internal "direct sum: type former result sort")
   let p' := p.withSort s
-  pure (fe.push (.indInfo cvTa (directSumCaps p')), cvTa, p')
+  pure (fe.push (.indInfo cvTa (capsOf p')), cvTa, p')
 
 /-- `checkDirectFieldSortsI` through the index. -/
 def checkDirectFieldSortsIF (ops : CheckerOps m) (fe : FEnv) (isProp large : Bool)
@@ -93,7 +94,7 @@ def checkDirectFieldSortsIFA (ops : CheckerOps m) (fe : FEnv) (isProp large : Bo
 /-- `checkDirectSumCtor` through the index. -/
 def checkDirectSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m ConstantVal := do
+    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
   let cvCa ← checkConstantValF ops fe cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
@@ -113,19 +114,21 @@ def checkDirectSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     throw (.notImplemented "direct sum: field domain after the block")
   unless (xq.2.getAppArgs.drop nP).all fun e => e.constsResolveF fe₀ do
     throw (.invalid "direct sum: index expression mentions the block")
-  let _sorts ← checkDirectFieldSortsIFA ops fe isProp large resSort nP xq.1.toArray
+  let sorts ← checkDirectFieldSortsIFA ops fe isProp large resSort nP xq.1.toArray
     (xq.2.getAppArgs.drop nP) nF
-  pure cvCa
+  pure (cvCa, sorts)
 
 /-- `checkDirectSumCtors` through the index. -/
 def checkDirectSumCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (cvTa : ConstantVal) : List (ConstantVal × Nat) → m (List (ConstantVal × Nat))
-  | [] => pure []
+    (cvTa : ConstantVal) :
+    List (ConstantVal × Nat) → m (List (ConstantVal × Nat) × List (List Level))
+  | [] => pure ([], [])
   | c :: cs => do
-    let cvCa ← checkDirectSumCtorF ops fe₀ fe T lps nP nIdx resSort isProp large c.1 c.2 cvTa
-    let rest ← checkDirectSumCtorsF ops fe₀ fe T lps nP nIdx resSort isProp large cvTa cs
-    pure ((cvCa, c.2) :: rest)
+    let (cvCa, sorts) ← checkDirectSumCtorF ops fe₀ fe T lps nP nIdx resSort isProp large c.1 c.2
+      cvTa
+    let (rest, srest) ← checkDirectSumCtorsF ops fe₀ fe T lps nP nIdx resSort isProp large cvTa cs
+    pure ((cvCa, c.2) :: rest, sorts :: srest)
 
 /-- `consSumCtors` through the index. -/
 def consSumCtorsF (nP : Nat) : List (ConstantVal × Nat) → FEnv → FEnv

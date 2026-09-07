@@ -239,6 +239,21 @@ theorem projS_mkTower : ∀ (i : Nat) (as : List V) (h : i < as.length),
     rw [ssnd_spair]
     exact projS_mkTower i as (Nat.lt_of_succ_lt_succ h)
 
+/-- The projection list of a point-terminated tower is the fields'
+prefix (task #210: the fixpoint route's constructor payload). -/
+theorem projList_mkTower_take {fs : List V} {i : Nat} (hi : i ≤ fs.length) :
+    projList i (mkTower (fs ++ [pt])) = fs.take i := by
+  have h1 : projList (fs.length + 1) (mkTower (fs ++ [pt])) = fs ++ [pt] := projList_mkTower _ _ (by simp)
+  have h2 := projList_take (fs.length + 1) i (mkTower (fs ++ [pt])) (by omega)
+  rw [h1, List.take_append_of_le_length hi] at h2
+  exact h2.symm
+
+/-- A field projection of a point-terminated tower, `getD`-form. -/
+theorem projS_mkTower_getD {fs : List V} {i : Nat} (hi : i < fs.length) :
+    projS i (mkTower (fs ++ [pt])) = fs.getD i pt := by
+  rw [projS_mkTower i (fs ++ [pt]) (by simp; omega), List.getElem_append_left hi,
+    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some]
+
 /-- **Eta + elim** (graph regime): every carrier member IS the tower
 of its own projections, and those projections fit the telescope. -/
 theorem towerSet_elim {w : Nat} (hw : w ≠ 0) :

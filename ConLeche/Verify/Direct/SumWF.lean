@@ -20,8 +20,8 @@ variable {mode : CheckMode}
 
 /-- Stage 1 at the run level. -/
 theorem direct_sum_ind_wf {env env₁ : Env} (henv : EnvWF env)
-    {p p' : DirectSumParts} {cvTa : ConstantVal} {F : Nat}
-    (h : checkDirectSumInd (fueledOps mode F) env p = .ok (env₁, cvTa, p')) :
+    {p p' : DirectSumParts} {cvTa : ConstantVal} {F : Nat} {capsOf : DirectSumParts → IndCaps}
+    (h : checkDirectSumInd (fueledOps mode F) env p capsOf = .ok (env₁, cvTa, p')) :
     EnvWF env₁ ∧ cvTa.type.hasFvar = false := by
   obtain ⟨cvT, s, -, -, hccv, rfl, rfl, -⟩ := checkDirectSumInd_shape h
   exact ⟨envWF_cons_ind henv hccv, (checkConstantVal_typeWF hccv).1⟩
@@ -30,13 +30,27 @@ theorem direct_sum_ind_wf {env env₁ : Env} (henv : EnvWF env)
 closed and bounded. -/
 theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
-    {nF : Nat} {F : Nat}
+    {nF : Nat} {F : Nat} {sorts : List Level}
     (h : checkDirectSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-      cvC nF cvTa = .ok cvCa) :
+      cvC nF cvTa = .ok (cvCa, sorts)) :
     cvCa.type.hasFvar = false ∧ cvCa.type.allLevelParamsDefined cvCa.levelParams = true ∧
     cvCa.type.constsResolve env = true ∧ cvCa.type.looseBVarsBounded 0 = true := by
   obtain ⟨hccv, -, -⟩ := checkDirectSumCtor_shape h
   exact checkConstantVal_typeWF hccv
+
+/-- A name fresh above the constructors' conses is fresh below them
+(task #210 Part A). -/
+theorem consSumCtors_find?_none {nP : Nat} {n : Name} :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
+      (consSumCtors nP ctorsA env).find? n = none → env.find? n = none
+  | [], _, h => h
+  | c :: cs, env, h => by
+    simp only [consSumCtors] at h
+    have h' := consSumCtors_find?_none h
+    rw [Env.find?_cons] at h'
+    split at h'
+    · exact nomatch h'
+    · exact h'
 
 /-- The constructors' conses keep well-formedness: every consed
 constructor's type resolves at the environment it is consed onto

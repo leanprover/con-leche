@@ -171,8 +171,9 @@ carrier storing the former as a λ-tower over the parameters. -/
 theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
+    {sorts : List Level}
     (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok cvCa)
+      isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AVExpr)}

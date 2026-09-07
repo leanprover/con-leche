@@ -628,9 +628,10 @@ theorem checkDirectSumTele_datF (env : Env) (cv : ConstantVal) (n : Nat)
     cases body <;> simp only [FueledM.atF_bind, FueledM.atF_pure, whnfTelescope_datF,
       checkConstantVal_datF]
 
-theorem checkDirectSumInd_datF (env : Env) (p : DirectSumParts) (F : Nat) :
-    (checkDirectSumInd (fueledOpsM mode) env p).val F =
-      checkDirectSumInd (fueledOps mode F) env p := by
+theorem checkDirectSumInd_datF (env : Env) (p : DirectSumParts)
+    (capsOf : DirectSumParts → IndCaps) (F : Nat) :
+    (checkDirectSumInd (fueledOpsM mode) env p capsOf).val F =
+      checkDirectSumInd (fueledOps mode F) env p capsOf := by
   unfold checkDirectSumInd
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, checkDirectSumTele_datF]
@@ -737,12 +738,25 @@ theorem checkDirectFixRec_datF (env : Env) (p : DirectFixParts)
     fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF,
     checkDirectFixRules_datF]
 
+/-- The projection table at a structure-like block (task #210 Part A)
+at fuel `F`: operation-free, so the fuel is irrelevant. -/
+theorem checkDirectFixTable_datF (p : DirectFixParts) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (env : Env) (F : Nat) :
+    (checkDirectFixTable (m := FueledM) p ctorsA sortss env).val F =
+      checkDirectFixTable (m := CheckM) p ctorsA sortss env := by
+  unfold checkDirectFixTable
+  split
+  · split
+    · rw [checkDirectProjTable_datF]
+    · rfl
+  · rfl
+
 theorem checkDirectFix_datF (env : Env) (p : DirectFixParts) (F : Nat) :
     (checkDirectFix (fueledOpsM mode) env p).val F =
       checkDirectFix (fueledOps mode F) env p := by
   unfold checkDirectFix
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, checkDirectSumInd_datF, checkDirectSumCtors_datF,
+    FueledM.atF_ite, checkDirectSumInd_datF, checkDirectSumCtors_datF, checkDirectFixTable_datF,
     checkDirectFixRec_datF, unwrapOr_atF, checkDirectFieldSortsI_datF]
 
 macro "datF_step4_alt" : tactic =>

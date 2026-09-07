@@ -39,6 +39,28 @@ namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-- The capabilities a block on the fixpoint route earns (task #210
+Part A): at a STRUCTURE-LIKE block — one constructor, no index,
+official's `is_structure_like` — structure eta at a non-`Prop` sort
+(the tagged tower's own elimination law: a member is the constructor
+at its projections), unit-likeness when the constructor has no field
+(the fibre is then the one tagged empty tuple), and rule K exactly
+at official's `is_K_target` (a `Prop` result, one constructor taking
+only the parameters — at any index count, as at the sum route's `Eq`);
+nothing at any other block.  On the sum route's domain (never one
+constructor without an index) this is `directSumCaps`. -/
+def directFixCaps (p : DirectSumParts) : IndCaps :=
+  match p.ctors with
+  | [c] =>
+    { eta := p.nIdx == 0 && !p.isProp
+      etaCtor := c.1.name
+      etaParams := p.nP
+      etaFields := c.2
+      unitlike := p.nIdx == 0 && c.2 == 0
+      unitParams := p.nP
+      ruleK := c.2 == 0 && p.isProp }
+  | _ => {}
+
 /-- Does the variable `q` occur as a leaf of `e` (annotations
 included, as `fvarLeaves` walks them)? -/
 def Expr.mentionsFvar (q : Nat) (e : Expr) : Bool := e.fvarLeaves.any fun l => l.1 == q
@@ -147,10 +169,29 @@ def checkDirectFixRec (ops : CheckerOps m) (env : Env) (p : DirectFixParts)
     cvTa.type ctors p.cvR.name (p.cvR.levelParams.map .param) ctors.length 0
   pure (cvRa, rhss)
 
+/-- Stage 4 (task #210 Part A): **the projection table** at a
+STRUCTURE-LIKE block — one constructor, no index — the direct
+structure route's table (`checkDirectProjTable`: the fields' bodies
+off the annotated constructor type, the guard levels from the
+constructors' stage's field sorts) at the TAGGED tower's projection
+offset `1` (`ProjTable.off`: the carrier's first pair component is
+the constructor tag); nothing at any other block. -/
+def checkDirectFixTable (p : DirectFixParts) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (env : Env) : m Env :=
+  match ctorsA, sortss with
+  | [cA], [sorts] =>
+    if p.nIdx == 0 then
+      checkDirectProjTable p.cvT.name cA.1.name p.cvT.levelParams p.nP cA.2 p.resSort
+        (directProjGuards cA.1.type p.nP cA.2 sorts) 1 cA.1 env
+    else pure env
+  | _, _ => pure env
+
 /-- Check and install a **direct recursive block**: positivity, the
-elimination restriction, the distinct names, the former, the
-constructors (at the former's environment), the kinds re-checked, the
-recursor with its rules. -/
+elimination restriction, the distinct names, the former (with the
+block's capability record, `directFixCaps`), the constructors (at the
+former's environment), the kinds re-checked, the recursor with its
+rules, and — at a structure-like block — the projection table
+(`checkDirectFixTable`, task #210 Part A). -/
 def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env := do
   if p.kinds.any (fun ks => ks.any (· == .negative)) then
     throw (.invalid "direct rec: non positive occurrence of the inductive type")
@@ -163,7 +204,7 @@ def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env
       whose sort may be Prop")
   unless (p.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
-  let (env₁, cvTa, p₁) ← checkDirectSumInd ops env p.toDirectSumParts
+  let (env₁, cvTa, p₁) ← checkDirectSumInd ops env p.toDirectSumParts directFixCaps
   -- the former's run completes the record with the sort it read
   -- (task #195); this route's recogniser read the declared telescope
   -- syntactically, so the two must agree
@@ -180,13 +221,13 @@ def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env
   -- the constructors' field domains may mention the block: the
   -- resolution guard is pointed at the former's environment, and the
   -- kinds are re-checked afterwards
-  let ctorsA ← checkDirectSumCtors ops env₁ env₁ p.cvT.name p.cvT.levelParams p.nP p.nIdx
-    p.resSort p.isProp p.large cvTa p.ctors
+  let (ctorsA, sortss) ← checkDirectSumCtors ops env₁ env₁ p.cvT.name p.cvT.levelParams p.nP
+    p.nIdx p.resSort p.isProp p.large cvTa p.ctors
   unless directFixFieldsOk env p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds do
     throw (.internal "direct rec: field kinds")
   let env₂ := consSumCtors p.nP ctorsA env₁
   let (cvRa, rhss) ← checkDirectFixRec ops env₂ p cvTa ctorsA
-  pure ⟨.recInfo cvRa p.majorIdx p.rulePrefix
+  checkDirectFixTable p ctorsA sortss ⟨.recInfo cvRa p.majorIdx p.rulePrefix
     (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss) :: env₂.consts⟩
 
 end ConLeche

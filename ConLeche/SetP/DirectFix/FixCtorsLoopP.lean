@@ -29,9 +29,9 @@ set_option maxHeartbeats 6400000 in
 /-- **The constructors' conses, in order.** -/
 theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
     {F : Nat} {p : DirectSumParts} {env₀ envI : Env} {cvTa : ConstantVal}
-    {ctors ctorsA : List (ConstantVal × Nat)}
+    {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     (hCtors : ConLeche.checkDirectSumCtors (ConLeche.fueledOps μ F) env₀ envI p.cvT.name
-      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok ctorsA)
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok (ctorsA, sortss))
     (hnd : (ctorsA.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hlpsA : ∀ cA ∈ ctorsA, cA.1.levelParams = p.cvT.levelParams)
@@ -59,6 +59,10 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       (mC : EnvS2Core V ⟨.ctorInfo cA.1 p.nP cA.2 :: env'.consts⟩),
       cA ∈ ctorsA → env'.find? cA.1.name = none →
       mC.acval = acvalWith m'.acval cA.1.name A → Inv m' → Inv mC)
+    -- the block's capability record and its laws at every carrier the
+    -- invariant reaches (task #210 Part A)
+    (caps : IndCaps)
+    (hTlawsOf : ∀ {env' : Env} (m' : EnvS2Core V env'), Inv m' → CapsLawsAt m' p.cvT.name cvTa caps)
     (leafT : (Name → Nat) → AVExpr)
     (hfold : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ →
@@ -71,8 +75,8 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
                 (essOf (ctorDataList dsF esF ψ ctorsA 0))))) :
     ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvS2PM V μ env),
       (∀ i, rest[i]? = ctorsA[k + i]?) → k + rest.length = ctorsA.length →
-      ConLeche.EtaFamiliesClosed env →
-      env.find? p.cvT.name = some (.indInfo cvTa (ConLeche.directSumCaps p)) →
+      ConLeche.EtaFamiliesClosedExcept env p.cvT.name →
+      env.find? p.cvT.name = some (.indInfo cvTa caps) →
       FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll →
       (∀ ψ, mp.base2.acval p.cvT.name ψ = leafT ψ) →
       ConsedAt mp.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
@@ -81,9 +85,9 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
         idxF dsF esF srcsF ctorsA k →
       Inv mp.base2 →
       ∃ mp' : EnvS2PM V μ (ConLeche.consSumCtors p.nP rest env),
-        ConLeche.EtaFamiliesClosed (ConLeche.consSumCtors p.nP rest env) ∧
+        ConLeche.EtaFamiliesClosedExcept (ConLeche.consSumCtors p.nP rest env) p.cvT.name ∧
         (ConLeche.consSumCtors p.nP rest env).find? p.cvT.name
-          = some (.indInfo cvTa (ConLeche.directSumCaps p)) ∧
+          = some (.indInfo cvTa caps) ∧
         FormerData mp'.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll ∧
         (∀ ψ, mp'.base2.acval p.cvT.name ψ = leafT ψ) ∧
         ConsedAt mp'.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
@@ -96,10 +100,10 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
   | cA :: rest, k, env, mp, hrest, hk, hE, hfT, hFD, hleafT, hcons, hpend, hinv => by
     have hcAk : ctorsA[k]? = some cA := by
       have := hrest 0; simpa using this.symm
-    obtain ⟨hlen, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
+    obtain ⟨hlen, -, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
     have hkl : k < ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hcAk).1; omega
-    obtain ⟨hnF, hCtor⟩ := hall k (ctors[k]) cA (List.getElem?_eq_getElem hkl) hcAk
+    obtain ⟨hnF, _, -, hCtor⟩ := hall k (ctors[k]) cA (List.getElem?_eq_getElem hkl) hcAk
     rw [← hnF] at hCtor
     obtain ⟨hfresh, htr, hidxRes, hCD⟩ := hpend k cA (Nat.le_refl _) hcAk
     have hlpsC : cA.1.levelParams = p.cvT.levelParams := hlpsA cA (List.mem_of_getElem? hcAk)
@@ -125,7 +129,15 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       unfold ctorBodyAVI
       rw [hleafT ψ]
       exact hfold k cA hcAk ψ ρ hρ bs hsp
-    obtain ⟨mpC, hacC⟩ := stageCtorGen (j := k) hE mp hCtor hfresh htr hfT rfl rfl hlpsT hlpsC hFD hCD
+    obtain ⟨mpC, hacC⟩ := stageCtorGen (j := k) hE mp hCtor hfresh htr hfT
+      (fun m₂ hag => hTlawsOf m₂ (hInv mp.base2 cA (fun ψ => m₂.acval cA.1.name ψ) m₂
+        (List.mem_of_getElem? hcAk) hfresh
+        (by
+          funext n ψ
+          by_cases hn : n = cA.1.name
+          · subst hn; exact (congrFun acvalWith_self ψ).symm
+          · rw [hag n hn]; exact (congrFun (acvalWith_ne hn) ψ).symm) hinv))
+      hlpsT hlpsC hFD hCD
       hfoldC hFsj hEsj hFssParams hFssBelow (hiff k cA hcAk)
       (fun ψ ρ hρ => hFssOkP ψ ρ ((hiff k cA hcAk ψ ρ).mpr hρ)) (hIdx k cA hcAk)
     -- the invariants at the extension
@@ -134,15 +146,11 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
     have hcbC : ConstsBound env cA.1.type := constsBound_of_constsResolve _ htr
     have hcross : ∀ e : Expr, ConsCrossAt (.ctorInfo cA.1 p.nP cA.2) e :=
       fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
-    have hE' : ConLeche.EtaFamiliesClosed ⟨.ctorInfo cA.1 p.nP cA.2 :: env.consts⟩ := by
-      intro T'' cvT'' caps hf he hr
-      rw [ConLeche.Env.find?_cons] at hf
-      split at hf
-      · exact nomatch (Option.some.inj hf)
-      · obtain ⟨cvC', hfC'⟩ := hE T'' cvT'' caps hf he hr
-        exact ⟨cvC', ConLeche.Env.find?_cons_of_fresh hfresh hfC'⟩
+    have hE' : ConLeche.EtaFamiliesClosedExcept ⟨.ctorInfo cA.1 p.nP cA.2 :: env.consts⟩
+        p.cvT.name :=
+      hE.cons hfresh (fun _ _ heq => nomatch heq)
     have hfT' : (⟨.ctorInfo cA.1 p.nP cA.2 :: env.consts⟩ : Env).find? p.cvT.name
-        = some (.indInfo cvTa (ConLeche.directSumCaps p)) := ConLeche.Env.find?_cons_of_fresh hfresh hfT
+        = some (.indInfo cvTa caps) := ConLeche.Env.find?_cons_of_fresh hfresh hfT
     have hFD' : FormerData mpC.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll :=
       hFD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh (hcross _) hcbT mpC.base2 hacC
     have hleafT' : ∀ ψ, mpC.base2.acval p.cvT.name ψ = leafT ψ := by
@@ -200,8 +208,8 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
     have hinv' : Inv mpC.base2 :=
       hInv mp.base2 cA _ mpC.base2 (List.mem_of_getElem? hcAk) hfresh hacC hinv
     exact ctorsLoopGen hμ hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
-      leafT hfold rest (k + 1) _ mpC hrest' (by simp at hk; omega) hE' hfT' hFD' hleafT' hcons'
-      hpend' hinv'
+      caps hTlawsOf leafT hfold rest (k + 1) _ mpC hrest' (by simp at hk; omega) hE' hfT' hFD'
+      hleafT' hcons' hpend' hinv'
 
 
 end ConLeche.SetP

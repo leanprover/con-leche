@@ -1,4 +1,5 @@
 import ConLeche.SetP.DirectFix.FixAssemblyKitP
+import ConLeche.SetP.DirectFix.FixStageTableP
 import ConLeche.Semantics.Direct.DeclDirectFix
 import ConLeche.Verify.Direct.FixParts
 
@@ -59,9 +60,9 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     {block : List ConstantInfo} {p : DirectFixParts} (mp : EnvS2PM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.directFixParts? block = some p)
     (h : ConLeche.Semantics.DeclDirectFixRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨-, hwl, hnd, cvTa, env₁, p₁, ctorsA, cvRa, rhss, tfvs, trest, isorts, hInd, hsort,
-    hopT2, hsorts, hCtors, hFOk, hRec, rfl⟩ := h
-  obtain ⟨hshape, -, hlenK, hpos⟩ := ConLeche.directFixParts?_inv hdp
+  obtain ⟨hneg, hwl, hnd, cvTa, env₁, p₁, ctorsA, sortss, cvRa, rhss, tfvs, trest, isorts, hInd, hsort,
+    hopT2, hsorts, hCtors, hFOk, hRec, hTbl⟩ := h
+  obtain ⟨hshape, -, hlenK, hpos, hkinds⟩ := ConLeche.directFixParts?_inv hdp
   obtain ⟨hProp, -, hClps, -, -, helimR, hRlps, -, -⟩ := ConLeche.directFixShape?_inv hshape
   -- the former: its run completed the record with the sort it read
   -- (task #195), pinned equal to the syntactic one — so the record is
@@ -73,7 +74,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hp₁ : p₁ = p.toDirectSumParts := by
     rw [hps]; exact ConLeche.DirectSumParts.withSort_self _ hProp
   subst hp₁
-  obtain ⟨hfindT, -, -, -, -, -, typeT, -, -, -, -, htrT, -, -, htyT⟩ :=
+  obtain ⟨hfindT, -, hpshapeT, -, -, -, typeT, -, -, -, -, htrT, -, -, htyT⟩ :=
     ConLeche.checkConstantVal_inv hccvT
   have hTname : cvTa.name = p.cvT.name := by rw [htyT]; exact hTname₀
   have hlpsT : cvTa.levelParams = p.cvT.levelParams := by rw [htyT]; exact hTlps₀
@@ -83,45 +84,44 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hTfresh' : env.find? p.cvT.name = none := by rw [← hTname₀]; exact hfindT
   have hcbT : ConstsBound env cvTa.type :=
     constsBound_of_constsResolve _ (by rw [hTtype]; exact htrT)
-  have hfT_I : (⟨.indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts) :: env.consts⟩ : Env).find?
-      p.cvT.name = some (.indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts)) := by
+  have hfT_I : (⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩ : Env).find?
+      p.cvT.name = some (.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts)) := by
     rw [← hTname]; exact ConLeche.Env.find?_cons_self _ _
   have hProp' : p.isProp = true → (Level.isEquiv p.resSort .zero == some true) = true :=
     fun h => by rw [← hProp]; exact h
   obtain ⟨tfvsP, trestP, hopT⟩ := openPisAtFvars_of_stripPis_isSome p.nP 0
     (ConLeche.stripPis_isSome_of_le (Nat.le_add_right _ _) (by rw [hstripT]; rfl))
-  have hE_I : ConLeche.EtaFamiliesClosed
-      ⟨.indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts) :: env.consts⟩ := by
-    intro T'' cvT'' caps hf he hr
-    rw [ConLeche.Env.find?_cons] at hf
-    split at hf
-    · obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
-      exact absurd he Bool.false_ne_true
-    · obtain ⟨cvC', hfC'⟩ := hE T'' cvT'' caps hf he hr
-      exact ⟨cvC', ConLeche.Env.find?_cons_of_fresh hTfresh hfC'⟩
+  have hE_I : ConLeche.EtaFamiliesClosedExcept
+      ⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩ p.cvT.name :=
+    (hE.except _).cons hTfresh (fun cv caps heq _ => Or.inr (by
+      obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj heq
+      exact hTname))
   -- the constructors' runs
-  obtain ⟨hlenA, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
+  obtain ⟨hlenA, hlenS, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
   have hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ c : ConstantVal × Nat, p.ctors[j]? = some c ∧
       cA.1.name = c.1.name ∧ cA.1.levelParams = p.cvT.levelParams ∧
-      (⟨.indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts) :: env.consts⟩ : Env).find?
+      (⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩ : Env).find?
         cA.1.name = none ∧
       cA.1.type.constsResolve
-        ⟨.indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts) :: env.consts⟩ = true ∧
+        ⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩ = true ∧
+      cA.1.name.isProjFnShape = false ∧
+      ∃ sorts : List Level, sortss[j]? = some sorts ∧
       ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F)
-        ⟨.indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts) :: env.consts⟩
-        ⟨.indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts) :: env.consts⟩
+        ⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩
+        ⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩
         p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large c.1 cA.2 cvTa
-        = .ok cA.1 := by
+        = .ok (cA.1, sorts) := by
     intro j cA hj
     have hjl : j < p.ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hj).1; omega
-    obtain ⟨hnF, hCtor⟩ := hall j (p.ctors[j]) cA (List.getElem?_eq_getElem hjl) hj
+    obtain ⟨hnF, sorts, hsj, hCtor⟩ := hall j (p.ctors[j]) cA (List.getElem?_eq_getElem hjl) hj
     rw [← hnF] at hCtor
     obtain ⟨hccvC, -, -⟩ := ConLeche.checkDirectSumCtor_shape hCtor
-    obtain ⟨hfindC, -, -, -, -, -, typeC, -, -, -, -, htrC, -, -, htyC⟩ :=
+    obtain ⟨hfindC, -, hpshapeC, -, -, -, typeC, -, -, -, -, htrC, -, -, htyC⟩ :=
       ConLeche.checkConstantVal_inv hccvC
-    refine ⟨p.ctors[j], List.getElem?_eq_getElem hjl, by rw [htyC], ?_, ?_, ?_, hCtor⟩
+    refine ⟨p.ctors[j], List.getElem?_eq_getElem hjl, by rw [htyC], ?_, ?_, ?_,
+      by rw [htyC]; exact hpshapeC, sorts, hsj, hCtor⟩
     · rw [htyC]
       exact (hClps _ (List.getElem_mem hjl)).1
     · show Env.find? _ cA.1.name = none
@@ -129,14 +129,15 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     · show Expr.constsResolve _ cA.1.type = true
       rw [htyC]; exact htrC
   have hrunOf' : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
-      ∃ c : ConstantVal × Nat, ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F)
-        ⟨.indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts) :: env.consts⟩
-        ⟨.indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts) :: env.consts⟩
-        p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large c.1 cA.2 cvTa
-        = .ok cA.1 := by
+      ∃ (c : ConstantVal × Nat) (sorts : List Level),
+        ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F)
+          ⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩
+          ⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩
+          p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large c.1 cA.2 cvTa
+          = .ok (cA.1, sorts) := by
     intro j cA hj
-    obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
-    exact ⟨c, hCtor⟩
+    obtain ⟨c, -, -, -, -, -, -, sorts, -, hCtor⟩ := hrunOf j cA hj
+    exact ⟨c, sorts, hCtor⟩
   have hndA : (ctorsA.map (·.1.name)).Nodup := by
     have heq : ctorsA.map (·.1.name) = p.ctors.map (·.1.name) := by
       apply List.ext_getElem?
@@ -179,12 +180,43 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hppsR : ∀ ψ, ppsAll (restrictΨ p.cvT.levelParams ψ) = ppsAll ψ := by
     intro ψ
     exact (hFD.params _ _ fun q hq => restrictΨ_agree _ _ q (by rw [← hlpsT]; exact hq)).1
+  -- THE BLOCK'S CAPABILITY LAWS ARE VACUOUS (task #210 Part A): a
+  -- recursive block's constructor has a field, so the block is never
+  -- unit-like, and its η claim is premised on the projection-function
+  -- family being stored, which the table stage keeps free — at every
+  -- environment below the table's
+  have hFsPos : ∀ cA, ctorsA = [cA] → 0 < cA.2 := fixCtorFieldPos hFOk hlenK hlenA hneg hkinds
+  have hFsPosC : ∀ c, p.ctors = [c] → 0 < c.2 := by
+    intro c hc
+    have hlen1 : ctorsA.length = 1 := by rw [hlenA, hc]; rfl
+    obtain ⟨cA, hA⟩ := List.length_eq_one_iff.mp hlen1
+    have h1 := hFsPos cA hA
+    have h2 := (hall 0 c cA (by rw [hc]; rfl) (by rw [hA]; rfl)).1
+    omega
+  have hfreshFam : (ConLeche.directFixCaps p.toDirectSumParts).eta = true →
+      (⟨.recInfo cvRa p.majorIdx p.rulePrefix
+        (ConLeche.directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
+        :: (ConLeche.consSumCtors p.nP ctorsA
+          ⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩).consts⟩ : Env).find?
+        (projFnName p.cvT.name 0) = none :=
+    fixTableFamFree hTbl hlenA hlenS hFsPos
+  have hcapsVac : ∀ {env' : Env} (m' : EnvS2Core V env'),
+      ((ConLeche.directFixCaps p.toDirectSumParts).eta = true →
+        env'.find? (projFnName p.cvT.name 0) = none) →
+      CapsLawsAt m' p.cvT.name cvTa (ConLeche.directFixCaps p.toDirectSumParts) :=
+    fun m' hfr => fixCapsLawsAt_vacuous m' hFsPosC hfr
+  have hfreshFam₁ : (ConLeche.directFixCaps p.toDirectSumParts).eta = true →
+      (⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩ : Env).find?
+        (projFnName p.cvT.name 0) = none :=
+    fun he => ConLeche.consSumCtors_find?_none (find?_none_of_cons (hfreshFam he))
   -- the dummy former: the constructors' readings and the index
   -- telescope need a carrier storing the former
   obtain ⟨mpI₀, hacI₀⟩ := stageSumFormer mp hE hccvT hTname₀ hFD (fun _ => []) (fun _ _ _ => rfl)
     (fun _ _ h => nomatch h) (fun _ _ _ => ⟨(fun _ h => nomatch h), (fun _ h => nomatch h)⟩)
+    (ConLeche.directFixCaps p.toDirectSumParts)
+    (fun m₂ _ => by rw [hTname]; exact hcapsVac m₂ hfreshFam₁)
   have hFD_I₀ : FormerData mpI₀.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll :=
-    hFD.cross (c₀ := .indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts)) hTfresh
+    hFD.cross (c₀ := .indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts)) hTfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT mpI₀.base2 hacI₀
   have hleafT₀ : ∀ ψ, ∃ B, mpI₀.base2.acval p.cvT.name ψ
       = mkLamsC (p.resSort.eval ψ + 1) (ppsAll ψ) B := by
@@ -239,7 +271,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       ChainValidFacts p.nP cA.2 ρp (ksF j) (tssF₀ j ψ) (((dsF₀ j ψ).drop p.nP).map (·.2.2))
         (eissF₀ j ψ) (esF₀ j ψ) := by
     intro j cA hj ψ ρp hρp
-    obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
+    obtain ⟨c, -, -, -, -, -, -, _, -, hCtor⟩ := hrunOf j cA hj
     exact ⟨fixChainFacts_of hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hleafT₀ (hcf₀ j cA hj) (uAV ψ) ψ ρp hρp,
       fixChainValidFacts_of hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hleafT₀ (hcf₀ j cA hj) ψ ρp hρp⟩
   have hTlss₀D : ∀ ψ j cA, ctorsA[j]? = some cA → (Tlss₀ ψ).getD j [] = tssF₀ j ψ :=
@@ -274,7 +306,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hlpsA : ∀ cA ∈ ctorsA, cA.1.levelParams = p.cvT.levelParams := by
     intro cA hcA
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
-    obtain ⟨-, -, -, hlps, -⟩ := hrunOf j cA hj
+    obtain ⟨-, -, -, hlps, -, -, -, -, -, -⟩ := hrunOf j cA hj
     exact hlps
   have hcds₀Params : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q) →
       fixCtorDataList dsF₀ esF₀ ksF eissF₀ tssF₀ ψ₁ ctorsA 0
@@ -321,6 +353,8 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         rw [hlenFs₀ ψ j cA hjA]
         exact (hcf₀ j cA hjA).belowE ψ E hE)
     hIdx (fun ψ ρp hρp => (hX₀ ψ ρp hρp).1) (fun ψ ρp hρp => (hX₀ ψ ρp hρp).2)
+    (ConLeche.directFixCaps p.toDirectSumParts)
+    (fun m₂ _ => by rw [hTname]; exact hcapsVac m₂ hfreshFam₁)
   have hacI' : mpI.base2.acval = acvalWith mp.base2.acval p.cvT.name
       (fun ψ => directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ)
         (Ess₀ ψ)) := by
@@ -344,7 +378,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     have := mpI.base2.cval_closedL p.cvT.name ψ
     rwa [hleafT_I ψ] at this
   have hFD_I : FormerData mpI.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll :=
-    hFD.cross (c₀ := .indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts)) hTfresh
+    hFD.cross (c₀ := .indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts)) hTfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT mpI.base2 hacI
   -- the constructors' data at the real former, identified with the
   -- dummy former's except at the recursive fields
@@ -402,16 +436,34 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
             (∀ E ∈ esF j ψ, AnnotOkP V (consList bs ρ) E) ∧
             SpineFit ρ (Ids ψ) (idxValsAt ρ (esF j ψ) bs))) := by
     intro j cA hj
-    obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
-    obtain ⟨hiff, hfields⟩ := ctorFramesGen hμ mpI hCtor hfT_I hProp' hFD_I (hcf j cA hj).toCtorDataI
-      hleafT_I'
+    obtain ⟨c, -, -, -, -, -, -, _, -, hCtor⟩ := hrunOf j cA hj
+    obtain ⟨hiff, hfields, -⟩ := ctorFramesGen hμ mpI hCtor hfT_I hProp' hFD_I
+      (hcf j cA hj).toCtorDataI hleafT_I'
     exact ⟨hiff, fun ψ ρ h => ⟨(hfields ψ ρ h).1, (hfields ψ ρ h).2.1, (hfields ψ ρ h).2.2.2⟩⟩
+  -- the fields' bounds and sorts at a non-`Prop` family (task #210 Part
+  -- A: the projection table's guards at a structure-like block)
+  have hsortsOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
+      ∃ sorts : List Level, sortss[j]? = some sorts ∧ sorts.length = cA.2 ∧
+      (∀ k, k < cA.2 → p.isProp = false → Level.leq (sorts.getD k .zero) p.resSort = some true) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Sat2 V (((dsF j ψ).take p.nP).map (·.2.2)).reverse ρ →
+        (p.isProp = false →
+          FieldsBound (p.resSort.eval ψ) ρ (((dsF j ψ).drop p.nP).map (·.2.2))) ∧
+        ∀ k, k < cA.2 → ∀ as : List V,
+          SpineFit ρ ((((dsF j ψ).drop p.nP).map (·.2.2)).take k) as →
+          interp2 V (consList as ρ) ((((dsF j ψ).drop p.nP).map (·.2.2)).getD k default)
+            ∈ˢ (univ ((sorts.getD k .zero).eval ψ) : V)) := by
+    intro j cA hj
+    obtain ⟨c, -, -, -, -, -, -, sorts, hsj, hCtor⟩ := hrunOf j cA hj
+    obtain ⟨-, hfields, hlenS', hleq, hmem⟩ := ctorFramesGen hμ mpI hCtor hfT_I hProp' hFD_I
+      (hcf j cA hj).toCtorDataI hleafT_I'
+    exact ⟨sorts, hsj, hlenS', hleq, fun ψ ρ h => ⟨(hfields ψ ρ h).2.2.1, hmem ψ ρ h⟩⟩
   have hC : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
       ChainFacts (uAV ψ) (p.resSort.eval ψ) p.nP cA.2 ρp (Ids ψ) (ksF j) (tssF j ψ)
         (((dsF j ψ).drop p.nP).map (·.2.2)) (eissF j ψ) (esF j ψ) := by
     intro j cA hj ψ ρp hρp
-    obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
+    obtain ⟨c, -, -, -, -, -, -, _, -, hCtor⟩ := hrunOf j cA hj
     exact fixChainFacts_of hμ mpI hCtor hfT_I hProp' hFD_I hleafT_I' (hcf j cA hj) (uAV ψ) ψ ρp hρp
   -- the real chains against the leaf's
   have hreal : ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -560,7 +612,9 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   -- the invariant across the conses: every constructor's recursive
   -- data, its type and index arguments bounded, the former found
   let Inv : ∀ {env' : Env}, EnvS2Core V env' → Prop := fun {env'} m' =>
-    env'.find? p.cvT.name = some (.indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts)) ∧
+    env'.find? p.cvT.name = some (.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts)) ∧
+    ((ConLeche.directFixCaps p.toDirectSumParts).eta = true →
+      env'.find? (projFnName p.cvT.name 0) = none) ∧
     ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ConstsBound env' cA.1.type ∧ (∀ e ∈ idxF j, ConstsBound env' e) ∧
       FixCtorDataI m' env p.cvT.name p.cvT.levelParams cA.1 p.nP cA.2 p.nIdx p.resSort p.isProp
@@ -579,8 +633,16 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       exact nomatch h1
     have hcross : ∀ e : Expr, ConsCrossAt (.ctorInfo cA.1 p.nP cA.2) e :=
       fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
-    refine ⟨ConLeche.Env.find?_cons_of_fresh hfresh hinv.1, fun j cAj hj => ?_⟩
-    obtain ⟨hcb, hcbI, hD⟩ := hinv.2 j cAj hj
+    refine ⟨ConLeche.Env.find?_cons_of_fresh hfresh hinv.1, fun he => ?_, fun j cAj hj => ?_⟩
+    · obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
+      obtain ⟨-, -, -, -, -, -, hpshape, -⟩ := hrunOf j cA hj
+      rw [ConLeche.Env.find?_cons, if_neg (fun h => by
+        have h' : cA.1.name = projFnName p.cvT.name 0 := h
+        have := projFnName_isProjFnShape p.cvT.name 0
+        rw [← h', hpshape] at this
+        exact nomatch this)]
+      exact hinv.2.1 he
+    obtain ⟨hcb, hcbI, hD⟩ := hinv.2.2 j cAj hj
     exact ⟨ConstsBound.cons _ hcb, fun e he => ConstsBound.cons _ (hcbI e he),
       hD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh hTC hcross hcb hcbI mC hac⟩
   have hidxRes₀ : ∀ j cA, ctorsA[j]? = some cA → ∀ e ∈ idxF j, e.constsResolve env = true := by
@@ -589,19 +651,20 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     rw [← (hcf j cA hj).idxEq] at this
     exact this e he
   have hinv₀ : Inv mpI.base2 := by
-    refine ⟨hfT_I, fun j cA hj => ?_⟩
-    obtain ⟨-, -, -, -, -, htr, -⟩ := hrunOf j cA hj
+    refine ⟨hfT_I, hfreshFam₁, fun j cA hj => ?_⟩
+    obtain ⟨-, -, -, -, -, htr, -, -, -, -⟩ := hrunOf j cA hj
     exact ⟨constsBound_of_constsResolve _ htr,
       fun e he => constsBound_of_constsResolve _ (Expr.constsResolve_mono (hidxRes₀ j cA hj e he)),
       hcf j cA hj⟩
   obtain ⟨mpC, hE_C, hfT_C, hFD_C, hleafT_C, hconsAll, hinvC⟩ := ctorsLoopGen hμ hCtors hndA hlpsT
     hlpsA hFssParams hFssBelow (fun j cA hj => (hframes j cA hj).1) hFssOkP
     (fun j cA hj ψ ρ hρ bs hsp => ((hframes j cA hj).2 ψ ρ hρ).2.2 bs hsp |>.2)
-    Inv hInv leafT hfold
+    Inv hInv (ConLeche.directFixCaps p.toDirectSumParts)
+    (fun m' hinv => hcapsVac m' hinv.2.1) leafT hfold
     ctorsA 0 _ mpI (fun i => by rw [Nat.zero_add]) (Nat.zero_add _) hE_I hfT_I hFD_I hleafT_I
     (fun i cA hi _ => absurd hi (Nat.not_lt_zero _))
     (fun i cA _ hi => by
-      obtain ⟨-, -, -, -, hfresh, htr, -⟩ := hrunOf i cA hi
+      obtain ⟨-, -, -, -, hfresh, htr, -, -, -, -⟩ := hrunOf i cA hi
       exact ⟨hfresh, htr, fun e he => Expr.constsResolve_mono (hidxRes₀ i cA hi e he),
         (hcf i cA hi).toCtorDataI⟩)
     hinv₀
@@ -611,10 +674,10 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF j cA := by
     intro j cA hj
     obtain ⟨⟨hfind, hlps, -⟩, -, -⟩ := hconsAll j cA (List.getElem?_eq_some_iff.mp hj).1 hj
-    exact ⟨hfind, hlps, (hinvC.2 j cA hj).2.2⟩
+    exact ⟨hfind, hlps, (hinvC.2.2 j cA hj).2.2⟩
   have hidxRes_C : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∀ e ∈ idxF j, e.constsResolve (ConLeche.consSumCtors p.nP ctorsA
-        ⟨.indInfo cvTa (ConLeche.directSumCaps p.toDirectSumParts) :: env.consts⟩) = true :=
+        ⟨.indInfo cvTa (ConLeche.directFixCaps p.toDirectSumParts) :: env.consts⟩) = true :=
     fun j cA hj => (hconsAll j cA (List.getElem?_eq_some_iff.mp hj).1 hj).2.1
   have hleafC_C : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA → ∀ ψ,
       mpC.base2.acval cA.1.name ψ
@@ -719,10 +782,15 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       rw [hFssD ψ j cA hjA] at hsp
       have hf := (hframes j cA hjA).2 ψ ρp (((hframes j cA hjA).1 ψ ρp).mp hρp)
       exact ((hf.2.2 bs hsp).1 E hE).2
-  obtain ⟨sAV, mp₃, -⟩ := stageFixRec (fssZ := Fss₀) hE_C hμ mpC hmI hrP rfl rfl hRec hstripT hfT_C
-    rfl rfl hlpsT hopT helimR hRlps hFD_C hlenK' hks hcf_C hidxRes_C hUparams hleafT_C' hleafC_C
+  obtain ⟨sAV, mp₃, hac₃⟩ := stageFixRec (fssZ := Fss₀) hE_C hμ mpC hmI hrP rfl rfl hRec hstripT hfT_C
+    (fun m₂ _ => hcapsVac m₂ hfreshFam)
+    hlpsT hopT helimR hRlps hFD_C hlenK' hks hcf_C hidxRes_C hUparams hleafT_C' hleafC_C
     (fun j cA hj => (hframes j cA hj).1) hframesR
     (fun hl => (hwl hl).imp_right fun h => by rw [hlenA]; exact h) (by rw [hlenA]; exact hpos)
-  exact ⟨mp₃⟩
+  -- the projection table at a structure-like block (task #210 Part A)
+  exact declDirectFixTable rfl rfl hTbl mpC mp₃ hac₃ hProp hshape (by rw [← hTname₀]; exact hpshapeT)
+    mp.base2.wf hlenA hFsPos (fun j cA c hj hc => (hall j c cA hc hj).1) hrunOf hfT_C hlpsT hTfresh'
+    (by rw [hTtype]; exact htrT) hFD_C hcf_C hleafT_C' hleafC_C hframes hsortsOf
+    (fun ψ ρp h => ⟨(hframesR ψ ρp h).1, (hframesR ψ ρp h).2.1⟩) hRec
 
 end ConLeche.SetP
