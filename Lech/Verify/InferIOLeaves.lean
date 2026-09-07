@@ -114,7 +114,7 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
       simp only [WScoped]
       exact ⟨hw.1, WScoped.abstract1 0 hwbt⟩
     | app f a =>
-      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl, -⟩ :=
+      obtain ⟨tf, ty', body', m', htf, hwh, rfl, -⟩ :=
         inferTypeCoreIO_app_inv h
       simp only [WScoped] at hw
       have hwtf := inferTypeCoreIO_WScoped henv fuel htf hw.1
@@ -243,7 +243,7 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
           · exact absurd rfl hlne
           · exact Or.inl hb
     | app f a =>
-      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl, -⟩ :=
+      obtain ⟨tf, ty', body', m', htf, hwh, rfl, -⟩ :=
         inferTypeCoreIO_app_inv h
       simp only [WScoped] at hw
       intro l hl
@@ -309,7 +309,7 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
       · intro h
         simp only [Except.ok.injEq] at h
         subst h
-        exact hLb (idx, n, ty) (by simp [fvarLeaves])
+        exact hLb (idx, ty) (by simp [fvarLeaves])
       · intro h
         simp [throw, throwThe, MonadExceptOf.throw] at h
     | const n ws =>
@@ -389,7 +389,7 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
       simp only [looseBVarsBounded, Bool.and_eq_true]
       exact ⟨hb.1, looseBVarsBounded_abstract1 bt 0 hbbt⟩
     | app f a =>
-      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl, -⟩ :=
+      obtain ⟨tf, ty', body', m', htf, hwh, rfl, -⟩ :=
         inferTypeCoreIO_app_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb

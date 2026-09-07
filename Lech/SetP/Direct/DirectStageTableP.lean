@@ -268,7 +268,7 @@ theorem stageTable (mp : EnvS2PM V μ env)
   have hCD₂ : CtorData m₂ p.cvT.name cvCa p.nP p.nF p.resSort ds :=
     hCD.cross (c₀ := .projInfo tbl) hfresh hneT hcrossC hcbC m₂ hac
   -- the body, opened at the variables
-  obtain ⟨cds, nmB, bodyB, mbB, hcf⟩ :=
+  obtain ⟨cds, bodyB, mbB, hcf⟩ :=
     Lech.directProjBody_open hbodies hstripC hCb hi
   refine ⟨rfl, rfl, hi, ⟨cvTa, Lech.directCaps p, hfT₂, hlpsT, ?_, rfl, rfl, rfl⟩,
     hO5 i hi, cvCa, hfC₂, hlpsC, ?_, ?_⟩

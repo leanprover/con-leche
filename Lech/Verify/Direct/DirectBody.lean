@@ -37,7 +37,7 @@ theorem stripPis_instantiate1_full {v : Expr} :
       ∃ bs', (e.instantiate1 v j).stripPis k =
           some (bs', body.instantiate1 v (j + k)) ∧
         ∀ (i : Nat) (b : Expr × BinderMeta), bs[i]? = some b →
-          bs'[i]? = some (b.1, b.2.1.instantiate1 v (j + i), b.2.2) := by
+          bs'[i]? = some (b.1.instantiate1 v (j + i), b.2) := by
   intro k
   induction k with
   | zero =>
@@ -83,7 +83,7 @@ theorem instPisAt_head :
       e.stripPis (args.length + (mrem + 1)) = some (bs, body) →
       bs[args.length]? = some b →
       ∃ bodyR, rest = .forallE
-        (instSeq args (args.length - 1) b.2.1) bodyR b.2.2 := by
+        (instSeq args (args.length - 1) b.1) bodyR b.2 := by
   intro args
   induction args with
   | nil =>
@@ -125,8 +125,8 @@ theorem instPisAt_head :
         simp only [List.length_cons, List.getElem?_cons_succ] at hb
         obtain ⟨bs', hstrip', hpos⟩ :=
           stripPis_instantiate1_full (v := a) (as.length + (mrem + 1)) 0 hs
-        obtain ⟨bodyR, hhead⟩ := ih (b := (b.1,
-            b.2.1.instantiate1 a as.length, b.2.2)) h' hstrip'
+        obtain ⟨bodyR, hhead⟩ := ih (b := (b.1.instantiate1 a as.length,
+            b.2)) h' hstrip'
           (by rw [hpos as.length b hb]; simp)
         exact ⟨bodyR, by rw [hhead]; rfl⟩
 
@@ -164,7 +164,7 @@ theorem stripPis_binder_bounded :
       {body : Expr} {j : Nat},
       e.stripPis k = some (bs, body) → e.looseBVarsBounded j = true →
       ∀ (i : Nat) (b : Expr × BinderMeta), bs[i]? = some b →
-        b.2.1.looseBVarsBounded (j + i) = true := by
+        b.1.looseBVarsBounded (j + i) = true := by
   intro k
   induction k with
   | zero =>
@@ -213,7 +213,7 @@ theorem directProjBodiesGo_spec (T : Name) :
     ∀ (k i : Nat) (r : Expr) (bs : List Expr),
       directProjBodiesGo T k i r = some bs →
       bs.length = k ∧
-      ∀ j, j < k → ∃ nm b' mb,
+      ∀ j, j < k → ∃ b' mb,
         ((List.range j).foldl
             (fun acc jj => acc.bind (Expr.instPisAtLift [directProjArgP T (i + jj)]))
             (some r))
@@ -230,10 +230,10 @@ theorem directProjBodiesGo_spec (T : Name) :
       obtain ⟨hlen, hrest⟩ := directProjBodiesGo_spec T k (i + 1) _ bs' hrec
       refine ⟨by simp [hlen], fun j hj => ?_⟩
       cases j with
-      | zero => exact ⟨nm, body, mb, rfl⟩
+      | zero => exact ⟨body, mb, rfl⟩
       | succ j =>
-        obtain ⟨nm', b', mb', hj'⟩ := hrest j (by omega)
-        refine ⟨nm', b', mb', ?_⟩
+        obtain ⟨b', mb', hj'⟩ := hrest j (by omega)
+        refine ⟨b', mb', ?_⟩
         rw [List.range_succ_eq_map, List.foldl_cons, List.foldl_map]
         simp only [List.getD_cons_succ, Option.bind_some, Expr.instPisAtLift,
           Nat.add_zero]
@@ -252,7 +252,7 @@ per field. -/
 theorem directProjBodies_spec {T : Name} {nP nF : Nat} {cty : Expr}
     {bodies : Array Expr} (h : directProjBodies T nP nF cty = some bodies) :
     bodies.size = nF ∧
-    ∀ i, i < nF → ∃ nm b' mb,
+    ∀ i, i < nF → ∃ b' mb,
       directProjResidP T nP cty i
         = some (.forallE (bodies.getD i default) b' mb) := by
   unfold directProjBodies at h
@@ -264,8 +264,8 @@ theorem directProjBodies_spec {T : Name} {nP nF : Nat} {cty : Expr}
     obtain ⟨bs, hgo, rfl⟩ := h
     obtain ⟨hlen, hspec⟩ := directProjBodiesGo_spec T nF 0 r bs hgo
     refine ⟨by simp [hlen], fun i hi => ?_⟩
-    obtain ⟨nm, b', mb, hfold⟩ := hspec i hi
-    refine ⟨nm, b', mb, ?_⟩
+    obtain ⟨b', mb, hfold⟩ := hspec i hi
+    refine ⟨b', mb, ?_⟩
     have hgetD : bs.toArray.getD i default = bs.getD i default := by
       simp [Array.getD, List.getD_eq_getElem?_getD]
       split <;> simp_all
@@ -378,12 +378,12 @@ theorem directProjBody_open {T : Name} {nP nF : Nat} {cty : Expr}
     {bodies : Array Expr} (h : directProjBodies T nP nF cty = some bodies)
     (hstrip : (cty.stripPis (nP + nF)).isSome = true)
     (hcl : cty.looseBVarsBounded 0 = true) {i : Nat} (hi : i < nF) :
-    ∃ (cds : List Expr) (nm : Name) (bodyC : Expr) (mb : BinderMeta),
+    ∃ (cds : List Expr) (bodyC : Expr) (mb : BinderMeta),
       Expr.instPisAt (fvsD nP ++ projArgsD T i nP) cty
         = some (cds, .forallE
             (Expr.instSpine (fvsD nP ++ [tfvD nP]) nP (bodies.getD i default)) bodyC mb) := by
   obtain ⟨-, hspec⟩ := directProjBodies_spec h
-  obtain ⟨nm, b', mb, hres⟩ := hspec i hi
+  obtain ⟨b', mb, hres⟩ := hspec i hi
   rw [directProjResidP_eq] at hres
   -- the raw telescope's binder `nP + i`
   have hlenB : (directProjPs nP ++ (List.range i).map (directProjArgP T)).length = nP + i := by
@@ -398,21 +398,21 @@ theorem directProjBody_open {T : Name} {nP nF : Nat} {cty : Expr}
   -- the bvar peel's head: the body is the domain's capture-avoiding sequence
   obtain ⟨bodyR, hhead⟩ := instPisAtLift_head _ (mrem := 0) hres
     (by rw [hlenB]; exact hs) (by rw [hlenB]; exact hb)
-  obtain ⟨-, hbody, -, -⟩ := Expr.forallE.inj hhead
+  obtain ⟨hbody, -, -⟩ := Expr.forallE.inj hhead
   -- the fvar peel exists, and its head is the domain's plain sequence
   obtain ⟨⟨cds, rest⟩, hpa⟩ := Option.isSome_iff_exists.mp
     (instPisAt_isSome_of_stripPis (fvsD nP ++ projArgsD T i nP)
       (by rw [hlenF]; exact stripPis_isSome_of_le (by omega) hstrip))
   obtain ⟨bodyC, hheadF⟩ := instPisAt_head _ (mrem := 0) hpa
     (by rw [hlenF]; exact hs) (by rw [hlenF]; exact hb)
-  refine ⟨cds, b.1, bodyC, b.2.2, ?_⟩
+  refine ⟨cds, bodyC, b.2, ?_⟩
   rw [hpa, hheadF, hbody, Expr.instSpine_eq_instSeq]
   -- the collapse
-  have hdomB : b.2.1.looseBVarsBounded (nP + i) = true := by
+  have hdomB : b.1.looseBVarsBounded (nP + i) = true := by
     have := stripPis_binder_bounded (nP + i + 1) hs hcl (nP + i) b hb
     simpa using this
   have hcol := instSeq_instSeqLift (fvsD nP ++ [tfvD nP]) nP (fvsD_closed nP)
-    (by simp [fvsD_length]) _ (directProjArgs_bounded T nP i) b.2.1
+    (by simp [fvsD_length]) _ (directProjArgs_bounded T nP i) b.1
   rw [hlenB, directProjArgs_instSeq,
     instSeq_eq_self_of_bounded _ _ hdomB (by simp [fvsD_length]; omega)] at hcol
   rw [hlenB, hlenF, hcol]

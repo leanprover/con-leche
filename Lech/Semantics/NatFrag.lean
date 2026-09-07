@@ -58,7 +58,7 @@ theorem natFrag_subst_syntax {c : Name} {v : Expr}
       (Expr.substConst0 c v e).looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded (Expr.substConst0 c v e) ∧
       (∀ l ∈ (Expr.substConst0 c v e).fvarLeaves,
-        l.1 < 2 ∧ l.2.2 = .const natName [])
+        l.1 < 2 ∧ l.2 = .const natName [])
   | .sort u, _ => by
     rw [show Expr.substConst0 c v (Expr.sort u) = Expr.sort u from rfl]
     refine ⟨by rw [Expr.WScoped]; trivial, rfl, ?_, ?_⟩

@@ -85,7 +85,7 @@ theorem ConsCrossAt.instantiate1 {c₀ : ConstantInfo} {e v : Expr}
 theorem ConsCrossAt.sort {c₀ : ConstantInfo} (u : Level) :
     ConsCrossAt c₀ (.sort u) := fun _ _ _ => by simp
 
-theorem ConsCrossAt.fvar_sort {c₀ : ConstantInfo} (idx : Nat) (n : Name)
+theorem ConsCrossAt.fvar_sort {c₀ : ConstantInfo} (idx : Nat)
     (u : Level) : ConsCrossAt c₀ (.fvar idx (.sort u)) :=
   fun _ _ _ => by simp
 
@@ -95,7 +95,7 @@ theorem ConsCrossAt.openRev {c₀ : ConstantInfo} {e : Expr}
   | 0 => h
   | n + 1 =>
     ConsCrossAt.instantiate1 (ConsCrossAt.openRev h d n)
-      (ConsCrossAt.fvar_sort _ _ _) 0
+      (ConsCrossAt.fvar_sort _ _) 0
 
 /-! ## The stored pieces -/
 

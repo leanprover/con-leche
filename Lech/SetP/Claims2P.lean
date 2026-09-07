@@ -75,9 +75,9 @@ No fuel parameter. -/
 def CtxOkP {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (d : Nat) (Δa : List AVExpr) (e : Expr) : Prop :=
   Δa.length = d ∧
-  ∀ l ∈ e.fvarLeaves, l.1 < d ∧ Expr.fvarsBelow l.1 l.2.2 ∧
+  ∀ l ∈ e.fvarLeaves, l.1 < d ∧ Expr.fvarsBelow l.1 l.2 ∧
     ∃ tya Aa,
-      denoteP m.acval env φ d l.2.2 = some tya ∧
+      denoteP m.acval env φ d l.2 = some tya ∧
       Δa[d - 1 - l.1]? = some Aa ∧
       (∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ tya
