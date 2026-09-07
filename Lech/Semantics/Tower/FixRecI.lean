@@ -407,6 +407,61 @@ noncomputable def ihValsI (ℓ : Nat) (ρp : Nat → V) (rV : V) (kspine : List 
         ++ [(frameIdx ((tlss.getD j []).getD i []).length σ').foldl SetTheory.app (projS i y)]).foldl
         SetTheory.app rV
 
+/-! ### The finitary shapes -/
+
+/-- The ih argument at a finitary field (task #188's shape). -/
+def ihArgAV₀ (nP n nIdx D i : Nat) (Eis : List AVExpr) : AVExpr :=
+  AVExpr.mkAppN (.bvar (D + 1 + nIdx + n + 1 + nP))
+    (idxVarsAV (nP + 1 + n) (D + 1 + nIdx) ++
+      Eis.map (fun E => substProj i (E.liftN (D + nIdx + n + 2) i)) ++ [projAV i (.bvar 0)])
+
+def ihArgsI₀ (nP n nIdx : Nat) (rss : List (List Bool)) (Eiss : List (List (List AVExpr)))
+    (ar : Nat → Nat) (D j : Nat) : List AVExpr :=
+  (recIdx (rss.getD j []) (ar j)).map fun i => ihArgAV₀ nP n nIdx D i ((Eiss.getD j []).getD i [])
+
+noncomputable def ihDomsI₀ (ρp : Nat → V) (M : V) (rss : List (List Bool))
+    (Eiss : List (List (List AVExpr))) (ar : Nat → Nat) (j : Nat) (fs : List V) : List V :=
+  (recIdx (rss.getD j []) (ar j)).map fun i =>
+    SetTheory.app ((((Eiss.getD j []).getD i []).map (interp2 V (consList (fs.take i) ρp))).foldl
+      SetTheory.app M) (fs.getD i pt)
+
+noncomputable def ihValsI₀ (ρp : Nat → V) (rV : V) (kspine : List V) (rss : List (List Bool))
+    (Eiss : List (List (List AVExpr))) (ar : Nat → Nat) (j : Nat) (y : V) : List V :=
+  (recIdx (rss.getD j []) (ar j)).map fun i =>
+    (kspine ++ (((Eiss.getD j []).getD i []).map (interp2 V (consList (projList i y) ρp)))
+      ++ [projS i y]).foldl SetTheory.app rV
+
+omit [SetTheory V] in
+theorem ihArgsI_fin {ℓ nP n nIdx : Nat} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {ar : Nat → Nat}
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) :
+    ihArgsI ℓ nP n nIdx rss tlss Eiss ar = ihArgsI₀ nP n nIdx rss Eiss ar := by
+  funext D j
+  unfold ihArgsI ihArgsI₀
+  apply List.map_congr_left
+  intro i _
+  rw [hfin, ihArgAV_nil]; rfl
+
+theorem ihDomsI_fin {ℓ : Nat} {ρp : Nat → V} {M : V} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {ar : Nat → Nat}
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) :
+    ihDomsI ℓ ρp M rss tlss Eiss ar = ihDomsI₀ ρp M rss Eiss ar := by
+  funext j fs
+  unfold ihDomsI ihDomsI₀
+  apply List.map_congr_left
+  intro i _
+  rw [hfin]; rfl
+
+theorem ihValsI_fin {ℓ : Nat} {ρp : Nat → V} {rV : V} {kspine : List V} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {ar : Nat → Nat}
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) :
+    ihValsI ℓ ρp rV kspine rss tlss Eiss ar = ihValsI₀ ρp rV kspine rss Eiss ar := by
+  funext j y
+  unfold ihValsI ihValsI₀
+  apply List.map_congr_left
+  intro i _
+  rw [hfin]; rfl
+
 section IhFacts
 
 variable {ℓ w u nP : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
@@ -627,6 +682,7 @@ theorem spineFit_getD_mem' {ρ : Nat → V} :
 /-- **The ih obligation is discharged** at every frame of the case
 split (graph regime). -/
 theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss rds) (hw : w ≠ 0)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = [])
     {D : Nat} {σ : Nat → V} (hfr : RecFrameS D ρ₀ σ) {j : Nat} (hj : j < Fss.length) :
     IhArgsOk w ρ₀ σ Fss Ess Ids
       (ihDomsI ℓ (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀) rss tlss Eiss
@@ -634,6 +690,7 @@ theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss
       (ihValsI ℓ (frP Fss.length Ids.length ρ₀) (frR nP Fss.length Ids.length ρ₀)
         (frKSpine nP Fss.length Ids.length ρ₀) rss tlss Eiss (fun j => (Fss.getD j []).length))
       (ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length)) D j := by
+  rw [ihArgsI_fin hfin, ihDomsI_fin hfin, ihValsI_fin hfin]
   intro y hy
   have hjF := h.hyp.rChain_getElem? hj
   rw [sumFibre_of_getElem? hjF] at hy
@@ -686,8 +743,9 @@ theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss
     obtain ⟨hik, hri⟩ := mem_recIdx.mp hmem
     have hc := chainRealI_at (Fss₀.getD j []) (Fss.getD j []) 0 [] (projList (Fss.getD j []).length y)
       rfl (h.hreal.2.2.2.2 j hj) (by simpa using hspP) _ hik (by rw [Nat.zero_add]; exact hri)
-    rw [Nat.zero_add, List.nil_append, projList_take _ _ _ (Nat.le_of_lt hik)] at hc
-    obtain ⟨hEok, hvsp, heq⟩ := hc
+    rw [Nat.zero_add, List.nil_append, projList_take _ _ _ (Nat.le_of_lt hik), hfin, slotSet_nil] at hc
+    obtain ⟨hf, heq⟩ := hc
+    obtain ⟨hEok, hvsp⟩ := SlotFit.fin hf
     refine ⟨hik, hEok, hvsp, ?_⟩
     have := spineFit_getD_mem' hspP hik
     rw [projList_take _ _ _ (Nat.le_of_lt hik), heq] at this
@@ -696,13 +754,13 @@ theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss
     exact this
   refine ⟨?_, ?_, ?_⟩
   · -- the readings
-    unfold ihArgsI ihValsI
+    unfold ihArgsI₀ ihValsI₀
     rw [List.map_map]
     apply List.map_congr_left
     intro i hi
     obtain ⟨hik, -⟩ := mem_recIdx.mp hi
-    show interp2 V (cons y σ) (ihArgAV nP Fss.length Ids.length D i _) = _
-    unfold ihArgAV
+    show interp2 V (cons y σ) (ihArgAV₀ nP Fss.length Ids.length D i _) = _
+    unfold ihArgAV₀
     have hmid : ((Eiss.getD j []).getD i []).map
         (interp2 V (cons y σ) ∘ fun E => substProj i (E.liftN (D + Ids.length + Fss.length + 2) i))
         = ((Eiss.getD j []).getD i []).map
@@ -712,17 +770,17 @@ theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss
       rAt_interp hfr, List.map_append, List.map_append, kSpineAt_interp hfr, List.map_map, hmid]
     simp only [List.map_cons, List.map_nil, projAV_interp, interp2_bvar, cons_zero]
   · -- the lengths
-    unfold ihArgsI ihDomsI
+    unfold ihArgsI₀ ihDomsI₀
     simp only [List.length_map]
   · -- the gradings and the memberships
     intro l hl
-    unfold ihDomsI at hl ⊢
+    unfold ihDomsI₀ at hl ⊢
     rw [List.length_map] at hl
     obtain ⟨hik, hEok, hvsp, hfmem⟩ := hpos l hl
     have hgetA : (ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length) D j).getD l default
         = ihArgAV nP Fss.length Ids.length D ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])
             ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []) := by
-      unfold ihArgsI
+      unfold ihArgsI₀
       rw [List.getD_eq_getElem?_getD (i := l), List.getElem?_map, List.getElem?_eq_getElem hl,
         Option.map_some, Option.getD_some]
     have hgetD : (((recIdx (rss.getD j []) (Fss.getD j []).length)).map fun i =>
@@ -740,7 +798,7 @@ theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss
         projList_get _ _ _ hik]
     rw [hgetA, hgetD]
     -- the argument's value
-    have hval : interp2 V (cons y σ) (ihArgAV nP Fss.length Ids.length D
+    have hval : interp2 V (cons y σ) (ihArgAV₀ nP Fss.length Ids.length D
         ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])
         ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []))
         = (frKSpine nP Fss.length Ids.length ρ₀ ++
@@ -749,7 +807,7 @@ theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss
                 (frP Fss.length Ids.length ρ₀)))) ++
             [projS ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) y]).foldl SetTheory.app
             (frR nP Fss.length Ids.length ρ₀) := by
-      unfold ihArgAV
+      unfold ihArgAV₀
       have hmid : ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []).map
           (interp2 V (cons y σ) ∘ fun E => substProj ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])
             (E.liftN (D + Ids.length + Fss.length + 2) ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])))
@@ -762,7 +820,7 @@ theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss
       simp only [List.map_cons, List.map_nil, projAV_interp, interp2_bvar, cons_zero]
     refine ⟨?_, ?_⟩
     · -- graded: the application chain of the function at the spine
-      unfold ihArgAV
+      unfold ihArgAV₀
       have hargs : ∀ a ∈ idxVarsAV (nP + 1 + Fss.length) (D + 1 + Ids.length) ++
           ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []).map
             (fun E => substProj ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])
@@ -896,17 +954,19 @@ noncomputable def famK (u w : Nat) (K : Nat → V) (Fss Ess Fss₀ : List (List 
     (Ids : List AVExpr) (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) : V :=
   fixFamI u w (frP Fss.length Ids.length K) Ids Ids.length rss tlss Eiss Fss₀ Ess
 
-theorem iterK_le_fam (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) (n : Nat) :
+theorem iterK_le_fam (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) (n : Nat) :
     FamLe (idxSet u (frP Fss.length Ids.length K) Ids) (iterK u w K Fss Ess Fss₀ Ids rss tlss Eiss n)
       (famK u w K Fss Ess Fss₀ Ids rss tlss Eiss) := by
   intro i hi
   unfold famK
-  rw [fixFamI_app_eq_famU h.hX hi]
+  rw [fixFamI_app_eq_famU h.hX hfin hi]
   exact famIter_le_famU h.hX n i hi
 
 /-- A member of a stage at a tuple: the decomposition and the facts
 the recursion consumes. -/
-theorem stage_elim (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) (hw : w ≠ 0) {n : Nat}
+theorem stage_elim (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) (hw : w ≠ 0) {n : Nat}
     {is : List V} (hsp : SpineFit (frP Fss.length Ids.length K) Ids is) {t : V}
     (ht : t ∈ˢ SetTheory.app (iterK u w K Fss Ess Fss₀ Ids rss tlss Eiss (n + 1)) (tupW u is)) :
     ∃ j fs, t = inj j (mkTower (fs ++ [pt])) ∧ j < Fss.length ∧
@@ -928,24 +988,25 @@ theorem stage_elim (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) (hw
   obtain ⟨hl₀, hlE, hEs, hlenj, hc⟩ := h.hreal
   have hj : j < Fss.length := by omega
   have hfit := h.hX.hfit _ (famIter_mem h.hX n) _ (tupW_mem hsp) j hj₀
-  have hspR := spineFit_real_of_XI h.hX.hI (iterK_le_fam h n) (Fss₀.getD j []) (Fss.getD j []) 0 [] fs rfl
+  have hspR := spineFit_real_of_XI h.hX.hI (iterK_le_fam h hfin n) (Fss₀.getD j []) (Fss.getD j []) 0 [] fs rfl
     (hc j hj) hfit hspX
   have hlen : fs.length = (Fss.getD j []).length := by rw [hlen₀]; exact hlenj j hj
   refine ⟨j, fs, rfl, hj, hlen, hspR, ?_, ?_⟩
   · rw [← hlen₀] at hall
     exact idxValsAt_of_eqsXI h.hX.hI hsp (hEs j hj) hall
   · intro l hl hrl
-    have hmem := fitsXI_rec_mem h.hX.hI (Fss₀.getD j []) 0 [] fs rfl hfit hspX l hl
+    have hmem := fitsXI_rec_mem h.hX.hI (hfin j) (Fss₀.getD j []) 0 [] fs rfl hfit hspX l hl
       (by rw [Nat.zero_add]; exact hrl)
     rw [Nat.zero_add, List.nil_append] at hmem
     have hat := chainRealI_at (Fss₀.getD j []) (Fss.getD j []) 0 [] fs rfl (hc j hj) (by simpa using hspR) l
       (by omega) (by rw [Nat.zero_add]; exact hrl)
-    rw [Nat.zero_add, List.nil_append] at hat
-    exact ⟨hmem, hat.2.1⟩
+    rw [Nat.zero_add, List.nil_append, hfin] at hat
+    exact ⟨hmem, (SlotFit.fin hat.1).2⟩
 
 /-- **The rank recursion lands in the motive** (nonzero elimination
 level, graph regime). -/
-theorem fixSemK_mem (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) (hw : w ≠ 0) (hℓ : ℓ ≠ 0) :
+theorem fixSemK_mem (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) (hw : w ≠ 0) (hℓ : ℓ ≠ 0) :
     ∀ (n : Nat) (is : List V) (t : V), SpineFit (frP Fss.length Ids.length K) Ids is →
       t ∈ˢ SetTheory.app (iterK u w K Fss Ess Fss₀ Ids rss tlss Eiss n) (tupW u is) →
       fixSemK K Fss Ids rss n t ∈ˢ SetTheory.app (is.foldl SetTheory.app (frM Fss.length Ids.length K)) t
@@ -954,38 +1015,39 @@ theorem fixSemK_mem (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) (h
     rw [app_graph (tupW_mem hsp)] at ht
     exact absurd ht (not_mem_empty _)
   | n + 1, is, t, hsp, ht => by
-    obtain ⟨j, fs, rfl, hj, hlen, hspR, hidx, hrec⟩ := stage_elim h hw hsp ht
+    obtain ⟨j, fs, rfl, hj, hlen, hspR, hidx, hrec⟩ := stage_elim h hfin hw hsp ht
     unfold fixSemK
     rw [fixSem_inj n j hlen]
     unfold stepBr
     rw [List.foldl_append]
     simp only [frMsL_getD Fss.length Ids.length K hj]
     have hfold := minorSpI_fold (fun h0 => absurd h0 hℓ) (h.hyp.hms j hj) hspR
-    rw [List.nil_append] at hfold
+    rw [List.nil_append, ihDomsI_fin hfin] at hfold
     have hC0 : ℓ = 0 → concI w (frP Fss.length Ids.length K) (frM Fss.length Ids.length K) (Ess.getD j []) j fs
         ∈ˢ (univZero : V) := fun h0 => absurd h0 hℓ
-    have := ihSpL_fold hC0 (As := ihDomsI ℓ (frP Fss.length Ids.length K) (frM Fss.length Ids.length K) rss tlss Eiss
+    have := ihSpL_fold hC0 (As := ihDomsI₀ (frP Fss.length Ids.length K) (frM Fss.length Ids.length K) rss Eiss
         (fun j => (Fss.getD j []).length) j fs)
       (vs := (recIdx (rss.getD j []) (Fss.getD j []).length).map fun i =>
-        fixSemK K Fss Ids rss n (fs.getD i pt)) hfold (by simp [ihDomsI]) ?_
+        fixSemK K Fss Ids rss n (fs.getD i pt)) hfold (by simp [ihDomsI₀]) ?_
     · unfold concI ctorValI at this
       rw [hidx, if_neg hw] at this
       exact this
     · intro l hl
-      unfold ihDomsI at hl
+      unfold ihDomsI₀ at hl
       rw [List.length_map] at hl
       have hi : (recIdx (rss.getD j []) (Fss.getD j []).length)[l]
           ∈ recIdx (rss.getD j []) (Fss.getD j []).length := List.getElem_mem hl
       obtain ⟨hik, hri⟩ := mem_recIdx.mp hi
-      unfold ihDomsI
+      unfold ihDomsI₀
       rw [List.getD_eq_getElem?_getD (i := l), List.getElem?_map, List.getElem?_eq_getElem hl,
         Option.map_some, Option.getD_some, List.getD_eq_getElem?_getD (i := l), List.getElem?_map,
         List.getElem?_eq_getElem hl, Option.map_some, Option.getD_some]
       obtain ⟨hmem, hvsp⟩ := hrec _ (by omega) hri
-      exact fixSemK_mem h hw hℓ n _ _ hvsp hmem
+      exact fixSemK_mem h hfin hw hℓ n _ _ hvsp hmem
 
 /-- **Stability**: above a member's stage the recursion is constant. -/
-theorem fixSemK_stable (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) (hw : w ≠ 0) :
+theorem fixSemK_stable (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) (hw : w ≠ 0) :
     ∀ (n : Nat) (is : List V) (t : V), SpineFit (frP Fss.length Ids.length K) Ids is →
       t ∈ˢ SetTheory.app (iterK u w K Fss Ess Fss₀ Ids rss tlss Eiss n) (tupW u is) →
       ∀ m, n ≤ m → fixSemK K Fss Ids rss m t = fixSemK K Fss Ids rss n t
@@ -994,18 +1056,19 @@ theorem fixSemK_stable (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss)
     rw [app_graph (tupW_mem hsp)] at ht
     exact absurd ht (not_mem_empty _)
   | n + 1, is, t, hsp, ht, m, hnm => by
-    obtain ⟨j, fs, rfl, hj, hlen, -, -, hrec⟩ := stage_elim h hw hsp ht
+    obtain ⟨j, fs, rfl, hj, hlen, -, -, hrec⟩ := stage_elim h hfin hw hsp ht
     obtain ⟨m', rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
     unfold fixSemK
     rw [fixSem_inj n j hlen, fixSem_inj m' j hlen]
     refine stepBr_congr fun i hi => ?_
     obtain ⟨hik, hri⟩ := mem_recIdx.mp hi
     obtain ⟨hmem, hvsp⟩ := hrec i (by rw [hlen]; simpa using hik) hri
-    exact fixSemK_stable h hw n _ _ hvsp hmem m' (by omega)
+    exact fixSemK_stable h hfin hw n _ _ hvsp hmem m' (by omega)
 
 /-- **Inhabitation at a zero elimination level** (graph regime): the
 motive is inhabited at every member of every stage. -/
-theorem fixSemK_inhab (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) (hw : w ≠ 0) (h0 : ℓ = 0) :
+theorem fixSemK_inhab (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) (hw : w ≠ 0) (h0 : ℓ = 0) :
     ∀ (n : Nat) (is : List V) (t : V), SpineFit (frP Fss.length Ids.length K) Ids is →
       t ∈ˢ SetTheory.app (iterK u w K Fss Ess Fss₀ Ids rss tlss Eiss n) (tupW u is) →
       ∃ y, y ∈ˢ SetTheory.app (is.foldl SetTheory.app (frM Fss.length Ids.length K)) t
@@ -1014,20 +1077,20 @@ theorem fixSemK_inhab (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) 
     rw [app_graph (tupW_mem hsp)] at ht
     exact absurd ht (not_mem_empty _)
   | n + 1, is, t, hsp, ht => by
-    obtain ⟨j, fs, rfl, hj, hlen, hspR, hidx, hrec⟩ := stage_elim h hw hsp ht
+    obtain ⟨j, fs, rfl, hj, hlen, hspR, hidx, hrec⟩ := stage_elim h hfin hw hsp ht
     have hms := h.hyp.hms j hj
-    rw [h0] at hms
+    rw [h0, ihDomsI_fin hfin] at hms
     obtain ⟨x, hx⟩ := minorSpI_zero_inhab hms hspR
     rw [List.nil_append] at hx
     have := ihSpL_zero_inhab hx ?_
     · unfold concI ctorValI at this
       rwa [hidx, if_neg hw] at this
     · intro A hA
-      unfold ihDomsI at hA
+      unfold ihDomsI₀ at hA
       obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hA
       obtain ⟨hik, hri⟩ := mem_recIdx.mp hi
       obtain ⟨hmem, hvsp⟩ := hrec i (by rw [hlen]; simpa using hik) hri
-      exact fixSemK_inhab h hw h0 n _ _ hvsp hmem
+      exact fixSemK_inhab h hfin hw h0 n _ _ hvsp hmem
 
 end KRec
 
@@ -1187,6 +1250,10 @@ structure FixPre (V : Type uv) [SetTheory V] (ℓ w u nP : Nat) (Fss Ess Fss₀ 
   hlen : rds.length = nP + 1 + Fss.length + Ids.length + 1
   hclosed : ∀ k d, rds[k]? = some d → VExpr.bvarsBelow k d.2.2.erase
   hwℓ : w = 0 → ℓ = 0
+  /-- the fields are finitary (every telescope empty — the rank
+  recursion over the ω-iterate), or the block is a `Prop` with a small
+  eliminator (task #202: the inhabitation is by lfp induction) -/
+  hfin : (∀ j i, (tlss.getD j []).getD i [] = []) ∨ (w = 0 ∧ ℓ = 0)
   hs0 : s = 0 ↔ ℓ = 0
   hdoms : ∀ ρb : Nat → V, DomsWalk ρb rds
   hK : ∀ (ρb : Nat → V) (as : List V) (t : V), SpineFit ρb (rds.map (·.2.2)) (as ++ [t]) →
@@ -1301,7 +1368,8 @@ variable {ℓ w u : Nat} {K : Nat → V} {Fss Ess Fss₀ : List (List AVExpr)} {
 
 /-- A member of a stage at a tuple (squash regime): the point, with a
 constructor's fitting tuple. -/
-theorem stage_elim_zero (h : FixKI₀ ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss) {n : Nat}
+theorem stage_elim_zero (h : FixKI₀ ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) {n : Nat}
     {is : List V} (hsp : SpineFit (frP Fss.length Ids.length K) Ids is) {t : V}
     (ht : t ∈ˢ SetTheory.app (iterK u 0 K Fss Ess Fss₀ Ids rss tlss Eiss (n + 1)) (tupW u is)) :
     t = pt ∧ ∃ j fs, j < Fss.length ∧ fs.length = (Fss.getD j []).length ∧
@@ -1322,23 +1390,167 @@ theorem stage_elim_zero (h : FixKI₀ ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss
   obtain ⟨hl₀, hlE, hEs, hlenj, hc⟩ := h.hreal
   have hj : j < Fss.length := by omega
   have hfit := h.hX.hfit _ (famIter_mem h.hX n) _ (tupW_mem hsp) j hj₀
-  have hspR := spineFit_real_of_XI h.hX.hI (iterK_le_fam h n) (Fss₀.getD j []) (Fss.getD j []) 0 [] fs rfl
+  have hspR := spineFit_real_of_XI h.hX.hI (iterK_le_fam h hfin n) (Fss₀.getD j []) (Fss.getD j []) 0 [] fs rfl
     (hc j hj) hfit hspX
   have hlen : fs.length = (Fss.getD j []).length := by rw [hlen₀]; exact hlenj j hj
   refine ⟨rfl, j, fs, hj, hlen, hspR, ?_, ?_⟩
   · rw [← hlen₀] at hall
     exact idxValsAt_of_eqsXI h.hX.hI hsp (hEs j hj) hall
   · intro l hl hrl
-    have hmem := fitsXI_rec_mem h.hX.hI (Fss₀.getD j []) 0 [] fs rfl hfit hspX l hl
+    have hmem := fitsXI_rec_mem h.hX.hI (hfin j) (Fss₀.getD j []) 0 [] fs rfl hfit hspX l hl
       (by rw [Nat.zero_add]; exact hrl)
     rw [Nat.zero_add, List.nil_append] at hmem
     have hat := chainRealI_at (Fss₀.getD j []) (Fss.getD j []) 0 [] fs rfl (hc j hj) (by simpa using hspR) l
       (by omega) (by rw [Nat.zero_add]; exact hrl)
-    rw [Nat.zero_add, List.nil_append] at hat
-    exact ⟨hmem, hat.2.1⟩
+    rw [Nat.zero_add, List.nil_append, hfin] at hat
+    exact ⟨hmem, (SlotFit.fin hat.1).2⟩
+
+/-- A member of a nested product at level `0` is inhabited pointwise:
+under every fitting spine the body is inhabited. -/
+theorem mem_piTele_zero {B : List V → V} :
+    ∀ {k : Nat} {T : TeleS V k} {acc : List V} {x : V}, x ∈ˢ piTele 0 T B acc →
+      ∀ as, FitsS T as → ∃ y, y ∈ˢ B (acc ++ as)
+  | _, .nil, acc, x, hx, [], _ => ⟨x, by simpa [piTele] using hx⟩
+  | _, .nil, _, _, _, _ :: _, hfit => hfit.elim
+  | _, .cons _ _, _, _, _, [], hfit => hfit.elim
+  | _, .cons A T, acc, x, hx, a :: as, hfit => by
+    have hx' : x ∈ˢ piR 0 A (fun a => piTele 0 (T a) B (acc ++ [a])) := hx
+    rw [piR_zero] at hx'
+    obtain ⟨y, hy⟩ := (mem_truthVal.mp hx').1 a hfit.1
+    have := mem_piTele_zero (T := T a) (acc := acc ++ [a]) hy as hfit.2
+    simpa [List.append_assoc] using this
+
+/-- A nested product at level `0` is inhabited when its body is under
+every fitting spine. -/
+theorem piTele_zero_inhab_of {B : List V → V} :
+    ∀ {k : Nat} {T : TeleS V k} {acc : List V},
+      (∀ as, FitsS T as → ∃ y, y ∈ˢ B (acc ++ as)) → ∃ z, z ∈ˢ piTele 0 T B acc
+  | _, .nil, acc, h => by
+    have := h [] trivial
+    simpa [piTele] using this
+  | _, .cons A T, acc, h => by
+    refine ⟨pt, ?_⟩
+    show pt ∈ˢ piR 0 A (fun a => piTele 0 (T a) B (acc ++ [a]))
+    rw [piR_zero]
+    refine mem_truthVal.mpr ⟨fun a ha => ?_, rfl⟩
+    refine piTele_zero_inhab_of (T := T a) (acc := acc ++ [a]) fun as has => ?_
+    have := h (a :: as) ⟨ha, has⟩
+    simpa [List.append_assoc] using this
+
+/-- A member of a slot's value at level `0` is the point. -/
+theorem eq_pt_of_mem_slotSet_zero {u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × AVExpr)}
+    {Eis : List AVExpr} {X : V} (hX : ∀ t, SetTheory.app X t ∈ˢ (univZero : V)) {f : V}
+    (hf : f ∈ˢ slotSet 0 u ρ tl Eis X) : f = pt := by
+  unfold slotSet at hf
+  cases tl with
+  | nil =>
+    exact eq_pt_of_mem_univZero (hX _) hf
+  | cons d tl =>
+    simp only [List.map_cons, teleOfFields, piTele] at hf
+    rw [piR_zero] at hf
+    exact (mem_truthVal.mp hf).2
+
+/-- **Inhabitation at a zero elimination level by lfp induction**
+(squash regime, task #202): at a `Prop`-valued block whose recursive
+fields may be reflexive, the motive is inhabited at every member of
+the carrier — the property is closed under the functor: at a member
+of constructor `j`'s tower over the X-chain at the family of members
+satisfying it, the minor's ih tower is inhabited (every ih domain is,
+pointwise under the field's telescope), so its conclusion is. -/
+theorem famK_inhab_zero_ind (h : FixKI₀ ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss) (h0 : ℓ = 0) :
+    ∀ (is : List V) (t : V), SpineFit (frP Fss.length Ids.length K) Ids is →
+      t ∈ˢ SetTheory.app (famK u 0 K Fss Ess Fss₀ Ids rss tlss Eiss) (tupW u is) →
+      ∃ y, y ∈ˢ SetTheory.app (is.foldl SetTheory.app (frM Fss.length Ids.length K)) t := by
+  set ρp := frP Fss.length Ids.length K with hρp
+  set M := frM Fss.length Ids.length K with hM
+  set μ := fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess with hμ
+  have hX := h.hX
+  have hIds : IdxOk u ρp Ids := hX.hI
+  obtain ⟨hl₀, hlE, hEs, hlenj, hc⟩ := h.hreal
+  -- the property
+  let P : V → V → Prop := fun i x => ∀ is, SpineFit ρp Ids is → i = tupW u is →
+    ∃ y, y ∈ˢ SetTheory.app (is.foldl SetTheory.app M) x
+  have hμS : μ ∈ˢ lfpFamSpace V 0 (idxSet u ρp Ids) := fixFamI_mem u 0 ρp Ids rss tlss Eiss Fss₀ Ess
+  have hfibre : ∀ t', SetTheory.app μ t' ∈ˢ (univZero : V) := by
+    intro t'
+    by_cases ht' : t' ∈ˢ idxSet u ρp Ids
+    · rw [lfpFamSpace_eq] at hμS
+      have := famSpace_app hμS ht'
+      rwa [univ_zero] at this
+    · rw [lfpFamSpace_eq] at hμS
+      rw [app_off_dom_piR_pos (Nat.succ_ne_zero 0) hμS ht']
+      exact mem_univZero.mpr (empty_subset _)
+  have hind := lfpFamSet_induction (w := 0) (I := idxSet u ρp Ids)
+    (F := fixFunVI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (fixFunVI_closed_exists hX)
+    (fixFunVI_mono hX) P ?_
+  · intro is t hsp ht
+    exact hind (tupW u is) (tupW_mem hsp) t ht is hsp rfl
+  intro i hi x hx is hsp hi'
+  subst hi'
+  -- the induction family
+  set S := graph (fun i => sep (SetTheory.app (lfpFamSet 0 (idxSet u ρp Ids)
+    (fixFunVI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess)) i) (P i)) (idxSet u ρp Ids) with hS
+  have hSmem : S ∈ˢ lfpFamSpace V 0 (idxSet u ρp Ids) := by
+    rw [lfpFamSpace_eq]
+    refine graph_mem_famSpace fun i hi => ?_
+    rw [univ_zero]
+    exact mem_univZero.mpr fun z hz => mem_univZero.mp (hfibre i) z (mem_sep.mp hz).1
+  have hSle : FamLe (idxSet u ρp Ids) S μ := by
+    intro i hi y hy
+    rw [hS, app_graph hi] at hy
+    exact (mem_sep.mp hy).1
+  rw [fixFunVI_app hSmem, famFI_app (tupW_mem hsp)] at hx
+  obtain ⟨rfl, j, fs, hj₀, hlen₀, hspX, hall⟩ := fixStepI_zero_elim hx
+  have hj : j < Fss.length := by omega
+  have hfit := hX.hfit S hSmem _ (tupW_mem hsp) j hj₀
+  have hspR := spineFit_real_of_XI hIds hSle (Fss₀.getD j []) (Fss.getD j []) 0 [] fs rfl (hc j hj) hfit hspX
+  have hlen : fs.length = (Fss.getD j []).length := by rw [hlen₀]; exact hlenj j hj
+  have hidx : idxValsAt ρp (Ess.getD j []) fs = is := by
+    rw [← hlen₀] at hall
+    exact idxValsAt_of_eqsXI hIds hsp (hEs j hj) hall
+  -- the minor's conclusion is inhabited once every ih domain is
+  have hms := h.hyp.hms j hj
+  rw [h0] at hms
+  obtain ⟨x, hx⟩ := minorSpI_zero_inhab hms hspR
+  rw [List.nil_append] at hx
+  have := ihSpL_zero_inhab hx ?_
+  · unfold concI ctorValI at this
+    rwa [hidx, if_pos rfl] at this
+  · intro A hA
+    unfold ihDomsI at hA
+    obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hA
+    obtain ⟨hik, hri⟩ := mem_recIdx.mp hi
+    -- the field lies in the slot at the induction family
+    have hslot := fitsXI_slot_mem hIds (Fss₀.getD j []) 0 [] fs rfl hfit hspX i (by omega)
+      (by rw [Nat.zero_add]; exact hri)
+    rw [Nat.zero_add, List.nil_append] at hslot
+    obtain ⟨hf, hmem⟩ := hslot
+    have hfpt : fs.getD i pt = pt := eq_pt_of_mem_slotSet_zero (fun t' => by
+      by_cases ht' : t' ∈ˢ idxSet u ρp Ids
+      · rw [hS, app_graph ht']
+        exact mem_univZero.mpr fun z hz => mem_univZero.mp (hfibre t') z (mem_sep.mp hz).1
+      · rw [lfpFamSpace_eq] at hSmem
+        rw [app_off_dom_piR_pos (Nat.succ_ne_zero 0) hSmem ht']
+        exact mem_univZero.mpr (empty_subset _)) hmem
+    refine piTele_zero_inhab_of fun as has => ?_
+    have has' : SpineFit (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) as :=
+      fitsS_teleOfFields.mp has
+    obtain ⟨-, hvsp⟩ := hf.2.2 as has'
+    unfold slotSet at hmem
+    obtain ⟨z, hz⟩ := mem_piTele_zero hmem as has
+    rw [List.nil_append, ← consList_append] at hz
+    rw [hS, app_graph (tupW_mem hvsp)] at hz
+    obtain ⟨hzμ, hPz⟩ := mem_sep.mp hz
+    have hzpt : z = pt := eq_pt_of_mem_univZero (hfibre _) hzμ
+    obtain ⟨y, hy⟩ := hPz _ hvsp rfl
+    refine ⟨y, ?_⟩
+    simp only [List.nil_append]
+    rw [hfpt, foldl_app_pt', ← consList_append, ← hzpt]
+    exact hy
 
 /-- **Inhabitation at a zero elimination level** (squash regime). -/
-theorem fixSemK_inhab_zero (h : FixKI₀ ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss) (h0 : ℓ = 0) :
+theorem fixSemK_inhab_zero (h : FixKI₀ ℓ 0 u K Fss Ess Fss₀ Ids rss tlss Eiss)
+    (hfin : ∀ j i, (tlss.getD j []).getD i [] = []) (h0 : ℓ = 0) :
     ∀ (n : Nat) (is : List V) (t : V), SpineFit (frP Fss.length Ids.length K) Ids is →
       t ∈ˢ SetTheory.app (iterK u 0 K Fss Ess Fss₀ Ids rss tlss Eiss n) (tupW u is) →
       ∃ y, y ∈ˢ SetTheory.app (is.foldl SetTheory.app (frM Fss.length Ids.length K)) t
@@ -1347,20 +1559,20 @@ theorem fixSemK_inhab_zero (h : FixKI₀ ℓ 0 u K Fss Ess Fss₀ Ids rss tlss E
     rw [app_graph (tupW_mem hsp)] at ht
     exact absurd ht (not_mem_empty _)
   | n + 1, is, t, hsp, ht => by
-    obtain ⟨rfl, j, fs, hj, hlen, hspR, hidx, hrec⟩ := stage_elim_zero h hsp ht
+    obtain ⟨rfl, j, fs, hj, hlen, hspR, hidx, hrec⟩ := stage_elim_zero h hfin hsp ht
     have hms := h.hyp.hms j hj
-    rw [h0] at hms
+    rw [h0, ihDomsI_fin hfin] at hms
     obtain ⟨x, hx⟩ := minorSpI_zero_inhab hms hspR
     rw [List.nil_append] at hx
     have := ihSpL_zero_inhab hx ?_
     · unfold concI ctorValI at this
       rwa [hidx, if_pos rfl] at this
     · intro A hA
-      unfold ihDomsI at hA
+      unfold ihDomsI₀ at hA
       obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hA
       obtain ⟨hik, hri⟩ := mem_recIdx.mp hi
       obtain ⟨hmem, hvsp⟩ := hrec i (by rw [hlen]; simpa using hik) hri
-      exact fixSemK_inhab_zero h h0 n _ _ hvsp hmem
+      exact fixSemK_inhab_zero h hfin h0 n _ _ hvsp hmem
 
 end KRecZero
 

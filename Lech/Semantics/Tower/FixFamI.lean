@@ -1014,7 +1014,38 @@ theorem fixFamI_app_eq_sum (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) {Fs
 /-! ## Elimination at a stage -/
 
 /-- The recursive components of a tuple fitting the X-chain at `X` lie
-in `X` at their own index tuples. -/
+in the slot's value at `X` — the family at their index tuple under the
+field's telescope. -/
+theorem fitsXI_slot_mem (hI : IdxOk u ρp Ids) {X t : V} {rs : List Bool}
+    {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)} :
+    ∀ (Fs : List AVExpr) (i : Nat) (as bs : List V), as.length = i →
+      SlotsFitX u w ρp Ids rs tls Eis X t i as Fs →
+      SpineFit (consList as (cons t (cons X ρp))) (chainXIGo u Ids rs tls Eis Fs i) bs →
+      ∀ l, l < bs.length → rs.getD (i + l) false = true →
+        SlotFit u w ρp Ids (tls.getD (i + l) []) (Eis.getD (i + l) []) (as ++ bs.take l) ∧
+        bs.getD l pt ∈ˢ slotSet w u (consList (as ++ bs.take l) ρp) (tls.getD (i + l) [])
+          (Eis.getD (i + l) []) X
+  | [], _, _, [], _, _, _, _, hl, _ => absurd hl (Nat.not_lt_zero _)
+  | [], _, _, _ :: _, _, _, h, _, _, _ => h.elim
+  | _ :: _, _, _, [], _, _, h, _, _, _ => h.elim
+  | F :: Fs, i, as, b :: bs, hi, hfit, h, l, hl, hr => by
+    subst hi
+    rw [chainXIGo_cons] at h
+    obtain ⟨hb, hrest⟩ := h
+    cases l with
+    | zero =>
+      rw [Nat.add_zero] at hr ⊢
+      rw [xEntry_rec hI F as t hr (hfit.1 hr)] at hb
+      simpa using ⟨hfit.1 hr, hb⟩
+    | succ l =>
+      rw [consList_snoc'] at hrest
+      have := fitsXI_slot_mem hI Fs (as.length + 1) (as ++ [b]) bs (length_snoc' b as) (hfit.2 b hb) hrest l
+        (by simpa using hl) (by rw [show as.length + 1 + l = as.length + (l + 1) from by omega]; exact hr)
+      rw [show as.length + 1 + l = as.length + (l + 1) from by omega] at this
+      simpa [List.append_assoc] using this
+
+/-- The recursive components of a tuple fitting the X-chain at `X` lie
+in `X` at their own index tuples (finitary fields). -/
 theorem fitsXI_rec_mem (hI : IdxOk u ρp Ids) {X t : V} {rs : List Bool}
     {tls : List (List (Nat × Nat × AVExpr))} (hfin : ∀ i, tls.getD i [] = [])
     {Eis : List (List AVExpr)} :

@@ -55906,3 +55906,24 @@ is stated once for arbitrary constructor data and replaces
 `XChainsOk.hwit`.  Env-level invariant: NOT needed — only the
 membership of denotations is used; nothing about the checker's
 environment enters the argument.  To be executed in Stage B, after A2.
+
+**Preferred statement (user, 2026-09-07): one abstract theorem, one
+instance.**  In `Lech/SetModel/*` (pure sets): for a monotone operator
+`F` on sets (on families for the indexed case) that PRESERVES
+INJECTIONS (an injection `X ↪ Y` induces `F X ↪ F Y`), if there is a
+MEMBER `T` of the universe with an injection `s : F T ↪ T`, then the
+least fixed point `μF` injects into `T` (the unique algebra map
+`μF → T`, defined by the membership-WF recursion, injective by lfp
+induction: at a constructor step `s` is injective and the subtrees'
+images are injective by the IH, and `F` preserves that), hence
+`|μF| < |univ|` and `μF` is a member by Tarski's clause.  Instance,
+beside the tower: the tower functor of any constructor data is
+polynomial (a Σ over the constructors of function spaces from the
+field domains), so it preserves injections; `T` := the power set of
+the labelled-path space; `s` := the one-step coding (root label +
+prefixed subtree paths), injective; indexed = per fibre.  That
+replaces both the ω-iterate and the top-family witnesses with one
+lemma; nothing per shape remains.  If injection-preservation is
+awkward to state for the family functor, the equivalent "`F` preserves
+subsets of the coded space along the coding" (`F' : P(T) → P(T)`) is
+acceptable — the choice is to be recorded here when made (Stage B).
