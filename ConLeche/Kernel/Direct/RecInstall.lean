@@ -205,19 +205,18 @@ def checkDirectFixTable (p : DirectFixParts) (ctorsA : List (ConstantVal × Nat)
 /-- **The fields' kinds, classified at install** (task #210 Part D) on
 the stored constructors — their field domains normalised by official's
 positivity walk (`normCtorVal`), so the syntactic classification
-(`recCtorKinds`) is official's: a non-positive occurrence is INVALID
-(official's "non positive occurrence"), an occurrence the route does not
-model (nested after whnf, a recursive field a later binder mentions) is
-a positive decline naming it. -/
+(`recCtorKinds`) is official's: a non-positive or non-valid occurrence
+is INVALID (official's "non positive occurrence", "non valid
+occurrence", "invalid return type"), a nested occurrence — the one
+positive occurrence the route does not model — a positive decline. -/
 def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
     (ctorsA : List (ConstantVal × Nat)) : m (List (List RecFieldKind)) := do
   let kinds ← unwrapOr (ctorsA.mapM (recCtorKinds T lps nP nIdx))
     (.notImplemented "direct rec: constructor telescope")
   if kinds.any (fun ks => ks.any (· == .negative)) then
-    throw (.invalid "direct rec: non positive occurrence of the inductive type")
+    throw (.invalid "direct rec: non positive or non valid occurrence of the inductive type")
   if kinds.any (fun ks => ks.any (· == .unsupported)) then
-    throw (.notImplemented "direct rec: an occurrence of the block the route does not \
-      model (nested, or a recursive field a later binder mentions)")
+    throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
   pure kinds
 
 /-- Check and install a **direct recursive block**: positivity, the

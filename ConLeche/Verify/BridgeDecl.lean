@@ -617,6 +617,8 @@ theorem normPosDom_datF (env : Env) (T : Name) (F : Nat) (fuel : Nat) :
   | succ fuel ih =>
     intro d e
     unfold normPosDom
+    split
+    · simp only [FueledM.atF_pure]
     simp only [FueledM.atF_bind, fueledOpsM_whnf_atF]
     congr 1
     funext w

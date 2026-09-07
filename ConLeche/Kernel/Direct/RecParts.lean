@@ -73,9 +73,9 @@ inductive RecFieldKind where
 
 /-- Is `e` the family at the parameter variables (sitting `o` binders
 up) followed by `nIdx` index expressions none of which mentions the
-block?  (Official `is_valid_ind_app` does not look at the index
-expressions; this route needs them free of the block — see
-`recPositivity`.) -/
+block?  Official's `is_valid_ind_app` exactly: the head, the arity,
+the parameters (structurally) and `has_ind_occ` on every index
+argument (inductive.cpp, task #210 Part D). -/
 def recFamOk (T : Name) (lps : List Name) (nP nIdx o : Nat) (e : Expr) : Bool :=
   e.getAppFn == Expr.const T (lps.map .param) &&
   e.getAppArgs.length == nP + nIdx &&
@@ -86,11 +86,10 @@ def recFamOk (T : Name) (lps : List Name) (nP nIdx o : Nat) (e : Expr) : Bool :=
 mentions the block, syntactically: `k` binders of the field's own
 telescope have been peeled (the parameters sit `o + k` binders up).
 A family application at the head whose parameters are not the
-block's, or with the wrong number of arguments, is the official
-"non valid occurrence" (`.negative`); one whose INDEX expressions
-mention the block is valid for the official kernel but not modeled
-here — the index tuple is read at an arbitrary family in the functor,
-where the block's own carrier is not yet available (`.unsupported`). -/
+block's, with the wrong number of arguments, or whose INDEX expressions
+mention the block is the official "non valid occurrence" (`.negative`:
+`is_valid_ind_app` rejects all three); an application of another
+constant is a nested occurrence (`.unsupported`: the modeled path). -/
 def recPositivity (T : Name) (lps : List Name) (nP nIdx o : Nat) : Expr → Nat → RecFieldKind
   | .forallE dom body _, k =>
     if dom.mentionsConst T then .negative else recPositivity T lps nP nIdx o body (k + 1)
@@ -100,7 +99,7 @@ def recPositivity (T : Name) (lps : List Name) (nP nIdx o : Nat) : Expr → Nat 
       if e.getAppArgs.length == nP + nIdx && e.getAppArgs.take nP == directPsAt (o + k) nP then
         (if recFamOk T lps nP nIdx (o + k) e then
           (if k == 0 then .recursive else .reflexive)
-         else .unsupported)
+         else .negative)
       else .negative
     else
       match e.getAppFn with
@@ -117,13 +116,17 @@ type.  A recursive field that a LATER binder or the constructor's
 residual mentions (`directUsedLater`) is marked unsupported: the model
 reads the ordinary domains and the index expressions at a frame whose
 recursive slots hold an arbitrary value, so neither may depend on one.
-(In a well-typed constructor a later domain can only mention a
-recursive field through a term whose type mentions the block — which
-is not ordinary; an index expression can, e.g. `T (size t)` at a
-recursive `t`, and such a block falls through to the modeled path.)
-The constructor's residual index expressions must not mention the
-block either (same reason as at `recPositivity`); a violation marks
-the constructor's fields all unsupported. -/
+On a constructor official accepts, with its field domains normalised
+(`normPosDom`), the guard cannot fire (task #210 Part D): a term
+containing a variable of type `T p⃗ e⃗` contains the constant `T`
+(its consumer's domain is a subterm, and a `T`-free term is not
+definitionally the block); the normalised later domains that mention
+`T` are Π-chains with `T`-free domains ending in the family at
+`T`-free indices (official's `is_valid_ind_app`, `recFamOk`) or
+invalid, and the residual's index expressions are `T`-free for the
+same reason (official's "invalid return type", the last conjunct
+below, `.negative`).  So the guard is the model's own invariant, never
+a verdict of its own. -/
 def recCtorKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (c : ConstantVal × Nat) :
     Option (List RecFieldKind) :=
   match c.1.type.stripPis (nP + c.2) with
@@ -134,7 +137,7 @@ def recCtorKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (c : ConstantVal �
       | .reflexive => if directUsedLater c.1.type nP i then .unsupported else .reflexive
       | k => k
     if (cbody.getAppArgs.drop nP).all (fun a => !a.mentionsConst T) then some ks
-    else some (ks.map fun k => if k == .negative then .negative else .unsupported)
+    else some (ks.map fun _ => .negative)
   | none => none
 
 /-- All leading `∀` binders of an expression (outermost first) and

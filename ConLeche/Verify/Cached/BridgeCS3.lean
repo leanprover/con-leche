@@ -214,6 +214,8 @@ theorem normPosDomS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (T
   | fuel + 1, d, e, s₀, hs, hw => by
     unfold normPosDom
     dsimp only [sharedOpsC]
+    split
+    · exact SimC.pure hs rfl
     refine SimC.bind (opE_whnf_sim hμ henv hs hw) (fun s₁ w w' hs₁ hR => ?_)
     obtain ⟨rfl, hw'⟩ := hR
     split

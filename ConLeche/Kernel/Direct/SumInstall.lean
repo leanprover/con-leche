@@ -144,7 +144,12 @@ field's domain is REPLACED by the form official classifies: whnf'd at
 its own depth, and — while the block occurs — walked under its Π
 binders (a Π domain mentioning the block is official's "non positive
 occurrence", INVALID), each body whnf'd in turn.  A domain the block
-does not occur in after whnf is kept as declared.  The result is
+does not occur in is kept as declared, unreduced (official whnf's it
+too, and discards the result: reduction cannot introduce the block);
+one it occurs in only before whnf (`idf (T → Type) (fun _ => N) t`,
+which official classifies as an ordinary field) is REPLACED by the
+whnf'd form, so that the field no longer mentions the block nor, with
+it, any earlier recursive field (`directUsedLater`).  The result is
 definitionally equal to the declared domain; the constructor is
 re-checked from scratch on the rebuilt type (`normCtorVal`), so
 nothing about the reduction is trusted — task #195's arrangement at
@@ -153,8 +158,9 @@ reflexive field's own telescope); exhaustion is a positive decline. -/
 def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
   | _, 0, _ => throw (.notImplemented "direct sum: positivity walk fuel")
   | d, fuel + 1, e => do
+    if !e.mentionsConst T then pure e else
     let w ← ops.whnf env d e
-    if !w.mentionsConst T then pure e else
+    if !w.mentionsConst T then pure w else
     match w with
     | .forallE dom body bm =>
       if dom.mentionsConst T then
