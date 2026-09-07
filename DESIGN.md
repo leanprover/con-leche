@@ -55640,3 +55640,64 @@ and the large recursor's fixed point at that member is what the
 subsingleton case must produce.  Further targets: `Acc.below`,
 `Lean.Order.iterates`, `WType`, `PSet`; a census of Mathlib's 41
 reflexive blocks.
+
+### Re-gated at the master merge (`860e764e`: master `916158e3` = #187 PERF regen, #190 dead-code removal, #193/#195 former telescope, #199 self-check, #200 in-process models)
+
+Five textual conflicts, all resolved by keeping both sides: `DESIGN.md`
+and `README.md` (append/append), `LechPreprocess.lean` (master's
+`lechNativeInModel` beside this route's `lechNativeFix`; the
+one-constructor arm carries master's `lechFormerTelescope` conjunct AND
+this route's `lechNativeFix` alternative), and master's deletion of
+`Lech/TT/Semantics/{Value,ConstOk}.lean` and
+`Lech/Verify/BridgeDeclPair.lean` (#190: dead modules — this branch's
+`lfpFam` value there and the pair twins go with them; the P tier reads
+`lfpFamV2` in `SetModel/Value.lean`).  Two semantic adaptations:
+
+* **#195 completes the former's record with the sort it read through
+  the whnf loop** (`checkDirectSumInd` returns `(env₁, cvTa, p')`).
+  This route's recogniser reads the declared telescope syntactically
+  (`directFixShape?`'s `stripPis`), so `checkDirectFix` pins
+  `p'.resSort == p.resSort` (an `.internal` error otherwise — the
+  annotated type's sort is the declared one on every stream) and runs
+  every later stage on its own record; the run relation carries the
+  pin, and the assembly identifies `p' = p.toDirectSumParts`
+  (`DirectSumParts.withSort_self`, from the recogniser's `isProp` pin).
+  `lechNativeFix` mirrors the syntactic conjunct (`lechFormerTelescope`,
+  #193's) — a former declared at a definition that only unfolds to a
+  telescope stays on the preprocessor for this class (the sum class
+  reads it through whnf; extending the fix recogniser the same way is a
+  follow-up, zero blocks on init-full).
+* **#193's native audit** (`tests/native-audit.sh`: predicate ⊆
+  recogniser, block by block) and the route trace learn the route:
+  `lech: route <block> fix` (`Main.lean`), counted as recognised.
+
+Gates at the merge: `lake build` warning-free; `lake test` green
+(the 11-theorem axiom pin); `tests/arena.sh` exit 0 — layering `base
+268 / P 191 / caps 3 / umbrella 1; 0 base->lane, 0 impl->theory`,
+proofdeps `2821 module rows as pinned across 7 roots; doors: 0` (the
+auto-merged pin IS the regenerated list: master's deletions only),
+native audit `92 streams, 128 native blocks — 70 struct, 43 sum, 15
+fix, 0 unrecognised` (the arena's `N`, `RBTree`, `List`,
+`_wcore.List` blocks are the fix route's), inmodel OK (the raw
+`inmodel_groups` run now ACCEPTS: the fixpoint route installs the
+auxiliary families — #200's recorded "exit 2 before #188, 0 after"),
+arena tutorial 90/92, e2e 117/117, annot 14/14, retired 8/8, mode
+16/16, prelude counts 3/3, progress lane 6/6, trusted sweep `138
+arena + 117 e2e + 14 annot as expected (3 recorded divergences)`.
+init-full (16 GB cap): stock stream `--verified` 58 604 / `--trusted`
+58 604 (exit 0; master's own count — #200 stops counting the
+in-process-modelled blocks' `_model` records); REGENERATED with the
+merged `lech-preprocess` (byte-identical to the pre-merge
+regeneration, md5 `6dfc96ae…`; 585 native blocks, the 49 recursive
+ones included) `--verified` 53 184 / `--trusted` <<FIXT>> (exit 0) —
+706 fewer than master's regenerated sum-types stream (53 890): the
+recursive blocks' `_model` artifacts.  Mathlib slices:
+`diseq-slice-pre` 1 406 / 1 406, `sigmahom-comp-slice-pre` 1 051 /
+1 051 (exit 0; master's binary reports the same 1 406 — the count
+change is #200's accounting, not a verdict).
+
+**Pending on landing (not this branch's to flip):** #200's
+`LECH_INMODEL_NATIVE` default ("flips to the default when #188 lands",
+its section above) — the in-process modeller's preprocessor predicate
+becomes the default once the fixpoint route is on master; its gate
+`tests/inmodel.sh` already records both states.

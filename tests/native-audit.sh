@@ -21,10 +21,10 @@
 # HOW.  For each RAW stream: `lech-preprocess -o PRE STREAM` and the
 # names on its "native — left to the consumer" lines are the
 # predicate's verdicts; `LECH_ROUTE_TRACE=1 lech --pre PRE` prints one
-# `lech: route <block> <struct|sum|modeled>` line per inductive block
+# `lech: route <block> <struct|sum|fix|inmodel|modeled>` line per inductive block
 # the fold reaches — the recogniser's verdict on the SAME environment
 # the install sees (Main.lean, the progress lane).  Every native block
-# must read `struct` or `sum`.
+# must read `struct`, `sum` or `fix` (task #188).
 #
 #   * native ∧ modeled  → FAIL (the regression class; the checker's own
 #                          "missing model for X" decline is caught too)
@@ -70,7 +70,7 @@ fi
 WORK=$(mktemp -d _tmp/native-audit.XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
 
-fail=0; nstreams=0; nnative=0; nstruct=0; nsum=0; nbasis=0; nmodeled=0; nunreached=0; nskipped=0
+fail=0; nstreams=0; nnative=0; nstruct=0; nsum=0; nbasis=0; nmodeled=0; nfix=0; nunreached=0; nskipped=0
 for s in "${streams[@]}"; do
   rm -f "$WORK/pre.ndjson"
   "$PRE" -o "$WORK/pre.ndjson" "$s" > "$WORK/pre.log" 2>&1
@@ -96,6 +96,7 @@ for s in "${streams[@]}"; do
     case "$route" in
       struct) nstruct=$((nstruct+1));;
       sum) nsum=$((nsum+1));;
+      fix) nfix=$((nfix+1));;   # the direct fixed-point route (task #188)
       basis) nbasis=$((nbasis+1));;   # a pinned basis block (`False`): the parse matches it before any recogniser
       modeled) nmodeled=$((nmodeled+1)); fail=1
               echo "  FAIL $s: $name is native (predicate) but the recogniser rejects it";;
@@ -106,6 +107,6 @@ for s in "${streams[@]}"; do
 done
 
 echo "native audit: $nstreams streams ($nskipped skipped), $nnative native blocks — \
-$nstruct struct, $nsum sum, $nbasis basis, $nmodeled unrecognised, $nunreached unreached"
+$nstruct struct, $nsum sum, $nfix fix, $nbasis basis, $nmodeled unrecognised, $nunreached unreached"
 [ "$fail" = 0 ] || { echo "NATIVE AUDIT FAIL — the predicate is looser than the recogniser"; exit 1; }
 exit 0
