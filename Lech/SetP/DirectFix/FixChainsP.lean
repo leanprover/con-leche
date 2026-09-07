@@ -72,7 +72,7 @@ theorem shadowFs_take_succ {nP nF : Nat} {ks : List RecFieldKind} {Fs : List AVE
     (shadowFs nP ks nF Fs).take (i + 1)
       = (shadowFs nP ks nF Fs).take i ++
           [if recAt nP ks (nP + i) then .sort 0 else Fs.getD i default] := by
-  rw [List.take_succ, shadowFs_getElem? hi]
+  rw [List.take_add_one, shadowFs_getElem? hi]
   rfl
 
 omit [SetTheory V] in

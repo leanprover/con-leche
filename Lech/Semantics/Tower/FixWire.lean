@@ -210,7 +210,7 @@ theorem directFixRecAVI_below {ℓ w nP s : Nat} {Fss Ess : List (List AVExpr)}
     {Ids : List AVExpr} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
     {rds : List (Nat × Nat × AVExpr)} (k : Nat)
     (hd : DomsBelow 0 rds) (hlen : rds.length = nP + 1 + Fss.length + Ids.length + 1)
-    (hIds : Ids.length = Ids.length)
+    (_hIds : Ids.length = Ids.length)
     (hFss : ∀ Fs' ∈ rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess,
       FieldsBelow (nP + 1 + Fss.length + Ids.length) Fs')
     (hE : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [], VExpr.bvarsBelow (nP + i) E.erase) :

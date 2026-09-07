@@ -91,11 +91,11 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   cases htq : openPisAtFvars (p.nP + p.nIdx) cvTa.type 0 with
   | none =>
     rw [htq] at h
-    exact absurd h (by simp [unwrapOr, bind, Except.bind, throw, throwThe, MonadExceptOf.throw])
+    exact absurd h (by simp [unwrapOr, throw, throwThe, MonadExceptOf.throw])
   | some tq =>
   obtain ⟨tfvs, trest⟩ := tq
   rw [htq] at h
-  simp only [unwrapOr, pure, Except.pure, bind, Except.bind] at h
+  simp only [unwrapOr, pure, Except.pure] at h
   cases hsorts : Lech.checkDirectFieldSortsI (m := Lech.CheckM) (fueledOps μ F) env₁ true false
       p.resSort p.nP (tfvs.drop p.nP) [] p.nIdx with
   | error e => rw [hsorts] at h; exact nomatch h
@@ -121,7 +121,7 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   | ok r₃ =>
   obtain ⟨cvRa, rhss⟩ := r₃
   rw [hRec] at h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
+  simp only [Except.ok.injEq] at h
   exact ⟨by simpa using hneg, helim, hnd, cvTa, env₁, ctorsA, cvRa, rhss, tfvs, trest, isorts,
     hInd, htq, hsorts, hCtors, hk, hRec, h.symm⟩
 

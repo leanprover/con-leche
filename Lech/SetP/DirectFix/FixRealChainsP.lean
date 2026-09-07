@@ -94,7 +94,7 @@ variable {u w nP nF : Nat} {ρp : Nat → V} {Ids : List AVExpr} {ks : List RecF
 
 /-- **The real walk**: along the real chain `Fs`, beside a shadow
 spine, the real chain against the X-source chain `Fs₀`. -/
-theorem fixRealWalk (hI : IdxOk u ρp Ids) {μ : V}
+theorem fixRealWalk (_hI : IdxOk u ρp Ids) {μ : V}
     (hC : ChainFacts u w nP nF ρp Ids ks Fs₀ Eis Es)
     (hFs : Fs.length = nF)
     -- the real entries mention no recursive slot below them

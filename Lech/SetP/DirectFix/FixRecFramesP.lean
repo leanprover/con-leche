@@ -41,6 +41,7 @@ theorem recIdx_rsOf (ks : List RecFieldKind) : recIdx (rsOf ks) ks.length = Lech
 
 /-! ## The ih domain, read -/
 
+omit [SetTheory V] in
 /-- The field frame over a K-frame: `l` ih values over the `nF`
 fields over the `o - 1` minors and the motive over the parameter
 frame.  The frame `o` below the fields is the parameter frame. -/

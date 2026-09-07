@@ -322,7 +322,7 @@ theorem fixBodyAVI_below {rss : List (List Bool)} {Eiss : List (List (List AVExp
   rw [AVExpr.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN (by simp [VExpr.bvarsBelow]) ?_
   intro a ha
-  simp only [List.map_cons, List.map_nil, List.mem_cons, List.mem_singleton] at ha
+  simp only [List.map_cons, List.map_nil, List.mem_cons] at ha
   rcases ha with rfl | rfl | h
   · exact towerBodyAV_below hIds
   · unfold fixFunAVI famTyAV

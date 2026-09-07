@@ -99,7 +99,7 @@ theorem interp_minorConcAV {m : EnvS2Core V env} {ψ : Name → Nat} {C : Name}
 at the frame of the `j` earlier minors over the motive over the
 parameter frame. -/
 theorem interp_minorAVAtR {m : EnvS2Core V env} {ψ : Name → Nat} {C : Name}
-    {nP nF nIdx ℓ w b j : Nat} (hbz : ℓ = 0 ↔ b = 0) {ρp : Nat → V} {M : V} {ms : List V}
+    {nP nF ℓ w b j : Nat} (hbz : ℓ = 0 ↔ b = 0) {ρp : Nat → V} {M : V} {ms : List V}
     (hlenM : ms.length = j) {ds : List (Nat × Nat × AVExpr)} (hlenDs : ds.length = nP + nF)
     {Es : List AVExpr} {Fss : List (List AVExpr)} {rss : List (List Bool)}
     {Eiss : List (List (List AVExpr))}

@@ -511,7 +511,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
         p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF i cA)
     (hidxRes : ∀ j cA, ctorsA[j]? = some cA → ∀ e ∈ idxF j, e.constsResolve env = true)
     {uAV : (Name → Nat) → Nat} {fssZ : (Name → Nat) → List (List AVExpr)}
-    (hUparams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ p.cvT.levelParams, ψ₁ q = ψ₂ q) → uAV ψ₁ = uAV ψ₂)
+    (_hUparams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ p.cvT.levelParams, ψ₁ q = ψ₂ q) → uAV ψ₁ = uAV ψ₂)
     (hleafT : ∀ ψ, mp.base2.acval p.cvT.name ψ
       = directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (((ppsAll ψ).drop p.nP).map (·.2.2))
           (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
@@ -888,7 +888,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
       rw [← hElimL]
       cases hpl : p.large
       · simp [Lech.directElimLevel, Level.eval]
-      · simp only [Lech.directElimLevel, hpl, if_true, Level.eval]
+      · simp only [Lech.directElimLevel, if_true, Level.eval]
         exact hφ p.elim (by rw [hRlps]; exact helim hpl)
     have hs : sAV ψ₁ = sAV ψ₂ := by
       show fixSortAV elimL u cvRa.levelParams ψ₁ = fixSortAV elimL u cvRa.levelParams ψ₂

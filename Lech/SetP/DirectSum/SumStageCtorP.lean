@@ -94,7 +94,7 @@ theorem ctorWalksGen {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvT cvC
     {ppsAll ds : (Name → Nat) → List (Nat × Nat × AVExpr)} {Es : (Name → Nat) → List AVExpr}
     {srcs : List (Option Nat)}
     {Fss Ess : (Name → Nat) → List (List AVExpr)}
-    (hFD : FormerData m cvT (nP + nIdx) resSort ppsAll)
+    (_hFD : FormerData m cvT (nP + nIdx) resSort ppsAll)
     (hCD : CtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs)
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ →
@@ -110,7 +110,7 @@ theorem ctorWalksGen {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvT cvC
     (hFssOkP : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
       SumFieldsOkB (resSort.eval ψ) ρ (Fss ψ) ∧ SumFieldsValid ρ (Fss ψ))
-    (hIdx : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    (_hIdx : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((ds ψ).drop nP).map (·.2.2)) bs →
         SpineFit ρ (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs))
