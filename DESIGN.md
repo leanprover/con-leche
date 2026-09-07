@@ -56834,7 +56834,7 @@ separate job (`workflow_dispatch` + pushes touching `bridge/**` or
 **The theorem** (`ConLecheBridge/Carneiro.lean`):
 
 ```lean
-theorem carneiro_implies_con-leche :
+theorem carneiro_implies_conleche :
     OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V)
 ```
 
@@ -56871,7 +56871,7 @@ ordinals below `κ.ord` have a strict upper bound below it
 `Cardinal.eq` gives a bijection of the (shrunk) member types, and
 `equinumerous_of_card_eq` extends it to the global function
 `ConLeche.Equinumerous` asks for.  Nothing beyond his hypothesis was used.
-`#guard_msgs in #print axioms carneiro_implies_con-leche`: `propext`,
+`#guard_msgs in #print axioms carneiro_implies_conleche`: `propext`,
 `Classical.choice`, `Quot.sound`.
 
 **FINDING — the briefed converse-countermodel is wrong; the two
@@ -58542,6 +58542,153 @@ inmodel, 6 basis, 0 modeled; the Stage-B five-cone slice accepted,
 census **183 fix**, 1 inmodel, 6 basis (was 137 struct + 16 sum + 30
 fix).  `tower_struct`: 0.38 G.  No Mathlib-scale run.
 
+### Part C — the structure, sum and non-recursive indexed routes deleted
+
+**The instrument.**  Deleting a route that the fixpoint route grew out
+of is not a directory removal: the fix route's own stages are the sum
+route's (`checkDirectSumInd`/`Ctors`, `SumStageCtorP`,
+`SumStageFormerP`, the `SumRec*` readers), its shape record is
+`DirectSumParts`, its projection table is the structure route's
+(`checkDirectProjTable`), and its P assembly builds on the
+`SetP/Direct/*` kits.  So Part C worked at the DECLARATION level with a
+per-constant liveness census (`_tmp` script, the shape of
+`tests/ProofDeps.lean` at constants instead of modules): live = the
+seven capstone closures ∪ the executable's closure from `main` with
+every `@[csimp]` theorem and `implemented_by` target seeded ∪ the
+tests', pins' and challenge's constants; scoped to the route modules
+(`Kernel/Direct`, the Cached arms, `Semantics/Direct` + `Tower/Sum*`,
+`Verify/Direct` + `Cached/BridgeCS*` + the `CheckerF`/`FastOps` twins,
+`SetP/Direct`, `SetP/DirectSum`, `SetP/DirectFix`).  **412 declarations
+cut** in one pass, nine modules emptied and removed (exactly the nine
+the proofdeps pin reported as having LEFT every closure at Part B:
+`Semantics.Direct.{DeclDirect, DeclDirectSum}`,
+`SetP.Direct.{DirectEntryLawP, DirectRecDataP, DirectRecLawCoreP,
+DirectRecLawP, DirectRecWalksP, DirectStageRecP}`,
+`SetP.DirectSum.SumRecLawP`), their import lines spliced into the
+importers.  **The live constant count is unchanged: 6 787 before and
+after** — the census's own proof that nothing reachable was touched.
+
+**Two things a closure census cannot see, learned by the build.**
+(1) *Syntactic-only uses*: a `simp` argument the simplifier does not
+end up needing leaves no trace in the proof term, so `mkFEnv_env`,
+`mkFEnv_find?_fun`, `constsResolveF_eq_fun`, `throwC_bind_eq`,
+`foldIdxC_run'_ok`, `rebit_nil`/`rebit_cons` and the `@[simp]`
+projection lemmas `DirectFixParts.complete_*` /
+`DirectSumParts.withSort_*` read as dead and are needed; they were
+restored on purpose, and the residual census below names them.
+(2) *Results are not corollaries*: `AgreeFloor`'s
+`trusted_agrees_P_*` theorems (the agreement floor) and `BridgeDecl`'s
+`checkDecls_datF` bridge (a standing design instrument, "both routes
+permanent") are top-level results no capstone reaches; the census
+called them dead and the first cut of `BridgeDecl` was reverted.  The
+rule adopted for the result-bearing files (`BridgeDecl`, `BridgeWfImp`,
+`AgreeFloor`, `BridgeCSDecl`, `CheckerF`): only declarations *about* a
+deleted function go — the `checkDirect{Ind,Ctor,Rec,Struct,
+FieldSorts}_{datF,wfimp}` and `checkDirectSum{Rec,Rules,}_datF` lemmas,
+the `checkDirect{Struct,Sum}S_{run,skels}` and `direct{,Sum}NonRecF_skel`
+rows — by name, never by census.  One genuinely dead chain went with
+the routes because the binary never calls it: the shared-F entry
+`checkDeclSF`/`checkDeclSharedF` (the driver runs `checkDeclStepIdxC`)
+and its bridge `checkDeclSharedF_bridge → checkDeclSFC_nonind →
+checkDeclS_nonind_sim → check*ValF_pushC`.
+
+**What is gone, by layer.**  Kernel: `checkDirectStruct` and its stages
+(`checkDirectInd/Ctor/Rec/FieldSorts`, the projection-function
+generators `directProjResid/Ty`), `checkDirectSum` (the top-level sum
+installer; its stages stay as the one route's), `directSumParts?`,
+`directNonRec`/`directSumNonRec`, the F/FA twins of all of these, the
+`DirectParts` readers the modeller does not use; Cached:
+`checkDirectStructS`, `checkDirectSumS`, the shared-F entry; Semantics:
+`DeclDirectRun`, `DeclDirectSumRun`, the struct/sum η-closure lemmas,
+the sum recursor's semantics (`Tower/SumRec`, most of `SumRecCase`,
+`SumWire`'s below-lemmas, `SumCase`'s selectors); Verify: the `_eq`,
+`_datF`, `_wfimp`, `_skels`, `_run`, `_pushC` twins of every deleted
+function, `DirectInv`/`SumInv`/`DirectRec`/`SumRec`'s inversions of
+them; P tier: the two assemblies `declDirectP`/`declDirectSumP`, the
+struct route's recursor stage and laws (`DirectStageRecP`,
+`DirectRecLaw*`, `DirectRecWalksP`, `DirectRecDataP`), the sum route's
+recursor laws (`SumRecLawP`, `SumStageRecP`'s six), the entry law of the
+bare tower (`DirectEntryLawP`), and the dead halves of the readers.
+Tests/scripts: `tests/route-census.sh` counts `fix`/`inmodel`/`basis`
+only (a `struct` or `sum` line now FAILS as an unknown route);
+CLAUDE.md's per-route sentence; the kernel route files' headers say what
+survives (`Install.lean` = the projection table's checks,
+`SumInstall.lean` = the one route's shared stages, `SumParts.lean` =
+the shape record, `Parts.lean` = the generators and the modeller's
+`DirectParts`).  Directory names are history now (`Direct`, `DirectSum`
+hold the fixpoint assembly's kits) — renaming them is churn for no
+proof and was not done.
+
+**The residual census** (dead by closure, kept, for the quiet-time
+docket): the syntactic-only lemmas above; `DirectParts`' projections
+(the record itself is the in-process modeller's); `TaggedSum`'s
+`sumRec*`/`sumSet_ne_pt` (model lemmas without a consumer);
+`Kernel.TypeCheckerC` (`KCache`, `CheckSM`, `memoB/E` — 12, pre-existing);
+and outside the route scope, as at Part B, `Kernel.{CheckerP, CoreP}`,
+`Semantics.WhnfCoreLeaf`, `SetP.IndPinProbeP`, `SetP.Step2.GateP`,
+`SetTheory.Derive.{Collapse, Pi, PtFresh}`, `Verify.{AnnotDefense,
+CoreP, Scoped}`, `Verify.Cached.AgreeAnnot`,
+`Verify.Denote.{InstSimp, SubstAlgebra}` — whole modules no root reaches.
+
+**The memos' price stands — no size cutoff.**  User ruling on the
++0.80 % Part B measured on init-full ("take the memo size cutoff off
+the list, I don't like heuristics"): the per-declaration `@[csimp]`
+memos keep their cost; no size or depth threshold guards a memo
+anywhere in Parts C/D.  If a memo is ever found measurably costly on
+small terms, the answer is a STRUCTURAL reason to skip it — a field
+read that decides the answer outright, as `looseBVarsBounded`/`hasFvar`
+read the packed range fields — never a threshold, and the record says
+which.
+
+**Part D, scoped by ruling.**  User ruling: *"also the changes to
+nested, the current impl is fine"* — nested blocks stay with the
+in-process modeller's mutual/nested arm as it is (`ind_nest_inf`,
+`ind_nest_via_refl` stay positive declines); no container composition
+on the fix route.  Part D is exactly three conformance items, each a
+fixture flip to official's verdict: the whnf'd-telescope reading of
+formers and constructor fields on the one arm (the frontier block
+below, arena 053/118/119, the `ind_*` A3/A5 fixtures), the
+`directUsedLater` fall-through, and the definitional rule comparison;
+the frontier block's cone is the slice.
+
+**Part D's first target, recorded here.**  The tool-drop lane's PERF
+run found ALL OF MATHLIB declining on the raw stream at the pre-Part-B
+binary at `CategoryTheory.MorphismProperty.multiplicativeClosure`
+(Prop-valued, recursive, three constructors, three indices): its type
+former is declared at a DEF, `CategoryTheory.MorphismProperty C`, that
+only unfolds to the index telescope.  Part B's placeholder covers a
+non-syntactic *sort*, not a hidden *telescope* — `stripPis` reads no
+indices there and the recogniser refuses (#206-A3/A5).  Part D's item
+one is the whnf'd telescope reading on the one arm, with the three
+tutorial A5 declines (053/118/119) and that block's cone
+(`_tmp/indexed-fix/slice_multi_fast.py` on `mathlib-full.ndjson`) as
+its slices.  For the record: coverage censuses must be FOLDS — the
+parse-only `CON_LECHE_INMODEL_CENSUS` cannot see a recogniser refusal.
+
+**Gates** (`agent/one-route-c` at the Part C tip, from master
+`329d24ae` — Part B — with no master movement to merge; the trimmed set,
+once).  `lake build` warning-free; `lake test`; `tests/arena.sh`
+(`env -i`): tutorial 87/92 (as at Part B: 032/033 by design, 053/118/119
+the #206-A5 declines of Part D), e2e 156/156, annot 14/14, retired flags
+8/8, mode flags 18/18, prelude counts 3/3, progress lane 6/6, DAG-tower
+gate 2/2, trusted sweep 138 + 156 + 14 with its 3 recorded divergences,
+axioms pinned (11 theorems at `[propext, Classical.choice,
+Quot.sound]`); `tests/proofdeps.sh` **unchanged against the pin** —
+no module entered or left any capstone's closure, the deletion's
+second proof (the first is the live count); `tests/layering.sh`: base
+272 / P 189 / caps 3 / umbrella 1 (was 274 / 196 / 3 / 1), 0 base→lane,
+0 impl→theory; `tests/trust-surface.sh`: 18 escapes in 4 allowlisted
+files (472 scanned, was 481), 0 outside; `tests/inmodel.sh` OK;
+`tests/route-census.sh`: 87 streams, 658 blocks — **136 fix, 0 inmodel,
+522 basis, 0 modeled** (the `struct`/`sum` classes no longer exist).
+**init-full raw** (`--verified`, `perf stat -e instructions:u`, route
+trace on): accepted **53 118**, exit 0; census **584 fix, 6 basis, 1
+inmodel** (`Lean.Syntax`), 0 modeled — Part B's census exactly;
+**678.68 G instructions** against Part B's 678.67 G (a deletion costs
+nothing, as it should).  **Mathlib slices** (raw, `--verified`):
+`slice-small` 1 626 fix / 26 inmodel / 6 basis, the five-cone slice
+183 fix / 1 inmodel / 6 basis — unchanged.  No Mathlib-scale run.
+
 ## TASK #215 — THE TREE-SIZE BUDGET, DELETED (2026-09-07, `agent/jzero`)
 
 User ruling, verbatim: *"delete it if it is unlikely to help (and we
@@ -58864,79 +59011,119 @@ check, and it agreed exactly.  On a RAW stream it no longer does, by
 construction: the in-process modeller pushes its generated records
 ahead of the block and the fold counts them, and they are not in the
 file.  Measured, on `init-prelude`, `grind-ring-5` and `init-full` the
-gap is exactly **30** — `Lean.Syntax`'s generated family — and the
-census of `CON_LECHE_INMODEL_DUMP`'s output (the raw input with those
-records spliced in) reproduces the verdict number exactly (1 807
-records → fold 1 803 = accepted 1 803 on `init-prelude`).  Before #207
+gap is exactly **30** — `Lean.Syntax`'s generated family — and on
+`mathlib-full` it is **2 168**, for the 51 blocks modelled in-process
+there.  The census of `CON_LECHE_INMODEL_DUMP`'s output (the raw input
+with those records spliced in) reproduces the verdict number exactly
+(1 807 records → fold 1 803 = accepted 1 803 on `init-prelude`).  Before #207
 the models arrived IN the file, so the two agreed.  PERF.md's census
 legend now says this; the exit-code table carries the verdict counts.
 (The verdict line counting generated records is task #200 behaviour,
 not this task's, and is left alone: changing it would move every
 pinned count in the tree.)
 
-### PERF.md, regenerated on RAW streams
+### PERF.md, regenerated on RAW streams (re-run on the merged tree)
 
-Every published cell before this task was measured on a preprocessed
-stream with `--pre` on the con-leche side.  The methodological change
-is stated in the file: both checkers now read the same raw bytes and do
-the SAME job, inductive blocks included, which con-leche used to have
-done for it.  **No cell is comparable with an earlier PERF.md.**
-Measured at `b33f38d9`, one run per cell, `perf stat -e instructions:u`
-(the tip's binary is md5-identical — the only later change to a
-compiled file is a source comment).
+Every published cell before this task was measured on a **preprocessed**
+stream with `--pre` on the con-leche side.  Both checkers now read the
+same **raw** bytes and do the SAME job, inductive blocks included, which
+con-leche used to have done for it.  **No cell is comparable with an
+earlier PERF.md.**
+
+The table was measured TWICE.  The first battery ran on the drop alone
+(`b33f38d9`) and is what produced the frontier finding below; task #210
+Part B then landed and moved every route, so the battery was re-run on
+the merged tree and **that is the published table** — `96344cd1`, one
+run per cell, `perf stat -e instructions:u`.
 
 | stream | official | trusted | verified | t÷o | v÷o |
 |---|---:|---:|---:|---:|---:|
-| `let-ladder` | 6.13 G | 8.31 G | 8.31 G | 1.36× | 1.36× |
-| `beta-ladder` | 10.13 G | 39.43 G | 39.43 G | 3.89× | 3.89× |
-| `init-prelude` | 2.21 G | 4.41 G | 4.55 G | 2.00× | 2.06× |
-| `grind-ring-5` | 13.40 G | 25.29 G | 26.11 G | 1.89× | 1.95× |
-| `app-lam` | 29.40 G | 158.01 G | 158.01 G | 5.37× | 5.37× |
-| `init-full` | 403.46 G | 654.11 G | 673.17 G | **1.62×** | **1.67×** |
-| `mathlib-full` | 10.54 T | (3.15 T, exit 2) | (3.19 T, exit 2) | — | — |
+| `let-ladder` | 6.14 G | 8.31 G | 8.31 G | 1.35× | 1.35× |
+| `beta-ladder` | 10.13 G | 39.43 G | 39.44 G | 3.89× | 3.89× |
+| `init-prelude` | 2.21 G | 4.61 G | 4.75 G | 2.09× | 2.15× |
+| `grind-ring-5` | 13.40 G | 26.97 G | 27.79 G | 2.01× | 2.07× |
+| `app-lam` | 29.41 G | 158.02 G | 158.03 G | 5.37× | 5.37× |
+| `init-full` | 403.64 G | 659.46 G | 678.46 G | **1.63×** | **1.68×** |
+| `mathlib-full` | 10.53 T | 13.15 T | 14.14 T | **1.25×** | **1.34×** |
 
-The like-for-like control is `init-full` `--verified`: **668.05 G** on
-the preprocessed stream (previous table) against **673.17 G** raw —
-**+0.8 %**, the price of installing the blocks ourselves — while
-official goes 413.02 G → 403.46 G (**−2.3 %**, the raw stream carries
-no model families).  The published ratio therefore WORSENS, 1.62× →
-1.67× verified and 1.55× → 1.62× trusted, against a checker that is now
-doing the same job.  Better to underpromise.
+(`init-prelude` and `grind-ring-5` moved most between the two batteries
+— 2.06× → 2.15× and 1.95× → 2.07× verified: they are the two small
+inductive-dense streams, so Part B's one-route arm shows there first.)
 
-### THE FINDING THIS TASK'S OWN GATE PRODUCED: all of Mathlib no longer accepts on the raw stream
+**The like-for-like reading.**  `init-full` `--verified`: **668.05 G**
+on the preprocessed stream (previous table) → **673.17 G** on the raw
+one at the drop (`b33f38d9`) → **678.46 G** after Part B — i.e. **+0.8 %
+for installing the blocks ourselves** and **+0.8 % again** for Part B's
+one-route arm.  Official moves the other way, 413.02 G → 403.64 G
+(**−2.3 %**), because the raw stream carries no model families.  So the
+published init-full ratio WORSENS: 1.62× → **1.68×** verified, 1.55× →
+**1.63×** trusted.  Better to underpromise.
 
-The `mathlib-full` row is the one that matters, and it is a **decline**.
-Official accepts the raw 5 636 308 621-byte export — 670 627
-declarations, 10.54 T instructions, 31.3 min, 9.17 GiB.  Both con-leche
-cells **exit 2** after 4.5–4.8 min, at fold position 50 008 of 656 667:
+(#215's 782.62 G for "init-full through the default pipe" was never a
+third con-leche number: `perf stat` follows children, so it was
+con-leche PLUS the preprocessor it spawned.  The whole pipeline is
+13 % cheaper now simply because the tool's own work is gone.)
+
+**And at Mathlib scale the ratio IMPROVES.**  The `mathlib-full` row is
+the whole raw export (5 636 308 621 B), all three cells:
+
+| | official | `--trusted` | `--verified` |
+|---|---:|---:|---:|
+| verdict | accept | **accept** | **accept** |
+| declarations | 670 627 | 656 667 | 656 667 |
+| instructions:u | 10.53 T | 13.15 T | 14.14 T |
+| ÷ official | — | **1.25×** | **1.34×** |
+| wall | 31.6 min | 38.0 min | 42.6 min |
+| peak RSS | 9.17 GiB | 12.56 GiB | 12.57 GiB |
+
+Against the previous table's preprocessed row (**1.45× verified /
+1.32× trusted**) that is **better on both**, and better than
+`init-full`'s 1.68×/1.63× — the corpus does not punish the checker at
+scale, and it punishes it less now than it did through the tool.
+
+### THE FINDING THIS TASK'S GATE PRODUCED, and how it closed the same day
+
+**On the drop alone, all of Mathlib stopped accepting.**  The first
+battery (`b33f38d9`, con-leche without Part B) had official accept the
+raw export while both con-leche cells **declined (exit 2)** after
+4.5–4.8 min, at fold position 50 008 of 656 667:
 
 ```
 con-leche: not implemented yet: no install route for inductive block
-CategoryTheory.MorphismProperty.multiplicativeClosure: no direct route
-recognises it and no model for … was generated
+CategoryTheory.MorphismProperty.multiplicativeClosure
 ```
 
-**The class.**  The block is `Prop`-valued, recursive, three
-constructors, three indices, NOT nested, NOT reflexive — and its type
-former is declared **at a definition**: the former's result is
+**The class.**  `Prop`-valued, recursive, three constructors, three
+indices, NOT nested, NOT reflexive — and its type former is declared
+**at a definition**: the former's result is
 `CategoryTheory.MorphismProperty C`, a `def` (`hints regular 1`) that
 only *unfolds* to `∀ {X Y : C}, (X ⟶ Y) → Prop`.  Task #195 gave the
 direct SUM arm official's whnf reading of exactly such a former
-(Mathlib's `Presieve.ofArrows`); **the FIXPOINT arm still reads
-`stripPis`**, so `directFixParts?` stands down, `InModel.wants` does not
-take the block (it is neither mutual nor nested), and nothing models it.
-This is residual class 4 of the #207 checklist — the one it recorded as
-*vacuous on both corpora* — and audit finding #206-A3/A5, already pinned
-by `tests/e2e/ind_defhead_fix.ndjson` (expected `2`).
+(Mathlib's `Presieve.ofArrows`); the FIXPOINT arm still read
+`stripPis`, so `directFixParts?` stood down, `InModel.wants` did not
+take the block either (neither mutual nor nested), and nothing modelled
+it.  That is residual class 4 of the #207 checklist — recorded there as
+*vacuous on both corpora* — and audit finding #206-A3/A5, pinned by
+`tests/e2e/ind_defhead_fix.ndjson`.
 
-**Why the checklist missed it — and the RULE that follows.**  Its
-Mathlib census was `CON_LECHE_INMODEL_CENSUS=1`, which is
-**parse-only**: it reports what the in-process modeller does with the
-mutual and nested blocks, and then STOPS — it never runs the fold.  A
-block the direct recognisers refuse at *check* time is invisible to it,
-because the recognisers run on the environment the install sees, not on
-the parse.  So the census could report "51 modelled, 0 declined" on a
-corpus that does not accept.
+**Task #210 Part B closed it.**  Part B reads the placeholder former
+sort and completes it by the former's own run; `ind_defhead_fix`,
+`ind_defhead_struct`, `ind_defhead_k` and `ind_former_redex` flipped
+2 → 0 with it, and the re-run on the merged tree **accepts all of
+Mathlib in both modes**.  So the raw frontier was open for the length of
+one lane, and the table above is the closed one.  What does NOT close
+with it is the *field*-side half of the same story — `ind_pos_whnf_id`
+/ `ind_pos_whnf_fn` and the three arena tutorial good tests
+(053/118/119), where the redex is in a constructor FIELD rather than in
+the former; those stay `2` and are the conformance batch's.
+
+**Why the inventory missed it — and the RULE that follows.**  The
+#207 checklist's Mathlib census was `CON_LECHE_INMODEL_CENSUS=1`, which
+is **parse-only**: it reports what the in-process modeller does with the
+mutual and nested blocks and then STOPS — it never runs the fold.  A
+block the direct recognisers refuse at *check* time is invisible to it.
+So the census could report "51 modelled, 0 declined" on a corpus that
+did not accept, and did.
 
 > **RULE (task #207).  A coverage census must be a FOLD, not a parse.**
 > `CON_LECHE_INMODEL_CENSUS=1` answers one question only — what the
@@ -58950,20 +59137,67 @@ corpus that does not accept.
 
 **And the milestone it corrects.**  "ALL OF MATHLIB ACCEPTED
 (2026-09-06)" was measured on the **preprocessed** stream
-(`mathlib-full-pre-idx.ndjson`, cut by `con-leche-preprocess`), which is
-the only stream that existed for the checker then.  It stands as what
-it was; it was never a statement about the raw export.  **The raw
-status is what this run establishes**, and it is recorded here rather
-than quietly inherited.
+(`mathlib-full-pre-idx.ndjson`), the only stream the checker had then.
+It stands as what it was and was never a claim about the raw export.
+**The raw status is what this battery establishes: accepted, in both
+modes, at 1.34× / 1.25× official** — and, for one lane's length, it was
+not.
 
-**What it costs.**  The standing "ALL OF MATHLIB ACCEPTED (2026-09-06)"
-milestone was measured on the PREPROCESSED stream (1.45× verified /
-1.32× trusted, in the previous PERF.md); the tool was covering this
-block.  On the raw stream the corpus stops at 7.6 % of the fold.  The
-parse itself is healthy — 51 blocks modelled in-process, **0 declined**,
-65 projection functions rewritten — so this is one recogniser conjunct,
-not a structural gap.  **The fix is to extend #195's whnf'd-telescope
-reading of the former to the fix arm**, i.e. Part D of task #210 / the
-conformance batch; it is the same work item as the three arena tutorial
-declines (053/118/119), which are the *field*-side half of the same
-def-headed/redex-headed story.
+## TASK #216 — THE OVERVIEW LINK GATE (2026-09-07, `agent/overview`)
+
+`OVERVIEW.md` (the AI-written guided tour of the proof, added on this
+branch) makes nearly every claim by *citing a line range*:
+`https://github.com/leanprover/lech/blob/master/<path>#L<a>-L<b>`.  Line
+anchors are the most perishable documentation there is — one added
+`import` slides every anchor in a module by one, and nothing in the
+build notices — and worse, an anchor can stay *in range* while the lines
+under it come to say something else, which no existence check catches.
+
+**The gate** (`tests/overview-links.sh`).  It does not judge the prose;
+it makes the CITED TEXT a committed artefact.  It extracts every
+`blob/master` link from `OVERVIEW.md` in document order, copies the
+linked lines — with their line numbers — into one text, and diffs that
+against `tests/overview-links-expected.txt`.  Consequently:
+
+* **a citation MOVED** → the numbers in the text change → fail; the
+  reminder to update the `#L<a>-L<b>` anchor;
+* **the cited lines CHANGED** → the text changes → fail; the reminder to
+  re-read the paragraph that cites them, since the document may now be
+  stale in a way no tool can see;
+* the file is gone, or shorter than the anchor → a hard error naming the
+  link;
+* a link that pins a commit (`blob/<sha>/…`) → a hard error: the
+  document must track `master`, or the tour quietly drifts from the tree
+  it describes.
+
+Non-blob links (external URLs, in-document anchors) are ignored.  The
+owner/repo part of the URL is matched loosely on purpose, so the gate
+survives the next rename without a script edit; the *ref* is what is
+pinned.
+
+**How to update.**  After checking that the prose still matches the new
+lines: `tests/overview-links.sh --update`, and commit the expectation
+with the change that moved the lines.  The rule is in `CLAUDE.md` beside
+the build/test bullet.
+
+**Wiring.**  `tests/arena.sh`, beside `layering`/`proofdeps`/`pindump`/
+`trust-surface` (source-tree only, no build, milliseconds); CI needs no
+step of its own — `bash tests/arena.sh` is already a CI step, and the
+workflow's gate list names it.
+
+**What the first run found.**  The gate paid for itself before it was
+committed: `ConLeche/SetP/Step2/DefEqP.lean#L1328-L1340` was already out
+of range (the file has 1 339 lines); the intended subject is
+`defEqStepP_of`, so the anchor is now `#L1328-L1337`, the whole theorem.
+Its two siblings in the same sentence were left alone and reported to
+the coordinator: `InferP.lean#L1128-L1135` is `inferStepP_of` (the
+quarter's step theorem) but `WhnfP.lean#L468-L488` is
+`whnfCore_packageP`, a per-clause packaging helper, where the analogue
+would be `whnfCoreStepP_of`/`whnfStepP_of` (`WhnfP.lean` L898/L908).
+The relative paths named in prose (`tests/ConLecheTests/Axioms.lean`,
+`tests/pindump.sh`, `pins/`, `scripts/`, every module-map directory,
+`ConLeche/Frontend/Export*.lean`, `ConLeche/SetP/Ind*`) were audited by
+hand and all exist; those are NOT link-extracted, by design — this gate
+is about the line anchors.
+
+**Size.**  40 links across 33 files, 699 lines of expectation.

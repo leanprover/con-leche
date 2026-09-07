@@ -72,28 +72,6 @@ theorem Sat2_drop {Δ : List AVExpr} {ρ : Nat → V} (h : Sat2 V Δ ρ)
   rw [e, Nat.add_comm i m]
   exact h1
 
-/-- Two contexts whose entries interpret alike under the earlier
-entries have the same satisfying valuations. -/
-theorem Sat2_of_entries_eq {Δ₁ Δ₂ : List AVExpr}
-    (hlen : Δ₂.length ≤ Δ₁.length)
-    (heq : ∀ (p : Nat) (A₁ A₂ : AVExpr), Δ₁[p]? = some A₁ →
-      Δ₂[p]? = some A₂ → ∀ ρ' : Nat → V, Sat2 V (Δ₁.drop (p + 1)) ρ' →
-        interp2 V ρ' A₁ = interp2 V ρ' A₂) :
-    ∀ ρ : Nat → V, Sat2 V Δ₁ ρ → Sat2 V Δ₂ ρ := by
-  intro ρ h p A₂ hp
-  have hpl : p < Δ₁.length := by
-    have := (List.getElem?_eq_some_iff.mp hp).1
-    omega
-  obtain ⟨A₁, hA₁⟩ : ∃ A₁, Δ₁[p]? = some A₁ :=
-    ⟨Δ₁[p]'hpl, List.getElem?_eq_getElem hpl⟩
-  have h1 := h p A₁ hA₁
-  have hd := Sat2_drop h (p + 1)
-  have e : (fun j => ρ (j + (p + 1))) = fun j => ρ (j + p + 1) := by
-    funext j; rw [Nat.add_assoc]
-  rw [e] at hd
-  rw [← heq p A₁ A₂ hA₁ hp _ hd]
-  exact h1
-
 /-- **Context transfer**: a correspondence survives replacing the
 context by one with the same satisfying valuations whose entries
 interpret alike under them. -/

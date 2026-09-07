@@ -29,23 +29,6 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## Substitution of the payload's projections -/
 
-/-- `substProj` preserves bit validity: the substituted term is valid
-exactly when the original is at the projections' frame. -/
-theorem AnnotValidV_substProj (σ : Nat → V) (y : V) :
-    ∀ (i : Nat) (e : AVExpr),
-      AnnotValidV V (cons y σ) (substProj i e) ↔
-        AnnotValidV V (consList (projList i y) (cons y σ)) e
-  | 0, _ => Iff.rfl
-  | i + 1, e => by
-    show AnnotValidV V (cons y σ) (substProj i (e.inst (projAV i (.bvar i)))) ↔ _
-    have hp : AnnotValidV V (consList (projList i y) (cons y σ)) (projAV i (.bvar i)) :=
-      projAV_validV (by rw [AnnotValidV_bvar]; trivial)
-    rw [AnnotValidV_substProj σ y i, AnnotValidV_inst0 V hp, projAV_interp, interp2_bvar]
-    have hy : consList (projList i y) (cons y σ) i = y := by
-      have := consList_apply_add (projList i y) (cons y σ) 0
-      rwa [Nat.zero_add, projList_length] at this
-    rw [hy, consList_snoc', ← projList_snoc]
-
 /-- `substProjAt` under binders preserves bit validity. -/
 theorem AnnotValidV_substProjAt (σ : Nat → V) (y : V) (bs : List V) :
     ∀ (i : Nat) (e : AVExpr),

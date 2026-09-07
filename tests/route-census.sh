@@ -20,7 +20,8 @@
 # on the same environment the install sees (Main.lean, the progress
 # lane).  Every block must read a route the checker owns:
 #
-#   * struct / sum / fix   the direct routes
+#   * fix                  the direct route (ONE ROUTE, task #210: the
+#                          structure and sum routes are gone since Part C)
 #   * inmodel              a `_model` family generated in-process
 #                          (task #200) — the checker's own too
 #   * basis                a pinned basis block, matched by the parse
@@ -73,7 +74,7 @@ WORK=$(mktemp -d "$TMPDIR/route-census.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 
 fail=0; nstreams=0; nblocks=0
-nstruct=0; nsum=0; nfix=0; ninmodel=0; nbasis=0; nmodeled=0
+nfix=0; ninmodel=0; nbasis=0; nmodeled=0
 for s in "${streams[@]}"; do
   nstreams=$((nstreams+1))
   ( ulimit -v 16000000; CON_LECHE_ROUTE_TRACE=1 timeout 3000 "$BIN" "$s" \
@@ -92,8 +93,6 @@ for s in "${streams[@]}"; do
     [ -n "$route" ] || continue
     nblocks=$((nblocks+1))
     case "$route" in
-      struct) nstruct=$((nstruct+1));;
-      sum) nsum=$((nsum+1));;
       fix) nfix=$((nfix+1));;
       inmodel) ninmodel=$((ninmodel+1));;
       basis) nbasis=$((nbasis+1));;
@@ -105,6 +104,6 @@ for s in "${streams[@]}"; do
 done
 
 echo "route census: $nstreams streams, $nblocks blocks — \
-$nstruct struct, $nsum sum, $nfix fix, $ninmodel inmodel, $nbasis basis, $nmodeled modeled"
+$nfix fix, $ninmodel inmodel, $nbasis basis, $nmodeled modeled"
 [ "$fail" = 0 ] || { echo "ROUTE CENSUS FAIL — a block the checker does not install itself"; exit 1; }
 exit 0

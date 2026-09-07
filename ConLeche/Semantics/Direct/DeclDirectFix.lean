@@ -1,4 +1,5 @@
-import ConLeche.Semantics.Direct.DeclDirectSum
+import ConLeche.Semantics.DeclIndRun
+import ConLeche.Verify.Direct.SumWF
 import ConLeche.Verify.Direct.FixWF
 
 /-!
@@ -142,25 +143,6 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   dsimp only at h
   exact ⟨by simpa using hneg, hnd, cvTa, env₁, p₁, p, ctorsA, sortss, cvRa, rhss, tfvs, trest,
     isorts, hInd, hp.symm, helim, htq, hsorts, hCtors, hk, hRec, h⟩
-
-/-- The direct recursive arm keeps the environment well-formed. -/
-theorem declDirectFixRun_wf {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {p₀ : DirectFixParts} (henv : ConLeche.EnvWF env)
-    (h : DeclDirectFixRun μ F env p₀ env₂) : ConLeche.EnvWF env₂ := by
-  obtain ⟨-, -, cvTa, env₁, p₁, p, ctorsA, sortss, cvRa, rhss, -, -, -, hInd, -, -, -, -, hCtors,
-    -, hRec, hTbl⟩ := h
-  obtain ⟨henv₁, -⟩ := ConLeche.direct_sum_ind_wf henv hInd
-  obtain ⟨hlen, -, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
-  have henv₂ : ConLeche.EnvWF (consSumCtors p.nP ctorsA env₁) := by
-    refine ConLeche.envWF_consSumCtors henv₁ ?_
-    intro c hc
-    obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
-    have hj' : j < p.ctors.length := by
-      have := (List.getElem?_eq_some_iff.mp hj).1
-      omega
-    obtain ⟨-, _, -, hrun⟩ := hall j (p.ctors[j]) c (List.getElem?_eq_getElem hj') hj
-    exact ConLeche.direct_sum_ctor_typeWF hrun
-  exact ConLeche.direct_fix_table_wf (ConLeche.direct_fix_rec_wf henv₂ hRec) hTbl
 
 /-! ## The run-level dispatch
 

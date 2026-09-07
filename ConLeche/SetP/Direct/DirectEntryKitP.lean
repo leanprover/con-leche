@@ -1,4 +1,4 @@
-import ConLeche.SetP.Direct.DirectStageRecP
+import ConLeche.SetP.Direct.DirectRecLawKitP
 
 /-!
 # The projection entry's kit (task #175 W4c, P3 module 7, part 1)
@@ -197,44 +197,7 @@ theorem annotOk2_projAV_tower {w : Nat} :
 
 /-! ## The coarse guard -/
 
-/-- The evaluated join over a list is zero exactly when every joined
-level is. -/
-theorem eval_foldl_max_zero_iff (ψ : Name → Nat) (s : Nat → Level) :
-    ∀ (l : List Nat) (s0 : Level),
-      Level.eval ψ (l.foldl (fun acc j => Level.max acc (s j)) s0) = 0 ↔
-        Level.eval ψ s0 = 0 ∧ ∀ j ∈ l, Level.eval ψ (s j) = 0
-  | [], s0 => by simp
-  | a :: l, s0 => by
-    rw [List.foldl_cons, eval_foldl_max_zero_iff ψ s l]
-    simp only [Level.eval, Nat.max_eq_zero_iff, List.mem_cons, forall_eq_or_imp]
-    constructor
-    · rintro ⟨⟨h0, ha⟩, hl⟩; exact ⟨h0, ha, hl⟩
-    · rintro ⟨h0, ha, hl⟩; exact ⟨⟨h0, ha⟩, hl⟩
-
 /-! ## The squash prefix -/
-
-/-- A spine fitting a chain of truth values (each domain lands in
-`univ 0` at every fitting prefix) is the point spine. -/
-theorem spineFit_eq_replicate_pt :
-    ∀ {Fs : List AVExpr} {ρ : Nat → V} {as : List V},
-      SpineFit ρ Fs as →
-      (∀ j, j < Fs.length → ∀ bs : List V, SpineFit ρ (Fs.take j) bs →
-        interp2 V (consList bs ρ) (Fs.getD j default) ∈ˢ (univ 0 : V)) →
-      as = List.replicate Fs.length pt
-  | [], _, [], _, _ => rfl
-  | [], _, _ :: _, h, _ => h.elim
-  | _ :: _, _, [], h, _ => h.elim
-  | F :: Fs, ρ, a :: as, h, hz => by
-    have h0 := hz 0 (by simp) [] trivial
-    simp only [consList_nil, List.getD_cons_zero] at h0
-    have ha : a = pt := mem_univ_zero h0 h.1
-    subst ha
-    rw [List.length_cons, List.replicate_succ]
-    congr 1
-    refine spineFit_eq_replicate_pt (ρ := cons pt ρ) h.2 ?_
-    intro j hj bs hbs
-    have := hz (j + 1) (by simp; omega) (pt :: bs) ⟨h.1, hbs⟩
-    simpa using this
 
 /-- The prefix of a fitting spine fits the prefix, and the next field
 is inhabited at it. -/

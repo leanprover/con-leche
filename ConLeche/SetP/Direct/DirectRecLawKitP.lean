@@ -26,76 +26,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 
 /-! ## The frame values (from the retired `DirectRecLawFitsP`, task #175 S2) -/
 
-/-- The layers of a P-graded λ-tower are P-graded along any fitting
-prefix of a spine. -/
-theorem mkLamsAV_layers_okP :
-    ∀ {lds : List (Nat × AVExpr)} {b : AVExpr} {ρ : Nat → V} {as : List V} {i : Nat},
-      AnnotOkP V ρ (mkLamsAV lds b) → SpineFit ρ ((lds.take i).map (·.2)) as →
-      i < lds.length → AnnotOkP V (consList as ρ) ((lds.getD i default).2)
-  | [], _, _, _, _, _, _, hi => absurd hi (Nat.not_lt_zero _)
-  | d :: lds, b, ρ, as, 0, hok, hsp, _ => by
-    obtain rfl : as = [] := by
-      match as, hsp with
-      | [], _ => rfl
-    have hok2 := hok.1
-    have hokV := hok.2
-    simp only [mkLamsAV, AnnotOk2_lam] at hok2
-    simp only [mkLamsAV, AnnotValidV_lam] at hokV
-    exact ⟨hok2.1, hokV.1⟩
-  | d :: lds, b, ρ, [], i + 1, _, hsp, _ => hsp.elim
-  | d :: lds, b, ρ, a :: as, i + 1, hok, hsp, hi => by
-    simp only [List.take_succ_cons, List.map_cons, SpineFit] at hsp
-    have hok2 := hok.1
-    have hokV := hok.2
-    simp only [mkLamsAV, AnnotOk2_lam] at hok2
-    simp only [mkLamsAV, AnnotValidV_lam] at hokV
-    obtain ⟨-, hrest, -⟩ := hok2
-    obtain ⟨-, hrestv⟩ := hokV
-    simp only [consList_cons, List.getD_cons_succ]
-    exact mkLamsAV_layers_okP ⟨hrest a hsp.1, hrestv a hsp.1⟩ hsp.2 (by simpa using hi)
-
-/-- The first `i` values of a frame, outermost first. -/
-def frameVals (ρ : Nat → V) (D i : Nat) : List V :=
-  (List.range i).map fun k => ρ (D - 1 - k)
-
-omit [SetTheory V] in
-theorem frameVals_length (ρ : Nat → V) (D i : Nat) : (frameVals ρ D i).length = i := by
-  simp [frameVals]
-
-omit [SetTheory V] in
-theorem frameVals_succ (ρ : Nat → V) (D i : Nat) :
-    frameVals ρ D (i + 1) = frameVals ρ D i ++ [ρ (D - 1 - i)] := by
-  simp [frameVals, List.range_succ]
-
-omit [SetTheory V] in
-/-- The frame's first `i` values, consed on the frame's tail, are the
-frame shifted by `D - i`. -/
-theorem consList_frameVals (ρ : Nat → V) {D i : Nat} (hi : i ≤ D) :
-    consList (frameVals ρ D i) (fun k => ρ (k + D)) = fun k => ρ (k + (D - i)) := by
-  funext k
-  rcases Nat.lt_or_ge k i with hk | hk
-  · rw [consList_apply_lt _ _ _ (by rw [frameVals_length]; exact hk), frameVals_length]
-    simp only [frameVals, List.getElem?_map, List.getElem?_range (show i - 1 - k < i by omega),
-      Option.map_some, Option.getD_some]
-    congr 1; omega
-  · have := consList_apply_add (frameVals ρ D i) (fun k => ρ (k + D)) (k - i)
-    rw [frameVals_length, show k - i + i = k from by omega] at this
-    rw [this]
-    show ρ (k - i + D) = ρ (k + (D - i))
-    congr 1; omega
-
-/-- The domains of a λ-peel, by position. -/
-theorem lds_entry {lds : List (Nat × AVExpr)} {Γ : List AVExpr} {D : Nat}
-    (hΓ : (lds.map (·.2)).reverse = Γ) (hlen : lds.length = D) {i : Nat} (hi : i < D) :
-    Γ.getD (D - 1 - i) default = (lds.getD i default).2 := by
-  subst hΓ
-  have hq : lds[i]? = some (lds.getD i default) := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
-    rfl
-  rw [List.getD_eq_getElem?_getD, List.getElem?_reverse (by simp; omega), List.length_map, hlen,
-    show D - 1 - (D - 1 - i) = i from by omega, List.getElem?_map, hq]
-  rfl
-
 /-! ## Fits as spines -/
 
 /-- A fit's chain memberships are a `SpineFit` (the values read at the
@@ -155,20 +85,5 @@ theorem substFn_agree_of_comparand {lps lpsR : List Name} {us usj : List Level}
   rw [hmap, Level.substFn_map_subst (by simp) hq, Level.substFn_map_param]
 
 /-! ## The minor at a zero elimination level -/
-
-/-- At a zero elimination level the minor value is the point: the minor
-space is a truth value (the motive's applications are). -/
-theorem minor_pt_of_zero {ℓ w : Nat} {M m : V} {Fs : List AVExpr} {ρp : Nat → V} {A : V}
-    (h0 : ℓ = 0) (hM : M ∈ˢ piR (ℓ + 1) A (fun _ => (univ ℓ : V)))
-    (hm : m ∈ˢ minorSp ℓ w M Fs ρp []) : m = pt := by
-  have hM0 : ∀ y : V, SetTheory.app M y ∈ˢ (univZero : V) := by
-    intro y
-    by_cases hy : y ∈ˢ A
-    · have hmem := app_mem_piR_pos (Nat.succ_ne_zero ℓ) hM hy
-      rw [h0, univ_zero] at hmem
-      exact hmem
-    · rw [(mem_piR_pos (Nat.succ_ne_zero ℓ) hM).2.2.1 y hy, ← univ_zero]
-      exact empty_mem_univ 0
-  exact eq_pt_of_mem_univZero (minorSp_zero_univZero h0 hM0 Fs ρp []) hm
 
 end ConLeche.SetP

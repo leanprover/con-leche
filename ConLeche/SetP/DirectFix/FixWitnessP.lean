@@ -93,11 +93,6 @@ theorem shadowOf_take (nP : Nat) (ks : List RecFieldKind) (fs : List V) (i : Nat
     (shadowOf nP ks fs).take i = shadowOf nP ks (fs.take i) :=
   shadowOfGo_take nP ks 0 fs i
 
-theorem shadowOf_getD_rec {nP : Nat} {ks : List RecFieldKind} {fs : List V} {l : Nat}
-    (hl : l < fs.length) (hr : recAt nP ks (nP + l)) :
-    (shadowOf nP ks fs).getD l pt = shadowVal := by
-  rw [shadowOf_getD hl, if_pos hr]
-
 /-! ## Graded field chains from pointwise facts -/
 
 /-- **The shadow fields are graded** (at a positive sort): the ordinary

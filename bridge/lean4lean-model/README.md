@@ -58,7 +58,7 @@ directory's `.lake` (gitignored).
   `⋃₀`, `powerset`, `mem_wf`, `image` under
   `Classical.allZFSetDefinable`), `univChain n := V_ (κ n).ord`.
 
-* `carneiro_implies_con-leche : OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V)`.
+* `carneiro_implies_conleche : OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V)`.
 
 * Axiom pin (`#guard_msgs in #print axioms`): `propext`,
   `Classical.choice`, `Quot.sound` — nothing else.

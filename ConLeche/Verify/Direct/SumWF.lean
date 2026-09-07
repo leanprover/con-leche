@@ -73,34 +73,6 @@ theorem envWF_consSumCtors {nP : Nat} :
       obtain ⟨h1, h2, h3, h4⟩ := hall c' (List.mem_cons_of_mem _ hc')
       exact ⟨h1, h2, Expr.constsResolve_mono h3, h4⟩
 
-/-- The recursor stage's stored pieces, as its own guards checked
-them. -/
-theorem checkDirectSumRec_facts {env : Env} {p : DirectSumParts}
-    {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {F : Nat}
-    (h : checkDirectSumRec (fueledOps mode F) env p cvTa ctorsA = .ok (cvRa, rhss)) :
-    cvRa.name = p.cvR.name ∧ cvRa.levelParams = p.cvR.levelParams ∧
-    (cvRa.type.hasFvar = false ∧
-      cvRa.type.allLevelParamsDefined cvRa.levelParams = true ∧
-      cvRa.type.constsResolve env = true ∧
-      cvRa.type.looseBVarsBounded 0 = true) ∧
-    rhss.length = ctorsA.length ∧
-    ∀ rhs ∈ rhss, rhs.hasFvar = false ∧
-      rhs.allLevelParamsDefined cvRa.levelParams = true ∧
-      rhs.constsResolve env = true ∧
-      rhs.looseBVarsBounded 0 = true := by
-  obtain ⟨cvRi, recTy, sty, u, -, -, hlp, hres, hbv, hfv, -, -, -, hrules, rfl⟩ :=
-    checkDirectSumRec_shape h
-  obtain ⟨hlen, hall⟩ := checkDirectSumRules_inv hrules
-  refine ⟨rfl, rfl, ⟨hfv, hlp, hres, hbv⟩, by simpa using hlen, ?_⟩
-  intro rhs hrhs
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hrhs
-  have hi' : i < (ctorsA.map fun c => (c.1.name, c.2, c.1.type)).length := by
-    have := (List.getElem?_eq_some_iff.mp hi).1
-    omega
-  obtain ⟨rhs', hget, -, hlp', hres', hbv', hfv', -⟩ := hall i hi'
-  obtain rfl := Option.some.inj (hi.symm.trans hget)
-  exact ⟨hfv', hlp', hres', hbv'⟩
-
 /-- The stored rules carry the generated right-hand sides and are
 never `.nested`. -/
 theorem directSumRules_mem {nP mI rP : Nat} {recTy : Expr} :
@@ -117,27 +89,5 @@ theorem directSumRules_mem {nP mI rP : Nat} {recTy : Expr} :
       split <;> simp
     · obtain ⟨hm, hf⟩ := directSumRules_mem h
       exact ⟨List.mem_cons_of_mem _ hm, hf⟩
-
-/-- Stage 3 at the run level: the recursor cons with its rules is
-well-formed. -/
-theorem direct_sum_rec_wf {env : Env} (henv : EnvWF env)
-    {p : DirectSumParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
-    {rhss : List Expr} {F : Nat} {mI rP : Nat}
-    (h : checkDirectSumRec (fueledOps mode F) env p cvTa ctorsA = .ok (cvRa, rhss)) :
-    EnvWF ⟨.recInfo cvRa mI rP (directSumRules p.nP mI rP cvRa.type ctorsA rhss)
-      :: env.consts⟩ := by
-  obtain ⟨-, -, ⟨htf, htp, htr, htb⟩, -, hall⟩ := checkDirectSumRec_facts h
-  refine EnvWF.cons henv (directConstWF htf htp
-    (Expr.constsResolve_mono htr) htb
-    (fun _ _ _ heq => nomatch heq) ?_)
-  intro cvR' mI' rP' rules' heq r hr
-  injection heq with e1 e2 e3 e4
-  subst e1
-  subst e4
-  obtain ⟨hmem, hfire⟩ := directSumRules_mem hr
-  obtain ⟨hrfv, hrlp, hrres, hrbv⟩ := hall r.rhs hmem
-  refine ⟨hrfv, hrlp, Expr.constsResolve_mono hrres, hrbv, ?_⟩
-  intro lvls pins hf
-  exact absurd hf (hfire lvls pins)
 
 end ConLeche

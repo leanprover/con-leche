@@ -84,7 +84,6 @@ def sharedOpsC (fe : FEnv) : CheckerOps CheckCM where
   ensureSort _ d e := opS mode fe d e
   whnf _ d e := opE mode fe (·.whnf) d e
 
-
 /-! ## Thin phase drivers (one `CState` per declaration)
 
 Each mirrors its `ConLeche/Kernel/Checker.lean` counterpart clause by
@@ -165,46 +164,6 @@ def installProjFnStepS (T ctorName : Name) (lps : List Name)
     checkProjFnS mode fe T ctorName lps nP nF i
   else pure fe
 
-/-- `checkDirectStruct` through the index. -/
-def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
-  -- one `flushC` per environment transition, as everywhere else in this
-  -- file: the memo caches are only valid for the environment that
-  -- created them, and this driver walks four of them (the block's
-  -- provisional environments)
-  flushC
-  let (fe₁, cvTa) ← checkDirectIndF (sharedOpsC mode fe) fe p
-  flushC
-  let (fe₂, cvCa, sorts) ← checkDirectCtorF (sharedOpsC mode fe₁) fe fe₁ p cvTa
-  flushC
-  let (cvRa, rhsA) ← checkDirectRecF (sharedOpsC mode fe₂) fe₂ p cvTa cvCa
-  let fe₃ := fe₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
-    [⟨p.cvC.name, p.nF, p.nP,
-      if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-        .plain else .inert,
-      rhsA⟩])
-  checkDirectProjTableF (m := CheckCM) .plain p.cvT.name p.cvC.name p.cvT.levelParams
-    p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) 0 cvCa fe₃
-
-/-- `checkDirectSum` through the index (task #175 sum-types).  One
-flush per environment transition: the former's, the constructors'
-(all at the former's environment), the recursor's. -/
-def checkDirectSumS (fe : FEnv) (p₀ : DirectSumParts) : CheckCM FEnv := do
-  unless (p₀.ctors.map (·.1.name)).Nodup do
-    throw (.invalid "direct sum: duplicate constructor")
-  flushC
-  let (fe₁, cvTa, p) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀ directSumCaps
-  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
-    throw (.invalid "direct sum: large eliminator on a multi-constructor inductive \
-      whose sort may be Prop")
-  flushC
-  let (ctorsA, _) ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe fe₁ p.cvT.name
-    p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
-  let fe₂ := consSumCtorsF p.nP ctorsA fe₁
-  flushC
-  let (cvRa, rhss) ← checkDirectSumRecF (sharedOpsC mode fe₂) fe₂ p cvTa ctorsA
-  pure (fe₂.push (.recInfo cvRa p.majorIdx p.rulePrefix
-    (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)))
-
 /-- `checkDirectFix` through the index (task #188).  The former's and
 the constructors' stages are the sum route's mirrors, the resolution
 guard pointed at the former's environment; one flush per environment
@@ -271,84 +230,5 @@ def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
   | _, _ => do
     let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames {}) fe
     checkIndRecsS mode blockNames fe₂ recs
-
-/-- One declaration in the shared state, index in and out (mirrors
-`checkDecl` branch by branch; every lookup through the index). -/
-def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
-  match d with
-  | .defnDecl cv value hint => do
-    let cv ← checkConstantValF (sharedOpsC mode fe) fe cv
-    -- Rare Nat-op branch decided before the value check, so the common
-    -- path does not retain `fe` across it (see `checkDeclSP`).
-    if natOpNames.contains cv.name || natDivModNames.contains cv.name then
-      let fe2 ← checkDefnValF (sharedOpsC mode fe) fe cv value hint
-      if natOpNames.contains cv.name then
-        unless natOpGuardF fe2 cv.name &&
-            (natOpDeps cv.name).all (natOpStoredOkF fe2) do
-          throw (.notImplemented
-            s!"nonstandard structural Nat operation environment ({cv.name})")
-        match fe2.find? cv.name with
-        | some (.defnInfo _ value' _) =>
-          let ok ← certifyNatEqs (sharedOpsC mode fe) fe.env
-            ((natOpEquations 0 cv.name).map fun eq =>
-              (Expr.substConst0 cv.name value' eq.1,
-               Expr.substConst0 cv.name value' eq.2))
-          unless ok do
-            throw (.notImplemented
-              s!"nonstandard structural Nat operation ({cv.name})")
-        | _ => throw (.internal
-            s!"structural Nat operation not stored ({cv.name})")
-      if natDivModNames.contains cv.name then
-        checkDivModPinF (sharedOpsC mode fe) fe fe2 cv.name
-      pure fe2
-    else
-      checkDefnValF (sharedOpsC mode fe) fe cv value hint
-  | .thmDecl cv value => do
-    let cv ← checkConstantValF (sharedOpsC mode fe) fe cv
-    checkThmValF (sharedOpsC mode fe) fe cv value
-  | .opaqueDecl cv value => do
-    let cv ← checkConstantValF (sharedOpsC mode fe) fe cv
-    let fe2 ← checkOpaqueValF (sharedOpsC mode fe) fe cv value
-    if reduceOpNames.contains cv.name then
-      checkReducePinF (sharedOpsC mode fe) fe fe2 cv.name value
-    pure fe2
-  | .axiomDecl cv => do
-    let cvA ← checkConstantValF (sharedOpsC mode fe) fe cv
-    if stdAxiomOkF fe cvA then
-      pure (fe.push (.axiomInfo cvA))
-    else if cvA.name = trustCompilerName then
-      if trustCompilerOkF fe cvA then
-        pure (fe.push (.axiomInfo cvA))
-      else throw (.notImplemented
-        s!"unsupported Lean.trustCompiler shape ({cv.name})")
-    else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
-      if ofReduceAxOkF fe cvA then
-        pure (fe.push (.axiomInfo cvA))
-      else throw (.notImplemented
-        s!"unsupported compiler-trust axiom environment ({cv.name})")
-    else if cvA.name = propextName ∨ cvA.name = choiceName then
-      throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
-    else if toleratedAxiomNames.contains cvA.name then
-      pure fe
-    else
-      throw (.notImplemented s!"non-standard axiom ({cv.name})")
-  | .basisDecl kind => do
-    if kind = .quotK then
-      unless fe.find? eqName = some eqA do
-        throw (.notImplemented "quotient basis requires the pinned Eq basis")
-    kind.declsA.foldlM installBasisDeclF fe
-  | .indDecl block =>
-    -- ONE ROUTE (task #210 Part B): the fixpoint route is tried first
-    -- and takes every block the two other recognisers took
-    match directFixParts? block with
-    | some p => checkDirectFixS mode fe p
-    | none => checkIndDeclSF mode fe block
-
-/-- The shared-state checker step the binary runs: the index is
-threaded *across* declarations (built once for the whole stream; each
-accepted constant is one `FEnv.push`), the memo state lives for
-exactly one declaration. -/
-def checkDeclSharedF (fe : FEnv) (d : Declaration) : CheckM FEnv :=
-  (checkDeclSF mode fe d).run' {}
 
 end ConLeche.Cached

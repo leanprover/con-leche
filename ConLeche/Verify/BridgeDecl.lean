@@ -518,20 +518,6 @@ theorem fueledOpsM_ensureSort_atF (env : Env) (d : Nat) (a : Expr)
     ((fueledOpsM mode).ensureSort env d a).val F =
       (fueledOps mode F).ensureSort env d a := rfl
 
-theorem checkDirectFieldSorts_datF (env : Env) (isProp large : Bool)
-    (s : Level) (nP : Nat) (fvs : List Expr) (F : Nat) :
-    ∀ j : Nat,
-      (checkDirectFieldSorts (fueledOpsM mode) env isProp large s nP fvs
-          j).val F =
-        checkDirectFieldSorts (fueledOps mode F) env isProp large s nP fvs j
-  | 0 => rfl
-  | j + 1 => by
-    unfold checkDirectFieldSorts
-    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-      FueledM.atF_ite, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
-      liftFueled_atF, unwrapOr_atF,
-      checkDirectFieldSorts_datF env isProp large s nP fvs F j]
-
 theorem checkDirectDomsAt_datF (env : Env) (off : Nat)
     (fvs doms : List Expr) (F : Nat) :
     ∀ j : Nat,
@@ -544,31 +530,6 @@ theorem checkDirectDomsAt_datF (env : Env) (off : Nat)
       FueledM.atF_ite, fueledOpsM_isDefEq_atF, unwrapOr_atF,
       checkDirectDomsAt_datF env off fvs doms F j]
 
-theorem checkDirectInd_datF (env : Env) (p : DirectParts) (F : Nat) :
-    (checkDirectInd (fueledOpsM mode) env p).val F =
-      checkDirectInd (fueledOps mode F) env p := by
-  unfold checkDirectInd
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF]
-
-theorem checkDirectCtor_datF (env₀ env : Env) (p : DirectParts)
-    (cvTa : ConstantVal) (F : Nat) :
-    (checkDirectCtor (fueledOpsM mode) env₀ env p cvTa).val F =
-      checkDirectCtor (fueledOps mode F) env₀ env p cvTa := by
-  unfold checkDirectCtor
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
-    checkDirectFieldSorts_datF, checkDirectDomsAt_datF]
-
-theorem checkDirectRec_datF (env : Env) (p : DirectParts)
-    (cvTa cvCa : ConstantVal) (F : Nat) :
-    (checkDirectRec (fueledOpsM mode) env p cvTa cvCa).val F =
-      checkDirectRec (fueledOps mode F) env p cvTa cvCa := by
-  unfold checkDirectRec
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
-    fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF]
-
 theorem checkDirectProjTable_datF (T C : Name) (lps : List Name)
     (nP nF : Nat) (rs : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal)
     (env : Env) (F : Nat) :
@@ -577,15 +538,6 @@ theorem checkDirectProjTable_datF (T C : Name) (lps : List Name)
   unfold checkDirectProjTable
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF]
-
-theorem checkDirectStruct_datF (env : Env) (p : DirectParts) (F : Nat) :
-    (checkDirectStruct (fueledOpsM mode) env p).val F =
-      checkDirectStruct (fueledOps mode F) env p := by
-  unfold checkDirectStruct
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, checkConstantVal_datF,
-    checkDirectInd_datF, checkDirectCtor_datF, checkDirectRec_datF,
-    checkDirectProjTable_datF]
 
 /-! ### The direct sum route (task #175 sum-types) -/
 
@@ -675,39 +627,6 @@ theorem checkDirectSumCtors_datF (env₀ env : Env) (T : Name) (lps : List Name)
     unfold checkDirectSumCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, checkDirectSumCtor_datF,
       checkDirectSumCtors_datF env₀ env T lps nP nIdx rs isProp large cvTa F cs]
-
-theorem checkDirectSumRules_datF (env : Env) (rlps : List Name) (T : Name)
-    (lps : List Name) (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
-    (ctors : List (Name × Nat × Expr)) (F : Nat) :
-    ∀ k j : Nat,
-      (checkDirectSumRules (fueledOpsM mode) env rlps T lps elim large nP nIdx tty
-        ctors k j).val F =
-        checkDirectSumRules (fueledOps mode F) env rlps T lps elim large nP nIdx tty
-          ctors k j
-  | 0, _ => rfl
-  | k + 1, j => by
-    unfold checkDirectSumRules
-    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      fueledOpsM_inferType_atF, unwrapOr_atF,
-      checkDirectSumRules_datF env rlps T lps elim large nP nIdx tty ctors F k (j + 1)]
-
-theorem checkDirectSumRec_datF (env : Env) (p : DirectSumParts)
-    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) (F : Nat) :
-    (checkDirectSumRec (fueledOpsM mode) env p cvTa ctorsA).val F =
-      checkDirectSumRec (fueledOps mode F) env p cvTa ctorsA := by
-  unfold checkDirectSumRec
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
-    fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF,
-    checkDirectSumRules_datF]
-
-theorem checkDirectSum_datF (env : Env) (p : DirectSumParts) (F : Nat) :
-    (checkDirectSum (fueledOpsM mode) env p).val F =
-      checkDirectSum (fueledOps mode F) env p := by
-  unfold checkDirectSum
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, checkDirectSumInd_datF, checkDirectSumCtors_datF,
-    checkDirectSumRec_datF]
 
 /-! ### The direct recursive install (task #188) -/
 
@@ -990,6 +909,5 @@ theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
   unfold checkDecls
   rw [foldlM_atF]
   simp only [checkDecl_datF]
-
 
 end ConLeche
