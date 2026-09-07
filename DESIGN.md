@@ -59011,24 +59011,137 @@ check, and it agreed exactly.  On a RAW stream it no longer does, by
 construction: the in-process modeller pushes its generated records
 ahead of the block and the fold counts them, and they are not in the
 file.  Measured, on `init-prelude`, `grind-ring-5` and `init-full` the
-gap is exactly **30** — `Lean.Syntax`'s generated family — and the
-census of `CON_LECHE_INMODEL_DUMP`'s output (the raw input with those
-records spliced in) reproduces the verdict number exactly (1 807
-records → fold 1 803 = accepted 1 803 on `init-prelude`).  Before #207
+gap is exactly **30** — `Lean.Syntax`'s generated family — and on
+`mathlib-full` it is **2 168**, for the 51 blocks modelled in-process
+there.  The census of `CON_LECHE_INMODEL_DUMP`'s output (the raw input
+with those records spliced in) reproduces the verdict number exactly
+(1 807 records → fold 1 803 = accepted 1 803 on `init-prelude`).  Before #207
 the models arrived IN the file, so the two agreed.  PERF.md's census
 legend now says this; the exit-code table carries the verdict counts.
 (The verdict line counting generated records is task #200 behaviour,
 not this task's, and is left alone: changing it would move every
 pinned count in the tree.)
 
-### PERF.md
+### PERF.md, regenerated on RAW streams (re-run on the merged tree)
 
-Wholly regenerated on RAW streams — every published cell before this
-task was measured on a preprocessed stream with `--pre` on the con-leche
-side.  The methodological change is stated in the file: both checkers
-now read the same raw bytes and do the SAME job, inductive blocks
-included, which con-leche used to have done for it.  **No cell is
-comparable with an earlier PERF.md.**
+Every published cell before this task was measured on a **preprocessed**
+stream with `--pre` on the con-leche side.  Both checkers now read the
+same **raw** bytes and do the SAME job, inductive blocks included, which
+con-leche used to have done for it.  **No cell is comparable with an
+earlier PERF.md.**
+
+The table was measured TWICE.  The first battery ran on the drop alone
+(`b33f38d9`) and is what produced the frontier finding below; task #210
+Part B then landed and moved every route, so the battery was re-run on
+the merged tree and **that is the published table** — `96344cd1`, one
+run per cell, `perf stat -e instructions:u`.
+
+| stream | official | trusted | verified | t÷o | v÷o |
+|---|---:|---:|---:|---:|---:|
+| `let-ladder` | 6.14 G | 8.31 G | 8.31 G | 1.35× | 1.35× |
+| `beta-ladder` | 10.13 G | 39.43 G | 39.44 G | 3.89× | 3.89× |
+| `init-prelude` | 2.21 G | 4.61 G | 4.75 G | 2.09× | 2.15× |
+| `grind-ring-5` | 13.40 G | 26.97 G | 27.79 G | 2.01× | 2.07× |
+| `app-lam` | 29.41 G | 158.02 G | 158.03 G | 5.37× | 5.37× |
+| `init-full` | 403.64 G | 659.46 G | 678.46 G | **1.63×** | **1.68×** |
+| `mathlib-full` | 10.53 T | 13.15 T | 14.14 T | **1.25×** | **1.34×** |
+
+(`init-prelude` and `grind-ring-5` moved most between the two batteries
+— 2.06× → 2.15× and 1.95× → 2.07× verified: they are the two small
+inductive-dense streams, so Part B's one-route arm shows there first.)
+
+**The like-for-like reading.**  `init-full` `--verified`: **668.05 G**
+on the preprocessed stream (previous table) → **673.17 G** on the raw
+one at the drop (`b33f38d9`) → **678.46 G** after Part B — i.e. **+0.8 %
+for installing the blocks ourselves** and **+0.8 % again** for Part B's
+one-route arm.  Official moves the other way, 413.02 G → 403.64 G
+(**−2.3 %**), because the raw stream carries no model families.  So the
+published init-full ratio WORSENS: 1.62× → **1.68×** verified, 1.55× →
+**1.63×** trusted.  Better to underpromise.
+
+(#215's 782.62 G for "init-full through the default pipe" was never a
+third con-leche number: `perf stat` follows children, so it was
+con-leche PLUS the preprocessor it spawned.  The whole pipeline is
+13 % cheaper now simply because the tool's own work is gone.)
+
+**And at Mathlib scale the ratio IMPROVES.**  The `mathlib-full` row is
+the whole raw export (5 636 308 621 B), all three cells:
+
+| | official | `--trusted` | `--verified` |
+|---|---:|---:|---:|
+| verdict | accept | **accept** | **accept** |
+| declarations | 670 627 | 656 667 | 656 667 |
+| instructions:u | 10.53 T | 13.15 T | 14.14 T |
+| ÷ official | — | **1.25×** | **1.34×** |
+| wall | 31.6 min | 38.0 min | 42.6 min |
+| peak RSS | 9.17 GiB | 12.56 GiB | 12.57 GiB |
+
+Against the previous table's preprocessed row (**1.45× verified /
+1.32× trusted**) that is **better on both**, and better than
+`init-full`'s 1.68×/1.63× — the corpus does not punish the checker at
+scale, and it punishes it less now than it did through the tool.
+
+### THE FINDING THIS TASK'S GATE PRODUCED, and how it closed the same day
+
+**On the drop alone, all of Mathlib stopped accepting.**  The first
+battery (`b33f38d9`, con-leche without Part B) had official accept the
+raw export while both con-leche cells **declined (exit 2)** after
+4.5–4.8 min, at fold position 50 008 of 656 667:
+
+```
+con-leche: not implemented yet: no install route for inductive block
+CategoryTheory.MorphismProperty.multiplicativeClosure
+```
+
+**The class.**  `Prop`-valued, recursive, three constructors, three
+indices, NOT nested, NOT reflexive — and its type former is declared
+**at a definition**: the former's result is
+`CategoryTheory.MorphismProperty C`, a `def` (`hints regular 1`) that
+only *unfolds* to `∀ {X Y : C}, (X ⟶ Y) → Prop`.  Task #195 gave the
+direct SUM arm official's whnf reading of exactly such a former
+(Mathlib's `Presieve.ofArrows`); the FIXPOINT arm still read
+`stripPis`, so `directFixParts?` stood down, `InModel.wants` did not
+take the block either (neither mutual nor nested), and nothing modelled
+it.  That is residual class 4 of the #207 checklist — recorded there as
+*vacuous on both corpora* — and audit finding #206-A3/A5, pinned by
+`tests/e2e/ind_defhead_fix.ndjson`.
+
+**Task #210 Part B closed it.**  Part B reads the placeholder former
+sort and completes it by the former's own run; `ind_defhead_fix`,
+`ind_defhead_struct`, `ind_defhead_k` and `ind_former_redex` flipped
+2 → 0 with it, and the re-run on the merged tree **accepts all of
+Mathlib in both modes**.  So the raw frontier was open for the length of
+one lane, and the table above is the closed one.  What does NOT close
+with it is the *field*-side half of the same story — `ind_pos_whnf_id`
+/ `ind_pos_whnf_fn` and the three arena tutorial good tests
+(053/118/119), where the redex is in a constructor FIELD rather than in
+the former; those stay `2` and are the conformance batch's.
+
+**Why the inventory missed it — and the RULE that follows.**  The
+#207 checklist's Mathlib census was `CON_LECHE_INMODEL_CENSUS=1`, which
+is **parse-only**: it reports what the in-process modeller does with the
+mutual and nested blocks and then STOPS — it never runs the fold.  A
+block the direct recognisers refuse at *check* time is invisible to it.
+So the census could report "51 modelled, 0 declined" on a corpus that
+did not accept, and did.
+
+> **RULE (task #207).  A coverage census must be a FOLD, not a parse.**
+> `CON_LECHE_INMODEL_CENSUS=1` answers one question only — what the
+> in-process modeller does with the blocks it *wants* — and it is
+> never evidence that a stream accepts.  The instruments that ARE
+> evidence: a full run (the verdict and its exit code), and
+> `CON_LECHE_ROUTE_TRACE=1` (`tests/route-census.sh`), which prints a
+> route per block *as the fold reaches it* and whose gate fails on a
+> block that reaches the fold bare.  Point the census at the fold, or
+> it will tell you what you hoped rather than what happens.
+
+**And the milestone it corrects.**  "ALL OF MATHLIB ACCEPTED
+(2026-09-06)" was measured on the **preprocessed** stream
+(`mathlib-full-pre-idx.ndjson`), the only stream the checker had then.
+It stands as what it was and was never a claim about the raw export.
+**The raw status is what this battery establishes: accepted, in both
+modes, at 1.34× / 1.25× official** — and, for one lane's length, it was
+not.
 
 ## TASK #216 — THE OVERVIEW LINK GATE (2026-09-07, `agent/overview`)
 
