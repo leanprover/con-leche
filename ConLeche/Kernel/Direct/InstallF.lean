@@ -1,12 +1,13 @@
 import ConLeche.Kernel.DeclCheck
 
 /-!
-# The direct simple-structure install, through the index
+# The projection table's checks, through the index
 
-`checkDirectStruct`'s stages (`ConLeche/Kernel/Direct/Install.lean`)
-over an `FEnv`, the mirrors the cached drivers run.  Extracted verbatim
-from the tail of `ConLeche/Kernel/DeclCheck.lean` (its `Mirrors`
-section) on 2026-09-06 (cleanup pass A).
+`ConLeche/Kernel/Direct/Install.lean`'s survivors over an `FEnv` (the
+mirrors the cached drivers run) and the `DirectWalkers` record the
+fixpoint installer takes its constant walks from (task #214 P3).  The
+simple-structure installer these once mirrored was deleted at task
+#210 Part C.
 -/
 
 namespace ConLeche

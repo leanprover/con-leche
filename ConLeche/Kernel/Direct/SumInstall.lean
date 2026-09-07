@@ -2,12 +2,14 @@ import ConLeche.Kernel.Direct.Install
 import ConLeche.Kernel.Direct.SumParts
 
 /-!
-# The direct sum install (pure fueled checker; task #175 sum-types, indexed)
+# The shared install stages (pure fueled checker)
 
-The install stages of a block recognised by `directSumParts?`
-(`ConLeche/Kernel/Direct/SumParts.lean`): the type former, one
-constructor stage per constructor, the recursor generated and compared
-with one minor premise and one rule per constructor.  No projection
+The former, constructor and rule-shape stages the fixpoint route runs
+(`checkDirectFix`, `ConLeche/Kernel/Direct/RecInstall.lean`): the
+type former read at the placeholder sort, one constructor stage per
+constructor, the constructors consed, the rules' shape.  Written for
+the sum route (task #175), which was deleted at task #210 Part C; the
+stages are the one route's now.  No projection
 table, no eta, no unit-likeness — a sum has no structure-like
 capability (the official kernel's `is_structure_like` needs one
 constructor and no index); the former is stored with the capability

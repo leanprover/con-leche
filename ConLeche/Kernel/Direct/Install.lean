@@ -2,14 +2,13 @@ import ConLeche.Kernel.Modeled
 import ConLeche.Kernel.TrustAxioms
 
 /-!
-# The direct simple-structure install (pure fueled checker)
+# The projection table's checks (pure fueled checker)
 
-The install stages of a block recognised by `directParts?`
-(`ConLeche/Kernel/Direct/Parts.lean`): former, constructor, recursor
-type and rule, projection entries, assembled by `checkDirectStruct`.
-Extracted verbatim from `ConLeche/Kernel/Checker.lean` on 2026-09-06
-(cleanup pass A); `checkDecl`'s `.indDecl` clause dispatches here.
-The index-threaded twins are `ConLeche/Kernel/Direct/InstallF.lean`.
+What survives of the simple-structure installer (deleted at task #210
+Part C): the field-domain walk and the projection TABLE the fixpoint
+route stores at a structure-like block (`checkDirectFixTable`,
+`ConLeche/Kernel/Direct/RecInstall.lean`).  The index-threaded twins
+are `ConLeche/Kernel/Direct/InstallF.lean`.
 -/
 
 namespace ConLeche

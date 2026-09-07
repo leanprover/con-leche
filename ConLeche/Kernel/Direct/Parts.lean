@@ -1,15 +1,15 @@
 import ConLeche.Kernel.Core
 
 /-!
-# The direct simple-structure class: recognition
+# The direct install's generators (families, spines, rule bodies)
 
-A **simple structure** is a non-recursive, single-constructor,
-index-free inductive with a provably nonzero result sort — parameters
-and dependent fields allowed.  Such a block needs no `_model`
-artifact: its set-theoretic model is the iterated dependent
-pair over the field types (modeled by the retired `ConLeche/Model/*`,
-deleted at task #148 T7), so the kernel installs it *directly*, from
-the reference checks alone.
+The syntactic generators every direct install reads and compares
+against the stream — the type-former family, constructor spines, rule
+bodies, the Π-to-λ rewrites — and `DirectParts`, the shape the
+in-process modeller reads (`Frontend/InModel/Kit.lean`).  Written for
+the simple-structure route (a non-recursive, single-constructor,
+index-free inductive installed from the reference checks alone),
+deleted at task #210 Part C; the fixpoint route is the one consumer.
 
 This module holds the **pure** recognition layer.  It is a conservative
 filter: a block that does not match falls through to the modeled path

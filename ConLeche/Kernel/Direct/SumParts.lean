@@ -1,11 +1,15 @@
 import ConLeche.Kernel.Direct.Parts
 
 /-!
-# The direct sum class: recognition (task #175 sum-types, indexed)
+# The block's shape record and its readers (task #175, kept for the one route)
 
-A **direct sum** is a non-recursive, non-nested inductive with **any
-number of constructors other than one**, or — task #175 indexed — an
-**indexed family** (`numIndices > 0`) with any number of constructors:
+`DirectSumParts` is the shape every block on the fixpoint route is
+read into (`directFixShape?`, `ConLeche/Kernel/Direct/RecParts.lean`,
+extends it with the fields' kinds).  The sum route that named it was
+deleted at task #210 Part C; the recognition helpers below are the
+one route's.  Historically a **direct sum** was a non-recursive,
+non-nested inductive with **any number of constructors other than
+one**, or an **indexed family** with any number of constructors:
 enumerations (`Bool`, `Ordering`), option- and sum-like types
 (`Option`, `Sum`, `Decidable`), propositional disjunctions (`Or`), the
 empty inductives (zero constructors), and the index-carrying families
