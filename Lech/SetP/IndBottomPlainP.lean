@@ -458,7 +458,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
         (by rw [List.length_take, hfvslen]; omega),
         List.getElem?_take_of_lt hqc] at hx
       obtain ⟨ty, rfl⟩ := hshapeS q x hx
-      exact ⟨nm, ty, by rw [if_pos hqc], List.mem_of_getElem? hx,
+      exact ⟨ty, by rw [if_pos hqc], List.mem_of_getElem? hx,
         by rw [if_pos hqc]; omega⟩
     · rw [List.getElem?_append_right
         (by rw [List.length_take, hfvslen]; omega),
@@ -466,7 +466,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
         show min cnP (rP + cnF) = cnP from by omega,
         List.getElem?_drop] at hx
       obtain ⟨ty, rfl⟩ := hshapeS (rP + (q - cnP)) x hx
-      exact ⟨nm, ty, by rw [if_neg hqc], List.mem_of_getElem? hx,
+      exact ⟨ty, by rw [if_neg hqc], List.mem_of_getElem? hx,
         by rw [if_neg hqc]; omega⟩
   have hspLeaf : ∀ (q : Nat) (x : Expr),
       (fvs.take cnP ++ fvs.drop rP)[q]? = some x →
@@ -874,7 +874,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     · rw [List.getElem?_append_right (by rw [hfvsPlen]; exact hi),
         hfvsPlen] at hx
       obtain ⟨ty, hx'⟩ := openPisAtFvars_index _ _ _ hopenXP (i - rP) x hx
-      exact ⟨nm, ty, by rw [hx', show rP + (i - rP) = i from by omega]⟩
+      exact ⟨ty, by rw [hx', show rP + (i - rP) = i from by omega]⟩
   have hPws : ∀ x ∈ fvsP ++ xFvsP, Expr.WScoped (rP + cnF) x := by
     intro x hx
     rcases List.mem_append.mp hx with hx' | hx'

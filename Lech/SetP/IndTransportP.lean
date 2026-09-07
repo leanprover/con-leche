@@ -83,7 +83,7 @@ theorem annotTransportP {m : EnvS2Core V env} {F : Nat}
       pfvs hinstLam
       (fun i x hx => by
         obtain ⟨ty, hx'⟩ := hPshape i x hx
-        exact ⟨nm, ty, by rw [hx', Nat.zero_add]⟩) hRa
+        exact ⟨ty, by rw [hx', Nat.zero_add]⟩) hRa
   rw [hPlen] at htowerLam hΓlamLen
   have hdomsLam : ∀ (i : Nat) (x : Expr), ldomsL[i]? = some x →
       denoteP m.acval env φ i x = some (Γlam.getD (K - 1 - i) default) := by

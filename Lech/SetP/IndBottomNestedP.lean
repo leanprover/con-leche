@@ -1214,7 +1214,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
       obtain ⟨ty, hx'⟩ := openPisAtFvars_index _ _ _ hopenXP (i - rP) x hx
       -- task #77: `Nat.add_sub_cancel' hi`, not `by omega` — the ambient
       -- context made this one arithmetic step cost 9.7 s.
-      exact ⟨nm, ty, by rw [hx', Nat.add_sub_cancel' hi]⟩
+      exact ⟨ty, by rw [hx', Nat.add_sub_cancel' hi]⟩
   have hPws : ∀ x ∈ fvsP ++ xFvsP, Expr.WScoped (rP + cnF) x := by
     intro x hx
     rcases List.mem_append.mp hx with hx' | hx'
