@@ -45,6 +45,8 @@ whole member/mimic carrier (an occurrence under a binder — infinitary
 nesting), a container that is itself nested or mutual or whose mimics
 form a cycle (B4), a reflexive member, a `Prop` block with a large
 eliminator, a container field a later container field depends on.
+(Members' parameter telescopes and sorts are not compared: task #218,
+`Mutual.lean`'s header.)
 -/
 
 namespace ConLeche.Frontend.InModel
@@ -344,12 +346,16 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       throw s!"member {t.cv.name}: level parameters or parameter count differ"
   let some (pbs0, .sort u) := t0.cv.type.stripPis (nP + t0.nIdx)
     | throw s!"former {T} is not a telescope ending in a sort"
+  -- the first member's parameter binders and sort: the telescope of
+  -- everything generated below (task #218: the other members'
+  -- telescopes and sorts are NOT compared here — the fold's typing of
+  -- the public slots, emitted at each member's own declared type, is
+  -- official's `is_def_eq` / `is_equivalent` check; `Mutual.lean`'s
+  -- header)
   let pbs := piBinders (pbs0.take nP)
   for t in b.types do
     match t.cv.type.stripPis (nP + t.nIdx) with
-    | some (pbs', .sort u') =>
-      unless piBinders (pbs'.take nP) == pbs && u' == u do
-        throw s!"member {t.cv.name}: parameter telescope or sort differs from {T}'s"
+    | some (_, .sort _) => pure ()
     | _ => throw s!"former {t.cv.name} is not a telescope ending in a sort"
   -- the first recursor's telescope: parameters, `M` motives, `n` minors
   let some r0 := b.recs.find? (·.cv.name == T.str "rec") | throw s!"no recursor {T}.rec"
@@ -1150,6 +1156,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
           need "iota proof" (Expr.pisToLams (rP + nF) stmt body)
       out := out.push (.thmDecl ⟨iotaName rr.cv.name c.jIn, rlps, stmt⟩ proof)
   -- 10. projection artifacts of structure-like non-Prop real members
+  -- (under a LARGE eliminator only: `Mutual.lean` step 7)
   let genTypes : List (Name × List Name × Expr) :=
     (b.types.map fun t => (modelName t.cv.name, lps, t.cv.type)) ++
     (b.ctors.map fun c => (modelName c.cv.name, lps, rn c.cv.type))
@@ -1157,7 +1164,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
     match genTypes.find? (·.1 == x) with
     | some (_, l, ty) => some (l, ty)
     | none => ctx.tbl x
-  if !isProp then
+  if !isProp && large then
     for m in List.range r do
       let t := b.types.getD m default
       let own := ctors.filter (·.mem == m)

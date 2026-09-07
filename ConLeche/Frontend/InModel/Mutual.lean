@@ -37,7 +37,22 @@ fold as a stream declaration; a wrong one rejects or declines, never
 accepts.  Declines (`.error`) name the residual: nested members (B3),
 indexed members (B2), reflexive members, a `Prop` block with a large
 eliminator (the auxiliary family has ≥ 2 constructors, so it
-eliminates into `Prop` only), and members whose telescopes differ.
+eliminates into `Prop` only).
+
+**Members' parameter telescopes and sorts are NOT compared here**
+(task #218).  Official compares the members' parameter domains with
+`is_def_eq` and their sorts with `is_equivalent`; the modeller runs
+before any environment exists, so it builds the tag and the auxiliary
+family over the FIRST member's telescope and sort (`overFirstParams`
+on every generated constructor) and emits the public slots at each
+member's own declared type.  The fold's typing of those slots is
+official's check: `T_m._model := λ p⃗_m ı⃗, aux p⃗ (tag.m p⃗ ı⃗)` applies
+`aux` (the first's domains) to variables bound at `T_m`'s domains, and
+its declared residual `Sort u_m` must match the value's `Sort u_1`.  A
+genuinely different telescope or sort makes that record ill-typed and
+the fold rejects it (exit 1, as official does) — by the user's ruling
+the modeller may be "yolo-like"; invalid input is caught in the
+checked code.
 -/
 
 namespace ConLeche.Frontend.InModel
@@ -157,12 +172,15 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       throw s!"member {t.cv.name}: level parameters or parameter count differ"
   let some (pbs, .sort u) := t0.cv.type.stripPis (nP + t0.nIdx)
     | throw s!"former {T} is not a telescope ending in a sort"
-  let pbs := pbs.take nP
+  -- the first member's parameter binders: the telescope of the tag,
+  -- the auxiliary family and all their constructors (task #218: the
+  -- other members' telescopes and sorts are not compared here — the
+  -- fold's typing of the public slots is official's `is_def_eq` /
+  -- `is_equivalent` check; see the module header)
+  let pbs := piBinders (pbs.take nP)
   for t in b.types do
     match t.cv.type.stripPis (nP + t.nIdx) with
-    | some (pbs', .sort u') =>
-      unless piBinders (pbs'.take nP) == piBinders pbs && u' == u do
-        throw s!"member {t.cv.name}: parameter telescope or sort differs from {T}'s"
+    | some (_, .sort _) => pure ()
     | _ => throw s!"former {t.cv.name} is not a telescope ending in a sort"
   let memberNames := b.types.map (·.cv.name)
   let members : List (Name × Nat × Nat) :=
@@ -232,9 +250,12 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let mut W : Level := .succ .zero
   for t in b.types do
     let some (ibs, _) := t.cv.type.stripPis (nP + t.nIdx) | throw "unreachable"
+    -- the member's index binders at the FIRST member's parameter
+    -- binders (the tag constructor's own telescope, below)
+    let idxBs := piBinders (ibs.drop nP)
     for j in List.range t.nIdx do
-      let ctxJ := ((ibs.take (nP + j)).map (·.1)).reverse
-      let dom := (ibs.getD (nP + j) default).1
+      let ctxJ := (pbs ++ idxBs.take j).reverse
+      let dom := idxBs.getD j default
       let some ℓj := sortOf ctx.tbl ctxJ dom
         | throw s!"cannot infer the sort of index {j} of {t.cv.name} (the tag's universe)"
       W := .max W ℓj
@@ -242,9 +263,12 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let tagCtors : List (Name × Nat × Expr × List Nat) ←
     (List.range k).mapM fun m => do
       let t := b.types.getD m default
+      -- `tag.m : ∀ p⃗_1 ı⃗_m, tag p⃗` — the member's index telescope
+      -- over the first member's parameter binders
       let ty ← need "tag constructor type"
-        (Expr.replacePiBody (nP + t.nIdx) t.cv.type
-          (Expr.mkAppN (constP tag lps) (varsAt t.nIdx nP)))
+        ((overFirstParams nP t0.cv.type t.cv.type).bind fun ty' =>
+          Expr.replacePiBody (nP + t.nIdx) ty'
+            (Expr.mkAppN (constP tag lps) (varsAt t.nIdx nP)))
       pure (tagCtorName T m, t.nIdx, ty, [])
   let tagRecTy ← need "tag recursor type" (recTy tag lps elimTag true nP 0 tagTy tagCtors)
   let tagRules ← (List.range k).mapM fun m => do
@@ -258,9 +282,13 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   -- 2. the auxiliary family
   let auxTy ← need "aux type" (Expr.replacePiBody nP t0.cv.type
     (.forallE (Expr.mkAppN (constP tag lps) ps0) (.sort u) bm))
-  let auxCtors : List (Name × Nat × Expr × List Nat) := mctors.map fun mc =>
-    (auxCtorName T mc.m mc.c.cv.name, mc.c.nF, specFam T lps nP members mc.c.cv.type,
-     mc.recFields.map (·.1))
+  -- `aux.m.C : ∀ p⃗_1 f⃗', aux p⃗ (tag.m p⃗ e⃗)` — the constructor's
+  -- telescope over the first member's parameter binders, every member
+  -- occurrence rewritten to the auxiliary family
+  let auxCtors : List (Name × Nat × Expr × List Nat) ← mctors.mapM fun mc => do
+    let ty ← need "aux constructor type"
+      (overFirstParams nP t0.cv.type (specFam T lps nP members mc.c.cv.type))
+    pure (auxCtorName T mc.m mc.c.cv.name, mc.c.nF, ty, mc.recFields.map (·.1))
   let auxRecTy ← need "aux recursor type" (recTy aux lps elim large nP 1 auxTy auxCtors)
   let auxRules ← (List.range n).mapM fun j => do
     let rhs ← need "aux rule"
@@ -356,7 +384,14 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       let value ← need "iota proof" (Expr.pisToLams (rP + nF) stmt
         (Expr.mkAppN (.const eqReflName [ℓ]) [α, lhs]))
       out := out.push (.thmDecl ⟨iotaName r.cv.name j, rlps, stmt⟩ value)
-  -- 7. projection artifacts of structure-like non-`Prop` members
+  -- 7. projection artifacts of structure-like non-`Prop` members —
+  -- only under a LARGE eliminator: the artifact is the model recursor
+  -- at the field's sort (`projRecValue` instantiates the elimination
+  -- level), and a block at a possibly-zero sort (`Sort (max u v)`,
+  -- task #218's sort fixture) eliminates into `Prop` only.  Nothing is
+  -- lost: official's `is_structure_like` is single-type, so a mutual
+  -- member never carries `.proj`; the artifacts only feed the
+  -- projection rewrite's levels.
   let genTypes : List (Name × List Name × Expr) :=
     (b.types.map fun t => (modelName t.cv.name, lps, t.cv.type)) ++
     (b.ctors.map fun c => (modelName c.cv.name, lps, rn c.cv.type))
@@ -364,7 +399,7 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
     match genTypes.find? (·.1 == x) with
     | some (_, l, ty) => some (l, ty)
     | none => ctx.tbl x
-  if !isProp then
+  if !isProp && large then
     for m in List.range k do
       let t := b.types.getD m default
       let own := mctors.filter (·.m == m)
