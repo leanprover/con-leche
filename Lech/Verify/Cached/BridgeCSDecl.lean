@@ -553,9 +553,8 @@ theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   by_cases hneg : p.kinds.any (fun ks => ks.any (· == .negative)) = true
   · rw [if_pos hneg] at h; exact absurd h throwC_bind_ok
   rw [if_neg hneg] at h
-  by_cases hg : (p.large && !p.resSort.isNeverZero) = true
-  · rw [if_pos hg] at h
-    split at h <;> exact absurd h throwC_bind_ok
+  by_cases hg : (p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length)) = true
+  · rw [if_pos hg] at h; exact absurd h throwC_bind_ok
   rw [if_neg hg] at h
   by_cases hnd : (p.ctors.map (·.1.name)).Nodup
   case neg => rw [if_neg hnd] at h; exact absurd h throwC_bind_ok
