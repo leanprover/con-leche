@@ -181,10 +181,16 @@ structure StateD where
   they count as accepted stream declarations (they ARE installed, from
   the prelude), so the driver's record count adds them back -/
   preludeDropped : Nat := 0
+  /-- the tree-size budget in force (task #213): `declTreeSizeBudget`
+  unless `CON_LECHE_TREE_BUDGET` overrode it; `0` is *unlimited*, and
+  then no size is tracked at all -/
+  treeBudget : Nat := declTreeSizeBudget
 
 /-- Is the record budgeted for the tree consumers?  The prelude
 comparison walks the parsed tree (`ConstantInfo.canon`), so a record
-under a prelude name is budgeted like a basis block. -/
+under a prelude name is budgeted like a basis block.  See
+`budgetedName` for what else is, and for the `_model` class task #213
+took out. -/
 private def StateD.budgetedD (st : StateD) (n : Name) : Bool :=
   budgetedName n || st.prelude.byName.contains n
 
@@ -255,7 +261,7 @@ private def getDeclD (st : StateD) (j : Json) (key : String)
   let i ← getIdx j key
   if st.tainted[i]?.isSome then
     throw taintSentinel
-  if budgeted ∧ (st.sizes[i]?.getD 1) ≥ declTreeSizeBudget then
+  if budgeted ∧ st.treeBudget ≠ 0 ∧ (st.sizes[i]?.getD 1) ≥ st.treeBudget then
     throw sizeSentinel
   st.expr i
 
@@ -368,8 +374,8 @@ private def parseExprEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
   let cs ← exprEntryChildren j
   let taint : Option Name :=
     taintConst <|> cs.findSome? (fun c => st.tainted[c]?)
-  let size : Nat := min declTreeSizeBudget
-    (cs.foldl (fun acc c => acc + (st.sizes[c]?.getD 1)) 1)
+  let size : Nat := if st.treeBudget = 0 then 1 else
+    min st.treeBudget (cs.foldl (fun acc c => acc + (st.sizes[c]?.getD 1)) 1)
   let st := { st with exprs := st.exprs.insert i e }
   let st := if size > 1 then
     let m := st.sizes
@@ -698,6 +704,45 @@ private def declRecordScanD (st : StateD) (j : Json) :
     return some (names.reverse, idxs)
   return none
 
+/-- The size decline, as a message the reporter can act on (task
+#213): **which** declaration, of **which** record kind, how big and
+against **which** budget — the old wording named none of the four, and
+a user who hit it on a 37 GB stream had nothing to go on.
+
+The name is the record's first declared name, read off the same
+read-only pre-scan the taint policy uses (`declRecordScanD`); the kind
+comes from the record's own key; the size is reported as `≥ budget`
+because the per-entry counter *saturates* at the budget (that is what
+keeps it from computing a 10^1160-digit `Nat` on a DAG tower), so the
+exact unshared size is not known here — only that some expression of
+the record reached the cap.  `why` names the walker that is the reason
+this kind is budgeted at all; the census is in `budgetedName`'s and
+`declTreeSizeBudget`'s docstrings. -/
+private def sizeDeclineMsgD (st : StateD) (j : Json)
+    (scan : Option (List Name × List Nat)) : String :=
+  let name := (scan.bind (·.1.head?)).getD .anonymous
+  let kind : String :=
+    if (j.getObjVal? "inductive").isOk then "inductive block"
+    else if (j.getObjVal? "quot").isOk then "quotient record"
+    else if (j.getObjVal? "axiom").isOk then "axiom"
+    else if (j.getObjVal? "def").isOk then "definition"
+    else if (j.getObjVal? "thm").isOk then "theorem"
+    else if (j.getObjVal? "opaque").isOk then "opaque definition"
+    else "declaration"
+  let why : String :=
+    if (j.getObjVal? "inductive").isOk || (j.getObjVal? "quot").isOk then
+      "the basis-pin match canonicalises the whole block as a tree, "
+        ++ "and the modeled install renames and opens its member types"
+    else if natOpNames.contains name || natDivModNames.contains name then
+      "the pinned Nat-operation certification substitutes the stored value "
+        ++ "into the vendored certificate proofs"
+    else if st.prelude.byName.contains name then
+      "the built-in prelude dedupe compares this record against the "
+        ++ "checker's own copy as a tree"
+    else "this record kind is still walked as a tree"
+  s!"{name} ({kind}): unshared tree size ≥ {st.treeBudget} nodes exceeds "
+    ++ s!"the frontend tree-size budget (CON_LECHE_TREE_BUDGET={st.treeBudget}; {why})"
+
 /-- Twin of `processLine` (the taint policy). -/
 private def processLineD (st : StateD) (j : Json)
     (modeled : Bool := false) : M (StateD ⊕ String) := do
@@ -707,7 +752,10 @@ private def processLineD (st : StateD) (j : Json)
       let m := st.taintedNames
       let st := { st with taintedNames := {} }
       return .inl { st with taintedNames := m.insert name name }
-  if let some (names, idxs) ← declRecordScanD st j then
+  -- one pre-scan, two consumers: the taint policy below and, on a
+  -- size decline, the offender's name (task #213)
+  let scan ← declRecordScanD st j
+  if let some (names, idxs) := scan then
     if let some root := idxs.findSome? (fun i => st.tainted[i]?) then
       let m := st.taintedNames
       let sk := st.taintSkipped
@@ -720,7 +768,7 @@ private def processLineD (st : StateD) (j : Json)
     if e = taintSentinel then
       pure (.inr "declaration uses a skipped (non-pinned) axiom")
     else if e = sizeSentinel then
-      pure (.inr "declaration's unshared tree size exceeds the frontend budget (heavily DAG-shared input; this record kind still materializes trees)")
+      pure (.inr (sizeDeclineMsgD st j scan))
     else throw e
 
 /-! ## The byte fast path's direct apply functions -/
@@ -765,8 +813,8 @@ private def fastApplyIED (st : StateD) (i : Nat) (fn : FastNode) : FastResD :=
         && !st.taintedNames.isEmpty then .fallback st
     else
       let taint : Option Name := cs.findSome? (fun c => st.tainted[c]?)
-      let size : Nat := min declTreeSizeBudget
-        (cs.foldl (fun acc c => acc + (st.sizes[c]?.getD 1)) 1)
+      let size : Nat := if st.treeBudget = 0 then 1 else
+        min st.treeBudget (cs.foldl (fun acc c => acc + (st.sizes[c]?.getD 1)) 1)
       let st := { st with exprs := st.exprs.insert i node }
       let st := if size > 1 then
         let m := st.sizes
@@ -826,10 +874,13 @@ structure ParseResultD where
 
 /-- The initial parse state over a prelude: `PUnit` counts as seen for
 the projection rewrite when the prelude installs it; the prelude's
-constants seed the declaration table (task #200). -/
-private def StateD.init (prelude : PreludeIx) (inModel : Bool) (census : Bool := false) : StateD :=
+constants seed the declaration table (task #200).  `budget` is the
+tree-size budget in force (task #213; `0` = unlimited). -/
+private def StateD.init (prelude : PreludeIx) (inModel : Bool) (census : Bool := false)
+    (budget : Nat := declTreeSizeBudget) : StateD :=
   prelude.decls.foldl noteDecl
-    { prelude, punitSeen := prelude.basis.contains .punitK, inModel, inModelCensus := census }
+    { prelude, punitSeen := prelude.basis.contains .punitK, inModel, inModelCensus := census,
+      treeBudget := budget }
 
 /-- The result: the prelude's records, then the stream's with every
 pinned operation's stream-certified ground hoisted ahead of it
@@ -858,9 +909,10 @@ private def feedLineD (st : StateD) (line : String) (lineNo : Nat)
 built-in prelude the result is prepended with and deduped against
 (task #191; empty for the prelude's own parse). -/
 def parseExportD (contents : String) (modeled : Bool := false)
-    (prelude : PreludeIx := {}) (inModel : Bool := true) (census : Bool := false) :
+    (prelude : PreludeIx := {}) (inModel : Bool := true) (census : Bool := false)
+    (budget : Nat := declTreeSizeBudget) :
     Except FrontendError ParseResultD := do
-  let mut st : StateD := .init prelude inModel census
+  let mut st : StateD := .init prelude inModel census budget
   let mut lineNo := 0
   for line in contents.splitToList (· == '\n') do
     lineNo := lineNo + 1
@@ -879,7 +931,7 @@ preprocessor's stdout directly (task #180: no scratch file at all;
 here would silently re-introduce the temp file. -/
 partial def parseExportHandleD (h : IO.FS.Handle)
     (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true)
-    (census : Bool := false) :
+    (census : Bool := false) (budget : Nat := declTreeSizeBudget) :
     IO (Except FrontendError ParseResultD) := do
   let rec loop (lineNo : Nat) (st : StateD) :
       IO (Except FrontendError ParseResultD) := do
@@ -890,13 +942,13 @@ partial def parseExportHandleD (h : IO.FS.Handle)
     match feedLineD st line (lineNo + 1) modeled with
     | .error e => return .error e
     | .ok st => loop (lineNo + 1) st
-  loop 0 (.init prelude inModel census)
+  loop 0 (.init prelude inModel census budget)
 
 /-- Streaming direct parse of a file. -/
 def parseExportStreamD (path : System.FilePath)
     (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true)
-    (census : Bool := false) :
+    (census : Bool := false) (budget : Nat := declTreeSizeBudget) :
     IO (Except FrontendError ParseResultD) := do
-  parseExportHandleD (← IO.FS.Handle.mk path .read) modeled prelude inModel census
+  parseExportHandleD (← IO.FS.Handle.mk path .read) modeled prelude inModel census budget
 
 end ConLeche.Frontend
