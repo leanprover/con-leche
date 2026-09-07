@@ -296,20 +296,6 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         rw [(hcf₀ j cA hj).tssLen ψ]; omega)]
       rfl
     exact ⟨hi, Classical.byContradiction fun hk => hne ((hcf₀ j cA hj).tssNone ψ i hk)⟩
-  have hwit₀ : ∀ ψ, (∀ j i, ((Tlss₀ ψ).getD j []).getD i [] = []) ∨ p.resSort.eval ψ = 0 := by
-    intro ψ
-    by_cases hall : ∀ j i, ((Tlss₀ ψ).getD j []).getD i [] = []
-    · exact Or.inl hall
-    · right
-      obtain ⟨j, i, hne⟩ : ∃ j i, ((Tlss₀ ψ).getD j []).getD i [] ≠ [] :=
-        Classical.byContradiction fun hc =>
-          hall fun j i => Classical.byContradiction fun h => hc ⟨j, i, h⟩
-      by_cases hj : j < ctorsA.length
-      · obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
-        rw [hTlss₀D ψ j cA hjA] at hne
-        exact hisPropRefl j cA hjA ⟨i, hreflOf ψ j cA hjA i hne⟩ ψ
-      · rw [hTlss₀None ψ j hj] at hne
-        exact absurd rfl hne
   have hX₀ : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
       XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) ∧
@@ -319,7 +305,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
           (chainsXI (uAV ψ) (Ids ψ) (Ids ψ).length rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)) := by
     intro ψ ρp hρp
     refine xChainsOk_of (nP := p.nP) (hIdx ψ ρp hρp).1 (hIdx ψ ρp hρp).2 (hlenFss₀ ψ) hrss
-      (hwit₀ ψ) ?_ ?_
+      ?_ ?_
     · intro j hj
       obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
       rw [hlenFs₀ ψ j cA hjA, hFss₀D ψ j cA hjA, hEss₀D ψ j cA hjA, hEiss₀D ψ j cA hjA,

@@ -648,9 +648,10 @@ structure XChainsOk (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rss : Lis
   hfit : ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
     ∀ j, j < Fss.length →
       SlotsFitX u w ρp Ids (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) X t 0 [] (Fss.getD j [])
-  /-- the closure witness: finitary (every telescope empty — the
-  ω-iterate is closed) or `Prop`-valued (the top family is closed) -/
-  hwit : (∀ j i, (tlss.getD j []).getD i [] = []) ∨ w = 0
+  /-- the closure witness: a closed member family (task #202 Stage B:
+  supplied by the tower's container instance at `w ≠ 0`,
+  `fixFunVI_closed_zero` at a `Prop`-valued block) -/
+  hclosed : ∃ L, IsClosedFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L
 
 theorem lfpFamSpace_eq (w : Nat) (I : V) : lfpFamSpace V w I = famSpace w I :=
   piR_pos (Nat.succ_ne_zero w)
@@ -946,29 +947,26 @@ theorem famU_closed (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess)
     rw [famFI_app ht]
     exact inj_mem hw' hn
 
-/-- **A closed family exists**: the ω-iterate at a finitary block, the
-top family `i ↦ {pt}` at a `Prop`-valued one (task #202: with a
-function-space slot the ω-iterate is not closed; every fibre at `w = 0`
-is a subset of `{pt}`). -/
+/-- **A closed family exists** (the premise's witness). -/
 theorem fixFunVI_closed_exists (h : XChainsOk u w ρp Ids rss tlss Eiss Fss Ess) :
-    ∃ L, IsClosedFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L := by
-  rcases h.hwit with hfin | hw0
-  · refine ⟨famU u w ρp Ids rss tlss Eiss Fss Ess, ?_, ?_⟩
-    · rw [← lfpFamSpace_eq]; exact famU_mem h
-    · rw [fixFunVI_app (famU_mem h)]
-      exact famU_closed h hfin
-  · subst hw0
-    have htop : graph (fun _ => unitSet) (idxSet u ρp Ids) ∈ˢ lfpFamSpace V 0 (idxSet u ρp Ids) := by
-      rw [lfpFamSpace_eq]
-      exact graph_mem_famSpace fun _ _ => by rw [univ_zero]; exact mem_univZero.mpr (Subset.refl _)
-    refine ⟨graph (fun _ => unitSet) (idxSet u ρp Ids), by rw [← lfpFamSpace_eq]; exact htop, ?_⟩
-    rw [fixFunVI_app htop]
-    intro t ht x hx
-    rw [famFI_app ht] at hx
-    rw [app_graph ht]
-    have := fixStepI_univ h.hok htop ht
-    rw [univ_zero] at this
-    exact mem_univZero.mp this x hx
+    ∃ L, IsClosedFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L :=
+  h.hclosed
+
+/-- **The top family `i ↦ {pt}` is closed at a `Prop`-valued block**
+(every fibre at `w = 0` is a subset of `{pt}`). -/
+theorem fixFunVI_closed_zero (hok : FixChainsOkI u 0 ρp Ids Ids.length rss tlss Eiss Fss Ess) :
+    ∃ L, IsClosedFam 0 (idxSet u ρp Ids) (fixFunVI u 0 ρp Ids Ids.length rss tlss Eiss Fss Ess) L := by
+  have htop : graph (fun _ => unitSet) (idxSet u ρp Ids) ∈ˢ lfpFamSpace V 0 (idxSet u ρp Ids) := by
+    rw [lfpFamSpace_eq]
+    exact graph_mem_famSpace fun _ _ => by rw [univ_zero]; exact mem_univZero.mpr (Subset.refl _)
+  refine ⟨graph (fun _ => unitSet) (idxSet u ρp Ids), by rw [← lfpFamSpace_eq]; exact htop, ?_⟩
+  rw [fixFunVI_app htop]
+  intro t ht x hx
+  rw [famFI_app ht] at hx
+  rw [app_graph ht]
+  have := fixStepI_univ hok htop ht
+  rw [univ_zero] at this
+  exact mem_univZero.mp this x hx
 
 /-! ## The carrier's laws -/
 
