@@ -41,8 +41,8 @@ theorem fvarLeaves_substConst0 {n : Name} {r : Expr}
   | .app f a => by
     simp only [Expr.substConst0, Expr.fvarLeaves,
       fvarLeaves_substConst0 hr f, fvarLeaves_substConst0 hr a]
-  | .bvar _ | .fvar _ _ _ | .sort _ | .lit _ | .lam _ _ _ _
-  | .forallE _ _ _ _ | .letE _ _ _ _ | .proj _ _ _ => rfl
+  | .bvar _ | .fvar _ _ | .sort _ | .lit _ | .lam _ _ _
+  | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ => rfl
 
 /-- A `looseBVars`-closed replacement keeps the bound. -/
 theorem looseBVarsBounded_substConst0 {n : Name} {r : Expr}
@@ -59,32 +59,32 @@ theorem looseBVarsBounded_substConst0 {n : Name} {r : Expr}
       Bool.and_eq_true] at he ⊢
     exact ⟨looseBVarsBounded_substConst0 hr f he.1,
       looseBVarsBounded_substConst0 hr a he.2⟩
-  | .bvar _, _, he | .fvar _ _ _, _, he | .sort _, _, he
-  | .lit _, _, he | .lam _ _ _ _, _, he | .forallE _ _ _ _, _, he
-  | .letE _ _ _ _, _, he | .proj _ _ _, _, he => he
+  | .bvar _, _, he | .fvar _ _, _, he | .sort _, _, he
+  | .lit _, _, he | .lam _ _ _, _, he | .forallE _ _ _, _, he
+  | .letE _ _ _, _, he | .proj _ _ _, _, he => he
 
 /-- The binary pinned type, inverted. -/
 theorem natOpTyPinned_binaryE {env : Env} {n : Name} {ty : Expr}
     (hn : ¬(n = natPredName))
     (h : natOpTyPinned env n ty = true) :
-    ∃ nm nm2 mb mb2 cod, ty = .forallE nm (.const natName [])
-      (.forallE nm2 (.const natName []) cod mb2) mb ∧
+    ∃ mb mb2 cod, ty = .forallE (.const natName [])
+      (.forallE (.const natName []) cod mb2) mb ∧
       natOpCod env n cod = true := by
   unfold natOpTyPinned at h
   rw [if_neg hn] at h
   revert h
   match ty with
-  | .forallE nm dom (.forallE nm2 dom2 cod mb2) mb =>
+  | .forallE dom (.forallE dom2 cod mb2) mb =>
     intro h
     simp only [Bool.and_eq_true, beq_iff_eq] at h
-    exact ⟨nm, nm2, mb, mb2, cod, by rw [h.1.1, h.1.2], h.2⟩
-  | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
-  | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _
-  | .forallE _ _ (.bvar _) _ | .forallE _ _ (.fvar _ _ _) _
-  | .forallE _ _ (.sort _) _ | .forallE _ _ (.const _ _) _
-  | .forallE _ _ (.app _ _) _ | .forallE _ _ (.lam _ _ _ _) _
-  | .forallE _ _ (.letE _ _ _ _) _ | .forallE _ _ (.lit _) _
-  | .forallE _ _ (.proj _ _ _) _ => intro h; exact nomatch h
+    exact ⟨mb, mb2, cod, by rw [h.1.1, h.1.2], h.2⟩
+  | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
+  | .lam _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _
+  | .forallE _ (.bvar _) _ | .forallE _ (.fvar _ _) _
+  | .forallE _ (.sort _) _ | .forallE _ (.const _ _) _
+  | .forallE _ (.app _ _) _ | .forallE _ (.lam _ _ _) _
+  | .forallE _ (.letE _ _ _) _ | .forallE _ (.lit _) _
+  | .forallE _ (.proj _ _ _) _ => intro h; exact nomatch h
 
 /-- The codomain is a stored, level-monomorphic constant. -/
 theorem natOpCod_stored {env : Env} {n : Name} {cod : Expr}
@@ -128,12 +128,12 @@ theorem natOpCod_ble {env : Env} {cod : Expr}
 
 /-- Where a leaf of the two-hypothesis applied form can come from. -/
 theorem divModCertApplied_mem2 {p h1 h2 : Expr}
-    (hp : p.hasFvar = false) {l : Nat × Name × Expr}
+    (hp : p.hasFvar = false) {l : Nat × Expr}
     (hl : l ∈ (divModCertApplied p [h1, h2]).fvarLeaves) :
-    l = (0, Name.anonymous.str "x", Expr.const natName []) ∨
-    l = (1, Name.anonymous.str "y", Expr.const natName []) ∨
-    l = (2, Name.anonymous.str "h1", h1) ∨ l ∈ h1.fvarLeaves ∨
-    l = (3, Name.anonymous.str "h2", h2) ∨ l ∈ h2.fvarLeaves := by
+    l = (0, Expr.const natName []) ∨
+    l = (1, Expr.const natName []) ∨
+    l = (2, h1) ∨ l ∈ h1.fvarLeaves ∨
+    l = (3, h2) ∨ l ∈ h2.fvarLeaves := by
   simp only [divModCertApplied, Expr.fvarLeaves,
     Expr.fvarLeaves_eq_nil_of_not_hasFvar hp, List.nil_append,
     List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hl
@@ -147,11 +147,11 @@ theorem divModCertApplied_mem2 {p h1 h2 : Expr}
 
 /-- Where a leaf of the one-hypothesis applied form can come from. -/
 theorem divModCertApplied_mem1 {p h1 : Expr}
-    (hp : p.hasFvar = false) {l : Nat × Name × Expr}
+    (hp : p.hasFvar = false) {l : Nat × Expr}
     (hl : l ∈ (divModCertApplied p [h1]).fvarLeaves) :
-    l = (0, Name.anonymous.str "x", Expr.const natName []) ∨
-    l = (1, Name.anonymous.str "y", Expr.const natName []) ∨
-    l = (2, Name.anonymous.str "h1", h1) ∨ l ∈ h1.fvarLeaves := by
+    l = (0, Expr.const natName []) ∨
+    l = (1, Expr.const natName []) ∨
+    l = (2, h1) ∨ l ∈ h1.fvarLeaves := by
   simp only [divModCertApplied, Expr.fvarLeaves,
     Expr.fvarLeaves_eq_nil_of_not_hasFvar hp, List.nil_append,
     List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hl
@@ -171,27 +171,25 @@ it. -/
 /-- Is every leaf of `e` the frame's `x` or `y`, at `Nat`? -/
 def dmLeavesOk (e : Expr) : Bool :=
   e.fvarLeaves.all (fun l =>
-    (l.1 == 0 && l.2.1 == Name.anonymous.str "x" &&
-      l.2.2 == Expr.const natName []) ||
-    (l.1 == 1 && l.2.1 == Name.anonymous.str "y" &&
-      l.2.2 == Expr.const natName []))
+    (l.1 == 0 && l.2 == Expr.const natName []) ||
+    (l.1 == 1 && l.2 == Expr.const natName []))
 
 /-- A leaf of a `dmLeavesOk` term, identified. -/
 theorem dmLeavesOk_mem {e : Expr} (h : dmLeavesOk e = true)
-    {l : Nat × Name × Expr} (hl : l ∈ e.fvarLeaves) :
-    l = (0, Name.anonymous.str "x", Expr.const natName []) ∨
-    l = (1, Name.anonymous.str "y", Expr.const natName []) := by
+    {l : Nat × Expr} (hl : l ∈ e.fvarLeaves) :
+    l = (0, Expr.const natName []) ∨
+    l = (1, Expr.const natName []) := by
   have hm := List.all_eq_true.mp h l hl
   simp only [Bool.or_eq_true, Bool.and_eq_true, beq_iff_eq] at hm
-  rcases hm with ⟨⟨h1, h2⟩, h3⟩ | ⟨⟨h1, h2⟩, h3⟩
+  rcases hm with ⟨h1, h2⟩ | ⟨h1, h2⟩
   · exact Or.inl (by
-      rcases l with ⟨i, n, t⟩
-      simp only at h1 h2 h3
-      rw [h1, h2, h3])
+      rcases l with ⟨i, t⟩
+      simp only at h1 h2
+      rw [h1, h2])
   · exact Or.inr (by
-      rcases l with ⟨i, n, t⟩
-      simp only at h1 h2 h3
-      rw [h1, h2, h3])
+      rcases l with ⟨i, t⟩
+      simp only at h1 h2
+      rw [h1, h2])
 
 /-- `dmLeavesOk` survives the operation substitution. -/
 theorem dmLeavesOk_substConst0 {c : Name} {value' e : Expr}
@@ -209,9 +207,9 @@ theorem dmLeavesOk_leavesBounded {e : Expr} (h : dmLeavesOk e = true) :
   rcases dmLeavesOk_mem h hl with rfl | rfl <;> rfl
 
 /-- A frame variable is well-scoped at depth 4. -/
-theorem dmFvar_wscoped {i : Nat} {n : Name} {ty : Expr} (hi : i < 4)
+theorem dmFvar_wscoped {i : Nat} {ty : Expr} (hi : i < 4)
     (hty : Expr.WScoped i ty) :
-    Expr.WScoped 4 (Expr.fvar i n ty) := by
+    Expr.WScoped 4 (Expr.fvar i ty) := by
   simp only [Expr.WScoped]
   exact ⟨hi, hty⟩
 
@@ -262,7 +260,7 @@ noncomputable def dmEvalV (W : Type w) [SetTheory W]
   | Expr.const n _ => val n
   | Expr.app f a =>
     SetTheory.app (dmEvalV W val x y f) (dmEvalV W val x y a)
-  | Expr.fvar i _ _ => if i = 0 then x else y
+  | Expr.fvar i _ => if i = 0 then x else y
   | _ => pt
 
 @[simp] theorem dmEvalV_const (val : Name → V) (x y : V) (n : Name)
@@ -273,8 +271,8 @@ noncomputable def dmEvalV (W : Type w) [SetTheory W]
       = SetTheory.app (dmEvalV V val x y f) (dmEvalV V val x y a) := rfl
 
 @[simp] theorem dmEvalV_fvar (val : Name → V) (x y : V) (i : Nat)
-    (n : Name) (ty : Expr) :
-    dmEvalV V val x y (Expr.fvar i n ty) = if i = 0 then x else y := rfl
+    (ty : Expr) :
+    dmEvalV V val x y (Expr.fvar i ty) = if i = 0 then x else y := rfl
 
 
 /-- The `ble`-guarded value-level clauses of a pin-certified

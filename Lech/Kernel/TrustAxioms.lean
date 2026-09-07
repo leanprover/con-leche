@@ -217,6 +217,6 @@ def reducePinGuard (env : Env) (c : Name) : Bool :=
 /-- The identity certificate's variable: `fvar 0` at the element
 type. -/
 def reduceCertVar (c : Name) : Expr :=
-  .fvar 0 (anonymous |>.str "a") (reduceElemTy c)
+  .fvar 0 (reduceElemTy c)
 
 end Lech

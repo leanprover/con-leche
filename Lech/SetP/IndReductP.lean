@@ -80,12 +80,12 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     {rP cnF : Nat} {fvs : List Expr}
     (hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
     (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
-    (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvs → ty.looseBVarsBounded 0 = true)
+      Expr.fvar l.1 l.2 ∈ fvs)
+    (hlbFvs : ∀ (i : Nat) (ty : Expr),
+      Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Tstmt : AVExpr} {Γs : List AVExpr} {Rbody : AVExpr}
     (htowerS : PiTeleP (rP + cnF) Tstmt Γs Rbody)
     (hokTst : ∀ σ : Nat → V, AnnotOkP V σ Tstmt)
@@ -104,7 +104,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (hvR : denoteP m.acval env ψ' (rP + cnF) rhsS = some vR)
     (hwsR : Expr.WScoped (rP + cnF) rhsS)
     (hbR : rhsS.looseBVarsBounded 0 = true)
-    (hleafR : ∀ l ∈ rhsS.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hleafR : ∀ l ∈ rhsS.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs)
     (hltR : ∀ l ∈ rhsS.fvarLeaves, l.1 < rP + cnF)
     (hokR : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ vR)
     -- the recorded rhs run, and the applied form's grading (the third
@@ -135,14 +135,14 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
   have hrhsRw : (rhsA.renameConsts f).hasFvar = false :=
     (Lech.hasFvar_renameConsts f rhsA).trans hrhsw
   have hleafApp : ∀ l ∈ (Expr.mkAppN (rhsA.renameConsts f)
-      fvs).fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+      fvs).fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
     intro l hl
     rcases fvarLeaves_mkAppN hl with hf | ⟨x, hx, hlx⟩
     · exfalso
       rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hrhsRw] at hf
       exact nomatch hf
     · obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-      obtain ⟨nm, ty, rfl⟩ := hshapeS q x hq
+      obtain ⟨ty, rfl⟩ := hshapeS q x hq
       rw [Expr.fvarLeaves] at hlx
       rcases List.mem_cons.mp hlx with rfl | hlx'
       · exact hx
@@ -162,7 +162,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
         · exact h'
         · rw [List.getElem?_eq_none (by omega)] at hq
           exact nomatch hq
-      obtain ⟨nm, ty, rfl⟩ := hshapeS q x hq
+      obtain ⟨ty, rfl⟩ := hshapeS q x hq
       rw [Expr.fvarLeaves] at hlx
       rcases List.mem_cons.mp hlx with rfl | hlx'
       · exact hqK
@@ -183,7 +183,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       exact hrhsb
     · intro x hx
       obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-      obtain ⟨nm, ty, rfl⟩ := hshapeS q x hq
+      obtain ⟨ty, rfl⟩ := hshapeS q x hq
       rfl
   -- the head runs back to the closed rule reading
   have hRVcl : ∀ k : Nat, RV.liftN 1 k = RV :=
@@ -199,8 +199,8 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (env := env) (φ := ψ') (d := rP + cnF) fvs (by
       intro a ha
       obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-      obtain ⟨nm, ty, rfl⟩ := hshapeS q a hq
-      exact ⟨_, denoteP_fvar _ _ _ _ _⟩)
+      obtain ⟨ty, rfl⟩ := hshapeS q a hq
+      exact ⟨_, denoteP_fvar _ _ _ _⟩)
   have hAppRead : denoteP m.acval env ψ' (rP + cnF)
       (Expr.mkAppN (rhsA.renameConsts f) fvs)
       = some (AVExpr.mkAppN RV vsp) :=
@@ -212,9 +212,9 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (fun i x hx => hdomsS0 i x hx) (n := rP + cnF)
     (fun i hi => hΔaent i hi)
     (fun i hi σ hσ => hokAll i hi σ hσ)
-    hdeRhs hwsR hbR (fun l hl => hlbFvs l.1 l.2.1 l.2.2 (hleafR l hl))
+    hdeRhs hwsR hbR (fun l hl => hlbFvs l.1 l.2 (hleafR l hl))
     hwsApp hbApp
-    (fun l hl => hlbFvs l.1 l.2.1 l.2.2 (hleafApp l hl))
+    (fun l hl => hlbFvs l.1 l.2 (hleafApp l hl))
     hleafR hltR hleafApp hltApp hvR hAppRead hokR
     (fun σ hσ => hokApp σ hσ _ hAppRead) hsat
   rw [hfire]
@@ -233,7 +233,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
   · rcases hx : fvs[i]? with _ | x
     · rw [List.getElem?_eq_none_iff, hfvslen] at hx
       omega
-    obtain ⟨nm, ty, rfl⟩ := hshapeS i x hx
+    obtain ⟨ty, rfl⟩ := hshapeS i x hx
     obtain ⟨v, hvspi, hdv⟩ := denoteSpineP_getElem?' hspine i _ hx
     rw [denoteP_fvar] at hdv
     obtain rfl : AVExpr.bvar (rP + cnF - 1 - i) = v :=

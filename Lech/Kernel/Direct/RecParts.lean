@@ -58,10 +58,10 @@ annotations included; a `.proj` node names its structure). -/
 def Expr.mentionsConst (T : Name) : Expr → Bool
   | .bvar _ | .sort _ | .lit _ => false
   | .const n _ => n == T
-  | .fvar _ _ ty => ty.mentionsConst T
+  | .fvar _ ty => ty.mentionsConst T
   | .app f a => f.mentionsConst T || a.mentionsConst T
-  | .lam _ ty b _ | .forallE _ ty b _ => ty.mentionsConst T || b.mentionsConst T
-  | .letE _ ty v b => ty.mentionsConst T || v.mentionsConst T || b.mentionsConst T
+  | .lam ty b _ | .forallE ty b _ => ty.mentionsConst T || b.mentionsConst T
+  | .letE ty v b => ty.mentionsConst T || v.mentionsConst T || b.mentionsConst T
   | .proj s _ e => s == T || e.mentionsConst T
 
 /-- The kind of a constructor field of a recursive block (see the
@@ -100,7 +100,7 @@ mention the block is valid for the official kernel but not modeled
 here — the index tuple is read at an arbitrary family in the functor,
 where the block's own carrier is not yet available (`.unsupported`). -/
 def recPositivity (T : Name) (lps : List Name) (nP nIdx o : Nat) : Expr → Nat → RecFieldKind
-  | .forallE _ dom body _, k =>
+  | .forallE dom body _, k =>
     if dom.mentionsConst T then .negative else recPositivity T lps nP nIdx o body (k + 1)
   | e, k =>
     if !e.mentionsConst T then .ordinary
@@ -135,7 +135,7 @@ def recCtorKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (c : ConstantVal �
   match c.1.type.stripPis (nP + c.2) with
   | some (cbs, cbody) =>
     let ks := (List.range c.2).map fun i =>
-      match recFieldKind T lps nP nIdx i (cbs.getD (nP + i) default).2.1 with
+      match recFieldKind T lps nP nIdx i (cbs.getD (nP + i) default).1 with
       | .recursive => if directUsedLater c.1.type nP i then .unsupported else .recursive
       | k => k
     if (cbody.getAppArgs.drop nP).all (fun a => !a.mentionsConst T) then some ks
@@ -147,7 +147,7 @@ field's own frame: the parameters and the earlier fields), off the
 constructor's type; `[]` when the field is not of that shape. -/
 def directFieldIdxOf (cty : Expr) (nP nF i : Nat) : List Expr :=
   match cty.stripPis (nP + nF) with
-  | some (cbs, _) => (cbs.getD (nP + i) default).2.1.getAppArgs.drop nP
+  | some (cbs, _) => (cbs.getD (nP + i) default).1.getAppArgs.drop nP
   | none => []
 
 /-- The positions of the recursive fields. -/
@@ -204,10 +204,10 @@ def directIhPis (nF o : Nat) (pw : PropWhen) (idxOf : Nat → List Expr) :
     List Nat → Nat → Expr → Expr
   | [], _, body => body
   | i :: is, l, body =>
-    .forallE (.str .anonymous "ih")
+    .forallE
       (Expr.mkAppN (.bvar (nF + o - 1 + l))
         ((idxOf i).map (directIdxAt nF o i l) ++ [.bvar (nF - 1 - i + l)]))
-      (directIhPis nF o pw idxOf is (l + 1) body) ⟨.default, pw⟩
+      (directIhPis nF o pw idxOf is (l + 1) body) ⟨pw⟩
 
 /-- A constructor's minor premise at a recursive block: its field
 telescope lifted under the `o` extras, every binder's datum reset to
@@ -232,7 +232,7 @@ def directMinorsPisR (lps : List Name) (nP : Nat) (pw : PropWhen) :
   | (C, nF, cty, recIdx) :: cs, o, body =>
     (directMinorTyR C lps nP nF o pw cty recIdx).bind fun mty =>
       (directMinorsPisR lps nP pw cs (o + 1) body).map fun rest =>
-        .forallE (Name.lastStr C) mty rest ⟨.default, pw⟩
+        .forallE mty rest ⟨pw⟩
 
 /-- The `λ` twin of `directMinorsPisR`. -/
 def directMinorsLamsR (lps : List Name) (nP : Nat) (pw : PropWhen) :
@@ -241,7 +241,7 @@ def directMinorsLamsR (lps : List Name) (nP : Nat) (pw : PropWhen) :
   | (C, nF, cty, recIdx) :: cs, o, body =>
     (directMinorTyR C lps nP nF o pw cty recIdx).bind fun mty =>
       (directMinorsLamsR lps nP pw cs (o + 1) body).map fun rest =>
-        .lam (Name.lastStr C) mty rest ⟨.default, pw⟩
+        .lam mty rest ⟨pw⟩
 
 /-- **The generated recursor type at a recursive block**
 
@@ -259,12 +259,12 @@ def directRecTyR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
   (tty.stripPis nP).bind fun q =>
   (directMotiveTyI T lps nP nIdx ℓ q.2).bind fun motiveTy =>
   (Expr.replacePisPw pw nIdx (q.2.liftLooseBVars (n + 1) 0)
-      (.forallE (.str .anonymous "t") (directFamI T lps nP nIdx (n + 1) 0)
+      (.forallE (directFamI T lps nP nIdx (n + 1) 0)
         (Expr.mkAppN (.bvar (nIdx + n + 1)) (directPsAt 1 nIdx ++ [.bvar 0]))
-        ⟨.default, pw⟩)).bind fun major =>
+        ⟨pw⟩)).bind fun major =>
   (directMinorsPisR lps nP pw ctors 1 major).bind fun minors =>
     Expr.replacePisPw pw nP tty
-      (.forallE (.str .anonymous "motive") motiveTy minors ⟨.default, pw⟩)
+      (.forallE motiveTy minors ⟨pw⟩)
 
 /-- **The generated rule** for constructor `j` at a recursive block:
 `λ p⃗ motive minor⃗ f⃗_j, minor_j f⃗_j (T.rec p⃗ motive minor⃗ e⃗_i f_i)…`
@@ -287,7 +287,7 @@ def directRecRhsR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
       fun inner =>
     (directMinorsLamsR lps nP pw ctors 1 inner).bind fun minors =>
     Expr.pisToLamsPw pw nP tty
-      (.lam (.str .anonymous "motive") motiveTy minors ⟨.default, pw⟩)
+      (.lam motiveTy minors ⟨pw⟩)
 
 /-- The constructors zipped with their recursive positions, as the
 generators take them. -/

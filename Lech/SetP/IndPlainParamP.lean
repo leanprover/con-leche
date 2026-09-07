@@ -51,17 +51,17 @@ theorem plainParamSupplyP {m : EnvS2Core V env} {F : Nat}
     -- the statement frame
     {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ ty, x = Expr.fvar i ty)
     {Γs : List AVExpr} (hΓslen : Γs.length = rP + cnF)
     -- the public (recursor) frame and its tower
     {fvsP : List Expr} (hfvsPlen : fvsP.length = rP)
     (hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     (hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP)
-    (hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
+      Expr.fvar l.1 l.2 ∈ fvsP)
+    (hlbFvsP : ∀ (i : Nat) (ty : Expr),
+      Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)
     (hokTV : ∀ σ : Nat → V, AnnotOkP V σ TV)
@@ -187,9 +187,9 @@ theorem plainParamSupplyP {m : EnvS2Core V env} {F : Nat}
             (by rw [List.length_take, hfvsPlen]; omega)] at ha
           exact nomatch ha
       rw [List.getElem?_take_of_lt hi] at ha ha'
-      obtain ⟨nmP, tyP, rfl⟩ := hshapeP i a ha
+      obtain ⟨tyP, rfl⟩ := hshapeP i a ha
       rw [hspPar i hi] at ha'
-      obtain ⟨nm, ty, rfl⟩ := hshapeS i a' ha'
+      obtain ⟨ty, rfl⟩ := hshapeS i a' ha'
       exact RenEqT.fvar
     have hlen : (fvsP.take cnP).length = (sp.take cnP).length := by
       rw [List.length_take, List.length_take, hfvsPlen, hsplen]
@@ -210,12 +210,12 @@ theorem plainParamSupplyP {m : EnvS2Core V env} {F : Nat}
   have hqlt : q < rP + cnF := by omega
   rcases hxq : fvs[q]? with _ | x
   · rw [List.getElem?_eq_none_iff] at hxq; omega
-  obtain ⟨nm, ty, rfl⟩ := hshapeS q x hxq
-  have hspq : sp.getD q default = Expr.fvar q nm ty := by
+  obtain ⟨ty, rfl⟩ := hshapeS q x hxq
+  have hspq : sp.getD q default = Expr.fvar q ty := by
     rw [List.getD, hspPar q hq, hxq]
     rfl
   refine ⟨.bvar ((rP + cnF) - 1 - q), by
-    rw [hspq]; exact denoteP_fvar _ _ _ _ _, ⟨by simp, by simp⟩, ?_⟩
+    rw [hspq]; exact denoteP_fvar _ _ _ _, ⟨by simp, by simp⟩, ?_⟩
   intro dw hdw
   rw [hbridge q hq] at hdw
   have h := (hladder q hq ρ' (hsatB ρ' hsat) dw hdw).2

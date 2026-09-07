@@ -67,18 +67,18 @@ def usedConstsGo (seen : Std.HashSet ExprC) (acc : Array Name) (e : ExprC) :
   | .app f a .. =>
     let (seen, acc) := usedConstsGo seen acc f
     usedConstsGo seen acc a
-  | .lam _ ty b _ .. =>
+  | .lam ty b _ .. =>
     let (seen, acc) := usedConstsGo seen acc ty
     usedConstsGo seen acc b
-  | .forallE _ ty b _ .. =>
+  | .forallE ty b _ .. =>
     let (seen, acc) := usedConstsGo seen acc ty
     usedConstsGo seen acc b
-  | .letE _ ty v b .. =>
+  | .letE ty v b .. =>
     let (seen, acc) := usedConstsGo seen acc ty
     let (seen, acc) := usedConstsGo seen acc v
     usedConstsGo seen acc b
   | .proj sn _ x .. => usedConstsGo seen (acc.push sn) x
-  | .fvar _ _ ty .. => usedConstsGo seen acc ty
+  | .fvar _ ty .. => usedConstsGo seen acc ty
   | _ => (seen, acc)
 
 /-- The constants a parsed record references (types, values, recursor

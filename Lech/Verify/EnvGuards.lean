@@ -71,7 +71,7 @@ theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
       env.find? natSuccName = some (.ctorInfo cv1 i1 j1) ∧
       cv.levelParams = [] ∧ cv0.levelParams = [] ∧ cv1.levelParams = [] ∧
       cv.type = .sort (.succ .zero) ∧ cv0.type = .const natName [] ∧
-      ∃ nm mb, cv1.type = .forallE nm (.const natName []) (.const natName []) mb := by
+      ∃ mb, cv1.type = .forallE (.const natName []) (.const natName []) mb := by
   unfold natLitSupported at hs
   simp only [Bool.and_eq_true] at hs
   obtain ⟨⟨hi, hz⟩, hsc⟩ := hs
@@ -94,10 +94,10 @@ theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
         revert h6
         split
         case h_2 => intro h; simp at h
-        next nm c1 c2 mb heq =>
+        next c1 c2 mb heq =>
           intro h
           simp only [Bool.and_eq_true, beq_iff_eq] at h
-          exact ⟨nm, mb, by rw [heq, h.1, h.2]⟩
+          exact ⟨mb, by rw [heq, h.1, h.2]⟩
 
 /-- The literal guard only reads the three `Nat` slots. -/
 theorem natLitSupported_congr {env₁ env₂ : Env}
@@ -130,21 +130,21 @@ theorem strLitSupported_inv {env : Env} (hs : strLitSupported env = true) :
       ciF.toConstantVal.levelParams = [] ∧
       ciS.toConstantVal.type = .sort (.succ .zero) ∧
       ciH.toConstantVal.type = .sort (.succ .zero) ∧
-      (∃ nm mb, ciO.toConstantVal.type =
-        .forallE nm (.app (.const listName [.zero]) (.const charName []))
+      (∃ mb, ciO.toConstantVal.type =
+        .forallE (.app (.const listName [.zero]) (.const charName []))
           (.const stringName []) mb) ∧
-      (∃ nm mb, ciL.toConstantVal.type =
-        .forallE nm (.sort (.succ (.param pL))) (.sort (.succ (.param pL))) mb) ∧
-      (∃ nm mb, ciN.toConstantVal.type =
-        .forallE nm (.sort (.succ (.param pN)))
+      (∃ mb, ciL.toConstantVal.type =
+        .forallE (.sort (.succ (.param pL))) (.sort (.succ (.param pL))) mb) ∧
+      (∃ mb, ciN.toConstantVal.type =
+        .forallE (.sort (.succ (.param pN)))
           (.app (.const listName [.param pN]) (.bvar 0)) mb) ∧
-      (∃ nm1 nm2 nm3 mb1 mb2 mb3, ciC.toConstantVal.type =
-        .forallE nm1 (.sort (.succ (.param pC)))
-          (.forallE nm2 (.bvar 0)
-            (.forallE nm3 (.app (.const listName [.param pC]) (.bvar 1))
+      (∃ mb1 mb2 mb3, ciC.toConstantVal.type =
+        .forallE (.sort (.succ (.param pC)))
+          (.forallE (.bvar 0)
+            (.forallE (.app (.const listName [.param pC]) (.bvar 1))
               (.app (.const listName [.param pC]) (.bvar 2)) mb3) mb2) mb1) ∧
-      (∃ nm mb, ciF.toConstantVal.type =
-        .forallE nm (.const natName []) (.const charName []) mb) := by
+      (∃ mb, ciF.toConstantVal.type =
+        .forallE (.const natName []) (.const charName []) mb) := by
   unfold strLitSupported at hs
   simp only [Bool.and_eq_true] at hs
   obtain ⟨⟨⟨⟨⟨⟨⟨hnat, hS⟩, hO⟩, hL⟩, hN⟩, hC⟩, hH⟩, hF⟩ := hs
@@ -205,7 +205,7 @@ theorem strLitSupported_inv {env : Env} (hs : strLitSupported env = true) :
   revert hF2
   split
   case h_2 => intro h; simp at h
-  next nmF c1F c2F mbF heqTF =>
+  next c1F c2F mbF heqTF =>
   intro hF2
   simp only [Bool.and_eq_true, beq_iff_eq] at hF2
   -- String.ofList
@@ -214,19 +214,19 @@ theorem strLitSupported_inv {env : Env} (hs : strLitSupported env = true) :
   revert hO2
   split
   case h_2 => intro h; simp at h
-  next nmO l1O us1O c1O c2O mbO heqTO =>
+  next l1O us1O c1O c2O mbO heqTO =>
   intro hO2
   simp only [Bool.and_eq_true, beq_iff_eq] at hO2
   refine ⟨ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC,
     heqS, heqO, heqL, heqN, heqC, heqH, heqF,
     hS.1, hO1, heqPL, heqPN, heqPC, hH.1, hF1, hS.2, hH.2, ?_, ?_, ?_, ?_, ?_⟩
-  · exact ⟨nmO, mbO, by
+  · exact ⟨mbO, by
       rw [heqTO, hO2.1.1.1, hO2.1.1.2, hO2.1.2, hO2.2]⟩
-  · exact ⟨nmL, mbL, by rw [heqTL, hL.1, hL.2]⟩
-  · exact ⟨nmN, mbN, by rw [heqTN, hN.1.1, hN.1.2, hN.2]⟩
-  · exact ⟨nmC1, nmC2, nmC3, mb1C, mb2C, mb3C, by
+  · exact ⟨mbL, by rw [heqTL, hL.1, hL.2]⟩
+  · exact ⟨mbN, by rw [heqTN, hN.1.1, hN.1.2, hN.2]⟩
+  · exact ⟨mb1C, mb2C, mb3C, by
       rw [heqTC, hC.1.1.1.1, hC.1.1.1.2, hC.1.1.2, hC.1.2, hC.2]⟩
-  · exact ⟨nmF, mbF, by rw [heqTF, hF2.1, hF2.2]⟩
+  · exact ⟨mbF, by rw [heqTF, hF2.1, hF2.2]⟩
 
 /-- The string-literal guard only reads the pinned slots
 (`strLitNames`). -/

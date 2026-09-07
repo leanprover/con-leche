@@ -145,9 +145,9 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
     rw [iotaCertsIAux.eq_def]
     obtain rfl := hty
     cases ty with
-    | forallE nm t b m =>
-      rw [show (Expr.instantiateList (Expr.forallE nm t b m) ws)
-          = .forallE nm ((Expr.instantiateList t ws))
+    | forallE t b m =>
+      rw [show (Expr.instantiateList (Expr.forallE t b m) ws)
+          = .forallE ((Expr.instantiateList t ws))
               ((Expr.instantiateList b ws 1)) m by
         simp [Expr.instantiateList]] at hwty ⊢
       have hwtb : Expr.WScoped d ((Expr.instantiateList t ws))
@@ -242,9 +242,9 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
       rw [show (Expr.instantiateList (Expr.lit l) ws)
           = .lit l by simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
-    | fvar idx nm t =>
-      rw [show (Expr.instantiateList (Expr.fvar idx nm t) ws)
-          = .fvar idx nm t by simp [Expr.instantiateList]]
+    | fvar idx t =>
+      rw [show (Expr.instantiateList (Expr.fvar idx t) ws)
+          = .fvar idx t by simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
     | app f' a' =>
       rw [show (Expr.instantiateList (Expr.app f' a') ws)
@@ -252,15 +252,15 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
               ((Expr.instantiateList a' ws)) by
         simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
-    | lam nm t b m =>
-      rw [show (Expr.instantiateList (Expr.lam nm t b m) ws)
-          = .lam nm ((Expr.instantiateList t ws))
+    | lam t b m =>
+      rw [show (Expr.instantiateList (Expr.lam t b m) ws)
+          = .lam ((Expr.instantiateList t ws))
               ((Expr.instantiateList b ws 1)) m by
         simp [Expr.instantiateList]]
       exact SimC.pure hs rfl
-    | letE nm t v b =>
-      rw [show (Expr.instantiateList (Expr.letE nm t v b) ws)
-          = .letE nm ((Expr.instantiateList t ws))
+    | letE t v b =>
+      rw [show (Expr.instantiateList (Expr.letE t v b) ws)
+          = .letE ((Expr.instantiateList t ws))
               ((Expr.instantiateList v ws))
               ((Expr.instantiateList b ws 1)) by
         simp [Expr.instantiateList]]
@@ -321,11 +321,11 @@ theorem ensureSortC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
   | bvar k => exact SimC.throw
   | const nm us => exact SimC.throw
   | lit l => exact SimC.throw
-  | fvar idx nm t => exact SimC.throw
+  | fvar idx t => exact SimC.throw
   | app f' a' => exact SimC.throw
-  | lam nm t b m => exact SimC.throw
-  | forallE nm t b m => exact SimC.throw
-  | letE nm t v b => exact SimC.throw
+  | lam t b m => exact SimC.throw
+  | forallE t b m => exact SimC.throw
+  | letE t v b => exact SimC.throw
   | proj sn j e' => exact SimC.throw
 
 /-- Port of `litToCtorIfNatI_eff`: the cached twin computes the spec's
@@ -364,15 +364,15 @@ theorem litToCtorIfNatC_eff {s₀ : CState} (hs : CSOK mode env s₀)
     exact CEff.pure hs hden
   | const nm us =>
     exact CEff.pure hs hden
-  | fvar idx nm t =>
+  | fvar idx t =>
     exact CEff.pure hs hden
   | app f' a' =>
     exact CEff.pure hs hden
-  | lam nm t b m =>
+  | lam t b m =>
     exact CEff.pure hs hden
-  | forallE nm t b m =>
+  | forallE t b m =>
     exact CEff.pure hs hden
-  | letE nm t v b =>
+  | letE t v b =>
     exact CEff.pure hs hden
   | proj sn j e' =>
     exact CEff.pure hs hden
@@ -480,8 +480,8 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
     have hfn' : (Expr.getAppFn i) = Expr.lit l := hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
-  | fvar idx nm t =>
-    have hfn' : (Expr.getAppFn i) = Expr.fvar idx nm t := hfn.symm
+  | fvar idx t =>
+    have hfn' : (Expr.getAppFn i) = Expr.fvar idx t := hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | app f' a' =>
@@ -489,19 +489,19 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
       hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
-  | lam nm t b m =>
-    have hfn' : (Expr.getAppFn i) = Expr.lam nm t b m :=
+  | lam t b m =>
+    have hfn' : (Expr.getAppFn i) = Expr.lam t b m :=
       hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
-  | forallE nm t b m =>
+  | forallE t b m =>
     have hfn' : (Expr.getAppFn i)
-        = Expr.forallE nm t b m := hfn.symm
+        = Expr.forallE t b m := hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
-  | letE nm t v b =>
+  | letE t v b =>
     have hfn' : (Expr.getAppFn i)
-        = Expr.letE nm t v b := hfn.symm
+        = Expr.letE t v b := hfn.symm
     rw [hspec, hfn']
     exact CEff.pure hs trivial
   | proj sn j e' =>
@@ -565,19 +565,19 @@ theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
   | const nm us =>
     exact SimC.of_eff (litToCtorIfNatC_eff hs hden) _
       (fun b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
-  | fvar idx nm t =>
+  | fvar idx t =>
     exact SimC.of_eff (litToCtorIfNatC_eff hs hden) _
       (fun b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
   | app f' a' =>
     exact SimC.of_eff (litToCtorIfNatC_eff hs hden) _
       (fun b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
-  | lam nm t b m =>
+  | lam t b m =>
     exact SimC.of_eff (litToCtorIfNatC_eff hs hden) _
       (fun b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
-  | forallE nm t b m =>
+  | forallE t b m =>
     exact SimC.of_eff (litToCtorIfNatC_eff hs hden) _
       (fun b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
-  | letE nm t v b =>
+  | letE t v b =>
     exact SimC.of_eff (litToCtorIfNatC_eff hs hden) _
       (fun b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
   | proj sn jj e' =>
@@ -616,11 +616,11 @@ theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
   | bvar k => exact SimC.pure hs ⟨hden, hw⟩
   | sort u => exact SimC.pure hs ⟨hden, hw⟩
   | const nm us => exact SimC.pure hs ⟨hden, hw⟩
-  | fvar idx nm t => exact SimC.pure hs ⟨hden, hw⟩
+  | fvar idx t => exact SimC.pure hs ⟨hden, hw⟩
   | app f' a' => exact SimC.pure hs ⟨hden, hw⟩
-  | lam nm t b m => exact SimC.pure hs ⟨hden, hw⟩
-  | forallE nm t b m => exact SimC.pure hs ⟨hden, hw⟩
-  | letE nm t v b => exact SimC.pure hs ⟨hden, hw⟩
+  | lam t b m => exact SimC.pure hs ⟨hden, hw⟩
+  | forallE t b m => exact SimC.pure hs ⟨hden, hw⟩
+  | letE t v b => exact SimC.pure hs ⟨hden, hw⟩
   | proj sn jj e' => exact SimC.pure hs ⟨hden, hw⟩
 
 /-- Port of `defeqSpineI_sim`. -/
@@ -717,25 +717,25 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
     | lit l' =>
       rw [show (Expr.getAppFn j) = Expr.lit l' from hfb.symm]
       exact SimC.pure hs rfl
-    | fvar idx' nm₂ t' =>
-      rw [show (Expr.getAppFn j) = Expr.fvar idx' nm₂ t'
+    | fvar idx' t' =>
+      rw [show (Expr.getAppFn j) = Expr.fvar idx' t'
         from hfb.symm]
       exact SimC.pure hs rfl
     | app f₂ a₂ =>
       rw [show (Expr.getAppFn j) = Expr.app (f₂) (a₂)
         from hfb.symm]
       exact SimC.pure hs rfl
-    | lam nm₂ t' b' m' =>
+    | lam t' b' m' =>
       rw [show (Expr.getAppFn j)
-        = Expr.lam nm₂ t' b' m' from hfb.symm]
+        = Expr.lam t' b' m' from hfb.symm]
       exact SimC.pure hs rfl
-    | forallE nm₂ t' b' m' =>
+    | forallE t' b' m' =>
       rw [show (Expr.getAppFn j)
-        = Expr.forallE nm₂ t' b' m' from hfb.symm]
+        = Expr.forallE t' b' m' from hfb.symm]
       exact SimC.pure hs rfl
-    | letE nm₂ t' v' b' =>
+    | letE t' v' b' =>
       rw [show (Expr.getAppFn j)
-        = Expr.letE nm₂ t' v' b' from hfb.symm]
+        = Expr.letE t' v' b' from hfb.symm]
       exact SimC.pure hs rfl
     | proj sn' j' e' =>
       rw [show (Expr.getAppFn j) = Expr.proj sn' j' e'
@@ -750,25 +750,25 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
   | lit l =>
     rw [hspec, show (Expr.getAppFn i) = Expr.lit l from hfa.symm]
     exact SimC.pure hs rfl
-  | fvar idx nm t =>
-    rw [hspec, show (Expr.getAppFn i) = Expr.fvar idx nm t
+  | fvar idx t =>
+    rw [hspec, show (Expr.getAppFn i) = Expr.fvar idx t
       from hfa.symm]
     exact SimC.pure hs rfl
   | app f' a' =>
     rw [hspec, show (Expr.getAppFn i) = Expr.app f' a'
       from hfa.symm]
     exact SimC.pure hs rfl
-  | lam nm t b' m =>
+  | lam t b' m =>
     rw [hspec, show (Expr.getAppFn i)
-      = Expr.lam nm t b' m from hfa.symm]
+      = Expr.lam t b' m from hfa.symm]
     exact SimC.pure hs rfl
-  | forallE nm t b' m =>
+  | forallE t b' m =>
     rw [hspec, show (Expr.getAppFn i)
-      = Expr.forallE nm t b' m from hfa.symm]
+      = Expr.forallE t b' m from hfa.symm]
     exact SimC.pure hs rfl
-  | letE nm t v b' =>
+  | letE t v b' =>
     rw [hspec, show (Expr.getAppFn i)
-      = Expr.letE nm t v b' from hfa.symm]
+      = Expr.letE t v b' from hfa.symm]
     exact SimC.pure hs rfl
   | proj sn j' e' =>
     rw [hspec, show (Expr.getAppFn i) = Expr.proj sn j' e'
@@ -936,28 +936,28 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
       | bvar k => exact SimC.pure hs trivial
       | sort u => exact SimC.pure hs trivial
       | lit l => exact SimC.pure hs trivial
-      | fvar idx nm t => exact SimC.pure hs trivial
+      | fvar idx t => exact SimC.pure hs trivial
       | app f₃ a₃ => exact SimC.pure hs trivial
-      | lam nm t b' m => exact SimC.pure hs trivial
-      | forallE nm t b' m => exact SimC.pure hs trivial
-      | letE nm t v b' => exact SimC.pure hs trivial
+      | lam t b' m => exact SimC.pure hs trivial
+      | forallE t b' m => exact SimC.pure hs trivial
+      | letE t v b' => exact SimC.pure hs trivial
       | proj sn jj e' => exact SimC.pure hs trivial
     | bvar k => exact SimC.pure hs trivial
     | sort u => exact SimC.pure hs trivial
     | lit l => exact SimC.pure hs trivial
-    | fvar idx nm t => exact SimC.pure hs trivial
-    | lam nm t b' m => exact SimC.pure hs trivial
-    | forallE nm t b' m => exact SimC.pure hs trivial
-    | letE nm t v b' => exact SimC.pure hs trivial
+    | fvar idx t => exact SimC.pure hs trivial
+    | lam t b' m => exact SimC.pure hs trivial
+    | forallE t b' m => exact SimC.pure hs trivial
+    | letE t v b' => exact SimC.pure hs trivial
     | proj sn jj e' => exact SimC.pure hs trivial
   | bvar k => exact SimC.pure hs trivial
   | sort u => exact SimC.pure hs trivial
   | const nm us => exact SimC.pure hs trivial
   | lit l => exact SimC.pure hs trivial
-  | fvar idx nm t => exact SimC.pure hs trivial
-  | lam nm t b' m => exact SimC.pure hs trivial
-  | forallE nm t b' m => exact SimC.pure hs trivial
-  | letE nm t v b' => exact SimC.pure hs trivial
+  | fvar idx t => exact SimC.pure hs trivial
+  | lam t b' m => exact SimC.pure hs trivial
+  | forallE t b' m => exact SimC.pure hs trivial
+  | letE t v b' => exact SimC.pure hs trivial
   | proj sn jj e' => exact SimC.pure hs trivial
 
 /-- `reduceNatC_sim` under the defeq-side fvar guard (the guard is the

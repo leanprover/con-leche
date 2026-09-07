@@ -282,7 +282,7 @@ structure CtorDataI {env : Env} (m : EnvS2Core V env) (T : Name) (lps : List Nam
     (idxArgs : List Expr)
     (ds : (Name → Nat) → List (Nat × Nat × AVExpr)) (Es : (Name → Nat) → List AVExpr)
     (srcs : List (Option Nat)) : Prop where
-  resid : ∃ (cbs : List (Name × Expr × BinderMeta)) (es : List Expr),
+  resid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
     cvC.type.stripPis (nP + nF)
       = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (Lech.directPsAt nF nP ++ es)) ∧
     es.length = nIdx
@@ -384,7 +384,7 @@ holding the former. -/
 theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
-    {bs : List (Name × Expr × Lech.BinderMeta)}
+    {bs : List (Expr × Lech.BinderMeta)}
     (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfT : env.find? T = some (.indInfo cvTa caps))
@@ -540,7 +540,7 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     · exact nomatch hjl'
     · have hidxl := firstIdx_some hjl'
       obtain ⟨fv, hfv⟩ : ∃ fv, xFvs[j]? = some fv := ⟨_, List.getElem?_eq_getElem (by omega)⟩
-      obtain ⟨nm, ty, rfl⟩ := hidxX j fv hfv
+      obtain ⟨ty, rfl⟩ := hidxX j fv hfv
       rw [List.getD_eq_getElem?_getD, hfv, Option.getD_some] at hidxl
       obtain ⟨v, hv, hread⟩ := DenoteSpineP.getElem? ((hspec ψ).2.2.2.1) hidxl
       rw [denoteP_fvar, show nP + nF - 1 - (nP + j) = nF - 1 - j from by omega] at hread

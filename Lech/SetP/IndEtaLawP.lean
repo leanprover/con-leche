@@ -268,7 +268,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
       (K := mp.base2.acval K ψ) (fun q => d - 1 - (0 + q)) hσ
       (acval_interp2_closedC mp.base2 _ ψ σ ρ)
   -- the major's slot
-  obtain ⟨nx, mx, hxb⟩ := hxdom
+  obtain ⟨mx, hxb⟩ := hxdom
   have hAx : Ax = AVExpr.mkAppN (mp.base2.acval (T.str "_model") ψ)
       ((List.range caps.etaParams).map fun q =>
         AVExpr.bvar (caps.etaParams - 1 - (0 + q))) := by
@@ -322,7 +322,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
         caps.etaParams (by omega) (by omega)] at h
     have hb0 : Expr.instSeq (openFvars 0 (caps.etaParams + 1))
         caps.etaParams (Expr.bvar 0)
-        = Expr.fvar caps.etaParams Name.anonymous (.sort .zero) := by
+        = Expr.fvar caps.etaParams (.sort .zero) := by
       have hhit := Expr.instSeq_bvar (openFvars 0 (caps.etaParams + 1))
         caps.etaParams 0 (openFvars_bounded 0 (caps.etaParams + 1))
         (by omega) (by rw [openFvars_length]; omega)
@@ -337,7 +337,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
         (hKle _ _ hTmE hTmlps (caps.etaParams + 1) (by omega))
         (DenoteSpineP.cons
           (denoteP_fvar mp.base2.acval (caps.etaParams + 1)
-            caps.etaParams Name.anonymous (.sort .zero))
+            caps.etaParams (.sort .zero))
           (DenoteSpineP.cons
             (hKle _ _ hCmE' hCmlps (caps.etaParams + 1) (by omega))
             DenoteSpineP.nil)))

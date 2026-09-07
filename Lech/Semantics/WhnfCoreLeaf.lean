@@ -43,18 +43,18 @@ every `iotaRec = none`, and every uncertified redex. -/
 @[simp] theorem whnfCore_leaf_sort (u : Level) :
     whnfCore mode env (fuel + 1) d (.sort u) = .ok (.sort u) := rfl
 
-@[simp] theorem whnfCore_leaf_fvar (idx : Nat) (n : Name) (ty : Expr) :
-    whnfCore mode env (fuel + 1) d (.fvar idx n ty) = .ok (.fvar idx n ty) :=
+@[simp] theorem whnfCore_leaf_fvar (idx : Nat) (ty : Expr) :
+    whnfCore mode env (fuel + 1) d (.fvar idx ty) = .ok (.fvar idx ty) :=
   rfl
 
-@[simp] theorem whnfCore_leaf_forallE (n : Name) (ty body : Expr)
+@[simp] theorem whnfCore_leaf_forallE (ty body : Expr)
     (bi : BinderMeta) :
-    whnfCore mode env (fuel + 1) d (.forallE n ty body bi) =
-      .ok (.forallE n ty body bi) := rfl
+    whnfCore mode env (fuel + 1) d (.forallE ty body bi) =
+      .ok (.forallE ty body bi) := rfl
 
-@[simp] theorem whnfCore_leaf_lam (n : Name) (ty body : Expr) (mb : BinderMeta) :
-    whnfCore mode env (fuel + 1) d (.lam n ty body mb) =
-      .ok (.lam n ty body mb) := rfl
+@[simp] theorem whnfCore_leaf_lam (ty body : Expr) (mb : BinderMeta) :
+    whnfCore mode env (fuel + 1) d (.lam ty body mb) =
+      .ok (.lam ty body mb) := rfl
 
 @[simp] theorem whnfCore_leaf_const (n : Name) (us : List Level) :
     whnfCore mode env (fuel + 1) d (.const n us) = .ok (.const n us) := rfl

@@ -51,14 +51,14 @@ a lambda, iota otherwise. -/
 def appStep (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (w a : Expr) : m Expr :=
   match w with
-  | .lam n ty body mb => do
+  | .lam ty body mb => do
     if betaGateFires mode mb.pw then
       k (body.instantiate1 a)
     else do
       let ta ← r.inferIO depth a
       if ← r.defeq depth ta ty then
         k (body.instantiate1 a)
-      else pure (.app (.lam n ty body mb) a)
+      else pure (.app (.lam ty body mb) a)
   | f' => do
     match ← iotaRec mode r env depth (.app f' a) with
     | some e'' => k e''
@@ -82,14 +82,14 @@ def whnfApp (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
   | v, [] => pure v
   | v, a :: rest =>
     match v with
-    | .lam n ty body mb => do
+    | .lam ty body mb => do
       if betaGateFires mode mb.pw then
         betaPeel mode r env depth k body [a] rest
       else do
         let ta ← r.inferIO depth a
         if ← r.defeq depth ta ty then
           betaPeel mode r env depth k body [a] rest
-        else pure (Expr.mkAppN (.app (.lam n ty body mb) a) rest)
+        else pure (Expr.mkAppN (.app (.lam ty body mb) a) rest)
     | v => do
       match ← iotaRec mode r env depth (.app v a) with
       | some e'' => do
@@ -111,7 +111,7 @@ def betaPeel (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
   | t, acc, [] => k (t.instantiateList acc)
   | t, acc, a :: rest =>
     match t with
-    | .lam n ty body mb => do
+    | .lam ty body mb => do
       if betaGateFires mode mb.pw then
         betaPeel mode r env depth k body (a :: acc) rest
       else do
@@ -119,7 +119,7 @@ def betaPeel (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
         if ← r.defeq depth ta (ty.instantiateList acc) then
           betaPeel mode r env depth k body (a :: acc) rest
         else pure (Expr.mkAppN
-          (.app ((Expr.lam n ty body mb).instantiateList acc) a) rest)
+          (.app ((Expr.lam ty body mb).instantiateList acc) a) rest)
     | t => do
       let v ← k (t.instantiateList acc)
       whnfApp mode r env depth k v (a :: rest)
@@ -147,7 +147,7 @@ def whnfAppIota (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
 standalone computation. -/
 def whnfAppLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
-    (n : Name) (ty body : Expr) (mb : BinderMeta) (a : Expr)
+    (ty body : Expr) (mb : BinderMeta) (a : Expr)
     (rest : List Expr) : m Expr := do
   if betaGateFires mode mb.pw then
     betaPeel mode r env depth k body [a] rest
@@ -155,7 +155,7 @@ def whnfAppLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     let ta ← r.inferIO depth a
     if ← r.defeq depth ta ty then
       betaPeel mode r env depth k body [a] rest
-    else pure (Expr.mkAppN (.app (.lam n ty body mb) a) rest)
+    else pure (Expr.mkAppN (.app (.lam ty body mb) a) rest)
 
 theorem whnfApp_nil (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (v : Expr) :
@@ -164,34 +164,34 @@ theorem whnfApp_nil (r : CoreFns m) (env : Env) (depth : Nat)
 
 theorem whnfApp_lam (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
-    (n : Name) (ty body : Expr) (mb : BinderMeta) (a : Expr)
+    (ty body : Expr) (mb : BinderMeta) (a : Expr)
     (rest : List Expr) :
-    whnfApp mode r env depth k (.lam n ty body mb) (a :: rest)
-      = whnfAppLam mode r env depth k n ty body mb a rest := by
+    whnfApp mode r env depth k (.lam ty body mb) (a :: rest)
+      = whnfAppLam mode r env depth k ty body mb a rest := by
   rw [whnfApp, whnfAppLam]
 
 theorem whnfApp_ne_lam (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
-    {v : Expr} (hv : ∀ n ty body mb, v ≠ .lam n ty body mb)
+    {v : Expr} (hv : ∀ ty body mb, v ≠ .lam ty body mb)
     (a : Expr) (rest : List Expr) :
     whnfApp mode r env depth k v (a :: rest)
       = whnfAppIota mode r env depth k v a rest := by
   cases v with
-  | lam n ty body mb => exact absurd rfl (hv n ty body mb)
-  | _ => rw [whnfApp, whnfAppIota] <;> exact fun _ _ _ _ h => nomatch h
+  | lam ty body mb => exact absurd rfl (hv ty body mb)
+  | _ => rw [whnfApp, whnfAppIota] <;> exact fun _ _ _ h => nomatch h
 
 /-- The non-lambda arm of `betaPeel` for a raw body that is not a
 lambda: substitute and hand back to the argument loop. -/
 theorem betaPeel_ne_lam (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
-    {t : Expr} (ht : ∀ n ty body mb, t ≠ .lam n ty body mb)
+    {t : Expr} (ht : ∀ ty body mb, t ≠ .lam ty body mb)
     (acc : List Expr) (a : Expr) (rest : List Expr) :
     betaPeel mode r env depth k t acc (a :: rest)
       = k (t.instantiateList acc) >>= fun v =>
           whnfApp mode r env depth k v (a :: rest) := by
   cases t with
-  | lam n ty body mb => exact absurd rfl (ht n ty body mb)
-  | _ => rw [betaPeel] <;> exact fun _ _ _ _ h => nomatch h
+  | lam ty body mb => exact absurd rfl (ht ty body mb)
+  | _ => rw [betaPeel] <;> exact fun _ _ _ h => nomatch h
 
 theorem betaPeel_nil (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (t : Expr) (acc : List Expr) :
@@ -201,7 +201,7 @@ theorem betaPeel_nil (r : CoreFns m) (env : Env) (depth : Nat)
 /-- The lambda arm of `betaPeel` (peel one more binder). -/
 def betaPeelLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
-    (n : Name) (ty body : Expr) (mb : BinderMeta) (acc : List Expr)
+    (ty body : Expr) (mb : BinderMeta) (acc : List Expr)
     (a : Expr) (rest : List Expr) : m Expr := do
   if betaGateFires mode mb.pw then
     betaPeel mode r env depth k body (a :: acc) rest
@@ -210,14 +210,14 @@ def betaPeelLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     if ← r.defeq depth ta (ty.instantiateList acc) then
       betaPeel mode r env depth k body (a :: acc) rest
     else pure (Expr.mkAppN
-      (.app ((Expr.lam n ty body mb).instantiateList acc) a) rest)
+      (.app ((Expr.lam ty body mb).instantiateList acc) a) rest)
 
 theorem betaPeel_lam (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
-    (n : Name) (ty body : Expr) (mb : BinderMeta) (acc : List Expr)
+    (ty body : Expr) (mb : BinderMeta) (acc : List Expr)
     (a : Expr) (rest : List Expr) :
-    betaPeel mode r env depth k (.lam n ty body mb) acc (a :: rest)
-      = betaPeelLam mode r env depth k n ty body mb acc a rest := by
+    betaPeel mode r env depth k (.lam ty body mb) acc (a :: rest)
+      = betaPeelLam mode r env depth k ty body mb acc a rest := by
   rw [betaPeel, betaPeelLam]
 
 /-- `iotaRec` is `none` whenever the spine head is not a constant. -/
@@ -246,9 +246,9 @@ the loop's continuation `k` abstracted. -/
 def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) : Expr → m Expr
   | .sort u => pure (.sort u)
-  | .fvar idx n ty => pure (.fvar idx n ty)
-  | .forallE n ty body bi => pure (.forallE n ty body bi)
-  | .lam n ty body mb => pure (.lam n ty body mb)
+  | .fvar idx ty => pure (.fvar idx ty)
+  | .forallE ty body bi => pure (.forallE ty body bi)
+  | .lam ty body mb => pure (.lam ty body mb)
   | .const n us => pure (.const n us)
   | .lit l => pure (.lit l)
   | .app f a =>
@@ -273,7 +273,7 @@ def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
         else pure (.proj sn i e')
       | _ => pure (.proj sn i e')
     | none => pure (.proj sn i e')
-  | .letE _ _ v b => k (b.instantiate1 v)
+  | .letE _ v b => k (b.instantiate1 v)
   | .bvar _ => throw (.notImplemented "whnf beyond the supported fragment")
 
 /-- Pure mirror of `whnfCoreLoopI`: iterate `whnfCoreStepM` on the
@@ -306,8 +306,8 @@ theorem whnfApp_atF (d : Nat) (k : Expr → FueledM Expr)
         = whnfApp mode (pureFns mode env F) env d kF v xs
   | [], v => by rw [whnfApp_nil, whnfApp_nil]; rfl
   | a :: rest, v => by
-    by_cases hlam : ∃ n ty body mb, v = Expr.lam n ty body mb
-    · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
+    by_cases hlam : ∃ ty body mb, v = Expr.lam ty body mb
+    · obtain ⟨ty, body, mb, rfl⟩ := hlam
       rw [whnfApp_lam, whnfApp_lam]
       unfold whnfAppLam
       -- task #161: the β gate is decided before the certificate, and
@@ -329,8 +329,8 @@ theorem whnfApp_atF (d : Nat) (k : Expr → FueledM Expr)
         simp only [↓reduceIte]
         exact betaPeel_atF d k kF F hk rest body [a]
       | false => rfl
-    · have hv : ∀ n ty body mb, v ≠ Expr.lam n ty body mb :=
-        fun n ty b mb hh => hlam ⟨n, ty, b, mb, hh⟩
+    · have hv : ∀ ty body mb, v ≠ Expr.lam ty body mb :=
+        fun ty b mb hh => hlam ⟨ty, b, mb, hh⟩
       rw [whnfApp_ne_lam _ _ _ _ hv, whnfApp_ne_lam _ _ _ _ hv]
       unfold whnfAppIota
       rw [FueledM.atF_bind, iotaRec_atF]
@@ -356,8 +356,8 @@ theorem betaPeel_atF (d : Nat) (k : Expr → FueledM Expr)
         = betaPeel mode (pureFns mode env F) env d kF t acc xs
   | [], t, acc => by rw [betaPeel_nil, betaPeel_nil]; exact hk _
   | a :: rest, t, acc => by
-    by_cases hlam : ∃ n ty body mb, t = Expr.lam n ty body mb
-    · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
+    by_cases hlam : ∃ ty body mb, t = Expr.lam ty body mb
+    · obtain ⟨ty, body, mb, rfl⟩ := hlam
       rw [betaPeel_lam, betaPeel_lam]
       unfold betaPeelLam
       by_cases hgate : betaGateFires mode mb.pw = true
@@ -376,8 +376,8 @@ theorem betaPeel_atF (d : Nat) (k : Expr → FueledM Expr)
         simp only [↓reduceIte]
         exact betaPeel_atF d k kF F hk rest body (a :: acc)
       | false => rfl
-    · have ht : ∀ n ty body mb, t ≠ Expr.lam n ty body mb :=
-        fun n ty b mb hh => hlam ⟨n, ty, b, mb, hh⟩
+    · have ht : ∀ ty body mb, t ≠ Expr.lam ty body mb :=
+        fun ty b mb hh => hlam ⟨ty, b, mb, hh⟩
       rw [betaPeel_ne_lam _ _ _ _ ht, betaPeel_ne_lam _ _ _ _ ht]
       rw [FueledM.atF_bind, hk]
       congr 1
@@ -397,7 +397,7 @@ theorem whnfCoreStepM_atF (d : Nat) (k : Expr → FueledM Expr)
     (whnfCoreStepM mode (fueledFns mode env) env d k e).val F
       = whnfCoreStepM mode (pureFns mode env F) env d kF e := by
   cases e <;> (unfold whnfCoreStepM; try rfl)
-  case letE nm ty v bd => exact hk _
+  case letE ty v bd => exact hk _
   case app f a =>
     rw [FueledM.atF_bind]
     congr 1
@@ -516,10 +516,10 @@ theorem iotaRec_det {d F₁ F₂ : Nat} {e : Expr} {o₁ o₂ : Option Expr}
   exact (Except.ok.injEq .. ▸ g2)
 
 /-- `whnfCore` is the identity on a lambda (at nonzero fuel). -/
-theorem whnfCore_lam (F d : Nat) (n : Name) (ty body : Expr)
+theorem whnfCore_lam (F d : Nat) (ty body : Expr)
     (mb : BinderMeta) :
-    whnfCore mode env (F + 1) d (.lam n ty body mb)
-      = .ok (.lam n ty body mb) := rfl
+    whnfCore mode env (F + 1) d (.lam ty body mb)
+      = .ok (.lam ty body mb) := rfl
 
 end AtF
 
@@ -542,19 +542,19 @@ private theorem bind_ok {α β : Type} {x : Except CheckError α}
 
 /-- An application chain over an application base is never a lambda. -/
 private theorem mkAppN_app_ne_lam :
-    ∀ (ys : List Expr) (f a₀ : Expr) (n : Name) (ty body : Expr)
-      (mb : BinderMeta), Expr.mkAppN (.app f a₀) ys ≠ .lam n ty body mb
-  | [], _, _, _, _, _, _ => by exact fun h => nomatch h
-  | y :: ys, f, a₀, n, ty, body, mb => by
+    ∀ (ys : List Expr) (f a₀ : Expr) (ty body : Expr)
+      (mb : BinderMeta), Expr.mkAppN (.app f a₀) ys ≠ .lam ty body mb
+  | [], _, _, _, _, _ => by exact fun h => nomatch h
+  | y :: ys, f, a₀, ty, body, mb => by
     rw [show Expr.mkAppN (.app f a₀) (y :: ys)
       = Expr.mkAppN (.app (.app f a₀) y) ys from rfl]
-    exact mkAppN_app_ne_lam ys (.app f a₀) y n ty body mb
+    exact mkAppN_app_ne_lam ys (.app f a₀) y ty body mb
 
 /-- The bulk substitution of a lambda, exposed. -/
-theorem instList_lam (n : Name) (ty body : Expr)
+theorem instList_lam (ty body : Expr)
     (mb : BinderMeta) (acc : List Expr) :
-    (Expr.lam n ty body mb).instantiateList acc
-      = .lam n (ty.instantiateList acc) (body.instantiateList acc 1) mb := by
+    (Expr.lam ty body mb).instantiateList acc
+      = .lam (ty.instantiateList acc) (body.instantiateList acc 1) mb := by
   simp [Expr.instantiateList]
 
 /-- The bulk substitution splits off its head as the innermost
@@ -573,7 +573,7 @@ theorem instList_single (body : Expr) (a : Expr) :
 one more stuck application. -/
 private theorem appStep_stuck (F d : Nat) (kF : Expr → CheckM Expr)
     {w : Expr} (a : Expr)
-    (hnl : ∀ n ty body mb, w ≠ Expr.lam n ty body mb)
+    (hnl : ∀ ty body mb, w ≠ Expr.lam ty body mb)
     (hnc : ∀ c us, w.getAppFn ≠ Expr.const c us) :
     appStep mode (pureFns mode env F) env d kF w a = .ok (.app w a) := by
   have hiota : iotaRec mode (pureFns mode env F) env d (.app w a) = pure none := by
@@ -581,7 +581,7 @@ private theorem appStep_stuck (F d : Nat) (kF : Expr → CheckM Expr)
     intro c us h
     exact hnc c us h
   cases w with
-  | lam n ty body mb => exact absurd rfl (hnl n ty body mb)
+  | lam ty body mb => exact absurd rfl (hnl ty body mb)
   | _ =>
     unfold appStep
     dsimp only
@@ -604,8 +604,8 @@ theorem whnfApp_snoc {d : Nat} :
   | [], v, a, F, vres => by
     intro H
     rw [List.nil_append] at H
-    by_cases hlam : ∃ n ty body mb, v = Expr.lam n ty body mb
-    · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
+    by_cases hlam : ∃ ty body mb, v = Expr.lam ty body mb
+    · obtain ⟨ty, body, mb, rfl⟩ := hlam
       rw [whnfApp_lam] at H
       unfold whnfAppLam at H
       -- task #161: the β gate fires identically in `whnfAppLam` and
@@ -636,14 +636,14 @@ theorem whnfApp_snoc {d : Nat} :
         injection H with h
         subst h
         rfl
-    · have hv : ∀ n ty body mb, v ≠ Expr.lam n ty body mb :=
-        fun n ty b mb hh => hlam ⟨n, ty, b, mb, hh⟩
+    · have hv : ∀ ty body mb, v ≠ Expr.lam ty body mb :=
+        fun ty b mb hh => hlam ⟨ty, b, mb, hh⟩
       rw [whnfApp_ne_lam _ _ _ _ hv] at H
       unfold whnfAppIota at H
       obtain ⟨o, ho, H⟩ := bind_ok H
       refine ⟨F, v, by rw [whnfApp_nil]; rfl, ?_⟩
       cases v with
-      | lam n ty body mb => exact absurd rfl (hv n ty body mb)
+      | lam ty body mb => exact absurd rfl (hv ty body mb)
       | _ =>
         unfold appStep
         dsimp only
@@ -663,8 +663,8 @@ theorem whnfApp_snoc {d : Nat} :
   | x :: xs', v, a, F, vres => by
     intro H
     rw [List.cons_append] at H
-    by_cases hlam : ∃ n ty body mb, v = Expr.lam n ty body mb
-    · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
+    by_cases hlam : ∃ ty body mb, v = Expr.lam ty body mb
+    · obtain ⟨ty, body, mb, rfl⟩ := hlam
       rw [whnfApp_lam] at H
       unfold whnfAppLam at H
       -- task #161: the fired β gate takes the peel arm with no
@@ -703,7 +703,7 @@ theorem whnfApp_snoc {d : Nat} :
         injection H with h
         subst h
         refine ⟨F, Expr.mkAppN
-          (.app (.lam n ty body mb) x) xs', ?_, ?_⟩
+          (.app (.lam ty body mb) x) xs', ?_, ?_⟩
         · rw [whnfApp_lam]
           unfold whnfAppLam
           rw [if_neg hgate, hta, ok_bind, hb, ok_bind]
@@ -714,8 +714,8 @@ theorem whnfApp_snoc {d : Nat} :
           intro c us hc
           rw [Expr.getAppFn_mkAppN] at hc
           exact nomatch hc
-    · have hv : ∀ n ty body mb, v ≠ Expr.lam n ty body mb :=
-        fun n ty b mb hh => hlam ⟨n, ty, b, mb, hh⟩
+    · have hv : ∀ ty body mb, v ≠ Expr.lam ty body mb :=
+        fun ty b mb hh => hlam ⟨ty, b, mb, hh⟩
       rw [whnfApp_ne_lam _ _ _ _ hv] at H
       unfold whnfAppIota at H
       obtain ⟨o, ho, H⟩ := bind_ok H
@@ -762,16 +762,16 @@ theorem betaPeel_snoc {d : Nat} :
   | [], t, acc, a, F, vres => by
     intro H
     rw [List.nil_append] at H
-    by_cases hlam : ∃ n ty body mb, t = Expr.lam n ty body mb
-    · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
+    by_cases hlam : ∃ ty body mb, t = Expr.lam ty body mb
+    · obtain ⟨ty, body, mb, rfl⟩ := hlam
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
       have hid : betaPeel mode (pureFns mode env (F + 1)) env d
-          (whnfCore mode env (F + 1) d) (Expr.lam n ty body mb) acc []
-          = .ok (.lam n (ty.instantiateList acc)
+          (whnfCore mode env (F + 1) d) (Expr.lam ty body mb) acc []
+          = .ok (.lam (ty.instantiateList acc)
               (body.instantiateList acc 1) mb) := by
         rw [betaPeel_nil, instList_lam]
-        exact whnfCore_lam F d n _ _ _
+        exact whnfCore_lam F d _ _ _
       by_cases hgate : betaGateFires mode mb.pw = true
       · rw [if_pos hgate] at H
         refine ⟨F + 1, _, hid, ?_⟩
@@ -801,8 +801,8 @@ theorem betaPeel_snoc {d : Nat} :
         subst h
         rw [instList_lam]
         rfl
-    · have ht : ∀ n ty body mb, t ≠ Expr.lam n ty body mb :=
-        fun n ty b mb hh => hlam ⟨n, ty, b, mb, hh⟩
+    · have ht : ∀ ty body mb, t ≠ Expr.lam ty body mb :=
+        fun ty b mb hh => hlam ⟨ty, b, mb, hh⟩
       rw [betaPeel_ne_lam _ _ _ _ ht] at H
       obtain ⟨v₀, hv₀, H⟩ := bind_ok H
       obtain ⟨F₁, w, hw, hstep⟩ := whnfApp_snoc [] v₀ a F vres H
@@ -817,8 +817,8 @@ theorem betaPeel_snoc {d : Nat} :
   | x :: xs', t, acc, a, F, vres => by
     intro H
     rw [List.cons_append] at H
-    by_cases hlam : ∃ n ty body mb, t = Expr.lam n ty body mb
-    · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
+    by_cases hlam : ∃ ty body mb, t = Expr.lam ty body mb
+    · obtain ⟨ty, body, mb, rfl⟩ := hlam
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
       by_cases hgate : betaGateFires mode mb.pw = true
@@ -857,7 +857,7 @@ theorem betaPeel_snoc {d : Nat} :
         injection H with h
         subst h
         refine ⟨F, Expr.mkAppN
-          (.app ((Expr.lam n ty body mb).instantiateList acc)
+          (.app ((Expr.lam ty body mb).instantiateList acc)
             x) xs', ?_, ?_⟩
         · rw [betaPeel_lam]
           unfold betaPeelLam
@@ -869,13 +869,13 @@ theorem betaPeel_snoc {d : Nat} :
           intro c us hc
           rw [Expr.getAppFn_mkAppN] at hc
           rw [show Expr.getAppFn (.app
-              ((Expr.lam n ty body mb).instantiateList acc) x)
+              ((Expr.lam ty body mb).instantiateList acc) x)
             = Expr.getAppFn
-              ((Expr.lam n ty body mb).instantiateList acc)
+              ((Expr.lam ty body mb).instantiateList acc)
             from rfl, instList_lam] at hc
           exact nomatch hc
-    · have ht : ∀ n ty body mb, t ≠ Expr.lam n ty body mb :=
-        fun n ty b mb hh => hlam ⟨n, ty, b, mb, hh⟩
+    · have ht : ∀ ty body mb, t ≠ Expr.lam ty body mb :=
+        fun ty b mb hh => hlam ⟨ty, b, mb, hh⟩
       rw [betaPeel_ne_lam _ _ _ _ ht] at H
       obtain ⟨v₀, hv₀, H⟩ := bind_ok H
       obtain ⟨F₁, w, hw, hstep⟩ := whnfApp_snoc (x :: xs') v₀ a F vres H
@@ -970,8 +970,8 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
     exact ⟨F, by rw [whnfApp_nil]; rfl⟩
   | a :: rest, v, res, F => by
     intro H
-    by_cases hlam : ∃ n ty body mb, v = Expr.lam n ty body mb
-    · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
+    by_cases hlam : ∃ ty body mb, v = Expr.lam ty body mb
+    · obtain ⟨ty, body, mb, rfl⟩ := hlam
       rw [whnfApp_lam] at H
       unfold whnfAppLam at H
       by_cases hgate : betaGateFires mode mb.pw = true
@@ -1010,8 +1010,8 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
         rw [if_neg hgate, hta, ok_bind, hb, ok_bind]
         simp only [Bool.false_eq_true, ↓reduceIte]
         rfl
-    · have hv : ∀ n ty body mb, v ≠ Expr.lam n ty body mb :=
-        fun n ty b mb hh => hlam ⟨n, ty, b, mb, hh⟩
+    · have hv : ∀ ty body mb, v ≠ Expr.lam ty body mb :=
+        fun ty b mb hh => hlam ⟨ty, b, mb, hh⟩
       rw [whnfApp_ne_lam _ _ _ _ hv] at H
       unfold whnfAppIota at H
       obtain ⟨o, ho, H⟩ := bind_ok H
@@ -1060,8 +1060,8 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
     exact ⟨M, by rw [betaPeel_nil]; exact hM⟩
   | a :: rest, t, acc, res, F => by
     intro H
-    by_cases hlam : ∃ n ty body mb, t = Expr.lam n ty body mb
-    · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
+    by_cases hlam : ∃ ty body mb, t = Expr.lam ty body mb
+    · obtain ⟨ty, body, mb, rfl⟩ := hlam
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
       by_cases hgate : betaGateFires mode mb.pw = true
@@ -1102,8 +1102,8 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
         rw [if_neg hgate, hta, ok_bind, hb, ok_bind]
         simp only [Bool.false_eq_true, ↓reduceIte]
         rfl
-    · have ht : ∀ n ty body mb, t ≠ Expr.lam n ty body mb :=
-        fun n ty b mb hh => hlam ⟨n, ty, b, mb, hh⟩
+    · have ht : ∀ ty body mb, t ≠ Expr.lam ty body mb :=
+        fun ty b mb hh => hlam ⟨ty, b, mb, hh⟩
       rw [betaPeel_ne_lam _ _ _ _ ht] at H
       obtain ⟨v₀, hv₀, H⟩ := bind_ok H
       obtain ⟨M, hM⟩ := hks F _ _ hv₀
@@ -1131,12 +1131,12 @@ theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
   cases e with
   | bvar j => exact absurd H (by simp [whnfCoreStepM])
   | sort u => exact ⟨F, H⟩
-  | fvar idx nm ty => exact ⟨F, H⟩
+  | fvar idx ty => exact ⟨F, H⟩
   | const nm us => exact ⟨F, H⟩
   | lit l => exact ⟨F, H⟩
-  | lam nm ty bd mb => exact ⟨F, H⟩
-  | forallE nm ty bd mb => exact ⟨F, H⟩
-  | letE nm ty v bd =>
+  | lam ty bd mb => exact ⟨F, H⟩
+  | forallE ty bd mb => exact ⟨F, H⟩
+  | letE ty v bd =>
     simp only [whnfCoreStepM] at H
     obtain ⟨M, hM⟩ := hks F _ _ H
     exact ⟨M, hM⟩
@@ -1261,7 +1261,7 @@ step substitutes and normalizes, exactly like the chained body. -/
 part's inference. -/
 def inferStep (r : CoreFns m) (depth : Nat) (tf a : Expr) : m Expr := do
   match ← r.whnf depth tf with
-  | .forallE _ ty body _mt => do
+  | .forallE ty body _mt => do
     let ta ← r.infer depth a
     unless ← r.defeq depth ta ty do
       throw (.invalid "application type mismatch")
@@ -1283,14 +1283,14 @@ def inferSpine (r : CoreFns m) (depth : Nat) :
   | ty, acc, [] => pure (ty.instantiateList acc)
   | ty, acc, a :: rest =>
     match ty with
-    | .forallE _ dom body _mt => do
+    | .forallE dom body _mt => do
       let ta ← r.infer depth a
       unless ← r.defeq depth ta (dom.instantiateList acc) do
         throw (.invalid "application type mismatch")
       inferSpine r depth body (a :: acc) rest
     | ty => do
       match ← r.whnf depth (ty.instantiateList acc) with
-      | .forallE _ dom body _mt => do
+      | .forallE dom body _mt => do
         let ta ← r.infer depth a
         unless ← r.defeq depth ta dom do
           throw (.invalid "application type mismatch")
@@ -1310,7 +1310,7 @@ def inferSpinePi (r : CoreFns m) (depth : Nat) (dom body : Expr)
 def inferSpineWhnf (r : CoreFns m) (depth : Nat) (ty : Expr)
     (acc : List Expr) (a : Expr) (rest : List Expr) : m Expr := do
   match ← r.whnf depth (ty.instantiateList acc) with
-  | .forallE _ dom body _mt => do
+  | .forallE dom body _mt => do
     let ta ← r.infer depth a
     unless ← r.defeq depth ta dom do
       throw (.invalid "application type mismatch")
@@ -1322,27 +1322,27 @@ theorem inferSpine_nil (r : CoreFns m) (depth : Nat) (ty : Expr)
     inferSpine r depth ty acc [] = pure (ty.instantiateList acc) := by
   rw [inferSpine]
 
-theorem inferSpine_pi (r : CoreFns m) (depth : Nat) (n : Name)
+theorem inferSpine_pi (r : CoreFns m) (depth : Nat)
     (dom body : Expr) (bi : BinderMeta) (acc : List Expr) (a : Expr)
     (rest : List Expr) :
-    inferSpine r depth (.forallE n dom body bi) acc (a :: rest)
+    inferSpine r depth (.forallE dom body bi) acc (a :: rest)
       = inferSpinePi r depth dom body bi acc a rest := by
   rw [inferSpine, inferSpinePi]
 
 theorem inferSpine_ne_pi (r : CoreFns m) (depth : Nat) {ty : Expr}
-    (hty : ∀ n dom body bi, ty ≠ .forallE n dom body bi)
+    (hty : ∀ dom body bi, ty ≠ .forallE dom body bi)
     (acc : List Expr) (a : Expr) (rest : List Expr) :
     inferSpine r depth ty acc (a :: rest)
       = inferSpineWhnf r depth ty acc a rest := by
   cases ty with
-  | forallE n dom body bi => exact absurd rfl (hty n dom body bi)
-  | _ => rw [inferSpine, inferSpineWhnf] <;> exact fun _ _ _ _ h => nomatch h
+  | forallE dom body bi => exact absurd rfl (hty dom body bi)
+  | _ => rw [inferSpine, inferSpineWhnf] <;> exact fun _ _ _ h => nomatch h
 
 /-- The bulk substitution of a `∀`, exposed. -/
-theorem instList_forallE (n : Name) (dom body : Expr)
+theorem instList_forallE (dom body : Expr)
     (bi : BinderMeta) (acc : List Expr) :
-    (Expr.forallE n dom body bi).instantiateList acc
-      = .forallE n (dom.instantiateList acc)
+    (Expr.forallE dom body bi).instantiateList acc
+      = .forallE (dom.instantiateList acc)
           (body.instantiateList acc 1) bi := by
   simp [Expr.instantiateList]
 
@@ -1362,8 +1362,8 @@ theorem inferSpine_atF (d : Nat) :
         = inferSpine (pureFns mode env F) d ty acc xs
   | [], ty, acc, F => by rw [inferSpine_nil, inferSpine_nil]; rfl
   | a :: rest, ty, acc, F => by
-    by_cases hpi : ∃ n dom body bi, ty = Expr.forallE n dom body bi
-    · obtain ⟨n, dom, body, bi, rfl⟩ := hpi
+    by_cases hpi : ∃ dom body bi, ty = Expr.forallE dom body bi
+    · obtain ⟨dom, body, bi, rfl⟩ := hpi
       rw [inferSpine_pi, inferSpine_pi]
       unfold inferSpinePi
       rw [FueledM.atF_bind]
@@ -1378,15 +1378,15 @@ theorem inferSpine_atF (d : Nat) :
         rw [inferSpine_atF d rest body (a :: acc) F]
         rfl
       | false => rfl
-    · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
-        fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
+    · have hty : ∀ dom body bi, ty ≠ Expr.forallE dom body bi :=
+        fun dom b bi hh => hpi ⟨dom, b, bi, hh⟩
       rw [inferSpine_ne_pi _ _ hty, inferSpine_ne_pi _ _ hty]
       unfold inferSpineWhnf
       rw [FueledM.atF_bind]
       congr 1
       funext w
       cases w with
-      | forallE n dom body bi =>
+      | forallE dom body bi =>
         dsimp only
         rw [FueledM.atF_bind]
         congr 1
@@ -1430,9 +1430,9 @@ theorem whnf_det {d F₁ F₂ : Nat} {e v₁ v₂ : Expr}
 
 /-- `whnf` is the identity on a `∀` (at fuel `≥ 2`: one level for the
 `whnfCore` inside the loop). -/
-theorem whnf_forallE (F d : Nat) (n : Name) (t b : Expr)
+theorem whnf_forallE (F d : Nat) (t b : Expr)
     (mb : BinderMeta) :
-    whnf mode env (F + 2) d (.forallE n t b mb) = .ok (.forallE n t b mb) := by
+    whnf mode env (F + 2) d (.forallE t b mb) = .ok (.forallE t b mb) := by
   -- one iteration of the reduction loop suffices (task #106: the step
   -- budget is `irreducible`, so peel it with its positivity witness)
   obtain ⟨k, hk⟩ := whnfLoopFuel_succ
@@ -1456,8 +1456,8 @@ theorem inferSpine_snoc {d : Nat} :
   | [], ty, acc, a, F, vres => by
     intro H
     rw [List.nil_append] at H
-    by_cases hpi : ∃ n dom body bi, ty = Expr.forallE n dom body bi
-    · obtain ⟨n, dom, body, bi, rfl⟩ := hpi
+    by_cases hpi : ∃ dom body bi, ty = Expr.forallE dom body bi
+    · obtain ⟨dom, body, bi, rfl⟩ := hpi
       rw [inferSpine_pi] at H
       unfold inferSpinePi at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
@@ -1481,8 +1481,8 @@ theorem inferSpine_snoc {d : Nat} :
         simp only [↓reduceIte]
         rw [← instList_cons0]
         rfl
-    · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
-        fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
+    · have hty : ∀ dom body bi, ty ≠ Expr.forallE dom body bi :=
+        fun dom b bi hh => hpi ⟨dom, b, bi, hh⟩
       rw [inferSpine_ne_pi _ _ hty] at H
       unfold inferSpineWhnf at H
       obtain ⟨w₀, hw₀, H⟩ := bind_ok H
@@ -1493,7 +1493,7 @@ theorem inferSpine_snoc {d : Nat} :
       rw [show whnf mode env F d (ty.instantiateList acc) = .ok w₀ from hw₀,
         ok_bind]
       cases w₀ with
-      | forallE n dom body bi =>
+      | forallE dom body bi =>
         dsimp only at H ⊢
         obtain ⟨ta, hta, H⟩ := bind_ok H
         obtain ⟨b, hb, H⟩ := bind_ok H
@@ -1507,19 +1507,19 @@ theorem inferSpine_snoc {d : Nat} :
           rw [inferSpine_nil, instList_single] at H
           exact H
       | bvar i => exact nomatch H
-      | fvar idx nm t => exact nomatch H
+      | fvar idx t => exact nomatch H
       | sort u => exact nomatch H
       | const nm us => exact nomatch H
       | app f' a' => exact nomatch H
-      | lam nm t b mb => exact nomatch H
-      | letE nm t v b => exact nomatch H
+      | lam t b mb => exact nomatch H
+      | letE t v b => exact nomatch H
       | lit l => exact nomatch H
       | proj s i e => exact nomatch H
   | x :: xs', ty, acc, a, F, vres => by
     intro H
     rw [List.cons_append] at H
-    by_cases hpi : ∃ n dom body bi, ty = Expr.forallE n dom body bi
-    · obtain ⟨n, dom, body, bi, rfl⟩ := hpi
+    by_cases hpi : ∃ dom body bi, ty = Expr.forallE dom body bi
+    · obtain ⟨dom, body, bi, rfl⟩ := hpi
       rw [inferSpine_pi] at H
       unfold inferSpinePi at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
@@ -1541,13 +1541,13 @@ theorem inferSpine_snoc {d : Nat} :
           ok_bind]
         simp only [↓reduceIte]
         exact inferSpine_mono (Nat.le_max_right F F₁) hw
-    · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
-        fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
+    · have hty : ∀ dom body bi, ty ≠ Expr.forallE dom body bi :=
+        fun dom b bi hh => hpi ⟨dom, b, bi, hh⟩
       rw [inferSpine_ne_pi _ _ hty] at H
       unfold inferSpineWhnf at H
       obtain ⟨w₀, hw₀, H⟩ := bind_ok H
       cases w₀ with
-      | forallE n dom body bi =>
+      | forallE dom body bi =>
         dsimp only at H
         obtain ⟨ta, hta, H⟩ := bind_ok H
         obtain ⟨b, hb, H⟩ := bind_ok H
@@ -1573,12 +1573,12 @@ theorem inferSpine_snoc {d : Nat} :
           simp only [↓reduceIte]
           exact inferSpine_mono (Nat.le_max_right F F₁) hw
       | bvar i => exact nomatch H
-      | fvar idx nm t => exact nomatch H
+      | fvar idx t => exact nomatch H
       | sort u => exact nomatch H
       | const nm us => exact nomatch H
       | app f' a' => exact nomatch H
-      | lam nm t b mb => exact nomatch H
-      | letE nm t v b => exact nomatch H
+      | lam t b mb => exact nomatch H
+      | letE t v b => exact nomatch H
       | lit l => exact nomatch H
       | proj s i e => exact nomatch H
 
@@ -1670,7 +1670,7 @@ signatures. -/
 def inferStepIO (r : CoreFns m) (depth : Nat)
     (tf a : Expr) : m Expr := do
   match ← r.whnf depth tf with
-  | .forallE _ ty body mt =>
+  | .forallE ty body mt =>
     if mt.pw.isNever then
       pure (body.instantiate1 a)
     else do
@@ -1687,7 +1687,7 @@ def inferSpineIO (r : CoreFns m) (depth : Nat) :
   | ty, acc, [] => pure (ty.instantiateList acc)
   | ty, acc, a :: rest =>
     match ty with
-    | .forallE _ dom body mt =>
+    | .forallE dom body mt =>
       if mt.pw.isNever then
         inferSpineIO r depth body (a :: acc) rest
       else do
@@ -1697,7 +1697,7 @@ def inferSpineIO (r : CoreFns m) (depth : Nat) :
         else throw (.invalid "application type mismatch")
     | ty => do
       match ← r.whnf depth (ty.instantiateList acc) with
-      | .forallE _ dom body mt =>
+      | .forallE dom body mt =>
         if mt.pw.isNever then
           inferSpineIO r depth body [a] rest
         else do
@@ -1724,7 +1724,7 @@ def inferSpineIOWhnf (r : CoreFns m) (depth : Nat)
     (ty : Expr) (acc : List Expr) (a : Expr) (rest : List Expr) :
     m Expr := do
   match ← r.whnf depth (ty.instantiateList acc) with
-  | .forallE _ dom body mt =>
+  | .forallE dom body mt =>
     if mt.pw.isNever then
       inferSpineIO r depth body [a] rest
     else do
@@ -1740,21 +1740,21 @@ theorem inferSpineIO_nil (r : CoreFns m) (depth : Nat)
   rw [inferSpineIO]
 
 theorem inferSpineIO_pi (r : CoreFns m) (depth : Nat)
-    (n : Name) (dom body : Expr) (bi : BinderMeta) (acc : List Expr)
+    (dom body : Expr) (bi : BinderMeta) (acc : List Expr)
     (a : Expr) (rest : List Expr) :
-    inferSpineIO r depth (.forallE n dom body bi) acc (a :: rest)
+    inferSpineIO r depth (.forallE dom body bi) acc (a :: rest)
       = inferSpineIOPi r depth dom body bi acc a rest := by
   rw [inferSpineIO, inferSpineIOPi]
 
 theorem inferSpineIO_ne_pi (r : CoreFns m) (depth : Nat)
-    {ty : Expr} (hty : ∀ n dom body bi, ty ≠ .forallE n dom body bi)
+    {ty : Expr} (hty : ∀ dom body bi, ty ≠ .forallE dom body bi)
     (acc : List Expr) (a : Expr) (rest : List Expr) :
     inferSpineIO r depth ty acc (a :: rest)
       = inferSpineIOWhnf r depth ty acc a rest := by
   cases ty with
-  | forallE n dom body bi => exact absurd rfl (hty n dom body bi)
+  | forallE dom body bi => exact absurd rfl (hty dom body bi)
   | _ => rw [inferSpineIO, inferSpineIOWhnf] <;>
-      exact fun _ _ _ _ h => nomatch h
+      exact fun _ _ _ h => nomatch h
 
 end InferIOSpine
 
@@ -1774,8 +1774,8 @@ theorem inferSpineIO_atF (d : Nat) :
         = inferSpineIO (pureFns mode env F) d ty acc xs
   | [], ty, acc, F => by rw [inferSpineIO_nil, inferSpineIO_nil]; rfl
   | a :: rest, ty, acc, F => by
-    by_cases hpi : ∃ n dom body bi, ty = Expr.forallE n dom body bi
-    · obtain ⟨n, dom, body, bi, rfl⟩ := hpi
+    by_cases hpi : ∃ dom body bi, ty = Expr.forallE dom body bi
+    · obtain ⟨dom, body, bi, rfl⟩ := hpi
       rw [inferSpineIO_pi, inferSpineIO_pi]
       unfold inferSpineIOPi
       rw [FueledM.atF_ite]
@@ -1794,15 +1794,15 @@ theorem inferSpineIO_atF (d : Nat) :
           rw [inferSpineIO_atF d rest body (a :: acc) F]
           rfl
         | false => rfl
-    · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
-        fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
+    · have hty : ∀ dom body bi, ty ≠ Expr.forallE dom body bi :=
+        fun dom b bi hh => hpi ⟨dom, b, bi, hh⟩
       rw [inferSpineIO_ne_pi _ _ hty, inferSpineIO_ne_pi _ _ hty]
       unfold inferSpineIOWhnf
       rw [FueledM.atF_bind]
       congr 1
       funext w
       cases w with
-      | forallE n dom body bi =>
+      | forallE dom body bi =>
         dsimp only
         rw [FueledM.atF_ite]
         refine ite_congr rfl (fun _ => ?_) (fun _ => ?_)
@@ -1866,8 +1866,8 @@ theorem inferSpineIO_snoc {d : Nat} :
   | [], ty, acc, a, F, vres => by
     intro H
     rw [List.nil_append] at H
-    by_cases hpi : ∃ n dom body bi, ty = Expr.forallE n dom body bi
-    · obtain ⟨n, dom, body, bi, rfl⟩ := hpi
+    by_cases hpi : ∃ dom body bi, ty = Expr.forallE dom body bi
+    · obtain ⟨dom, body, bi, rfl⟩ := hpi
       rw [inferSpineIO_pi] at H
       unfold inferSpineIOPi at H
       refine ⟨F + 2, _, by rw [inferSpineIO_nil]; rfl, ?_⟩
@@ -1904,8 +1904,8 @@ theorem inferSpineIO_snoc {d : Nat} :
           simp only [↓reduceIte]
           rw [← instList_cons0]
           rfl
-    · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
-        fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
+    · have hty : ∀ dom body bi, ty ≠ Expr.forallE dom body bi :=
+        fun dom b bi hh => hpi ⟨dom, b, bi, hh⟩
       rw [inferSpineIO_ne_pi _ _ hty] at H
       unfold inferSpineIOWhnf at H
       obtain ⟨w₀, hw₀, H⟩ := bind_ok H
@@ -1916,7 +1916,7 @@ theorem inferSpineIO_snoc {d : Nat} :
       rw [show whnf mode env F d (ty.instantiateList acc) = .ok w₀ from hw₀,
         ok_bind]
       cases w₀ with
-      | forallE n dom body bi =>
+      | forallE dom body bi =>
         dsimp only at H ⊢
         by_cases hg2 : bi.pw.isNever = true
         · simp only [hg2, ↓reduceIte] at H ⊢
@@ -1935,19 +1935,19 @@ theorem inferSpineIO_snoc {d : Nat} :
             rw [inferSpineIO_nil, instList_single] at H
             exact H
       | bvar i => exact nomatch H
-      | fvar idx nm t => exact nomatch H
+      | fvar idx t => exact nomatch H
       | sort u => exact nomatch H
       | const nm us => exact nomatch H
       | app f' a' => exact nomatch H
-      | lam nm t b mb => exact nomatch H
-      | letE nm t v b => exact nomatch H
+      | lam t b mb => exact nomatch H
+      | letE t v b => exact nomatch H
       | lit l => exact nomatch H
       | proj s i e => exact nomatch H
   | x :: xs', ty, acc, a, F, vres => by
     intro H
     rw [List.cons_append] at H
-    by_cases hpi : ∃ n dom body bi, ty = Expr.forallE n dom body bi
-    · obtain ⟨n, dom, body, bi, rfl⟩ := hpi
+    by_cases hpi : ∃ dom body bi, ty = Expr.forallE dom body bi
+    · obtain ⟨dom, body, bi, rfl⟩ := hpi
       rw [inferSpineIO_pi] at H
       unfold inferSpineIOPi at H
       by_cases hg2 : bi.pw.isNever = true
@@ -1985,13 +1985,13 @@ theorem inferSpineIO_snoc {d : Nat} :
             isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
           simp only [↓reduceIte]
           exact inferSpineIO_mono (Nat.le_max_right F F₁) hw
-    · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
-        fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
+    · have hty : ∀ dom body bi, ty ≠ Expr.forallE dom body bi :=
+        fun dom b bi hh => hpi ⟨dom, b, bi, hh⟩
       rw [inferSpineIO_ne_pi _ _ hty] at H
       unfold inferSpineIOWhnf at H
       obtain ⟨w₀, hw₀, H⟩ := bind_ok H
       cases w₀ with
-      | forallE n dom body bi =>
+      | forallE dom body bi =>
         dsimp only at H
         by_cases hg2 : bi.pw.isNever = true
         · simp only [hg2, ↓reduceIte] at H
@@ -2036,12 +2036,12 @@ theorem inferSpineIO_snoc {d : Nat} :
             simp only [↓reduceIte]
             exact inferSpineIO_mono (Nat.le_max_right F F₁) hw
       | bvar i => exact nomatch H
-      | fvar idx nm t => exact nomatch H
+      | fvar idx t => exact nomatch H
       | sort u => exact nomatch H
       | const nm us => exact nomatch H
       | app f' a' => exact nomatch H
-      | lam nm t b mb => exact nomatch H
-      | letE nm t v b => exact nomatch H
+      | lam t b mb => exact nomatch H
+      | letE t v b => exact nomatch H
       | lit l => exact nomatch H
       | proj s i e => exact nomatch H
 

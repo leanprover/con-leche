@@ -115,7 +115,7 @@ theorem instPisAt_domsP_graded {ρ' : Nat → V}
     intro ty ds rs h D T i hsp hfb hb hT hokT hmem hi
     obtain ⟨hwsa, hba⟩ := hsp 0 a (Nat.zero_le _) rfl
     match ty, h with
-    | .forallE nmT dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -134,7 +134,7 @@ theorem instPisAt_domsP_graded {ρ' : Nat → V}
       | some A => ?_
       rw [hA] at hT
       cases hB : denoteP acval env φ (D + 1)
-          (body.instantiate1 (.fvar D nmT dom)) with
+          (body.instantiate1 (.fvar D dom)) with
       | none => rw [hB] at hT; exact nomatch hT
       | some B => ?_
       rw [hB] at hT
@@ -156,7 +156,7 @@ theorem instPisAt_domsP_graded {ρ' : Nat → V}
         -- the tail: the run on the β-reduct
         have hTI : denoteP acval env φ D (body.instantiate1 a)
             = some (B.inst w 0) := by
-          rw [denoteP_beta hacl hainst (n := nmT) (ty := dom) hfb'.2
+          rw [denoteP_beta hacl hainst (ty := dom) hfb'.2
             hwsa hba hw 0, hB]
           rfl
         have hokBI : AnnotOkP V ρ' (B.inst w 0) :=
@@ -213,7 +213,7 @@ theorem instPisAt_resP_graded {ρ' : Nat → V}
     obtain ⟨hwsa, hba⟩ := hsp 0 a rfl
     obtain ⟨w, hw, hokw, hmem0⟩ := hmem 0 a rfl
     match ty, h with
-    | .forallE nmT dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -232,7 +232,7 @@ theorem instPisAt_resP_graded {ρ' : Nat → V}
       | some A => ?_
       rw [hA] at hT
       cases hB : denoteP acval env φ (D + 1)
-          (body.instantiate1 (.fvar D nmT dom)) with
+          (body.instantiate1 (.fvar D dom)) with
       | none => rw [hB] at hT; exact nomatch hT
       | some B => ?_
       rw [hB] at hT
@@ -243,7 +243,7 @@ theorem instPisAt_resP_graded {ρ' : Nat → V}
         hmem0 A (by rw [hdom0]; exact hA)
       have hTI : denoteP acval env φ D (body.instantiate1 a)
           = some (B.inst w 0) := by
-        rw [denoteP_beta hacl hainst (n := nmT) (ty := dom) hfb'.2
+        rw [denoteP_beta hacl hainst (ty := dom) hfb'.2
           hwsa hba hw 0, hB]
         rfl
       have hokBI : AnnotOkP V ρ' (B.inst w 0) :=

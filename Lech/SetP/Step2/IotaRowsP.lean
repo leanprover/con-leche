@@ -169,15 +169,15 @@ theorem piResidual_frameP {m : EnvS2Core V env} {d : Nat}
     intro rest h hw hb hL hCt hfr
     match T, h with
     | .bvar _, h => exact nomatch h
-    | .fvar _ _ _, h => exact nomatch h
+    | .fvar _ _, h => exact nomatch h
     | .sort _, h => exact nomatch h
     | .const _ _, h => exact nomatch h
     | .app _ _, h => exact nomatch h
-    | .lam _ _ _ _, h => exact nomatch h
-    | .letE _ _ _ _, h => exact nomatch h
+    | .lam _ _ _, h => exact nomatch h
+    | .letE _ _ _, h => exact nomatch h
     | .lit _, h => exact nomatch h
     | .proj _ _ _, h => exact nomatch h
-    | .forallE n ty body mb, h =>
+    | .forallE ty body mb, h =>
     obtain ⟨hwa, hba, hLa, hCa⟩ := hfr a (by simp)
     simp only [Expr.WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb

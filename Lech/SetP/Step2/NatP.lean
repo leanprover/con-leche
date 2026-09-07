@@ -278,22 +278,22 @@ theorem reduceNat_natLeafP (hlaw : NatOpGuardLawP env)
   match e, h with
   | .app (.const c []) a, h => exact natLeafP_unary hlaw h
   | .app (.app (.const c []) a) b, h => exact natLeafP_binary hlaw h
-  | .bvar _, h | .fvar _ _ _, h | .sort _, h | .lam _ _ _ _, h
-  | .forallE _ _ _ _, h | .letE _ _ _ _, h | .lit _, h
+  | .bvar _, h | .fvar _ _, h | .sort _, h | .lam _ _ _, h
+  | .forallE _ _ _, h | .letE _ _ _, h | .lit _, h
   | .proj _ _ _, h | .const _ _, h =>
     simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
-  | .app (.bvar _) _, h | .app (.fvar _ _ _) _, h
-  | .app (.sort _) _, h | .app (.lam _ _ _ _) _, h
-  | .app (.forallE _ _ _ _) _, h | .app (.letE _ _ _ _) _, h
+  | .app (.bvar _) _, h | .app (.fvar _ _) _, h
+  | .app (.sort _) _, h | .app (.lam _ _ _) _, h
+  | .app (.forallE _ _ _) _, h | .app (.letE _ _ _) _, h
   | .app (.lit _) _, h | .app (.proj _ _ _) _, h =>
     simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
   | .app (.const c (_ :: _)) _, h =>
     simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
-  | .app (.app (.bvar _) _) _, h | .app (.app (.fvar _ _ _) _) _, h
+  | .app (.app (.bvar _) _) _, h | .app (.app (.fvar _ _) _) _, h
   | .app (.app (.sort _) _) _, h | .app (.app (.app _ _) _) _, h
-  | .app (.app (.lam _ _ _ _) _) _, h
-  | .app (.app (.forallE _ _ _ _) _) _, h
-  | .app (.app (.letE _ _ _ _) _) _, h
+  | .app (.app (.lam _ _ _) _) _, h
+  | .app (.app (.forallE _ _ _) _) _, h
+  | .app (.app (.letE _ _ _) _) _, h
   | .app (.app (.lit _) _) _, h
   | .app (.app (.proj _ _ _) _) _, h =>
     simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h

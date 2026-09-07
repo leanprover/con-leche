@@ -37,19 +37,19 @@ theorem ConstsBound.cons {c : ConstantInfo} :
   | .app f a, h => by
     rw [constsBound_app] at h ⊢
     exact ⟨ConstsBound.cons f h.1, ConstsBound.cons a h.2⟩
-  | .lam n ty b bi, h => by
+  | .lam ty b bi, h => by
     rw [constsBound_lam] at h ⊢
     exact ⟨ConstsBound.cons ty h.1, ConstsBound.cons b h.2⟩
-  | .forallE n ty b bi, h => by
+  | .forallE ty b bi, h => by
     rw [constsBound_forallE] at h ⊢
     exact ⟨ConstsBound.cons ty h.1, ConstsBound.cons b h.2⟩
-  | .letE n t v b, h => by
+  | .letE t v b, h => by
     rw [constsBound_letE] at h ⊢
     exact ⟨ConstsBound.cons t h.1, ConstsBound.cons v h.2.1, ConstsBound.cons b h.2.2⟩
   | .proj s i e, h => by
     rw [constsBound_proj] at h ⊢
     exact ConstsBound.cons e h
-  | .fvar i n ty, h => by
+  | .fvar i ty, h => by
     rw [constsBound_fvar] at h ⊢
     exact ConstsBound.cons ty h
   | .bvar _, _ => constsBound_bvar

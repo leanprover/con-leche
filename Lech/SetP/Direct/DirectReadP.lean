@@ -52,7 +52,7 @@ theorem denoteP_acvalWith_unmentioned
   intro d e
   induction d, e using denoteP.induct (env := env) with
   | case1 d u => intro _; rw [denoteP, denoteP]
-  | case2 d idx nm ty => intro _; rw [denoteP, denoteP]
+  | case2 d idx ty => intro _; rw [denoteP, denoteP]
   | case3 d n us ci hf hlen =>
     intro hcr
     rw [denoteP, denoteP, hf]
@@ -65,12 +65,12 @@ theorem denoteP_acvalWith_unmentioned
     dsimp only
     rw [if_neg hlen, if_neg hlen]
   | case5 d n us hf => intro _; rw [denoteP, denoteP, hf]
-  | case6 d n ty body m ihty ihbody =>
+  | case6 d ty body m ihty ihbody =>
     intro hcr
     simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
     rw [denoteP, denoteP, ihty hcr.1,
       ihbody (Expr.constsResolve_instantiate1 hcr.1 0 hcr.2)]
-  | case7 d n ty body m ihty ihbody =>
+  | case7 d ty body m ihty ihbody =>
     intro hcr
     simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
     rw [denoteP, denoteP, ihty hcr.1,
@@ -79,7 +79,7 @@ theorem denoteP_acvalWith_unmentioned
     intro hcr
     simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
     rw [denoteP, denoteP, ihf hcr.1, iha hcr.2]
-  | case9 d n ty val body ihty ihval ihbody =>
+  | case9 d ty val body ihty ihval ihbody =>
     intro hcr
     simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
     rw [denoteP, denoteP, ihty hcr.1.1, ihval hcr.1.2,
@@ -117,12 +117,12 @@ theorem denoteP_acvalWith_unmentioned
     cases x with
     | bvar i => rw [denoteP.eq_def, denoteP.eq_def]
     | sort u => exact absurd rfl (hs u)
-    | fvar i nm ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i ty)
     | const n us => exact absurd rfl (hc n us)
-    | forallE n ty b m => exact absurd rfl (hpi n ty b m)
-    | lam n ty b m => exact absurd rfl (hlam n ty b m)
+    | forallE ty b m => exact absurd rfl (hpi ty b m)
+    | lam ty b m => exact absurd rfl (hlam ty b m)
     | app f a => exact absurd rfl (happ f a)
-    | letE n ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with
@@ -167,7 +167,7 @@ theorem denoteP_openPis {acval : Name → (Name → Nat) → AVExpr} {env : Env}
       fun i x hx => by simp at hx⟩
   | n + 1, d, e, fvs, o, ea, hop, hden => by
     match e, hop with
-    | .forallE nm dom body mb, hop =>
+    | .forallE dom body mb, hop =>
       simp only [openPisAtFvars] at hop
       split at hop
       · next fvs' o' hop' =>
@@ -192,8 +192,8 @@ theorem denoteP_openPis {acval : Name → (Name → Nat) → AVExpr} {env : Env}
             exact ⟨p, by simpa using hp, hp1,
               by rw [show d + (i + 1) = d + 1 + i from by omega]; exact hpd⟩
       · exact nomatch hop
-    | .bvar _, hop | .fvar _ _ _, hop | .sort _, hop | .const _ _, hop
-    | .app _ _, hop | .lam _ _ _ _, hop | .letE _ _ _ _, hop | .lit _, hop
+    | .bvar _, hop | .fvar _ _, hop | .sort _, hop | .const _ _, hop
+    | .app _ _, hop | .lam _ _ _, hop | .letE _ _ _, hop | .lit _, hop
     | .proj _ _ _, hop =>
       simp [openPisAtFvars] at hop
 

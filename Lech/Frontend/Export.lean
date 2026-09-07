@@ -78,14 +78,14 @@ here is the identity on both sides; what this canonical form still
 annotated, the stream side is at the parse placeholder). -/
 def canonExpr (m : Name → Name) : Expr → Expr
   | .bvar i => .bvar i
-  | .fvar idx _ ty => .fvar idx .anonymous (canonExpr m ty)
+  | .fvar idx ty => .fvar idx (canonExpr m ty)
   | .sort u => .sort (canonLevel m u)
   | .const n us => .const n (us.map (canonLevel m))
   | .app f a => .app (canonExpr m f) (canonExpr m a)
-  | .lam _ ty b _ => .lam .anonymous (canonExpr m ty) (canonExpr m b) ⟨.default, .never⟩
-  | .forallE _ ty b _ =>
-      .forallE .anonymous (canonExpr m ty) (canonExpr m b) ⟨.default, .never⟩
-  | .letE _ ty v b => .letE .anonymous (canonExpr m ty) (canonExpr m v)
+  | .lam ty b _ => .lam (canonExpr m ty) (canonExpr m b) ⟨.never⟩
+  | .forallE ty b _ =>
+      .forallE (canonExpr m ty) (canonExpr m b) ⟨.never⟩
+  | .letE ty v b => .letE (canonExpr m ty) (canonExpr m v)
       (canonExpr m b)
   | .lit l => .lit l
   | .proj s i e => .proj s i (canonExpr m e)

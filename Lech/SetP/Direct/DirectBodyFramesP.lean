@@ -54,17 +54,17 @@ theorem denoteP_projTele {acval : Name → (Name → Nat) → AVExpr} {env : Env
     ∀ (k d : Nat) (body : Expr) {RA : AVExpr},
       denoteP acval env φ (d + k)
         (Expr.instSeq ((List.range k).map fun j =>
-          Expr.fvar (d + j) .anonymous (.sort .zero)) (k - 1) body) = some RA →
+          Expr.fvar (d + j) (.sort .zero)) (k - 1) body) = some RA →
       denoteP acval env φ d (Lech.projTele k body)
         = some (mkPisAV (List.replicate k (0, 1, .sort 0)) RA)
   | 0, d, body, RA, h => by
     simpa [Lech.projTele, Expr.instSeq, mkPisAV] using h
   | k + 1, d, body, RA, h => by
     have hspine : Expr.instSeq ((List.range (k + 1)).map fun j =>
-          Expr.fvar (d + j) .anonymous (.sort .zero)) (k + 1 - 1) body
+          Expr.fvar (d + j) (.sort .zero)) (k + 1 - 1) body
         = Expr.instSeq ((List.range k).map fun j =>
-            Expr.fvar (d + 1 + j) .anonymous (.sort .zero)) (k - 1)
-            (body.instantiate1 (Expr.fvar d .anonymous (.sort .zero)) k) := by
+            Expr.fvar (d + 1 + j) (.sort .zero)) (k - 1)
+            (body.instantiate1 (Expr.fvar d (.sort .zero)) k) := by
       rw [List.range_succ_eq_map, List.map_cons, List.map_map, Nat.add_sub_cancel]
       show Expr.instSeq _ (k - 1) (body.instantiate1 _ k) = _
       congr 1
@@ -74,7 +74,7 @@ theorem denoteP_projTele {acval : Name → (Name → Nat) → AVExpr} {env : Env
       rw [show d + (j + 1) = d + 1 + j from by omega]
     rw [hspine, show d + (k + 1) = d + 1 + k from by omega] at h
     have ih := denoteP_projTele k (d + 1)
-      (body.instantiate1 (Expr.fvar d .anonymous (.sort .zero)) k) h
+      (body.instantiate1 (Expr.fvar d (.sort .zero)) k) h
     rw [Lech.projTele, denoteP_forallE, denoteP_sort, Lech.projTele_instantiate1,
       Nat.zero_add, ih]
     rfl
@@ -91,7 +91,7 @@ theorem denoteP_projTele_zero {acval : Name → (Name → Nat) → AVExpr} {env 
   refine denoteP_projTele (nP + 1) 0 body ?_
   rw [Nat.zero_add, Nat.add_sub_cancel]
   rw [Expr.instSpine_eq_instSeq] at h
-  have e : ((List.range (nP + 1)).map fun j => Expr.fvar (0 + j) .anonymous (.sort .zero))
+  have e : ((List.range (nP + 1)).map fun j => Expr.fvar (0 + j) (.sort .zero))
       = Lech.fvsD nP ++ [Lech.tfvD nP] := by
     rw [List.range_succ, List.map_append, List.map_cons, List.map_nil]
     simp only [Lech.fvsD, Lech.tfvD, Nat.zero_add]
@@ -119,9 +119,9 @@ regime rides the official guard's content (`hguard`) and the unused
 earlier fields' invariance (`hfree`). -/
 theorem bodyFrames {env : Env} (m : EnvS2Core V env)
     {nP nF i : Nat} {T : Name} {cty : Expr} {cds : List Expr}
-    {nmC : Name} {bodyC : Expr} {mbC : BinderMeta} {body : Expr}
+    {bodyC : Expr} {mbC : BinderMeta} {body : Expr}
     (hcf : Expr.instPisAt (Lech.fvsD nP ++ Lech.projArgsD T i nP) cty
-      = some (cds, .forallE nmC
+      = some (cds, .forallE
           (Expr.instSpine (Lech.fvsD nP ++ [Lech.tfvD nP]) nP body) bodyC mbC))
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
     (hprev : ∀ j, j < i → ∃ entry, env.findProj? T j = some entry)
@@ -164,12 +164,12 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
   -- the arguments' scoping
   have hlenP : (Lech.fvsD nP).length = nP := Lech.fvsD_length nP
   have hfvsDidx : ∀ (k : Nat) (x : Expr), (Lech.fvsD nP)[k]? = some x →
-      ∃ nm ty, x = Expr.fvar k nm ty := by
+      ∃ ty, x = Expr.fvar k ty := by
     intro k x hx
     have hk : k < nP := by
       have := (List.getElem?_eq_some_iff.mp hx).1; rwa [hlenP] at this
     rw [Lech.fvsD_getElem? nP k hk] at hx
-    exact ⟨.anonymous, .sort .zero, (Option.some.inj hx).symm⟩
+    exact ⟨.sort .zero, (Option.some.inj hx).symm⟩
   have hargs : ∀ a ∈ Lech.fvsD nP ++ Lech.projArgsD T i nP,
       Expr.WScoped (nP + 1) a ∧ a.looseBVarsBounded 0 = true := by
     intro a ha
@@ -188,7 +188,7 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
   have hspP := denoteSpineP_entryParams (acval := m.acval) (env := env) (φ := ψ)
     hfvsDidx hlenP
   have hspX := denoteSpineP_entryProjs (acval := m.acval) (env := env) (φ := ψ)
-    (nP := nP) (nmT := .anonymous) (sdom := .sort .zero) hprev
+    (nP := nP) (sdom := .sort .zero) hprev
   have hsp : DenoteSpineP m.acval env ψ (nP + 1) (Lech.fvsD nP ++ Lech.projArgsD T i nP)
       (entryParamBvars nP ++ entryProjAVs i) :=
     DenoteSpineP.append hspP hspX

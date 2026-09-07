@@ -164,7 +164,7 @@ def nestedRuleShape (env' envSelf : Env) (cvName : Name)
   if (env'.findCV? ((cvName.str "_model").str s!"iota_{j}")).isSome ∧
       rP ≤ mI then
     match tyA.stripPis mI with
-    | some (_, .forallE _ dom _ _) =>
+    | some (_, .forallE dom _ _) =>
       match dom.getAppFn with
       | .const _D lvls =>
         let args := dom.getAppArgs
@@ -190,8 +190,8 @@ canonical major applies the constructor at the stored level
 instantiations to the stored parameter instantiations (opened at the
 statement's prefix variables) and the field variables, and the
 constructor's telescope walks are taken at those instantiations.  The
-major is pinned up to display-only binder names (`Expr.eqUpToNames`,
-the `checkMemberVal` granularity): unlike the plain major, whose
+major is pinned structurally (`==`; binder names are not part of an
+`Expr` since task #205 — the `checkMemberVal` granularity): unlike the plain major, whose
 arguments are all opened variables, the stored pins can contain
 binders (dependent nested occurrences, `Impl α (fun _ => T ...)`), and
 export arenas intern name-insensitively, so the theorem's pin spelling
@@ -243,7 +243,7 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     -- contract only fixes statements up to `Expr.eqv` — export arenas
     -- intern name-insensitively, so the theorem's pin spelling can
     -- differ from the recursor type's in binder names only
-    unless Expr.eqUpToNames major (Expr.mkAppN (.const (f r.ctor) lvls)
+    unless major == (Expr.mkAppN (.const (f r.ctor) lvls)
         (pinsF ++ xFvs)) do
       throw (.notImplemented s!"iota statement major mismatch for {cvName}")
     -- the constructor's telescope at the stored level instantiations
@@ -364,10 +364,10 @@ def checkIotaRules (ops : CheckerOps m) (env' envSelf : Env) (f : Name → Name)
 
 /-- Check a block member's constant against its `_model` counterpart:
 `checkConstantVal`, the member may not itself be model-shaped, and its
-type is the model's under the block renaming — structurally, up to
-display-only binder names (`Expr.eqUpToNames`): lean4export interns
-expressions irrespective of names, so even a correct preprocessor
-stream can differ from the input in binder names only.  On failure the
+type is the model's under the block renaming — structurally (`==`;
+binder names are not part of an `Expr` since task #205, so the
+preprocessor's re-spelling of a shared binder cannot make this miss).
+On failure the
 message dumps both sides, which identifies the offending subterm
 immediately. -/
 def checkMemberVal (ops : CheckerOps m) (blockNames : List Name)
@@ -384,7 +384,7 @@ def checkMemberVal (ops : CheckerOps m) (blockNames : List Name)
     | throw (.notImplemented s!"missing model for {cvA.name}")
   unless cvm.levelParams = cvA.levelParams do
     throw (.notImplemented s!"model level parameters mismatch for {cvA.name}")
-  unless Expr.eqUpToNames (cvA.type.renameConsts f) cvm.type do
+  unless cvA.type.renameConsts f == cvm.type do
     throw (.notImplemented
       s!"model type mismatch for {cvA.name}\n  member (renamed): \
         {reprStr (cvA.type.renameConsts f)}\n  model: {reprStr cvm.type}")
@@ -602,7 +602,7 @@ def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
      | some (sbinders, sbody), some (tbindersM, tbodyM) =>
        domsMatchAux (fun _ e => e) sbinders tbindersM 0 0 nP &&
        (match sbinders[nP]? with
-        | some (_, xdom, _) =>
+        | some (xdom, _) =>
           xdom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
             ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))
         | none => false) &&
@@ -647,12 +647,12 @@ def checkUnitThm (env' : Env) (T : Name) (lps : List Name)
      | some (sbinders, sbody), some (tbindersM, tbodyM) =>
        domsMatchAux (fun _ e => e) sbinders tbindersM 0 0 nP &&
        (match sbinders[nP]? with
-        | some (_, xdom, _) =>
+        | some (xdom, _) =>
           xdom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
             ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))
         | none => false) &&
        (match sbinders[nP + 1]? with
-        | some (_, ydom, _) =>
+        | some (ydom, _) =>
           ydom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
             ((List.range nP).map fun k => Expr.bvar (nP - k))
         | none => false) &&

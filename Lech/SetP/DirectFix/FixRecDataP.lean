@@ -101,7 +101,7 @@ theorem fixRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     (hRec : Lech.checkDirectFixRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
@@ -170,7 +170,7 @@ theorem fixRecOpenedAll (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectFixParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {rhss : List Expr}
     (hRec : Lech.checkDirectFixRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     (hlenK : p.kinds.length = ctorsA.length)
     {rds : (Name → Nat) → List (Nat × Nat × AVExpr)}
@@ -193,10 +193,10 @@ theorem fixRecOpenedAll (mp : EnvS2PM V μ env)
   obtain ⟨ibs', hsI'⟩ := stripPis_liftLooseBVars p.nIdx ctors.length.succ 0 hsI
   -- the major's telescope: the index binders then the major binder
   have hs3 := Lech.replacePisPw_stripPis p.nIdx hmaj hsI'
-  have hs4 : ∃ bs, (Expr.forallE (.str .anonymous "t")
+  have hs4 : ∃ bs, (Expr.forallE
       (Lech.directFamI p.cvT.name p.cvT.levelParams p.nP p.nIdx (ctors.length + 1) 0)
       (Expr.mkAppN (.bvar (p.nIdx + ctors.length + 1)) (Lech.directPsAt 1 p.nIdx ++ [.bvar 0]))
-      ⟨.default, Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩).stripPis 1
+      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩).stripPis 1
       = some (bs, Expr.mkAppN (.bvar (p.nIdx + ctors.length + 1))
         (Lech.directPsAt 1 p.nIdx ++ [.bvar 0])) :=
     ⟨_, rfl⟩
@@ -215,15 +215,15 @@ theorem fixRecOpenedAll (mp : EnvS2PM V μ env)
       obtain ⟨C, nF, cty, recIdx⟩ := c
       obtain ⟨mty, rest, -, hrest, rfl⟩ := Lech.directMinorsPisR_cons h
       obtain ⟨bs, hbs⟩ := ih (o + 1) body rest hrest
-      exact ⟨(Lech.Name.lastStr C, mty,
-        ⟨.default, Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩) :: bs,
+      exact ⟨((mty : Expr),
+        ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩) :: bs,
         by simp [Expr.stripPis, hbs]⟩
   obtain ⟨bsm, hbsm⟩ := hsmin _ _ _ _ hmin
   have h23 := Lech.stripPis_append _ hbsm hs34
-  have hs2 := Lech.stripPis_append 1 (e := Expr.forallE (.str .anonymous "motive") motiveTy minors
-      ⟨.default, Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)
-    (bs := [(.str .anonymous "motive", motiveTy,
-      ⟨.default, Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)])
+  have hs2 := Lech.stripPis_append 1 (e := Expr.forallE motiveTy minors
+      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)
+    (bs := [((motiveTy : Expr),
+      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)])
     (by simp [Expr.stripPis]) h23
   have hs1 := Lech.replacePisPw_stripPis p.nP hrec hsT
   have hs := Lech.stripPis_append p.nP hs1 hs2

@@ -36,12 +36,12 @@ open Lech (CheckMode Env Expr Name Level ConstantInfo
 def ConstsBound (env₀ : Env) : Expr → Prop
   | .const n _ => (env₀.find? n).isSome = true
   | .app f a => ConstsBound env₀ f ∧ ConstsBound env₀ a
-  | .lam _ ty b _ => ConstsBound env₀ ty ∧ ConstsBound env₀ b
-  | .forallE _ ty b _ => ConstsBound env₀ ty ∧ ConstsBound env₀ b
-  | .letE _ t v b =>
+  | .lam ty b _ => ConstsBound env₀ ty ∧ ConstsBound env₀ b
+  | .forallE ty b _ => ConstsBound env₀ ty ∧ ConstsBound env₀ b
+  | .letE t v b =>
       ConstsBound env₀ t ∧ ConstsBound env₀ v ∧ ConstsBound env₀ b
   | .proj _ _ e => ConstsBound env₀ e
-  | .fvar _ _ ty => ConstsBound env₀ ty
+  | .fvar _ ty => ConstsBound env₀ ty
   | _ => True
 termination_by e => e.sizeF
 decreasing_by all_goals first
@@ -64,21 +64,21 @@ and the one closure fact `denote2`'s binder cases need. -/
       ConstsBound env₀ f ∧ ConstsBound env₀ a := by
   rw [ConstsBound]
 
-@[simp] theorem constsBound_lam {env₀ : Env} {n : Name} {ty b : Expr}
+@[simp] theorem constsBound_lam {env₀ : Env} {ty b : Expr}
     {m : Lech.BinderMeta} :
-    ConstsBound env₀ (.lam n ty b m) ↔
+    ConstsBound env₀ (.lam ty b m) ↔
       ConstsBound env₀ ty ∧ ConstsBound env₀ b := by
   rw [ConstsBound]
 
-@[simp] theorem constsBound_forallE {env₀ : Env} {n : Name}
+@[simp] theorem constsBound_forallE {env₀ : Env}
     {ty b : Expr} {m : Lech.BinderMeta} :
-    ConstsBound env₀ (.forallE n ty b m) ↔
+    ConstsBound env₀ (.forallE ty b m) ↔
       ConstsBound env₀ ty ∧ ConstsBound env₀ b := by
   rw [ConstsBound]
 
-@[simp] theorem constsBound_letE {env₀ : Env} {n : Name}
+@[simp] theorem constsBound_letE {env₀ : Env}
     {t v b : Expr} :
-    ConstsBound env₀ (.letE n t v b) ↔
+    ConstsBound env₀ (.letE t v b) ↔
       ConstsBound env₀ t ∧ ConstsBound env₀ v ∧ ConstsBound env₀ b := by
   rw [ConstsBound]
 
@@ -87,9 +87,9 @@ and the one closure fact `denote2`'s binder cases need. -/
     ConstsBound env₀ (.proj s i e) ↔ ConstsBound env₀ e := by
   rw [ConstsBound]
 
-@[simp] theorem constsBound_fvar {env₀ : Env} {idx : Nat} {n : Name}
+@[simp] theorem constsBound_fvar {env₀ : Env} {idx : Nat}
     {ty : Expr} :
-    ConstsBound env₀ (.fvar idx n ty) ↔ ConstsBound env₀ ty := by
+    ConstsBound env₀ (.fvar idx ty) ↔ ConstsBound env₀ ty := by
   rw [ConstsBound]
 
 @[simp] theorem constsBound_sort {env₀ : Env} {u : Level} :
@@ -121,24 +121,24 @@ theorem ConstsBound.instantiate1 {env₀ : Env} {v : Expr}
     · split <;> simp
   | sort u => intro d _; rw [Lech.Expr.instantiate1]; simp
   | const n us => intro d h; rw [Lech.Expr.instantiate1]; exact h
-  | fvar idx n ty => intro d h; rw [Lech.Expr.instantiate1]; exact h
+  | fvar idx ty => intro d h; rw [Lech.Expr.instantiate1]; exact h
   | lit l => intro d _; rw [Lech.Expr.instantiate1]; simp
   | app f a ihf iha =>
     intro d h
     rw [constsBound_app] at h
     rw [Lech.Expr.instantiate1, constsBound_app]
     exact ⟨ihf d h.1, iha d h.2⟩
-  | lam n ty b m ihty ihb =>
+  | lam ty b m ihty ihb =>
     intro d h
     rw [constsBound_lam] at h
     rw [Lech.Expr.instantiate1, constsBound_lam]
     exact ⟨ihty d h.1, ihb (d + 1) h.2⟩
-  | forallE n ty b m ihty ihb =>
+  | forallE ty b m ihty ihb =>
     intro d h
     rw [constsBound_forallE] at h
     rw [Lech.Expr.instantiate1, constsBound_forallE]
     exact ⟨ihty d h.1, ihb (d + 1) h.2⟩
-  | letE n t val b iht ihval ihb =>
+  | letE t val b iht ihval ihb =>
     intro d h
     rw [constsBound_letE] at h
     rw [Lech.Expr.instantiate1, constsBound_letE]
@@ -213,7 +213,7 @@ theorem constsBound_of_constsResolve {env₀ : Env} :
     intro h
     rw [constsBound_const]
     simpa [Expr.constsResolve] using h
-  | fvar idx n ty ih =>
+  | fvar idx ty ih =>
     intro h
     rw [constsBound_fvar]
     exact ih (by simpa [Expr.constsResolve] using h)
@@ -221,15 +221,15 @@ theorem constsBound_of_constsResolve {env₀ : Env} :
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h
     exact constsBound_app.mpr ⟨ihf h.1, iha h.2⟩
-  | lam n ty b mb ihty ihb =>
+  | lam ty b mb ihty ihb =>
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h
     exact constsBound_lam.mpr ⟨ihty h.1, ihb h.2⟩
-  | forallE n ty b mb ihty ihb =>
+  | forallE ty b mb ihty ihb =>
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h
     exact constsBound_forallE.mpr ⟨ihty h.1, ihb h.2⟩
-  | letE n ty v b ihty ihv ihb =>
+  | letE ty v b ihty ihv ihb =>
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h
     exact constsBound_letE.mpr ⟨ihty h.1.1, ihv h.1.2, ihb h.2⟩

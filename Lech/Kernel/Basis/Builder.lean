@@ -6,10 +6,10 @@ import Lech.Kernel.Basis.Names
 The pinned basis blocks, the standard-axiom prerequisite families and
 the compiler-trust pins are all *raw* `ConstantInfo`s: exactly what the
 lean-inductive-models preprocessor emits for them, which is exactly the
-toolchain's own `Init.Prelude` declaration with every binder name and
-annotation at the parser's normal form `.anonymous` / `⟨.default,
-.never⟩` (task #203; `piI`/`lmI` mark where the signature says
-`.implicit`, for the reader) and every install-computed recursor-rule
+toolchain's own `Init.Prelude` declaration — binder names and infos
+are not part of an `Expr` (task #205; `piI`/`lmI` mark where the
+signature says `{…}`, for the reader), the `pw` datum at the parse
+placeholder `.never` — and every install-computed recursor-rule
 field at its parse placeholder (`ctorParams := 0`, `fire := .inert`).
 
 Written out with `Lech.Expr`'s constructors and `Name.str` chains,
@@ -71,41 +71,35 @@ def type1 : Expr := .sort (.succ .zero)
 /-- A constant, at the given universe arguments. -/
 def cnst (n : Name) (us : List Level := []) : Expr := .const n us
 
-/-! **Binder names and binder infos are for the reader only** (task
-#203).  The official kernel's equality and hash ignore both; ours are
-`decide (· = ·)` and an α-blind packed hash, and what makes `==`
-α-equivalence in practice is ONE normal form for the display data on
-every term the checker holds: name `.anonymous`, info `.default` — the
-frontend's parse-time strip (tasks #142, #203) on the stream side, and
-these four builders on the pin side.  So `pi "a"`/`piI "α"`/`lm`/`lmI`
-take the `Init.Prelude` spelling so a reader can line the pin up
-binder by binder, and emit `.anonymous` at `⟨.default, .never⟩`; the
-installed basis constants therefore carry no display data a stream
-term could differ in. -/
+/-! **Binder names and binder infos are for the reader only** (tasks
+#203/#205).  `Expr` carries neither (task #205: the official kernel's
+equality and hash ignore both, so the fields were dropped outright), so
+`pi "a"`/`piI "α"`/`lm`/`lmI` take the `Init.Prelude` spelling purely
+so a reader can line the pin up binder by binder; `piI`/`lmI` mark
+where the signature says `{…}`.  All five build the same node shape. -/
 
 /-- `∀ (x : ty), body` — an explicit binder (`x` documents the
-`Init.Prelude` spelling; the emitted name is `.anonymous`). -/
+`Init.Prelude` spelling). -/
 def pi (_x : String) (ty body : Expr) : Expr :=
-  .forallE .anonymous ty body ⟨.default, .never⟩
+  .forallE ty body ⟨.never⟩
 
-/-- `∀ {x : ty}, body` — an implicit binder in `Init.Prelude`; emitted
-at `.default`, like every binder the checker holds. -/
+/-- `∀ {x : ty}, body` — an implicit binder in `Init.Prelude` (the
+same node as `pi`; the braces are for the reader). -/
 def piI (_x : String) (ty body : Expr) : Expr :=
-  .forallE .anonymous ty body ⟨.default, .never⟩
+  .forallE ty body ⟨.never⟩
 
 /-- `∀ (_ : ty), body` — an anonymous explicit binder (`ty → body`). -/
 def piA (ty body : Expr) : Expr :=
-  .forallE .anonymous ty body ⟨.default, .never⟩
+  .forallE ty body ⟨.never⟩
 
-/-- `fun (x : ty) => body` — an explicit binder (name for the reader,
-emitted `.anonymous`). -/
+/-- `fun (x : ty) => body` — an explicit binder (name for the reader). -/
 def lm (_x : String) (ty body : Expr) : Expr :=
-  .lam .anonymous ty body ⟨.default, .never⟩
+  .lam ty body ⟨.never⟩
 
-/-- `fun {x : ty} => body` — an implicit binder in `Init.Prelude`;
-emitted at `.default`. -/
+/-- `fun {x : ty} => body` — an implicit binder in `Init.Prelude` (the
+same node as `lm`). -/
 def lmI (_x : String) (ty body : Expr) : Expr :=
-  .lam .anonymous ty body ⟨.default, .never⟩
+  .lam ty body ⟨.never⟩
 
 /-- Binary application. -/
 def ap2 (f a b : Expr) : Expr := .app (.app f a) b

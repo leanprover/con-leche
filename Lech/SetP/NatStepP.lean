@@ -419,31 +419,31 @@ theorem reduceNatSemP (mp : EnvS2PM V μ env) {fuel : Nat}
     exact reduceNatSemP_unary mp ihw h hws hb hLb hC hea hea₂ hok ρ hρ
   | .app (.app (.const c []) a) b, h, hws, hb, hLb, hC, hea, hok =>
     exact reduceNatSemP_binary mp ihw h hws hb hLb hC hea hea₂ hok ρ hρ
-  | .bvar _, h, _, _, _, _, _, _ | .fvar _ _ _, h, _, _, _, _, _, _
-  | .sort _, h, _, _, _, _, _, _ | .lam _ _ _ _, h, _, _, _, _, _, _
-  | .forallE _ _ _ _, h, _, _, _, _, _, _
-  | .letE _ _ _ _, h, _, _, _, _, _, _
+  | .bvar _, h, _, _, _, _, _, _ | .fvar _ _, h, _, _, _, _, _, _
+  | .sort _, h, _, _, _, _, _, _ | .lam _ _ _, h, _, _, _, _, _, _
+  | .forallE _ _ _, h, _, _, _, _, _, _
+  | .letE _ _ _, h, _, _, _, _, _, _
   | .lit _, h, _, _, _, _, _, _ | .proj _ _ _, h, _, _, _, _, _, _
   | .const _ _, h, _, _, _, _, _, _ =>
     simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
   | .app (.bvar _) _, h, _, _, _, _, _, _
-  | .app (.fvar _ _ _) _, h, _, _, _, _, _, _
+  | .app (.fvar _ _) _, h, _, _, _, _, _, _
   | .app (.sort _) _, h, _, _, _, _, _, _
-  | .app (.lam _ _ _ _) _, h, _, _, _, _, _, _
-  | .app (.forallE _ _ _ _) _, h, _, _, _, _, _, _
-  | .app (.letE _ _ _ _) _, h, _, _, _, _, _, _
+  | .app (.lam _ _ _) _, h, _, _, _, _, _, _
+  | .app (.forallE _ _ _) _, h, _, _, _, _, _, _
+  | .app (.letE _ _ _) _, h, _, _, _, _, _, _
   | .app (.lit _) _, h, _, _, _, _, _, _
   | .app (.proj _ _ _) _, h, _, _, _, _, _, _ =>
     simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
   | .app (.const c (_ :: _)) _, h, _, _, _, _, _, _ =>
     simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
   | .app (.app (.bvar _) _) _, h, _, _, _, _, _, _
-  | .app (.app (.fvar _ _ _) _) _, h, _, _, _, _, _, _
+  | .app (.app (.fvar _ _) _) _, h, _, _, _, _, _, _
   | .app (.app (.sort _) _) _, h, _, _, _, _, _, _
   | .app (.app (.app _ _) _) _, h, _, _, _, _, _, _
-  | .app (.app (.lam _ _ _ _) _) _, h, _, _, _, _, _, _
-  | .app (.app (.forallE _ _ _ _) _) _, h, _, _, _, _, _, _
-  | .app (.app (.letE _ _ _ _) _) _, h, _, _, _, _, _, _
+  | .app (.app (.lam _ _ _) _) _, h, _, _, _, _, _, _
+  | .app (.app (.forallE _ _ _) _) _, h, _, _, _, _, _, _
+  | .app (.app (.letE _ _ _) _) _, h, _, _, _, _, _, _
   | .app (.app (.lit _) _) _, h, _, _, _, _, _, _
   | .app (.app (.proj _ _ _) _) _, h, _, _, _, _, _, _ =>
     simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h

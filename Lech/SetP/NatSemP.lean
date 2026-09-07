@@ -206,10 +206,10 @@ theorem natOpV2_add (m : EnvS2Core V env) (hops : NatOpsP m φ)
     intro x hx
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natAddName [])
-          (.fvar 0 (.str .anonymous "x")
+          (.fvar 0
             (.const Lech.natName [])))
         (.const Lech.natZeroName []),
-        .fvar 0 (.str .anonymous "x") (.const Lech.natName [])))
+        .fvar 0 (.const Lech.natName [])))
       (by decide)
       (L := .app (.app (m.acval Lech.natAddName φ) (.bvar 1))
         (m.acval Lech.natZeroName φ))
@@ -237,16 +237,16 @@ theorem natOpV2_add (m : EnvS2Core V env) (hops : NatOpsP m φ)
     intro x y hx hy
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natAddName [])
-          (.fvar 0 (.str .anonymous "x")
+          (.fvar 0
             (.const Lech.natName [])))
         (.app (.const Lech.natSuccName [])
-          (.fvar 1 (.str .anonymous "y")
+          (.fvar 1
             (.const Lech.natName []))),
         .app (.const Lech.natSuccName [])
           (.app (.app (.const Lech.natAddName [])
-            (.fvar 0 (.str .anonymous "x")
+            (.fvar 0
               (.const Lech.natName [])))
-            (.fvar 1 (.str .anonymous "y")
+            (.fvar 1
               (.const Lech.natName [])))))
       (by decide)
       (L := .app (.app (m.acval Lech.natAddName φ) (.bvar 1))
@@ -345,9 +345,9 @@ theorem natOpV2_pred (m : EnvS2Core V env) (hops : NatOpsP m φ)
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.const Lech.natPredName [])
           (.app (.const Lech.natSuccName [])
-            (.fvar 0 (.str .anonymous "x")
+            (.fvar 0
               (.const Lech.natName []))),
-        .fvar 0 (.str .anonymous "x") (.const Lech.natName [])))
+        .fvar 0 (.const Lech.natName [])))
       (by decide)
       (L := .app (m.acval Lech.natPredName φ)
         (.app (m.acval Lech.natSuccName φ) (.bvar 1)))
@@ -422,10 +422,10 @@ theorem natOpV2_sub (m : EnvS2Core V env) (hops : NatOpsP m φ)
     intro x hx
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natSubName [])
-          (.fvar 0 (.str .anonymous "x")
+          (.fvar 0
             (.const Lech.natName [])))
         (.const Lech.natZeroName []),
-        .fvar 0 (.str .anonymous "x") (.const Lech.natName [])))
+        .fvar 0 (.const Lech.natName [])))
       (by decide)
       (L := .app (.app (m.acval Lech.natSubName φ) (.bvar 1))
         (m.acval Lech.natZeroName φ))
@@ -452,16 +452,16 @@ theorem natOpV2_sub (m : EnvS2Core V env) (hops : NatOpsP m φ)
     intro x y hx hy
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natSubName [])
-          (.fvar 0 (.str .anonymous "x")
+          (.fvar 0
             (.const Lech.natName [])))
         (.app (.const Lech.natSuccName [])
-          (.fvar 1 (.str .anonymous "y")
+          (.fvar 1
             (.const Lech.natName []))),
         .app (.const Lech.natPredName [])
           (.app (.app (.const Lech.natSubName [])
-            (.fvar 0 (.str .anonymous "x")
+            (.fvar 0
               (.const Lech.natName [])))
-            (.fvar 1 (.str .anonymous "y")
+            (.fvar 1
               (.const Lech.natName [])))))
       (by decide)
       (L := .app (.app (m.acval Lech.natSubName φ) (.bvar 1))
@@ -543,7 +543,7 @@ theorem natOpV2_mul (m : EnvS2Core V env) (hops : NatOpsP m φ)
     intro x hx
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natMulName [])
-          (.fvar 0 (.str .anonymous "x")
+          (.fvar 0
             (.const Lech.natName [])))
         (.const Lech.natZeroName []),
         .const Lech.natZeroName []))
@@ -573,18 +573,18 @@ theorem natOpV2_mul (m : EnvS2Core V env) (hops : NatOpsP m φ)
     intro x y hx hy
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natMulName [])
-          (.fvar 0 (.str .anonymous "x")
+          (.fvar 0
             (.const Lech.natName [])))
         (.app (.const Lech.natSuccName [])
-          (.fvar 1 (.str .anonymous "y")
+          (.fvar 1
             (.const Lech.natName []))),
         .app (.app (.const Lech.natAddName [])
           (.app (.app (.const Lech.natMulName [])
-            (.fvar 0 (.str .anonymous "x")
+            (.fvar 0
               (.const Lech.natName [])))
-            (.fvar 1 (.str .anonymous "y")
+            (.fvar 1
               (.const Lech.natName []))))
-          (.fvar 0 (.str .anonymous "x")
+          (.fvar 0
             (.const Lech.natName []))))
       (by decide)
       (L := .app (.app (m.acval Lech.natMulName φ) (.bvar 1))
@@ -666,7 +666,7 @@ theorem natOpV2_pow (m : EnvS2Core V env) (hops : NatOpsP m φ)
     intro x hx
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natPowName [])
-          (.fvar 0 (.str .anonymous "x")
+          (.fvar 0
             (.const Lech.natName [])))
         (.const Lech.natZeroName []),
         .app (.const Lech.natSuccName [])
@@ -699,18 +699,18 @@ theorem natOpV2_pow (m : EnvS2Core V env) (hops : NatOpsP m φ)
     intro x y hx hy
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natPowName [])
-          (.fvar 0 (.str .anonymous "x")
+          (.fvar 0
             (.const Lech.natName [])))
         (.app (.const Lech.natSuccName [])
-          (.fvar 1 (.str .anonymous "y")
+          (.fvar 1
             (.const Lech.natName []))),
         .app (.app (.const Lech.natMulName [])
           (.app (.app (.const Lech.natPowName [])
-            (.fvar 0 (.str .anonymous "x")
+            (.fvar 0
               (.const Lech.natName [])))
-            (.fvar 1 (.str .anonymous "y")
+            (.fvar 1
               (.const Lech.natName []))))
-          (.fvar 0 (.str .anonymous "x")
+          (.fvar 0
             (.const Lech.natName []))))
       (by decide)
       (L := .app (.app (m.acval Lech.natPowName φ) (.bvar 1))
@@ -820,7 +820,7 @@ theorem natOpV2_beq (m : EnvS2Core V env) (hops : NatOpsP m φ)
       (eq := (.app (.app (.const Lech.natBeqName [])
           (.const Lech.natZeroName []))
         (.app (.const Lech.natSuccName [])
-          (.fvar 1 (.str .anonymous "y") (.const Lech.natName []))),
+          (.fvar 1 (.const Lech.natName []))),
         .const Lech.boolFalseName []))
       (by decide)
       (L := .app (.app (m.acval Lech.natBeqName φ)
@@ -849,7 +849,7 @@ theorem natOpV2_beq (m : EnvS2Core V env) (hops : NatOpsP m φ)
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natBeqName [])
           (.app (.const Lech.natSuccName [])
-            (.fvar 0 (.str .anonymous "x")
+            (.fvar 0
               (.const Lech.natName []))))
         (.const Lech.natZeroName []),
         .const Lech.boolFalseName []))
@@ -883,13 +883,13 @@ theorem natOpV2_beq (m : EnvS2Core V env) (hops : NatOpsP m φ)
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natBeqName [])
           (.app (.const Lech.natSuccName [])
-            (.fvar 0 (.str .anonymous "x")
+            (.fvar 0
               (.const Lech.natName []))))
         (.app (.const Lech.natSuccName [])
-          (.fvar 1 (.str .anonymous "y") (.const Lech.natName []))),
+          (.fvar 1 (.const Lech.natName []))),
         .app (.app (.const Lech.natBeqName [])
-          (.fvar 0 (.str .anonymous "x") (.const Lech.natName [])))
-          (.fvar 1 (.str .anonymous "y") (.const Lech.natName []))))
+          (.fvar 0 (.const Lech.natName [])))
+          (.fvar 1 (.const Lech.natName []))))
       (by decide)
       (L := .app (.app (m.acval Lech.natBeqName φ)
         (.app (m.acval Lech.natSuccName φ) (.bvar 1)))
@@ -989,7 +989,7 @@ theorem natOpV2_ble (m : EnvS2Core V env) (hops : NatOpsP m φ)
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natBleName [])
           (.const Lech.natZeroName []))
-        (.fvar 1 (.str .anonymous "y") (.const Lech.natName [])),
+        (.fvar 1 (.const Lech.natName [])),
         .const Lech.boolTrueName []))
       (by decide)
       (L := .app (.app (m.acval Lech.natBleName φ)
@@ -1015,7 +1015,7 @@ theorem natOpV2_ble (m : EnvS2Core V env) (hops : NatOpsP m φ)
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natBleName [])
           (.app (.const Lech.natSuccName [])
-            (.fvar 0 (.str .anonymous "x")
+            (.fvar 0
               (.const Lech.natName []))))
         (.const Lech.natZeroName []),
         .const Lech.boolFalseName []))
@@ -1049,13 +1049,13 @@ theorem natOpV2_ble (m : EnvS2Core V env) (hops : NatOpsP m φ)
     have h := natEq_valueP m hops (by decide) hf
       (eq := (.app (.app (.const Lech.natBleName [])
           (.app (.const Lech.natSuccName [])
-            (.fvar 0 (.str .anonymous "x")
+            (.fvar 0
               (.const Lech.natName []))))
         (.app (.const Lech.natSuccName [])
-          (.fvar 1 (.str .anonymous "y") (.const Lech.natName []))),
+          (.fvar 1 (.const Lech.natName []))),
         .app (.app (.const Lech.natBleName [])
-          (.fvar 0 (.str .anonymous "x") (.const Lech.natName [])))
-          (.fvar 1 (.str .anonymous "y") (.const Lech.natName []))))
+          (.fvar 0 (.const Lech.natName [])))
+          (.fvar 1 (.const Lech.natName []))))
       (by decide)
       (L := .app (.app (m.acval Lech.natBleName φ)
         (.app (m.acval Lech.natSuccName φ) (.bvar 1)))

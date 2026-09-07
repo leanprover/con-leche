@@ -78,7 +78,7 @@ blind to an opener's name and annotation, so any same-index opener
 family produces the same tower. -/
 theorem stripLams_denotePTele :
     ∀ (k : Nat) {e : Expr} {j : Nat}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr}
+      {bs : List (Expr × BinderMeta)} {body : Expr}
       {E : AVExpr},
       e.stripLams k = some (bs, body) →
       denoteP acval env φ j e = some E →
@@ -86,9 +86,9 @@ theorem stripLams_denotePTele :
         LamTeleP k E Γ C ∧ Γ.length = k ∧
         denoteP acval env φ (j + k)
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
-        ∀ (i0 : Nat) (b : Name × Expr × BinderMeta), bs[i0]? = some b →
+        ∀ (i0 : Nat) (b : Expr × BinderMeta), bs[i0]? = some b →
           denoteP acval env φ (j + i0)
-            (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
+            (Expr.instSeq (openFvars j i0) (i0 - 1) b.1) =
             some (Γ.getD (k - 1 - i0) default) := by
   intro k
   induction k with
@@ -101,7 +101,7 @@ theorem stripLams_denotePTele :
   | succ k ih =>
     intro e j bs body E h hE
     match e, h with
-    | .lam nm dom bodyE mb, h =>
+    | .lam dom bodyE mb, h =>
       simp only [Lech.Expr.stripLams] at h
       cases hs : bodyE.stripLams k with
       | none => rw [hs] at h; exact nomatch h
@@ -116,7 +116,7 @@ theorem stripLams_denotePTele :
       | some A => ?_
       rw [hA] at hE
       cases hB : denoteP acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar j nm dom)) with
+          (bodyE.instantiate1 (.fvar j dom)) with
       | none => rw [hB] at hE; exact nomatch hE
       | some Bv => ?_
       rw [hB] at hE
@@ -124,21 +124,21 @@ theorem stripLams_denotePTele :
         simpa using hE.symm
       -- re-open at the anonymous opener (the reading is blind to it)
       have hB' : denoteP acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar j Name.anonymous (.sort .zero)))
+          (bodyE.instantiate1 (.fvar j (.sort .zero)))
           = some Bv := by
         rw [denoteP_erasedEq (Lech.Expr.ErasedEq.instantiate1
           (Lech.Expr.ErasedEq.rfl bodyE)
           (show Lech.Expr.ErasedEq
-              (.fvar j Name.anonymous (.sort .zero)) (.fvar j nm dom)
+              (.fvar j (.sort .zero)) (.fvar j dom)
             from by constructor)) (j + 1)]
         exact hB
-      have hsI : ((bodyE.instantiate1 (.fvar j Name.anonymous
+      have hsI : ((bodyE.instantiate1 (.fvar j
           (.sort .zero))).stripLams k).isSome :=
         Lech.Expr.stripLams_instantiate1_isSome k 0 (by rw [hs]; rfl)
       obtain ⟨bs', body', hsI2⟩ : ∃ bs' body',
-          (bodyE.instantiate1 (.fvar j Name.anonymous
+          (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripLams k = some (bs', body') := by
-        cases hq : (bodyE.instantiate1 (.fvar j Name.anonymous
+        cases hq : (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripLams k with
         | none => rw [hq] at hsI; exact nomatch hsI
         | some q => exact ⟨q.1, q.2, rfl⟩
@@ -151,15 +151,15 @@ theorem stripLams_denotePTele :
       · show denoteP acval env φ (j + (k + 1))
           (Expr.instSeq (openFvars j (k + 1)) (k + 1 - 1) p.2)
           = some C
-        rw [show openFvars j (k + 1) = .fvar j Name.anonymous
+        rw [show openFvars j (k + 1) = .fvar j
             (.sort .zero) :: openFvars (j + 1) k from rfl,
-          show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
+          show Expr.instSeq (.fvar j (.sort .zero)
               :: openFvars (j + 1) k) (k + 1 - 1) p.2 =
             Expr.instSeq (openFvars (j + 1) k) (k - 1)
-              (p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+              (p.2.instantiate1 (.fvar j (.sort .zero))
                 k) from by simp [Expr.instSeq],
           show j + (k + 1) = j + 1 + k from by omega,
-          show p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+          show p.2.instantiate1 (.fvar j (.sort .zero))
               k = body' from by
             rw [hbody']
             simp only [Nat.zero_add]]
@@ -167,7 +167,7 @@ theorem stripLams_denotePTele :
       · intro i0 b hb
         cases i0 with
         | zero =>
-          obtain rfl : (nm, dom, mb) = b := by simpa using hb
+          obtain rfl : (dom, mb) = b := by simpa using hb
           show denoteP acval env φ (j + 0)
             (Expr.instSeq (openFvars j 0) (0 - 1) dom) = _
           rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
@@ -195,14 +195,14 @@ theorem stripLams_denotePTele :
             rw [show k + 1 - 1 - (i0 + 1) = k - 1 - i0 from by omega,
               List.getElem?_append_left (by omega)]]
           show denoteP acval env φ (j + (i0 + 1))
-            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.2.1)
+            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.1)
             = _
-          rw [show openFvars j (i0 + 1) = .fvar j Name.anonymous
+          rw [show openFvars j (i0 + 1) = .fvar j
               (.sort .zero) :: openFvars (j + 1) i0 from rfl,
-            show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
-                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.2.1 =
+            show Expr.instSeq (.fvar j (.sort .zero)
+                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.1 =
               Expr.instSeq (openFvars (j + 1) i0) (i0 - 1)
-                (b.2.1.instantiate1 (.fvar j Name.anonymous
+                (b.1.instantiate1 (.fvar j
                   (.sort .zero)) i0) from by
               simp [Expr.instSeq],
             show j + (i0 + 1) = j + 1 + i0 from by omega]
@@ -217,26 +217,26 @@ reading-level form is what a *renamed* domain pin needs — the
 projection statement's telescope is the constructor's renamed, not
 equal to it. -/
 theorem towerCtxEqDP {k : Nat} {Γβ Γc : List AVExpr}
-    {rbinders cbinders : List (Name × Expr × BinderMeta)}
+    {rbinders cbinders : List (Expr × BinderMeta)}
     (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
     (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
-    (hβdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hβdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       rbinders[i0]? = some b →
       denoteP acval env φ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γβ.getD (k - 1 - i0) default))
-    (hcdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hcdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       cbinders[i0]? = some b →
       denoteP acval env φ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γc.getD (k - 1 - i0) default))
-    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
       cbinders[i0]? = some b' →
       denoteP acval env φ (0 + i0)
-          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         denoteP acval env φ (0 + i0)
-          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b'.2.1)) :
+          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b'.1)) :
     Γβ = Γc := by
   refine List.ext_getElem (by omega) ?_
   intro q h1 h2
@@ -264,22 +264,22 @@ theorem towerCtxEqDP {k : Nat} {Γβ Γc : List AVExpr}
 /-- **Two canonically-opened towers with pointwise-equal raw domains
 have the same read context** (`towerCtxEq`). -/
 theorem towerCtxEqP {k : Nat} {Γβ Γc : List AVExpr}
-    {rbinders cbinders : List (Name × Expr × BinderMeta)}
+    {rbinders cbinders : List (Expr × BinderMeta)}
     (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
     (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
-    (hβdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hβdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       rbinders[i0]? = some b →
       denoteP acval env φ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γβ.getD (k - 1 - i0) default))
-    (hcdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hcdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       cbinders[i0]? = some b →
       denoteP acval env φ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γc.getD (k - 1 - i0) default))
-    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
-      cbinders[i0]? = some b' → b.2.1 = b'.2.1) :
+      cbinders[i0]? = some b' → b.1 = b'.1) :
     Γβ = Γc :=
   towerCtxEqDP hrblen hcblen hΓβlen hΓclen hβdoms hcdoms
     (fun i0 b b' hi hb hb' => by rw [hrdomsEq i0 b b' hi hb hb'])
@@ -309,12 +309,12 @@ theorem projBodyValueP {cnP cnF i : Nat} (hilt : i < cnF) {Cβ : AVExpr}
 variable** (`projRhsValue`). -/
 theorem projRhsValueP {fvs : List Expr} {rP cnF i : Nat} {vR : AVExpr}
     (hshapeS : ∀ (i0 : Nat) (x : Expr), fvs[i0]? = some x →
-      ∃ nm ty, x = Expr.fvar i0 nm ty)
+      ∃ ty, x = Expr.fvar i0 ty)
     (hfvslen : fvs.length = rP + cnF) (hilt : i < cnF)
     (hRden : denoteP acval env φ (rP + cnF)
       (fvs.getD (rP + i) default) = some vR) :
     vR = .bvar (rP + cnF - 1 - (rP + i)) := by
-  obtain ⟨nm, t, hsh⟩ := hshapeS (rP + i) fvs[rP + i]
+  obtain ⟨t, hsh⟩ := hshapeS (rP + i) fvs[rP + i]
     (List.getElem?_eq_getElem (show rP + i < fvs.length from by omega))
   rw [show fvs.getD (rP + i) default = fvs[rP + i] from by
       simp [List.getD, List.getElem?_eq_getElem
@@ -340,7 +340,7 @@ theorem instPisAt_openerDomsP :
       Expr.instPisAt sp ty = some (ds, rs) →
       ∀ {j : Nat} {T : AVExpr},
         (∀ (q : Nat) (x : Expr), sp[q]? = some x →
-          ∃ nm t, x = Expr.fvar (j + q) nm t) →
+          ∃ t, x = Expr.fvar (j + q) t) →
         denoteP acval env φ j ty = some T →
         ∀ {Γ : List AVExpr} {R : AVExpr}, PiTeleP sp.length T Γ R →
         ∀ q, q < sp.length →
@@ -353,12 +353,12 @@ theorem instPisAt_openerDomsP :
     exact absurd hq (by simp)
   | cons a sp ih =>
     intro ty ds rs h j T hshape hT Γ R htele q hq
-    obtain ⟨nm0, t0, rfl⟩ := hshape 0 a rfl
+    obtain ⟨t0, rfl⟩ := hshape 0 a rfl
     match ty, h with
-    | .forallE nmT dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (bodyE.instantiate1
-          (.fvar (j + 0) nm0 t0)) with
+          (.fvar (j + 0) t0)) with
       | none => rw [h1] at h; exact nomatch h
       | some p => ?_
       rw [h1] at h
@@ -370,7 +370,7 @@ theorem instPisAt_openerDomsP :
       | some A => ?_
       rw [hA] at hT
       cases hB : denoteP acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar j nmT dom)) with
+          (bodyE.instantiate1 (.fvar j dom)) with
       | none => rw [hB] at hT; exact nomatch hT
       | some Bv => ?_
       rw [hB] at hT
@@ -399,18 +399,18 @@ theorem instPisAt_openerDomsP :
         -- the recursion runs at the *spine's* opener; the reading is
         -- blind to it
         have hB' : denoteP acval env φ (j + 1)
-            (bodyE.instantiate1 (.fvar (j + 0) nm0 t0)) = some B' := by
+            (bodyE.instantiate1 (.fvar (j + 0) t0)) = some B' := by
           rw [denoteP_erasedEq (Lech.Expr.ErasedEq.instantiate1
             (Lech.Expr.ErasedEq.rfl bodyE)
-            (show Lech.Expr.ErasedEq (.fvar (j + 0) nm0 t0)
-                (.fvar j nmT dom) from by
+            (show Lech.Expr.ErasedEq (.fvar (j + 0) t0)
+                (.fvar j dom) from by
               rw [Nat.add_zero]; constructor)) (j + 1)]
           exact hB
         have hshape' : ∀ (q0 : Nat) (x : Expr), sp[q0]? = some x →
-            ∃ nm t, x = Expr.fvar (j + 1 + q0) nm t := by
+            ∃ t, x = Expr.fvar (j + 1 + q0) t := by
           intro q0 x hx
-          obtain ⟨nm', t', hx'⟩ := hshape (q0 + 1) x (by simpa using hx)
-          exact ⟨nm', t', by rw [hx']; congr 1; omega⟩
+          obtain ⟨t', hx'⟩ := hshape (q0 + 1) x (by simpa using hx)
+          exact ⟨t', by rw [hx']; congr 1; omega⟩
         have hrec := ih h1 hshape' hB' htele' q hqs
         rw [show (dom :: p.1).getD (q + 1) default
             = p.1.getD q default from rfl,
@@ -433,9 +433,9 @@ theorem projSpineMemP
       (acval n ψ).liftN 1 k = acval n ψ)
     {K : Nat} {fvs : List Expr} (hfvslen : fvs.length = K)
     (hshapeS : ∀ (q : Nat) (x : Expr), fvs[q]? = some x →
-      ∃ nm ty, x = Expr.fvar q nm ty)
-    (hwsTy : ∀ (q : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar q nm ty ∈ fvs → Expr.WScoped q ty)
+      ∃ ty, x = Expr.fvar q ty)
+    (hwsTy : ∀ (q : Nat) (ty : Expr),
+      Expr.fvar q ty ∈ fvs → Expr.WScoped q ty)
     {ctyR : Expr} (hCwR : ctyR.hasFvar = false)
     {cdoms : List Expr} {cres : Expr}
     (hcinst : Expr.instPisAt fvs ctyR = some (cdoms, cres))
@@ -459,8 +459,8 @@ theorem projSpineMemP
     have h := instPisAt_index_WScoped fvs hcinst
       (d := 0) (Expr.WScoped.of_not_hasFvar hCwR)
       (fun i a ha => by
-        obtain ⟨nm0, t0, rfl⟩ := hshapeS i a ha
-        have hty := hwsTy i nm0 t0 (List.mem_of_getElem? ha)
+        obtain ⟨t0, rfl⟩ := hshapeS i a ha
+        have hty := hwsTy i t0 (List.mem_of_getElem? ha)
         simp only [Expr.WScoped]
         exact ⟨by omega, hty⟩)
       q r hr
@@ -473,8 +473,8 @@ theorem projSpineMemP
     · exact h'
     · rw [List.getElem?_eq_none (by omega)] at hx
       exact nomatch hx
-  obtain ⟨nm, ty, rfl⟩ := hshapeS q x hx
-  refine ⟨.bvar (K - 1 - q), denoteP_fvar acval K q nm ty,
+  obtain ⟨ty, rfl⟩ := hshapeS q x hx
+  refine ⟨.bvar (K - 1 - q), denoteP_fvar acval K q ty,
     ⟨by simp, by simp⟩, ?_⟩
   intro dw hdw
   -- the domain at the frame depth is its own-depth reading, lifted

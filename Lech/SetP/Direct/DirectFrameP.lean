@@ -185,21 +185,21 @@ theorem ctxOkP_opened {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
     (hokΓ : ∀ i, i < k → ∀ ρ : Nat → V, Sat2 V (Γ.drop (k - i)) ρ →
       AnnotOkP V ρ (Γ.getD (k - 1 - i) default))
     {i : Nat} (hik : i ≤ k) {x : Expr} (hwx : Expr.WScoped i x)
-    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs) :
+    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) :
     CtxOkP m φ i (Γ.drop (k - i)) x := by
   have hidx := openPisAtFvars_index k e 0 hop
   have hlenF : fvs.length = k := openPisAtFvars_length k hop
   have hws := (openPisAtFvars_WScoped k e 0 hop
     (Expr.WScoped.of_not_hasFvar hcl)).1
   -- the positions of the variables a leaf can be
-  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2.1 l.2.2) := by
+  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2) := by
     intro l hl
     obtain ⟨p, hp⟩ := List.getElem?_of_mem (hleaf l hl)
-    obtain ⟨nm, ty, hx⟩ := hidx p _ hp
+    obtain ⟨ty, hx⟩ := hidx p _ hp
     rw [Nat.zero_add] at hx
-    obtain ⟨rfl, -, -⟩ : l.1 = p ∧ l.2.1 = nm ∧ l.2.2 = ty := by
-      injection hx with a b c
-      exact ⟨a, b, c⟩
+    obtain ⟨rfl, -⟩ : l.1 = p ∧ l.2 = ty := by
+      injection hx with a b
+      exact ⟨a, b⟩
     exact hp
   refine ctxOkP_of_openers m.acval_closed (fvs := fvs.take i)
     (Aa := fun j => Γ.getD (k - 1 - j) default) (Δa := Γ.drop (k - i))
@@ -211,8 +211,8 @@ theorem ctxOkP_opened {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
       rw [List.length_take] at this
       omega
     rw [List.getElem?_take_of_lt hj] at hy
-    obtain ⟨nm, ty, hx⟩ := hidx j y hy
-    exact ⟨nm, ty, by rw [hx, Nat.zero_add]⟩
+    obtain ⟨ty, hx⟩ := hidx j y hy
+    exact ⟨ty, by rw [hx, Nat.zero_add]⟩
   · intro y hy
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hy
     have hji : j < i := by
@@ -220,7 +220,7 @@ theorem ctxOkP_opened {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
       rw [List.length_take] at this
       omega
     rw [List.getElem?_take_of_lt hji] at hj
-    obtain ⟨nm, ty, rfl⟩ := hidx j y hj
+    obtain ⟨ty, rfl⟩ := hidx j y hj
     have hw := hws _ (List.mem_of_getElem? hj)
     rw [Nat.zero_add] at hw ⊢
     simp only [Expr.WScoped, Nat.zero_add] at hw ⊢

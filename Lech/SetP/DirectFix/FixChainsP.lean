@@ -203,12 +203,12 @@ theorem mem_fvarLeaves_of_getAppArgs : ∀ (e a : Expr), a ∈ e.getAppArgs →
     · exact Or.inl (mem_fvarLeaves_of_getAppArgs f a ha l hl)
     · exact Or.inr hl
   | .bvar _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
-  | .fvar _ _ _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
+  | .fvar _ _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
   | .sort _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
   | .const _ _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
-  | .lam _ _ _ _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
-  | .forallE _ _ _ _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
-  | .letE _ _ _ _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
+  | .lam _ _ _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
+  | .forallE _ _ _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
+  | .letE _ _ _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
   | .proj _ _ _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
   | .lit _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
 

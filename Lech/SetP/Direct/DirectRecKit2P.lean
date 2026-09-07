@@ -26,13 +26,13 @@ variable {V : Type w} [SetTheory V]
 /-! ## Openings at any depth -/
 
 theorem stripPis_isSome_of_instantiate1_fvar :
-    ∀ (n : Nat) {e : Expr} {i : Nat} {nm : Name} {ty : Expr} {k : Nat},
-      (Expr.stripPis n (e.instantiate1 (.fvar i nm ty) k)).isSome = true →
+    ∀ (n : Nat) {e : Expr} {i : Nat} {ty : Expr} {k : Nat},
+      (Expr.stripPis n (e.instantiate1 (.fvar i ty) k)).isSome = true →
       (Expr.stripPis n e).isSome = true
-  | 0, _, _, _, _, _, _ => by simp [Expr.stripPis]
-  | n + 1, e, i, nm, ty, k, h => by
+  | 0, _, _, _, _, _ => by simp [Expr.stripPis]
+  | n + 1, e, i, ty, k, h => by
     match e, h with
-    | .forallE nm' dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instantiate1_forallE, Expr.stripPis, Option.isSome_map] at h ⊢
       exact stripPis_isSome_of_instantiate1_fvar n h
     | .bvar j, h =>
@@ -40,8 +40,8 @@ theorem stripPis_isSome_of_instantiate1_fvar :
       split at h
       · simp [Expr.stripPis] at h
       · split at h <;> simp [Expr.stripPis] at h
-    | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.instantiate1, Expr.stripPis] at h
 
 theorem openPisAtFvars_stripPis_isSome :
@@ -50,7 +50,7 @@ theorem openPisAtFvars_stripPis_isSome :
   | 0, _, _, _, _, _ => by simp [Expr.stripPis]
   | n + 1, e, d, fvs, o, h => by
     match e, h with
-    | .forallE nm dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [openPisAtFvars] at h
       split at h
       · next fvs' o' h' =>
@@ -58,8 +58,8 @@ theorem openPisAtFvars_stripPis_isSome :
         simp only [Expr.stripPis, Option.isSome_map]
         exact stripPis_isSome_of_instantiate1_fvar n this
       · exact nomatch h
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [openPisAtFvars] at h
 
 theorem openPisAtFvars_of_stripPis_isSome :
@@ -68,13 +68,13 @@ theorem openPisAtFvars_of_stripPis_isSome :
   | 0, e, _, _ => ⟨[], e, rfl⟩
   | n + 1, e, d, h => by
     match e, h with
-    | .forallE nm dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.stripPis, Option.isSome_map] at h
       obtain ⟨fvs, o, ho⟩ := openPisAtFvars_of_stripPis_isSome n (d + 1)
-        (Expr.stripPis_instantiate1_isSome (v := .fvar d nm dom) n 0 h)
-      exact ⟨.fvar d nm dom :: fvs, o, by simp only [openPisAtFvars, ho]⟩
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+        (Expr.stripPis_instantiate1_isSome (v := .fvar d dom) n 0 h)
+      exact ⟨.fvar d dom :: fvs, o, by simp only [openPisAtFvars, ho]⟩
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.stripPis] at h
 
 /-- An opening at one depth exists at every depth. -/
@@ -96,7 +96,7 @@ theorem openPisAtFvars_typeWScoped :
     exact nomatch hx
   | n + 1, e, d, fvs, o, hop, hw, i, x, hx => by
     match e, hop with
-    | .forallE nm dom body mb, hop =>
+    | .forallE dom body mb, hop =>
       simp only [openPisAtFvars] at hop
       split at hop
       · next fvs' o' hop' =>
@@ -106,21 +106,21 @@ theorem openPisAtFvars_typeWScoped :
           simpa only [Expr.WScoped] using hw
         cases i with
         | zero =>
-          obtain rfl : Expr.fvar d nm dom = x := by simpa using hx
+          obtain rfl : Expr.fvar d dom = x := by simpa using hx
           show Expr.WScoped (d + 0) dom
           rw [Nat.add_zero]; exact hw'.1
         | succ i =>
           simp only [List.getElem?_cons_succ] at hx
-          have hb : Expr.WScoped (d + 1) (body.instantiate1 (.fvar d nm dom)) :=
-            Expr.WScoped.instantiate1_gen (v := .fvar d nm dom) (d := d + 1)
+          have hb : Expr.WScoped (d + 1) (body.instantiate1 (.fvar d dom)) :=
+            Expr.WScoped.instantiate1_gen (v := .fvar d dom) (d := d + 1)
               (by simp only [Expr.WScoped]; exact ⟨by omega, hw'.1⟩) 0
               (Expr.WScoped.mono (by omega) hw'.2)
           have := openPisAtFvars_typeWScoped n hop' hb i x hx
           rw [show d + (i + 1) = d + 1 + i from by omega]
           exact this
       · exact nomatch hop
-    | .bvar _, hop | .fvar _ _ _, hop | .sort _, hop | .const _ _, hop | .app _ _, hop
-    | .lam _ _ _ _, hop | .letE _ _ _ _, hop | .lit _, hop | .proj _ _ _, hop =>
+    | .bvar _, hop | .fvar _ _, hop | .sort _, hop | .const _ _, hop | .app _ _, hop
+    | .lam _ _ _, hop | .letE _ _ _, hop | .lit _, hop | .proj _ _ _, hop =>
       simp [openPisAtFvars] at hop
 
 /-- An `instPisAt` residual is scoped at the spine's end. -/
@@ -135,7 +135,7 @@ theorem instPisAt_res_WScoped :
     simpa using hty
   | a :: sp, d, ty, ds, rs, h, hty, hsp => by
     match ty, h with
-    | .forallE nm dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -156,8 +156,8 @@ theorem instPisAt_res_WScoped :
         simp only [List.length_cons]
         rw [show d + (sp.length + 1) = d + 1 + sp.length from by omega]
         exact this
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.instPisAt] at h
 
 theorem WScoped_mkAppN {d : Nat} :

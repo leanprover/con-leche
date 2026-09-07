@@ -307,9 +307,9 @@ through it. -/
 theorem instPis_eq_piResidual :
     ∀ (e : Expr) (as : List Expr), e.instPis as = piResidual e as
   | _, [] => rfl
-  | .forallE _ _ b _, a :: as => instPis_eq_piResidual (b.instantiate1 a) as
-  | .bvar _, _ :: _ | .fvar _ _ _, _ :: _ | .sort _, _ :: _
-  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
-  | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+  | .forallE _ b _, a :: as => instPis_eq_piResidual (b.instantiate1 a) as
+  | .bvar _, _ :: _ | .fvar _ _, _ :: _ | .sort _, _ :: _
+  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _, _ :: _
+  | .letE _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
 
 end Lech

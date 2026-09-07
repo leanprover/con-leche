@@ -32,7 +32,7 @@ theorem abstractRange_succ :
         = (e.abstract1 (d + k) c).abstractRange d k (c + 1) := by
   intro e
   induction e with
-  | fvar idx n ty _ih =>
+  | fvar idx ty _ih =>
     intro d k c
     by_cases htop : idx = d + k
     · subst htop

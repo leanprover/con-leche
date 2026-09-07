@@ -119,8 +119,8 @@ theorem blockTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
     {ty : Expr} (htr : ty.constsResolve env = true)
     {cvm : ConstantVal}
-    (hren : Expr.eqUpToNames (ty.renameConsts (fun n' =>
-      if blockNames.contains n' then n'.str "_model" else n')) cvm.type
+    (hren : ((ty.renameConsts (fun n' =>
+      if blockNames.contains n' then n'.str "_model" else n')) == cvm.type)
       = true)
     (ψ : Name → Nat) :
     denoteP mp.base2.acval env ψ 0 ty
@@ -147,7 +147,7 @@ theorem blockTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
     by_cases hb : blockNames.contains n = true
     · rw [if_pos hb]; exact hIA n hb ci hfn ψ'
     · rw [if_neg hb]
-  rw [← denoteP_erasedEq (Expr.ErasedEq.of_eqUpToNames hren) 0]
+  rw [← denoteP_erasedEq (Expr.ErasedEq.of_eq (eq_of_beq hren)) 0]
   exact (denoteP_renameConsts_resolve hup hval ty 0 htr).symm
 
 /-- The member cons's instance: `MemberValR` supplies both data. -/
@@ -340,7 +340,7 @@ theorem memberUnitLawP : MemberUnitLawP V := by
       (fun q => d - 1 - (0 + q)) hσ
       (acval_interp2_closedC mp.base2 _ ψ σ ρ)
   -- the x-slot
-  obtain ⟨nx, mx, hxb⟩ := hxdom
+  obtain ⟨mx, hxb⟩ := hxdom
   have hAx : Ax = AVExpr.mkAppN
       (mp.base2.acval (cvA.name.str "_model") ψ)
       ((List.range caps.unitParams).map fun q =>
@@ -355,7 +355,7 @@ theorem memberUnitLawP : MemberUnitLawP V := by
       at h
     exact (Option.some.inj h).symm
   -- the y-slot
-  obtain ⟨ny, my, hyb⟩ := hydom
+  obtain ⟨my, hyb⟩ := hydom
   have hAy : Ay = AVExpr.mkAppN
       (mp.base2.acval (cvA.name.str "_model") ψ)
       ((List.range caps.unitParams).map fun q =>
@@ -414,7 +414,7 @@ theorem memberUnitLawP : MemberUnitLawP V := by
     -- the two member variables, opened
     have hb1 : Expr.instSeq (openFvars 0 (caps.unitParams + 2))
         (caps.unitParams + 1) (Expr.bvar 1)
-        = Expr.fvar caps.unitParams Name.anonymous (.sort .zero) := by
+        = Expr.fvar caps.unitParams (.sort .zero) := by
       have hhit := Expr.instSeq_bvar (openFvars 0 (caps.unitParams + 2))
         (caps.unitParams + 1) 1
         (openFvars_bounded 0 (caps.unitParams + 2)) (by omega)
@@ -426,7 +426,7 @@ theorem memberUnitLawP : MemberUnitLawP V := by
       exact (Option.some.inj hhit).symm
     have hb0 : Expr.instSeq (openFvars 0 (caps.unitParams + 2))
         (caps.unitParams + 1) (Expr.bvar 0)
-        = Expr.fvar (caps.unitParams + 1) Name.anonymous (.sort .zero) := by
+        = Expr.fvar (caps.unitParams + 1) (.sort .zero) := by
       have hhit := Expr.instSeq_bvar (openFvars 0 (caps.unitParams + 2))
         (caps.unitParams + 1) 0
         (openFvars_bounded 0 (caps.unitParams + 2)) (by omega)
@@ -441,10 +441,10 @@ theorem memberUnitLawP : MemberUnitLawP V := by
       (DenoteSpineP.cons (hKle (caps.unitParams + 2) (by omega))
         (DenoteSpineP.cons
           (denoteP_fvar mp.base2.acval (caps.unitParams + 2)
-            caps.unitParams Name.anonymous (.sort .zero))
+            caps.unitParams (.sort .zero))
           (DenoteSpineP.cons
             (denoteP_fvar mp.base2.acval (caps.unitParams + 2)
-              (caps.unitParams + 1) Name.anonymous (.sort .zero))
+              (caps.unitParams + 1) (.sort .zero))
             DenoteSpineP.nil)))
       (denoteP_const heqfE rfl)] at h
     rw [show caps.unitParams + 2 - 1 - caps.unitParams = 1 from by omega,

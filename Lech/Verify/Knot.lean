@@ -256,9 +256,9 @@ abbrev structEtaProjCertsP (mode : CheckMode) (env : Env) (fuel : Nat) (d : Nat)
 abbrev structUnitCertP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
     CheckM Bool := structUnitCert (pureFns mode env fuel) env
 
-abbrev etaCertP (mode : CheckMode) (env : Env) (fuel : Nat) (d : Nat) (n : Name)
+abbrev etaCertP (mode : CheckMode) (env : Env) (fuel : Nat) (d : Nat)
     (ty body : Expr) (mb : BinderMeta) (b : Expr) : CheckM Bool :=
-  etaCert mode (pureFns mode env fuel) env d n ty body mb b
+  etaCert mode (pureFns mode env fuel) env d ty body mb b
 
 abbrev majorToCtorP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Name →
     List RecRule → Expr → CheckM Expr := majorToCtor mode (pureFns mode env fuel) env

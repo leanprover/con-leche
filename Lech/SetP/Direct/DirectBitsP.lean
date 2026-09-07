@@ -60,8 +60,8 @@ theorem inferTypeCore_sort_inv {env : Env} {F d : Nat} {u : Level} {t : Expr}
     simp only [Lech.inferBody, pure, Except.pure] at h
     exact (Except.ok.inj h).symm
 
-theorem inferTypeCore_fvar_inv {env : Env} {F d idx : Nat} {n : Name}
-    {ty t : Expr} (h : inferTypeCore mode env F d (.fvar idx n ty) = .ok t) :
+theorem inferTypeCore_fvar_inv {env : Env} {F d idx : Nat}
+    {ty t : Expr} (h : inferTypeCore mode env F d (.fvar idx ty) = .ok t) :
     idx < d ∧ t = ty := by
   match F, h with
   | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
@@ -80,7 +80,7 @@ theorem inferTypeCore_mkAppN_fn_inv {env : Env} {F d : Nat} :
   | [], _, t, h => ⟨t, h⟩
   | a :: as, f, t, h => by
     obtain ⟨tfa, hfa⟩ := inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
-    obtain ⟨tf, _, _, _, _, hf, -⟩ := Lech.inferTypeCore_app_inv' hfa
+    obtain ⟨tf, _, _, _, hf, -⟩ := Lech.inferTypeCore_app_inv' hfa
     exact ⟨tf, hf⟩
 
 /-- **A spine into a sort**: applying a head whose type is a
@@ -88,7 +88,7 @@ theorem inferTypeCore_mkAppN_fn_inv {env : Env} {F d : Nat} :
 `Sort s` — the sort carries no bound variables, so the per-argument
 instantiations leave it alone. -/
 theorem inferTypeCore_mkAppN_sort {env : Env} {F d : Nat} :
-    ∀ (as : List Expr) {f ty : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (as : List Expr) {f ty : Expr} {bs : List (Expr × BinderMeta)}
       {s : Level} {t : Expr},
       inferTypeCore mode env F d f = .ok ty →
       ty.stripPis as.length = some (bs, .sort s) →
@@ -100,17 +100,17 @@ theorem inferTypeCore_mkAppN_sort {env : Env} {F d : Nat} :
       Prod.mk.injEq] at hst
     exact hst.2
   | a :: as, f, ty, bs, s, t, hf, hst, h => by
-    obtain ⟨nm, dom, body, mb, rfl⟩ :
-        ∃ nm dom body mb, ty = .forallE nm dom body mb := by
+    obtain ⟨dom, body, mb, rfl⟩ :
+        ∃ dom body mb, ty = .forallE dom body mb := by
       cases ty <;> first
-        | exact ⟨_, _, _, _, rfl⟩
+        | exact ⟨_, _, _, rfl⟩
         | simp [Expr.stripPis] at hst
     obtain ⟨tfa, hfa⟩ := inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
-    obtain ⟨tf, n', ty', body', m', hf', hw, rfl, -⟩ :=
+    obtain ⟨tf, ty', body', m', hf', hw, rfl, -⟩ :=
       Lech.inferTypeCore_app_inv' hfa
-    obtain rfl : tf = .forallE nm dom body mb :=
+    obtain rfl : tf = .forallE dom body mb :=
       Except.ok.inj (hf'.symm.trans hf)
-    obtain ⟨rfl, rfl, rfl, rfl⟩ := Expr.forallE.inj (Lech.whnf_forallE_eq hw)
+    obtain ⟨rfl, rfl, rfl⟩ := Expr.forallE.inj (Lech.whnf_forallE_eq hw)
     simp only [List.length_cons, Expr.stripPis, Option.map_eq_some_iff] at hst
     obtain ⟨⟨bs', body₀⟩, hst', heq⟩ := hst
     simp only [Prod.mk.injEq] at heq
@@ -130,19 +130,19 @@ theorem inferTypeCore_mkAppN_sort {env : Env} {F d : Nat} :
 inference's own `fvar`s, each codomain bit zero exactly when `z`. -/
 def PiBitsOpen (φ : Name → Nat) (z : Prop) : Nat → Nat → Expr → Prop
   | 0, _, _ => True
-  | n + 1, d, .forallE nm dom body mb =>
+  | n + 1, d, .forallE dom body mb =>
     (pwBit φ mb.pw = 0 ↔ z) ∧
-      PiBitsOpen φ z n (d + 1) (body.instantiate1 (.fvar d nm dom))
+      PiBitsOpen φ z n (d + 1) (body.instantiate1 (.fvar d dom))
   | _ + 1, _, _ => False
 
 theorem PiBitsOpen.congr {φ : Name → Nat} {z z' : Prop} (hz : z ↔ z') :
     ∀ {n d : Nat} {e : Expr}, PiBitsOpen φ z n d e → PiBitsOpen φ z' n d e
   | 0, _, _, _ => trivial
-  | _ + 1, _, .forallE _ _ _ _, h =>
+  | _ + 1, _, .forallE _ _ _, h =>
     ⟨h.1.trans hz, PiBitsOpen.congr hz h.2⟩
-  | _ + 1, _, .bvar _, h | _ + 1, _, .fvar _ _ _, h | _ + 1, _, .sort _, h
-  | _ + 1, _, .const _ _, h | _ + 1, _, .app _ _, h | _ + 1, _, .lam _ _ _ _, h
-  | _ + 1, _, .letE _ _ _ _, h | _ + 1, _, .lit _, h | _ + 1, _, .proj _ _ _, h =>
+  | _ + 1, _, .bvar _, h | _ + 1, _, .fvar _ _, h | _ + 1, _, .sort _, h
+  | _ + 1, _, .const _ _, h | _ + 1, _, .app _ _, h | _ + 1, _, .lam _ _ _, h
+  | _ + 1, _, .letE _ _ _, h | _ + 1, _, .lit _, h | _ + 1, _, .proj _ _ _, h =>
     h.elim
 
 theorem eval_imax_eq_zero_iff (φ : Name → Nat) (l r : Level) :
@@ -173,7 +173,7 @@ theorem piBits_of_infer {env : Env} (hver : mode.verifiedChecks = true) :
     exact ⟨F, t, v₀, h, hens, fun _ => Iff.rfl, fun _ => trivial⟩
   | n + 1, F, d, e, t, v₀, fvs, opened, hop, h, hens => by
     match e, hop, h with
-    | .forallE nm dom body mb, hop, h =>
+    | .forallE dom body mb, hop, h =>
       match F, h with
       | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
       | F + 1, h =>
@@ -197,9 +197,9 @@ theorem piBits_of_infer {env : Env} (hver : mode.verifiedChecks = true) :
             rw [← hz hver]
             exact (pwBit_zeronessOf φ _).trans (hv φ)
         · exact nomatch hop
-    | .bvar _, hop, _ | .fvar _ _ _, hop, _ | .sort _, hop, _
-    | .const _ _, hop, _ | .app _ _, hop, _ | .lam _ _ _ _, hop, _
-    | .letE _ _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
+    | .bvar _, hop, _ | .fvar _ _, hop, _ | .sort _, hop, _
+    | .const _ _, hop, _ | .app _ _, hop, _ | .lam _ _ _, hop, _
+    | .letE _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
       simp [openPisAtFvars] at hop
 
 /-! ## The bits, read -/
@@ -220,7 +220,7 @@ theorem stripPisAV_bits {acval : Name → (Name → Nat) → AVExpr} {env : Env}
     exact absurd hp (by simp)
   | n + 1, d, e, ea, pps, b, hbits, hden, hst => by
     match e, hbits with
-    | .forallE nm dom body mb, ⟨hhead, htail⟩ =>
+    | .forallE dom body mb, ⟨hhead, htail⟩ =>
       obtain ⟨ta, ba, -, hba, rfl⟩ := denoteP_forallE_inv hden
       simp only [stripPisAV, Option.map_eq_some_iff] at hst
       obtain ⟨⟨pps', b'⟩, hst', heq⟩ := hst
@@ -230,8 +230,8 @@ theorem stripPisAV_bits {acval : Name → (Name → Nat) → AVExpr} {env : Env}
       rcases List.mem_cons.mp hp with rfl | hp
       · exact hhead
       · exact stripPisAV_bits n htail hba hst' p hp
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       exact h.elim
 
 /-! ## `openPisAtFvars` bookkeeping -/
@@ -244,15 +244,15 @@ theorem openPisAtFvars_length :
     rw [← h.1]; rfl
   | n + 1, e, d, fvs, o, h => by
     match e, h with
-    | .forallE nm dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [openPisAtFvars] at h
       split at h
       · next fvs' e' h' =>
         simp only [Option.some.injEq, Prod.mk.injEq] at h
         rw [← h.1, List.length_cons, openPisAtFvars_length n h']
       · exact nomatch h
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [openPisAtFvars] at h
 
 /-- Two consecutive openings are one. -/
@@ -268,7 +268,7 @@ theorem openPisAtFvars_add :
     simpa using h'
   | n + 1, m, e, d, fvs, fvs', o, o', h, h' => by
     match e, h with
-    | .forallE nm dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [openPisAtFvars] at h
       split at h
       · next fvs₁ e₁ h₁ =>
@@ -281,14 +281,14 @@ theorem openPisAtFvars_add :
         rw [h'']
         rfl
       · exact nomatch h
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [openPisAtFvars] at h
 
 /-- Opening a telescope whose stripped body is a sort reaches that
 sort (sorts carry no bound variables). -/
 theorem openPisAtFvars_of_stripPis_sort :
-    ∀ (n : Nat) {e : Expr} (d : Nat) {bs : List (Name × Expr × BinderMeta)}
+    ∀ (n : Nat) {e : Expr} (d : Nat) {bs : List (Expr × BinderMeta)}
       {s : Level},
       e.stripPis n = some (bs, .sort s) →
       ∃ fvs, openPisAtFvars n e d = some (fvs, .sort s)
@@ -297,27 +297,27 @@ theorem openPisAtFvars_of_stripPis_sort :
     exact ⟨[], by rw [h.2]; rfl⟩
   | n + 1, e, d, bs, s, h => by
     match e, h with
-    | .forallE nm dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.stripPis, Option.map_eq_some_iff] at h
       obtain ⟨⟨bs', body₀⟩, hst', heq⟩ := h
       simp only [Prod.mk.injEq] at heq
       obtain ⟨-, rfl⟩ := heq
       have hsome := Expr.stripPis_instantiate1_isSome
-        (v := .fvar d nm dom) n (e := body) 0 (by rw [hst']; rfl)
+        (v := .fvar d dom) n (e := body) 0 (by rw [hst']; rfl)
       obtain ⟨⟨bs'', body''⟩, hst''⟩ := Option.isSome_iff_exists.mp hsome
       obtain ⟨hb, -⟩ := Expr.stripPis_instantiate1_eq
-        (v := .fvar d nm dom) n 0 hst' hst''
+        (v := .fvar d dom) n 0 hst' hst''
       rw [Expr.instantiate1_sort] at hb
       subst hb
       obtain ⟨fvs, hop⟩ := openPisAtFvars_of_stripPis_sort n (d + 1) hst''
-      refine ⟨Expr.fvar d nm dom :: fvs, ?_⟩
-      show (match openPisAtFvars n (body.instantiate1 (.fvar d nm dom)) (d + 1)
+      refine ⟨Expr.fvar d dom :: fvs, ?_⟩
+      show (match openPisAtFvars n (body.instantiate1 (.fvar d dom)) (d + 1)
           with
-        | some (fvs, e) => some (Expr.fvar d nm dom :: fvs, e)
+        | some (fvs, e) => some (Expr.fvar d dom :: fvs, e)
         | none => none) = _
       rw [hop]
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.stripPis] at h
 
 /-- A domain shape preserved by instantiation carries from the raw
@@ -325,18 +325,18 @@ binder to the opened variable's type. -/
 theorem openPisAtFvars_dom_pred (P : Expr → Prop)
     (hP : ∀ (e v : Expr) (j : Nat), P e → P (e.instantiate1 v j)) :
     ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      {bs : List (Expr × BinderMeta)} {body : Expr},
       openPisAtFvars n e d = some (fvs, o) →
       e.stripPis n = some (bs, body) →
-      ∀ (i : Nat) (b : Name × Expr × BinderMeta) (x : Expr),
-        bs[i]? = some b → fvs[i]? = some x → P b.2.1 → P x.fvarTypeD
+      ∀ (i : Nat) (b : Expr × BinderMeta) (x : Expr),
+        bs[i]? = some b → fvs[i]? = some x → P b.1 → P x.fvarTypeD
   | 0, e, d, fvs, o, bs, body, hop, hst, i, b, x, hb, _, _ => by
     simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hst
     rw [← hst.1] at hb
     exact nomatch hb
   | n + 1, e, d, fvs, o, bs, body, hop, hst, i, b, x, hb, hx, hPb => by
     match e, hop, hst with
-    | .forallE nm dom bd mb, hop, hst =>
+    | .forallE dom bd mb, hop, hst =>
       simp only [openPisAtFvars] at hop
       split at hop
       · next fvs₁ e₁ h₁ =>
@@ -354,10 +354,10 @@ theorem openPisAtFvars_dom_pred (P : Expr → Prop)
         | succ i =>
           simp only [List.getElem?_cons_succ] at hb hx
           have hsome := Expr.stripPis_instantiate1_isSome
-            (v := .fvar d nm dom) n (e := bd) 0 (by rw [hst']; rfl)
+            (v := .fvar d dom) n (e := bd) 0 (by rw [hst']; rfl)
           obtain ⟨⟨bs'', body''⟩, hst''⟩ := Option.isSome_iff_exists.mp hsome
           obtain ⟨-, hdoms⟩ := Expr.stripPis_instantiate1_eq
-            (v := .fvar d nm dom) n 0 hst' hst''
+            (v := .fvar d dom) n 0 hst' hst''
           have hlen : bs''.length = bs'.length := by
             rw [Expr.stripPis_length n hst'', Expr.stripPis_length n hst']
           have hi : i < bs''.length := by
@@ -369,9 +369,9 @@ theorem openPisAtFvars_dom_pred (P : Expr → Prop)
           rw [hdom, Nat.zero_add]
           exact hP _ _ _ hPb
       · exact nomatch hop
-    | .bvar _, hop, _ | .fvar _ _ _, hop, _ | .sort _, hop, _
-    | .const _ _, hop, _ | .app _ _, hop, _ | .lam _ _ _ _, hop, _
-    | .letE _ _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
+    | .bvar _, hop, _ | .fvar _ _, hop, _ | .sort _, hop, _
+    | .const _ _, hop, _ | .app _ _, hop, _ | .lam _ _ _, hop, _
+    | .letE _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
       simp [openPisAtFvars] at hop
 
 end Lech.SetP

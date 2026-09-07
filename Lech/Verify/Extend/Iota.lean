@@ -433,8 +433,8 @@ theorem nestedRuleShape_inv {env' envSelf : Env} {cvName : Name}
       pin.allLevelParamsDefined lps = true ∧
       pin.constsResolve envSelf = true ∧
       pin.looseBVarsBounded rP = true) ∧
-    ∃ pre nm dom body bm D,
-      tyA.stripPis mI = some (pre, .forallE nm dom body bm) ∧
+    ∃ pre dom body bm D,
+      tyA.stripPis mI = some (pre, .forallE dom body bm) ∧
       dom.getAppFn = .const D lvls ∧
       dom.getAppArgs =
         pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
@@ -449,26 +449,26 @@ theorem nestedRuleShape_inv {env' envSelf : Env} {cvName : Name}
   match hstrip : tyA.stripPis mI with
   | none => intro h; exact nomatch h
   | some (pre, .bvar _) => intro h; exact nomatch h
-  | some (pre, .fvar _ _ _) => intro h; exact nomatch h
+  | some (pre, .fvar _ _) => intro h; exact nomatch h
   | some (pre, .sort _) => intro h; exact nomatch h
   | some (pre, .const _ _) => intro h; exact nomatch h
   | some (pre, .app _ _) => intro h; exact nomatch h
-  | some (pre, .lam _ _ _ _) => intro h; exact nomatch h
-  | some (pre, .letE _ _ _ _) => intro h; exact nomatch h
+  | some (pre, .lam _ _ _) => intro h; exact nomatch h
+  | some (pre, .letE _ _ _) => intro h; exact nomatch h
   | some (pre, .lit _) => intro h; exact nomatch h
   | some (pre, .proj _ _ _) => intro h; exact nomatch h
-  | some (pre, .forallE nm dom body bm) => ?_
+  | some (pre, .forallE dom body bm) => ?_
   intro h
   try dsimp only at h
   revert h
   match hfn : dom.getAppFn with
   | .bvar _ => intro h; exact nomatch h
-  | .fvar _ _ _ => intro h; exact nomatch h
+  | .fvar _ _ => intro h; exact nomatch h
   | .sort _ => intro h; exact nomatch h
   | .app _ _ => intro h; exact nomatch h
-  | .lam _ _ _ _ => intro h; exact nomatch h
-  | .forallE _ _ _ _ => intro h; exact nomatch h
-  | .letE _ _ _ _ => intro h; exact nomatch h
+  | .lam _ _ _ => intro h; exact nomatch h
+  | .forallE _ _ _ => intro h; exact nomatch h
+  | .letE _ _ _ => intro h; exact nomatch h
   | .lit _ => intro h; exact nomatch h
   | .proj _ _ _ => intro h; exact nomatch h
   | .const D lvls' => ?_
@@ -484,7 +484,7 @@ theorem nestedRuleShape_inv {env' envSelf : Env} {cvName : Name}
       (Expr.lowerBVars (mI - rP) 0)).length = cnP := by
     rw [List.length_map, List.length_take, hlen]
     omega
-  refine ⟨hcond1.2, ?_, ?_, pre, nm, dom, body, bm, D, rfl, hfn,
+  refine ⟨hcond1.2, ?_, ?_, pre, dom, body, bm, D, rfl, hfn,
     ?_, hplen⟩
   · intro l hl
     exact List.all_eq_true.mp hlvlsAll l hl
@@ -581,10 +581,10 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   case neg => rw [if_neg hlpre] at h; exact nomatch h
   rw [if_pos hlpre] at h
   try dsimp only at h
-  by_cases hmaj : Expr.eqUpToNames (lhsS.getAppArgs.getLastD (.bvar 0))
-      (Expr.mkAppN (.const (f (RecRule.ctor r)) lvls)
-        (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
-          (p.renameConsts f)) ++ fvs.drop rP)) = true
+  by_cases hmaj : ((lhsS.getAppArgs.getLastD (.bvar 0))
+    == (Expr.mkAppN (.const (f (RecRule.ctor r)) lvls)
+      (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
+        (p.renameConsts f)) ++ fvs.drop rP))) = true
   case neg => rw [if_neg hmaj] at h; exact nomatch h
   rw [if_pos hmaj] at h
   try dsimp only at h
@@ -598,12 +598,12 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   revert h
   match hcheadEq : cbody0.getAppFn with
   | .bvar _ => intro h; exact nomatch h
-  | .fvar _ _ _ => intro h; exact nomatch h
+  | .fvar _ _ => intro h; exact nomatch h
   | .sort _ => intro h; exact nomatch h
   | .app _ _ => intro h; exact nomatch h
-  | .lam _ _ _ _ => intro h; exact nomatch h
-  | .forallE _ _ _ _ => intro h; exact nomatch h
-  | .letE _ _ _ _ => intro h; exact nomatch h
+  | .lam _ _ _ => intro h; exact nomatch h
+  | .forallE _ _ _ => intro h; exact nomatch h
+  | .letE _ _ _ => intro h; exact nomatch h
   | .lit _ => intro h; exact nomatch h
   | .proj _ _ _ => intro h; exact nomatch h
   | .const Dc usc => ?_
@@ -761,7 +761,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
           tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
           restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
           hfthm, hcvt, rfl, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
-          eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj,
+          eq_of_beq hlpre, Expr.ErasedEq.of_eq (eq_of_beq hmaj),
           ⟨bsC0, cbody0, Dc, usc, hcstrip, hcheadEq⟩,
           hcinst, hclen,
           checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
@@ -795,7 +795,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
         restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
         hfthm, hcvt, rfl, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
-        eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj,
+        eq_of_beq hlpre, Expr.ErasedEq.of_eq (eq_of_beq hmaj),
         ⟨bsC0, cbody0, Dc, usc, hcstrip, hcheadEq⟩,
         hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
@@ -813,7 +813,7 @@ side was annotated). -/
 def RuleChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
     (cvA : ConstantVal) (mI rP j : Nat) (r : RecRule) : Prop :=
   ∃ (cvj : ConstantVal) (cnP cnF : Nat) (raw rhsTy : Expr)
-    (rbinders : List (Name × Expr × BinderMeta)) (rbody : Expr),
+    (rbinders : List (Expr × BinderMeta)) (rbody : Expr),
     env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) ∧
     RecRule.nfields r = cnF ∧
     RecRule.ctorParams r = cnP ∧
@@ -826,8 +826,8 @@ def RuleChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Na
         pin.allLevelParamsDefined cvA.levelParams = true ∧
         pin.constsResolve env₀ = true ∧
         pin.looseBVarsBounded rP = true) ∧
-      (∃ pre nm dom body bm D,
-        cvA.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
+      (∃ pre dom body bm D,
+        cvA.type.stripPis mI = some (pre, .forallE dom body bm) ∧
         dom.getAppFn = .const D lvls ∧
         dom.getAppArgs =
           pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
@@ -993,10 +993,10 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
         intro lvls' pins' hf
         obtain ⟨rfl, rfl⟩ := RecRuleFire.nested.inj
           (hf : RecRuleFire.nested lvls pins = .nested lvls' pins')
-        obtain ⟨hmi, hlvls, hpins, pre, nm, dom, body, bm, D, hstrip,
+        obtain ⟨hmi, hlvls, hpins, pre, dom, body, bm, D, hstrip,
           hfn, hpinsEq, hpinsLen⟩ := nestedRuleShape_inv hshape
         exact ⟨hmi, hlvls, hpins,
-          ⟨pre, nm, dom, body, bm, D, hstrip, hfn, hpinsEq⟩, hpinsLen,
+          ⟨pre, dom, body, bm, D, hstrip, hfn, hpinsEq⟩, hpinsLen,
           hkit⟩
 
 /-- Invert a successful `checkIotaRules` run: every returned rule
@@ -1056,7 +1056,7 @@ def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
   (caps.eta = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
     (hmcvmT : ReducibilityHint)
-    (sbinders tbindersM : List (Name × Expr × BinderMeta))
+    (sbinders tbindersM : List (Expr × BinderMeta))
     (sbody tbodyM tySlot : Expr) (ℓA : Level),
     env'.find? ((T.str "_model").str "eta") = some (.thmInfo tcv tval) ∧
     tcv.levelParams = lps ∧
@@ -1070,10 +1070,10 @@ def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
     env'.find? eqName = some eqA ∧
     tcv.type.stripPis (caps.etaParams + 1) = some (sbinders, sbody) ∧
     cvmT.type.stripPis caps.etaParams = some (tbindersM, tbodyM) ∧
-    (∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < caps.etaParams →
+    (∀ (k : Nat) (b b' : Expr × BinderMeta), k < caps.etaParams →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
-      b.2.1 = b'.2.1) ∧
-    (∃ nx mx, sbinders[caps.etaParams]? = some (nx,
+      b.1 = b'.1) ∧
+    (∃ mx, sbinders[caps.etaParams]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range caps.etaParams).map fun k =>
           Expr.bvar (caps.etaParams - 1 - k)), mx)) ∧
@@ -1095,7 +1095,7 @@ def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
   (caps.unitlike = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
     (hmcvmT : ReducibilityHint)
-    (sbinders tbindersM : List (Name × Expr × BinderMeta))
+    (sbinders tbindersM : List (Expr × BinderMeta))
     (sbody tbodyM tySlot : Expr) (ℓA : Level),
     env'.find? ((T.str "_model").str "unitlike") =
       some (.thmInfo tcv tval) ∧
@@ -1105,15 +1105,15 @@ def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
     env'.find? eqName = some eqA ∧
     tcv.type.stripPis (caps.unitParams + 2) = some (sbinders, sbody) ∧
     cvmT.type.stripPis caps.unitParams = some (tbindersM, tbodyM) ∧
-    (∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+    (∀ (k : Nat) (b b' : Expr × BinderMeta),
       k < caps.unitParams →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
-      b.2.1 = b'.2.1) ∧
-    (∃ nx mx, sbinders[caps.unitParams]? = some (nx,
+      b.1 = b'.1) ∧
+    (∃ mx, sbinders[caps.unitParams]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range caps.unitParams).map fun k =>
           Expr.bvar (caps.unitParams - 1 - k)), mx)) ∧
-    (∃ ny my, sbinders[caps.unitParams + 1]? = some (ny,
+    (∃ my, sbinders[caps.unitParams + 1]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range caps.unitParams).map fun k =>
           Expr.bvar (caps.unitParams - k)), my)) ∧
@@ -1131,7 +1131,7 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
     (h : checkUnitThm mode env' T lps nP = true) :
     ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal)
       (mvalT : Expr) (hmcvmT : ReducibilityHint)
-      (sbinders tbindersM : List (Name × Expr × BinderMeta))
+      (sbinders tbindersM : List (Expr × BinderMeta))
       (sbody tbodyM tySlot : Expr) (ℓA : Level),
       env'.find? ((T.str "_model").str "unitlike") =
         some (.thmInfo tcv tval) ∧
@@ -1141,13 +1141,13 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
       env'.find? eqName = some eqA ∧
       tcv.type.stripPis (nP + 2) = some (sbinders, sbody) ∧
       cvmT.type.stripPis nP = some (tbindersM, tbodyM) ∧
-      (∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
+      (∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
         sbinders[k]? = some b → tbindersM[k]? = some b' →
-        b.2.1 = b'.2.1) ∧
-      (∃ nx mx, sbinders[nP]? = some (nx,
+        b.1 = b'.1) ∧
+      (∃ mx, sbinders[nP]? = some (
         Expr.mkAppN (.const (T.str "_model") (lps.map .param))
           ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx)) ∧
-      (∃ ny my, sbinders[nP + 1]? = some (ny,
+      (∃ my, sbinders[nP + 1]? = some (
         Expr.mkAppN (.const (T.str "_model") (lps.map .param))
           ((List.range nP).map fun k => Expr.bvar (nP - k)), my)) ∧
       sbody = Expr.mkAppN (.const eqName [ℓA])
@@ -1198,69 +1198,69 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   intro hrest
   simp only [Bool.and_eq_true] at hrest
   obtain ⟨⟨⟨hdomsB, hxdomB⟩, hydomB⟩, hbodyB⟩ := hrest
-  have hdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
+  have hdoms : ∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
-      b.2.1 = b'.2.1 := by
+      b.1 = b'.1 := by
     intro k b b' hk hb hb'
     exact domsMatchAux_inv hdomsB hk
       (by rw [Nat.zero_add]; exact hb) (by rw [Nat.zero_add]; exact hb')
-  have hxdom : ∃ nx mx, sbinders[nP]? = some (nx,
+  have hxdom : ∃ mx, sbinders[nP]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx) := by
     revert hxdomB
     match hbx : sbinders[nP]? with
     | none => intro hx; exact nomatch hx
-    | some (nx, xdom, mx) =>
+    | some (xdom, mx) =>
       intro hx
-      exact ⟨nx, mx, by rw [eq_of_beq hx]⟩
-  have hydom : ∃ ny my, sbinders[nP + 1]? = some (ny,
+      exact ⟨mx, by rw [eq_of_beq hx]⟩
+  have hydom : ∃ my, sbinders[nP + 1]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range nP).map fun k => Expr.bvar (nP - k)), my) := by
     revert hydomB
     match hby : sbinders[nP + 1]? with
     | none => intro hy; exact nomatch hy
-    | some (ny, ydom, my) =>
+    | some (ydom, my) =>
       intro hy
-      exact ⟨ny, my, by rw [eq_of_beq hy]⟩
+      exact ⟨my, by rw [eq_of_beq hy]⟩
   revert hbodyB
   match hsb : sbody with
   | .app (.app (.app (.const c ℓs) tySlot) lhsC) rhsC => ?_
   | .bvar _ => intro hb; exact nomatch hb
-  | .fvar _ _ _ => intro hb; exact nomatch hb
+  | .fvar _ _ => intro hb; exact nomatch hb
   | .sort _ => intro hb; exact nomatch hb
   | .const _ _ => intro hb; exact nomatch hb
-  | .lam _ _ _ _ => intro hb; exact nomatch hb
-  | .forallE _ _ _ _ => intro hb; exact nomatch hb
-  | .letE _ _ _ _ => intro hb; exact nomatch hb
+  | .lam _ _ _ => intro hb; exact nomatch hb
+  | .forallE _ _ _ => intro hb; exact nomatch hb
+  | .letE _ _ _ => intro hb; exact nomatch hb
   | .lit _ => intro hb; exact nomatch hb
   | .proj _ _ _ => intro hb; exact nomatch hb
   | .app (.bvar _) _ => intro hb; exact nomatch hb
-  | .app (.fvar _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.fvar _ _) _ => intro hb; exact nomatch hb
   | .app (.sort _) _ => intro hb; exact nomatch hb
   | .app (.const _ _) _ => intro hb; exact nomatch hb
-  | .app (.lam _ _ _ _) _ => intro hb; exact nomatch hb
-  | .app (.forallE _ _ _ _) _ => intro hb; exact nomatch hb
-  | .app (.letE _ _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.lam _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.forallE _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.letE _ _ _) _ => intro hb; exact nomatch hb
   | .app (.lit _) _ => intro hb; exact nomatch hb
   | .app (.proj _ _ _) _ => intro hb; exact nomatch hb
   | .app (.app (.bvar _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.fvar _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.fvar _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.sort _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.const _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.lam _ _ _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.forallE _ _ _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.letE _ _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.lam _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.forallE _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.letE _ _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.lit _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.proj _ _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.bvar _) _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.app (.fvar _ _ _) _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.app (.fvar _ _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.sort _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.app _ _) _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.app (.lam _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.lam _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
-  | .app (.app (.app (.forallE _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.forallE _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
-  | .app (.app (.app (.letE _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.letE _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
   | .app (.app (.app (.lit _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.proj _ _ _) _) _) _ =>
@@ -1289,7 +1289,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
     (h : checkEtaThm mode env' T ctorName lps nP nF = true) :
     ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal)
       (mvalT : Expr) (hmcvmT : ReducibilityHint)
-      (sbinders tbindersM : List (Name × Expr × BinderMeta))
+      (sbinders tbindersM : List (Expr × BinderMeta))
       (sbody tbodyM tySlot : Expr) (ℓA : Level),
       env'.find? ((T.str "_model").str "eta") =
         some (.thmInfo tcv tval) ∧
@@ -1304,10 +1304,10 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
       env'.find? eqName = some eqA ∧
       tcv.type.stripPis (nP + 1) = some (sbinders, sbody) ∧
       cvmT.type.stripPis nP = some (tbindersM, tbodyM) ∧
-      (∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
+      (∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
         sbinders[k]? = some b → tbindersM[k]? = some b' →
-        b.2.1 = b'.2.1) ∧
-      (∃ nx mx, sbinders[nP]? = some (nx,
+        b.1 = b'.1) ∧
+      (∃ mx, sbinders[nP]? = some (
         Expr.mkAppN (.const (T.str "_model") (lps.map .param))
           ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx)) ∧
       sbody = Expr.mkAppN (.const eqName [ℓA])
@@ -1392,60 +1392,60 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   simp only [Bool.and_eq_true] at hrest
   obtain ⟨⟨hdomsB, hxdomB⟩, hbodyB⟩ := hrest
   have htMlen : tbindersM.length = nP := Expr.stripPis_length _ hTm_strip
-  have hdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
+  have hdoms : ∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
-      b.2.1 = b'.2.1 := by
+      b.1 = b'.1 := by
     intro k b b' hk hb hb'
     exact domsMatchAux_inv hdomsB hk
       (by rw [Nat.zero_add]; exact hb) (by rw [Nat.zero_add]; exact hb')
-  have hxdom : ∃ nx mx, sbinders[nP]? = some (nx,
+  have hxdom : ∃ mx, sbinders[nP]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx) := by
     revert hxdomB
     match hbx : sbinders[nP]? with
     | none => intro hx; exact nomatch hx
-    | some (nx, xdom, mx) =>
+    | some (xdom, mx) =>
       intro hx
-      exact ⟨nx, mx, by rw [eq_of_beq hx]⟩
+      exact ⟨mx, by rw [eq_of_beq hx]⟩
   revert hbodyB
   match hsb : sbody with
   | .app (.app (.app (.const c ℓs) tySlot) lhsC) rhsC => ?_
   | .bvar _ => intro hb; exact nomatch hb
-  | .fvar _ _ _ => intro hb; exact nomatch hb
+  | .fvar _ _ => intro hb; exact nomatch hb
   | .sort _ => intro hb; exact nomatch hb
   | .const _ _ => intro hb; exact nomatch hb
-  | .lam _ _ _ _ => intro hb; exact nomatch hb
-  | .forallE _ _ _ _ => intro hb; exact nomatch hb
-  | .letE _ _ _ _ => intro hb; exact nomatch hb
+  | .lam _ _ _ => intro hb; exact nomatch hb
+  | .forallE _ _ _ => intro hb; exact nomatch hb
+  | .letE _ _ _ => intro hb; exact nomatch hb
   | .lit _ => intro hb; exact nomatch hb
   | .proj _ _ _ => intro hb; exact nomatch hb
   | .app (.bvar _) _ => intro hb; exact nomatch hb
-  | .app (.fvar _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.fvar _ _) _ => intro hb; exact nomatch hb
   | .app (.sort _) _ => intro hb; exact nomatch hb
   | .app (.const _ _) _ => intro hb; exact nomatch hb
-  | .app (.lam _ _ _ _) _ => intro hb; exact nomatch hb
-  | .app (.forallE _ _ _ _) _ => intro hb; exact nomatch hb
-  | .app (.letE _ _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.lam _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.forallE _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.letE _ _ _) _ => intro hb; exact nomatch hb
   | .app (.lit _) _ => intro hb; exact nomatch hb
   | .app (.proj _ _ _) _ => intro hb; exact nomatch hb
   | .app (.app (.bvar _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.fvar _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.fvar _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.sort _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.const _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.lam _ _ _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.forallE _ _ _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.letE _ _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.lam _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.forallE _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.letE _ _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.lit _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.proj _ _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.bvar _) _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.app (.fvar _ _ _) _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.app (.fvar _ _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.sort _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.app _ _) _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.app (.lam _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.lam _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
-  | .app (.app (.app (.forallE _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.forallE _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
-  | .app (.app (.app (.letE _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.letE _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
   | .app (.app (.app (.lit _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.proj _ _ _) _) _) _ =>

@@ -38,7 +38,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 /-- A lifted telescope strips as the telescope does, the body lifted
 above the stripped binders. -/
 theorem stripPis_liftLooseBVars :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)} {body : Expr} (n c : Nat),
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr} (n c : Nat),
       e.stripPis k = some (bs, body) →
       ∃ bs', (e.liftLooseBVars n c).stripPis k = some (bs', body.liftLooseBVars n (c + k))
   | 0, e, bs, body, n, c, h => by
@@ -47,19 +47,19 @@ theorem stripPis_liftLooseBVars :
     exact ⟨[], by simp [Expr.stripPis]⟩
   | k + 1, e, bs, body, n, c, h => by
     match e, h with
-    | .forallE nm ty b mb, h =>
+    | .forallE ty b mb, h =>
       simp only [Expr.stripPis, Option.map_eq_some_iff] at h
       obtain ⟨⟨bs', body'⟩, hs, heq⟩ := h
       simp only [Prod.mk.injEq] at heq
       obtain ⟨-, rfl⟩ := heq
       obtain ⟨bs'', hs''⟩ := stripPis_liftLooseBVars k n (c + 1) hs
-      refine ⟨(nm, ty.liftLooseBVars n c, mb) :: bs'', ?_⟩
-      show (Expr.forallE nm (Expr.liftLooseBVars n c ty) (Expr.liftLooseBVars n (c + 1) b) mb).stripPis
+      refine ⟨(ty.liftLooseBVars n c, mb) :: bs'', ?_⟩
+      show (Expr.forallE (Expr.liftLooseBVars n c ty) (Expr.liftLooseBVars n (c + 1) b) mb).stripPis
         (k + 1) = _
       simp only [Expr.stripPis, hs'', Option.map_some]
       rw [show c + 1 + k = c + (k + 1) from by omega]
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.stripPis] at h
 
 /-! ## The rule data's shape -/
@@ -426,7 +426,7 @@ theorem sumRecOpenedAll (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectSumParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {rhss : List Expr}
     (hRec : Lech.checkDirectSumRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {rds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hRD : SumRecData mp.base2 cvRa p.nP ctorsA.length p.nIdx (sumElimLevel p) rds) :
@@ -444,12 +444,12 @@ theorem sumRecOpenedAll (mp : EnvS2PM V μ env)
   obtain ⟨ibs', hsI'⟩ := stripPis_liftLooseBVars p.nIdx (ctorsA.map fun c => (c.1.name, c.2, c.1.type)).length.succ 0 hsI
   -- the major's telescope: the index binders then the major binder
   have hs3 := Lech.replacePisPw_stripPis p.nIdx hmaj hsI'
-  have hs4 : ∃ bs, (Expr.forallE (.str .anonymous "t")
+  have hs4 : ∃ bs, (Expr.forallE
       (Lech.directFamI p.cvT.name p.cvT.levelParams p.nP p.nIdx
         ((ctorsA.map fun c => (c.1.name, c.2, c.1.type)).length + 1) 0)
       (Expr.mkAppN (.bvar (p.nIdx + (ctorsA.map fun c => (c.1.name, c.2, c.1.type)).length + 1))
         (Lech.directPsAt 1 p.nIdx ++ [.bvar 0]))
-      ⟨.default, Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩).stripPis 1
+      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩).stripPis 1
       = some (bs, Expr.mkAppN (.bvar (p.nIdx + (ctorsA.map fun c => (c.1.name, c.2, c.1.type)).length + 1))
         (Lech.directPsAt 1 p.nIdx ++ [.bvar 0])) :=
     ⟨_, rfl⟩
@@ -468,15 +468,15 @@ theorem sumRecOpenedAll (mp : EnvS2PM V μ env)
       obtain ⟨C, nF, cty⟩ := c
       obtain ⟨mty, rest, -, hrest, rfl⟩ := Lech.directMinorsPisI_cons h
       obtain ⟨bs, hbs⟩ := ih (o + 1) body rest hrest
-      exact ⟨(Lech.Name.lastStr C, mty,
-        ⟨.default, Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩) :: bs,
+      exact ⟨(mty,
+        ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩) :: bs,
         by simp [Expr.stripPis, hbs]⟩
   obtain ⟨bsm, hbsm⟩ := hsmin _ _ _ _ hmin
   have h23 := Lech.stripPis_append _ hbsm hs34
-  have hs2 := Lech.stripPis_append 1 (e := Expr.forallE (.str .anonymous "motive") motiveTy minors
-      ⟨.default, Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)
-    (bs := [(.str .anonymous "motive", motiveTy,
-      ⟨.default, Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)])
+  have hs2 := Lech.stripPis_append 1 (e := Expr.forallE motiveTy minors
+      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)
+    (bs := [(motiveTy,
+      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)])
     (by simp [Expr.stripPis]) h23
   have hs1 := Lech.replacePisPw_stripPis p.nP hrec hsT
   have hs := Lech.stripPis_append p.nP hs1 hs2
@@ -496,7 +496,7 @@ theorem stageSumRec (hE : Lech.EtaFamiliesClosed env)
     {rhss : List Expr} {mI rP : Nat}
     (hmI : mI = p.nP + 1 + ctorsA.length + p.nIdx) (hrP : rP = p.nP + 1 + ctorsA.length)
     (hRec : Lech.checkDirectSumRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {caps : IndCaps}
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))

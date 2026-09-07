@@ -32,8 +32,8 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
       env'.find? (cvA.name.str "_model") =
         some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = cvA.levelParams ∧
-      Expr.eqUpToNames (cvA.type.renameConsts (fun n =>
-        if blockNames.contains n then n.str "_model" else n)) cvm.type =
+      ((cvA.type.renameConsts (fun n =>
+        if blockNames.contains n then n.str "_model" else n)) == cvm.type) =
         true := by
   simp only [checkMemberVal, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
@@ -65,9 +65,9 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
   case neg => rw [if_neg hlps] at h; exact nomatch h
   rw [if_pos hlps] at h
   try dsimp only at h
-  by_cases hren : Expr.eqUpToNames (cvA'.type.renameConsts (fun n =>
-      if blockNames.contains n then n.str "_model" else n))
-      cvm.type = true
+  by_cases hren : ((cvA'.type.renameConsts (fun n =>
+      if blockNames.contains n then n.str "_model" else n)) == cvm.type)
+      = true
   case neg => rw [if_neg hren] at h; exact nomatch h
   rw [if_pos hren] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -83,8 +83,8 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
       cvA.name.isModelSuffix = false ∧
       env'.find? (cvA.name.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = cvA.levelParams ∧
-      Expr.eqUpToNames (cvA.type.renameConsts (fun n =>
-        if blockNames.contains n then n.str "_model" else n)) cvm.type =
+      ((cvA.type.renameConsts (fun n =>
+        if blockNames.contains n then n.str "_model" else n)) == cvm.type) =
         true ∧
       ((∃ cv caps', ci = .indInfo cv caps') ∧
          env₁ = ⟨.indInfo cvA caps :: env'.consts⟩ ∨

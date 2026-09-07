@@ -707,9 +707,9 @@ theorem iotaRulesFactsRun {μ : CheckMode} {F : Nat}
         rw [hfireN₀] at hfireN
         obtain ⟨rfl, rfl⟩ := RecRuleFire.nested.inj hfireN
         obtain ⟨hshape, -⟩ := hthmN
-        obtain ⟨hrPmI, hlvls, hpins, pre, nm, dom, body, bm, D, hstrip,
+        obtain ⟨hrPmI, hlvls, hpins, pre, dom, body, bm, D, hstrip,
           hfn, hargs, -⟩ := nestedRuleShape_inv hshape
-        exact ⟨hrPmI, hlvls, hpins, pre, nm, dom, body, bm, D, hstrip,
+        exact ⟨hrPmI, hlvls, hpins, pre, dom, body, bm, D, hstrip,
           hfn, hargs⟩
       · -- a fired rule: the parameter bound and the rhs's reading
         intro hfire

@@ -40,19 +40,19 @@ theorem constsResolveF_eq (env : Env) :
     simp only [Expr.constsResolveF, Expr.constsResolve, mkFEnv_find?]
   | .const n _ => by
     simp only [Expr.constsResolveF, Expr.constsResolve, mkFEnv_find?]
-  | .fvar _ _ ty => by
+  | .fvar _ ty => by
     simp only [Expr.constsResolveF, Expr.constsResolve,
       constsResolveF_eq env ty]
   | .app f a => by
     simp only [Expr.constsResolveF, Expr.constsResolve,
       constsResolveF_eq env f, constsResolveF_eq env a]
-  | .lam _ ty body _ => by
+  | .lam ty body _ => by
     simp only [Expr.constsResolveF, Expr.constsResolve,
       constsResolveF_eq env ty, constsResolveF_eq env body]
-  | .forallE _ ty body _ => by
+  | .forallE ty body _ => by
     simp only [Expr.constsResolveF, Expr.constsResolve,
       constsResolveF_eq env ty, constsResolveF_eq env body]
-  | .letE _ ty val body => by
+  | .letE ty val body => by
     simp only [Expr.constsResolveF, Expr.constsResolve,
       constsResolveF_eq env ty, constsResolveF_eq env val,
       constsResolveF_eq env body]

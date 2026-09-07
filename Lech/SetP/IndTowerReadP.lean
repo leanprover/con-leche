@@ -70,9 +70,9 @@ theorem openPisAtFvars_denotePTele :
   | succ k ih =>
     intro e j fvs body T h hT
     match e, h with
-    | .forallE nm dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [openPisAtFvars] at h
-      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar j nm dom))
+      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar j dom))
           (j + 1) with
       | none => rw [hop] at h; exact nomatch h
       | some p =>
@@ -85,7 +85,7 @@ theorem openPisAtFvars_denotePTele :
         | some A => ?_
         rw [hA] at hT
         cases hB : denoteP acval env φ (j + 1)
-            (bodyE.instantiate1 (.fvar j nm dom)) with
+            (bodyE.instantiate1 (.fvar j dom)) with
         | none => rw [hB] at hT; exact nomatch hT
         | some B => ?_
         rw [hB] at hT
@@ -99,7 +99,7 @@ theorem openPisAtFvars_denotePTele :
         · intro i x hx
           cases i with
           | zero =>
-            obtain rfl : Expr.fvar j nm dom = x := by simpa using hx
+            obtain rfl : Expr.fvar j dom = x := by simpa using hx
             show denoteP acval env φ (j + 0) dom = _
             rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
               simp only [Nat.sub_zero, Nat.add_sub_cancel, List.getD]
@@ -162,7 +162,7 @@ theorem instLamsAt_denotePTele :
       {rest : Expr} {Va : AVExpr},
       Expr.instLamsAt sp e = some (ds, rest) →
       (∀ (i : Nat) (x : Expr), sp[i]? = some x →
-        ∃ nm ty, x = Expr.fvar (j + i) nm ty) →
+        ∃ ty, x = Expr.fvar (j + i) ty) →
       denoteP acval env φ j e = some Va →
       ∃ (Γ : List AVExpr) (C : AVExpr),
         LamTeleP sp.length Va Γ C ∧ Γ.length = sp.length ∧
@@ -180,7 +180,7 @@ theorem instLamsAt_denotePTele :
   | cons a sp ih =>
     intro e j ds rest Va h hshape hV
     match e, h with
-    | .lam nm dom bodyE mb, h =>
+    | .lam dom bodyE mb, h =>
       simp only [Expr.instLamsAt] at h
       cases h1 : Expr.instLamsAt sp (bodyE.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -194,25 +194,25 @@ theorem instLamsAt_denotePTele :
       | some A => ?_
       rw [hA] at hV
       cases hB : denoteP acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar j nm dom)) with
+          (bodyE.instantiate1 (.fvar j dom)) with
       | none => rw [hB] at hV; exact nomatch hV
       | some Bv => ?_
       rw [hB] at hV
       obtain rfl : Va = .lam (pwBit φ mb.pw) A Bv := by simpa using hV.symm
-      obtain ⟨nmA, tyA, rfl⟩ := hshape 0 a rfl
+      obtain ⟨tyA, rfl⟩ := hshape 0 a rfl
       -- re-open at the run's opener (the reading is blind to it)
       have hB' : denoteP acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar (j + 0) nmA tyA)) = some Bv := by
+          (bodyE.instantiate1 (.fvar (j + 0) tyA)) = some Bv := by
         rw [denoteP_erasedEq (Lech.Expr.ErasedEq.instantiate1
           (Lech.Expr.ErasedEq.rfl bodyE)
-          (show Lech.Expr.ErasedEq (.fvar (j + 0) nmA tyA)
-            (.fvar j nm dom) from by constructor)) (j + 1)]
+          (show Lech.Expr.ErasedEq (.fvar (j + 0) tyA)
+            (.fvar j dom) from by constructor)) (j + 1)]
         exact hB
       have hshape' : ∀ (i : Nat) (x : Expr), sp[i]? = some x →
-          ∃ nm' ty', x = Expr.fvar (j + 1 + i) nm' ty' := by
+          ∃ ty', x = Expr.fvar (j + 1 + i) ty' := by
         intro i x hx
-        obtain ⟨nm', ty', hx'⟩ := hshape (i + 1) x (by simpa using hx)
-        exact ⟨nm', ty', by rw [hx']; congr 1; omega⟩
+        obtain ⟨ty', hx'⟩ := hshape (i + 1) x (by simpa using hx)
+        exact ⟨ty', by rw [hx']; congr 1; omega⟩
       obtain ⟨Γ', C, htele, hΓlen, hrest, hdoms⟩ := ih h1 hshape' hB'
       refine ⟨Γ' ++ [A], C, .cons htele, ?_, ?_, ?_⟩
       · simp [hΓlen]

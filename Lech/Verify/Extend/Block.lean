@@ -34,9 +34,9 @@ def BlockInstalledTT (blockNames : List Name) (env' : Env)
     ∃ cvm mval hmcvm,
       env'.find? (n.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = ci.toConstantVal.levelParams ∧
-      Expr.eqUpToNames (ci.toConstantVal.type.renameConsts (fun n' =>
+      ((ci.toConstantVal.type.renameConsts (fun n' =>
         if blockNames.contains n' then n'.str "_model" else n'))
-        cvm.type = true ∧
+        == cvm.type) = true ∧
       ∀ ψ : Name → Nat, cval n ψ = cval (n.str "_model") ψ
 
 /-- Installing one member valued by its model preserves the fold
@@ -49,9 +49,9 @@ theorem BlockInstalledTT.step {blockNames : List Name} {env' : Env}
     (hfm : env'.find? (ci₁.name.str "_model") =
       some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = ci₁.toConstantVal.levelParams)
-    (hren : Expr.eqUpToNames (ci₁.toConstantVal.type.renameConsts
-      (fun n' => if blockNames.contains n' then n'.str "_model" else n'))
-      cvm.type = true)
+    (hren : ((ci₁.toConstantVal.type.renameConsts (fun n' =>
+      if blockNames.contains n' then n'.str "_model" else n'))
+      == cvm.type) = true)
     (hval₁ : ∀ ψ, cval₁ ci₁.name ψ = cval (ci₁.name.str "_model") ψ)
     (hpres₁ : ∀ n ψ, n ≠ ci₁.name → cval₁ n ψ = cval n ψ) :
     BlockInstalledTT blockNames ⟨ci₁ :: env'.consts⟩ cval₁ := by

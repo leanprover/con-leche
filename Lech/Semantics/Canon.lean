@@ -91,7 +91,7 @@ def denote2 (mode : CheckMode) (acval : Name → (Name → Nat) → AVExpr)
     (env : Env) (φ : Name → Nat) (fuel : Nat) :
     (d : Nat) → Expr → Option AVExpr
   | _, .sort u => some (.sort (u.eval φ))
-  | d, .fvar idx _ _ => some (.bvar (d - 1 - idx))
+  | d, .fvar idx _ => some (.bvar (d - 1 - idx))
   | _, .const n us =>
     match env.find? n with
     | some ci =>
@@ -99,30 +99,30 @@ def denote2 (mode : CheckMode) (acval : Name → (Name → Nat) → AVExpr)
         some (acval n (Level.substFn φ ci.toConstantVal.levelParams us))
       else none
     | none => none
-  | d, .forallE n ty body _m => do
+  | d, .forallE ty body _m => do
     let ta ← denote2 mode acval env φ fuel d ty
     let ba ← denote2 mode acval env φ fuel (d + 1)
-      (body.instantiate1 (.fvar d n ty))
+      (body.instantiate1 (.fvar d ty))
     let u ← sortOfE mode env φ fuel d ty
     let v ← sortOfE mode env φ fuel (d + 1)
-      (body.instantiate1 (.fvar d n ty))
+      (body.instantiate1 (.fvar d ty))
     some (.pi u v ta ba)
-  | d, .lam n ty body _m => do
+  | d, .lam ty body _m => do
     let ta ← denote2 mode acval env φ fuel d ty
     let ba ← denote2 mode acval env φ fuel (d + 1)
-      (body.instantiate1 (.fvar d n ty))
+      (body.instantiate1 (.fvar d ty))
     let v ← lamSortE mode env φ fuel (d + 1)
-      (body.instantiate1 (.fvar d n ty))
+      (body.instantiate1 (.fvar d ty))
     some (.lam v ta ba)
   | d, .app f a => do
     let fa ← denote2 mode acval env φ fuel d f
     let aa ← denote2 mode acval env φ fuel d a
     some (.app fa aa)
-  | d, .letE n ty val body => do
+  | d, .letE ty val body => do
     let ta ← denote2 mode acval env φ fuel d ty
     let va ← denote2 mode acval env φ fuel d val
     let ba ← denote2 mode acval env φ fuel (d + 1)
-      (body.instantiate1 (.fvar d n ty))
+      (body.instantiate1 (.fvar d ty))
     some (.letE ta va ba)
   | d, .proj sn i e => do
     let ea ← denote2 mode acval env φ fuel d e
@@ -205,7 +205,7 @@ theorem denote2_erase {mode : CheckMode}
     obtain rfl := Option.some.inj h
     rw [denote_sort]
     rfl
-  | case2 d idx nm ty =>
+  | case2 d idx ty =>
     intro ea h
     rw [denote2] at h
     obtain rfl := Option.some.inj h
@@ -230,38 +230,38 @@ theorem denote2_erase {mode : CheckMode}
     intro ea h
     rw [denote2, hf] at h
     exact nomatch h
-  | case6 d n ty body m ihty ihbody =>
+  | case6 d ty body m ihty ihbody =>
     intro ea h
     rw [denote2] at h
     rcases hta : denote2 mode acval env φ fuel d ty with _ | ta
     · rw [hta] at h; exact nomatch h
     rw [hta] at h
     rcases hba : denote2 mode acval env φ fuel (d + 1)
-        (body.instantiate1 (.fvar d n ty)) with _ | ba
+        (body.instantiate1 (.fvar d ty)) with _ | ba
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
     rcases hu : sortOfE mode env φ fuel d ty with _ | u
     · rw [hu] at h; exact nomatch h
     rw [hu] at h
     rcases hv : sortOfE mode env φ fuel (d + 1)
-        (body.instantiate1 (.fvar d n ty)) with _ | v
+        (body.instantiate1 (.fvar d ty)) with _ | v
     · rw [hv] at h; exact nomatch h
     rw [hv] at h
     obtain rfl := Option.some.inj h
     rw [denote_forallE, ihty hta, ihbody hba]
     rfl
-  | case7 d n ty body m ihty ihbody =>
+  | case7 d ty body m ihty ihbody =>
     intro ea h
     rw [denote2] at h
     rcases hta : denote2 mode acval env φ fuel d ty with _ | ta
     · rw [hta] at h; exact nomatch h
     rw [hta] at h
     rcases hba : denote2 mode acval env φ fuel (d + 1)
-        (body.instantiate1 (.fvar d n ty)) with _ | ba
+        (body.instantiate1 (.fvar d ty)) with _ | ba
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
     rcases hv : lamSortE mode env φ fuel (d + 1)
-        (body.instantiate1 (.fvar d n ty)) with _ | v
+        (body.instantiate1 (.fvar d ty)) with _ | v
     · rw [hv] at h; exact nomatch h
     rw [hv] at h
     obtain rfl := Option.some.inj h
@@ -279,7 +279,7 @@ theorem denote2_erase {mode : CheckMode}
     obtain rfl := Option.some.inj h
     rw [denote_app, ihf hfa, iha haa]
     rfl
-  | case9 d n ty val body ihty ihval ihbody =>
+  | case9 d ty val body ihty ihval ihbody =>
     intro ea h
     rw [denote2] at h
     rcases hta : denote2 mode acval env φ fuel d ty with _ | ta
@@ -289,7 +289,7 @@ theorem denote2_erase {mode : CheckMode}
     · rw [hva] at h; exact nomatch h
     rw [hva] at h
     rcases hba : denote2 mode acval env φ fuel (d + 1)
-        (body.instantiate1 (.fvar d n ty)) with _ | ba
+        (body.instantiate1 (.fvar d ty)) with _ | ba
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
     obtain rfl := Option.some.inj h
@@ -360,12 +360,12 @@ theorem denote2_erase {mode : CheckMode}
       rw [denote2.eq_def] at h
       exact nomatch h
     | sort u => exact absurd rfl (hs u)
-    | fvar i nm ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i ty)
     | const n us => exact absurd rfl (hc n us)
-    | forallE n ty b m => exact absurd rfl (hpi n ty b m)
-    | lam n ty b m => exact absurd rfl (hlam n ty b m)
+    | forallE ty b m => exact absurd rfl (hpi ty b m)
+    | lam ty b m => exact absurd rfl (hlam ty b m)
     | app f a => exact absurd rfl (happ f a)
-    | letE n ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

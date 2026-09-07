@@ -180,7 +180,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
           exact ⟨a, b⟩
         exact hthm0
   obtain ⟨hrPmI, -, hpinsWf0, -⟩ := nestedRuleShape_inv hshape
-  obtain ⟨-, -, -, pre, nmD, domD, bodyD, bmD, D,
+  obtain ⟨-, -, -, pre, domD, bodyD, bmD, D,
     -, -, -, hpinsLen⟩ := nestedRuleShape_inv hshape
   have hpinsWf : ∀ p ∈ pins, p.hasFvar = false ∧
       p.looseBVarsBounded rP = true :=
@@ -285,10 +285,10 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       (env := envSelf) (φ := ψ) rP hopenP hTV0
   have hfvsPlen : fvsP.length = rP := openPisAtFvars_length _ hopenP
   have hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty := by
+      ∃ ty, x = Expr.fvar i ty := by
     intro i x hx
-    obtain ⟨nm, ty, hx'⟩ := openPisAtFvars_index _ _ _ hopenP i x hx
-    exact ⟨nm, ty, by simpa using hx'⟩
+    obtain ⟨ty, hx'⟩ := openPisAtFvars_index _ _ _ hopenP i x hx
+    exact ⟨ty, by simpa using hx'⟩
   have hdomsP0 : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
       denoteP mp.base2.acval envSelf ψ i (Expr.fvarTypeD x)
         = some (ΓP.getD (rP - 1 - i) default) := by
@@ -301,12 +301,12 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     intro x hx
     have h := hwsP.1 x hx
     rwa [Nat.zero_add] at h
-  have hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvsP → ty.looseBVarsBounded 0 = true :=
-    fun i nm ty hmem =>
+  have hlbFvsP : ∀ (i : Nat) (ty : Expr),
+      Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true :=
+    fun i ty hmem =>
       (openPisAtFvars_bounded rP hopenP htyb).2 _ hmem
   have hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP := by
+      Expr.fvar l.1 l.2 ∈ fvsP := by
     intro l ⟨x, hx, hl⟩
     rcases openPisAtFvars_leaves _ hopenP l (Or.inr ⟨x, hx, hl⟩) with
       h0 | h0
@@ -364,18 +364,18 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   have hbFvsP : ∀ x ∈ fvsP, x.looseBVarsBounded 0 = true := by
     intro x hx
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-    obtain ⟨nm, ty, rfl⟩ := hshapeP q x hq
+    obtain ⟨ty, rfl⟩ := hshapeP q x hq
     rfl
   have hopenerLeafP : ∀ (q0 : Nat) (a : Expr),
       (fvsP.take rP)[q0]? = some a → ∀ l ∈ a.fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP := by
+        Expr.fvar l.1 l.2 ∈ fvsP := by
     intro q0 a ha l hl
     have hq0lt : q0 < rP := by
       have := (List.getElem?_eq_some_iff.mp ha).1
       rw [htkPlen] at this
       exact this
     rw [List.getElem?_take_of_lt hq0lt] at ha
-    obtain ⟨nm, ty, rfl⟩ := hshapeP q0 a ha
+    obtain ⟨ty, rfl⟩ := hshapeP q0 a ha
     rw [Expr.fvarLeaves] at hl
     rcases List.mem_cons.mp hl with rfl | hl'
     · exact List.mem_of_getElem? ha
@@ -400,7 +400,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar (hpinsWf p hp).1] at hl'
         exact nomatch hl'
       · obtain ⟨q0, hq0⟩ := List.getElem?_of_mem hx
-        exact hlbFvsP _ _ _ (hopenerLeafP q0 x hq0 l hlx)
+        exact hlbFvsP _ _ (hopenerLeafP q0 x hq0 l hlx)
   have hpinsGetD : ∀ q, q < cnPK →
       (pins.map (Expr.instSpine (fvsP.take rP) (rP - 1))).getD q default
         = Expr.instSpine (fvsP.take rP) (rP - 1) (pins.getD q default) := by

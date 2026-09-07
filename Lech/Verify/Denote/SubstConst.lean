@@ -38,7 +38,7 @@ over constants, sorts and free variables. -/
 def shallowE : Expr → Bool
   | .sort _ => true
   | .const _ _ => true
-  | .fvar _ _ _ => true
+  | .fvar _ _ => true
   | .app f a => shallowE f && shallowE a
   | _ => false
 
@@ -63,10 +63,10 @@ theorem denote_substConst0 {env : Env} {cval : TConstVal}
     show denote (cvalAt cval env c v) ⟨c₀ :: env.consts⟩ φ d (.sort u)
       = denote cval env φ d (.sort u)
     rw [denote_sort, denote_sort]
-  | fvar idx n ty =>
+  | fvar idx ty =>
     intro _
     show denote (cvalAt cval env c v) ⟨c₀ :: env.consts⟩ φ d
-        (.fvar idx n ty) = denote cval env φ d (.fvar idx n ty)
+        (.fvar idx ty) = denote cval env φ d (.fvar idx ty)
     rw [denote_fvar, denote_fvar]
   | const n us =>
     intro _
@@ -106,9 +106,9 @@ theorem denote_substConst0 {env : Env} {cval : TConstVal}
       = .app (Expr.substConst0 c v f) (Expr.substConst0 c v a) from rfl]
     rw [denote_app, denote_app, ihf hfr.1, iha hfr.2]
   | bvar _ => intro hfr; simp [shallowE] at hfr
-  | lam _ _ _ _ => intro hfr; simp [shallowE] at hfr
-  | forallE _ _ _ _ => intro hfr; simp [shallowE] at hfr
-  | letE _ _ _ _ => intro hfr; simp [shallowE] at hfr
+  | lam _ _ _ => intro hfr; simp [shallowE] at hfr
+  | forallE _ _ _ => intro hfr; simp [shallowE] at hfr
+  | letE _ _ _ => intro hfr; simp [shallowE] at hfr
   | proj _ _ _ => intro hfr; simp [shallowE] at hfr
   | lit _ => intro hfr; simp [shallowE] at hfr
 

@@ -144,8 +144,8 @@ value before checking (all statement components are application
 spines, so `Expr.substConst0` applies). -/
 def divModCertStmts (c : Name) : List (List Expr × Expr) :=
   let natTy : Expr := .const natName []
-  let x : Expr := .fvar 0 (.str .anonymous "x") natTy
-  let y : Expr := .fvar 1 (.str .anonymous "y") natTy
+  let x : Expr := .fvar 0 natTy
+  let y : Expr := .fvar 1 natTy
   let one : Expr := .app (.const natSuccName []) (.const natZeroName [])
   let ble2 : Expr → Expr → Expr := fun a b =>
     .app (.app (.const natBleName []) a) b
@@ -217,13 +217,13 @@ def divModCertStmts (c : Name) : List (List Expr × Expr) :=
 context). -/
 def divModCertApplied (proofS : Expr) (hyps : List Expr) : Expr :=
   let base : Expr :=
-    .app (.app proofS (.fvar 0 (.str .anonymous "x") (.const natName [])))
-      (.fvar 1 (.str .anonymous "y") (.const natName []))
+    .app (.app proofS (.fvar 0 (.const natName [])))
+      (.fvar 1 (.const natName []))
   match hyps with
-  | [h1] => .app base (.fvar 2 (.str .anonymous "h1") h1)
+  | [h1] => .app base (.fvar 2 h1)
   | [h1, h2] =>
-    .app (.app base (.fvar 2 (.str .anonymous "h1") h1))
-      (.fvar 3 (.str .anonymous "h2") h2)
+    .app (.app base (.fvar 2 h1))
+      (.fvar 3 h2)
   | _ => base
 
 /-- The syntactic guards of one certificate check: the substituted

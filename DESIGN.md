@@ -55899,6 +55899,13 @@ Mathlib's `ZFSet`, with `univChain n := V_{κ_n}`."
 
 ## HASHING AND COMPARISON UP TO BINDER NAMES AND BINDER INFO (2026-09-07, `agent/alpha`, task #203)
 
+*(SUPERSEDED the same day by task #205, section "THE FIELDS GO" at the
+end: the user's ruling on this design — "if we don't keep the names we
+should drop the fields!" — removed the `name` and `bi` fields from
+`Expr` outright, so the normal form below, its three entry points and
+the residual list are history; the measurements and the fixture
+stand.)*
+
 **The ruling (user, verbatim):** *"D5: hashing and comparison up to
 binder names and binder info of course!"* — the official kernel's
 equality and hash are α-equivalence (`expr_eq_fn.cpp:52, :100-103`
@@ -56268,3 +56275,163 @@ needed one).  `lake build` is untouched: no `Lech/` source changed.
 Artefacts: `_tmp/auditfix/` (`arena.log`, `verdicts.txt` = the 26 × 4
 verdict matrix, `official.txt` = the arena `official` re-measurement,
 `design.md`).
+
+## TASK #205 — THE FIELDS GO: `Expr` carries no binder name and no binder info (2026-09-07, `agent/nofields`)
+
+**The ruling (user, verbatim, on task #203's normal form):** *"that is
+an odd design. if we don't keep the names we should drop the fields!
+yes, touches many files, but that is ok."*
+
+Task #203 had made every term the checker holds carry its display data
+at one normal form (`.anonymous`, `.default`) so that `==` and the
+packed hash were α-equivalence *in practice*.  This task removes the
+data itself:
+
+    | fvar (idx : Nat) (type : Expr)                 -- was (idx) (name : Name) (type)
+    | lam (type body : Expr) (m : BinderMeta)        -- was (n : Name) (type body) (m)
+    | forallE (type body : Expr) (m : BinderMeta)
+    | letE (type value body : Expr)                  -- was (n : Name) (type value body)
+    structure BinderMeta where pw : PropWhen          -- `bi : BinderInfo` gone; `BinderInfo` deleted
+
+so that there is nothing α-irrelevant in a node: structural `=`, `==`,
+`DecidableEq`, `beqFast` and the packed `hash` are α-equivalence by
+construction, with no normal form to establish and nothing a fabricated
+term (the direct-route recursors, the in-process `_model` families, the
+certificate locals — task #203's residual list) could get wrong.  The
+`pw` datum stays: it is validated, not display data.
+
+### What moved
+
+* **Representation** (`Lech/Kernel/Expr.lean`): the four constructors,
+  the `data` recurrence (the `.fvar`/`.lam`/`.forallE`/`.letE` arms
+  lose their name/`bi` inputs — `Hashable.hash m.pw` is what a binder
+  contributes), `beqGo`/`beqB` (no `n == n'` conjunct), the per-field
+  lemmas' binders.  `beqFast`'s docstring: no claim changed.
+* **Frontend** (`Lech/Frontend/ExportC.lean`, JSON and byte paths): the
+  stream's `name` index is still required to be present and
+  well-formed (`getIdx`), `binderInfo` is still validated
+  (`parseBinderInfo`/`fsBinderInfo`); neither is stored.  `FastNode`
+  (the byte-level pre-parse) keeps its `name` field — it is a stream
+  index, not an `Expr` field — which is where the sweep's one
+  systematic misfire was (`FastNode.letE` shares the constructor name).
+  `ExportWrite` writes `"name":0` and `"binderInfo":"default"`.
+* **Pins**: `Basis/Builder.lean`'s `pi "a"`/`piI "α"`/`lm`/`lmI` keep
+  the `Init.Prelude` spelling as a reader-facing argument and build the
+  same node; `PinGen.toLech`, `BasisGen`'s quoting, and the pin dump
+  (`PinGen/Dump.lean`: `exFVar idx ty`, `exLam ty b pw`, `exForall ty b
+  pw`, `exLet ty v b`; format tag `lech-natop-pins/3`; the committed
+  dump converted mechanically to bootstrap the build, then regenerated
+  by `lake exe natop-pins-export` — `tests/pindump.sh` gates it).
+* **Kernel signatures**: `Expr.stripPis`/`stripLams` return
+  `List (Expr × BinderMeta)`; `Expr.fvarLeaves`/`ExprC.fvarLeaves`
+  return `List (Nat × Expr)` (`leafMem bl idx ty`); `CoreC`'s
+  `InferLamEntry`/`AnnotBinderEntry` are `ExprC × BinderMeta`;
+  `etaCert`/`etaCertI` lose their name parameter; the `ExprC.mk*` smart
+  constructors lose theirs; `Frontend/ProjRec.stripPisAll`,
+  `InModel.Kit.mkLams/mkPis/piBinders` and the InModel generators'
+  binder lists are bare domains (`List Expr`);
+  `Direct/SumInstall.closeTelescope` likewise.
+* **Deleted**: `Expr.eqUpToNames` (the kernel compares with `==`:
+  `checkMemberVal`, the nested-rule major pin), `Expr.eraseNames`
+  (`ConstantVal.matchesPin` is `cv.type.erasePw == pin.type.erasePw`),
+  `Expr.piBinderInfos` (no user), `BinderInfo`, `PinGen`'s
+  `sanitizeBinderName`/`toLechBI`, `ExportWrite.binfo`,
+  `Dump.quoteBinderInfo`/`biToJson`/`biOfNat`.  `Frontend/Export.canonExpr`
+  keeps its level-renaming and `pw`-reset role.  `Expr.ErasedEq`
+  (`Verify/Subst.lean`) keeps its meaning — equality up to `fvar` TYPE
+  annotations — minus the name arms.
+* **Error messages**: none printed a binder name (audited at task #203);
+  positions — de Bruijn level, constant name — are what they carry.
+
+### The mechanical grind
+
+`_tmp/nofields/sweep.py` (committed with the task's receipts under
+`_tmp/`, not in the tree) removed the name argument at every
+`.lam/.forallE/.letE/.fvar` constructor application, pattern and
+`| lam …` induction alternative — deciding `Expr.lam` (4 arguments)
+against `VExpr.lam ty body` (`Lech/TT/Syntax.lean`, 2) and
+`Expr.letE` (4) against `VExpr.letE` (3) by argument count, with the
+inductive hypotheses (`ih*`) discounted in alternatives — and the
+`bi` half of every `BinderMeta` literal: **4 841 sites in 209 files**
+in one pass (the task #203 price estimate was 4 201 patterns in 237
+files).  The implementation tier then took eleven short build rounds
+of hand fixes (tuple projections on the moved signatures, the
+`FastNode` collision, the InModel binder pairs); the verification tier
+was delegated to one Opus subagent with the recipe
+(`_tmp/nofields/RECIPE.md`), serial, in the same worktree, and
+reviewed.
+
+**The grind's report** (Opus subagent, 62 commits `01fe38b3..d964e6b3`,
+170 files, +2 416/−2 591; reviewed):
+
+* `lake build` and `lake test` green and warning-free; `tests/arena.sh`
+  exit 0 — layering 0/0, proofdeps **2 821 rows as pinned, doors 0, no
+  row moved** (the one new declaration lives in an existing module),
+  pindump fresh (the mechanically converted dump is byte-identical to
+  a regeneration — the format-3 entries reference no name, and the
+  share table's name entries were all still referenced by constants),
+  trust surface 0, native audit 0 unrecognised, axioms pinned (11
+  theorems at the three standard), tutorial 90/92, e2e 118/118, annot
+  14/14, flags 8/8 + 16/16, prelude 3/3, progress 6/6, trusted sweep
+  as expected.
+* Deleted: `Expr.eqUpToNames_rfl`, `Expr.ErasedEq.of_eqUpToNames`
+  (`Verify/Subst`), `erasedEq_of_eraseNames` (`Verify/Denote/Inst`),
+  `eraseNames_const_invS` (`Semantics/EraseInv`; its `erasePw` twin
+  absorbs the consumers), `eraseNames_sort_inv` (`Verify/OfReducePin`),
+  `annotBinderMetaI_bi` (`Verify/Cached/AgreeAnnot`; it said the `pw`
+  write leaves `bi` alone).  Added: `Expr.ErasedEq.of_eq : a = b →
+  ErasedEq a b` (the elaboration anchor at `rw [← denoteP_erasedEq …]`
+  sites where a bare `h ▸ ErasedEq.rfl _` cannot infer its motive).
+  ~130 theorems lost a vacuous `(n : Name)` binder, ~250 vacuous
+  `∃ n, …` binders and their witnesses went.
+* **Nothing was weakened and no proof distinguished two `fvar`s by
+  display name** (the grind's hard rule was to stop and report if one
+  did).  Three predicates lost a conjunct the index already decided:
+  `Expr.fvarConsistent d ty` / `Expr.LeafCond d ty`
+  (`Verify/Abstract`, `Verify/InferLeaves`), `Expr.LeafEquiv`'s `fvar`
+  arm, and `DivModEval.dmLeavesOk` (whose `name == "x"` /
+  `name == "y"` checks sat beside `l.1 == 0` / `l.1 == 1`).
+* Two findings outside the sweep's scope: `Lech/PinGen/Prelude.lean`
+  (not a default target; only `tests/pindump.sh` builds it) still had
+  four-field patterns — fixed; `tests/LechTests.lean`'s η
+  stuck-annotation `#guard` pair passed `etaCert` a binder name —
+  fixed, both guards still discriminate the two modes.
+
+### Receipts
+
+`perf stat -e instructions:u`, `ulimit -v 16G`, `timeout`, one run per
+cell; the "#203" column is the task #203 landing (`700a06ca`, its
+binary measured at that seal), "#205" this branch's implementation-tier
+binary (`01fe38b3`, the same kernel the verified build ships);
+`_tmp/nofields/cells-nofields.tsv`, `_tmp/alpha/cells-alpha.tsv`.
+
+| stream | mode | #203 | #205 | Δ |
+|---|---|---|---|---|
+| init-full (raw, 53 164 declarations in every cell) | `--verified` | 789.58 G | **783.22 G** | **−0.8 %** |
+| init-full | `--trusted` | 770.27 G | **764.26 G** | **−0.8 %** |
+| `binder_name_proj` (the #203 twin, raw) | `--verified` / `--trusted` | 0.37 G / 0.37 G | 0.37 G / 0.37 G | — |
+| `binder_shared_local` (piped, 90 decl.) | `--verified` / `--trusted` | 0.79 G / 0.79 G | 0.79 G / 0.78 G | −0.7 % |
+
+The five `_tmp/slowest/slices` cells (`--pre`; target-only = full −
+the slice without the target):
+
+| slice | mode | #203 full | #205 full | Δ | #203 target-only | #205 target-only | Δ |
+|---|---|---|---|---|---|---|---|
+| t1 | verified | 304.98 G | 301.74 G | −1.1 % | 24.32 G | 24.11 G | −0.9 % |
+| t1 | trusted | 291.10 G | 288.14 G | −1.0 % | 24.16 G | 23.99 G | −0.7 % |
+| t2 | verified | 685.09 G | 678.61 G | −0.9 % | 37.66 G | 38.14 G | +1.3 % |
+| t2 | trusted | 596.86 G | 591.22 G | −0.9 % | 16.45 G | 16.39 G | −0.4 % |
+| t3 | verified | 65.74 G | 65.45 G | −0.4 % | 11.43 G | 11.35 G | −0.7 % |
+| t3 | trusted | 65.09 G | 64.83 G | −0.4 % | 11.41 G | 11.36 G | −0.5 % |
+| t4 | verified | 135.15 G | 134.32 G | −0.6 % | 7.08 G | 7.01 G | −1.0 % |
+| t4 | trusted | 126.33 G | 125.62 G | −0.6 % | 1.10 G | 1.09 G | −1.1 % |
+| t5 | verified | 65.31 G | 64.85 G | −0.7 % | 16.91 G | 16.88 G | −0.2 % |
+| t5 | trusted | 63.40 G | 62.98 G | −0.7 % | 16.87 G | 16.83 G | −0.2 % |
+
+Neutral-to-better everywhere, as expected of a representation with
+one field fewer per binder node and two fewer per `fvar` (a smaller
+node to allocate, hash and compare; no `Name.beq` per binder in
+`beqB`/`beqGo`): −0.4 … −1.1 % on every full cell, the target-only
+deltas inside the difference-of-large-cells noise (t2 `--verified`'s
++0.48 G target-only sits on a −6.5 G full cell).  Verdicts and
+accepted counts identical in every cell.

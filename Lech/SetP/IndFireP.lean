@@ -287,32 +287,32 @@ theorem fireP {m : EnvS2Core V env} {ψ' : Name → Nat}
           (.pi 0 1 (.bvar 0) (.pi 0 1 (.bvar 1) (.sort 0)))) := by
     have hinst : eqA.toConstantVal.type.instantiateLevelParams
         eqA.toConstantVal.levelParams [ℓA]
-        = .forallE .anonymous (.sort ℓA)
-            (.forallE .anonymous (.bvar 0)
-              (.forallE .anonymous (.bvar 1)
-                (.sort .zero) ⟨.default, .never⟩)
-              ⟨.default, .never⟩) ⟨.default, .never⟩ := rfl
-    have hb1 : (Expr.forallE .anonymous (.bvar 0)
-        (.forallE .anonymous (.bvar 1)
-          (.sort .zero) ⟨.default, .never⟩) ⟨.default, .never⟩).instantiate1
-        (.fvar 0 .anonymous (.sort ℓA))
-        = .forallE .anonymous
-            (.fvar 0 .anonymous (.sort ℓA))
-            (.forallE .anonymous
-              (.fvar 0 .anonymous (.sort ℓA))
-              (.sort .zero) ⟨.default, .never⟩)
-            ⟨.default, .never⟩ := rfl
-    have hb2 : (Expr.forallE .anonymous
-        (.fvar 0 .anonymous (.sort ℓA))
-        (.sort .zero) ⟨.default, .never⟩).instantiate1
-        (.fvar 1 .anonymous
-          (.fvar 0 .anonymous (.sort ℓA)))
-        = .forallE .anonymous
-            (.fvar 0 .anonymous (.sort ℓA))
-            (.sort .zero) ⟨.default, .never⟩ := rfl
+        = .forallE (.sort ℓA)
+            (.forallE (.bvar 0)
+              (.forallE (.bvar 1)
+                (.sort .zero) ⟨.never⟩)
+              ⟨.never⟩) ⟨.never⟩ := rfl
+    have hb1 : (Expr.forallE (.bvar 0)
+        (.forallE (.bvar 1)
+          (.sort .zero) ⟨.never⟩) ⟨.never⟩).instantiate1
+        (.fvar 0 (.sort ℓA))
+        = .forallE
+            (.fvar 0 (.sort ℓA))
+            (.forallE
+              (.fvar 0 (.sort ℓA))
+              (.sort .zero) ⟨.never⟩)
+            ⟨.never⟩ := rfl
+    have hb2 : (Expr.forallE
+        (.fvar 0 (.sort ℓA))
+        (.sort .zero) ⟨.never⟩).instantiate1
+        (.fvar 1
+          (.fvar 0 (.sort ℓA)))
+        = .forallE
+            (.fvar 0 (.sort ℓA))
+            (.sort .zero) ⟨.never⟩ := rfl
     have hb3 : (Expr.sort .zero).instantiate1
-        (.fvar 2 .anonymous
-          (.fvar 0 .anonymous (.sort ℓA)))
+        (.fvar 2
+          (.fvar 0 (.sort ℓA)))
         = .sort .zero := rfl
     rw [hinst, denoteP_forallE, denoteP_sort, hb1, denoteP_forallE,
       denoteP_fvar, hb2, denoteP_forallE, denoteP_fvar, hb3,

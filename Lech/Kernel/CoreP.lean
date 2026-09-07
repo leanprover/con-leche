@@ -63,21 +63,21 @@ def whnfCoreBodyP (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e =>
     match e with
     | .sort u => pure (.sort u)
-    | .fvar idx n ty => pure (.fvar idx n ty)
-    | .forallE n ty body bi => pure (.forallE n ty body bi)
-    | .lam n ty body mb => pure (.lam n ty body mb)
+    | .fvar idx ty => pure (.fvar idx ty)
+    | .forallE ty body bi => pure (.forallE ty body bi)
+    | .lam ty body mb => pure (.lam ty body mb)
     | .const n us => pure (.const n us)
     | .lit l => pure (.lit l)
     | .app f a => do
       match ← r.whnfCore depth f with
-      | .lam n ty body mb => do
+      | .lam ty body mb => do
         -- **THE β SITE.**  The gate wraps the test only; both arms are
         -- `whnfCoreBody`'s verbatim.
         if ← (if mode.verifiedChecks && mb.pw.isNever then pure true else do
                 let ta ← r.infer depth a
                 r.defeq depth ta ty) then
           r.whnfCore depth (body.instantiate1 a)
-        else pure (.app (.lam n ty body mb) a)
+        else pure (.app (.lam ty body mb) a)
       | f' => do
         match ← iotaRec mode r env depth (.app f' a) with
         | some e'' => r.whnfCore depth e''
@@ -104,7 +104,7 @@ def whnfCoreBodyP (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
       | none => pure (.proj sn i e')
-    | .letE _ _ v b =>
+    | .letE _ v b =>
       r.whnfCore depth (b.instantiate1 v)
     | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")

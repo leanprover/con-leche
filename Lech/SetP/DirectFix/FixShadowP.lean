@@ -51,7 +51,7 @@ def shadowCtx (nP : Nat) (ks : List RecFieldKind) (k : Nat) (Γ : List AVExpr) :
 annotated by `Sort 0`. -/
 def shadowFvs (nP : Nat) (ks : List RecFieldKind) (k : Nat) (fvs : List Expr) : List Expr :=
   (List.range k).map fun i =>
-    if recAt nP ks i then Expr.fvar i .anonymous (.sort .zero) else fvs.getD i default
+    if recAt nP ks i then Expr.fvar i (.sort .zero) else fvs.getD i default
 
 section Kit
 
@@ -92,7 +92,7 @@ theorem shadowCtx_drop_params {b : Nat} (hΓ : Γ.length = k) (hb : b ≤ nP) :
 omit [SetTheory V] in
 theorem shadowFvs_getElem? {i : Nat} (hi : i < k) :
     (shadowFvs nP ks k fvs)[i]?
-      = some (if recAt nP ks i then Expr.fvar i .anonymous (.sort .zero)
+      = some (if recAt nP ks i then Expr.fvar i (.sort .zero)
           else fvs.getD i default) := by
   simp [shadowFvs, List.getElem?_map, List.getElem?_range hi]
 
@@ -116,22 +116,22 @@ theorem shadowCtxOk {m : EnvS2Core V env} {ψ : Name → Nat} {k : Nat} {e : Exp
     (hO : OpenedP m ψ k e fvs o Γ R) (hlenF : fvs.length = k)
     {nP : Nat} {ks : List RecFieldKind}
     {b : Nat} (hb : b ≤ k) {x : Expr} (hwx : Expr.WScoped b x)
-    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs)
     (hnorec : ∀ l ∈ x.fvarLeaves, ¬ recAt nP ks l.1)
     (hok : ∀ i, i < b → ¬ recAt nP ks i → ∀ ρ : Nat → V,
       Sat2 V ((shadowCtx nP ks k Γ).drop (k - i)) ρ →
       AnnotOkP V ρ (Γ.getD (k - 1 - i) default)) :
     CtxOkP m ψ b ((shadowCtx nP ks k Γ).drop (k - b)) x := by
-  have hidx : ∀ i x, fvs[i]? = some x → ∃ nm ty, x = Expr.fvar i nm ty :=
+  have hidx : ∀ i x, fvs[i]? = some x → ∃ ty, x = Expr.fvar i ty :=
     fun i x hx => (hO.var i x hx).1
   -- a leaf's opener sits at its own position
-  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2.1 l.2.2) := by
+  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2) := by
     intro l hl
     obtain ⟨p, hp⟩ := List.getElem?_of_mem (hleaf l hl)
-    obtain ⟨nm, ty, hx⟩ := hidx p _ hp
-    obtain ⟨rfl, -, -⟩ : l.1 = p ∧ l.2.1 = nm ∧ l.2.2 = ty := by
-      injection hx with a b c
-      exact ⟨a, b, c⟩
+    obtain ⟨ty, hx⟩ := hidx p _ hp
+    obtain ⟨rfl, -⟩ : l.1 = p ∧ l.2 = ty := by
+      injection hx with a b
+      exact ⟨a, b⟩
     exact hp
   have hgetD : ∀ j, (hj : j < k) → fvs.getD j default = fvs[j]'(by rw [hlenF]; exact hj) := by
     intro j hj
@@ -150,7 +150,7 @@ theorem shadowCtxOk {m : EnvS2Core V env} {ψ : Name → Nat} {k : Nat} {e : Exp
     rw [List.getElem?_take_of_lt hj, shadowFvs_getElem? (by omega)] at hy
     obtain rfl := Option.some.inj hy
     split
-    · exact ⟨_, _, rfl⟩
+    · exact ⟨_, rfl⟩
     · rw [hgetD j (by omega)]
       exact hidx j _ (List.getElem?_eq_getElem (by omega))
   · intro y hy
@@ -165,7 +165,7 @@ theorem shadowCtxOk {m : EnvS2Core V env} {ψ : Name → Nat} {k : Nat} {e : Exp
     · simp only [Expr.WScoped]
       exact ⟨hji, trivial⟩
     · rw [hgetD j (by omega)]
-      obtain ⟨⟨nm, ty, hx⟩, hw, -, -, -⟩ := hO.var j _ (List.getElem?_eq_getElem (by omega))
+      obtain ⟨⟨ty, hx⟩, hw, -, -, -⟩ := hO.var j _ (List.getElem?_eq_getElem (by omega))
       rw [hx] at hw ⊢
       simp only [Expr.fvarTypeD] at hw
       simp only [Expr.WScoped]

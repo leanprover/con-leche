@@ -190,7 +190,7 @@ structure CtorReadR {env : Env} (m : EnvS2Core V env) (ψ : Name → Nat) (T : N
   find : ∃ ci : ConstantInfo, env.find? c.1 = some ci ∧ ci.toConstantVal.levelParams = lps
   hasFvar : c.2.2.1.hasFvar = false
   bounded : c.2.2.1.looseBVarsBounded 0 = true
-  resid : ∃ (cbs : List (Name × Expr × BinderMeta)) (es : List Expr),
+  resid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
     c.2.2.1.stripPis (nP + c.2.1)
       = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (Lech.directPsAt c.2.1 nP ++ es)) ∧
     es.length = nIdx

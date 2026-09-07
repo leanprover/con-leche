@@ -36,14 +36,14 @@ theorem natOpTyPinned_boolFacts {ty : Expr}
   rw [if_neg (by decide)] at h
   revert h
   match ty with
-  | .forallE nm dom (.forallE nm2 dom2 body mb2) mb => ?_
-  | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
-  | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _
-  | .forallE _ _ (.bvar _) _ | .forallE _ _ (.fvar _ _ _) _
-  | .forallE _ _ (.sort _) _ | .forallE _ _ (.const _ _) _
-  | .forallE _ _ (.app _ _) _ | .forallE _ _ (.lam _ _ _ _) _
-  | .forallE _ _ (.letE _ _ _ _) _ | .forallE _ _ (.lit _) _
-  | .forallE _ _ (.proj _ _ _) _ =>
+  | .forallE dom (.forallE dom2 body mb2) mb => ?_
+  | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
+  | .lam _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _
+  | .forallE _ (.bvar _) _ | .forallE _ (.fvar _ _) _
+  | .forallE _ (.sort _) _ | .forallE _ (.const _ _) _
+  | .forallE _ (.app _ _) _ | .forallE _ (.lam _ _ _) _
+  | .forallE _ (.letE _ _ _) _ | .forallE _ (.lit _) _
+  | .forallE _ (.proj _ _ _) _ =>
     intro h; exact nomatch h
   intro h
   simp only [Bool.and_eq_true] at h
@@ -70,9 +70,9 @@ theorem LeavesBounded.app_intro {f a : Expr}
   · exact ha l hl
 
 /-- `LeavesBounded` at a free variable. -/
-theorem LeavesBounded.fvar_intro {idx : Nat} {n : Name} {ty : Expr}
+theorem LeavesBounded.fvar_intro {idx : Nat} {ty : Expr}
     (hb : ty.looseBVarsBounded 0 = true) (hty : Expr.LeavesBounded ty) :
-    Expr.LeavesBounded (.fvar idx n ty) := by
+    Expr.LeavesBounded (.fvar idx ty) := by
   intro l hl
   simp only [Expr.fvarLeaves, List.mem_cons] at hl
   rcases hl with rfl | hl

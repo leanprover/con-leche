@@ -120,36 +120,36 @@ annotations — parsed declarations are fvar-free.) -/
 def occursConst (n : Name) : Expr → Bool
   | .const m _ => m == n
   | .app f a => occursConst n f || occursConst n a
-  | .lam _ ty b _ => occursConst n ty || occursConst n b
-  | .forallE _ ty b _ => occursConst n ty || occursConst n b
-  | .letE _ t v b => occursConst n t || occursConst n v || occursConst n b
+  | .lam ty b _ => occursConst n ty || occursConst n b
+  | .forallE ty b _ => occursConst n ty || occursConst n b
+  | .letE t v b => occursConst n t || occursConst n v || occursConst n b
   | .proj _ _ e => occursConst n e
   | _ => false
 
 /-- The body under every leading `λ` (the projection shape's
 pre-filter: the node under the value's binders). -/
 def lamBody : Expr → Expr
-  | .lam _ _ b _ => lamBody b
+  | .lam _ b _ => lamBody b
   | e => e
 
 /-- Strip every leading `∀`: the binder list (outermost first) and the
 body. -/
-def stripPisAll : Expr → List (Name × Expr × BinderMeta) × Expr
-  | .forallE n ty b m =>
+def stripPisAll : Expr → List (Expr × BinderMeta) × Expr
+  | .forallE ty b m =>
     let (bs, e) := stripPisAll b
-    ((n, ty, m) :: bs, e)
+    ((ty, m) :: bs, e)
   | e => ([], e)
 
 /-- Rebuild a `λ`-telescope over a binder list (outermost first). -/
-def mkLams (bs : List (Name × Expr × BinderMeta)) (body : Expr) : Expr :=
-  bs.foldr (fun (n, ty, m) acc => .lam n ty acc m) body
+def mkLams (bs : List (Expr × BinderMeta)) (body : Expr) : Expr :=
+  bs.foldr (fun (ty, m) acc => .lam ty acc m) body
 
 /-- Instantiate the leading `∀`-binders at *open* arguments (the
 body-frame variables and the built motives/minors), one binder per
 argument, returning the residual telescope. -/
 def instPisOpen : Expr → List Expr → Option Expr
   | e, [] => some e
-  | .forallE _ _ body _, a :: as => instPisOpen (body.instantiate1Lift a) as
+  | .forallE _ body _, a :: as => instPisOpen (body.instantiate1Lift a) as
   | _, _ :: _ => none
 
 /-- Peel `k` binders of a telescope, building one term per binder from
@@ -158,7 +158,7 @@ telescope with that term before the next binder is read. -/
 def buildBinders (mk : Expr → Option Expr) :
     Nat → Expr → Option (List Expr × Expr)
   | 0, e => some ([], e)
-  | k + 1, .forallE _ dom body _ => do
+  | k + 1, .forallE dom body _ => do
     let t ← mk dom
     let (ts, rest) ← buildBinders mk k (body.instantiate1Lift t)
     pure (t :: ts, rest)
@@ -195,9 +195,9 @@ def projRecValue (o : ProjRecOwner) (ℓ : Level) (ty val : Expr) (i : Nat) :
   -- telescope
   let mkMotive : Expr → Option Expr := fun dom =>
     match stripPisAll dom with
-    | ([(n, d, m)], .sort _) =>
-      if headIs o.T d then some (.lam n d (R.liftLooseBVars 1 1) m)
-      else some (.lam n d (.const punitName [ℓ]) m)
+    | ([(d, m)], .sort _) =>
+      if headIs o.T d then some (.lam d (R.liftLooseBVars 1 1) m)
+      else some (.lam d (.const punitName [ℓ]) m)
     | (bs, .sort _) => some (mkLams bs (.const punitName [ℓ]))
     | _ => none
   let (motives, rty) ← buildBinders mkMotive o.numMotives rty
@@ -218,7 +218,7 @@ def projRecValue (o : ProjRecOwner) (ℓ : Level) (ty val : Expr) (i : Nat) :
   -- the major premise: the owner has no indices, so the next binder is
   -- the subject itself
   match rty with
-  | .forallE _ majDom _ _ =>
+  | .forallE majDom _ _ =>
     guard (headIs o.T majDom)
     let app := Expr.mkAppN (.const o.recName (ℓ :: us))
       (params ++ motives ++ minors ++ [.bvar 0])
@@ -245,7 +245,7 @@ def projRecOwners (block : List ConstantInfo)
   -- a block name in a constructor's binder *domains* (its result names
   -- the owner by definition)
   let recursive := types.any (·.2.2.2.2.2.2) ||
-    ctors.any fun (_, _, cty) => (stripPisAll cty).1.any fun (_, d, _) =>
+    ctors.any fun (_, _, cty) => (stripPisAll cty).1.any fun (d, _) =>
       blockNames.any fun n => occursConst n d
   if (directPartsCore? block).isSome && !recursive then []
   else

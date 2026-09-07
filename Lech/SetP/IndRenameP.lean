@@ -65,7 +65,7 @@ theorem denoteP_renameConsts {f : Name → Name}
       denoteP acval env φ d (e.renameConsts f) = denoteP acval env φ d e
   | .bvar _, _ => by simp [Expr.renameConsts]
   | .sort _, _ => by simp [Expr.renameConsts]
-  | .fvar _ _ _, _ => by simp [Expr.renameConsts, denoteP_fvar]
+  | .fvar _ _, _ => by simp [Expr.renameConsts, denoteP_fvar]
   | .lit (.natVal _), _ => by rw [Expr.renameConsts]
   | .lit (.strVal _), _ => by rw [Expr.renameConsts]
   | .const n ws, d => by
@@ -88,22 +88,22 @@ theorem denoteP_renameConsts {f : Name → Name}
     -- the struct name is fixed under renaming, so both readings
     -- consult the same entry
     simp only [Expr.renameConsts, denoteP_proj, denoteP_renameConsts hro e d]
-  | .forallE n ty body m, d => by
+  | .forallE ty body m, d => by
     simp only [Expr.renameConsts, denoteP_forallE]
     rw [← Expr.renameConsts_instantiate1]
     rw [denoteP_renameConsts hro ty d,
-      denoteP_renameConsts hro (body.instantiate1 (.fvar d n ty)) (d + 1)]
-  | .lam n ty body m, d => by
+      denoteP_renameConsts hro (body.instantiate1 (.fvar d ty)) (d + 1)]
+  | .lam ty body m, d => by
     simp only [Expr.renameConsts, denoteP_lam]
     rw [← Expr.renameConsts_instantiate1]
     rw [denoteP_renameConsts hro ty d,
-      denoteP_renameConsts hro (body.instantiate1 (.fvar d n ty)) (d + 1)]
-  | .letE n ty val body, d => by
+      denoteP_renameConsts hro (body.instantiate1 (.fvar d ty)) (d + 1)]
+  | .letE ty val body, d => by
     simp only [Expr.renameConsts]
     rw [denoteP, denoteP]
     rw [← Expr.renameConsts_instantiate1]
     rw [denoteP_renameConsts hro ty d, denoteP_renameConsts hro val d,
-      denoteP_renameConsts hro (body.instantiate1 (.fvar d n ty)) (d + 1)]
+      denoteP_renameConsts hro (body.instantiate1 (.fvar d ty)) (d + 1)]
   termination_by e => e.sizeB
   decreasing_by
     all_goals first

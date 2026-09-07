@@ -611,7 +611,7 @@ theorem whnfTelescope_datF (env : Env) (F : Nat) :
     split
     · next nm dom body bm =>
       simp only [FueledM.atF_bind, FueledM.atF_pure,
-        whnfTelescope_datF env F (i + 1) n (body.instantiate1 (.fvar i nm dom))]
+        whnfTelescope_datF env F (i + 1) n (body.instantiate1 (.fvar i dom))]
     · simp only [FueledM.atF_throw]
 
 /-- The former's telescope stage (task #195) at fuel `F`. -/

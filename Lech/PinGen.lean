@@ -103,14 +103,6 @@ instance : ToExpr Lech.Level where
   toExpr := toExprLevel
   toTypeExpr := levelT
 
-instance : ToExpr Lech.BinderInfo where
-  toExpr
-    | .default => .const ``Lech.BinderInfo.default []
-    | .implicit => .const ``Lech.BinderInfo.implicit []
-    | .strictImplicit => .const ``Lech.BinderInfo.strictImplicit []
-    | .instImplicit => .const ``Lech.BinderInfo.instImplicit []
-  toTypeExpr := .const ``Lech.BinderInfo []
-
 instance : ToExpr Lech.PropWhen where
   toExpr pw :=
     match pw.toList? with
@@ -119,9 +111,7 @@ instance : ToExpr Lech.PropWhen where
   toTypeExpr := .const ``Lech.PropWhen []
 
 instance : ToExpr Lech.BinderMeta where
-  toExpr m :=
-    .app (.app (.const ``Lech.BinderMeta.mk []) (toExpr m.bi))
-      (toExpr m.pw)
+  toExpr m := .app (.const ``Lech.BinderMeta.mk []) (toExpr m.pw)
   toTypeExpr := .const ``Lech.BinderMeta []
 
 instance : ToExpr Lech.Literal where
@@ -137,22 +127,20 @@ instance : ToExpr Lech.Literal where
 builder below, which represents every distinct subobject once. -/
 def toExprExpr : Lech.Expr → Lean.Expr
   | .bvar i => .app (.const ``Lech.Expr.bvar []) (mkRawNatLit i)
-  | .fvar idx n ty =>
-    mkApp3 (.const ``Lech.Expr.fvar []) (mkRawNatLit idx) (toExpr n)
-      (toExprExpr ty)
+  | .fvar idx ty =>
+    mkApp2 (.const ``Lech.Expr.fvar []) (mkRawNatLit idx) (toExprExpr ty)
   | .sort u => .app (.const ``Lech.Expr.sort []) (toExpr u)
   | .const n us =>
     mkApp2 (.const ``Lech.Expr.const []) (toExpr n) (toExpr us)
   | .app f a => mkApp2 (.const ``Lech.Expr.app []) (toExprExpr f) (toExprExpr a)
-  | .lam n ty b m =>
-    mkApp4 (.const ``Lech.Expr.lam []) (toExpr n) (toExprExpr ty)
-      (toExprExpr b) (toExpr m)
-  | .forallE n ty b m =>
-    mkApp4 (.const ``Lech.Expr.forallE []) (toExpr n) (toExprExpr ty)
-      (toExprExpr b) (toExpr m)
-  | .letE n ty v b =>
-    mkApp4 (.const ``Lech.Expr.letE []) (toExpr n) (toExprExpr ty)
-      (toExprExpr v) (toExprExpr b)
+  | .lam ty b m =>
+    mkApp3 (.const ``Lech.Expr.lam []) (toExprExpr ty) (toExprExpr b) (toExpr m)
+  | .forallE ty b m =>
+    mkApp3 (.const ``Lech.Expr.forallE []) (toExprExpr ty) (toExprExpr b)
+      (toExpr m)
+  | .letE ty v b =>
+    mkApp3 (.const ``Lech.Expr.letE []) (toExprExpr ty) (toExprExpr v)
+      (toExprExpr b)
   | .lit l => .app (.const ``Lech.Expr.lit []) (toExpr l)
   | .proj s i e =>
     mkApp3 (.const ``Lech.Expr.proj []) (toExpr s) (mkRawNatLit i)
@@ -190,9 +178,9 @@ partial def toLech : Lean.Expr → Except String Lech.Expr
     -- name and binder info: the checker's single normal form
     -- (`.anonymous`, `.default` — task #203, as the frontend strips
     -- a stream and the pin builder emits the hand-written pins)
-    .ok (.lam .anonymous (← toLech ty) (← toLech b) ⟨.default, .never⟩)
+    .ok (.lam (← toLech ty) (← toLech b) ⟨.never⟩)
   | .forallE _ ty b _ => do
-    .ok (.forallE .anonymous (← toLech ty) (← toLech b) ⟨.default, .never⟩)
+    .ok (.forallE (← toLech ty) (← toLech b) ⟨.never⟩)
   | .letE _ _ v b _ => toLech (b.instantiate1 v)
   | .lit (.natVal n) => .ok (.lit (.natVal n))
   | .lit (.strVal s) => .ok (.lit (.strVal s))

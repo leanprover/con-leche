@@ -66,10 +66,9 @@ def MemberValRun (μ : CheckMode) (F : Nat) (env' : Env)
       env'.find? (cvA.name.str "_model")
         = some (.defnInfo cvm mval hint) ∧
       cvm.levelParams = cvA.levelParams ∧
-      Expr.eqUpToNames
-        (cvA.type.renameConsts fun n =>
+      ((cvA.type.renameConsts fun n =>
           if blockNames.contains n then n.str "_model" else n)
-        cvm.type = true
+          == cvm.type) = true
 
 /-- `IndMembersR`'s run/guard half.  **The running valuation is gone**:
 `IndMembersR` threads `cvalModeled` from step to step so that member
@@ -325,15 +324,15 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
       rhsA.constsResolve env' = true ∧
       (∃ rbinders,
         rhsA.stripLams (nP + nF) = some (rbinders, .bvar (nF - 1 - i)) ∧
-        ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta), i0 < nP + nF →
+        ∀ (i0 : Nat) (b b' : Expr × BinderMeta), i0 < nP + nF →
           rbinders[i0]? = some b → cbinders[i0]? = some b' →
-          b.2.1 = b'.2.1) ∧
+          b.1 = b'.1) ∧
       (∃ t', inferTypeCore μ env' F 0 rhsA = .ok t') ∧
       (∃ tcv tval,
         env'.find? ((projModelName T i).str "iota")
           = some (.thmInfo tcv tval) ∧
         tcv.levelParams = lps ∧
-        (∃ (sbinders : List (Name × Expr × BinderMeta)) (ℓA : Level)
+        (∃ (sbinders : List (Expr × BinderMeta)) (ℓA : Level)
             (tySlot : Expr),
           tcv.type.stripPis (nP + nF) = some (sbinders,
             .app (.app (.app (.const eqName [ℓA]) tySlot)
@@ -349,9 +348,9 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
                     ((List.range nF).map fun k =>
                       Expr.bvar (nF - 1 - k)))])))
               (.bvar (nF - 1 - i))) ∧
-          ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta), i0 < nP + nF →
+          ∀ (i0 : Nat) (b b' : Expr × BinderMeta), i0 < nP + nF →
             sbinders[i0]? = some b → cbinders[i0]? = some b' →
-            b.2.1 = b'.2.1.renameConsts (projFwd T ctorName nF)) ∧
+            b.1 = b'.1.renameConsts (projFwd T ctorName nF)) ∧
         ∃ fvsI sbodyO,
           openPisAtFvars (nP + nF) tcv.type 0 = some (fvsI, sbodyO) ∧
           (∃ tl, inferTypeCore μ env' F (nP + nF)

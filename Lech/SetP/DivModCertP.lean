@@ -219,10 +219,10 @@ theorem dmUnV_of_parts (m : EnvS2Core V env) {ψ : Name → Nat}
 theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     {o : Name} {cio : ConstantInfo}
     (hf : env.find? o = some cio)
-    {n₁ n₂ : Name} {mb₁ mb₂ : Lech.BinderMeta} {codN : Name}
+    {mb₁ mb₂ : Lech.BinderMeta} {codN : Name}
     (hty : cio.toConstantVal.type
-      = .forallE n₁ (.const Lech.natName [])
-      (.forallE n₂ (.const Lech.natName []) (.const codN []) mb₂)
+      = .forallE (.const Lech.natName [])
+      (.forallE (.const Lech.natName []) (.const codN []) mb₂)
       mb₁)
     {ciN codCi : ConstantInfo}
     (hfN : env.find? Lech.natName = some ciN)
@@ -249,9 +249,9 @@ theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
 theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     {o : Name} {cio : ConstantInfo}
     (hf : env.find? o = some cio)
-    {n₁ : Name} {mb₁ : Lech.BinderMeta} {codN : Name}
+    {mb₁ : Lech.BinderMeta} {codN : Name}
     (hty : cio.toConstantVal.type
-      = .forallE n₁ (.const Lech.natName []) (.const codN []) mb₁)
+      = .forallE (.const Lech.natName []) (.const codN []) mb₁)
     {ciN codCi : ConstantInfo}
     (hfN : env.find? Lech.natName = some ciN)
     (hlpN : ciN.toConstantVal.levelParams = [])
@@ -268,7 +268,7 @@ theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
           (mp.base2.acval codN ψ)) := by
     rw [hty, denoteP_forallE, denoteP_levelless_const hfN hlpN]
     rw [show (Expr.const codN ([] : List Lech.Level)).instantiate1
-          (.fvar 0 n₁ (.const Lech.natName []))
+          (.fvar 0 (.const Lech.natName []))
         = Expr.const codN [] from Lech.Expr.instantiate1_eq_self
         (by simp [Lech.Expr.looseBVarsBounded])]
     rw [denoteP_levelless_const hcodF hcodLp]
@@ -296,9 +296,8 @@ def dmNatFrag (bins uns : List Name) : Expr → Bool
   | .app (.const n us) a =>
       uns.contains n && us.isEmpty && dmNatFrag bins uns a
   | .const n us => (n == Lech.natZeroName) && us.isEmpty
-  | .fvar i nm ty =>
-      ((i == 0 && nm == Name.anonymous.str "x") ||
-        (i == 1 && nm == Name.anonymous.str "y")) &&
+  | .fvar i ty =>
+      ((i == 0) || (i == 1)) &&
         ty == Expr.const Lech.natName []
   | _ => false
 
@@ -383,27 +382,27 @@ theorem dmNatFragP {m : EnvS2Core V env} {ψ : Name → Nat}
     obtain ⟨rfl, rfl⟩ := h
     exact ⟨_, hread _ (by simp) d,
       fun ρ _ _ => ⟨hleafOk _ ρ, hzero ρ, rfl⟩⟩
-  | .fvar i nm ty, h => by
+  | .fvar i ty, h => by
     simp only [dmNatFrag, Bool.and_eq_true, Bool.or_eq_true,
       beq_iff_eq] at h
     obtain ⟨hi, rfl⟩ := h
     rcases hi with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
     · refine ⟨.bvar (d - 1 - 0), ?_, fun ρ hx hy => ?_⟩
       · show denoteP m.acval env ψ d
-          (.fvar 0 (Name.anonymous.str "x")
+          (.fvar 0
             (.const Lech.natName [])) = _
         rw [denoteP_fvar]
       · exact ⟨⟨by simp, by simp⟩, by rw [interp2_bvar]; exact hx,
           by rw [interp2_bvar]; rfl⟩
     · refine ⟨.bvar (d - 1 - 1), ?_, fun ρ hx hy => ?_⟩
       · show denoteP m.acval env ψ d
-          (.fvar 1 (Name.anonymous.str "y")
+          (.fvar 1
             (.const Lech.natName [])) = _
         rw [denoteP_fvar]
       · exact ⟨⟨by simp, by simp⟩, by rw [interp2_bvar]; exact hy,
           by rw [interp2_bvar]; rfl⟩
-  | .bvar _, h | .sort _, h | .lam _ _ _ _, h | .letE _ _ _ _, h
-  | .forallE _ _ _ _, h | .lit _, h | .proj _ _ _, h => by
+  | .bvar _, h | .sort _, h | .lam _ _ _, h | .letE _ _ _, h
+  | .forallE _ _ _, h | .lit _, h | .proj _ _ _, h => by
     simp [dmNatFrag] at h
 
 /-! ## One certificate, converted
@@ -516,8 +515,8 @@ form.** -/
 theorem ctxOkP_pinnedLift {m : EnvS2Core V env} {ψ : Name → Nat}
     {d : Nat} {Δa : List AVExpr} {e : Expr}
     (hlen : Δa.length = d)
-    (hslot : ∀ l ∈ e.fvarLeaves, l.1 < d ∧ Expr.fvarsBelow l.1 l.2.2 ∧
-      ∃ tya, denoteP m.acval env ψ d l.2.2 = some tya ∧
+    (hslot : ∀ l ∈ e.fvarLeaves, l.1 < d ∧ Expr.fvarsBelow l.1 l.2 ∧
+      ∃ tya, denoteP m.acval env ψ d l.2 = some tya ∧
         tya = (Δa.getD (d - 1 - l.1) default).liftN (d - l.1) 0 ∧
         ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ tya) :
     CtxOkP m ψ d Δa e := by
@@ -622,8 +621,8 @@ condition the frame asks for is a consequence of the grammar, not a
 `by decide` at each call site. -/
 
 /-- A frame variable is well-scoped at any depth above its index. -/
-theorem dmFvarWScoped {d i : Nat} {n : Name} {ty : Expr} (hi : i < d)
-    (hty : Expr.WScoped i ty) : Expr.WScoped d (Expr.fvar i n ty) := by
+theorem dmFvarWScoped {d i : Nat} {ty : Expr} (hi : i < d)
+    (hty : Expr.WScoped i ty) : Expr.WScoped d (Expr.fvar i ty) := by
   simp only [Expr.WScoped]
   exact ⟨hi, hty⟩
 
@@ -663,7 +662,7 @@ theorem dmNatFrag_syntax {bins uns : List Name} :
     exact ⟨by simp [dmLeavesOk, Expr.fvarLeaves], rfl, fun _ _ =>
       Expr.WScoped.of_not_hasFvar
         (e := .const Lech.natZeroName []) rfl⟩
-  | .fvar i nm ty, h => by
+  | .fvar i ty, h => by
     simp only [dmNatFrag, Bool.and_eq_true, Bool.or_eq_true,
       beq_iff_eq] at h
     obtain ⟨hi, rfl⟩ := h
@@ -676,8 +675,8 @@ theorem dmNatFrag_syntax {bins uns : List Name} :
         fun d hd => dmFvarWScoped (by omega)
           (Expr.WScoped.of_not_hasFvar
             (e := .const Lech.natName []) rfl)⟩
-  | .bvar _, h | .sort _, h | .lam _ _ _ _, h | .letE _ _ _ _, h
-  | .forallE _ _ _ _, h | .lit _, h | .proj _ _ _, h => by
+  | .bvar _, h | .sort _, h | .lam _ _ _, h | .letE _ _ _, h
+  | .forallE _ _ _, h | .lit _, h | .proj _ _ _, h => by
     simp [dmNatFrag] at h
 
 /-- Scoping survives the operation substitution (the `WScoped` twin of
@@ -696,9 +695,9 @@ theorem wscoped_substConst0 {c : Name} {v : Expr}
     simp only [Expr.WScoped] at hw
     exact dmApp_wscoped (wscoped_substConst0 hv f hw.1)
       (wscoped_substConst0 hv a hw.2)
-  | .bvar _, _, hw | .fvar _ _ _, _, hw | .sort _, _, hw
-  | .lit _, _, hw | .lam _ _ _ _, _, hw | .forallE _ _ _ _, _, hw
-  | .letE _ _ _ _, _, hw | .proj _ _ _, _, hw => hw
+  | .bvar _, _, hw | .fvar _ _, _, hw | .sort _, _, hw
+  | .lit _, _, hw | .lam _ _ _, _, hw | .forallE _ _ _, _, hw
+  | .letE _ _ _, _, hw | .proj _ _ _, _, hw => hw
 
 /-! ## The certificate frame
 
@@ -1749,7 +1748,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     rwa [Lech.Env.find?_cons, if_neg (fun hh => hnn hh.symm)] at hf
   -- the numeral heads, at the prefix
   obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hfN2, hfZ2, hfS2,
-    hlpN, hlpZ, hlpS, htyN, htyZ, nmS, mbS, htyS⟩ :=
+    hlpN, hlpZ, hlpS, htyN, htyZ, mbS, htyS⟩ :=
     Lech.natLitSupported_inv hs
   have hfN : env.find? Lech.natName
       = some (.indInfo cvN capsN) := hdown _ _ hnN hfN2
@@ -1783,7 +1782,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     exact ⟨cvn, vn, hintn, hdown _ _ hnc hfn2, hd.1, hpinn⟩
   obtain ⟨cvb, vb, hintb, hfble, hlpble, hpinb⟩ :=
     hstoredDep _ hbleDep hbleNe
-  obtain ⟨nmb, nmb2, mbb, mbb2, codb, htyb, hcodb⟩ :=
+  obtain ⟨mbb, mbb2, codb, htyb, hcodb⟩ :=
     natOpTyPinned_binaryE (by decide) hpinb
   obtain ⟨rfl, ciB, hfB2, hlpB, htyB⟩ := natOpCod_ble hcodb
   have hfB : env.find? Lech.boolName = some ciB :=
@@ -1956,7 +1955,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     by_cases hnc : n = c
     · -- the operation itself, through the value front door
       subst hnc
-      obtain ⟨nmT, nmT2, mbT, mbT2, codT, htyT2, hcodT⟩ :=
+      obtain ⟨mbT, mbT2, codT, htyT2, hcodT⟩ :=
         natOpTyPinned_binaryE hnu (htyS2 ▸ hpinS2)
       have hcodN : codT = Expr.const Lech.natName [] := by
         unfold Lech.natOpCod at hcodT
@@ -1966,7 +1965,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         simpa using hcodT
       subst hcodN
       have hTshape := denoteP_pinnedBinTy (codN := Lech.natName)
-        (n₁ := nmT) (n₂ := nmT2) (mb₁ := mbT) (mb₂ := mbT2)
+        (mb₁ := mbT) (mb₂ := mbT2)
         mp.base2 ψ hfN hlpN hfN hlpN
       rw [← htyT2] at hTshape
       obtain heq : Ta ψ = _ :=
@@ -1977,7 +1976,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         (heq ▸ hTok ψ ρ)
     · obtain ⟨cvn, vn, hintn, hfn, hlpn, hpinn⟩ :=
         hstoredDep n hnd hnc
-      obtain ⟨nmn, nmn2, mbn, mbn2, codn, htyn, hcodn⟩ :=
+      obtain ⟨mbn, mbn2, codn, htyn, hcodn⟩ :=
         natOpTyPinned_binaryE hnu hpinn
       have hcodN : codn = Expr.const Lech.natName [] := by
         unfold Lech.natOpCod at hcodn

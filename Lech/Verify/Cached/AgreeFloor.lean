@@ -393,11 +393,11 @@ def constsResolveSk (sk : List InstallSkel) : Expr → Bool
       (skFind? sk listNilName).isSome && (skFind? sk listConsName).isSome &&
       (skFind? sk charName).isSome && (skFind? sk charOfNatName).isSome
   | .const n _ => (skFind? sk n).isSome
-  | .fvar _ _ ty => constsResolveSk sk ty
+  | .fvar _ ty => constsResolveSk sk ty
   | .app f a => constsResolveSk sk f && constsResolveSk sk a
-  | .lam _ ty body _ => constsResolveSk sk ty && constsResolveSk sk body
-  | .forallE _ ty body _ => constsResolveSk sk ty && constsResolveSk sk body
-  | .letE _ ty val body =>
+  | .lam ty body _ => constsResolveSk sk ty && constsResolveSk sk body
+  | .forallE ty body _ => constsResolveSk sk ty && constsResolveSk sk body
+  | .letE ty val body =>
     constsResolveSk sk ty && constsResolveSk sk val && constsResolveSk sk body
   | .proj s _ e => (skFind? sk s).isSome && constsResolveSk sk e
 
@@ -414,14 +414,14 @@ theorem constsResolveF_skel {fe : FEnv} {sk : List InstallSkel}
   | lit l =>
     cases l <;> simp only [Expr.constsResolveF, constsResolveSk, h.isSome']
   | const n us => simp only [Expr.constsResolveF, constsResolveSk, h.isSome']
-  | fvar _ _ ty ih => simp only [Expr.constsResolveF, constsResolveSk, ih]
+  | fvar _ ty ih => simp only [Expr.constsResolveF, constsResolveSk, ih]
   | app f a ihf iha =>
     simp only [Expr.constsResolveF, constsResolveSk, ihf, iha]
-  | lam _ ty b _ ihty ihb =>
+  | lam ty b _ ihty ihb =>
     simp only [Expr.constsResolveF, constsResolveSk, ihty, ihb]
-  | forallE _ ty b _ ihty ihb =>
+  | forallE ty b _ ihty ihb =>
     simp only [Expr.constsResolveF, constsResolveSk, ihty, ihb]
-  | letE _ t v b iht ihv ihb =>
+  | letE t v b iht ihv ihb =>
     simp only [Expr.constsResolveF, constsResolveSk, iht, ihv, ihb]
   | proj s _ e ihe =>
     simp only [Expr.constsResolveF, constsResolveSk, h.isSome', ihe]
@@ -429,7 +429,7 @@ theorem constsResolveF_skel {fe : FEnv} {sk : List InstallSkel}
 /-- `directNonRecF` at the skeleton level. -/
 def directNonRecSk (sk : List InstallSkel) (p : DirectParts) : Bool :=
   match p.cvC.type.stripPis (p.nP + p.nF) with
-  | some (cbs, _) => cbs.all fun b => constsResolveSk sk b.2.1
+  | some (cbs, _) => cbs.all fun b => constsResolveSk sk b.1
   | none => false
 
 theorem directNonRecF_skel {fe : FEnv} {sk : List InstallSkel}
@@ -459,7 +459,7 @@ per constructor). -/
 def directSumNonRecSk (sk : List InstallSkel) (p : DirectSumParts) : Bool :=
   p.ctors.all fun c =>
     match c.1.type.stripPis (p.nP + c.2) with
-    | some (cbs, _) => cbs.all fun b => constsResolveSk sk b.2.1
+    | some (cbs, _) => cbs.all fun b => constsResolveSk sk b.1
     | none => false
 
 theorem directSumNonRecF_skel {fe : FEnv} {sk : List InstallSkel}

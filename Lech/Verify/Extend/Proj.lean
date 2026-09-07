@@ -521,12 +521,12 @@ theorem checkProjShape_inv {pty cty : Expr} {nP nF : Nat} {u : Unit}
       exact ⟨abinders, arest, cbindersR, cbody, rfl, rfl,
         ⟨dN, dus, hfn⟩, eq_of_beq hlen⟩
     | .bvar _ => intro h; exact nomatch h
-    | .fvar _ _ _ => intro h; exact nomatch h
+    | .fvar _ _ => intro h; exact nomatch h
     | .sort _ => intro h; exact nomatch h
     | .app _ _ => intro h; exact nomatch h
-    | .lam _ _ _ _ => intro h; exact nomatch h
-    | .forallE _ _ _ _ => intro h; exact nomatch h
-    | .letE _ _ _ _ => intro h; exact nomatch h
+    | .lam _ _ _ => intro h; exact nomatch h
+    | .forallE _ _ _ => intro h; exact nomatch h
+    | .letE _ _ _ => intro h; exact nomatch h
     | .lit _ => intro h; exact nomatch h
     | .proj _ _ _ => intro h; exact nomatch h
   next => exact nomatch h

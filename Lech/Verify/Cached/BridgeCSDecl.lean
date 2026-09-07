@@ -600,7 +600,7 @@ theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       Expr.WScoped (p.nP + i) (Expr.fvarTypeD x) := by
     intro i x hx
     rw [List.getElem?_drop] at hx
-    obtain ⟨nm, ty, rfl⟩ := hidxT (p.nP + i) x hx
+    obtain ⟨ty, rfl⟩ := hidxT (p.nP + i) x hx
     have hw := htqW _ (List.mem_of_getElem? hx)
     simp only [Expr.WScoped, Nat.zero_add] at hw
     exact hw.2

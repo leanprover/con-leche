@@ -496,9 +496,9 @@ the subject, so its reading is the subject's (`Option.some.inj`) and
 both conjuncts are reflexivity. -/
 theorem whnfCore_leaf_claimP (m : EnvS2Core V env) {fuel d : Nat}
     {e e' : Expr} {Δa : List AVExpr} {ea ea' : AVExpr}
-    (hleaf : (∃ u, e = .sort u) ∨ (∃ idx n ty, e = .fvar idx n ty) ∨
-      (∃ n ty body bi, e = .forallE n ty body bi) ∨
-      (∃ n ty body mb, e = .lam n ty body mb) ∨
+    (hleaf : (∃ u, e = .sort u) ∨ (∃ idx ty, e = .fvar idx ty) ∨
+      (∃ ty body bi, e = .forallE ty body bi) ∨
+      (∃ ty body mb, e = .lam ty body mb) ∨
       (∃ n us, e = .const n us) ∨ (∃ l, e = .lit l))
     (h : whnfCore μ env (fuel + 1) d e = .ok e')
     (hea : denoteP m.acval env φ d e = some ea)
@@ -508,7 +508,7 @@ theorem whnfCore_leaf_claimP (m : EnvS2Core V env) {fuel d : Nat}
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea = interp2 V ρ ea' := by
   have he : e' = e := by
-    rcases hleaf with ⟨u, rfl⟩ | ⟨idx, n, ty, rfl⟩ |
+    rcases hleaf with ⟨u, rfl⟩ | ⟨idx, ty, rfl⟩ |
       ⟨n, ty, body, bi, rfl⟩ | ⟨n, ty, body, mb, rfl⟩ |
       ⟨n, us, rfl⟩ | ⟨l, rfl⟩ <;>
       simp only [whnfCore_leaf_sort, whnfCore_leaf_fvar, whnfCore_leaf_forallE,
@@ -524,14 +524,14 @@ theorem whnfCore_leaf_claimP (m : EnvS2Core V env) {fuel d : Nat}
 `denoteP_beta` — a theorem, and an equality. -/
 theorem whnfCore_letE_claimP (m : EnvS2Core V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2P μ m φ fuel)
-    {d : Nat} {nn : Name} {tt vv bb e' : Expr} {Δa : List AVExpr}
-    (h : whnfCore μ env (fuel + 1) d (.letE nn tt vv bb) = .ok e')
-    (hws : Expr.WScoped d (.letE nn tt vv bb))
-    (hb : (Expr.letE nn tt vv bb).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.letE nn tt vv bb))
+    {d : Nat} {tt vv bb e' : Expr} {Δa : List AVExpr}
+    (h : whnfCore μ env (fuel + 1) d (.letE tt vv bb) = .ok e')
+    (hws : Expr.WScoped d (.letE tt vv bb))
+    (hb : (Expr.letE tt vv bb).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.letE tt vv bb))
     {ea ea' : AVExpr}
-    (hC : CtxOkP m φ d Δa (.letE nn tt vv bb))
-    (hea : denoteP m.acval env φ d (.letE nn tt vv bb) = some ea)
+    (hC : CtxOkP m φ d Δa (.letE tt vv bb))
+    (hea : denoteP m.acval env φ d (.letE tt vv bb) = some ea)
     (hea' : denoteP m.acval env φ d e' = some ea')
     (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) :
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea') ∧
@@ -549,12 +549,12 @@ theorem whnfCore_letE_claimP (m : EnvS2Core V env) {fuel : Nat}
   · rw [hva] at hea; exact nomatch hea
   rw [hva] at hea
   rcases hba : denoteP m.acval env φ (d + 1)
-      (bb.instantiate1 (.fvar d nn tt)) with _ | ba
+      (bb.instantiate1 (.fvar d tt)) with _ | ba
   · rw [hba] at hea; exact nomatch hea
   rw [hba] at hea
   obtain rfl : ea = .letE ta va ba := (Option.some.inj hea).symm
   have hsubred : ∀ l ∈ (bb.instantiate1 vv).fvarLeaves,
-      l ∈ (Expr.letE nn tt vv bb).fvarLeaves := by
+      l ∈ (Expr.letE tt vv bb).fvarLeaves := by
     intro l hl
     rcases Expr.fvarLeaves_instantiate1 bb 0 hl with h2 | h2
     · simp [Expr.fvarLeaves, h2]
@@ -568,7 +568,7 @@ theorem whnfCore_letE_claimP (m : EnvS2Core V env) {fuel : Nat}
   have hred : denoteP m.acval env φ d (bb.instantiate1 vv)
       = some (ba.inst va) := by
     rw [denoteP_beta m.acval_closed (acval_inst_self m)
-      (n := nn) (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
+      (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
       hba]
     rfl
   obtain ⟨hok', heq'⟩ :=
@@ -654,7 +654,7 @@ theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
     · exact hLf' l hl
     · exact hLa l hl
   have hCapp : CtxOkP m φ d Δa (.app f' a) := CtxOkP.app hCf' hCa
-  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, hcertOr⟩ |
+  rcases hcase with ⟨ty, body, mm, rfl, hbeta, hcertOr⟩ |
     ⟨e'', hio, hwe''⟩ | rfl
   · -- β
     obtain ⟨tya, ba, htya, hbb, rfl⟩ := denoteP_lam_inv hfa'
@@ -668,7 +668,7 @@ theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
     have hbred : (body.instantiate1 a).looseBVarsBounded 0 = true :=
       Expr.looseBVarsBounded_instantiate1_gen hb.2 hbf'.2
     have hsubred : ∀ l ∈ (body.instantiate1 a).fvarLeaves,
-        l ∈ (Expr.app (.lam n ty body mm) a).fvarLeaves := by
+        l ∈ (Expr.app (.lam ty body mm) a).fvarLeaves := by
       intro l hl
       rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
       · simp [Expr.fvarLeaves, h2]
@@ -701,7 +701,7 @@ theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
     have hred : denoteP m.acval env φ d (body.instantiate1 a)
         = some (ba.inst aa) := by
       rw [denoteP_beta m.acval_closed (acval_inst_self m)
-        (n := n) (ty := ty) hwf'.2.fvarsBelow hws.2 hb.2 haa 0, hbb]
+        (ty := ty) hwf'.2.fvarsBelow hws.2 hb.2 haa 0, hbb]
       rfl
     obtain ⟨hok', heq'⟩ :=
       ihwc hbeta hwred hbred hLred (hCapp.of_subset hsubred) hred hea'
@@ -730,15 +730,15 @@ theorem whnfCore_claimsP (m : EnvS2Core V env) {fuel : Nat}
   match e with
   | .sort u =>
     exact whnfCore_leaf_claimP m (Or.inl ⟨u, rfl⟩) h hea hea' hok
-  | .fvar idx n ty =>
-    exact whnfCore_leaf_claimP m (Or.inr (Or.inl ⟨idx, n, ty, rfl⟩))
+  | .fvar idx ty =>
+    exact whnfCore_leaf_claimP m (Or.inr (Or.inl ⟨idx, ty, rfl⟩))
       h hea hea' hok
-  | .forallE n ty body bi =>
+  | .forallE ty body bi =>
     exact whnfCore_leaf_claimP m
-      (Or.inr (Or.inr (Or.inl ⟨n, ty, body, bi, rfl⟩))) h hea hea' hok
-  | .lam n ty body mb =>
+      (Or.inr (Or.inr (Or.inl ⟨ty, body, bi, rfl⟩))) h hea hea' hok
+  | .lam ty body mb =>
     exact whnfCore_leaf_claimP m
-      (Or.inr (Or.inr (Or.inr (Or.inl ⟨n, ty, body, mb, rfl⟩))))
+      (Or.inr (Or.inr (Or.inr (Or.inl ⟨ty, body, mb, rfl⟩))))
       h hea hea' hok
   | .const n us =>
     exact whnfCore_leaf_claimP m
@@ -749,7 +749,7 @@ theorem whnfCore_claimsP (m : EnvS2Core V env) {fuel : Nat}
       (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr ⟨l, rfl⟩)))))
       h hea hea' hok
   | .bvar i => exact (whnfCore_bvar_claimP m hea).elim
-  | .letE nn tt vv bb =>
+  | .letE tt vv bb =>
     exact whnfCore_letE_claimP m ihwc h hws hb hLb hC hea hea' hok
   | .app f a =>
     exact whnfCore_app_claimP m hex hcert hiota ihwc h hws hb hLb hC
