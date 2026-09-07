@@ -192,14 +192,14 @@ theorem ctxOkP_opened {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
   have hws := (openPisAtFvars_WScoped k e 0 hop
     (Expr.WScoped.of_not_hasFvar hcl)).1
   -- the positions of the variables a leaf can be
-  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2.2) := by
+  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2) := by
     intro l hl
     obtain ⟨p, hp⟩ := List.getElem?_of_mem (hleaf l hl)
-    obtain ⟨nm, ty, hx⟩ := hidx p _ hp
+    obtain ⟨ty, hx⟩ := hidx p _ hp
     rw [Nat.zero_add] at hx
-    obtain ⟨rfl, -, -⟩ : l.1 = p ∧ l.2.1 = nm ∧ l.2.2 = ty := by
-      injection hx with a b c
-      exact ⟨a, b, c⟩
+    obtain ⟨rfl, -⟩ : l.1 = p ∧ l.2 = ty := by
+      injection hx with a b
+      exact ⟨a, b⟩
     exact hp
   refine ctxOkP_of_openers m.acval_closed (fvs := fvs.take i)
     (Aa := fun j => Γ.getD (k - 1 - j) default) (Δa := Γ.drop (k - i))
@@ -211,8 +211,8 @@ theorem ctxOkP_opened {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
       rw [List.length_take] at this
       omega
     rw [List.getElem?_take_of_lt hj] at hy
-    obtain ⟨nm, ty, hx⟩ := hidx j y hy
-    exact ⟨nm, ty, by rw [hx, Nat.zero_add]⟩
+    obtain ⟨ty, hx⟩ := hidx j y hy
+    exact ⟨ty, by rw [hx, Nat.zero_add]⟩
   · intro y hy
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hy
     have hji : j < i := by

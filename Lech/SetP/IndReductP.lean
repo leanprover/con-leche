@@ -142,7 +142,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hrhsRw] at hf
       exact nomatch hf
     · obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-      obtain ⟨nm, ty, rfl⟩ := hshapeS q x hq
+      obtain ⟨ty, rfl⟩ := hshapeS q x hq
       rw [Expr.fvarLeaves] at hlx
       rcases List.mem_cons.mp hlx with rfl | hlx'
       · exact hx
@@ -162,7 +162,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
         · exact h'
         · rw [List.getElem?_eq_none (by omega)] at hq
           exact nomatch hq
-      obtain ⟨nm, ty, rfl⟩ := hshapeS q x hq
+      obtain ⟨ty, rfl⟩ := hshapeS q x hq
       rw [Expr.fvarLeaves] at hlx
       rcases List.mem_cons.mp hlx with rfl | hlx'
       · exact hqK
@@ -183,7 +183,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       exact hrhsb
     · intro x hx
       obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-      obtain ⟨nm, ty, rfl⟩ := hshapeS q x hq
+      obtain ⟨ty, rfl⟩ := hshapeS q x hq
       rfl
   -- the head runs back to the closed rule reading
   have hRVcl : ∀ k : Nat, RV.liftN 1 k = RV :=
