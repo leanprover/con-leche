@@ -13,8 +13,7 @@ checks against the `_model.iota_j` theorems, the capability checks
 installs.  The core checker (`Lech/Kernel/Core.lean`,
 `TypeChecker*`) never imports this module; `Lech/Kernel/Checker.lean`
 consumes it for `checkDecl`'s `indDecl` arm.  Verification:
-`Lech/SetR/Install/*` and `Lech/Verify/Extend/*` (set route),
-`Lech/TTVerify/DeclInd*.lean` (declarative route).
+`Lech/Verify/Extend/*` and `Lech/SetP/Ind*P.lean`.
 -/
 
 namespace Lech

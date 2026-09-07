@@ -79,7 +79,7 @@ def AnnotValidV : (Nat → V) → AVExpr → Prop
     AnnotValidV V ρ (.bvar i) = True := by rw [AnnotValidV]
 @[simp] theorem AnnotValidV_sort (ρ : Nat → V) (u : Nat) :
     AnnotValidV V ρ (.sort u) = True := by rw [AnnotValidV]
-@[simp] theorem AnnotValidV_const (ρ : Nat → V) (c : Lech.TT.BConst)
+@[simp] theorem AnnotValidV_const (ρ : Nat → V) (c : Lech.VExpr.BConst)
     (us : List Nat) : AnnotValidV V ρ (.const c us) = True := by
   rw [AnnotValidV]
 @[simp] theorem AnnotValidV_prf (ρ : Nat → V) :

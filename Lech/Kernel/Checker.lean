@@ -13,8 +13,8 @@ entry-point records (`CheckerOps` and its instantiations) and the
 common `checkConstantVal` live in `Lech/Kernel/CheckerBase.lean`;
 the modeled-inductive install in `Lech/Kernel/Modeled.lean`; the
 direct simple-structure install in `Lech/Kernel/Direct/Install.lean`.
-Verification: `Lech.Verify.*`, `Lech.SetR.Main` (the set route)
-and `Lech.TTVerify.Main` (the declarative route).
+Verification: `Lech.Verify.*` (inversions and claims) and
+`Lech.SetP.*` (the graded model's capstones).
 -/
 
 namespace Lech

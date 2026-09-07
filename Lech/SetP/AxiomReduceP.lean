@@ -38,7 +38,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta inferTypeCore)
@@ -75,7 +75,7 @@ theorem ofReduce_shapeS {n : Name} {type' : Expr}
                 (.const (Lech.reduceElemName
                   (Lech.ofReduceOp n)) []))
               (.bvar 2)) (.bvar 1)) m₃) m₂) m₁ := by
-  rw [Lech.TTVerify.ofReducePin_type hn] at h
+  rw [Lech.Verify.ofReducePin_type hn] at h
   simp only [Expr.mkAppN, Expr.erasePw] at h
   obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_const_invS hty₁
@@ -203,8 +203,8 @@ theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     (ρ : Nat → V) :
     interp2 V ρ (AVExpr.prf) ∈ˢ interp2 V ρ ta := by
   obtain ⟨hEq, helem, ⟨cvR, hfR, hmpR⟩, hApinT⟩ := ofReduce_gatesS hok
-  obtain ⟨ciE, hfE, hlpE, htyE⟩ := Lech.TTVerify.reduceElem_sort helem
-  obtain ⟨-, hlpR⟩ := Lech.TTVerify.matchesPin_invT hmpR
+  obtain ⟨ciE, hfE, hlpE, htyE⟩ := Lech.Verify.reduceElem_sort helem
+  obtain ⟨-, hlpR⟩ := Lech.Verify.matchesPin_invT hmpR
   rw [show (Lech.reduceOpCvA
       (Lech.ofReduceOp cvA.name)).levelParams = [] from by
     unfold Lech.reduceOpCvA; split <;> rfl] at hlpR

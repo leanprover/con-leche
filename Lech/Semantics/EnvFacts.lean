@@ -46,7 +46,7 @@ whole point of the factoring.
 
 namespace Lech.Semantics
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.Verify
 
 /-- The environment facts the bridge consumes: a constant valuation,
 its closedness, the syntactic well-formedness of the store, level

@@ -58,7 +58,7 @@ are unconstrained (nothing reads them). -/
 inductive AVExpr.BitAgree : AVExpr → AVExpr → Prop where
   | bvar (i : Nat) : BitAgree (.bvar i) (.bvar i)
   | sort (u : Nat) : BitAgree (.sort u) (.sort u)
-  | const (c : Lech.TT.BConst) (us : List Nat) :
+  | const (c : Lech.VExpr.BConst) (us : List Nat) :
       BitAgree (.const c us) (.const c us)
   | prf : BitAgree .prf .prf
   | app {f f' a a' : AVExpr} :

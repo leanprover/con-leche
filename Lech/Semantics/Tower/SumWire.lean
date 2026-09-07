@@ -16,7 +16,7 @@ the index variables sit inside the K-frame (`nIdx + n < K`).
 namespace Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT
+open Lech.VExpr
 
 /-! ## The case split -/
 

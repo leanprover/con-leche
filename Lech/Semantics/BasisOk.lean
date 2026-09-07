@@ -11,7 +11,7 @@ verbatim.)*
 
 
 Step 2's second entry item, and the skeleton's `const` row's remaining
-supplier: `Lech/TT/Semantics/ConstOk.lean`'s capstone ported onto
+supplier: `Lech/VExpr/Semantics/ConstOk.lean`'s capstone ported onto
 `piR`/`lamR` and `BConst.type2`.
 
 ## The port pattern
@@ -49,7 +49,7 @@ namespace Lech.Semantics
 open Lech.SetModel
 
 open SetTheory
-open Lech.TT (BConst lv)
+open Lech.VExpr (BConst lv)
 
 universe w
 

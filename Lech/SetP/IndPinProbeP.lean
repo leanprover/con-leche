@@ -12,7 +12,7 @@ nested-pin conjunct (`Annot/EnvS2P.lean`):
   ∀ i, i < RecRule.ctorParams rl →
   ∃ vpa : AVExpr,
     denoteP m.acval env φ rP
-      (Lech.TTVerify.openRev 0 rP
+      (Lech.Verify.openRev 0 rP
         ((pins.getD i default).instantiateLevelParams
           cv.levelParams us)) = some vpa ∧
     ∀ ρ : Nat → V, AnnotOkP V ρ vpa) ∧
@@ -180,7 +180,7 @@ steps below are the reading's syntactic half, by `rfl`. -/
 /-- `openRev 0 6` sends the measured pin's loose `bvar 5` to `fvar 5`
 (the reverse opening consumes the innermost variable first). -/
 theorem openRev_pin_shape (c : Name) :
-    Lech.TTVerify.openRev 0 6
+    Lech.Verify.openRev 0 6
         (Expr.app (Expr.const c []) (Expr.bvar 5))
       = Expr.app (Expr.const c [])
           (Expr.fvar 5 (Expr.sort Level.zero)) := rfl
@@ -193,7 +193,7 @@ theorem denoteP_pin_shape {env : Env} (m : EnvS2Core V env)
     (hfind : env.find? c = some cv)
     (hlp : cv.toConstantVal.levelParams = []) :
     denoteP m.acval env φ 6
-        (Lech.TTVerify.openRev 0 6
+        (Lech.Verify.openRev 0 6
           (Expr.app (Expr.const c []) (Expr.bvar 5)))
       = some (.app (m.acval c (Level.substFn φ [] [])) (.bvar 0)) := by
   rw [openRev_pin_shape, denoteP_app, denoteP_const hfind (by simp [hlp]),

@@ -27,7 +27,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics Lech.SetModel
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps projFnName projModelName Declaration)

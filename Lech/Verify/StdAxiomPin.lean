@@ -25,7 +25,7 @@ denotation, and `denote_erasePw` (`Verify/Denote/Inst.lean`) says
 exactly as the un-erased one did.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 variable {mode : CheckMode}
 
@@ -142,4 +142,4 @@ theorem nonempty_shapes {env : Env} {cvA : ConstantVal}
             beq_iff_eq] at hNr
           exact hNr.2
       | _ => exact nomatch hNr
-end Lech.TTVerify
+end Lech.Verify

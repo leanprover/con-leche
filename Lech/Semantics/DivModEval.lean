@@ -23,7 +23,7 @@ Statements verbatim from their old home; the namespace is unchanged.
 universe w
 
 namespace Lech.Semantics
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 
 variable {V : Type w} [SetTheory V]
 

@@ -7,7 +7,7 @@ import Lech.Verify.StrLitExpr
 Relocated out of `Lech/TTVerify/{NatOpsStep,StrLitStep}.lean`
 (task #148, T3) and **generalized from `EnvTT` to `ValParams`**: every
 statement below is about `denote`, `Env.find?` and the literal-support
-guard — no `HasType`, no `EnvTT` field beyond level insensitivity.  Both
+guard — no typing judgment, no `EnvTT` field beyond level insensitivity.  Both
 lanes need them: the TT lane at its string-literal inference clause, the
 `Lech/SetR/*` bridge at R7/R16 (`Red.strLitCtor`'s `denoteClosed` side
 condition) and at `defeqStep`'s two string-expansion cases.
@@ -17,13 +17,13 @@ The `EnvTT`-shaped specializations stay where their consumers are
 `denote_strLitList`, `denote_strLitToConstructor`); each is now one line
 over the generalized statement here, so there is exactly one proof.
 
-The namespace is `Lech.TTVerify` because that is where `denote` and
+The namespace is `Lech.Verify` because that is where `denote` and
 the shape lemmas already live; the module sits below both lanes.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
-open Lech.TT
+open Lech.VExpr
 
 /-- The empty level substitution is the identity assignment. -/
 theorem substFn_nil (φ : Name → Nat) : Level.substFn φ [] [] = φ := by
@@ -281,4 +281,4 @@ theorem denote_strLitToConstructorV {env : Env} {cval : TConstVal}
     denote_const_nolevelsV φ hfO hlpO d, denote_strLitListV φ hg d,
     strLitT, substFn_nil]
 
-end Lech.TTVerify
+end Lech.Verify

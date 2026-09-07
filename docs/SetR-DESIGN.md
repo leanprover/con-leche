@@ -29,8 +29,9 @@ campaign design document (architecture, the full rule tables, the task
 sequence, the risk register) is the #148 design deliverable; this file
 records what T2 **built**, where it **deviates** from the design's §1
 as written, and what T3 (bridge) and T4 (soundness) need to know that
-the design document does not say.  House practices are
-`Lech/TTVerify/DESIGN.md` §0/§25 (binding).
+the design document does not say.  House practices were `Lech/TTVerify/DESIGN.md` §0/§25; that file was
+deleted with its subject at task #209 and what is still live of it is
+DESIGN.md's **House practices** section (binding).
 
 ## Promoted practices (binding here; candidates for §0/§25)
 
@@ -7236,7 +7237,10 @@ are the project's house practices, declared binding by this file, and
 twenty-two references across the tree cite its sections by number.  A
 tombstone header says the code is gone and the paths in the prose are
 citations.  *Deleting a lane's code does not delete what building it
-taught.*
+taught.*  (SUPERSEDED at task #209: the file itself was deleted and
+its §0/§25 folded into DESIGN.md's **House practices** section, which
+is where the practices are binding now.  The sentiment stands; the
+carrier moved.)
 
 **Battery:** build warning-free (279 jobs, from 424 before T7),
 `lake test`, arena 90/92, e2e 72/72, split 11/11, mode flags **9/9**

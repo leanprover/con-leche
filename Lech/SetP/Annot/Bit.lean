@@ -52,7 +52,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.Verify
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level PropWhen
   natLitSupported strLitSupported)
@@ -358,7 +358,7 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     rw [denote_strLit, if_pos hsup]
     refine congrArg some ?_ |>.symm
     show VExpr.app _ _ = _
-    rw [Lech.TTVerify.strLitT]
+    rw [Lech.Verify.strLitT]
     congr 1
     · exact hlink _ _
     · refine charListT2_erase ?_ ?_ (hlink _ _) (hlink _ _)

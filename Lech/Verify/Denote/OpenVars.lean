@@ -1,5 +1,5 @@
 import Lech.Kernel.ExprOps
-import Lech.TT.Subst
+import Lech.VExpr.Subst
 import Lech.Verify.Shift
 import Lech.Verify.Subst
 
@@ -19,7 +19,7 @@ binders' own — which is what lets a single opening stand for every
 telescope an alignment relates.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
 /-- The `k` opening variables of a telescope at depth `d`, outermost
 first. -/
@@ -77,11 +77,11 @@ def openRev (d : Nat) : Nat → Expr → Expr
 /-- The value chain `denote` produces for a real-argument instantiation
 read through the reverse opening: outermost argument consumed first,
 each at cut `0`, lifted past the arguments still to come. -/
-def _root_.Lech.TT.VExpr.instRevChain : List Lech.TT.VExpr →
-    Lech.TT.VExpr → Lech.TT.VExpr
+def _root_.Lech.VExpr.VExpr.instRevChain : List Lech.VExpr.VExpr →
+    Lech.VExpr.VExpr → Lech.VExpr.VExpr
   | [], X => X
   | v :: vs, X =>
-    Lech.TT.VExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
+    Lech.VExpr.VExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
 
 /-- Substituting a variable above the reverse opening's range commutes
 to the outside (the opening touches only the variables below it). -/
@@ -108,4 +108,4 @@ theorem openRev_instantiate1_top {a : Expr}
   rw [Nat.add_zero] at h
   exact h
 
-end Lech.TTVerify
+end Lech.Verify

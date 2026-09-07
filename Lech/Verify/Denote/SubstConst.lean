@@ -26,9 +26,9 @@ so the lemma is restricted to the fragment the equations live in
 over constants and two free variables, with no binder anywhere.
 -/
 
-namespace Lech.TTVerify
+namespace Lech.Verify
 
-open Lech.TT
+open Lech.VExpr
 
 private theorem substFn_nil0 (φ : Name → Nat) :
     Level.substFn φ [] [] = φ := funext fun _ => rfl
@@ -112,4 +112,4 @@ theorem denote_substConst0 {env : Env} {cval : TConstVal}
   | proj _ _ _ => intro hfr; simp [shallowE] at hfr
   | lit _ => intro hfr; simp [shallowE] at hfr
 
-end Lech.TTVerify
+end Lech.Verify

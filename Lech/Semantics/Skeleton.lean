@@ -127,7 +127,7 @@ theorem sound_bvar {Δa : List AVExpr} {ρ : Nat → V} {i : Nat}
 /-- **`pi`.**  Interface facts: the domain's membership at its own
 numeral `u`, the codomain's at `v` under the binder, and the two
 hereditary halves.  The formation law is the `imax` rule *exactly*
-(`piR_mem_univ`), so the annotated type is `.sort (Lech.TT.imax u v)`
+(`piR_mem_univ`), so the annotated type is `.sort (Lech.VExpr.imax u v)`
 on the nose — no "may land lower" slack. -/
 theorem sound_pi {u v : Nat} {ρ : Nat → V} {Aa Ba : AVExpr}
     (hokA : AnnotOk2 V ρ Aa)
@@ -137,7 +137,7 @@ theorem sound_pi {u v : Nat} {ρ : Nat → V} {Aa Ba : AVExpr}
       interp2 V (cons x ρ) Ba ∈ˢ (univ v : V)) :
     AnnotOk2 V ρ (.pi u v Aa Ba) ∧
       interp2 V ρ (.pi u v Aa Ba)
-        ∈ˢ interp2 V ρ (.sort (Lech.TT.imax u v)) := by
+        ∈ˢ interp2 V ρ (.sort (Lech.VExpr.imax u v)) := by
   refine ⟨by rw [AnnotOk2_pi]; exact ⟨hokA, hokB⟩, ?_⟩
   rw [interp2_pi, interp2_sort]
   exact piR_mem_univ hA hB
@@ -203,7 +203,7 @@ theorem app_mem_of_slot {ρ : Nat → V} {fa aa : AVExpr}
 (`bval2_mem_type`) and nothing else — a built-in is a closed leaf, so
 its row needs no context, no valuation and no hereditary premise.  With
 this the skeleton covers **ten formers of ten**. -/
-theorem sound_const (ρ : Nat → V) (c : Lech.TT.BConst)
+theorem sound_const (ρ : Nat → V) (c : Lech.VExpr.BConst)
     (us : List Nat) :
     AnnotOk2 V ρ (.const c us) ∧
       interp2 V ρ (.const c us)

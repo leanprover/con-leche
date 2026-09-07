@@ -17,7 +17,7 @@ Statements verbatim from their old home; the namespace is unchanged.
 -/
 
 namespace Lech.Semantics
-open Lech.TT
+open Lech.VExpr
 
 /-- `Eq`'s valuation: the former, eta-expanded. -/
 def eqValT (ψ : Name → Nat) : VExpr :=
@@ -29,7 +29,7 @@ def eqReflValT (ψ : Name → Nat) : VExpr :=
   .lam (.sort (ψ uN)) (.lam (.bvar 0) .prf)
 
 /-- `Eq.rec`'s valuation: the minor premise, returned.  Transport is
-the identity — `eqRec_derivable` (`Lech/TT/Examples.lean`), which is
+the identity — `eqRec_derivable` (`Lech/VExpr/Examples.lean`), which is
 why the layer does not carry `Eq.rec` at all. -/
 def eqRecValT (ψ : Name → Nat) : VExpr :=
   .lam (.sort (ψ uN))

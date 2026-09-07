@@ -15,7 +15,7 @@ that module's `variable {V} [SetTheory V]` (with `omit` on every one of
 them), because that is where the frame-crossing walk needed them.  They
 are relocated here verbatim so the declarative type-theory bridge can
 consume the same inversions the set model does (task #123,
-`Lech/TTVerify/DESIGN.md` §14.1).  The `omit [SetTheory V] in` lines
+the lane and its record are gone, task #209).  The `omit [SetTheory V] in` lines
 are dropped: there is no such section variable here.
 -/
 

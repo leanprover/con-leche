@@ -30,7 +30,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr eqValT eqReflValT eqRecValT)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
@@ -216,7 +216,7 @@ theorem extendEqP (mp : EnvS2PM V μ env)
       (fun ψ => by rw [eqValT2_erase ψ]; exact eqValT_closed ψ)
       (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT eqA.name ψ
+        rw [show Lech.Verify.pinnedDirectT eqA.name ψ
           = none from rfl] at hp
         exact nomatch hp)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
@@ -261,7 +261,7 @@ theorem extendEqReflP (mp : EnvS2PM V μ env)
       (fun ψ => by rw [eqReflValT2_erase ψ]; exact eqReflValT_closed ψ)
       (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT eqReflA.name ψ
+        rw [show Lech.Verify.pinnedDirectT eqReflA.name ψ
           = none from rfl] at hp
         exact nomatch hp)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
@@ -1179,7 +1179,7 @@ theorem extendEqRecP (mp : EnvS2PM V μ env)
       (fun ψ => by rw [eqRecValT2_erase ψ]; exact eqRecValT_closed ψ)
       (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.TTVerify.pinnedDirectT eqRecA.name ψ
+        rw [show Lech.Verify.pinnedDirectT eqRecA.name ψ
           = none from rfl] at hp
         exact nomatch hp)
       (fun _ h => nomatch h)

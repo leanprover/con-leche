@@ -1,22 +1,28 @@
 /-!
-# Syntax of the declarative type theory (task #74)
+# Syntax of the erased term language (task #74; relocated at #209)
 
-`VExpr` is the layer's *own* term datatype — deliberately not
-`Lech.Expr`.  It is what the eventual denotation function from a real
-`Env`+`Expr` targets, and it is chosen for proof convenience, not for
-fidelity to the checker's representation.
+`VExpr` is the semantics tier's *own* term datatype — deliberately not
+`Lech.Expr`.  It is what the denotation function from a real
+`Env`+`Expr` targets (`Lech/Verify/Denote.lean`), and it is chosen for
+proof convenience, not for fidelity to the checker's representation.
+
+The declarative typing judgment this datatype was cut for is **gone**
+(`HasType`, deleted at task #209 — see DESIGN.md's task #209 section);
+the sentences below that motivate a design choice by a typing rule are
+kept as the *reason the datatype has the shape it has*, not as a
+claim that such a rule still exists anywhere in the tree.
 
 Differences from `Lech.Expr`, each deliberate:
 
 * **de Bruijn indices only.**  No `fvar`: the local context is an
-  explicit `List VExpr` in the judgment (`Lech/TT/Judgment.lean`),
-  so open terms need no type annotation at the leaf.
+  explicit `List VExpr`, so open terms need no type annotation at the
+  leaf.
 * **Universe levels are concrete `Nat`s.**  There is no `Level`
   inductive, no level substitution and no level-equality judgment.
   The denotation from a real `Env`+`Expr` unfolds everything, so every
   constant is instantiated at its use site and every level expression
   in the unfolded term evaluates to a ground natural.  `imax` is a
-  *computed function* on `Nat` (`Lech.TT.imax`), so impredicativity
+  *computed function* on `Nat` (`Lech.VExpr.imax`), so impredicativity
   of `Prop` is just its `v = 0` branch.  Universe polymorphism lives
   entirely in the bridge: a polymorphic declaration is denoted once per
   ground assignment, and "accepted" means the resulting statement holds
@@ -27,7 +33,7 @@ Differences from `Lech.Expr`, each deliberate:
   currently zeta-expands `let` before storage, but that pass is
   scheduled for removal (task #117), after which stored terms carry
   `letE` and the bridge has to type them.  The typing rule substitutes
-  the value (see `Lech/TT/Judgment.lean`); zeta is an `Eq` rule.
+  the value; zeta is an `Eq` rule.
 * **`proj` is a former, and its type arguments live in the premise.**
   A projection on a *modeled* structure never reaches this layer: the
   checker accepts no `.proj` node without a native table entry (task
@@ -50,10 +56,10 @@ Differences from `Lech.Expr`, each deliberate:
   constants `psigmaFst`/`psigmaSnd`.  That is *unimplementable* for the
   pinned pair — a denotation that is a function of the expression alone
   cannot invent `A` and `B` — and the constants are now derivable from
-  this former anyway, so they are gone; see `Lech/TT/Examples.lean`.)
+  this former anyway, so they are gone.)
 * **No `lit`.**  Literal computation is *derived*, not built in: any
   term satisfying an operation's certified recurrences computes it on
-  numerals (`Lech/TT/Nat/*`, `Lech/TT/DESIGN.md` §7).
+  numerals (the pinned `Nat` operations, `Lech/Kernel/NatOpPins.lean`).
 * **No global environment / no named constants.**  There is no `Env`
   and no delta rule: every constant the checker accepts either has a
   value (definitions, theorems, `opaque`s, the trust family), or has a
@@ -63,7 +69,7 @@ Differences from `Lech.Expr`, each deliberate:
   constants `propext` / `choice` below.  Consequently the constant
   alphabet `BConst` is *closed and finite*.
 * **`eqE`, a primitive equality former.**  All conversion is expressed
-  with the object-level equality (`Lech/TT/Judgment.lean`), so `Eq`
+  with the object-level equality, so `Eq`
   must be syntax rather than a constant: the conversion rule mentions
   it.  Making it a former (rather than a constant applied to three
   arguments) is what keeps every equational rule *premise-free in the
@@ -93,15 +99,11 @@ in the projections' case it is evidence that the former is the right
 primitive rather than an addition on top of one.
 -/
 
-namespace Lech.TT
+namespace Lech.VExpr
 
 /-- Lean's `imax`, as a function on concrete levels: `Prop` is
 impredicative, every other codomain takes the `max`. -/
 def imax (u v : Nat) : Nat := if v = 0 then 0 else Nat.max u v
-
-@[simp] theorem imax_zero (u : Nat) : imax u 0 = 0 := rfl
-
-theorem imax_of_ne {u v : Nat} (h : v ≠ 0) : imax u v = Nat.max u v := if_neg h
 
 /-- The closed, finite alphabet of built-in constants: the pinned basis
 type formers with their constructors, recursors and projections, plus
@@ -180,15 +182,9 @@ inductive VExpr where
   **`ty` is never checked.**  It is carried so that the eventual
   denotation of `@Eq A a b` is transparently `eqE A a b`, but the
   interpretation reads only `lhs` and `rhs`
-  (`⟦eqE T a b⟧ = eqv ⟦a⟧ ⟦b⟧`, `Lech/TT/Semantics/Interp.lean`), so
-  soundness never constrains it.  That is exactly what lets the
-  equational rules of `Lech/TT/Judgment.lean` omit all
-  type-formation premises — and it is a trap if you assume otherwise:
-  when adding a rule, do **not** expect `ty` to relate the two sides,
-  and do not add a premise merely to make it look well-formed.  Every
-  equational rule accordingly leaves its `T` slots unconstrained, which
-  hand-written derivations must annotate (see
-  `Lech/TT/Examples.lean`). -/
+(`⟦eqE T a b⟧ = eqv ⟦a⟧ ⟦b⟧`), so
+  soundness never constrains it — and it is a trap if you assume
+  otherwise: do **not** expect `ty` to relate the two sides. -/
   | eqE (ty lhs rhs : VExpr)
   /-- Field `i` of a pair.  Carries **only** what the checker's own
   `.proj` node carries: the index and the subject.  The pair's type
@@ -214,7 +210,7 @@ def mkAppN (f : VExpr) : List VExpr → VExpr
 end VExpr
 
 /-- How many universe parameters each constant takes.  Level lists that
-are too short are read with `0` defaults (`Lech/TT/Const.lean`), so
+are too short are read with `0` defaults (`Lech/VExpr/Const.lean`), so
 this is documentation and a bridge convention, never a side condition
 of a rule. -/
 def BConst.numLevels : BConst → Nat
@@ -225,4 +221,4 @@ def BConst.numLevels : BConst → Nat
   | .punitRec | .psigma | .psigmaMk
   | .emptyRec | .quotLift => 2
 
-end Lech.TT
+end Lech.VExpr

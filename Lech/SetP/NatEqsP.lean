@@ -46,7 +46,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.Verify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported)
@@ -856,14 +856,14 @@ head `c` must itself be stored). -/
 theorem constsBound_of_natFragOk {c : Name}
     (hc : (env.find? c).isSome = true)
     (hnat : (env.find? Lech.natName).isSome = true) :
-    ∀ {e : Expr}, Lech.TTVerify.natFragOk env c e = true →
+    ∀ {e : Expr}, Lech.Verify.natFragOk env c e = true →
       ConstsBound env e := by
   intro e
   induction e with
   | sort u => intro _; unfold ConstsBound; trivial
   | fvar idx ty =>
     intro h
-    simp only [Lech.TTVerify.natFragOk, Bool.and_eq_true,
+    simp only [Lech.Verify.natFragOk, Bool.and_eq_true,
       beq_iff_eq] at h
     unfold ConstsBound
     rw [h.2]
@@ -872,7 +872,7 @@ theorem constsBound_of_natFragOk {c : Name}
   | const n us =>
     intro h
     unfold ConstsBound
-    simp only [Lech.TTVerify.natFragOk, Bool.or_eq_true,
+    simp only [Lech.Verify.natFragOk, Bool.or_eq_true,
       Bool.and_eq_true, decide_eq_true_eq] at h
     rcases h with ⟨rfl, -⟩ | h
     · exact hc
@@ -882,49 +882,49 @@ theorem constsBound_of_natFragOk {c : Name}
       | some ci => intro _; rfl
   | app f a ihf iha =>
     intro h
-    simp only [Lech.TTVerify.natFragOk, Bool.and_eq_true] at h
+    simp only [Lech.Verify.natFragOk, Bool.and_eq_true] at h
     unfold ConstsBound
     exact ⟨ihf h.1, iha h.2⟩
-  | bvar _ => intro h; simp [Lech.TTVerify.natFragOk] at h
-  | lam _ _ _ => intro h; simp [Lech.TTVerify.natFragOk] at h
-  | forallE _ _ _ => intro h; simp [Lech.TTVerify.natFragOk] at h
-  | letE _ _ _ => intro h; simp [Lech.TTVerify.natFragOk] at h
-  | proj _ _ _ => intro h; simp [Lech.TTVerify.natFragOk] at h
-  | lit _ => intro h; simp [Lech.TTVerify.natFragOk] at h
+  | bvar _ => intro h; simp [Lech.Verify.natFragOk] at h
+  | lam _ _ _ => intro h; simp [Lech.Verify.natFragOk] at h
+  | forallE _ _ _ => intro h; simp [Lech.Verify.natFragOk] at h
+  | letE _ _ _ => intro h; simp [Lech.Verify.natFragOk] at h
+  | proj _ _ _ => intro h; simp [Lech.Verify.natFragOk] at h
+  | lit _ => intro h; simp [Lech.Verify.natFragOk] at h
 
 /-- The raw sides of a stored operation's recurrences are in the
 fragment, from the guard alone. -/
 theorem natOpEquations_frag_of_guard {c : Name}
     (hg : natOpGuard env c = true) :
     ∀ eq ∈ Lech.natOpEquations 0 c,
-      Lech.TTVerify.natFragOk env c eq.1 = true ∧
-        Lech.TTVerify.natFragOk env c eq.2 = true := by
+      Lech.Verify.natFragOk env c eq.1 = true ∧
+        Lech.Verify.natFragOk env c eq.2 = true := by
   obtain ⟨hN, hz, hs, hdeps, hbool⟩ :=
-    Lech.TTVerify.natOpGuard_stored hg
-  refine Lech.TTVerify.natOpEquations_frag hz hs
+    Lech.Verify.natOpGuard_stored hg
+  refine Lech.Verify.natOpEquations_frag hz hs
     (fun n hn _ => hdeps n hn) (fun hc => (hbool (by
       rcases hc with rfl | rfl <;> simp)).1)
     (fun hc => (hbool (by rcases hc with rfl | rfl <;> simp)).2)
 
 /-- A `Nat`-operation fragment has no `.proj` node at all. -/
 theorem consCrossAt_of_natFragOk {c : Name} {c₀ : ConstantInfo} :
-    ∀ {e : Expr}, Lech.TTVerify.natFragOk env c e = true →
+    ∀ {e : Expr}, Lech.Verify.natFragOk env c e = true →
       ConsCrossAt c₀ e := by
   intro e
   induction e with
   | sort _ => intro _ _ _ _; simp
   | fvar i ty =>
     intro h entry heq j
-    simp only [Lech.TTVerify.natFragOk, Bool.and_eq_true, beq_iff_eq] at h
+    simp only [Lech.Verify.natFragOk, Bool.and_eq_true, beq_iff_eq] at h
     simp [h.2]
   | const _ _ => intro _ _ _ _; simp
   | app f a ihf iha =>
     intro h entry heq j
-    simp only [Lech.TTVerify.natFragOk, Bool.and_eq_true] at h
+    simp only [Lech.Verify.natFragOk, Bool.and_eq_true] at h
     simp only [Expr.NoProjAt]
     exact ⟨ihf h.1 entry heq j, iha h.2 entry heq j⟩
   | bvar _ | lam _ _ _ | forallE _ _ _ | letE _ _ _ | lit _ | proj _ _ _ =>
-    intro h; simp [Lech.TTVerify.natFragOk] at h
+    intro h; simp [Lech.Verify.natFragOk] at h
 
 /-- **The per-operation crossing at a fresh cons**: an operation
 stored in the prefix keeps its `NatOpsP` entry at the extension. -/
@@ -956,8 +956,8 @@ theorem natOpsP_entry_cons (mp : EnvS2PM V μ env) {φ : Name → Nat}
     · exact hf₂
   obtain ⟨hg, hlaws⟩ := hprev c hcN cv' v' hint' hfE
   -- the stored heads are not the fresh cons
-  obtain ⟨hN, -, -, -, -⟩ := Lech.TTVerify.natOpGuard_stored hg
-  obtain ⟨ciN, hfN, -⟩ := Lech.TTVerify.storedNoLevels_exists hN
+  obtain ⟨hN, -, -, -, -⟩ := Lech.Verify.natOpGuard_stored hg
+  obtain ⟨ciN, hfN, -⟩ := Lech.Verify.storedNoLevels_exists hN
   have hnatne : Lech.natName ≠ c₀.name := fun hh => by
     rw [hh, hfresh] at hfN
     exact nomatch hfN
@@ -967,7 +967,7 @@ theorem natOpsP_entry_cons (mp : EnvS2PM V μ env) {φ : Name → Nat}
     obtain ⟨h1, h2⟩ := natOpEquations_frag_of_guard hg eq hq
     exact ⟨constsBound_of_natFragOk (by simp [hfE]) (by simp [hfN]) h1,
       constsBound_of_natFragOk (by simp [hfE]) (by simp [hfN]) h2⟩
-  refine ⟨Lech.TTVerify.natOpGuard_cons hfresh hg, fun eq hq => ?_⟩
+  refine ⟨Lech.Verify.natOpGuard_cons hfresh hg, fun eq hq => ?_⟩
   obtain ⟨L, R, hL, hR, hlaw⟩ := hlaws eq hq
   have hfrag := natOpEquations_frag_of_guard hg eq hq
   refine ⟨L, R, ?_, ?_, ?_⟩
@@ -1049,7 +1049,7 @@ theorem natSelfHeadP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
     · -- `Bool` codomain
       obtain ⟨rfl, ci₂, hfB₂, hlpB₂⟩ := hcmp hccmp
       have hBne : Lech.boolName ≠ c :=
-        Lech.TTVerify.ne_of_mem_natOpNames (by decide) hcmem
+        Lech.Verify.ne_of_mem_natOpNames (by decide) hcmem
       have hfB : env.find? Lech.boolName = some ci₂ := by
         rw [Lech.Env.find?_cons] at hfB₂
         split at hfB₂
@@ -1157,24 +1157,24 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
   have hnh : NatHeadsP mp.base2 φ := mp.nat_heads φ
   have hvalV : AcvalValidP mp.base2 := mp.acvalValidP
   obtain ⟨hN₂, hz₂, hs₂, hdeps₂, hbool₂⟩ :=
-    Lech.TTVerify.natOpGuard_stored hg2
+    Lech.Verify.natOpGuard_stored hg2
   have tr : ∀ {n : Name}, n ≠ cq →
-      Lech.TTVerify.storedNoLevels
+      Lech.Verify.storedNoLevels
         (⟨.defnInfo ⟨cq, lps, type'⟩ value' hint :: env.consts⟩ : Env) n →
-      Lech.TTVerify.storedNoLevels env n := fun hne h =>
-    Lech.TTVerify.storedNoLevels_of_cons
+      Lech.Verify.storedNoLevels env n := fun hne h =>
+    Lech.Verify.storedNoLevels_of_cons
       (ci := .defnInfo ⟨cq, lps, type'⟩ value' hint) rfl hne h
   have hnz : Lech.natZeroName ≠ cq :=
-    Lech.TTVerify.ne_of_mem_natOpNames (by decide) hcqN
+    Lech.Verify.ne_of_mem_natOpNames (by decide) hcqN
   have hns : Lech.natSuccName ≠ cq :=
-    Lech.TTVerify.ne_of_mem_natOpNames (by decide) hcqN
+    Lech.Verify.ne_of_mem_natOpNames (by decide) hcqN
   have hnN : Lech.natName ≠ cq :=
-    Lech.TTVerify.ne_of_mem_natOpNames (by decide) hcqN
+    Lech.Verify.ne_of_mem_natOpNames (by decide) hcqN
   have hnT : Lech.boolTrueName ≠ cq :=
-    Lech.TTVerify.ne_of_mem_natOpNames (by decide) hcqN
+    Lech.Verify.ne_of_mem_natOpNames (by decide) hcqN
   have hnF : Lech.boolFalseName ≠ cq :=
-    Lech.TTVerify.ne_of_mem_natOpNames (by decide) hcqN
-  obtain ⟨hfr1, hfr2⟩ := Lech.TTVerify.natOpEquations_frag
+    Lech.Verify.ne_of_mem_natOpNames (by decide) hcqN
+  obtain ⟨hfr1, hfr2⟩ := Lech.Verify.natOpEquations_frag
     (env := env) (c := cq) (tr hnz hz₂) (tr hns hs₂)
     (fun n hn hne => tr hne (hdeps₂ n hn))
     (fun hc => tr hnT (hbool₂ (by rcases hc with rfl | rfl <;> simp)).1)
@@ -1185,9 +1185,9 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
     fun ψ => ⟨(A ψ).erase,
       denoteP_erase mp.base2.acval_erase 0 value' (hA ψ)⟩
   obtain ⟨hw1, hb1, hL1, hleaf1⟩ :=
-    Lech.TTVerify.natFrag_subst_syntax hvf' hbv' hfr1
+    Lech.Verify.natFrag_subst_syntax hvf' hbv' hfr1
   obtain ⟨hw2, hb2, hL2, hleaf2⟩ :=
-    Lech.TTVerify.natFrag_subst_syntax hvf' hbv' hfr2
+    Lech.Verify.natFrag_subst_syntax hvf' hbv' hfr2
   have hrun := hruns _ (List.mem_map.mpr ⟨(e1, e2), hq, rfl⟩)
   obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN0,
     hlpZ, hlpS, -⟩ := Lech.natLitSupported_inv hs
@@ -1265,8 +1265,8 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
             = interp2 V (cons y (cons x ρ)) R := by
     intro la ra hla hga hra hgr
     refine ⟨la, ra,
-      hcross e1 (Lech.TTVerify.shallowE_of_natFragOk hfr1) hla,
-      hcross e2 (Lech.TTVerify.shallowE_of_natFragOk hfr2) hra,
+      hcross e1 (Lech.Verify.shallowE_of_natFragOk hfr1) hla,
+      hcross e2 (Lech.Verify.shallowE_of_natFragOk hfr2) hra,
       fun ρ x y hx hy => ?_⟩
     exact natEqLawP_of_run mp hde hfN hlpN hrun hw1 hb1 hL1 hleaf1
       hw2 hb2 hL2 hleaf2 hla hga hra hgr ρ x y (hmemc ρ x hx)
@@ -1418,9 +1418,9 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       · simpa +decide [Expr.substConst0] using hra
   · -- `Nat.beq`
     have hbin := hSelfBin (by decide)
-    obtain ⟨ciT, hfT, hlpT⟩ := Lech.TTVerify.storedNoLevels_exists
+    obtain ⟨ciT, hfT, hlpT⟩ := Lech.Verify.storedNoLevels_exists
       (tr hnT (hbool₂ (by decide)).1)
-    obtain ⟨ciF, hfF, hlpF⟩ := Lech.TTVerify.storedNoLevels_exists
+    obtain ⟨ciF, hfF, hlpF⟩ := Lech.Verify.storedNoLevels_exists
       (tr hnF (hbool₂ (by decide)).2)
     have hvx := natArgP_var0 mp.base2 φ
     have hvy := natArgP_var1 mp.base2 φ
@@ -1462,9 +1462,9 @@ theorem natOpsP_install (mp : EnvS2PM V μ env) {φ : Name → Nat}
       · simpa +decide [Expr.substConst0] using hra
   · -- `Nat.ble`
     have hbin := hSelfBin (by decide)
-    obtain ⟨ciT, hfT, hlpT⟩ := Lech.TTVerify.storedNoLevels_exists
+    obtain ⟨ciT, hfT, hlpT⟩ := Lech.Verify.storedNoLevels_exists
       (tr hnT (hbool₂ (by decide)).1)
-    obtain ⟨ciF, hfF, hlpF⟩ := Lech.TTVerify.storedNoLevels_exists
+    obtain ⟨ciF, hfF, hlpF⟩ := Lech.Verify.storedNoLevels_exists
       (tr hnF (hbool₂ (by decide)).2)
     have hvx := natArgP_var0 mp.base2 φ
     have hvy := natArgP_var1 mp.base2 φ

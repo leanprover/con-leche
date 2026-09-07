@@ -109,7 +109,7 @@ def AnnotOk2 : (Nat → V) → AVExpr → Prop
     AnnotOk2 V ρ (.bvar i) = True := by rw [AnnotOk2]
 @[simp] theorem AnnotOk2_sort (ρ : Nat → V) (u : Nat) :
     AnnotOk2 V ρ (.sort u) = True := by rw [AnnotOk2]
-@[simp] theorem AnnotOk2_const (ρ : Nat → V) (c : Lech.TT.BConst)
+@[simp] theorem AnnotOk2_const (ρ : Nat → V) (c : Lech.VExpr.BConst)
     (us : List Nat) : AnnotOk2 V ρ (.const c us) = True := by
   rw [AnnotOk2]
 @[simp] theorem AnnotOk2_prf (ρ : Nat → V) :

@@ -62,7 +62,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT SetTheory
+open Lech.VExpr SetTheory
 open Lech.Semantics (AVExpr)
 
 universe w
