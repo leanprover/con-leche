@@ -58527,7 +58527,15 @@ OK; `tests/route-census.sh` (task #207's gate): 87 streams, 658 blocks
 trace on): accepted **53 118** declarations (task #207's pin), exit 0;
 route census 591 blocks — **584 fix, 6 basis, 1 inmodel** (`Lean.Syntax`,
 nested), **0 struct, 0 sum, 0 modeled** — every block the two retired
-routes took is on `fix`; **678.67 G instructions** MASTER_BASELINE.
+routes took is on `fix`; **678.67 G instructions** against post-#207 master's **673.29 G**
+(the same stream, master `95613947` built in the perf worktree:
+**+0.80 %**).  The cost is the DAG-safety memos on every declaration,
+not the route: `instantiateList` (every `openPisAtFvars` domain),
+`allLevelParamsDefined` and `constsResolveF` (every constant's type and
+value) now build and drop a per-call `HashMap` where the tree walk was
+a few nodes deep — the two range-field reads are the cheap side.  A
+size cutoff below which the plain walk runs (the arrangement
+`instantiate1LiftB` uses) would recover it; left as a measured item.
 **Mathlib slices** (raw, `--verified`): `slice-small` (master's census
 1 276 struct + 259 sum + 92 fix) accepted, census **1 626 fix**, 26
 inmodel, 6 basis, 0 modeled; the Stage-B five-cone slice accepted,
