@@ -40,17 +40,17 @@ theorem elimLevel_eq (p : DirectParts) :
 
 theorem stripPis_one_inv {e : Expr} {bs : List (Expr × BinderMeta)}
     {b : Expr} (h : e.stripPis 1 = some (bs, b)) :
-    ∃ nm dom mb, e = .forallE dom b mb ∧ bs = [(dom, mb)] := by
+    ∃ dom mb, e = .forallE dom b mb ∧ bs = [(dom, mb)] := by
   match e, h with
   | .forallE dom body mb, h =>
     simp only [Expr.stripPis, Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
-    exact ⟨nm, dom, mb, rfl, rfl⟩
+    exact ⟨dom, mb, rfl, rfl⟩
   | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
   | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
     simp [Expr.stripPis] at h
 
-theorem openPisAtFvars_one (nm : Name) (dom body : Expr) (mb : BinderMeta)
+theorem openPisAtFvars_one (dom body : Expr) (mb : BinderMeta)
     (d : Nat) :
     openPisAtFvars 1 (.forallE dom body mb) d
       = some ([.fvar d dom], body.instantiate1 (.fvar d dom)) := rfl
