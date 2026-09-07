@@ -81,17 +81,17 @@
     49  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     50    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2637-L2646
-  2637      { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
-  2638        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2639        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2640        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2641        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2642        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2643    | fuel + 1 =>
-  2644      wrap
-  2645        { whnfCore := fun d e =>
-  2646            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+== ConLeche/Kernel/Core.lean#L2646-L2655
+  2646      { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
+  2647        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2648        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2649        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2650        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  2651        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  2652    | fuel + 1 =>
+  2653      wrap
+  2654        { whnfCore := fun d e =>
+  2655            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/SetP/FoldP.lean#L291-L298
    291  theorem no_proof_of_False_P (V : Type w) [SetTheory V]

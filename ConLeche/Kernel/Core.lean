@@ -2583,17 +2583,26 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- variable was tried and rejects real streams (elaborated `let`
       -- bodies rely on the value definitionally — see DESIGN.md).
       --
-      -- Task #161 de-gating round A+B+C (item C2, harvest site 6): the
-      -- official `infer_let` triple — `ensure_sort_core(infer(type))`,
-      -- `infer(val)`, `is_def_eq(val_type, type)` — used to run *here*
-      -- as well.  It is redundant: `inferBody`'s own `.letE` clause
-      -- runs exactly those three checks on the same `letE` node during
-      -- the driver's inference sweep, and nothing in the annotation
-      -- pass's contract reads them.  The two `annotate` traversals stay
-      -- — they are the pass itself (leaf scope checks, literal support
-      -- verdicts), not a certificate.
-      let _ ← r.annotate depth ty
-      let _ ← r.annotate depth v
+      -- Task #217 (audit follow-up #206-S1): the official `infer_let`
+      -- triple — `ensure_sort_core(infer(type))`, `infer(val)`,
+      -- `is_def_eq(val_type, type)` — runs HERE, on the annotated
+      -- annotation and the annotated value, before the reduct is taken.
+      --
+      -- Task #161 item C2 dropped it as redundant with `inferBody`'s
+      -- own `.letE` clause.  That was wrong: this clause returns the ζ
+      -- reduct, so the stored term is let-free and `inferBody`'s
+      -- `.letE` arm never sees a `letE` node the driver produced —
+      -- `def x : Nat := let y : Nat := Bool.true; Nat.zero` was
+      -- accepted where the official kernel rejects ("(kernel)
+      -- let-declaration type mismatch").  The annotation pass is the
+      -- only pass that meets a `letE`, so it is where the triple must
+      -- run.
+      let ty' ← r.annotate depth ty
+      let _ ← ensureSort r env depth (← r.infer depth ty')
+      let v' ← r.annotate depth v
+      let tv ← r.infer depth v'
+      unless ← r.defeq depth tv ty' do
+        throw (.invalid "let value type mismatch")
       r.annotate depth (b.instantiate1 v)
     | .proj _sn i pe => do
       let e' ← r.annotate depth pe

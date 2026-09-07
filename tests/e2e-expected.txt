@@ -990,24 +990,19 @@
 0 ind_nest_two_pins.ndjson
 0 ind_nest_prop.ndjson
 #
-# --- S1 / crack C9: the `let` value/type checks are ABSENT (the audit's
-# --- only unlicensed accept-superset, and not an inductive matter).
-# --- `annotate`'s .letE clause returns the zeta-reduct and the annotated
-# --- term is let-free, so official's `infer_let` triple never runs and
-# --- the six .letE arms of whnfCore/infer are dead code.  Not a
-# --- soundness problem (the stored term is the reduct, which the
-# --- capstone covers) but official REJECTS all three.  Audit follow-up 1
-# --- flips them to 1.  let_bad_value_used is the control the reduct's
-# --- own type check already catches.
-# TODO(#206-S1) official: 1 — "(kernel) let-declaration type mismatch 'x'"
-# TODO(#206-S1) official: 1 — same, raw
-0 let_bad_value.ndjson
-# TODO(#206-S1) official: 1 — "type expected … Bool.true"
-# TODO(#206-S1) official: 1 — same, raw
-0 let_bad_type.ndjson
-# TODO(#206-S1) official: 1 — "(kernel) let-declaration type mismatch 'x'"
-# TODO(#206-S1) official: 1 — same, raw
-0 let_bad_thm.ndjson
+# --- S1 / crack C9: the `let` value/type checks.  `annotate`'s .letE
+# --- clause returns the zeta-reduct and the annotated term is let-free,
+# --- so `inferBody`'s own .letE arm never sees a `letE` the driver
+# --- produced: until task #217 official's `infer_let` triple ran
+# --- nowhere and all three were accepted (the audit's only unlicensed
+# --- accept-superset, and not an inductive matter).  #217 (follow-up 1)
+# --- runs the triple inside annotate, on the annotated annotation and
+# --- value, before the reduct is taken — official's three rejections
+# --- (1), reached at the same declaration.  let_bad_value_used is the
+# --- control the reduct's own type check already caught.
+1 let_bad_value.ndjson
+1 let_bad_type.ndjson
+1 let_bad_thm.ndjson
 1 let_bad_value_used.ndjson
 # The DAG-tower fixtures (task #215; scripts/mk_tower_fixtures.py) and
 # the two fixtures the retired tree-size budget left behind.  With the

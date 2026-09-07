@@ -722,7 +722,7 @@ theorem annotateCore_projSlotsOk {env : Env} :
       ⟨hty'ok, Expr.ProjSlotsOk.abstract1 body' d 0 hbody'ok⟩
   | fuel + 1, .letE ty v b, d, e', h, hf => by
     rw [Expr.fvarTysOk_letE] at hf
-    obtain ⟨ty', v', -, -, hb⟩ := annotateCore_letE_inv h
+    obtain ⟨ty', v', -, -, hb, -⟩ := annotateCore_letE_inv h
     exact annotateCore_projSlotsOk fuel _ hb
       (Expr.FvarTysOk.instantiate1 hf.2.1 b 0 hf.2.2)
 

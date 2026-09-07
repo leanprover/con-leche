@@ -2770,9 +2770,22 @@ private theorem annotate_step (henv : EnvWF env)
         (shiftFrom p)
     simp only [annotateBody]
     refine bind_rel _ _ (ih.annotate hpd hw.1) ?_
-    intro ty' _
+    intro ty' hty'
+    have hwty' : WScoped d ty' := annotateCore_WScoped fuel ty hty' hw.1
+    refine bind_rel _ _ (ih.infer hpd hwty') ?_
+    intro tty htty
+    refine bind_rel_eq _ (ensureSort_shift henv ih hpd
+      (inferTypeCore_WScoped henv fuel htty hwty')) ?_
+    intro u _
     refine bind_rel _ _ (ih.annotate hpd hw.2.1) ?_
-    intro v' _
+    intro v' hv'
+    have hwv' : WScoped d v' := annotateCore_WScoped fuel v hv' hw.2.1
+    refine bind_rel _ _ (ih.infer hpd hwv') ?_
+    intro tv htv
+    refine bind_rel_eq _
+      (ih.defeq hpd (inferTypeCore_WScoped henv fuel htv hwv') hwty') ?_
+    intro bb _
+    refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
     have hbody := ih.annotate hpd
       (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
     rwa [shiftFrom_instantiate1_gen] at hbody
