@@ -200,13 +200,13 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
     obtain ⟨ty, rfl⟩ := hshapeS q x hq
     rfl
-  have hlbFvs : ∀ (q : Nat) (nm : Name) (ty : Expr),
+  have hlbFvs : ∀ (q : Nat) (ty : Expr),
       Expr.fvar q ty ∈ fvs → ty.looseBVarsBounded 0 = true :=
-    fun q nm ty hmem =>
+    fun q ty hmem =>
       (openPisAtFvars_bounded (rP + cnF) hopen hSb).2 _ hmem
-  have hwsTy : ∀ (q : Nat) (nm : Name) (ty : Expr),
+  have hwsTy : ∀ (q : Nat) (ty : Expr),
       Expr.fvar q ty ∈ fvs → Expr.WScoped q ty := by
-    intro q nm ty hmem
+    intro q ty hmem
     have h := hwsFvs _ hmem
     simp only [Expr.WScoped] at h
     exact h.2
@@ -328,7 +328,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
         (Option.some.inj hq0).symm
       exact rfl
     have hee := Expr.instSeq_renameConsts (f := f) (openFvars 0 i0)
-      (i0 - 1) (X := b'.2.1) hopeners
+      (i0 - 1) (X := b'.1) hopeners
     rw [hdom, ← denoteP_erasedEq hee (0 + i0),
       denoteP_renameConsts hroT]
   -- ===== the fired spine =====
@@ -574,7 +574,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     rw [Expr.fvarLeaves] at hl
     rcases List.mem_cons.mp hl with rfl | hl'
     · exact ⟨hmem, by omega⟩
-    · have hlt := Expr.fvarLeaves_lt_of_wscoped (hwsTy q nm ty hmem) l hl'
+    · have hlt := Expr.fvarLeaves_lt_of_wscoped (hwsTy q ty hmem) l hl'
       refine ⟨hleafClosed l ⟨_, hmem, ?_⟩, by omega⟩
       rw [Expr.fvarLeaves]
       exact List.mem_cons_of_mem _ hl'
@@ -611,7 +611,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       (env := env) (φ := Level.substFn φ lps us) fvs hcinst
       (j := 0) (fun q0 x hx => by
         obtain ⟨ty, hsh⟩ := hshapeS q0 x hx
-        exact ⟨nm, ty, by rw [hsh, Nat.zero_add]⟩)
+        exact ⟨ty, by rw [hsh, Nat.zero_add]⟩)
       hTVjR0 (Γ := Γj) (R := Rj) (by rw [hfvslen, ← hKeq]; exact htowerJ)
       q (by rw [hfvslen]; exact hq)
     rw [Nat.zero_add, hfvslen] at h
@@ -625,8 +625,8 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       (fun x hx => by
         obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
         obtain ⟨ty, hsh⟩ := hshapeS q x hq
-        exact ⟨q, nm, ty, hsh⟩)
-      (bs := cbinders.map (fun b => (b.1, b.2.1.renameConsts f, b.2.2)))
+        exact ⟨q, ty, hsh⟩)
+      (bs := cbinders.map (fun b => (b.1.renameConsts f, b.2)))
       (body := cbody.renameConsts f)
       (by rw [hfvslen, ← hKeq]; exact hCstripR)
     rw [getAppArgs_length_renameConsts] at h1
