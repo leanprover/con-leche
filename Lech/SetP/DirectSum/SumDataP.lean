@@ -384,7 +384,7 @@ holding the former. -/
 theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
-    {bs : List (Name × Expr × Lech.BinderMeta)}
+    {bs : List (Expr × Lech.BinderMeta)}
     (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfT : env.find? T = some (.indInfo cvTa caps))
