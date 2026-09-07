@@ -497,8 +497,8 @@ both conjuncts are reflexivity. -/
 theorem whnfCore_leaf_claimP (m : EnvS2Core V env) {fuel d : Nat}
     {e e' : Expr} {Δa : List AVExpr} {ea ea' : AVExpr}
     (hleaf : (∃ u, e = .sort u) ∨ (∃ idx ty, e = .fvar idx ty) ∨
-      (∃ n ty body bi, e = .forallE ty body bi) ∨
-      (∃ n ty body mb, e = .lam ty body mb) ∨
+      (∃ ty body bi, e = .forallE ty body bi) ∨
+      (∃ ty body mb, e = .lam ty body mb) ∨
       (∃ n us, e = .const n us) ∨ (∃ l, e = .lit l))
     (h : whnfCore μ env (fuel + 1) d e = .ok e')
     (hea : denoteP m.acval env φ d e = some ea)
@@ -524,7 +524,7 @@ theorem whnfCore_leaf_claimP (m : EnvS2Core V env) {fuel d : Nat}
 `denoteP_beta` — a theorem, and an equality. -/
 theorem whnfCore_letE_claimP (m : EnvS2Core V env) {fuel : Nat}
     (ihwc : WhnfCoreClaims2P μ m φ fuel)
-    {d : Nat} {nn : Name} {tt vv bb e' : Expr} {Δa : List AVExpr}
+    {d : Nat} {tt vv bb e' : Expr} {Δa : List AVExpr}
     (h : whnfCore μ env (fuel + 1) d (.letE tt vv bb) = .ok e')
     (hws : Expr.WScoped d (.letE tt vv bb))
     (hb : (Expr.letE tt vv bb).looseBVarsBounded 0 = true)
@@ -568,7 +568,7 @@ theorem whnfCore_letE_claimP (m : EnvS2Core V env) {fuel : Nat}
   have hred : denoteP m.acval env φ d (bb.instantiate1 vv)
       = some (ba.inst va) := by
     rw [denoteP_beta m.acval_closed (acval_inst_self m)
-      (n := nn) (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
+      (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
       hba]
     rfl
   obtain ⟨hok', heq'⟩ :=
@@ -654,7 +654,7 @@ theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
     · exact hLf' l hl
     · exact hLa l hl
   have hCapp : CtxOkP m φ d Δa (.app f' a) := CtxOkP.app hCf' hCa
-  rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, hcertOr⟩ |
+  rcases hcase with ⟨ty, body, mm, rfl, hbeta, hcertOr⟩ |
     ⟨e'', hio, hwe''⟩ | rfl
   · -- β
     obtain ⟨tya, ba, htya, hbb, rfl⟩ := denoteP_lam_inv hfa'
@@ -701,7 +701,7 @@ theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
     have hred : denoteP m.acval env φ d (body.instantiate1 a)
         = some (ba.inst aa) := by
       rw [denoteP_beta m.acval_closed (acval_inst_self m)
-        (n := n) (ty := ty) hwf'.2.fvarsBelow hws.2 hb.2 haa 0, hbb]
+        (ty := ty) hwf'.2.fvarsBelow hws.2 hb.2 haa 0, hbb]
       rfl
     obtain ⟨hok', heq'⟩ :=
       ihwc hbeta hwred hbred hLred (hCapp.of_subset hsubred) hred hea'
@@ -735,10 +735,10 @@ theorem whnfCore_claimsP (m : EnvS2Core V env) {fuel : Nat}
       h hea hea' hok
   | .forallE ty body bi =>
     exact whnfCore_leaf_claimP m
-      (Or.inr (Or.inr (Or.inl ⟨n, ty, body, bi, rfl⟩))) h hea hea' hok
+      (Or.inr (Or.inr (Or.inl ⟨ty, body, bi, rfl⟩))) h hea hea' hok
   | .lam ty body mb =>
     exact whnfCore_leaf_claimP m
-      (Or.inr (Or.inr (Or.inr (Or.inl ⟨n, ty, body, mb, rfl⟩))))
+      (Or.inr (Or.inr (Or.inr (Or.inl ⟨ty, body, mb, rfl⟩))))
       h hea hea' hok
   | .const n us =>
     exact whnfCore_leaf_claimP m

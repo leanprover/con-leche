@@ -219,7 +219,7 @@ theorem infer_bvar_claimP (m : EnvS2Core V env) {d i : Nat} {t : Expr}
 fourth conjunct at `AnnotOkP`, so the clause takes no residue —
 `infer_fvar_claim2D`'s improvement inherited by construction. -/
 theorem infer_fvar_claimP (m : EnvS2Core V env)
-    {d idx : Nat} {n : Name} {ty t : Expr} {Δa : List AVExpr}
+    {d idx : Nat} {ty t : Expr} {Δa : List AVExpr}
     {ea ta : AVExpr}
     (hC : CtxOkP m φ d Δa (.fvar idx ty))
     (h : inferTypeCore μ env (fuel + 1) d (.fvar idx ty) = .ok t)
@@ -250,7 +250,7 @@ theorem infer_fvar_claimP (m : EnvS2Core V env)
 moves annotated inline. -/
 theorem infer_forallE_claimP (m : EnvS2Core V env)
     (hμ : μ.verifiedChecks = true) (hss : SortSemAtP m μ φ fuel)
-    {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.forallE ty body mb)
       = .ok t)
@@ -275,7 +275,7 @@ theorem infer_forallE_claimP (m : EnvS2Core V env)
   have hLbody : Expr.LeavesBounded body := fun l hl =>
     hLb l (by simp [Expr.fvarLeaves, hl])
   obtain ⟨hwopen, hbopen, hLopen⟩ :=
-    frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
+    frame_open2 hws.1 hb.1 hws.2 hb.2 hLty hLbody
   obtain ⟨tyA, baA, htyA, hbaA, rfl⟩ := denoteP_forallE_inv hea
   rw [denoteP_sortQ] at hta
   obtain rfl : ta = .sort (Level.eval φ (.imax u v)) :=
@@ -285,7 +285,7 @@ theorem infer_forallE_claimP (m : EnvS2Core V env)
   have hdomU := hss hC.forallE_ty hws.1 hb.1 hLty hty hwu htyA
   have hCop : CtxOkP m φ (d + 1) (tyA :: Δa)
       (body.instantiate1 (.fvar d ty)) :=
-    CtxOkP.openS (n := n) hC.forallE_ty hC.forallE_body htyA
+    CtxOkP.openS hC.forallE_ty hC.forallE_body htyA
       (fun ρ hρ => (hdomU ρ hρ).1)
   have hcodU := hss hCop hwopen hbopen hLopen hbt
     (Lech.ensureSortCore_inv hens) hbaA
@@ -356,7 +356,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
     (hμ : μ.verifiedChecks = true) (hss : SortSemAtP m μ φ fuel)
     (hsss : SortSemAtIOSP m μ φ fuel)
     (ihi : InferClaims2P μ m φ fuel)
-    {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.lam ty body mb) = .ok t)
     (hws : Expr.WScoped d (.lam ty body mb))
@@ -390,7 +390,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
     (Option.some.inj hea).symm
   -- the abstraction round trip, for the ∀-type's reading
   obtain ⟨hwopen, hbopen, hLopen⟩ :=
-    frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
+    frame_open2 hws.1 hb.1 hws.2 hb.2 hLty hLbody
   have hleaf :
       Expr.LeafCond d ty (body.instantiate1 (.fvar d ty)) := by
     intro l hl hd
@@ -400,7 +400,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
         omega)
     · rw [Expr.fvarLeaves] at h2
       rcases List.mem_cons.mp h2 with rfl | h3
-      · exact ⟨rfl, rfl⟩
+      · exact rfl
       · exact absurd hd (by
           have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
           omega)
@@ -422,7 +422,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
   have hdomU := hss hC.lam_ty hws.1 hb.1 hLty hty hwu htyA
   have hCop : CtxOkP m φ (d + 1) (tyA :: Δa)
       (body.instantiate1 (.fvar d ty)) :=
-    CtxOkP.openS (n := n) hC.lam_ty hC.lam_body htyA
+    CtxOkP.openS hC.lam_ty hC.lam_body htyA
       (fun ρ hρ => (hdomU ρ hρ).1)
   obtain ⟨hrowE, hrowT, hrowM⟩ :=
     ihi hbt hwopen hbopen hLopen hCop hba hbtA
@@ -436,10 +436,10 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
     intro hb0 ρ' hρ'
     by_cases hbl : body.isLam
     · -- chain: no run — impredicativity at the copied meta
-      obtain ⟨nI, tyI, bI, mbI, rfl⟩ :
-          ∃ nI tyI bI mbI, body = .lam tyI bI mbI := by
+      obtain ⟨tyI, bI, mbI, rfl⟩ :
+          ∃ tyI bI mbI, body = .lam tyI bI mbI := by
         cases body <;> simp [Expr.isLam] at hbl
-        exact ⟨_, _, _, _, rfl⟩
+        exact ⟨_, _, _, rfl⟩
       have hpwEq : mb.pw = mbI.pw :=
         hchainC hμ mbI.pw rfl
       -- the opened body is a λ with the same meta; the inferred type
@@ -692,7 +692,7 @@ holds a `CtxOkP` and discharges it by `of_ctxOkP`, and the walk
 (`weakenTop`/`openS` below). -/
 def LeafReadsP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
     (d : Nat) (e : Expr) : Prop :=
-  ∀ l ∈ e.fvarLeaves, ∃ tya, denoteP m.acval env φ d l.2.2 = some tya
+  ∀ l ∈ e.fvarLeaves, ∃ tya, denoteP m.acval env φ d l.2 = some tya
 
 namespace LeafReadsP
 
@@ -730,7 +730,7 @@ theorem weakenTop {d : Nat} {e : Expr} (hw : Expr.WScoped d e)
 weaken, and the *new* leaf `(d, n, ty)` reads because the binder's
 domain does (`hty`, which every clause has from the subject's own
 reading). -/
-theorem openS {d : Nat} {n : Name} {ty body : Expr} {ta : AVExpr}
+theorem openS {d : Nat} {ty body : Expr} {ta : AVExpr}
     (hwt : Expr.WScoped d ty) (hwb : Expr.WScoped d body)
     (ht : LeafReadsP m φ d ty) (hbd : LeafReadsP m φ d body)
     (hty : denoteP m.acval env φ d ty = some ta) :
@@ -832,7 +832,7 @@ reading is the routed `InferReadsP` (the FINDING above). -/
 theorem infer_letE_claimP (m : EnvS2Core V env)
     (hss : SortSemAtP m μ φ fuel)
     (hir : InferReadsP m μ φ fuel) (ihi : InferClaims2P μ m φ fuel)
-    {d : Nat} {n : Name} {ty val b t : Expr} {Δa : List AVExpr}
+    {d : Nat} {ty val b t : Expr} {Δa : List AVExpr}
     {ea ta : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.letE ty val b) = .ok t)
     (hws : Expr.WScoped d (.letE ty val b))
@@ -883,7 +883,7 @@ theorem infer_letE_claimP (m : EnvS2Core V env)
   -- the ζ crossing: `denoteP_beta`, directly
   have hcross : denoteP m.acval env φ d (b.instantiate1 val)
       = some (bA.inst vA) := by
-    rw [denoteP_beta (n := n) (ty := ty) m.acval_closed
+    rw [denoteP_beta (ty := ty) m.acval_closed
       (acval_inst_self m) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hvA 0, hbA]
     rfl
   -- the value's grading (routed reading), the type's (own sort run)
@@ -947,7 +947,7 @@ theorem infer_app_claimP (m : EnvS2Core V env)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tf, n', ty', body', mb', htf, hwf, rfl, tya, hia, hde⟩ :=
+  obtain ⟨tf, ty', body', mb', htf, hwf, rfl, tya, hia, hde⟩ :=
     Lech.inferTypeCore_app_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -1046,7 +1046,7 @@ theorem infer_app_claimP (m : EnvS2Core V env)
   -- the returned type's reading, `denoteP_beta` backwards
   have hcross : denoteP m.acval env φ d (body'.instantiate1 a)
       = some (Ba.inst aa) := by
-    rw [denoteP_beta (n := n') (ty := ty') m.acval_closed
+    rw [denoteP_beta (ty := ty') m.acval_closed
       (acval_inst_self m) hwfe.2.fvarsBelow hws.2 hb.2 haa 0, hBa]
     rfl
   rw [hcross] at hta
