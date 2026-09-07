@@ -60,7 +60,7 @@ theorem inferTypeCore_sort_inv {env : Env} {F d : Nat} {u : Level} {t : Expr}
     simp only [Lech.inferBody, pure, Except.pure] at h
     exact (Except.ok.inj h).symm
 
-theorem inferTypeCore_fvar_inv {env : Env} {F d idx : Nat} {n : Name}
+theorem inferTypeCore_fvar_inv {env : Env} {F d idx : Nat}
     {ty t : Expr} (h : inferTypeCore mode env F d (.fvar idx ty) = .ok t) :
     idx < d ∧ t = ty := by
   match F, h with
@@ -80,7 +80,7 @@ theorem inferTypeCore_mkAppN_fn_inv {env : Env} {F d : Nat} :
   | [], _, t, h => ⟨t, h⟩
   | a :: as, f, t, h => by
     obtain ⟨tfa, hfa⟩ := inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
-    obtain ⟨tf, _, _, _, _, hf, -⟩ := Lech.inferTypeCore_app_inv' hfa
+    obtain ⟨tf, _, _, _, hf, -⟩ := Lech.inferTypeCore_app_inv' hfa
     exact ⟨tf, hf⟩
 
 /-- **A spine into a sort**: applying a head whose type is a
@@ -100,17 +100,17 @@ theorem inferTypeCore_mkAppN_sort {env : Env} {F d : Nat} :
       Prod.mk.injEq] at hst
     exact hst.2
   | a :: as, f, ty, bs, s, t, hf, hst, h => by
-    obtain ⟨nm, dom, body, mb, rfl⟩ :
-        ∃ nm dom body mb, ty = .forallE dom body mb := by
+    obtain ⟨dom, body, mb, rfl⟩ :
+        ∃ dom body mb, ty = .forallE dom body mb := by
       cases ty <;> first
-        | exact ⟨_, _, _, _, rfl⟩
+        | exact ⟨_, _, _, rfl⟩
         | simp [Expr.stripPis] at hst
     obtain ⟨tfa, hfa⟩ := inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
-    obtain ⟨tf, n', ty', body', m', hf', hw, rfl, -⟩ :=
+    obtain ⟨tf, ty', body', m', hf', hw, rfl, -⟩ :=
       Lech.inferTypeCore_app_inv' hfa
     obtain rfl : tf = .forallE dom body mb :=
       Except.ok.inj (hf'.symm.trans hf)
-    obtain ⟨rfl, rfl, rfl, rfl⟩ := Expr.forallE.inj (Lech.whnf_forallE_eq hw)
+    obtain ⟨rfl, rfl, rfl⟩ := Expr.forallE.inj (Lech.whnf_forallE_eq hw)
     simp only [List.length_cons, Expr.stripPis, Option.map_eq_some_iff] at hst
     obtain ⟨⟨bs', body₀⟩, hst', heq⟩ := hst
     simp only [Prod.mk.injEq] at heq
@@ -329,7 +329,7 @@ theorem openPisAtFvars_dom_pred (P : Expr → Prop)
       openPisAtFvars n e d = some (fvs, o) →
       e.stripPis n = some (bs, body) →
       ∀ (i : Nat) (b : Expr × BinderMeta) (x : Expr),
-        bs[i]? = some b → fvs[i]? = some x → P b.2.1 → P x.fvarTypeD
+        bs[i]? = some b → fvs[i]? = some x → P b.1 → P x.fvarTypeD
   | 0, e, d, fvs, o, bs, body, hop, hst, i, b, x, hb, _, _ => by
     simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hst
     rw [← hst.1] at hb

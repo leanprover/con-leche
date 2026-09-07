@@ -141,7 +141,7 @@ theorem denoteP_instPisAt_peel
     obtain ⟨doma, bodya, hdoma, hbodya, rfl⟩ := denoteP_forallE_inv hty
     have hbody' : denoteP acval env φ d (body.instantiate1 a)
         = some (bodya.inst va) := by
-      rw [denoteP_beta hacl hainst (n := n) (ty := dom)
+      rw [denoteP_beta hacl hainst (ty := dom)
         hbodyw.fvarsBelow hwa hba ha 0, hbodya]
       rfl
     obtain ⟨restA, hrestA, hpeel⟩ := ih hpr'
