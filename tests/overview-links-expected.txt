@@ -536,13 +536,15 @@
     11    generators' streams are diffable — none of these names is special to
     12    the checker: only the public `_model` slots are consumed, and only
 
-== ConLeche/Frontend/InModel/Nested.lean#L43-L48
+== ConLeche/Frontend/InModel/Nested.lean#L43-L50
     43  Declines (the residual): a field mentioning the block other than as a
     44  whole member/mimic carrier (an occurrence under a binder — infinitary
     45  nesting), a container that is itself nested or mutual or whose mimics
     46  form a cycle (B4), a reflexive member, a `Prop` block with a large
     47  eliminator, a container field a later container field depends on.
-    48  -/
+    48  (Members' parameter telescopes and sorts are not compared: task #218,
+    49  `Mutual.lean`'s header.)
+    50  -/
 
 == ConLeche/Kernel/Core.lean#L521-L529
    521  /-- The certified structural-`Nat` operations.  Six of them
