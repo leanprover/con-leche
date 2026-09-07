@@ -59326,3 +59326,45 @@ naming the index (the #200 residual, unchanged; a finding, below).
   environment.  Not this task's; needs the modeller to read sorts
   through the environment (the #195 pattern on the tag's universe) or
   to defer the tag's universe to a checked artifact.
+
+### 5. Receipts (branch `agent/mutual-defeq`, master `1b07df19` merged)
+
+* `lake build` warning-free; `lake test`; `tests/layering.sh` (0
+  impl→theory edges); `tests/trust-surface.sh` (0 outside the
+  allowlist); `tests/proofdeps.sh` 2851 rows as pinned, doors 0 (no
+  proof moved — nothing regenerated); `tests/overview-links.sh` OK
+  (the residual paragraph's anchor extended to `Nested.lean#L43-L50`
+  for its two new lines; the citing sentence unchanged and still true).
+* `tests/arena.sh` (clean env): tutorial 87/92 (032/033 by design,
+  053/118/119 the #206-A5 declines), e2e **159/159** (the three new
+  fixtures included), annot 14/14, retired 8/8, mode 18/18, prelude
+  3/3, progress 6/6, DAG-tower 2/2, trusted sweep 138 + 159 + 14 as
+  expected (3 recorded divergences); `tests/inmodel.sh` OK on the six
+  fixtures of record plus `ind_mutual_three` (2 blocks in-process, 45
+  declarations in both modes through the dump).
+* Fixture verdicts (official = the arena's v4.34.0-rc2 `kernel`):
+  `ind_mutual_param_defeq` 0 / 0 (23 declarations, was 2),
+  `ind_mutual_sort_defeq` 0 / 0 (13, was 2), `ind_mutual_param_bad`
+  1 / 1 ("parameters of all inductive datatypes must match" vs
+  "application type mismatch at def MB2._model"), `ind_mutual_sort_bad`
+  1 / 1 ("mutually inductive types must live in the same universe" vs
+  "type mismatch in definition MD._model"), `ind_mutual_three` 0 / 0
+  (31 official / 45 con-leche declarations, `TA` and `PA` `inmodel`).
+* init-full (default mode, `perf stat -e instructions:u`): **53 118
+  accepted**, census 584 fix / 6 basis / 1 inmodel (`Lean.Syntax`),
+  678.671 G instructions vs master `1aaed328`'s 678.634 G (+0.005%,
+  noise: the modeller runs once per mutual/nested block).
+* The Mathlib mutual slice (`slice_multi_fast.py` cone of
+  `Mathlib.Tactic.Ring.ExSum.rec`, `Lists.Equiv.rec`,
+  `Lists.Equiv.below.rec` + the String-support roots `String.ofList`,
+  `Char.ofNat`; 99 MB): exit 0, 426 declarations, four blocks
+  in-process — `Lean.Syntax`, `Lists.Equiv`, `Mathlib.Tactic.Ring.ExBase`
+  (3 members, 4 indices), `Lists.Equiv.below` — all routed `inmodel`.
+* One latent bug found and fixed on the way: the projection artifacts
+  of a structure-like mutual member assumed a large eliminator
+  (`projRecValue` instantiates the elimination level); a block at a
+  possibly-zero sort (`Sort (max u v)`) eliminates into `Prop` only and
+  rejected at `MC._model.proj_0` ("incorrect number of universe
+  levels").  Both rungs now emit them only under a large eliminator;
+  nothing is lost (official's `is_structure_like` is single-type, so a
+  mutual member never carries `.proj`).
