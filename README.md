@@ -1,26 +1,26 @@
-# Lech – a lean checker that's never False
+# Lech – a LEan CHecker that's never False
 
 Lech is an external checker for the Lean theorem prover that is proven (in Lean) to be consistent in that it does not accept a proof of False.
 
 The core idea of this project is: What if we allow the checker implementation to do extra work (annotations, checks) that is not strictly necessary for soundness, but makes the proof easier.
 
+Lech is also a river in South West Germanys. Rivers in South West Germany are good for theorem provers, somehow.
+
 ## Status
 
-The checker is practically useful; it can process all of mathlib in TODO minutes and within TODO memory. It is a relatively slow checker (see below for why), roughly 2.5× slower than the official kernel on common workloads.
+The checker is practically useful; it can process a mathlib export in about an hour within 12GB of memory. It is a relatively slow checker (see below for why), roughly 2.5× slower than the official kernel on common workloads.
 
 It was implemented and proven to be consistent by Claude (Fable and Opus), under heavy supervision by Joachim Breitner at the Lean FRO. See the git history for all the detours and dead ends it took. It is a huge pile of code and a mess. Maybe this will improve over time. Until then: It works and is proven. 
 
 This README is actually human written (with AI only doing copy-editing, fact checking and filling in numbers).
 
-The project was called Setlec until 2026-09-06.
-
 ## Design of the checker implementation
 
 * The checker is implemented in Lean.
 * It uses its own term representation, so it does not rely on Lean’s `Lean.Expr`, and thus does not rely on the unverified C++ routines for that type.
-* Term representation is locally nameless, with open variables represented as deBruijn level + type (inspired by nanoda).
-* Memoization of core checker routines via hash maps and hashes pre-computed using `@[computed_field]`, like in the official checker and lean4lean.
-* Support for inductive types is incremental. The checker natively supports:
+* Term representation is locally nameless, with open variables represented as deBruijn level + type (inspired by [nanoda](https://github.com/ammkrn/nanoda_lib)).
+* Memoization of core checker routines via hash maps and hashes pre-computed using `@[computed_field]`, like in the official checker and [lean4lean](https://github.com/digama0/lean4lean/).
+* The checker supports some inductive types natively:
 
   * `False`, `Empty`, `PUnit`, `Eq`, `Nat`, `Quot`
   * Non-recursive inductives (structures, sums, indexed families)
@@ -28,7 +28,7 @@ The project was called Setlec until 2026-09-06.
     finitary (no reflexive/function-typed recursive fields, no nested
     or mutual recursion)
 
-  For everything else is relies on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models that we can validate.
+  For everything else is uses [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models. Lech checks these models as normal definitions, and then checks that they faithfully model the given inductive. The lean-inductive-models code is thus outside the trusted code base of Lech.
 
 * Accepted incompleteness: Primitive projections are only supported
   - on non-recursive non-indexed structures or
@@ -39,7 +39,7 @@ The project was called Setlec until 2026-09-06.
 
 The idea of the consistency proof is that we define a model in set theory, classical and extensional, and show that our checker only accepts Lean terms that have a model in that world.
 
-## The main theorem
+### The main theorem
 
 In [`Lech/MainTheorem.lean`](./Lech/MainTheorem.lean) we prove that if the `checkDeclsSPCachedD` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
 
@@ -52,7 +52,7 @@ theorem no_proof_of_False (V : Type w) [SetTheory V]
 
 Of course this is just a corollary of a stronger statement that every environment built by this function has a model in the set theory.
 
-The meaning of `False` is hard-coded, so no tricks re-defining it will work.
+The meaning of `False` is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker.
 
 The parser is not covered by the verification.
 
@@ -61,7 +61,6 @@ The parser is not covered by the verification.
 The set model we assume in `[SetTheory V]` is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form. Choice is inherited from Lean as the meta-logic. See [`Lech/SetTheory/Core.lean`](./Lech/SetTheory/Core.lean) for the precise formulation of our set theory.
 
 We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`Lech/SetTheory/Aczel.lean`](./Lech/SetTheory/Aczel.lean)); that assumption is similar to the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model).
-
 
 ### Level annotation
 
@@ -83,13 +82,24 @@ The checker performs fast reduction of `Nat` operations on literals, using Lean'
 
 Bugs in the Lean runtime support for `Nat` can lead to unsoundness here. It should be straightforward to hook up a different (verified) bignum implementation.
 
+### implemented_by
+
+The equality operation on expression has an unverified `implemented_by` that memoizes recursive calls. This seemed to be necessary for performance.
+```
+@[implemented_by beqFast] def beq (a b : Expr) : Bool
+```
+
+### Proof structure
+
+The structure of the proof is … messy. Very path dependent and the result of lots of experimentation and refactoring and pivots. Instead of describing it here, I’d rather let an agent work on refactoring and cleaning it up, and then describing that. If you are still curious, let your favorite agent give you an overview and summary.
+
 ## Relation to lean4lean
 
-This project intentionally explores a different point in the design space than lean4lean: We compromise on the checker implementation (annotations, extra checks, preprocessed inductive models) so that we can have a direct model-based proof of consistency that does not need some of the hard-to-prove metatheoretical properties of Lean.
+This project intentionally explores a different point in the design space than [lean4lean](https://github.com/digama0/lean4lean/): We compromise on the checker implementation (annotations, extra checks, preprocessed inductive models) so that we can have a direct model-based proof of consistency that does not need some of the hard-to-prove metatheoretical properties of Lean.
 
-The lean4lean project aims at something bigger: Produce a verified checker that does *not* do steps that we assume to be not necessary, and understand the metatheory of the Lean logic, beyond just consistency, better.
+The lean4lean project aims at something bigger: Produce a verified checker that does *not* do steps that we assume to be not necessary, and understand the metatheory of the Lean logic, beyond just consistency.
 
-Additionally, this project heavily relies on Mario Carneiro's thesis (*The Type Theory of Lean*, master's thesis, Carnegie Mellon University, 2019) for much of the set theoretical modelling.
+Additionally, this project relies on Mario Carneiro's thesis (*The Type Theory of Lean*, master's thesis, Carnegie Mellon University, 2019) for much of the set theoretical modelling.
 
 ## Performance
 
@@ -113,5 +123,3 @@ This project was published when it was barely useable – able to process mathli
 ## Contributions
 
 Since I did not write the code, I am not interested in code contributions, because I cannot review them. Issues are welcome, and the more detailed and precise they are, the more likely is that I will let an agent work on them.
-
-

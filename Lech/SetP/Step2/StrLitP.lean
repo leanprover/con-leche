@@ -449,8 +449,8 @@ theorem inferStrLitStepP_of_claims {m : EnvS2Core V env}
     InferStrLitStepP m μ φ fuel := by
   intro d s t Δa ea ta h hea hta
   rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind] at h
+  simp only [Lech.inferBody, pure,
+    Except.pure] at h
   split at h
   · next hgb =>
     simp only [Except.ok.injEq] at h

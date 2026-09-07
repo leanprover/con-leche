@@ -19,7 +19,7 @@ example** for the whole infer quarter: every binder clause of the swap
 runs the same four moves —
 
 1. the run inversion delivers the P2 validation conjunct
-   (`(zeronessOf v).equiv mb.pw`, at `μ.verifiedChecks`) alongside the sort
+   (`(zeronessOf v) == mb.pw`, at `μ.verifiedChecks`) alongside the sort
    runs — no `sortOfE` cross-fuel gymnastics, the annotation's numeral
    is `pwBit φ mb.pw` *definitionally* (`denoteP_forallE_inv`);
 2. `SortSemP` (the routed residue, `SortSem2` with `sortOfE` unfolded
@@ -30,7 +30,7 @@ runs the same four moves —
    membership — one line;
 4. **the numeral bridge**: the row (`sound_pi`) speaks at the true
    sort numerals; `piR_zero_agree` carries it to the stored bit, with
-   `pwBit_of_equiv_zeronessOf` supplying the zero-agreement — this is
+   `pwBit_zeronessOf` supplying the zero-agreement — this is
    where residue 9's sort-agreement machinery used to live, and it is
    now a rewrite.
 
@@ -149,7 +149,7 @@ theorem infer_const_claimP (m : EnvS2Core V env)
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, Lech.viewM, Expr.view, pure,
+  simp only [Lech.inferBody, pure,
     Except.pure, Bind.bind, Except.bind] at h
   cases hf : env.find? n with
   | none =>
@@ -189,8 +189,8 @@ theorem infer_sort_claimP (m : EnvS2Core V env) {d : Nat} {u : Level}
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind, Except.ok.injEq] at h
+  simp only [Lech.inferBody, pure,
+    Except.pure, Except.ok.injEq] at h
   subst h
   rw [denoteP_sortQ] at hea hta
   obtain rfl : ea = .sort (u.eval φ) := (Option.some.inj hea).symm
@@ -212,8 +212,7 @@ theorem infer_bvar_claimP (m : EnvS2Core V env) {d i : Nat} {t : Expr}
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind] at h
+  simp only [Lech.inferBody] at h
   simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `.fvar`, P currency: the leaf package of `CtxOkP` carries the
@@ -234,8 +233,8 @@ theorem infer_fvar_claimP (m : EnvS2Core V env)
   rw [denoteP] at hea
   obtain rfl : ea = .bvar (d - 1 - idx) := (Option.some.inj hea).symm
   rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind] at h
+  simp only [Lech.inferBody, pure,
+    Except.pure] at h
   split at h
   · simp only [Except.ok.injEq] at h
     subst h
@@ -325,8 +324,8 @@ theorem infer_forallE_claimP (m : EnvS2Core V env)
       hdom.1.1 (fun x hx => (hcod x hx).1) hdom.2
       (fun x hx => (hcod x hx).2)
     -- move 4: the numeral bridge (residue 9's successor is a rewrite)
-    have hzag : pwBit φ mb.pw = 0 ↔ v.eval φ = 0 :=
-      pwBit_of_equiv_zeronessOf hz φ
+    have hzag : pwBit φ mb.pw = 0 ↔ v.eval φ = 0 := by
+      rw [← hz]; exact pwBit_zeronessOf φ v
     have hbridge :
         interp2 V ρ (.pi 0 (pwBit φ mb.pw) tyA baA)
           = interp2 V ρ (.pi (u.eval φ) (v.eval φ) tyA baA) := by
@@ -342,14 +341,14 @@ the meta is *copied*, `infer_lam_meta_copy`) is established by cases
 on the body:
 
 * **leaf** (body not a λ): the P2 leaf conjunct delivers the codomain
-  sort run + the validation `equiv`; `SortSemP` grades the inferred
+  sort run + the validation `zeronessOf v = mb.pw`; `SortSemP` grades the inferred
   body type, `pwBit_zero_mem_univZero` reads the bit — the ∀ clause's
   move 3 again.
 * **chain** (body a λ): *no run at all.*  The chain conjunct says the
-  outer datum is `equiv` the inner λ's; the meta copy says the
+  outer datum *is* the inner λ's; the meta copy says the
   inferred body type is a ∀ carrying the inner meta, so its `denoteP`
   is a `.pi` at the inner bit, and at outer bit `0` the inner bit is
-  `0` (`pwBit_eq_of_equiv`) — a `piR 0` is a truth value by
+  `0` (a rewrite) — a `piR 0` is a truth value by
   **impredicativity** (`piR_zero_mem_univZero`).  This is where the
   canonical lane's `LamCodSort2` residue (the per-node sort run the
   #152 chain guard lost) dissolves into the model's own law. -/
@@ -441,7 +440,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
           ∃ nI tyI bI mbI, body = .lam nI tyI bI mbI := by
         cases body <;> simp [Expr.isLam] at hbl
         exact ⟨_, _, _, _, rfl⟩
-      have hpwEq : Lech.PropWhen.equiv mb.pw mbI.pw = true :=
+      have hpwEq : mb.pw = mbI.pw :=
         hchainC hμ mbI.pw rfl
       -- the opened body is a λ with the same meta; the inferred type
       -- copies it
@@ -456,7 +455,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
       obtain ⟨tyIA, btIA, -, -, rfl⟩ := denoteP_forallE_inv hbtA
       rw [interp2_pi]
       have hinner : pwBit φ mbI.pw = 0 := by
-        rw [← pwBit_eq_of_equiv hpwEq φ]
+        rw [← hpwEq]
         exact hb0
       rw [hinner]
       exact piR_zero_mem_univZero
@@ -546,8 +545,8 @@ theorem infer_natLit_claimP (m : EnvS2Core V env) (hnh : NatHeadsP m φ)
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind] at h
+  simp only [Lech.inferBody, pure,
+    Except.pure] at h
   split at h
   · next hg =>
     simp only [Except.ok.injEq] at h

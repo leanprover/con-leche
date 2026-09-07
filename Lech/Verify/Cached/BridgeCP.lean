@@ -16,19 +16,17 @@ no arena, hence no `Ext`, no `denoteT`/`denote` distinction and no
 tier flag (`hoff`) anywhere — plus the representation differences the
 `ExprC` currency forces, all of which are *shrinkages*:
 
-* the DAG-memoized syntactic guards are pure `ExprC` walks, not
-  `withStore` reads: `looseBVarsBoundedI`/`hasFvarI`/
-  `allLevelParamsDefinedI`/`constsResolveFI` become
+* the DAG-memoized syntactic guards are pure `ExprC` walks —
   `ExprC.looseBVarsBounded`/`ExprC.hasFvar`/
-  `ExprC.allLevelParamsDefined`/`constsResolveFC`, and their agreement
+  `ExprC.allLevelParamsDefined`/`constsResolveFC` — and their agreement
   with the `Expr`-side guards is `Lech/Verify/Cached/GuardsC.lean`'s
-  `*_spec` family — so every `SimAt.withStore` peel disappears;
+  `*_spec` family, so every store-read peel disappears;
 * the readback `readbackEM j` is the pure `ExprC.toExpr j`
   (`toExpr_eq`: the memoized readback *is* the erasure), so every
   `readbackEM_eff` step disappears;
-* `opSIxC` has no `readbackLevelM` wrapper (levels are already trees),
+* `opSIxC` has no level-readback wrapper (levels are already trees),
   so `opSIxC_sim` is `ensureSortC_sim` plus the `ensureSort_atF`
-  rewrite — the `SimAt.bind`/`readbackLevelM_eff` pair disappears;
+  rewrite;
 * `recordCConst`'s effect (`recordCConst_eff`,
   `Lech/Verify/Cached/SimCEff.lean`) takes `RelC` facts where
   `recordIConst_eff` took `denoteT` facts at a flag-off state.
@@ -57,19 +55,19 @@ premise is the state-free per-constructor erasure relation: `RelC`
 builds it, so `cases` on the relation reproduces the interned walks'
 destructuring of `hden`. -/
 inductive DeclCRel : DeclC → Declaration → Prop where
-  | axiomDecl {cv : ConstantValC} {tyE : Expr} (hty : RelC cv.type tyE) :
+  | axiomDecl {cv : ConstantVal} {tyE : Expr} (hty : RelC cv.type tyE) :
       DeclCRel (.axiomDecl cv)
         (.axiomDecl ⟨cv.name, cv.levelParams, tyE⟩)
-  | defnDecl {cv : ConstantValC} {tyE : Expr} {value : ExprC} {ve : Expr}
+  | defnDecl {cv : ConstantVal} {tyE : Expr} {value : ExprC} {ve : Expr}
       {hint : ReducibilityHint}
       (hty : RelC cv.type tyE) (hv : RelC value ve) :
       DeclCRel (.defnDecl cv value hint)
         (.defnDecl ⟨cv.name, cv.levelParams, tyE⟩ ve hint)
-  | thmDecl {cv : ConstantValC} {tyE : Expr} {value : ExprC} {ve : Expr}
+  | thmDecl {cv : ConstantVal} {tyE : Expr} {value : ExprC} {ve : Expr}
       (hty : RelC cv.type tyE) (hv : RelC value ve) :
       DeclCRel (.thmDecl cv value)
         (.thmDecl ⟨cv.name, cv.levelParams, tyE⟩ ve)
-  | opaqueDecl {cv : ConstantValC} {tyE : Expr} {value : ExprC} {ve : Expr}
+  | opaqueDecl {cv : ConstantVal} {tyE : Expr} {value : ExprC} {ve : Expr}
       (hty : RelC cv.type tyE) (hv : RelC value ve) :
       DeclCRel (.opaqueDecl cv value)
         (.opaqueDecl ⟨cv.name, cv.levelParams, tyE⟩ ve)
@@ -91,10 +89,10 @@ private theorem fueledM_bind_pure' {α : Type} (x : FueledM α) :
 /-! ## The `ExprC` guards agree with the `Expr` guards -/
 
 /-- `ExprC.hasFvar` is `Expr.hasFvar` of the erasure (the store-shaped
-`hasFvarI_spec` at the unit store). -/
+`hasFvar_spec'` at the unit store). -/
 theorem hasFvar_spec {e : ExprC} {ex : Expr}
     (h : e = ex) : e.hasFvar = ex.hasFvar :=
-  hasFvarI_spec (st := default) h
+  hasFvar_spec' h
 
 /-! ## Parsed-index entry operations -/
 
@@ -117,7 +115,7 @@ theorem opSIxC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Na
 fueled families on the erased header: the returned constant is the
 fueled result, its type well-scoped, and the returned `ExprC` is
 related to it. -/
-theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvp : ConstantValC}
+theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvp : ConstantVal}
     {tyE : Expr} (hs : CSOK mode env s₀) (hden : RelC cvp.type tyE) :
     SimC mode env s₀ (fun v w => v.1 = w ∧ v.1.name = cvp.name ∧
         Expr.WScoped 0 v.1.type ∧ RelC v.2 v.1.type)

@@ -1,5 +1,7 @@
 import Lech.Frontend.Export
 import Lech.Frontend.ProjRec
+import Lech.Frontend.InModel
+import Lech.Frontend.NatOpGround
 import Lech.Cached.ParsedC
 
 /-!
@@ -29,9 +31,21 @@ inductive blocks) read their `Expr` trees through the memoized
 the parsed slot itself — the same bounded-tree contract as
 the arena's budgeted readback, without the arena.
 
-**The projection-function rewrite (2026-09-06,
-`Lech/Frontend/ProjRec.lean`)** is the one surface rewrite this
-parse performs on a definition record: a projection function
+**Three pure transformations of the parsed list happen here, below
+the verified fold** — the fold sees their result as an ordinary list
+of records, and the main theorem quantifies over that list:
+
+* **the built-in prelude (task #191, `Lech/Frontend/Prelude.lean`)**:
+  every parse is handed the checker's own prelude (the six pinned
+  basis blocks and `Bool`), prepends its records, and drops a later
+  stream copy of one of them when it is the same declaration
+  (declining the run when it differs) — `pushDecl` below;
+* **the ground hoist (task #191, `Lech/Frontend/NatOpGround.lean`)**:
+  a pinned `Nat` operation's stream-certified structural ground is
+  moved ahead of it when the stream declares it later;
+* **the projection-function rewrite (2026-09-06,
+  `Lech/Frontend/ProjRec.lean`)**, the one surface rewrite this
+  parse performs on a definition record: a projection function
 `fun p⃗ self => .proj T i self` of a structure-like owner the direct
 install does not serve is replaced, before it reaches the checker, by
 the recursor application the module documents.  Three bookkeeping
@@ -45,9 +59,65 @@ namespace Lech.Frontend
 
 open Lean (Json)
 open Lech
-open Lech.Cached (ExprC ConstantValC DeclC)
+open Lech.Cached (ExprC DeclC)
 
 private abbrev M := Except String
+
+/-! ## The built-in prelude (task #191)
+
+The checker's own little prelude — the pinned basis blocks and the
+`Bool` block, the order-sensitive ground of the pin-certified `Nat`
+operations (`Lech/PinGen/Prelude.lean`) — is a parsed stream of its
+own (`Lech/Frontend/Prelude.lean`) that every parse PREPENDS to its
+result, so the fold installs it first, unconditionally.  A later
+stream record under a prelude name is compared with the prelude's
+copy up to the basis-matching canonical form (`ConstantInfo.canon`:
+binder names, binder infos and level-parameter names erased): the
+same declaration is DROPPED (it is already installed), a different
+one DECLINES the stream (exit 2, naming the declaration — the user's
+word; note the contrast with the pinned basis blocks, whose
+mismatching redefinitions keep REJECTING through the reserved-name
+check, as before).  Basis blocks are matched by kind: the stream's
+`Nat` record parses to `basisDecl .natK` exactly as before and is
+dropped as the prelude's duplicate. -/
+
+/-- The constant a definition-like record would store, for the canon
+comparison (`opaqueDecl` is told apart from `defnDecl` by `sameCanon`'s
+constructor test, not here). -/
+private def _root_.Lech.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
+  | .axiomDecl cv => some (.axiomInfo ⟨cv.name, cv.levelParams, cv.type⟩)
+  | .defnDecl cv v h => some (.defnInfo ⟨cv.name, cv.levelParams, cv.type⟩ v h)
+  | .thmDecl cv v => some (.thmInfo ⟨cv.name, cv.levelParams, cv.type⟩ v)
+  | .opaqueDecl cv v => some (.defnInfo ⟨cv.name, cv.levelParams, cv.type⟩ v .opaque)
+  | _ => none
+
+/-- Two parsed records are the same declaration: same kind, and equal
+up to the basis-matching canonical form (`ConstantInfo.canon`). -/
+def _root_.Lech.Cached.DeclC.sameCanon : DeclC → DeclC → Bool
+  | .basisDecl k, .basisDecl k' => k == k'
+  | .indDecl b, .indDecl b' =>
+    b.map ConstantInfo.canon == b'.map ConstantInfo.canon
+  | .opaqueDecl .., .defnDecl .. => false
+  | .defnDecl .., .opaqueDecl .. => false
+  | a, b =>
+    match a.asInfo?, b.asInfo? with
+    | some x, some y => ConstantInfo.canon x == ConstantInfo.canon y
+    | _, _ => false
+
+/-- The built-in prelude, indexed: its records in order, the
+definition-like and inductive records by every name they declare, and
+the basis blocks by kind. -/
+structure PreludeIx where
+  decls : Array DeclC := #[]
+  byName : Std.HashMap Name DeclC := {}
+  basis : List BasisKind := []
+
+def PreludeIx.ofDecls (ds : Array DeclC) : PreludeIx :=
+  ds.foldl (init := {}) fun ix d =>
+    match d with
+    | .basisDecl k => { ix with decls := ix.decls.push d, basis := k :: ix.basis }
+    | _ => { ix with decls := ix.decls.push d,
+                     byName := d.names.foldl (fun m n => m.insert n d) ix.byName }
 
 /-! ## The direct parse state -/
 
@@ -75,6 +145,86 @@ structure StateD where
   /-- projection functions rewritten so far (names, for the driver's
   trace) -/
   projRewrites : Array Name := #[]
+  /-- the built-in prelude this parse dedupes against (task #191) -/
+  prelude : PreludeIx := {}
+  /-- the declared types of every declaration pushed so far (the
+  prelude's included), by name: the in-process modeller's sort inferer
+  reads them, and its "does the stream carry a model for this block"
+  test looks up `T._model` here (task #200) -/
+  constTypes : Std.HashMap Name (List Name × ExprC) := {}
+  /-- the definitional heights of the definitions pushed so far (the
+  hints of the generated definitions are computed from them, task #200) -/
+  heights : Std.HashMap Name Nat := {}
+  /-- in-process modelling of mutual/nested blocks is on (task #200;
+  `LECH_INMODEL=0` turns it off) -/
+  inModel : Bool := true
+  /-- the blocks modelled in-process, in stream order (for the receipt
+  and the route trace) -/
+  inModelled : Array Name := #[]
+  /-- for the debug dump (`LECH_INMODEL_DUMP`): per modelled block, its
+  ordinal among the stream's `inductive` records and the generated
+  records -/
+  inModelGen : Array (Nat × Array DeclC) := #[]
+  /-- the number of `inductive` records seen so far -/
+  indCount : Nat := 0
+  /-- the parsed inductive blocks, by member type name (the in-process
+  modeller's nested rung reads a container's shape off it) -/
+  indBlocks : Std.HashMap Name InModel.BlockRec := {}
+  /-- CENSUS mode (`LECH_INMODEL_CENSUS=1`): a generator decline is
+  recorded and the block pushed bare instead of declining the parse, so
+  one parse lists every block's outcome (the driver then stops before
+  the fold) -/
+  inModelCensus : Bool := false
+  /-- the census's declines: block name and reason -/
+  inModelDeclined : Array (Name × String) := #[]
+  /-- stream records dropped as identical copies of prelude records:
+  they count as accepted stream declarations (they ARE installed, from
+  the prelude), so the driver's record count adds them back -/
+  preludeDropped : Nat := 0
+
+/-- Is the record budgeted for the tree consumers?  The prelude
+comparison walks the parsed tree (`ConstantInfo.canon`), so a record
+under a prelude name is budgeted like a basis block. -/
+private def StateD.budgetedD (st : StateD) (n : Name) : Bool :=
+  budgetedName n || st.prelude.byName.contains n
+
+/-- Record a pushed declaration's constants in the declaration table
+(`constTypes`, `heights`; task #200). -/
+private def noteDecl (st : StateD) (d : DeclC) : StateD :=
+  let cvs : List (Name × List Name × ExprC × Option Nat) := match d with
+    | .axiomDecl cv => [(cv.name, cv.levelParams, cv.type, none)]
+    | .defnDecl cv _ h => [(cv.name, cv.levelParams, cv.type, some (InModel.hintHeight h))]
+    | .thmDecl cv _ => [(cv.name, cv.levelParams, cv.type, none)]
+    | .opaqueDecl cv _ => [(cv.name, cv.levelParams, cv.type, none)]
+    | .basisDecl k => k.decls.map fun ci =>
+      (ci.toConstantVal.name, ci.toConstantVal.levelParams, ci.toConstantVal.type, none)
+    | .indDecl block => block.map fun ci =>
+      (ci.toConstantVal.name, ci.toConstantVal.levelParams, ci.toConstantVal.type, none)
+  let ct := st.constTypes
+  let hs := st.heights
+  let st := { st with constTypes := {}, heights := {} }
+  let (ct, hs) := cvs.foldl (fun (ct, hs) (n, lps, ty, h) =>
+    (ct.insert n (lps, ty), match h with | some h => hs.insert n h | none => hs)) (ct, hs)
+  { st with constTypes := ct, heights := hs }
+
+/-- **The prelude dedupe** (task #191), at every declaration push: a
+basis block the prelude holds is dropped by kind; a record under a
+prelude name is dropped when it is the same declaration
+(`DeclC.sameCanon`) and declines the stream when it differs. -/
+private def pushDecl (st : StateD) (d : DeclC) : StateD ⊕ String :=
+  match d with
+  | .basisDecl k =>
+    if st.prelude.basis.contains k then
+      .inl { st with preludeDropped := st.preludeDropped + 1 }
+    else .inl (noteDecl { st with decls := st.decls.push d } d)
+  | _ =>
+    match d.names.findSome? (fun n => (st.prelude.byName[n]?).map (n, ·)) with
+    | none => .inl (noteDecl { st with decls := st.decls.push d } d)
+    | some (n, p) =>
+      if d.sameCanon p then
+        .inl { st with preludeDropped := st.preludeDropped + 1 }
+      else .inr (s!"declaration {n} differs from the checker's built-in " ++
+        s!"prelude (the toolchain's own {n}, installed first)")
 
 private def StateD.name (st : StateD) (i : Nat) : M Name :=
   match st.names[i]? with
@@ -228,9 +378,9 @@ private def parseExprEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
 
 /-- Twin of `parseConstantValP`: the type stays `ExprC`. -/
 private def parseConstantValD (st : StateD) (v : Json) (budgeted : Bool) :
-    M ConstantValC := do
+    M ConstantVal := do
   let name ← getNameD st v "name"
-  let ty ← getDeclD st v "type" (budgeted || budgetedName name)
+  let ty ← getDeclD st v "type" (budgeted || st.budgetedD name)
   pure { name := name
          levelParams := (← (← getIdxs v "levelParams").mapM st.name).toList
          type := ty }
@@ -248,7 +398,7 @@ private def parseConstantValTD (st : StateD) (v : Json) : M ConstantVal := do
 self` for a recorded owner `T`, the field's sort is on record from the
 artifact, `PUnit` is available, and the definition's level parameters
 are the block's.  `none` = leave the record as parsed. -/
-private def projRewriteD (st : StateD) (cv : ConstantValC) (vl : ExprC) :
+private def projRewriteD (st : StateD) (cv : ConstantVal) (vl : ExprC) :
     Option ExprC := do
   let .proj T i (.bvar 0) := lamBody vl | none
   let o ← st.projOwners[T]?
@@ -256,6 +406,55 @@ private def projRewriteD (st : StateD) (cv : ConstantValC) (vl : ExprC) :
   guard (cv.levelParams == o.lps)
   let l ← st.projLevels[projIotaName T i]?
   projRecValue o l cv.type vl i
+
+/-- An artifact `T._model.proj_i.iota` names the field's sort in its
+`Eq` level: recorded for the projection rewrite (stream theorems and
+the in-process modeller's alike). -/
+private def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
+  if isProjIotaName cvp.name then
+    match projIotaLevel cvp.type with
+    | some l =>
+      let m := st.projLevels
+      let st := { st with projLevels := {} }
+      { st with projLevels := m.insert cvp.name l }
+    | none => st
+  else st
+
+/-- Push one record the in-process modeller generated (task #200):
+`pushDecl`, plus the projection-iota registration a stream theorem
+gets. -/
+private def pushGenD (st : StateD) (d : DeclC) : StateD ⊕ String :=
+  match d with
+  | .thmDecl cv _ => pushDecl (noteProjIota st cv) d
+  | _ => pushDecl st d
+
+/-- The export's shape data of an inductive record, for the in-process
+modeller (task #200). -/
+private def blockRecOf (st : StateD) (v : Json) : M InModel.BlockRec := do
+  let types ← (← (← v.getObjVal? "types").getArr?).toList.mapM fun t => do
+    pure { cv := ← parseConstantValTD st t
+           nP := ← (← t.getObjVal? "numParams").getNat?
+           nIdx := ← (← t.getObjVal? "numIndices").getNat?
+           ctors := (← (← getIdxs t "ctors").mapM st.name).toList
+           isRec := ← (← t.getObjVal? "isRec").getBool?
+           isReflexive := ← (← t.getObjVal? "isReflexive").getBool?
+           numNested := ← (← t.getObjVal? "numNested").getNat? : InModel.IndTypeRec }
+  let ctors ← (← (← v.getObjVal? "ctors").getArr?).toList.mapM fun c => do
+    pure { cv := ← parseConstantValTD st c
+           nP := ← (← c.getObjVal? "numParams").getNat?
+           nF := ← (← c.getObjVal? "numFields").getNat? : InModel.IndCtorRec }
+  let recs ← (← (← v.getObjVal? "recs").getArr?).toList.mapM fun r => do
+    let rules ← (← (← r.getObjVal? "rules").getArr?).toList.mapM fun ru => do
+      pure (RecRule.mk (← getNameD st ru "ctor")
+        (← (← ru.getObjVal? "nfields").getNat?) 0 .inert
+        (← getDeclExprD st ru "rhs"))
+    pure { cv := ← parseConstantValTD st r
+           nP := ← (← r.getObjVal? "numParams").getNat?
+           nM := ← (← r.getObjVal? "numMotives").getNat?
+           nm := ← (← r.getObjVal? "numMinors").getNat?
+           nI := ← (← r.getObjVal? "numIndices").getNat?
+           rules := rules : InModel.IndRecRec }
+  pure ⟨types, ctors, recs⟩
 
 /-- Twin of `processLineCore` over the direct state, producing `DeclC`
 records.  Every branch, guard and error string mirrors the arena
@@ -281,56 +480,44 @@ private def processLineCoreD (st : StateD) (j : Json)
         return .inl st
       else
         return .inr "quotient soundness axiom mismatch"
-    return .inl { st with decls := st.decls.push (.axiomDecl cvp) }
+    return pushDecl st (.axiomDecl cvp)
   else if let .ok v := j.getObjVal? "def" then
     let cvp ← parseConstantValD st v (budgeted := false)
     match (← (← v.getObjVal? "safety").getStr?) with
     | "safe" =>
-      let vl ← getDeclD st v "value" (budgetedName cvp.name)
+      let vl ← getDeclD st v "value" (st.budgetedD cvp.name)
       let h ← parseHints v
       -- the projection-function rewrite (2026-09-06): a non-direct
       -- structure-like's `fun p⃗ self => .proj T i self` becomes the
       -- recursor application, at the field sort the artifact names
       match projRewriteD st cvp vl with
       | some vl' =>
-        return .inl { st with
-          decls := st.decls.push (.defnDecl cvp vl' h),
-          projRewrites := st.projRewrites.push cvp.name }
+        return (pushDecl st (.defnDecl cvp vl' h)).map
+          (fun st => { st with projRewrites := st.projRewrites.push cvp.name }) id
       | none =>
-        return .inl { st with
-          decls := st.decls.push (.defnDecl cvp vl h) }
+        return pushDecl st (.defnDecl cvp vl h)
     | s => return .inr s!"definition with safety '{s}'"
   else if let .ok v := j.getObjVal? "thm" then
     let cvp ← parseConstantValD st v (budgeted := false)
-    let vl ← getDeclD st v "value" (budgetedName cvp.name)
+    let vl ← getDeclD st v "value" (st.budgetedD cvp.name)
     -- an artifact `T._model.proj_i.iota` names the field's sort in its
     -- `Eq` level: recorded for the projection rewrite
-    let st ← if isProjIotaName cvp.name then
-        match projIotaLevel cvp.type with
-        | some l =>
-          let m := st.projLevels
-          let st := { st with projLevels := {} }
-          pure { st with projLevels := m.insert cvp.name l }
-        | none => pure st
-      else pure st
+    let st := noteProjIota st cvp
     -- a proof field's projection function is exported as a theorem
     -- (the elaborator's choice for a `Prop`-valued field): the same
     -- rewrite applies (2026-09-06)
     match projRewriteD st cvp vl with
     | some vl' =>
-      return .inl { st with
-        decls := st.decls.push (.thmDecl cvp vl'),
-        projRewrites := st.projRewrites.push cvp.name }
+      return (pushDecl st (.thmDecl cvp vl')).map
+        (fun st => { st with projRewrites := st.projRewrites.push cvp.name }) id
     | none =>
-      return .inl { st with
-        decls := st.decls.push (.thmDecl cvp vl) }
+      return pushDecl st (.thmDecl cvp vl)
   else if let .ok v := j.getObjVal? "opaque" then
     let cvp ← parseConstantValD st v (budgeted := false)
     if (← (← v.getObjVal? "isUnsafe").getBool?) then
       return .inr "unsafe opaque declaration"
-    let vl ← getDeclD st v "value" (budgetedName cvp.name)
-    return .inl { st with
-      decls := st.decls.push (.opaqueDecl cvp vl) }
+    let vl ← getDeclD st v "value" (st.budgetedD cvp.name)
+    return pushDecl st (.opaqueDecl cvp vl)
   else if let .ok v := j.getObjVal? "quot" then
     let cv ← parseConstantValTD st v
     let slot ← match (← (← v.getObjVal? "kind").getStr?) with
@@ -343,12 +530,13 @@ private def processLineCoreD (st : StateD) (j : Json)
     if (ConstantInfo.canon (.axiomInfo cv)).toConstantVal =
         (ConstantInfo.canon pin).toConstantVal then
       if slot = 0 then
-        return .inl { st with decls := st.decls.push (.basisDecl .quotK) }
+        return pushDecl st (.basisDecl .quotK)
       else
         return .inl st
     else
       return .inr "quotient declaration mismatch"
   else if let .ok v := j.getObjVal? "inductive" then
+    let st := { st with indCount := st.indCount + 1 }
     let types ← (← (← v.getObjVal? "types").getArr?).mapM fun t => do
       if (← (← t.getObjVal? "isUnsafe").getBool?) then throw "unsafe inductive"
       pure (ConstantInfo.indInfo (← parseConstantValTD st t) {})
@@ -374,30 +562,69 @@ private def processLineCoreD (st : StateD) (j : Json)
     let st ← registerProjOwners st v block
     let blockC := block.map ConstantInfo.canon
     if blockC = BasisKind.eqK.decls.map ConstantInfo.canon then
-      return .inl { st with decls := st.decls.push (.basisDecl .eqK) }
+      return pushDecl st (.basisDecl .eqK)
     else if blockC = BasisKind.natK.decls.map ConstantInfo.canon then
-      return .inl { st with decls := st.decls.push (.basisDecl .natK) }
+      return pushDecl st (.basisDecl .natK)
     else if blockC = BasisKind.punitK.decls.map ConstantInfo.canon then
-      return .inl { st with decls := st.decls.push (.basisDecl .punitK),
-                            punitSeen := true }
+      return pushDecl { st with punitSeen := true } (.basisDecl .punitK)
     else if blockC = BasisKind.emptyK.decls.map ConstantInfo.canon then
-      return .inl { st with decls := st.decls.push (.basisDecl .emptyK) }
+      return pushDecl st (.basisDecl .emptyK)
     else if blockC = BasisKind.falseK.decls.map ConstantInfo.canon then
-      return .inl { st with decls := st.decls.push (.basisDecl .falseK) }
+      return pushDecl st (.basisDecl .falseK)
     else
       if modeled then
-        return .inl { st with decls := st.decls.push (.indDecl block) }
+        -- THE IN-PROCESS MODELLER (task #200): a mutual or nested block
+        -- the stream carries no model for gets its `_model` family
+        -- generated here and pushed ahead of it; the block then
+        -- installs through the modeled route as a preprocessed one
+        -- does.  A generator decline is the run's decline, naming the
+        -- reason (the residual that still needs `lech-preprocess`).
+        let T0 := (block.head?.map (·.name)).getD .anonymous
+        let b ← blockRecOf st v
+        let st :=
+          let m := st.indBlocks
+          let st := { st with indBlocks := {} }
+          { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
+        if st.inModel && InModel.wants b &&
+            !st.constTypes.contains (T0.str "_model") then
+          let ctx : InModel.Ctx :=
+            ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
+          match InModel.generate ctx b with
+          | .error why =>
+            if st.inModelCensus then
+              return pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
+                (.indDecl block)
+            else
+              return .inr s!"in-process model of {T0}: {why}"
+          | .ok gen =>
+            let mut st1 := st
+            for d in gen do
+              match pushGenD st1 d with
+              | .inl st' => st1 := st'
+              | r => return r
+            st1 := { st1 with
+              inModelled := st1.inModelled.push T0,
+              inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
+            return pushDecl st1 (.indDecl block)
+        else
+          return pushDecl st (.indDecl block)
       else
         -- alias every member to its `_model` counterpart; the member
         -- type is the parsed `ExprC` slot itself (no re-interning, no
         -- conversion), the alias head is a fresh `const` node
         let mut st := st
         for t in (← (← v.getObjVal? "types").getArr?) do
-          st ← aliasMember st t
+          match ← aliasMember st t with
+          | .inl st' => st := st'
+          | r => return r
         for c in (← (← v.getObjVal? "ctors").getArr?) do
-          st ← aliasMember st c
+          match ← aliasMember st c with
+          | .inl st' => st := st'
+          | r => return r
         for r in (← (← v.getObjVal? "recs").getArr?) do
-          st ← aliasMember st r
+          match ← aliasMember st r with
+          | .inl st' => st := st'
+          | r => return r
         return .inl st
   else
     throw "unrecognized line"
@@ -430,13 +657,13 @@ where
   /-- One `T := T._model` alias definition from a block-member record:
   the type is the parsed slot (already `ExprC`), the value a fresh
   `const` at the member's own level parameters. -/
-  aliasMember (st : StateD) (t : Json) : M StateD := do
+  aliasMember (st : StateD) (t : Json) : M (StateD ⊕ String) := do
     let name ← getNameD st t "name"
     let lps := (← (← getIdxs t "levelParams").mapM st.name).toList
     let ty ← getDeclD st t "type" (budgeted := true)
     let v := ExprC.mkConst (Name.str name "_model") (lps.map .param)
     let d : DeclC := .defnDecl ⟨name, lps, ty⟩ v .abbrev
-    pure { st with decls := st.decls.push d }
+    pure (pushDecl st d)
 
 /-- Twin of `declRecordScan` (read-only pre-scan for the taint
 policy). -/
@@ -564,10 +791,45 @@ private def fastEntryD (st : StateD) (line : String) : FastResD :=
 /-- The direct parse result: declarations over `ExprC` and the taint
 skips.  No arena. -/
 structure ParseResultD where
+  /-- the built-in prelude's records first, then the stream's (task #191) -/
   decls : Array DeclC
   taintSkipped : Array (Name × Name)
   /-- projection functions rewritten to recursor form (2026-09-06) -/
   projRewrites : Array Name := #[]
+  /-- how many of `decls` are the prelude's, and how many stream
+  records were dropped as identical copies of prelude records: the
+  stream's accepted-record count is
+  `decls.size - preludeCount + preludeDropped` (task #191) -/
+  preludeCount : Nat := 0
+  preludeDropped : Nat := 0
+  /-- the records moved ahead of a pinned `Nat` operation they ground
+  (`Lech/Frontend/NatOpGround.lean`, task #191; names, for the
+  driver's receipt) -/
+  hoisted : Array Name := #[]
+  /-- the blocks modelled in-process (task #200), in stream order -/
+  inModelled : Array Name := #[]
+  /-- the in-process modeller's generated records per block, keyed by
+  the block's ordinal among the stream's `inductive` records (for the
+  debug dump only) -/
+  inModelGen : Array (Nat × Array DeclC) := #[]
+  /-- the census's declines (block, reason) -/
+  inModelDeclined : Array (Name × String) := #[]
+
+/-- The initial parse state over a prelude: `PUnit` counts as seen for
+the projection rewrite when the prelude installs it; the prelude's
+constants seed the declaration table (task #200). -/
+private def StateD.init (prelude : PreludeIx) (inModel : Bool) (census : Bool := false) : StateD :=
+  prelude.decls.foldl noteDecl
+    { prelude, punitSeen := prelude.basis.contains .punitK, inModel, inModelCensus := census }
+
+/-- The result: the prelude's records, then the stream's with every
+pinned operation's stream-certified ground hoisted ahead of it
+(`hoistNatOpGround`). -/
+private def ParseResultD.ofState (st : StateD) : ParseResultD :=
+  let (decls, hoisted) := hoistNatOpGround st.decls
+  ⟨st.prelude.decls ++ decls, st.taintSkipped, st.projRewrites,
+   st.prelude.decls.size, st.preludeDropped, hoisted, st.inModelled, st.inModelGen,
+   st.inModelDeclined⟩
 
 /-- Twin of `feedLine`. -/
 private def feedLineD (st : StateD) (line : String) (lineNo : Nat)
@@ -583,15 +845,18 @@ private def feedLineD (st : StateD) (line : String) (lineNo : Nat)
       | .ok (.inr what) => .error (.unsupported what)
       | .ok (.inl st) => .ok st
 
-/-- Wholesale direct parse (tests and small inputs). -/
-def parseExportD (contents : String) (modeled : Bool := false) :
+/-- Wholesale direct parse (tests and small inputs).  `prelude` is the
+built-in prelude the result is prepended with and deduped against
+(task #191; empty for the prelude's own parse). -/
+def parseExportD (contents : String) (modeled : Bool := false)
+    (prelude : PreludeIx := {}) (inModel : Bool := true) (census : Bool := false) :
     Except FrontendError ParseResultD := do
-  let mut st : StateD := {}
+  let mut st : StateD := .init prelude inModel census
   let mut lineNo := 0
   for line in contents.splitToList (· == '\n') do
     lineNo := lineNo + 1
     st ← feedLineD st line lineNo modeled
-  return ⟨st.decls, st.taintSkipped, st.projRewrites⟩
+  return .ofState st
 
 /-- Streaming direct parse off an open handle (twin of
 `parseExportStream`; explicit recursion so the tables stay uniquely
@@ -604,23 +869,25 @@ preprocessor's stdout directly (task #180: no scratch file at all;
 `Main.lean`), and it is a property to preserve: a seek or a re-open
 here would silently re-introduce the temp file. -/
 partial def parseExportHandleD (h : IO.FS.Handle)
-    (modeled : Bool := false) :
+    (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true)
+    (census : Bool := false) :
     IO (Except FrontendError ParseResultD) := do
   let rec loop (lineNo : Nat) (st : StateD) :
       IO (Except FrontendError ParseResultD) := do
     let raw ← h.getLine
     if raw.isEmpty then
-      return .ok ⟨st.decls, st.taintSkipped, st.projRewrites⟩
+      return .ok (.ofState st)
     let line := if raw.back == '\n' then (raw.dropEnd 1).copy else raw
     match feedLineD st line (lineNo + 1) modeled with
     | .error e => return .error e
     | .ok st => loop (lineNo + 1) st
-  loop 0 {}
+  loop 0 (.init prelude inModel census)
 
 /-- Streaming direct parse of a file. -/
 def parseExportStreamD (path : System.FilePath)
-    (modeled : Bool := false) :
+    (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true)
+    (census : Bool := false) :
     IO (Except FrontendError ParseResultD) := do
-  parseExportHandleD (← IO.FS.Handle.mk path .read) modeled
+  parseExportHandleD (← IO.FS.Handle.mk path .read) modeled prelude inModel census
 
 end Lech.Frontend

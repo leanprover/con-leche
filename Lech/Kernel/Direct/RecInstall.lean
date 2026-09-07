@@ -146,7 +146,12 @@ def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env
         whose sort may be Prop")
   unless (p.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
-  let (env₁, cvTa) ← checkDirectSumInd ops env p.toDirectSumParts
+  let (env₁, cvTa, p₁) ← checkDirectSumInd ops env p.toDirectSumParts
+  -- the former's run completes the record with the sort it read
+  -- (task #195); this route's recogniser read the declared telescope
+  -- syntactically, so the two must agree
+  unless p₁.resSort == p.resSort do
+    throw (.internal "direct rec: type former result sort")
   -- the index binders' universes, exposed for the model's index-tuple
   -- universe: the former's telescope opened at variables, each index
   -- domain's sort inferred (no bound is checked — `isProp` set,

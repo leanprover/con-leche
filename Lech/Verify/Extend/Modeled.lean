@@ -1,5 +1,5 @@
 import Lech.Verify.Extend.Iota
-import Lech.Verify.Extend.Transport
+import Lech.Verify.EnvWF
 
 /-!
 # Modeled — the `V`-free half of `Lech.Model.Extend.Modeled`

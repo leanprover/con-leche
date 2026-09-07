@@ -59,20 +59,28 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     {block : List ConstantInfo} {p : DirectFixParts} (mp : EnvS2PM V μ env)
     (hE : Lech.EtaFamiliesClosed env) (hdp : Lech.directFixParts? block = some p)
     (h : Lech.Semantics.DeclDirectFixRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
-  obtain ⟨-, hwl, hnd, cvTa, env₁, ctorsA, cvRa, rhss, tfvs, trest, isorts, hInd, hopT2, hsorts,
-    hCtors, hFOk, hRec, rfl⟩ := h
+  obtain ⟨-, hwl, hnd, cvTa, env₁, p₁, ctorsA, cvRa, rhss, tfvs, trest, isorts, hInd, hsort,
+    hopT2, hsorts, hCtors, hFOk, hRec, rfl⟩ := h
   obtain ⟨hshape, -, hlenK⟩ := Lech.directFixParts?_inv hdp
   obtain ⟨hProp, -, hClps, -, -, helimR, hRlps, -, -⟩ := Lech.directFixShape?_inv hshape
-  -- the former
-  obtain ⟨hccvT, rfl, bsT, hstripT⟩ := Lech.checkDirectSumInd_shape hInd
+  -- the former: its run completed the record with the sort it read
+  -- (task #195), pinned equal to the syntactic one — so the record is
+  -- the recogniser's
+  obtain ⟨cvT, s, hTname₀, hTlps₀, hccvT, hps, rfl, bsT, hstripT⟩ :=
+    Lech.checkDirectSumInd_shape hInd
+  have hs : s = p.resSort := by subst hps; exact hsort
+  subst hs
+  have hp₁ : p₁ = p.toDirectSumParts := by
+    rw [hps]; exact Lech.DirectSumParts.withSort_self _ hProp
+  subst hp₁
   obtain ⟨hfindT, -, -, -, -, -, typeT, -, -, -, -, htrT, -, -, htyT⟩ :=
     Lech.checkConstantVal_inv hccvT
-  have hTname : cvTa.name = p.cvT.name := by rw [htyT]
-  have hlpsT : cvTa.levelParams = p.cvT.levelParams := by rw [htyT]
+  have hTname : cvTa.name = p.cvT.name := by rw [htyT]; exact hTname₀
+  have hlpsT : cvTa.levelParams = p.cvT.levelParams := by rw [htyT]; exact hTlps₀
   have hTtype : cvTa.type = typeT := by rw [htyT]
   obtain ⟨ppsAll, hFD⟩ := formerData_of hμ mp hccvT hstripT
-  have hTfresh : env.find? cvTa.name = none := by rw [hTname]; exact hfindT
-  have hTfresh' : env.find? p.cvT.name = none := hfindT
+  have hTfresh : env.find? cvTa.name = none := by rw [hTname, ← hTname₀]; exact hfindT
+  have hTfresh' : env.find? p.cvT.name = none := by rw [← hTname₀]; exact hfindT
   have hcbT : ConstsBound env cvTa.type :=
     constsBound_of_constsResolve _ (by rw [hTtype]; exact htrT)
   have hfT_I : (⟨.indInfo cvTa (Lech.directSumCaps p.toDirectSumParts) :: env.consts⟩ : Env).find?
@@ -173,7 +181,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     exact (hFD.params _ _ fun q hq => restrictΨ_agree _ _ q (by rw [← hlpsT]; exact hq)).1
   -- the dummy former: the constructors' readings and the index
   -- telescope need a carrier storing the former
-  obtain ⟨mpI₀, hacI₀⟩ := stageSumFormer mp hE hInd hFD (fun _ => []) (fun _ _ _ => rfl)
+  obtain ⟨mpI₀, hacI₀⟩ := stageSumFormer mp hE hccvT hTname₀ hFD (fun _ => []) (fun _ _ _ => rfl)
     (fun _ _ h => nomatch h) (fun _ _ _ => ⟨(fun _ h => nomatch h), (fun _ h => nomatch h)⟩)
   have hFD_I₀ : FormerData mpI₀.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll :=
     hFD.cross (c₀ := .indInfo cvTa (Lech.directSumCaps p.toDirectSumParts)) hTfresh
@@ -267,7 +275,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       hφ q (by rw [hlpsT, ← hlpsi]; exact hq)
     obtain ⟨h1, h2⟩ := (hcf₀ i cAi hi').params ψ₁ ψ₂ hφ'
     exact ⟨h1, h2, (hcf₀ i cAi hi').eissParams ψ₁ ψ₂ hφ'⟩
-  obtain ⟨mpI, hacI⟩ := stageFixFormer mp hE hInd hFD uAV rss Eiss₀ Fss₀ Ess₀
+  obtain ⟨mpI, hacI⟩ := stageFixFormer mp hE hccvT hTname₀ hFD uAV rss Eiss₀ Fss₀ Ess₀
     (fun ψ₁ ψ₂ hφ => by
       refine ⟨hUparams ψ₁ ψ₂ (fun q hq => hφ q (by rw [hlpsT]; exact hq)), ?_, ?_, ?_⟩
       · show eissOfR _ = eissOfR _; rw [hcds₀Params ψ₁ ψ₂ hφ]

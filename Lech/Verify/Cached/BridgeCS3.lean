@@ -325,26 +325,77 @@ theorem checkDirectFieldSortsIS_sim (hμ : mode.verifiedChecks = true) (henv : E
         obtain rfl : rest = rest' := hR
         exact SimC.pure hs₄ rfl
 
+/-- Official's telescope loop (task #195) at the shared operations:
+every `whnf` is the shared one, on a well-scoped input at its depth
+(the opened body is well-scoped one deeper). -/
+theorem whnfTelescopeS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) :
+    ∀ {i n : Nat} {e : Expr} {s₀ : CState}, CSOK mode env s₀ → WScoped i e →
+      SimC mode env s₀ RelVC
+        (whnfTelescope (sharedOpsC mode (mkFEnv env)) env i n e)
+        (whnfTelescope (fueledOpsM mode) env i n e)
+  | i, 0, e, s₀, hs, hw => by
+    unfold whnfTelescope
+    dsimp only [sharedOpsC]
+    refine SimC.bind (opE_whnf_sim hμ henv hs hw) (fun s₁ e' e'' hs₁ hR => ?_)
+    obtain ⟨rfl, -⟩ := hR
+    split
+    · exact SimC.pure hs₁ rfl
+    · exact SimC.throw
+  | i, n + 1, e, s₀, hs, hw => by
+    unfold whnfTelescope
+    dsimp only [sharedOpsC]
+    refine SimC.bind (opE_whnf_sim hμ henv hs hw) (fun s₁ e' e'' hs₁ hR => ?_)
+    obtain ⟨rfl, hw'⟩ := hR
+    split
+    · next nm dom body bm =>
+      simp only [WScoped] at hw'
+      refine SimC.bind (whnfTelescopeS_sim hμ henv hs₁ (WScoped.instantiate1 hw'.1 0 hw'.2))
+        (fun s₂ q q' hs₂ hQ => ?_)
+      obtain rfl : q = q' := hQ
+      exact SimC.pure hs₂ rfl
+    · exact SimC.throw
+
+/-- The former's telescope stage (task #195) at the shared operations:
+the checked constant's type is well-scoped either way. -/
+theorem checkDirectSumTeleS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {cv : ConstantVal} {n : Nat} {cvTa₀ : ConstantVal}
+    (hs : CSOK mode env s₀) (hTw : WScoped 0 cvTa₀.type) :
+    SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 (Prod.fst v).type)
+      (checkDirectSumTele (sharedOpsC mode (mkFEnv env)) env cv n cvTa₀)
+      (checkDirectSumTele (fueledOpsM mode) env cv n cvTa₀) := by
+  unfold checkDirectSumTele
+  split
+  · exact SimC.pure hs ⟨rfl, hTw⟩
+  · refine SimC.bind (whnfTelescopeS_sim hμ henv hs hTw) (fun s₁ q q' hs₁ hQ => ?_)
+    obtain rfl : q = q' := hQ
+    refine SimC.bind (checkConstantValS_sim hμ henv hs₁) (fun s₂ cvTa cvTa' hs₂ hP => ?_)
+    obtain ⟨rfl, hTw'⟩ := hP
+    exact SimC.pure hs₂ ⟨rfl, hTw'⟩
+
 /-- Stage 1 (the type former) of the sum route at the shared
 operations. -/
 theorem checkDirectSumIndS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : DirectSumParts}
     (hs : CSOK mode env s₀) :
-    SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 (Prod.snd v).type)
+    SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 (Prod.fst (Prod.snd v)).type)
       (checkDirectSumInd (sharedOpsC mode (mkFEnv env)) env p)
       (checkDirectSumInd (fueledOpsM mode) env p) := by
   unfold checkDirectSumInd
-  dsimp only [sharedOpsC]
   refine SimC.bind (checkConstantValS_sim hμ henv hs)
-    (fun s₁ cvTa cvTa' hs₁ hP => ?_)
-  obtain ⟨rfl, hTw⟩ := hP
-  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ q q' hs₂ hQ => ?_)
+    (fun s₁ cvTa₀ cvTa₀' hs₁ hP => ?_)
+  obtain ⟨rfl, hTw₀⟩ := hP
+  refine SimC.bind (checkDirectSumTeleS_sim hμ henv hs₁ hTw₀)
+    (fun s₂ r r' hs₂ hR => ?_)
+  obtain ⟨rfl, hTw⟩ := hR
+  obtain ⟨cvTa, sx⟩ := r
+  dsimp only
+  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ q q' hs₃ hQ => ?_)
   obtain ⟨rfl, -⟩ := hQ
   obtain ⟨tbs, tbody⟩ := q
   dsimp only
-  by_cases h1 : (tbody == Expr.sort p.resSort) = true
+  by_cases h1 : (tbody == Expr.sort sx) = true
   case neg => simp only [if_neg h1]; exact SimC.throw_bind
   simp only [if_pos h1]
-  exact SimC.pure hs₂ ⟨rfl, hTw⟩
+  exact SimC.pure hs₃ ⟨rfl, hTw⟩
 
 /-- Stage 2 (one constructor, the constructor and its field count
 explicit) at the shared operations. -/

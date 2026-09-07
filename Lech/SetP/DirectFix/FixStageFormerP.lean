@@ -133,8 +133,11 @@ theorem fixLeafWalks {m : EnvS2Core V env} {cvT : ConstantVal} {nP nIdx : Nat}
 data. -/
 theorem stageFixFormer (mp : EnvS2PM V μ env)
     (hE₀ : Lech.EtaFamiliesClosed env)
-    {F : Nat} {p : DirectSumParts} {envI : Env} {cvTa : ConstantVal}
-    (hind : Lech.checkDirectSumInd (Lech.fueledOps μ F) env p = .ok (envI, cvTa))
+    {F : Nat} {p : DirectSumParts} {cvT cvTa : ConstantVal}
+    -- the former's `checkConstantVal` run at the block's header (as at
+    -- `stageSumFormer`)
+    (hccv : Lech.checkConstantVal (Lech.fueledOps μ F) env cvT = .ok cvTa)
+    (hname₀ : cvT.name = p.cvT.name)
     {pps : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hFD : FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort pps)
     (u : (Name → Nat) → Nat) (rss : List (List Bool))
@@ -159,19 +162,19 @@ theorem stageFixFormer (mp : EnvS2PM V μ env)
       SumFieldsValid (cons t (cons X ρp))
         (chainsXI (u ψ) (((pps ψ).drop p.nP).map (·.2.2)) (((pps ψ).drop p.nP).map (·.2.2)).length
           rss (Eiss ψ) (Fss ψ) (Ess ψ))) :
-    ∃ mp' : EnvS2PM V μ envI,
+    ∃ mp' : EnvS2PM V μ ⟨.indInfo cvTa (Lech.directSumCaps p) :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvTa.name
         (fun ψ => directFixTyAVI (u ψ) (p.resSort.eval ψ) (pps ψ) (((pps ψ).drop p.nP).map (·.2.2))
           rss (Eiss ψ) (Fss ψ) (Ess ψ)) := by
-  obtain ⟨hccv, rfl, -⟩ := Lech.checkDirectSumInd_shape hind
   obtain ⟨hfind, hnres, hpshape, -, -, -, type', -, -, -, -, htr', -, -, hty⟩ :=
     Lech.checkConstantVal_inv hccv
-  have hname : cvTa.name = p.cvT.name := by rw [hty]
+  have hname : cvTa.name = p.cvT.name := by rw [hty]; exact hname₀
   have hfresh : env.find? cvTa.name = none := by
-    rw [hname]; exact hfind
+    rw [hname, ← hname₀]; exact hfind
   have htr : cvTa.type.constsResolve env = true := by rw [hty]; exact htr'
   have hcb : ConstsBound env cvTa.type := constsBound_of_constsResolve _ htr
-  obtain ⟨hwfI, -⟩ := Lech.direct_sum_ind_wf mp.base2.wf hind
+  have hwfI : Lech.EnvWF ⟨.indInfo cvTa (Lech.directSumCaps p) :: env.consts⟩ :=
+    Lech.envWF_cons_ind mp.base2.wf hccv
   have hIdsLen : ∀ ψ, ((((pps ψ).drop p.nP).map (·.2.2))).length = p.nIdx := by
     intro ψ; simp [hFD.len ψ]
   let A : (Name → Nat) → AVExpr :=
@@ -189,10 +192,10 @@ theorem stageFixFormer (mp : EnvS2PM V μ env)
   have hnresI : Lech.reservedBasisNames.contains
       (ConstantInfo.indInfo cvTa (Lech.directSumCaps p)).name = false := by
     show Lech.reservedBasisNames.contains cvTa.name = false
-    rw [hname]; exact hnres
+    rw [hname, ← hname₀]; exact hnres
   have hpshapeI : (ConstantInfo.indInfo cvTa (Lech.directSumCaps p)).name.isProjFnShape = false := by
     show cvTa.name.isProjFnShape = false
-    rw [hname]; exact hpshape
+    rw [hname, ← hname₀]; exact hpshape
   refine declStepPM_of_ind_member_cons mp (c₀ := .indInfo cvTa (Lech.directSumCaps p))
     (A := A) hfresh hnresI (Or.inl ⟨_, _, rfl⟩)
     (ConsHeadP.ofFresh hwfI (fun ψ => hAbelow ψ) hnresI

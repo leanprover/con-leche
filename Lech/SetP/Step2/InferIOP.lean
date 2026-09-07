@@ -242,8 +242,8 @@ theorem infer_sort_claimIOP (m : EnvS2Core V env) {d : Nat} {u : Level}
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCoreIO_succ] at h
-  simp only [Lech.inferBodyIO, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind, Except.ok.injEq] at h
+  simp only [Lech.inferBodyIO, pure,
+    Except.pure, Except.ok.injEq] at h
   subst h
   rw [denoteP_sortQ] at hea hta
   obtain rfl : ea = .sort (u.eval φ) := (Option.some.inj hea).symm
@@ -264,8 +264,7 @@ theorem infer_bvar_claimIOP (m : EnvS2Core V env) {d i : Nat} {t : Expr}
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCoreIO_succ] at h
-  simp only [Lech.inferBodyIO, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind] at h
+  simp only [Lech.inferBodyIO] at h
   simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `.fvar`, io lane: the leaf package of `CtxOkP` carries the type's
@@ -284,8 +283,8 @@ theorem infer_fvar_claimIOP (m : EnvS2Core V env)
   rw [denoteP] at hea
   obtain rfl : ea = .bvar (d - 1 - idx) := (Option.some.inj hea).symm
   rw [Lech.inferTypeCoreIO_succ] at h
-  simp only [Lech.inferBodyIO, Lech.viewM, Expr.view, pure,
-    Except.pure, Bind.bind, Except.bind] at h
+  simp only [Lech.inferBodyIO, pure,
+    Except.pure] at h
   split at h
   · simp only [Except.ok.injEq] at h
     subst h
@@ -314,7 +313,7 @@ theorem infer_const_claimIOP (m : EnvS2Core V env)
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   rw [Lech.inferTypeCoreIO_succ] at h
-  simp only [Lech.inferBodyIO, Lech.viewM, Expr.view, pure,
+  simp only [Lech.inferBodyIO, pure,
     Except.pure, Bind.bind, Except.bind] at h
   cases hf : env.find? n with
   | none =>
@@ -411,8 +410,8 @@ theorem infer_forallE_claimIOP (m : EnvS2Core V env)
     have hrow := sound_pi V (u := u.eval φ) (v := v.eval φ)
       hdom.1.1 (fun x hx => (hcod x hx).1) hdom.2
       (fun x hx => (hcod x hx).2)
-    have hzag : pwBit φ mb.pw = 0 ↔ v.eval φ = 0 :=
-      pwBit_of_equiv_zeronessOf hz φ
+    have hzag : pwBit φ mb.pw = 0 ↔ v.eval φ = 0 := by
+      rw [← hz]; exact pwBit_zeronessOf φ v
     have hbridge :
         interp2 V ρ (.pi 0 (pwBit φ mb.pw) tyA baA)
           = interp2 V ρ (.pi (u.eval φ) (v.eval φ) tyA baA) := by
@@ -552,7 +551,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
           ∃ nI tyI bI mbI, body = .lam nI tyI bI mbI := by
         cases body <;> simp [Expr.isLam] at hbl
         exact ⟨_, _, _, _, rfl⟩
-      have hpwEq : Lech.PropWhen.equiv mb.pw mbI.pw = true :=
+      have hpwEq : mb.pw = mbI.pw :=
         hchainC hμ mbI.pw rfl
       obtain ⟨btI, rfl⟩ : ∃ btI,
           bt = .forallE nI (tyI.instantiate1 (.fvar d n ty)) btI mbI := by
@@ -565,7 +564,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
       obtain ⟨tyIA, btIA, -, -, rfl⟩ := denoteP_forallE_inv hbtA
       rw [interp2_pi]
       have hinner : pwBit φ mbI.pw = 0 := by
-        rw [← pwBit_eq_of_equiv hpwEq φ]
+        rw [← hpwEq]
         exact hb0
       rw [hinner]
       exact piR_zero_mem_univZero

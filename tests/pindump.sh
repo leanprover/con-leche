@@ -45,6 +45,10 @@ TC=$(tr -d ' \t\n\r' < lean-toolchain)
 # everything outside [A-Za-z0-9._-] becomes '-'
 BASE=$(printf '%s' "$TC" | sed 's/[^A-Za-z0-9._-]/-/g').json
 COMMITTED=pins/$BASE
+# the built-in prelude (task #191): the sidecar the same generator
+# writes, embedded by Lech/Frontend/Prelude.lean
+PBASE=${BASE%.json}.prelude.ndjson
+PCOMMITTED=pins/$PBASE
 SCRATCH=_tmp/pindump-gate
 
 if [ ! -f "$COMMITTED" ]; then
@@ -57,6 +61,24 @@ fi
 if ! grep -q "include_str \"../../pins/$BASE\"" Lech/Kernel/NatOpPins.lean; then
   echo "PINDUMP FAIL — Lech/Kernel/NatOpPins.lean does not embed $BASE;"
   echo '    a toolchain bump must re-point the include_str at the new dump.'
+  exit 1
+fi
+
+if [ ! -f "$PCOMMITTED" ]; then
+  echo "PINDUMP FAIL — no committed built-in prelude for toolchain $TC:"
+  echo "    expected $PCOMMITTED"
+  echo "    regenerate with: lake exe natop-pins-export"
+  exit 1
+fi
+
+if ! grep -q "include_str \"../../pins/$PBASE\"" Lech/Frontend/Prelude.lean; then
+  echo "PINDUMP FAIL — Lech/Frontend/Prelude.lean does not embed $PBASE;"
+  echo '    a toolchain bump must re-point the include_str at the new prelude.'
+  exit 1
+fi
+
+if ! grep -q "\"preludeFile\":\"$PBASE\"" "$COMMITTED"; then
+  echo "PINDUMP FAIL — $COMMITTED does not name $PBASE as its prelude"
   exit 1
 fi
 
@@ -75,26 +97,41 @@ fi
 
 rm -rf "$SCRATCH"
 mkdir -p "$SCRATCH"
-FRESH=$(lake env ./.lake/build/bin/natop-pins-export "$SCRATCH") || {
+# the generator prints two paths: the dump, then the prelude
+FRESHOUT=$(lake env ./.lake/build/bin/natop-pins-export "$SCRATCH") || {
   echo 'PINDUMP FAIL — the generator did not run:'
   lake env ./.lake/build/bin/natop-pins-export "$SCRATCH" 2>&1 | tail -20
   exit 1
 }
+FRESH=$(printf '%s\n' "$FRESHOUT" | sed -n 1p)
+PFRESH=$(printf '%s\n' "$FRESHOUT" | sed -n 2p)
 
-if [ "$FRESH" != "$SCRATCH/$BASE" ]; then
-  echo "PINDUMP FAIL — the generator wrote $FRESH, expected $SCRATCH/$BASE"
+if [ "$FRESH" != "$SCRATCH/$BASE" ] || [ "$PFRESH" != "$SCRATCH/$PBASE" ]; then
+  echo "PINDUMP FAIL — the generator wrote $FRESH and $PFRESH,"
+  echo "    expected $SCRATCH/$BASE and $SCRATCH/$PBASE"
   echo "    (the toolchain the generator embedded disagrees with lean-toolchain)"
   exit 1
 fi
 
-if diff -q "$COMMITTED" "$FRESH" >/dev/null; then
-  echo "pindump: $COMMITTED fresh ($(wc -l < "$COMMITTED") lines, toolchain $TC)"
-  rm -rf "$SCRATCH"
-  exit 0
+stale=0
+if ! diff -q "$COMMITTED" "$FRESH" >/dev/null; then
+  echo "PINDUMP FAIL — the committed pin dump is STALE:"
+  echo "    $COMMITTED differs from a fresh regeneration ($FRESH)"
+  diff "$COMMITTED" "$FRESH" | head -20 | sed 's/^/    /'
+  stale=1
+fi
+if ! diff -q "$PCOMMITTED" "$PFRESH" >/dev/null; then
+  echo "PINDUMP FAIL — the committed built-in prelude is STALE:"
+  echo "    $PCOMMITTED differs from a fresh regeneration ($PFRESH)"
+  diff "$PCOMMITTED" "$PFRESH" | head -20 | sed 's/^/    /'
+  stale=1
+fi
+if [ "$stale" = 1 ]; then
+  echo '    regenerate and commit:  lake exe natop-pins-export'
+  exit 1
 fi
 
-echo "PINDUMP FAIL — the committed pin dump is STALE:"
-echo "    $COMMITTED differs from a fresh regeneration ($FRESH)"
-diff "$COMMITTED" "$FRESH" | head -20 | sed 's/^/    /'
-echo '    regenerate and commit:  lake exe natop-pins-export'
-exit 1
+echo "pindump: $COMMITTED fresh ($(wc -l < "$COMMITTED") lines, toolchain $TC)"
+echo "pindump: $PCOMMITTED fresh ($(wc -l < "$PCOMMITTED") lines, $(grep -c '"inductive"\|"quot"\|"axiom"\|"def"\|"thm"\|"opaque"' "$PCOMMITTED") declaration records)"
+rm -rf "$SCRATCH"
+exit 0

@@ -35,11 +35,16 @@ def DeclDirectFixRun (μ : CheckMode) (F : Nat) (env : Env)
   -- nonzero sort (the one-constructor `Prop` case is declined)
   (p.large = true → p.resSort.isNeverZero = true) ∧
   (p.ctors.map (·.1.name)).Nodup ∧
-  ∃ (cvTa : ConstantVal) (env₁ : Env) (ctorsA : List (ConstantVal × Nat))
+  ∃ (cvTa : ConstantVal) (env₁ : Env) (p₁ : DirectSumParts)
+    (ctorsA : List (ConstantVal × Nat))
     (cvRa : ConstantVal) (rhss : List Expr) (tfvs : List Expr) (trest : Expr)
     (isorts : List Level),
+    -- the former's run completes the record with the sort it read
+    -- (task #195); the recursive route runs on its own syntactic record
+    -- and pins the two sorts equal
     checkDirectSumInd (m := Lech.CheckM) (fueledOps μ F) env p.toDirectSumParts
-      = .ok (env₁, cvTa) ∧
+      = .ok (env₁, cvTa, p₁) ∧
+    p₁.resSort = p.resSort ∧
     openPisAtFvars (p.nP + p.nIdx) cvTa.type 0 = some (tfvs, trest) ∧
     Lech.checkDirectFieldSortsI (m := Lech.CheckM) (fueledOps μ F) env₁ true false p.resSort
       p.nP (tfvs.drop p.nP) [] p.nIdx = .ok isorts ∧
@@ -85,9 +90,15 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   cases hInd : checkDirectSumInd (m := Lech.CheckM) (fueledOps μ F) env p.toDirectSumParts with
   | error e => rw [hInd] at h; exact nomatch h
   | ok r₁ =>
-  obtain ⟨env₁, cvTa⟩ := r₁
+  obtain ⟨env₁, cvTa, p₁⟩ := r₁
   rw [hInd] at h
   dsimp only at h
+  by_cases hsort : (p₁.resSort == p.resSort) = true
+  case neg =>
+    rw [if_neg hsort] at h
+    exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
+  rw [if_pos hsort] at h
+  try simp only [bind, Except.bind] at h
   cases htq : openPisAtFvars (p.nP + p.nIdx) cvTa.type 0 with
   | none =>
     rw [htq] at h
@@ -122,14 +133,15 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   obtain ⟨cvRa, rhss⟩ := r₃
   rw [hRec] at h
   simp only [Except.ok.injEq] at h
-  exact ⟨by simpa using hneg, helim, hnd, cvTa, env₁, ctorsA, cvRa, rhss, tfvs, trest, isorts,
-    hInd, htq, hsorts, hCtors, hk, hRec, h.symm⟩
+  exact ⟨by simpa using hneg, helim, hnd, cvTa, env₁, p₁, ctorsA, cvRa, rhss, tfvs, trest, isorts,
+    hInd, by simpa using hsort, htq, hsorts, hCtors, hk, hRec, h.symm⟩
 
 /-- The direct recursive arm keeps the environment well-formed. -/
 theorem declDirectFixRun_wf {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectFixParts} (henv : Lech.EnvWF env)
     (h : DeclDirectFixRun μ F env p env₂) : Lech.EnvWF env₂ := by
-  obtain ⟨-, -, -, cvTa, env₁, ctorsA, cvRa, rhss, -, -, -, hInd, -, -, hCtors, -, hRec, rfl⟩ := h
+  obtain ⟨-, -, -, cvTa, env₁, p₁, ctorsA, cvRa, rhss, -, -, -, hInd, -, -, -, hCtors, -, hRec,
+    rfl⟩ := h
   obtain ⟨henv₁, -⟩ := Lech.direct_sum_ind_wf henv hInd
   obtain ⟨hlen, hall⟩ := Lech.checkDirectSumCtors_inv hCtors
   have henv₂ : Lech.EnvWF (consSumCtors p.nP ctorsA env₁) := by

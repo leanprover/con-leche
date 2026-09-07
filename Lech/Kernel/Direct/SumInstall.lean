@@ -43,16 +43,71 @@ never one, so the record is empty). -/
 def directSumCaps (p : DirectSumParts) : IndCaps where
   ruleK := p.ctors.length == 1 && p.ctors.all (fun c => c.2 == 0) && p.isProp
 
+/-- **Official's telescope loop** (`check_inductive_types`,
+`inductive.cpp`; task #195): peel `n` Π binders off `e`, reducing the
+residual to weak head normal form before each binder and at the end,
+where it must be a sort.  Binder `i` is opened at the free variable
+`i` (its domain instantiated at the earlier ones, as `openPisAtFvars`
+does), so the returned binder domains and the sort are scoped at the
+free variables `0 ..< n`.  A residual that does not reduce to a Π, or
+finally to a sort, is INVALID input — official fails there too. -/
+def whnfTelescope (ops : CheckerOps m) (env : Env) :
+    Nat → Nat → Expr → m (List (Name × Expr × BinderMeta) × Level)
+  | i, 0, e => do
+    let e' ← ops.whnf env i e
+    match e' with
+    | .sort s => pure ([], s)
+    | _ => throw (.invalid "direct sum: type former does not reduce to a sort \
+        after its parameters and indices")
+  | i, n + 1, e => do
+    let e' ← ops.whnf env i e
+    match e' with
+    | .forallE nm dom body bm =>
+      let (bs, s) ← whnfTelescope ops env (i + 1) n (body.instantiate1 (.fvar i nm dom))
+      pure ((nm, dom, bm) :: bs, s)
+    | _ => throw (.invalid "direct sum: type former does not reduce to a telescope \
+        of its parameters and indices")
+
+/-- Close a telescope opened at the free variables `i ..< i + bs.length`
+back into a syntactic Π-telescope over `body`: innermost binder first,
+each abstraction turning the binder's own free variable into the bound
+one (`abstract1`; the domains of the inner binders are closed by the
+outer abstractions, which descend into binder domains). -/
+def closeTelescope : List (Name × Expr × BinderMeta) → Nat → Expr → Expr
+  | [], _, body => body
+  | (nm, dom, bm) :: bs, i, body =>
+    .forallE nm dom ((closeTelescope bs (i + 1) body).abstract1 i 0) bm
+
+/-- The type former's TELESCOPE (task #195): the checked declared type
+when it is already a syntactic telescope of `n` Π binders ending in a
+sort, else the declared type's whnf'd telescope (`whnfTelescope`),
+closed and checked as the former's type in its place —
+`checkConstantVal` from scratch, so nothing about the reduction is
+trusted: the stored type is the one this run annotated, inferred and
+sorted.  Returns the checked constant and the result sort. -/
+def checkDirectSumTele (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat)
+    (cvTa₀ : ConstantVal) : m (ConstantVal × Level) :=
+  match cvTa₀.type.stripPis n with
+  | some (_, .sort s) => pure (cvTa₀, s)
+  | _ => do
+    let (bs, s) ← whnfTelescope ops env 0 n cvTa₀.type
+    let cvTa ← checkConstantVal ops env { cv with type := closeTelescope bs 0 (.sort s) }
+    pure (cvTa, s)
+
 /-- Stage 1: the type former, stored with the block's capability
-record (`directSumCaps`). -/
+record (`directSumCaps`) at its telescope (`checkDirectSumTele`);
+returns the record completed with the result sort
+(`DirectSumParts.withSort`), which every later stage runs on. -/
 def checkDirectSumInd (ops : CheckerOps m) (env : Env) (p : DirectSumParts) :
-    m (Env × ConstantVal) := do
-  let cvTa ← checkConstantVal ops env p.cvT
+    m (Env × ConstantVal × DirectSumParts) := do
+  let cvTa₀ ← checkConstantVal ops env p.cvT
+  let (cvTa, s) ← checkDirectSumTele ops env p.cvT (p.nP + p.nIdx) cvTa₀
   let (_, tbody) ← unwrapOr (cvTa.type.stripPis (p.nP + p.nIdx))
-    (.notImplemented "direct sum: type former telescope")
-  unless tbody == Expr.sort p.resSort do
-    throw (.notImplemented "direct sum: type former result sort")
-  pure (⟨.indInfo cvTa (directSumCaps p) :: env.consts⟩, cvTa)
+    (.internal "direct sum: type former telescope")
+  unless tbody == Expr.sort s do
+    throw (.internal "direct sum: type former result sort")
+  let p' := p.withSort s
+  pure (⟨.indInfo cvTa (directSumCaps p') :: env.consts⟩, cvTa, p')
 
 /-- The fields' sorts over the opened constructor telescope, with the
 official per-field universe bound unless the family is
@@ -198,6 +253,11 @@ major index (the rule prefix, then the indices). -/
 def DirectSumParts.rulePrefix (p : DirectSumParts) : Nat := p.nP + 1 + p.ctors.length
 def DirectSumParts.majorIdx (p : DirectSumParts) : Nat := p.rulePrefix + p.nIdx
 
+@[simp] theorem DirectSumParts.withSort_rulePrefix (p : DirectSumParts) (s : Level) :
+    (p.withSort s).rulePrefix = p.rulePrefix := rfl
+@[simp] theorem DirectSumParts.withSort_majorIdx (p : DirectSumParts) (s : Level) :
+    (p.withSort s).majorIdx = p.majorIdx := rfl
+
 /-- Check and install a **direct sum**: the type former, the
 constructors, the recursor with its rules.  The elimination
 restriction (official `elim_only_at_universe_zero`) is enforced up
@@ -205,15 +265,17 @@ front: with two or more constructors and a result sort that is not
 provably nonzero, only the small eliminator is admissible (the
 one-constructor case is the per-field test in
 `checkDirectFieldSortsI`). -/
-def checkDirectSum (ops : CheckerOps m) (env : Env) (p : DirectSumParts) : m Env := do
+def checkDirectSum (ops : CheckerOps m) (env : Env) (p₀ : DirectSumParts) : m Env := do
+  -- the constructors are checked at one environment and consed
+  -- afterwards, so their names must be pairwise distinct here
+  unless (p₀.ctors.map (·.1.name)).Nodup do
+    throw (.invalid "direct sum: duplicate constructor")
+  -- the former first: the result sort the elimination restriction
+  -- reads is known only after its telescope (task #195)
+  let (env₁, cvTa, p) ← checkDirectSumInd ops env p₀
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct sum: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
-  -- the constructors are checked at one environment and consed
-  -- afterwards, so their names must be pairwise distinct here
-  unless (p.ctors.map (·.1.name)).Nodup do
-    throw (.invalid "direct sum: duplicate constructor")
-  let (env₁, cvTa) ← checkDirectSumInd ops env p
   let ctorsA ← checkDirectSumCtors ops env env₁ p.cvT.name p.cvT.levelParams p.nP p.nIdx
     p.resSort p.isProp p.large cvTa p.ctors
   let env₂ := consSumCtors p.nP ctorsA env₁

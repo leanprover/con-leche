@@ -165,6 +165,24 @@ if tests/pindump.sh; then :; else fail=1; fi
 # and neither sees the other's.
 if tests/trust-surface.sh; then :; else fail=1; fi
 
+# THE NATIVE-PREDICATE AUDIT (task #193).  `lech-preprocess` leaves a
+# block unmodelled when `lechNative` says the checker installs it
+# directly; the checker installs it directly when a RECOGNISER takes
+# it.  The predicate is a hand-written mirror of the recognisers over a
+# second `Expr` type and drifted once at Mathlib scale (a former
+# declared at a definition: `numIndices` said "indexed family", the
+# recogniser's telescope pin said "no" — a "missing model" decline).
+# This runs both over every good arena fixture, block by block
+# (`LECH_ROUTE_TRACE`, Main.lean), and fails on any native block the
+# recogniser rejects.  `tests/native-audit.sh --full` adds init-full.
+if tests/native-audit.sh; then :; else fail=1; fi
+
+# THE IN-PROCESS MODELLER'S GATE (task #200): the raw mutual/nested
+# fixtures through the generator, the debug dump modelled by the tool
+# for the generated auxiliary families, accepted in both modes; and the
+# off switch.  See tests/inmodel.sh's header.
+if tests/inmodel.sh; then :; else fail=1; fi
+
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
 # theorems, the four letters, the assembly under them and the `IO`
 # loop's bridge — and, since task #181, the `False` letters — carry `#guard_msgs in #print axioms`
@@ -388,6 +406,34 @@ else
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
 
+# THE BUILT-IN PRELUDE'S COUNT INVARIANT (task #191).  Every run now
+# installs the six basis blocks and `Bool` first; a stream's own copies
+# are dropped as duplicates.  The verdict line must still count the
+# STREAM's declaration records — dropped copies included, since they
+# are installed (from the prelude) and the official checker counts them
+# — so the number is unchanged by the prelude's existence and equal
+# across reorderings of the same records: natop_order.ndjson has 35
+# declaration records (4 of them prelude duplicates: Nat, PUnit, Bool,
+# Eq), and natop_before_eq.ndjson / natop_before_ble.ndjson are the same
+# 35 records in other orders.
+prelude_ok=0
+prelude_total=0
+prelude_count() { # <fixture> <expected count>
+  prelude_total=$((prelude_total+1))
+  local got
+  got=$(timeout 120 "$BIN" "tests/e2e/$1" 2>/dev/null | sed -n 's/^lech: accepted \([0-9]*\) declarations.*/\1/p')
+  if [ "$got" = "$2" ]; then
+    prelude_ok=$((prelude_ok+1))
+  else
+    echo "PRELUDE COUNT FAIL $1: expected 'accepted $2 declarations', got '${got:-no accept line}'"
+    fail=1
+  fi
+}
+prelude_count natop_order.ndjson 35
+prelude_count natop_before_eq.ndjson 35
+prelude_count natop_before_ble.ndjson 35
+echo "prelude counts: $prelude_ok/$prelude_total as expected"
+
 # The progress lane (`LECH_PROGRESS=<stride>`, 2026-09-07).  Two
 # folds, one verdict: without the variable the driver runs the verified
 # `checkDeclsSPCachedD`, with it the unverified `checkDeclsProgressIO`
@@ -413,12 +459,15 @@ prog_err1=$(LECH_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_out1=$(LECH_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null)
 prog_code1=$?
 prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^lech: progress [0-9]')
-prog_decls=$(printf '%s' "$prog_out1" | sed -n 's/^lech: accepted \([0-9]*\) .*/\1/p')
+# one line per FOLD record: the stream's records after the built-in
+# prelude's (task #191) — the total the closing "fold done: N/N" line
+# names; the verdict line counts the stream's records only
+prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^lech: progress fold done: [0-9]*\/\([0-9]*\) .*/\1/p')
 prog_check "stride 1 exits 0 on the accepting fixture" \
   "$([ "$prog_code1" = 0 ] && echo ok)"
 prog_check "the verdict line is unchanged by the variable" \
   "$([ "$prog_out" = "$prog_out1" ] && [ "$prog_code" = "$prog_code1" ] && echo ok)"
-prog_check "stride 1 prints one line per declaration" \
+prog_check "stride 1 prints one line per fold record" \
   "$([ -n "$prog_decls" ] && [ "$prog_lines" = "$prog_decls" ] && echo ok)"
 prog_check "the lane brackets the run (parse done / fold done)" \
   "$(printf '%s' "$prog_err1" | grep -q 'progress parse done' && \

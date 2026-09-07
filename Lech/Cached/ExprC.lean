@@ -218,10 +218,4 @@ own equations, and the tier still rewrites with them. -/
 
 end ExprC
 
-/-! ## The one-level view
-
-`Lech.ExprView` (defined in `Lech/Kernel/Core.lean`) is the
-representation-generic one-level view the core bodies destructure
-through; `ExprC` instantiates it with no allocation on the read side. -/
-
 end Lech.Cached

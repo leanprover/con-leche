@@ -19,7 +19,7 @@ levels by `substPW`.
 
 Both readers are three-valued (`some pw` = the datum, `none` = unknown,
 fall back to inference).  The kernel's verdict on a datum is exactly the
-slow path's `Level.isEquiv u .zero`: `pw.equiv (.ifAllZero [])` ⟺ the
+slow path's `Level.isEquiv u .zero`: `pw == (.ifAllZero [])` ⟺ the
 sort is zero at every valuation.
 
 Trust: the readers consume annotations the checker validates
@@ -133,7 +133,7 @@ def proofPW (find? : Name → Option ConstantInfo) (a : Expr) :
 /-- Is the datum "always zero" — the sort is `Prop` at every
 valuation? -/
 @[inline] def PropWhen.isProp (pw : PropWhen) : Bool :=
-  pw.equiv (.ifAllZero [])
+  pw == (.ifAllZero [])
 
 /-- **Definitely not a proof** (the no arm): the datum is known and is
 not always-zero. -/

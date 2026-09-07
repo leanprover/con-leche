@@ -51,13 +51,13 @@ theorem consSumCtors_etaClosed {nP : Nat} :
 theorem declDirectSumRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectSumParts} (hE : EtaFamiliesClosed env)
     (h : DeclDirectSumRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨-, hnd, cvTa, env₁, ctorsA, cvRa, rhss, hInd, hCtors, hRec, rfl⟩ := h
-  obtain ⟨hcvT, rfl, -⟩ := Lech.checkDirectSumInd_shape hInd
+  obtain ⟨hnd, cvTa, env₁, p', ctorsA, cvRa, rhss, hInd, -, hCtors, hRec, rfl⟩ := h
+  obtain ⟨cvT, s, hnameT, -, hcvT, hps, rfl, -⟩ := Lech.checkDirectSumInd_shape hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
     Lech.checkConstantVal_inv hcvT
-  have hE₁ : EtaFamiliesClosed ⟨.indInfo cvTa (directSumCaps p) :: env.consts⟩ :=
+  have hE₁ : EtaFamiliesClosed ⟨.indInfo cvTa (directSumCaps p') :: env.consts⟩ :=
     EtaFamiliesClosed.cons_nonind hE (by
-      have hn : cvTa.name = p.cvT.name := by
+      have hn : cvTa.name = cvT.name := by
         obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
           Lech.checkConstantVal_inv hcvT
         rw [hTeq]
@@ -68,39 +68,39 @@ theorem declDirectSumRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
         exact absurd he Bool.false_ne_true)
   obtain ⟨hlen, hall⟩ := Lech.checkDirectSumCtors_inv hCtors
   -- the constructors' names, annotated, are the block's
-  have hnames : ctorsA.map (·.1.name) = p.ctors.map (·.1.name) := by
+  have hnames : ctorsA.map (·.1.name) = p'.ctors.map (·.1.name) := by
     apply List.ext_getElem
     · simp [hlen]
     · intro j h1 h2
       simp only [List.getElem_map]
-      have hj : j < p.ctors.length := by simpa using h2
-      obtain ⟨-, hrun⟩ := hall j (p.ctors[j]) (ctorsA[j])
+      have hj : j < p'.ctors.length := by simpa using h2
+      obtain ⟨-, hrun⟩ := hall j (p'.ctors[j]) (ctorsA[j])
         (List.getElem?_eq_getElem hj) (List.getElem?_eq_getElem (by omega))
       obtain ⟨hccv, -, -⟩ := Lech.checkDirectSumCtor_shape hrun
       obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hCeq⟩ :=
         Lech.checkConstantVal_inv hccv
       rw [hCeq]
   have hE₂ : EtaFamiliesClosed
-      (consSumCtors p.nP ctorsA ⟨.indInfo cvTa (directSumCaps p) :: env.consts⟩) := by
-    refine consSumCtors_etaClosed hE₁ ?_ (by rw [hnames]; exact hnd)
+      (consSumCtors p'.nP ctorsA ⟨.indInfo cvTa (directSumCaps p') :: env.consts⟩) := by
+    refine consSumCtors_etaClosed hE₁ ?_ (by rw [hnames, hps]; simpa using hnd)
     intro c hc
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
-    have hj' : j < p.ctors.length := by
+    have hj' : j < p'.ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hj).1
       omega
-    obtain ⟨-, hrun⟩ := hall j (p.ctors[j]) c (List.getElem?_eq_getElem hj') hj
+    obtain ⟨-, hrun⟩ := hall j (p'.ctors[j]) c (List.getElem?_eq_getElem hj') hj
     obtain ⟨hccv, -, -⟩ := Lech.checkDirectSumCtor_shape hrun
     obtain ⟨hfC, -, -, -, -, -, _, _, _, -, -, -, -, -, hCeq⟩ :=
       Lech.checkConstantVal_inv hccv
-    have hn : c.1.name = (p.ctors[j]).1.name := by rw [hCeq]
+    have hn : c.1.name = (p'.ctors[j]).1.name := by rw [hCeq]
     rw [hn]; exact hfC
   obtain ⟨hnR, -, -, -, -⟩ := Lech.checkDirectSumRec_facts hRec
   obtain ⟨cvRi, -, -, -, hcvR, -⟩ := Lech.checkDirectSumRec_shape hRec
   obtain ⟨hfR, -, -, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
     Lech.checkConstantVal_inv hcvR
   refine EtaFamiliesClosed.cons_nonind hE₂ ?_ (fun _ _ heq => nomatch heq)
-  show (consSumCtors p.nP ctorsA
-    ⟨.indInfo cvTa (directSumCaps p) :: env.consts⟩).find? cvRa.name = none
+  show (consSumCtors p'.nP ctorsA
+    ⟨.indInfo cvTa (directSumCaps p') :: env.consts⟩).find? cvRa.name = none
   rw [hnR]; exact hfR
 
 /-- **The direct recursive arm keeps the η-families closed** (task
@@ -109,19 +109,20 @@ stage. -/
 theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : Lech.DirectFixParts} (hE : EtaFamiliesClosed env)
     (h : DeclDirectFixRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨-, -, hnd, cvTa, env₁, ctorsA, cvRa, rhss, -, -, -, hInd, -, -, hCtors, -, hRec, rfl⟩ := h
-  obtain ⟨hcvT, rfl, -⟩ := Lech.checkDirectSumInd_shape hInd
+  obtain ⟨-, -, hnd, cvTa, env₁, p₁, ctorsA, cvRa, rhss, -, -, -, hInd, -, -, -, hCtors, -, hRec,
+    rfl⟩ := h
+  obtain ⟨cvT, s, hTn, -, hcvT, rfl, rfl, -⟩ := Lech.checkDirectSumInd_shape hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
     Lech.checkConstantVal_inv hcvT
   have hE₁ : EtaFamiliesClosed
-      ⟨.indInfo cvTa (directSumCaps p.toDirectSumParts) :: env.consts⟩ :=
+      ⟨.indInfo cvTa (directSumCaps (p.toDirectSumParts.withSort s)) :: env.consts⟩ :=
     EtaFamiliesClosed.cons_nonind hE (by
       have hn : cvTa.name = p.cvT.name := by
         obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
           Lech.checkConstantVal_inv hcvT
-        rw [hTeq]
+        rw [hTeq]; exact hTn
       show env.find? cvTa.name = none
-      rw [hn]; exact hfT)
+      rw [hn, ← hTn]; exact hfT)
       (fun cv caps heq he => by
         obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj heq
         exact absurd he Bool.false_ne_true)
@@ -140,7 +141,7 @@ theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
       rw [hCeq]
   have hE₂ : EtaFamiliesClosed
       (consSumCtors p.nP ctorsA
-        ⟨.indInfo cvTa (directSumCaps p.toDirectSumParts) :: env.consts⟩) := by
+        ⟨.indInfo cvTa (directSumCaps (p.toDirectSumParts.withSort s)) :: env.consts⟩) := by
     refine consSumCtors_etaClosed hE₁ ?_ (by rw [hnames]; exact hnd)
     intro c hc
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
@@ -159,7 +160,7 @@ theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     Lech.checkConstantVal_inv hcvR
   refine EtaFamiliesClosed.cons_nonind hE₂ ?_ (fun _ _ heq => nomatch heq)
   show (consSumCtors p.nP ctorsA
-    ⟨.indInfo cvTa (directSumCaps p.toDirectSumParts) :: env.consts⟩).find? cvRa.name = none
+    ⟨.indInfo cvTa (directSumCaps (p.toDirectSumParts.withSort s)) :: env.consts⟩).find? cvRa.name = none
   rw [hnR]; exact hfR
 
 /-! ## The dispatch -/

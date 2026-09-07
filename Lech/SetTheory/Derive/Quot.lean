@@ -223,9 +223,6 @@ theorem quotSet_eq_pt_countermodel :
   · rintro rfl
     exact ⟨empty, empty_mem_ptTag, (hclass empty empty_mem_ptTag).symm⟩
 
-/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
-stubs for these operators were removed 2026-09-06. -/
-
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] quotSet quotClass quotLift
 
