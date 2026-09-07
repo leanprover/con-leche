@@ -444,7 +444,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
     rfl
   have hstripRen : (ctyL.renameConsts f).stripPis
       (psR ++ fvs.drop rP).length
-      = some (bsC.map (fun b => (b.1, (b.2.1).renameConsts f, b.2.2)),
+      = some (bsC.map (fun b => ((b.1).renameConsts f, b.2)),
         bodyC0.renameConsts f) := by
     rw [hsplen]
     exact stripPis_renameConsts (f := f) (cnP + cnF) hstripC
@@ -1325,7 +1325,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
       obtain ⟨ty, rfl⟩ := hshapeS (rP + (q - cnP)) x hx'
       refine ⟨.bvar (rP + cnF - 1 - (rP + (q - cnP))),
         denoteP_fvar mp.base2.acval (env := env)
-          (φ := Level.substFn φ lps us) (rP + cnF) (rP + (q - cnP)) nm ty,
+          (φ := Level.substFn φ lps us) (rP + cnF) (rP + (q - cnP)) ty,
         ⟨by simp, by simp⟩, ?_⟩
       intro dw hdw
       -- task #77: `grind`, not `omega`, on the three position side
