@@ -99,7 +99,7 @@ theorem zipFieldTermEqP
       omega
     · exact ⟨x, sp', rfl⟩
   rw [hsp0] at hdr
-  obtain ⟨nmJ, domJ, bodyJ, mbJ, rfl, hds⟩ : ∃ nmJ domJ bodyJ mbJ,
+  obtain ⟨domJ, bodyJ, mbJ, rfl, hds⟩ : ∃ domJ bodyJ mbJ,
       midJ = .forallE domJ bodyJ mbJ ∧
       (cdoms.drop (cnP + j))[0]? = some domJ := by
     cases midJ with
@@ -116,7 +116,7 @@ theorem zipFieldTermEqP
         injection hdr' with hdr''
         have h1 : domJ :: ds' = cdoms.drop (cnP + j) :=
           congrArg Prod.fst hdr''
-        refine ⟨nmJ, domJ, bodyJ, mbJ, rfl, ?_⟩
+        refine ⟨domJ, bodyJ, mbJ, rfl, ?_⟩
         rw [← h1]
         rfl
     | bvar i => simp [Expr.instPisAt] at hdr
