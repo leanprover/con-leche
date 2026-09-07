@@ -16,8 +16,8 @@
     85  #guard_msgs in
     86  #print axioms ConLeche.no_proof_of_False
 
-== ConLeche/Frontend/ExportC.lean#L876
-   876  def parseExportStreamD (path : System.FilePath)
+== ConLeche/Frontend/ExportC.lean#L884
+   884  def parseExportStreamD (path : System.FilePath)
 
 == Main.lean#L331
    331            pure (ConLeche.Cached.checkDeclsSPCachedD mode decls.toList)

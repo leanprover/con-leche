@@ -59201,3 +59201,40 @@ hand and all exist; those are NOT link-extracted, by design — this gate
 is about the line anchors.
 
 **Size.**  40 links across 33 files, 699 lines of expectation.
+
+## TASK #217 — CONFORMANCE BATCH, PART 1: the `let` triple and the unsafe inductive (2026-09-07, `agent/conformance`)
+
+Two of the audit's divergences (task #206, fixtures from task #208),
+each closed by a fixture flipping to the official kernel's verdict.  The
+third item of the original brief — the mutual block's definitionally
+equal member telescopes and sorts (#206-A4, `ind_mutual_*_defeq`) — was
+split off to its own lane at the user's direction and is NOT part of
+this record.
+
+### Item 2 — `unsafe inductive` declines (audit A10 / crack C8, follow-up 6)
+
+The export parser threw `"unsafe inductive"` from inside the block's
+`types` `mapM`, which the driver reports as **exit 3** — a crash — where
+every other unsafe class already declines positively: `unsafe axiom`
+(`ExportC.lean` `:475`), `unsafe opaque` (`:518`) and `unsafe def` (the
+`def` arm's safety branch, arena 141/142).  The exit-code convention
+reserves 3 for "unclear reasons"; an unsupported *feature the checker
+positively detects* is a 2.  The test now runs as an `anyM` over the
+type entries ahead of the `mapM` and returns `.inr "unsafe inductive
+declaration"`.  Every safe block parses exactly as before.
+`tests/e2e/ind_unsafe` 3 → **2** (official accepts unsafe blocks — it
+skips positivity for them — so this stays a *decline*, and remains a
+recorded restriction beyond official, now a positive one).
+
+### Gates (item 2)
+
+On top of master `1aaed328`: `lake build` warning-free (527 jobs),
+`tests/arena.sh` exit 0 in a clean env — layering 0/0, proofdeps 2 851
+rows as pinned, doors 0, pindump fresh, trust surface 0 outside the
+allowlist, inmodel OK, axioms pinned, tutorial 87/92 (unchanged), e2e
+156/156, annot 14/14, trusted sweep as expected.
+`tests/overview-links.sh` regenerated: the seven inserted lines shift
+`ExportC.lean#L876` → `#L884` (`parseExportStreamD`); the citing
+paragraph was re-read and says the same thing.  init-full unchanged:
+53 118 accepted, 678.62 G instructions.  Artefacts under
+`_tmp/conformance/`.

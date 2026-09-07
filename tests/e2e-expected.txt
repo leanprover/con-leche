@@ -970,12 +970,11 @@
 2 ind_nest_via_refl.ndjson
 #
 # --- A10 / crack C8: `unsafe inductive`.  Official skips positivity and
-# --- accepts; con-leche's PARSER throws, so the run errors (3) where unsafe
-# --- DEFINITIONS decline positively (2, arena 141/142).  Audit
-# --- follow-up 6 (one line in ExportC.lean:550).
-# TODO(#206-A10) official: 0 — piped (until #207): the preprocessor failed on the block too (exit 3)
-# TODO(#206-A10) official: 0 — raw: our parser throws "unsafe inductive"; a decline (2) is the intended verdict
-3 ind_unsafe.ndjson
+# --- accepts (0); con-leche supports no unsafe declaration and DECLINES
+# --- positively (2) since task #217, like unsafe axioms, opaques and
+# --- definitions (arena 141/142).  The parser used to throw, so the run
+# --- errored (3) — audit follow-up 6, closed.
+2 ind_unsafe.ndjson
 #
 # --- §2 "probed and clean": shapes nobody had a fixture for and both
 # --- checkers accept.  Pure regression guards — zero-constructor INDEXED

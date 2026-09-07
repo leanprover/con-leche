@@ -537,8 +537,16 @@ private def processLineCoreD (st : StateD) (j : Json) :
       return .inr "quotient declaration mismatch"
   else if let .ok v := j.getObjVal? "inductive" then
     let st := { st with indCount := st.indCount + 1 }
-    let types ← (← (← v.getObjVal? "types").getArr?).mapM fun t => do
-      if (← (← t.getObjVal? "isUnsafe").getBool?) then throw "unsafe inductive"
+    let tys ← (← v.getObjVal? "types").getArr?
+    -- TASK #217 (audit follow-up 6): an `unsafe inductive` is DECLINED,
+    -- not an error.  The official kernel admits unsafe blocks (it skips
+    -- positivity for them); we support no unsafe declaration at all, and
+    -- unsafe axioms/opaques/definitions already decline positively
+    -- (`:475`, `:518`, the `def` arm's safety branch).  The inductive
+    -- path used to `throw`, which the driver reports as exit 3.
+    if ← tys.anyM fun t => do (← t.getObjVal? "isUnsafe").getBool? then
+      return .inr "unsafe inductive declaration"
+    let types ← tys.mapM fun t => do
       pure (ConstantInfo.indInfo (← parseConstantValTD st t) {})
     let ctors ← (← (← v.getObjVal? "ctors").getArr?).mapM fun c => do
       pure (ConstantInfo.ctorInfo (← parseConstantValTD st c)

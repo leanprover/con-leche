@@ -30,7 +30,7 @@ Everything below explains how that theorem is reached.
 Read from the outside in:
 
 1. **The driver** (`Main.lean`). The default run parses the stream
-   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L876))
+   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L884))
    and calls the pure fold `checkDeclsSPCachedD`, printing nothing per
    declaration
    ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L331)).
