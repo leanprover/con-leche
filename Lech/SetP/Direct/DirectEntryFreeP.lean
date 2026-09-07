@@ -270,7 +270,7 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
     intro _ q _ _ ea h
     rw [denoteP] at h
     exact ⟨ea, by rw [← Option.some.inj h]; rfl⟩
-  | case2 d idx nm ty =>
+  | case2 d idx ty =>
     intro hw q hq hl ea h
     rw [denoteP] at h
     obtain rfl := Option.some.inj h
@@ -300,7 +300,7 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
     intro _ q _ _ ea h
     rw [denoteP, hf] at h
     exact nomatch h
-  | case6 d n ty body mb ihty ihbody =>
+  | case6 d ty body mb ihty ihbody =>
     intro hw q hq hl ea h
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_forallE_inv h
     simp only [Expr.WScoped] at hw
@@ -316,7 +316,7 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
         · exact hl l (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl hl')) hba
     refine ⟨.pi 0 (pwBit φ mb.pw) Xt Xb, ?_⟩
     rw [AVExpr.liftN_pi, show d + 1 - 1 - q = d - 1 - q + 1 from by omega]
-  | case7 d n ty body mb ihty ihbody =>
+  | case7 d ty body mb ihty ihbody =>
     intro hw q hq hl ea h
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_lam_inv h
     simp only [Expr.WScoped] at hw
@@ -341,7 +341,7 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
     obtain ⟨Xa, rfl⟩ := iha hw.2 hq (fun l hl' => hl l (by
       simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inr hl')) haa
     exact ⟨.app Xf Xa, by rw [AVExpr.liftN_app]⟩
-  | case9 d n ty val body ihty ihval ihbody =>
+  | case9 d ty val body ihty ihval ihbody =>
     intro hw q hq hl ea h
     obtain ⟨ta, va, ba, hta, hva, hba, rfl⟩ := denoteP_letE_inv' h
     simp only [Expr.WScoped] at hw
@@ -393,12 +393,12 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
     cases x with
     | bvar i => rw [denoteP.eq_def] at h; exact nomatch h
     | sort u => exact absurd rfl (hs u)
-    | fvar i ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i ty)
     | const n us => exact absurd rfl (hc n us)
-    | forallE ty b mb => exact absurd rfl (hpi n ty b mb)
-    | lam ty b mb => exact absurd rfl (hlam n ty b mb)
+    | forallE ty b mb => exact absurd rfl (hpi ty b mb)
+    | lam ty b mb => exact absurd rfl (hlam ty b mb)
     | app f a => exact absurd rfl (happ f a)
-    | letE ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

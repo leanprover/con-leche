@@ -56,7 +56,7 @@ theorem denoteP_acval_congr
   intro d e
   induction d, e using denoteP.induct (env := env) with
   | case1 d u => rw [denoteP, denoteP]
-  | case2 d idx nm ty => rw [denoteP, denoteP]
+  | case2 d idx ty => rw [denoteP, denoteP]
   | case3 d n us ci hf hlen =>
     rw [denoteP, denoteP, hf]
     dsimp only
@@ -66,12 +66,12 @@ theorem denoteP_acval_congr
     dsimp only
     rw [if_neg hlen, if_neg hlen]
   | case5 d n us hf => rw [denoteP, denoteP, hf]
-  | case6 d n ty body m ihty ihbody =>
+  | case6 d ty body m ihty ihbody =>
     rw [denoteP, denoteP, ihty, ihbody]
-  | case7 d n ty body m ihty ihbody =>
+  | case7 d ty body m ihty ihbody =>
     rw [denoteP, denoteP, ihty, ihbody]
   | case8 d f a ihf iha => rw [denoteP, denoteP, ihf, iha]
-  | case9 d n ty val body ihty ihval ihbody =>
+  | case9 d ty val body ihty ihval ihbody =>
     rw [denoteP, denoteP, ihty, ihval, ihbody]
   | case10 d sn i e ihe => rw [denoteP, denoteP, ihe]
   | case11 d n hsup =>
@@ -102,12 +102,12 @@ theorem denoteP_acval_congr
     cases x with
     | bvar i => rw [denoteP.eq_def, denoteP.eq_def]
     | sort u => exact absurd rfl (hs u)
-    | fvar i ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i ty)
     | const n us => exact absurd rfl (hc n us)
-    | forallE ty b m => exact absurd rfl (hpi n ty b m)
-    | lam ty b m => exact absurd rfl (hlam n ty b m)
+    | forallE ty b m => exact absurd rfl (hpi ty b m)
+    | lam ty b m => exact absurd rfl (hlam ty b m)
     | app f a => exact absurd rfl (happ f a)
-    | letE ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

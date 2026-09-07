@@ -206,7 +206,7 @@ theorem fvarLeaves_of_leafEquiv : ∀ (e₁ e₂ : Expr), Expr.LeafEquiv e₁ e�
 
 /-- Well-scopedness gives bounds and scoping for every closure leaf. -/
 theorem WScoped_leaves : ∀ (e : Expr) {d : Nat}, WScoped d e →
-    ∀ l ∈ e.fvarLeaves, l.1 < d ∧ WScoped l.1 l.2.2 := by
+    ∀ l ∈ e.fvarLeaves, l.1 < d ∧ WScoped l.1 l.2 := by
   intro e
   induction e with
   | fvar idx ty ih =>

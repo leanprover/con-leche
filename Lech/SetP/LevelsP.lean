@@ -168,7 +168,7 @@ theorem denoteP_instLevels (hp : AcvalParamsAt env acval)
     (env := env) with
   | case1 d u =>
     simp only [Expr.instantiateLevelParams, denoteP_sort, Level.eval_subst]
-  | case2 d idx nm ty =>
+  | case2 d idx ty =>
     simp only [Expr.instantiateLevelParams, denoteP_fvar]
   | case3 d n ws ci h1 h2 =>
     rw [Expr.instantiateLevelParams,
@@ -181,17 +181,17 @@ theorem denoteP_instLevels (hp : AcvalParamsAt env acval)
     rw [if_neg h2, if_neg (by simpa using h2)]
   | case5 d n ws h1 =>
     rw [Expr.instantiateLevelParams, denoteP, denoteP, h1]
-  | case6 d n ty body mb ihty ihbody =>
+  | case6 d ty body mb ihty ihbody =>
     rw [Expr.instantiateLevelParams, denoteP_forallE, denoteP_forallE,
       ihty, pwBit_substPW,
       ← Expr.instantiateLevelParams_instantiate1, ihbody]
-  | case7 d n ty body mb ihty ihbody =>
+  | case7 d ty body mb ihty ihbody =>
     rw [Expr.instantiateLevelParams, denoteP_lam, denoteP_lam,
       ihty, pwBit_substPW,
       ← Expr.instantiateLevelParams_instantiate1, ihbody]
   | case8 d fe a ihf iha =>
     rw [Expr.instantiateLevelParams, denoteP_app, denoteP_app, ihf, iha]
-  | case9 d n ty val body ihty ihval ihbody =>
+  | case9 d ty val body ihty ihval ihbody =>
     rw [Expr.instantiateLevelParams, denoteP, denoteP, ihty, ihval,
       ← Expr.instantiateLevelParams_instantiate1, ihbody]
   | case10 d sn i e ihe =>
@@ -255,12 +255,12 @@ theorem denoteP_instLevels (hp : AcvalParamsAt env acval)
     | bvar i =>
       rw [Expr.instantiateLevelParams, denoteP.eq_def, denoteP.eq_def]
     | sort u => exact absurd rfl (hxs u)
-    | fvar i ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i ty)
     | const n vs => exact absurd rfl (hc n vs)
-    | forallE ty b mb => exact absurd rfl (hpi n ty b mb)
-    | lam ty b mb => exact absurd rfl (hlam n ty b mb)
+    | forallE ty b mb => exact absurd rfl (hpi ty b mb)
+    | lam ty b mb => exact absurd rfl (hlam ty b mb)
     | app fe a => exact absurd rfl (happ fe a)
-    | letE ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

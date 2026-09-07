@@ -234,7 +234,7 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     obtain rfl := Option.some.inj h
     rw [denote_sort]
     rfl
-  | case2 d idx nm ty =>
+  | case2 d idx ty =>
     intro ea h
     rw [denoteP] at h
     obtain rfl := Option.some.inj h
@@ -259,7 +259,7 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     intro ea h
     rw [denoteP, hf] at h
     exact nomatch h
-  | case6 d n ty body mb ihty ihbody =>
+  | case6 d ty body mb ihty ihbody =>
     intro ea h
     rw [denoteP] at h
     rcases hta : denoteP acval env φ d ty with _ | ta
@@ -272,7 +272,7 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     obtain rfl := Option.some.inj h
     rw [denote_forallE, ihty hta, ihbody hba]
     rfl
-  | case7 d n ty body mb ihty ihbody =>
+  | case7 d ty body mb ihty ihbody =>
     intro ea h
     rw [denoteP] at h
     rcases hta : denoteP acval env φ d ty with _ | ta
@@ -297,7 +297,7 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     obtain rfl := Option.some.inj h
     rw [denote_app, ihf hfa, iha haa]
     rfl
-  | case9 d n ty val body ihty ihval ihbody =>
+  | case9 d ty val body ihty ihval ihbody =>
     intro ea h
     rw [denoteP] at h
     rcases hta : denoteP acval env φ d ty with _ | ta
@@ -376,12 +376,12 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     cases x with
     | bvar i => rw [denoteP.eq_def] at h; exact nomatch h
     | sort u => exact absurd rfl (hxs u)
-    | fvar i ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i ty)
     | const n vs => exact absurd rfl (hc n vs)
-    | forallE ty b mb => exact absurd rfl (hpi n ty b mb)
-    | lam ty b mb => exact absurd rfl (hlam n ty b mb)
+    | forallE ty b mb => exact absurd rfl (hpi ty b mb)
+    | lam ty b mb => exact absurd rfl (hlam ty b mb)
     | app fe a => exact absurd rfl (happ fe a)
-    | letE ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

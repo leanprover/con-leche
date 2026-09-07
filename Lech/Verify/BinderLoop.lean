@@ -375,7 +375,7 @@ theorem inferLams_succ_ne_lam (fuel : Nat) {t : Expr}
     inferLams mode r d (fuel + 1) t k fvs stk
       = inferLamsLeaf mode r d t k fvs stk := by
   cases t with
-  | lam ty body mb => exact absurd rfl (ht n ty body mb)
+  | lam ty body mb => exact absurd rfl (ht ty body mb)
   | _ => rw [inferLams] <;> exact fun _ _ _ _ h => nomatch h
 
 theorem inferPis_zero (t : Expr) (k : Nat) (fvs : List Expr)
@@ -402,7 +402,7 @@ theorem inferPis_succ_ne_pi (fuel : Nat) {t : Expr}
     inferPis mode r d (fuel + 1) t k fvs stk
       = inferPisLeaf mode r d t k fvs stk := by
   cases t with
-  | forallE ty body mb => exact absurd rfl (ht n ty body mb)
+  | forallE ty body mb => exact absurd rfl (ht ty body mb)
   | _ => rw [inferPis] <;> exact fun _ _ _ _ h => nomatch h
 
 theorem annotatePis_zero (t : Expr) (k : Nat) (fvs : List Expr)
@@ -424,7 +424,7 @@ theorem annotatePis_succ_ne_pi (fuel : Nat) {t : Expr}
     annotatePis r env d (fuel + 1) t k fvs stk
       = annotatePisLeaf r env d t k fvs stk := by
   cases t with
-  | forallE ty body mb => exact absurd rfl (ht n ty body mb)
+  | forallE ty body mb => exact absurd rfl (ht ty body mb)
   | _ => rw [annotatePis] <;> exact fun _ _ _ _ h => nomatch h
 
 theorem annotateLams_zero (t : Expr) (k : Nat) (fvs : List Expr)
@@ -446,7 +446,7 @@ theorem annotateLams_succ_ne_lam (fuel : Nat) {t : Expr}
     annotateLams r env d (fuel + 1) t k fvs stk
       = annotateLamsLeaf r env d t k fvs stk := by
   cases t with
-  | lam ty body mb => exact absurd rfl (ht n ty body mb)
+  | lam ty body mb => exact absurd rfl (ht ty body mb)
   | _ => rw [annotateLams] <;> exact fun _ _ _ _ h => nomatch h
 
 /-! Shape equations of the fueled bodies on binder nodes (definitional;

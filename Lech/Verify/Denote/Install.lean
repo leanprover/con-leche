@@ -117,7 +117,7 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
   intro d e
   induction d, e using denote.induct (cval := cval) (env := env₁) (φ := φ) with
   | case1 d u => intro v h; rw [denote_sort] at h ⊢; exact h
-  | case2 d idx nm ty => intro v h; rw [denote_fvar] at h ⊢; exact h
+  | case2 d idx ty => intro v h; rw [denote_fvar] at h ⊢; exact h
   | case3 d n us ci h1 h2 =>
     intro v h
     simp only [denote_const, h1, if_pos h2] at h
@@ -131,28 +131,28 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     intro v h
     rw [denote_const, h1] at h
     exact nomatch h
-  | case6 d n ty body mb h1 ihty =>
+  | case6 d ty body mb h1 ihty =>
     intro v h
     rw [denote_forallE, h1] at h
     exact nomatch h
-  | case7 d n ty body mb B h1 h2 ihty ihbody =>
+  | case7 d ty body mb B h1 h2 ihty ihbody =>
     intro v h
     rw [denote_forallE, h1, h2] at h
     exact nomatch h
-  | case8 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case8 d ty body mb B h1 B' h2 ihty ihbody =>
     intro v h
     rw [denote_forallE, h1, h2] at h
     rw [denote_forallE, ihty h1, ihbody h2]
     exact h
-  | case9 d n ty body mb h1 ihty =>
+  | case9 d ty body mb h1 ihty =>
     intro v h
     rw [denote_lam, h1] at h
     exact nomatch h
-  | case10 d n ty body mb B h1 h2 ihty ihbody =>
+  | case10 d ty body mb B h1 h2 ihty ihbody =>
     intro v h
     rw [denote_lam, h1, h2] at h
     exact nomatch h
-  | case11 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case11 d ty body mb B h1 B' h2 ihty ihbody =>
     intro v h
     rw [denote_lam, h1, h2] at h
     rw [denote_lam, ihty h1, ihbody h2]
@@ -168,16 +168,16 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     split at h
     · next vf va h1 h2 => exact (hbad vf va h1 h2).elim
     · exact nomatch h
-  | case14 d n ty val body vf va h1 h2 h3 ihty ihval ihbody =>
+  | case14 d ty val body vf va h1 h2 h3 ihty ihval ihbody =>
     intro v h
     simp only [denote_letE, h1, h2, h3] at h
     exact nomatch h
-  | case15 d n ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
+  | case15 d ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
     intro v h
     simp only [denote_letE, h1, h2, h3] at h
     simp only [denote_letE, ihty h2, ihval h1, ihbody h3]
     exact h
-  | case16 d n ty val body hbad ihty ihval =>
+  | case16 d ty val body hbad ihty ihval =>
     intro v h
     rw [denote_letE] at h
     split at h
@@ -225,12 +225,12 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     match x with
     | .bvar i => rw [denote_bvar] at h; exact nomatch h
     | .sort u => exact (k1 u rfl).elim
-    | .fvar a c => exact (k2 a b c rfl).elim
+    | .fvar a c => exact (k2 a c rfl).elim
     | .const a b => exact (k3 a b rfl).elim
-    | .forallE b c dd => exact (k4 a b c dd rfl).elim
-    | .lam b c dd => exact (k5 a b c dd rfl).elim
+    | .forallE b c dd => exact (k4 b c dd rfl).elim
+    | .lam b c dd => exact (k5 b c dd rfl).elim
     | .app a b => exact (k6 a b rfl).elim
-    | .letE b c dd => exact (k7 a b c dd rfl).elim
+    | .letE b c dd => exact (k7 b c dd rfl).elim
     | .proj a b c => exact (k8 a b c rfl).elim
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim
@@ -311,30 +311,30 @@ theorem denote_cval_congr {cval₁ cval₂ : TConstVal} {env : Env}
   intro d e
   induction d, e using denote.induct (cval := cval₁) (env := env) (φ := φ) with
   | case1 d u => simp only [denote_sort]
-  | case2 d idx nm ty => simp only [denote_fvar]
+  | case2 d idx ty => simp only [denote_fvar]
   | case3 d n us ci h1 h2 =>
     simp only [denote_const, h1, if_pos h2, hag n ci h1]
   | case4 d n us ci h1 h2 => simp only [denote_const, h1, if_neg h2]
   | case5 d n us h1 => simp only [denote_const, h1]
-  | case6 d n ty body mb h1 ihty =>
+  | case6 d ty body mb h1 ihty =>
     simp only [denote_forallE, h1, ← ihty]
-  | case7 d n ty body mb B h1 h2 ihty ihbody =>
+  | case7 d ty body mb B h1 h2 ihty ihbody =>
     simp only [denote_forallE, h1, h2, ← ihty, ← ihbody]
-  | case8 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case8 d ty body mb B h1 B' h2 ihty ihbody =>
     simp only [denote_forallE, h1, h2, ← ihty, ← ihbody]
-  | case9 d n ty body mb h1 ihty => simp only [denote_lam, h1, ← ihty]
-  | case10 d n ty body mb B h1 h2 ihty ihbody =>
+  | case9 d ty body mb h1 ihty => simp only [denote_lam, h1, ← ihty]
+  | case10 d ty body mb B h1 h2 ihty ihbody =>
     simp only [denote_lam, h1, h2, ← ihty, ← ihbody]
-  | case11 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case11 d ty body mb B h1 B' h2 ihty ihbody =>
     simp only [denote_lam, h1, h2, ← ihty, ← ihbody]
   | case12 d f a vf va h1 h2 ihf iha =>
     simp only [denote_app, h1, h2, ← ihf, ← iha]
   | case13 d f a hbad ihf iha => simp only [denote_app, ← ihf, ← iha]
-  | case14 d n ty val body vf va h1 h2 h3 ihty ihval ihbody =>
+  | case14 d ty val body vf va h1 h2 h3 ihty ihval ihbody =>
     simp only [denote_letE, h1, h2, h3, ← ihty, ← ihval, ← ihbody]
-  | case15 d n ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
+  | case15 d ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
     simp only [denote_letE, h1, h2, h3, ← ihty, ← ihval, ← ihbody]
-  | case16 d n ty val body hbad ihty ihval =>
+  | case16 d ty val body hbad ihty ihval =>
     simp only [denote_letE, ← ihty, ← ihval]
   | case17 d sn i e h1 ihe => simp only [denote_proj, h1, ← ihe]
   | case18 d sn i e B h1 entry h2 ihe =>
@@ -361,12 +361,12 @@ theorem denote_cval_congr {cval₁ cval₂ : TConstVal} {env : Env}
     match x with
     | .bvar i => simp only [denote_bvar]
     | .sort u => exact (k1 u rfl).elim
-    | .fvar a c => exact (k2 a b c rfl).elim
+    | .fvar a c => exact (k2 a c rfl).elim
     | .const a b => exact (k3 a b rfl).elim
-    | .forallE b c dd => exact (k4 a b c dd rfl).elim
-    | .lam b c dd => exact (k5 a b c dd rfl).elim
+    | .forallE b c dd => exact (k4 b c dd rfl).elim
+    | .lam b c dd => exact (k5 b c dd rfl).elim
     | .app a b => exact (k6 a b rfl).elim
-    | .letE b c dd => exact (k7 a b c dd rfl).elim
+    | .letE b c dd => exact (k7 b c dd rfl).elim
     | .proj a b c => exact (k8 a b c rfl).elim
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim
@@ -536,7 +536,7 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
   intro d e
   induction d, e using denote.induct (cval := cval) (env := env) (φ := φ) with
   | case1 d u => intro _; rw [denote_sort, denote_sort]
-  | case2 d idx nm ty => intro _; rw [denote_fvar, denote_fvar]
+  | case2 d idx ty => intro _; rw [denote_fvar, denote_fvar]
   | case3 d n us ci h1 h2 =>
     intro _
     simp only [denote_const, h1, if_pos h2,
@@ -549,30 +549,30 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
     intro hres
     rw [Expr.constsResolve, h1] at hres
     exact nomatch hres
-  | case6 d n ty body mb h1 ihty =>
+  | case6 d ty body mb h1 ihty =>
     intro hres
     rw [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_forallE, denote_forallE, ihty hres.1, h1]
-  | case7 d n ty body mb B h1 h2 ihty ihbody =>
+  | case7 d ty body mb B h1 h2 ihty ihbody =>
     intro hres
     rw [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_forallE, denote_forallE, ihty hres.1, h1,
       ihbody (Expr.constsResolve_instantiate1 hres.1 0 hres.2), h2]
-  | case8 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case8 d ty body mb B h1 B' h2 ihty ihbody =>
     intro hres
     rw [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_forallE, denote_forallE, ihty hres.1, h1,
       ihbody (Expr.constsResolve_instantiate1 hres.1 0 hres.2), h2]
-  | case9 d n ty body mb h1 ihty =>
+  | case9 d ty body mb h1 ihty =>
     intro hres
     rw [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_lam, denote_lam, ihty hres.1, h1]
-  | case10 d n ty body mb B h1 h2 ihty ihbody =>
+  | case10 d ty body mb B h1 h2 ihty ihbody =>
     intro hres
     rw [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_lam, denote_lam, ihty hres.1, h1,
       ihbody (Expr.constsResolve_instantiate1 hres.1 0 hres.2), h2]
-  | case11 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case11 d ty body mb B h1 B' h2 ihty ihbody =>
     intro hres
     rw [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_lam, denote_lam, ihty hres.1, h1,
@@ -585,17 +585,17 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
     intro hres
     rw [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_app, denote_app, ihf hres.1, iha hres.2]
-  | case14 d n ty val body vf va h1 h2 h3 ihty ihval ihbody =>
+  | case14 d ty val body vf va h1 h2 h3 ihty ihval ihbody =>
     intro hres
     simp only [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_letE, denote_letE, ihty hres.1.1, ihval hres.1.2,
       ihbody (Expr.constsResolve_instantiate1 hres.1.1 0 hres.2)]
-  | case15 d n ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
+  | case15 d ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
     intro hres
     simp only [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_letE, denote_letE, ihty hres.1.1, ihval hres.1.2,
       ihbody (Expr.constsResolve_instantiate1 hres.1.1 0 hres.2)]
-  | case16 d n ty val body hbad ihty ihval =>
+  | case16 d ty val body hbad ihty ihval =>
     intro hres
     simp only [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_letE, denote_letE, ihty hres.1.1, ihval hres.1.2]
@@ -677,12 +677,12 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
     match x with
     | .bvar i => rw [denote_bvar, denote_bvar]
     | .sort u => exact (k1 u rfl).elim
-    | .fvar a c => exact (k2 a b c rfl).elim
+    | .fvar a c => exact (k2 a c rfl).elim
     | .const a b => exact (k3 a b rfl).elim
-    | .forallE b c dd => exact (k4 a b c dd rfl).elim
-    | .lam b c dd => exact (k5 a b c dd rfl).elim
+    | .forallE b c dd => exact (k4 b c dd rfl).elim
+    | .lam b c dd => exact (k5 b c dd rfl).elim
     | .app a b => exact (k6 a b rfl).elim
-    | .letE b c dd => exact (k7 a b c dd rfl).elim
+    | .letE b c dd => exact (k7 b c dd rfl).elim
     | .proj a b c => exact (k8 a b c rfl).elim
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim

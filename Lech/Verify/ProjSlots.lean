@@ -58,17 +58,17 @@ variable {T : Name} {i : Nat}
 @[simp] theorem noProjAt_app {f a : Expr} :
     NoProjAt T i (.app f a) ↔ NoProjAt T i f ∧ NoProjAt T i a := by
   rw [NoProjAt]
-@[simp] theorem noProjAt_lam {n : Name} {ty b : Expr} {m : BinderMeta} :
+@[simp] theorem noProjAt_lam {ty b : Expr} {m : BinderMeta} :
     NoProjAt T i (.lam ty b m) ↔ NoProjAt T i ty ∧ NoProjAt T i b := by
   rw [NoProjAt]
-@[simp] theorem noProjAt_forallE {n : Name} {ty b : Expr} {m : BinderMeta} :
+@[simp] theorem noProjAt_forallE {ty b : Expr} {m : BinderMeta} :
     NoProjAt T i (.forallE ty b m) ↔ NoProjAt T i ty ∧ NoProjAt T i b := by
   rw [NoProjAt]
-@[simp] theorem noProjAt_letE {n : Name} {t v b : Expr} :
+@[simp] theorem noProjAt_letE {t v b : Expr} :
     NoProjAt T i (.letE t v b) ↔
       NoProjAt T i t ∧ NoProjAt T i v ∧ NoProjAt T i b := by
   rw [NoProjAt]
-@[simp] theorem noProjAt_fvar {idx : Nat} {n : Name} {ty : Expr} :
+@[simp] theorem noProjAt_fvar {idx : Nat} {ty : Expr} :
     NoProjAt T i (.fvar idx ty) ↔ NoProjAt T i ty := by
   rw [NoProjAt]
 @[simp] theorem noProjAt_bvar {j : Nat} : NoProjAt T i (.bvar j) := by
@@ -289,20 +289,20 @@ variable {env : Env}
 @[simp] theorem projSlotsOk_app {f a : Expr} :
     ProjSlotsOk env (.app f a) ↔ ProjSlotsOk env f ∧ ProjSlotsOk env a := by
   rw [ProjSlotsOk]
-@[simp] theorem projSlotsOk_lam {n : Name} {ty b : Expr} {m : BinderMeta} :
+@[simp] theorem projSlotsOk_lam {ty b : Expr} {m : BinderMeta} :
     ProjSlotsOk env (.lam ty b m) ↔
       ProjSlotsOk env ty ∧ ProjSlotsOk env b := by
   rw [ProjSlotsOk]
-@[simp] theorem projSlotsOk_forallE {n : Name} {ty b : Expr}
+@[simp] theorem projSlotsOk_forallE {ty b : Expr}
     {m : BinderMeta} :
     ProjSlotsOk env (.forallE ty b m) ↔
       ProjSlotsOk env ty ∧ ProjSlotsOk env b := by
   rw [ProjSlotsOk]
-@[simp] theorem projSlotsOk_letE {n : Name} {t v b : Expr} :
+@[simp] theorem projSlotsOk_letE {t v b : Expr} :
     ProjSlotsOk env (.letE t v b) ↔
       ProjSlotsOk env t ∧ ProjSlotsOk env v ∧ ProjSlotsOk env b := by
   rw [ProjSlotsOk]
-@[simp] theorem projSlotsOk_fvar {idx : Nat} {n : Name} {ty : Expr} :
+@[simp] theorem projSlotsOk_fvar {idx : Nat} {ty : Expr} :
     ProjSlotsOk env (.fvar idx ty) ↔ ProjSlotsOk env ty := by
   rw [ProjSlotsOk]
 @[simp] theorem projSlotsOk_bvar {j : Nat} : ProjSlotsOk env (.bvar j) := by
@@ -315,7 +315,7 @@ variable {env : Env}
 @[simp] theorem projSlotsOk_lit {l : Literal} : ProjSlotsOk env (.lit l) := by
   rw [ProjSlotsOk] <;> simp
 
-@[simp] theorem fvarTysOk_fvar {idx : Nat} {n : Name} {ty : Expr} :
+@[simp] theorem fvarTysOk_fvar {idx : Nat} {ty : Expr} :
     FvarTysOk env (.fvar idx ty) ↔ ProjSlotsOk env ty := by
   rw [FvarTysOk]
 @[simp] theorem fvarTysOk_proj {s : Name} {j : Nat} {e : Expr} :
@@ -324,14 +324,14 @@ variable {env : Env}
 @[simp] theorem fvarTysOk_app {f a : Expr} :
     FvarTysOk env (.app f a) ↔ FvarTysOk env f ∧ FvarTysOk env a := by
   rw [FvarTysOk]
-@[simp] theorem fvarTysOk_lam {n : Name} {ty b : Expr} {m : BinderMeta} :
+@[simp] theorem fvarTysOk_lam {ty b : Expr} {m : BinderMeta} :
     FvarTysOk env (.lam ty b m) ↔ FvarTysOk env ty ∧ FvarTysOk env b := by
   rw [FvarTysOk]
-@[simp] theorem fvarTysOk_forallE {n : Name} {ty b : Expr} {m : BinderMeta} :
+@[simp] theorem fvarTysOk_forallE {ty b : Expr} {m : BinderMeta} :
     FvarTysOk env (.forallE ty b m) ↔
       FvarTysOk env ty ∧ FvarTysOk env b := by
   rw [FvarTysOk]
-@[simp] theorem fvarTysOk_letE {n : Name} {t v b : Expr} :
+@[simp] theorem fvarTysOk_letE {t v b : Expr} :
     FvarTysOk env (.letE t v b) ↔
       FvarTysOk env t ∧ FvarTysOk env v ∧ FvarTysOk env b := by
   rw [FvarTysOk]
@@ -410,7 +410,7 @@ theorem ProjSlotsOk.fvarTysOk : ∀ e : Expr, ProjSlotsOk env e → FvarTysOk en
 `ProjSlotsOk` type. -/
 theorem ProjSlotsOk.fvarLeaves :
     ∀ e : Expr, ProjSlotsOk env e →
-      ∀ l ∈ e.fvarLeaves, ProjSlotsOk env l.2.2 := by
+      ∀ l ∈ e.fvarLeaves, ProjSlotsOk env l.2 := by
   intro e
   induction e with
   | bvar j => intro _ l hl; simp [Expr.fvarLeaves] at hl
@@ -461,7 +461,7 @@ theorem ProjSlotsOk.fvarLeaves :
 
 /-- The input discipline, from the fvar leaves alone. -/
 theorem FvarTysOk.of_fvarLeaves :
-    ∀ e : Expr, (∀ l ∈ e.fvarLeaves, ProjSlotsOk env l.2.2) →
+    ∀ e : Expr, (∀ l ∈ e.fvarLeaves, ProjSlotsOk env l.2) →
       FvarTysOk env e := by
   intro e
   induction e with
@@ -471,7 +471,7 @@ theorem FvarTysOk.of_fvarLeaves :
   | lit l => intro _; simp
   | fvar idx ty _ =>
     intro h
-    exact fvarTysOk_fvar.mpr (h (idx, n, ty) (by rw [Expr.fvarLeaves]; exact List.mem_cons_self))
+    exact fvarTysOk_fvar.mpr (h (idx, ty) (by rw [Expr.fvarLeaves]; exact List.mem_cons_self))
   | app f a ihf iha =>
     intro h
     refine fvarTysOk_app.mpr ⟨ihf ?_, iha ?_⟩ <;>

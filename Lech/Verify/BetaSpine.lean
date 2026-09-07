@@ -177,7 +177,7 @@ theorem whnfApp_ne_lam (r : CoreFns m) (env : Env) (depth : Nat)
     whnfApp mode r env depth k v (a :: rest)
       = whnfAppIota mode r env depth k v a rest := by
   cases v with
-  | lam ty body mb => exact absurd rfl (hv n ty body mb)
+  | lam ty body mb => exact absurd rfl (hv ty body mb)
   | _ => rw [whnfApp, whnfAppIota] <;> exact fun _ _ _ _ h => nomatch h
 
 /-- The non-lambda arm of `betaPeel` for a raw body that is not a
@@ -190,7 +190,7 @@ theorem betaPeel_ne_lam (r : CoreFns m) (env : Env) (depth : Nat)
       = k (t.instantiateList acc) >>= fun v =>
           whnfApp mode r env depth k v (a :: rest) := by
   cases t with
-  | lam ty body mb => exact absurd rfl (ht n ty body mb)
+  | lam ty body mb => exact absurd rfl (ht ty body mb)
   | _ => rw [betaPeel] <;> exact fun _ _ _ _ h => nomatch h
 
 theorem betaPeel_nil (r : CoreFns m) (env : Env) (depth : Nat)
@@ -581,7 +581,7 @@ private theorem appStep_stuck (F d : Nat) (kF : Expr → CheckM Expr)
     intro c us h
     exact hnc c us h
   cases w with
-  | lam ty body mb => exact absurd rfl (hnl n ty body mb)
+  | lam ty body mb => exact absurd rfl (hnl ty body mb)
   | _ =>
     unfold appStep
     dsimp only
@@ -643,7 +643,7 @@ theorem whnfApp_snoc {d : Nat} :
       obtain ⟨o, ho, H⟩ := bind_ok H
       refine ⟨F, v, by rw [whnfApp_nil]; rfl, ?_⟩
       cases v with
-      | lam ty body mb => exact absurd rfl (hv n ty body mb)
+      | lam ty body mb => exact absurd rfl (hv ty body mb)
       | _ =>
         unfold appStep
         dsimp only
@@ -1335,7 +1335,7 @@ theorem inferSpine_ne_pi (r : CoreFns m) (depth : Nat) {ty : Expr}
     inferSpine r depth ty acc (a :: rest)
       = inferSpineWhnf r depth ty acc a rest := by
   cases ty with
-  | forallE dom body bi => exact absurd rfl (hty n dom body bi)
+  | forallE dom body bi => exact absurd rfl (hty dom body bi)
   | _ => rw [inferSpine, inferSpineWhnf] <;> exact fun _ _ _ _ h => nomatch h
 
 /-- The bulk substitution of a `∀`, exposed. -/
@@ -1752,7 +1752,7 @@ theorem inferSpineIO_ne_pi (r : CoreFns m) (depth : Nat)
     inferSpineIO r depth ty acc (a :: rest)
       = inferSpineIOWhnf r depth ty acc a rest := by
   cases ty with
-  | forallE dom body bi => exact absurd rfl (hty n dom body bi)
+  | forallE dom body bi => exact absurd rfl (hty dom body bi)
   | _ => rw [inferSpineIO, inferSpineIOWhnf] <;>
       exact fun _ _ _ _ h => nomatch h
 

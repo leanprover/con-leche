@@ -46,7 +46,7 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
   intro d e
   induction d, e using denoteP.induct (env := env₀) with
   | case1 d u => intro _ _ ea h; rw [denoteP] at h ⊢; exact h
-  | case2 d idx nm ty => intro _ _ ea h; rw [denoteP] at h ⊢; exact h
+  | case2 d idx ty => intro _ _ ea h; rw [denoteP] at h ⊢; exact h
   | case3 d n us ci hf hlen =>
     intro _ _ ea h
     rw [denoteP, hf] at h
@@ -62,7 +62,7 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     intro hc _ ea h
     rw [constsBound_const, hf] at hc
     exact nomatch hc
-  | case6 d n ty body m ihty ihbody =>
+  | case6 d ty body m ihty ihbody =>
     intro hc hnp ea h
     rw [constsBound_forallE] at hc
     have hnp' := fun j => Expr.noProjAt_forallE.mp (hnp j)
@@ -74,7 +74,7 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_forallE_inv h
     rw [denoteP, ihty hc.1 (fun j => (hnp' j).1) hta, ihbody hcb hnpb hba]
     rfl
-  | case7 d n ty body m ihty ihbody =>
+  | case7 d ty body m ihty ihbody =>
     intro hc hnp ea h
     rw [constsBound_lam] at hc
     have hnp' := fun j => Expr.noProjAt_lam.mp (hnp j)
@@ -93,7 +93,7 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteP_app_inv h
     rw [denoteP, ihf hc.1 (fun j => (hnp' j).1) hfa, iha hc.2 (fun j => (hnp' j).2) haa]
     rfl
-  | case9 d n ty val body ihty ihval ihbody =>
+  | case9 d ty val body ihty ihval ihbody =>
     intro hc hnp ea h
     rw [constsBound_letE] at hc
     have hnp' := fun j => Expr.noProjAt_letE.mp (hnp j)
@@ -162,12 +162,12 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     cases x with
     | bvar i => rw [denoteP.eq_def] at h; exact nomatch h
     | sort u => exact absurd rfl (hs u)
-    | fvar i ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i ty)
     | const n us => exact absurd rfl (hc n us)
-    | forallE ty b m => exact absurd rfl (hpi n ty b m)
-    | lam ty b m => exact absurd rfl (hlam n ty b m)
+    | forallE ty b m => exact absurd rfl (hpi ty b m)
+    | lam ty b m => exact absurd rfl (hlam ty b m)
     | app f a => exact absurd rfl (happ f a)
-    | letE ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

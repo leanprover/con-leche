@@ -350,7 +350,7 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     rw [denote_sort] at h
     obtain rfl : v = .sort (u.eval φ) := (Option.some.inj h).symm
     trivial
-  | case2 d idx nm ty =>
+  | case2 d idx ty =>
     intro hws _ v h
     rw [denote_fvar] at h
     obtain rfl : v = .bvar (d - 1 - idx) := (Option.some.inj h).symm
@@ -366,11 +366,11 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     intro _ _ v h; simp only [denote_const, h1, if_neg h2] at h; exact nomatch h
   | case5 d n us h1 =>
     intro _ _ v h; rw [denote_const, h1] at h; exact nomatch h
-  | case6 d n ty body mb h1 ihty =>
+  | case6 d ty body mb h1 ihty =>
     intro _ _ v h; rw [denote_forallE, h1] at h; exact nomatch h
-  | case7 d n ty body mb B h1 h2 ihty ihbody =>
+  | case7 d ty body mb B h1 h2 ihty ihbody =>
     intro _ _ v h; rw [denote_forallE, h1, h2] at h; exact nomatch h
-  | case8 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case8 d ty body mb B h1 B' h2 ihty ihbody =>
     intro hws hb v h
     rw [denote_forallE, h1, h2] at h
     obtain rfl : v = .pi B B' := (Option.some.inj h).symm
@@ -379,11 +379,11 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     exact ⟨ihty hws.1 hb.1 h1,
       ihbody (Expr.WScoped.instantiate1 hws.1 0 hws.2)
         (looseBVarsBounded_instantiate1 body 0 hb.2) h2⟩
-  | case9 d n ty body mb h1 ihty =>
+  | case9 d ty body mb h1 ihty =>
     intro _ _ v h; rw [denote_lam, h1] at h; exact nomatch h
-  | case10 d n ty body mb B h1 h2 ihty ihbody =>
+  | case10 d ty body mb B h1 h2 ihty ihbody =>
     intro _ _ v h; rw [denote_lam, h1, h2] at h; exact nomatch h
-  | case11 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case11 d ty body mb B h1 B' h2 ihty ihbody =>
     intro hws hb v h
     rw [denote_lam, h1, h2] at h
     obtain rfl : v = .lam B B' := (Option.some.inj h).symm
@@ -405,9 +405,9 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     split at h
     · next vf va k1 k2 => exact (hbad vf va k1 k2).elim
     · exact nomatch h
-  | case14 d n ty val body vf va h1 h2 h3 ihty ihval ihbody =>
+  | case14 d ty val body vf va h1 h2 h3 ihty ihval ihbody =>
     intro _ _ v h; simp only [denote_letE, h1, h2, h3] at h; exact nomatch h
-  | case15 d n ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
+  | case15 d ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
     intro hws hb v h
     simp only [denote_letE, h1, h2, h3] at h
     obtain rfl : v = .letE vf va B := (Option.some.inj h).symm
@@ -416,7 +416,7 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     exact ⟨ihty hws.1 hb.1.1 h2, ihval hws.2.1 hb.1.2 h1,
       ihbody (Expr.WScoped.instantiate1 hws.1 0 hws.2.2)
         (looseBVarsBounded_instantiate1 body 0 hb.2) h3⟩
-  | case16 d n ty val body hbad ihty ihval =>
+  | case16 d ty val body hbad ihty ihval =>
     intro _ _ v h
     rw [denote_letE] at h
     split at h
@@ -464,12 +464,12 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     match x with
     | .bvar i => rw [denote_bvar] at h; exact nomatch h
     | .sort u => exact (k1 u rfl).elim
-    | .fvar a c => exact (k2 a b c rfl).elim
+    | .fvar a c => exact (k2 a c rfl).elim
     | .const a b => exact (k3 a b rfl).elim
-    | .forallE b c dd => exact (k4 a b c dd rfl).elim
-    | .lam b c dd => exact (k5 a b c dd rfl).elim
+    | .forallE b c dd => exact (k4 b c dd rfl).elim
+    | .lam b c dd => exact (k5 b c dd rfl).elim
     | .app a b => exact (k6 a b rfl).elim
-    | .letE b c dd => exact (k7 a b c dd rfl).elim
+    | .letE b c dd => exact (k7 b c dd rfl).elim
     | .proj a b c => exact (k8 a b c rfl).elim
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim

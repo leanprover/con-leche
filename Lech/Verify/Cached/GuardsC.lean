@@ -335,23 +335,23 @@ private theorem fvarLeaves_const (n : Name) (us : List Level) :
 private theorem fvarLeaves_lit (l : Literal) :
     (Expr.lit l).fvarLeaves = [] := by simp [Expr.fvarLeaves]
 
-private theorem fvarLeaves_fvar (idx : Nat) (n : Name) (ty : Expr) :
-    (Expr.fvar idx ty).fvarLeaves = (idx, n, ty) :: ty.fvarLeaves := by
+private theorem fvarLeaves_fvar (idx : Nat) (ty : Expr) :
+    (Expr.fvar idx ty).fvarLeaves = (idx, ty) :: ty.fvarLeaves := by
   rw [Expr.fvarLeaves]
 
 private theorem fvarLeaves_app (f a : Expr) :
     (Expr.app f a).fvarLeaves = f.fvarLeaves ++ a.fvarLeaves := by
   rw [Expr.fvarLeaves]
 
-private theorem fvarLeaves_lam (n : Name) (ty b : Expr) (m : BinderMeta) :
+private theorem fvarLeaves_lam (ty b : Expr) (m : BinderMeta) :
     (Expr.lam ty b m).fvarLeaves = ty.fvarLeaves ++ b.fvarLeaves := by
   rw [Expr.fvarLeaves]
 
-private theorem fvarLeaves_forallE (n : Name) (ty b : Expr) (m : BinderMeta) :
+private theorem fvarLeaves_forallE (ty b : Expr) (m : BinderMeta) :
     (Expr.forallE ty b m).fvarLeaves = ty.fvarLeaves ++ b.fvarLeaves := by
   rw [Expr.fvarLeaves]
 
-private theorem fvarLeaves_letE (n : Name) (ty v b : Expr) :
+private theorem fvarLeaves_letE (ty v b : Expr) :
     (Expr.letE ty v b).fvarLeaves
       = ty.fvarLeaves ++ v.fvarLeaves ++ b.fvarLeaves := by
   rw [Expr.fvarLeaves]
@@ -374,13 +374,13 @@ private theorem fvarLeaves_nil_of_fvarsBelow_zero : ∀ (e : Expr),
 /-- Erasure of a cached leaf list (the counterpart of the arena's
 `leavesDen`; the annotation component goes through `eraseC`). -/
 def leavesEr (xs : List (Nat × ExprC)) : List (Nat × Expr) :=
-  xs.map fun l => (l.1, l.2.1, l.2.2)
+  xs.map fun l => (l.1, l.2)
 
 @[simp] theorem leavesEr_nil : leavesEr [] = [] := rfl
 
-@[simp] theorem leavesEr_cons (idx : Nat) (n : Name) (ty : ExprC)
+@[simp] theorem leavesEr_cons (idx : Nat) (ty : ExprC)
     (xs : List (Nat × ExprC)) :
-    leavesEr ((idx, n, ty) :: xs) = (idx, n, ty) :: leavesEr xs := rfl
+    leavesEr ((idx, ty) :: xs) = (idx, (ty : Expr)) :: leavesEr xs := rfl
 
 /-! ### The `seen`-set walk
 
@@ -514,7 +514,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
     have herase : (Expr.fvar idx ty)
         = Expr.fvar idx ty := rfl
     have hlv : (Expr.fvarLeaves (Expr.fvar idx ty))
-        = (idx, n, ty) :: (Expr.fvarLeaves ty) := by
+        = (idx, ty) :: (Expr.fvarLeaves ty) := by
       rw [herase, fvarLeaves_fvar]
     rw [fvarLeavesGo.eq_def]
     split
@@ -542,7 +542,7 @@ theorem fvarLeavesGo_spec : ∀ {e : ExprC},
             (fun l h => by rw [leavesEr_cons]; exact List.mem_cons_of_mem _ h)
             (fun _ h => h))
           hGty
-        rcases hp : fvarLeavesGo ((idx, n, ty) :: acc) (seen.insert _ ()) ty
+        rcases hp : fvarLeavesGo ((idx, ty) :: acc) (seen.insert _ ()) ty
           with ⟨acc1, seen1⟩
         rw [hp] at h2 h3
         have hmem : ∀ l, l ∈ leavesEr acc1 ↔
@@ -808,19 +808,19 @@ def LeafBase (bl : List (Nat × ExprC))
 
 /-- `leafMem` decides membership in the erased list. -/
 theorem leafMem_iff : ∀ {bl : List (Nat × ExprC)},
-    ∀ {idx : Nat} {nm : Name} {ty : ExprC},
-      (leafMem bl idx nm ty = true ↔ (idx, nm, ty) ∈ leavesEr bl) := by
+    ∀ {idx : Nat} {ty : ExprC},
+      (leafMem bl idx ty = true ↔ (idx, (ty : Expr)) ∈ leavesEr bl) := by
   intro bl
   induction bl with
-  | nil => intro idx nm ty; simp [leafMem]
+  | nil => intro idx ty; simp [leafMem]
   | cons p rest ih =>
-    obtain ⟨i, n, t⟩ := p
-    intro idx nm ty
-    rw [show leafMem ((i, n, t) :: rest) idx nm ty
-        = ((i == idx && n == nm && (t == ty)) || leafMem rest idx nm ty)
+    obtain ⟨i, t⟩ := p
+    intro idx ty
+    rw [show leafMem ((i, t) :: rest) idx ty
+        = ((i == idx && (t == ty)) || leafMem rest idx ty)
       from rfl]
     rw [leavesEr_cons, List.mem_cons, Bool.or_eq_true, ih,
-      Bool.and_eq_true, Bool.and_eq_true, beq_iff_eq, beq_iff_eq,
+      Bool.and_eq_true, beq_iff_eq,
       beq_iff (a := t)]
     simp only [Prod.mk.injEq]
     grind
@@ -828,8 +828,8 @@ theorem leafMem_iff : ∀ {bl : List (Nat × ExprC)},
 /-- …hence agrees with the `Expr`-side `contains` on a `LeafBase`. -/
 theorem leafMem_spec {bl : List (Nat × ExprC)}
     {B' : List (Nat × Expr)} (h : LeafBase bl B')
-    {idx : Nat} {nm : Name} {ty : ExprC} :
-    leafMem bl idx nm ty = B'.contains (idx, nm, ty) := by
+    {idx : Nat} {ty : ExprC} :
+    leafMem bl idx ty = B'.contains (idx, (ty : Expr)) := by
   rw [Bool.eq_iff_iff, List.contains_eq_mem, decide_eq_true_iff,
     leafMem_iff, h]
 
@@ -932,7 +932,7 @@ theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
   | fvar idx ty iht =>
     intro memo hm
     have hlv : (Expr.fvarLeaves (Expr.fvar idx ty))
-        = (idx, n, ty) :: (Expr.fvarLeaves ty) := fvarLeaves_fvar ..
+        = (idx, ty) :: (Expr.fvarLeaves ty) := fvarLeaves_fvar ..
     rw [leavesSubGo.eq_def]
     split
     · rename_i hcut

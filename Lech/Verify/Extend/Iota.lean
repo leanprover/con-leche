@@ -433,7 +433,7 @@ theorem nestedRuleShape_inv {env' envSelf : Env} {cvName : Name}
       pin.allLevelParamsDefined lps = true ∧
       pin.constsResolve envSelf = true ∧
       pin.looseBVarsBounded rP = true) ∧
-    ∃ pre nm dom body bm D,
+    ∃ pre dom body bm D,
       tyA.stripPis mI = some (pre, .forallE dom body bm) ∧
       dom.getAppFn = .const D lvls ∧
       dom.getAppArgs =
@@ -484,7 +484,7 @@ theorem nestedRuleShape_inv {env' envSelf : Env} {cvName : Name}
       (Expr.lowerBVars (mI - rP) 0)).length = cnP := by
     rw [List.length_map, List.length_take, hlen]
     omega
-  refine ⟨hcond1.2, ?_, ?_, pre, nm, dom, body, bm, D, rfl, hfn,
+  refine ⟨hcond1.2, ?_, ?_, pre, dom, body, bm, D, rfl, hfn,
     ?_, hplen⟩
   · intro l hl
     exact List.all_eq_true.mp hlvlsAll l hl
@@ -826,7 +826,7 @@ def RuleChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Na
         pin.allLevelParamsDefined cvA.levelParams = true ∧
         pin.constsResolve env₀ = true ∧
         pin.looseBVarsBounded rP = true) ∧
-      (∃ pre nm dom body bm D,
+      (∃ pre dom body bm D,
         cvA.type.stripPis mI = some (pre, .forallE dom body bm) ∧
         dom.getAppFn = .const D lvls ∧
         dom.getAppArgs =
@@ -993,10 +993,10 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
         intro lvls' pins' hf
         obtain ⟨rfl, rfl⟩ := RecRuleFire.nested.inj
           (hf : RecRuleFire.nested lvls pins = .nested lvls' pins')
-        obtain ⟨hmi, hlvls, hpins, pre, nm, dom, body, bm, D, hstrip,
+        obtain ⟨hmi, hlvls, hpins, pre, dom, body, bm, D, hstrip,
           hfn, hpinsEq, hpinsLen⟩ := nestedRuleShape_inv hshape
         exact ⟨hmi, hlvls, hpins,
-          ⟨pre, nm, dom, body, bm, D, hstrip, hfn, hpinsEq⟩, hpinsLen,
+          ⟨pre, dom, body, bm, D, hstrip, hfn, hpinsEq⟩, hpinsLen,
           hkit⟩
 
 /-- Invert a successful `checkIotaRules` run: every returned rule
@@ -1072,8 +1072,8 @@ def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
     cvmT.type.stripPis caps.etaParams = some (tbindersM, tbodyM) ∧
     (∀ (k : Nat) (b b' : Expr × BinderMeta), k < caps.etaParams →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
-      b.2.1 = b'.2.1) ∧
-    (∃ nx mx, sbinders[caps.etaParams]? = some (nx,
+      b.1 = b'.1) ∧
+    (∃ mx, sbinders[caps.etaParams]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range caps.etaParams).map fun k =>
           Expr.bvar (caps.etaParams - 1 - k)), mx)) ∧
@@ -1108,12 +1108,12 @@ def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
     (∀ (k : Nat) (b b' : Expr × BinderMeta),
       k < caps.unitParams →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
-      b.2.1 = b'.2.1) ∧
-    (∃ nx mx, sbinders[caps.unitParams]? = some (nx,
+      b.1 = b'.1) ∧
+    (∃ mx, sbinders[caps.unitParams]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range caps.unitParams).map fun k =>
           Expr.bvar (caps.unitParams - 1 - k)), mx)) ∧
-    (∃ ny my, sbinders[caps.unitParams + 1]? = some (ny,
+    (∃ my, sbinders[caps.unitParams + 1]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range caps.unitParams).map fun k =>
           Expr.bvar (caps.unitParams - k)), my)) ∧
@@ -1143,11 +1143,11 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
       cvmT.type.stripPis nP = some (tbindersM, tbodyM) ∧
       (∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
         sbinders[k]? = some b → tbindersM[k]? = some b' →
-        b.2.1 = b'.2.1) ∧
-      (∃ nx mx, sbinders[nP]? = some (nx,
+        b.1 = b'.1) ∧
+      (∃ mx, sbinders[nP]? = some (
         Expr.mkAppN (.const (T.str "_model") (lps.map .param))
           ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx)) ∧
-      (∃ ny my, sbinders[nP + 1]? = some (ny,
+      (∃ my, sbinders[nP + 1]? = some (
         Expr.mkAppN (.const (T.str "_model") (lps.map .param))
           ((List.range nP).map fun k => Expr.bvar (nP - k)), my)) ∧
       sbody = Expr.mkAppN (.const eqName [ℓA])
@@ -1200,28 +1200,28 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   obtain ⟨⟨⟨hdomsB, hxdomB⟩, hydomB⟩, hbodyB⟩ := hrest
   have hdoms : ∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
-      b.2.1 = b'.2.1 := by
+      b.1 = b'.1 := by
     intro k b b' hk hb hb'
     exact domsMatchAux_inv hdomsB hk
       (by rw [Nat.zero_add]; exact hb) (by rw [Nat.zero_add]; exact hb')
-  have hxdom : ∃ nx mx, sbinders[nP]? = some (nx,
+  have hxdom : ∃ mx, sbinders[nP]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx) := by
     revert hxdomB
     match hbx : sbinders[nP]? with
     | none => intro hx; exact nomatch hx
-    | some (nx, xdom, mx) =>
+    | some (xdom, mx) =>
       intro hx
-      exact ⟨nx, mx, by rw [eq_of_beq hx]⟩
-  have hydom : ∃ ny my, sbinders[nP + 1]? = some (ny,
+      exact ⟨mx, by rw [eq_of_beq hx]⟩
+  have hydom : ∃ my, sbinders[nP + 1]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range nP).map fun k => Expr.bvar (nP - k)), my) := by
     revert hydomB
     match hby : sbinders[nP + 1]? with
     | none => intro hy; exact nomatch hy
-    | some (ny, ydom, my) =>
+    | some (ydom, my) =>
       intro hy
-      exact ⟨ny, my, by rw [eq_of_beq hy]⟩
+      exact ⟨my, by rw [eq_of_beq hy]⟩
   revert hbodyB
   match hsb : sbody with
   | .app (.app (.app (.const c ℓs) tySlot) lhsC) rhsC => ?_
@@ -1306,8 +1306,8 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
       cvmT.type.stripPis nP = some (tbindersM, tbodyM) ∧
       (∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
         sbinders[k]? = some b → tbindersM[k]? = some b' →
-        b.2.1 = b'.2.1) ∧
-      (∃ nx mx, sbinders[nP]? = some (nx,
+        b.1 = b'.1) ∧
+      (∃ mx, sbinders[nP]? = some (
         Expr.mkAppN (.const (T.str "_model") (lps.map .param))
           ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx)) ∧
       sbody = Expr.mkAppN (.const eqName [ℓA])
@@ -1394,19 +1394,19 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   have htMlen : tbindersM.length = nP := Expr.stripPis_length _ hTm_strip
   have hdoms : ∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
-      b.2.1 = b'.2.1 := by
+      b.1 = b'.1 := by
     intro k b b' hk hb hb'
     exact domsMatchAux_inv hdomsB hk
       (by rw [Nat.zero_add]; exact hb) (by rw [Nat.zero_add]; exact hb')
-  have hxdom : ∃ nx mx, sbinders[nP]? = some (nx,
+  have hxdom : ∃ mx, sbinders[nP]? = some (
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx) := by
     revert hxdomB
     match hbx : sbinders[nP]? with
     | none => intro hx; exact nomatch hx
-    | some (nx, xdom, mx) =>
+    | some (xdom, mx) =>
       intro hx
-      exact ⟨nx, mx, by rw [eq_of_beq hx]⟩
+      exact ⟨mx, by rw [eq_of_beq hx]⟩
   revert hbodyB
   match hsb : sbody with
   | .app (.app (.app (.const c ℓs) tySlot) lhsC) rhsC => ?_
