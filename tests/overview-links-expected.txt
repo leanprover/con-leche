@@ -182,8 +182,8 @@
    102    pw : PropWhen
    103    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1268
-  1268  `.trusted` / `.verified` (`trusted_agrees_P_skels_shipped`). -/
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1278
+  1278  `.trusted` / `.verified` (`trusted_agrees_P_skels_shipped`). -/
 
 == ConLeche/VExpr/Syntax.lean#L165-L179
    165  inductive VExpr where
@@ -492,11 +492,11 @@
 == ConLeche/Kernel/Direct/SumInstall.lean#L158
    158  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr
 
-== ConLeche/Kernel/Direct/RecInstall.lean#L212
-   212  def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
+== ConLeche/Kernel/Direct/RecInstall.lean#L224
+   224  def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
 
-== ConLeche/Kernel/Direct/RecInstall.lean#L228
-   228  def checkDirectFix (ops : CheckerOps m) (env : Env) (p₀ : DirectFixParts) : m Env := do
+== ConLeche/Kernel/Direct/RecInstall.lean#L240
+   240  def checkDirectFix (ops : CheckerOps m) (env : Env) (p₀ : DirectFixParts) : m Env := do
 
 == ConLeche/SetModel/Value.lean#L517-L524
    517  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w

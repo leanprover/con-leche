@@ -582,7 +582,11 @@ kernel's nested→mutual specialisation mints one per mimic), and
 outright, measured over every block of Mathlib (task #219).  Those
 blocks are the in-process modeller's.  A reflexive field is taken at
 every sort (task #202); a block with no constructor is this route's
-too (`FixKI₀.hsq` at most one). -/
+too (`FixKI₀.hsq` at most one).  What the block's RECURSOR RECORD claims is
+not a condition of recognition (task #220): its structural pin travels
+with the record (`directFixRecPinOk`) and the install throws on it, so
+that a block whose recursor record is a stub is REJECTED by its own
+type and constructors rather than declined. -/
 def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
   (directFixShape? block).map fun p => ⟨p, [], directFixRecPinOk p block⟩
 
