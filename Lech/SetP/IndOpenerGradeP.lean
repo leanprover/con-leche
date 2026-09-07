@@ -61,7 +61,7 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       ∃ ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped K x)
-    (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
+    (hlbFvs : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Γs : List AVExpr} (hΓslen : Γs.length = K)
     (hdomsS0 : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
@@ -108,7 +108,7 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
       have h := hwsFvs _ hmem
       simp only [Expr.WScoped] at h
       exact h.2
-    have hb := hlbFvs mIdx nm ty hmem
+    have hb := hlbFvs mIdx ty hmem
     have hden : denoteP m.acval env φ mIdx ty
         = some (Γs.getD (K - 1 - mIdx) default) := hdomsS0 mIdx _ hx
     exact denote_bvarsBelow m.cval_closed mIdx ty hws hb

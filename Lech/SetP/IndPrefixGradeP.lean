@@ -63,7 +63,7 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
     (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvs)
-    (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
+    (hlbFvs : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Tstmt : AVExpr} {Γs : List AVExpr} {Rbody : AVExpr}
     (htowerS : PiTeleP (rP + cnF) Tstmt Γs Rbody)
@@ -147,15 +147,15 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
     intro n hn
     rcases hx : fvs[n]? with _ | x
     · rw [List.getElem?_eq_none_iff] at hx; omega
-    · obtain ⟨nm, ty, rfl⟩ := hshapeS n x hx
-      exact ⟨_, _, rfl⟩
+    · obtain ⟨ty, rfl⟩ := hshapeS n x hx
+      exact ⟨_, rfl⟩
   have hfvsPAt : ∀ n, n < rP →
       ∃ ty, fvsP[n]? = some (.fvar n ty) := by
     intro n hn
     rcases hx : fvsP[n]? with _ | x
     · rw [List.getElem?_eq_none_iff] at hx; omega
-    · obtain ⟨nm, ty, rfl⟩ := hshapeP n x hx
-      exact ⟨_, _, rfl⟩
+    · obtain ⟨ty, rfl⟩ := hshapeP n x hx
+      exact ⟨_, rfl⟩
   -- the recursor run's per-index scope
   have hwsRdAll : ∀ n, n < rP → Expr.WScoped n (rdoms.getD n default) := by
     intro n hn
@@ -234,8 +234,8 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
   induction n using Nat.strongRecOn with
   | _ n ihn =>
   intro hnN hnrP
-  obtain ⟨nm, ty, hx⟩ := hfvsAt n (by omega)
-  obtain ⟨nmP, tyP, hxP⟩ := hfvsPAt n hnrP
+  obtain ⟨ty, hx⟩ := hfvsAt n (by omega)
+  obtain ⟨tyP, hxP⟩ := hfvsPAt n hnrP
   have hmemFvs : Expr.fvar n ty ∈ fvs := List.mem_of_getElem? hx
   have hwsTy : Expr.WScoped n ty := by
     have h' := hwsFvs _ hmemFvs
@@ -331,10 +331,10 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
       rfl] at h
     exact h
   have hLbTy : Expr.LeavesBounded ty := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafTy l hl)
+    hlbFvs l.1 l.2 (hleafTy l hl)
   have hLbRd : Expr.LeavesBounded (rdoms.getD n default) := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafRd l hl)
-  have hbTy : ty.looseBVarsBounded 0 = true := hlbFvs n nm ty hmemFvs
+    hlbFvs l.1 l.2 (hleafRd l hl)
+  have hbTy : ty.looseBVarsBounded 0 = true := hlbFvs n ty hmemFvs
   have hbRd : (rdoms.getD n default).looseBVarsBounded 0 = true :=
     hbRdAll n hnrP
   have hshiftEnv : ∀ ρ0 : Nat → V,

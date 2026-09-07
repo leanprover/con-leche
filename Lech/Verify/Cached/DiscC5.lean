@@ -42,7 +42,7 @@ private theorem beq_transferC {i j : ExprC} {a b : Expr}
 bridges of the interned original collapse (the cached representation
 stores `Name`s and `BinderMeta`s directly). -/
 private theorem defeqC_etaR_arm (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {a' b' t₂ b₂ : ExprC} {a'x ty₂x body₂x : Expr} {nm₂x : Name}
+    {d : Nat} {a' b' t₂ b₂ : ExprC} {a'x ty₂x body₂x : Expr}
     {bm₂ : BinderMeta} {s₀ : CState} (hs : CSOK mode env s₀)
     (haS : RelC a' a'x)
     (hty₂ : RelC t₂ ty₂x)
@@ -52,10 +52,10 @@ private theorem defeqC_etaR_arm (hμ : mode.verifiedChecks = true) (ih : SSimC m
     (hwb' : Expr.WScoped d (Expr.lam ty₂x body₂x bm₂)) :
     SimC mode env s₀ RelVC
       (etaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
-          nm₂x t₂ b₂ bm₂ a' >>= fun r =>
+          t₂ b₂ bm₂ a' >>= fun r =>
         if r then pure true
         else stuckIrrelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
-      (etaCert mode (fueledFns mode env) env d nm₂x ty₂x body₂x bm₂
+      (etaCert mode (fueledFns mode env) env d ty₂x body₂x bm₂
           a'x >>= fun r =>
         if r then pure true
         else stuckIrrel mode (fueledFns mode env) env d a'x
@@ -75,7 +75,7 @@ private theorem defeqC_etaR_arm (hμ : mode.verifiedChecks = true) (ih : SSimC m
 
 /-- The one-sided-λ (left) stuck arm. -/
 private theorem defeqC_etaL_arm (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {a' b' t₁ b₁ : ExprC} {b'x ty₁x body₁x : Expr} {nm₁x : Name}
+    {d : Nat} {a' b' t₁ b₁ : ExprC} {b'x ty₁x body₁x : Expr}
     {bm₁ : BinderMeta} {s₀ : CState} (hs : CSOK mode env s₀)
     (haS : RelC a' (.lam ty₁x body₁x bm₁))
     (hty₁ : RelC t₁ ty₁x)
@@ -85,10 +85,10 @@ private theorem defeqC_etaL_arm (hμ : mode.verifiedChecks = true) (ih : SSimC m
     (hwb' : Expr.WScoped d b'x) :
     SimC mode env s₀ RelVC
       (etaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
-          nm₁x t₁ b₁ bm₁ b' >>= fun r =>
+          t₁ b₁ bm₁ b' >>= fun r =>
         if r then pure true
         else stuckIrrelI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a' b')
-      (etaCert mode (fueledFns mode env) env d nm₁x ty₁x body₁x bm₁
+      (etaCert mode (fueledFns mode env) env d ty₁x body₁x bm₁
           b'x >>= fun r =>
         if r then pure true
         else stuckIrrel mode (fueledFns mode env) env d

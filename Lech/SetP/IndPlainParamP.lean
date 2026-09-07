@@ -60,7 +60,7 @@ theorem plainParamSupplyP {m : EnvS2Core V env} {F : Nat}
     (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     (hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvsP)
-    (hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
+    (hlbFvsP : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)

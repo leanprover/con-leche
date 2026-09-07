@@ -60,7 +60,7 @@ theorem zipperP {m : EnvS2Core V env} {F : Nat}
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
     (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvs)
-    (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
+    (hlbFvs : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Tstmt : AVExpr} {Γs : List AVExpr} {Rbody : AVExpr}
     (htowerS : PiTeleP (rP + cnF) Tstmt Γs Rbody)

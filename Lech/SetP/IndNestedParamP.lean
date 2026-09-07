@@ -110,7 +110,7 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
     (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     (hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvsP)
-    (hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
+    (hlbFvsP : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)
@@ -331,12 +331,12 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
   -- the inferred type's reading (the totality residue)
   obtain ⟨ta, hta⟩ := hreads hInf (hpinWs _ (hpinMem q hq))
     (hpinB _ (hpinMem q hq))
-    (fun l hl => hlbFvsP l.1 l.2.1 l.2.2 (hpinLeaf _ (hpinMem q hq) l hl).1)
+    (fun l hl => hlbFvsP l.1 l.2 (hpinLeaf _ (hpinMem q hq) l hl).1)
     (LeafReadsP.of_ctxOkP (hctxPin q hq)) hw
   -- the inference claim: the pin is graded and inhabits its type
   obtain ⟨hgw, hgta, hmem⟩ := hinfC hInf (hpinWs _ (hpinMem q hq))
     (hpinB _ (hpinMem q hq))
-    (fun l hl => hlbFvsP l.1 l.2.1 l.2.2 (hpinLeaf _ (hpinMem q hq) l hl).1)
+    (fun l hl => hlbFvsP l.1 l.2 (hpinLeaf _ (hpinMem q hq) l hl).1)
     (hctxPin q hq) hw hta
   -- the inferred type's syntactic frame (a run's tax, part 4's lesson)
   have hwsTy : Expr.WScoped K ty :=
@@ -349,7 +349,7 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
   have hbTy : ty.looseBVarsBounded 0 = true :=
     inferTypeCore_looseBVars m.wf F hInf (hpinWs _ (hpinMem q hq))
       (hpinB _ (hpinMem q hq))
-      (fun l hl => hlbFvsP l.1 l.2.1 l.2.2
+      (fun l hl => hlbFvsP l.1 l.2
         (hpinLeaf _ (hpinMem q hq) l hl).1)
   intro ρ' hsat
   refine ⟨w, hw, hgw ρ' hsat, ?_⟩
@@ -375,9 +375,9 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
   have hfire := defEqAtP_of_run (m := m) hclaims (k := K) (fvs := fvsP)
     (Aa := fun i => ΓP.getD (rP - 1 - i) default) (Δa := Δb) hΔblen
     hshapeP hwsFvsPK hdomsP0 (n := rP) hΔbent hokAll hDeq hwsTy hbTy
-    (fun l hl => hlbFvsP l.1 l.2.1 l.2.2 (hleafTy l hl).1)
+    (fun l hl => hlbFvsP l.1 l.2 (hleafTy l hl).1)
     (hwsCdAll q hq) (hbCdAll q hq)
-    (fun l hl => hlbFvsP l.1 l.2.1 l.2.2 (hleafCdAll q hq l hl).1)
+    (fun l hl => hlbFvsP l.1 l.2 (hleafCdAll q hq l hl).1)
     (fun l hl => (hleafTy l hl).1) (fun l hl => (hleafTy l hl).2)
     (fun l hl => (hleafCdAll q hq l hl).1)
     (fun l hl => (hleafCdAll q hq l hl).2)
@@ -412,7 +412,7 @@ theorem nestedParamSupplyP {m : EnvS2Core V env} {F : Nat}
     (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     (hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvsP)
-    (hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
+    (hlbFvsP : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)

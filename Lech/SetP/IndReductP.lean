@@ -84,7 +84,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
     (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvs)
-    (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
+    (hlbFvs : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Tstmt : AVExpr} {Γs : List AVExpr} {Rbody : AVExpr}
     (htowerS : PiTeleP (rP + cnF) Tstmt Γs Rbody)
@@ -212,9 +212,9 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (fun i x hx => hdomsS0 i x hx) (n := rP + cnF)
     (fun i hi => hΔaent i hi)
     (fun i hi σ hσ => hokAll i hi σ hσ)
-    hdeRhs hwsR hbR (fun l hl => hlbFvs l.1 l.2.1 l.2.2 (hleafR l hl))
+    hdeRhs hwsR hbR (fun l hl => hlbFvs l.1 l.2 (hleafR l hl))
     hwsApp hbApp
-    (fun l hl => hlbFvs l.1 l.2.1 l.2.2 (hleafApp l hl))
+    (fun l hl => hlbFvs l.1 l.2 (hleafApp l hl))
     hleafR hltR hleafApp hltApp hvR hAppRead hokR
     (fun σ hσ => hokApp σ hσ _ hAppRead) hsat
   rw [hfire]

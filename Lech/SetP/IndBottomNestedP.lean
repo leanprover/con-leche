@@ -677,11 +677,11 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
   have hbR : rhsS.looseBVarsBounded 0 = true :=
     Lech.looseBVarsBounded_getAppArgs hbBody rhsS hmemR
   have hLα : Expr.LeavesBounded αS := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafα l hl)
+    hlbFvs l.1 l.2 (hleafα l hl)
   have hLL : Expr.LeavesBounded lhsS := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafL l hl)
+    hlbFvs l.1 l.2 (hleafL l hl)
   have hLR : Expr.LeavesBounded rhsS := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafR l hl)
+    hlbFvs l.1 l.2 (hleafR l hl)
   have hokA : ∀ i, i < rP + cnF → ∀ σ : Nat → V, Sat2 V Γs σ →
       AnnotOkP V (fun j => σ (j + (rP + cnF - 1 - i) + 1))
         (Γs.getD (rP + cnF - 1 - i) default) := by
@@ -1028,9 +1028,9 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
   have hbTr : tr.looseBVarsBounded 0 = true :=
     inferTypeCore_looseBVars mp.base2.wf F hInfR hwsR hbR hLR
   have hLTl : Expr.LeavesBounded tl := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafTl l hl)
+    hlbFvs l.1 l.2 (hleafTl l hl)
   have hLTr : Expr.LeavesBounded tr := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafTr l hl)
+    hlbFvs l.1 l.2 (hleafTr l hl)
   obtain ⟨tla, htla⟩ := hreadsP (Level.substFn φ lps us) hInfL hwsL hbL
     hLL (LeafReadsP.of_ctxOkP (hctxOf lhsS hleafL hltL)) hvl0
   obtain ⟨tra, htra⟩ := hreadsP (Level.substFn φ lps us) hInfR hwsR hbR
@@ -1236,7 +1236,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
         ty.looseBVarsBounded 0 = true := by
     intro i nm ty hmem
     rcases List.mem_append.mp hmem with h' | h'
-    · exact hlbFvsP i nm ty h'
+    · exact hlbFvsP i ty h'
     · exact (openPisAtFvars_bounded cnF hopenXP hbCrestP).2 _ h'
   have hPleafClosed : ∀ l, (∃ x ∈ fvsP ++ xFvsP, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvsP ++ xFvsP := by

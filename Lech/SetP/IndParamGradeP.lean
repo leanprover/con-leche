@@ -64,7 +64,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
     (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     (hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvsP)
-    (hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
+    (hlbFvsP : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)
@@ -104,8 +104,8 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
     intro n hn
     rcases hx : fvsP[n]? with _ | x
     · rw [List.getElem?_eq_none_iff] at hx; omega
-    · obtain ⟨nm, ty, rfl⟩ := hshapeP n x hx
-      exact ⟨_, _, rfl⟩
+    · obtain ⟨ty, rfl⟩ := hshapeP n x hx
+      exact ⟨_, rfl⟩
   -- the tower's slots are graded by satisfaction alone
   have hokAll : ∀ i, i < rP → ∀ ρ0 : Nat → V, Sat2 V Δb ρ0 →
       AnnotOkP V (fun j => ρ0 (j + (K - 1 - i) + 1))
@@ -232,7 +232,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
   induction q using Nat.strongRecOn with
   | _ q ihq =>
   intro hq
-  obtain ⟨nmP, tyP, hxP⟩ := hfvsPAt q (by omega)
+  obtain ⟨tyP, hxP⟩ := hfvsPAt q (by omega)
   have hmemFvsP : Expr.fvar q tyP ∈ fvsP := List.mem_of_getElem? hxP
   have hwsTyP : Expr.WScoped q tyP := by
     have h' := hwsFvsP _ hmemFvsP
@@ -246,7 +246,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
   have hltTyP : ∀ l ∈ tyP.fvarLeaves, l.1 < q :=
     Expr.fvarLeaves_lt_of_wscoped hwsTyP
   have hbTyP : tyP.looseBVarsBounded 0 = true :=
-    hlbFvsP q nmP tyP hmemFvsP
+    hlbFvsP q tyP hmemFvsP
   -- the a-side reading at the ambient depth
   have hdomTyP : denoteP m.acval env φ q tyP
       = some (ΓP.getD (rP - 1 - q) default) := hdomsP0 q _ hxP
@@ -293,9 +293,9 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
       rfl] at h
     exact h
   have hLbTyP : Expr.LeavesBounded tyP := fun l hl =>
-    hlbFvsP l.1 l.2.1 l.2.2 (hleafTyP l hl)
+    hlbFvsP l.1 l.2 (hleafTyP l hl)
   have hLbCd : Expr.LeavesBounded (cdomsP.getD q default) := fun l hl =>
-    hlbFvsP l.1 l.2.1 l.2.2 (hleafCdAll q hq l hl).1
+    hlbFvsP l.1 l.2 (hleafCdAll q hq l hl).1
   have hfire := defEqAtP_of_run (m := m) hclaims (k := K) (fvs := fvsP)
     (Aa := fun i => ΓP.getD (rP - 1 - i) default) (Δa := Δb) hΔblen
     hshapeP (fun x hx => (hwsFvsP x hx).mono (by omega))

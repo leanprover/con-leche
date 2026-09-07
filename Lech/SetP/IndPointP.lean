@@ -74,7 +74,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       ∃ ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
-    (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
+    (hlbFvs : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Tstmt : AVExpr} {Γs : List AVExpr} {Rbody : AVExpr}
     (htowerS : PiTeleP (rP + cnF) Tstmt Γs Rbody)
@@ -340,14 +340,14 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
           Lech.looseBVarsBounded_getAppArgs hbLhs ai
             (List.mem_of_getElem? hai)
         have hLA : Expr.LeavesBounded ai := fun l hl =>
-          hlbFvs l.1 l.2.1 l.2.2 (hleafA l hl)
+          hlbFvs l.1 l.2 (hleafA l hl)
         have hwsB : Expr.WScoped (rP + cnF) bx :=
           hwsCres.getAppArgs bx (List.mem_of_getElem? hbx)
         have hbB : bx.looseBVarsBounded 0 = true :=
           Lech.looseBVarsBounded_getAppArgs hbCres bx
             (List.mem_of_getElem? hbx)
         have hLB : Expr.LeavesBounded bx := fun l hl =>
-          hlbFvs l.1 l.2.1 l.2.2 (hleafB l hl)
+          hlbFvs l.1 l.2 (hleafB l hl)
         -- the residual's read spine
         have hvCres1 : denoteP m.acval env ψ' (rP + cnF)
             (Expr.mkAppN cres.getAppFn cres.getAppArgs)
