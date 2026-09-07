@@ -263,19 +263,19 @@ theorem Expr.shiftFromN_fvar (p : Nat) :
       ∃ (ty' : Expr),
         Expr.shiftFromN p n (Expr.fvar idx ty)
           = Expr.fvar (if idx < p then idx else idx + n) ty'
-  | 0, idx, nm, ty => ⟨nm, ty, by
+  | 0, idx, ty => ⟨ty, by
       show Expr.fvar idx ty = _
       by_cases h : idx < p
       · rw [if_pos h]
       · rw [if_neg h, Nat.add_zero]⟩
-  | n + 1, idx, nm, ty => by
-    obtain ⟨nm', ty', hn⟩ := Expr.shiftFromN_fvar p n idx nm ty
+  | n + 1, idx, ty => by
+    obtain ⟨ty', hn⟩ := Expr.shiftFromN_fvar p n idx ty
     by_cases h : idx < p
-    · refine ⟨nm', ty', ?_⟩
+    · refine ⟨ty', ?_⟩
       show Expr.shiftFrom p (Expr.shiftFromN p n (Expr.fvar idx ty)) = _
       rw [hn, if_pos h, if_pos h]
       simp only [Expr.shiftFrom, if_neg (show ¬ idx ≥ p from by omega)]
-    · refine ⟨nm', Expr.shiftFrom p ty', ?_⟩
+    · refine ⟨Expr.shiftFrom p ty', ?_⟩
       show Expr.shiftFrom p (Expr.shiftFromN p n (Expr.fvar idx ty)) = _
       rw [hn, if_neg h, if_neg h,
         show idx + (n + 1) = idx + n + 1 from by omega]

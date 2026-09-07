@@ -94,7 +94,7 @@ theorem denoteP_instSeq_shift {m : EnvS2Core V env} {ψ : Name → Nat} {p o d t
     | some a =>
       rw [hA, Option.map_some, Option.some.injEq] at ha₁
       obtain ⟨ia, nma, nmb, tya, tyb, rfl, hb⟩ := hAB k a a₂ hA ha₂
-      obtain ⟨nm', ty', hsh⟩ := Expr.shiftFromN_fvar p o ia nma tya
+      obtain ⟨ty', hsh⟩ := Expr.shiftFromN_fvar p o ia tya
       rw [← ha₁, hsh, hb]
       exact Eq.refl _
   rw [denoteP_erasedEq herased (d + o)] at hshift
