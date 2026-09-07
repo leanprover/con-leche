@@ -165,6 +165,18 @@ holding the recursor's constant. -/
 def checkDirectFixRec (ops : CheckerOps m) (env : Env) (p : DirectFixParts)
     (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
     m (ConstantVal × List Expr) := do
+  -- THE RECURSOR PIN (task #220), split off the type-and-constructor
+  -- gate above and thrown here: official generates the recursor and its
+  -- replay compares the exported record with the generated one
+  -- structurally, so a record naming something other than the generated
+  -- `T.rec` ("No such recursor") or contradicting it in its argument
+  -- sums or its rules ("Invalid recursor") is INVALID INPUT
+  unless p.cvR.name == p.cvT.name.str "rec" do
+    throw (.invalid "direct rec: the block's recursor is not the generated T.rec")
+  unless directFixRecLpsOk p.toDirectSumParts do
+    throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
+  unless p.recPinned do
+    throw (.invalid "direct rec: the recursor record is not the generated recursor")
   let cvRi ← checkConstantVal ops env p.cvR
   let T := p.cvT.name
   let lps := p.cvT.levelParams

@@ -219,8 +219,13 @@ def checkDirectSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
   let cvCa ← normCtorVal ops env T nP nF cvC cvCa₀
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
+  -- official's `is_valid_ind_app` on the constructor's result
+  -- ("invalid return type for 'C'", `check_constructors`): a REJECT,
+  -- not a decline (task #220) — the head must be the block at its own
+  -- level parameters, applied to exactly the parameters and `nIdx`
+  -- further arguments
   unless directCtorResidOk T lps nP nF nIdx cbody do
-    throw (.notImplemented "direct sum: constructor result")
+    throw (.invalid "direct sum: invalid constructor return type")
   let cq ← unwrapOr (openPisAtFvars nP cvCa.type 0)
     (.notImplemented "direct sum: constructor telescope")
   let tq ← unwrapOr (openPisAtFvars nP cvTa.type 0)

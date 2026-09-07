@@ -72,8 +72,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     obtain ⟨hlP, -, -⟩ := ConLeche.checkDirectSumCtors_inv hCtorsP
     obtain ⟨-, sP, -, -, -, rfl, -, -, -⟩ := ConLeche.checkDirectSumInd_shape hIndP
     rw [hlK, hlP]; simp
-  obtain ⟨-, hRname₀, hClps₀, hresT₀, hresR₀, helimR₀, hRlps₀, -, -⟩ :=
-    ConLeche.directFixShape?_inv hshape
+  obtain ⟨-, hClps₀, hresT₀, hresR₀⟩ := ConLeche.directFixShape?_inv hshape
   -- the former: its run completed the record with the sort it read
   -- (task #195; task #210 Part B: on this route too) — every later
   -- stage runs on the completed record `p`, and the recogniser's
@@ -107,10 +106,11 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hlenK : p.kinds.length = p.ctors.length := by rw [hpK, hpC]; exact hlenK₀
   have hClps : ∀ c ∈ p.ctors, c.1.levelParams = p.cvT.levelParams ∧
       ConLeche.reservedBasisNames.contains c.1.name = false := by rw [hpC, hpT]; exact hClps₀
-  have helimR : p.large = true → p.elim ∈ p.cvR.levelParams := by
-    rw [hpL, hpE, hpR]; exact helimR₀
-  have hRlps : ∀ q ∈ p.cvT.levelParams, q ∈ p.cvR.levelParams := by rw [hpT, hpR]; exact hRlps₀
-  have hRname : p.cvR.name = p.cvT.name.str "rec" := by rw [hpR, hpT]; exact hRname₀
+  -- the recursor's NAME and its LEVEL PARAMETERS are the RECURSOR
+  -- STAGE's pins since task #220 (the recogniser no longer refuses a
+  -- block over its recursor record; the stage REJECTS it, as
+  -- official's replay does)
+  obtain ⟨hRname, helimR, hRlps⟩ := ConLeche.checkDirectFixRec_pins hRec
   have hresT : ConLeche.reservedBasisNames.contains p.cvT.name = false := by
     rw [hpT]; exact hresT₀
   have hresR : ConLeche.reservedBasisNames.contains p.cvR.name = false := by
