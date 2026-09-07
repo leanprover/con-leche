@@ -57123,3 +57123,151 @@ node to allocate, hash and compare; no `Name.beq` per binder in
 deltas inside the difference-of-large-cells noise (t2 `--verified`'s
 +0.48 G target-only sits on a −6.5 G full cell).  Verdicts and
 accepted counts identical in every cell.
+
+## TASK #209 — THE RETIRED DECLARATIVE LANE'S REMNANTS (2026-09-07, `agent/ttcruft`)
+
+User directive, on being shown that `Lech/TT/*` still carried a
+judgment nothing read: *"Oh, so we have such cruft around? Schedule
+removal!"*, then, on the proposal to keep the syntax where it sat:
+*"Can we not remove all of `Lech/TT`?"*  After this task there is no
+`Lech/TT/` directory, no `Lech/TT.lean`, no `Lech.TT` namespace and no
+`Lech.TTVerify` namespace.  Net: **827 insertions, 8 429 deletions
+across 274 files**, and the checker binary is **byte-behaviour
+identical** — the only implementation files touched (`Kernel/Checker`,
+`Kernel/Core`, `Kernel/CoreIO`, `Kernel/StdAxioms`, `Kernel/Modeled`,
+`Kernel/TypeChecker`) changed doc comments and nothing else.
+
+### What was deleted
+
+| what | size | why it could go |
+|---|---|---|
+| `Lech/TT/Judgment.lean` (`HasType` + 30 rules) | 246 lines | its last reader went with `Lech/TT/Semantics/*` at #190; nothing in the tree mentions `HasType` |
+| `natStepT`, `quotInvT` (in `Judgment.lean`) | 2 defs | premise types of `Nat.rec`/`Quot.lift` rules that no longer exist |
+| `liftN_natStepT`, `inst_natStepT`, `liftN_quotInvT`, `inst_quotInvT` (`Verify/Denote/SubstAlgebra.lean`) | 4 `@[simp]` lemmas | `@[simp]` on constants **no other module mentions**, so they could never fire — the one non-obvious deletion, and the reason the brief's "move them next to their user" was not what happened: the user was itself dead |
+| `imax_zero`, `imax_of_ne` (`TT/Syntax.lean`) | 2 lemmas | unread; `imax_zero` was `@[simp]`, and the build confirms nothing depended on it firing |
+| `Lech/TT/DESIGN.md` | 885 lines | record of the deleted layer |
+| `Lech/TTVerify/DESIGN.md` | 6 607 lines | record of the lane deleted at #148 |
+
+### What moved
+
+**`Lech/TT/{Syntax,Subst,Const}.lean` → `Lech/VExpr/{Syntax,Subst,Const}.lean`,
+`namespace Lech.TT` → `namespace Lech.VExpr`.**  These three are not
+the declarative lane's; they are the erased term language the whole
+semantics tier is written in (`Semantics/*`, `SetModel/*`,
+`Verify/Denote/*` and `SetP/*` all read them).  With the theory above
+them gone the name `TT` denoted nothing, so they get **a base
+directory of their own rather than one consumer's**.  The alternative
+the brief offered, `Lech/Semantics/VExpr/*` under `namespace
+Lech.Semantics`, was rejected for two reasons: it would have made
+`SetModel/Value.lean` — "the pure set constructions" — import
+`Lech/Semantics/*`, and `Lech/Semantics/Syntax.lean` already exists
+(it holds `AVExpr`).  The stutter `Lech.VExpr.VExpr` for the datatype
+is the price; `open Lech.VExpr` then `VExpr` resolves as before,
+because a namespace that is not also a declaration is not a
+resolution candidate.
+
+**`namespace Lech.TTVerify` → `namespace Lech.Verify`.**  685
+declarations across 24 defining modules still carried the name of a
+directory deleted at #148; 17 of the 24 are `Lech/Verify/Denote/*`, so
+`Lech.Verify` *is* the module's own namespace.  Safe by measurement,
+not by hope:
+
+* **zero** tail collisions with the existing `Lech.Verify.*` (checked
+  by enumerating both constant sets in the built environment) — so no
+  duplicate full name, which the build would have caught anyway;
+* the silent risk is *re-resolution*, not duplication: Lean tries
+  enclosing-namespace prefixes before `open`s, so a name that gains a
+  `Lech.Verify.` form can out-resolve the `Lech.` form it used to
+  reach — but only from inside a `Lech.Verify` namespace.  Exactly
+  **two** tails have a `Lech.` twin (`Expr.getAppFn_instantiateLevelParams`,
+  `natOpGuard_cons`), and neither has an unqualified use from such a
+  position (their unqualified uses are in `Lech.SetP` and
+  `Lech.Semantics` modules, where the prefix chain is unchanged).
+  Call sites in other namespaces cannot shift for the same reason.
+
+One residue, reported not fixed: `Lech/Semantics/NatFrag.lean`
+declares `Lech.Verify.natFrag_subst_syntax`.  The file's own header
+says why it sits under `Semantics/` — `Expr.LeavesBounded` is
+`Verify/InferLeaves`'s, and pulling that into `Verify/NatOpFrag.lean`
+(where `natFragOk` lives, with which this belongs) would widen that
+module's cone for one definition.  Namespace and directory disagree
+there deliberately.
+
+**`Lech/TTVerify/DESIGN.md` §0/§25 and `Lech/TT/DESIGN.md` §3.1 →
+DESIGN.md `## House practices`.**  DESIGN.md called those sections
+"the house practices" and kept the 6 607-line file alive for them.
+They are now a section of this document: mechanize a consumer; follow
+the set model (look for the counterpart *before* designing); the five
+call-site tells; measure rare shapes because the suite does not cover
+them; an aside is an unexplored branch; a check whose input is
+produced by a cache measures the cache; owned errors (`Except.bind_ok`
+shadows, a stale olean makes a nonsensical `intro`); telescope shape
+and its named residue (absorb equations are not an adapter).  The
+instances are all from the retired lane; the rules are not, which is
+why they outlive it.  DESIGN.md's ~10 remaining `Lech/TT{,Verify}/DESIGN.md
+§N` citations sit in historical sections and are declared once, in the
+new section, as citations of a deleted file (resolvable only in git
+history).
+
+### The census: what else is dead
+
+A module-graph walk (importers computed with umbrella edges removed —
+`Lech.lean`, `Lech/{VExpr,SetModel,Semantics,SetP}.lean`,
+`Lech/Verify/Cached.lean` — from the real roots: the two executables,
+`PinDump`, `Lech.MainTheorem`, `Lech.Challenge`, `Lech.PinGen.Certs`
+and the modules `tests/` imports by name) leaves **ten** modules
+unreached.  One is the new umbrella.  The other **nine are alive and
+were kept**: each is a module whose *statement* is the deliverable, so
+nothing imports it and `lake build` is its only consumer.  Deleting
+any of them would delete a claim, not cruft.
+
+| module | non-umbrella importers | verdict |
+|---|---|---|
+| `Lech.VExpr` | none | umbrella (new) |
+| `Lech.SetTheory.Aczel` | none | **KEEP** — the realizability leaf: every field of the `SetTheory` class discharged on Aczel trees.  It is the evidence the whole development is not vacuous |
+| `Lech.SetTheory.Derive.Collapse` | none | **KEEP** — the design evidence that fixed the domain-relative collapse (two refutation horns + the forcing lemma) |
+| `Lech.Kernel.CoreP` | `Kernel.CheckerP`, `Verify.CoreP` | **KEEP** — the β-cert-gated knot; deliberately not reachable from `Main.lean` (the S9 seal), it is a statement subject |
+| `Lech.Kernel.CheckerP` | none | **KEEP** — that knot's driver instantiation, same reason |
+| `Lech.Verify.CoreP` | none | **KEEP** — the gated knot's equations and its one changed clause |
+| `Lech.Verify.AnnotDefense` | none | **KEEP** — `DefensiveSitesQuiet`, the task #161 P3 theorem *candidate*, statement-only by mandate |
+| `Lech.SetP.IndPinProbeP` | none | **KEEP** — the mechanized **refutation** of the nested-pin conjunct, on a stream the e2e suite accepts |
+| `Lech.Verify.Cached.AgreeFloor` | none | **KEEP** — task #172 B7 agreement theorems |
+| `Lech.Verify.Cached.AgreeAnnot` | none | **KEEP** — `annotate`'s config identity and the `pw` writes, same batch |
+
+**The finding worth keeping**: "imported by nothing" is not a dead-code
+criterion in a verification tree.  Roughly one module in fifty here is
+a leaf *on purpose* — a claim, a refutation, a witness, or a parked
+statement — and the only thing that distinguishes it from cruft is
+reading its header.  A future census should start from this table.
+
+Per-declaration: the surviving three `VExpr` modules were swept
+declaration by declaration (52 declarations, each grepped tree-wide
+outside its own file); the only unread pair was `imax_zero` /
+`imax_of_ne`, deleted above.
+
+### Gates
+
+`lake build` warning-free; `lake test`; `tests/layering.sh` (base 271
+/ P 191 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory — the theory
+prefix list now says `VExpr` where it said `TT`);
+`tests/trust-surface.sh` (18 escapes in 4 allowlisted files, 0
+outside); `tests/proofdeps.sh` regenerated once — **2 849 rows before
+and after, doors 0, departures 0**: the delta is exactly 21 **renames**,
+`Lech.TT.{Const,Subst,Syntax}` → `Lech.VExpr.{Const,Subst,Syntax}`
+across the 7 roots, which is neither a door nor a departure.
+**init-full raw through the default pipe**: accepted **53 127**
+declarations in `--verified` and in `--trusted`, matching master.
+
+`tests/arena.sh` is **RED at this tip and equally red on master
+`a92f687b`** — the same seven checks, verified by running the script
+in the master checkout with a freshly built binary: `E2E FAIL`
+`pre_decline_imax_field` (expected 0, got 2), `ind_mutual_param_defeq`
+(2→0), `ind_mutual_sort_defeq` (2→1), `ind_rec_struct_proj` (2→0), and
+`PRELUDE COUNT FAIL` on `natop_{order,before_eq,before_ble}` (expected
+35, got 88).  Everything else in the script passes on both
+(tutorial 90/92, e2e 170/174, annot 14/14, flags 8/8 and 16/16,
+progress 6/6, inmodel OK, axioms pinned at the three standard ones,
+trusted sweep as recorded).  Reported, not touched: this task changed
+no executable behaviour, so the fixture expectations are a separate
+lane's to regenerate.
+
