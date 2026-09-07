@@ -56035,3 +56035,28 @@ with `fieldRead`/`teleLen`/the Π-tower `recEntry` instead of
 `eisRead`) are the contract of the reading lane (`agent/reflexive-read`,
 `FixRecReadP`/`FixCtorReadsP`/`FixRuleDataP`/`FixRecDataP`/
 `FixCtorCrossP`), merged back here.
+
+**Census correction (sort scan, 2026-09-07; `_tmp/reflexive/sorts-*.txt`
+by a patched `_tmp/droptool/sortscan.py` — the tool's level/sort
+decoders assumed a different export shape).**  Every `.below`
+auxiliary of a reflexive `Prop` predicate is itself `Prop`-valued
+(`sort=0`), not `Type`-valued as `_tmp/droptool/CHECKLIST.md` §2.2
+assumed; `Acc.below` carries the large eliminator like `Acc`.  So the
+41 Mathlib blocks split as: **34 `Prop` with the small eliminator
+(Stage A1, the `fix` route)** — the 17 predicates `GenerateOpen`,
+`ChainClosure`, `GenerateMeasurable`, `GenerateHas`,
+`CountableGenerateSets`, `CardinalGenerateSets`,
+`{Precoverage,Coverage}.Saturate`, `{colimits,limits}Closure`,
+`Approx.Agree`, `M.Agree'`, `Nat.Primrec'`, `Nat.Partrec'`,
+`QPF.Wequiv`, `MvQPF.WEquiv`, `Lean.Order.iterates` and their `.below`
+twins — of which `CategoryTheory.ObjectProperty.{colimits,limits}Closure`
+declare their type at a definition (`ObjectProperty C`) that only
+unfolds to `C → Prop` (`NOT-A-SORT` for the syntactic reading): the fix
+arm's `stripPis` reading (task #193's conjunct) does not take them —
+the #188 fall-through class, a positive decline naming the conjunct,
+until the fix arm gets #195's whnf reading; **2 `Prop` with the large
+eliminator (Stage A2)** — `Acc`, `Acc.below`; **5 `Type`-valued (Stage
+B)** — `WType`, `PSet`, `FirstOrder.Language.Term`,
+`Turing.PartrecToTM2.Λ'`, `PFunctor.Approx.CofixA`.  init-full: `Acc`,
+`Acc.below` (A2), `Lean.Order.iterates`, `Lean.Order.iterates.below`
+(A1).
