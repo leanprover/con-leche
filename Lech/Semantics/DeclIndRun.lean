@@ -326,7 +326,7 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
         rhsA.stripLams (nP + nF) = some (rbinders, .bvar (nF - 1 - i)) ∧
         ∀ (i0 : Nat) (b b' : Expr × BinderMeta), i0 < nP + nF →
           rbinders[i0]? = some b → cbinders[i0]? = some b' →
-          b.2.1 = b'.2.1) ∧
+          b.1 = b'.1) ∧
       (∃ t', inferTypeCore μ env' F 0 rhsA = .ok t') ∧
       (∃ tcv tval,
         env'.find? ((projModelName T i).str "iota")

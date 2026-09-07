@@ -200,7 +200,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       intro a ha
       obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
       obtain ⟨nm, ty, rfl⟩ := hshapeS q a hq
-      exact ⟨_, denoteP_fvar _ _ _ _ _⟩)
+      exact ⟨_, denoteP_fvar _ _ _ _⟩)
   have hAppRead : denoteP m.acval env ψ' (rP + cnF)
       (Expr.mkAppN (rhsA.renameConsts f) fvs)
       = some (AVExpr.mkAppN RV vsp) :=

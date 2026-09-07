@@ -275,7 +275,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
     have hi₀ : i₀ < cnP := by omega
     rw [List.getElem?_take_of_lt hi₀] at hx
     obtain ⟨nm₀, ty₀, rfl⟩ := hshapeP i₀ x hx
-    refine ⟨.bvar (K - 1 - i₀), denoteP_fvar _ _ _ _ _, ?_, ?_⟩
+    refine ⟨.bvar (K - 1 - i₀), denoteP_fvar _ _ _ _, ?_, ?_⟩
     · exact ⟨by simp, by simp⟩
     · intro dw0 hdw0
       exact (ihq i₀ hlt (by omega) ρ0 hρ0 dw0 hdw0).2

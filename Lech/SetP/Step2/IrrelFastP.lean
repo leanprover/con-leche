@@ -172,7 +172,7 @@ theorem neverChainP_of_peel {acval : Name → (Name → Nat) → AVExpr} :
     exact (Option.some.inj hd).symm
   | succ n ih =>
     intro d T u ta hp hd
-    obtain ⟨nm, ty, b, m, rfl, hnev, hb⟩ := Expr.peelNeverPis_succ_inv hp
+    obtain ⟨ty, b, m, rfl, hnev, hb⟩ := Expr.peelNeverPis_succ_inv hp
     obtain ⟨tA, tB, -, htB, rfl⟩ := denoteP_forallE_inv hd
     exact ⟨pwBit_ne_zero_of_isNever hnev φ,
       ih (Expr.peelNeverPis_instantiate1 n _ 0 hb) htB⟩
@@ -277,12 +277,12 @@ theorem mem_fvarLeaves_of_getAppFn' {a hd : Expr} {l : Nat × Expr}
   exact mem_fvarLeaves_mkAppN _ _ _ hl
 
 /-- The leaf of a term's head fvar is a leaf of the term. -/
-theorem mem_fvarLeaves_of_getAppFn {a ty : Expr} {idx : Nat} {n : Name}
-    (h : a.getAppFn = .fvar idx ty) : (idx, n, ty) ∈ a.fvarLeaves :=
+theorem mem_fvarLeaves_of_getAppFn {a ty : Expr} {idx : Nat}
+    (h : a.getAppFn = .fvar idx ty) : (idx, ty) ∈ a.fvarLeaves :=
   mem_fvarLeaves_of_getAppFn' h (by simp [Expr.fvarLeaves])
 
 /-- The leaves of an fvar's type are leaves of the fvar. -/
-theorem mem_fvarLeaves_of_ty {ty : Expr} {idx : Nat} {n : Name}
+theorem mem_fvarLeaves_of_ty {ty : Expr} {idx : Nat}
     {l : Nat × Expr} (h : l ∈ ty.fvarLeaves) :
     l ∈ (Expr.fvar idx ty).fvarLeaves := by
   simp [Expr.fvarLeaves, h]
@@ -299,7 +299,7 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     (ρ : Nat → V) (hρ : Sat2 V Δa ρ) : interp2 V ρ aa = (pt : V) := by
   obtain ⟨pw, hpw, hprop⟩ := isProofFast_inv env.find? h
   rcases proofPW_some_inv env.find? hpw with
-    ⟨n, ty, bd, mb, rfl, rfl⟩ | ⟨-, hhead⟩
+    ⟨ty, bd, mb, rfl, rfl⟩ | ⟨-, hhead⟩
   · -- a λ: its datum is the body's type's sort, at bit `0`
     obtain ⟨ta, ba, -, -, rfl⟩ := denoteP_lam_inv hda
     rw [interp2_lam, pwBit_eq_zero_of_isProp hprop, lamR_zero]
@@ -316,9 +316,9 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     obtain rfl := Option.some.inj hfa
     obtain ⟨ta, hta, hokT, hmem, hnf, -⟩ := constTypeP_pkg hct hf hnt hlen
     rcases typeSortPW_some_inv env.find? hty with
-      ⟨n', A, B, mb, hT, rfl⟩ | rfl |
+      ⟨A, B, mb, hT, rfl⟩ | rfl |
       ⟨I, us', ciI, u, hfnT, hfI, hntI, hlenI, hpeel, rfl⟩ |
-      ⟨idx, n', ty', u, hfnT, -, -⟩
+      ⟨idx, ty', u, hfnT, -, -⟩
     · -- ∀-typed: the squash product
       have hta' := hta d
       rw [hT, Lech.Expr.instantiateLevelParams] at hta'
@@ -372,9 +372,9 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       rw [interp2_bvar, heq ρ hρ]
       exact hρ _ _ hAa
     rcases typeSortPW_some_inv env.find? hty with
-      ⟨n', A, B, mb, rfl, rfl⟩ | rfl |
+      ⟨A, B, mb, rfl, rfl⟩ | rfl |
       ⟨I, us', ciI, u, hfnT, hfI, hntI, hlenI, hpeel, rfl⟩ |
-      ⟨idy, n', tyy, u, hfnT, hpeel, rfl⟩
+      ⟨idy, tyy, u, hfnT, hpeel, rfl⟩
     · -- ∀-typed: the squash product
       obtain ⟨tA, tB, -, -, rfl⟩ := denoteP_forallE_inv htya
       rw [interp2_pi, pwBit_eq_zero_of_isProp hprop] at hx
@@ -394,7 +394,7 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       -- is in the context too
       obtain ⟨-, -, tyyA, Ay, htyy, hAy, heqy, hokY⟩ :=
         hCa.2 _ (mem_fvarLeaves_of_getAppFn' hfn
-          (mem_fvarLeaves_of_ty (idx := idx) (n := n)
+          (mem_fvarLeaves_of_ty (idx := idx)
             (mem_fvarLeaves_of_getAppFn hfnT)))
       have hy : interp2 V ρ (.bvar (d - 1 - idy)) ∈ˢ interp2 V ρ tyyA := by
         rw [interp2_bvar, heqy ρ hρ]
@@ -402,7 +402,7 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       have hchain := neverChainP_of_peel (env := env) (acval := m.acval)
         ty.getAppArgs.length hpeel htyy
       rw [eval_eq_zero_of_isProp hprop φ] at hchain
-      have huniv := mem_univ_zero_of_spine hfnT htya (denoteP_fvar _ _ _ _ _)
+      have huniv := mem_univ_zero_of_spine hfnT htya (denoteP_fvar _ _ _ _)
         hchain (hokY ρ hρ) (hokT ρ hρ) hy
       exact mem_univ_zero huniv hx
   · -- a sort, a ∀, a literal: never a proof

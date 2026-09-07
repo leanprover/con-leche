@@ -2017,7 +2017,7 @@ theorem towerCtxEq {cval : TConstVal} {env : Env} {ψ : Name → Nat}
         some (Γc.getD (k - 1 - i0) default))
     (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
-      cbinders[i0]? = some b' → b.2.1 = b'.2.1) :
+      cbinders[i0]? = some b' → b.1 = b'.1) :
     Γβ = Γc :=
   towerCtxEqD hrblen hcblen hΓβlen hΓclen hβdoms hcdoms
     (fun i0 b b' hi hb hb' => by rw [hrdomsEq i0 b b' hi hb hb'])

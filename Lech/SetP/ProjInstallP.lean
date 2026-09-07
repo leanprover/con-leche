@@ -161,7 +161,7 @@ theorem projFnP (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
   -- the domain pin, at the pruned renaming
   have hdomsSCp : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < nP + nF → sbinders[i0]? = some b → cbinders[i0]? = some b' →
-      b.2.1 = b'.2.1.renameConsts (fun n =>
+      b.1 = b'.1.renameConsts (fun n =>
         if (env'.find? n).isSome = true then
           projFwd T ctorName nF n else n) := by
     intro i0 b b' hi0 hb hb'

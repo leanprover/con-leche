@@ -87,7 +87,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       = some (rbinders, .bvar (cnF - 1 - i)))
     (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < cnP + cnF → rbinders[i0]? = some b →
-      cbinders[i0]? = some b' → b.2.1 = b'.2.1)
+      cbinders[i0]? = some b' → b.1 = b'.1)
     -- the rule rhs's front door, at the reading (`ProjFnR`'s recorded
     -- run row, graded through `InferClaims2P` at the caller)
     (hrhsKey : ∀ ψ : Name → Nat, ∃ Ra ta,
@@ -118,7 +118,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     (hSstrip : stmtTy.stripPis (cnP + cnF) = some (sbinders, sbody))
     (hdomsSC : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < cnP + cnF → sbinders[i0]? = some b →
-      cbinders[i0]? = some b' → b.2.1 = b'.2.1.renameConsts f)
+      cbinders[i0]? = some b' → b.1 = b'.1.renameConsts f)
     -- the sides pack's two recorded runs
     (hsideL : ∃ tl, inferTypeCore μ env F (rP + cnF) lhsS = .ok tl ∧
       isDefEqCore μ env F (rP + cnF) tl αS = .ok true)

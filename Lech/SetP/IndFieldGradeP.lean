@@ -245,7 +245,7 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
         rw [hxf] at hx''
         exact Option.some.inj hx''
       refine ⟨.bvar ((rP + cnF) - 1 - (rP + j')),
-        denoteP_fvar _ _ _ _ _, ⟨by simp, by simp⟩, ?_⟩
+        denoteP_fvar _ _ _ _, ⟨by simp, by simp⟩, ?_⟩
       intro dw0 hdw0
       have hIH := ihn (rP + j') (by omega) (by omega) (by omega)
         (by omega) ρ0 hρ0 dw0 (by

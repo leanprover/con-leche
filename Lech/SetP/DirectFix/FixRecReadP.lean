@@ -1017,7 +1017,7 @@ theorem denoteP_directRecTyR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
         congr 1
         omega
       rwa [he] at this
-    rw [denoteP_mkAppN (hspI.append (.cons (denoteP_fvar _ _ _ _ _) .nil)) (denoteP_fvar _ _ _ _ _),
+    rw [denoteP_mkAppN (hspI.append (.cons (denoteP_fvar _ _ _ _) .nil)) (denoteP_fvar _ _ _ _),
       show nP + 1 + n + nIdx + 1 - 1 - nP = 1 + nIdx + n from by omega,
       show nP + 1 + n + nIdx + 1 - 1 - (nP + 1 + n + nIdx) = 0 from by omega,
       AVExpr.mkAppN_append_one]

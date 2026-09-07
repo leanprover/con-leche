@@ -215,7 +215,7 @@ theorem plainParamSupplyP {m : EnvS2Core V env} {F : Nat}
     rw [List.getD, hspPar q hq, hxq]
     rfl
   refine ⟨.bvar ((rP + cnF) - 1 - q), by
-    rw [hspq]; exact denoteP_fvar _ _ _ _ _, ⟨by simp, by simp⟩, ?_⟩
+    rw [hspq]; exact denoteP_fvar _ _ _ _, ⟨by simp, by simp⟩, ?_⟩
   intro dw hdw
   rw [hbridge q hq] at hdw
   have h := (hladder q hq ρ' (hsatB ρ' hsat) dw hdw).2
