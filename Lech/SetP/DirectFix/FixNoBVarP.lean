@@ -103,7 +103,7 @@ theorem noBVar_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name → Nat
     rw [denoteP] at h
     obtain rfl := Option.some.inj h
     simp only [Expr.WScoped] at hw
-    have hne : ¬ Q idx := hl (idx, nm, ty) (by simp [Expr.fvarLeaves])
+    have hne : ¬ Q idx := hl (idx, ty) (by simp [Expr.fvarLeaves])
     show ¬ exclP Q d (d - 1 - idx)
     rintro ⟨q, hq, hlt, heq⟩
     have : q = idx := by omega

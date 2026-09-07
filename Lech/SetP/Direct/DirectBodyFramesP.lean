@@ -119,7 +119,7 @@ regime rides the official guard's content (`hguard`) and the unused
 earlier fields' invariance (`hfree`). -/
 theorem bodyFrames {env : Env} (m : EnvS2Core V env)
     {nP nF i : Nat} {T : Name} {cty : Expr} {cds : List Expr}
-    {nmC : Name} {bodyC : Expr} {mbC : BinderMeta} {body : Expr}
+    {bodyC : Expr} {mbC : BinderMeta} {body : Expr}
     (hcf : Expr.instPisAt (Lech.fvsD nP ++ Lech.projArgsD T i nP) cty
       = some (cds, .forallE
           (Expr.instSpine (Lech.fvsD nP ++ [Lech.tfvD nP]) nP body) bodyC mbC))
@@ -169,7 +169,7 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
     have hk : k < nP := by
       have := (List.getElem?_eq_some_iff.mp hx).1; rwa [hlenP] at this
     rw [Lech.fvsD_getElem? nP k hk] at hx
-    exact ⟨.anonymous, .sort .zero, (Option.some.inj hx).symm⟩
+    exact ⟨.sort .zero, (Option.some.inj hx).symm⟩
   have hargs : ∀ a ∈ Lech.fvsD nP ++ Lech.projArgsD T i nP,
       Expr.WScoped (nP + 1) a ∧ a.looseBVarsBounded 0 = true := by
     intro a ha
@@ -188,7 +188,7 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
   have hspP := denoteSpineP_entryParams (acval := m.acval) (env := env) (φ := ψ)
     hfvsDidx hlenP
   have hspX := denoteSpineP_entryProjs (acval := m.acval) (env := env) (φ := ψ)
-    (nP := nP) (nmT := .anonymous) (sdom := .sort .zero) hprev
+    (nP := nP) (sdom := .sort .zero) hprev
   have hsp : DenoteSpineP m.acval env ψ (nP + 1) (Lech.fvsD nP ++ Lech.projArgsD T i nP)
       (entryParamBvars nP ++ entryProjAVs i) :=
     DenoteSpineP.append hspP hspX
