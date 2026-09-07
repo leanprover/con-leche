@@ -270,7 +270,7 @@ theorem infer_bvar_claimIOP (m : EnvS2Core V env) {d i : Nat} {t : Expr}
 /-- `.fvar`, io lane: the leaf package of `CtxOkP` carries the type's
 grading, so the clause takes no residue and no premise. -/
 theorem infer_fvar_claimIOP (m : EnvS2Core V env)
-    {d idx : Nat} {n : Name} {ty t : Expr} {Δa : List AVExpr}
+    {d idx : Nat} {ty t : Expr} {Δa : List AVExpr}
     {ea ta : AVExpr}
     (hC : CtxOkP m φ d Δa (.fvar idx ty))
     (h : inferTypeCoreIO μ env (fuel + 1) d (.fvar idx ty) = .ok t)
@@ -351,7 +351,7 @@ annotation validation) are kept by `inferBodyIO`, so move 3's
 establishment step and move 4's numeral bridge are unchanged. -/
 theorem infer_forallE_claimIOP (m : EnvS2Core V env)
     (hμ : μ.verifiedChecks = true) (hss : SortSemAtIOP m μ φ fuel)
-    {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCoreIO μ env (fuel + 1) d (.forallE ty body mb)
       = .ok t)
@@ -376,7 +376,7 @@ theorem infer_forallE_claimIOP (m : EnvS2Core V env)
   have hLbody : Expr.LeavesBounded body := fun l hl =>
     hLb l (by simp [Expr.fvarLeaves, hl])
   obtain ⟨hwopen, hbopen, hLopen⟩ :=
-    frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
+    frame_open2 hws.1 hb.1 hws.2 hb.2 hLty hLbody
   obtain ⟨tyA, baA, htyA, hbaA, rfl⟩ := denoteP_forallE_inv hea
   rw [denoteP_sortQ] at hta
   obtain rfl : ta = .sort (Level.eval φ (.imax u v)) :=
@@ -390,7 +390,7 @@ theorem infer_forallE_claimIOP (m : EnvS2Core V env)
   have hdomU := hss hC.forallE_ty hws.1 hb.1 hLty hty hwu htyA hokty
   have hCop : CtxOkP m φ (d + 1) (tyA :: Δa)
       (body.instantiate1 (.fvar d ty)) :=
-    CtxOkP.openS (n := n) hC.forallE_ty hC.forallE_body htyA
+    CtxOkP.openS hC.forallE_ty hC.forallE_body htyA
       (fun ρ hρ => (hdomU ρ hρ).1)
   have hcodU := hss hCop hwopen hbopen hLopen hbt
     (Lech.ensureSortCore_inv hens) hbaA hokbody
@@ -469,7 +469,7 @@ impredicativity, run-free, exactly as in the full lane. -/
 theorem infer_lam_claimIOP (m : EnvS2Core V env)
     (hμ : μ.verifiedChecks = true) (hss : SortSemAtIOP m μ φ fuel)
     (ihio : InferClaimsIO2P μ m φ fuel)
-    {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCoreIO μ env (fuel + 1) d (.lam ty body mb) = .ok t)
     (hws : Expr.WScoped d (.lam ty body mb))
@@ -503,7 +503,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
     (Option.some.inj hea).symm
   -- the abstraction round trip, for the ∀-type's reading
   obtain ⟨hwopen, hbopen, hLopen⟩ :=
-    frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
+    frame_open2 hws.1 hb.1 hws.2 hb.2 hLty hLbody
   have hleaf :
       Expr.LeafCond d ty (body.instantiate1 (.fvar d ty)) := by
     intro l hl hd
@@ -513,7 +513,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
         omega)
     · rw [Expr.fvarLeaves] at h2
       rcases List.mem_cons.mp h2 with rfl | h3
-      · exact ⟨rfl, rfl⟩
+      · exact rfl
       · exact absurd hd (by
           have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
           omega)
@@ -535,7 +535,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
   -- the opened context, at the premise's own grading
   have hCop : CtxOkP m φ (d + 1) (tyA :: Δa)
       (body.instantiate1 (.fvar d ty)) :=
-    CtxOkP.openS (n := n) hC.lam_ty hC.lam_body htyA hokty
+    CtxOkP.openS hC.lam_ty hC.lam_body htyA hokty
   obtain ⟨hrowT, hrowM⟩ :=
     ihio hbt hwopen hbopen hLopen hCop hba hbtA hokba
   -- the fibre regime fact, one `have`, both uses (the meta copy)
@@ -547,10 +547,10 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
     intro hb0 ρ' hρ'
     by_cases hbl : body.isLam
     · -- chain: no run — impredicativity at the copied meta
-      obtain ⟨nI, tyI, bI, mbI, rfl⟩ :
-          ∃ nI tyI bI mbI, body = .lam tyI bI mbI := by
+      obtain ⟨tyI, bI, mbI, rfl⟩ :
+          ∃ tyI bI mbI, body = .lam tyI bI mbI := by
         cases body <;> simp [Expr.isLam] at hbl
-        exact ⟨_, _, _, _, rfl⟩
+        exact ⟨_, _, _, rfl⟩
       have hpwEq : mb.pw = mbI.pw :=
         hchainC hμ mbI.pw rfl
       obtain ⟨btI, rfl⟩ : ∃ btI,
@@ -603,7 +603,7 @@ needed to establish the subject's, which is now given) and no
 `denoteP_beta` and the transport is `AnnotOkP_inst0`, unchanged. -/
 theorem infer_letE_claimIOP (m : EnvS2Core V env)
     (ihio : InferClaimsIO2P μ m φ fuel)
-    {d : Nat} {n : Name} {ty val b t : Expr} {Δa : List AVExpr}
+    {d : Nat} {ty val b t : Expr} {Δa : List AVExpr}
     {ea ta : AVExpr}
     (h : inferTypeCoreIO μ env (fuel + 1) d (.letE ty val b) = .ok t)
     (hws : Expr.WScoped d (.letE ty val b))
@@ -650,7 +650,7 @@ theorem infer_letE_claimIOP (m : EnvS2Core V env)
   -- the ζ crossing: `denoteP_beta`, directly
   have hcross : denoteP m.acval env φ d (b.instantiate1 val)
       = some (bA.inst vA) := by
-    rw [denoteP_beta (n := n) (ty := ty) m.acval_closed
+    rw [denoteP_beta (ty := ty) m.acval_closed
       (acval_inst_self m) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hvA 0, hbA]
     rfl
   -- **the premise, spent**: the value's and the body's grading
@@ -704,7 +704,7 @@ theorem infer_app_claimIOP (m : EnvS2Core V env)
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  obtain ⟨tf, n', ty', body', mb', htf, hwf, rfl, hcert⟩ :=
+  obtain ⟨tf, ty', body', mb', htf, hwf, rfl, hcert⟩ :=
     Lech.inferTypeCoreIO_app_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -819,7 +819,7 @@ theorem infer_app_claimIOP (m : EnvS2Core V env)
   -- the returned type's reading, `denoteP_beta` backwards
   have hcross : denoteP m.acval env φ d (body'.instantiate1 a)
       = some (Ba.inst aa) := by
-    rw [denoteP_beta (n := n') (ty := ty') m.acval_closed
+    rw [denoteP_beta (ty := ty') m.acval_closed
       (acval_inst_self m) hwfe.2.fvarsBelow hws.2 hb.2 haa 0, hBa]
     rfl
   rw [hcross] at hta
