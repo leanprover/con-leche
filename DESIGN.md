@@ -58624,6 +58624,24 @@ already follow).  The note is in `scripts/arena/README.md` and in
 `results/table.txt`'s header.  **Deferred, by decision:** the
 regeneration itself.
 
+### Finding: the stream census no longer predicts the verdict count
+
+`scripts/stream-census.py` derives, from the FILE alone, what each
+checker's verdict line will say — the previous PERF.md's own integrity
+check, and it agreed exactly.  On a RAW stream it no longer does, by
+construction: the in-process modeller pushes its generated records
+ahead of the block and the fold counts them, and they are not in the
+file.  Measured, on `init-prelude`, `grind-ring-5` and `init-full` the
+gap is exactly **30** — `Lean.Syntax`'s generated family — and the
+census of `CON_LECHE_INMODEL_DUMP`'s output (the raw input with those
+records spliced in) reproduces the verdict number exactly (1 807
+records → fold 1 803 = accepted 1 803 on `init-prelude`).  Before #207
+the models arrived IN the file, so the two agreed.  PERF.md's census
+legend now says this; the exit-code table carries the verdict counts.
+(The verdict line counting generated records is task #200 behaviour,
+not this task's, and is left alone: changing it would move every
+pinned count in the tree.)
+
 ### PERF.md
 
 Wholly regenerated on RAW streams — every published cell before this
