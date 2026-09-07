@@ -31,6 +31,11 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
   - for structures that are not mutually recursive
   - inside the projection *functions* that the elaborator produces.
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
+* It accepts only the three standard Lean axiom in the input stream.
+
+  For practicality reasons, it silently *ignores* the other axiom declarations from the standard library, including `sorryAx`, but will complain if they are used.
+
+  The checker (at the moment) will reject any other axiom.
 
 ## Design of the checker proof
 
