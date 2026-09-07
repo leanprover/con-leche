@@ -2,6 +2,7 @@ import Lech.SetP.DirectFix.FixStageRecP
 import Lech.SetP.DirectFix.FixStageFormerP
 import Lech.SetP.DirectFix.FixCtorsLoopP
 import Lech.SetP.DirectFix.FixCtorCrossP
+import Lech.SetP.DirectFix.FixWitnessP
 
 /-!
 # Kit for the direct recursive install's assembly (task #188)
@@ -288,7 +289,6 @@ theorem xChainsOk_of {u w nP n : Nat} {ρp : Nat → V} {Ids : List AVExpr}
     {Fss Ess : List (List AVExpr)}
     (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids) (hlenF : Fss.length = n)
     (hrss : ∀ j, j < n → rss.getD j [] = rsOf (ksF j))
-    (hwit : (∀ j i, (tlss.getD j []).getD i [] = []) ∨ w = 0)
     (hC : ∀ j, j < n → ChainFacts u w nP (Fss.getD j []).length ρp Ids (ksF j) (tlss.getD j [])
       (Fss.getD j []) (Eiss.getD j []) (Ess.getD j []))
     (hCV : ∀ j, j < n → ChainValidFacts nP (Fss.getD j []).length ρp (ksF j) (tlss.getD j [])
@@ -308,10 +308,19 @@ theorem xChainsOk_of {u w nP n : Nat} {ρp : Nat → V} {Ids : List AVExpr}
       rw [← hrss j (by omega)]
       exact (Option.some.inj hj).symm
     · exact nomatch hj
-  refine ⟨⟨hI, fun X hX t ht chain hc => ?_, fun X hX t ht j hj => ?_, hwit⟩,
-    fun X hX t ht chain hc => ?_⟩
-  · obtain ⟨j, hj, rfl⟩ := hmem chain hc
+  have hok : FixChainsOkI u w ρp Ids Ids.length rss tlss Eiss Fss Ess := by
+    intro X hX t ht chain hc
+    obtain ⟨j, hj, rfl⟩ := hmem chain hc
     exact (fixChain_of hI hX ht (hC j hj)).1
+  -- the closure witness: the container instance, or the top family at `w = 0`
+  have hclosed : ∃ L, IsClosedFam w (idxSet u ρp Ids)
+      (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss Ess) L := by
+    rcases Nat.eq_zero_or_pos w with rfl | hw
+    · exact fixFunVI_closed_zero hok
+    · exact fixClosed_of (Nat.pos_iff_ne_zero.mp hw) hI (fun j hj => hrss j (by omega))
+        (fun j hj => hC j (by omega))
+  refine ⟨⟨hI, hok, fun X hX t ht j hj => ?_, hclosed⟩,
+    fun X hX t ht chain hc => ?_⟩
   · rw [hrss j (by omega)]
     exact (fixChain_of hI hX ht (hC j (by omega))).2
   · obtain ⟨j, hj, rfl⟩ := hmem chain hc

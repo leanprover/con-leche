@@ -477,4 +477,25 @@ theorem fixChain_of (hI : IdxOk u ρp Ids) {X : V}
 
 end Walk
 
+/-! ## Kit (the field entries of the reversed context) -/
+
+omit [SetTheory V] in
+/-- The reversed context's entry at field `i`. -/
+theorem reverse_getD_field {ds : List (Nat × Nat × AVExpr)} {nP nF i : Nat}
+    (hlen : ds.length = nP + nF) (hi : i < nF) :
+    (((ds.map (·.2.2)).reverse).getD (nP + nF - 1 - (nP + i)) default)
+      = (((ds.drop nP).map (·.2.2)).getD i default) := by
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+    List.getElem?_reverse (by simp [hlen]; omega)]
+  simp only [List.length_map, hlen, List.getElem?_map, List.getElem?_drop]
+  rw [show nP + nF - 1 - (nP + nF - 1 - (nP + i)) = nP + i from by omega]
+
+omit [SetTheory V] in
+theorem drop_map_getD {ds : List (Nat × Nat × AVExpr)} {nP nF i : Nat}
+    (hlen : ds.length = nP + nF) (hi : i < nF) :
+    (((ds.drop nP).map (·.2.2)).getD i default) = (ds.getD (nP + i) default).2.2 := by
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_drop,
+    List.getElem?_eq_getElem (by omega)]
+  rfl
+
 end Lech.SetP

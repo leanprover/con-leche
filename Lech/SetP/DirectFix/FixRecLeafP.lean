@@ -88,13 +88,10 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : Lis
     · rw [hsh]
       intro j hj bs hsp' E hE'
       exact hE j (by rw [← hFss]; exact hj) bs hsp' E hE'
-  refine fixRecBody_validV hfr hK.hyp (fun hw => h.hfin.resolve_right hw) hv' ?_ ?_
-  · intro hw j hj i hi fs hfs E hE'
-    have hfin := h.hfin.resolve_right hw
+  refine fixRecBody_validV hfr hK.hyp hv' ?_ ?_
+  · intro _ j hj i hi fs hfs
     rw [hfrP] at hfs ⊢
-    obtain ⟨-, hbs⟩ := hEis j (by rw [← hFss]; exact hj) i hi fs hfs
-    have := hbs [] (by rw [hfin j i]; trivial) E hE'
-    simpa using this
+    exact hEis j (by rw [← hFss]; exact hj) i hi fs hfs
   · -- the squash regime (task #202 A2): the K-frame, split
     intro hw0 hℓ0
     obtain ⟨hsingle, -, -⟩ := hK.hsq hw0 hℓ0

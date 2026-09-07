@@ -81,7 +81,9 @@ main_False :: Lech.Semantics.Sat2
 main_False :: Lech.Semantics.Skeleton
 main_False :: Lech.Semantics.Syntax
 main_False :: Lech.Semantics.Tower.FixCaseI
+main_False :: Lech.Semantics.Tower.FixElemI
 main_False :: Lech.Semantics.Tower.FixFamI
+main_False :: Lech.Semantics.Tower.FixIhI
 main_False :: Lech.Semantics.Tower.FixLeafI
 main_False :: Lech.Semantics.Tower.FixRecCoreI
 main_False :: Lech.Semantics.Tower.FixRecI
@@ -101,6 +103,7 @@ main_False :: Lech.Semantics.Tower.TowerMk
 main_False :: Lech.Semantics.Tower.TowerRec
 main_False :: Lech.Semantics.Tower.TowerWire
 main_False :: Lech.Semantics.Univ
+main_False :: Lech.SetModel.Container
 main_False :: Lech.SetModel.Iter
 main_False :: Lech.SetModel.Ops
 main_False :: Lech.SetModel.RecGraph
@@ -200,6 +203,8 @@ main_False :: Lech.SetP.DirectFix.FixRuleOkP
 main_False :: Lech.SetP.DirectFix.FixShadowP
 main_False :: Lech.SetP.DirectFix.FixStageFormerP
 main_False :: Lech.SetP.DirectFix.FixStageRecP
+main_False :: Lech.SetP.DirectFix.FixTeleBoundP
+main_False :: Lech.SetP.DirectFix.FixWitnessP
 main_False :: Lech.SetP.DirectSum.DeclDirectSumP
 main_False :: Lech.SetP.DirectSum.SumDataP
 main_False :: Lech.SetP.DirectSum.SumIntroP
@@ -499,7 +504,9 @@ False_SPCD_P :: Lech.Semantics.Sat2
 False_SPCD_P :: Lech.Semantics.Skeleton
 False_SPCD_P :: Lech.Semantics.Syntax
 False_SPCD_P :: Lech.Semantics.Tower.FixCaseI
+False_SPCD_P :: Lech.Semantics.Tower.FixElemI
 False_SPCD_P :: Lech.Semantics.Tower.FixFamI
+False_SPCD_P :: Lech.Semantics.Tower.FixIhI
 False_SPCD_P :: Lech.Semantics.Tower.FixLeafI
 False_SPCD_P :: Lech.Semantics.Tower.FixRecCoreI
 False_SPCD_P :: Lech.Semantics.Tower.FixRecI
@@ -519,6 +526,7 @@ False_SPCD_P :: Lech.Semantics.Tower.TowerMk
 False_SPCD_P :: Lech.Semantics.Tower.TowerRec
 False_SPCD_P :: Lech.Semantics.Tower.TowerWire
 False_SPCD_P :: Lech.Semantics.Univ
+False_SPCD_P :: Lech.SetModel.Container
 False_SPCD_P :: Lech.SetModel.Iter
 False_SPCD_P :: Lech.SetModel.Ops
 False_SPCD_P :: Lech.SetModel.RecGraph
@@ -618,6 +626,8 @@ False_SPCD_P :: Lech.SetP.DirectFix.FixRuleOkP
 False_SPCD_P :: Lech.SetP.DirectFix.FixShadowP
 False_SPCD_P :: Lech.SetP.DirectFix.FixStageFormerP
 False_SPCD_P :: Lech.SetP.DirectFix.FixStageRecP
+False_SPCD_P :: Lech.SetP.DirectFix.FixTeleBoundP
+False_SPCD_P :: Lech.SetP.DirectFix.FixWitnessP
 False_SPCD_P :: Lech.SetP.DirectSum.DeclDirectSumP
 False_SPCD_P :: Lech.SetP.DirectSum.SumDataP
 False_SPCD_P :: Lech.SetP.DirectSum.SumIntroP
@@ -906,7 +916,9 @@ False_P :: Lech.Semantics.Sat2
 False_P :: Lech.Semantics.Skeleton
 False_P :: Lech.Semantics.Syntax
 False_P :: Lech.Semantics.Tower.FixCaseI
+False_P :: Lech.Semantics.Tower.FixElemI
 False_P :: Lech.Semantics.Tower.FixFamI
+False_P :: Lech.Semantics.Tower.FixIhI
 False_P :: Lech.Semantics.Tower.FixLeafI
 False_P :: Lech.Semantics.Tower.FixRecCoreI
 False_P :: Lech.Semantics.Tower.FixRecI
@@ -926,6 +938,7 @@ False_P :: Lech.Semantics.Tower.TowerMk
 False_P :: Lech.Semantics.Tower.TowerRec
 False_P :: Lech.Semantics.Tower.TowerWire
 False_P :: Lech.Semantics.Univ
+False_P :: Lech.SetModel.Container
 False_P :: Lech.SetModel.Iter
 False_P :: Lech.SetModel.Ops
 False_P :: Lech.SetModel.RecGraph
@@ -1025,6 +1038,8 @@ False_P :: Lech.SetP.DirectFix.FixRuleOkP
 False_P :: Lech.SetP.DirectFix.FixShadowP
 False_P :: Lech.SetP.DirectFix.FixStageFormerP
 False_P :: Lech.SetP.DirectFix.FixStageRecP
+False_P :: Lech.SetP.DirectFix.FixTeleBoundP
+False_P :: Lech.SetP.DirectFix.FixWitnessP
 False_P :: Lech.SetP.DirectSum.DeclDirectSumP
 False_P :: Lech.SetP.DirectSum.SumDataP
 False_P :: Lech.SetP.DirectSum.SumIntroP
@@ -1296,7 +1311,9 @@ SPCD_P :: Lech.Semantics.Sat2
 SPCD_P :: Lech.Semantics.Skeleton
 SPCD_P :: Lech.Semantics.Syntax
 SPCD_P :: Lech.Semantics.Tower.FixCaseI
+SPCD_P :: Lech.Semantics.Tower.FixElemI
 SPCD_P :: Lech.Semantics.Tower.FixFamI
+SPCD_P :: Lech.Semantics.Tower.FixIhI
 SPCD_P :: Lech.Semantics.Tower.FixLeafI
 SPCD_P :: Lech.Semantics.Tower.FixRecCoreI
 SPCD_P :: Lech.Semantics.Tower.FixRecI
@@ -1316,6 +1333,7 @@ SPCD_P :: Lech.Semantics.Tower.TowerMk
 SPCD_P :: Lech.Semantics.Tower.TowerRec
 SPCD_P :: Lech.Semantics.Tower.TowerWire
 SPCD_P :: Lech.Semantics.Univ
+SPCD_P :: Lech.SetModel.Container
 SPCD_P :: Lech.SetModel.Iter
 SPCD_P :: Lech.SetModel.Ops
 SPCD_P :: Lech.SetModel.RecGraph
@@ -1415,6 +1433,8 @@ SPCD_P :: Lech.SetP.DirectFix.FixRuleOkP
 SPCD_P :: Lech.SetP.DirectFix.FixShadowP
 SPCD_P :: Lech.SetP.DirectFix.FixStageFormerP
 SPCD_P :: Lech.SetP.DirectFix.FixStageRecP
+SPCD_P :: Lech.SetP.DirectFix.FixTeleBoundP
+SPCD_P :: Lech.SetP.DirectFix.FixWitnessP
 SPCD_P :: Lech.SetP.DirectSum.DeclDirectSumP
 SPCD_P :: Lech.SetP.DirectSum.SumDataP
 SPCD_P :: Lech.SetP.DirectSum.SumIntroP
@@ -1714,7 +1734,9 @@ sound_P :: Lech.Semantics.Sat2
 sound_P :: Lech.Semantics.Skeleton
 sound_P :: Lech.Semantics.Syntax
 sound_P :: Lech.Semantics.Tower.FixCaseI
+sound_P :: Lech.Semantics.Tower.FixElemI
 sound_P :: Lech.Semantics.Tower.FixFamI
+sound_P :: Lech.Semantics.Tower.FixIhI
 sound_P :: Lech.Semantics.Tower.FixLeafI
 sound_P :: Lech.Semantics.Tower.FixRecCoreI
 sound_P :: Lech.Semantics.Tower.FixRecI
@@ -1734,6 +1756,7 @@ sound_P :: Lech.Semantics.Tower.TowerMk
 sound_P :: Lech.Semantics.Tower.TowerRec
 sound_P :: Lech.Semantics.Tower.TowerWire
 sound_P :: Lech.Semantics.Univ
+sound_P :: Lech.SetModel.Container
 sound_P :: Lech.SetModel.Iter
 sound_P :: Lech.SetModel.Ops
 sound_P :: Lech.SetModel.RecGraph
@@ -1833,6 +1856,8 @@ sound_P :: Lech.SetP.DirectFix.FixRuleOkP
 sound_P :: Lech.SetP.DirectFix.FixShadowP
 sound_P :: Lech.SetP.DirectFix.FixStageFormerP
 sound_P :: Lech.SetP.DirectFix.FixStageRecP
+sound_P :: Lech.SetP.DirectFix.FixTeleBoundP
+sound_P :: Lech.SetP.DirectFix.FixWitnessP
 sound_P :: Lech.SetP.DirectSum.DeclDirectSumP
 sound_P :: Lech.SetP.DirectSum.SumDataP
 sound_P :: Lech.SetP.DirectSum.SumIntroP
@@ -2132,7 +2157,9 @@ foldSPC_PM :: Lech.Semantics.Sat2
 foldSPC_PM :: Lech.Semantics.Skeleton
 foldSPC_PM :: Lech.Semantics.Syntax
 foldSPC_PM :: Lech.Semantics.Tower.FixCaseI
+foldSPC_PM :: Lech.Semantics.Tower.FixElemI
 foldSPC_PM :: Lech.Semantics.Tower.FixFamI
+foldSPC_PM :: Lech.Semantics.Tower.FixIhI
 foldSPC_PM :: Lech.Semantics.Tower.FixLeafI
 foldSPC_PM :: Lech.Semantics.Tower.FixRecCoreI
 foldSPC_PM :: Lech.Semantics.Tower.FixRecI
@@ -2152,6 +2179,7 @@ foldSPC_PM :: Lech.Semantics.Tower.TowerMk
 foldSPC_PM :: Lech.Semantics.Tower.TowerRec
 foldSPC_PM :: Lech.Semantics.Tower.TowerWire
 foldSPC_PM :: Lech.Semantics.Univ
+foldSPC_PM :: Lech.SetModel.Container
 foldSPC_PM :: Lech.SetModel.Iter
 foldSPC_PM :: Lech.SetModel.Ops
 foldSPC_PM :: Lech.SetModel.RecGraph
@@ -2251,6 +2279,8 @@ foldSPC_PM :: Lech.SetP.DirectFix.FixRuleOkP
 foldSPC_PM :: Lech.SetP.DirectFix.FixShadowP
 foldSPC_PM :: Lech.SetP.DirectFix.FixStageFormerP
 foldSPC_PM :: Lech.SetP.DirectFix.FixStageRecP
+foldSPC_PM :: Lech.SetP.DirectFix.FixTeleBoundP
+foldSPC_PM :: Lech.SetP.DirectFix.FixWitnessP
 foldSPC_PM :: Lech.SetP.DirectSum.DeclDirectSumP
 foldSPC_PM :: Lech.SetP.DirectSum.SumDataP
 foldSPC_PM :: Lech.SetP.DirectSum.SumIntroP
@@ -2539,7 +2569,9 @@ P :: Lech.Semantics.Sat2
 P :: Lech.Semantics.Skeleton
 P :: Lech.Semantics.Syntax
 P :: Lech.Semantics.Tower.FixCaseI
+P :: Lech.Semantics.Tower.FixElemI
 P :: Lech.Semantics.Tower.FixFamI
+P :: Lech.Semantics.Tower.FixIhI
 P :: Lech.Semantics.Tower.FixLeafI
 P :: Lech.Semantics.Tower.FixRecCoreI
 P :: Lech.Semantics.Tower.FixRecI
@@ -2559,6 +2591,7 @@ P :: Lech.Semantics.Tower.TowerMk
 P :: Lech.Semantics.Tower.TowerRec
 P :: Lech.Semantics.Tower.TowerWire
 P :: Lech.Semantics.Univ
+P :: Lech.SetModel.Container
 P :: Lech.SetModel.Iter
 P :: Lech.SetModel.Ops
 P :: Lech.SetModel.RecGraph
@@ -2658,6 +2691,8 @@ P :: Lech.SetP.DirectFix.FixRuleOkP
 P :: Lech.SetP.DirectFix.FixShadowP
 P :: Lech.SetP.DirectFix.FixStageFormerP
 P :: Lech.SetP.DirectFix.FixStageRecP
+P :: Lech.SetP.DirectFix.FixTeleBoundP
+P :: Lech.SetP.DirectFix.FixWitnessP
 P :: Lech.SetP.DirectSum.DeclDirectSumP
 P :: Lech.SetP.DirectSum.SumDataP
 P :: Lech.SetP.DirectSum.SumIntroP

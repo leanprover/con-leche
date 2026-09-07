@@ -444,12 +444,10 @@ def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
     | some kinds =>
       if kinds.any (fun ks => ks.any (· == .negative)) then some ⟨p, kinds⟩
       else if kinds.any (fun ks => ks.any (· == .unsupported)) then none
-      -- a reflexive field is taken only at a `Prop`-valued block (task
-      -- #202, Stage A: the small eliminator, and the subsingleton large
-      -- one of a one-constructor block); elsewhere the block falls
-      -- through to the modeled path (the `Type`-valued membership bound
-      -- is Stage B)
-      else if kinds.any (fun ks => ks.any (· == .reflexive)) && !p.isProp then none
+      -- a reflexive field is taken at every sort (task #202: Stage A the
+      -- `Prop`-valued blocks, Stage B the `Type`-valued ones — the
+      -- family's closed member by the container construction, the
+      -- recursor by the recursion theorem over the elements)
       else if kinds.any (fun ks => ks.any fun k => k == .recursive || k == .reflexive) then
         -- the stream's rules are at the parse placeholder `⟨.never⟩`
         -- (as are the raw constructor types the bodies are generated

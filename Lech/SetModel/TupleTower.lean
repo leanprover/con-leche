@@ -148,6 +148,13 @@ theorem projList_mkTower : ∀ (n : Nat) (as : List V), as.length = n →
       = a :: as
     rw [sfst_spair, ssnd_spair, projList_mkTower n as (Nat.succ.inj h)]
 
+theorem projList_mkTower_append : ∀ (as bs : List V), projList as.length (mkTower (as ++ bs)) = as
+  | [], _ => rfl
+  | a :: as, bs => by
+    show sfst (spair a (mkTower (as ++ bs))) :: projList as.length (ssnd (spair a (mkTower (as ++ bs))))
+      = a :: as
+    rw [sfst_spair, ssnd_spair, projList_mkTower_append as bs]
+
 theorem projList_pt : ∀ n : Nat, projList n (pt : V) = List.replicate n pt
   | 0 => rfl
   | n + 1 => by

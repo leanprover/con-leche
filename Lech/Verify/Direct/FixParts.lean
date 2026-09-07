@@ -133,16 +133,13 @@ theorem List.mapM_option_length {α β : Type} {f : α → Option β} :
     obtain ⟨b, -, bs, hbs, rfl⟩ := h
     simp [List.mapM_option_length hbs]
 
-/-- `directFixParts?` pins the shape and the kinds; a reflexive field
-is taken only at a `Prop`-valued block (task #202, Stage A) unless the
-block is negative. -/
+/-- `directFixParts?` pins the shape and the kinds (a reflexive field is
+taken at every sort since task #202 Stage B). -/
 theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
     (h : directFixParts? block = some p) :
     directFixShape? block = some p.toDirectSumParts ∧
     directFixKinds? p.toDirectSumParts = some p.kinds ∧
     p.kinds.length = p.ctors.length ∧
-    (p.kinds.any (fun ks => ks.any (· == .negative)) = true ∨
-      (p.kinds.any (fun ks => ks.any (· == .reflexive)) = true → p.isProp = true)) ∧
     0 < p.ctors.length := by
   unfold directFixParts? at h
   split at h
@@ -161,23 +158,16 @@ theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
       split at h
       · next hneg =>
         obtain rfl := Option.some.inj h
-        exact ⟨hshape, hkinds, hlen, Or.inl hneg, hpos _ hneg⟩
+        exact ⟨hshape, hkinds, hlen, hpos _ hneg⟩
       · split at h
         · exact nomatch h
         · split at h
-          · exact nomatch h
-          · next hguard =>
+          · next hany =>
             split at h
-            · next hany =>
-              split at h
-              · obtain rfl := Option.some.inj h
-                refine ⟨hshape, hkinds, hlen, Or.inr fun hr => ?_, hpos _ hany⟩
-                have hr' : kinds.any (fun ks => ks.any (· == .reflexive)) = true := hr
-                show p'.isProp = true
-                revert hguard
-                cases p'.isProp <;> simp [hr']
-              · exact nomatch h
+            · obtain rfl := Option.some.inj h
+              exact ⟨hshape, hkinds, hlen, hpos _ hany⟩
             · exact nomatch h
+          · exact nomatch h
     · exact nomatch h
   · exact nomatch h
 
