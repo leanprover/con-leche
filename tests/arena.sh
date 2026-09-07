@@ -232,15 +232,19 @@ arena_half() {
 }
 
 # --- the e2e half --------------------------------------------------
-# Own end-to-end tests: committed RAW `lean4export` streams of
-# tests/e2e/src/*.lean (task #207 — there is no preprocessing step any
-# more; regenerate a fixture by exporting the module with the arena's
-# lean4export and committing its NDJSON, gzipped when large).
+# Own end-to-end tests: committed `lean4export` streams of
+# tests/e2e/src/*.lean, every one of them run RAW (task #207 — there
+# is no preprocessing step any more; regenerate a fixture by exporting
+# the module with the arena's lean4export and committing its NDJSON,
+# gzipped when large).
 #
-# Two committed fixtures still carry `_model` artifacts a preprocessor
-# wrote before #207 (indexed_one_ctor_proj, presieve_ofarrows_cone):
-# they are kept deliberately, as the streams that exercise a model
-# arriving from the INPUT rather than from the in-process modeller.
+# 34 committed fixtures still carry `_model` records a preprocessor
+# wrote before #207 (the nat_* operation slices, trust_*,
+# direct_nested_dep*, indexed_one_ctor_proj, presieve_ofarrows_cone,
+# nested_pin_names, …).  They are kept deliberately: they are the
+# streams that exercise a model arriving from the INPUT rather than
+# from the in-process modeller — a path the checker still has, for
+# hand-written and spliced streams.
 e2e_half() {
   e2e_ok=0
   e2e_total=0

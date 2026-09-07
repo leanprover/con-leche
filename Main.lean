@@ -297,17 +297,17 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
       -- differ in the print and nothing else, and nothing about the
       -- verified statement is bent to accommodate the printing.
       --
-      -- **Reading the index**: `i` is the *fold* position.  The
-      -- stream's declaration-record index is close to it but not a
-      -- fixed offset above it — the parse folds the four `quot`
-      -- records into one `basisDecl` and drops a few others, and a
-      -- taint-skipping stream loses more (measured on
-      -- `init-full` (task #207 re-measured raw): 53 132 records
-      -- against 53 127 fold
-      -- positions, offset 0 through position 5 000 and 5 by the end;
-      -- the `CON_LECHE_TRACE_DECLS` lane's `+4` is the Mathlib stream's
-      -- own total).  The declaration NAME on the line is the
-      -- portable handle.
+      -- **Reading the index**: `i` is the *fold* position, and it is
+      -- NOT the stream's declaration-record index.  The parse folds
+      -- the four `quot` records into one `basisDecl` and drops a few
+      -- others, a taint-skipping stream loses more, and — since task
+      -- #200 — the in-process modeller ADDS records the file does not
+      -- contain, so the fold can run AHEAD of the file's index.
+      -- Measured on raw `init-full` (task #207): 53 093 declaration
+      -- records in the file against 53 118 fold positions, the +25
+      -- being `Lean.Syntax`'s generated model family (30 records) less
+      -- the 5 folded and skipped ones.  The declaration NAME on the
+      -- line is the portable handle.
       let tParse ← IO.monoMsNow
       if stride > 0 then
         IO.eprintln s!"con-leche: progress parse done: {decls.size - preludeCount} \

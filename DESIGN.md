@@ -58576,6 +58576,21 @@ checker improvement and must not be read as one.  The in-process
 receipt is unchanged: `1 inductive blocks modelled in-process:
 Lean.Syntax`, `inmodel census: 1 modelled, 0 declined`.
 
+### The stream-model path is kept, and still exercised
+
+Nothing emits a `_model` family any more, but a HAND-WRITTEN or spliced
+stream may carry one, and the checker must then use it rather than
+generate a second.  That path is not theoretical: **34 committed
+e2e fixtures** still carry `_model` records a preprocessor wrote (the
+`nat_*` operation slices, `trust_*`, `direct_nested_dep*`,
+`nested_pin_names`, `indexed_one_ctor_proj`, `presieve_ofarrows_cone`,
+…).  `presieve_ofarrows_cone.ndjson` is the clearest: **2 blocks route
+`modeled`**, beside 45 struct, 14 sum, 8 fix, 6 basis; 638
+declarations, accept.  They are kept deliberately as the streams that
+exercise a model arriving from the INPUT, and
+`tests/inmodel.sh` re-checks `CON_LECHE_INMODEL_DUMP`'s output for the
+same reason.
+
 ### The Mathlib slices, raw
 
 Two raw slices of the full export, both **exit 0** with no tool and no

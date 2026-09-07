@@ -5,8 +5,14 @@
 # Until task #207 a row could carry a third field, `raw` (run with the
 # preprocessor made unavailable) or `pre` (run with --pre, skipping the
 # spawn), and a fixture could appear twice with two verdicts.  The
-# preprocessor is gone: every stream is raw, every fixture has one
+# preprocessor is gone: every RUN is raw, every fixture has one
 # verdict, and where the two disagreed the `raw` row is the one kept.
+# (34 of the fixture STREAMS still carry `_model` records a
+# preprocessor wrote before #207 — the nat_* slices, trust_*,
+# direct_nested_dep*, nested_pin_names, indexed_one_ctor_proj,
+# presieve_ofarrows_cone, … — and they stay: they are what exercises a
+# model arriving from the INPUT, which the checker still supports for
+# hand-written and spliced streams.)
 #
 # An expectation is a single exit code.  (The direct simple-structure
 # route is the priority route for every recognised block since task

@@ -2,27 +2,27 @@
 
 | | |
 |---|---|
-| commit measured | `c505b16f5a6ec62e45a78b756e33fb2a7a13997d` |
+| commit measured | `b33f38d9eee583117c7a9defe441486a64d95ecb` |
 | tree | task #207: the first table on RAW streams — the lean-inductive-models preprocessor was dropped, so both checkers now read the same raw lean4export bytes and do the same job (con-leche installs every inductive block itself). No cell here is comparable with an earlier PERF.md. |
-| date | 2026-09-07T17:58:34+00:00 |
+| date | 2026-09-07T18:10:59+00:00 |
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
 | metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` (the `mathlib-full` row: 22 GB, 8 h, `CON_LECHE_PROGRESS=5000`) |
 | streams | RAW `lean4export` NDJSON; both checkers read the same bytes and do the same job (task #207: there is no preprocessing step, so these numbers are not comparable with any earlier PERF.md) |
 | Mathlib stream | `/home/joachim/setlec/.claude/worktrees/tooldrop/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes, raw) |
 | official kernel | `/home/joachim/setlec/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
-| con-leche binary | md5 `eb5d21fd04049cadae6074f5302a490d` |
+| con-leche binary | md5 `8eb8790c9c93659142491a61930e375a` |
 
 ## instructions:u
 
 | stream | official v4.33.0 | trusted `--trusted` | verified `--verified` | trusted ÷ official | verified ÷ official |
 |---|---|---|---|---|---|
-| `let-ladder` | 6.13 G | 8.31 G | 8.31 G | 1.35× | 1.35× |
-| `beta-ladder` | 10.12 G | 39.43 G | 39.43 G | 3.89× | 3.89× |
+| `let-ladder` | 6.13 G | 8.31 G | 8.31 G | 1.36× | 1.36× |
+| `beta-ladder` | 10.13 G | 39.43 G | 39.43 G | 3.89× | 3.89× |
 | `init-prelude` | 2.21 G | 4.41 G | 4.55 G | 2.00× | 2.06× |
-| `grind-ring-5` | 13.41 G | 25.28 G | 26.10 G | 1.88× | 1.95× |
-| `app-lam` | 29.41 G | 158.01 G | 158.01 G | 5.37× | 5.37× |
-| `init-full` | 403.62 G | 654.08 G | 673.20 G | 1.62× | 1.67× |
+| `grind-ring-5` | 13.40 G | 25.29 G | 26.11 G | 1.89× | 1.95× |
+| `app-lam` | 29.40 G | 158.01 G | 158.01 G | 5.37× | 5.37× |
+| `init-full` | 403.46 G | 654.11 G | 673.17 G | 1.62× | 1.67× |
 
 ## exit code / accepted declaration records
 
@@ -48,6 +48,17 @@ below).  `modeled` counts blocks the STREAM carries a `_model`
 family for — 0 on every raw stream since task #207; `native` is the
 rest, which con-leche installs itself (a direct route, or a model
 it generates in-process), split by shape.
+
+**The `con-leche` column is the FILE's count and is lower than the
+verdict line's** on any stream with a mutual or nested block: the
+in-process modeller pushes its generated records ahead of the block
+and the fold counts them, but they are not in the file, so this
+census cannot see them (on `init-prelude`, `grind-ring-5` and
+`init-full` the gap is exactly 30 — `Lean.Syntax`'s generated
+family; `CON_LECHE_INMODEL_DUMP`'s output censuses to the verdict
+number exactly).  Before task #207 the models arrived IN the file,
+so the two agreed.  The exit-code table above carries the verdict
+counts.
 
 | stream | records | con-leche | official | pinned | modeled | native | structures | sums | indexed |
 |---|---|---|---|---|---|---|---|---|---|
