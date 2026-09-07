@@ -193,7 +193,7 @@ set_option maxHeartbeats 3200000 in
 theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : Level}
     {nP nIdx n ℓ w u s b : Nat} (hℓ : elimL.eval ψ = ℓ)
     (hb : pwBit ψ (Level.zeronessOf elimL) = b) (hbz : ℓ = 0 ↔ b = 0)
-    (hwℓ : w = 0 → ℓ = 0) (hs0 : s = 0 ↔ ℓ = 0)
+    (hs0 : s = 0 ↔ ℓ = 0)
     {pps ips : List (Nat × Nat × AVExpr)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
     {cds : List CtorDatumR} (hn : cds.length = n)
     {Fss₀ Fss Ess : List (List AVExpr)} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))}
@@ -203,7 +203,14 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
       ((Eiss.getD j []).getD i []).length = nIdx)
     (hEbelow : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [],
       VExpr.bvarsBelow (nP + i + ((tlss.getD j []).getD i []).length) E.erase)
-    (hfin : (∀ j i, (tlss.getD j []).getD i [] = []) ∨ (w = 0 ∧ ℓ = 0))
+    (hfin : (∀ j i, (tlss.getD j []).getD i [] = []) ∨ w = 0)
+    (hsingle : w = 0 → ℓ ≠ 0 → n = 1)
+    (hprop : w = 0 → ℓ ≠ 0 → ∀ ρp : Nat → V, Sat2 V ((pps.map (·.2.2)).reverse) ρp →
+      ∀ j, j < n → ∀ i, i < (Fss.getD j []).length →
+      srcOfEs (Ess.getD j []) (Fss.getD j []).length i = none →
+      ∀ fs : List V, SpineFit ρp ((Fss.getD j []).take i) fs →
+        interp2 V (consList fs ρp) ((Fss.getD j []).getD i default) ∈ˢ (univZero : V))
+    (hTbelow : ∀ j i, DomsBelow (nP + i) ((tlss.getD j []).getD i []))
     (hbelow : DomsBelow 0 (fixRecDataAV m T ψ nP nIdx elimL pps ips cds))
     (okΓ : ∀ i, i < nP + n + nIdx + 2 → ∀ ρ : Nat → V,
       Sat2 V (((((fixRecDataAV m T ψ nP nIdx elimL pps ips cds).map (·.2.2)).reverse)).drop
@@ -286,8 +293,8 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
     intro ρb ps M ms is _ hlenMs _ hρp hM hms hfit
     obtain ⟨hX, hreal, hfields, hleafT, -⟩ := hframes (consList ps ρb) hρp
     exact fixKFrame_of hℓ hlenP hlenI hlenFs hlenEs hEs hEisLen hρp hX hreal hfields hleafT hM
-      hlenMs hms hfit
-  refine ⟨?_, ?_, ?_, hwℓ, hfin, hs0, ?_, ?_, ?_, ?_, ?_, hEbelow⟩
+      hlenMs hms hsingle (fun hw0 hℓ0 => hprop hw0 hℓ0 (consList ps ρb) hρp) hfit
+  refine ⟨?_, ?_, ?_, hfin, hs0, ?_, ?_, ?_, ?_, ?_, hEbelow, hTbelow⟩
   · -- `hz`
     intro d hd
     rw [← hrds] at hd

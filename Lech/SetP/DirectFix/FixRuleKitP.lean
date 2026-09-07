@@ -25,46 +25,6 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-! ## The ih-moved telescopes (task #202) -/
-
-
-theorem AnnotValidV_ihIdxAtM {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
-    (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
-    (hi : i ≤ nF) (as : List V) (E : AVExpr) :
-    AnnotValidV V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
-        (ihIdxAtM nF o i l as.length E) ↔
-      AnnotValidV V (consList as (consList (fs.take i) ρp)) E := by
-  unfold ihIdxAtM
-  rw [AnnotValidV_liftN, show nF + l + as.length = as.length + (fs.length + ihs.length) from by omega,
-    shiftE_consList_len', shiftE_fieldFrame hms, AnnotValidV_liftN, shiftE_consList_len,
-    ← consList_append]
-  have hsplit : fs ++ ihs = fs.take i ++ (fs.drop i ++ ihs) := by
-    rw [← List.append_assoc, List.take_append_drop]
-  rw [hsplit, consList_append, show nF - i + l = (fs.drop i ++ ihs).length from by
-    rw [List.length_append, List.length_drop]; omega, shiftE_consList]
-
-/-- The telescope's validity moved to the ih frame. -/
-theorem fieldsValid_ihTeleAtGo {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
-    (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
-    (hi : i ≤ nF) :
-    ∀ (tl : List (Nat × Nat × AVExpr)) (as : List V),
-      FieldsValid (consList as (consList (fs.take i) ρp)) (tl.map (·.2.2)) →
-      FieldsValid (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
-        ((ihTeleAtGo nF o i l as.length tl).map (·.2.2))
-  | [], _, _ => trivial
-  | d :: tl, as, hF => by
-    show FieldsValid _ (ihIdxAtM nF o i l as.length d.2.2 ::
-      (ihTeleAtGo nF o i l (as.length + 1) tl).map (·.2.2))
-    rw [List.map_cons] at hF
-    obtain ⟨hv, hrest⟩ := hF
-    refine ⟨(AnnotValidV_ihIdxAtM hms hfs hihs hi as _).mpr hv, fun a ha => ?_⟩
-    rw [interp_ihIdxAtM hms hfs hihs hi] at ha
-    rw [consList_snoc']
-    have := fieldsValid_ihTeleAtGo (M := M) (ρp := ρp) hms hfs hihs hi tl (as ++ [a])
-      (by rw [← consList_snoc']; exact hrest a ha)
-    rw [length_snoc'] at this
-    exact this
-
 /-! ## λ-towers with the binders' own bits -/
 
 /-- **A λ-tower with the telescope's own bits inhabits its Π-tower's

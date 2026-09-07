@@ -49,12 +49,13 @@ theorem ihDomAV_nil (nF o i l : Nat) (Eis : List AVExpr) :
     List.range_zero, List.map_nil, AVExpr.mkAppN]
   rfl
 
-/-- The ih binders' Π-tower over the recursive positions. -/
+/-- The ih binders' Π-tower over the recursive positions (the moved
+telescopes re-bit to the elimination bit `b`, task #202 A2). -/
 def ihPisAV (nF o b : Nat) (tls : List (List (Nat × Nat × AVExpr))) (Eiss : List (List AVExpr)) :
     List Nat → Nat → AVExpr → AVExpr
   | [], _, body => body
   | i :: is, l, body =>
-    .pi 0 b (ihDomAV nF o i l (tls.getD i []) (Eiss.getD i []))
+    .pi 0 b (ihDomAV nF o i l (rebit b (tls.getD i [])) (Eiss.getD i []))
       (ihPisAV nF o b tls Eiss is (l + 1) body)
 
 /-- The minor premise's domain reading at a recursive block: the
@@ -187,11 +188,13 @@ theorem ihAppAV_nil (R : AVExpr) (nP n nF i : Nat) (Eis : List AVExpr) :
   rfl
 
 /-- Rule `j`'s core at a recursive block: minor `j` at the field
-variables and the ih applications. -/
-def fixRuleCoreAV (R : AVExpr) (nP nF n j : Nat) (recIdx : List Nat)
+variables and the ih applications (their telescopes re-bit to the
+elimination bit `b`, task #202 A2). -/
+def fixRuleCoreAV (b : Nat) (R : AVExpr) (nP nF n j : Nat) (recIdx : List Nat)
     (tls : List (List (Nat × Nat × AVExpr))) (Eiss : List (List AVExpr)) : AVExpr :=
   AVExpr.mkAppN (.bvar (nF + n - 1 - j))
-    (fieldBvars nF ++ recIdx.map fun i => ihAppAV R nP n nF i (tls.getD i []) (Eiss.getD i []))
+    (fieldBvars nF ++ recIdx.map fun i =>
+      ihAppAV R nP n nF i (rebit b (tls.getD i [])) (Eiss.getD i []))
 
 /-- **Rule `j`'s binder data** at a recursive block: the recursor's
 parameter, motive and minor entries, then constructor `j`'s field data

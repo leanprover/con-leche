@@ -88,13 +88,32 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : Lis
     · rw [hsh]
       intro j hj bs hsp' E hE'
       exact hE j (by rw [← hFss]; exact hj) bs hsp' E hE'
-  refine fixRecBody_validV hfr hK.hyp (fun hw => h.hfin.resolve_right fun hh => hw hh.1) hv' ?_
-  intro hw j hj i hi fs hfs E hE'
-  have hfin := h.hfin.resolve_right fun hh => hw hh.1
-  rw [hfrP] at hfs ⊢
-  obtain ⟨-, hbs⟩ := hEis j (by rw [← hFss]; exact hj) i hi fs hfs
-  have := hbs [] (by rw [hfin j i]; trivial) E hE'
-  simpa using this
+  refine fixRecBody_validV hfr hK.hyp (fun hw => h.hfin.resolve_right hw) hv' ?_ ?_
+  · intro hw j hj i hi fs hfs E hE'
+    have hfin := h.hfin.resolve_right hw
+    rw [hfrP] at hfs ⊢
+    obtain ⟨-, hbs⟩ := hEis j (by rw [← hFss]; exact hj) i hi fs hfs
+    have := hbs [] (by rw [hfin j i]; trivial) E hE'
+    simpa using this
+  · -- the squash regime (task #202 A2): the K-frame, split
+    intro hw0 hℓ0
+    obtain ⟨hsingle, -, -⟩ := hK.hsq hw0 hℓ0
+    have hn1 : n = 1 := by rw [← hFss]; exact hsingle
+    obtain ⟨ps, ms, is', M, heq, hlenP, hlenM, hlenI'⟩ :=
+      kframe_split3 (as := as₀ ++ is) (nP := nP) (n := Fss.length) (nIdx := Ids.length)
+        (by rw [List.length_append, hl₀, hli])
+    obtain ⟨rfl, rfl⟩ := List.append_inj heq (by simp [hl₀, hlenP, hlenM]; omega)
+    have hps : (ps ++ [M] ++ ms).take nP = ps := by
+      rw [List.append_assoc, List.take_append_of_le_length (by omega),
+        List.take_of_length_le (by omega)]
+    rw [hps] at hv hEis hfrP
+    rw [hσ, consList_kframe]
+    refine sqFixBodyAV_validV hlenM hlenI' (hv _ (List.mem_of_getElem? (i := 0) ?_)) ?_ ?_
+    · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
+    · intro i hi fs hfs
+      exact (hEis 0 (by omega) i hi fs hfs).1
+    · intro i hi fs hfs bs hbs E hE
+      exact (hEis 0 (by omega) i hi fs hfs).2 bs hbs E hE
 
 /-- **The recursor leaf's P currency and membership**, at every frame. -/
 theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List AVExpr)}

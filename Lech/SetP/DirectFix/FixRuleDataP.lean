@@ -201,8 +201,8 @@ theorem fixRuleData_of (mp : EnvS2PM V μ env)
         = some (mkLamsAV (fixRuleDataAV m₂ p.cvT.name ψ p.nP p.nIdx
             (Lech.directElimLevel p.elim p.large) ((ppsAll ψ).take p.nP) ((ppsAll ψ).drop p.nP)
             (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) (dsF j ψ))
-          (fixRuleCoreAV (A ψ) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψ)
-            (eissF j ψ))) := by
+          (fixRuleCoreAV (pwBit ψ (Level.zeronessOf (Lech.directElimLevel p.elim p.large))) (A ψ)
+            p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ))) := by
   obtain ⟨cvRi, recTy, sty, u, -, -, -, -, -, -, -, -, -, hrules, rfl⟩ :=
     Lech.checkDirectFixRec_shape hRec
   obtain ⟨hTf, -, -, -, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)
@@ -256,7 +256,7 @@ theorem fixRuleData_of (mp : EnvS2PM V μ env)
     (hcr₂ ψ) hfR₂ rfl hgen hTf (by rw [hstripT]; rfl) hopT (hFD₂.read ψ) (hFD₂.len ψ) (hjd ψ)
   rw [fixCtorDataList_length] at this
   rw [this, hac]
-  show some (mkLamsAV _ (fixRuleCoreAV (acvalWith mp.base2.acval p.cvR.name A p.cvR.name ψ)
+  show some (mkLamsAV _ (fixRuleCoreAV _ (acvalWith mp.base2.acval p.cvR.name A p.cvR.name ψ)
     _ _ _ _ _ _ _)) = _
   rw [acvalWith_self]
 

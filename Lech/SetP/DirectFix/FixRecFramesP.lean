@@ -123,7 +123,6 @@ theorem interp_ihPisAV {ℓ b nF o : Nat} (hbz : ℓ = 0 ↔ b = 0) {ρp : Nat �
     {tls : List (List (Nat × Nat × AVExpr))} {Eiss : List (List AVExpr)} {C : V} :
     ∀ (is : List Nat) (l : Nat) (ihs : List V) (body : AVExpr),
       ihs.length = l → (∀ i ∈ is, i < nF) →
-      (∀ i ∈ is, ∀ d ∈ tls.getD i [], (d.2.1 = 0 ↔ ℓ = 0)) →
       (∀ ihs' : List V, ihs'.length = l + is.length →
         interp2 V (consList ihs' (consList fs (consList ms (cons M ρp)))) body = C) →
       interp2 V (consList ihs (consList fs (consList ms (cons M ρp))))
@@ -134,19 +133,19 @@ theorem interp_ihPisAV {ℓ b nF o : Nat} (hbz : ℓ = 0 ↔ b = 0) {ρp : Nat �
                 (((Eiss.getD i []).map (interp2 V (consList as (consList (fs.take i) ρp)))).foldl
                   SetTheory.app M)
                 (as.foldl SetTheory.app (fs.getD i pt))) [])
-  | [], l, ihs, body, hihs, _, _, hbody => by
+  | [], l, ihs, body, hihs, _, hbody => by
     simp only [ihPisAV, List.map_nil, ihSpL]
     exact hbody ihs (by simp [hihs])
-  | i :: is, l, ihs, body, hihs, hlt, hbits, hbody => by
+  | i :: is, l, ihs, body, hihs, hlt, hbody => by
     simp only [ihPisAV, List.map_cons, ihSpL, interp2_pi]
     rw [piR_congr_bit (v := b) (v' := ℓ) hbz.symm,
-      interp_ihDomAV hms hfs hihs (hlt i List.mem_cons_self) (hbits i List.mem_cons_self)]
+      interp_ihDomAV (ℓ := ℓ) (tl := rebit b (tls.getD i [])) hms hfs hihs (hlt i List.mem_cons_self)
+        (fun d hd => by rw [mem_rebit hd]; exact hbz.symm), rebit_map_dom]
     apply piR_congr
     intro x _
     rw [consList_snoc']
     refine interp_ihPisAV hbz hms hfs is (l + 1) (ihs ++ [x]) body (by simp [hihs])
-      (fun i' hi' => hlt i' (List.mem_cons_of_mem _ hi'))
-      (fun i' hi' => hbits i' (List.mem_cons_of_mem _ hi')) ?_
+      (fun i' hi' => hlt i' (List.mem_cons_of_mem _ hi')) ?_
     intro ihs' hl
     exact hbody ihs' (by rw [hl, List.length_cons]; omega)
 

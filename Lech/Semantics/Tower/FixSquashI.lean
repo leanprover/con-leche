@@ -1483,6 +1483,30 @@ theorem mem_idxSet_elim {u : Nat} {ρp : Nat → V} {Ids : List AVExpr} {t : V}
   · obtain ⟨hsp, heq⟩ := towerSet_elim_teleOfFields hu ht
     exact ⟨_, hsp, by rw [tupW_pos hu]; exact heq⟩
 
+/-- λ-towers at zeroness-agreeing bits agree. -/
+theorem lamTower_bit_agree {m m' : Nat} (hz : m = 0 ↔ m' = 0) {g : (Nat → V) → V} :
+    ∀ (ds : List (Nat × Nat × AVExpr)) (ρ : Nat → V), lamTower m ρ ds g = lamTower m' ρ ds g
+  | [], _ => rfl
+  | d :: ds, ρ => by
+    show lamR m (interp2 V ρ d.2.2) (fun a => lamTower m (cons a ρ) ds g)
+      = lamR m' (interp2 V ρ d.2.2) (fun a => lamTower m' (cons a ρ) ds g)
+    exact lamR_zero_agree hz fun a _ => lamTower_bit_agree hz ds (cons a ρ)
+
+/-- At finitary fields the squash body's ih values are the function at
+the block, the field's index values and the field. -/
+theorem sqIhValsK_fin {ℓ : Nat} {ρP : Nat → V} {ps ms : List V} {M r : V} {rs : List Bool}
+    {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)} {nF : Nat} {fs : List V}
+    (hfin : ∀ i, tls.getD i [] = []) :
+    sqIhValsK ℓ ρP ps ms M r rs tls Eis nF fs
+      = (recIdx rs nF).map fun i =>
+          ((ps ++ [M]) ++ ms ++ (Eis.getD i []).map (interp2 V (consList (fs.take i) ρP)) ++
+            [fs.getD i pt]).foldl SetTheory.app r := by
+  unfold sqIhValsK
+  apply List.map_congr_left
+  intro i _
+  rw [hfin i]
+  rfl
+
 /-- λ-towers with bodies agreeing at every fitting leaf agree. -/
 theorem lamTower_congr_leaves {m : Nat} {g₁ g₂ : (Nat → V) → V} :
     ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},

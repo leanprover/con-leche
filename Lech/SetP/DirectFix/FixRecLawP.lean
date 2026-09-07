@@ -121,19 +121,40 @@ theorem recPrefixBvarsM_validV {nP n nF m : Nat} {σ : Nat → V} {a : AVExpr}
     · rw [List.mem_singleton] at ha; subst ha; trivial
   · obtain ⟨l, -, rfl⟩ := List.mem_map.mp ha; trivial
 
+/-! ## The rule's ih applications at the re-bit telescopes (task #202 A2) -/
+
+omit [SetTheory V] in
+theorem ihTeleAtGo_rebit (nF o i l b : Nat) :
+    ∀ (k : Nat) (tl : List (Nat × Nat × AVExpr)),
+      ihTeleAtGo nF o i l k (rebit b tl) = rebit b (ihTeleAtGo nF o i l k tl)
+  | _, [] => rfl
+  | k, d :: tl => by
+    simp only [rebit_cons, ihTeleAtGo, ihTeleAtGo_rebit nF o i l b (k + 1) tl]
+
+omit [SetTheory V] in
+/-- The rule's ih application at a re-bit telescope is the semantic
+spelling `ihAppAVb` at the elimination bit with no extras. -/
+theorem ihAppAV_rebit (b : Nat) (R : AVExpr) (nP n nF i : Nat) (tl : List (Nat × Nat × AVExpr))
+    (Eis : List AVExpr) :
+    ihAppAV R nP n nF i (rebit b tl) Eis = ihAppAVb b (fun _ => R) nP n nF 0 i tl Eis := by
+  unfold ihAppAV ihAppAVb ihTeleAtR mkLamsC
+  rw [ihTeleAtGo_rebit, rebit_map_lam, rebit_length]
+  rfl
+
 /-- **The rule's core reads to the minor's fold** at the fields and the
-inductive-hypothesis values. -/
-theorem interp_fixRuleCoreAV {nP n nF j : Nat} {as₁ ms as₂ : List V} {M : V} {ρ : Nat → V}
+inductive-hypothesis values — the λ-towers over the recursive fields'
+telescopes of the leaf at the block, the calls' index values and the
+field along the telescope (`sqIhValsK`; a finitary field: the leaf at
+the block, the index values and the field). -/
+theorem interp_fixRuleCoreAV {ℓ b nP n nF j : Nat} (hbz : ℓ = 0 ↔ b = 0) {as₁ ms as₂ : List V}
+    {M : V} {ρ : Nat → V}
     (hlenP : as₁.length = nP) (hlenM : ms.length = n) (hlenF : as₂.length = nF) (hjn : j < n)
     {R : AVExpr} (hRcl : VExpr.bvarsBelow 0 R.erase) {rs : List Bool}
-    {tls : List (List (Nat × Nat × AVExpr))} (hfin : ∀ i, tls.getD i [] = [])
-    {Eis : List (List AVExpr)} :
+    {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)} :
     interp2 V (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-        (fixRuleCoreAV R nP nF n j (recIdx rs nF) tls Eis)
-      = (as₂ ++ (recIdx rs nF).map fun i =>
-          (((as₁ ++ [M]) ++ ms) ++ ((Eis.getD i []).map (interp2 V (consList (as₂.take i) (consList as₁ ρ))))
-            ++ [as₂.getD i pt]).foldl SetTheory.app (interp2 V ρ R)).foldl SetTheory.app
-          (ms.getD j pt) := by
+        (fixRuleCoreAV b R nP nF n j (recIdx rs nF) tls Eis)
+      = (as₂ ++ sqIhValsK ℓ (consList as₁ ρ) as₁ ms M (interp2 V ρ R) rs tls Eis nF as₂).foldl
+          SetTheory.app (ms.getD j pt) := by
   unfold fixRuleCoreAV
   rw [interp2_mkAppN, ← List.foldl_map (f := interp2 V (consList as₂ (consList ms (cons M (consList as₁ ρ)))))
     (g := SetTheory.app), List.map_append, List.map_map, interp2_bvar,
@@ -142,30 +163,24 @@ theorem interp_fixRuleCoreAV {nP n nF j : Nat} {as₁ ms as₂ : List V} {M : V}
     show nF + n - 1 - j = (n - 1 - j) + as₂.length from by omega, consList_apply_add,
     consList_apply_lt' ms _ (by omega), show ms.length - 1 - (n - 1 - j) = j from by omega]
   congr 2
+  unfold sqIhValsK
   apply List.map_congr_left
   intro i hi
   obtain ⟨hik, -⟩ := mem_recIdx.mp hi
   simp only [Function.comp]
-  rw [hfin i, ihAppAV_nil]
-  rw [interp2_mkAppN, ← List.foldl_map (f := interp2 V (consList as₂ (consList ms (cons M (consList as₁ ρ)))))
-    (g := SetTheory.app), List.map_append, List.map_append, map_recPrefixBvars_interp hlenP hlenM hlenF,
-    List.map_map, interp2_closed (V := V) hRcl _ ρ]
-  simp only [List.map_cons, List.map_nil, interp2_bvar]
-  rw [consList_apply_lt' as₂ _ (by omega), show as₂.length - 1 - (nF - 1 - i) = i from by omega]
-  congr 3
-  apply List.map_congr_left
-  intro E _
-  simp only [Function.comp]
-  have h := interp_ihIdxAt (o := n + 1) (ρp := consList as₁ ρ) (M := M) (ms := ms)
-    (by omega) (fs := as₂) (ihs := []) hlenF rfl (Nat.le_of_lt hik) E
-  rw [consList_nil] at h
-  exact h
+  rw [ihAppAV_rebit]
+  have h := interp_ihAppAVb (b := b) (M := M) (ρ := ρ) (ex := []) (Rm := fun _ => R)
+    (rV := interp2 V ρ R) hlenP hlenM rfl hlenF hik (fun bs => interp2_closed (V := V) hRcl _ ρ)
+    (tls.getD i []) (Eis.getD i [])
+  simp only [consList_nil, List.length_nil] at h
+  rw [h, lamTower_bit_agree hbz.symm]
 
 /-! ## The law -/
 
 set_option maxHeartbeats 6400000 in
 /-- **The recursive recursor rule's law at the readings.** -/
-theorem fixRecLawCore {ℓ w u s nP nF nIdx n j : Nat} {rds ds : List (Nat × Nat × AVExpr)}
+theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 0)
+    {rds ds : List (Nat × Nat × AVExpr)}
     {Fss₀ Fss Ess : List (List AVExpr)} {Ids : List AVExpr} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Es : List AVExpr}
     (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
@@ -181,7 +196,7 @@ theorem fixRecLawCore {ℓ w u s nP nF nIdx n j : Nat} {rds ds : List (Nat × Na
     (hldsDom : lds.map (·.2) = (rds.take (nP + 1 + n)).map (·.2.2) ++
       (liftDoms (n + 1) 0 (ds.drop nP)).map (·.2.2))
     {Ra : AVExpr}
-    (hRa : Ra = mkLamsAV lds (fixRuleCoreAV R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j [])
+    (hRa : Ra = mkLamsAV lds (fixRuleCoreAV b R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j [])
       (Eiss.getD j [])))
     (hokRa : ∀ ρ : Nat → V, AnnotOkP V ρ Ra)
     {ρ : Nat → V} {xs ys : List AVExpr} (hxl : xs.length = nP + 1 + n + nIdx) (hyl : ys.length = nP + nF)
@@ -330,7 +345,7 @@ theorem fixRecLawCore {ℓ w u s nP nF nIdx n j : Nat} {rds ds : List (Nat × Na
   -- the right-hand side: the rule's fold to the core
   have hRHS : interp2 V ρ (AVExpr.mkAppN Ra (xs.take (nP + 1 + n) ++ ys.drop nP))
       = interp2 V (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-          (fixRuleCoreAV R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j [])) := by
+          (fixRuleCoreAV b R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j [])) := by
     rw [interp2_mkAppN, ← List.foldl_map (f := interp2 V ρ) (g := SetTheory.app), hRa,
       mkLamsAV_fold_graded (by rw [← hRa]; exact (hokRa ρ).1) hfit, hframeR]
   -- the left-hand side: the recursor's fold
@@ -367,14 +382,28 @@ theorem fixRecLawCore {ℓ w u s nP nF nIdx n j : Nat} {rds ds : List (Nat × Na
       rw [interp2_mkAppN, interp2_bvar, hminor, hmpt, hRpt, foldl_app_pt_sum,
         ← List.foldl_map (f := interp2 V (consList as₂ (consList ms (cons M (consList as₁ ρ)))))
           (g := SetTheory.app), foldl_app_pt_sum]
-    · have hw : w ≠ 0 := fun hw0 => hℓ0 (h.hwℓ hw0)
-      have hfin := h.hfin.resolve_right fun hh => hw hh.1
-      have hmaj : t = inj j (mkTower (as₂ ++ [pt])) := by rw [hmkv, if_neg hw]
-      have hiota := directFixRecAVI_iota h hw hℓ0 ρ hspR' hjF
-        (fs := as₂) (by rw [hFsjD, hlen₂, hlenFs]) hmaj
-      rw [← hR] at hiota
-      rw [hiota, hKfr, hfrMs, hfrK, hfrP, hFsjD, hlenFs,
-        interp_fixRuleCoreAV hlen₁ hlenm hlen₂ hjn hRcl (fun i => hfin j i)]
+    · by_cases hw : w = 0
+      · -- the squash regime (task #202 A2): the recursor's iota at the
+        -- proof point, the fields the source spine
+        subst hw
+        have htpt : t = pt := by rw [hmkv, if_pos rfl]
+        subst htpt
+        have hiota := directFixRecAVI_iota_sq h rfl hℓ0 ρ hlen₁ hlenMs' hlenIs' hspR'
+        rw [← hR] at hiota
+        obtain ⟨hsingle, -, hprop⟩ := hK.hsq rfl hℓ0
+        rw [hKfr, hfrP] at hprop
+        have hj0 : j = 0 := by omega
+        subst hj0
+        have has₂ : as₂ = srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) :=
+          Lech.Semantics.srcVals_of_fit hprop (by rw [hFsjD]; exact hsp₂) (by rw [hEsjD]; exact hidxEq)
+        rw [hiota, interp_fixRuleCoreAV hbz hlen₁ hlenm hlen₂ hjn hRcl, ← has₂, hFsjD, hlenFs]
+      · have hfin := h.hfin.resolve_right hw
+        have hmaj : t = inj j (mkTower (as₂ ++ [pt])) := by rw [hmkv, if_neg hw]
+        have hiota := directFixRecAVI_iota h hw hℓ0 ρ hspR' hjF
+          (fs := as₂) (by rw [hFsjD, hlen₂, hlenFs]) hmaj
+        rw [← hR] at hiota
+        rw [hiota, hKfr, hfrMs, hfrK, hfrP, hFsjD, hlenFs,
+          interp_fixRuleCoreAV hbz hlen₁ hlenm hlen₂ hjn hRcl, sqIhValsK_fin (fun i => hfin j i)]
   · intro hxs_ok hys_ok
     refine mkAppN_okP_of_lam (hokRa ρ) ?_ (by rw [← hRa]; exact (hokRa ρ).1)
       (Or.inr (by rw [hRa])) hfit
