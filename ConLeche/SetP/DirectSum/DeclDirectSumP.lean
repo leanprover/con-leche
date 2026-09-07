@@ -208,8 +208,8 @@ theorem sumCtorsLoop (hμ : μ.verifiedChecks = true)
       intro ψ
       rw [essOf_getElem?, ctorDataList_getElem?, hcAk, Nat.zero_add]; rfl
     -- the stage
-    obtain ⟨mpC, hacC⟩ := stageSumCtor (j := k) (hE.except _) mp hCtor hfresh htr hfT
-      (fun m₂ _ => capsLawsAt_of_none m₂ rfl rfl) hlpsT hlpsC hFD hCD
+    obtain ⟨mpC, hacC⟩ := stageSumCtor (j := k) (hE.except _) mp hCtor hfresh htr hfT hlpsT hlpsC
+      (fun m₂ _ _ => capsLawsAt_of_none m₂ rfl rfl) hFD hCD
       hleafT hFsj hEsj hFssParams hFssBelow (hiff k cA hcAk)
       hFssOk (fun ψ ρ hρ => hFssOkP ψ ρ ((hiff k cA hcAk ψ ρ).mpr hρ)) (hIdx k cA hcAk)
     -- the invariants at the extension

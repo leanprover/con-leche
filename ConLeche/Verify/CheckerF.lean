@@ -425,13 +425,14 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 theorem directFixOpenedOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (cty : Expr) (nF : Nat) (ks : List RecFieldKind) :
-    directFixOpenedOkF (mkFEnv env₀) T lps nP nIdx cty nF ks
+    directFixOpenedOkF .plain (mkFEnv env₀) T lps nP nIdx cty nF ks
       = directFixOpenedOk env₀ T lps nP nIdx cty nF ks := by
-  simp only [directFixOpenedOkF, directFixOpenedOk, constsResolveF_eq] <;> rfl
+  simp only [directFixOpenedOkF, directFixOpenedOk, DirectWalkers.plain, constsResolveF_eq]
+    <;> rfl
 
 theorem directFixFieldsOkF_eq (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (ctorsA : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) :
-    directFixFieldsOkF (mkFEnv env₀) T lps nP nIdx ctorsA kinds
+    directFixFieldsOkF .plain (mkFEnv env₀) T lps nP nIdx ctorsA kinds
       = directFixFieldsOk env₀ T lps nP nIdx ctorsA kinds := by
   simp only [directFixFieldsOkF, directFixFieldsOk, directFixOpenedOkF_eq] <;> rfl
 
@@ -439,22 +440,24 @@ theorem checkDirectFixRulesF_eq (envR : Env) (rlps : List Name) (T : Name) (lps 
     (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
     (ctors : List (Name × Nat × Expr × List Nat)) (recC : Name) (rlvls : List Level) :
     ∀ (k j : Nat),
-      checkDirectFixRulesF (m := m) (mkFEnv envR) rlps T lps elim large nP nIdx tty ctors
+      checkDirectFixRulesF (m := m) .plain (mkFEnv envR) rlps T lps elim large nP nIdx tty ctors
           recC rlvls k j
         = checkDirectFixRules (m := m) envR rlps T lps elim large nP nIdx tty ctors recC
             rlvls k j
   | 0, _ => rfl
   | k + 1, j => by
-    simp only [checkDirectFixRulesF, checkDirectFixRules, constsResolveF_eq,
+    simp only [checkDirectFixRulesF, checkDirectFixRules,
       checkDirectFixRulesF_eq envR rlps T lps elim large nP nIdx tty ctors recC rlvls k
         (j + 1)]
+    simp only [DirectWalkers.plain, constsResolveF_eq]
 
 theorem checkDirectFixRecF_eq (ops : CheckerOps m) (env : Env) (p : DirectFixParts)
     (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
-    checkDirectFixRecF ops (mkFEnv env) p cvTa ctorsA
+    checkDirectFixRecF ops .plain (mkFEnv env) p cvTa ctorsA
       = checkDirectFixRec ops env p cvTa ctorsA := by
-  simp only [checkDirectFixRecF, checkDirectFixRec, mkFEnv_env, constsResolveF_eq,
-    checkConstantValF_eq, push_mkFEnv, checkDirectFixRulesF_eq]
+  simp only [checkDirectFixRecF, checkDirectFixRec, mkFEnv_env, checkConstantValF_eq,
+    push_mkFEnv, checkDirectFixRulesF_eq]
+  simp only [DirectWalkers.plain, constsResolveF_eq]
 
 end FixMirrors
 

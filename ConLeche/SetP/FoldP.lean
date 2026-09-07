@@ -196,25 +196,13 @@ theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     -- own three-stage case split
     have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block env₂ := hrun
     unfold ConLeche.Semantics.DeclIndRunDispatch at hrun'
-    cases hdp : ConLeche.directParts? env block with
+    cases hdf : ConLeche.directFixParts? block with
     | some p =>
-      rw [hdp] at hrun'
-      exact declDirectP hμ mp hE hdp hrun'
+      rw [hdf] at hrun'
+      exact declDirectFixP hμ mp hE hdf hrun'
     | none =>
-      rw [hdp] at hrun'
-      cases hds : ConLeche.directSumParts? env block with
-      | some p =>
-        rw [hds] at hrun'
-        exact declDirectSumP hμ mp hE hds hrun'
-      | none =>
-        rw [hds] at hrun'
-        cases hdf : ConLeche.directFixParts? block with
-        | some p =>
-          rw [hdf] at hrun'
-          exact declDirectFixP hμ mp hE hdf hrun'
-        | none =>
-          rw [hdf] at hrun'
-          exact indStepPB_of hμ mp hE hrun'
+      rw [hdf] at hrun'
+      exact indStepPB_of hμ mp hE hrun'
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :

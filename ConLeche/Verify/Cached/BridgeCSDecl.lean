@@ -3,6 +3,7 @@ import ConLeche.Verify.Direct.DirectWF
 import ConLeche.Verify.Direct.DirectResid
 import ConLeche.Verify.Direct.SumWF
 import ConLeche.Verify.Direct.FixWF
+import ConLeche.Verify.Cached.WalkersC
 
 /-!
 # Cached shared-state checker: the inductive block and the per-declaration bridge
@@ -154,12 +155,12 @@ theorem checkDirectCtorF_pushC (ops : CheckerOps CheckCM) (env₀ env : Env)
 theorem checkDirectProjTableF_pushC (T C : Name) (lps : List Name)
     (nP nF : Nat) (rs : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal)
     (env : Env) :
-    checkDirectProjTableF (m := CheckCM) T C lps nP nF rs guards off cvCa (mkFEnv env)
+    checkDirectProjTableF (m := CheckCM) .plain T C lps nP nF rs guards off cvCa (mkFEnv env)
       = checkDirectProjTable (m := CheckCM) T C lps nP nF rs guards off cvCa env
           >>= fun e => pure (mkFEnv e) := by
   unfold checkDirectProjTableF checkDirectProjTable
-  simp only [constsResolveF_eq, mkFEnv_find?, push_mkFEnv, bind_assoc, pure_bind,
-    ite_bindC, throwC_bind_eq] <;> rfl
+  simp only [DirectWalkers.plain, constsResolveF_eq, mkFEnv_find?, push_mkFEnv, bind_assoc,
+    pure_bind, ite_bindC, throwC_bind_eq] <;> rfl
 
 /-- The non-inductive branches of the cached `checkDeclSF` are the
 generic `checkDecl` (at the cached shared operations) followed by
@@ -310,7 +311,7 @@ theorem checkDirectProjTableS_run {T C : Name} {lps : List Name} {nP nF : Nat}
     {rs : Level} {guards : List Level} {off : Nat} {cvCa : ConstantVal}
     (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState}
     (henv : EnvWF env) (hwf : CSOKF s₀)
-    (h : checkDirectProjTableF (m := CheckCM) T C lps nP nF rs guards off cvCa
+    (h : checkDirectProjTableF (m := CheckCM) .plain T C lps nP nF rs guards off cvCa
       (mkFEnv env) s₀ = .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
     ∃ F, (checkDirectProjTable T C lps nP nF rs guards off cvCa env : FueledM Env).val F
@@ -550,7 +551,8 @@ environment unchanged. -/
 theorem checkDirectFixTableS_run {p : DirectFixParts} {ctorsA : List (ConstantVal × Nat)}
     {sortss : List (List Level)} (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState}
     (henv : EnvWF env) (hwf : CSOKF s₀)
-    (h : checkDirectFixTableF (m := CheckCM) p ctorsA sortss (mkFEnv env) s₀ = .ok (fe', s')) :
+    (h : checkDirectFixTableF (m := CheckCM) .plain p ctorsA sortss (mkFEnv env) s₀
+      = .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
     ∃ F, (checkDirectFixTable (m := FueledM) p ctorsA sortss env).val F = .ok fe'.env := by
   match ctorsA, sortss with
@@ -586,20 +588,18 @@ set_option maxHeartbeats 1600000 in
 /-- The direct recursive install at the cached driver is reproduced by
 the pure fueled `checkDirectFix` (task #188). -/
 theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {p : DirectFixParts} {s₀ : CState} (hwf : CSOKF s₀)
+    {p₀ : DirectFixParts} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : checkDirectFixS mode (mkFEnv env) p s₀ = .ok (feOut, s')) :
+    (h : checkDirectFixS mode (mkFEnv env) p₀ s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkDirectFix (fueledOps mode F) env p = .ok feOut.env := by
+    ∃ F, checkDirectFix (fueledOps mode F) env p₀ = .ok feOut.env := by
   unfold checkDirectFixS at h
-  -- the three front guards
-  by_cases hneg : p.kinds.any (fun ks => ks.any (· == .negative)) = true
+  rw [directWalkersC_eq_plain] at h
+  -- the two front guards
+  by_cases hneg : p₀.kinds.any (fun ks => ks.any (· == .negative)) = true
   · rw [if_pos hneg] at h; exact absurd h throwC_bind_ok
   rw [if_neg hneg] at h
-  by_cases hg : (p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length)) = true
-  · rw [if_pos hg] at h; exact absurd h throwC_bind_ok
-  rw [if_neg hg] at h
-  by_cases hnd : (p.ctors.map (·.1.name)).Nodup
+  by_cases hnd : (p₀.ctors.map (·.1.name)).Nodup
   case neg => rw [if_neg hnd] at h; exact absurd h throwC_bind_ok
   rw [if_pos hnd] at h
   -- stage 1: the type former
@@ -614,15 +614,16 @@ theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
     (checkDirectSumIndS_sim hμ henv (flushC_csok hwf)) q1 s₁ hind
   obtain ⟨rfl, -⟩ := hP1
   obtain ⟨env₁, cvTa, p₁⟩ := q1
-  have hF₁p : checkDirectSumInd (fueledOps mode F₁) env p.toDirectSumParts (fun _ => directFixCaps p)
-      = .ok (env₁, cvTa, p₁) := by
+  have hF₁p : checkDirectSumInd (fueledOps mode F₁) env p₀.toDirectSumParts
+      (fun p₁ => directFixCaps (p₀.complete p₁)) = .ok (env₁, cvTa, p₁) := by
     rw [← checkDirectSumInd_datF]; exact hF₁
   obtain ⟨henv₁, hTf⟩ := direct_sum_ind_wf henv hF₁p
-  -- the sort pin
+  -- the completed record, and the elimination guard on it
   try simp only at h
-  by_cases hsort : (p₁.resSort == p.resSort) = true
-  case neg => rw [if_neg hsort] at h; exact absurd h throwC_bind_ok
-  rw [if_pos hsort] at h
+  generalize hp : p₀.complete p₁ = p at h
+  by_cases hg : (p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length)) = true
+  · rw [if_pos hg] at h; exact absurd h throwC_bind_ok
+  rw [if_neg hg] at h
   -- the index binders' sorts, read
   obtain ⟨u1, sB, hfl1, h⟩ := bindC_ok h
   rw [flushC_run] at hfl1
@@ -706,8 +707,8 @@ theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       ∃ G, F₁ ≤ G ∧ F₀ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₆ ≤ G :=
     ⟨max F₁ (max F₀ (max F₂ (max F₃ F₆))), by omega, by omega, by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
-  have g₁ : checkDirectSumInd (fueledOps mode G) env p.toDirectSumParts (fun _ => directFixCaps p)
-      = .ok (env₁, cvTa, p₁) := by
+  have g₁ : checkDirectSumInd (fueledOps mode G) env p₀.toDirectSumParts
+      (fun p₁ => directFixCaps (p₀.complete p₁)) = .ok (env₁, cvTa, p₁) := by
     rw [← checkDirectSumInd_datF]; exact FueledM.up hle₁ hF₁
   have g₀ : checkDirectFieldSortsI (fueledOps mode G) env₁ true false p.resSort p.nP
       (tq.1.drop p.nP) [] p.nIdx = .ok isorts := by
@@ -725,11 +726,11 @@ theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
         :: (consSumCtors p.nP ctorsA env₁).consts⟩ = .ok feOut.env := by
     rw [← checkDirectFixTable_datF]; exact FueledM.up hle₆ hF₆
   unfold checkDirectFix
-  rw [if_neg hneg, if_neg hg, if_pos hnd]
+  rw [if_neg hneg, if_pos hnd]
   simp only [Bind.bind, Except.bind, pure, Except.pure]
   rw [g₁]
   simp only [Except.bind]
-  rw [if_pos hsort]
+  rw [hp, if_neg hg]
   try simp only [Bind.bind, Except.bind, pure, Except.pure]
   rw [htq]
   simp only [unwrapOr, pure, Except.pure, Except.bind]
@@ -942,55 +943,26 @@ reproduces the run. -/
 theorem checkIndOrDirectSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
-    (h : (match directPartsF? (mkFEnv env) block with
-          | some p => checkDirectStructS mode (mkFEnv env) p
-          | none =>
-            match directSumPartsF? (mkFEnv env) block with
-            | some p => checkDirectSumS mode (mkFEnv env) p
-            | none =>
-              match directFixParts? block with
-              | some p => checkDirectFixS mode (mkFEnv env) p
-              | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
+    (h : (match directFixParts? block with
+          | some p => checkDirectFixS mode (mkFEnv env) p
+          | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDecl mode (fueledOps mode F) env (.indDecl block) =
       .ok feOut.env := by
-  rw [directPartsF?_eq, directSumPartsF?_eq] at h
   show CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, (match directParts? env block with
-      | some p => checkDirectStruct (fueledOps mode F) env p
-      | none =>
-        match directSumParts? env block with
-        | some p => checkDirectSum (fueledOps mode F) env p
-        | none =>
-          match directFixParts? block with
-          | some p => checkDirectFix (fueledOps mode F) env p
-          | none => checkIndDecl mode (fueledOps mode F) env block) = .ok feOut.env
-  cases hdp : directParts? env block with
+    ∃ F, (match directFixParts? block with
+      | some p => checkDirectFix (fueledOps mode F) env p
+      | none => checkIndDecl mode (fueledOps mode F) env block) = .ok feOut.env
+  cases hfp : directFixParts? block with
   | some p =>
-    rw [hdp] at h
-    obtain ⟨hres, hfe, F, hF⟩ := checkDirectStructS_run hμ henv hwf h
+    rw [hfp] at h
+    obtain ⟨hres, hfe, F, hF⟩ := checkDirectFixS_run hμ henv hwf h
     exact ⟨hres, hfe, F, hF⟩
   | none =>
-    rw [hdp] at h
-    dsimp only
-    cases hsp : directSumParts? env block with
-    | some p =>
-      rw [hsp] at h
-      obtain ⟨hres, hfe, F, hF⟩ := checkDirectSumS_run hμ henv hwf h
-      exact ⟨hres, hfe, F, hF⟩
-    | none =>
-      rw [hsp] at h
-      dsimp only
-      cases hfp : directFixParts? block with
-      | some p =>
-        rw [hfp] at h
-        obtain ⟨hres, hfe, F, hF⟩ := checkDirectFixS_run hμ henv hwf h
-        exact ⟨hres, hfe, F, hF⟩
-      | none =>
-        rw [hfp] at h
-        obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run hμ henv hwf h
-        exact ⟨hres, hfe, F, hF⟩
+    rw [hfp] at h
+    obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run hμ henv hwf h
+    exact ⟨hres, hfe, F, hF⟩
 
 /-- The per-declaration bridge: a successful cached shared-state run
 over a well-formed environment is reproduced by the pure fueled

@@ -390,7 +390,7 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
         subst htpt
         have hiota := directFixRecAVI_iota_sq h rfl hℓ0 ρ hlen₁ hlenMs' hlenIs' hspR'
         rw [← hR] at hiota
-        obtain ⟨hsingle, -, hprop⟩ := hK.hsq rfl hℓ0
+        obtain ⟨hle, -, hprop⟩ := hK.hsq rfl hℓ0
         rw [hKfr, hfrP] at hprop
         have hj0 : j = 0 := by omega
         subst hj0

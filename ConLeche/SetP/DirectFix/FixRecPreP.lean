@@ -203,7 +203,7 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
       ((Eiss.getD j []).getD i []).length = nIdx)
     (hEbelow : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [],
       VExpr.bvarsBelow (nP + i + ((tlss.getD j []).getD i []).length) E.erase)
-    (hsingle : w = 0 → ℓ ≠ 0 → n = 1)
+    (hsingle : w = 0 → ℓ ≠ 0 → n ≤ 1)
     (hprop : w = 0 → ℓ ≠ 0 → ∀ ρp : Nat → V, Sat2 V ((pps.map (·.2.2)).reverse) ρp →
       ∀ j, j < n → ∀ i, i < (Fss.getD j []).length →
       srcOfEs (Ess.getD j []) (Fss.getD j []).length i = none →

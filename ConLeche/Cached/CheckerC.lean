@@ -23,6 +23,35 @@ namespace ConLeche.Cached
 
 open ConLeche
 
+/-! ### The direct installers' walkers (task #214) -/
+
+/-- `Expr.instPisAtLift` at the memoised substitution. -/
+def instPisAtLiftC : List Expr → Expr → Option Expr
+  | [], e => some e
+  | a :: as, .forallE _ body _ => instPisAtLiftC as (ExprC.instantiate1Lift body a)
+  | _ :: _, _ => none
+
+/-- `directProjBodiesGo` at the memoised substitution. -/
+def directProjBodiesGoC (T : Name) : Nat → Nat → Expr → Option (List Expr)
+  | 0, _, _ => some []
+  | k + 1, i, .forallE fdom body _ =>
+    (directProjBodiesGoC T k (i + 1) (ExprC.instantiate1Lift body (directProjArgP T i))).map
+      (fdom :: ·)
+  | _ + 1, _, _ => none
+
+/-- `directProjBodies` at the memoised substitution
+(`directProjBodiesC_eq`). -/
+def directProjBodiesC (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr) :=
+  match instPisAtLiftC (directProjPs nP) cty with
+  | some r => (directProjBodiesGoC T nF 0 r).map List.toArray
+  | none => none
+
+/-- **The cached driver's walkers**: the memoised constant-resolution
+gate (`constsResolveFC`, verified at `constsResolveFC_spec`) and the
+memoised projection-body builder; equal to `DirectWalkers.plain`
+(`directWalkersC_eq_plain`). -/
+def directWalkersC : DirectWalkers := ⟨constsResolveFC, directProjBodiesC⟩
+
 variable (mode : CheckMode)
 
 /-! ## The entry-point record over the cached core
@@ -153,7 +182,7 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
       if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
         .plain else .inert,
       rhsA⟩])
-  checkDirectProjTableF (m := CheckCM) p.cvT.name p.cvC.name p.cvT.levelParams
+  checkDirectProjTableF (m := CheckCM) .plain p.cvT.name p.cvC.name p.cvT.levelParams
     p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) 0 cvCa fe₃
 
 /-- `checkDirectSum` through the index (task #175 sum-types).  One
@@ -180,19 +209,18 @@ def checkDirectSumS (fe : FEnv) (p₀ : DirectSumParts) : CheckCM FEnv := do
 the constructors' stages are the sum route's mirrors, the resolution
 guard pointed at the former's environment; one flush per environment
 transition. -/
-def checkDirectFixS (fe : FEnv) (p : DirectFixParts) : CheckCM FEnv := do
-  if p.kinds.any (fun ks => ks.any (· == .negative)) then
+def checkDirectFixS (fe : FEnv) (p₀ : DirectFixParts) : CheckCM FEnv := do
+  if p₀.kinds.any (fun ks => ks.any (· == .negative)) then
     throw (.invalid "direct rec: non positive occurrence of the inductive type")
+  unless (p₀.ctors.map (·.1.name)).Nodup do
+    throw (.invalid "direct rec: duplicate constructor")
+  flushC
+  let (fe₁, cvTa, p₁) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀.toDirectSumParts
+    (fun p₁ => directFixCaps (p₀.complete p₁))
+  let p := p₀.complete p₁
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
-  unless (p.ctors.map (·.1.name)).Nodup do
-    throw (.invalid "direct rec: duplicate constructor")
-  flushC
-  let (fe₁, cvTa, p₁) ← checkDirectSumIndF (sharedOpsC mode fe) fe p.toDirectSumParts
-    (fun _ => directFixCaps p)
-  unless p₁.resSort == p.resSort do
-    throw (.internal "direct rec: type former result sort")
   flushC
   let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) cvTa.type 0)
     (.internal "direct rec: type former telescope")
@@ -200,13 +228,14 @@ def checkDirectFixS (fe : FEnv) (p : DirectFixParts) : CheckCM FEnv := do
     (tq.1.drop p.nP) [] p.nIdx
   let (ctorsA, sortss) ← checkDirectSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p.cvT.name
     p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors
-  unless directFixFieldsOkF fe p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds do
+  unless directFixFieldsOkF directWalkersC fe p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA
+      p.kinds do
     throw (.internal "direct rec: field kinds")
   let fe₂ := consSumCtorsF p.nP ctorsA fe₁
   flushC
-  let (cvRa, rhss) ← checkDirectFixRecF (sharedOpsC mode fe₂) fe₂ p cvTa ctorsA
+  let (cvRa, rhss) ← checkDirectFixRecF (sharedOpsC mode fe₂) directWalkersC fe₂ p cvTa ctorsA
   -- the projection table at a structure-like block (task #210 Part A)
-  checkDirectFixTableF (m := CheckCM) p ctorsA sortss (fe₂.push (.recInfo cvRa p.majorIdx
+  checkDirectFixTableF (m := CheckCM) directWalkersC p ctorsA sortss (fe₂.push (.recInfo cvRa p.majorIdx
     p.rulePrefix (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)))
 
 /-- The modeled inductive block (mirrors `checkIndDecl`), returning
@@ -309,15 +338,11 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckCM FEnv :=
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDeclF fe
   | .indDecl block =>
-    match directPartsF? fe block with
-    | some p => checkDirectStructS mode fe p
-    | none =>
-      match directSumPartsF? fe block with
-      | some p => checkDirectSumS mode fe p
-      | none =>
-        match directFixParts? block with
-        | some p => checkDirectFixS mode fe p
-        | none => checkIndDeclSF mode fe block
+    -- ONE ROUTE (task #210 Part B): the fixpoint route is tried first
+    -- and takes every block the two other recognisers took
+    match directFixParts? block with
+    | some p => checkDirectFixS mode fe p
+    | none => checkIndDeclSF mode fe block
 
 /-- The shared-state checker step the binary runs: the index is
 threaded *across* declarations (built once for the whole stream; each

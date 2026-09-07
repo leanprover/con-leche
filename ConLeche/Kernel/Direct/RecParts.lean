@@ -64,6 +64,153 @@ def Expr.mentionsConst (T : Name) : Expr → Bool
   | .letE ty v b => ty.mentionsConst T || v.mentionsConst T || b.mentionsConst T
   | .proj s _ e => s == T || e.mentionsConst T
 
+/-! ### `mentionsConst`, memoized (task #210 Part B)
+
+The recogniser's positivity walk asks `mentionsConst` of every field
+domain and index argument; on a DAG-shared field type (task #215's
+`tower_struct`: a depth-60 doubling tower in a structure field) the
+tree walk does not finish.  As with `instantiate1` and `renameConsts`
+(`ConLeche/Kernel/ExprOps.lean`, task #215) the memoized walk is
+swapped in by `@[csimp]`: kernel-checked, no trust point, the pure
+definition stays what every proof consumes.  The memo is keyed by the
+node and dropped after each call (the answer depends on `T`). -/
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def MentionsMemoInv (T : Name) (memo : Std.HashMap Expr Bool) : Prop :=
+  ∀ (k : Expr) (r : Bool), memo[k]? = some r → r = k.mentionsConst T
+
+theorem MentionsMemoInv.empty {T : Name} : MentionsMemoInv T {} := by
+  intro k r h; simp at h
+
+theorem MentionsMemoInv.insert {T : Name} {memo : Std.HashMap Expr Bool}
+    (hm : MentionsMemoInv T memo) {e : Expr} {r : Bool} (heq : r = e.mentionsConst T) :
+    MentionsMemoInv T (memo.insert e r) := by
+  intro k r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k r' hk
+
+/-- Memoized `mentionsConst`. -/
+def Expr.mentionsConstGo (T : Name) (memo : Std.HashMap Expr Bool) :
+    Expr → Bool × Std.HashMap Expr Bool
+  | .bvar _ => (false, memo)
+  | .sort _ => (false, memo)
+  | .lit _ => (false, memo)
+  | .const n _ => (n == T, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Bool × Std.HashMap Expr Bool :=
+        match e with
+        | .fvar _ ty => mentionsConstGo T memo ty
+        | .app f a =>
+          let (b₁, memo) := mentionsConstGo T memo f
+          let (b₂, memo) := mentionsConstGo T memo a
+          (b₁ || b₂, memo)
+        | .lam ty body _ =>
+          let (b₁, memo) := mentionsConstGo T memo ty
+          let (b₂, memo) := mentionsConstGo T memo body
+          (b₁ || b₂, memo)
+        | .forallE ty body _ =>
+          let (b₁, memo) := mentionsConstGo T memo ty
+          let (b₂, memo) := mentionsConstGo T memo body
+          (b₁ || b₂, memo)
+        | .letE ty val body =>
+          let (b₁, memo) := mentionsConstGo T memo ty
+          let (b₂, memo) := mentionsConstGo T memo val
+          let (b₃, memo) := mentionsConstGo T memo body
+          (b₁ || b₂ || b₃, memo)
+        | .proj s _ sub =>
+          let (b, memo) := mentionsConstGo T memo sub
+          (s == T || b, memo)
+        | e => (e.mentionsConst T, memo)
+      (r, memo.insert e r)
+
+/-- **The memoized walk is `mentionsConst`.** -/
+theorem Expr.mentionsConstGo_spec {T : Name} :
+    ∀ (e : Expr) (memo : Std.HashMap Expr Bool), MentionsMemoInv T memo →
+      (mentionsConstGo T memo e).1 = e.mentionsConst T ∧
+        MentionsMemoInv T (mentionsConstGo T memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty ih =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [mentionsConst, h1], ?_⟩
+      exact h2.insert (by simp [mentionsConst, h1])
+  | app a b iha ihb =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [mentionsConst, h1, h3], ?_⟩
+      exact h4.insert (by simp [mentionsConst, h1, h3])
+  | lam ty body bi iht ihb =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [mentionsConst, h1, h3], ?_⟩
+      exact h4.insert (by simp [mentionsConst, h1, h3])
+  | forallE ty body bi iht ihb =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [mentionsConst, h1, h3], ?_⟩
+      exact h4.insert (by simp [mentionsConst, h1, h3])
+  | letE ty val body iht ihv ihb =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihv _ h2
+      obtain ⟨h5, h6⟩ := ihb _ h4
+      refine ⟨by simp [mentionsConst, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [mentionsConst, h1, h3, h5])
+  | proj s i sub ih =>
+    intro memo hm
+    rw [mentionsConstGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [mentionsConst, h1], ?_⟩
+      exact h2.insert (by simp [mentionsConst, h1])
+
+/-- The executed `mentionsConst` (one memoized DAG walk). -/
+def Expr.mentionsConstFast (T : Name) (e : Expr) : Bool :=
+  (mentionsConstGo T {} e).1
+
+@[csimp] theorem Expr.mentionsConst_eq_mentionsConstFast :
+    @Expr.mentionsConst = @Expr.mentionsConstFast := by
+  funext T e
+  exact (mentionsConstGo_spec e {} MentionsMemoInv.empty).1.symm
+
 /-- The kind of a constructor field of a recursive block (see the
 module docstring). -/
 inductive RecFieldKind where
@@ -184,6 +331,38 @@ structure DirectFixParts extends DirectSumParts where
   /-- per constructor, per field: its kind -/
   kinds : List (List RecFieldKind)
   deriving Repr
+
+/-- **The record completed by the former's stage** (task #210 Part B):
+the sum parts the former's run returned (its result sort read through
+`whnf`, task #195) with the recogniser's field kinds.  A definition,
+not a literal, so that a proof's `dsimp` keeps it in one piece. -/
+def DirectFixParts.complete (p₀ : DirectFixParts) (p₁ : DirectSumParts) : DirectFixParts :=
+  ⟨p₁, p₀.kinds⟩
+
+@[simp] theorem DirectFixParts.complete_toDirectSumParts (p₀ : DirectFixParts)
+    (p₁ : DirectSumParts) : (p₀.complete p₁).toDirectSumParts = p₁ := rfl
+@[simp] theorem DirectFixParts.complete_kinds (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).kinds = p₀.kinds := rfl
+@[simp] theorem DirectFixParts.complete_cvT (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).cvT = p₁.cvT := rfl
+@[simp] theorem DirectFixParts.complete_ctors (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).ctors = p₁.ctors := rfl
+@[simp] theorem DirectFixParts.complete_nP (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).nP = p₁.nP := rfl
+@[simp] theorem DirectFixParts.complete_nIdx (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).nIdx = p₁.nIdx := rfl
+@[simp] theorem DirectFixParts.complete_cvR (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).cvR = p₁.cvR := rfl
+@[simp] theorem DirectFixParts.complete_elim (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).elim = p₁.elim := rfl
+@[simp] theorem DirectFixParts.complete_resSort (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).resSort = p₁.resSort := rfl
+@[simp] theorem DirectFixParts.complete_rhss (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).rhss = p₁.rhss := rfl
+@[simp] theorem DirectFixParts.complete_large (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).large = p₁.large := rfl
+@[simp] theorem DirectFixParts.complete_isProp (p₀ : DirectFixParts) (p₁ : DirectSumParts) :
+    (p₀.complete p₁).isProp = p₁.isProp := rfl
 
 /-! ## The generated recursor with inductive hypotheses -/
 
@@ -400,23 +579,30 @@ def directFixShape? (block : List ConstantInfo) : Option DirectSumParts :=
             match rules[j]?, cs[j]? with
             | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
             | _, _ => false) then
-        match cvT.type.stripPis (nP + nIdx) with
-        | some (_, .sort s) =>
-          let isProp := Level.isEquiv s .zero == some true
-          let ctors := cs.map fun c => (c.1, c.2.2)
-          let rhss := rules.map (·.rhs)
-          let large? : Option Name :=
-            match cvR.levelParams with
-            | elim :: relps =>
-              if relps == lps && !lps.contains elim then some elim else none
-            | [] => none
-          match large? with
-          | some elim => some ⟨cvT, ctors, nP, nIdx, cvR, elim, s, rhss, true, isProp⟩
-          | none =>
-            if cvR.levelParams == lps then
-              some ⟨cvT, ctors, nP, nIdx, cvR, .anonymous, s, rhss, false, isProp⟩
-            else none
-        | _ => none
+        -- the result sort: read off the declared type when it is a
+        -- syntactic telescope ending in a sort; otherwise (task #195, a
+        -- former declared AT A DEFINITION that only unfolds to its
+        -- telescope) a PLACEHOLDER that the install's whnf loop replaces
+        -- (`checkDirectSumInd`, `DirectSumParts.withSort`; task #210
+        -- Part B lifts the fix route's syntactic reading, the sum route's
+        -- former stage being the one it runs)
+        let s : Level := match cvT.type.stripPis (nP + nIdx) with
+          | some (_, .sort s) => s
+          | _ => .zero
+        let isProp := Level.isEquiv s .zero == some true
+        let ctors := cs.map fun c => (c.1, c.2.2)
+        let rhss := rules.map (·.rhs)
+        let large? : Option Name :=
+          match cvR.levelParams with
+          | elim :: relps =>
+            if relps == lps && !lps.contains elim then some elim else none
+          | [] => none
+        match large? with
+        | some elim => some ⟨cvT, ctors, nP, nIdx, cvR, elim, s, rhss, true, isProp⟩
+        | none =>
+          if cvR.levelParams == lps then
+            some ⟨cvT, ctors, nP, nIdx, cvR, .anonymous, s, rhss, false, isProp⟩
+          else none
       else none
     | none => none
   | _ => none
@@ -425,18 +611,25 @@ def directFixShape? (block : List ConstantInfo) : Option DirectSumParts :=
 def directFixKinds? (p : DirectSumParts) : Option (List (List RecFieldKind)) :=
   p.ctors.mapM (recCtorKinds p.cvT.name p.cvT.levelParams p.nP p.nIdx)
 
-/-- Recognise a direct recursive block: the shape, some field
-mentioning the block (else it is not this route: a non-recursive block
-is the structure's or the sum's), and — when every field is ordinary
-or a finitary recursive one — the rules' bodies.  A block with a
-NON-POSITIVE occurrence is admitted WITHOUT the rule check so that the
-install rejects it exactly as the official kernel's positivity check
-would, before anything else is looked at (no other route could accept
-it).  A block with an UNSUPPORTED occurrence (reflexive, nested, under
-a redex) is NOT this route's: it falls through to the modeled path,
-which accepts what the in-process modeller can model — a positive
+/-- Recognise a direct block — ONE ROUTE (task #210 Part B): the
+shape, the fields' kinds, and — when every field is ordinary, a
+finitary recursive one or a reflexive one — the rules' bodies.  A
+NON-recursive block (every kind ordinary, any number of constructors
+including none, any index count) is the CONSTANT-FUNCTOR arm of the
+same install: what the retired structure and sum routes took.  A block
+with a NON-POSITIVE occurrence is admitted WITHOUT the rule check so
+that the install rejects it exactly as the official kernel's positivity
+check would, before anything else is looked at.  A block with an
+UNSUPPORTED occurrence (nested, under a redex, a recursive field a later
+binder mentions) is NOT this route's: it falls through to the modeled
+path, which accepts what the in-process modeller can model — a positive
 decline here would regress the verdict of every such block (found on
-the arena's `RTree`, 2026-09-06). -/
+the arena's `RTree`, 2026-09-06).  A reflexive field is taken at every
+sort (task #202).  A block with NO constructor is this route's too:
+official grants it the large eliminator whatever its sort, and the
+route's squash regime — the large eliminator at a `Prop` instance — is
+proven at AT MOST one constructor (`FixKI₀.hsq`; the family is then
+empty and every K-frame claim vacuous). -/
 def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
   match directFixShape? block with
   | some p =>
@@ -444,19 +637,13 @@ def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
     | some kinds =>
       if kinds.any (fun ks => ks.any (· == .negative)) then some ⟨p, kinds⟩
       else if kinds.any (fun ks => ks.any (· == .unsupported)) then none
-      -- a reflexive field is taken at every sort (task #202: Stage A the
-      -- `Prop`-valued blocks, Stage B the `Type`-valued ones — the
-      -- family's closed member by the container construction, the
-      -- recursor by the recursion theorem over the elements)
-      else if kinds.any (fun ks => ks.any fun k => k == .recursive || k == .reflexive) then
-        -- the stream's rules are at the parse placeholder `⟨.never⟩`
-        -- (as are the raw constructor types the bodies are generated
-        -- from), so the comparison is at that bit; the installed rules
-        -- (`directRecRhsR`) carry the elimination regime's
-        if directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
-            p.ctors kinds p.rhss then
-          some ⟨p, kinds⟩
-        else none
+      -- the stream's rules are at the parse placeholder `⟨.never⟩` (as
+      -- are the raw constructor types the bodies are generated from),
+      -- so the comparison is at that bit; the installed rules
+      -- (`directRecRhsR`) carry the elimination regime's
+      else if directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP
+          p.ctors.length p.ctors kinds p.rhss then
+        some ⟨p, kinds⟩
       else none
     | none => none
   | none => none

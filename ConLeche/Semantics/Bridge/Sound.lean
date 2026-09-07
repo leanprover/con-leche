@@ -56,22 +56,12 @@ theorem checkDeclRun_ofEnvFactsE
       rw [checkDecl] at hh
       rw [DeclIndRunDispatch]
       revert hh
-      cases hdp : directParts? env block with
+      cases hdf : directFixParts? block with
       | some p =>
         intro hh
-        exact declDirectRun_of hh
+        exact declDirectFixRun_of hh
       | none =>
-        cases hds : directSumParts? env block with
-        | some p =>
-          intro hh
-          exact declDirectSumRun_of hh
-        | none =>
-          cases hdf : directFixParts? block with
-          | some p =>
-            intro hh
-            exact declDirectFixRun_of hh
-          | none =>
-            intro hh
-            exact declIndRun_of hh) h
+        intro hh
+        exact declIndRun_of hh) h
 
 end ConLeche.Semantics

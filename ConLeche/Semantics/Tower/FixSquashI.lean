@@ -914,6 +914,35 @@ theorem sqGraph_singleton (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
 
 /-! ## The family's spine at a tuple -/
 
+/-- With no constructor the family is empty (task #210 Part B: the
+zero-constructor blocks on the fixpoint route). -/
+theorem fam_empty_of_mem (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
+    (hreal : ChainsRealI (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) u 0 ρp Ids rss tlss
+      Eiss Fss₀ Fss Ess)
+    (hnil : Fss.length = 0) {is : List V} (hsp : SpineFit ρp Ids is) {t : V}
+    (ht : t ∈ˢ SetTheory.app (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
+    False := by
+  obtain ⟨hl₀, -, -, -, -⟩ := hreal
+  have hμ := fixFamI_mem u 0 ρp Ids rss tlss Eiss Fss₀ Ess
+  have hfix := lfpFamSet_fixed (fixFunVI_closed_exists hX) (fixFunVI_mono hX) (fixFunVI_maps hX) _
+    (tupW_mem hsp) t ht
+  unfold fixFamI at hμ
+  rw [fixFunVI_app hμ, famFI_app (tupW_mem hsp)] at hfix
+  obtain ⟨-, j, -, hj₀, -⟩ := fixStepI_zero_elim hfix
+  rw [hl₀, hnil] at hj₀
+  exact Nat.not_lt_zero _ hj₀
+
+/-- At most one constructor and a member: exactly one. -/
+theorem fam_single_of_mem (hX : XChainsOk u 0 ρp Ids rss tlss Eiss Fss₀ Ess)
+    (hreal : ChainsRealI (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) u 0 ρp Ids rss tlss
+      Eiss Fss₀ Fss Ess)
+    (hle : Fss.length ≤ 1) {is : List V} (hsp : SpineFit ρp Ids is) {t : V}
+    (ht : t ∈ˢ SetTheory.app (fixFamI u 0 ρp Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
+    Fss.length = 1 := by
+  rcases Nat.lt_or_eq_of_le hle with h0 | h1
+  · exact (fam_empty_of_mem hX hreal (by omega) hsp ht).elim
+  · exact h1
+
 /-- A proof at a tuple of the family (squash regime) is the point, and
 some spine fits the (only) constructor's fields with the tuple as its
 index values. -/
@@ -1035,7 +1064,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
       (sqFixBodyAV ℓ nP Fss.length Ids.length (Fss.getD 0 []) (Ess.getD 0 []) (rss.getD 0 [])
         (tlss.getD 0 []) (Eiss.getD 0 []))
       ∈ˢ SetTheory.app (is.foldl SetTheory.app M) pt := by
-  obtain ⟨hsingle, hFok, hprop⟩ := h.hsq rfl hℓ
+  obtain ⟨hle, hFok, hprop⟩ := h.hsq rfl hℓ
   -- the frame's accessors
   have hK : consList is (consList ms (cons M (consList ps (cons r ρb))))
       = consList (ps ++ [M] ++ ms ++ is) (cons r ρb) := (consList_kframe ps ms is M (cons r ρb)).symm
@@ -1047,6 +1076,16 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
       = consList ps (cons r ρb) := by
     rw [hK, frP_of Fss.length Ids.length hlenI, List.append_assoc, consList_append,
       show Fss.length + 1 = ([M] ++ ms).length from by simp [hlenM], shiftE_consList]
+  have hfrIdx : frameIdx Ids.length (consList is (consList ms (cons M (consList ps (cons r ρb))))) = is := by
+    rw [← hlenI, frameIdx_consList']
+  -- a member of the family: the (one) constructor (task #210 Part B)
+  have hsingle : Fss.length = 1 := by
+    have hX := h.hX
+    have hreal := h.hreal
+    rw [hfrP] at hX hreal
+    have hfitI := h.hyp.hfit
+    rw [hfrP, hfrIdx] at hfitI
+    exact fam_single_of_mem hX hreal hle hfitI ht
   have hfrM : frM Fss.length Ids.length (consList is (consList ms (cons M (consList ps (cons r ρb)))))
       = M := by
     unfold frM
@@ -1058,8 +1097,6 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
     rw [show Ids.length + Fss.length - 1 - 0 = (Fss.length - 1) + is.length from by omega,
       consList_apply_add, consList_getD_lt ms _ _ (by omega),
       show ms.length - 1 - (Fss.length - 1) = 0 from by omega]
-  have hfrIdx : frameIdx Ids.length (consList is (consList ms (cons M (consList ps (cons r ρb))))) = is := by
-    rw [← hlenI, frameIdx_consList']
   have hfrR : frR nP Fss.length Ids.length (consList is (consList ms (cons M (consList ps (cons r ρb))))) = r := by
     rw [hK, frR_of nP Fss.length Ids.length hlenAs]
   have hfrB : frBelow nP Fss.length Ids.length (consList is (consList ms (cons M (consList ps (cons r ρb))))) = ρb := by
@@ -1583,11 +1620,12 @@ theorem sqK_source (hℓ : ℓ ≠ 0) {K ρP : Nat → V} (h : FixKI₀ ℓ 0 u 
     (ht : t ∈ˢ SetTheory.app (fixFamI u 0 ρP Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is)) :
     t = pt ∧ SpineFit ρP (Fss.getD 0 []) (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)) ∧
       idxValsAt ρP (Ess.getD 0 []) (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)) = is := by
-  obtain ⟨hsingle, -, hprop⟩ := h.hsq rfl hℓ
+  obtain ⟨hle, -, hprop⟩ := h.hsq rfl hℓ
   rw [hfrP] at hprop
   have hX := h.hX
   have hreal := h.hreal
   rw [hfrP] at hX hreal
+  have hsingle : Fss.length = 1 := fam_single_of_mem hX hreal hle hsp ht
   have hEs0 : (Ess.getD 0 []).length = Ids.length := h.hyp.hEs 0 (by omega)
   obtain ⟨rfl, fs, hfsfit, hfsidx⟩ := fam_spine_of_mem hX hreal hsingle hEs0 hsp ht
   have hfs₀ := srcVals_of_fit hprop hfsfit hfsidx
@@ -1628,11 +1666,15 @@ theorem sqK_facts (hℓ : ℓ ≠ 0) {ρP : Nat → V} {M m : V} {K : Nat → V}
                     (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) (m))
                   (tupW u (((Eiss.getD 0 []).getD i []).map (interp2 V σ')))).foldl
             SetTheory.app (m) := by
-  obtain ⟨hsingle, hFok, hprop⟩ := h.hsq rfl hℓ
+  obtain ⟨hle, hFok, hprop⟩ := h.hsq rfl hℓ
   rw [hfrP] at hFok hprop
   have hX := h.hX
   have hreal := h.hreal
   rw [hfrP] at hX hreal
+  rcases Nat.lt_or_eq_of_le hle with hz | hsingle
+  · -- no constructor (task #210 Part B): the family is empty
+    intro is t hsp ht
+    exact (fam_empty_of_mem hX hreal (by omega) hsp ht).elim
   have hI : IdxOk u (ρP) Ids := hX.hI
   have hEs0 : (Ess.getD 0 []).length = Ids.length := h.hyp.hEs 0 (by omega)
   have hμ := fixFamI_mem u 0 (ρP) Ids rss tlss Eiss Fss₀ Ess

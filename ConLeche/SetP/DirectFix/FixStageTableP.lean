@@ -53,34 +53,6 @@ theorem rChains_single_nil (Fs : List AVExpr) :
     rChains 0 0 [Fs] [[]] = [Fs ++ [idxEqAV []]] := by
   simp [rChains, rChain, idxEqsAt, liftFields_zero]
 
-/-- A structure-like block on this route has a field: its constructor
-has a recursive (or reflexive) position, positivity having passed. -/
-theorem fixCtorFieldPos {env₀ : Env} {T : Name} {lps : List Name} {nP nIdx : Nat}
-    {ctorsA : List (ConstantVal × Nat)} {kinds : List (List RecFieldKind)} {n : Nat}
-    (hFOk : ConLeche.directFixFieldsOk env₀ T lps nP nIdx ctorsA kinds = true)
-    (hlenK : kinds.length = n) (hlenA : ctorsA.length = n)
-    (hneg : kinds.any (fun ks => ks.any (· == .negative)) = false)
-    (hkinds : kinds.any (fun ks => ks.any (· == .negative)) = true ∨
-      kinds.any (fun ks => ks.any fun k => k == .recursive || k == .reflexive) = true) :
-    ∀ cA, ctorsA = [cA] → 0 < cA.2 := by
-  intro cA hA
-  subst hA
-  rcases hkinds with h | h
-  · rw [hneg] at h; exact nomatch h
-  obtain ⟨ks, hks, hany⟩ := List.any_eq_true.mp h
-  obtain ⟨k, hk, -⟩ := List.any_eq_true.mp hany
-  have hlen : 0 < ks.length := List.length_pos_of_mem hk
-  simp only [List.length_singleton] at hlenA
-  subst hlenA
-  obtain ⟨ks', hks'⟩ := List.length_eq_one_iff.mp hlenK
-  subst hks'
-  obtain rfl := List.mem_singleton.mp hks
-  unfold ConLeche.directFixFieldsOk at hFOk
-  rw [Bool.and_eq_true] at hFOk
-  have h0 := List.all_eq_true.mp hFOk.2 0 (by simp)
-  simp only [List.getElem?_cons_zero, Bool.and_eq_true, beq_iff_eq] at h0
-  omega
-
 /-- The capability record at a structure-like block, spelled out. -/
 theorem _root_.ConLeche.directFixCaps_single {p : DirectFixParts} {c : ConstantVal × Nat}
     (h : p.ctors = [c]) :
@@ -100,47 +72,55 @@ theorem fixTableFamFree {p : DirectFixParts} {ctorsA : List (ConstantVal × Nat)
     {sortss : List (List Level)} {env₃ env₂ : Env}
     (hTbl : ConLeche.checkDirectFixTable (m := ConLeche.CheckM) p ctorsA sortss env₃ = .ok env₂)
     (hlenA : ctorsA.length = p.ctors.length) (hlenS : sortss.length = p.ctors.length)
-    (hFsPos : ∀ cA, ctorsA = [cA] → 0 < cA.2) :
+    (hnFc : ∀ cA c, ctorsA = [cA] → p.ctors = [c] → cA.2 = c.2)
+    (hU : (ConLeche.directFixCaps p).unitlike = false) :
     (ConLeche.directFixCaps p).eta = true →
       env₃.find? (projFnName p.cvT.name 0) = none := by
   intro he
-  unfold ConLeche.directFixCaps at he
-  split at he
+  have he' := he
+  unfold ConLeche.directFixCaps at he'
+  split at he'
   · next c hc =>
-    simp only [Bool.and_eq_true, beq_iff_eq] at he
-    obtain ⟨⟨hnIdx, -⟩, -⟩ := he
+    simp only [Bool.and_eq_true, beq_iff_eq] at he'
+    obtain ⟨⟨hnIdx, -⟩, -⟩ := he'
+    rw [ConLeche.directFixCaps_single hc] at hU
+    have hU' : (p.nIdx == 0 && c.2 == 0) = false := hU
+    rw [hnIdx] at hU'
+    simp only [beq_self_eq_true, Bool.true_and, beq_eq_false_iff_ne, ne_eq] at hU'
+    have hnF : c.2 ≠ 0 := hU'
     rw [hc, List.length_singleton] at hlenA hlenS
     obtain ⟨cA, rfl⟩ := List.length_eq_one_iff.mp hlenA
     obtain ⟨sorts, rfl⟩ := List.length_eq_one_iff.mp hlenS
     simp only [ConLeche.checkDirectFixTable, hnIdx, beq_self_eq_true, ↓reduceIte] at hTbl
     obtain ⟨-, -, -, hfree, -, -⟩ := ConLeche.checkDirectProjTable_inv hTbl
-    have := List.all_eq_true.mp hfree 0 (List.mem_range.mpr (hFsPos cA rfl))
+    have hpos : 0 < cA.2 := by rw [hnFc cA c rfl hc]; omega
+    have := List.all_eq_true.mp hfree 0 (List.mem_range.mpr hpos)
     exact Option.isNone_iff_eq_none.mp this
-  · exact nomatch he
+  · exact nomatch he'
 
 /-- The block's capability laws are vacuous (task #210 Part A): the
 constructor has a field, so the block is never unit-like; its η claim
 is premised on the projection-function family being stored. -/
 theorem fixCapsLawsAt_vacuous {env' : Env} (m' : EnvS2Core V env') {p : DirectFixParts}
     {cvTa : ConstantVal}
-    (hFsPos : ∀ c, p.ctors = [c] → 0 < c.2)
+    (hU : (ConLeche.directFixCaps p).unitlike = false)
     (hfr : (ConLeche.directFixCaps p).eta = true →
       env'.find? (projFnName p.cvT.name 0) = none) :
     CapsLawsAt m' p.cvT.name cvTa (ConLeche.directFixCaps p) := by
-  refine capsLawsAt_vacuous m' ?_ fun he => ⟨?_, hfr he⟩
-  · unfold ConLeche.directFixCaps
-    split
-    · next c hc =>
-      show (p.nIdx == 0 && c.2 == 0) = false
-      have := hFsPos c hc
-      simp only [Bool.and_eq_false_iff, beq_eq_false_iff_ne, ne_eq]
-      right; omega
-    · rfl
-  · revert he
-    unfold ConLeche.directFixCaps
-    split
-    · next c hc => intro _; exact hFsPos c hc
-    · intro h; exact nomatch h
+  refine capsLawsAt_vacuous m' hU fun he => ⟨?_, hfr he⟩
+  have he' := he
+  unfold ConLeche.directFixCaps at he'
+  split at he'
+  · next c hc =>
+    simp only [Bool.and_eq_true, beq_iff_eq] at he'
+    obtain ⟨⟨hnIdx, -⟩, -⟩ := he'
+    rw [ConLeche.directFixCaps_single hc] at hU ⊢
+    have hU' : (p.nIdx == 0 && c.2 == 0) = false := hU
+    rw [hnIdx] at hU'
+    simp only [beq_self_eq_true, Bool.true_and, beq_eq_false_iff_ne, ne_eq] at hU'
+    show 0 < c.2
+    omega
+  · exact nomatch he'
 
 /-- `NoProjEnv` across the constructors' conses. -/
 theorem noProjEnv_consSumCtors {T : Name} {i nP : Nat} :
@@ -279,7 +259,9 @@ theorem stageFixTable (mp : EnvS2PM V μ env)
     have hrest : rest.hasLooseBVar 0 = false := by
       unfold ConLeche.directUsedLater at hun
       rw [hst] at hun
-      exact hun
+      have hun' : rest.hasLooseBVarB 0 = false := hun
+      rw [ConLeche.Expr.hasLooseBVarB_eq] at hun'
+      exact hun'
     obtain ⟨hleavesK, -⟩ := openPisAtFvars_leaf_free (p.nP + nF) (p.nP + j) hopAll (by omega)
       hst hrest (by
         intro l hl
@@ -522,7 +504,7 @@ set_option maxHeartbeats 3200000 in
 /-- **The table stage of a direct recursive install** (task #210 Part
 A): at a structure-like block the P carrier survives the table's cons
 (`stageFixTable`); at any other block the stage conses nothing. -/
-theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {block : List ConstantInfo} {p : DirectFixParts}
+theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {p : DirectFixParts}
     {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     {rhss : List Expr}
     (h₁ : env₁ = ⟨.indInfo cvTa (ConLeche.directFixCaps p) :: env.consts⟩)
@@ -544,11 +526,14 @@ theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {block : Lis
     (hac₃ : mp₃.base2.acval = acvalWith mpC.base2.acval cvRa.name
       (fixLeafAV mpC.base2 p ppsAll dsF esF ksF eissF tssF ctorsA sAV))
     (hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true))
-    (hshape : ConLeche.directFixShape? block = some p.toDirectSumParts)
+    (hRname : p.cvR.name = p.cvT.name.str "rec")
+    (hCres : ∀ c ∈ p.ctors, c.1.levelParams = p.cvT.levelParams ∧
+      ConLeche.reservedBasisNames.contains c.1.name = false)
+    (hresT : ConLeche.reservedBasisNames.contains p.cvT.name = false)
+    (hresR₀ : ConLeche.reservedBasisNames.contains p.cvR.name = false)
     (hTshape : p.cvT.name.isProjFnShape = false)
     (hwfEnv : ConLeche.EnvWF env)
     (hlenA : ctorsA.length = p.ctors.length)
-    (hFsPos : ∀ cA, ctorsA = [cA] → 0 < cA.2)
     (hnFc : ∀ (j : Nat) (cA c : ConstantVal × Nat), ctorsA[j]? = some cA → p.ctors[j]? = some c →
       cA.2 = c.2)
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
@@ -624,9 +609,6 @@ theorem declDirectFixTable {F : Nat} {env env₁ envC env₂ : Env} {block : Lis
     split at hTbl
     · next hnIdx =>
       have hnIdx' : p.nIdx = 0 := beq_iff_eq.mp hnIdx
-      have hnF : 0 < cA.2 := hFsPos cA rfl
-      -- the block's shape facts
-      obtain ⟨-, hRname, hCres, hresT, hresR₀, -, -, -, -⟩ := ConLeche.directFixShape?_inv hshape
       obtain ⟨c, hc, hCname, hlpsC, -, -, hCshape, sorts', hsj, hCtor⟩ := hrunOf 0 cA rfl
       obtain rfl : sorts = sorts' := Option.some.inj hsj
       have hc' : p.ctors = [c] := by

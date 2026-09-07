@@ -1,5 +1,6 @@
 import ConLeche.Verify.Direct.DirectResid
 import ConLeche.Verify.ProjTele
+import ConLeche.Verify.Cached.Erase
 
 /-!
 # The projection bodies, opened (task #175 S1)
@@ -416,5 +417,88 @@ theorem directProjBody_open {T : Name} {nP nF : Nat} {cty : Expr}
   rw [hlenB, directProjArgs_instSeq,
     instSeq_eq_self_of_bounded _ _ hdomB (by simp [fvsD_length]; omega)] at hcol
   rw [hlenB, hlenF, hcol]
+
+/-! ## The `bvarB` cutoff of `hasLooseBVar` (task #214, P4) -/
+
+/-- A node bounded at or below `i` has no loose `bvar i`. -/
+theorem Expr.hasLooseBVar_eq_false_of_bound : ∀ (e : Expr) (i : Nat),
+    e.bvarBound ≤ i → e.hasLooseBVar i = false
+  | .bvar j, i, h => by
+    simp only [Expr.bvarBound] at h
+    simp only [Expr.hasLooseBVar, beq_eq_false_iff_ne, ne_eq]
+    omega
+  | .fvar .., _, _ => rfl
+  | .sort _, _, _ => rfl
+  | .const .., _, _ => rfl
+  | .lit _, _, _ => rfl
+  | .app f a, i, h => by
+    simp only [Expr.bvarBound, Nat.max_le] at h
+    simp only [Expr.hasLooseBVar, Bool.or_eq_false_iff]
+    exact ⟨hasLooseBVar_eq_false_of_bound f i h.1, hasLooseBVar_eq_false_of_bound a i h.2⟩
+  | .lam ty b _, i, h => by
+    simp only [Expr.bvarBound, Nat.max_le] at h
+    simp only [Expr.hasLooseBVar, Bool.or_eq_false_iff]
+    exact ⟨hasLooseBVar_eq_false_of_bound ty i h.1,
+      hasLooseBVar_eq_false_of_bound b (i + 1) (by omega)⟩
+  | .forallE ty b _, i, h => by
+    simp only [Expr.bvarBound, Nat.max_le] at h
+    simp only [Expr.hasLooseBVar, Bool.or_eq_false_iff]
+    exact ⟨hasLooseBVar_eq_false_of_bound ty i h.1,
+      hasLooseBVar_eq_false_of_bound b (i + 1) (by omega)⟩
+  | .letE t v b, i, h => by
+    simp only [Expr.bvarBound, Nat.max_le] at h
+    simp only [Expr.hasLooseBVar, Bool.or_eq_false_iff]
+    exact ⟨⟨hasLooseBVar_eq_false_of_bound t i h.1.1, hasLooseBVar_eq_false_of_bound v i h.1.2⟩,
+      hasLooseBVar_eq_false_of_bound b (i + 1) (by omega)⟩
+  | .proj _ _ e, i, h => by
+    simp only [Expr.bvarBound] at h
+    simp only [Expr.hasLooseBVar]
+    exact hasLooseBVar_eq_false_of_bound e i h
+
+/-- **The cutoff walk is `hasLooseBVar`.** -/
+theorem Expr.hasLooseBVarB_eq : ∀ (i : Nat) (e : Expr), e.hasLooseBVarB i = e.hasLooseBVar i := by
+  intro i e
+  induction e generalizing i with
+  | bvar j =>
+    rw [Expr.hasLooseBVarB]
+    split
+    · rename_i hcut
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+    · rfl
+  | fvar idx ty _ =>
+    rw [Expr.hasLooseBVarB]; split <;> rfl
+  | sort u => rw [Expr.hasLooseBVarB]; split <;> rfl
+  | const n us => rw [Expr.hasLooseBVarB]; split <;> rfl
+  | lit l => rw [Expr.hasLooseBVarB]; split <;> rfl
+  | app f a ihf iha =>
+    rw [Expr.hasLooseBVarB]
+    split
+    · rename_i hcut
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+    · simp only [Expr.hasLooseBVar, ihf, iha]
+  | lam ty b m iht ihb =>
+    rw [Expr.hasLooseBVarB]
+    split
+    · rename_i hcut
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+    · simp only [Expr.hasLooseBVar, iht, ihb]
+  | forallE ty b m iht ihb =>
+    rw [Expr.hasLooseBVarB]
+    split
+    · rename_i hcut
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+    · simp only [Expr.hasLooseBVar, iht, ihb]
+  | letE t v b iht ihv ihb =>
+    rw [Expr.hasLooseBVarB]
+    split
+    · rename_i hcut
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+    · simp only [Expr.hasLooseBVar, iht, ihv, ihb]
+  | proj s i' e ih =>
+    rw [Expr.hasLooseBVarB]
+    split
+    · rename_i hcut
+      exact (Expr.hasLooseBVar_eq_false_of_bound _ _ (Cached.ExprC.bvarB_eq _ ▸ hcut)).symm
+    · simp only [Expr.hasLooseBVar, ih]
 
 end ConLeche

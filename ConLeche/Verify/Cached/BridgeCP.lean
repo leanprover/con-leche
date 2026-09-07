@@ -619,15 +619,9 @@ theorem checkDeclSPStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
     exact hF
   cases hrel with
   | @indDecl block =>
-    have hrun : (match directPartsF? (mkFEnv env) block with
-        | some p => checkDirectStructS mode (mkFEnv env) p
-        | none =>
-          match directSumPartsF? (mkFEnv env) block with
-          | some p => checkDirectSumS mode (mkFEnv env) p
-          | none =>
-            match directFixParts? block with
-            | some p => checkDirectFixS mode (mkFEnv env) p
-            | none => checkIndDeclSF mode (mkFEnv env) block) s₀.flushed =
+    have hrun : (match directFixParts? block with
+        | some p => checkDirectFixS mode (mkFEnv env) p
+        | none => checkIndDeclSF mode (mkFEnv env) block) s₀.flushed =
         .ok (fe', s') := h
     obtain ⟨hres', hfe, F, hF⟩ :=
       checkIndOrDirectSF_run hμ henv hres.flushed hrun

@@ -520,9 +520,11 @@ structure FixKI₀ (ℓ w u : Nat) (ρ₀ : Nat → V) (Fss Ess Fss₀ : List (L
   hreal : ChainsRealI (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss tlss Eiss Fss₀ Ess)
     u w (frP Fss.length Ids.length ρ₀) Ids rss tlss Eiss Fss₀ Fss Ess
   /-- the squash regime (`Prop`-valued family, large eliminator; task
-  #202 A2): one constructor, and every field not sourced by an index
-  expression is a `Prop` (the kernel's subsingleton criterion) -/
-  hsq : w = 0 → ℓ ≠ 0 → Fss.length = 1 ∧
+  #202 A2): at most one constructor (none at all since task #210 Part
+  B: the family is then empty and every clause below is vacuous), and
+  every field not sourced by an index expression is a `Prop` (the
+  kernel's subsingleton criterion) -/
+  hsq : w = 0 → ℓ ≠ 0 → Fss.length ≤ 1 ∧
     FieldsOkB 0 (frP Fss.length Ids.length ρ₀) (Fss.getD 0 []) ∧
     ∀ j, j < (Fss.getD 0 []).length → srcOfEs (Ess.getD 0 []) (Fss.getD 0 []).length j = none →
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) ((Fss.getD 0 []).take j) fs →

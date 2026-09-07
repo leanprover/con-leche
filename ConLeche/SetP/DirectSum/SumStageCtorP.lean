@@ -328,16 +328,20 @@ theorem stageCtorGen {T : Name}
     (hfresh : env.find? cvCa.name = none)
     (htr : cvCa.type.constsResolve env = true)
     (hfT : env.find? T = some (.indInfo cvTa caps))
-    -- the block's own capability laws at the cons (task #210 Part A),
-    -- at any carrier agreeing with this one off the constructor's name
-    (hTlaws : ∀ m₂ : EnvS2Core V ⟨.ctorInfo cvCa nP nF :: env.consts⟩,
-      (∀ n, n ≠ cvCa.name → m₂.acval n = mp.base2.acval n) → CapsLawsAt m₂ T cvTa caps)
     (hlpsT : cvTa.levelParams = lps)
     (hlpsC : cvCa.levelParams = lps)
     {idxArgs : List Expr}
     {ppsAll ds : (Name → Nat) → List (Nat × Nat × AVExpr)} {Es : (Name → Nat) → List AVExpr}
     {srcs : List (Option Nat)}
     {Fss Ess : (Name → Nat) → List (List AVExpr)}
+    -- the block's own capability laws at the cons (task #210 Parts A
+    -- and B), at any carrier agreeing with this one off the
+    -- constructor's name and storing the constructor's leaf there
+    (hTlaws : ∀ m₂ : EnvS2Core V ⟨.ctorInfo cvCa nP nF :: env.consts⟩,
+      (∀ n, n ≠ cvCa.name → m₂.acval n = mp.base2.acval n) →
+      (∀ ψ, m₂.acval cvCa.name ψ
+        = directSumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (Fss ψ))) →
+      CapsLawsAt m₂ T cvTa caps)
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
     (hCD : CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs)
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -451,9 +455,11 @@ theorem stageCtorGen {T : Name}
         rw [ConLeche.Env.find?_cons, if_neg (fun h => hTC h.symm)]
         exact hfT
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
-      refine hTlaws m₂ fun n hn => ?_
-      rw [hac]
-      exact acvalWith_ne hn
+      refine hTlaws m₂ (fun n hn => ?_) (fun ψ => ?_)
+      · rw [hac]
+        exact acvalWith_ne hn
+      · rw [hac]
+        exact congrFun acvalWith_self ψ
 
 /-- **The P step at a sum constructor's cons.** -/
 theorem stageSumCtor {T : Name}
@@ -467,14 +473,17 @@ theorem stageSumCtor {T : Name}
     (hfresh : env.find? cvCa.name = none)
     (htr : cvCa.type.constsResolve env = true)
     (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hTlaws : ∀ m₂ : EnvS2Core V ⟨.ctorInfo cvCa nP nF :: env.consts⟩,
-      (∀ n, n ≠ cvCa.name → m₂.acval n = mp.base2.acval n) → CapsLawsAt m₂ T cvTa caps)
     (hlpsT : cvTa.levelParams = lps)
     (hlpsC : cvCa.levelParams = lps)
     {idxArgs : List Expr}
     {ppsAll ds : (Name → Nat) → List (Nat × Nat × AVExpr)} {Es : (Name → Nat) → List AVExpr}
     {srcs : List (Option Nat)}
     {Fss Ess : (Name → Nat) → List (List AVExpr)}
+    (hTlaws : ∀ m₂ : EnvS2Core V ⟨.ctorInfo cvCa nP nF :: env.consts⟩,
+      (∀ n, n ≠ cvCa.name → m₂.acval n = mp.base2.acval n) →
+      (∀ ψ, m₂.acval cvCa.name ψ
+        = directSumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2)) (uChains (Fss ψ))) →
+      CapsLawsAt m₂ T cvTa caps)
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
     (hCD : CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs)
     (hleafT : ∀ ψ, mp.base2.acval T ψ
@@ -502,7 +511,7 @@ theorem stageSumCtor {T : Name}
       mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
         (fun ψ => directSumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2))
           (uChains (Fss ψ))) :=
-  stageCtorGen hE mp hCtor hfresh htr hfT hTlaws hlpsT hlpsC hFD hCD
+  stageCtorGen hE mp hCtor hfresh htr hfT hlpsT hlpsC hTlaws hFD hCD
     (sumFold_of_leaf hFD hCD hleafT hiff hFssOk hIdx) hFsj hEsj hFssParams hFssBelow hiff
     hFssOkP hIdx
 
