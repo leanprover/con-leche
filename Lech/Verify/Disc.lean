@@ -483,12 +483,12 @@ theorem structUnitCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
   exact iotaCerts_disc ih henv htyw hwta.getAppArgs
 
 theorem etaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
-    {d : Nat} {n₁ : Name} {ty₁ body₁ : Expr} {m₁ : BinderMeta} {b : Expr}
+    {d : Nat} {ty₁ body₁ : Expr} {m₁ : BinderMeta} {b : Expr}
     (hwty : WScoped d ty₁) (hwbody : WScoped d body₁)
     (hwb : WScoped d b) :
     DiscV mode env (fun _ => True)
-      (etaCert mode C env d n₁ ty₁ body₁ m₁ b)
-      (etaCert mode G env d n₁ ty₁ body₁ m₁ b) := by
+      (etaCert mode C env d ty₁ body₁ m₁ b)
+      (etaCert mode G env d ty₁ body₁ m₁ b) := by
   unfold etaCert
   refine DiscV.bind (ih.site_inferIO henv hwb) (fun tb htb => ?_)
   refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwtb => ?_)
@@ -1618,7 +1618,7 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         · exact stuckIrrel_disc ih henv ha' hb'
       · exact stuckIrrel_disc ih henv ha' hb'
     case h_11 =>
-      rename_i n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne
+      rename_i ty₁ body₁ m₁ ty₂ body₂ m₂ hne
       have h1 : WScoped d ty₁ ∧ WScoped d body₁ := by
         simpa only [WScoped] using ha'
       have h2 : WScoped d ty₂ ∧ WScoped d body₂ := by
@@ -1636,7 +1636,7 @@ theorem defeqStep_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
         · exact DiscV.pure trivial
       · exact DiscV.pure trivial
     case h_12 =>
-      rename_i n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne
+      rename_i ty₁ body₁ m₁ ty₂ body₂ m₂ hne
       have h1 : WScoped d ty₁ ∧ WScoped d body₁ := by
         simpa only [WScoped] using ha'
       have h2 : WScoped d ty₂ ∧ WScoped d body₂ := by
