@@ -1,4 +1,4 @@
-name = "conleche"
+name = "con-leche"
 defaultTargets = ["ConLecheBase", "ConLecheP", "ConLecheCaps", "con-leche", "con-leche-preprocess"]
 testDriver = "ConLecheTests"
 

@@ -40559,11 +40559,11 @@ binary — the `.c` and its `.lean` carry the same mtime; the `ir/`
 directory also holds orphan `.c` files of modules deleted at task
 #172, which lake does not sweep, so check mtimes before reading it),
 the body of
-`lp_conleche_ConLeche_Expr_beqB`, calls
-`lp_conleche_ConLeche_instDecidableEqName_decEq` **five times** (fvar name,
+`lp_con_x2dleche_ConLeche_Expr_beqB`, calls
+`lp_con_x2dleche_ConLeche_instDecidableEqName_decEq` **five times** (fvar name,
 const name, binder name on `lam` and on `forallE`, `letE` name, `proj`
 struct name — counted by brace-matching the whole 840-line function),
-`lp_conleche_ConLeche_instDecidableEqLevel_decEq` once (`.sort`),
+`lp_con_x2dleche_ConLeche_instDecidableEqLevel_decEq` once (`.sort`),
 `instDecidableEqBinderMeta_decEq` and `instDecidableEqLiteral_decEq`
 once each, and `List_beq…beqGo_spec__2` for a `.const`'s level list —
 while the
@@ -47783,8 +47783,8 @@ Two readings the samples settle:
   shared DAG as a tree.  It is **not** the memoized
   `ConLeche.Cached.ExprC.instantiateList`
   (`ConLeche/Cached/ExprOpsC.lean:266`, which has both).  The two are
-  distinct symbols in the binary (`lp_conleche_ConLeche_Expr_instantiateList`
-  @ `0xc8fce0`, `lp_conleche_ConLeche_Cached_ExprC_instantiateList` @
+  distinct symbols in the binary (`lp_con_x2dleche_ConLeche_Expr_instantiateList`
+  @ `0xc8fce0`, `lp_con_x2dleche_ConLeche_Cached_ExprC_instantiateList` @
   `0x10b0a80`); the backtrace PCs match the former by offset.
   `ExprC := ConLeche.Expr` is an `abbrev`, so the cached core reaches the
   unmemoized one through the shared `ConLeche/Kernel/*` helpers — the
@@ -48989,7 +48989,7 @@ the environment's index per declaration would be worse than no progress
 output at all (that is exactly what made the old `traceLoopC` probe
 unusable).  It is written tail-recursively with `fe` and `s` dead at
 the recursive call, and the generated C confirms the shape:
-`.lake/build/ir/Main.c`'s `lp_conleche_checkDeclsProgressIO` builds the
+`.lake/build/ir/Main.c`'s `lp_con_x2dleche_checkDeclsProgressIO` builds the
 `(i, fe)` pair and calls `checkDeclStepIdxC` with **no `lean_inc` of
 the `FEnv` or the `CState`** — a `grep` for incs of either inside the
 function's body returns zero — and the recursion rebinds both and
@@ -49562,7 +49562,7 @@ The shipped loop does the opposite, and it is worth reading side by side
 v_fst_881_ = lean_ctor_get(v_x_870_, 0);   /* p.1, the fold POSITION   */
 lean_inc_n(v_fst_881_, 2);                 /* only the Nat is retained */
 …
-v___x_886_ = lp_conleche_ConLeche_Cached_checkDeclStepIdxC(
+v___x_886_ = lp_con_x2dleche_ConLeche_Cached_checkDeclStepIdxC(
                v_cfg_868_, v_x_870_, v_head_877_, v_x_871_);
 ```
 
@@ -50954,7 +50954,7 @@ search-and-replace:
   perf sections, of the shape `lp_<package>_<Namespace>_Expr_beqB` and
   `lp_<package>_checkDeclsProgressIO`, 13 of them.  The rename is *correct* for
   both: those C symbols are built out of the package name and the namespace, so
-  after this batch the binary really does contain `lp_conleche_ConLeche_Expr_beqB`.
+  after this batch the binary really does contain `lp_con_x2dleche_ConLeche_Expr_beqB`.
 * **`ConLeche` was not already taken.**  A case-insensitive `con-leche` search on master
   hit 27 lines, every one of them inside `RuleChecked` /
   `ruleChecked_rhs_facts`.  Nothing collided — and a `grep -i con-leche` receipt has

@@ -3,7 +3,7 @@
  "packages":
  [{"type": "path",
    "scope": "",
-   "name": "con-leche",
+   "name": "«con-leche»",
    "manifestFile": "lake-manifest.json",
    "inherited": false,
    "dir": "../..",
