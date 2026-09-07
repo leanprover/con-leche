@@ -548,6 +548,47 @@
 1 direct_fix_wtype_ih_bad.ndjson pre
 0 direct_fix_term.ndjson
 0 direct_fix_term.ndjson raw
+# STRUCTURE-LIKE recursive blocks (task #210 Part A: one constructor, no
+# index — the fixpoint route conses the block's PROJECTION TABLE at the
+# tagged tower's offset 1 and pins the structure route's capability
+# record, `directFixCaps`; raw exports, no `_model` artifacts):
+#   direct_fix_struct_proj: `Chain` (a data field before the recursive
+#                     one: projection iota on both fields, a nested
+#                     `.t.h`, a definition through projections), `Dep α β`
+#                     (two parameters, a DEPENDENT field `b : β a` whose
+#                     projection's type reads the earlier field, a
+#                     recursive field) and `PChain P : Prop` (a proof
+#                     field and a recursive one: the squash regime, the
+#                     projection typed under the `Prop` guard).  The
+#                     elaborator's projection FUNCTIONS are raw `.proj`
+#                     nodes; official types them (`infer_proj` ignores
+#                     recursion).
+#   direct_fix_struct_proj_idx_bad: `Chain.h := fun self => self.2` — the
+#                     index past the fields, REJECTED (as official's
+#                     `infer_proj`).
+#   direct_fix_struct_proj_iota_bad: `Chain.t_mk`'s statement patched to
+#                     `(Chain.mk 3 t).t = Chain.mk 3 t` under `Eq.refl`:
+#                     iota reduces the left side to `t`, REJECTED.
+#   direct_fix_struct_eta: structure η at the recursive `Chain` (`c =
+#                     Chain.mk c.1 c.2 := Eq.refl c`, added with the kernel
+#                     check skipped) — a pinned ACCEPT-SUPERSET: official's
+#                     `is_structure_like` excludes recursive blocks
+#                     (`!is_rec()`), so it REJECTS; con-leche's η law at the
+#                     one-constructor fibre is proven (`fixEntryEtaCore`),
+#                     so it ACCEPTS.  Official: 1.
+#   direct_fix_struct_eta_bad: `c = Chain.mk c.1 c` (well-typed) — η
+#                     identifies `c` with the constructor at its OWN
+#                     projections only, REJECTED.
+0 direct_fix_struct_proj.ndjson
+0 direct_fix_struct_proj.ndjson raw
+1 direct_fix_struct_proj_idx_bad.ndjson
+1 direct_fix_struct_proj_idx_bad.ndjson raw
+1 direct_fix_struct_proj_iota_bad.ndjson
+1 direct_fix_struct_proj_iota_bad.ndjson raw
+0 direct_fix_struct_eta.ndjson
+0 direct_fix_struct_eta.ndjson raw
+1 direct_fix_struct_eta_bad.ndjson
+1 direct_fix_struct_eta_bad.ndjson raw
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
@@ -897,20 +938,24 @@
 #
 # --- A6 / crack C6: the projection FUNCTIONS of a finitary RECURSIVE
 # --- structure.  A silent regression of #188 (the block went native, so
-# --- its _model.proj_i.iota artifacts went away).  Audit follow-up 2.
-# TODO(#206-A6) official: 0 — "projection on a non-structure-like type" at def Chain.h
-2 ind_rec_struct_proj.ndjson
-# TODO(#206-A6) official: 0 — same decline raw
-2 ind_rec_struct_proj.ndjson raw
+# --- its _model.proj_i.iota artifacts went away).  Audit follow-up 2 —
+# --- CLOSED by task #210 Part A: the fixpoint route conses the projection
+# --- table of a structure-like block (`checkDirectFixTable`), so
+# --- `Chain.h := fun self => self.1` types and its iota fires, piped and
+# --- raw alike (cf. direct_fix_struct_proj).  Official: 0.
+0 ind_rec_struct_proj.ndjson
+0 ind_rec_struct_proj.ndjson raw
 #
 # --- A7 / crack C7: raw `.proj` nodes on structure-likes the direct
 # --- route does not serve.  A DOCUMENTED decline (design rule W5), not a
 # --- follow-up; pinned so the design stays visible.  ind_rec_struct_proj_raw
-# --- puts the recursive structure first (so its decline is A6's);
-# --- ind_proj_mutual_nested drops it and declines at a raw `.proj`.
-# TODO(#206-A7) official: 0 — by design (W5)
+# --- puts the recursive structure first; since task #210 Part A that one
+# --- is served (its `Chain.h` accepts) and the stream declines at the
+# --- MUTUAL structure's raw `.proj` (def MA.n_proj), as
+# --- ind_proj_mutual_nested does.
+# TODO(#206-A7) official: 0 — by design (W5); declines at MA.n_proj
 2 ind_rec_struct_proj_raw.ndjson
-# TODO(#206-A7) official: 0 — by design (W5)
+# TODO(#206-A7) official: 0 — by design (W5); declines at MA.n_proj
 2 ind_rec_struct_proj_raw.ndjson raw
 # TODO(#206-A7) official: 0 — by design (W5)
 2 ind_proj_mutual_nested.ndjson
