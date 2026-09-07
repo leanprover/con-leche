@@ -59,7 +59,7 @@ def preludeEnvSize (mode : CheckMode) : Option Nat :=
 -- the dedupe: the prelude's own text, parsed AGAINST the prelude,
 -- drops every record (all identical) — the result is the prelude and
 -- nothing more
-#guard match parseExportD builtinPreludeText (modeled := true) preludeIx with
+#guard match parseExportD builtinPreludeText preludeIx with
   | .ok r => r.decls.size == 7 && r.preludeCount == 7 && r.preludeDropped == 7
   | .error _ => false
 

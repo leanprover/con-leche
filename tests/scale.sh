@@ -5,8 +5,7 @@
 # n, 2n, 4n, 8n (standard mode) or up to 32n (deep mode); work is
 # measured in retired instructions (perf stat -e instructions:u,
 # median of 3 runs).  A per-shape startup baseline (the same shape at
-# n=1: basis install, IO, and — for preprocessed shapes — the
-# preprocessor's fixed cost) is subtracted before fitting the growth
+# n=1: basis install and IO) is subtracted before fitting the growth
 # exponent between successive doublings (log2 of the adjusted ratio).
 # PASS per shape iff the exponent at the LARGEST step is <= the
 # per-shape gate (superlinear growth shows most clearly at the largest
@@ -53,11 +52,6 @@
 #     unavailable (no perf in PATH, or kernel.perf_event_paranoid too
 #     restrictive), the harness SKIPS everything: prominent notice,
 #     exit 0.
-#   * the preprocessor (found like the checker finds it:
-#     $CON_LECHE_INDUCTIVE_MODELS, this build's con-leche-preprocess, the
-#     _tmp/ stock dev checkout, PATH).
-#     When unavailable, only the preprocessed shapes (ctors-mod,
-#     fields-mod) are SKIPPED with a notice; everything else runs.
 #
 # NOT part of `lake test` (needs a built binary, perf, and a process
 # per stream) — run manually or as a CI job:
@@ -100,39 +94,20 @@ if ! perf stat -e instructions:u true >/dev/null 2>&1; then
   exit 0
 fi
 
-# --- preprocessor availability (same search order as the checker,
-# Main.lean findPreprocessor): decides whether the *-mod shapes run.
-HAVE_PP=0
-if [ -n "${CON_LECHE_INDUCTIVE_MODELS:-}" ]; then
-  [ -x "$CON_LECHE_INDUCTIVE_MODELS" ] && HAVE_PP=1
-elif [ -x .lake/build/bin/con-leche-preprocess ] \
-    || [ -x _tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models ] \
-    || command -v con-leche-preprocess >/dev/null 2>&1; then
-  HAVE_PP=1
-fi
-
 TIMEOUT=120
 [ "$DEEP" = 1 ] && TIMEOUT=600
 
-# run_shape MODE FILE — run the checker on FILE; MODE `raw` disables
-# the preprocessor (the raw-stream/direct-install path), `def`/`mod`
-# run the checker as-is.
+# run_shape MODE FILE — run the checker on FILE.  MODE is the shape's
+# label only (task #207: there is no preprocessor to enable or
+# disable, so every shape is one plain run).
 run_shape() {
-  if [ "$1" = raw ]; then
-    CON_LECHE_INDUCTIVE_MODELS=/nonexistent timeout "$TIMEOUT" nice -n 10 "$BIN" "$2"
-  else
-    timeout "$TIMEOUT" nice -n 10 "$BIN" "$2"
-  fi
+  timeout "$TIMEOUT" nice -n 10 "$BIN" "$2"
 }
 
 measure_once() { # measure_once MODE FILE -> instruction count
-  if [ "$1" = raw ]; then
-    perf stat -e instructions:u -x, env CON_LECHE_INDUCTIVE_MODELS=/nonexistent \
-      timeout "$TIMEOUT" nice -n 10 "$BIN" "$2" 2>&1 >/dev/null
-  else
-    perf stat -e instructions:u -x, \
-      timeout "$TIMEOUT" nice -n 10 "$BIN" "$2" 2>&1 >/dev/null
-  fi | awk -F, '/instructions/{print $1}'
+  perf stat -e instructions:u -x, \
+    timeout "$TIMEOUT" nice -n 10 "$BIN" "$2" 2>&1 >/dev/null \
+  | awk -F, '/instructions/{print $1}'
 }
 
 measure() { # measure MODE FILE -> median of 3, empty on failure
@@ -143,9 +118,7 @@ measure() { # measure MODE FILE -> median of 3, empty on failure
 }
 
 rss_once() { # rss_once MODE FILE -> peak RSS (KB) of the process tree
-  local pre=()
-  [ "$1" = raw ] && pre=(env CON_LECHE_INDUCTIVE_MODELS=/nonexistent)
-  "${pre[@]}" python3 - "$BIN" "$2" "$TIMEOUT" <<'EOF'
+  python3 - "$BIN" "$2" "$TIMEOUT" <<'EOF'
 import resource, subprocess, sys
 r = subprocess.run(["timeout", sys.argv[3], "nice", "-n", "10",
                     sys.argv[1], sys.argv[2]],
@@ -166,8 +139,13 @@ rss_max3() { # rss_max3 MODE FILE -> max of 3 runs, empty on failure
 # label : gen-shape : mode : base-n : deep-maxm : instr-gate :
 #   deep-instr-gate : rss-gate
 #
-# mode      def = plain definition stream; raw = preprocessor disabled
-#           (direct-install path); mod = preprocessor required.
+# mode      the shape's label only, since task #207: def = a plain
+#           definition stream, raw = a stream whose inductive blocks
+#           install directly.  Both are one plain run of the checker.
+#           The `mod` shapes (ctors-mod, fields-mod) needed the
+#           external preprocessor and went with it; `ctors` at the
+#           direct sum route is an uncalibrated candidate to replace
+#           ctors-mod (a measurement job, not a rename).
 # deep-maxm largest n multiplier in deep mode (standard is always 8);
 #           bounded per shape so deep stays in budget even on the
 #           known-superlinear shapes.
@@ -182,9 +160,11 @@ rss_max3() { # rss_max3 MODE FILE -> max of 3 runs, empty on failure
 #
 # Gate provenance (measured on master 4f63b6c, 2026-08-24; full table
 # in DESIGN.md): the flat shapes measured 1.00-1.02 and gate at 1.15.
-# Four shapes measured SUPERLINEAR on master (known findings, gated at
+# Two shapes measured SUPERLINEAR on master (known findings, gated at
 # measured+slack so they cannot silently get worse): lparams 1.49/8x
-# 1.78/32x, ctors-mod 2.58/8x 2.76/16x, fields-mod 2.08/8x 2.43/16x.
+# 1.78/32x, and fields-raw below.  (ctors-mod 2.58/8x 2.76/16x and
+# fields-mod 2.08/8x 2.43/16x were the preprocessed shapes, retired
+# with the preprocessor at task #207.)
 # fields-raw recalibrated after the direct-install instantiation fix
 # (DESIGN.md "fields-raw: the near-cubic direct install"): measured
 # 1.92/8x 2.22/32x, gated at 2.20/2.50.
@@ -200,8 +180,6 @@ lets:lets:def:100:32:1.15:1.15:-
 lparams:lparams:def:100:32:1.65:1.95:-
 thm:thm:def:200:32:1.15:1.15:1.60
 fields-raw:fields:raw:25:32:2.20:2.50:-
-ctors-mod:ctors:mod:4:16:2.90:3.00:-
-fields-mod:fields:mod:8:16:2.40:2.70:-
 "
 RSS_FLOOR_KB=16384
 
@@ -222,10 +200,6 @@ for spec in $SPECS; do
   [ "$DEEP" = 1 ] && gate=$dgate
   echo
   echo "== $label (base n=$n0, gate $gate) =="
-  if [ "$mode" = mod ] && [ "$HAVE_PP" != 1 ]; then
-    echo "  SKIPPED: lean-inductive-models preprocessor not available"
-    continue
-  fi
   # per-shape startup baseline: the same shape at n=1
   python3 "$GEN" "$shape" 1 > "$TMP/base.ndjson"
   run_shape "$mode" "$TMP/base.ndjson" >/dev/null 2>&1 \

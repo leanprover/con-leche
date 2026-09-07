@@ -1,5 +1,5 @@
 /- Regression test: projections on an all-Prop structure.  For these,
-   lean-inductive-models *does* emit `_model.proj_i` artifacts, so the
+   the model family *does* carry `_model.proj_i` artifacts, so the
    installed-projection path types the auto-generated projections
    (whose bodies are raw `Expr.proj` nodes).
 

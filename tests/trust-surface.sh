@@ -18,8 +18,9 @@
 # entry: it is admissible only where someone has written down why.
 #
 # WHAT IT SCANS.  Every `*.lean` in `ConLeche/`, `tests/`, `scripts/` and
-# the four top-level roots (`Main`, `ConLeche`, `ConLechePreprocess`,
-# `PinDump`), with block comments, line comments and string literals
+# the three top-level roots (`Main`, `ConLeche`, `PinDump`; the fourth,
+# `ConLechePreprocess`, went with the preprocessor at task #207), with
+# block comments, line comments and string literals
 # removed first — so the checker's own *data* (the `Name` literals
 # `"sorryAx"`, `"ofReduceBool"`, the `"unsafe axiom"` rejection messages
 # in `Frontend/ExportC.lean`) is not mistaken for an escape, and neither
@@ -123,7 +124,7 @@ ALLOW = {
 # fixture *inputs*: deliberately contain what the checker must reject
 SKIP_DIRS = ('tests/e2e/src/',)
 
-ROOTS = ('Main.lean', 'ConLeche.lean', 'ConLechePreprocess.lean', 'PinDump.lean')
+ROOTS = ('Main.lean', 'ConLeche.lean', 'PinDump.lean')
 
 def sources():
     out = []

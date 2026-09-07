@@ -49,8 +49,9 @@ of records, and the main theorem quantifies over that list:
 install does not serve is replaced, before it reaches the checker, by
 the recursor application the module documents.  Three bookkeeping
 tables feed it — the owners of every parsed inductive block
-(`projOwners`), the field sorts read off the preprocessor's
-`T._model.proj_i.iota` artifacts (`projLevels`), and whether the
+(`projOwners`), the field sorts read off the `T._model.proj_i.iota`
+artifacts the in-process modeller emits (`projLevels`; task #207: the
+in-process modeller is the only source of them), and whether the
 `PUnit` basis block has been seen (the constant motives need it).
 -/
 
@@ -136,7 +137,8 @@ structure StateD where
   /-- structure-like owners the projection rewrite serves, by type
   name (`ConLeche/Frontend/ProjRec.lean`) -/
   projOwners : Std.HashMap Name ProjRecOwner := {}
-  /-- field sorts, by artifact iota name `T._model.proj_i.iota` -/
+  /-- field sorts, by artifact iota name `T._model.proj_i.iota` (the
+  in-process modeller's own; task #207) -/
   projLevels : Std.HashMap Name Level := {}
   /-- the `PUnit` basis block has been parsed -/
   punitSeen : Bool := false
@@ -405,8 +407,9 @@ private def projRewriteD (st : StateD) (cv : ConstantVal) (vl : ExprC) :
   projRecValue o l cv.type vl i
 
 /-- An artifact `T._model.proj_i.iota` names the field's sort in its
-`Eq` level: recorded for the projection rewrite (stream theorems and
-the in-process modeller's alike). -/
+`Eq` level: recorded for the projection rewrite.  Since task #207 the
+in-process modeller is the only source of these artifacts (a
+hand-written stream may still carry one; the scan is the same). -/
 private def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
   if isProjIotaName cvp.name then
     match projIotaLevel cvp.type with
@@ -456,8 +459,8 @@ private def blockRecOf (st : StateD) (v : Json) : M InModel.BlockRec := do
 /-- Twin of `processLineCore` over the direct state, producing `DeclC`
 records.  Every branch, guard and error string mirrors the arena
 parser's. -/
-private def processLineCoreD (st : StateD) (j : Json)
-    (modeled : Bool) : M (StateD ⊕ String) := do
+private def processLineCoreD (st : StateD) (j : Json) :
+    M (StateD ⊕ String) := do
   if let .ok v := j.getObjVal? "in" then
     return .inl (← parseNameEntryD st j (← v.getNat?))
   else if let .ok v := j.getObjVal? "il" then
@@ -581,60 +584,44 @@ private def processLineCoreD (st : StateD) (j : Json)
       else
         return pushDecl st (.basisDecl k)
     else
-      if modeled then
-        -- THE IN-PROCESS MODELLER (task #200): a mutual or nested block
-        -- the stream carries no model for gets its `_model` family
-        -- generated here and pushed ahead of it; the block then
-        -- installs through the modeled route as a preprocessed one
-        -- does.  A generator decline is the run's decline, naming the
-        -- reason (the residual that still needs `con-leche-preprocess`).
-        let T0 := (block.head?.map (·.name)).getD .anonymous
-        let b ← blockRecOf st v
-        let st :=
-          let m := st.indBlocks
-          let st := { st with indBlocks := {} }
-          { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
-        if st.inModel && InModel.wants b &&
-            !st.constTypes.contains (T0.str "_model") then
-          let ctx : InModel.Ctx :=
-            ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
-          match InModel.generate ctx b with
-          | .error why =>
-            if st.inModelCensus then
-              return pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
-                (.indDecl block)
-            else
-              return .inr s!"in-process model of {T0}: {why}"
-          | .ok gen =>
-            let mut st1 := st
-            for d in gen do
-              match pushGenD st1 d with
-              | .inl st' => st1 := st'
-              | r => return r
-            st1 := { st1 with
-              inModelled := st1.inModelled.push T0,
-              inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
-            return pushDecl st1 (.indDecl block)
-        else
-          return pushDecl st (.indDecl block)
+      -- THE IN-PROCESS MODELLER (task #200; the ONLY model source
+      -- since task #207): a mutual or nested block gets its `_model`
+      -- family generated here and pushed ahead of it; the block then
+      -- installs through the modeled route.  A generator decline is
+      -- the run's decline, naming the class (the residual: infinitary
+      -- nesting, a `Prop` block with a large eliminator).
+      let T0 := (block.head?.map (·.name)).getD .anonymous
+      let b ← blockRecOf st v
+      let st :=
+        let m := st.indBlocks
+        let st := { st with indBlocks := {} }
+        { st with indBlocks := b.types.foldl (fun m t => m.insert t.cv.name b) m }
+      -- `constTypes.contains (T0.str "_model")`: a HAND-WRITTEN stream
+      -- may still declare a model family of its own (no exporter emits
+      -- one since #207), and the modeller must not generate a second.
+      if st.inModel && InModel.wants b &&
+          !st.constTypes.contains (T0.str "_model") then
+        let ctx : InModel.Ctx :=
+          ⟨fun n => st.constTypes[n]?, fun n => st.heights.getD n 0, fun n => st.indBlocks[n]?⟩
+        match InModel.generate ctx b with
+        | .error why =>
+          if st.inModelCensus then
+            return pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
+              (.indDecl block)
+          else
+            return .inr s!"in-process model of {T0}: {why}"
+        | .ok gen =>
+          let mut st1 := st
+          for d in gen do
+            match pushGenD st1 d with
+            | .inl st' => st1 := st'
+            | r => return r
+          st1 := { st1 with
+            inModelled := st1.inModelled.push T0,
+            inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
+          return pushDecl st1 (.indDecl block)
       else
-        -- alias every member to its `_model` counterpart; the member
-        -- type is the parsed `ExprC` slot itself (no re-interning, no
-        -- conversion), the alias head is a fresh `const` node
-        let mut st := st
-        for t in (← (← v.getObjVal? "types").getArr?) do
-          match ← aliasMember st t with
-          | .inl st' => st := st'
-          | r => return r
-        for c in (← (← v.getObjVal? "ctors").getArr?) do
-          match ← aliasMember st c with
-          | .inl st' => st := st'
-          | r => return r
-        for r in (← (← v.getObjVal? "recs").getArr?) do
-          match ← aliasMember st r with
-          | .inl st' => st := st'
-          | r => return r
-        return .inl st
+        return pushDecl st (.indDecl block)
   else
     throw "unrecognized line"
 where
@@ -663,16 +650,6 @@ where
       let m := st.projOwners
       let st := { st with projOwners := {} }
       pure { st with projOwners := owners.foldl (fun m o => m.insert o.T o) m }
-  /-- One `T := T._model` alias definition from a block-member record:
-  the type is the parsed slot (already `ExprC`), the value a fresh
-  `const` at the member's own level parameters. -/
-  aliasMember (st : StateD) (t : Json) : M (StateD ⊕ String) := do
-    let name ← getNameD st t "name"
-    let lps := (← (← getIdxs t "levelParams").mapM st.name).toList
-    let ty ← getDeclD st t "type"
-    let v := ExprC.mkConst (Name.str name "_model") (lps.map .param)
-    let d : DeclC := .defnDecl ⟨name, lps, ty⟩ v .abbrev
-    pure (pushDecl st d)
 
 /-- Twin of `declRecordScan` (read-only pre-scan for the taint
 policy). -/
@@ -699,8 +676,8 @@ private def declRecordScanD (st : StateD) (j : Json) :
   return none
 
 /-- Twin of `processLine` (the taint policy). -/
-private def processLineD (st : StateD) (j : Json)
-    (modeled : Bool) : M (StateD ⊕ String) := do
+private def processLineD (st : StateD) (j : Json) :
+    M (StateD ⊕ String) := do
   if let .ok v := j.getObjVal? "axiom" then
     let name ← getNameD st v "name"
     if toleratedAxiomNames.contains name then
@@ -723,7 +700,7 @@ private def processLineD (st : StateD) (j : Json)
   -- `processLineCoreD`, so every insert inside copies them — the
   -- task-#78 copy-on-write pathology, measured at +48 % on
   -- `init-core` when the retired size-decline message took the state.)
-  match processLineCoreD st j modeled with
+  match processLineCoreD st j with
   | .ok r => pure r
   | .error e =>
     if e = taintSentinel then
@@ -844,15 +821,15 @@ private def ParseResultD.ofState (st : StateD) : ParseResultD :=
    st.inModelDeclined⟩
 
 /-- Twin of `feedLine`. -/
-private def feedLineD (st : StateD) (line : String) (lineNo : Nat)
-    (modeled : Bool) : Except FrontendError StateD :=
+private def feedLineD (st : StateD) (line : String) (lineNo : Nat) :
+    Except FrontendError StateD :=
   if line.trimAscii.isEmpty then .ok st
   else
     match fastEntryD st line with
     | .handled (.ok st) => .ok st
     | .handled (.error msg) => .error (.parseError lineNo msg)
     | .fallback st =>
-      match Json.parse line >>= (fun j => processLineD st j modeled) with
+      match Json.parse line >>= (fun j => processLineD st j) with
       | .error msg => .error (.parseError lineNo msg)
       | .ok (.inr what) => .error (.unsupported what)
       | .ok (.inl st) => .ok st
@@ -860,7 +837,7 @@ private def feedLineD (st : StateD) (line : String) (lineNo : Nat)
 /-- Wholesale direct parse (tests and small inputs).  `prelude` is the
 built-in prelude the result is prepended with and deduped against
 (task #191; empty for the prelude's own parse). -/
-def parseExportD (contents : String) (modeled : Bool := false)
+def parseExportD (contents : String)
     (prelude : PreludeIx := {}) (inModel : Bool := true)
     (census : Bool := false) :
     Except FrontendError ParseResultD := do
@@ -868,7 +845,7 @@ def parseExportD (contents : String) (modeled : Bool := false)
   let mut lineNo := 0
   for line in contents.splitToList (· == '\n') do
     lineNo := lineNo + 1
-    st ← feedLineD st line lineNo modeled
+    st ← feedLineD st line lineNo
   return .ofState st
 
 /-- Streaming direct parse off an open handle (twin of
@@ -877,12 +854,11 @@ referenced across steps).
 
 The handle is read strictly forward, one `getLine` at a time, and is
 never seeked, re-opened or asked for its size — so the source may be a
-*pipe* just as well as a file.  That is what lets the checker read the
-preprocessor's stdout directly (task #180: no scratch file at all;
-`Main.lean`), and it is a property to preserve: a seek or a re-open
-here would silently re-introduce the temp file. -/
+*pipe* just as well as a file (task #180: no scratch file at all,
+anywhere; `Main.lean`).  It is a property to preserve: a seek or a
+re-open here would silently re-introduce a temp file. -/
 partial def parseExportHandleD (h : IO.FS.Handle)
-    (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true)
+    (prelude : PreludeIx := {}) (inModel : Bool := true)
     (census : Bool := false) :
     IO (Except FrontendError ParseResultD) := do
   let rec loop (lineNo : Nat) (st : StateD) :
@@ -891,16 +867,16 @@ partial def parseExportHandleD (h : IO.FS.Handle)
     if raw.isEmpty then
       return .ok (.ofState st)
     let line := if raw.back == '\n' then (raw.dropEnd 1).copy else raw
-    match feedLineD st line (lineNo + 1) modeled with
+    match feedLineD st line (lineNo + 1) with
     | .error e => return .error e
     | .ok st => loop (lineNo + 1) st
   loop 0 (.init prelude inModel census)
 
 /-- Streaming direct parse of a file. -/
 def parseExportStreamD (path : System.FilePath)
-    (modeled : Bool := false) (prelude : PreludeIx := {}) (inModel : Bool := true)
+    (prelude : PreludeIx := {}) (inModel : Bool := true)
     (census : Bool := false) :
     IO (Except FrontendError ParseResultD) := do
-  parseExportHandleD (← IO.FS.Handle.mk path .read) modeled prelude inModel census
+  parseExportHandleD (← IO.FS.Handle.mk path .read) prelude inModel census
 
 end ConLeche.Frontend

@@ -3,10 +3,9 @@ import ConLeche.Kernel.Basis.Builder
 /-!
 # The pinned `False` basis block (task #181)
 
-The raw pin — the `False` block exactly as the export (and the
-preprocessor, which leaves it native) emits it: the toolchain's
-`Init.Prelude` declaration, no constructors, hence no iota rules, at
-the parser's raw binder annotations.  It is the `Empty` pin
+The raw pin — the `False` block exactly as an export carries it: the
+toolchain's `Init.Prelude` declaration, no constructors, hence no iota
+rules, at the parser's raw binder annotations.  It is the `Empty` pin
 (`ConLeche/Kernel/Basis/Empty.lean`) one universe down: `False : Prop`
 where `Empty : Type`, and `False.rec` eliminates into every `Sort u`
 exactly as `Empty.rec` does (the official kernel lets a

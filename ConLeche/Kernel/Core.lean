@@ -104,7 +104,7 @@ def liftFueled (what : String) : Option α → m α
   | none => throw (.internal s!"fuel exhausted: {what}")
 
 /-- The model-side name of field `i`'s projection for `T`
-(the documented public interface of the preprocessor's models). -/
+(the documented public interface of a `_model` family). -/
 def projModelName (T : Name) (i : Nat) : Name :=
   (T.str "_model").str ("proj_" ++ toString i)
 
@@ -1563,7 +1563,7 @@ family the rule fires unconditionally.
 Until W6 the guard was "the structure's sort is provably nonzero at
 this instantiation", which is *not* what the official kernel does
 (`reduce_proj` reduces every constructor redex) and rejects the
-preprocessor's own `PSigma'.fst_mk` (`PSigma'.fst (PSigma'.mk a b) ≡ a`
+modelled basis's own `PSigma'.fst_mk` (`PSigma'.fst (PSigma'.mk a b) ≡ a`
 at symbolic `u v`, where `max u v` is neither provably zero nor
 nonzero) once the pinned pair — whose entries were ungated — is
 retired.  The model licence: at a squash instance (the structure's

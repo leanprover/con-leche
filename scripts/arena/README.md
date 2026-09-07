@@ -56,3 +56,22 @@ per line, sorted by test name:
 Provenance: arena `91f376e`, exports by `lean4export` 3.1.0 at
 `leanprover/lean4:v4.29.1`.  Exit codes are the arena convention — 0 accept,
 1 reject, 2 decline, 3 error.
+
+### STALE SINCE TASK #207 (2026-09-07) — two rows, both in con-leche's favour
+
+The record above was measured while the checker still spawned the
+`lean-inductive-models` preprocessor and passed its verdict through.
+That is gone (task #207), and two rows quote a message that no longer
+exists — `con-leche: declined: the preprocessor declined to model a
+block …`:
+
+| test | expected | recorded | today (verdict re-run, this tree) |
+|---|---|---|---|
+| `nat-rec-k-lie` | reject | declined (2) | **reject (1)** — `invalid: type mismatch in theorem k1` |
+| `nat-rec-rules` | reject | declined (2) | **reject (1)** — `invalid: duplicate declaration Nat` |
+
+Only the verdicts were re-run here; the instructions/wall/RSS cells of
+the whole suite were not, so the files are left as the dated record
+they are rather than half-refreshed (the same convention the `setlec*`
+rows already follow).  A full `run-small` regeneration is the way to
+retire this note.

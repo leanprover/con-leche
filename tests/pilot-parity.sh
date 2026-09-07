@@ -85,7 +85,7 @@ while read -r exp rel; do
 done < tests/arena-expected.txt
 
 echo "== e2e suite ($MODEFLAG)"
-while read -r exp rel mode; do
+while read -r exp rel; do
   case "$exp" in ''|'#'*) continue;; esac
   src="tests/e2e/$rel"
   if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
@@ -93,11 +93,7 @@ while read -r exp rel mode; do
     gunzip -c "$src.gz" > "$tmpf" || { echo "E2E gunzip failed $rel"; fail=1; continue; }
     src="$tmpf"
   fi
-  case "${mode:-}" in
-    raw) CON_LECHE_INDUCTIVE_MODELS=/nonexistent compare "e2e/$rel[raw]" "$src";;
-    pre) compare "e2e/$rel[pre]" --pre "$src";;
-    *)   compare "e2e/$rel" "$src";;
-  esac
+  compare "e2e/$rel" "$src"
 done < tests/e2e-expected.txt
 
 echo "== annot suite ($MODEFLAG)"

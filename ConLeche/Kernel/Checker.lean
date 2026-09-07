@@ -478,8 +478,9 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- installed directly, from the reference checks alone
     -- (`ConLeche/Kernel/Direct.lean`).  `directParts?` is a conservative
     -- filter that also requires the block's `_model` companions to be
-    -- absent, so every preprocessed stream keeps today's route byte for
-    -- byte; the module split (`CheckerBase ← Modeled ← Checker`) is why
+    -- absent, so a stream that carries a model of its own keeps
+    -- today's route byte for byte; the module split
+    -- (`CheckerBase ← Modeled ← Checker`) is why
     -- the dispatch lives here and not inside `checkIndDecl`.
     -- The direct sum route (task #175 sum-types) takes the blocks with
     -- any number of constructors other than one; the two recognisers

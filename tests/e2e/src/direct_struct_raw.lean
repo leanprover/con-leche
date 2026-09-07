@@ -1,13 +1,11 @@
 --#export Wrap.fst_mk Wrap.snd_mk Wrap.elim_mk Wrap.unit_eq
 
-/- End-to-end test: the **direct** simple-structure install (task #82),
-   exercised with NO preprocessor available.
+/- End-to-end test: the **direct** simple-structure install (task #82).
 
-   This fixture is committed as a *raw* lean4export result (regenerate
-   with `LEAN_INDUCTIVE_MODELS_FILTER=0`), and `tests/arena.sh` runs it
-   with `CON_LECHE_INDUCTIVE_MODELS=/nonexistent` (the `raw` marker in
-   `tests/e2e-expected.txt`), so there is not a single `_model`
-   declaration in the stream and not a single one produced at run time.
+   This fixture is committed as a *raw* lean4export result, so there is
+   not a single `_model` declaration in the stream and not a single one
+   produced at run time.  (Until task #207 that took saying: the run
+   had to disable the preprocessor.  Every run is raw now.)
    Everything here is checked through `checkDirectStruct`.
 
    `Wrap` is the general shape of the class: two parameters, two

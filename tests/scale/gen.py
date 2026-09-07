@@ -41,14 +41,13 @@ Shapes (SHAPES below has the one-line summaries):
   ctors      one inductive enum  E  with n constructors, a recursor
              with n rules, and a use that forces one iota step through
              the n-minor rec application.  Carries an `inductive`
-             record, so the checker runs the lean-inductive-models
-             preprocessor: this shape measures the whole modeled
-             pipeline end to end.
+             record; the checker installs it through the direct sum
+             route (before task #207 this shape was fed to the
+             external preprocessor and measured the modeled pipeline
+             end to end).
   fields     one structure  S  with n Prop fields (single ctor,
              recursor, rule) plus a use projecting every field
-             (.proj exprs).  As a raw stream (preprocessor disabled)
-             this exercises the direct simple-structure install; with
-             the preprocessor available, the modeled path.
+             (.proj exprs): the direct simple-structure install.
   fanout     n tiny defs plus one def whose body references all n
              predecessors (n const lookups in one declaration; guards
              per-lookup env-index rebuild bugs).
@@ -349,8 +348,8 @@ def gen_fields(e, n):
     """Structure S with n Prop fields + a use projecting every field.
 
     The block matches the checker's direct simple-structure shape
-    (ConLeche/Kernel/Direct.lean) exactly, so a raw run (preprocessor
-    disabled) takes the direct install path."""
+    (ConLeche/Kernel/Direct.lean) exactly, so the run takes the direct
+    install path."""
     type1 = e.sort(e.level_succ(0))      # Sort 1
     prop = e.sort(0)
     Sn = e.name("S")

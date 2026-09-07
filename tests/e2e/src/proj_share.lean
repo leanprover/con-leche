@@ -24,8 +24,8 @@ the declared type node by node.  At n = 26 the copy alone is 134 M
 nodes.  Official's `infer_proj` instantiates by pointer and accepts in
 milliseconds; so does the fixed checker.
 
-Expected verdict: accept (exit 0), both modes; raw (the direct
-simple-structure route installs `Box`, no preprocessing).
+Expected verdict: accept (exit 0), both modes; the direct
+simple-structure route installs `Box`.
 -/
 --#export unbox unbox2
 import Lean

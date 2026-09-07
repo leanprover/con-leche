@@ -5,14 +5,14 @@ description: |
   accepted stream comes with a machine-checked argument that the checked
   declarations have a model, and in particular that no `False` was proved.
 
-  The binary ingests raw `lean4export` NDJSON.  Inductive declarations and
-  `quot` are reduced to ordinary declarations by `con-leche-preprocess`, the
-  checker's own front end for
-  [lean-inductive-models](https://github.com/nomeata/lean-inductive-models),
-  which con-leche spawns transparently on any stream that contains them and reads
-  from its pipe — nothing of the reduced stream is written to disk.  The
-  preprocessor's verdict is con-leche's: a block its (Lean) kernel rejects is
-  invalid input, not a limitation of ours.
+  The binary ingests raw `lean4export` NDJSON: there is no preprocessor, no
+  external dependency and no spawn.  Every inductive block is installed by a
+  direct route — structures, sums, indexed families, finitary fixed points,
+  reflexive blocks — or through a `_model` family the frontend generates
+  **in-process** at parse time and then checks as ordinary declarations of the
+  stream.  That generator is not trusted: a wrong generated record is rejected
+  or declined by the fold, never accepted, so it decides coverage only.  A
+  block no route takes declines (exit 2) naming its class.
 
   Exit codes follow the arena convention exactly: 0 accept, 1 reject, 2 decline
   (only when the checker *positively detects* a feature it does not support
@@ -29,15 +29,13 @@ version: "local worktree build"
 run: |
   set -u
   ulimit -v "${CON_LECHE_VLIMIT:-16000000}"
-  # SCRATCH.  Since task #180 the preprocessor's output is a pipe, so a run
-  # writes no scratch file at all and the multi-gigabyte temp file that used
-  # to land in the tmpfs `/tmp` is gone.  `TMPDIR` is still pointed at disk
-  # here, as the project's standing rule for anything that does need scratch.
+  # SCRATCH.  A run writes no scratch file at all (task #180/#207).
+  # `TMPDIR` is still pointed at disk here, as the project's standing rule
+  # for anything that does need scratch.
   # (the driver always sets CON_LECHE_TMPDIR; the fallback is `./_tmp/tmp`, the
   # project's on-disk scratch convention, never the system temp directory)
   export TMPDIR="${CON_LECHE_TMPDIR:-$PWD/_tmp/tmp}"
   mkdir -p "$TMPDIR"
-  CON_LECHE_INDUCTIVE_MODELS="${CON_LECHE_PREPROC:?CON_LECHE_PREPROC must point at con-leche-preprocess}" \
-    timeout "${CON_LECHE_TIMEOUT:-3000}" \
+  timeout "${CON_LECHE_TIMEOUT:-3000}" \
     "${CON_LECHE_BIN:?CON_LECHE_BIN must point at the con-leche binary}" \
     "${CON_LECHE_MODE:---verified}" "$IN"

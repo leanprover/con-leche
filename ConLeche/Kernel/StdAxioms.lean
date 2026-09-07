@@ -4,14 +4,13 @@ import ConLeche.Kernel.BasisGen
 /-!
 # Recognized standard axioms and their prerequisite shapes
 
-The lean-inductive-models preprocessor's generated routes may use the
-standard axioms `propext` and `Classical.choice`.  Both are true in
-the set-theoretic model — `propext` by extensionality of propositions
-(derived through the stored `Iff` recursor), `Classical.choice` by
-global choice (through the stored `Nonempty` recursor) — so the
-checker accepts exactly these two axioms, after pinning their types
-and the *shapes of the inductives they quantify over* to what the
-preprocessor emits.  Raw pins below, hand-written through the builder
+A stream may use the standard axioms `propext` and `Classical.choice`.
+Both are true in the set-theoretic model — `propext` by extensionality
+of propositions (derived through the stored `Iff` recursor),
+`Classical.choice` by global choice (through the stored `Nonempty`
+recursor) — so the checker accepts exactly these two axioms, after
+pinning their types and the *shapes of the inductives they quantify
+over* to the toolchain's.  Raw pins below, hand-written through the builder
 in `ConLeche/Kernel/Basis/Builder.lean`; the annotated forms — what the
 checker's own annotation produces for them, in dependency order — are
 computed from them at elaboration time by `#annotate_basis` /
@@ -154,7 +153,7 @@ def iffRecRaw : ConstantInfo :=
     pi "t" (ap2 (cnst iffName) (bv 3) (bv 2)) (.app (bv 2) (bv 0))⟩
     4 4 []
 
-/-- The raw `Iff` family, as the preprocessor emits it (dependency
+/-- The raw `Iff` family, as an export carries it (dependency
 order). -/
 def iffFamily : List ConstantInfo := [iffRaw, iffIntroRaw, iffRecRaw]
 

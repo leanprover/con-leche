@@ -434,9 +434,9 @@ install rejects it exactly as the official kernel's positivity check
 would, before anything else is looked at (no other route could accept
 it).  A block with an UNSUPPORTED occurrence (reflexive, nested, under
 a redex) is NOT this route's: it falls through to the modeled path,
-which accepts what the preprocessor could model — a positive decline
-here would regress the verdict of every such block (found on the
-arena's `RTree`, 2026-09-06). -/
+which accepts what the in-process modeller can model — a positive
+decline here would regress the verdict of every such block (found on
+the arena's `RTree`, 2026-09-06). -/
 def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
   match directFixShape? block with
   | some p =>

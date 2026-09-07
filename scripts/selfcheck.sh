@@ -29,11 +29,6 @@
 #     `sorry` (see `tests/trust-surface.sh`).  It roots its own library,
 #     is in no default target, has no `.olean` in a normal build, and
 #     nothing imports it, so it cannot enter the cone.
-#   * `ConLechePreprocess` — the `con-leche-preprocess` executable is a five-line
-#     front end for the external `lean-inductive-models` tool.  Its cone
-#     is that tool plus the whole Lean elaborator, i.e. someone else's
-#     code; nothing in `ConLeche.*` imports it (that is the point of the
-#     lakefile's note on the dependency).
 #   * `ConLecheTests` — fixtures, not the development.
 #   * `unsafe` declarations.  `lean4export` skips them unless
 #     `--export-unsafe` is given, and skips them even when they are
@@ -55,7 +50,7 @@
 #     cone at all.
 #
 # USAGE
-#     scripts/selfcheck.sh [--trusted] [--pre] [OUTDIR]
+#     scripts/selfcheck.sh [--trusted] [OUTDIR]
 #
 #   OUTDIR defaults to `_tmp/selfcheck`.  Steps are skipped when their
 #   output is already there, so a re-run only redoes the check:
@@ -75,14 +70,12 @@ cd "$(dirname "$0")/.."
 ROOT=$PWD
 
 MODE=--verified
-PRE=()
 OUTDIR=_tmp/selfcheck
 for a in "$@"; do
   case "$a" in
     --trusted)  MODE=--trusted ;;
     --verified) MODE=--verified ;;
-    --pre)      PRE=(--pre) ;;
-    -*) echo "usage: scripts/selfcheck.sh [--trusted] [--pre] [OUTDIR]" >&2; exit 3 ;;
+    -*) echo "usage: scripts/selfcheck.sh [--trusted] [OUTDIR]" >&2; exit 3 ;;
     *)  OUTDIR=$a ;;
   esac
 done
@@ -135,7 +128,7 @@ echo "[selfcheck] export: $(du -h "$OUTDIR/con-leche-export.ndjson" | cut -f1), 
 $(wc -l < "$OUTDIR/con-leche-export.ndjson") lines"
 
 # ---------------------------------------------------------------- 4/4
-lake build con-leche con-leche-preprocess
+lake build con-leche
 echo "[selfcheck] checking ($MODE)"
 # `CON_LECHE_PROGRESS` is deliberately NOT set by default: the heartbeat lane
 # is the driver's one unverified fold (Main.lean, user ruling
@@ -144,7 +137,7 @@ echo "[selfcheck] checking ($MODE)"
 (
   ulimit -v 22000000
   set +e
-  timeout 4h ./.lake/build/bin/con-leche "$MODE" "${PRE[@]+"${PRE[@]}"}" \
+  timeout 4h ./.lake/build/bin/con-leche "$MODE" \
     "$OUTDIR/con-leche-export.ndjson" \
     2> >(while IFS= read -r l; do printf '%s %s\n' "$(date +%H:%M:%S)" "$l"; done \
           | tee "$OUTDIR/check.log" >&2)

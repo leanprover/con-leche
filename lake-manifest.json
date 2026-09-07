@@ -1,16 +1,6 @@
 {"version": "1.2.0",
  "packagesDir": ".lake/packages",
- "packages":
- [{"url": "https://github.com/nomeata/lean-inductive-models",
-   "type": "git",
-   "subDir": null,
-   "scope": "",
-   "rev": "45d134663faec16f13b4885f4a5a11bdd08de1b2",
-   "name": "lean_inductive_models",
-   "manifestFile": "lake-manifest.json",
-   "inputRev": "45d134663faec16f13b4885f4a5a11bdd08de1b2",
-   "inherited": false,
-   "configFile": "lakefile.toml"}],
+ "packages": [],
  "name": "«con-leche»",
  "lakeDir": ".lake",
  "fixedToolchain": false}

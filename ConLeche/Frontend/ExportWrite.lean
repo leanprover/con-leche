@@ -6,16 +6,16 @@ import ConLeche.Cached.ParsedC
 The in-process modeller's **debug dump** (`CON_LECHE_INMODEL_DUMP`): the
 records it generates for a block are serialized in the lean4export
 3.x record format and spliced into a copy of the raw input ahead of
-the block, so that the result can be handed to `con-leche-preprocess` and
-the *tool* models the generated auxiliary family — the gate for the
-generator while the direct fixpoint route (task #188) is not yet at
-indices.  Nothing here is on the checking path.
+the block, so that the result is a stream you can diff, re-check or
+hand to another checker (task #207: it used to be handed to
+`con-leche-preprocess`, which modelled the generated auxiliary family;
+the direct fixpoint route installs it natively since task #188).
+Nothing here is on the checking path.
 
 Interning: names, levels and expressions are written once each and
 referenced by index; the indices start above the input's own maximum
-(`ExportWriter.init base`), and the tool's parser keeps a sparse table
-beside its dense one, so a splice never collides with the input's
-entries.
+(`ExportWriter.init base`), and a reader keeps a sparse table beside
+its dense one, so a splice never collides with the input's entries.
 -/
 
 namespace ConLeche.Frontend

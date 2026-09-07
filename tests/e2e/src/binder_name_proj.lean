@@ -25,10 +25,11 @@ checker at all (`scripts/mk_binder_twin_fixture.py --proj`):
   `.proj Prod 1 s`, the shape the residual has in real streams (where
   the projection function has been unfolded).
 
-The fixture is a `raw` line in `tests/e2e-expected.txt`: the
-preprocessor's re-export goes through `Lean.Expr`, whose hash-consing
-is α-equivalence, so a piped run collapses the twin back into one node
-before con-leche sees it (DESIGN, task #203 §4).  Before #203 (master
+The fixture must reach the checker as the raw stream it is.  (Until
+task #207 that took saying: the preprocessor's re-export went through
+`Lean.Expr`, whose hash-consing is α-equivalence, so a piped run
+collapsed the twin back into one node before con-leche saw it —
+DESIGN, task #203 §4.)  Before #203 (master
 `a77ac1d6`, raw, `--verified`): accept at 3.38 G instructions against
 0.37 G for the same export without the twin; after: 0.37 G both. -/
 noncomputable def h (f : Nat → Nat) (x : Nat) : Nat × Nat :=
