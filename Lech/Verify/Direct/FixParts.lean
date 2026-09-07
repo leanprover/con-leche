@@ -133,12 +133,16 @@ theorem List.mapM_option_length {α β : Type} {f : α → Option β} :
     obtain ⟨b, -, bs, hbs, rfl⟩ := h
     simp [List.mapM_option_length hbs]
 
-/-- `directFixParts?` pins the shape and the kinds. -/
+/-- `directFixParts?` pins the shape and the kinds; a reflexive field
+is taken only at a `Prop`-valued block (task #202, Stage A) unless the
+block is negative. -/
 theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
     (h : directFixParts? block = some p) :
     directFixShape? block = some p.toDirectSumParts ∧
     directFixKinds? p.toDirectSumParts = some p.kinds ∧
-    p.kinds.length = p.ctors.length := by
+    p.kinds.length = p.ctors.length ∧
+    (p.kinds.any (fun ks => ks.any (· == .negative)) = true ∨
+      (p.kinds.any (fun ks => ks.any (· == .reflexive)) = true → p.isProp = true)) := by
   unfold directFixParts? at h
   split at h
   · next p' hshape =>
@@ -148,16 +152,24 @@ theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
         unfold directFixKinds? at hkinds
         exact List.mapM_option_length hkinds
       split at h
-      · obtain rfl := Option.some.inj h
-        exact ⟨hshape, hkinds, hlen⟩
+      · next hneg =>
+        obtain rfl := Option.some.inj h
+        exact ⟨hshape, hkinds, hlen, Or.inl hneg⟩
       · split at h
         · exact nomatch h
         · split at h
-          · split at h
-            · obtain rfl := Option.some.inj h
-              exact ⟨hshape, hkinds, hlen⟩
-            · exact nomatch h
           · exact nomatch h
+          · next hguard =>
+            split at h
+            · split at h
+              · obtain rfl := Option.some.inj h
+                refine ⟨hshape, hkinds, hlen, Or.inr fun hr => ?_⟩
+                have hr' : kinds.any (fun ks => ks.any (· == .reflexive)) = true := hr
+                show p'.isProp = true
+                revert hguard
+                cases p'.isProp <;> simp [hr']
+              · exact nomatch h
+            · exact nomatch h
     · exact nomatch h
   · exact nomatch h
 

@@ -38,7 +38,11 @@ def fssOfR (nP : Nat) (cds : List CtorDatumR) : List (List AVExpr) :=
 def essOfR (cds : List CtorDatumR) : List (List AVExpr) := cds.map fun cd => cd.2.2.2.1
 
 /-- The constructors' per-field index expressions. -/
-def eissOfR (cds : List CtorDatumR) : List (List (List AVExpr)) := cds.map fun cd => cd.2.2.2.2.2
+def eissOfR (cds : List CtorDatumR) : List (List (List AVExpr)) := cds.map fun cd => cd.2.2.2.2.2.1
+
+/-- The per-constructor telescopes (task #202). -/
+def tlssOfR (cds : List CtorDatumR) : List (List (List (Nat × Nat × AVExpr))) :=
+  cds.map fun cd => cd.2.2.2.2.2.2
 
 /-- The recursive flags of the first `n` constructors. -/
 def rssOfK (ksF : Nat → List RecFieldKind) (n : Nat) : List (List Bool) :=
@@ -55,7 +59,13 @@ theorem essOfR_getElem? (cds : List CtorDatumR) (j : Nat) :
 
 omit [SetTheory V] in
 theorem eissOfR_getElem? (cds : List CtorDatumR) (j : Nat) :
-    (eissOfR cds)[j]? = (cds[j]?).map fun cd => cd.2.2.2.2.2 := by simp [eissOfR]
+    (eissOfR cds)[j]? = (cds[j]?).map fun cd => cd.2.2.2.2.2.1 := by simp [eissOfR]
+
+theorem tlssOfR_getElem? (cds : List CtorDatumR) (j : Nat) :
+    (tlssOfR cds)[j]? = (cds[j]?).map fun cd => cd.2.2.2.2.2.2 := by simp [tlssOfR]
+
+theorem tlssOfR_length (cds : List CtorDatumR) : (tlssOfR cds).length = cds.length := by
+  simp [tlssOfR]
 
 omit [SetTheory V] in
 theorem fssOfR_length (nP : Nat) (cds : List CtorDatumR) : (fssOfR nP cds).length = cds.length := by
@@ -154,17 +164,18 @@ omit [SetTheory V] in
 /-- The constructor data at two assignments agreeing on the data. -/
 theorem fixCtorDataList_congr {dsF₁ dsF₂ : Nat → (Name → Nat) → List (Nat × Nat × AVExpr)}
     {esF₁ esF₂ : Nat → (Name → Nat) → List AVExpr} {ksF : Nat → List RecFieldKind}
-    {eissF₁ eissF₂ : Nat → (Name → Nat) → List (List AVExpr)} {ψ₁ ψ₂ : Name → Nat} :
+    {eissF₁ eissF₂ : Nat → (Name → Nat) → List (List AVExpr)}
+    {tssF₁ tssF₂ : Nat → (Name → Nat) → List (List (Nat × Nat × AVExpr))} {ψ₁ ψ₂ : Name → Nat} :
     ∀ (cs : List (ConstantVal × Nat)) (j : Nat),
       (∀ i, i < cs.length → dsF₁ (j + i) ψ₁ = dsF₂ (j + i) ψ₂ ∧ esF₁ (j + i) ψ₁ = esF₂ (j + i) ψ₂ ∧
-        eissF₁ (j + i) ψ₁ = eissF₂ (j + i) ψ₂) →
-      fixCtorDataList dsF₁ esF₁ ksF eissF₁ ψ₁ cs j = fixCtorDataList dsF₂ esF₂ ksF eissF₂ ψ₂ cs j
+        eissF₁ (j + i) ψ₁ = eissF₂ (j + i) ψ₂ ∧ tssF₁ (j + i) ψ₁ = tssF₂ (j + i) ψ₂) →
+      fixCtorDataList dsF₁ esF₁ ksF eissF₁ tssF₁ ψ₁ cs j = fixCtorDataList dsF₂ esF₂ ksF eissF₂ tssF₂ ψ₂ cs j
   | [], _, _ => rfl
   | c :: cs, j, h => by
     simp only [fixCtorDataList]
-    obtain ⟨h1, h2, h3⟩ := h 0 (by simp)
-    rw [Nat.add_zero] at h1 h2 h3
-    rw [h1, h2, h3, fixCtorDataList_congr cs (j + 1) fun i hi => by
+    obtain ⟨h1, h2, h3, h4⟩ := h 0 (by simp)
+    rw [Nat.add_zero] at h1 h2 h3 h4
+    rw [h1, h2, h3, h4, fixCtorDataList_congr cs (j + 1) fun i hi => by
       have := h (i + 1) (by simpa using hi)
       rwa [show j + (i + 1) = j + 1 + i from by omega] at this]
 
@@ -190,44 +201,46 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
     {esF : Nat → (Name → Nat) → List AVExpr} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
     {eissF : Nat → (Name → Nat) → List (List AVExpr)}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AVExpr))}
     (hlenK : p.kinds.length = ctorsA.length)
     (hks : ∀ i, i < ctorsA.length → p.kinds[i]? = some (ksF i))
     (hcf : ∀ i cA, ctorsA[i]? = some cA →
       FixCtorFactsAt mp.base2 env₀ p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp
-        p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF i cA)
+        p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF i cA)
     (hidxRes : ∀ j cA, ctorsA[j]? = some cA → ∀ e ∈ idxF j, e.constsResolve env = true)
     (hRD : SumRecData mp.base2 cvRa p.nP ctorsA.length p.nIdx (Lech.directElimLevel p.elim p.large)
-      (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA))
+      (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA))
     -- the leaf and its facts
     {A : (Name → Nat) → AVExpr} {sAV : (Name → Nat) → Nat} {uAV : (Name → Nat) → Nat}
     {fssZ : (Name → Nat) → List (List AVExpr)}
     (hA : ∀ ψ, A ψ = directFixRecAVI ((Lech.directElimLevel p.elim p.large).eval ψ) (p.resSort.eval ψ)
-      p.nP (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-      (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) (((ppsAll ψ).drop p.nP).map (·.2.2))
-      (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-      (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ) (sAV ψ))
+      p.nP (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+      (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (((ppsAll ψ).drop p.nP).map (·.2.2))
+      (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+      (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ) (sAV ψ))
     (hpre : ∀ ψ, FixPre V ((Lech.directElimLevel p.elim p.large).eval ψ) (p.resSort.eval ψ) (uAV ψ)
-      p.nP (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-      (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
+      p.nP (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+      (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
       (fssZ ψ)
       (((ppsAll ψ).drop p.nP).map (·.2.2)) (rssOfK ksF ctorsA.length)
-      (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-      (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ) (sAV ψ))
+      (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+      (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+      (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ) (sAV ψ))
     (hAcl : ∀ ψ, VExpr.bvarsBelow 0 (A ψ).erase)
     (hokFssH : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
-      SumFieldsOkB (p.resSort.eval ψ) ρp (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)))
+      SumFieldsOkB (p.resSort.eval ψ) ρp (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
     (hleafC : ∀ j cA, ctorsA[j]? = some cA → ∀ ψ, mp.base2.acval cA.1.name ψ
       = directSumMkAV (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
-          (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))))
+          (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))))
     -- the rule
     {j : Nat} {cA : ConstantVal × Nat} (hj : ctorsA[j]? = some cA) {rhs : Expr}
     (hrhs : rhss[j]? = some rhs)
     (hRuleOk : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       AnnotOkP V ρ (mkLamsAV (fixRuleDataAV mp.base2 p.cvT.name ψ p.nP p.nIdx
           (Lech.directElimLevel p.elim p.large) ((ppsAll ψ).take p.nP) ((ppsAll ψ).drop p.nP)
-          (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0) (dsF j ψ))
-        (fixRuleCoreAV (A ψ) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (eissF j ψ))))
+          (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) (dsF j ψ))
+        (fixRuleCoreAV (A ψ) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ))))
     (hfresh : env.find? cvRa.name = none)
     {rule : RecRule} (hrule : rule = ⟨cA.1.name, cA.2, p.nP, .plain, rhs⟩)
     {rules : List RecRule}
@@ -263,7 +276,7 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
   -- the readings at `m₂` are the readings at `mp`
   have hTac : ∀ ψ, m₂.acval p.cvT.name ψ = mp.base2.acval p.cvT.name ψ := by
     intro ψ; rw [hac, acvalWith_ne hRT]
-  have hCac : ∀ ψ, ∀ cd ∈ fixCtorDataList dsF esF ksF eissF ψ ctorsA 0,
+  have hCac : ∀ ψ, ∀ cd ∈ fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0,
       m₂.acval cd.1 ψ = mp.base2.acval cd.1 ψ := by
     intro ψ cd hcd
     obtain ⟨i, hi⟩ := List.getElem?_of_mem hcd
@@ -294,8 +307,8 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
       (rhs.instantiateLevelParams cvRa.levelParams us)
       = some (mkLamsAV (fixRuleDataAV mp.base2 p.cvT.name ψR p.nP p.nIdx
           (Lech.directElimLevel p.elim p.large) ((ppsAll ψR).take p.nP) ((ppsAll ψR).drop p.nP)
-          (fixCtorDataList dsF esF ksF eissF ψR ctorsA 0) (dsF j ψR))
-        (fixRuleCoreAV (A ψR) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (eissF j ψR))) := by
+          (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0) (dsF j ψR))
+        (fixRuleCoreAV (A ψR) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψR) (eissF j ψR))) := by
     rw [hinstR, hread ψR, fixRuleDataAV_congr (hTac ψR) (hCac ψR)]
   refine ⟨_, hRa₂, hRuleOk ψR, fun _ _ h => absurd h (by simp), ?_⟩
   intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl husjl hψ hplain _ hidx hTVa
@@ -312,15 +325,17 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
     exact substFn_agree_of_comparand h
   generalize hψC : Level.substFn φ cA.1.levelParams usj = ψC at hagree hTVja hfitR hfitC ⊢
   have hdsEq : ∀ i, i < ctorsA.length →
-      dsF i ψC = dsF i ψR ∧ esF i ψC = esF i ψR ∧ eissF i ψC = eissF i ψR := by
+      dsF i ψC = dsF i ψR ∧ esF i ψC = esF i ψR ∧ eissF i ψC = eissF i ψR ∧
+        tssF i ψC = tssF i ψR := by
     intro i hi
     obtain ⟨cAi, hi'⟩ : ∃ cAi, ctorsA[i]? = some cAi := ⟨_, List.getElem?_eq_getElem hi⟩
     obtain ⟨-, hlpsi, hDi⟩ := hcf i cAi hi'
     exact ⟨(hDi.params ψC ψR (fun q hq => hagree q (by rw [← hlpsi]; exact hq))).1,
       (hDi.params ψC ψR (fun q hq => hagree q (by rw [← hlpsi]; exact hq))).2,
-      hDi.eissParams ψC ψR (fun q hq => hagree q (by rw [← hlpsi]; exact hq))⟩
-  have hcdsEq : fixCtorDataList dsF esF ksF eissF ψC ctorsA 0
-      = fixCtorDataList dsF esF ksF eissF ψR ctorsA 0 :=
+      hDi.eissParams ψC ψR (fun q hq => hagree q (by rw [← hlpsi]; exact hq)),
+      hDi.tssParams ψC ψR (fun q hq => hagree q (by rw [← hlpsi]; exact hq))⟩
+  have hcdsEq : fixCtorDataList dsF esF ksF eissF tssF ψC ctorsA 0
+      = fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0 :=
     fixCtorDataList_congr ctorsA 0 fun i hi => by rw [Nat.zero_add]; exact hdsEq i hi
   have hdsjEq : dsF j ψC = dsF j ψR := (hdsEq j hjn).1
   have hesjEq : esF j ψC = esF j ψR := (hdsEq j hjn).2.1
@@ -330,7 +345,7 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
   have hRD₂ := hRD.cross (c₀ := .recInfo cvRa mI rP rules) hfresh (hcross _) hcbT m₂ hac
   have hCD₂ := hCD.cross (c₀ := .recInfo cvRa mI rP rules) hfresh hRT hcross hcbC
     (fun e he => constsBound_of_constsResolve _ (hidxRes j cA hj e he)) m₂ hac
-  have hTVa' : TVa = mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψR)
+  have hTVa' : TVa = mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψR)
       (recConcAV ctorsA.length p.nIdx) := by
     have h := hTVa
     rw [hinstR] at h
@@ -343,7 +358,7 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
   -- the constructor's leaf at the extension
   have hleafC₂ : m₂.acval cA.1.name ψC
       = directSumMkAV (p.resSort.eval ψR) j (dsF j ψR) (((dsF j ψR).drop p.nP).map (·.2.2))
-          (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψR ctorsA 0))) := by
+          (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0))) := by
     rw [hac]
     show acvalWith mp.base2.acval cvRa.name _ cA.1.name ψC = _
     rw [acvalWith_ne hRC, hleafC j cA hj ψC, hdsjEq, hwEq, hcdsEq]
@@ -352,12 +367,12 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
     show acvalWith mp.base2.acval cvRa.name _ cvRa.name ψR = _
     rw [acvalWith_self]
   -- the fits, as spines
-  have hspR : SpineFit ρ ((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψR).map (·.2.2))
+  have hspR : SpineFit ρ ((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψR).map (·.2.2))
       ((xs ++ [AVExpr.mkAppN (directSumMkAV (p.resSort.eval ψR) j (dsF j ψR)
         (((dsF j ψR).drop p.nP).map (·.2.2))
-        (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψR ctorsA 0)))) ys]).map
+        (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)))) ys]).map
         (interp2 V ρ)) := by
-    have hst := stripPisAV_mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψR)
+    have hst := stripPisAV_mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψR)
       (recConcAV ctorsA.length p.nIdx)
     rw [hRD.len ψR] at hst
     have htele := piTeleP_of_stripPisAV hst
@@ -422,26 +437,28 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
     unfold chainP
     rw [consN_eq_consList]
   -- the law's two halves
-  have hlenCds : (fixCtorDataList dsF esF ksF eissF ψR ctorsA 0).length = ctorsA.length :=
-    fixCtorDataList_length _ _ _ _ _ _ _
-  have hjd : (fixCtorDataList dsF esF ksF eissF ψR ctorsA 0)[j]?
-      = some (cA.1.name, cA.2, dsF j ψR, esF j ψR, Lech.recIdxOf (ksF j), eissF j ψR) := by
+  have hlenCds : (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0).length = ctorsA.length :=
+    fixCtorDataList_length _ _ _ _ _ _ _ _
+  have hjd : (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)[j]?
+      = some (cA.1.name, cA.2, dsF j ψR, esF j ψR, Lech.recIdxOf (ksF j), eissF j ψR, tssF j ψR) := by
     rw [fixCtorDataList_getElem?, hj, Nat.zero_add]; rfl
-  have hFsj : (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψR ctorsA 0))[j]?
+  have hFsj : (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0))[j]?
       = some (((dsF j ψR).drop p.nP).map (·.2.2)) := by
     rw [fssOfR_getElem?, hjd]; rfl
-  have hEsj : (essOfR (fixCtorDataList dsF esF ksF eissF ψR ctorsA 0))[j]? = some (esF j ψR) := by
+  have hEsj : (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0))[j]? = some (esF j ψR) := by
     rw [essOfR_getElem?, hjd]; rfl
-  have hEisj : (eissOfR (fixCtorDataList dsF esF ksF eissF ψR ctorsA 0)).getD j [] = eissF j ψR := by
+  have hEisj : (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)).getD j [] = eissF j ψR := by
     rw [List.getD_eq_getElem?_getD, eissOfR_getElem?, hjd]; rfl
+  have hTlsj : (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)).getD j [] = tssF j ψR := by
+    rw [List.getD_eq_getElem?_getD, tlssOfR_getElem?, hjd]; rfl
   have hrssj : (rssOfK ksF ctorsA.length).getD j [] = rsOf (ksF j) := rssOfK_getD hjn
   have hlenPps : ((ppsAll ψR).take p.nP).length = p.nP := by
     rw [List.length_take, hFD.len ψR]; omega
   have hlenIps : ((ppsAll ψR).drop p.nP).length = p.nIdx := by
     rw [List.length_drop, hFD.len ψR]; omega
   have hokFss : ∀ ρp : Nat → V,
-      Sat2 V ((((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψR).take p.nP).map (·.2.2)).reverse) ρp →
-      SumFieldsOkB (p.resSort.eval ψR) ρp (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψR ctorsA 0)) := by
+      Sat2 V ((((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψR).take p.nP).map (·.2.2)).reverse) ρp →
+      SumFieldsOkB (p.resSort.eval ψR) ρp (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)) := by
     intro ρp hρ
     unfold fixRdsAV at hρ
     rw [fixRecDataAV_take_nP hlenPps] at hρ
@@ -450,14 +467,14 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
     (by rw [fssOfR_length, hlenCds]) (by rw [List.length_map, hlenIps]) (hCD.len ψR) hjn hFsj hEsj
     (hCD.lenE ψR) (R := A ψR) (by rw [hA ψR]) (hAcl ψR) hokFss
     (lds := fixRuleDataAV mp.base2 p.cvT.name ψR p.nP p.nIdx (Lech.directElimLevel p.elim p.large)
-      ((ppsAll ψR).take p.nP) ((ppsAll ψR).drop p.nP) (fixCtorDataList dsF esF ksF eissF ψR ctorsA 0)
+      ((ppsAll ψR).take p.nP) ((ppsAll ψR).drop p.nP) (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)
       (dsF j ψR))
     (by rw [fixRuleDataAV_map_dom hlenPps hlenIps, hlenCds]; rfl)
     (Ra := mkLamsAV (fixRuleDataAV mp.base2 p.cvT.name ψR p.nP p.nIdx
         (Lech.directElimLevel p.elim p.large) ((ppsAll ψR).take p.nP) ((ppsAll ψR).drop p.nP)
-        (fixCtorDataList dsF esF ksF eissF ψR ctorsA 0) (dsF j ψR))
-      (fixRuleCoreAV (A ψR) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (eissF j ψR)))
-    (by rw [hEisj, hrssj, ← recIdx_rsOf, hD.ksLen]) (hRuleOk ψR) (by rw [hxl, hmI])
+        (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0) (dsF j ψR))
+      (fixRuleCoreAV (A ψR) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψR) (eissF j ψR)))
+    (by rw [hEisj, hTlsj, hrssj, ← recIdx_rsOf, hD.ksLen]) (hRuleOk ψR) (by rw [hxl, hmI])
     (by simpa using hyl) hspR hspC hplain' hpin
   try simp only [RecRule.ctor, RecRule.ctorParams] at hcore ⊢
   rw [hleafR₂, hleafC₂, hrP]
@@ -471,13 +488,14 @@ def fixLeafAV {env : Env} (m : EnvS2Core V env) (p : DirectFixParts)
     (ppsAll : (Name → Nat) → List (Nat × Nat × AVExpr))
     (dsF : Nat → (Name → Nat) → List (Nat × Nat × AVExpr))
     (esF : Nat → (Name → Nat) → List AVExpr) (ksF : Nat → List RecFieldKind)
-    (eissF : Nat → (Name → Nat) → List (List AVExpr)) (ctorsA : List (ConstantVal × Nat))
+    (eissF : Nat → (Name → Nat) → List (List AVExpr))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AVExpr))) (ctorsA : List (ConstantVal × Nat))
     (sAV : (Name → Nat) → Nat) (ψ : Name → Nat) : AVExpr :=
   directFixRecAVI ((Lech.directElimLevel p.elim p.large).eval ψ) (p.resSort.eval ψ) p.nP
-    (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-    (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) (((ppsAll ψ).drop p.nP).map (·.2.2))
-    (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-    (fixRdsAV m p ppsAll dsF esF ksF eissF ctorsA ψ) (sAV ψ)
+    (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+    (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (((ppsAll ψ).drop p.nP).map (·.2.2))
+    (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+    (fixRdsAV m p ppsAll dsF esF ksF eissF tssF ctorsA ψ) (sAV ψ)
 
 set_option maxHeartbeats 12800000 in
 /-- **The P step at the recursive recursor's cons.** -/
@@ -504,64 +522,72 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
     {esF : Nat → (Name → Nat) → List AVExpr} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
     {eissF : Nat → (Name → Nat) → List (List AVExpr)}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AVExpr))}
     (hlenK : p.kinds.length = ctorsA.length)
     (hks : ∀ i, i < ctorsA.length → p.kinds[i]? = some (ksF i))
     (hcf : ∀ i cA, ctorsA[i]? = some cA →
       FixCtorFactsAt mp.base2 env₀ p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp
-        p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF i cA)
+        p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF i cA)
     (hidxRes : ∀ j cA, ctorsA[j]? = some cA → ∀ e ∈ idxF j, e.constsResolve env = true)
     {uAV : (Name → Nat) → Nat} {fssZ : (Name → Nat) → List (List AVExpr)}
     (_hUparams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ p.cvT.levelParams, ψ₁ q = ψ₂ q) → uAV ψ₁ = uAV ψ₂)
     (hleafT : ∀ ψ, mp.base2.acval p.cvT.name ψ
       = directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (((ppsAll ψ).drop p.nP).map (·.2.2))
-          (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
+          (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
           (fssZ ψ)
-          (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)))
+          (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
     (hleafC : ∀ j cA, ctorsA[j]? = some cA → ∀ ψ, mp.base2.acval cA.1.name ψ
       = directSumMkAV (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
-          (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))))
+          (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))))
     (hiff : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ ↔
         Sat2 V (((dsF j ψ).take p.nP).map (·.2.2)).reverse ρ)
     (hframes : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
       XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
-        (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
+        (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
         (fssZ ψ)
-        (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) ∧
+        (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
       ChainsRealI (fixFamI (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) p.nIdx
-          (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
+          (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
           (fssZ ψ)
-          (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)))
-        (uAV ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) (rssOfK ksF ctorsA.length)
-        (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
+          (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
+        (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) (rssOfK ksF ctorsA.length)
+        (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+        (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
         (fssZ ψ)
-        (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-        (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) ∧
+        (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+        (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
       (∀ j, j < ctorsA.length →
-        FieldsOkB (p.resSort.eval ψ) ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) ∧
-        ∀ bs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) bs →
-          (∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j [],
+        FieldsOkB (p.resSort.eval ψ) ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) ∧
+        ∀ bs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) bs →
+          (∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
             AnnotOk2 V (consList bs ρp) E) ∧
           SpineFit ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
-            (idxValsAt ρp ((essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) bs)) ∧
-      SumFieldsValid ρp (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) ∧
+            (idxValsAt ρp ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) bs)) ∧
+      SumFieldsValid ρp (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
       (∀ j, j < ctorsA.length →
         ∀ i ∈ recIdx ((rssOfK ksF ctorsA.length).getD j [])
-          ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []).length,
-        ∀ fs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) fs →
-        ∀ E ∈ ((eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []).getD i [],
-          AnnotValidV V (consList (fs.take i) ρp) E) ∧
+          ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).length,
+        ∀ fs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) fs →
+        FieldsValid (consList (fs.take i) ρp)
+          ((((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i []).map (·.2.2)) ∧
+        ∀ bs : List V, SpineFit (consList (fs.take i) ρp)
+          ((((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i []).map (·.2.2)) bs →
+        ∀ E ∈ ((eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [],
+          AnnotValidV V (consList bs (consList (fs.take i) ρp)) E) ∧
       (∀ j, j < ctorsA.length →
-        ∀ bs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) bs →
-        ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j [],
+        ∀ bs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) bs →
+        ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
           AnnotValidV V (consList bs ρp) E))
-    (hwl : p.large = true → p.resSort.isNeverZero = true) :
+    (hwl : p.large = true → p.resSort.isNeverZero = true)
+    (hrefl : (∃ (ψ : Name → Nat) (j i : Nat), j < ctorsA.length ∧ (tssF j ψ).getD i [] ≠ []) →
+      ∀ ψ : Name → Nat, p.resSort.eval ψ = 0) :
     ∃ (sAV : (Name → Nat) → Nat)
       (mp' : EnvS2PM V μ ⟨.recInfo cvRa mI rP (Lech.directSumRules p.nP mI rP cvRa.type ctorsA rhss)
         :: env.consts⟩),
       mp'.base2.acval = acvalWith mp.base2.acval cvRa.name
-        (fixLeafAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA sAV) := by
+        (fixLeafAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA sAV) := by
   -- the data, the openings
   obtain ⟨hRD, u, hsort⟩ := fixRecData_of hμ mp hRec hfT hlpsT hstripT hopT hFD hlenK hks hcf
   obtain ⟨fvsR, oR, hR⟩ := fixRecOpenedAll mp hRec hstripT hlenK hRD
@@ -583,53 +609,61 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
   -- names
   generalize hElimL : Lech.directElimLevel p.elim p.large = elimL at hRD hR hleafC ⊢
   let sAV : (Name → Nat) → Nat := fixSortAV elimL u cvRa.levelParams
-  let A : (Name → Nat) → AVExpr := fixLeafAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA sAV
-  have hrdsE : ∀ ψ, fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ
+  let A : (Name → Nat) → AVExpr := fixLeafAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA sAV
+  have hrdsE : ∀ ψ, fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ
       = fixRecDataAV mp.base2 p.cvT.name ψ p.nP p.nIdx elimL ((ppsAll ψ).take p.nP)
-          ((ppsAll ψ).drop p.nP) (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0) := by
+          ((ppsAll ψ).drop p.nP) (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) := by
     intro ψ; unfold fixRdsAV; rw [hElimL]
   have hA : ∀ ψ, A ψ = directFixRecAVI (elimL.eval ψ) (p.resSort.eval ψ) p.nP
-      (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-      (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) (((ppsAll ψ).drop p.nP).map (·.2.2))
-      (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-      (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ) (sAV ψ) := by
+      (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+      (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (((ppsAll ψ).drop p.nP).map (·.2.2))
+      (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+      (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ) (sAV ψ) := by
     intro ψ
-    show fixLeafAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA sAV ψ = _
+    show fixLeafAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA sAV ψ = _
     unfold fixLeafAV
     rw [hElimL]
   -- the block's lengths and the per-constructor pins
-  have hn : ∀ ψ, (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0).length = ctorsA.length :=
-    fun ψ => fixCtorDataList_length _ _ _ _ _ _ _
+  have hn : ∀ ψ, (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0).length = ctorsA.length :=
+    fun ψ => fixCtorDataList_length _ _ _ _ _ _ _ _
   have hlenPps : ∀ ψ, ((ppsAll ψ).take p.nP).length = p.nP := fun ψ => by
     rw [List.length_take, hFD.len ψ]; omega
   have hlenIps : ∀ ψ, ((ppsAll ψ).drop p.nP).length = p.nIdx := fun ψ => by
     rw [List.length_drop, hFD.len ψ]; omega
   have hlenIds : ∀ ψ, ((((ppsAll ψ).drop p.nP).map (·.2.2))).length = p.nIdx := fun ψ => by
     rw [List.length_map, hlenIps]
-  have hlenFs : ∀ ψ, (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).length = ctorsA.length :=
+  have hlenFs : ∀ ψ, (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).length = ctorsA.length :=
     fun ψ => by rw [fssOfR_length, hn]
-  have hlenEs : ∀ ψ, (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).length = ctorsA.length :=
+  have hlenEs : ∀ ψ, (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).length = ctorsA.length :=
     fun ψ => by rw [essOfR_length, hn]
   have hjd : ∀ ψ j cA, ctorsA[j]? = some cA →
-      (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)[j]?
-        = some (cA.1.name, cA.2, dsF j ψ, esF j ψ, Lech.recIdxOf (ksF j), eissF j ψ) := by
+      (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)[j]?
+        = some (cA.1.name, cA.2, dsF j ψ, esF j ψ, Lech.recIdxOf (ksF j), eissF j ψ, tssF j ψ) := by
     intro ψ j cA hj
     rw [fixCtorDataList_getElem?, hj, Nat.zero_add]; rfl
   have hFsjD : ∀ ψ j cA, ctorsA[j]? = some cA →
-      (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []
+      (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []
         = ((dsF j ψ).drop p.nP).map (·.2.2) := by
     intro ψ j cA hj
     rw [List.getD_eq_getElem?_getD, fssOfR_getElem?, hjd ψ j cA hj]; rfl
   have hEsjD : ∀ ψ j cA, ctorsA[j]? = some cA →
-      (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j [] = esF j ψ := by
+      (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [] = esF j ψ := by
     intro ψ j cA hj
     rw [List.getD_eq_getElem?_getD, essOfR_getElem?, hjd ψ j cA hj]; rfl
   have hEisjD : ∀ ψ j cA, ctorsA[j]? = some cA →
-      (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j [] = eissF j ψ := by
+      (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [] = eissF j ψ := by
     intro ψ j cA hj
     rw [List.getD_eq_getElem?_getD, eissOfR_getElem?, hjd ψ j cA hj]; rfl
   have hcAof : ∀ j, j < ctorsA.length → ∃ cA, ctorsA[j]? = some cA :=
     fun j hj => ⟨_, List.getElem?_eq_getElem hj⟩
+  have hTlsjD : ∀ ψ j cA, ctorsA[j]? = some cA →
+      (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [] = tssF j ψ := by
+    intro ψ j cA hj
+    rw [List.getD_eq_getElem?_getD, tlssOfR_getElem?, hjd ψ j cA hj]; rfl
+  have hTlsNone : ∀ ψ j, ¬ j < ctorsA.length →
+      (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [] = [] := by
+    intro ψ j hj
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by rw [tlssOfR_length, hn]; omega)]; rfl
   -- the elimination level's bit and zeroness
   have hbz : ∀ ψ, elimL.eval ψ = 0 ↔ pwBit ψ (Level.zeronessOf elimL) = 0 := by
     intro ψ
@@ -641,9 +675,39 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
     · simp [Lech.directElimLevel, Level.eval]
     · exact absurd hw0 (Lech.Level.isNeverZero_sound ψ _ (hwl hpl))
   have hs0 : ∀ ψ, sAV ψ = 0 ↔ elimL.eval ψ = 0 := fun ψ => fixSortAV_zero_iff elimL u _ ψ
+  -- the finitary-or-`Prop` gate and the telescope bits (task #202)
+  have hfin : ∀ ψ, (∀ j i,
+      ((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [] = []) ∨
+      (p.resSort.eval ψ = 0 ∧ elimL.eval ψ = 0) := by
+    intro ψ
+    by_cases hall : ∀ j i, ((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [] = []
+    · exact Or.inl hall
+    · right
+      obtain ⟨j, i, hne⟩ : ∃ j i,
+          ((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [] ≠ [] :=
+        Classical.byContradiction fun hc =>
+          hall fun j i => Classical.byContradiction fun h => hc ⟨j, i, h⟩
+      by_cases hj : j < ctorsA.length
+      · obtain ⟨cA, hjA⟩ := hcAof j hj
+        rw [hTlsjD ψ j cA hjA] at hne
+        have hw0 := hrefl ⟨ψ, j, i, hj, hne⟩ ψ
+        exact ⟨hw0, hwℓ ψ hw0⟩
+      · rw [hTlsNone ψ j hj] at hne
+        exact absurd rfl hne
+  have hbits : ∀ ψ j i, ∀ d ∈ ((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [],
+      (d.2.1 = 0 ↔ elimL.eval ψ = 0) := by
+    intro ψ j i d hd
+    by_cases hj : j < ctorsA.length
+    · obtain ⟨cA, hjA⟩ := hcAof j hj
+      rw [hTlsjD ψ j cA hjA] at hd
+      have hw0 := hrefl ⟨ψ, j, i, hj, List.ne_nil_of_mem hd⟩ ψ
+      have hb := (hcf j cA hjA).2.2.tssBits ψ i d hd
+      exact ⟨fun _ => hwℓ ψ hw0, fun _ => hb.mpr hw0⟩
+    · rw [hTlsNone ψ j hj] at hd
+      exact nomatch hd
   -- the recursor type's universe
   have hunivTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      interp2 V ρ (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ)
+      interp2 V ρ (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ)
         (recConcAV ctorsA.length p.nIdx)) ∈ˢ (univ (sAV ψ) : V) := by
     intro ψ ρ
     show _ ∈ˢ (univ (fixSortAV elimL u cvRa.levelParams ψ) : V)
@@ -652,7 +716,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
     · next h0 =>
       rw [univ_zero]
       have hlen := hRD.len ψ
-      cases hrds : fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ with
+      cases hrds : fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ with
       | nil => rw [hrds] at hlen; simp at hlen
       | cons d rest =>
         show piR d.2.1 _ _ ∈ˢ _
@@ -669,46 +733,49 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
   have hframes' : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V ((((ppsAll ψ).take p.nP).map (·.2.2)).reverse) ρp →
       XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
-        (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
+        (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
         (fssZ ψ)
-        (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) ∧
+        (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
       ChainsRealI (fixFamI (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) p.nIdx
-          (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
+          (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
           (fssZ ψ)
-          (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)))
-        (uAV ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) (rssOfK ksF ctorsA.length)
-        (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
+          (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
+        (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) (rssOfK ksF ctorsA.length)
+        (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+        (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
         (fssZ ψ)
-        (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-        (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) ∧
+        (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+        (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
       (∀ j, j < ctorsA.length →
-        FieldsOkB (p.resSort.eval ψ) ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) ∧
-        ∀ bs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) bs →
-          (∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j [],
+        FieldsOkB (p.resSort.eval ψ) ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) ∧
+        ∀ bs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) bs →
+          (∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
             AnnotOk2 V (consList bs ρp) E) ∧
           SpineFit ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
-            (idxValsAt ρp ((essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) bs)) ∧
+            (idxValsAt ρp ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) bs)) ∧
       (∀ σ : Nat → V, interp2 V σ (mp.base2.acval p.cvT.name ψ)
         = interp2 V (fun k => ρp (k + p.nP))
             (directFixTyAVI (uAV ψ) (p.resSort.eval ψ) ((ppsAll ψ).take p.nP ++ (ppsAll ψ).drop p.nP)
               (((ppsAll ψ).drop p.nP).map (·.2.2)) (rssOfK ksF ctorsA.length)
-              (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
+              (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+              (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
               (fssZ ψ)
-              (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)))) ∧
-      (∀ j cd, (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)[j]? = some cd →
+              (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))) ∧
+      (∀ j cd, (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)[j]? = some cd →
         ∀ (M : V) (ms : List V), ms.length = j →
         interp2 V (consList ms (cons M ρp))
             (minorAVAtR mp.base2 cd.1 ψ p.nP cd.2.1 (pwBit ψ (Level.zeronessOf elimL)) (1 + j)
-              cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1 cd.2.2.2.2.2)
+              cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1
+              cd.2.2.2.2.2.2 cd.2.2.2.2.2.1)
           = minorSpI (elimL.eval ψ) (fun fs => ihSpL (elimL.eval ψ)
-              (concI (p.resSort.eval ψ) ρp M ((essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) j fs)
-              (ihDomsI ρp M (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-                (fun j' => ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j' []).length) j fs))
-            ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) ρp []) := by
+              (concI (p.resSort.eval ψ) ρp M ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) j fs)
+              (ihDomsI (elimL.eval ψ) ρp M (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+                (fun j' => ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j' []).length) j fs))
+            ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) ρp []) := by
     intro ψ ρp hρp
     obtain ⟨hX, hreal, hfields, hv, hEisV, hEsV⟩ := hframes ψ ρp hρp
     have hokB : SumFieldsOkB (p.resSort.eval ψ) ρp
-        (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) := by
+        (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) := by
       intro Fs hFs
       obtain ⟨j, hj⟩ := List.getElem?_of_mem hFs
       have hjn : j < ctorsA.length := by
@@ -729,21 +796,21 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
         rw [rssOfK_getD hjn, ← hD.ksLen, recIdx_rsOf]
       show interp2 V (consList ms (cons M ρp))
         (minorAVAtR mp.base2 cA.1.name ψ p.nP cA.2 _ (1 + j) (dsF j ψ) (esF j ψ)
-          (Lech.recIdxOf (ksF j)) (eissF j ψ)) = _
-      rw [hrss, ← hEisjD ψ j cA hj, hEsjD ψ j cA hj, hFsjD ψ j cA hj]
+          (Lech.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ)) = _
+      rw [hrss, ← hEisjD ψ j cA hj, ← hTlsjD ψ j cA hj, hEsjD ψ j cA hj, hFsjD ψ j cA hj]
       exact interp_minorAVAtR (hbz ψ) hlenM (hD.len ψ) (hleafC j cA hj ψ)
         (mp.base2.cval_closedL cA.1.name ψ) (by rw [fssOfR_getElem?, hjd ψ j cA hj]; rfl) hokB
-        ((hiff j cA hj ψ ρp).mp hρp)
+        ((hiff j cA hj ψ ρp).mp hρp) (fun i _ d hd => hbits ψ j i d hd)
   -- the per-field data's pins
   have hEs : ∀ ψ j, j < ctorsA.length →
-      ((essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []).length = p.nIdx := by
+      ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).length = p.nIdx := by
     intro ψ j hj
     obtain ⟨cA, hjA⟩ := hcAof j hj
     rw [hEsjD ψ j cA hjA]
     exact (hcf j cA hjA).2.2.lenE ψ
   have hEisLen : ∀ ψ j i, i ∈ recIdx ((rssOfK ksF ctorsA.length).getD j [])
-      ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []).length →
-      (((eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []).getD i []).length = p.nIdx := by
+      ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).length →
+      (((eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i []).length = p.nIdx := by
     intro ψ j i hi
     by_cases hj : j < ctorsA.length
     · obtain ⟨cA, hjA⟩ := hcAof j hj
@@ -751,63 +818,81 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
       rw [rssOfK_getD hj, hFsjD ψ j cA hjA, List.length_map, List.length_drop, hD.len ψ,
         Nat.add_sub_cancel_left, ← hD.ksLen, recIdx_rsOf, mem_recIdxOf] at hi
       rw [hEisjD ψ j cA hjA]
-      exact hD.eisLen ψ i hi.2 (by rw [← hD.ksLen]; exact hi.1)
+      rcases hi.2 with hk | hk
+      · exact hD.eisLen ψ i hk (by rw [← hD.ksLen]; exact hi.1)
+      · exact hD.eisLenRefl ψ i hk (by rw [← hD.ksLen]; exact hi.1)
     · exfalso
       have h0 : (rssOfK ksF ctorsA.length).getD j [] = [] := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by simp [rssOfK]; omega)]; rfl
       rw [h0] at hi
       obtain ⟨-, hr⟩ := mem_recIdx.mp hi
       simp at hr
-  have hEbelow : ∀ ψ j i, ∀ E ∈ ((eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []).getD i [],
-      VExpr.bvarsBelow (p.nP + i) E.erase := by
+  have hEbelow : ∀ ψ j i, ∀ E ∈ ((eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [],
+      VExpr.bvarsBelow (p.nP + i +
+        (((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i []).length)
+        E.erase := by
     intro ψ j i E hE
     by_cases hj : j < ctorsA.length
     · obtain ⟨cA, hjA⟩ := hcAof j hj
       rw [hEisjD ψ j cA hjA] at hE
+      rw [hTlsjD ψ j cA hjA]
       exact (hcf j cA hjA).2.2.eissBelow ψ i E hE
     · exfalso
-      have h0 : (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j [] = [] := by
+      have h0 : (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [] = [] := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by rw [eissOfR_length, hn]; omega)]; rfl
       rw [h0] at hE
       simp at hE
+  have hTlsBelow : ∀ ψ j i, DomsBelow (p.nP + i)
+      (((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i []) := by
+    intro ψ j i
+    by_cases hj : j < ctorsA.length
+    · obtain ⟨cA, hjA⟩ := hcAof j hj
+      rw [hTlsjD ψ j cA hjA]
+      exact (hcf j cA hjA).2.2.tssBelow ψ i
+    · rw [hTlsNone ψ j hj]; trivial
   -- the premise, the leaf's facts, the leaf's closedness
   have hpre : ∀ ψ, FixPre V (elimL.eval ψ) (p.resSort.eval ψ) (uAV ψ) p.nP
-      (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-      (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
+      (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+      (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
       (fssZ ψ)
       (((ppsAll ψ).drop p.nP).map (·.2.2)) (rssOfK ksF ctorsA.length)
-      (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-      (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ) (sAV ψ) := by
+      (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+      (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+      (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ) (sAV ψ) := by
     intro ψ
     rw [hrdsE ψ]
     refine fixPre_of rfl rfl (hbz ψ) (hwℓ ψ) (hs0 ψ) (hlenPps ψ) (hlenIps ψ) (hn ψ) (hlenFs ψ)
-      (hlenEs ψ) (hEs ψ) (hEisLen ψ) (hEbelow ψ) ?_ ?_ ?_ ?_ (hframes' ψ)
+      (hlenEs ψ) (hEs ψ) (hEisLen ψ) (hEbelow ψ) (hfin ψ) ?_ ?_ ?_ ?_ (hframes' ψ)
     · have := hRD.below ψ; rw [hrdsE ψ] at this; exact this
     · have := (hR ψ).okΓ; rw [hrdsE ψ] at this; exact this
     · intro ρ; have := (hRD.okTy ψ ρ).1; rw [hrdsE ψ] at this; exact this
     · intro ρ; have := hunivTy ψ ρ; rw [hrdsE ψ] at this; exact this
   have hokΓ : ∀ ψ, ∀ i, i < p.nP + ctorsA.length + p.nIdx + 2 → ∀ ρ : Nat → V,
-      Sat2 V ((((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ).map (·.2.2)).reverse).drop
+      Sat2 V ((((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ).map (·.2.2)).reverse).drop
         (p.nP + ctorsA.length + p.nIdx + 2 - i)) ρ →
-      AnnotOkP V ρ ((((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ).map (·.2.2)).reverse).getD
+      AnnotOkP V ρ ((((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ).map (·.2.2)).reverse).getD
         (p.nP + ctorsA.length + p.nIdx + 2 - 1 - i) default) := fun ψ => (hR ψ).okΓ
-  have hvFss : ∀ ψ ρp, Sat2 V ((((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ).take p.nP).map (·.2.2)).reverse) ρp →
-      SumFieldsValid ρp (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) ∧
+  have hvFss : ∀ ψ ρp, Sat2 V ((((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ).take p.nP).map (·.2.2)).reverse) ρp →
+      SumFieldsValid ρp (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
       (∀ j, j < ctorsA.length → ∀ bs : List V,
-        SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) bs →
-        ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j [],
+        SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) bs →
+        ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
           AnnotValidV V (consList bs ρp) E) ∧
       (∀ j, j < ctorsA.length → ∀ i ∈ recIdx ((rssOfK ksF ctorsA.length).getD j [])
-          ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []).length,
-        ∀ fs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) fs →
-        ∀ E ∈ ((eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []).getD i [],
-          AnnotValidV V (consList (fs.take i) ρp) E) := by
+          ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).length,
+        ∀ fs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) fs →
+        FieldsValid (consList (fs.take i) ρp)
+          ((((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i []).map (·.2.2)) ∧
+        ∀ bs : List V, SpineFit (consList (fs.take i) ρp)
+          ((((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i []).map (·.2.2)) bs →
+        ∀ E ∈ ((eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [],
+          AnnotValidV V (consList bs (consList (fs.take i) ρp)) E) := by
     intro ψ ρp hρ
     rw [hrdsE ψ, fixRecDataAV_take_nP (hlenPps ψ)] at hρ
     obtain ⟨-, -, -, hv, hEisV, hEsV⟩ := hframes ψ ρp hρ
     exact ⟨hv, hEsV, hEisV⟩
   have hleafF : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkP V ρ (A ψ) ∧
-      interp2 V ρ (A ψ) ∈ˢ interp2 V ρ (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ)
+      interp2 V ρ (A ψ) ∈ˢ interp2 V ρ (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ)
         (recConcAV ctorsA.length p.nIdx)) := by
     intro ψ ρ
     rw [hA ψ]
@@ -817,9 +902,9 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
     intro ψ
     rw [hA ψ]
     refine directFixRecAVI_below 0 (hRD.below ψ) (by rw [hRD.len ψ, hlenFs ψ, hlenIds ψ]; omega) rfl ?_
-      (hEbelow ψ)
+      (hTlsBelow ψ) (hEbelow ψ)
     -- the restricted chains are bounded
-    have hFssB : ∀ Fs ∈ fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0), FieldsBelow (0 + p.nP) Fs := by
+    have hFssB : ∀ Fs ∈ fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0), FieldsBelow (0 + p.nP) Fs := by
       intro Fs hFs
       obtain ⟨j, hj⟩ := List.getElem?_of_mem hFs
       have hjn : j < ctorsA.length := by rw [← hlenFs ψ]; exact (List.getElem?_eq_some_iff.mp hj).1
@@ -828,10 +913,10 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
       rw [List.getD_eq_getElem?_getD, hj, Option.getD_some] at hFj
       rw [hFj]
       exact (DomsBelow.drop p.nP ((hcf j cA hjA).2.2.below ψ)).fields
-    have hEssB : ∀ j, j < (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).length →
-        ((essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []).length = p.nIdx ∧
-        ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j [],
-          VExpr.bvarsBelow (0 + p.nP + ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []).length)
+    have hEssB : ∀ j, j < (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).length →
+        ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).length = p.nIdx ∧
+        ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
+          VExpr.bvarsBelow (0 + p.nP + ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).length)
             E.erase := by
       intro j hj
       rw [hlenFs ψ] at hj
@@ -851,8 +936,8 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
   have hRuleOk : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       AnnotOkP V ρ (mkLamsAV (fixRuleDataAV mp.base2 p.cvT.name ψ p.nP p.nIdx elimL
           ((ppsAll ψ).take p.nP) ((ppsAll ψ).drop p.nP)
-          (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0) (dsF j ψ))
-        (fixRuleCoreAV (A ψ) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (eissF j ψ))) := by
+          (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) (dsF j ψ))
+        (fixRuleCoreAV (A ψ) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ))) := by
     intro j cA hj ψ ρ
     obtain ⟨-, -, hD⟩ := hcf j cA hj
     have hjn : j < ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
@@ -862,9 +947,10 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
     rw [hrdsE ψ] at hpre'
     refine fixRuleOkP rfl rfl (hbz ψ) (hlenPps ψ) (hlenIps ψ) (hn ψ) (hlenFs ψ) (hlenEs ψ) (hEs ψ)
       (hEisLen ψ) hpre' ?_ (by rw [hA ψ, hrdsE ψ]) (hAcl ψ) (fun ρ' => (hleafF ψ ρ').1) (hframes' ψ)
-      (fun ρp hρp => ⟨(hframes ψ ρp hρp).2.2.2.1, (hframes ψ ρp hρp).2.2.2.2.1⟩)
+      (fun ρp hρp => ⟨(hframes ψ ρp hρp).2.2.2.1, (hframes ψ ρp hρp).2.2.2.2.1⟩) (hbits ψ)
       (hjd ψ j cA hj) (hD.len ψ) (by rw [fssOfR_getElem?, hjd ψ j cA hj]; rfl)
-      (by rw [essOfR_getElem?, hjd ψ j cA hj]; rfl) hrss (hEisjD ψ j cA hj) (hleafC j cA hj ψ)
+      (by rw [essOfR_getElem?, hjd ψ j cA hj]; rfl) hrss (hEisjD ψ j cA hj) (hTlsjD ψ j cA hj)
+      (hleafC j cA hj ψ)
       (mp.base2.cval_closedL cA.1.name ψ) (hiff j cA hj ψ) ρ
     have := hokΓ ψ; rw [hrdsE ψ] at this; exact this
   -- the leaf's level dependence
@@ -872,14 +958,15 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
     intro ψ₁ ψ₂ hφ
     have hlpsAll : ∀ q ∈ p.cvT.levelParams, ψ₁ q = ψ₂ q :=
       fun q hq => hφ q (by rw [hRlps]; exact hRlps' q hq)
-    have hcds : fixCtorDataList dsF esF ksF eissF ψ₁ ctorsA 0
-        = fixCtorDataList dsF esF ksF eissF ψ₂ ctorsA 0 := by
+    have hcds : fixCtorDataList dsF esF ksF eissF tssF ψ₁ ctorsA 0
+        = fixCtorDataList dsF esF ksF eissF tssF ψ₂ ctorsA 0 := by
       refine fixCtorDataList_congr ctorsA 0 fun i hi => ?_
       rw [Nat.zero_add]
       obtain ⟨cAi, hi'⟩ := hcAof i hi
       obtain ⟨-, hlpsi, hDi⟩ := hcf i cAi hi'
       have hag : ∀ q ∈ cAi.1.levelParams, ψ₁ q = ψ₂ q := fun q hq => hlpsAll q (by rw [← hlpsi]; exact hq)
-      exact ⟨(hDi.params ψ₁ ψ₂ hag).1, (hDi.params ψ₁ ψ₂ hag).2, hDi.eissParams ψ₁ ψ₂ hag⟩
+      exact ⟨(hDi.params ψ₁ ψ₂ hag).1, (hDi.params ψ₁ ψ₂ hag).2, hDi.eissParams ψ₁ ψ₂ hag,
+        hDi.tssParams ψ₁ ψ₂ hag⟩
     have hpps : ppsAll ψ₁ = ppsAll ψ₂ :=
       (hFD.params ψ₁ ψ₂ (fun q hq => hlpsAll q (by rw [← hlpsT]; exact hq))).1
     have hw : p.resSort.eval ψ₁ = p.resSort.eval ψ₂ :=
@@ -900,7 +987,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
   have hcross : ∀ e : Expr, ConsCrossAt c₀ e := fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
   have hreadR : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval cvRa.name A) ⟨c₀ :: env.consts⟩ ψ 0 cvRa.type
-        = some (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ)
+        = some (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ)
             (recConcAV ctorsA.length p.nIdx)) := fun ψ =>
     denoteP_cons_mono (c₀ := c₀) hfresh (hcross _) ψ 0 hcbR (hRD.read ψ)
   have hnresC : Lech.reservedBasisNames.contains c₀.name = false := by

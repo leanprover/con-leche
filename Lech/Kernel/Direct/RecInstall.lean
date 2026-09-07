@@ -69,6 +69,23 @@ def directFixOpenedOk (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx : Nat
           (x.fvarTypeD.getAppArgs.drop nP).all (fun e => e.constsResolve env₀) &&
           !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
           !xrest.mentionsFvar (nP + i)
+        | some x, .reflexive =>
+          -- the field's own telescope, OPENED at variables at the field's
+          -- depth (as the constructor's was): its domains resolve in
+          -- `env₀` (so they are free of the block), its body is the family
+          -- at the parameter variables and `nIdx` index expressions
+          -- resolving in `env₀` (task #202)
+          match openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (nP + i) with
+          | some (afvs, body) =>
+            afvs.length != 0 &&
+            afvs.all (fun a => a.fvarTypeD.constsResolve env₀) &&
+            body.getAppFn == Expr.const T (lps.map .param) &&
+            body.getAppArgs.take nP == fvsP &&
+            body.getAppArgs.length == nP + nIdx &&
+            (body.getAppArgs.drop nP).all (fun e => e.constsResolve env₀) &&
+            !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
+            !xrest.mentionsFvar (nP + i)
+          | none => false
         | _, _ => false
     | none => false
   | none => false

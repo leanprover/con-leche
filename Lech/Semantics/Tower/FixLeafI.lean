@@ -171,17 +171,52 @@ theorem famTyAV_facts {u w : Nat} {ρp : Nat → V} {Ids : List AVExpr} (h : Idx
     rw [AnnotOk2_pi]
     exact ⟨hok, fun _ _ => trivial⟩
 
+/-- A recursive field's own telescope (`a⃗ : A⃗` at a reflexive field,
+task #202; empty at a finitary one) lifted past the two binders `X, t`
+at position `i`: binder `k` sits under `k` earlier telescope binders. -/
+def liftTele2 (i : Nat) (tl : List (Nat × Nat × AVExpr)) : List (Nat × Nat × AVExpr) :=
+  (List.range tl.length).map fun k =>
+    let d := tl.getD k default
+    (d.1, d.2.1, d.2.2.liftN 2 (i + k))
+
+omit [SetTheory V] in
+@[simp] theorem liftTele2_nil (i : Nat) : liftTele2 i [] = [] := rfl
+
+omit [SetTheory V] in
+theorem liftTele2_length (i : Nat) (tl : List (Nat × Nat × AVExpr)) :
+    (liftTele2 i tl).length = tl.length := by simp [liftTele2]
+
+/-- The variables of an `m`-binder telescope, innermost last. -/
+def teleVarsAV (m : Nat) : List AVExpr := (List.range m).map fun k => .bvar (m - 1 - k)
+
+/-- **The recursive slot** at position `i` of an X-chain: the family
+`X` (at `bvar (i + 1 + m)` under the field's `m` telescope binders)
+applied to the tuple of the field's index expressions, under the
+field's telescope — `Π a⃗ : A⃗, X ⟨e⃗_i(a⃗)⟩`; at a finitary field
+(`tl = []`) just `X ⟨e⃗_i⟩`. -/
+def slotXI (u : Nat) (Ids : List AVExpr) (tl : List (Nat × Nat × AVExpr)) (Eis : List AVExpr)
+    (i : Nat) : AVExpr :=
+  mkPisAV (liftTele2 i tl)
+    (.app (.bvar (i + 1 + tl.length))
+      (AVExpr.mkAppN ((tuplerAV u Ids).liftN (i + 2 + tl.length) 0)
+        (Eis.map (·.liftN 2 (i + tl.length)))))
+
+omit [SetTheory V] in
+theorem slotXI_nil (u : Nat) (Ids : List AVExpr) (Eis : List AVExpr) (i : Nat) :
+    slotXI u Ids [] Eis i
+      = .app (.bvar (i + 1)) (AVExpr.mkAppN ((tuplerAV u Ids).liftN (i + 2) 0) (Eis.map (·.liftN 2 i))) := by
+  simp [slotXI, mkPisAV]
+
 /-- The X-chain of one constructor from position `i` on, at the frame
-`(ρp, X, t, f₀ … f_{i-1})`: a recursive slot reads `X ⟨e⃗_i⟩`, an
-ordinary domain is lifted past `X` and `t`. -/
-def chainXIGo (u : Nat) (Ids : List AVExpr) (rs : List Bool) (Eis : List (List AVExpr)) :
-    List AVExpr → Nat → List AVExpr
+`(ρp, X, t, f₀ … f_{i-1})`: a recursive slot reads `X ⟨e⃗_i⟩` under the
+field's telescope (`slotXI`), an ordinary domain is lifted past `X`
+and `t`. -/
+def chainXIGo (u : Nat) (Ids : List AVExpr) (rs : List Bool) (tls : List (List (Nat × Nat × AVExpr)))
+    (Eis : List (List AVExpr)) : List AVExpr → Nat → List AVExpr
   | [], _ => []
   | F :: Fs, i =>
-    (if rs.getD i false then
-      .app (.bvar (i + 1))
-        (AVExpr.mkAppN ((tuplerAV u Ids).liftN (i + 2) 0) ((Eis.getD i []).map (·.liftN 2 i)))
-     else F.liftN 2 i) :: chainXIGo u Ids rs Eis Fs (i + 1)
+    (if rs.getD i false then slotXI u Ids (tls.getD i []) (Eis.getD i []) i
+     else F.liftN 2 i) :: chainXIGo u Ids rs tls Eis Fs (i + 1)
 
 /-- The index equations at the chain's end: the constructor's index
 expressions against the projections of the tuple `t` (at `bvar nF`). -/
@@ -189,21 +224,21 @@ def eqsXI (nIdx nF : Nat) (Es : List AVExpr) : List (AVExpr × AVExpr) :=
   (List.range nIdx).map fun l => ((Es.getD l default).liftN 2 nF, projAV l (.bvar nF))
 
 /-- One constructor's X-chain, equation-terminated. -/
-def chainXI (u : Nat) (Ids : List AVExpr) (nIdx : Nat) (rs : List Bool) (Eis : List (List AVExpr))
+def chainXI (u : Nat) (Ids : List AVExpr) (nIdx : Nat) (rs : List Bool) (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr))
     (Fs Es : List AVExpr) : List AVExpr :=
-  chainXIGo u Ids rs Eis Fs 0 ++ [idxEqAV (eqsXI nIdx Fs.length Es)]
+  chainXIGo u Ids rs tls Eis Fs 0 ++ [idxEqAV (eqsXI nIdx Fs.length Es)]
 
 /-- The X-chains of all constructors. -/
 def chainsXI (u : Nat) (Ids : List AVExpr) (nIdx : Nat) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : List (List AVExpr) :=
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : List (List AVExpr) :=
   (List.range Fss.length).map fun j =>
-    chainXI u Ids nIdx (rss.getD j []) (Eiss.getD j []) (Fss.getD j []) (Ess.getD j [])
+    chainXI u Ids nIdx (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) (Ess.getD j [])
 
 theorem chainsXI_getElem? (u : Nat) (Ids : List AVExpr) (nIdx : Nat) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) (j : Nat) :
-    (chainsXI u Ids nIdx rss Eiss Fss Ess)[j]?
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) (j : Nat) :
+    (chainsXI u Ids nIdx rss tlss Eiss Fss Ess)[j]?
       = if j < Fss.length then
-          some (chainXI u Ids nIdx (rss.getD j []) (Eiss.getD j []) (Fss.getD j []) (Ess.getD j []))
+          some (chainXI u Ids nIdx (rss.getD j []) (tlss.getD j []) (Eiss.getD j []) (Fss.getD j []) (Ess.getD j []))
         else none := by
   unfold chainsXI
   rw [List.getElem?_map]
@@ -213,89 +248,89 @@ theorem chainsXI_getElem? (u : Nat) (Ids : List AVExpr) (nIdx : Nat) (rss : List
 
 omit [SetTheory V] in
 theorem chainsXI_length (u : Nat) (Ids : List AVExpr) (nIdx : Nat) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) :
-    (chainsXI u Ids nIdx rss Eiss Fss Ess).length = Fss.length := by
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) :
+    (chainsXI u Ids nIdx rss tlss Eiss Fss Ess).length = Fss.length := by
   simp [chainsXI]
 
 /-- The functor's λ: `λ (X : I → Sort w) (t : I). Σ_j tower_j(X, t)`. -/
 def fixFunAVI (u w : Nat) (Ids : List AVExpr) (nIdx : Nat) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : AVExpr :=
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : AVExpr :=
   .lam (Nat.max u (w + 1)) (famTyAV u w Ids)
-    (.lam (w + 1) ((idxTyAV u Ids).liftN 1 0) (sumBodyAV w (chainsXI u Ids nIdx rss Eiss Fss Ess)))
+    (.lam (w + 1) ((idxTyAV u Ids).liftN 1 0) (sumBodyAV w (chainsXI u Ids nIdx rss tlss Eiss Fss Ess)))
 
 /-- The family: `lfpFam.{u,w} I F` at the parameter frame. -/
 def fixBodyAVI (u w : Nat) (Ids : List AVExpr) (nIdx : Nat) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : AVExpr :=
-  AVExpr.mkAppN (.const .lfpFam [u, w]) [idxTyAV u Ids, fixFunAVI u w Ids nIdx rss Eiss Fss Ess]
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : AVExpr :=
+  AVExpr.mkAppN (.const .lfpFam [u, w]) [idxTyAV u Ids, fixFunAVI u w Ids nIdx rss tlss Eiss Fss Ess]
 
 /-- The type-former leaf: the λ-tower over the parameter and index
 domains, the family at the tuple of the index variables. -/
 def directFixTyAVI (u w : Nat) (pps : List (Nat × Nat × AVExpr)) (Ids : List AVExpr)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) :
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) :
     AVExpr :=
   mkLamsAV (pps.map fun d => (w + 1, d.2.2))
-    (.app ((fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).liftN Ids.length 0) (mkTowerGo u Ids))
+    (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0) (mkTowerGo u Ids))
 
 /-! ## The semantic functor -/
 
 /-- The functor's fibre at `(X, t)`. -/
 noncomputable def fixStepI (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (nIdx : Nat)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr))
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr))
     (X t : V) : V :=
-  sumSet w (sumFibre w (cons t (cons X ρp)) (chainsXI u Ids nIdx rss Eiss Fss Ess))
+  sumSet w (sumFibre w (cons t (cons X ρp)) (chainsXI u Ids nIdx rss tlss Eiss Fss Ess))
 
 /-- The functor on families (as a set-level function of `X`). -/
 noncomputable def famFI (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (nIdx : Nat)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr))
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr))
     (X : V) : V :=
-  lamR (w + 1) (idxSet u ρp Ids) fun t => fixStepI u w ρp Ids nIdx rss Eiss Fss Ess X t
+  lamR (w + 1) (idxSet u ρp Ids) fun t => fixStepI u w ρp Ids nIdx rss tlss Eiss Fss Ess X t
 
 /-- The functor as a set. -/
 noncomputable def fixFunVI (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (nIdx : Nat)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : V :=
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : V :=
   lamR (Nat.max u (w + 1)) (lfpFamSpace V w (idxSet u ρp Ids))
-    fun X => famFI u w ρp Ids nIdx rss Eiss Fss Ess X
+    fun X => famFI u w ρp Ids nIdx rss tlss Eiss Fss Ess X
 
 /-- The least pre-fixed family. -/
 noncomputable def fixFamI (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (nIdx : Nat)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : V :=
-  lfpFamSet w (idxSet u ρp Ids) (fixFunVI u w ρp Ids nIdx rss Eiss Fss Ess)
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : V :=
+  lfpFamSet w (idxSet u ρp Ids) (fixFunVI u w ρp Ids nIdx rss tlss Eiss Fss Ess)
 
 /-- The grading premise: at every family `X` and tuple `t` the X-chains
 are graded. -/
 def FixChainsOkI (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (nIdx : Nat)
-    (rss : List (List Bool)) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) :
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) :
     Prop :=
   ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
-    SumFieldsOkB w (cons t (cons X ρp)) (chainsXI u Ids nIdx rss Eiss Fss Ess)
+    SumFieldsOkB w (cons t (cons X ρp)) (chainsXI u Ids nIdx rss tlss Eiss Fss Ess)
 
 section Facts
 
 variable {u w : Nat} {ρp : Nat → V} {Ids : List AVExpr} {nIdx : Nat} {rss : List (List Bool)}
-  {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
+  {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
 
-theorem fixStepI_univ (hok : FixChainsOkI u w ρp Ids nIdx rss Eiss Fss Ess) {X : V}
+theorem fixStepI_univ (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess) {X : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) {t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
-    fixStepI u w ρp Ids nIdx rss Eiss Fss Ess X t ∈ˢ (univ w : V) :=
+    fixStepI u w ρp Ids nIdx rss tlss Eiss Fss Ess X t ∈ˢ (univ w : V) :=
   sumSet_univ_of_okB (hok X hX t ht)
 
-theorem famFI_mem (hok : FixChainsOkI u w ρp Ids nIdx rss Eiss Fss Ess) {X : V}
+theorem famFI_mem (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess) {X : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) :
-    famFI u w ρp Ids nIdx rss Eiss Fss Ess X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) :=
+    famFI u w ρp Ids nIdx rss tlss Eiss Fss Ess X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) :=
   lamR_mem fun _ ht => fixStepI_univ hok hX ht
 
 theorem famFI_app {X t : V} (ht : t ∈ˢ idxSet u ρp Ids) :
-    SetTheory.app (famFI u w ρp Ids nIdx rss Eiss Fss Ess X) t
-      = fixStepI u w ρp Ids nIdx rss Eiss Fss Ess X t :=
+    SetTheory.app (famFI u w ρp Ids nIdx rss tlss Eiss Fss Ess X) t
+      = fixStepI u w ρp Ids nIdx rss tlss Eiss Fss Ess X t :=
   app_lamR_pos (a := t) (Nat.succ_ne_zero w) ht
 
-theorem fixFunVI_mem (hok : FixChainsOkI u w ρp Ids nIdx rss Eiss Fss Ess) :
-    fixFunVI u w ρp Ids nIdx rss Eiss Fss Ess ∈ˢ lfpFamFunSpace V u w (idxSet u ρp Ids) :=
+theorem fixFunVI_mem (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess) :
+    fixFunVI u w ρp Ids nIdx rss tlss Eiss Fss Ess ∈ˢ lfpFamFunSpace V u w (idxSet u ρp Ids) :=
   lamR_mem fun _ hX => famFI_mem hok hX
 
 theorem fixFunVI_app {X : V} (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) :
-    SetTheory.app (fixFunVI u w ρp Ids nIdx rss Eiss Fss Ess) X
-      = famFI u w ρp Ids nIdx rss Eiss Fss Ess X :=
+    SetTheory.app (fixFunVI u w ρp Ids nIdx rss tlss Eiss Fss Ess) X
+      = famFI u w ρp Ids nIdx rss tlss Eiss Fss Ess X :=
   app_lamR_pos (max_succ_ne_zero u w) hX
 
 /-- The frame under the functor's two binders. -/
@@ -306,9 +341,9 @@ theorem idxTyAV_lift1 (h : IdxOk u ρp Ids) (X : V) :
   exact ⟨(idxTyAV_facts h).1, (idxTyAV_facts h).2.2⟩
 
 /-- **The functor's λ**: its value, its membership, its grading. -/
-theorem fixFunAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids nIdx rss Eiss Fss Ess) :
-    interp2 V ρp (fixFunAVI u w Ids nIdx rss Eiss Fss Ess) = fixFunVI u w ρp Ids nIdx rss Eiss Fss Ess ∧
-      AnnotOk2 V ρp (fixFunAVI u w Ids nIdx rss Eiss Fss Ess) := by
+theorem fixFunAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess) :
+    interp2 V ρp (fixFunAVI u w Ids nIdx rss tlss Eiss Fss Ess) = fixFunVI u w ρp Ids nIdx rss tlss Eiss Fss Ess ∧
+      AnnotOk2 V ρp (fixFunAVI u w Ids nIdx rss tlss Eiss Fss Ess) := by
   obtain ⟨hfv, hfu, hfok⟩ := famTyAV_facts (w := w) hI
   refine ⟨?_, ?_⟩
   · unfold fixFunAVI fixFunVI
@@ -338,16 +373,16 @@ theorem fixFunAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids n
       exact fixStepI_univ hok hX ht
 
 /-- **The family**: its value, its membership, its grading. -/
-theorem fixBodyAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids nIdx rss Eiss Fss Ess) :
-    interp2 V ρp (fixBodyAVI u w Ids nIdx rss Eiss Fss Ess) = fixFamI u w ρp Ids nIdx rss Eiss Fss Ess ∧
-      fixFamI u w ρp Ids nIdx rss Eiss Fss Ess ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) ∧
-      AnnotOk2 V ρp (fixBodyAVI u w Ids nIdx rss Eiss Fss Ess) := by
+theorem fixBodyAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids nIdx rss tlss Eiss Fss Ess) :
+    interp2 V ρp (fixBodyAVI u w Ids nIdx rss tlss Eiss Fss Ess) = fixFamI u w ρp Ids nIdx rss tlss Eiss Fss Ess ∧
+      fixFamI u w ρp Ids nIdx rss tlss Eiss Fss Ess ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) ∧
+      AnnotOk2 V ρp (fixBodyAVI u w Ids nIdx rss tlss Eiss Fss Ess) := by
   obtain ⟨hiv, hiu, hiok⟩ := idxTyAV_facts hI
   obtain ⟨hfv, hfok⟩ := fixFunAVI_facts hI hok
   have hc : interp2 V ρp (.const .lfpFam [u, w]) = lfpFamV2 V u w := rfl
   refine ⟨?_, lfpFamSet_mem_space V w _ _, ?_⟩
   · show SetTheory.app (SetTheory.app (interp2 V ρp (.const .lfpFam [u, w]))
-      (interp2 V ρp (idxTyAV u Ids))) (interp2 V ρp (fixFunAVI u w Ids nIdx rss Eiss Fss Ess)) = _
+      (interp2 V ρp (idxTyAV u Ids))) (interp2 V ρp (fixFunAVI u w Ids nIdx rss tlss Eiss Fss Ess)) = _
     rw [hc, hiv, hfv]
     exact lfpFamV2_app V hiu (fixFunVI_mem hok)
   · show AnnotOk2 V ρp (.app (.app (.const .lfpFam [u, w]) _) _)
@@ -371,19 +406,19 @@ end Facts
 AND the index binders: the index telescope graded at the parameter
 frame, the X-chains graded there, the frame's index tuple fitting. -/
 def FixBaseI (u w : Nat) (ρ : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : Prop :=
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) : Prop :=
   IdxOk u (shiftE Ids.length 0 ρ) Ids ∧
-  FixChainsOkI u w (shiftE Ids.length 0 ρ) Ids Ids.length rss Eiss Fss Ess ∧
+  FixChainsOkI u w (shiftE Ids.length 0 ρ) Ids Ids.length rss tlss Eiss Fss Ess ∧
   SpineFit (shiftE Ids.length 0 ρ) Ids (frameIdx Ids.length ρ)
 
 /-- `ParamsOkXI`: the leaf's one hereditary premise — the parameter
 and index telescope graded, `FixBaseI` at the base. -/
 def ParamsOkXI (u w : Nat) (ρ : Nat → V) (Ids : List AVExpr) (rss : List (List Bool))
-    (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) :
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) :
     List (Nat × Nat × AVExpr) → Prop
-  | [] => FixBaseI u w ρ Ids rss Eiss Fss Ess
+  | [] => FixBaseI u w ρ Ids rss tlss Eiss Fss Ess
   | d :: pps => d.2.1 ≠ 0 ∧ AnnotOk2 V ρ d.2.2 ∧
-      ∀ a, a ∈ˢ interp2 V ρ d.2.2 → ParamsOkXI u w (cons a ρ) Ids rss Eiss Fss Ess pps
+      ∀ a, a ∈ˢ interp2 V ρ d.2.2 → ParamsOkXI u w (cons a ρ) Ids rss tlss Eiss Fss Ess pps
 
 omit [SetTheory V] in
 theorem frameIdx_succ (n : Nat) (ρ : Nat → V) : frameIdx (n + 1) ρ = ρ n :: frameIdx n ρ := by
@@ -431,24 +466,24 @@ theorem consList_frameIdx : ∀ (n : Nat) (ρ : Nat → V),
 /-- The body's reading at the base frame: the family at the frame's
 tuple. -/
 theorem fixLeafBody_facts {u w : Nat} {ρ : Nat → V} {Ids : List AVExpr} {rss : List (List Bool)}
-    {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
-    (h : FixBaseI u w ρ Ids rss Eiss Fss Ess) :
-    interp2 V ρ (.app ((fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).liftN Ids.length 0)
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
+    (h : FixBaseI u w ρ Ids rss tlss Eiss Fss Ess) :
+    interp2 V ρ (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids))
-      = SetTheory.app (fixFamI u w (shiftE Ids.length 0 ρ) Ids Ids.length rss Eiss Fss Ess)
+      = SetTheory.app (fixFamI u w (shiftE Ids.length 0 ρ) Ids Ids.length rss tlss Eiss Fss Ess)
           (tupW u (frameIdx Ids.length ρ)) ∧
-    interp2 V ρ (.app ((fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).liftN Ids.length 0)
+    interp2 V ρ (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids)) ∈ˢ (univ w : V) ∧
-    AnnotOk2 V ρ (.app ((fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).liftN Ids.length 0)
+    AnnotOk2 V ρ (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids)) := by
   obtain ⟨hI, hok, hsp⟩ := h
   obtain ⟨hbv, hbm, hbok⟩ := fixBodyAVI_facts hI hok
   have hρ : consList (frameIdx Ids.length ρ) (shiftE Ids.length 0 ρ) = ρ :=
     consList_frameIdx Ids.length ρ
-  have hlift : interp2 V ρ ((fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).liftN Ids.length 0)
-      = fixFamI u w (shiftE Ids.length 0 ρ) Ids Ids.length rss Eiss Fss Ess := by
+  have hlift : interp2 V ρ ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
+      = fixFamI u w (shiftE Ids.length 0 ρ) Ids Ids.length rss tlss Eiss Fss Ess := by
     rw [interp2_liftN, hbv]
-  have hliftok : AnnotOk2 V ρ ((fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).liftN Ids.length 0) := by
+  have hliftok : AnnotOk2 V ρ ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0) := by
     rw [AnnotOk2_liftN]; exact hbok
   have htv : interp2 V ρ (mkTowerGo u Ids) = tupW u (frameIdx Ids.length ρ) := by
     have h1 := mkTowerGo_interp (ρp := shiftE Ids.length 0 ρ) (bs := frameIdx Ids.length ρ)
@@ -472,10 +507,10 @@ theorem fixLeafBody_facts {u w : Nat} {ρ : Nat → V} {Ids : List AVExpr} {rss 
 
 /-- **The leaf inhabits its type's reading.** -/
 theorem directFixTyAVI_mem {u w : Nat} {Ids : List AVExpr} {rss : List (List Bool)}
-    {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)} :
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)} :
     ∀ {pps : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
-      ParamsOkXI u w ρ Ids rss Eiss Fss Ess pps →
-      interp2 V ρ (directFixTyAVI u w pps Ids rss Eiss Fss Ess) ∈ˢ interp2 V ρ (mkPisAV pps (.sort w))
+      ParamsOkXI u w ρ Ids rss tlss Eiss Fss Ess pps →
+      interp2 V ρ (directFixTyAVI u w pps Ids rss tlss Eiss Fss Ess) ∈ˢ interp2 V ρ (mkPisAV pps (.sort w))
   | [], ρ, h => (fixLeafBody_facts h).2.1
   | d :: pps, ρ, h => by
     show (lamR (w + 1) (interp2 V ρ d.2.2)
@@ -487,10 +522,10 @@ theorem directFixTyAVI_mem {u w : Nat} {Ids : List AVExpr} {rss : List (List Boo
 
 /-- **The leaf is graded.** -/
 theorem directFixTyAVI_ok2 {u w : Nat} {Ids : List AVExpr} {rss : List (List Bool)}
-    {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)} :
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)} :
     ∀ {pps : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
-      ParamsOkXI u w ρ Ids rss Eiss Fss Ess pps →
-      AnnotOk2 V ρ (directFixTyAVI u w pps Ids rss Eiss Fss Ess)
+      ParamsOkXI u w ρ Ids rss tlss Eiss Fss Ess pps →
+      AnnotOk2 V ρ (directFixTyAVI u w pps Ids rss tlss Eiss Fss Ess)
   | [], _, h => (fixLeafBody_facts h).2.2
   | d :: pps, ρ, h => by
     show AnnotOk2 V ρ (.lam (w + 1) d.2.2 (mkLamsAV (pps.map fun d => (w + 1, d.2.2)) _))
@@ -503,13 +538,13 @@ theorem directFixTyAVI_ok2 {u w : Nat} {Ids : List AVExpr} {rss : List (List Boo
 /-- **The leaf's application fold**: along a fitting parameter-and-
 index spine the leaf computes the family at the spine's tuple. -/
 theorem directFixTyAVI_fold {u w : Nat} {Ids : List AVExpr} {rss : List (List Bool)}
-    {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
     {pps : List (Nat × Nat × AVExpr)} {ρ : Nat → V} {as : List V}
     (hsp : SpineFit ρ (pps.map (·.2.2)) as)
-    (hbase : FixBaseI u w (consList as ρ) Ids rss Eiss Fss Ess) :
-    as.foldl SetTheory.app (interp2 V ρ (directFixTyAVI u w pps Ids rss Eiss Fss Ess))
+    (hbase : FixBaseI u w (consList as ρ) Ids rss tlss Eiss Fss Ess) :
+    as.foldl SetTheory.app (interp2 V ρ (directFixTyAVI u w pps Ids rss tlss Eiss Fss Ess))
       = SetTheory.app
-          (fixFamI u w (shiftE Ids.length 0 (consList as ρ)) Ids Ids.length rss Eiss Fss Ess)
+          (fixFamI u w (shiftE Ids.length 0 (consList as ρ)) Ids Ids.length rss tlss Eiss Fss Ess)
           (tupW u (frameIdx Ids.length (consList as ρ))) := by
   have hsp' : SpineFit ρ ((pps.map fun d => (w + 1, d.2.2)).map (·.2)) as := by
     rwa [List.map_map]

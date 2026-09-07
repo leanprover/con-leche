@@ -61,7 +61,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     (h : Lech.Semantics.DeclDirectFixRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨-, hwl, hnd, cvTa, env₁, p₁, ctorsA, cvRa, rhss, tfvs, trest, isorts, hInd, hsort,
     hopT2, hsorts, hCtors, hFOk, hRec, rfl⟩ := h
-  obtain ⟨hshape, -, hlenK⟩ := Lech.directFixParts?_inv hdp
+  obtain ⟨hshape, -, hlenK, hguard⟩ := Lech.directFixParts?_inv hdp
   obtain ⟨hProp, -, hClps, -, -, helimR, hRlps, -, -⟩ := Lech.directFixShape?_inv hshape
   -- the former: its run completed the record with the sort it read
   -- (task #195), pinned equal to the syntactic one — so the record is
@@ -202,14 +202,16 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     rw [hppsR] at this
     exact this
   -- the constructors' data at the dummy former
-  obtain ⟨idxF₀, dsF₀, esF₀, srcsF₀, fvsPF₀, xFvsF₀, xrestF₀, eissF₀, hcf₀⟩ :=
+  obtain ⟨idxF₀, dsF₀, esF₀, srcsF₀, fvsPF₀, xFvsF₀, xrestF₀, eissF₀, tssF₀, hcf₀⟩ :=
     fixCtorFuns_of hμ mpI₀ hfT_I hlpsT hstripT hFOk hrunOf'
   let Fss₀ : (Name → Nat) → List (List AVExpr) :=
-    fun ψ => fssOfR p.nP (fixCtorDataList dsF₀ esF₀ ksF eissF₀ ψ ctorsA 0)
+    fun ψ => fssOfR p.nP (fixCtorDataList dsF₀ esF₀ ksF eissF₀ tssF₀ ψ ctorsA 0)
   let Ess₀ : (Name → Nat) → List (List AVExpr) :=
-    fun ψ => essOfR (fixCtorDataList dsF₀ esF₀ ksF eissF₀ ψ ctorsA 0)
+    fun ψ => essOfR (fixCtorDataList dsF₀ esF₀ ksF eissF₀ tssF₀ ψ ctorsA 0)
   let Eiss₀ : (Name → Nat) → List (List (List AVExpr)) :=
-    fun ψ => eissOfR (fixCtorDataList dsF₀ esF₀ ksF eissF₀ ψ ctorsA 0)
+    fun ψ => eissOfR (fixCtorDataList dsF₀ esF₀ ksF eissF₀ tssF₀ ψ ctorsA 0)
+  let Tlss₀ : (Name → Nat) → List (List (List (Nat × Nat × AVExpr))) :=
+    fun ψ => tlssOfR (fixCtorDataList dsF₀ esF₀ ksF eissF₀ tssF₀ ψ ctorsA 0)
   have hFss₀D : ∀ ψ j cA, ctorsA[j]? = some cA →
       (Fss₀ ψ).getD j [] = ((dsF₀ j ψ).drop p.nP).map (·.2.2) :=
     fun ψ j cA hj => fssOfR_fixCtorDataList_getD hj
@@ -229,33 +231,104 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     simp [(hcf₀ j cA hj).len ψ]
   have hksLen : ∀ j cA, ctorsA[j]? = some cA → (ksF j).length = cA.2 :=
     fun j cA hj => (hcf₀ j cA hj).ksLen
+  -- a reflexive field forces the `Prop` regime (the recogniser's guard,
+  -- task #202 Stage A1; negative kinds are excluded by the openings)
+  have hisPropRefl : ∀ j cA, ctorsA[j]? = some cA →
+      (∃ i, i < cA.2 ∧ (ksF j).getD i .ordinary = .reflexive) →
+      ∀ ψ : Name → Nat, p.resSort.eval ψ = 0 := by
+    intro j cA hj ⟨i, hi, hk⟩ ψ
+    have hjn : j < ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
+    have hany : (p.kinds.any fun ks => ks.any (· == .reflexive)) = true := by
+      rw [List.any_eq_true]
+      refine ⟨ksF j, List.mem_of_getElem? (hks j hjn), ?_⟩
+      rw [List.any_eq_true]
+      refine ⟨(ksF j).getD i .ordinary, ?_, by rw [hk]; rfl⟩
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hksLen j cA hj]; exact hi)]
+      exact List.getElem_mem _
+    have hnoneg : ¬ (p.kinds.any fun ks => ks.any (· == .negative)) = true := by
+      intro hneg
+      rw [List.any_eq_true] at hneg
+      obtain ⟨ks, hks', hn⟩ := hneg
+      rw [List.any_eq_true] at hn
+      obtain ⟨k, hkmem, hkn⟩ := hn
+      obtain ⟨j', hj'⟩ := List.getElem?_of_mem hks'
+      have hj'n : j' < ctorsA.length := by
+        rw [← hlenK']; exact (List.getElem?_eq_some_iff.mp hj').1
+      obtain ⟨cA', hjA'⟩ : ∃ cA', ctorsA[j']? = some cA' := ⟨_, List.getElem?_eq_getElem hj'n⟩
+      have hksj : ks = ksF j' := Option.some.inj (hj'.symm.trans (hks j' hj'n))
+      obtain ⟨i', hi'⟩ := List.getElem?_of_mem hkmem
+      have hi'lt : i' < cA'.2 := by
+        rw [← hksLen j' cA' hjA', ← hksj]; exact (List.getElem?_eq_some_iff.mp hi').1
+      have hkd : (ksF j').getD i' .ordinary = .negative := by
+        rw [List.getD_eq_getElem?_getD, ← hksj, hi']
+        exact beq_iff_eq.mp hkn
+      rcases (hcf₀ j' cA' hjA').opened.kinds i' hi'lt with h | h | h <;> rw [hkd] at h <;> cases h
+    have hisProp := hguard.resolve_left hnoneg hany
+    have h0 := Level.isEquiv_sound (beq_iff_eq.mp (hProp' hisProp)) ψ
+    simpa [Level.eval] using h0
   -- the chain facts at the dummy former
   have hC₀ : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
-      ChainFacts (uAV ψ) (p.resSort.eval ψ) p.nP cA.2 ρp (Ids ψ) (ksF j)
+      ChainFacts (uAV ψ) (p.resSort.eval ψ) p.nP cA.2 ρp (Ids ψ) (ksF j) (tssF₀ j ψ)
         (((dsF₀ j ψ).drop p.nP).map (·.2.2)) (eissF₀ j ψ) (esF₀ j ψ) ∧
-      ChainValidFacts p.nP cA.2 ρp (ksF j) (((dsF₀ j ψ).drop p.nP).map (·.2.2)) (eissF₀ j ψ)
-        (esF₀ j ψ) := by
+      ChainValidFacts p.nP cA.2 ρp (ksF j) (tssF₀ j ψ) (((dsF₀ j ψ).drop p.nP).map (·.2.2))
+        (eissF₀ j ψ) (esF₀ j ψ) := by
     intro j cA hj ψ ρp hρp
     obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
-    exact ⟨fixChainFacts_of hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hleafT₀ (hcf₀ j cA hj) (uAV ψ) ψ ρp hρp,
+    exact ⟨fixChainFacts_of hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hleafT₀ (hcf₀ j cA hj) (uAV ψ) ψ ρp hρp
+        (fun h => hisPropRefl j cA hj h ψ),
       fixChainValidFacts_of hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hleafT₀ (hcf₀ j cA hj) ψ ρp hρp⟩
+  have hTlss₀D : ∀ ψ j cA, ctorsA[j]? = some cA → (Tlss₀ ψ).getD j [] = tssF₀ j ψ :=
+    fun ψ j cA hj => tlssOfR_fixCtorDataList_getD hj
+  have hTlss₀None : ∀ ψ j, ¬ j < ctorsA.length → (Tlss₀ ψ).getD j [] = [] := by
+    intro ψ j hj
+    show (tlssOfR _).getD j [] = []
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by
+      rw [tlssOfR_length, fixCtorDataList_length]; omega)]
+    rfl
+  -- a nonempty telescope is a reflexive field's (`tssNone`), within the fields
+  have hreflOf : ∀ ψ j cA, ctorsA[j]? = some cA → ∀ i, (tssF₀ j ψ).getD i [] ≠ [] →
+      i < cA.2 ∧ (ksF j).getD i .ordinary = .reflexive := by
+    intro ψ j cA hj i hne
+    have hi : i < cA.2 := Classical.byContradiction fun hge => by
+      apply hne
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by
+        rw [(hcf₀ j cA hj).tssLen ψ]; omega)]
+      rfl
+    exact ⟨hi, Classical.byContradiction fun hk => hne ((hcf₀ j cA hj).tssNone ψ i hk)⟩
+  have hwit₀ : ∀ ψ, (∀ j i, ((Tlss₀ ψ).getD j []).getD i [] = []) ∨ p.resSort.eval ψ = 0 := by
+    intro ψ
+    by_cases hall : ∀ j i, ((Tlss₀ ψ).getD j []).getD i [] = []
+    · exact Or.inl hall
+    · right
+      obtain ⟨j, i, hne⟩ : ∃ j i, ((Tlss₀ ψ).getD j []).getD i [] ≠ [] :=
+        Classical.byContradiction fun hc =>
+          hall fun j i => Classical.byContradiction fun h => hc ⟨j, i, h⟩
+      by_cases hj : j < ctorsA.length
+      · obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
+        rw [hTlss₀D ψ j cA hjA] at hne
+        exact hisPropRefl j cA hjA ⟨i, hreflOf ψ j cA hjA i hne⟩ ψ
+      · rw [hTlss₀None ψ j hj] at hne
+        exact absurd rfl hne
   have hX₀ : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
-      XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) ∧
+      XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) ∧
       ∀ X, X ∈ˢ lfpFamSpace V (p.resSort.eval ψ) (idxSet (uAV ψ) ρp (Ids ψ)) →
         ∀ t, t ∈ˢ idxSet (uAV ψ) ρp (Ids ψ) →
         SumFieldsValid (cons t (cons X ρp))
-          (chainsXI (uAV ψ) (Ids ψ) (Ids ψ).length rss (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)) := by
+          (chainsXI (uAV ψ) (Ids ψ) (Ids ψ).length rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)) := by
     intro ψ ρp hρp
-    refine xChainsOk_of (nP := p.nP) (hIdx ψ ρp hρp).1 (hIdx ψ ρp hρp).2 (hlenFss₀ ψ) hrss ?_ ?_
+    refine xChainsOk_of (nP := p.nP) (hIdx ψ ρp hρp).1 (hIdx ψ ρp hρp).2 (hlenFss₀ ψ) hrss
+      (hwit₀ ψ) ?_ ?_
     · intro j hj
       obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
-      rw [hlenFs₀ ψ j cA hjA, hFss₀D ψ j cA hjA, hEss₀D ψ j cA hjA, hEiss₀D ψ j cA hjA]
+      rw [hlenFs₀ ψ j cA hjA, hFss₀D ψ j cA hjA, hEss₀D ψ j cA hjA, hEiss₀D ψ j cA hjA,
+        hTlss₀D ψ j cA hjA]
       exact (hC₀ j cA hjA ψ ρp hρp).1
     · intro j hj
       obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
-      rw [hlenFs₀ ψ j cA hjA, hFss₀D ψ j cA hjA, hEss₀D ψ j cA hjA, hEiss₀D ψ j cA hjA]
+      rw [hlenFs₀ ψ j cA hjA, hFss₀D ψ j cA hjA, hEss₀D ψ j cA hjA, hEiss₀D ψ j cA hjA,
+        hTlss₀D ψ j cA hjA]
       exact (hC₀ j cA hjA ψ ρp hρp).2
   -- the real former
   have hlpsA : ∀ cA ∈ ctorsA, cA.1.levelParams = p.cvT.levelParams := by
@@ -264,8 +337,8 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     obtain ⟨-, -, -, hlps, -⟩ := hrunOf j cA hj
     exact hlps
   have hcds₀Params : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q) →
-      fixCtorDataList dsF₀ esF₀ ksF eissF₀ ψ₁ ctorsA 0
-        = fixCtorDataList dsF₀ esF₀ ksF eissF₀ ψ₂ ctorsA 0 := by
+      fixCtorDataList dsF₀ esF₀ ksF eissF₀ tssF₀ ψ₁ ctorsA 0
+        = fixCtorDataList dsF₀ esF₀ ksF eissF₀ tssF₀ ψ₂ ctorsA 0 := by
     intro ψ₁ ψ₂ hφ
     refine fixCtorDataList_congr ctorsA 0 fun i hi => ?_
     rw [Nat.zero_add]
@@ -274,18 +347,24 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     have hφ' : ∀ q ∈ cAi.1.levelParams, ψ₁ q = ψ₂ q := fun q hq =>
       hφ q (by rw [hlpsT, ← hlpsi]; exact hq)
     obtain ⟨h1, h2⟩ := (hcf₀ i cAi hi').params ψ₁ ψ₂ hφ'
-    exact ⟨h1, h2, (hcf₀ i cAi hi').eissParams ψ₁ ψ₂ hφ'⟩
-  obtain ⟨mpI, hacI⟩ := stageFixFormer mp hE hccvT hTname₀ hFD uAV rss Eiss₀ Fss₀ Ess₀
+    exact ⟨h1, h2, (hcf₀ i cAi hi').eissParams ψ₁ ψ₂ hφ', (hcf₀ i cAi hi').tssParams ψ₁ ψ₂ hφ'⟩
+  obtain ⟨mpI, hacI⟩ := stageFixFormer mp hE hccvT hTname₀ hFD uAV rss Tlss₀ Eiss₀ Fss₀ Ess₀
     (fun ψ₁ ψ₂ hφ => by
-      refine ⟨hUparams ψ₁ ψ₂ (fun q hq => hφ q (by rw [hlpsT]; exact hq)), ?_, ?_, ?_⟩
+      refine ⟨hUparams ψ₁ ψ₂ (fun q hq => hφ q (by rw [hlpsT]; exact hq)), ?_, ?_, ?_, ?_⟩
+      · show tlssOfR _ = tlssOfR _; rw [hcds₀Params ψ₁ ψ₂ hφ]
       · show eissOfR _ = eissOfR _; rw [hcds₀Params ψ₁ ψ₂ hφ]
       · show fssOfR _ _ = fssOfR _ _; rw [hcds₀Params ψ₁ ψ₂ hφ]
       · show essOfR _ = essOfR _; rw [hcds₀Params ψ₁ ψ₂ hφ])
     (fun ψ => by
-      refine chainsXI_below_of (n := ctorsA.length) (hIdsBelow ψ) (hlenFss₀ ψ) ?_ ?_ ?_ ?_
+      refine chainsXI_below_of (n := ctorsA.length) (hIdsBelow ψ) (hlenFss₀ ψ) ?_ ?_ ?_ ?_ ?_
+      · intro j hj i
+        obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
+        rw [hTlss₀D ψ j cA hjA]
+        exact (hcf₀ j cA hjA).tssBelow ψ i
       · intro j hj i E hE
         obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
         rw [hEiss₀D ψ j cA hjA] at hE
+        rw [hTlss₀D ψ j cA hjA]
         exact (hcf₀ j cA hjA).eissBelow ψ i E hE
       · intro j hj
         obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
@@ -303,14 +382,14 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         exact (hcf₀ j cA hjA).belowE ψ E hE)
     hIdx (fun ψ ρp hρp => (hX₀ ψ ρp hρp).1) (fun ψ ρp hρp => (hX₀ ψ ρp hρp).2)
   have hacI' : mpI.base2.acval = acvalWith mp.base2.acval p.cvT.name
-      (fun ψ => directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Eiss₀ ψ) (Fss₀ ψ)
+      (fun ψ => directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ)
         (Ess₀ ψ)) := by
     rw [hacI, hTname]
   have hacI₀' : mpI₀.base2.acval = acvalWith mp.base2.acval p.cvT.name
       (fun ψ => directSumTyAV (p.resSort.eval ψ) (ppsAll ψ) []) := by
     rw [hacI₀, hTname]
   have hleafT_I : ∀ ψ, mpI.base2.acval p.cvT.name ψ
-      = directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Eiss₀ ψ) (Fss₀ ψ)
+      = directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ)
           (Ess₀ ψ) := by
     intro ψ
     rw [hacI', acvalWith_self]
@@ -320,7 +399,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     rw [hleafT_I ψ]
     exact ⟨_, rfl⟩
   have hleafClosed : ∀ ψ, VExpr.bvarsBelow 0 (directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ)
-      (Ids ψ) rss (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)).erase := by
+      (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)).erase := by
     intro ψ
     have := mpI.base2.cval_closedL p.cvT.name ψ
     rwa [hleafT_I ψ] at this
@@ -329,30 +408,38 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT mpI.base2 hacI
   -- the constructors' data at the real former, identified with the
   -- dummy former's except at the recursive fields
-  obtain ⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, eissF, hcf⟩ :=
+  obtain ⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, eissF, tssF, hcf⟩ :=
     fixCtorFuns_of hμ mpI hfT_I hlpsT hstripT hFOk hrunOf'
   have hident : ∀ j cA, ctorsA[j]? = some cA →
       idxF j = idxF₀ j ∧ (∀ ψ, esF j ψ = esF₀ j ψ) ∧ (∀ ψ, eissF j ψ = eissF₀ j ψ) ∧
+      (∀ ψ, tssF j ψ = tssF₀ j ψ) ∧
       ∀ ψ i, i < cA.2 → (ksF j).getD i .ordinary ≠ .recursive →
+        (ksF j).getD i .ordinary ≠ .reflexive →
         ((dsF j ψ).getD (p.nP + i) default).2.2 = ((dsF₀ j ψ).getD (p.nP + i) default).2.2 := by
     intro j cA hj
-    obtain ⟨h1, -, -, -, h5, h6, h7⟩ := fixCtorDataI_ident hacI' hacI₀' hTfresh' (hcf j cA hj)
+    obtain ⟨h1, -, -, -, h5, h6, h7, h8⟩ := fixCtorDataI_ident hacI' hacI₀' hTfresh' (hcf j cA hj)
       (hcf₀ j cA hj)
-    exact ⟨h1, h5, h6, h7⟩
-  have hEss : ∀ ψ, essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0) = Ess₀ ψ := by
+    exact ⟨h1, h5, h6, h7, h8⟩
+  have hEss : ∀ ψ, essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) = Ess₀ ψ := by
     intro ψ
     refine essOfR_fixCtorDataList_congr ctorsA 0 fun i hi => ?_
     rw [Nat.zero_add]
     obtain ⟨cAi, hi'⟩ : ∃ cAi, ctorsA[i]? = some cAi := ⟨_, List.getElem?_eq_getElem hi⟩
     exact (hident i cAi hi').2.1 ψ
-  have hEiss : ∀ ψ, eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0) = Eiss₀ ψ := by
+  have hTlss : ∀ ψ, tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) = Tlss₀ ψ := by
+    intro ψ
+    refine tlssOfR_fixCtorDataList_congr ctorsA 0 fun i hi => ?_
+    rw [Nat.zero_add]
+    obtain ⟨cAi, hi'⟩ : ∃ cAi, ctorsA[i]? = some cAi := ⟨_, List.getElem?_eq_getElem hi⟩
+    exact (hident i cAi hi').2.2.2.1 ψ
+  have hEiss : ∀ ψ, eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) = Eiss₀ ψ := by
     intro ψ
     refine eissOfR_fixCtorDataList_congr ctorsA 0 fun i hi => ?_
     rw [Nat.zero_add]
     obtain ⟨cAi, hi'⟩ : ∃ cAi, ctorsA[i]? = some cAi := ⟨_, List.getElem?_eq_getElem hi⟩
     exact (hident i cAi hi').2.2.1 ψ
   let Fss : (Name → Nat) → List (List AVExpr) :=
-    fun ψ => fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)
+    fun ψ => fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)
   have hFssD : ∀ ψ j cA, ctorsA[j]? = some cA →
       (Fss ψ).getD j [] = ((dsF j ψ).drop p.nP).map (·.2.2) :=
     fun ψ j cA hj => fssOfR_fixCtorDataList_getD hj
@@ -381,16 +468,18 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     exact ⟨hiff, fun ψ ρ h => ⟨(hfields ψ ρ h).1, (hfields ψ ρ h).2.1, (hfields ψ ρ h).2.2.2⟩⟩
   have hC : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
-      ChainFacts (uAV ψ) (p.resSort.eval ψ) p.nP cA.2 ρp (Ids ψ) (ksF j)
+      ChainFacts (uAV ψ) (p.resSort.eval ψ) p.nP cA.2 ρp (Ids ψ) (ksF j) (tssF j ψ)
         (((dsF j ψ).drop p.nP).map (·.2.2)) (eissF j ψ) (esF j ψ) := by
     intro j cA hj ψ ρp hρp
     obtain ⟨c, -, -, -, -, -, hCtor⟩ := hrunOf j cA hj
     exact fixChainFacts_of hμ mpI hCtor hfT_I hProp' hFD_I hleafT_I' (hcf j cA hj) (uAV ψ) ψ ρp hρp
+      (fun h => hisPropRefl j cA hj h ψ)
   -- the real chains against the leaf's
   have hreal : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
-      ChainsRealI (fixFamI (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) (Ids ψ).length rss (Eiss₀ ψ)
-          (Fss₀ ψ) (Ess₀ ψ)) (uAV ψ) ρp (Ids ψ) rss (Eiss₀ ψ) (Fss₀ ψ) (Fss ψ) (Ess₀ ψ) := by
+      ChainsRealI (fixFamI (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) (Ids ψ).length rss (Tlss₀ ψ) (Eiss₀ ψ)
+          (Fss₀ ψ) (Ess₀ ψ)) (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ)
+        (Fss ψ) (Ess₀ ψ) := by
     intro ψ ρp hρp
     refine ⟨by rw [hlenFss₀, hlenFss], by rw [hlenEss₀, hlenFss], fun j hj => ?_, fun j hj => ?_,
       fun j hj => ?_⟩
@@ -403,31 +492,63 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       rw [hlenFs₀ ψ j cA hjA, hlenFs ψ j cA hjA]
     · rw [hlenFss] at hj
       obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
-      rw [hrss j hj, hEiss₀D ψ j cA hjA, hFss₀D ψ j cA hjA, hFssD ψ j cA hjA]
+      rw [hrss j hj, hEiss₀D ψ j cA hjA, hTlss₀D ψ j cA hjA, hFss₀D ψ j cA hjA, hFssD ψ j cA hjA]
       have hC₀j := (hC₀ j cA hjA ψ ρp hρp).1
       have hCj := hC j cA hjA ψ ρp hρp
       have hlenD := (hcf j cA hjA).len ψ
       have hlenD₀ := (hcf₀ j cA hjA).len ψ
       refine chainRealI_of (hIdx ψ ρp hρp).1 hC₀j (by simp [hlenD]) (fun i hi => hCj.nb i hi)
-        (fun i hi hnr => ?_) (fun i hi hr as' hsp' => ?_)
+        (fun i hi hnr => ?_) (fun i hi hr as as' hlenA hrel hsp' => ?_)
       · rw [drop_map_getD hlenD hi, drop_map_getD hlenD₀ hi]
-        exact (hident j cA hjA).2.2.2 ψ i hi fun hk =>
-          hnr ⟨Nat.le_add_right _ _, by rwa [Nat.add_sub_cancel_left]⟩
-      · have hk : (ksF j).getD i .ordinary = .recursive := by
-          have := hr.2; rwa [Nat.add_sub_cancel_left] at this
-        have hlenA' : as'.length = i := by
-          rw [hsp'.length_eq, List.length_take, shadowFs_length]; omega
-        have hentry := (hcf j cA hjA).recEntry ψ i hk hi
-        rw [drop_map_getD hlenD hi, hentry, hleafT_I ψ]
-        have hspE := ((hC₀j.gr i hi as' hsp').2.2 hr).2
-        rw [(hident j cA hjA).2.2.1 ψ]
-        have := fixLeafApp (nP := p.nP) (hlenPps ψ) (hX₀ ψ ρp hρp).1 hρp
-          (A := directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Eiss₀ ψ) (Fss₀ ψ)
-            (Ess₀ ψ))
-          (fun σ => interp2_closed V (hleafClosed ψ) σ _) (as := as') (Eis := (eissF₀ j ψ).getD i [])
-          hspE
-        rw [hlenA'] at this
-        exact this
+        exact (hident j cA hjA).2.2.2.2 ψ i hi
+          (fun hk => hnr ⟨Nat.le_add_right _ _, Or.inl (by rwa [Nat.add_sub_cancel_left])⟩)
+          (fun hk => hnr ⟨Nat.le_add_right _ _, Or.inr (by rwa [Nat.add_sub_cancel_left])⟩)
+      · -- the slot's fit at the real spine (task #202)
+        have hnbT : ∀ k d, ((tssF₀ j ψ).getD i [])[k]? = some d →
+            NoBVar (exclP (fun q => recAt p.nP (ksF j) q ∧ q < p.nP + as.length)
+              (p.nP + as.length + k)) d.2.2 := by
+          rw [hlenA]; exact hC₀j.nbT i hi hr
+        have hnbE : ∀ E ∈ (eissF₀ j ψ).getD i [],
+            NoBVar (exclP (fun q => recAt p.nP (ksF j) q ∧ q < p.nP + as.length)
+              (p.nP + as.length + ((tssF₀ j ψ).getD i []).length)) E := by
+          rw [hlenA]; exact hC₀j.nbE i hi hr
+        have hfitS : SlotFit (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) ((tssF₀ j ψ).getD i [])
+            ((eissF₀ j ψ).getD i []) as :=
+          slotFit_congr_shadow hrel hnbT hnbE ((hC₀j.gr i hi as' hsp').2.2 hr)
+        have hk := hr.2
+        rw [Nat.add_sub_cancel_left] at hk
+        rcases hk with hk | hk
+        · -- a finitary field: the family at the readings' values
+          have hnone := (hcf₀ j cA hjA).tssNone ψ i (by rw [hk]; intro h; cases h)
+          rw [drop_map_getD hlenD hi, (hcf j cA hjA).recEntry ψ i hk hi, hleafT_I ψ,
+            (hident j cA hjA).2.2.1 ψ, hnone, slotSet_nil]
+          rw [hnone] at hfitS
+          obtain ⟨-, hspE⟩ := SlotFit.fin hfitS
+          have := fixLeafApp (nP := p.nP) (hlenPps ψ) (hX₀ ψ ρp hρp).1 hρp
+            (A := directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ)
+              (Fss₀ ψ) (Ess₀ ψ))
+            (fun σ => interp2_closed V (hleafClosed ψ) σ _) (as := as)
+            (Eis := (eissF₀ j ψ).getD i []) hspE
+          rw [hlenA] at this
+          exact this
+        · -- a reflexive field: the nested product of the family over the telescope
+          rw [drop_map_getD hlenD hi, (hcf j cA hjA).reflEntry ψ i hk hi, hleafT_I ψ,
+            (hident j cA hjA).2.2.1 ψ, (hident j cA hjA).2.2.2.1 ψ]
+          unfold slotSet
+          refine Lech.Semantics.interp_mkPisAV_piTele (v := p.resSort.eval ψ) (acc := [])
+            (fun d hd => (hcf₀ j cA hjA).tssBits ψ i d hd) ?_
+          intro bs hsp
+          rw [List.nil_append, ← consList_append]
+          obtain ⟨-, hspE⟩ := hfitS.2.2 bs hsp
+          have hlenAB : (as ++ bs).length = i + ((tssF₀ j ψ).getD i []).length := by
+            rw [List.length_append, hlenA, hsp.length_eq, List.length_map]
+          have := fixLeafApp (nP := p.nP) (hlenPps ψ) (hX₀ ψ ρp hρp).1 hρp
+            (A := directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ)
+              (Fss₀ ψ) (Ess₀ ψ))
+            (fun σ => interp2_closed V (hleafClosed ψ) σ _) (as := as ++ bs)
+            (Eis := (eissF₀ j ψ).getD i []) hspE
+          rw [hlenAB, ← Nat.add_assoc] at this
+          exact this
   -- the constructors' conses
   have hFssParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ p.cvT.levelParams, ψ₁ q = ψ₂ q) →
       fssOf p.nP (ctorDataList dsF esF ψ₁ ctorsA 0) = fssOf p.nP (ctorDataList dsF esF ψ₂ ctorsA 0) := by
@@ -471,7 +592,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       obtain ⟨cA, hiA, rfl⟩ := hcdMem ψ i cd hi
       exact ((hframes i cA hiA).2 ψ ρ (((hframes i cA hiA).1 ψ ρ).mp hρ)).2.1
   let leafT : (Name → Nat) → AVExpr := fun ψ =>
-    directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)
+    directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss (Tlss₀ ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)
   have hfold : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP).map (·.2.2)) bs →
@@ -493,8 +614,8 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       fixFamI_app_eq_sum (hX₀ ψ ρ hρ).1 (hreal ψ ρ hρ) hspE]
     show sumSet _ (sumFibre _ _ (rChains (Ids ψ).length (Ids ψ).length (Fss ψ) (Ess₀ ψ))) = _
     rw [hlenIds, ← hEss ψ]
-    show sumSet _ (sumFibre _ _ (rChains _ _ (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
-      (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)))) = _
+    show sumSet _ (sumFibre _ _ (rChains _ _ (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+      (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))) = _
     rw [fssOfR_fixCtorDataList, essOfR_fixCtorDataList]
     rfl
   -- the invariant across the conses: every constructor's recursive
@@ -505,6 +626,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       ConstsBound env' cA.1.type ∧ (∀ e ∈ idxF j, ConstsBound env' e) ∧
       FixCtorDataI m' env p.cvT.name p.cvT.levelParams cA.1 p.nP cA.2 p.nIdx p.resSort p.isProp
         p.large (idxF j) (dsF j) (esF j) (srcsF j) (ksF j) (fvsPF j) (xFvsF j) (xrestF j) (eissF j)
+        (tssF j)
   have hInv : ∀ {env' : Env} (m' : EnvS2Core V env') (cA : ConstantVal × Nat)
       (A : (Name → Nat) → AVExpr)
       (mC : EnvS2Core V ⟨.ctorInfo cA.1 p.nP cA.2 :: env'.consts⟩),
@@ -547,7 +669,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   -- the recursor
   have hcf_C : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       FixCtorFactsAt mpC.base2 env p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp
-        p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF j cA := by
+        p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF j cA := by
     intro j cA hj
     obtain ⟨⟨hfind, hlps, -⟩, -, -⟩ := hconsAll j cA (List.getElem?_eq_some_iff.mp hj).1 hj
     exact ⟨hfind, hlps, (hinvC.2 j cA hj).2.2⟩
@@ -558,16 +680,17 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hleafC_C : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA → ∀ ψ,
       mpC.base2.acval cA.1.name ψ
       = directSumMkAV (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
-          (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))) := by
+          (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))) := by
     intro j cA hj ψ
     rw [fssOfR_fixCtorDataList]
     exact (hconsAll j cA (List.getElem?_eq_some_iff.mp hj).1 hj).2.2 ψ
   have hleafT_C' : ∀ ψ, mpC.base2.acval p.cvT.name ψ
       = directFixTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (Ids ψ) rss
-          (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) (Fss₀ ψ)
-          (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) := by
+          (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+          (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (Fss₀ ψ)
+          (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) := by
     intro ψ
-    rw [hEiss ψ, hEss ψ]
+    rw [hEiss ψ, hEss ψ, hTlss ψ]
     exact hleafT_C ψ
   have hmI : p.majorIdx = p.nP + 1 + ctorsA.length + p.nIdx := by
     simp only [DirectSumParts.majorIdx, DirectSumParts.rulePrefix, hlenA]
@@ -576,34 +699,44 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   have hframesR : ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
       XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss
-        (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) (Fss₀ ψ)
-        (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) ∧
+        (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+        (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (Fss₀ ψ)
+        (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
       ChainsRealI (fixFamI (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) p.nIdx rss
-          (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) (Fss₀ ψ)
-          (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)))
-        (uAV ψ) ρp (Ids ψ) rss (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) (Fss₀ ψ)
-        (Fss ψ) (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)) ∧
+          (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+          (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (Fss₀ ψ)
+          (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
+        (uAV ψ) (p.resSort.eval ψ) ρp (Ids ψ) rss
+        (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+        (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (Fss₀ ψ)
+        (Fss ψ) (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
       (∀ j, j < ctorsA.length →
         FieldsOkB (p.resSort.eval ψ) ρp ((Fss ψ).getD j []) ∧
         ∀ bs : List V, SpineFit ρp ((Fss ψ).getD j []) bs →
-          (∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j [],
+          (∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
             AnnotOk2 V (consList bs ρp) E) ∧
           SpineFit ρp (Ids ψ)
-            (idxValsAt ρp ((essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) bs)) ∧
+            (idxValsAt ρp ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) bs)) ∧
       SumFieldsValid ρp (Fss ψ) ∧
       (∀ j, j < ctorsA.length →
         ∀ i ∈ recIdx (rss.getD j []) ((Fss ψ).getD j []).length,
         ∀ fs : List V, SpineFit ρp ((Fss ψ).getD j []) fs →
-        ∀ E ∈ ((eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []).getD i [],
-          AnnotValidV V (consList (fs.take i) ρp) E) ∧
+        FieldsValid (consList (fs.take i) ρp)
+          ((((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i []).map
+            (·.2.2)) ∧
+        ∀ bs : List V, SpineFit (consList (fs.take i) ρp)
+          ((((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i []).map
+            (·.2.2)) bs →
+        ∀ E ∈ ((eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [],
+          AnnotValidV V (consList bs (consList (fs.take i) ρp)) E) ∧
       (∀ j, j < ctorsA.length →
         ∀ bs : List V, SpineFit ρp ((Fss ψ).getD j []) bs →
-        ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j [],
+        ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
           AnnotValidV V (consList bs ρp) E) := by
     intro ψ ρp hρp
-    rw [hEiss ψ, hEss ψ]
+    rw [hEiss ψ, hEss ψ, hTlss ψ]
     refine ⟨(hX₀ ψ ρp hρp).1, by rw [← hlenIds ψ]; exact hreal ψ ρp hρp, fun j hj => ?_,
-      fun Fs hFs => ?_, fun j hj i hi fs hsp E hE => ?_, fun j hj bs hsp E hE => ?_⟩
+      fun Fs hFs => ?_, fun j hj i hi fs hsp => ?_, fun j hj bs hsp E hE => ?_⟩
     · obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
       rw [hFssD ψ j cA hjA, hEss₀D ψ j cA hjA, ← (hident j cA hjA).2.1 ψ]
       have hf := (hframes j cA hjA).2 ψ ρp (((hframes j cA hjA).1 ψ ρp).mp hρp)
@@ -618,17 +751,30 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
         rw [Nat.zero_add]
         exact ((hframes j cA hjA).2 ψ ρp (((hframes j cA hjA).1 ψ ρp).mp hρp)).2.1
     · obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
-      rw [hEiss₀D ψ j cA hjA, ← (hident j cA hjA).2.2.1 ψ] at hE
+      rw [hTlss₀D ψ j cA hjA, hEiss₀D ψ j cA hjA, ← (hident j cA hjA).2.2.1 ψ,
+        ← (hident j cA hjA).2.2.2.1 ψ]
       rw [hrss j hj, hlenFs ψ j cA hjA, ← hksLen j cA hjA, recIdx_rsOf, mem_recIdxOf] at hi
       obtain ⟨hilt, hk⟩ := hi
       rw [hFssD ψ j cA hjA] at hsp
       have hf := (hframes j cA hjA).2 ψ ρp (((hframes j cA hjA).1 ψ ρp).mp hρp)
       have hlenD := (hcf j cA hjA).len ψ
       have hi' : i < cA.2 := by rw [← hksLen j cA hjA]; exact hilt
-      have hv := fieldsValid_getD hf.2.1 (j := i) (by simp [hlenD]; exact hi') (spineFit_take hsp (by simp [hlenD]; omega))
-      rw [drop_map_getD hlenD hi', (hcf j cA hjA).recEntry ψ i hk hi'] at hv
-      obtain ⟨-, hargs⟩ := AnnotValidV.mkAppN_inv hv
-      exact hargs E (List.mem_append_right _ hE)
+      have hv := fieldsValid_getD hf.2.1 (j := i) (by simp [hlenD]; exact hi')
+        (spineFit_take hsp (by simp [hlenD]; omega))
+      rw [drop_map_getD hlenD hi'] at hv
+      rcases hk with hk | hk
+      · rw [(hcf j cA hjA).recEntry ψ i hk hi'] at hv
+        rw [(hcf j cA hjA).tssNone ψ i (by rw [hk]; intro h; cases h)]
+        obtain ⟨-, hargs⟩ := AnnotValidV.mkAppN_inv hv
+        refine ⟨trivial, fun bs hbs E hE => ?_⟩
+        cases bs with
+        | nil => simpa using hargs E (List.mem_append_right _ hE)
+        | cons b bs => exact hbs.elim
+      · rw [(hcf j cA hjA).reflEntry ψ i hk hi'] at hv
+        obtain ⟨hTV, hB⟩ := AnnotValidV_mkPisAV_inv hv
+        refine ⟨hTV, fun bs hbs E hE => ?_⟩
+        obtain ⟨-, hargs⟩ := AnnotValidV.mkAppN_inv (hB bs hbs)
+        exact hargs E (List.mem_append_right _ hE)
     · obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
       rw [hEss₀D ψ j cA hjA, ← (hident j cA hjA).2.1 ψ] at hE
       rw [hFssD ψ j cA hjA] at hsp
@@ -637,6 +783,10 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
   obtain ⟨sAV, mp₃, -⟩ := stageFixRec (fssZ := Fss₀) hE_C hμ mpC hmI hrP rfl rfl hRec hstripT hfT_C
     rfl rfl hlpsT hopT helimR hRlps hFD_C hlenK' hks hcf_C hidxRes_C hUparams hleafT_C' hleafC_C
     (fun j cA hj => (hframes j cA hj).1) hframesR hwl
+    (fun ⟨ψ, j, i, hj, hne⟩ => by
+      obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
+      rw [(hident j cA hjA).2.2.2.1 ψ] at hne
+      exact hisPropRefl j cA hjA ⟨i, hreflOf ψ j cA hjA i hne⟩)
   exact ⟨mp₃⟩
 
 end Lech.SetP

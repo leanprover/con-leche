@@ -55772,6 +55772,319 @@ Mathlib census: 51/51) — is lech's own.  So the `lean_inductive_models`
 require, the `lech-preprocess` executable and the pipe in `Main.lean`
 stay for class 1 alone (`Acc` is in init-full); a route for reflexive
 inductives is the separate design the coordinator raised with the user.
+## TASK #202 — REFLEXIVE CONSTRUCTORS: the fixpoint route extended (2026-09-07, `agent/reflexive` off master `dbe2ac33`, IN PROGRESS)
+
+**Charter** (the user's directive "we want to cover all inductives"):
+a recursive field `Π a⃗ : A⃗, T p⃗ e⃗(a⃗)` (`A⃗` free of the block) is a
+function-space slot into the family's fibres; the recursor's ih for it
+is pointwise (`ih : ∀ a⃗, motive ⟨e⃗(a⃗)⟩ (f a⃗)`); kernel
+`.reflexive` kind with `lechFixFieldsOk` in lockstep; the subsingleton
+large-elimination clause for `Acc`.  Priority `Acc` → `Acc.below` /
+`Lean.Order.iterates` → `WType` / `PSet` → the Mathlib census.
+
+### The census (raw exports, `isReflexive` blocks)
+
+init-full: 4 — `Acc` (nP 2, nIdx 1, 1 ctor, LARGE, `Prop`), `Acc.below`
+(nP 3, nIdx 2, LARGE, `Prop`), `Lean.Order.iterates` (nP 3, nIdx 1, 2
+ctors, small) and its `.below`.  Mathlib: **41**
+(`_tmp/reflexive/mathlib-reflexive-census.txt`): 36 are `Prop`-valued
+closure predicates with a small eliminator (`GenerateOpen`,
+`ChainClosure`, `GenerateMeasurable`, `Saturate`, `Primrec'`,
+`Partrec'`, `Wequiv`, … and their `.below`s) or `Acc`/`Acc.below`;
+**5 are `Type`-valued with a large eliminator**: `WType`, `PSet`,
+`FirstOrder.Language.Term`, `Turing.PartrecToTM2.Λ'`,
+`PFunctor.Approx.CofixA`.  No mutual or nested reflexive block.
+
+### FINDING — the closure witness needs a size bound the interface cannot count (corrected 2026-09-07 by the bridge lane, task #204)
+
+The route's carrier is `lfpFamSet`, the least closed family; the laws
+need a closed member to exist.  For finitary constructors the
+ω-iterate is it (`famU`).  With a function-space slot it is not: a
+member of the tower over `Π a : A, X ⟨e(a)⟩` has components at
+unboundedly many stages (the `ℕ`-branching W-type has elements of rank
+`ω + 1`).  The natural replacement — iterate to an ordinal below the
+universe's cardinal, or bound the least fixed point by a union — needs
+the universe **closed under unions of its member-indexed families**
+(Grothendieck's clause).  `IsTGUniverse` (`Lech/SetTheory/Core.lean`)
+is Tarski's form: transitive, subsets and powersets of members are
+members, and every subset of `U` is a member or equinumerous with `U`.
+CORRECTED: a first draft here claimed `H(κ)` for a singular strong
+limit `κ` as a countermodel — wrong (task #204, proved on Mathlib's
+`ZFSet`: for `κ = ℶ_ω`, `y = {V_{ω+n} | n < ω}` is a subset of `H(κ)`,
+not a member, not equinumerous — Tarski's clause fails).  In general a
+transitive Tarski-form universe has REGULAR cardinality (it contains
+all its subsets of size `< |U|`, which number `κ^{<κ} > κ` at a
+singular `κ`, König): `IsTGUniverse U ↔ U ∈ {∅, V_ω} ∪ {V_κ | κ
+inaccessible}`.  So union-closure IS semantically implied by the
+interface — a `univChain_union` field would add no axiomatic content —
+but it is NOT cheaply derivable inside it (the derivation is a
+cardinal-counting argument our `SetTheory` carrier lacks the
+arithmetic for): the field is NOT added and the derivation NOT
+attempted.  The fibres of an infinitary least fixed point are provably
+SUBSETS of `univ w`; their MEMBERSHIP comes from a size bound obtained
+differently — the path coding / "small algebra with a mono" lemma
+below, which needs only power-set/subset closure and Tarski's clause.
+
+Two ways out, and the split they induce:
+
+* **`Prop`-valued blocks need no bound.**  At `w = 0` the fibres are
+  subsets of `univZero`, and the top family `i ↦ univZero` IS a member
+  of `famSpace 0 I` and is closed (the functor maps `famSpace` to
+  itself) — the witness is free.  This covers every init-full reflexive
+  block (`Acc` included — its sort is `Prop`; its LARGE eliminator is
+  the subsingleton case) and 36 of Mathlib's 41.
+* **`Type`-valued blocks** (Mathlib's 5) need either (a) an interface
+  clause — union-closure of the universes (`univChain_union`), the
+  intended models `V_{κ_n}` satisfy it, a strengthening of
+  `SetTheory` the user rules on (the minimal-axiomatization directive
+  prefers derived fields; this one is NOT derivable) — after which the
+  witness is the transfinite iterate, needing internal ordinals and
+  ∈-recursion (regularity + `image` suffice; sizable); or (b) a direct
+  size bound: an injective coding of the least fixed point's members
+  into a fixed set of tree codes `Labels^(Addresses)` in `univ w`
+  (addresses = finite sequences over the branching domains, coded as
+  subsets of `ω × A`), by recursion on the least fixed point — no
+  ordinals, no new clause, but a second recursion-theorem instance.
+  DECISION REQUESTED from the user; Stage B waits on it.
+
+### Plan
+
+**Stage A (no decision needed): `Prop`-valued reflexive blocks and
+`Acc`'s large elimination.**
+1. Model: the recursion theorem by `lfpFamSet_induction` — the
+   recursor's graph as the least fixed point of a relation functor
+   over pairs, functional and total by induction, the fixed point of
+   the spelled `Step` its graph (replaces `fixSem`'s stage recursion,
+   which is the ω-iterate's and goes with it); the tower functor's
+   function-space slot `Π a⃗ : A⃗, X ⟨e⃗(a⃗)⟩` (`xEntry`: `mkPisAV`
+   over the lifted domains applied to the tupler at the index
+   expressions), monotone and closed as before; the closure witness
+   at `w = 0` (top family).
+2. Kernel: `recPositivity`'s `k > 0` arm returns `.reflexive` (the
+   domains of the field's own telescope free of the block, the result
+   `recFamOk`); `directIhPis` generates the pointwise ih; the
+   `elim_only_at_universe_zero` mirror admits a one-constructor `Prop`
+   block whose fields are all `Prop`-valued or index expressions
+   (official's subsingleton criterion; `Acc.intro`'s field is a
+   `Prop`-valued function); `lechFixFieldsOk` in lockstep; fixtures:
+   an `Acc` clone (large), a `Prop` closure predicate (small), bad
+   twins (an ih patched to the non-pointwise shape; a negative
+   occurrence under the binder).
+3. P tier: the reading of a reflexive field's domain (a Π-telescope
+   ending in the family), the ih reading, the rule's ih argument as a
+   λ over the field's domain applied to the recursive call.
+**Stage B (after the ruling): `Type`-valued reflexive blocks.**
+
+### RULING (user, via the coordinator, 2026-09-07, revised the same day): Stage B is the DIRECT route, via path coding in the set model
+
+First ruling (superseded): an in-process W-tree `_model` on the #200
+pattern.  Revised on the user's question "is it not easier to define
+the coding paths in set theory and thus do a direct, not modelled,
+construction?" — yes.  Stage B keeps the fixpoint route for the five
+`Type`-valued reflexive blocks (`WType`, `PSet`,
+`FirstOrder.Language.Term`, `Turing.PartrecToTM2.Λ'`,
+`PFunctor.Approx.CofixA`), option (b) of the finding above: the
+carrier stays the least fixed point — for an infinitary functor
+defined as the intersection of the pre-fixed points inside
+`univChain (n + 1)` (`univChain n` is `F`-closed when the parameters
+and field domains are its members), with the Knaster–Tarski
+fixed-point equation and induction principle — and `μ ∈ univChain n`
+is proved by an INJECTION into a member: each tree ↦ its set of
+labelled paths (a subset of a `List (Σ a, B a) × A`-shaped member
+built from the basis operations), defined by the same membership-WF
+recursion the recursor uses, injective by lfp induction; Tarski's
+clause then gives membership (`|μ| ≤ |a member| < |univ|`).  The
+lemma is to be GENERIC in the constructor data so it also subsumes
+the finitary ω-iterate and the `Prop` top-family witnesses — one
+closure-witness lemma, no case split (a simplification of A1's
+`XChainsOk.hwit` disjunction, which is the interim).  Everything else
+as planned: `.reflexive` kind, pointwise ih, membership-WF recursor;
+the set-theory interface untouched; A2 (`Acc`) first, then Stage B
+with fixtures for a W-type, a `PSet`-shaped and a first-order-term-
+shaped block and the five Mathlib cones accepting on route `fix`.
+WHY the direct route: no certification tax (a generated `_model`
+family would be checked declaration by declaration), one route for
+all recursive blocks, no generated family to maintain in lockstep.
+
+**Addendum (user, 2026-09-07) — the abstract membership argument for
+Stage B, and the bookkeeping choice.**  Let `T` be the path-code
+space, a MEMBER of the universe: the power set of `List (Σ a, B a) × A`-
+shaped pairs built from the field domains by the basis operations.
+Transport the tower functor along the coding so that a constructor
+step on coded subtrees yields a coded tree (prefix each subtree's
+paths with its branch, add the root label): then `F : P(T) → P(T)` and
+`μ := ⋂ {X ⊆ T | F X ⊆ X}` is Knaster–Tarski in the complete lattice
+`P(T)` — a nonempty family (`T` itself is a pre-fixed point), the
+fixed-point equation and the induction principle as usual, and `μ ⊆ T`
+so `μ ∈ univ` by power-set closure.  No ordinals, no cardinal
+arithmetic, no ω-iterate, no case split.  Bookkeeping choice (mine,
+by cost against what is landed): **(ii) elements stay the tagged
+tuples of the sum route and the coding is an INJECTION into `T`**,
+defined by the same membership recursion as the recursor and
+injective by lfp induction — the landed identification of the fibres
+with the sum route's restricted tagged union (`ChainsRealI`,
+`fixFamI_app_eq_sum`, every P-tier reading of a constructor and a
+rule) stays untouched, and the bound arrives through the injection
+alone; (i) (elements ARE codes) would re-route every fibre
+identification through the coding.  The generic closure-witness lemma
+is stated once for arbitrary constructor data and replaces
+`XChainsOk.hwit`.  Env-level invariant: NOT needed — only the
+membership of denotations is used; nothing about the checker's
+environment enters the argument.  To be executed in Stage B, after A2.
+
+**Preferred statement (user, 2026-09-07): one abstract theorem, one
+instance.**  In `Lech/SetModel/*` (pure sets): for a monotone operator
+`F` on sets (on families for the indexed case) that PRESERVES
+INJECTIONS (an injection `X ↪ Y` induces `F X ↪ F Y`), if there is a
+MEMBER `T` of the universe with an injection `s : F T ↪ T`, then the
+least fixed point `μF` injects into `T` (the unique algebra map
+`μF → T`, defined by the membership-WF recursion, injective by lfp
+induction: at a constructor step `s` is injective and the subtrees'
+images are injective by the IH, and `F` preserves that), hence
+`|μF| < |univ|` and `μF` is a member by Tarski's clause.  Instance,
+beside the tower: the tower functor of any constructor data is
+polynomial (a Σ over the constructors of function spaces from the
+field domains), so it preserves injections; `T` := the power set of
+the labelled-path space; `s` := the one-step coding (root label +
+prefixed subtree paths), injective; indexed = per fibre.  That
+replaces both the ω-iterate and the top-family witnesses with one
+lemma; nothing per shape remains.  If injection-preservation is
+awkward to state for the family functor, the equivalent "`F` preserves
+subsets of the coded space along the coding" (`F' : P(T) → P(T)`) is
+acceptable — the choice is to be recorded here when made (Stage B).
+
+**Refinement (user, 2026-09-07): the container structure.**  The
+"small algebra with a mono" property does not compose directly; the
+CONTAINER property does and implies it.  Set-model side: (1)
+`MemberContainer` := shapes `A` a member, positions `B : A → member`;
+`F_{A,B} X = Σ_{a ∈ A} (B a → X)` (families: per fibre); (2) closure
+lemmas — constant, identity, SUM (shapes: disjoint union, positions
+inherited), PRODUCT (shapes: pairs, positions: disjoint union), ARROW
+with member domain `D` (shapes `D → A`, positions `Σ_{d∈D} B (g d)`) —
+each with its `A`, `B` computed; (3) the tower functor of a block IS
+such a container derived compositionally from the constructor data: a
+sum over the constructors of the product over the fields, identity at
+a recursive field, arrow at a reflexive field, constant at a
+non-recursive field; (4) ONE theorem: the lfp of a member container is
+a member (`T` := `P(labelled-path space from A, B)`, `s` := the
+one-step coding, the injection `μ ↪ T` by lfp induction — the
+W-type-is-a-member lemma), monotonicity and injection-preservation
+coming with the container form.  Stage B's per-block work is then
+step (3), which is syntactic.  Whether the tower functor is taken
+"isomorphic to a container" or "literally a container up to the
+tupler encoding already landed" — whichever makes the identification
+with the landed fibres cheapest — is to be recorded here when chosen.
+
+### Stage A1 — progress record (2026-09-07, `agent/reflexive`)
+
+**Kernel + preprocessor (lockstep).**  `RecFieldKind.reflexive`;
+`recPositivity` returns it for a field `∀ a⃗ : A⃗, T p⃗ e⃗(a⃗)` whose
+telescope domains do not mention the block; `recIdxOf` lists the
+recursive AND reflexive positions (both carry an inductive
+hypothesis); `directFixOpenedOk` opens the field's own telescope at
+the field's depth and checks the domains resolve before the block and
+the body is the family at the parameter variables; the generators
+(`directIdxAt nF o i l m`, `directTeleAt`, `directIhPis`,
+`directIhApp`, `directRuleBodyR`) take the field's telescope
+(`directFieldTeleOf`) and index expressions (`directFieldIdxOf`,
+under the telescope).  **Guard** (`directFixKinds?`): a reflexive field
+is taken only at a `Prop`-valued block with the SMALL eliminator
+(`p.isProp && !p.large`); otherwise the block falls through to the
+modeled path — subsingleton large elimination (`Acc`) is Stage A2, the
+`Type`-valued membership bound is Stage B.  The preprocessor's
+`lechNativeFix` mirrors it (`lechFixFieldsOk … allowRefl` with
+`allowRefl := result sort is Prop ∧ rec.levelParams = type.levelParams`;
+the old `!type.isReflexive` conjunct is gone).  Fixture
+`tests/e2e/direct_fix_refl` (`Iter f n`, the two-index `Reach r x y`;
+both accepted on the `fix` route in both modes) with the twins
+`_neg_bad` (non-positive occurrence under the binder — the
+preprocessor's kernel already rejects it, exit 1) and `_ih_bad`
+(`h_ih` at the wrong index — ill-typed recursor type, exit 1).
+
+**A2 note (recorded for the next stage).**  The kernel's `directIhPis`
+and `directIhApp` reuse the constructor's telescope binder METAS for
+the ih binders and the ih λ-towers, so their bits are the family's
+regime (`w`); the P tier's readings (`ihTeleAtR`, `ihAppAV` as
+`mkLamsAV` with the entries' own bits) and interpretations
+(`interp_ihDomAV`, `mkLamsAV_bits_*`) take `∀ d ∈ tl, (d.2.1 = 0 ↔ ℓ = 0)`
+as a hypothesis — at A1 `ℓ = 0 = w`, so the bits agree.  A large
+eliminator (`ℓ ≠ 0` with `w = 0`) needs the kernel to RE-BIT the ih
+telescopes to the elimination regime; do that in A2 together with the
+subsingleton clause.
+
+**Semantics tier.**  The X-chains' recursive slots are Π-slots
+(`slotXI` = `mkPisAV (liftTele2 i tl) (X ⟨e⃗(a⃗)⟩)`, valued by
+`slotSet w u ρ tl Eis X` = `piTele w` over the telescope of the family
+at the tuple); `SlotFit` (telescope graded, bits at `w`'s regime,
+readings graded and fitting under every telescope spine) replaces the
+old finitary clause everywhere (`SlotsFitX`, `ChainRealI`, `FixKI₀`,
+`chainRealI_at`); `XChainsOk.hwit : finitary ∨ w = 0`; `FixPre.hfin :
+finitary ∨ (w = 0 ∧ ℓ = 0)` and `hEbelow` under the telescope length.
+The ih values are λ-towers (`ihArgAV` = `mkLamsC ℓ (ihTeleAt …)`,
+`ihDomsI`/`ihValsI` via `piTele`/`lamTower`); the finitary shapes are
+recovered by `ihArgsI_fin`/`ihDomsI_fin`/`ihValsI_fin` under `hfin`,
+which gates the ω-iterate stage lemmas; the `Prop` regime's
+inhabitation is by lfp induction (`famK_inhab_zero_ind`).
+
+**P tier (the graded readings), the pattern.**  Wherever a proof
+consumed a finitary ih shape it now splits on `FixPre.hfin`: the
+finitary branch rewrites with the `_fin` lemmas and keeps the old
+proof; the `Prop` branch (`w = 0 ∧ ℓ = 0`) is proved by the point
+(`fixRecLawCore`: both sides of the rule are `pt`; `fixRecBody_validV`
+at `w ≠ 0` only).  The GENERAL parts — the chain walks over Π-slots
+(`FixChainsP`, `FixRealChainsP`, `FixLeafOkP`, with `SlotFit` carried
+off the shadow frame by `slotFit_congr_shadow`), the chain facts at
+reflexive fields (`FixChainFactsP`: the opened telescope is leaf-free
+of the recursive slots, `openPisAtFvars_leaf_bound`), the minor's ih
+binders (`FixRecFramesP.interp_ihDomAV`), the K-frame package, and the
+rule's grading (`FixRuleOkP.ihAppAV_facts`: the ih application is a
+`mkLamsAV` tower in the ih domain, its body typed by the recursor's
+Π-type at the spine extended along the telescope; the field applied
+along a telescope spine lies in the family by `slotSet_fold_mem`, its
+chain by `slotSet_chainOk`) — are proved for arbitrary telescopes.
+`FixCtorDataI` carries `tss` (per-field telescopes; `reflOpen` pins
+the telescope length to the raw binders' count, `tssBits` their bits
+at `w`'s regime, `tssBelow`, `reflEntry` the Π-tower entry).  The
+recursor READINGS (`FixRecReadDefsP`: `ihIdxAtM`, `ihTeleAtR`,
+`ihDomAV`, `ihAppAV`, `CtorDatumR` with the telescopes, `CtorReadR`
+with `fieldRead`/`teleLen`/the Π-tower `recEntry` instead of
+`eisRead`) are the contract of the reading lane (`agent/reflexive-read`,
+`FixRecReadP`/`FixCtorReadsP`/`FixRuleDataP`/`FixRecDataP`/
+`FixCtorCrossP`), merged back here.
+
+**Census correction (sort scan, 2026-09-07; `_tmp/reflexive/sorts-*.txt`
+by a patched `_tmp/droptool/sortscan.py` — the tool's level/sort
+decoders assumed a different export shape).**  Every `.below`
+auxiliary of a reflexive `Prop` predicate is itself `Prop`-valued
+(`sort=0`), not `Type`-valued as `_tmp/droptool/CHECKLIST.md` §2.2
+assumed; `Acc.below` carries the large eliminator like `Acc`.  So the
+41 Mathlib blocks split as: **34 `Prop` with the small eliminator
+(Stage A1, the `fix` route)** — the 17 predicates `GenerateOpen`,
+`ChainClosure`, `GenerateMeasurable`, `GenerateHas`,
+`CountableGenerateSets`, `CardinalGenerateSets`,
+`{Precoverage,Coverage}.Saturate`, `{colimits,limits}Closure`,
+`Approx.Agree`, `M.Agree'`, `Nat.Primrec'`, `Nat.Partrec'`,
+`QPF.Wequiv`, `MvQPF.WEquiv`, `Lean.Order.iterates` and their `.below`
+twins — of which `CategoryTheory.ObjectProperty.{colimits,limits}Closure`
+declare their type at a definition (`ObjectProperty C`) that only
+unfolds to `C → Prop` (`NOT-A-SORT` for the syntactic reading): the fix
+arm's `stripPis` reading (task #193's conjunct) does not take them —
+the #188 fall-through class, a positive decline naming the conjunct,
+until the fix arm gets #195's whnf reading; **2 `Prop` with the large
+eliminator (Stage A2)** — `Acc`, `Acc.below`; **5 `Type`-valued (Stage
+B)** — `WType`, `PSet`, `FirstOrder.Language.Term`,
+`Turing.PartrecToTM2.Λ'`, `PFunctor.Approx.CofixA`.  init-full: `Acc`,
+`Acc.below` (A2), `Lean.Order.iterates`, `Lean.Order.iterates.below`
+(A1).
+
+**Merge record (2026-09-07).**  `agent/reflexive` merged master
+`e9d0ae4d` (task #205: no binder names/infos on `Expr`; task #208): the
+kernel's telescope generators and readers (`Expr.piBinders`,
+`directTeleAt`, `mkPisOf`/`mkLamsOf`) take `(type, meta)` binders; the
+telescope readings' contract is unchanged; the two-carrier congruence
+(`fixCtorDataI_ident`) now also identifies the telescopes (`tssPiBits`
+pins each entry to a reading's Π-entry — domain bit `0`, codomain bit
+at most `1` — so the bits agree through the `w`-regime iff).
 
 ## TASK #204 — THE lean4lean-model BRIDGE: Carneiro's hypothesis implies Lech's, in Lean (2026-09-07, `agent/bridge`)
 

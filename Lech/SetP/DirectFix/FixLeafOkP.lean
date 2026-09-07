@@ -1,4 +1,5 @@
 import Lech.SetP.DirectFix.FixRealChainsP
+import Lech.Semantics.Tower.FixWire
 import Lech.SetP.DirectSum.SumIntroP
 
 /-!
@@ -69,14 +70,130 @@ theorem AnnotValidV_congr_noBVar :
 section Valid
 
 variable {u w : Nat} {ρp : Nat → V} {Ids : List AVExpr} {nP nF : Nat} {ks : List RecFieldKind}
-  {Fs : List AVExpr} {Eis : List (List AVExpr)} {Es : List AVExpr}
+  {tls : List (List (Nat × Nat × AVExpr))} {Fs : List AVExpr} {Eis : List (List AVExpr)}
+  {Es : List AVExpr}
 
-/-- The validity facts beside `ChainFacts`. -/
+/-- A lifted entry is valid at the X-frame iff at the parameter frame
+under the fields. -/
+theorem AnnotValidV_chainXI_ord (F : AVExpr) (as : List V) (t X : V) :
+    AnnotValidV V (consList as (cons t (cons X ρp))) (F.liftN 2 as.length)
+      ↔ AnnotValidV V (consList as ρp) F := by
+  rw [AnnotValidV_liftN, shiftE_consList_len, show (2 : Nat) = 1 + 1 from rfl,
+    shiftE_succ_cons, shiftE_succ_cons, shiftE_zero_zero]
+
+/-- A telescope valid at the parameter frame under the fields is
+valid, lifted, at the X-frame. -/
+theorem fieldsValid_liftTele2 (t X : V) :
+    ∀ (tl : List (Nat × Nat × AVExpr)) (as : List V),
+      FieldsValid (consList as ρp) (tl.map (·.2.2)) →
+      FieldsValid (consList as (cons t (cons X ρp))) ((liftTele2 as.length tl).map (·.2.2))
+  | [], _, _ => trivial
+  | d :: tl, as, hF => by
+    rw [liftTele2_cons, List.map_cons]
+    rw [List.map_cons] at hF
+    obtain ⟨hv, hrest⟩ := hF
+    refine ⟨(AnnotValidV_chainXI_ord _ as t X).mpr hv, fun a ha => ?_⟩
+    rw [interp2_chainXI_ord] at ha
+    rw [consList_snoc']
+    have := fieldsValid_liftTele2 t X tl (as ++ [a]) (by rw [← consList_snoc']; exact hrest a ha)
+    rw [length_snoc'] at this
+    exact this
+
+/-- A valid telescope carried between frames agreeing off the slots
+its domains do not mention. -/
+theorem fieldsValid_congr_exclP {Q : Nat → Prop} :
+    ∀ (Fs : List AVExpr) {d : Nat}, (∀ q, Q q → q < d) → ∀ {σ σ' : Nat → V},
+      AgreeOff (exclP Q d) σ σ' →
+      (∀ k F, Fs[k]? = some F → NoBVar (exclP Q (d + k)) F) →
+      FieldsValid σ' Fs → FieldsValid σ Fs
+  | [], _, _, _, _, _, _, _ => trivial
+  | F :: Fs, d, hQ, σ, σ', hag, hnb, hF => by
+    obtain ⟨hv, hrest⟩ := hF
+    have hnb0 : NoBVar (exclP Q d) F := by simpa using hnb 0 F rfl
+    have hval : interp2 V σ F = interp2 V σ' F := interp2_congr_noBVar F hnb0 hag
+    refine ⟨(AnnotValidV_congr_noBVar F hnb0 hag).mpr hv, fun a ha => ?_⟩
+    rw [hval] at ha
+    refine fieldsValid_congr_exclP Fs (fun q hq => Nat.lt_succ_of_lt (hQ q hq))
+      (agreeOff_exclP_cons hQ hag a) ?_ (hrest a ha)
+    intro k F' hk
+    have := hnb (k + 1) F' (by simpa using hk)
+    rwa [show d + 1 + k = d + (k + 1) from by omega]
+
+/-- A Π-tower over `Prop`-regime binders is a truth value. -/
+theorem interp_mkPisAV_mem_univZero {R : AVExpr} :
+    ∀ {gds : List (Nat × Nat × AVExpr)} {σ : Nat → V}, (∀ d ∈ gds, d.2.1 = 0) →
+      (gds = [] → interp2 V σ R ∈ˢ (univZero : V)) →
+      interp2 V σ (mkPisAV gds R) ∈ˢ (univZero : V)
+  | [], _, _, hR => by simpa [mkPisAV] using hR rfl
+  | d :: gds, σ, hb, _ => by
+    simp only [mkPisAV, interp2_pi]
+    rw [hb d List.mem_cons_self]
+    exact piR_zero_mem_univZero
+
+/-- **A Π-tower is valid** when its domains are along the telescope,
+its body is at every fitting spine, and at the `Prop` regime the body
+is a truth value there. -/
+theorem AnnotValidV_mkPisAV_of {w : Nat} {R : AVExpr} :
+    ∀ {gds : List (Nat × Nat × AVExpr)} {σ : Nat → V},
+      (∀ d ∈ gds, (d.2.1 = 0 ↔ w = 0)) →
+      FieldsValid σ (gds.map (·.2.2)) →
+      (∀ as, SpineFit σ (gds.map (·.2.2)) as → AnnotValidV V (consList as σ) R) →
+      (w = 0 → ∀ as, SpineFit σ (gds.map (·.2.2)) as →
+        interp2 V (consList as σ) R ∈ˢ (univZero : V)) →
+      AnnotValidV V σ (mkPisAV gds R)
+  | [], _, _, _, hR, _ => by simpa [mkPisAV, consList] using hR [] trivial
+  | d :: gds, σ, hb, hF, hR, h0 => by
+    rw [List.map_cons] at hF
+    obtain ⟨hv, hrest⟩ := hF
+    simp only [mkPisAV, AnnotValidV_pi]
+    refine ⟨hv, fun x hx => ?_, fun hd x hx => ?_⟩
+    · refine AnnotValidV_mkPisAV_of (fun d' hd' => hb d' (List.mem_cons_of_mem _ hd'))
+        (hrest x hx) (fun as hsp => ?_) (fun hw as hsp => ?_)
+      · have := hR (x :: as) ⟨hx, hsp⟩
+        rwa [consList_cons] at this
+      · have := h0 hw (x :: as) ⟨hx, hsp⟩
+        rwa [consList_cons] at this
+    · have hw : w = 0 := (hb d List.mem_cons_self).mp hd
+      refine interp_mkPisAV_mem_univZero
+        (fun d' hd' => (hb d' (List.mem_cons_of_mem _ hd')).mpr hw) fun hnil => ?_
+      subst hnil
+      have := h0 hw [x] ⟨hx, trivial⟩
+      simpa [consList] using this
+
+/-- **A valid Π-tower's pieces**: the domains are valid along the
+telescope, and the body is valid at every fitting spine. -/
+theorem AnnotValidV_mkPisAV_inv {R : AVExpr} :
+    ∀ {gds : List (Nat × Nat × AVExpr)} {σ : Nat → V},
+      AnnotValidV V σ (mkPisAV gds R) →
+      FieldsValid σ (gds.map (·.2.2)) ∧
+      ∀ as, SpineFit σ (gds.map (·.2.2)) as → AnnotValidV V (consList as σ) R
+  | [], σ, h => ⟨trivial, fun as hsp => by
+      cases as with
+      | nil => simpa [mkPisAV, consList] using h
+      | cons a as => exact hsp.elim⟩
+  | d :: gds, σ, h => by
+    simp only [mkPisAV, AnnotValidV_pi] at h
+    obtain ⟨hv, hB, -⟩ := h
+    refine ⟨⟨hv, fun x hx => (AnnotValidV_mkPisAV_inv (hB x hx)).1⟩, fun as hsp => ?_⟩
+    cases as with
+    | nil => exact hsp.elim
+    | cons a as =>
+      obtain ⟨ha, hsp'⟩ := hsp
+      rw [consList_cons]
+      exact (AnnotValidV_mkPisAV_inv (hB a ha)).2 as hsp'
+
+/-- The validity facts beside `ChainFacts`: at a recursive field the
+telescope is valid along the shadow spine and the index expressions
+are valid under every fitting telescope spine (task #202). -/
 structure ChainValidFacts (nP nF : Nat) (ρp : Nat → V) (ks : List RecFieldKind)
-    (Fs : List AVExpr) (Eis : List (List AVExpr)) (Es : List AVExpr) : Prop where
+    (tls : List (List (Nat × Nat × AVExpr))) (Fs : List AVExpr) (Eis : List (List AVExpr))
+    (Es : List AVExpr) : Prop where
   grV : ∀ i, i < nF → ∀ as' : List V, SpineFit ρp ((shadowFs nP ks nF Fs).take i) as' →
     AnnotValidV V (consList as' ρp) (Fs.getD i default) ∧
-    (recAt nP ks (nP + i) → ∀ E ∈ Eis.getD i [], AnnotValidV V (consList as' ρp) E)
+    (recAt nP ks (nP + i) →
+      FieldsValid (consList as' ρp) ((tls.getD i []).map (·.2.2)) ∧
+      ∀ bs : List V, SpineFit (consList as' ρp) ((tls.getD i []).map (·.2.2)) bs →
+        ∀ E ∈ Eis.getD i [], AnnotValidV V (consList (as' ++ bs) ρp) E)
   grEV : ∀ as' : List V, SpineFit ρp (shadowFs nP ks nF Fs) as' →
     ∀ E ∈ Es, AnnotValidV V (consList as' ρp) E
 
@@ -103,11 +220,11 @@ theorem tuplerAV_validV (hI : IdxOk u ρp Ids) (hV : FieldsValid ρp Ids) :
 /-- **The validity walk** along the X-chain, beside a shadow spine. -/
 theorem fixChainWalkValid (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids) {X : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) {t : V}
-    (hC : ChainFacts u w nP nF ρp Ids ks Fs Eis Es) (hCV : ChainValidFacts nP nF ρp ks Fs Eis Es) :
+    (hC : ChainFacts u w nP nF ρp Ids ks tls Fs Eis Es) (hCV : ChainValidFacts nP nF ρp ks tls Fs Eis Es) :
     ∀ (m : Nat) (as as' : List V), nF - as.length = m → as.length ≤ nF →
       ShadowRel nP ks as as' → SpineFit ρp ((shadowFs nP ks nF Fs).take as.length) as' →
       FieldsValid (consList as (cons t (cons X ρp)))
-        (chainXIGo u Ids (rsOf ks) Eis (Fs.drop as.length) as.length ++
+        (chainXIGo u Ids (rsOf ks) tls Eis (Fs.drop as.length) as.length ++
           [idxEqAV (eqsXI Ids.length nF Es)]) := by
   intro m
   induction m with
@@ -153,7 +270,7 @@ theorem fixChainWalkValid (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids) {X 
         a' ∈ˢ interp2 V (consList as' ρp)
           (if recAt nP ks (nP + as.length) then AVExpr.sort 0 else Fs.getD as.length default) →
         FieldsValid (consList (as ++ [a]) (cons t (cons X ρp)))
-          (chainXIGo u Ids (rsOf ks) Eis (Fs.drop (as.length + 1)) (as.length + 1) ++
+          (chainXIGo u Ids (rsOf ks) tls Eis (Fs.drop (as.length + 1)) (as.length + 1) ++
             [idxEqAV (eqsXI Ids.length nF Es)]) := by
       intro a a' ha ha'
       have h := ih (as ++ [a]) (as' ++ [a']) (by simp; omega) (by simp; omega)
@@ -166,35 +283,73 @@ theorem fixChainWalkValid (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids) {X 
         have h2 := hr.2
         rw [Nat.add_sub_cancel_left] at h2
         exact (rsOf_getD_iff (by rw [hC.hks]; exact hi)).mpr h2
-      obtain ⟨hEok', hspE'⟩ := hrec' hr
-      have hEok : ∀ E ∈ Eis.getD as.length [], AnnotOk2 V (consList as ρp) E := fun E hE =>
-        (AnnotOk2_congr_noBVar E (hC.nbE as.length hi hr E hE) hag).mpr (hEok' E hE)
-      have hEv : ∀ E ∈ Eis.getD as.length [], AnnotValidV V (consList as ρp) E := fun E hE =>
-        (AnnotValidV_congr_noBVar E (hC.nbE as.length hi hr E hE) hag).mpr (hrecV' hr E hE)
-      have hmap : (Eis.getD as.length []).map (interp2 V (consList as ρp))
-          = (Eis.getD as.length []).map (interp2 V (consList as' ρp)) := by
-        apply List.map_congr_left
-        intro E hE
-        exact interp2_congr_noBVar E (hC.nbE as.length hi hr E hE) hag
-      have hspE : SpineFit ρp Ids ((Eis.getD as.length []).map (interp2 V (consList as ρp))) := by
-        rw [hmap]; exact hspE'
-      obtain ⟨hval, -, -⟩ := recSlot_facts hI hX as t hEok hspE
-      have hx : xEntry u Ids (rsOf ks) Eis (Fs.getD as.length default) as.length
-          = .app (.bvar (as.length + 1))
-            (AVExpr.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0)
-              ((Eis.getD as.length []).map (·.liftN 2 as.length))) := by
+      have hQ : ∀ q, (recAt nP ks q ∧ q < nP + as.length) → q < nP + as.length := fun _ h => h.2
+      have hfit : SlotFit u w ρp Ids (tls.getD as.length []) (Eis.getD as.length []) as :=
+        slotFit_congr_shadow hrel (hC.nbT as.length hi hr) (hC.nbE as.length hi hr) (hrec' hr)
+      obtain ⟨hTv', hEv'⟩ := hrecV' hr
+      have hT' : ∀ k F, ((tls.getD as.length []).map (·.2.2))[k]? = some F →
+          NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + as.length) (nP + as.length + k)) F := by
+        intro k F hk
+        rw [List.getElem?_map] at hk
+        obtain ⟨d, hd, rfl⟩ := Option.map_eq_some_iff.mp hk
+        exact hC.nbT as.length hi hr k d hd
+      have hTv : FieldsValid (consList as ρp) ((tls.getD as.length []).map (·.2.2)) :=
+        fieldsValid_congr_exclP _ hQ hag hT' hTv'
+      have hEv : ∀ bs : List V, SpineFit (consList as ρp) ((tls.getD as.length []).map (·.2.2)) bs →
+          ∀ E ∈ Eis.getD as.length [], AnnotValidV V (consList (as ++ bs) ρp) E := by
+        intro bs hsp E hE
+        have hsp' := (spineFit_congr_exclP _ bs hQ hag hT').mp hsp
+        have hlen : bs.length = (tls.getD as.length []).length := by
+          rw [hsp.length_eq, List.length_map]
+        have hag' : AgreeOff (exclP (fun q => recAt nP ks q ∧ q < nP + as.length)
+            (nP + as.length + (tls.getD as.length []).length))
+            (consList (as ++ bs) ρp) (consList (as' ++ bs) ρp) := by
+          rw [consList_append, consList_append, ← hlen]
+          exact agreeOff_exclP_consList bs hQ hag
+        exact (AnnotValidV_congr_noBVar E (hC.nbE as.length hi hr E hE) hag').mpr
+          (hEv' bs hsp' E hE)
+      have hx : xEntry u Ids (rsOf ks) tls Eis (Fs.getD as.length default) as.length
+          = slotXI u Ids (tls.getD as.length []) (Eis.getD as.length []) as.length := by
         unfold xEntry; rw [if_pos hrs]
       rw [hx]
       refine ⟨?_, fun a ha => ?_⟩
-      · rw [AnnotValidV_app]
-        refine ⟨by simp, mkAppN_validV ?_ ?_⟩
-        · rw [AnnotValidV_liftN, shiftE_Xframe]
-          exact tuplerAV_validV hI hIV
-        · intro E' hE'
-          obtain ⟨E, hE, rfl⟩ := List.mem_map.mp hE'
-          rw [AnnotValidV_liftN, shiftE_consList_len, show (2 : Nat) = 1 + 1 from rfl,
-            shiftE_succ_cons, shiftE_succ_cons, shiftE_zero_zero]
-          exact hEv E hE
+      · unfold slotXI
+        refine AnnotValidV_mkPisAV_of (w := w) (fun d hd => ?_)
+          (fieldsValid_liftTele2 t X _ as hTv) (fun bs hsp => ?_) (fun hw bs hsp => ?_)
+        · obtain ⟨d', hd', he⟩ := mem_liftTele2 hd
+          rw [he]; exact hfit.2.1 d' hd'
+        · have hsp' := (spineFit_liftTele2 t X _ as bs).mp hsp
+          have hlen : bs.length = (tls.getD as.length []).length := by
+            rw [hsp'.length_eq, List.length_map]
+          rw [← consList_append,
+            show as.length + 1 + (tls.getD as.length []).length = (as ++ bs).length + 1 from by
+              rw [List.length_append, hlen]; omega,
+            show as.length + 2 + (tls.getD as.length []).length = (as ++ bs).length + 2 from by
+              rw [List.length_append, hlen]; omega,
+            show as.length + (tls.getD as.length []).length = (as ++ bs).length from by
+              rw [List.length_append, hlen]]
+          rw [AnnotValidV_app]
+          refine ⟨by simp, mkAppN_validV ?_ ?_⟩
+          · rw [AnnotValidV_liftN, shiftE_Xframe]
+            exact tuplerAV_validV hI hIV
+          · intro E' hE'
+            obtain ⟨E, hE, rfl⟩ := List.mem_map.mp hE'
+            rw [AnnotValidV_chainXI_ord]
+            exact hEv bs hsp' E hE
+        · have hsp' := (spineFit_liftTele2 t X _ as bs).mp hsp
+          have hlen : bs.length = (tls.getD as.length []).length := by
+            rw [hsp'.length_eq, List.length_map]
+          obtain ⟨hEok, hspE⟩ := hfit.2.2 bs hsp'
+          have h := recSlot_facts hI hX (as ++ bs) t hEok hspE
+          rw [← consList_append,
+            show as.length + 1 + (tls.getD as.length []).length = (as ++ bs).length + 1 from by
+              rw [List.length_append, hlen]; omega,
+            show as.length + 2 + (tls.getD as.length []).length = (as ++ bs).length + 2 from by
+              rw [List.length_append, hlen]; omega,
+            show as.length + (tls.getD as.length []).length = (as ++ bs).length from by
+              rw [List.length_append, hlen], h.1]
+          rw [hw, univ_zero] at h
+          exact h.2.2
       · rw [consList_snoc']
         exact hnext a shadowVal (fun h => absurd hr h) (by rw [if_pos hr]; exact shadowVal_mem)
     · have hrs : (rsOf ks).getD as.length false = false := by
@@ -207,7 +362,7 @@ theorem fixChainWalkValid (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids) {X 
           refine ⟨Nat.le_add_right _ _, ?_⟩
           rw [Nat.add_sub_cancel_left]
           exact this.mp h
-      have hx : xEntry u Ids (rsOf ks) Eis (Fs.getD as.length default) as.length
+      have hx : xEntry u Ids (rsOf ks) tls Eis (Fs.getD as.length default) as.length
           = (Fs.getD as.length default).liftN 2 as.length := by
         unfold xEntry; rw [if_neg (by rw [hrs]; exact Bool.false_ne_true)]
       rw [hx]
@@ -222,8 +377,8 @@ theorem fixChainWalkValid (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids) {X 
 /-- **The X-chain, valid**, from the walk at the empty spine. -/
 theorem fixChainValid_of (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids) {X : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) {t : V}
-    (hC : ChainFacts u w nP nF ρp Ids ks Fs Eis Es) (hCV : ChainValidFacts nP nF ρp ks Fs Eis Es) :
-    FieldsValid (cons t (cons X ρp)) (chainXI u Ids Ids.length (rsOf ks) Eis Fs Es) := by
+    (hC : ChainFacts u w nP nF ρp Ids ks tls Fs Eis Es) (hCV : ChainValidFacts nP nF ρp ks tls Fs Eis Es) :
+    FieldsValid (cons t (cons X ρp)) (chainXI u Ids Ids.length (rsOf ks) tls Eis Fs Es) := by
   have h := fixChainWalkValid hI hIV hX (t := t) hC hCV nF [] [] (by simp) (by simp)
     (ShadowRel.nil nP ks) trivial
   simp only [List.length_nil, List.drop_zero, consList_nil] at h
@@ -237,7 +392,7 @@ end Valid
 section Below
 
 variable {u w nP nIdx nF : Nat} {Ids Fs Es : List AVExpr} {rs : List Bool}
-  {Eis : List (List AVExpr)}
+  {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)}
 
 omit [SetTheory V] in
 theorem domsBelow_tuplerData {k : Nat} :
@@ -254,47 +409,74 @@ theorem tuplerAV_below (hIds : FieldsBelow nP Ids) :
   exact mkTowerGo_below hIds
 
 omit [SetTheory V] in
+/-- A field's telescope, lifted to the X-frame, is below it. -/
+theorem domsBelow_liftTele2 {nP : Nat} :
+    ∀ (tl : List (Nat × Nat × AVExpr)) (i : Nat), DomsBelow (nP + i) tl →
+      DomsBelow (nP + 2 + i) (liftTele2 i tl)
+  | [], _, _ => trivial
+  | d :: tl, i, h => by
+    rw [liftTele2_cons]
+    refine ⟨?_, ?_⟩
+    · rw [AVExpr.erase_liftN]
+      have := VExprAux.bvarsBelow_liftN 2 d.2.2.erase (nP + i) i h.1
+      rwa [show nP + i + 2 = nP + 2 + i from by omega] at this
+    · have := domsBelow_liftTele2 tl (i + 1)
+        (by rw [show nP + (i + 1) = nP + i + 1 from by omega]; exact h.2)
+      rwa [show nP + 2 + (i + 1) = nP + 2 + i + 1 from by omega] at this
+
+omit [SetTheory V] in
 /-- The X-chain's entries from position `i` on, below the X-frame. -/
 theorem chainXIGo_below (hIds : FieldsBelow nP Ids)
-    (hEis : ∀ i, ∀ E ∈ Eis.getD i [], VExpr.bvarsBelow (nP + i) E.erase) :
+    (hTls : ∀ i, DomsBelow (nP + i) (tls.getD i []))
+    (hEis : ∀ i, ∀ E ∈ Eis.getD i [],
+      VExpr.bvarsBelow (nP + i + (tls.getD i []).length) E.erase) :
     ∀ (Fs : List AVExpr) (i : Nat), FieldsBelow (nP + i) Fs →
-      FieldsBelow (nP + 2 + i) (chainXIGo u Ids rs Eis Fs i)
+      FieldsBelow (nP + 2 + i) (chainXIGo u Ids rs tls Eis Fs i)
   | [], _, _ => trivial
   | F :: Fs, i, hF => by
     rw [chainXIGo_cons]
     refine ⟨?_, ?_⟩
     · unfold xEntry
       split
-      · simp only [AVExpr.erase_app, AVExpr.erase_bvar, VExpr.bvarsBelow]
+      · unfold slotXI
+        refine mkPisAV_below_of (domsBelow_liftTele2 _ i (hTls i)) ?_
+        rw [liftTele2_length]
+        simp only [AVExpr.erase_app, AVExpr.erase_bvar, VExpr.bvarsBelow]
         refine ⟨by omega, ?_⟩
         rw [AVExpr.erase_mkAppN]
         refine VExprAux.bvarsBelow_mkAppN ?_ ?_
         · rw [AVExpr.erase_liftN]
-          have := VExprAux.bvarsBelow_liftN (i + 2) (tuplerAV u Ids).erase nP 0
-            (tuplerAV_below (u := u) hIds)
-          rwa [show nP + (i + 2) = nP + 2 + i from by omega] at this
+          have := VExprAux.bvarsBelow_liftN (i + 2 + (tls.getD i []).length) (tuplerAV u Ids).erase
+            nP 0 (tuplerAV_below (u := u) hIds)
+          rwa [show nP + (i + 2 + (tls.getD i []).length) = nP + 2 + i + (tls.getD i []).length
+            from by omega] at this
         · intro a ha
           rw [List.map_map] at ha
           obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
           simp only [Function.comp, AVExpr.erase_liftN]
-          have := VExprAux.bvarsBelow_liftN 2 E.erase (nP + i) i (hEis i E hE)
-          rwa [show nP + i + 2 = nP + 2 + i from by omega] at this
+          have := VExprAux.bvarsBelow_liftN 2 E.erase (nP + i + (tls.getD i []).length)
+            (i + (tls.getD i []).length) (hEis i E hE)
+          rwa [show nP + i + (tls.getD i []).length + 2 = nP + 2 + i + (tls.getD i []).length
+            from by omega] at this
       · rw [AVExpr.erase_liftN]
         have := VExprAux.bvarsBelow_liftN 2 F.erase (nP + i) i hF.1
         rwa [show nP + i + 2 = nP + 2 + i from by omega] at this
-    · have := chainXIGo_below hIds hEis Fs (i + 1)
+    · have := chainXIGo_below hIds hTls hEis Fs (i + 1)
         (by rw [show nP + (i + 1) = nP + i + 1 from by omega]; exact hF.2)
       rwa [show nP + 2 + (i + 1) = nP + 2 + i + 1 from by omega] at this
 
 omit [SetTheory V] in
 /-- A constructor's X-chain, below the X-frame. -/
 theorem chainXI_below (hIds : FieldsBelow nP Ids)
-    (hEis : ∀ i, ∀ E ∈ Eis.getD i [], VExpr.bvarsBelow (nP + i) E.erase)
+    (hTls : ∀ i, DomsBelow (nP + i) (tls.getD i []))
+    (hEis : ∀ i, ∀ E ∈ Eis.getD i [],
+      VExpr.bvarsBelow (nP + i + (tls.getD i []).length) E.erase)
     (hFs : FieldsBelow nP Fs) (hEsLen : Es.length = nIdx)
     (hEs : ∀ E ∈ Es, VExpr.bvarsBelow (nP + Fs.length) E.erase) :
-    FieldsBelow (nP + 2) (chainXI u Ids nIdx rs Eis Fs Es) := by
+    FieldsBelow (nP + 2) (chainXI u Ids nIdx rs tls Eis Fs Es) := by
   unfold chainXI
-  refine FieldsBelow_append_idxEq (by simpa using chainXIGo_below hIds hEis Fs 0 (by simpa using hFs))
+  refine FieldsBelow_append_idxEq
+    (by simpa using chainXIGo_below hIds hTls hEis Fs 0 (by simpa using hFs))
     ?_
   intro e he
   obtain ⟨l, hl, rfl⟩ := List.mem_map.mp he
@@ -314,10 +496,10 @@ theorem chainXI_below (hIds : FieldsBelow nP Ids)
 
 omit [SetTheory V] in
 /-- The functor's λ, below the parameter frame. -/
-theorem fixBodyAVI_below {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+theorem fixBodyAVI_below {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))}
     {Fss Ess : List (List AVExpr)} (hIds : FieldsBelow nP Ids)
-    (hchains : ∀ chain ∈ chainsXI u Ids nIdx rss Eiss Fss Ess, FieldsBelow (nP + 2) chain) :
-    VExpr.bvarsBelow nP (fixBodyAVI u w Ids nIdx rss Eiss Fss Ess).erase := by
+    (hchains : ∀ chain ∈ chainsXI u Ids nIdx rss tlss Eiss Fss Ess, FieldsBelow (nP + 2) chain) :
+    VExpr.bvarsBelow nP (fixBodyAVI u w Ids nIdx rss tlss Eiss Fss Ess).erase := by
   unfold fixBodyAVI
   rw [AVExpr.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN (by simp [VExpr.bvarsBelow]) ?_
@@ -336,12 +518,12 @@ theorem fixBodyAVI_below {rss : List (List Bool)} {Eiss : List (List (List AVExp
 omit [SetTheory V] in
 /-- **The former's leaf is closed.** -/
 theorem directFixTyAVI_below {pps : List (Nat × Nat × AVExpr)} {rss : List (List Bool)}
-    {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
     (hp : DomsBelow 0 pps) (hlen : pps.length = nP + nIdx)
     (hIdsLen : (((pps.drop nP).map (·.2.2))).length = nIdx)
-    (hchains : ∀ chain ∈ chainsXI u Ids nIdx rss Eiss Fss Ess, FieldsBelow (nP + 2) chain)
+    (hchains : ∀ chain ∈ chainsXI u Ids nIdx rss tlss Eiss Fss Ess, FieldsBelow (nP + 2) chain)
     (hIds : Ids = (pps.drop nP).map (·.2.2)) :
-    VExpr.bvarsBelow 0 (directFixTyAVI u w pps Ids rss Eiss Fss Ess).erase := by
+    VExpr.bvarsBelow 0 (directFixTyAVI u w pps Ids rss tlss Eiss Fss Ess).erase := by
   have hIdsB : FieldsBelow nP Ids := by
     rw [hIds]
     have := (DomsBelow.drop nP hp).fields
@@ -353,7 +535,7 @@ theorem directFixTyAVI_below {pps : List (Nat × Nat × AVExpr)} {rss : List (Li
   refine ⟨?_, ?_⟩
   · rw [AVExpr.erase_liftN]
     have := VExprAux.bvarsBelow_liftN Ids.length
-      (fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).erase nP 0
+      (fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).erase nP 0
       (fixBodyAVI_below (w := w) (nIdx := Ids.length) hIdsB (by rw [hIL]; exact hchains))
     rw [hIL] at this ⊢
     exact this
@@ -367,16 +549,16 @@ end Below
 section Currency
 
 variable {u w nP : Nat} {Ids : List AVExpr} {rss : List (List Bool)}
-  {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
+  {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
 
 /-- The body's validity at the frame below the parameters and the
 index variables. -/
 theorem fixBody_validV {ρp : Nat → V} (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids)
     (hchains : ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
-      SumFieldsValid (cons t (cons X ρp)) (chainsXI u Ids Ids.length rss Eiss Fss Ess))
+      SumFieldsValid (cons t (cons X ρp)) (chainsXI u Ids Ids.length rss tlss Eiss Fss Ess))
     {is : List V} (hsp : SpineFit ρp Ids is) :
     AnnotValidV V (consList is ρp)
-      (.app ((fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).liftN Ids.length 0)
+      (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids)) := by
   have hsh : shiftE Ids.length 0 (consList is ρp) = ρp := by
     rw [← hsp.length_eq]; exact shiftE_consList is ρp
@@ -408,11 +590,11 @@ theorem fixBody_validV {ρp : Nat → V} (hI : IdxOk u ρp Ids) (hIV : FieldsVal
 /-- **The former leaf's P currency**: graded at the hereditary premise,
 valid under the tower. -/
 theorem directFixTyAVI_okP {pps : List (Nat × Nat × AVExpr)} {ρ : Nat → V}
-    (hok : ParamsOkXI u w ρ Ids rss Eiss Fss Ess pps)
+    (hok : ParamsOkXI u w ρ Ids rss tlss Eiss Fss Ess pps)
     (hval : UnderTowerValid ρ
-      (.app ((fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).liftN Ids.length 0)
+      (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids)) pps) :
-    AnnotOkP V ρ (directFixTyAVI u w pps Ids rss Eiss Fss Ess) :=
+    AnnotOkP V ρ (directFixTyAVI u w pps Ids rss tlss Eiss Fss Ess) :=
   ⟨directFixTyAVI_ok2 hok, mkLamsC_validV (m := w + 1) hval⟩
 
 end Currency

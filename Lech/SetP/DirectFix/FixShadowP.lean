@@ -37,10 +37,10 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-- Binder `b` (the parameters first) is a recursive field. -/
 def recAt (nP : Nat) (ks : List RecFieldKind) (b : Nat) : Prop :=
-  nP ≤ b ∧ ks.getD (b - nP) .ordinary = .recursive
+  nP ≤ b ∧ (ks.getD (b - nP) .ordinary = .recursive ∨ ks.getD (b - nP) .ordinary = .reflexive)
 
 instance (nP : Nat) (ks : List RecFieldKind) (b : Nat) : Decidable (recAt nP ks b) :=
-  inferInstanceAs (Decidable (_ ∧ _))
+  inferInstanceAs (Decidable (_ ∧ (_ ∨ _)))
 
 /-- The shadow context: the reversed context `Γ` (list position `p` is
 binder `k - 1 - p`) with `Sort 0` at the recursive binders. -/
@@ -219,8 +219,9 @@ theorem fixShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     {Es : (Name → Nat) → List AVExpr} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AVExpr)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AVExpr))}
     (hD : FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es
-      srcs ks fvsP xFvs xrest Eiss)
+      srcs ks fvsP xFvs xrest Eiss tss)
     (ψ : Name → Nat) :
     (∀ b, b < nP + nF → ∀ ρ : Nat → V,
       Sat2 V ((shadowCtx nP ks (nP + nF) (((ds ψ).map (·.2.2)).reverse)).drop (nP + nF - b)) ρ →
@@ -260,9 +261,13 @@ theorem fixShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
     intro i hr hi
     have hx : xFvs[i]? = some (xFvs[i]'(by rw [hD.xLen]; exact hi)) :=
       List.getElem?_eq_getElem _
-    obtain ⟨-, -, -, -, hlater, hres⟩ := hD.opened.recF i _ hx
-      (by have := hr.2; rwa [Nat.add_sub_cancel_left] at this)
-    exact ⟨_, hx, hlater, hres⟩
+    have hk := hr.2
+    rw [Nat.add_sub_cancel_left] at hk
+    rcases hk with hk | hk
+    · obtain ⟨-, -, -, -, hlater, hres⟩ := hD.opened.recF i _ hx hk
+      exact ⟨_, hx, hlater, hres⟩
+    · obtain ⟨-, -, -, -, -, -, -, -, -, hlater, hres⟩ := hD.opened.reflF i _ hx hk
+      exact ⟨_, hx, hlater, hres⟩
   -- the entries, by strong induction on the binder
   have key : ∀ b, b < nP + nF → ∀ ρ : Nat → V,
       Sat2 V ((shadowCtx nP ks (nP + nF) (((ds ψ).map (·.2.2)).reverse)).drop (nP + nF - b)) ρ →

@@ -154,6 +154,33 @@ theorem drop_map_getD {ds : List (Nat × Nat × AVExpr)} {nP nF i : Nat}
     List.getElem?_eq_getElem (by omega)]
   rfl
 
+/-- **The opened pieces' leaves** are the term's or at the opening
+depth and above. -/
+theorem openPisAtFvars_leaf_bound {n : Nat} {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr}
+    (h : openPisAtFvars n e d = some (fvs, o)) :
+    (∀ x ∈ fvs, ∀ l ∈ x.fvarTypeD.fvarLeaves, l ∈ e.fvarLeaves ∨ d ≤ l.1) ∧
+    (∀ l ∈ o.fvarLeaves, l ∈ e.fvarLeaves ∨ d ≤ l.1) := by
+  have key : ∀ l : Nat × Expr, Expr.fvar l.1 l.2 ∈ fvs → d ≤ l.1 := by
+    intro l hl
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hl
+    obtain ⟨ty, heq⟩ := openPisAtFvars_index n e d h j _ hj
+    have : l.1 = d + j := by
+      have := congrArg (fun e => match e with | .fvar i _ => i | _ => 0) heq
+      simpa using this
+    omega
+  refine ⟨fun x hx l hl => ?_, fun l hl => ?_⟩
+  · obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
+    obtain ⟨ty, rfl⟩ := openPisAtFvars_index n e d h j _ hj
+    have hl' : l ∈ (Expr.fvar (d + j) ty).fvarLeaves := by
+      simp only [Expr.fvarLeaves]
+      exact List.mem_cons_of_mem _ hl
+    rcases openPisAtFvars_leaves n h l (Or.inr ⟨_, hx, hl'⟩) with h' | h'
+    · exact Or.inl h'
+    · exact Or.inr (key l h')
+  · rcases openPisAtFvars_leaves n h l (Or.inl hl) with h' | h'
+    · exact Or.inl h'
+    · exact Or.inr (key l h')
+
 /-! ## The chain facts -/
 
 set_option maxHeartbeats 1600000 in
@@ -172,11 +199,13 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     {Es : (Name → Nat) → List AVExpr} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AVExpr)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AVExpr))}
     (hD : FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es
-      srcs ks fvsP xFvs xrest Eiss)
+      srcs ks fvsP xFvs xrest Eiss tss)
     (u : Nat) (ψ : Name → Nat) (ρp : Nat → V)
-    (hρp : Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
-    ChainFacts u (resSort.eval ψ) nP nF ρp (((ppsAll ψ).drop nP).map (·.2.2)) ks
+    (hρp : Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp)
+    (hrefl0 : (∃ i, i < nF ∧ ks.getD i .ordinary = .reflexive) → resSort.eval ψ = 0) :
+    ChainFacts u (resSort.eval ψ) nP nF ρp (((ppsAll ψ).drop nP).map (·.2.2)) ks (tss ψ)
       (((ds ψ).drop nP).map (·.2.2)) (Eiss ψ) (Es ψ) := by
   -- the openings, the opened record
   obtain ⟨crest, hopP, hopX⟩ := hD.opens
@@ -202,9 +231,13 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
     intro i hr hi
     have hx : xFvs[i]? = some (xFvs[i]'(by rw [hD.xLen]; exact hi)) :=
       List.getElem?_eq_getElem _
-    obtain ⟨-, -, -, -, hlater, hres⟩ := hD.opened.recF i _ hx
-      (by have := hr.2; rwa [Nat.add_sub_cancel_left] at this)
-    exact ⟨_, hx, hlater, hres⟩
+    have hk := hr.2
+    rw [Nat.add_sub_cancel_left] at hk
+    rcases hk with hk | hk
+    · obtain ⟨-, -, -, -, hlater, hres⟩ := hD.opened.recF i _ hx hk
+      exact ⟨_, hx, hlater, hres⟩
+    · obtain ⟨-, -, -, -, -, -, -, -, -, hlater, hres⟩ := hD.opened.reflF i _ hx hk
+      exact ⟨_, hx, hlater, hres⟩
   -- field `i`'s opened domain: scoped, leaf-free of the recursive
   -- variables below it
   have hdom : ∀ i, i < nF → ∃ x, xFvs[i]? = some x ∧ Expr.WScoped (nP + i) x.fvarTypeD ∧
@@ -226,22 +259,81 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
       rw [List.getElem?_drop, show l.1 - nP + 1 + (i - (l.1 - nP + 1)) = i from by omega]
       exact hx
     exact mentionsFvar_false (hlater _ hmem) l hl (by omega)
+  -- a reflexive field's opened telescope (task #202): its domains and
+  -- body are scoped and leaf-free of the recursive variables below
+  -- the field, and read to the telescope entries and the readings
+  have hreflGet : ∀ i x, xFvs[i]? = some x → ks.getD i .ordinary = .reflexive → i < nF →
+      ∃ afvs body,
+        openPisAtFvars ((tss ψ).getD i []).length x.fvarTypeD (nP + i) = some (afvs, body) ∧
+        (∀ k a, afvs[k]? = some a → Expr.WScoped (nP + i + k) a.fvarTypeD ∧
+          (∀ l ∈ a.fvarTypeD.fvarLeaves, ¬ (recAt nP ks l.1 ∧ l.1 < nP + i)) ∧
+          denoteP mp.base2.acval env ψ (nP + i + k) a.fvarTypeD
+            = some (((tss ψ).getD i []).getD k default).2.2) ∧
+        Expr.WScoped (nP + i + ((tss ψ).getD i []).length) body ∧
+        (∀ l ∈ body.fvarLeaves, ¬ (recAt nP ks l.1 ∧ l.1 < nP + i)) ∧
+        DenoteSpineP mp.base2.acval env ψ (nP + i + ((tss ψ).getD i []).length)
+          (body.getAppArgs.drop nP) ((Eiss ψ).getD i []) := by
+    intro i x hx hk hi
+    obtain ⟨afvs, body, hop, -, hdoms, hsp⟩ := hD.reflOpen ψ i x hx hk
+    obtain ⟨x', hx', hws, hlf⟩ := hdom i hi
+    rw [hx] at hx'
+    obtain rfl := Option.some.inj hx'
+    have hleaves := openPisAtFvars_leaf_bound hop
+    have hwsAll := openPisAtFvars_WScoped _ _ _ hop hws
+    refine ⟨afvs, body, hop, fun k a hk' => ⟨openPisAtFvars_typeWScoped _ hop hws k a hk',
+      fun l hl ⟨hr, hlt⟩ => ?_, hdoms k a hk'⟩, hwsAll.2, fun l hl ⟨hr, hlt⟩ => ?_, hsp⟩
+    · rcases hleaves.1 a (List.mem_of_getElem? hk') l hl with h | h
+      · exact hlf l h ⟨hr, hlt⟩
+      · omega
+    · rcases hleaves.2 l hl with h | h
+      · exact hlf l h ⟨hr, hlt⟩
+      · omega
   have hQlt : ∀ i q, recAt nP ks q ∧ q < nP + i → q < nP + i := fun _ _ h => h.2
-  refine ⟨hD.ksLen, hlenFs, by rw [hD.lenE ψ, hlenIds], ?_, ?_, ?_, ?_, ?_⟩
+  have hne_refl : ∀ i, ks.getD i .ordinary = .recursive → ks.getD i .ordinary ≠ .reflexive := by
+    intro i hk h
+    rw [hk] at h
+    cases h
+  refine ⟨hD.ksLen, hlenFs, by rw [hD.lenE ψ, hlenIds], ?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- the entries mention no recursive slot below them
     intro i hi
     obtain ⟨x, hx, hws, hlf⟩ := hdom i hi
     rw [drop_map_getD hlenDs hi]
     exact noBVar_of_leaf_free mp.base2 (nP + i) x.fvarTypeD hws (hQlt i) hlf (hD.domRead ψ i x hx)
+  · -- nor do a reflexive field's telescope domains
+    intro i hi hr k d hkd
+    have hk := hr.2
+    rw [Nat.add_sub_cancel_left] at hk
+    rcases hk with hk | hk
+    · rw [hD.tssNone ψ i (hne_refl i hk)] at hkd
+      exact nomatch hkd
+    · obtain ⟨x, hx, -, -⟩ := hrecGet i hr hi
+      obtain ⟨afvs, body, hop, hdoms, -, -, -⟩ := hreflGet i x hx hk hi
+      have hlenA := openPisAtFvars_length _ hop
+      have hk' : k < afvs.length := by
+        rw [hlenA]; exact (List.getElem?_eq_some_iff.mp hkd).1
+      obtain ⟨hws, hlf, hread⟩ := hdoms k _ (List.getElem?_eq_getElem hk')
+      have hd : d.2.2 = (((tss ψ).getD i []).getD k default).2.2 := by
+        rw [List.getD_eq_getElem?_getD, hkd]; rfl
+      rw [hd]
+      exact noBVar_of_leaf_free mp.base2 (nP + i + k) _ hws (fun q h => by have := h.2; omega)
+        hlf hread
   · -- nor do the recursive slots' index expressions
     intro i hi hr E hE
+    have hk := hr.2
+    rw [Nat.add_sub_cancel_left] at hk
     obtain ⟨x, hx, hws, hlf⟩ := hdom i hi
-    have hk : ks.getD i .ordinary = .recursive := by
-      have := hr.2; rwa [Nat.add_sub_cancel_left] at this
-    obtain ⟨a, ha, hra⟩ := DenoteSpineP.mem_inv (hD.eisRead ψ i x hx hk) E hE
-    have ha' : a ∈ x.fvarTypeD.getAppArgs := List.mem_of_mem_drop ha
-    exact noBVar_of_leaf_free mp.base2 (nP + i) a (WScoped_of_mem_getAppArgs _ a hws ha')
-      (hQlt i) (fun l hl => hlf l (mem_fvarLeaves_of_getAppArgs _ a ha' l hl)) hra
+    rcases hk with hk | hk
+    · rw [hD.tssNone ψ i (hne_refl i hk), List.length_nil, Nat.add_zero]
+      obtain ⟨a, ha, hra⟩ := DenoteSpineP.mem_inv (hD.eisRead ψ i x hx hk) E hE
+      have ha' : a ∈ x.fvarTypeD.getAppArgs := List.mem_of_mem_drop ha
+      exact noBVar_of_leaf_free mp.base2 (nP + i) a (WScoped_of_mem_getAppArgs _ a hws ha')
+        (hQlt i) (fun l hl => hlf l (mem_fvarLeaves_of_getAppArgs _ a ha' l hl)) hra
+    · obtain ⟨afvs, body, hop, -, hwsB, hlfB, hspB⟩ := hreflGet i x hx hk hi
+      obtain ⟨a, ha, hra⟩ := DenoteSpineP.mem_inv hspB E hE
+      have ha' : a ∈ body.getAppArgs := List.mem_of_mem_drop ha
+      exact noBVar_of_leaf_free mp.base2 _ a (WScoped_of_mem_getAppArgs _ a hwsB ha')
+        (fun q h => by have := h.2; omega)
+        (fun l hl => hlfB l (mem_fvarLeaves_of_getAppArgs _ a ha' l hl)) hra
   · -- nor do the residual's index readings
     intro E hE
     obtain ⟨a, ha, hra⟩ := DenoteSpineP.mem_inv (hD.idxRead ψ) E hE
@@ -265,40 +357,67 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
     obtain ⟨hokP, hbnd⟩ := hkey (nP + i) (by omega) _ hsat
     rw [reverse_getD_field hlenDs hi] at hokP hbnd
     refine ⟨hokP.1, fun hnr hw => hbnd (Nat.le_add_right _ _) hnr hw, fun hr => ?_⟩
-    have hk : ks.getD i .ordinary = .recursive := by
-      have := hr.2; rwa [Nat.add_sub_cancel_left] at this
-    have hentry := hD.recEntry ψ i hk hi
-    rw [drop_map_getD hlenDs hi, hentry] at hokP
-    obtain ⟨-, hargs⟩ := AnnotOk2.mkAppN_inv hokP.1
-    refine ⟨fun E hE => hargs E (List.mem_append_right _ hE), ?_⟩
-    -- the fit, through the family's λ-tower
-    obtain ⟨B, hB⟩ := hleafT ψ
-    have hK : VExpr.bvarsBelow 0 (mp.base2.acval T ψ).erase := mp.base2.cval_closedL T ψ
-    rw [hB] at hK
-    have hf : interp2 V (consList as' ρp) (mp.base2.acval T ψ)
-        = interp2 V (fun j => ρp (j + nP)) (mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B) := by
-      rw [hB]; exact interp2_closed (V := V) hK _ _
-    have hlenArgs : (paramBvarsAt nP (nP + i) ++ (Eiss ψ).getD i []).length = nP + nIdx := by
-      have hEl := hD.eisLen ψ i hk hi
-      rw [List.getD_eq_getElem?_getD] at hEl
-      simp [paramBvarsAt, hEl]
-    have hfit := spineFit_of_ok2_lams (u := resSort.eval ψ + 1) (Nat.succ_ne_zero _) (b := B)
-      (args := paramBvarsAt nP (nP + i) ++ (Eiss ψ).getD i []) (ds := ppsAll ψ)
-      (σ := fun j => ρp (j + nP)) (ρ := consList as' ρp) (f := mp.base2.acval T ψ)
-      (by rw [hlenArgs, hFD.len ψ]; exact Nat.le_refl _) hokP.1 hf
-    rw [hlenArgs, List.take_of_length_le (by rw [hFD.len ψ]; exact Nat.le_refl _),
-      ← List.take_append_drop nP (ppsAll ψ), List.map_append, List.map_append] at hfit
-    obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_inv hfit
-    have hlen₁ : as₁.length = nP := by
-      rw [h1.length_eq, List.length_map, List.length_take, hFD.len ψ]; omega
-    have hps : (paramBvarsAt nP (nP + i)).map (interp2 V (consList as' ρp))
-        = (List.range nP).reverse.map ρp := by
-      apply map_paramBvarsAt_interp
-      intro j
-      rw [← hlenA]; exact consList_apply_add as' ρp j
-    obtain ⟨rfl, rfl⟩ := List.append_inj heq (by rw [hlen₁]; simp [paramBvarsAt])
-    rw [hps, consList_range_reverse] at h2
-    exact h2
+    -- the fit, through the family's λ-tower, at a frame reading the
+    -- parameters below `e` field-and-telescope values
+    have fitAt : ∀ (σas : List V) (e : Nat), σas.length = e →
+        AnnotOk2 V (consList σas ρp) (AVExpr.mkAppN (mp.base2.acval T ψ)
+          (paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i [])) →
+        ((Eiss ψ).getD i []).length = nIdx →
+        (∀ E ∈ (Eiss ψ).getD i [], AnnotOk2 V (consList σas ρp) E) ∧
+        SpineFit ρp (((ppsAll ψ).drop nP).map (·.2.2))
+          (((Eiss ψ).getD i []).map (interp2 V (consList σas ρp))) := by
+      intro σas e he hokA hEl
+      obtain ⟨-, hargs⟩ := AnnotOk2.mkAppN_inv hokA
+      refine ⟨fun E hE => hargs E (List.mem_append_right _ hE), ?_⟩
+      obtain ⟨B, hB⟩ := hleafT ψ
+      have hK : VExpr.bvarsBelow 0 (mp.base2.acval T ψ).erase := mp.base2.cval_closedL T ψ
+      rw [hB] at hK
+      have hf : interp2 V (consList σas ρp) (mp.base2.acval T ψ)
+          = interp2 V (fun j => ρp (j + nP)) (mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B) := by
+        rw [hB]; exact interp2_closed (V := V) hK _ _
+      have hlenArgs : (paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i []).length = nP + nIdx := by
+        rw [List.getD_eq_getElem?_getD] at hEl
+        simp [paramBvarsAt, hEl]
+      have hfit := spineFit_of_ok2_lams (u := resSort.eval ψ + 1) (Nat.succ_ne_zero _) (b := B)
+        (args := paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i []) (ds := ppsAll ψ)
+        (σ := fun j => ρp (j + nP)) (ρ := consList σas ρp) (f := mp.base2.acval T ψ)
+        (by rw [hlenArgs, hFD.len ψ]; exact Nat.le_refl _) hokA hf
+      rw [hlenArgs, List.take_of_length_le (by rw [hFD.len ψ]; exact Nat.le_refl _),
+        ← List.take_append_drop nP (ppsAll ψ), List.map_append, List.map_append] at hfit
+      obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_inv hfit
+      have hlen₁ : as₁.length = nP := by
+        rw [h1.length_eq, List.length_map, List.length_take, hFD.len ψ]; omega
+      have hps : (paramBvarsAt nP (nP + e)).map (interp2 V (consList σas ρp))
+          = (List.range nP).reverse.map ρp := by
+        apply map_paramBvarsAt_interp
+        intro j
+        rw [← he]; exact consList_apply_add σas ρp j
+      obtain ⟨rfl, rfl⟩ := List.append_inj heq (by rw [hlen₁]; simp [paramBvarsAt])
+      rw [hps, consList_range_reverse] at h2
+      exact h2
+    have hk := hr.2
+    rw [Nat.add_sub_cancel_left] at hk
+    rcases hk with hk | hk
+    · -- a finitary field: the entry is the family at the readings
+      rw [hD.tssNone ψ i (hne_refl i hk)]
+      have hentry := hD.recEntry ψ i hk hi
+      rw [drop_map_getD hlenDs hi, hentry] at hokP
+      obtain ⟨hok, hfit⟩ := fitAt as' i hlenA hokP.1 (hD.eisLen ψ i hk hi)
+      exact SlotFit.of_fin hok hfit
+    · -- a reflexive field (task #202): the family is `Prop`-valued and
+      -- the entry a Π-tower over the telescope
+      have hw0 : resSort.eval ψ = 0 := hrefl0 ⟨i, hi, hk⟩
+      have hentry := hD.reflEntry ψ i hk hi
+      rw [drop_map_getD hlenDs hi, hentry] at hokP
+      obtain ⟨hF, hB⟩ := AnnotOk2_mkPisAV_inv hokP.1
+      rw [hw0]
+      refine ⟨hF, fun d hd => by rw [hD.tssBits ψ i d hd, hw0], fun bs hsp => ?_⟩
+      have hokB := hB bs hsp
+      rw [← consList_append] at hokB
+      have hlenAB : (as' ++ bs).length = i + ((tss ψ).getD i []).length := by
+        rw [List.length_append, hlenA, hsp.length_eq, List.length_map]
+      rw [Nat.add_assoc] at hokB
+      exact fitAt (as' ++ bs) _ hlenAB hokB (hD.eisLenRefl ψ i hk hi)
   · -- the residual's index readings, graded at a shadow-fitting field spine
     intro as' hsp' E hE
     have hsat : Sat2 V (shadowCtx nP ks (nP + nF) (((ds ψ).map (·.2.2)).reverse))

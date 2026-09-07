@@ -39,7 +39,7 @@ theorem directMinorTyR_unfold {C : Name} {lps : List Name} {nP nF o : Nat} {pw :
       cty.stripPis nP = some (cbs, crest0) ∧
       crest0.stripPis nF = some (fbs, res) ∧
       Expr.replacePisPw pw nF (crest0.liftLooseBVars o 0)
-        (directIhPis nF o pw (directFieldIdxOf cty nP nF) recIdx 0
+        (directIhPis nF o pw (directFieldTeleOf cty nP nF) (directFieldIdxOf cty nP nF) recIdx 0
           ((Expr.mkAppN (.bvar (nF + o - 1))
             ((res.getAppArgs.drop nP).map (Expr.liftLooseBVars o nF) ++
               [directCtorSpineAt C lps o nP nF])).liftLooseBVars recIdx.length 0))
@@ -124,7 +124,7 @@ theorem directRecRhsR_unfold {T : Name} {lps : List Name} {elim : Name} {large :
       cty.stripPis nP = some (cbs, crest0) ∧
       Expr.pisToLamsPw (Level.zeronessOf (directElimLevel elim large)) nF
         (crest0.liftLooseBVars (ctors.length + 1) 0)
-        (directRuleBodyR recC rlvls nP ctors.length nF j recIdx
+        (directRuleBodyR recC rlvls nP ctors.length nF j recIdx (directFieldTeleOf cty nP nF)
           (directFieldIdxOf cty nP nF)) = some inner ∧
       directMinorsLamsR lps nP (Level.zeronessOf (directElimLevel elim large)) ctors 1 inner
         = some minors ∧
@@ -200,8 +200,10 @@ theorem instSeq_directIdxAt (P X F I : List Expr) {nP o nF l i : Nat} {e : Expr}
     (hclP : ∀ a ∈ P, a.looseBVarsBounded 0 = true)
     (hclF : ∀ a ∈ F, a.looseBVarsBounded 0 = true)
     (hi : i ≤ nF) (heb : e.looseBVarsBounded (nP + i) = true) :
-    instSeq (P ++ X ++ F ++ I) (nP + o + nF + l - 1) (directIdxAt nF o i l e)
+    instSeq (P ++ X ++ F ++ I) (nP + o + nF + l - 1) (directIdxAt nF o i l 0 e)
       = instSeq (P ++ F.take i) (nP + i - 1) e := by
+  unfold directIdxAt
+  rw [Nat.add_zero]
   have hq : (e.liftLooseBVars (nF - i + l) 0).looseBVarsBounded (P.length + (nF + l)) = true := by
     have := Expr.looseBVarsBounded_liftLooseBVars (nF - i + l) e (b := nP + i) (c := 0) heb
     exact Expr.looseBVarsBounded_mono (by rw [hP]; omega) this

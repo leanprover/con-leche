@@ -36,19 +36,22 @@ def fixRdsAV {env : Env} (m : EnvS2Core V env) (p : DirectFixParts)
     (ppsAll : (Name → Nat) → List (Nat × Nat × AVExpr))
     (dsF : Nat → (Name → Nat) → List (Nat × Nat × AVExpr))
     (esF : Nat → (Name → Nat) → List AVExpr) (ksF : Nat → List RecFieldKind)
-    (eissF : Nat → (Name → Nat) → List (List AVExpr)) (ctorsA : List (ConstantVal × Nat))
-    (ψ : Name → Nat) : List (Nat × Nat × AVExpr) :=
+    (eissF : Nat → (Name → Nat) → List (List AVExpr))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AVExpr)))
+    (ctorsA : List (ConstantVal × Nat)) (ψ : Name → Nat) : List (Nat × Nat × AVExpr) :=
   fixRecDataAV m p.cvT.name ψ p.nP p.nIdx (Lech.directElimLevel p.elim p.large)
-    ((ppsAll ψ).take p.nP) ((ppsAll ψ).drop p.nP) (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)
+    ((ppsAll ψ).take p.nP) ((ppsAll ψ).drop p.nP) (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)
 
 theorem fixRdsAV_length {m : EnvS2Core V env} {p : DirectFixParts}
     {ppsAll : (Name → Nat) → List (Nat × Nat × AVExpr)}
     {dsF : Nat → (Name → Nat) → List (Nat × Nat × AVExpr)}
     {esF : Nat → (Name → Nat) → List AVExpr} {ksF : Nat → List RecFieldKind}
-    {eissF : Nat → (Name → Nat) → List (List AVExpr)} {ctorsA : List (ConstantVal × Nat)}
+    {eissF : Nat → (Name → Nat) → List (List AVExpr)}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AVExpr))}
+    {ctorsA : List (ConstantVal × Nat)}
     {cvTa : ConstantVal} (hFD : FormerData m cvTa (p.nP + p.nIdx) p.resSort ppsAll)
     (ψ : Name → Nat) :
-    (fixRdsAV m p ppsAll dsF esF ksF eissF ctorsA ψ).length = p.nP + ctorsA.length + p.nIdx + 2 := by
+    (fixRdsAV m p ppsAll dsF esF ksF eissF tssF ctorsA ψ).length = p.nP + ctorsA.length + p.nIdx + 2 := by
   unfold fixRdsAV
   rw [fixRecDataAV_length (by rw [List.length_take, hFD.len ψ]; omega)
     (by rw [List.length_drop, hFD.len ψ]; omega), fixCtorDataList_length]
@@ -62,8 +65,10 @@ variable {env₁ env₂ : Env} {m₁ : EnvS2Core V env₁} {m₂ : EnvS2Core V e
 
 theorem minorAVAtR_congr {C : Name} {nF b o : Nat} {ds : List (Nat × Nat × AVExpr)}
     {Es : List AVExpr} {recIdx : List Nat} {Eiss : List (List AVExpr)}
+    {tls : List (List (Nat × Nat × AVExpr))}
     (hC : m₁.acval C ψ = m₂.acval C ψ) :
-    minorAVAtR m₁ C ψ nP nF b o ds Es recIdx Eiss = minorAVAtR m₂ C ψ nP nF b o ds Es recIdx Eiss := by
+    minorAVAtR m₁ C ψ nP nF b o ds Es recIdx tls Eiss
+      = minorAVAtR m₂ C ψ nP nF b o ds Es recIdx tls Eiss := by
   unfold minorAVAtR
   rw [hC]
 
@@ -71,7 +76,7 @@ theorem fixMinorsData_congr {b : Nat} :
     ∀ (cds : List CtorDatumR) (o : Nat), (∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) →
       fixMinorsData m₁ ψ nP b cds o = fixMinorsData m₂ ψ nP b cds o
   | [], _, _ => rfl
-  | (C, nF, ds, Es, recIdx, Eiss) :: cs, o, h => by
+  | (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o, h => by
     simp only [fixMinorsData]
     rw [minorAVAtR_congr (h _ List.mem_cons_self),
       fixMinorsData_congr cs (o + 1) fun cd hcd => h cd (List.mem_cons_of_mem _ hcd)]
@@ -111,25 +116,26 @@ theorem fixRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {esF : Nat → (Name → Nat) → List AVExpr} {srcsF : Nat → List (Option Nat)}
     {ksF : Nat → List RecFieldKind} {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
     {eissF : Nat → (Name → Nat) → List (List AVExpr)}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AVExpr))}
     (hlenK : p.kinds.length = ctorsA.length)
     (hks : ∀ i, i < ctorsA.length → p.kinds[i]? = some (ksF i))
     (hcf : ∀ i cA, ctorsA[i]? = some cA →
       FixCtorFactsAt mp.base2 env₀ p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp
-        p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF i cA) :
+        p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF i cA) :
     SumRecData mp.base2 cvRa p.nP ctorsA.length p.nIdx (Lech.directElimLevel p.elim p.large)
-        (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA) ∧
+        (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA) ∧
       ∃ u : Level, ∀ (ψ : Name → Nat) (ρ : Nat → V),
-        interp2 V ρ (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ)
+        interp2 V ρ (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ)
           (recConcAV ctorsA.length p.nIdx)) ∈ˢ (univ (u.eval ψ) : V) := by
   obtain ⟨cvRi, recTy, sty, u, -, hgen, htp, -, hbt, hRf, hsty, hens, -, -, rfl⟩ :=
     Lech.checkDirectFixRec_shape hRec
   obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)
   simp only [ConstantInfo.toConstantVal] at hTf hTb
   have hcr : ∀ ψ, CtorReadsR mp.base2 ψ p.cvT.name p.cvT.levelParams p.nP p.nIdx
-      (Lech.directFixCtors4 ctorsA p.kinds) (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0) :=
+      (Lech.directFixCtors4 ctorsA p.kinds) (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) :=
     fun ψ => fixCtorReadsR_of ψ hlenK hks hcf
   have hread : ∀ ψ : Name → Nat, denoteP mp.base2.acval env ψ 0 recTy
-      = some (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ)
+      = some (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ)
           (recConcAV ctorsA.length p.nIdx)) := fun ψ => by
     have := denoteP_directRecTyR hfT (show (ConstantInfo.indInfo cvTa caps).toConstantVal.levelParams
         = p.cvT.levelParams from hlpsT) (hcr ψ) hgen hTf hTb
@@ -147,13 +153,13 @@ theorem fixRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     obtain ⟨-, -, hokT, -, -⟩ := hc.inferRow hsty hw hbt hL (CtxOkP.nil hnil) (hread ψ)
     exact hokT ρ (Sat2_nil V ρ)
   · intro ψ
-    have hst := stripPisAV_mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ)
+    have hst := stripPisAV_mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ)
       (recConcAV ctorsA.length p.nIdx)
     exact (stripPisAV_below hst (bvarsBelow_of_reading hw hbt (hread ψ))).1
   · intro ψ₁ ψ₂ hφ
     have h2 := hread ψ₂
     have h1 : denoteP mp.base2.acval env ψ₂ 0 recTy
-        = some (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF ctorsA ψ₁)
+        = some (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ₁)
             (recConcAV ctorsA.length p.nIdx)) := by
       rw [← denoteP_params_ext mp.base2 hφ 0 recTy htp]
       exact hread ψ₁

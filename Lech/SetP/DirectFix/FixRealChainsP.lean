@@ -33,17 +33,17 @@ variable {V : Type w'} [SetTheory V]
 expressions** reads, under `as` field values at the parameter frame
 `ρp`, to the family at the tuple of the expressions' values. -/
 theorem fixLeafApp {u w nP : Nat} {pps : List (Nat × Nat × AVExpr)} {rss : List (List Bool)}
-    {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)} {ρp : Nat → V}
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)} {ρp : Nat → V}
     (hlen : pps.length = nP + (((pps.drop nP).map (·.2.2))).length)
-    (hX : XChainsOk u w ρp ((pps.drop nP).map (·.2.2)) rss Eiss Fss Ess)
+    (hX : XChainsOk u w ρp ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess)
     (hρp : Sat2 V ((pps.take nP).map (·.2.2)).reverse ρp)
     {A : AVExpr} (hA : ∀ σ : Nat → V, interp2 V σ A
-      = interp2 V (fun j => ρp (j + nP)) (directFixTyAVI u w pps ((pps.drop nP).map (·.2.2)) rss Eiss Fss Ess))
+      = interp2 V (fun j => ρp (j + nP)) (directFixTyAVI u w pps ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess))
     {as : List V} {Eis : List AVExpr}
     (hsp : SpineFit ρp ((pps.drop nP).map (·.2.2)) (Eis.map (interp2 V (consList as ρp)))) :
     interp2 V (consList as ρp) (AVExpr.mkAppN A (paramBvarsAt nP (nP + as.length) ++ Eis))
       = SetTheory.app (fixFamI u w ρp ((pps.drop nP).map (·.2.2)) ((pps.drop nP).map (·.2.2)).length
-          rss Eiss Fss Ess) (tupW u (Eis.map (interp2 V (consList as ρp)))) := by
+          rss tlss Eiss Fss Ess) (tupW u (Eis.map (interp2 V (consList as ρp)))) := by
   have hlenI : (Eis.map (interp2 V (consList as ρp))).length
       = ((pps.drop nP).map (·.2.2)).length := hsp.length_eq
   -- the argument values: the parameters, then the index values
@@ -77,7 +77,7 @@ theorem fixLeafApp {u w nP : Nat} {pps : List (Nat × Nat × AVExpr)} {rss : Lis
     rw [← hlenI]; exact frameIdx_consList' _ ρp
   have hbase : FixBaseI u w (consList ((List.range nP).reverse.map ρp ++
       Eis.map (interp2 V (consList as ρp))) (fun j => ρp (j + nP)))
-      ((pps.drop nP).map (·.2.2)) rss Eiss Fss Ess := by
+      ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess := by
     rw [hframe]
     refine ⟨?_, ?_, ?_⟩
     · rw [hsh]; exact hX.hI
@@ -90,27 +90,30 @@ theorem fixLeafApp {u w nP : Nat} {pps : List (Nat × Nat × AVExpr)} {rss : Lis
 section RealWalk
 
 variable {u w nP nF : Nat} {ρp : Nat → V} {Ids : List AVExpr} {ks : List RecFieldKind}
-  {Fs₀ Fs : List AVExpr} {Eis : List (List AVExpr)} {Es : List AVExpr}
+  {tls : List (List (Nat × Nat × AVExpr))} {Fs₀ Fs : List AVExpr} {Eis : List (List AVExpr)}
+  {Es : List AVExpr}
 
 /-- **The real walk**: along the real chain `Fs`, beside a shadow
 spine, the real chain against the X-source chain `Fs₀`. -/
 theorem fixRealWalk (_hI : IdxOk u ρp Ids) {μ : V}
-    (hC : ChainFacts u w nP nF ρp Ids ks Fs₀ Eis Es)
+    (hC : ChainFacts u w nP nF ρp Ids ks tls Fs₀ Eis Es)
     (hFs : Fs.length = nF)
     -- the real entries mention no recursive slot below them
     (hnb : ∀ i, i < nF →
       NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i)) (Fs.getD i default))
     -- an ordinary real entry is the X-source entry
     (hord : ∀ i, i < nF → ¬ recAt nP ks (nP + i) → Fs.getD i default = Fs₀.getD i default)
-    -- a recursive real entry reads, at a shadow-fitting spine, to the
-    -- family at the tuple of its index expressions' values
-    (hrec : ∀ i, i < nF → recAt nP ks (nP + i) → ∀ as' : List V,
-      SpineFit ρp ((shadowFs nP ks nF Fs₀).take i) as' →
-      interp2 V (consList as' ρp) (Fs.getD i default)
-        = SetTheory.app μ (tupW u ((Eis.getD i []).map (interp2 V (consList as' ρp))))) :
+    -- a recursive real entry reads, at a real spine beside a
+    -- shadow-fitting one, to the slot's value at the family (the
+    -- family at the tuple of its index expressions' values, under the
+    -- field's telescope)
+    (hrec : ∀ i, i < nF → recAt nP ks (nP + i) → ∀ as as' : List V, as.length = i →
+      ShadowRel nP ks as as' → SpineFit ρp ((shadowFs nP ks nF Fs₀).take i) as' →
+      interp2 V (consList as ρp) (Fs.getD i default)
+        = slotSet w u (consList as ρp) (tls.getD i []) (Eis.getD i []) μ) :
     ∀ (m : Nat) (as as' : List V), nF - as.length = m → as.length ≤ nF →
       ShadowRel nP ks as as' → SpineFit ρp ((shadowFs nP ks nF Fs₀).take as.length) as' →
-      ChainRealI μ u ρp Ids (rsOf ks) Eis as.length as (Fs₀.drop as.length) (Fs.drop as.length) := by
+      ChainRealI μ u w ρp Ids (rsOf ks) tls Eis as.length as (Fs₀.drop as.length) (Fs.drop as.length) := by
   intro m
   induction m with
   | zero =>
@@ -138,7 +141,7 @@ theorem fixRealWalk (_hI : IdxOk u ρp Ids) {μ : V}
     have hnext : ∀ (a a' : V), (¬ recAt nP ks (nP + as.length) → a' = a) →
         a' ∈ˢ interp2 V (consList as' ρp)
           (if recAt nP ks (nP + as.length) then AVExpr.sort 0 else Fs₀.getD as.length default) →
-        ChainRealI μ u ρp Ids (rsOf ks) Eis (as.length + 1) (as ++ [a])
+        ChainRealI μ u w ρp Ids (rsOf ks) tls Eis (as.length + 1) (as ++ [a])
           (Fs₀.drop (as.length + 1)) (Fs.drop (as.length + 1)) := by
       intro a a' ha ha'
       have h := ih (as ++ [a]) (as' ++ [a']) (by simp; omega) (by simp; omega)
@@ -154,18 +157,10 @@ theorem fixRealWalk (_hI : IdxOk u ρp Ids) {μ : V}
         exact (rsOf_getD_iff (by rw [hC.hks]; exact hi)).mpr h2
       rw [if_pos hrs]
       obtain ⟨-, -, hrec'⟩ := hC.gr as.length hi as' hsp
-      obtain ⟨hEok', hspE'⟩ := hrec' hr
-      have hEok : ∀ E ∈ Eis.getD as.length [], AnnotOk2 V (consList as ρp) E := fun E hE =>
-        (AnnotOk2_congr_noBVar E (hC.nbE as.length hi hr E hE) hag).mpr (hEok' E hE)
-      have hmap : (Eis.getD as.length []).map (interp2 V (consList as ρp))
-          = (Eis.getD as.length []).map (interp2 V (consList as' ρp)) := by
-        apply List.map_congr_left
-        intro E hE
-        exact interp2_congr_noBVar E (hC.nbE as.length hi hr E hE) hag
-      refine ⟨⟨hEok, by rw [hmap]; exact hspE', ?_⟩, fun a ha => ?_⟩
-      · rw [hvF, hmap]
-        exact hrec as.length hi hr as' hsp
-      · exact (hnext a shadowVal (fun h => absurd hr h) (by rw [if_pos hr]; exact shadowVal_mem))
+      have hfit : SlotFit u w ρp Ids (tls.getD as.length []) (Eis.getD as.length []) as :=
+        slotFit_congr_shadow hrel (hC.nbT as.length hi hr) (hC.nbE as.length hi hr) (hrec' hr)
+      refine ⟨⟨hfit, hrec as.length hi hr as as' rfl hrel hsp⟩, fun a ha => ?_⟩
+      exact (hnext a shadowVal (fun h => absurd hr h) (by rw [if_pos hr]; exact shadowVal_mem))
     · have hrs : (rsOf ks).getD as.length false = false := by
         have := rsOf_getD_iff (ks := ks) (i := as.length) (by rw [hC.hks]; exact hi)
         cases h : (rsOf ks).getD as.length false with
@@ -184,15 +179,15 @@ theorem fixRealWalk (_hI : IdxOk u ρp Ids) {μ : V}
 /-- **The real chain against the X-source chain**, from the walk at
 the empty spine. -/
 theorem chainRealI_of (hI : IdxOk u ρp Ids) {μ : V}
-    (hC : ChainFacts u w nP nF ρp Ids ks Fs₀ Eis Es) (hFs : Fs.length = nF)
+    (hC : ChainFacts u w nP nF ρp Ids ks tls Fs₀ Eis Es) (hFs : Fs.length = nF)
     (hnb : ∀ i, i < nF →
       NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i)) (Fs.getD i default))
     (hord : ∀ i, i < nF → ¬ recAt nP ks (nP + i) → Fs.getD i default = Fs₀.getD i default)
-    (hrec : ∀ i, i < nF → recAt nP ks (nP + i) → ∀ as' : List V,
-      SpineFit ρp ((shadowFs nP ks nF Fs₀).take i) as' →
-      interp2 V (consList as' ρp) (Fs.getD i default)
-        = SetTheory.app μ (tupW u ((Eis.getD i []).map (interp2 V (consList as' ρp))))) :
-    ChainRealI μ u ρp Ids (rsOf ks) Eis 0 [] Fs₀ Fs := by
+    (hrec : ∀ i, i < nF → recAt nP ks (nP + i) → ∀ as as' : List V, as.length = i →
+      ShadowRel nP ks as as' → SpineFit ρp ((shadowFs nP ks nF Fs₀).take i) as' →
+      interp2 V (consList as ρp) (Fs.getD i default)
+        = slotSet w u (consList as ρp) (tls.getD i []) (Eis.getD i []) μ) :
+    ChainRealI μ u w ρp Ids (rsOf ks) tls Eis 0 [] Fs₀ Fs := by
   have h := fixRealWalk hI hC hFs hnb hord hrec nF [] [] (by simp) (by simp)
     (ShadowRel.nil nP ks) trivial
   simpa using h
