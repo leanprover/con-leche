@@ -34,17 +34,18 @@ variable {V : Type w'} [SetTheory V]
 /-! ## Kit -/
 
 /-- The recursive positions as the functor's Bool list. -/
-def rsOf (ks : List RecFieldKind) : List Bool := ks.map fun k => decide (k = .recursive)
+def rsOf (ks : List RecFieldKind) : List Bool := ks.map fun k => decide (k = .recursive ∨ k = .reflexive)
 
 omit [SetTheory V] in
 theorem rsOf_getD {ks : List RecFieldKind} {i : Nat} (hi : i < ks.length) :
-    (rsOf ks).getD i false = decide (ks.getD i .ordinary = .recursive) := by
+    (rsOf ks).getD i false = decide (ks.getD i .ordinary = .recursive ∨ ks.getD i .ordinary = .reflexive) := by
   simp only [rsOf, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hi,
     Option.map_some, Option.getD_some]
 
 omit [SetTheory V] in
 theorem rsOf_getD_iff {ks : List RecFieldKind} {i : Nat} (hi : i < ks.length) :
-    (rsOf ks).getD i false = true ↔ ks.getD i .ordinary = .recursive := by
+    (rsOf ks).getD i false = true ↔
+      (ks.getD i .ordinary = .recursive ∨ ks.getD i .ordinary = .reflexive) := by
   rw [rsOf_getD hi, decide_eq_true_eq]
 
 omit [SetTheory V] in
@@ -212,12 +213,116 @@ theorem mem_fvarLeaves_of_getAppArgs : ∀ (e a : Expr), a ∈ e.getAppArgs →
   | .proj _ _ _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
   | .lit _, _, ha, _, _ => absurd ha (by simp [Expr.getAppArgs])
 
+/-! ## Carrying a slot's fit off the shadow frame -/
+
+omit [SetTheory V] in
+theorem agreeOff_congr {P P' : Nat → Prop} (h : ∀ i, P i ↔ P' i) {σ σ' : Nat → V}
+    (ha : AgreeOff P σ σ') : AgreeOff P' σ σ' :=
+  fun i hi => ha i (fun hp => hi ((h i).mp hp))
+
+omit [SetTheory V] in
+/-- Frames agreeing off the slots of `Q` at depth `d` still agree, one
+binder in, off the slots of `Q` at depth `d + 1`. -/
+theorem agreeOff_exclP_cons {Q : Nat → Prop} {d : Nat} (hQ : ∀ q, Q q → q < d) {σ σ' : Nat → V}
+    (h : AgreeOff (exclP Q d) σ σ') (x : V) :
+    AgreeOff (exclP Q (d + 1)) (cons x σ) (cons x σ') :=
+  agreeOff_congr (shiftP_exclP Q d hQ) (agreeOff_cons h x)
+
+omit [SetTheory V] in
+theorem agreeOff_exclP_consList {Q : Nat → Prop} :
+    ∀ (bs : List V) {d : Nat}, (∀ q, Q q → q < d) → ∀ {σ σ' : Nat → V},
+      AgreeOff (exclP Q d) σ σ' →
+      AgreeOff (exclP Q (d + bs.length)) (consList bs σ) (consList bs σ')
+  | [], _, _, _, _, h => by simpa using h
+  | b :: bs, d, hQ, σ, σ', h => by
+    rw [consList_cons, consList_cons, List.length_cons,
+      show d + (bs.length + 1) = d + 1 + bs.length from by omega]
+    exact agreeOff_exclP_consList bs (fun q hq => Nat.lt_succ_of_lt (hQ q hq))
+      (agreeOff_exclP_cons hQ h b)
+
+/-- **A graded telescope carried between frames** agreeing off the
+slots its domains do not mention. -/
+theorem fieldsOkB_congr_exclP {Q : Nat → Prop} {w : Nat} :
+    ∀ (Fs : List AVExpr) {d : Nat}, (∀ q, Q q → q < d) → ∀ {σ σ' : Nat → V},
+      AgreeOff (exclP Q d) σ σ' →
+      (∀ k F, Fs[k]? = some F → NoBVar (exclP Q (d + k)) F) →
+      FieldsOkB w σ' Fs → FieldsOkB w σ Fs
+  | [], _, _, _, _, _, _, _ => trivial
+  | F :: Fs, d, hQ, σ, σ', hag, hnb, hF => by
+    obtain ⟨hok, hbnd, hrest⟩ := hF
+    have hnb0 : NoBVar (exclP Q d) F := by simpa using hnb 0 F rfl
+    have hv : interp2 V σ F = interp2 V σ' F := interp2_congr_noBVar F hnb0 hag
+    refine ⟨(AnnotOk2_congr_noBVar F hnb0 hag).mpr hok, fun hw => by rw [hv]; exact hbnd hw,
+      fun a ha => ?_⟩
+    rw [hv] at ha
+    refine fieldsOkB_congr_exclP Fs (fun q hq => Nat.lt_succ_of_lt (hQ q hq))
+      (agreeOff_exclP_cons hQ hag a) ?_ (hrest a ha)
+    intro k F' hk
+    have := hnb (k + 1) F' (by simpa using hk)
+    rwa [show d + 1 + k = d + (k + 1) from by omega]
+
+/-- **A spine's fit carried between frames** agreeing off the slots
+the telescope does not mention. -/
+theorem spineFit_congr_exclP {Q : Nat → Prop} :
+    ∀ (Fs : List AVExpr) (bs : List V) {d : Nat}, (∀ q, Q q → q < d) → ∀ {σ σ' : Nat → V},
+      AgreeOff (exclP Q d) σ σ' →
+      (∀ k F, Fs[k]? = some F → NoBVar (exclP Q (d + k)) F) →
+      (SpineFit σ Fs bs ↔ SpineFit σ' Fs bs)
+  | [], [], _, _, _, _, _, _ => Iff.rfl
+  | [], _ :: _, _, _, _, _, _, _ => Iff.rfl
+  | _ :: _, [], _, _, _, _, _, _ => Iff.rfl
+  | F :: Fs, b :: bs, d, hQ, σ, σ', hag, hnb => by
+    have hnb0 : NoBVar (exclP Q d) F := by simpa using hnb 0 F rfl
+    show b ∈ˢ interp2 V σ F ∧ SpineFit (cons b σ) Fs bs ↔
+      b ∈ˢ interp2 V σ' F ∧ SpineFit (cons b σ') Fs bs
+    rw [interp2_congr_noBVar F hnb0 hag,
+      spineFit_congr_exclP Fs bs (fun q hq => Nat.lt_succ_of_lt (hQ q hq))
+        (agreeOff_exclP_cons hQ hag b) ?_]
+    intro k F' hk
+    have := hnb (k + 1) F' (by simpa using hk)
+    rwa [show d + 1 + k = d + (k + 1) from by omega]
+
+/-- **A slot's fit carried off the shadow frame** (task #202): the
+field's telescope domains and index expressions mention no recursive
+slot below the field, so the shadow values there are invisible. -/
+theorem slotFit_congr_shadow {u w : Nat} {ρp : Nat → V} {Ids : List AVExpr} {nP : Nat}
+    {ks : List RecFieldKind} {as as' : List V} (hrel : ShadowRel nP ks as as')
+    {tl : List (Nat × Nat × AVExpr)} {Eis : List AVExpr}
+    (hT : ∀ k d, tl[k]? = some d →
+      NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + as.length) (nP + as.length + k)) d.2.2)
+    (hE : ∀ E ∈ Eis,
+      NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + as.length) (nP + as.length + tl.length)) E)
+    (h : SlotFit u w ρp Ids tl Eis as') : SlotFit u w ρp Ids tl Eis as := by
+  have hQ : ∀ q, (recAt nP ks q ∧ q < nP + as.length) → q < nP + as.length := fun _ h => h.2
+  have hag := agreeOff_shadow hrel ρp
+  have hT' : ∀ k F, (tl.map (·.2.2))[k]? = some F →
+      NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + as.length) (nP + as.length + k)) F := by
+    intro k F hk
+    rw [List.getElem?_map] at hk
+    obtain ⟨d, hd, rfl⟩ := Option.map_eq_some_iff.mp hk
+    exact hT k d hd
+  refine ⟨fieldsOkB_congr_exclP _ hQ hag hT' h.1, h.2.1, fun bs hsp => ?_⟩
+  have hsp' : SpineFit (consList as' ρp) (tl.map (·.2.2)) bs :=
+    (spineFit_congr_exclP _ bs hQ hag hT').mp hsp
+  obtain ⟨hok, hfit⟩ := h.2.2 bs hsp'
+  have hlen : bs.length = tl.length := by rw [hsp.length_eq, List.length_map]
+  have hag' : AgreeOff (exclP (fun q => recAt nP ks q ∧ q < nP + as.length)
+      (nP + as.length + tl.length)) (consList (as ++ bs) ρp) (consList (as' ++ bs) ρp) := by
+    rw [consList_append, consList_append, ← hlen]
+    exact agreeOff_exclP_consList bs hQ hag
+  refine ⟨fun E hE' => (AnnotOk2_congr_noBVar E (hE E hE') hag').mpr (hok E hE'), ?_⟩
+  have hmap : Eis.map (interp2 V (consList (as ++ bs) ρp))
+      = Eis.map (interp2 V (consList (as' ++ bs) ρp)) :=
+    List.map_congr_left fun E hE' => interp2_congr_noBVar E (hE E hE') hag'
+  rw [hmap]; exact hfit
+
 /-! ## The walk -/
 
 section Walk
 
 variable {u w : Nat} {ρp : Nat → V} {Ids : List AVExpr} {nP nF : Nat} {ks : List RecFieldKind}
-  {Fs : List AVExpr} {Eis : List (List AVExpr)} {Es : List AVExpr}
+  {tls : List (List (Nat × Nat × AVExpr))} {Fs : List AVExpr} {Eis : List (List AVExpr)}
+  {Es : List AVExpr}
 
 /-- The per-position facts the walk consumes: the entries, index
 expressions and residual index readings mention no recursive slot
@@ -227,36 +332,36 @@ recursive entry's index expressions are graded and fit the index
 telescope; the residual's index readings are graded at every
 shadow-fitting field spine. -/
 structure ChainFacts (u w nP nF : Nat) (ρp : Nat → V) (Ids : List AVExpr)
-    (ks : List RecFieldKind) (Fs : List AVExpr) (Eis : List (List AVExpr)) (Es : List AVExpr) :
-    Prop where
+    (ks : List RecFieldKind) (tls : List (List (Nat × Nat × AVExpr))) (Fs : List AVExpr)
+    (Eis : List (List AVExpr)) (Es : List AVExpr) : Prop where
   hks : ks.length = nF
   hFs : Fs.length = nF
   hEs : Es.length = Ids.length
   nb : ∀ i, i < nF →
     NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i)) (Fs.getD i default)
+  nbT : ∀ i, i < nF → recAt nP ks (nP + i) → ∀ k d, (tls.getD i [])[k]? = some d →
+    NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i + k)) d.2.2
   nbE : ∀ i, i < nF → recAt nP ks (nP + i) → ∀ E ∈ Eis.getD i [],
-    NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i)) E
+    NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + i) (nP + i + (tls.getD i []).length)) E
   nbEs : ∀ E ∈ Es, NoBVar (exclP (fun q => recAt nP ks q ∧ q < nP + nF) (nP + nF)) E
   gr : ∀ i, i < nF → ∀ as' : List V, SpineFit ρp ((shadowFs nP ks nF Fs).take i) as' →
     AnnotOk2 V (consList as' ρp) (Fs.getD i default) ∧
     (¬ recAt nP ks (nP + i) → w ≠ 0 →
       interp2 V (consList as' ρp) (Fs.getD i default) ∈ˢ (univ w : V)) ∧
-    (recAt nP ks (nP + i) →
-      (∀ E ∈ Eis.getD i [], AnnotOk2 V (consList as' ρp) E) ∧
-      SpineFit ρp Ids ((Eis.getD i []).map (interp2 V (consList as' ρp))))
+    (recAt nP ks (nP + i) → SlotFit u w ρp Ids (tls.getD i []) (Eis.getD i []) as')
   grE : ∀ as' : List V, SpineFit ρp (shadowFs nP ks nF Fs) as' →
     ∀ E ∈ Es, AnnotOk2 V (consList as' ρp) E
 
 /-- **The walk**: along the X-chain, beside a shadow spine. -/
 theorem fixChainWalk (hI : IdxOk u ρp Ids) {X : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) {t : V} (ht : t ∈ˢ idxSet u ρp Ids)
-    (hC : ChainFacts u w nP nF ρp Ids ks Fs Eis Es) :
+    (hC : ChainFacts u w nP nF ρp Ids ks tls Fs Eis Es) :
     ∀ (m : Nat) (as as' : List V), nF - as.length = m → as.length ≤ nF →
       ShadowRel nP ks as as' → SpineFit ρp ((shadowFs nP ks nF Fs).take as.length) as' →
       FieldsOkB w (consList as (cons t (cons X ρp)))
-        (chainXIGo u Ids (rsOf ks) Eis (Fs.drop as.length) as.length ++
+        (chainXIGo u Ids (rsOf ks) tls Eis (Fs.drop as.length) as.length ++
           [idxEqAV (eqsXI Ids.length nF Es)]) ∧
-      SlotsFitX u ρp Ids (rsOf ks) Eis X t as.length as (Fs.drop as.length) := by
+      SlotsFitX u w ρp Ids (rsOf ks) tls Eis X t as.length as (Fs.drop as.length) := by
   intro m
   induction m with
   | zero =>
@@ -298,9 +403,9 @@ theorem fixChainWalk (hI : IdxOk u ρp Ids) {X : V}
         a' ∈ˢ interp2 V (consList as' ρp)
           (if recAt nP ks (nP + as.length) then AVExpr.sort 0 else Fs.getD as.length default) →
         FieldsOkB w (consList (as ++ [a]) (cons t (cons X ρp)))
-          (chainXIGo u Ids (rsOf ks) Eis (Fs.drop (as.length + 1)) (as.length + 1) ++
+          (chainXIGo u Ids (rsOf ks) tls Eis (Fs.drop (as.length + 1)) (as.length + 1) ++
             [idxEqAV (eqsXI Ids.length nF Es)]) ∧
-        SlotsFitX u ρp Ids (rsOf ks) Eis X t (as.length + 1) (as ++ [a])
+        SlotsFitX u w ρp Ids (rsOf ks) tls Eis X t (as.length + 1) (as ++ [a])
           (Fs.drop (as.length + 1)) := by
       intro a a' ha ha'
       have h := ih (as ++ [a]) (as' ++ [a']) (by simp; omega) (by simp; omega)
@@ -314,25 +419,16 @@ theorem fixChainWalk (hI : IdxOk u ρp Ids) {X : V}
         have h2 := hr.2
         rw [Nat.add_sub_cancel_left] at h2
         exact (rsOf_getD_iff (by rw [hC.hks]; exact hi)).mpr h2
-      obtain ⟨hEok', hspE'⟩ := hrec' hr
-      have hEok : ∀ E ∈ Eis.getD as.length [], AnnotOk2 V (consList as ρp) E := fun E hE =>
-        (AnnotOk2_congr_noBVar E (hC.nbE as.length hi hr E hE) hag).mpr (hEok' E hE)
-      have hmap : (Eis.getD as.length []).map (interp2 V (consList as ρp))
-          = (Eis.getD as.length []).map (interp2 V (consList as' ρp)) := by
-        apply List.map_congr_left
-        intro E hE
-        exact interp2_congr_noBVar E (hC.nbE as.length hi hr E hE) hag
-      have hspE : SpineFit ρp Ids ((Eis.getD as.length []).map (interp2 V (consList as ρp))) := by
-        rw [hmap]; exact hspE'
-      obtain ⟨hval, hokX, huniv⟩ := recSlot_facts hI hX as t hEok hspE
-      have hx : xEntry u Ids (rsOf ks) Eis (Fs.getD as.length default) as.length
-          = .app (.bvar (as.length + 1))
-            (AVExpr.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0)
-              ((Eis.getD as.length []).map (·.liftN 2 as.length))) := by
+      have hfit : SlotFit u w ρp Ids (tls.getD as.length []) (Eis.getD as.length []) as :=
+        slotFit_congr_shadow hrel (hC.nbT as.length hi hr) (hC.nbE as.length hi hr) (hrec' hr)
+      have hx : xEntry u Ids (rsOf ks) tls Eis (Fs.getD as.length default) as.length
+          = slotXI u Ids (tls.getD as.length []) (Eis.getD as.length []) as.length := by
         unfold xEntry; rw [if_pos hrs]
       rw [hx]
-      refine ⟨⟨hokX, fun _ => by rw [hval]; exact huniv, fun a ha => ?_⟩,
-        fun _ => ⟨hEok, hspE⟩, fun a ha => ?_⟩
+      obtain ⟨hokX, huniv⟩ := slotXI_ok2 hI hX as t hfit
+      have hval := slotXI_interp (X := X) hI as t hfit
+      refine ⟨⟨hokX, fun hw => by rw [hval]; exact huniv hw, fun a ha => ?_⟩,
+        fun _ => hfit, fun a ha => ?_⟩
       · rw [consList_snoc']
         exact (hnext a shadowVal (fun h => absurd hr h) (by rw [if_pos hr]; exact shadowVal_mem)).1
       · rw [hx] at ha
@@ -348,7 +444,7 @@ theorem fixChainWalk (hI : IdxOk u ρp Ids) {X : V}
           refine ⟨Nat.le_add_right _ _, ?_⟩
           rw [Nat.add_sub_cancel_left]
           exact this.mp h
-      have hx : xEntry u Ids (rsOf ks) Eis (Fs.getD as.length default) as.length
+      have hx : xEntry u Ids (rsOf ks) tls Eis (Fs.getD as.length default) as.length
           = (Fs.getD as.length default).liftN 2 as.length := by
         unfold xEntry; rw [if_neg (by rw [hrs]; exact Bool.false_ne_true)]
       rw [hx]
@@ -371,9 +467,9 @@ theorem fixChainWalk (hI : IdxOk u ρp Ids) {X : V}
 spine. -/
 theorem fixChain_of (hI : IdxOk u ρp Ids) {X : V}
     (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) {t : V} (ht : t ∈ˢ idxSet u ρp Ids)
-    (hC : ChainFacts u w nP nF ρp Ids ks Fs Eis Es) :
-    FieldsOkB w (cons t (cons X ρp)) (chainXI u Ids Ids.length (rsOf ks) Eis Fs Es) ∧
-    SlotsFitX u ρp Ids (rsOf ks) Eis X t 0 [] Fs := by
+    (hC : ChainFacts u w nP nF ρp Ids ks tls Fs Eis Es) :
+    FieldsOkB w (cons t (cons X ρp)) (chainXI u Ids Ids.length (rsOf ks) tls Eis Fs Es) ∧
+    SlotsFitX u w ρp Ids (rsOf ks) tls Eis X t 0 [] Fs := by
   have h := fixChainWalk hI hX ht hC nF [] [] (by simp) (by simp) (ShadowRel.nil nP ks) trivial
   simp only [List.length_nil, List.drop_zero, consList_nil] at h
   rw [chainXI, hC.hFs]

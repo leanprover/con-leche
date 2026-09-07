@@ -500,6 +500,85 @@ theorem slotXI_interp {w u : Nat} {ρp : Nat → V} {Ids : List AVExpr} (hI : Id
       show as.length + tl.length = (as ++ bs).length from by simp [hlen],
       Xframe_X, hval, consList_append]
 
+/-- **The product over a graded, bounded telescope lives in the
+universe** its body's values do. -/
+theorem piTele_mem_univ {w : Nat} (hw : w ≠ 0) {B : List V → V} :
+    ∀ (Fs : List AVExpr) {σ : Nat → V} {acc : List V},
+      FieldsOkB w σ Fs →
+      (∀ as, SpineFit σ Fs as → B (acc ++ as) ∈ˢ (univ w : V)) →
+      piTele w (teleOfFields σ Fs) B acc ∈ˢ (univ w : V)
+  | [], _, _, _, hB => by simpa [piTele] using hB [] trivial
+  | F :: Fs, σ, acc, hF, hB => by
+    obtain ⟨-, hbnd, hrest⟩ := hF
+    simp only [teleOfFields_cons, piTele]
+    have := piR_mem_univ (hbnd hw) fun a ha =>
+      piTele_mem_univ hw Fs (acc := acc ++ [a]) (hrest a ha) fun as hsp => by
+        have := hB (a :: as) ⟨ha, hsp⟩
+        rwa [List.append_assoc, List.singleton_append]
+    rwa [if_neg hw, show Nat.max w w = w from Nat.max_self w] at this
+
+/-- **A Π-tower is graded** when its domains are along the telescope
+and its body is at every fitting spine. -/
+theorem AnnotOk2_mkPisAV_of {w : Nat} {R : AVExpr} :
+    ∀ {gds : List (Nat × Nat × AVExpr)} {σ : Nat → V},
+      FieldsOkB w σ (gds.map (·.2.2)) →
+      (∀ as, SpineFit σ (gds.map (·.2.2)) as → AnnotOk2 V (consList as σ) R) →
+      AnnotOk2 V σ (mkPisAV gds R)
+  | [], _, _, hR => by simpa [mkPisAV, consList] using hR [] trivial
+  | d :: gds, σ, hF, hR => by
+    rw [List.map_cons] at hF
+    obtain ⟨hok, -, hrest⟩ := hF
+    simp only [mkPisAV, AnnotOk2_pi]
+    refine ⟨hok, fun x hx => ?_⟩
+    refine AnnotOk2_mkPisAV_of (hrest x hx) fun as hsp => ?_
+    have := hR (x :: as) ⟨hx, hsp⟩
+    rwa [consList_cons] at this
+
+/-- A telescope graded at the parameter frame under the fields is
+graded, lifted, at the X-frame. -/
+theorem fieldsOkB_liftTele2 {w : Nat} {ρp : Nat → V} (t X : V) :
+    ∀ (tl : List (Nat × Nat × AVExpr)) (as : List V),
+      FieldsOkB w (consList as ρp) (tl.map (·.2.2)) →
+      FieldsOkB w (consList as (cons t (cons X ρp))) ((liftTele2 as.length tl).map (·.2.2))
+  | [], _, _ => trivial
+  | d :: tl, as, hF => by
+    rw [liftTele2_cons, List.map_cons]
+    rw [List.map_cons] at hF
+    obtain ⟨hok, hbnd, hrest⟩ := hF
+    refine ⟨(AnnotOk2_chainXI_ord _ as t X).mpr hok,
+      fun hw => by rw [interp2_chainXI_ord]; exact hbnd hw, fun a ha => ?_⟩
+    rw [interp2_chainXI_ord] at ha
+    rw [consList_snoc']
+    have := fieldsOkB_liftTele2 t X tl (as ++ [a]) (by rw [← consList_snoc']; exact hrest a ha)
+    rw [length_snoc'] at this
+    exact this
+
+/-- **The recursive slot is graded at the X-frame**, and its value
+lives in the family's universe (task #202: through the field's
+telescope). -/
+theorem slotXI_ok2 {w u : Nat} {ρp : Nat → V} {Ids : List AVExpr} (hI : IdxOk u ρp Ids) {X : V}
+    (hX : X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids)) (as : List V) (t : V)
+    {tl : List (Nat × Nat × AVExpr)} {Eis : List AVExpr} (hfit : SlotFit u w ρp Ids tl Eis as) :
+    AnnotOk2 V (consList as (cons t (cons X ρp))) (slotXI u Ids tl Eis as.length) ∧
+    (w ≠ 0 → slotSet w u (consList as ρp) tl Eis X ∈ˢ (univ w : V)) := by
+  constructor
+  · unfold slotXI
+    refine AnnotOk2_mkPisAV_of (w := w) (fieldsOkB_liftTele2 t X tl as hfit.1) fun bs hsp => ?_
+    have hsp' := (spineFit_liftTele2 t X tl as bs).mp hsp
+    have hlen : bs.length = tl.length := by rw [hsp'.length_eq, List.length_map]
+    obtain ⟨hEok, hspE⟩ := hfit.2.2 bs hsp'
+    have h := (recSlot_facts hI hX (as ++ bs) t hEok hspE).2.1
+    rw [List.length_append, hlen, consList_append] at h
+    rw [show as.length + 1 + tl.length = as.length + tl.length + 1 from by omega,
+      show as.length + 2 + tl.length = as.length + tl.length + 2 from by omega]
+    exact h
+  · intro hw
+    unfold slotSet
+    refine piTele_mem_univ hw _ hfit.1 fun bs hsp => ?_
+    simp only [List.nil_append]
+    rw [← consList_append]
+    exact (recSlot_facts hI hX (as ++ bs) t (hfit.2.2 bs hsp).1 (hfit.2.2 bs hsp).2).2.2
+
 /-- The recursive slots' fit, hereditarily along the X-chain at
 `(X, t)`: at each recursive position the slot fits (`SlotFit`). -/
 def SlotsFitX (u w : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rs : List Bool)
