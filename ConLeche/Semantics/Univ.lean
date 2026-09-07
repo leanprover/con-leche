@@ -1,9 +1,9 @@
-import Lech.Semantics.Kit
+import ConLeche.Semantics.Kit
 
 /-!
 # The universe question, in the `pt`-free world (task #151, tier B)
 
-*(Re-based to `Lech/SetBase/*` at THE SEPARATION's S2, task #161: the
+*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161: the
 module already imported nothing but base, and the graded lane needs it.
 Path and module name changed; namespaces, statements and proofs
 verbatim.)*
@@ -40,7 +40,7 @@ re-choice is **not needed** — indeed there is nothing left for it to
 fix.  What forced `pt ∈ univ (u+1)` was that a `Type`-level abstraction
 could *be* `pt`; here `lamR_ne_pt` says it never is, and
 `not_pt_mem_piR_pos` says the proof point inhabits no graph-regime
-product at all.  Both `Lech/SetTheory/Core.lean`'s transitivity
+product at all.  Both `ConLeche/SetTheory/Core.lean`'s transitivity
 clause and the ω-chain stay exactly as they are; this layer imposes no
 new demand on them.  Recorded as a **negative finding** in
 `docs/SetR-DESIGN.md`, tier B.
@@ -61,8 +61,8 @@ Two further facts fall out and are proved below:
   contain `pt`.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
 
@@ -186,4 +186,4 @@ theorem interp2_sort_mem (V : Type w) [SetTheory V] (ρ : Nat → V) (n : Nat) :
 theorem interp2_sort_mono (V : Type w) [SetTheory V] (ρ : Nat → V) {m n : Nat}
     (h : m ≤ n) : interp2 V ρ (.sort m) ⊆ˢ interp2 V ρ (.sort n) := univ_mono h
 
-end Lech.Semantics
+end ConLeche.Semantics

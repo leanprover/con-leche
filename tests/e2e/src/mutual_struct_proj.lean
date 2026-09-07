@@ -2,7 +2,7 @@
 
 /- End-to-end test: the projection functions of a MUTUAL pair of
    structures, rewritten to recursor applications by the frontend
-   (`Lech/Frontend/ProjRec.lean`, 2026-09-06).
+   (`ConLeche/Frontend/ProjRec.lean`, 2026-09-06).
 
    `Node`/`Forest` are `structure`s in one `mutual` block, so the
    elaborator emits `Node.n := fun self => self.1` (a `.proj` node) for

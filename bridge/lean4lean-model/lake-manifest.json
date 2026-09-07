@@ -3,7 +3,7 @@
  "packages":
  [{"type": "path",
    "scope": "",
-   "name": "lech",
+   "name": "con-leche",
    "manifestFile": "lake-manifest.json",
    "inherited": false,
    "dir": "../..",
@@ -108,6 +108,6 @@
    "inputRev": "v4.33.0",
    "inherited": true,
    "configFile": "lakefile.toml"}],
- "name": "«lech-bridge-lean4lean-model»",
+ "name": "«con-leche-bridge-lean4lean-model»",
  "lakeDir": ".lake",
  "fixedToolchain": false}

@@ -1,15 +1,15 @@
-import Lech.Verify.Denote
-import Lech.Verify.InstLevels
+import ConLeche.Verify.Denote
+import ConLeche.Verify.InstLevels
 
 /-!
 # The denotation and level parameters
 
-Relocated out of `Lech/TTVerify/Extend.lean` (task #148, T3): this
+Relocated out of `ConLeche/TTVerify/Extend.lean` (task #148, T3): this
 block is **V-free and lane-independent** — it says that `denote` reads
 an expression's *own* level parameters and nothing else
 (`denote_params_ext`), and that level instantiation composes the
 assignment (`denote_instLevels`).  Both the TT lane (`EnvTT.cons`'s
-`hparams`, the delta step) and the `Lech/SetR/*` bridge need them, so
+`hparams`, the delta step) and the `ConLeche/SetR/*` bridge need them, so
 they live below both rather than inside one.
 
 The statements are unchanged; only the module is new.  (The campaign
@@ -17,13 +17,13 @@ design's T1 lists exactly this kind of move — "relocate the V-free
 denote stack to a neutral home"; this is the slice the bridge forced.)
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-! ## The denotation reads only an expression's own level parameters
 
-Transpose of `interp_params_ext` (`Lech/Model/InterpLemmas.lean`),
+Transpose of `interp_params_ext` (`ConLeche/Model/InterpLemmas.lean`),
 and the fact every install case needs to discharge `EnvTT.cons`'s
 `hparams`: a definition's denotation is a function of its *own* level
 parameters, so storing it as the new constant's value respects
@@ -314,7 +314,7 @@ theorem denote_params_ext {env : Env} {cval : TConstVal}
     | .lit (.strVal t) => exact (k10 t rfl).elim
 
 /-- **Level instantiation composes the level assignment.**  Transpose
-of `interp_instLevels` (`Lech/Model/InterpLemmas.lean`).  The delta
+of `interp_instLevels` (`ConLeche/Model/InterpLemmas.lean`).  The delta
 step needs it: `unfoldDefinition` substitutes the levels *into* the
 stored value, while `defn_eq` speaks about the stored value under a
 substituted *assignment*, and this is the bridge between the two.
@@ -409,4 +409,4 @@ theorem denote_instLevels {env : Env} {cval : TConstVal}
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim
 
-end Lech.Verify
+end ConLeche.Verify

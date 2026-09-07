@@ -9,7 +9,7 @@
    missing model.  The raw line is the guard for task #202 / the
    `agent/reflexive` `.reflexive` kind: it must move 2 -> 0 there.
 
-   official: 0.  lech at master 700a06ca: 0 piped, 2 raw (both modes).
+   official: 0.  con-leche at master 700a06ca: 0 piped, 2 raw (both modes).
    Probe of record: _tmp/indaudit/probes/P/ReflexiveTool.lean. -/
 inductive W'
   | sup (f : Nat → W')

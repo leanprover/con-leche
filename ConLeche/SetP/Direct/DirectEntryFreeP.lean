@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectEntryKit2P
+import ConLeche.SetP.Direct.DirectEntryKit2P
 
 /-!
 # Unused fields are invariant (task #175 W4c, P3 module 7, part 10)
@@ -18,13 +18,13 @@ grading are invariant under a lift's index (`interp2_congr_lifts`,
 `annotOkP_congr_lifts`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BinderMeta)
 
 universe w
 
@@ -613,4 +613,4 @@ theorem eval_foldl_max_if_zero_iff (ψ : Name → Nat) (used : Nat → Bool) (s 
       · rintro ⟨⟨h0, ha⟩, hl⟩; exact ⟨h0, ha, hl⟩
       · rintro ⟨h0, ha, hl⟩; exact ⟨⟨h0, ha⟩, hl⟩
 
-end Lech.SetP
+end ConLeche.SetP

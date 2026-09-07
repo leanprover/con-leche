@@ -1,7 +1,7 @@
-import Lech.SetP.Step2.ReadsP
-import Lech.SetP.Annot.ValidVSpine
-import Lech.Semantics.LitStep2
-import Lech.Verify.EnvGuards
+import ConLeche.SetP.Step2.ReadsP
+import ConLeche.SetP.Annot.ValidVSpine
+import ConLeche.Semantics.LitStep2
+import ConLeche.Verify.EnvGuards
 
 /-!
 # The literal tier, P currency (task #161)
@@ -13,7 +13,7 @@ The three routed literal rows — `ReduceNatReadsP` (`Step2/ReadsP.lean`),
 ## What lands here
 
 `reduceNat`'s reduct is a **leaf**: a `Nat` literal, or a `Bool`
-constructor constant applied to nothing (`Lech.reduceNat_inv`).  So
+constructor constant applied to nothing (`ConLeche.reduceNat_inv`).  So
 every conjunct of the three rows *except one* is a fact about a leaf,
 and this file proves them all, unconditionally:
 
@@ -57,7 +57,7 @@ the whnf IH the wall record recorded as owed.
 ## The refuted erasure factoring (PERMANENT RECORD)
 
 The natural plan was to reuse the collapse lane, which proved this row
-at `Lech/SetR/Bridge/ReduceNat.lean` (`reduceNat_stepR`): read the
+at `ConLeche/SetR/Bridge/ReduceNat.lean` (`reduceNat_stepR`): read the
 subject through `denoteP_erase`, run the v1 row, and transport the
 answer back along `EnvS2Core.acval_erase`.  **That route is refuted,
 and the refutation is already on record** — `Interp2/EnvLaws2.lean`'s
@@ -94,13 +94,13 @@ Two independent confirmations, both checked rather than assumed:
    run-certificate laws rather than transported.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo natOpResult
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo natOpResult
   natOpGuard natLitSupported reduceNatP)
 
 universe w
@@ -110,7 +110,7 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
 
 /-! ## The reduct's shape, with the guard that makes it read
 
-`Lech.reduceNat_inv` already reports the reduct's *shape* — a `Nat`
+`ConLeche.reduceNat_inv` already reports the reduct's *shape* — a `Nat`
 literal or a bare constant.  A reading needs more: the literal clause
 of `denoteP` is guarded by `natLitSupported`, and the constant clause
 needs the name stored at the right arity.  Both are supplied by the
@@ -133,16 +133,16 @@ stripped off. -/
 private theorem natLeafP_of_natOpResult {c : Name} {n₁ n₂ : Nat}
     {r : Expr} (hguard : natOpGuard env c = true)
     (hres : natOpResult c n₁ n₂ = some r) : NatLeafP env r := by
-  obtain ⟨hnat, -⟩ := Lech.natOpGuard_deps hguard
-  rcases Lech.natOpResult_atom hres with ⟨k, rfl⟩ | ⟨hc, hbool⟩
+  obtain ⟨hnat, -⟩ := ConLeche.natOpGuard_deps hguard
+  rcases ConLeche.natOpResult_atom hres with ⟨k, rfl⟩ | ⟨hc, hbool⟩
   · exact Or.inl ⟨k, rfl, hnat⟩
-  · have hc' : c = Lech.natBeqName ∨ c = Lech.natBleName ∨
-        Lech.natDivModNames.contains c = true := by
+  · have hc' : c = ConLeche.natBeqName ∨ c = ConLeche.natBleName ∨
+        ConLeche.natDivModNames.contains c = true := by
       rcases hc with rfl | rfl
       · exact Or.inl rfl
       · exact Or.inr (Or.inl rfl)
     obtain ⟨⟨ciT, hfT, hlpT⟩, ciF, hfF, hlpF⟩ :=
-      Lech.natOpGuard_bools hguard hc'
+      ConLeche.natOpGuard_bools hguard hc'
     rcases hbool with rfl | rfl
     · exact Or.inr ⟨_, ciT, rfl, hfT, hlpT⟩
     · exact Or.inr ⟨_, ciF, rfl, hfF, hlpF⟩
@@ -157,13 +157,13 @@ is carried by `NatOpsP`/`DivModP`, whose statement is exactly "stored
 as a `defnInfo` → guard ∧ the recurrences".  So the tier reads the
 guard off the environment, and nothing about the shapes changes. -/
 def NatOpGuardLawP (env : Env) : Prop :=
-  ∀ c, (c ∈ Lech.natOpNames ∨ c ∈ Lech.natDivModNames) →
-    Lech.natOpStored env c = true → Lech.natOpGuard env c = true
+  ∀ c, (c ∈ ConLeche.natOpNames ∨ c ∈ ConLeche.natDivModNames) →
+    ConLeche.natOpStored env c = true → ConLeche.natOpGuard env c = true
 
 /-- `EnvS2PM` supplies it, from `nat_ops` and `div_mod`. -/
 theorem natOpGuardLawP_of (mp : EnvS2PM V μ env) : NatOpGuardLawP env := by
   intro c hmem hst
-  obtain ⟨cv, v, hh, hf⟩ := Lech.natOpStored_inv hst
+  obtain ⟨cv, v, hh, hf⟩ := ConLeche.natOpStored_inv hst
   rcases hmem with hm | hm
   · exact (mp.nat_ops (fun _ => 0) c hm cv v hh hf).1
   · exact (mp.div_mod (fun _ => 0) c hm cv v hh hf).1
@@ -174,18 +174,18 @@ private theorem natLeafP_unary (_hlaw : NatOpGuardLawP env)
     {fuel d : Nat} {c : Name} {a e₂ : Expr}
     (h : reduceNatP μ env fuel d (.app (.const c []) a)
       = .ok (some e₂)) : NatLeafP env e₂ := by
-  simp only [reduceNatP, Lech.reduceNat, Bind.bind, Except.bind,
-    Lech.whnf_def] at h
+  simp only [reduceNatP, ConLeche.reduceNat, Bind.bind, Except.bind,
+    ConLeche.whnf_def] at h
   split at h
   · -- `Nat.succ` packing
     next hcond =>
     obtain ⟨rfl, hnat⟩ := hcond
-    cases hwa : Lech.whnf μ env fuel d a with
+    cases hwa : ConLeche.whnf μ env fuel d a with
     | error err => rw [hwa] at h; exact nomatch h
     | ok a0 =>
     rw [hwa] at h
     dsimp only at h
-    cases hra : Lech.rawNatLit? a0 with
+    cases hra : ConLeche.rawNatLit? a0 with
     | none => rw [hra] at h; simp [pure, Except.pure] at h
     | some n =>
       rw [hra] at h
@@ -203,12 +203,12 @@ private theorem natLeafP_binary (hlaw : NatOpGuardLawP env)
     {a b e₂ : Expr}
     (h : reduceNatP μ env fuel d (.app (.app (.const c []) a) b)
       = .ok (some e₂)) : NatLeafP env e₂ := by
-  simp only [reduceNatP, Lech.reduceNat, Bind.bind, Except.bind,
-    Lech.whnf_def] at h
+  simp only [reduceNatP, ConLeche.reduceNat, Bind.bind, Except.bind,
+    ConLeche.whnf_def] at h
   split at h
   · next hcond =>
     obtain ⟨hnames, hstored⟩ := hcond
-    have hmem : c ∈ Lech.natOpNames ∨ c ∈ Lech.natDivModNames := by
+    have hmem : c ∈ ConLeche.natOpNames ∨ c ∈ ConLeche.natDivModNames := by
       rcases hnames with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
         rfl | rfl | rfl | rfl | rfl | rfl <;>
         first
@@ -216,22 +216,22 @@ private theorem natLeafP_binary (hlaw : NatOpGuardLawP env)
         | exact Or.inr (by decide)
     have hguard := hlaw _ hmem hstored
     -- first argument first; the second only behind a literal (D15)
-    cases hwa : Lech.whnf μ env fuel d a with
+    cases hwa : ConLeche.whnf μ env fuel d a with
     | error err => rw [hwa] at h; exact nomatch h
     | ok a0 =>
     rw [hwa] at h
     dsimp only at h
-    cases hra : Lech.rawNatLit? a0 with
+    cases hra : ConLeche.rawNatLit? a0 with
     | none => rw [hra] at h; simp [pure, Except.pure] at h
     | some n₁ =>
     rw [hra] at h
     dsimp only at h
-    cases hwb : Lech.whnf μ env fuel d b with
+    cases hwb : ConLeche.whnf μ env fuel d b with
     | error err => rw [hwb] at h; exact nomatch h
     | ok b0 =>
     rw [hwb] at h
     dsimp only at h
-    cases hrb : Lech.rawNatLit? b0 with
+    cases hrb : ConLeche.rawNatLit? b0 with
     | none => rw [hrb] at h; simp [pure, Except.pure] at h
     | some n₂ =>
       rw [hrb] at h
@@ -246,29 +246,29 @@ private theorem natLeafP_binary (hlaw : NatOpGuardLawP env)
         exact natLeafP_of_natOpResult hguard hres
   · split at h
     · -- the WF-pin safety net
-      cases hwa : Lech.whnf μ env fuel d a with
+      cases hwa : ConLeche.whnf μ env fuel d a with
       | error err => rw [hwa] at h; exact nomatch h
       | ok a0 =>
       rw [hwa] at h
       dsimp only at h
-      cases hra : Lech.rawNatLit? a0 with
+      cases hra : ConLeche.rawNatLit? a0 with
       | none => rw [hra] at h; simp [pure, Except.pure] at h
       | some n₁ =>
       rw [hra] at h
       dsimp only at h
-      cases hwb : Lech.whnf μ env fuel d b with
+      cases hwb : ConLeche.whnf μ env fuel d b with
       | error err => rw [hwb] at h; exact nomatch h
       | ok b0 =>
       rw [hwb] at h
       dsimp only at h
-      cases hrb : Lech.rawNatLit? b0 with
+      cases hrb : ConLeche.rawNatLit? b0 with
       | none => rw [hrb] at h; simp [pure, Except.pure] at h
       | some n₂ =>
         rw [hrb] at h
         simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp [pure, Except.pure] at h
 
-/-- **`Lech.reduceNat_inv`, strengthened with the guard.**  The two
+/-- **`ConLeche.reduceNat_inv`, strengthened with the guard.**  The two
 accelerating shapes are the only ones that reduce, and each carries the
 stored-environment fact its reading needs. -/
 theorem reduceNat_natLeafP (hlaw : NatOpGuardLawP env)
@@ -281,14 +281,14 @@ theorem reduceNat_natLeafP (hlaw : NatOpGuardLawP env)
   | .bvar _, h | .fvar _ _, h | .sort _, h | .lam _ _ _, h
   | .forallE _ _ _, h | .letE _ _ _, h | .lit _, h
   | .proj _ _ _, h | .const _ _, h =>
-    simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
+    simp [reduceNatP, ConLeche.reduceNat, pure, Except.pure] at h
   | .app (.bvar _) _, h | .app (.fvar _ _) _, h
   | .app (.sort _) _, h | .app (.lam _ _ _) _, h
   | .app (.forallE _ _ _) _, h | .app (.letE _ _ _) _, h
   | .app (.lit _) _, h | .app (.proj _ _ _) _, h =>
-    simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
+    simp [reduceNatP, ConLeche.reduceNat, pure, Except.pure] at h
   | .app (.const c (_ :: _)) _, h =>
-    simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
+    simp [reduceNatP, ConLeche.reduceNat, pure, Except.pure] at h
   | .app (.app (.bvar _) _) _, h | .app (.app (.fvar _ _) _) _, h
   | .app (.app (.sort _) _) _, h | .app (.app (.app _ _) _) _, h
   | .app (.app (.lam _ _ _) _) _, h
@@ -296,9 +296,9 @@ theorem reduceNat_natLeafP (hlaw : NatOpGuardLawP env)
   | .app (.app (.letE _ _ _) _) _, h
   | .app (.app (.lit _) _) _, h
   | .app (.app (.proj _ _ _) _) _, h =>
-    simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
+    simp [reduceNatP, ConLeche.reduceNat, pure, Except.pure] at h
   | .app (.app (.const c (_ :: _)) _) _, h =>
-    simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
+    simp [reduceNatP, ConLeche.reduceNat, pure, Except.pure] at h
 
 /-! ## What a guarded leaf gives: the reading, the frame, the grading -/
 
@@ -378,5 +378,5 @@ theorem reduceNatReadsP_of (m : EnvS2Core V env) (hlaw : NatOpGuardLawP env)
   rw [fvarLeaves_of_natLeafP hleaf] at hl
   exact nomatch hl
 
-end Lech.SetP
+end ConLeche.SetP
 

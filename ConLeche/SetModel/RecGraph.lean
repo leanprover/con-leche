@@ -1,5 +1,5 @@
-import Lech.SetTheory.Derive.LfpFam
-import Lech.SetTheory.Derive.Pt
+import ConLeche.SetTheory.Derive.LfpFam
+import ConLeche.SetTheory.Derive.Pt
 
 /-!
 # The recursion theorem by lfp induction (task #202, Stage A2)
@@ -26,7 +26,7 @@ are singletons, the graph of their elements witnesses existence
 function, by function extensionality on `piSet`.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -258,4 +258,4 @@ theorem recGraph_exists_unique (hB : ∀ i, i ∈ˢ I → B i ∈ˢ (univ ℓ : 
 
 end RecTheorem
 
-end Lech.SetTheory
+end ConLeche.SetTheory

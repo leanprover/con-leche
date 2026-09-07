@@ -1,5 +1,5 @@
-import Lech.Verify.Direct.DirectResid
-import Lech.Verify.ProjTele
+import ConLeche.Verify.Direct.DirectResid
+import ConLeche.Verify.ProjTele
 
 /-!
 # The projection bodies, opened (task #175 S1)
@@ -23,7 +23,7 @@ raw binder domain, with `instPisAtLift_head`/`instPisAt_head`
 identifying the two walks' head domains.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Expr
 
@@ -417,4 +417,4 @@ theorem directProjBody_open {T : Name} {nP nF : Nat} {cty : Expr}
     instSeq_eq_self_of_bounded _ _ hdomB (by simp [fvsD_length]; omega)] at hcol
   rw [hlenB, hlenF, hcol]
 
-end Lech
+end ConLeche

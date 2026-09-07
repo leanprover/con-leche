@@ -1,14 +1,14 @@
-import Lech.SetP.Claims2PIO
-import Lech.SetP.CtxOkPKit
-import Lech.SetP.Annot.BitLemmas
-import Lech.SetP.Annot.BitInst
-import Lech.SetP.Annot.ValidVSpine
-import Lech.Verify.InferLemmas
-import Lech.Semantics.Frame
-import Lech.Semantics.Skeleton
-import Lech.Semantics.Hoist
-import Lech.Semantics.LitStep2
-import Lech.Semantics.LitParams
+import ConLeche.SetP.Claims2PIO
+import ConLeche.SetP.CtxOkPKit
+import ConLeche.SetP.Annot.BitLemmas
+import ConLeche.SetP.Annot.BitInst
+import ConLeche.SetP.Annot.ValidVSpine
+import ConLeche.Verify.InferLemmas
+import ConLeche.Semantics.Frame
+import ConLeche.Semantics.Skeleton
+import ConLeche.Semantics.Hoist
+import ConLeche.Semantics.LitStep2
+import ConLeche.Semantics.LitParams
 
 /-!
 # The infer quarter, P currency — the worked ∀ clause (task #161, P3.5)
@@ -46,13 +46,13 @@ at the grading the clause's own residue supplies — the D-tier's
 self-propagation argument, inherited.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level whnf inferTypeCore)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level whnf inferTypeCore)
 
 universe w
 
@@ -92,7 +92,7 @@ def SortSemAtIOSP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     CtxOkP m φ d Δa e →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
-    Lech.inferTypeIO μ env fuel d e = .ok t →
+    ConLeche.inferTypeIO μ env fuel d e = .ok t →
     whnf μ env fuel d t = .ok (.sort u) →
     denoteP m.acval env φ d e = some ea →
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) →
@@ -121,7 +121,7 @@ def AcvalValidP {env : Env} (m : EnvS2Core V env) : Prop :=
 transposed: no fuel, `AnnotOkP` conclusion). -/
 def ConstTypeP {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop :=
-  ∀ (d : Nat) (n : Name) (ci : Lech.ConstantInfo) (us : List Level),
+  ∀ (d : Nat) (n : Name) (ci : ConLeche.ConstantInfo) (us : List Level),
     env.find? n = some ci → ci.isTowerEntry = false →
     us.length = ci.toConstantVal.levelParams.length →
     ∃ ta,
@@ -148,8 +148,8 @@ theorem infer_const_claimP (m : EnvS2Core V env)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, pure,
+  rw [ConLeche.inferTypeCore_succ] at h
+  simp only [ConLeche.inferBody, pure,
     Except.pure, Bind.bind, Except.bind] at h
   cases hf : env.find? n with
   | none =>
@@ -188,8 +188,8 @@ theorem infer_sort_claimP (m : EnvS2Core V env) {d : Nat} {u : Level}
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, pure,
+  rw [ConLeche.inferTypeCore_succ] at h
+  simp only [ConLeche.inferBody, pure,
     Except.pure, Except.ok.injEq] at h
   subst h
   rw [denoteP_sortQ] at hea hta
@@ -211,8 +211,8 @@ theorem infer_bvar_claimP (m : EnvS2Core V env) {d i : Nat} {t : Expr}
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody] at h
+  rw [ConLeche.inferTypeCore_succ] at h
+  simp only [ConLeche.inferBody] at h
   simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- `.fvar`, P currency: the leaf package of `CtxOkP` carries the
@@ -232,8 +232,8 @@ theorem infer_fvar_claimP (m : EnvS2Core V env)
   obtain ⟨-, -, tya, Aa, hden, hi, hlink, hokP⟩ := CtxOkP.fvar_leaf hC
   rw [denoteP] at hea
   obtain rfl : ea = .bvar (d - 1 - idx) := (Option.some.inj hea).symm
-  rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, pure,
+  rw [ConLeche.inferTypeCore_succ] at h
+  simp only [ConLeche.inferBody, pure,
     Except.pure] at h
   split at h
   · simp only [Except.ok.injEq] at h
@@ -250,7 +250,7 @@ theorem infer_fvar_claimP (m : EnvS2Core V env)
 moves annotated inline. -/
 theorem infer_forallE_claimP (m : EnvS2Core V env)
     (hμ : μ.verifiedChecks = true) (hss : SortSemAtP m μ φ fuel)
-    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : ConLeche.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.forallE ty body mb)
       = .ok t)
@@ -266,7 +266,7 @@ theorem infer_forallE_claimP (m : EnvS2Core V env)
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   -- move 1: the run inversion, validation conjunct included
   obtain ⟨tty, u, bt, v, hty, hwu, hbt, hens, hpw, rfl⟩ :=
-    Lech.inferTypeCore_forall_inv h
+    ConLeche.inferTypeCore_forall_inv h
   have hz := hpw hμ
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -288,7 +288,7 @@ theorem infer_forallE_claimP (m : EnvS2Core V env)
     CtxOkP.openS hC.forallE_ty hC.forallE_body htyA
       (fun ρ hρ => (hdomU ρ hρ).1)
   have hcodU := hss hCop hwopen hbopen hLopen hbt
-    (Lech.ensureSortCore_inv hens) hbaA
+    (ConLeche.ensureSortCore_inv hens) hbaA
   refine ⟨?_, ?_, ?_⟩
   · -- AnnotOkP of the ∀ node itself
     intro ρ hρ
@@ -356,7 +356,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
     (hμ : μ.verifiedChecks = true) (hss : SortSemAtP m μ φ fuel)
     (hsss : SortSemAtIOSP m μ φ fuel)
     (ihi : InferClaims2P μ m φ fuel)
-    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : ConLeche.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.lam ty body mb) = .ok t)
     (hws : Expr.WScoped d (.lam ty body mb))
@@ -370,7 +370,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   obtain ⟨tty, u, bt, hty, hwu, hbt, hleafC, hchainC, rfl⟩ :=
-    Lech.inferTypeCore_lam_inv h
+    ConLeche.inferTypeCore_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLty : Expr.LeavesBounded ty := fun l hl =>
@@ -448,10 +448,10 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
           bt = .forallE (tyI.instantiate1 (.fvar d ty)) btI mbI := by
         cases fuel with
         | zero =>
-          rw [Lech.inferTypeCore_zero] at hbt
+          rw [ConLeche.inferTypeCore_zero] at hbt
           simp [throw, throwThe, MonadExceptOf.throw] at hbt
         | succ f =>
-          exact Lech.infer_lam_meta_copy hbt
+          exact ConLeche.infer_lam_meta_copy hbt
       obtain ⟨tyIA, btIA, -, -, rfl⟩ := denoteP_forallE_inv hbtA
       rw [interp2_pi]
       have hinner : pwBit φ mbI.pw = 0 := by
@@ -521,7 +521,7 @@ membership and the successor's, at the annotated valuation's own
 `Nat` leaf. -/
 def NatHeadsP {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop :=
-  Lech.natLitSupported env = true →
+  ConLeche.natLitSupported env = true →
   ∀ ρ : Nat → V,
     interp2 V ρ (m.acval natZeroName (Level.substFn φ [] []))
       ∈ˢ interp2 V ρ (m.acval natName (Level.substFn φ [] [])) ∧
@@ -544,14 +544,14 @@ theorem infer_natLit_claimP (m : EnvS2Core V env) (hnh : NatHeadsP m φ)
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
-  rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, pure,
+  rw [ConLeche.inferTypeCore_succ] at h
+  simp only [ConLeche.inferBody, pure,
     Except.pure] at h
   split at h
   · next hg =>
     simp only [Except.ok.injEq] at h
     subst h
-    have hgt : Lech.natLitSupported env = true := by simpa using hg
+    have hgt : ConLeche.natLitSupported env = true := by simpa using hg
     rw [denoteP, if_pos hgt] at hea
     obtain rfl : ea = natLitT2
         (m.acval natZeroName (Level.substFn φ [] []))
@@ -559,7 +559,7 @@ theorem infer_natLit_claimP (m : EnvS2Core V env) (hnh : NatHeadsP m φ)
       (Option.some.inj hea).symm
     cases hf : env.find? natName with
     | none =>
-      simp only [Lech.natLitSupported, Bool.and_eq_true] at hgt
+      simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hgt
       obtain ⟨⟨h1, -⟩, -⟩ := hgt
       rw [hf] at h1
       exact nomatch h1
@@ -720,7 +720,7 @@ dropped. -/
 theorem weakenTop {d : Nat} {e : Expr} (hw : Expr.WScoped d e)
     (h : LeafReadsP m φ d e) : LeafReadsP m φ (d + 1) e := by
   intro l hl
-  obtain ⟨hlt, hwl⟩ := Lech.Expr.WScoped_leaves e hw l hl
+  obtain ⟨hlt, hwl⟩ := ConLeche.Expr.WScoped_leaves e hw l hl
   obtain ⟨tya, hden⟩ := h l hl
   refine ⟨tya.liftN 1 0, ?_⟩
   rw [denoteP_weaken_top m.acval_closed (hwl.mono (by omega)), hden]
@@ -736,9 +736,9 @@ theorem openS {d : Nat} {ty body : Expr} {ta : AVExpr}
     (hty : denoteP m.acval env φ d ty = some ta) :
     LeafReadsP m φ (d + 1) (body.instantiate1 (.fvar d ty)) := by
   intro l hl
-  rcases Lech.Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+  rcases ConLeche.Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
   · exact weakenTop hwb hbd l hl'
-  · rw [Lech.Expr.fvarLeaves] at hl'
+  · rw [ConLeche.Expr.fvarLeaves] at hl'
     rcases List.mem_cons.mp hl' with rfl | hl''
     · refine ⟨ta.liftN 1 0, ?_⟩
       rw [denoteP_weaken_top m.acval_closed hwt, hty]
@@ -772,7 +772,7 @@ the two lanes' (`inferReadsIOSP_of`, `InferIOP.lean`). -/
 def InferReadsIOSP {env : Env} (m : EnvS2Core V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {ea : AVExpr},
-    Lech.inferTypeIO μ env fuel d e = .ok t →
+    ConLeche.inferTypeIO μ env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     LeafReadsP m φ d e →
@@ -846,7 +846,7 @@ theorem infer_letE_claimP (m : EnvS2Core V env)
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   obtain ⟨tty, sv, tvv, hty, hes, hvv, -, hbody⟩ :=
-    Lech.inferTypeCore_letE_inv h
+    ConLeche.inferTypeCore_letE_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLval : Expr.LeavesBounded val := fun l hl =>
@@ -894,7 +894,7 @@ theorem infer_letE_claimP (m : EnvS2Core V env)
   have hrowTE : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ tyA :=
     fun ρ hρ =>
       (hss hC.letE_ty hws.1 hb.1.1 hLty hty
-        (Lech.ensureSortCore_inv hes) htyA ρ hρ).1
+        (ConLeche.ensureSortCore_inv hes) htyA ρ hρ).1
   obtain ⟨hrowBE, hrowBT, hrowBM⟩ :=
     ihi hbody hwred hbred hLred hCred hcross hta
   refine ⟨?_, hrowBT, ?_⟩
@@ -948,7 +948,7 @@ theorem infer_app_claimP (m : EnvS2Core V env)
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea ∈ˢ interp2 V ρ ta := by
   obtain ⟨tf, ty', body', mb', htf, hwf, rfl, tya, hia, hde⟩ :=
-    Lech.inferTypeCore_app_inv h
+    ConLeche.inferTypeCore_app_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLf : Expr.LeavesBounded f := fun l hl =>
@@ -1165,4 +1165,4 @@ theorem inferStepP_of (h : InferInputsP V μ)
   | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
     exact h.proj m φ fuel hrun hws hb hLb hC hea hta
 
-end Lech.SetP
+end ConLeche.SetP

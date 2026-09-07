@@ -1,5 +1,5 @@
-import Lech.Kernel.BasisA
-import Lech.Kernel.BasisGen
+import ConLeche.Kernel.BasisA
+import ConLeche.Kernel.BasisGen
 
 /-!
 # Recognized standard axioms and their prerequisite shapes
@@ -12,10 +12,10 @@ global choice (through the stored `Nonempty` recursor) — so the
 checker accepts exactly these two axioms, after pinning their types
 and the *shapes of the inductives they quantify over* to what the
 preprocessor emits.  Raw pins below, hand-written through the builder
-in `Lech/Kernel/Basis/Builder.lean`; the annotated forms — what the
+in `ConLeche/Kernel/Basis/Builder.lean`; the annotated forms — what the
 checker's own annotation produces for them, in dependency order — are
 computed from them at elaboration time by `#annotate_basis` /
-`#annotate_pins` (`Lech/Kernel/BasisGen.lean`).
+`#annotate_pins` (`ConLeche/Kernel/BasisGen.lean`).
 
 **Binder annotations (tasks #142, #203, #205).**  A pin carries no
 binder name and no binder info — `Expr` has neither field (task #205),
@@ -26,7 +26,7 @@ model's "same denotation" relation, up to `fvar` type annotations —
 bridges a hit.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Name (anonymous)
 open BasisDSL
@@ -41,7 +41,7 @@ def choiceName : Name := (anonymous |>.str "Classical") |>.str "choice"
 never installed; any use is skipped and taints the run): exactly
 `sorryAx` (user ruling).  The `Init` compiler-trust family
 (`Lean.trustCompiler`, `Lean.ofReduceNat`, `Lean.ofReduceBool`) is
-*installed* instead (task #95, `Lech/Kernel/TrustAxioms.lean`); any
+*installed* instead (task #95, `ConLeche/Kernel/TrustAxioms.lean`); any
 other non-pinned axiom is a positive decline at its own record. -/
 def toleratedAxiomNames : List Name :=
   [ anonymous |>.str "sorryAx" ]
@@ -208,7 +208,7 @@ def choiceRaw : ConstantVal :=
 
 Computed from the raw pins above by the checker's own annotation pass
 while this module elaborates (`#annotate_basis`,
-`Lech/Kernel/BasisGen.lean`), in the same dependency order the
+`ConLeche/Kernel/BasisGen.lean`), in the same dependency order the
 prerequisite families would be installed in — over the pinned `Eq`
 basis, which `propext`'s conclusion mentions. -/
 
@@ -235,7 +235,7 @@ arm stays a single conditional.
 type.**  The verification has to *realize* the axiom, and the two
 spellings differ: the checker's `propext` takes `Iff a b`, while the
 declarative layer's takes the two implications separately
-(`Lech/VExpr/Const.lean`).  Bridging them needs the implications
+(`ConLeche/VExpr/Const.lean`).  Bridging them needs the implications
 extracted from the `Iff` — and **nothing in the layer turns an
 inhabitant of an opaque family into its fields except that family's own
 recursor**, since a modeled inductive is opaque to the interpretation
@@ -279,4 +279,4 @@ def stdAxiomOk (env : Env) (cvA : ConstantVal) : Bool :=
     ConstantVal.matchesPin cvA choiceA
   else false
 
-end Lech
+end ConLeche

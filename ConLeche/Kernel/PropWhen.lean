@@ -1,6 +1,6 @@
 module
 
-public import Lech.Kernel.Name
+public import ConLeche.Kernel.Name
 
 /-!
 # The zero-ness datum `PropWhen` — representation, API and laws
@@ -36,7 +36,7 @@ every producer (`ifAllZero`, `inter`, `bindZ`, hence
 `ifAllZero ps = ifAllZero qs ↔ (∀ n, n ∈ ps ↔ n ∈ qs)`
 (`ifAllZero_eq_iff`), `=`/`==`/`DecidableEq`/`Hashable` all decide
 zero-ness agreement, and the level-instantiation identity law
-(`Level.substPW_self`, `Lech/Verify/PropWhen.lean`) holds
+(`Level.substPW_self`, `ConLeche/Verify/PropWhen.lean`) holds
 unconditionally — amendment 2's counterexample (DESIGN.md, task #161
 P1) was a *normalizing* substitution meeting a *non-canonical* input,
 and non-canonical inputs no longer exist.
@@ -44,20 +44,20 @@ and non-canonical inputs no longer exist.
 What is *not* here is what is not about the datum alone: the laws
 relating it to `Level` (`Level.zeronessOf`, `Level.substPW` —
 `zeronessOf_sound`, `zeronessOf_subst`, `substPW_self`,
-`substPW_comp`, `holds_substPW`) live in `Lech/Verify/PropWhen.lean`,
+`substPW_comp`, `holds_substPW`) live in `ConLeche/Verify/PropWhen.lean`,
 because `Level` is defined *above* this module, and they are proved
 purely through the API exported here.
 
-Layering: this module imports `Lech.Kernel.Name` and nothing else.
+Layering: this module imports `ConLeche.Kernel.Name` and nothing else.
 -/
 
 public section
 
-namespace Lech
+namespace ConLeche
 
 /-! ## A strict total order on names
 
-There is no order on `Lech.Name` elsewhere in the tree (the `NNode`
+There is no order on `ConLeche.Name` elsewhere in the tree (the `NNode`
 arena keys by interned index, the level arena stores raw names), so
 the canonical form needs one.  `Name.cmp` is the structural
 lexicographic order — the shape of `Lean.Name.quickLt` minus the hash
@@ -389,7 +389,7 @@ every level `l`, the set `Z(l) := {φ | eval φ l = 0}` of zeroing
 valuations is either empty (`never`) or of the form "every parameter
 in `ps` is zero" (`ifAllZero ps`; `ps = []` = always zero) — see
 `Level.zeronessOf` and the mechanized battery in
-`Lech.Verify.PropWhen`.
+`ConLeche.Verify.PropWhen`.
 
 `ps` is a parameter *set*, and the datum is its **canonical**
 representative (task #194): the smart constructor `ifAllZero` sorts
@@ -425,7 +425,7 @@ private theorem repr_inj {a b : PropWhen} (h : a.repr = b.repr) : a = b := by
 
 `DecidableEq` is structural equality spelled constructor-wise
 (`equivR`) so that the name comparisons go through `Name.beq` (the
-pointer-and-hash-guarded equality, `Lech/Kernel/Name.lean`) rather
+pointer-and-hash-guarded equality, `ConLeche/Kernel/Name.lean`) rather
 than the derived structural walk; `equivR_iff_eq` says it *is*
 equality.  `==` is the `DecidableEq`, so `=`, `==`, `decide` and every
 checker comparison site run the same code.
@@ -673,9 +673,9 @@ def reprPrec' (pw : PropWhen) (prec : Nat) : Std.Format :=
   Repr.addAppParen
     (Std.Format.group (Std.Format.nest (if prec ≥ 1024 then 1 else 2)
       (match pw.toList? with
-        | none => Std.Format.text "Lech.PropWhen.never"
+        | none => Std.Format.text "ConLeche.PropWhen.never"
         | some ps =>
-          Std.Format.text "Lech.PropWhen.ifAllZero" ++ Std.Format.line ++
+          Std.Format.text "ConLeche.PropWhen.ifAllZero" ++ Std.Format.line ++
             reprArg ps)))
     prec
 
@@ -992,7 +992,7 @@ end PropWhen
 /-! ## The law battery
 
 Everything below is a fact about the datum alone; it needs no `Level`
-and no `Expr`.  Moved here from `Lech/Verify/PropWhen.lean` on
+and no `Expr`.  Moved here from `ConLeche/Verify/PropWhen.lean` on
 2026-09-06 (the `Std.HashMap` pattern: the structure carries its
 laws), statements unchanged — and unchanged again at task #194, when
 the representation became canonical: the proofs below go through the
@@ -1091,4 +1091,4 @@ where
 
 end PropWhen
 
-end Lech
+end ConLeche

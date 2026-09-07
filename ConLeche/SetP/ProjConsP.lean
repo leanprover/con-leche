@@ -1,6 +1,6 @@
-import Lech.SetP.ProjRenameP
-import Lech.SetP.IndProjEtaP
-import Lech.Semantics.ProjFnFacts
+import ConLeche.SetP.ProjRenameP
+import ConLeche.SetP.IndProjEtaP
+import ConLeche.Semantics.ProjFnFacts
 
 /-!
 # The projection-function cons, P tier (task #161, IND TIER part 10)
@@ -26,13 +26,13 @@ is exactly three things:
   `acvalWith_self` makes its head the installed constant's leaf.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps projFnName projModelName projFwd ReducibilityHint)
 
 universe w
@@ -87,7 +87,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     (hTblock : blockNames.contains T = true)
     (hnotb : blockNames.contains (projFnName T i) = false)
     (hpinsT : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
-      Lech.EtaPins μ env' T cvT.levelParams capsT)
+      ConLeche.EtaPins μ env' T cvT.levelParams capsT)
     (hCblock : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → blockNames.contains capsT.etaCtor = true)
     (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
@@ -98,7 +98,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
     (hctorsHead : ∀ (cvR : ConstantVal) (mI rP : Nat)
       (rules₀ : List RecRule), c₀ = .recInfo cvR mI rP rules₀ →
       ∀ r ∈ rules₀, ∃ cvj cnP cnF,
-        env'.find? (Lech.RecRule.ctor r)
+        env'.find? (ConLeche.RecRule.ctor r)
           = some (.ctorInfo cvj cnP cnF))
     -- the fired rules: the bottom fires BELOW this cons
     (hnew : ∀ m₂ : EnvS2Core V ⟨c₀ :: env'.consts⟩,
@@ -124,9 +124,9 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
   have hnotb₀ : blockNames.contains c₀.name = false := by
     rw [hname]; exact hnotb
   have hstrNe₀ : ∀ n : Name, c₀.name ≠ n.str "_model" := by
-    rw [hname]; exact fun n => Lech.Name.num_ne_str _ _ _ _
-  have hnres : Lech.reservedBasisNames.contains c₀.name = false := by
-    rw [hname]; exact Lech.reservedBasisNames_not_num _ _
+    rw [hname]; exact fun n => ConLeche.Name.num_ne_str _ _ _ _
+  have hnres : ConLeche.reservedBasisNames.contains c₀.name = false := by
+    rw [hname]; exact ConLeche.reservedBasisNames_not_num _ _
   -- the installed leaf
   obtain ⟨A, hA⟩ : ∃ A : (Name → Nat) → AVExpr,
       A = fun ψ => mp.base2.acval (projModelName T i) ψ := ⟨_, rfl⟩
@@ -137,7 +137,7 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
   have hrenP : pty.renameConsts (fun n =>
       if (env'.find? n).isSome = true then
         projFwd T ctorName nF n else n) = mcv.type := by
-    rw [Lech.Expr.renameConsts_congr_resolve
+    rw [ConLeche.Expr.renameConsts_congr_resolve
       (g := projFwd T ctorName nF)
       (fun n hn => by simp only [hn, if_true]) _ hptyres]
     exact eq_of_beq hround
@@ -221,8 +221,8 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
         rw [hac, ← hname, acvalWith_self, hAdef]
       · have hjneP : projFnName T j ≠ projFnName T i := by
           intro hh
-          have hh2 : Lech.Name.num (T.str "proj") j
-            = Lech.Name.num (T.str "proj") i := hh
+          have hh2 : ConLeche.Name.num (T.str "proj") j
+            = ConLeche.Name.num (T.str "proj") i := hh
           injection hh2 with _hp hij
           exact hji hij
         obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfam.2.2 j hj
@@ -262,4 +262,4 @@ theorem projConsP {env' : Env} (mp : EnvS2PM V μ env')
   · rw [hmp']
     exact blockAcvalInstalled_fresh_cons hIA hnotb₀ hstrNe₀
 
-end Lech.SetP
+end ConLeche.SetP

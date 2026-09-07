@@ -1,4 +1,4 @@
-import Lech.Frontend.InModel.Nested
+import ConLeche.Frontend.InModel.Nested
 
 /-!
 # The in-process modeller (task #200)
@@ -15,16 +15,16 @@ through the modeled route exactly as a preprocessed one does.
 Soundness needs nothing from this module: a wrong record is rejected
 or declined by the fold, never accepted.  Its correctness decides only
 *coverage* — which blocks accept — and every decline names its reason
-so the residual (what still needs `lech-preprocess`) is exact.
+so the residual (what still needs `con-leche-preprocess`) is exact.
 
 Rungs: `genMutual` (B1: index-free mutual; B2 adds indices), nested
 (B3/B4) to follow.
 -/
 
-namespace Lech.Frontend.InModel
+namespace ConLeche.Frontend.InModel
 
-open Lech
-open Lech.Cached (DeclC)
+open ConLeche
+open ConLeche.Cached (DeclC)
 
 /-- Is the block one this modeller is for: mutual (several types) or
 nested (`numNested > 0`)? -/
@@ -39,4 +39,4 @@ def generate (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) :=
   else
     genMutual ctx b
 
-end Lech.Frontend.InModel
+end ConLeche.Frontend.InModel

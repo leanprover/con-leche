@@ -1,5 +1,5 @@
-import Lech.SetTheory.Derive.Omega
-import Lech.SetTheory.Derive.Graphs
+import ConLeche.SetTheory.Derive.Omega
+import ConLeche.SetTheory.Derive.Graphs
 
 /-!
 # Recursion on `ω`
@@ -12,7 +12,7 @@ function (`app`), matching the `SetTheory.natrec` interface; off `ω`
 the value is junk (`empty`), which no law constrains.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -66,4 +66,4 @@ theorem natrec_mem_vsucc {M z s n : V}
 /- Opaque interface operator (see `Derive/Empty.lean`). -/
 attribute [irreducible] natrec
 
-end Lech.SetTheory
+end ConLeche.SetTheory

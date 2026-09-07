@@ -1,5 +1,5 @@
-import Lech.SetP.Annot.ValidV
-import Lech.SetP.Annot.Bit
+import ConLeche.SetP.Annot.ValidV
+import ConLeche.SetP.Annot.Bit
 
 /-!
 # Bit validity of the literal spines (task #161, P3.5)
@@ -12,11 +12,11 @@ clause recurses, and the leaves are the routed `AcvalValidP` facts at
 the clause's own `acval` reads.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.Semantics (AVExpr)
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -47,4 +47,4 @@ theorem AnnotValidV_charListT2 {nilA consA ofNatA za sa : AVExpr}
       exact ⟨h3, AnnotValidV_natLitT2 hz hs c.toNat⟩⟩,
       AnnotValidV_charListT2 h1 h2 h3 hz hs cs⟩
 
-end Lech.SetP
+end ConLeche.SetP

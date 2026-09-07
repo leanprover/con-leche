@@ -1,5 +1,5 @@
-import Lech.SetP.DirectFix.FixDataP
-import Lech.SetP.DirectFix.FixNoBVarP
+import ConLeche.SetP.DirectFix.FixDataP
+import ConLeche.SetP.DirectFix.FixNoBVarP
 
 /-!
 # The shadow context: a recursive constructor's entries graded off the
@@ -21,13 +21,13 @@ constrains a context only at the leaves of the term read.  The rows
 residual, at every frame satisfying it (`fixShadowGrading`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -213,7 +213,7 @@ context. -/
 theorem fixShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env}
-    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₁ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
@@ -233,13 +233,13 @@ theorem fixShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
       AnnotOkP V ρ (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ))) := by
   -- the run's pieces
   obtain ⟨hccv, -, fvsP', crest', tfvs, trest, xFvs', idxArgs', sorts, hopC, -, -, hopX, -, -, -,
-    hsorts⟩ := Lech.checkDirectSumCtor_shape hCtor
+    hsorts⟩ := ConLeche.checkDirectSumCtor_shape hCtor
   obtain ⟨crest, hopP, hopXX⟩ := hD.opens
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))
   obtain ⟨rfl, hxrest⟩ := Prod.mk.inj (Option.some.inj (hopXX.symm.trans hopX))
   obtain ⟨-, -, -, -, hlbt, hitf, type', stype, u, hann', -, -, hst, hens, hcv⟩ :=
-    Lech.checkConstantVal_inv hccv
-  obtain ⟨hlenS, hfields⟩ := Lech.checkDirectFieldSortsI_inv hsorts
+    ConLeche.checkConstantVal_inv hccv
+  obtain ⟨hlenS, hfields⟩ := ConLeche.checkDirectFieldSortsI_inv hsorts
   have htyEq : cvCa.type = type' := by rw [hcv]
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
   rw [← htyEq] at htf' hbt' hst
@@ -328,4 +328,4 @@ theorem fixShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
     hO.bodyScoped.2.2.1 hCR hO.body ρ hρ
   exact hrow.1
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,10 +1,10 @@
-import Lech.SetModel.Ops
-import Lech.VExpr.Const
+import ConLeche.SetModel.Ops
+import ConLeche.VExpr.Const
 
 /-!
 # The built-in constants, two-regime (task #151, tier B — B2)
 
-`Lech/VExpr/Semantics/Value.lean`'s `bval` restated over `piR`/`lamR`.
+`ConLeche/VExpr/Semantics/Value.lean`'s `bval` restated over `piR`/`lamR`.
 The old towers are `lamC`-built, so they inherit the domain-relative
 collapse; these are annotation-built, and the law surface changes with
 them in the way the tier-B design priced.
@@ -58,10 +58,10 @@ is gone:
   fact *already* annotation-driven — the recorded precedent.
 -/
 
-namespace Lech.SetModel
+namespace ConLeche.SetModel
 
 open SetTheory
-open Lech.VExpr (BConst lv)
+open ConLeche.VExpr (BConst lv)
 
 universe w
 
@@ -507,7 +507,7 @@ theorem emptyRecV2_zero : emptyRecV2 V 0 = pt := lamR_zero
 /-! ## `lfpFam` (task #188, indexed)
 
 The least pre-fixed point of a functor on FAMILIES over an index set `I`
-(`lfpFamSet`, `Lech/SetTheory/Derive/LfpFam.lean`).  The family space
+(`lfpFamSet`, `ConLeche/SetTheory/Derive/LfpFam.lean`).  The family space
 `I → Sort w` is `piR (w + 1) I (fun _ => univ w)` — bit `w + 1`, the
 codomain's sort, so a graph at every regime; the functor space is the
 arrow over it at the sort `max u (w + 1)` of `I → Sort w`.  Total: the
@@ -548,7 +548,7 @@ theorem lfpFamV2_mem (u w : Nat) :
 /-! ## The value assignment -/
 
 /-- The two-regime value of each built-in constant at a concrete level
-instantiation — `Lech.VExpr.bval`'s transpose.  `quotInd`, `quotSound`
+instantiation — `ConLeche.VExpr.bval`'s transpose.  `quotInd`, `quotSound`
 and `propext` are the canonical proof because their result sorts *are*
 `0`; `punitUnit` is because `unitSet = {pt}` at every level.  The one
 value that differs from `bval` beyond the operator change is
@@ -574,4 +574,4 @@ noncomputable def bval2 : BConst → List Nat → V
   | .choice, us => choiceV2 V (lv us 0)
   | .lfpFam, us => lfpFamV2 V (lv us 0) (lv us 1)
 
-end Lech.SetModel
+end ConLeche.SetModel

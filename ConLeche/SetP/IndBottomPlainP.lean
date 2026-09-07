@@ -1,4 +1,4 @@
-import Lech.SetP.IndPinGradeP
+import ConLeche.SetP.IndPinGradeP
 
 /-!
 # The plain bottom, at the reading (task #161, IND TIER part 7)
@@ -22,13 +22,13 @@ taking `Δa := Γs` makes that entry condition `rfl`-shaped and the
 zipper's `Sat2 V Γs (chainP V ρ zs)` output *is* the stages' input.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta isDefEqCore inferTypeCore DefEqListOk)
 
 universe w
@@ -325,7 +325,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     rw [denoteP_renameConsts hroT]
     exact hTVj0
   have hokTVj : ∀ σ : Nat → V, AnnotOkP V σ TVja :=
-    mp.type_okP _ (Lech.Semantics.Env.find?_mem hctorE)
+    mp.type_okP _ (ConLeche.Semantics.Env.find?_mem hctorE)
       (Level.substFn φ lps us) TVja hTVj0
   obtain ⟨⟨bsC, cbody⟩, hstripC⟩ := Option.isSome_iff_exists.mp hCstrips
   obtain ⟨Γj, Rj, htowerJ, hΓjlen0, hRjdenA, hdomsJ⟩ :=
@@ -671,11 +671,11 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
   have hwsL : Expr.WScoped (rP + cnF) lhsS := hwsBody.getAppArgs lhsS hmemL
   have hwsR : Expr.WScoped (rP + cnF) rhsS := hwsBody.getAppArgs rhsS hmemR
   have hbα : αS.looseBVarsBounded 0 = true :=
-    Lech.looseBVarsBounded_getAppArgs hbBody αS hmemα
+    ConLeche.looseBVarsBounded_getAppArgs hbBody αS hmemα
   have hbL : lhsS.looseBVarsBounded 0 = true :=
-    Lech.looseBVarsBounded_getAppArgs hbBody lhsS hmemL
+    ConLeche.looseBVarsBounded_getAppArgs hbBody lhsS hmemL
   have hbR : rhsS.looseBVarsBounded 0 = true :=
-    Lech.looseBVarsBounded_getAppArgs hbBody rhsS hmemR
+    ConLeche.looseBVarsBounded_getAppArgs hbBody rhsS hmemR
   have hLα : Expr.LeavesBounded αS := fun l hl =>
     hlbFvs l.1 l.2 (hleafα l hl)
   have hLL : Expr.LeavesBounded lhsS := fun l hl =>
@@ -1152,4 +1152,4 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     (fun τ => (hRaFacts τ).1) hinstLam hdeLam hzslen hsat
     (teleFitPA_to_chain (rP + cnF) htowerS hzslen hfitS) hzsAnnot
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,4 +1,4 @@
-import Lech.Kernel.Basis.Builder
+import ConLeche.Kernel.Basis.Builder
 
 /-!
 # The pinned `Quot` basis block
@@ -12,10 +12,10 @@ element), and `Quot.sound` as a stored axiom (true in the set model).
 The raw pins below match the exporter's `quot` records (and
 `Quot.sound`'s `axiom` record) verbatim; the *annotated* forms
 (`quotA`, …) are computed from them by the checker's own annotation
-pass at elaboration time; see `Lech/Kernel/BasisA.lean`.
+pass at elaboration time; see `ConLeche/Kernel/BasisA.lean`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open BasisDSL
 
@@ -113,4 +113,4 @@ def quotSoundRaw : ConstantInfo :=
 def quotBasis : List ConstantInfo :=
   [quotRaw, quotMkRaw, quotLiftRaw, quotIndRaw, quotSoundRaw]
 
-end Lech
+end ConLeche

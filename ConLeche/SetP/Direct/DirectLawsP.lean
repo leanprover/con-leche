@@ -1,5 +1,5 @@
-import Lech.SetP.Direct.DirectCapsP
-import Lech.SetP.Direct.DirectFramesP
+import ConLeche.SetP.Direct.DirectCapsP
+import ConLeche.SetP.Direct.DirectFramesP
 
 /-!
 # The direct block's family laws (task #175 W4c, P3 module 5, part 2)
@@ -15,13 +15,13 @@ The block's own capability laws, from the leaves' semantic summary:
   point and so is the constructor's application.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
 
 universe w
 
@@ -138,4 +138,4 @@ theorem directEtaLawP0 {m : EnvS2Core V env} {φ' : Name → Nat} {T : Name}
       rw [hfd]
       rfl
 
-end Lech.SetP
+end ConLeche.SetP

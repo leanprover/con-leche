@@ -1,12 +1,12 @@
-import Lech.Kernel.Env
+import ConLeche.Kernel.Env
 
 /-!
 # Basis names
 
-The reserved names of the pinned basis blocks (see `Lech.Kernel.Basis`).
+The reserved names of the pinned basis blocks (see `ConLeche.Kernel.Basis`).
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Name (anonymous)
 
@@ -60,7 +60,7 @@ def quotIndName : Name := quotName |>.str "ind"
 def quotSoundName : Name := quotName |>.str "sound"
 
 /-! The names of the string-literal support constants (see
-`strLitSupported` in `Lech.Kernel.Core`).  These are *not* basis
+`strLitSupported` in `ConLeche.Kernel.Core`).  These are *not* basis
 names — the constants are ordinary stream-installed declarations
 (preprocessor-modeled inductives and plain definitions); the names are
 pinned only so that a string literal knows what it unfolds to
@@ -99,4 +99,4 @@ def reservedBasisNames : List Name :=
    falseName, falseName.str "rec",
    quotName, quotMkName, quotLiftName, quotIndName, quotSoundName]
 
-end Lech
+end ConLeche

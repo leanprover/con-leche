@@ -1,6 +1,6 @@
 {
-"format":"lech-natop-pins/3",
-"_README":"GENERATED FILE — do not edit.  The pinned Nat-operation defining expressions and their certificate proof blobs, as share tables (see Lech/PinGen/Dump.lean for the encoding).  Spliced into Lech/Kernel/NatOpPins.lean by #load_natop_pins.  The built-in prelude the pins' order-sensitive ground needs (task #191) is the sidecar file named by preludeFile, embedded by Lech/Frontend/Prelude.lean; orderResidual lists, per operation, the order-sensitive ground that stays the stream's (see Lech/PinGen/Prelude.lean).",
+"format":"con-leche-natop-pins/3",
+"_README":"GENERATED FILE — do not edit.  The pinned Nat-operation defining expressions and their certificate proof blobs, as share tables (see ConLeche/PinGen/Dump.lean for the encoding).  Spliced into ConLeche/Kernel/NatOpPins.lean by #load_natop_pins.  The built-in prelude the pins' order-sensitive ground needs (task #191) is the sidecar file named by preludeFile, embedded by ConLeche/Frontend/Prelude.lean; orderResidual lists, per operation, the order-sensitive ground that stays the stream's (see ConLeche/PinGen/Prelude.lean).",
 "_regenerate":"lake exe natop-pins-export   — then commit the result; tests/pindump.sh (run from tests/arena.sh) diffs this file against a fresh regeneration and fails if it is stale.",
 "toolchain":"leanprover/lean4:v4.33.0",
 "leanVersion":"4.33.0",
@@ -20,8 +20,8 @@
 "ops":[
 {
 "op":"Nat.mod",
-"pinName":"Lech.natModDeclPin",
-"proofsName":"Lech.natModCertProofs",
+"pinName":"ConLeche.natModDeclPin",
+"proofsName":"ConLeche.natModCertProofs",
 "pin":
 {"root":292,"entries":[
 ["ns","anon","Nat"],
@@ -6213,8 +6213,8 @@
 },
 {
 "op":"Nat.div",
-"pinName":"Lech.natDivDeclPin",
-"proofsName":"Lech.natDivCertProofs",
+"pinName":"ConLeche.natDivDeclPin",
+"proofsName":"ConLeche.natDivCertProofs",
 "pin":
 {"root":276,"entries":[
 ["ns","anon","Nat"],
@@ -11652,8 +11652,8 @@
 },
 {
 "op":"Nat.gcd",
-"pinName":"Lech.natGcdDeclPin",
-"proofsName":"Lech.natGcdCertProofs",
+"pinName":"ConLeche.natGcdDeclPin",
+"proofsName":"ConLeche.natGcdCertProofs",
 "pin":
 {"root":140,"entries":[
 ["ns","anon","Nat"],
@@ -13856,8 +13856,8 @@
 },
 {
 "op":"Nat.shiftLeft",
-"pinName":"Lech.natShiftLeftDeclPin",
-"proofsName":"Lech.natShiftLeftCertProofs",
+"pinName":"ConLeche.natShiftLeftDeclPin",
+"proofsName":"ConLeche.natShiftLeftCertProofs",
 "pin":
 {"root":81,"entries":[
 ["ns","anon","Nat"],
@@ -14400,8 +14400,8 @@
 },
 {
 "op":"Nat.shiftRight",
-"pinName":"Lech.natShiftRightDeclPin",
-"proofsName":"Lech.natShiftRightCertProofs",
+"pinName":"ConLeche.natShiftRightDeclPin",
+"proofsName":"ConLeche.natShiftRightCertProofs",
 "pin":
 {"root":76,"entries":[
 ["ns","anon","Nat"],
@@ -14810,8 +14810,8 @@
 },
 {
 "op":"Nat.land",
-"pinName":"Lech.natLandDeclPin",
-"proofsName":"Lech.natLandCertProofs",
+"pinName":"ConLeche.natLandDeclPin",
+"proofsName":"ConLeche.natLandCertProofs",
 "pin":
 {"root":6,"entries":[
 ["ns","anon","Nat"],
@@ -21735,8 +21735,8 @@
 },
 {
 "op":"Nat.lor",
-"pinName":"Lech.natLorDeclPin",
-"proofsName":"Lech.natLorCertProofs",
+"pinName":"ConLeche.natLorDeclPin",
+"proofsName":"ConLeche.natLorCertProofs",
 "pin":
 {"root":6,"entries":[
 ["ns","anon","Nat"],
@@ -31014,8 +31014,8 @@
 },
 {
 "op":"Nat.xor",
-"pinName":"Lech.natXorDeclPin",
-"proofsName":"Lech.natXorCertProofs",
+"pinName":"ConLeche.natXorDeclPin",
+"proofsName":"ConLeche.natXorCertProofs",
 "pin":
 {"root":15,"entries":[
 ["ns","anon","Nat"],

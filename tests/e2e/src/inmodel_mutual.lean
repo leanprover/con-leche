@@ -3,7 +3,7 @@
 /- End-to-end test: MUTUAL inductive blocks modelled IN-PROCESS (task
    #200, B1: index-free).  The raw export carries no `_model` artifacts
    for these blocks; the frontend's in-process modeller
-   (`Lech/Frontend/InModel/Mutual.lean`) generates the tag and auxiliary
+   (`ConLeche/Frontend/InModel/Mutual.lean`) generates the tag and auxiliary
    families and the `_model` slots ahead of each block, and the modeled
    install consumes them exactly as it consumes lean-inductive-models'.
 

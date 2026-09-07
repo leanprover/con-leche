@@ -1,5 +1,5 @@
-import Lech.Semantics.Tower.TowerIntro
-import Lech.SetModel.Value
+import ConLeche.Semantics.Tower.TowerIntro
+import ConLeche.SetModel.Value
 
 /-!
 # The carrier body and the uniform projection spelling (task #175, stage 2)
@@ -34,11 +34,11 @@ instance of the pinned pair former's product membership.  Bit validity
 (stage 4).
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -532,4 +532,4 @@ theorem directTyAV_fold {w : Nat} {Fs : List AVExpr}
       exact Nat.succ_ne_zero w) hsp',
     towerBodyAV_interp hb]
 
-end Lech.Semantics
+end ConLeche.Semantics

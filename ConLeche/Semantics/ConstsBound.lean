@@ -1,6 +1,6 @@
-import Lech.Kernel.Core
-import Lech.Verify.Denote
-import Lech.Verify.EnvWF
+import ConLeche.Kernel.Core
+import ConLeche.Verify.Denote
+import ConLeche.Verify.EnvWF
 
 /-!
 # `SetBase/ConstsBound` — "every constant this term mentions is stored"
@@ -22,13 +22,13 @@ lane's `Annot/BitExtend` imported the whole of the latter — a 2U module
 fact (a guard inversion producing two `isSome` obligations) and
 `BitExtend` reads it at the same clause.
 
-Statements verbatim, namespace (`Lech.SetR.Interp2`) unchanged.
+Statements verbatim, namespace (`ConLeche.SetR.Interp2`) unchanged.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.Verify
-open Lech (CheckMode Env Expr Name Level ConstantInfo
+open ConLeche.Verify
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo
   natLitSupported strLitSupported)
 
 /-- Every constant the expression mentions is bound in `env₀`
@@ -45,8 +45,8 @@ def ConstsBound (env₀ : Env) : Expr → Prop
   | _ => True
 termination_by e => e.sizeF
 decreasing_by all_goals first
-  | (simp [Lech.Expr.sizeF]; omega)
-  | simp [Lech.Expr.sizeF]
+  | (simp [ConLeche.Expr.sizeF]; omega)
+  | simp [ConLeche.Expr.sizeF]
 
 /-! ## The `ConstsBound` kit
 
@@ -65,13 +65,13 @@ and the one closure fact `denote2`'s binder cases need. -/
   rw [ConstsBound]
 
 @[simp] theorem constsBound_lam {env₀ : Env} {ty b : Expr}
-    {m : Lech.BinderMeta} :
+    {m : ConLeche.BinderMeta} :
     ConstsBound env₀ (.lam ty b m) ↔
       ConstsBound env₀ ty ∧ ConstsBound env₀ b := by
   rw [ConstsBound]
 
 @[simp] theorem constsBound_forallE {env₀ : Env}
-    {ty b : Expr} {m : Lech.BinderMeta} :
+    {ty b : Expr} {m : ConLeche.BinderMeta} :
     ConstsBound env₀ (.forallE ty b m) ↔
       ConstsBound env₀ ty ∧ ConstsBound env₀ b := by
   rw [ConstsBound]
@@ -102,7 +102,7 @@ and the one closure fact `denote2`'s binder cases need. -/
 implicit, because it is the whole of finding 2: the premise of
 `Denote2EnvExtend` says *nothing* about a literal, while `denote2`'s
 literal clauses are gated on an environment-global guard. -/
-@[simp] theorem constsBound_lit {env₀ : Env} {l : Lech.Literal} :
+@[simp] theorem constsBound_lit {env₀ : Env} {l : ConLeche.Literal} :
     ConstsBound env₀ (.lit l) := by rw [ConstsBound] <;> simp
 
 /-- Instantiation preserves prefix-boundness: every constant leaf of
@@ -115,38 +115,38 @@ theorem ConstsBound.instantiate1 {env₀ : Env} {v : Expr}
   induction e with
   | bvar i =>
     intro d _
-    rw [Lech.Expr.instantiate1]
+    rw [ConLeche.Expr.instantiate1]
     split
     · exact hv
     · split <;> simp
-  | sort u => intro d _; rw [Lech.Expr.instantiate1]; simp
-  | const n us => intro d h; rw [Lech.Expr.instantiate1]; exact h
-  | fvar idx ty => intro d h; rw [Lech.Expr.instantiate1]; exact h
-  | lit l => intro d _; rw [Lech.Expr.instantiate1]; simp
+  | sort u => intro d _; rw [ConLeche.Expr.instantiate1]; simp
+  | const n us => intro d h; rw [ConLeche.Expr.instantiate1]; exact h
+  | fvar idx ty => intro d h; rw [ConLeche.Expr.instantiate1]; exact h
+  | lit l => intro d _; rw [ConLeche.Expr.instantiate1]; simp
   | app f a ihf iha =>
     intro d h
     rw [constsBound_app] at h
-    rw [Lech.Expr.instantiate1, constsBound_app]
+    rw [ConLeche.Expr.instantiate1, constsBound_app]
     exact ⟨ihf d h.1, iha d h.2⟩
   | lam ty b m ihty ihb =>
     intro d h
     rw [constsBound_lam] at h
-    rw [Lech.Expr.instantiate1, constsBound_lam]
+    rw [ConLeche.Expr.instantiate1, constsBound_lam]
     exact ⟨ihty d h.1, ihb (d + 1) h.2⟩
   | forallE ty b m ihty ihb =>
     intro d h
     rw [constsBound_forallE] at h
-    rw [Lech.Expr.instantiate1, constsBound_forallE]
+    rw [ConLeche.Expr.instantiate1, constsBound_forallE]
     exact ⟨ihty d h.1, ihb (d + 1) h.2⟩
   | letE t val b iht ihval ihb =>
     intro d h
     rw [constsBound_letE] at h
-    rw [Lech.Expr.instantiate1, constsBound_letE]
+    rw [ConLeche.Expr.instantiate1, constsBound_letE]
     exact ⟨iht d h.1, ihval d h.2.1, ihb (d + 1) h.2.2⟩
   | proj s i e ihe =>
     intro d h
     rw [constsBound_proj] at h
-    rw [Lech.Expr.instantiate1, constsBound_proj]
+    rw [ConLeche.Expr.instantiate1, constsBound_proj]
     exact ihe d h
 
 /-- The string guard pins `List.nil` and `List.cons` in the store. -/
@@ -157,9 +157,9 @@ theorem strLitSupported_listNames {env₀ : Env}
   simp only [strLitSupported, Bool.and_eq_true] at h
   constructor
   · revert h
-    cases env₀.find? listNilName <;> simp [Lech.listNilTyOk]
+    cases env₀.find? listNilName <;> simp [ConLeche.listNilTyOk]
   · revert h
-    cases env₀.find? listConsName <;> simp [Lech.listConsTyOk]
+    cases env₀.find? listConsName <;> simp [ConLeche.listConsTyOk]
 
 
 /-! ## The extension vocabulary
@@ -174,7 +174,7 @@ them. -/
 survives verbatim (no shadowing — duplicate installs are
 rejected). -/
 def FindPreserved (env₀ env : Env) : Prop :=
-  ∀ {n : Name} {ci : Lech.ConstantInfo},
+  ∀ {n : Name} {ci : ConLeche.ConstantInfo},
     env₀.find? n = some ci → env.find? n = some ci
 
 def LitGuardsAgree (env₀ env : Env) : Prop :=
@@ -255,4 +255,4 @@ theorem envWF_constsBound {env : Env} (hwf : EnvWF env) :
     fun cv value heq =>
       constsBound_of_constsResolve _ (hthm cv value heq).2.2.1⟩
 
-end Lech.Semantics
+end ConLeche.Semantics

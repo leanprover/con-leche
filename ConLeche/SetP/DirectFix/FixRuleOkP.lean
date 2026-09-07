@@ -1,5 +1,5 @@
-import Lech.SetP.DirectFix.FixRuleKitP
-import Lech.SetP.DirectFix.FixRecLawP
+import ConLeche.SetP.DirectFix.FixRuleKitP
+import ConLeche.SetP.DirectFix.FixRecLawP
 
 /-!
 # The rule right-hand side's gradedness (task #188)
@@ -17,13 +17,13 @@ binder data (`FixPre.hspine`), landing in the ih domain
 validity the validity walk (`mkLamsC_validV`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -725,4 +725,4 @@ theorem fixRuleOkP {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL :
       rw [List.getD_eq_getElem?_getD, List.getElem?_map, hq] at this
       simpa using this
 
-end Lech.SetP
+end ConLeche.SetP

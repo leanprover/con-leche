@@ -1,4 +1,4 @@
-import Lech.SetTheory.Core
+import ConLeche.SetTheory.Core
 
 /-!
 # The empty set, derived
@@ -11,7 +11,7 @@ Also here: the small consequences of regularity everything downstream
 wants — `x ∉ x` and the impossibility of membership 2-cycles.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -64,4 +64,4 @@ theorem no_two_cycle {a b : V} (hab : a ∈ˢ b) (hba : b ∈ˢ a) : False := by
   · exact hmin ⟨b, hba, mem_upair.mpr (Or.inr rfl)⟩
   · exact hmin ⟨a, hab, mem_upair.mpr (Or.inl rfl)⟩
 
-end Lech.SetTheory
+end ConLeche.SetTheory

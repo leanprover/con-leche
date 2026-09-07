@@ -1,4 +1,4 @@
-import Lech.Semantics.Tower.FixSquashI
+import ConLeche.Semantics.Tower.FixSquashI
 /-!
 # The recursor's graph over the elements (task #202 Stage B)
 
@@ -19,10 +19,10 @@ family (`elemGraph_singleton`), so its selector obeys the recursion
 equation (`elemK_facts`) — which is the body's iota at the K-frame.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 variable {V : Type uv} [SetTheory V]
@@ -448,4 +448,4 @@ theorem famK_inhab_zero_pos (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss 
 
 end KFrame
 
-end Lech.Semantics
+end ConLeche.Semantics

@@ -1,12 +1,12 @@
-import Lech.Cached.ParsedC
-import Lech.Verify.EnvBound
+import ConLeche.Cached.ParsedC
+import ConLeche.Verify.EnvBound
 
 /-!
 # The trusted↔P agreement floor (task #172, batch B7; restated at the
 twin's retirement, 2026-09-06)
 
 The *cheap floor* of census part 4 §3: whenever the cached driver
-(`Lech/Cached/ParsedC.lean`) at the trusted config and at the
+(`ConLeche/Cached/ParsedC.lean`) at the trusted config and at the
 verified config both **accept** a stream, the two installed
 environments carry the same constants, in the same order, with the same
 install skeletons — and in particular the same names and the same
@@ -14,7 +14,7 @@ count.
 
 **What the retirement did to the statement.**  Until 2026-09-06 the
 trusted lane was a separate driver (`checkDeclsSPCachedDT`,
-`Lech/Cached/ParsedT.lean`) over a hand-written cert-skipping core,
+`ConLeche/Cached/ParsedT.lean`) over a hand-written cert-skipping core,
 and the floor had to prove the skeleton spec for *both* drivers, stage
 by stage — the second half of this file was a clause-by-clause
 duplicate of the first.  Now there is one driver, `checkDeclsSPCachedD
@@ -56,9 +56,9 @@ FREEZE" for the frozen statements and the scope (accept verdicts only;
 T2c untouched).
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
 /-! ## The kit: final-value reasoning for `CheckCM`
 
@@ -1100,7 +1100,7 @@ theorem checkDirectSumS_skels (mode : CheckMode) {fe : FEnv}
 
 /-- The generators' constructor list is one entry per constructor
 when the kinds are one list per constructor (a local twin of
-`Lech.directFixCtors4_length`, `Lech/Verify/Direct/FixWF.lean`: this
+`ConLeche.directFixCtors4_length`, `ConLeche/Verify/Direct/FixWF.lean`: this
 floor imports no direct-route verification). -/
 private theorem directFixCtors4_length' {ctorsA : List (ConstantVal × Nat)}
     {kinds : List (List RecFieldKind)} (h : ctorsA.length = kinds.length) :
@@ -1465,4 +1465,4 @@ theorem trusted_agrees_P_skels_shipped {ds : List DeclC} {envP envT : Env}
     envSkels envT = envSkels envP :=
   trusted_agrees_P_skels_D hP hT
 
-end Lech.Cached
+end ConLeche.Cached

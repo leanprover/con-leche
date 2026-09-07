@@ -1,12 +1,12 @@
-import Lech.Cached.ParsedC
+import ConLeche.Cached.ParsedC
 
 /-!
 # Writing parsed declarations back as lean4export NDJSON (task #200)
 
-The in-process modeller's **debug dump** (`LECH_INMODEL_DUMP`): the
+The in-process modeller's **debug dump** (`CON_LECHE_INMODEL_DUMP`): the
 records it generates for a block are serialized in the lean4export
 3.x record format and spliced into a copy of the raw input ahead of
-the block, so that the result can be handed to `lech-preprocess` and
+the block, so that the result can be handed to `con-leche-preprocess` and
 the *tool* models the generated auxiliary family — the gate for the
 generator while the direct fixpoint route (task #188) is not yet at
 indices.  Nothing here is on the checking path.
@@ -18,10 +18,10 @@ beside its dense one, so a splice never collides with the input's
 entries.
 -/
 
-namespace Lech.Frontend
+namespace ConLeche.Frontend
 
-open Lech
-open Lech.Cached (DeclC)
+open ConLeche
+open ConLeche.Cached (DeclC)
 
 /-- The writer's interning state and its output lines. -/
 structure ExportWriter where
@@ -208,4 +208,4 @@ def decl (w : ExportWriter) : DeclC → ExportWriter
 
 end ExportWriter
 
-end Lech.Frontend
+end ConLeche.Frontend

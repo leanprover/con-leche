@@ -1,33 +1,33 @@
 import Mathlib.SetTheory.Cardinal.Regular
 import Mathlib.SetTheory.ZFC.VonNeumann
 import Mathlib.SetTheory.ZFC.Cardinal
-import Lech.SetTheory.Core
+import ConLeche.SetTheory.Core
 
 /-!
-# Carneiro's hypothesis implies Lech's `SetTheory` (task #204)
+# Carneiro's hypothesis implies ConLeche's `SetTheory` (task #204)
 
 Mario Carneiro's lean4lean-model (`Lean4LeanModel/Consistency.lean`,
 <https://github.com/digama0/lean4lean-model>) states the consistency of
 Lean's type theory relative to one hypothesis, `OmegaInaccessibles`:
 *there are `ω` inaccessible cardinals — a strictly increasing
 `ℕ`-indexed sequence of them, one to interpret each Lean universe*.
-Lech's consistency proof is parametric in the `Lech.SetTheory` class
-(`Lech/SetTheory/Core.lean`): ZF⁻ plus an ω-chain of Grothendieck
-universes stated in Tarski's form (`Lech.IsTGUniverse`).  This module
+ConLeche's consistency proof is parametric in the `ConLeche.SetTheory` class
+(`ConLeche/SetTheory/Core.lean`): ZF⁻ plus an ω-chain of Grothendieck
+universes stated in Tarski's form (`ConLeche.IsTGUniverse`).  This module
 proves, in Lean, that his hypothesis implies ours:
 
 * `OmegaInaccessibles` is transcribed **verbatim** from his file (same
   Mathlib notions — `Cardinal.IsInaccessible`, `StrictMono`; his file is
   internal to his repository, which additionally depends on lean4lean,
   so it is copied rather than imported; the text is identical).
-* `setTheoryOfChain κ` is an explicit `Lech.SetTheory` instance on
+* `setTheoryOfChain κ` is an explicit `ConLeche.SetTheory` instance on
   Mathlib's `ZFSet.{u}` for any strictly increasing sequence of
   inaccessibles `κ`, with `univChain n := V_ (κ n).ord` (Mathlib's
   von Neumann hierarchy).  The ZF⁻ fields are Mathlib's; the work is
   `isTGUniverse_vonNeumann`: `V_ κ` for `κ` inaccessible is a
   Grothendieck universe in Tarski's form.
-* `carneiro_implies_lech : OmegaInaccessibles.{u} →
-  Nonempty (Σ V : Type (u + 1), Lech.SetTheory V)`.
+* `carneiro_implies_con-leche : OmegaInaccessibles.{u} →
+  Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V)`.
 
 The proof of Tarski's cardinality clause (a subset of `V_ κ` is a member
 or equinumerous with it) is where inaccessibility enters: a subset `y`
@@ -36,8 +36,8 @@ is cofinal in `κ`, so by **regularity** `|y| ≥ κ`, and since
 `|V_ κ| = ℶ_κ = κ` by **strong limitness** (`card_vonNeumann_ord`),
 `|y| = |V_ κ|`.
 
-Nothing here is imported by the Lech libraries: this is a separate Lake
-package so that Lech never acquires a Mathlib dependency.  The closing
+Nothing here is imported by the ConLeche libraries: this is a separate Lake
+package so that ConLeche never acquires a Mathlib dependency.  The closing
 `#print axioms` guard pins the bridge theorem to Lean's three standard
 axioms.
 -/
@@ -46,7 +46,7 @@ universe u
 
 open Cardinal Order ZFSet
 
-namespace LechBridge
+namespace ConLecheBridge
 
 /-- **Carneiro's hypothesis**, transcribed verbatim from
 `Lean4LeanModel/Consistency.lean` (lean4lean-model, pinned in
@@ -115,10 +115,10 @@ theorem card_eq_of_not_rank_lt (hκ : κ.IsInaccessible) {y : ZFSet.{u}}
   rw [card_vonNeumann_ord hκ]
   exact not_lt.mp fun h => hr (rank_lt_ord_of_card_lt hκ.isRegular hy h)
 
-/-- Equal cardinality gives Lech's meta-level equinumerosity: a global
+/-- Equal cardinality gives ConLeche's meta-level equinumerosity: a global
 function `ZFSet → ZFSet` that restricts to a bijection. -/
 theorem equinumerous_of_card_eq {y s : ZFSet.{u}} (h : card y = card s) :
-    Lech.Equinumerous (· ∈ ·) y s := by
+    ConLeche.Equinumerous (· ∈ ·) y s := by
   obtain ⟨e'⟩ := Cardinal.eq.mp h
   let e : y ≃ s := (equivShrink _).trans (e'.trans (equivShrink _).symm)
   classical
@@ -134,10 +134,10 @@ theorem equinumerous_of_card_eq {y s : ZFSet.{u}} (h : card y = card s) :
     refine ⟨(e.symm ⟨w, hw⟩).1, (e.symm ⟨w, hw⟩).2, ?_⟩
     simp only [(e.symm ⟨w, hw⟩).2, ↓reduceDIte, Subtype.coe_eta, Equiv.apply_symm_apply]
 
-/-- **`V_ κ` is a Grothendieck universe in Tarski's form** (Lech's
+/-- **`V_ κ` is a Grothendieck universe in Tarski's form** (ConLeche's
 `IsTGUniverse`) for every inaccessible `κ`. -/
 theorem isTGUniverse_vonNeumann (hκ : κ.IsInaccessible) :
-    Lech.IsTGUniverse (· ∈ ·) (V_ κ.ord) := by
+    ConLeche.IsTGUniverse (· ∈ ·) (V_ κ.ord) := by
   have hlim : IsSuccLimit κ.ord := isSuccLimit_ord hκ.aleph0_lt.le
   refine ⟨?_, ?_, ?_, ?_⟩
   · -- transitivity
@@ -159,15 +159,15 @@ theorem isTGUniverse_vonNeumann (hκ : κ.IsInaccessible) :
     · exact Or.inr (mem_vonNeumann.mpr hr)
     · exact Or.inl (equinumerous_of_card_eq (card_eq_of_not_rank_lt hκ hy' hr))
 
-/-! ### The `Lech.SetTheory` instance on `ZFSet` -/
+/-! ### The `ConLeche.SetTheory` instance on `ZFSet` -/
 
 set_option warn.classDefReducibility false in
-/-- Lech's set theory on Mathlib's `ZFSet.{u}`, from any strictly
+/-- ConLeche's set theory on Mathlib's `ZFSet.{u}`, from any strictly
 increasing sequence of inaccessibles: the ZF⁻ fields are Mathlib's
 (`ZFSet.ext`, pairs, `⋃₀`, `powerset`, `mem_wf`, `image` under
 `Classical.allZFSetDefinable`), and `univChain n := V_ (κ n).ord`. -/
 noncomputable def setTheoryOfChain (κ : ℕ → Cardinal.{u}) (hmono : StrictMono κ)
-    (hinacc : ∀ n, (κ n).IsInaccessible) : Lech.SetTheory ZFSet.{u} where
+    (hinacc : ∀ n, (κ n).IsInaccessible) : ConLeche.SetTheory ZFSet.{u} where
   Mem := (· ∈ ·)
   ext h := ZFSet.ext h
   upair a b := {a, b}
@@ -189,22 +189,22 @@ noncomputable def setTheoryOfChain (κ : ℕ → Cardinal.{u}) (hmono : StrictMo
   univChain_tg n := isTGUniverse_vonNeumann (hinacc n)
 
 set_option warn.classDefReducibility false in
-/-- Lech's set theory on `ZFSet.{u}` under Carneiro's hypothesis. -/
-noncomputable def setTheoryOfCarneiro (h : OmegaInaccessibles.{u}) : Lech.SetTheory ZFSet.{u} :=
+/-- ConLeche's set theory on `ZFSet.{u}` under Carneiro's hypothesis. -/
+noncomputable def setTheoryOfCarneiro (h : OmegaInaccessibles.{u}) : ConLeche.SetTheory ZFSet.{u} :=
   setTheoryOfChain (Classical.choose h) (Classical.choose_spec h).1 (Classical.choose_spec h).2
 
-/-- **Carneiro's hypothesis implies Lech's.**  `ω` strongly inaccessible
+/-- **Carneiro's hypothesis implies ConLeche's.**  `ω` strongly inaccessible
 cardinals (lean4lean-model's `OmegaInaccessibles`) give a model of
-Lech's `SetTheory` interface — on Mathlib's `ZFSet.{u}`, with the
+ConLeche's `SetTheory` interface — on Mathlib's `ZFSet.{u}`, with the
 universe chain `V_ (κ n).ord`. -/
-theorem carneiro_implies_lech :
-    OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), Lech.SetTheory V) :=
+theorem carneiro_implies_con-leche :
+    OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
   fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
 /--
-info: 'LechBridge.carneiro_implies_lech' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLecheBridge.carneiro_implies_con-leche' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms carneiro_implies_lech
+#print axioms carneiro_implies_con-leche
 
-end LechBridge
+end ConLecheBridge

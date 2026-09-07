@@ -1,6 +1,6 @@
-import Lech.SetP.ErasePwInv
-import Lech.SetP.HarvestP
-import Lech.Verify.BinderLoop
+import ConLeche.SetP.ErasePwInv
+import ConLeche.SetP.HarvestP
+import ConLeche.Verify.BinderLoop
 
 /-!
 # The pin tier's bit lemmas (task #161, ENDGAME B, task 1a)
@@ -42,13 +42,13 @@ below are what make move 2 fuel-free: the run's fuel is whatever
 succeeds, by monotonicity.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta inferTypeCore whnf ensureSortCore)
 
 variable {μ : CheckMode} {env : Env}
@@ -72,14 +72,14 @@ step per node. -/
 run used (`whnf_forallE_eq`'s twin, by the same monotonicity step). -/
 theorem whnf_sort_eq {fuel d : Nat} {u : Level} {e' : Expr}
     (h : whnf μ env fuel d (.sort u) = .ok e') : e' = .sort u := by
-  have h1 := Lech.whnf_mono (Nat.le_add_right fuel 2) h
-  rw [Lech.whnf_sort env fuel d u] at h1
+  have h1 := ConLeche.whnf_mono (Nat.le_add_right fuel 2) h
+  rw [ConLeche.whnf_sort env fuel d u] at h1
   exact (Except.ok.inj h1).symm
 
 /-- `ensureSortCore` on a literal sort returns that level. -/
 theorem ensureSortCore_sort_eq {fuel d : Nat} {u v : Level}
     (h : ensureSortCore μ env fuel d (.sort u) = .ok v) : v = u :=
-  Expr.sort.inj (whnf_sort_eq (Lech.ensureSortCore_inv h))
+  Expr.sort.inj (whnf_sort_eq (ConLeche.ensureSortCore_inv h))
 
 /-! ## `propext` -/
 
@@ -129,12 +129,12 @@ theorem inferTypeCore_eqSpineS {fuel d : Nat} {X Y Z bt : Expr}
       (.app (.app (.app (.const eqName [.succ .zero]) X) Y) Z)
       = .ok bt) : bt = .sort .zero := by
   obtain ⟨tf1, ty1, b1, m1, h1, hw1, rfl, -⟩ :=
-    Lech.inferTypeCore_app_inv' h
+    ConLeche.inferTypeCore_app_inv' h
   obtain ⟨tf2, ty2, b2, m2, h2, hw2, hb1, -⟩ :=
-    Lech.inferTypeCore_app_inv' h1
+    ConLeche.inferTypeCore_app_inv' h1
   obtain ⟨tf3, ty3, b3, m3, h3, hw3, hb2, -⟩ :=
-    Lech.inferTypeCore_app_inv' h2
-  obtain ⟨ci, hci, -, hb3⟩ := Lech.inferTypeCore_const_inv h3
+    ConLeche.inferTypeCore_app_inv' h2
+  obtain ⟨ci, hci, -, hb3⟩ := ConLeche.inferTypeCore_const_inv h3
   rw [hEq] at hci
   obtain rfl := Option.some.inj hci
   subst hb3
@@ -145,7 +145,7 @@ theorem inferTypeCore_eqSpineS {fuel d : Nat} {X Y Z bt : Expr}
           (.forallE (.bvar 1) (.sort .zero)
             ⟨.never⟩) ⟨.never⟩)
         ⟨.never⟩ from rfl] at hw3
-  injection Lech.whnf_forallE_eq hw3 with e1 e2 e3
+  injection ConLeche.whnf_forallE_eq hw3 with e1 e2 e3
   subst e2
   subst hb2
   rw [show (Expr.forallE (.bvar 0)
@@ -154,14 +154,14 @@ theorem inferTypeCore_eqSpineS {fuel d : Nat} {X Y Z bt : Expr}
       = .forallE X
         (.forallE X (.sort .zero)
           ⟨.never⟩) ⟨.never⟩ from rfl] at hw2
-  injection Lech.whnf_forallE_eq hw2 with f1 f2 f3
+  injection ConLeche.whnf_forallE_eq hw2 with f1 f2 f3
   subst f2
   subst hb1
   rw [show (Expr.forallE X
         (.sort .zero) ⟨.never⟩).instantiate1 Y
       = .forallE (X.instantiate1 Y 0)
         (.sort .zero) ⟨.never⟩ from rfl] at hw1
-  injection Lech.whnf_forallE_eq hw1 with g1 g2 g3
+  injection ConLeche.whnf_forallE_eq hw1 with g1 g2 g3
   subst g2
   rfl
 
@@ -185,20 +185,20 @@ theorem propext_bitsP (hμ : μ.verifiedChecks = true)
       = .ok stype) (φ : Name → Nat) :
     pwBit φ m₁.pw = 0 ∧ pwBit φ m₂.pw = 0 ∧ pwBit φ m₃.pw = 0 := by
   match F, hrun with
-  | 0, hrun => rw [Lech.inferTypeCore_zero] at hrun; exact nomatch hrun
+  | 0, hrun => rw [ConLeche.inferTypeCore_zero] at hrun; exact nomatch hrun
   | F1 + 1, hrun =>
   obtain ⟨tty1, u1, bt1, v1, -, -, hbt1, hens1, hpw1, rfl⟩ :=
-    Lech.inferTypeCore_forall_inv hrun
+    ConLeche.inferTypeCore_forall_inv hrun
   match F1, hbt1 with
-  | 0, hbt1 => rw [Lech.inferTypeCore_zero] at hbt1; exact nomatch hbt1
+  | 0, hbt1 => rw [ConLeche.inferTypeCore_zero] at hbt1; exact nomatch hbt1
   | F2 + 1, hbt1 =>
   obtain ⟨tty2, u2, bt2, v2, -, -, hbt2, hens2, hpw2, rfl⟩ :=
-    Lech.inferTypeCore_forall_inv hbt1
+    ConLeche.inferTypeCore_forall_inv hbt1
   match F2, hbt2 with
-  | 0, hbt2 => rw [Lech.inferTypeCore_zero] at hbt2; exact nomatch hbt2
+  | 0, hbt2 => rw [ConLeche.inferTypeCore_zero] at hbt2; exact nomatch hbt2
   | F3 + 1, hbt2 =>
   obtain ⟨tty3, u3, bt3, v3, -, -, hbt3, hens3, hpw3, rfl⟩ :=
-    Lech.inferTypeCore_forall_inv hbt2
+    ConLeche.inferTypeCore_forall_inv hbt2
   obtain rfl : bt3 = .sort .zero := inferTypeCore_eqSpineS hEq hbt3
   obtain rfl : v3 = .zero := ensureSortCore_sort_eq hens3
   have hb3 : pwBit φ m₃.pw = 0 := by
@@ -232,8 +232,8 @@ theorem inferTypeCore_fvar_outS {f d : Nat} {i : Nat}
   cases f with
   | zero => exact nomatch h
   | succ f =>
-    rw [Lech.inferTypeCore_succ] at h
-    unfold Lech.inferBody at h
+    rw [ConLeche.inferTypeCore_succ] at h
+    unfold ConLeche.inferBody at h
     simp only [
       pure, Except.pure] at h
     split at h
@@ -276,15 +276,15 @@ theorem choice_bitsP (hμ : μ.verifiedChecks = true)
           (.bvar 1) m₂) m₁) = .ok stype) (φ : Name → Nat) :
     (pwBit φ m₁.pw = 0 ↔ φ uN = 0) ∧ (pwBit φ m₂.pw = 0 ↔ φ uN = 0) := by
   match F, hrun with
-  | 0, hrun => rw [Lech.inferTypeCore_zero] at hrun; exact nomatch hrun
+  | 0, hrun => rw [ConLeche.inferTypeCore_zero] at hrun; exact nomatch hrun
   | F1 + 1, hrun =>
   obtain ⟨tty1, u1, bt1, v1, -, -, hbt1, hens1, hpw1, rfl⟩ :=
-    Lech.inferTypeCore_forall_inv hrun
+    ConLeche.inferTypeCore_forall_inv hrun
   match F1, hbt1 with
-  | 0, hbt1 => rw [Lech.inferTypeCore_zero] at hbt1; exact nomatch hbt1
+  | 0, hbt1 => rw [ConLeche.inferTypeCore_zero] at hbt1; exact nomatch hbt1
   | F2 + 1, hbt1 =>
   obtain ⟨tty2, u2, bt2, v2, -, -, hbt2, hens2, hpw2, rfl⟩ :=
-    Lech.inferTypeCore_forall_inv hbt1
+    ConLeche.inferTypeCore_forall_inv hbt1
   -- the innermost codomain is the outer binder's own variable
   obtain rfl : bt2 = .sort (.param uN) := inferTypeCore_fvar_outS hbt2
   obtain rfl : v2 = .param uN := ensureSortCore_sort_eq hens2
@@ -297,4 +297,4 @@ theorem choice_bitsP (hμ : μ.verifiedChecks = true)
     exact imax_eq_zero_iff _ _
   exact ⟨hb1, hb2⟩
 
-end Lech.SetP
+end ConLeche.SetP

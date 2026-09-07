@@ -1,15 +1,15 @@
-import Lech.Kernel.Checker
-import Lech.Kernel.FEnv
+import ConLeche.Kernel.Checker
+import ConLeche.Kernel.FEnv
 
 /-!
 # The declaration checker through the environment index (task #63)
 
 The `FEnv`-indexed guard twins and the `F`-mirrors of every
-`Lech/Kernel/Checker.lean` declaration-level function.  Each mirror
+`ConLeche/Kernel/Checker.lean` declaration-level function.  Each mirror
 is its generic counterpart with every environment lookup
 (`Env.find?`, `Env.findCV?`, `Expr.constsResolve` and the compound
 guards built from them) routed through the index; under `mkFEnv` the
-two are equal (`Lech/Verify/CheckerF.lean`), and environment-
+two are equal (`ConLeche/Verify/CheckerF.lean`), and environment-
 extending mirrors return the pushed index (`FEnv.push`, definitionally
 `mkFEnv` of the cons-extended environment).
 
@@ -18,11 +18,11 @@ monad-polymorphic over `CheckerOps m`: no core, no state, no
 expression representation.  Both executable drivers instantiate these
 same functions.
 
-It lived in `Lech/Kernel/CheckerS.lean` until task #172's interned
+It lived in `ConLeche/Kernel/CheckerS.lean` until task #172's interned
 removal took that file's shared-state drivers with the arena.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable (mode : CheckMode)
 
@@ -54,7 +54,7 @@ def Expr.constsResolveF (fe : FEnv) : Expr → Bool
   | .proj s _ e => (fe.find? s).isSome && e.constsResolveF fe
 
 /-! ## Indexed guard twins (same result as the `Env` versions under
-`mkFEnv`; agreement lemmas in `Lech/Verify/CheckerF.lean`) -/
+`mkFEnv`; agreement lemmas in `ConLeche/Verify/CheckerF.lean`) -/
 
 /-- `natOpCod` through the index. -/
 def natOpCodF (fe : FEnv) (c : Name) (e : Expr) : Bool :=
@@ -290,12 +290,12 @@ def indBlockCapsF (fe : FEnv) (cvT cvC : ConstantVal) (nP nF : Nat) :
 
 /-! ## Indexed mirrors of the declaration-checker functions (task #63)
 
-Each mirrors its `Lech/Kernel/Checker.lean` counterpart clause by
+Each mirrors its `ConLeche/Kernel/Checker.lean` counterpart clause by
 clause; the only difference is that every environment lookup
 (`Env.find?`, `Env.findCV?`, `Expr.constsResolve` and the compound
 guards built from them) goes through the `FEnv` index.  Under
 `mkFEnv` each mirror *is* its generic counterpart
-(`Lech/Verify/CheckerF.lean`); environment-extending mirrors return
+(`ConLeche/Verify/CheckerF.lean`); environment-extending mirrors return
 the pushed index (`FEnv.push`, definitionally `mkFEnv` of the
 cons-extended environment). -/
 
@@ -797,4 +797,4 @@ def checkReducePinF (ops : CheckerOps m) (fe fe2 : FEnv) (c : Name)
 
 end Mirrors
 
-end Lech
+end ConLeche

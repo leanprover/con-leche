@@ -1,4 +1,4 @@
-import Lech.SetP.IndRenameP
+import ConLeche.SetP.IndRenameP
 
 /-!
 # The frame's gradings, discharged (task #161, IND TIER part 4)
@@ -35,12 +35,12 @@ therefore not transposed by part 3's survey — is not what was needed:
 it descends along the chain.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -152,4 +152,4 @@ theorem hokA_padded {K n : Nat} {Tstmt : AVExpr} {Γs : List AVExpr}
   have hq0 : K - n ≤ q := by omega
   exact hsat q (Γs.getD q default) (hpad q hq0 hq2)
 
-end Lech.SetP
+end ConLeche.SetP

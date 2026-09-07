@@ -1,7 +1,7 @@
-import Lech.Semantics.IndBlockRun
-import Lech.SetP.IndConsP
-import Lech.SetP.Annot.BitRename
-import Lech.Verify.Extend.Block
+import ConLeche.Semantics.IndBlockRun
+import ConLeche.SetP.IndConsP
+import ConLeche.SetP.Annot.BitRename
+import ConLeche.Verify.Extend.Block
 
 /-!
 # The block member's key, P tier (task #161, IND TIER)
@@ -32,13 +32,13 @@ leaf it stores *is* `acval (n ++ "_model")`), and it is the only new
 predicate the member fold needs.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint)
 
 universe w
@@ -147,7 +147,7 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
       (∃ nP nF, c₀ = .ctorInfo cvA nP nF) ∨
       (∃ mI rP, c₀ = .recInfo cvA mI rP []))
     (hfresh : env.find? cvA.name = none)
-    (hnres : Lech.reservedBasisNames.contains cvA.name = false)
+    (hnres : ConLeche.reservedBasisNames.contains cvA.name = false)
     -- the model artifact whose leaf the member takes
     {cvm : ConstantVal} {mval : Expr} {hint : ReducibilityHint}
     (hmE : env.find? (cvA.name.str "_model")
@@ -179,7 +179,7 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
     rcases hkind with ⟨caps, rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;> rfl
   have hname : c₀.name = cvA.name := congrArg ConstantVal.name hcvA
   have hfresh' : env.find? c₀.name = none := by rw [hname]; exact hfresh
-  have hnres' : Lech.reservedBasisNames.contains c₀.name = false := by
+  have hnres' : ConLeche.reservedBasisNames.contains c₀.name = false := by
     rw [hname]; exact hnres
   -- provisioning's recursor is rule-less, so `rec_rules` transports
   have hnorules : ∀ cv2 mI2 rP2 rules2,
@@ -252,4 +252,4 @@ theorem indMemberP (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
   rw [hname] at hgoal
   exact hgoal
 
-end Lech.SetP
+end ConLeche.SetP

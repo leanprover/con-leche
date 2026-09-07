@@ -1,5 +1,5 @@
-import Lech.Verify.EnvGuards
-import Lech.Verify.NatOpFrag
+import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.NatOpFrag
 
 /-!
 # The pinned `ofReduce` axioms' shapes (V-free)
@@ -10,9 +10,9 @@ consume these and neither may import the other, so they live in the
 shared tier (task #148 T6).
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-- `erasePw` fixes a sort (task #161 P5: `matchesPin` compares through
 `Expr.erasePw`, so the pin-shape inversions must see through it).
@@ -97,7 +97,7 @@ theorem reduceElem_sort {env : Env} {c : Name}
       | _ => exact nomatch h
 
 /-- Name and level-parameter components of a `matchesPin` hit.  A
-duplicate of `Lech/Model/StdAxioms.lean`'s lemma. -/
+duplicate of `ConLeche/Model/StdAxioms.lean`'s lemma. -/
 theorem matchesPin_invT {cv pin : ConstantVal}
     (h : ConstantVal.matchesPin cv pin = true) :
     cv.name = pin.name ∧ cv.levelParams = pin.levelParams := by
@@ -105,4 +105,4 @@ theorem matchesPin_invT {cv pin : ConstantVal}
     decide_eq_true_eq] at h
   exact ⟨h.1.1, h.1.2⟩
 
-end Lech.Verify
+end ConLeche.Verify

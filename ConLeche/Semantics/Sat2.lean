@@ -1,4 +1,4 @@
-import Lech.Semantics.Interp
+import ConLeche.Semantics.Interp
 
 /-!
 # `SetBase/Sat2` — the annotated context's satisfaction, and its
@@ -16,11 +16,11 @@ base module may not import a lane, so `Sat2` comes down with it; it is
 model-free in exactly the same sense (a `List AVExpr`, a valuation, and
 `interp2`), and both lanes state their context currency with it.
 
-Statements verbatim, namespace (`Lech.SetR.Interp2`) unchanged.
+Statements verbatim, namespace (`ConLeche.SetR.Interp2`) unchanged.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
 
@@ -77,4 +77,4 @@ theorem interp2C_trans {Δa : List AVExpr} {a b c : AVExpr}
 
 end
 
-end Lech.Semantics
+end ConLeche.Semantics

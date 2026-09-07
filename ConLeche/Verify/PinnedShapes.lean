@@ -1,5 +1,5 @@
-import Lech.Verify.InferLemmas
-import Lech.Verify.Denote.Pinned
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.Denote.Pinned
 
 /-!
 # The pinned-shape identifications (lane-shared)
@@ -9,19 +9,19 @@ the checker's shape tests with the pinned basis families: only `PUnit`
 passes `isUnitLikeTy`.  (Its sibling — only `PSigma'` passed the
 pair-eta test — retired with the pinned pair and `pairEtaCert`, task
 #175 W6.)
-Relocated from `Lech/TTVerify/{ProofIrrelStep,PairEtaStep}.lean`
+Relocated from `ConLeche/TTVerify/{ProofIrrelStep,PairEtaStep}.lean`
 (task #148 T4, the T1-style move), generalized from `EnvTT` to the one
 field they consume (`BasisPinnedTT` — itself relocated here-adjacent,
-`Lech/Verify/Denote/Pinned.lean`), so `Lech/SetR/*` can consume
+`ConLeche/Verify/Denote/Pinned.lean`), so `ConLeche/SetR/*` can consume
 them without importing the TT lane.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-- Which reserved names carry recursor-shaped pinned declarations.
-The transpose of `Lech/Model/BasisVal.lean`'s
+The transpose of `ConLeche/Model/BasisVal.lean`'s
 `pinnedInfo_ctorInfo_cases`, and proved the same way. -/
 theorem pinnedInfoT_recInfo_cases {n : Name} {cv : ConstantVal}
     {mI rP : Nat} {rules : List RecRule}
@@ -135,4 +135,4 @@ theorem unitLike_eq_punit {env : Env} {cval : TConstVal}
   rw [show pinnedInfo punitName = punitA from rfl] at hp
   exact ⟨us, rfl, hp ▸ hfc⟩
 
-end Lech.Verify
+end ConLeche.Verify

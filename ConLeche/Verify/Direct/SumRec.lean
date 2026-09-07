@@ -1,10 +1,10 @@
-import Lech.Verify.Direct.DirectRec
-import Lech.Kernel.Direct.SumInstall
+import ConLeche.Verify.Direct.DirectRec
+import ConLeche.Kernel.Direct.SumInstall
 
 /-!
 # The generated recursor at a constructor list (task #175 sum-types)
 
-`Lech/Verify/Direct/DirectRec.lean`'s syntactic kit at one
+`ConLeche/Verify/Direct/DirectRec.lean`'s syntactic kit at one
 constructor, generalized to the list the generators fold over
 (`directMinorsPis`/`directMinorsLams`): the unfoldings of
 `directRecTy`/`directRecRhs`, the minor premise's telescope under any
@@ -14,7 +14,7 @@ motive and all minors (`instSeq_ruleBody_at`: minor `j` is extra
 `j + 1`), and the `.proj`-freeness of the generated forms.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Expr
 
@@ -240,11 +240,11 @@ theorem NoProjAt.directMinorsLams {lps : List Name} {nP : Nat} {pw : PropWhen} :
 former's and the constructors' types do not have. -/
 theorem NoProjAt.directRecTy_list {T' : Name} {lps : List Name} {elim : Name}
     {large : Bool} {nP : Nat} {tty recTy : Expr} {ctors : List (Name × Nat × Expr)}
-    (h : Lech.directRecTy T' lps elim large nP tty ctors = some recTy)
+    (h : ConLeche.directRecTy T' lps elim large nP tty ctors = some recTy)
     (hT : NoProjAt T i tty) (hC : ∀ c ∈ ctors, NoProjAt T i c.2.2) : NoProjAt T i recTy := by
   obtain ⟨minors, hmin, hr⟩ := directRecTy_unfold h
   have hmot : NoProjAt T i (directMotiveTy T' lps nP (directElimLevel elim large)) := by
-    unfold Lech.directMotiveTy
+    unfold ConLeche.directMotiveTy
     simp only [noProjAt_forallE, noProjAt_sort, and_true]
     exact NoProjAt.directFam _ _ _ _
   refine NoProjAt.replacePisPw nP hr hT ?_
@@ -257,7 +257,7 @@ theorem NoProjAt.directRecTy_list {T' : Name} {lps : List Name} {elim : Name}
 the constructors' types do not have. -/
 theorem NoProjAt.directRecRhs_list {T' : Name} {lps : List Name} {elim : Name}
     {large : Bool} {nP j : Nat} {tty rhs : Expr} {ctors : List (Name × Nat × Expr)}
-    (h : Lech.directRecRhs T' lps elim large nP tty ctors j = some rhs)
+    (h : ConLeche.directRecRhs T' lps elim large nP tty ctors j = some rhs)
     (hT : NoProjAt T i tty) (hC : ∀ c ∈ ctors, NoProjAt T i c.2.2) : NoProjAt T i rhs := by
   obtain ⟨C, nF, cty, cbs, crest0, inner, minors, hj, hs, hi, hmin, hr⟩ := directRecRhs_unfold h
   have hcrest : NoProjAt T i crest0 :=
@@ -268,7 +268,7 @@ theorem NoProjAt.directRecRhs_list {T' : Name} {lps : List Name} {elim : Name}
         obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha
         simp))
   have hmot : NoProjAt T i (directMotiveTy T' lps nP (directElimLevel elim large)) := by
-    unfold Lech.directMotiveTy
+    unfold ConLeche.directMotiveTy
     simp only [noProjAt_forallE, noProjAt_sort, and_true]
     exact NoProjAt.directFam _ _ _ _
   refine NoProjAt.pisToLamsPw nP hr hT ?_
@@ -277,9 +277,9 @@ theorem NoProjAt.directRecRhs_list {T' : Name} {lps : List Name} {elim : Name}
 
 end Expr
 
-end Lech
+end ConLeche
 
-namespace Lech
+namespace ConLeche
 
 open Expr
 
@@ -504,4 +504,4 @@ theorem instSeq_minorBodyI_at (tfvs extras xFvs : List Expr) {C : Name}
   rw [hlenT, show nP + extras.length + nF - 1 = nP + extras.length - 1 + nF from by omega] at this
   exact this
 
-end Lech
+end ConLeche

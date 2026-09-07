@@ -1,7 +1,7 @@
-import Lech.Semantics.Tower.FixCaseI
-import Lech.Semantics.Tower.SumRec
-import Lech.Semantics.Tower.SumWire
-import Lech.Semantics.Tower.IhSpell
+import ConLeche.Semantics.Tower.FixCaseI
+import ConLeche.Semantics.Tower.SumRec
+import ConLeche.Semantics.Tower.SumWire
+import ConLeche.Semantics.Tower.IhSpell
 
 /-!
 # The recursive family's recursor, core: the step and the premise (task #188, indexed)
@@ -33,12 +33,12 @@ the recursor's binder data (`lamTower`) whose body at a leaf frame is the
 major's own stage's value.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
-open Lech.VExpr (VExpr)
+open ConLeche.SetTheory.Tower
+open ConLeche.VExpr (VExpr)
 
 universe uv
 
@@ -1174,4 +1174,4 @@ theorem fixKI_of (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s
 
 end Rec
 
-end Lech.Semantics
+end ConLeche.Semantics

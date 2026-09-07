@@ -1,5 +1,5 @@
-import Lech.SetP.IndFrameP
-import Lech.Verify.IotaWalkInv
+import ConLeche.SetP.IndFrameP
+import ConLeche.Verify.IotaWalkInv
 
 /-!
 # The walks' recorded runs, converted (task #161, IND TIER part 4)
@@ -39,13 +39,13 @@ none of them is *free*, and transposing the conclusion alone would
 have dropped them silently.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name isDefEqCore DefEqListOk)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
 
@@ -189,4 +189,4 @@ theorem defEqListP_of_runs {m : EnvS2Core V env} {F : Nat}
     (defEqListOk_getD hruns i hi) hwa hba hLa hwb hbb hLb hleafA hltA hleafB hltB
     haa hbaR hga hgb hsat
 
-end Lech.SetP
+end ConLeche.SetP

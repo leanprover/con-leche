@@ -1,4 +1,4 @@
-import Lech.Kernel.Basis.Builder
+import ConLeche.Kernel.Basis.Builder
 
 /-!
 # The pinned `Nat` basis block
@@ -7,10 +7,10 @@ The raw pin — the `Nat` block exactly as the lean-inductive-models
 preprocessor emits it, which is the toolchain's `Init.Prelude`
 declaration at the parser's raw binder annotations.  The *annotated*
 forms (`natA`, …) are computed from these by the checker's own
-annotation pass at elaboration time; see `Lech/Kernel/BasisA.lean`.
+annotation pass at elaboration time; see `ConLeche/Kernel/BasisA.lean`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open BasisDSL
 
@@ -63,4 +63,4 @@ def natRecRaw : ConstantInfo :=
 /-- The pinned `Nat` basis block, in install order. -/
 def natBasis : List ConstantInfo := [natRaw, natZeroRaw, natSuccRaw, natRecRaw]
 
-end Lech
+end ConLeche

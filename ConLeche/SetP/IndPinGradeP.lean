@@ -1,4 +1,4 @@
-import Lech.SetP.IndOpenRevP
+import ConLeche.SetP.IndOpenRevP
 
 /-!
 # The nested-pin grading, produced (task #161, IND TIER part 7)
@@ -48,13 +48,13 @@ spelling could not have gone:
   padding trick's `.sort 0`s, satisfied by the spine's own padding.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level)
 
 universe w
 
@@ -106,7 +106,7 @@ theorem annotOkP_instSeq {ρ : Nat → V} :
     ∀ (ws : List AVExpr) {X : AVExpr},
       (∀ w ∈ ws, AnnotOkP V ρ w) →
       AnnotOkP V (chainP V ρ ws) X →
-      AnnotOkP V ρ (Lech.SetP.AVExpr.instSeq ws (ws.length - 1) X) := by
+      AnnotOkP V ρ (ConLeche.SetP.AVExpr.instSeq ws (ws.length - 1) X) := by
   intro ws
   induction ws with
   | nil => intro X _ hX; exact hX
@@ -126,7 +126,7 @@ theorem annotOkP_instSeq {ρ : Nat → V} :
         rw [hshift, ← chainP_cons_eq_instE]
         exact hX.2
     have h := ih (fun x hx => hoks x (List.mem_cons_of_mem _ hx)) hstep
-    show AnnotOkP V ρ (Lech.SetP.AVExpr.instSeq ws
+    show AnnotOkP V ρ (ConLeche.SetP.AVExpr.instSeq ws
       ((w :: ws).length - 1 - 1) (X.inst w ((w :: ws).length - 1)))
     simpa using h
 
@@ -252,7 +252,7 @@ theorem nestedPinGradeP {acval : Name → (Name → Nat) → AVExpr}
     (hzslen : zs.length = rP)
     (hzsOk : ∀ z ∈ zs, AnnotOkP V ρ z)
     (hfit : TeleFitPA V ρ TVa zs restR) :
-    AnnotOkP V ρ (Lech.SetP.AVExpr.instRevChain zs vpa) := by
+    AnnotOkP V ρ (ConLeche.SetP.AVExpr.instRevChain zs vpa) := by
   obtain ⟨w0, hw0, hcross⟩ := pinCrossP (acval := acval) (cval := cval)
     (env := env) (φ := φ) (cnF := cnF) hacl hainst hlink hcl padA hoslen
     hshape hwsOs hbOs hpw hpb hvpden hzslen (vals := zs) (n := rP)
@@ -275,4 +275,4 @@ theorem nestedPinGradeP {acval : Name → (Name → Nat) → AVExpr}
   · exact hcert w0 hw0 _
       (sat2_padded_chainP (cnF := cnF) htowerP hzslen hfit)
 
-end Lech.SetP
+end ConLeche.SetP

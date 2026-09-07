@@ -1,4 +1,4 @@
-import Lech.Kernel.StdAxioms
+import ConLeche.Kernel.StdAxioms
 
 /-!
 # `erasePw` head inversions (task #161, S1)
@@ -13,7 +13,7 @@ collapsed lane at the axiom install, the graded lane at
 Statements verbatim from their old home; the namespace is unchanged.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
 /-- `erasePw` fixes a constant (task #161 P5: `matchesPin` compares
 through `Expr.erasePw`, so a pinned-shape inversion has to see through
@@ -25,4 +25,4 @@ theorem erasePw_const_invS {e : Expr} {n : Name} {us : List Level}
     | exact nomatch h
 
 
-end Lech.Semantics
+end ConLeche.Semantics

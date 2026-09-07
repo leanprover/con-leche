@@ -1,4 +1,4 @@
-import Lech.VExpr.Syntax
+import ConLeche.VExpr.Syntax
 
 /-!
 # Lifting and instantiation
@@ -13,13 +13,13 @@ unique typing, weakening, inversion) is *syntactic* and every step has
 to commute lifts and substitutions past each other.  Here the only
 metatheorem is soundness, which goes straight to the model, so the
 substitution facts that are actually needed are *semantic* ones
-(`Lech/Semantics/*`).  Everything below is definitions plus their
+(`ConLeche/Semantics/*`).  Everything below is definitions plus their
 constructor-wise `rfl` equations; what syntactic commutation the
 bridge does need is filed with the bridge, in
-`Lech/Verify/Denote/SubstAlgebra.lean`.
+`ConLeche/Verify/Denote/SubstAlgebra.lean`.
 -/
 
-namespace Lech.VExpr
+namespace ConLeche.VExpr
 namespace VExpr
 
 /-- Weakening: insert `n` fresh binders at depth `k`. -/
@@ -104,4 +104,4 @@ can be used without `open VExpr`, which would collide with
 `SetTheory.app`.) -/
 def arrow (A B : VExpr) : VExpr := .pi A B.lift
 
-end Lech.VExpr
+end ConLeche.VExpr

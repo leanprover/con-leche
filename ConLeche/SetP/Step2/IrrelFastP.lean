@@ -1,16 +1,16 @@
-import Lech.SetP.Step2.IrrelP
-import Lech.SetP.Step2.IotaRowsP
-import Lech.SetP.Step2.IotaKitP
-import Lech.SetP.IOLicenseP
-import Lech.SetP.Step2.IotaGateP
-import Lech.Verify.PropRead
+import ConLeche.SetP.Step2.IrrelP
+import ConLeche.SetP.Step2.IotaRowsP
+import ConLeche.SetP.Step2.IotaKitP
+import ConLeche.SetP.IOLicenseP
+import ConLeche.SetP.Step2.IotaGateP
+import ConLeche.Verify.PropRead
 
 /-!
 # The fast `isProof` "yes" arm: the squash-regime licence (task #168, stage 3)
 
 `propIrrel` (the hoisted `Prop`-branch test) answers `true` without an
 inference when **both sides' head-symbol readers say "a proposition at
-every valuation"** (`isProofFast`, `Lech/Kernel/PropRead.lean`).
+every valuation"** (`isProofFast`, `ConLeche/Kernel/PropRead.lean`).
 This file is the model theorem that licenses it — the io licence's
 dual:
 
@@ -42,13 +42,13 @@ calls a proof interprets to `pt`.  `propIrrelPQ_of_claims` wires it
 into the hoist's row beside the slow branch's `prop_side_pt`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Name Level Expr BinderMeta PropWhen ConstantInfo)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Name Level Expr BinderMeta PropWhen ConstantInfo)
 
 universe w
 
@@ -99,7 +99,7 @@ theorem eval_eq_zero_of_isProp {u : Level}
     (h : (Level.zeronessOf u).isProp = true) (φ : Name → Nat) :
     Level.eval φ u = 0 := by
   have := pwBit_eq_zero_of_isProp h φ
-  rw [pwBit_eq_zero_iff, Lech.PropWhen.zeronessOf_sound] at this
+  rw [pwBit_eq_zero_iff, ConLeche.PropWhen.zeronessOf_sound] at this
   exact beq_iff_eq.mp this
 
 /-- **THE FENCE.**  At a nonzero bit the product reading is a graph set
@@ -229,7 +229,7 @@ theorem mem_univ_zero_of_spine {acval : Name → (Name → Nat) → AVExpr}
     (hokH : AnnotOkP V ρ taH) (hokT : AnnotOkP V ρ Ta)
     (hmem : interp2 V ρ fa ∈ˢ interp2 V ρ taH) :
     interp2 V ρ Ta ∈ˢ (univ 0 : V) := by
-  rw [← Lech.Expr.mkAppN_getApp T, hfn] at hTa
+  rw [← ConLeche.Expr.mkAppN_getApp T, hfn] at hTa
   obtain ⟨fa', vs, hfa', hsp, rfl⟩ := denoteP_mkAppN_inv hTa
   rw [hfa] at hfa'
   obtain rfl := Option.some.inj hfa'
@@ -273,7 +273,7 @@ theorem mem_fvarLeaves_mkAppN : ∀ (as : List Expr) (f : Expr)
 /-- A leaf of a term's head is a leaf of the term. -/
 theorem mem_fvarLeaves_of_getAppFn' {a hd : Expr} {l : Nat × Expr}
     (h : a.getAppFn = hd) (hl : l ∈ hd.fvarLeaves) : l ∈ a.fvarLeaves := by
-  rw [← Lech.Expr.mkAppN_getApp a, h]
+  rw [← ConLeche.Expr.mkAppN_getApp a, h]
   exact mem_fvarLeaves_mkAppN _ _ _ hl
 
 /-- The leaf of a term's head fvar is a leaf of the term. -/
@@ -305,7 +305,7 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     rw [interp2_lam, pwBit_eq_zero_of_isProp hprop, lamR_zero]
   -- an application spine: the head decides
   have hspine := hda
-  rw [← Lech.Expr.mkAppN_getApp a] at hspine
+  rw [← ConLeche.Expr.mkAppN_getApp a] at hspine
   obtain ⟨fa, vs, hfa, -, rfl⟩ := denoteP_mkAppN_inv hspine
   refine interp2_mkAppN_pt ?_ vs
   rcases headProofPW_some_inv env.find? hhead with
@@ -321,7 +321,7 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       ⟨idx, ty', u, hfnT, -, -⟩
     · -- ∀-typed: the squash product
       have hta' := hta d
-      rw [hT, Lech.Expr.instantiateLevelParams] at hta'
+      rw [hT, ConLeche.Expr.instantiateLevelParams] at hta'
       obtain ⟨tA, tB, -, -, rfl⟩ := denoteP_forallE_inv hta'
       have hbit : pwBit φ (Level.substPW ci.toConstantVal.levelParams us mb.pw)
           = 0 := pwBit_eq_zero_of_isProp hprop φ
@@ -331,38 +331,38 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     · -- `Sort`-typed: never a proof
       exact absurd hprop (by simp)
     · -- a type-former application: the graph-regime step
-      have hwf := m.wf _ (Lech.Semantics.Env.find?_mem hfI)
+      have hwf := m.wf _ (ConLeche.Semantics.Env.find?_mem hfI)
       have hdefU : (Level.zeronessOf u).paramsDefined
           ciI.toConstantVal.levelParams = true := by
         obtain ⟨bs, hbs⟩ := Expr.stripPis_of_peelNeverPis _ hpeel
-        have := Lech.Expr.allLevelParamsDefined_stripPis_body _ hbs hwf.2.1
-        exact Lech.Level.zeronessOf_paramsDefined
-          (by simpa [Lech.Expr.allLevelParamsDefined] using this)
-      have hcomp := Lech.Level.substPW_comp
+        have := ConLeche.Expr.allLevelParamsDefined_stripPis_body _ hbs hwf.2.1
+        exact ConLeche.Level.zeronessOf_paramsDefined
+          (by simpa [ConLeche.Expr.allLevelParamsDefined] using this)
+      have hcomp := ConLeche.Level.substPW_comp
         (ks := ci.toConstantVal.levelParams) (us := us) hlenI hdefU
       have hz : Level.eval (Level.substFn φ ciI.toConstantVal.levelParams
           (us'.map (Level.subst ci.toConstantVal.levelParams us))) u = 0 := by
         have hb := pwBit_eq_zero_of_isProp hprop φ
         rw [hcomp, pwBit_substPW, pwBit_eq_zero_iff,
-          Lech.PropWhen.zeronessOf_sound] at hb
+          ConLeche.PropWhen.zeronessOf_sound] at hb
         exact beq_iff_eq.mp hb
       have hT : (ci.toConstantVal.type.instantiateLevelParams
           ci.toConstantVal.levelParams us).getAppFn =
           .const I (us'.map (Level.subst ci.toConstantVal.levelParams us)) := by
-        rw [Lech.Expr.getAppFn_instantiateLevelParams, hfnT]
+        rw [ConLeche.Expr.getAppFn_instantiateLevelParams, hfnT]
         rfl
       have hpeel' : ciI.toConstantVal.type.peelNeverPis
           (ci.toConstantVal.type.instantiateLevelParams
             ci.toConstantVal.levelParams us).getAppArgs.length =
           some (.sort u) := by
-        rw [Lech.Expr.getAppArgs_instantiateLevelParams, List.length_map]
+        rw [ConLeche.Expr.getAppArgs_instantiateLevelParams, List.length_map]
         exact hpeel
       have huniv := typeFormer_mem_univ_zero hct hT hfI hntI
         (by rw [List.length_map]; exact hlenI) hpeel' hz (hta d) (hokT ρ)
       exact mem_univ_zero huniv (hmem ρ)
     · -- an fvar-headed stored type: stored types are closed
-      exact absurd (Lech.Expr.hasFvar_of_getAppFn_fvar hfnT)
-        (by rw [Lech.Expr.hasFvar_instantiateLevelParams] at hnf; simp [hnf])
+      exact absurd (ConLeche.Expr.hasFvar_of_getAppFn_fvar hfnT)
+        (by rw [ConLeche.Expr.hasFvar_instantiateLevelParams] at hnf; simp [hnf])
   · -- an fvar head: the context supplies the membership
     rw [hfn, denoteP_fvar] at hfa
     obtain rfl := Option.some.inj hfa
@@ -385,7 +385,7 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
           = 0 := by
         have hb := pwBit_eq_zero_of_isProp hprop φ
         rw [pwBit_substPW, pwBit_eq_zero_iff,
-          Lech.PropWhen.zeronessOf_sound] at hb
+          ConLeche.PropWhen.zeronessOf_sound] at hb
         exact beq_iff_eq.mp hb
       have huniv := typeFormer_mem_univ_zero hct hfnT hfI hntI hlenI hpeel hz
         htya (hokT ρ hρ)
@@ -423,7 +423,7 @@ theorem propIrrelPQ_of_claims {m : EnvS2Core V env}
     PropIrrelPQ μ m φ fuel := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
-  rcases Lech.propIrrel_inv h with
+  rcases ConLeche.propIrrel_inv h with
     ⟨hfa, hfb⟩ |
     ⟨ta, sta, uT, tb, stb, vT, hta, hsta, hwsta, huT, htb, hstb, hwstb, hvT⟩
   · rw [prf_of_isProofFast hct hfa hCa hda ρ hρ,
@@ -433,4 +433,4 @@ theorem propIrrelPQ_of_claims {m : EnvS2Core V env}
       prop_side_pt ihis hsss hreads htb hstb hwstb hvT hwb hbb hLb
         hCb hdb hokB ρ hρ]
 
-end Lech.SetP
+end ConLeche.SetP

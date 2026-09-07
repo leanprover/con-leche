@@ -1,5 +1,5 @@
-import Lech.SetP.DirectFix.FixRecPreP
-import Lech.SetP.DirectFix.FixIntroP
+import ConLeche.SetP.DirectFix.FixRecPreP
+import ConLeche.SetP.DirectFix.FixIntroP
 
 /-!
 # The recursive recursor's rule law, at the readings (task #188)
@@ -14,13 +14,13 @@ the recursor at the block, the field's index values and the field,
 exactly the recursor's iota (`directFixRecAVI_iota`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -395,7 +395,7 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
         have hj0 : j = 0 := by omega
         subst hj0
         have has₂ : as₂ = srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length) :=
-          Lech.Semantics.srcVals_of_fit hprop (by rw [hFsjD]; exact hsp₂) (by rw [hEsjD]; exact hidxEq)
+          ConLeche.Semantics.srcVals_of_fit hprop (by rw [hFsjD]; exact hsp₂) (by rw [hEsjD]; exact hidxEq)
         rw [hiota, interp_fixRuleCoreAV hbz hlen₁ hlenm hlen₂ hjn hRcl, ← has₂, hFsjD, hlenFs]
       · have hmaj : t = inj j (mkTower (as₂ ++ [pt])) := by rw [hmkv, if_neg hw]
         have hiota := directFixRecAVI_iota h hw hℓ0 ρ hspR' hjF
@@ -412,4 +412,4 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
     · exact hxs_ok a (List.mem_of_mem_take h)
     · exact hys_ok a (List.mem_of_mem_drop h)
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,13 +1,13 @@
-import Lech.Verify.Extend.Iota
-import Lech.Verify.EnvWF
+import ConLeche.Verify.Extend.Iota
+import ConLeche.Verify.EnvWF
 
 /-!
-# Modeled — the `V`-free half of `Lech.Model.Extend.Modeled`
+# Modeled — the `V`-free half of `ConLeche.Model.Extend.Modeled`
 
 The `checkMemberVal` / `checkIndMember` / `provisionRecs` inversions
 that feed the member extension.
 
-Relocated from `Lech/Model/Extend/Modeled.lean` (task #123);
+Relocated from `ConLeche/Model/Extend/Modeled.lean` (task #123);
 `extend_modeled_one` and the `BlockInstalled` fold invariant stay there,
 the former being a statement about a valuation and the latter being
 stated over a `ConstVal V`.  The `omit [SetTheory V] in` lines are
@@ -16,7 +16,7 @@ dropped: there is no such section variable here.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -150,4 +150,4 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
   simp only [pure, Except.pure, Except.ok.injEq] at h
   exact ⟨cv, mI, rP, rules, cvA, p', rfl, rfl, hrec, h.symm⟩
 
-end Lech
+end ConLeche

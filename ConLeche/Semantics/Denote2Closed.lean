@@ -1,10 +1,10 @@
-import Lech.Semantics.Canon
-import Lech.Verify.Denote.Shift
+import ConLeche.Semantics.Canon
+import ConLeche.Verify.Denote.Shift
 
 /-!
 # `denote_closed`'s `denote2` twin
 
-*(Re-based to `Lech/SetBase/*` at THE SEPARATION's S2, task #161: the
+*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161: the
 module already imported nothing but base — `SetBase/Canon` and
 `Verify/Denote/Shift` — and three of the graded lane's carriers
 (`Annot/{BitClosed,BitInst}`, `Interp2/OkPTransport`) crossed to it.
@@ -50,11 +50,11 @@ exactly in the slots `erase` forgets.  See `Step2Cons.lean`'s
 `ValueResidues2M.params` docstring for where it stalls.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify
-open Lech (Env Expr Name CheckMode)
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche (Env Expr Name CheckMode)
 
 namespace AVExpr
 
@@ -143,4 +143,4 @@ theorem denote2_closed {mode : CheckMode}
       (denote_closed hcl hnf hb (denote2_erase hlink 0 e h))) n
 
 
-end Lech.Semantics
+end ConLeche.Semantics

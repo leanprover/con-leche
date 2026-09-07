@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectIntroP
+import ConLeche.SetP.Direct.DirectIntroP
 
 /-!
 # `projAV`'s grading under equal-valued subjects (task #175 wiring, W5 S3)
@@ -11,12 +11,12 @@ subject by its head normal form.  Below the claims tier so that
 `DefEqP` (under the step assembly) can read it.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -83,4 +83,4 @@ theorem interp2_projAV_congr {i : Nat} {e e' : AVExpr} {σ : Nat → V}
     interp2 V σ (projAV i e) = interp2 V σ (projAV i e') := by
   rw [projAV_interp, projAV_interp, heq]
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,17 +1,17 @@
-import Lech.Kernel.ExprOps
-import Lech.Verify.Shift
+import ConLeche.Kernel.ExprOps
+import ConLeche.Verify.Shift
 
 /-!
 # Substituting a free variable by a term
 
 `substFvarAt p a e` replaces every reachable `fvar p` leaf by `a` and
 lowers higher `fvar` indices by one — the syntactic side of the
-substitution lemma (`Lech.Model.Subst`).  The key equation is the
+substitution lemma (`ConLeche.Model.Subst`).  The key equation is the
 *beta bridge*: opening a binder with a fresh variable and then
 substituting that variable equals opening with the term directly.
 -/
 
-namespace Lech.Expr
+namespace ConLeche.Expr
 
 /-- Instantiation is a no-op on terms without matching loose bvars. -/
 theorem instantiate1_eq_self {v : Expr} :
@@ -1729,4 +1729,4 @@ the step without ever producing one. -/
     (Expr.lam ty body bi).instantiate1 v d
       = .lam (ty.instantiate1 v d) (body.instantiate1 v (d + 1)) bi := rfl
 
-end Lech.Expr
+end ConLeche.Expr

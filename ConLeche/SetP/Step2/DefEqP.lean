@@ -1,9 +1,9 @@
-import Lech.SetP.CtxOkPKit
-import Lech.SetP.Annot.BitLemmas
-import Lech.SetP.Annot.BitRename
-import Lech.Semantics.DefEqStep2
-import Lech.Semantics.Hoist
-import Lech.SetP.Step2.ProjAVKitP
+import ConLeche.SetP.CtxOkPKit
+import ConLeche.SetP.Annot.BitLemmas
+import ConLeche.SetP.Annot.BitRename
+import ConLeche.Semantics.DefEqStep2
+import ConLeche.Semantics.Hoist
+import ConLeche.SetP.Step2.ProjAVKitP
 
 /-!
 # The definitional-equality quarter, P currency (task #161, P3 batch 5)
@@ -66,7 +66,7 @@ Both are flagged in the report as kept-routed.
 
 ## Naming
 
-The kernel already owns `Lech.proofIrrelP` and `Lech.stuckIrrelP`,
+The kernel already owns `ConLeche.proofIrrelP` and `ConLeche.stuckIrrelP`,
 so the two residues that mirror `ProofIrrel2D`/`StuckIrrel2D` are
 `ProofIrrelPQ`/`StuckIrrelPQ`.  `ReduceNat2D`'s mirror is
 `ReduceNatStepPQ` (the whnf quarter owns `ReduceNatStep…`).  The two
@@ -74,13 +74,13 @@ package helpers carry a `dq_` prefix so that the concurrently-written
 whnf quarter can keep the unprefixed names.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode CheckM Env Expr Name Level PropWhen isDefEqCore
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode CheckM Env Expr Name Level PropWhen isDefEqCore
   whnfCore defeqStep defeqLoop defeqBody defeqLoopFuel pureFns)
 
 universe w
@@ -94,42 +94,42 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
 
 /-- `Nat.zero`, in the validated reading. -/
 theorem denoteP_natZeroConst {acval : Name → (Name → Nat) → AVExpr}
-    (hg : Lech.natLitSupported env = true) {d : Nat} :
-    denoteP acval env φ d (.const Lech.natZeroName [])
-      = some (acval Lech.natZeroName (Level.substFn φ [] [])) := by
-  simp only [Lech.natLitSupported, Bool.and_eq_true] at hg
+    (hg : ConLeche.natLitSupported env = true) {d : Nat} :
+    denoteP acval env φ d (.const ConLeche.natZeroName [])
+      = some (acval ConLeche.natZeroName (Level.substFn φ [] [])) := by
+  simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hg
   obtain ⟨⟨-, h2⟩, -⟩ := hg
-  cases hf : env.find? Lech.natZeroName with
+  cases hf : env.find? ConLeche.natZeroName with
   | none => rw [hf] at h2; exact nomatch h2
   | some ci =>
     rw [hf] at h2
     have hlp : ci.toConstantVal.levelParams = [] := by
       cases ci with
       | ctorInfo cv p q =>
-        simp only [Lech.natZeroOk, Bool.and_eq_true] at h2
-        simpa [Lech.ConstantInfo.toConstantVal, List.isEmpty_iff]
+        simp only [ConLeche.natZeroOk, Bool.and_eq_true] at h2
+        simpa [ConLeche.ConstantInfo.toConstantVal, List.isEmpty_iff]
           using h2.1
-      | _ => simp [Lech.natZeroOk] at h2
+      | _ => simp [ConLeche.natZeroOk] at h2
     rw [denoteP_const hf (by simp [hlp]), hlp]
 
 /-- `Nat.succ`, in the validated reading. -/
 theorem denoteP_natSuccConst {acval : Name → (Name → Nat) → AVExpr}
-    (hg : Lech.natLitSupported env = true) {d : Nat} :
-    denoteP acval env φ d (.const Lech.natSuccName [])
-      = some (acval Lech.natSuccName (Level.substFn φ [] [])) := by
-  simp only [Lech.natLitSupported, Bool.and_eq_true] at hg
+    (hg : ConLeche.natLitSupported env = true) {d : Nat} :
+    denoteP acval env φ d (.const ConLeche.natSuccName [])
+      = some (acval ConLeche.natSuccName (Level.substFn φ [] [])) := by
+  simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hg
   obtain ⟨-, h3⟩ := hg
-  cases hf : env.find? Lech.natSuccName with
+  cases hf : env.find? ConLeche.natSuccName with
   | none => rw [hf] at h3; exact nomatch h3
   | some ci =>
     rw [hf] at h3
     have hlp : ci.toConstantVal.levelParams = [] := by
       cases ci with
       | ctorInfo cv p q =>
-        simp only [Lech.natSuccOk, Bool.and_eq_true] at h3
-        simpa [Lech.ConstantInfo.toConstantVal, List.isEmpty_iff]
+        simp only [ConLeche.natSuccOk, Bool.and_eq_true] at h3
+        simpa [ConLeche.ConstantInfo.toConstantVal, List.isEmpty_iff]
           using h3.1
-      | _ => simp [Lech.natSuccOk] at h3
+      | _ => simp [ConLeche.natSuccOk] at h3
     rw [denoteP_const hf (by simp [hlp]), hlp]
 
 /-! ## The `AnnotOkP` hoist kit
@@ -217,11 +217,11 @@ def DefEqStepAtP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
           interp2 V ρ aa = interp2 V ρ ba
 
 /-- **Residue 3 — proof irrelevance**, P currency.  (`ProofIrrelP`
-would clash with the kernel's `Lech.proofIrrelP`.) -/
+would clash with the kernel's `ConLeche.proofIrrelP`.) -/
 def ProofIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
-    Lech.proofIrrelP μ env fuel d a b = .ok true →
+    ConLeche.proofIrrelP μ env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -241,7 +241,7 @@ branch with the head-symbol fast arms; the unit-like branch stays with
 def PropIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
-    Lech.propIrrelP μ env fuel d a b = .ok true →
+    ConLeche.propIrrelP μ env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -260,7 +260,7 @@ raise. -/
 def ReduceNatStepPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e₂ : Expr} {Δa : List AVExpr} {ea : AVExpr},
-    Lech.reduceNatP μ env fuel d e = .ok (some e₂) →
+    ConLeche.reduceNatP μ env fuel d e = .ok (some e₂) →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     CtxOkP m φ d Δa e →
@@ -278,7 +278,7 @@ def ReduceNatStepPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 def DefEqSpineP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
-    Lech.defeqSpineP μ env fuel d a b = .ok true →
+    ConLeche.defeqSpineP μ env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -301,18 +301,18 @@ def DefEqStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     defeqStep μ (pureFns μ env fuel) env d k pi a b = .ok true →
     (a == b) = false →
     (if pi && b.isBoolTrue && !a.hasFvar then
-      Lech.boolTrueShortcutP μ env fuel d a else pure false) = .ok false →
+      ConLeche.boolTrueShortcutP μ env fuel d a else pure false) = .ok false →
     whnfCore μ env fuel d a = .ok a' →
     whnfCore μ env fuel d b = .ok b' →
     (a' == b') = false →
-    (if pi && !a'.quickPair b' then Lech.propIrrelP μ env fuel d a' b'
+    (if pi && !a'.quickPair b' then ConLeche.propIrrelP μ env fuel d a' b'
       else pure false) = .ok false →
     (if !a'.hasFvar && !b'.hasFvar then
-      Lech.reduceNatP μ env fuel d a' else pure none) = .ok none →
+      ConLeche.reduceNatP μ env fuel d a' else pure none) = .ok none →
     (if !a'.hasFvar && !b'.hasFvar then
-      Lech.reduceNatP μ env fuel d b' else pure none) = .ok none →
-    Lech.unfoldableHead env a' = false →
-    Lech.unfoldableHead env b' = false →
+      ConLeche.reduceNatP μ env fuel d b' else pure none) = .ok none →
+    ConLeche.unfoldableHead env a' = false →
+    ConLeche.unfoldableHead env b' = false →
     Expr.WScoped d a' → a'.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a' →
     Expr.WScoped d b' → b'.looseBVarsBounded 0 = true →
@@ -327,11 +327,11 @@ def DefEqStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
         interp2 V ρ aa' = interp2 V ρ ba'
 
 /-- **Residue 6 — `stuckIrrel`**, P currency.  (`StuckIrrelP` would
-clash with the kernel's `Lech.stuckIrrelP`.) -/
+clash with the kernel's `ConLeche.stuckIrrelP`.) -/
 def StuckIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
-    Lech.stuckIrrelP μ env fuel d a b = .ok true →
+    ConLeche.stuckIrrelP μ env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -349,7 +349,7 @@ def AppCongrStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
     isDefEqCore μ env fuel d a.getAppFn b.getAppFn = .ok true →
-    Lech.defEqListP μ env fuel d a.getAppArgs b.getAppArgs
+    ConLeche.defEqListP μ env fuel d a.getAppArgs b.getAppArgs
       = .ok true →
     a.getAppArgs.length = b.getAppArgs.length →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
@@ -367,9 +367,9 @@ def AppCongrStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 /-- **Residue 11 — the η certificate**, P currency. -/
 def EtaCertStepP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
-  ∀ {d : Nat} {ty bd b : Expr} {mb : Lech.BinderMeta}
+  ∀ {d : Nat} {ty bd b : Expr} {mb : ConLeche.BinderMeta}
     {Δa : List AVExpr},
-    Lech.etaCertP μ env fuel d ty bd mb b = .ok true →
+    ConLeche.etaCertP μ env fuel d ty bd mb b = .ok true →
     Expr.WScoped d (.lam ty bd mb) →
     (Expr.lam ty bd mb).looseBVarsBounded 0 = true →
     Expr.LeavesBounded (.lam ty bd mb) →
@@ -389,14 +389,14 @@ def EtaCertStepP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 def DenotePStrLit {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop :=
   ∀ (d : Nat) (st : String) {sa : AVExpr},
-    Lech.strLitSupported env = true →
+    ConLeche.strLitSupported env = true →
     denoteP m.acval env φ d (.lit (.strVal st)) = some sa →
     denoteP m.acval env φ d
-        (Lech.strLitToConstructor st) = some sa ∧
-      Expr.WScoped d (Lech.strLitToConstructor st) ∧
-      (Lech.strLitToConstructor st).looseBVarsBounded 0 = true ∧
-      Expr.LeavesBounded (Lech.strLitToConstructor st) ∧
-      (Lech.strLitToConstructor st).fvarLeaves = []
+        (ConLeche.strLitToConstructor st) = some sa ∧
+      Expr.WScoped d (ConLeche.strLitToConstructor st) ∧
+      (ConLeche.strLitToConstructor st).looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded (ConLeche.strLitToConstructor st) ∧
+      (ConLeche.strLitToConstructor st).fvarLeaves = []
 
 /-- **Residue 2 — the delta identity**, P currency: unfolding a
 definition head does not move the validated reading.  Fuel-free, so
@@ -404,7 +404,7 @@ definition head does not move the validated reading.  Fuel-free, so
 def DenotePDeltaP {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) : Prop :=
   ∀ {d : Nat} {x y : Expr} {xa : AVExpr},
-    Lech.unfoldDefinition env x = some y →
+    ConLeche.unfoldDefinition env x = some y →
     denoteP m.acval env φ d x = some xa →
     denoteP m.acval env φ d y = some xa
 
@@ -447,7 +447,7 @@ theorem defeq_claimsP {m : EnvS2Core V env} {fuel : Nat}
     (hstep : DefEqStepAtP μ m φ fuel) :
     DefEqClaims2P μ m φ (fuel + 1) := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
-  rw [Lech.isDefEqCore_succ, defeqBody] at h
+  rw [ConLeche.isDefEqCore_succ, defeqBody] at h
   exact defeqLoop_contP hstep defeqLoopFuel d true h hwa hba hLa hwb
     hbb hLb hCa hCb hda hdb
 
@@ -482,7 +482,7 @@ moves, so only the frame conditions and one `of_subset` remain. -/
 theorem dq_delta_packageP {m : EnvS2Core V env}
     (hdel : DenotePDeltaP m φ)
     {d : Nat} {Δa : List AVExpr} {x y : Expr} {xa : AVExpr}
-    (hu : Lech.unfoldDefinition env x = some y)
+    (hu : ConLeche.unfoldDefinition env x = some y)
     (hws : Expr.WScoped d x) (hb : x.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded x) (hC : CtxOkP m φ d Δa x)
     (hx : denoteP m.acval env φ d x = some xa) :
@@ -504,7 +504,7 @@ What is left is the checker's own case tree. -/
 
 /-- `Expr.isBoolTrue` reads exactly the constant `Bool.true`. -/
 private theorem isBoolTrue_iff {e : Expr} :
-    e.isBoolTrue = true ↔ e = .const Lech.boolTrueName [] := by
+    e.isBoolTrue = true ↔ e = .const ConLeche.boolTrueName [] := by
   cases e <;> (try cases ‹List Level›) <;> simp [Expr.isBoolTrue]
 
 /-- **`DefEqStepAtP`**, modulo the routed obligations. -/
@@ -520,11 +520,11 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
   intro d k hk pi a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb
     hda hdb hokA hokB ρ hρ
   have h0 := h
-  simp only [defeqStep, Bind.bind, Except.bind, Lech.whnfCore_def,
-    Lech.propIrrel_fold, Lech.reduceNat_fold,
-    Lech.boolTrueShortcut_fold,
-    Lech.defeqSpine_fold, Lech.stuckIrrel_fold,
-    Lech.defeq_def] at h
+  simp only [defeqStep, Bind.bind, Except.bind, ConLeche.whnfCore_def,
+    ConLeche.propIrrel_fold, ConLeche.reduceNat_fold,
+    ConLeche.boolTrueShortcut_fold,
+    ConLeche.defeqSpine_fold, ConLeche.stuckIrrel_fold,
+    ConLeche.defeq_def] at h
   split at h
   · -- the syntactic fast path
     next hab =>
@@ -535,14 +535,14 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
   · -- the eq-true shortcut (E2): a `true` verdict is `whnf a = Bool.true
     -- = b`, closed by the whnf claim at the reduct's own reading (`b`'s)
     cases hbt : (if pi && b.isBoolTrue && !a.hasFvar then
-        Lech.boolTrueShortcutP μ env fuel d a else pure false) with
+        ConLeche.boolTrueShortcutP μ env fuel d a else pure false) with
     | error err => rw [hbt] at h; exact nomatch h
     | ok rbt =>
     rw [hbt] at h
     dsimp only at h
     cases rbt with
     | true =>
-      have hbt' : Lech.boolTrueShortcutP μ env fuel d a = .ok true ∧
+      have hbt' : ConLeche.boolTrueShortcutP μ env fuel d a = .ok true ∧
           b.isBoolTrue = true := by
         split at hbt
         · next hc =>
@@ -550,9 +550,9 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
           exact ⟨hbt, hc.1.2⟩
         · exact nomatch hbt
       obtain ⟨hsc, hbtrue⟩ := hbt'
-      simp only [Lech.boolTrueShortcutP, Lech.boolTrueShortcut, Bind.bind,
-        Except.bind, Lech.whnf_def] at hsc
-      cases hw : Lech.whnf μ env fuel d a with
+      simp only [ConLeche.boolTrueShortcutP, ConLeche.boolTrueShortcut, Bind.bind,
+        Except.bind, ConLeche.whnf_def] at hsc
+      cases hw : ConLeche.whnf μ env fuel d a with
       | error err => rw [hw] at hsc; exact nomatch hsc
       | ok w =>
       rw [hw] at hsc
@@ -592,14 +592,14 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
     · -- proof irrelevance, once per entry (the audit's D3): the gate is
       -- `pi`, and only a `true` verdict is consumed
       cases hir : (if pi && !a'.quickPair b' then
-          Lech.propIrrelP μ env fuel d a' b' else pure false) with
+          ConLeche.propIrrelP μ env fuel d a' b' else pure false) with
       | error err => rw [hir] at h; exact nomatch h
       | ok r =>
       rw [hir] at h
       dsimp only at h
       cases r with
       | true =>
-        have hir' : Lech.propIrrelP μ env fuel d a' b' = .ok true := by
+        have hir' : ConLeche.propIrrelP μ env fuel d a' b' = .ok true := by
           split at hir
           · exact hir
           · exact nomatch hir
@@ -607,14 +607,14 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
           hdb' hokA' hokB' ρ hρ
       | false =>
         cases hna : (if !a'.hasFvar && !b'.hasFvar then
-            Lech.reduceNatP μ env fuel d a' else pure none) with
+            ConLeche.reduceNatP μ env fuel d a' else pure none) with
         | error err => rw [hna] at h; exact nomatch h
         | ok o₁ =>
         rw [hna] at h
         dsimp only at h
         match o₁, hna, h with
         | some a₂, hna, h =>
-          have hred : Lech.reduceNatP μ env fuel d a'
+          have hred : ConLeche.reduceNatP μ env fuel d a'
               = .ok (some a₂) := by
             split at hna
             · exact hna
@@ -627,14 +627,14 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
         | none, hna, h =>
         dsimp only at h
         cases hnb : (if !a'.hasFvar && !b'.hasFvar then
-            Lech.reduceNatP μ env fuel d b' else pure none) with
+            ConLeche.reduceNatP μ env fuel d b' else pure none) with
         | error err => rw [hnb] at h; exact nomatch h
         | ok o₂ =>
         rw [hnb] at h
         dsimp only at h
         match o₂, hnb, h with
         | some b₂, hnb, h =>
-          have hred : Lech.reduceNatP μ env fuel d b'
+          have hred : ConLeche.reduceNatP μ env fuel d b'
               = .ok (some b₂) := by
             split at hnb
             · exact hnb
@@ -644,15 +644,15 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
           exact (hk true h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda' hw
             hokA' hokw ρ hρ).trans (hEw ρ hρ).symm
         | none, hnb, h =>
-        cases hha : Lech.unfoldableHead env a' <;>
-          cases hhb : Lech.unfoldableHead env b' <;>
+        cases hha : ConLeche.unfoldableHead env a' <;>
+          cases hhb : ConLeche.unfoldableHead env b' <;>
           rw [hha, hhb] at h <;> dsimp only at h
         · -- neither head unfolds: the stuck configuration
           exact hstk h0 (by simpa using ‹¬(a == b) = true›) hbt hwca
             hwcb (by simpa using ‹¬(a' == b') = true›) hir hna hnb
             hha hhb hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hda'
             hdb' hokA' hokB' ρ hρ
-        · cases hub : Lech.unfoldDefinition env b' with
+        · cases hub : ConLeche.unfoldDefinition env b' with
           | none => rw [hub] at h; exact nomatch h
           | some b₂ =>
             rw [hub] at h
@@ -660,7 +660,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
               dq_delta_packageP hdel hub hwb' hbb' hLb' hCb' hdb'
             exact hk false h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda' hd2
               hokA' hokB' ρ hρ
-        · cases hua : Lech.unfoldDefinition env a' with
+        · cases hua : ConLeche.unfoldDefinition env a' with
           | none => rw [hua] at h; exact nomatch h
           | some a₂ =>
             rw [hua] at h
@@ -669,16 +669,16 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
             exact hk false h hw2 hb2 hL2 hwb' hbb' hLb' hC2 hCb' hd2 hdb'
               hokA' hokB' ρ hρ
         · have hboth : ∀ {x : CheckM Bool},
-              (match Lech.unfoldDefinition env a',
-                  Lech.unfoldDefinition env b' with
+              (match ConLeche.unfoldDefinition env a',
+                  ConLeche.unfoldDefinition env b' with
                 | some a₂, some b₂ => k false a₂ b₂
                 | _, _ => pure false) = .ok true →
               interp2 V ρ aa' = interp2 V ρ ba' := by
             intro x hbb2
-            cases hua : Lech.unfoldDefinition env a' with
+            cases hua : ConLeche.unfoldDefinition env a' with
             | none => rw [hua] at hbb2; exact nomatch hbb2
             | some a₂ =>
-            cases hub : Lech.unfoldDefinition env b' with
+            cases hub : ConLeche.unfoldDefinition env b' with
             | none => rw [hua, hub] at hbb2; exact nomatch hbb2
             | some b₂ =>
               rw [hua, hub] at hbb2
@@ -688,17 +688,17 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
                 dq_delta_packageP hdel hub hwb' hbb' hLb' hCb' hdb'
               exact hk false hbb2 hwA hbA hLA hwB hbB hLB hCA hCB hdA hdB
                 hokA' hokB' ρ hρ
-          cases hlt1 : Lech.ReducibilityHint.lt
-              (Lech.headHint env b') (Lech.headHint env a') <;>
+          cases hlt1 : ConLeche.ReducibilityHint.lt
+              (ConLeche.headHint env b') (ConLeche.headHint env a') <;>
             rw [hlt1] at h
-          · cases hlt2 : Lech.ReducibilityHint.lt
-                (Lech.headHint env a') (Lech.headHint env b') <;>
+          · cases hlt2 : ConLeche.ReducibilityHint.lt
+                (ConLeche.headHint env a') (ConLeche.headHint env b') <;>
               rw [hlt2] at h
-            · cases hsr : (Lech.ReducibilityHint.sameRegular
-                    (Lech.headHint env a') (Lech.headHint env b') &&
-                  Lech.sameConstHeads a' b') <;> rw [hsr] at h
+            · cases hsr : (ConLeche.ReducibilityHint.sameRegular
+                    (ConLeche.headHint env a') (ConLeche.headHint env b') &&
+                  ConLeche.sameConstHeads a' b') <;> rw [hsr] at h
               · exact hboth (x := pure false) h
-              · cases hsp : Lech.defeqSpineP μ env fuel d a' b' with
+              · cases hsp : ConLeche.defeqSpineP μ env fuel d a' b' with
                 | error err => rw [hsp] at h; exact nomatch h
                 | ok r' =>
                 rw [hsp] at h
@@ -708,7 +708,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
                   exact hspine hsp hwa' hba' hLa' hwb' hbb' hLb'
                     hCa' hCb' hda' hdb' hokA' hokB' ρ hρ
                 | false => exact hboth (x := pure false) h
-            · cases hub : Lech.unfoldDefinition env b' with
+            · cases hub : ConLeche.unfoldDefinition env b' with
               | none => rw [hub] at h; exact nomatch h
               | some b₂ =>
                 rw [hub] at h
@@ -716,7 +716,7 @@ theorem defeqStep_claimP {m : EnvS2Core V env} {fuel : Nat}
                   dq_delta_packageP hdel hub hwb' hbb' hLb' hCb' hdb'
                 exact hk false h hwa' hba' hLa' hw2 hb2 hL2 hCa' hC2 hda'
                   hd2 hokA' hokB' ρ hρ
-          · cases hua : Lech.unfoldDefinition env a' with
+          · cases hua : ConLeche.unfoldDefinition env a' with
             | none => rw [hua] at h; exact nomatch h
             | some a₂ =>
               rw [hua] at h
@@ -819,9 +819,9 @@ theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
   intro x hx
   exact ihd (Δa := ta₁ :: Δa) hdd
     (Expr.WScoped.instantiate1 hwt₂ 0 hwb₁)
-    (Lech.looseBVarsBounded_instantiate1 bd₁ 0 hbb₁) hLo₁
+    (ConLeche.looseBVarsBounded_instantiate1 bd₁ 0 hbb₁) hLo₁
     (Expr.WScoped.instantiate1 hwt₂ 0 hwb₂)
-    (Lech.looseBVarsBounded_instantiate1 bd₂ 0 hbb₂) hLo₂
+    (ConLeche.looseBVarsBounded_instantiate1 bd₂ 0 hbb₂) hLo₂
     (CtxOkP.openCongC hCb₁ hCt₂ hta₂ hoT₂ hdom)
     (CtxOkP.openCongC hCb₂ hCt₂ hta₂ hoT₂ hdom)
     hva₁' hva₂ hoB₁
@@ -875,11 +875,11 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
     DefEqStuckP μ m φ fuel := by
   intro d Δa _k _pi a b a' b' h hab hbt hwca hwcb hab' hir hna hnb hha hhb
     hwa hba hLa hwb hbb hLb aa' ba' hCa hCb hda hdb hokA hokB ρ hρ
-  simp only [defeqStep, Bind.bind, Except.bind, Lech.whnfCore_def,
-    Lech.propIrrel_fold, Lech.reduceNat_fold,
-    Lech.boolTrueShortcut_fold,
-    Lech.defeqSpine_fold, Lech.stuckIrrel_fold, Lech.defeq_def,
-    Lech.defEqList_fold, Lech.etaCert_fold] at h
+  simp only [defeqStep, Bind.bind, Except.bind, ConLeche.whnfCore_def,
+    ConLeche.propIrrel_fold, ConLeche.reduceNat_fold,
+    ConLeche.boolTrueShortcut_fold,
+    ConLeche.defeqSpine_fold, ConLeche.stuckIrrel_fold, ConLeche.defeq_def,
+    ConLeche.defEqList_fold, ConLeche.etaCert_fold] at h
   rw [if_neg (by simpa using hab), hbt] at h
   dsimp only at h
   simp only [Bool.false_eq_true, ↓reduceIte] at h
@@ -895,7 +895,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
   dsimp only at h
   rw [hha, hhb] at h
   simp only [Bool.false_eq_true, if_false] at h
-  have hfall : Lech.stuckIrrelP μ env fuel d a' b' = .ok true →
+  have hfall : ConLeche.stuckIrrelP μ env fuel d a' b' = .ok true →
       interp2 V ρ aa' = interp2 V ρ ba' := fun hs =>
     hsi hs hwa hba hLa hwb hbb hLb hCa hCb hda hdb hokA hokB ρ hρ
   clear hab hbt hwca hwcb hab' hir hna hnb hha hhb hsi
@@ -911,7 +911,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
     | none => rw [hle] at h; exact nomatch h
     | some r =>
       rw [hle] at h
-      dsimp only [Lech.liftFueled] at h
+      dsimp only [ConLeche.liftFueled] at h
       cases r with
       | false => exact nomatch h
       | true => rw [Level.isEquiv_sound hle φ]
@@ -931,7 +931,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       obtain rfl : n = 0 := by simpa using h.symm
       obtain ⟨hg, rfl⟩ := denoteP_natLit_inv hda
       rw [denoteP_natZeroConst hg] at hdb
-      obtain rfl : ba' = m.acval Lech.natZeroName
+      obtain rfl : ba' = m.acval ConLeche.natZeroName
         (Level.substFn φ [] []) := (Option.some.inj hdb).symm
       rfl
     · exact hfall h
@@ -944,7 +944,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       obtain rfl : n = 0 := by simpa using h.symm
       obtain ⟨hg, rfl⟩ := denoteP_natLit_inv hdb
       rw [denoteP_natZeroConst hg] at hda
-      obtain rfl : aa' = m.acval Lech.natZeroName
+      obtain rfl : aa' = m.acval ConLeche.natZeroName
         (Level.substFn φ [] []) := (Option.some.inj hda).symm
       rfl
     · exact hfall h
@@ -956,7 +956,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
         obtain ⟨hg, rfl⟩ := denoteP_natLit_inv hda
         obtain ⟨fa, xa, hfa, hxa, rfl⟩ := denoteP_app_inv hdb
         rw [denoteP_natSuccConst hg] at hfa
-        obtain rfl : fa = m.acval Lech.natSuccName
+        obtain rfl : fa = m.acval ConLeche.natSuccName
           (Level.substFn φ [] []) := (Option.some.inj hfa).symm
         obtain ⟨hwx, hbx, hLx, hCx⟩ := dq_frame_appArgP hwb hbb hLb hCb
         refine deqStep2_appCong rfl
@@ -986,7 +986,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
         obtain ⟨hg, rfl⟩ := denoteP_natLit_inv hdb
         obtain ⟨fa, xa, hfa, hxa, rfl⟩ := denoteP_app_inv hda
         rw [denoteP_natSuccConst hg] at hfa
-        obtain rfl : fa = m.acval Lech.natSuccName
+        obtain rfl : fa = m.acval ConLeche.natSuccName
           (Level.substFn φ [] []) := (Option.some.inj hfa).symm
         obtain ⟨hwx, hbx, hLx, hCx⟩ := dq_frame_appArgP hwa hba hLa hCa
         refine deqStep2_appCong rfl
@@ -1049,7 +1049,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       | none => rw [hle] at h; exact nomatch h
       | some r =>
         rw [hle] at h
-        dsimp only [Lech.liftFueled] at h
+        dsimp only [ConLeche.liftFueled] at h
         cases r with
         | false => exact hfall h
         | true =>
@@ -1179,7 +1179,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       cases r with
       | false => exact hfall h
       | true =>
-        cases hls : Lech.defEqListP μ env fuel d
+        cases hls : ConLeche.defEqListP μ env fuel d
             (Expr.app f₁ a₁).getAppArgs (Expr.app f₂ a₂).getAppArgs with
         | error err => rw [hls] at h; exact nomatch h
         | ok r' =>
@@ -1232,7 +1232,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
     · exact hfall h
   -- 15: one-sided λ on the left
   · rename_i ty₁ bd₁ mb₁ hnl
-    cases he : Lech.etaCertP μ env fuel d ty₁ bd₁ mb₁ b' with
+    cases he : ConLeche.etaCertP μ env fuel d ty₁ bd₁ mb₁ b' with
     | error err => rw [he] at h; exact nomatch h
     | ok r =>
     rw [he] at h
@@ -1244,7 +1244,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
     | false => exact hfall h
   -- 16: one-sided λ on the right
   · rename_i ty₂ bd₂ mb₂ hnl
-    cases he : Lech.etaCertP μ env fuel d ty₂ bd₂ mb₂ a' with
+    cases he : ConLeche.etaCertP μ env fuel d ty₂ bd₂ mb₂ a' with
     | error err => rw [he] at h; exact nomatch h
     | ok r =>
     rw [he] at h
@@ -1335,4 +1335,4 @@ theorem defEqStepP_of (hμ : μ.verifiedChecks = true)
         (hin.heta env m φ fuel))
       (hin.hspine env m φ fuel))
 
-end Lech.SetP
+end ConLeche.SetP

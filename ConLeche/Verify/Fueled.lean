@@ -1,6 +1,6 @@
-import Lech.Verify.Mono
-import Lech.Verify.Deep
-import Lech.Kernel.TypeCheckerC
+import ConLeche.Verify.Mono
+import ConLeche.Verify.Deep
+import ConLeche.Kernel.TypeCheckerC
 
 /-!
 # The cache-refinement bridge, part A: fueled families
@@ -15,7 +15,7 @@ game as `PairM`, one component instead of two.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 /- Task #172 B2: the ι cone's mode is decoupled from the knot's, so
@@ -338,7 +338,7 @@ theorem structEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
   unfold structEtaCert
   atF_tac2
 
--- Outer casing peeled by hand (as in `Lech/Verify/PairM.lean`): the
+-- Outer casing peeled by hand (as in `ConLeche/Verify/PairM.lean`): the
 -- body outgrew the split-driven macro.
 set_option maxHeartbeats 800000 in
 theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (F : Nat) :
@@ -578,4 +578,4 @@ theorem annotateBody_atF (d : Nat) (e : Expr) (F : Nat) :
 
 end AtF
 
-end Lech
+end ConLeche

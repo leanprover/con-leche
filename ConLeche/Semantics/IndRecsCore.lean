@@ -1,7 +1,7 @@
-import Lech.Semantics.EnvFactsCons
-import Lech.Verify.Denote.EnvExt
+import ConLeche.Semantics.EnvFactsCons
+import ConLeche.Verify.Denote.EnvExt
 
-import Lech.Verify.Denote.Levels
+import ConLeche.Verify.Denote.Levels
 
 /-!
 # The recursor group's **model-free core** (task #161 S7, Wall A)
@@ -43,9 +43,9 @@ premise is `EnvFacts.val_params` verbatim.  Nothing semantic is involved.
 Model-free by construction: no `V`, no `SetTheory`, no `EnvS`.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-! ## The provisioning fold, at the `EnvFacts` level -/
 
@@ -287,4 +287,4 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
 /-! ## The group phase, at the `EnvFacts` level -/
 
 
-end Lech.Semantics
+end ConLeche.Semantics

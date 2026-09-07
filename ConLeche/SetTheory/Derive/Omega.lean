@@ -1,4 +1,4 @@
-import Lech.SetTheory.Derive.Universe
+import ConLeche.SetTheory.Derive.Universe
 
 /-!
 # Infinity, derived: the finite ordinals
@@ -23,7 +23,7 @@ universe `univChain 1` as a member — arranged for the tower in
 Tarski universe without `ω`.)
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -45,7 +45,7 @@ def Inductive (I : V) : Prop :=
   (empty : V) ∈ˢ I ∧ ∀ n, n ∈ˢ I → vsucc n ∈ˢ I
 
 /-- An inhabited Grothendieck universe is an inductive set. -/
-theorem _root_.Lech.IsTGUniverse.inductive_self {U y : V}
+theorem _root_.ConLeche.IsTGUniverse.inductive_self {U y : V}
     (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) : Inductive U :=
   ⟨hU.empty_mem hy, fun _n hn =>
     hU.binUnion_mem hy hn (hU.sing_mem hy hn)⟩
@@ -118,7 +118,7 @@ theorem omega_subset_univChain_one : (omega : V) ⊆ˢ univChain 1 := sep_subset
 
 /-- `ω` is a member of any universe having the inductive universe
 `univChain 1` as a member. -/
-theorem _root_.Lech.IsTGUniverse.omega_mem {U : V}
+theorem _root_.ConLeche.IsTGUniverse.omega_mem {U : V}
     (hU : IsTGUniverse (Mem (V := V)) U) (h1 : (univChain 1 : V) ∈ˢ U) :
     (omega : V) ∈ˢ U :=
   hU.mem_of_subset_mem h1 omega_subset_univChain_one
@@ -127,4 +127,4 @@ theorem _root_.Lech.IsTGUniverse.omega_mem {U : V}
 reducible: `Derive/Natrec.lean` computes with it through `vnat`. -/
 attribute [irreducible] omega
 
-end Lech.SetTheory
+end ConLeche.SetTheory

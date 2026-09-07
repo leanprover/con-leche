@@ -1,17 +1,17 @@
-import Lech.VExpr.Const
+import ConLeche.VExpr.Const
 
 /-!
 # The substitution algebra of `VExpr`
 
 The commutation identities between `VExpr.liftN` and `VExpr.inst`
-(`Lech/VExpr/Subst.lean`), plus their consequences for the types of the
+(`ConLeche/VExpr/Subst.lean`), plus their consequences for the types of the
 built-in constants and for the smart constructors of
-`Lech/VExpr/Const.lean`.  The denotation needs lifting and instantiation
+`ConLeche/VExpr/Const.lean`.  The denotation needs lifting and instantiation
 to commute wherever it pushes a substitution through a basis term.
 
-**Why this lives on the bridge side and not in `Lech/VExpr/*`.**  The
+**Why this lives on the bridge side and not in `ConLeche/VExpr/*`.**  The
 term language deliberately has *no syntactic metatheory* —
-`Lech/VExpr/Subst.lean` is definitions plus constructor-wise `rfl`
+`ConLeche/VExpr/Subst.lean` is definitions plus constructor-wise `rfl`
 equations, and advertises that (lean4lean's counterpart is ~123
 theorems).  These identities are a bridge need, so they are filed with
 the bridge to keep the accounting honest.
@@ -21,7 +21,7 @@ with the cuts generalized; the `bvar` cases are `omega` case splits and
 everything else is congruence.
 -/
 
-namespace Lech.VExpr
+namespace ConLeche.VExpr
 namespace VExpr
 
 /-! ## Lift / lift -/
@@ -368,7 +368,7 @@ constant. -/
 
 /-! ## Distribution over the smart constructors
 
-The smart constructors of `Lech/VExpr/Const.lean`.  The lemmas below
+The smart constructors of `ConLeche/VExpr/Const.lean`.  The lemmas below
 push `liftN` and `inst` through each of them, so that a consumer can
 normalize a basis term by `simp only`.  The applicative ones are
 `rfl`; `arrow` and `relT` contain inner lifts and need the commutation
@@ -513,4 +513,4 @@ theorem inst_chain3 (x e2 e1 e0 : VExpr) :
 theorem inst_chain4 (x e3 e2 e1 e0 : VExpr) :
     ((((VExpr.liftN 4 x 0).inst e3 3).inst e2 2).inst e1 1).inst e0 0 = x := by
   rw [VExpr.inst_liftN_absorb x (Nat.zero_le _) (by omega) e3, inst_chain3]
-end Lech.VExpr
+end ConLeche.VExpr

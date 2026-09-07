@@ -1,15 +1,15 @@
-import Lech.Verify.EnvGuards
-import Lech.Verify.Extend.Modeled
+import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.Extend.Modeled
 
 /-!
-# Ind — the `V`-free half of `Lech.Model.Extend.Ind`
+# Ind — the `V`-free half of `ConLeche.Model.Extend.Ind`
 
 The bookkeeping the `checkIndDecl` member fold establishes about the
 environment it returns: which names it installs, which kinds they get,
 that nothing else moves, and the two side invariants
 (`EtaFamiliesClosedO`, `BlockCapsPinned`) the block install threads.
 
-Relocated from `Lech/Model/Extend/Ind.lean` (task #123);
+Relocated from `ConLeche/Model/Extend/Ind.lean` (task #123);
 `checkIndMember_sound` and `checkIndFold_sound` stay there, being
 statements about a valuation.  The `omit [SetTheory V] in` lines are
 dropped: there is no such section variable here.
@@ -17,7 +17,7 @@ dropped: there is no such section variable here.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -324,4 +324,4 @@ theorem checkIndFold_stored {blockNames : List Name} {caps : IndCaps} :
       rfl
     · exact checkIndFold_stored rest _ env₂ h ci hci
 
-end Lech
+end ConLeche

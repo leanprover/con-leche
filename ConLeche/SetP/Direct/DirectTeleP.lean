@@ -1,5 +1,5 @@
-import Lech.SetP.Direct.DirectRowsP
-import Lech.Semantics.Tower.TowerRec
+import ConLeche.SetP.Direct.DirectRowsP
+import ConLeche.Semantics.Tower.TowerRec
 
 /-!
 # The direct structure's telescope walks (task #175 W4c, P3 module 3, part 3)
@@ -21,12 +21,12 @@ bridges the two:
 * `sat2_of_spineFit`: a fitting spine satisfies the entries it fits.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech Lech.Semantics Lech.Verify SetTheory Lech.SetModel
-open Lech.Semantics (AVExpr)
+open ConLeche ConLeche.Semantics ConLeche.Verify SetTheory ConLeche.SetModel
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -250,4 +250,4 @@ theorem spineFit_of_sat2 :
       rw [e]
       exact this
 
-end Lech.SetP
+end ConLeche.SetP

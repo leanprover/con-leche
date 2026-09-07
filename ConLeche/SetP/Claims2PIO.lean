@@ -1,5 +1,5 @@
-import Lech.SetP.Claims2P
-import Lech.Kernel.CoreIO
+import ConLeche.SetP.Claims2P
+import ConLeche.Kernel.CoreIO
 
 /-!
 # The io claims family, PREMISE FORM (task #161, stage 2 — the freeze)
@@ -70,13 +70,13 @@ enforcement: the full lane's bodies never mention `coreKnotIO`, so no
 full-lane claim can be discharged from an io claim by construction.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name inferTypeCoreIO)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name inferTypeCoreIO)
 
 universe w
 
@@ -116,7 +116,7 @@ call site's `of_claims` supplier consumes this one family. -/
 def InferClaimsIOS2P (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
-    Lech.inferTypeIO μ env fuel d e = .ok t →
+    ConLeche.inferTypeIO μ env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {ea ta : AVExpr},
@@ -139,11 +139,11 @@ theorem inferClaimsIOS2P_of {μ : CheckMode} {env : Env}
   intro d e t Δa hrun hws hb hLb ea ta hC hea hta hok
   cases hg : μ.betaGate with
   | false =>
-    rw [Lech.inferTypeIO_off hg] at hrun
+    rw [ConLeche.inferTypeIO_off hg] at hrun
     obtain ⟨-, hokta, hmem⟩ := hfull hrun hws hb hLb hC hea hta
     exact ⟨hokta, hmem⟩
   | true =>
-    rw [Lech.inferTypeIO_on hg] at hrun
+    rw [ConLeche.inferTypeIO_on hg] at hrun
     exact hio hrun hws hb hLb hC hea hta hok
 
 /-- **The five-way step** (statement only; the assembly proof is the
@@ -173,22 +173,22 @@ theorem checkSound2P5 {μ : CheckMode} {env : Env}
   | zero =>
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · intro d e e' Δa h
-      rw [Lech.whnfCore_zero] at h
+      rw [ConLeche.whnfCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
     · intro d e e' Δa h
-      rw [Lech.whnf_zero] at h
+      rw [ConLeche.whnf_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
     · intro d a b Δa h
-      rw [Lech.isDefEqCore_zero] at h
+      rw [ConLeche.isDefEqCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
     · intro d e t Δa h
-      rw [Lech.inferTypeCore_zero] at h
+      rw [ConLeche.inferTypeCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
     · intro d e t Δa h
-      rw [Lech.inferTypeCoreIO_zero] at h
+      rw [ConLeche.inferTypeCoreIO_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
   | succ fuel ih =>
     obtain ⟨ihwc, ihw, ihd, ihi, ihio⟩ := ih
     exact hstep env m φ fuel ihwc ihw ihd ihi ihio
 
-end Lech.SetP
+end ConLeche.SetP

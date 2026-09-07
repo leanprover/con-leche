@@ -1,6 +1,6 @@
-import Lech.Kernel.Env
-import Lech.Kernel.ExprOps
-import Lech.Kernel.Level
+import ConLeche.Kernel.Env
+import ConLeche.Kernel.ExprOps
+import ConLeche.Kernel.Level
 
 /-!
 # Fast prop-ness off the head symbol (task #168)
@@ -31,10 +31,10 @@ proof" arm** (`notProofFast`) needs no model theorem: refusing the
 proof-irrelevance shortcut is always sound; its obligation is
 kernel-level agreement with the slow path, which the landing census
 records (DESIGN.md, task #168).  The **"definitely a proof" arm** is a
-squash-regime licence (`Lech/SetP/Step2/IrrelFastP.lean`).
+squash-regime licence (`ConLeche/SetP/Step2/IrrelFastP.lean`).
 -/
 
-namespace Lech
+namespace ConLeche
 
 namespace Expr
 
@@ -45,7 +45,7 @@ peeled binders; the readers only look at its head shape).  The
 binders of a type former `∀ p⃗, Sort u` all carry the datum of a
 `succ` codomain sort — and it is what licenses the "yes" arm's
 telescope walk without a certificate (`neverChainP_of_peel`,
-`Lech/SetP/Step2/IrrelFastP.lean`: every slot is in the graph
+`ConLeche/SetP/Step2/IrrelFastP.lean`: every slot is in the graph
 regime, `io_domain_transfer`). -/
 def peelNeverPis : Nat → Expr → Option Expr
   | 0, e => some e
@@ -149,4 +149,4 @@ def isProofFast (find? : Name → Option ConstantInfo) (a : Expr) : Bool :=
   | some pw => pw.isProp
   | none => false
 
-end Lech
+end ConLeche

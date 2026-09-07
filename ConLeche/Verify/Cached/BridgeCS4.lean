@@ -1,16 +1,16 @@
-import Lech.Verify.Cached.BridgeCS3
-import Lech.Verify.CheckerF
-import Lech.Verify.Extend.Inversions
-import Lech.Verify.Extend.Modeled
-import Lech.Verify.Extend.Recs
-import Lech.Verify.Extend.Proj
+import ConLeche.Verify.Cached.BridgeCS3
+import ConLeche.Verify.CheckerF
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.Extend.Modeled
+import ConLeche.Verify.Extend.Recs
+import ConLeche.Verify.Extend.Proj
 
 /-!
 # Cached shared-state checker: the per-declaration composition
 
-Port of `Lech/Verify/BridgeS4.lean` for the cached tier.  Composes
-the single-environment walks (`Lech/Verify/Cached/BridgeCS*.lean`)
-along the thin phase drivers of `Lech/Cached/CheckerC.lean` into the
+Port of `ConLeche/Verify/BridgeS4.lean` for the cached tier.  Composes
+the single-environment walks (`ConLeche/Verify/Cached/BridgeCS*.lean`)
+along the thin phase drivers of `ConLeche/Cached/CheckerC.lean` into the
 per-declaration bridge: a successful `checkDeclSF` run over a
 well-formed environment is reproduced by the pure fueled checker.
 
@@ -31,9 +31,9 @@ comparand — the `(fueledOpsM mode)` runs, the `_datF` conversions, the
 `EnvWF` conclusions — is byte-identical to the interned original's.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 open Expr
 
 variable {mode : CheckMode}
@@ -766,4 +766,4 @@ theorem foldProjFnS_run (hμ : mode.verifiedChecks = true) {T ctorName : Name} {
     rw [List.foldlM_cons]
     exact atF_bind_intro hF₁ hF₂
 
-end Lech.Cached
+end ConLeche.Cached

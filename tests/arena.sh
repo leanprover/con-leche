@@ -15,7 +15,7 @@
 # An <expectation> is a single exit code.  Until task #148 T0b it could
 # also be a pair "<on>|<off>" for the five fixtures whose verdict
 # depended on the direct simple-structure master switch
-# (`Lech.directStructsEnabled`, Lech/Kernel/Direct.lean, task
+# (`ConLeche.directStructsEnabled`, ConLeche/Kernel/Direct.lean, task
 # #119/#120), and `--direct-off` ran the whole suite against a second
 # binary built with the switch off.  The switch now ships `false` — the
 # configuration both verified lanes reason about — so the shipped binary
@@ -27,8 +27,8 @@
 # checker has one two-valued mode: `--verified` (the default — the
 # surface the set model proves) and `--trusted` (the unverified lane:
 # checking-mode front door, infer-only internals, no certificate
-# families; it absorbs the retired --yolo/LECH_NO_PROOF_CERTS and
-# --infer-only/LECH_INFER_ONLY).  `--tt-model` selected the seven
+# families; it absorbs the retired --yolo/CON_LECHE_NO_PROOF_CERTS and
+# --infer-only/CON_LECHE_INFER_ONLY).  `--tt-model` selected the seven
 # TT-lane checks for the declarative verification lane; that lane was
 # deleted at #148 T7b and the flag is a hard error now, so its sweep —
 # which had claimed and shown byte-identity with the default on every
@@ -65,7 +65,7 @@ done
 set -- ${args+"${args[@]}"}
 
 TESTS_DIR="${1:-_tmp/arena-tests}"
-BIN=.lake/build/bin/lech
+BIN=.lake/build/bin/con-leche
 EXPECTED=tests/arena-expected.txt
 E2E_EXPECTED=tests/e2e-expected.txt
 ANNOT_EXPECTED=tests/annot-expected.txt
@@ -84,7 +84,7 @@ if [ ! -d "$TESTS_DIR" ]; then
   fi
 fi
 
-lake build lech >/dev/null || exit 3
+lake build con-leche >/dev/null || exit 3
 
 
 # The trusted-mode overrides, keyed "<suite> <fixture> <mode>" (mode empty
@@ -165,15 +165,15 @@ if tests/pindump.sh; then :; else fail=1; fi
 # and neither sees the other's.
 if tests/trust-surface.sh; then :; else fail=1; fi
 
-# THE NATIVE-PREDICATE AUDIT (task #193).  `lech-preprocess` leaves a
-# block unmodelled when `lechNative` says the checker installs it
+# THE NATIVE-PREDICATE AUDIT (task #193).  `con-leche-preprocess` leaves a
+# block unmodelled when `conlecheNative` says the checker installs it
 # directly; the checker installs it directly when a RECOGNISER takes
 # it.  The predicate is a hand-written mirror of the recognisers over a
 # second `Expr` type and drifted once at Mathlib scale (a former
 # declared at a definition: `numIndices` said "indexed family", the
 # recogniser's telescope pin said "no" — a "missing model" decline).
 # This runs both over every good arena fixture, block by block
-# (`LECH_ROUTE_TRACE`, Main.lean), and fails on any native block the
+# (`CON_LECHE_ROUTE_TRACE`, Main.lean), and fails on any native block the
 # recogniser rejects.  `tests/native-audit.sh --full` adds init-full.
 if tests/native-audit.sh; then :; else fail=1; fi
 
@@ -186,18 +186,18 @@ if tests/inmodel.sh; then :; else fail=1; fi
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
 # theorems, the four letters, the assembly under them and the `IO`
 # loop's bridge — and, since task #181, the `False` letters — carry `#guard_msgs in #print axioms`
-# guards in `tests/LechTests/Axioms.lean`, pinning them at exactly
+# guards in `tests/ConLecheTests/Axioms.lean`, pinning them at exactly
 # `[propext, Classical.choice, Quot.sound]`.  The guards ARE the
 # elaboration of that module, so building the test library is the gate:
 # a drifting axiom footprint is a build error, not a claim in the
 # journal.  (`lake test` runs the same library; this line is so the
 # standard battery says so too.)
-AXLOG=$(lake build LechTests 2>&1)
+AXLOG=$(lake build ConLecheTests 2>&1)
 if [ $? = 0 ] && ! printf '%s\n' "$AXLOG" | grep -q 'error:'; then
-  nax=$(grep -c '^#print axioms' tests/LechTests/Axioms.lean)
+  nax=$(grep -c '^#print axioms' tests/ConLecheTests/Axioms.lean)
   echo "axioms: pinned ($nax theorems at [propext, Classical.choice, Quot.sound])"
 else
-  echo 'AXIOM PIN FAIL — tests/LechTests/Axioms.lean did not elaborate:'
+  echo 'AXIOM PIN FAIL — tests/ConLecheTests/Axioms.lean did not elaborate:'
   printf '%s\n' "$AXLOG" | grep -A6 'error:' | head -40 | sed 's/^/    /'
   echo '    a changed `#print axioms` message is a FINDING: report it,'
   echo '    do not relax the guard.'
@@ -241,7 +241,7 @@ arena_half() {
 # they still carry `_model` artifacts for blocks the direct install
 # recognises; that is inert (the W4c priority gate ignores them) and
 # they are deliberately left alone as pre-#178 baselines.  A fixture
-# regenerated from now on should go through `lech-preprocess`.
+# regenerated from now on should go through `con-leche-preprocess`.
 e2e_half() {
   e2e_ok=0
   e2e_total=0
@@ -252,7 +252,7 @@ e2e_half() {
     src="tests/e2e/$rel"
     if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
       # large fixtures are committed gzipped
-      tmpf="$TMPDIR/lech-e2e-$(basename "$rel")"
+      tmpf="$TMPDIR/con-leche-e2e-$(basename "$rel")"
       gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
       src="$tmpf"
     fi
@@ -260,7 +260,7 @@ e2e_half() {
     # preprocessor made unavailable, so the stream really carries no
     # `_model` declarations and the direct install path is exercised
     if [ "${mode:-}" = raw ]; then
-      LECH_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
+      CON_LECHE_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
     elif [ "${mode:-}" = pre ]; then
       # `pre` fixtures assert the --pre flag: the input is taken as
       # already preprocessed — no detection scan, no spawn.  The
@@ -389,19 +389,19 @@ mode_case 3 --set-model=r "$SPLIT_BAD"             # …on a bad stream too
 mode_case 3 --yolo "$SPLIT_GOOD"                   # retired flag: hard error
 mode_case 3 --infer-only "$SPLIT_GOOD"             # retired flag: hard error
 mode_total=$((mode_total+1))
-if LECH_NO_PROOF_CERTS=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
+if CON_LECHE_NO_PROOF_CERTS=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
     >/dev/null 2>&1; [ $? = 3 ]; then
   mode_ok=$((mode_ok+1))                           # retired env var: hard error
 else
-  echo "MODE FAIL: LECH_NO_PROOF_CERTS=1 did not error"
+  echo "MODE FAIL: CON_LECHE_NO_PROOF_CERTS=1 did not error"
   fail=1
 fi
 mode_total=$((mode_total+1))
-if LECH_INFER_ONLY=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
+if CON_LECHE_INFER_ONLY=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
     >/dev/null 2>&1; [ $? = 3 ]; then
   mode_ok=$((mode_ok+1))                           # retired env var: hard error
 else
-  echo "MODE FAIL: LECH_INFER_ONLY=1 did not error"
+  echo "MODE FAIL: CON_LECHE_INFER_ONLY=1 did not error"
   fail=1
 fi
 echo "mode flags: $mode_ok/$mode_total as expected"
@@ -421,7 +421,7 @@ prelude_total=0
 prelude_count() { # <fixture> <expected count>
   prelude_total=$((prelude_total+1))
   local got
-  got=$(timeout 120 "$BIN" "tests/e2e/$1" 2>/dev/null | sed -n 's/^lech: accepted \([0-9]*\) declarations.*/\1/p')
+  got=$(timeout 120 "$BIN" "tests/e2e/$1" 2>/dev/null | sed -n 's/^con-leche: accepted \([0-9]*\) declarations.*/\1/p')
   if [ "$got" = "$2" ]; then
     prelude_ok=$((prelude_ok+1))
   else
@@ -434,7 +434,7 @@ prelude_count natop_before_eq.ndjson 35
 prelude_count natop_before_ble.ndjson 35
 echo "prelude counts: $prelude_ok/$prelude_total as expected"
 
-# The progress lane (`LECH_PROGRESS=<stride>`, 2026-09-07).  Two
+# The progress lane (`CON_LECHE_PROGRESS=<stride>`, 2026-09-07).  Two
 # folds, one verdict: without the variable the driver runs the verified
 # `checkDeclsSPCachedD`, with it the unverified `checkDeclsProgressIO`
 # — the same steps with a line printed before each declaration.  The
@@ -455,14 +455,14 @@ prog_check() { # <description> <condition-result>
 # the accepting fixture: exit 0 with and without the variable, same
 # stdout verdict line, and one progress line per declaration at stride 1
 prog_out=$(timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null); prog_code=$?
-prog_err1=$(LECH_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
-prog_out1=$(LECH_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null)
+prog_err1=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_out1=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null)
 prog_code1=$?
-prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^lech: progress [0-9]')
+prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: progress [0-9]')
 # one line per FOLD record: the stream's records after the built-in
 # prelude's (task #191) — the total the closing "fold done: N/N" line
 # names; the verdict line counts the stream's records only
-prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^lech: progress fold done: [0-9]*\/\([0-9]*\) .*/\1/p')
+prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: progress fold done: [0-9]*\/\([0-9]*\) .*/\1/p')
 prog_check "stride 1 exits 0 on the accepting fixture" \
   "$([ "$prog_code1" = 0 ] && echo ok)"
 prog_check "the verdict line is unchanged by the variable" \
@@ -473,7 +473,7 @@ prog_check "the lane brackets the run (parse done / fold done)" \
   "$(printf '%s' "$prog_err1" | grep -q 'progress parse done' && \
      printf '%s' "$prog_err1" | grep -q 'progress fold done' && echo ok)"
 # the rejecting fixture: still exit 1, still naming the declaration
-prog_errB=$(LECH_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_BAD" 2>&1 >/dev/null)
+prog_errB=$(CON_LECHE_PROGRESS=1 timeout 120 "$BIN" "$SPLIT_BAD" 2>&1 >/dev/null)
 prog_codeB=$?
 prog_check "stride 1 still rejects the bad fixture (exit 1)" \
   "$([ "$prog_codeB" = 1 ] && echo ok)"

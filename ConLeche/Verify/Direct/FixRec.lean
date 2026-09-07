@@ -1,10 +1,10 @@
-import Lech.Verify.Direct.SumRec
-import Lech.Kernel.Direct.RecParts
+import ConLeche.Verify.Direct.SumRec
+import ConLeche.Kernel.Direct.RecParts
 
 /-!
 # The generated recursive recursor, unfolded (task #188)
 
-`Lech/Verify/Direct/SumRec.lean`'s syntactic kit with the inductive
+`ConLeche/Verify/Direct/SumRec.lean`'s syntactic kit with the inductive
 hypotheses threaded: the unfoldings of the recursive generators
 (`directMinorTyR`, `directMinorsPisR`/`directMinorsLamsR`,
 `directRecTyR`, `directRecRhsR`), and the closed spellings the
@@ -22,10 +22,10 @@ alone — twice `instSeq_liftLooseBVars_mid`.
 reading of those index expressions moves from the constructor's own
 opening to the recursor's frame by inserting the `o` extra slots just
 after the parameters, which is exactly that shift (its `denoteP` side
-is `Lech/SetP/DirectFix/FixRecReadP.lean`).
+is `ConLeche/SetP/DirectFix/FixRecReadP.lean`).
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Expr
 
@@ -438,4 +438,4 @@ theorem map_instSeq_directRecPrefixAt (tfvs extras xFvs : List Expr) {nP n nF : 
       List.getElem?_eq_none (by rw [hlen]; omega)]
     rfl
 
-end Lech
+end ConLeche

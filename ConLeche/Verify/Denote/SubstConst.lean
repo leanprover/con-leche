@@ -1,6 +1,6 @@
-import Lech.Verify.Denote.Install
-import Lech.Verify.Denote.VClosed
-import Lech.Verify.Denote.Shift
+import ConLeche.Verify.Denote.Install
+import ConLeche.Verify.Denote.VClosed
+import ConLeche.Verify.Denote.Shift
 
 /-!
 # Substituting the operation for its own constant
@@ -15,7 +15,7 @@ under `cvalAt cval env c v`".  The two sides denote to the *same*
 term, because `cvalAt` sends `c` to `v`'s denotation, which is what
 `substConst0` writes in its place.
 
-Relocated from `Lech/TTVerify/SubstConst.lean` (task #148, T5), with
+Relocated from `ConLeche/TTVerify/SubstConst.lean` (task #148, T5), with
 the one generalization its own docstring predicted: the `EnvTT`
 argument becomes a bare valuation plus its closedness — the only two
 fields the proof read — so both verification lanes can consume it.
@@ -26,9 +26,9 @@ so the lemma is restricted to the fragment the equations live in
 over constants and two free variables, with no binder anywhere.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 private theorem substFn_nil0 (φ : Name → Nat) :
     Level.substFn φ [] [] = φ := funext fun _ => rfl
@@ -112,4 +112,4 @@ theorem denote_substConst0 {env : Env} {cval : TConstVal}
   | proj _ _ _ => intro hfr; simp [shallowE] at hfr
   | lit _ => intro hfr; simp [shallowE] at hfr
 
-end Lech.Verify
+end ConLeche.Verify

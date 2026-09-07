@@ -1,12 +1,12 @@
 import Lean
-import Lech.Kernel.TypeChecker
+import ConLeche.Kernel.TypeChecker
 
 /-!
 # `#annotate_basis` — the pinned declarations, annotated at elaboration time
 
 The pinned basis blocks, the standard-axiom prerequisite families and
 the compiler-trust pins are *stored annotated*: the installation
-(`installBasisDecl`, `Lech/Kernel/Checker.lean`) puts them into the
+(`installBasisDecl`, `ConLeche/Kernel/Checker.lean`) puts them into the
 environment verbatim, and the model proofs read their `pw` data off
 the stored constants.  The annotated forms are not a second source of
 truth — they are what **this checker's own annotation pass**
@@ -23,7 +23,7 @@ generator, and a stale paste would have been invisible.
 the pin module elaborates and defines the annotated constants with
 `addDecl`/`compileDecl`, so the definition's value is the very term
 `annotateCore` produced — the same closed literal the `decide`/`rfl`
-consumers in `Lech/SetP/*` saw before, now *derived* rather than
+consumers in `ConLeche/SetP/*` saw before, now *derived* rather than
 transcribed, and re-derived on every build.  An annotation failure is
 an elaboration error, never a silently stale constant.
 
@@ -65,13 +65,13 @@ The `over` term is elaborated and evaluated at `List ConstantInfo`, so
 it may name constants this command defined earlier in the file.
 -/
 
-namespace Lech.BasisGen
+namespace ConLeche.BasisGen
 
 open Lean Elab Command Term Meta
 
-/-! ## Quoting a `Lech` value back into a `Lean.Expr`
+/-! ## Quoting a `ConLeche` value back into a `Lean.Expr`
 
-The annotation runs on real `Lech` values; the definition it splices
+The annotation runs on real `ConLeche` values; the definition it splices
 must carry them as terms.  These are the structural quoters — one
 constructor application each, with no sharing (the pins are small; the
 biggest is `Quot.lift`'s rule, a few hundred nodes). -/
@@ -84,103 +84,103 @@ private def qList (ty : Lean.Expr) (xs : List Lean.Expr) : Lean.Expr :=
   xs.foldr (fun x acc => mkApp3 (mkConst ``List.cons [Lean.Level.zero]) ty x acc)
     (mkApp (mkConst ``List.nil [Lean.Level.zero]) ty)
 
-private def nameTy : Lean.Expr := mkConst ``Lech.Name
-private def levelTy : Lean.Expr := mkConst ``Lech.Level
-private def exprTy : Lean.Expr := mkConst ``Lech.Expr
-private def recRuleTy : Lean.Expr := mkConst ``Lech.RecRule
-private def constantInfoTy : Lean.Expr := mkConst ``Lech.ConstantInfo
-private def constantValTy : Lean.Expr := mkConst ``Lech.ConstantVal
+private def nameTy : Lean.Expr := mkConst ``ConLeche.Name
+private def levelTy : Lean.Expr := mkConst ``ConLeche.Level
+private def exprTy : Lean.Expr := mkConst ``ConLeche.Expr
+private def recRuleTy : Lean.Expr := mkConst ``ConLeche.RecRule
+private def constantInfoTy : Lean.Expr := mkConst ``ConLeche.ConstantInfo
+private def constantValTy : Lean.Expr := mkConst ``ConLeche.ConstantVal
 
-private def qName : Lech.Name → Lean.Expr
-  | .anonymous => mkConst ``Lech.Name.anonymous
-  | .str p s => mkApp2 (mkConst ``Lech.Name.str) (qName p) (mkStrLit s)
-  | .num p i => mkApp2 (mkConst ``Lech.Name.num) (qName p) (mkRawNatLit i)
+private def qName : ConLeche.Name → Lean.Expr
+  | .anonymous => mkConst ``ConLeche.Name.anonymous
+  | .str p s => mkApp2 (mkConst ``ConLeche.Name.str) (qName p) (mkStrLit s)
+  | .num p i => mkApp2 (mkConst ``ConLeche.Name.num) (qName p) (mkRawNatLit i)
 
-private def qNames (ns : List Lech.Name) : Lean.Expr :=
+private def qNames (ns : List ConLeche.Name) : Lean.Expr :=
   qList nameTy (ns.map qName)
 
-private def qLevel : Lech.Level → Lean.Expr
-  | .zero => mkConst ``Lech.Level.zero
-  | .succ a => mkApp (mkConst ``Lech.Level.succ) (qLevel a)
-  | .max a b => mkApp2 (mkConst ``Lech.Level.max) (qLevel a) (qLevel b)
-  | .imax a b => mkApp2 (mkConst ``Lech.Level.imax) (qLevel a) (qLevel b)
-  | .param n => mkApp (mkConst ``Lech.Level.param) (qName n)
+private def qLevel : ConLeche.Level → Lean.Expr
+  | .zero => mkConst ``ConLeche.Level.zero
+  | .succ a => mkApp (mkConst ``ConLeche.Level.succ) (qLevel a)
+  | .max a b => mkApp2 (mkConst ``ConLeche.Level.max) (qLevel a) (qLevel b)
+  | .imax a b => mkApp2 (mkConst ``ConLeche.Level.imax) (qLevel a) (qLevel b)
+  | .param n => mkApp (mkConst ``ConLeche.Level.param) (qName n)
 
-private def qLevels (us : List Lech.Level) : Lean.Expr :=
+private def qLevels (us : List ConLeche.Level) : Lean.Expr :=
   qList levelTy (us.map qLevel)
 
 /-- The zero-ness datum through its public API (the representation is
-`private` to `Lech/Kernel/PropWhen.lean`): `never`, or `ifAllZero`
+`private` to `ConLeche/Kernel/PropWhen.lean`): `never`, or `ifAllZero`
 of its parameter list. -/
-private def qPropWhen (pw : Lech.PropWhen) : Lean.Expr :=
+private def qPropWhen (pw : ConLeche.PropWhen) : Lean.Expr :=
   match pw.toList? with
-  | none => mkConst ``Lech.PropWhen.never
-  | some ps => mkApp (mkConst ``Lech.PropWhen.ifAllZero) (qNames ps)
+  | none => mkConst ``ConLeche.PropWhen.never
+  | some ps => mkApp (mkConst ``ConLeche.PropWhen.ifAllZero) (qNames ps)
 
-private def qBinderMeta (m : Lech.BinderMeta) : Lean.Expr :=
-  mkApp (mkConst ``Lech.BinderMeta.mk) (qPropWhen m.pw)
+private def qBinderMeta (m : ConLeche.BinderMeta) : Lean.Expr :=
+  mkApp (mkConst ``ConLeche.BinderMeta.mk) (qPropWhen m.pw)
 
-private def qLiteral : Lech.Literal → Lean.Expr
-  | .natVal n => mkApp (mkConst ``Lech.Literal.natVal) (mkRawNatLit n)
-  | .strVal s => mkApp (mkConst ``Lech.Literal.strVal) (mkStrLit s)
+private def qLiteral : ConLeche.Literal → Lean.Expr
+  | .natVal n => mkApp (mkConst ``ConLeche.Literal.natVal) (mkRawNatLit n)
+  | .strVal s => mkApp (mkConst ``ConLeche.Literal.strVal) (mkStrLit s)
 
-private def qExpr : Lech.Expr → Lean.Expr
-  | .bvar i => mkApp (mkConst ``Lech.Expr.bvar) (mkRawNatLit i)
-  | .fvar i ty => mkApp2 (mkConst ``Lech.Expr.fvar) (mkRawNatLit i) (qExpr ty)
-  | .sort u => mkApp (mkConst ``Lech.Expr.sort) (qLevel u)
-  | .const n us => mkApp2 (mkConst ``Lech.Expr.const) (qName n) (qLevels us)
-  | .app f a => mkApp2 (mkConst ``Lech.Expr.app) (qExpr f) (qExpr a)
+private def qExpr : ConLeche.Expr → Lean.Expr
+  | .bvar i => mkApp (mkConst ``ConLeche.Expr.bvar) (mkRawNatLit i)
+  | .fvar i ty => mkApp2 (mkConst ``ConLeche.Expr.fvar) (mkRawNatLit i) (qExpr ty)
+  | .sort u => mkApp (mkConst ``ConLeche.Expr.sort) (qLevel u)
+  | .const n us => mkApp2 (mkConst ``ConLeche.Expr.const) (qName n) (qLevels us)
+  | .app f a => mkApp2 (mkConst ``ConLeche.Expr.app) (qExpr f) (qExpr a)
   | .lam ty b m =>
-    mkApp3 (mkConst ``Lech.Expr.lam) (qExpr ty) (qExpr b) (qBinderMeta m)
+    mkApp3 (mkConst ``ConLeche.Expr.lam) (qExpr ty) (qExpr b) (qBinderMeta m)
   | .forallE ty b m =>
-    mkApp3 (mkConst ``Lech.Expr.forallE) (qExpr ty) (qExpr b) (qBinderMeta m)
+    mkApp3 (mkConst ``ConLeche.Expr.forallE) (qExpr ty) (qExpr b) (qBinderMeta m)
   | .letE ty v b =>
-    mkApp3 (mkConst ``Lech.Expr.letE) (qExpr ty) (qExpr v) (qExpr b)
-  | .lit l => mkApp (mkConst ``Lech.Expr.lit) (qLiteral l)
+    mkApp3 (mkConst ``ConLeche.Expr.letE) (qExpr ty) (qExpr v) (qExpr b)
+  | .lit l => mkApp (mkConst ``ConLeche.Expr.lit) (qLiteral l)
   | .proj s i e =>
-    mkApp3 (mkConst ``Lech.Expr.proj) (qName s) (mkRawNatLit i) (qExpr e)
+    mkApp3 (mkConst ``ConLeche.Expr.proj) (qName s) (mkRawNatLit i) (qExpr e)
 
-private def qConstantVal (cv : Lech.ConstantVal) : Lean.Expr :=
-  mkApp3 (mkConst ``Lech.ConstantVal.mk) (qName cv.name)
+private def qConstantVal (cv : ConLeche.ConstantVal) : Lean.Expr :=
+  mkApp3 (mkConst ``ConLeche.ConstantVal.mk) (qName cv.name)
     (qNames cv.levelParams) (qExpr cv.type)
 
-private def qRecRuleFire : Lech.RecRuleFire → Lean.Expr
-  | .inert => mkConst ``Lech.RecRuleFire.inert
-  | .plain => mkConst ``Lech.RecRuleFire.plain
+private def qRecRuleFire : ConLeche.RecRuleFire → Lean.Expr
+  | .inert => mkConst ``ConLeche.RecRuleFire.inert
+  | .plain => mkConst ``ConLeche.RecRuleFire.plain
   | .nested lvls pins =>
-    mkApp2 (mkConst ``Lech.RecRuleFire.nested) (qLevels lvls)
+    mkApp2 (mkConst ``ConLeche.RecRuleFire.nested) (qLevels lvls)
       (qList exprTy (pins.map qExpr))
 
-private def qRecRule (r : Lech.RecRule) : Lean.Expr :=
-  mkAppN (mkConst ``Lech.RecRule.mk)
+private def qRecRule (r : ConLeche.RecRule) : Lean.Expr :=
+  mkAppN (mkConst ``ConLeche.RecRule.mk)
     #[qName r.ctor, mkRawNatLit r.nfields, mkRawNatLit r.ctorParams,
       qRecRuleFire r.fire, qExpr r.rhs]
 
-private def qIndCaps (c : Lech.IndCaps) : Lean.Expr :=
-  mkAppN (mkConst ``Lech.IndCaps.mk)
+private def qIndCaps (c : ConLeche.IndCaps) : Lean.Expr :=
+  mkAppN (mkConst ``ConLeche.IndCaps.mk)
     #[qBool c.eta, qName c.etaCtor, mkRawNatLit c.etaParams,
       mkRawNatLit c.etaFields, qBool c.unitlike, mkRawNatLit c.unitParams,
       qBool c.ruleK]
 
-private def qReducibilityHint : Lech.ReducibilityHint → Lean.Expr
-  | .«opaque» => mkConst ``Lech.ReducibilityHint.«opaque»
-  | .«abbrev» => mkConst ``Lech.ReducibilityHint.«abbrev»
-  | .regular h => mkApp (mkConst ``Lech.ReducibilityHint.regular) (mkRawNatLit h)
+private def qReducibilityHint : ConLeche.ReducibilityHint → Lean.Expr
+  | .«opaque» => mkConst ``ConLeche.ReducibilityHint.«opaque»
+  | .«abbrev» => mkConst ``ConLeche.ReducibilityHint.«abbrev»
+  | .regular h => mkApp (mkConst ``ConLeche.ReducibilityHint.regular) (mkRawNatLit h)
 
-private def qConstantInfo : Lech.ConstantInfo → CoreM Lean.Expr
-  | .axiomInfo cv => pure (mkApp (mkConst ``Lech.ConstantInfo.axiomInfo) (qConstantVal cv))
+private def qConstantInfo : ConLeche.ConstantInfo → CoreM Lean.Expr
+  | .axiomInfo cv => pure (mkApp (mkConst ``ConLeche.ConstantInfo.axiomInfo) (qConstantVal cv))
   | .defnInfo cv v h =>
-    pure (mkApp3 (mkConst ``Lech.ConstantInfo.defnInfo) (qConstantVal cv)
+    pure (mkApp3 (mkConst ``ConLeche.ConstantInfo.defnInfo) (qConstantVal cv)
       (qExpr v) (qReducibilityHint h))
   | .thmInfo cv v =>
-    pure (mkApp2 (mkConst ``Lech.ConstantInfo.thmInfo) (qConstantVal cv) (qExpr v))
+    pure (mkApp2 (mkConst ``ConLeche.ConstantInfo.thmInfo) (qConstantVal cv) (qExpr v))
   | .indInfo cv caps =>
-    pure (mkApp2 (mkConst ``Lech.ConstantInfo.indInfo) (qConstantVal cv) (qIndCaps caps))
+    pure (mkApp2 (mkConst ``ConLeche.ConstantInfo.indInfo) (qConstantVal cv) (qIndCaps caps))
   | .ctorInfo cv nP nF =>
-    pure (mkApp3 (mkConst ``Lech.ConstantInfo.ctorInfo) (qConstantVal cv)
+    pure (mkApp3 (mkConst ``ConLeche.ConstantInfo.ctorInfo) (qConstantVal cv)
       (mkRawNatLit nP) (mkRawNatLit nF))
   | .recInfo cv mI rP rules =>
-    pure (mkAppN (mkConst ``Lech.ConstantInfo.recInfo)
+    pure (mkAppN (mkConst ``ConLeche.ConstantInfo.recInfo)
       #[qConstantVal cv, mkRawNatLit mI, mkRawNatLit rP,
         qList recRuleTy (rules.map qRecRule)])
   | .projInfo _ =>
@@ -193,11 +193,11 @@ install does: the type first, then — for a recursor — the
 install-computed rule fields (`ctorParams` off the stored constructor,
 `fire` off `Expr.recRulePlain`) and the rules' right-hand sides over
 the environment extended with the recursor itself. -/
-def annotateInfo (env : Lech.Env) (ci : Lech.ConstantInfo) :
-    Lech.CheckM Lech.ConstantInfo := do
+def annotateInfo (env : ConLeche.Env) (ci : ConLeche.ConstantInfo) :
+    ConLeche.CheckM ConLeche.ConstantInfo := do
   let cv := ci.toConstantVal
-  let ty' ← Lech.annotateCore .verified env Lech.checkFuel 0 cv.type
-  let cv' : Lech.ConstantVal := { cv with type := ty' }
+  let ty' ← ConLeche.annotateCore .verified env ConLeche.checkFuel 0 cv.type
+  let cv' : ConLeche.ConstantVal := { cv with type := ty' }
   match ci with
   | .indInfo _ caps => return .indInfo cv' caps
   | .ctorInfo _ nP nF => return .ctorInfo cv' nP nF
@@ -211,18 +211,18 @@ def annotateInfo (env : Lech.Env) (ci : Lech.ConstantInfo) :
         | some (.ctorInfo _ nP _) => nP
         | _ => 0
       { r with ctorParams := cnP,
-               fire := if Lech.Expr.recRulePlain ty' mI rP cnP then .plain else .inert }
-    let envSelf : Lech.Env := ⟨.recInfo cv' mI rP rules :: env.consts⟩
-    let mut out : List Lech.RecRule := []
+               fire := if ConLeche.Expr.recRulePlain ty' mI rP cnP then .plain else .inert }
+    let envSelf : ConLeche.Env := ⟨.recInfo cv' mI rP rules :: env.consts⟩
+    let mut out : List ConLeche.RecRule := []
     for r in rules do
-      let rhs' ← Lech.annotateCore .verified envSelf Lech.checkFuel 0 r.rhs
+      let rhs' ← ConLeche.annotateCore .verified envSelf ConLeche.checkFuel 0 r.rhs
       out := out ++ [{ r with rhs := rhs' }]
     return .recInfo cv' mI rP out
 
 /-- Annotate one raw `ConstantVal` pin's type over `env`. -/
-def annotateVal (env : Lech.Env) (cv : Lech.ConstantVal) :
-    Lech.CheckM Lech.ConstantVal := do
-  let ty' ← Lech.annotateCore .verified env Lech.checkFuel 0 cv.type
+def annotateVal (env : ConLeche.Env) (cv : ConLeche.ConstantVal) :
+    ConLeche.CheckM ConLeche.ConstantVal := do
+  let ty' ← ConLeche.annotateCore .verified env ConLeche.checkFuel 0 cv.type
   return { cv with type := ty' }
 
 /-! ## Evaluating the raw pins
@@ -231,26 +231,26 @@ def annotateVal (env : Lech.Env) (cv : Lech.ConstantVal) :
 standard `@[implemented_by]` pairing (their own bodies are never run —
 `implemented_by` replaces the compiled code). -/
 
-private unsafe def evalInfoUnsafe (stx : Syntax) : TermElabM Lech.ConstantInfo :=
-  Term.evalTerm Lech.ConstantInfo constantInfoTy stx
+private unsafe def evalInfoUnsafe (stx : Syntax) : TermElabM ConLeche.ConstantInfo :=
+  Term.evalTerm ConLeche.ConstantInfo constantInfoTy stx
 
 @[implemented_by evalInfoUnsafe]
-private def evalInfo (_stx : Syntax) : TermElabM Lech.ConstantInfo :=
+private def evalInfo (_stx : Syntax) : TermElabM ConLeche.ConstantInfo :=
   throwError "unreachable"
 
-private unsafe def evalValUnsafe (stx : Syntax) : TermElabM Lech.ConstantVal :=
-  Term.evalTerm Lech.ConstantVal constantValTy stx
+private unsafe def evalValUnsafe (stx : Syntax) : TermElabM ConLeche.ConstantVal :=
+  Term.evalTerm ConLeche.ConstantVal constantValTy stx
 
 @[implemented_by evalValUnsafe]
-private def evalVal (_stx : Syntax) : TermElabM Lech.ConstantVal :=
+private def evalVal (_stx : Syntax) : TermElabM ConLeche.ConstantVal :=
   throwError "unreachable"
 
-private unsafe def evalEnvUnsafe (stx : Syntax) : TermElabM (List Lech.ConstantInfo) :=
-  Term.evalTerm (List Lech.ConstantInfo)
+private unsafe def evalEnvUnsafe (stx : Syntax) : TermElabM (List ConLeche.ConstantInfo) :=
+  Term.evalTerm (List ConLeche.ConstantInfo)
     (mkApp (mkConst ``List [Lean.Level.zero]) constantInfoTy) stx
 
 @[implemented_by evalEnvUnsafe]
-private def evalEnv (_stx : Syntax) : TermElabM (List Lech.ConstantInfo) :=
+private def evalEnv (_stx : Syntax) : TermElabM (List ConLeche.ConstantInfo) :=
   throwError "unreachable"
 
 /-! ## Splicing -/
@@ -287,7 +287,7 @@ syntax (name := annotatePinsCmd)
 @[command_elab annotateBasisCmd]
 def elabAnnotateBasis : CommandElab := fun stx => do
   let entries := stx[3].getArgs
-  let mut consts : List Lech.ConstantInfo ←
+  let mut consts : List ConLeche.ConstantInfo ←
     liftTermElabM (evalEnv stx[2])
   for e in entries do
     let id := e[1]
@@ -306,7 +306,7 @@ def elabAnnotateBasis : CommandElab := fun stx => do
 @[command_elab annotatePinsCmd]
 def elabAnnotatePins : CommandElab := fun stx => do
   let entries := stx[3].getArgs
-  let consts : List Lech.ConstantInfo ← liftTermElabM (evalEnv stx[2])
+  let consts : List ConLeche.ConstantInfo ← liftTermElabM (evalEnv stx[2])
   for e in entries do
     let id := e[1]
     let rawStx := e[3]
@@ -320,4 +320,4 @@ def elabAnnotatePins : CommandElab := fun stx => do
     liftTermElabM do
       splice ((← getCurrNamespace) ++ id.getId) constantValTy (qConstantVal cv)
 
-end Lech.BasisGen
+end ConLeche.BasisGen

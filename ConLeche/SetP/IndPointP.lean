@@ -1,5 +1,5 @@
-import Lech.SetP.IndPointKitP
-import Lech.SetP.IndProjEtaP
+import ConLeche.SetP.IndPointKitP
+import ConLeche.SetP.IndProjEtaP
 
 /-!
 # The point stage, at the reading (task #161, IND TIER part 5)
@@ -41,13 +41,13 @@ premises here.  They descend from the statement's own
 residual (`instPisAt_WScoped`/`instPisAt_bounded`, residual halves).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   isDefEqCore DefEqListOk)
 
 universe w
@@ -337,14 +337,14 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
         have hwsA : Expr.WScoped (rP + cnF) ai :=
           hwsLhs.getAppArgs ai (List.mem_of_getElem? hai)
         have hbA : ai.looseBVarsBounded 0 = true :=
-          Lech.looseBVarsBounded_getAppArgs hbLhs ai
+          ConLeche.looseBVarsBounded_getAppArgs hbLhs ai
             (List.mem_of_getElem? hai)
         have hLA : Expr.LeavesBounded ai := fun l hl =>
           hlbFvs l.1 l.2 (hleafA l hl)
         have hwsB : Expr.WScoped (rP + cnF) bx :=
           hwsCres.getAppArgs bx (List.mem_of_getElem? hbx)
         have hbB : bx.looseBVarsBounded 0 = true :=
-          Lech.looseBVarsBounded_getAppArgs hbCres bx
+          ConLeche.looseBVarsBounded_getAppArgs hbCres bx
             (List.mem_of_getElem? hbx)
         have hLB : Expr.LeavesBounded bx := fun l hl =>
           hlbFvs l.1 l.2 (hleafB l hl)
@@ -538,4 +538,4 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
         omega)]
     rfl
 
-end Lech.SetP
+end ConLeche.SetP

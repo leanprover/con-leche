@@ -1,9 +1,9 @@
-import Lech.Kernel.StdAxioms
-import Lech.Kernel.BasisA
-import Lech.Kernel.BasisGen
-import Lech.Kernel.Basis
-import Lech.Kernel.Core
-import Lech.Kernel.TrustPins
+import ConLeche.Kernel.StdAxioms
+import ConLeche.Kernel.BasisA
+import ConLeche.Kernel.BasisGen
+import ConLeche.Kernel.Basis
+import ConLeche.Kernel.Core
+import ConLeche.Kernel.TrustPins
 
 /-!
 # The compiler-trust axiom family (task #95)
@@ -20,7 +20,7 @@ taint-skipped:
   `opaque`s (their exported values are identity functions modulo the
   `have := trustCompiler` wrapper); at install their stored values are
   pinned against the toolchain's own definitions
-  (`Lech/Kernel/TrustPins.lean`, generated at build time) by
+  (`ConLeche/Kernel/TrustPins.lean`, generated at build time) by
   definitional equality — the task-#47 pattern: drift declines,
   never silently.
 * `Lean.ofReduceNat` / `Lean.ofReduceBool` are pinned axioms over
@@ -34,12 +34,12 @@ taint-skipped:
 `sorryAx` remains the only tolerated (skip-taint) axiom.
 
 Raw pins below, hand-written through the builder in
-`Lech/Kernel/Basis/Builder.lean`; the annotated forms are computed
+`ConLeche/Kernel/Basis/Builder.lean`; the annotated forms are computed
 from them at elaboration time by `#annotate_pins`
-(`Lech/Kernel/BasisGen.lean`).
+(`ConLeche/Kernel/BasisGen.lean`).
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Name (anonymous)
 open BasisDSL
@@ -127,7 +127,7 @@ def ofReduceRaw (n : Name) : ConstantVal :=
 
 Computed from the raw pins above by the checker's own annotation pass
 while this module elaborates (`#annotate_pins`,
-`Lech/Kernel/BasisGen.lean`), over the pinned prerequisites the
+`ConLeche/Kernel/BasisGen.lean`), over the pinned prerequisites the
 types mention: the `Eq`/`Nat` basis, the pinned `True` family, the
 installed `Lean.trustCompiler` and the pinned `Bool`.  The `ofReduce*`
 statements speak about the reduce operations, so those are annotated
@@ -202,7 +202,7 @@ def ofReduceAxOk (env : Env) (cvA : ConstantVal) : Bool :=
 /-! ## The reduce-operation install pin -/
 
 /-- The pinned defining expression of a reduce operation
-(`Lech/Kernel/TrustPins.lean`, generated at build time from the
+(`ConLeche/Kernel/TrustPins.lean`, generated at build time from the
 toolchain's own prelude; the `have := trustCompiler` wrapper is
 zeta-expanded by the generator, leaving the plain identity). -/
 def reduceDeclPin (c : Name) : Expr :=
@@ -219,4 +219,4 @@ type. -/
 def reduceCertVar (c : Name) : Expr :=
   .fvar 0 (reduceElemTy c)
 
-end Lech
+end ConLeche

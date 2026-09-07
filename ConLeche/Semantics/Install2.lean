@@ -1,12 +1,12 @@
-import Lech.Semantics.Canon
-import Lech.Semantics.Ok2
-import Lech.Verify.EnvGuards
-import Lech.Verify.Denote.Install
+import ConLeche.Semantics.Canon
+import ConLeche.Semantics.Ok2
+import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.Denote.Install
 
 /-!
 # The `acval` install algebra — the install tier's V-free half
 
-*(Re-based to `Lech/SetBase/*` at THE SEPARATION's S2, task #161.
+*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161.
 The module's own title says it: this is the V-free half, and the one
 theorem that does mention `V` (`acvalWith_ok2`) takes `AnnotOk2` as a
 hypothesis and returns it — no `EnvS`, no `EnvS2`.  Its
@@ -26,7 +26,7 @@ of extending a canonical annotated valuation at one fresh name, and
 the fact that extending it there moves nothing already denoted.
 
 That is this file, and it is the exact mirror of what
-`Lech/Verify/Denote/Install.lean` provides on the v1 lane
+`ConLeche/Verify/Denote/Install.lean` provides on the v1 lane
 (`cvalWith`, `cvalWith_ne`, `cvalWith_self`) — except for one lemma
 v1 never needed:
 
@@ -52,12 +52,12 @@ environment grows.  That is a named gap, not an omission — see the
 survey's supplier requests.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name natLitSupported strLitSupported)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name natLitSupported strLitSupported)
 
 universe w
 
@@ -222,9 +222,9 @@ Note the environment moves here, unlike in the two above — the field
 is indexed by `env.find?`.  Freshness is **not** needed: the `cons`
 shadows, so the installed entry answers first either way. -/
 theorem acvalWith_params {acval : Name → (Name → Nat) → AVExpr}
-    {env : Env} {c₀ : Lech.ConstantInfo}
+    {env : Env} {c₀ : ConLeche.ConstantInfo}
     {A : (Name → Nat) → AVExpr}
-    (h : ∀ (m : Name) (ci : Lech.ConstantInfo),
+    (h : ∀ (m : Name) (ci : ConLeche.ConstantInfo),
       env.find? m = some ci →
       ∀ ψ₁ ψ₂ : Name → Nat,
         (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -232,7 +232,7 @@ theorem acvalWith_params {acval : Name → (Name → Nat) → AVExpr}
     (hA : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
       A ψ₁ = A ψ₂) :
-    ∀ (m : Name) (ci : Lech.ConstantInfo),
+    ∀ (m : Name) (ci : ConLeche.ConstantInfo),
       (⟨c₀ :: env.consts⟩ : Env).find? m = some ci →
       ∀ ψ₁ ψ₂ : Name → Nat,
         (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -280,4 +280,4 @@ theorem acvalWith_ok2 {V : Type w} [SetTheory V]
   · rw [acvalWith_ne hm]
     exact h m ψ ρ
 
-end Lech.Semantics
+end ConLeche.Semantics

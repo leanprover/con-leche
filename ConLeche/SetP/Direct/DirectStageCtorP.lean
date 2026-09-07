@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectCtorFramesP
+import ConLeche.SetP.Direct.DirectCtorFramesP
 
 /-!
 # The constructor's cons (task #175 W4c, P3 module 6, part 5)
@@ -12,13 +12,13 @@ former's real leaf along the parameters (`formerFold`), the frames
 identified.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts)
 
 universe w
 
@@ -214,20 +214,20 @@ theorem ctorWalks {m : EnvS2Core V env} {T : Name} {cvT cvC : ConstantVal}
 
 /-- **The P step at the constructor's cons.** -/
 theorem stageCtor
-    (hE₀ : Lech.EtaFamiliesClosed env)
+    (hE₀ : ConLeche.EtaFamiliesClosed env)
     {F : Nat} {p : DirectParts} {envI envC : Env} {cvTa cvCa : ConstantVal}
     {sorts : List Level}
-    (henvI : envI = ⟨.indInfo cvTa (Lech.directCaps p) :: env.consts⟩)
+    (henvI : envI = ⟨.indInfo cvTa (ConLeche.directCaps p) :: env.consts⟩)
     (hTfresh₀ : env.find? p.cvT.name = none)
     (hTname : cvTa.name = p.cvT.name)
     (hlpsC : cvCa.levelParams = cvTa.levelParams)
     (mpI : EnvS2PM V μ envI)
-    (hCtor : Lech.checkDirectCtor (Lech.fueledOps μ F) env envI p cvTa
+    (hCtor : ConLeche.checkDirectCtor (ConLeche.fueledOps μ F) env envI p cvTa
       = .ok (envC, cvCa, sorts))
     -- the first projection slot is still empty at the extension (all
     -- slots are, until the entries are installed), so the block's
     -- family is η-complete there only when fieldless
-    (hslot0 : 0 < p.nF → envC.find? (Lech.projFnName p.cvT.name 0) = none)
+    (hslot0 : 0 < p.nF → envC.find? (ConLeche.projFnName p.cvT.name 0) = none)
     {pps ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hFD : FormerData mpI.base2 cvTa p.nP p.resSort pps)
     (hCD : CtorData mpI.base2 p.cvT.name cvCa p.nP p.nF p.resSort ds)
@@ -243,22 +243,22 @@ theorem stageCtor
     ∃ mp' : EnvS2PM V μ envC,
       mp'.base2.acval = acvalWith mpI.base2.acval cvCa.name
         (fun ψ => directMkAV (p.resSort.eval ψ) (ds ψ) (((ds ψ).drop p.nP).map (·.2.2))) := by
-  obtain ⟨hccv, rfl, -, -⟩ := Lech.checkDirectCtor_shape hCtor
+  obtain ⟨hccv, rfl, -, -⟩ := ConLeche.checkDirectCtor_shape hCtor
   obtain ⟨hfind, hnres, hpshape, -, hlbt, hitf, type', -, -, hann', -, htr', -, -, hty⟩ :=
-    Lech.checkConstantVal_inv hccv
+    ConLeche.checkConstantVal_inv hccv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
   have hCname : cvCa.name = p.cvC.name := by rw [hty]
   have hfresh : envI.find? cvCa.name = none := by rw [hCname]; exact hfind
   have htr : cvCa.type.constsResolve envI = true := by rw [hty]; exact htr'
   have hcb : ConstsBound envI cvCa.type := constsBound_of_constsResolve _ htr
-  have hfT : envI.find? p.cvT.name = some (.indInfo cvTa (Lech.directCaps p)) := by
+  have hfT : envI.find? p.cvT.name = some (.indInfo cvTa (ConLeche.directCaps p)) := by
     subst henvI
-    have := Lech.Env.find?_cons_self (ConstantInfo.indInfo cvTa (Lech.directCaps p)) env
+    have := ConLeche.Env.find?_cons_self (ConstantInfo.indInfo cvTa (ConLeche.directCaps p)) env
     rw [← hTname]
     exact this
   have hTC : p.cvT.name ≠ cvCa.name := by
     intro h; rw [h, hfresh] at hfT; exact nomatch hfT
-  obtain ⟨hwfC, -, -⟩ := Lech.direct_ctor_wf mpI.base2.wf hCtor
+  obtain ⟨hwfC, -, -⟩ := ConLeche.direct_ctor_wf mpI.base2.wf hCtor
   -- the leaf
   let Fs : (Name → Nat) → List AVExpr := fun ψ => ((ds ψ).drop p.nP).map (·.2.2)
   let A : (Name → Nat) → AVExpr :=
@@ -281,9 +281,9 @@ theorem stageCtor
         = some (mkPisAV (ds ψ) (ctorBodyAV mpI.base2 p.cvT.name p.nP p.nF ψ)) := fun ψ =>
     denoteP_cons_mono (c₀ := .ctorInfo cvCa p.nP p.nF) hfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) ψ 0 hcb (hCD.read ψ)
-  have hnresC : Lech.reservedBasisNames.contains
+  have hnresC : ConLeche.reservedBasisNames.contains
       (ConstantInfo.ctorInfo cvCa p.nP p.nF).name = false := by
-    show Lech.reservedBasisNames.contains cvCa.name = false
+    show ConLeche.reservedBasisNames.contains cvCa.name = false
     rw [hCname]; exact hnres
   have hpshapeC : (ConstantInfo.ctorInfo cvCa p.nP p.nF).name.isProjFnShape = false := by
     show cvCa.name.isProjFnShape = false
@@ -329,7 +329,7 @@ theorem stageCtor
       -- environment, hence here
       intro T' cvT' caps' hf hne hres hcape
       have hf₀ : env.find? T' = some (.indInfo cvT' caps') := by
-        rw [henvI, Lech.Env.find?_cons] at hf
+        rw [henvI, ConLeche.Env.find?_cons] at hf
         split at hf
         · next heq =>
           exfalso
@@ -339,21 +339,21 @@ theorem stageCtor
         · exact hf
       obtain ⟨cvC', hfC'⟩ := hE₀ T' cvT' caps' hf₀ hcape hres
       refine ⟨cvC', ?_⟩
-      rw [henvI, Lech.Env.find?_cons_of_isSome
+      rw [henvI, ConLeche.Env.find?_cons_of_isSome
         (by show env.find? cvTa.name = none; rw [hTname]; exact hTfresh₀)
         (by rw [hfC']; rfl)]
       exact hfC'
     · intro cvT caps hf hres
       have hfT' : (⟨.ctorInfo cvCa p.nP p.nF :: envI.consts⟩ : Env).find? p.cvT.name
-          = some (.indInfo cvTa (Lech.directCaps p)) := by
-        rw [Lech.Env.find?_cons, if_neg (fun h => hTC h.symm)]
+          = some (.indInfo cvTa (ConLeche.directCaps p)) := by
+        rw [ConLeche.Env.find?_cons, if_neg (fun h => hTC h.symm)]
         exact hfT
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
       have hFD₂ : FormerData m₂ cvTa p.nP p.resSort pps :=
         hFD.cross (c₀ := .ctorInfo cvCa p.nP p.nF) (A := A) hfresh
           (ConsCrossAt.ofNtc fun _ h => nomatch h)
           (constsBound_of_constsResolve _
-            (mpI.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)).2.2.1) m₂ hac
+            (mpI.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)).2.2.1) m₂ hac
       have hleafT₂ : ∀ ψ, m₂.acval p.cvT.name ψ
           = directTyAV (p.resSort.eval ψ) (pps ψ) (Fs ψ) := by
         intro ψ
@@ -371,11 +371,11 @@ theorem stageCtor
             show ((ds ψ).drop p.nP).map (·.2.2) = []
             rw [List.drop_eq_nil_of_le (by rw [hCD.len ψ, hnF]; exact Nat.le_refl _)]
             rfl
-          refine directEtaLawP0 (m := m₂) (T := p.cvT.name) (caps := Lech.directCaps p)
+          refine directEtaLawP0 (m := m₂) (T := p.cvT.name) (caps := ConLeche.directCaps p)
             (ds := ds) hnF ?_ ?_ hFD₂.read hFD₂.okTy ?_ ?_ ?_
           · intro ψ; rw [hleafT₂ ψ, hFs0 ψ]
           · intro ψ
-            rw [show (Lech.directCaps p).etaCtor = cvCa.name from by rw [hCname]; rfl, hac]
+            rw [show (ConLeche.directCaps p).etaCtor = cvCa.name from by rw [hCname]; rfl, hac]
             show acvalWith mpI.base2.acval cvCa.name A cvCa.name ψ = _
             rw [acvalWith_self]
             show directMkAV _ _ (Fs ψ) = _
@@ -402,10 +402,10 @@ theorem stageCtor
           show ((ds ψ).drop p.nP).map (·.2.2) = []
           rw [List.drop_eq_nil_of_le (by rw [hCD.len ψ, hnF]; exact Nat.le_refl _)]
           rfl
-        refine directUnitLawP (m := m₂) (T := p.cvT.name) (caps := Lech.directCaps p)
+        refine directUnitLawP (m := m₂) (T := p.cvT.name) (caps := ConLeche.directCaps p)
           ?_ hFD₂.read hFD₂.okTy ?_ ?_
         · intro ψ; rw [hleafT₂ ψ, hFs0 ψ]
         · intro ψ ρ; have := hpok ψ ρ; rwa [hFs0 ψ] at this
         · intro ψ; show p.nP = (pps ψ).length; rw [hFD.len ψ]
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,5 +1,5 @@
-import Lech.Verify.Disc
-import Lech.Kernel.Checker
+import ConLeche.Verify.Disc
+import ConLeche.Kernel.Checker
 
 /-!
 # The cache-refinement bridge, part C: the declaration checker
@@ -21,7 +21,7 @@ for some fuel `F`.
 F) …`, which is what `Verify/BridgeWfImp` and the cached lane's
 `Verify/Cached/Bridge*` rewrite by.  The pair-monad projection battery
 (`X_fst_dproj` / `X_snd_dproj`, theorems that nothing outside their own file
-consumes) moved to `Lech/Verify/BridgeDeclPair.lean`, which the `Lech`
+consumes) moved to `ConLeche/Verify/BridgeDeclPair.lean`, which the `ConLeche`
 umbrella imports so that it stays built and gated.
 
 Why: the two batteries share nothing but the declarations above, and together
@@ -34,7 +34,7 @@ move, so the frozen proof-dependency pin (`tests/proofdeps.sh`) is untouched.
 set_option linter.unusedSimpArgs false
 set_option maxHeartbeats 3200000
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -110,7 +110,7 @@ the constant family that merely repeats the cached run (trivially
 related).  The battery then yields, for *every* environment: a
 successful cached `checkDecl` run is reproduced by its `wfOpsM mode`
 instantiation at some fuel (`checkDecl_wfOpsM_bridge`).
-`Lech/Model/BridgeWF.lean` turns `wfOpsM mode` runs into pure `fueledOps`
+`ConLeche/Model/BridgeWF.lean` turns `wfOpsM mode` runs into pure `fueledOps`
 runs by threading `EnvWF` — obtained there from the environment
 model — through the declaration checker's intermediate environments,
 using the `*_wfeq` equalities below. -/
@@ -982,4 +982,4 @@ theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
   simp only [checkDecl_datF]
 
 
-end Lech
+end ConLeche

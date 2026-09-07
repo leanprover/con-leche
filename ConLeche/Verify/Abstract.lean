@@ -1,6 +1,6 @@
-import Lech.Kernel.TypeChecker
-import Lech.Verify.Knot
-import Lech.Verify.Shift
+import ConLeche.Kernel.TypeChecker
+import ConLeche.Verify.Knot
+import ConLeche.Verify.Shift
 
 /-!
 # Abstraction and the open/close roundtrip
@@ -19,7 +19,7 @@ import Lech.Verify.Shift
 set_option linter.unusedSimpArgs false
 set_option linter.unusedVariables false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -641,4 +641,4 @@ theorem leafEquiv_abstract_of_inst {D : Nat} {ty : Expr} :
     cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
     case proj s2 i2 e2 => exact ih k e2 hle hf hb
 
-end Lech
+end ConLeche

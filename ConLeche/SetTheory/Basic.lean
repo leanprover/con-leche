@@ -1,11 +1,11 @@
-import Lech.SetTheory.Core
-import Lech.SetTheory.Derive.Sigma
-import Lech.SetTheory.Derive.Natrec
-import Lech.SetTheory.Derive.Quot
-import Lech.SetTheory.Derive.Choice
-import Lech.SetTheory.Derive.PtFresh
-import Lech.SetTheory.Derive.Lfp
-import Lech.SetTheory.Derive.LfpFam
+import ConLeche.SetTheory.Core
+import ConLeche.SetTheory.Derive.Sigma
+import ConLeche.SetTheory.Derive.Natrec
+import ConLeche.SetTheory.Derive.Quot
+import ConLeche.SetTheory.Derive.Choice
+import ConLeche.SetTheory.Derive.PtFresh
+import ConLeche.SetTheory.Derive.Lfp
+import ConLeche.SetTheory.Derive.LfpFam
 
 /-!
 # The target set theory: the derived operator interface
@@ -19,7 +19,7 @@ instance, so the final result reads:
 > is ever accepted.
 
 The axiomatic content is exactly the `SetTheory` class of
-`Lech/SetTheory/Core.lean`: membership, extensionality, pairing,
+`ConLeche/SetTheory/Core.lean`: membership, extensionality, pairing,
 union, power set, regularity, Lean-level replacement, and Tarski's
 Axiom A with a transitivity clause.  The instance existence is the
 "extra assumption for cardinality reasons" mentioned in the design:
@@ -32,7 +32,7 @@ Every operator and law the model construction consumes — `pi`, `lam`,
 `unitSet`, `omega` with `natrec`, `sigmaSet` with its projections,
 quotients, `prop_ext`, the global selector `schoice` — is a
 `noncomputable def`/`theorem` in the `SetTheory` namespace, *derived*
-from the class in `Lech/SetTheory/Derive/*` (which see for each
+from the class in `ConLeche/SetTheory/Derive/*` (which see for each
 operator's realization and its documentation).  Importing this module
 provides the whole surface.
 
@@ -43,7 +43,7 @@ phrased against `univ 0` rather than its value `univZero`, and the
 elimination/beta laws with the unconditional fibre-universe premise).
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -122,4 +122,4 @@ theorem prop_ext {A B : V} (hA : A ∈ˢ (univ 0 : V)) (hB : B ∈ˢ (univ 0 : V
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] natzero natsucc
 
-end Lech.SetTheory
+end ConLeche.SetTheory

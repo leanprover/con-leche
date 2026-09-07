@@ -1,5 +1,5 @@
-import Lech.SetP.Direct.DirectEntryLawP
-import Lech.Verify.Direct.DirectPartsInv
+import ConLeche.SetP.Direct.DirectEntryLawP
+import ConLeche.Verify.Direct.DirectPartsInv
 
 /-!
 # The projection table's cons (task #175 S1)
@@ -24,13 +24,13 @@ field-sort run) and the unused earlier fields' invariance
 retired per-slot fold derived them per slot.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta ProjEntry ProjTable projTableName)
 
 universe w
@@ -45,12 +45,12 @@ theorem projTableName_isProjFnShape (T : Name) :
 theorem stageTable (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa : ConstantVal} {sorts : List Level}
     {envS : Env} {xFvs : List Expr} {envOut : Env}
-    (hsorts : Lech.checkDirectFieldSorts (Lech.fueledOps μ F) envS p.isProp p.large
+    (hsorts : ConLeche.checkDirectFieldSorts (ConLeche.fueledOps μ F) envS p.isProp p.large
       p.resSort p.nP xFvs p.nF = .ok sorts)
-    (hTbl : Lech.checkDirectProjTable (m := Lech.CheckM) p.cvT.name p.cvC.name
+    (hTbl : ConLeche.checkDirectProjTable (m := ConLeche.CheckM) p.cvT.name p.cvC.name
       p.cvT.levelParams p.nP p.nF p.resSort
-      (Lech.directProjGuards cvCa.type p.nP p.nF sorts) cvCa env = .ok envOut)
-    (hfT : env.find? p.cvT.name = some (.indInfo cvTa (Lech.directCaps p)))
+      (ConLeche.directProjGuards cvCa.type p.nP p.nF sorts) cvCa env = .ok envOut)
+    (hfT : env.find? p.cvT.name = some (.indInfo cvTa (ConLeche.directCaps p)))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hfC : env.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF))
     (hlpsC : cvCa.levelParams = p.cvT.levelParams)
@@ -58,9 +58,9 @@ theorem stageTable (mp : EnvS2PM V μ env)
     (hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true))
     (hTshape : p.cvT.name.isProjFnShape = false)
     (hCshape : p.cvC.name.isProjFnShape = false)
-    (hresT : Lech.reservedBasisNames.contains p.cvT.name = false)
-    (hresR : Lech.reservedBasisNames.contains (p.cvT.name.str "rec") = false)
-    (hresC : Lech.reservedBasisNames.contains p.cvC.name = false)
+    (hresT : ConLeche.reservedBasisNames.contains p.cvT.name = false)
+    (hresR : ConLeche.reservedBasisNames.contains (p.cvT.name.str "rec") = false)
+    (hresC : ConLeche.reservedBasisNames.contains p.cvC.name = false)
     (hnp : ∀ j, NoProjEnv env p.cvT.name j)
     {pps ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hFD : FormerData mp.base2 cvTa p.nP p.resSort pps)
@@ -85,11 +85,11 @@ theorem stageTable (mp : EnvS2PM V μ env)
           interp2 V (consList as ρ) ((((ds ψ).drop p.nP).map (·.2.2)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V))) :
     Nonempty (EnvS2PM V μ envOut) := by
-  have hwf' : Lech.EnvWF envOut := Lech.direct_table_wf mp.base2.wf hTbl
-  obtain ⟨bodies, hbodies, -, -, hfresh, rfl⟩ := Lech.checkDirectProjTable_inv hTbl
+  have hwf' : ConLeche.EnvWF envOut := ConLeche.direct_table_wf mp.base2.wf hTbl
+  obtain ⟨bodies, hbodies, -, -, hfresh, rfl⟩ := ConLeche.checkDirectProjTable_inv hTbl
   let tbl : ProjTable := ⟨p.cvT.name, p.cvT.levelParams, p.nP, p.cvC.name, p.nF, p.resSort,
-    bodies, Lech.directProjGuards cvCa.type p.nP p.nF sorts⟩
-  obtain ⟨hlenS, hsortsAll⟩ := Lech.checkDirectFieldSorts_inv hsorts
+    bodies, ConLeche.directProjGuards cvCa.type p.nP p.nF sorts⟩
+  obtain ⟨hlenS, hsortsAll⟩ := ConLeche.checkDirectFieldSorts_inv hsorts
   -- the field-chain facts, in the frames' spelling
   have hbound : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ds ψ).take p.nP).map (·.2.2)).reverse ρ → p.resSort.eval ψ ≠ 0 →
@@ -118,21 +118,21 @@ theorem stageTable (mp : EnvS2PM V μ env)
     fun ψ ρ => (formerWalks hFD (fun ψ' ρ' h => hokB ψ' ρ' ((hiff ψ' ρ').mp h)) ψ ρ).1
   -- the guards' content: the official join over the used earlier slots
   have hguardSem : ∀ k, k < p.nF → ∀ ψ : Name → Nat,
-      ((Lech.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero).eval ψ = 0 →
+      ((ConLeche.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero).eval ψ = 0 →
       (sorts.getD k .zero).eval ψ = 0 ∧
-      ∀ j, j < k → Lech.directUsedLater cvCa.type p.nP j = true →
+      ∀ j, j < k → ConLeche.directUsedLater cvCa.type p.nP j = true →
         (sorts.getD j .zero).eval ψ = 0 := by
     intro k hk ψ h0
-    rw [Lech.directProjGuards_getD _ _ _ _ hk,
-      eval_foldl_max_if_zero_iff ψ (Lech.directUsedLater cvCa.type p.nP)
+    rw [ConLeche.directProjGuards_getD _ _ _ _ hk,
+      eval_foldl_max_if_zero_iff ψ (ConLeche.directUsedLater cvCa.type p.nP)
         (fun j => sorts.getD j .zero)] at h0
     exact ⟨h0.1, fun j hj hu => h0.2 j (List.mem_range.mpr hj) hu⟩
   have hguardOf : ∀ k, k < p.nF → ∀ ψ : Name → Nat,
       (∀ j, j ≤ k → (sorts.getD j .zero).eval ψ = 0) →
-      ((Lech.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero).eval ψ = 0 := by
+      ((ConLeche.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero).eval ψ = 0 := by
     intro k hk ψ hall
-    rw [Lech.directProjGuards_getD _ _ _ _ hk,
-      eval_foldl_max_if_zero_iff ψ (Lech.directUsedLater cvCa.type p.nP)
+    rw [ConLeche.directProjGuards_getD _ _ _ _ hk,
+      eval_foldl_max_if_zero_iff ψ (ConLeche.directUsedLater cvCa.type p.nP)
         (fun j => sorts.getD j .zero)]
     exact ⟨hall k (Nat.le_refl _), fun j hj _ => hall j (Nat.le_of_lt (List.mem_range.mp hj))⟩
   have hsortD : ∀ j, j < p.nF → ∃ u, sorts.getD j .zero = u ∧
@@ -142,7 +142,7 @@ theorem stageTable (mp : EnvS2PM V μ env)
     exact ⟨u, by rw [List.getD_eq_getElem?_getD, hu]; rfl, hleq⟩
   have hO5 : ∀ k, k < p.nF → (Level.isEquiv p.resSort .zero == some true) = false →
       ∀ ψ : Name → Nat, p.resSort.eval ψ = 0 →
-      ((Lech.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero).eval ψ = 0 := by
+      ((ConLeche.directProjGuards cvCa.type p.nP p.nF sorts).getD k .zero).eval ψ = 0 := by
     intro k hk hne ψ h0
     refine hguardOf k hk ψ fun j hj => ?_
     obtain ⟨u, hu, hleq⟩ := hsortD j (by omega)
@@ -150,20 +150,20 @@ theorem stageTable (mp : EnvS2PM V μ env)
     have := Level.leq_sound (hleq (by rw [hProp]; exact hne)) ψ
     omega
   -- the constructor type's scoping
-  obtain ⟨hCf, -, -, hCb, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfC)
+  obtain ⟨hCf, -, -, hCb, -⟩ := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfC)
   simp only [ConstantInfo.toConstantVal] at hCf hCb
   -- the unused earlier fields are free in the projected field's type
   obtain ⟨fvsA, oA, hopAll⟩ := openPisAtFvars_of_stripPis_isSome (p.nP + p.nF) 0 hstripC
   have hlenA : fvsA.length = p.nP + p.nF := openPisAtFvars_length _ hopAll
   have hfree : ∀ (ψ : Name → Nat) (k : Nat), k < p.nF → ∀ (j : Nat), j < k →
-      Lech.directUsedLater cvCa.type p.nP j = false →
+      ConLeche.directUsedLater cvCa.type p.nP j = false →
       ∃ X : AVExpr, (((ds ψ).drop p.nP).map (·.2.2)).getD k default = X.liftN 1 (k - 1 - j) := by
     intro ψ k hk j hj hun
     have hsome : (cvCa.type.stripPis (p.nP + j + 1)).isSome = true :=
-      Lech.stripPis_isSome_of_le (by omega) hstripC
+      ConLeche.stripPis_isSome_of_le (by omega) hstripC
     obtain ⟨⟨bs, rest⟩, hst⟩ := Option.isSome_iff_exists.mp hsome
     have hrest : rest.hasLooseBVar 0 = false := by
-      unfold Lech.directUsedLater at hun
+      unfold ConLeche.directUsedLater at hun
       rw [hst] at hun
       exact hun
     obtain ⟨hleavesK, -⟩ := openPisAtFvars_leaf_free (p.nP + p.nF) (p.nP + j) hopAll (by omega)
@@ -210,39 +210,39 @@ theorem stageTable (mp : EnvS2PM V μ env)
     have := projTableName_isProjFnShape p.cvT.name
     rw [← h, hCshape] at this
     exact nomatch this
-  have hnres : Lech.reservedBasisNames.contains (projTableName p.cvT.name) = false :=
-    Lech.reservedBasisNames_not_num _ _
+  have hnres : ConLeche.reservedBasisNames.contains (projTableName p.cvT.name) = false :=
+    ConLeche.reservedBasisNames_not_num _ _
   -- the crossings
   have hcrossT : ConsCrossAt (.projInfo tbl) cvTa.type := by
     intro t2 he' j
     cases he'
-    exact (hnp j).type _ (Lech.Semantics.Env.find?_mem hfT)
+    exact (hnp j).type _ (ConLeche.Semantics.Env.find?_mem hfT)
   have hcrossC : ConsCrossAt (.projInfo tbl) cvCa.type := by
     intro t2 he' j
     cases he'
-    exact (hnp j).type _ (Lech.Semantics.Env.find?_mem hfC)
+    exact (hnp j).type _ (ConLeche.Semantics.Env.find?_mem hfC)
   have hcbT : ConstsBound env cvTa.type :=
-    constsBound_of_constsResolve _ (mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)).2.2.1
+    constsBound_of_constsResolve _ (mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)).2.2.1
   have hcbC : ConstsBound env cvCa.type :=
-    constsBound_of_constsResolve _ (mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfC)).2.2.1
+    constsBound_of_constsResolve _ (mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfC)).2.2.1
   -- the lookups at the extension
   have hfT₂ : (⟨.projInfo tbl :: env.consts⟩ : Env).find? p.cvT.name
-      = some (.indInfo cvTa (Lech.directCaps p)) := by
-    rw [Lech.Env.find?_cons, if_neg (fun h => hneT h.symm)]
+      = some (.indInfo cvTa (ConLeche.directCaps p)) := by
+    rw [ConLeche.Env.find?_cons, if_neg (fun h => hneT h.symm)]
     exact hfT
   have hfC₂ : (⟨.projInfo tbl :: env.consts⟩ : Env).find? p.cvC.name
       = some (.ctorInfo cvCa p.nP p.nF) := by
-    rw [Lech.Env.find?_cons, if_neg (fun h => hneC h.symm)]
+    rw [ConLeche.Env.find?_cons, if_neg (fun h => hneC h.symm)]
     exact hfC
   have hfTbl₂ : (⟨.projInfo tbl :: env.consts⟩ : Env).find? (projTableName p.cvT.name)
-      = some (.projInfo tbl) := Lech.Env.find?_cons_self _ _
+      = some (.projInfo tbl) := ConLeche.Env.find?_cons_self _ _
   have hprev₂ : ∀ j, j < p.nF →
       ∃ entry, (⟨.projInfo tbl :: env.consts⟩ : Env).findProj? p.cvT.name j
         = some entry :=
-    fun j hj => ⟨tbl.entry j, Lech.Env.findProj?_of_table hfTbl₂ hj⟩
+    fun j hj => ⟨tbl.entry j, ConLeche.Env.findProj?_of_table hfTbl₂ hj⟩
   -- the head data at every field
-  have hhead : ∀ i, i < p.nF → Lech.TowerHead ⟨.projInfo tbl :: env.consts⟩ (tbl.entry i) :=
-    fun i hi => ⟨hresT, hresR, hresC, hi, ⟨cvTa, Lech.directCaps p, hfT₂, hlpsT⟩,
+  have hhead : ∀ i, i < p.nF → ConLeche.TowerHead ⟨.projInfo tbl :: env.consts⟩ (tbl.entry i) :=
+    fun i hi => ⟨hresT, hresR, hresC, hi, ⟨cvTa, ConLeche.directCaps p, hfT₂, hlpsT⟩,
       ⟨cvCa, hfC₂, hlpsC, hstripC⟩⟩
   suffices hlaw : ∀ m₂ : EnvS2Core V ⟨.projInfo tbl :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval (ConstantInfo.projInfo tbl).name (fun _ => .sort 0) →
@@ -269,8 +269,8 @@ theorem stageTable (mp : EnvS2PM V μ env)
     hCD.cross (c₀ := .projInfo tbl) hfresh hneT hcrossC hcbC m₂ hac
   -- the body, opened at the variables
   obtain ⟨cds, bodyB, mbB, hcf⟩ :=
-    Lech.directProjBody_open hbodies hstripC hCb hi
-  refine ⟨rfl, rfl, hi, ⟨cvTa, Lech.directCaps p, hfT₂, hlpsT, ?_, rfl, rfl, rfl⟩,
+    ConLeche.directProjBody_open hbodies hstripC hCb hi
+  refine ⟨rfl, rfl, hi, ⟨cvTa, ConLeche.directCaps p, hfT₂, hlpsT, ?_, rfl, rfl, rfl⟩,
     hO5 i hi, cvCa, hfC₂, hlpsC, ?_, ?_⟩
   · show (!p.isProp) = !(Level.isEquiv p.resSort .zero == some true)
     rw [hProp]
@@ -283,14 +283,14 @@ theorem stageTable (mp : EnvS2PM V μ env)
       (hCD₂.below (Level.substFn φ p.cvT.levelParams us))
       (hCD₂.read (Level.substFn φ p.cvT.levelParams us))
       (hokB _) (hbound _) (hsortsF _)
-      (used := Lech.directUsedLater cvCa.type p.nP) (hfree _ i hi)
+      (used := ConLeche.directUsedLater cvCa.type p.nP) (hfree _ i hi)
     have hread : denoteP m₂.acval ⟨.projInfo tbl :: env.consts⟩ φ 0
-        (Lech.projTele ((tbl.entry i).numParams + 1)
+        (ConLeche.projTele ((tbl.entry i).numParams + 1)
           ((tbl.entry i).body.instantiateLevelParams (tbl.entry i).levelParams us))
         = some (mkPisAV (List.replicate (p.nP + 1) (0, 1, .sort 0)) fdomA) := by
-      show denoteP m₂.acval _ φ 0 (Lech.projTele (p.nP + 1)
+      show denoteP m₂.acval _ φ 0 (ConLeche.projTele (p.nP + 1)
         ((bodies.getD i default).instantiateLevelParams p.cvT.levelParams us)) = _
-      rw [← Lech.projTele_instantiateLevelParams,
+      rw [← ConLeche.projTele_instantiateLevelParams,
         denotePInstLevels m₂ φ p.cvT.levelParams us 0]
       exact denoteP_projTele_zero hfdA
     refine ⟨⟨_, hread, ?_⟩, ?_⟩
@@ -298,7 +298,7 @@ theorem stageTable (mp : EnvS2PM V μ env)
       intro hguardAt ρ vs x rest hlenVs hokApp hokx hmem hpeel
       have hguard' : p.resSort.eval (Level.substFn φ p.cvT.levelParams us) = 0 →
           (sorts.getD i .zero).eval (Level.substFn φ p.cvT.levelParams us) = 0 ∧
-          ∀ j, j < i → Lech.directUsedLater cvCa.type p.nP j = true →
+          ∀ j, j < i → ConLeche.directUsedLater cvCa.type p.nP j = true →
             (sorts.getD j .zero).eval (Level.substFn φ p.cvT.levelParams us) = 0 :=
         fun h0 => hguardSem i hi _ (hguardAt h0)
       have hacT' : m₂.acval tbl.structName (Level.substFn φ (tbl.entry i).levelParams us)
@@ -309,7 +309,7 @@ theorem stageTable (mp : EnvS2PM V μ env)
         rw [hacT, hleafT]
       rw [hacT'] at hokApp hmem
       exact entryTypingCore (hCD.len _) (hFD.len _) (by simp) (hpok _) (hiff _) (hbound _)
-        (hsortsF _) (used := Lech.directUsedLater cvCa.type p.nP) hguard' (hfree _ i hi) hi
+        (hsortsF _) (used := ConLeche.directUsedLater cvCa.type p.nP) hguard' (hfree _ i hi) hi
         hresFd (hokFd (fun h0 => (hguard' h0).2)) ρ vs x rest hlenVs hokApp hokx hmem hpeel
     · -- (B): the constructor type's reading at the instantiation,
       -- then the two regimes (task #175 W6)
@@ -366,4 +366,4 @@ theorem stageTable (mp : EnvS2PM V μ env)
       rw [hacC']
       exact entryEtaCore (hCD.len _) (hFD.len _) (hpok _) (hiff _) (hbound _) ts x hlents hsp hmem'
 
-end Lech.SetP
+end ConLeche.SetP

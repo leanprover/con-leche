@@ -1,6 +1,6 @@
-import Lech.Verify.Leaves
-import Lech.Verify.Denote.Install
-import Lech.Verify.IotaWalkInv
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.Denote.Install
+import ConLeche.Verify.IotaWalkInv
 
 /-!
 # The per-declaration RUN records (task #148 T2; the derivation half
@@ -29,15 +29,15 @@ that was inside it.
 (`annotateCore μ env F d e = .ok e'`) are V-free side conditions.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 
 /-- The structural-`Nat` recurrences' **checker runs** (task #161 P4
 H1, extended to the literal tier): `certifyNatEqs`'s verdict is the
 conjunction of one `isDefEqCore` run per equation
-(`Lech/Kernel/Checker.lean:426-433` — `ops.isDefEq env 2 eq.1 eq.2`
+(`ConLeche/Kernel/Checker.lean:426-433` — `ops.isDefEq env 2 eq.1 eq.2`
 under `fueledOps μ F`, i.e. `isDefEqCore` at fuel `F`, depth `2`), so
 the recorded form is the checker's literal output, one run per
 equation.  The P tier's establishment route consumes these runs
@@ -112,12 +112,12 @@ def DeclDirectRun (μ : CheckMode) (F : Nat) (env : Env)
     (p : DirectParts) (env₂ : Env) : Prop :=
   ∃ (cvTa cvCa cvRa : ConstantVal) (sorts : List Level) (rhsA : Expr)
     (envI envC : Env),
-    checkDirectInd (m := Lech.CheckM) (fueledOps μ F) env p
+    checkDirectInd (m := ConLeche.CheckM) (fueledOps μ F) env p
       = .ok (envI, cvTa) ∧
-    checkDirectCtor (m := Lech.CheckM) (fueledOps μ F) env envI p cvTa
+    checkDirectCtor (m := ConLeche.CheckM) (fueledOps μ F) env envI p cvTa
       = .ok (envC, cvCa, sorts) ∧
     -- the recursor, generated and compared (task #175 S2)
-    checkDirectRec (m := Lech.CheckM) (fueledOps μ F) envC p cvTa cvCa
+    checkDirectRec (m := ConLeche.CheckM) (fueledOps μ F) envC p cvTa cvCa
       = .ok (cvRa, rhsA) ∧
     (let env₃ : Env :=
       ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
@@ -127,8 +127,8 @@ def DeclDirectRun (μ : CheckMode) (F : Nat) (env : Env)
           rhsA⟩] :: envC.consts⟩
      -- the projection table (task #175 S1): one constant, the fields'
      -- bodies off the annotated constructor type and the guard levels
-     checkDirectProjTable (m := Lech.CheckM) p.cvT.name p.cvC.name
+     checkDirectProjTable (m := ConLeche.CheckM) p.cvT.name p.cvC.name
         p.cvT.levelParams p.nP p.nF p.resSort
         (directProjGuards cvCa.type p.nP p.nF sorts) cvCa env₃ = .ok env₂)
 
-end Lech.Semantics
+end ConLeche.Semantics

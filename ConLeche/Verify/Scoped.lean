@@ -1,20 +1,20 @@
-import Lech.Verify.Fueled
-import Lech.Verify.InferLemmas
-import Lech.Verify.InferLeaves
-import Lech.Verify.InferIOLeaves
-import Lech.Verify.Abstract
+import ConLeche.Verify.Fueled
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.InferIOLeaves
+import ConLeche.Verify.Abstract
 
 /-!
 # The cache-refinement bridge, part B₀: the scoped-call discipline
 
-The memoized knot (`Lech/Kernel/TypeCheckerC.lean`) consults its
+The memoized knot (`ConLeche/Kernel/TypeCheckerC.lean`) consults its
 depth-free caches **without any runtime scope check**: this module
 supplies the proof that makes that sound.  Two ingredients:
 
 * `ScopedSim mode env f` — the *conditional* simulation: every cached
   entry-point run on a well-scoped argument is reproduced by the pure
   fueled family and preserves the cache invariant `CacheOK`.
-  (`Lech/Verify/Bridge.lean` closes the knot induction.)
+  (`ConLeche/Verify/Bridge.lean` closes the knot induction.)
 * the **call discipline**: every core body, run at the cached record on
   well-scoped inputs, only ever invokes the record on well-scoped
   arguments at the ambient depth.  This is proven by exhibiting the
@@ -22,7 +22,7 @@ supplies the proof that makes that sound.  Two ingredients:
   record `gFns` (each entry wrapped in a `wscopedB` test that throws on
   violation): `DiscV` relates the two run-by-run, the site lemmas
   discharge the guards from the arguments' well-scopedness, and the
-  per-body walks (`Lech/Verify/Disc.lean`) thread the scoping facts
+  per-body walks (`ConLeche/Verify/Disc.lean`) thread the scoping facts
   through every call site — the result-scoping of intermediate values
   comes from the conditional simulation plus the pure preservation
   lemmas (`whnfCore_WScoped` and friends).
@@ -35,7 +35,7 @@ before the guards were removed from the executable.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -419,4 +419,4 @@ theorem ScopedSim.site_inferIO (ih : ScopedSim mode env f) (henv : EnvWF env)
 
 end Sites
 
-end Lech
+end ConLeche

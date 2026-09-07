@@ -1,4 +1,4 @@
-import Lech.Kernel.ExprOps
+import ConLeche.Kernel.ExprOps
 
 /-!
 # `inst_simp`: computing `Expr.instantiate1` at a concrete telescope
@@ -10,7 +10,7 @@ opened body is.
 
 ## The fight, and why it is uniform
 
-`Expr.instantiate1` (`Lech/Kernel/ExprOps.lean`) has exactly **one**
+`Expr.instantiate1` (`ConLeche/Kernel/ExprOps.lean`) has exactly **one**
 clause that branches:
 
 ```
@@ -45,7 +45,7 @@ telescopes, and the basis reductions.  Built when the second of those
 needed it, not speculatively.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
 /-- Compute `Expr.instantiate1` through a concrete telescope: unfold,
 normalise the depth arithmetic, decide the comparisons.  See the module
@@ -58,4 +58,4 @@ macro_rules
     `(tactic| simp only [Expr.instantiate1, Nat.reduceAdd, Nat.reduceSub,
         gt_iff_lt, Nat.reduceLT, Nat.reduceEqDiff, reduceIte] $[$loc]?)
 
-end Lech.Verify
+end ConLeche.Verify

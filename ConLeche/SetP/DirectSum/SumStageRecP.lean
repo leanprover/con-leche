@@ -1,6 +1,6 @@
-import Lech.SetP.DirectSum.SumRecLawP
-import Lech.SetP.DirectSum.SumStageCtorP
-import Lech.SetP.IndPointKitP
+import ConLeche.SetP.DirectSum.SumRecLawP
+import ConLeche.SetP.DirectSum.SumStageCtorP
+import ConLeche.SetP.IndPointKitP
 
 /-!
 # The sum recursor's cons (task #175 sum-types, indexed)
@@ -20,13 +20,13 @@ index values at the fields are the recursor application's index
 arguments.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts
   BinderMeta RecRule)
 
 universe w
@@ -118,8 +118,8 @@ theorem ctorFactsAt_cross {m : EnvS2Core V env} {T : Name} {lps : List Name} {nP
   refine ⟨fun j cA hj => ?_, fun j cA hj e he => Expr.constsResolve_mono (hidxRes j cA hj e he)⟩
   obtain ⟨hf, hlps, hCD⟩ := hcf j cA hj
   have hcb : ConstsBound env cA.1.type :=
-    constsBound_of_constsResolve _ (m.wf _ (Lech.Semantics.Env.find?_mem hf)).2.2.1
-  exact ⟨Lech.Env.find?_cons_of_fresh hfresh hf, hlps,
+    constsBound_of_constsResolve _ (m.wf _ (ConLeche.Semantics.Env.find?_mem hf)).2.2.1
+  exact ⟨ConLeche.Env.find?_cons_of_fresh hfresh hf, hlps,
     hCD.cross hfresh hT (fun _ => ConsCrossAt.ofNtc hntc) hcb
       (fun e he => constsBound_of_constsResolve _ (hidxRes j cA hj e he)) m₂ hac⟩
 
@@ -203,7 +203,7 @@ theorem sumRecRuleLaw (mp : EnvS2PM V μ env)
   obtain ⟨hfC, hlpsC, hCD⟩ := hcf j cA hj
   have hjn : j < ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
   -- the constructor's stored type
-  obtain ⟨-, -, hCres, -, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfC)
+  obtain ⟨-, -, hCres, -, -⟩ := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfC)
   simp only [ConstantInfo.toConstantVal] at hCres
   have hcbC : ConstsBound env cA.1.type := constsBound_of_constsResolve _ hCres
   have hcbT : ConstsBound env cvRa.type := constsBound_of_constsResolve _ hRres
@@ -217,7 +217,7 @@ theorem sumRecRuleLaw (mp : EnvS2PM V μ env)
     fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
   have hfindC : (⟨.recInfo cvRa mI rP rules :: env.consts⟩ : Env).find? cA.1.name
       = some (.ctorInfo cA.1 p.nP cA.2) := by
-    rw [Lech.Env.find?_cons, if_neg (fun h => hRC h.symm)]
+    rw [ConLeche.Env.find?_cons, if_neg (fun h => hRC h.symm)]
     exact hfC
   -- the law
   refine ⟨by omega, fun us hus => ?_⟩
@@ -244,7 +244,7 @@ theorem sumRecRuleLaw (mp : EnvS2PM V μ env)
   have hagree : ∀ q ∈ p.cvT.levelParams,
       Level.substFn φ cA.1.levelParams usj q = ψR q := by
     have h := hψ
-    simp only [Lech.recFireComparands] at h
+    simp only [ConLeche.recFireComparands] at h
     rw [hlpsC] at h
     rw [hlpsC, ← hψR]
     exact substFn_agree_of_comparand h
@@ -330,14 +330,14 @@ theorem sumRecRuleLaw (mp : EnvS2PM V μ env)
     obtain ⟨Ha, cargsa, hrestEq, hcarLen, hcarInterp⟩ := hidx
     rcases hcarLen with hcase | hcarLen
     · omega
-    have hrest : restC = Lech.SetP.AVExpr.instSeq ys (p.nP + cA.2 - 1)
+    have hrest : restC = ConLeche.SetP.AVExpr.instSeq ys (p.nP + cA.2 - 1)
         (ctorBodyAVI m₂ p.cvT.name p.nP cA.2 ψC (esF j ψR)) := by
       have hfit := hfitC
       rw [hTVja'] at hfit
       exact teleFitPA_rest_eq (p.nP + cA.2) hteleC (by simpa using hyl) hfit
     have hrest2 : AVExpr.mkAppN Ha cargsa
-        = AVExpr.mkAppN (Lech.SetP.AVExpr.instSeq ys (p.nP + cA.2 - 1) (m₂.acval p.cvT.name ψC))
-            ((paramBvars p.nP cA.2 ++ esF j ψR).map (Lech.SetP.AVExpr.instSeq ys (p.nP + cA.2 - 1))) := by
+        = AVExpr.mkAppN (ConLeche.SetP.AVExpr.instSeq ys (p.nP + cA.2 - 1) (m₂.acval p.cvT.name ψC))
+            ((paramBvars p.nP cA.2 ++ esF j ψR).map (ConLeche.SetP.AVExpr.instSeq ys (p.nP + cA.2 - 1))) := by
       rw [← hrestEq, hrest]
       unfold ctorBodyAVI
       rw [instSeqP_mkAppN]
@@ -345,7 +345,7 @@ theorem sumRecRuleLaw (mp : EnvS2PM V μ env)
     obtain ⟨-, hcargs⟩ := AVExpr.mkAppN_inj hrest2
       (by simp [hcarLen, paramBvars, hlenE]; omega)
     have hcel : cargsa.getD (p.nP + i) default
-        = Lech.SetP.AVExpr.instSeq ys (p.nP + cA.2 - 1) ((esF j ψR).getD i default) := by
+        = ConLeche.SetP.AVExpr.instSeq ys (p.nP + cA.2 - 1) ((esF j ψR).getD i default) := by
       have h1 := congrArg (fun l => l[p.nP + i]?) hcargs
       simp only [List.getElem?_map, List.getElem?_append_right (show (paramBvars p.nP cA.2).length ≤ p.nP + i
         by simp [paramBvars]), show (paramBvars p.nP cA.2).length = p.nP by simp [paramBvars],
@@ -412,7 +412,7 @@ theorem sumRecRuleLaw (mp : EnvS2PM V μ env)
       ((ppsAll ψR).take p.nP) ((ppsAll ψR).drop p.nP) (ctorDataList dsF esF ψR ctorsA 0) (dsF j ψR))
     (by rw [sumRuleDataAV_map_dom, ctorDataList_length])
     (fun d hd => by
-      rw [mem_sumRuleDataAV_bit hd, pwBit_eq_zero_iff, Lech.PropWhen.zeronessOf_sound,
+      rw [mem_sumRuleDataAV_bit hd, pwBit_eq_zero_iff, ConLeche.PropWhen.zeronessOf_sound,
         beq_iff_eq])
     rfl (hRuleOk ψR) (by rw [hxl, hmI]) (by simpa using hyl) hspR hspC hplain' hpin
   try simp only [RecRule.ctor, RecRule.ctorParams] at hcore ⊢
@@ -425,7 +425,7 @@ theorem sumRecRuleLaw (mp : EnvS2PM V μ env)
 theorem sumRecOpenedAll (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectSumParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {rhss : List Expr}
-    (hRec : Lech.checkDirectSumRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
+    (hRec : ConLeche.checkDirectSumRec (ConLeche.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
     {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {rds : (Name → Nat) → List (Nat × Nat × AVExpr)}
@@ -434,52 +434,52 @@ theorem sumRecOpenedAll (mp : EnvS2PM V μ env)
       OpenedP mp.base2 ψ (p.nP + ctorsA.length + p.nIdx + 2) cvRa.type fvsR oR
         (((rds ψ).map (·.2.2)).reverse) (recConcAV ctorsA.length p.nIdx) := by
   obtain ⟨cvRi, recTy, sty, u, -, hgen, -, -, hbt, hRf, -, -, -, -, rfl⟩ :=
-    Lech.checkDirectSumRec_shape hRec
+    ConLeche.checkDirectSumRec_shape hRec
   obtain ⟨tbs, itele, motiveTy, major, minors, hsT, -, hmaj, hmin, hrec⟩ :=
-    Lech.directRecTyI_unfold hgen
+    ConLeche.directRecTyI_unfold hgen
   -- the former's index telescope strips
   have hstripI : (itele.stripPis p.nIdx).isSome = true :=
     stripPis_isSome_drop p.nP (by rw [hstripT]; rfl) hsT
   obtain ⟨⟨ibs, ibody⟩, hsI⟩ := Option.isSome_iff_exists.mp hstripI
   obtain ⟨ibs', hsI'⟩ := stripPis_liftLooseBVars p.nIdx (ctorsA.map fun c => (c.1.name, c.2, c.1.type)).length.succ 0 hsI
   -- the major's telescope: the index binders then the major binder
-  have hs3 := Lech.replacePisPw_stripPis p.nIdx hmaj hsI'
+  have hs3 := ConLeche.replacePisPw_stripPis p.nIdx hmaj hsI'
   have hs4 : ∃ bs, (Expr.forallE
-      (Lech.directFamI p.cvT.name p.cvT.levelParams p.nP p.nIdx
+      (ConLeche.directFamI p.cvT.name p.cvT.levelParams p.nP p.nIdx
         ((ctorsA.map fun c => (c.1.name, c.2, c.1.type)).length + 1) 0)
       (Expr.mkAppN (.bvar (p.nIdx + (ctorsA.map fun c => (c.1.name, c.2, c.1.type)).length + 1))
-        (Lech.directPsAt 1 p.nIdx ++ [.bvar 0]))
-      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩).stripPis 1
+        (ConLeche.directPsAt 1 p.nIdx ++ [.bvar 0]))
+      ⟨Level.zeronessOf (ConLeche.directElimLevel p.elim p.large)⟩).stripPis 1
       = some (bs, Expr.mkAppN (.bvar (p.nIdx + (ctorsA.map fun c => (c.1.name, c.2, c.1.type)).length + 1))
-        (Lech.directPsAt 1 p.nIdx ++ [.bvar 0])) :=
+        (ConLeche.directPsAt 1 p.nIdx ++ [.bvar 0])) :=
     ⟨_, rfl⟩
   obtain ⟨bs4, hs4⟩ := hs4
-  have hs34 := Lech.stripPis_append p.nIdx hs3 hs4
+  have hs34 := ConLeche.stripPis_append p.nIdx hs3 hs4
   -- the minors' telescope strips its `n` binders
   have hsmin : ∀ (ctors : List (Name × Nat × Expr)) (o : Nat) (body mins : Expr),
-      Lech.directMinorsPisI p.cvT.levelParams p.nP
-        (Level.zeronessOf (Lech.directElimLevel p.elim p.large)) ctors o body = some mins →
+      ConLeche.directMinorsPisI p.cvT.levelParams p.nP
+        (Level.zeronessOf (ConLeche.directElimLevel p.elim p.large)) ctors o body = some mins →
       ∃ bs, mins.stripPis ctors.length = some (bs, body) := by
     intro ctors
     induction ctors with
-    | nil => intro o body mins h; rw [Lech.directMinorsPisI_nil h]; exact ⟨[], rfl⟩
+    | nil => intro o body mins h; rw [ConLeche.directMinorsPisI_nil h]; exact ⟨[], rfl⟩
     | cons c cs ih =>
       intro o body mins h
       obtain ⟨C, nF, cty⟩ := c
-      obtain ⟨mty, rest, -, hrest, rfl⟩ := Lech.directMinorsPisI_cons h
+      obtain ⟨mty, rest, -, hrest, rfl⟩ := ConLeche.directMinorsPisI_cons h
       obtain ⟨bs, hbs⟩ := ih (o + 1) body rest hrest
       exact ⟨(mty,
-        ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩) :: bs,
+        ⟨Level.zeronessOf (ConLeche.directElimLevel p.elim p.large)⟩) :: bs,
         by simp [Expr.stripPis, hbs]⟩
   obtain ⟨bsm, hbsm⟩ := hsmin _ _ _ _ hmin
-  have h23 := Lech.stripPis_append _ hbsm hs34
-  have hs2 := Lech.stripPis_append 1 (e := Expr.forallE motiveTy minors
-      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)
+  have h23 := ConLeche.stripPis_append _ hbsm hs34
+  have hs2 := ConLeche.stripPis_append 1 (e := Expr.forallE motiveTy minors
+      ⟨Level.zeronessOf (ConLeche.directElimLevel p.elim p.large)⟩)
     (bs := [(motiveTy,
-      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)])
+      ⟨Level.zeronessOf (ConLeche.directElimLevel p.elim p.large)⟩)])
     (by simp [Expr.stripPis]) h23
-  have hs1 := Lech.replacePisPw_stripPis p.nP hrec hsT
-  have hs := Lech.stripPis_append p.nP hs1 hs2
+  have hs1 := ConLeche.replacePisPw_stripPis p.nP hrec hsT
+  have hs := ConLeche.stripPis_append p.nP hs1 hs2
   simp only [List.length_map] at hs
   rw [show p.nP + (1 + (ctorsA.length + (p.nIdx + 1))) = p.nP + ctorsA.length + p.nIdx + 2 from by
     omega] at hs
@@ -490,12 +490,12 @@ theorem sumRecOpenedAll (mp : EnvS2PM V μ env)
 
 set_option maxHeartbeats 6400000 in
 /-- **The P step at the sum recursor's cons.** -/
-theorem stageSumRec (hE : Lech.EtaFamiliesClosed env)
+theorem stageSumRec (hE : ConLeche.EtaFamiliesClosed env)
     (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectSumParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {rhss : List Expr} {mI rP : Nat}
     (hmI : mI = p.nP + 1 + ctorsA.length + p.nIdx) (hrP : rP = p.nP + 1 + ctorsA.length)
-    (hRec : Lech.checkDirectSumRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
+    (hRec : ConLeche.checkDirectSumRec (ConLeche.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
     {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {caps : IndCaps}
@@ -540,7 +540,7 @@ theorem stageSumRec (hE : Lech.EtaFamiliesClosed env)
         (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0))
           (essOf (ctorDataList dsF esF ψ ctorsA 0))))
     (hwl : p.large = true → p.resSort.isNeverZero = true ∨ ctorsA.length < 2) :
-    ∃ mp' : EnvS2PM V μ ⟨.recInfo cvRa mI rP (Lech.directSumRules p.nP mI rP cvRa.type ctorsA rhss)
+    ∃ mp' : EnvS2PM V μ ⟨.recInfo cvRa mI rP (ConLeche.directSumRules p.nP mI rP cvRa.type ctorsA rhss)
         :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvRa.name
         (fun ψ => directSumRecAV ((sumElimLevel p).eval ψ) (p.resSort.eval ψ)
@@ -552,16 +552,16 @@ theorem stageSumRec (hE : Lech.EtaFamiliesClosed env)
   have hbase := fun ψ => sumRecFrames (m := mp.base2) hFD hcf hleafT hleafC hiff hfields hFssOk hwl ψ (hR ψ)
   -- the constant's facts
   obtain ⟨cvRi, recTy, sty, u, hccv, -, htp, htrR, -, -, -, -, -, -, hcvRa⟩ :=
-    Lech.checkDirectSumRec_shape hRec
+    ConLeche.checkDirectSumRec_shape hRec
   obtain ⟨hfind, hnres, hpshape, -, -, -, -, -, -, -, -, -, -, -, -⟩ :=
-    Lech.checkConstantVal_inv hccv
+    ConLeche.checkConstantVal_inv hccv
   have hRname : cvRa.name = p.cvR.name := by rw [hcvRa]
   have hRlps : cvRa.levelParams = p.cvR.levelParams := by rw [hcvRa]
   have hRtype : cvRa.type = recTy := by rw [hcvRa]
   have hfresh : env.find? cvRa.name = none := by rw [hRname]; exact hfind
   have htrR' : cvRa.type.constsResolve env = true := by rw [hRtype]; exact htrR
   have hcbR : ConstsBound env cvRa.type := constsBound_of_constsResolve _ htrR'
-  have hwf := Lech.direct_sum_rec_wf (mI := mI) (rP := rP) mp.base2.wf hRec
+  have hwf := ConLeche.direct_sum_rec_wf (mI := mI) (rP := rP) mp.base2.wf hRec
   have hTR : p.cvT.name ≠ cvRa.name := by
     intro h; rw [h, hfresh] at hfT; exact nomatch hfT
   -- the field chains' bounds and validity at the parameter frame
@@ -666,15 +666,15 @@ theorem stageSumRec (hE : Lech.EtaFamiliesClosed env)
       (fun ρp h => hvFss ψ ρp (by rwa [rebit_map_dom] at h)) ρ
     exact h
   -- the cons head
-  let c₀ : ConstantInfo := .recInfo cvRa mI rP (Lech.directSumRules p.nP mI rP cvRa.type ctorsA rhss)
+  let c₀ : ConstantInfo := .recInfo cvRa mI rP (ConLeche.directSumRules p.nP mI rP cvRa.type ctorsA rhss)
   have hcross : ∀ e : Expr, ConsCrossAt c₀ e := fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
   have hreadR : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval cvRa.name A) ⟨c₀ :: env.consts⟩ ψ 0 cvRa.type
         = some (mkPisAV (sumRdsAV mp.base2 p ppsAll dsF esF ctorsA ψ)
             (recConcAV ctorsA.length p.nIdx)) := fun ψ =>
     denoteP_cons_mono (c₀ := c₀) hfresh (hcross _) ψ 0 hcbR (hRD.read ψ)
-  have hnresC : Lech.reservedBasisNames.contains c₀.name = false := by
-    show Lech.reservedBasisNames.contains cvRa.name = false
+  have hnresC : ConLeche.reservedBasisNames.contains c₀.name = false := by
+    show ConLeche.reservedBasisNames.contains cvRa.name = false
     rw [hRname]; exact hnres
   have hpshapeC : c₀.name.isProjFnShape = false := by
     show cvRa.name.isProjFnShape = false
@@ -685,7 +685,7 @@ theorem stageSumRec (hE : Lech.EtaFamiliesClosed env)
       (fun cvR' mI' rP' rules heq r hr => by
         injection heq with _ _ _ hrules
         subst hrules
-        obtain ⟨j, cA, rhs, hj, -, rfl⟩ := Lech.directSumRules_getElem? hr
+        obtain ⟨j, cA, rhs, hj, -, rfl⟩ := ConLeche.directSumRules_getElem? hr
         obtain ⟨hf, -, -⟩ := hcf j cA hj
         exact ⟨cA.1, p.nP, cA.2, hf⟩))
     (fun ψ k => AVExpr.liftN_eq_self _
@@ -706,8 +706,8 @@ theorem stageSumRec (hE : Lech.EtaFamiliesClosed env)
       (hFD.params ψ₁ ψ₂ (fun q hq => hlpsAll q (by rw [← hlpsT]; exact hq))).2
     have hℓ : (sumElimLevel p).eval ψ₁ = (sumElimLevel p).eval ψ₂ := by
       cases hpl : p.large
-      · simp [sumElimLevel, Lech.directElimLevel, hpl, Level.eval]
-      · simp only [sumElimLevel, Lech.directElimLevel, hpl, if_true, Level.eval]
+      · simp [sumElimLevel, ConLeche.directElimLevel, hpl, Level.eval]
+      · simp only [sumElimLevel, ConLeche.directElimLevel, hpl, if_true, Level.eval]
         exact hφR p.elim (by rw [hRlps]; exact helim hpl)
     show directSumRecAV _ _ (sumRdsAV mp.base2 p ppsAll dsF esF ctorsA ψ₁) _ _ _ _
       = directSumRecAV _ _ (sumRdsAV mp.base2 p ppsAll dsF esF ctorsA ψ₂) _ _ _ _
@@ -730,7 +730,7 @@ theorem stageSumRec (hE : Lech.EtaFamiliesClosed env)
       exact hE T' cvT' caps' hf hcape hres
     · intro cvT caps' hf _
       have hfT' : (⟨c₀ :: env.consts⟩ : Env).find? p.cvT.name = some (.indInfo cvTa caps) := by
-        rw [Lech.Env.find?_cons, if_neg (fun h => hTR h.symm)]
+        rw [ConLeche.Env.find?_cons, if_neg (fun h => hTR h.symm)]
         exact hfT
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
       exact ⟨fun he => absurd (hcapsE.symm.trans he) Bool.false_ne_true,
@@ -739,7 +739,7 @@ theorem stageSumRec (hE : Lech.EtaFamiliesClosed env)
     intro m₂ hac φ'
     refine recRulesP_cons_rec mp (c₀ := c₀) (A := A) hfresh rfl m₂ hac φ' ?_
     intro rl hrl hfire
-    obtain ⟨j, cA, rhs, hj, hrhs, rfl⟩ := Lech.directSumRules_getElem? hrl
+    obtain ⟨j, cA, rhs, hj, hrhs, rfl⟩ := ConLeche.directSumRules_getElem? hrl
     by_cases hplain : Expr.recRulePlain cvRa.type mI rP p.nP = true
     · have hrule : (⟨cA.1.name, cA.2, p.nP,
           if Expr.recRulePlain cvRa.type mI rP p.nP then .plain else .inert, rhs⟩ : RecRule)
@@ -754,4 +754,4 @@ theorem stageSumRec (hE : Lech.EtaFamiliesClosed env)
       apply hfire
       simp [hplain]
 
-end Lech.SetP
+end ConLeche.SetP

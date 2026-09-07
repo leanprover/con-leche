@@ -1,28 +1,28 @@
-import Lech.Kernel.Modeled
-import Lech.Kernel.TrustAxioms
+import ConLeche.Kernel.Modeled
+import ConLeche.Kernel.TrustAxioms
 
 /-!
 # The direct simple-structure install (pure fueled checker)
 
 The install stages of a block recognised by `directParts?`
-(`Lech/Kernel/Direct/Parts.lean`): former, constructor, recursor
+(`ConLeche/Kernel/Direct/Parts.lean`): former, constructor, recursor
 type and rule, projection entries, assembled by `checkDirectStruct`.
-Extracted verbatim from `Lech/Kernel/Checker.lean` on 2026-09-06
+Extracted verbatim from `ConLeche/Kernel/Checker.lean` on 2026-09-06
 (cleanup pass A); `checkDecl`'s `.indDecl` clause dispatches here.
-The index-threaded twins are `Lech/Kernel/Direct/InstallF.lean`.
+The index-threaded twins are `ConLeche/Kernel/Direct/InstallF.lean`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
 
 /-! ## The direct simple-structure path (task #82)
 
-A block recognised by `directParts?` (`Lech/Kernel/Direct.lean`)
+A block recognised by `directParts?` (`ConLeche/Kernel/Direct.lean`)
 installs *directly*: no `_model` artifact is consumed, and the
 set-theoretic model was constructed from the constructor telescope by
-the retired direct model (`Lech/Model/*`, deleted at task #148 T7;
+the retired direct model (`ConLeche/Model/*`, deleted at task #148 T7;
 the route ships `false`).  What is left for this layer are the
 reference checks that need inference and definitional equality — the
 per-field universe bound and the definitional pins of the recursor's
@@ -168,7 +168,7 @@ def checkDirectCtor (ops : CheckerOps m) (env₀ env : Env) (p : DirectParts)
 /-- Stage 3: **the recursor, generated and compared** (task #175 S2).
 The recursor type and its rule are *fabricated* from the annotated
 type former and constructor types (`directRecTy`/`directRecRhs`,
-`Lech/Kernel/Direct/Parts.lean`), exactly as the reference kernels
+`ConLeche/Kernel/Direct/Parts.lean`), exactly as the reference kernels
 generate theirs; the stream's recursor is admitted by the ordinary
 constant check (`checkConstantVal` — freshness, reservation, level
 parameters, annotate + infer) and then compared against the generated
@@ -268,4 +268,4 @@ def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
   checkDirectProjTable p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
     p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) cvCa env₃
 
-end Lech
+end ConLeche

@@ -1,7 +1,7 @@
-import Lech.Kernel.Modeled
-import Lech.Kernel.TrustAxioms
-import Lech.Kernel.Direct.SumInstall
-import Lech.Kernel.Direct.RecInstall
+import ConLeche.Kernel.Modeled
+import ConLeche.Kernel.TrustAxioms
+import ConLeche.Kernel.Direct.SumInstall
+import ConLeche.Kernel.Direct.RecInstall
 
 /-!
 # The checker
@@ -10,14 +10,14 @@ import Lech.Kernel.Direct.RecInstall
 on success, returns the extended environment.  `checkDecls` folds it
 over a list of declarations, starting from the empty environment.  The
 entry-point records (`CheckerOps` and its instantiations) and the
-common `checkConstantVal` live in `Lech/Kernel/CheckerBase.lean`;
-the modeled-inductive install in `Lech/Kernel/Modeled.lean`; the
-direct simple-structure install in `Lech/Kernel/Direct/Install.lean`.
-Verification: `Lech.Verify.*` (inversions and claims) and
-`Lech.SetP.*` (the graded model's capstones).
+common `checkConstantVal` live in `ConLeche/Kernel/CheckerBase.lean`;
+the modeled-inductive install in `ConLeche/Kernel/Modeled.lean`; the
+direct simple-structure install in `ConLeche/Kernel/Direct/Install.lean`.
+Verification: `ConLeche.Verify.*` (inversions and claims) and
+`ConLeche.SetP.*` (the graded model's capstones).
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
@@ -106,7 +106,7 @@ def certifyNatEqs (ops : CheckerOps m) (env : Env) :
     else pure false
 
 /-- The pinned defining expression of a pin-certified WF-recursive op
-(`Lech/Kernel/NatOpPins.lean`, generated at build time from the toolchain's own
+(`ConLeche/Kernel/NatOpPins.lean`, generated at build time from the toolchain's own
 prelude). -/
 def divModDeclPin (c : Name) : Expr :=
   if c = natDivName then natDivDeclPin
@@ -119,7 +119,7 @@ def divModDeclPin (c : Name) : Expr :=
   else natModDeclPin
 
 /-- The vendored certificate proof terms of a pin-certified
-WF-recursive op (`Lech/Kernel/NatOpPins.lean`), one per statement of
+WF-recursive op (`ConLeche/Kernel/NatOpPins.lean`), one per statement of
 `divModCertStmts`. -/
 def divModCertProofs (c : Name) : List Expr :=
   if c = natDivName then natDivCertProofs
@@ -334,7 +334,7 @@ constant is an `axiomInfo`, which carries no value):
 * the stored constant must carry the pinned type;
 * the witness value must be definitionally equal to the build-time pin
   of the toolchain's own defining expression
-  (`Lech/Kernel/TrustPins.lean`) — toolchain drift surfaces as a
+  (`ConLeche/Kernel/TrustPins.lean`) — toolchain drift surfaces as a
   decline (exit 2), never silently;
 * the *identity certificate*: `value x ≡ x` over an opened `fvar` at
   the element type.  This is what the model consumes
@@ -375,7 +375,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- environment.  A nonstandard definition under one of these names
     -- is positively unsupported.  The equations are certified in the
     -- *pre-insertion* environment with the operation's self-references
-    -- replaced by its stored value (see `Lech/Kernel/Core.lean`:
+    -- replaced by its stored value (see `ConLeche/Kernel/Core.lean`:
     -- certifying after insertion would let the operation's own fast
     -- path discharge its all-literal equations vacuously), and the
     -- operation's and its dependencies' stored types are pinned.
@@ -476,7 +476,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   | .indDecl block =>
     -- Task #82: an *artifact-free* recognised simple structure is
     -- installed directly, from the reference checks alone
-    -- (`Lech/Kernel/Direct.lean`).  `directParts?` is a conservative
+    -- (`ConLeche/Kernel/Direct.lean`).  `directParts?` is a conservative
     -- filter that also requires the block's `_model` companions to be
     -- absent, so every preprocessed stream keeps today's route byte for
     -- byte; the module split (`CheckerBase ← Modeled ← Checker`) is why
@@ -502,4 +502,4 @@ environment. -/
 def checkDecls (ops : CheckerOps m) (ds : List Declaration) : m Env :=
   ds.foldlM (checkDecl mode ops) Env.empty
 
-end Lech
+end ConLeche

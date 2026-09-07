@@ -1,5 +1,5 @@
-import Lech.SetP.DivModP
-import Lech.PinGen.Certs
+import ConLeche.SetP.DivModP
+import ConLeche.PinGen.Certs
 
 /-!
 # The WF-recursive `Nat` operations' literal values at `interp2`
@@ -19,13 +19,13 @@ valuation (`divModClausesP_gcd` …), instead of a page-wide type
 ascription inline in the induction.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported)
 
 universe w
@@ -38,15 +38,15 @@ variable {env : Env} {φ : Name → Nat}
 /-- The literal `1` (definitional, packaged for rewriting). -/
 theorem natLitP_one (m : EnvS2Core V env) (ρ : Nat → V) :
     interp2 V ρ (natLitP m φ 1)
-      = SetTheory.app (interp2 V ρ (m.acval Lech.natSuccName φ))
-          (interp2 V ρ (m.acval Lech.natZeroName φ)) := rfl
+      = SetTheory.app (interp2 V ρ (m.acval ConLeche.natSuccName φ))
+          (interp2 V ρ (m.acval ConLeche.natZeroName φ)) := rfl
 
 /-- The literal `2` (definitional). -/
 theorem natLitP_two (m : EnvS2Core V env) (ρ : Nat → V) :
     interp2 V ρ (natLitP m φ 2)
-      = SetTheory.app (interp2 V ρ (m.acval Lech.natSuccName φ))
-          (SetTheory.app (interp2 V ρ (m.acval Lech.natSuccName φ))
-            (interp2 V ρ (m.acval Lech.natZeroName φ))) := rfl
+      = SetTheory.app (interp2 V ρ (m.acval ConLeche.natSuccName φ))
+          (SetTheory.app (interp2 V ρ (m.acval ConLeche.natSuccName φ))
+            (interp2 V ρ (m.acval ConLeche.natZeroName φ))) := rfl
 
 /-! ## The clause dispatch, unpacked per operation
 
@@ -62,77 +62,77 @@ variable (m : EnvS2Core V env) (ρ : Nat → V)
 /-- `Nat.gcd`'s two clauses. -/
 theorem divModClausesP_gcd {x y : V}
     (h : DivModClausesV V (fun n => interp2 V ρ (m.acval n φ))
-      Lech.natGcdName x y) :
+      ConLeche.natGcdName x y) :
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) x
-      = interp2 V ρ (m.acval Lech.boolTrueName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolTrueName φ) →
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natGcdName φ)) x) y
+          (interp2 V ρ (m.acval ConLeche.natGcdName φ)) x) y
         = SetTheory.app (SetTheory.app
-            (interp2 V ρ (m.acval Lech.natGcdName φ))
+            (interp2 V ρ (m.acval ConLeche.natGcdName φ))
             (SetTheory.app (SetTheory.app
-              (interp2 V ρ (m.acval Lech.natModName φ)) y) x)) x) ∧
+              (interp2 V ρ (m.acval ConLeche.natModName φ)) y) x)) x) ∧
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) x
-      = interp2 V ρ (m.acval Lech.boolFalseName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolFalseName φ) →
       SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natGcdName φ)) x) y = y) := by
+        (interp2 V ρ (m.acval ConLeche.natGcdName φ)) x) y = y) := by
   rw [natLitP_one]
   simpa +decide only [DivModClausesV, if_false, if_true] using h
 
 /-- `Nat.shiftLeft`'s two clauses. -/
 theorem divModClausesP_shiftLeft {x y : V}
     (h : DivModClausesV V (fun n => interp2 V ρ (m.acval n φ))
-      Lech.natShiftLeftName x y) :
+      ConLeche.natShiftLeftName x y) :
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) y
-      = interp2 V ρ (m.acval Lech.boolTrueName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolTrueName φ) →
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natShiftLeftName φ)) x) y
+          (interp2 V ρ (m.acval ConLeche.natShiftLeftName φ)) x) y
         = SetTheory.app (SetTheory.app
-            (interp2 V ρ (m.acval Lech.natShiftLeftName φ))
+            (interp2 V ρ (m.acval ConLeche.natShiftLeftName φ))
             (SetTheory.app (SetTheory.app
-              (interp2 V ρ (m.acval Lech.natMulName φ))
+              (interp2 V ρ (m.acval ConLeche.natMulName φ))
               (interp2 V ρ (natLitP m φ 2))) x))
             (SetTheory.app (SetTheory.app
-              (interp2 V ρ (m.acval Lech.natSubName φ)) y)
+              (interp2 V ρ (m.acval ConLeche.natSubName φ)) y)
               (interp2 V ρ (natLitP m φ 1)))) ∧
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) y
-      = interp2 V ρ (m.acval Lech.boolFalseName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolFalseName φ) →
       SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natShiftLeftName φ)) x) y = x) := by
+        (interp2 V ρ (m.acval ConLeche.natShiftLeftName φ)) x) y = x) := by
   rw [natLitP_one, natLitP_two]
   simpa +decide only [DivModClausesV, if_false, if_true] using h
 
 /-- `Nat.shiftRight`'s two clauses. -/
 theorem divModClausesP_shiftRight {x y : V}
     (h : DivModClausesV V (fun n => interp2 V ρ (m.acval n φ))
-      Lech.natShiftRightName x y) :
+      ConLeche.natShiftRightName x y) :
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) y
-      = interp2 V ρ (m.acval Lech.boolTrueName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolTrueName φ) →
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natShiftRightName φ)) x) y
+          (interp2 V ρ (m.acval ConLeche.natShiftRightName φ)) x) y
         = SetTheory.app (SetTheory.app
-            (interp2 V ρ (m.acval Lech.natDivName φ))
+            (interp2 V ρ (m.acval ConLeche.natDivName φ))
             (SetTheory.app (SetTheory.app
-              (interp2 V ρ (m.acval Lech.natShiftRightName φ)) x)
+              (interp2 V ρ (m.acval ConLeche.natShiftRightName φ)) x)
               (SetTheory.app (SetTheory.app
-                (interp2 V ρ (m.acval Lech.natSubName φ)) y)
+                (interp2 V ρ (m.acval ConLeche.natSubName φ)) y)
                 (interp2 V ρ (natLitP m φ 1)))))
             (interp2 V ρ (natLitP m φ 2))) ∧
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) y
-      = interp2 V ρ (m.acval Lech.boolFalseName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolFalseName φ) →
       SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natShiftRightName φ)) x) y
+        (interp2 V ρ (m.acval ConLeche.natShiftRightName φ)) x) y
         = x) := by
   rw [natLitP_one, natLitP_two]
   simpa +decide only [DivModClausesV, if_false, if_true] using h
@@ -140,134 +140,134 @@ theorem divModClausesP_shiftRight {x y : V}
 /-- `Nat.land`'s two clauses. -/
 theorem divModClausesP_land {x y : V}
     (h : DivModClausesV V (fun n => interp2 V ρ (m.acval n φ))
-      Lech.natLandName x y) :
+      ConLeche.natLandName x y) :
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) x
-      = interp2 V ρ (m.acval Lech.boolTrueName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolTrueName φ) →
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natLandName φ)) x) y
+          (interp2 V ρ (m.acval ConLeche.natLandName φ)) x) y
         = SetTheory.app (SetTheory.app
-            (interp2 V ρ (m.acval Lech.natAddName φ))
+            (interp2 V ρ (m.acval ConLeche.natAddName φ))
             (SetTheory.app (SetTheory.app
-              (interp2 V ρ (m.acval Lech.natMulName φ))
+              (interp2 V ρ (m.acval ConLeche.natMulName φ))
               (interp2 V ρ (natLitP m φ 2)))
               (SetTheory.app (SetTheory.app
-                (interp2 V ρ (m.acval Lech.natLandName φ))
+                (interp2 V ρ (m.acval ConLeche.natLandName φ))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natDivName φ)) x)
+                  (interp2 V ρ (m.acval ConLeche.natDivName φ)) x)
                   (interp2 V ρ (natLitP m φ 2))))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natDivName φ)) y)
+                  (interp2 V ρ (m.acval ConLeche.natDivName φ)) y)
                   (interp2 V ρ (natLitP m φ 2))))))
             (SetTheory.app (SetTheory.app
-              (interp2 V ρ (m.acval Lech.natMulName φ))
+              (interp2 V ρ (m.acval ConLeche.natMulName φ))
               (SetTheory.app (SetTheory.app
-                (interp2 V ρ (m.acval Lech.natModName φ)) x)
+                (interp2 V ρ (m.acval ConLeche.natModName φ)) x)
                 (interp2 V ρ (natLitP m φ 2))))
               (SetTheory.app (SetTheory.app
-                (interp2 V ρ (m.acval Lech.natModName φ)) y)
+                (interp2 V ρ (m.acval ConLeche.natModName φ)) y)
                 (interp2 V ρ (natLitP m φ 2))))) ∧
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) x
-      = interp2 V ρ (m.acval Lech.boolFalseName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolFalseName φ) →
       SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natLandName φ)) x) y
-        = interp2 V ρ (m.acval Lech.natZeroName φ)) := by
+        (interp2 V ρ (m.acval ConLeche.natLandName φ)) x) y
+        = interp2 V ρ (m.acval ConLeche.natZeroName φ)) := by
   rw [natLitP_one, natLitP_two]
   simpa +decide only [DivModClausesV, if_false, if_true] using h
 
 /-- `Nat.lor`'s two clauses. -/
 theorem divModClausesP_lor {x y : V}
     (h : DivModClausesV V (fun n => interp2 V ρ (m.acval n φ))
-      Lech.natLorName x y) :
+      ConLeche.natLorName x y) :
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) x
-      = interp2 V ρ (m.acval Lech.boolTrueName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolTrueName φ) →
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natLorName φ)) x) y
+          (interp2 V ρ (m.acval ConLeche.natLorName φ)) x) y
         = SetTheory.app (SetTheory.app
-            (interp2 V ρ (m.acval Lech.natAddName φ))
+            (interp2 V ρ (m.acval ConLeche.natAddName φ))
             (SetTheory.app (SetTheory.app
-              (interp2 V ρ (m.acval Lech.natMulName φ))
+              (interp2 V ρ (m.acval ConLeche.natMulName φ))
               (interp2 V ρ (natLitP m φ 2)))
               (SetTheory.app (SetTheory.app
-                (interp2 V ρ (m.acval Lech.natLorName φ))
+                (interp2 V ρ (m.acval ConLeche.natLorName φ))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natDivName φ)) x)
+                  (interp2 V ρ (m.acval ConLeche.natDivName φ)) x)
                   (interp2 V ρ (natLitP m φ 2))))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natDivName φ)) y)
+                  (interp2 V ρ (m.acval ConLeche.natDivName φ)) y)
                   (interp2 V ρ (natLitP m φ 2))))))
             (SetTheory.app (SetTheory.app
-              (interp2 V ρ (m.acval Lech.natSubName φ))
+              (interp2 V ρ (m.acval ConLeche.natSubName φ))
               (SetTheory.app (SetTheory.app
-                (interp2 V ρ (m.acval Lech.natAddName φ))
+                (interp2 V ρ (m.acval ConLeche.natAddName φ))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natModName φ)) x)
+                  (interp2 V ρ (m.acval ConLeche.natModName φ)) x)
                   (interp2 V ρ (natLitP m φ 2))))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natModName φ)) y)
+                  (interp2 V ρ (m.acval ConLeche.natModName φ)) y)
                   (interp2 V ρ (natLitP m φ 2)))))
               (SetTheory.app (SetTheory.app
-                (interp2 V ρ (m.acval Lech.natMulName φ))
+                (interp2 V ρ (m.acval ConLeche.natMulName φ))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natModName φ)) x)
+                  (interp2 V ρ (m.acval ConLeche.natModName φ)) x)
                   (interp2 V ρ (natLitP m φ 2))))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natModName φ)) y)
+                  (interp2 V ρ (m.acval ConLeche.natModName φ)) y)
                   (interp2 V ρ (natLitP m φ 2)))))) ∧
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) x
-      = interp2 V ρ (m.acval Lech.boolFalseName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolFalseName φ) →
       SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natLorName φ)) x) y = y) := by
+        (interp2 V ρ (m.acval ConLeche.natLorName φ)) x) y = y) := by
   rw [natLitP_one, natLitP_two]
   simpa +decide only [DivModClausesV, if_false, if_true] using h
 
 /-- `Nat.xor`'s two clauses. -/
 theorem divModClausesP_xor {x y : V}
     (h : DivModClausesV V (fun n => interp2 V ρ (m.acval n φ))
-      Lech.natXorName x y) :
+      ConLeche.natXorName x y) :
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) x
-      = interp2 V ρ (m.acval Lech.boolTrueName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolTrueName φ) →
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natXorName φ)) x) y
+          (interp2 V ρ (m.acval ConLeche.natXorName φ)) x) y
         = SetTheory.app (SetTheory.app
-            (interp2 V ρ (m.acval Lech.natAddName φ))
+            (interp2 V ρ (m.acval ConLeche.natAddName φ))
             (SetTheory.app (SetTheory.app
-              (interp2 V ρ (m.acval Lech.natMulName φ))
+              (interp2 V ρ (m.acval ConLeche.natMulName φ))
               (interp2 V ρ (natLitP m φ 2)))
               (SetTheory.app (SetTheory.app
-                (interp2 V ρ (m.acval Lech.natXorName φ))
+                (interp2 V ρ (m.acval ConLeche.natXorName φ))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natDivName φ)) x)
+                  (interp2 V ρ (m.acval ConLeche.natDivName φ)) x)
                   (interp2 V ρ (natLitP m φ 2))))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natDivName φ)) y)
+                  (interp2 V ρ (m.acval ConLeche.natDivName φ)) y)
                   (interp2 V ρ (natLitP m φ 2))))))
             (SetTheory.app (SetTheory.app
-              (interp2 V ρ (m.acval Lech.natModName φ))
+              (interp2 V ρ (m.acval ConLeche.natModName φ))
               (SetTheory.app (SetTheory.app
-                (interp2 V ρ (m.acval Lech.natAddName φ))
+                (interp2 V ρ (m.acval ConLeche.natAddName φ))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natModName φ)) x)
+                  (interp2 V ρ (m.acval ConLeche.natModName φ)) x)
                   (interp2 V ρ (natLitP m φ 2))))
                 (SetTheory.app (SetTheory.app
-                  (interp2 V ρ (m.acval Lech.natModName φ)) y)
+                  (interp2 V ρ (m.acval ConLeche.natModName φ)) y)
                   (interp2 V ρ (natLitP m φ 2)))))
               (interp2 V ρ (natLitP m φ 2)))) ∧
     (SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natBleName φ))
+        (interp2 V ρ (m.acval ConLeche.natBleName φ))
         (interp2 V ρ (natLitP m φ 1))) x
-      = interp2 V ρ (m.acval Lech.boolFalseName φ) →
+      = interp2 V ρ (m.acval ConLeche.boolFalseName φ) →
       SetTheory.app (SetTheory.app
-        (interp2 V ρ (m.acval Lech.natXorName φ)) x) y = y) := by
+        (interp2 V ρ (m.acval ConLeche.natXorName φ)) x) y = y) := by
   rw [natLitP_one, natLitP_two]
   simpa +decide only [DivModClausesV, if_false, if_true] using h
 
@@ -281,7 +281,7 @@ variable {m : EnvS2Core V env}
 guards and their step argument) — `natOpV_divmod`'s mirror. -/
 theorem natOpV2_divmod (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
     (hval : AcvalValidP m) (hdm : DivModP m φ) {c : Name}
-    (hc : c = Lech.natDivName ∨ c = Lech.natModName)
+    (hc : c = ConLeche.natDivName ∨ c = ConLeche.natModName)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hf : env.find? c = some (.defnInfo cv v hint)) (ρ : Nat → V) :
     ∀ a b : Nat,
@@ -289,16 +289,16 @@ theorem natOpV2_divmod (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
           (interp2 V ρ (natLitP m φ a)))
         (interp2 V ρ (natLitP m φ b))
       = interp2 V ρ (natLitP m φ
-          (if c = Lech.natDivName then a / b else a % b)) := by
-  have hcmem : c ∈ Lech.natDivModNames := by
+          (if c = ConLeche.natDivName then a / b else a % b)) := by
+  have hcmem : c ∈ ConLeche.natDivModNames := by
     rcases hc with rfl | rfl <;> decide
   obtain ⟨hg, hclauses⟩ := hdm c hcmem cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := Lech.natOpGuard_inv hg
-  have hdepmem : Lech.natSubName ∈ Lech.natOpDeps c ∧
-      Lech.natBleName ∈ Lech.natOpDeps c := by
+  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdepmem : ConLeche.natSubName ∈ ConLeche.natOpDeps c ∧
+      ConLeche.natBleName ∈ ConLeche.natOpDeps c := by
     rcases hc with rfl | rfl <;> exact ⟨by decide, by decide⟩
-  obtain ⟨cvsu, vsu, hsu, hfsu, -⟩ := hdeps Lech.natSubName hdepmem.1
-  obtain ⟨cvbl, vbl, hbl, hfbl, -⟩ := hdeps Lech.natBleName hdepmem.2
+  obtain ⟨cvsu, vsu, hsu, hfsu, -⟩ := hdeps ConLeche.natSubName hdepmem.1
+  obtain ⟨cvbl, vbl, hbl, hfbl, -⟩ := hdeps ConLeche.natBleName hdepmem.2
   intro a b
   induction a using Nat.strongRecOn with
   | ind a ih =>
@@ -310,11 +310,11 @@ theorem natOpV2_divmod (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
     · subst hb0
       -- `ble 1 0` is `false`: the second base clause fires
       have h1 : SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natBleName φ))
-          (SetTheory.app (interp2 V ρ (m.acval Lech.natSuccName φ))
-            (interp2 V ρ (m.acval Lech.natZeroName φ))))
+          (interp2 V ρ (m.acval ConLeche.natBleName φ))
+          (SetTheory.app (interp2 V ρ (m.acval ConLeche.natSuccName φ))
+            (interp2 V ρ (m.acval ConLeche.natZeroName φ))))
           (interp2 V ρ (natLitP m φ 0))
-          = interp2 V ρ (m.acval Lech.boolFalseName φ) := by
+          = interp2 V ρ (m.acval ConLeche.boolFalseName φ) := by
         have h := natOpV2_ble m hops hnh hval hfbl ρ 1 0
         rw [natLitP_one] at h
         rw [h, if_neg (by omega)]
@@ -325,22 +325,22 @@ theorem natOpV2_divmod (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
       · rw [if_neg (by decide), if_neg (by decide), Nat.mod_zero]
     · by_cases hba : b ≤ a
       · have h1 : SetTheory.app (SetTheory.app
-            (interp2 V ρ (m.acval Lech.natBleName φ))
+            (interp2 V ρ (m.acval ConLeche.natBleName φ))
             (interp2 V ρ (natLitP m φ b)))
             (interp2 V ρ (natLitP m φ a))
-            = interp2 V ρ (m.acval Lech.boolTrueName φ) := by
+            = interp2 V ρ (m.acval ConLeche.boolTrueName φ) := by
           rw [natOpV2_ble m hops hnh hval hfbl ρ b a, if_pos hba]
         have h2 : SetTheory.app (SetTheory.app
-            (interp2 V ρ (m.acval Lech.natBleName φ))
-            (SetTheory.app (interp2 V ρ (m.acval Lech.natSuccName φ))
-              (interp2 V ρ (m.acval Lech.natZeroName φ))))
+            (interp2 V ρ (m.acval ConLeche.natBleName φ))
+            (SetTheory.app (interp2 V ρ (m.acval ConLeche.natSuccName φ))
+              (interp2 V ρ (m.acval ConLeche.natZeroName φ))))
             (interp2 V ρ (natLitP m φ b))
-            = interp2 V ρ (m.acval Lech.boolTrueName φ) := by
+            = interp2 V ρ (m.acval ConLeche.boolTrueName φ) := by
           have h := natOpV2_ble m hops hnh hval hfbl ρ 1 b
           rw [natLitP_one] at h
           rw [h, if_pos (by omega)]
         have hsub : SetTheory.app (SetTheory.app
-            (interp2 V ρ (m.acval Lech.natSubName φ))
+            (interp2 V ρ (m.acval ConLeche.natSubName φ))
             (interp2 V ρ (natLitP m φ a)))
             (interp2 V ρ (natLitP m φ b))
             = interp2 V ρ (natLitP m φ (a - b)) :=
@@ -348,7 +348,7 @@ theorem natOpV2_divmod (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
         have hlt : a - b < a := Nat.sub_lt (by omega) (by omega)
         have hih := ih (a - b) hlt
         rw [hrec h1 h2, hsub, hih]
-        by_cases hcd : c = Lech.natDivName
+        by_cases hcd : c = ConLeche.natDivName
         · subst hcd
           rw [if_pos rfl, if_pos rfl, if_pos rfl]
           have hd : a / b = (a - b) / b + 1 := by
@@ -359,14 +359,14 @@ theorem natOpV2_divmod (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
           have hmo : a % b = (a - b) % b := Nat.mod_eq_sub_mod hba
           rw [hmo]
       · have h1 : SetTheory.app (SetTheory.app
-            (interp2 V ρ (m.acval Lech.natBleName φ))
+            (interp2 V ρ (m.acval ConLeche.natBleName φ))
             (interp2 V ρ (natLitP m φ b)))
             (interp2 V ρ (natLitP m φ a))
-            = interp2 V ρ (m.acval Lech.boolFalseName φ) := by
+            = interp2 V ρ (m.acval ConLeche.boolFalseName φ) := by
           rw [natOpV2_ble m hops hnh hval hfbl ρ b a, if_neg hba]
         rw [hgt h1]
         have hab : a < b := by omega
-        by_cases hcd : c = Lech.natDivName
+        by_cases hcd : c = ConLeche.natDivName
         · subst hcd
           rw [if_pos rfl, if_pos rfl, Nat.div_eq_of_lt hab]
           rfl
@@ -376,11 +376,11 @@ theorem natOpV2_divmod (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
 theorem natOpV2_div (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
     (hval : AcvalValidP m) (hdm : DivModP m φ)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? Lech.natDivName = some (.defnInfo cv v hint))
+    (hf : env.find? ConLeche.natDivName = some (.defnInfo cv v hint))
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natDivName φ))
+          (interp2 V ρ (m.acval ConLeche.natDivName φ))
           (interp2 V ρ (natLitP m φ a)))
         (interp2 V ρ (natLitP m φ b))
       = interp2 V ρ (natLitP m φ (a / b)) := by
@@ -392,11 +392,11 @@ theorem natOpV2_div (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
 theorem natOpV2_mod (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
     (hval : AcvalValidP m) (hdm : DivModP m φ)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? Lech.natModName = some (.defnInfo cv v hint))
+    (hf : env.find? ConLeche.natModName = some (.defnInfo cv v hint))
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natModName φ))
+          (interp2 V ρ (m.acval ConLeche.natModName φ))
           (interp2 V ρ (natLitP m φ a)))
         (interp2 V ρ (natLitP m φ b))
       = interp2 V ρ (natLitP m φ (a % b)) := by
@@ -408,18 +408,18 @@ theorem natOpV2_mod (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
 theorem natOpV2_gcd (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
     (hval : AcvalValidP m) (hdm : DivModP m φ)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? Lech.natGcdName = some (.defnInfo cv v hint))
+    (hf : env.find? ConLeche.natGcdName = some (.defnInfo cv v hint))
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natGcdName φ))
+          (interp2 V ρ (m.acval ConLeche.natGcdName φ))
           (interp2 V ρ (natLitP m φ a)))
         (interp2 V ρ (natLitP m φ b))
       = interp2 V ρ (natLitP m φ (Nat.gcd a b)) := by
-  obtain ⟨hg, hclauses⟩ := hdm Lech.natGcdName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := Lech.natOpGuard_inv hg
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps Lech.natBleName (by decide)
-  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps Lech.natModName (by decide)
+  obtain ⟨hg, hclauses⟩ := hdm ConLeche.natGcdName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
   intro a b
   induction a using Nat.strongRecOn generalizing b with
   | ind a ih =>
@@ -440,21 +440,21 @@ theorem natOpV2_gcd (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
 theorem natOpV2_shiftLeft (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
     (hval : AcvalValidP m) (hdm : DivModP m φ)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? Lech.natShiftLeftName
+    (hf : env.find? ConLeche.natShiftLeftName
       = some (.defnInfo cv v hint))
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natShiftLeftName φ))
+          (interp2 V ρ (m.acval ConLeche.natShiftLeftName φ))
           (interp2 V ρ (natLitP m φ a)))
         (interp2 V ρ (natLitP m φ b))
       = interp2 V ρ (natLitP m φ (Nat.shiftLeft a b)) := by
   obtain ⟨hg, hclauses⟩ :=
-    hdm Lech.natShiftLeftName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := Lech.natOpGuard_inv hg
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps Lech.natBleName (by decide)
-  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps Lech.natSubName (by decide)
-  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps Lech.natMulName (by decide)
+    hdm ConLeche.natShiftLeftName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps ConLeche.natSubName (by decide)
+  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
   intro a b
   induction b using Nat.strongRecOn generalizing a with
   | ind b ih =>
@@ -480,21 +480,21 @@ theorem natOpV2_shiftLeft (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
 theorem natOpV2_shiftRight (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
     (hval : AcvalValidP m) (hdm : DivModP m φ)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? Lech.natShiftRightName
+    (hf : env.find? ConLeche.natShiftRightName
       = some (.defnInfo cv v hint))
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natShiftRightName φ))
+          (interp2 V ρ (m.acval ConLeche.natShiftRightName φ))
           (interp2 V ρ (natLitP m φ a)))
         (interp2 V ρ (natLitP m φ b))
       = interp2 V ρ (natLitP m φ (Nat.shiftRight a b)) := by
   obtain ⟨hg, hclauses⟩ :=
-    hdm Lech.natShiftRightName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := Lech.natOpGuard_inv hg
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps Lech.natBleName (by decide)
-  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps Lech.natSubName (by decide)
-  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps Lech.natDivName (by decide)
+    hdm ConLeche.natShiftRightName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps ConLeche.natSubName (by decide)
+  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
   intro a b
   induction b using Nat.strongRecOn generalizing a with
   | ind b ih =>
@@ -520,22 +520,22 @@ theorem natOpV2_shiftRight (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
 theorem natOpV2_land (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
     (hval : AcvalValidP m) (hdm : DivModP m φ)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? Lech.natLandName = some (.defnInfo cv v hint))
+    (hf : env.find? ConLeche.natLandName = some (.defnInfo cv v hint))
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natLandName φ))
+          (interp2 V ρ (m.acval ConLeche.natLandName φ))
           (interp2 V ρ (natLitP m φ a)))
         (interp2 V ρ (natLitP m φ b))
       = interp2 V ρ (natLitP m φ (Nat.land a b)) := by
   obtain ⟨hg, hclauses⟩ :=
-    hdm Lech.natLandName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := Lech.natOpGuard_inv hg
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps Lech.natBleName (by decide)
-  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps Lech.natAddName (by decide)
-  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps Lech.natMulName (by decide)
-  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps Lech.natDivName (by decide)
-  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps Lech.natModName (by decide)
+    hdm ConLeche.natLandName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
+  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
+  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
+  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
   intro a b
   induction a using Nat.strongRecOn generalizing b with
   | ind a ih =>
@@ -568,23 +568,23 @@ theorem natOpV2_land (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
 theorem natOpV2_lor (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
     (hval : AcvalValidP m) (hdm : DivModP m φ)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? Lech.natLorName = some (.defnInfo cv v hint))
+    (hf : env.find? ConLeche.natLorName = some (.defnInfo cv v hint))
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natLorName φ))
+          (interp2 V ρ (m.acval ConLeche.natLorName φ))
           (interp2 V ρ (natLitP m φ a)))
         (interp2 V ρ (natLitP m φ b))
       = interp2 V ρ (natLitP m φ (Nat.lor a b)) := by
   obtain ⟨hg, hclauses⟩ :=
-    hdm Lech.natLorName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := Lech.natOpGuard_inv hg
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps Lech.natBleName (by decide)
-  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps Lech.natAddName (by decide)
-  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps Lech.natMulName (by decide)
-  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps Lech.natDivName (by decide)
-  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps Lech.natModName (by decide)
-  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps Lech.natSubName (by decide)
+    hdm ConLeche.natLorName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
+  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
+  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
+  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
+  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps ConLeche.natSubName (by decide)
   intro a b
   induction a using Nat.strongRecOn generalizing b with
   | ind a ih =>
@@ -619,22 +619,22 @@ theorem natOpV2_lor (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
 theorem natOpV2_xor (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
     (hval : AcvalValidP m) (hdm : DivModP m φ)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? Lech.natXorName = some (.defnInfo cv v hint))
+    (hf : env.find? ConLeche.natXorName = some (.defnInfo cv v hint))
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
-          (interp2 V ρ (m.acval Lech.natXorName φ))
+          (interp2 V ρ (m.acval ConLeche.natXorName φ))
           (interp2 V ρ (natLitP m φ a)))
         (interp2 V ρ (natLitP m φ b))
       = interp2 V ρ (natLitP m φ (Nat.xor a b)) := by
   obtain ⟨hg, hclauses⟩ :=
-    hdm Lech.natXorName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := Lech.natOpGuard_inv hg
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps Lech.natBleName (by decide)
-  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps Lech.natAddName (by decide)
-  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps Lech.natMulName (by decide)
-  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps Lech.natDivName (by decide)
-  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps Lech.natModName (by decide)
+    hdm ConLeche.natXorName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
+  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
+  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
+  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
   intro a b
   induction a using Nat.strongRecOn generalizing b with
   | ind a ih =>
@@ -663,4 +663,4 @@ theorem natOpV2_xor (hops : NatOpsP m φ) (hnh : NatHeadsP m φ)
             (Nat.ble_eq_true_of_le (by omega : 1 ≤ a))]
       exact rfl
 
-end Lech.SetP
+end ConLeche.SetP

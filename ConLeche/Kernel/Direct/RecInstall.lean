@@ -1,11 +1,11 @@
-import Lech.Kernel.Direct.SumInstall
-import Lech.Kernel.Direct.RecParts
+import ConLeche.Kernel.Direct.SumInstall
+import ConLeche.Kernel.Direct.RecParts
 
 /-!
 # The direct recursive install (pure fueled checker; task #188)
 
 The install stages of a block recognised by `directFixParts?`
-(`Lech/Kernel/Direct/RecParts.lean`).  The former's and the
+(`ConLeche/Kernel/Direct/RecParts.lean`).  The former's and the
 constructors' stages are the sum route's, verbatim
 (`checkDirectSumInd`, `checkDirectSumCtors`): the constructors are
 checked at the environment holding the former, with the pre-block
@@ -32,10 +32,10 @@ constructor it is the subsingleton case, taken with the per-field
 criterion at `checkDirectFieldSortsI` — the recursive squash regime's
 large eliminator, task #202 Stage A2), the constructors' distinct
 names.  The index-threaded twins are
-`Lech/Kernel/Direct/RecInstallF.lean`.
+`ConLeche/Kernel/Direct/RecInstallF.lean`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
@@ -189,4 +189,4 @@ def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env
   pure ⟨.recInfo cvRa p.majorIdx p.rulePrefix
     (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss) :: env₂.consts⟩
 
-end Lech
+end ConLeche

@@ -1,4 +1,4 @@
-import Lech.Kernel.TypeChecker
+import ConLeche.Kernel.TypeChecker
 
 /-!
 # The defensive validation sites, as a named statement (task #161, P3)
@@ -27,7 +27,7 @@ checker never trusts (the invariants-over-runtime-gates ruling is
 about proof *hypotheses*, not about dropping validation).
 -/
 
-namespace Lech
+namespace ConLeche
 
 /-- The decline messages of the three defensive sites, exactly as
 `defeqStep`'s binder arms and `etaCert` throw them (`Kernel/Core.lean`,
@@ -50,4 +50,4 @@ def DefensiveSitesQuiet (μ : CheckMode) (env : Env) : Prop :=
     ∀ msg ∈ defensiveSiteMsgs,
       isDefEqCore μ env fuelD d a b ≠ .error (.notImplemented msg)
 
-end Lech
+end ConLeche

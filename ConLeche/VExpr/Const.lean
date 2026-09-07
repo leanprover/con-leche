@@ -1,4 +1,4 @@
-import Lech.VExpr.Subst
+import ConLeche.VExpr.Subst
 
 /-!
 # Types of the built-in constants
@@ -9,12 +9,12 @@ level instantiation `us`.  Level lists shorter than `c.numLevels` read
 typing rule needs no arity side condition.
 
 The smart constructors below (`natT`, `psigmaT`, …) are what the
-denotation function emits (`Lech/Verify/Denote.lean`) and what
-`Lech/Semantics/BasisType.lean`, `Lech/SetModel/Value.lean` and
-`Lech/SetP/CapstoneP.lean` read.
+denotation function emits (`ConLeche/Verify/Denote.lean`) and what
+`ConLeche/Semantics/BasisType.lean`, `ConLeche/SetModel/Value.lean` and
+`ConLeche/SetP/CapstoneP.lean` read.
 -/
 
-namespace Lech.VExpr
+namespace ConLeche.VExpr
 
 open VExpr
 
@@ -49,7 +49,7 @@ def psigmaMkT (u v : Nat) (A B a b : VExpr) : VExpr :=
   mkAppN (.const .psigmaMk [u, v]) [A, B, a, b]
 /-- `p.1` — field `0` of a pair.  A *former*, so it needs neither the
 pair's type arguments nor its levels: the typing rule reads them off
-the premise (`Lech/VExpr/Syntax.lean`). -/
+the premise (`ConLeche/VExpr/Syntax.lean`). -/
 def pfstT (p : VExpr) : VExpr := .proj 0 p
 /-- `p.2` — field `1` of a pair. -/
 def psndT (p : VExpr) : VExpr := .proj 1 p
@@ -168,4 +168,4 @@ def BConst.type : BConst → List Nat → VExpr
     .pi (arrow (arrow (.bvar 0) (.sort w)) (arrow (.bvar 0) (.sort w))) <|
     .pi (.bvar 1) (.sort w)
 
-end Lech.VExpr
+end ConLeche.VExpr

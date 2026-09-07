@@ -1,5 +1,5 @@
-import Lech.SetModel.RecGraph
-import Lech.SetModel.Iter
+import ConLeche.SetModel.RecGraph
+import ConLeche.SetModel.Iter
 
 /-!
 # The closure witness of a member container (task #202, Stage B)
@@ -34,9 +34,9 @@ by depth (`shapesN`) through the shapes and positions only, which ARE
 members; no index is ever put inside a set.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
-open Lech.SetTheory.Tower (natUnion mem_natUnion natUnion_mem_univ_pos)
+open ConLeche.SetTheory.Tower (natUnion mem_natUnion natUnion_mem_univ_pos)
 
 universe u
 
@@ -678,4 +678,4 @@ theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)
     hgS p hp]
   exact ((hcs p hp).2.2.2.2).symm
 
-end Lech.SetTheory
+end ConLeche.SetTheory

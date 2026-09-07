@@ -1,5 +1,5 @@
-import Lech.SetP.AxiomBitsP
-import Lech.Verify.StdAxiomPin
+import ConLeche.SetP.AxiomBitsP
+import ConLeche.Verify.StdAxiomPin
 
 /-!
 # The pinned axioms' `interp2` memberships (task #161, ENDGAME C, task 1a)
@@ -73,13 +73,13 @@ worth recording:
   P-tier counterpart and needs none.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta)
 
 universe w
@@ -101,7 +101,7 @@ theorem univ_not_mem_univZero (n : Nat) : ¬ (univ n : V) ∈ˢ univZero := by
   intro h
   have hemp : (empty : V) ∈ˢ unitSet := mem_univZero.mp h _ (empty_mem_univ n)
   have he : (empty : V) = pt := mem_unitSet hemp
-  refine Lech.Semantics.pt_not_mem_univZero (V := V) ?_
+  refine ConLeche.Semantics.pt_not_mem_univZero (V := V) ?_
   rw [← he]
   exact univ_zero (V := V) ▸ empty_mem_univ 0
 
@@ -262,7 +262,7 @@ conditions read off `type_okP`, never off a bit. -/
 
 /-- The stored `Iff`, applied to two propositions, is a proposition. -/
 theorem iffVal_app₂_memP (mp : EnvS2PM V μ env)
-    {cvI : ConstantVal} {caps : Lech.IndCaps}
+    {cvI : ConstantVal} {caps : ConLeche.IndCaps}
     (hfI : env.find? iffName = some (.indInfo cvI caps))
     (htyI : cvI.type.erasePw
       = iffA.toConstantVal.type.erasePw)
@@ -327,8 +327,8 @@ is then free: this instantiates at `ψ0 uN = 0`, where `eqv A B ∈ˢ
 univ 0` is `eqv_mem_univ` outright and the ENDGAME B seal's `univ_mono`
 residue does not arise. -/
 theorem iff_forces_eqP (mp : EnvS2PM V μ env)
-    {cvI : ConstantVal} {caps : Lech.IndCaps} {cvIi cvIr : ConstantVal}
-    {mI rP : Nat} {rules : List Lech.RecRule}
+    {cvI : ConstantVal} {caps : ConLeche.IndCaps} {cvIi cvIr : ConstantVal}
+    {mI rP : Nat} {rules : List ConLeche.RecRule}
     (hfI : env.find? iffName = some (.indInfo cvI caps))
     (hlpI : cvI.levelParams = [])
     (hfIi : env.find? iffIntroName = some (.ctorInfo cvIi 2 2))
@@ -479,9 +479,9 @@ value is `eq_lawP`'s (the field, at the pin's own level instantiation
 
 /-- **`propext` inhabits its stored type's reading.** -/
 theorem propext_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
-    {cvA : ConstantVal} (hok : Lech.stdAxiomOk env cvA = true)
+    {cvA : ConstantVal} (hok : ConLeche.stdAxiomOk env cvA = true)
     (hn : cvA.name = propextName) {F d : Nat} {stype : Expr}
-    (hrun : Lech.inferTypeCore μ env F d cvA.type = .ok stype)
+    (hrun : ConLeche.inferTypeCore μ env F d cvA.type = .ok stype)
     (ψ : Name → Nat) (ta : AVExpr)
     (hta : denoteP mp.base2.acval env ψ 0 cvA.type = some ta)
     (ρ : Nat → V) :
@@ -651,7 +651,7 @@ theorem denoteP_selfParam_constS {acval : Name → (Name → Nat) → AVExpr}
 
 /-- The interpreted `Nonempty A` is a truth value. -/
 theorem nonemptyVal_app_memP (mp : EnvS2PM V μ env)
-    {cvN : ConstantVal} {capsN : Lech.IndCaps}
+    {cvN : ConstantVal} {capsN : ConLeche.IndCaps}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (htyN : cvN.type.erasePw
       = nonemptyA.toConstantVal.type.erasePw)
@@ -673,7 +673,7 @@ theorem nonemptyVal_app_memP (mp : EnvS2PM V μ env)
 
 /-- The interpreted `Nonempty.intro A a` inhabits `Nonempty A`. -/
 theorem nonemptyIntroVal_app₂_memP (mp : EnvS2PM V μ env)
-    {cvN : ConstantVal} {capsN : Lech.IndCaps} {cvNi : ConstantVal}
+    {cvN : ConstantVal} {capsN : ConLeche.IndCaps} {cvNi : ConstantVal}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
     (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
@@ -724,9 +724,9 @@ by restructuring, because `Nonempty.rec`'s minor binds a plain element
 of `α`.  The motive space's regime is `pi_sort_bit_ne_zero`'s, at the
 codomain `Prop`. -/
 theorem nonemptyVal_forcesP (mp : EnvS2PM V μ env)
-    {cvN : ConstantVal} {capsN : Lech.IndCaps}
+    {cvN : ConstantVal} {capsN : ConLeche.IndCaps}
     {cvNi cvNr : ConstantVal} {mI rP : Nat}
-    {rulesN : List Lech.RecRule}
+    {rulesN : List ConLeche.RecRule}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
     (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
@@ -832,9 +832,9 @@ theorem nonemptyVal_forcesP (mp : EnvS2PM V μ env)
 stored `Nonempty A` are propositions with the same inhabitation, hence
 the same set. -/
 theorem dneg_eq_nonemptyP (mp : EnvS2PM V μ env)
-    {cvN : ConstantVal} {capsN : Lech.IndCaps}
+    {cvN : ConstantVal} {capsN : ConLeche.IndCaps}
     {cvNi cvNr : ConstantVal} {mI rP : Nat}
-    {rulesN : List Lech.RecRule}
+    {rulesN : List ConLeche.RecRule}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
     (htyN : cvN.type.erasePw
@@ -873,9 +873,9 @@ and `lamR_mem_zero_agree` crosses each.  `dneg_eq_nonemptyP` identifies
 the witness's double-negation domain with the checker's stored
 `Nonempty`. -/
 theorem choice_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
-    {cvA : ConstantVal} (hok : Lech.stdAxiomOk env cvA = true)
+    {cvA : ConstantVal} (hok : ConLeche.stdAxiomOk env cvA = true)
     (hn : cvA.name = choiceName) {F d : Nat} {stype : Expr}
-    (hrun : Lech.inferTypeCore μ env F d cvA.type = .ok stype)
+    (hrun : ConLeche.inferTypeCore μ env F d cvA.type = .ok stype)
     (ψ : Name → Nat) (ta : AVExpr)
     (hta : denoteP mp.base2.acval env ψ 0 cvA.type = some ta)
     (ρ : Nat → V) :

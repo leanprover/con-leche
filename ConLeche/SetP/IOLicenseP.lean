@@ -1,4 +1,4 @@
-import Lech.SetModel.Ops
+import ConLeche.SetModel.Ops
 
 /-!
 # The io license kit (task #161 stage 2, the io-license batch)
@@ -51,8 +51,8 @@ other skip site exists — the io grade narrows the application clause
 and nothing else.
 -/
 
-namespace Lech.SetP
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.SetModel
 
 open SetTheory
 
@@ -132,4 +132,4 @@ theorem io_membership_fails_at_squash :
   · rw [app_pt]
     exact not_mem_empty pt
 
-end Lech.SetP
+end ConLeche.SetP

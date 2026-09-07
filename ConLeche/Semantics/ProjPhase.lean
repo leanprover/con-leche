@@ -1,5 +1,5 @@
-import Lech.Verify.Denote.Rename
-import Lech.Kernel.Modeled
+import ConLeche.Verify.Denote.Rename
+import ConLeche.Kernel.Modeled
 
 /-!
 # The projection phase's fold invariant (task #161, S1)
@@ -17,8 +17,8 @@ carrier's own valuation.
 Statements verbatim from their old home; the namespace is unchanged.
 -/
 
-namespace Lech.Semantics
-open Lech.VExpr Lech.Verify
+namespace ConLeche.Semantics
+open ConLeche.VExpr ConLeche.Verify
 
 /-- **The projection phase's fold invariant** ([set] transpose of
 `ProjPhaseInv`): the parent type and the constructor still carry their
@@ -108,4 +108,4 @@ theorem projFwd_renameOkT {T ctorName : Name} {nF : Nat} {env' : Env}
         from rfl)]
       exact (hfound n ci₂ hf₂).2 ψ
 
-end Lech.Semantics
+end ConLeche.Semantics

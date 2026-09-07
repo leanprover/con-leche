@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectRecWalksP
+import ConLeche.SetP.Direct.DirectRecWalksP
 
 /-!
 # λ-towers fold to their body (task #175 W4c, P3 module 6, part 15)
@@ -13,13 +13,13 @@ law read the rule's right-hand side without any bit correspondence
 between the rule's λ-annotations and the recursor's elimination level.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
 universe w
@@ -158,4 +158,4 @@ theorem mkAppN_okP_of_lam :
       · left; rw [h0, lamR_zero, app_pt]
       · right; rw [app_lamR_pos (Nat.pos_iff_ne_zero.mp hpos) hsp.1]
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,24 +1,24 @@
-import Lech.Cached.CoreC
-import Lech.Verify.Cached.GuardsC
-import Lech.Verify.Cached.SimCEff
-import Lech.Verify.Disc
+import ConLeche.Cached.CoreC
+import ConLeche.Verify.Cached.GuardsC
+import ConLeche.Verify.Cached.SimCEff
+import ConLeche.Verify.Disc
 
 /-!
 # Cached body walks, part 1: list helpers and small twins (task #163)
 
 Per-helper simulation walks: each cached twin
-(`Lech/Cached/CoreC.lean`) is `SimC`-related to its `Expr` original
+(`ConLeche/Cached/CoreC.lean`) is `SimC`-related to its `Expr` original
 at the fueled record, on well-scoped inputs.  Ports of
-`Lech/Verify/DiscI1.lean`'s walks under the recipe (DESIGN.md,
+`ConLeche/Verify/DiscI1.lean`'s walks under the recipe (DESIGN.md,
 task #163): `SimAt → SimC`, denotation hypotheses → `RelC`/`RelCL`,
 no `Ext`, node inversion by `cases` instead of
 `denoteNode` unpacking.  The pure comparand side of every statement is
 byte-identical to the interned original's.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech.Cached.ExprC
+open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
@@ -976,4 +976,4 @@ theorem reduceNatIfC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
 
 end Walks4
 
-end Lech.Cached
+end ConLeche.Cached

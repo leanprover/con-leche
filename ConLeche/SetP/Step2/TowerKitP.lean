@@ -1,7 +1,7 @@
-import Lech.SetP.Annot.EnvS2P
-import Lech.SetP.Step2.StuckP
-import Lech.SetP.Step2.ProjAVKitP
-import Lech.Verify.ProjTele
+import ConLeche.SetP.Annot.EnvS2P
+import ConLeche.SetP.Step2.StuckP
+import ConLeche.SetP.Step2.ProjAVKitP
+import ConLeche.Verify.ProjTele
 
 /-!
 # The tower-entry kit for the P `.proj` rows (task #175 wiring, W5 S3)
@@ -24,13 +24,13 @@ law itself (`TowerOkP`, `Annot/EnvS2P.lean`):
   down (`ProjAVKitP`, which `DefEqP` — below the law — also reads).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ProjEntry)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ProjEntry)
 
 universe w
 
@@ -154,16 +154,16 @@ theorem denoteP_instPisAt_peel
 /-- A stored tower entry's body telescope is closed: the body is
 fvar-free and scoped at the parameters and the subject (`EnvWF`'s
 table clause), and `projTele` binds exactly those. -/
-theorem towerEntry_tele_closed (hwf : Lech.EnvWF env) {T : Name} {i : Nat}
+theorem towerEntry_tele_closed (hwf : ConLeche.EnvWF env) {T : Name} {i : Nat}
     {entry : ProjEntry} (hfe : env.findProj? T i = some entry) (us : List Level) :
-    (Lech.projTele (entry.numParams + 1)
+    (ConLeche.projTele (entry.numParams + 1)
       (entry.body.instantiateLevelParams entry.levelParams us)).hasFvar = false ∧
-    (Lech.projTele (entry.numParams + 1)
+    (ConLeche.projTele (entry.numParams + 1)
       (entry.body.instantiateLevelParams entry.levelParams us)).looseBVarsBounded 0
       = true := by
-  rw [Lech.projTele_hasFvar, Lech.projTele_looseBVarsBounded, Nat.zero_add]
-  exact ⟨Lech.projEntry_body_hasFvar hwf hfe us,
-    Lech.projEntry_body_looseBVars hwf hfe us⟩
+  rw [ConLeche.projTele_hasFvar, ConLeche.projTele_looseBVarsBounded, Nat.zero_add]
+  exact ⟨ConLeche.projEntry_body_hasFvar hwf hfe us,
+    ConLeche.projEntry_body_looseBVars hwf hfe us⟩
 
 /-- **The body telescope's reading is depth-free** — closed subject,
 closed reading, `denoteP_depth_of_closed`. -/
@@ -171,10 +171,10 @@ theorem towerEntry_tele_at_depth {m : EnvS2Core V env} {T : Name} {i : Nat}
     {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
     {us : List Level} {Ta : AVExpr}
     (hTa : denoteP m.acval env φ 0
-      (Lech.projTele (entry.numParams + 1)
+      (ConLeche.projTele (entry.numParams + 1)
         (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) :
     (∀ d : Nat, denoteP m.acval env φ d
-      (Lech.projTele (entry.numParams + 1)
+      (ConLeche.projTele (entry.numParams + 1)
         (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) ∧
     ∀ k : Nat, Ta.liftN 1 k = Ta := by
   obtain ⟨hnf, hb⟩ := towerEntry_tele_closed m.wf hfe us
@@ -190,7 +190,7 @@ theorem denoteP_typeAt_peel {m : EnvS2Core V env} {T : Name} {i : Nat}
     {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
     {us : List Level} {Ta : AVExpr} {d : Nat}
     (hTa : denoteP m.acval env φ 0
-      (Lech.projTele (entry.numParams + 1)
+      (ConLeche.projTele (entry.numParams + 1)
         (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta)
     {targs : List Expr} {pe : Expr} (hlen : targs.length = entry.numParams)
     (hframes : ∀ a ∈ targs ++ [pe], Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true)
@@ -200,8 +200,8 @@ theorem denoteP_typeAt_peel {m : EnvS2Core V env} {T : Name} {i : Nat}
       AVExpr.peelPis Ta vs = some restA := by
   obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa
   exact denoteP_instPisAt_peel m.acval_closed (acval_inst_self m) (targs ++ [pe])
-    (Lech.instPisAt_typeAt entry us hlen pe)
+    (ConLeche.instPisAt_typeAt entry us hlen pe)
     (Expr.WScoped.of_not_hasFvar (towerEntry_tele_closed m.wf hfe us).1)
     hframes (hTad d) hsp
 
-end Lech.SetP
+end ConLeche.SetP

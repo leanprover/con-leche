@@ -1,5 +1,5 @@
-import Lech.SetP.DirectFix.FixDataP
-import Lech.SetP.DirectFix.FixRuleDataP
+import ConLeche.SetP.DirectFix.FixDataP
+import ConLeche.SetP.DirectFix.FixRuleDataP
 
 /-!
 # The recursive constructor data across a cons (task #188)
@@ -12,13 +12,13 @@ readings and their index-argument spines cross too, and the
 recursive entries mention the former only.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -30,7 +30,7 @@ theorem ConstsBound.cons {c : ConstantInfo} :
     ∀ (e : Expr), ConstsBound env e → ConstsBound ⟨c :: env.consts⟩ e
   | .const n us, h => by
     rw [constsBound_const] at h ⊢
-    rw [Lech.Env.find?_cons]
+    rw [ConLeche.Env.find?_cons]
     split
     · rfl
     · exact h
@@ -137,4 +137,4 @@ theorem FixCtorDataI.cross {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps 
       rw [hac, acvalWith_ne hT]
       exact h.reflEntry ψ i hk hi }
 
-end Lech.SetP
+end ConLeche.SetP

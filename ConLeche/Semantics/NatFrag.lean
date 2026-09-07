@@ -1,5 +1,5 @@
-import Lech.Verify.NatOpFrag
-import Lech.Verify.InferLeaves
+import ConLeche.Verify.NatOpFrag
+import ConLeche.Verify.InferLeaves
 
 /-!
 # The pinned-`Nat` fragment's syntactic package (task #161 S4, THE
@@ -25,9 +25,9 @@ and pulling that into `NatOpFrag` would push it onto the TT lane's
 cone for one definition.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 variable {env : Env}
 
@@ -124,4 +124,4 @@ theorem natFrag_subst_syntax {c : Name} {v : Expr}
   | .letE _ _ _, h | .proj _ _ _, h | .lit _, h => by
     simp [natFragOk] at h
 
-end Lech.Verify
+end ConLeche.Verify

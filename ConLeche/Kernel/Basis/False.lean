@@ -1,4 +1,4 @@
-import Lech.Kernel.Basis.Builder
+import ConLeche.Kernel.Basis.Builder
 
 /-!
 # The pinned `False` basis block (task #181)
@@ -7,7 +7,7 @@ The raw pin — the `False` block exactly as the export (and the
 preprocessor, which leaves it native) emits it: the toolchain's
 `Init.Prelude` declaration, no constructors, hence no iota rules, at
 the parser's raw binder annotations.  It is the `Empty` pin
-(`Lech/Kernel/Basis/Empty.lean`) one universe down: `False : Prop`
+(`ConLeche/Kernel/Basis/Empty.lean`) one universe down: `False : Prop`
 where `Empty : Type`, and `False.rec` eliminates into every `Sort u`
 exactly as `Empty.rec` does (the official kernel lets a
 zero-constructor `Prop` eliminate large).
@@ -25,10 +25,10 @@ empty set is the false proposition.
 
 The *annotated* forms (`falseA`, `falseRecA`) are computed from these
 by the checker's own annotation pass at elaboration time; see
-`Lech/Kernel/BasisA.lean`.
+`ConLeche/Kernel/BasisA.lean`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open BasisDSL
 
@@ -48,4 +48,4 @@ def falseRecRaw : ConstantInfo :=
 /-- The pinned `False` basis block, in install order. -/
 def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-end Lech
+end ConLeche

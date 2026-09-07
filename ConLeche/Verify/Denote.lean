@@ -1,12 +1,12 @@
-import Lech.Kernel.Checker
-import Lech.Verify.Level
-import Lech.Verify.EnvWF
-import Lech.VExpr.Const
+import ConLeche.Kernel.Checker
+import ConLeche.Verify.Level
+import ConLeche.Verify.EnvWF
+import ConLeche.VExpr.Const
 
 /-!
 # Denotation of kernel expressions into the erased term language
 
-`denote cval env φ d e` maps a kernel `Expr` to a `Lech.VExpr.VExpr`.
+`denote cval env φ d e` maps a kernel `Expr` to a `ConLeche.VExpr.VExpr`.
 
 **Provenance note (task #209).**  This function was written as the
 front half of a *declarative* verification lane: a typing judgment
@@ -17,7 +17,7 @@ rules of the deleted judgment where that is what decided a clause's
 shape; those names no longer resolve to anything in the tree, and are
 kept because the *reasons* still bind — see DESIGN.md's task #209
 section.
-It is **the structural transpose of `Lech/Model/Interp.lean`'s
+It is **the structural transpose of `ConLeche/Model/Interp.lean`'s
 `interpExpr`**, clause for clause, and the reader should hold the two
 side by side: everything below is `interpExpr` with the set-theoretic
 universe `V` replaced by the syntax `VExpr` and set-level operations
@@ -89,9 +89,9 @@ substitute `⟦value⟧` into the denoted body, i.e. emit `b.inst xv`.
 That was the original choice here and it is **withdrawn**: a `denote`
 that performs a substitution forces the bridge's own metatheory to
 prove that lifting commutes with instantiation, and then that lifting
-commutes with lifting, and the swamp `Lech/VExpr/Subst.lean` is proud
+commutes with lifting, and the swamp `ConLeche/VExpr/Subst.lean` is proud
 of avoiding (lean4lean's 123 syntactic lemmas) reappears one layer
-down.  The shift lemma (`Lech/Verify/Denote/Shift.lean`) is where this
+down.  The shift lemma (`ConLeche/Verify/Denote/Shift.lean`) is where this
 showed up concretely: with `b.inst xv` its `letE` case needs two
 commutation lemmas; with `.letE A xv b` it is structural and needs
 none.
@@ -115,14 +115,14 @@ rule supplies exactly this premise.)
 `psigmaFst`/`psigmaSnd` were constants applied to the pair's type
 arguments `A` and `B`, which a `.proj` node does not carry — the
 checker recovers them at *use* time, by whnf-ing the subject's inferred
-type (`Lech/Kernel/Core.lean`, the `.proj` clause of `annotateBody`).
+type (`ConLeche/Kernel/Core.lean`, the `.proj` clause of `annotateBody`).
 A denotation that is a function of the expression alone cannot emit
 them, and a *relational* denotation is not an option either: the defeq
 claim of the fuel induction needs both sides denoted by the *same*
 function, or the two existentials do not meet.
 
 So the term language gained `VExpr.proj` (task #119;
-`Lech/VExpr/Syntax.lean`), a former carrying exactly what the
+`ConLeche/VExpr/Syntax.lean`), a former carrying exactly what the
 checker's node carries, whose typing read `A` and `B` off the
 premise.  This clause is then the plain transpose of `interpExpr`'s,
 `i < 2` guard included, and the alphabet came out *smaller*:
@@ -132,14 +132,14 @@ premise.  This clause is then the plain transpose of `interpExpr`'s,
 
 set_option linter.unusedVariables false
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-- A valuation of the environment's constants by *terms* of the
 declarative type theory — level-polymorphically, each constant being a
 function of the level-parameter assignment.  The exact transpose of
-`Lech.ConstVal V = Name → (Name → Nat) → V`. -/
+`ConLeche.ConstVal V = Name → (Name → Nat) → V`. -/
 abbrev TConstVal := Name → (Name → Nat) → VExpr
 
 /-- The term of a `Nat` literal: the `Nat.succ` valuation iterated on
@@ -163,8 +163,8 @@ def charListT (nilV consV ofNatV zv sv : VExpr) : List Char → VExpr
       (charListT nilV consV ofNatV zv sv cs)
 
 /-- The stored level-parameter list of a constant (`[]` when absent).
-Transpose of `Lech.Env.levelParamsAt`; restated here because
-`Lech/TTVerify/*` does not import the set model. -/
+Transpose of `ConLeche.Env.levelParamsAt`; restated here because
+`ConLeche/TTVerify/*` does not import the set model. -/
 def levelParamsAt (env : Env) (n : Name) : List Name :=
   match env.find? n with
   | some ci => ci.toConstantVal.levelParams
@@ -199,7 +199,7 @@ def projNV : Nat → VExpr → VExpr
 
 /-- Denote an expression under constant valuation `cval`, level
 assignment `φ` and binder depth `d`.  Clause for clause the transpose
-of `Lech.interpExpr`; see the module docstring, in particular for the
+of `ConLeche.interpExpr`; see the module docstring, in particular for the
 absent free-variable valuation, for `letE`, and for the open `.proj`
 obligation. -/
 def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
@@ -371,4 +371,4 @@ theorem denote_strLit (cval : TConstVal) (env : Env) (φ : Name → Nat)
       (if strLitSupported env then some (strLitT cval env φ s) else none) := by
   rw [denote]
 
-end Lech.Verify
+end ConLeche.Verify

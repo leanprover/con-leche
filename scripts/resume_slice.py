@@ -7,7 +7,7 @@ a cut point on, plus only what the kept suffix still needs from before it.
 `CUT` is either a 1-based *declaration record index* (the numbering
 `_tmp/frontier3/decl_index.py` prints) or a declaration name; the cut
 record itself is the first record of the kept suffix.  The output is a
-valid `lech --pre` stream:
+valid `con-leche --pre` stream:
 
 * every record at or after the cut is kept verbatim;
 * of the records *before* the cut, exactly the transitive dependency

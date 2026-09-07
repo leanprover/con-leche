@@ -1,5 +1,5 @@
-import Lech.Semantics.Ok2
-import Lech.Semantics.Sat2
+import ConLeche.Semantics.Ok2
+import ConLeche.Semantics.Sat2
 
 /-!
 # `SetBase/Hoist` — the `AnnotOk2` hoist kit
@@ -18,14 +18,14 @@ lanes' quarters consume them at every congruence.
 The one thing left behind in `Dispatch` is the `CtxOk2.openCong`
 satisfiability example, which is about `CtxOk2` and therefore 2U.
 
-Statements verbatim, namespace (`Lech.SetR.Interp2`) unchanged.
+Statements verbatim, namespace (`ConLeche.SetR.Interp2`) unchanged.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.Semantics (AVExpr)
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -323,4 +323,4 @@ example :
     AnnotOk2.of_pi (fun _ _ => by simp) (fun _ _ => by simp)
   exact ⟨hpi _ sat2_sort0_empty, (AnnotOk2.hoist_pi hpi).1⟩
 
-end Lech.Semantics
+end ConLeche.Semantics

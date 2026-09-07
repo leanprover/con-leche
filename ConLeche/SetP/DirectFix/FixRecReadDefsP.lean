@@ -1,12 +1,12 @@
-import Lech.SetP.DirectSum.SumRecReadP
-import Lech.SetP.DirectFix.FixDataP
-import Lech.Semantics.Tower.FixRecI
+import ConLeche.SetP.DirectSum.SumRecReadP
+import ConLeche.SetP.DirectFix.FixDataP
+import ConLeche.Semantics.Tower.FixRecI
 
 /-!
 # The generated recursive recursor's readings: the targets (task #188)
 
 The binder data the generated recursor type `directRecTyR`
-(`Lech/Kernel/Direct/RecParts.lean`) reads to, and the rules' λ-data
+(`ConLeche/Kernel/Direct/RecParts.lean`) reads to, and the rules' λ-data
 and cores — the indexed sum route's (`SumRecReadP.lean`) with the
 **inductive-hypothesis binders** in the minors (`ihPisAV`: for each
 recursive field `i`, at ih position `l`, `motive e⃗_i f_i` with the
@@ -17,13 +17,13 @@ reading theorems (`FixRecReadP.lean`) prove the kernel's generators
 read to exactly these.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -227,7 +227,7 @@ structure CtorReadR {env : Env} (m : EnvS2Core V env) (ψ : Name → Nat) (T : N
   bounded : c.2.2.1.looseBVarsBounded 0 = true
   resid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
     c.2.2.1.stripPis (nP + c.2.1)
-      = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (Lech.directPsAt c.2.1 nP ++ es)) ∧
+      = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (ConLeche.directPsAt c.2.1 nP ++ es)) ∧
     es.length = nIdx
   read : denoteP m.acval env ψ 0 c.2.2.1
     = some (mkPisAV cd.2.2.1 (AVExpr.mkAppN (m.acval T ψ) (paramBvars nP c.2.1 ++ cd.2.2.2.1)))
@@ -243,7 +243,7 @@ structure CtorReadR {env : Env} (m : EnvS2Core V env) (ψ : Name → Nat) (T : N
   /-- a recursive field's telescope has as many binders as the raw
   type's (`directFieldTeleOf`; none at a finitary field) -/
   teleLen : ∀ i ∈ c.2.2.2,
-    (Lech.directFieldTeleOf c.2.2.1 nP c.2.1 i).length = (cd.2.2.2.2.2.2.getD i []).length
+    (ConLeche.directFieldTeleOf c.2.2.1 nP c.2.1 i).length = (cd.2.2.2.2.2.2.getD i []).length
   /-- a recursive field's domain, at the field's own depth `nP + i`
   with the parameters and the earlier fields as variables (an opening
   of the constructor's telescope), reads to its entry -/
@@ -428,7 +428,7 @@ theorem openPisAtFvars_fvarTypeD :
         | succ i =>
           simp only [List.getElem?_cons_succ] at hb hx
           obtain ⟨bs'', hst'', hdoms⟩ :=
-            Lech.stripPis_instantiate1_full (v := .fvar d dom) n 0 hst'
+            ConLeche.stripPis_instantiate1_full (v := .fvar d dom) n 0 hst'
           have hb'' := hdoms i b hb
           rw [Nat.zero_add] at hb''
           have ih := openPisAtFvars_fvarTypeD n h₁ hst'' i _ x hb'' hx
@@ -454,4 +454,4 @@ theorem CtorReadsR.getElem? {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name}
       obtain ⟨cd, hcd, hR⟩ := CtorReadsR.getElem? htl h
       exact ⟨cd, by simpa using hcd, hR⟩
 
-end Lech.SetP
+end ConLeche.SetP

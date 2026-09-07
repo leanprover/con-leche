@@ -1,10 +1,10 @@
-import Lech.Semantics.Ok2
-import Lech.Semantics.Canon
+import ConLeche.Semantics.Ok2
+import ConLeche.Semantics.Canon
 
 /-!
 # `CheckStep2`, the literal clauses — Tier B (the transposition batch)
 
-*(Re-based to `Lech/SetBase/*` at THE SEPARATION's S2, task #161:
+*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161:
 `natLit_facts2` is the module's only theorem, it mentions no `EnvS`,
 no fuel and no mode — a pure `interp2`/`AnnotOk2` statement about a
 `natLitT2` spine, as the note below already observes — and both lanes'
@@ -30,11 +30,11 @@ guards' inversion plumbing, exactly as v1 factors `natHeads_facts` out
 of `natLit_facts`.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -90,7 +90,7 @@ nothing here.*
 What did have to be re-pointed is the **clause** built on top, below.
 -/
 
-open Lech (CheckMode Env Expr Name inferTypeCore inferBody
+open ConLeche (CheckMode Env Expr Name inferTypeCore inferBody
   natLitSupported)
 
 variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
@@ -123,4 +123,4 @@ well; the clause itself lives in `Step2/InferQ.lean` and is the
 inference quarter's to re-point. -/
 
 
-end Lech.Semantics
+end ConLeche.Semantics

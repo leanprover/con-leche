@@ -1,81 +1,81 @@
-import Lech.Semantics.Syntax
-import Lech.Semantics.Interp
-import Lech.Semantics.Kit
-import Lech.Semantics.Ok2
-import Lech.Semantics.DefEqList
-import Lech.Semantics.EqTower
-import Lech.Semantics.EraseInv
-import Lech.Semantics.ProjPhase
-import Lech.Semantics.DivModEval
-import Lech.Semantics.Frame
-import Lech.Semantics.LitParams
-import Lech.Semantics.Sat2
-import Lech.Semantics.WhnfCoreLeaf
-import Lech.Semantics.DefEqStep2
-import Lech.Semantics.Canon
-import Lech.Semantics.LitStep2
-import Lech.Semantics.Denote2Closed
-import Lech.Semantics.Install2
-import Lech.Semantics.ConstsBound
-import Lech.Semantics.BasisType
-import Lech.Semantics.Univ
-import Lech.Semantics.BasisOk
-import Lech.Semantics.Skeleton
-import Lech.Semantics.Hoist
-import Lech.Semantics.Decl
-import Lech.Semantics.DeclEta
-import Lech.Semantics.DeclRun
-import Lech.Semantics.Direct.DeclDirect
-import Lech.Semantics.Direct.DeclDirectSum
-import Lech.Semantics.Direct.DeclDirectSumEta
-import Lech.Semantics.DeclIndRun
-import Lech.Semantics.IndBlockFacts
-import Lech.Semantics.IndBlockRun
-import Lech.Semantics.EnvFacts
-import Lech.Semantics.EnvFactsCons
-import Lech.Semantics.IndRecsCore
-import Lech.Semantics.BasisRules
-import Lech.Semantics.Tower.TowerIntro
-import Lech.Semantics.Tower.TowerLeaf
-import Lech.Semantics.Tower.TowerMk
-import Lech.Semantics.Tower.TowerRec
-import Lech.Semantics.Tower.TowerWire
-import Lech.Semantics.ProjFnFacts
-import Lech.Semantics.Bridge.Decl
-import Lech.Semantics.Bridge.DeclRun
-import Lech.Semantics.Bridge.DeclIndRun
-import Lech.Semantics.Bridge.Sound
+import ConLeche.Semantics.Syntax
+import ConLeche.Semantics.Interp
+import ConLeche.Semantics.Kit
+import ConLeche.Semantics.Ok2
+import ConLeche.Semantics.DefEqList
+import ConLeche.Semantics.EqTower
+import ConLeche.Semantics.EraseInv
+import ConLeche.Semantics.ProjPhase
+import ConLeche.Semantics.DivModEval
+import ConLeche.Semantics.Frame
+import ConLeche.Semantics.LitParams
+import ConLeche.Semantics.Sat2
+import ConLeche.Semantics.WhnfCoreLeaf
+import ConLeche.Semantics.DefEqStep2
+import ConLeche.Semantics.Canon
+import ConLeche.Semantics.LitStep2
+import ConLeche.Semantics.Denote2Closed
+import ConLeche.Semantics.Install2
+import ConLeche.Semantics.ConstsBound
+import ConLeche.Semantics.BasisType
+import ConLeche.Semantics.Univ
+import ConLeche.Semantics.BasisOk
+import ConLeche.Semantics.Skeleton
+import ConLeche.Semantics.Hoist
+import ConLeche.Semantics.Decl
+import ConLeche.Semantics.DeclEta
+import ConLeche.Semantics.DeclRun
+import ConLeche.Semantics.Direct.DeclDirect
+import ConLeche.Semantics.Direct.DeclDirectSum
+import ConLeche.Semantics.Direct.DeclDirectSumEta
+import ConLeche.Semantics.DeclIndRun
+import ConLeche.Semantics.IndBlockFacts
+import ConLeche.Semantics.IndBlockRun
+import ConLeche.Semantics.EnvFacts
+import ConLeche.Semantics.EnvFactsCons
+import ConLeche.Semantics.IndRecsCore
+import ConLeche.Semantics.BasisRules
+import ConLeche.Semantics.Tower.TowerIntro
+import ConLeche.Semantics.Tower.TowerLeaf
+import ConLeche.Semantics.Tower.TowerMk
+import ConLeche.Semantics.Tower.TowerRec
+import ConLeche.Semantics.Tower.TowerWire
+import ConLeche.Semantics.ProjFnFacts
+import ConLeche.Semantics.Bridge.Decl
+import ConLeche.Semantics.Bridge.DeclRun
+import ConLeche.Semantics.Bridge.DeclIndRun
+import ConLeche.Semantics.Bridge.Sound
 
 /-!
-# `Lech.Semantics` — the Expr-facing semantic tier
+# `ConLeche.Semantics` — the Expr-facing semantic tier
 
-**Split from `Lech/SetBase/*` on 2026-09-06** (cleanup pass A, user
+**Split from `ConLeche/SetBase/*` on 2026-09-06** (cleanup pass A, user
 ruling: *"SetModel or Semantics/SetInterp are decent names"*), by
 Expr-freeness.  What stayed pure — the two-regime product and
 abstraction (`piR`/`lamR`), the built-in constants' value towers and
-the unit-terminated tuple tower — is `Lech/SetModel/*`, the
-namespace `Lech.SetModel`, and mentions neither `Expr` nor the
+the unit-terminated tuple tower — is `ConLeche/SetModel/*`, the
+namespace `ConLeche.SetModel`, and mentions neither `Expr` nor the
 annotated syntax.  Everything that reads a term lives here: the
 annotated syntax `AVExpr` and its two-regime interpretation `interp2`,
 the membership kit, `AnnotOk2`, the canonical annotation pass, the
 per-declaration run records and the run bridge (`Bridge/*`), the
 direct-structure declaration records (`Direct/*`) and the tower
 introduction machinery that reads annotated field domains
-(`Tower/*`).  The namespace is `Lech.Semantics` (formerly
-`Lech.SetR.Interp2` and `Lech.SetR`, both retired with the
+(`Tower/*`).  The namespace is `ConLeche.Semantics` (formerly
+`ConLeche.SetR.Interp2` and `ConLeche.SetR`, both retired with the
 collapsed lane they were named for).  The layering rule is unchanged
-in substance: `Lech/{Kernel,Cached,Frontend}/*` and `Main.lean`
-never import this tier, `Lech/SetP/*` stands on it.
+in substance: `ConLeche/{Kernel,Cached,Frontend}/*` and `Main.lean`
+never import this tier, `ConLeche/SetP/*` stands on it.
 
 The history below is the base tier's own record (task #161), kept as
 written; its paths and namespaces are those of the time.
 -/
 
 /-!
-# `Lech.SetBase` — the lane-neutral semantic primitives (task #161, S1)
+# `ConLeche.SetBase` — the lane-neutral semantic primitives (task #161, S1)
 
 THE SEPARATION (task #161) splits the two model proofs into disjoint
-subtrees: `Lech.SetR.*` (the collapsed model — `EnvS`, `Sound/*`,
+subtrees: `ConLeche.SetR.*` (the collapsed model — `EnvS`, `Sound/*`,
 `Install/*`, the `R`/`R2` capstones) and the graded-model tree (the `P`
 lane).  Six modules belonged to neither: they are the *semantic and
 syntactic primitives both lanes stand on*, filed under `SetR/Interp2`
@@ -180,14 +180,14 @@ file's: the criterion is the proof term, and an import listing cannot
 see it (S9's finding).
 
 `checkDeclR_ofEnvRE` is the theorem the graded fold imports, and its
-residence here rather than under `Lech/SetR/` is what takes the
+residence here rather than under `ConLeche/SetR/` is what takes the
 layering whitelist to **zero**: `tests/layering.sh` reads
-`0 P->R edges (whitelist EMPTY)`.  What stayed in `Lech/SetR/Bridge/`
+`0 P->R edges (whitelist EMPTY)`.  What stayed in `ConLeche/SetR/Bridge/`
 is exactly the collapsed lane's own two instances — `EnvS.toEnvFacts`
 (`Decl.lean`) and `checkDeclR_sound`/`foldlM_R` (`Sound.lean`).
 
 **Only the file paths and module names moved.**  The Lean namespaces
-(`Lech.SetR.Interp2`, `Lech.SetR`) are unchanged, so every frozen
+(`ConLeche.SetR.Interp2`, `ConLeche.SetR`) are unchanged, so every frozen
 statement keeps its name verbatim and no consumer outside the `import`
 lines was touched — the statement-freeze discipline (task #161).
 -/

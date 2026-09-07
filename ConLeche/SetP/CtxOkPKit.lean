@@ -1,5 +1,5 @@
-import Lech.SetP.OkPTransport
-import Lech.SetP.Annot.BitShift
+import ConLeche.SetP.OkPTransport
+import ConLeche.SetP.Annot.BitShift
 
 /-!
 # The `CtxOkP` kit — restriction family (task #161, P3.4)
@@ -19,13 +19,13 @@ The fuel-monotonicity pair (`fuelMono`/`mono`) has **no mirror**:
 consumes nothing here — the calls vanish at the swap.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name)
 
 universe w
 
@@ -108,28 +108,28 @@ theorem app_arg {d : Nat} {Δa : List AVExpr} {f x : Expr}
     rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl
 
 theorem forallE_ty {d : Nat} {Δa : List AVExpr}
-    {ty body : Expr} {mb : Lech.BinderMeta}
+    {ty body : Expr} {mb : ConLeche.BinderMeta}
     (hC : CtxOkP m φ d Δa (.forallE ty body mb)) :
     CtxOkP m φ d Δa ty :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_left _ hl
 
 theorem forallE_body {d : Nat} {Δa : List AVExpr}
-    {ty body : Expr} {mb : Lech.BinderMeta}
+    {ty body : Expr} {mb : ConLeche.BinderMeta}
     (hC : CtxOkP m φ d Δa (.forallE ty body mb)) :
     CtxOkP m φ d Δa body :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl
 
 theorem lam_ty {d : Nat} {Δa : List AVExpr}
-    {ty body : Expr} {mb : Lech.BinderMeta}
+    {ty body : Expr} {mb : ConLeche.BinderMeta}
     (hC : CtxOkP m φ d Δa (.lam ty body mb)) :
     CtxOkP m φ d Δa ty :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_left _ hl
 
 theorem lam_body {d : Nat} {Δa : List AVExpr}
-    {ty body : Expr} {mb : Lech.BinderMeta}
+    {ty body : Expr} {mb : ConLeche.BinderMeta}
     (hC : CtxOkP m φ d Δa (.lam ty body mb)) :
     CtxOkP m φ d Δa body :=
   hC.of_subset fun _ hl => by
@@ -181,7 +181,7 @@ simplifications:
 
 1. **No fuel.**  `CtxOk2D.fuelMono`/`mono` have no mirror at all.
 2. **`EnvWF` is dropped** from `weakenTop` and everything above it.
-   `CtxOk2.weakenTop` takes `henv : Lech.EnvWF env` for exactly one
+   `CtxOk2.weakenTop` takes `henv : ConLeche.EnvWF env` for exactly one
    reason: `denote2_weaken_top` needs it, and `denote2_weaken_top`
    needs it only to move the two *sort runs* (`sortOfE`/`lamSortE`)
    across the shift.  `denoteP_weaken_top` (batch 1) has no runs and
@@ -208,27 +208,27 @@ private theorem fvarsBelow_of_leavesP : ∀ (e : Expr) {d : Nat},
   induction e with
   | fvar idx ty ih =>
     intro d h
-    exact h (idx, ty) (by simp [Lech.Expr.fvarLeaves])
+    exact h (idx, ty) (by simp [ConLeche.Expr.fvarLeaves])
   | app f a ihf iha =>
     intro d h
-    exact ⟨ihf (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
-      iha (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
+    exact ⟨ihf (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
+      iha (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
   | lam ty b _ iht ihb =>
     intro d h
-    exact ⟨iht (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
-      ihb (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
+    exact ⟨iht (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
+      ihb (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
   | forallE ty b _ iht ihb =>
     intro d h
-    exact ⟨iht (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
-      ihb (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
+    exact ⟨iht (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
+      ihb (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
   | letE t v b iht ihv ihb =>
     intro d h
-    exact ⟨iht (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
-      ihv (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
-      ihb (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
+    exact ⟨iht (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
+      ihv (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
+      ihb (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
   | proj _ _ e ih =>
     intro d h
-    exact ih (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))
+    exact ih (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))
   | _ => intro d _; trivial
 
 /-- Leafwise annotation bounds upgrade a direct bound to `WScoped`.
@@ -243,45 +243,45 @@ private theorem wScoped_of_leavesP : ∀ (e : Expr) {d : Nat},
   induction e with
   | fvar idx ty ih =>
     intro d hfb h
-    rw [Lech.Expr.WScoped]
-    refine ⟨hfb, ih (h (idx, ty) (by simp [Lech.Expr.fvarLeaves]))
-      (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
+    rw [ConLeche.Expr.WScoped]
+    refine ⟨hfb, ih (h (idx, ty) (by simp [ConLeche.Expr.fvarLeaves]))
+      (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
   | app f a ihf iha =>
     intro d hfb h
-    rw [Lech.Expr.WScoped]
+    rw [ConLeche.Expr.WScoped]
     exact ⟨ihf hfb.1
-        (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
+        (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
       iha hfb.2
-        (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
+        (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
   | lam ty b _ iht ihb =>
     intro d hfb h
-    rw [Lech.Expr.WScoped]
+    rw [ConLeche.Expr.WScoped]
     exact ⟨iht hfb.1
-        (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
+        (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
       ihb hfb.2
-        (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
+        (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
   | forallE ty b _ iht ihb =>
     intro d hfb h
-    rw [Lech.Expr.WScoped]
+    rw [ConLeche.Expr.WScoped]
     exact ⟨iht hfb.1
-        (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
+        (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
       ihb hfb.2
-        (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
+        (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
   | letE t v b iht ihv ihb =>
     intro d hfb h
-    rw [Lech.Expr.WScoped]
+    rw [ConLeche.Expr.WScoped]
     exact ⟨iht hfb.1
-        (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
+        (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
       ihv hfb.2.1
-        (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
+        (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl])),
       ihb hfb.2.2
-        (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
+        (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))⟩
   | proj _ _ e ih =>
     intro d hfb h
-    rw [Lech.Expr.WScoped]
+    rw [ConLeche.Expr.WScoped]
     exact ih hfb
-      (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))
-  | _ => intro d _ _; rw [Lech.Expr.WScoped]; trivial
+      (fun l hl => h l (by simp [ConLeche.Expr.fvarLeaves, hl]))
+  | _ => intro d _ _; rw [ConLeche.Expr.WScoped]; trivial
 
 namespace CtxOkP
 
@@ -310,7 +310,7 @@ theorem weakenTop {d : Nat} {Δa : List AVExpr} {Ba : AVExpr} {e : Expr}
   refine ⟨by simp [hC.1], fun l hl => ?_⟩
   obtain ⟨hlt, hfb, tya, Aa, hden, hi, hlink, hok⟩ := hC.2 l hl
   have hwl : Expr.WScoped d l.2 :=
-    (Lech.Expr.WScoped_leaves e hw l hl).2.mono (by omega)
+    (ConLeche.Expr.WScoped_leaves e hw l hl).2.mono (by omega)
   refine ⟨by omega, hfb, tya.liftN 1 0, Aa, ?_, ?_, ?_, ?_⟩
   · rw [denoteP_weaken_top m.acval_closed hwl, hden]
     rfl
@@ -340,9 +340,9 @@ theorem openCongC {d : Nat} {Δa : List AVExpr} {body ty : Expr}
       (body.instantiate1 (.fvar d ty)) := by
   have hwt : Expr.WScoped d ty := ht.wScoped
   refine ⟨by simp [hb.1], fun l hl => ?_⟩
-  rcases Lech.Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+  rcases ConLeche.Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
   · exact (weakenTop (Ba := ta₁) hb).2 l hl'
-  · rw [Lech.Expr.fvarLeaves] at hl'
+  · rw [ConLeche.Expr.fvarLeaves] at hl'
     rcases List.mem_cons.mp hl' with rfl | hl''
     · refine ⟨by omega, hwt.fvarsBelow, ta₂.liftN 1 0, ta₁, ?_, ?_, ?_,
         ?_⟩
@@ -405,4 +405,4 @@ theorem CtxOkP.open {d : Nat} {Δa : List AVExpr} {body ty : Expr}
       (body.instantiate1 (.fvar d ty)) :=
   CtxOkP.openS ht hb hty hok
 
-end Lech.SetP
+end ConLeche.SetP

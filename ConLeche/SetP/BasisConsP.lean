@@ -1,4 +1,4 @@
-import Lech.SetP.RecRulesPCons
+import ConLeche.SetP.RecRulesPCons
 
 /-!
 # The basis-cons preservation kit (task #161, ENDGAME B, task 2)
@@ -67,13 +67,13 @@ check the *semantic* invariant bundle and not only the syntactic one.
 to supply facts `EnvWF` does not.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName RecRule)
 
 
@@ -104,9 +104,9 @@ pin.**  From `EnvS.basis_pinned` and `acval_erase`, by injectivity of
 `erase` at a constant head. -/
 theorem acval_basis_pinned {m : EnvS2Core V env}
     {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
-    (hres : Lech.reservedBasisNames.contains n = true)
-    {c : Lech.VExpr.BConst} {us : List Nat} {ψ : Name → Nat}
-    (hd : Lech.Verify.pinnedDirectT n ψ
+    (hres : ConLeche.reservedBasisNames.contains n = true)
+    {c : ConLeche.VExpr.BConst} {us : List Nat} {ψ : Name → Nat}
+    (hd : ConLeche.Verify.pinnedDirectT n ψ
       = some (VExpr.const c us)) :
     m.acval n ψ = .const c us := by
   have h1 := (m.basis_pinned n ci hf hres).2 _ ψ hd
@@ -115,7 +115,7 @@ theorem acval_basis_pinned {m : EnvS2Core V env}
   cases hh : m.acval n ψ with
   | const c' us' =>
     rw [hh] at h2
-    simp only [Lech.Semantics.AVExpr.erase, VExpr.const.injEq] at h2
+    simp only [ConLeche.Semantics.AVExpr.erase, VExpr.const.injEq] at h2
     rw [h2.1, h2.2]
   | _ => rw [hh] at h2; exact nomatch h2
 
@@ -130,11 +130,11 @@ heads (`Kernel/Basis/PSigma.lean:326`), a kind that is neither
 `caps_ok` through the *existing* `capsOkP_cons_fresh` and never reach
 the reserved-name route.  Between the two lemmas every basis cons is
 covered. -/
-theorem basis_declsA_reserved (kind : Lech.BasisKind) :
+theorem basis_declsA_reserved (kind : ConLeche.BasisKind) :
     ∀ ci ∈ kind.declsA,
       (match ci with
        | .projInfo _ => true
-       | _ => Lech.reservedBasisNames.contains ci.name) = true := by
+       | _ => ConLeche.reservedBasisNames.contains ci.name) = true := by
   cases kind <;> decide
 
 /-- **`nat_heads` at a cons that is none of the three literal
@@ -160,8 +160,8 @@ theorem natHeadsP_cons_offNat (mp : EnvS2PM V μ env)
     show List.find? _ (c₀ :: env.consts) = _
     rw [List.find?_cons_of_neg (by simpa using hp)]
     rfl
-  have hgold : Lech.natLitSupported env = true := by
-    simp only [Lech.natLitSupported, Bool.and_eq_true] at hg ⊢
+  have hgold : ConLeche.natLitSupported env = true := by
+    simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hg ⊢
     obtain ⟨⟨h1, h2⟩, h3⟩ := hg
     rw [hfind _ hnN] at h1
     rw [hfind _ hnZ] at h2
@@ -188,12 +188,12 @@ constructor, and `projFnName_ne_reserved` separates every projection
 slot. -/
 theorem etaFamilyStored_descend_reserved {c₀ : ConstantInfo} {T : Name}
     {cvT : ConstantVal} {caps : IndCaps}
-    (hres₀ : Lech.reservedBasisNames.contains c₀.name = true)
-    (hresT : Lech.reservedBasisNames.contains T = false)
+    (hres₀ : ConLeche.reservedBasisNames.contains c₀.name = true)
+    (hresT : ConLeche.reservedBasisNames.contains T = false)
     (hf : (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps))
-    (hfam : Lech.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps) :
+    (hfam : ConLeche.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps) :
     env.find? T = some (.indInfo cvT caps) ∧
-      Lech.EtaFamilyStored env T caps ∧
+      ConLeche.EtaFamilyStored env T caps ∧
       T ≠ c₀.name ∧ caps.etaCtor ≠ c₀.name ∧
       ∀ j, j < caps.etaFields → projFnName T j ≠ c₀.name := by
   obtain ⟨hCres, ⟨cvC, hfC⟩, hfP⟩ := hfam
@@ -206,7 +206,7 @@ theorem etaFamilyStored_descend_reserved {c₀ : ConstantInfo} {T : Name}
   have hdown : ∀ n : Name, n ≠ c₀.name →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
-    rw [Lech.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
+    rw [ConLeche.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
   refine ⟨by rwa [hdown _ hnT] at hf, ⟨hCres, ⟨cvC, ?_⟩, ?_⟩,
     hnT, hnC, hnP⟩
   · rwa [hdown _ hnC] at hfC
@@ -226,7 +226,7 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
     (hntc : ConsCrossEnv env c₀)
-    (hres₀ : Lech.reservedBasisNames.contains c₀.name = true)
+    (hres₀ : ConLeche.reservedBasisNames.contains c₀.name = true)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
     CapsOkP m₂ := by
@@ -242,7 +242,7 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
       exact denoteP_cons_mono hfresh
         ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
-          (Lech.Semantics.Env.find?_mem hfE) us) hTVa
+          (ConLeche.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x hlents hfit hmem
       rw [hac, acvalWith_ne hnT] at hmem
       have hfab : etaFabArgs2
@@ -265,7 +265,7 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
     have hnT : T ≠ c₀.name := fun hh => by
       rw [hh, hres₀] at hres; exact nomatch hres
     have hfE : env.find? T = some (.indInfo cvT caps) := by
-      rw [Lech.Env.find?_cons, if_neg (fun hh => hnT hh.symm)] at hf
+      rw [ConLeche.Env.find?_cons, if_neg (fun hh => hnT hh.symm)] at hf
       exact hf
     obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
       hprev.2 T cvT caps hfE hcapu hres φ' us hlen
@@ -274,9 +274,9 @@ theorem capsOkP_cons_basis (mp : EnvS2PM V μ env)
       exact denoteP_cons_mono hfresh
         ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
-          (Lech.Semantics.Env.find?_mem hfE) us) hTVa
+          (ConLeche.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x y hlents hfit hx hy
       rw [hac, acvalWith_ne hnT] at hx hy
       exact hlaw ρ ts rest x y hlents hfit hx hy
 
-end Lech.SetP
+end ConLeche.SetP

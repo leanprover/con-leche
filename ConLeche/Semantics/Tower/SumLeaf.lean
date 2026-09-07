@@ -1,4 +1,4 @@
-import Lech.Semantics.Tower.SumCase
+import ConLeche.Semantics.Tower.SumCase
 
 /-!
 # The tagged sum carrier, spelled (task #175 sum-types, stage S2)
@@ -7,7 +7,7 @@ The carrier body of a direct sum: the `.psigma [w, w]` node over the
 tag domain `Nat` whose fibre is the numeral case split
 (`caseAVAt`) over the constructors' tuple-tower bodies
 (`towerBodyAV w Fs_i`), reading to the tier's `sumSet w (sumFibre …)`
-(`Lech/SetModel/TaggedSum.lean`).  At `w = 0` the `.psigma` spelling
+(`ConLeche/SetModel/TaggedSum.lean`).  At `w = 0` the `.psigma` spelling
 cannot serve (its pinned valuation reads the tag domain in `univ 0`),
 so — as the structure route's `sqBodyAV` — the squash carrier is spelt
 classically, `¬ ∀ k : Nat, ¬ (case k)`, whose bit-`0` products truncate
@@ -21,11 +21,11 @@ hereditary premise, `ParamsOkS` — `ParamsOkT` with the per-constructor
 chain grading `SumFieldsOkB` at the base.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -302,4 +302,4 @@ theorem directSumTyAV_fold {w : Nat} {Fss : List (List AVExpr)}
       exact Nat.succ_ne_zero w) hsp',
     sumBodyAV_interp hok]
 
-end Lech.Semantics
+end ConLeche.Semantics

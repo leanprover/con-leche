@@ -1,15 +1,15 @@
-import Lech.Verify.Cached.BridgeCS1
+import ConLeche.Verify.Cached.BridgeCS1
 
 /-!
 # Cached shared-state walks, part 2: the inductive-install checker
 functions
 
-Port of `Lech/Verify/BridgeS2.lean` for the cached tier.  The
+Port of `ConLeche/Verify/BridgeS2.lean` for the cached tier.  The
 single-environment functions of the modeled-inductive install path
 (`checkMemberVal`, the iota-theorem checks, the projection stages), as
 `SimC`s between the `sharedOpsC` and `(fueledOpsM mode)`
 instantiations.  The per-site scoping facts mirror
-`Lech/Verify/BridgeWfImp.lean`'s `_wfimp` walks; the operation
+`ConLeche/Verify/BridgeWfImp.lean`'s `_wfimp` walks; the operation
 environment is the `SimC`'s `env` (for the iota checks that is
 `envSelf` — the pure model lookups run at the separately passed
 `env'`).
@@ -22,10 +22,10 @@ comparand side of every statement is byte-identical to the interned
 original's.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
-open Lech.Cached.ExprC
+open ConLeche
+open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
@@ -994,4 +994,4 @@ theorem checkProjIotaS_sim (hμ : mode.verifiedChecks = true) {T ctorName : Name
 
 end Walks2
 
-end Lech.Cached
+end ConLeche.Cached

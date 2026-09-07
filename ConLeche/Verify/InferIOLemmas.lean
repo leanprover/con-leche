@@ -1,9 +1,9 @@
-import Lech.Verify.InferLemmas
+import ConLeche.Verify.InferLemmas
 
 /-!
 # Inversion lemmas for the io lane (task #161, stage 2)
 
-`Lech/Kernel/CoreIO.lean`'s `inferBodyIO` is `inferBody` with one
+`ConLeche/Kernel/CoreIO.lean`'s `inferBodyIO` is `inferBody` with one
 clause changed, so its inversions are the `InferLemmas` ones with the
 recursive `infer` runs read at the io lane (`inferTypeCoreIO`) and the
 `whnf`/`defeq`/`ensureSort` runs read at the **full** lane — the io
@@ -22,7 +22,7 @@ keeps the inversion mode-generic and true at every mode.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -657,7 +657,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
     | .proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe,
         hlenArgs, hlenUs, hguard, rfl, hsn⟩ :=
-        Lech.inferTypeCore_proj_inv h
+        ConLeche.inferTypeCore_proj_inv h
       rw [inferTypeCoreIO_succ]
       simp only [inferBodyIO, pure, Except.pure,
         Bind.bind, Except.bind]
@@ -700,4 +700,4 @@ theorem inferTypeCoreIO_of_slot {env : Env} {fuel d : Nat} {e t : Expr}
     exact h
 
 
-end Lech
+end ConLeche

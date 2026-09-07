@@ -1,9 +1,9 @@
-import Lech.SetP.Step2.WhnfP
+import ConLeche.SetP.Step2.WhnfP
 
 /-!
 # The β-gate's license, at the P currency (task #161, S12)
 
-`Lech/Kernel/CoreP.lean`'s gate skips the per-redex β certificate at
+`ConLeche/Kernel/CoreP.lean`'s gate skips the per-redex β certificate at
 a λ whose validated datum is `.never`, under `mode.verifiedChecks`.  S9
 sealed *that* the gate is licensed — the claim's positive branch
 consumes nothing — and pinned the gate LIVE with five `#guard`s.  This
@@ -41,13 +41,13 @@ side of the asymmetry (`io_membership_fails_at_squash`) is untouched
 here and by construction cannot be reached from these three.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Name BinderMeta PropWhen)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Name BinderMeta PropWhen)
 
 universe w
 
@@ -93,4 +93,4 @@ theorem gate_zero_kind_unreachable {mode : CheckMode} {mb : BinderMeta}
     (hz : pwBit φ mb.pw = 0) : False :=
   gate_pwBit_ne_zero hg φ hz
 
-end Lech.SetP
+end ConLeche.SetP

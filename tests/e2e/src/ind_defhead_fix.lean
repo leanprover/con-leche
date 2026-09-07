@@ -9,7 +9,7 @@
    ind_defhead_struct / ind_defhead_k / ind_defhead_mutual: a regression
    guard that the tool keeps covering the recursive arm.
 
-   official: 0.  lech at master 700a06ca: 0 piped, 2 raw (missing model
+   official: 0.  con-leche at master 700a06ca: 0 piped, 2 raw (missing model
    for L; both modes).
    Probe of record: _tmp/indaudit/probes/P/DefHeadFixOnly.lean. -/
 def MyType := Type

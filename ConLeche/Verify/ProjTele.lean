@@ -1,6 +1,6 @@
-import Lech.Verify.InstSpine
-import Lech.Verify.InferLemmas
-import Lech.Verify.ProjSlots
+import ConLeche.Verify.InstSpine
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.ProjSlots
 
 /-!
 # The dummy Π-telescope over a projection body (task #175 S1)
@@ -16,13 +16,13 @@ variables exactly as a stored telescope's did, and the checker's
 `instantiateList` is that telescope's `instPisAt` peel along the
 arguments and the subject (`instPisAt_projTele`,
 `instPisAt_typeAt`) — so the tower law's typing clause keeps its
-`peelPis` shape (`TowerEntryLawP`, `Lech/SetP/Annot/EnvS2P.lean`)
+`peelPis` shape (`TowerEntryLawP`, `ConLeche/SetP/Annot/EnvS2P.lean`)
 with the stored type replaced by the telescope over the stored body.
 The binder domains are never consumed by the peel or by the law;
 they are a syntactic carrier for the reading only.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Expr
 
@@ -119,4 +119,4 @@ theorem instPisAt_typeAt (entry : ProjEntry) (us : List Level)
   rw [hl, Nat.add_sub_cancel] at this
   exact this
 
-end Lech
+end ConLeche

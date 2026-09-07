@@ -1,5 +1,5 @@
-import Lech.SetTheory.Derive.Pi
-import Lech.SetTheory.Derive.Omega
+import ConLeche.SetTheory.Derive.Pi
+import ConLeche.SetTheory.Derive.Omega
 
 /-!
 # The universe tower
@@ -20,7 +20,7 @@ positive levels are transitive and each level is a member of the
 next.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -129,4 +129,4 @@ theorem pi_mem_univ {u v : Nat} {A : V} {B : V → V}
 /- Opaque interface operator (see `Derive/Empty.lean`). -/
 attribute [irreducible] univ
 
-end Lech.SetTheory
+end ConLeche.SetTheory

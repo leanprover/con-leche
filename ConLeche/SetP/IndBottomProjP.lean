@@ -1,5 +1,5 @@
-import Lech.SetP.IndProjKitP
-import Lech.SetP.IndBottomPlainP
+import ConLeche.SetP.IndProjKitP
+import ConLeche.SetP.IndBottomPlainP
 
 /-!
 # The projection bottom, at the reading (task #161, IND TIER part 9)
@@ -34,13 +34,13 @@ constructor run's `q`-th domain reads at depth `q` to the tower slot
 slot, lifted (`projSpineMemP`, `Interp2/IndProjKitP.lean`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta isDefEqCore inferTypeCore DefEqListOk)
 
 universe w
@@ -296,7 +296,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     denoteP_depth_of_closed mp.base2.acval_closed hCwR hTVjcl hTVjR0
       (rP + cnF)
   have hokTVj : ∀ σ : Nat → V, AnnotOkP V σ TVja :=
-    mp.type_okP _ (Lech.Semantics.Env.find?_mem hctorE)
+    mp.type_okP _ (ConLeche.Semantics.Env.find?_mem hctorE)
       (Level.substFn φ lps us) TVja hTVj0
   obtain ⟨Γj, Rj, htowerJ, hΓjlen0, hRjdenA, hdomsJ⟩ :=
     stripPis_denotePTele (acval := mp.base2.acval) (env := env)
@@ -440,11 +440,11 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   have hwsL : Expr.WScoped (rP + cnF) lhsS := hwsBody.getAppArgs lhsS hmemL
   have hwsR : Expr.WScoped (rP + cnF) rhsS := hwsBody.getAppArgs rhsS hmemR
   have hbα : αS.looseBVarsBounded 0 = true :=
-    Lech.looseBVarsBounded_getAppArgs hbBody αS hmemα
+    ConLeche.looseBVarsBounded_getAppArgs hbBody αS hmemα
   have hbL : lhsS.looseBVarsBounded 0 = true :=
-    Lech.looseBVarsBounded_getAppArgs hbBody lhsS hmemL
+    ConLeche.looseBVarsBounded_getAppArgs hbBody lhsS hmemL
   have hbR : rhsS.looseBVarsBounded 0 = true :=
-    Lech.looseBVarsBounded_getAppArgs hbBody rhsS hmemR
+    ConLeche.looseBVarsBounded_getAppArgs hbBody rhsS hmemR
   have hLα : Expr.LeavesBounded αS := fun l hl =>
     hlbFvs l.1 l.2 (hleafα l hl)
   have hLL : Expr.LeavesBounded lhsS := fun l hl =>
@@ -737,4 +737,4 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     · exact hxsA w (List.mem_of_mem_take hw')
     · exact hysA w (List.mem_of_mem_drop hw')
 
-end Lech.SetP
+end ConLeche.SetP

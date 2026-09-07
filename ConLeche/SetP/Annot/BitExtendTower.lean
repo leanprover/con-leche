@@ -1,5 +1,5 @@
-import Lech.SetP.Annot.BitExtend
-import Lech.Verify.ProjSlots
+import ConLeche.SetP.Annot.BitExtend
+import ConLeche.Verify.ProjSlots
 
 /-!
 # `denoteP` across a tower-entry cons (task #175 wiring, W4c S6)
@@ -15,13 +15,13 @@ cover every stored expression).  Every other clause is
 `denoteP_envExtend_mono`'s verbatim.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level PropWhen
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level PropWhen
   natLitSupported strLitSupported)
 
 /-- **The monotone crossing, tower-slot refined**: a successful prefix
@@ -31,18 +31,18 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     {acval : Name → (Name → Nat) → AVExpr} {φ : Name → Nat}
     {T : Name}
     (hF : FindPreserved env₀ env) (hG : LitGuardsMono env₀ env)
-    (hproj : ∀ (sn : Name) (j : Nat) (entry : Lech.ProjEntry),
+    (hproj : ∀ (sn : Name) (j : Nat) (entry : ConLeche.ProjEntry),
       env₀.findProj? sn j = none → env.findProj? sn j = some entry →
       sn = T) :
     ∀ (d : Nat) (e : Expr), ConstsBound env₀ e → (∀ j, Expr.NoProjAt T j e) →
       ∀ {ea : AVExpr}, denoteP acval env₀ φ d e = some ea →
         denoteP acval env φ d e = some ea := by
-  have hmono : ∀ (sn : Name) (j : Nat) (entry : Lech.ProjEntry),
+  have hmono : ∀ (sn : Name) (j : Nat) (entry : ConLeche.ProjEntry),
       env₀.findProj? sn j = some entry →
       env.findProj? sn j = some entry := by
     intro sn j entry h
-    obtain ⟨tbl, hf0, hi, rfl⟩ := Lech.Env.findProj?_some h
-    exact Lech.Env.findProj?_of_table (hF hf0) hi
+    obtain ⟨tbl, hf0, hi, rfl⟩ := ConLeche.Env.findProj?_some h
+    exact ConLeche.Env.findProj?_of_table (hF hf0) hi
   intro d e
   induction d, e using denoteP.induct (env := env₀) with
   | case1 d u => intro _ _ ea h; rw [denoteP] at h ⊢; exact h
@@ -176,15 +176,15 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
 
 /-- A table cons adds exactly its own structure's slots: any lookup
 new at the extension is the head's (task #175 S1). -/
-theorem findProj?_cons_tower {env : Env} {tbl₀ : Lech.ProjTable} :
-    ∀ (sn : Name) (j : Nat) (entry : Lech.ProjEntry),
+theorem findProj?_cons_tower {env : Env} {tbl₀ : ConLeche.ProjTable} :
+    ∀ (sn : Name) (j : Nat) (entry : ConLeche.ProjEntry),
       env.findProj? sn j = none →
       Env.findProj? ⟨.projInfo tbl₀ :: env.consts⟩ sn j = some entry →
       sn = tbl₀.structName := by
   intro sn j entry h0 h1
-  by_cases hn : (Lech.ConstantInfo.projInfo tbl₀).name = Lech.projTableName sn
-  · exact (Lech.projTableName_inj hn).symm
-  · rw [Lech.Env.findProj?_cons_ne hn, h0] at h1
+  by_cases hn : (ConLeche.ConstantInfo.projInfo tbl₀).name = ConLeche.projTableName sn
+  · exact (ConLeche.projTableName_inj hn).symm
+  · rw [ConLeche.Env.findProj?_cons_ne hn, h0] at h1
     exact nomatch h1
 
-end Lech.SetP
+end ConLeche.SetP

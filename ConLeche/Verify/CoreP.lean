@@ -1,11 +1,11 @@
-import Lech.Verify.InferLemmas
-import Lech.Kernel.CoreP
+import ConLeche.Verify.InferLemmas
+import ConLeche.Kernel.CoreP
 
 /-!
 # The gated knot's equations and its one changed clause (task #161, S12)
 
 `Verify/Knot.lean` is the ungated knot's equation set; this module is
-the **gated** knot's (`Lech/Kernel/CoreP.lean`, the S9 subject).  It
+the **gated** knot's (`ConLeche/Kernel/CoreP.lean`, the S9 subject).  It
 carries exactly three kinds of fact, and the split is the whole point:
 
 * **the shared four** — `whnf`, `infer`, `defeq` and `annotate` are
@@ -35,7 +35,7 @@ the zero-kind branch the gate does not fire — see
 (`isNever_iff_forall_pwBit_ne_zero`).
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -242,4 +242,4 @@ theorem whnfCoreP_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
         simp only [pure, Except.pure, Except.ok.injEq] at h
         exact Or.inr (Or.inr h.symm)
 
-end Lech
+end ConLeche

@@ -1,4 +1,4 @@
-import Lech.Kernel.Basis.Builder
+import ConLeche.Kernel.Basis.Builder
 
 /-!
 # The pinned `Empty` basis block
@@ -8,10 +8,10 @@ preprocessor emits it (no constructors, hence no iota rules), which is
 the toolchain's `Init.Prelude` declaration at the parser's raw binder
 annotations.  The *annotated* forms (`emptyA`, `emptyRecA`) are
 computed from these by the checker's own annotation pass at
-elaboration time; see `Lech/Kernel/BasisA.lean`.
+elaboration time; see `ConLeche/Kernel/BasisA.lean`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open BasisDSL
 
@@ -31,4 +31,4 @@ def emptyRecRaw : ConstantInfo :=
 /-- The pinned `Empty` basis block, in install order. -/
 def emptyBasis : List ConstantInfo := [emptyRaw, emptyRecRaw]
 
-end Lech
+end ConLeche

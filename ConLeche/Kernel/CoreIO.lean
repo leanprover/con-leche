@@ -1,10 +1,10 @@
-import Lech.Kernel.TypeChecker
+import ConLeche.Kernel.TypeChecker
 
 /-!
 # The io lane: infer at the licensed infer-only grade (task #161, stage 2)
 
 **Status (task #172 B4): the io lane is LIVE in the executable's gated
-mode.**  `inferBodyIO` lives in `Lech/Kernel/Core.lean` (moved
+mode.**  `inferBodyIO` lives in `ConLeche/Kernel/Core.lean` (moved
 byte-identical, so the knot can tie it); the executable knot's
 `inferIO` slot runs it at `mode.betaGate` and the full body everywhere
 else (task #170: R ignores the flag).  The leaf lane below
@@ -24,7 +24,7 @@ The reference kernels type-check a declaration *once*, at the front
 door, and let the inferences that reduction and definitional equality
 perform on their own intermediate terms re-derive types **without
 re-checking application arguments** (`infer_type_core(e, infer_only)`,
-lean4lean's `inferType (inferOnly := true)`).  Lech cannot copy that
+lean4lean's `inferType (inferOnly := true)`).  ConLeche cannot copy that
 wholesale: `Typable e → InferOnly e t → (e really has type t)` is refuted
 (spike `inferonly-metatheory`), and its semantic residue survives at
 the *squash* regime — closed `V`-values satisfy every premise of the
@@ -79,7 +79,7 @@ calls it.  Consequently
   grade, and that is the wall the seal records.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
@@ -91,7 +91,7 @@ supplies them — and `infer` is `inferBodyIO` tied to the io knot one
 level down.  The full knot never mentions this one: that asymmetry is
 the mode-provenance discipline, engineered rather than reviewed.
 
-Task #172 B4: `inferBodyIO` itself moved to `Lech/Kernel/Core.lean`
+Task #172 B4: `inferBodyIO` itself moved to `ConLeche/Kernel/Core.lean`
 (byte-identical) so the executable knot's io slot can tie it; this
 leaf lane stays as the *statement subject* the io claims and the io
 gate's kernel fixtures are phrased at, and the knot equations
@@ -125,4 +125,4 @@ def inferTypeCoreIO (env : Env) (fuel depth : Nat) (e : Expr) :
     CheckM Expr :=
   (pureFnsIO mode env fuel).infer depth e
 
-end Lech
+end ConLeche

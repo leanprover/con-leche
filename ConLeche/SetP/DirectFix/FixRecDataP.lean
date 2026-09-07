@@ -1,8 +1,8 @@
-import Lech.SetP.DirectFix.FixRecReadP
-import Lech.SetP.DirectFix.FixCtorReadsP
-import Lech.Verify.Direct.FixInv
-import Lech.Verify.Direct.FixWF
-import Lech.SetP.DirectSum.SumStageRecP
+import ConLeche.SetP.DirectFix.FixRecReadP
+import ConLeche.SetP.DirectFix.FixCtorReadsP
+import ConLeche.Verify.Direct.FixInv
+import ConLeche.Verify.Direct.FixWF
+import ConLeche.SetP.DirectSum.SumStageRecP
 
 /-!
 # The recursive recursor's data (task #188)
@@ -16,13 +16,13 @@ insensitivity to the recursor's own valuation (the binder data
 mention the former and the constructors only).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta
   DirectFixParts)
 
 universe w
@@ -39,7 +39,7 @@ def fixRdsAV {env : Env} (m : EnvS2Core V env) (p : DirectFixParts)
     (eissF : Nat → (Name → Nat) → List (List AVExpr))
     (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AVExpr)))
     (ctorsA : List (ConstantVal × Nat)) (ψ : Name → Nat) : List (Nat × Nat × AVExpr) :=
-  fixRecDataAV m p.cvT.name ψ p.nP p.nIdx (Lech.directElimLevel p.elim p.large)
+  fixRecDataAV m p.cvT.name ψ p.nP p.nIdx (ConLeche.directElimLevel p.elim p.large)
     ((ppsAll ψ).take p.nP) ((ppsAll ψ).drop p.nP) (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)
 
 theorem fixRdsAV_length {m : EnvS2Core V env} {p : DirectFixParts}
@@ -103,7 +103,7 @@ universe: the kernel's sort inference, through the claims' sort row. -/
 theorem fixRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectFixParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {rhss : List Expr} {caps : IndCaps}
-    (hRec : Lech.checkDirectFixRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
+    (hRec : ConLeche.checkDirectFixRec (ConLeche.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     {bsT : List (Expr × BinderMeta)}
@@ -122,17 +122,17 @@ theorem fixRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     (hcf : ∀ i cA, ctorsA[i]? = some cA →
       FixCtorFactsAt mp.base2 env₀ p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp
         p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF i cA) :
-    SumRecData mp.base2 cvRa p.nP ctorsA.length p.nIdx (Lech.directElimLevel p.elim p.large)
+    SumRecData mp.base2 cvRa p.nP ctorsA.length p.nIdx (ConLeche.directElimLevel p.elim p.large)
         (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA) ∧
       ∃ u : Level, ∀ (ψ : Name → Nat) (ρ : Nat → V),
         interp2 V ρ (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ)
           (recConcAV ctorsA.length p.nIdx)) ∈ˢ (univ (u.eval ψ) : V) := by
   obtain ⟨cvRi, recTy, sty, u, -, hgen, htp, -, hbt, hRf, hsty, hens, -, -, rfl⟩ :=
-    Lech.checkDirectFixRec_shape hRec
-  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)
+    ConLeche.checkDirectFixRec_shape hRec
+  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)
   simp only [ConstantInfo.toConstantVal] at hTf hTb
   have hcr : ∀ ψ, CtorReadsR mp.base2 ψ p.cvT.name p.cvT.levelParams p.nP p.nIdx
-      (Lech.directFixCtors4 ctorsA p.kinds) (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) :=
+      (ConLeche.directFixCtors4 ctorsA p.kinds) (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) :=
     fun ψ => fixCtorReadsR_of ψ hlenK hks hcf
   have hread : ∀ ψ : Name → Nat, denoteP mp.base2.acval env ψ 0 recTy
       = some (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ)
@@ -147,7 +147,7 @@ theorem fixRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   refine ⟨⟨hread, fun ψ => fixRdsAV_length hFD ψ, ?_, ?_, ?_, ?_⟩, u, fun ψ ρ => ?_⟩
   · intro ψ d hd
     unfold fixRdsAV at hd
-    rw [mem_fixRecDataAV hd, pwBit_eq_zero_iff, Lech.PropWhen.zeronessOf_sound, beq_iff_eq]
+    rw [mem_fixRecDataAV hd, pwBit_eq_zero_iff, ConLeche.PropWhen.zeronessOf_sound, beq_iff_eq]
   · intro ψ ρ
     have hc := claimsAtP_of hμ mp ψ F
     obtain ⟨-, -, hokT, -, -⟩ := hc.inferRow hsty hw hbt hL (CtxOkP.nil hnil) (hread ψ)
@@ -175,64 +175,64 @@ assignment. -/
 theorem fixRecOpenedAll (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectFixParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {rhss : List Expr}
-    (hRec : Lech.checkDirectFixRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
+    (hRec : ConLeche.checkDirectFixRec (ConLeche.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
     {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     (hlenK : p.kinds.length = ctorsA.length)
     {rds : (Name → Nat) → List (Nat × Nat × AVExpr)}
-    (hRD : SumRecData mp.base2 cvRa p.nP ctorsA.length p.nIdx (Lech.directElimLevel p.elim p.large)
+    (hRD : SumRecData mp.base2 cvRa p.nP ctorsA.length p.nIdx (ConLeche.directElimLevel p.elim p.large)
       rds) :
     ∃ (fvsR : List Expr) (oR : Expr), ∀ ψ : Name → Nat,
       OpenedP mp.base2 ψ (p.nP + ctorsA.length + p.nIdx + 2) cvRa.type fvsR oR
         (((rds ψ).map (·.2.2)).reverse) (recConcAV ctorsA.length p.nIdx) := by
   obtain ⟨cvRi, recTy, sty, u, -, hgen, -, -, hbt, hRf, -, -, -, -, rfl⟩ :=
-    Lech.checkDirectFixRec_shape hRec
+    ConLeche.checkDirectFixRec_shape hRec
   obtain ⟨tbs, itele, motiveTy, major, minors, hsT, -, hmaj, hmin, hrec⟩ :=
-    Lech.directRecTyR_unfold hgen
-  generalize hctors : Lech.directFixCtors4 ctorsA p.kinds = ctors at hmaj hmin
+    ConLeche.directRecTyR_unfold hgen
+  generalize hctors : ConLeche.directFixCtors4 ctorsA p.kinds = ctors at hmaj hmin
   have hlenC : ctors.length = ctorsA.length := by
-    rw [← hctors]; exact Lech.directFixCtors4_length hlenK.symm
+    rw [← hctors]; exact ConLeche.directFixCtors4_length hlenK.symm
   -- the former's index telescope strips
   have hstripI : (itele.stripPis p.nIdx).isSome = true :=
     stripPis_isSome_drop p.nP (by rw [hstripT]; rfl) hsT
   obtain ⟨⟨ibs, ibody⟩, hsI⟩ := Option.isSome_iff_exists.mp hstripI
   obtain ⟨ibs', hsI'⟩ := stripPis_liftLooseBVars p.nIdx ctors.length.succ 0 hsI
   -- the major's telescope: the index binders then the major binder
-  have hs3 := Lech.replacePisPw_stripPis p.nIdx hmaj hsI'
+  have hs3 := ConLeche.replacePisPw_stripPis p.nIdx hmaj hsI'
   have hs4 : ∃ bs, (Expr.forallE
-      (Lech.directFamI p.cvT.name p.cvT.levelParams p.nP p.nIdx (ctors.length + 1) 0)
-      (Expr.mkAppN (.bvar (p.nIdx + ctors.length + 1)) (Lech.directPsAt 1 p.nIdx ++ [.bvar 0]))
-      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩).stripPis 1
+      (ConLeche.directFamI p.cvT.name p.cvT.levelParams p.nP p.nIdx (ctors.length + 1) 0)
+      (Expr.mkAppN (.bvar (p.nIdx + ctors.length + 1)) (ConLeche.directPsAt 1 p.nIdx ++ [.bvar 0]))
+      ⟨Level.zeronessOf (ConLeche.directElimLevel p.elim p.large)⟩).stripPis 1
       = some (bs, Expr.mkAppN (.bvar (p.nIdx + ctors.length + 1))
-        (Lech.directPsAt 1 p.nIdx ++ [.bvar 0])) :=
+        (ConLeche.directPsAt 1 p.nIdx ++ [.bvar 0])) :=
     ⟨_, rfl⟩
   obtain ⟨bs4, hs4⟩ := hs4
-  have hs34 := Lech.stripPis_append p.nIdx hs3 hs4
+  have hs34 := ConLeche.stripPis_append p.nIdx hs3 hs4
   -- the minors' telescope strips its `n` binders
   have hsmin : ∀ (cs : List (Name × Nat × Expr × List Nat)) (o : Nat) (body mins : Expr),
-      Lech.directMinorsPisR p.cvT.levelParams p.nP
-        (Level.zeronessOf (Lech.directElimLevel p.elim p.large)) cs o body = some mins →
+      ConLeche.directMinorsPisR p.cvT.levelParams p.nP
+        (Level.zeronessOf (ConLeche.directElimLevel p.elim p.large)) cs o body = some mins →
       ∃ bs, mins.stripPis cs.length = some (bs, body) := by
     intro cs
     induction cs with
-    | nil => intro o body mins h; rw [Lech.directMinorsPisR_nil h]; exact ⟨[], rfl⟩
+    | nil => intro o body mins h; rw [ConLeche.directMinorsPisR_nil h]; exact ⟨[], rfl⟩
     | cons c cs ih =>
       intro o body mins h
       obtain ⟨C, nF, cty, recIdx⟩ := c
-      obtain ⟨mty, rest, -, hrest, rfl⟩ := Lech.directMinorsPisR_cons h
+      obtain ⟨mty, rest, -, hrest, rfl⟩ := ConLeche.directMinorsPisR_cons h
       obtain ⟨bs, hbs⟩ := ih (o + 1) body rest hrest
       exact ⟨((mty : Expr),
-        ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩) :: bs,
+        ⟨Level.zeronessOf (ConLeche.directElimLevel p.elim p.large)⟩) :: bs,
         by simp [Expr.stripPis, hbs]⟩
   obtain ⟨bsm, hbsm⟩ := hsmin _ _ _ _ hmin
-  have h23 := Lech.stripPis_append _ hbsm hs34
-  have hs2 := Lech.stripPis_append 1 (e := Expr.forallE motiveTy minors
-      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)
+  have h23 := ConLeche.stripPis_append _ hbsm hs34
+  have hs2 := ConLeche.stripPis_append 1 (e := Expr.forallE motiveTy minors
+      ⟨Level.zeronessOf (ConLeche.directElimLevel p.elim p.large)⟩)
     (bs := [((motiveTy : Expr),
-      ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)])
+      ⟨Level.zeronessOf (ConLeche.directElimLevel p.elim p.large)⟩)])
     (by simp [Expr.stripPis]) h23
-  have hs1 := Lech.replacePisPw_stripPis p.nP hrec hsT
-  have hs := Lech.stripPis_append p.nP hs1 hs2
+  have hs1 := ConLeche.replacePisPw_stripPis p.nP hrec hsT
+  have hs := ConLeche.stripPis_append p.nP hs1 hs2
   rw [hlenC] at hs
   rw [show p.nP + (1 + (ctorsA.length + (p.nIdx + 1))) = p.nP + ctorsA.length + p.nIdx + 2 from by
     omega] at hs
@@ -241,4 +241,4 @@ theorem fixRecOpenedAll (mp : EnvS2PM V μ env)
   exact ⟨fvsR, oR, fun ψ =>
     openedP_of_peel hop hRf hbt (hRD.read ψ) (hRD.len ψ) (hRD.okTy ψ)⟩
 
-end Lech.SetP
+end ConLeche.SetP

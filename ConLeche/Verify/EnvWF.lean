@@ -1,7 +1,7 @@
-import Lech.Kernel.Core
-import Lech.Kernel.Env
-import Lech.Kernel.ExprOps
-import Lech.Kernel.Level
+import ConLeche.Kernel.Core
+import ConLeche.Kernel.Env
+import ConLeche.Kernel.ExprOps
+import ConLeche.Kernel.Level
 
 /-!
 # Environment well-formedness
@@ -12,7 +12,7 @@ referenced constants resolving — as an invariant of the environment.  The
 delta-unfolding and monotonicity lemmas need it.
 -/
 
-namespace Lech
+namespace ConLeche
 
 /-- The projection-table name shape is injective. -/
 theorem projFnName_inj {T T' : Name} {i i' : Nat}
@@ -528,4 +528,4 @@ theorem Expr.constsResolve_le {envA envB : Env}
     simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
     exact ⟨hf _ h.1, ih h.2⟩
 
-end Lech
+end ConLeche

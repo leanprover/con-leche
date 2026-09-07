@@ -1,6 +1,6 @@
-import Lech.Kernel.TypeChecker
-import Lech.Kernel.CoreIO
-import Lech.Verify.BetaGate
+import ConLeche.Kernel.TypeChecker
+import ConLeche.Kernel.CoreIO
+import ConLeche.Verify.BetaGate
 
 /-!
 # Knot equations
@@ -13,7 +13,7 @@ bodies with an abstract record; instantiating the record with
 fueled statements the higher layers consume.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -337,4 +337,4 @@ theorem boolTrueShortcut_fold (env : Env) (fuel : Nat) :
 theorem defeqSpine_fold (env : Env) (fuel : Nat) :
     defeqSpine (pureFns mode env fuel) env = defeqSpineP mode env fuel := rfl
 
-end Lech
+end ConLeche

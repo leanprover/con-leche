@@ -1,6 +1,6 @@
-import Lech.PinGen
-import Lech.PinGen.Prelude
-import Lech.PinGen.Certs
+import ConLeche.PinGen
+import ConLeche.PinGen.Prelude
+import ConLeche.PinGen.Certs
 
 /-!
 # `natop-pins-export` — the pin dump generator (task #176)
@@ -10,7 +10,7 @@ proof blobs to `<outdir>/<toolchain>.json`, and — since task #191 —
 the **built-in prelude** the pins' order-sensitive ground needs to
 `<outdir>/<toolchain>.prelude.ndjson` beside it (a lean4export-format
 stream the checker's frontend embeds and prepends to every input; see
-`Lech/PinGen/Prelude.lean`).  Prints both paths.  The default
+`ConLeche/PinGen/Prelude.lean`).  Prints both paths.  The default
 `<outdir>` is the repository's top-level `pins/`, where the dump is
 COMMITTED (see `pins/README.md`); `tests/pindump.sh` regenerates into
 a scratch directory and `diff -q`s both files, so a stale dump fails
@@ -19,7 +19,7 @@ the battery.
     lake exe natop-pins-export                 # regenerate in place
     lake exe natop-pins-export _tmp/scratch    # for the freshness gate
 
-`import Lech.PinGen.Certs` above is the *build-order edge* the old
+`import ConLeche.PinGen.Certs` above is the *build-order edge* the old
 mechanism lacked: the certificate theorems are read out of their olean
 at run time (`importModules` at `OLeanLevel.private`, so the proof
 bodies are visible), and this import is what makes Lake build that
@@ -27,7 +27,7 @@ olean first.  Nothing in the checker's own build depends on it any
 more.
 -/
 
-open Lech.PinGen
+open ConLeche.PinGen
 
 def main (args : List String) : IO UInt32 := do
   Lean.initSearchPath (← Lean.findSysroot)

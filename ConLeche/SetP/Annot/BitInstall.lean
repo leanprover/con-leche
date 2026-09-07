@@ -1,6 +1,6 @@
-import Lech.SetP.Annot.BitClosed
-import Lech.Semantics.Install2
-import Lech.Verify.EnvGuards
+import ConLeche.SetP.Annot.BitClosed
+import ConLeche.Semantics.Install2
+import ConLeche.Verify.EnvGuards
 
 /-!
 # `denoteP` at an install (task #161, P3.2)
@@ -28,13 +28,13 @@ are valuation- and spine-independent and simply vanish:
   by name at exactly this instance.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level PropWhen
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level PropWhen
   natLitSupported strLitSupported)
 
 variable {env : Env} {φ : Name → Nat}
@@ -173,4 +173,4 @@ theorem denoteP_mkAppN_swap {acval : Name → (Name → Nat) → AVExpr}
     rw [denoteP, hswap fx hf, ha]
     rfl
 
-end Lech.SetP
+end ConLeche.SetP

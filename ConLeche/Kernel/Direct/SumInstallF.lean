@@ -1,14 +1,14 @@
-import Lech.Kernel.Direct.InstallF
-import Lech.Kernel.Direct.SumInstall
+import ConLeche.Kernel.Direct.InstallF
+import ConLeche.Kernel.Direct.SumInstall
 
 /-!
 # The direct sum install, through the index
 
-`checkDirectSum`'s stages (`Lech/Kernel/Direct/SumInstall.lean`)
+`checkDirectSum`'s stages (`ConLeche/Kernel/Direct/SumInstall.lean`)
 over an `FEnv`, the mirrors the cached drivers run.
 -/
 
-namespace Lech
+namespace ConLeche
 
 section Mirrors
 
@@ -172,4 +172,4 @@ def checkDirectSumRecF (ops : CheckerOps m) (fe : FEnv) (p : DirectSumParts)
 
 end Mirrors
 
-end Lech
+end ConLeche

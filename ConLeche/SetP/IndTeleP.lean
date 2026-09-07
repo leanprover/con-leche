@@ -1,5 +1,5 @@
-import Lech.SetP.IndMembersP
-import Lech.SetP.Step2.CapsRowsP
+import ConLeche.SetP.IndMembersP
+import ConLeche.SetP.Step2.CapsRowsP
 
 /-!
 # The reading's ∀-telescope (task #161, IND TIER part 2)
@@ -39,13 +39,13 @@ yet own —
   agree only through the pins' domain equalities.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta)
 
 universe w
@@ -101,7 +101,7 @@ theorem stripPis_denotePTele :
   induction k with
   | zero =>
     intro e j bs body E h hE
-    simp only [Lech.Expr.stripPis, Option.some.injEq,
+    simp only [ConLeche.Expr.stripPis, Option.some.injEq,
       Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
     exact ⟨[], E, .nil, rfl, hE, fun i0 b hb => nomatch hb⟩
@@ -109,7 +109,7 @@ theorem stripPis_denotePTele :
     intro e j bs body E h hE
     match e, h with
     | .forallE dom bodyE mb, h =>
-      simp only [Lech.Expr.stripPis] at h
+      simp only [ConLeche.Expr.stripPis] at h
       cases hs : bodyE.stripPis k with
       | none => rw [hs] at h; exact nomatch h
       | some p => ?_
@@ -133,15 +133,15 @@ theorem stripPis_denotePTele :
       have hB' : denoteP acval env φ (j + 1)
           (bodyE.instantiate1 (.fvar j (.sort .zero)))
           = some Bv := by
-        rw [denoteP_erasedEq (Lech.Expr.ErasedEq.instantiate1
-          (Lech.Expr.ErasedEq.rfl bodyE)
-          (show Lech.Expr.ErasedEq
+        rw [denoteP_erasedEq (ConLeche.Expr.ErasedEq.instantiate1
+          (ConLeche.Expr.ErasedEq.rfl bodyE)
+          (show ConLeche.Expr.ErasedEq
               (.fvar j (.sort .zero)) (.fvar j dom)
             from by constructor)) (j + 1)]
         exact hB
       have hsI : ((bodyE.instantiate1 (.fvar j
           (.sort .zero))).stripPis k).isSome :=
-        Lech.Expr.stripPis_instantiate1_isSome k 0 (by rw [hs]; rfl)
+        ConLeche.Expr.stripPis_instantiate1_isSome k 0 (by rw [hs]; rfl)
       obtain ⟨bs', body', hsI2⟩ : ∃ bs' body',
           (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripPis k = some (bs', body') := by
@@ -150,11 +150,11 @@ theorem stripPis_denotePTele :
         | none => rw [hq] at hsI; exact nomatch hsI
         | some q => exact ⟨q.1, q.2, rfl⟩
       obtain ⟨hbody', hdoms'⟩ :=
-        Lech.Expr.stripPis_instantiate1_eq k 0 hs hsI2
+        ConLeche.Expr.stripPis_instantiate1_eq k 0 hs hsI2
       obtain ⟨Γ', C, htele, hΓlen, hbody, hdoms⟩ := ih hsI2 hB'
-      have hbslen : p.1.length = k := Lech.Expr.stripPis_length k hs
+      have hbslen : p.1.length = k := ConLeche.Expr.stripPis_length k hs
       have hbslen' : bs'.length = k :=
-        Lech.Expr.stripPis_length k hsI2
+        ConLeche.Expr.stripPis_length k hsI2
       refine ⟨Γ' ++ [A], C, .cons htele, by simp [hΓlen], ?_, ?_⟩
       · show denoteP acval env φ (j + (k + 1))
           (Expr.instSeq (openFvars j (k + 1)) (k + 1 - 1) p.2)
@@ -554,7 +554,7 @@ theorem denoteSpineP_openFvars :
       congr 1
       omega
     rw [show openFvars j (k + 1)
-      = Lech.Expr.fvar j (.sort .zero)
+      = ConLeche.Expr.fvar j (.sort .zero)
         :: openFvars (j + 1) k from rfl, hlist]
     exact DenoteSpineP.cons
       (denoteP_fvar acval d j (.sort .zero))
@@ -591,4 +591,4 @@ theorem interp2_bvarSpine :
       | cons a asr ihas => intro b; simpa using ihas _,
     hmap]
 
-end Lech.SetP
+end ConLeche.SetP

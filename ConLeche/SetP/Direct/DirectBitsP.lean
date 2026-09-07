@@ -1,12 +1,12 @@
-import Lech.SetP.Annot.BitLemmas
-import Lech.Semantics.Tower.TowerLeaf
-import Lech.Verify.InferLemmas
-import Lech.Verify.Extend.Inversions
-import Lech.Verify.InstLevels
-import Lech.Verify.BinderLoop
-import Lech.Verify.Mono
-import Lech.Verify.Subst
-import Lech.Kernel.Direct.Parts
+import ConLeche.SetP.Annot.BitLemmas
+import ConLeche.Semantics.Tower.TowerLeaf
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.InstLevels
+import ConLeche.Verify.BinderLoop
+import ConLeche.Verify.Mono
+import ConLeche.Verify.Subst
+import ConLeche.Kernel.Direct.Parts
 
 /-!
 # The direct structure's annotated Π-bits are exact (task #175 W4c, P3 module 1)
@@ -29,11 +29,11 @@ the binders with the same `fvar`s, so one predicate over the opening
 (`PiBitsOpen`) serves all three.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta inferTypeCore ensureSortCore whnf openPisAtFvars)
 
 variable {mode : CheckMode}
@@ -42,32 +42,32 @@ variable {mode : CheckMode}
 
 theorem whnf_sort_eq {env : Env} {F d : Nat} {u : Level} {e' : Expr}
     (h : whnf mode env F d (.sort u) = .ok e') : e' = .sort u := by
-  have h1 := Lech.whnf_mono (Nat.le_add_right F 2) h
-  rw [Lech.whnf_sort] at h1
+  have h1 := ConLeche.whnf_mono (Nat.le_add_right F 2) h
+  rw [ConLeche.whnf_sort] at h1
   exact (Except.ok.inj h1).symm
 
 theorem ensureSortCore_sort_eq {env : Env} {F d : Nat} {u v : Level}
     (h : ensureSortCore mode env F d (.sort u) = .ok v) : v = u :=
-  Expr.sort.inj (whnf_sort_eq (Lech.ensureSortCore_inv h))
+  Expr.sort.inj (whnf_sort_eq (ConLeche.ensureSortCore_inv h))
 
 theorem inferTypeCore_sort_inv {env : Env} {F d : Nat} {u : Level} {t : Expr}
     (h : inferTypeCore mode env F d (.sort u) = .ok t) :
     t = .sort (.succ u) := by
   match F, h with
-  | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
+  | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
   | F + 1, h =>
-    rw [Lech.inferTypeCore_succ] at h
-    simp only [Lech.inferBody, pure, Except.pure] at h
+    rw [ConLeche.inferTypeCore_succ] at h
+    simp only [ConLeche.inferBody, pure, Except.pure] at h
     exact (Except.ok.inj h).symm
 
 theorem inferTypeCore_fvar_inv {env : Env} {F d idx : Nat}
     {ty t : Expr} (h : inferTypeCore mode env F d (.fvar idx ty) = .ok t) :
     idx < d ∧ t = ty := by
   match F, h with
-  | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
+  | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
   | F + 1, h =>
-    rw [Lech.inferTypeCore_succ] at h
-    simp only [Lech.inferBody, pure, Except.pure] at h
+    rw [ConLeche.inferTypeCore_succ] at h
+    simp only [ConLeche.inferBody, pure, Except.pure] at h
     split at h
     · exact ⟨‹_›, (Except.ok.inj h).symm⟩
     · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
@@ -80,7 +80,7 @@ theorem inferTypeCore_mkAppN_fn_inv {env : Env} {F d : Nat} :
   | [], _, t, h => ⟨t, h⟩
   | a :: as, f, t, h => by
     obtain ⟨tfa, hfa⟩ := inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
-    obtain ⟨tf, _, _, _, hf, -⟩ := Lech.inferTypeCore_app_inv' hfa
+    obtain ⟨tf, _, _, _, hf, -⟩ := ConLeche.inferTypeCore_app_inv' hfa
     exact ⟨tf, hf⟩
 
 /-- **A spine into a sort**: applying a head whose type is a
@@ -107,10 +107,10 @@ theorem inferTypeCore_mkAppN_sort {env : Env} {F d : Nat} :
         | simp [Expr.stripPis] at hst
     obtain ⟨tfa, hfa⟩ := inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
     obtain ⟨tf, ty', body', m', hf', hw, rfl, -⟩ :=
-      Lech.inferTypeCore_app_inv' hfa
+      ConLeche.inferTypeCore_app_inv' hfa
     obtain rfl : tf = .forallE dom body mb :=
       Except.ok.inj (hf'.symm.trans hf)
-    obtain ⟨rfl, rfl, rfl⟩ := Expr.forallE.inj (Lech.whnf_forallE_eq hw)
+    obtain ⟨rfl, rfl, rfl⟩ := Expr.forallE.inj (ConLeche.whnf_forallE_eq hw)
     simp only [List.length_cons, Expr.stripPis, Option.map_eq_some_iff] at hst
     obtain ⟨⟨bs', body₀⟩, hst', heq⟩ := hst
     simp only [Prod.mk.injEq] at heq
@@ -175,10 +175,10 @@ theorem piBits_of_infer {env : Env} (hver : mode.verifiedChecks = true) :
     match e, hop, h with
     | .forallE dom body mb, hop, h =>
       match F, h with
-      | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
+      | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
       | F + 1, h =>
         obtain ⟨tty, u, bt, v, -, -, hbt, hensb, hz, rfl⟩ :=
-          Lech.inferTypeCore_forall_inv h
+          ConLeche.inferTypeCore_forall_inv h
         simp only [openPisAtFvars] at hop
         split at hop
         · next fvs' e' hop' =>
@@ -374,4 +374,4 @@ theorem openPisAtFvars_dom_pred (P : Expr → Prop)
     | .letE _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
       simp [openPisAtFvars] at hop
 
-end Lech.SetP
+end ConLeche.SetP

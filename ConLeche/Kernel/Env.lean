@@ -1,4 +1,4 @@
-import Lech.Kernel.Expr
+import ConLeche.Kernel.Expr
 
 /-!
 # Declarations and the global environment
@@ -11,7 +11,7 @@ This is the *verified* reference representation; a faster indexed structure
 can replace it later, with a proof that it refines this one.
 -/
 
-namespace Lech
+namespace ConLeche
 
 /-- **The checker's mode setting** — two values since the R core's
 retirement (2026-09-05), validated once at startup and threaded as
@@ -21,12 +21,12 @@ discipline).
 * `.verified` (the default, `--verified`): the verified lane.  The
   surface the **graded** set-theoretic
   model proves — `no_proof_of_Empty_SPCD_P`
-  (`Lech/Verify/Cached/MainC.lean`) is its letter over the driver
+  (`ConLeche/Verify/Cached/MainC.lean`) is its letter over the driver
   this binary runs.  The seven TT-lane checks (tasks #126, #129, #130,
   #135, #136, #137, #146) are off; the β-certificate gate is on — at a
   λ-binder whose **validated** annotation is `.never` the per-redex
   argument certificate is skipped (`betaTest`,
-  `Lech/Kernel/Core.lean`) — and the io-graded knot slot skips the
+  `ConLeche/Kernel/Core.lean`) — and the io-graded knot slot skips the
   per-argument application certificate under the same licence.  Every
   other certificate family runs unconditionally.
 * `.trusted` (`--trusted`): the unverified lane — the same checker
@@ -36,9 +36,9 @@ discipline).
   proof to go through"), so the lane is never optimized on its own:
   it is the real mode with certain steps omitted (DESIGN.md, "MODE
   RENAME").  Since 2026-09-06 it is literally that: the one cached
-  driver (`Lech/Cached/ParsedC.lean`) at `.trusted`, where
+  driver (`ConLeche/Cached/ParsedC.lean`) at `.trusted`, where
   `verifiedChecks` and `certs` are `false` — so what it omits is
-  exactly what those two functions gate in `Lech/Cached/CoreC.lean`
+  exactly what those two functions gate in `ConLeche/Cached/CoreC.lean`
   (DESIGN.md, "CORET RETIRED").
 
 **The mode is the cores' only parameter** (task #185, 2026-09-06).
@@ -82,7 +82,7 @@ needed for the soundness *proof* rather than for soundness?  The
 second accessor the kernel branches on
 (task #152: the λ-rule's codomain-sort check, `inferBody`'s `.lam`
 clause).  This is deliberately **not** `ttChecks`: the λ codomain sort
-is a premise of the set lane's annotation pass (`Lech/SetP`), so it
+is a premise of the set lane's annotation pass (`ConLeche/SetP`), so it
 must run at `.verified`; and it is a check the reference kernel's
 `infer_lambda` does not run, so it must not run at `.trusted`. -/
 def CheckMode.verifiedChecks : CheckMode → Bool
@@ -92,7 +92,7 @@ def CheckMode.verifiedChecks : CheckMode → Bool
 /-- Is the **β-certificate gate** on (task #161)?  The third accessor
 the kernel branches on: at a λ-binder whose validated annotation datum
 is `.never` the per-redex argument certificate is skipped (`betaTest`,
-`Lech/Kernel/Core.lean`).
+`ConLeche/Kernel/Core.lean`).
 
 Two disciplines ride on this accessor being a *mode* accessor rather
 than a second knot:
@@ -118,20 +118,20 @@ def CheckMode.betaGate : CheckMode → Bool
 
 /-- Is the **io-grade knot slot** the io body (task #170 / #172 B4)?
 Read once per knot level by the cached knot (`coreKnotI`,
-`Lech/Cached/CoreC.lean`) to select what the internal inference call
+`ConLeche/Cached/CoreC.lean`) to select what the internal inference call
 sites run: the io body, whose application clause skips the
 per-argument certificate at a `.never` binder under the graph-regime
-licence (`Lech/SetP/IOLicenseP.lean`) — official's `infer_only`.
+licence (`ConLeche/SetP/IOLicenseP.lean`) — official's `infer_only`.
 **`true` at both modes** since the licence ruling of 2026-09-06 (the
 trusted mode is defined as the verified one minus certification-only
 work, and the io grade is a *licence*, not a certificate; the retired
 trusted configuration record had it `true` too).  It is its own
 function, and not `betaGate`, so that an attribution probe can flip
 one without the other; the
-mode-parametric spec knot (`coreKnot`, `Lech/Kernel/Core.lean`)
+mode-parametric spec knot (`coreKnot`, `ConLeche/Kernel/Core.lean`)
 selects its io slot on `betaGate`, the P tier's own bit, so the two
 agree exactly at `.verified` — the one instance the simulation tower
-is stated at (`memoEI_inferIO_sim`, `Lech/Verify/Cached/KnotC.lean`).
+is stated at (`memoEI_inferIO_sim`, `ConLeche/Verify/Cached/KnotC.lean`).
 Spelled with a wildcard so it is the literal `true` at a *variable*
 mode too. -/
 def CheckMode.ioGate : CheckMode → Bool
@@ -148,7 +148,7 @@ plain-rule parameter re-comparison, the type-former and per-projection
 telescope certificates of structure η and unit-like conversion
 (`structEtaCertWithI`, `structUnitCertI`), and the K/η rescue's
 synthetic-spine and proof-irrelevance certificates (`majorToCtorI`).
-Read through `Lech/Cached/CoreC.lean`'s `certAtI`/`certUnlessI` and
+Read through `ConLeche/Cached/CoreC.lean`'s `certAtI`/`certUnlessI` and
 the two skip predicates below; `true` runs them, `false` (the trusted
 mode) skips them outright.
 
@@ -156,13 +156,13 @@ mode) skips them outright.
 at both constructors.  Both are certification-only work; they differ
 in what the proof towers need of them.  `verifiedChecks` gates checks
 the P tier's *premises* rest on (the λ-codomain sort, the annotation
-validations), so the mode-parametric spec (`Lech/Kernel/Core.lean`)
+validations), so the mode-parametric spec (`ConLeche/Kernel/Core.lean`)
 reads it at the same sites the cached core does.  The certificate
 families have **no switch in the spec** — no proved instance ever
 omits them — so the cached core's reads of `certs` are what the
-simulation tower (`Lech/Verify/Cached/*`) must see through: it is
+simulation tower (`ConLeche/Verify/Cached/*`) must see through: it is
 stated under `hμ : mode.verifiedChecks = true`, and
-`certs_of_verifiedChecks` (`Lech/Verify/BetaGate.lean`) turns every
+`certs_of_verifiedChecks` (`ConLeche/Verify/BetaGate.lean`) turns every
 read into the literal `true` there.  The `.trusted` instance of the
 cached-vs-spec simulation is false, deliberately: the trusted core
 skips what the spec runs. -/
@@ -182,7 +182,7 @@ family, skipped outright, so the licence is moot there. -/
 
 /-- **The io site's read** (`inferSpineIOI`): skip the per-argument
 application certificate at a `.never` binder (the graph-regime
-licence, `Lech/SetP/IOLicenseP.lean`), or wholesale when the
+licence, `ConLeche/SetP/IOLicenseP.lean`), or wholesale when the
 certificate families are off.  At `.verified` it is `pw.isNever` — the
 licence reads the datum and nothing else, as the licence ruling of
 2026-09-06 has it — and at `.trusted` it is `true`. -/
@@ -539,4 +539,4 @@ def findProj? (env : Env) (T : Name) (i : Nat) : Option ProjEntry :=
 
 end Env
 
-end Lech
+end ConLeche

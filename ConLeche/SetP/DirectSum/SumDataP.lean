@@ -1,7 +1,7 @@
-import Lech.SetP.Direct.DirectCtorFramesP
-import Lech.SetP.DirectSum.SumIntroP
-import Lech.SetP.DirectSum.SumRecReadP
-import Lech.Verify.Direct.SumInv
+import ConLeche.SetP.Direct.DirectCtorFramesP
+import ConLeche.SetP.DirectSum.SumIntroP
+import ConLeche.SetP.DirectSum.SumRecReadP
+import ConLeche.Verify.Direct.SumInv
 
 /-!
 # The direct sum's constructor data and frames (task #175 sum-types,
@@ -25,13 +25,13 @@ index telescope** — read off the residual's own grading
 domain).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps BinderMeta)
 
 universe w
 
@@ -284,7 +284,7 @@ structure CtorDataI {env : Env} (m : EnvS2Core V env) (T : Name) (lps : List Nam
     (srcs : List (Option Nat)) : Prop where
   resid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
     cvC.type.stripPis (nP + nF)
-      = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (Lech.directPsAt nF nP ++ es)) ∧
+      = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (ConLeche.directPsAt nF nP ++ es)) ∧
     es.length = nIdx
   read : ∀ ψ : Name → Nat, denoteP m.acval env ψ 0 cvC.type
     = some (mkPisAV (ds ψ) (ctorBodyAVI m T nP nF ψ (Es ψ)))
@@ -384,8 +384,8 @@ holding the former. -/
 theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
-    {bs : List (Expr × Lech.BinderMeta)}
-    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₀ env T lps nP nIdx resSort
+    {bs : List (Expr × ConLeche.BinderMeta)}
+    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
@@ -399,9 +399,9 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
         idxArgs = xrest.getAppArgs.drop nP) ∧
       CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs := by
   obtain ⟨hccv, hresid, fvsP, crest, tfvs, trest, xFvs, idxArgs, sorts, hopC, -, -, hopX, hlenI,
-    -, hres, hsorts⟩ := Lech.checkDirectSumCtor_shape hCtor
+    -, hres, hsorts⟩ := ConLeche.checkDirectSumCtor_shape hCtor
   obtain ⟨-, -, -, -, hlbt, hitf, type', stype, u, hann', htp', -, hst,
-    hens, rfl⟩ := Lech.checkConstantVal_inv hccv
+    hens, rfl⟩ := ConLeche.checkConstantVal_inv hccv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
   simp only at htf' hbt' htp' hst hens hopC hresid
   have hw : Expr.WScoped 0 type' := Expr.WScoped.of_not_hasFvar htf'
@@ -416,9 +416,9 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     piBits_of_infer hμ (nP + nF) hopAll hst hens
   rw [Nat.zero_add] at hib hensb
   obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv (fvsP ++ idxArgs) hib
-  obtain ⟨ci, hfci, -, rfl⟩ := Lech.inferTypeCore_const_inv htf
+  obtain ⟨ci, hfci, -, rfl⟩ := ConLeche.inferTypeCore_const_inv htf
   obtain rfl : ci = .indInfo cvTa caps := Option.some.inj (hfci.symm.trans hfT)
-  have htfT : Lech.inferTypeCore μ env F' (nP + nF)
+  have htfT : ConLeche.inferTypeCore μ env F' (nP + nF)
       (.const T (lps.map .param)) = .ok cvTa.type := by
     have := htf
     rw [show (ConstantInfo.indInfo cvTa caps).toConstantVal = cvTa from rfl,
@@ -489,7 +489,7 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
       exact (bvarsBelow_mkAppN_inv hb).2 _
         (List.mem_map.mpr ⟨E, List.mem_append_right _ hE, rfl⟩)
   -- the sources
-  obtain ⟨hlenS, hfields⟩ := Lech.checkDirectFieldSortsI_inv hsorts
+  obtain ⟨hlenS, hfields⟩ := ConLeche.checkDirectFieldSortsI_inv hsorts
   have hspec : ∀ ψ, _ := fun ψ => Classical.choose_spec (Classical.choose_spec (hper ψ))
   refine ⟨idxArgs, fun ψ => Classical.choose (hper ψ),
     fun ψ => Classical.choose (Classical.choose_spec (hper ψ)),
@@ -612,7 +612,7 @@ fitting field spine. -/
 theorem ctorFramesGen (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
-    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₀ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
@@ -635,17 +635,17 @@ theorem ctorFramesGen (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
           (∀ E ∈ Es ψ, AnnotOkP V (consList bs ρ) E) ∧
           SpineFit ρ (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs))) := by
   obtain ⟨hccv, -, fvsP, crest, tfvs, trest, xFvs, idxArgs', sorts, hopC, hopT, hdoms, hopX,
-    -, -, -, hsorts⟩ := Lech.checkDirectSumCtor_shape hCtor
+    -, -, -, hsorts⟩ := ConLeche.checkDirectSumCtor_shape hCtor
   obtain ⟨-, -, -, -, hlbt, hitf, type', -, -, hann', -, -, -, -, rfl⟩ :=
-    Lech.checkConstantVal_inv hccv
+    ConLeche.checkConstantVal_inv hccv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
   simp only at htf' hbt' hopC hsorts
   have hlenP : fvsP.length = nP := openPisAtFvars_length _ hopC
   have hopAll := openPisAtFvars_add nP hopC (by rw [Nat.zero_add]; exact hopX)
-  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)
+  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)
   simp only [ConstantInfo.toConstantVal] at hTf hTb
-  obtain ⟨hlenS, hfields⟩ := Lech.checkDirectFieldSortsI_inv hsorts
-  have hpins := Lech.checkDirectDomsAt_inv hdoms
+  obtain ⟨hlenS, hfields⟩ := ConLeche.checkDirectFieldSortsI_inv hsorts
+  have hpins := ConLeche.checkDirectDomsAt_inv hdoms
   have hlenX : xFvs.length = nF := openPisAtFvars_length _ hopX
   have hframes : ∀ ψ : Name → Nat,
       (∀ ρ : Nat → V, Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ ↔
@@ -771,7 +771,7 @@ theorem ctorFramesGen (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
 theorem sumCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
-    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₀ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
@@ -796,4 +796,4 @@ theorem sumCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
           SpineFit ρ (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs))) :=
   ctorFramesGen hμ mp hCtor hfT hProp hFD hCD fun ψ => ⟨_, hleafT ψ⟩
 
-end Lech.SetP
+end ConLeche.SetP

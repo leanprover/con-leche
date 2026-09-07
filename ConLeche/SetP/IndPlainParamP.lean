@@ -1,5 +1,5 @@
-import Lech.SetP.IndFieldGradeP
-import Lech.SetP.IndPrefixGradeP
+import ConLeche.SetP.IndFieldGradeP
+import ConLeche.SetP.IndPrefixGradeP
 
 /-!
 # The `.plain` fire's parameter supply (task #161, IND TIER part 5)
@@ -29,13 +29,13 @@ parameter positions are the instantiated pins, and the row that types
 them is `IotaThmNR`'s `TypedListOk`, not a `DefEqListOk`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name isDefEqCore DefEqListOk)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
 
@@ -221,4 +221,4 @@ theorem plainParamSupplyP {m : EnvS2Core V env} {F : Nat}
   have h := (hladder q hq ρ' (hsatB ρ' hsat) dw hdw).2
   simpa using h
 
-end Lech.SetP
+end ConLeche.SetP

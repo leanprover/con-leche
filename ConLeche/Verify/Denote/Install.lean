@@ -1,20 +1,20 @@
-import Lech.Verify.Denote
-import Lech.Verify.EnvWF
-import Lech.Verify.EnvGuards
-import Lech.Verify.EnvPreds
-import Lech.Verify.Denote.Pinned
-import Lech.Verify.Denote.Levels
+import ConLeche.Verify.Denote
+import ConLeche.Verify.EnvWF
+import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.EnvPreds
+import ConLeche.Verify.Denote.Pinned
+import ConLeche.Verify.Denote.Levels
 
 /-!
 # Denotations survive environment extension — the install transport core
 
-Relocated verbatim from `Lech/TTVerify/Extend.lean` (task #148, T5;
-the same move T3 made for `Lech/Verify/Denote/Levels.lean`): the
+Relocated verbatim from `ConLeche/TTVerify/Extend.lean` (task #148, T5;
+the same move T3 made for `ConLeche/Verify/Denote/Levels.lean`): the
 environment-extension transport machinery for `denote` is `V`-free and
 lane-independent — both the TT lane (`EnvTT`'s field transports) and
 the [set] lane (`EnvS`'s, task #148 T5) consume it — so it lives where
 both can import it.  Statements unchanged; the namespace stays
-`Lech.Verify` so no call site moves.
+`ConLeche.Verify` so no call site moves.
 
 Contents: `EnvExtends` + `denote_mono` (denotations survive a larger
 environment), `denote_cval_congr` (and a changed valuation),
@@ -24,14 +24,14 @@ environment), `denote_cval_congr` (and a changed valuation),
 (`BasisPinnedTT.cons`, `ProjOkT.cons`), and `cvalAt` (the valuation an
 ordinary value-carrying install chooses).  The TT-specific transports
 (`has_type_cons`, `RecRulesTT.cons`, …) remain in
-`Lech/TTVerify/Extend.lean`.
+`ConLeche/TTVerify/Extend.lean`.
 -/
 
 set_option linter.unusedVariables false
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-- `env₂` extends `env₁`: every constant stored in `env₁` is stored in
 `env₂`, unchanged.  (The checker's installs are cons-extensions with a
@@ -93,14 +93,14 @@ next person does not take them for a gap.  They *are* consequences of
 there, `hext` carries those lookups over unchanged, and the guard reads
 nothing else.  That derivation is exactly
 `natLitSupported_inv` + `natLitSupported_congr` (and the `strLit`
-pair), which already exist — but in `Lech/Model/Interp.lean`, which
+pair), which already exist — but in `ConLeche/Model/Interp.lean`, which
 this hierarchy does not import.
 
 **Both are `V`-free**: they are facts about `Env` alone and have no
-business in the set model's module.  Moving them to `Lech/Verify/*`
+business in the set model's module.  Moving them to `ConLeche/Verify/*`
 is the right fix and would let these three hypotheses be discharged
 here rather than passed on; it is not done in this commit only because
-`Lech/Model/Interp.lean` is heavily trafficked and the move is better
+`ConLeche/Model/Interp.lean` is heavily trafficked and the move is better
 made on its own. -/
 theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     (hext : EnvExtends env₁ env₂)
@@ -285,8 +285,8 @@ Listing the seven is the fix.
 
 They are hypotheses for the same reason they are in `denote_mono`:
 deriving them from the guards needs
-`natLitSupported_inv`, which was stranded in `Lech/Model/Interp.lean`
-and now lives, `V`-free, in `Lech/Verify/EnvGuards.lean`.  Install sites discharge them from freshness. -/
+`natLitSupported_inv`, which was stranded in `ConLeche/Model/Interp.lean`
+and now lives, `V`-free, in `ConLeche/Verify/EnvGuards.lean`.  Install sites discharge them from freshness. -/
 
 /-- Denotation reads the valuation only at names the environment
 resolves, so valuations agreeing there give equal denotations. -/
@@ -445,7 +445,7 @@ theorem LitAgree.of_fresh {env : Env} {cval cval' : TConstVal}
 Both guards read the environment only at fixed names, so an install
 under a *different* name leaves them alone.  Proving the congruence
 directly avoids needing `natLitSupported_inv`
-(`Lech/Model/Interp.lean`) at all — a fact the bridge would otherwise
+(`ConLeche/Model/Interp.lean`) at all — a fact the bridge would otherwise
 have to restate, and the fifth stranded one.  **The inversion is only
 needed to derive the guard from its consequences; the congruence needs
 just the lookups**, which is a cheaper thing to want. -/
@@ -496,7 +496,7 @@ The converse is false in general — the larger environment denotes
 strictly more — so it is guarded exactly as the set model guards
 `interp_mono`: by `Expr.constsResolve`, which holds of every *stored*
 expression by `EnvWF`.  This is the transpose of `interp_mono`
-(`Lech/Model/InterpLemmas.lean`), and it is consumed the way the
+(`ConLeche/Model/InterpLemmas.lean`), and it is consumed the way the
 model consumes it, through a telescope-level shrink at the law's own
 premise.
 
@@ -1015,7 +1015,7 @@ theorem cvalWith_self {cval : TConstVal} {n : Name}
 /-! ## The valuation an install chooses
 
 At a fresh name, by the value's denotation; everywhere else unchanged.
-(Relocated from `Lech/TTVerify/DeclValue.lean`; `EnvTT.defn_eq` — and
+(Relocated from `ConLeche/TTVerify/DeclValue.lean`; `EnvTT.defn_eq` — and
 `EnvS.defn_eq`, its [set] twin — is what fixes this: there is no other
 function that could satisfy it.) -/
 
@@ -1036,4 +1036,4 @@ theorem cvalAt_self {cval : TConstVal} {env : Env} {n : Name}
     cvalAt cval env n value n ψ = v := by
   simp [cvalAt, h]
 
-end Lech.Verify
+end ConLeche.Verify

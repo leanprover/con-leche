@@ -1,13 +1,13 @@
-import Lech.SetP.DirectFix.FixRecReadDefsP
-import Lech.Verify.Direct.FixRec
+import ConLeche.SetP.DirectFix.FixRecReadDefsP
+import ConLeche.Verify.Direct.FixRec
 
 /-!
 # The generated recursive recursor's readings (task #188)
 
-`Lech/SetP/DirectSum/SumRecReadP.lean` with the inductive hypotheses:
+`ConLeche/SetP/DirectSum/SumRecReadP.lean` with the inductive hypotheses:
 the generated recursive recursor type reads to the Π-tower over
 `fixRecDataAV` and rule `j` to the λ-tower over `fixRuleDataAV`
-(`Lech/SetP/DirectFix/FixRecReadDefsP.lean`).
+(`ConLeche/SetP/DirectFix/FixRecReadDefsP.lean`).
 
 The one genuinely new reading is the `ih` binder's domain
 `∀ a⃗, motive e⃗_i(a⃗) (f_i a⃗)`.  A recursive field's own telescope and
@@ -24,13 +24,13 @@ earlier hypotheses below the field's own frame, once to insert the
 (task #202).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta
   PropWhen)
 
 universe w
@@ -225,11 +225,11 @@ theorem directFieldTele_props {cty : Expr} {nP nF i : Nat}
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
     (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF) :
     (∀ (k : Nat) (b : Expr × BinderMeta),
-        (Lech.directFieldTeleOf cty nP nF i)[k]? = some b →
+        (ConLeche.directFieldTeleOf cty nP nF i)[k]? = some b →
         b.1.hasFvar = false ∧ b.1.looseBVarsBounded (nP + i + k) = true) ∧
-      ∀ e ∈ Lech.directFieldIdxOf cty nP nF i,
+      ∀ e ∈ ConLeche.directFieldIdxOf cty nP nF i,
         e.hasFvar = false ∧
-          e.looseBVarsBounded (nP + i + (Lech.directFieldTeleOf cty nP nF i).length) = true := by
+          e.looseBVarsBounded (nP + i + (ConLeche.directFieldTeleOf cty nP nF i).length) = true := by
   obtain ⟨⟨cbs, cbody⟩, hs⟩ := Option.isSome_iff_exists.mp hstripC
   have hlenbs : cbs.length = nP + nF := Expr.stripPis_length _ hs
   obtain ⟨b, hb⟩ : ∃ b, cbs[nP + i]? = some b :=
@@ -238,16 +238,16 @@ theorem directFieldTele_props {cty : Expr} {nP nF i : Nat}
     rw [List.getD_eq_getElem?_getD, hb]
     rfl
   have hbf : b.1.hasFvar = false :=
-    (Lech.stripPis_not_hasFvar _ hs hCf).1 b (List.mem_of_getElem? hb)
+    (ConLeche.stripPis_not_hasFvar _ hs hCf).1 b (List.mem_of_getElem? hb)
   have hbb : b.1.looseBVarsBounded (nP + i) = true := by
-    have := Lech.stripPis_binder_bounded (nP + nF) hs hCb (nP + i) b hb
+    have := ConLeche.stripPis_binder_bounded (nP + nF) hs hCb (nP + i) b hb
     rwa [Nat.zero_add] at this
-  have htele : Lech.directFieldTeleOf cty nP nF i = (b.1.piBinders).1 := by
-    unfold Lech.directFieldTeleOf
+  have htele : ConLeche.directFieldTeleOf cty nP nF i = (b.1.piBinders).1 := by
+    unfold ConLeche.directFieldTeleOf
     rw [hs]
     simp only [List.getD_eq_getElem?_getD, hb, Option.getD_some]
-  have hidx : Lech.directFieldIdxOf cty nP nF i = (b.1.piBinders).2.getAppArgs.drop nP := by
-    unfold Lech.directFieldIdxOf
+  have hidx : ConLeche.directFieldIdxOf cty nP nF i = (b.1.piBinders).2.getAppArgs.drop nP := by
+    unfold ConLeche.directFieldIdxOf
     rw [hs]
     simp only [List.getD_eq_getElem?_getD, hb, Option.getD_some]
   obtain ⟨hk, hpf, hpb⟩ := Expr.piBinders_props b.1 (nP + i) hbf hbb
@@ -255,10 +255,10 @@ theorem directFieldTele_props {cty : Expr} {nP nF i : Nat}
   refine ⟨hk, ?_⟩
   intro e he
   have hmem : e ∈ (b.1.piBinders).2.getAppArgs := List.mem_of_mem_drop he
-  exact ⟨Lech.hasFvar_getAppArgs hpf e hmem, Lech.looseBVarsBounded_getAppArgs hpb e hmem⟩
+  exact ⟨ConLeche.hasFvar_getAppArgs hpf e hmem, ConLeche.looseBVarsBounded_getAppArgs hpb e hmem⟩
 
 /-- **`directIdxAt`, instantiated at the recursor's frame under the
-field's own telescope** — `Lech.instSeq_directIdxAt` with the
+field's own telescope** — `ConLeche.instSeq_directIdxAt` with the
 telescope's `j` openers below the frame (task #202). -/
 theorem instSeq_directIdxAtM (P X F I A : List Expr) {nP o nF l i j : Nat} {e : Expr}
     (hP : P.length = nP) (hX : X.length = o) (hF : F.length = nF) (hI : I.length = l)
@@ -267,7 +267,7 @@ theorem instSeq_directIdxAtM (P X F I A : List Expr) {nP o nF l i j : Nat} {e : 
     (hclF : ∀ a ∈ F, a.looseBVarsBounded 0 = true)
     (hi : i ≤ nF) (heb : e.looseBVarsBounded (nP + i + j) = true) :
     Expr.instSeq (P ++ X ++ F ++ I ++ A) (nP + o + nF + l + j - 1)
-        (Lech.directIdxAt nF o i l j e)
+        (ConLeche.directIdxAt nF o i l j e)
       = Expr.instSeq (P ++ F.take i ++ A) (nP + i + j - 1) e := by
   have hl1 : (P ++ X ++ F ++ I).length = nP + o + nF + l := by
     simp [hP, hX, hF, hI]
@@ -276,9 +276,9 @@ theorem instSeq_directIdxAtM (P X F I A : List Expr) {nP o nF l i j : Nat} {e : 
     simp [hP, hF]
     omega
   have hcore : Expr.instSeq (P ++ X ++ F ++ I) (nP + o + nF + l + j - 1)
-      (Lech.directIdxAt nF o i l j e)
+      (ConLeche.directIdxAt nF o i l j e)
       = Expr.instSeq (P ++ F.take i) (nP + i + j - 1) e := by
-    unfold Lech.directIdxAt
+    unfold ConLeche.directIdxAt
     have hq : (e.liftLooseBVars (nF - i + l) j).looseBVarsBounded
         (P.length + (nF + l + j)) = true := by
       have := Expr.looseBVarsBounded_liftLooseBVars (nF - i + l) e (b := nP + i + j) (c := j) heb
@@ -286,7 +286,7 @@ theorem instSeq_directIdxAtM (P X F I A : List Expr) {nP o nF l i j : Nat} {e : 
     have h1 : Expr.instSeq (P ++ X) (nP + o + nF + l + j - 1)
         ((e.liftLooseBVars (nF - i + l) j).liftLooseBVars o (nF + l + j))
         = Expr.instSeq P (nP + nF + l + j - 1) (e.liftLooseBVars (nF - i + l) j) := by
-      have h := Lech.instSeq_liftLooseBVars_mid P X (c := nF + l + j) hclP hq
+      have h := ConLeche.instSeq_liftLooseBVars_mid P X (c := nF + l + j) hclP hq
       rw [hP, hX] at h
       rw [show nP + o + nF + l + j - 1 = nP + o + (nF + l + j) - 1 from by omega,
         show nP + nF + l + j - 1 = nP + (nF + l + j) - 1 from by omega]
@@ -304,7 +304,7 @@ theorem instSeq_directIdxAtM (P X F I A : List Expr) {nP o nF l i j : Nat} {e : 
         (e.liftLooseBVars (nF - i + l) j)
         = Expr.instSeq (P ++ F.take i) (nP + i + j - 1) e := by
       rw [hsplit2]
-      have := Lech.instSeq_liftLooseBVars_mid (P ++ F.take i) (F.drop i ++ I) (c := j) hcl2
+      have := ConLeche.instSeq_liftLooseBVars_mid (P ++ F.take i) (F.drop i ++ I) (c := j) hcl2
         (by rw [hl2]; exact heb)
       rw [hl2, hlen2] at this
       rw [show nP + nF + l + j - 1 = nP + i + (nF - i + l) + j - 1 from by omega]
@@ -346,7 +346,7 @@ theorem denoteP_ihIdxAtM {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o l i 
       (Expr.instSeq (S ++ openFvars (nP + i) j) (nP + i + j - 1) e) = some E) :
     denoteP m.acval env ψ (nP + o + nF + l + j)
         (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l) j)
-          (nP + o + nF + l + j - 1) (Lech.directIdxAt nF o i l j e))
+          (nP + o + nF + l + j - 1) (ConLeche.directIdxAt nF o i l j e))
       = some (ihIdxAtM nF o i l j E) := by
   have hclP : ∀ a ∈ P, a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
@@ -537,11 +537,11 @@ theorem denoteSpineP_ihIdx {m : EnvS2Core V env} {ψ : Name → Nat}
     {nP nF o l i j : Nat} {cty : Expr} {Eis : List AVExpr}
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
     (hstripC : (cty.stripPis (nP + nF)).isSome = true) (hi : i < nF)
-    (hj : j = (Lech.directFieldTeleOf cty nP nF i).length)
+    (hj : j = (ConLeche.directFieldTeleOf cty nP nF i).length)
     {S : List Expr} (hS : S.length = nP + i)
     (hidxS : ∀ (k : Nat) (x : Expr), S[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (heis : DenoteSpineP m.acval env ψ (nP + i + j)
-      ((Lech.directFieldIdxOf cty nP nF i).map
+      ((ConLeche.directFieldIdxOf cty nP nF i).map
         (Expr.instSeq (S ++ openFvars (nP + i) j) (nP + i + j - 1))) Eis)
     {P X F I : List Expr}
     (hP : P.length = nP) (hX : X.length = o) (hF : F.length = nF) (hI : I.length = l)
@@ -549,9 +549,9 @@ theorem denoteSpineP_ihIdx {m : EnvS2Core V env} {ψ : Name → Nat}
     (hidxF : ∀ (k : Nat) (x : Expr), F[k]? = some x →
       ∃ ty, x = Expr.fvar (nP + o + k) ty) :
     DenoteSpineP m.acval env ψ (nP + o + nF + l + j)
-      ((Lech.directFieldIdxOf cty nP nF i).map
+      ((ConLeche.directFieldIdxOf cty nP nF i).map
         (fun e => Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l) j)
-          (nP + o + nF + l + j - 1) (Lech.directIdxAt nF o i l j e)))
+          (nP + o + nF + l + j - 1) (ConLeche.directIdxAt nF o i l j e)))
       (Eis.map (ihIdxAtM nF o i l j)) := by
   refine DenoteSpineP.map_map heis ?_
   intro e E he hE
@@ -596,8 +596,8 @@ theorem frameIdx {P X F I : List Expr} {nP o nF : Nat}
 
 /-- `directTeleAt` keeps the telescope's length. -/
 theorem directTeleAt_length (nF o i l : Nat) (pw : PropWhen) (tele : List (Expr × BinderMeta)) :
-    (Lech.directTeleAt nF o i l pw tele).length = tele.length := by
-  unfold Lech.directTeleAt
+    (ConLeche.directTeleAt nF o i l pw tele).length = tele.length := by
+  unfold ConLeche.directTeleAt
   rw [List.length_map, List.length_range]
 
 /-- `directTeleAt`'s binder `k`: the telescope's own, its domain moved
@@ -605,10 +605,10 @@ to the `ih` binder's frame, its datum the elimination regime's (task
 #202 A2). -/
 theorem directTeleAt_getElem? {nF o i l k : Nat} {pw : PropWhen} {tele : List (Expr × BinderMeta)}
     {b : Expr × BinderMeta} (hb : tele[k]? = some b) :
-    (Lech.directTeleAt nF o i l pw tele)[k]?
-      = some (Lech.directIdxAt nF o i l k b.1, ⟨pw⟩) := by
+    (ConLeche.directTeleAt nF o i l pw tele)[k]?
+      = some (ConLeche.directIdxAt nF o i l k b.1, ⟨pw⟩) := by
   have hk : k < tele.length := (List.getElem?_eq_some_iff.mp hb).1
-  unfold Lech.directTeleAt
+  unfold ConLeche.directTeleAt
   rw [List.getElem?_map,
     List.getElem?_eq_getElem (show k < (List.range tele.length).length from by
       rw [List.length_range]; exact hk), List.getElem_range]
@@ -833,7 +833,7 @@ theorem denoteP_instSeq_mkLamsOf {m : EnvS2Core V env} {ψ : Name → Nat} :
       rfl
     show denoteP m.acval env ψ D
       (Expr.instSeq L (D - 1) (.lam ty (Expr.mkLamsOf tele body) mt)) = _
-    rw [Lech.instSeq_lam L (D - 1) _ _ _ (by omega),
+    rw [ConLeche.instSeq_lam L (D - 1) _ _ _ (by omega),
       instSeq_idx_congr (sp := L) (t := D - 1 + 1) (t' := D) (Expr.mkLamsOf tele body) hnil,
       denoteP_lam, hpty, hY, hIH]
     show some (AVExpr.lam (pwBit ψ mt.pw) p.2 (mkLamsAV tl' B)) = some (mkLamsAV (p :: tl') B)
@@ -937,15 +937,15 @@ finitary field: the telescope is empty and this is the old
 `eisRead`). -/
 def FieldReadAt {env : Env} (m : EnvS2Core V env) (ψ : Name → Nat) (nP nF i : Nat) (cty : Expr)
     (fvs0 : List Expr) (tl : List (Nat × Nat × AVExpr)) (Eis : List AVExpr) : Prop :=
-  tl.length = (Lech.directFieldTeleOf cty nP nF i).length ∧
+  tl.length = (ConLeche.directFieldTeleOf cty nP nF i).length ∧
   (∀ (k : Nat) (b : Expr × BinderMeta) (p : Nat × Nat × AVExpr),
-    (Lech.directFieldTeleOf cty nP nF i)[k]? = some b → tl[k]? = some p →
+    (ConLeche.directFieldTeleOf cty nP nF i)[k]? = some b → tl[k]? = some p →
     p.1 = 0 ∧ p.2.1 = pwBit ψ b.2.pw ∧
       denoteP m.acval env ψ (nP + i + k)
           (Expr.instSeq (fvs0.take (nP + i) ++ openFvars (nP + i) k) (nP + i + k - 1) b.1)
         = some p.2.2) ∧
   DenoteSpineP m.acval env ψ (nP + i + tl.length)
-    ((Lech.directFieldIdxOf cty nP nF i).map
+    ((ConLeche.directFieldIdxOf cty nP nF i).map
       (Expr.instSeq (fvs0.take (nP + i) ++ openFvars (nP + i) tl.length)
         (nP + i + tl.length - 1))) Eis
 
@@ -970,17 +970,17 @@ theorem fieldReadAt_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {lps
   obtain ⟨x, hx⟩ : ∃ x, fvs0[nP + i]? = some x :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlen0]; omega)⟩
   obtain ⟨b, hb⟩ : ∃ b, cbs[nP + i]? = some b :=
-    ⟨_, List.getElem?_eq_getElem (by rw [Lech.Expr.stripPis_length _ hst]; omega)⟩
+    ⟨_, List.getElem?_eq_getElem (by rw [ConLeche.Expr.stripPis_length _ hst]; omega)⟩
   have hbd : cbs.getD (nP + i) default = b := by
     rw [List.getD_eq_getElem?_getD, hb]
     rfl
-  have htele : Lech.directFieldTeleOf c.2.2.1 nP c.2.1 i = (b.1.piBinders).1 := by
-    unfold Lech.directFieldTeleOf
+  have htele : ConLeche.directFieldTeleOf c.2.2.1 nP c.2.1 i = (b.1.piBinders).1 := by
+    unfold ConLeche.directFieldTeleOf
     rw [hst]
     simp only [List.getD_eq_getElem?_getD, hb, Option.getD_some]
-  have hidxOf : Lech.directFieldIdxOf c.2.2.1 nP c.2.1 i
+  have hidxOf : ConLeche.directFieldIdxOf c.2.2.1 nP c.2.1 i
       = (b.1.piBinders).2.getAppArgs.drop nP := by
-    unfold Lech.directFieldIdxOf
+    unfold ConLeche.directFieldIdxOf
     rw [hst]
     simp only [List.getD_eq_getElem?_getD, hb, Option.getD_some]
   have hS : (fvs0.take (nP + i)).length = nP + i := by
@@ -1056,12 +1056,12 @@ theorem denoteP_ihDom {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o l i : N
       ∃ ty, x = Expr.fvar (nP + o + nF + k) ty) :
     denoteP m.acval env ψ (nP + o + nF + l)
         (Expr.instSeq (P ++ X ++ F ++ I) (nP + o + nF + l - 1)
-          (Expr.mkPisOf (Lech.directTeleAt nF o i l pw (Lech.directFieldTeleOf cty nP nF i))
-            (Expr.mkAppN (.bvar (nF + o - 1 + l + (Lech.directFieldTeleOf cty nP nF i).length))
-              ((Lech.directFieldIdxOf cty nP nF i).map
-                  (Lech.directIdxAt nF o i l (Lech.directFieldTeleOf cty nP nF i).length) ++
-                [Expr.mkAppN (.bvar (nF - 1 - i + l + (Lech.directFieldTeleOf cty nP nF i).length))
-                  (Lech.directTeleVars (Lech.directFieldTeleOf cty nP nF i).length)]))))
+          (Expr.mkPisOf (ConLeche.directTeleAt nF o i l pw (ConLeche.directFieldTeleOf cty nP nF i))
+            (Expr.mkAppN (.bvar (nF + o - 1 + l + (ConLeche.directFieldTeleOf cty nP nF i).length))
+              ((ConLeche.directFieldIdxOf cty nP nF i).map
+                  (ConLeche.directIdxAt nF o i l (ConLeche.directFieldTeleOf cty nP nF i).length) ++
+                [Expr.mkAppN (.bvar (nF - 1 - i + l + (ConLeche.directFieldTeleOf cty nP nF i).length))
+                  (ConLeche.directTeleVars (ConLeche.directFieldTeleOf cty nP nF i).length)]))))
       = some (ihDomAV nF o i l (rebit (pwBit ψ pw) tl) Eis) := by
   obtain ⟨hlenTl, hbind, hspSrc⟩ := hfr
   obtain ⟨hlen0, hidx0, hcl0, hw0⟩ := opening_vars hop0 hCf
@@ -1084,21 +1084,21 @@ theorem denoteP_ihDom {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o l i : N
   have hLidx := frameIdx hP hX hF hidxP hidxX hidxF hidxI
   -- the frame under the telescope's openers
   have hlenLA : (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-      (Lech.directFieldTeleOf cty nP nF i).length).length
-      = nP + o + nF + l + (Lech.directFieldTeleOf cty nP nF i).length := by
+      (ConLeche.directFieldTeleOf cty nP nF i).length).length
+      = nP + o + nF + l + (ConLeche.directFieldTeleOf cty nP nF i).length := by
     rw [List.length_append, hlenL, openFvars_length]
   have hidxLA : ∀ (k : Nat) (x : Expr),
       (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-        (Lech.directFieldTeleOf cty nP nF i).length)[k]? = some x →
+        (ConLeche.directFieldTeleOf cty nP nF i).length)[k]? = some x →
       ∃ ty, x = Expr.fvar k ty := by
     intro k x hx
     by_cases hk : k < nP + o + nF + l
     · rw [List.getElem?_append_left (by rw [hlenL]; omega)] at hx
       exact hLidx k x hx
     · rw [List.getElem?_append_right (by rw [hlenL]; omega), hlenL] at hx
-      have hlt : k - (nP + o + nF + l) < (Lech.directFieldTeleOf cty nP nF i).length := by
+      have hlt : k - (nP + o + nF + l) < (ConLeche.directFieldTeleOf cty nP nF i).length := by
         rcases Nat.lt_or_ge (k - (nP + o + nF + l))
-          (Lech.directFieldTeleOf cty nP nF i).length with h | h
+          (ConLeche.directFieldTeleOf cty nP nF i).length with h | h
         · exact h
         · rw [List.getElem?_eq_none (by rw [openFvars_length]; omega)] at hx
           exact nomatch hx
@@ -1106,26 +1106,26 @@ theorem denoteP_ihDom {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o l i : N
       obtain rfl := (Option.some.inj hx).symm
       exact ⟨.sort .zero, by congr 1; omega⟩
   have hclLA : ∀ a ∈ P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-      (Lech.directFieldTeleOf cty nP nF i).length, a.looseBVarsBounded 0 = true := by
+      (ConLeche.directFieldTeleOf cty nP nF i).length, a.looseBVarsBounded 0 = true := by
     intro a ha
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
     obtain ⟨ty, rfl⟩ := hidxLA q a hq
     rfl
-  have hbvarA : ∀ q : Nat, q < nP + o + nF + l + (Lech.directFieldTeleOf cty nP nF i).length →
-      denoteP m.acval env ψ (nP + o + nF + l + (Lech.directFieldTeleOf cty nP nF i).length)
+  have hbvarA : ∀ q : Nat, q < nP + o + nF + l + (ConLeche.directFieldTeleOf cty nP nF i).length →
+      denoteP m.acval env ψ (nP + o + nF + l + (ConLeche.directFieldTeleOf cty nP nF i).length)
           (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-              (Lech.directFieldTeleOf cty nP nF i).length)
-            (nP + o + nF + l + (Lech.directFieldTeleOf cty nP nF i).length - 1) (Expr.bvar q))
+              (ConLeche.directFieldTeleOf cty nP nF i).length)
+            (nP + o + nF + l + (ConLeche.directFieldTeleOf cty nP nF i).length - 1) (Expr.bvar q))
         = some (AVExpr.bvar q) := by
     intro q hq
     have hb := Expr.instSeq_bvar (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-      (Lech.directFieldTeleOf cty nP nF i).length)
-      (nP + o + nF + l + (Lech.directFieldTeleOf cty nP nF i).length - 1) q hclLA (by omega)
+      (ConLeche.directFieldTeleOf cty nP nF i).length)
+      (nP + o + nF + l + (ConLeche.directFieldTeleOf cty nP nF i).length - 1) q hclLA (by omega)
       (by rw [hlenLA]; omega)
     obtain ⟨ty, hy⟩ := hidxLA _ _ hb
     rw [hy, denoteP_fvar,
-      show nP + o + nF + l + (Lech.directFieldTeleOf cty nP nF i).length - 1 -
-        (nP + o + nF + l + (Lech.directFieldTeleOf cty nP nF i).length - 1 - q) = q from by omega]
+      show nP + o + nF + l + (ConLeche.directFieldTeleOf cty nP nF i).length - 1 -
+        (nP + o + nF + l + (ConLeche.directFieldTeleOf cty nP nF i).length - 1 - q) = q from by omega]
   unfold ihDomAV
   rw [rebit_length, hlenTl]
   refine denoteP_instSeq_mkPisOf _ (ihTeleAtR nF o i l (rebit (pwBit ψ pw) tl)) _ _ (P ++ X ++ F ++ I)
@@ -1133,10 +1133,10 @@ theorem denoteP_ihDom {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o l i : N
     (by rw [ihTeleAtR_length, rebit_length, directTeleAt_length, hlenTl]) ?_ ?_
   · -- the telescope, binderwise
     intro k b p hb hp
-    have hk : k < (Lech.directFieldTeleOf cty nP nF i).length := by
-      rw [← directTeleAt_length nF o i l pw (Lech.directFieldTeleOf cty nP nF i)]
+    have hk : k < (ConLeche.directFieldTeleOf cty nP nF i).length := by
+      rw [← directTeleAt_length nF o i l pw (ConLeche.directFieldTeleOf cty nP nF i)]
       exact (List.getElem?_eq_some_iff.mp hb).1
-    obtain ⟨b₀, hb₀⟩ : ∃ b₀, (Lech.directFieldTeleOf cty nP nF i)[k]? = some b₀ :=
+    obtain ⟨b₀, hb₀⟩ : ∃ b₀, (ConLeche.directFieldTeleOf cty nP nF i)[k]? = some b₀ :=
       ⟨_, List.getElem?_eq_getElem hk⟩
     rw [directTeleAt_getElem? (pw := pw) hb₀] at hb
     obtain rfl := (Option.some.inj hb).symm
@@ -1148,25 +1148,25 @@ theorem denoteP_ihDom {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o l i : N
     obtain ⟨hef, heb⟩ := hprops.1 k b₀ hb₀
     exact ⟨h1, rfl, denoteP_ihIdxAtM hef heb (Nat.le_of_lt hi) hS hidxS hP hX hF hI hidxP hidxF h3⟩
   · -- the motive at the field's readings and the field at its telescope
-    rw [directTeleAt_length nF o i l pw (Lech.directFieldTeleOf cty nP nF i)]
+    rw [directTeleAt_length nF o i l pw (ConLeche.directFieldTeleOf cty nP nF i)]
     have hspI := denoteSpineP_ihIdx (m := m) (ψ := ψ) (o := o) (l := l) hCf hCb hstripC hi rfl
       hS hidxS (by rw [hlenTl] at hspSrc; exact hspSrc) hP hX hF hI hidxP hidxF
     have hfieldApp : denoteP m.acval env ψ
-        (nP + o + nF + l + (Lech.directFieldTeleOf cty nP nF i).length)
+        (nP + o + nF + l + (ConLeche.directFieldTeleOf cty nP nF i).length)
           (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
-              (Lech.directFieldTeleOf cty nP nF i).length)
-            (nP + o + nF + l + (Lech.directFieldTeleOf cty nP nF i).length - 1)
-            (Expr.mkAppN (.bvar (nF - 1 - i + l + (Lech.directFieldTeleOf cty nP nF i).length))
-              (Lech.directTeleVars (Lech.directFieldTeleOf cty nP nF i).length)))
+              (ConLeche.directFieldTeleOf cty nP nF i).length)
+            (nP + o + nF + l + (ConLeche.directFieldTeleOf cty nP nF i).length - 1)
+            (Expr.mkAppN (.bvar (nF - 1 - i + l + (ConLeche.directFieldTeleOf cty nP nF i).length))
+              (ConLeche.directTeleVars (ConLeche.directFieldTeleOf cty nP nF i).length)))
         = some (AVExpr.mkAppN
-            (.bvar (nF - 1 - i + l + (Lech.directFieldTeleOf cty nP nF i).length))
-            (teleVarsAV (Lech.directFieldTeleOf cty nP nF i).length)) := by
+            (.bvar (nF - 1 - i + l + (ConLeche.directFieldTeleOf cty nP nF i).length))
+            (teleVarsAV (ConLeche.directFieldTeleOf cty nP nF i).length)) := by
       rw [Expr.instSeq_mkAppN]
       refine denoteP_mkAppN ?_ (hbvarA _ (by omega))
-      unfold Lech.directTeleVars teleVarsAV
+      unfold ConLeche.directTeleVars teleVarsAV
       rw [List.map_map]
       simp only [Function.comp_def]
-      exact DenoteSpineP.of_map (List.range (Lech.directFieldTeleOf cty nP nF i).length)
+      exact DenoteSpineP.of_map (List.range (ConLeche.directFieldTeleOf cty nP nF i).length)
         (fun k hk => hbvarA _ (by rw [List.mem_range] at hk; omega))
     rw [Expr.instSeq_mkAppN, List.map_append, List.map_map, List.map_cons, List.map_nil]
     simp only [Function.comp_def]
@@ -1197,8 +1197,8 @@ theorem denoteP_ihPis {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o : Nat} 
           ∃ ty, x = Expr.fvar (nP + o + nF + k) ty) ∧
         denoteP m.acval env ψ (nP + o + nF + l)
             (Expr.instSeq (P ++ X ++ F ++ I) (nP + o + nF + l - 1)
-              (Lech.directIhPis nF o pw (Lech.directFieldTeleOf cty nP nF)
-                (Lech.directFieldIdxOf cty nP nF) is l body))
+              (ConLeche.directIhPis nF o pw (ConLeche.directFieldTeleOf cty nP nF)
+                (ConLeche.directFieldIdxOf cty nP nF) is l body))
           = (denoteP m.acval env ψ (nP + o + nF + l + is.length)
               (Expr.instSeq (P ++ X ++ F ++ I') (nP + o + nF + l + is.length - 1) body)).map
               (ihPisAV nF o (pwBit ψ pw) tls Eiss is l) := by
@@ -1207,7 +1207,7 @@ theorem denoteP_ihPis {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o : Nat} 
   | nil =>
     intro l body I _ _ hlenI hidxI
     refine ⟨I, by simp [hlenI], hidxI, ?_⟩
-    simp only [Lech.directIhPis, List.length_nil, Nat.add_zero, ihPisAV]
+    simp only [ConLeche.directIhPis, List.length_nil, Nat.add_zero, ihPisAV]
     cases denoteP m.acval env ψ (nP + o + nF + l)
       (Expr.instSeq (P ++ X ++ F ++ I) (nP + o + nF + l - 1) body) <;> rfl
   | cons i is ihs =>
@@ -1228,7 +1228,7 @@ theorem denoteP_ihPis {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o : Nat} 
       exact denoteP_erasedEq (Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl rest)
         (show Expr.ErasedEq (Expr.fvar (nP + o + nF + l) ann)
           (Expr.fvar (nP + o + nF + l) (.sort .zero)) from rfl)) dd
-    simp only [Lech.directIhPis]
+    simp only [ConLeche.directIhPis]
     rw [Expr.instSeq_forallE (P ++ X ++ F ++ I) (nP + o + nF + l - 1) _ _ _
         (by rw [hlenL]; omega),
       show nP + o + nF + l - 1 + 1 = nP + o + nF + l from by omega,
@@ -1334,11 +1334,11 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
     {nP nF nIdx : Nat} {pw : PropWhen} {cty mty : Expr} {extras : List Expr}
     {recIdx : List Nat} {Eiss : List (List AVExpr)}
     {tls : List (List (Nat × Nat × AVExpr))}
-    (hmin : Lech.directMinorTyR C lps nP nF extras.length pw cty recIdx = some mty)
+    (hmin : ConLeche.directMinorTyR C lps nP nF extras.length pw cty recIdx = some mty)
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
     (hresid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
       cty.stripPis (nP + nF)
-        = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (Lech.directPsAt nF nP ++ es)) ∧
+        = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (ConLeche.directPsAt nF nP ++ es)) ∧
       es.length = nIdx)
     {ds : List (Nat × Nat × AVExpr)} {Es : List AVExpr}
     (hCread : denoteP m.acval env ψ 0 cty
@@ -1356,20 +1356,20 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
     denoteP m.acval env ψ (nP + extras.length)
         (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) mty)
       = some (minorAVAtR m C ψ nP nF (pwBit ψ pw) extras.length ds Es recIdx tls Eiss) := by
-  obtain ⟨cbs, fbs, crest0, res, hsC, hsF, hrep⟩ := Lech.directMinorTyR_unfold hmin
+  obtain ⟨cbs, fbs, crest0, res, hsC, hsF, hrep⟩ := ConLeche.directMinorTyR_unfold hmin
   obtain ⟨cbs', es, hsAll, hlenes⟩ := hresid
   have hstripC : (cty.stripPis (nP + nF)).isSome = true := by rw [hsAll]; rfl
-  have hres : res = Expr.mkAppN (.const T (lps.map .param)) (Lech.directPsAt nF nP ++ es) := by
-    have := (Lech.stripPis_append nP hsC hsF).symm.trans hsAll
+  have hres : res = Expr.mkAppN (.const T (lps.map .param)) (ConLeche.directPsAt nF nP ++ es) := by
+    have := (ConLeche.stripPis_append nP hsC hsF).symm.trans hsAll
     exact (Prod.mk.injEq _ _ _ _ ▸ Option.some.inj this).2
   subst hres
   have hargs : ((Expr.mkAppN (.const T (lps.map .param))
-      (Lech.directPsAt nF nP ++ es)).getAppArgs).drop nP = es := by
+      (ConLeche.directPsAt nF nP ++ es)).getAppArgs).drop nP = es := by
     rw [Expr.getAppArgs_mkAppN, show (Expr.const T (lps.map .param)).getAppArgs = [] from rfl,
-      List.nil_append, List.drop_left' (by simp [Lech.directPsAt])]
+      List.nil_append, List.drop_left' (by simp [ConLeche.directPsAt])]
   rw [hargs] at hrep
   have hesMem : ∀ e ∈ es, e ∈ (Expr.mkAppN (.const T (lps.map .param))
-      (Lech.directPsAt nF nP ++ es)).getAppArgs := by
+      (ConLeche.directPsAt nF nP ++ es)).getAppArgs := by
     intro e he
     rw [Expr.getAppArgs_mkAppN]
     exact List.mem_append_right _ (List.mem_append_right _ he)
@@ -1377,9 +1377,9 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
     intro e he
     have hb := Expr.stripPis_body_bounded (nP + nF) hsAll hCb
     rw [Nat.zero_add] at hb
-    exact Lech.looseBVarsBounded_getAppArgs hb e (hesMem e he)
+    exact ConLeche.looseBVarsBounded_getAppArgs hb e (hesMem e he)
   have hesF : ∀ e ∈ es, e.hasFvar = false := fun e he =>
-    Lech.hasFvar_getAppArgs (Lech.stripPis_not_hasFvar (nP + nF) hsAll hCf).2 e (hesMem e he)
+    ConLeche.hasFvar_getAppArgs (ConLeche.stripPis_not_hasFvar (nP + nF) hsAll hCf).2 e (hesMem e he)
   have hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
     obtain ⟨ty, rfl⟩ := hidxT q a hq
@@ -1391,9 +1391,9 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
   have hcb0 : crest0.looseBVarsBounded nP = true := by
     have := Expr.stripPis_body_bounded nP hsC hCb
     rwa [Nat.zero_add] at this
-  have hmin' := Lech.replacePisPw_instSeq (tfvs ++ extras) (nP + extras.length - 1)
+  have hmin' := ConLeche.replacePisPw_instSeq (tfvs ++ extras) (nP + extras.length - 1)
     (by simp [hlenT]; omega) hrep
-  rw [Lech.instSeq_minorTele tfvs extras hlenT hclT hcb0] at hmin'
+  rw [ConLeche.instSeq_minorTele tfvs extras hlenT hclT hcb0] at hmin'
   obtain ⟨hcread, hcw, hcstrip⟩ := ctorResidual hCf hCread hlenD hsC hstripC hlenT hidxT hspW
   obtain ⟨xFvs, xrest, hopX⟩ := openPisAtFvars_of_stripPis_isSome nF (nP + extras.length) hcstrip
   have hcreadO := ctorResidual_read_lift hcread hcw hlenD extras.length
@@ -1438,12 +1438,12 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
       (Expr.instSeq (tfvs ++ extras ++ xFvs) (nP + extras.length + nF - 1)
         (Expr.mkAppN (.bvar (nF + extras.length - 1))
           (es.map (Expr.liftLooseBVars extras.length nF) ++
-            [Lech.directCtorSpineAt C lps extras.length nP nF])))
+            [ConLeche.directCtorSpineAt C lps extras.length nP nF])))
       = some (AVExpr.mkAppN (.bvar (nF + extras.length - 1))
           ((Es.map fun E => E.liftN extras.length nF) ++
             [AVExpr.mkAppN (m.acval C ψ)
               (paramBvarsAt nP (nP + extras.length + nF) ++ fieldBvars nF)])) := by
-    rw [← hcomb, Lech.instSeq_minorBodyI_at tfvs extras xFvs hlenT hlenX hclT hclE hclX hhead hes]
+    rw [← hcomb, ConLeche.instSeq_minorBodyI_at tfvs extras xFvs hlenT hlenX hclT hclE hclX hhead hes]
     have hspI := denoteSpineP_idxArgs_lift hfT hlpsT (o := extras.length) hsF hlenT hlenX hclT
       hidxX hcreadO hlenD hlenE hlenes
     have hspine := denoteP_famSpine_at (m := m) (ψ := ψ) hfC hlpsC (o := extras.length) hlenT
@@ -1453,16 +1453,16 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
   -- the conclusion is closed and bounded by the field frame
   have hcoreF : (Expr.mkAppN (Expr.bvar (nF + extras.length - 1))
       (es.map (Expr.liftLooseBVars extras.length nF) ++
-        [Lech.directCtorSpineAt C lps extras.length nP nF])).hasFvar = false := by
-    refine Lech.hasFvar_mkAppN _ _ rfl ?_
+        [ConLeche.directCtorSpineAt C lps extras.length nP nF])).hasFvar = false := by
+    refine ConLeche.hasFvar_mkAppN _ _ rfl ?_
     intro x hx
     rcases List.mem_append.mp hx with h | h
     · obtain ⟨e, he, rfl⟩ := List.mem_map.mp h
-      rw [Lech.hasFvar_liftLooseBVars]
+      rw [ConLeche.hasFvar_liftLooseBVars]
       exact hesF e he
     · rw [List.mem_singleton] at h
       subst h
-      refine Lech.hasFvar_mkAppN _ _ rfl ?_
+      refine ConLeche.hasFvar_mkAppN _ _ rfl ?_
       intro y hy
       rcases List.mem_append.mp hy with h1 | h1
       · obtain ⟨k, -, rfl⟩ := List.mem_map.mp h1
@@ -1471,9 +1471,9 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
         rfl
   have hcoreB : (Expr.mkAppN (Expr.bvar (nF + extras.length - 1))
       (es.map (Expr.liftLooseBVars extras.length nF) ++
-        [Lech.directCtorSpineAt C lps extras.length nP nF])).looseBVarsBounded
+        [ConLeche.directCtorSpineAt C lps extras.length nP nF])).looseBVarsBounded
       (nP + extras.length + nF) = true := by
-    refine Lech.looseBVarsBounded_mkAppN (by simp [Expr.looseBVarsBounded]; omega) ?_
+    refine ConLeche.looseBVarsBounded_mkAppN (by simp [Expr.looseBVarsBounded]; omega) ?_
     intro x hx
     rcases List.mem_append.mp hx with h | h
     · obtain ⟨e, he, rfl⟩ := List.mem_map.mp h
@@ -1482,12 +1482,12 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
       exact Expr.looseBVarsBounded_mono (by omega) hb
     · rw [List.mem_singleton] at h
       subst h
-      unfold Lech.directCtorSpineAt
-      refine Lech.looseBVarsBounded_mkAppN rfl ?_
+      unfold ConLeche.directCtorSpineAt
+      refine ConLeche.looseBVarsBounded_mkAppN rfl ?_
       intro y hy
       rcases List.mem_append.mp hy with h1 | h1
       · obtain ⟨k, hk, rfl⟩ := List.mem_map.mp h1
-        have : k < nP := by simpa [Lech.directPsAt] using hk
+        have : k < nP := by simpa [ConLeche.directPsAt] using hk
         simp [Expr.looseBVarsBounded]
         omega
       · obtain ⟨k, hk, rfl⟩ := List.mem_map.mp h1
@@ -1500,7 +1500,7 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
     (tls := tls) hop0 hCf hCb hstripC ho hlenT rfl hlenX hidxT hidxE hidxX recIdx 0
     ((Expr.mkAppN (Expr.bvar (nF + extras.length - 1))
       (es.map (Expr.liftLooseBVars extras.length nF) ++
-        [Lech.directCtorSpineAt C lps extras.length nP nF])).liftLooseBVars recIdx.length 0)
+        [ConLeche.directCtorSpineAt C lps extras.length nP nF])).liftLooseBVars recIdx.length 0)
     [] hrecBnd (fun i hi => hfr i hi fvs0 crest00 hop0) rfl
     (by intro k x hx; simp at hx)
   simp only [List.append_nil, Nat.add_zero, Nat.zero_add] at hIH hlenI'
@@ -1509,14 +1509,14 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
       (Expr.instSeq (tfvs ++ extras ++ xFvs ++ I') (nP + extras.length + nF + recIdx.length - 1)
         ((Expr.mkAppN (Expr.bvar (nF + extras.length - 1))
           (es.map (Expr.liftLooseBVars extras.length nF) ++
-            [Lech.directCtorSpineAt C lps extras.length nP nF])).liftLooseBVars
+            [ConLeche.directCtorSpineAt C lps extras.length nP nF])).liftLooseBVars
           recIdx.length 0))
       = some ((AVExpr.mkAppN (.bvar (nF + extras.length - 1))
           ((Es.map fun E => E.liftN extras.length nF) ++
             [AVExpr.mkAppN (m.acval C ψ)
               (paramBvarsAt nP (nP + extras.length + nF) ++ fieldBvars nF)])).liftN
           recIdx.length 0) := by
-    have hmid := Lech.instSeq_liftLooseBVars_mid (tfvs ++ extras ++ xFvs) I' (c := 0) hcl3
+    have hmid := ConLeche.instSeq_liftLooseBVars_mid (tfvs ++ extras ++ xFvs) I' (c := 0) hcl3
       (by rw [hlen3, Nat.add_zero]; exact hcoreB)
     rw [hlen3, hlenI', Nat.add_zero, Nat.add_zero] at hmid
     rw [hmid]
@@ -1542,7 +1542,7 @@ theorem denoteP_minorsPisR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} 
     ∀ {ctors : List (Name × Nat × Expr × List Nat)} {cds : List CtorDatumR}
       {body mins : Expr} {extras : List Expr},
       CtorReadsR m ψ T lps nP nIdx ctors cds →
-      Lech.directMinorsPisR lps nP pw ctors extras.length body = some mins →
+      ConLeche.directMinorsPisR lps nP pw ctors extras.length body = some mins →
       0 < extras.length →
       (∀ (k : Nat) (x : Expr), extras[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty) →
       ∃ extras' : List Expr, extras'.length = ctors.length + extras.length ∧
@@ -1556,7 +1556,7 @@ theorem denoteP_minorsPisR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} 
     cases hcr with
     | nil =>
     refine ⟨extras, by simp, hidxE, ?_⟩
-    rw [Lech.directMinorsPisR_nil hmin]
+    rw [ConLeche.directMinorsPisR_nil hmin]
     simp only [List.length_nil, Nat.add_zero, fixMinorsData]
     cases denoteP m.acval env ψ (nP + extras.length)
       (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) body) <;> rfl
@@ -1569,7 +1569,7 @@ theorem denoteP_minorsPisR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} 
     have hrI : recIdx' = recIdx := hc.recIdx
     subst hC' hnF' hrI
     obtain ⟨ci, hfC, hlpsC⟩ := hc.find
-    obtain ⟨mty, rest, hmty, hrest, rfl⟩ := Lech.directMinorsPisR_cons hmin
+    obtain ⟨mty, rest, hmty, hrest, rfl⟩ := ConLeche.directMinorsPisR_cons hmin
     have hlenTE : (tfvs ++ extras).length = nP + extras.length := by simp [hlenT]
     rw [Expr.instSeq_forallE (tfvs ++ extras) (nP + extras.length - 1) _ _ _ (by omega),
       show nP + extras.length - 1 + 1 = nP + extras.length from by omega,
@@ -1604,7 +1604,7 @@ theorem denoteP_minorsPisR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} 
         rw [← hmk]
         congr 1
         omega
-    have hrest' : Lech.directMinorsPisR lps nP pw cs (extras ++ [mkfv]).length body
+    have hrest' : ConLeche.directMinorsPisR lps nP pw cs (extras ++ [mkfv]).length body
         = some rest := by
       rw [List.length_append, List.length_singleton]; exact hrest
     obtain ⟨extras', hlenE', hidxE'', hread⟩ :=
@@ -1630,7 +1630,7 @@ theorem denoteP_minorsLamsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name}
     ∀ {ctors : List (Name × Nat × Expr × List Nat)} {cds : List CtorDatumR}
       {body mins : Expr} {extras : List Expr},
       CtorReadsR m ψ T lps nP nIdx ctors cds →
-      Lech.directMinorsLamsR lps nP pw ctors extras.length body = some mins →
+      ConLeche.directMinorsLamsR lps nP pw ctors extras.length body = some mins →
       0 < extras.length →
       (∀ (k : Nat) (x : Expr), extras[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty) →
       ∃ extras' : List Expr, extras'.length = ctors.length + extras.length ∧
@@ -1645,7 +1645,7 @@ theorem denoteP_minorsLamsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name}
     cases hcr with
     | nil =>
     refine ⟨extras, by simp, hidxE, ?_⟩
-    rw [Lech.directMinorsLamsR_nil hmin]
+    rw [ConLeche.directMinorsLamsR_nil hmin]
     simp only [List.length_nil, Nat.add_zero, fixMinorsData, List.map_nil]
     cases denoteP m.acval env ψ (nP + extras.length)
       (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) body) <;> rfl
@@ -1658,9 +1658,9 @@ theorem denoteP_minorsLamsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name}
     have hrI : recIdx' = recIdx := hc.recIdx
     subst hC' hnF' hrI
     obtain ⟨ci, hfC, hlpsC⟩ := hc.find
-    obtain ⟨mty, rest, hmty, hrest, rfl⟩ := Lech.directMinorsLamsR_cons hmin
+    obtain ⟨mty, rest, hmty, hrest, rfl⟩ := ConLeche.directMinorsLamsR_cons hmin
     have hlenTE : (tfvs ++ extras).length = nP + extras.length := by simp [hlenT]
-    rw [Lech.instSeq_lam (tfvs ++ extras) (nP + extras.length - 1) _ _ _ (by omega),
+    rw [ConLeche.instSeq_lam (tfvs ++ extras) (nP + extras.length - 1) _ _ _ (by omega),
       show nP + extras.length - 1 + 1 = nP + extras.length from by omega,
       denoteP_lam,
       denoteP_minorAtR hfT hlpsT hfC hlpsC hmty hc.hasFvar hc.bounded hc.resid hc.read hc.len
@@ -1693,7 +1693,7 @@ theorem denoteP_minorsLamsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name}
         rw [← hmk]
         congr 1
         omega
-    have hrest' : Lech.directMinorsLamsR lps nP pw cs (extras ++ [mkfv]).length body
+    have hrest' : ConLeche.directMinorsLamsR lps nP pw cs (extras ++ [mkfv]).length body
         = some rest := by
       rw [List.length_append, List.length_singleton]; exact hrest
     obtain ⟨extras', hlenE', hidxE'', hread⟩ :=
@@ -1717,7 +1717,7 @@ theorem denoteP_directRecTyR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
     {ctors : List (Name × Nat × Expr × List Nat)} {cds : List CtorDatumR}
     (hcr : CtorReadsR m ψ T lps nP nIdx ctors cds)
     {tty recTy : Expr}
-    (hgen : Lech.directRecTyR T lps elim large nP nIdx tty ctors = some recTy)
+    (hgen : ConLeche.directRecTyR T lps elim large nP nIdx tty ctors = some recTy)
     (hTf : tty.hasFvar = false) (hTb : tty.looseBVarsBounded 0 = true)
     (hstripT : (tty.stripPis (nP + nIdx)).isSome = true)
     {tfvs : List Expr} {trest : Expr} (hopT : openPisAtFvars nP tty 0 = some (tfvs, trest))
@@ -1725,15 +1725,15 @@ theorem denoteP_directRecTyR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
     (hTread : denoteP m.acval env ψ 0 tty = some (mkPisAV ppsAll (.sort w)))
     (hlenP : ppsAll.length = nP + nIdx) :
     denoteP m.acval env ψ 0 recTy
-      = some (mkPisAV (fixRecDataAV m T ψ nP nIdx (Lech.directElimLevel elim large)
+      = some (mkPisAV (fixRecDataAV m T ψ nP nIdx (ConLeche.directElimLevel elim large)
             (ppsAll.take nP) (ppsAll.drop nP) cds)
           (recConcAV cds.length nIdx)) := by
   obtain ⟨tbs, itele, motiveTy, major, minors, hsT, hmot, hmaj, hmin, hrec⟩ :=
-    Lech.directRecTyR_unfold hgen
+    ConLeche.directRecTyR_unfold hgen
   obtain ⟨hlenT, hidxT, hclT, hspW⟩ := opening_vars hopT hTf
   have hlenC : cds.length = ctors.length := hcr.length_eq
   generalize hn : ctors.length = n at hmaj hmin hlenC
-  generalize hℓ : Lech.directElimLevel elim large = ℓ at hrec hmaj hmin hmot ⊢
+  generalize hℓ : ConLeche.directElimLevel elim large = ℓ at hrec hmaj hmin hmot ⊢
   generalize hpw : Level.zeronessOf ℓ = pw at hrec hmaj hmin ⊢
   have hnil : tfvs = [] ∨ nP - 1 + 1 = nP := by
     rcases Nat.eq_zero_or_pos nP with h0 | hpos
@@ -1765,7 +1765,7 @@ theorem denoteP_directRecTyR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
       subst hx
       exact ⟨_, by rw [← hmfv, Nat.add_zero]⟩
     | succ k => simp at hx
-  have hmin' : Lech.directMinorsPisR lps nP pw ctors [mfv].length major = some minors := by
+  have hmin' : ConLeche.directMinorsPisR lps nP pw ctors [mfv].length major = some minors := by
     rw [List.length_singleton]; exact hmin
   obtain ⟨extras', hlenE', hidxE', hread⟩ :=
     denoteP_minorsPisR hfT hlpsT hlenT hidxT hspW hcr hmin' (by simp) hidxE
@@ -1789,9 +1789,9 @@ theorem denoteP_directRecTyR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
   rw [Nat.add_zero] at hhead
   have htb0 : itele.looseBVarsBounded nP = true := by
     have := Expr.stripPis_body_bounded nP hsT hTb; rwa [Nat.zero_add] at this
-  have hmaj' := Lech.replacePisPw_instSeq (tfvs ++ extras') (nP + 1 + n - 1)
+  have hmaj' := ConLeche.replacePisPw_instSeq (tfvs ++ extras') (nP + 1 + n - 1)
     (by rw [hlenTE]; omega) hmaj
-  have hres := Lech.instSeq_minorTele tfvs extras' hlenT hclT htb0
+  have hres := ConLeche.instSeq_minorTele tfvs extras' hlenT hclT htb0
   rw [hlenE', show nP + (n + 1) - 1 = nP + 1 + n - 1 from by omega] at hres
   rw [hres] at hmaj'
   obtain ⟨htread, htw, htstrip⟩ := ctorResidual hTf hTread hlenP hsT hstripT hlenT hidxT hspW
@@ -1813,21 +1813,21 @@ theorem denoteP_directRecTyR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
     · left; rw [h0] at hlenI; exact List.eq_nil_of_length_eq_zero hlenI
     · right; omega
   have hdom1 : Expr.instSeq (tfvs ++ extras') (nP + 1 + n - 1 + nIdx)
-      (Lech.directFamI T lps nP nIdx (n + 1) 0)
+      (ConLeche.directFamI T lps nP nIdx (n + 1) 0)
       = Expr.mkAppN (.const T (lps.map .param))
           (tfvs ++ (List.range nIdx).map fun k => Expr.bvar (nIdx - 1 - k)) := by
-    unfold Lech.directFamI
+    unfold ConLeche.directFamI
     rw [Expr.instSeq_mkAppN, List.map_append,
       Expr.instSeq_eq_self _ _ (e := Expr.const T (lps.map .param)) rfl,
       show nP + 1 + n - 1 + nIdx = (0 + (n + 1) + nIdx) + nP - 1 from by omega,
-      Lech.map_instSeq_directPsAt (tfvs ++ extras') (0 + (n + 1) + nIdx) nP hclTE
+      ConLeche.map_instSeq_directPsAt (tfvs ++ extras') (0 + (n + 1) + nIdx) nP hclTE
         (by rw [hlenTE]; omega),
       List.take_append_of_le_length (by omega), List.take_of_length_le (by omega),
-      directPsAt_zero, Lech.map_instSeq_fieldBvars_above (tfvs ++ extras') _ nIdx
+      directPsAt_zero, ConLeche.map_instSeq_fieldBvars_above (tfvs ++ extras') _ nIdx
         (by rw [hlenTE]; omega)]
   have hcod1 : Expr.instSeq (tfvs ++ extras') (nP + 1 + n - 1 + nIdx + 1)
-      (Expr.mkAppN (.bvar (nIdx + n + 1)) (Lech.directPsAt 1 nIdx ++ [.bvar 0]))
-      = Expr.mkAppN (.fvar nP tyM) (Lech.directPsAt 1 nIdx ++ [.bvar 0]) := by
+      (Expr.mkAppN (.bvar (nIdx + n + 1)) (ConLeche.directPsAt 1 nIdx ++ [.bvar 0]))
+      = Expr.mkAppN (.fvar nP tyM) (ConLeche.directPsAt 1 nIdx ++ [.bvar 0]) := by
     have hhead' : Expr.instSeq (tfvs ++ extras') (nP + 1 + n - 1 + nIdx + 1)
         (.bvar (nIdx + n + 1)) = Expr.fvar nP tyM := by
       have := Expr.instSeq_bvar (tfvs ++ extras') (nP + 1 + n - 1 + nIdx + 1) (nIdx + n + 1)
@@ -1840,27 +1840,27 @@ theorem denoteP_directRecTyR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
     · refine (List.map_congr_left ?_).trans (List.map_id _)
       intro a ha
       obtain ⟨k, hk, rfl⟩ := List.mem_map.mp ha
-      exact Lech.instSeq_bvar_lt _ _ _ (by rw [hlenTE]; omega)
+      exact ConLeche.instSeq_bvar_lt _ _ _ (by rw [hlenTE]; omega)
     · simp only [List.map_cons, List.map_nil]
-      rw [Lech.instSeq_bvar_lt _ _ _ (by rw [hlenTE]; omega)]
+      rw [ConLeche.instSeq_bvar_lt _ _ _ (by rw [hlenTE]; omega)]
   have hdom2 : Expr.instSeq ifvs (nIdx - 1) (Expr.mkAppN (.const T (lps.map .param))
       (tfvs ++ (List.range nIdx).map fun k => Expr.bvar (nIdx - 1 - k)))
       = Expr.mkAppN (.const T (lps.map .param)) (tfvs ++ ifvs) := by
     rw [Expr.instSeq_mkAppN, List.map_append,
       Expr.instSeq_eq_self _ _ (e := Expr.const T (lps.map .param)) rfl,
       map_instSeq_closed ifvs (nIdx - 1) hclT,
-      Lech.map_instSeq_fieldBvars ifvs nIdx hclI hlenI]
+      ConLeche.map_instSeq_fieldBvars ifvs nIdx hclI hlenI]
   have hcod2 : Expr.instSeq ifvs (nIdx - 1 + 1)
-      (Expr.mkAppN (.fvar nP tyM) (Lech.directPsAt 1 nIdx ++ [.bvar 0]))
+      (Expr.mkAppN (.fvar nP tyM) (ConLeche.directPsAt 1 nIdx ++ [.bvar 0]))
       = Expr.mkAppN (.fvar nP tyM) (ifvs ++ [.bvar 0]) := by
     rw [instSeq_idx_congr (sp := ifvs) (t := nIdx - 1 + 1) (t' := nIdx) _ hnilI,
       Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ (e := Expr.fvar nP tyM) rfl,
       List.map_append, map_instSeq_directPsAt_one ifvs nIdx hclI hlenI]
     simp only [List.map_cons, List.map_nil]
-    rw [Lech.instSeq_bvar_lt ifvs _ 0 (by omega)]
+    rw [ConLeche.instSeq_bvar_lt ifvs _ 0 (by omega)]
   have hbody : Expr.instSeq ifvs (nIdx - 1) (Expr.instSeq (tfvs ++ extras') (nP + 1 + n - 1 + nIdx)
-      (.forallE (Lech.directFamI T lps nP nIdx (n + 1) 0)
-        (Expr.mkAppN (.bvar (nIdx + n + 1)) (Lech.directPsAt 1 nIdx ++ [.bvar 0]))
+      (.forallE (ConLeche.directFamI T lps nP nIdx (n + 1) 0)
+        (Expr.mkAppN (.bvar (nIdx + n + 1)) (ConLeche.directPsAt 1 nIdx ++ [.bvar 0]))
         ⟨pw⟩))
       = .forallE (Expr.mkAppN (.const T (lps.map .param)) (tfvs ++ ifvs))
           (Expr.mkAppN (.fvar nP tyM) (ifvs ++ [.bvar 0])) ⟨pw⟩ := by
@@ -1937,8 +1937,8 @@ theorem denoteP_ihApp {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF n i : Nat
       ∃ ty, x = Expr.fvar (nP + (n + 1) + k) ty) :
     denoteP m.acval env ψ (nP + 1 + n + nF)
         (Expr.instSeq (P ++ X ++ F) (nP + n + nF)
-          (Lech.directIhApp recC (rlps.map .param) pw nP n nF i
-            (Lech.directFieldTeleOf cty nP nF i) (Lech.directFieldIdxOf cty nP nF i)))
+          (ConLeche.directIhApp recC (rlps.map .param) pw nP n nF i
+            (ConLeche.directFieldTeleOf cty nP nF i) (ConLeche.directFieldIdxOf cty nP nF i)))
       = some (ihAppAV (m.acval recC ψ) nP n nF i (rebit (pwBit ψ pw) tl) Eis) := by
   obtain ⟨hlenTl, hbind, hspSrc⟩ := hfr
   obtain ⟨hlen0, hidx0, hcl0, hw0⟩ := opening_vars hop0 hCf
@@ -1966,21 +1966,21 @@ theorem denoteP_ihApp {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF n i : Nat
     simpa using h
   -- the frame under the telescope's openers
   have hlenLA : (P ++ X ++ F ++ openFvars (nP + 1 + n + nF)
-      (Lech.directFieldTeleOf cty nP nF i).length).length
-      = nP + 1 + n + nF + (Lech.directFieldTeleOf cty nP nF i).length := by
+      (ConLeche.directFieldTeleOf cty nP nF i).length).length
+      = nP + 1 + n + nF + (ConLeche.directFieldTeleOf cty nP nF i).length := by
     rw [List.length_append, hlenL, openFvars_length]
   have hidxLA : ∀ (k : Nat) (x : Expr),
       (P ++ X ++ F ++ openFvars (nP + 1 + n + nF)
-        (Lech.directFieldTeleOf cty nP nF i).length)[k]? = some x →
+        (ConLeche.directFieldTeleOf cty nP nF i).length)[k]? = some x →
       ∃ ty, x = Expr.fvar k ty := by
     intro k x hx
     by_cases hk : k < nP + 1 + n + nF
     · rw [List.getElem?_append_left (by rw [hlenL]; omega)] at hx
       exact hLidx k x hx
     · rw [List.getElem?_append_right (by rw [hlenL]; omega), hlenL] at hx
-      have hlt : k - (nP + 1 + n + nF) < (Lech.directFieldTeleOf cty nP nF i).length := by
+      have hlt : k - (nP + 1 + n + nF) < (ConLeche.directFieldTeleOf cty nP nF i).length := by
         rcases Nat.lt_or_ge (k - (nP + 1 + n + nF))
-          (Lech.directFieldTeleOf cty nP nF i).length with h | h
+          (ConLeche.directFieldTeleOf cty nP nF i).length with h | h
         · exact h
         · rw [List.getElem?_eq_none (by rw [openFvars_length]; omega)] at hx
           exact nomatch hx
@@ -1988,26 +1988,26 @@ theorem denoteP_ihApp {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF n i : Nat
       obtain rfl := (Option.some.inj hx).symm
       exact ⟨.sort .zero, by congr 1; omega⟩
   have hclLA : ∀ a ∈ P ++ X ++ F ++ openFvars (nP + 1 + n + nF)
-      (Lech.directFieldTeleOf cty nP nF i).length, a.looseBVarsBounded 0 = true := by
+      (ConLeche.directFieldTeleOf cty nP nF i).length, a.looseBVarsBounded 0 = true := by
     intro a ha
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
     obtain ⟨ty, rfl⟩ := hidxLA q a hq
     rfl
-  have hbvarA : ∀ q : Nat, q < nP + 1 + n + nF + (Lech.directFieldTeleOf cty nP nF i).length →
-      denoteP m.acval env ψ (nP + 1 + n + nF + (Lech.directFieldTeleOf cty nP nF i).length)
+  have hbvarA : ∀ q : Nat, q < nP + 1 + n + nF + (ConLeche.directFieldTeleOf cty nP nF i).length →
+      denoteP m.acval env ψ (nP + 1 + n + nF + (ConLeche.directFieldTeleOf cty nP nF i).length)
           (Expr.instSeq (P ++ X ++ F ++ openFvars (nP + 1 + n + nF)
-              (Lech.directFieldTeleOf cty nP nF i).length)
-            (nP + 1 + n + nF + (Lech.directFieldTeleOf cty nP nF i).length - 1) (Expr.bvar q))
+              (ConLeche.directFieldTeleOf cty nP nF i).length)
+            (nP + 1 + n + nF + (ConLeche.directFieldTeleOf cty nP nF i).length - 1) (Expr.bvar q))
         = some (AVExpr.bvar q) := by
     intro q hq
     have hb := Expr.instSeq_bvar (P ++ X ++ F ++ openFvars (nP + 1 + n + nF)
-      (Lech.directFieldTeleOf cty nP nF i).length)
-      (nP + 1 + n + nF + (Lech.directFieldTeleOf cty nP nF i).length - 1) q hclLA (by omega)
+      (ConLeche.directFieldTeleOf cty nP nF i).length)
+      (nP + 1 + n + nF + (ConLeche.directFieldTeleOf cty nP nF i).length - 1) q hclLA (by omega)
       (by rw [hlenLA]; omega)
     obtain ⟨ty, hy⟩ := hidxLA _ _ hb
     rw [hy, denoteP_fvar,
-      show nP + 1 + n + nF + (Lech.directFieldTeleOf cty nP nF i).length - 1 -
-        (nP + 1 + n + nF + (Lech.directFieldTeleOf cty nP nF i).length - 1 - q) = q from by omega]
+      show nP + 1 + n + nF + (ConLeche.directFieldTeleOf cty nP nF i).length - 1 -
+        (nP + 1 + n + nF + (ConLeche.directFieldTeleOf cty nP nF i).length - 1 - q) = q from by omega]
   have hidxF' : ∀ (k : Nat) (x : Expr), F[k]? = some x →
       ∃ ty, x = Expr.fvar (nP + (n + 1) + k) ty := hidxF
   -- the frame, as the `ih` lemmas spell it
@@ -2019,16 +2019,16 @@ theorem denoteP_ihApp {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF n i : Nat
             (Expr.instSeq (P ++ X ++ F ++ openFvars (nP + 1 + n + nF) k) t e) := by
     intro k t dd e
     rw [List.append_nil, show nP + (n + 1) + nF + 0 = nP + 1 + n + nF from by omega]
-  unfold Lech.directIhApp ihAppAV
+  unfold ConLeche.directIhApp ihAppAV
   rw [rebit_length, hlenTl, show nP + n + nF = nP + 1 + n + nF - 1 from by omega]
   refine denoteP_instSeq_mkLamsOf _ _ _ _ (P ++ X ++ F) (nP + 1 + n + nF) hlenL hLidx
     (by rw [List.length_map, ihTeleAtR_length, rebit_length, directTeleAt_length, hlenTl]) ?_ ?_
   · -- the telescope, binderwise
     intro k b p hb hp
-    have hk : k < (Lech.directFieldTeleOf cty nP nF i).length := by
-      rw [← directTeleAt_length nF (n + 1) i 0 pw (Lech.directFieldTeleOf cty nP nF i)]
+    have hk : k < (ConLeche.directFieldTeleOf cty nP nF i).length := by
+      rw [← directTeleAt_length nF (n + 1) i 0 pw (ConLeche.directFieldTeleOf cty nP nF i)]
       exact (List.getElem?_eq_some_iff.mp hb).1
-    obtain ⟨b₀, hb₀⟩ : ∃ b₀, (Lech.directFieldTeleOf cty nP nF i)[k]? = some b₀ :=
+    obtain ⟨b₀, hb₀⟩ : ∃ b₀, (ConLeche.directFieldTeleOf cty nP nF i)[k]? = some b₀ :=
       ⟨_, List.getElem?_eq_getElem hk⟩
     rw [directTeleAt_getElem? (pw := pw) hb₀] at hb
     obtain rfl := (Option.some.inj hb).symm
@@ -2046,45 +2046,45 @@ theorem denoteP_ihApp {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF n i : Nat
     exact denoteP_ihIdxAtM (o := n + 1) (l := 0) (I := ([] : List Expr)) hef heb
       (Nat.le_of_lt hi) hS hidxS hP hX hF rfl hidxP hidxF' h3
   · -- the recursor's leaf at the block's variables, the readings and the field
-    rw [directTeleAt_length nF (n + 1) i 0 pw (Lech.directFieldTeleOf cty nP nF i)]
+    rw [directTeleAt_length nF (n + 1) i 0 pw (ConLeche.directFieldTeleOf cty nP nF i)]
     have hspI := denoteSpineP_ihIdx (m := m) (ψ := ψ) (o := n + 1) (l := 0)
       (I := ([] : List Expr)) hCf hCb hstripC hi rfl hS hidxS
       (by rw [hlenTl] at hspSrc; exact hspSrc) hP hX hF rfl hidxP hidxF'
     rw [List.append_nil, show nP + (n + 1) + nF + 0 = nP + 1 + n + nF from by omega] at hspI
     have hfieldApp : denoteP m.acval env ψ
-        (nP + 1 + n + nF + (Lech.directFieldTeleOf cty nP nF i).length)
+        (nP + 1 + n + nF + (ConLeche.directFieldTeleOf cty nP nF i).length)
           (Expr.instSeq (P ++ X ++ F ++ openFvars (nP + 1 + n + nF)
-              (Lech.directFieldTeleOf cty nP nF i).length)
-            (nP + 1 + n + nF + (Lech.directFieldTeleOf cty nP nF i).length - 1)
-            (Expr.mkAppN (.bvar (nF - 1 - i + (Lech.directFieldTeleOf cty nP nF i).length))
-              (Lech.directTeleVars (Lech.directFieldTeleOf cty nP nF i).length)))
+              (ConLeche.directFieldTeleOf cty nP nF i).length)
+            (nP + 1 + n + nF + (ConLeche.directFieldTeleOf cty nP nF i).length - 1)
+            (Expr.mkAppN (.bvar (nF - 1 - i + (ConLeche.directFieldTeleOf cty nP nF i).length))
+              (ConLeche.directTeleVars (ConLeche.directFieldTeleOf cty nP nF i).length)))
         = some (AVExpr.mkAppN
-            (.bvar (nF - 1 - i + (Lech.directFieldTeleOf cty nP nF i).length))
-            (teleVarsAV (Lech.directFieldTeleOf cty nP nF i).length)) := by
+            (.bvar (nF - 1 - i + (ConLeche.directFieldTeleOf cty nP nF i).length))
+            (teleVarsAV (ConLeche.directFieldTeleOf cty nP nF i).length)) := by
       rw [Expr.instSeq_mkAppN]
       refine denoteP_mkAppN ?_ (hbvarA _ (by omega))
-      unfold Lech.directTeleVars teleVarsAV
+      unfold ConLeche.directTeleVars teleVarsAV
       rw [List.map_map]
       simp only [Function.comp_def]
-      exact DenoteSpineP.of_map (List.range (Lech.directFieldTeleOf cty nP nF i).length)
+      exact DenoteSpineP.of_map (List.range (ConLeche.directFieldTeleOf cty nP nF i).length)
         (fun k hk => hbvarA _ (by rw [List.mem_range] at hk; omega))
     have hpre : DenoteSpineP m.acval env ψ
-        (nP + 1 + n + nF + (Lech.directFieldTeleOf cty nP nF i).length)
-        ((Lech.directRecPrefixAt nP n nF (Lech.directFieldTeleOf cty nP nF i).length).map
+        (nP + 1 + n + nF + (ConLeche.directFieldTeleOf cty nP nF i).length)
+        ((ConLeche.directRecPrefixAt nP n nF (ConLeche.directFieldTeleOf cty nP nF i).length).map
           (Expr.instSeq (P ++ X ++ F ++ openFvars (nP + 1 + n + nF)
-              (Lech.directFieldTeleOf cty nP nF i).length)
-            (nP + 1 + n + nF + (Lech.directFieldTeleOf cty nP nF i).length - 1)))
-        (recPrefixBvarsM nP n nF (Lech.directFieldTeleOf cty nP nF i).length) := by
-      unfold Lech.directRecPrefixAt recPrefixBvarsM
+              (ConLeche.directFieldTeleOf cty nP nF i).length)
+            (nP + 1 + n + nF + (ConLeche.directFieldTeleOf cty nP nF i).length - 1)))
+        (recPrefixBvarsM nP n nF (ConLeche.directFieldTeleOf cty nP nF i).length) := by
+      unfold ConLeche.directRecPrefixAt recPrefixBvarsM
       rw [List.map_append, List.map_append]
       refine DenoteSpineP.append (DenoteSpineP.append ?_ ?_) ?_
-      · unfold Lech.directPsAt paramBvarsAt
+      · unfold ConLeche.directPsAt paramBvarsAt
         rw [List.map_map]
         simp only [Function.comp_def]
         have hcong : ((List.range nP).map fun k =>
-              AVExpr.bvar (nP + nF + n + 1 + (Lech.directFieldTeleOf cty nP nF i).length - 1 - k))
+              AVExpr.bvar (nP + nF + n + 1 + (ConLeche.directFieldTeleOf cty nP nF i).length - 1 - k))
             = (List.range nP).map fun k => AVExpr.bvar
-              ((Lech.directFieldTeleOf cty nP nF i).length + nF + n + 1 + nP - 1 - k) := by
+              ((ConLeche.directFieldTeleOf cty nP nF i).length + nF + n + 1 + nP - 1 - k) := by
           refine List.map_congr_left ?_
           intro k hk
           rw [List.mem_range] at hk
@@ -2094,15 +2094,15 @@ theorem denoteP_ihApp {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF n i : Nat
         exact DenoteSpineP.of_map (List.range nP)
           (fun k hk => hbvarA _ (by rw [List.mem_range] at hk; omega))
       · rw [List.map_cons, List.map_nil,
-          show nF + n + (Lech.directFieldTeleOf cty nP nF i).length
-            = (Lech.directFieldTeleOf cty nP nF i).length + nF + n from by omega]
+          show nF + n + (ConLeche.directFieldTeleOf cty nP nF i).length
+            = (ConLeche.directFieldTeleOf cty nP nF i).length + nF + n from by omega]
         exact .cons (hbvarA _ (by omega)) .nil
       · rw [List.map_map]
         simp only [Function.comp_def]
         have hcong : ((List.range n).map fun l =>
-              AVExpr.bvar (nF + n - 1 - l + (Lech.directFieldTeleOf cty nP nF i).length))
+              AVExpr.bvar (nF + n - 1 - l + (ConLeche.directFieldTeleOf cty nP nF i).length))
             = (List.range n).map fun l => AVExpr.bvar
-              ((Lech.directFieldTeleOf cty nP nF i).length + nF + n - 1 - l) := by
+              ((ConLeche.directFieldTeleOf cty nP nF i).length + nF + n - 1 - l) := by
           refine List.map_congr_left ?_
           intro l hl
           rw [List.mem_range] at hl
@@ -2188,8 +2188,8 @@ theorem denoteP_ruleCoreR {m : EnvS2Core V env} {ψ : Name → Nat} {pw : PropWh
     (hj : j < n) :
     denoteP m.acval env ψ (nP + 1 + n + nF)
         (Expr.instSeq xFvs (nF - 1) (Expr.instSeq (tfvs ++ extras) (nP + n + nF)
-          (Lech.directRuleBodyR recC (rlps.map .param) pw nP n nF j recIdx
-            (Lech.directFieldTeleOf cty nP nF) (Lech.directFieldIdxOf cty nP nF))))
+          (ConLeche.directRuleBodyR recC (rlps.map .param) pw nP n nF j recIdx
+            (ConLeche.directFieldTeleOf cty nP nF) (ConLeche.directFieldIdxOf cty nP nF))))
       = some (fixRuleCoreAV (pwBit ψ pw) (m.acval recC ψ) nP nF n j recIdx tls Eiss) := by
   have hidxX' : ∀ (k : Nat) (x : Expr), xFvs[k]? = some x →
       ∃ ty, x = Expr.fvar (nP + (n + 1) + k) ty := by
@@ -2233,13 +2233,13 @@ theorem denoteP_ruleCoreR {m : EnvS2Core V env} {ψ : Name → Nat} {pw : PropWh
     obtain ⟨ty, hy⟩ := hLidx _ _ hb
     rw [hy, denoteP_fvar,
       show nP + 1 + n + nF - 1 - (nP + n + nF - q) = q from by omega]
-  have hpremap : (Lech.directRecPrefixAt nP n nF 0).map
+  have hpremap : (ConLeche.directRecPrefixAt nP n nF 0).map
       (Expr.instSeq (tfvs ++ extras ++ xFvs) (nP + n + nF)) = tfvs ++ extras := by
     rw [show (Expr.instSeq (tfvs ++ extras ++ xFvs) (nP + n + nF))
         = (fun a => Expr.instSeq xFvs (nF - 1)
             (Expr.instSeq (tfvs ++ extras) (nP + n + nF) a)) from by
       funext a; rw [hcombR]]
-    exact Lech.map_instSeq_directRecPrefixAt tfvs extras xFvs hlenT hlenE hlenX hclT hclE
+    exact ConLeche.map_instSeq_directRecPrefixAt tfvs extras xFvs hlenT hlenE hlenX hclT hclE
   have hpre : DenoteSpineP m.acval env ψ (nP + 1 + n + nF) (tfvs ++ extras)
       (recPrefixBvars nP n nF) := by
     have h := denoteSpineP_fvars (acval := m.acval) (env := env) (φ := ψ) (nP + 1 + n + nF)
@@ -2265,15 +2265,15 @@ theorem denoteP_ruleCoreR {m : EnvS2Core V env} {ψ : Name → Nat} {pw : PropWh
   have hihApp : ∀ i ∈ recIdx,
       denoteP m.acval env ψ (nP + 1 + n + nF)
           (Expr.instSeq (tfvs ++ extras ++ xFvs) (nP + n + nF)
-            (Lech.directIhApp recC (rlps.map .param) pw nP n nF i
-              (Lech.directFieldTeleOf cty nP nF i) (Lech.directFieldIdxOf cty nP nF i)))
+            (ConLeche.directIhApp recC (rlps.map .param) pw nP n nF i
+              (ConLeche.directFieldTeleOf cty nP nF i) (ConLeche.directFieldIdxOf cty nP nF i)))
         = some (ihAppAV (m.acval recC ψ) nP n nF i (rebit (pwBit ψ pw) (tls.getD i []))
             (Eiss.getD i [])) := by
     intro i hi
     exact denoteP_ihApp hfR hlpsR hop0 hCf hCb hstripC (hrecBnd i hi) (hfr i hi) hlenT hlenE
       hlenX hidxT hidxE hidxX'
   rw [hcombR]
-  unfold Lech.directRuleBodyR fixRuleCoreAV
+  unfold ConLeche.directRuleBodyR fixRuleCoreAV
   rw [Expr.instSeq_mkAppN, List.map_append, List.map_map, List.map_map]
   simp only [Function.comp_def]
   rw [denoteP_mkAppN
@@ -2296,7 +2296,7 @@ theorem denoteP_directRecRhsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
     {recC : Name} {rlps : List Name} {ciR : ConstantInfo}
     (hfR : env.find? recC = some ciR) (hlpsR : ciR.toConstantVal.levelParams = rlps)
     {tty rhs : Expr}
-    (hgen : Lech.directRecRhsR T lps elim large nP nIdx tty ctors recC (rlps.map .param) j
+    (hgen : ConLeche.directRecRhsR T lps elim large nP nIdx tty ctors recC (rlps.map .param) j
       = some rhs)
     (hTf : tty.hasFvar = false)
     (hstripT : (tty.stripPis (nP + nIdx)).isSome = true)
@@ -2309,12 +2309,12 @@ theorem denoteP_directRecRhsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
     {tls : List (List (Nat × Nat × AVExpr))}
     (hjd : cds[j]? = some (C, nF, ds, Es, recIdx, Eiss, tls)) :
     denoteP m.acval env ψ 0 rhs
-      = some (mkLamsAV (fixRuleDataAV m T ψ nP nIdx (Lech.directElimLevel elim large)
+      = some (mkLamsAV (fixRuleDataAV m T ψ nP nIdx (ConLeche.directElimLevel elim large)
             (ppsAll.take nP) (ppsAll.drop nP) cds ds)
-          (fixRuleCoreAV (pwBit ψ (Level.zeronessOf (Lech.directElimLevel elim large)))
+          (fixRuleCoreAV (pwBit ψ (Level.zeronessOf (ConLeche.directElimLevel elim large)))
             (m.acval recC ψ) nP nF cds.length j recIdx tls Eiss)) := by
   obtain ⟨C₀, nF₀, cty, recIdx₀, tbs, cbs, itele, motiveTy, crest0, inner, minors, hj, hsT,
-    hmot, hsC, hinner, hmin, hr⟩ := Lech.directRecRhsR_unfold hgen
+    hmot, hsC, hinner, hmin, hr⟩ := ConLeche.directRecRhsR_unfold hgen
   obtain ⟨cd, hjd', hc⟩ := hcr.getElem? hj
   obtain ⟨rfl⟩ := Option.some.inj (hjd'.symm.trans hjd)
   have hC0 : C = C₀ := hc.name
@@ -2333,7 +2333,7 @@ theorem denoteP_directRecRhsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
   have hlenC : cds.length = ctors.length := hcr.length_eq
   have hjn : j < ctors.length := (List.getElem?_eq_some_iff.mp hj).1
   generalize hn : ctors.length = n at hinner hlenC hjn
-  generalize hℓ : Lech.directElimLevel elim large = ℓ at hr hmin hinner hmot ⊢
+  generalize hℓ : ConLeche.directElimLevel elim large = ℓ at hr hmin hinner hmot ⊢
   generalize hpw : Level.zeronessOf ℓ = pw at hr hmin hinner ⊢
   have hnil : tfvs = [] ∨ nP - 1 + 1 = nP := by
     rcases Nat.eq_zero_or_pos nP with h0 | hpos
@@ -2343,7 +2343,7 @@ theorem denoteP_directRecRhsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
       = some (ppsAll.take nP, mkPisAV (ppsAll.drop nP) (.sort w)) :=
     stripPisAV_mkPisAV_take nP ppsAll _ (by omega)
   rw [denoteP_pisToLamsPw nP hr hopT hTread hst, Nat.zero_add]
-  rw [Lech.instSeq_lam tfvs (nP - 1) _ _ _ (by omega),
+  rw [ConLeche.instSeq_lam tfvs (nP - 1) _ _ _ (by omega),
     instSeq_idx_congr (sp := tfvs) (t := nP - 1 + 1) (t' := nP) minors hnil]
   have hmotive := denoteP_motiveI hfT hlpsT hsT hmot hTf hstripT hTread hlenP hlenT hidxT hspW
   rw [denoteP_lam, hmotive]
@@ -2362,7 +2362,7 @@ theorem denoteP_directRecRhsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
       subst hx
       exact ⟨_, by rw [← hmfv, Nat.add_zero]⟩
     | succ k => simp at hx
-  have hmin' : Lech.directMinorsLamsR lps nP pw ctors [mfv].length inner = some minors := by
+  have hmin' : ConLeche.directMinorsLamsR lps nP pw ctors [mfv].length inner = some minors := by
     rw [List.length_singleton]; exact hmin
   obtain ⟨extras', hlenE', hidxE', hread⟩ :=
     denoteP_minorsLamsR hfT hlpsT hlenT hidxT hspW hcr hmin' (by simp) hidxE
@@ -2377,9 +2377,9 @@ theorem denoteP_directRecRhsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
   have hcb0 : crest0.looseBVarsBounded nP = true := by
     have := Expr.stripPis_body_bounded nP hsC hCb
     rwa [Nat.zero_add] at this
-  have hinner' := Lech.pisToLamsPw_instSeq (tfvs ++ extras') (nP + 1 + n - 1)
+  have hinner' := ConLeche.pisToLamsPw_instSeq (tfvs ++ extras') (nP + 1 + n - 1)
     (by rw [hlenTE]; omega) hinner
-  have hres := Lech.instSeq_minorTele tfvs extras' hlenT hclT hcb0
+  have hres := ConLeche.instSeq_minorTele tfvs extras' hlenT hclT hcb0
   rw [hlenE', show nP + (n + 1) - 1 = nP + 1 + n - 1 from by omega] at hres
   rw [hres] at hinner'
   obtain ⟨hcread, hcw, hcstrip⟩ := ctorResidual hCf hCread hlenD hsC hstripC hlenT hidxT hspW
@@ -2412,4 +2412,4 @@ theorem denoteP_directRecRhsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
     mkLamsAV_append, rebit_map_lam, rebit_map_lam, hlenC]
   rfl
 
-end Lech.SetP
+end ConLeche.SetP

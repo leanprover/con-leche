@@ -1,12 +1,12 @@
-import Lech.Verify.Denote
-import Lech.Verify.Denote.VClosed
-import Lech.Verify.Shift
-import Lech.Verify.Abstract
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote.VClosed
+import ConLeche.Verify.Shift
+import ConLeche.Verify.Abstract
 
 /-!
 # Depth shifting
 
-The transpose of `interp_lift` (`Lech/Model/Subst.lean`), and **the
+The transpose of `interp_lift` (`ConLeche/Model/Subst.lean`), and **the
 one place where the mirror deviates in the statement rather than only
 in the proof**.  The deviation is deliberate and this is its record.
 
@@ -24,7 +24,7 @@ WScoped p e → p ≤ D → (∀ i < p, ρ' i = ρ i) →
 variable through `ρ`, never through `d`.  The valuation absorbs the
 depth.
 
-`denote` has no valuation to absorb it (`Lech/Verify/Denote.lean`):
+`denote` has no valuation to absorb it (`ConLeche/Verify/Denote.lean`):
 a free variable at level `i` read at depth `d` is `.bvar (d - 1 - i)`,
 which is depth-*relative*.  So the transpose cannot be an equation, and
 is instead
@@ -35,10 +35,10 @@ WScoped p e → p ≤ D →
 ```
 
 This is the second half of the same trade as
-`Lech/Verify/Denote/VClosed.lean`'s: we saved a valuation parameter on
+`ConLeche/Verify/Denote/VClosed.lean`'s: we saved a valuation parameter on
 every clause of `denote`, and we pay for it here and in `cval_closed`.
 Recorded rather than smoothed over, because a reader checking the
-transposition line by line against `Lech/Model/Subst.lean` will
+transposition line by line against `ConLeche/Model/Subst.lean` will
 otherwise stop at this file and wonder what went wrong.
 
 ## The generalization: a shift, not a lift
@@ -53,7 +53,7 @@ denote (D+1) (body.instantiate1 (.fvar  D    ty))
 ```
 
 — two **genuinely different expressions**, related by
-`Expr.shiftFrom D` (`Lech/Verify/Shift.lean`).  So `denote.induct` on
+`Expr.shiftFrom D` (`ConLeche/Verify/Shift.lean`).  So `denote.induct` on
 a single expression cannot see them, and the statement has to be
 generalized over the *cut*: `denote_shiftFrom` below relates `e` and
 `e.shiftFrom p` with the lift cut `d - p`, which the binder clause
@@ -68,9 +68,9 @@ denotes `.bvar 0` at every level.**  `fvar d` at depth `d + 1` and
 
 set_option linter.unusedVariables false
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
@@ -160,7 +160,7 @@ denoting `e` and lifting at cut `d - p`.
 
 The `cval` closedness hypothesis is what lets the `.const` and literal
 clauses go through: a constant's term must not move when the context
-around it grows (`Lech/Verify/Denote/VClosed.lean`). -/
+around it grows (`ConLeche/Verify/Denote/VClosed.lean`). -/
 theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
     ∀ (e : Expr) (d : Nat), p ≤ d → Expr.fvarsBelow d e →
       denote cval env φ (d + 1) (e.shiftFrom p) =
@@ -502,4 +502,4 @@ theorem denote_depth_closed (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       simp only [Option.map_some]
       rw [VExpr.liftN_eq_self_of_closed (denote_closed hcl hnf hb hv)]
 
-end Lech.Verify
+end ConLeche.Verify

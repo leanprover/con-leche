@@ -1,5 +1,5 @@
-import Lech.Verify.EnvWF
-import Lech.Kernel.Checker
+import ConLeche.Verify.EnvWF
+import ConLeche.Kernel.Checker
 
 /-!
 # `V`-free readings of the environment's guards (task #123)
@@ -12,23 +12,23 @@ which an eta capability is owed — again a statement about what the
 environment stores.
 
 All four inversions and the premise were written in
-`Lech/Model/Interp.lean`, under that module's `variable (V) [SetTheory
+`ConLeche/Model/Interp.lean`, under that module's `variable (V) [SetTheory
 V]`, but none of them mentions a valuation.  Relocated verbatim so the
 declarative type-theory bridge can consume them instead of restating
 them (task #123; the lane and its record are gone, task #209).
 
 `EtaFamiliesClosed` joined them in task #148's T1, from
-`Lech/Model/Interp.lean` and against `EnvTT.lean`'s restatement of
+`ConLeche/Model/Interp.lean` and against `EnvTT.lean`'s restatement of
 it: the "eighth `V`-free duplicate" of the relocation note that used to
-sit on `EtaFamilyStored` in `Lech/TTVerify/EnvTT.lean`.  That note is
+sit on `EtaFamilyStored` in `ConLeche/TTVerify/EnvTT.lean`.  That note is
 discharged — every duplicate it listed now has exactly one home, here
-or in `Lech/Verify/EnvPreds.lean`.
+or in `ConLeche/Verify/EnvPreds.lean`.
 -/
 
 set_option linter.unusedVariables false
 set_option linter.defProp false
 
-namespace Lech
+namespace ConLeche
 
 /-- The eta family of an eta-capable stored structure is complete: the
 capability record's constructor is stored as a constructor at exactly
@@ -439,8 +439,8 @@ every clause of both lanes' `reduceNat` bridges — the literal support,
 the operation's and its dependencies' storage with no level parameters,
 and the two `Bool` constructors for the comparison and div/mod
 branches.  All of them are statements about `Env.find?` alone;
-relocated here from `Lech/TTVerify/NatOpsStep.lean` (task #148, T3)
-so that the `Lech/SetR/*` bridge consumes them rather than restating
+relocated here from `ConLeche/TTVerify/NatOpsStep.lean` (task #148, T3)
+so that the `ConLeche/SetR/*` bridge consumes them rather than restating
 them. -/
 
 /-- The guard's own consequences, in the form every operation clause
@@ -536,4 +536,4 @@ theorem natOpStored_of_guard {env : Env} {c : Name}
   unfold natOpStored
   rw [hf]
 
-end Lech
+end ConLeche

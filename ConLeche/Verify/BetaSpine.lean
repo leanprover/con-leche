@@ -1,22 +1,22 @@
-import Lech.Verify.Fueled
-import Lech.Verify.BetaGate
-import Lech.Verify.Knot
-import Lech.Verify.InstList
-import Lech.Verify.InferLemmas
+import ConLeche.Verify.Fueled
+import ConLeche.Verify.BetaGate
+import ConLeche.Verify.Knot
+import ConLeche.Verify.InstList
+import ConLeche.Verify.InferLemmas
 
 /-!
 # Bulk beta: the spine loop and its identification with `whnfCoreBody`
 (task #50)
 
 The interned twin's app case (`whnfAppI`/`betaPeelI`,
-`Lech/Kernel/CoreI.lean`) consumes a whole application spine in one
+`ConLeche/Kernel/CoreI.lean`) consumes a whole application spine in one
 loop, batching consecutive lambda binders into a single bulk
 substitution.  This file provides the pure mirrors (`whnfApp` /
 `betaPeel`, generic over the core record like every helper) and proves
 the **soundness of the loop against the chained spec**: a successful
 loop run at the pure fueled knot is reproduced by the original
 one-argument-at-a-time `whnfCoreBody` recursion at some fuel
-(`whnfApp_sound_body`).  The interned walk (`Lech/Verify/DiscI4`)
+(`whnfApp_sound_body`).  The interned walk (`ConLeche/Verify/DiscI4`)
 composes its simulation against the mirror with this theorem, so the
 `Expr`-level specification — and everything above it — is unchanged.
 
@@ -36,7 +36,7 @@ Key steps:
 set_option linter.unusedSimpArgs false
 set_option maxHeartbeats 1000000
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 variable {mi : CheckMode}
@@ -235,7 +235,7 @@ theorem iotaRec_head_not_const (r : CoreFns m) (env : Env) (depth : Nat)
 The interned `whnfCoreStepI`/`whnfCoreLoopI` run beta, iota, zeta and
 projection steps as *iteration* on their own step budget instead of
 chaining them through the knot.  These are the pure `Expr`-level
-mirrors; `Lech/Verify/DiscI4.lean` simulates the interned loop
+mirrors; `ConLeche/Verify/DiscI4.lean` simulates the interned loop
 against them, and `whnfCoreLoop_sound_body` below reproduces a
 successful mirror run by the chained specification `whnfCoreBody` at
 some knot fuel — so the specification (and everything above it) is
@@ -2119,4 +2119,4 @@ theorem inferSpineIO_sound_body (hgb : mode.betaGate = true) (d : Nat)
 end InferIOSnoc
 
 
-end Lech
+end ConLeche

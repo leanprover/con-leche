@@ -1,11 +1,11 @@
-import Lech.Kernel.Direct.Install
-import Lech.Kernel.Direct.SumParts
+import ConLeche.Kernel.Direct.Install
+import ConLeche.Kernel.Direct.SumParts
 
 /-!
 # The direct sum install (pure fueled checker; task #175 sum-types, indexed)
 
 The install stages of a block recognised by `directSumParts?`
-(`Lech/Kernel/Direct/SumParts.lean`): the type former, one
+(`ConLeche/Kernel/Direct/SumParts.lean`): the type former, one
 constructor stage per constructor, the recursor generated and compared
 with one minor premise and one rule per constructor.  No projection
 table, no eta, no unit-likeness — a sum has no structure-like
@@ -29,10 +29,10 @@ type former alone and the constructors are consed afterwards: they
 never mention each other, and this order keeps the install soundness
 one-pass (each constructor's reading is taken at the one environment,
 and crossed).  The index-threaded twins are
-`Lech/Kernel/Direct/SumInstallF.lean`.
+`ConLeche/Kernel/Direct/SumInstallF.lean`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
@@ -283,4 +283,4 @@ def checkDirectSum (ops : CheckerOps m) (env : Env) (p₀ : DirectSumParts) : m 
   pure ⟨.recInfo cvRa p.majorIdx p.rulePrefix
     (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss) :: env₂.consts⟩
 
-end Lech
+end ConLeche

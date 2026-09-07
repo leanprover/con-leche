@@ -1,5 +1,5 @@
-import Lech.SetP.DirectFix.FixShadowP
-import Lech.Semantics.Tower.FixFamI
+import ConLeche.SetP.DirectFix.FixShadowP
+import ConLeche.Semantics.Tower.FixFamI
 
 /-!
 # The X-chains, graded at every family (task #188)
@@ -19,13 +19,13 @@ grading and value carry from the shadow frame to the X-frame
 (`interp2_congr_noBVar`, `AnnotOk2_congr_noBVar`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w'
 
@@ -498,4 +498,4 @@ theorem drop_map_getD {ds : List (Nat × Nat × AVExpr)} {nP nF i : Nat}
     List.getElem?_eq_getElem (by omega)]
   rfl
 
-end Lech.SetP
+end ConLeche.SetP

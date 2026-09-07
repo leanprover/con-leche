@@ -1,9 +1,9 @@
-import Lech.Kernel.DeclCheck
+import ConLeche.Kernel.DeclCheck
 
 /-!
 # The index's installation counters and the prefix view (task #108)
 
-`FEnv` (`Lech/Kernel/CoreI.lean`) stores, beside each indexed
+`FEnv` (`ConLeche/Kernel/CoreI.lean`) stores, beside each indexed
 constant, the number of constants installed before it — its
 *installation counter* — and a bound `visibleBelow`; `FEnv.find?`
 hides every entry whose counter is at or above the bound.  This file
@@ -30,7 +30,7 @@ proves what that bound means:
 Spec-side only: nothing here is called by the checker.
 -/
 
-namespace Lech
+namespace ConLeche
 
 /-! ## The index's specification -/
 
@@ -268,7 +268,7 @@ theorem restrictTo_push_find? (env : Env) (k : Nat) (n : Name)
 /-! ## The `FEnv` index agrees with `Env.find?`
 
 (`mkFEnv_find?` itself, and the bounded-lookup theory it now sits in,
-are in `Lech/Verify/EnvBound.lean`.) -/
+are in `ConLeche/Verify/EnvBound.lean`.) -/
 
 /-- The indexed projection lookup computes `Env.findProj?`. -/
 theorem mkFEnv_findProj? (env : Env) (T : Name) (i : Nat) :
@@ -312,4 +312,4 @@ theorem instPis_eq_piResidual :
   | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _, _ :: _
   | .letE _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
 
-end Lech
+end ConLeche

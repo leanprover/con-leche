@@ -1,4 +1,4 @@
-import Lech.Verify.Denote.Inst
+import ConLeche.Verify.Denote.Inst
 
 /-!
 # Denoted application spines
@@ -16,9 +16,9 @@ denotation-only, judgment-free, and both the bridge's `majorToCtor`
 rescues and the iota clause's redex reassembly run on it.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-! ## Spines
 
@@ -107,7 +107,7 @@ theorem DenoteSpine.map {cval : TConstVal} {env : Env} {φ : Name → Nat}
       (ih fun b hb => h b (List.mem_cons_of_mem _ hb))
 
 /-- A denoted spine's entries, indexed.  (Relocated from
-`Lech/TTVerify/DefEqStep.lean`: `Iota.lean` needs it too, and
+`ConLeche/TTVerify/DefEqStep.lean`: `Iota.lean` needs it too, and
 `Tele.lean` is where `DenoteSpine` is declared.) -/
 theorem DenoteSpine.get {cval : TConstVal} {env : Env} {φ : Name → Nat}
     {d : Nat} {as : List Expr} {vs : List VExpr}
@@ -167,4 +167,4 @@ theorem denote_mkAppN_inv {cval : TConstVal} {env : Env} {φ : Name → Nat}
         rw [← Option.some.inj hfa]; rfl⟩
     · exact nomatch hfa
 
-end Lech.Verify
+end ConLeche.Verify

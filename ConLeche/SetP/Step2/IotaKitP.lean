@@ -1,6 +1,6 @@
-import Lech.SetP.Step2.CapsRowsP
-import Lech.Verify.Denote.OpenRevDenote
-import Lech.Verify.InstSpine
+import ConLeche.SetP.Step2.CapsRowsP
+import ConLeche.Verify.Denote.OpenRevDenote
+import ConLeche.Verify.InstSpine
 
 /-!
 # The iota tier's kit (task #161, iota tier)
@@ -38,13 +38,13 @@ remove: `certs_telePA` carries the running type's `AnnotOkP` because
 across the substitution with `AnnotOkP_inst0` — the same two moves.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   inferTypeCore)
 
 universe w
@@ -176,7 +176,7 @@ theorem teleFitPA_residual
     {ρ : Nat → V} {d : Nat} :
     ∀ (args : List Expr) {ty rest : Expr} {Ta restA : AVExpr}
       {vs : List AVExpr},
-      Lech.piResidual ty args = some rest →
+      ConLeche.piResidual ty args = some rest →
       Expr.WScoped d ty →
       (∀ a ∈ args, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true) →
       denoteP acval env φ d ty = some Ta →
@@ -245,7 +245,7 @@ theorem certs_telePA {m : EnvS2Core V env}
     (hexi : InferExistsIOSP μ m φ fuel) :
     ∀ {d : Nat} {Δa : List AVExpr} (ty : Expr) (args : List Expr)
       (vs : List AVExpr) (Ta : AVExpr),
-      Lech.iotaCertsP μ env fuel d false ty args = .ok true →
+      ConLeche.iotaCertsP μ env fuel d false ty args = .ok true →
       Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
       Expr.LeavesBounded ty → CtxOkP m φ d Δa ty →
       denoteP m.acval env φ d ty = some Ta →
@@ -277,7 +277,7 @@ theorem certs_telePA {m : EnvS2Core V env}
     | .lit _, hc, _, _, _, _, _ => exact nomatch hc
     | .proj _ _ _, hc, _, _, _, _, _ => exact nomatch hc
     | .forallE dom body mb, hc, hwty, hbty, hLbty, hCty, hity => ?_
-    obtain ⟨ta, hta, hde, hrestc⟩ := Lech.iotaCerts_step_inv hc
+    obtain ⟨ta, hta, hde, hrestc⟩ := ConLeche.iotaCerts_step_inv hc
     obtain ⟨haw, hab, haLb, haC⟩ := hargs a List.mem_cons_self
     cases hsp with | @cons _ aa _ vs' haa hsp' => ?_
     obtain ⟨hdomw, hbodyw⟩ : Expr.WScoped d dom ∧ Expr.WScoped d body := by
@@ -308,13 +308,13 @@ theorem certs_telePA {m : EnvS2Core V env}
       hokvs aa List.mem_cons_self
     obtain ⟨hokTa, hmemA⟩ := ihis hta haw hab haLb haC haa htaa hokA
     have hwta : Expr.WScoped d ta :=
-      Lech.inferTypeIO_WScoped m.wf fuel hta haw
+      ConLeche.inferTypeIO_WScoped m.wf fuel hta haw
     have hbta : ta.looseBVarsBounded 0 = true :=
-      Lech.inferTypeIO_looseBVars m.wf fuel hta haw hab haLb
+      ConLeche.inferTypeIO_looseBVars m.wf fuel hta haw hab haLb
     have hLta : Expr.LeavesBounded ta := fun l hl =>
-      haLb l (Lech.inferTypeIO_fvarLeaves m.wf fuel hta haw l hl)
+      haLb l (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hta haw l hl)
     have hCta : CtxOkP m φ d Δa ta :=
-      haC.of_subset (Lech.inferTypeIO_fvarLeaves m.wf fuel hta haw)
+      haC.of_subset (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hta haw)
     have hdeq : ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ taa = interp2 V ρ doma :=
       ihd hde hwta hbta hLta hdomw hdomb hLbdom hCta hCdom htaa hdoma
@@ -448,14 +448,14 @@ a generalized body. -/
 theorem AnnotOk2_instRevChain (ρ : Nat → V) :
     ∀ (vs : List AVExpr), (∀ v ∈ vs, AnnotOk2 V ρ v) →
       ∀ X : AVExpr,
-        (AnnotOk2 V ρ (Lech.SetP.AVExpr.instRevChain vs X) ↔
+        (AnnotOk2 V ρ (ConLeche.SetP.AVExpr.instRevChain vs X) ↔
           AnnotOk2 V (envChainP ρ vs) X) := by
   intro vs
   induction vs with
   | nil => intro _ X; exact Iff.rfl
   | cons v vs ih =>
     intro hvs X
-    show AnnotOk2 V ρ (Lech.SetP.AVExpr.instRevChain vs
+    show AnnotOk2 V ρ (ConLeche.SetP.AVExpr.instRevChain vs
         (X.inst (v.liftN vs.length) 0)) ↔ _
     rw [ih (fun v' hv' => hvs v' (List.mem_cons_of_mem _ hv'))]
     have hva : AnnotOk2 V (shiftE 0 0 (envChainP ρ vs))
@@ -474,14 +474,14 @@ theorem AnnotOk2_instRevChain (ρ : Nat → V) :
 theorem AnnotValidV_instRevChain (ρ : Nat → V) :
     ∀ (vs : List AVExpr), (∀ v ∈ vs, AnnotValidV V ρ v) →
       ∀ X : AVExpr,
-        (AnnotValidV V ρ (Lech.SetP.AVExpr.instRevChain vs X) ↔
+        (AnnotValidV V ρ (ConLeche.SetP.AVExpr.instRevChain vs X) ↔
           AnnotValidV V (envChainP ρ vs) X) := by
   intro vs
   induction vs with
   | nil => intro _ X; exact Iff.rfl
   | cons v vs ih =>
     intro hvs X
-    show AnnotValidV V ρ (Lech.SetP.AVExpr.instRevChain vs
+    show AnnotValidV V ρ (ConLeche.SetP.AVExpr.instRevChain vs
         (X.inst (v.liftN vs.length) 0)) ↔ _
     rw [ih (fun v' hv' => hvs v' (List.mem_cons_of_mem _ hv'))]
     have hva : AnnotValidV V (shiftE 0 0 (envChainP ρ vs))
@@ -502,7 +502,7 @@ ambient-graded arguments is graded at the ambient environment. -/
 theorem annotOkP_instRevChain {ρ : Nat → V} {vs : List AVExpr}
     {X : AVExpr} (hX : ∀ σ : Nat → V, AnnotOkP V σ X)
     (hvs : ∀ v ∈ vs, AnnotOkP V ρ v) :
-    AnnotOkP V ρ (Lech.SetP.AVExpr.instRevChain vs X) :=
+    AnnotOkP V ρ (ConLeche.SetP.AVExpr.instRevChain vs X) :=
   ⟨(AnnotOk2_instRevChain ρ vs (fun v hv => (hvs v hv).1) X).mpr
       (hX _).1,
     (AnnotValidV_instRevChain ρ vs (fun v hv => (hvs v hv).2) X).mpr
@@ -527,9 +527,9 @@ lost by moving to it.) -/
 theorem annotOkP_instRevChain_at {ρ : Nat → V} {vs : List AVExpr}
     {X : AVExpr} (hX : AnnotOkP V (envChainP ρ vs) X)
     (hvs : ∀ v ∈ vs, AnnotOkP V ρ v) :
-    AnnotOkP V ρ (Lech.SetP.AVExpr.instRevChain vs X) :=
+    AnnotOkP V ρ (ConLeche.SetP.AVExpr.instRevChain vs X) :=
   ⟨(AnnotOk2_instRevChain ρ vs (fun v hv => (hvs v hv).1) X).mpr hX.1,
     (AnnotValidV_instRevChain ρ vs (fun v hv => (hvs v hv).2) X).mpr
       hX.2⟩
 
-end Lech.SetP
+end ConLeche.SetP

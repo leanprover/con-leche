@@ -1,5 +1,5 @@
-import Lech.SetP.IndStageKitP
-import Lech.Verify.Denote.IndFrame
+import ConLeche.SetP.IndStageKitP
+import ConLeche.Verify.Denote.IndFrame
 
 /-!
 # The cross-frame instantiation, at the reading (task #161, part 4)
@@ -29,13 +29,13 @@ The `Expr`-only halves of v1's kit — `instPisAt_length`,
 mention no valuation at all, so there is nothing to transpose.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name BinderMeta)
 
 universe w
 
@@ -277,4 +277,4 @@ theorem WScoped_sharpen : ∀ {e : Expr} {d d' : Nat}, Expr.WScoped d e →
     simp only [Expr.WScoped] at h ⊢
     exact ih h (fun l hl' => hl l (by simp [Expr.fvarLeaves, hl']))
 
-end Lech.SetP
+end ConLeche.SetP

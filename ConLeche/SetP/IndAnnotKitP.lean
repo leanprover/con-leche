@@ -1,4 +1,4 @@
-import Lech.SetP.IndLamTowerP
+import ConLeche.SetP.IndLamTowerP
 
 /-!
 # The transport's two kit pieces (task #161, IND TIER part 5)
@@ -22,13 +22,13 @@ leaves are the *public* frame's openers: the per-position
 identification is precisely the equation `CtxOkP` asks for.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name)
 
 universe w
 
@@ -144,4 +144,4 @@ theorem ctxOkP_of_walked_openers {env : Env} {m : EnvS2Core V env}
   exact ⟨hwty.1, hwty.2.fvarsBelow, tya, Aa l.1, htya,
     hent l.1 hlt, heq, hok⟩
 
-end Lech.SetP
+end ConLeche.SetP

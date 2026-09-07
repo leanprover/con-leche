@@ -1,4 +1,4 @@
-import Lech.SetTheory.Basic
+import ConLeche.SetTheory.Basic
 
 /-!
 # Design evidence for the domain-relative point collapse (task #100)
@@ -20,7 +20,7 @@ erasure: the domain-relative collapse"):
   and the forcing lemma `pi_empty_forced` showing Horn B is not an
   artifact of chosen definitions;
 
-* the prior refutation witnesses (`Lech/Model/RawEnvNoAnnot.lean`)
+* the prior refutation witnesses (`ConLeche/Model/RawEnvNoAnnot.lean`)
   re-run **positively**: the λ-terms `fun (_ : PUnit) => (1 : Nat)` and
   `fun (_ : PUnit) => True.intro` are both interpreted annotation-free
   — `lamC` is a function of domain and body values alone.  (History:
@@ -41,7 +41,7 @@ erasure: the domain-relative collapse"):
   and the full `Nat.rec.{0}`-shaped λ-tower.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -348,4 +348,4 @@ theorem natrec_tower_collapses :
   have hMn : app M n ∈ˢ (univZero : V) := app_mem_piC hM hn
   exact eq_pt_of_mem_univZero hMn hval
 
-end Lech.SetTheory
+end ConLeche.SetTheory

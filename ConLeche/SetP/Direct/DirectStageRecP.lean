@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectRecLawP
+import ConLeche.SetP.Direct.DirectRecLawP
 
 /-!
 # The recursor's cons (task #175 W4c, P3 module 6, part 20; S2)
@@ -13,13 +13,13 @@ empty), and the rule's law is `recRuleLaw` over the generated rule
 when the rule is plain (an inert rule owes nothing).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta RecRule)
 
 universe w
@@ -30,7 +30,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 type strips its `nP + 3` binders by construction. -/
 theorem recOpenedAll (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {rhsA : Expr}
-    (hRec : Lech.checkDirectRec (Lech.fueledOps μ F) env p cvTa cvCa = .ok (cvRa, rhsA))
+    (hRec : ConLeche.checkDirectRec (ConLeche.fueledOps μ F) env p cvTa cvCa = .ok (cvRa, rhsA))
     {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis p.nP = some (bsT, .sort p.resSort))
     {rds : (Name → Nat) → List (Nat × Nat × AVExpr)}
@@ -39,22 +39,22 @@ theorem recOpenedAll (mp : EnvS2PM V μ env)
       OpenedP mp.base2 ψ (p.nP + 3) cvRa.type fvsR oR (((rds ψ).map (·.2.2)).reverse)
         (.app (.bvar 2) (.bvar 0)) := by
   obtain ⟨cvRi, recTy, sty, rhsTy, u, -, hgen, -, -, -, hbt, hRf, -, -, -, -, -, -, -, -, rfl⟩ :=
-    Lech.checkDirectRec_shape hRec
-  obtain ⟨cbs, crest0, minorTy, -, -, hrec⟩ := Lech.directRecTy_single hgen
-  have hs1 := Lech.replacePisPw_stripPis p.nP hrec hstripT
-  have hs := Lech.stripPis_append p.nP (m := 3) hs1 rfl
+    ConLeche.checkDirectRec_shape hRec
+  obtain ⟨cbs, crest0, minorTy, -, -, hrec⟩ := ConLeche.directRecTy_single hgen
+  have hs1 := ConLeche.replacePisPw_stripPis p.nP hrec hstripT
+  have hs := ConLeche.stripPis_append p.nP (m := 3) hs1 rfl
   obtain ⟨fvsR, oR, hop⟩ := openPisAtFvars_of_stripPis_isSome (p.nP + 3) 0 (by rw [hs]; rfl)
   exact ⟨fvsR, oR, fun ψ =>
     openedP_of_peel hop hRf hbt (hRD.read ψ) (hRD.len ψ) (hRD.okTy ψ)⟩
 
 /-- **The P step at the recursor's cons.** -/
-theorem stageRec (hE : Lech.EtaFamiliesClosed env)
+theorem stageRec (hE : ConLeche.EtaFamiliesClosed env)
     (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {rhsA : Expr}
-    (hRec : Lech.checkDirectRec (Lech.fueledOps μ F) env p cvTa cvCa = .ok (cvRa, rhsA))
+    (hRec : ConLeche.checkDirectRec (ConLeche.fueledOps μ F) env p cvTa cvCa = .ok (cvRa, rhsA))
     {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis p.nP = some (bsT, .sort p.resSort))
-    (hfT : env.find? p.cvT.name = some (.indInfo cvTa (Lech.directCaps p)))
+    (hfT : env.find? p.cvT.name = some (.indInfo cvTa (ConLeche.directCaps p)))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hfC : env.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF))
     (hlpsC : cvCa.levelParams = p.cvT.levelParams)
@@ -64,7 +64,7 @@ theorem stageRec (hE : Lech.EtaFamiliesClosed env)
       (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-          rhsA⟩] :: env.consts⟩ : Env).find? (Lech.projFnName p.cvT.name 0) = none)
+          rhsA⟩] :: env.consts⟩ : Env).find? (ConLeche.projFnName p.cvT.name 0) = none)
     {pps ds rds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hFD : FormerData mp.base2 cvTa p.nP p.resSort pps)
     (hCD : CtorData mp.base2 p.cvT.name cvCa p.nP p.nF p.resSort ds)
@@ -103,16 +103,16 @@ theorem stageRec (hE : Lech.EtaFamiliesClosed env)
     (hrds ψ) (hR ψ)).2
   -- the constant's facts
   obtain ⟨cvRi, recTy, sty, rhsTy, u, hccv, -, -, htp, htrR, -, -, -, hrhsRes, -, -, -, -, -, -,
-    hcvRa⟩ := Lech.checkDirectRec_shape hRec
+    hcvRa⟩ := ConLeche.checkDirectRec_shape hRec
   obtain ⟨hfind, hnres, hpshape, -, -, -, -, -, -, -, -, -, -, -, -⟩ :=
-    Lech.checkConstantVal_inv hccv
+    ConLeche.checkConstantVal_inv hccv
   have hRname : cvRa.name = p.cvR.name := by rw [hcvRa]
   have hRlps : cvRa.levelParams = p.cvR.levelParams := by rw [hcvRa]
   have hRtype : cvRa.type = recTy := by rw [hcvRa]
   have hfresh : env.find? cvRa.name = none := by rw [hRname]; exact hfind
   have htrR' : cvRa.type.constsResolve env = true := by rw [hRtype]; exact htrR
   have hcbR : ConstsBound env cvRa.type := constsBound_of_constsResolve _ htrR'
-  have hwf := Lech.direct_rec_wf mp.base2.wf hRec
+  have hwf := ConLeche.direct_rec_wf mp.base2.wf hRec
   have hTR : p.cvT.name ≠ cvRa.name := by
     intro h; rw [h, hfresh] at hfT; exact nomatch hfT
   have hCR : p.cvC.name ≠ cvRa.name := by
@@ -139,8 +139,8 @@ theorem stageRec (hE : Lech.EtaFamiliesClosed env)
       denoteP (acvalWith mp.base2.acval cvRa.name A) ⟨c₀ :: env.consts⟩ ψ 0 cvRa.type
         = some (mkPisAV (rds ψ) (.app (.bvar 2) (.bvar 0))) := fun ψ =>
     denoteP_cons_mono (c₀ := c₀) hfresh (hcross _) ψ 0 hcbR (hRD.read ψ)
-  have hnresC : Lech.reservedBasisNames.contains c₀.name = false := by
-    show Lech.reservedBasisNames.contains cvRa.name = false
+  have hnresC : ConLeche.reservedBasisNames.contains c₀.name = false := by
+    show ConLeche.reservedBasisNames.contains cvRa.name = false
     rw [hRname]; exact hnres
   have hpshapeC : c₀.name.isProjFnShape = false := by
     show cvRa.name.isProjFnShape = false
@@ -164,8 +164,8 @@ theorem stageRec (hE : Lech.EtaFamiliesClosed env)
     congr 1
     rw [hRlps] at hφR
     cases hpl : p.large
-    · simp [elimLevel, Lech.directElimLevel, hpl, Level.eval]
-    · simp only [elimLevel, Lech.directElimLevel, hpl, if_true, Level.eval]
+    · simp [elimLevel, ConLeche.directElimLevel, hpl, Level.eval]
+    · simp only [elimLevel, ConLeche.directElimLevel, hpl, if_true, Level.eval]
       exact hφR p.elim (helim hpl)
   · exact fun ψ ρ => (hleaf ψ ρ).1.1
   · exact fun ψ ρ => (hleaf ψ ρ).1.2
@@ -185,14 +185,14 @@ theorem stageRec (hE : Lech.EtaFamiliesClosed env)
       exact hE T' cvT' caps' hf hcape hres
     · intro cvT caps hf hres
       have hfT' : (⟨c₀ :: env.consts⟩ : Env).find? p.cvT.name
-          = some (.indInfo cvTa (Lech.directCaps p)) := by
-        rw [Lech.Env.find?_cons, if_neg (fun h => hTR h.symm)]
+          = some (.indInfo cvTa (ConLeche.directCaps p)) := by
+        rw [ConLeche.Env.find?_cons, if_neg (fun h => hTR h.symm)]
         exact hfT
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
       have hFD₂ : FormerData m₂ cvTa p.nP p.resSort pps :=
         hFD.cross (c₀ := c₀) (A := A) hfresh (hcross _)
           (constsBound_of_constsResolve _
-            (mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)).2.2.1) m₂ hac
+            (mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)).2.2.1) m₂ hac
       have hleafT₂ : ∀ ψ, m₂.acval p.cvT.name ψ
           = directTyAV (p.resSort.eval ψ) (pps ψ) (((ds ψ).drop p.nP).map (·.2.2)) := by
         intro ψ
@@ -214,7 +214,7 @@ theorem stageRec (hE : Lech.EtaFamiliesClosed env)
             intro ψ
             rw [List.drop_eq_nil_of_le (by rw [hCD.len ψ, hnF]; exact Nat.le_refl _)]
             rfl
-          refine directEtaLawP0 (m := m₂) (T := p.cvT.name) (caps := Lech.directCaps p)
+          refine directEtaLawP0 (m := m₂) (T := p.cvT.name) (caps := ConLeche.directCaps p)
             (ds := ds) hnF ?_ ?_ hFD₂.read hFD₂.okTy ?_ ?_ ?_
           · intro ψ; rw [hleafT₂ ψ, hFs0 ψ]
           · intro ψ
@@ -243,7 +243,7 @@ theorem stageRec (hE : Lech.EtaFamiliesClosed env)
           intro ψ
           rw [List.drop_eq_nil_of_le (by rw [hCD.len ψ, hnF]; exact Nat.le_refl _)]
           rfl
-        refine directUnitLawP (m := m₂) (T := p.cvT.name) (caps := Lech.directCaps p)
+        refine directUnitLawP (m := m₂) (T := p.cvT.name) (caps := ConLeche.directCaps p)
           ?_ hFD₂.read hFD₂.okTy ?_ ?_
         · intro ψ; rw [hleafT₂ ψ, hFs0 ψ]
         · intro ψ ρ; have := hpok ψ ρ; rwa [hFs0 ψ] at this
@@ -264,4 +264,4 @@ theorem stageRec (hE : Lech.EtaFamiliesClosed env)
       apply hfire
       simp [hplain]
 
-end Lech.SetP
+end ConLeche.SetP

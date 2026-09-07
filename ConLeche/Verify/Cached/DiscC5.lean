@@ -1,12 +1,12 @@
-import Lech.Verify.Cached.DiscC4
+import ConLeche.Verify.Cached.DiscC4
 
 /-!
 # Cached body walks, part 5: definitional equality (task #163)
 
-Port of `Lech/Verify/DiscI5.lean` under the recipe (DESIGN.md,
+Port of `ConLeche/Verify/DiscI5.lean` under the recipe (DESIGN.md,
 task #163): the simulation walks for `defeqStepI`, `defeqLoopI` and
-`defeqBodyI` (`Lech/Cached/CoreC.lean`), whose bodies are
-character-identical to their `Lech/Kernel/CoreI.lean` originals up to
+`defeqBodyI` (`ConLeche/Cached/CoreC.lean`), whose bodies are
+character-identical to their `ConLeche/Kernel/CoreI.lean` originals up to
 `EIdx → ExprC` / `CheckIM → CheckCM`.
 
 Where the interned walk needed the arena's canonicity
@@ -19,9 +19,9 @@ side of every statement is byte-identical to the interned original's.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech.Cached.ExprC
+open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
@@ -888,4 +888,4 @@ theorem defeqBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
 
 end Walks
 
-end Lech.Cached
+end ConLeche.Cached

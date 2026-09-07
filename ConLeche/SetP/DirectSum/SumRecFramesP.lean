@@ -1,6 +1,6 @@
-import Lech.SetP.DirectSum.SumRecDataP
-import Lech.SetP.DirectSum.SumStageCtorP
-import Lech.SetP.Direct.DirectRecFramesP
+import ConLeche.SetP.DirectSum.SumRecDataP
+import ConLeche.SetP.DirectSum.SumStageCtorP
+import ConLeche.SetP.Direct.DirectRecFramesP
 
 /-!
 # The sum recursor's frames (task #175 sum-types, indexed)
@@ -18,13 +18,13 @@ chain (`sumMinorsTail`), then down the index chain (`sumIdxTail`),
 the frame kept as an explicit `consList`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts
   BinderMeta)
 
 universe w
@@ -690,7 +690,7 @@ theorem sumRecFrames {m : EnvS2Core V env} {p : DirectSumParts} {cvTa cvRa : Con
   have hpal : ppsAll ψ = pps ++ ips := by rw [← hpps, ← hips, List.take_append_drop]
   rw [← hn] at hR
   have hbz : ℓ = 0 ↔ b = 0 := by
-    rw [← hb, ← hℓ, pwBit_eq_zero_iff, Lech.PropWhen.zeronessOf_sound, beq_iff_eq]
+    rw [← hb, ← hℓ, pwBit_eq_zero_iff, ConLeche.PropWhen.zeronessOf_sound, beq_iff_eq]
   have hrds : sumRdsAV m p ppsAll dsF esF ctorsA ψ
       = rebit b pps ++ [(0, b, motiveAVI m p.cvT.name ψ p.nP p.nIdx (sumElimLevel p) ips)] ++
         sumMinorsData m ψ p.nP b cds 1 ++ rebit b (liftDoms (cds.length + 1) 0 ips) ++
@@ -789,17 +789,17 @@ theorem sumRecFrames {m : EnvS2Core V env} {p : DirectSumParts} {cvTa cvRa : Con
     have hlarge : p.large = true := by
       cases hpl : p.large
       · exfalso; apply hl0
-        rw [← hℓ]; simp [sumElimLevel, Lech.directElimLevel, hpl, Level.eval]
+        rw [← hℓ]; simp [sumElimLevel, ConLeche.directElimLevel, hpl, Level.eval]
       · rfl
     rcases hwl hlarge with hnz | hlt
     · exfalso
-      exact Lech.Level.isNeverZero_sound ψ _ hnz (by rw [hw]; exact hw0)
+      exact ConLeche.Level.isNeverZero_sound ψ _ hnz (by rw [hw]; exact hw0)
     · rw [hlenFs]; omega
   have hlarge_of : ℓ ≠ 0 → p.large = true := by
     intro hl0
     cases hpl : p.large
     · exfalso; apply hl0
-      rw [← hℓ]; simp [sumElimLevel, Lech.directElimLevel, hpl, Level.eval]
+      rw [← hℓ]; simp [sumElimLevel, ConLeche.directElimLevel, hpl, Level.eval]
     · rfl
   -- `RecBaseS`
   refine ⟨by rw [sumMinorsData_length, fssOf_length], by rw [rebit_length, liftDoms_length, hlenI, hlenIds], ?_, ?_⟩
@@ -1060,4 +1060,4 @@ theorem sumRecFrames {m : EnvS2Core V env} {p : DirectSumParts} {cvTa cvRa : Con
               Option.getD_some]
           rw [List.getD_eq_getElem?_getD, hisl, Option.getD_some]
 
-end Lech.SetP
+end ConLeche.SetP

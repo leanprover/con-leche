@@ -1,8 +1,8 @@
-import Lech.Frontend.Export
-import Lech.Frontend.ProjRec
-import Lech.Frontend.InModel
-import Lech.Frontend.NatOpGround
-import Lech.Cached.ParsedC
+import ConLeche.Frontend.Export
+import ConLeche.Frontend.ProjRec
+import ConLeche.Frontend.InModel
+import ConLeche.Frontend.NatOpGround
+import ConLeche.Cached.ParsedC
 
 /-!
 # Direct-to-`ExprC` export parsing (task #171)
@@ -16,11 +16,11 @@ reconstructs, so the parse keeps a stream-index-keyed table of
 Sharing is preserved structurally; the derived fields are computed
 once per node by the smart constructors, which is also what makes
 every parsed term well-formed **by construction** — the entry obligation
-the capstone consumes (`Lech/Verify/Cached/ParseC.lean`), replacing
+the capstone consumes (`ConLeche/Verify/Cached/ParseC.lean`), replacing
 `OfStoreC`'s index-memo lemma.
 
 Every record kind, the taint policy, the size budget, the sentinels
-and the error strings mirror `Lech/Frontend/Export.lean` clause by
+and the error strings mirror `ConLeche/Frontend/Export.lean` clause by
 clause — verdict identity with the arena path is the contract.  The
 byte-level fast path (`fastParse`, shared with the arena parser — it
 produces stream indices, not representations) plugs in through
@@ -35,16 +35,16 @@ the arena's budgeted readback, without the arena.
 the verified fold** — the fold sees their result as an ordinary list
 of records, and the main theorem quantifies over that list:
 
-* **the built-in prelude (task #191, `Lech/Frontend/Prelude.lean`)**:
+* **the built-in prelude (task #191, `ConLeche/Frontend/Prelude.lean`)**:
   every parse is handed the checker's own prelude (the six pinned
   basis blocks and `Bool`), prepends its records, and drops a later
   stream copy of one of them when it is the same declaration
   (declining the run when it differs) — `pushDecl` below;
-* **the ground hoist (task #191, `Lech/Frontend/NatOpGround.lean`)**:
+* **the ground hoist (task #191, `ConLeche/Frontend/NatOpGround.lean`)**:
   a pinned `Nat` operation's stream-certified structural ground is
   moved ahead of it when the stream declares it later;
 * **the projection-function rewrite (2026-09-06,
-  `Lech/Frontend/ProjRec.lean`)**, the one surface rewrite this
+  `ConLeche/Frontend/ProjRec.lean`)**, the one surface rewrite this
   parse performs on a definition record: a projection function
 `fun p⃗ self => .proj T i self` of a structure-like owner the direct
 install does not serve is replaced, before it reaches the checker, by
@@ -55,11 +55,11 @@ tables feed it — the owners of every parsed inductive block
 `PUnit` basis block has been seen (the constant motives need it).
 -/
 
-namespace Lech.Frontend
+namespace ConLeche.Frontend
 
 open Lean (Json)
-open Lech
-open Lech.Cached (ExprC DeclC)
+open ConLeche
+open ConLeche.Cached (ExprC DeclC)
 
 private abbrev M := Except String
 
@@ -67,8 +67,8 @@ private abbrev M := Except String
 
 The checker's own little prelude — the pinned basis blocks and the
 `Bool` block, the order-sensitive ground of the pin-certified `Nat`
-operations (`Lech/PinGen/Prelude.lean`) — is a parsed stream of its
-own (`Lech/Frontend/Prelude.lean`) that every parse PREPENDS to its
+operations (`ConLeche/PinGen/Prelude.lean`) — is a parsed stream of its
+own (`ConLeche/Frontend/Prelude.lean`) that every parse PREPENDS to its
 result, so the fold installs it first, unconditionally.  A later
 stream record under a prelude name is compared with the prelude's
 copy up to the basis-matching canonical form (`ConstantInfo.canon`:
@@ -84,7 +84,7 @@ dropped as the prelude's duplicate. -/
 /-- The constant a definition-like record would store, for the canon
 comparison (`opaqueDecl` is told apart from `defnDecl` by `sameCanon`'s
 constructor test, not here). -/
-private def _root_.Lech.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
+private def _root_.ConLeche.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
   | .axiomDecl cv => some (.axiomInfo ⟨cv.name, cv.levelParams, cv.type⟩)
   | .defnDecl cv v h => some (.defnInfo ⟨cv.name, cv.levelParams, cv.type⟩ v h)
   | .thmDecl cv v => some (.thmInfo ⟨cv.name, cv.levelParams, cv.type⟩ v)
@@ -93,7 +93,7 @@ private def _root_.Lech.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
 
 /-- Two parsed records are the same declaration: same kind, and equal
 up to the basis-matching canonical form (`ConstantInfo.canon`). -/
-def _root_.Lech.Cached.DeclC.sameCanon : DeclC → DeclC → Bool
+def _root_.ConLeche.Cached.DeclC.sameCanon : DeclC → DeclC → Bool
   | .basisDecl k, .basisDecl k' => k == k'
   | .indDecl b, .indDecl b' =>
     b.map ConstantInfo.canon == b'.map ConstantInfo.canon
@@ -136,7 +136,7 @@ structure StateD where
   taintSkipped : Array (Name × Name) := #[]
   sizes : Std.HashMap Nat Nat := {}
   /-- structure-like owners the projection rewrite serves, by type
-  name (`Lech/Frontend/ProjRec.lean`) -/
+  name (`ConLeche/Frontend/ProjRec.lean`) -/
   projOwners : Std.HashMap Name ProjRecOwner := {}
   /-- field sorts, by artifact iota name `T._model.proj_i.iota` -/
   projLevels : Std.HashMap Name Level := {}
@@ -156,12 +156,12 @@ structure StateD where
   hints of the generated definitions are computed from them, task #200) -/
   heights : Std.HashMap Name Nat := {}
   /-- in-process modelling of mutual/nested blocks is on (task #200;
-  `LECH_INMODEL=0` turns it off) -/
+  `CON_LECHE_INMODEL=0` turns it off) -/
   inModel : Bool := true
   /-- the blocks modelled in-process, in stream order (for the receipt
   and the route trace) -/
   inModelled : Array Name := #[]
-  /-- for the debug dump (`LECH_INMODEL_DUMP`): per modelled block, its
+  /-- for the debug dump (`CON_LECHE_INMODEL_DUMP`): per modelled block, its
   ordinal among the stream's `inductive` records and the generated
   records -/
   inModelGen : Array (Nat × Array DeclC) := #[]
@@ -170,7 +170,7 @@ structure StateD where
   /-- the parsed inductive blocks, by member type name (the in-process
   modeller's nested rung reads a container's shape off it) -/
   indBlocks : Std.HashMap Name InModel.BlockRec := {}
-  /-- CENSUS mode (`LECH_INMODEL_CENSUS=1`): a generator decline is
+  /-- CENSUS mode (`CON_LECHE_INMODEL_CENSUS=1`): a generator decline is
   recorded and the block pushed bare instead of declining the parse, so
   one parse lists every block's outcome (the driver then stops before
   the fold) -/
@@ -403,7 +403,7 @@ private def parseConstantValTD (st : StateD) (v : Json) : M ConstantVal := do
   }
 
 /-- The projection-function rewrite at a definition record
-(`Lech/Frontend/ProjRec.lean`): the value is `fun p⃗ self => .proj T i
+(`ConLeche/Frontend/ProjRec.lean`): the value is `fun p⃗ self => .proj T i
 self` for a recorded owner `T`, the field's sort is on record from the
 artifact, `PUnit` is available, and the definition's level parameters
 are the block's.  `none` = leave the record as parsed. -/
@@ -587,7 +587,7 @@ private def processLineCoreD (st : StateD) (j : Json)
         -- generated here and pushed ahead of it; the block then
         -- installs through the modeled route as a preprocessed one
         -- does.  A generator decline is the run's decline, naming the
-        -- reason (the residual that still needs `lech-preprocess`).
+        -- reason (the residual that still needs `con-leche-preprocess`).
         let T0 := (block.head?.map (·.name)).getD .anonymous
         let b ← blockRecOf st v
         let st :=
@@ -812,7 +812,7 @@ structure ParseResultD where
   preludeCount : Nat := 0
   preludeDropped : Nat := 0
   /-- the records moved ahead of a pinned `Nat` operation they ground
-  (`Lech/Frontend/NatOpGround.lean`, task #191; names, for the
+  (`ConLeche/Frontend/NatOpGround.lean`, task #191; names, for the
   driver's receipt) -/
   hoisted : Array Name := #[]
   /-- the blocks modelled in-process (task #200), in stream order -/
@@ -899,4 +899,4 @@ def parseExportStreamD (path : System.FilePath)
     IO (Except FrontendError ParseResultD) := do
   parseExportHandleD (← IO.FS.Handle.mk path .read) modeled prelude inModel census
 
-end Lech.Frontend
+end ConLeche.Frontend

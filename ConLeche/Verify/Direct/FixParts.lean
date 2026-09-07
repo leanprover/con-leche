@@ -1,5 +1,5 @@
-import Lech.Verify.Direct.SumInv
-import Lech.Kernel.Direct.RecParts
+import ConLeche.Verify.Direct.SumInv
+import ConLeche.Kernel.Direct.RecParts
 
 /-!
 # The direct recursive recogniser, inverted (task #188)
@@ -12,7 +12,7 @@ name and level parameters, the constructors' level parameters and
 residual shapes, the rules' count, and the kinds' count.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -171,4 +171,4 @@ theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
     · exact nomatch h
   · exact nomatch h
 
-end Lech
+end ConLeche

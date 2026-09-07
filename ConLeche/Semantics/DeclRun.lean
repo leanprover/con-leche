@@ -1,4 +1,4 @@
-import Lech.Semantics.Decl
+import ConLeche.Semantics.Decl
 
 /-!
 # `DeclRun` — the run/guard projection of `DeclR` (task #161 S4, THE
@@ -59,9 +59,9 @@ cval`; when the ind unit lands, callers instantiate `Ind :=
 DeclIndRun μ F env` and **`DeclRun`'s own text does not change**.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-! ## Shared syntactic plumbing
 
@@ -236,4 +236,4 @@ left to project FROM.  The run records below them are now the only
 source of truth, which is what S11a was aiming at — the projections
 were the compatibility shim across the transition. -/
 
-end Lech.Semantics
+end ConLeche.Semantics

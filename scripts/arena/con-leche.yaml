@@ -1,17 +1,17 @@
 description: |
-  **lech** — a Lean 4 kernel checker written in Lean 4 and *verified* against
+  **con-leche** — a Lean 4 kernel checker written in Lean 4 and *verified* against
   a set-theoretic model: the shipped `--verified` configuration is the one the
-  consistency capstone (`Lech.no_proof_of_False`) is stated about, so an
+  consistency capstone (`ConLeche.no_proof_of_False`) is stated about, so an
   accepted stream comes with a machine-checked argument that the checked
   declarations have a model, and in particular that no `False` was proved.
 
   The binary ingests raw `lean4export` NDJSON.  Inductive declarations and
-  `quot` are reduced to ordinary declarations by `lech-preprocess`, the
+  `quot` are reduced to ordinary declarations by `con-leche-preprocess`, the
   checker's own front end for
   [lean-inductive-models](https://github.com/nomeata/lean-inductive-models),
-  which lech spawns transparently on any stream that contains them and reads
+  which con-leche spawns transparently on any stream that contains them and reads
   from its pipe — nothing of the reduced stream is written to disk.  The
-  preprocessor's verdict is lech's: a block its (Lean) kernel rejects is
+  preprocessor's verdict is con-leche's: a block its (Lean) kernel rejects is
   invalid input, not a limitation of ours.
 
   Exit codes follow the arena convention exactly: 0 accept, 1 reject, 2 decline
@@ -20,7 +20,7 @@ description: |
   into 3 by an in-binary supervisor rather than being reported as a rejection.
 
   This definition is the *local* one used by `scripts/arena/run-suite.sh` in
-  the lech tree; it runs a prebuilt binary out of the working tree instead of
+  the con-leche tree; it runs a prebuilt binary out of the working tree instead of
   cloning, so the environment variables below must be set by the driver.
 version: "local worktree build"
 # Simple checker (no `url`, no `dir`): lka.py creates an empty build directory
@@ -28,16 +28,16 @@ version: "local worktree build"
 # and comes from the environment, so nothing depends on that directory.
 run: |
   set -u
-  ulimit -v "${LECH_VLIMIT:-16000000}"
+  ulimit -v "${CON_LECHE_VLIMIT:-16000000}"
   # SCRATCH.  Since task #180 the preprocessor's output is a pipe, so a run
   # writes no scratch file at all and the multi-gigabyte temp file that used
   # to land in the tmpfs `/tmp` is gone.  `TMPDIR` is still pointed at disk
   # here, as the project's standing rule for anything that does need scratch.
-  # (the driver always sets LECH_TMPDIR; the fallback is `./_tmp/tmp`, the
+  # (the driver always sets CON_LECHE_TMPDIR; the fallback is `./_tmp/tmp`, the
   # project's on-disk scratch convention, never the system temp directory)
-  export TMPDIR="${LECH_TMPDIR:-$PWD/_tmp/tmp}"
+  export TMPDIR="${CON_LECHE_TMPDIR:-$PWD/_tmp/tmp}"
   mkdir -p "$TMPDIR"
-  LECH_INDUCTIVE_MODELS="${LECH_PREPROC:?LECH_PREPROC must point at lech-preprocess}" \
-    timeout "${LECH_TIMEOUT:-3000}" \
-    "${LECH_BIN:?LECH_BIN must point at the lech binary}" \
-    "${LECH_MODE:---verified}" "$IN"
+  CON_LECHE_INDUCTIVE_MODELS="${CON_LECHE_PREPROC:?CON_LECHE_PREPROC must point at con-leche-preprocess}" \
+    timeout "${CON_LECHE_TIMEOUT:-3000}" \
+    "${CON_LECHE_BIN:?CON_LECHE_BIN must point at the con-leche binary}" \
+    "${CON_LECHE_MODE:---verified}" "$IN"

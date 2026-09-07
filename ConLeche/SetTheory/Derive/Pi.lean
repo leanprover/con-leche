@@ -1,4 +1,4 @@
-import Lech.SetTheory.Derive.Graphs
+import ConLeche.SetTheory.Derive.Graphs
 
 /-!
 # The dependent product and abstraction, level-free (task #100)
@@ -39,7 +39,7 @@ erasure (stage 6).  The old law surface splits:
   erased (`pi_level_indifferent` survives as `rfl` for reference).
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -359,7 +359,7 @@ theorem app_lamC_empty (F : V → V) (a : V) :
 
 /-- Grothendieck-universe closure: the collapse image sits inside
 `piSet ∪ {pt}`, both members of the universe. -/
-theorem _root_.Lech.IsTGUniverse.piC_mem {U A : V} {B : V → V}
+theorem _root_.ConLeche.IsTGUniverse.piC_mem {U A : V} {B : V → V}
     (hU : IsTGUniverse (Mem (V := V)) U) (hA : A ∈ˢ U)
     (hB : ∀ x, x ∈ˢ A → B x ∈ˢ U) : piC A B ∈ˢ U := by
   refine hU.mem_of_subset_mem
@@ -373,7 +373,7 @@ theorem _root_.Lech.IsTGUniverse.piC_mem {U A : V} {B : V → V}
     exact mem_binUnion.mpr (Or.inl hg)
 
 /-- Compat (vestigial level and premise): `IsTGUniverse.piC_mem`. -/
-theorem _root_.Lech.IsTGUniverse.pi_mem {U A : V} {B : V → V} {v : Nat}
+theorem _root_.ConLeche.IsTGUniverse.pi_mem {U A : V} {B : V → V} {v : Nat}
     (hU : IsTGUniverse (Mem (V := V)) U) (_hv : v ≠ 0) (hA : A ∈ˢ U)
     (hB : ∀ x, x ∈ˢ A → B x ∈ˢ U) : pi v A B ∈ˢ U :=
   hU.piC_mem hA hB
@@ -396,4 +396,4 @@ theorem lamC_dom_of_ne {A A' : V} {F : V → V} {B : V → V}
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] pcol piC lamC
 
-end Lech.SetTheory
+end ConLeche.SetTheory

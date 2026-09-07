@@ -1,22 +1,22 @@
-import Lech.Verify.Cached.DiscC6
+import ConLeche.Verify.Cached.DiscC6
 
 /-!
 # The cached knot: memo wrappers and the conditional simulation
 
-Port of `Lech/Verify/SimIKnot.lean` and `Lech/Verify/BridgeI.lean`'s
+Port of `ConLeche/Verify/SimIKnot.lean` and `ConLeche/Verify/BridgeI.lean`'s
 induction (lines 22-51) under the recipe (DESIGN.md, task #163).
 
-`SSimC mode env f` (declared in `Lech/Verify/Cached/DiscC1.lean`) is
+`SSimC mode env f` (declared in `ConLeche/Verify/Cached/DiscC1.lean`) is
 the cached analogue of `SSimI`: at fuel `f`, every cached entry point
-(`Lech.Cached.coreKnotI mode (mkFEnv env) f`) simulates the
+(`ConLeche.Cached.coreKnotI mode (mkFEnv env) f`) simulates the
 corresponding fueled family on well-scoped inputs.  This module
 proves the *memo-wrapper step*: from per-body simulation walks at fuel
-`f` (`Lech/Verify/Cached/DiscC4-6.lean`), each entry point simulates
+`f` (`ConLeche/Verify/Cached/DiscC4-6.lean`), each entry point simulates
 at `f + 1` — a cache hit consumes the backed `CSOK` clause at the query
 key (an *erasure-function* of the key, so it yields the pure run at the
 query's erasure directly), a miss runs the body walk and re-inserts the
 result in the depth-universal form via the `Expr`-side depth-invariance
-theorems (`Lech/Verify/Deep.lean`), exactly as the interned and
+theorems (`ConLeche/Verify/Deep.lean`), exactly as the interned and
 `Expr`-level bridges do.  `ssimC` then ties the two by fuel induction.
 
 The pure comparand side of every statement is byte-identical to the
@@ -25,10 +25,10 @@ interned original's.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
-open Lech.Cached.ExprC
+open ConLeche
+open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
@@ -565,4 +565,4 @@ theorem ssimC (hμ : mode.verifiedChecks = true) (env : Env) (henv : EnvWF env) 
             inferBodyIOC_sim hμ hgb (ssimC hμ env henv f) henv hs' hden' hw')
           hs hden hw }
 
-end Lech.Cached
+end ConLeche.Cached

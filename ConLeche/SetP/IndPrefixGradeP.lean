@@ -1,6 +1,6 @@
-import Lech.SetP.IndDomGradeP
-import Lech.SetP.IndRunsP
-import Lech.Verify.BridgeWfImp
+import ConLeche.SetP.IndDomGradeP
+import ConLeche.SetP.IndRunsP
+import ConLeche.Verify.BridgeWfImp
 
 /-!
 # The prefix domains, graded and fired (task #161, IND TIER part 4)
@@ -36,13 +36,13 @@ own slot for opener `m`.  That coincidence is what lets `Sat2` at the
 statement frame feed the recursor tower's descent at all.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name isDefEqCore DefEqListOk)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
 
@@ -365,4 +365,4 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
   rw [interp2_liftN, interp2_liftN, hshiftEnv ρ'] at hfire
   exact hfire
 
-end Lech.SetP
+end ConLeche.SetP

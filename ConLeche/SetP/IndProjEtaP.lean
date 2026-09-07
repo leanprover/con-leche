@@ -1,5 +1,5 @@
-import Lech.SetP.IndProjCapsP
-import Lech.SetP.IndEtaLawP
+import ConLeche.SetP.IndProjCapsP
+import ConLeche.SetP.IndEtaLawP
 
 /-!
 # The η key at the projection cons (task #161, IND TIER part 3, step 5b)
@@ -60,13 +60,13 @@ one `acvalWith_ne` each with no case split, where the member key had
 to branch on "is the cons the former?" four times over.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps ReducibilityHint BinderMeta)
 
 universe w
@@ -145,7 +145,7 @@ def ProjEtaLawP (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {blockNames : List Name} {env : Env}
     (mp : EnvS2PM V μ env) {c₀ : ConstantInfo}
     {A : (Name → Nat) → AVExpr} {T : Name} {i : Nat},
-    c₀.name = Lech.projFnName T i →
+    c₀.name = ConLeche.projFnName T i →
     (∃ cv mI rP rules, c₀ = .recInfo cv mI rP rules) →
     env.find? c₀.name = none →
     BlockInstalledTT blockNames env mp.base2.cvalE →
@@ -153,17 +153,17 @@ def ProjEtaLawP (V : Type w) [SetTheory V] : Prop :=
     ∀ (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
       caps.eta = true →
-      Lech.reservedBasisNames.contains T = false →
-      Lech.EtaPins μ env T cvT.levelParams caps →
+      ConLeche.reservedBasisNames.contains T = false →
+      ConLeche.EtaPins μ env T cvT.levelParams caps →
       blockNames.contains T = true →
       blockNames.contains caps.etaCtor = true →
-      Lech.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
+      ConLeche.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
       ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
         m₂.acval = acvalWith mp.base2.acval c₀.name A →
         -- v1's `hvP`, install-supplied
         (∀ j, j < caps.etaFields → ∀ ψ : Name → Nat,
-          m₂.acval (Lech.projFnName T j) ψ
-            = mp.base2.acval (Lech.projModelName T j) ψ) →
+          m₂.acval (ConLeche.projFnName T j) ψ
+            = mp.base2.acval (ConLeche.projModelName T j) ψ) →
         ∀ φ' : Name → Nat, EtaLawP m₂ φ' T cvT caps
 
 set_option maxHeartbeats 3200000 in
@@ -174,20 +174,20 @@ theorem projEtaLawP : ProjEtaLawP V := by
   obtain ⟨cvr, mIr, rPr, rulesr, hc₀eq⟩ := hc₀rec
   have hT0 : T ≠ c₀.name := by
     intro hh
-    rw [hh, Lech.Env.find?_cons_self, hc₀eq] at hfT
+    rw [hh, ConLeche.Env.find?_cons_self, hc₀eq] at hfT
     exact nomatch hfT
   have hfE : env.find? T = some (.indInfo cvT caps) := by
-    rw [Lech.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hfT
+    rw [ConLeche.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hfT
     exact hfT
   have hC0 : caps.etaCtor ≠ c₀.name := by
     intro hh
     obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
-    rw [hh, Lech.Env.find?_cons_self, hc₀eq] at hfC
+    rw [hh, ConLeche.Env.find?_cons_self, hc₀eq] at hfC
     exact nomatch hfC
   obtain ⟨-, ⟨cvCst, hfCst⟩, -⟩ := id hfam
   have hfCe : env.find? caps.etaCtor
       = some (.ctorInfo cvCst caps.etaParams caps.etaFields) := by
-    rw [Lech.Env.find?_cons, if_neg (fun hh => hC0 hh.symm)] at hfCst
+    rw [ConLeche.Env.find?_cons, if_neg (fun hh => hC0 hh.symm)] at hfCst
     exact hfCst
   -- the kernel's η-capability pins
   obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
@@ -215,13 +215,13 @@ theorem projEtaLawP : ProjEtaLawP V := by
     obtain ⟨cvm, mval, hm, hfm, hlps, hren, hval⟩ := hIB T hbT _ hfE
     obtain rfl : cvm = cvmT := by
       have h := hTmE; rw [hfm] at h
-      exact (Lech.ConstantInfo.defnInfo.inj (Option.some.inj h)).1
+      exact (ConLeche.ConstantInfo.defnInfo.inj (Option.some.inj h)).1
     obtain ⟨-, -, hty, -⟩ :=
-      mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfE)
+      mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfE)
     exact blockTypeReadEq mp hIB hIA hty hren ψ
   have hcbT : ConstsBound env cvT.type := by
     obtain ⟨-, -, hty, -⟩ :=
-      mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfE)
+      mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfE)
     exact constsBound_of_constsResolve _ hty
   intro us hus
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
@@ -244,7 +244,7 @@ theorem projEtaLawP : ProjEtaLawP V := by
         caps.etaFields
       = ts ++ (List.range caps.etaFields).map (fun j =>
           (ts ++ [x]).foldl SetTheory.app
-            (interp2 V ρ (mp.base2.acval (Lech.projModelName T j) ψ)))
+            (interp2 V ρ (mp.base2.acval (ConLeche.projModelName T j) ψ)))
       from by
     unfold etaFabArgs2 projSpines2
     refine congrArg _ (List.map_congr_left fun j hj => ?_)
@@ -262,9 +262,9 @@ theorem projEtaLawP : ProjEtaLawP V := by
   obtain ⟨ux, vx, Ax, Bx, Γ₁', rfl, hΓ₁eq, hS0⟩ := hteleS1.succ_inv
   cases hS0
   have hsblen : sbinders.length = caps.etaParams + 1 :=
-    Lech.Expr.stripPis_length _ hSstrip
+    ConLeche.Expr.stripPis_length _ hSstrip
   have htblen : tbindersM.length = caps.etaParams :=
-    Lech.Expr.stripPis_length _ hTstrip
+    ConLeche.Expr.stripPis_length _ hTstrip
   have hΓ₁ : Γ₁ = [Ax] := by rw [hΓ₁eq]; rfl
   -- ===== the parameter domains agree =====
   have hdomEq : ∀ i0, i0 < ts.length →
@@ -348,11 +348,11 @@ theorem projEtaLawP : ProjEtaLawP V := by
   have hprojRead : ∀ j ∈ List.range caps.etaFields,
       denoteP mp.base2.acval env ψ (caps.etaParams + 1)
         ((fun j => Expr.mkAppN
-          (.const (Lech.projModelName T j)
+          (.const (ConLeche.projModelName T j)
             (cvT.levelParams.map .param))
           (openFvars 0 (caps.etaParams + 1))) j)
         = some ((fun j => AVExpr.mkAppN
-            (mp.base2.acval (Lech.projModelName T j) ψ)
+            (mp.base2.acval (ConLeche.projModelName T j) ψ)
             ((List.range (caps.etaParams + 1)).map fun q =>
               AVExpr.bvar (caps.etaParams + 1 - 1 - (0 + q)))) j) := by
     intro j hj
@@ -374,20 +374,20 @@ theorem projEtaLawP : ProjEtaLawP V := by
         (cvT.levelParams.map .param) = ψ from
       funext fun _ => Level.substFn_map_param]
   have hprojList : ((List.range caps.etaFields).map (fun j =>
-        Expr.mkAppN (.const (Lech.projModelName T j)
+        Expr.mkAppN (.const (ConLeche.projModelName T j)
           (cvT.levelParams.map .param))
         (((List.range caps.etaParams).map fun k =>
             Expr.bvar (caps.etaParams - k)) ++ [Expr.bvar 0]))).map
         (fun y => Expr.instSeq (openFvars 0 (caps.etaParams + 1))
           caps.etaParams y)
       = (List.range caps.etaFields).map (fun j =>
-          Expr.mkAppN (.const (Lech.projModelName T j)
+          Expr.mkAppN (.const (ConLeche.projModelName T j)
             (cvT.levelParams.map .param))
             (openFvars 0 (caps.etaParams + 1))) := by
     rw [List.map_map]
     refine List.map_congr_left fun j _ => ?_
     show Expr.instSeq (openFvars 0 (caps.etaParams + 1)) caps.etaParams
-        (Expr.mkAppN (.const (Lech.projModelName T j)
+        (Expr.mkAppN (.const (ConLeche.projModelName T j)
             (cvT.levelParams.map .param))
           (((List.range caps.etaParams).map fun k =>
               Expr.bvar (caps.etaParams - k)) ++ [Expr.bvar 0])) = _
@@ -406,7 +406,7 @@ theorem projEtaLawP : ProjEtaLawP V := by
             AVExpr.bvar (caps.etaParams + 1 - 1 - (0 + q)))
           ++ (List.range caps.etaFields).map fun j =>
               AVExpr.mkAppN
-                (mp.base2.acval (Lech.projModelName T j) ψ)
+                (mp.base2.acval (ConLeche.projModelName T j) ψ)
                 ((List.range (caps.etaParams + 1)).map fun q =>
                   AVExpr.bvar (caps.etaParams + 1 - 1 - (0 + q))))) := by
     have h := hbodyS
@@ -517,13 +517,13 @@ theorem projEtaLawP : ProjEtaLawP V := by
       List.getElem?_eq_getElem (by omega)] at this
     exact (Option.some.inj this).symm
   have hmapP : ((List.range caps.etaFields).map fun j =>
-        AVExpr.mkAppN (mp.base2.acval (Lech.projModelName T j) ψ)
+        AVExpr.mkAppN (mp.base2.acval (ConLeche.projModelName T j) ψ)
           ((List.range (caps.etaParams + 1)).map fun q =>
             AVExpr.bvar (caps.etaParams + 1 - 1 - (0 + q)))).map
         (interp2 V (cons x (consN ts ρ)))
       = (List.range caps.etaFields).map fun j =>
           (ts ++ [x]).foldl SetTheory.app
-            (interp2 V ρ (mp.base2.acval (Lech.projModelName T j) ψ)) := by
+            (interp2 V ρ (mp.base2.acval (ConLeche.projModelName T j) ψ)) := by
     rw [List.map_map]
     exact List.map_congr_left fun j _ => hPval _
   rw [List.map_map] at hmapS hmapP
@@ -557,7 +557,7 @@ theorem capsOkP_cons_proj_of (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr} {T₀ : Name} {i : Nat}
     {blockNames : List Name}
     (hfresh : env.find? c₀.name = none)
-    (hc₀name : c₀.name = Lech.projFnName T₀ i)
+    (hc₀name : c₀.name = ConLeche.projFnName T₀ i)
     (hc₀rec : ∃ cv mI rP rules, c₀ = .recInfo cv mI rP rules)
     (hIB : BlockInstalledTT blockNames env mp.base2.cvalE)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
@@ -567,12 +567,12 @@ theorem capsOkP_cons_proj_of (mp : EnvS2PM V μ env)
     (hinst : ∀ (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T₀ = some (.indInfo cvT caps) →
       caps.eta = true →
-      Lech.EtaPins μ env T₀ cvT.levelParams caps ∧
+      ConLeche.EtaPins μ env T₀ cvT.levelParams caps ∧
         blockNames.contains T₀ = true ∧
         blockNames.contains caps.etaCtor = true ∧
         ∀ j, j < caps.etaFields → ∀ ψ : Name → Nat,
-          m₂.acval (Lech.projFnName T₀ j) ψ
-            = mp.base2.acval (Lech.projModelName T₀ j) ψ) :
+          m₂.acval (ConLeche.projFnName T₀ j) ψ
+            = mp.base2.acval (ConLeche.projModelName T₀ j) ψ) :
     CapsOkP m₂ :=
   capsOkP_cons_proj mp hprev hfresh hc₀name hc₀rec m₂ hac
     (fun cvT caps hf hcape _ hres hfamS φ' =>
@@ -581,4 +581,4 @@ theorem capsOkP_cons_proj_of (mp : EnvS2PM V μ env)
         projEtaLawP mp hc₀name hc₀rec hfresh hIB hIA cvT caps hf hcape
           hres hp hbT hbC hfamS m₂ hac hvP φ')
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,7 +1,7 @@
 module
 public import Lean
-public meta import Lech.Kernel.Expr
-public meta import Lech.PinGen
+public meta import ConLeche.Kernel.Expr
+public meta import ConLeche.PinGen
 
 /-!
 # The built-in prelude: the pin cone's order-sensitive ground (task #191)
@@ -78,23 +78,23 @@ input to the committed dump; nothing at checker runtime imports it.
 
 public meta section
 
-namespace Lech.PinGen
+namespace ConLeche.PinGen
 
 open Lean
 
 /-! ## Names between the two worlds -/
 
-/-- `Lech.Name → Lean.Name` (the inverse of `Lech.Name.ofLeanName`). -/
-def toLeanName : Lech.Name → Lean.Name
+/-- `ConLeche.Name → Lean.Name` (the inverse of `ConLeche.Name.ofLeanName`). -/
+def toLeanName : ConLeche.Name → Lean.Name
   | .anonymous => .anonymous
   | .str p s => .str (toLeanName p) s
   | .num p n => .num (toLeanName p) n
 
-/-- The constants of a `Lech.Expr`. -/
-partial def lechConsts (e : Lech.Expr) : NameSet :=
+/-- The constants of a `ConLeche.Expr`. -/
+partial def conlecheConsts (e : ConLeche.Expr) : NameSet :=
   go e {}
 where
-  go : Lech.Expr → NameSet → NameSet
+  go : ConLeche.Expr → NameSet → NameSet
     | .const n _, s => s.insert (toLeanName n)
     | .app f a, s => go a (go f s)
     | .lam ty b _, s => go b (go ty s)
@@ -128,7 +128,7 @@ def ownersOf (env : Environment) (s : NameSet) : NameSet :=
 /-! ## The basis and the operations, as the generator sees them -/
 
 /-- The pinned basis blocks' record heads, in the checker's install
-order (`Lech/Kernel/BasisA.lean`); `Quot.sound` rides with `Quot`. -/
+order (`ConLeche/Kernel/BasisA.lean`); `Quot.sound` rides with `Quot`. -/
 def basisHeads : List Lean.Name :=
   [`Eq, `Nat, `PUnit, `Empty, `False, `Quot]
 
@@ -139,7 +139,7 @@ def basisRoots : List Lean.Name :=
   [`Eq, `Nat, `PUnit, `Empty, `False, `Quot, ``Quot.sound]
 
 /-- The structural `Nat` operations (`natOpNames` in
-`Lech/Kernel/Core.lean`, mirrored: `Core` is a classic library, out of
+`ConLeche/Kernel/Core.lean`, mirrored: `Core` is a classic library, out of
 reach of this `module`): certified at install by definitional
 recurrence equations, never by a syntactic pin. -/
 def structuralOps : List Lean.Name :=
@@ -167,10 +167,10 @@ structure OpSensitivity where
 /-- `sensitive c` for one operation, given its computed pin and
 certificate proofs (`computeOp`'s output). -/
 def sensitiveOf (env : Environment) (spec : OpSpec)
-    (pin : Lech.Expr) (proofs : List Lech.Expr) : NameSet := Id.run do
-  let mut need : NameSet := lechConsts pin
+    (pin : ConLeche.Expr) (proofs : List ConLeche.Expr) : NameSet := Id.run do
+  let mut need : NameSet := conlecheConsts pin
   for p in proofs do
-    need := need.union (lechConsts p)
+    need := need.union (conlecheConsts p)
   for g in spec.groundOps ++ stmtMachineryNames do
     need := need.insert g
   let closureOwners := ownersOf env (coneOf env spec.op)
@@ -495,7 +495,7 @@ is lean4export's, and the toolchain is recorded so a mismatch with the
 pin dump is readable off the file. -/
 def preludeMetaLine : String :=
   (Json.mkObj [("meta", Json.mkObj [
-    ("exporter", Json.mkObj [("name", "lech-prelude"), ("version", "1")]),
+    ("exporter", Json.mkObj [("name", "con-leche-prelude"), ("version", "1")]),
     ("lean", Json.mkObj [("version", Json.str Lean.versionString),
                          ("githash", Json.str Lean.githash)]),
     ("format", Json.mkObj [("version", "3.1.0")])])]).compress
@@ -510,7 +510,7 @@ def serializePrelude (env : Environment) (roots : List Lean.Name) :
   return (#[preludeMetaLine] ++ st.out, st.declared)
 
 /-- The prelude file's basename for a toolchain (beside the pin dump,
-`Lech.PinGen.toolchainFileName`): `<toolchain>.prelude.ndjson`. -/
+`ConLeche.PinGen.toolchainFileName`): `<toolchain>.prelude.ndjson`. -/
 def preludeFileName (tc : String) : String :=
   ((toolchainFileName tc).dropEnd ".json".length).toString ++ ".prelude.ndjson"
 
@@ -562,4 +562,4 @@ def computeDumpAndPrelude : IO (PinDumpFile × Array String) := do
       (r.op.toString, (r.residual.map (·.toString)).toArray) }
   return (dump, lines)
 
-end Lech.PinGen
+end ConLeche.PinGen

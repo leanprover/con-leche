@@ -1,5 +1,5 @@
-import Lech.Semantics.DeclIndRun
-import Lech.Semantics.IndBlockFacts
+import ConLeche.Semantics.DeclIndRun
+import ConLeche.Semantics.IndBlockFacts
 
 /-!
 # The inductive block's syntactic residue, on the **run** records
@@ -24,9 +24,9 @@ priced comparison).
 
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-! ## The projection fold -/
 
@@ -932,4 +932,4 @@ theorem declIndEtaClosedRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
         (indMembersRun_mono _ hmem _ _ hfC)⟩
     · exact absurd he (by decide)
 
-end Lech.Semantics
+end ConLeche.Semantics

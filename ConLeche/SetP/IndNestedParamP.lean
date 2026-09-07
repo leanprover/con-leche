@@ -1,5 +1,5 @@
-import Lech.SetP.IndPinGradeP
-import Lech.SetP.IndPlainParamP
+import ConLeche.SetP.IndPinGradeP
+import ConLeche.SetP.IndPlainParamP
 
 /-!
 # The `.nested` fire's parameter supply (task #161, IND TIER part 8)
@@ -47,13 +47,13 @@ Three things are worth naming:
   transport is `nestedParamSupplyP`, the wrapper below.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name isDefEqCore inferTypeCore
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name isDefEqCore inferTypeCore
   DefEqListOk TypedListOk)
 
 universe w
@@ -612,4 +612,4 @@ theorem nestedParamSupplyP {m : EnvS2Core V env} {F : Nat}
   rw [hbridge q hq] at hdw
   exact hmem dw hdw
 
-end Lech.SetP
+end ConLeche.SetP

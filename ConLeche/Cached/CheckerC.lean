@@ -1,6 +1,6 @@
-import Lech.Kernel.Direct.SumInstallF
-import Lech.Kernel.Direct.RecInstallF
-import Lech.Cached.CoreC
+import ConLeche.Kernel.Direct.SumInstallF
+import ConLeche.Kernel.Direct.RecInstallF
+import ConLeche.Cached.CoreC
 
 /-!
 # The cached declaration driver
@@ -11,7 +11,7 @@ thin per-declaration phase-driver layer at `CheckCM`, plus the
 entry-point record over the cached core.
 
 What the layer is *for*: the per-declaration phase driver that the
-parsed-declaration driver (`Lech/Cached/ParsedC.lean`) and its bridges
+parsed-declaration driver (`ConLeche/Cached/ParsedC.lean`) and its bridges
 consume — at a `CheckMode` (the trusted twin `ParsedT`/`CoreT` retired
 2026-09-06, the configuration record that briefly stood in for the mode
 retired at task #185; see `ParsedC.lean`'s header).  The `Expr`-typed
@@ -19,9 +19,9 @@ shared fold `checkDeclsShared` went at task #172 with the interned
 checker it existed to compare against.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
 variable (mode : CheckMode)
 
@@ -58,7 +58,7 @@ def sharedOpsC (fe : FEnv) : CheckerOps CheckCM where
 
 /-! ## Thin phase drivers (one `CState` per declaration)
 
-Each mirrors its `Lech/Kernel/Checker.lean` counterpart clause by
+Each mirrors its `ConLeche/Kernel/Checker.lean` counterpart clause by
 clause; the differences are exactly: `flushC` at environment
 transitions, `FEnv.push` maintaining the index, and *every*
 environment lookup routed through the index (task #63). -/
@@ -324,4 +324,4 @@ exactly one declaration. -/
 def checkDeclSharedF (fe : FEnv) (d : Declaration) : CheckM FEnv :=
   (checkDeclSF mode fe d).run' {}
 
-end Lech.Cached
+end ConLeche.Cached

@@ -1,5 +1,5 @@
-import Lech.Semantics.Tower.FixCaseI
-import Lech.Semantics.Tower.SumRec
+import ConLeche.Semantics.Tower.FixCaseI
+import ConLeche.Semantics.Tower.SumRec
 
 /-!
 # The ih spellings (tasks #188, #202)
@@ -15,11 +15,11 @@ the squash regime's recursor body (`sqFixBodyAV`, task #202 A2): the
 applications, as a β-redex over the constructor's field telescope.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -145,4 +145,4 @@ def sqFixBodyAV (ℓ nP n nIdx : Nat) (Fs Es : List AVExpr) (rs : List Bool)
             (nIdx + 1) i (tls.getD i []) (Eis.getD i []))))
     ((srcList Es Fs.length).map (srcAV nIdx 1))
 
-end Lech.Semantics
+end ConLeche.Semantics

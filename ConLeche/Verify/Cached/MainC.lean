@@ -1,10 +1,10 @@
-import Lech.Verify.Cached.BridgeCP
-import Lech.SetP.FoldP
+import ConLeche.Verify.Cached.BridgeCP
+import ConLeche.SetP.FoldP
 
 /-!
 # The capstone letter of the SHIPPED driver
 
-`checkDeclsSPCachedD` (`Lech/Cached/ParsedC.lean`) is the only
+`checkDeclsSPCachedD` (`ConLeche/Cached/ParsedC.lean`) is the only
 declaration driver the binary has since task #172, and
 `no_proof_of_Empty_SPCD_P` is its consistency letter, on the graded
 (P) carrier.
@@ -24,22 +24,22 @@ Retired at the SetR removal (2026-09-05) **with their subjects**: the
 collapsed-lane letters `no_proof_of_Empty_SPCD_{R,R2,R2M}`, their
 acceptance corollaries and the folds `foldSPC_{R,R2,R2M}`.  Every one
 of them was stated over an `EnvS`/`EnvS2U`/`EnvS2UM` carrier, and those
-carriers were the `Lech/SetR/*` tier — the B4 measurement having
+carriers were the `ConLeche/SetR/*` tier — the B4 measurement having
 shown a zero acceptance delta between the two verified configurations,
 the P letter is the whole story.  This module used to be the only one
 allowed to see both lanes; there is one lane.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech Lech.Semantics SetTheory Lech.SetModel
+open ConLeche ConLeche.Semantics SetTheory ConLeche.SetModel
 
 universe w
 variable {V : Type w} [SetTheory V]
 
 /-! ## The direct-parse driver (task #171; restated at #172 B3b)
 
-`Lech/Frontend/ExportC.lean` parses the export straight into `DeclC`.
+`ConLeche/Frontend/ExportC.lean` parses the export straight into `DeclC`.
 
 **The letter below used to be stated over `List WDeclC`** — the
 subtype of records whose `ExprC` slots carried the field invariant
@@ -119,7 +119,7 @@ pure fueled checker the tower is stated about) its only sibling. -/
 
 section PLetters
 
-open Lech.SetP (EnvSPOk EnvS2PM declStepPM
+open ConLeche.SetP (EnvSPOk EnvS2PM declStepPM
   no_constant_of_Empty_P no_constant_of_False_P)
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
@@ -148,7 +148,7 @@ theorem foldSPC_PM (hμ : μ.verifiedChecks = true) :
     obtain ⟨hres₁, hfe₁, F, hF⟩ :=
       checkDeclSPStepC_run hμ mp.toEnvFacts.wf hres hd hstepC
     exact foldSPC_PM hμ ds fe₁ hfe₁
-      (declStepPM hμ mp hE (Lech.Semantics.checkDeclRun_ofEnvFactsE hF))
+      (declStepPM hμ mp hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hF))
       hres₁ (fun p hp => hrel p (List.mem_cons_of_mem _ hp)) h
 
 /-- **Acceptance, shipped direct-parse driver, P route.** -/
@@ -158,7 +158,7 @@ theorem checkDeclsSPCachedD_sound_P (hμ : μ.verifiedChecks = true)
     Nonempty (EnvS2PM V μ env') := by
   obtain ⟨fe, s', hrun, rfl⟩ := checkDeclsSPCachedD_run h
   exact (foldSPC_PM hμ ds (mkFEnv Env.empty) rfl
-    ⟨⟨Lech.SetP.EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩
+    ⟨⟨ConLeche.SetP.EnvS2PM.empty V μ⟩, EtaFamiliesClosed.empty⟩
     CSOKF.empty wdecl_rel hrun).1
 
 /-- **THE CAPSTONE FOR THE SHIPPED DRIVER, P mode** (task #172 B4):
@@ -191,7 +191,7 @@ theorem no_proof_of_False_SPCD_P (V : Type w) [SetTheory V]
 
 `Main.lean` calls `checkDeclsSPCachedD` — this letter's subject —
 directly on every run that is not printing progress.  The opt-in
-`LECH_PROGRESS` lane runs an unverified `IO` twin of the same fold
+`CON_LECHE_PROGRESS` lane runs an unverified `IO` twin of the same fold
 (`Main.checkDeclsProgressIO`): the same `checkDeclStepIdxC` steps in
 the same order, with a line printed before each declaration.  **User
 ruling, 2026-09-07**: the two folds differ only in the print, and the
@@ -204,4 +204,4 @@ no `LawfulMonad IO`; it is deleted.) -/
 
 end PLetters
 
-end Lech.Cached
+end ConLeche.Cached

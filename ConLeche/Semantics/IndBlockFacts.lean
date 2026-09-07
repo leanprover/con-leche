@@ -1,13 +1,13 @@
-import Lech.Semantics.DeclEta
-import Lech.Verify.Extend.Iota
+import ConLeche.Semantics.DeclEta
+import ConLeche.Verify.Extend.Iota
 
-import Lech.Verify.Extend.Block
+import ConLeche.Verify.Extend.Block
 
-import Lech.Verify.Denote.Rename
+import ConLeche.Verify.Denote.Rename
 
-import Lech.Verify.Extend.Recs
+import ConLeche.Verify.Extend.Recs
 
-import Lech.Semantics.DeclRun
+import ConLeche.Semantics.DeclRun
 /-!
 # The inductive block's **relation-level** residue (task #161 S5,
 THE SEPARATION — the C4 refutation's bill, paid)
@@ -43,9 +43,9 @@ second component through it (one source of truth), and the P fold
 consumes it instead of `declIndS memberKeyS mp.base`.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-- **The block's capability pins**, from the capability record's own
 definition: `indBlockCaps`' two Booleans *are* `checkEtaThm` and
@@ -233,4 +233,4 @@ theorem recRulePlain_params_le {recTy : Expr} {mI rP cnP : Nat}
   omega
 
 
-end Lech.Semantics
+end ConLeche.Semantics

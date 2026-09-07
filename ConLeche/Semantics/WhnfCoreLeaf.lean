@@ -1,4 +1,4 @@
-import Lech.Verify.Knot
+import ConLeche.Verify.Knot
 
 /-!
 # `SetBase/WhnfCoreLeaf` — the six shapes `whnfCore` returns unchanged
@@ -13,23 +13,23 @@ lane's `Step2/WhnfP` was reading them through the 2U module
 `Step2/Whnf`, whose import the sever removes.
 
 Statements verbatim.  (The design census would rather see them in
-`Lech/Verify/*`, which is where proofs about kernel functions belong;
+`ConLeche/Verify/*`, which is where proofs about kernel functions belong;
 that is a rename, not a move, so it was not that batch's business —
 the base directory is the boundary that matters.)
 
 **KEPT at the SetR removal's Stage C** (2026-09-05), which deleted the
 relation family and the whole derivation bridge above it.  This module
-then carried the `Lech.SetR` namespace and a `whnfCoreR_*` name
+then carried the `ConLeche.SetR` namespace and a `whnfCoreR_*` name
 prefix, and it was neither: six `rfl` facts about the *kernel's*
 `whnfCore`, with a live consumer in the graded lane
 (`SetP/Step2/WhnfP.lean`).  It is the clearest case in the tree of the
 rule the batch ran on — *classify a module by what its statements
 mention, not by the namespace it sits in.*  The cleanup pass of
 2026-09-06 gave them their honest names: `whnfCore_leaf_*` (the
-section title below), in `Lech.Semantics`.
+section title below), in `ConLeche.Semantics`.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
 variable {mode : CheckMode} {env : Env} {fuel d : Nat}
 
@@ -62,4 +62,4 @@ every `iotaRec = none`, and every uncertified redex. -/
 @[simp] theorem whnfCore_leaf_lit (l : Literal) :
     whnfCore mode env (fuel + 1) d (.lit l) = .ok (.lit l) := rfl
 
-end Lech.Semantics
+end ConLeche.Semantics

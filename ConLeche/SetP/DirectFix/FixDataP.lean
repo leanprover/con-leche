@@ -1,6 +1,6 @@
-import Lech.SetP.DirectSum.SumDataP
-import Lech.SetP.Direct.DirectBodyFramesP
-import Lech.Verify.Direct.FixWF
+import ConLeche.SetP.DirectSum.SumDataP
+import ConLeche.SetP.Direct.DirectBodyFramesP
+import ConLeche.Verify.Direct.FixWF
 
 /-!
 # The recursive constructor's data (task #188)
@@ -21,13 +21,13 @@ residual, so the later entries and the residual's index readings are
 lifts over its slot.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -69,12 +69,12 @@ structure FixOpened (env₀ : Env) (T : Name) (lps : List Name) (nP nIdx nF : Na
 
 theorem fixOpened_of {env₀ : Env} {T : Name} {lps : List Name} {nP nIdx : Nat} {cty : Expr}
     {nF : Nat} {ks : List RecFieldKind}
-    (h : Lech.directFixOpenedOk env₀ T lps nP nIdx cty nF ks = true) :
+    (h : ConLeche.directFixOpenedOk env₀ T lps nP nIdx cty nF ks = true) :
     ∃ (fvsP : List Expr) (crest : Expr) (xFvs : List Expr) (xrest : Expr),
       openPisAtFvars nP cty 0 = some (fvsP, crest) ∧
       openPisAtFvars nF crest nP = some (xFvs, xrest) ∧
       FixOpened env₀ T lps nP nIdx nF ks fvsP xFvs xrest := by
-  unfold Lech.directFixOpenedOk at h
+  unfold ConLeche.directFixOpenedOk at h
   split at h
   · next fvsP crest hop =>
     split at h
@@ -242,14 +242,14 @@ structure FixCtorDataI {env : Env} (m : EnvS2Core V env) (env₀ : Env) (T : Nam
           (AVExpr.mkAppN (m.acval T ψ)
             (paramBvarsAt nP (nP + i + ((tss ψ).getD i []).length) ++ (Eiss ψ).getD i []))
 
-end Lech.SetP
+end ConLeche.SetP
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w'
 
@@ -290,13 +290,13 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     {bs : List (Expr × BinderMeta)} {ks : List RecFieldKind}
-    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₁ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
     (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort))
     (hks : ks.length = nF)
-    (hopened : Lech.directFixOpenedOk env₀ T lps nP nIdx cvCa.type nF ks = true) :
+    (hopened : ConLeche.directFixOpenedOk env₀ T lps nP nIdx cvCa.type nF ks = true) :
     ∃ (idxArgs : List Expr) (ds : (Name → Nat) → List (Nat × Nat × AVExpr))
       (Es : (Name → Nat) → List AVExpr) (srcs : List (Option Nat))
       (fvsP xFvs : List Expr) (xrest : Expr) (Eiss : (Name → Nat) → List (List AVExpr))
@@ -308,15 +308,15 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   obtain ⟨fvsP', crest', xFvs', xrest', hopP', hopX', hO⟩ := fixOpened_of hopened
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopP'))
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopX.symm.trans hopX'))
-  obtain ⟨hcf, -, -, hcb⟩ := Lech.direct_sum_ctor_typeWF hCtor
+  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
   obtain ⟨hlenP, hidxP, -⟩ := opening_vars_at hopP
   obtain ⟨hlenX, hidxX, -⟩ := opening_vars_at hopX
   -- the fields' sort rows (task #202: the reflexive telescopes' bits)
   obtain ⟨-, -, fvsP₂, crest₂, tfvs, trest, xFvs₂, idxArgs₂, sorts, hopC, -, -, hopX₂, -, -, -, hsorts⟩ :=
-    Lech.checkDirectSumCtor_shape hCtor
+    ConLeche.checkDirectSumCtor_shape hCtor
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))
   obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hopX.symm.trans hopX₂))
-  obtain ⟨-, hrows⟩ := Lech.checkDirectFieldSortsI_inv hsorts
+  obtain ⟨-, hrows⟩ := ConLeche.checkDirectFieldSortsI_inv hsorts
   have hidxX' : ∀ k x, xFvs[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty := hidxX
   have hidxP' : ∀ k x, fvsP[k]? = some x → ∃ ty, x = Expr.fvar k ty := fun k x hx => by
     obtain ⟨ty, h⟩ := hidxP k x hx
@@ -416,9 +416,9 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
       rw [hfn, ← htake, List.take_append_drop]
     rw [hshape] at hib
     obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv (fvsP ++ body.getAppArgs.drop nP) hib
-    obtain ⟨ci, hfci, -, rfl⟩ := Lech.inferTypeCore_const_inv htf
+    obtain ⟨ci, hfci, -, rfl⟩ := ConLeche.inferTypeCore_const_inv htf
     obtain rfl : ci = .indInfo cvTa caps := Option.some.inj (hfci.symm.trans hfT)
-    have htfT : Lech.inferTypeCore μ env F' (nP + i + (x.fvarTypeD.piBinders).1.length)
+    have htfT : ConLeche.inferTypeCore μ env F' (nP + i + (x.fvarTypeD.piBinders).1.length)
         (.const T (lps.map .param)) = .ok cvTa.type := by
       have := htf
       rw [show (ConstantInfo.indInfo cvTa caps).toConstantVal = cvTa from rfl,
@@ -647,4 +647,4 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     rw [hTssGet ψ i hi, hEissGet ψ i hi]
     exact (hEisR ψ i ⟨hk, hi⟩).2.2.2.1
 
-end Lech.SetP
+end ConLeche.SetP

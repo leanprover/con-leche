@@ -1,5 +1,5 @@
-import Lech.Verify.Direct.DirectWF
-import Lech.Verify.Direct.SumInv
+import ConLeche.Verify.Direct.DirectWF
+import ConLeche.Verify.Direct.SumInv
 
 /-!
 # The direct sum install: environment well-formedness (task #175
@@ -14,7 +14,7 @@ Task #175 indexed: the recursor's cons is generic over its major index
 and rule prefix (`p.majorIdx`/`p.rulePrefix` at the install).
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -126,4 +126,4 @@ theorem direct_sum_rec_wf {env : Env} (henv : EnvWF env)
   intro lvls pins hf
   exact absurd hf (hfire lvls pins)
 
-end Lech
+end ConLeche

@@ -1,9 +1,9 @@
-import Lech.Semantics.IndBlockRun
-import Lech.SetP.IndBottomProjP
-import Lech.SetP.Annot.Bit
+import ConLeche.Semantics.IndBlockRun
+import ConLeche.SetP.IndBottomProjP
+import ConLeche.SetP.Annot.Bit
 -- task #161 S10: `acceptedReadsP_of` — the rule rhs's reading comes
 -- from the recorded RUN, not from `IotaRuleR`'s derivation row.
-import Lech.SetP.Step2.AcceptedP
+import ConLeche.SetP.Step2.AcceptedP
 
 /-!
 # The per-rule bridge, canonical branch (task #161, IND TIER part 9)
@@ -39,13 +39,13 @@ conjunct owes the pins' `openRev` readings, whose supply is the
 successor's first item (see the seal).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta RecRule isDefEqCore inferTypeCore DefEqListOk)
 
 universe w
@@ -284,4 +284,4 @@ theorem iotaRulePlainP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   · intro i hi him
     exact hplain hfireP i (by rw [hr'cp]; exact hi) him
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,5 +1,5 @@
-import Lech.Semantics.IndBlockRun
-import Lech.SetP.ProjConsP
+import ConLeche.Semantics.IndBlockRun
+import ConLeche.SetP.ProjConsP
 
 /-!
 # The projection-function phase, P tier (task #161, IND TIER part 10)
@@ -29,13 +29,13 @@ P tier: `rec_rules` is an `EnvS2PM` field, so the bottom cannot fire at
 the extension.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule RecRuleFire IndCaps ProjEntry BinderMeta projFnName
   projModelName projFwd ReducibilityHint inferTypeCore isDefEqCore)
 
@@ -62,7 +62,7 @@ theorem projFnP (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
     (hbshape : ∀ n, blockNames.contains n = true →
       n.isProjFnShape = false)
     (hpinsT : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
-      Lech.EtaPins μ env' T cvT.levelParams capsT)
+      ConLeche.EtaPins μ env' T cvT.levelParams capsT)
     (hCblock : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
       capsT.eta = true → blockNames.contains capsT.etaCtor = true)
     (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
@@ -417,7 +417,7 @@ theorem projInstallP (hμ : μ.verifiedChecks = true) {F : Nat}
       BlockInstalledTT blockNames env' mp.base2.cvalE →
       BlockAcvalInstalled blockNames env' mp.base2.acval →
       (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
-        Lech.EtaPins μ env' T cvT.levelParams capsT) →
+        ConLeche.EtaPins μ env' T cvT.levelParams capsT) →
       (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
         capsT.eta = true → blockNames.contains capsT.etaCtor = true) →
       (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
@@ -462,9 +462,9 @@ theorem projInstallP (hμ : μ.verifiedChecks = true) {F : Nat}
     refine ih mp₁ hrec hinv₁ hinvA₁ hIB₁ hIA₁
       (fun cvT capsT hf => by
         rw [henv]
-        exact Lech.EtaPins.step (hpinsT cvT capsT (hdown cvT capsT hf))
+        exact ConLeche.EtaPins.step (hpinsT cvT capsT (hdown cvT capsT hf))
           hfresh)
       (fun cvT capsT hf => hCblock cvT capsT (hdown cvT capsT hf))
       (fun cvT capsT hf => hFields cvT capsT (hdown cvT capsT hf))
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,15 +1,15 @@
-import Lech.Verify.Denote.Levels
-import Lech.Verify.StrLitExpr
+import ConLeche.Verify.Denote.Levels
+import ConLeche.Verify.StrLitExpr
 
 /-!
 # The string-literal constructor form, denoted
 
-Relocated out of `Lech/TTVerify/{NatOpsStep,StrLitStep}.lean`
+Relocated out of `ConLeche/TTVerify/{NatOpsStep,StrLitStep}.lean`
 (task #148, T3) and **generalized from `EnvTT` to `ValParams`**: every
 statement below is about `denote`, `Env.find?` and the literal-support
 guard — no typing judgment, no `EnvTT` field beyond level insensitivity.  Both
 lanes need them: the TT lane at its string-literal inference clause, the
-`Lech/SetR/*` bridge at R7/R16 (`Red.strLitCtor`'s `denoteClosed` side
+`ConLeche/SetR/*` bridge at R7/R16 (`Red.strLitCtor`'s `denoteClosed` side
 condition) and at `defeqStep`'s two string-expansion cases.
 
 The `EnvTT`-shaped specializations stay where their consumers are
@@ -17,13 +17,13 @@ The `EnvTT`-shaped specializations stay where their consumers are
 `denote_strLitList`, `denote_strLitToConstructor`); each is now one line
 over the generalized statement here, so there is exactly one proof.
 
-The namespace is `Lech.Verify` because that is where `denote` and
+The namespace is `ConLeche.Verify` because that is where `denote` and
 the shape lemmas already live; the module sits below both lanes.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-- The empty level substitution is the identity assignment. -/
 theorem substFn_nil (φ : Name → Nat) : Level.substFn φ [] [] = φ := by
@@ -45,7 +45,7 @@ theorem denote_const_nolevelsV {env : Env} {cval : TConstVal}
 Each guard component is a `match` on the stored declaration, so
 extracting the shape is a `split` and a `simp`.  They are separated
 from the typings below because the *shape* facts are about `Env` alone
-and would move to `Lech/Verify/*` with the rest of the stranded
+and would move to `ConLeche/Verify/*` with the rest of the stranded
 guard machinery. -/
 
 /-- `Char : Type`. -/
@@ -281,4 +281,4 @@ theorem denote_strLitToConstructorV {env : Env} {cval : TConstVal}
     denote_const_nolevelsV φ hfO hlpO d, denote_strLitListV φ hg d,
     strLitT, substFn_nil]
 
-end Lech.Verify
+end ConLeche.Verify

@@ -1,4 +1,4 @@
-import Lech.SetP.DirectFix.FixRecFramesP
+import ConLeche.SetP.DirectFix.FixRecFramesP
 
 /-!
 # The recursive recursor's K-frames, part 2: the package (task #188)
@@ -6,20 +6,20 @@ import Lech.SetP.DirectFix.FixRecFramesP
 At a K-frame `(p⃗, M, m⃗, ı⃗)` over a parameter frame — the motive in
 its reading, the minors in the readings of their (ih-extended) minor
 premises, the indices fitting — the recursive route's K-frame
-package `FixKI₀` (`Lech/Semantics/Tower/FixRecI.lean`) holds and the
+package `FixKI₀` (`ConLeche/Semantics/Tower/FixRecI.lean`) holds and the
 major's domain reads to the carrier at the frame's index tuple.  The
 minor premise's reading is the ih-extended minor space
 (`interp_minorAVAtR`), the sum route's core computation under the ih
 tower read (`interp_ihPisAV`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -398,4 +398,4 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
       exact hprop hw0 hℓ0 0 (by rw [hn1]; exact Nat.zero_lt_one)
   · exact interp_majorAVAt hlenP hlenI hsatP hX hleafT hlenM hfit
 
-end Lech.SetP
+end ConLeche.SetP

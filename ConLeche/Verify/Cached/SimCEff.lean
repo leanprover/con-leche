@@ -1,10 +1,10 @@
-import Lech.Verify.EnvBound
-import Lech.Verify.Cached.SimC
+import ConLeche.Verify.EnvBound
+import ConLeche.Verify.Cached.SimC
 
 /-!
 # Effect specs for the cached checker's state wrappers (task #163, batch 5)
 
-One `CEff` lemma per `Lech/Cached/StateC.lean` wrapper — the port of
+One `CEff` lemma per `ConLeche/Cached/StateC.lean` wrapper — the port of
 `SimI.lean`'s `Effects`/`LevelEffects`/`CacheFill` sections.
 
 Almost every wrapper of the clone is a `pure`, so almost every lemma
@@ -19,9 +19,9 @@ in the erasure-function-of-key discipline: a memo hit's key is only
 erasure, never the fields.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 open ExprC
 
 variable {mode : CheckMode}
@@ -220,7 +220,7 @@ theorem instSpineM_eff (hs : CSOK mode env s₀) {args : List ExprC} {t : Nat}
 theorem piResidualM_eff (hs : CSOK mode env s₀) {e : ExprC}
     {args : List ExprC} {x : Expr} {xs : List Expr}
     (he : RelC e x) (hargs : RelCL args xs) :
-    CEff mode env s₀ (fun o => OptEr o (Lech.piResidual x xs))
+    CEff mode env s₀ (fun o => OptEr o (ConLeche.piResidual x xs))
       (piResidualM e args) := by
   refine CEff.pure hs ?_
   have h := piResidual_spec (e := e) (args := args)
@@ -1002,4 +1002,4 @@ theorem flushC_eff (hs : CSOK mode env s₀) :
 
 end CacheFill
 
-end Lech.Cached
+end ConLeche.Cached

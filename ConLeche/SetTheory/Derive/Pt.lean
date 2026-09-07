@@ -1,4 +1,4 @@
-import Lech.SetTheory.Derive.Universe
+import ConLeche.SetTheory.Derive.Universe
 
 /-!
 # The proof point, truth values, `univ 0`, and `eqv`
@@ -30,7 +30,7 @@ import Lech.SetTheory.Derive.Universe
   `truthVal (x = y)`.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -203,20 +203,20 @@ theorem pt_mem_eqv_self (x : V) : (pt : V) ∈ˢ eqv x x :=
 
 /-- `pt`, `unitSet`, `univZero` and truth values live in every
 (inhabited) Grothendieck universe. -/
-theorem _root_.Lech.IsTGUniverse.pt_mem {U y : V}
+theorem _root_.ConLeche.IsTGUniverse.pt_mem {U y : V}
     (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) : (pt : V) ∈ˢ U :=
   hU.sing_mem hy (hU.upair_mem hy (hU.empty_mem hy)
     (hU.sing_mem hy (hU.sing_mem hy (hU.empty_mem hy))))
 
-theorem _root_.Lech.IsTGUniverse.unitSet_mem {U y : V}
+theorem _root_.ConLeche.IsTGUniverse.unitSet_mem {U y : V}
     (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) : (unitSet : V) ∈ˢ U :=
   hU.sing_mem hy (hU.pt_mem hy)
 
-theorem _root_.Lech.IsTGUniverse.univZero_mem {U y : V}
+theorem _root_.ConLeche.IsTGUniverse.univZero_mem {U y : V}
     (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) : (univZero : V) ∈ˢ U :=
   hU.power_mem (hU.unitSet_mem hy)
 
-theorem _root_.Lech.IsTGUniverse.truthVal_mem {U y : V}
+theorem _root_.ConLeche.IsTGUniverse.truthVal_mem {U y : V}
     (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) (p : Prop) :
     (truthVal p : V) ∈ˢ U :=
   hU.transitive (hU.univZero_mem hy) (truthVal_mem_univZero p)
@@ -224,4 +224,4 @@ theorem _root_.Lech.IsTGUniverse.truthVal_mem {U y : V}
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] ptTag pt unitSet eqv
 
-end Lech.SetTheory
+end ConLeche.SetTheory

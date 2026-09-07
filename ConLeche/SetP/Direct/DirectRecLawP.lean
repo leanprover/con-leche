@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectRecLawCoreP
+import ConLeche.SetP.Direct.DirectRecLawCoreP
 
 /-!
 # The recursor rule's law (task #175 W4c, P3 module 6, part 19; S2)
@@ -14,13 +14,13 @@ frame's own entries and their fit is `spineFit_of_sat2` (the
 `recLawCore`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta RecRule)
 
 universe w
@@ -57,7 +57,7 @@ set_option maxHeartbeats 6400000 in
 /-- **The direct block's rule fires at the readings.** -/
 theorem recRuleLaw (mp : EnvS2PM V μ env)
     {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {rhsA : Expr}
-    (hfT : env.find? p.cvT.name = some (.indInfo cvTa (Lech.directCaps p)))
+    (hfT : env.find? p.cvT.name = some (.indInfo cvTa (ConLeche.directCaps p)))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hfC : env.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF))
     (hlpsC : cvCa.levelParams = p.cvT.levelParams)
@@ -104,7 +104,7 @@ theorem recRuleLaw (mp : EnvS2PM V μ env)
     RecRuleLawP m₂ φ cvRa.name cvRa (p.nP + 2) (p.nP + 2) rule := by
   subst hrule
   -- the constructor's stored type
-  obtain ⟨-, -, hCres, -, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfC)
+  obtain ⟨-, -, hCres, -, -⟩ := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfC)
   simp only [ConstantInfo.toConstantVal] at hCres
   have hcbC : ConstsBound env cvCa.type := constsBound_of_constsResolve _ hCres
   have hcbT : ConstsBound env cvRa.type := constsBound_of_constsResolve _ hRres
@@ -120,7 +120,7 @@ theorem recRuleLaw (mp : EnvS2PM V μ env)
   have hfindC : (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP, .plain, rhsA⟩] :: env.consts⟩ : Env).find? p.cvC.name
       = some (.ctorInfo cvCa p.nP p.nF) := by
-    rw [Lech.Env.find?_cons, if_neg (fun h => hRC h.symm)]
+    rw [ConLeche.Env.find?_cons, if_neg (fun h => hRC h.symm)]
     exact hfC
   -- the law
   refine ⟨Nat.le_refl _, fun us hus => ?_⟩
@@ -148,7 +148,7 @@ theorem recRuleLaw (mp : EnvS2PM V μ env)
   have hagree : ∀ q ∈ p.cvT.levelParams,
       Level.substFn φ cvCa.levelParams usj q = ψR q := by
     have h := hψ
-    simp only [Lech.recFireComparands] at h
+    simp only [ConLeche.recFireComparands] at h
     rw [hlpsC] at h
     rw [hlpsC, ← hψR]
     exact substFn_agree_of_comparand h
@@ -227,7 +227,7 @@ theorem recRuleLaw (mp : EnvS2PM V μ env)
       cases hpl : p.large
       · exfalso
         apply hl
-        simp [elimLevel, Lech.directElimLevel, hpl, Level.eval]
+        simp [elimLevel, ConLeche.directElimLevel, hpl, Level.eval]
       · rfl
     by_cases hnp : p.isProp = true
     · exact (hfields ψR ρ' hρ').2.2.2 hnp hlarge
@@ -276,4 +276,4 @@ theorem recRuleLaw (mp : EnvS2PM V μ env)
   rw [hleafR₂, hleafC₂]
   exact hcore
 
-end Lech.SetP
+end ConLeche.SetP

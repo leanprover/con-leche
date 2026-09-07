@@ -1,5 +1,5 @@
-import Lech.SetP.Annot.BitShift
-import Lech.Semantics.Denote2Closed
+import ConLeche.SetP.Annot.BitShift
+import ConLeche.Semantics.Denote2Closed
 
 /-!
 # `denoteP`, closed and depth-independent (task #161, P3.2)
@@ -21,13 +21,13 @@ on (see `BitShift.lean`): its sole use in the original is inside
 `denote2_shiftFrom`, whose mirror does not take it.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level PropWhen)
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level PropWhen)
 
 /-- **`denoteP`'s closedness law.**  A closed subject's validated
 annotation is closed, in the lifting form `EnvS2U.acval_closed` and
@@ -67,4 +67,4 @@ theorem denoteP_depth_of_closed {env : Env} {φ : Name → Nat}
     rw [hs]
     simp [hcl]
 
-end Lech.SetP
+end ConLeche.SetP

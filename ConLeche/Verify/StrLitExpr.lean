@@ -1,5 +1,5 @@
-import Lech.Kernel.Core
-import Lech.Verify.Shift
+import ConLeche.Kernel.Core
+import ConLeche.Verify.Shift
 
 /-!
 # Syntactic facts about the string-literal constructor form
@@ -8,11 +8,11 @@ import Lech.Verify.Shift
 applications and `Nat` literals only): no free variables, no loose
 bound variables.  This module exposes the form as a structural
 recursion over the character list (`strLitList`) — the induction handle
-the model file (`Lech.Model.StrLit`) and the walk proofs share — plus
+the model file (`ConLeche.Model.StrLit`) and the walk proofs share — plus
 the closedness facts.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Expr
 
@@ -94,4 +94,4 @@ theorem strLitToConstructor_shiftFrom (s : String) (p : Nat) :
     shiftFrom p (strLitToConstructor s) = strLitToConstructor s :=
   shiftFrom_eq_self_of_not_hasFvar (strLitToConstructor_hasFvar s)
 
-end Lech
+end ConLeche

@@ -1,4 +1,4 @@
-import Lech.Kernel.Core
+import ConLeche.Kernel.Core
 
 /-!
 # `FEnv`: the environment with a name index
@@ -12,14 +12,14 @@ agrees with `Env.find?`, built once per top-level entry call, plus the
 representation: `FEnv` indexes `ConstantInfo`s by `Name`, and the four
 guards ask only about the constants an environment holds.  Both
 executable cores read the environment through it, and the F-mirror
-agreement (`Lech/Verify/EnvBound.lean`) is stated about it.
+agreement (`ConLeche/Verify/EnvBound.lean`) is stated about it.
 
-It lived in `Lech/Kernel/CoreI.lean` until task #172's interned
+It lived in `ConLeche/Kernel/CoreI.lean` until task #172's interned
 removal, which is why the `F` suffix on the guards reads as "through
 the index" and not as "of the interned core".
 -/
 
-namespace Lech
+namespace ConLeche
 /-! ## The indexed environment -/
 
 /-- The spec environment together with a name index whose lookup function
@@ -36,7 +36,7 @@ doubles as the next counter to hand out, so on the ordinary
 install-and-check path it is exactly `env.consts.length` and nothing is
 ever hidden (`mkFEnv_find?`); lowering it to `k` is the prefix view of
 the first `k` installed constants (`mkFEnv_find?_visibleBelow`,
-`Lech/Verify/EnvBound.lean`). -/
+`ConLeche/Verify/EnvBound.lean`). -/
 structure FEnv where
   env : Env
   idx : Std.HashMap Name (Nat × ConstantInfo)
@@ -141,4 +141,4 @@ def natOpStoredF (fe : FEnv) (c : Name) : Bool :=
   match fe.find? c with
   | some (.defnInfo _ _ _) => true
   | _ => false
-end Lech
+end ConLeche

@@ -1,15 +1,15 @@
-import Lech.Semantics.EnvFacts
-import Lech.Semantics.DeclIndRun
-import Lech.Semantics.IndBlockFacts
-import Lech.Verify.Extend.Block
+import ConLeche.Semantics.EnvFacts
+import ConLeche.Semantics.DeclIndRun
+import ConLeche.Semantics.IndBlockFacts
+import ConLeche.Verify.Extend.Block
 
-import Lech.Verify.Extend.Ind
+import ConLeche.Verify.Extend.Ind
 
-import Lech.Semantics.ProjPhase
+import ConLeche.Semantics.ProjPhase
 /-!
 # The `EnvFacts`-level cons for the block folds (task #161 S6, the opener)
 
-`Lech/SetR/Bridge/DeclInd.lean`'s **finding 8** is the last place the
+`ConLeche/SetR/Bridge/DeclInd.lean`'s **finding 8** is the last place the
 bridge needs a model: `IndMembersR` carries a `ConstantValR` at *each
 intermediate environment* of the member fold, and — as landed at S5 —
 nothing built an `EnvFacts` there except by projection from the `EnvS` the
@@ -45,9 +45,9 @@ no `EnvS`.  Both lanes consume it — the R lane through
 `Bridge/DeclInd.lean`, the P lane through its own ind tier.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-- A block member's kind: an `.indInfo`, a `.ctorInfo`, or a
 *rule-less* `.recInfo` (the provisioning's shape).  Named because six
@@ -63,7 +63,7 @@ theorem name_ne_of_mem_of_fresh {env : Env} {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none) :
     ∀ c ∈ env.consts, c.name ≠ c₀.name := by
   have h0 := hfresh
-  rw [Lech.Env.find?, List.find?_eq_none] at h0
+  rw [ConLeche.Env.find?, List.find?_eq_none] at h0
   intro c hc h
   exact h0 c hc (by simp [h])
 
@@ -454,4 +454,4 @@ theorem projFnInv {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     BlockInstalledTT.fresh_cons hIB hnotb hfresh
       (fun n ψ hn => congrFun (cvalWith_ne hn) ψ)⟩
 
-end Lech.Semantics
+end ConLeche.Semantics

@@ -1,6 +1,6 @@
-import Lech.SetP.InstallP
-import Lech.SetP.NatStepP
-import Lech.SetP.Step2.AcceptedP
+import ConLeche.SetP.InstallP
+import ConLeche.SetP.NatStepP
+import ConLeche.SetP.Step2.AcceptedP
 
 /-!
 # The P capstone's shape (task #161, P4 — frozen early, per the ruling)
@@ -45,13 +45,13 @@ environment, with only the *install-tier* bundles as premises; this
 file's `no_constant_of_Empty_P` then closes the capstone.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo)
 
 universe w
 
@@ -95,9 +95,9 @@ the leaf by the constant clause, and the leaf's `interp2` value is the
 empty set by erasure injectivity plus `basis_pinnedL`.  The `Empty` and
 `False` capstones are its two instances. -/
 theorem no_constant_of_emptyPin_P (mp : EnvS2PM V μ env) {n : Name} {u : Nat}
-    (hres : Lech.reservedBasisNames.contains n = true)
+    (hres : ConLeche.reservedBasisNames.contains n = true)
     (hpin : ∀ ψ : Name → Nat,
-      Lech.Verify.pinnedDirectT n ψ = some (emptyT u))
+      ConLeche.Verify.pinnedDirectT n ψ = some (emptyT u))
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const n []) : False := by
   obtain ⟨ta, hta0⟩ := mp.type_reads c hc (fun _ => 0)
@@ -137,7 +137,7 @@ theorem no_constant_of_Empty_P (mp : EnvS2PM V μ env)
   -- prediction cashed: the premise dies with `EnvS2PM.base`, it is
   -- not replaced.
   no_constant_of_emptyPin_P mp (u := 1) (by decide)
-    (fun ψ => by simp +decide [Lech.Verify.pinnedDirectT, Lech.VExpr.emptyT])
+    (fun ψ => by simp +decide [ConLeche.Verify.pinnedDirectT, ConLeche.VExpr.emptyT])
     c hc hty
 
 /-- **The capstone's business end, about `False`** (task #181): an
@@ -148,7 +148,7 @@ theorem no_constant_of_False_P (mp : EnvS2PM V μ env)
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const falseName []) : False :=
   no_constant_of_emptyPin_P mp (u := 0) (by decide)
-    (fun ψ => by simp +decide [Lech.Verify.pinnedDirectT, Lech.VExpr.emptyT])
+    (fun ψ => by simp +decide [ConLeche.Verify.pinnedDirectT, ConLeche.VExpr.emptyT])
     c hc hty
 
 /-! ## The remaining bill: none
@@ -176,4 +176,4 @@ theorem TierInputsAtP.ofSem (mp : EnvS2PM V μ env) (φ : Name → Nat) :
     (fun _fuel ihw => reduceNatStepP_of mp ihw)
     (fun _fuel ihw => reduceNatStepPQ_of mp ihw)
 
-end Lech.SetP
+end ConLeche.SetP

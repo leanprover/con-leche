@@ -1,13 +1,13 @@
-import Lech.Verify.Extend.Modeled
+import ConLeche.Verify.Extend.Modeled
 
 /-!
-# Proj — the `V`-free half of `Lech.Model.Extend.Proj`
+# Proj — the `V`-free half of `ConLeche.Model.Extend.Proj`
 
 The `checkProjFn` stage inversions (lookups, type, rule, iota theorem,
 shape, and the whole-function inversion) and the `checkProjFold`
 bookkeeping family.
 
-Relocated from `Lech/Model/Extend/Proj.lean` (task #123);
+Relocated from `ConLeche/Model/Extend/Proj.lean` (task #123);
 `checkProjFn_sound` and `checkProjFold_sound` stay there, being
 statements about a valuation, as does `ProjPhaseInv`, which is stated over a
 `ConstVal V`.  The `omit [SetTheory V] in` lines are dropped: there is
@@ -16,7 +16,7 @@ no such section variable here.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -711,4 +711,4 @@ theorem checkProjFold_find_preserved {T ctorName : Name}
       simp only [pure, Except.pure, Except.bind] at h
       exact checkProjFold_find_preserved rest env' env₁ h n ci hf
 
-end Lech
+end ConLeche

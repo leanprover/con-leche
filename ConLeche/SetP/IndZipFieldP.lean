@@ -1,5 +1,5 @@
-import Lech.SetP.IndCrossP
-import Lech.Verify.BridgeWfImp
+import ConLeche.SetP.IndCrossP
+import ConLeche.Verify.BridgeWfImp
 
 /-!
 # The zipper's field-branch core, at the reading (task #161, part 4)
@@ -29,13 +29,13 @@ that is the currency the reading's carrier stores, and
 `instSeqP_eq_self_of_closed` consumes it directly.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name BinderMeta)
 
 universe w
 
@@ -290,4 +290,4 @@ theorem zipFieldTermEqP
           (Γj.getD (cnP + cnF - 1 - (cnP + j)) default) := by
         rw [← hAnext]
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,4 +1,4 @@
-import Lech.SetP.IndConsP
+import ConLeche.SetP.IndConsP
 
 /-!
 # The P step at a tower-table cons (task #175 W4c, P3 module 4, part 2; S1)
@@ -19,13 +19,13 @@ altogether (`noProjEnv_of_fresh`), and each block constant is consed
 with its own pieces' `NoProjAt` (`NoProjEnv.cons`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecRule ProjEntry
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecRule ProjEntry
   ProjTable natName natZeroName natSuccName eqName)
 
 universe w
@@ -36,34 +36,34 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-- A well-formed environment that does not store `T` has no `.proj T _`
 node anywhere: every stored piece resolves in it. -/
-theorem noProjEnv_of_fresh (hwf : Lech.EnvWF env) {T : Name}
+theorem noProjEnv_of_fresh (hwf : ConLeche.EnvWF env) {T : Name}
     (hT : env.find? T = none) (i : Nat) : NoProjEnv env T i where
-  type c hc := Lech.Expr.noProjAt_of_constsResolve hT _ (hwf c hc).2.2.1
+  type c hc := ConLeche.Expr.noProjAt_of_constsResolve hT _ (hwf c hc).2.2.1
   defn cv v hint hc :=
-    Lech.Expr.noProjAt_of_constsResolve hT _
+    ConLeche.Expr.noProjAt_of_constsResolve hT _
       ((hwf _ hc).2.2.2.2.1 cv v hint rfl).2.2.1
   thm cv v hc :=
-    Lech.Expr.noProjAt_of_constsResolve hT _
+    ConLeche.Expr.noProjAt_of_constsResolve hT _
       ((hwf _ hc).2.2.2.2.2.2.1 cv v rfl).2.2.1
   rule cv mI rP rules hc r hr := by
     obtain ⟨-, -, -, -, -, hrec, -, -⟩ := hwf _ hc
     obtain ⟨-, -, hres, -, hnest⟩ := hrec cv mI rP rules rfl r hr
-    refine ⟨Lech.Expr.noProjAt_of_constsResolve hT _ hres, ?_⟩
+    refine ⟨ConLeche.Expr.noProjAt_of_constsResolve hT _ hres, ?_⟩
     intro lvls pins hn pin hp
     obtain ⟨-, -, hpins, -⟩ := hnest lvls pins hn
-    exact Lech.Expr.noProjAt_of_constsResolve hT _ (hpins pin hp).2.2.1
+    exact ConLeche.Expr.noProjAt_of_constsResolve hT _ (hpins pin hp).2.2.1
   table tbl hc j hj := by
     obtain ⟨-, -, -, -, -, -, -, htbl⟩ := hwf _ hc
     obtain ⟨hsize, hb⟩ := htbl tbl rfl
     have hlt : j < tbl.bodies.size := by rw [hsize]; exact hj
     have := hb j (tbl.bodies[j]'hlt) (Array.getElem?_eq_getElem hlt)
     rw [Array.getD, dif_pos hlt]
-    exact Lech.Expr.noProjAt_of_constsResolve hT _ this.2.2.1
+    exact ConLeche.Expr.noProjAt_of_constsResolve hT _ this.2.2.1
 
 /-- The head's pieces, for a cons step of `NoProjEnv`. -/
 structure NoProjHead (c₀ : ConstantInfo) (T : Name) (i : Nat) : Prop where
   type : Expr.NoProjAt T i c₀.toConstantVal.type
-  defn : ∀ (cv : ConstantVal) (v : Expr) (hint : Lech.ReducibilityHint),
+  defn : ∀ (cv : ConstantVal) (v : Expr) (hint : ConLeche.ReducibilityHint),
     c₀ = .defnInfo cv v hint → Expr.NoProjAt T i v
   thm : ∀ (cv : ConstantVal) (v : Expr), c₀ = .thmInfo cv v →
     Expr.NoProjAt T i v
@@ -72,7 +72,7 @@ structure NoProjHead (c₀ : ConstantInfo) (T : Name) (i : Nat) : Prop where
     ∀ r ∈ rules, Expr.NoProjAt T i (RecRule.rhs r) ∧
       ∀ lvls pins, RecRule.fire r = .nested lvls pins →
         ∀ pin ∈ pins, Expr.NoProjAt T i pin
-  table : ∀ (tbl : Lech.ProjTable), c₀ = .projInfo tbl →
+  table : ∀ (tbl : ConLeche.ProjTable), c₀ = .projInfo tbl →
     ∀ j, j < tbl.numFields → Expr.NoProjAt T i (tbl.bodies.getD j default)
 
 /-- A head with no value, rule or body pieces (an inductive, a
@@ -124,12 +124,12 @@ else transports as at any fresh cons. -/
 theorem declStepPM_of_tower_cons (mp : EnvS2PM V μ env)
     {tbl : ProjTable}
     (hfresh : env.find? (ConstantInfo.projInfo tbl).name = none)
-    (hnres : Lech.reservedBasisNames.contains
+    (hnres : ConLeche.reservedBasisNames.contains
       (ConstantInfo.projInfo tbl).name = false)
-    (hwf : Lech.EnvWF ⟨.projInfo tbl :: env.consts⟩)
+    (hwf : ConLeche.EnvWF ⟨.projInfo tbl :: env.consts⟩)
     (hnp : ∀ i, NoProjEnv env tbl.structName i)
     (hhead : ∀ i, i < tbl.numFields →
-      Lech.TowerHead ⟨.projInfo tbl :: env.consts⟩ (tbl.entry i))
+      ConLeche.TowerHead ⟨.projInfo tbl :: env.consts⟩ (tbl.entry i))
     (hlaw : ∀ m₂ : EnvS2Core V ⟨.projInfo tbl :: env.consts⟩,
       m₂.acval = acvalWith mp.base2.acval
         (ConstantInfo.projInfo tbl).name (fun _ => .sort 0) →
@@ -191,4 +191,4 @@ theorem declStepPM_of_tower_cons (mp : EnvS2PM V μ env)
   · exact fun φ => towerOkP_cons_tower mp hfresh hh.projTower _ rfl
       (hlaw _ rfl) φ
 
-end Lech.SetP
+end ConLeche.SetP

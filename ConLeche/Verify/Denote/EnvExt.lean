@@ -1,20 +1,20 @@
-import Lech.Verify.Denote
-import Lech.Verify.EnvWF
-import Lech.Verify.EnvGuards
+import ConLeche.Verify.Denote
+import ConLeche.Verify.EnvWF
+import ConLeche.Verify.EnvGuards
 
 /-!
 # Denotation across level-preserving environment correspondences
 
-Relocated verbatim from `Lech/TTVerify/EnvSwap.lean` (task #148, T5):
+Relocated verbatim from `ConLeche/TTVerify/EnvSwap.lean` (task #148, T5):
 the denotation reads the environment only through the stored level
 parameters and the two literal guards, so it is invariant across any
 correspondence preserving those — the workhorse of the recursor-group
 swap in both verification lanes.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-- The stored level parameters only read the constant's
 level-parameter slot. -/
@@ -123,4 +123,4 @@ theorem denote_env_ext {cval : TConstVal} {env₁ env₂ : Env}
 /-! ## The swap relation -/
 
 
-end Lech.Verify
+end ConLeche.Verify

@@ -1,5 +1,5 @@
-import Lech.Kernel.Direct.InstallF
-import Lech.Verify.InstList
+import ConLeche.Kernel.Direct.InstallF
+import ConLeche.Verify.InstList
 
 /-!
 # The one-pass telescope operations equal their sequential specs
@@ -17,7 +17,7 @@ the sequential spec whenever the raw telescope is shorter than the
 argument list, which makes the equalities unconditional.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Expr in
 theorem instPisAtFGo_sound :

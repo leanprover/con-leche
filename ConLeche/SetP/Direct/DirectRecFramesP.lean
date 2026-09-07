@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectRecReadP
+import ConLeche.SetP.Direct.DirectRecReadP
 
 /-!
 # The recursor's frames (task #175 W4c, P3 module 6, part 13; S2)
@@ -17,13 +17,13 @@ gradings of the entries come from the opened type's record
 (`OpenedP.okΓ`, the fabricated type's own inference run).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
 universe w
@@ -143,7 +143,7 @@ theorem recFrames {m : EnvS2Core V env}
     intro ρ; rw [htake]; exact hiff ψ ρ
   refine ⟨hiffR, fun ρp hρp => ?_⟩
   have hbz : (elimLevel p).eval ψ = 0 ↔ pwBit ψ (Level.zeronessOf (elimLevel p)) = 0 := by
-    rw [pwBit_eq_zero_iff, Lech.PropWhen.zeronessOf_sound, beq_iff_eq]
+    rw [pwBit_eq_zero_iff, ConLeche.PropWhen.zeronessOf_sound, beq_iff_eq]
   have hlenFs : (((ds ψ).drop p.nP).map (·.2.2)).length = p.nF := by simp [hCD.len ψ]
   have hlenFds : ((ds ψ).drop p.nP).length = p.nF := by simp [hCD.len ψ]
   have hsatC := (hiffR ρp).mp hρp
@@ -207,7 +207,7 @@ theorem recFrames {m : EnvS2Core V env}
       cases hpl : p.large
       · exfalso
         apply hl
-        simp [elimLevel, Lech.directElimLevel, hpl, Level.eval]
+        simp [elimLevel, ConLeche.directElimLevel, hpl, Level.eval]
       · rfl
     by_cases hnp : p.isProp = true
     · exact (hfields ψ ρp hsatC).2.2.2 hnp hlarge
@@ -309,4 +309,4 @@ theorem recFrames {m : EnvS2Core V env}
         unfold majorAV
         exact (hfam 2 (cons mv (cons M ρp)) (fun j => rfl)).2
 
-end Lech.SetP
+end ConLeche.SetP

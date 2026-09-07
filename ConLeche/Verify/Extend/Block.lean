@@ -1,24 +1,24 @@
-import Lech.Verify.Denote.Rename
-import Lech.Verify.Denote.Install
-import Lech.Verify.EnvWF
-import Lech.Verify.Extend.Inversions
+import ConLeche.Verify.Denote.Rename
+import ConLeche.Verify.Denote.Install
+import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Extend.Inversions
 
 /-!
 # The modeled block's fold invariant and member valuation
 
-Relocated verbatim from `Lech/TTVerify/DeclIndMember.lean` (task
+Relocated verbatim from `ConLeche/TTVerify/DeclIndMember.lean` (task
 #148, T5): `BlockInstalledTT` (the group-local public↔`_model`
 identification — model stored, level parameters agree, renamed type
 equal up to display names, valuation aliased), its three preservation
 lemmas, and `cvalAlias` (a modeled member's valuation is its `_model`
 companion's).  All V-free and lane-shared: both the TT lane's
 `checkIndMemberTT` fold and the [set] lane's `declIndS` fold consume
-them; the namespace stays `Lech.Verify` so no call site moves.
+them; the namespace stays `ConLeche.Verify` so no call site moves.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-! ## The block fold invariant -/
 
@@ -170,4 +170,4 @@ theorem cvalAlias_closed {cval : TConstVal} {n mn : Name}
     exact hcl c ψ
 
 
-end Lech.Verify
+end ConLeche.Verify

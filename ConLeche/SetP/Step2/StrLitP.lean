@@ -1,4 +1,4 @@
-import Lech.SetP.Step2.CapsRowsP
+import ConLeche.SetP.Step2.CapsRowsP
 
 /-!
 # The `String`-literal inference row (task #161, PROJ/STR install tier)
@@ -44,13 +44,13 @@ whose `v = 0` fibre premises come from the type reading's own
 neither subsumes the other.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo inferTypeCore)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo inferTypeCore)
 
 universe w
 
@@ -171,27 +171,27 @@ the only environment facts consumed are the four memberships and
 at the validated-annotation currency. -/
 theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     (hval : AcvalValidP m) (hnh : NatHeadsP m φ)
-    (hg : Lech.strLitSupported env = true) {d : Nat} {s : String}
+    (hg : ConLeche.strLitSupported env = true) {d : Nat} {s : String}
     {ea : AVExpr}
     (hea : denoteP m.acval env φ d (.lit (.strVal s)) = some ea)
     (ρ : Nat → V) :
     AnnotOkP V ρ ea ∧
       interp2 V ρ ea ∈ˢ
-        interp2 V ρ (m.acval Lech.stringName (Level.substFn φ [] [])) := by
+        interp2 V ρ (m.acval ConLeche.stringName (Level.substFn φ [] [])) := by
   obtain ⟨hs, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO,
     hfL, hfN, hfC, hfH, hfF, hlpS, hlpO, hlpL, hlpN, hlpC, hlpH, hlpF,
     hTS, hTH, ⟨mbO, hTO⟩, ⟨mbL, hTL⟩, ⟨mbN, hTN⟩,
     ⟨mb1, mb2, mb3, hTC⟩, ⟨mbF, hTF⟩⟩ :=
-    Lech.strLitSupported_inv hg
+    ConLeche.strLitSupported_inv hg
   obtain ⟨cvNat, capsNat, cv0, i0, j0, cv1, i1, j1, hfNat, hfZ, hfSc,
     hlpNat, hlpZ, hlpSc, hTNat, hTZ, hTSc⟩ :=
-    Lech.natLitSupported_inv hs
+    ConLeche.natLitSupported_inv hs
   rw [denoteP, if_pos hg] at hea
   obtain rfl := (Option.some.inj hea).symm
   -- the two `List` level-parameter lists, at the reading's spelling
-  have hlpAtN : levelParamsAt env Lech.listNilName
+  have hlpAtN : levelParamsAt env ConLeche.listNilName
       = ciN.toConstantVal.levelParams := by rw [levelParamsAt, hfN]
-  have hlpAtC : levelParamsAt env Lech.listConsName
+  have hlpAtC : levelParamsAt env ConLeche.listConsName
       = ciC.toConstantVal.levelParams := by rw [levelParamsAt, hfC]
   -- every leaf is closed, graded and bit-valid
   have hleafC : ∀ (n : Name) (ψ : Name → Nat) (σ : Nat → V),
@@ -218,30 +218,30 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     exact ⟨hok, hmem⟩
   -- the shared `.const` readings
   have hKL : ∀ D : Nat, denoteP m.acval env φ D
-      (.const Lech.listName [.zero])
-      = some (m.acval Lech.listName
+      (.const ConLeche.listName [.zero])
+      = some (m.acval ConLeche.listName
           (Level.substFn φ ciL.toConstantVal.levelParams [.zero])) :=
     fun D => denoteP_const hfL (by simp [hlpL])
   have hKH : ∀ D : Nat, denoteP m.acval env φ D
-      (.const Lech.charName [])
-      = some (m.acval Lech.charName (Level.substFn φ [] [])) := by
+      (.const ConLeche.charName [])
+      = some (m.acval ConLeche.charName (Level.substFn φ [] [])) := by
     intro D
     rw [denoteP_const (us := []) hfH (by simp [hlpH]), hlpH]
   have hKNat : ∀ D : Nat, denoteP m.acval env φ D
-      (.const Lech.natName [])
-      = some (m.acval Lech.natName (Level.substFn φ [] [])) := by
+      (.const ConLeche.natName [])
+      = some (m.acval ConLeche.natName (Level.substFn φ [] [])) := by
     intro D
     rw [denoteP_const (us := []) hfNat
       (by simp [ConstantInfo.toConstantVal, hlpNat])]
     simp only [ConstantInfo.toConstantVal, hlpNat]
   have hKS : ∀ D : Nat, denoteP m.acval env φ D
-      (.const Lech.stringName [])
-      = some (m.acval Lech.stringName (Level.substFn φ [] [])) := by
+      (.const ConLeche.stringName [])
+      = some (m.acval ConLeche.stringName (Level.substFn φ [] [])) := by
     intro D
     rw [denoteP_const (us := []) hfS (by simp [hlpS]), hlpS]
   -- `Char` is a type in `univ 1`
   have hCharU : interp2 V ρ
-      (m.acval Lech.charName (Level.substFn φ [] []))
+      (m.acval ConLeche.charName (Level.substFn φ [] []))
       ∈ˢ (univ 1 : V) := by
     have hIH : ciH.toConstantVal.type.instantiateLevelParams
         ciH.toConstantVal.levelParams []
@@ -253,14 +253,14 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
           ciH.toConstantVal.levelParams []) = some ((.sort 1) : AVExpr) := by
       rw [hIH, denoteP_sort]
       rfl
-    have h := (head _ _ _ _ hfH (Lech.isTowerEntry_false_of_find? hfH (fun _ _ h => by simp [Lech.charName] at h)) (by simp [hlpH]) hR).2 ρ
+    have h := (head _ _ _ _ hfH (ConLeche.isTowerEntry_false_of_find? hfH (fun _ _ h => by simp [ConLeche.charName] at h)) (by simp [hlpH]) hR).2 ρ
     rw [hlpH, interp2_sort] at h
     exact h
   -- `List.nil`
   have hIN : ciN.toConstantVal.type.instantiateLevelParams
       ciN.toConstantVal.levelParams [Level.zero]
       = Expr.forallE (.sort (Level.succ Level.zero))
-          (.app (.const Lech.listName [Level.zero]) (.bvar 0))
+          (.app (.const ConLeche.listName [Level.zero]) (.bvar 0))
           ⟨Level.substPW [pN] [Level.zero] mbN.pw⟩ := by
     rw [hlpN, hTN]
     simp [Expr.instantiateLevelParams, Level.subst, Level.subst.go]
@@ -269,24 +269,24 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
         ciN.toConstantVal.levelParams [Level.zero])
       = some ((.pi 0 (pwBit φ (Level.substPW [pN] [Level.zero] mbN.pw))
           (.sort 1)
-          (.app (m.acval Lech.listName
+          (.app (m.acval ConLeche.listName
             (Level.substFn φ ciL.toConstantVal.levelParams [Level.zero]))
             (.bvar 0))) : AVExpr) := by
     rw [hIN, denoteP_forallE, denoteP_sort,
-      show (Expr.app (.const Lech.listName [Level.zero]) (.bvar 0)).instantiate1
+      show (Expr.app (.const ConLeche.listName [Level.zero]) (.bvar 0)).instantiate1
           (.fvar 0 (Expr.sort (Level.succ Level.zero)))
-        = Expr.app (.const Lech.listName [Level.zero])
+        = Expr.app (.const ConLeche.listName [Level.zero])
             (.fvar 0 (Expr.sort (Level.succ Level.zero))) from rfl,
       denoteP_app, hKL, denoteP_fvar]
     rfl
-  obtain ⟨hokRN, hmemRN⟩ := head _ _ _ _ hfN (Lech.isTowerEntry_false_of_find? hfN (fun _ _ h => by simp [Lech.listNilName] at h)) (by simp [hlpN]) hRN
+  obtain ⟨hokRN, hmemRN⟩ := head _ _ _ _ hfN (ConLeche.isTowerEntry_false_of_find? hfN (fun _ _ h => by simp [ConLeche.listNilName] at h)) (by simp [hlpN]) hRN
   -- `List.cons`
   have hIC : ciC.toConstantVal.type.instantiateLevelParams
       ciC.toConstantVal.levelParams [Level.zero]
       = Expr.forallE (.sort (Level.succ Level.zero))
           (.forallE (.bvar 0)
-            (.forallE (.app (.const Lech.listName [Level.zero]) (.bvar 1))
-              (.app (.const Lech.listName [Level.zero]) (.bvar 2))
+            (.forallE (.app (.const ConLeche.listName [Level.zero]) (.bvar 1))
+              (.app (.const ConLeche.listName [Level.zero]) (.bvar 2))
               ⟨Level.substPW [pC] [Level.zero] mb3.pw⟩)
             ⟨Level.substPW [pC] [Level.zero] mb2.pw⟩)
           ⟨Level.substPW [pC] [Level.zero] mb1.pw⟩ := by
@@ -299,56 +299,56 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
           (.sort 1)
           (.pi 0 (pwBit φ (Level.substPW [pC] [Level.zero] mb2.pw)) (.bvar 0)
             (.pi 0 (pwBit φ (Level.substPW [pC] [Level.zero] mb3.pw))
-              (.app (m.acval Lech.listName
+              (.app (m.acval ConLeche.listName
                 (Level.substFn φ ciL.toConstantVal.levelParams [Level.zero]))
                 (.bvar 1))
-              (.app (m.acval Lech.listName
+              (.app (m.acval ConLeche.listName
                 (Level.substFn φ ciL.toConstantVal.levelParams [Level.zero]))
                 (.bvar 2))))) : AVExpr) := by
     rw [hIC, denoteP_forallE, denoteP_sort,
       show (Expr.forallE (.bvar 0)
-            (.forallE (.app (.const Lech.listName [Level.zero]) (.bvar 1))
-              (.app (.const Lech.listName [Level.zero]) (.bvar 2))
+            (.forallE (.app (.const ConLeche.listName [Level.zero]) (.bvar 1))
+              (.app (.const ConLeche.listName [Level.zero]) (.bvar 2))
               ⟨Level.substPW [pC] [Level.zero] mb3.pw⟩)
             ⟨Level.substPW [pC] [Level.zero] mb2.pw⟩).instantiate1
           (.fvar 0 (Expr.sort (Level.succ Level.zero)))
         = Expr.forallE (.fvar 0 (Expr.sort (Level.succ Level.zero)))
             (.forallE
-              (.app (.const Lech.listName [Level.zero])
+              (.app (.const ConLeche.listName [Level.zero])
                 (.fvar 0 (Expr.sort (Level.succ Level.zero))))
-              (.app (.const Lech.listName [Level.zero])
+              (.app (.const ConLeche.listName [Level.zero])
                 (.fvar 0 (Expr.sort (Level.succ Level.zero))))
               ⟨Level.substPW [pC] [Level.zero] mb3.pw⟩)
             ⟨Level.substPW [pC] [Level.zero] mb2.pw⟩ from rfl,
       denoteP_forallE, denoteP_fvar,
       show (Expr.forallE
-              (.app (.const Lech.listName [Level.zero])
+              (.app (.const ConLeche.listName [Level.zero])
                 (.fvar 0 (Expr.sort (Level.succ Level.zero))))
-              (.app (.const Lech.listName [Level.zero])
+              (.app (.const ConLeche.listName [Level.zero])
                 (.fvar 0 (Expr.sort (Level.succ Level.zero))))
               ⟨Level.substPW [pC] [Level.zero] mb3.pw⟩).instantiate1
           (.fvar (0 + 1) (.fvar 0 (Expr.sort (Level.succ Level.zero))))
         = Expr.forallE
-            (.app (.const Lech.listName [Level.zero])
+            (.app (.const ConLeche.listName [Level.zero])
               (.fvar 0 (Expr.sort (Level.succ Level.zero))))
-            (.app (.const Lech.listName [Level.zero])
+            (.app (.const ConLeche.listName [Level.zero])
               (.fvar 0 (Expr.sort (Level.succ Level.zero))))
             ⟨Level.substPW [pC] [Level.zero] mb3.pw⟩ from rfl,
       denoteP_forallE, denoteP_app, hKL, denoteP_fvar,
-      show (Expr.app (.const Lech.listName [Level.zero])
+      show (Expr.app (.const ConLeche.listName [Level.zero])
               (.fvar 0 (Expr.sort (Level.succ Level.zero)))).instantiate1
           (.fvar (0 + 1 + 1)
-            (.app (.const Lech.listName [Level.zero])
+            (.app (.const ConLeche.listName [Level.zero])
               (.fvar 0 (Expr.sort (Level.succ Level.zero)))))
-        = Expr.app (.const Lech.listName [Level.zero])
+        = Expr.app (.const ConLeche.listName [Level.zero])
             (.fvar 0 (Expr.sort (Level.succ Level.zero))) from rfl,
       denoteP_app, hKL, denoteP_fvar]
     rfl
-  obtain ⟨hokRC, hmemRC⟩ := head _ _ _ _ hfC (Lech.isTowerEntry_false_of_find? hfC (fun _ _ h => by simp [Lech.listConsName] at h)) (by simp [hlpC]) hRC
+  obtain ⟨hokRC, hmemRC⟩ := head _ _ _ _ hfC (ConLeche.isTowerEntry_false_of_find? hfC (fun _ _ h => by simp [ConLeche.listConsName] at h)) (by simp [hlpC]) hRC
   -- `Char.ofNat`
   have hIF : ciF.toConstantVal.type.instantiateLevelParams
       ciF.toConstantVal.levelParams []
-      = Expr.forallE (.const Lech.natName []) (.const Lech.charName [])
+      = Expr.forallE (.const ConLeche.natName []) (.const ConLeche.charName [])
           ⟨Level.substPW [] [] mbF.pw⟩ := by
     rw [hlpF, hTF]
     simp [Expr.instantiateLevelParams]
@@ -356,21 +356,21 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       (ciF.toConstantVal.type.instantiateLevelParams
         ciF.toConstantVal.levelParams [])
       = some ((.pi 0 (pwBit φ (Level.substPW [] [] mbF.pw))
-          (m.acval Lech.natName (Level.substFn φ [] []))
-          (m.acval Lech.charName (Level.substFn φ [] []))) : AVExpr) := by
+          (m.acval ConLeche.natName (Level.substFn φ [] []))
+          (m.acval ConLeche.charName (Level.substFn φ [] []))) : AVExpr) := by
     rw [hIF, denoteP_forallE, hKNat,
-      show (Expr.const Lech.charName ([] : List Level)).instantiate1
-          (.fvar 0 (Expr.const Lech.natName []))
-        = Expr.const Lech.charName [] from rfl, hKH]
+      show (Expr.const ConLeche.charName ([] : List Level)).instantiate1
+          (.fvar 0 (Expr.const ConLeche.natName []))
+        = Expr.const ConLeche.charName [] from rfl, hKH]
     rfl
-  obtain ⟨hokRF, hmemRF⟩ := head _ _ _ _ hfF (Lech.isTowerEntry_false_of_find? hfF (fun _ _ h => by simp [Lech.charOfNatName] at h)) (by simp [hlpF]) hRF
+  obtain ⟨hokRF, hmemRF⟩ := head _ _ _ _ hfF (ConLeche.isTowerEntry_false_of_find? hfF (fun _ _ h => by simp [ConLeche.charOfNatName] at h)) (by simp [hlpF]) hRF
   -- `String.ofList`
   have hIO : ciO.toConstantVal.type.instantiateLevelParams
       ciO.toConstantVal.levelParams []
       = Expr.forallE
-          (.app (.const Lech.listName [Level.zero])
-            (.const Lech.charName []))
-          (.const Lech.stringName [])
+          (.app (.const ConLeche.listName [Level.zero])
+            (.const ConLeche.charName []))
+          (.const ConLeche.stringName [])
           ⟨Level.substPW [] [] mbO.pw⟩ := by
     rw [hlpO, hTO]
     simp [Expr.instantiateLevelParams, Level.subst]
@@ -378,34 +378,34 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       (ciO.toConstantVal.type.instantiateLevelParams
         ciO.toConstantVal.levelParams [])
       = some ((.pi 0 (pwBit φ (Level.substPW [] [] mbO.pw))
-          (.app (m.acval Lech.listName
+          (.app (m.acval ConLeche.listName
             (Level.substFn φ ciL.toConstantVal.levelParams [Level.zero]))
-            (m.acval Lech.charName (Level.substFn φ [] [])))
-          (m.acval Lech.stringName
+            (m.acval ConLeche.charName (Level.substFn φ [] [])))
+          (m.acval ConLeche.stringName
             (Level.substFn φ [] []))) : AVExpr) := by
     rw [hIO, denoteP_forallE, denoteP_app, hKL, hKH,
-      show (Expr.const Lech.stringName ([] : List Level)).instantiate1
-          (.fvar 0 (Expr.app (.const Lech.listName [Level.zero])
-            (.const Lech.charName [])))
-        = Expr.const Lech.stringName [] from rfl, hKS]
+      show (Expr.const ConLeche.stringName ([] : List Level)).instantiate1
+          (.fvar 0 (Expr.app (.const ConLeche.listName [Level.zero])
+            (.const ConLeche.charName [])))
+        = Expr.const ConLeche.stringName [] from rfl, hKS]
     rfl
-  obtain ⟨hokRO, hmemRO⟩ := head _ _ _ _ hfO (Lech.isTowerEntry_false_of_find? hfO (fun _ _ h => by simp [Lech.stringOfListName] at h)) (by simp [hlpO]) hRO
+  obtain ⟨hokRO, hmemRO⟩ := head _ _ _ _ hfO (ConLeche.isTowerEntry_false_of_find? hfO (fun _ _ h => by simp [ConLeche.stringOfListName] at h)) (by simp [hlpO]) hRO
   -- the numeral heads
   obtain ⟨hz, hsucc⟩ := hnh hs ρ
   -- the chain
   obtain ⟨hclA, hclm⟩ :=
     charList_factsP (V := V) (ρ := ρ)
-      (KL := m.acval Lech.listName
+      (KL := m.acval ConLeche.listName
         (Level.substFn φ ciL.toConstantVal.levelParams [Level.zero]))
-      (KH := m.acval Lech.charName (Level.substFn φ [] []))
-      (KN := m.acval Lech.listNilName
-        (Level.substFn φ (levelParamsAt env Lech.listNilName) [Level.zero]))
-      (KC := m.acval Lech.listConsName
-        (Level.substFn φ (levelParamsAt env Lech.listConsName) [Level.zero]))
-      (KF := m.acval Lech.charOfNatName (Level.substFn φ [] []))
-      (Kz := m.acval Lech.natZeroName (Level.substFn φ [] []))
-      (Ks := m.acval Lech.natSuccName (Level.substFn φ [] []))
-      (KNat := m.acval Lech.natName (Level.substFn φ [] []))
+      (KH := m.acval ConLeche.charName (Level.substFn φ [] []))
+      (KN := m.acval ConLeche.listNilName
+        (Level.substFn φ (levelParamsAt env ConLeche.listNilName) [Level.zero]))
+      (KC := m.acval ConLeche.listConsName
+        (Level.substFn φ (levelParamsAt env ConLeche.listConsName) [Level.zero]))
+      (KF := m.acval ConLeche.charOfNatName (Level.substFn φ [] []))
+      (Kz := m.acval ConLeche.natZeroName (Level.substFn φ [] []))
+      (Ks := m.acval ConLeche.natSuccName (Level.substFn φ [] []))
+      (KNat := m.acval ConLeche.natName (Level.substFn φ [] []))
       (fun σ => hleafC _ _ σ) (fun σ => hleafC _ _ σ)
       (hleafOk _ _ ρ) (hleafOk _ _ ρ) (hleafOk _ _ ρ) (hleafOk _ _ ρ)
       (hleafOk _ _ ρ) (hleafOk _ _ ρ) hCharU
@@ -418,15 +418,15 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
   -- the outer `String.ofList` application
   have h := annotOkP_mkAppN_of_fit (V := V) (ρ := ρ)
     [charListT2
-      (.app (m.acval Lech.listNilName
-          (Level.substFn φ (levelParamsAt env Lech.listNilName) [.zero]))
-        (m.acval Lech.charName (Level.substFn φ [] [])))
-      (.app (m.acval Lech.listConsName
-          (Level.substFn φ (levelParamsAt env Lech.listConsName) [.zero]))
-        (m.acval Lech.charName (Level.substFn φ [] [])))
-      (m.acval Lech.charOfNatName (Level.substFn φ [] []))
-      (m.acval Lech.natZeroName (Level.substFn φ [] []))
-      (m.acval Lech.natSuccName (Level.substFn φ [] []))
+      (.app (m.acval ConLeche.listNilName
+          (Level.substFn φ (levelParamsAt env ConLeche.listNilName) [.zero]))
+        (m.acval ConLeche.charName (Level.substFn φ [] [])))
+      (.app (m.acval ConLeche.listConsName
+          (Level.substFn φ (levelParamsAt env ConLeche.listConsName) [.zero]))
+        (m.acval ConLeche.charName (Level.substFn φ [] [])))
+      (m.acval ConLeche.charOfNatName (Level.substFn φ [] []))
+      (m.acval ConLeche.natZeroName (Level.substFn φ [] []))
+      (m.acval ConLeche.natSuccName (Level.substFn φ [] []))
       s.toList]
     (hokRO ρ) (hleafOk _ _ ρ)
     (by intro x hx; rcases List.mem_singleton.mp hx with rfl; exact hclA)
@@ -436,7 +436,7 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
     (TeleFitP.cons (by rw [interp2_app]; exact hclm) TeleFitP.nil)
   refine ⟨h.1, ?_⟩
   have h2 := h.2
-  rwa [hleafC Lech.stringName (Level.substFn φ [] []) _] at h2
+  rwa [hleafC ConLeche.stringName (Level.substFn φ [] []) _] at h2
 
 /-! ## The row -/
 
@@ -448,18 +448,18 @@ theorem inferStrLitStepP_of_claims {m : EnvS2Core V env}
     (hct : ConstTypeP m φ) (hval : AcvalValidP m) (hnh : NatHeadsP m φ) :
     InferStrLitStepP m μ φ fuel := by
   intro d s t Δa ea ta h hea hta
-  rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, pure,
+  rw [ConLeche.inferTypeCore_succ] at h
+  simp only [ConLeche.inferBody, pure,
     Except.pure] at h
   split at h
   · next hgb =>
     simp only [Except.ok.injEq] at h
     subst h
-    have hg : Lech.strLitSupported env = true := by simpa using hgb
+    have hg : ConLeche.strLitSupported env = true := by simpa using hgb
     obtain ⟨hs, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, -,
       -, -, -, -, -, hlpS, -, -, -, -, -, -, -, -, -, -, -, -, -⟩ :=
-      Lech.strLitSupported_inv hg
-    have hta' : ta = m.acval Lech.stringName (Level.substFn φ [] []) := by
+      ConLeche.strLitSupported_inv hg
+    have hta' : ta = m.acval ConLeche.stringName (Level.substFn φ [] []) := by
       have hc := denoteP_const (acval := m.acval) (φ := φ) (d := d)
         (us := []) hfS (by simp [hlpS])
       rw [hlpS] at hc
@@ -471,4 +471,4 @@ theorem inferStrLitStepP_of_claims {m : EnvS2Core V env}
       fun ρ _ => (strLitFactsP hct hval hnh hg hea ρ).2⟩
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
-end Lech.SetP
+end ConLeche.SetP

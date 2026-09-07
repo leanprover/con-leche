@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectCtorDataP
+import ConLeche.SetP.Direct.DirectCtorDataP
 
 /-!
 # The constructor's frames (task #175 W4c, P3 module 6, part 4)
@@ -13,13 +13,13 @@ eliminator.  These are the premises the former's real leaf and the
 constructor's leaf consume.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts)
 
 universe w
 
@@ -146,7 +146,7 @@ runs. -/
 theorem ctorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa : ConstantVal} {env₀ envC : Env}
     {sorts : List Level} {caps : IndCaps}
-    (hCtor : Lech.checkDirectCtor (Lech.fueledOps μ F) env₀ env p cvTa
+    (hCtor : ConLeche.checkDirectCtor (ConLeche.fueledOps μ F) env₀ env p cvTa
       = .ok (envC, cvCa, sorts))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
     -- the recognition's propositionality datum is the result sort's
@@ -171,17 +171,17 @@ theorem ctorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
           interp2 V (consList as ρ) ((((ds ψ).drop p.nP).map (·.2.2)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V))) := by
   obtain ⟨hccv, -, -, fvsP, crest, tfvs, trest, xFvs, hopC, hopT, hdoms, hopX,
-    -, hsorts⟩ := Lech.checkDirectCtor_shape hCtor
+    -, hsorts⟩ := ConLeche.checkDirectCtor_shape hCtor
   obtain ⟨-, -, -, -, hlbt, hitf, type', -, -, hann', -, -, -, -, rfl⟩ :=
-    Lech.checkConstantVal_inv hccv
+    ConLeche.checkConstantVal_inv hccv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
   simp only at htf' hbt' hopC hsorts
   have hlenP : fvsP.length = p.nP := openPisAtFvars_length _ hopC
   have hopAll := openPisAtFvars_add p.nP hopC (by rw [Nat.zero_add]; exact hopX)
-  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)
+  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)
   simp only [ConstantInfo.toConstantVal] at hTf hTb
-  obtain ⟨hlenS, hfields⟩ := Lech.checkDirectFieldSorts_inv hsorts
-  have hpins := Lech.checkDirectDomsAt_inv hdoms
+  obtain ⟨hlenS, hfields⟩ := ConLeche.checkDirectFieldSorts_inv hsorts
+  have hpins := ConLeche.checkDirectDomsAt_inv hdoms
   -- the constructor's opening's length
   have hlenX : xFvs.length = p.nF := openPisAtFvars_length _ hopX
   -- the two openings, at one assignment
@@ -307,4 +307,4 @@ theorem ctorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
       exact this
   exact ⟨fun ψ => (hframes ψ).1, fun ψ => (hframes ψ).2⟩
 
-end Lech.SetP
+end ConLeche.SetP

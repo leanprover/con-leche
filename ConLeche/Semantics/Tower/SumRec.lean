@@ -1,4 +1,4 @@
-import Lech.Semantics.Tower.SumRecCase
+import ConLeche.Semantics.Tower.SumRecCase
 
 /-!
 # The sum recursor leaf (task #175 sum-types, stage S4b; indexed)
@@ -36,11 +36,11 @@ and `SqHypS` — and `underTowerOk_of_recPreS` turns it into the
 tower's premise.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -460,4 +460,4 @@ theorem directSumRecAV_ok2 {ℓ w : Nat} {Fss Ess : List (List AVExpr)} {Ids : L
     AnnotOk2 V ρ (directSumRecAV ℓ w (pds ++ [dM] ++ dms ++ dis ++ [dt]) Fss Ess srcs Ids.length) :=
   mkLamsC_ok2 hz (underTowerOk_of_recPreS hpre)
 
-end Lech.Semantics
+end ConLeche.Semantics

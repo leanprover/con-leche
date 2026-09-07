@@ -3,8 +3,8 @@
 
 The `SetTheory` class below is the *entire* axiomatic interface of the
 consistency proof; every operator and law the model construction uses
-(`Lech/SetTheory/Basic.lean`) is *derived* from it in
-`Lech/SetTheory/Derive/*`, never assumed.
+(`ConLeche/SetTheory/Basic.lean`) is *derived* from it in
+`ConLeche/SetTheory/Derive/*`, never assumed.
 
 The set-theoretic axioms are **extensionality, pairing, union, power
 set, regularity, the replacement scheme, and an ω-chain of
@@ -40,7 +40,7 @@ Deliberate deviations from a first-order presentation:
   every set-level form of choice over `V` (the global selector
   `schoice`, and the Jech-form choice-function statement, *Set Theory*,
   §5) is a *theorem* — replacement applied to a classically chosen
-  selector.  See `Lech/SetTheory/Derive/Choice.lean`.  Asserting it
+  selector.  See `ConLeche/SetTheory/Derive/Choice.lean`.  Asserting it
   here would add redundant axiomatic content; global choice is supplied
   by the meta-logic, not by this class.
 * **No `nonempty` field.**  First-order logic's nonempty domain is
@@ -48,10 +48,10 @@ Deliberate deviations from a first-order presentation:
 
 Everything else — the empty set, separation, ordered pairs, infinity,
 function graphs, the universe tower, quotients — is constructed in
-`Lech/SetTheory/Derive/*`.
+`ConLeche/SetTheory/Derive/*`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 universe u
 
@@ -151,4 +151,4 @@ theorem mem_power_iff_subset {z x : V} : z ∈ˢ power x ↔ z ⊆ˢ x := mem_po
 
 end SetTheory
 
-end Lech
+end ConLeche

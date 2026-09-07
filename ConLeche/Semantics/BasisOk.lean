@@ -1,17 +1,17 @@
-import Lech.Semantics.BasisType
-import Lech.Semantics.Interp
+import ConLeche.Semantics.BasisType
+import ConLeche.Semantics.Interp
 
 /-!
 # `bval2_mem_type` — every built-in inhabits its annotated type
 
-*(Re-based to `Lech/SetBase/*` at THE SEPARATION's S2, task #161: the
+*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161: the
 module already imported nothing but base, and the graded lane needs it.
 Path and module name changed; namespaces, statements and proofs
 verbatim.)*
 
 
 Step 2's second entry item, and the skeleton's `const` row's remaining
-supplier: `Lech/VExpr/Semantics/ConstOk.lean`'s capstone ported onto
+supplier: `ConLeche/VExpr/Semantics/ConstOk.lean`'s capstone ported onto
 `piR`/`lamR` and `BConst.type2`.
 
 ## The port pattern
@@ -45,11 +45,11 @@ over a vacuous domain rather than a proof-point argument.
 `natStepSpace_eq`, restated here as `natStepSpace2_eq`.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.VExpr (BConst lv)
+open ConLeche.VExpr (BConst lv)
 
 universe w
 
@@ -351,4 +351,4 @@ theorem bval2_mem_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
   | choice => exact bval2_mem_choice V us ρ
   | lfpFam => exact bval2_mem_lfpFam V us ρ
 
-end Lech.Semantics
+end ConLeche.Semantics

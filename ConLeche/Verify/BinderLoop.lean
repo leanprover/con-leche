@@ -1,15 +1,15 @@
-import Lech.Verify.BetaSpine
-import Lech.Verify.Abstract
-import Lech.Verify.AbstractRange
-import Lech.Verify.InferLeaves
-import Lech.Verify.Leaves
+import ConLeche.Verify.BetaSpine
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.AbstractRange
+import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.Leaves
 
 /-!
 # Binder-telescope loops and their identification with the chained
 bodies (task #72; task #100 stage 6 shapes)
 
 The interned twins' binder cases (`annotatePisI`/`annotateLamsI`/
-`inferLamsI`/`inferPisI`, `Lech/Kernel/CoreI.lean`) peel a whole
+`inferLamsI`/`inferPisI`, `ConLeche/Kernel/CoreI.lean`) peel a whole
 binder telescope in one loop — bulk-opening with an fvar accumulator,
 substituting only each binder's domain on the way in, and rebuilding
 with one `abstractRange` per domain and one over the leaf.  This file
@@ -19,7 +19,7 @@ chained spec**: a successful mirror run at the pure fueled knot is
 reproduced by the original one-binder-at-a-time body at some fuel
 (`inferLams_sound`, `inferPis_sound`, `annotatePis_sound`,
 `annotateLams_sound`).  The interned walks
-(`Lech/Verify/BinderLoopI.lean`) compose their simulation against
+(`ConLeche/Verify/BinderLoopI.lean`) compose their simulation against
 the mirrors with these theorems, so the `Expr`-level specification —
 and everything above it — is unchanged.
 
@@ -37,7 +37,7 @@ The rebuild/chain identification is the pure `abstractRange`/
 set_option linter.unusedSimpArgs false
 set_option maxHeartbeats 2000000
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -1768,4 +1768,4 @@ theorem annotateLams_sound {d : Nat} :
 
 end AnnotSound
 
-end Lech
+end ConLeche

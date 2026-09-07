@@ -1,5 +1,5 @@
-import Lech.SetP.Direct.DirectEntryFreeP
-import Lech.Verify.Direct.DirectBody
+import ConLeche.SetP.Direct.DirectEntryFreeP
+import ConLeche.Verify.Direct.DirectBody
 
 /-!
 # The projection body's frame (task #175 S1)
@@ -7,7 +7,7 @@ import Lech.Verify.Direct.DirectBody
 The table stores, per field, a **body** `F_i[p⃗ ↦ bvars, f_j ↦ .proj T
 j (bvar 0)]` (`directProjBodies`), and the tower law (A) reads it
 through the dummy telescope `projTele (nP + 1) body`
-(`Lech/Verify/ProjTele.lean`).  Two facts make the reading what the
+(`ConLeche/Verify/ProjTele.lean`).  Two facts make the reading what the
 law needs:
 
 * **the telescope's reading is the opened body's** (`denoteP_projTele`):
@@ -31,13 +31,13 @@ the body is a substitution instance of the stored constructor type,
 and the reading is a homomorphism for substitution.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
 universe w
@@ -55,10 +55,10 @@ theorem denoteP_projTele {acval : Name → (Name → Nat) → AVExpr} {env : Env
       denoteP acval env φ (d + k)
         (Expr.instSeq ((List.range k).map fun j =>
           Expr.fvar (d + j) (.sort .zero)) (k - 1) body) = some RA →
-      denoteP acval env φ d (Lech.projTele k body)
+      denoteP acval env φ d (ConLeche.projTele k body)
         = some (mkPisAV (List.replicate k (0, 1, .sort 0)) RA)
   | 0, d, body, RA, h => by
-    simpa [Lech.projTele, Expr.instSeq, mkPisAV] using h
+    simpa [ConLeche.projTele, Expr.instSeq, mkPisAV] using h
   | k + 1, d, body, RA, h => by
     have hspine : Expr.instSeq ((List.range (k + 1)).map fun j =>
           Expr.fvar (d + j) (.sort .zero)) (k + 1 - 1) body
@@ -75,7 +75,7 @@ theorem denoteP_projTele {acval : Name → (Name → Nat) → AVExpr} {env : Env
     rw [hspine, show d + (k + 1) = d + 1 + k from by omega] at h
     have ih := denoteP_projTele k (d + 1)
       (body.instantiate1 (Expr.fvar d (.sort .zero)) k) h
-    rw [Lech.projTele, denoteP_forallE, denoteP_sort, Lech.projTele_instantiate1,
+    rw [ConLeche.projTele, denoteP_forallE, denoteP_sort, ConLeche.projTele_instantiate1,
       Nat.zero_add, ih]
     rfl
 
@@ -85,16 +85,16 @@ spelling (`fvsD`/`tfvD`). -/
 theorem denoteP_projTele_zero {acval : Name → (Name → Nat) → AVExpr} {env : Env}
     {φ : Name → Nat} {nP : Nat} {body : Expr} {RA : AVExpr}
     (h : denoteP acval env φ (nP + 1)
-      (Expr.instSpine (Lech.fvsD nP ++ [Lech.tfvD nP]) nP body) = some RA) :
-    denoteP acval env φ 0 (Lech.projTele (nP + 1) body)
+      (Expr.instSpine (ConLeche.fvsD nP ++ [ConLeche.tfvD nP]) nP body) = some RA) :
+    denoteP acval env φ 0 (ConLeche.projTele (nP + 1) body)
       = some (mkPisAV (List.replicate (nP + 1) (0, 1, .sort 0)) RA) := by
   refine denoteP_projTele (nP + 1) 0 body ?_
   rw [Nat.zero_add, Nat.add_sub_cancel]
   rw [Expr.instSpine_eq_instSeq] at h
   have e : ((List.range (nP + 1)).map fun j => Expr.fvar (0 + j) (.sort .zero))
-      = Lech.fvsD nP ++ [Lech.tfvD nP] := by
+      = ConLeche.fvsD nP ++ [ConLeche.tfvD nP] := by
     rw [List.range_succ, List.map_append, List.map_cons, List.map_nil]
-    simp only [Lech.fvsD, Lech.tfvD, Nat.zero_add]
+    simp only [ConLeche.fvsD, ConLeche.tfvD, Nat.zero_add]
   rw [e]
   exact h
 
@@ -120,9 +120,9 @@ earlier fields' invariance (`hfree`). -/
 theorem bodyFrames {env : Env} (m : EnvS2Core V env)
     {nP nF i : Nat} {T : Name} {cty : Expr} {cds : List Expr}
     {bodyC : Expr} {mbC : BinderMeta} {body : Expr}
-    (hcf : Expr.instPisAt (Lech.fvsD nP ++ Lech.projArgsD T i nP) cty
+    (hcf : Expr.instPisAt (ConLeche.fvsD nP ++ ConLeche.projArgsD T i nP) cty
       = some (cds, .forallE
-          (Expr.instSpine (Lech.fvsD nP ++ [Lech.tfvD nP]) nP body) bodyC mbC))
+          (Expr.instSpine (ConLeche.fvsD nP ++ [ConLeche.tfvD nP]) nP body) bodyC mbC))
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
     (hprev : ∀ j, j < i → ∃ entry, env.findProj? T j = some entry)
     (hi : i < nF)
@@ -144,7 +144,7 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
       ∃ X : AVExpr, ((ds.drop nP).map (·.2.2)).getD i default = X.liftN 1 (i - 1 - j)) :
     ∃ fdomA : AVExpr,
       denoteP m.acval env ψ (nP + 1)
-        (Expr.instSpine (Lech.fvsD nP ++ [Lech.tfvD nP]) nP body) = some fdomA ∧
+        (Expr.instSpine (ConLeche.fvsD nP ++ [ConLeche.tfvD nP]) nP body) = some fdomA ∧
       ((w = 0 → ∀ j, j < i → used j = true → (sorts.getD j .zero).eval ψ = 0) →
         ∀ ρ : Nat → V,
           ρ 0 ∈ˢ towerSet w (teleOfFields (fun j => ρ (j + 1)) ((ds.drop nP).map (·.2.2))) →
@@ -162,15 +162,15 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
       (fun k => denoteP_closed m.acval_erase m.cval_closed hCf hCb hctyRead0 1 k)
       hctyRead0 (nP + 1)
   -- the arguments' scoping
-  have hlenP : (Lech.fvsD nP).length = nP := Lech.fvsD_length nP
-  have hfvsDidx : ∀ (k : Nat) (x : Expr), (Lech.fvsD nP)[k]? = some x →
+  have hlenP : (ConLeche.fvsD nP).length = nP := ConLeche.fvsD_length nP
+  have hfvsDidx : ∀ (k : Nat) (x : Expr), (ConLeche.fvsD nP)[k]? = some x →
       ∃ ty, x = Expr.fvar k ty := by
     intro k x hx
     have hk : k < nP := by
       have := (List.getElem?_eq_some_iff.mp hx).1; rwa [hlenP] at this
-    rw [Lech.fvsD_getElem? nP k hk] at hx
+    rw [ConLeche.fvsD_getElem? nP k hk] at hx
     exact ⟨.sort .zero, (Option.some.inj hx).symm⟩
-  have hargs : ∀ a ∈ Lech.fvsD nP ++ Lech.projArgsD T i nP,
+  have hargs : ∀ a ∈ ConLeche.fvsD nP ++ ConLeche.projArgsD T i nP,
       Expr.WScoped (nP + 1) a ∧ a.looseBVarsBounded 0 = true := by
     intro a ha
     rcases List.mem_append.mp ha with ha | ha
@@ -181,7 +181,7 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
       omega
     · obtain ⟨j, -, rfl⟩ := List.mem_map.mp ha
       refine ⟨?_, rfl⟩
-      simp only [Expr.WScoped, Lech.tfvD, and_true]
+      simp only [Expr.WScoped, ConLeche.tfvD, and_true]
       omega
   have hctyW : Expr.WScoped (nP + 1) cty := Expr.WScoped.of_not_hasFvar hCf
   -- the arguments' readings: the parameters and the earlier projections
@@ -189,7 +189,7 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
     hfvsDidx hlenP
   have hspX := denoteSpineP_entryProjs (acval := m.acval) (env := env) (φ := ψ)
     (nP := nP) (sdom := .sort .zero) hprev
-  have hsp : DenoteSpineP m.acval env ψ (nP + 1) (Lech.fvsD nP ++ Lech.projArgsD T i nP)
+  have hsp : DenoteSpineP m.acval env ψ (nP + 1) (ConLeche.fvsD nP ++ ConLeche.projArgsD T i nP)
       (entryParamBvars nP ++ entryProjAVs i) :=
     DenoteSpineP.append hspP hspX
   obtain ⟨restA, hrest, hpeel⟩ := denoteP_instPisAt_peel m.acval_closed
@@ -284,4 +284,4 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
     rw [hfdomA, ← hlen', interp2_instSeq, hFi]
     exact interp2_congr_below V _ (nP + i) _ _ hFiBelow (chainP_entry_agree nP i ρ)
 
-end Lech.SetP
+end ConLeche.SetP

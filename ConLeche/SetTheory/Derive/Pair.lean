@@ -1,4 +1,4 @@
-import Lech.SetTheory.Derive.Sep
+import ConLeche.SetTheory.Derive.Sep
 
 /-!
 # Singletons, binary unions, and Kuratowski ordered pairs
@@ -12,7 +12,7 @@ never `{∅}` — the tag that keeps the proof point `pt` apart from
 function graphs (`Derive/Pt.lean`, `Derive/Graphs.lean`).
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -113,4 +113,4 @@ theorem mem_sUnion_kpair_left (a b : V) : a ∈ˢ sUnion (kpair a b) :=
 theorem mem_sUnion_kpair_right (a b : V) : b ∈ˢ sUnion (kpair a b) :=
   mem_sUnion.mpr ⟨upair a b, mem_upair_right _ _, mem_upair_right a b⟩
 
-end Lech.SetTheory
+end ConLeche.SetTheory

@@ -1,4 +1,4 @@
-import Lech.Semantics.Tower.TowerMk
+import ConLeche.Semantics.Tower.TowerMk
 
 /-!
 # The recursor leaf (task #175, stage 3d)
@@ -29,11 +29,11 @@ instantiations is not a separate law: the same base goes through with
 conclusion is `app M pt`.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -491,4 +491,4 @@ theorem recBodyAV_fold_mk {n : Nat} {bs : List V} (h : bs.length = n)
     interp2 V σ (recBodyAV n) = bs.foldl SetTheory.app (σ 1) := by
   rw [recBodyAV_interp, hmaj, map_range_projS_mkTower h]
 
-end Lech.Semantics
+end ConLeche.Semantics

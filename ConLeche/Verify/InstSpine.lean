@@ -1,7 +1,7 @@
-import Lech.Verify.Subst
-import Lech.Verify.Leaves
-import Lech.Verify.EnvWF
-import Lech.Verify.InstLevels
+import ConLeche.Verify.Subst
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.EnvWF
+import ConLeche.Verify.InstLevels
 
 /-!
 # Syntactic kit for `Expr.instSpine`
@@ -14,7 +14,7 @@ shift-invariance / resolution walks need the usual preservation
 lemmas, plus the `instSeq` bridge for the model layer.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Expr
 
@@ -188,7 +188,7 @@ theorem recFireComparands_snd_WScoped {d : Nat} (rl : RecRule)
 
 /-- A telescope that strips syntactically admits any instantiation
 walk of matching length.  (Relocated verbatim from
-`Lech/Model/InstFrames.lean`, where it sat behind a `SetTheory`
+`ConLeche/Model/InstFrames.lean`, where it sat behind a `SetTheory`
 section variable it never used: it is a statement about `Expr` alone,
 and both verified lanes' install layers need it — the [set] projection
 bottom constructs its constructor/recursor `instPisAt` runs from the
@@ -214,7 +214,7 @@ The four `V`-free facts about `recRulePlain` and `recFireComparands`
 that task #148's T1 relocation pass did not cover; both verified lanes'
 recursor-group installs read them, so they sit here rather than in
 either lane (relocated verbatim from
-`Lech/TTVerify/DeclIndRecs.lean`, task #148 T5 stage 3). -/
+`ConLeche/TTVerify/DeclIndRecs.lean`, task #148 T5 stage 3). -/
 
 /-- A canonical rule's constructor parameters are among the recursor's
 prefix. -/
@@ -250,4 +250,4 @@ theorem recFireComparands_nested {rl : RecRule} {lps : List Name}
   unfold recFireComparands
   rw [h]
 
-end Lech
+end ConLeche

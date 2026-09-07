@@ -1,4 +1,4 @@
-import Lech.SetP.BasisStepP
+import ConLeche.SetP.BasisStepP
 
 /-!
 # The inductive cons, P tier: the mechanical rows at an ind-kind head (task #161, IND TIER)
@@ -52,13 +52,13 @@ projection install in v1 too (`Install/EtaLawS.lean`, the
 `caps_ok` open at every ind-tier cons and never guesses a route.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint)
 
 universe w
@@ -71,22 +71,22 @@ inductive tier's workhorse: `ConstantValR`'s second conjunct is the
 hypothesis, and the four names the mechanical rows read
 (`Nat`/`Nat.zero`/`Nat.succ`/`Eq`) are all reserved. -/
 theorem ne_of_notReserved {n m : Name}
-    (h : Lech.reservedBasisNames.contains n = false)
-    (hm : Lech.reservedBasisNames.contains m = true) : n ≠ m := by
+    (h : ConLeche.reservedBasisNames.contains n = false)
+    (hm : ConLeche.reservedBasisNames.contains m = true) : n ≠ m := by
   intro hh
   rw [hh, hm] at h
   exact nomatch h
 
-theorem reserved_natName : Lech.reservedBasisNames.contains natName = true := by
+theorem reserved_natName : ConLeche.reservedBasisNames.contains natName = true := by
   decide
 
 theorem reserved_natZeroName :
-    Lech.reservedBasisNames.contains natZeroName = true := by decide
+    ConLeche.reservedBasisNames.contains natZeroName = true := by decide
 
 theorem reserved_natSuccName :
-    Lech.reservedBasisNames.contains natSuccName = true := by decide
+    ConLeche.reservedBasisNames.contains natSuccName = true := by decide
 
-theorem reserved_eqName : Lech.reservedBasisNames.contains eqName = true := by
+theorem reserved_eqName : ConLeche.reservedBasisNames.contains eqName = true := by
   decide
 
 
@@ -100,7 +100,7 @@ theorem declStepPM_of_ind_cons (mp : EnvS2PM V μ env)
     (hfresh : env.find? c₀.name = none)
     -- the name: `ConstantValR`'s second conjunct at a member,
     -- `projFnName_ne_reserved` at a projection slot
-    (hnres : Lech.reservedBasisNames.contains c₀.name = false)
+    (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
     -- the kind: an inductive block installs no value kind and no axiom
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     (hnotthm : ∀ cv v, c₀ ≠ .thmInfo cv v)
@@ -176,7 +176,7 @@ open row — the block's former *is* a family head. -/
 theorem declStepPM_of_ind_member_cons (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hnres : Lech.reservedBasisNames.contains c₀.name = false)
+    (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
     (hknd : (∃ cv caps, c₀ = .indInfo cv caps) ∨
       ∃ cv nP nF, c₀ = .ctorInfo cv nP nF)
     (hh : ConsHeadP env c₀ A)
@@ -224,7 +224,7 @@ projection functions, both stored as `recInfo`.  Only `caps_ok` and
 theorem declStepPM_of_ind_rec_cons (mp : EnvS2PM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
-    (hnres : Lech.reservedBasisNames.contains c₀.name = false)
+    (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
     (hknd : ∃ cv mI rP rules, c₀ = .recInfo cv mI rP rules)
     (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
@@ -259,4 +259,4 @@ theorem declStepPM_of_ind_rec_cons (mp : EnvS2PM V μ env)
     (fun _ h => nomatch h) hh hAclosed hAparams hAok
     hAvalid htyReads htyOk hmemNew hcaps hrec (fun _ h => nomatch h)
 
-end Lech.SetP
+end ConLeche.SetP

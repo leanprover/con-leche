@@ -1,4 +1,4 @@
-import Lech.SetP.IndReductP
+import ConLeche.SetP.IndReductP
 
 /-!
 # The λ-tower descent, at the reading (task #161, IND TIER part 5)
@@ -34,13 +34,13 @@ is produced existentially instead of by `List.take` on a constructor
 argument.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name)
 
 universe w
 
@@ -192,4 +192,4 @@ theorem lamTowerStepP :
       · rw [AnnotValidV_app]
         exact ⟨(hokApp' hokws).2, (hokws _ (List.mem_of_getElem? hwn)).2⟩
 
-end Lech.SetP
+end ConLeche.SetP

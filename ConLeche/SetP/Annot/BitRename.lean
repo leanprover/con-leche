@@ -1,5 +1,5 @@
-import Lech.SetP.Annot.BitLemmas
-import Lech.Verify.Denote.Rename
+import ConLeche.SetP.Annot.BitLemmas
+import ConLeche.Verify.Denote.Rename
 
 /-!
 # The reading's two blindnesses (task #161, IND TIER)
@@ -29,13 +29,13 @@ into a literal, and the string clause's seven leaves are read by name
 off the environment rather than off the subject.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo)
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo)
 
 variable {env : Env} {φ : Name → Nat}
 variable {acval : Name → (Name → Nat) → AVExpr}
@@ -185,4 +185,4 @@ theorem denoteP_renameConsts_resolve {f : Name → Name}
     | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
     | (simp [Expr.sizeB])
 
-end Lech.SetP
+end ConLeche.SetP

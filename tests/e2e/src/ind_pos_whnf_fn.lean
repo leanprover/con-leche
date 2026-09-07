@@ -7,7 +7,7 @@
    inductive.cpp:383-409) and sees a reflexive recursive argument, so it
    accepts the block and its recursor.
 
-   lech's fixpoint positivity check is SYNTACTIC
+   con-leche's fixpoint positivity check is SYNTACTIC
    (Kernel/Direct/RecParts.lean:102-114): the head `Fn` is neither the
    block nor block-free after one look, so the block is `.unsupported`
    and falls to the preprocessor, whose structural check ("a field of R
@@ -16,7 +16,7 @@
    missing model.  The finitary twin is ind_pos_whnf_id, which the tool
    does model.
 
-   official: 0.  lech at master 700a06ca: 3 piped, 2 raw (both modes).
+   official: 0.  con-leche at master 700a06ca: 3 piped, 2 raw (both modes).
    Probe of record: _tmp/indaudit/probes/P/WhnfPosFn.lean. -/
 
 import Lean

@@ -1,5 +1,5 @@
-import Lech.Kernel.Direct.Parts
-import Lech.Kernel.Level
+import ConLeche.Kernel.Direct.Parts
+import ConLeche.Kernel.Level
 
 /-!
 # Projection functions of non-direct structure-likes, as recursor
@@ -70,7 +70,7 @@ restriction on such owners is a different question), and any block
 whose recursor carries no elimination level parameter.
 -/
 
-namespace Lech.Frontend
+namespace ConLeche.Frontend
 
 /-- What the rewrite needs to know about one structure-like owner `T`
 of a parsed inductive block that the direct install does not serve. -/
@@ -259,4 +259,4 @@ def projRecOwners (block : List ConstantInfo)
       guard (rlps.length == lps.length + 1)
       pure ⟨T, lps, nP, C, nF, rn, rlps, rty, nM, nm⟩
 
-end Lech.Frontend
+end ConLeche.Frontend

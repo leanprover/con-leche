@@ -1,6 +1,6 @@
-import Lech.SetP.Step2.IotaKitP
-import Lech.SetP.Step2.GateP
-import Lech.SetP.IOLicenseP
+import ConLeche.SetP.Step2.IotaKitP
+import ConLeche.SetP.Step2.GateP
+import ConLeche.SetP.IOLicenseP
 
 /-!
 # The ι-slot licence (the ι batch, 2026-09-05)
@@ -36,13 +36,13 @@ of the subject, carries no slot, and its grading is *produced* by that
 run — gating it would be circular (DESIGN.md, "THE ι AUDIT" §9.1.4).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level BinderMeta PropWhen)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level BinderMeta PropWhen)
 
 universe w
 
@@ -123,7 +123,7 @@ theorem certs_teleLicP {m : EnvS2Core V env}
     (hexi : InferExistsIOSP μ m φ fuel) {lic : Bool} :
     ∀ {d : Nat} {Δa : List AVExpr} (ty : Expr) (args : List Expr)
       (vs : List AVExpr) (Ta fa : AVExpr),
-      Lech.iotaCertsP μ env fuel d lic ty args = .ok true →
+      ConLeche.iotaCertsP μ env fuel d lic ty args = .ok true →
       Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
       Expr.LeavesBounded ty → CtxOkP m φ d Δa ty →
       denoteP m.acval env φ d ty = some Ta →
@@ -192,9 +192,9 @@ theorem certs_teleLicP {m : EnvS2Core V env}
     -- **THE SLOT MEMBERSHIP**: licensed or certified
     obtain ⟨hmemA, hrestc⟩ : (∀ ρ : Nat → V, Sat2 V Δa ρ →
           interp2 V ρ aa ∈ˢ interp2 V ρ doma) ∧
-        Lech.iotaCertsP μ env fuel d lic (body.instantiate1 a) as
+        ConLeche.iotaCertsP μ env fuel d lic (body.instantiate1 a) as
           = .ok true := by
-      rcases Lech.iotaCerts_step_inv_gate hc with ⟨hg, hrestc⟩ |
+      rcases ConLeche.iotaCerts_step_inv_gate hc with ⟨hg, hrestc⟩ |
           ⟨ta, hta, hde, hrestc⟩
       · -- THE LICENSED ARM: the binder's datum is `.never`, the head
         -- prefix inhabits the binder's product reading, the slot
@@ -212,13 +212,13 @@ theorem certs_teleLicP {m : EnvS2Core V env}
         obtain ⟨taa, htaa⟩ := hexi hta haw hab haLb haC haa
         obtain ⟨hokTa, hmemA⟩ := ihis hta haw hab haLb haC haa htaa hokA
         have hwta : Expr.WScoped d ta :=
-          Lech.inferTypeIO_WScoped m.wf fuel hta haw
+          ConLeche.inferTypeIO_WScoped m.wf fuel hta haw
         have hbta : ta.looseBVarsBounded 0 = true :=
-          Lech.inferTypeIO_looseBVars m.wf fuel hta haw hab haLb
+          ConLeche.inferTypeIO_looseBVars m.wf fuel hta haw hab haLb
         have hLta : Expr.LeavesBounded ta := fun l hl =>
-          haLb l (Lech.inferTypeIO_fvarLeaves m.wf fuel hta haw l hl)
+          haLb l (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hta haw l hl)
         have hCta : CtxOkP m φ d Δa ta :=
-          haC.of_subset (Lech.inferTypeIO_fvarLeaves m.wf fuel hta haw)
+          haC.of_subset (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hta haw)
         have hdeq : ∀ ρ : Nat → V, Sat2 V Δa ρ →
             interp2 V ρ taa = interp2 V ρ doma :=
           ihd hde hwta hbta hLta hdomw hdomb hLbdom hCta hCdom htaa hdoma
@@ -296,4 +296,4 @@ theorem iota_gate_exact {pw : PropWhen} :
     PropWhen.isNever pw = true ↔ ∀ φ : Name → Nat, pwBit φ pw ≠ 0 :=
   isNever_iff_forall_pwBit_ne_zero
 
-end Lech.SetP
+end ConLeche.SetP

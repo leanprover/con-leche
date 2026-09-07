@@ -1,19 +1,19 @@
 module
 public import Lean
-public meta import Lech.Kernel.Expr
+public meta import ConLeche.Kernel.Expr
 
 /-!
 # The pin-dump interchange format (task #176)
 
 The pinned `Nat`-operation declarations and their certificate proof
-blobs used to be *computed* while `Lech/Kernel/NatOpPins.lean`
-elaborated, by loading `Lech/PinGen/Certs.olean` into a full-view
+blobs used to be *computed* while `ConLeche/Kernel/NatOpPins.lean`
+elaborated, by loading `ConLeche/PinGen/Certs.olean` into a full-view
 environment (`importModules` at `OLeanLevel.private`).  That is not an
 import edge, so Lake never ordered the two — on a cold tree
-`lake build lech` failed with
+`lake build con-leche` failed with
 
-    object file '…/Lech/PinGen/Certs.olean' of module
-    Lech.PinGen.Certs does not exist
+    object file '…/ConLeche/PinGen/Certs.olean' of module
+    ConLeche.PinGen.Certs does not exist
 
 (the `extraDepTargets` in `lakefile.toml` did not reach the module when
 it was built through the executable's import graph).  The user's
@@ -26,7 +26,7 @@ This module is the format both ends share:
   executable — it lives in the certificate library's world, where the
   proof bodies are visible) computes the pins exactly as before and
   serialises them here;
-* the **loader** (`Lech/Kernel/NatOpPins.lean`) `include_str`s the
+* the **loader** (`ConLeche/Kernel/NatOpPins.lean`) `include_str`s the
   committed dump and splices it at elaboration time.
 
 Nothing here reads an olean by name, so both ends are ordinary Lake
@@ -34,8 +34,8 @@ targets with ordinary import edges.
 
 ## What is dumped
 
-Not the `Lech.Expr` tree, but the **share table** the emitter builds
-from it (`Lech.PinGen.ShareSt`): pins share subterms heavily, and
+Not the `ConLeche.Expr` tree, but the **share table** the emitter builds
+from it (`ConLeche.PinGen.ShareSt`): pins share subterms heavily, and
 emitting them unshared would explode.  A dumped blob is therefore an
 array of `PinEntry`s — each one constructor application whose
 arguments are *absolute* indices of earlier entries — plus the root
@@ -55,8 +55,8 @@ JSON, via `Lean.Json` — the toolchain's own parser, already the
 generator's input format (`scripts/natop_prefix.json`).  The
 alternative, our ndjson export dialect, would have wanted the
 frontend's `Expr` parser, and that is unreachable from here:
-`Lech.Frontend.*` imports `Lech.Kernel.*`, which imports
-`Lech.Kernel.NatOpPins` — a cycle.  A bespoke line format would have
+`ConLeche.Frontend.*` imports `ConLeche.Kernel.*`, which imports
+`ConLeche.Kernel.NatOpPins` — a cycle.  A bespoke line format would have
 had to re-solve string escaping (name components and `strVal`
 literals) that JSON already solves.
 
@@ -67,7 +67,7 @@ diffs readably.
 
 public meta section
 
-namespace Lech.PinGen
+namespace ConLeche.PinGen
 
 open Lean
 
@@ -82,9 +82,9 @@ so a reference is one of three things. -/
 inductive PinRef where
   /-- Entry `i` of the table. -/
   | idx (i : Nat)
-  /-- The inline `Lech.Name.anonymous`. -/
+  /-- The inline `ConLeche.Name.anonymous`. -/
   | anon
-  /-- The inline `Lech.Level.zero`. -/
+  /-- The inline `ConLeche.Level.zero`. -/
   | lzero
   deriving DecidableEq, Repr, Inhabited, Hashable
 
@@ -107,8 +107,8 @@ inductive PinEntry where
   | exSort (u : PinRef)
   | exConst (n : PinRef) (us : List PinRef)
   | exApp (f a : PinRef)
-  | exLam (ty b : PinRef) (pw : Option (List Lech.Name))
-  | exForall (ty b : PinRef) (pw : Option (List Lech.Name))
+  | exLam (ty b : PinRef) (pw : Option (List ConLeche.Name))
+  | exForall (ty b : PinRef) (pw : Option (List ConLeche.Name))
   | exLet (ty v b : PinRef)
   | exLitNat (v : Nat)
   | exLitStr (s : String)
@@ -142,7 +142,7 @@ structure PinDumpFile where
   carries beyond the pinned basis blocks, the names it declares in
   order, and per operation the order-sensitive ground that could NOT
   be preluded (stream-certified `Nat` operations the statements are
-  spelled over) — see `Lech/PinGen/Prelude.lean`. -/
+  spelled over) — see `ConLeche/PinGen/Prelude.lean`. -/
   preludeFile : String := ""
   preludeMembers : Array String := #[]
   preludeNames : Array String := #[]
@@ -151,7 +151,7 @@ structure PinDumpFile where
 
 /-- The format tag written into, and required of, a dump file.
 `/2` since task #191: the prelude fields. -/
-def dumpFormatTag : String := "lech-natop-pins/3"
+def dumpFormatTag : String := "con-leche-natop-pins/3"
 
 /-- The dump file's basename for a toolchain: the `lean-toolchain`
 string with everything outside `[A-Za-z0-9._-]` turned into `-`
@@ -168,30 +168,30 @@ def toolchainFileName (tc : String) : String :=
 the pre-#176 `ShareSt` emitter, factored so that the generator and the
 loader run the *same* code. -/
 
-def nameT : Lean.Expr := .const ``Lech.Name []
-def levelT : Lean.Expr := .const ``Lech.Level []
-def exprT : Lean.Expr := .const ``Lech.Expr []
+def nameT : Lean.Expr := .const ``ConLeche.Name []
+def levelT : Lean.Expr := .const ``ConLeche.Level []
+def exprT : Lean.Expr := .const ``ConLeche.Expr []
 
-/-- Quote a `Lech.Name` structurally (used for the `pw` parameter
+/-- Quote a `ConLeche.Name` structurally (used for the `pw` parameter
 lists, which the share table does not cover — they are tiny). -/
-def quoteName : Lech.Name → Lean.Expr
-  | .anonymous => .const ``Lech.Name.anonymous []
-  | .str p s => mkApp2 (.const ``Lech.Name.str []) (quoteName p) (mkStrLit s)
-  | .num p n => mkApp2 (.const ``Lech.Name.num []) (quoteName p) (mkRawNatLit n)
+def quoteName : ConLeche.Name → Lean.Expr
+  | .anonymous => .const ``ConLeche.Name.anonymous []
+  | .str p s => mkApp2 (.const ``ConLeche.Name.str []) (quoteName p) (mkStrLit s)
+  | .num p n => mkApp2 (.const ``ConLeche.Name.num []) (quoteName p) (mkRawNatLit n)
 
-def quoteNameList (ns : List Lech.Name) : Lean.Expr :=
+def quoteNameList (ns : List ConLeche.Name) : Lean.Expr :=
   ns.foldr
     (fun n acc => mkApp3 (.const ``List.cons [.zero]) nameT (quoteName n) acc)
     (.app (.const ``List.nil [.zero]) nameT)
 
 /-- Quote a `PropWhen` through its public interface (`never` /
 `ifAllZero`) — the representation is private. -/
-def quotePropWhen : Option (List Lech.Name) → Lean.Expr
-  | none => .const ``Lech.PropWhen.never []
-  | some ps => .app (.const ``Lech.PropWhen.ifAllZero []) (quoteNameList ps)
+def quotePropWhen : Option (List ConLeche.Name) → Lean.Expr
+  | none => .const ``ConLeche.PropWhen.never []
+  | some ps => .app (.const ``ConLeche.PropWhen.ifAllZero []) (quoteNameList ps)
 
-def quoteBinderMeta (pw : Option (List Lech.Name)) : Lean.Expr :=
-  .app (.const ``Lech.BinderMeta.mk []) (quotePropWhen pw)
+def quoteBinderMeta (pw : Option (List ConLeche.Name)) : Lean.Expr :=
+  .app (.const ``ConLeche.BinderMeta.mk []) (quotePropWhen pw)
 
 /-- A reference as an *absolute* `.bvar` (entry references) or an
 inline constant.  `assemble` rewrites the `.bvar`s into de Bruijn
@@ -199,8 +199,8 @@ indices; the emitted values contain no real bound variables, so the
 disguise is unambiguous. -/
 def refExpr : PinRef → Lean.Expr
   | .idx i => .bvar i
-  | .anon => .const ``Lech.Name.anonymous []
-  | .lzero => .const ``Lech.Level.zero []
+  | .anon => .const ``ConLeche.Name.anonymous []
+  | .lzero => .const ``ConLeche.Level.zero []
 
 def PinEntry.sort : PinEntry → PinSort
   | .nameStr .. | .nameNum .. => .nameS
@@ -220,40 +220,40 @@ def levelListE (us : List Lean.Expr) : Lean.Expr :=
 /-- The value of one entry, with absolute references. -/
 def PinEntry.value : PinEntry → Lean.Expr
   | .nameStr p s =>
-    mkApp2 (.const ``Lech.Name.str []) (refExpr p) (mkStrLit s)
+    mkApp2 (.const ``ConLeche.Name.str []) (refExpr p) (mkStrLit s)
   | .nameNum p i =>
-    mkApp2 (.const ``Lech.Name.num []) (refExpr p) (mkRawNatLit i)
-  | .levSucc u => .app (.const ``Lech.Level.succ []) (refExpr u)
+    mkApp2 (.const ``ConLeche.Name.num []) (refExpr p) (mkRawNatLit i)
+  | .levSucc u => .app (.const ``ConLeche.Level.succ []) (refExpr u)
   | .levMax u v =>
-    mkApp2 (.const ``Lech.Level.max []) (refExpr u) (refExpr v)
+    mkApp2 (.const ``ConLeche.Level.max []) (refExpr u) (refExpr v)
   | .levImax u v =>
-    mkApp2 (.const ``Lech.Level.imax []) (refExpr u) (refExpr v)
-  | .levParam n => .app (.const ``Lech.Level.param []) (refExpr n)
-  | .exBVar i => .app (.const ``Lech.Expr.bvar []) (mkRawNatLit i)
+    mkApp2 (.const ``ConLeche.Level.imax []) (refExpr u) (refExpr v)
+  | .levParam n => .app (.const ``ConLeche.Level.param []) (refExpr n)
+  | .exBVar i => .app (.const ``ConLeche.Expr.bvar []) (mkRawNatLit i)
   | .exFVar idx ty =>
-    mkApp2 (.const ``Lech.Expr.fvar []) (mkRawNatLit idx) (refExpr ty)
-  | .exSort u => .app (.const ``Lech.Expr.sort []) (refExpr u)
+    mkApp2 (.const ``ConLeche.Expr.fvar []) (mkRawNatLit idx) (refExpr ty)
+  | .exSort u => .app (.const ``ConLeche.Expr.sort []) (refExpr u)
   | .exConst n us =>
-    mkApp2 (.const ``Lech.Expr.const []) (refExpr n)
+    mkApp2 (.const ``ConLeche.Expr.const []) (refExpr n)
       (levelListE (us.map refExpr))
   | .exApp f a =>
-    mkApp2 (.const ``Lech.Expr.app []) (refExpr f) (refExpr a)
+    mkApp2 (.const ``ConLeche.Expr.app []) (refExpr f) (refExpr a)
   | .exLam ty b pw =>
-    mkApp3 (.const ``Lech.Expr.lam []) (refExpr ty) (refExpr b)
+    mkApp3 (.const ``ConLeche.Expr.lam []) (refExpr ty) (refExpr b)
       (quoteBinderMeta pw)
   | .exForall ty b pw =>
-    mkApp3 (.const ``Lech.Expr.forallE []) (refExpr ty) (refExpr b)
+    mkApp3 (.const ``ConLeche.Expr.forallE []) (refExpr ty) (refExpr b)
       (quoteBinderMeta pw)
   | .exLet ty v b =>
-    mkApp3 (.const ``Lech.Expr.letE []) (refExpr ty) (refExpr v) (refExpr b)
+    mkApp3 (.const ``ConLeche.Expr.letE []) (refExpr ty) (refExpr v) (refExpr b)
   | .exLitNat v =>
-    .app (.const ``Lech.Expr.lit [])
-      (.app (.const ``Lech.Literal.natVal []) (mkRawNatLit v))
+    .app (.const ``ConLeche.Expr.lit [])
+      (.app (.const ``ConLeche.Literal.natVal []) (mkRawNatLit v))
   | .exLitStr s =>
-    .app (.const ``Lech.Expr.lit [])
-      (.app (.const ``Lech.Literal.strVal []) (mkStrLit s))
+    .app (.const ``ConLeche.Expr.lit [])
+      (.app (.const ``ConLeche.Literal.strVal []) (mkStrLit s))
   | .exProj s i e =>
-    mkApp3 (.const ``Lech.Expr.proj []) (refExpr s) (mkRawNatLit i)
+    mkApp3 (.const ``ConLeche.Expr.proj []) (refExpr s) (mkRawNatLit i)
       (refExpr e)
 
 /-- The `let` binder for entry `i`. -/
@@ -290,7 +290,7 @@ def PinBlob.value (b : PinBlob) : Lean.Expr :=
 The pins share subterms heavily (every distinct name, level and
 expression node occurs many times).  Emitting them through the plain
 `ToExpr` instance would lose all sharing, so each distinct subobject
-becomes one `PinEntry` (`Lech/PinGen/Dump.lean`), bound once in the
+becomes one `PinEntry` (`ConLeche/PinGen/Dump.lean`), bound once in the
 `let`-chain `PinBlob.value` assembles; references are absolute entry
 indices.  The share table is also exactly what the committed dump
 carries (task #176), so the generator and the loader emit the same
@@ -299,9 +299,9 @@ declaration value by construction. -/
 structure ShareSt where
   /-- Emitted entries, in dependency order. -/
   entries : Array PinEntry := #[]
-  nameMap : Std.HashMap Lech.Name PinRef := {}
-  levelMap : Std.HashMap Lech.Level PinRef := {}
-  exprMap : Std.HashMap Lech.Expr PinRef := {}
+  nameMap : Std.HashMap ConLeche.Name PinRef := {}
+  levelMap : Std.HashMap ConLeche.Level PinRef := {}
+  exprMap : Std.HashMap ConLeche.Expr PinRef := {}
 
 abbrev ShareM := StateM ShareSt
 
@@ -310,7 +310,7 @@ def pushEntry (en : PinEntry) : ShareM PinRef := do
   modify fun st => { st with entries := st.entries.push en }
   return .idx n
 
-partial def shareName (n : Lech.Name) : ShareM PinRef := do
+partial def shareName (n : ConLeche.Name) : ShareM PinRef := do
   if let some r := (← get).nameMap[n]? then return r
   let r ← match n with
     | .anonymous => pure PinRef.anon
@@ -319,7 +319,7 @@ partial def shareName (n : Lech.Name) : ShareM PinRef := do
   modify fun st => { st with nameMap := st.nameMap.insert n r }
   return r
 
-partial def shareLevel (l : Lech.Level) : ShareM PinRef := do
+partial def shareLevel (l : ConLeche.Level) : ShareM PinRef := do
   if let some r := (← get).levelMap[l]? then return r
   let r ← match l with
     | .zero => pure PinRef.lzero
@@ -334,7 +334,7 @@ partial def shareLevel (l : Lech.Level) : ShareM PinRef := do
   modify fun st => { st with levelMap := st.levelMap.insert l r }
   return r
 
-partial def shareExpr (e : Lech.Expr) : ShareM PinRef := do
+partial def shareExpr (e : ConLeche.Expr) : ShareM PinRef := do
   if let some r := (← get).exprMap[e]? then return r
   let r ← match e with
     | .bvar i => pushEntry (.exBVar i)
@@ -374,13 +374,13 @@ partial def shareExpr (e : Lech.Expr) : ShareM PinRef := do
 
 /-- The share table of one expression: what the dump carries and what
 `PinBlob.value` turns back into the emitted `let`-chain. -/
-def blobOf (e : Lech.Expr) : PinBlob :=
+def blobOf (e : ConLeche.Expr) : PinBlob :=
   let (root, st) := Id.run (StateT.run (s := ({} : ShareSt)) (shareExpr e))
   { root, entries := st.entries }
 
 /-- Build the value of a single-expression definition (`… : Expr`) as a
 shared `let`-chain. -/
-def buildExprValue (e : Lech.Expr) : Lean.Expr := (blobOf e).value
+def buildExprValue (e : ConLeche.Expr) : Lean.Expr := (blobOf e).value
 
 /-! ## JSON codec -/
 
@@ -398,17 +398,17 @@ def refOfJson (j : Json) : Except String PinRef :=
   | Json.str "lzero" => return .lzero
   | _ => .error s!"bad pin reference: {j.compress}"
 
-/-- A `Lech.Name` as the array of its components, outermost last. -/
-def snameComps : Lech.Name → Array Json → Array Json
+/-- A `ConLeche.Name` as the array of its components, outermost last. -/
+def snameComps : ConLeche.Name → Array Json → Array Json
   | .anonymous, acc => acc
   | .str p s, acc => (snameComps p acc).push (Json.str s)
   | .num p i, acc => (snameComps p acc).push (natJ i)
 
-def snameToJson (n : Lech.Name) : Json := Json.arr (snameComps n #[])
+def snameToJson (n : ConLeche.Name) : Json := Json.arr (snameComps n #[])
 
-def snameOfJson (j : Json) : Except String Lech.Name := do
+def snameOfJson (j : Json) : Except String ConLeche.Name := do
   let arr ← j.getArr?
-  let mut n : Lech.Name := .anonymous
+  let mut n : ConLeche.Name := .anonymous
   for c in arr do
     match c with
     | Json.str s => n := .str n s
@@ -416,11 +416,11 @@ def snameOfJson (j : Json) : Except String Lech.Name := do
     | _ => throw s!"bad name component: {c.compress}"
   return n
 
-def pwToJson : Option (List Lech.Name) → Json
+def pwToJson : Option (List ConLeche.Name) → Json
   | none => Json.null
   | some ps => Json.arr (ps.map snameToJson).toArray
 
-def pwOfJson : Json → Except String (Option (List Lech.Name))
+def pwOfJson : Json → Except String (Option (List ConLeche.Name))
   | Json.null => return none
   | j => do
     let arr ← j.getArr?
@@ -536,7 +536,7 @@ def blobLines (b : PinBlob) (indent : String) : Array String := Id.run do
 
 /-! ## The loader
 
-`Lech/Kernel/NatOpPins.lean` `include_str`s the committed dump and
+`ConLeche/Kernel/NatOpPins.lean` `include_str`s the committed dump and
 invokes `#load_natop_pins` on it.  Everything the splice needs is in
 the dump (the definition names included), so the loader consults
 neither `opSpecs` nor any olean; the only thing it insists on is that
@@ -587,7 +587,7 @@ def loadPinsFromText (text : String) : Elab.Command.CommandElabM Unit := do
     throwError "the committed pin dump was generated by Lean \
       {d.leanVersion} ({d.toolchain}), this is Lean {Lean.versionString}. \
       Regenerate with `lake exe natop-pins-export` (and see \
-      Lech/Kernel/NatOpPins.lean for the toolchain-named file)."
+      ConLeche/Kernel/NatOpPins.lean for the toolchain-named file)."
   Elab.Command.liftTermElabM do
     for o in d.ops do
       spliceOpDump o
@@ -614,13 +614,13 @@ def dumpLines (d : PinDumpFile) : Array String := Id.run do
   out := out.push ("\"_README\":" ++ (Json.str
     ("GENERATED FILE — do not edit.  The pinned Nat-operation defining \
      expressions and their certificate proof blobs, as share tables \
-     (see Lech/PinGen/Dump.lean for the encoding).  Spliced into \
-     Lech/Kernel/NatOpPins.lean by #load_natop_pins.  The built-in \
+     (see ConLeche/PinGen/Dump.lean for the encoding).  Spliced into \
+     ConLeche/Kernel/NatOpPins.lean by #load_natop_pins.  The built-in \
      prelude the pins' order-sensitive ground needs (task #191) is the \
      sidecar file named by preludeFile, embedded by \
-     Lech/Frontend/Prelude.lean; orderResidual lists, per operation, \
+     ConLeche/Frontend/Prelude.lean; orderResidual lists, per operation, \
      the order-sensitive ground that stays the stream's (see \
-     Lech/PinGen/Prelude.lean).")).compress ++ ",")
+     ConLeche/PinGen/Prelude.lean).")).compress ++ ",")
   out := out.push ("\"_regenerate\":" ++ (Json.str
     ("lake exe natop-pins-export   — then commit the result; \
      tests/pindump.sh (run from tests/arena.sh) diffs this file \
@@ -662,4 +662,4 @@ def dumpLines (d : PinDumpFile) : Array String := Id.run do
   out := out.push "}"
   return out
 
-end Lech.PinGen
+end ConLeche.PinGen

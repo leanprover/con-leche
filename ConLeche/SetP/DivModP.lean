@@ -1,4 +1,4 @@
-import Lech.SetP.NatSemP
+import ConLeche.SetP.NatSemP
 
 /-!
 # The WF-recursive `Nat` operations' guarded clauses at `interp2`
@@ -25,13 +25,13 @@ The establishment at the operation's own install is part 2
 (`Interp2/DivModCertP.lean`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported)
 
 universe w
@@ -47,73 +47,73 @@ and its two constructors, the two `Bool` constructors, the guard's
 (`natBleName` is in `natOpDeps c` for every WF-recursive `c`, but it is
 listed here too so the congruence's users need not know that.) -/
 def dmValNames (c : Name) : List Name :=
-  Lech.natName :: Lech.boolTrueName :: Lech.boolFalseName ::
-    Lech.natZeroName :: Lech.natSuccName :: Lech.natBleName ::
-    c :: Lech.natOpDeps c
+  ConLeche.natName :: ConLeche.boolTrueName :: ConLeche.boolFalseName ::
+    ConLeche.natZeroName :: ConLeche.natSuccName :: ConLeche.natBleName ::
+    c :: ConLeche.natOpDeps c
 
 -- The nine branches sit at different depths of `DivModClausesV`'s
 -- `if`-chain, so `if_true` fires in one of them and `if_false` in the
--- rest: the same escape `Lech/SetR/DivModPin.lean` takes, for the
+-- rest: the same escape `ConLeche/SetR/DivModPin.lean` takes, for the
 -- same reason.
 set_option linter.unusedSimpArgs false in
 /-- **The clauses read the valuation only at `dmValNames`.**  Proved
 per operation: with `c` concrete the `if`-chain reduces to one branch,
 and that branch's heads are exactly the ones supplied. -/
 theorem divModClausesV_congr {val val' : Name → V} {c : Name} {x y : V}
-    (hc : c ∈ Lech.natDivModNames)
+    (hc : c ∈ ConLeche.natDivModNames)
     (h : ∀ n ∈ dmValNames c, val n = val' n) :
     DivModClausesV V val c x y ↔ DivModClausesV V val' c x y := by
-  have hT := h Lech.boolTrueName (by simp [dmValNames])
-  have hF := h Lech.boolFalseName (by simp [dmValNames])
-  have hZ := h Lech.natZeroName (by simp [dmValNames])
-  have hS := h Lech.natSuccName (by simp [dmValNames])
-  have hB := h Lech.natBleName (by simp [dmValNames])
-  rcases (show c = Lech.natDivName ∨ c = Lech.natModName ∨
-      c = Lech.natGcdName ∨ c = Lech.natLandName ∨
-      c = Lech.natLorName ∨ c = Lech.natXorName ∨
-      c = Lech.natShiftLeftName ∨ c = Lech.natShiftRightName
+  have hT := h ConLeche.boolTrueName (by simp [dmValNames])
+  have hF := h ConLeche.boolFalseName (by simp [dmValNames])
+  have hZ := h ConLeche.natZeroName (by simp [dmValNames])
+  have hS := h ConLeche.natSuccName (by simp [dmValNames])
+  have hB := h ConLeche.natBleName (by simp [dmValNames])
+  rcases (show c = ConLeche.natDivName ∨ c = ConLeche.natModName ∨
+      c = ConLeche.natGcdName ∨ c = ConLeche.natLandName ∨
+      c = ConLeche.natLorName ∨ c = ConLeche.natXorName ∨
+      c = ConLeche.natShiftLeftName ∨ c = ConLeche.natShiftRightName
       from by
-    simpa [Lech.natDivModNames] using hc) with
+    simpa [ConLeche.natDivModNames] using hc) with
     rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-  · have hc' := h Lech.natDivName (by decide)
-    have hSub := h Lech.natSubName (by decide)
+  · have hc' := h ConLeche.natDivName (by decide)
+    have hSub := h ConLeche.natSubName (by decide)
     simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hSub]
-  · have hc' := h Lech.natModName (by decide)
-    have hSub := h Lech.natSubName (by decide)
+  · have hc' := h ConLeche.natModName (by decide)
+    have hSub := h ConLeche.natSubName (by decide)
     simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hSub]
-  · have hc' := h Lech.natGcdName (by decide)
-    have hMod := h Lech.natModName (by decide)
+  · have hc' := h ConLeche.natGcdName (by decide)
+    have hMod := h ConLeche.natModName (by decide)
     simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hMod]
-  · have hc' := h Lech.natLandName (by decide)
-    have hAdd := h Lech.natAddName (by decide)
-    have hMul := h Lech.natMulName (by decide)
-    have hDiv := h Lech.natDivName (by decide)
-    have hMod := h Lech.natModName (by decide)
+  · have hc' := h ConLeche.natLandName (by decide)
+    have hAdd := h ConLeche.natAddName (by decide)
+    have hMul := h ConLeche.natMulName (by decide)
+    have hDiv := h ConLeche.natDivName (by decide)
+    have hMod := h ConLeche.natModName (by decide)
     simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hAdd,
       hMul, hDiv, hMod]
-  · have hc' := h Lech.natLorName (by decide)
-    have hAdd := h Lech.natAddName (by decide)
-    have hSub := h Lech.natSubName (by decide)
-    have hMul := h Lech.natMulName (by decide)
-    have hDiv := h Lech.natDivName (by decide)
-    have hMod := h Lech.natModName (by decide)
+  · have hc' := h ConLeche.natLorName (by decide)
+    have hAdd := h ConLeche.natAddName (by decide)
+    have hSub := h ConLeche.natSubName (by decide)
+    have hMul := h ConLeche.natMulName (by decide)
+    have hDiv := h ConLeche.natDivName (by decide)
+    have hMod := h ConLeche.natModName (by decide)
     simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hAdd,
       hSub, hMul, hDiv, hMod]
-  · have hc' := h Lech.natXorName (by decide)
-    have hAdd := h Lech.natAddName (by decide)
-    have hMul := h Lech.natMulName (by decide)
-    have hDiv := h Lech.natDivName (by decide)
-    have hMod := h Lech.natModName (by decide)
+  · have hc' := h ConLeche.natXorName (by decide)
+    have hAdd := h ConLeche.natAddName (by decide)
+    have hMul := h ConLeche.natMulName (by decide)
+    have hDiv := h ConLeche.natDivName (by decide)
+    have hMod := h ConLeche.natModName (by decide)
     simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hAdd,
       hMul, hDiv, hMod]
-  · have hc' := h Lech.natShiftLeftName (by decide)
-    have hSub := h Lech.natSubName (by decide)
-    have hMul := h Lech.natMulName (by decide)
+  · have hc' := h ConLeche.natShiftLeftName (by decide)
+    have hSub := h ConLeche.natSubName (by decide)
+    have hMul := h ConLeche.natMulName (by decide)
     simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hSub,
       hMul]
-  · have hc' := h Lech.natShiftRightName (by decide)
-    have hSub := h Lech.natSubName (by decide)
-    have hDiv := h Lech.natDivName (by decide)
+  · have hc' := h ConLeche.natShiftRightName (by decide)
+    have hSub := h ConLeche.natSubName (by decide)
+    have hDiv := h ConLeche.natDivName (by decide)
     simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hSub,
       hDiv]
 
@@ -124,21 +124,21 @@ inversion supplies the numeral heads (`natLitSupported`), the
 dependencies, and — because a WF-recursive name is in the `Bool`
 branch of the guard — the two `Bool` constructors; the operation
 itself is stored by hypothesis. -/
-theorem dmValNames_stored {c : Name} (hc : c ∈ Lech.natDivModNames)
+theorem dmValNames_stored {c : Name} (hc : c ∈ ConLeche.natDivModNames)
     (hg : natOpGuard env c = true) (hcs : (env.find? c).isSome = true) :
     ∀ n ∈ dmValNames c, (env.find? n).isSome = true := by
-  obtain ⟨hs, hdeps, hbool⟩ := Lech.natOpGuard_inv hg
+  obtain ⟨hs, hdeps, hbool⟩ := ConLeche.natOpGuard_inv hg
   obtain ⟨⟨ciT, hfT, -⟩, ⟨ciF, hfF, -⟩⟩ :=
     hbool (Or.inr (Or.inr (by simpa using hc)))
   obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, -⟩ :=
-    Lech.natLitSupported_inv hs
-  have hble : Lech.natBleName ∈ Lech.natOpDeps c := by
-    rcases (show c = Lech.natDivName ∨ c = Lech.natModName ∨
-        c = Lech.natGcdName ∨ c = Lech.natLandName ∨
-        c = Lech.natLorName ∨ c = Lech.natXorName ∨
-        c = Lech.natShiftLeftName ∨ c = Lech.natShiftRightName
+    ConLeche.natLitSupported_inv hs
+  have hble : ConLeche.natBleName ∈ ConLeche.natOpDeps c := by
+    rcases (show c = ConLeche.natDivName ∨ c = ConLeche.natModName ∨
+        c = ConLeche.natGcdName ∨ c = ConLeche.natLandName ∨
+        c = ConLeche.natLorName ∨ c = ConLeche.natXorName ∨
+        c = ConLeche.natShiftLeftName ∨ c = ConLeche.natShiftRightName
         from by
-      simpa [Lech.natDivModNames] using hc) with
+      simpa [ConLeche.natDivModNames] using hc) with
       rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
   intro n hn
   simp only [dmValNames, List.mem_cons] at hn
@@ -167,17 +167,17 @@ theorem divModP_entry_cons {m : EnvS2Core V env} {φ : Name → Nat}
     (hfresh : env.find? c₀.name = none)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A)
-    {c : Name} (hcN : c ∈ Lech.natDivModNames) (hne : c ≠ c₀.name)
+    {c : Name} (hcN : c ∈ ConLeche.natDivModNames) (hne : c ≠ c₀.name)
     {cv' : ConstantVal} {v' : Expr} {hint' : ReducibilityHint}
     (hf₂ : (⟨c₀ :: env.consts⟩ : Env).find? c
       = some (.defnInfo cv' v' hint')) :
     natOpGuard (⟨c₀ :: env.consts⟩ : Env) c = true ∧
     ∀ (ρ : Nat → V) (x y : V),
-      x ∈ˢ interp2 V ρ (m₂.acval Lech.natName φ) →
-      y ∈ˢ interp2 V ρ (m₂.acval Lech.natName φ) →
+      x ∈ˢ interp2 V ρ (m₂.acval ConLeche.natName φ) →
+      y ∈ˢ interp2 V ρ (m₂.acval ConLeche.natName φ) →
       DivModClausesV V (fun n => interp2 V ρ (m₂.acval n φ)) c x y := by
   have hfE : env.find? c = some (.defnInfo cv' v' hint') := by
-    rw [Lech.Env.find?_cons] at hf₂
+    rw [ConLeche.Env.find?_cons] at hf₂
     split at hf₂
     · next heq => exact absurd heq.symm hne
     · exact hf₂
@@ -193,9 +193,9 @@ theorem divModP_entry_cons {m : EnvS2Core V env} {φ : Name → Nat}
       exact nomatch hs
     rw [hac, show acvalWith m.acval c₀.name A n = m.acval n from
       acvalWith_ne hnn]
-  have hnat : m₂.acval Lech.natName φ = m.acval Lech.natName φ :=
+  have hnat : m₂.acval ConLeche.natName φ = m.acval ConLeche.natName φ :=
     hmove _ (by simp [dmValNames])
-  refine ⟨Lech.Verify.natOpGuard_cons hfresh hg,
+  refine ⟨ConLeche.Verify.natOpGuard_cons hfresh hg,
     fun ρ x y hx hy => ?_⟩
   rw [hnat] at hx hy
   exact (divModClausesV_congr hcN
@@ -208,14 +208,14 @@ theorem divModP_cons_fresh {m : EnvS2Core V env} {φ : Name → Nat}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
     (hnothead : (∀ cv v hint, c₀ ≠ .defnInfo cv v hint) ∨
-      c₀.name ∉ Lech.natDivModNames)
+      c₀.name ∉ ConLeche.natDivModNames)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     DivModP m₂ φ := by
   intro c hcN cv' v' hint' hf₂
   by_cases hne : c = c₀.name
   · subst hne
-    rw [Lech.Env.find?_cons_self] at hf₂
+    rw [ConLeche.Env.find?_cons_self] at hf₂
     rcases hnothead with hnd | hnn
     · exact absurd (Option.some.inj hf₂) (hnd cv' v' hint')
     · exact absurd hcN hnn
@@ -240,7 +240,7 @@ theorem eqLawP_cons_fresh {m : EnvS2Core V env}
     EqLawP m₂ := by
   intro hfind ψ
   have hfE : env.find? eqName = some eqA := by
-    rw [Lech.Env.find?_cons] at hfind
+    rw [ConLeche.Env.find?_cons] at hfind
     split at hfind
     · next heq => exact absurd heq.symm hne
     · exact hfind
@@ -262,7 +262,7 @@ theorem eqLawP_cons_valueKind {m : EnvS2Core V env}
   by_cases hn : eqName = c₀.name
   · intro hfind ψ
     exfalso
-    rw [Lech.Env.find?_cons, if_pos hn.symm] at hfind
+    rw [ConLeche.Env.find?_cons, if_pos hn.symm] at hfind
     exact hnotind _ _ (Option.some.inj hfind)
   · exact eqLawP_cons_fresh hprev hn m₂ hac
 
@@ -289,35 +289,35 @@ theorem reduceOpsP_entry_cons {m : EnvS2Core V env}
     (hfresh : env.find? c₀.name = none)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A)
-    {c : Name} (hcN : c ∈ Lech.reduceOpNames) (hne : c ≠ c₀.name)
+    {c : Name} (hcN : c ∈ ConLeche.reduceOpNames) (hne : c ≠ c₀.name)
     {cv : ConstantVal}
     (hf₂ : (⟨c₀ :: env.consts⟩ : Env).find? c = some (.axiomInfo cv))
-    (hpin : ConstantVal.matchesPin cv (Lech.reduceOpCvA c) = true) :
+    (hpin : ConstantVal.matchesPin cv (ConLeche.reduceOpCvA c) = true) :
     ((⟨c₀ :: env.consts⟩ : Env).find?
-        (Lech.reduceElemName c)).isSome = true ∧
+        (ConLeche.reduceElemName c)).isSome = true ∧
       ∀ (ψ : Name → Nat) (ρ : Nat → V) (x : V),
-        x ∈ˢ interp2 V ρ (m₂.acval (Lech.reduceElemName c) ψ) →
+        x ∈ˢ interp2 V ρ (m₂.acval (ConLeche.reduceElemName c) ψ) →
         SetTheory.app (interp2 V ρ (m₂.acval c ψ)) x = x := by
   have hf : env.find? c = some (.axiomInfo cv) := by
-    rw [Lech.Env.find?_cons, if_neg (fun h => hne h.symm)] at hf₂
+    rw [ConLeche.Env.find?_cons, if_neg (fun h => hne h.symm)] at hf₂
     exact hf₂
   obtain ⟨helem, hid⟩ := hprev c hcN cv hf hpin
   -- the element type is stored in the prefix, hence is not the fresh
   -- cons either
-  have hneE : Lech.reduceElemName c ≠ c₀.name := by
+  have hneE : ConLeche.reduceElemName c ≠ c₀.name := by
     intro heq
     rw [heq, hfresh] at helem
     exact nomatch helem
   have hmoveC : m₂.acval c = m.acval c := by
     rw [hac]; exact acvalWith_ne hne
-  have hmoveE : m₂.acval (Lech.reduceElemName c)
-      = m.acval (Lech.reduceElemName c) := by
+  have hmoveE : m₂.acval (ConLeche.reduceElemName c)
+      = m.acval (ConLeche.reduceElemName c) := by
     rw [hac]; exact acvalWith_ne hneE
   refine ⟨?_, fun ψ ρ x hx => ?_⟩
-  · cases hfe : env.find? (Lech.reduceElemName c) with
+  · cases hfe : env.find? (ConLeche.reduceElemName c) with
     | none => rw [hfe] at helem; exact nomatch helem
     | some ci =>
-      rw [Lech.Env.find?_cons, if_neg (fun h => hneE h.symm), hfe]
+      rw [ConLeche.Env.find?_cons, if_neg (fun h => hneE h.symm), hfe]
       rfl
   · rw [hmoveC]
     rw [hmoveE] at hx
@@ -334,7 +334,7 @@ theorem reduceOpsP_cons_fresh {m : EnvS2Core V env}
     {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
     (hfresh : env.find? c₀.name = none)
     (hnothead : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
-      c₀.name ∉ Lech.reduceOpNames)
+      c₀.name ∉ ConLeche.reduceOpNames)
     (m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     ReduceOpsP m₂ := by
@@ -342,10 +342,10 @@ theorem reduceOpsP_cons_fresh {m : EnvS2Core V env}
   have hne : c ≠ c₀.name := by
     intro heq
     subst heq
-    rw [Lech.Env.find?_cons_self] at hf₂
+    rw [ConLeche.Env.find?_cons_self] at hf₂
     rcases hnothead with hnd | hnn
     · exact absurd (Option.some.inj hf₂) (hnd cv)
     · exact absurd hcN hnn
   exact reduceOpsP_entry_cons hprev hfresh m₂ hac hcN hne hf₂ hpin
 
-end Lech.SetP
+end ConLeche.SetP

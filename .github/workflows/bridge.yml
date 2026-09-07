@@ -1,7 +1,7 @@
 # The lean4lean-model bridge (task #204, `bridge/lean4lean-model/`):
-# Carneiro's `OmegaInaccessibles` implies Lech's `SetTheory`.  A
+# Carneiro's `OmegaInaccessibles` implies ConLeche's `SetTheory`.  A
 # SEPARATE, OPTIONAL job — it needs Mathlib (cached oleans, a few GB),
-# which the Lech libraries must never depend on, so it is not part of
+# which the ConLeche libraries must never depend on, so it is not part of
 # the default gates (`ci.yml`).  Runs on demand and when the bridge or
 # the interface it bridges to changes.
 
@@ -12,7 +12,7 @@ on:
   push:
     paths:
       - 'bridge/**'
-      - 'Lech/SetTheory/Core.lean'
+      - 'ConLeche/SetTheory/Core.lean'
       - 'lean-toolchain'
       - '.github/workflows/bridge.yml'
 

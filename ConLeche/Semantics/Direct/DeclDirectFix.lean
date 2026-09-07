@@ -1,12 +1,12 @@
-import Lech.Semantics.Direct.DeclDirectSum
-import Lech.Verify.Direct.FixWF
+import ConLeche.Semantics.Direct.DeclDirectSum
+import ConLeche.Verify.Direct.FixWF
 
 /-!
 # `DeclDirectFixRun`: the direct recursive declaration relation
 (task #188)
 
 The direct recursive arm of `checkDecl`'s `.indDecl` clause
-(`checkDirectFix`, `Lech/Kernel/Direct/RecInstall.lean`), recorded as
+(`checkDirectFix`, `ConLeche/Kernel/Direct/RecInstall.lean`), recorded as
 a run relation exactly as `DeclDirectSumRun`: the three front guards
 (positivity — no negative field kind; the elimination restriction —
 a large eliminator needs a provably nonzero sort, the one-constructor
@@ -19,9 +19,9 @@ install spine.  The `.indDecl` run dispatch, with the recursive arm
 below the two non-recursive ones, closes the module.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech (Env Expr Name Level CheckMode ConstantVal ConstantInfo
+open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   DirectSumParts DirectFixParts RecRule fueledOps checkDirectSumInd checkDirectSumCtors
   checkDirectFixRec checkDirectFix consSumCtors directSumRules directFixFieldsOk)
 
@@ -43,16 +43,16 @@ def DeclDirectFixRun (μ : CheckMode) (F : Nat) (env : Env)
     -- the former's run completes the record with the sort it read
     -- (task #195); the recursive route runs on its own syntactic record
     -- and pins the two sorts equal
-    checkDirectSumInd (m := Lech.CheckM) (fueledOps μ F) env p.toDirectSumParts
+    checkDirectSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p.toDirectSumParts
       = .ok (env₁, cvTa, p₁) ∧
     p₁.resSort = p.resSort ∧
     openPisAtFvars (p.nP + p.nIdx) cvTa.type 0 = some (tfvs, trest) ∧
-    Lech.checkDirectFieldSortsI (m := Lech.CheckM) (fueledOps μ F) env₁ true false p.resSort
+    ConLeche.checkDirectFieldSortsI (m := ConLeche.CheckM) (fueledOps μ F) env₁ true false p.resSort
       p.nP (tfvs.drop p.nP) [] p.nIdx = .ok isorts ∧
-    checkDirectSumCtors (m := Lech.CheckM) (fueledOps μ F) env₁ env₁ p.cvT.name
+    checkDirectSumCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁ p.cvT.name
       p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors = .ok ctorsA ∧
     directFixFieldsOk env p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds = true ∧
-    checkDirectFixRec (m := Lech.CheckM) (fueledOps μ F) (consSumCtors p.nP ctorsA env₁)
+    checkDirectFixRec (m := ConLeche.CheckM) (fueledOps μ F) (consSumCtors p.nP ctorsA env₁)
       p cvTa ctorsA = .ok (cvRa, rhss) ∧
     env₂ = ⟨.recInfo cvRa p.majorIdx p.rulePrefix
       (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
@@ -62,7 +62,7 @@ def DeclDirectFixRun (μ : CheckMode) (F : Nat) (env : Env)
 bind, the guards by cases. -/
 theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectFixParts}
-    (h : checkDirectFix (m := Lech.CheckM) (fueledOps μ F) env p = .ok env₂) :
+    (h : checkDirectFix (m := ConLeche.CheckM) (fueledOps μ F) env p = .ok env₂) :
     DeclDirectFixRun μ F env p env₂ := by
   rw [checkDirectFix] at h
   simp only [bind, Except.bind] at h
@@ -90,7 +90,7 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   rw [if_pos hnd] at h
   try simp only [bind, Except.bind] at h
-  cases hInd : checkDirectSumInd (m := Lech.CheckM) (fueledOps μ F) env p.toDirectSumParts with
+  cases hInd : checkDirectSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p.toDirectSumParts with
   | error e => rw [hInd] at h; exact nomatch h
   | ok r₁ =>
   obtain ⟨env₁, cvTa, p₁⟩ := r₁
@@ -110,13 +110,13 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   obtain ⟨tfvs, trest⟩ := tq
   rw [htq] at h
   simp only [unwrapOr, pure, Except.pure] at h
-  cases hsorts : Lech.checkDirectFieldSortsI (m := Lech.CheckM) (fueledOps μ F) env₁ true false
+  cases hsorts : ConLeche.checkDirectFieldSortsI (m := ConLeche.CheckM) (fueledOps μ F) env₁ true false
       p.resSort p.nP (tfvs.drop p.nP) [] p.nIdx with
   | error e => rw [hsorts] at h; exact nomatch h
   | ok isorts =>
   rw [hsorts] at h
   dsimp only at h
-  cases hCtors : checkDirectSumCtors (m := Lech.CheckM) (fueledOps μ F) env₁ env₁
+  cases hCtors : checkDirectSumCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁
       p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors with
   | error e => rw [hCtors] at h; exact nomatch h
   | ok ctorsA =>
@@ -129,7 +129,7 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   rw [if_pos hk] at h
   try simp only [bind, Except.bind] at h
-  cases hRec : checkDirectFixRec (m := Lech.CheckM) (fueledOps μ F)
+  cases hRec : checkDirectFixRec (m := ConLeche.CheckM) (fueledOps μ F)
       (consSumCtors p.nP ctorsA env₁) p cvTa ctorsA with
   | error e => rw [hRec] at h; exact nomatch h
   | ok r₃ =>
@@ -141,22 +141,22 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
 
 /-- The direct recursive arm keeps the environment well-formed. -/
 theorem declDirectFixRun_wf {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {p : DirectFixParts} (henv : Lech.EnvWF env)
-    (h : DeclDirectFixRun μ F env p env₂) : Lech.EnvWF env₂ := by
+    {p : DirectFixParts} (henv : ConLeche.EnvWF env)
+    (h : DeclDirectFixRun μ F env p env₂) : ConLeche.EnvWF env₂ := by
   obtain ⟨-, -, -, cvTa, env₁, p₁, ctorsA, cvRa, rhss, -, -, -, hInd, -, -, -, hCtors, -, hRec,
     rfl⟩ := h
-  obtain ⟨henv₁, -⟩ := Lech.direct_sum_ind_wf henv hInd
-  obtain ⟨hlen, hall⟩ := Lech.checkDirectSumCtors_inv hCtors
-  have henv₂ : Lech.EnvWF (consSumCtors p.nP ctorsA env₁) := by
-    refine Lech.envWF_consSumCtors henv₁ ?_
+  obtain ⟨henv₁, -⟩ := ConLeche.direct_sum_ind_wf henv hInd
+  obtain ⟨hlen, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
+  have henv₂ : ConLeche.EnvWF (consSumCtors p.nP ctorsA env₁) := by
+    refine ConLeche.envWF_consSumCtors henv₁ ?_
     intro c hc
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
     have hj' : j < p.ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hj).1
       omega
     obtain ⟨-, hrun⟩ := hall j (p.ctors[j]) c (List.getElem?_eq_getElem hj') hj
-    exact Lech.direct_sum_ctor_typeWF hrun
-  exact Lech.direct_fix_rec_wf henv₂ hRec
+    exact ConLeche.direct_sum_ctor_typeWF hrun
+  exact ConLeche.direct_fix_rec_wf henv₂ hRec
 
 /-! ## The run-level dispatch
 
@@ -168,14 +168,14 @@ kernel's own three-stage case split (`directParts?`, then
 /-- The `.indDecl` dispatch at the run level. -/
 def DeclIndRunDispatch (μ : CheckMode) (F : Nat) (env : Env)
     (block : List ConstantInfo) (env₂ : Env) : Prop :=
-  match Lech.directParts? env block with
+  match ConLeche.directParts? env block with
   | some p => DeclDirectRun μ F env p env₂
   | none =>
-    match Lech.directSumParts? env block with
+    match ConLeche.directSumParts? env block with
     | some p => DeclDirectSumRun μ F env p env₂
     | none =>
-      match Lech.directFixParts? block with
+      match ConLeche.directFixParts? block with
       | some p => DeclDirectFixRun μ F env p env₂
       | none => DeclIndRun μ F env block env₂
 
-end Lech.Semantics
+end ConLeche.Semantics

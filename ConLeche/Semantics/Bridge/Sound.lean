@@ -1,6 +1,6 @@
-import Lech.Semantics.Direct.DeclDirectFix
-import Lech.Semantics.Bridge.DeclRun
-import Lech.Semantics.Bridge.DeclIndRun
+import ConLeche.Semantics.Direct.DeclDirectFix
+import ConLeche.Semantics.Bridge.DeclRun
+import ConLeche.Semantics.Bridge.DeclIndRun
 
 /-!
 # The assembly (task #148, T6): the RUN bridge
@@ -20,8 +20,8 @@ file's own surviving theorem.  It went with the R tier
 built it.
 -/
 
-namespace Lech.Semantics
-open Lech.VExpr Lech.Verify
+namespace ConLeche.Semantics
+open ConLeche.VExpr ConLeche.Verify
 universe w
 
 
@@ -74,4 +74,4 @@ theorem checkDeclRun_ofEnvFactsE
             intro hh
             exact declIndRun_of hh) h
 
-end Lech.Semantics
+end ConLeche.Semantics

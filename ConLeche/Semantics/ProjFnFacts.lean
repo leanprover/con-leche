@@ -1,6 +1,6 @@
-import Lech.Semantics.EnvFactsCons
-import Lech.Semantics.DeclIndRun
-import Lech.Verify.Denote.Levels
+import ConLeche.Semantics.EnvFactsCons
+import ConLeche.Semantics.DeclIndRun
+import ConLeche.Verify.Denote.Levels
 
 /-!
 # The projection walk's front door, model-free (task #161 S7, Wall B)
@@ -40,9 +40,9 @@ for the group's swapped rules.
 Model-free by construction: no `V`, no `SetTheory`, no `EnvS`.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-- The stored projection entry: a degenerate recursor, at whatever
 rule list the caller installs.  (Moved to the base at task #161 S7 —
@@ -310,4 +310,4 @@ theorem projFwd_model_self {T ctorName : Name} {nF i : Nat}
     intro hh
     exact Name.num_ne_str _ _ _ _ (eq_of_beq hh).symm]
 
-end Lech.Semantics
+end ConLeche.Semantics

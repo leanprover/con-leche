@@ -1,8 +1,8 @@
-import Lech.SetP.Step2.IotaKitP
-import Lech.SetP.Step2.StuckP
-import Lech.Verify.Denote
-import Lech.Verify.Denote.OpenVars
-import Lech.Verify.Denote.VClosed
+import ConLeche.SetP.Step2.IotaKitP
+import ConLeche.SetP.Step2.StuckP
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.Denote.VClosed
 
 /-!
 # The stuck-major rescues, P currency (task #161, iota tier)
@@ -41,13 +41,13 @@ are graded because the certificate inferred them, not because their
 own telescopes were re-walked.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps projFnName inferTypeCore whnf)
 
 universe w
@@ -62,20 +62,20 @@ reading** (`denote_litToCtorIfNat`'s mirror; design §7.2's
 "`litToCtorIfNat` contributes zero rules", one currency over). -/
 theorem denoteP_litToCtorIfNat {acval : Name → (Name → Nat) → AVExpr}
     (d : Nat) (e : Expr) :
-    denoteP acval env φ d (Lech.litToCtorIfNat env e)
+    denoteP acval env φ d (ConLeche.litToCtorIfNat env e)
       = denoteP acval env φ d e := by
   match e with
   | .lit (.natVal n) =>
-    rw [Lech.litToCtorIfNat]
-    by_cases hg : Lech.natLitSupported env = true
+    rw [ConLeche.litToCtorIfNat]
+    by_cases hg : ConLeche.natLitSupported env = true
     · rw [if_pos hg]
       match n with
       | 0 =>
-        rw [Lech.natLitToConstructor, denoteP_natZeroConst hg,
+        rw [ConLeche.natLitToConstructor, denoteP_natZeroConst hg,
           denoteP_natLit hg]
         rfl
       | k + 1 =>
-        rw [Lech.natLitToConstructor, denoteP_app, denoteP_natSuccConst hg,
+        rw [ConLeche.natLitToConstructor, denoteP_app, denoteP_natSuccConst hg,
           denoteP_natLit hg, denoteP_natLit hg]
         rfl
     · rw [if_neg hg]
@@ -90,19 +90,19 @@ theorem frame_litToCtorIfNatP {m : EnvS2Core V env} {d : Nat}
     {Δa : List AVExpr} {e : Expr}
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e) (hC : CtxOkP m φ d Δa e) :
-    Expr.WScoped d (Lech.litToCtorIfNat env e) ∧
-      (Lech.litToCtorIfNat env e).looseBVarsBounded 0 = true ∧
-      Expr.LeavesBounded (Lech.litToCtorIfNat env e) ∧
-      CtxOkP m φ d Δa (Lech.litToCtorIfNat env e) := by
+    Expr.WScoped d (ConLeche.litToCtorIfNat env e) ∧
+      (ConLeche.litToCtorIfNat env e).looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded (ConLeche.litToCtorIfNat env e) ∧
+      CtxOkP m φ d Δa (ConLeche.litToCtorIfNat env e) := by
   match e with
   | .lit (.natVal n) =>
-    rw [Lech.litToCtorIfNat]
-    by_cases hg : Lech.natLitSupported env = true
+    rw [ConLeche.litToCtorIfNat]
+    by_cases hg : ConLeche.natLitSupported env = true
     · rw [if_pos hg]
-      refine ⟨Lech.natLitToConstructor_WScoped n,
-        Lech.natLitToConstructor_looseBVars n,
+      refine ⟨ConLeche.natLitToConstructor_WScoped n,
+        ConLeche.natLitToConstructor_looseBVars n,
         fun l hl => ?_, ⟨hC.1, fun l hl => ?_⟩⟩ <;>
-      · rw [Lech.natLitToConstructor_fvarLeaves] at hl
+      · rw [ConLeche.natLitToConstructor_fvarLeaves] at hl
         exact nomatch hl
     · rw [if_neg hg]; exact ⟨hws, hb, hLb, hC⟩
   | .lit (.strVal _) | .bvar _ | .fvar _ _ | .sort _ | .const _ _
@@ -116,7 +116,7 @@ and head-normalises it. -/
 theorem litMajorToCtorP_stepP {m : EnvS2Core V env}
     (ihw : WhnfClaims2P μ m φ fuel) (hwreads : WhnfReadsP m μ φ fuel)
     {d : Nat} {Δa : List AVExpr} {e e₁ : Expr} {ea : AVExpr}
-    (h : Lech.litMajorToCtorP μ env fuel d e = .ok e₁)
+    (h : ConLeche.litMajorToCtorP μ env fuel d e = .ok e₁)
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e) (hC : CtxOkP m φ d Δa e)
     (hea : denoteP m.acval env φ d e = some ea)
@@ -126,22 +126,22 @@ theorem litMajorToCtorP_stepP {m : EnvS2Core V env}
       (∀ ρ : Nat → V, Sat2 V Δa ρ → interp2 V ρ ea = interp2 V ρ ea₁) ∧
       Expr.WScoped d e₁ ∧ e₁.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded e₁ ∧ CtxOkP m φ d Δa e₁ := by
-  rcases Lech.litMajorToCtorP_inv h with rfl | ⟨s, rfl, hg, hred⟩
+  rcases ConLeche.litMajorToCtorP_inv h with rfl | ⟨s, rfl, hg, hred⟩
   · obtain ⟨hw', hb', hL', hC'⟩ := frame_litToCtorIfNatP hws hb hLb hC
     exact ⟨ea, by rw [denoteP_litToCtorIfNat]; exact hea, hok,
       fun _ _ => rfl, hw', hb', hL', hC'⟩
   · obtain ⟨hSC, hwc, hbc, hLc, hfv⟩ :=
       denotePStrLit_of_guard (m := m) d s hg hea
-    have hCc : CtxOkP m φ d Δa (Lech.strLitToConstructor s) :=
+    have hCc : CtxOkP m φ d Δa (ConLeche.strLitToConstructor s) :=
       ⟨hC.1, fun l hl => by rw [hfv] at hl; exact nomatch hl⟩
     obtain ⟨ea₁, hea₁⟩ := hwreads hred hwc hbc hLc
       (fun l hl => by rw [hfv] at hl; exact nomatch hl) hSC
     obtain ⟨hok₁, heq₁⟩ := ihw hred hwc hbc hLc hCc hSC hea₁ hok
     exact ⟨ea₁, hea₁, hok₁, heq₁,
-      Lech.whnf_WScoped m.wf fuel hred hwc,
-      Lech.whnf_looseBVars m.wf fuel hred hbc,
-      fun l hl => hLc l (Lech.whnf_fvarLeaves m.wf fuel hred l hl),
-      hCc.of_subset (Lech.whnf_fvarLeaves m.wf fuel hred)⟩
+      ConLeche.whnf_WScoped m.wf fuel hred hwc,
+      ConLeche.whnf_looseBVars m.wf fuel hred hbc,
+      fun l hl => hLc l (ConLeche.whnf_fvarLeaves m.wf fuel hred l hl),
+      hCc.of_subset (ConLeche.whnf_fvarLeaves m.wf fuel hred)⟩
 
 /-! ## The stuck-major rescue -/
 
@@ -152,7 +152,7 @@ def MajorStepP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δa : List AVExpr} {recName : Name} {rules : List RecRule}
     {major major' : Expr} {vm : AVExpr},
-    Lech.majorToCtorP μ env fuel d recName rules major = .ok major' →
+    ConLeche.majorToCtorP μ env fuel d recName rules major = .ok major' →
     Expr.WScoped d major → major.looseBVarsBounded 0 = true →
     Expr.LeavesBounded major → CtxOkP m φ d Δa major →
     denoteP m.acval env φ d major = some vm →
@@ -172,39 +172,39 @@ and the projection spines are stored constants applied to those same
 parts.  The leaf package of the fabrication is the subject's. -/
 theorem majorToCtorP_reads {m : EnvS2Core V env}
     (ihw : WhnfReadsP m μ φ fuel) (ihio : InferReadsIOP m μ φ fuel)
-    {d : Nat} {recName : Name} {rules : List Lech.RecRule}
+    {d : Nat} {recName : Name} {rules : List ConLeche.RecRule}
     {e e' : Expr} {ea : AVExpr}
-    (h : Lech.majorToCtorP μ env fuel d recName rules e = .ok e')
+    (h : ConLeche.majorToCtorP μ env fuel d recName rules e = .ok e')
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e) (hlr : LeafReadsP m φ d e)
     (hea : denoteP m.acval env φ d e = some ea) :
     (∃ w, denoteP m.acval env φ d e' = some w) ∧
       LeafReadsP m φ d e' := by
-  rcases Lech.majorToCtor_inv h with rfl | ⟨hwsB, hbB, hleafB, rl, cvj,
+  rcases ConLeche.majorToCtor_inv h with rfl | ⟨hwsB, hbB, hleafB, rl, cvj,
     cnP, cnF, tmaj₀, tmaj, T, us₀, ust, cvT, caps, hrules, hfcj, hpres,
     hfT, hitm, hwtm, hfnT, hcase⟩
   · exact ⟨⟨ea, hea⟩, hlr⟩
   · -- the major's io-inferred type reads, then its reduct
     have hitmL := inferTypeCoreIO_of_slot hitm
     have hwt0 : Expr.WScoped d tmaj₀ :=
-      Lech.inferTypeIO_WScoped m.wf fuel hitm hws
+      ConLeche.inferTypeIO_WScoped m.wf fuel hitm hws
     have hbt0 : tmaj₀.looseBVarsBounded 0 = true :=
-      Lech.inferTypeIO_looseBVars m.wf fuel hitm hws hb hLb
+      ConLeche.inferTypeIO_looseBVars m.wf fuel hitm hws hb hLb
     have hLt0 : Expr.LeavesBounded tmaj₀ := fun l hl =>
-      hLb l (Lech.inferTypeIO_fvarLeaves m.wf fuel hitm hws l hl)
+      hLb l (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hitm hws l hl)
     have hlrt0 : LeafReadsP m φ d tmaj₀ :=
-      hlr.of_subset (Lech.inferTypeIO_fvarLeaves m.wf fuel hitm hws)
+      hlr.of_subset (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hitm hws)
     obtain ⟨t0a, ht0a⟩ := ihio hitmL hws hb hLb hlr hea
     obtain ⟨tma, htma⟩ := ihw hwtm hwt0 hbt0 hLt0 hlrt0 ht0a
     have hlrtm : LeafReadsP m φ d tmaj :=
-      hlrt0.of_subset (Lech.whnf_fvarLeaves m.wf fuel hwtm)
+      hlrt0.of_subset (ConLeche.whnf_fvarLeaves m.wf fuel hwtm)
     -- the reduced type's parameter spine reads
     rw [show tmaj = Expr.mkAppN tmaj.getAppFn tmaj.getAppArgs from
-      (Lech.Expr.mkAppN_getApp tmaj).symm, hfnT] at htma
+      (ConLeche.Expr.mkAppN_getApp tmaj).symm, hfnT] at htma
     obtain ⟨vT, tsa, hvT, hspt, -⟩ := denoteP_mkAppN_inv htma
     have hlrTargs : ∀ x ∈ tmaj.getAppArgs, LeafReadsP m φ d x :=
       fun x hx => hlrtm.of_subset
-        (fun l hl => Lech.fvarLeaves_getAppArgs hx l hl)
+        (fun l hl => ConLeche.fvarLeaves_getAppArgs hx l hl)
     rcases hcase with ⟨hK, hcnF, hlpj, hcnP, hstrip, rfl, hcerts,
         ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
       ⟨heta, hectr, hproj, hnz, hlenP, hlenU, hlpj, hstrip, rfl, hcerts,
@@ -215,28 +215,28 @@ theorem majorToCtorP_reads {m : EnvS2Core V env}
           = (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams.length
           from hlpj.symm))⟩, ?_⟩
       intro l hl
-      rcases Lech.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+      rcases ConLeche.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
       · exact absurd hl' (by simp [Expr.fvarLeaves])
       · exact hlrTargs y (List.mem_of_mem_take hy) l hly
     · -- η: parameters plus the stored projection spines
       -- each fabricated argument reads
-      have hallF : ∀ x ∈ Lech.etaFabArgsE env T ust tmaj.getAppArgs e
+      have hallF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs e
           caps.etaFields,
           (∃ xa, denoteP m.acval env φ d x = some xa) ∧
             LeafReadsP m φ d x := by
         intro x hx
-        rw [Lech.etaFabArgsE] at hx
+        rw [ConLeche.etaFabArgsE] at hx
         rcases List.mem_append.mp hx with hx' | hx'
         · obtain ⟨xa, hxa⟩ := hspt.mem x hx'
           exact ⟨⟨xa, hxa⟩, hlrTargs x hx'⟩
         · -- a fabricated projection, by entry kind (task #175 W4c)
-          unfold Lech.etaProjs at hx'
-          by_cases htow : Lech.towerSlotsAll env T caps.etaFields = true
+          unfold ConLeche.etaProjs at hx'
+          by_cases htow : ConLeche.towerSlotsAll env T caps.etaFields = true
           · -- a `.proj` node at a tower entry reads to the tower reading
             rw [if_pos htow] at hx'
             obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx'
             obtain ⟨entry, hfe⟩ :=
-              Lech.towerSlotsAll_slot htow j (List.mem_range.mp hj)
+              ConLeche.towerSlotsAll_slot htow j (List.mem_range.mp hj)
             refine ⟨⟨_, denoteP_proj_tower hfe hea⟩, ?_⟩
             intro l hl
             exact hlr l (by simpa [Expr.fvarLeaves] using hl)
@@ -248,13 +248,13 @@ theorem majorToCtorP_reads {m : EnvS2Core V env}
           · obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, ust2, cvT2, caps2,
               hfna2, hfc2, hlena2, hfnb2, hfT2, -, -, -, hefld2, -, -, -,
               hlenus2, hlpc2, -, hslots2, -, -, hprojs, -, -, -⟩ :=
-              Lech.structEtaCertWith_inv hcw
+              ConLeche.structEtaCertWith_inv hcw
             have hTeq : T2 = T := by
               rw [hfnT] at hfnb2
-              exact (Lech.Expr.const.inj hfnb2).1.symm
+              exact (ConLeche.Expr.const.inj hfnb2).1.symm
             have hUeq : ust2 = ust := by
               rw [hfnT] at hfnb2
-              exact (Lech.Expr.const.inj hfnb2).2.symm
+              exact (ConLeche.Expr.const.inj hfnb2).2.symm
             rw [hTeq, hUeq] at hprojs
             rw [hTeq] at hfT2
             rw [hUeq] at hlenus2
@@ -269,12 +269,12 @@ theorem majorToCtorP_reads {m : EnvS2Core V env}
             rw [hTeq, ← hefld2] at hslots2
             -- the per-slot certificates ran: not a tower family (task
             -- #175 S1)
-            have htowF : Lech.towerSlotsAll env T cnF2 = false := by
-              cases h : Lech.towerSlotsAll env T cnF2
+            have htowF : ConLeche.towerSlotsAll env T cnF2 = false := by
+              cases h : ConLeche.towerSlotsAll env T cnF2
               · rfl
               · exact absurd (by rw [hefld2]; exact h) htow
             obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpp, -, -⟩ :=
-              Lech.structEtaProjCerts_inv _ (hprojs htowF) j (by
+              ConLeche.structEtaProjCerts_inv _ (hprojs htowF) j (by
                 rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj)
             have hspM : DenoteSpineP m.acval env φ d
                 (tmaj.getAppArgs ++ [e]) (tsa ++ [ea]) :=
@@ -286,7 +286,7 @@ theorem majorToCtorP_reads {m : EnvS2Core V env}
                 show ust.length = cvp.levelParams.length
                 rw [hlpp]; exact hlenus2))⟩, ?_⟩
             intro l hl
-            rcases Lech.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+            rcases ConLeche.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
             · exact absurd hl' (by simp [Expr.fvarLeaves])
             · rcases List.mem_append.mp hy with hy' | hy'
               · exact hlrTargs y hy' l hly
@@ -296,11 +296,11 @@ theorem majorToCtorP_reads {m : EnvS2Core V env}
             exact absurd hj (Nat.not_lt_zero j)
       -- assemble the spine
       have hspF : ∃ ys, DenoteSpineP m.acval env φ d
-          (Lech.etaFabArgsE env T ust tmaj.getAppArgs e caps.etaFields)
+          (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs e caps.etaFields)
           ys := by
         have hall := fun x hx => (hallF x hx).1
         revert hall
-        generalize Lech.etaFabArgsE env T ust tmaj.getAppArgs e
+        generalize ConLeche.etaFabArgsE env T ust tmaj.getAppArgs e
           caps.etaFields = args
         intro hall
         induction args with
@@ -316,7 +316,7 @@ theorem majorToCtorP_reads {m : EnvS2Core V env}
           = (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams.length
           from hlpj.symm))⟩, ?_⟩
       intro l hl
-      rcases Lech.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+      rcases ConLeche.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
       · exact absurd hl' (by simp [Expr.fvarLeaves])
       · exact (hallF y hy).2 l hly
 
@@ -335,7 +335,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
   have hpi : ProofIrrelPQ μ m φ fuel :=
     proofIrrelPQ_of_claims ihis hsss hreads_ios
       (unitIrrelPQ_of_claims ihw ihis hreads_ios hwreads)
-  rcases Lech.majorToCtor_inv h with rfl | ⟨hwsB, hbB, hleafB, rl, cvj,
+  rcases ConLeche.majorToCtor_inv h with rfl | ⟨hwsB, hbB, hleafB, rl, cvj,
     cnP, cnF, tmaj₀, tmaj, T, us₀, ust, cvT, caps, hrules, hfcj, hpres,
     hfT, hitm, hwtm, hfnT, hcase⟩
   · exact ⟨vm, hvm, hokm, fun _ _ => rfl, hws, hb, hLb, hC⟩
@@ -351,13 +351,13 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
         simpa using this)
     -- the major's type: inferred, read, graded, inhabited; then reduced
     have hwt0 : Expr.WScoped d tmaj₀ :=
-      Lech.inferTypeIO_WScoped m.wf fuel hitm hws
+      ConLeche.inferTypeIO_WScoped m.wf fuel hitm hws
     have hbt0 : tmaj₀.looseBVarsBounded 0 = true :=
-      Lech.inferTypeIO_looseBVars m.wf fuel hitm hws hb hLb
+      ConLeche.inferTypeIO_looseBVars m.wf fuel hitm hws hb hLb
     have hLt0 : Expr.LeavesBounded tmaj₀ := fun l hl =>
-      hLb l (Lech.inferTypeIO_fvarLeaves m.wf fuel hitm hws l hl)
+      hLb l (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hitm hws l hl)
     have hCt0 : CtxOkP m φ d Δa tmaj₀ :=
-      hC.of_subset (Lech.inferTypeIO_fvarLeaves m.wf fuel hitm hws)
+      hC.of_subset (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hitm hws)
     obtain ⟨tmaj₀a, htmaj₀a⟩ :=
       hexi hitm hws hb hLb hC hvm
     obtain ⟨hokT0, hmemM⟩ := ihis hitm hws hb hLb hC hvm htmaj₀a hokm
@@ -366,20 +366,20 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
     obtain ⟨hokTm, heqTm⟩ :=
       ihw hwtm hwt0 hbt0 hLt0 hCt0 htmaj₀a htmaja hokT0
     have hwr : Expr.WScoped d tmaj :=
-      Lech.whnf_WScoped m.wf fuel hwtm hwt0
+      ConLeche.whnf_WScoped m.wf fuel hwtm hwt0
     have hbr : tmaj.looseBVarsBounded 0 = true :=
-      Lech.whnf_looseBVars m.wf fuel hwtm hbt0
+      ConLeche.whnf_looseBVars m.wf fuel hwtm hbt0
     have hLr : Expr.LeavesBounded tmaj := fun l hl =>
-      hLt0 l (Lech.whnf_fvarLeaves m.wf fuel hwtm l hl)
+      hLt0 l (ConLeche.whnf_fvarLeaves m.wf fuel hwtm l hl)
     have hCr : CtxOkP m φ d Δa tmaj :=
-      hCt0.of_subset (Lech.whnf_fvarLeaves m.wf fuel hwtm)
+      hCt0.of_subset (ConLeche.whnf_fvarLeaves m.wf fuel hwtm)
     have hmemMW : ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ vm ∈ˢ interp2 V ρ tmaja :=
       fun ρ hρ => (heqTm ρ hρ) ▸ hmemM ρ hρ
     -- the reduced type is the family applied to its parameters
     have hsave := htmaja
     rw [show tmaj = Expr.mkAppN tmaj.getAppFn tmaj.getAppArgs from
-      (Lech.Expr.mkAppN_getApp tmaj).symm, hfnT] at htmaja
+      (ConLeche.Expr.mkAppN_getApp tmaj).symm, hfnT] at htmaja
     obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denoteP_mkAppN_inv htmaja
     obtain ⟨-, hoTs⟩ := hoistP_spine tsa hokTm
     -- the constructor's stored type, read and graded
@@ -389,19 +389,19 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
       · exact hlpj.symm
     obtain ⟨TVja, hTVja, hokTVja, hmemCj⟩ :=
       hct d rl.ctor _ ust hfcj rfl (by exact hlenCj)
-    dsimp only [Lech.ConstantInfo.toConstantVal] at hTVja hmemCj
-    have hwfj := m.wf _ (Lech.Semantics.Env.find?_mem hfcj)
+    dsimp only [ConLeche.ConstantInfo.toConstantVal] at hTVja hmemCj
+    have hwfj := m.wf _ (ConLeche.Semantics.Env.find?_mem hfcj)
     have hnfj : (cvj.type.instantiateLevelParams cvj.levelParams
         ust).hasFvar = false := by
-      rw [Lech.Expr.hasFvar_instantiateLevelParams]; exact hwfj.1
+      rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hwfj.1
     have hbdj : (cvj.type.instantiateLevelParams cvj.levelParams
         ust).looseBVarsBounded 0 = true := by
-      rw [Lech.Expr.looseBVarsBounded_instantiateLevelParams]
+      rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
       exact hwfj.2.2.2.1
     have hCj : CtxOkP m φ d Δa
         (cvj.type.instantiateLevelParams cvj.levelParams ust) :=
       ⟨hC.1, fun l hl => by
-        rw [Lech.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfj] at hl
+        rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfj] at hl
         exact nomatch hl⟩
     have hheadCj : denoteP m.acval env φ d (.const rl.ctor ust)
         = some (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust)) :=
@@ -410,7 +410,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
     -- fabrication's own `iotaCerts` run certifies exactly its arguments,
     -- and `certs_telePA` returns their gradings with the fit
     have hfab : ∀ (fargs : List Expr) (fargsa : List AVExpr),
-        Lech.iotaCertsP μ env fuel d false
+        ConLeche.iotaCertsP μ env fuel d false
             (cvj.type.instantiateLevelParams cvj.levelParams ust)
             fargs = .ok true →
         (∀ x ∈ fargs, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
@@ -429,8 +429,8 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
       refine ⟨denoteP_mkAppN hsp hheadCj, fun ρ hρ => ?_⟩
       obtain ⟨resta, hfit, -, hokArgs⟩ :=
         certs_telePA ihd ihis hexi _ fargs fargsa TVja hcerts
-          (Lech.Expr.WScoped.of_not_hasFvar hnfj) hbdj
-          (Lech.Expr.LeavesBounded.of_not_hasFvar hnfj) hCj hTVja
+          (ConLeche.Expr.WScoped.of_not_hasFvar hnfj) hbdj
+          (ConLeche.Expr.LeavesBounded.of_not_hasFvar hnfj) hCj hTVja
           (fun σ _ => hokTVja σ) hframes hsp hoks
       exact (annotOkP_mkAppN_of_fitA fargsa (hokTVja ρ)
         ⟨m.acval_ok2 _ _ ρ, hav _ _ ρ⟩
@@ -465,11 +465,11 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
       · -- R13: the η certificate identifies the fabrication with the major
         obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, ust2, cvT2, caps2, hfna2,
           hfc2, hlena2, hfnb2, hfT2, -, -, -, hefld2, -, -, -, hlenus2,
-          hlpc2, -, hslots2, -, -, hprojs, -, -, -⟩ := Lech.structEtaCertWith_inv hcw
+          hlpc2, -, hslots2, -, -, hprojs, -, -, -⟩ := ConLeche.structEtaCertWith_inv hcw
         have hTeq : T2 = T := by
-          rw [hfnT] at hfnb2; exact (Lech.Expr.const.inj hfnb2).1.symm
+          rw [hfnT] at hfnb2; exact (ConLeche.Expr.const.inj hfnb2).1.symm
         have hUeq : ust2 = ust := by
-          rw [hfnT] at hfnb2; exact (Lech.Expr.const.inj hfnb2).2.symm
+          rw [hfnT] at hfnb2; exact (ConLeche.Expr.const.inj hfnb2).2.symm
         rw [hTeq, hUeq] at hprojs
         rw [hTeq] at hfT2
         rw [hUeq] at hlenus2
@@ -488,7 +488,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
           rcases List.mem_append.mp hx with hx' | hx'
           · exact hoTs x hx'
           · rcases List.mem_singleton.mp hx' with rfl; exact hokm
-        by_cases htow : Lech.towerSlotsAll env T caps.etaFields = true
+        by_cases htow : ConLeche.towerSlotsAll env T caps.etaFields = true
         · -- TOWER-BACKED SLOTS (task #175 W4c): the fabricated
           -- projections are `.proj T j major` nodes reading to the tower
           -- readings, graded by each entry's typing law
@@ -503,7 +503,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               env.findProj? T j = some entry ∧
               entry.levelParams = cvT.levelParams := by
             intro j hj
-            obtain ⟨entry, hfe⟩ := Lech.towerSlotsAll_slot htow j hj
+            obtain ⟨entry, hfe⟩ := ConLeche.towerSlotsAll_slot htow j hj
             obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', -, -, -, -⟩, -⟩ :=
               htower T j entry hfe
             have hcvT' : cvT' = cvT := by
@@ -538,22 +538,22 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
             have hpc : PiChainP (tsa ++ [vm]).length Ta := by
               rw [List.length_append, List.length_singleton, hlenVs]
               exact piChainP_of_stripPis _
-                (by rw [Lech.projTele_stripPis]; rfl) (hTad d)
+                (by rw [ConLeche.projTele_stripPis]; rfl) (hTad d)
             obtain ⟨restj, hpeel⟩ := peelPis_of_piChainP _ hpc
             rw [hlpe, ← hvT'] at hA
             exact (hA hgj ρ tsa vm restj hlenVs (hokTm ρ hρ) (hokm ρ hρ)
               (hmemMW ρ hρ) hpeel).1
           have hspF : DenoteSpineP m.acval env φ d
-              (Lech.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
+              (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
               (tsa ++ (List.range caps.etaFields).map fun j => projAV j vm) := by
-            rw [Lech.etaFabArgsE, Lech.etaProjs, if_pos htow]
+            rw [ConLeche.etaFabArgsE, ConLeche.etaProjs, if_pos htow]
             exact hspt.append (DenoteSpineP.map_list _ hpfacts)
-          have hfrF : ∀ x ∈ Lech.etaFabArgsE env T ust tmaj.getAppArgs major
+          have hfrF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major
               caps.etaFields,
               Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
                 Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x := by
             intro x hx
-            rw [Lech.etaFabArgsE, Lech.etaProjs, if_pos htow] at hx
+            rw [ConLeche.etaFabArgsE, ConLeche.etaProjs, if_pos htow] at hx
             rcases List.mem_append.mp hx with hx' | hx'
             · exact frame_spineP hwr hbr hLr hCr x hx'
             · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx'
@@ -578,21 +578,21 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
         · -- PROJECTION-FUNCTION SLOTS: the projection spines read (the
           -- certificate stores each projection function at the family's
           -- level arity)
-          have hrec : Lech.recSlotsAll env T caps.etaFields = true := by
+          have hrec : ConLeche.recSlotsAll env T caps.etaFields = true := by
             simpa [htow] using hslots2
           have hslotR : ∀ j ∈ List.range caps.etaFields, ∃ cvp mIp rPp rulesp,
               env.find? (projFnName T j) = some (.recInfo cvp mIp rPp rulesp) ∧
               cvp.levelParams = cvT.levelParams ∧
               (cvp.type.stripPis (tmaj.getAppArgs.length + 1)).isSome = true ∧
-              Lech.iotaCertsP μ env fuel d false
+              ConLeche.iotaCertsP μ env fuel d false
                 (cvp.type.instantiateLevelParams cvp.levelParams ust)
                 (tmaj.getAppArgs ++ [major]) = .ok true := by
             intro j hj
-            have htowF : Lech.towerSlotsAll env T cnF2 = false := by
-              cases h : Lech.towerSlotsAll env T cnF2
+            have htowF : ConLeche.towerSlotsAll env T cnF2 = false := by
+              cases h : ConLeche.towerSlotsAll env T cnF2
               · rfl
               · exact absurd (by rw [hefld2]; exact h) htow
-            exact Lech.structEtaProjCerts_inv _ (hprojs htowF) j (by
+            exact ConLeche.structEtaProjCerts_inv _ (hprojs htowF) j (by
               rw [List.mem_range] at hj ⊢; rw [← hefld2]; exact hj)
           have hpfacts : ∀ j ∈ List.range caps.etaFields,
               denoteP m.acval env φ d
@@ -622,21 +622,21 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               rw [hlpp]; exact hlenus2
             obtain ⟨tpa, htpa, hoktpa, hmemp⟩ :=
               hct d (projFnName T j) _ ust hfp rfl hlenp
-            have hwfp := m.wf _ (Lech.Semantics.Env.find?_mem hfp)
+            have hwfp := m.wf _ (ConLeche.Semantics.Env.find?_mem hfp)
             have hnfp : (cvp.type.instantiateLevelParams cvp.levelParams
                 ust).hasFvar = false := by
-              rw [Lech.Expr.hasFvar_instantiateLevelParams]; exact hwfp.1
+              rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hwfp.1
             have hbdp : (cvp.type.instantiateLevelParams cvp.levelParams
                 ust).looseBVarsBounded 0 = true := by
-              rw [Lech.Expr.looseBVarsBounded_instantiateLevelParams]
+              rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
               exact hwfp.2.2.2.1
             obtain ⟨restp, hfitp, -, -⟩ :=
               certs_telePA ihd ihis hexi _ (tmaj.getAppArgs ++ [major])
                 (tsa ++ [vm]) tpa hicj
-                (Lech.Expr.WScoped.of_not_hasFvar hnfp) hbdp
-                (Lech.Expr.LeavesBounded.of_not_hasFvar hnfp)
+                (ConLeche.Expr.WScoped.of_not_hasFvar hnfp) hbdp
+                (ConLeche.Expr.LeavesBounded.of_not_hasFvar hnfp)
                 ⟨hC.1, fun l hl => by
-                  rw [Lech.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfp]
+                  rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfp]
                     at hl
                   exact nomatch hl⟩
                 htpa (fun τ _ => hoktpa τ) hfrM hspM hokMs
@@ -644,31 +644,31 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               ⟨m.acval_ok2 _ _ ρ, hav _ _ ρ⟩
               (fun x hx => hokMs x hx ρ hρ) ?_ (hfitp ρ hρ)).1
             have := hmemp ρ
-            dsimp only [Lech.ConstantInfo.toConstantVal] at this
+            dsimp only [ConLeche.ConstantInfo.toConstantVal] at this
             rwa [hlpp] at this
           have hspF : DenoteSpineP m.acval env φ d
-              (Lech.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
+              (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
               (tsa ++ (List.range caps.etaFields).map fun j =>
                 AVExpr.mkAppN (m.acval (projFnName T j)
                   (Level.substFn φ cvT.levelParams ust)) (tsa ++ [vm])) := by
-            rw [Lech.etaFabArgsE, Lech.etaProjs, if_neg htow]
+            rw [ConLeche.etaFabArgsE, ConLeche.etaProjs, if_neg htow]
             exact hspt.append (DenoteSpineP.map_list _ hpfacts)
-          have hfrF : ∀ x ∈ Lech.etaFabArgsE env T ust tmaj.getAppArgs major
+          have hfrF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major
               caps.etaFields,
               Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
                 Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x := by
             intro x hx
-            rw [Lech.etaFabArgsE, Lech.etaProjs, if_neg htow] at hx
+            rw [ConLeche.etaFabArgsE, ConLeche.etaProjs, if_neg htow] at hx
             rcases List.mem_append.mp hx with hx' | hx'
             · exact frame_spineP hwr hbr hLr hCr x hx'
             · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx'
-              refine ⟨Lech.Expr.WScoped.mkAppN
-                  (Lech.Expr.WScoped.of_not_hasFvar rfl)
+              refine ⟨ConLeche.Expr.WScoped.mkAppN
+                  (ConLeche.Expr.WScoped.of_not_hasFvar rfl)
                   (fun y hy => (hfrM y hy).1),
-                Lech.looseBVarsBounded_mkAppN rfl
+                ConLeche.looseBVarsBounded_mkAppN rfl
                   (fun y hy => (hfrM y hy).2.1),
                 fun l hl => ?_, ⟨hC.1, fun l hl => ?_⟩⟩ <;>
-              · rcases Lech.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+              · rcases ConLeche.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
                 · exact absurd hl' (by simp [Expr.fvarLeaves])
                 · first
                   | exact (hfrM y hy).2.2.1 l hly
@@ -689,16 +689,16 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
             hwF hbB hLF hCF hws hb hLb hC hwr hbr hLr hCr hdF0 hvm hsave
             hokF0 hokm hokTm hmemMW ρ hρ).symm
       · -- R14: the zero-field fallthrough
-        have hEmpty : Lech.etaFabArgsE env T ust tmaj.getAppArgs major
+        have hEmpty : ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major
             caps.etaFields = tmaj.getAppArgs := by
-          rw [Lech.etaFabArgsE, Lech.etaProjs, hnF0]
+          rw [ConLeche.etaFabArgsE, ConLeche.etaProjs, hnF0]
           simp
         obtain ⟨hdF0, hokF0⟩ := hfab tmaj.getAppArgs tsa
           (by rw [← hEmpty]; exact hcerts)
           (frame_spineP hwr hbr hLr hCr) hspt hoTs
         have hdF : denoteP m.acval env φ d
             (Expr.mkAppN (.const caps.etaCtor ust)
-              (Lech.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields))
+              (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields))
             = some (AVExpr.mkAppN (m.acval caps.etaCtor
                 (Level.substFn φ cvj.levelParams ust)) tsa) := by
           rw [hEmpty, ← hectr]; exact hdF0
@@ -711,4 +711,4 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
             hokF hokm ρ hρ).symm,
           hwF, hbB, hLF, hCF⟩
 
-end Lech.SetP
+end ConLeche.SetP

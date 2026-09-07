@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectRecLamP
+import ConLeche.SetP.Direct.DirectRecLamP
 
 /-!
 # The recursor rule's kit (task #175 W4c, P3 module 6, part 16)
@@ -11,13 +11,13 @@ constructor's level assignment agreeing with the recursor's on the
 block's parameters, and the minor value at a zero elimination level.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
 universe w
@@ -171,4 +171,4 @@ theorem minor_pt_of_zero {ℓ w : Nat} {M m : V} {Fs : List AVExpr} {ρp : Nat �
       exact empty_mem_univ 0
   exact eq_pt_of_mem_univZero (minorSp_zero_univZero h0 hM0 Fs ρp []) hm
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,21 +1,21 @@
-import Lech.Cached.CheckerC
+import ConLeche.Cached.CheckerC
 
 /-!
 # The parsed-declaration driver on the cached representation
 
 One `CState` for the whole stream, the environment-dependent caches
 flushed per declaration, declarations consumed as `DeclC` records
-straight from the direct parse (`Lech/Frontend/ExportC.lean`, task
+straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 #171 — no conversion detour).
 
 `checkDeclsSPCachedD mode` is what the binary runs in BOTH modes — at
 `.verified` under `--verified`, at `.trusted` under `--trusted` (the twin driver
-`checkDeclsSPCachedDT` / `Lech/Cached/ParsedT.lean` retired
+`checkDeclsSPCachedDT` / `ConLeche/Cached/ParsedT.lean` retired
 2026-09-06; the trusted lane is this driver at the other mode, and
 nothing else).  Acceptance at `.verified` is covered by
-`no_proof_of_Empty_SPCD_P` (`Lech/Verify/Cached/MainC.lean`); the two
+`no_proof_of_Empty_SPCD_P` (`ConLeche/Verify/Cached/MainC.lean`); the two
 modes agree on the install skeletons whenever both accept
-(`trusted_agrees_P_skels_D`, `Lech/Verify/Cached/AgreeFloor.lean`).
+(`trusted_agrees_P_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
 
 The driver's parameter is the `CheckMode` itself (task #185; from
 2026-09-06 to then a configuration record stood in for it): the knot it
@@ -25,18 +25,18 @@ ties (`coreKnotI mode`) and the install-time stages
 all take the same mode.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
 /-! ## Parsed declarations over `ExprC` -/
 
 /-- A parsed declaration over `ExprC` (task #198: its constant-value
-records *are* `Lech.ConstantVal` — the separate `ConstantValC`, whose
+records *are* `ConLeche.ConstantVal` — the separate `ConstantValC`, whose
 only difference was an `ExprC`-typed `type` field, went with the
 interning-era distinction between the two expression types.  Note the
 one consequence: `cv.type` is now `Expr`-typed, so dot notation on it
-finds `Lech.Expr`'s members and NOT the cached namespace's — the two
+finds `ConLeche.Expr`'s members and NOT the cached namespace's — the two
 `hasFvar`s differ (`O(1)` field read vs a walk), which is why the guard
 below names `ExprC.hasFvar` outright.) -/
 inductive DeclC where
@@ -254,7 +254,7 @@ def checkDeclStepIdxC (p : Nat × FEnv) (pd : DeclC) :
   | .error e => .error (e, p.1)
 
 /-- Task #171: the direct-parse driver.  `DeclC` records come straight
-from the frontend (`Lech/Frontend/ExportC.lean`) — no arena and no
+from the frontend (`ConLeche/Frontend/ExportC.lean`) — no arena and no
 conversion pass.
 
 Task #172 B3b: the argument was `List WDeclC`, the subtype of records
@@ -287,7 +287,7 @@ def checkDeclsSPCachedD (mode : CheckMode) (ds : List DeclC) :
 /-! ### The two folds agree on accepts
 
 `foldIdxC_ok` and its `run'` corollary live here, beside the two folds,
-rather than in `Lech/Verify/*`: they are **self-contained** (they use
+rather than in `ConLeche/Verify/*`: they are **self-contained** (they use
 nothing but the two definitions above — the `Std.HashMap` exception in
 CLAUDE.md), and their two consumers, `Verify/Cached/MainC.lean` and
 `Verify/Cached/AgreeFloor.lean`, share no `Verify` module: a new one
@@ -336,4 +336,4 @@ theorem foldIdxC_run'_ok (mode : CheckMode) (ds : List DeclC) (i : Nat)
     rw [foldIdxC_ok mode ds i fe hrun]
     rfl
 
-end Lech.Cached
+end ConLeche.Cached

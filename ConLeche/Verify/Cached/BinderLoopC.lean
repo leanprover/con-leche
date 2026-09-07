@@ -1,13 +1,13 @@
-import Lech.Verify.Cached.DiscC3
-import Lech.Verify.BinderLoop
+import ConLeche.Verify.Cached.DiscC3
+import ConLeche.Verify.BinderLoop
 
 /-!
 # Cached binder-loop walks (task #163, batches 9 + 11)
 
-The port of `Lech/Verify/BinderLoopI.lean`: simulation walks relating
+The port of `ConLeche/Verify/BinderLoopI.lean`: simulation walks relating
 the cached binder-telescope loops (`inferLamsI`/`inferPisI`,
-`annotatePisI`/`annotateLamsI`, `Lech/Cached/CoreC.lean`) to the same
-pure mirrors (`Lech/Verify/BinderLoop.lean`) at the fueled record,
+`annotatePisI`/`annotateLamsI`, `ConLeche/Cached/CoreC.lean`) to the same
+pure mirrors (`ConLeche/Verify/BinderLoop.lean`) at the fueled record,
 plus the four *tail compositions* against `inferBody`'s and
 `annotateBody`'s own λ/∀ tails.  The comparand side of every statement
 is byte-identical to the interned original's; the twin side loses the
@@ -54,10 +54,10 @@ order.
 set_option linter.unusedSimpArgs false
 set_option maxHeartbeats 1000000
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
-open Lech.Cached.ExprC
+open ConLeche
+open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
@@ -749,7 +749,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
     subst hres
     exact (by
       simp only [Expr.WScoped]
-      exact ⟨hwty, Lech.WScoped.abstract1 0 hwbt⟩ :
+      exact ⟨hwty, ConLeche.WScoped.abstract1 0 hwbt⟩ :
       Expr.WScoped d (Expr.forallE tyx (bt.abstract1 d) ⟨mbpw⟩))
 
 private theorem inferPiTail_atF {env : Env} (d : Nat)
@@ -1341,7 +1341,7 @@ theorem annotatePisC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
           (Expr.forallE tyx' (body'.abstract1 d) ⟨pw⟩) :=
       fun _ => by
         simp only [Expr.WScoped]
-        exact ⟨hwty', Lech.WScoped.abstract1 0 hwb⟩
+        exact ⟨hwty', ConLeche.WScoped.abstract1 0 hwb⟩
     revert hF
     split
     · intro hF
@@ -1444,7 +1444,7 @@ theorem annotateLamsC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
         Expr.WScoped d (Expr.lam tyx' (body'.abstract1 d) ⟨pw⟩) :=
       fun _ => by
         simp only [Expr.WScoped]
-        exact ⟨hwty', Lech.WScoped.abstract1 0 hwb⟩
+        exact ⟨hwty', ConLeche.WScoped.abstract1 0 hwb⟩
     revert hF
     split
     · intro hF
@@ -1455,4 +1455,4 @@ theorem annotateLamsC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
       injection hF with hres
       exact hres ▸ hnode mx.pw
 
-end Lech.Cached
+end ConLeche.Cached

@@ -1,4 +1,4 @@
-import Lech.Kernel.Core
+import ConLeche.Kernel.Core
 
 /-!
 # `SetBase/LitParams` — the literal families carry no level parameters
@@ -13,10 +13,10 @@ empty `levelParams` list.  No model, no environment invariant — pure
 They came out with the two-edit sever: `Step2/InferP` and
 `Step2/ReadsP` (graded lane) reached them through the 2U module
 `Step2/InferQ`, whose import the sever removes.  Statements verbatim,
-namespace (`Lech.SetR`) unchanged.
+namespace (`ConLeche.SetR`) unchanged.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
 /-- The `Nat` family's stored declaration carries no level parameters
 (read off `natLitSupported`'s `natIndOk` conjunct). -/
@@ -45,4 +45,4 @@ theorem stringName_levelParams_nil {env : Env}
   simp only [stringTyOk, Bool.and_eq_true] at h2
   simpa [List.isEmpty_iff] using h2.1
 
-end Lech.Semantics
+end ConLeche.Semantics

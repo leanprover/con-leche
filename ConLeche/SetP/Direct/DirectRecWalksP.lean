@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectRecFramesP
+import ConLeche.SetP.Direct.DirectRecFramesP
 
 /-!
 # The recursor leaf's walks (task #175 W4c, P3 module 6, part 14)
@@ -10,13 +10,13 @@ the whole frame — from the recursor context's gradings and the frames'
 the leaf's laws are spelled over.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
 universe w
@@ -121,4 +121,4 @@ theorem recLeafFacts {ℓ w : Nat} {Fs : List AVExpr} {rds : List (Nat × Nat ×
   rw [hsplit]
   exact ⟨directRecAV_okP hz hpre hval, directRecAV_mem hz hpre⟩
 
-end Lech.SetP
+end ConLeche.SetP

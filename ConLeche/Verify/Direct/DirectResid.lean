@@ -1,5 +1,5 @@
-import Lech.Kernel.Direct.Parts
-import Lech.Verify.FastOps
+import ConLeche.Kernel.Direct.Parts
+import ConLeche.Verify.FastOps
 
 /-!
 # The incremental projection residual agrees with the generator (task #175 W4c)
@@ -11,7 +11,7 @@ each slot's type off it (`directProjTyR`); the pure checker computes
 is the whole-spine `instPisAtLift`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 theorem directProjResidP_eq (T : Name) (nP : Nat) (cty : Expr) :
     ∀ i, directProjResidP T nP cty i
@@ -32,4 +32,4 @@ theorem directProjTyR_residP (T : Name) (lps : List Name) (nP nF i : Nat)
   unfold directProjTyP
   rw [directProjResidP_eq]
 
-end Lech
+end ConLeche

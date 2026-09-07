@@ -1,5 +1,5 @@
-import Lech.Kernel.ExprOps
-import Lech.Verify.Shift
+import ConLeche.Kernel.ExprOps
+import ConLeche.Verify.Shift
 
 /-!
 # Bulk abstraction equals the `abstract1` fold (task #72)
@@ -7,12 +7,12 @@ import Lech.Verify.Shift
 `Expr.abstractRange` closes a contiguous fvar-level range in one
 traversal; `abstractRange_succ` identifies it with the innermost-first
 `abstract1` chain a telescope rebuild folds over (see
-`Lech/Verify/BinderLoop.lean`), and `abstractRange_zero` is the empty
-range.  Kept below `Lech/Verify/IExpr.lean` in the import DAG: the
+`ConLeche/Verify/BinderLoop.lean`), and `abstractRange_zero` is the empty
+range.  Kept below `ConLeche/Verify/IExpr.lean` in the import DAG: the
 interned `abstractRangeIGo` spec consumes these.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Expr
 
@@ -54,7 +54,7 @@ theorem abstractRange_succ :
 /-- Abstracting a range at or above a term's fvar range is the
 identity (the fvar-range cutoff of the interned traversal, task #86;
 `Expr.fvarsBelow` is the annotation-free fvar bound of
-`Lech/Verify/Shift.lean`). -/
+`ConLeche/Verify/Shift.lean`). -/
 theorem abstractRange_eq_self : ∀ {e : Expr} {d k c : Nat},
     e.fvarsBelow d → e.abstractRange d k c = e := by
   intro e
@@ -62,4 +62,4 @@ theorem abstractRange_eq_self : ∀ {e : Expr} {d k c : Nat},
     simp_all only [Expr.fvarsBelow, Expr.abstractRange]
   rw [if_neg (by omega)]
 
-end Lech
+end ConLeche

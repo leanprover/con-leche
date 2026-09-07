@@ -7,7 +7,7 @@
    zero-constructor sums.  The direct sum/indexed route takes both
    (`EmptyIdx sum`, `EmptyIdxP sum`); official agrees.
 
-   official: 0.  lech at master 700a06ca: 0 piped, 0 raw (both modes).
+   official: 0.  con-leche at master 700a06ca: 0 piped, 0 raw (both modes).
    Probe of record: _tmp/indaudit/probes/P/EmptyIdx.lean. -/
 
 import Lean

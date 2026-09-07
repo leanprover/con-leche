@@ -1,4 +1,4 @@
-import Lech.SetTheory.Derive.Pt
+import ConLeche.SetTheory.Derive.Pt
 
 /-!
 # Function graphs, application, and the raw dependent-function set
@@ -18,7 +18,7 @@ The level-`0` truncations (`lam 0 = pt`, `pi 0` a truth value) are
 layered on top in `Derive/Pi.lean`.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -99,7 +99,7 @@ theorem sigmaPairs_congr {A : V} {B B' : V → V}
   congr 1
   exact image_congr fun x hx => by rw [h x hx]
 
-theorem _root_.Lech.IsTGUniverse.sigmaPairs_mem {U A : V} {B : V → V}
+theorem _root_.ConLeche.IsTGUniverse.sigmaPairs_mem {U A : V} {B : V → V}
     (hU : IsTGUniverse (Mem (V := V)) U) (hA : A ∈ˢ U)
     (hB : ∀ x, x ∈ˢ A → B x ∈ˢ U) : sigmaPairs A B ∈ˢ U :=
   hU.famUnion_mem hA fun x hx =>
@@ -123,7 +123,7 @@ theorem piSet_congr {A : V} {B B' : V → V}
   unfold piSet
   rw [sigmaPairs_congr h]
 
-theorem _root_.Lech.IsTGUniverse.piSet_mem {U A : V} {B : V → V}
+theorem _root_.ConLeche.IsTGUniverse.piSet_mem {U A : V} {B : V → V}
     (hU : IsTGUniverse (Mem (V := V)) U) (hA : A ∈ˢ U)
     (hB : ∀ x, x ∈ˢ A → B x ∈ˢ U) : piSet A B ∈ˢ U :=
   hU.mem_of_subset_mem (hU.power_mem (hU.sigmaPairs_mem hA hB)) sep_subset
@@ -235,4 +235,4 @@ theorem eq_of_mem_piSet_app_eq {A f g : V} {B B' : V → V}
 /- Opaque interface operator (see `Derive/Empty.lean`). -/
 attribute [irreducible] app
 
-end Lech.SetTheory
+end ConLeche.SetTheory

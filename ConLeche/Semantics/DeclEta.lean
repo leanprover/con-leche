@@ -1,4 +1,4 @@
-import Lech.Semantics.DeclRun
+import ConLeche.Semantics.DeclRun
 
 /-!
 # `declEtaStep` — the declaration fold's η-closure half, model-free
@@ -39,9 +39,9 @@ This module is model-free by construction: no `V`, no `SetTheory`, no
 blocker), this file moves with it.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-- Does every pinned basis declaration that is an eta-capable
 former carry a reserved name?  Decidable, and `decide`d at each
@@ -140,4 +140,4 @@ theorem declEtaStepRun {μ : CheckMode} {F : Nat}
 `.indDecl` dispatch's η half is proved for BOTH arms and the instance
 reads the kernel's own case split instead of the flag. -/
 
-end Lech.Semantics
+end ConLeche.Semantics

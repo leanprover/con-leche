@@ -1,5 +1,5 @@
-import Lech.SetP.Direct.DirectIntroP
-import Lech.Semantics.Tower.SumWire
+import ConLeche.SetP.Direct.DirectIntroP
+import ConLeche.Semantics.Tower.SumWire
 
 /-!
 # The sum leaves' bit validity and P packages (task #175 sum-types,
@@ -18,12 +18,12 @@ shifted frame and the index readings' validity at fitting field
 frames (`rChain_validV`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -471,4 +471,4 @@ theorem directSumRecAV_okP {ℓ w : Nat} {Fss Ess : List (List AVExpr)} {Ids : L
     AnnotOkP V ρ (directSumRecAV ℓ w (pds ++ [dM] ++ dms ++ dis ++ [dt]) Fss Ess srcs Ids.length) :=
   ⟨directSumRecAV_ok2 hz hpre, mkLamsC_validV hval⟩
 
-end Lech.SetP
+end ConLeche.SetP

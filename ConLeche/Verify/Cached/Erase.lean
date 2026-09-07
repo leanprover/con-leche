@@ -1,5 +1,5 @@
-import Lech.Cached.ExprC
-import Lech.Verify.Shift
+import ConLeche.Cached.ExprC
+import ConLeche.Verify.Shift
 
 /-!
 # The cached representation's field facts (task #163; rewritten at #172
@@ -11,7 +11,7 @@ conditioned on `WFc`, and a normal-form characterization of a
 hash-checking equality — everything needed to relate a second
 expression type to the spec's one.
 
-**There is no seam.**  `ExprC` is `Lech.Expr` and the four derived
+**There is no seam.**  `ExprC` is `ConLeche.Expr` and the four derived
 data are its `@[computed_field]`s, so what is left is the three facts
 the cached operations actually consume, each now unconditional:
 
@@ -40,9 +40,9 @@ what is left is exactly three field equations and their two cutoff
 consequences.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
 namespace ExprC
 
@@ -374,7 +374,7 @@ theorem hasLP_false {e : ExprC} {ks : List Name} {us : List Level}
 
 /-! ## Equality
 
-`beq` is `decide (· = ·)` (`Lech/Kernel/Expr.lean`): with the hash a
+`beq` is `decide (· = ·)` (`ConLeche/Kernel/Expr.lean`): with the hash a
 *function* of the node there is nothing for the old `beqSpec`/`zeroC`
 normal-form apparatus to say.  It existed only to characterize a
 descent that compared *stored* hashes, which could disagree with the
@@ -414,4 +414,4 @@ theorem beq_iff {a b : ExprC} : (a == b) = true ↔ a = b := beq_iff_eq
 
 end ExprC
 
-end Lech.Cached
+end ConLeche.Cached

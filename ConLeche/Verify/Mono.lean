@@ -1,4 +1,4 @@
-import Lech.Verify.PairM
+import ConLeche.Verify.PairM
 
 /-!
 # Fuel monotonicity, via the relational pair monad
@@ -8,7 +8,7 @@ computations; one induction at the knot yields fuel monotonicity for
 every fueled entry point.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -185,4 +185,4 @@ theorem ensureSortCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
     | succ f' =>
       exact ensureSort_mono (pureFns_mono env hle) d e u h
 
-end Lech
+end ConLeche

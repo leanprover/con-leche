@@ -1,23 +1,23 @@
-import Lech.Verify.InstSpine
-import Lech.Verify.EnvPreds
-import Lech.Verify.Extend.Inversions
+import ConLeche.Verify.InstSpine
+import ConLeche.Verify.EnvPreds
+import ConLeche.Verify.Extend.Inversions
 
 /-!
-# Sibs — the `V`-free half of `Lech.Model.Extend.Sibs`
+# Sibs — the `V`-free half of `ConLeche.Model.Extend.Sibs`
 
 Per-clause preservation (`.cons`) lemmas for extending an environment by
 one fresh constant, at the two clauses that are statements about the
 environment alone: `BasisBlocks` and `RecCtorsStored`, with the head
 obligation (`SibFinds`) they consume.
 
-Relocated from `Lech/Model/Extend/Sibs.lean` (task #123); the
+Relocated from `ConLeche/Model/Extend/Sibs.lean` (task #123); the
 `RecRulesOk` / `CapsOk` clauses and their head obligations stay there,
 being statements about a valuation.
 -/
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 open Expr
 
@@ -104,4 +104,4 @@ theorem RecCtorsStored.cons {env : Env} {c₀ : ConstantInfo}
     rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
     exact hf
 
-end Lech
+end ConLeche

@@ -1,13 +1,13 @@
-import Lech.Verify.Cached.KnotC
-import Lech.Verify.BridgeDecl
-import Lech.Cached.CheckerC
+import ConLeche.Verify.Cached.KnotC
+import ConLeche.Verify.BridgeDecl
+import ConLeche.Cached.CheckerC
 
 /-!
 # Cached checker: the per-declaration faithfulness kit (task #163)
 
-Port of `Lech/Verify/SimS.lean` for the cached tier.  The cached core
-simulation (`CSOK`/`SimC`, `Lech/Verify/Cached/SimC.lean`, knotted in
-`Lech/Verify/Cached/KnotC.lean`) is stated for *arbitrary* initial
+Port of `ConLeche/Verify/SimS.lean` for the cached tier.  The cached core
+simulation (`CSOK`/`SimC`, `ConLeche/Verify/Cached/SimC.lean`, knotted in
+`ConLeche/Verify/Cached/KnotC.lean`) is stated for *arbitrary* initial
 states, so extending the cache lifetime from one entry call to one
 declaration needs no new state invariant: this file provides the shared
 entry-point simulation lemmas (`opE_*_sim`, `opB_sim`, `opS_sim`) — a
@@ -17,10 +17,10 @@ final state facts instead of discarding them.
 
 Two pieces of the interned kit are *not* restated here:
 
-* `mkFEnv_push` (`Lech/Verify/SimS.lean`) is `Expr`-level — the index
+* `mkFEnv_push` (`ConLeche/Verify/SimS.lean`) is `Expr`-level — the index
   of a cons-extended environment is one insert, definitionally, with no
   reference to any state representation;
-* `flushC_csok` (`Lech/Verify/Cached/SimC.lean`) is the `flushS_isok`
+* `flushC_csok` (`ConLeche/Verify/Cached/SimC.lean`) is the `flushS_isok`
   mirror already proved with the invariant: after a flush the state
   satisfies `CSOK` for *any* environment, which is what makes the
   driver-directed flush at environment transitions sound.
@@ -33,13 +33,13 @@ fabricated node is a plain `pure` (`pureC_eff`).  The `opE` result
 relation therefore stays on `Expr` and is state-free.
 
 The driver-level walks composing these along `checkDeclSF` are in
-`Lech/Verify/Cached/BridgeCS*.lean`.
+`ConLeche/Verify/Cached/BridgeCS*.lean`.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
-open Lech.Cached.ExprC
+open ConLeche
+open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
@@ -124,4 +124,4 @@ theorem opS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} 
 
 end Runners
 
-end Lech.Cached
+end ConLeche.Cached

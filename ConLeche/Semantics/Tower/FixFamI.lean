@@ -1,5 +1,5 @@
-import Lech.Semantics.Tower.FixLeafI
-import Lech.Semantics.Tower.SumRecCase
+import ConLeche.Semantics.Tower.FixLeafI
+import ConLeche.Semantics.Tower.SumRecCase
 
 /-!
 # The recursive family's functor: readings and laws (task #188, indexed)
@@ -20,8 +20,8 @@ of the fibre at `⟨ı⃗⟩` with the indexed sum route's restricted tagged
 union (`fixFamI_app_eq_sum`).
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory SetTheory.Tower
 
@@ -1137,4 +1137,4 @@ theorem idxValsAt_of_eqsXI (hI : IdxOk u ρp Ids) {X : V} {is : List V} (hsp : S
 
 end Fam
 
-end Lech.Semantics
+end ConLeche.Semantics

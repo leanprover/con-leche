@@ -1,15 +1,15 @@
-import Lech.Cached.ParsedC
-import Lech.Kernel.Basis.Names
-import Lech.SetTheory.Core
+import ConLeche.Cached.ParsedC
+import ConLeche.Kernel.Basis.Names
+import ConLeche.SetTheory.Core
 
 /-!
 # The advertised statement
 
-Lech is a proof checker for Lean's export format: hand it the stream
+ConLeche is a proof checker for Lean's export format: hand it the stream
 of declarations `lean4export` writes for a Lean development and it
 re-checks every one of them from scratch.  This module states the
 theorem the project exists to prove and leaves it `sorry`; the proof
-is in `Lech/MainTheorem.lean`.  Nothing imports this file.
+is in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 
 > If the checker accepts a stream, the environment it built contains no
 > constant whose type is `False`.
@@ -18,7 +18,7 @@ An accepted stream is therefore not a proof of a contradiction: the
 checker cannot be talked into signing off on `theorem oops : False`.
 
 * `checkDeclsSPCachedD` is the shipped checking function — the one the
-  `lech` binary runs on the parsed stream; `.verified` is its
+  `con-leche` binary runs on the parsed stream; `.verified` is its
   default `--verified` mode.
 * `ds : List DeclC` is the parsed stream, `Env` the environment the
   checker builds, `env.consts` the constants it accepted; `.ok env`
@@ -37,9 +37,9 @@ and parsing the bytes is outside it, as is the `--trusted` mode.  See
 README.md.
 -/
 
-namespace Lech
+namespace ConLeche
 
-open Lech.Cached (DeclC checkDeclsSPCachedD)
+open ConLeche.Cached (DeclC checkDeclsSPCachedD)
 
 /-- **The main theorem.**  An accepted stream never yields a constant of
 type `False`. -/
@@ -49,4 +49,4 @@ theorem no_proof_of_False (V : Type w) [SetTheory V]
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
   sorry
 
-end Lech
+end ConLeche

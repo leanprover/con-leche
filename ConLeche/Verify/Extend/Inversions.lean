@@ -1,12 +1,12 @@
-import Lech.Kernel.Checker
+import ConLeche.Kernel.Checker
 
 /-!
-# Inversions — split out of `Lech.Model.Extend`
+# Inversions — split out of `ConLeche.Model.Extend`
 
 Small syntactic inversion lemmas and name disequalities shared by
 the extension lemmas.
 
-Relocated from `Lech/Model/Extend/Inversions.lean` (task #123): every
+Relocated from `ConLeche/Model/Extend/Inversions.lean` (task #123): every
 statement here is over `Env`/`Expr` only, so both the set model and the
 declarative type-theory bridge can import it.  The move is verbatim; the
 `omit [SetTheory V] in` lines are dropped because there is no such
@@ -15,7 +15,7 @@ section variable here.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -34,7 +34,7 @@ theorem fueledOps_isDefEq (F : Nat) (env : Env) (d : Nat) (a b : Expr) :
 theorem fueledOps_ensureSort (F : Nat) (env : Env) (d : Nat) (e : Expr) :
     (fueledOps mode F).ensureSort env d e = ensureSortCore mode env F d e := rfl
 theorem fueledOps_whnf (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps mode F).whnf env d e = Lech.whnf mode env F d e := rfl
+    (fueledOps mode F).whnf env d e = ConLeche.whnf mode env F d e := rfl
 
 theorem find?_none_ne {env : Env} {n : Name} (h : env.find? n = none) :
     ∀ c ∈ env.consts, c.name ≠ n := by
@@ -164,4 +164,4 @@ theorem installBasisDecl_inv {env env₁ : Env} {ci : ConstantInfo}
     simp only [Option.isNone_some, Bool.false_eq_true, if_false,
       throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
     exact nomatch h
-end Lech
+end ConLeche

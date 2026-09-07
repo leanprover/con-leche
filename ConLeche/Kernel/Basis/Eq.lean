@@ -1,4 +1,4 @@
-import Lech.Kernel.Basis.Builder
+import ConLeche.Kernel.Basis.Builder
 
 /-!
 # The pinned `Eq` basis block
@@ -8,10 +8,10 @@ preprocessor emits it, which is the toolchain's `Init.Prelude`
 declaration at the parser's raw binder annotations.  The *annotated*
 forms (`eqA`, `eqReflA`, `eqRecA`) are computed from these by the
 checker's own annotation pass at elaboration time; see
-`Lech/Kernel/BasisA.lean`.
+`ConLeche/Kernel/BasisA.lean`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open BasisDSL
 
@@ -59,4 +59,4 @@ def eqRecRaw : ConstantInfo :=
 /-- The pinned `Eq` basis block, in install order. -/
 def eqBasis : List ConstantInfo := [eqRaw, eqReflRaw, eqRecRaw]
 
-end Lech
+end ConLeche

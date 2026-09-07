@@ -1,12 +1,12 @@
-import Lech.SetP.DirectFix.FixChainsP
-import Lech.SetModel.Container
-import Lech.Semantics.Tower.FixSquashI
+import ConLeche.SetP.DirectFix.FixChainsP
+import ConLeche.SetModel.Container
+import ConLeche.Semantics.Tower.FixSquashI
 
 /-!
 # The closure witness of the fixpoint route's family functor (task #202, Stage B)
 
 The family functor `fixFunVI` of a recursive block is a container in
-the sense of `Lech/SetModel/Container.lean`: an element of its fibre
+the sense of `ConLeche/SetModel/Container.lean`: an element of its fibre
 at a tuple is a tagged tuple `inj j (mkTower (fs ++ [pt]))` whose
 recursive slots hold nested functions over the fields' telescopes into
 the family's fibres; its SHAPE is the shadow tuple — the recursive
@@ -22,13 +22,13 @@ finitary or not, any sort — replacing the ω-iterate and the top-family
 witnesses.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w'
 
@@ -805,4 +805,4 @@ theorem fixClosed_of :
 
 end Block
 
-end Lech.SetP
+end ConLeche.SetP

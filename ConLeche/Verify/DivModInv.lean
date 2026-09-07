@@ -1,7 +1,7 @@
-import Lech.Kernel.Checker
-import Lech.Verify.Fueled
-import Lech.Verify.Leaves
-import Lech.Verify.Extend.Inversions
+import ConLeche.Kernel.Checker
+import ConLeche.Verify.Fueled
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.Extend.Inversions
 
 /-!
 # `V`-free inversions of the `Nat.div`/`Nat.mod` pin (task #123)
@@ -9,18 +9,18 @@ import Lech.Verify.Extend.Inversions
 `checkDivModPin` and `checkDivModCerts` are checker walks over
 `Env`/`Expr`; unpacking a successful run into the annotate/infer/defeq
 triple it performed, and reading the guards it passed, mentions no
-valuation.  All of it was written in `Lech/Model/DivModCert.lean`
+valuation.  All of it was written in `ConLeche/Model/DivModCert.lean`
 under that module's `variable (V) [SetTheory V]`, and is relocated here
 verbatim under the criterion #123 established: **V-free checker
-inversion belongs in `Lech/Verify`**, so both verification paths can
+inversion belongs in `ConLeche/Verify`**, so both verification paths can
 consume it instead of restating it.
 
-`Lech/Model/DivModCert.lean` imports this file; the valuation-carrying
+`ConLeche/Model/DivModCert.lean` imports this file; the valuation-carrying
 half of that module (the frame's `EqSideOk` machinery and
 `divmod_certs_sound`) stays where it is.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -262,4 +262,4 @@ theorem divModEnvGuard_inv {env2 : Env} {c : Name}
       exact ⟨ci, hfind, by simpa using hbF⟩
     · intro hbF; exact nomatch hbF
 
-end Lech
+end ConLeche

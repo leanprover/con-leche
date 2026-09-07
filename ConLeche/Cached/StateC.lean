@@ -1,5 +1,5 @@
-import Lech.Kernel.FEnv
-import Lech.Cached.ExprOpsC
+import ConLeche.Kernel.FEnv
+import ConLeche.Cached.ExprOpsC
 
 /-!
 # The cached checker state and its operation wrappers
@@ -35,9 +35,9 @@ the deleted arena's central data structure.  The `Level`-keyed and
 place where structural hashing survives.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
 /-! ## The zero-ness memo
 
@@ -479,4 +479,4 @@ def recordCConst (n : Name) (tyE : Expr) (ty : ExprC)
     let s := { s with ienv := {} }
     { s with ienv := m.insert n ⟨tyE, ty, val⟩ }
 
-end Lech.Cached
+end ConLeche.Cached

@@ -1,7 +1,7 @@
-import Lech.SetP.IndUnitLawP
-import Lech.Verify.Denote
-import Lech.Verify.Denote.OpenVars
-import Lech.Verify.Denote.VClosed
+import ConLeche.SetP.IndUnitLawP
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.Denote.VClosed
 
 /-!
 # The η key, P tier (task #161, IND TIER part 2, item 1a)
@@ -39,13 +39,13 @@ former is the case where the bridge is the install itself
 the invariant (`hIA`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps ReducibilityHint BinderMeta)
 
 universe w
@@ -134,7 +134,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
       rw [hac, acvalWith_self, hc₀name]
     · rw [hac, acvalWith_ne hT0]
       have hfE : env.find? T = some (.indInfo cvT caps) := by
-        rw [Lech.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hfT
+        rw [ConLeche.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hfT
         exact hfT
       exact (hIA T hbT _ hfE ψ).symm
   have hvC : ∀ ψ : Name → Nat,
@@ -147,7 +147,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
       obtain ⟨cvC, hfC⟩ := hfam.2.1
       have hfCe : env.find? caps.etaCtor
           = some (.ctorInfo cvC caps.etaParams caps.etaFields) := by
-        rw [Lech.Env.find?_cons, if_neg (fun hh => hC0 hh.symm)] at hfC
+        rw [ConLeche.Env.find?_cons, if_neg (fun hh => hC0 hh.symm)] at hfC
         exact hfC
       exact (hIA caps.etaCtor hbC _ hfCe ψ).symm
   -- ===== the former's type reads as its model's =====
@@ -157,37 +157,37 @@ theorem memberEtaLawP : MemberEtaLawP V := by
     intro ψ
     by_cases hT0 : T = c₀.name
     · have hc₀ : c₀ = .indInfo cvT caps := by
-        rw [hT0, Lech.Env.find?_cons_self] at hfT
+        rw [hT0, ConLeche.Env.find?_cons_self] at hfT
         exact Option.some.inj hfT
       have hcvT : cvT = cvA := by rw [hc₀] at hc₀cv; exact hc₀cv
       have hcvm : cvm₀ = cvmT := by
         have h := hTmE
         rw [hT0, hc₀name, hfm₀] at h
-        exact (Lech.ConstantInfo.defnInfo.inj (Option.some.inj h)).1
+        exact (ConLeche.ConstantInfo.defnInfo.inj (Option.some.inj h)).1
       rw [hcvT, ← hcvm]
       exact memberTypeReadEq mp hmv hIB hIA hfm₀ ψ
     · have hfE : env.find? T = some (.indInfo cvT caps) := by
-        rw [Lech.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hfT
+        rw [ConLeche.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hfT
         exact hfT
       obtain ⟨cvm, mval, hm, hfm, hlps, hren, hval⟩ := hIB T hbT _ hfE
       obtain rfl : cvm = cvmT := by
         have h := hTmE; rw [hfm] at h
-        exact (Lech.ConstantInfo.defnInfo.inj (Option.some.inj h)).1
+        exact (ConLeche.ConstantInfo.defnInfo.inj (Option.some.inj h)).1
       obtain ⟨-, -, hty, -⟩ :=
-        mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfE)
+        mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfE)
       exact blockTypeReadEq mp hIB hIA hty hren ψ
   have hcbT : ConstsBound env cvT.type := by
     by_cases hT0 : T = c₀.name
     · have hc₀ : c₀ = .indInfo cvT caps := by
-        rw [hT0, Lech.Env.find?_cons_self] at hfT
+        rw [hT0, ConLeche.Env.find?_cons_self] at hfT
         exact Option.some.inj hfT
       have hcvT : cvT = cvA := by rw [hc₀] at hc₀cv; exact hc₀cv
       exact constsBound_of_constsResolve _ (by rw [hcvT, htypeA]; exact htr0)
     · have hfE : env.find? T = some (.indInfo cvT caps) := by
-        rw [Lech.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hfT
+        rw [ConLeche.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hfT
         exact hfT
       obtain ⟨-, -, hty, -⟩ :=
-        mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfE)
+        mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfE)
       exact constsBound_of_constsResolve _ hty
   intro us hus
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
@@ -216,9 +216,9 @@ theorem memberEtaLawP : MemberEtaLawP V := by
   obtain ⟨ux, vx, Ax, Bx, Γ₁', rfl, hΓ₁eq, hS0⟩ := hteleS1.succ_inv
   cases hS0
   have hsblen : sbinders.length = caps.etaParams + 1 :=
-    Lech.Expr.stripPis_length _ hSstrip
+    ConLeche.Expr.stripPis_length _ hSstrip
   have htblen : tbindersM.length = caps.etaParams :=
-    Lech.Expr.stripPis_length _ hTstrip
+    ConLeche.Expr.stripPis_length _ hTstrip
   have hΓ₁ : Γ₁ = [Ax] := by rw [hΓ₁eq]; rfl
   -- ===== the parameter domains agree =====
   have hdomEq : ∀ i, i < ts.length →
@@ -377,4 +377,4 @@ theorem memberEtaLawP : MemberEtaLawP V := by
     hSuniv hxS hRS] at hlanded
   exact eq_of_mem_eqv hlanded
 
-end Lech.SetP
+end ConLeche.SetP

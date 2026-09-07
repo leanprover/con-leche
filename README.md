@@ -1,10 +1,10 @@
-# Lech – a LEan CHecker that's never False
+# ConLeche – a CONsistent LEan CHEcker
 
-Lech is an external checker for the Lean theorem prover that is proven (in Lean) to be consistent in that it does not accept a proof of False.
+ConLeche is an external checker for the Lean theorem prover that is proven (in Lean) to be consistent in that it does not accept a proof of False.
 
 The core idea of this project is: What if we allow the checker implementation to do extra work (annotations, checks) that is not strictly necessary for soundness, but makes the proof easier.
 
-Lech is also a river in South West Germanys. Rivers in South West Germany are good for theorem provers, somehow.
+The name is short for **CON**sistent **LE**an **CHE**cker. (The project was called Setlec until 2026-09-06, and then Lech — a river in South West Germany, and rivers in South West Germany are good for theorem provers, somehow — until 2026-09-07.)
 
 ## Status
 
@@ -28,7 +28,7 @@ This README is actually human written (with AI only doing copy-editing, fact che
     finitary (no reflexive/function-typed recursive fields, no nested
     or mutual recursion)
 
-  For everything else is uses [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models. Lech checks these models as normal definitions, and then checks that they faithfully model the given inductive. The lean-inductive-models code is thus outside the trusted code base of Lech.
+  For everything else is uses [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models. ConLeche checks these models as normal definitions, and then checks that they faithfully model the given inductive. The lean-inductive-models code is thus outside the trusted code base of ConLeche.
 
 * Accepted incompleteness: Primitive projections are only supported
   - on non-recursive non-indexed structures or
@@ -41,7 +41,7 @@ The idea of the consistency proof is that we define a model in set theory, class
 
 ### The main theorem
 
-In [`Lech/MainTheorem.lean`](./Lech/MainTheorem.lean) we prove that if the `checkDeclsSPCachedD` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
+In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that if the `checkDeclsSPCachedD` function (which is called from `main`), when run in `--verified` mode, accepts a list of declarations `ds`, then no declaration of type `False` was included:
 
 ```lean
 theorem no_proof_of_False (V : Type w) [SetTheory V]
@@ -58,9 +58,9 @@ The parser is not covered by the verification.
 
 ### Set theory assumption
 
-The set model we assume in `[SetTheory V]` is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form. Choice is inherited from Lean as the meta-logic. See [`Lech/SetTheory/Core.lean`](./Lech/SetTheory/Core.lean) for the precise formulation of our set theory.
+The set model we assume in `[SetTheory V]` is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form. Choice is inherited from Lean as the meta-logic. See [`ConLeche/SetTheory/Core.lean`](./ConLeche/SetTheory/Core.lean) for the precise formulation of our set theory.
 
-We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`Lech/SetTheory/Aczel.lean`](./Lech/SetTheory/Aczel.lean)); that assumption is similar to the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model).
+We also show that this interface can be realized within Lean by Aczel's sets-as-trees construction, with the universe chain as the one remaining assumption ([`ConLeche/SetTheory/Aczel.lean`](./ConLeche/SetTheory/Aczel.lean)); that assumption is similar to the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model).
 
 Future work: The assumption that we need a ω-chain is maybe unnecessary strong. Every concrete stream has an upper bound of universe levels it needs, and we could assume only a chain of length `k`. For every concrete `k` we can prove their existence in lean without further assumptions, just not for all `k`.
 

@@ -1,5 +1,5 @@
-import Lech.SetP.BasisQuotP
-import Lech.Semantics.BasisRules
+import ConLeche.SetP.BasisQuotP
+import ConLeche.Semantics.BasisRules
 
 /-!
 # The `Eq` block, P tier (task #161, ENDGAME H)
@@ -26,13 +26,13 @@ The three constants' bits are forced, not chosen (ENDGAME E §1):
 `.ifAllZero []`, and `Eq.rec`'s six are `.ifAllZero [u_1]`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr eqValT eqReflValT eqRecValT)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr eqValT eqReflValT eqRecValT)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
 
 universe w
@@ -42,7 +42,7 @@ variable {μ : CheckMode} {env : Env}
 
 section Eq
 
-open Lech (eqA eqReflA eqRecA eqName eqReflName)
+open ConLeche (eqA eqReflA eqRecA eqName eqReflName)
 
 variable {m : EnvS2Core V env} {A : (Name → Nat) → AVExpr}
 
@@ -216,7 +216,7 @@ theorem extendEqP (mp : EnvS2PM V μ env)
       (fun ψ => by rw [eqValT2_erase ψ]; exact eqValT_closed ψ)
       (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT eqA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT eqA.name ψ
           = none from rfl] at hp
         exact nomatch hp)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
@@ -261,7 +261,7 @@ theorem extendEqReflP (mp : EnvS2PM V μ env)
       (fun ψ => by rw [eqReflValT2_erase ψ]; exact eqReflValT_closed ψ)
       (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT eqReflA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT eqReflA.name ψ
           = none from rfl] at hp
         exact nomatch hp)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
@@ -654,7 +654,7 @@ theorem denoteP_eqRecA_type (ψ : Name → Nat)
     intro d
     have hf' : (⟨eqRecA :: env.consts⟩ : Env).find? eqReflName
         = some eqReflA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hR
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR
     rw [denoteP_const hf' (by rfl), acvalWith_ne (by decide),
       show Level.substFn ψ eqReflA.toConstantVal.levelParams
         [Level.param uN] = Level.substFn ψ [uN]
@@ -716,7 +716,7 @@ theorem denoteP_eqRec_rhs (ψ : Name → Nat)
     intro d
     have hf' : (⟨eqRecA :: env.consts⟩ : Env).find? eqReflName
         = some eqReflA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hR
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR
     rw [denoteP_const hf' (by rfl), acvalWith_ne (by decide),
       show Level.substFn ψ eqReflA.toConstantVal.levelParams
         [Level.param uN] = Level.substFn ψ [uN]
@@ -889,8 +889,8 @@ theorem eqRecRaP_app₄ {b : Nat} (ψ : Name → Nat)
 
 theorem eqRecValT2_congr {ψ₁ ψ₂ : Name → Nat} (hu : ψ₁ uN = ψ₂ uN)
     (hu1 : ψ₁ u1N = ψ₂ u1N) : eqRecValT2 ψ₁ = eqRecValT2 ψ₂ := by
-  have hb : pwBit ψ₁ (Lech.PropWhen.ifAllZero [u1N])
-      = pwBit ψ₂ (Lech.PropWhen.ifAllZero [u1N]) := by
+  have hb : pwBit ψ₁ (ConLeche.PropWhen.ifAllZero [u1N])
+      = pwBit ψ₂ (ConLeche.PropWhen.ifAllZero [u1N]) := by
     unfold pwBit
     simp [hu1]
   rw [eqRecValT2, eqRecValT2, hb, hu, hu1, eqValT2_congr hu,
@@ -915,7 +915,7 @@ theorem eqRecLawP {m : EnvS2Core V env}
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
       ψ = Level.substFn φ eqRecA.toConstantVal.levelParams us :=
     ⟨_, rfl⟩
-  have hz : pwBit ψ (Lech.PropWhen.ifAllZero [u1N]) = 0 ↔ ψ u1N = 0 :=
+  have hz : pwBit ψ (ConLeche.PropWhen.ifAllZero [u1N]) = 0 ↔ ψ u1N = 0 :=
     pwBit_ifAllZero_single ψ u1N
   have hRa : denoteP m₂.acval ⟨eqRecA :: env.consts⟩ φ 0
       (eqRecRule.rhs.instantiateLevelParams
@@ -930,7 +930,7 @@ theorem eqRecLawP {m : EnvS2Core V env}
     hlev hplain hnested hpin hTVa hTVja hfitR hfitC
   have hR' : (⟨eqRecA :: env.consts⟩ : Env).find? eqReflName
       = some eqReflA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hR
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR
   rw [show RecRule.ctor eqRecRule = eqReflName from rfl, hR'] at hfj
   obtain ⟨rfl, rfl, rfl⟩ :
       cvj = eqReflA.toConstantVal ∧ cnP = 2 ∧ cnF = 0 := by
@@ -1169,7 +1169,7 @@ theorem extendEqRecP (mp : EnvS2PM V μ env)
   have hty := fun ψ =>
     denoteP_eqRecA_type (m := mp.base2) (A := eqRecValT2) ψ hE hR hEv hRv
   have hz : ∀ ψ : Name → Nat,
-      pwBit ψ (Lech.PropWhen.ifAllZero [u1N]) = 0 ↔ ψ u1N = 0 :=
+      pwBit ψ (ConLeche.PropWhen.ifAllZero [u1N]) = 0 ↔ ψ u1N = 0 :=
     fun ψ => pwBit_ifAllZero_single ψ u1N
   refine declStepPM_of_basis_rec_cons mp (A := eqRecValT2) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
@@ -1179,7 +1179,7 @@ theorem extendEqRecP (mp : EnvS2PM V μ env)
       (fun ψ => by rw [eqRecValT2_erase ψ]; exact eqRecValT_closed ψ)
       (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT eqRecA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT eqRecA.name ψ
           = none from rfl] at hp
         exact nomatch hp)
       (fun _ h => nomatch h)
@@ -1222,10 +1222,10 @@ theorem extendEqRecP (mp : EnvS2PM V μ env)
 `eqK` branch — the block whose chain reads its own earlier leaves, and
 so the one that consumes the install's exposed `acval`. -/
 theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
-    (h : Lech.Semantics.BasisInstallRun env
-      Lech.BasisKind.eqK.declsA env₁) :
+    (h : ConLeche.Semantics.BasisInstallRun env
+      ConLeche.BasisKind.eqK.declsA env₁) :
     Nonempty (EnvS2PM V μ env₁) := by
-  rw [show Lech.BasisKind.eqK.declsA = [eqA, eqReflA, eqRecA]
+  rw [show ConLeche.BasisKind.eqK.declsA = [eqA, eqReflA, eqRecA]
     from rfl] at h
   obtain ⟨h1, h2, h3, hnil⟩ := h
   subst hnil
@@ -1240,7 +1240,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
     intro ψ
     rw [hac1, show eqName = eqA.name from rfl, acvalWith_self]
   have hE1 : (⟨eqA :: env.consts⟩ : Env).find? eqName = some eqA := by
-    rw [Lech.Env.find?_cons]; exact if_pos rfl
+    rw [ConLeche.Env.find?_cons]; exact if_pos rfl
   have hf2 : (⟨eqA :: env.consts⟩ : Env).find? eqReflA.name = none :=
     Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨eqReflA :: eqA :: env.consts⟩ := by
@@ -1250,7 +1250,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
     show Expr.constsResolve _ eqReflA.toConstantVal.type = true
     have hf : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
         = some eqA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE1
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE1
     rw [show eqReflA.toConstantVal.type
         = Expr.forallE (.sort (.param uN))
             (Expr.forallE (.bvar 0)
@@ -1262,10 +1262,10 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
   obtain ⟨mp2, hac2⟩ := extendEqReflP mp1 hE1 hEv1 hf2 hwf2
   have hE2 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
       = some eqA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE1
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE1
   have hR2 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqReflName
       = some eqReflA := by
-    rw [Lech.Env.find?_cons]; exact if_pos rfl
+    rw [ConLeche.Env.find?_cons]; exact if_pos rfl
   have hEv2 : ∀ ψ : Name → Nat, mp2.base2.acval eqName ψ
       = eqValT2 ψ := by
     intro ψ
@@ -1280,10 +1280,10 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
   have hwf3 : EnvWF ⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ := by
     have hfE : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
         eqName = some eqA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE2
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE2
     have hfR : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
         eqReflName = some eqReflA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hR2
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR2
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
@@ -1330,4 +1330,4 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
 
 end Eq
 
-end Lech.SetP
+end ConLeche.SetP

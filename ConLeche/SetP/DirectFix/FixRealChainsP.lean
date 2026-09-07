@@ -1,4 +1,4 @@
-import Lech.SetP.DirectFix.FixChainFactsP
+import ConLeche.SetP.DirectFix.FixChainFactsP
 
 /-!
 # The real chains against the X-chains (task #188)
@@ -15,13 +15,13 @@ shadow spine beside the real one exactly as along the X-chain
 (`fixRealWalk`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w'
 
@@ -194,4 +194,4 @@ theorem chainRealI_of (hI : IdxOk u ρp Ids) {μ : V}
 
 end RealWalk
 
-end Lech.SetP
+end ConLeche.SetP

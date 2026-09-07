@@ -1,6 +1,6 @@
-import Lech.Cached.ParsedC
-import Lech.Verify.Cached.OpsC
-import Lech.Verify.EnvBound
+import ConLeche.Cached.ParsedC
+import ConLeche.Verify.Cached.OpsC
+import ConLeche.Verify.EnvBound
 
 /-!
 # The cached representation's guard walks and the conversion boundary
@@ -10,7 +10,7 @@ the parse arena and the core:
 
 * the fabrication leaf guard (`fvarLeaves`/`leafMem`/`leavesSubGo`/
   `leafGuard`) — the transposition of `leafGuard_spec'`
-  (`Lech/Verify/IExprOps.lean`);
+  (`ConLeche/Verify/IExprOps.lean`);
 * the level-parameter definedness walk
   (`ExprC.allLevelParamsDefined`) — the transposition of
   `allLevelParamsDefinedI_spec`;
@@ -51,9 +51,9 @@ Two structural differences from the arena twins are paid for here.
    same discharge `readbackGo_spec` performs.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
 namespace ExprC
 
@@ -1148,7 +1148,7 @@ end ExprC
 
 /-! ## Guard agreement
 
-The environment-index guards of `Lech/Cached/StateC.lean` are pure
+The environment-index guards of `ConLeche/Cached/StateC.lean` are pure
 functions of the node, so each agrees with its `Expr`-side original.
 Each comes in two forms: the plain equation, and (primed) the same
 equation transported along the value equation the simulation
@@ -1375,7 +1375,7 @@ theorem leafGuard_spec' {fab base : ExprC} {fx bx : Expr}
 
 /-! ## Constant resolution
 
-`constsResolveFCGo` (`Lech/Cached/StateC.lean`) is the cached
+`constsResolveFCGo` (`ConLeche/Cached/StateC.lean`) is the cached
 `Expr.constsResolveF`: an `ExprC`-keyed memoized walk with **no**
 cutoff (the environment index is an ambient parameter of the call, so
 only the node matters). -/
@@ -1649,4 +1649,4 @@ theorem zeronessOfLGo_spec (v : Level)
   · cases hgo
     exact ⟨hminv.insert, rfl⟩
 
-end Lech.Cached
+end ConLeche.Cached

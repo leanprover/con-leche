@@ -1,5 +1,5 @@
-import Lech.SetP.DirectSum.SumStageFormerP
-import Lech.SetP.Direct.DirectStageCtorP
+import ConLeche.SetP.DirectSum.SumStageFormerP
+import ConLeche.SetP.Direct.DirectStageCtorP
 
 /-!
 # A sum constructor's cons (task #175 sum-types, indexed)
@@ -18,13 +18,13 @@ tuple, where the point-terminated tuple lives by the index equation
 block claims no eta or unit law).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts)
 
 universe w
 
@@ -316,11 +316,11 @@ theorem ctorWalksS {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvT cvC :
 
 /-- **The P step at a sum-shaped constructor's cons**, for a given fibre fold. -/
 theorem stageCtorGen
-    (hE : Lech.EtaFamiliesClosed env)
+    (hE : ConLeche.EtaFamiliesClosed env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     (mp : EnvS2PM V μ env)
-    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
+    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     -- the constructor is fresh at the cons's environment and its type
     -- resolves there
@@ -361,16 +361,16 @@ theorem stageCtorGen
       mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
         (fun ψ => directSumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP).map (·.2.2))
           (uChains (Fss ψ))) := by
-  obtain ⟨hccv, -, -⟩ := Lech.checkDirectSumCtor_shape hCtor
+  obtain ⟨hccv, -, -⟩ := ConLeche.checkDirectSumCtor_shape hCtor
   obtain ⟨-, hnres, hpshape, -, hlbt, hitf, type', -, -, hann', htp, -, -, -, hty⟩ :=
-    Lech.checkConstantVal_inv hccv
+    ConLeche.checkConstantVal_inv hccv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
   have hCname : cvCa.name = cvC.name := by rw [hty]
   have hcb : ConstsBound env cvCa.type := constsBound_of_constsResolve _ htr
   have hTC : T ≠ cvCa.name := by
     intro h; rw [h, hfresh] at hfT; exact nomatch hfT
-  have hwfC : Lech.EnvWF ⟨.ctorInfo cvCa nP nF :: env.consts⟩ := by
-    refine Lech.EnvWF.cons mp.base2.wf (Lech.directConstWF ?_ ?_ (Expr.constsResolve_mono htr) ?_
+  have hwfC : ConLeche.EnvWF ⟨.ctorInfo cvCa nP nF :: env.consts⟩ := by
+    refine ConLeche.EnvWF.cons mp.base2.wf (ConLeche.directConstWF ?_ ?_ (Expr.constsResolve_mono htr) ?_
       (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq))
     · show cvCa.type.hasFvar = false; rw [hty]; exact htf'
     · show cvCa.type.allLevelParamsDefined cvCa.levelParams = true; rw [hty]; exact htp
@@ -396,9 +396,9 @@ theorem stageCtorGen
         = some (mkPisAV (ds ψ) (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ))) := fun ψ =>
     denoteP_cons_mono (c₀ := .ctorInfo cvCa nP nF) hfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) ψ 0 hcb (hCD.read ψ)
-  have hnresC : Lech.reservedBasisNames.contains
+  have hnresC : ConLeche.reservedBasisNames.contains
       (ConstantInfo.ctorInfo cvCa nP nF).name = false := by
-    show Lech.reservedBasisNames.contains cvCa.name = false
+    show ConLeche.reservedBasisNames.contains cvCa.name = false
     rw [hCname]; exact hnres
   have hpshapeC : (ConstantInfo.ctorInfo cvCa nP nF).name.isProjFnShape = false := by
     show cvCa.name.isProjFnShape = false
@@ -444,7 +444,7 @@ theorem stageCtorGen
     · intro cvT caps' hf _
       have hfT' : (⟨.ctorInfo cvCa nP nF :: env.consts⟩ : Env).find? T
           = some (.indInfo cvTa caps) := by
-        rw [Lech.Env.find?_cons, if_neg (fun h => hTC h.symm)]
+        rw [ConLeche.Env.find?_cons, if_neg (fun h => hTC h.symm)]
         exact hfT
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
       exact ⟨fun he => absurd (hcapsE.symm.trans he) Bool.false_ne_true,
@@ -452,11 +452,11 @@ theorem stageCtorGen
 
 /-- **The P step at a sum constructor's cons.** -/
 theorem stageSumCtor
-    (hE : Lech.EtaFamiliesClosed env)
+    (hE : ConLeche.EtaFamiliesClosed env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     (mp : EnvS2PM V μ env)
-    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
+    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfresh : env.find? cvCa.name = none)
     (htr : cvCa.type.constsResolve env = true)
@@ -499,4 +499,4 @@ theorem stageSumCtor
     (sumFold_of_leaf hFD hCD hleafT hiff hFssOk hIdx) hFsj hEsj hFssParams hFssBelow hiff
     hFssOkP hIdx
 
-end Lech.SetP
+end ConLeche.SetP

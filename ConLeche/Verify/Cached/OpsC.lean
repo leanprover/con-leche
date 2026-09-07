@@ -1,17 +1,17 @@
-import Lech.Cached.ExprOpsC
-import Lech.Verify.Cached.Erase
-import Lech.Verify.Subst
-import Lech.Verify.InstList
-import Lech.Verify.AbstractRange
+import ConLeche.Cached.ExprOpsC
+import ConLeche.Verify.Cached.Erase
+import ConLeche.Verify.Subst
+import ConLeche.Verify.InstList
+import ConLeche.Verify.AbstractRange
 
 /-!
 # The cached representation's syntactic operations are the pure ones
 
 Task #163, batch 3; rewritten at #172 B3a/B3b.  Every operation of
-`Lech/Cached/ExprOpsC.lean` — memoized, `Std.HashMap`-backed — is
-proved **equal to its `Lech.Expr` counterpart**.  These are the
+`ConLeche/Cached/ExprOpsC.lean` — memoized, `Std.HashMap`-backed — is
+proved **equal to its `ConLeche.Expr` counterpart**.  These are the
 transpositions of the arena twins' `*I_spec` theorems in
-`Lech/Verify/IExprOps.lean`: same case structure, no store, no
+`ConLeche/Verify/IExprOps.lean`: same case structure, no store, no
 `Ext`, no `TWF`.
 
 Two conjuncts each of these statements used to carry are gone: the
@@ -25,9 +25,9 @@ its key, and insert-preservation goes through
 a memo hit's key is only `BEq`-equal to the query.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
 namespace ExprC
 
@@ -869,7 +869,7 @@ exactly `abstractRange_eq_self` / its `abstract1` twin below, so the
 value is the same either way. -/
 
 /-- `Expr.abstract1` at or above a term's fvar range is the identity —
-the `abstract1` twin of `abstractRange_eq_self`, which `Lech/Verify`
+the `abstract1` twin of `abstractRange_eq_self`, which `ConLeche/Verify`
 has only for the bulk form. -/
 private theorem abstract1_eq_self : ∀ {e : Expr} {d k : Nat},
     Expr.fvarsBelow d e → e.abstract1 d k = e := by
@@ -1467,7 +1467,7 @@ theorem instLevelParams_spec {ks : List Name} {us : List Level} {e : ExprC} :
 /-- The executable projection-type instantiation is the spec's
 (`ProjEntry.typeAt`), value for value — the two memoized walks each
 equal their tree-walk spec. -/
-theorem _root_.Lech.ProjEntry.typeAtI_eq (entry : ProjEntry) (us : List Level)
+theorem _root_.ConLeche.ProjEntry.typeAtI_eq (entry : ProjEntry) (us : List Level)
     (targs : List ExprC) (pe : ExprC) :
     entry.typeAtI us targs pe = entry.typeAt us targs pe := by
   unfold ProjEntry.typeAtI ProjEntry.typeAt
@@ -1789,7 +1789,7 @@ The induction is the function's own measure `(as.length, acc.length)`. -/
 theorem piResidualAcc_spec :
     ∀ (as acc : List ExprC) (e : ExprC),
       OptEr (piResidualAcc acc e as)
-        (_root_.Lech.piResidual
+        (_root_.ConLeche.piResidual
           ((Expr.instantiateList e acc)) as)
   | [], acc, e => by
     rw [piResidualAcc.eq_def]
@@ -1800,11 +1800,11 @@ theorem piResidualAcc_spec :
       rw [piResidualAcc.eq_def]
       dsimp only
       rw [instList_forallE,
-        show _root_.Lech.piResidual
+        show _root_.ConLeche.piResidual
             (Expr.forallE ((Expr.instantiateList ty acc 0))
               ((Expr.instantiateList b acc 1)) m)
             (a :: as)
-          = _root_.Lech.piResidual
+          = _root_.ConLeche.piResidual
               (((Expr.instantiateList b acc 1)).instantiate1
                 a) as from rfl,
         ← Expr.instantiateList_cons]
@@ -1876,11 +1876,11 @@ decreasing_by
 
 theorem piResidual_spec {e : ExprC} {args : List ExprC} :
     OptEr (piResidual e args)
-      (_root_.Lech.piResidual e args) := by
+      (_root_.ConLeche.piResidual e args) := by
   have h := piResidualAcc_spec args [] e
   rw [Expr.instantiateList_nil] at h
   exact h
 
 end ExprC
 
-end Lech.Cached
+end ConLeche.Cached

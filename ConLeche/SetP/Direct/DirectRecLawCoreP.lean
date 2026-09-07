@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectRecLawKitP
+import ConLeche.SetP.Direct.DirectRecLawKitP
 
 /-!
 # The recursor rule's law, semantically (task #175 W4c, P3 module 6, part 18)
@@ -13,13 +13,13 @@ and the fields are points otherwise).  The application of the
 right-hand side is graded (`mkAppN_okP_of_lam`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
 universe w
@@ -257,4 +257,4 @@ theorem recLawCore {ℓ w nP nF : Nat} {rds ds : List (Nat × Nat × AVExpr)}
     · exact hxs_ok a h
     · exact hys_ok a (List.mem_of_mem_drop h)
 
-end Lech.SetP
+end ConLeche.SetP

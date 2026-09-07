@@ -1,7 +1,7 @@
 module
 public import Lean
-public meta import Lech.Kernel.Expr
-public meta import Lech.PinGen.Dump
+public meta import ConLeche.Kernel.Expr
+public meta import ConLeche.PinGen.Dump
 
 /-!
 # The generator for the pinned Nat-operation declarations
@@ -9,17 +9,17 @@ public meta import Lech.PinGen.Dump
 This module is the *computation* half of the pin machinery: it reads
 the pin-certified operations from a full-view toolchain environment and
 produces, per operation, the data the committed dump carries
-(`Lech/PinGen/Dump.lean`).  It is the successor of the offline
+(`ConLeche/PinGen/Dump.lean`).  It is the successor of the offline
 `scripts/GenDivModPins.lean` generator (task #47) and of the elab-time
 `#gen_natop_pins` command (task #53).
 
 **Task #176 moved the splice out of the checker's build.**  Until then
-`Lech/Kernel/NatOpPins.lean` invoked `#gen_natop_pins`, which loaded
-`Lech/PinGen/Certs.olean` BY NAME (`importModules` at
+`ConLeche/Kernel/NatOpPins.lean` invoked `#gen_natop_pins`, which loaded
+`ConLeche/PinGen/Certs.olean` BY NAME (`importModules` at
 `OLeanLevel.private` — the only way to see the certificate proofs from
 a `module`).  Loading an olean by name is not an import edge, Lake
-never ordered the two, and on a cold tree `lake build lech` failed
-with "object file '…/Lech/PinGen/Certs.olean' … does not exist".  Per
+never ordered the two, and on a cold tree `lake build con-leche` failed
+with "object file '…/ConLeche/PinGen/Certs.olean' … does not exist".  Per
 the user's ruling the pins are now a COMMITTED file written by the
 `natop-pins-export` executable (`PinDump.lean`), whose root *imports*
 the certificate library; `#gen_natop_pins` is gone and nothing in the
@@ -38,7 +38,7 @@ What `computeOp`/`computeDump` produce, per operation:
   checker compares the stream's definition value against the pin by
   *definitional equality*; mismatch declines.
 * per certificate, the *proof blob*: the proof of the corresponding
-  theorem from `Lech/PinGen/Certs.lean`, elaborated against the real
+  theorem from `ConLeche/PinGen/Certs.lean`, elaborated against the real
   toolchain prelude and made **self-contained** (task #113): every
   constant outside the operation's own dependency cone (and the
   guard-enforced ground/statement constants) is inlined, with
@@ -48,144 +48,144 @@ What `computeOp`/`computeDump` produce, per operation:
   cannot be justified this way is a **hard build error**.
 
 The corresponding *certificate statements* stay hand-pinned in
-`Lech/Kernel/Checker.lean` — they are the stable specification
+`ConLeche/Kernel/Checker.lean` — they are the stable specification
 interface; a toolchain bump regenerates pins and proofs, and the
 checker does not care as long as the statements still check.
 
 Each operation gets one pinned definition (`…DeclPin : Expr`) and one
 certificate-proof list (`…CertProofs : List Expr`), under the same
-names the vendored `Lech/Kernel/DivModPins.lean` used.
+names the vendored `ConLeche/Kernel/DivModPins.lean` used.
 
 The stream-prefix allowlists are extracted by
 `scripts/extract_natop_prefix.py` into `scripts/natop_prefix.json`
 (embedded below via `include_str`).
 
 Layering: this module depends on `Lean`, and since #176 the checker
-does not import it at all (`Lech/Kernel/NatOpPins.lean` reaches only
-`Lech/PinGen/Dump.lean`, the format module).  Its remaining in-tree
-consumers are the generator executable, `Lech/Kernel/TrustPins.lean`
+does not import it at all (`ConLeche/Kernel/NatOpPins.lean` reaches only
+`ConLeche/PinGen/Dump.lean`, the format module).  Its remaining in-tree
+consumers are the generator executable, `ConLeche/Kernel/TrustPins.lean`
 (`#gen_trust_pins`, which reads only the toolchain's `Init` and so
-needs no build ordering) and `Lech/Kernel/ZeroSetPin.lean`.  No
+needs no build ordering) and `ConLeche/Kernel/ZeroSetPin.lean`.  No
 checker runtime code may call into `Lean.*` APIs.
 -/
 
 public meta section
 
-namespace Lech.PinGen
+namespace ConLeche.PinGen
 
 open Lean
 
 /-! ## `ToExpr` instances for the checker's expression types
 
 `nameT`/`levelT`/`exprT` and the whole share-table emitter now live in
-`Lech/PinGen/Dump.lean`, the interchange format the committed dump
+`ConLeche/PinGen/Dump.lean`, the interchange format the committed dump
 and the loader both go through (task #176). -/
 
-def toExprName : Lech.Name → Lean.Expr
-  | .anonymous => .const ``Lech.Name.anonymous []
-  | .str p s => mkApp2 (.const ``Lech.Name.str []) (toExprName p) (mkStrLit s)
-  | .num p n => mkApp2 (.const ``Lech.Name.num []) (toExprName p) (mkRawNatLit n)
+def toExprName : ConLeche.Name → Lean.Expr
+  | .anonymous => .const ``ConLeche.Name.anonymous []
+  | .str p s => mkApp2 (.const ``ConLeche.Name.str []) (toExprName p) (mkStrLit s)
+  | .num p n => mkApp2 (.const ``ConLeche.Name.num []) (toExprName p) (mkRawNatLit n)
 
-instance : ToExpr Lech.Name where
+instance : ToExpr ConLeche.Name where
   toExpr := toExprName
   toTypeExpr := nameT
 
-def toExprLevel : Lech.Level → Lean.Expr
-  | .zero => .const ``Lech.Level.zero []
-  | .succ u => .app (.const ``Lech.Level.succ []) (toExprLevel u)
+def toExprLevel : ConLeche.Level → Lean.Expr
+  | .zero => .const ``ConLeche.Level.zero []
+  | .succ u => .app (.const ``ConLeche.Level.succ []) (toExprLevel u)
   | .max u v =>
-    mkApp2 (.const ``Lech.Level.max []) (toExprLevel u) (toExprLevel v)
+    mkApp2 (.const ``ConLeche.Level.max []) (toExprLevel u) (toExprLevel v)
   | .imax u v =>
-    mkApp2 (.const ``Lech.Level.imax []) (toExprLevel u) (toExprLevel v)
-  | .param n => .app (.const ``Lech.Level.param []) (toExpr n)
+    mkApp2 (.const ``ConLeche.Level.imax []) (toExprLevel u) (toExprLevel v)
+  | .param n => .app (.const ``ConLeche.Level.param []) (toExpr n)
 
-instance : ToExpr Lech.Level where
+instance : ToExpr ConLeche.Level where
   toExpr := toExprLevel
   toTypeExpr := levelT
 
-instance : ToExpr Lech.PropWhen where
+instance : ToExpr ConLeche.PropWhen where
   toExpr pw :=
     match pw.toList? with
-    | none => .const ``Lech.PropWhen.never []
-    | some ps => .app (.const ``Lech.PropWhen.ifAllZero []) (toExpr ps)
-  toTypeExpr := .const ``Lech.PropWhen []
+    | none => .const ``ConLeche.PropWhen.never []
+    | some ps => .app (.const ``ConLeche.PropWhen.ifAllZero []) (toExpr ps)
+  toTypeExpr := .const ``ConLeche.PropWhen []
 
-instance : ToExpr Lech.BinderMeta where
-  toExpr m := .app (.const ``Lech.BinderMeta.mk []) (toExpr m.pw)
-  toTypeExpr := .const ``Lech.BinderMeta []
+instance : ToExpr ConLeche.BinderMeta where
+  toExpr m := .app (.const ``ConLeche.BinderMeta.mk []) (toExpr m.pw)
+  toTypeExpr := .const ``ConLeche.BinderMeta []
 
-instance : ToExpr Lech.Literal where
+instance : ToExpr ConLeche.Literal where
   toExpr
     | .natVal n =>
-      .app (.const ``Lech.Literal.natVal []) (mkRawNatLit n)
+      .app (.const ``ConLeche.Literal.natVal []) (mkRawNatLit n)
     | .strVal s =>
-      .app (.const ``Lech.Literal.strVal []) (mkStrLit s)
-  toTypeExpr := .const ``Lech.Literal []
+      .app (.const ``ConLeche.Literal.strVal []) (mkStrLit s)
+  toTypeExpr := .const ``ConLeche.Literal []
 
-/-- Plain structural `ToExpr` for `Lech.Expr`.  Fine for small terms
+/-- Plain structural `ToExpr` for `ConLeche.Expr`.  Fine for small terms
 (the pinned statements); the *pins* are emitted through the sharing
 builder below, which represents every distinct subobject once. -/
-def toExprExpr : Lech.Expr → Lean.Expr
-  | .bvar i => .app (.const ``Lech.Expr.bvar []) (mkRawNatLit i)
+def toExprExpr : ConLeche.Expr → Lean.Expr
+  | .bvar i => .app (.const ``ConLeche.Expr.bvar []) (mkRawNatLit i)
   | .fvar idx ty =>
-    mkApp2 (.const ``Lech.Expr.fvar []) (mkRawNatLit idx) (toExprExpr ty)
-  | .sort u => .app (.const ``Lech.Expr.sort []) (toExpr u)
+    mkApp2 (.const ``ConLeche.Expr.fvar []) (mkRawNatLit idx) (toExprExpr ty)
+  | .sort u => .app (.const ``ConLeche.Expr.sort []) (toExpr u)
   | .const n us =>
-    mkApp2 (.const ``Lech.Expr.const []) (toExpr n) (toExpr us)
-  | .app f a => mkApp2 (.const ``Lech.Expr.app []) (toExprExpr f) (toExprExpr a)
+    mkApp2 (.const ``ConLeche.Expr.const []) (toExpr n) (toExpr us)
+  | .app f a => mkApp2 (.const ``ConLeche.Expr.app []) (toExprExpr f) (toExprExpr a)
   | .lam ty b m =>
-    mkApp3 (.const ``Lech.Expr.lam []) (toExprExpr ty) (toExprExpr b) (toExpr m)
+    mkApp3 (.const ``ConLeche.Expr.lam []) (toExprExpr ty) (toExprExpr b) (toExpr m)
   | .forallE ty b m =>
-    mkApp3 (.const ``Lech.Expr.forallE []) (toExprExpr ty) (toExprExpr b)
+    mkApp3 (.const ``ConLeche.Expr.forallE []) (toExprExpr ty) (toExprExpr b)
       (toExpr m)
   | .letE ty v b =>
-    mkApp3 (.const ``Lech.Expr.letE []) (toExprExpr ty) (toExprExpr v)
+    mkApp3 (.const ``ConLeche.Expr.letE []) (toExprExpr ty) (toExprExpr v)
       (toExprExpr b)
-  | .lit l => .app (.const ``Lech.Expr.lit []) (toExpr l)
+  | .lit l => .app (.const ``ConLeche.Expr.lit []) (toExpr l)
   | .proj s i e =>
-    mkApp3 (.const ``Lech.Expr.proj []) (toExpr s) (mkRawNatLit i)
+    mkApp3 (.const ``ConLeche.Expr.proj []) (toExpr s) (mkRawNatLit i)
       (toExprExpr e)
 
-instance : ToExpr Lech.Expr where
+instance : ToExpr ConLeche.Expr where
   toExpr := toExprExpr
   toTypeExpr := exprT
 
-/-! ## Conversion `Lean.Expr` → `Lech.Expr` -/
+/-! ## Conversion `Lean.Expr` → `ConLeche.Expr` -/
 
-def toLechName : Lean.Name → Lech.Name := Lech.Name.ofLeanName
+def toConLecheName : Lean.Name → ConLeche.Name := ConLeche.Name.ofLeanName
 
-partial def toLechLevel : Lean.Level → Except String Lech.Level
+partial def toConLecheLevel : Lean.Level → Except String ConLeche.Level
   | .zero => .ok .zero
-  | .succ u => .succ <$> toLechLevel u
-  | .max u v => Lech.Level.max <$> toLechLevel u <*> toLechLevel v
-  | .imax u v => Lech.Level.imax <$> toLechLevel u <*> toLechLevel v
-  | .param n => .ok (.param (toLechName n))
+  | .succ u => .succ <$> toConLecheLevel u
+  | .max u v => ConLeche.Level.max <$> toConLecheLevel u <*> toConLecheLevel v
+  | .imax u v => ConLeche.Level.imax <$> toConLecheLevel u <*> toConLecheLevel v
+  | .param n => .ok (.param (toConLecheName n))
   | .mvar _ => .error "level mvar"
 
 /-- Conversion; `letE` is zeta-expanded (pins are compared by
 definitional equality, and let-free pins keep the pin machinery
 independent of the kernel's letE rules), `mdata` stripped, binder
 metadata carries only the display info (task #100: annotation-free). -/
-partial def toLech : Lean.Expr → Except String Lech.Expr
+partial def toConLeche : Lean.Expr → Except String ConLeche.Expr
   | .bvar i => .ok (.bvar i)
-  | .sort u => (Lech.Expr.sort ·) <$> toLechLevel u
+  | .sort u => (ConLeche.Expr.sort ·) <$> toConLecheLevel u
   | .const c us => do
-    .ok (.const (toLechName c) (← us.mapM toLechLevel))
-  | .app f a => Lech.Expr.app <$> toLech f <*> toLech a
+    .ok (.const (toConLecheName c) (← us.mapM toConLecheLevel))
+  | .app f a => ConLeche.Expr.app <$> toConLeche f <*> toConLeche a
   | .lam _ ty b _ => do
     -- pw: parse-default placeholder at P1; the P2 generator computes
     -- the codomain prop-ness from the host elaborator (task #161);
     -- name and binder info: the checker's single normal form
     -- (`.anonymous`, `.default` — task #203, as the frontend strips
     -- a stream and the pin builder emits the hand-written pins)
-    .ok (.lam (← toLech ty) (← toLech b) ⟨.never⟩)
+    .ok (.lam (← toConLeche ty) (← toConLeche b) ⟨.never⟩)
   | .forallE _ ty b _ => do
-    .ok (.forallE (← toLech ty) (← toLech b) ⟨.never⟩)
-  | .letE _ _ v b _ => toLech (b.instantiate1 v)
+    .ok (.forallE (← toConLeche ty) (← toConLeche b) ⟨.never⟩)
+  | .letE _ _ v b _ => toConLeche (b.instantiate1 v)
   | .lit (.natVal n) => .ok (.lit (.natVal n))
   | .lit (.strVal s) => .ok (.lit (.strVal s))
-  | .mdata _ e => toLech e
-  | .proj s i e => (Lech.Expr.proj (toLechName s) i ·) <$> toLech e
+  | .mdata _ e => toConLeche e
+  | .proj s i e => (ConLeche.Expr.proj (toConLecheName s) i ·) <$> toConLeche e
   | .fvar _ => .error "fvar in closed term"
   | .mvar _ => .error "mvar in closed term"
 
@@ -340,7 +340,7 @@ def checkConsts (what : String) (allowed : Lean.Name → Bool)
 
 /-! ## The sharing builder
 
-Moved to `Lech/PinGen/Dump.lean` at task #176 — the share table IS
+Moved to `ConLeche/PinGen/Dump.lean` at task #176 — the share table IS
 the interchange format, so `ShareSt`/`blobOf`/`buildExprValue` belong
 with the entries they build and with the loader that rebuilds them.
 -/
@@ -363,55 +363,55 @@ structure OpSpec where
   /-- Helper-name prefixes to delta-unfold into the pin. -/
   helperPrefixes : List Lean.Name
   /-- Certificate proofs: generator theorem names, in the order of the
-  hand-pinned statements (`Lech/Kernel/Checker.lean`). -/
+  hand-pinned statements (`ConLeche/Kernel/Checker.lean`). -/
   certs : List Lean.Name
   /-- Guard-enforced ground operations, mirroring `natOpDeps` in
-  `Lech/Kernel/Core.lean` (`Core` is a classic library, out of reach
+  `ConLeche/Kernel/Core.lean` (`Core` is a classic library, out of reach
   of this `module`): the install's `divModEnvGuard` requires each of
   these stored, so they may stay residual in the certificate proofs
   even outside the operation's own dependency cone. -/
   groundOps : List Lean.Name
 
 def opSpecs : List OpSpec :=
-  [{ op := `Nat.mod, pinName := `Lech.natModDeclPin,
-     proofsName := `Lech.natModCertProofs,
+  [{ op := `Nat.mod, pinName := `ConLeche.natModDeclPin,
+     proofsName := `ConLeche.natModCertProofs,
      helperPrefixes := [`Nat.div, `Nat.mod, `Nat.modCore, `Nat.divCore],
-     certs := [`Lech.PinGen.modRecCert, `Lech.PinGen.modBaseGtCert, `Lech.PinGen.modBaseZeroCert],
+     certs := [`ConLeche.PinGen.modRecCert, `ConLeche.PinGen.modBaseGtCert, `ConLeche.PinGen.modBaseZeroCert],
      groundOps := [`Nat.pred, `Nat.sub, `Nat.ble, `Nat.mod] },
-   { op := `Nat.div, pinName := `Lech.natDivDeclPin,
-     proofsName := `Lech.natDivCertProofs,
+   { op := `Nat.div, pinName := `ConLeche.natDivDeclPin,
+     proofsName := `ConLeche.natDivCertProofs,
      helperPrefixes := [`Nat.div, `Nat.mod, `Nat.modCore, `Nat.divCore],
-     certs := [`Lech.PinGen.divRecCert, `Lech.PinGen.divBaseGtCert, `Lech.PinGen.divBaseZeroCert],
+     certs := [`ConLeche.PinGen.divRecCert, `ConLeche.PinGen.divBaseGtCert, `ConLeche.PinGen.divBaseZeroCert],
      groundOps := [`Nat.pred, `Nat.sub, `Nat.ble, `Nat.div] },
-   { op := `Nat.gcd, pinName := `Lech.natGcdDeclPin,
-     proofsName := `Lech.natGcdCertProofs,
+   { op := `Nat.gcd, pinName := `ConLeche.natGcdDeclPin,
+     proofsName := `ConLeche.natGcdCertProofs,
      helperPrefixes := [`Nat.gcd],
-     certs := [`Lech.PinGen.gcdRecCert, `Lech.PinGen.gcdBaseCert],
+     certs := [`ConLeche.PinGen.gcdRecCert, `ConLeche.PinGen.gcdBaseCert],
      groundOps := [`Nat.ble, `Nat.mod, `Nat.gcd] },
-   { op := `Nat.shiftLeft, pinName := `Lech.natShiftLeftDeclPin,
-     proofsName := `Lech.natShiftLeftCertProofs,
+   { op := `Nat.shiftLeft, pinName := `ConLeche.natShiftLeftDeclPin,
+     proofsName := `ConLeche.natShiftLeftCertProofs,
      helperPrefixes := [`Nat.shiftLeft],
-     certs := [`Lech.PinGen.shiftLeftRecCert, `Lech.PinGen.shiftLeftBaseCert],
+     certs := [`ConLeche.PinGen.shiftLeftRecCert, `ConLeche.PinGen.shiftLeftBaseCert],
      groundOps := [`Nat.sub, `Nat.mul, `Nat.ble, `Nat.shiftLeft] },
-   { op := `Nat.shiftRight, pinName := `Lech.natShiftRightDeclPin,
-     proofsName := `Lech.natShiftRightCertProofs,
+   { op := `Nat.shiftRight, pinName := `ConLeche.natShiftRightDeclPin,
+     proofsName := `ConLeche.natShiftRightCertProofs,
      helperPrefixes := [`Nat.shiftRight],
-     certs := [`Lech.PinGen.shiftRightRecCert, `Lech.PinGen.shiftRightBaseCert],
+     certs := [`ConLeche.PinGen.shiftRightRecCert, `ConLeche.PinGen.shiftRightBaseCert],
      groundOps := [`Nat.sub, `Nat.ble, `Nat.div, `Nat.shiftRight] },
-   { op := `Nat.land, pinName := `Lech.natLandDeclPin,
-     proofsName := `Lech.natLandCertProofs,
+   { op := `Nat.land, pinName := `ConLeche.natLandDeclPin,
+     proofsName := `ConLeche.natLandCertProofs,
      helperPrefixes := [`Nat.land],
-     certs := [`Lech.PinGen.landRecCert, `Lech.PinGen.landBaseCert],
+     certs := [`ConLeche.PinGen.landRecCert, `ConLeche.PinGen.landBaseCert],
      groundOps := [`Nat.add, `Nat.mul, `Nat.ble, `Nat.div, `Nat.mod, `Nat.land] },
-   { op := `Nat.lor, pinName := `Lech.natLorDeclPin,
-     proofsName := `Lech.natLorCertProofs,
+   { op := `Nat.lor, pinName := `ConLeche.natLorDeclPin,
+     proofsName := `ConLeche.natLorCertProofs,
      helperPrefixes := [`Nat.lor],
-     certs := [`Lech.PinGen.lorRecCert, `Lech.PinGen.lorBaseCert],
+     certs := [`ConLeche.PinGen.lorRecCert, `ConLeche.PinGen.lorBaseCert],
      groundOps := [`Nat.add, `Nat.sub, `Nat.mul, `Nat.ble, `Nat.div, `Nat.mod, `Nat.lor] },
-   { op := `Nat.xor, pinName := `Lech.natXorDeclPin,
-     proofsName := `Lech.natXorCertProofs,
+   { op := `Nat.xor, pinName := `ConLeche.natXorDeclPin,
+     proofsName := `ConLeche.natXorCertProofs,
      helperPrefixes := [`Nat.xor],
-     certs := [`Lech.PinGen.xorRecCert, `Lech.PinGen.xorBaseCert],
+     certs := [`ConLeche.PinGen.xorRecCert, `ConLeche.PinGen.xorBaseCert],
      groundOps := [`Nat.add, `Nat.mul, `Nat.ble, `Nat.div, `Nat.mod, `Nat.xor] }]
 
 /-! ## The generator command -/
@@ -431,8 +431,8 @@ def toolchainString : String :=
 /-- Parse the stream-prefix allowlists.  Deliberately a *function* (of
 the JSON text), not a closed `def`: a 0-ary definition is evaluated in
 the module initializer, and this module's object code is still linked
-into the `lech` executable — through the `meta import` in
-`Lech/Kernel/TrustPins.lean` since #176 moved `NatOpPins` off it —
+into the `con-leche` executable — through the `meta import` in
+`ConLeche/Kernel/TrustPins.lean` since #176 moved `NatOpPins` off it —
 so a closed parse of the 1.96 MB embed would cost ~0.26 G instructions
 at every process start (twice, under the OOM supervisor re-exec).  As a
 function it runs only when the generator asks, at export time (the
@@ -460,7 +460,7 @@ def isHelper (env : Environment) (spec : OpSpec) (c : Lean.Name) :
 /-- Compute one operation's pin and certificate proofs from the
 compiling environment (no splicing). -/
 def computeOp (prefixes : Std.HashMap String (List String)) (spec : OpSpec) :
-    MetaM (Lech.Expr × List Lech.Expr) := do
+    MetaM (ConLeche.Expr × List ConLeche.Expr) := do
   let env ← getEnv
   let some allowedList := prefixes[spec.op.toString]? |
     throwError "no stream prefix for {spec.op} in scripts/natop_prefix.json"
@@ -475,7 +475,7 @@ def computeOp (prefixes : Std.HashMap String (List String)) (spec : OpSpec) :
   let pin ← unfoldFix (isHelper env spec) v.value
   let pin ← inlineClosure allowed pin
   checkConsts s!"pin {spec.op}" allowed pin
-  let pinS ← match toLech pin with
+  let pinS ← match toConLeche pin with
     | .ok e => pure e
     | .error m => throwError "pin conversion ({spec.op}): {m}"
   -- the certificate proofs, closed over the operation's own
@@ -488,29 +488,29 @@ def computeOp (prefixes : Std.HashMap String (List String)) (spec : OpSpec) :
   let certAllowed := fun c =>
     !eqCompilerInternal c &&
     (c == spec.op || groundSet.contains c || cone.contains c)
-  let mut proofsS : List Lech.Expr := []
+  let mut proofsS : List ConLeche.Expr := []
   for thmName in spec.certs do
     let some ci := env.find? thmName | throwError "{thmName} missing"
     let some pf := ci.value? (allowOpaque := true) |
       throwError "{thmName} has no value"
     let pf ← inlineCertClosure certAllowed pf
     checkConsts s!"certificate proof {thmName}" certAllowed pf
-    match toLech pf with
+    match toConLeche pf with
     | .ok e => proofsS := proofsS ++ [e]
     | .error m => throwError "proof conversion ({thmName}): {m}"
   return (pinS, proofsS)
 
 /-! ## The dump generator (task #176)
 
-The splice used to happen here, while `Lech/Kernel/NatOpPins.lean`
+The splice used to happen here, while `ConLeche/Kernel/NatOpPins.lean`
 elaborated, over an environment obtained by loading
-`Lech/PinGen/Certs.olean` **by name**.  That is not an import edge,
-so Lake never ordered the two and a cold `lake build lech` failed on
+`ConLeche/PinGen/Certs.olean` **by name**.  That is not an import edge,
+so Lake never ordered the two and a cold `lake build con-leche` failed on
 a missing `Certs.olean`.  Per the user's ruling the pins are now a
 committed file: this module only *computes* them (into the interchange
-format of `Lech/PinGen/Dump.lean`), the `natop-pins-export`
+format of `ConLeche/PinGen/Dump.lean`), the `natop-pins-export`
 executable (`PinDump.lean`) writes them, and the checker-side loader in
-`Lech/Kernel/NatOpPins.lean` splices the committed dump with no
+`ConLeche/Kernel/NatOpPins.lean` splices the committed dump with no
 dependency on the certificate library at all.
 
 The computation still runs in a dedicated full-view environment
@@ -519,16 +519,16 @@ theorem *proofs* must be visible, and a `module`'s ambient environment
 strips imported proofs. -/
 
 /-- Compute the whole pin dump.  `Lean.initSearchPath` must have run
-(the executable's `main` does it); `Lech.PinGen.Certs` is an import
+(the executable's `main` does it); `ConLeche.PinGen.Certs` is an import
 of the generator executable, so Lake has built its olean by the time
 this runs. -/
-def computeOps : IO (Environment × Array (OpSpec × Lech.Expr × List Lech.Expr)) := do
+def computeOps : IO (Environment × Array (OpSpec × ConLeche.Expr × List ConLeche.Expr)) := do
   let prefixes ← match loadPrefixes natopPrefixJson with
     | .ok m => pure m
     | .error e => throw (IO.userError s!"bad scripts/natop_prefix.json: {e}")
   let genEnv ← importModules (loadExts := false) (level := .private)
-    #[{module := `Init}, {module := `Lech.PinGen.Certs}] {} 0
-  let mut results : Array (OpSpec × Lech.Expr × List Lech.Expr) := #[]
+    #[{module := `Init}, {module := `ConLeche.PinGen.Certs}] {} 0
+  let mut results : Array (OpSpec × ConLeche.Expr × List ConLeche.Expr) := #[]
   for spec in opSpecs do
     let (r, _, _) ←
       try
@@ -542,10 +542,10 @@ def computeOps : IO (Environment × Array (OpSpec × Lech.Expr × List Lech.Expr
   return (genEnv, results)
 
 /-- The dump's per-operation half, from `computeOps`' results.  The
-prelude half (task #191) is computed by `Lech/PinGen/Prelude.lean`,
+prelude half (task #191) is computed by `ConLeche/PinGen/Prelude.lean`,
 which sits above this module; `computeDumpAndPrelude` there assembles
 the whole file. -/
-def opDumpsOf (results : Array (OpSpec × Lech.Expr × List Lech.Expr)) :
+def opDumpsOf (results : Array (OpSpec × ConLeche.Expr × List ConLeche.Expr)) :
     Array PinOpDump :=
   results.map fun (spec, pin, proofs) => {
     op := spec.op.toString
@@ -565,12 +565,12 @@ removes).  Compared by definitional equality at install
 
 /-- `(toolchain opaque, generated pin name)`. -/
 def trustOpSpecs : List (Lean.Name × Lean.Name) :=
-  [(`Lean.reduceNat, `Lech.reduceNatDeclPin),
-   (`Lean.reduceBool, `Lech.reduceBoolDeclPin)]
+  [(`Lean.reduceNat, `ConLeche.reduceNatDeclPin),
+   (`Lean.reduceBool, `ConLeche.reduceBoolDeclPin)]
 
 /-- Read one reduce operation's opaque value from the compiling
 environment and convert it. -/
-def computeTrustOp (op : Lean.Name) : MetaM Lech.Expr := do
+def computeTrustOp (op : Lean.Name) : MetaM ConLeche.Expr := do
   let env ← getEnv
   let some ci := env.find? op |
     throwError "{op} is absent from the compiling environment"
@@ -579,15 +579,15 @@ def computeTrustOp (op : Lean.Name) : MetaM Lech.Expr := do
   checkConsts s!"trust pin {op}"
     (fun c => c == `Nat || c == `Bool || c == `True ||
       c == `Lean.trustCompiler) v
-  match toLech v with
+  match toConLeche v with
   | .ok e => return e
   | .error m => throwError "trust pin conversion ({op}): {m}"
 
-/-- Generate the compiler-trust pins (see `Lech/Kernel/TrustPins.lean`). -/
+/-- Generate the compiler-trust pins (see `ConLeche/Kernel/TrustPins.lean`). -/
 elab "#gen_trust_pins" : command => do
   let genEnv ← importModules (loadExts := false) (level := .private)
     #[{module := `Init}] {} 0
-  let mut results : List (Lean.Name × Lech.Expr) := []
+  let mut results : List (Lean.Name × ConLeche.Expr) := []
   let opts ← getOptions
   for (op, pinName) in trustOpSpecs do
     let (r, _, _) ←
@@ -607,4 +607,4 @@ elab "#gen_trust_pins" : command => do
       addDecl pinDecl
       compileDecl pinDecl
 
-end Lech.PinGen
+end ConLeche.PinGen

@@ -1,7 +1,7 @@
 --#export w1
 /-! Task #201 witness (DESIGN.md "THE BINDER ARMS OPEN ONE LOCAL"): the
 official kernel's `is_def_eq_binding` instantiates BOTH bodies with ONE
-fresh local (`type_checker.cpp:738`); lech's binder arms used to open
+fresh local (`type_checker.cpp:738`); con-leche's binder arms used to open
 each body with its own `.fvar depth nᵢ tyᵢ`, so two bodies that are the
 same term up to the bound variable's display name/domain spelling were
 not `==`, and the comparison fell into `whnfCore` — whose projection

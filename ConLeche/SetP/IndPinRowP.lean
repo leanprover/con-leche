@@ -1,5 +1,5 @@
-import Lech.SetP.IndNestedParamP
-import Lech.SetP.Annot.Bit
+import ConLeche.SetP.IndNestedParamP
+import ConLeche.SetP.Annot.Bit
 
 /-!
 # `RecRuleLawP`'s pin conjunct, produced (task #161, IND TIER part 9)
@@ -24,13 +24,13 @@ Three suppliers meet here, and none of them is routed:
   `nestedPinGradeP`'s certificate premise is guarded by.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name isDefEqCore inferTypeCore
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name isDefEqCore inferTypeCore
   TypedListOk)
 
 universe w
@@ -169,4 +169,4 @@ theorem nestedPinRowP {m : EnvS2Core V env} {F : Nat}
   obtain rfl : w1 = w2 := Option.some.inj (hw1.symm.trans hw2)
   exact hokw2
 
-end Lech.SetP
+end ConLeche.SetP

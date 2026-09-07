@@ -1,11 +1,11 @@
-import Lech.Semantics.Ok2
-import Lech.SetModel.TupleTower
+import ConLeche.Semantics.Ok2
+import ConLeche.SetModel.TupleTower
 
 /-!
 # The telescope introduction: `TeleS` from an interpreted binder chain
 (task #175, stage 1)
 
-The tuple tier (`Lech/SetBase/TupleTower.lean`) states its laws over
+The tuple tier (`ConLeche/SetBase/TupleTower.lean`) states its laws over
 an abstract dependent telescope `TeleS V n`.  A checked
 direct-structure block does not hand the install a `TeleS` — it hands
 a list of **annotated field domains** (`Fs : List AVExpr`, the
@@ -50,11 +50,11 @@ graph instantiations, the proof-field legality (`infer_proj`'s Prop
 restriction, semantically) at squash ones.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -275,4 +275,4 @@ theorem towerSet_zero_univZero_teleOfFields {Fs : List AVExpr}
     towerSet 0 (teleOfFields ρ Fs) ∈ˢ (univZero : V) :=
   towerSet_zero_mem_univZero _
 
-end Lech.Semantics
+end ConLeche.Semantics

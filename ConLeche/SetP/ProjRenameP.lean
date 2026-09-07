@@ -1,5 +1,5 @@
-import Lech.SetP.IndRecsP
-import Lech.Semantics.ProjPhase
+import ConLeche.SetP.IndRecsP
+import ConLeche.Semantics.ProjPhase
 
 /-!
 # The projection phase's renaming and valuation invariant, P tier
@@ -18,13 +18,13 @@ clauses are *literally* v1's (`RenameOkP` and `RenameOkT` share them),
 and only the valuation clause is re-proved at the annotated valuation.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps projFnName projModelName projFwd ReducibilityHint)
 
 universe w
@@ -116,9 +116,9 @@ theorem projPhaseAcvalP_cons {T ctorName : Name} {nF : Nat}
     rw [hh, hfresh] at hn
     exact nomatch hn
   have hmodelNeP : ∀ j : Nat, projModelName T j ≠ projFnName T i :=
-    fun j hh => Lech.Name.num_ne_str _ _ _ _ hh.symm
+    fun j hh => ConLeche.Name.num_ne_str _ _ _ _ hh.symm
   have hstrNeP : ∀ n : Name, n.str "_model" ≠ projFnName T i :=
-    fun n hh => Lech.Name.num_ne_str _ _ _ _ hh.symm
+    fun n hh => ConLeche.Name.num_ne_str _ _ _ _ hh.symm
   have hne : ∀ n : Name, n ≠ projFnName T i → n ≠ c₀.name :=
     fun n hn hh => hn (by rw [hh, hname])
   have hdown : ∀ n : Name, n ≠ projFnName T i →
@@ -144,12 +144,12 @@ theorem projPhaseAcvalP_cons {T ctorName : Name} {nF : Nat}
       exact hself ψ
     · have hjneP : projFnName T j ≠ projFnName T i := by
         intro hh
-        have hh2 : Lech.Name.num (T.str "proj") j
-          = Lech.Name.num (T.str "proj") i := hh
+        have hh2 : ConLeche.Name.num (T.str "proj") j
+          = ConLeche.Name.num (T.str "proj") i := hh
         injection hh2 with _hp hij
         exact hji hij
       rw [acvalWith_ne (hne _ hjneP),
         acvalWith_ne (hne _ (hmodelNeP j))]
       exact hinvA.2.2 j hj (hdown _ hjneP hP) ψ
 
-end Lech.SetP
+end ConLeche.SetP

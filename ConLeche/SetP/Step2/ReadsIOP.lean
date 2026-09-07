@@ -1,6 +1,6 @@
-import Lech.SetP.Step2.ReadsP
-import Lech.SetP.Step2.TowerKitP
-import Lech.SetP.Step2.InferIOP
+import ConLeche.SetP.Step2.ReadsP
+import ConLeche.SetP.Step2.TowerKitP
+import ConLeche.SetP.Step2.InferIOP
 
 /-!
 # The io reads walk — `InferReadsIOP` DISCHARGED (task #172, batch B3)
@@ -65,13 +65,13 @@ bundle the full walk takes, no io-graded input added — which is the
 statement `InferInputsIOP.infer_reads_io` wants.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level whnf whnfCore inferTypeCore
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level whnf whnfCore inferTypeCore
   inferTypeCoreIO)
 
 universe w
@@ -90,12 +90,12 @@ which reads unconditionally.  The two recursive runs (the domain's
 inference, the codomain's) are discarded — a sort node's reading needs
 no induction hypothesis. -/
 private theorem inferReadsIO_forallE {m : EnvS2Core V env}
-    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : ConLeche.BinderMeta}
     (h : inferTypeCoreIO μ env (fuel + 1) d (.forallE ty body mb)
       = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨-, -, -, -, -, -, -, -, -, rfl⟩ :=
-    Lech.inferTypeCoreIO_forall_inv h
+    ConLeche.inferTypeCoreIO_forall_inv h
   exact ⟨_, denoteP_sortQ⟩
 
 /-- `.lam`, io lane: the copied ∀-type, exactly as in the full lane.
@@ -106,7 +106,7 @@ io induction hypothesis at the opened body, transported across the
 rather than the full lane's. -/
 private theorem inferReadsIO_lam {m : EnvS2Core V env}
     (ihi : InferReadsIOP m μ φ fuel)
-    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : ConLeche.BinderMeta}
     {ea : AVExpr}
     (h : inferTypeCoreIO μ env (fuel + 1) d (.lam ty body mb) = .ok t)
     (hws : Expr.WScoped d (.lam ty body mb))
@@ -116,7 +116,7 @@ private theorem inferReadsIO_lam {m : EnvS2Core V env}
     (hea : denoteP m.acval env φ d (.lam ty body mb) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨bt, hbt, -, -, rfl⟩ :=
-    Lech.inferTypeCoreIO_lam_inv h
+    ConLeche.inferTypeCoreIO_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLty : Expr.LeavesBounded ty := fun l hl =>
@@ -176,7 +176,7 @@ private theorem inferReadsIO_app {m : EnvS2Core V env}
     (hea : denoteP m.acval env φ d (.app f a) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨tf, ty', body', mt', hif, hwf, rfl, -⟩ :=
-    Lech.inferTypeCoreIO_app_inv h
+    ConLeche.inferTypeCoreIO_app_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLf : Expr.LeavesBounded f := fun l hl =>
@@ -199,7 +199,7 @@ private theorem inferReadsIO_app {m : EnvS2Core V env}
       (inferTypeCoreIO_fvarLeaves m.wf fuel hif hws.1)) htfa
   obtain ⟨-, b'a, -, hb'a, -⟩ := denoteP_forallE_inv hwa
   have hwW : Expr.WScoped d (.forallE ty' body' mt') :=
-    Lech.whnf_WScoped m.wf fuel hwf hwtf
+    ConLeche.whnf_WScoped m.wf fuel hwf hwtf
   simp only [Expr.WScoped] at hwW
   refine ⟨b'a.inst aa, ?_⟩
   rw [denoteP_beta m.acval_closed (acval_inst_self m)
@@ -222,7 +222,7 @@ private theorem inferReadsIO_letE {m : EnvS2Core V env}
     (hea : denoteP m.acval env φ d (.letE tt vv bb) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨-, -, -, -, -, -, -, hbody⟩ :=
-    Lech.inferTypeCoreIO_letE_inv h
+    ConLeche.inferTypeCoreIO_letE_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   rw [denoteP] at hea
@@ -265,7 +265,7 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
     (hea : denoteP m.acval env φ d (.proj sn i pe) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hlenArgs,
-    hlenUs, -, rfl, hsn⟩ := Lech.inferTypeCoreIO_proj_inv h
+    hlenUs, -, rfl, hsn⟩ := ConLeche.inferTypeCoreIO_proj_inv h
   subst hsn
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
@@ -284,11 +284,11 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
   obtain ⟨tea, htea⟩ := ihw hwte hwtpe hbtpe hLtpe
     (hlrpe.of_subset
       (inferTypeCoreIO_fvarLeaves m.wf fuel htpe hws)) htpea
-  have hwte' : Expr.WScoped d te := Lech.whnf_WScoped m.wf fuel hwte hwtpe
+  have hwte' : Expr.WScoped d te := ConLeche.whnf_WScoped m.wf fuel hwte hwtpe
   have hbte : te.looseBVarsBounded 0 = true :=
-    Lech.whnf_looseBVars m.wf fuel hwte hbtpe
+    ConLeche.whnf_looseBVars m.wf fuel hwte hbtpe
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
-    (Lech.Expr.mkAppN_getApp te).symm] at htea
+    (ConLeche.Expr.mkAppN_getApp te).symm] at htea
   obtain ⟨-, vs, -, hspt, -⟩ := denoteP_mkAppN_inv htea
   obtain ⟨-, -, -, -, -, _, -, -, hlaw, -⟩ := htower T i entry hfe
   obtain ⟨⟨Ta, hTa, -⟩, -⟩ := hlaw us hlenUs
@@ -297,7 +297,7 @@ private theorem inferReadsIO_proj {m : EnvS2Core V env}
     intro x hx
     rcases List.mem_append.mp hx with hx' | hx'
     · exact ⟨hwte'.getAppArgs x hx',
-        Lech.looseBVarsBounded_getAppArgs hbte x hx'⟩
+        ConLeche.looseBVarsBounded_getAppArgs hbte x hx'⟩
     · rcases List.mem_singleton.mp hx' with rfl
       exact ⟨hws, hb⟩
   obtain ⟨restA, hrest, -⟩ :=
@@ -317,20 +317,20 @@ theorem inferReadsIOP_succ {m : EnvS2Core V env}
   intro d e t ea h hws hb hLb hlr hea
   match e with
   | .sort u =>
-    rw [Lech.inferTypeCoreIO_sort_eq] at h
+    rw [ConLeche.inferTypeCoreIO_sort_eq] at h
     exact inferReads_sort h
   | .bvar i => rw [denoteP_bvar] at hea; exact nomatch hea
   | .fvar idx ty =>
-    rw [Lech.inferTypeCoreIO_fvar_eq] at h
+    rw [ConLeche.inferTypeCoreIO_fvar_eq] at h
     exact inferReads_fvar h hlr
   | .const n us =>
-    rw [Lech.inferTypeCoreIO_const_eq] at h
+    rw [ConLeche.inferTypeCoreIO_const_eq] at h
     exact inferReads_const hct h hea
   | .lit (.natVal k) =>
-    rw [Lech.inferTypeCoreIO_lit_eq] at h
+    rw [ConLeche.inferTypeCoreIO_lit_eq] at h
     exact inferReads_natLit h
   | .lit (.strVal s) =>
-    rw [Lech.inferTypeCoreIO_lit_eq] at h
+    rw [ConLeche.inferTypeCoreIO_lit_eq] at h
     exact inferReads_strLit h
   | .forallE ty body mb => exact inferReadsIO_forallE h
   | .lam ty body mb =>
@@ -346,7 +346,7 @@ vacuous. -/
 theorem inferReadsIOP_zero (m : EnvS2Core V env) :
     InferReadsIOP m μ φ 0 := by
   intro d e t ea h
-  rw [Lech.inferTypeCoreIO_zero] at h
+  rw [ConLeche.inferTypeCoreIO_zero] at h
   simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-! ## The joint walk, at every fuel (task #172 B4)
@@ -418,4 +418,4 @@ theorem denotePDeltaP_of {m : EnvS2Core V env}
     (hin : ReadsInputsP μ m φ) : DenotePDeltaP m φ :=
   denotePDeltaP_of_fields m hin.defn
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,27 +1,27 @@
-import Lech.SetP.DirectFix.FixRecReadDefsP
-import Lech.SetP.DirectFix.FixRealChainsP
-import Lech.SetP.DirectSum.SumRecFramesP
-import Lech.Semantics.Tower.FixSquashI
+import ConLeche.SetP.DirectFix.FixRecReadDefsP
+import ConLeche.SetP.DirectFix.FixRealChainsP
+import ConLeche.SetP.DirectSum.SumRecFramesP
+import ConLeche.Semantics.Tower.FixSquashI
 
 /-!
 # The recursive recursor's K-frames, part 1: the ih tower read (task #188)
 
 The inductive-hypothesis binders of a minor (`ihPisAV`,
 `FixRecReadDefsP.lean`) read, at a field frame over the K-frame, to
-the ih tower `ihSpL` (`Lech/Semantics/Tower/FixCaseI.lean`) over the
+the ih tower `ihSpL` (`ConLeche/Semantics/Tower/FixCaseI.lean`) over the
 ih domains `ihDomsI` — the motive at the recursive field's index
 readings and the field.  With it, a recursive minor's reading is the
 minor space with ih-extended conclusions (`interp_minorSpI_of_tele`
 with the ih tower as the conclusion).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -31,8 +31,8 @@ variable {V : Type w} [SetTheory V]
 
 omit [SetTheory V] in
 /-- The kernel's recursive-position list is the semantic one. -/
-theorem recIdx_rsOf (ks : List RecFieldKind) : recIdx (rsOf ks) ks.length = Lech.recIdxOf ks := by
-  unfold recIdx Lech.recIdxOf
+theorem recIdx_rsOf (ks : List RecFieldKind) : recIdx (rsOf ks) ks.length = ConLeche.recIdxOf ks := by
+  unfold recIdx ConLeche.recIdxOf
   apply List.filter_congr
   intro i hi
   rw [List.mem_range] at hi
@@ -95,7 +95,7 @@ theorem interp_ihDomAV {ℓ nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List
             ((Eis.map (interp2 V (consList as (consList (fs.take i) ρp)))).foldl SetTheory.app M)
             (as.foldl SetTheory.app (fs.getD i pt))) [] := by
   unfold ihDomAV
-  rw [Lech.Semantics.interp_mkPisAV_piTele (v := ℓ) (acc := [])
+  rw [ConLeche.Semantics.interp_mkPisAV_piTele (v := ℓ) (acc := [])
     (B := fun as => SetTheory.app
       ((Eis.map (interp2 V (consList as (consList (fs.take i) ρp)))).foldl SetTheory.app M)
       (as.foldl SetTheory.app (fs.getD i pt)))]
@@ -149,4 +149,4 @@ theorem interp_ihPisAV {ℓ b nF o : Nat} (hbz : ℓ = 0 ↔ b = 0) {ρp : Nat �
     intro ihs' hl
     exact hbody ihs' (by rw [hl, List.length_cons]; omega)
 
-end Lech.SetP
+end ConLeche.SetP

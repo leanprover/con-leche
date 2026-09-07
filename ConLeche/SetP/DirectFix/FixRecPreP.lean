@@ -1,9 +1,9 @@
-import Lech.SetP.DirectFix.FixRecKFrameP
+import ConLeche.SetP.DirectFix.FixRecKFrameP
 
 /-!
 # The recursive recursor's premise (task #188)
 
-`FixPre` (`Lech/Semantics/Tower/FixRecI.lean`) — the frame-generic
+`FixPre` (`ConLeche/Semantics/Tower/FixRecI.lean`) — the frame-generic
 premise of the recursor leaf's facts — from the recursor type's
 readings: the binder data's gradings along every walk (`okΓ` of the
 opened type), the per-parameter-frame facts of the block (the chains'
@@ -14,13 +14,13 @@ minors, the indices and the major; the K-frame package
 (`fixKFrame_of`) answers at the split.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -376,4 +376,4 @@ theorem fixPre_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : 
     rw [hlenFs, hlenIds]
     exact ⟨hunivTy ρb, hokTy ρb⟩
 
-end Lech.SetP
+end ConLeche.SetP

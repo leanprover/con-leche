@@ -1,7 +1,7 @@
 {
-  "challenge_module": "Lech.Challenge",
-  "solution_module": "Lech.MainTheorem",
-  "theorem_names": ["Lech.no_proof_of_False"],
+  "challenge_module": "ConLeche.Challenge",
+  "solution_module": "ConLeche.MainTheorem",
+  "theorem_names": ["ConLeche.no_proof_of_False"],
   "definition_names": [],
   "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
   "enable_nanoda": true

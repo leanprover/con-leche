@@ -1,8 +1,8 @@
-import Lech.Kernel.Level
-import Lech.Kernel.ExprOps
-import Lech.Verify.Level
-import Lech.Verify.PropWhen
-import Lech.Verify.Subst
+import ConLeche.Kernel.Level
+import ConLeche.Kernel.ExprOps
+import ConLeche.Verify.Level
+import ConLeche.Verify.PropWhen
+import ConLeche.Verify.Subst
 
 /-!
 # Syntactic lemmas about level-parameter instantiation
@@ -20,7 +20,7 @@ instantiation happens.
 set_option linter.unusedSimpArgs false
 set_option linter.unusedVariables false
 
-namespace Lech
+namespace ConLeche
 
 namespace Level
 
@@ -583,4 +583,4 @@ theorem Expr.instantiateLevelParams_self (ks : List Name) :
     simp_all [Expr.instantiateLevelParams, Level.subst_param_self, hmap,
       Level.substPW_self]
 
-end Lech
+end ConLeche

@@ -1,22 +1,22 @@
-import Lech.Verify.FastOps
-import Lech.Verify.EnvBound
-import Lech.Kernel.Direct.SumInstallF
-import Lech.Kernel.Direct.RecInstallF
+import ConLeche.Verify.FastOps
+import ConLeche.Verify.EnvBound
+import ConLeche.Kernel.Direct.SumInstallF
+import ConLeche.Kernel.Direct.RecInstallF
 
 /-!
 # The indexed checker mirrors agree with the generic checker (task #63)
 
-Under `mkFEnv` every `F`-mirror of `Lech/Kernel/CheckerS.lean` *is*
-its `Lech/Kernel/Checker.lean` counterpart: the mirrors differ only
+Under `mkFEnv` every `F`-mirror of `ConLeche/Kernel/CheckerS.lean` *is*
+its `ConLeche/Kernel/Checker.lean` counterpart: the mirrors differ only
 in pure lookup subterms (`FEnv.find?` for `Env.find?`,
 `Expr.constsResolveF` for `Expr.constsResolve`, and the compound
 guards built from them), each of which `mkFEnv_find?` rewrites away.
 Environment-*extending* mirrors (`checkDefnValF` …) return the pushed
-index and are related run-wise in `Lech/Model/BridgeS.lean` — here
+index and are related run-wise in `ConLeche/Model/BridgeS.lean` — here
 only the value-level pieces are proven equal.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -400,7 +400,7 @@ end Monadic
 Each extending mirror is its generic counterpart followed by `mkFEnv`
 — the pushed index of the cons-extended environment *is* `mkFEnv` of
 it.  The monadic `_push` equations that consume it are stated at the
-executing monad, in `Lech/Verify/Cached/BridgeCSDecl.lean`; the
+executing monad, in `ConLeche/Verify/Cached/BridgeCSDecl.lean`; the
 `CheckIM` copies here went with the interned drivers (task #172). -/
 
 theorem push_mkFEnv (env : Env) (ci : ConstantInfo) :
@@ -459,4 +459,4 @@ theorem checkDirectFixRecF_eq (ops : CheckerOps m) (env : Env) (p : DirectFixPar
 end FixMirrors
 
 
-end Lech
+end ConLeche

@@ -1,4 +1,4 @@
-import Lech.SetP.IndPinGradeP
+import ConLeche.SetP.IndPinGradeP
 
 /-!
 # The applied reduct at the frame's own openers (task #161, IND TIER
@@ -17,13 +17,13 @@ arithmetic side conditions in the tier.  Extracting it is the fix that
 scales — a stage lemma's context is exactly its premise set.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level DefEqListOk)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level DefEqListOk)
 
 universe w
 
@@ -217,4 +217,4 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
       exact ⟨by simp, by simp⟩)
 
 
-end Lech.SetP
+end ConLeche.SetP

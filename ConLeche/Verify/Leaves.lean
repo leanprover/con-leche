@@ -1,7 +1,7 @@
-import Lech.Kernel.ExprOps
-import Lech.Verify.Shift
-import Lech.Verify.Abstract
-import Lech.Verify.Knot
+import ConLeche.Kernel.ExprOps
+import ConLeche.Verify.Shift
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.Knot
 
 /-!
 # The free-variable leaf closure
@@ -14,7 +14,7 @@ syntactic transformation only needs a subset lemma here.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech.Expr
+namespace ConLeche.Expr
 
 /-- Closed terms have no leaves. -/
 theorem fvarLeaves_eq_nil_of_not_hasFvar :
@@ -375,9 +375,9 @@ theorem fvarLeaves_abstract1_lt {D : Nat} :
   | const n us => intro k _ l hl; simp [abstract1, fvarLeaves] at hl
   | lit ll => intro k _ l hl; simp [abstract1, fvarLeaves] at hl
 
-end Lech.Expr
+end ConLeche.Expr
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -523,4 +523,4 @@ theorem annotateCore_leaves_sub {env : Env} :
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h; intro l' hl'; exact hl'
 
-end Lech
+end ConLeche

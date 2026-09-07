@@ -19,18 +19,18 @@ outside the stream prefix are inlined by the generator; a non-prefix
 *inductive* aborts the build.)
 
 This module is part of the elab-time pin generator
-(`Lech/PinGen.lean`); nothing in it is used by the checker at
+(`ConLeche/PinGen.lean`); nothing in it is used by the checker at
 runtime.  It is deliberately *not* a `module`: the proofs unfold core
 definition bodies (`eq_def`, `rfl`-iota) that the module system hides,
 and the early stream positions of `Nat.land`/`Nat.lor`/`Nat.xor` (in
 the `Init.Prelude` region, before `HAnd`/`AndOp`/`testBit` even exist)
 rule out the public bitwise lemma API.  It is built ahead of
-`Lech/Kernel/NatOpPins.lean` as its own Lake target
-(`LechPinCerts`, wired via `extraDepTargets`), and the generator
+`ConLeche/Kernel/NatOpPins.lean` as its own Lake target
+(`ConLechePinCerts`, wired via `extraDepTargets`), and the generator
 loads it by name into its full-view environment.
 -/
 
-namespace Lech.PinGen
+namespace ConLeche.PinGen
 
 /-! ## Support lemmas for `Nat.div`/`Nat.mod` -/
 
@@ -514,4 +514,4 @@ theorem xorBaseCert : ∀ (x y : Nat),
   rw [bitwiseZeroLeft]
   exact rfl
 
-end Lech.PinGen
+end ConLeche.PinGen

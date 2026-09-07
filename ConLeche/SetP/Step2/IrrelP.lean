@@ -1,7 +1,7 @@
-import Lech.SetP.Step2.DefEqP
-import Lech.SetP.Step2.InferP
-import Lech.Verify.PinnedShapes
-import Lech.Verify.InferIOLeaves
+import ConLeche.SetP.Step2.DefEqP
+import ConLeche.SetP.Step2.InferP
+import ConLeche.Verify.PinnedShapes
+import ConLeche.Verify.InferIOLeaves
 
 /-!
 # Proof irrelevance over `interp2` (task #161, P4 — the semantic rows begin)
@@ -23,13 +23,13 @@ The **unit-like branch** (`isUnitLikeTy` on both sides) is routed as
 caps/install machinery, not here.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level inferTypeCore whnf
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level inferTypeCore whnf
   isUnitLikeTy)
 
 universe w
@@ -44,10 +44,10 @@ subsingleton — the caps invariant), not in the quarter. -/
 def UnitIrrelPQ (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b ta wta tb wtb : Expr} {Δa : List AVExpr},
-    Lech.inferTypeIO μ env fuel d a = .ok ta →
+    ConLeche.inferTypeIO μ env fuel d a = .ok ta →
     whnf μ env fuel d ta = .ok wta →
     isUnitLikeTy env wta = true →
-    Lech.inferTypeIO μ env fuel d b = .ok tb →
+    ConLeche.inferTypeIO μ env fuel d b = .ok tb →
     whnf μ env fuel d tb = .ok wtb →
     isUnitLikeTy env wtb = true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
@@ -70,8 +70,8 @@ theorem prop_side_pt {m : EnvS2Core V env}
     (hreads : InferReadsIOSP m μ φ fuel)
     {d : Nat} {a ta sta : Expr} {uT : Level} {Δa : List AVExpr}
     {aa : AVExpr}
-    (hta : Lech.inferTypeIO μ env fuel d a = .ok ta)
-    (hsta : Lech.inferTypeIO μ env fuel d ta = .ok sta)
+    (hta : ConLeche.inferTypeIO μ env fuel d a = .ok ta)
+    (hsta : ConLeche.inferTypeIO μ env fuel d ta = .ok sta)
     (hwsta : whnf μ env fuel d sta = .ok (.sort uT))
     (huT : Level.isEquiv uT .zero = some true)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
@@ -85,15 +85,15 @@ theorem prop_side_pt {m : EnvS2Core V env}
     hreads hta hwa hba hLa (LeafReadsP.of_ctxOkP hCa) hda
   obtain ⟨hokTa, hmemA⟩ := ihis hta hwa hba hLa hCa hda htaa hokA
   have hwta : Expr.WScoped d ta :=
-    Lech.inferTypeIO_WScoped m.wf fuel hta hwa
+    ConLeche.inferTypeIO_WScoped m.wf fuel hta hwa
   have hbta : ta.looseBVarsBounded 0 = true :=
-    Lech.inferTypeIO_looseBVars m.wf fuel hta hwa hba hLa
+    ConLeche.inferTypeIO_looseBVars m.wf fuel hta hwa hba hLa
   have hLta : Expr.LeavesBounded ta := fun l hl =>
-    hLa l (Lech.inferTypeIO_fvarLeaves m.wf fuel hta hwa l hl)
+    hLa l (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hta hwa l hl)
   have hCta : CtxOkP m φ d Δa ta :=
-    hCa.of_subset (Lech.inferTypeIO_fvarLeaves m.wf fuel hta hwa)
+    hCa.of_subset (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hta hwa)
   have hA := hsss hCta hwta hbta hLta hsta hwsta htaa hokTa ρ hρ
-  have h0 : Level.eval φ uT = 0 := Lech.Level.isEquiv_sound huT φ
+  have h0 : Level.eval φ uT = 0 := ConLeche.Level.isEquiv_sound huT φ
   rw [h0] at hA
   exact mem_univ_zero hA.2 (hmemA ρ hρ)
 
@@ -113,7 +113,7 @@ private theorem unit_side_pt {m : EnvS2Core V env}
     (hreads : InferReadsIOSP m μ φ fuel)
     (hwreads : WhnfReadsP m μ φ fuel)
     {d : Nat} {a ta wta : Expr} {Δa : List AVExpr} {aa : AVExpr}
-    (hta : Lech.inferTypeIO μ env fuel d a = .ok ta)
+    (hta : ConLeche.inferTypeIO μ env fuel d a = .ok ta)
     (hwta : whnf μ env fuel d ta = .ok wta)
     (hu : isUnitLikeTy env wta = true)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
@@ -128,41 +128,41 @@ private theorem unit_side_pt {m : EnvS2Core V env}
   obtain ⟨hokTa, hmemA⟩ := ihis hta hwa hba hLa hCa hda htaa hokA
   -- the inferred type's frames
   have hwt : Expr.WScoped d ta :=
-    Lech.inferTypeIO_WScoped m.wf fuel hta hwa
+    ConLeche.inferTypeIO_WScoped m.wf fuel hta hwa
   have hbt : ta.looseBVarsBounded 0 = true :=
-    Lech.inferTypeIO_looseBVars m.wf fuel hta hwa hba hLa
+    ConLeche.inferTypeIO_looseBVars m.wf fuel hta hwa hba hLa
   have hLt : Expr.LeavesBounded ta := fun l hl =>
-    hLa l (Lech.inferTypeIO_fvarLeaves m.wf fuel hta hwa l hl)
+    hLa l (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hta hwa l hl)
   have hCt : CtxOkP m φ d Δa ta :=
-    hCa.of_subset (Lech.inferTypeIO_fvarLeaves m.wf fuel hta hwa)
+    hCa.of_subset (ConLeche.inferTypeIO_fvarLeaves m.wf fuel hta hwa)
   -- the head normal form reads, and the reduction preserves interp2
   obtain ⟨wtaa, hwtaa⟩ := hwreads hwta hwt hbt hLt
     (LeafReadsP.of_ctxOkP hCt) htaa
   obtain ⟨-, heqW⟩ := ihw hwta hwt hbt hLt hCt htaa hwtaa hokTa
   -- the unit-like type is the pinned `PUnit`
   obtain ⟨us, rfl, hfind⟩ :=
-    Lech.Verify.unitLike_eq_punit m.basis_pinned hu
+    ConLeche.Verify.unitLike_eq_punit m.basis_pinned hu
   -- its reading is the annotated `PUnit` leaf
   rw [denoteP, hfind] at hwtaa
   dsimp only at hwtaa
   split at hwtaa
   case isFalse => exact nomatch hwtaa
   case isTrue hlen =>
-  obtain rfl : wtaa = m.acval Lech.punitName
-      (Level.substFn φ Lech.punitA.toConstantVal.levelParams us) :=
+  obtain rfl : wtaa = m.acval ConLeche.punitName
+      (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us) :=
     (Option.some.inj hwtaa).symm
   -- the leaf is the pinned constant, and its `interp2` is `unitSet`
-  have hpin : m.cvalE Lech.punitName
-      (Level.substFn φ Lech.punitA.toConstantVal.levelParams us)
-      = Lech.VExpr.punitT
-        (Level.substFn φ Lech.punitA.toConstantVal.levelParams us
-          Lech.uN) :=
-    (m.basis_pinned Lech.punitName _ hfind (by decide)).2 _ _ rfl
-  have hleaf : m.acval Lech.punitName
-      (Level.substFn φ Lech.punitA.toConstantVal.levelParams us)
+  have hpin : m.cvalE ConLeche.punitName
+      (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us)
+      = ConLeche.VExpr.punitT
+        (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us
+          ConLeche.uN) :=
+    (m.basis_pinned ConLeche.punitName _ hfind (by decide)).2 _ _ rfl
+  have hleaf : m.acval ConLeche.punitName
+      (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us)
       = .const .punit
-        [Level.substFn φ Lech.punitA.toConstantVal.levelParams us
-          Lech.uN] :=
+        [Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us
+          ConLeche.uN] :=
     erase_eq_const (by rw [m.acval_erase, hpin]; rfl)
   -- the membership chain
   have hmem := hmemA ρ hρ
@@ -195,7 +195,7 @@ theorem proofIrrelPQ_of_claims {m : EnvS2Core V env}
     ProofIrrelPQ μ m φ fuel := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
-  obtain ⟨ta, wta, hta, hwta, hbranch⟩ := Lech.proofIrrel_inv h
+  obtain ⟨ta, wta, hta, hwta, hbranch⟩ := ConLeche.proofIrrel_inv h
   rcases hbranch with
     ⟨hu, tb, wtb, htb, hwtb, hub⟩ |
     ⟨sta, uT, tb, stb, vT, hsta, hwsta, huT, htb, hstb, hwstb, hvT⟩
@@ -206,4 +206,4 @@ theorem proofIrrelPQ_of_claims {m : EnvS2Core V env}
       prop_side_pt ihis hsss hreads htb hstb hwstb hvT hwb hbb hLb
         hCb hdb hokB ρ hρ]
 
-end Lech.SetP
+end ConLeche.SetP

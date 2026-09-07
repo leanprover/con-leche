@@ -1,8 +1,8 @@
-import Lech.Kernel.Env
-import Lech.Kernel.PropRead
-import Lech.Kernel.Level
-import Lech.Kernel.ExprOps
-import Lech.Kernel.Basis
+import ConLeche.Kernel.Env
+import ConLeche.Kernel.PropRead
+import ConLeche.Kernel.Level
+import ConLeche.Kernel.ExprOps
+import ConLeche.Kernel.Basis
 
 /-!
 # The checker core, in open-recursion style
@@ -13,9 +13,9 @@ parameterized over a record of the mutually recursive entry points
 through the record — bodies never call themselves, and the few helpers
 that do recurse (`iotaCerts`, `defEqList`, `structEtaProjCerts`) do so
 structurally on a list.  Fuel lives only in the *knots* that tie the
-record: the pure knot (`Lech.Kernel.TypeChecker`) instantiates the
+record: the pure knot (`ConLeche.Kernel.TypeChecker`) instantiates the
 bodies at `CheckM` and is the verification's subject; the memoized knot
-(`Lech.Kernel.TypeCheckerC`) instantiates them at a state monad
+(`ConLeche.Kernel.TypeCheckerC`) instantiates them at a state monad
 carrying the caches and is what the checker executes.  A refinement
 bridge relates the two (see DESIGN.md).
 
@@ -29,13 +29,13 @@ their own fuel.  The official kernel's *infer-only* mode is deferred
 until the refinement bridge's fuel-determinism machinery lands
 (DESIGN.md).
 
-Verification: `Lech.SetP.*` and `Lech.Verify.*` (claims),
-`Lech.Verify.*` (inversions), both stated against the bodies with
+Verification: `ConLeche.SetP.*` and `ConLeche.Verify.*` (claims),
+`ConLeche.Verify.*` (inversions), both stated against the bodies with
 hypotheses about the record and discharged by one induction at the
 knot.
 -/
 
-namespace Lech
+namespace ConLeche
 
 inductive CheckError where
   | notImplemented (what : String)
@@ -72,7 +72,7 @@ structure CoreFns (m : Type → Type u) where
   task #170's R clause); at the gated mode (`.verified`, the P core)
   it is the io body, whose application clause skips the per-argument
   certificate at a `.never` binder under the graph-regime license
-  (`Lech/SetP/IOLicenseP.lean`).  The **shipped** trusted core
+  (`ConLeche/SetP/IOLicenseP.lean`).  The **shipped** trusted core
   selects the io body too (`CheckMode.ioGate` is `true` at both
   modes, the licence ruling of 2026-09-06); this mode-parametric
   spelling is not the thing that ships, so `μ.betaGate` here stays the
@@ -150,7 +150,7 @@ name, a `Name.str "rec"` allocation, and a 20-element
 `reservedBasisNames.contains` walk — run on **every** proof-irrelevance
 attempt (12 453 724 of them on init-full).  It is the same Bool as a
 head-name test against the single pin that can pass it:
-`unitLike_eq_punit` (`Lech/Verify/PinnedShapes.lean`) proves that
+`unitLike_eq_punit` (`ConLeche/Verify/PinnedShapes.lean`) proves that
 under `BasisPinnedTT` — the reserved-name pinning the install path
 enforces — **only `PUnit` passes**, every other reserved recursor being
 refuted by one of the three conditions.  So the head-name comparison is
@@ -533,7 +533,7 @@ fast path: at install, `checkDecl` compares the stream's definition
 against a vendored pin of the toolchain's own (helper-unfolded)
 definition by definitional equality, and then checks the pinned
 `Nat.ble`-guarded characterization certificates
-(`Lech/Kernel/NatOpPins.lean`) like theorem declarations — without
+(`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
 installing them.  Presence in the store is therefore again the
 capability: a stored operation under one of these names has passed pin
 and certificates, or the install declined.  (The name is historic:
@@ -916,13 +916,13 @@ part of the real checker, and the trusted mode is the real checker
 with certification-only work omitted — a reader that replaces
 inference is not certification-only work).  The **"not a proof" arm**:
 a side whose annotation datum says "not a proposition" refuses the
-shortcut outright (`notProofFast`, `Lech/Kernel/PropRead.lean`).
+shortcut outright (`notProofFast`, `ConLeche/Kernel/PropRead.lean`).
 Refusing is always sound — the P row is stated at `.ok true` — and the
 arm's obligation is *agreement* with the slow path, recorded by the
 landing census (DESIGN.md, task #168: 0 disagreements in 7.5 M calls).
 The **"yes" arm** (`isProofFast` on both sides → `true`) is the
 squash-regime licence, stage 3 of the same design
-(`prf_of_isProofFast`, `Lech/SetP/Step2/IrrelFastP.lean`), which the
+(`prf_of_isProofFast`, `ConLeche/SetP/Step2/IrrelFastP.lean`), which the
 verified mode's P row consumes; the trusted mode is unverified and
 inherits the arm without a row, as it inherits every other body. -/
 def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
@@ -932,7 +932,7 @@ def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   else if isProofFast env.find? a && isProofFast env.find? b then
     -- the yes arm (task #168 stage 3): both heads' validated data say
     -- "a proposition at every valuation" — the squash-regime licence
-    -- (`prf_of_isProofFast`, `Lech/SetP/Step2/IrrelFastP.lean`)
+    -- (`prf_of_isProofFast`, `ConLeche/SetP/Step2/IrrelFastP.lean`)
     pure true
   else
   -- task #172 B4: every inference here is at the io grade
@@ -1573,7 +1573,7 @@ family every field's sort is bounded by the structure's (the O5 bound
 `checkDirectFieldSorts` checks), so at a zero instantiation every
 field is a proposition; for a `Prop`-declared family the guard says
 so of the projected field directly (`TowerEntryLawP`'s iota clause,
-`Lech/SetP/Annot/EnvS2P.lean`).  Ungated rules on a data field of a
+`ConLeche/SetP/Annot/EnvS2P.lean`).  Ungated rules on a data field of a
 `Prop`-declared structure stay out: such a node is not even typed
 (`inferBody`'s guard). -/
 def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
@@ -1650,7 +1650,7 @@ At `mode.betaGate` (i.e. at `.verified`, and nowhere else) a λ-binder
 whose *validated* annotation datum is `.never` — "the codomain sort is
 nonzero at every valuation" — licenses skipping the certificate: the
 sealed P claim's positive branch (`AnnotOkP_beta_gate`,
-`Lech/SetP/Step2/GateP.lean`) derives the domain membership from the
+`ConLeche/SetP/Step2/GateP.lean`) derives the domain membership from the
 redex's own `AnnotOk2` slot and consumes no certificate at all.
 
 At a possibly-zero datum, and at every non-gated mode, the certificate
@@ -1768,7 +1768,7 @@ Beta, iota, zeta and projection steps are *iteration*: the interned
 to the shared recursion-depth budget (and to the native stack).  The
 `Expr`-level specification below stays chained — the refinement bridge
 reproduces a loop run by the chained recursion *at some knot fuel*
-(`Lech/Verify/BetaSpine.lean`), so the specification and everything
+(`ConLeche/Verify/BetaSpine.lean`), so the specification and everything
 above it are unchanged. -/
 @[irreducible] def whnfCoreLoopFuel : Nat := 1000000
 
@@ -1990,7 +1990,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 /-- **The io inference body** (task #161 stage 2 / task #170): `inferBody`
 with one clause changed — the application rule's per-argument
 certificate is skipped when the ∀'s validated annotation licenses it
-(`Lech/Kernel/CoreIO.lean`'s module docstring holds the design
+(`ConLeche/Kernel/CoreIO.lean`'s module docstring holds the design
 record).  The gate wraps the *test* only; the computed type
 (`body.instantiate1 a`) and the "function expected" rejection are
 `inferBody`'s, verbatim, so the lane is annotation-blind in its
@@ -2000,7 +2000,7 @@ io slot, or `coreKnotIO`'s leaf lane), which is how the grade
 propagates — official's `infer_type_core(e, infer_only)` passing
 `infer_only` to every recursive call.
 
-Moved here from `Lech/Kernel/CoreIO.lean` (task #172 B4) so the knot
+Moved here from `ConLeche/Kernel/CoreIO.lean` (task #172 B4) so the knot
 can tie the io slot; the definition is byte-identical to the io-license
 batch's. -/
 def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
@@ -2578,7 +2578,7 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- The body is annotated *with the value transparent* — nanoda's
       -- `infer_let` instantiates the body with the value and recurses
       -- (the official kernel gets the same transparency from valued
-      -- let-fvars in its local context).  Lech fvars carry no value,
+      -- let-fvars in its local context).  ConLeche fvars carry no value,
       -- so the body is annotated as its zeta reduct; an opened opaque
       -- variable was tried and rejects real streams (elaborated `let`
       -- bodies rely on the value definitionally — see DESIGN.md).
@@ -2670,4 +2670,4 @@ reduction, inference and definitional equality.  Exhaustion is an
 internal error, never a verdict. -/
 def checkFuel : Nat := 100000
 
-end Lech
+end ConLeche

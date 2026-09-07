@@ -1,9 +1,9 @@
-import Lech.Semantics.Kit
+import ConLeche.Semantics.Kit
 
 /-!
 # `CheckStep2`, the definitional-equality quarter — Tier A clauses
 
-*(Re-based to `Lech/SetBase/*` at THE SEPARATION's S2, task #161:
+*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161:
 every theorem here is pure `interp2` algebra — no `EnvS`, no
 environment invariant, no claim carrier — and BOTH lanes' definitional
 -equality quarters consume it.  Path and module name changed; the Lean
@@ -22,11 +22,11 @@ that are not — the capability rescues (`structEta`, `structUnit`,
 respectively, and appear here only as names.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr SetTheory
-open Lech.Semantics (AVExpr)
+open ConLeche.VExpr SetTheory
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -116,4 +116,4 @@ theorem deqStep2_eta {v : Nat} {A f : V} {B : V → V}
     (hf : f ∈ˢ piR v A B) :
     lamR v A (fun x => SetTheory.app f x) = f := lamR_eta hf
 
-end Lech.Semantics
+end ConLeche.Semantics

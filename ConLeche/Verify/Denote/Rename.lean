@@ -1,5 +1,5 @@
-import Lech.Verify.InstLevels
-import Lech.Verify.Denote.Inst
+import ConLeche.Verify.InstLevels
+import ConLeche.Verify.Denote.Inst
 
 /-!
 # Constant renaming and level instantiation, on the denotation side
@@ -19,7 +19,7 @@ relates the two only *through* `renameConsts`.
 also carried a `denote_instLevels` and its two literal helpers —
 written from the model's `interp_instLevels` without first searching
 this side.  All three already existed
-(`Lech/TTVerify/Extend.lean`, at `ValParams`, `natLitT_params`,
+(`ConLeche/TTVerify/Extend.lean`, at `ValParams`, `natLitT_params`,
 `strLitT_params`), where the delta step needed them.  §0's practice
 says to look for the *set model's* counterpart before writing a bridge
 lemma; the miss says the same search has to be run on **this** side
@@ -28,21 +28,21 @@ the retraction does **not** touch: `denote_renameConsts` really has no
 counterpart here, and the `RenEqT`/`PiDomsRenEqT` pair really is
 stranded in `Model/TeleElim.lean`.
 
-`RenEqT`/`PiDomsRenEqT` restate `Lech/Model/TeleElim.lean`'s `RenEq`
-and `PiDomsRenEq`.  They are `V`-free and belong in `Lech/Verify/*`
+`RenEqT`/`PiDomsRenEqT` restate `ConLeche/Model/TeleElim.lean`'s `RenEq`
+and `PiDomsRenEq`.  They are `V`-free and belong in `ConLeche/Verify/*`
 under #123's criterion; they are restated here rather than moved
 because `Model/TeleElim.lean` is mid-flight (`DESIGN.md` §14.6.2 names
 this as one of the phase's two known frictions).  Same reasoning, and
 the same non-fix, as the duplicates task #148's T1 relocation cleared
-out of `Lech/TTVerify/EnvTT.lean` (`EtaFamilyStored` and its seven
-siblings, now in `Lech/Verify/EnvGuards.lean` and
-`Lech/Verify/EnvPreds.lean`): **do not** import `Lech/Model/*` from
+out of `ConLeche/TTVerify/EnvTT.lean` (`EtaFamilyStored` and its seven
+siblings, now in `ConLeche/Verify/EnvGuards.lean` and
+`ConLeche/Verify/EnvPreds.lean`): **do not** import `ConLeche/Model/*` from
 here.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
@@ -65,7 +65,7 @@ def RenameOkT (cval : TConstVal) (env : Env) (f : Name → Name) : Prop :=
 /-- Renaming constants along a `RenameOkT` map preserves the
 denotation.  Transpose of `interp_renameConsts`, clause for clause;
 the `fvar`, `lit` and `proj` clauses are *cheaper* than the model's for
-the reason recorded in `Lech/Verify/Denote.lean` — `denote` never
+the reason recorded in `ConLeche/Verify/Denote.lean` — `denote` never
 reads an `fvar`'s annotation or a `proj`'s structure name. -/
 theorem denote_renameConsts {f : Name → Name} (hro : RenameOkT cval env f) :
     ∀ (e : Expr) (d : Nat),
@@ -291,4 +291,4 @@ theorem denote_renameConsts_resolve {f : Name → Name}
     | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
     | (simp [Expr.sizeB])
 
-end Lech.Verify
+end ConLeche.Verify

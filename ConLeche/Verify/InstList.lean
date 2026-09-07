@@ -1,4 +1,4 @@
-import Lech.Kernel.ExprOps
+import ConLeche.Kernel.ExprOps
 
 /-!
 # Bulk instantiation equals the `instantiate1` fold (task #50)
@@ -24,7 +24,7 @@ bulk form by rewriting — the Model/Verify layers keep seeing the fold.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech.Expr
+namespace ConLeche.Expr
 
 theorem instantiateList_nil : ∀ (e : Expr) (d : Nat),
     e.instantiateList [] d = e := by
@@ -143,4 +143,4 @@ theorem instSpine_eq_instantiateList :
       congr 2
       simp [hlen']
 
-end Lech.Expr
+end ConLeche.Expr

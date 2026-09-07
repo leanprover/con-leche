@@ -1,4 +1,4 @@
-import Lech.Kernel.TypeChecker
+import ConLeche.Kernel.TypeChecker
 
 /-!
 # The P lane: head normalization with the β-certificate gate
@@ -49,7 +49,7 @@ both arms are `whnfCoreBody`'s verbatim, so reducts stay
 annotation-blind (clause (iii)).
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
@@ -177,4 +177,4 @@ def ensureSortCoreP (env : Env) (fuel depth : Nat) (e : Expr) :
     CheckM Level :=
   ensureSort (pureFnsP mode env fuel) env depth e
 
-end Lech
+end ConLeche

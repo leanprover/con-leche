@@ -1,7 +1,7 @@
-import Lech.Semantics.Syntax
-import Lech.Semantics.Tower.TowerLeaf
-import Lech.Verify.Denote
-import Lech.Verify.Knot
+import ConLeche.Semantics.Syntax
+import ConLeche.Semantics.Tower.TowerLeaf
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Knot
 
 /-!
 # Canonical annotations (task #151 tier C — the R1 resolution of WALL 3)
@@ -34,12 +34,12 @@ own STOP condition (a genuine instability counterexample would be a
 design finding, not a proof gap).
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level inferTypeCore whnf
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level inferTypeCore whnf
   natLitSupported strLitSupported)
 
 /-- The sort of `e`'s **type**, as the checker computes it: infer,
@@ -78,14 +78,14 @@ def charListT2 (nilA consA ofNatA za sa : AVExpr) :
 /-- The uniform projection spellings erase onto each other:
 `projAV`'s image is `projNV` (task #175 wiring W3). -/
 theorem erase_projAV : ∀ (i : Nat) (ea : AVExpr),
-    (projAV i ea).erase = Lech.Verify.projNV i ea.erase
+    (projAV i ea).erase = ConLeche.Verify.projNV i ea.erase
   | 0, _ => rfl
   | i + 1, ea => erase_projAV i (.proj 1 ea)
 
 /-- The canonical annotation pass: `denote` with every binder numeral
 computed by the checker's own functions and every constant leaf drawn
 from the canonical annotated valuation.  Clause for clause the
-`denote` recursion (`Lech/Verify/Denote.lean`), so the two erase
+`denote` recursion (`ConLeche/Verify/Denote.lean`), so the two erase
 pointwise (`denote2_erase`). -/
 def denote2 (mode : CheckMode) (acval : Name → (Name → Nat) → AVExpr)
     (env : Env) (φ : Name → Nat) (fuel : Nat) :
@@ -340,7 +340,7 @@ theorem denote2_erase {mode : CheckMode}
     rw [denote_strLit, if_pos hsup]
     refine congrArg some ?_ |>.symm
     show VExpr.app _ _ = _
-    rw [Lech.Verify.strLitT]
+    rw [ConLeche.Verify.strLitT]
     congr 1
     · exact hlink _ _
     · refine charListT2_erase ?_ ?_ (hlink _ _) (hlink _ _)
@@ -372,4 +372,4 @@ theorem denote2_erase {mode : CheckMode}
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
-end Lech.Semantics
+end ConLeche.Semantics

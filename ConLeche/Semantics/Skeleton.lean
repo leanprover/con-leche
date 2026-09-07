@@ -1,12 +1,12 @@
-import Lech.Semantics.Ok2
-import Lech.Semantics.Sat2
-import Lech.Semantics.Univ
-import Lech.Semantics.BasisOk
+import ConLeche.Semantics.Ok2
+import ConLeche.Semantics.Sat2
+import ConLeche.Semantics.Univ
+import ConLeche.Semantics.BasisOk
 
 /-!
 # The second soundness's per-former skeleton (task #151, arc step 4)
 
-*(Re-based to `Lech/SetBase/*` at THE SEPARATION's S2, task #161: the
+*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161: the
 per-former rows are stated over `AnnotOk2`/`interp2`/`Sat2` and nothing
 else — that is the module's own design rule — so they carry no
 environment, and BOTH lanes' inference quarters close their rows with
@@ -80,11 +80,11 @@ hereditary premise — which is why it could be the last row written and
 still cost one line.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.Semantics (AVExpr)
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -127,7 +127,7 @@ theorem sound_bvar {Δa : List AVExpr} {ρ : Nat → V} {i : Nat}
 /-- **`pi`.**  Interface facts: the domain's membership at its own
 numeral `u`, the codomain's at `v` under the binder, and the two
 hereditary halves.  The formation law is the `imax` rule *exactly*
-(`piR_mem_univ`), so the annotated type is `.sort (Lech.VExpr.imax u v)`
+(`piR_mem_univ`), so the annotated type is `.sort (ConLeche.VExpr.imax u v)`
 on the nose — no "may land lower" slack. -/
 theorem sound_pi {u v : Nat} {ρ : Nat → V} {Aa Ba : AVExpr}
     (hokA : AnnotOk2 V ρ Aa)
@@ -137,7 +137,7 @@ theorem sound_pi {u v : Nat} {ρ : Nat → V} {Aa Ba : AVExpr}
       interp2 V (cons x ρ) Ba ∈ˢ (univ v : V)) :
     AnnotOk2 V ρ (.pi u v Aa Ba) ∧
       interp2 V ρ (.pi u v Aa Ba)
-        ∈ˢ interp2 V ρ (.sort (Lech.VExpr.imax u v)) := by
+        ∈ˢ interp2 V ρ (.sort (ConLeche.VExpr.imax u v)) := by
   refine ⟨by rw [AnnotOk2_pi]; exact ⟨hokA, hokB⟩, ?_⟩
   rw [interp2_pi, interp2_sort]
   exact piR_mem_univ hA hB
@@ -203,7 +203,7 @@ theorem app_mem_of_slot {ρ : Nat → V} {fa aa : AVExpr}
 (`bval2_mem_type`) and nothing else — a built-in is a closed leaf, so
 its row needs no context, no valuation and no hereditary premise.  With
 this the skeleton covers **ten formers of ten**. -/
-theorem sound_const (ρ : Nat → V) (c : Lech.VExpr.BConst)
+theorem sound_const (ρ : Nat → V) (c : ConLeche.VExpr.BConst)
     (us : List Nat) :
     AnnotOk2 V ρ (.const c us) ∧
       interp2 V ρ (.const c us)
@@ -300,4 +300,4 @@ theorem sound_proj_snd {ρ : Nat → V} {ea : AVExpr}
   rw [interp2_proj]
   simpa using ssnd_mem_gen V hA hB hp
 
-end Lech.Semantics
+end ConLeche.Semantics

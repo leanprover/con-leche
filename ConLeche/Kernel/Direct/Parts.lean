@@ -1,4 +1,4 @@
-import Lech.Kernel.Core
+import ConLeche.Kernel.Core
 
 /-!
 # The direct simple-structure class: recognition
@@ -7,7 +7,7 @@ A **simple structure** is a non-recursive, single-constructor,
 index-free inductive with a provably nonzero result sort — parameters
 and dependent fields allowed.  Such a block needs no preprocessor
 `_model` artifact: its set-theoretic model is the iterated dependent
-pair over the field types (modeled by the retired `Lech/Model/*`,
+pair over the field types (modeled by the retired `ConLeche/Model/*`,
 deleted at task #148 T7), so the kernel installs it *directly*, from
 the reference checks alone.
 
@@ -62,7 +62,7 @@ nanoda `check_ctor`, `inductive.rs:809`) needs inference, and the
 recursor is **generated** here (`directRecTy`/`directRecRhs`, task
 #175 S2) and compared against the stream's by one closed `isDefEq`;
 both live in the monadic `checkDirectStruct`
-(`Lech/Kernel/Direct/Install.lean`).
+(`ConLeche/Kernel/Direct/Install.lean`).
 
 The direct path installs **native tower-backed projection entries**
 (`checkDirectProj`, task #175 wiring): `.proj T i` nodes are typed by
@@ -73,7 +73,7 @@ unit-likeness for the fieldless case, and K for the fieldless
 propositional case.
 -/
 
-namespace Lech
+namespace ConLeche
 
 /-- The type former applied to its parameter variables, `bvar` indices
 offset by `o` (the number of binders crossed since the parameters). -/
@@ -104,7 +104,7 @@ syntactically, from the **annotated** type former and constructor
 types, and the stream's recursor is compared against the generated
 type by one closed `isDefEq` (`checkDirectRec`).  What is stored is
 the generated form — which is what makes its reading syntactic in the
-model (`Lech/SetP/Direct/DirectRecReadP.lean`): no pin at an opened
+model (`ConLeche/SetP/Direct/DirectRecReadP.lean`): no pin at an opened
 frame is consumed anywhere.
 
 The generators are written over a **list** of constructors (one minor
@@ -675,4 +675,4 @@ def directParts? (env : Env) (block : List ConstantInfo) :
   | some p => if directNonRec env p then some p else none
   | none => none
 
-end Lech
+end ConLeche

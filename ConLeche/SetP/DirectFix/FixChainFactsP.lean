@@ -1,5 +1,5 @@
-import Lech.SetP.DirectFix.FixChainsP
-import Lech.SetP.DirectFix.FixTeleBoundP
+import ConLeche.SetP.DirectFix.FixChainsP
+import ConLeche.SetP.DirectFix.FixTeleBoundP
 
 /-!
 # The chain facts of a recursive constructor, and the index telescope
@@ -17,13 +17,13 @@ index telescope graded and bounded at the parameter frame
 into the tuple universe `idxUniv`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w'
 
@@ -65,20 +65,20 @@ theorem idxOk_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars (nP + nIdx) cvTa.type 0 = some (tfvs, trest))
     {isorts : List Level}
-    (hsorts : Lech.checkDirectFieldSortsI (Lech.fueledOps μ F) env true false resSort nP
+    (hsorts : ConLeche.checkDirectFieldSortsI (ConLeche.fueledOps μ F) env true false resSort nP
       (tfvs.drop nP) [] nIdx = .ok isorts)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
     (ψ : Name → Nat) (ρp : Nat → V)
     (hρp : Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
     IdxOk (idxUniv ψ isorts) ρp (((ppsAll ψ).drop nP).map (·.2.2)) := by
-  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)
+  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)
   simp only [ConstantInfo.toConstantVal] at hTf hTb
   have hT : OpenedP mp.base2 ψ (nP + nIdx) cvTa.type tfvs trest
       (((ppsAll ψ).map (·.2.2)).reverse) (.sort (resSort.eval ψ)) :=
     openedP_of_peel hopT hTf hTb (hFD.read ψ) (hFD.len ψ) (hFD.okTy ψ)
   have hc := claimsAtP_of hμ mp ψ F
-  obtain ⟨-, hrows⟩ := Lech.checkDirectFieldSortsI_inv hsorts
+  obtain ⟨-, hrows⟩ := ConLeche.checkDirectFieldSortsI_inv hsorts
   have hlenT : tfvs.length = nP + nIdx := openPisAtFvars_length _ hopT
   have hΓ : (((ppsAll ψ).map (·.2.2)).reverse).length = nP + nIdx := by simp [hFD.len ψ]
   -- the index binders' universes at their frames
@@ -171,7 +171,7 @@ carrier storing the former as a λ-tower over the parameters. -/
 theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
-    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₁ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
@@ -190,7 +190,7 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
       (((ds ψ).drop nP).map (·.2.2)) (Eiss ψ) (Es ψ) := by
   -- the openings, the opened record
   obtain ⟨crest, hopP, hopX⟩ := hD.opens
-  obtain ⟨hcf, -, -, hcb⟩ := Lech.direct_sum_ctor_typeWF hCtor
+  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
   have hopAll : openPisAtFvars (nP + nF) cvCa.type 0 = some (fvsP ++ xFvs, xrest) :=
     openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopX)
   have hO : OpenedP mp.base2 ψ (nP + nF) cvCa.type (fvsP ++ xFvs) xrest
@@ -420,4 +420,4 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env
     obtain ⟨-, hargs⟩ := AnnotOk2.mkAppN_inv hokR.1
     exact hargs E (List.mem_append_right _ hE)
 
-end Lech.SetP
+end ConLeche.SetP

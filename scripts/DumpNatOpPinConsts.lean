@@ -1,10 +1,10 @@
-import Lech.Kernel.NatOpPins
-import Lech.Kernel.Checker
+import ConLeche.Kernel.NatOpPins
+import ConLeche.Kernel.Checker
 
 /-!
 Dump, per pin-certified Nat operation, the constant names referenced by
 the generated pinned defining expression and certificate proof blobs
-(`Lech/Kernel/NatOpPins.lean`).  Paired with
+(`ConLeche/Kernel/NatOpPins.lean`).  Paired with
 `scripts/diagnose_natop_prefix.py`, which diffs the output against the
 declared-before-op prefix of a stream — the diagnosis workflow for a
 "pin ground constants absent" decline (see DESIGN.md, "Prefix
@@ -13,7 +13,7 @@ allowlists vs. stream order").
 Run: `lake env lean scripts/DumpNatOpPinConsts.lean > pinconsts.txt`
 -/
 
-open Lech
+open ConLeche
 
 partial def collect (e : Expr) (acc : List Name) : List Name :=
   match e with

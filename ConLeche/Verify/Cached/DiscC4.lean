@@ -1,14 +1,14 @@
-import Lech.Verify.Cached.BinderLoopC
-import Lech.Verify.BetaSpine
+import ConLeche.Verify.Cached.BinderLoopC
+import ConLeche.Verify.BetaSpine
 
 /-!
 # Cached body walks, part 4: head normalization and the whnf loop
 
-The port of `Lech/Verify/DiscI4.lean` under the recipe (DESIGN.md,
+The port of `ConLeche/Verify/DiscI4.lean` under the recipe (DESIGN.md,
 task #163): simulation walks for the cached `whnfAppI`/`betaPeelI`,
 `whnfCoreStepI`/`whnfCoreLoopI`/`whnfCoreBodyI`,
 `whnfStepI`/`whnfLoopI`/`whnfBodyI`, `inferSpineI` and `inferBodyI`
-(`Lech/Cached/CoreC.lean`) against the same pure fueled comparands
+(`ConLeche/Cached/CoreC.lean`) against the same pure fueled comparands
 the interned walks use.  `SimAt → SimC`, denotation hypotheses →
 `RelC`/`RelCL`, no `Ext`, node inversion by `cases` on
 the `ExprC` constructor.  The pure comparand side of every statement is
@@ -22,9 +22,9 @@ which quantify over the fuel.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech.Cached.ExprC
+open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
@@ -2351,7 +2351,7 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
           (x := Expr.forallE t (Expr.abstract1 bt d) m)) _
         (fun r hQ => ⟨hQ, by
           simp only [Expr.WScoped]
-          exact ⟨hwtb.1, Lech.WScoped.abstract1 0 hwbt⟩⟩)
+          exact ⟨hwtb.1, ConLeche.WScoped.abstract1 0 hwbt⟩⟩)
     by_cases hv : mode.verifiedChecks = true
     · simp only [hv, ↓reduceIte]
       cases hbp : b.lamPw with
@@ -2464,4 +2464,4 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
 
 end Walks3
 
-end Lech.Cached
+end ConLeche.Cached

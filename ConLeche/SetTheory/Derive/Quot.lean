@@ -1,4 +1,4 @@
-import Lech.SetTheory.Derive.Univ
+import ConLeche.SetTheory.Derive.Univ
 
 /-!
 # Quotients
@@ -19,7 +19,7 @@ goes through the representative and the invariance premise, with the
 `u = 0` collapse handled by `A ⊆ {pt}` (from `A ∈ univ 0`).
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -226,4 +226,4 @@ theorem quotSet_eq_pt_countermodel :
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] quotSet quotClass quotLift
 
-end Lech.SetTheory
+end ConLeche.SetTheory

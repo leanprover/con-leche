@@ -1,12 +1,12 @@
-import Lech.Verify.Denote.Rename
-import Lech.Verify.Denote.SubstAlgebra
-import Lech.Verify.Denote.OpenVars
-import Lech.Verify.InferLemmas
+import ConLeche.Verify.Denote.Rename
+import ConLeche.Verify.Denote.SubstAlgebra
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.InferLemmas
 
 /-!
 # Opening a telescope, and substituting a spine into what is left
 
-The phase's shared piece, named in `Lech/TTVerify/DeclInd.lean`:
+The phase's shared piece, named in `ConLeche/TTVerify/DeclInd.lean`:
 **the thing that moves a spine between two descriptions of the same
 telescope.**  Both folds and both bottoms need the *residual* of a
 `∀`-telescope after `k` arguments, and the two sides describe it
@@ -33,13 +33,13 @@ differ is `instSeq_bvar`, and the difference is instructive:
 `liftN c x` — the lifts the consumer's own `inst` then absorbs.
 -/
 
-namespace Lech.VExpr
+namespace ConLeche.VExpr
 namespace VExpr
 
 /-! ## `VExpr.instSeq` -/
 
 /-- Instantiate a spine at descending cuts, outermost argument first —
-the term-side counterpart of `Lech.Expr.instSeq`. -/
+the term-side counterpart of `ConLeche.Expr.instSeq`. -/
 def instSeq : List VExpr → Nat → VExpr → VExpr
   | [], _, e => e
   | a :: as, t, e => instSeq as (t - 1) (e.inst a t)
@@ -189,11 +189,11 @@ theorem instSeq_bvar_hit : ∀ (as : List VExpr) (c i : Nat) (x : VExpr),
       simpa using hx
 
 end VExpr
-end Lech.VExpr
+end ConLeche.VExpr
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-! ## Opening a telescope's binders
 
@@ -243,7 +243,7 @@ folds built rather than re-deriving them against a second opener.
 
 `openPisAtFvars` opens with the binder's *own* name and domain and
 `openFvars` with canonical ones; `denote` reads neither
-(`Lech/Verify/Denote.lean`), so the two bodies are `ErasedEq` and
+(`ConLeche/Verify/Denote.lean`), so the two bodies are `ErasedEq` and
 that is exactly the tolerance `denote_erasedEq` consumes. -/
 
 /-- A telescope that opens at a free variable strips.  **The `fvar`
@@ -534,4 +534,4 @@ theorem projStmtParts {sty : Expr} {nP nF i : Nat}
       hbv (nF - 1 - i) (by omega),
       show nP + nF - 1 - (nF - 1 - i) = nP + i from by omega]
 
-end Lech.Verify
+end ConLeche.Verify

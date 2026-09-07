@@ -1,12 +1,12 @@
-import Lech.SetP.Step2.CapsRowsP
-import Lech.SetP.Step2.StuckP
-import Lech.SetP.Step2.InferIOP
-import Lech.Semantics.Ok2
-import Lech.SetP.Step2.TowerKitP
-import Lech.SetP.Step2.IotaGateP
-import Lech.Verify.Denote
-import Lech.Verify.Denote.OpenVars
-import Lech.Verify.Denote.VClosed
+import ConLeche.SetP.Step2.CapsRowsP
+import ConLeche.SetP.Step2.StuckP
+import ConLeche.SetP.Step2.InferIOP
+import ConLeche.Semantics.Ok2
+import ConLeche.SetP.Step2.TowerKitP
+import ConLeche.SetP.Step2.IotaGateP
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.Denote.VClosed
 
 /-!
 # The semantic projection rows (task #161, PROJ/STR install tier;
@@ -38,13 +38,13 @@ just as a well-typed one's is.  The memberships have to come from the
 run, and `projCert` is that run.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ProjEntry
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ProjEntry
   inferTypeCore whnf whnfCore)
 
 universe w
@@ -72,7 +72,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     InferProjStepP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hlenArgs,
-    hlenUs, hguard, rfl, hsn⟩ := Lech.inferTypeCore_proj_inv h
+    hlenUs, hguard, rfl, hsn⟩ := ConLeche.inferTypeCore_proj_inv h
   subst hsn
   -- the subject's frames
   simp only [Expr.WScoped] at hws
@@ -87,22 +87,22 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     hreads htpe hws hb hLpe (LeafReadsP.of_ctxOkP hCpe) hvp
   obtain ⟨hokPe, hokTpe, hmemPe⟩ := ihi htpe hws hb hLpe hCpe hvp htpea
   have hwtpe : Expr.WScoped d tpe :=
-    Lech.inferTypeCore_WScoped m.wf fuel htpe hws
+    ConLeche.inferTypeCore_WScoped m.wf fuel htpe hws
   have hbtpe : tpe.looseBVarsBounded 0 = true :=
-    Lech.inferTypeCore_looseBVars m.wf fuel htpe hws hb hLpe
+    ConLeche.inferTypeCore_looseBVars m.wf fuel htpe hws hb hLpe
   have hLtpe : Expr.LeavesBounded tpe := fun l hl =>
-    hLpe l (Lech.inferTypeCore_fvarLeaves m.wf fuel htpe hws l hl)
+    hLpe l (ConLeche.inferTypeCore_fvarLeaves m.wf fuel htpe hws l hl)
   have hCtpe : CtxOkP m φ d Δa tpe :=
     hCpe.of_subset
-      (Lech.inferTypeCore_fvarLeaves m.wf fuel htpe hws)
+      (ConLeche.inferTypeCore_fvarLeaves m.wf fuel htpe hws)
   -- reduced to the family instance
   obtain ⟨tea, htea⟩ := hwreads hwte hwtpe hbtpe hLtpe
     (LeafReadsP.of_ctxOkP hCtpe) htpea
   obtain ⟨hokTe, heqTe⟩ :=
     ihw hwte hwtpe hbtpe hLtpe hCtpe htpea htea hokTpe
-  have hwte' : Expr.WScoped d te := Lech.whnf_WScoped m.wf fuel hwte hwtpe
+  have hwte' : Expr.WScoped d te := ConLeche.whnf_WScoped m.wf fuel hwte hwtpe
   have hbte : te.looseBVarsBounded 0 = true :=
-    Lech.whnf_looseBVars m.wf fuel hwte hbtpe
+    ConLeche.whnf_looseBVars m.wf fuel hwte hbtpe
   -- the tower law's typing clause (task #175 wiring W5)
   obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
     htower T i entry hfe
@@ -111,7 +111,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
   obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
   -- the reduced type's spine, at the former's leaf
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
-    (Lech.Expr.mkAppN_getApp te).symm, hfn] at htea
+    (ConLeche.Expr.mkAppN_getApp te).symm, hfn] at htea
   obtain ⟨vT, vs, hvT, hspt, hteq⟩ := denoteP_mkAppN_inv htea
   have hlenT : us.length
       = (ConstantInfo.indInfo cvT capsT).toConstantVal.levelParams.length := by
@@ -128,7 +128,7 @@ theorem inferProjStepP_of_claims {m : EnvS2Core V env}
     intro x hx
     rcases List.mem_append.mp hx with hx' | hx'
     · exact ⟨hwte'.getAppArgs x hx',
-        Lech.looseBVarsBounded_getAppArgs hbte x hx'⟩
+        ConLeche.looseBVarsBounded_getAppArgs hbte x hx'⟩
     · rcases List.mem_singleton.mp hx' with rfl
       exact ⟨hws, hb⟩
   obtain ⟨restA, hrest, hpeel⟩ :=
@@ -161,7 +161,7 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
     InferProjStepIOP m μ φ fuel := by
   intro d i sn pe t Δa ea ta h hws hb hLb hC hea hta hok
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hlenArgs,
-    hlenUs, hguard, rfl, hsn⟩ := Lech.inferTypeCoreIO_proj_inv h
+    hlenUs, hguard, rfl, hsn⟩ := ConLeche.inferTypeCoreIO_proj_inv h
   subst hsn
   -- the subject's frames
   simp only [Expr.WScoped] at hws
@@ -184,22 +184,22 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
     hreads htpe hws hb hLpe (LeafReadsP.of_ctxOkP hCpe) hvp
   obtain ⟨hokTpe, hmemPe⟩ := ihio htpe hws hb hLpe hCpe hvp htpea hokPe
   have hwtpe : Expr.WScoped d tpe :=
-    Lech.inferTypeCoreIO_WScoped m.wf fuel htpe hws
+    ConLeche.inferTypeCoreIO_WScoped m.wf fuel htpe hws
   have hbtpe : tpe.looseBVarsBounded 0 = true :=
-    Lech.inferTypeCoreIO_looseBVars m.wf fuel htpe hws hb hLpe
+    ConLeche.inferTypeCoreIO_looseBVars m.wf fuel htpe hws hb hLpe
   have hLtpe : Expr.LeavesBounded tpe := fun l hl =>
-    hLpe l (Lech.inferTypeCoreIO_fvarLeaves m.wf fuel htpe hws l hl)
+    hLpe l (ConLeche.inferTypeCoreIO_fvarLeaves m.wf fuel htpe hws l hl)
   have hCtpe : CtxOkP m φ d Δa tpe :=
     hCpe.of_subset
-      (Lech.inferTypeCoreIO_fvarLeaves m.wf fuel htpe hws)
+      (ConLeche.inferTypeCoreIO_fvarLeaves m.wf fuel htpe hws)
   -- reduced to the family instance
   obtain ⟨tea, htea⟩ := hwreads hwte hwtpe hbtpe hLtpe
     (LeafReadsP.of_ctxOkP hCtpe) htpea
   obtain ⟨hokTe, heqTe⟩ :=
     ihw hwte hwtpe hbtpe hLtpe hCtpe htpea htea hokTpe
-  have hwte' : Expr.WScoped d te := Lech.whnf_WScoped m.wf fuel hwte hwtpe
+  have hwte' : Expr.WScoped d te := ConLeche.whnf_WScoped m.wf fuel hwte hwtpe
   have hbte : te.looseBVarsBounded 0 = true :=
-    Lech.whnf_looseBVars m.wf fuel hwte hbtpe
+    ConLeche.whnf_looseBVars m.wf fuel hwte hbtpe
   -- the tower law's typing clause (task #175 wiring W5)
   obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
     htower T i entry hfe
@@ -207,7 +207,7 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
   obtain ⟨vp', hvp', rfl⟩ := denoteP_proj_inv_tower hfe hea
   obtain rfl : vp = vp' := Option.some.inj (hvp.symm.trans hvp')
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
-    (Lech.Expr.mkAppN_getApp te).symm, hfn] at htea
+    (ConLeche.Expr.mkAppN_getApp te).symm, hfn] at htea
   obtain ⟨vT, vs, hvT, hspt, hteq⟩ := denoteP_mkAppN_inv htea
   have hlenT : us.length
       = (ConstantInfo.indInfo cvT capsT).toConstantVal.levelParams.length := by
@@ -223,7 +223,7 @@ theorem inferProjStepIOP_of_claims {m : EnvS2Core V env}
     intro x hx
     rcases List.mem_append.mp hx with hx' | hx'
     · exact ⟨hwte'.getAppArgs x hx',
-        Lech.looseBVarsBounded_getAppArgs hbte x hx'⟩
+        ConLeche.looseBVarsBounded_getAppArgs hbte x hx'⟩
     · rcases List.mem_singleton.mp hx' with rfl
       exact ⟨hws, hb⟩
   obtain ⟨restA, hrest, hpeel⟩ :=
@@ -277,7 +277,7 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
     (hwreads : WhnfReadsP m μ φ fuel) :
     ProjStepP μ m φ fuel := by
   intro d sn i pe e' Δa h hws hb hLb ea ea' hC hea hea' hokA
-  obtain ⟨e₂, e₃, hwpe, hlit, hcase⟩ := Lech.whnf_proj_inv h
+  obtain ⟨e₂, e₃, hwpe, hlit, hcase⟩ := ConLeche.whnf_proj_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
   have hLpe : Expr.LeavesBounded pe := fun l hl =>
@@ -296,13 +296,13 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
   obtain ⟨v₂, hv₂⟩ := hwreads hwpe hws hb hLpe
     (LeafReadsP.of_ctxOkP hCpe) hvp
   obtain ⟨hok₂, heq₂⟩ := ihw hwpe hws hb hLpe hCpe hvp hv₂ hokVp
-  have hw₂ : Expr.WScoped d e₂ := Lech.whnf_WScoped m.wf fuel hwpe hws
+  have hw₂ : Expr.WScoped d e₂ := ConLeche.whnf_WScoped m.wf fuel hwpe hws
   have hb₂ : e₂.looseBVarsBounded 0 = true :=
-    Lech.whnf_looseBVars m.wf fuel hwpe hb
+    ConLeche.whnf_looseBVars m.wf fuel hwpe hb
   have hL₂ : Expr.LeavesBounded e₂ := fun l hl =>
-    hLpe l (Lech.whnf_fvarLeaves m.wf fuel hwpe l hl)
+    hLpe l (ConLeche.whnf_fvarLeaves m.wf fuel hwpe l hl)
   have hC₂ : CtxOkP m φ d Δa e₂ :=
-    hCpe.of_subset (Lech.whnf_fvarLeaves m.wf fuel hwpe)
+    hCpe.of_subset (ConLeche.whnf_fvarLeaves m.wf fuel hwpe)
   -- the string-literal expansion, if it fired
   obtain ⟨v₃, hv₃, hok₃, heq₃, hw₃, hb₃, hL₃, hC₃⟩ :
       ∃ v₃, denoteP m.acval env φ d e₃ = some v₃ ∧
@@ -311,20 +311,20 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
           interp2 V σ vp = interp2 V σ v₃) ∧
         Expr.WScoped d e₃ ∧ e₃.looseBVarsBounded 0 = true ∧
         Expr.LeavesBounded e₃ ∧ CtxOkP m φ d Δa e₃ := by
-    rcases Lech.projLitToCtorP_inv hlit with rfl | ⟨st, rfl, hg, hred⟩
+    rcases ConLeche.projLitToCtorP_inv hlit with rfl | ⟨st, rfl, hg, hred⟩
     · exact ⟨v₂, hv₂, hok₂, heq₂, hw₂, hb₂, hL₂, hC₂⟩
     · obtain ⟨hSC, hwc, hbc, hLc, hfv⟩ := denotePStrLit_of_guard d st hg hv₂
-      have hCc : CtxOkP m φ d Δa (Lech.strLitToConstructor st) :=
+      have hCc : CtxOkP m φ d Δa (ConLeche.strLitToConstructor st) :=
         ⟨hCpe.1, fun l hl => by rw [hfv] at hl; exact nomatch hl⟩
       obtain ⟨v₃, hv₃⟩ := hwreads hred hwc hbc hLc
         (fun l hl => by rw [hfv] at hl; exact nomatch hl) hSC
       obtain ⟨hok₃, heq₃⟩ := ihw hred hwc hbc hLc hCc hSC hv₃ hok₂
       exact ⟨v₃, hv₃, hok₃,
         fun σ hσ => (heq₂ σ hσ).trans (heq₃ σ hσ),
-        Lech.whnf_WScoped m.wf fuel hred hwc,
-        Lech.whnf_looseBVars m.wf fuel hred hbc,
-        fun l hl => hLc l (Lech.whnf_fvarLeaves m.wf fuel hred l hl),
-        hCc.of_subset (Lech.whnf_fvarLeaves m.wf fuel hred)⟩
+        ConLeche.whnf_WScoped m.wf fuel hred hwc,
+        ConLeche.whnf_looseBVars m.wf fuel hred hbc,
+        fun l hl => hLc l (ConLeche.whnf_fvarLeaves m.wf fuel hred l hl),
+        hCc.of_subset (ConLeche.whnf_fvarLeaves m.wf fuel hred)⟩
   rcases hcase with rfl |
     ⟨us, entry, hfn, hfe, hilt, hlenA, hlenU, hfire, hwcf, hcert⟩
   · -- stuck: the projection of the reduced scrutinee, at the node's
@@ -357,7 +357,7 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
     obtain ⟨-, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hlenU
     -- the constructor spine, read at the constructor's leaf
     have he₃ : e₃ = Expr.mkAppN (.const entry.ctor us) e₃.getAppArgs := by
-      rw [← hfn]; exact (Lech.Expr.mkAppN_getApp e₃).symm
+      rw [← hfn]; exact (ConLeche.Expr.mkAppN_getApp e₃).symm
     have hv₃' := hv₃
     rw [he₃] at hv₃'
     obtain ⟨vf, vs, hvf, hspa, hveq⟩ := denoteP_mkAppN_inv hv₃'
@@ -373,7 +373,7 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
     have hidx : entry.numParams + i < e₃.getAppArgs.length := by
       rw [hlenA]; omega
     have hmem : e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)
-        ∈ e₃.getAppArgs := Lech.getD_mem hidx
+        ∈ e₃.getAppArgs := ConLeche.getD_mem hidx
     obtain ⟨hwF, hbF, hLF, hCF⟩ := frame_spineP hw₃ hb₃ hL₃ hC₃ _ hmem
     have hlenVs : vs.length = entry.numParams + entry.numFields := by
       rw [← hspa.length]; exact hlenA
@@ -388,21 +388,21 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
     obtain ⟨-, hoA⟩ := hoistP_spine vs hok₃'
     have hokArg : ∀ σ : Nat → V, Sat2 V Δa σ →
         AnnotOkP V σ (vs.getD (entry.numParams + i) default) :=
-      hoA _ (Lech.getD_mem (by rw [hlenVs]; omega))
+      hoA _ (ConLeche.getD_mem (by rw [hlenVs]; omega))
     obtain ⟨hokE, heqE⟩ := ihwc hwcf hwF hbF hLF hCF hfvd hea' hokArg
     -- the certificate (task #175 W6): the spine fits the constructor
     -- type's reading — `projCert`'s `iotaCerts` through `certs_teleP`
     obtain ⟨cvC', nP', nF', hfC', hcertI⟩ :=
-      Lech.projCert_inv (Lech.projCertAtP_verified hμ hcert)
+      ConLeche.projCert_inv (ConLeche.projCertAtP_verified hμ hcert)
     obtain ⟨rfl, -, -⟩ :=
       ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfC'))
-    have hwfC := m.wf _ (Lech.Semantics.Env.find?_mem hfC)
+    have hwfC := m.wf _ (ConLeche.Semantics.Env.find?_mem hfC)
     have hnfC : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar
         = false := by
-      rw [Lech.Expr.hasFvar_instantiateLevelParams]; exact hwfC.1
+      rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hwfC.1
     have hbdC : (cvC.type.instantiateLevelParams cvC.levelParams
         us).looseBVarsBounded 0 = true := by
-      rw [Lech.Expr.looseBVarsBounded_instantiateLevelParams]
+      rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
       exact hwfC.2.2.2.1
     have hTCd : denoteP m.acval env φ d
         (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa :=
@@ -411,14 +411,14 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
         hTCa d
     have hTw : Expr.WScoped d
         (cvC.type.instantiateLevelParams cvC.levelParams us) :=
-      Lech.Expr.WScoped.of_not_hasFvar hnfC
+      ConLeche.Expr.WScoped.of_not_hasFvar hnfC
     have hTL : Expr.LeavesBounded
         (cvC.type.instantiateLevelParams cvC.levelParams us) :=
-      Lech.Expr.LeavesBounded.of_not_hasFvar hnfC
+      ConLeche.Expr.LeavesBounded.of_not_hasFvar hnfC
     have hTC : CtxOkP m φ d Δa
         (cvC.type.instantiateLevelParams cvC.levelParams us) :=
       ⟨hC.1, fun l hl => by
-        rw [Lech.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfC] at hl
+        rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfC] at hl
         exact nomatch hl⟩
     -- the reading's grading and the head's membership, off the stored
     -- constant's own
@@ -439,7 +439,7 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
     have hpc : PiChainP e₃.getAppArgs.length TCa := by
       rw [hlenA]
       exact piChainP_of_stripPis (entry.numParams + entry.numFields)
-        (Lech.Expr.stripPis_instantiateLevelParams_isSome cvC.levelParams us _
+        (ConLeche.Expr.stripPis_instantiateLevelParams_isSome cvC.levelParams us _
           hstrip) hTCd
     -- the licensed walk (task #175 W6): the spine is a subject subterm,
     -- so the `.never` slots ride the application's own grading
@@ -455,4 +455,4 @@ theorem projStepP_of_claims (hμ : μ.verifiedChecks = true) {m : EnvS2Core V en
       hB (towerGuardAt_of_fireOk hO5 hfire) σ vs _ hlenVs (hok₃' σ hσ) hfit]
     exact heqE σ hσ
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,6 +1,6 @@
-import Lech.Semantics.BasisType
-import Lech.SetP.BitAgree
-import Lech.SetP.Claims2P
+import ConLeche.Semantics.BasisType
+import ConLeche.SetP.BitAgree
+import ConLeche.SetP.Claims2P
 
 /-!
 # Towards `AnnotOkP` at every built-in type (task #161, ENDGAME E)
@@ -58,12 +58,12 @@ a graph, numeral `1`, because `Prop` as a type is `Sort 1`) and
 `quotMk_mem_quot`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr SetTheory
-open Lech.Semantics (AVExpr)
+open ConLeche.VExpr SetTheory
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -366,4 +366,4 @@ theorem AnnotOkP_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
     AnnotOkP V ρ (BConst.type2 c us) :=
   ⟨AnnotOk2_bconst_type V c us ρ, AnnotValidV_bconst_type V c us ρ⟩
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,10 +1,10 @@
-import Lech.Semantics.Syntax
-import Lech.VExpr.Const
+import ConLeche.Semantics.Syntax
+import ConLeche.VExpr.Const
 
 /-!
 # `BConst.type2` — the annotated basis-constant types (#151, step 2)
 
-*(Re-based to `Lech/SetBase/*` at THE SEPARATION's S2, task #161: the
+*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161: the
 module already imported nothing but `SetBase/Syntax` and `TT/Const` —
 it is the basis constants' *annotated types*, pure syntax — and the
 graded lane's `Interp2/BasisTypeOk` was reaching it through the 2U
@@ -14,7 +14,7 @@ statements and proofs verbatim.)*
 
 The first of the two suppliers the skeleton's `const` row waits on
 (`Interp2/Skeleton.lean`): the annotated mirror of
-`Lech/VExpr/Const.lean`'s `BConst.type`, so that a built-in constant's
+`ConLeche/VExpr/Const.lean`'s `BConst.type`, so that a built-in constant's
 type can be *written* as an `AVExpr` at all.  `denote2` cannot produce
 it — `BConst.type` yields a `VExpr` and `denote2` maps `Expr → AVExpr`
 — which is why the former has to exist on its own.
@@ -65,14 +65,14 @@ numeral error the *only* thing that can go wrong here — a structural
 error cannot survive it.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.Semantics (AVExpr)
-open Lech.VExpr (BConst lv)
+open ConLeche.Semantics (AVExpr)
+open ConLeche.VExpr (BConst lv)
 
 /-! ## Annotated smart constructors
 
-Mirrors of `Lech/VExpr/Const.lean`'s, one per former the basis types
+Mirrors of `ConLeche/VExpr/Const.lean`'s, one per former the basis types
 mention.  Each carries the numerals its own shape fixes. -/
 
 /-- `Nat` -/
@@ -177,7 +177,7 @@ def BConst.type2 : BConst → List Nat → AVExpr
     .pi (u + 1) v (.sort u) <|
     .pi (Nat.max u 1) v (relT2 u (.bvar 0)) <|
     .pi (v + 1) v (.sort v) <|
-    .pi (Lech.VExpr.imax u v) v (.pi u v (.bvar 2) (.bvar 1)) <|
+    .pi (ConLeche.VExpr.imax u v) v (.pi u v (.bvar 2) (.bvar 1)) <|
     .pi 0 v (.pi u 0 (.bvar 3) (.pi u 0 (.bvar 4)
           (.pi 0 0 (AVExpr.mkAppN (.bvar 4) [.bvar 1, .bvar 0])
             (.eqE (.bvar 4) (.app (.bvar 3) (.bvar 2))
@@ -236,13 +236,13 @@ the only thing this file can get wrong, and the capstone
 theorem type2_erase (c : BConst) (us : List Nat) :
     (BConst.type2 c us).erase = BConst.type c us := by
   cases c <;>
-    simp [BConst.type2, Lech.VExpr.BConst.type, natT2, natZeroT2,
+    simp [BConst.type2, ConLeche.VExpr.BConst.type, natT2, natZeroT2,
       natSuccT2, punitT2, punitUnitT2, emptyT2, psigmaT2, quotT2,
-      quotMkT2, arrowA, relT2, negT2, Lech.VExpr.natT,
-      Lech.VExpr.natZeroT,
-      Lech.VExpr.natSuccT, Lech.VExpr.punitT, Lech.VExpr.punitUnitT,
-      Lech.VExpr.emptyT, Lech.VExpr.psigmaT, Lech.VExpr.quotT,
-      Lech.VExpr.quotMkT, Lech.VExpr.arrow, Lech.VExpr.relT,
-      Lech.VExpr.negT, AVExpr.mkAppN, Lech.VExpr.VExpr.mkAppN]
+      quotMkT2, arrowA, relT2, negT2, ConLeche.VExpr.natT,
+      ConLeche.VExpr.natZeroT,
+      ConLeche.VExpr.natSuccT, ConLeche.VExpr.punitT, ConLeche.VExpr.punitUnitT,
+      ConLeche.VExpr.emptyT, ConLeche.VExpr.psigmaT, ConLeche.VExpr.quotT,
+      ConLeche.VExpr.quotMkT, ConLeche.VExpr.arrow, ConLeche.VExpr.relT,
+      ConLeche.VExpr.negT, AVExpr.mkAppN, ConLeche.VExpr.VExpr.mkAppN]
 
-end Lech.Semantics
+end ConLeche.Semantics

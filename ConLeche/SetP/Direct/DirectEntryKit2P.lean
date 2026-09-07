@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectEntryKitP
+import ConLeche.SetP.Direct.DirectEntryKitP
 
 /-!
 # The projection entry's kit, continued (task #175 W4c, P3 module 7, part 3)
@@ -13,13 +13,13 @@ import Lech.SetP.Direct.DirectEntryKitP
   against the subject's projection spine (`chainP_entry_agree`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
 universe w
@@ -273,4 +273,4 @@ theorem chainP_entry_agree (nP i : Nat) (ρ : Nat → V) :
     congr 1
     omega
 
-end Lech.SetP
+end ConLeche.SetP

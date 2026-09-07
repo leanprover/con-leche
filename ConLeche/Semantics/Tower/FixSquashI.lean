@@ -1,5 +1,5 @@
-import Lech.Semantics.Tower.FixRecCoreI
-import Lech.SetModel.RecGraph
+import ConLeche.Semantics.Tower.FixRecCoreI
+import ConLeche.SetModel.RecGraph
 
 /-!
 # The recursive squash regime's large eliminator (task #202, Stage A2)
@@ -12,14 +12,14 @@ constructor's spine is READ OFF THE INDICES (`sqSpine`: the sum route's
 `srcVals`), and the recursor's value is determined by the recursion
 equation `R t = m (spine t) (ih⃗ from R at the predecessors)`.  The
 value is the unique element of the recursor's GRAPH (`sqGraph`, the
-least fixed point of `recGraphStep`, `Lech/SetModel/RecGraph`) —
+least fixed point of `recGraphStep`, `ConLeche/SetModel/RecGraph`) —
 singleton at every tuple of the family, by lfp induction on the
 family's functor (`sqGraph_singleton`).
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel Lech.SetTheory
-open SetTheory Lech.SetTheory.Tower
+namespace ConLeche.Semantics
+open ConLeche.SetModel ConLeche.SetTheory
+open SetTheory ConLeche.SetTheory.Tower
 
 universe w'
 
@@ -1821,4 +1821,4 @@ theorem sqK_facts (hℓ : ℓ ≠ 0) {ρP : Nat → V} {M m : V} {K : Nat → V}
 
 end Body
 
-end Lech.Semantics
+end ConLeche.Semantics

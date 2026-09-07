@@ -1,7 +1,7 @@
-import Lech.SetP.Direct.DirectFrameP
-import Lech.SetP.CapstoneP
-import Lech.SetP.Step2.ReadsIOP
-import Lech.Verify.Direct.DirectInv
+import ConLeche.SetP.Direct.DirectFrameP
+import ConLeche.SetP.CapstoneP
+import ConLeche.SetP.Step2.ReadsIOP
+import ConLeche.Verify.Direct.DirectInv
 
 /-!
 # The direct structure's stage runs, as rows (task #175 W4c, P3 module 3, part 2)
@@ -15,12 +15,12 @@ the hereditary gradings and the `CtxOkP` correspondences at every
 depth — everything a stage's frame walk consumes, in one record.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech Lech.Semantics Lech.Verify SetTheory Lech.SetModel
-open Lech.Semantics (AVExpr)
+open ConLeche ConLeche.Semantics ConLeche.Verify SetTheory ConLeche.SetModel
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -76,13 +76,13 @@ theorem sortRow (hc : ClaimsAtP μ m φ F) {d : Nat} {e t : Expr} {u : Level}
     (hea : denoteP m.acval env φ d e = some ea) :
     ∀ ρ : Nat → V, Sat2 V Δ ρ →
       AnnotOkP V ρ ea ∧ interp2 V ρ ea ∈ˢ (univ (u.eval φ) : V) :=
-  hc.sort hC hws hb hL hi (Lech.ensureSortCore_inv hens) hea
+  hc.sort hC hws hb hL hi (ConLeche.ensureSortCore_inv hens) hea
 
 /-- A definitional-equality run at a context: the readings interpret
 alike. -/
 theorem defEqRow (hc : ClaimsAtP μ m φ F) {d : Nat} {a b : Expr}
     {Δ : List AVExpr} {aa ba : AVExpr}
-    (h : Lech.isDefEqCore μ env F d a b = .ok true)
+    (h : ConLeche.isDefEqCore μ env F d a b = .ok true)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a)
     (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
@@ -202,4 +202,4 @@ theorem openedP_of {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
     exact ctxOkP_opened hop hcl hlen (fun i x hx => by simpa using hdoms i x hx)
       hgΓ hik hwx hleaf
 
-end Lech.SetP
+end ConLeche.SetP

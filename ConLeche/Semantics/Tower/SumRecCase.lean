@@ -1,6 +1,6 @@
-import Lech.Semantics.Tower.SumMk
-import Lech.Semantics.Tower.TowerRec
-import Lech.Semantics.Univ
+import ConLeche.Semantics.Tower.SumMk
+import ConLeche.Semantics.Tower.TowerRec
+import ConLeche.Semantics.Univ
 
 /-!
 # The sum recursor's case split, spelled (task #175 sum-types, stage S4a; indexed)
@@ -48,14 +48,14 @@ index tuple equal to the frame's (`restricted_member_elim`), so the
 minor's conclusion at the payload's projections IS the motive at the
 frame's indices.  The case split serves the graph regime only (`w ≠
 0`): at a squash instantiation the recursor body is spelled without
-it (`Lech/Semantics/Tower/SumRec.lean`).
+it (`ConLeche/Semantics/Tower/SumRec.lean`).
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -1057,4 +1057,4 @@ theorem caseRec_zero {ℓ w : Nat} (h0 : ℓ = 0) (Fss : List (List AVExpr)) (ar
   rw [interp2_natRecAV_raw, (imaxN_eq_zero_iff w ℓ).mpr h0, natRecV2, lamR_zero, app_pt, app_pt,
     app_pt, app_pt]
 
-end Lech.Semantics
+end ConLeche.Semantics

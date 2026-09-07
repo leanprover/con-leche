@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Run the *upstream* Lean Kernel Arena suite against this working tree's
-# lech, through the arena's own orchestration (`lka.py`), so the exports
+# con-leche, through the arena's own orchestration (`lka.py`), so the exports
 # are produced exactly the way the arena produces them.
 #
 #   scripts/arena/run-suite.sh clone           # clone/refresh the arena
 #   scripts/arena/run-suite.sh build-tests …   # lka.py build-test (patterns)
-#   scripts/arena/run-suite.sh run …           # lka.py run   --checker lech
+#   scripts/arena/run-suite.sh run …           # lka.py run   --checker con-leche
 #   scripts/arena/run-suite.sh table            # print the result table
 #   scripts/arena/run-suite.sh all              # everything but mathlib
 #
@@ -31,31 +31,31 @@
 #   * rustc/cargo — only needed to BUILD the Rust checkers upstream.  We
 #     never build another checker, so they are not required.
 #
-# The checker definition is scripts/arena/lech.yaml; it is copied into the
+# The checker definition is scripts/arena/con-leche.yaml; it is copied into the
 # clone's checkers/ on every run, and takes the binary, the preprocessor, the
 # mode and the limits from the environment (see below), so the arena clone
 # stays a pure checkout.
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-WORK=${LECH_ARENA_WORK:-$ROOT/_tmp/arena-suite}
-ARENA=${LECH_ARENA_DIR:-$WORK/lean-kernel-arena}
-ARENA_URL=${LECH_ARENA_URL:-https://github.com/leanprover/lean-kernel-arena}
+WORK=${CON_LECHE_ARENA_WORK:-$ROOT/_tmp/arena-suite}
+ARENA=${CON_LECHE_ARENA_DIR:-$WORK/lean-kernel-arena}
+ARENA_URL=${CON_LECHE_ARENA_URL:-https://github.com/leanprover/lean-kernel-arena}
 
-export LECH_BIN=${LECH_BIN:-$ROOT/.lake/build/bin/lech}
-export LECH_PREPROC=${LECH_PREPROC:-$ROOT/.lake/build/bin/lech-preprocess}
-export LECH_MODE=${LECH_MODE:---verified}
+export CON_LECHE_BIN=${CON_LECHE_BIN:-$ROOT/.lake/build/bin/con-leche}
+export CON_LECHE_PREPROC=${CON_LECHE_PREPROC:-$ROOT/.lake/build/bin/con-leche-preprocess}
+export CON_LECHE_MODE=${CON_LECHE_MODE:---verified}
 # Scratch.  Since task #180 the preprocessor's output is a pipe, so a run
 # writes no scratch file at all — the multi-gigabyte temp stream that used to
 # land in the tmpfs `/tmp` is gone.  This stays as the project's standing rule
 # for anything that does need scratch (and for lka.py's own children).
-export LECH_TMPDIR=${LECH_TMPDIR:-$WORK/tmp}
-mkdir -p "$LECH_TMPDIR"
-export TMPDIR=$LECH_TMPDIR
+export CON_LECHE_TMPDIR=${CON_LECHE_TMPDIR:-$WORK/tmp}
+mkdir -p "$CON_LECHE_TMPDIR"
+export TMPDIR=$CON_LECHE_TMPDIR
 # The standing ceilings for this project: 22 GB / 4 h for the large streams
 # (cedar, cslib, init, std), 16 GB / 50 min otherwise.  Set per invocation.
-export LECH_VLIMIT=${LECH_VLIMIT:-16000000}
-export LECH_TIMEOUT=${LECH_TIMEOUT:-3000}
+export CON_LECHE_VLIMIT=${CON_LECHE_VLIMIT:-16000000}
+export CON_LECHE_TIMEOUT=${CON_LECHE_TIMEOUT:-3000}
 
 # GNU time (see above).  Anything already on PATH wins.
 # NB `time` is a bash KEYWORD, so `time --version` and `command -v time` both
@@ -87,11 +87,11 @@ do_clone() {
 
 install_checker() {
   [ -d "$ARENA/checkers" ] || { echo "no arena clone at $ARENA (run 'clone')" >&2; exit 1; }
-  cp "$ROOT/scripts/arena/lech.yaml" "$ARENA/checkers/lech.yaml"
-  for f in "$LECH_BIN" "$LECH_PREPROC"; do
+  cp "$ROOT/scripts/arena/con-leche.yaml" "$ARENA/checkers/con-leche.yaml"
+  for f in "$CON_LECHE_BIN" "$CON_LECHE_PREPROC"; do
     [ -x "$f" ] || { echo "missing binary: $f  (lake build)" >&2; exit 1; }
   done
-  lka build-checker lech
+  lka build-checker con-leche
 }
 
 # The four multi-hundred-megabyte streams: they get the large ceilings and run
@@ -112,7 +112,7 @@ small_tests() {
 
 run_group() { # $@ = lka test patterns
   install_checker >/dev/null
-  for p in "$@"; do lka run --checker lech --test "$p"; done
+  for p in "$@"; do lka run --checker con-leche --test "$p"; done
 }
 
 case "${1:-all}" in
@@ -130,12 +130,12 @@ case "${1:-all}" in
     run_group "${pats[@]}" ;;
   run-big)
     # one at a time, 22 GB / 4 h, and nothing else of ours running
-    LECH_VLIMIT=${LECH_VLIMIT_BIG:-22000000} \
-    LECH_TIMEOUT=${LECH_TIMEOUT_BIG:-14400} \
+    CON_LECHE_VLIMIT=${CON_LECHE_VLIMIT_BIG:-22000000} \
+    CON_LECHE_TIMEOUT=${CON_LECHE_TIMEOUT_BIG:-14400} \
       run_group $BIG ;;
   table)
     shift
-    python3 "$ROOT/scripts/arena/table.py" "$ARENA" lech "${1:-$ARENA/_results}" ;;
+    python3 "$ROOT/scripts/arena/table.py" "$ARENA" con-leche "${1:-$ARENA/_results}" ;;
   all)
     do_clone
     for p in $(all_tests); do lka build-test "$p"; done

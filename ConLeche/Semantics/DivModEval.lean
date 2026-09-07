@@ -1,6 +1,6 @@
-import Lech.Verify.DivModInv
-import Lech.Verify.Denote
-import Lech.SetTheory.Basic
+import ConLeche.Verify.DivModInv
+import ConLeche.Verify.Denote
+import ConLeche.SetTheory.Basic
 
 /-!
 # The div/mod certificates' model-free half (task #161, S1)
@@ -22,8 +22,8 @@ Statements verbatim from their old home; the namespace is unchanged.
 
 universe w
 
-namespace Lech.Semantics
-open Lech.VExpr Lech.Verify SetTheory
+namespace ConLeche.Semantics
+open ConLeche.VExpr ConLeche.Verify SetTheory
 
 variable {V : Type w} [SetTheory V]
 
@@ -359,4 +359,4 @@ theorem divModClausesV_divmod {V : Type w} [SetTheory V] {val : Name → V} {c :
     simpa +decide only [DivModClausesV, if_false, if_true,
       reduceCtorEq, decide_true, decide_false] using h
 
-end Lech.Semantics
+end ConLeche.Semantics

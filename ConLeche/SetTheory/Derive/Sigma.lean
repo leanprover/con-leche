@@ -1,4 +1,4 @@
-import Lech.SetTheory.Derive.Univ
+import ConLeche.SetTheory.Derive.Univ
 
 /-!
 # Dependent pairs, with the level-0 truncation
@@ -13,7 +13,7 @@ non-pairs — in particular on `pt` itself, which is never a pair, so
 `sfst pt = ssnd pt = pt` holds by the tag.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -143,4 +143,4 @@ theorem sigma_mem_univ {u v : Nat} {A : V} {B : V → V}
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
 attribute [irreducible] sigmaSet spair sfst ssnd
 
-end Lech.SetTheory
+end ConLeche.SetTheory

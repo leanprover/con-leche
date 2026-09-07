@@ -2,8 +2,8 @@
 # Syntax of the erased term language (task #74; relocated at #209)
 
 `VExpr` is the semantics tier's *own* term datatype — deliberately not
-`Lech.Expr`.  It is what the denotation function from a real
-`Env`+`Expr` targets (`Lech/Verify/Denote.lean`), and it is chosen for
+`ConLeche.Expr`.  It is what the denotation function from a real
+`Env`+`Expr` targets (`ConLeche/Verify/Denote.lean`), and it is chosen for
 proof convenience, not for fidelity to the checker's representation.
 
 The declarative typing judgment this datatype was cut for is **gone**
@@ -12,7 +12,7 @@ the sentences below that motivate a design choice by a typing rule are
 kept as the *reason the datatype has the shape it has*, not as a
 claim that such a rule still exists anywhere in the tree.
 
-Differences from `Lech.Expr`, each deliberate:
+Differences from `ConLeche.Expr`, each deliberate:
 
 * **de Bruijn indices only.**  No `fvar`: the local context is an
   explicit `List VExpr`, so open terms need no type annotation at the
@@ -22,7 +22,7 @@ Differences from `Lech.Expr`, each deliberate:
   The denotation from a real `Env`+`Expr` unfolds everything, so every
   constant is instantiated at its use site and every level expression
   in the unfolded term evaluates to a ground natural.  `imax` is a
-  *computed function* on `Nat` (`Lech.VExpr.imax`), so impredicativity
+  *computed function* on `Nat` (`ConLeche.VExpr.imax`), so impredicativity
   of `Prop` is just its `v = 0` branch.  Universe polymorphism lives
   entirely in the bridge: a polymorphic declaration is denoted once per
   ground assignment, and "accepted" means the resulting statement holds
@@ -59,7 +59,7 @@ Differences from `Lech.Expr`, each deliberate:
   this former anyway, so they are gone.)
 * **No `lit`.**  Literal computation is *derived*, not built in: any
   term satisfying an operation's certified recurrences computes it on
-  numerals (the pinned `Nat` operations, `Lech/Kernel/NatOpPins.lean`).
+  numerals (the pinned `Nat` operations, `ConLeche/Kernel/NatOpPins.lean`).
 * **No global environment / no named constants.**  There is no `Env`
   and no delta rule: every constant the checker accepts either has a
   value (definitions, theorems, `opaque`s, the trust family), or has a
@@ -82,7 +82,7 @@ Differences from `Lech.Expr`, each deliberate:
 ## The basis
 
 The basis type formers are the ones the checker pins by hand
-(`Lech/Kernel/Basis/*.lean`): `Nat`, `PUnit`, `PSigma'`, `Empty`,
+(`ConLeche/Kernel/Basis/*.lean`): `Nat`, `PUnit`, `PSigma'`, `Empty`,
 `Quot`.  `Eq` is absent from the list only because it has been promoted
 to a syntactic former.  Everything else the checker stores — every
 modeled inductive, every direct structure — unfolds into this alphabet,
@@ -99,7 +99,7 @@ in the projections' case it is evidence that the former is the right
 primitive rather than an addition on top of one.
 -/
 
-namespace Lech.VExpr
+namespace ConLeche.VExpr
 
 /-- Lean's `imax`, as a function on concrete levels: `Prop` is
 impredicative, every other codomain takes the `max`. -/
@@ -151,7 +151,7 @@ inductive BConst where
   /-- `lfpFam.{u,w} : Π (I : Sort u), ((I → Sort w) → (I → Sort w)) → I → Sort w`
   — the least pre-fixed point of a functor on FAMILIES over `I` (task
   #188: the carrier of a directly installed recursive inductive type,
-  indexed from the start — `lfpFamSet`, `Lech/SetTheory/Derive/LfpFam.lean`).
+  indexed from the start — `lfpFamSet`, `ConLeche/SetTheory/Derive/LfpFam.lean`).
   A model-side constant with no kernel counterpart: no stream declares
   it, only the direct route's leaves spell it.  Its value is total (the
   empty family when no closed family exists), so it inhabits this type
@@ -210,7 +210,7 @@ def mkAppN (f : VExpr) : List VExpr → VExpr
 end VExpr
 
 /-- How many universe parameters each constant takes.  Level lists that
-are too short are read with `0` defaults (`Lech/VExpr/Const.lean`), so
+are too short are read with `0` defaults (`ConLeche/VExpr/Const.lean`), so
 this is documentation and a bridge convention, never a side condition
 of a rule. -/
 def BConst.numLevels : BConst → Nat
@@ -221,4 +221,4 @@ def BConst.numLevels : BConst → Nat
   | .punitRec | .psigma | .psigmaMk
   | .emptyRec | .quotLift => 2
 
-end Lech.VExpr
+end ConLeche.VExpr

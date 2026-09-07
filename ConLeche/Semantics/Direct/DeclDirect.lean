@@ -1,10 +1,10 @@
-import Lech.Semantics.DeclIndRun
+import ConLeche.Semantics.DeclIndRun
 
 /-!
 # `DeclDirectRun`: the direct-structure declaration relation (task #175 wiring, W4)
 
 The direct arm of `checkDecl`'s `.indDecl` clause
-(`checkDirectStruct`, `Lech/Kernel/Checker.lean`), recorded as a
+(`checkDirectStruct`, `ConLeche/Kernel/Checker.lean`), recorded as a
 **run relation**: one row per stage of the check, each the stage
 function's own `.ok` run at the fueled ops, plus the install spine.
 
@@ -25,9 +25,9 @@ Since task #175 W4c the direct route is the priority route: every
 consumer of the dispatch cases on the kernel's own `directParts?`.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech (Env Expr Name Level CheckMode ConstantVal ConstantInfo
+open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   DirectParts RecRule fueledOps checkDirectInd checkDirectCtor
   checkConstantVal checkDirectRec checkDirectProjTable
   checkDirectStruct projTableName directCaps)
@@ -39,26 +39,26 @@ monad-shape argument, one `cases` per bind. -/
 
 theorem declDirectRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectParts}
-    (h : checkDirectStruct (m := Lech.CheckM) (fueledOps μ F) env p
+    (h : checkDirectStruct (m := ConLeche.CheckM) (fueledOps μ F) env p
       = .ok env₂) :
     DeclDirectRun μ F env p env₂ := by
   rw [checkDirectStruct] at h
   simp only [bind, Except.bind] at h
-  cases hInd : checkDirectInd (m := Lech.CheckM) (fueledOps μ F)
+  cases hInd : checkDirectInd (m := ConLeche.CheckM) (fueledOps μ F)
       env p with
   | error e => rw [hInd] at h; exact nomatch h
   | ok r₁ =>
   obtain ⟨envI, cvTa⟩ := r₁
   rw [hInd] at h
   dsimp only at h
-  cases hCtor : checkDirectCtor (m := Lech.CheckM) (fueledOps μ F)
+  cases hCtor : checkDirectCtor (m := ConLeche.CheckM) (fueledOps μ F)
       env envI p cvTa with
   | error e => rw [hCtor] at h; exact nomatch h
   | ok r₂ =>
   obtain ⟨envC, cvCa, sorts⟩ := r₂
   rw [hCtor] at h
   dsimp only at h
-  cases hRec : checkDirectRec (m := Lech.CheckM) (fueledOps μ F)
+  cases hRec : checkDirectRec (m := ConLeche.CheckM) (fueledOps μ F)
       envC p cvTa cvCa with
   | error e => rw [hRec] at h; exact nomatch h
   | ok r₃ =>
@@ -70,8 +70,8 @@ theorem declDirectRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   revert h
   -- name the fire ite once, so the guard's `if` is the only one left
   generalize (if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2)
-      p.nP then Lech.RecRuleFire.plain
-    else Lech.RecRuleFire.inert) = fire
+      p.nP then ConLeche.RecRuleFire.plain
+    else ConLeche.RecRuleFire.inert) = fire
   -- name the recursor-extended environment
   generalize (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
     [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩] :: envC.consts⟩ : Env)
@@ -79,4 +79,4 @@ theorem declDirectRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   intro h
   exact h
 
-end Lech.Semantics
+end ConLeche.Semantics

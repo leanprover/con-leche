@@ -1,22 +1,22 @@
 # The lean4lean-model bridge (task #204): Carneiro's `OmegaInaccessibles`
-# hypothesis implies Lech's `SetTheory` interface.  A SEPARATE Lake package
-# so that the Lech libraries never gain a Mathlib dependency (build time,
+# hypothesis implies ConLeche's `SetTheory` interface.  A SEPARATE Lake package
+# so that the ConLeche libraries never gain a Mathlib dependency (build time,
 # trust surface, layering); see README.md here and DESIGN.md task #204.
-name = "lech-bridge-lean4lean-model"
-defaultTargets = ["LechBridge"]
+name = "con-leche-bridge-lean4lean-model"
+defaultTargets = ["ConLecheBridge"]
 
 # Mathlib first on purpose (lean4lean-model's own lakefile does the same):
 # Lake resolves a shared transitive dependency to the first pin it meets.
-# The tag matches `lean-toolchain` (v4.33.0), which is a copy of Lech's.
+# The tag matches `lean-toolchain` (v4.33.0), which is a copy of ConLeche's.
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
 rev = "v4.33.0"
 
-# Lech itself, by path: the bridge imports `Lech.SetTheory.Core` only.
+# ConLeche itself, by path: the bridge imports `ConLeche.SetTheory.Core` only.
 [[require]]
-name = "lech"
+name = "con-leche"
 path = "../.."
 
 [[lean_lib]]
-name = "LechBridge"
+name = "ConLecheBridge"

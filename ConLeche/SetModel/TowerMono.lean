@@ -1,4 +1,4 @@
-import Lech.SetModel.TaggedSum
+import ConLeche.SetModel.TaggedSum
 
 /-!
 # Monotonicity of the tuple towers and the tagged union (task #188)
@@ -8,12 +8,12 @@ monotone in its argument: enlarging the set at the recursive field
 positions enlarges the telescope pointwise (`TeleS.Sub`), the tower
 (`towerSet_mono`), and the tagged union (`sumSet_mono`).  These are
 the three facts the Knaster–Tarski laws
-(`Lech/SetTheory/Derive/Lfp.lean`) consume at the tower functor.
+(`ConLeche/SetTheory/Derive/Lfp.lean`) consume at the tower functor.
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/
 
-namespace Lech.SetTheory.Tower
+namespace ConLeche.SetTheory.Tower
 
 universe u
 
@@ -63,4 +63,4 @@ theorem sumSet_mono {w : Nat} {f g : Nat → V} (h : ∀ i, f i ⊆ˢ g i) :
     obtain ⟨i, a, ha, rfl⟩ := sumSet_elim hw' hx
     exact inj_mem hw' (h i a ha)
 
-end Lech.SetTheory.Tower
+end ConLeche.SetTheory.Tower

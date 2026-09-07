@@ -107,7 +107,7 @@ def ratio_text(r, base):
 L = []
 A = L.append
 
-A("# PERF.md — the lech performance battery")
+A("# PERF.md — the con-leche performance battery")
 A("")
 A("| | |")
 A("|---|---|")
@@ -121,9 +121,9 @@ A(f"| machine | {meta.get('host', '?')} — {meta.get('cpu', '?')}, "
 A("| columns | " + " · ".join(LABELS[c] for c in live) + " |")
 A(f"| metric | `perf stat -e instructions:u`, one run per cell, "
   f"`ulimit -v {meta.get('vlimit', '?')}`, `timeout {meta.get('timeout', '?')}`, `nice -n 5` "
-  f"(the `mathlib-full` row: 22 GB, 8 h, `LECH_PROGRESS=5000`) |")
-A("| streams | preprocessed once off the clock by `lech-preprocess`; "
-  "both checkers read the same bytes, lech under `--pre` |")
+  f"(the `mathlib-full` row: 22 GB, 8 h, `CON_LECHE_PROGRESS=5000`) |")
+A("| streams | preprocessed once off the clock by `con-leche-preprocess`; "
+  "both checkers read the same bytes, con-leche under `--pre` |")
 if meta.get("mathlibstream"):
     A(f"| Mathlib stream | {meta['mathlibstream']} |")
 if meta.get("loadnote"):
@@ -131,7 +131,7 @@ if meta.get("loadnote"):
 A(f"| official kernel | `{meta.get('official', '?')}` |")
 A(f"| preprocessor | `{meta.get('preproc', '?')}` |")
 if meta.get("binmd5"):
-    A(f"| lech binary | md5 `{meta['binmd5']}` |")
+    A(f"| con-leche binary | md5 `{meta['binmd5']}` |")
 A("")
 
 A("## instructions:u")
@@ -168,12 +168,12 @@ if census:
     A("Properties of the preprocessed FILE, computed by")
     A("`scripts/stream-census.py` — nobody's environment representation")
     A("enters here.  `records` is the number of declaration records in the")
-    A("file; `lech` and `official` are what each checker's verdict line")
+    A("file; `con-leche` and `official` are what each checker's verdict line")
     A("reports on it, both derived from the file alone (see the count note")
     A("below).  The native blocks are the inductive records the")
-    A("preprocessor left for lech to install directly, split by shape.")
+    A("preprocessor left for con-leche to install directly, split by shape.")
     A("")
-    A("| stream | records | lech | official | pinned | modeled | native | structures | sums | indexed |")
+    A("| stream | records | con-leche | official | pinned | modeled | native | structures | sums | indexed |")
     A("|" + "---|" * 10)
     for s in stream_order:
         c = census.get(s)
@@ -215,11 +215,11 @@ A("* **The verdict line counts declaration RECORDS** (task #187).  It")
 A("  used to print `env.consts.length`, the number of environment")
 A("  CONSTANTS, which counts an inductive block's type former, its")
 A("  constructors, its recursor and its projection table separately —")
-A("  a property of lech's representation that moved whenever the")
+A("  a property of con-leche's representation that moved whenever the")
 A("  representation moved.  It now prints the STREAM's record count —")
 A("  `decls.size - preludeCount + preludeDropped` since task #191's")
 A("  built-in prelude, so a stream that re-declares a prelude block")
-A("  identically reports what it declared.  `LECH_VERBOSE=1` still")
+A("  identically reports what it declared.  `CON_LECHE_VERBOSE=1` still")
 A("  prints the constant count, on stderr, beside it.")
 A("* **The official number is not a record count either.**  Its")
 A("  `Main.lean` prints `constMap.size`: one entry per exported")
@@ -229,7 +229,7 @@ A("  `.ind` entries it erases before replay.  Both numbers are now")
 A("  functions of the input file alone, and the census table above")
 A("  reproduces each of them exactly from the bytes.")
 A("* **Cross-pipeline, not same-work.**  Both sides read the same bytes,")
-A("  but a lech cell installs the native blocks through its own direct")
+A("  but a con-leche cell installs the native blocks through its own direct")
 A("  route and the rest through a *modeled* encoding, and runs an")
 A("  `annotate` pass with no official counterpart, while official checks")
 A("  that file with native inductive/recursor support throughout.")
@@ -240,7 +240,7 @@ A("* One run per cell on a shared machine: `instructions:u` is")
 A("  contention-independent, so a cell may overlap other work; wall time")
 A("  is not reported for that reason (the Mathlib row's minutes are")
 A("  labelled as data, above).")
-A("* Regenerate with `lake build lech && scripts/perf-tables.sh`;")
+A("* Regenerate with `lake build con-leche && scripts/perf-tables.sh`;")
 A("  `--render` re-renders from `perf-data/` without measuring, and")
 A("  `PERF_STREAMS=… PERF_APPEND=1` re-runs a single stream.  The")
 A("  `mathlib-full` row needs its stream cut by hand first (the")

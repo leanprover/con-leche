@@ -1,5 +1,5 @@
-import Lech.SetP.Annot.BitInstall
-import Lech.Semantics.ConstsBound
+import ConLeche.SetP.Annot.BitInstall
+import ConLeche.Semantics.ConstsBound
 
 /-!
 # `denoteP` across an environment extension (task #161, P3.2)
@@ -29,13 +29,13 @@ That is the whole Θ-residue for this key, gone by construction rather
 than by discharge.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level PropWhen
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level PropWhen
   natLitSupported strLitSupported)
 
 /-- **`denoteP` is stable under environment extension**, stated.
@@ -59,12 +59,12 @@ theorem denoteP_envExtend {env₀ env : Env}
       env₀.findProj? sn i = none → env.findProj? sn i = none) :
     DenotePEnvExtend env₀ env acval φ := by
   -- a preserved lookup carries its entry across unchanged
-  have hmono : ∀ (sn : Name) (i : Nat) (entry : Lech.ProjEntry),
+  have hmono : ∀ (sn : Name) (i : Nat) (entry : ConLeche.ProjEntry),
       env₀.findProj? sn i = some entry →
       env.findProj? sn i = some entry := by
     intro sn i entry h
-    obtain ⟨tbl, hf0, hi, rfl⟩ := Lech.Env.findProj?_some h
-    exact Lech.Env.findProj?_of_table (hF hf0) hi
+    obtain ⟨tbl, hf0, hi, rfl⟩ := ConLeche.Env.findProj?_some h
+    exact ConLeche.Env.findProj?_of_table (hF hf0) hi
   intro d e
   induction d, e using denoteP.induct (env := env₀) with
   | case1 d u => intro _; rw [denoteP, denoteP]
@@ -170,7 +170,7 @@ def LitGuardsMono (env₀ env : Env) : Prop :=
   (strLitSupported env₀ = true → strLitSupported env = true)
 
 /-- Free at every fresh cons, of any kind. -/
-theorem litGuardsMono_cons {env : Env} {c₀ : Lech.ConstantInfo}
+theorem litGuardsMono_cons {env : Env} {c₀ : ConLeche.ConstantInfo}
     (hfresh : env.find? c₀.name = none) :
     LitGuardsMono env ⟨c₀ :: env.consts⟩ :=
   ⟨natLitSupported_cons hfresh, strLitSupported_cons hfresh⟩
@@ -185,12 +185,12 @@ theorem denoteP_envExtend_mono {env₀ env : Env}
     ∀ (d : Nat) (e : Expr), ConstsBound env₀ e →
       ∀ {ea : AVExpr}, denoteP acval env₀ φ d e = some ea →
         denoteP acval env φ d e = some ea := by
-  have hmono : ∀ (sn : Name) (i : Nat) (entry : Lech.ProjEntry),
+  have hmono : ∀ (sn : Name) (i : Nat) (entry : ConLeche.ProjEntry),
       env₀.findProj? sn i = some entry →
       env.findProj? sn i = some entry := by
     intro sn i entry h
-    obtain ⟨tbl, hf0, hi, rfl⟩ := Lech.Env.findProj?_some h
-    exact Lech.Env.findProj?_of_table (hF hf0) hi
+    obtain ⟨tbl, hf0, hi, rfl⟩ := ConLeche.Env.findProj?_some h
+    exact ConLeche.Env.findProj?_of_table (hF hf0) hi
   intro d e
   induction d, e using denoteP.induct (env := env₀) with
   | case1 d u => intro _ ea h; rw [denoteP] at h ⊢; exact h
@@ -303,4 +303,4 @@ theorem denoteP_envExtend_mono {env₀ env : Env}
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
-end Lech.SetP
+end ConLeche.SetP

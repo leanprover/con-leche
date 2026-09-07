@@ -1,4 +1,4 @@
-import Lech.SetTheory.Derive.Empty
+import ConLeche.SetTheory.Derive.Empty
 
 /-!
 # Separation, derived from replacement
@@ -11,7 +11,7 @@ of it).  The detour is forced because replacement's antecedent demands
 totality.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -59,4 +59,4 @@ theorem image_congr {a : V} {f g : V → V} (h : ∀ x, x ∈ˢ a → f x = g x)
     exact ⟨fun ⟨w, hw, hz⟩ => ⟨w, hw, hz.trans (h w hw)⟩,
            fun ⟨w, hw, hz⟩ => ⟨w, hw, hz.trans (h w hw).symm⟩⟩
 
-end Lech.SetTheory
+end ConLeche.SetTheory

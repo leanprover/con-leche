@@ -1,7 +1,7 @@
-import Lech.SetP.Direct.DirectLawsP
-import Lech.SetP.Direct.DirectRowsP
-import Lech.Verify.InstLevels
-import Lech.Semantics.Tower.TowerWire
+import ConLeche.SetP.Direct.DirectLawsP
+import ConLeche.SetP.Direct.DirectRowsP
+import ConLeche.Verify.InstLevels
+import ConLeche.Semantics.Tower.TowerWire
 
 /-!
 # The direct block's stage data (task #175 W4c, P3 module 6, part 1)
@@ -15,13 +15,13 @@ the readings survive because the block's constants are stored and
 the head's slot mentions none of them.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
 
 universe w
 
@@ -92,13 +92,13 @@ structure FormerData {env : Env} (m : EnvS2Core V env) (cvT : ConstantVal)
 pre-block environment and the annotated telescope shape. -/
 theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {cvT cvTa : ConstantVal} {nP : Nat} {resSort : Level}
-    {bs : List (Expr × Lech.BinderMeta)}
-    (hccv : Lech.checkConstantVal (Lech.fueledOps μ F) env cvT = .ok cvTa)
+    {bs : List (Expr × ConLeche.BinderMeta)}
+    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
     (hstrip : cvTa.type.stripPis nP = some (bs, .sort resSort)) :
     ∃ pps : (Name → Nat) → List (Nat × Nat × AVExpr),
       FormerData mp.base2 cvTa nP resSort pps := by
   obtain ⟨-, -, -, -, hlbt, hitf, type', stype, u, hann', htp', htr', hst,
-    hens, rfl⟩ := Lech.checkConstantVal_inv hccv
+    hens, rfl⟩ := ConLeche.checkConstantVal_inv hccv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
   simp only at htf' hbt' htp' htr' hst hens hstrip
   have hw : Expr.WScoped 0 type' := Expr.WScoped.of_not_hasFvar htf'
@@ -180,4 +180,4 @@ theorem FormerData.cross {m : EnvS2Core V env} {cvT : ConstantVal}
   below := h.below
   params := h.params
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,12 +1,12 @@
-import Lech.SetP.AxiomReduceP
-import Lech.SetP.DeclIndP
-import Lech.SetP.Direct.DeclDirectP
-import Lech.Semantics.IndBlockFacts
-import Lech.Semantics.Bridge.Sound
-import Lech.Semantics.Direct.DeclDirectSumEta
-import Lech.SetP.DirectSum.DeclDirectSumP
-import Lech.SetP.DirectFix.DeclDirectFixP
-import Lech.SetP.BasisFalseP
+import ConLeche.SetP.AxiomReduceP
+import ConLeche.SetP.DeclIndP
+import ConLeche.SetP.Direct.DeclDirectP
+import ConLeche.Semantics.IndBlockFacts
+import ConLeche.Semantics.Bridge.Sound
+import ConLeche.Semantics.Direct.DeclDirectSumEta
+import ConLeche.SetP.DirectSum.DeclDirectSumP
+import ConLeche.SetP.DirectFix.DeclDirectFixP
+import ConLeche.SetP.BasisFalseP
 
 /-!
 # The P declaration fold, and the conditional capstone (task #161, P4)
@@ -41,13 +41,13 @@ The routed bundles, by tier:
   is `hμ` alone.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   Declaration checkDecl checkDecls fueledOps)
 
 universe w
@@ -88,7 +88,7 @@ theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
 /-- The basis kind's whole step, routed (basis tier). -/
 def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {env : Env}, EnvS2PM V μ env →
-    ∀ {kind : Lech.BasisKind} {env₂ : Env},
+    ∀ {kind : ConLeche.BasisKind} {env₂ : Env},
       DeclBasisRun env kind env₂ →
       Nonempty (EnvS2PM V μ env₂)
 
@@ -125,7 +125,7 @@ def IndStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   -- conclusion's shape ("a carrier here gives a carrier there").
   ∀ {F : Nat} {env : Env} (_mp : EnvS2PM V μ env)
     {block : List ConstantInfo} {env₂ : Env},
-    Lech.EtaFamiliesClosed env →
+    ConLeche.EtaFamiliesClosed env →
     DeclIndRun μ F env block env₂ →
     Nonempty (EnvS2PM V μ env₂)
 
@@ -157,7 +157,7 @@ non-`ind` kinds have run-only bridges (`checkDeclRun_of`,
 reads, and no step below changed a line. -/
 theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvS2PM V μ env) (hE : EtaFamiliesClosed env)
-    (hrun : DeclRun μ F (Lech.Semantics.DeclIndRunDispatch μ F env)
+    (hrun : DeclRun μ F (ConLeche.Semantics.DeclIndRunDispatch μ F env)
       env d env₂) :
     EnvSPOk V μ env₂ := by
   -- the η half: `declEtaStepRun` (task #161 S3, the census's C4), now
@@ -167,8 +167,8 @@ theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- fold consults no install obligation for its η half at all.
   -- task #175 wiring W5: the η half is FLAG-AGNOSTIC — the `.indDecl`
   -- dispatch's own case split (`declIndRunDispatchEtaClosed`)
-  refine ⟨?_, Lech.Semantics.declEtaStepRun
-    (fun h' => Lech.Semantics.declIndRunDispatchEtaClosed hE h') hE hrun⟩
+  refine ⟨?_, ConLeche.Semantics.declEtaStepRun
+    (fun h' => ConLeche.Semantics.declIndRunDispatchEtaClosed hE h') hE hrun⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := hrun
@@ -194,21 +194,21 @@ theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     -- directly (task #175 W4c: structures, sums; task #188: recursive
     -- types), everything else through the modeled path — the kernel's
     -- own three-stage case split
-    have hrun' : Lech.Semantics.DeclIndRunDispatch μ F env block env₂ := hrun
-    unfold Lech.Semantics.DeclIndRunDispatch at hrun'
-    cases hdp : Lech.directParts? env block with
+    have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block env₂ := hrun
+    unfold ConLeche.Semantics.DeclIndRunDispatch at hrun'
+    cases hdp : ConLeche.directParts? env block with
     | some p =>
       rw [hdp] at hrun'
       exact declDirectP hμ mp hE hdp hrun'
     | none =>
       rw [hdp] at hrun'
-      cases hds : Lech.directSumParts? env block with
+      cases hds : ConLeche.directSumParts? env block with
       | some p =>
         rw [hds] at hrun'
         exact declDirectSumP hμ mp hE hds hrun'
       | none =>
         rw [hds] at hrun'
-        cases hdf : Lech.directFixParts? block with
+        cases hdf : ConLeche.directFixParts? block with
         | some p =>
           rw [hdf] at hrun'
           exact declDirectFixP hμ mp hE hdf hrun'
@@ -241,7 +241,7 @@ theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
           -- *derivation*-free at the five non-`ind` kinds, so the only
           -- route from here into the relation tier is the `Ind`
           -- premise `checkDeclRun_ofEnvFactsE` fills with `declIndRR`.
-          (Lech.Semantics.checkDeclRun_ofEnvFactsE hd)) h
+          (ConLeche.Semantics.checkDeclRun_ofEnvFactsE hd)) h
 
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'
@@ -295,7 +295,7 @@ theorem no_proof_of_Empty_P (V : Type w) [SetTheory V]
 in a validating mode, never accepts a declaration stream in which some
 stored constant has type `False`.*  The same letter as
 `no_proof_of_Empty_P`, at the pinned `False` block
-(`Lech/Kernel/Basis/False.lean`): `False` is a reserved basis name
+(`ConLeche/Kernel/Basis/False.lean`): `False` is a reserved basis name
 whose stored declaration and leaf are fixed by the pin, so — exactly as
 for `Empty` — the statement carries no hypothesis about how the stream
 declared `False`.  Hypotheses are input-level only: the validating
@@ -309,4 +309,4 @@ theorem no_proof_of_False_P (V : Type w) [SetTheory V]
   obtain ⟨mp⟩ := checkDecls_sound_P_of (V := V) hμ h
   exact fun c hc hty => no_constant_of_False_P mp c hc hty
 
-end Lech.SetP
+end ConLeche.SetP

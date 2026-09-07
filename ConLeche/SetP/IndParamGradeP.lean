@@ -1,6 +1,6 @@
-import Lech.SetP.IndDomGradeP
-import Lech.SetP.IndRunsP
-import Lech.Verify.BridgeWfImp
+import ConLeche.SetP.IndDomGradeP
+import ConLeche.SetP.IndRunsP
+import ConLeche.Verify.BridgeWfImp
 
 /-!
 # The constructor's parameter domains, graded and fired (task #161,
@@ -34,13 +34,13 @@ external input**: `Sat2 V Δb` alone grades every `ΓP` slot
 equality and `Sat2`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name isDefEqCore DefEqListOk)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
 
@@ -326,4 +326,4 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
   rw [hfire] at hsatq
   exact hsatq
 
-end Lech.SetP
+end ConLeche.SetP

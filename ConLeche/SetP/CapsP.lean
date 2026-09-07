@@ -1,4 +1,4 @@
-import Lech.SetP.InstallP
+import ConLeche.SetP.InstallP
 
 /-!
 # The structure-capability laws across a fresh cons (task #161, caps
@@ -30,13 +30,13 @@ function (a `recInfo` lookup), so all three disequalities are
 `natOpsP_cons_fresh`, whose head case needs a disjunctive premise.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName)
 
 universe w
@@ -54,14 +54,14 @@ variable {μ : CheckMode} {env : Env}
 /-- **A stored constant's level-instantiated type is prefix-bound.**
 Level instantiation does not move constants, so this is the stored
 type's own `constsResolve` read through `ConstsBound`. -/
-theorem constsBound_instType {env : Env} (hwf : Lech.EnvWF env)
+theorem constsBound_instType {env : Env} (hwf : ConLeche.EnvWF env)
     {c : ConstantInfo} (hc : c ∈ env.consts) (us : List Level) :
     ConstsBound env
       (c.toConstantVal.type.instantiateLevelParams
         c.toConstantVal.levelParams us) := by
   obtain ⟨-, -, hty, -⟩ := hwf c hc
   refine constsBound_of_constsResolve _ ?_
-  rw [Lech.Expr.constsResolve_instantiateLevelParams]
+  rw [ConLeche.Expr.constsResolve_instantiateLevelParams]
   exact hty
 
 /-! ## The family descent
@@ -78,33 +78,33 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
     (hnotctor : ∀ cv np nf, c₀ ≠ .ctorInfo cv np nf)
     (hnotrec : ∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules)
     (hf : (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps))
-    (hfam : Lech.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps) :
+    (hfam : ConLeche.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps) :
     env.find? T = some (.indInfo cvT caps) ∧
-      Lech.EtaFamilyStored env T caps ∧
+      ConLeche.EtaFamilyStored env T caps ∧
       T ≠ c₀.name ∧ caps.etaCtor ≠ c₀.name ∧
       ∀ j, j < caps.etaFields → projFnName T j ≠ c₀.name := by
   obtain ⟨hCres, ⟨cvC, hfC⟩, hfP⟩ := hfam
   -- the former is not the cons: the cons is not an `indInfo`
   have hnT : T ≠ c₀.name := by
     rintro rfl
-    rw [Lech.Env.find?_cons, if_pos rfl] at hf
+    rw [ConLeche.Env.find?_cons, if_pos rfl] at hf
     exact hnotind cvT caps (Option.some.inj hf)
   -- the capability constructor is not the cons: it is a `ctorInfo`
   have hnC : caps.etaCtor ≠ c₀.name := by
     intro heq
-    rw [heq, Lech.Env.find?_cons, if_pos rfl] at hfC
+    rw [heq, ConLeche.Env.find?_cons, if_pos rfl] at hfC
     exact hnotctor cvC caps.etaParams caps.etaFields
       (Option.some.inj hfC)
   -- no projection function is the cons: they are `recInfo`s
   have hnP : ∀ j, j < caps.etaFields → projFnName T j ≠ c₀.name := by
     intro j hj heq
     obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfP j hj
-    rw [heq, Lech.Env.find?_cons, if_pos rfl] at hf2
+    rw [heq, ConLeche.Env.find?_cons, if_pos rfl] at hf2
     exact hnotrec cv2 mI2 rP2 rules2 (Option.some.inj hf2)
   have hdown : ∀ n : Name, n ≠ c₀.name →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
-    rw [Lech.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
+    rw [ConLeche.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
   refine ⟨by rwa [hdown _ hnT] at hf, ⟨hCres, ⟨cvC, ?_⟩, ?_⟩,
     hnT, hnC, hnP⟩
   · rwa [hdown _ hnC] at hfC
@@ -143,7 +143,7 @@ certificate accepts.
 
 **The wall statement.**  `StructUnitIrrelP` is not a consequence of
 the frozen `CapsOkP` plus the claims.  The fix is one deletion — drop
-`Lech.EtaFamilyStored env T caps →` from `CapsOkP`'s second
+`ConLeche.EtaFamilyStored env T caps →` from `CapsOkP`'s second
 conjunct, restoring `CapsOkV`'s keying — which *strengthens* the
 field (fewer premises = more obligations) and so cannot weaken any
 downstream statement; establishment is unaffected, since `MemberUnitS`
@@ -155,7 +155,7 @@ in the census, named, for the lane lead. -/
 a constructor that is stored nowhere. -/
 def unitNoFamilyCaps : IndCaps where
   eta := false
-  etaCtor := Name.anonymous.str "LechCapsWall.mk"
+  etaCtor := Name.anonymous.str "ConLecheCapsWall.mk"
   etaParams := 0
   etaFields := 0
   unitlike := true
@@ -165,7 +165,7 @@ def unitNoFamilyCaps : IndCaps where
 /-- The witnessing environment: one non-reserved `unitlike` former
 carrying `unitNoFamilyCaps`. -/
 def unitNoFamilyEnv : Env :=
-  ⟨[.indInfo ⟨Name.anonymous.str "LechCapsWall.T", [], .sort .zero⟩
+  ⟨[.indInfo ⟨Name.anonymous.str "ConLecheCapsWall.T", [], .sort .zero⟩
       unitNoFamilyCaps]⟩
 
 /-- **The wall, mechanized**: a well-formed environment storing a
@@ -174,13 +174,13 @@ Everything `structUnitCert`'s inversion can ever hand a consumer holds
 here, and the frozen `CapsOkP`'s unit half is vacuous. -/
 theorem etaFamilyStored_not_derivable :
     ∃ (env : Env) (T : Name) (cvT : ConstantVal) (caps : IndCaps),
-      Lech.EnvWF env ∧
+      ConLeche.EnvWF env ∧
       env.find? T = some (.indInfo cvT caps) ∧
       caps.unitlike = true ∧
-      Lech.reservedBasisNames.contains T = false ∧
-      ¬ Lech.EtaFamilyStored env T caps := by
-  refine ⟨unitNoFamilyEnv, Name.anonymous.str "LechCapsWall.T",
-    ⟨Name.anonymous.str "LechCapsWall.T", [], .sort .zero⟩,
+      ConLeche.reservedBasisNames.contains T = false ∧
+      ¬ ConLeche.EtaFamilyStored env T caps := by
+  refine ⟨unitNoFamilyEnv, Name.anonymous.str "ConLecheCapsWall.T",
+    ⟨Name.anonymous.str "ConLecheCapsWall.T", [], .sort .zero⟩,
     unitNoFamilyCaps, ?_, by decide, rfl, by decide, ?_⟩
   · intro c hc
     rcases List.mem_singleton.mp hc with rfl
@@ -219,7 +219,7 @@ theorem capsOkP_cons_fresh (mp : EnvS2PM V μ env)
       exact denoteP_cons_mono hfresh
         ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
-          (Lech.Semantics.Env.find?_mem hfE) us) hTVa
+          (ConLeche.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x hlents hfit hmem
       rw [hac, acvalWith_ne hnT] at hmem
       have hfab : etaFabArgs2
@@ -243,10 +243,10 @@ theorem capsOkP_cons_fresh (mp : EnvS2PM V μ env)
     have hnT : T ≠ c₀.name := by
       intro hh
       subst hh
-      have h0 := (Lech.Env.find?_cons_self c₀ env).symm.trans hf
+      have h0 := (ConLeche.Env.find?_cons_self c₀ env).symm.trans hf
       exact hnotind cvT caps (Option.some.inj h0)
     have hfE : env.find? T = some (.indInfo cvT caps) := by
-      rw [Lech.Env.find?_cons, if_neg (fun hh => hnT hh.symm)] at hf
+      rw [ConLeche.Env.find?_cons, if_neg (fun hh => hnT hh.symm)] at hf
       exact hf
     obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
       hprev.2 T cvT caps hfE hcapu hres φ' us hlen
@@ -255,9 +255,9 @@ theorem capsOkP_cons_fresh (mp : EnvS2PM V μ env)
       exact denoteP_cons_mono hfresh
         ((hntc.typeOf hfE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
-          (Lech.Semantics.Env.find?_mem hfE) us) hTVa
+          (ConLeche.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x y hlents hfit hmx hmy
       rw [hac, acvalWith_ne hnT] at hmx hmy
       exact hlaw ρ ts rest x y hlents hfit hmx hmy
 
-end Lech.SetP
+end ConLeche.SetP

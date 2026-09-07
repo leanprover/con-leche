@@ -1,10 +1,10 @@
-import Lech.SetP.Direct.DirectEntryFreeP
-import Lech.Semantics.NoBVar
+import ConLeche.SetP.Direct.DirectEntryFreeP
+import ConLeche.Semantics.NoBVar
 
 /-!
 # Readings of leaf-free terms mention no excluded variable (task #188)
 
-`denoteP_liftN_of_leaf_free` (`Lech/SetP/Direct/DirectEntryFreeP.lean`)
+`denoteP_liftN_of_leaf_free` (`ConLeche/SetP/Direct/DirectEntryFreeP.lean`)
 for a SET of excluded variables at once: a term none of whose leaves
 is an excluded variable reads, at depth `d`, to a term mentioning none
 of the slots those variables read as (`NoBVar (exclP Q d)`), so its
@@ -15,13 +15,13 @@ slots hold an arbitrary member of a family other than the block's —
 the functor's argument — and this is what carries their grading over.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name)
 
 universe w
 
@@ -231,4 +231,4 @@ theorem noBVar_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name → Nat
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
-end Lech.SetP
+end ConLeche.SetP

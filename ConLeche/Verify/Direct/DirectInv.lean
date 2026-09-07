@@ -1,4 +1,4 @@
-import Lech.Verify.Direct.DirectWF
+import ConLeche.Verify.Direct.DirectWF
 
 /-!
 # The direct install's stage runs, inverted to their records (task #175 W4c, P3)
@@ -14,7 +14,7 @@ join points defeat a bare `split`), `close_throw` on the failing
 branches.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -296,4 +296,4 @@ theorem checkDirectFieldSorts_inv {env : Env} {isProp large : Bool}
         rw [hp] at h0
         exact nomatch h0
 
-end Lech
+end ConLeche

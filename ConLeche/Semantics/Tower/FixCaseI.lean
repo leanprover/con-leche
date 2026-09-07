@@ -1,11 +1,11 @@
-import Lech.Semantics.Tower.SumRecCase
-import Lech.Semantics.Tower.FixFamI
+import ConLeche.Semantics.Tower.SumRecCase
+import ConLeche.Semantics.Tower.FixFamI
 
 /-!
 # The recursive recursor's case split, spelled (task #188, indexed)
 
 The one-step unfolding of a recursive family's recursor is the sum
-route's case split (`Lech/Semantics/Tower/SumRecCase.lean`) with the
+route's case split (`ConLeche/Semantics/Tower/SumRecCase.lean`) with the
 **inductive hypotheses** supplied: constructor `j`'s branch is
 
     λ (y : T_j), m_j (y.0) … (y.(nF-1)) ih₁ … ih_m
@@ -27,11 +27,11 @@ frame arithmetic are the sum route's verbatim (`caseMotiveAV`,
 and the facts are re-run (`caseRec_factsI`).
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -547,4 +547,4 @@ theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess
           rw [natsucc_eq_vsucc, show vsucc (vnat i) = vnat (i + 1) from rfl, hsucc]
           exact (hinner a _ hb).1
 
-end Lech.Semantics
+end ConLeche.Semantics

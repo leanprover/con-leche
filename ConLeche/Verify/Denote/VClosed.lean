@@ -1,4 +1,4 @@
-import Lech.VExpr.Subst
+import ConLeche.VExpr.Subst
 
 /-!
 # Closed `VExpr`s
@@ -10,7 +10,7 @@ lifting and under instantiation *at that cut*.
 ## Why the bridge needs this and the set model does not
 
 This is the exact mirror image of the saving recorded in
-`Lech/Verify/Denote.lean`.  There, the free-variable valuation `ρ`
+`ConLeche/Verify/Denote.lean`.  There, the free-variable valuation `ρ`
 disappeared because the opened binder *is* a variable, so `denote`
 needs no valuation parameter where `interpExpr` needs one.  Here we pay
 for the same fact: `VExpr` has variables and `V` does not, so a
@@ -26,11 +26,11 @@ context, which for a term means it has no loose variables.
 
 The two lemmas below are structural inductions and nothing more; this
 is not the beginning of a syntactic metatheory (cf.
-`Lech/VExpr/DESIGN.md` §6), and like `Lech/TTVerify/Inversion.lean`
+`ConLeche/VExpr/DESIGN.md` §6), and like `ConLeche/TTVerify/Inversion.lean`
 they live on the bridge side so that they stay marked as a bridge need.
 -/
 
-namespace Lech.VExpr
+namespace ConLeche.VExpr
 namespace VExpr
 
 /-- `v` mentions no de Bruijn index `≥ n`. -/
@@ -122,4 +122,4 @@ theorem inst_eq_self_of_closed {v : VExpr} (h : Closed v) (a : VExpr)
   inst_eq_self (bvarsBelow.mono (Nat.zero_le k) h) a
 
 end VExpr
-end Lech.VExpr
+end ConLeche.VExpr

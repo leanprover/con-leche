@@ -1,4 +1,4 @@
-import Lech.SetP.IndAnnotKitP
+import ConLeche.SetP.IndAnnotKitP
 
 /-!
 # The transport's layer memberships (task #161, IND TIER part 5)
@@ -30,13 +30,13 @@ exposure's row — see the DESIGN.md entry — and it is the *only*
 outstanding input of the whole transport.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name isDefEqCore DefEqListOk)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
 
@@ -462,4 +462,4 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
   rw [interp2_liftN, hshiftEnv ρ'] at hfire
   rw [(hBkP ρ' hρ').2, hfire]
 
-end Lech.SetP
+end ConLeche.SetP

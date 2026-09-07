@@ -1,12 +1,12 @@
-import Lech.Semantics.Direct.DeclDirect
-import Lech.Verify.Direct.SumWF
+import ConLeche.Semantics.Direct.DeclDirect
+import ConLeche.Verify.Direct.SumWF
 
 /-!
 # `DeclDirectSumRun`: the direct sum declaration relation (task #175
 sum-types, indexed)
 
 The direct sum arm of `checkDecl`'s `.indDecl` clause
-(`checkDirectSum`, `Lech/Kernel/Direct/SumInstall.lean`), recorded
+(`checkDirectSum`, `ConLeche/Kernel/Direct/SumInstall.lean`), recorded
 as a run relation exactly as `DeclDirectRun`: the two front guards
 (the elimination restriction, the constructors' distinct names), the
 former's run, the constructors' runs at the former's environment, the
@@ -15,9 +15,9 @@ install spine.  Task #175 indexed: the stages carry `p.nIdx` and the
 recursor is stored at `p.majorIdx`/`p.rulePrefix`.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech (Env Expr Name Level CheckMode ConstantVal ConstantInfo
+open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   DirectSumParts RecRule fueledOps checkDirectSumInd checkDirectSumCtors
   checkDirectSumRec checkDirectSum consSumCtors directSumRules)
 
@@ -30,14 +30,14 @@ def DeclDirectSumRun (μ : CheckMode) (F : Nat) (env : Env)
     (ctorsA : List (ConstantVal × Nat)) (cvRa : ConstantVal) (rhss : List Expr),
     -- the former's run completes the record with the result sort
     -- (task #195); every later stage runs on `p'`
-    checkDirectSumInd (m := Lech.CheckM) (fueledOps μ F) env p = .ok (env₁, cvTa, p') ∧
+    checkDirectSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p = .ok (env₁, cvTa, p') ∧
     -- the elimination restriction: a large eliminator needs a provably
     -- nonzero sort or fewer than two constructors
     (p'.large = true → p'.resSort.isNeverZero = true ∨ p'.ctors.length < 2) ∧
-    checkDirectSumCtors (m := Lech.CheckM) (fueledOps μ F) env env₁ p'.cvT.name
+    checkDirectSumCtors (m := ConLeche.CheckM) (fueledOps μ F) env env₁ p'.cvT.name
       p'.cvT.levelParams p'.nP p'.nIdx p'.resSort p'.isProp p'.large cvTa p'.ctors
       = .ok ctorsA ∧
-    checkDirectSumRec (m := Lech.CheckM) (fueledOps μ F) (consSumCtors p'.nP ctorsA env₁)
+    checkDirectSumRec (m := ConLeche.CheckM) (fueledOps μ F) (consSumCtors p'.nP ctorsA env₁)
       p' cvTa ctorsA = .ok (cvRa, rhss) ∧
     env₂ = ⟨.recInfo cvRa p'.majorIdx p'.rulePrefix
       (directSumRules p'.nP p'.majorIdx p'.rulePrefix cvRa.type ctorsA rhss)
@@ -47,7 +47,7 @@ def DeclDirectSumRun (μ : CheckMode) (F : Nat) (env : Env)
 bind, the two guards by cases. -/
 theorem declDirectSumRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectSumParts}
-    (h : checkDirectSum (m := Lech.CheckM) (fueledOps μ F) env p = .ok env₂) :
+    (h : checkDirectSum (m := ConLeche.CheckM) (fueledOps μ F) env p = .ok env₂) :
     DeclDirectSumRun μ F env p env₂ := by
   rw [checkDirectSum] at h
   simp only [bind, Except.bind] at h
@@ -58,7 +58,7 @@ theorem declDirectSumRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   rw [if_pos hnd] at h
   try simp only [bind, Except.bind] at h
-  cases hInd : checkDirectSumInd (m := Lech.CheckM) (fueledOps μ F) env p with
+  cases hInd : checkDirectSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p with
   | error e => rw [hInd] at h; exact nomatch h
   | ok r₁ =>
   obtain ⟨env₁, cvTa, p'⟩ := r₁
@@ -82,14 +82,14 @@ theorem declDirectSumRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
         simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_true_eq]
         exact ⟨⟨hl, hz⟩, hge⟩
   try simp only [bind, Except.bind] at h
-  cases hCtors : checkDirectSumCtors (m := Lech.CheckM) (fueledOps μ F) env env₁
+  cases hCtors : checkDirectSumCtors (m := ConLeche.CheckM) (fueledOps μ F) env env₁
       p'.cvT.name p'.cvT.levelParams p'.nP p'.nIdx p'.resSort p'.isProp p'.large cvTa
       p'.ctors with
   | error e => rw [hCtors] at h; exact nomatch h
   | ok ctorsA =>
   rw [hCtors] at h
   dsimp only at h
-  cases hRec : checkDirectSumRec (m := Lech.CheckM) (fueledOps μ F)
+  cases hRec : checkDirectSumRec (m := ConLeche.CheckM) (fueledOps μ F)
       (consSumCtors p'.nP ctorsA env₁) p' cvTa ctorsA with
   | error e => rw [hRec] at h; exact nomatch h
   | ok r₃ =>
@@ -100,24 +100,24 @@ theorem declDirectSumRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
 
 /-- The direct sum arm keeps the environment well-formed. -/
 theorem declDirectSumRun_wf {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {p : DirectSumParts} (henv : Lech.EnvWF env)
-    (h : DeclDirectSumRun μ F env p env₂) : Lech.EnvWF env₂ := by
+    {p : DirectSumParts} (henv : ConLeche.EnvWF env)
+    (h : DeclDirectSumRun μ F env p env₂) : ConLeche.EnvWF env₂ := by
   obtain ⟨-, cvTa, env₁, p', ctorsA, cvRa, rhss, hInd, -, hCtors, hRec, rfl⟩ := h
-  obtain ⟨henv₁, -⟩ := Lech.direct_sum_ind_wf henv hInd
-  obtain ⟨hlen, hall⟩ := Lech.checkDirectSumCtors_inv hCtors
-  have henv₂ : Lech.EnvWF (consSumCtors p'.nP ctorsA env₁) := by
-    refine Lech.envWF_consSumCtors henv₁ ?_
+  obtain ⟨henv₁, -⟩ := ConLeche.direct_sum_ind_wf henv hInd
+  obtain ⟨hlen, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
+  have henv₂ : ConLeche.EnvWF (consSumCtors p'.nP ctorsA env₁) := by
+    refine ConLeche.envWF_consSumCtors henv₁ ?_
     intro c hc
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
     have hj' : j < p'.ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hj).1
       omega
     obtain ⟨-, hrun⟩ := hall j (p'.ctors[j]) c (List.getElem?_eq_getElem hj') hj
-    exact Lech.direct_sum_ctor_typeWF hrun
-  exact Lech.direct_sum_rec_wf henv₂ hRec
+    exact ConLeche.direct_sum_ctor_typeWF hrun
+  exact ConLeche.direct_sum_rec_wf henv₂ hRec
 
 /-! The `.indDecl` run dispatch (`DeclIndRunDispatch`) lives in
-`Lech/Semantics/Direct/DeclDirectFix.lean`, below the recursive arm
+`ConLeche/Semantics/Direct/DeclDirectFix.lean`, below the recursive arm
 (task #188). -/
 
-end Lech.Semantics
+end ConLeche.Semantics

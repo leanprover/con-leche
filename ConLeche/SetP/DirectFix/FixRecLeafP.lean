@@ -1,5 +1,5 @@
-import Lech.SetP.DirectFix.FixRecPreP
-import Lech.SetP.DirectFix.FixIntroP
+import ConLeche.SetP.DirectFix.FixRecPreP
+import ConLeche.SetP.DirectFix.FixIntroP
 
 /-!
 # The recursive recursor leaf's facts (task #188)
@@ -14,13 +14,13 @@ the tower's validity is the hereditary walk over the opened type's
 gradings.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -168,4 +168,4 @@ theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List
   rw [hFss, hIds]
   exact hokTyV ρ
 
-end Lech.SetP
+end ConLeche.SetP

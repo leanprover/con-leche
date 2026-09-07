@@ -11,19 +11,19 @@
 # 2026-09-05 ruling ("do remove the SetR tier, for more focus") then
 # removed the collapsed lane outright.  **The disjointness is what made
 # that removal a clean cut**: with no edge in either direction, deleting
-# `Lech/SetR/*` touched exactly two consumers in the whole tree.
+# `ConLeche/SetR/*` touched exactly two consumers in the whole tree.
 #
 # With one model lane there is no cross-lane edge to gate, so the two
 # lane clauses retire WITH THEIR SUBJECT (the same ratchet rule the
 # proofdeps pin states: a row whose subject no longer exists is not a
 # loosening).  What survives is the part of the fence that was never
 # about the R/P split:
-#   * any base→lane edge         (BASE PURITY — `Lech/{Kernel,Verify,
+#   * any base→lane edge         (BASE PURITY — `ConLeche/{Kernel,Verify,
 #     SetTheory,VExpr,SetModel,Semantics}/*` stand BELOW the model lane and may not
-#     import `Lech/SetP/*`), AND
+#     import `ConLeche/SetP/*`), AND
 #   * any implementation→theory edge   (the CLAUDE.md rule:
-#     `Lech/{Kernel,Cached,Frontend}/*` and `Main.lean` may never
-#     import `Lech/{SetTheory,SetModel,Semantics,SetP,Verify}/*`).
+#     `ConLeche/{Kernel,Cached,Frontend}/*` and `Main.lean` may never
+#     import `ConLeche/{SetTheory,SetModel,Semantics,SetP,Verify}/*`).
 # Both were always the load-bearing half — S9's finding was precisely
 # that the R/P clause measured where code SITS, and only
 # `tests/proofdeps.sh` (the proof-term criterion) certifies a proof-path
@@ -32,9 +32,9 @@
 # WHY A SCRIPT AND NOT THE BUILD.  The design census proposed separate
 # `lean_lib` targets as the fence ("cross-import = build error").  That
 # is not what Lake does: import resolution is per *package*, so any
-# module of the `lech` package may import any other regardless of
-# which `lean_lib` roots it (today `Lech.SetP.*` imports
-# `Lech.Kernel.*` across exactly such a boundary, and builds).  A hard
+# module of the `con-leche` package may import any other regardless of
+# which `lean_lib` roots it (today `ConLeche.SetP.*` imports
+# `ConLeche.Kernel.*` across exactly such a boundary, and builds).  A hard
 # build error would need the lanes to become separate Lake *packages*.
 # The lib split in `lakefile.toml` is therefore the LAYOUT; this gate is
 # the FENCE.  It runs in the standard battery (`tests/arena.sh`), so the
@@ -52,12 +52,12 @@ IMP = re.compile(r'^\s*(?:public\s+|private\s+|meta\s+)*import\s+([A-Za-z0-9_.]+
 # --------------------------------------------------------------- the
 # module graph.
 mods = {}
-for dirpath, _, files in os.walk('Lech'):
+for dirpath, _, files in os.walk('ConLeche'):
     for f in sorted(files):
         if f.endswith('.lean'):
             rel = os.path.join(dirpath, f)
             mods[rel[:-5].replace('/', '.')] = rel
-for extra in ('Lech.lean', 'Main.lean'):
+for extra in ('ConLeche.lean', 'Main.lean'):
     if os.path.exists(extra):
         mods[extra[:-5]] = extra
 
@@ -67,26 +67,26 @@ for name, rel in mods.items():
     edges[name] = [m for m in IMP.findall(src) if m in mods]
 
 # --------------------------------------------------------------- the
-# classification.  **BY PATH ALONE** since S2's `Lech/SetP/*` move,
+# classification.  **BY PATH ALONE** since S2's `ConLeche/SetP/*` move,
 # and since the SetR removal there is no closure left to compute:
-# `Lech/SetP{,/*}` is the lane, `Lech/Verify/Cached{,/*}` is the
-# capstone assembly, `Lech.lean` is the base umbrella, everything else
-# is base.  (The old `neutral` class — a module under `Lech/SetR/`
+# `ConLeche/SetP{,/*}` is the lane, `ConLeche/Verify/Cached{,/*}` is the
+# capstone assembly, `ConLeche.lean` is the base umbrella, everything else
+# is base.  (The old `neutral` class — a module under `ConLeche/SetR/`
 # that no R capstone reached — retired with that directory.)
-IMPL_DIRS   = ('Lech/Kernel/', 'Lech/Cached/', 'Lech/Frontend/')
+IMPL_DIRS   = ('ConLeche/Kernel/', 'ConLeche/Cached/', 'ConLeche/Frontend/')
 IMPL_ROOTS  = ('Main',)
-THEORY_PFX  = ('Lech.Verify.', 'Lech.SetTheory.',
-               'Lech.SetP.', 'Lech.SetModel.', 'Lech.Semantics.',
-               'Lech.VExpr.')
-CAPS        = {'Lech.Verify.Cached.MainC', 'Lech.Verify.Cached',
-               'Lech.MainTheorem'}
-UMBRELLAS   = {'Lech'}                  # `Lech.SetP` is gated as P
+THEORY_PFX  = ('ConLeche.Verify.', 'ConLeche.SetTheory.',
+               'ConLeche.SetP.', 'ConLeche.SetModel.', 'ConLeche.Semantics.',
+               'ConLeche.VExpr.')
+CAPS        = {'ConLeche.Verify.Cached.MainC', 'ConLeche.Verify.Cached',
+               'ConLeche.MainTheorem'}
+UMBRELLAS   = {'ConLeche'}                  # `ConLeche.SetP` is gated as P
 
 def lane(m):
     rel = mods[m]
     if m in CAPS:      return 'caps'
     if m in UMBRELLAS: return 'umbrella'
-    if rel == 'Lech/SetP.lean' or rel.startswith('Lech/SetP/'): return 'P'
+    if rel == 'ConLeche/SetP.lean' or rel.startswith('ConLeche/SetP/'): return 'P'
     return 'base'
 
 LANE = {m: lane(m) for m in mods}
@@ -113,11 +113,11 @@ def report(title, items, hint):
         print(f'    {hint}')
 
 report('base module importing the model lane', basev,
-       'Lech/{Kernel,Verify,SetTheory,VExpr,SetModel,Semantics}/* stand BELOW the '
-       'lane; nothing there may import Lech/SetP/*.')
+       'ConLeche/{Kernel,Verify,SetTheory,VExpr,SetModel,Semantics}/* stand BELOW the '
+       'lane; nothing there may import ConLeche/SetP/*.')
 report('implementation importing theory', implv,
-       'CLAUDE.md: Lech/Kernel/*, Main.lean must never import '
-       'Lech/{SetTheory,SetModel,Semantics,SetP,Verify}/*.')
+       'CLAUDE.md: ConLeche/Kernel/*, Main.lean must never import '
+       'ConLeche/{SetTheory,SetModel,Semantics,SetP,Verify}/*.')
 
 n = {l: sum(1 for m in LANE if LANE[m] == l)
      for l in ("base", "P", "caps", "umbrella")}

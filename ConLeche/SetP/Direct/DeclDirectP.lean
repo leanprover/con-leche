@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectStageTableP
+import ConLeche.SetP.Direct.DirectStageTableP
 
 /-!
 # The direct structure's install, assembled (task #175 W4c, P3 module 7, part 9; S1)
@@ -19,13 +19,13 @@ constructor stage's `constsResolve env₀` re-check is exactly this
 fact.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta ProjEntry projFnName)
 
 universe w
@@ -97,7 +97,7 @@ theorem denoteP_openPis_agree {acval₁ acval₂ : Name → (Name → Nat) → A
 /-- A name fresh at a cons is fresh below it. -/
 theorem find?_none_of_cons {c : ConstantInfo} {env : Env} {n : Name}
     (h : Env.find? ⟨c :: env.consts⟩ n = none) : env.find? n = none := by
-  rw [Lech.Env.find?_cons] at h
+  rw [ConLeche.Env.find?_cons] at h
   split at h
   · exact nomatch h
   · exact h
@@ -107,18 +107,18 @@ theorem find?_none_of_cons {c : ConstantInfo} {env : Env} {n : Name}
 /-- **The P carrier survives a direct install.** -/
 theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p : DirectParts} (mp : EnvS2PM V μ env)
-    (hE : Lech.EtaFamiliesClosed env) (hdp : Lech.directParts? env block = some p)
-    (h : Lech.Semantics.DeclDirectRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
+    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.directParts? env block = some p)
+    (h : ConLeche.Semantics.DeclDirectRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨cvTa, cvCa, cvRa, sorts, rhsA, envI, envC, hInd, hCtor, hRec, hTbl⟩ := h
   dsimp only at hTbl
   -- the table stage's own guards: the projection-function name family
   -- is free (the modeled route's η-family key) and the table is fresh
-  obtain ⟨-, -, -, hfam, hfreshTbl, -⟩ := Lech.checkDirectProjTable_inv hTbl
-  obtain ⟨hProp, hRname, hClps, hresT, hresC, hresR, helim⟩ := Lech.directParts?_inv hdp
+  obtain ⟨-, -, -, hfam, hfreshTbl, -⟩ := ConLeche.checkDirectProjTable_inv hTbl
+  obtain ⟨hProp, hRname, hClps, hresT, hresC, hresR, helim⟩ := ConLeche.directParts?_inv hdp
   -- the former
-  obtain ⟨hccvT, rfl, bsT, hstripT⟩ := Lech.checkDirectInd_shape hInd
+  obtain ⟨hccvT, rfl, bsT, hstripT⟩ := ConLeche.checkDirectInd_shape hInd
   obtain ⟨hfindT, -, hpshapeT, -, -, -, typeT, -, -, -, -, htrT, -, -, htyT⟩ :=
-    Lech.checkConstantVal_inv hccvT
+    ConLeche.checkConstantVal_inv hccvT
   have hTname : cvTa.name = p.cvT.name := by rw [htyT]
   have hlpsT : cvTa.levelParams = p.cvT.levelParams := by rw [htyT]
   have hTtype : cvTa.type = typeT := by rw [htyT]
@@ -128,17 +128,17 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
     constsBound_of_constsResolve _ (by rw [hTtype]; exact htrT)
   -- the constructor's shape
   obtain ⟨hccvC, rfl, ⟨cbs, hstripC⟩, fvsP, crest, tfvs, trest, xFvs, hopC, hopT, -, hopX, hxres,
-    hsorts⟩ := Lech.checkDirectCtor_shape hCtor
+    hsorts⟩ := ConLeche.checkDirectCtor_shape hCtor
   have hstripC' : (cvCa.type.stripPis (p.nP + p.nF)).isSome = true := by rw [hstripC]; rfl
   obtain ⟨hfindC, -, hpshapeC, -, -, hnfC, typeC, -, -, hannC, -, htrC, -, -, htyC⟩ :=
-    Lech.checkConstantVal_inv hccvC
+    ConLeche.checkConstantVal_inv hccvC
   have hCname : cvCa.name = p.cvC.name := by rw [htyC]
   have hlpsC : cvCa.levelParams = p.cvT.levelParams := by rw [htyC]; exact hClps
   have hlpsCT : cvCa.levelParams = cvTa.levelParams := by rw [hlpsC, hlpsT]
   have hCtype : cvCa.type = typeC := by rw [htyC]
-  have hfT_I : (⟨.indInfo cvTa (Lech.directCaps p) :: env.consts⟩ : Env).find? p.cvT.name
-      = some (.indInfo cvTa (Lech.directCaps p)) := by
-    rw [← hTname]; exact Lech.Env.find?_cons_self _ _
+  have hfT_I : (⟨.indInfo cvTa (ConLeche.directCaps p) :: env.consts⟩ : Env).find? p.cvT.name
+      = some (.indInfo cvTa (ConLeche.directCaps p)) := by
+    rw [← hTname]; exact ConLeche.Env.find?_cons_self _ _
   have hProp' : p.isProp = true → (Level.isEquiv p.resSort .zero == some true) = true :=
     fun h => by rw [← hProp]; exact h
   -- the dummy former: the constructor's field readings need a carrier
@@ -147,7 +147,7 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
     (fun _ => trivial) (fun _ _ _ => ⟨trivial, trivial⟩) (fun _ _ => rfl)
   obtain ⟨ds₀, hCD₀⟩ := ctorData_of hμ mpI₀ hCtor hfT_I hlpsT hstripT
   have hFD_I₀ : FormerData mpI₀.base2 cvTa p.nP p.resSort pps :=
-    hFD.cross (c₀ := .indInfo cvTa (Lech.directCaps p)) hTfresh
+    hFD.cross (c₀ := .indInfo cvTa (ConLeche.directCaps p)) hTfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT mpI₀.base2 hacI₀
   obtain ⟨hiff₀, hfields₀⟩ := ctorFrames hμ mpI₀ hCtor hfT_I hProp' hFD_I₀ hCD₀
   -- the real former
@@ -184,7 +184,7 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
     intro ψ
     rw [hacI, ← hTname, acvalWith_self, hdsEq]
   have hFD_I : FormerData mpI.base2 cvTa p.nP p.resSort pps :=
-    hFD.cross (c₀ := .indInfo cvTa (Lech.directCaps p)) hTfresh
+    hFD.cross (c₀ := .indInfo cvTa (ConLeche.directCaps p)) hTfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT mpI.base2 hacI
   obtain ⟨hiff, hfields⟩ := ctorFrames hμ mpI hCtor hfT_I hProp' hFD_I hCD
   -- the projection-function names are fresh at the recursor's extension
@@ -192,7 +192,7 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
       (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-          rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Lech.directCaps p) ::
+          rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (ConLeche.directCaps p) ::
             env.consts⟩ : Env).consts⟩ : Env).consts⟩ : Env).find? (projFnName p.cvT.name j)
         = none := by
     intro j hj
@@ -203,13 +203,13 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
     (fun hnF => find?_none_of_cons (hslotsF 0 hnF)) hFD_I hCD hleafT_I hiff
     (fun ψ ρ h => ⟨(hfields ψ ρ h).1, (hfields ψ ρ h).2.1⟩)
   -- the recursor
-  have hCfreshI : (⟨.indInfo cvTa (Lech.directCaps p) :: env.consts⟩ : Env).find? cvCa.name
+  have hCfreshI : (⟨.indInfo cvTa (ConLeche.directCaps p) :: env.consts⟩ : Env).find? cvCa.name
       = none := by rw [hCname]; exact hfindC
   have hTC : p.cvT.name ≠ cvCa.name := by
     intro h; rw [h, hCfreshI] at hfT_I; exact nomatch hfT_I
-  have hcbT_I : ConstsBound (⟨.indInfo cvTa (Lech.directCaps p) :: env.consts⟩ : Env) cvTa.type :=
-    constsBound_of_constsResolve _ (mpI.base2.wf _ (Lech.Semantics.Env.find?_mem hfT_I)).2.2.1
-  have hcbC : ConstsBound (⟨.indInfo cvTa (Lech.directCaps p) :: env.consts⟩ : Env) cvCa.type :=
+  have hcbT_I : ConstsBound (⟨.indInfo cvTa (ConLeche.directCaps p) :: env.consts⟩ : Env) cvTa.type :=
+    constsBound_of_constsResolve _ (mpI.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT_I)).2.2.1
+  have hcbC : ConstsBound (⟨.indInfo cvTa (ConLeche.directCaps p) :: env.consts⟩ : Env) cvCa.type :=
     constsBound_of_constsResolve _ (by rw [hCtype]; exact htrC)
   have hFD_C : FormerData mpC.base2 cvTa p.nP p.resSort pps :=
     hFD_I.cross (c₀ := .ctorInfo cvCa p.nP p.nF) hCfreshI
@@ -217,15 +217,15 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
   have hCD_C : CtorData mpC.base2 p.cvT.name cvCa p.nP p.nF p.resSort ds :=
     hCD.cross (c₀ := .ctorInfo cvCa p.nP p.nF) hCfreshI hTC
       (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbC mpC.base2 hacC
-  have hfT_C : (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Lech.directCaps p) ::
+  have hfT_C : (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (ConLeche.directCaps p) ::
       env.consts⟩ : Env).consts⟩ : Env).find? p.cvT.name
-      = some (.indInfo cvTa (Lech.directCaps p)) := by
-    rw [Lech.Env.find?_cons, if_neg (fun h => hTC h.symm)]
+      = some (.indInfo cvTa (ConLeche.directCaps p)) := by
+    rw [ConLeche.Env.find?_cons, if_neg (fun h => hTC h.symm)]
     exact hfT_I
-  have hfC_C : (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Lech.directCaps p) ::
+  have hfC_C : (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (ConLeche.directCaps p) ::
       env.consts⟩ : Env).consts⟩ : Env).find? p.cvC.name
       = some (.ctorInfo cvCa p.nP p.nF) := by
-    rw [← hCname]; exact Lech.Env.find?_cons_self _ _
+    rw [← hCname]; exact ConLeche.Env.find?_cons_self _ _
   have hleafT_C : ∀ ψ, mpC.base2.acval p.cvT.name ψ
       = directTyAV (p.resSort.eval ψ) (pps ψ) (((ds ψ).drop p.nP).map (·.2.2)) := by
     intro ψ
@@ -238,13 +238,13 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
     intro ψ
     rw [hacC, ← hCname, acvalWith_self]
   -- the η-families stay closed at the constructor's extension
-  have hE_C : Lech.EtaFamiliesClosed ⟨.ctorInfo cvCa p.nP p.nF ::
-      (⟨.indInfo cvTa (Lech.directCaps p) :: env.consts⟩ : Env).consts⟩ := by
+  have hE_C : ConLeche.EtaFamiliesClosed ⟨.ctorInfo cvCa p.nP p.nF ::
+      (⟨.indInfo cvTa (ConLeche.directCaps p) :: env.consts⟩ : Env).consts⟩ := by
     intro T'' cvT'' caps hf he hr
-    rw [Lech.Env.find?_cons] at hf
+    rw [ConLeche.Env.find?_cons] at hf
     split at hf
     · exact nomatch (Option.some.inj hf)
-    · rw [Lech.Env.find?_cons] at hf
+    · rw [ConLeche.Env.find?_cons] at hf
       split at hf
       · next heq =>
         obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hf)
@@ -252,10 +252,10 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
         show Env.find? ⟨.ctorInfo cvCa p.nP p.nF :: _⟩ p.cvC.name
           = some (.ctorInfo cvCa p.nP p.nF)
         rw [← hCname]
-        exact Lech.Env.find?_cons_self _ _
+        exact ConLeche.Env.find?_cons_self _ _
       · obtain ⟨cvC', hfC'⟩ := hE T'' cvT'' caps hf he hr
-        exact ⟨cvC', Lech.Env.find?_cons_of_fresh hCfreshI
-          (Lech.Env.find?_cons_of_fresh hTfresh hfC')⟩
+        exact ⟨cvC', ConLeche.Env.find?_cons_of_fresh hCfreshI
+          (ConLeche.Env.find?_cons_of_fresh hTfresh hfC')⟩
   -- the recursor's data, read off the generated type (task #175 S2)
   have hRD := recData_of hμ mpC hRec hfT_C hlpsT hfC_C hlpsC hopT hstripC' hFD_C hCD_C
   obtain ⟨hRuleRead, hRuleOk⟩ := ruleData_of hμ mpC hRec hfT_C hlpsT hfC_C hlpsC hopT hstripC'
@@ -267,12 +267,12 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
       (hfields ψ ρ h).2.2.2.1⟩)
   -- the fold's invariant at the first slot
   obtain ⟨cvRi, typeR, -, -, -, hccvR, hgenR, hgenRhs, -, htrR, -, -, -, -, -, -, -, -, -, -,
-    hcvRa⟩ := Lech.checkDirectRec_shape hRec
+    hcvRa⟩ := ConLeche.checkDirectRec_shape hRec
   obtain ⟨hfindR, -, -, -, -, -, -, -, -, -, -, -, -, -, -⟩ :=
-    Lech.checkConstantVal_inv hccvR
+    ConLeche.checkConstantVal_inv hccvR
   have hRname' : cvRa.name = p.cvR.name := by rw [hcvRa]
   have hRtype : cvRa.type = typeR := by rw [hcvRa]
-  have hRfresh : (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Lech.directCaps p) ::
+  have hRfresh : (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (ConLeche.directCaps p) ::
       env.consts⟩ : Env).consts⟩ : Env).find? cvRa.name = none := by
     rw [hRname']; exact hfindR
   have hTR : p.cvT.name ≠ cvRa.name := by
@@ -280,75 +280,75 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
   have hCR : p.cvC.name ≠ cvRa.name := by
     intro h; rw [h, hRfresh] at hfC_C; exact nomatch hfC_C
   have hcbT_C := constsBound_of_constsResolve _
-    (mpC.base2.wf _ (Lech.Semantics.Env.find?_mem hfT_C)).2.2.1
+    (mpC.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT_C)).2.2.1
   have hcbC_C := constsBound_of_constsResolve _
-    (mpC.base2.wf _ (Lech.Semantics.Env.find?_mem hfC_C)).2.2.1
+    (mpC.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfC_C)).2.2.1
   -- the structure's slots are mentioned by no stored piece: no table
   -- is stored below the table stage (task #175 S1)
   have hslotI : ∀ j,
-      (⟨.indInfo cvTa (Lech.directCaps p) :: env.consts⟩ : Env).findProj? p.cvT.name j
+      (⟨.indInfo cvTa (ConLeche.directCaps p) :: env.consts⟩ : Env).findProj? p.cvT.name j
         = none :=
-    fun j => Lech.Env.findProj?_none_of_fresh
+    fun j => ConLeche.Env.findProj?_none_of_fresh
       (find?_none_of_cons (find?_none_of_cons hfreshTbl)) j
   have hslotC : ∀ j,
-      (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Lech.directCaps p) ::
+      (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (ConLeche.directCaps p) ::
         env.consts⟩ : Env).consts⟩ : Env).findProj? p.cvT.name j = none :=
-    fun j => Lech.Env.findProj?_none_of_fresh (find?_none_of_cons hfreshTbl) j
+    fun j => ConLeche.Env.findProj?_none_of_fresh (find?_none_of_cons hfreshTbl) j
   have hnp₃ : ∀ j, NoProjEnv ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-        rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Lech.directCaps p) ::
+        rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (ConLeche.directCaps p) ::
           env.consts⟩ : Env).consts⟩ : Env).consts⟩ p.cvT.name j := by
     intro j
     have h0 : NoProjEnv env p.cvT.name j := noProjEnv_of_fresh mp.base2.wf hfindT j
-    have h1 := h0.cons (c₀ := .indInfo cvTa (Lech.directCaps p)) (NoProjHead.ofType
+    have h1 := h0.cons (c₀ := .indInfo cvTa (ConLeche.directCaps p)) (NoProjHead.ofType
       (by
         show Expr.NoProjAt p.cvT.name j cvTa.type
-        exact Lech.Expr.noProjAt_of_constsResolve hfindT _ (by rw [hTtype]; exact htrT))
+        exact ConLeche.Expr.noProjAt_of_constsResolve hfindT _ (by rw [hTtype]; exact htrT))
       (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h)
       (fun _ h => nomatch h))
     have h2 := h1.cons (c₀ := .ctorInfo cvCa p.nP p.nF) (NoProjHead.ofType
       (by
         show Expr.NoProjAt p.cvT.name j cvCa.type
         rw [hCtype]
-        exact Lech.annotateCore_noProjAt μ hannC hnfC (hslotI j))
+        exact ConLeche.annotateCore_noProjAt μ hannC hnfC (hslotI j))
       (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h)
       (fun _ h => nomatch h))
     -- the generated recursor and its rule mention no projection node the
     -- former's and the constructor's types do not (task #175 S2)
     have hnpT : Expr.NoProjAt p.cvT.name j cvTa.type :=
-      Lech.Expr.noProjAt_of_constsResolve hfindT _ (by rw [hTtype]; exact htrT)
+      ConLeche.Expr.noProjAt_of_constsResolve hfindT _ (by rw [hTtype]; exact htrT)
     have hnpC : Expr.NoProjAt p.cvT.name j cvCa.type := by
       rw [hCtype]
-      exact Lech.annotateCore_noProjAt μ hannC hnfC (hslotI j)
+      exact ConLeche.annotateCore_noProjAt μ hannC hnfC (hslotI j)
     refine h2.cons ⟨?_, (fun _ _ _ h => nomatch h), (fun _ _ h => nomatch h), ?_,
       (fun _ h => nomatch h)⟩
     · show Expr.NoProjAt p.cvT.name j cvRa.type
       rw [hRtype]
-      exact Lech.Expr.NoProjAt.directRecTy hgenR hnpT hnpC
+      exact ConLeche.Expr.NoProjAt.directRecTy hgenR hnpT hnpC
     · intro cv mI rP rules heq r hr
       injection heq with _ _ _ hrules
       subst hrules
       rcases List.mem_singleton.mp hr with rfl
-      refine ⟨Lech.Expr.NoProjAt.directRecRhs hgenRhs hnpT hnpC, ?_⟩
+      refine ⟨ConLeche.Expr.NoProjAt.directRecRhs hgenRhs hnpT hnpC, ?_⟩
       intro lvls pins hfire
       split at hfire <;> exact nomatch hfire
   -- the table's cons
   have hfT₃ : (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-        rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Lech.directCaps p) ::
+        rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (ConLeche.directCaps p) ::
           env.consts⟩ : Env).consts⟩ : Env).consts⟩ : Env).find? p.cvT.name
-      = some (.indInfo cvTa (Lech.directCaps p)) := by
-    rw [Lech.Env.find?_cons, if_neg (fun h => hTR h.symm)]
+      = some (.indInfo cvTa (ConLeche.directCaps p)) := by
+    rw [ConLeche.Env.find?_cons, if_neg (fun h => hTR h.symm)]
     exact hfT_C
   have hfC₃ : (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
       [⟨p.cvC.name, p.nF, p.nP,
         if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then .plain else .inert,
-        rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (Lech.directCaps p) ::
+        rhsA⟩] :: (⟨.ctorInfo cvCa p.nP p.nF :: (⟨.indInfo cvTa (ConLeche.directCaps p) ::
           env.consts⟩ : Env).consts⟩ : Env).consts⟩ : Env).find? p.cvC.name
       = some (.ctorInfo cvCa p.nP p.nF) := by
-    rw [Lech.Env.find?_cons, if_neg (fun h => hCR h.symm)]
+    rw [ConLeche.Env.find?_cons, if_neg (fun h => hCR h.symm)]
     exact hfC_C
   have hFD₃ : FormerData mp₃.base2 cvTa p.nP p.resSort pps :=
     hFD_C.cross (c₀ := .recInfo cvRa (p.nP + 2) (p.nP + 2)
@@ -378,4 +378,4 @@ theorem declDirectP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env
     hpshapeT hpshapeC hresT (by rw [← hRname]; exact hresR) hresC hnp₃ hFD₃ hCD₃ hleafT₃
     hleafC₃ hiff hfields
 
-end Lech.SetP
+end ConLeche.SetP

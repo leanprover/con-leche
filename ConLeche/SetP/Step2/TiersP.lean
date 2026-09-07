@@ -1,10 +1,10 @@
-import Lech.SetP.Step2.ReadsP
-import Lech.SetP.Step2.ReadsIOP
-import Lech.SetP.Step2.CapsRowsP
-import Lech.SetP.Step2.StrLitP
-import Lech.SetP.Step2.ProjRowsP
-import Lech.SetP.Step2.IotaRowsP
-import Lech.SetP.Step2.IrrelFastP
+import ConLeche.SetP.Step2.ReadsP
+import ConLeche.SetP.Step2.ReadsIOP
+import ConLeche.SetP.Step2.CapsRowsP
+import ConLeche.SetP.Step2.StrLitP
+import ConLeche.SetP.Step2.ProjRowsP
+import ConLeche.SetP.Step2.IotaRowsP
+import ConLeche.SetP.Step2.IrrelFastP
 
 /-!
 # The tiers assembly (task #161, P4): one env-fixed bundle, one induction
@@ -31,13 +31,13 @@ The quarter-level ∀-env assemblies (`AssemblyP.lean`) remain the
 frozen quarter statements; this file is what the fold consumes.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name)
 
 universe w
 
@@ -92,19 +92,19 @@ theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
   | zero =>
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · intro d e e' Δa hrun
-      rw [Lech.whnfCore_zero] at hrun
+      rw [ConLeche.whnfCore_zero] at hrun
       simp [throw, throwThe, MonadExceptOf.throw] at hrun
     · intro d e e' Δa hrun
-      rw [Lech.whnf_zero] at hrun
+      rw [ConLeche.whnf_zero] at hrun
       simp [throw, throwThe, MonadExceptOf.throw] at hrun
     · intro d a b Δa hrun
-      rw [Lech.isDefEqCore_zero] at hrun
+      rw [ConLeche.isDefEqCore_zero] at hrun
       simp [throw, throwThe, MonadExceptOf.throw] at hrun
     · intro d e t Δa hrun
-      rw [Lech.inferTypeCore_zero] at hrun
+      rw [ConLeche.inferTypeCore_zero] at hrun
       simp [throw, throwThe, MonadExceptOf.throw] at hrun
     · intro d e t Δa hrun
-      rw [Lech.inferTypeCoreIO_zero] at hrun
+      rw [ConLeche.inferTypeCoreIO_zero] at hrun
       simp [throw, throwThe, MonadExceptOf.throw] at hrun
   | succ fuel ih =>
     obtain ⟨ihwc, ihw, ihd, ihi, ihio⟩ := ih
@@ -121,10 +121,10 @@ theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
       intro d e t Δa hrun hws hb hLb ea hC hea
       cases hg : μ.betaGate with
       | false =>
-        rw [Lech.inferTypeIO_off hg] at hrun
+        rw [ConLeche.inferTypeIO_off hg] at hrun
         exact hexi hrun hws hb hLb hC hea
       | true =>
-        rw [Lech.inferTypeIO_on hg] at hrun
+        rw [ConLeche.inferTypeIO_on hg] at hrun
         exact hreads_io hrun hws hb hLb (LeafReadsP.of_ctxOkP hC) hea
     have ihis : InferClaimsIOS2P μ m φ fuel :=
       inferClaimsIOS2P_of ihi ihio
@@ -169,7 +169,7 @@ theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
       -- inlined instead)
       intro d a b Δa hrun hwa hba' hLa hwb hbb hLb aa ba hCa hCb
         hda hdb
-      rw [Lech.isDefEqCore_succ, defeqBody] at hrun
+      rw [ConLeche.isDefEqCore_succ, defeqBody] at hrun
       exact defeqLoop_contP hstep defeqLoopFuel d true hrun hwa hba' hLa
         hwb hbb hLb hCa hCb hda hdb
     · -- the infer quarter (the eleven-arm dispatcher, env-fixed)
@@ -281,4 +281,4 @@ theorem TierInputsAtP.ofEnvS2PM (mp : EnvS2PM V μ env)
   nat_stepQ := hnatQ
   caps_ok := mp.caps_ok
 
-end Lech.SetP
+end ConLeche.SetP

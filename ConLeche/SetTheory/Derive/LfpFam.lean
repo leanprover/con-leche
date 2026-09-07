@@ -1,5 +1,5 @@
-import Lech.SetTheory.Derive.Lfp
-import Lech.SetTheory.Derive.Graphs
+import ConLeche.SetTheory.Derive.Lfp
+import ConLeche.SetTheory.Derive.Graphs
 
 /-!
 # Least pre-fixed points of family functors (task #188, indexed)
@@ -17,12 +17,12 @@ certificate: `lfpFamSet_mem`).  Under a closed member and monotonicity
 the least pre-fixed family is a fixed point (`lfpFamSet_eq`) and
 supports fibrewise structural induction (`lfpFamSet_induction`); the
 closed member is exhibited by the semantics (the ω-iterate family, per
-fibre — `Lech/SetModel/Iter.lean`'s `natUnion`).
+fibre — `ConLeche/SetModel/Iter.lean`'s `natUnion`).
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -156,4 +156,4 @@ theorem lfpFamSet_induction {w : Nat} {I F : V} (h : ∃ L, IsClosedFam w I F L)
   rw [app_graph hi] at this
   exact (mem_sep.mp this).2
 
-end Lech.SetTheory
+end ConLeche.SetTheory

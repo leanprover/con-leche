@@ -9,7 +9,7 @@ elaborated form below is what establishes the OFFICIAL verdict:
   $ lean irrel_commit.lean
   error: (kernel) declaration type mismatch, 'irrelCommit' …
 
-i.e. the official kernel REJECTS, while lech ACCEPTS (exit 0) — with
+i.e. the official kernel REJECTS, while con-leche ACCEPTS (exit 0) — with
 AND without the pending `proofIrrel` common-type restriction
 (branch `agent/proofirrel-check`).
 
@@ -27,7 +27,7 @@ every kernel.  The official kernel treats that failure as a COMMIT:
   if r != .undef then return r == .true
 
 `is_def_eq_core` returns `false` outright — it never reaches
-`is_def_eq_app`.  lech's `proofIrrel` returns a `Bool`, and a `false`
+`is_def_eq_app`.  con-leche's `proofIrrel` returns a `Bool`, and a `false`
 falls through to the rest of the cascade, where the spine congruence
 succeeds: the head `F` is the same free variable and the argument pair
 is `a` versus `Acc.intro x g`, two proofs of the SAME proposition

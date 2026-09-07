@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print the lech column of an arena run as a table.
+"""Print the con-leche column of an arena run as a table.
 
 Usage: scripts/arena/table.py <arena-clone> [checker-name] [results-dir] [results-dir]
 
@@ -26,7 +26,7 @@ def human(n):
 
 def main():
     arena = Path(sys.argv[1])
-    checker = sys.argv[2] if len(sys.argv) > 2 else "lech"
+    checker = sys.argv[2] if len(sys.argv) > 2 else "con-leche"
     results = Path(sys.argv[3]) if len(sys.argv) > 3 else arena / "_results"
 
     expected = {}

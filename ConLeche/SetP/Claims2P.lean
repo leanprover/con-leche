@@ -1,7 +1,7 @@
-import Lech.Verify.InferLeaves
-import Lech.Semantics.Skeleton
-import Lech.SetP.Annot.ValidV
-import Lech.SetP.Annot.EnvS2Core
+import ConLeche.Verify.InferLeaves
+import ConLeche.Semantics.Skeleton
+import ConLeche.SetP.Annot.ValidV
+import ConLeche.SetP.Annot.EnvS2Core
 
 /-!
 # The P-generation claims: the ladder over `denoteP` (task #161, P3.3)
@@ -50,13 +50,13 @@ run-inversion conjuncts instead —
 | `SortAgree` (env crossing) | dropped: `denoteP_envExtend` needs `FindPreserved`/`LitGuardsAgree` only |
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name whnf whnfCore inferTypeCore)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name whnf whnfCore inferTypeCore)
 
 universe w
 
@@ -120,7 +120,7 @@ def WhnfClaims2P (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 def DefEqClaims2P (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
-    Lech.isDefEqCore μ env fuel d a b = .ok true →
+    ConLeche.isDefEqCore μ env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -172,19 +172,19 @@ theorem checkSound2P {μ : CheckMode} {env : Env}
   | zero =>
     refine ⟨?_, ?_, ?_, ?_⟩
     · intro d e e' Δa h
-      rw [Lech.whnfCore_zero] at h
+      rw [ConLeche.whnfCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
     · intro d e e' Δa h
-      rw [Lech.whnf_zero] at h
+      rw [ConLeche.whnf_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
     · intro d a b Δa h
-      rw [Lech.isDefEqCore_zero] at h
+      rw [ConLeche.isDefEqCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
     · intro d e t Δa h
-      rw [Lech.inferTypeCore_zero] at h
+      rw [ConLeche.inferTypeCore_zero] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
   | succ fuel ih =>
     obtain ⟨ihwc, ihw, ihd, ihi⟩ := ih
     exact hstep env m φ fuel ihwc ihw ihd ihi
 
-end Lech.SetP
+end ConLeche.SetP

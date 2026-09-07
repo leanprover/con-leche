@@ -1,7 +1,7 @@
-import Lech.Verify.InferLemmas
-import Lech.Verify.Leaves
-import Lech.Verify.Subst
-import Lech.Verify.Abstract
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.Subst
+import ConLeche.Verify.Abstract
 
 /-!
 # Leaf-closure and loose-bvar preservation for `whnf` and `inferTypeCore`
@@ -14,7 +14,7 @@ are threaded via `LeavesBounded` (the `fvar` rule jumps into the
 annotation).
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -1159,4 +1159,4 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       · exact hLb l (by
           simp only [fvarLeaves, List.mem_append]; exact Or.inl (Or.inr h2))
 
-end Lech
+end ConLeche

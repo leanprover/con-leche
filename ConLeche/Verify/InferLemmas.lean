@@ -1,26 +1,26 @@
-import Lech.Verify.Mono
-import Lech.Kernel.TypeChecker
-import Lech.Verify.Shift
-import Lech.Verify.InstLevels
-import Lech.Verify.EnvWF
-import Lech.Verify.Knot
-import Lech.Verify.StrLitExpr
-import Lech.Verify.InstList
-import Lech.Verify.InstSpine
+import ConLeche.Verify.Mono
+import ConLeche.Kernel.TypeChecker
+import ConLeche.Verify.Shift
+import ConLeche.Verify.InstLevels
+import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Knot
+import ConLeche.Verify.StrLitExpr
+import ConLeche.Verify.InstList
+import ConLeche.Verify.InstSpine
 
 /-!
 # Preservation and inversion lemmas for the checker core
 
 Under environment well-formedness (`EnvWF`), reduction preserves the
 syntactic invariants the model soundness proofs thread (well-scopedness
-here; the free-variable leaf closure in `Lech.Verify.InferLeaves`),
+here; the free-variable leaf closure in `ConLeche.Verify.InferLeaves`),
 and the new mutual-core branches get inversion lemmas so the many
 consumers don't re-destructure the do-chains.
 -/
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -194,7 +194,7 @@ annotation is reused whole).  The last conjunct is the **codomain
 sort** (task #152), delivered at the verified modes only: it is the
 `HasSort (A :: Δ) B v` premise the set lane's annotation pass needs at
 every λ node, in the shape the checker computes it (infer, then whnf
-to a sort — `Lech/SetR/Annot/Pass.lean`'s `HasSort` unfolded along
+to a sort — `ConLeche/SetR/Annot/Pass.lean`'s `HasSort` unfolded along
 the bridge).  At `.trusted` — the trusted lane, which does not
 run the check — it is vacuous. -/
 theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat}
@@ -505,10 +505,10 @@ rather than at `fuel + 1`, by lifting the one-level forms through
 `Verify/Mono.lean`.  (Task #100 introduced them for the walk that
 replaced the collapse-refuted `PairMkFacts` domain clauses.)
 
-Relocated here from `Lech/Model/Core/Whnf.lean` (task #148, T3),
+Relocated here from `ConLeche/Model/Core/Whnf.lean` (task #148, T3),
 where they were `private`: they are V-free inversions of the checker,
 which is what this module is for, and both the set model's proj case
-and the `Lech/SetR/*` bridge's R6 clause consume them.  Statements
+and the `ConLeche/SetR/*` bridge's R6 clause consume them.  Statements
 unchanged. -/
 
 theorem whnf_forallE_eq {env : Env} {fuel d : Nat}
@@ -3116,4 +3116,4 @@ theorem prepareMajorP_WScoped {env : Env} (henv : EnvWF env)
       · exact WScoped.of_wscopedB hwsc)
     hw
 
-end Lech
+end ConLeche

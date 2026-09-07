@@ -1,5 +1,5 @@
-import Lech.SetP.DirectSum.SumRecFramesP
-import Lech.SetP.Direct.DirectRecLawCoreP
+import ConLeche.SetP.DirectSum.SumRecFramesP
+import ConLeche.SetP.Direct.DirectRecLawCoreP
 
 /-!
 # The sum recursor's walks and rule law (task #175 sum-types, indexed)
@@ -22,13 +22,13 @@ the equation of the constructor's index values with the recursor
 application's index arguments.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts
   BinderMeta)
 
 universe w
@@ -555,4 +555,4 @@ theorem sumRecLawCore {ℓ w nP nF nIdx n j : Nat} {pds dms dis ds : List (Nat �
     · exact hxs_ok a (List.mem_of_mem_take h)
     · exact hys_ok a (List.mem_of_mem_drop h)
 
-end Lech.SetP
+end ConLeche.SetP

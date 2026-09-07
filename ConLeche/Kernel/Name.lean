@@ -12,16 +12,16 @@ import all Init.Util
 /-!
 # Hierarchical names
 
-`Lech.Name`, the checker's own mirror of `Lean.Name` (cached hash in
+`ConLeche.Name`, the checker's own mirror of `Lean.Name` (cached hash in
 a `@[computed_field]`, pointer-and-hash-guarded equality substituted by
-`@[csimp]`).  Split out of `Lech/Kernel/Expr.lean` on 2026-09-06 so
-that `Lech/Kernel/PropWhen.lean` — which needs names and nothing
+`@[csimp]`).  Split out of `ConLeche/Kernel/Expr.lean` on 2026-09-06 so
+that `ConLeche/Kernel/PropWhen.lean` — which needs names and nothing
 else — can sit *below* the expression type it annotates.
 -/
 
 @[expose] public section
 
-namespace Lech
+namespace ConLeche
 
 /-- Hierarchical names, same shape as `Lean.Name` — including the
 cached hash, which lives in a `@[computed_field]` exactly as
@@ -111,4 +111,4 @@ instance : ToString Name := ⟨Name.toString⟩
 
 end Name
 
-end Lech
+end ConLeche

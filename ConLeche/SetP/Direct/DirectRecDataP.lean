@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectStageCtorP
+import ConLeche.SetP.Direct.DirectStageCtorP
 
 /-!
 # The recursor's data (task #175 W4c, P3 module 6, part 7; S2)
@@ -11,17 +11,17 @@ the fresh parameter of the large eliminator, `zero` for the small
 one), graded, bounded, depending only on the recursor's level
 parameters.  Since task #175 S2 the stored recursor is the
 *generated* one, so the data is read off syntactically
-(`recData_of`, `Lech/SetP/Direct/DirectRecReadP.lean`); the record
+(`recData_of`, `ConLeche/SetP/Direct/DirectRecReadP.lean`); the record
 is crossed to the recursor's own extension by `RecData.cross`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
 universe w
@@ -33,7 +33,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 /-- The recursor's elimination level: the fresh parameter at the large
 eliminator, `zero` at the small one (the kernel's `directElimLevel`). -/
 def elimLevel (p : DirectParts) : Level :=
-  Lech.directElimLevel p.elim p.large
+  ConLeche.directElimLevel p.elim p.large
 
 theorem elimLevel_eq (p : DirectParts) :
     elimLevel p = if p.large then .param p.elim else .zero := rfl
@@ -93,4 +93,4 @@ theorem RecData.cross {m : EnvS2Core V env} {cvR : ConstantVal}
   below := h.below
   params := h.params
 
-end Lech.SetP
+end ConLeche.SetP

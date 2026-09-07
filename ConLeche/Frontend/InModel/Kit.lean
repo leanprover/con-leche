@@ -1,23 +1,23 @@
-import Lech.Kernel.Direct.Parts
-import Lech.Kernel.Level
+import ConLeche.Kernel.Direct.Parts
+import ConLeche.Kernel.Level
 
 /-!
 # The in-process modeller's kit (task #200)
 
 Shared pieces of the in-process construction of `_model` families for
-nested and mutual inductive blocks (`Lech/Frontend/InModel/*`):
+nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
 
 * the naming scheme (lean-inductive-models' `_impl` names, so the two
   generators' streams are diffable — none of these names is special to
   the checker: only the public `_model` slots are consumed, and only
   by the modeled install);
-* telescope helpers over `Lech.Expr` (de Bruijn frames spelled out at
+* telescope helpers over `ConLeche.Expr` (de Bruijn frames spelled out at
   every use);
 * `specFam`, the syntactic rewrite of every member occurrence
   `T_m p⃗` into the auxiliary family at its tag, `aux p⃗ (tag.m p⃗ ı⃗)`;
 * the **kernel-shape recursor** of an indexed recursive family with
   inductive hypotheses — `directRecTyI`/`directRecRhsI`
-  (`Lech/Kernel/Direct/Parts.lean`) with the `ih` binders of the
+  (`ConLeche/Kernel/Direct/Parts.lean`) with the `ih` binders of the
   official `mk_rec_infos` threaded in; the direct fixpoint route
   regenerates and compares the recursor of the auxiliary family
   against exactly this shape by one `isDefEq`, so binder names are
@@ -32,9 +32,9 @@ nested and mutual inductive blocks (`Lech/Frontend/InModel/*`):
   highest constant the value mentions).
 -/
 
-namespace Lech.Frontend.InModel
+namespace ConLeche.Frontend.InModel
 
-open Lech
+open ConLeche
 
 /-! ## Names -/
 
@@ -62,7 +62,7 @@ def auxCtorName (T : Name) (k : Nat) (C : Name) : Name :=
 def modelName (n : Name) : Name := n.str "_model"
 
 /-- The iota theorem of rule `j` of a modeled recursor `R`:
-`R._model.iota_j` (`Lech/Kernel/Modeled.lean`'s lookup). -/
+`R._model.iota_j` (`ConLeche/Kernel/Modeled.lean`'s lookup). -/
 def iotaName (R : Name) (j : Nat) : Name := (modelName R).str s!"iota_{j}"
 
 /-- A level-parameter name not among `lps`: `u`, then `u_1`, `u_2`, …
@@ -177,7 +177,7 @@ def mentionsAny (ns : List Name) : Expr → Bool
 
 /-! ## The kernel-shape recursor of an indexed recursive family
 
-The generators of `Lech/Kernel/Direct/Parts.lean` (indexed, task #175)
+The generators of `ConLeche/Kernel/Direct/Parts.lean` (indexed, task #175)
 with the inductive hypotheses of the official `mk_rec_infos`: a minor
 premise binds the constructor's fields, then one `ih` per recursive
 field in field order — `motive e⃗_i f_i`, the field's own index
@@ -376,4 +376,4 @@ def hintHeight : ReducibilityHint → Nat
   | .regular n => n
   | _ => 0
 
-end Lech.Frontend.InModel
+end ConLeche.Frontend.InModel

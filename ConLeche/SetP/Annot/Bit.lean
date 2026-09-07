@@ -1,6 +1,6 @@
-import Lech.Semantics.Canon
-import Lech.Semantics.Tower.TowerLeaf
-import Lech.Verify.PropWhen
+import ConLeche.Semantics.Canon
+import ConLeche.Semantics.Tower.TowerLeaf
+import ConLeche.Verify.PropWhen
 
 /-!
 # `denoteP` — the validated-annotation reading (task #161, P3)
@@ -48,13 +48,13 @@ is *equal* to its counterpart (task #197), so no transport lemma is
 needed.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level PropWhen
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level PropWhen
   natLitSupported strLitSupported)
 
 /-! ## The regime bit -/
@@ -96,7 +96,7 @@ clause (`inferBodyIO`) and any future β-cert gate alike. -/
 /-- **Soundness of the gate's condition**: a `never` datum is positive
 at every valuation. -/
 theorem pwBit_ne_zero_of_isNever {pw : PropWhen}
-    (h : Lech.PropWhen.isNever pw = true) (φ : Name → Nat) :
+    (h : ConLeche.PropWhen.isNever pw = true) (φ : Name → Nat) :
     pwBit φ pw ≠ 0 := by
   cases pw with
   | never => rw [pwBit_ne_zero_iff]; rfl
@@ -107,7 +107,7 @@ is positive at every valuation — an `ifAllZero` datum lands in the
 squash regime at the all-zero valuation, where the certificate is
 consumed and the skip would be unlicensed. -/
 theorem isNever_iff_forall_pwBit_ne_zero {pw : PropWhen} :
-    Lech.PropWhen.isNever pw = true ↔ ∀ φ : Name → Nat, pwBit φ pw ≠ 0 := by
+    ConLeche.PropWhen.isNever pw = true ↔ ∀ φ : Name → Nat, pwBit φ pw ≠ 0 := by
   constructor
   · exact pwBit_ne_zero_of_isNever
   · intro h
@@ -124,7 +124,7 @@ the datum is canonical, task #194/#197), and its bit is the sort's
 true zero bit. -/
 theorem pwBit_zeronessOf (φ : Name → Nat) (v : Level) :
     (pwBit φ (Level.zeronessOf v) = 0 ↔ Level.eval φ v = 0) := by
-  rw [pwBit_eq_zero_iff, Lech.PropWhen.zeronessOf_sound]
+  rw [pwBit_eq_zero_iff, ConLeche.PropWhen.zeronessOf_sound]
   simp
 
 /-- **The crossing reading**: the instantiated datum's bit at `φ` is
@@ -134,7 +134,7 @@ theorem pwBit_substPW (φ : Name → Nat) (ks : List Name)
     (vs : List Level) (pw : PropWhen) :
     pwBit φ (Level.substPW ks vs pw) = pwBit (Level.substFn φ ks vs) pw := by
   unfold pwBit
-  rw [Lech.Level.holds_substPW]
+  rw [ConLeche.Level.holds_substPW]
 
 /-! ## The reading -/
 
@@ -358,7 +358,7 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     rw [denote_strLit, if_pos hsup]
     refine congrArg some ?_ |>.symm
     show VExpr.app _ _ = _
-    rw [Lech.Verify.strLitT]
+    rw [ConLeche.Verify.strLitT]
     congr 1
     · exact hlink _ _
     · refine charListT2_erase ?_ ?_ (hlink _ _) (hlink _ _)
@@ -388,4 +388,4 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
       | natVal k => exact absurd rfl (hnat k)
       | strVal s => exact absurd rfl (hstr s)
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,6 +1,6 @@
-import Lech.Verify.Abstract
-import Lech.Verify.Leaves
-import Lech.Verify.InferLeaves
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.InferLeaves
 
 /-!
 # `SetBase/Frame` — the opened binder's frame conditions
@@ -16,12 +16,12 @@ arithmetic (`WScoped`, `looseBVarsBounded`, `LeavesBounded` under
 `instantiate1`) — so it belongs BELOW both lanes and the edge dies.
 
 The statement is verbatim, in its original namespace
-(`Lech.SetR.Interp2`), so every consumer sees the same name.
+(`ConLeche.SetR.Interp2`), so every consumer sees the same name.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech (Expr Name)
+open ConLeche (Expr Name)
 
 /-- The frame conditions of an opened binder, *without* the context —
 `frame_openR`'s first three components, which need no correspondence in
@@ -36,7 +36,7 @@ theorem frame_open2 {d : Nat} {ty body : Expr}
       (body.instantiate1 (.fvar d ty)).looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded (body.instantiate1 (.fvar d ty)) := by
   refine ⟨Expr.WScoped.instantiate1 hwty 0 hwb,
-    Lech.looseBVarsBounded_instantiate1 body 0 hbb, fun l hl => ?_⟩
+    ConLeche.looseBVarsBounded_instantiate1 body 0 hbb, fun l hl => ?_⟩
   rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
   · exact hLbody l h2
   · rw [Expr.fvarLeaves] at h2
@@ -44,4 +44,4 @@ theorem frame_open2 {d : Nat} {ty body : Expr}
     · exact hbty
     · exact hLty l h3
 
-end Lech.Semantics
+end ConLeche.Semantics

@@ -1,8 +1,8 @@
 # Deriving the operator interface from the `SetTheory` core
 
 Goal: every operator and law of the checker's set-theoretic interface
-(surfaced by `Lech/SetTheory/Basic.lean`) as a theorem over the
-minimal `SetTheory` class (`Lech/SetTheory/Core.lean`), which
+(surfaced by `ConLeche/SetTheory/Basic.lean`) as a theorem over the
+minimal `SetTheory` class (`ConLeche/SetTheory/Core.lean`), which
 axiomatizes only membership, extensionality, pairing, union, power set,
 regularity, Lean-level replacement, and an ω-chain of Grothendieck
 universes `univChain` (universehood as Tarski's Axiom A matrix with

@@ -4,9 +4,9 @@
    clean"): a MUTUAL block with an index whose DOMAIN's type is not a
    syntactic sort (`MyIdx : U`, `U := Type`).  The in-process modeller's
    syntactic sort inferer (Frontend/InModel/Kit.sortOf) has to read the
-   tag's universe off it; both official and lech accept, piped and raw.
+   tag's universe off it; both official and con-leche accept, piped and raw.
 
-   official: 0.  lech at master 700a06ca: 0 piped, 0 raw (both modes).
+   official: 0.  con-leche at master 700a06ca: 0 piped, 0 raw (both modes).
    Probe of record: _tmp/indaudit/probes/P/IdxDefHeadSort.lean. -/
 def U := Type
 def MyIdx : U := Nat

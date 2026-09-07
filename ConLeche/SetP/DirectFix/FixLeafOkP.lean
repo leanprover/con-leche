@@ -1,6 +1,6 @@
-import Lech.SetP.DirectFix.FixRealChainsP
-import Lech.Semantics.Tower.FixWire
-import Lech.SetP.DirectSum.SumIntroP
+import ConLeche.SetP.DirectFix.FixRealChainsP
+import ConLeche.Semantics.Tower.FixWire
+import ConLeche.SetP.DirectSum.SumIntroP
 
 /-!
 # The fixed-point leaf's P currency (task #188)
@@ -16,13 +16,13 @@ validity predicate — the entries' validity carries off the recursive
 slots exactly as their grading, `AnnotValidV_congr_noBVar`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w'
 
@@ -599,4 +599,4 @@ theorem directFixTyAVI_okP {pps : List (Nat × Nat × AVExpr)} {ρ : Nat → V}
 
 end Currency
 
-end Lech.SetP
+end ConLeche.SetP

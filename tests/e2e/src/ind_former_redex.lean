@@ -9,7 +9,7 @@
    ind_defhead_struct / ind_defhead_k / ind_defhead_mutual, where the
    same "whnf the former" gap is a crack.
 
-   official: 0.  lech at master 700a06ca: 0 piped, 2 raw (both modes).
+   official: 0.  con-leche at master 700a06ca: 0 piped, 2 raw (both modes).
    Probe of record: _tmp/indaudit/probes/P/FormerRedex.lean. -/
 
 import Lean

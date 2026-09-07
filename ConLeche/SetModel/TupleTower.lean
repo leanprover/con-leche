@@ -1,4 +1,4 @@
-import Lech.SetTheory.Basic
+import ConLeche.SetTheory.Basic
 
 /-!
 # The uniform tuple model: unit-terminated pair towers (agent/tuple-model)
@@ -52,7 +52,7 @@ environment.  Kernel wiring is out of scope (post-B4; see the DESIGN
 handoff record).
 -/
 
-namespace Lech.SetTheory.Tower
+namespace ConLeche.SetTheory.Tower
 
 universe u
 
@@ -385,4 +385,4 @@ example {w : Nat} {x : V} (hx : x ∈ˢ towerSet w (.nil : TeleS V 0)) :
     x = mkTower [] :=
   mem_unitSet_iff.mp hx
 
-end Lech.SetTheory.Tower
+end ConLeche.SetTheory.Tower

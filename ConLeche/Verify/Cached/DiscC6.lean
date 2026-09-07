@@ -1,12 +1,12 @@
-import Lech.Verify.Cached.DiscC5
+import ConLeche.Verify.Cached.DiscC5
 
 /-!
 # Cached body walks, part 6: annotation
 
-Port of `Lech/Verify/DiscI6.lean` under the recipe (DESIGN.md,
+Port of `ConLeche/Verify/DiscI6.lean` under the recipe (DESIGN.md,
 task #163): the simulation walks for `isPropTypeI` and `annotateBodyI`
-(`Lech/Cached/CoreC.lean`), whose bodies are character-identical to
-their `Lech/Kernel/CoreI.lean` originals up to `EIdx → ExprC` /
+(`ConLeche/Cached/CoreC.lean`), whose bodies are character-identical to
+their `ConLeche/Kernel/CoreI.lean` originals up to `EIdx → ExprC` /
 `CheckIM → CheckCM` (plus the two recorded `peelFuelM` deviation lines
 in `annotateBodyI`'s binder clauses).  Task #175 wiring W5: the
 projection elimination fallbacks (`projFieldDomI`,
@@ -22,9 +22,9 @@ of every statement is byte-identical to the interned original's.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech.Cached.ExprC
+open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
@@ -244,7 +244,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
               = Expr.lam ty' bAbs ⟨pw⟩ := hQ
             rw [h2, hQabs], by
             simp only [Expr.WScoped]
-            exact ⟨hwty', Lech.WScoped.abstract1 0 hwbody'⟩⟩)
+            exact ⟨hwty', ConLeche.WScoped.abstract1 0 hwbody'⟩⟩)
       -- task #172 B3 method row: the cached guard reads
       -- `mode.verified`, the pure one `mode.verifiedChecks`; a bare
       -- `split` decides only one of the two `if`s.
@@ -343,4 +343,4 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
 
 end Walks3
 
-end Lech.Cached
+end ConLeche.Cached

@@ -1,25 +1,25 @@
-import Lech.Kernel.ExprOps
-import Lech.VExpr.Subst
-import Lech.Verify.Shift
-import Lech.Verify.Subst
+import ConLeche.Kernel.ExprOps
+import ConLeche.VExpr.Subst
+import ConLeche.Verify.Shift
+import ConLeche.Verify.Subst
 
 /-!
 # The canonical opening variables
 
 `openFvars d k` — the `k` opening variables of a telescope at depth
-`d`, outermost first.  A leaf module: `Lech/TTVerify/EnvTT.lean`
+`d`, outermost first.  A leaf module: `ConLeche/TTVerify/EnvTT.lean`
 states the nested iota rules' parameter premise over the *opened*
-stored pins, and cannot import `Lech/Verify/Denote/TeleOpen.lean` (which
+stored pins, and cannot import `ConLeche/Verify/Denote/TeleOpen.lean` (which
 sits far above it); the definition and its index bookkeeping live
 here, and `TeleOpen.lean` re-exports them.
 
 `denote` reads neither an opening variable's name nor its annotation
-(`Lech/Verify/Denote.lean`), so canonical ones are as good as the
+(`ConLeche/Verify/Denote.lean`), so canonical ones are as good as the
 binders' own — which is what lets a single opening stand for every
 telescope an alignment relates.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
 /-- The `k` opening variables of a telescope at depth `d`, outermost
 first. -/
@@ -63,7 +63,7 @@ The bookkeeping order `denote`'s own recursion produces: substitute
 the *innermost* loose variable first, each at cut `0`, the opener
 indices ascending with the substitution order.  `Expr.instSeq` at real
 arguments relates to *this* opening (`denote_openRev`,
-`Lech/TTVerify/IndBottom.lean`), which is why the nested iota rules'
+`ConLeche/TTVerify/IndBottom.lean`), which is why the nested iota rules'
 parameter premise is stated over it: both the fire site and the
 install meet at the base-`0` reverse opening of the stored pin. -/
 
@@ -77,11 +77,11 @@ def openRev (d : Nat) : Nat → Expr → Expr
 /-- The value chain `denote` produces for a real-argument instantiation
 read through the reverse opening: outermost argument consumed first,
 each at cut `0`, lifted past the arguments still to come. -/
-def _root_.Lech.VExpr.VExpr.instRevChain : List Lech.VExpr.VExpr →
-    Lech.VExpr.VExpr → Lech.VExpr.VExpr
+def _root_.ConLeche.VExpr.VExpr.instRevChain : List ConLeche.VExpr.VExpr →
+    ConLeche.VExpr.VExpr → ConLeche.VExpr.VExpr
   | [], X => X
   | v :: vs, X =>
-    Lech.VExpr.VExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
+    ConLeche.VExpr.VExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
 
 /-- Substituting a variable above the reverse opening's range commutes
 to the outside (the opening touches only the variables below it). -/
@@ -108,4 +108,4 @@ theorem openRev_instantiate1_top {a : Expr}
   rw [Nat.add_zero] at h
   exact h
 
-end Lech.Verify
+end ConLeche.Verify

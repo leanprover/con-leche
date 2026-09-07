@@ -1,5 +1,5 @@
-import Lech.Kernel.ExprOps
-import Lech.Kernel.Level
+import ConLeche.Kernel.ExprOps
+import ConLeche.Kernel.Level
 
 /-!
 # Free-variable bounds and shifting
@@ -15,10 +15,10 @@ with annotated types):
   key equation that lets weakening proofs step under a binder.
 
 Everything here is used by the model's weakening lemmas
-(`Lech.Model.InterpLemmas`).
+(`ConLeche.Model.InterpLemmas`).
 -/
 
-namespace Lech.Expr
+namespace ConLeche.Expr
 
 /-- Every reachable `fvar` index is `< d`.  (Type annotations of `fvar`s
 are not descended into: the interpretation never reads them at leaves;
@@ -368,7 +368,7 @@ theorem fvarsBelow_instantiate1 {d : Nat} {ty : Expr} :
 
 /-! ## Shift commutation lemmas
 
-The depth-invariance bisimulation (`Lech/Verify/Deep.lean`) relates a
+The depth-invariance bisimulation (`ConLeche/Verify/Deep.lean`) relates a
 checker run at depth `d` with the run at depth `d + 1` whose opened
 `fvar`s above the shift point `p` are bumped by one (`shiftFrom p`).
 Everything the checker core does to expressions commutes with the
@@ -782,4 +782,4 @@ theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     intro k hb
     simp_all [looseBVarsBounded, instantiate1]
 
-end Lech.Expr
+end ConLeche.Expr

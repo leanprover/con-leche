@@ -1,13 +1,13 @@
-import Lech.SetP.Step2.DefEqP
-import Lech.SetP.Step2.InferIOP
-import Lech.SetP.Step2.InferP
-import Lech.SetP.Step2.WhnfP
-import Lech.Semantics.EnvFacts
-import Lech.Semantics.DivModEval
-import Lech.Verify.Denote
-import Lech.Verify.Denote.OpenVars
-import Lech.Verify.Denote.VClosed
-import Lech.Verify.ProjTele
+import ConLeche.SetP.Step2.DefEqP
+import ConLeche.SetP.Step2.InferIOP
+import ConLeche.SetP.Step2.InferP
+import ConLeche.SetP.Step2.WhnfP
+import ConLeche.Semantics.EnvFacts
+import ConLeche.Semantics.DivModEval
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.Denote.VClosed
+import ConLeche.Verify.ProjTele
 
 /-!
 # `EnvS2PM` — the P-tier environment invariant (task #161, P4)
@@ -43,13 +43,13 @@ that a `Nonempty (EnvS2PM …)` carried through the declaration fold
 makes the induction's hypotheses *facts*.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps projFnName RecRule)
 
 universe w
@@ -72,15 +72,15 @@ numeral-transport inductions (`Sound/NatOps`' shape at `interp2`),
 which close `ReduceNatStepP`/`PQ` below. -/
 def NatOpsP {V : Type w} [SetTheory V] {env : Env}
     (m : EnvS2Core V env) (φ : Name → Nat) : Prop :=
-  ∀ c ∈ Lech.natOpNames, ∀ cv v hint,
+  ∀ c ∈ ConLeche.natOpNames, ∀ cv v hint,
     env.find? c = some (.defnInfo cv v hint) →
-    Lech.natOpGuard env c = true ∧
-    ∀ eq ∈ Lech.natOpEquations 0 c, ∃ L R,
+    ConLeche.natOpGuard env c = true ∧
+    ∀ eq ∈ ConLeche.natOpEquations 0 c, ∃ L R,
       denoteP m.acval env φ 2 eq.1 = some L ∧
       denoteP m.acval env φ 2 eq.2 = some R ∧
       ∀ (ρ : Nat → V) (x y : V),
-        x ∈ˢ interp2 V ρ (m.acval Lech.natName φ) →
-        y ∈ˢ interp2 V ρ (m.acval Lech.natName φ) →
+        x ∈ˢ interp2 V ρ (m.acval ConLeche.natName φ) →
+        y ∈ˢ interp2 V ρ (m.acval ConLeche.natName φ) →
         interp2 V (cons y (cons x ρ)) L
           = interp2 V (cons y (cons x ρ)) R
 
@@ -98,12 +98,12 @@ preserved across every other fresh cons.  Consumed by the WF-op
 numeral transports (`Sound/NatOpsWf`' shape at `interp2`). -/
 def DivModP {V : Type w} [SetTheory V] {env : Env}
     (m : EnvS2Core V env) (φ : Name → Nat) : Prop :=
-  ∀ c ∈ Lech.natDivModNames, ∀ cv v hint,
+  ∀ c ∈ ConLeche.natDivModNames, ∀ cv v hint,
     env.find? c = some (.defnInfo cv v hint) →
-    Lech.natOpGuard env c = true ∧
+    ConLeche.natOpGuard env c = true ∧
     ∀ (ρ : Nat → V) (x y : V),
-      x ∈ˢ interp2 V ρ (m.acval Lech.natName φ) →
-      y ∈ˢ interp2 V ρ (m.acval Lech.natName φ) →
+      x ∈ˢ interp2 V ρ (m.acval ConLeche.natName φ) →
+      y ∈ˢ interp2 V ρ (m.acval ConLeche.natName φ) →
       DivModClausesV V (fun n => interp2 V ρ (m.acval n φ)) c x y
 
 /-- **The pinned `Eq` spine's value at `interp2`** — `EnvS.eq_lawV`'s
@@ -173,12 +173,12 @@ fresh cons (the law mentions two stored leaves, so it crosses).
 is exactly `op a = a`. -/
 def ReduceOpsP {V : Type w} [SetTheory V] {env : Env}
     (m : EnvS2Core V env) : Prop :=
-  ∀ c ∈ Lech.reduceOpNames, ∀ cv : ConstantVal,
+  ∀ c ∈ ConLeche.reduceOpNames, ∀ cv : ConstantVal,
     env.find? c = some (.axiomInfo cv) →
-    ConstantVal.matchesPin cv (Lech.reduceOpCvA c) = true →
-    (env.find? (Lech.reduceElemName c)).isSome = true ∧
+    ConstantVal.matchesPin cv (ConLeche.reduceOpCvA c) = true →
+    (env.find? (ConLeche.reduceElemName c)).isSome = true ∧
     ∀ (ψ : Name → Nat) (ρ : Nat → V) (x : V),
-      x ∈ˢ interp2 V ρ (m.acval (Lech.reduceElemName c) ψ) →
+      x ∈ˢ interp2 V ρ (m.acval (ConLeche.reduceElemName c) ψ) →
       SetTheory.app (interp2 V ρ (m.acval c ψ)) x = x
 
 /-! ## The structure-capability laws (task #161, caps tier)
@@ -307,8 +307,8 @@ def CapsOkP {V : Type w} [SetTheory V] {env : Env}
     (m : EnvS2Core V env) : Prop :=
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.eta = true →
-    Lech.reservedBasisNames.contains T = false →
-    Lech.EtaFamilyStored env T caps →
+    ConLeche.reservedBasisNames.contains T = false →
+    ConLeche.EtaFamilyStored env T caps →
     ∀ φ' : Name → Nat, EtaLawP m φ' T cvT caps) ∧
   -- The unit half carries NO `EtaFamilyStored` premise — exactly as
   -- v1's `CapsOkV` unit half (`Sound/Motives.lean:315`).  The freeze
@@ -320,7 +320,7 @@ def CapsOkP {V : Type w} [SetTheory V] {env : Env}
   -- `IndStepPB` establishment unchanged.
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.unitlike = true →
-    Lech.reservedBasisNames.contains T = false →
+    ConLeche.reservedBasisNames.contains T = false →
     ∀ φ' : Name → Nat, UnitLawP m φ' T cvT caps)
 
 /-! ## The fired modeled-iota contract (task #161, iota tier)
@@ -415,11 +415,11 @@ theorem TeleFitPA.take {V : Type w} [SetTheory V] {ρ : Nat → V} :
 (`VExpr.instRevChain`'s `AVExpr` twin, `Verify/Denote/OpenVars.lean:80`
 — outermost argument consumed first, each at cut `0`, lifted past the
 arguments still to come). -/
-def _root_.Lech.SetP.AVExpr.instRevChain :
+def _root_.ConLeche.SetP.AVExpr.instRevChain :
     List AVExpr → AVExpr → AVExpr
   | [], X => X
   | v :: vs, X =>
-    Lech.SetP.AVExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
+    ConLeche.SetP.AVExpr.instRevChain vs (X.inst (v.liftN vs.length) 0)
 
 /-- **The constructor residual's index pin** (`IotaIndexPinV`'s
 mirror, v1-verbatim at `AVExpr`): the residual decomposes as a spine
@@ -464,7 +464,7 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
         ∀ i, i < RecRule.ctorParams rl →
         ∃ vpa : AVExpr,
           denoteP m.acval env φ rP
-            (Lech.Verify.openRev 0 rP
+            (ConLeche.Verify.openRev 0 rP
               ((pins.getD i default).instantiateLevelParams
                 cv.levelParams us)) = some vpa ∧
           ∀ (ρ : Nat → V) (zs : List AVExpr) (TVa restR : AVExpr),
@@ -475,7 +475,7 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
               = some TVa →
             TeleFitPA V ρ TVa zs restR →
             AnnotOkP V ρ
-              (Lech.SetP.AVExpr.instRevChain zs vpa)) ∧
+              (ConLeche.SetP.AVExpr.instRevChain zs vpa)) ∧
       ∀ (cvj : ConstantVal) (cnP cnF : Nat),
         env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
       ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AVExpr)
@@ -485,7 +485,7 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
         usj.length = cvj.levelParams.length →
         Level.substFn φ cvj.levelParams usj
           = Level.substFn φ cvj.levelParams
-              (Lech.recFireComparands rl cv.levelParams us
+              (ConLeche.recFireComparands rl cv.levelParams us
                 cvj.levelParams [] rP).1 →
         (RecRule.fire rl = .plain →
           ∀ i, i < RecRule.ctorParams rl → i < mI →
@@ -495,12 +495,12 @@ def RecRuleLawP {V : Type w} [SetTheory V] {env : Env}
           ∀ i, i < RecRule.ctorParams rl →
           ∀ vpa : AVExpr,
             denoteP m.acval env φ rP
-              (Lech.Verify.openRev 0 rP
+              (ConLeche.Verify.openRev 0 rP
                 ((pins.getD i default).instantiateLevelParams
                   cv.levelParams us)) = some vpa →
             interp2 V ρ (ys.getD i default)
               = interp2 V ρ
-                  (Lech.SetP.AVExpr.instRevChain (xs.take rP)
+                  (ConLeche.SetP.AVExpr.instRevChain (xs.take rP)
                     vpa)) →
         IotaIndexPinP (V := V) ρ restC (RecRule.ctorParams rl)
           mI rP xs →
@@ -576,15 +576,15 @@ its clause). -/
 
 /-- The syntactic Π-peel along a list of readings: the fit's residual
 without the memberships (`TeleFitPA`'s spine, data only). -/
-def _root_.Lech.SetP.AVExpr.peelPis : AVExpr → List AVExpr → Option AVExpr
+def _root_.ConLeche.SetP.AVExpr.peelPis : AVExpr → List AVExpr → Option AVExpr
   | T, [] => some T
-  | .pi _ _ _ B, a :: as => Lech.SetP.AVExpr.peelPis (B.inst a) as
+  | .pi _ _ _ B, a :: as => ConLeche.SetP.AVExpr.peelPis (B.inst a) as
   | _, _ :: _ => none
 
 /-- A fit's residual is the peel's. -/
 theorem TeleFitPA.peelPis {V : Type w} [SetTheory V] {ρ : Nat → V} :
     ∀ {T rest : AVExpr} {as : List AVExpr}, TeleFitPA V ρ T as rest →
-      Lech.SetP.AVExpr.peelPis T as = some rest := by
+      ConLeche.SetP.AVExpr.peelPis T as = some rest := by
   intro T rest as h
   induction h with
   | nil => rfl
@@ -614,7 +614,7 @@ def TowerEtaLawP {V : Type w} [SetTheory V] {env : Env}
         x ∈ˢ ts.foldl SetTheory.app
           (interp2 V ρ (m.acval T (Level.substFn φ entry.levelParams us))) →
         x = (ts ++ (List.range entry.numFields).map fun j =>
-              Lech.SetTheory.Tower.projS j x).foldl SetTheory.app
+              ConLeche.SetTheory.Tower.projS j x).foldl SetTheory.app
             (interp2 V ρ
               (m.acval entry.ctor (Level.substFn φ entry.levelParams us)))
 
@@ -681,7 +681,7 @@ structural-η law holds (clause (C), `TowerEtaLawP`).
 Task #175 S1: the entry stores a *body* scoped at the parameters and
 the subject, not a type; the typing law is stated over the reading
 of `projTele (nP + 1) body` — the body under `nP + 1` dummy binders
-(`Lech/Verify/ProjTele.lean`) — whose `instPisAt` peel along the
+(`ConLeche/Verify/ProjTele.lean`) — whose `instPisAt` peel along the
 parameters and the subject is exactly the checker's one
 `instantiateList` (`ProjEntry.typeAt`, `instPisAt_typeAt`).  The
 dummy binders carry the reading only; the law never reads them. -/
@@ -706,7 +706,7 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
       -- (A) the typing law
       (∃ Ta : AVExpr,
         denoteP m.acval env φ 0
-          (Lech.projTele (entry.numParams + 1)
+          (ConLeche.projTele (entry.numParams + 1)
             (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta ∧
         (TowerGuardAt φ entry us →
         ∀ (ρ : Nat → V) (vs : List AVExpr) (x rest : AVExpr),
@@ -716,7 +716,7 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
           AnnotOkP V ρ x →
           interp2 V ρ x ∈ˢ interp2 V ρ (AVExpr.mkAppN
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
-          Lech.SetP.AVExpr.peelPis Ta (vs ++ [x]) = some rest →
+          ConLeche.SetP.AVExpr.peelPis Ta (vs ++ [x]) = some rest →
           AnnotOkP V ρ (projAV i x) ∧ AnnotOkP V ρ rest ∧
             interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest)) ∧
       -- (B) the iota law: the projection of a *graded* constructor
@@ -845,8 +845,8 @@ assignment `Level.substFn φ ks us`, carried to the instantiated form
 by `denotePInstLevels` (an equality: no arity premise, no fuel). -/
 theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
   intro d n ci us hf _hnt hlen
-  have hmem := Lech.Semantics.Env.find?_mem hf
-  have hname := Lech.Semantics.Env.find?_name hf
+  have hmem := ConLeche.Semantics.Env.find?_mem hf
+  have hname := ConLeche.Semantics.Env.find?_name hf
   obtain ⟨ta, hta⟩ :=
     m.type_reads ci hmem (Level.substFn φ ci.toConstantVal.levelParams us)
   have hwf := m.base2.wf ci hmem
@@ -899,7 +899,7 @@ Wall C step (e)) — `EnvS.toEnvFacts`'s P-side twin, and the last thing
 Nothing of the collapsed model is consulted, and the P lane's
 `checkDeclR_ofEnvRE` runs on this. -/
 def toEnvFacts {V : Type w} [SetTheory V] {μ : CheckMode}
-    {env : Env} (m : EnvS2PM V μ env) : Lech.Semantics.EnvFacts env where
+    {env : Env} (m : EnvS2PM V μ env) : ConLeche.Semantics.EnvFacts env where
   cval := m.base2.cvalE
   cval_closed := m.base2.cval_closed
   wf := m.base2.wf
@@ -923,7 +923,7 @@ def toEnvFacts {V : Type w} [SetTheory V] {μ : CheckMode}
     denoteP_erase m.base2.acval_erase 0 value
       (m.defn_reads ψ cv value (.inr hmem))
   nat_op_guard := fun c hmem hst => by
-    obtain ⟨cv, v, hh, hf⟩ := Lech.natOpStored_inv hst
+    obtain ⟨cv, v, hh, hf⟩ := ConLeche.natOpStored_inv hst
     rcases hmem with hm | hm
     · exact (m.nat_ops (fun _ => 0) c hm cv v hh hf).1
     · exact (m.div_mod (fun _ => 0) c hm cv v hh hf).1
@@ -955,7 +955,7 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
     · exact nomatch hdt
     · exact nomatch hdt
   nat_heads := fun φ hg => by
-    rw [show Lech.natLitSupported Env.empty = false from rfl] at hg
+    rw [show ConLeche.natLitSupported Env.empty = false from rfl] at hg
     exact nomatch hg
   nat_ops := fun φ c _ cv v hint hf => by
     rw [show Env.empty.find? c = none from rfl] at hf
@@ -981,4 +981,4 @@ noncomputable def EnvS2PM.empty (V : Type w) [SetTheory V]
     rw [this] at hf
     exact nomatch hf
 
-end Lech.SetP
+end ConLeche.SetP

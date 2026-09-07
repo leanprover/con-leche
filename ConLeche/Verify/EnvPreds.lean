@@ -1,5 +1,5 @@
-import Lech.Kernel.BasisA
-import Lech.Verify.EnvWF
+import ConLeche.Kernel.BasisA
+import ConLeche.Verify.EnvWF
 
 /-!
 # `V`-free environment predicates (task #123)
@@ -10,8 +10,8 @@ the native projection-table discipline — plus the two level-parameter
 names the pinned basis declarations use and the basis-kind test on a
 `ConstantInfo`.
 
-These were written inside `Lech/Model/IndModel.lean` and
-`Lech/Model/BasisVal.lean`, next to the semantic `IndOk`, but none of
+These were written inside `ConLeche/Model/IndModel.lean` and
+`ConLeche/Model/BasisVal.lean`, next to the semantic `IndOk`, but none of
 them mentions a valuation, a set-theoretic universe or the `SetTheory`
 class: they are statements about what the *checker's* environment
 stores.  Relocated verbatim so both the set model and the declarative
@@ -19,14 +19,14 @@ type-theory bridge can import them (task #123; the lane and its
 record are gone, task #209).
 
 Task #148's T1 added the rest of that class: `pinnedInfo` (with its two
-`*_cases` inversions) from `Lech/Model/BasisVal.lean`, and `ProjOkT`
+`*_cases` inversions) from `ConLeche/Model/BasisVal.lean`, and `ProjOkT`
 — the strengthening of `ProjOk` that pins the pair block's own
-projection names — from `Lech/TTVerify/EnvTT.lean`.  The bridge's
+projection names — from `ConLeche/TTVerify/EnvTT.lean`.  The bridge's
 `uNT`/`vNT`/`u1NT`, `isBasisKind`, `pinnedInfoT` and `RecCtorsStoredT`
 restatements are gone; the definitions here are the single home.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Name
 
@@ -107,7 +107,7 @@ at each of its fields, the syntactic head data (`TowerHead`).
 
 **Purely syntactic, so it transposes verbatim** — it mentions no
 values, no interpretation and no derivations.  Relocated here (task
-#148, T1) from `Lech/TTVerify/EnvTT.lean`, so that both verification
+#148, T1) from `ConLeche/TTVerify/EnvTT.lean`, so that both verification
 lanes can import it.  Until task #175 W6 a first conjunct pinned every
 native non-tower entry to one of the two `PSigma'` pair entries; the
 pin is retired with the pinned pair, and task #175 tower-flag retired
@@ -315,4 +315,4 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
   rw [if_neg h20] at h
   exact nomatch h
 
-end Lech
+end ConLeche

@@ -1,9 +1,9 @@
-import Lech.Kernel.Core
+import ConLeche.Kernel.Core
 
 /-!
 # The β gate's dead-branch collapse (task #161, S13a)
 
-`betaGateFires` (`Lech/Kernel/Core.lean`) is the *one* β-certificate
+`betaGateFires` (`ConLeche/Kernel/Core.lean`) is the *one* β-certificate
 gate predicate, shared by every β-cert lane (the pure body, the cached
 `whnfAppI`/`betaPeelI` twins, and the pure mirror in
 `Verify/BetaSpine.lean`).  This module is its whole proof
@@ -31,7 +31,7 @@ interface, and it is deliberately small:
 The module imports `Kernel.Core` and nothing else: it is base-tier.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode} {pw : PropWhen}
 
@@ -79,7 +79,7 @@ theorem verified_isNever_of_betaGateFires
 
 /-! ## The mode functions at the two constructors (task #185)
 
-`CheckMode`'s functions (`Lech/Kernel/Env.lean`) are the cores'
+`CheckMode`'s functions (`ConLeche/Kernel/Env.lean`) are the cores'
 whole configuration since the configuration record retired: every read a
 shipped core makes is one of `verifiedChecks`, `betaGate`, `ioGate`,
 `certs`, `betaSkip`, `ioSkip`, `ttChecks`, each a `match` on the enum.
@@ -87,7 +87,7 @@ These are their values at the two constructors — all `rfl`, which is
 the record's old `rfl`-eliminability requirement (*"every field
 computes away by `rfl` at each named core"*) stated at the enum
 itself — plus the three conditional forms the mode-parametric
-simulation tower (`Lech/Verify/Cached/*`) consumes under its
+simulation tower (`ConLeche/Verify/Cached/*`) consumes under its
 `hμ : mode.verifiedChecks = true`: at such a mode the certificate
 families are on, the β read is the spec's gate predicate and the io
 read is the datum alone. -/
@@ -161,4 +161,4 @@ identity the cached core's P instantiation rests on. -/
 theorem betaSkip_verified_eq_gate (pw : PropWhen) :
     CheckMode.betaSkip .verified pw = betaGateFires .verified pw := rfl
 
-end Lech
+end ConLeche

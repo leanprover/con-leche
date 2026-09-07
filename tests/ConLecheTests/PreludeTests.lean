@@ -1,11 +1,11 @@
-import Lech.Frontend.Prelude
-import Lech.Cached.ParsedC
+import ConLeche.Frontend.Prelude
+import ConLeche.Cached.ParsedC
 
 /-!
 # The built-in prelude (task #191): what it holds, and that the fold
 accepts it
 
-`Lech/Frontend/Prelude.lean` embeds `pins/<toolchain>.prelude.ndjson`
+`ConLeche/Frontend/Prelude.lean` embeds `pins/<toolchain>.prelude.ndjson`
 and parses it at process initialisation; every stream is checked as
 `prelude ++ stream'`.  These guards pin the prelude's content — the six
 pinned basis blocks and the `Bool` block, seven fold records — and run
@@ -15,9 +15,9 @@ run.  (The dedupe against a later stream copy is exercised end to end
 by the `prelude_*` e2e fixtures, `tests/e2e-expected.txt`.)
 -/
 
-namespace LechTests
+namespace ConLecheTests
 
-open Lech Lech.Cached Lech.Frontend
+open ConLeche ConLeche.Cached ConLeche.Frontend
 
 /-- The parsed prelude (empty only if it did not parse, which the first
 guard below rules out). -/
@@ -63,4 +63,4 @@ def preludeEnvSize (mode : CheckMode) : Option Nat :=
   | .ok r => r.decls.size == 7 && r.preludeCount == 7 && r.preludeDropped == 7
   | .error _ => false
 
-end LechTests
+end ConLecheTests

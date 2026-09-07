@@ -1,6 +1,6 @@
-import Lech.Semantics.Tower.FixSquashI
-import Lech.Semantics.Tower.FixIhI
-import Lech.Semantics.Tower.FixElemI
+import ConLeche.Semantics.Tower.FixSquashI
+import ConLeche.Semantics.Tower.FixIhI
+import ConLeche.Semantics.Tower.FixElemI
 
 /-!
 # The recursive family's recursor: the fixed point and its leaf (task #188, indexed)
@@ -14,12 +14,12 @@ unique solution at the squash regime, task #202 A2), the selection and
 the leaf's iota laws.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
-open Lech.VExpr (VExpr)
+open ConLeche.SetTheory.Tower
+open ConLeche.VExpr (VExpr)
 
 universe uv
 
@@ -1031,4 +1031,4 @@ theorem directFixRecAVI_iota_sq (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss 
 
 end Rec
 
-end Lech.Semantics
+end ConLeche.Semantics

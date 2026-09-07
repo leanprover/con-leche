@@ -1,4 +1,4 @@
-import Lech.SetTheory.Derive.Sigma
+import ConLeche.SetTheory.Derive.Sigma
 
 /-!
 # The pt-freshness battery: data values are never the proof point (task #109)
@@ -38,7 +38,7 @@ Hard walls, recorded so they are not re-attempted:
   the syntactic freshness guards exclude `Quot`-typed slots instead.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -251,4 +251,4 @@ theorem mem_dom_of_piC_fresh {A A' f va : V} {B B' : V → V}
     (hf' : f ∈ˢ piC A' B') : va ∈ˢ A' :=
   mem_dom_of_piC_of_ne_pt hf hva hf' (ne_pt_of_mem_fresh hT hf)
 
-end Lech.SetTheory
+end ConLeche.SetTheory

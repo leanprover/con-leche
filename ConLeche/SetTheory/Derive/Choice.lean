@@ -1,4 +1,4 @@
-import Lech.SetTheory.Derive.Graphs
+import ConLeche.SetTheory.Derive.Graphs
 
 /-!
 # Choice: the global selector, and the eighth axiom as a theorem
@@ -16,7 +16,7 @@ choice over `V` is *derived*:
   of ordered pairs.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -60,4 +60,4 @@ theorem set_choice (X : V) :
 /- Opaque interface operator (see `Derive/Empty.lean`). -/
 attribute [irreducible] schoice
 
-end Lech.SetTheory
+end ConLeche.SetTheory

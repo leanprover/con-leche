@@ -1,5 +1,5 @@
-import Lech.SetP.IndZipperP
-import Lech.SetP.Step2.StuckP
+import ConLeche.SetP.IndZipperP
+import ConLeche.SetP.Step2.StuckP
 
 /-!
 # The point stage's kit (task #161, IND TIER part 5)
@@ -18,13 +18,13 @@ the fired index pin are both applications of the *same* arity, and the
 stage reads their arguments off pointwise.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name)
 
 universe w
 
@@ -61,7 +61,7 @@ theorem instSeqP_app : ∀ (as : List AVExpr) (t : Nat) (f a : AVExpr),
   | cons b bs ih =>
     intro t f a
     rw [AVExpr.instSeq_cons, AVExpr.instSeq_cons, AVExpr.instSeq_cons,
-      Lech.Semantics.AVExpr.inst_app, ih]
+      ConLeche.Semantics.AVExpr.inst_app, ih]
 
 /-- Spine instantiation distributes over an application
 (`instSeq_mkAppN`). -/
@@ -74,7 +74,7 @@ theorem instSeqP_mkAppN : ∀ (as : List AVExpr) (t : Nat) (f : AVExpr)
   induction args generalizing f with
   | nil => rfl
   | cons a args ih =>
-    rw [Lech.Semantics.AVExpr.mkAppN_cons, ih, instSeqP_app]
+    rw [ConLeche.Semantics.AVExpr.mkAppN_cons, ih, instSeqP_app]
     rfl
 
 /-- Applications of equal arity are equal only at equal heads and
@@ -94,8 +94,8 @@ theorem AVExpr.mkAppN_inj :
     cases bs with
     | nil => exact nomatch hlen
     | cons b bs =>
-      rw [Lech.Semantics.AVExpr.mkAppN_cons,
-        Lech.Semantics.AVExpr.mkAppN_cons] at h
+      rw [ConLeche.Semantics.AVExpr.mkAppN_cons,
+        ConLeche.Semantics.AVExpr.mkAppN_cons] at h
       obtain ⟨h1, rfl⟩ := ih h (by simpa using hlen)
       injection h1 with h2 h3
       exact ⟨h2, by rw [h3]⟩
@@ -129,4 +129,4 @@ theorem teleFitPA_rest_eq :
         show k + 1 - 1 - 1 = k - 1 from by omega, Nat.add_sub_cancel,
         Nat.zero_add]
 
-end Lech.SetP
+end ConLeche.SetP

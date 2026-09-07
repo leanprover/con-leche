@@ -1,12 +1,12 @@
-import Lech.Verify.BridgeWfImp
-import Lech.Verify.ExceptBind
+import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.ExceptBind
 
 /-!
 # The direct simple-structure install: environment well-formedness
 
 `EnvWF` for the environments `checkDirectStruct` walks through — one
 per installed constant — at the pure fueled run.  The consumer is the
-cached driver's run bridge (`Lech/Verify/Cached/BridgeCSDecl.lean`,
+cached driver's run bridge (`ConLeche/Verify/Cached/BridgeCSDecl.lean`,
 `checkDirectStructS_run`), which threads the well-formedness of every
 intermediate environment through the per-stage simulations.
 
@@ -18,7 +18,7 @@ itself*, so the inversions here are shape walks (`exceptBind_ok` /
 `split`) that keep exactly those guards.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -285,4 +285,4 @@ theorem direct_table_wf {env envOut : Env} (henv : EnvWF env)
   simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hb'
   exact ⟨hb'.1.1.1, hb'.1.1.2, Expr.constsResolve_mono hb'.1.2, hb'.2⟩
 
-end Lech
+end ConLeche

@@ -1,5 +1,5 @@
-import Lech.Semantics.Tower.TowerRec
-import Lech.Semantics.Denote2Closed
+import ConLeche.Semantics.Tower.TowerRec
+import ConLeche.Semantics.Denote2Closed
 
 /-!
 # The direct-structure leaves' syntactic battery (task #175 wiring, W4)
@@ -24,10 +24,10 @@ readings' own `denoteP` congruence, discharged where the readings are
 made.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-! ## Bound-variable bounds, at the erasure -/
 
@@ -90,7 +90,7 @@ theorem DomsBelow.fields {k : Nat} :
 
 namespace VExprAux
 
-open Lech.VExpr.VExpr
+open ConLeche.VExpr.VExpr
 
 /-- Lifting raises a bound by exactly the inserted count, at any
 cut. -/
@@ -325,4 +325,4 @@ theorem liftN_eq_self_of_closed {e : AVExpr}
     AVExpr.liftN n e k = e :=
   AVExpr.liftN_eq_self e (VExpr.bvarsBelow.mono (Nat.zero_le k) h) n
 
-end Lech.Semantics
+end ConLeche.Semantics

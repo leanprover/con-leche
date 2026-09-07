@@ -1,4 +1,4 @@
-import Lech.SetP.IndSubstP
+import ConLeche.SetP.IndSubstP
 
 /-!
 # The stages' semantic prelude (task #161, IND TIER part 4, step 1)
@@ -27,12 +27,12 @@ The transposition is faithful; the one delta worth naming is
 `PiTeleP.prefix`, and it is a saving.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -158,4 +158,4 @@ theorem sat2_pad_of_mems {K : Nat} {T : AVExpr} {Γ : List AVExpr}
         show K - n + (n - 1 - m) = K - 1 - m from by omega]]
   exact h1
 
-end Lech.SetP
+end ConLeche.SetP

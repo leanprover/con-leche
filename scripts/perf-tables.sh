@@ -11,28 +11,28 @@
 #   * `perf stat -e instructions:u`, ONE run per cell; instructions are
 #     the only metric reported (contention-independent).
 #   * every run under `ulimit -v 16G`, `nice -n 5`, `timeout`,
-#     `LECH_SUPERVISED=1` (no supervisor re-exec).
+#     `CON_LECHE_SUPERVISED=1` (no supervisor re-exec).
 #   * PREPROCESSED INPUT ON BOTH SIDES: the preprocessor
-#     (`lech-preprocess`, task #178 — `lean-inductive-models` told
-#     which blocks lech installs natively) is run once per stream,
+#     (`con-leche-preprocess`, task #178 — `lean-inductive-models` told
+#     which blocks con-leche installs natively) is run once per stream,
 #     off the clock, and BOTH the
-#     official kernel and lech (`--pre`) ingest that same file.  This
-#     removes the preprocessor floor and the spawn from every lech
+#     official kernel and con-leche (`--pre`) ingest that same file.  This
+#     removes the preprocessor floor and the spawn from every con-leche
 #     cell and puts the two checkers on the same bytes.
 #   * ALL flags are passed EXPLICITLY: no cell relies on a default.
 #   * one timed cell at a time; before each cell the script waits until
-#     no other measurement process (lech / official kernel / perf /
+#     no other measurement process (con-leche / official kernel / perf /
 #     the preprocessor) is running anywhere on the machine.
 #
 # Environment overrides: PERF_REPS, PERF_TIMEOUT, PERF_STREAMS,
-# PERF_CONFIGS, PERF_CACHE, LECH_OFFICIAL_KERNEL,
-# LECH_INDUCTIVE_MODELS.
+# PERF_CONFIGS, PERF_CACHE, CON_LECHE_OFFICIAL_KERNEL,
+# CON_LECHE_INDUCTIVE_MODELS.
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-BIN=$ROOT/.lake/build/bin/lech
-OFFICIAL=${LECH_OFFICIAL_KERNEL:-$ROOT/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel}
-PREPROC=${LECH_INDUCTIVE_MODELS:-$ROOT/.lake/build/bin/lech-preprocess}
+BIN=$ROOT/.lake/build/bin/con-leche
+OFFICIAL=${CON_LECHE_OFFICIAL_KERNEL:-$ROOT/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel}
+PREPROC=${CON_LECHE_INDUCTIVE_MODELS:-$ROOT/.lake/build/bin/con-leche-preprocess}
 ARENA=$ROOT/_tmp/arena-tests/good
 CACHE=${PERF_CACHE:-$ROOT/_tmp/perf-tables}
 TSV=$CACHE/table.tsv
@@ -79,7 +79,7 @@ stream_path() {
 #    is ONE Mathlib-scale process at a time, so the stream is cut once,
 #    by hand, and named here.  If the file is absent the row is skipped.
 #  * The caps are the user's Mathlib ceiling: 22 GB virtual, 8 h.
-#  * The lech cells run under `LECH_PROGRESS=5000` so a stalled hour is
+#  * The con-leche cells run under `CON_LECHE_PROGRESS=5000` so a stalled hour is
 #    visible in a timestamped log rather than as silence.  Measured cost
 #    of that on init-full (2026-09-06): 666 084 645 143 instructions
 #    with the progress loop against 666 088 947 489 without — −0.0006 %,
@@ -131,7 +131,7 @@ wait_idle() {
   [ -n "${PERF_NO_WAIT:-}" ] && return
   # NB `pgrep -x` matches /proc/PID/comm, which the kernel truncates to
   # 15 characters — hence the truncated preprocessor name.
-  while pgrep -x lech >/dev/null 2>&1 \
+  while pgrep -x con-leche >/dev/null 2>&1 \
      || pgrep -x kernel >/dev/null 2>&1 \
      || pgrep -x perf >/dev/null 2>&1 \
      || pgrep -x lean-inductive- >/dev/null 2>&1; do
@@ -170,7 +170,7 @@ cell() { # $1 = stream label, $2 = config id, $3 = preprocessed stream
   config_cmd "$2" "$3"
   local r po tv t0 t1 out i vl to pg
   vl=$(stream_vlimit "$1"); to=$(stream_timeout "$1"); pg=$(stream_progress "$1")
-  # the progress heartbeat is a lech knob; official has none
+  # the progress heartbeat is a con-leche knob; official has none
   [ "$2" = official ] && pg=0
   for r in $(seq 1 "$REPS"); do
     wait_idle
@@ -181,7 +181,7 @@ cell() { # $1 = stream label, $2 = config id, $3 = preprocessed stream
     if [ "$1" = mathlib-full ]; then
       # the Mathlib row: `time -v` for peak RSS, and the progress lane's
       # timestamped stderr kept as a receipt
-      out=$( (ulimit -v $vl; LECH_SUPERVISED=1 LECH_PROGRESS=$pg \
+      out=$( (ulimit -v $vl; CON_LECHE_SUPERVISED=1 CON_LECHE_PROGRESS=$pg \
                 perf stat -e instructions:u -x, -o "$po" \
                 timeout "$to" nice -n 5 "$TIMEBIN" -v -o "$tv" "${CMD[@]}" \
                 2> >(awk '{ printf "%d %s\n", systime(), $0; fflush() }' \
@@ -189,7 +189,7 @@ cell() { # $1 = stream label, $2 = config id, $3 = preprocessed stream
       ex=$?
       rss=$(awk '/Maximum resident/{print $NF}' "$tv" 2>/dev/null)
     else
-      out=$( (ulimit -v $vl; LECH_SUPERVISED=1 \
+      out=$( (ulimit -v $vl; CON_LECHE_SUPERVISED=1 \
                 perf stat -e instructions:u -x, -o "$po" \
                 timeout "$to" nice -n 5 "${CMD[@]}") 2>&1 )
       ex=$?
@@ -233,7 +233,7 @@ mkdir -p "$CACHE"
 if [ "${1:-}" = "--render" ]; then render; echo "PERF.md rewritten from $TSV"; exit 0; fi
 
 for f in "$BIN" "$OFFICIAL" "$PREPROC"; do
-  [ -x "$f" ] || { echo "missing binary: $f  (lake build lech)" >&2; exit 1; }
+  [ -x "$f" ] || { echo "missing binary: $f  (lake build con-leche)" >&2; exit 1; }
 done
 
 # PERF_APPEND=1 resumes an interrupted battery: keep the cells already

@@ -1,5 +1,5 @@
-import Lech.Semantics.EraseInv
-import Lech.Verify.Denote
+import ConLeche.Semantics.EraseInv
+import ConLeche.Verify.Denote
 
 /-!
 # The `erasePw` head inversions (task #161)
@@ -15,11 +15,11 @@ lemma (`Interp2/ReduceOpsP.lean`) needed them from *below* `HarvestP`
 — which `AxiomBitsP` imports.  Nothing else changed.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
+namespace ConLeche.SetP
+open ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
-open Lech (Expr Name Level BinderMeta)
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche (Expr Name Level BinderMeta)
 
 /-- `erasePw` inversion at a `∀`: the head is a `∀`, and
 its meta is exactly what the comparison forgives. -/
@@ -66,4 +66,4 @@ theorem erasePwNames_bvar_invS {e : Expr} {i : Nat}
   | _ => simp only [Expr.erasePw] at h; exact nomatch h
 
 
-end Lech.SetP
+end ConLeche.SetP

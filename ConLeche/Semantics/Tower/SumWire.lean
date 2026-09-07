@@ -1,5 +1,5 @@
-import Lech.Semantics.Tower.SumRec
-import Lech.Semantics.Tower.TowerWire
+import ConLeche.Semantics.Tower.SumRec
+import ConLeche.Semantics.Tower.TowerWire
 
 /-!
 # The sum leaves' syntactic battery (task #175 sum-types, indexed)
@@ -13,10 +13,10 @@ bounded at `K + d` (`bvarsBelow_liftN`); the motive, the minors and
 the index variables sit inside the K-frame (`nIdx + n < K`).
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-! ## The case split -/
 
@@ -325,4 +325,4 @@ theorem directSumRecAV_below {ℓ w : Nat} {rds : List (Nat × Nat × AVExpr)}
       (srcs := srcs) (by omega) hsrc hFss
     rwa [show k + nP + (nIdx + Fss.length + 1) + 1 = k + rds.length from by omega] at this)
 
-end Lech.Semantics
+end ConLeche.Semantics

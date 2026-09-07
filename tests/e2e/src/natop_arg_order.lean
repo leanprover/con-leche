@@ -1,9 +1,9 @@
 --#export w1
 /-! Witness D15 (reduce_nat argument order): official `reduce_bin_nat_op`
 whnf's the FIRST argument and bails when it is not a literal, never
-touching the second; lech's `reduceNat` whnf's both before matching.
+touching the second; con-leche's `reduceNat` whnf's both before matching.
 `o` is opaque so the first argument never becomes a literal; the second is
-an expensive closed computation that only lech evaluates on this defeq. -/
+an expensive closed computation that only con-leche evaluates on this defeq. -/
 opaque o : Nat
 def loop : Nat → Nat → Nat
   | 0, acc => acc

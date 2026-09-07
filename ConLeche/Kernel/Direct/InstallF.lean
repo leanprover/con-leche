@@ -1,15 +1,15 @@
-import Lech.Kernel.DeclCheck
+import ConLeche.Kernel.DeclCheck
 
 /-!
 # The direct simple-structure install, through the index
 
-`checkDirectStruct`'s stages (`Lech/Kernel/Direct/Install.lean`)
+`checkDirectStruct`'s stages (`ConLeche/Kernel/Direct/Install.lean`)
 over an `FEnv`, the mirrors the cached drivers run.  Extracted verbatim
-from the tail of `Lech/Kernel/DeclCheck.lean` (its `Mirrors`
+from the tail of `ConLeche/Kernel/DeclCheck.lean` (its `Mirrors`
 section) on 2026-09-06 (cleanup pass A).
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable (mode : CheckMode)
 

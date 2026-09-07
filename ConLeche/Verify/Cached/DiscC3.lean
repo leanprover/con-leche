@@ -1,18 +1,18 @@
-import Lech.Verify.Cached.DiscC2
+import ConLeche.Verify.Cached.DiscC2
 
 /-!
 # Cached body walks, part 3: the stuck-major rescue and iota
 
 Simulation walks for the cached `majorToCtorI`/`pinArgsI`/`iotaRecI`
-(`Lech/Cached/CoreC.lean`) against `majorToCtor`/`iotaRec`
-(`Lech/Verify/Disc.lean`) — the port of `Lech/Verify/DiscI3.lean`
+(`ConLeche/Cached/CoreC.lean`) against `majorToCtor`/`iotaRec`
+(`ConLeche/Verify/Disc.lean`) — the port of `ConLeche/Verify/DiscI3.lean`
 under the task #163 recipe.  The pure comparand side of every statement
 is byte-identical to the interned original's.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech.Cached.ExprC
+open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
@@ -1155,4 +1155,4 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
 
 end Walks2
 
-end Lech.Cached
+end ConLeche.Cached

@@ -1,5 +1,5 @@
-import Lech.Semantics.Tower.IdxEq
-import Lech.Semantics.Tower.TowerMk
+import ConLeche.Semantics.Tower.IdxEq
+import ConLeche.Semantics.Tower.TowerMk
 
 /-!
 # The sum constructor leaf (task #175 sum-types, stage S3; indexed)
@@ -21,11 +21,11 @@ holds the tuple (at an indexed family that fibre is the restricted
 tower at the constructor's own index tuple).
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -697,4 +697,4 @@ theorem directSumMkAV_zero {j : Nat} {ds : List (Nat × Nat × AVExpr)} {Fs : Li
     rw [psigmaMkV2, show Nat.max 0 0 = 0 from rfl, lamR_zero, app_pt, app_pt, app_pt, app_pt]
   | d :: ds => exact mkLamsAV_zero_head d.2.2 _ _ ρ
 
-end Lech.Semantics
+end ConLeche.Semantics

@@ -1,5 +1,5 @@
-import Lech.SetP.IndTeleP
-import Lech.SetP.Step2.IotaKitP
+import ConLeche.SetP.IndTeleP
+import ConLeche.SetP.Step2.IotaKitP
 
 /-!
 # The P-tier frame kit (task #161, IND TIER part 3, step 1)
@@ -45,12 +45,12 @@ and its value fact is `empty_mem_univ 0` through `interp2_sort` —
 trick transposes with no `dummyPropT` detour at all.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -155,23 +155,23 @@ argument first, at descending cuts. -/
 
 /-- Instantiate a spine of readings at descending cuts, outermost
 first (`VExpr.instSeq`'s twin). -/
-def _root_.Lech.SetP.AVExpr.instSeq :
+def _root_.ConLeche.SetP.AVExpr.instSeq :
     List AVExpr → Nat → AVExpr → AVExpr
   | [], _, e => e
-  | a :: as, t, e => Lech.SetP.AVExpr.instSeq as (t - 1) (e.inst a t)
+  | a :: as, t, e => ConLeche.SetP.AVExpr.instSeq as (t - 1) (e.inst a t)
 
 @[simp] theorem AVExpr.instSeq_nil (t : Nat) (e : AVExpr) :
-    Lech.SetP.AVExpr.instSeq [] t e = e := rfl
+    ConLeche.SetP.AVExpr.instSeq [] t e = e := rfl
 
 theorem AVExpr.instSeq_cons (a : AVExpr) (as : List AVExpr) (t : Nat)
     (e : AVExpr) :
-    Lech.SetP.AVExpr.instSeq (a :: as) t e
-      = Lech.SetP.AVExpr.instSeq as (t - 1) (e.inst a t) := rfl
+    ConLeche.SetP.AVExpr.instSeq (a :: as) t e
+      = ConLeche.SetP.AVExpr.instSeq as (t - 1) (e.inst a t) := rfl
 
 /-- **Evaluation is instantiation** (`interp_instSeq`'s twin). -/
 theorem interp2_instSeq :
     ∀ (ws : List AVExpr) (e : AVExpr) (ρ : Nat → V),
-      interp2 V ρ (Lech.SetP.AVExpr.instSeq ws (ws.length - 1) e)
+      interp2 V ρ (ConLeche.SetP.AVExpr.instSeq ws (ws.length - 1) e)
         = interp2 V (chainP V ρ ws) e := by
   intro ws
   induction ws with
@@ -369,7 +369,7 @@ theorem teleFitPA_of_tower :
         interp2 V ρ (ws.getD n default)
           ∈ˢ interp2 V (chainP V ρ (ws.take n))
             (Γ.getD (k - 1 - n) default)) →
-      TeleFitPA V ρ T ws (Lech.SetP.AVExpr.instSeq ws (k - 1) R) := by
+      TeleFitPA V ρ T ws (ConLeche.SetP.AVExpr.instSeq ws (k - 1) R) := by
   intro k
   induction k with
   | zero =>
@@ -394,8 +394,8 @@ theorem teleFitPA_of_tower :
     -- the tail: the instantiated tower via the recursion at `k`
     have hinst := htail.inst w 0
     have hfit := ihk hinst (ws := ws') (ρ := ρ) hlen' ?_
-    · rw [show Lech.SetP.AVExpr.instSeq (w :: ws') (k + 1 - 1) R
-          = Lech.SetP.AVExpr.instSeq ws' (k - 1) (R.inst w k) from by
+    · rw [show ConLeche.SetP.AVExpr.instSeq (w :: ws') (k + 1 - 1) R
+          = ConLeche.SetP.AVExpr.instSeq ws' (k - 1) (R.inst w k) from by
         rw [AVExpr.instSeq_cons]
         simp only [Nat.add_sub_cancel]]
       rw [show (0 : Nat) + k = k from Nat.zero_add k] at hfit
@@ -511,4 +511,4 @@ theorem ctxOkP_of_openers {env : Env} {m : EnvS2Core V env}
     rw [henv]
     exact h
 
-end Lech.SetP
+end ConLeche.SetP

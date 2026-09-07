@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectRecSpineP
+import ConLeche.SetP.Direct.DirectRecSpineP
 
 /-!
 # The recursor's frame kit, continued (task #175 W4c, P3 module 6, part 9)
@@ -10,13 +10,13 @@ agreement (`frameIdent`), the minor space as a Π-tower reading
 (`interp_minorSp_of_tele`), and list arithmetic.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
 universe w
@@ -400,4 +400,4 @@ theorem consList_range_reverse_shift (j : Nat) (ρ : Nat → V) :
   rw [h1, h2]
   exact consList_range_reverse j (shiftE 2 j ρ)
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,12 +1,12 @@
-import Lech.Frontend.InModel.Kit
-import Lech.Frontend.ProjRec
-import Lech.Cached.ParsedC
+import ConLeche.Frontend.InModel.Kit
+import ConLeche.Frontend.ProjRec
+import ConLeche.Cached.ParsedC
 
 /-!
 # In-process models of a MUTUAL inductive block (task #200, B1: index-free)
 
 lean-inductive-models' mutual rung (`Mutual.lean` there), on
-`Lech.Expr`, without the tool: a mutual block `T_1 … T_k` over one
+`ConLeche.Expr`, without the tool: a mutual block `T_1 … T_k` over one
 parameter telescope `p⃗` becomes
 
 * a **tag** enumeration `T_1._model._impl.tag : ∀ p⃗, Type` with one
@@ -18,7 +18,7 @@ parameter telescope `p⃗` becomes
   rewritten to `aux p⃗ (tag.m' p⃗)` (`specFam`), and the recursor is
   the kernel-shape one with inductive hypotheses (`Kit.recTy`);
 * the **public slots** the modeled install consumes
-  (`Lech/Kernel/Modeled.lean`): `T_m._model := λ p⃗, aux p⃗ (tag.m p⃗)`,
+  (`ConLeche/Kernel/Modeled.lean`): `T_m._model := λ p⃗, aux p⃗ (tag.m p⃗)`,
   `C._model := λ p⃗ f⃗, aux.m.C p⃗ f⃗`, and
   `T_m.rec._model := λ p⃗ M⃗ S⃗ t, aux.rec p⃗ Mot S⃗ (tag.m p⃗) t` with
   `Mot i s := tag.rec p⃗ (λ i', aux p⃗ i' → Sort ℓ) M⃗ i s` — the
@@ -28,7 +28,7 @@ parameter telescope `p⃗` becomes
   recursor at a constant motive, the other motives `PUnit`) and
   `proj_i.iota` (by `Eq.refl`: the projection reduces on the modeled
   constructor by δι) — consumed only through the `Eq` level the
-  projection rewrite reads (`Lech/Frontend/ProjRec.lean`).
+  projection rewrite reads (`ConLeche/Frontend/ProjRec.lean`).
 
 The two generated blocks are ordinary inductive records: the tag is
 the direct sum route's, the auxiliary family the direct fixpoint
@@ -40,10 +40,10 @@ eliminator (the auxiliary family has ≥ 2 constructors, so it
 eliminates into `Prop` only), and members whose telescopes differ.
 -/
 
-namespace Lech.Frontend.InModel
+namespace ConLeche.Frontend.InModel
 
-open Lech
-open Lech.Cached (DeclC)
+open ConLeche
+open ConLeche.Cached (DeclC)
 
 /-- One inductive type of a parsed block, with the export's shape data. -/
 structure IndTypeRec where
@@ -411,4 +411,4 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
         out := out.push (.thmDecl ⟨(projModelName t.cv.name i).str "iota", lps, stmt⟩ pf)
   pure out.toList
 
-end Lech.Frontend.InModel
+end ConLeche.Frontend.InModel

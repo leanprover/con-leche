@@ -1,4 +1,4 @@
-import Lech.SetTheory.Derive.Univ
+import ConLeche.SetTheory.Derive.Univ
 
 /-!
 # Least pre-fixed points inside a universe (task #188)
@@ -20,7 +20,7 @@ makes the operator **total** at the type `(Sort w → Sort w) → Sort w`:
 constant `lfp` needs no certificate argument.  Every LAW below assumes
 a closed member exists (`∃ L, IsClosedIn w F L`) — the semantic side
 exhibits one (the ω-iterate of a finitary tower functor,
-`Lech/SetModel/Iter.lean`).
+`ConLeche/SetModel/Iter.lean`).
 
 Under that hypothesis and monotonicity the standard facts hold: the
 least pre-fixed point is a fixed point (`lfpSet_closed`,
@@ -32,12 +32,12 @@ rank, no ordinal, no iteration is consulted by the recursor's laws.
 The RECURSOR of a recursive type needs no operator of its own: it is a
 fixed point of its one-step unfolding, selected by the basis
 `Classical.choice` from the (spelled) sigma type of fixed points
-(`Lech/Semantics/Tower/FixRec.lean`).
+(`ConLeche/Semantics/Tower/FixRec.lean`).
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/
 
-namespace Lech.SetTheory
+namespace ConLeche.SetTheory
 
 universe u
 
@@ -147,4 +147,4 @@ theorem lfpSet_induction {w : Nat} {F : V} (h : ∃ L, IsClosedIn w F L)
       (hmono _ _ (univ_sep_mem (lfpSet_mem_univ w F)) (lfpSet_mem_univ w F) sep_subset y hy)
   exact (mem_sep.mp (lfpSet_subset hS x hx)).2
 
-end Lech.SetTheory
+end ConLeche.SetTheory

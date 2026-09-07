@@ -1,9 +1,9 @@
-import Lech.Frontend.InModel.Mutual
+import ConLeche.Frontend.InModel.Mutual
 
 /-!
 # In-process models of a NESTED (or nested-and-mutual) block (task #200, B3)
 
-lean-inductive-models' nested rung, on `Lech.Expr`, fused with the
+lean-inductive-models' nested rung, on `ConLeche.Expr`, fused with the
 mutual rung: the kernel's own nested→mutual reduction is READ OFF THE
 EXPORTED RECURSOR FAMILY instead of being re-derived — motive `m`'s
 domain `∀ ı⃗ (t : Carrier_m p⃗ ı⃗), Sort ℓ` names the member (a real
@@ -47,10 +47,10 @@ form a cycle (B4), a reflexive member, a `Prop` block with a large
 eliminator, a container field a later container field depends on.
 -/
 
-namespace Lech.Frontend.InModel
+namespace ConLeche.Frontend.InModel
 
-open Lech
-open Lech.Cached (DeclC)
+open ConLeche
+open ConLeche.Cached (DeclC)
 
 /-- A member of the auxiliary family: a real member of the block or a
 mimic (a nested occurrence `I As`, the container at its pins). -/
@@ -1239,4 +1239,4 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
         out := out.push (.thmDecl ⟨(projModelName t.cv.name i).str "iota", lps, stmt⟩ pfL)
   pure out.toList
 
-end Lech.Frontend.InModel
+end ConLeche.Frontend.InModel

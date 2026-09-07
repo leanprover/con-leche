@@ -1,6 +1,6 @@
-import Lech.Verify.InstLevels
-import Lech.SetP.Annot.Bit
-import Lech.SetP.Annot.EnvS2Core
+import ConLeche.Verify.InstLevels
+import ConLeche.SetP.Annot.Bit
+import ConLeche.SetP.Annot.EnvS2Core
 
 /-!
 # The level crossing for `denoteP`: algebra, outright (task #161, P3)
@@ -27,13 +27,13 @@ This is the P3 pivot's first full payoff, measured: what was two open
 metatheorems plus a conditional induction is one proved walk.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo)
 
 universe w
 
@@ -110,10 +110,10 @@ theorem acval_oneP (m : EnvS2Core V env) (nm : Name)
 
 /-- The `Nat`-literal leaves are assignment-independent. -/
 theorem acval_natPairP (m : EnvS2Core V env)
-    (hg : Lech.natLitSupported env = true) (ψ₁ ψ₂ : Name → Nat) :
+    (hg : ConLeche.natLitSupported env = true) (ψ₁ ψ₂ : Name → Nat) :
     m.acval natZeroName ψ₁ = m.acval natZeroName ψ₂ ∧
       m.acval natSuccName ψ₁ = m.acval natSuccName ψ₂ := by
-  simp only [Lech.natLitSupported, Bool.and_eq_true] at hg
+  simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hg
   obtain ⟨⟨-, hz⟩, hs⟩ := hg
   refine ⟨acval_scalarP m natZeroName natZeroOk hz rfl ?_ _ _,
     acval_scalarP m natSuccName natSuccOk hs rfl ?_ _ _⟩
@@ -192,7 +192,7 @@ theorem denotePInstLevels (m : EnvS2Core V env)
     rw [Expr.instantiateLevelParams, denoteP, denoteP,
       if_pos hsup, if_pos hsup]
     have hg := hsup
-    simp only [Lech.strLitSupported, Bool.and_eq_true] at hg
+    simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hg
     obtain ⟨⟨⟨⟨⟨⟨⟨h0, -⟩, h2⟩, -⟩, h4⟩, h5⟩, h6⟩, h7⟩ := hg
     obtain ⟨ez, es⟩ := acval_natPairP m h0
       (Level.substFn (Level.substFn φ ks us) [] [])
@@ -289,9 +289,9 @@ theorem denoteP_params_ext (m : EnvS2Core V env)
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     have hpw : pwBit φ₁ mb.pw = pwBit φ₂ mb.pw := by
       unfold pwBit
-      rw [Lech.PropWhen.holds_ext hd.2 hφ]
+      rw [ConLeche.PropWhen.holds_ext hd.2 hφ]
     rw [denoteP, denoteP, ← ihty hd.1.1,
-      ← ihbody (Lech.Expr.allLevelParamsDefined_instantiate1 hd.1.1 0
+      ← ihbody (ConLeche.Expr.allLevelParamsDefined_instantiate1 hd.1.1 0
         hd.1.2)]
     simp only [hpw]
   | case7 d ty body mb ihty ihbody =>
@@ -299,9 +299,9 @@ theorem denoteP_params_ext (m : EnvS2Core V env)
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     have hpw : pwBit φ₁ mb.pw = pwBit φ₂ mb.pw := by
       unfold pwBit
-      rw [Lech.PropWhen.holds_ext hd.2 hφ]
+      rw [ConLeche.PropWhen.holds_ext hd.2 hφ]
     rw [denoteP, denoteP, ← ihty hd.1.1,
-      ← ihbody (Lech.Expr.allLevelParamsDefined_instantiate1 hd.1.1 0
+      ← ihbody (ConLeche.Expr.allLevelParamsDefined_instantiate1 hd.1.1 0
         hd.1.2)]
     simp only [hpw]
   | case8 d fe a ihf iha =>
@@ -312,7 +312,7 @@ theorem denoteP_params_ext (m : EnvS2Core V env)
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denoteP, denoteP, ← ihty hd.1.1, ← ihval hd.1.2,
-      ← ihbody (Lech.Expr.allLevelParamsDefined_instantiate1 hd.1.1 0
+      ← ihbody (ConLeche.Expr.allLevelParamsDefined_instantiate1 hd.1.1 0
         hd.2)]
   | case10 d sn i e ihe =>
     intro hd
@@ -331,7 +331,7 @@ theorem denoteP_params_ext (m : EnvS2Core V env)
     intro _
     rw [denoteP, denoteP, if_pos hsup, if_pos hsup]
     have hg := hsup
-    simp only [Lech.strLitSupported, Bool.and_eq_true] at hg
+    simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hg
     obtain ⟨⟨⟨⟨⟨⟨⟨h0, -⟩, h2⟩, -⟩, h4⟩, h5⟩, h6⟩, h7⟩ := hg
     obtain ⟨ez, es⟩ := acval_natPairP m h0
       (Level.substFn φ₁ [] []) (Level.substFn φ₂ [] [])
@@ -385,4 +385,4 @@ theorem denoteP_params_ext (m : EnvS2Core V env)
       | natVal k => exact absurd rfl (hnat k)
       | strVal s => exact absurd rfl (hstr s)
 
-end Lech.SetP
+end ConLeche.SetP

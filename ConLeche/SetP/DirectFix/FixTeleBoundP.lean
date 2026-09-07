@@ -1,4 +1,4 @@
-import Lech.SetP.DirectFix.FixChainsP
+import ConLeche.SetP.DirectFix.FixChainsP
 /-!
 # The reflexive telescopes' bounds (task #202 Stage B)
 
@@ -19,13 +19,13 @@ telescope prefix, the next domain's reading is bounded at the family's
 regime.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w'
 
@@ -39,28 +39,28 @@ type, each binder's domain infers a sort at most the whole type's
 whenever the whole's is nonzero (`imax` is then `max`). -/
 theorem piDoms_of_infer {mode : CheckMode} :
     ∀ (n : Nat) {F d : Nat} {e t : Expr} {v₀ : Level} {fvs : List Expr} {opened : Expr},
-      Lech.openPisAtFvars n e d = some (fvs, opened) →
-      Lech.inferTypeCore mode env F d e = .ok t →
-      Lech.ensureSortCore mode env F d t = .ok v₀ →
+      ConLeche.openPisAtFvars n e d = some (fvs, opened) →
+      ConLeche.inferTypeCore mode env F d e = .ok t →
+      ConLeche.ensureSortCore mode env F d t = .ok v₀ →
       ∀ (k : Nat) (a : Expr), fvs[k]? = some a →
         ∃ (F' : Nat) (t' : Expr) (u : Level),
-          Lech.inferTypeCore mode env F' (d + k) a.fvarTypeD = .ok t' ∧
-          Lech.ensureSortCore mode env F' (d + k) t' = .ok u ∧
+          ConLeche.inferTypeCore mode env F' (d + k) a.fvarTypeD = .ok t' ∧
+          ConLeche.ensureSortCore mode env F' (d + k) t' = .ok u ∧
           ∀ φ, Level.eval φ v₀ ≠ 0 → Level.eval φ u ≤ Level.eval φ v₀
   | 0, F, d, e, t, v₀, fvs, opened, hop, _, _, k, a, hk => by
-    simp only [Lech.openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    simp only [ConLeche.openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
     obtain ⟨rfl, -⟩ := hop
     exact nomatch hk
   | n + 1, F, d, e, t, v₀, fvs, opened, hop, h, hens, k, a, hk => by
     match e, hop, h with
     | .forallE dom body mb, hop, h =>
       match F, h with
-      | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
+      | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
       | F + 1, h =>
-        obtain ⟨tty, u, bt, v, hdom, hwh, hbt, hensb, -, rfl⟩ := Lech.inferTypeCore_forall_inv h
+        obtain ⟨tty, u, bt, v, hdom, hwh, hbt, hensb, -, rfl⟩ := ConLeche.inferTypeCore_forall_inv h
         have hv₀ : v₀ = .imax u v := ensureSortCore_sort_eq hens
         subst hv₀
-        simp only [Lech.openPisAtFvars] at hop
+        simp only [ConLeche.openPisAtFvars] at hop
         split at hop
         · next fvs' e' hop' =>
           simp only [Option.some.injEq, Prod.mk.injEq] at hop
@@ -70,7 +70,7 @@ theorem piDoms_of_infer {mode : CheckMode} :
             simp only [List.getElem?_cons_zero, Option.some.injEq] at hk
             subst hk
             refine ⟨F, tty, u, hdom, ?_, fun φ hne => ?_⟩
-            · rw [Nat.add_zero, Lech.ensureSortCore_eq, hwh]; rfl
+            · rw [Nat.add_zero, ConLeche.ensureSortCore_eq, hwh]; rfl
             · have hv : Level.eval φ v ≠ 0 := fun h0 => hne ((eval_imax_eq_zero_iff φ u v).mpr h0)
               simp only [Level.eval, if_neg hv]
               exact Nat.le_max_left _ _
@@ -87,7 +87,7 @@ theorem piDoms_of_infer {mode : CheckMode} :
     | .bvar _, hop, _ | .fvar _ _, hop, _ | .sort _, hop, _
     | .const _ _, hop, _ | .app _ _, hop, _ | .lam _ _ _, hop, _
     | .letE _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
-      simp [Lech.openPisAtFvars] at hop
+      simp [ConLeche.openPisAtFvars] at hop
 
 /-! ## The bound, walked along the telescope -/
 
@@ -99,21 +99,21 @@ theorem teleBound_walk (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env) 
     {w : Nat} :
     ∀ (n : Nat) {d : Nat} {e : Expr} {fvs : List Expr} {o : Expr} {Δ : List AVExpr}
       {tl : List (Nat × Nat × AVExpr)},
-      Lech.openPisAtFvars n e d = some (fvs, o) → tl.length = n →
+      ConLeche.openPisAtFvars n e d = some (fvs, o) → tl.length = n →
       CtxOkP mp.base2 ψ d Δ e → Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       (∀ k a, fvs[k]? = some a →
         denoteP mp.base2.acval env ψ (d + k) a.fvarTypeD = some (tl.getD k default).2.2) →
       (∀ k a, fvs[k]? = some a → ∃ (F : Nat) (t : Expr) (u : Level),
-        Lech.inferTypeCore μ env F (d + k) a.fvarTypeD = .ok t ∧
-        Lech.ensureSortCore μ env F (d + k) t = .ok u ∧ Level.eval ψ u ≤ w) →
+        ConLeche.inferTypeCore μ env F (d + k) a.fvarTypeD = .ok t ∧
+        ConLeche.ensureSortCore μ env F (d + k) t = .ok u ∧ Level.eval ψ u ≤ w) →
       ∀ k, k < n → ∀ ρ : Nat → V, Sat2 V (((tl.take k).map (·.2.2)).reverse ++ Δ) ρ →
         AnnotOkP V ρ (tl.getD k default).2.2 ∧ interp2 V ρ (tl.getD k default).2.2 ∈ˢ (univ w : V)
   | 0, _, _, _, _, _, _, _, _, _, _, _, _, _, _, k, hk, _, _ => absurd hk (Nat.not_lt_zero k)
   | n + 1, d, e, fvs, o, Δ, tl, hop, hlen, hC, hws, hb, hL, hread, hinf, k, hk, ρ, hρ => by
     match e, hop, hws, hb with
     | .forallE ty body mb, hop, hws, hb =>
-      simp only [Lech.openPisAtFvars] at hop
+      simp only [ConLeche.openPisAtFvars] at hop
       split at hop
       · next fvs' o' hop' =>
         simp only [Option.some.injEq, Prod.mk.injEq] at hop
@@ -156,8 +156,8 @@ theorem teleBound_walk (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env) 
             have := hread (k + 1) a (by simpa using hk)
             rwa [show d + (k + 1) = d + 1 + k from by omega] at this
           have hinf' : ∀ k a, fvs'[k]? = some a → ∃ (F : Nat) (t : Expr) (u : Level),
-              Lech.inferTypeCore μ env F (d + 1 + k) a.fvarTypeD = .ok t ∧
-              Lech.ensureSortCore μ env F (d + 1 + k) t = .ok u ∧ Level.eval ψ u ≤ w := by
+              ConLeche.inferTypeCore μ env F (d + 1 + k) a.fvarTypeD = .ok t ∧
+              ConLeche.ensureSortCore μ env F (d + 1 + k) t = .ok u ∧ Level.eval ψ u ≤ w := by
             intro k a hk
             obtain ⟨F, t, u, h1, h2, h3⟩ := hinf (k + 1) a (by simpa using hk)
             rw [show d + (k + 1) = d + 1 + k from by omega] at h1 h2
@@ -170,7 +170,7 @@ theorem teleBound_walk (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env) 
     | .bvar _, hop, _, _ | .fvar _ _, hop, _, _ | .sort _, hop, _, _
     | .const _ _, hop, _, _ | .app _ _, hop, _, _ | .lam _ _ _, hop, _, _
     | .letE _ _ _, hop, _, _ | .lit _, hop, _, _ | .proj _ _ _, hop, _, _ =>
-      simp [Lech.openPisAtFvars] at hop
+      simp [ConLeche.openPisAtFvars] at hop
 
 /-! ## The bound at the constructor data -/
 
@@ -183,7 +183,7 @@ family's sort being nonzero) every domain's. -/
 theorem fixTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env}
-    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₁ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
@@ -203,13 +203,13 @@ theorem fixTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
         ∈ˢ (univ (resSort.eval ψ) : V) := by
   -- the run's pieces
   obtain ⟨hccv, -, fvsP', crest', tfvs, trest, xFvs', idxArgs', sorts, hopC, -, -, hopX, -, -, -,
-    hsorts⟩ := Lech.checkDirectSumCtor_shape hCtor
+    hsorts⟩ := ConLeche.checkDirectSumCtor_shape hCtor
   obtain ⟨crest, hopP, hopXX⟩ := hD.opens
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))
   obtain ⟨rfl, hxrest⟩ := Prod.mk.inj (Option.some.inj (hopXX.symm.trans hopX))
-  obtain ⟨-, hfields⟩ := Lech.checkDirectFieldSortsI_inv hsorts
-  obtain ⟨hcf, -, -, hcb⟩ := Lech.direct_sum_ctor_typeWF hCtor
-  have hopAll : Lech.openPisAtFvars (nP + nF) cvCa.type 0 = some (fvsP ++ xFvs, xrest) :=
+  obtain ⟨-, hfields⟩ := ConLeche.checkDirectFieldSortsI_inv hsorts
+  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
+  have hopAll : ConLeche.openPisAtFvars (nP + nF) cvCa.type 0 = some (fvsP ++ xFvs, xrest) :=
     openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopXX)
   have hO : OpenedP mp.base2 ψ (nP + nF) cvCa.type (fvsP ++ xFvs) xrest
       (((ds ψ).map (·.2.2)).reverse) (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ)) :=
@@ -295,8 +295,8 @@ theorem fixTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     exact hw (h2.mp (h1.mpr hvb))
   -- the domains' sorts
   have hinfD : ∀ k a, afvs[k]? = some a → ∃ (F : Nat) (t : Expr) (u' : Level),
-      Lech.inferTypeCore μ env F (nP + i + k) a.fvarTypeD = .ok t ∧
-      Lech.ensureSortCore μ env F (nP + i + k) t = .ok u' ∧ Level.eval ψ u' ≤ resSort.eval ψ := by
+      ConLeche.inferTypeCore μ env F (nP + i + k) a.fvarTypeD = .ok t ∧
+      ConLeche.ensureSortCore μ env F (nP + i + k) t = .ok u' ∧ Level.eval ψ u' ≤ resSort.eval ψ := by
     intro k a hka
     obtain ⟨F', t', u', h1, h2, h3⟩ := piDoms_of_infer _ hop hinf hens k a hka
     exact ⟨F', t', u', h1, h2, Nat.le_trans (h3 ψ hu) hle⟩
@@ -311,4 +311,4 @@ theorem fixTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     hdoms hinfD k hkT _ hρ
   exact ⟨this.1.1, this.2⟩
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectStageFormerP
+import ConLeche.SetP.Direct.DirectStageFormerP
 
 /-!
 # The constructor's stage data (task #175 W4c, P3 module 6, part 3)
@@ -17,13 +17,13 @@ identified (from the binder pins) — the semantic content the former's
 real leaf and the constructor's leaf consume.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts)
 
 universe w
 
@@ -115,8 +115,8 @@ holding the former. -/
 theorem ctorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa : ConstantVal} {env₀ envC : Env}
     {sorts : List Level} {caps : IndCaps}
-    {bs : List (Expr × Lech.BinderMeta)}
-    (hCtor : Lech.checkDirectCtor (Lech.fueledOps μ F) env₀ env p cvTa
+    {bs : List (Expr × ConLeche.BinderMeta)}
+    (hCtor : ConLeche.checkDirectCtor (ConLeche.fueledOps μ F) env₀ env p cvTa
       = .ok (envC, cvCa, sorts))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
@@ -124,9 +124,9 @@ theorem ctorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     ∃ ds : (Name → Nat) → List (Nat × Nat × AVExpr),
       CtorData mp.base2 p.cvT.name cvCa p.nP p.nF p.resSort ds := by
   obtain ⟨hccv, -, -, fvsP, crest, tfvs, trest, xFvs, hopC, -, -, hopX, -, -⟩ :=
-    Lech.checkDirectCtor_shape hCtor
+    ConLeche.checkDirectCtor_shape hCtor
   obtain ⟨-, -, -, -, hlbt, hitf, type', stype, u, hann', htp', -, hst,
-    hens, rfl⟩ := Lech.checkConstantVal_inv hccv
+    hens, rfl⟩ := ConLeche.checkConstantVal_inv hccv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
   simp only at htf' hbt' htp' hst hens hopC
   have hw : Expr.WScoped 0 type' := Expr.WScoped.of_not_hasFvar htf'
@@ -142,9 +142,9 @@ theorem ctorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     piBits_of_infer hμ (p.nP + p.nF) hopAll hst hens
   rw [Nat.zero_add] at hib hensb
   obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv fvsP hib
-  obtain ⟨ci, hfci, -, rfl⟩ := Lech.inferTypeCore_const_inv htf
+  obtain ⟨ci, hfci, -, rfl⟩ := ConLeche.inferTypeCore_const_inv htf
   obtain rfl : ci = .indInfo cvTa caps := Option.some.inj (hfci.symm.trans hfT)
-  have htfT : Lech.inferTypeCore μ env F' (p.nP + p.nF)
+  have htfT : ConLeche.inferTypeCore μ env F' (p.nP + p.nF)
       (.const p.cvT.name (p.cvT.levelParams.map .param)) = .ok cvTa.type := by
     have := htf
     rw [show (ConstantInfo.indInfo cvTa caps).toConstantVal = cvTa from rfl,
@@ -243,4 +243,4 @@ theorem CtorData.cross {m : EnvS2Core V env} {T : Name} {cvC : ConstantVal}
     exact denoteP_cons_mono hfresh hat ψ 0 hcb (h.read ψ)
   · rw [hbody]; exact h.okTy ψ ρ
 
-end Lech.SetP
+end ConLeche.SetP

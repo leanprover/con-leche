@@ -1,7 +1,7 @@
-import Lech.MainTheorem
-import Lech.Verify.Cached.MainC
-import Lech.SetP.FoldP
-import Lech.SetP.CapstoneP
+import ConLeche.MainTheorem
+import ConLeche.Verify.Cached.MainC
+import ConLeche.SetP.FoldP
+import ConLeche.SetP.CapstoneP
 
 /-!
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1)
@@ -13,7 +13,7 @@ consistency theorems stand on nothing but Lean's three standard axioms:
 
 Until now that was a *claim in the design journal* — the tree had exactly
 one `#guard_msgs in #print axioms`, on `SetTheory.ofAczelChain`
-(`Lech/SetTheory/Aczel.lean`), and none on any capstone.  An external
+(`ConLeche/SetTheory/Aczel.lean`), and none on any capstone.  An external
 reviewer could not confirm the headline without a full rebuild and a
 scratch file of their own.  The guards below are that scratch file,
 in-tree and run by `lake test`: if a `sorry`, a new axiom, or a stray
@@ -31,7 +31,7 @@ compiled behaviour was replaced by `@[implemented_by]` or read off a
   * proofdeps.sh    — which MODULES the proof term reaches.
 
 **Layering.**  This module *imports* the capstones; nothing imports it.
-It is under the `LechTests` library (`lake test`), so it can never
+It is under the `ConLecheTests` library (`lake test`), so it can never
 enter a capstone's own dependency closure — `tests/proofdeps.sh` would
 report the door if it ever did.
 
@@ -47,7 +47,7 @@ measure different things and neither implies the other.
 
 | theorem | what it says |
 |---|---|
-| `Lech.no_proof_of_False` | **THE MAIN THEOREM**: an accepted stream yields no constant of type `False` |
+| `ConLeche.no_proof_of_False` | **THE MAIN THEOREM**: an accepted stream yields no constant of type `False` |
 | `no_proof_of_False_SPCD_P` | the shipped driver's letter, at every validating mode |
 | `no_proof_of_Empty_SPCD_P` | the same about the pinned `Empty` |
 | `checkDeclsSPCachedD_sound_P` | the acceptance corollary under the driver's letters |
@@ -60,7 +60,7 @@ measure different things and neither implies the other.
 | `no_constant_of_emptyPin_P` | the pin under it |
 
 **What is deliberately NOT pinned here** (2026-09-07, the user's
-two-loop ruling): anything about the `LECH_PROGRESS` lane.  That lane
+two-loop ruling): anything about the `CON_LECHE_PROGRESS` lane.  That lane
 runs a *separate, openly unverified* fold in `Main.lean`
 (`checkDeclsProgressIO`) — the same steps as the verified one with a
 line printed before each declaration — and the default run calls
@@ -71,83 +71,83 @@ pinned here; the ruling replaced them with two trivial folds and a
 sentence saying which one is verified.
 -/
 
-namespace LechTests.Axioms
+namespace ConLecheTests.Axioms
 
-/-! ## The main theorem (`Lech/MainTheorem.lean`)
+/-! ## The main theorem (`ConLeche/MainTheorem.lean`)
 
 The statement the project exists to make (task #181: the pinned `False`
 block).  Everything below it is what it is a corollary of. -/
 
 /--
-info: 'Lech.no_proof_of_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.no_proof_of_False' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms Lech.no_proof_of_False
+#print axioms ConLeche.no_proof_of_False
 
-/-! ## The shipped driver (`Lech/Verify/Cached/MainC.lean`) -/
+/-! ## The shipped driver (`ConLeche/Verify/Cached/MainC.lean`) -/
 
 /--
-info: 'Lech.Cached.no_proof_of_False_SPCD_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.no_proof_of_False_SPCD_P' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms Lech.Cached.no_proof_of_False_SPCD_P
+#print axioms ConLeche.Cached.no_proof_of_False_SPCD_P
 
 /--
-info: 'Lech.Cached.no_proof_of_Empty_SPCD_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.no_proof_of_Empty_SPCD_P' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms Lech.Cached.no_proof_of_Empty_SPCD_P
+#print axioms ConLeche.Cached.no_proof_of_Empty_SPCD_P
 
 /--
-info: 'Lech.Cached.checkDeclsSPCachedD_sound_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.checkDeclsSPCachedD_sound_P' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms Lech.Cached.checkDeclsSPCachedD_sound_P
+#print axioms ConLeche.Cached.checkDeclsSPCachedD_sound_P
 
 /--
-info: 'Lech.Cached.foldSPC_PM' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.foldSPC_PM' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms Lech.Cached.foldSPC_PM
+#print axioms ConLeche.Cached.foldSPC_PM
 
-/-! ## The pure fueled checker (`Lech/SetP/FoldP.lean`) -/
+/-! ## The pure fueled checker (`ConLeche/SetP/FoldP.lean`) -/
 
 /--
-info: 'Lech.SetP.no_proof_of_False_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.SetP.no_proof_of_False_P' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms Lech.SetP.no_proof_of_False_P
+#print axioms ConLeche.SetP.no_proof_of_False_P
 
 /--
-info: 'Lech.SetP.no_proof_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.SetP.no_proof_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms Lech.SetP.no_proof_of_Empty_P
+#print axioms ConLeche.SetP.no_proof_of_Empty_P
 
 /--
-info: 'Lech.SetP.no_proof_of_Empty_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.SetP.no_proof_of_Empty_P_of' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms Lech.SetP.no_proof_of_Empty_P_of
+#print axioms ConLeche.SetP.no_proof_of_Empty_P_of
 
-/-! ## The business end (`Lech/SetP/CapstoneP.lean`) -/
+/-! ## The business end (`ConLeche/SetP/CapstoneP.lean`) -/
 
 /--
-info: 'Lech.SetP.no_constant_of_False_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.SetP.no_constant_of_False_P' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms Lech.SetP.no_constant_of_False_P
+#print axioms ConLeche.SetP.no_constant_of_False_P
 
 /--
-info: 'Lech.SetP.no_constant_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.SetP.no_constant_of_Empty_P' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms Lech.SetP.no_constant_of_Empty_P
+#print axioms ConLeche.SetP.no_constant_of_Empty_P
 
 /--
-info: 'Lech.SetP.no_constant_of_emptyPin_P' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.SetP.no_constant_of_emptyPin_P' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms Lech.SetP.no_constant_of_emptyPin_P
+#print axioms ConLeche.SetP.no_constant_of_emptyPin_P
 
-end LechTests.Axioms
+end ConLecheTests.Axioms

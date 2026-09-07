@@ -1,5 +1,5 @@
-import Lech.Verify.Denote.SubstConst
-import Lech.Verify.EnvGuards
+import ConLeche.Verify.Denote.SubstConst
+import ConLeche.Verify.EnvGuards
 
 /-!
 # The pinned-`Nat` recurrence fragment (V-free)
@@ -11,7 +11,7 @@ grammar admits.
 
 **Why this is here and not in a lane.**  Both soundness routes need
 the characterisation and neither may import the other
-(`Lech/SetR/*` must not see `Lech/TTVerify/*`; the two routes are
+(`ConLeche/SetR/*` must not see `ConLeche/TTVerify/*`; the two routes are
 independent by design).  Every statement below mentions only `Env`,
 `Expr` and the kernel's own `natOp*` data, so the shared tier is where
 it belongs — task #148 T6's relocation, at the rule's stated
@@ -24,11 +24,11 @@ which is stated over an `EnvTT`.
 
 -- the namespace follows the house convention of the other shared-tier
 -- files that the TT lane grew into (`Verify/Denote/SubstConst.lean`
--- is `Lech/Verify/*` in `Lech.Verify` too), so nothing
+-- is `ConLeche/Verify/*` in `ConLeche.Verify` too), so nothing
 -- downstream re-qualifies
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 variable {env : Env}
 
@@ -37,7 +37,7 @@ over resolving constants (the operation `c` itself, level-free, or any
 stored constant applied to as many levels as it declares) and the two
 frame variables `x`, `y`, annotated by `Nat`.
 
-Shared with the div/mod certificates (`Lech/TTVerify/DivModPin.lean`),
+Shared with the div/mod certificates (`ConLeche/TTVerify/DivModPin.lean`),
 whose statements are the same shape but mention `Eq.{1}` — which is why
 the constant clause counts levels instead of demanding none. -/
 def natFragOk (env : Env) (c : Name) : Expr → Bool
@@ -352,4 +352,4 @@ theorem natOpGuard_succTy {env : Env} {c : Name} (h : natOpGuard env c = true) :
       intro hty; exact nomatch hty
   · exact nomatch hs
 
-end Lech.Verify
+end ConLeche.Verify

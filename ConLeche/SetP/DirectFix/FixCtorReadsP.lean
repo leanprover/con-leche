@@ -1,7 +1,7 @@
-import Lech.SetP.DirectFix.FixRecReadDefsP
-import Lech.SetP.DirectFix.FixDataP
-import Lech.SetP.DirectSum.SumRecDataP
-import Lech.Verify.Direct.DirectBody
+import ConLeche.SetP.DirectFix.FixRecReadDefsP
+import ConLeche.SetP.DirectFix.FixDataP
+import ConLeche.SetP.DirectSum.SumRecDataP
+import ConLeche.Verify.Direct.DirectBody
 
 /-!
 # The recursive constructors' reading premises (task #188)
@@ -19,13 +19,13 @@ count) nor its body's argument count (`getAppArgs_instSeq_fvars`,
 whence `fieldArity` off the opened form).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -76,7 +76,7 @@ def fixCtorDataList (dsF : Nat → (Name → Nat) → List (Nat × Nat × AVExpr
     List (ConstantVal × Nat) → Nat → List CtorDatumR
   | [], _ => []
   | c :: cs, j =>
-    (c.1.name, c.2, dsF j ψ, esF j ψ, Lech.recIdxOf (ksF j), eissF j ψ, tssF j ψ) ::
+    (c.1.name, c.2, dsF j ψ, esF j ψ, ConLeche.recIdxOf (ksF j), eissF j ψ, tssF j ψ) ::
       fixCtorDataList dsF esF ksF eissF tssF ψ cs (j + 1)
 
 omit [SetTheory V] in
@@ -98,7 +98,7 @@ theorem fixCtorDataList_getElem? (dsF : Nat → (Name → Nat) → List (Nat × 
     ∀ (cs : List (ConstantVal × Nat)) (j i : Nat),
       (fixCtorDataList dsF esF ksF eissF tssF ψ cs j)[i]?
         = (cs[i]?).map fun c =>
-            (c.1.name, c.2, dsF (j + i) ψ, esF (j + i) ψ, Lech.recIdxOf (ksF (j + i)),
+            (c.1.name, c.2, dsF (j + i) ψ, esF (j + i) ψ, ConLeche.recIdxOf (ksF (j + i)),
               eissF (j + i) ψ, tssF (j + i) ψ)
   | [], _, _ => rfl
   | c :: cs, j, 0 => by simp [fixCtorDataList]
@@ -127,14 +127,14 @@ omit [SetTheory V] in
 /-- The recursive positions (finitary or reflexive) are bounded by the
 field count. -/
 theorem mem_recIdxOf {ks : List RecFieldKind} {i : Nat} :
-    i ∈ Lech.recIdxOf ks ↔
+    i ∈ ConLeche.recIdxOf ks ↔
       i < ks.length ∧ (ks.getD i .ordinary = .recursive ∨ ks.getD i .ordinary = .reflexive) := by
-  unfold Lech.recIdxOf
+  unfold ConLeche.recIdxOf
   rw [List.mem_filter, List.mem_range, Bool.or_eq_true, beq_iff_eq, beq_iff_eq]
 
 omit [SetTheory V] in
 /-- The recursive positions are strictly increasing. -/
-theorem recIdxOf_pairwise (ks : List RecFieldKind) : (Lech.recIdxOf ks).Pairwise (· < ·) :=
+theorem recIdxOf_pairwise (ks : List RecFieldKind) : (ConLeche.recIdxOf ks).Pairwise (· < ·) :=
   (List.pairwise_lt_range).filter _
 
 /-- A positional characterisation of the reading premises. -/
@@ -166,13 +166,13 @@ theorem fixCtorReadsR_of {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps : 
     (hcf : ∀ i cA, ctorsA[i]? = some cA →
       FixCtorFactsAt m env₀ T lps nP nIdx resSort isProp large idxF dsF esF srcsF ksF fvsPF xFvsF
         xrestF eissF tssF i cA) :
-    CtorReadsR m ψ T lps nP nIdx (Lech.directFixCtors4 ctorsA kinds)
+    CtorReadsR m ψ T lps nP nIdx (ConLeche.directFixCtors4 ctorsA kinds)
       (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) := by
   refine CtorReadsR.of_getElem? ?_ ?_
   · rw [fixCtorDataList_length]
-    simp [Lech.directFixCtors4, hlenK]
+    simp [ConLeche.directFixCtors4, hlenK]
   intro i c cd hc hcd
-  simp only [Lech.directFixCtors4, List.getElem?_zipWith] at hc
+  simp only [ConLeche.directFixCtors4, List.getElem?_zipWith] at hc
   cases hA : ctorsA[i]? with
   | none => rw [hA] at hc; exact nomatch hc
   | some cA =>
@@ -184,7 +184,7 @@ theorem fixCtorReadsR_of {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps : 
     simp only [Option.map_some, Option.some.injEq] at hcd
     subst hcd
     obtain ⟨hf, hlps, hD⟩ := hcf i cA hA
-    obtain ⟨hCf, -, -, hCb, -⟩ := m.wf _ (Lech.Semantics.Env.find?_mem hf)
+    obtain ⟨hCf, -, -, hCb, -⟩ := m.wf _ (ConLeche.Semantics.Env.find?_mem hf)
     simp only [ConstantInfo.toConstantVal] at hCf hCb
     have hksLen := hD.ksLen
     -- the opening
@@ -210,7 +210,7 @@ theorem fixCtorReadsR_of {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps : 
     have hbGet : ∀ (i' : Nat), i' < cA.2 → ∃ b, cbs[nP + i']? = some b ∧
         cbs.getD (nP + i') default = b := by
       intro i' hi'
-      have hlt : nP + i' < cbs.length := by rw [Lech.Expr.stripPis_length _ hst]; omega
+      have hlt : nP + i' < cbs.length := by rw [ConLeche.Expr.stripPis_length _ hst]; omega
       exact ⟨_, List.getElem?_eq_getElem hlt, by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]; rfl⟩
     -- a field's raw binder type, read through the opening's frame: its
@@ -251,8 +251,8 @@ theorem fixCtorReadsR_of {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps : 
       obtain ⟨x, hx⟩ : ∃ x, (xFvsF i)[i']? = some x :=
         ⟨_, List.getElem?_eq_getElem (by rw [hD.xLen]; exact hlt)⟩
       obtain ⟨b, hb, hbd⟩ := hbGet i' hlt
-      have hteleEq : Lech.directFieldTeleOf cA.1.type nP cA.2 i' = (b.1.piBinders).1 := by
-        unfold Lech.directFieldTeleOf
+      have hteleEq : ConLeche.directFieldTeleOf cA.1.type nP cA.2 i' = (b.1.piBinders).1 := by
+        unfold ConLeche.directFieldTeleOf
         rw [hst]
         simp only [List.getD_eq_getElem?_getD, hb, Option.getD_some]
       rw [hteleEq, ← (hpb i' hlt x hx b hb).1]
@@ -304,4 +304,4 @@ theorem fixCtorReadsR_of {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps : 
         rfl
       · exact hD.reflEntry ψ i' hk hlt
 
-end Lech.SetP
+end ConLeche.SetP

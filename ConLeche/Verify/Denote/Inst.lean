@@ -1,11 +1,11 @@
-import Lech.Verify.Denote.Shift
-import Lech.Verify.Subst
+import ConLeche.Verify.Denote.Shift
+import ConLeche.Verify.Subst
 
 /-!
 # Denotation commutes with instantiation
 
 The transpose of `interp_substFvarAt` / `interp_beta`
-(`Lech/Model/Subst.lean`), and the bottleneck every interesting
+(`ConLeche/Model/Subst.lean`), and the bottleneck every interesting
 clause of `CheckStepTT` runs through: the checker's `infer` on
 `.app f a` returns the *expression* `B.instantiate1 a`, while
 an application's type is the *term* `(⟦B⟧).inst ⟦a⟧`, and those have
@@ -27,12 +27,12 @@ shifting, which is not obvious in advance:
 
 So `k = D - p` makes `VExpr.inst`'s built-in lift *be* the depth shift,
 and the substituted variable's case is discharged by `denote_lift`
-(`Lech/Verify/Denote/Shift.lean`) with nothing left over.
+(`ConLeche/Verify/Denote/Shift.lean`) with nothing left over.
 
 ## Where it is nicer for a second reason
 
 Every binder case below is structural, because `denote` is
-(`Lech/Verify/Denote.lean`, "Why `denote` is structural").  Had a
+(`ConLeche/Verify/Denote.lean`, "Why `denote` is structural").  Had a
 `let` denoted to its zeta reduct, this proof — like the shift lemma
 before it — would need lifting to commute with instantiation, and then
 with itself.  It needs neither.
@@ -40,9 +40,9 @@ with itself.  It needs neither.
 
 set_option linter.unusedVariables false
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
@@ -217,7 +217,7 @@ every inhabitation key needs the denotation to ignore exactly what the
 pin ignores.  It does — `denote` reads a binder's name only to build the
 `fvar` it opens with, and an `fvar` denotes to its de Bruijn index.
 
-Transpose of `interp_erasedEq` (`Lech/Model/InterpLemmas.lean`), and
+Transpose of `interp_erasedEq` (`ConLeche/Model/InterpLemmas.lean`), and
 another §8.4 reading: **the pin's tolerance and the denotation's
 blindness are the same set of syntax**, which is why a `matchesPin` hit
 is usable at all. -/
@@ -294,7 +294,7 @@ decreasing_by
 
 `ConstantVal.matchesPin` now compares stored types to pinned ones up to
 the binder *prop-ness datum* as well as up to binder names
-(`Expr.erasePw`, `Lech/Kernel/StdAxioms.lean`).  The paragraph
+(`Expr.erasePw`, `ConLeche/Kernel/StdAxioms.lean`).  The paragraph
 above's rule — *a pin comparison must never forgive something the
 interpretation reads* — is what has to be re-established, and it is:
 `denote`'s ∀/λ clauses bind `m` and never mention it again, exactly as
@@ -381,4 +381,4 @@ theorem denote_matchesPin {cval : TConstVal} {env : Env} {φ : Name → Nat}
   rw [← denote_erasePw cv.type d, ← denote_erasePw pin.type d]
   exact denote_erasedEq (h.2 ▸ Expr.ErasedEq.rfl _) d
 
-end Lech.Verify
+end ConLeche.Verify

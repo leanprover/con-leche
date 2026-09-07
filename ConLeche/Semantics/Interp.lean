@@ -1,5 +1,5 @@
-import Lech.Semantics.Syntax
-import Lech.SetModel.Value
+import ConLeche.Semantics.Syntax
+import ConLeche.SetModel.Value
 
 /-!
 # `interp2` — the collapse-free two-regime interpretation (task #151, tier B)
@@ -54,8 +54,8 @@ semantically load-bearing, the clause to revisit is this one and only
 this one.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
 
@@ -64,7 +64,7 @@ universe w
 /-! ## Variable environments
 
 Pure `Nat → V` plumbing; no set theory is involved, so this section
-carries no `SetTheory` instance.  These are `Lech.VExpr.Semantics`'
+carries no `SetTheory` instance.  These are `ConLeche.VExpr.Semantics`'
 `cons`/`shiftE`/`instE` with `V` implicit; they are duplicated rather
 than imported so that `Interp2/*` depends on **no** module built over
 the collapse operators. -/
@@ -162,7 +162,7 @@ noncomputable def interp2 : (Nat → V) → AVExpr → V
     interp2 V ρ (.bvar i) = ρ i := rfl
 @[simp] theorem interp2_sort (ρ : Nat → V) (u : Nat) :
     interp2 V ρ (.sort u) = univ u := rfl
-@[simp] theorem interp2_const (ρ : Nat → V) (c : Lech.VExpr.BConst)
+@[simp] theorem interp2_const (ρ : Nat → V) (c : ConLeche.VExpr.BConst)
     (us : List Nat) : interp2 V ρ (.const c us) = bval2 V c us := rfl
 @[simp] theorem interp2_app (ρ : Nat → V) (f a : AVExpr) :
     interp2 V ρ (.app f a) = SetTheory.app (interp2 V ρ f) (interp2 V ρ a) := rfl
@@ -181,4 +181,4 @@ noncomputable def interp2 : (Nat → V) → AVExpr → V
       (if i = 0 then sfst (interp2 V ρ e) else ssnd (interp2 V ρ e)) := rfl
 @[simp] theorem interp2_prf (ρ : Nat → V) : interp2 V ρ .prf = pt := rfl
 
-end Lech.Semantics
+end ConLeche.Semantics

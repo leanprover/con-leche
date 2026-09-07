@@ -1,4 +1,4 @@
-import Lech.SetP.IndParamGradeP
+import ConLeche.SetP.IndParamGradeP
 
 /-!
 # The field domains, graded and fired (task #161, IND TIER part 5)
@@ -28,13 +28,13 @@ field spine positions below `n` are earned from the induction's own
 earlier steps against `Sat2`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name isDefEqCore DefEqListOk)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
 
@@ -306,4 +306,4 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
   rw [interp2_liftN, hshiftEnv n ρ'] at hfire
   exact hfire
 
-end Lech.SetP
+end ConLeche.SetP

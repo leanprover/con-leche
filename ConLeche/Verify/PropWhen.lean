@@ -1,9 +1,9 @@
-import Lech.Verify.Level
+import ConLeche.Verify.Level
 
 /-!
 # The zero-ness datum against `Level` (task #161)
 
-`Lech/Kernel/PropWhen.lean` owns the datum: its representation, its
+`ConLeche/Kernel/PropWhen.lean` owns the datum: its representation, its
 API, and every law about the datum *alone* (the readout algebra,
 `eq_iff_holds` — equality decides zero-ness agreement — and the
 `inter`/`bindZ` algebra).  This file is a *consumer* of that API; it
@@ -30,7 +30,7 @@ through the exported `casesZ` view and the `_never`/`_ifAllZero`
 equations.
 -/
 
-namespace Lech.PropWhen
+namespace ConLeche.PropWhen
 
 /-! ## Soundness of the readout -/
 
@@ -60,11 +60,11 @@ theorem zeronessOf_sound (φ : Name → Nat) :
         by simpa using hm
       rw [h1, if_neg hb, h2]
 
-end Lech.PropWhen
+end ConLeche.PropWhen
 
-namespace Lech.Level
+namespace ConLeche.Level
 
-open Lech.PropWhen
+open ConLeche.PropWhen
 
 /-- The substitution pushforward, as a syntactic equation: reading
 zero-ness commutes with level-parameter substitution. -/
@@ -236,7 +236,7 @@ valuation `Level.substFn φ ks vs` — the same composed valuation
 `denote2`'s constant clause uses.  The `denoteP` level crossing rides
 this where the canonical lane needed the open checker metatheorems
 (`SortOfEInstLevels`/`LamSortEInstLevels`,
-`Lech/SetR/Interp2/Step2/Levels.lean`). -/
+`ConLeche/SetR/Interp2/Step2/Levels.lean`). -/
 theorem holds_substPW (φ : Name → Nat) (ks : List Name)
     (vs : List Level) : ∀ pw : PropWhen,
     (substPW ks vs pw).holds φ = pw.holds (substFn φ ks vs) := by
@@ -254,4 +254,4 @@ theorem holds_substPW (φ : Name → Nat) (ks : List Name)
       simp only [List.all_cons, ih]
       rw [zeronessOf_sound, eval_subst_go]
 
-end Lech.Level
+end ConLeche.Level

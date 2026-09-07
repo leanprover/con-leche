@@ -1,14 +1,14 @@
-import Lech.SetP.Step2.InferP
-import Lech.SetP.Step2.InferIOP
-import Lech.SetP.Step2.WhnfP
-import Lech.SetP.Step2.DefEqP
-import Lech.SetP.Step2.StuckP
-import Lech.Verify.Denote
-import Lech.Verify.Denote.OpenVars
-import Lech.Verify.Denote.VClosed
-import Lech.SetP.Step2.TowerKitP
-import Lech.SetP.Annot.EnvS2P
-import Lech.Semantics.LitParams
+import ConLeche.SetP.Step2.InferP
+import ConLeche.SetP.Step2.InferIOP
+import ConLeche.SetP.Step2.WhnfP
+import ConLeche.SetP.Step2.DefEqP
+import ConLeche.SetP.Step2.StuckP
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.Denote.VClosed
+import ConLeche.SetP.Step2.TowerKitP
+import ConLeche.SetP.Annot.EnvS2P
+import ConLeche.Semantics.LitParams
 
 /-!
 # The totality consolidation (task #161, P4 batch 6)
@@ -66,13 +66,13 @@ They are bundled as `ReadsInputsP`; the suppliers at the end of the
 file take that bundle and produce five of the six residues.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level whnf whnfCore inferTypeCore)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level whnf whnfCore inferTypeCore)
 
 universe w
 
@@ -183,7 +183,7 @@ checker's own front door, which is exactly this. -/
 def IotaReadsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e'' : Expr} {ea : AVExpr},
-    Lech.iotaRecP μ env fuel d e = .ok (some e'') →
+    ConLeche.iotaRecP μ env fuel d e = .ok (some e'') →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     LeafReadsP m φ d e →
@@ -229,7 +229,7 @@ statement (`ReduceNatStepP`'s shape, readings and scoping only). -/
 def ReduceNatReadsP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e₂ : Expr} {ea : AVExpr},
-    Lech.reduceNatP μ env fuel d e = .ok (some e₂) →
+    ConLeche.reduceNatP μ env fuel d e = .ok (some e₂) →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     denoteP m.acval env φ d e = some ea →
@@ -265,7 +265,7 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
     (ihwc : WhnfCoreReadsP m μ φ fuel) (ihw : WhnfReadsP m μ φ fuel) :
     WhnfCoreProjReadsP μ m φ fuel := by
   intro d i sn pe e' ea h hws hb hLb hlrb hea
-  obtain ⟨e₂, e₃, hwpe, hlit, hcase⟩ := Lech.whnf_proj_inv h
+  obtain ⟨e₂, e₃, hwpe, hlit, hcase⟩ := ConLeche.whnf_proj_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
   have hLpe : Expr.LeavesBounded pe := fun l hl =>
@@ -276,28 +276,28 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
   -- the reduced scrutinee
   obtain ⟨v₂, hv₂⟩ := ihw hwpe hws hb hLpe hlrpe hvp
   have hlr₂ : LeafReadsP m φ d e₂ :=
-    hlrpe.of_subset (Lech.whnf_fvarLeaves m.wf fuel hwpe)
-  have hw₂ : Expr.WScoped d e₂ := Lech.whnf_WScoped m.wf fuel hwpe hws
+    hlrpe.of_subset (ConLeche.whnf_fvarLeaves m.wf fuel hwpe)
+  have hw₂ : Expr.WScoped d e₂ := ConLeche.whnf_WScoped m.wf fuel hwpe hws
   have hb₂ : e₂.looseBVarsBounded 0 = true :=
-    Lech.whnf_looseBVars m.wf fuel hwpe hb
+    ConLeche.whnf_looseBVars m.wf fuel hwpe hb
   have hL₂ : Expr.LeavesBounded e₂ := fun l hl =>
-    hLpe l (Lech.whnf_fvarLeaves m.wf fuel hwpe l hl)
+    hLpe l (ConLeche.whnf_fvarLeaves m.wf fuel hwpe l hl)
   -- the string-literal expansion, if it fired
   obtain ⟨v₃, hv₃, hw₃, hb₃, hL₃, hlr₃⟩ :
       ∃ v₃, denoteP m.acval env φ d e₃ = some v₃ ∧
         Expr.WScoped d e₃ ∧ e₃.looseBVarsBounded 0 = true ∧
         Expr.LeavesBounded e₃ ∧ LeafReadsP m φ d e₃ := by
-    rcases Lech.projLitToCtorP_inv hlit with rfl | ⟨st, rfl, hg, hred⟩
+    rcases ConLeche.projLitToCtorP_inv hlit with rfl | ⟨st, rfl, hg, hred⟩
     · exact ⟨v₂, hv₂, hw₂, hb₂, hL₂, hlr₂⟩
     · obtain ⟨hSC, hwc, hbc, hLc, hnilc⟩ :=
         denotePStrLit_of_guard d st hg hv₂
-      have hlrc : LeafReadsP m φ d (Lech.strLitToConstructor st) := by
+      have hlrc : LeafReadsP m φ d (ConLeche.strLitToConstructor st) := by
         intro l hl; rw [hnilc] at hl; exact nomatch hl
       obtain ⟨v₃, hv₃⟩ := ihw hred hwc hbc hLc hlrc hSC
-      exact ⟨v₃, hv₃, Lech.whnf_WScoped m.wf fuel hred hwc,
-        Lech.whnf_looseBVars m.wf fuel hred hbc,
-        fun l hl => hLc l (Lech.whnf_fvarLeaves m.wf fuel hred l hl),
-        hlrc.of_subset (Lech.whnf_fvarLeaves m.wf fuel hred)⟩
+      exact ⟨v₃, hv₃, ConLeche.whnf_WScoped m.wf fuel hred hwc,
+        ConLeche.whnf_looseBVars m.wf fuel hred hbc,
+        fun l hl => hLc l (ConLeche.whnf_fvarLeaves m.wf fuel hred l hl),
+        hlrc.of_subset (ConLeche.whnf_fvarLeaves m.wf fuel hred)⟩
   rcases hcase with rfl | ⟨us, entry, hfn, hfe, hilt, hlenA, hlenU,
     -, hwcf, -⟩
   · -- stuck: the projection of the reduced scrutinee, at whichever
@@ -309,22 +309,22 @@ theorem whnfCoreProjReadsP_of {m : EnvS2Core V env}
       exact if_pos hi2
   · -- the table fires: the reduct is a head-normalised spine argument
     have hmem : e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)
-        ∈ e₃.getAppArgs := Lech.getD_mem (by rw [hlenA]; omega)
+        ∈ e₃.getAppArgs := ConLeche.getD_mem (by rw [hlenA]; omega)
     have hwF : Expr.WScoped d
       (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
       hw₃.getAppArgs _ hmem
     have hbF : (e₃.getAppArgs.getD (entry.numParams + i)
       (.bvar 0)).looseBVarsBounded 0 = true :=
-      Lech.looseBVarsBounded_getAppArgs hb₃ _ hmem
+      ConLeche.looseBVarsBounded_getAppArgs hb₃ _ hmem
     have hLF : Expr.LeavesBounded
       (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) := fun l hl =>
-      hL₃ l (Lech.fvarLeaves_getAppArgs hmem l hl)
+      hL₃ l (ConLeche.fvarLeaves_getAppArgs hmem l hl)
     rw [show e₃ = Expr.mkAppN e₃.getAppFn e₃.getAppArgs from
-      (Lech.Expr.mkAppN_getApp e₃).symm] at hv₃
+      (ConLeche.Expr.mkAppN_getApp e₃).symm] at hv₃
     obtain ⟨-, vs, -, hspa, -⟩ := denoteP_mkAppN_inv hv₃
     obtain ⟨vf, hvf⟩ := hspa.mem _ hmem
     exact ihwc hwcf hwF hbF hLF
-      (hlr₃.of_subset (Lech.fvarLeaves_getAppArgs hmem)) hvf
+      (hlr₃.of_subset (ConLeche.fvarLeaves_getAppArgs hmem)) hvf
 
 /-- **`InferProjReadsP`, discharged.**  At a pair-backed entry the
 returned type is `projResidualP`'s computed residual: the first
@@ -338,7 +338,7 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
     InferProjReadsP μ m φ fuel := by
   intro d i sn pe t ea h hws hb hLb hlr hea
   obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe, hlenArgs,
-    hlenUs, hguard, rfl, hsn⟩ := Lech.inferTypeCore_proj_inv h
+    hlenUs, hguard, rfl, hsn⟩ := ConLeche.inferTypeCore_proj_inv h
   subst hsn
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded] at hb
@@ -358,12 +358,12 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
   obtain ⟨tea, htea⟩ := ihw hwte hwtpe hbtpe hLtpe
     (hlrpe.of_subset (inferTypeCore_fvarLeaves m.wf fuel htpe hws))
     htpea
-  have hwte' : Expr.WScoped d te := Lech.whnf_WScoped m.wf fuel hwte hwtpe
+  have hwte' : Expr.WScoped d te := ConLeche.whnf_WScoped m.wf fuel hwte hwtpe
   have hbte : te.looseBVarsBounded 0 = true :=
-    Lech.whnf_looseBVars m.wf fuel hwte hbtpe
+    ConLeche.whnf_looseBVars m.wf fuel hwte hbtpe
   -- the reduced type's parameter spine reads
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
-    (Lech.Expr.mkAppN_getApp te).symm] at htea
+    (ConLeche.Expr.mkAppN_getApp te).symm] at htea
   obtain ⟨-, vs, -, hspt, -⟩ := denoteP_mkAppN_inv htea
   -- the residual is the peel of the entry type, read
   obtain ⟨-, -, -, -, -, _, -, -, hlaw, -⟩ := htower T i entry hfe
@@ -373,7 +373,7 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
     intro x hx
     rcases List.mem_append.mp hx with hx' | hx'
     · exact ⟨hwte'.getAppArgs x hx',
-        Lech.looseBVarsBounded_getAppArgs hbte x hx'⟩
+        ConLeche.looseBVarsBounded_getAppArgs hbte x hx'⟩
     · rcases List.mem_singleton.mp hx' with rfl
       exact ⟨hws, hb⟩
   obtain ⟨restA, hrest, -⟩ :=
@@ -416,8 +416,8 @@ private theorem whnfCoreReads_letE {m : EnvS2Core V env}
     (hlr : LeafReadsP m φ d (.letE tt vv bb))
     (hea : denoteP m.acval env φ d (.letE tt vv bb) = some ea) :
     ∃ ea', denoteP m.acval env φ d e' = some ea' := by
-  rw [Lech.whnfCore_succ] at h
-  simp only [Lech.whnfCoreBody, Lech.whnfCore_def] at h
+  rw [ConLeche.whnfCore_succ] at h
+  simp only [ConLeche.whnfCoreBody, ConLeche.whnfCore_def] at h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   rw [denoteP] at hea
@@ -471,14 +471,14 @@ private theorem whnfCoreReads_app {m : EnvS2Core V env}
   have hlra : LeafReadsP m φ d a :=
     hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl])
   obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteP_app_inv hea
-  obtain ⟨f', hwf, hcase⟩ := Lech.whnf_app_inv h
+  obtain ⟨f', hwf, hcase⟩ := ConLeche.whnf_app_inv h
   obtain ⟨fa', hfa'⟩ := ihwc hwf hws.1 hb.1 hLf hlrf hfa
   have hwf' : Expr.WScoped d f' :=
-    Lech.whnfCore_WScoped m.wf fuel hwf hws.1
+    ConLeche.whnfCore_WScoped m.wf fuel hwf hws.1
   have hbf' : f'.looseBVarsBounded 0 = true :=
-    Lech.whnfCore_looseBVars m.wf fuel hwf hb.1
+    ConLeche.whnfCore_looseBVars m.wf fuel hwf hb.1
   have hLf' : Expr.LeavesBounded f' := fun l hl =>
-    hLf l (Lech.whnfCore_fvarLeaves m.wf fuel hwf l hl)
+    hLf l (ConLeche.whnfCore_fvarLeaves m.wf fuel hwf l hl)
   have hiapp : denoteP m.acval env φ d (.app f' a)
       = some (.app fa' aa) := by rw [denoteP, hfa', haa]; rfl
   have hwapp : Expr.WScoped d (.app f' a) := by
@@ -495,7 +495,7 @@ private theorem whnfCoreReads_app {m : EnvS2Core V env}
     intro l hl
     simp only [Expr.fvarLeaves, List.mem_append] at hl
     rcases hl with hl | hl
-    · exact hlrf l (Lech.whnfCore_fvarLeaves m.wf fuel hwf l hl)
+    · exact hlrf l (ConLeche.whnfCore_fvarLeaves m.wf fuel hwf l hl)
     · exact hlra l hl
   rcases hcase with ⟨ty, body, mm, rfl, hbeta, -⟩ |
     ⟨e'', hio, hwe''⟩ | rfl
@@ -565,7 +565,7 @@ private theorem whnfLoopReads {m : EnvS2Core V env}
     (ihwc : WhnfCoreReadsP m μ φ fuel)
     (hnat : ReduceNatReadsP μ m φ fuel) (hdelta : DeltaP m φ) :
     ∀ (budget : Nat) {d : Nat} {e e' : Expr} {ea : AVExpr},
-      Lech.whnfLoop (Lech.pureFns μ env fuel) env d budget e
+      ConLeche.whnfLoop (ConLeche.pureFns μ env fuel) env d budget e
         = .ok e' →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
@@ -576,12 +576,12 @@ private theorem whnfLoopReads {m : EnvS2Core V env}
   induction budget with
   | zero =>
     intro d e e' ea h
-    rw [Lech.whnfLoop] at h
+    rw [ConLeche.whnfLoop] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
   | succ budget ih =>
     intro d e e' ea h hws hb hLb hlr hea
-    rw [Lech.whnfLoop, Lech.whnfStep] at h
-    simp only [Bind.bind, Except.bind, Lech.whnfCore_def] at h
+    rw [ConLeche.whnfLoop, ConLeche.whnfStep] at h
+    simp only [Bind.bind, Except.bind, ConLeche.whnfCore_def] at h
     cases hwc : whnfCore μ env fuel d e with
     | error err => rw [hwc] at h; exact nomatch h
     | ok e₁ =>
@@ -589,18 +589,18 @@ private theorem whnfLoopReads {m : EnvS2Core V env}
     dsimp only at h
     obtain ⟨ea₁, hea₁⟩ := ihwc hwc hws hb hLb hlr hea
     have hlr₁ : LeafReadsP m φ d e₁ :=
-      hlr.of_subset (Lech.whnfCore_fvarLeaves m.wf fuel hwc)
+      hlr.of_subset (ConLeche.whnfCore_fvarLeaves m.wf fuel hwc)
     have hws₁ : Expr.WScoped d e₁ :=
-      Lech.whnfCore_WScoped m.wf fuel hwc hws
+      ConLeche.whnfCore_WScoped m.wf fuel hwc hws
     have hb₁ : e₁.looseBVarsBounded 0 = true :=
-      Lech.whnfCore_looseBVars m.wf fuel hwc hb
+      ConLeche.whnfCore_looseBVars m.wf fuel hwc hb
     have hLb₁ : Expr.LeavesBounded e₁ := fun l hl =>
-      hLb l (Lech.whnfCore_fvarLeaves m.wf fuel hwc l hl)
-    cases hrn : Lech.reduceNatP μ env fuel d e₁ with
+      hLb l (ConLeche.whnfCore_fvarLeaves m.wf fuel hwc l hl)
+    cases hrn : ConLeche.reduceNatP μ env fuel d e₁ with
     | error err =>
-      rw [Lech.reduceNat_fold] at h; rw [hrn] at h; exact nomatch h
+      rw [ConLeche.reduceNat_fold] at h; rw [hrn] at h; exact nomatch h
     | ok o =>
-    rw [Lech.reduceNat_fold] at h
+    rw [ConLeche.reduceNat_fold] at h
     rw [hrn] at h
     dsimp only at h
     match o, h with
@@ -610,7 +610,7 @@ private theorem whnfLoopReads {m : EnvS2Core V env}
       exact ih h hws₂ hb₂ hLb₂ hlr₂ hea₂
     | none, h =>
       dsimp only at h
-      cases hud : Lech.unfoldDefinition env e₁ with
+      cases hud : ConLeche.unfoldDefinition env e₁ with
       | none =>
         rw [hud] at h
         obtain rfl : e₁ = e' := Except.ok.inj h
@@ -618,12 +618,12 @@ private theorem whnfLoopReads {m : EnvS2Core V env}
       | some e₂ =>
         rw [hud] at h
         dsimp only at h
-        exact ih h (Lech.unfoldDefinition_WScoped m.wf hud hws₁)
-          (Lech.unfoldDefinition_looseBVars m.wf hud hb₁)
+        exact ih h (ConLeche.unfoldDefinition_WScoped m.wf hud hws₁)
+          (ConLeche.unfoldDefinition_looseBVars m.wf hud hb₁)
           (fun l hl => hLb₁ l
-            (Lech.unfoldDefinition_fvarLeaves m.wf hud l hl))
+            (ConLeche.unfoldDefinition_fvarLeaves m.wf hud l hl))
           (hlr₁.of_subset
-            (Lech.unfoldDefinition_fvarLeaves m.wf hud))
+            (ConLeche.unfoldDefinition_fvarLeaves m.wf hud))
           (hdelta hud hea₁)
 
 /-- **`WhnfReadsP` at `fuel + 1`** — the residue's own statement, from
@@ -633,8 +633,8 @@ theorem whnfReadsP_succ {m : EnvS2Core V env}
     (hnat : ReduceNatReadsP μ m φ fuel) (hdelta : DeltaP m φ) :
     WhnfReadsP m μ φ (fuel + 1) := by
   intro d e e' ea h hws hb hLb hlr hea
-  rw [Lech.whnf_succ, Lech.whnfBody] at h
-  exact whnfLoopReads ihwc hnat hdelta Lech.whnfLoopFuel h hws hb
+  rw [ConLeche.whnf_succ, ConLeche.whnfBody] at h
+  exact whnfLoopReads ihwc hnat hdelta ConLeche.whnfLoopFuel h hws hb
     hLb hlr hea
 
 /-! ## T2 — the `infer` clauses
@@ -661,8 +661,8 @@ theorem inferReads_sort {m : EnvS2Core V env}
     {d : Nat} {u : Level} {t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.sort u) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
-  rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, pure,
+  rw [ConLeche.inferTypeCore_succ] at h
+  simp only [ConLeche.inferBody, pure,
     Except.pure, Except.ok.injEq] at h
   subst h
   exact ⟨_, denoteP_sortQ⟩
@@ -674,8 +674,8 @@ theorem inferReads_fvar {m : EnvS2Core V env}
     (h : inferTypeCore μ env (fuel + 1) d (.fvar idx ty) = .ok t)
     (hlr : LeafReadsP m φ d (.fvar idx ty)) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
-  rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, pure,
+  rw [ConLeche.inferTypeCore_succ] at h
+  simp only [ConLeche.inferBody, pure,
     Except.pure] at h
   split at h
   · simp only [Except.ok.injEq] at h
@@ -691,7 +691,7 @@ theorem inferReads_const {m : EnvS2Core V env}
     (h : inferTypeCore μ env (fuel + 1) d (.const n us) = .ok t)
     (hea : denoteP m.acval env φ d (.const n us) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
-  obtain ⟨ci, hf, hnt, rfl⟩ := Lech.inferTypeCore_const_inv h
+  obtain ⟨ci, hf, hnt, rfl⟩ := ConLeche.inferTypeCore_const_inv h
   rw [denoteP, hf] at hea
   dsimp only at hea
   split at hea
@@ -706,18 +706,18 @@ theorem inferReads_natLit {m : EnvS2Core V env}
     {d k : Nat} {t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.natVal k)) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
-  rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, pure,
+  rw [ConLeche.inferTypeCore_succ] at h
+  simp only [ConLeche.inferBody, pure,
     Except.pure] at h
   split at h
   · next hg =>
     simp only [Except.ok.injEq] at h
     subst h
-    have hgt : Lech.natLitSupported env = true := by simpa using hg
-    cases hf : env.find? Lech.natName with
+    have hgt : ConLeche.natLitSupported env = true := by simpa using hg
+    cases hf : env.find? ConLeche.natName with
     | none =>
       exfalso
-      simp only [Lech.natLitSupported, Bool.and_eq_true] at hgt
+      simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hgt
       obtain ⟨⟨h1, -⟩, -⟩ := hgt
       rw [hf] at h1
       exact nomatch h1
@@ -725,7 +725,7 @@ theorem inferReads_natLit {m : EnvS2Core V env}
       have hlp : ci.toConstantVal.levelParams = [] :=
         natName_levelParams_nil hgt hf
       rcases hd : denoteP m.acval env φ d
-          (Expr.const Lech.natName []) with _ | ta
+          (Expr.const ConLeche.natName []) with _ | ta
       · exfalso
         rw [denoteP, hf] at hd
         dsimp only at hd
@@ -739,18 +739,18 @@ theorem inferReads_strLit {m : EnvS2Core V env}
     {d : Nat} {s : String} {t : Expr}
     (h : inferTypeCore μ env (fuel + 1) d (.lit (.strVal s)) = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
-  rw [Lech.inferTypeCore_succ] at h
-  simp only [Lech.inferBody, pure,
+  rw [ConLeche.inferTypeCore_succ] at h
+  simp only [ConLeche.inferBody, pure,
     Except.pure] at h
   split at h
   · next hg =>
     simp only [Except.ok.injEq] at h
     subst h
-    have hgt : Lech.strLitSupported env = true := by simpa using hg
-    cases hf : env.find? Lech.stringName with
+    have hgt : ConLeche.strLitSupported env = true := by simpa using hg
+    cases hf : env.find? ConLeche.stringName with
     | none =>
       exfalso
-      simp only [Lech.strLitSupported, Bool.and_eq_true] at hgt
+      simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hgt
       obtain ⟨⟨⟨⟨⟨⟨⟨-, h2⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩ := hgt
       rw [hf] at h2
       exact nomatch h2
@@ -758,7 +758,7 @@ theorem inferReads_strLit {m : EnvS2Core V env}
       have hlp : ci.toConstantVal.levelParams = [] :=
         stringName_levelParams_nil hgt hf
       rcases hd : denoteP m.acval env φ d
-          (Expr.const Lech.stringName []) with _ | ta
+          (Expr.const ConLeche.stringName []) with _ | ta
       · exfalso
         rw [denoteP, hf] at hd
         dsimp only at hd
@@ -769,12 +769,12 @@ theorem inferReads_strLit {m : EnvS2Core V env}
 
 /-- `.forallE`: the inferred type is `.sort (.imax u v)`. -/
 private theorem inferReads_forallE {m : EnvS2Core V env}
-    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : ConLeche.BinderMeta}
     (h : inferTypeCore μ env (fuel + 1) d (.forallE ty body mb)
       = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨-, -, -, -, -, -, -, -, -, rfl⟩ :=
-    Lech.inferTypeCore_forall_inv h
+    ConLeche.inferTypeCore_forall_inv h
   exact ⟨_, denoteP_sortQ⟩
 
 /-- `.lam`: the copied ∀-type.  Its domain reading is the subject's own;
@@ -783,7 +783,7 @@ transported across the `abstract1`/`instantiate1` round trip — which is
 where the leaf premise has to be *opened* (`LeafReadsP.openS`). -/
 private theorem inferReads_lam {m : EnvS2Core V env}
     (ihi : InferReadsP m μ φ fuel)
-    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : ConLeche.BinderMeta}
     {ea : AVExpr}
     (h : inferTypeCore μ env (fuel + 1) d (.lam ty body mb) = .ok t)
     (hws : Expr.WScoped d (.lam ty body mb))
@@ -793,7 +793,7 @@ private theorem inferReads_lam {m : EnvS2Core V env}
     (hea : denoteP m.acval env φ d (.lam ty body mb) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨-, -, bt, -, -, hbt, -, -, rfl⟩ :=
-    Lech.inferTypeCore_lam_inv h
+    ConLeche.inferTypeCore_lam_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLty : Expr.LeavesBounded ty := fun l hl =>
@@ -850,7 +850,7 @@ private theorem inferReads_app {m : EnvS2Core V env}
     (hea : denoteP m.acval env φ d (.app f a) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨tf, ty', body', mt', hif, hwf, rfl, -⟩ :=
-    Lech.inferTypeCore_app_inv h
+    ConLeche.inferTypeCore_app_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   have hLf : Expr.LeavesBounded f := fun l hl =>
@@ -872,7 +872,7 @@ private theorem inferReads_app {m : EnvS2Core V env}
       (inferTypeCore_fvarLeaves m.wf fuel hif hws.1)) htfa
   obtain ⟨-, b'a, -, hb'a, -⟩ := denoteP_forallE_inv hwa
   have hwW : Expr.WScoped d (.forallE ty' body' mt') :=
-    Lech.whnf_WScoped m.wf fuel hwf hwtf
+    ConLeche.whnf_WScoped m.wf fuel hwf hwtf
   simp only [Expr.WScoped] at hwW
   refine ⟨b'a.inst aa, ?_⟩
   rw [denoteP_beta m.acval_closed (acval_inst_self m)
@@ -893,7 +893,7 @@ private theorem inferReads_letE {m : EnvS2Core V env}
     (hea : denoteP m.acval env φ d (.letE tt vv bb) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨-, -, -, -, -, -, -, hbody⟩ :=
-    Lech.inferTypeCore_letE_inv h
+    ConLeche.inferTypeCore_letE_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   rw [denoteP] at hea
@@ -951,13 +951,13 @@ vacuous. -/
 theorem readsAllP_zero (m : EnvS2Core V env) : ReadsAllP m μ φ 0 := by
   refine ⟨?_, ?_, ?_⟩
   · intro d e e' ea h
-    rw [Lech.whnfCore_zero] at h
+    rw [ConLeche.whnfCore_zero] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
   · intro d e e' ea h
-    rw [Lech.whnf_zero] at h
+    rw [ConLeche.whnf_zero] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
   · intro d e t ea h
-    rw [Lech.inferTypeCore_zero] at h
+    rw [ConLeche.inferTypeCore_zero] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **The walk's routed inputs**, one field per named leaf, each with
@@ -999,4 +999,4 @@ theorem ReadsInputsP.ofEnvS2PM (mp : EnvS2PM V μ env)
   nat := hnat
   tower_ok := mp.tower_ok φ
 
-end Lech.SetP
+end ConLeche.SetP

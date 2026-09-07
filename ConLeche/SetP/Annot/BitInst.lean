@@ -1,6 +1,6 @@
-import Lech.SetP.Annot.BitShift
-import Lech.Semantics.Denote2Closed
-import Lech.Verify.Denote.Inst
+import ConLeche.SetP.Annot.BitShift
+import ConLeche.Semantics.Denote2Closed
+import ConLeche.Verify.Denote.Inst
 
 /-!
 # `denoteP` commutes with instantiation (task #161, P3 batch 2)
@@ -55,11 +55,11 @@ Verbatim v1's, and for v1's reason: at depth `D + 1` the variable
 — which makes `inst`'s built-in lift *be* the depth shift.
 -/
 
--- The lift identities extend `Lech.Semantics.AVExpr` itself (dot
+-- The lift identities extend `ConLeche.Semantics.AVExpr` itself (dot
 -- notation and the unqualified `liftN_*` names resolve there), so this
 -- block stays in the semantic tier's namespace.
-namespace Lech.Semantics.AVExpr
-open Lech.SetModel
+namespace ConLeche.Semantics.AVExpr
+open ConLeche.SetModel
 
 /-! ### Two lift identities the depth-lift needs
 
@@ -110,16 +110,16 @@ theorem liftN_liftN : ∀ (e : AVExpr) (n m k : Nat),
   | proj i e ihe =>
     intro n m k; rw [liftN_proj, liftN_proj, ihe]; rfl
 
-end Lech.Semantics.AVExpr
+end ConLeche.Semantics.AVExpr
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
 
-open Lech.VExpr Lech.Verify
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level PropWhen)
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level PropWhen)
 
 variable {env : Env} {φ : Name → Nat}
 variable {acval : Name → (Name → Nat) → AVExpr}
@@ -213,12 +213,12 @@ theorem denoteP_substFvarAt
       rw [denoteP.eq_def]
     have h2 : denoteP acval env φ (D + 1) (.bvar i) = none := by
       rw [denoteP.eq_def]
-    simp [Lech.Expr.substFvarAt, h1, h2]
+    simp [ConLeche.Expr.substFvarAt, h1, h2]
   | .sort u, D, hpD, hfb => by
-    simp only [Lech.Expr.substFvarAt, denoteP, Option.map_some]
+    simp only [ConLeche.Expr.substFvarAt, denoteP, Option.map_some]
     rfl
   | .const n us, D, hpD, hfb => by
-    simp only [Lech.Expr.substFvarAt, denoteP]
+    simp only [ConLeche.Expr.substFvarAt, denoteP]
     cases env.find? n with
     | none => rfl
     | some ci =>
@@ -230,24 +230,24 @@ theorem denoteP_substFvarAt
     have hlt : idx < D + 1 := hfb
     by_cases h1 : idx = p
     · subst h1
-      rw [show Lech.Expr.substFvarAt idx a (Expr.fvar idx ty) = a from by
-            simp [Lech.Expr.substFvarAt],
+      rw [show ConLeche.Expr.substFvarAt idx a (Expr.fvar idx ty) = a from by
+            simp [ConLeche.Expr.substFvarAt],
         denoteP_lift hacl hwa D hpD, ha, denoteP]
       simp only [Option.map_some, AVExpr.inst_bvar,
         show D + 1 - 1 - idx = D - idx from by omega]
       simp
     · by_cases h2 : idx > p
-      · rw [show Lech.Expr.substFvarAt p a (Expr.fvar idx ty)
-              = .fvar (idx - 1) (Lech.Expr.substFvarAt p a ty) from by
-              simp [Lech.Expr.substFvarAt, h1, h2],
+      · rw [show ConLeche.Expr.substFvarAt p a (Expr.fvar idx ty)
+              = .fvar (idx - 1) (ConLeche.Expr.substFvarAt p a ty) from by
+              simp [ConLeche.Expr.substFvarAt, h1, h2],
           denoteP, denoteP]
         simp only [Option.map_some, AVExpr.inst_bvar,
           if_pos (show D + 1 - 1 - idx < D - p from by omega)]
         congr 2
         omega
-      · rw [show Lech.Expr.substFvarAt p a (Expr.fvar idx ty)
+      · rw [show ConLeche.Expr.substFvarAt p a (Expr.fvar idx ty)
               = .fvar idx ty from by
-              simp [Lech.Expr.substFvarAt, h1, h2],
+              simp [ConLeche.Expr.substFvarAt, h1, h2],
           denoteP, denoteP]
         simp only [Option.map_some, AVExpr.inst_bvar,
           if_neg (show ¬ D + 1 - 1 - idx < D - p from by omega),
@@ -255,18 +255,18 @@ theorem denoteP_substFvarAt
         congr 2
         omega
   | .app fe b, D, hpD, hfb => by
-    simp only [Lech.Expr.substFvarAt, denoteP]
+    simp only [ConLeche.Expr.substFvarAt, denoteP]
     rw [denoteP_substFvarAt hacl hainst hwa hba ha fe D hpD hfb.1,
       denoteP_substFvarAt hacl hainst hwa hba ha b D hpD hfb.2]
     cases denoteP acval env φ (D + 1) fe <;>
       cases denoteP acval env φ (D + 1) b <;> rfl
   | .forallE ty body mb, D, hpD, hfb => by
-    simp only [Lech.Expr.substFvarAt, denoteP]
+    simp only [ConLeche.Expr.substFvarAt, denoteP]
     rw [denoteP_substFvarAt hacl hainst hwa hba ha ty D hpD hfb.1,
-      ← Lech.Expr.substFvarAt_instantiate1 hpD hba body 0,
+      ← ConLeche.Expr.substFvarAt_instantiate1 hpD hba body 0,
       denoteP_substFvarAt hacl hainst hwa hba ha
         (body.instantiate1 (.fvar (D + 1) ty)) (D + 1) (by omega)
-        (Lech.Expr.fvarsBelow_instantiate1 0 hfb.2),
+        (ConLeche.Expr.fvarsBelow_instantiate1 0 hfb.2),
       show D + 1 - p = D - p + 1 from by omega]
     cases denoteP acval env φ (D + 1) ty with
     | none => rfl
@@ -276,12 +276,12 @@ theorem denoteP_substFvarAt
       | none => rfl
       | some ba => rfl
   | .lam ty body mb, D, hpD, hfb => by
-    simp only [Lech.Expr.substFvarAt, denoteP]
+    simp only [ConLeche.Expr.substFvarAt, denoteP]
     rw [denoteP_substFvarAt hacl hainst hwa hba ha ty D hpD hfb.1,
-      ← Lech.Expr.substFvarAt_instantiate1 hpD hba body 0,
+      ← ConLeche.Expr.substFvarAt_instantiate1 hpD hba body 0,
       denoteP_substFvarAt hacl hainst hwa hba ha
         (body.instantiate1 (.fvar (D + 1) ty)) (D + 1) (by omega)
-        (Lech.Expr.fvarsBelow_instantiate1 0 hfb.2),
+        (ConLeche.Expr.fvarsBelow_instantiate1 0 hfb.2),
       show D + 1 - p = D - p + 1 from by omega]
     cases denoteP acval env φ (D + 1) ty with
     | none => rfl
@@ -291,13 +291,13 @@ theorem denoteP_substFvarAt
       | none => rfl
       | some ba => rfl
   | .letE ty val body, D, hpD, hfb => by
-    simp only [Lech.Expr.substFvarAt, denoteP]
+    simp only [ConLeche.Expr.substFvarAt, denoteP]
     rw [denoteP_substFvarAt hacl hainst hwa hba ha ty D hpD hfb.1,
       denoteP_substFvarAt hacl hainst hwa hba ha val D hpD hfb.2.1,
-      ← Lech.Expr.substFvarAt_instantiate1 hpD hba body 0,
+      ← ConLeche.Expr.substFvarAt_instantiate1 hpD hba body 0,
       denoteP_substFvarAt hacl hainst hwa hba ha
         (body.instantiate1 (.fvar (D + 1) ty)) (D + 1) (by omega)
-        (Lech.Expr.fvarsBelow_instantiate1 0 hfb.2.2),
+        (ConLeche.Expr.fvarsBelow_instantiate1 0 hfb.2.2),
       show D + 1 - p = D - p + 1 from by omega]
     cases denoteP acval env φ (D + 1) ty with
     | none => rfl
@@ -310,7 +310,7 @@ theorem denoteP_substFvarAt
         | none => rfl
         | some ba => rfl
   | .proj sn i e, D, hpD, hfb => by
-    simp only [Lech.Expr.substFvarAt, denoteP]
+    simp only [ConLeche.Expr.substFvarAt, denoteP]
     rw [denoteP_substFvarAt hacl hainst hwa hba ha e D hpD hfb]
     cases denoteP acval env φ (D + 1) e with
     | none => rfl
@@ -320,13 +320,13 @@ theorem denoteP_substFvarAt
       · exact congrArg some (projAV_inst i ea x (D - p)).symm
       · split <;> rfl
   | .lit (.natVal k), D, hpD, hfb => by
-    simp only [Lech.Expr.substFvarAt, denoteP]
+    simp only [ConLeche.Expr.substFvarAt, denoteP]
     split
     · simp only [Option.map_some]
       rw [natLitT2_inst (hainst _ _ _ _) (hainst _ _ _ _)]
     · rfl
   | .lit (.strVal s), D, hpD, hfb => by
-    simp only [Lech.Expr.substFvarAt, denoteP]
+    simp only [ConLeche.Expr.substFvarAt, denoteP]
     split
     · simp only [Option.map_some]
       refine congrArg some ?_
@@ -339,10 +339,10 @@ theorem denoteP_substFvarAt
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
-  | (simp [Lech.Expr.sizeB]; omega)
-  | (rw [Lech.Expr.sizeB_instantiate1 _ rfl]
-     simp [Lech.Expr.sizeB]; omega)
-  | (simp [Lech.Expr.sizeB])
+  | (simp [ConLeche.Expr.sizeB]; omega)
+  | (rw [ConLeche.Expr.sizeB_instantiate1 _ rfl]
+     simp [ConLeche.Expr.sizeB]; omega)
+  | (simp [ConLeche.Expr.sizeB])
 
 /-- **Beta, validated-annotation side** — the form the reduction
 clauses consume: opening a binder body with the argument directly is
@@ -362,10 +362,10 @@ theorem denoteP_beta
         (body.instantiate1 (.fvar d ty) k)).map (AVExpr.inst · x 0) := by
   have h := denoteP_substFvarAt (p := d) hacl hainst hwa hba ha
     (body.instantiate1 (.fvar d ty) k) d (Nat.le_refl d)
-    (Lech.Expr.fvarsBelow_instantiate1 k hfb)
-  rw [Lech.Expr.substFvarAt_instantiate1_self body k hfb,
+    (ConLeche.Expr.fvarsBelow_instantiate1 k hfb)
+  rw [ConLeche.Expr.substFvarAt_instantiate1_self body k hfb,
     Nat.sub_self] at h
   exact h
 
 
-end Lech.SetP
+end ConLeche.SetP

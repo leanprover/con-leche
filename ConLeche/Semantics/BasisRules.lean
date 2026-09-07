@@ -1,6 +1,6 @@
-import Lech.Semantics.Syntax
-import Lech.Kernel.BasisA
-import Lech.Verify.EnvPreds
+import ConLeche.Semantics.Syntax
+import ConLeche.Kernel.BasisA
+import ConLeche.Verify.EnvPreds
 
 /-!
 # The basis blocks' stored rules, at the base (task #161 S7, Wall C)
@@ -16,9 +16,9 @@ the crossing until the `BasisEmptyP → Install/BasisS` import died.
 Statements verbatim from their old home; names unchanged.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech
+open ConLeche
 /-- `Nat.rec`'s two stored rules. -/
 def natRecZeroRule : RecRule :=
   { ctor := natZeroName, nfields := 0, ctorParams := 0, fire := .plain,
@@ -163,4 +163,4 @@ theorem eqRecA_eq :
     eqRecA = .recInfo eqRecA.toConstantVal 5 4 [eqRecRule] := rfl
 
 
-end Lech.Semantics
+end ConLeche.Semantics

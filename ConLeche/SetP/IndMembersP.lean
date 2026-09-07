@@ -1,6 +1,6 @@
-import Lech.Semantics.IndBlockRun
-import Lech.SetP.IndCapsP
-import Lech.Semantics.EnvFactsCons
+import ConLeche.Semantics.IndBlockRun
+import ConLeche.SetP.IndCapsP
+import ConLeche.Semantics.EnvFactsCons
 
 /-!
 # The member phase, P tier (task #161, IND TIER)
@@ -36,13 +36,13 @@ conjunct, which is exactly the conjunct v1's `BlockInstalledTT.step`
 consumes for the same purpose.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps ReducibilityHint)
 
 universe w
@@ -64,8 +64,8 @@ def MemberEtaLawP (V : Type w) [SetTheory V] : Prop :=
     (∀ entry, c₀ ≠ .projInfo entry) →
     ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
-      caps.eta = true → Lech.reservedBasisNames.contains T = false →
-      Lech.EtaPins μ env T cvT.levelParams caps →
+      caps.eta = true → ConLeche.reservedBasisNames.contains T = false →
+      ConLeche.EtaPins μ env T cvT.levelParams caps →
       caps.etaFields = 0 →
       -- the block-membership facts, v1's `hvT`/`hvC` in P form: they
       -- are what turns `acval T` into `acval (T ++ "_model")` through
@@ -73,7 +73,7 @@ def MemberEtaLawP (V : Type w) [SetTheory V] : Prop :=
       -- law's *subject* and the model artifacts the pins name
       blockNames.contains T = true →
       blockNames.contains caps.etaCtor = true →
-      Lech.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
+      ConLeche.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
       ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
         m₂.acval = acvalWith mp.base2.acval c₀.name
           (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) →
@@ -101,8 +101,8 @@ def MemberUnitLawP (V : Type w) [SetTheory V] : Prop :=
     c₀.toConstantVal = cvA → c₀.name = cvA.name →
     ∀ (cvT : ConstantVal) (caps : IndCaps),
       c₀ = .indInfo cvT caps → caps.unitlike = true →
-      Lech.reservedBasisNames.contains c₀.name = false →
-      Lech.EtaPins μ env cvA.name cvA.levelParams caps →
+      ConLeche.reservedBasisNames.contains c₀.name = false →
+      ConLeche.EtaPins μ env cvA.name cvA.levelParams caps →
       ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
         m₂.acval = acvalWith mp.base2.acval c₀.name
           (fun ψ => mp.base2.acval (cvA.name.str "_model") ψ) →
@@ -119,12 +119,12 @@ theorem memberInstallPM (hetaP : MemberEtaLawP V)
     (hIA : BlockAcvalInstalled blockNames env mp.base2.acval)
     (hbn : blockNames.contains cvA.name = true)
     (hpins : ∀ caps, c₀ = .indInfo cvA caps →
-      Lech.EtaPins μ env cv.name cv.levelParams caps ∧
+      ConLeche.EtaPins μ env cv.name cv.levelParams caps ∧
         (caps.eta = true → blockNames.contains caps.etaCtor = true) ∧
         (caps.eta = true → 0 < caps.etaFields →
-          env.find? (Lech.projFnName cv.name 0) = none))
-    (hEC : Lech.EtaFamiliesClosedO blockNames env)
-    (hBP : Lech.BlockEtaPinned μ blockNames env)
+          env.find? (ConLeche.projFnName cv.name 0) = none))
+    (hEC : ConLeche.EtaFamiliesClosedO blockNames env)
+    (hBP : ConLeche.BlockEtaPinned μ blockNames env)
     (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
     (hkind : (∃ caps, c₀ = .indInfo cvA caps) ∨
       (∃ nP nF, c₀ = .ctorInfo cvA nP nF) ∨
@@ -137,8 +137,8 @@ theorem memberInstallPM (hetaP : MemberEtaLawP V)
         mp₁.base2.cvalE ∧
       BlockAcvalInstalled blockNames ⟨c₀ :: env.consts⟩
         mp₁.base2.acval ∧
-      Lech.EtaFamiliesClosedO blockNames ⟨c₀ :: env.consts⟩ ∧
-      Lech.BlockEtaPinned μ blockNames ⟨c₀ :: env.consts⟩ := by
+      ConLeche.EtaFamiliesClosedO blockNames ⟨c₀ :: env.consts⟩ ∧
+      ConLeche.BlockEtaPinned μ blockNames ⟨c₀ :: env.consts⟩ := by
   obtain ⟨type', hcv, hcvA, hms, cvm, mval, hint, hmE, hmlps, hren⟩ :=
     id hmv
   obtain ⟨hfind, hnres, hpshape, -, -, -, -, -, htr, -⟩ := hcv
@@ -147,17 +147,17 @@ theorem memberInstallPM (hetaP : MemberEtaLawP V)
   have htypeA : cvA.type = type' := by rw [hcvA]
   have hfreshA : env.find? cvA.name = none := by
     rw [hnameA]; exact Option.isNone_iff_eq_none.mp hfind
-  have hnresA : Lech.reservedBasisNames.contains cvA.name = false := by
+  have hnresA : ConLeche.reservedBasisNames.contains cvA.name = false := by
     rw [hnameA]; exact hnres
   have hpshapeA : cvA.name.isProjFnShape = false := by
     rw [hnameA]; exact hpshape
   have hmsA : cvA.name.isModelSuffix = false := hms
   -- the `cvA`-form pins the P row wants
   have hpinsA : ∀ caps, c₀ = .indInfo cvA caps →
-      Lech.EtaPins μ env cvA.name cvA.levelParams caps ∧
+      ConLeche.EtaPins μ env cvA.name cvA.levelParams caps ∧
         (caps.eta = true → blockNames.contains caps.etaCtor = true) ∧
         (caps.eta = true → 0 < caps.etaFields →
-          env.find? (Lech.projFnName cvA.name 0) = none) := by
+          env.find? (ConLeche.projFnName cvA.name 0) = none) := by
     intro caps2 hceq
     exact ⟨by rw [hnameA, hlpsA]; exact (hpins caps2 hceq).1,
       (hpins caps2 hceq).2.1,
@@ -217,10 +217,10 @@ theorem memberInstallPM (hetaP : MemberEtaLawP V)
   rw [hmp₁ac]
   by_cases hn : n = cvA.name
   · subst hn
-    rw [acvalWith_ne (Lech.Name.str_model_ne hmsA), acvalWith_self]
-  · rw [acvalWith_ne (Lech.Name.str_model_ne hmsA), acvalWith_ne hn]
+    rw [acvalWith_ne (ConLeche.Name.str_model_ne hmsA), acvalWith_self]
+  · rw [acvalWith_ne (ConLeche.Name.str_model_ne hmsA), acvalWith_ne hn]
     refine hIA n hbnn ci ?_ ψ
-    rw [Lech.Env.find?_cons,
+    rw [ConLeche.Env.find?_cons,
       if_neg (fun hh => hn (by rw [← hh, hc₀name]))] at hfn
     exact hfn
 
@@ -240,21 +240,21 @@ theorem indMembersPM (hetaP : MemberEtaLawP V)
       (∀ ci ∈ members, blockNames.contains ci.name = true) →
       (∀ (cv : ConstantVal) (caps₂ : IndCaps),
         ConstantInfo.indInfo cv caps₂ ∈ members →
-        Lech.EtaPins μ env cv.name cv.levelParams caps ∧
+        ConLeche.EtaPins μ env cv.name cv.levelParams caps ∧
           (caps.eta = true →
             blockNames.contains caps.etaCtor = true) ∧
           (caps.eta = true → 0 < caps.etaFields →
-            env.find? (Lech.projFnName cv.name 0) = none)) →
+            env.find? (ConLeche.projFnName cv.name 0) = none)) →
       IndMembersRun μ F blockNames caps env members env₂ →
       BlockInstalledTT blockNames env mp.base2.cvalE →
       BlockAcvalInstalled blockNames env mp.base2.acval →
-      Lech.EtaFamiliesClosedO blockNames env →
-      Lech.BlockEtaPinned μ blockNames env →
+      ConLeche.EtaFamiliesClosedO blockNames env →
+      ConLeche.BlockEtaPinned μ blockNames env →
       ∃ mp₂ : EnvS2PM V μ env₂,
         BlockInstalledTT blockNames env₂ mp₂.base2.cvalE ∧
         BlockAcvalInstalled blockNames env₂ mp₂.base2.acval ∧
-        Lech.EtaFamiliesClosedO blockNames env₂ ∧
-        Lech.BlockEtaPinned μ blockNames env₂ := by
+        ConLeche.EtaFamiliesClosedO blockNames env₂ ∧
+        ConLeche.BlockEtaPinned μ blockNames env₂ := by
   intro members
   induction members with
   | nil =>
@@ -319,17 +319,17 @@ theorem provisionRecsPM (hetaP : MemberEtaLawP V)
       {envSelf : Env}
       {checked : List (ConstantVal × Nat × Nat × List RecRule)},
       (∀ ci ∈ recs, blockNames.contains ci.name = true) →
-      Lech.Semantics.ProvisionRecsRun μ F blockNames envAcc
+      ConLeche.Semantics.ProvisionRecsRun μ F blockNames envAcc
         recs envSelf checked →
       BlockInstalledTT blockNames envAcc mp.base2.cvalE →
       BlockAcvalInstalled blockNames envAcc mp.base2.acval →
-      Lech.EtaFamiliesClosedO blockNames envAcc →
-      Lech.BlockEtaPinned μ blockNames envAcc →
+      ConLeche.EtaFamiliesClosedO blockNames envAcc →
+      ConLeche.BlockEtaPinned μ blockNames envAcc →
       ∃ mS : EnvS2PM V μ envSelf,
         BlockInstalledTT blockNames envSelf mS.base2.cvalE ∧
         BlockAcvalInstalled blockNames envSelf mS.base2.acval ∧
-        Lech.EtaFamiliesClosedO blockNames envSelf ∧
-        Lech.BlockEtaPinned μ blockNames envSelf := by
+        ConLeche.EtaFamiliesClosedO blockNames envSelf ∧
+        ConLeche.BlockEtaPinned μ blockNames envSelf := by
   intro recs
   induction recs with
   | nil =>
@@ -350,4 +350,4 @@ theorem provisionRecsPM (hetaP : MemberEtaLawP V)
       (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
       hrec hI₁ hIA₁ hEC₁ hBP₁
 
-end Lech.SetP
+end ConLeche.SetP

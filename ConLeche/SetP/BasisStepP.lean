@@ -1,7 +1,7 @@
-import Lech.SetP.EqTowerP
-import Lech.SetP.DivModP
-import Lech.SetP.NatEqsP
-import Lech.SetP.BasisTypeOk
+import ConLeche.SetP.EqTowerP
+import ConLeche.SetP.DivModP
+import ConLeche.SetP.NatEqsP
+import ConLeche.SetP.BasisTypeOk
 
 /-!
 # The basis cons, P tier: the seven rows discharged once (task #161, ENDGAME E)
@@ -38,13 +38,13 @@ structurally unavailable — are excluded by this lemma's side conditions
 and go through `declStepPM_of_cons` directly.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint)
 
 universe w
@@ -85,13 +85,13 @@ theorem declStepPM_of_basis_cons (mp : EnvS2PM V μ env)
     (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       rules = [])
     -- `caps_ok`: a reserved name, or a kind no stored family mentions
-    (hcaps : Lech.reservedBasisNames.contains c₀.name = true ∨
+    (hcaps : ConLeche.reservedBasisNames.contains c₀.name = true ∨
       ((∀ cv caps, c₀ ≠ .indInfo cv caps) ∧
         (∀ cv np nf, c₀ ≠ .ctorInfo cv np nf) ∧
         (∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules)))
     -- `reduce_ops`: not an axiom, or not a trusted operation's name
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
-      c₀.name ∉ Lech.reduceOpNames)
+      c₀.name ∉ ConLeche.reduceOpNames)
     -- the head's own obligations (task #161 S7: what the v1 base at
     -- the extension used to supply)
     (hh : ConsHeadP env c₀ A)
@@ -166,9 +166,9 @@ theorem declStepPM_of_basis_rec_cons (mp : EnvS2PM V μ env)
     (hnotthm : ∀ cv v, c₀ ≠ .thmInfo cv v)
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName) (hnEq : eqName ≠ c₀.name)
-    (hres : Lech.reservedBasisNames.contains c₀.name = true)
+    (hres : ConLeche.reservedBasisNames.contains c₀.name = true)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
-      c₀.name ∉ Lech.reduceOpNames)
+      c₀.name ∉ ConLeche.reduceOpNames)
     (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -229,9 +229,9 @@ theorem declStepPM_of_basis_cons_eqrow (mp : EnvS2PM V μ env)
     (hnS : c₀.name ≠ natSuccName)
     (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
       rules = [])
-    (hres : Lech.reservedBasisNames.contains c₀.name = true)
+    (hres : ConLeche.reservedBasisNames.contains c₀.name = true)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
-      c₀.name ∉ Lech.reduceOpNames)
+      c₀.name ∉ ConLeche.reduceOpNames)
     (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -287,9 +287,9 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     (hnotthm : ∀ cv v, c₀ ≠ .thmInfo cv v)
     (hnEq : eqName ≠ c₀.name)
-    (hres : Lech.reservedBasisNames.contains c₀.name = true)
+    (hres : ConLeche.reservedBasisNames.contains c₀.name = true)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨
-      c₀.name ∉ Lech.reduceOpNames)
+      c₀.name ∉ ConLeche.reduceOpNames)
     (hh : ConsHeadP env c₀ A)
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -338,4 +338,4 @@ theorem declStepPM_of_basis_cons_gen (mp : EnvS2PM V μ env)
   · -- `tower_ok` (task #175 wiring W5): no tower entry is a basis cons
     exact fun φ => towerOkP_cons_fresh mp hfresh hh.projTower hntc _ rfl φ
 
-end Lech.SetP
+end ConLeche.SetP

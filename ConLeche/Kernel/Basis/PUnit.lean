@@ -1,4 +1,4 @@
-import Lech.Kernel.Basis.Builder
+import ConLeche.Kernel.Basis.Builder
 
 /-!
 # The pinned `PUnit` basis block
@@ -10,10 +10,10 @@ capabilities (η and unit-likeness, which the preprocessor does not
 emit and the checker does not re-derive for a basis block).  The
 *annotated* forms (`punitA`, …) are computed from these by the
 checker's own annotation pass at elaboration time; see
-`Lech/Kernel/BasisA.lean`.
+`ConLeche/Kernel/BasisA.lean`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open BasisDSL
 
@@ -47,4 +47,4 @@ def punitRecRaw : ConstantInfo :=
 /-- The pinned `PUnit` basis block, in install order. -/
 def punitBasis : List ConstantInfo := [punitRaw, punitUnitRaw, punitRecRaw]
 
-end Lech
+end ConLeche

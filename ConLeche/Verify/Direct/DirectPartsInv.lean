@@ -1,5 +1,5 @@
-import Lech.Verify.Direct.DirectInv
-import Lech.Verify.FastOps
+import ConLeche.Verify.Direct.DirectInv
+import ConLeche.Verify.FastOps
 
 /-!
 # The direct recogniser and the projection slots, inverted (task #175 W4c, P3 module 7, part 7)
@@ -17,7 +17,7 @@ recogniser and slot decision:
   `checkDirectProjTable_inv`.)
 -/
 
-namespace Lech
+namespace ConLeche
 
 /-! ## The recogniser -/
 
@@ -109,4 +109,4 @@ theorem directProjGuards_getD (cty : Expr) (nP nF : Nat) (sorts : List Level) {i
   rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi]
   rfl
 
-end Lech
+end ConLeche

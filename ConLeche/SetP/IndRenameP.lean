@@ -1,5 +1,5 @@
-import Lech.SetP.IndZipFieldP
-import Lech.SetP.Annot.BitRename
+import ConLeche.SetP.IndZipFieldP
+import ConLeche.SetP.Annot.BitRename
 
 /-!
 # The block renaming, at the reading (task #161, IND TIER part 4)
@@ -28,13 +28,13 @@ stores — an installed member's leaf *is* its model's — so
 read off the annotated invariant rather than the collapse-lane one.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo)
 
 universe w
 
@@ -165,4 +165,4 @@ theorem blockRenameOkP {blockNames : List Name} {cval : TConstVal}
       · exact hIA n hc ciS hfS ψ
     · rw [if_neg hc]
 
-end Lech.SetP
+end ConLeche.SetP

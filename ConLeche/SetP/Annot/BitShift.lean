@@ -1,5 +1,5 @@
-import Lech.SetP.Annot.BitLemmas
-import Lech.Verify.Shift
+import ConLeche.SetP.Annot.BitLemmas
+import ConLeche.Verify.Shift
 
 /-!
 # `denoteP`'s depth shift (task #161, P3.2)
@@ -7,7 +7,7 @@ import Lech.Verify.Shift
 `denote2_shiftFrom`/`denote2_weaken_top` (`Interp2/Step2/Dispatch.lean`)
 mirrored for the validated-annotation reading.
 
-**The dropped premise.**  `denote2_shiftFrom` takes `Lech.EnvWF env`
+**The dropped premise.**  `denote2_shiftFrom` takes `ConLeche.EnvWF env`
 and uses it in exactly two places — `sortOfE_shiftFrom` in the `∀`
 clause, `lamSortE_shiftFrom` in the `λ` clause, the two rewrites that
 move a *checker run* across the shift.  `denoteP` runs no checker: its
@@ -22,13 +22,13 @@ lift-invariant), which the constant and literal clauses need and which
 has nothing to do with sorts.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level PropWhen)
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level PropWhen)
 
 variable {env : Env} {φ : Name → Nat}
 variable {acval : Name → (Name → Nat) → AVExpr}
@@ -83,12 +83,12 @@ theorem denoteP_shiftFrom
       rw [denoteP.eq_def]
     have h2 : denoteP acval env φ d (.bvar i) = none := by
       rw [denoteP.eq_def]
-    simp [Lech.Expr.shiftFrom, h1, h2]
+    simp [ConLeche.Expr.shiftFrom, h1, h2]
   | .sort u, d, _, _ => by
-    simp only [Lech.Expr.shiftFrom, denoteP, Option.map_some]
+    simp only [ConLeche.Expr.shiftFrom, denoteP, Option.map_some]
     rfl
   | .const n us, d, _, _ => by
-    simp only [Lech.Expr.shiftFrom, denoteP]
+    simp only [ConLeche.Expr.shiftFrom, denoteP]
     cases env.find? n with
     | none => rfl
     | some ci =>
@@ -97,9 +97,9 @@ theorem denoteP_shiftFrom
       · simp only [Option.map_some, hacl]
       · rfl
   | .fvar idx ty, d, hpd, hw => by
-    rw [Lech.Expr.WScoped] at hw
+    rw [ConLeche.Expr.WScoped] at hw
     have hlt : idx < d := hw.1
-    simp only [Lech.Expr.shiftFrom]
+    simp only [ConLeche.Expr.shiftFrom]
     split
     · next hge =>
       rw [denoteP, denoteP, Option.map_some, AVExpr.liftN_bvar,
@@ -110,19 +110,19 @@ theorem denoteP_shiftFrom
         if_neg (show ¬ d - 1 - idx < d - p by omega),
         show d + 1 - 1 - idx = d - 1 - idx + 1 from by omega]
   | .app fe a, d, hpd, hw => by
-    rw [Lech.Expr.WScoped] at hw
-    simp only [Lech.Expr.shiftFrom, denoteP]
+    rw [ConLeche.Expr.WScoped] at hw
+    simp only [ConLeche.Expr.shiftFrom, denoteP]
     rw [denoteP_shiftFrom hacl fe d hpd hw.1,
       denoteP_shiftFrom hacl a d hpd hw.2]
     cases denoteP acval env φ d fe <;>
       cases denoteP acval env φ d a <;> rfl
   | .forallE ty body mb, d, hpd, hw => by
-    rw [Lech.Expr.WScoped] at hw
+    rw [ConLeche.Expr.WScoped] at hw
     have hwb : Expr.WScoped (d + 1)
         (body.instantiate1 (.fvar d ty)) :=
-      Lech.Expr.WScoped.instantiate1 hw.1 0 hw.2
-    simp only [Lech.Expr.shiftFrom, denoteP]
-    rw [← Lech.Expr.shiftFrom_instantiate1 hpd body 0,
+      ConLeche.Expr.WScoped.instantiate1 hw.1 0 hw.2
+    simp only [ConLeche.Expr.shiftFrom, denoteP]
+    rw [← ConLeche.Expr.shiftFrom_instantiate1 hpd body 0,
       denoteP_shiftFrom hacl ty d hpd hw.1,
       denoteP_shiftFrom hacl (body.instantiate1 (.fvar d ty))
         (d + 1) (by omega) hwb,
@@ -135,12 +135,12 @@ theorem denoteP_shiftFrom
       | none => rfl
       | some ba => rfl
   | .lam ty body mb, d, hpd, hw => by
-    rw [Lech.Expr.WScoped] at hw
+    rw [ConLeche.Expr.WScoped] at hw
     have hwb : Expr.WScoped (d + 1)
         (body.instantiate1 (.fvar d ty)) :=
-      Lech.Expr.WScoped.instantiate1 hw.1 0 hw.2
-    simp only [Lech.Expr.shiftFrom, denoteP]
-    rw [← Lech.Expr.shiftFrom_instantiate1 hpd body 0,
+      ConLeche.Expr.WScoped.instantiate1 hw.1 0 hw.2
+    simp only [ConLeche.Expr.shiftFrom, denoteP]
+    rw [← ConLeche.Expr.shiftFrom_instantiate1 hpd body 0,
       denoteP_shiftFrom hacl ty d hpd hw.1,
       denoteP_shiftFrom hacl (body.instantiate1 (.fvar d ty))
         (d + 1) (by omega) hwb,
@@ -153,12 +153,12 @@ theorem denoteP_shiftFrom
       | none => rfl
       | some ba => rfl
   | .letE ty val body, d, hpd, hw => by
-    rw [Lech.Expr.WScoped] at hw
+    rw [ConLeche.Expr.WScoped] at hw
     have hwb : Expr.WScoped (d + 1)
         (body.instantiate1 (.fvar d ty)) :=
-      Lech.Expr.WScoped.instantiate1 hw.1 0 hw.2.2
-    simp only [Lech.Expr.shiftFrom, denoteP]
-    rw [← Lech.Expr.shiftFrom_instantiate1 hpd body 0,
+      ConLeche.Expr.WScoped.instantiate1 hw.1 0 hw.2.2
+    simp only [ConLeche.Expr.shiftFrom, denoteP]
+    rw [← ConLeche.Expr.shiftFrom_instantiate1 hpd body 0,
       denoteP_shiftFrom hacl ty d hpd hw.1,
       denoteP_shiftFrom hacl val d hpd hw.2.1,
       denoteP_shiftFrom hacl (body.instantiate1 (.fvar d ty))
@@ -175,8 +175,8 @@ theorem denoteP_shiftFrom
         | none => rfl
         | some ba => rfl
   | .proj sn i e, d, hpd, hw => by
-    rw [Lech.Expr.WScoped] at hw
-    simp only [Lech.Expr.shiftFrom, denoteP]
+    rw [ConLeche.Expr.WScoped] at hw
+    simp only [ConLeche.Expr.shiftFrom, denoteP]
     rw [denoteP_shiftFrom hacl e d hpd hw]
     cases denoteP acval env φ d e with
     | none => rfl
@@ -194,13 +194,13 @@ theorem denoteP_shiftFrom
             (some (projAV i ea))
         simp only [Option.map_some, projAV_liftN]
   | .lit (.natVal k), d, _, _ => by
-    simp only [Lech.Expr.shiftFrom, denoteP]
+    simp only [ConLeche.Expr.shiftFrom, denoteP]
     split
     · simp only [Option.map_some]
       rw [natLitT2_liftN (hacl _ _ _) (hacl _ _ _)]
     · rfl
   | .lit (.strVal s), d, _, _ => by
-    simp only [Lech.Expr.shiftFrom, denoteP]
+    simp only [ConLeche.Expr.shiftFrom, denoteP]
     split
     · simp only [Option.map_some]
       refine congrArg some ?_
@@ -213,10 +213,10 @@ theorem denoteP_shiftFrom
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
-  | (simp [Lech.Expr.sizeB]; omega)
-  | (rw [Lech.Expr.sizeB_instantiate1 _ rfl]
-     simp [Lech.Expr.sizeB]; omega)
-  | (simp [Lech.Expr.sizeB])
+  | (simp [ConLeche.Expr.sizeB]; omega)
+  | (rw [ConLeche.Expr.sizeB_instantiate1 _ rfl]
+     simp [ConLeche.Expr.sizeB]; omega)
+  | (simp [ConLeche.Expr.sizeB])
 
 /-- **One level of weakening.**  `denote2_weaken_top`'s mirror: a
 `d`-scoped term denoted at `d + 1` is its depth-`d` annotation,
@@ -229,7 +229,7 @@ theorem denoteP_weaken_top
       = (denoteP acval env φ d e).map (AVExpr.liftN 1 · 0) := by
   have h := denoteP_shiftFrom (env := env) (φ := φ) hacl (p := d) e d
     (Nat.le_refl d) hw
-  rw [Lech.Expr.shiftFrom_eq_self hw.fvarsBelow, Nat.sub_self] at h
+  rw [ConLeche.Expr.shiftFrom_eq_self hw.fvarsBelow, Nat.sub_self] at h
   exact h
 
-end Lech.SetP
+end ConLeche.SetP

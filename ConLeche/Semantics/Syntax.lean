@@ -1,12 +1,12 @@
-import Lech.VExpr.Subst
+import ConLeche.VExpr.Subst
 
 /-!
 # `AVExpr`: the sort-annotated variant of `VExpr` (task #151, tier A)
 
-`VExpr` (`Lech/VExpr/Syntax.lean`) carries **no** universe information at
+`VExpr` (`ConLeche/VExpr/Syntax.lean`) carries **no** universe information at
 its binders: `pi A B` and `lam A b` are the bare formers, and the
 interpretation reads them through the *collapsed* operators `piC`/`lamC`
-(`Lech/VExpr/Semantics/Interp.lean`), which is what makes the
+(`ConLeche/VExpr/Semantics/Interp.lean`), which is what makes the
 universe-cohabitation wall of the T5 c5 record (`docs/SetR-DESIGN.md`)
 unavoidable — `pt ∈ˢ piC A (fun _ => univ 0)` holds, so no *typing* can
 separate a proposition's inhabitant from the proof point.
@@ -25,12 +25,12 @@ numeral sorts**:
 `docs/SetR-DESIGN.md`'s tier-A section):
 
 * **Ground numerals, not `Level`s.**  `VExpr` already evaluates every
-  level expression at its use site (`Lech/VExpr/Syntax.lean`'s "universe
+  level expression at its use site (`ConLeche/VExpr/Syntax.lean`'s "universe
   levels are concrete `Nat`s"), so an annotation is a `Nat`.  There is
   no level substitution to commute with, which is what makes the whole
   substitution metatheory below *inert*.
 * **Annotations are cached premises.**  A slot exists exactly where a
-  `SetR` rule's own premises supply the fact (`Lech/SetR/Rel.lean`
+  `SetR` rule's own premises supply the fact (`ConLeche/SetR/Rel.lean`
   I6's two `DefEq … (.sort _)` premises, I7's one) and a consumer reads
   it.  Hence:
 * **`letE` carries no sort.**  I10 *does* supply one
@@ -41,16 +41,16 @@ numeral sorts**:
   type former.  Caching a premise no consumer reads would be dead
   weight in every `AVExpr` traversal, so the slot is omitted.  (The
   premise is not lost: it is still in the derivation, and
-  `Lech/SetR/Annot/Pass.lean`'s `HasSort` names it.)
+  `ConLeche/SetR/Annot/Pass.lean`'s `HasSort` names it.)
 * **`eqE` keeps its (unannotated, unread) type slot**, exactly as
-  `VExpr` does — see `Lech/VExpr/Syntax.lean` on why `eqE`'s type slot is
+  `VExpr` does — see `ConLeche/VExpr/Syntax.lean` on why `eqE`'s type slot is
   never constrained.
 
 ## The structural kit
 
 `erase` forgets the annotations; `liftN`/`inst` are the de Bruijn
 operations, defined *clause for clause* against
-`Lech/VExpr/Subst.lean`'s.  Their whole content is the pair of
+`ConLeche/VExpr/Subst.lean`'s.  Their whole content is the pair of
 commutations `erase_liftN` / `erase_inst`: **annotations are inert data
 under substitution** — instantiation rewrites subterms and never
 touches a numeral — so the annotated operations project onto the plain
@@ -59,9 +59,9 @@ annotated term through a β/ζ/telescope step without re-deriving any
 sort fact.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-- `VExpr` with ground numeral sorts at the binder formers.  Node for
 node the same syntax; see the module docstring for the annotation
@@ -287,12 +287,12 @@ end AVExpr
 
 Re-based here from `SetR/Interp2/EmptyPin2.lean` at THE SEPARATION's S2
 (task #161): pure syntax, and both lanes read a constant back out of an
-erasure with it.  (Its namespace was `Lech.SetR.Interp2`, re-opened
+erasure with it.  (Its namespace was `ConLeche.SetR.Interp2`, re-opened
 by a nested block here until the 2026-09-06 namespace rename folded
-both into `Lech.Semantics`.) -/
+both into `ConLeche.Semantics`.) -/
 
 
-open Lech.VExpr (BConst)
+open ConLeche.VExpr (BConst)
 
 /-- **`erase` is injective at the constant clause.**  Every other
 `AVExpr` constructor erases to a different `VExpr` constructor, so a
@@ -317,4 +317,4 @@ theorem erase_eq_const {ea : AVExpr} {c : BConst} {us : List Nat}
   | prf => rw [AVExpr.erase_prf] at h; exact nomatch h
 
 
-end Lech.Semantics
+end ConLeche.Semantics

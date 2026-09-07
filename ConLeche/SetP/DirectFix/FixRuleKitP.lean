@@ -1,5 +1,5 @@
-import Lech.SetP.DirectFix.FixRecPreP
-import Lech.SetP.DirectFix.FixIntroP
+import ConLeche.SetP.DirectFix.FixRecPreP
+import ConLeche.SetP.DirectFix.FixIntroP
 
 /-!
 # The rule right-hand side's gradedness: the kit (task #188)
@@ -13,13 +13,13 @@ grading and validity, domain walks over prefixes, appends and lifted
 fields, and the validity walk over binder data.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -168,4 +168,4 @@ theorem underTowerValid_of :
       have := hb (a :: as) ⟨ha, hsp⟩
       rwa [consList_cons] at this
 
-end Lech.SetP
+end ConLeche.SetP

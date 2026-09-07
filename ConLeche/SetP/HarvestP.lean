@@ -1,10 +1,10 @@
-import Lech.SetP.CapstoneP
-import Lech.SetP.NatEqsP
-import Lech.SetP.DivModCertP
-import Lech.SetP.CapsP
-import Lech.SetP.RecRulesPCons
-import Lech.SetP.ReduceOpsP
-import Lech.Semantics.DeclRun
+import ConLeche.SetP.CapstoneP
+import ConLeche.SetP.NatEqsP
+import ConLeche.SetP.DivModCertP
+import ConLeche.SetP.CapsP
+import ConLeche.SetP.RecRulesPCons
+import ConLeche.SetP.ReduceOpsP
+import ConLeche.Semantics.DeclRun
 
 /-!
 # The harvest, value kinds (task #161, P4 — the fold's species)
@@ -43,13 +43,13 @@ refutable at a support-completing install, and the monotone crossing
 the harvests carry no literal-tier premise at all.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint inferTypeCore isDefEqCore)
 
 universe w
@@ -65,8 +65,8 @@ nat half is free, and the str half is never consulted backward.) -/
 theorem natLitSupported_cons_back {env : Env} {c₀ : ConstantInfo}
     (hknd : (∀ cv mI, c₀ ≠ .indInfo cv mI) ∧
       ∀ cv a b, c₀ ≠ .ctorInfo cv a b)
-    (hg : Lech.natLitSupported ⟨c₀ :: env.consts⟩ = true) :
-    Lech.natLitSupported env = true := by
+    (hg : ConLeche.natLitSupported ⟨c₀ :: env.consts⟩ = true) :
+    ConLeche.natLitSupported env = true := by
   have hfind : ∀ p : Name,
       (⟨c₀ :: env.consts⟩ : Env).find? p
         = if c₀.name = p then some c₀ else env.find? p := by
@@ -76,7 +76,7 @@ theorem natLitSupported_cons_back {env : Env} {c₀ : ConstantInfo}
     · rw [List.find?_cons_of_pos (by simpa using hp), if_pos hp]
     · rw [List.find?_cons_of_neg (by simpa using hp), if_neg hp]
       rfl
-  simp only [Lech.natLitSupported, Bool.and_eq_true] at hg ⊢
+  simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hg ⊢
   obtain ⟨⟨h1, h2⟩, h3⟩ := hg
   rw [hfind] at h1 h2 h3
   refine ⟨⟨?_, ?_⟩, ?_⟩
@@ -120,7 +120,7 @@ theorem natHeadsP_cons_fresh (mp : EnvS2PM V μ env)
     (φ : Name → Nat) : NatHeadsP m2 φ := by
   intro hg ρ
   rw [hacval]
-  have hgold : Lech.natLitSupported env = true :=
+  have hgold : ConLeche.natLitSupported env = true :=
     natLitSupported_cons_back hknd hg
   have hstored : ∀ n0, (env.find? n0).isSome = true → n0 ≠ c₀.name := by
     intro n0 hs hh
@@ -128,17 +128,17 @@ theorem natHeadsP_cons_fresh (mp : EnvS2PM V μ env)
     exact nomatch hs
   have hz : (env.find? natZeroName).isSome = true := by
     have hgg := hgold
-    simp only [Lech.natLitSupported, Bool.and_eq_true] at hgg
+    simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hgg
     obtain ⟨⟨-, hz0⟩, -⟩ := hgg
     revert hz0; cases env.find? natZeroName <;> simp [natZeroOk]
   have hsc : (env.find? natSuccName).isSome = true := by
     have hgg := hgold
-    simp only [Lech.natLitSupported, Bool.and_eq_true] at hgg
+    simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hgg
     obtain ⟨-, hs0⟩ := hgg
     revert hs0; cases env.find? natSuccName <;> simp [natSuccOk]
   have hn : (env.find? natName).isSome = true := by
     have hgg := hgold
-    simp only [Lech.natLitSupported, Bool.and_eq_true] at hgg
+    simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hgg
     obtain ⟨⟨hn0, -⟩, -⟩ := hgg
     revert hn0; cases env.find? natName <;> simp [natIndOk]
   have e1 : acvalWith mp.base2.acval c₀.name A natZeroName
@@ -372,7 +372,7 @@ theorem harvestDefnP (hμ : μ.verifiedChecks = true)
             natName (Level.substFn φ [] [])))
           (fun _ => interp2 V ρ (acvalWith mp.base2.acval cv.name A
             natName (Level.substFn φ [] [])))
-    have hgold : Lech.natLitSupported env = true :=
+    have hgold : ConLeche.natLitSupported env = true :=
       natLitSupported_cons_back
         ⟨(fun _ _ h => ConstantInfo.noConfusion h),
           (fun _ _ _ h => ConstantInfo.noConfusion h)⟩ hg
@@ -383,17 +383,17 @@ theorem harvestDefnP (hμ : μ.verifiedChecks = true)
       exact nomatch hs
     have hz : (env.find? natZeroName).isSome = true := by
       have hgg := hgold
-      simp only [Lech.natLitSupported, Bool.and_eq_true] at hgg
+      simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hgg
       obtain ⟨⟨-, hz0⟩, -⟩ := hgg
       revert hz0; cases env.find? natZeroName <;> simp [natZeroOk]
     have hsc : (env.find? natSuccName).isSome = true := by
       have hgg := hgold
-      simp only [Lech.natLitSupported, Bool.and_eq_true] at hgg
+      simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hgg
       obtain ⟨-, hs0⟩ := hgg
       revert hs0; cases env.find? natSuccName <;> simp [natSuccOk]
     have hn : (env.find? natName).isSome = true := by
       have hgg := hgold
-      simp only [Lech.natLitSupported, Bool.and_eq_true] at hgg
+      simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hgg
       obtain ⟨⟨hn0, -⟩, -⟩ := hgg
       revert hn0; cases env.find? natName <;> simp [natIndOk]
     have e1 : acvalWith mp.base2.acval cv.name A natZeroName
@@ -411,36 +411,36 @@ theorem harvestDefnP (hμ : μ.verifiedChecks = true)
     -- through the run-certificate conversion; any other definition
     -- preserves the stored entries
     intro φ
-    by_cases hno : Lech.natOpNames.contains cv.name = true
+    by_cases hno : ConLeche.natOpNames.contains cv.name = true
     · -- the install
       obtain ⟨hg2, hdeps₂, hruns⟩ := hnatc hno
-      have hcmem : cv.name ∈ Lech.natOpNames :=
+      have hcmem : cv.name ∈ ConLeche.natOpNames :=
         List.contains_iff_mem.mp hno
       -- the self entry of the dependency check: level-mono + pinned
-      have hself : cv.name ∈ Lech.natOpDeps cv.name := by
+      have hself : cv.name ∈ ConLeche.natOpDeps cv.name := by
         have h7 := hcmem
-        simp only [Lech.natOpNames, List.mem_cons,
+        simp only [ConLeche.natOpNames, List.mem_cons,
           List.not_mem_nil, or_false] at h7
         rcases h7 with h | h | h | h | h | h | h <;> rw [h] <;> decide
       have hd := List.all_eq_true.mp hdeps₂ cv.name (by simpa using hself)
-      unfold Lech.natOpStoredOk at hd
+      unfold ConLeche.natOpStoredOk at hd
       rw [show (⟨ConstantInfo.defnInfo ⟨cv.name, cv.levelParams, type'⟩
             value' hint :: env.consts⟩ : Env).find? cv.name
           = some (.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value'
             hint) from by
-        rw [Lech.Env.find?_cons]; exact if_pos rfl] at hd
+        rw [ConLeche.Env.find?_cons]; exact if_pos rfl] at hd
       simp only [Bool.and_eq_true] at hd
       have hlpcv : cv.levelParams = [] := by
         simpa [List.isEmpty_iff] using hd.1
-      have hpin : Lech.natOpTyPinned
+      have hpin : ConLeche.natOpTyPinned
           (⟨ConstantInfo.defnInfo ⟨cv.name, cv.levelParams, type'⟩
             value' hint :: env.consts⟩ : Env) cv.name type' = true :=
         hd.2
-      have hsE : Lech.natLitSupported env = true :=
+      have hsE : ConLeche.natLitSupported env = true :=
         natLitSupported_cons_back
           ⟨(fun _ _ h => ConstantInfo.noConfusion h),
             (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
-          (Lech.natOpGuard_deps hg2).1
+          (ConLeche.natOpGuard_deps hg2).1
       have hTok : ∀ (ψ : Name → Nat) (ρ : Nat → V),
           AnnotOkP V ρ (Ta ψ) := fun ψ ρ => by
         obtain ⟨sta, hsta, hT1, -, -⟩ := hrowsT ψ
@@ -463,7 +463,7 @@ theorem harvestDefnP (hμ : μ.verifiedChecks = true)
     -- through the certificate conversion; any other definition
     -- preserves the stored entries
     intro φ
-    by_cases hno : Lech.natDivModNames.contains cv.name = true
+    by_cases hno : ConLeche.natDivModNames.contains cv.name = true
     · obtain ⟨hgenv, -, -, pinA, -, hcerts⟩ := hdmc hno
       exact divModP_install mp (mp.div_mod φ) mp.eq_lawP
         (fun {d} {e} {t} hrun hw hb hL =>
@@ -818,7 +818,7 @@ This is the same wall the U tier already named: `declStep2_of_value`'s
 `leafEq_thm`) records "a residue only at the `opaque` kind".  The P
 tier hits it in the same place, for the same reason.
 
-**The bill (upstream, `Lech/SetR/Install/ValueKinds.lean` — not this
+**The bill (upstream, `ConLeche/SetR/Install/ValueKinds.lean` — not this
 file's to edit).**  `declOpaqueS` should expose its leaf, the way
 `extendValueS` already exposes its agreement:
 
@@ -884,7 +884,7 @@ theorem harvestAxiomP (hμ : μ.verifiedChecks = true)
     -- `DeclAxiomR` branch pins `cv.name` (`matchesPin` compares it on
     -- the nose), and none of the pinned names is a reduce operation —
     -- the operations are installed as `opaque`s, never as axioms.
-    (hnotreduce : cv.name ∉ Lech.reduceOpNames) :
+    (hnotreduce : cv.name ∉ ConLeche.reduceOpNames) :
     Nonempty (EnvS2PM V μ
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
@@ -1296,4 +1296,4 @@ theorem harvestOpaqueP (hμ : μ.verifiedChecks = true)
       (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 
-end Lech.SetP
+end ConLeche.SetP

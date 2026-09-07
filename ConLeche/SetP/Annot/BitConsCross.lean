@@ -1,8 +1,8 @@
-import Lech.SetP.Annot.BitExtendTower
-import Lech.SetP.Annot.BitInstall
-import Lech.Verify.Denote.OpenVars
-import Lech.Verify.InferLemmas
-import Lech.Semantics.EnvFacts
+import ConLeche.SetP.Annot.BitExtendTower
+import ConLeche.SetP.Annot.BitInstall
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.InferLemmas
+import ConLeche.Semantics.EnvFacts
 
 /-!
 # The P cons crossing at a tower head (task #175 W4c, P3 module 4)
@@ -26,18 +26,18 @@ consume:
   their level instantiations and openings.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecRule)
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecRule)
 
 /-- No stored piece of the environment mentions the slot `(T, i)`. -/
 structure NoProjEnv (env : Env) (T : Name) (i : Nat) : Prop where
   type : ∀ c ∈ env.consts, Expr.NoProjAt T i c.toConstantVal.type
-  defn : ∀ (cv : ConstantVal) (v : Expr) (hint : Lech.ReducibilityHint),
+  defn : ∀ (cv : ConstantVal) (v : Expr) (hint : ConLeche.ReducibilityHint),
     ConstantInfo.defnInfo cv v hint ∈ env.consts → Expr.NoProjAt T i v
   thm : ∀ (cv : ConstantVal) (v : Expr),
     ConstantInfo.thmInfo cv v ∈ env.consts → Expr.NoProjAt T i v
@@ -48,13 +48,13 @@ structure NoProjEnv (env : Env) (T : Name) (i : Nat) : Prop where
         ∀ pin ∈ pins, Expr.NoProjAt T i pin
   /-- a stored projection table's bodies (task #175 S1: the tower laws
   read them) -/
-  table : ∀ (tbl : Lech.ProjTable), ConstantInfo.projInfo tbl ∈ env.consts →
+  table : ∀ (tbl : ConLeche.ProjTable), ConstantInfo.projInfo tbl ∈ env.consts →
     ∀ j, j < tbl.numFields → Expr.NoProjAt T i (tbl.bodies.getD j default)
 
 /-- The head's crossing condition: a table head's slots (every field
 of the structure, task #175 S1) are mentioned by no stored piece. -/
 def ConsCrossEnv (env : Env) (c₀ : ConstantInfo) : Prop :=
-  ∀ tbl : Lech.ProjTable, c₀ = .projInfo tbl →
+  ∀ tbl : ConLeche.ProjTable, c₀ = .projInfo tbl →
     ∀ i : Nat, NoProjEnv env tbl.structName i
 
 /-- A non-table head crosses vacuously. -/
@@ -65,7 +65,7 @@ theorem ConsCrossEnv.ofNtc {env : Env} {c₀ : ConstantInfo}
 /-- The per-subject condition: the head's slots, if a table's, are not
 mentioned. -/
 def ConsCrossAt (c₀ : ConstantInfo) (e : Expr) : Prop :=
-  ∀ tbl : Lech.ProjTable, c₀ = .projInfo tbl →
+  ∀ tbl : ConLeche.ProjTable, c₀ = .projInfo tbl →
     ∀ i : Nat, Expr.NoProjAt tbl.structName i e
 
 theorem ConsCrossAt.ofNtc {c₀ : ConstantInfo} {e : Expr}
@@ -91,7 +91,7 @@ theorem ConsCrossAt.fvar_sort {c₀ : ConstantInfo} (idx : Nat)
 
 theorem ConsCrossAt.openRev {c₀ : ConstantInfo} {e : Expr}
     (h : ConsCrossAt c₀ e) (d : Nat) :
-    ∀ n : Nat, ConsCrossAt c₀ (Lech.Verify.openRev d n e)
+    ∀ n : Nat, ConsCrossAt c₀ (ConLeche.Verify.openRev d n e)
   | 0 => h
   | n + 1 =>
     ConsCrossAt.instantiate1 (ConsCrossAt.openRev h d n)
@@ -107,11 +107,11 @@ theorem ConsCrossEnv.type {env : Env} {c₀ : ConstantInfo}
 theorem ConsCrossEnv.typeOf {env : Env} {c₀ : ConstantInfo}
     (h : ConsCrossEnv env c₀) {n : Name} {c : ConstantInfo}
     (hf : env.find? n = some c) : ConsCrossAt c₀ c.toConstantVal.type :=
-  h.type (Lech.Semantics.Env.find?_mem hf)
+  h.type (ConLeche.Semantics.Env.find?_mem hf)
 
 theorem ConsCrossEnv.defn {env : Env} {c₀ : ConstantInfo}
     (h : ConsCrossEnv env c₀) {cv : ConstantVal} {v : Expr}
-    {hint : Lech.ReducibilityHint}
+    {hint : ConLeche.ReducibilityHint}
     (hc : ConstantInfo.defnInfo cv v hint ∈ env.consts) :
     ConsCrossAt c₀ v := fun tbl heq i =>
   (h tbl heq i).defn cv v hint hc
@@ -124,10 +124,10 @@ theorem ConsCrossEnv.thm {env : Env} {c₀ : ConstantInfo}
 
 /-- A stored table's body at a field (task #175 S1). -/
 theorem ConsCrossEnv.body {env : Env} {c₀ : ConstantInfo}
-    (h : ConsCrossEnv env c₀) {n : Name} {tbl : Lech.ProjTable}
+    (h : ConsCrossEnv env c₀) {n : Name} {tbl : ConLeche.ProjTable}
     (hf : env.find? n = some (.projInfo tbl)) {j : Nat} (hj : j < tbl.numFields) :
     ConsCrossAt c₀ (tbl.entry j).body := fun tbl' heq i =>
-  (h tbl' heq i).table tbl (Lech.Semantics.Env.find?_mem hf) j hj
+  (h tbl' heq i).table tbl (ConLeche.Semantics.Env.find?_mem hf) j hj
 
 theorem ConsCrossEnv.ruleRhs {env : Env} {c₀ : ConstantInfo}
     (h : ConsCrossEnv env c₀) {cv : ConstantVal} {mI rP : Nat}
@@ -155,10 +155,10 @@ theorem ConsCrossEnv.rulePinD {env : Env} {c₀ : ConstantInfo}
     (hn : RecRule.fire r = .nested lvls pins) (i : Nat) :
     ConsCrossAt c₀ (pins.getD i default) := by
   by_cases hi : i < pins.length
-  · exact h.rulePin hc hr hn (Lech.getD_mem hi)
+  · exact h.rulePin hc hr hn (ConLeche.getD_mem hi)
   · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
     intro _ _ _
     show Expr.NoProjAt _ _ (Expr.bvar 0)
     simp
 
-end Lech.SetP
+end ConLeche.SetP

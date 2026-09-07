@@ -9,7 +9,7 @@
    `is_def_eq (infer v) ty` — and REJECTS with "(kernel)
    let-declaration type mismatch 'x'".
 
-   lech never runs those three checks: `annotate`'s `.letE` clause
+   con-leche never runs those three checks: `annotate`'s `.letE` clause
    returns the zeta-reduct (Kernel/Core.lean:2577-2596) and the annotated
    term is let-free, so the `.letE` arms of `whnfCore`/`infer`
    (Core.lean:1756/1975/2114, CoreC.lean:941/1323/1778) are dead code.
@@ -23,7 +23,7 @@
    clause on the annotated `ty'`/`v'`, then delete the six dead arms)
    flips it to 1 deliberately.
 
-   official: 1.  lech at master 700a06ca: 0 piped, 0 raw, 0 --trusted.
+   official: 1.  con-leche at master 700a06ca: 0 piped, 0 raw, 0 --trusted.
    Probe of record: _tmp/indaudit/probes/P/LetValueType.lean. -/
 
 import Lean

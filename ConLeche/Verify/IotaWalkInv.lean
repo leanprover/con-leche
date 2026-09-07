@@ -1,4 +1,4 @@
-import Lech.Kernel.Checker
+import ConLeche.Kernel.Checker
 
 /-!
 # Inverting the iota-install list checks (task #123)
@@ -10,7 +10,7 @@ rule's spines.  Their specifications (`DefEqListOk`, `TypedListOk`,
 fueled operations on an `Env` and a list of `Expr`s — no valuation, no
 `SetTheory`.
 
-They were written at the head of `Lech/Model/IotaWalk.lean`, under
+They were written at the head of `ConLeche/Model/IotaWalk.lean`, under
 that module's `variable {V} [SetTheory V]` (with `omit` on every one of
 them), because that is where the frame-crossing walk needed them.  They
 are relocated here verbatim so the declarative type-theory bridge can
@@ -21,7 +21,7 @@ are dropped: there is no such section variable here.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -266,4 +266,4 @@ theorem checkAnnotList_inv {F : Nat} {env : Env} {d : Nat} :
         · rw [hann, eq_of_beq heq]
         · exact ih h x hx
 
-end Lech
+end ConLeche

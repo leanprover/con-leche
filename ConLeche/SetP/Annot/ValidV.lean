@@ -1,5 +1,5 @@
-import Lech.SetP.Annot.Bit
-import Lech.Semantics.Ok2
+import ConLeche.SetP.Annot.Bit
+import ConLeche.Semantics.Ok2
 
 /-!
 # `AnnotValidV` — bit validity, on the bit (task #161, P3.2)
@@ -37,13 +37,13 @@ pair (`AnnotValidV_liftN`/`AnnotValidV_inst`) + the level-crossing
 laws (`denotePInstLevels` upstream of any `interp2` fact).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Name Level PropWhen)
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Name Level PropWhen)
 
 universe w
 
@@ -79,7 +79,7 @@ def AnnotValidV : (Nat → V) → AVExpr → Prop
     AnnotValidV V ρ (.bvar i) = True := by rw [AnnotValidV]
 @[simp] theorem AnnotValidV_sort (ρ : Nat → V) (u : Nat) :
     AnnotValidV V ρ (.sort u) = True := by rw [AnnotValidV]
-@[simp] theorem AnnotValidV_const (ρ : Nat → V) (c : Lech.VExpr.BConst)
+@[simp] theorem AnnotValidV_const (ρ : Nat → V) (c : ConLeche.VExpr.BConst)
     (us : List Nat) : AnnotValidV V ρ (.const c us) = True := by
   rw [AnnotValidV]
 @[simp] theorem AnnotValidV_prf (ρ : Nat → V) :
@@ -281,4 +281,4 @@ theorem AnnotValidV_inst0 {e a : AVExpr} {ρ : Nat → V}
   have h := AnnotValidV_inst V e a 0 ρ (by rwa [shiftE_zero_zero])
   rwa [shiftE_zero_zero, instE_zero] at h
 
-end Lech.SetP
+end ConLeche.SetP

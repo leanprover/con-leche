@@ -1,7 +1,7 @@
 import Std.Data.HashMap
-import Lech.Kernel.Expr
-import Lech.Kernel.ExprOps
-import Lech.Kernel.Level
+import ConLeche.Kernel.Expr
+import ConLeche.Kernel.ExprOps
+import ConLeche.Kernel.Level
 
 /-!
 # `ExprC`: the cached engine's namespace over the one expression type
@@ -9,19 +9,19 @@ import Lech.Kernel.Level
 **Task #172 B3a — the type unified.**  `ExprC` *was* a second
 expression inductive whose constructors carried four hand-rolled
 derived fields (`h bb fb lp`), maintained by smart constructors and
-related to `Lech.Expr` by an erasure.  It is now an **abbreviation
-for `Lech.Expr` itself**, which carries those four as Lean
-`@[computed_field]`s (`Lech/Kernel/Expr.lean`) — the user's ruling,
+related to `ConLeche.Expr` by an erasure.  It is now an **abbreviation
+for `ConLeche.Expr` itself**, which carries those four as Lean
+`@[computed_field]`s (`ConLeche/Kernel/Expr.lean`) — the user's ruling,
 *"Adopt computed_fields.  It's a compiler feature, we trust the
 compiler."*
 
 What survives, and why the name does: the cached engine's *operations*
 (`instantiate1`, `abstractRange`, … — memoized, `Std.HashMap`-backed)
-have the same names as the pure spec functions in `Lech.Expr`'s
+have the same names as the pure spec functions in `ConLeche.Expr`'s
 namespace, and the verification's whole subject is that the two agree.
-So `Lech.Cached.ExprC` remains as a **namespace** for the executed
+So `ConLeche.Cached.ExprC` remains as a **namespace** for the executed
 operations; dot notation on an `ExprC`-typed value finds it first and
-falls through to `Lech.Expr` for anything it does not define — which
+falls through to `ConLeche.Expr` for anything it does not define — which
 is exactly how the four field readers now resolve.
 
 What died with the type: `WFc`'s smart-constructor discipline
@@ -90,7 +90,7 @@ flagged for ruling, and it is the row above.
 
 **Task #176 added no row, and it is worth saying why.**  The
 pointer-and-hash-first `Name.beqPtr`/`Level.beqPtr`
-(`Lech/Kernel/Expr.lean`) replace `Name.beq`/`Level.beq` in compiled
+(`ConLeche/Kernel/Expr.lean`) replace `Name.beq`/`Level.beq` in compiled
 code through **`@[csimp]`**, i.e. on the strength of a *kernel-checked
 equality* (`Name.beq_eq_beqPtr`, `Level.beq_eq_beqPtr`) — **USER
 RULING, 2026-09-05, verbatim:** *"do *not* use `implemented_by`.  If
@@ -102,18 +102,18 @@ and it stands alone; the computed-fields row (row 2) merely gained two
 users.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
-/-- The cached engine's expression type **is** `Lech.Expr` (task
+/-- The cached engine's expression type **is** `ConLeche.Expr` (task
 #172 B3a).  The four per-node derived data live in that type's single
 packed `@[computed_field]` (task #167), so `e.hash`, `e.bvarB`,
 `e.fvarB` and `e.hasLP` resolve here through this namespace to
-`Lech.Expr`'s accessors — `O(1)` bit reads, exact, with `bvarB` and
+`ConLeche.Expr`'s accessors — `O(1)` bit reads, exact, with `bvarB` and
 `fvarB` falling back to a memoized exact walk on the saturated branch
 alone. -/
-abbrev ExprC := Lech.Expr
+abbrev ExprC := ConLeche.Expr
 
 namespace ExprC
 
@@ -157,7 +157,7 @@ so nothing is added at runtime. -/
 
 /-! ## Equality, hashing and the trust census
 
-Both moved to `Lech/Kernel/Expr.lean` at task #172 B3a, with the type
+Both moved to `ConLeche/Kernel/Expr.lean` at task #172 B3a, with the type
 itself: `BEq Expr` must be **one** instance tree-wide (the pure tier
 compares `Expr`s too, and two defeq-but-distinct instances make `rw`
 and `simp` fail across the seam — measured, on `DiscC5`'s `defeqStep`
@@ -218,4 +218,4 @@ own equations, and the tier still rewrites with them. -/
 
 end ExprC
 
-end Lech.Cached
+end ConLeche.Cached

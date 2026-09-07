@@ -1,5 +1,5 @@
-import Lech.Semantics.DeclRun
-import Lech.SetP.AxiomMemP
+import ConLeche.Semantics.DeclRun
+import ConLeche.SetP.AxiomMemP
 
 /-!
 # The pin tier, at the validated-annotation currency (task #161,
@@ -137,13 +137,13 @@ Three of `DeclAxiomR`'s four branches, then.  The fourth is the second
 WALL above.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal)
 
 universe w
 
@@ -174,8 +174,8 @@ axiom's does. -/
 theorem axiomTrustCompilerP (hμ : μ.verifiedChecks = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
     (hcv : ConstantValRun μ F env cv type')
-    (hname : cv.name = Lech.trustCompilerName)
-    (hok : Lech.trustCompilerOk env ⟨cv.name, cv.levelParams, type'⟩
+    (hname : cv.name = ConLeche.trustCompilerName)
+    (hok : ConLeche.trustCompilerOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
     Nonempty (EnvS2PM V μ
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
@@ -188,12 +188,12 @@ theorem axiomTrustCompilerP (hμ : μ.verifiedChecks = true)
   -- the guard's two pin hits, unpacked exactly as `trustCompilerKeyS`
   -- unpacks them
   have hokc := hok
-  simp only [Lech.trustCompilerOk, Bool.and_eq_true] at hokc
+  simp only [ConLeche.trustCompilerOk, Bool.and_eq_true] at hokc
   obtain ⟨⟨hT, hTi⟩, hA⟩ := hokc
-  cases hfT : env.find? Lech.trueName with
+  cases hfT : env.find? ConLeche.trueName with
   | none => rw [hfT] at hT; exact nomatch hT
   | some ciT =>
-  cases hfTi : env.find? Lech.trueIntroName with
+  cases hfTi : env.find? ConLeche.trueIntroName with
   | none => rw [hfTi] at hTi; exact nomatch hTi
   | some ciTi =>
   rw [hfT] at hT
@@ -206,7 +206,7 @@ theorem axiomTrustCompilerP (hμ : μ.verifiedChecks = true)
       exact hT.1.2
     | _ => exact nomatch hT
   obtain ⟨hlpTi, htyTi⟩ : ciTi.toConstantVal.levelParams = [] ∧
-      ciTi.toConstantVal.type = .const Lech.trueName [] := by
+      ciTi.toConstantVal.type = .const ConLeche.trueName [] := by
     cases ciTi with
     | ctorInfo cvTi nP nF =>
       match nP, nF, hTi with
@@ -217,14 +217,14 @@ theorem axiomTrustCompilerP (hμ : μ.verifiedChecks = true)
     | _ => exact nomatch hTi
   -- **the pin bites on the nose**: a `.const` has no binder, so
   -- `erasePw` forgives nothing here
-  have htyA : type' = .const Lech.trueName [] := by
+  have htyA : type' = .const ConLeche.trueName [] := by
     simp only [ConstantVal.matchesPin, Bool.and_eq_true,
       decide_eq_true_eq, beq_iff_eq] at hA
     exact erasePw_const_invS hA.2
-  have hnameTi : ciTi.name = Lech.trueIntroName := Env.find?_name hfTi
+  have hnameTi : ciTi.name = ConLeche.trueIntroName := Env.find?_name hfTi
   -- the leaf: the stored `True.intro`'s *annotated* valuation
   refine harvestAxiomP (V := V) hμ mp hcv
-    (A := fun ψ => mp.base2.acval Lech.trueIntroName ψ)
+    (A := fun ψ => mp.base2.acval ConLeche.trueIntroName ψ)
     (fun ψ => mp.base2.cval_closedL _ ψ) ?_ ?_ ?_ ?_ ?_
     -- `trustCompiler` is not a compiler-trust *operation*: the pin
     -- fixes the name, and the two operations are installed as opaques
@@ -243,10 +243,10 @@ theorem axiomTrustCompilerP (hμ : μ.verifiedChecks = true)
     -- membership is that constant's own `mem_typeP`
     intro ψ ta hta ρ
     rw [htyA, denoteP_levelless_const hfT hlpT] at hta
-    obtain rfl : ta = mp.base2.acval Lech.trueName ψ :=
+    obtain rfl : ta = mp.base2.acval ConLeche.trueName ψ :=
       (Option.some.inj hta).symm
     have hmem := mp.mem_typeP ciTi (Env.find?_mem hfTi) ψ
-      (mp.base2.acval Lech.trueName ψ)
+      (mp.base2.acval ConLeche.trueName ψ)
       (by rw [htyTi]; exact denoteP_levelless_const hfT hlpT) ρ
     rwa [hnameTi] at hmem
 
@@ -265,7 +265,7 @@ a `const` clause, and the whole content is the membership. -/
 theorem axiomStdP (hμ : μ.verifiedChecks = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
     (hcv : ConstantValRun μ F env cv type')
-    (hok : Lech.stdAxiomOk env ⟨cv.name, cv.levelParams, type'⟩
+    (hok : ConLeche.stdAxiomOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
     Nonempty (EnvS2PM V μ
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
@@ -276,9 +276,9 @@ theorem axiomStdP (hμ : μ.verifiedChecks = true)
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind
   obtain ⟨stype, usort, hst, hens⟩ := hrunT
-  have hwfc : Lech.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+  have hwfc : ConLeche.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts⟩ := by
-    refine Lech.EnvWF.cons mp.base2.wf
+    refine ConLeche.EnvWF.cons mp.base2.wf
       ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_, ?_⟩
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP rules heq; exact nomatch heq
@@ -315,10 +315,10 @@ theorem axiomStdP (hμ : μ.verifiedChecks = true)
       intro ψ ta hta ρ
       exact choice_memP hμ mp hok hn2 hst ψ ta hta ρ
     · exfalso
-      unfold Lech.stdAxiomOk at hok
+      unfold ConLeche.stdAxiomOk at hok
       rw [show (⟨cv.name, cv.levelParams, type'⟩ : ConstantVal).name
         = cv.name from rfl] at hok
       rw [if_neg hn, if_neg hn2] at hok
       exact nomatch hok
 
-end Lech.SetP
+end ConLeche.SetP

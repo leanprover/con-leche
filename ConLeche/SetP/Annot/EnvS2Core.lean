@@ -1,6 +1,6 @@
-import Lech.Semantics.Ok2
-import Lech.Verify.EnvWF
-import Lech.Verify.Denote.Pinned
+import ConLeche.Semantics.Ok2
+import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Denote.Pinned
 
 /-!
 # `EnvS2Core` — the denote2-free carrier (task #161, P4 — a FINDING)
@@ -33,13 +33,13 @@ next to its consumer and leaving the canonical file untouched:
 * `NatHeads2` (`Step2/InferQ.lean`) → `NatHeadsP` in `Step2/InferP.lean`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo)
 
 universe w
 
@@ -126,9 +126,9 @@ model-free twin (task #161 S7, Wall C step (a)).  The fact is
 `basis_pinnedL`'s second component; the `EnvS` form existed only
 because the carrier used to borrow the field. -/
 theorem EnvS2Core.cvalE_pinned {env : Env} (m : EnvS2Core V env)
-    {n : Name} (hres : Lech.reservedBasisNames.contains n = true)
+    {n : Name} (hres : ConLeche.reservedBasisNames.contains n = true)
     (hst : (env.find? n).isSome = true) (ψ : Name → Nat) {t : VExpr}
-    (hpin : Lech.Verify.pinnedDirectT n ψ = some t) :
+    (hpin : ConLeche.Verify.pinnedDirectT n ψ = some t) :
     m.cvalE n ψ = t := by
   cases hf : env.find? n with
   | none => rw [hf] at hst; exact nomatch hst
@@ -169,4 +169,4 @@ theorem acvalParamsP {env : Env} (m : EnvS2Core V env) :
     AcvalParamsP m :=
   m.acval_params
 
-end Lech.SetP
+end ConLeche.SetP

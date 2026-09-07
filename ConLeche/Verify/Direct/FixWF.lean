@@ -1,5 +1,5 @@
-import Lech.Verify.Direct.SumWF
-import Lech.Verify.Direct.FixInv
+import ConLeche.Verify.Direct.SumWF
+import ConLeche.Verify.Direct.FixInv
 
 /-!
 # The direct recursive install: environment well-formedness (task #188)
@@ -12,7 +12,7 @@ names the stored cons finds.  The former's and the constructors'
 stages are the sum route's (`SumWF.lean`).
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -115,4 +115,4 @@ theorem directFixFieldsOk_inv {env₀ : Env} {T : Name} {lps : List Name} {nP nI
     simp only [Bool.and_eq_true, beq_iff_eq] at this
     exact ⟨ks, rfl, this.1, this.2⟩
 
-end Lech
+end ConLeche

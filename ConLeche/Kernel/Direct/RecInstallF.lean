@@ -1,15 +1,15 @@
-import Lech.Kernel.Direct.SumInstallF
-import Lech.Kernel.Direct.RecInstall
+import ConLeche.Kernel.Direct.SumInstallF
+import ConLeche.Kernel.Direct.RecInstall
 
 /-!
 # The direct recursive install, through the index (task #188)
 
-`checkDirectFix`'s recursor stage (`Lech/Kernel/Direct/RecInstall.lean`)
+`checkDirectFix`'s recursor stage (`ConLeche/Kernel/Direct/RecInstall.lean`)
 over an `FEnv`, the mirror the cached drivers run; the former's and
 the constructors' stages are the sum route's mirrors.
 -/
 
-namespace Lech
+namespace ConLeche
 
 section Mirrors
 
@@ -105,4 +105,4 @@ def checkDirectFixRecF (ops : CheckerOps m) (fe : FEnv) (p : DirectFixParts)
 
 end Mirrors
 
-end Lech
+end ConLeche

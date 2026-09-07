@@ -1,4 +1,4 @@
-import Lech.SetP.BasisEmptyP
+import ConLeche.SetP.BasisEmptyP
 
 /-!
 # `denoteP` crosses level instantiation (task #161, ENDGAME G)
@@ -35,13 +35,13 @@ insensitivity of the support slots, restated here off a bare
 states them at the U carrier, which the P tier does not have).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal)
 
 universe w
 
@@ -115,41 +115,41 @@ theorem acvalAt_one (hp : AcvalParamsAt env acval) (nm : Name)
     (hshape : ∀ ci, f (some ci) = true →
       ci.toConstantVal.levelParams.length = 1)
     (ψ₁ ψ₂ : Name → Nat) :
-    acval nm (Level.substFn ψ₁ (Lech.Verify.levelParamsAt env nm) [.zero])
+    acval nm (Level.substFn ψ₁ (ConLeche.Verify.levelParamsAt env nm) [.zero])
       = acval nm
-        (Level.substFn ψ₂ (Lech.Verify.levelParamsAt env nm) [.zero]) := by
+        (Level.substFn ψ₂ (ConLeche.Verify.levelParamsAt env nm) [.zero]) := by
   cases hx : env.find? nm with
   | none => rw [hx, hnone] at hfok; exact nomatch hfok
   | some ci =>
-    have hlp : Lech.Verify.levelParamsAt env nm
+    have hlp : ConLeche.Verify.levelParamsAt env nm
         = ci.toConstantVal.levelParams := by
-      simp [Lech.Verify.levelParamsAt, hx]
+      simp [ConLeche.Verify.levelParamsAt, hx]
     rw [hx] at hfok
     rw [hlp]
     exact acvalAt_oneParam hp hx (hshape ci hfok) _ _
 
 /-- The `Nat`-literal leaves are assignment-independent. -/
 theorem acvalAt_natPair (hp : AcvalParamsAt env acval)
-    (hg : Lech.natLitSupported env = true) (ψ₁ ψ₂ : Name → Nat) :
-    acval Lech.natZeroName ψ₁ = acval Lech.natZeroName ψ₂ ∧
-      acval Lech.natSuccName ψ₁ = acval Lech.natSuccName ψ₂ := by
-  simp only [Lech.natLitSupported, Bool.and_eq_true] at hg
+    (hg : ConLeche.natLitSupported env = true) (ψ₁ ψ₂ : Name → Nat) :
+    acval ConLeche.natZeroName ψ₁ = acval ConLeche.natZeroName ψ₂ ∧
+      acval ConLeche.natSuccName ψ₁ = acval ConLeche.natSuccName ψ₂ := by
+  simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hg
   obtain ⟨⟨-, hz⟩, hs⟩ := hg
-  refine ⟨acvalAt_scalar hp Lech.natZeroName Lech.natZeroOk hz rfl
+  refine ⟨acvalAt_scalar hp ConLeche.natZeroName ConLeche.natZeroOk hz rfl
       ?_ _ _,
-    acvalAt_scalar hp Lech.natSuccName Lech.natSuccOk hs rfl ?_ _ _⟩
+    acvalAt_scalar hp ConLeche.natSuccName ConLeche.natSuccOk hs rfl ?_ _ _⟩
   · intro ci h
     cases ci with
     | ctorInfo cv a b =>
-      simp only [Lech.natZeroOk, Bool.and_eq_true] at h
+      simp only [ConLeche.natZeroOk, Bool.and_eq_true] at h
       simpa [ConstantInfo.toConstantVal] using h.1
-    | _ => simp [Lech.natZeroOk] at h
+    | _ => simp [ConLeche.natZeroOk] at h
   · intro ci h
     cases ci with
     | ctorInfo cv a b =>
-      simp only [Lech.natSuccOk, Bool.and_eq_true] at h
+      simp only [ConLeche.natSuccOk, Bool.and_eq_true] at h
       simpa [ConstantInfo.toConstantVal] using h.1
-    | _ => simp [Lech.natSuccOk] at h
+    | _ => simp [ConLeche.natSuccOk] at h
 
 /-! ## The crossing -/
 
@@ -209,39 +209,39 @@ theorem denoteP_instLevels (hp : AcvalParamsAt env acval)
     rw [Expr.instantiateLevelParams, denoteP, denoteP, if_pos hsup,
       if_pos hsup]
     have hg := hsup
-    simp only [Lech.strLitSupported, Bool.and_eq_true] at hg
+    simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hg
     obtain ⟨⟨⟨⟨⟨⟨⟨h0, -⟩, h2⟩, -⟩, h4⟩, h5⟩, h6⟩, h7⟩ := hg
     obtain ⟨ez, es⟩ := acvalAt_natPair hp h0
       (Level.substFn φ [] []) (Level.substFn (Level.substFn φ ks us) [] [])
-    have esol := acvalAt_scalar hp Lech.stringOfListName
-      Lech.stringOfListTyOk h2 rfl
+    have esol := acvalAt_scalar hp ConLeche.stringOfListName
+      ConLeche.stringOfListTyOk h2 rfl
       (by intro ci hh
-          simp only [Lech.stringOfListTyOk, Bool.and_eq_true] at hh
+          simp only [ConLeche.stringOfListTyOk, Bool.and_eq_true] at hh
           exact hh.1)
       (Level.substFn φ [] []) (Level.substFn (Level.substFn φ ks us) [] [])
-    have echar := acvalAt_scalar hp Lech.charName Lech.charTyOk h6 rfl
+    have echar := acvalAt_scalar hp ConLeche.charName ConLeche.charTyOk h6 rfl
       (by intro ci hh
-          simp only [Lech.charTyOk, Bool.and_eq_true] at hh
+          simp only [ConLeche.charTyOk, Bool.and_eq_true] at hh
           exact hh.1)
       (Level.substFn φ [] []) (Level.substFn (Level.substFn φ ks us) [] [])
-    have eofn := acvalAt_scalar hp Lech.charOfNatName
-      Lech.charOfNatTyOk h7 rfl
+    have eofn := acvalAt_scalar hp ConLeche.charOfNatName
+      ConLeche.charOfNatTyOk h7 rfl
       (by intro ci hh
-          simp only [Lech.charOfNatTyOk, Bool.and_eq_true] at hh
+          simp only [ConLeche.charOfNatTyOk, Bool.and_eq_true] at hh
           exact hh.1)
       (Level.substFn φ [] []) (Level.substFn (Level.substFn φ ks us) [] [])
-    have enil := acvalAt_one hp Lech.listNilName Lech.listNilTyOk h4
+    have enil := acvalAt_one hp ConLeche.listNilName ConLeche.listNilTyOk h4
       rfl
       (by intro ci hh
-          simp only [Lech.listNilTyOk] at hh
+          simp only [ConLeche.listNilTyOk] at hh
           split at hh
           · next p hpe => simp [hpe]
           · exact nomatch hh)
       φ (Level.substFn φ ks us)
-    have econs := acvalAt_one hp Lech.listConsName Lech.listConsTyOk
+    have econs := acvalAt_one hp ConLeche.listConsName ConLeche.listConsTyOk
       h5 rfl
       (by intro ci hh
-          simp only [Lech.listConsTyOk] at hh
+          simp only [ConLeche.listConsTyOk] at hh
           split at hh
           · next p hpe => simp [hpe]
           · exact nomatch hh)
@@ -267,4 +267,4 @@ theorem denoteP_instLevels (hp : AcvalParamsAt env acval)
       | natVal k => exact absurd rfl (hnat k)
       | strVal s => exact absurd rfl (hstr s)
 
-end Lech.SetP
+end ConLeche.SetP

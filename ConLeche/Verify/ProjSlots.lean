@@ -1,5 +1,5 @@
-import Lech.Verify.Abstract
-import Lech.Verify.EnvWF
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.EnvWF
 
 /-!
 # Projection nodes and their table slots (task #175 wiring, W4c S6)
@@ -28,9 +28,9 @@ Both predicates are hereditary through `.fvar` type annotations, as
 `ConstsBound` is, because `denoteP` opens binders at annotated fvars.
 -/
 
-namespace Lech
+namespace ConLeche
 
-open Lech.Expr
+open ConLeche.Expr
 
 /-! ## `NoProjAt` -/
 
@@ -737,4 +737,4 @@ theorem annotateCore_noProjAt {env : Env} {fuel d : Nat} {e e' : Expr}
   Expr.ProjSlotsOk.noProjAt hslot e'
     (annotateCore_projSlotsOk mode fuel e h (Expr.FvarTysOk.of_not_hasFvar e hfv))
 
-end Lech
+end ConLeche

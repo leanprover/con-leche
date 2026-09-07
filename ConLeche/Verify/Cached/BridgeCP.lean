@@ -1,12 +1,12 @@
-import Lech.Verify.Cached.BridgeCSDecl
-import Lech.Cached.ParsedC
+import ConLeche.Verify.Cached.BridgeCSDecl
+import ConLeche.Cached.ParsedC
 
 /-!
 # The cached parsed-declaration driver, bridged (task #163)
 
-Port of the SP layer of `Lech/Verify/BridgeP.lean` (and, at the end,
-of `Lech/Verify/BridgePDecl.lean`) for the cached tier: each lemma
-relates a `ParsedC` driver function (`Lech/Cached/ParsedC.lean`,
+Port of the SP layer of `ConLeche/Verify/BridgeP.lean` (and, at the end,
+of `ConLeche/Verify/BridgePDecl.lean`) for the cached tier: each lemma
+relates a `ParsedC` driver function (`ConLeche/Cached/ParsedC.lean`,
 `checkConstantValC` …) to the generic declaration checker at the fueled
 families, as a `SimC` from any invariant state.
 
@@ -19,7 +19,7 @@ tier flag (`hoff`) anywhere — plus the representation differences the
 * the DAG-memoized syntactic guards are pure `ExprC` walks —
   `ExprC.looseBVarsBounded`/`ExprC.hasFvar`/
   `ExprC.allLevelParamsDefined`/`constsResolveFC` — and their agreement
-  with the `Expr`-side guards is `Lech/Verify/Cached/GuardsC.lean`'s
+  with the `Expr`-side guards is `ConLeche/Verify/Cached/GuardsC.lean`'s
   `*_spec` family, so every store-read peel disappears;
 * the readback `readbackEM j` is the pure `ExprC.toExpr j`
   (`toExpr_eq`: the memoized readback *is* the erasure), so every
@@ -28,7 +28,7 @@ tier flag (`hoff`) anywhere — plus the representation differences the
   so `opSIxC_sim` is `ensureSortC_sim` plus the `ensureSort_atF`
   rewrite;
 * `recordCConst`'s effect (`recordCConst_eff`,
-  `Lech/Verify/Cached/SimCEff.lean`) takes `RelC` facts where
+  `ConLeche/Verify/Cached/SimCEff.lean`) takes `RelC` facts where
   `recordIConst_eff` took `denoteT` facts at a flag-off state.
 
 `DeclC` carries `ExprC` where `DeclP` carries `EIdx`, so the premise
@@ -38,10 +38,10 @@ guard order, the branch structure, the pure comparand of every
 statement — is byte-identical to the interned original's.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
-open Lech.Cached.ExprC
+open ConLeche
+open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
@@ -640,4 +640,4 @@ theorem checkDeclSPStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
 
 end WalksP
 
-end Lech.Cached
+end ConLeche.Cached

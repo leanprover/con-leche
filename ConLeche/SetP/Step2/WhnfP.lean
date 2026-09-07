@@ -1,11 +1,11 @@
-import Lech.Verify.InferIOLeaves
-import Lech.SetP.CtxOkPKit
-import Lech.SetP.Annot.BitInst
-import Lech.SetP.Annot.BitInstall
-import Lech.SetP.Step2.BitLevels
-import Lech.Semantics.Sat2
-import Lech.Semantics.WhnfCoreLeaf
-import Lech.SetP.Claims2PIO
+import ConLeche.Verify.InferIOLeaves
+import ConLeche.SetP.CtxOkPKit
+import ConLeche.SetP.Annot.BitInst
+import ConLeche.SetP.Annot.BitInstall
+import ConLeche.SetP.Step2.BitLevels
+import ConLeche.Semantics.Sat2
+import ConLeche.Semantics.WhnfCoreLeaf
+import ConLeche.SetP.Claims2PIO
 
 /-!
 # The two head-normalisation quarters, P currency (task #161, P3.4)
@@ -66,13 +66,13 @@ proof reads it** — flagged here rather than dropped, because the
 capstone binds the four steps at one mode hypothesis.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level BinderMeta Literal whnf
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level BinderMeta Literal whnf
   whnfCore whnfBody whnfLoop whnfStep whnfLoopFuel pureFns
   inferTypeCore iotaRecP reduceNatP unfoldDefinition ConstantInfo
   ConstantVal ReducibilityHint)
@@ -406,7 +406,7 @@ for a converted call site's inferred type. -/
 def InferExistsIOSP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AVExpr},
-    Lech.inferTypeIO μ env fuel d e = .ok t →
+    ConLeche.inferTypeIO μ env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {ea : AVExpr},
@@ -420,8 +420,8 @@ def InferExistsIOSP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 def BetaCertP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {Δa : List AVExpr} {a ty ta : Expr} {aa tya : AVExpr},
-    Lech.inferTypeIO μ env fuel d a = .ok ta →
-    Lech.isDefEqCore μ env fuel d ta ty = .ok true →
+    ConLeche.inferTypeIO μ env fuel d a = .ok ta →
+    ConLeche.isDefEqCore μ env fuel d ta ty = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d ty → ty.looseBVarsBounded 0 = true →
@@ -448,10 +448,10 @@ theorem betaCertP_of_claims (m : EnvS2Core V env) {fuel : Nat}
   intro d Δa a ty ta aa tya hta hde hwa hba hLa hwty hbty hLty
     hCa hCty haa htya hoka hoktya ρ hρ
   have hwta : Expr.WScoped d ta :=
-    Lech.inferTypeIO_WScoped m.wf fuel hta hwa
+    ConLeche.inferTypeIO_WScoped m.wf fuel hta hwa
   have hbta : ta.looseBVarsBounded 0 = true :=
-    Lech.inferTypeIO_looseBVars m.wf fuel hta hwa hba hLa
-  have hsub := Lech.inferTypeIO_fvarLeaves m.wf fuel hta hwa
+    ConLeche.inferTypeIO_looseBVars m.wf fuel hta hwa hba hLa
+  have hsub := ConLeche.inferTypeIO_fvarLeaves m.wf fuel hta hwa
   have hLta : Expr.LeavesBounded ta := fun l hl => hLa l (hsub l hl)
   have hCta : CtxOkP m φ d Δa ta := hCa.of_subset hsub
   obtain ⟨ta', hta'⟩ := hexi hta hwa hba hLa hCa haa
@@ -537,8 +537,8 @@ theorem whnfCore_letE_claimP (m : EnvS2Core V env) {fuel : Nat}
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea') ∧
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea = interp2 V ρ ea' := by
-  rw [Lech.whnfCore_succ] at h
-  simp only [Lech.whnfCoreBody, Lech.whnfCore_def] at h
+  rw [ConLeche.whnfCore_succ] at h
+  simp only [ConLeche.whnfCoreBody, ConLeche.whnfCore_def] at h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
   rw [denoteP] at hea
@@ -621,7 +621,7 @@ theorem whnfCore_app_claimP (m : EnvS2Core V env) {fuel : Nat}
     refine ⟨?_, ?_⟩
     · have h1 := hx.1; rw [AnnotOk2_app] at h1; exact h1.2.1
     · have h2 := hx.2; rw [AnnotValidV_app] at h2; exact h2.2
-  obtain ⟨f', hwf, hcase⟩ := Lech.whnf_app_inv h
+  obtain ⟨f', hwf, hcase⟩ := ConLeche.whnf_app_inv h
   obtain ⟨fa', hfa'⟩ := hex hwf hws.1 hb.1 hLf hCf hfa hokf
   obtain ⟨hokf', heqf, hwf', hbf', hLf', hCf'⟩ :=
     whnfCore_packageP m ihwc hwf hws.1 hb.1 hLf hCf hfa hfa' hokf
@@ -784,7 +784,7 @@ theorem whnfLoop_claimP (m : EnvS2Core V env) {fuel : Nat}
   | succ budget ih =>
     intro d Δa e e' h hws hb hLb ea ea' hC hea hea' hok
     rw [whnfLoop, whnfStep] at h
-    simp only [Bind.bind, Except.bind, Lech.whnfCore_def] at h
+    simp only [Bind.bind, Except.bind, ConLeche.whnfCore_def] at h
     cases hwc : whnfCore μ env fuel d e with
     | error err => rw [hwc] at h; exact nomatch h
     | ok e₁ =>
@@ -795,9 +795,9 @@ theorem whnfLoop_claimP (m : EnvS2Core V env) {fuel : Nat}
       whnfCore_packageP m ihwc hwc hws hb hLb hC hea hea₁ hok
     cases hrn : reduceNatP μ env fuel d e₁ with
     | error err =>
-      rw [Lech.reduceNat_fold] at h; rw [hrn] at h; exact nomatch h
+      rw [ConLeche.reduceNat_fold] at h; rw [hrn] at h; exact nomatch h
     | ok o =>
-    rw [Lech.reduceNat_fold] at h
+    rw [ConLeche.reduceNat_fold] at h
     rw [hrn] at h
     dsimp only at h
     match o, h with
@@ -836,7 +836,7 @@ theorem whnf_claimsP (m : EnvS2Core V env) {fuel : Nat}
     (hnat : ReduceNatStepP μ m φ fuel) (hdelta : DeltaP m φ) :
     WhnfClaims2P μ m φ (fuel + 1) := by
   intro d e e' Δa h hws hb hLb ea ea' hC hea hea' hok
-  rw [Lech.whnf_succ, whnfBody] at h
+  rw [ConLeche.whnf_succ, whnfBody] at h
   exact whnfLoop_claimP m hex ihwc hnat hdelta whnfLoopFuel h hws hb
     hLb hC hea hea' hok
 
@@ -911,4 +911,4 @@ theorem whnfStepP_of (_hμ : μ.verifiedChecks = true)
     whnf_claimsP m (hin.core_exists m φ fuel) ihwc
       (hin.nat m φ fuel ihw) (deltaP_of m (hin.defn m))
 
-end Lech.SetP
+end ConLeche.SetP

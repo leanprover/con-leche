@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectBodyFramesP
+import ConLeche.SetP.Direct.DirectBodyFramesP
 
 /-!
 # The projection entry's law (task #175 W4c, P3 module 7, part 5)
@@ -25,13 +25,13 @@ assignment, over the block's data alone):
 `TowerEntryLawP` at the table's extension.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta ProjEntry projFnName)
 
 universe w
@@ -75,7 +75,7 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
       AnnotOkP V ρ x →
       interp2 V ρ x ∈ˢ interp2 V ρ
         (AVExpr.mkAppN (directTyAV w pps ((ds.drop nP).map (·.2.2))) vs) →
-      Lech.SetP.AVExpr.peelPis (mkPisAV eds R) (vs ++ [x]) = some rest →
+      ConLeche.SetP.AVExpr.peelPis (mkPisAV eds R) (vs ++ [x]) = some rest →
       AnnotOkP V ρ (projAV i x) ∧ AnnotOkP V ρ rest ∧
         interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest := by
   intro ρ vs x rest hlenVs hokApp hokx hmem hpeel
@@ -110,14 +110,14 @@ theorem entryTypingCore {w nP nF i : Nat} {pps ds eds : List (Nat × Nat × AVEx
   have hframeS : Sat2 V ((ds.take nP).map (·.2.2)).reverse
       (fun j => (cons (interp2 V ρ x) (consList (vs.map (interp2 V ρ)) ρ)) (j + 1)) := hsatC
   -- the residual
-  have hrest : rest = Lech.SetP.AVExpr.instSeq (vs ++ [x]) nP R := by
+  have hrest : rest = ConLeche.SetP.AVExpr.instSeq (vs ++ [x]) nP R := by
     have h := peelPis_of_piTeleP (nP + 1) (by rw [← hlenEds]; exact piTeleP_mkPisAV eds R)
       (ws := vs ++ [x]) (by simp [hlenVs])
     rw [hpeel] at h
     have := Option.some.inj h
     rwa [Nat.add_sub_cancel] at this
-  have hlen' : Lech.SetP.AVExpr.instSeq (vs ++ [x]) nP R
-      = Lech.SetP.AVExpr.instSeq (vs ++ [x]) ((vs ++ [x]).length - 1) R := by
+  have hlen' : ConLeche.SetP.AVExpr.instSeq (vs ++ [x]) nP R
+      = ConLeche.SetP.AVExpr.instSeq (vs ++ [x]) ((vs ++ [x]).length - 1) R := by
     simp [hlenVs]
   have hinterpRest : interp2 V ρ rest
       = interp2 V (consList (projList i (interp2 V ρ x)) (consList (vs.map (interp2 V ρ)) ρ))
@@ -279,4 +279,4 @@ theorem entryEtaCore {w nP nF : Nat} {pps ds : List (Nat × Nat × AVExpr)} {ρ 
     rw [← projList_eq_map_range, hfold]
     exact heta
 
-end Lech.SetP
+end ConLeche.SetP

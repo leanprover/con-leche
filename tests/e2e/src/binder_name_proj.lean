@@ -3,7 +3,7 @@
 NAMES AND BINDER INFO"): the official kernel's `is_equal` and `hash`
 ignore binder names and binder infos, so `quick_is_def_eq` decides a
 pair that differs only in a nested binder name in its structural walk.
-Until task #203 lech's `==` read the display data, so such a pair
+Until task #203 con-leche's `==` read the display data, so such a pair
 missed the fast path and — when the difference sits inside a
 `.proj`-headed struct's argument — paid the projection clause's full
 `whnf` of the struct (the divergence audit's D5; the task #201 residual
@@ -28,7 +28,7 @@ checker at all (`scripts/mk_binder_twin_fixture.py --proj`):
 The fixture is a `raw` line in `tests/e2e-expected.txt`: the
 preprocessor's re-export goes through `Lean.Expr`, whose hash-consing
 is α-equivalence, so a piped run collapses the twin back into one node
-before lech sees it (DESIGN, task #203 §4).  Before #203 (master
+before con-leche sees it (DESIGN, task #203 §4).  Before #203 (master
 `a77ac1d6`, raw, `--verified`): accept at 3.38 G instructions against
 0.37 G for the same export without the twin; after: 0.37 G both. -/
 noncomputable def h (f : Nat → Nat) (x : Nat) : Nat × Nat :=

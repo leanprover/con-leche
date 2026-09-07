@@ -1,4 +1,4 @@
-import Lech.SetP.BasisStepP
+import ConLeche.SetP.BasisStepP
 
 /-!
 # The `Empty` block, P tier: the type-reading recipe, executed once
@@ -46,13 +46,13 @@ disagree where anything looks.
 Nothing in this file chooses a numeral.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   emptyA emptyRecA emptyName uN)
 
 universe w
@@ -86,7 +86,7 @@ theorem extendEmptyP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT emptyA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT emptyA.name ψ
           = some (VExpr.const .empty [1]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -110,13 +110,13 @@ are all three of them. -/
 
 /-- `pwBit` at a `.never` pin: the graph regime, unconditionally. -/
 theorem pwBit_never (ψ : Name → Nat) :
-    pwBit ψ Lech.PropWhen.never = 1 := rfl
+    pwBit ψ ConLeche.PropWhen.never = 1 := rfl
 
 /-- `pwBit` at a one-parameter `.ifAllZero` pin: zero exactly when the
 parameter is.  One of the *three* shapes every basis binder reduces to
 — see `pwBit_ifAllZero_nil`/`pwBit_ifAllZero_pair` for the other two. -/
 theorem pwBit_ifAllZero_single (ψ : Name → Nat) (n : Name) :
-    pwBit ψ (Lech.PropWhen.ifAllZero [n]) = 0 ↔ ψ n = 0 := by
+    pwBit ψ (ConLeche.PropWhen.ifAllZero [n]) = 0 ↔ ψ n = 0 := by
   rw [pwBit_eq_zero_iff]
   simp
 
@@ -145,7 +145,7 @@ because `[].all _` is `true`.  The pin the `Prop`-valued basis
 constants carry (`Eq.refl`, `PSigma'.rec`, `Quot.ind`, `Quot.sound`,
 and `Quot.lift`'s invariance binder). -/
 theorem pwBit_ifAllZero_nil (ψ : Name → Nat) :
-    pwBit ψ (Lech.PropWhen.ifAllZero []) = 0 := by
+    pwBit ψ (ConLeche.PropWhen.ifAllZero []) = 0 := by
   rw [pwBit_eq_zero_iff]
   simp
 
@@ -153,7 +153,7 @@ theorem pwBit_ifAllZero_nil (ψ : Name → Nat) :
 *both* parameters are.  `PSigma'.mk`'s pin, and the basis tier's only
 instance. -/
 theorem pwBit_ifAllZero_pair (ψ : Name → Nat) (n m : Name) :
-    pwBit ψ (Lech.PropWhen.ifAllZero [n, m]) = 0 ↔ (ψ n = 0 ∧ ψ m = 0) := by
+    pwBit ψ (ConLeche.PropWhen.ifAllZero [n, m]) = 0 ↔ (ψ n = 0 ∧ ψ m = 0) := by
   rw [pwBit_eq_zero_iff]
   simp
 
@@ -168,9 +168,9 @@ theorem denoteP_emptyRecA_type {m : EnvS2Core V env}
           (.pi 0 (pwBit ψ .never) (.const .empty [1]) (.sort (ψ uN)))
           (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .empty [1])
             (.app (.bvar 1) (.bvar 0)))) := by
-  have hpd : Lech.Verify.pinnedDirectT emptyName ψ
+  have hpd : ConLeche.Verify.pinnedDirectT emptyName ψ
       = some (VExpr.const .empty [1]) := by
-    simp +decide [Lech.Verify.pinnedDirectT]
+    simp +decide [ConLeche.Verify.pinnedDirectT]
   have hleaf : acvalWith m.acval emptyRecA.name A emptyName ψ
       = AVExpr.const .empty [1] := by
     rw [acvalWith_ne (by decide)]
@@ -182,7 +182,7 @@ theorem denoteP_emptyRecA_type {m : EnvS2Core V env}
     intro d
     have hf : (⟨emptyRecA :: env.consts⟩ : Env).find? emptyName
         = some emptyA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE
     rw [denoteP_levelless_const hf (by rfl), hleaf]
   rw [show emptyRecA.toConstantVal.type
       = Expr.forallE
@@ -206,7 +206,7 @@ theorem bitAgree_emptyRecA (ψ : Name → Nat) :
         (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .empty [1])
           (.app (.bvar 1) (.bvar 0))))
       (BConst.type2 .emptyRec [1, ψ uN]) := by
-  have hz : pwBit ψ (Lech.PropWhen.ifAllZero [uN]) = 0 ↔ ψ uN = 0 :=
+  have hz : pwBit ψ (ConLeche.PropWhen.ifAllZero [uN]) = 0 ↔ ψ uN = 0 :=
     pwBit_ifAllZero_single ψ uN
   refine .pi hz (.pi ?_ (.const _ _) (.sort _))
     (.pi hz (.const _ _) (.app (.bvar 1) (.bvar 0)))
@@ -230,7 +230,7 @@ theorem extendEmptyRecP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT emptyRecA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT emptyRecA.name ψ
           = some (VExpr.const .emptyRec [1, ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -264,9 +264,9 @@ it.  `BasisInstallRun` is a right-nested `∧` chain, so the walk is an
 /-- **The `Empty` block, installed at the P tier.**  `BasisStepPB`'s
 `emptyK` branch. -/
 theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
-    (h : Lech.Semantics.BasisInstallRun env Lech.BasisKind.emptyK.declsA env₂) :
+    (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.emptyK.declsA env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
-  rw [show Lech.BasisKind.emptyK.declsA = [emptyA, emptyRecA] from rfl]
+  rw [show ConLeche.BasisKind.emptyK.declsA = [emptyA, emptyRecA] from rfl]
     at h
   obtain ⟨h1, h2, hnil⟩ := h
   subst hnil
@@ -279,7 +279,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
   obtain ⟨mp1⟩ := extendEmptyP mp hf1 hwf1
   have hE : (⟨emptyA :: env.consts⟩ : Env).find? emptyName
       = some emptyA := by
-    rw [Lech.Env.find?_cons]; exact if_pos rfl
+    rw [ConLeche.Env.find?_cons]; exact if_pos rfl
   have hf2 : (⟨emptyA :: env.consts⟩ : Env).find? emptyRecA.name
       = none := Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨emptyRecA :: emptyA :: env.consts⟩ := by
@@ -302,7 +302,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
       Expr.constsResolve, Bool.and_eq_true, Option.isSome_iff_exists]
     have hf : (⟨emptyRecA :: emptyA :: env.consts⟩ : Env).find?
         emptyName = some emptyA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]
       exact hE
     rw [hf]
     simp
@@ -333,11 +333,11 @@ the `.plain` conjunct and the fold contract. -/
 
 /-- **Every stored basis recursor rule fires `.plain`.**  Computed, not
 argued — and it is the *annotated* pin that governs. -/
-theorem basis_rec_rules_plain (kind : Lech.BasisKind) :
+theorem basis_rec_rules_plain (kind : ConLeche.BasisKind) :
     ∀ ci ∈ kind.declsA,
       (match ci with
        | .recInfo _ _ _ rules =>
-         rules.all fun rl => Lech.RecRule.fire rl == .plain
+         rules.all fun rl => ConLeche.RecRule.fire rl == .plain
        | _ => true) = true := by
   cases kind <;> decide
 
@@ -345,7 +345,7 @@ theorem basis_rec_rules_plain (kind : Lech.BasisKind) :
 rules** — the sole rows `declStepPM_of_basis_cons`'s `hnotrec` premise
 can discharge, and the reason this file's block (and its `False` twin,
 `BasisFalseP.lean`, task #181) are the ones that close this way. -/
-theorem basis_rec_rules_nonempty (kind : Lech.BasisKind)
+theorem basis_rec_rules_nonempty (kind : ConLeche.BasisKind)
     (hk : kind ≠ .emptyK) (hk' : kind ≠ .falseK) :
     ∀ ci ∈ kind.declsA,
       (match ci with
@@ -356,4 +356,4 @@ theorem basis_rec_rules_nonempty (kind : Lech.BasisKind)
   case falseK => exact absurd rfl hk'
   all_goals decide
 
-end Lech.SetP
+end ConLeche.SetP

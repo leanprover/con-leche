@@ -1,5 +1,5 @@
-import Lech.SetP.BasisConsP
-import Lech.Semantics.EqTower
+import ConLeche.SetP.BasisConsP
+import ConLeche.Semantics.EqTower
 
 /-!
 # The annotated hand-built basis towers, `Eq` family (task #161, ENDGAME E)
@@ -49,13 +49,13 @@ be recorded as such rather than deleted: a future hand-built value at a
 constant whose type is *not* stored would still have a genuine choice.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr eqValT eqReflValT eqRecValT)
-open Lech (Name)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr eqValT eqReflValT eqRecValT)
+open ConLeche (Name)
 
 universe w
 
@@ -285,7 +285,7 @@ theorem eqValT2_app₃_okP (ψ : Name → Nat) (ρ : Nat → V)
 
 /-- **`EqLawP` from the tower.**  Any environment carrier whose `Eq`
 leaf is the annotated tower satisfies the field. -/
-theorem eqLawP_of_tower {env : Lech.Env} (m : EnvS2Core V env)
+theorem eqLawP_of_tower {env : ConLeche.Env} (m : EnvS2Core V env)
     (hleaf : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT2 ψ) :
     EqLawP m := by
   intro _hf ψ
@@ -295,4 +295,4 @@ theorem eqLawP_of_tower {env : Lech.Env} (m : EnvS2Core V env)
   · rw [hleaf]
     exact eqValT2_app₃_okP ψ ρ hAa hla hra hA ha hb
 
-end Lech.SetP
+end ConLeche.SetP

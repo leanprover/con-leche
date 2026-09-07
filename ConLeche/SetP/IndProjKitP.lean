@@ -1,4 +1,4 @@
-import Lech.SetP.IndPinGradeP
+import ConLeche.SetP.IndPinGradeP
 
 /-!
 # The projection bottom's kit, at the reading (task #161, IND TIER part 9)
@@ -31,13 +31,13 @@ domain reads at depth `q` to the tower slot `Γ.getD (K - 1 - q)` —
 slot transported across `denoteP_lift`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name BinderMeta)
 
 universe w
 
@@ -94,7 +94,7 @@ theorem stripLams_denotePTele :
   induction k with
   | zero =>
     intro e j bs body E h hE
-    simp only [Lech.Expr.stripLams, Option.some.injEq,
+    simp only [ConLeche.Expr.stripLams, Option.some.injEq,
       Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
     exact ⟨[], E, .nil, rfl, hE, fun i0 b hb => nomatch hb⟩
@@ -102,7 +102,7 @@ theorem stripLams_denotePTele :
     intro e j bs body E h hE
     match e, h with
     | .lam dom bodyE mb, h =>
-      simp only [Lech.Expr.stripLams] at h
+      simp only [ConLeche.Expr.stripLams] at h
       cases hs : bodyE.stripLams k with
       | none => rw [hs] at h; exact nomatch h
       | some p => ?_
@@ -126,15 +126,15 @@ theorem stripLams_denotePTele :
       have hB' : denoteP acval env φ (j + 1)
           (bodyE.instantiate1 (.fvar j (.sort .zero)))
           = some Bv := by
-        rw [denoteP_erasedEq (Lech.Expr.ErasedEq.instantiate1
-          (Lech.Expr.ErasedEq.rfl bodyE)
-          (show Lech.Expr.ErasedEq
+        rw [denoteP_erasedEq (ConLeche.Expr.ErasedEq.instantiate1
+          (ConLeche.Expr.ErasedEq.rfl bodyE)
+          (show ConLeche.Expr.ErasedEq
               (.fvar j (.sort .zero)) (.fvar j dom)
             from by constructor)) (j + 1)]
         exact hB
       have hsI : ((bodyE.instantiate1 (.fvar j
           (.sort .zero))).stripLams k).isSome :=
-        Lech.Expr.stripLams_instantiate1_isSome k 0 (by rw [hs]; rfl)
+        ConLeche.Expr.stripLams_instantiate1_isSome k 0 (by rw [hs]; rfl)
       obtain ⟨bs', body', hsI2⟩ : ∃ bs' body',
           (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripLams k = some (bs', body') := by
@@ -143,10 +143,10 @@ theorem stripLams_denotePTele :
         | none => rw [hq] at hsI; exact nomatch hsI
         | some q => exact ⟨q.1, q.2, rfl⟩
       obtain ⟨hbody', hdoms'⟩ :=
-        Lech.Expr.stripLams_instantiate1_eq k 0 hs hsI2
+        ConLeche.Expr.stripLams_instantiate1_eq k 0 hs hsI2
       obtain ⟨Γ', C, htele, hΓlen, hbody, hdoms⟩ := ih hsI2 hB'
       have hbslen' : bs'.length = k :=
-        Lech.Expr.stripLams_length k hsI2
+        ConLeche.Expr.stripLams_length k hsI2
       refine ⟨Γ' ++ [A], C, .cons htele, by simp [hΓlen], ?_, ?_⟩
       · show denoteP acval env φ (j + (k + 1))
           (Expr.instSeq (openFvars j (k + 1)) (k + 1 - 1) p.2)
@@ -182,7 +182,7 @@ theorem stripLams_denotePTele :
             rcases Nat.lt_or_ge i0 k with h' | h'
             · exact h'
             · rw [List.getElem?_eq_none
-                (by rw [Lech.Expr.stripLams_length k hs]; omega)] at hb
+                (by rw [ConLeche.Expr.stripLams_length k hs]; omega)] at hb
               exact nomatch hb
           have hb' : bs'[i0]? = some (bs'[i0]'(by omega)) :=
             List.getElem?_eq_getElem (by omega)
@@ -400,9 +400,9 @@ theorem instPisAt_openerDomsP :
         -- blind to it
         have hB' : denoteP acval env φ (j + 1)
             (bodyE.instantiate1 (.fvar (j + 0) t0)) = some B' := by
-          rw [denoteP_erasedEq (Lech.Expr.ErasedEq.instantiate1
-            (Lech.Expr.ErasedEq.rfl bodyE)
-            (show Lech.Expr.ErasedEq (.fvar (j + 0) t0)
+          rw [denoteP_erasedEq (ConLeche.Expr.ErasedEq.instantiate1
+            (ConLeche.Expr.ErasedEq.rfl bodyE)
+            (show ConLeche.Expr.ErasedEq (.fvar (j + 0) t0)
                 (.fvar j dom) from by
               rw [Nat.add_zero]; constructor)) (j + 1)]
           exact hB
@@ -498,4 +498,4 @@ theorem projSpineMemP
     omega]
   exact hslot
 
-end Lech.SetP
+end ConLeche.SetP

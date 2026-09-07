@@ -1,4 +1,4 @@
-# PERF.md — the lech performance battery
+# PERF.md — the con-leche performance battery
 
 | | |
 |---|---|
@@ -7,13 +7,13 @@
 | date | 2026-09-06T21:37:34+00:00 |
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
-| metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` (the `mathlib-full` row: 22 GB, 8 h, `LECH_PROGRESS=5000`) |
-| streams | preprocessed once off the clock by `lech-preprocess`; both checkers read the same bytes, lech under `--pre` |
-| Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full-pre-idx.ndjson` (5 696 387 898 bytes), cut by the merged `lech-preprocess` in 391 s |
+| metric | `perf stat -e instructions:u`, one run per cell, `ulimit -v 16000000`, `timeout 3000`, `nice -n 5` (the `mathlib-full` row: 22 GB, 8 h, `CON_LECHE_PROGRESS=5000`) |
+| streams | preprocessed once off the clock by `con-leche-preprocess`; both checkers read the same bytes, con-leche under `--pre` |
+| Mathlib stream | `<checkout>/_tmp/mathlib-scoping/mathlib-full-pre-idx.ndjson` (5 696 387 898 bytes), cut by the merged `con-leche-preprocess` in 391 s |
 | concurrent load | other agents' builds and single-process checkers ran on the machine throughout; battery cells still ran strictly one at a time, and `instructions:u` is contention-independent |
 | official kernel | `<main-checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel` |
-| preprocessor | `<checkout>/.lake/build/bin/lech-preprocess` |
-| lech binary | md5 `642fb47bb6f35156100e93d5c329d940` |
+| preprocessor | `<checkout>/.lake/build/bin/con-leche-preprocess` |
+| con-leche binary | md5 `642fb47bb6f35156100e93d5c329d940` |
 
 ## instructions:u
 
@@ -46,12 +46,12 @@ Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
 Properties of the preprocessed FILE, computed by
 `scripts/stream-census.py` — nobody's environment representation
 enters here.  `records` is the number of declaration records in the
-file; `lech` and `official` are what each checker's verdict line
+file; `con-leche` and `official` are what each checker's verdict line
 reports on it, both derived from the file alone (see the count note
 below).  The native blocks are the inductive records the
-preprocessor left for lech to install directly, split by shape.
+preprocessor left for con-leche to install directly, split by shape.
 
-| stream | records | lech | official | pinned | modeled | native | structures | sums | indexed |
+| stream | records | con-leche | official | pinned | modeled | native | structures | sums | indexed |
 |---|---|---|---|---|---|---|---|---|---|
 | `let-ladder` | 13 | 13 | 19 | 2 | 0 | 2 | 2 | 0 | 0 |
 | `beta-ladder` | 11 | 11 | 17 | 3 | 0 | 1 | 1 | 0 | 0 |
@@ -75,17 +75,17 @@ reader wants before pointing the checker at all of Mathlib.
 
 ## Notes
 
-* **What changed since the previous table** (`161cd827`).  Both the binary and the streams moved, and a control run separates them: THIS binary on the PREVIOUS table's own `init-full` stream gives official 413.02 G (previous table 413.14 G — unchanged, as it must be), `--trusted` 642.38 G (was 794.99 G) and `--verified` 668.05 G (was 841.70 G, 2.04× → 1.62× official).  So **−20.6 % of the verified column is the BINARY** — the landings between the two tables: #175 W2c/W3's direct indexed installs, #184's build-time split, #185's `CoreCfg` retirement, #186's rename to Lech, #191's built-in prelude, #192, #193's native-predicate fix and #194's canonical `PropWhen`; the split among them was not measured — and **a further −1.9 % is the REGENERATED stream** (655.22 G), cut by the current `lech-preprocess`, whose predicate installs structures, sums and indexed families natively: 548 of init-full's 610 inductive blocks now go through the direct route and only 57 are still modeled.  Every accepted count also changed UNIT (below), so no count here is comparable with the previous table's; and `mathlib-full` is new.
-* **All of Mathlib, all three checkers, one stream.**  The `mathlib-full` row is the whole Mathlib export (`lean4export` 3.1.0, Lean 4.29.1, githash `f72c35b3f637c8c6571d353742168ab66cc22c00`), preprocessed once by the merged post-#193 `lech-preprocess` (391 s, 8.77 GiB, exit 0) into 5 696 387 898 B, and read by all three cells.  **Every cell accepts**: official 683 531 declarations, lech 665 087 declaration records in BOTH modes — and both numbers are exactly what the census predicts from the file, which is the row's own integrity check.  It is the first full-Mathlib ratio on identical bytes: **1.45× verified, 1.32× trusted**, i.e. BETTER than init-full's 1.61×/1.55 ×, so the corpus does not punish the checker at scale.  The lech cells ran under `LECH_PROGRESS=5000` (the user's ruling: the progress fold is an acceptable producer; measured cost on init-full −0.0006 %) with timestamped stderr kept beside the table.  An earlier attempt on a stream cut BEFORE task #193 declined at 7.5 % on `missing model for CategoryTheory.Presieve.ofArrows` — a preprocessor/installer predicate disagreement, found by this lane, fixed as #193, and visible in the census as 23 indexed families moving from native to modeled (109 → 86 indexed, 502 → 525 modeled).  See DESIGN task #187.
+* **What changed since the previous table** (`161cd827`).  Both the binary and the streams moved, and a control run separates them: THIS binary on the PREVIOUS table's own `init-full` stream gives official 413.02 G (previous table 413.14 G — unchanged, as it must be), `--trusted` 642.38 G (was 794.99 G) and `--verified` 668.05 G (was 841.70 G, 2.04× → 1.62× official).  So **−20.6 % of the verified column is the BINARY** — the landings between the two tables: #175 W2c/W3's direct indexed installs, #184's build-time split, #185's `CoreCfg` retirement, #186's rename to ConLeche, #191's built-in prelude, #192, #193's native-predicate fix and #194's canonical `PropWhen`; the split among them was not measured — and **a further −1.9 % is the REGENERATED stream** (655.22 G), cut by the current `con-leche-preprocess`, whose predicate installs structures, sums and indexed families natively: 548 of init-full's 610 inductive blocks now go through the direct route and only 57 are still modeled.  Every accepted count also changed UNIT (below), so no count here is comparable with the previous table's; and `mathlib-full` is new.
+* **All of Mathlib, all three checkers, one stream.**  The `mathlib-full` row is the whole Mathlib export (`lean4export` 3.1.0, Lean 4.29.1, githash `f72c35b3f637c8c6571d353742168ab66cc22c00`), preprocessed once by the merged post-#193 `con-leche-preprocess` (391 s, 8.77 GiB, exit 0) into 5 696 387 898 B, and read by all three cells.  **Every cell accepts**: official 683 531 declarations, con-leche 665 087 declaration records in BOTH modes — and both numbers are exactly what the census predicts from the file, which is the row's own integrity check.  It is the first full-Mathlib ratio on identical bytes: **1.45× verified, 1.32× trusted**, i.e. BETTER than init-full's 1.61×/1.55 ×, so the corpus does not punish the checker at scale.  The con-leche cells ran under `CON_LECHE_PROGRESS=5000` (the user's ruling: the progress fold is an acceptable producer; measured cost on init-full −0.0006 %) with timestamped stderr kept beside the table.  An earlier attempt on a stream cut BEFORE task #193 declined at 7.5 % on `missing model for CategoryTheory.Presieve.ofArrows` — a preprocessor/installer predicate disagreement, found by this lane, fixed as #193, and visible in the census as 23 indexed families moving from native to modeled (109 → 86 indexed, 502 → 525 modeled).  See DESIGN task #187.
 * **The verdict line counts declaration RECORDS** (task #187).  It
   used to print `env.consts.length`, the number of environment
   CONSTANTS, which counts an inductive block's type former, its
   constructors, its recursor and its projection table separately —
-  a property of lech's representation that moved whenever the
+  a property of con-leche's representation that moved whenever the
   representation moved.  It now prints the STREAM's record count —
   `decls.size - preludeCount + preludeDropped` since task #191's
   built-in prelude, so a stream that re-declares a prelude block
-  identically reports what it declared.  `LECH_VERBOSE=1` still
+  identically reports what it declared.  `CON_LECHE_VERBOSE=1` still
   prints the constant count, on stderr, beside it.
 * **The official number is not a record count either.**  Its
   `Main.lean` prints `constMap.size`: one entry per exported
@@ -95,7 +95,7 @@ reader wants before pointing the checker at all of Mathlib.
   functions of the input file alone, and the census table above
   reproduces each of them exactly from the bytes.
 * **Cross-pipeline, not same-work.**  Both sides read the same bytes,
-  but a lech cell installs the native blocks through its own direct
+  but a con-leche cell installs the native blocks through its own direct
   route and the rest through a *modeled* encoding, and runs an
   `annotate` pass with no official counterpart, while official checks
   that file with native inductive/recursor support throughout.
@@ -106,7 +106,7 @@ reader wants before pointing the checker at all of Mathlib.
   contention-independent, so a cell may overlap other work; wall time
   is not reported for that reason (the Mathlib row's minutes are
   labelled as data, above).
-* Regenerate with `lake build lech && scripts/perf-tables.sh`;
+* Regenerate with `lake build con-leche && scripts/perf-tables.sh`;
   `--render` re-renders from `perf-data/` without measuring, and
   `PERF_STREAMS=… PERF_APPEND=1` re-runs a single stream.  The
   `mathlib-full` row needs its stream cut by hand first (the

@@ -1,6 +1,6 @@
-import Lech.Verify.EnvGuards
-import Lech.Verify.Extend.Inversions
-import Lech.Verify.NatOpFrag
+import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.NatOpFrag
 
 /-!
 # The compiler-trust opaque pin, inverted (V-free)
@@ -15,7 +15,7 @@ only the identity certificate; `SetR`'s `ReducePinR` also records the
 guards and the pin comparison, and the proof always had them.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
 variable {mode : CheckMode} {F : Nat}
 
@@ -104,4 +104,4 @@ theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
   | false => simp [throw, throwThe, MonadExceptOf.throw] at h
   | true => exact ⟨valA, pinA, rfl, rfl, hp1, hp2⟩
 
-end Lech.Verify
+end ConLeche.Verify

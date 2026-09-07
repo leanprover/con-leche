@@ -1,5 +1,5 @@
-import Lech.SetP.Direct.DirectRecDataP
-import Lech.SetP.IndProjKitP
+import ConLeche.SetP.Direct.DirectRecDataP
+import ConLeche.SetP.IndProjKitP
 
 /-!
 # The recursor's frame kit (task #175 W4c, P3 module 6, part 8)
@@ -19,13 +19,13 @@ The pieces the recursor's frames are assembled from:
   instantiated carrier, by `formerFold`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
 universe w
@@ -35,10 +35,10 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 /-! ## Inference kit -/
 
 theorem ensureSortCore_of_whnf {F d : Nat} {t : Expr} {u : Level}
-    (h : Lech.whnf μ env F d t = .ok (.sort u)) :
-    Lech.ensureSortCore μ env F d t = .ok u := by
-  unfold Lech.ensureSortCore Lech.ensureSort
-  simp only [Bind.bind, Except.bind, Lech.whnf_def]
+    (h : ConLeche.whnf μ env F d t = .ok (.sort u)) :
+    ConLeche.ensureSortCore μ env F d t = .ok u := by
+  unfold ConLeche.ensureSortCore ConLeche.ensureSort
+  simp only [Bind.bind, Except.bind, ConLeche.whnf_def]
   rw [h]
   exact rfl
 
@@ -46,11 +46,11 @@ theorem ensureSortCore_of_whnf {F d : Nat} {t : Expr} {u : Level}
 theorem piDomsSorts_of_infer :
     ∀ (n : Nat) {F d : Nat} {e t : Expr} {fvs : List Expr} {opened : Expr},
       openPisAtFvars n e d = some (fvs, opened) →
-      Lech.inferTypeCore μ env F d e = .ok t →
+      ConLeche.inferTypeCore μ env F d e = .ok t →
       ∀ (j : Nat) (x : Expr), fvs[j]? = some x →
         ∃ (F' : Nat) (tj : Expr) (u : Level),
-          Lech.inferTypeCore μ env F' (d + j) (Expr.fvarTypeD x) = .ok tj ∧
-          Lech.ensureSortCore μ env F' (d + j) tj = .ok u
+          ConLeche.inferTypeCore μ env F' (d + j) (Expr.fvarTypeD x) = .ok tj ∧
+          ConLeche.ensureSortCore μ env F' (d + j) tj = .ok u
   | 0, F, d, e, t, fvs, opened, hop, _, j, x, hx => by
     simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
     obtain ⟨rfl, -⟩ := hop
@@ -59,10 +59,10 @@ theorem piDomsSorts_of_infer :
     match e, hop, h with
     | .forallE dom body mb, hop, h =>
       match F, h with
-      | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
+      | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
       | F + 1, h =>
         obtain ⟨tty, u, bt, v, hty, hwh, hbt, -, -, rfl⟩ :=
-          Lech.inferTypeCore_forall_inv h
+          ConLeche.inferTypeCore_forall_inv h
         simp only [openPisAtFvars] at hop
         split at hop
         · next fvs' e' hop' =>
@@ -176,9 +176,9 @@ theorem instPisAt_openerResP {acval : Name → (Name → Nat) → AVExpr} :
         exact ⟨hA'.symm, hB'.symm⟩
       have hB' : denoteP acval env φ (j + 1)
           (bodyE.instantiate1 (.fvar (j + 0) t0)) = some B' := by
-        rw [denoteP_erasedEq (Lech.Expr.ErasedEq.instantiate1
-          (Lech.Expr.ErasedEq.rfl bodyE)
-          (show Lech.Expr.ErasedEq (.fvar (j + 0) t0) (.fvar j dom) from by
+        rw [denoteP_erasedEq (ConLeche.Expr.ErasedEq.instantiate1
+          (ConLeche.Expr.ErasedEq.rfl bodyE)
+          (show ConLeche.Expr.ErasedEq (.fvar (j + 0) t0) (.fvar j dom) from by
             rw [Nat.add_zero]; constructor)) (j + 1)]
         exact hB
       have hshape' : ∀ (q0 : Nat) (x : Expr), sp[q0]? = some x →

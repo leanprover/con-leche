@@ -1,6 +1,6 @@
-import Lech.Semantics.IndBlockRun
-import Lech.SetP.IndTeleP
-import Lech.SetP.BasisEqP
+import ConLeche.Semantics.IndBlockRun
+import ConLeche.SetP.IndTeleP
+import ConLeche.SetP.BasisEqP
 
 /-!
 # The unit-like key, P tier (task #161, IND TIER part 2, item 1b)
@@ -47,13 +47,13 @@ slots, so the fit supplies their memberships directly.  Rigidity
 appears here only for the type slot, which every `Eq` statement needs.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps ReducibilityHint BinderMeta)
 
 universe w
@@ -166,7 +166,7 @@ theorem memberTypeReadEq (mp : EnvS2PM V μ env) {blockNames : List Name}
   obtain ⟨-, -, -, -, -, -, -, -, htr, -⟩ := hcv
   obtain rfl : cvm' = cvm := by
     rw [hfm'] at hfm
-    exact (Lech.ConstantInfo.defnInfo.inj (Option.some.inj hfm)).1
+    exact (ConLeche.ConstantInfo.defnInfo.inj (Option.some.inj hfm)).1
   exact blockTypeReadEq mp hIB hIA htr hren ψ
 
 /-! ## `Eq`'s pinned type, at any environment storing it -/
@@ -265,7 +265,7 @@ theorem memberUnitLawP : MemberUnitLawP V := by
     hTstrip, hsdoms, hxdom, hydom, hsbody, htySlot, -⟩ := hp.2 hcapu
   have hcvmEq : cvm₀ = cvmT := by
     have h := hTmE; rw [hfm₀] at h
-    exact (Lech.ConstantInfo.defnInfo.inj (Option.some.inj h)).1
+    exact (ConLeche.ConstantInfo.defnInfo.inj (Option.some.inj h)).1
   -- the model former's type reads to the member's reading
   have htaM : denoteP mp.base2.acval env ψ 0 cvmT.type = some ta := by
     rw [← hcvmEq, ← memberTypeReadEq mp hmv hIB hIA hfm₀ ψ]; exact hta
@@ -283,9 +283,9 @@ theorem memberUnitLawP : MemberUnitLawP V := by
   cases hS0
   -- the binder lists' lengths
   have hsblen : sbinders.length = caps.unitParams + 2 :=
-    Lech.Expr.stripPis_length _ hSstrip
+    ConLeche.Expr.stripPis_length _ hSstrip
   have htblen : tbindersM.length = caps.unitParams :=
-    Lech.Expr.stripPis_length _ hTstrip
+    ConLeche.Expr.stripPis_length _ hTstrip
   -- Γ₁ = [Ay, Ax]
   have hΓ₁ : Γ₁ = [Ay, Ax] := by
     rw [hΓ₁eq, hΓ₁'eq]; rfl
@@ -479,4 +479,4 @@ theorem memberUnitLawP : MemberUnitLawP V := by
     hSuniv hmx hmy] at hlanded
   exact eq_of_mem_eqv hlanded
 
-end Lech.SetP
+end ConLeche.SetP

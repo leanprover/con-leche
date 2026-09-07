@@ -1,4 +1,4 @@
-import Lech.SetTheory.Basic
+import ConLeche.SetTheory.Basic
 
 /-!
 # The two-regime product and abstraction (task #151, tier B)
@@ -7,7 +7,7 @@ import Lech.SetTheory.Basic
 abstraction: they read a numeral — the codomain sort of the binder,
 supplied by the annotation pass — and dispatch on it, rather than
 inspecting the semantic value the way the domain-relative collapse
-(`pcol`/`piC`/`lamC`, `Lech/SetTheory/Derive/Pi.lean`) does.
+(`pcol`/`piC`/`lamC`, `ConLeche/SetTheory/Derive/Pi.lean`) does.
 
 * **`v = 0` — the truth-value (squash) regime.**  `piR 0 A B` is the
   truth value `[∀ x ∈ A, B x inhabited]`, `lamR 0 A F` is the canonical
@@ -26,7 +26,7 @@ inspecting the semantic value the way the domain-relative collapse
 
 The operators are the pre-#100 `SetTheory.pi`/`SetTheory.lam` (see the
 git history of `Derive/Pi.lean`), restated in this namespace so that
-`Lech/SetTheory/*` is untouched; the law battery below is that file's,
+`ConLeche/SetTheory/*` is untouched; the law battery below is that file's,
 plus the *inversion* laws that only the annotation-driven definition can
 have (`mem_piR_pos`, `piR_dom_unique`, `not_pt_mem_piR_pos`).
 
@@ -39,7 +39,7 @@ the graph regime never produces, contains, or consults it.  See
 `docs/SetR-DESIGN.md`, tier B, "`pt` is demoted, not deleted".
 -/
 
-namespace Lech.SetModel
+namespace ConLeche.SetModel
 
 open SetTheory
 
@@ -347,4 +347,4 @@ theorem lamR_pos_empty {v : Nat} (hv : v ≠ 0) (F : V → V) :
   obtain ⟨x, hx, -⟩ := mem_graph.mp hz
   exact not_mem_empty x hx
 
-end Lech.SetModel
+end ConLeche.SetModel

@@ -1,6 +1,6 @@
-import Lech.Semantics.Tower.SumLeaf
-import Lech.Semantics.Tower.TowerRec
-import Lech.Semantics.Tower.TowerWire
+import ConLeche.Semantics.Tower.SumLeaf
+import ConLeche.Semantics.Tower.TowerRec
+import ConLeche.Semantics.Tower.TowerWire
 
 /-!
 # The index equation, spelled (task #175 indexed)
@@ -26,12 +26,12 @@ fitting spine of the fields followed by the point, with the equations
 holding at the fields.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
-open Lech.VExpr (VExpr)
+open ConLeche.SetTheory.Tower
+open ConLeche.VExpr (VExpr)
 
 universe uv
 
@@ -526,4 +526,4 @@ theorem FieldsBelow_rChain {d nIdx : Nat} (hd : nIdx ≤ d) {Fs Es : List AVExpr
     have := List.mem_range.mp hl
     omega
 
-end Lech.Semantics
+end ConLeche.Semantics

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # scripts/selfcheck.sh — THE SELF-CHECK (task #199).
 #
-# Export lech's own Lean development with `lean4export` and run lech on
+# Export con-leche's own Lean development with `lean4export` and run con-leche on
 # the result.  The checker whose consistency the tree proves is asked to
 # accept the proof that says so.
 #
-# WHAT IS EXPORTED.  Not "the whole imported environment": `Lech` reaches
-# `Lean` (through `Lech/Kernel/BasisGen.lean`'s elaborator and
-# `Lech/Frontend/Export.lean`'s JSON reader), and that environment holds
+# WHAT IS EXPORTED.  Not "the whole imported environment": `ConLeche` reaches
+# `Lean` (through `ConLeche/Kernel/BasisGen.lean`'s elaborator and
+# `ConLeche/Frontend/Export.lean`'s JSON reader), and that environment holds
 # ~233k constants, the overwhelming majority of them elaborator internals
 # no declaration of ours depends on.  What is exported is **every
-# non-internal constant declared by a lech module, plus its transitive
+# non-internal constant declared by a con-leche module, plus its transitive
 # dependency cone** — `scripts/SelfcheckDecls.lean` prints the root list,
 # `lean4export` walks the cone.  On master `2d36855d` (task #199) that
 # is 15,738 roots and 34,417 exported declarations (17,062 theorems,
@@ -25,32 +25,32 @@
 #
 # WHAT IS NOT EXPORTED, and why.
 #
-#   * `Lech.Challenge` — the Palomar challenge statement is a deliberate
+#   * `ConLeche.Challenge` — the Palomar challenge statement is a deliberate
 #     `sorry` (see `tests/trust-surface.sh`).  It roots its own library,
 #     is in no default target, has no `.olean` in a normal build, and
 #     nothing imports it, so it cannot enter the cone.
-#   * `LechPreprocess` — the `lech-preprocess` executable is a five-line
+#   * `ConLechePreprocess` — the `con-leche-preprocess` executable is a five-line
 #     front end for the external `lean-inductive-models` tool.  Its cone
 #     is that tool plus the whole Lean elaborator, i.e. someone else's
-#     code; nothing in `Lech.*` imports it (that is the point of the
+#     code; nothing in `ConLeche.*` imports it (that is the point of the
 #     lakefile's note on the dependency).
-#   * `LechTests` — fixtures, not the development.
+#   * `ConLecheTests` — fixtures, not the development.
 #   * `unsafe` declarations.  `lean4export` skips them unless
 #     `--export-unsafe` is given, and skips them even when they are
 #     reached as dependencies.  This is SAFE here and it was checked:
-#     the only `isUnsafe` constants in the cone are `Lech.Expr.beqB`,
-#     `Lech.Expr.beqFast`, `Lech.Expr.beqGo` (the `@[implemented_by]`
-#     pointer-equality fast path, `Lech/Kernel/Expr.lean`) and
+#     the only `isUnsafe` constants in the cone are `ConLeche.Expr.beqB`,
+#     `ConLeche.Expr.beqFast`, `ConLeche.Expr.beqGo` (the `@[implemented_by]`
+#     pointer-equality fast path, `ConLeche/Kernel/Expr.lean`) and
 #     `ptrAddrUnsafe` itself, and **no safe constant in the cone refers
 #     to any of them** — an `@[implemented_by]` attribute is not part of
-#     the kernel declaration, so `Lech.Expr.beq` exports as the ordinary
+#     the kernel declaration, so `ConLeche.Expr.beq` exports as the ordinary
 #     definition it is.  The stream therefore has no dangling reference.
-#     `Lech/Kernel/Expr.lean`'s `@[computed_field]` words are likewise
+#     `ConLeche/Kernel/Expr.lean`'s `@[computed_field]` words are likewise
 #     invisible to the kernel and so to the export.
 #   * `partial def` bodies.  Each `partial def f` is two declarations:
 #     the internal `f._unsafe_rec` (`unsafe`, skipped as above) and `f`
 #     itself, an `opaque` constant.  The opaques ARE exported — 252 of
-#     them — and lech installs opaques as non-unfoldable constants
+#     them — and con-leche installs opaques as non-unfoldable constants
 #     (task #95).  There are no `.partial`-safety definitions in the
 #     cone at all.
 #
@@ -60,8 +60,8 @@
 #   OUTDIR defaults to `_tmp/selfcheck`.  Steps are skipped when their
 #   output is already there, so a re-run only redoes the check:
 #     $OUTDIR/lean4export/   the exporter, built at THIS tree's toolchain
-#     $OUTDIR/lech-decls.txt the root declaration list
-#     $OUTDIR/lech-export.ndjson  the export
+#     $OUTDIR/con-leche-decls.txt the root declaration list
+#     $OUTDIR/con-leche-export.ndjson  the export
 #     $OUTDIR/check.log      the checker's stderr, timestamped
 #
 # THE EXPORTER RECIPE.  `lean4export`'s output format tracks the Lean
@@ -91,10 +91,10 @@ OUTDIR=$(cd "$OUTDIR" && pwd)
 
 TOOLCHAIN=$(cat lean-toolchain)
 # The library roots (the lakefile's `defaultTargets` plus the certificate
-# library and the `lech` executable's root).  `Lech.Challenge` and the
+# library and the `con-leche` executable's root).  `ConLeche.Challenge` and the
 # test library are deliberately absent; see the header.
-ROOTS=(Lech Lech.VExpr Lech.SetModel Lech.Semantics Lech.SetP
-       Lech.Verify.Cached Lech.MainTheorem Lech.PinGen.Certs Main)
+ROOTS=(ConLeche ConLeche.VExpr ConLeche.SetModel ConLeche.Semantics ConLeche.SetP
+       ConLeche.Verify.Cached ConLeche.MainTheorem ConLeche.PinGen.Certs Main)
 
 # ---------------------------------------------------------------- 1/4
 L4E=$OUTDIR/lean4export
@@ -115,37 +115,37 @@ if [ ! -x "$L4E/.lake/build/bin/lean4export" ]; then
 fi
 
 # ---------------------------------------------------------------- 2/4
-if [ ! -s "$OUTDIR/lech-decls.txt" ]; then
+if [ ! -s "$OUTDIR/con-leche-decls.txt" ]; then
   echo "[selfcheck] collecting the root declaration list"
   lake env lean --run scripts/SelfcheckDecls.lean "${ROOTS[@]}" \
-    > "$OUTDIR/lech-decls.txt"
+    > "$OUTDIR/con-leche-decls.txt"
 fi
-echo "[selfcheck] $(wc -l < "$OUTDIR/lech-decls.txt") root declarations"
+echo "[selfcheck] $(wc -l < "$OUTDIR/con-leche-decls.txt") root declarations"
 
 # ---------------------------------------------------------------- 3/4
 # The exporter is cheap (2.4 GB peak RSS, ~25 s at task #199) — it is the
 # CHECK that is Mathlib-scale, not this.
-if [ ! -s "$OUTDIR/lech-export.ndjson" ]; then
+if [ ! -s "$OUTDIR/con-leche-export.ndjson" ]; then
   echo "[selfcheck] exporting"
   ( ulimit -v 22000000
     timeout 3600 lake env "$L4E/.lake/build/bin/lean4export" "${ROOTS[@]}" \
-      -- $(cat "$OUTDIR/lech-decls.txt") > "$OUTDIR/lech-export.ndjson" )
+      -- $(cat "$OUTDIR/con-leche-decls.txt") > "$OUTDIR/con-leche-export.ndjson" )
 fi
-echo "[selfcheck] export: $(du -h "$OUTDIR/lech-export.ndjson" | cut -f1), \
-$(wc -l < "$OUTDIR/lech-export.ndjson") lines"
+echo "[selfcheck] export: $(du -h "$OUTDIR/con-leche-export.ndjson" | cut -f1), \
+$(wc -l < "$OUTDIR/con-leche-export.ndjson") lines"
 
 # ---------------------------------------------------------------- 4/4
-lake build lech lech-preprocess
+lake build con-leche con-leche-preprocess
 echo "[selfcheck] checking ($MODE)"
-# `LECH_PROGRESS` is deliberately NOT set by default: the heartbeat lane
+# `CON_LECHE_PROGRESS` is deliberately NOT set by default: the heartbeat lane
 # is the driver's one unverified fold (Main.lean, user ruling
 # 2026-09-07), so a run with it set does not stand behind the verified
 # capstone.  Set it in the environment for a diagnostic run.
 (
   ulimit -v 22000000
   set +e
-  timeout 4h ./.lake/build/bin/lech "$MODE" "${PRE[@]+"${PRE[@]}"}" \
-    "$OUTDIR/lech-export.ndjson" \
+  timeout 4h ./.lake/build/bin/con-leche "$MODE" "${PRE[@]+"${PRE[@]}"}" \
+    "$OUTDIR/con-leche-export.ndjson" \
     2> >(while IFS= read -r l; do printf '%s %s\n' "$(date +%H:%M:%S)" "$l"; done \
           | tee "$OUTDIR/check.log" >&2)
   echo "[selfcheck] exit $?"

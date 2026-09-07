@@ -1,12 +1,12 @@
-import Lech.VExpr.Syntax
-import Lech.VExpr.Subst
-import Lech.VExpr.Const
+import ConLeche.VExpr.Syntax
+import ConLeche.VExpr.Subst
+import ConLeche.VExpr.Const
 
 /-!
 # The erased term language (task #74; cut down and relocated at #209)
 
 `VExpr` is the term language the whole semantics tier is written in.
-It used to live at `Lech/TT/*` under `namespace Lech.TT`, as the
+It used to live at `ConLeche/TT/*` under `namespace ConLeche.TT`, as the
 syntax half of a *declarative type theory* whose judgment and model
 sat above it; those are gone (tasks #190 and #209) and the syntax is
 not theirs, so it moved here — a base directory of its own rather than
@@ -22,7 +22,7 @@ What the *declarative* lane above them added is gone.
 `TT/Semantics/{Value,Interp,ConstOk,Soundness}` — its own model and
 its soundness theorem, 1 202 lines — were deleted at task #190:
 nothing outside the four modules ever imported them, and the P tier's
-`interp2`/`bval2` (`Lech/Semantics/*`) are its own, not these.
+`interp2`/`bval2` (`ConLeche/Semantics/*`) are its own, not these.
 `TT/Judgment` — the `HasType` relation, which lost its last reader
 with them — went at task #209, together with the premise-type formers
 `natStepT`/`quotInvT` and their four substitution lemmas in

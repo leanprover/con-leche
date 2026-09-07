@@ -1,4 +1,4 @@
-import Lech.Semantics.DeclRun
+import ConLeche.Semantics.DeclRun
 
 /-!
 # `DeclIndRun` — the inductive kind's run/guard record family (task
@@ -46,9 +46,9 @@ proving `DeclIndRun`: nothing here replaces it, and the two families are
 independent consumers of the same checker inversions.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-! ## The block members -/
 
@@ -431,4 +431,4 @@ def DeclIndRun (μ : CheckMode) (F : Nat) (env : Env)
       IndMembersRun μ F blockNames {} env nonrecs envM ∧
       IndRecsRun μ F blockNames envM recs env₂))
 
-end Lech.Semantics
+end ConLeche.Semantics

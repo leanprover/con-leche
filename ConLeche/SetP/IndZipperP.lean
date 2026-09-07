@@ -1,6 +1,6 @@
-import Lech.SetP.IndPlainParamP
-import Lech.SetP.IndZipFieldP
-import Lech.SetP.IndStageKitP
+import ConLeche.SetP.IndPlainParamP
+import ConLeche.SetP.IndZipFieldP
+import ConLeche.SetP.IndStageKitP
 
 /-!
 # The zipper, at the reading (task #161, IND TIER part 5)
@@ -31,13 +31,13 @@ constructor's run spine `sp` and the mixed value spine `mix` stay
 abstract exactly as in v1.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name isDefEqCore DefEqListOk)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name isDefEqCore DefEqListOk)
 
 universe w
 
@@ -330,4 +330,4 @@ theorem zipperP {m : EnvS2Core V env} {F : Nat}
   exact ⟨sat2_of_tower htowerS hzslen hallK,
     teleFitPA_of_tower (rP + cnF) htowerS hzslen hallK⟩
 
-end Lech.SetP
+end ConLeche.SetP

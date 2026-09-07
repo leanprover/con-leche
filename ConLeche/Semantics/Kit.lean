@@ -1,5 +1,5 @@
-import Lech.Semantics.Interp
-import Lech.Verify.Denote.VClosed
+import ConLeche.Semantics.Interp
+import ConLeche.Verify.Denote.VClosed
 
 /-!
 # The `interp2` lemma kit (task #151, tier B)
@@ -8,7 +8,7 @@ Two halves.
 
 **The substitution stack** — `interp2_liftN` and `interp2_inst`, the
 layer's *entire* substitution metatheory, transposed from
-`Lech/VExpr/Semantics/Interp.lean` unchanged in shape.  That they
+`ConLeche/VExpr/Semantics/Interp.lean` unchanged in shape.  That they
 transpose is the point: `interp2` is structural, so removing the
 collapse costs nothing here.  (lean4lean needs ~123 syntactic lemmas at
 this spot because its metatheory is syntactic; soundness against a
@@ -39,8 +39,8 @@ a value is `pt`, and the graph regime never mentions it except to deny
 it.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
 
@@ -139,7 +139,7 @@ theorem interp2_inst :
 /-! ### Interpretation invariance below a bound
 
 `interp_congr_below`/`interp_closed`'s analogue
-(`Lech/SetR/AnnotOkV.lean`): a closed term's interpretation does not
+(`ConLeche/SetR/AnnotOkV.lean`): a closed term's interpretation does not
 read the environment.  Stated through the **erasure's** bound rather
 than a fresh `AVExpr.bvarsBelow`: `erase` maps `bvar i` to `bvar i` and
 preserves every former's shape, so `VExpr.bvarsBelow k e.erase` says
@@ -153,7 +153,7 @@ no `interp2` analogue. -/
 
 theorem interp2_congr_below :
     ∀ (e : AVExpr) (k : Nat) (ρ ρ' : Nat → V),
-      Lech.VExpr.VExpr.bvarsBelow k e.erase →
+      ConLeche.VExpr.VExpr.bvarsBelow k e.erase →
       (∀ i, i < k → ρ i = ρ' i) →
       interp2 V ρ e = interp2 V ρ' e := by
   intro e
@@ -199,7 +199,7 @@ theorem interp2_congr_below :
 
 /-- A closed term interprets the same under every environment. -/
 theorem interp2_closed {e : AVExpr}
-    (he : Lech.VExpr.VExpr.bvarsBelow 0 e.erase) (ρ ρ' : Nat → V) :
+    (he : ConLeche.VExpr.VExpr.bvarsBelow 0 e.erase) (ρ ρ' : Nat → V) :
     interp2 V ρ e = interp2 V ρ' e :=
   interp2_congr_below V e 0 ρ ρ' he
     (fun i hi => absurd hi (Nat.not_lt_zero i))
@@ -373,4 +373,4 @@ theorem interp2_eqE_reflect {ρ : Nat → V} {T a b : AVExpr} {x : V}
     (hx : x ∈ˢ interp2 V ρ (.eqE T a b)) : interp2 V ρ a = interp2 V ρ b :=
   mem_eqv hx
 
-end Lech.Semantics
+end ConLeche.Semantics

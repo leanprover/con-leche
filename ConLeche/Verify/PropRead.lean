@@ -1,17 +1,17 @@
-import Lech.Kernel.PropRead
-import Lech.Verify.Shift
+import ConLeche.Kernel.PropRead
+import ConLeche.Verify.Shift
 
 /-!
 # The head-symbol prop-ness readers under the verification walks
 (task #168)
 
-The readers (`Lech/Kernel/PropRead.lean`) look only at head symbols,
+The readers (`ConLeche/Kernel/PropRead.lean`) look only at head symbols,
 arities and binder data, none of which a free-variable shift touches —
 so every reader commutes with `shiftFrom`, which is all the
-deep-embedding lemma family (`Lech/Verify/Deep.lean`) needs of them.
+deep-embedding lemma family (`ConLeche/Verify/Deep.lean`) needs of them.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Expr
 
@@ -98,7 +98,7 @@ theorem isProofFast_shiftFrom (find? : Name → Option ConstantInfo) {p : Nat}
 
 /-! ## Inversions — what a reader's answer says about the term
 
-The "yes" arm's licence (`Lech/SetP/Step2/IrrelFastP.lean`) consumes
+The "yes" arm's licence (`ConLeche/SetP/Step2/IrrelFastP.lean`) consumes
 the readers through these: each `some` verdict is one of finitely many
 head shapes with the datum spelled out. -/
 
@@ -323,4 +323,4 @@ theorem isProofFast_inv (find? : Name → Option ConstantInfo) {a : Expr}
 @[simp] theorem Level.substPW_never (ks : List Name) (vs : List Level) :
     Level.substPW ks vs .never = .never := rfl
 
-end Lech
+end ConLeche

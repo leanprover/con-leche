@@ -1,10 +1,10 @@
-import Lech.SetP.BasisEmptyP
+import ConLeche.SetP.BasisEmptyP
 
 /-!
 # The `False` block, P tier (task #181)
 
-`Lech/SetP/BasisEmptyP.lean`'s recipe at the pinned `False` block
-(`Lech/Kernel/Basis/False.lean`): `False` is `Empty.{0}` in the
+`ConLeche/SetP/BasisEmptyP.lean`'s recipe at the pinned `False` block
+(`ConLeche/Kernel/Basis/False.lean`): `False` is `Empty.{0}` in the
 built-in currency — the leaf `.const .empty [0]` reads to the empty
 set at `Sort 0`, `False.rec`'s leaf is `.const .emptyRec [0, ψ u]` —
 so every move below is the `Empty` module's with the level numeral `1`
@@ -20,13 +20,13 @@ The point of the pin is the capstone: `no_constant_of_False_P`
 hypothesis about how a stream declared `False`.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   falseA falseRecA falseName uN)
 
 universe w
@@ -60,7 +60,7 @@ theorem extendFalseP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT falseA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT falseA.name ψ
           = some (VExpr.const .empty [0]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -97,9 +97,9 @@ theorem denoteP_falseRecA_type {m : EnvS2Core V env}
           (.pi 0 (pwBit ψ .never) (.const .empty [0]) (.sort (ψ uN)))
           (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .empty [0])
             (.app (.bvar 1) (.bvar 0)))) := by
-  have hpd : Lech.Verify.pinnedDirectT falseName ψ
+  have hpd : ConLeche.Verify.pinnedDirectT falseName ψ
       = some (VExpr.const .empty [0]) := by
-    simp +decide [Lech.Verify.pinnedDirectT]
+    simp +decide [ConLeche.Verify.pinnedDirectT]
   have hleaf : acvalWith m.acval falseRecA.name A falseName ψ
       = AVExpr.const .empty [0] := by
     rw [acvalWith_ne (by decide)]
@@ -111,7 +111,7 @@ theorem denoteP_falseRecA_type {m : EnvS2Core V env}
     intro d
     have hf : (⟨falseRecA :: env.consts⟩ : Env).find? falseName
         = some falseA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE
     rw [denoteP_levelless_const hf (by rfl), hleaf]
   rw [show falseRecA.toConstantVal.type
       = Expr.forallE
@@ -135,7 +135,7 @@ theorem bitAgree_falseRecA (ψ : Name → Nat) :
         (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .empty [0])
           (.app (.bvar 1) (.bvar 0))))
       (BConst.type2 .emptyRec [0, ψ uN]) := by
-  have hz : pwBit ψ (Lech.PropWhen.ifAllZero [uN]) = 0 ↔ ψ uN = 0 :=
+  have hz : pwBit ψ (ConLeche.PropWhen.ifAllZero [uN]) = 0 ↔ ψ uN = 0 :=
     pwBit_ifAllZero_single ψ uN
   refine .pi hz (.pi ?_ (.const _ _) (.sort _))
     (.pi hz (.const _ _) (.app (.bvar 1) (.bvar 0)))
@@ -159,7 +159,7 @@ theorem extendFalseRecP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT falseRecA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT falseRecA.name ψ
           = some (VExpr.const .emptyRec [0, ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -193,9 +193,9 @@ it.  `BasisInstallRun` is a right-nested `∧` chain, so the walk is an
 /-- **The `False` block, installed at the P tier.**  `BasisStepPB`'s
 `falseK` branch. -/
 theorem declBasisPB_falseK {env₂ : Env} (mp : EnvS2PM V μ env)
-    (h : Lech.Semantics.BasisInstallRun env Lech.BasisKind.falseK.declsA env₂) :
+    (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.falseK.declsA env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
-  rw [show Lech.BasisKind.falseK.declsA = [falseA, falseRecA] from rfl]
+  rw [show ConLeche.BasisKind.falseK.declsA = [falseA, falseRecA] from rfl]
     at h
   obtain ⟨h1, h2, hnil⟩ := h
   subst hnil
@@ -208,7 +208,7 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvS2PM V μ env)
   obtain ⟨mp1⟩ := extendFalseP mp hf1 hwf1
   have hE : (⟨falseA :: env.consts⟩ : Env).find? falseName
       = some falseA := by
-    rw [Lech.Env.find?_cons]; exact if_pos rfl
+    rw [ConLeche.Env.find?_cons]; exact if_pos rfl
   have hf2 : (⟨falseA :: env.consts⟩ : Env).find? falseRecA.name
       = none := Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨falseRecA :: falseA :: env.consts⟩ := by
@@ -231,10 +231,10 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvS2PM V μ env)
       Expr.constsResolve, Bool.and_eq_true, Option.isSome_iff_exists]
     have hf : (⟨falseRecA :: falseA :: env.consts⟩ : Env).find?
         falseName = some falseA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]
       exact hE
     rw [hf]
     simp
   exact extendFalseRecP mp1 hE hf2 hwf2
 
-end Lech.SetP
+end ConLeche.SetP

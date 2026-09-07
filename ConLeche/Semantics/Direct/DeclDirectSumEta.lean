@@ -1,5 +1,5 @@
-import Lech.Semantics.Direct.DeclDirectFix
-import Lech.Semantics.Direct.DeclDirectEta
+import ConLeche.Semantics.Direct.DeclDirectFix
+import ConLeche.Semantics.Direct.DeclDirectEta
 
 /-!
 # The direct sum declaration keeps the η-families closed (task #175
@@ -14,9 +14,9 @@ stores carries the sum's capability record (`directSumCaps`, whose
 `EtaFamiliesClosed.cons_nonind` applies at every step.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech (Env Expr Name Level CheckMode ConstantVal ConstantInfo
+open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   DirectSumParts fueledOps checkDirectSumInd checkDirectSumCtors
   checkDirectSumRec consSumCtors directSumRules directSumCaps EtaFamiliesClosed)
 
@@ -38,7 +38,7 @@ theorem consSumCtors_etaClosed {nP : Nat} :
     simp only [List.map_cons, List.nodup_cons] at hnd
     refine consSumCtors_etaClosed hE' ?_ hnd.2
     intro c' hc'
-    rw [Lech.Env.find?_cons]
+    rw [ConLeche.Env.find?_cons]
     split
     · next heq =>
       exfalso
@@ -52,21 +52,21 @@ theorem declDirectSumRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {p : DirectSumParts} (hE : EtaFamiliesClosed env)
     (h : DeclDirectSumRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨hnd, cvTa, env₁, p', ctorsA, cvRa, rhss, hInd, -, hCtors, hRec, rfl⟩ := h
-  obtain ⟨cvT, s, hnameT, -, hcvT, hps, rfl, -⟩ := Lech.checkDirectSumInd_shape hInd
+  obtain ⟨cvT, s, hnameT, -, hcvT, hps, rfl, -⟩ := ConLeche.checkDirectSumInd_shape hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
-    Lech.checkConstantVal_inv hcvT
+    ConLeche.checkConstantVal_inv hcvT
   have hE₁ : EtaFamiliesClosed ⟨.indInfo cvTa (directSumCaps p') :: env.consts⟩ :=
     EtaFamiliesClosed.cons_nonind hE (by
       have hn : cvTa.name = cvT.name := by
         obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
-          Lech.checkConstantVal_inv hcvT
+          ConLeche.checkConstantVal_inv hcvT
         rw [hTeq]
       show env.find? cvTa.name = none
       rw [hn]; exact hfT)
       (fun cv caps heq he => by
         obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj heq
         exact absurd he Bool.false_ne_true)
-  obtain ⟨hlen, hall⟩ := Lech.checkDirectSumCtors_inv hCtors
+  obtain ⟨hlen, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
   -- the constructors' names, annotated, are the block's
   have hnames : ctorsA.map (·.1.name) = p'.ctors.map (·.1.name) := by
     apply List.ext_getElem
@@ -76,9 +76,9 @@ theorem declDirectSumRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
       have hj : j < p'.ctors.length := by simpa using h2
       obtain ⟨-, hrun⟩ := hall j (p'.ctors[j]) (ctorsA[j])
         (List.getElem?_eq_getElem hj) (List.getElem?_eq_getElem (by omega))
-      obtain ⟨hccv, -, -⟩ := Lech.checkDirectSumCtor_shape hrun
+      obtain ⟨hccv, -, -⟩ := ConLeche.checkDirectSumCtor_shape hrun
       obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hCeq⟩ :=
-        Lech.checkConstantVal_inv hccv
+        ConLeche.checkConstantVal_inv hccv
       rw [hCeq]
   have hE₂ : EtaFamiliesClosed
       (consSumCtors p'.nP ctorsA ⟨.indInfo cvTa (directSumCaps p') :: env.consts⟩) := by
@@ -89,15 +89,15 @@ theorem declDirectSumRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
       have := (List.getElem?_eq_some_iff.mp hj).1
       omega
     obtain ⟨-, hrun⟩ := hall j (p'.ctors[j]) c (List.getElem?_eq_getElem hj') hj
-    obtain ⟨hccv, -, -⟩ := Lech.checkDirectSumCtor_shape hrun
+    obtain ⟨hccv, -, -⟩ := ConLeche.checkDirectSumCtor_shape hrun
     obtain ⟨hfC, -, -, -, -, -, _, _, _, -, -, -, -, -, hCeq⟩ :=
-      Lech.checkConstantVal_inv hccv
+      ConLeche.checkConstantVal_inv hccv
     have hn : c.1.name = (p'.ctors[j]).1.name := by rw [hCeq]
     rw [hn]; exact hfC
-  obtain ⟨hnR, -, -, -, -⟩ := Lech.checkDirectSumRec_facts hRec
-  obtain ⟨cvRi, -, -, -, hcvR, -⟩ := Lech.checkDirectSumRec_shape hRec
+  obtain ⟨hnR, -, -, -, -⟩ := ConLeche.checkDirectSumRec_facts hRec
+  obtain ⟨cvRi, -, -, -, hcvR, -⟩ := ConLeche.checkDirectSumRec_shape hRec
   obtain ⟨hfR, -, -, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
-    Lech.checkConstantVal_inv hcvR
+    ConLeche.checkConstantVal_inv hcvR
   refine EtaFamiliesClosed.cons_nonind hE₂ ?_ (fun _ _ heq => nomatch heq)
   show (consSumCtors p'.nP ctorsA
     ⟨.indInfo cvTa (directSumCaps p') :: env.consts⟩).find? cvRa.name = none
@@ -107,26 +107,26 @@ theorem declDirectSumRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
 #188): the same conses as the sum's, the recursor's from its own
 stage. -/
 theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
-    {p : Lech.DirectFixParts} (hE : EtaFamiliesClosed env)
+    {p : ConLeche.DirectFixParts} (hE : EtaFamiliesClosed env)
     (h : DeclDirectFixRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨-, -, hnd, cvTa, env₁, p₁, ctorsA, cvRa, rhss, -, -, -, hInd, -, -, -, hCtors, -, hRec,
     rfl⟩ := h
-  obtain ⟨cvT, s, hTn, -, hcvT, rfl, rfl, -⟩ := Lech.checkDirectSumInd_shape hInd
+  obtain ⟨cvT, s, hTn, -, hcvT, rfl, rfl, -⟩ := ConLeche.checkDirectSumInd_shape hInd
   obtain ⟨hfT, -, -, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
-    Lech.checkConstantVal_inv hcvT
+    ConLeche.checkConstantVal_inv hcvT
   have hE₁ : EtaFamiliesClosed
       ⟨.indInfo cvTa (directSumCaps (p.toDirectSumParts.withSort s)) :: env.consts⟩ :=
     EtaFamiliesClosed.cons_nonind hE (by
       have hn : cvTa.name = p.cvT.name := by
         obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
-          Lech.checkConstantVal_inv hcvT
+          ConLeche.checkConstantVal_inv hcvT
         rw [hTeq]; exact hTn
       show env.find? cvTa.name = none
       rw [hn, ← hTn]; exact hfT)
       (fun cv caps heq he => by
         obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj heq
         exact absurd he Bool.false_ne_true)
-  obtain ⟨hlen, hall⟩ := Lech.checkDirectSumCtors_inv hCtors
+  obtain ⟨hlen, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
   have hnames : ctorsA.map (·.1.name) = p.ctors.map (·.1.name) := by
     apply List.ext_getElem
     · simp [hlen]
@@ -135,9 +135,9 @@ theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
       have hj : j < p.ctors.length := by simpa using h2
       obtain ⟨-, hrun⟩ := hall j (p.ctors[j]) (ctorsA[j])
         (List.getElem?_eq_getElem hj) (List.getElem?_eq_getElem (by omega))
-      obtain ⟨hccv, -, -⟩ := Lech.checkDirectSumCtor_shape hrun
+      obtain ⟨hccv, -, -⟩ := ConLeche.checkDirectSumCtor_shape hrun
       obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hCeq⟩ :=
-        Lech.checkConstantVal_inv hccv
+        ConLeche.checkConstantVal_inv hccv
       rw [hCeq]
   have hE₂ : EtaFamiliesClosed
       (consSumCtors p.nP ctorsA
@@ -149,15 +149,15 @@ theorem declDirectFixRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
       have := (List.getElem?_eq_some_iff.mp hj).1
       omega
     obtain ⟨-, hrun⟩ := hall j (p.ctors[j]) c (List.getElem?_eq_getElem hj') hj
-    obtain ⟨hccv, -, -⟩ := Lech.checkDirectSumCtor_shape hrun
+    obtain ⟨hccv, -, -⟩ := ConLeche.checkDirectSumCtor_shape hrun
     obtain ⟨hfC, -, -, -, -, -, _, _, _, -, -, -, -, -, hCeq⟩ :=
-      Lech.checkConstantVal_inv hccv
+      ConLeche.checkConstantVal_inv hccv
     have hn : c.1.name = (p.ctors[j]).1.name := by rw [hCeq]
     rw [hn]; exact hfC
-  obtain ⟨hnR, -, -, -, -⟩ := Lech.checkDirectFixRec_facts hRec
-  obtain ⟨cvRi, -, -, -, hcvR, -⟩ := Lech.checkDirectFixRec_shape hRec
+  obtain ⟨hnR, -, -, -, -⟩ := ConLeche.checkDirectFixRec_facts hRec
+  obtain ⟨cvRi, -, -, -, hcvR, -⟩ := ConLeche.checkDirectFixRec_shape hRec
   obtain ⟨hfR, -, -, -, -, -, _, _, _, -, -, -, -, -, -⟩ :=
-    Lech.checkConstantVal_inv hcvR
+    ConLeche.checkConstantVal_inv hcvR
   refine EtaFamiliesClosed.cons_nonind hE₂ ?_ (fun _ _ heq => nomatch heq)
   show (consSumCtors p.nP ctorsA
     ⟨.indInfo cvTa (directSumCaps (p.toDirectSumParts.withSort s)) :: env.consts⟩).find? cvRa.name = none
@@ -180,4 +180,4 @@ theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
       · exact declDirectFixRun_etaClosed hE h
       · exact declIndEtaClosedRun hE h
 
-end Lech.Semantics
+end ConLeche.Semantics

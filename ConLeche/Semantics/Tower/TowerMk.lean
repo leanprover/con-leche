@@ -1,4 +1,4 @@
-import Lech.Semantics.Tower.TowerLeaf
+import ConLeche.Semantics.Tower.TowerLeaf
 
 /-!
 # The constructor tupler (task #175, stage 3b)
@@ -27,11 +27,11 @@ graph regime, `pt_mem_tower` at squash).  The premises are
 `FieldsBound` + `SpineFit`, nothing else.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -543,4 +543,4 @@ theorem directMkAV_zero {ds : List (Nat × Nat × AVExpr)}
     rfl
   | d :: ds => exact mkLamsAV_zero_head d.2.2 _ _ ρ
 
-end Lech.Semantics
+end ConLeche.Semantics

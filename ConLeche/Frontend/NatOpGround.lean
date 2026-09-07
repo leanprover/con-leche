@@ -1,10 +1,10 @@
-import Lech.Cached.ParsedC
+import ConLeche.Cached.ParsedC
 
 /-!
 # Hoisting a pinned `Nat` operation's stream-certified ground (task #191)
 
 The second half of the order-insensitivity fix, beside the built-in
-prelude (`Lech/Frontend/Prelude.lean`).
+prelude (`ConLeche/Frontend/Prelude.lean`).
 
 A pin-certified operation's certificate *statements* are spelled over
 the structural `Nat` operations (`natOpDeps`: `Nat.shiftLeft`'s over
@@ -32,7 +32,7 @@ record still follows everything it references, and the moved records
 see exactly their own closure (plus the prelude) — so the checker's
 verdict on a valid stream is the official kernel's, whatever order the
 export chose.  Like the prelude and the projection rewrite
-(`Lech/Frontend/ProjRec.lean`), this is a pure transformation of the
+(`ConLeche/Frontend/ProjRec.lean`), this is a pure transformation of the
 parsed list below the verified fold: nothing in the kernel or the
 proofs knows it happened.
 
@@ -42,16 +42,16 @@ export order: `init-full`, Mathlib), so it costs one name-index build
 and nothing else there.
 -/
 
-namespace Lech.Frontend
+namespace ConLeche.Frontend
 
-open Lech Lech.Cached
+open ConLeche ConLeche.Cached
 
 /-- For the array indexing below (`ds[i]!`); never observed. -/
 private instance : Inhabited DeclC := ⟨.basisDecl .eqK⟩
 
 /-- The names a parsed declaration declares (the prelude index and the
 hoist's name index; basis blocks are indexed by kind instead). -/
-def _root_.Lech.Cached.DeclC.names : DeclC → List Name
+def _root_.ConLeche.Cached.DeclC.names : DeclC → List Name
   | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => [cv.name]
   | .indDecl block => block.map (·.name)
   | .basisDecl _ => []
@@ -84,7 +84,7 @@ def usedConstsGo (seen : Std.HashSet ExprC) (acc : Array Name) (e : ExprC) :
 /-- The constants a parsed record references (types, values, recursor
 rule right-hand sides; a basis block references nothing the stream
 declares). -/
-def _root_.Lech.Cached.DeclC.usedConsts : DeclC → Array Name
+def _root_.ConLeche.Cached.DeclC.usedConsts : DeclC → Array Name
   | .axiomDecl cv => (usedConstsGo {} #[] cv.type).2
   | .defnDecl cv v _ | .thmDecl cv v | .opaqueDecl cv v =>
     let (seen, acc) := usedConstsGo {} #[] cv.type
@@ -155,4 +155,4 @@ def hoistNatOpGround (ds : Array DeclC) : Array DeclC × Array Name := Id.run do
   let moved := (Array.range ds.size).filter (target.contains ·)
   return (order.map (ds[·]!), moved.flatMap fun k => (ds[k]!.names).toArray)
 
-end Lech.Frontend
+end ConLeche.Frontend

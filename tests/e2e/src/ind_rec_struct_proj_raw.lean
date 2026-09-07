@@ -7,14 +7,14 @@
    needs one constructor and `nparams + nindices` arguments; recursion,
    mutual-ness and nesting are irrelevant, so it types all three.
 
-   lech has a projection table only for direct structures, so a raw
+   con-leche has a projection table only for direct structures, so a raw
    `.proj` declines by design (W5, Core.lean:2596-2622).  On this stream
    the FIRST decline is `Chain.h` — the projection function of the
    recursive structure (audit A6/C6, fixture ind_rec_struct_proj) — so
    the verdict is the same 2 either way; ind_proj_mutual_nested is the
    same probe without `Chain`, where the decline is at a raw `.proj`.
 
-   official: 0.  lech at master 700a06ca: 2 piped, 2 raw (both modes).
+   official: 0.  con-leche at master 700a06ca: 2 piped, 2 raw (both modes).
    Probe of record: _tmp/indaudit/probes/P/RecStructProj.lean. -/
 
 import Lean

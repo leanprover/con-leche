@@ -1,17 +1,17 @@
-import Lech.Verify.Cached.BridgeCS2
+import ConLeche.Verify.Cached.BridgeCS2
 
 /-!
 # Cached shared-state walks, part 3: the direct simple-structure install
 
-Port of `Lech/Verify/BridgeS3.lean` for the cached tier.  The
+Port of `ConLeche/Verify/BridgeS3.lean` for the cached tier.  The
 single-environment functions of the direct-install path
 (`checkDirectFieldSorts`, `checkDirectDomsAt`, `checkDirectInd`,
 `checkDirectCtor`, `checkDirectRec`,
 `checkDirectProj`), as `SimC`s between the `sharedOpsC` and
 `(fueledOpsM mode)` instantiations.  The per-site scoping facts mirror
-`Lech/Verify/BridgeWfImp.lean`'s `_wfimp` walks one for one; the
-`FEnv`-to-`Env` step is `Lech/Verify/CheckerF.lean`'s `_eq`/`_push`
-family and happens in `Lech/Verify/Cached/BridgeCS4.lean`, so
+`ConLeche/Verify/BridgeWfImp.lean`'s `_wfimp` walks one for one; the
+`FEnv`-to-`Env` step is `ConLeche/Verify/CheckerF.lean`'s `_eq`/`_push`
+family and happens in `ConLeche/Verify/Cached/BridgeCS4.lean`, so
 everything here is stated over the generic functions.
 
 The *subjects* are the very same `Expr`-level checker functions as in
@@ -22,10 +22,10 @@ comparand side of every statement is byte-identical to the interned
 original's.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
-open Lech.Cached.ExprC
+open ConLeche
+open ConLeche.Cached.ExprC
 open Expr
 
 variable {mode : CheckMode}
@@ -640,4 +640,4 @@ theorem checkDirectFixRecS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF 
 
 end Walks3
 
-end Lech.Cached
+end ConLeche.Cached

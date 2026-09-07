@@ -1,11 +1,11 @@
-import Lech.Verify.Direct.SumInv
-import Lech.Kernel.Direct.RecInstall
+import ConLeche.Verify.Direct.SumInv
+import ConLeche.Kernel.Direct.RecInstall
 
 /-!
 # The direct recursive install: inversion (task #188)
 
 The shape of a successful run of the recursive route's recursor stage
-(`checkDirectFixRec`, `Lech/Kernel/Direct/RecInstall.lean`), read off
+(`checkDirectFixRec`, `ConLeche/Kernel/Direct/RecInstall.lean`), read off
 the monad: the generated recursor type with the inductive-hypothesis
 binders, its scoping and sort, the comparison with the stream's, and
 the generated rules — each the generator's output, scoped at the
@@ -14,7 +14,7 @@ former's and the constructors' stages are the sum route's
 (`SumInv.lean`).
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -131,4 +131,4 @@ theorem checkDirectFixRec_shape {env : Env} {p : DirectFixParts}
   exact ⟨cvRi, recTy, sty, u, hcv, hrt', h1.1.1.1, h1.1.1.2, h1.1.2, h1.2, hsty, hu, hb,
     hrules, rfl⟩
 
-end Lech
+end ConLeche

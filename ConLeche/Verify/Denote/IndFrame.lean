@@ -1,23 +1,23 @@
-import Lech.Verify.Denote
-import Lech.Verify.Denote.Shift
-import Lech.Verify.Denote.Inst
-import Lech.Verify.Denote.InstSimp
-import Lech.Verify.Denote.Rename
-import Lech.Verify.Denote.Levels
-import Lech.Verify.Denote.Tele
-import Lech.Verify.Denote.TeleOpen
-import Lech.Verify.Denote.OpenVars
-import Lech.Verify.Denote.OpenRevDenote
-import Lech.Verify.Denote.VClosed
-import Lech.Verify.BridgeWfImp
-import Lech.Verify.InstSpine
-import Lech.Verify.InstLevels
-import Lech.Verify.InferLeaves
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote.Shift
+import ConLeche.Verify.Denote.Inst
+import ConLeche.Verify.Denote.InstSimp
+import ConLeche.Verify.Denote.Rename
+import ConLeche.Verify.Denote.Levels
+import ConLeche.Verify.Denote.Tele
+import ConLeche.Verify.Denote.TeleOpen
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.Denote.OpenRevDenote
+import ConLeche.Verify.Denote.VClosed
+import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.InstSpine
+import ConLeche.Verify.InstLevels
+import ConLeche.Verify.InferLeaves
 
 /-!
 # The opened-statement frame: towers, spines, and the cross-frame walk
 
-Relocated verbatim from `Lech/TTVerify/IndBottom.lean` (task #148,
+Relocated verbatim from `ConLeche/TTVerify/IndBottom.lean` (task #148,
 T5): the pure denote/`VExpr` tier of the modeled-iota bottoms' frame
 machinery — `PiTele` (a `.pi` tower's domains as a de Bruijn context),
 `ctxInstAt`, the opened-telescope walks (`openPisAtFvars_leaves`,
@@ -26,15 +26,15 @@ the cross-frame instantiation (`instPisAt_denote_cross` — the
 load-bearing "instantiate-then-denote = denote-then-instantiate"
 identity), the spine-reading lemmas, and `lamCtx`.  All V-free and
 `Deq`- and judgment-free; both verification lanes' bottoms consume them.
-The namespace stays `Lech.Verify` so no call site moves.
+The namespace stays `ConLeche.Verify` so no call site moves.
 -/
 
 set_option maxHeartbeats 1600000
 set_option linter.unusedVariables false
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 /-- Indexing a list by its own `range` is mapping it. -/
 theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)
@@ -2031,7 +2031,7 @@ statement's major applies `f ctor` at `lvls`, the statement denotes
 guarded on the stored arity.  Sealed per the house rule: the walk
 rewrites under `denote` terms.
 
-Relocated verbatim from `Lech/TTVerify/DeclIndRecs.lean` (task #148,
+Relocated verbatim from `ConLeche/TTVerify/DeclIndRecs.lean` (task #148,
 T5 stage 3b): the statement is about `denote` and a `TConstVal`, so
 both verified lanes' nested bottoms read it. -/
 theorem nestedLvlsLength {cval : TConstVal} {env₀ : Env} {ψ : Name → Nat}
@@ -2448,4 +2448,4 @@ theorem getAppArgs_length_renameConsts {f : Name → Name} :
   | lit l => rfl
   | proj s i e => rfl
 
-end Lech.Verify
+end ConLeche.Verify

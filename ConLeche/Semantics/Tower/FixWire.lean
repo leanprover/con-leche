@@ -1,5 +1,5 @@
-import Lech.Semantics.Tower.FixRecI
-import Lech.Semantics.Tower.SumWire
+import ConLeche.Semantics.Tower.FixRecI
+import ConLeche.Semantics.Tower.SumWire
 
 /-!
 # The recursive recursor leaf's closedness (task #188)
@@ -13,9 +13,9 @@ index expressions (moved to the payload's projections) and the
 payload's projection only.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
-open Lech.VExpr Lech.Verify
+namespace ConLeche.Semantics
+open ConLeche.SetModel
+open ConLeche.VExpr ConLeche.Verify
 
 /-! ## Instantiation and the payload's projections -/
 
@@ -443,4 +443,4 @@ theorem directFixRecAVI_below {ℓ w nP s : Nat} {Fss Ess : List (List AVExpr)}
   show VExpr.bvarsBelow k (AVExpr.erase (.proj 0 (.app (.app (.const .choice [s]) _) .prf)))
   exact ⟨⟨trivial, hsig⟩, trivial⟩
 
-end Lech.Semantics
+end ConLeche.Semantics

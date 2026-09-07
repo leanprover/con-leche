@@ -1,5 +1,5 @@
-import Lech.Kernel.Expr
-import Lech.Kernel.Level
+import ConLeche.Kernel.Expr
+import ConLeche.Kernel.Level
 
 /-!
 # Expression operations
@@ -15,7 +15,7 @@ instantiated binder bodies: it counts expression nodes but gives every
 `sizeB body < sizeB (forallE n ty body)` keeps holding after opening.
 -/
 
-namespace Lech.Expr
+namespace ConLeche.Expr
 
 /-- Replace `bvar d` by `v` in `e`, where `d` counts the binders passed on
 the way (callers start at the default `d = 0`).  `v` must be closed with
@@ -200,7 +200,7 @@ is by construction the *fold* of `abstract1`, innermost binder first:
   `abstractRange e d (k + 1) c
      = abstractRange (e.abstract1 (d + k) c) d k (c + 1)`
 
-(`abstractRange_succ`, `Lech/Verify/Abstract.lean`) — so the nested
+(`abstractRange_succ`, `ConLeche/Verify/Abstract.lean`) — so the nested
 per-binder `abstract1` chain of a telescope rebuild equals one
 `abstractRange` pass per binder domain and one over the leaf. -/
 def abstractRange (e : Expr) (d k : Nat) (c : Nat := 0) : Expr :=
@@ -253,8 +253,8 @@ verification-side `WScoped`).
 
 Not on any per-memo-op path (task #43): the memoized knot's cache
 operations run unguarded, justified by the proven call discipline
-(`Lech/Verify/Disc.lean`).  Remaining executable call sites are the
-scope guards on checker-fabricated terms in `Lech/Kernel/Core.lean`
+(`ConLeche/Verify/Disc.lean`).  Remaining executable call sites are the
+scope guards on checker-fabricated terms in `ConLeche/Kernel/Core.lean`
 (the stuck-major rescues in `majorToCtor`; the projection
 eliminations went with task #175 wiring W5), each O(small
 fabricated term) once per fabrication.  TODO(cleanup, task #26):
@@ -302,7 +302,7 @@ def isLam : Expr → Bool
 head reading the task-#161 chain rule consumes (an outer λ's codomain
 prop-ness is its body-λ's own annotation).  Total, so the walks
 commute with it structurally (`lamPw_instantiateList_fvars`,
-`lamPw_shiftFrom` in `Lech/Verify`). -/
+`lamPw_shiftFrom` in `ConLeche/Verify`). -/
 def lamPw : Expr → Option PropWhen
   | .lam _ _ mbI => some mbI.pw
   | _ => none
@@ -432,7 +432,7 @@ each argument re-traverses the whole remaining telescope — quadratic in
 the telescope, and the per-projection outer loop of the direct
 simple-structure install made that cubic.  The `*F` variants below
 compute the *same value* (`instPisAtF_eq`/`instLamsAtF_eq`,
-`Lech/Verify/FastOps.lean`) in **one** pass: the raw binders are
+`ConLeche/Verify/FastOps.lean`) in **one** pass: the raw binders are
 peeled structurally while the pending substitutions accumulate, and
 each domain (and the residual) receives them in a single
 `instantiateList` traversal.  When the raw telescope is shorter than
@@ -543,20 +543,20 @@ def resultSort : Expr → Option Level
 
 /-! ## Derived-field spec functions, and their exactness
 
-The four `@[computed_field]`s of `Expr` (`Lech/Kernel/Expr.lean`) are
+The four `@[computed_field]`s of `Expr` (`ConLeche/Kernel/Expr.lean`) are
 declared by their recurrences; these are the same recurrences written
 as ordinary definitions, together with the equivalences that make a
 field read license the traversal cutoff it guards.  Self-contained:
 they mention nothing but `Expr`.
 
-They lived in `Lech/Kernel/ArenaWF.lean` (the parallel-array
-exactness proofs) and `Lech/Verify/IExpr.lean` until task #172's
+They lived in `ConLeche/Kernel/ArenaWF.lean` (the parallel-array
+exactness proofs) and `ConLeche/Verify/IExpr.lean` until task #172's
 interned removal; the cached engine's field facts
-(`Lech/Verify/Cached/Erase.lean`) are stated against them. -/
+(`ConLeche/Verify/Cached/Erase.lean`) are stated against them. -/
 
 /-- The least `k` with `looseBVarsBounded k` (the spec function of the
 eager `bvarBs` entries). -/
-def _root_.Lech.Expr.bvarBound : Expr → Nat
+def _root_.ConLeche.Expr.bvarBound : Expr → Nat
   | .bvar i => i + 1
   | .fvar _ _ | .sort _ | .const _ _ | .lit _ => 0
   | .app f a => max f.bvarBound a.bvarBound
@@ -576,7 +576,7 @@ theorem looseBVarsBounded_iff {x : Expr} :
 /-- The least `d` with `fvarsBelow d` (the spec function of the eager
 `fvarBs` entries; `fvar` type annotations are not descended, matching
 `fvarsBelow` and the abstraction traversals). -/
-def _root_.Lech.Expr.fvarRange : Expr → Nat
+def _root_.ConLeche.Expr.fvarRange : Expr → Nat
   | .fvar idx _ => idx + 1
   | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
   | .app f a => max f.fvarRange a.fvarRange
@@ -716,29 +716,29 @@ succeeds without walking either expression. -/
 /-! ## Level-parameter occurrence, and the substitution shortcuts
 
 `Level.hasParam` / `Expr.hasLevelParam` are the spec functions of the
-`hasLP` computed field (`Lech/Kernel/Expr.lean`); the lemmas below
+`hasLP` computed field (`ConLeche/Kernel/Expr.lean`); the lemmas below
 are the shortcuts a `false` reading licenses.  Self-contained, and the
-cached engine's field facts (`Lech/Verify/Cached/Erase.lean`) are
-stated against them.  They lived in `Lech/Kernel/ArenaWF.lean` until
+cached engine's field facts (`ConLeche/Verify/Cached/Erase.lean`) are
+stated against them.  They lived in `ConLeche/Kernel/ArenaWF.lean` until
 task #172. -/
 
 /-- Whether a level mentions any parameter (the spec function of the
 eager `lparamBs` entries; official kernel `level.cpp` `has_param`,
 task #87). -/
-def _root_.Lech.Level.hasParam : Level → Bool
+def _root_.ConLeche.Level.hasParam : Level → Bool
   | .param _ => true
   | .zero => false
   | .succ u => u.hasParam
   | .max u v | .imax u v => u.hasParam || v.hasParam
 
 /-- Substitution is the identity on param-free levels. -/
-theorem _root_.Lech.Level.subst_eq_self {ks : List Name}
+theorem _root_.ConLeche.Level.subst_eq_self {ks : List Name}
     {vs : List Level} {l : Level} (h : l.hasParam = false) :
     l.subst ks vs = l := by
   induction l <;> simp_all [Level.hasParam, Level.subst]
 
 /-- Parameter definedness is trivial on param-free levels. -/
-theorem _root_.Lech.Level.allParamsDefined_of_not_hasParam
+theorem _root_.ConLeche.Level.allParamsDefined_of_not_hasParam
     {params : List Name} {l : Level} (h : l.hasParam = false) :
     l.allParamsDefined params = true := by
   induction l <;> simp_all [Level.hasParam, Level.allParamsDefined]
@@ -748,7 +748,7 @@ function of the eager `eparamBs` entries; `fvar` type annotations
 included, matching `Expr.instantiateLevelParams`; binder prop-ness
 data included since task #161 — `instantiateLevelParams` substitutes
 into them, so the shortcut must see their parameters). -/
-def _root_.Lech.Expr.hasLevelParam : Expr → Bool
+def _root_.ConLeche.Expr.hasLevelParam : Expr → Bool
   | .bvar _ | .lit _ => false
   | .sort u => u.hasParam
   | .const _ us => us.any Level.hasParam
@@ -763,7 +763,7 @@ def _root_.Lech.Expr.hasLevelParam : Expr → Bool
 /-- `substPW` is the identity on parameter-free data (`never` and
 `ifAllZero []`) — the meta half of the has-param shortcut's
 soundness. -/
-theorem _root_.Lech.Level.substPW_eq_self {ks : List Name}
+theorem _root_.ConLeche.Level.substPW_eq_self {ks : List Name}
     {us : List Level} {pw : PropWhen} (h : pw.hasParams = false) :
     Level.substPW ks us pw = pw := by
   cases pw with
@@ -774,7 +774,7 @@ theorem _root_.Lech.Level.substPW_eq_self {ks : List Name}
     | cons p ps => simp at h
 
 /-- Parameter-free data are defined under any parameter list. -/
-theorem _root_.Lech.PropWhen.paramsDefined_of_not_hasParams
+theorem _root_.ConLeche.PropWhen.paramsDefined_of_not_hasParams
     {params : List Name} {pw : PropWhen} (h : pw.hasParams = false) :
     pw.paramsDefined params = true := by
   cases pw with
@@ -786,7 +786,7 @@ theorem _root_.Lech.PropWhen.paramsDefined_of_not_hasParams
 
 /-- Level-parameter instantiation is the identity on level-param-free
 expressions. -/
-theorem _root_.Lech.Expr.instantiateLevelParams_eq_self
+theorem _root_.ConLeche.Expr.instantiateLevelParams_eq_self
     {ks : List Name} {us : List Level} {x : Expr}
     (h : x.hasLevelParam = false) :
     x.instantiateLevelParams ks us = x := by
@@ -831,7 +831,7 @@ theorem _root_.Lech.Expr.instantiateLevelParams_eq_self
 
 /-- Level-parameter definedness is trivial on level-param-free
 expressions. -/
-theorem _root_.Lech.Expr.allLevelParamsDefined_of_not_hasLevelParam
+theorem _root_.ConLeche.Expr.allLevelParamsDefined_of_not_hasLevelParam
     {params : List Name} {x : Expr} (h : x.hasLevelParam = false) :
     x.allLevelParamsDefined params = true := by
   induction x with
@@ -856,4 +856,4 @@ theorem _root_.Lech.Expr.allLevelParamsDefined_of_not_hasLevelParam
   | _ =>
     simp_all [Expr.hasLevelParam, Expr.allLevelParamsDefined]
 
-end Lech.Expr
+end ConLeche.Expr

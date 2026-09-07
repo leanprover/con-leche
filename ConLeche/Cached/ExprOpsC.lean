@@ -1,11 +1,11 @@
-import Lech.Cached.ExprC
-import Lech.Kernel.Core
+import ConLeche.Cached.ExprC
+import ConLeche.Kernel.Core
 
 /-!
 # Syntactic operations on `ExprC`
 
 The `ExprC` counterparts of the arena operations in
-`Lech/Kernel/IExpr.lean` — same clauses, same memo discipline, same
+`ConLeche/Kernel/IExpr.lean` — same clauses, same memo discipline, same
 cutoffs; the mechanism differs only in where the derived data lives (a
 field of the node instead of a parallel array indexed by the node's
 arena position) and in how a rebuilt node is obtained (allocation
@@ -30,8 +30,8 @@ a *constructed* key, so the probe costs allocations, and profiling put
 `instantiate*Go`/`abstract*Go` plus their `Std.DHashMap` spec sites at
 roughly half of every `--trusted` run.  Three shape rules cut that,
 and each is a property of the walks alone (the values are unchanged —
-`Lech/Verify/Cached/OpsC.lean` proves each walk equal to its
-`Lech.Expr` counterpart exactly as before):
+`ConLeche/Verify/Cached/OpsC.lean` proves each walk equal to its
+`ConLeche.Expr` counterpart exactly as before):
 
 1. **The key is built once per node.**  `let key := …` is shared by the
    probe and the insert, instead of the same tuple being allocated for
@@ -50,9 +50,9 @@ and each is a property of the walks alone (the values are unchanged —
    the function.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
 namespace ExprC
 
@@ -496,7 +496,7 @@ def instLevelParams (ks : List Name) (us : List Level) (e : ExprC) : ExprC :=
 
 /-- `ProjEntry.typeAt` on `ExprC`: the same two instantiations through
 the memoized, **sharing-preserving** `instLevelParams` and
-`instantiateList` (`ProjEntry.typeAtI_eq`, `Lech/Verify/Cached/
+`instantiateList` (`ProjEntry.typeAtI_eq`, `ConLeche/Verify/Cached/
 OpsC.lean`, is the equation).
 
 The executable `.proj` inference clause used to call the spec's
@@ -510,7 +510,7 @@ carrier (`(Classical.choice …).ColimitCocone.0.Cocone.0.CommRingCat.0`)
 the copies nest, and at `AlgebraicGeometry.isAffine_of_isAffineOpen_basicOpen`
 (subject tree 3.9 · 10⁸ nodes on a 3 106-node DAG) the copy alone is
 the out-of-memory — DESIGN.md "The affine frontier". -/
-def _root_.Lech.ProjEntry.typeAtI (entry : ProjEntry) (us : List Level)
+def _root_.ConLeche.ProjEntry.typeAtI (entry : ProjEntry) (us : List Level)
     (targs : List ExprC) (pe : ExprC) : ExprC :=
   instantiateList (instLevelParams entry.levelParams us entry.body)
     (pe :: targs.reverse)
@@ -703,4 +703,4 @@ def allLevelParamsDefined (params : List Name) (e : ExprC) : Bool :=
 
 end ExprC
 
-end Lech.Cached
+end ConLeche.Cached

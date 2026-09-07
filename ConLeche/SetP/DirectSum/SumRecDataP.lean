@@ -1,6 +1,6 @@
-import Lech.SetP.DirectSum.SumRecReadP
-import Lech.SetP.DirectSum.SumDataP
-import Lech.SetP.Direct.DirectRecDataP
+import ConLeche.SetP.DirectSum.SumRecReadP
+import ConLeche.SetP.DirectSum.SumDataP
+import ConLeche.SetP.Direct.DirectRecDataP
 
 /-!
 # The sum recursor's data (task #175 sum-types, indexed)
@@ -14,13 +14,13 @@ data (field data, index readings, sources) is carried as functions of
 the position (`ctorDataList`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts
   BinderMeta RecRule)
 
 universe w
@@ -29,7 +29,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-- The elimination level of a direct sum block. -/
 def sumElimLevel (p : DirectSumParts) : Level :=
-  Lech.directElimLevel p.elim p.large
+  ConLeche.directElimLevel p.elim p.large
 
 theorem sumElimLevel_eq (p : DirectSumParts) :
     sumElimLevel p = if p.large then .param p.elim else .zero := rfl
@@ -100,7 +100,7 @@ theorem ctorReads_of {m : EnvS2Core V env} {T : Name} {lps : List Name} {nP nIdx
   | c :: cs, j, h => by
     obtain ⟨hf, hlps, hCD⟩ := h 0 c rfl
     rw [Nat.add_zero] at hCD
-    obtain ⟨hCf, -, -, hCb, -⟩ := m.wf _ (Lech.Semantics.Env.find?_mem hf)
+    obtain ⟨hCf, -, -, hCb, -⟩ := m.wf _ (ConLeche.Semantics.Env.find?_mem hf)
     simp only [ConstantInfo.toConstantVal] at hCf hCb
     refine .cons ⟨rfl, rfl, ⟨_, hf, hlps⟩, hCf, hCb, hCD.resid, hCD.read ψ, hCD.len ψ,
       hCD.lenE ψ⟩ ?_
@@ -192,7 +192,7 @@ datum's, the grading is the fabricated type's own inference run. -/
 theorem sumRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectSumParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {rhss : List Expr} {caps : IndCaps}
-    (hRec : Lech.checkDirectSumRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
+    (hRec : ConLeche.checkDirectSumRec (ConLeche.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     {bsT : List (Expr × BinderMeta)}
@@ -209,8 +209,8 @@ theorem sumRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     SumRecData mp.base2 cvRa p.nP ctorsA.length p.nIdx (sumElimLevel p)
       (sumRdsAV mp.base2 p ppsAll dsF esF ctorsA) := by
   obtain ⟨cvRi, recTy, sty, u, -, hgen, htp, -, hbt, hRf, hsty, -, -, -, rfl⟩ :=
-    Lech.checkDirectSumRec_shape hRec
-  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)
+    ConLeche.checkDirectSumRec_shape hRec
+  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)
   simp only [ConstantInfo.toConstantVal] at hTf hTb
   have hcr : ∀ ψ, CtorReads mp.base2 ψ p.cvT.name p.cvT.levelParams p.nP p.nIdx
       (ctorsA.map fun c => (c.1.name, c.2, c.1.type)) (ctorDataList dsF esF ψ ctorsA 0) :=
@@ -226,7 +226,7 @@ theorem sumRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   have hnil : recTy.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hRf
   refine ⟨hread, fun ψ => sumRdsAV_length hFD ψ, ?_, ?_, ?_, ?_⟩
   · intro ψ d hd
-    rw [mem_sumRecDataAV hd, pwBit_eq_zero_iff, Lech.PropWhen.zeronessOf_sound, beq_iff_eq]
+    rw [mem_sumRecDataAV hd, pwBit_eq_zero_iff, ConLeche.PropWhen.zeronessOf_sound, beq_iff_eq]
   · intro ψ ρ
     have hc := claimsAtP_of hμ mp ψ F
     obtain ⟨-, -, hokT, -, -⟩ := hc.inferRow hsty hw hbt hL (CtxOkP.nil hnil) (hread ψ)
@@ -251,7 +251,7 @@ inference run. -/
 theorem sumRuleData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectSumParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {rhss : List Expr} {caps : IndCaps}
-    (hRec : Lech.checkDirectSumRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
+    (hRec : ConLeche.checkDirectSumRec (ConLeche.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     {bsT : List (Expr × BinderMeta)}
@@ -277,11 +277,11 @@ theorem sumRuleData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
             ((ppsAll ψ).take p.nP) ((ppsAll ψ).drop p.nP) (ctorDataList dsF esF ψ ctorsA 0)
             (dsF j ψ)) (sumRuleCoreAV cA.2 ctorsA.length j))) := by
   obtain ⟨cvRi, recTy, sty, u, -, -, -, -, -, -, -, -, -, hrules, -⟩ :=
-    Lech.checkDirectSumRec_shape hRec
-  obtain ⟨hTf, -, -, -, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)
+    ConLeche.checkDirectSumRec_shape hRec
+  obtain ⟨hTf, -, -, -, -⟩ := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)
   simp only [ConstantInfo.toConstantVal] at hTf
   have hjn : j < ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
-  obtain ⟨-, hall⟩ := Lech.checkDirectSumRules_inv hrules
+  obtain ⟨-, hall⟩ := ConLeche.checkDirectSumRules_inv hrules
   obtain ⟨rhs, hrhs, hgen, -, hres, hbr, hrf, rhsTy, hrty⟩ := hall j (by simpa using hjn)
   rw [Nat.zero_add] at hgen
   have hcr : ∀ ψ, CtorReads mp.base2 ψ p.cvT.name p.cvT.levelParams p.nP p.nIdx
@@ -307,4 +307,4 @@ theorem sumRuleData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   obtain ⟨-, -, hokR, -, -⟩ := hc.inferRow hrty hw hbr hL (CtxOkP.nil hnil) (hread ψ)
   exact hokR ρ (Sat2_nil V ρ)
 
-end Lech.SetP
+end ConLeche.SetP

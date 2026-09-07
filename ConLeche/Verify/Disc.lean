@@ -1,5 +1,5 @@
-import Lech.Verify.Scoped
-import Lech.Verify.InstSpine
+import ConLeche.Verify.Scoped
+import ConLeche.Verify.InstSpine
 
 /-!
 # The call-discipline walks
@@ -11,14 +11,14 @@ well-scoped arguments at the ambient depth.  One `DiscV` walk per
 function, mirroring the body structure; the scoping of intermediate
 values flows out of the site lemmas (`ScopedSim.site_*`), the scoping
 of syntactically constructed arguments out of the `WScoped` toolkit
-(`Lech/Verify/Shift.lean`, `Lech/Verify/InferLemmas.lean`) — the
+(`ConLeche/Verify/Shift.lean`, `ConLeche/Verify/InferLemmas.lean`) — the
 same per-site facts the depth-invariance bisimulation
-(`Lech/Verify/Deep.lean`) established, with a one-sided conclusion.
+(`ConLeche/Verify/Deep.lean`) established, with a one-sided conclusion.
 -/
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -1717,4 +1717,4 @@ theorem defeqBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
 
 end Walks
 
-end Lech
+end ConLeche

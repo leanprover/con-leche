@@ -12,8 +12,8 @@
 > that outlived it — the mode-indexed relation family `Red`/`Infer`/
 > `DefEq`, the declaration records `DeclR`/`DeclIndR`, the run bridges,
 > the annotated syntax and the membership kit — was re-based to
-> `Lech/SetBase/*` by task #161 with its Lean namespaces unchanged
-> (`Lech.SetR.…`), and those live modules cite this file **by path**
+> `ConLeche/SetBase/*` by task #161 with its Lean namespaces unchanged
+> (`ConLeche.SetR.…`), and those live modules cite this file **by path**
 > for the deviations from the official kernel that their statements
 > encode (`SetBase/{Rel,Ok2,Syntax,Kit}.lean`).  The path is therefore
 > load-bearing prose, not history; the promoted practices (P1–P6 below)
@@ -22,14 +22,14 @@
 > Read everything below in the past tense wherever it names a deleted
 > module, and in the present tense wherever it names a `SetBase` one.
 
-# Lech/SetR — the mode-indexed algorithmic relation family (task #148)
+# ConLeche/SetR — the mode-indexed algorithmic relation family (task #148)
 
-This is the campaign's §-file for the `Lech/SetR/*` tier.  The
+This is the campaign's §-file for the `ConLeche/SetR/*` tier.  The
 campaign design document (architecture, the full rule tables, the task
 sequence, the risk register) is the #148 design deliverable; this file
 records what T2 **built**, where it **deviates** from the design's §1
 as written, and what T3 (bridge) and T4 (soundness) need to know that
-the design document does not say.  House practices were `Lech/TTVerify/DESIGN.md` §0/§25; that file was
+the design document does not say.  House practices were `ConLeche/TTVerify/DESIGN.md` §0/§25; that file was
 deleted with its subject at task #209 and what is still live of it is
 DESIGN.md's **House practices** section (binding).
 
@@ -310,12 +310,12 @@ Landed on master (see the commit trailer for the battery record):
 `lake build` warning-free with the tier force-recompiled, `lake test`,
 arena + e2e + split + mode sweeps unchanged (proof-side only — no
 binary file in the build cone is touched), zero sorries, and the
-`Lech.SetR` examples' axioms exactly `[propext, Classical.choice,
+`ConLeche.SetR` examples' axioms exactly `[propext, Classical.choice,
 Quot.sound]` or fewer (the family's constructors and M1 use no
 classical reasoning; the axiom audit runs on the examples and the five
 `weakenN`s).
 
-## T3 — the bridge (`Lech/SetR/Bridge/*`)
+## T3 — the bridge (`ConLeche/SetR/Bridge/*`)
 
 ### Inventory (as landed)
 
@@ -328,8 +328,8 @@ classical reasoning; the axiom audit runs on the examples and the five
 | `Bridge/DefEq.lean` | `CtxOkR.openCong` (**the batch-(a) headline**), the loop/continuation factoring (`DefEqContR`, `DefEqStepR`, `defeqLoop_claimR`, `defeq_claimsR`), the full `defeqStep_claimR` (syntactic short-circuit, both `whnfCore` moves, literal acceleration, all four lazy-delta branches), `delta_packageR`, and the assembly `checkStepR_of` over a `StepObligationsR` bundle; obligations `ProofIrrelStepR`, `DefEqStuckStepR`, `DefEqSpineStepR` |
 
 One relocation was forced and made: `denote_params_ext` / `denote_instLevels`
-(and their four private helpers) moved from `Lech/TTVerify/Extend.lean` to
-the new `Lech/Verify/Denote/Levels.lean`, statements unchanged.  They are
+(and their four private helpers) moved from `ConLeche/TTVerify/Extend.lean` to
+the new `ConLeche/Verify/Denote/Levels.lean`, statements unchanged.  They are
 V-free and lane-independent — the campaign design's T1 lists exactly this
 kind of move — and both lanes now import them from below rather than the
 `SetR` tier importing `TTVerify`.
@@ -477,10 +477,10 @@ shape the decision may change.
 **Decided by the soundness side, as the interface record.**  All 20
 `Red`-at-an-inferred-type premises (T3's list: I6 ×2, I7, I8, I9, I10,
 R6 ×2, R12–R14, D8 ×2, D9 ×2, D10, D11 ×2, D12, D13) are now
-`DefEq μ Δ tx Shape` in `Lech/SetR/Rel.lean`, and the two
+`DefEq μ Δ tx Shape` in `ConLeche/SetR/Rel.lean`, and the two
 declaration-level front doors with the same shape (`ConstantValR`'s
 `ensureSort` pair and the thm-kind's `sort 0` pair in
-`Lech/SetR/Decl.lean`) follow suit.  Subject-side reductions (R6's
+`ConLeche/SetR/Decl.lean`) follow suit.  Subject-side reductions (R6's
 `Red p P`, R7's chain, R8–R10's argument whnfs, R11's major chain)
 stay `Red`.  `Weaken.lean`'s affected cases re-signed (`RedW → DeqW`
 in the IH slots); `CtxOkR` untouched (it never applies an affected
@@ -568,7 +568,7 @@ equality lane must not touch `AnnotOkV` at all.
   spine's component memberships by **inverting the `Infer P te`
   premise** (relational `cases`; the I3-alternative head is handled by
   `annot_okV`/`mem_type`) — the exact transpose of the model's own
-  `inferTypeCore_app_inv'` walk (`Lech/Model/Core/Whnf.lean:539-741`),
+  `inferTypeCore_app_inv'` walk (`ConLeche/Model/Core/Whnf.lean:539-741`),
   which is the mechanized witness that set-mode certificates suffice.
 
 **For T5/T6**: `EnvS`'s semantic fields will be consumed in
@@ -724,7 +724,7 @@ from the remaining ten obligations.  The batch is repair-independent:
 R8–R10 have no `Infer` premise, so the finding above cannot reach them.
 
 The scale is the number worth recording.  The TT lane's counterpart
-(`Lech/TTVerify/NatOpsStep.lean`) is ~1 900 lines and almost all of it
+(`ConLeche/TTVerify/NatOpsStep.lean`) is ~1 900 lines and almost all of it
 is *content*: sixteen `natOps_*_closed` meta-inductions transporting
 each stored recurrence to the layer's numerals, on top of identifying
 `natLitT` with `numeral` through the pinned basis valuations.  Here the
@@ -741,10 +741,10 @@ the bridge's favour, and it is entirely the two-pack discipline.
 
 Two more V-free relocations were forced and made, both verbatim:
 `natOpGuard_deps` / `natOpGuard_bools` / `natOp_stored` from
-`TTVerify/NatOpsStep.lean` to `Lech/Verify/EnvGuards.lean` (whose
+`TTVerify/NatOpsStep.lean` to `ConLeche/Verify/EnvGuards.lean` (whose
 docstring already claims to be the home of the guards' V-free
 readings), and a new `natOpResult_atom` beside `natOpResult_shape` in
-`Lech/Verify/InferLemmas.lean` — the strengthening a *denoting*
+`ConLeche/Verify/InferLemmas.lean` — the strengthening a *denoting*
 consumer needs, since "some constant" is not enough when `natOpGuard`
 pins exactly `boolTrueName`/`boolFalseName`.
 
@@ -814,7 +814,7 @@ the two `lit (.natVal 0)`/`Nat.zero` pairs (D1 — `natLitV … 0` is the
 `lam`/`lam` (D6, likewise), `app`/`app` (D7, through `defEqList`'s
 inversion and a `DefEqL` list induction).  The two string-literal
 expansion cases need `denoteClosed … (strLitToConstructor s)` — R7's own
-side condition — which is content the `Lech/Verify/StrLitExpr.lean`
+side condition — which is content the `ConLeche/Verify/StrLitExpr.lean`
 tier should supply; the one-sided λ cases are D13 and so are held by
 Finding 1.
 
@@ -845,7 +845,7 @@ remaining batches.  The slack composes with the reduction claim through
 `DefEq.ofRed`, which is precisely what the repair made possible.
 
 One more V-free relocation, verbatim: `substFn_of_evalEqList` from
-`TTVerify/DefEqStep.lean` to `Lech/Verify/Level.lean` (a statement
+`TTVerify/DefEqStep.lean` to `ConLeche/Verify/Level.lean` (a statement
 about levels alone; both lanes' same-head spine short-circuits need it).
 
 ### FINDING 3 — RESOLVED 2026-08-28 (T4 amendment, third increment): the *doubled*-`Infer` premise chains do not compose either
@@ -946,8 +946,8 @@ subjects.  No further doubled chains exist.
 
 | file | content |
 |---|---|
-| `Lech/Verify/Denote/Install.lean` | **relocated** (T1/T3 precedent, statements unchanged, namespace kept): the V-free install-transport core of `TTVerify/Extend.lean` — `EnvExtends`/`denote_mono`, `denote_cval_congr`, `LitAgree`, `denote_env_shrink`/`denote_install`, the guard monotonicity family, `Installs`, `BasisPinnedTT.cons`, `ProjOkT.cons`, `divModNames_agree` — plus `cvalAt` (from `DeclValue.lean`) and `cvalWith` (from `DeclAxiom.lean`) |
-| `Lech/Verify/Denote/SubstConst.lean` | **relocated + generalized**: `shallowE`, `denote_substConst0` over a bare valuation + closedness (the generalization the original's docstring predicted) |
+| `ConLeche/Verify/Denote/Install.lean` | **relocated** (T1/T3 precedent, statements unchanged, namespace kept): the V-free install-transport core of `TTVerify/Extend.lean` — `EnvExtends`/`denote_mono`, `denote_cval_congr`, `LitAgree`, `denote_env_shrink`/`denote_install`, the guard monotonicity family, `Installs`, `BasisPinnedTT.cons`, `ProjOkT.cons`, `divModNames_agree` — plus `cvalAt` (from `DeclValue.lean`) and `cvalWith` (from `DeclAxiom.lean`) |
+| `ConLeche/Verify/Denote/SubstConst.lean` | **relocated + generalized**: `shallowE`, `denote_substConst0` over a bare valuation + closedness (the generalization the original's docstring predicted) |
 | `EnvS.lean` | `EnvS` (the invariant; `EnvTT` transposed with membership-form semantic fields — module docstring has the row-by-row table), `.empty`, `EnvS.toHyp` (discharges T4's frozen `EnvSHyp` by projection; the `mem_type` crossing via `denote_instLevels`), `EqLawV`/`ReduceOpsV` (+ `.empty` laws), the declaration-level consequences |
 | `Install/Cons.lean` | the per-field `.cons` transports (`EqLawV`, `ReduceOpsV`, `NatOpsV`, `DivModV`, `CapsOkV`, `RecRulesV`; `mem_type`/`defn_eq`/`thm_ok` movers) + the assembler `EnvS.cons` (transpose of `EnvTT.cons` minus `ctor_residual`) |
 | `Install/Value.lean` | `typeFrontS`/`valueKeyS` (the front doors through T4's soundness at `Sat`-trivial `[]`), `extendValueS`, the `DivModPinS`/`ReducePinS` obligations |
@@ -1035,7 +1035,7 @@ shape lemmas, `denote_nilTerm`/`denote_consTerm`/`denote_strLitList`,
 plus `substFn_nil` and `denote_const_nolevels`) was stranded in
 `TTVerify/{StrLitStep,NatOpsStep}.lean` behind an `EnvTT` argument it
 never used beyond level insensitivity.  Relocated to
-`Lech/Verify/Denote/StrLit.lean` and **generalized from `EnvTT` to
+`ConLeche/Verify/Denote/StrLit.lean` and **generalized from `EnvTT` to
 `ValParams`**; the `EnvTT`-shaped statements stay where their consumers
 are, each now one line over the generalized form, so there is exactly
 one proof.  `denote_const_nolevels`'s 45 call sites and `substFn_nil`'s
@@ -1150,10 +1150,10 @@ the expression is not a stored declaration's type), and
 `denote_entryTyR` (the pinned entry's type, denoted, with its
 closedness).
 
-`Lech/SetR/ProjPins.lean` is new: `projEntry_pins`,
+`ConLeche/SetR/ProjPins.lean` is new: `projEntry_pins`,
 `denote_pairFstTy_eq`, `denote_pairSndTy_eq`, `denote_psigmaMkTy_eq`
 and the two `piResidualV` walks, **relocated verbatim** out of
-`Lech/SetR/Sound/Proj.lean`.  The soundness tier built them first and
+`ConLeche/SetR/Sound/Proj.lean`.  The soundness tier built them first and
 the bridge needs exactly the same facts; they are V-free (`denote`,
 `Env.find?`, `ProjOkT`), so they sit below both tiers with one proof.
 `EnvR` gained `proj_ok : ProjOkT env` with this, its first consumer —
@@ -1174,11 +1174,11 @@ Writing it needs three things, in this order:
 
 1. **Three fuel-lifted inversions relocated.**  `whnf_forallE_eq`,
    `inferTypeCore_app_inv'` and `inferTypeCore_const_inv` are `private`
-   in `Lech/Model/Core/Whnf.lean:27-70`.  All three are V-free and
+   in `ConLeche/Model/Core/Whnf.lean:27-70`.  All three are V-free and
    general (they are `*_mono`-lifted forms of existing inversions), and
    the model's own comment calls them "fuel-lifted inversions for the
    certificate walk of the native pair projection" — i.e. exactly this
-   walk.  They belong in `Lech/Verify/InferLemmas.lean`.
+   walk.  They belong in `ConLeche/Verify/InferLemmas.lean`.
 2. **The four-step concrete walk.**  `inferTypeCore_app_inv'` peels the
    constructor application one argument at a time; at each step
    `whnf_forallE_eq` says the whnf of the pinned type's `∀` is itself,
@@ -1255,7 +1255,7 @@ needs).  `EnvS.rec_rules` carries exactly this fact, so the field is
 
 **2. RISK — `rP ≤ mI` may not be suppliable for `.plain` fires.**
 R11 states `rP ≤ mI` as an unconditional side condition (deviation D3),
-recorded as "supplier: `EnvWF`".  Reading `Lech/Verify/EnvWF.lean:57`,
+recorded as "supplier: `EnvWF`".  Reading `ConLeche/Verify/EnvWF.lean:57`,
 `EnvWF` concludes `rP ≤ mI` **only inside the `.nested` branch**
 (`∀ lvls pins, fire r = .nested lvls pins → rP ≤ mI ∧ …`); nothing in
 the `.plain` case relates the two, and `iotaRec` does not check it
@@ -1618,7 +1618,7 @@ Two V-free additions, both shared-tier: `towerCtxEqD` (the denote-level
 form of `towerCtxEq` — a *renamed* domain pin needs it; `towerCtxEq` is
 now its syntactic corollary), and `instPisAt_isSome_of_stripPis`
 **relocated verbatim** (the seventh relocation) from
-`Lech/Model/InstFrames.lean` to `Lech/Verify/InstSpine.lean`, where
+`ConLeche/Model/InstFrames.lean` to `ConLeche/Verify/InstSpine.lean`, where
 both lanes see it — it sat behind a `SetTheory` section variable it
 never used.
 
@@ -1909,11 +1909,11 @@ it; stage 1 is not.
 
 # Task #151 tier B — the collapse-free two-regime interpretation
 
-`Lech/SetR/Interp2/*` (landed: `Ops`, `Syntax`, `Interp`, `Kit`,
-`Univ`, `TierA`).  Imports `Lech/SetTheory/Basic.lean` and nothing else — no
+`ConLeche/SetR/Interp2/*` (landed: `Ops`, `Syntax`, `Interp`, `Kit`,
+`Univ`, `TierA`).  Imports `ConLeche/SetTheory/Basic.lean` and nothing else — no
 checker, no model layer, and in particular **no module built over the
 collapse operators**.  Zero edits to existing files outside this
-document and `Lech/SetR.lean`.
+document and `ConLeche/SetR.lean`.
 
 ## The two regimes
 
@@ -1933,7 +1933,7 @@ else:
 
 These are the **pre-#100 `SetTheory.pi`/`SetTheory.lam`** (see the git
 history of `Derive/Pi.lean`, commit `19d070d^`), restated in the
-`Lech.SetR.Interp2` namespace so that `Lech/SetTheory/*` is
+`ConLeche.SetR.Interp2` namespace so that `ConLeche/SetTheory/*` is
 untouched.  What is new is not the operators but that the *numeral now
 comes from the term* — tier A's annotation pass — rather than from a
 checker-side stored annotation the model had to re-derive.  The law
@@ -1978,7 +1978,7 @@ subset of the canonical singleton and the unique inhabitant of a true
 proposition *is* `pt`.  Any two-regime interpretation must give the
 squash regime's values *some* canonical point, and `SetTheory` has
 already chosen which.  Removing it would mean re-deriving `univZero`
-over a different singleton — an edit to `Lech/SetTheory/*` with no
+over a different singleton — an edit to `ConLeche/SetTheory/*` with no
 payoff, since renaming the point changes nothing.
 
 What *is* achievable, and is delivered, is the demotion:
@@ -2016,7 +2016,7 @@ hypothesis*: the inversion is fibre-blind.
 
 **Verdict on the parked contingency.**  The non-transitive-chain
 re-choice is **not needed, and there is nothing left for it to fix**.
-`Lech/SetTheory/Core.lean`'s transitivity clause and the ω-chain stay
+`ConLeche/SetTheory/Core.lean`'s transitivity clause and the ω-chain stay
 exactly as they are; this layer imposes no new demand on the class.
 (The prognosis in the brief was "no"; it is confirmed, mechanized in
 `Interp2/Univ.lean`.)
@@ -2054,7 +2054,7 @@ there and none here.
 
 **F3 — the substitution stack transposes unchanged.**
 `interp2_liftN`/`interp2_inst`/`interp2_inst0`/`interp2_mkAppN` are
-`Lech/TT/Semantics/Interp.lean`'s, line for line modulo the extra
+`ConLeche/TT/Semantics/Interp.lean`'s, line for line modulo the extra
 numeral fields.  Removing the collapse costs nothing in the
 substitution metatheory — as predicted, because `interp2` is
 structural and the numerals are carried, never read, by `liftN`/`inst`.
@@ -2062,7 +2062,7 @@ structural and the numerals are carried, never read, by `liftN`/`inst`.
 ## Scope: what is deliberately **not** here
 
 * **The built-in constants.**  `AVExpr` has no `const` case and
-  `interp2` no `bval` clause.  `Lech.TT.bval`'s values are `lamC`
+  `interp2` no `bval` clause.  `ConLeche.TT.bval`'s values are `lamC`
   towers — collapse-built — and rebuilding them as `lamR` towers is a
   separate landing, because each constant's *application law* then
   acquires the pre-#100 shape: at `u = 0` the whole tower is the
@@ -2125,7 +2125,7 @@ requirement on the annotation pass, not a regression.
 ## Coordination: the `AVExpr` swap
 
 `Interp2/Syntax.lean` is **tier B's provisional `AVExpr`**.  It mirrors
-`Lech.TT.VExpr` constructor for constructor, minus `const` (above),
+`ConLeche.TT.VExpr` constructor for constructor, minus `const` (above),
 plus the annotations `lam (v)` and `pi (u v)`; `liftN`/`inst` carry the
 numerals through untouched.
 
@@ -2206,7 +2206,7 @@ What stage 3 therefore needs, in order:
 1. **`EnvS.swap`** — the `EnvTT.swap` transpose (~300 lines there).
    Its V-free half is **already shared**: `SwapPairSh`, `SwapShList`,
    `swapSh_find?_corr`, `ProvFacts.*` in
-   `Lech/Verify/Extend/Recs.lean`.
+   `ConLeche/Verify/Extend/Recs.lean`.
 2. **`iotaRuleS`** — the per-rule bridge from `IotaRuleR` to
    `RecRulesV.cons`'s `hhead` clause, firing `indBottomPlainS` on the
    `.plain` branch and `indBottomNestedS` on the `.nested` one
@@ -2228,7 +2228,7 @@ valuation existential), the `DeclIndS` assembly, and `DeclBasisS`.
 # Task #151 tier A — the sort-annotation pass
 
 Non-invasive by construction: three **new** modules under
-`Lech/SetR/Annot/*`, plus the lib-root registration.  `denote`, the
+`ConLeche/SetR/Annot/*`, plus the lib-root registration.  `denote`, the
 relation family (`Rel.lean`), the bridge (`Bridge/*`) and the soundness
 half (`Sound/*`) are untouched — tier A *consumes* the landed
 `Sound/Main.lean` and adds nothing to it.  That is the tiering
@@ -2327,12 +2327,12 @@ linking `DefEq` between two inferred types.
 
 **`univ_inj` did not exist; it does now, in its home** (the campaign's
 **eighth relocation**, done verbatim in its own commit).  Searched
-`Lech/SetTheory/Derive/*`: `Univ.lean` had `univ_mono`,
+`ConLeche/SetTheory/Derive/*`: `Univ.lean` had `univ_mono`,
 `univ_mem_univ`, `univ_subset_succ`; `Derive/Empty.lean` has
 `not_mem_self`; injectivity was absent.  It is proved from those three
 (`u < v` gives `univ u ∈ˢ univ (u+1) ⊆ˢ univ v`, and the equality would
 put a set inside itself) and now sits beside `univ_mono` in
-`Lech/SetTheory/Derive/Univ.lean`, with A4's warning in its
+`ConLeche/SetTheory/Derive/Univ.lean`, with A4's warning in its
 docstring — the two facts belong together, since `univ_mono` is
 precisely why `univ_inj` is the only handle.  A general fact about the
 tower with no #151 content; `Annot/Kinding.lean` consumes it as
@@ -2402,7 +2402,7 @@ from" and that de-gating "may drop the comparison, but the sort must
 still be computed".  Read against the landed checker, **it is already
 gone, deliberately, and nothing computes it**:
 
-* `Lech/Kernel/Core.lean:1588-1600` — the λ clause, with its own
+* `ConLeche/Kernel/Core.lean:1588-1600` — the λ clause, with its own
   comment: *"The body's type is not sort-checked here (task #100 stage
   6: the official-kernel `infer_lambda` shape — the λ-annotation
   re-check died with the stored annotations …)"*.  It runs
@@ -2412,11 +2412,11 @@ gone, deliberately, and nothing computes it**:
   (`Core.lean:1578-1587`), which *does* call `ensureSort` on the opened
   body — that asymmetry is exactly why I6 has two sort premises and I7
   has one.
-* `Lech/Verify/InferLemmas.lean:149-157` — `inferTypeCore_lam_inv`
+* `ConLeche/Verify/InferLemmas.lean:149-157` — `inferTypeCore_lam_inv`
   returns `∃ tty u bt, infer ty = tty ∧ whnf tty = .sort u ∧
   infer (body…) = bt ∧ t = .forallE …`.  The **domain**'s sort and no
   more; there is no conjunct to invert for the codomain.
-* `Lech/Kernel/Expr.lean:72-74` — `BinderMeta` is `⟨bi⟩`.  The
+* `ConLeche/Kernel/Expr.lean:72-74` — `BinderMeta` is `⟨bi⟩`.  The
   codomain-sort slot the task-#49-era annotate pass filled was deleted
   with the decoration apparatus in #100 stage 6 (DESIGN.md's stage-6
   record: the cod memos, `codOfCore`/`codOfI`/`IState.codOfC`,
@@ -2501,7 +2501,7 @@ identical, no-model sweep as expected (1 recorded divergence); axioms
 exactly `[propext, Classical.choice, Quot.sound]` or fewer on every
 theorem of the tier (`erase_liftN`/`erase_inst` need only `propext`;
 `erase_mkAppN` and `ZetaEq.refl` need none); zero sorries; binary cone
-untouched (three proof-only modules in `LechSetR`, imported by
+untouched (three proof-only modules in `ConLecheSetR`, imported by
 nothing else).
 
 # Task #151 tier B — option C assessed, and B2 (the constants' towers)
@@ -2514,7 +2514,7 @@ two-regime split from the λ *value* to the soundness *judgment* —
 conclusion **graded by the type's kind** (membership above `0`, *truth*
 of the type's interpretation at `0`, with the subject never consulted).
 
-Mechanized in `Lech/SetR/Interp2/Graded.lean` (`Real k x T` is the
+Mechanized in `ConLeche/SetR/Interp2/Graded.lean` (`Real k x T` is the
 graded conclusion, and each rule is stated semantically over the data
 it has, as `TierA.lean`'s refutation is).  **Two of the three
 representative rules work; the third has a wall.**
@@ -2590,7 +2590,7 @@ taken.
 
 ## B2 — the built-in constants' towers (`Interp2/Value.lean`)
 
-`Lech/TT/Semantics/Value.lean`'s `bval` restated over `piR`/`lamR`
+`ConLeche/TT/Semantics/Value.lean`'s `bval` restated over `piR`/`lamR`
 (`bval2`).  **Independent of the F4/A3/B5 decision**: `bval2` is
 indexed by the constant and its level list, never by a λ *node*, so it
 neither needs nor supplies a binder annotation.
@@ -2647,7 +2647,7 @@ the F4/A3/B5 decision.
 
 ## Housekeeping
 
-`Lech/SetR/Interp2/Value.lean` reached master in commit `121fded`
+`ConLeche/SetR/Interp2/Value.lean` reached master in commit `121fded`
 **swept from another agent's shared working tree while it was still
 unbuilt and unimported** (the same sweep the tier-A record notes for
 `Annot/*`).  It is compiled and wired as of this branch.  Tier B works
@@ -3185,7 +3185,7 @@ V-free backbone (`pinnedDirectT`, `BasisPinnedTT`, `ProjOkT`,
 
 **The obvious shortcut does not exist, and it is worth recording why**
 so nobody spends a day on it.  One might hope to transport the *Model*
-lane's basis install (`Lech/Model/*`), since `EnvS` and `EnvModel`
+lane's basis install (`ConLeche/Model/*`), since `EnvS` and `EnvModel`
 are both set-model structures where `EnvTT` is a typing structure.
 They are not interchangeable in the needed direction:
 
@@ -3217,8 +3217,8 @@ every pinned constant's *membership* is one application away from the
 derivation the TT lane already writes, and the two lanes do the same
 type computation rather than two different ones.
 
-This does **not** couple the lanes: `Lech/SetR/*` does not import
-`Lech/TTVerify/*` and must not.  What both sit on is `Lech/TT/*` —
+This does **not** couple the lanes: `ConLeche/SetR/*` does not import
+`ConLeche/TTVerify/*` and must not.  What both sit on is `ConLeche/TT/*` —
 the judgment and its soundness — which is shared already.
 
 ### The cost that is real: `AnnotOkV`
@@ -3587,7 +3587,7 @@ would freeze an install decision the relation has no business making.
 
 ## FINDING A5 (**blocking, campaign-level**) — B5′ is refuted: validity fails for `Infer` as landed, at I8
 
-Tier A's check of tier B's repair **B5′** (`Lech/SetR/Annot/Validity.lean`).
+Tier A's check of tier B's repair **B5′** (`ConLeche/SetR/Annot/Validity.lean`).
 The proposal was to supply the λ codomain numeral from a metatheorem —
 
 > if `Infer Δ b B` then `B` has a sort: `∃ v, HasSort Δ B v`
@@ -3723,7 +3723,7 @@ interface T6 inherits is exactly
 
 ### The five blocks, and what each cost
 
-`Lech/SetR/Install/BasisS.lean` installs `Empty`, `PUnit`, `Nat`,
+`ConLeche/SetR/Install/BasisS.lean` installs `Empty`, `PUnit`, `Nat`,
 `Quot`, `Eq` and `PSigma'` — one `declBasisS_*K` per kind, dispatched
 by `declBasisS`.  The campaign-wide ratio held: the *recursor* content
 is roughly half the TT lane's, because a layer value equation replaces
@@ -3754,7 +3754,7 @@ Where the two lanes diverge most:
 
 Relocation #17 (`inst_chain1..4`, `inst_absorb21..54`) moved from
 `TTVerify/DeclBasis.lean` to `Verify/Denote/SubstAlgebra.lean`, in the
-`Lech.TT` namespace so both lanes see them unqualified.  A
+`ConLeche.TT` namespace so both lanes see them unqualified.  A
 substitution identity is shared tier, not lane-local: both lanes'
 recursor iotas walk the same telescopes and both need the same
 cancellations.
@@ -4038,7 +4038,7 @@ branches pass (one front door, at the base environment);
 
 ### Finding 8, implemented — the interleaved walk works
 
-`Lech/SetR/Bridge/DeclInd.lean` opens with `indMembersRS`: literally
+`ConLeche/SetR/Bridge/DeclInd.lean` opens with `indMembersRS`: literally
 `indMembersS`' induction with `memberValR_of` inserted at each step to
 *produce* the front door instead of consuming it, accumulating the
 relation and the invariant together.  It went through unchanged
@@ -4652,9 +4652,9 @@ Two mechanical notes, both of which cost round trips:
   lines.  General shape: *when a predicate over a derived list
   resists induction, prove the list's own equation instead.*
 * **Do not give a shared-tier lemma a dotted `Expr.` prefix inside
-  `namespace Lech.TTVerify`.**  The prefix resolves against the
-  enclosing `Lech`, and the resulting constant is reachable under
-  neither `Lech.Expr.…` nor `Lech.TTVerify.Expr.…` from a
+  `namespace ConLeche.TTVerify`.**  The prefix resolves against the
+  enclosing `ConLeche`, and the resulting constant is reachable under
+  neither `ConLeche.Expr.…` nor `ConLeche.TTVerify.Expr.…` from a
   consumer that opens both.  Plain identifiers (`wscoped_renameConsts`)
   resolve unambiguously.  Also: `lake env lean` type-checks a file
   without installing its `.olean`, so a consumer keeps seeing the old
@@ -5066,8 +5066,8 @@ disagree, check which one the consumer reads before deciding which to
 move.**  Here the consumer had already voted, twice, in the source.
 
 **Recorded trap, recurring.**  `DenoteSpine.mem_denotes` declared
-inside `namespace Lech.SetR` resolves as
-`Lech.SetR.DenoteSpine.mem_denotes` and is reachable under neither
+inside `namespace ConLeche.SetR` resolves as
+`ConLeche.SetR.DenoteSpine.mem_denotes` and is reachable under neither
 path — the dotted-prefix trap, hit again.  Renamed to the plain
 `denoteSpine_mem_denotes`.  It was extracted from an inline `have`
 inside `spine_walk_pack` on the *second* consumer appearing, which is
@@ -5190,7 +5190,7 @@ on sight, not at assembly time.
 
 **Sweep (clean).**  Applying the new early check — *a valuation with
 no invariant attached in a semantic hypothesis reads as unprovable on
-sight* — across `Lech/SetR/*`: the only shape that matters is a
+sight* — across `ConLeche/SetR/*`: the only shape that matters is a
 **valuation bound *inside* a hypothesis**, not a valuation parameter
 of the theorem.  The discriminator is exactly what separated
 `projInstallR_of`'s `hfn : ∀ {e e' cval i}, …` (quantified inside, and
@@ -5343,7 +5343,7 @@ the fourteen.
 ### The assembly: `checkDeclR_sound` and the fold — plus the trap's
 ### third instance, in the dispatch itself
 
-`Lech/SetR/Bridge/Sound.lean` closes the per-declaration route:
+`ConLeche/SetR/Bridge/Sound.lean` closes the per-declaration route:
 `checkDeclR_sound` (six-way dispatch) and `foldlM_R` (the `checkDecls`
 fold, carrying `EnvS` along by `declStepS`).  It is the transpose of
 the TT lane's `checkDeclTT` / `foldlM_TT` pair, line for line.
@@ -5391,7 +5391,7 @@ prospectively rather than retroactively for once.
 
 ### Three of the fourteen land; the other eleven are a different shape
 
-`Lech/SetR/Main.lean` carries `no_constant_of_Empty_R`,
+`ConLeche/SetR/Main.lean` carries `no_constant_of_Empty_R`,
 `checkDecls_sound_R` and `no_proof_of_Empty_R` — the three stated over
 `checkDecls` at `fueledOps`.  `no_proof_of_Empty_R` takes the §3 route
 exactly as planned: `EnvS.mem_type` at the stored constant gives
@@ -5600,7 +5600,7 @@ free (annotations are `.const natName []`), and the denotation is the
 `const` clause's arity match.
 
 **The obstacle is layering, and it is the relocation rule's exact
-case.**  `Lech/SetR/*` must not import `Lech/TTVerify/*` — the two
+case.**  `ConLeche/SetR/*` must not import `ConLeche/TTVerify/*` — the two
 routes are independent by design.  But the block is *V-free*:
 `natFragOk`, `shallowE_of_natFragOk`, `storedNoLevels`,
 `natFragOk_const`, `natFragOk_self`, `natOpEquations_frag`, the
@@ -5608,7 +5608,7 @@ routes are independent by design.  But the block is *V-free*:
 `natOpGuard_*` lemmas mention nothing lane-specific.  Only
 `natFrag_subst_facts` (`:73`) takes an `EnvTT`, and it stays.
 
-So the route is: **relocate the V-free block to `Lech/Verify/`**
+So the route is: **relocate the V-free block to `ConLeche/Verify/`**
 (the TT lane imports `Verify`, so it keeps everything by re-export),
 then one induction.  That is the relocation thesis at its stated
 threshold — a second consumer, and a statement with nothing
@@ -5622,13 +5622,13 @@ is not something to leave half-done at a session boundary.
 
 The relocation predicted the shape and the shape held.
 
-`Lech/Verify/NatOpFrag.lean` now carries the V-free fragment
+`ConLeche/Verify/NatOpFrag.lean` now carries the V-free fragment
 characterisation (`natFragOk` and its fourteen companions); only
 `natFrag_subst_facts`, stated over an `EnvTT`, stayed behind.  The
-namespace is kept as `Lech.TTVerify`, following the convention the
+namespace is kept as `ConLeche.TTVerify`, following the convention the
 TT lane already grew into for shared files
-(`Verify/Denote/SubstConst.lean` is `Lech/Verify/*` in
-`Lech.TTVerify` too), so **nothing downstream re-qualified** — the
+(`Verify/Denote/SubstConst.lean` is `ConLeche/Verify/*` in
+`ConLeche.TTVerify` too), so **nothing downstream re-qualified** — the
 TT lane's certified theorems are byte-identical in their axiom
 dependencies and the tt-model sweep is unchanged.
 
@@ -5699,7 +5699,7 @@ inversion pin, one discharge each.
 
 ### Obligation 3 CLOSED — and the pin conjunct was dead weight
 
-`Lech/Verify/ReducePinInv.lean` takes `reduceElem_shape` and
+`ConLeche/Verify/ReducePinInv.lean` takes `reduceElem_shape` and
 `checkReducePin_inv` out of the TT lane, with the **additive
 strengthening** the trace predicted: the inversion now records both
 guards, both annotate outputs and *both* `isDefEq` verdicts.  The TT
@@ -5829,7 +5829,7 @@ same with their own driver bridges.
 umbrella pulls in the set model's V-dependent extension lemmas.  So
 the relocation is real but **not** a copy: it needs `DirectWF`'s
 dependence on `Model.Extend` narrowed to the syntactic lemmas it
-actually uses.  `Lech/SetR/*` imports no `Lech/Model/*` today and
+actually uses.  `ConLeche/SetR/*` imports no `ConLeche/Model/*` today and
 that discipline is the reason this is not simply an added import.
 
 **(B) The five install obligations: table, as requested.**
@@ -5931,8 +5931,8 @@ for that eventuality: it is the reusable geometric piece
 dependence on the decision either way, and `DivModPinS` will want it.
 
 **Guard (b) — confirmed, and worth stating exactly.**  The edit
-touches `Lech/SetR/Decl.lean` (the `DeclR` tier) and its three
-consumers.  `Lech/SetR/Rel.lean` contains **zero** occurrences of
+touches `ConLeche/SetR/Decl.lean` (the `DeclR` tier) and its three
+consumers.  `ConLeche/SetR/Rel.lean` contains **zero** occurrences of
 `DivModPinR`, `DivModCertR` or `checkDivModCerts`, before or after.
 The `[set]` relation family's premise-exactness claim is about
 `Rel.lean`'s forty-two constructors and is untouched: **the core
@@ -5957,10 +5957,10 @@ a branch to delete.  `Model/BridgeWF.lean` touched `DirectWF` at
 **exactly one place**, the `some p` arm of
 `cases hdp : directParts? env block`, and `directParts?_none` makes
 that arm unreachable.  Two lines replace nineteen, the
-`Lech.Model.DirectWF` import goes, and the file — already entirely
+`ConLeche.Model.DirectWF` import goes, and the file — already entirely
 V-free — becomes shared-tier material.
 
-So `Model/BridgeWF.lean` is now **`Lech/Verify/BridgeWFDecl.lean`**
+So `Model/BridgeWF.lean` is now **`ConLeche/Verify/BridgeWFDecl.lean`**
 (`git mv`, one importer to repoint plus the root).  `directParts?_none`
 moved with it into `Verify/BridgeDecl.lean`, where every consumer's
 dependence on the compile-time switch is findable from one place.
@@ -5992,9 +5992,9 @@ The dead-branch rule paid twice more.  `Model/BridgeS.lean` (498
 lines, V-free) touched `DirectWF` only through
 `checkDirectStructS_run` and its projection helper — **179 lines whose
 only caller was the unreachable arm**.  Deleted, not narrowed; the
-file is now `Lech/Verify/BridgeSDecl.lean`.  `checkDeclSPStep_run`
+file is now `ConLeche/Verify/BridgeSDecl.lean`.  `checkDeclSPStep_run`
 and `checkDeclSPStep_inRange` came out of `Model/ConsistencyP.lean`
-into `Lech/Verify/BridgePDecl.lean` the same way.
+into `ConLeche/Verify/BridgePDecl.lean` the same way.
 
 Three folds, all first attempt:
 
@@ -6021,7 +6021,7 @@ Remaining: the five `*_input` corollaries (the
 ### ALL FOURTEEN STAND — the breadth dimension is done
 
 `checkDecl_stores` came out of `Model/Consistency.lean` into
-`Lech/Verify/DeclStores.lean` (purely syntactic; both routes' input
+`ConLeche/Verify/DeclStores.lean` (purely syntactic; both routes' input
 corollaries turn on it), and with it the last five landed:
 `checkDecl_sound_R` and the four `*_input_*` corollaries, on the
 Model lane's `foldlM_no_Empty_decl` pattern.
@@ -6225,13 +6225,13 @@ statement could not receive it.
 
 Applying the new sizing rule ("check the lane that will discharge it")
 sent me to `SetR` first, correctly — and finding nothing there, to the
-*siblings*, where **`Lech/TTVerify/OfReduceKey.lean`** turned out to
+*siblings*, where **`ConLeche/TTVerify/OfReduceKey.lean`** turned out to
 be a dedicated 355-line file for exactly this obligation.  My earlier
 calibration priced `Model/TrustAxioms.lean`'s `ofReduce_key` (~120
 lines) and never looked at the TT lane at all.
 
 **Landed this stretch: the V-free half, relocated.**
-`Lech/Verify/OfReducePin.lean` now carries `ofReduce_elemTy`,
+`ConLeche/Verify/OfReducePin.lean` now carries `ofReduce_elemTy`,
 `ofReducePin_type`, `reduceOpCv_type`, `reduceElem_sort`,
 `matchesPin_invT` and `eraseNames_sort_inv` — every shape fact about
 the two pinned axioms, all V-free (both differ only in their element
@@ -6698,7 +6698,7 @@ work on them cannot break the tree — but it also cannot be sealed.
 
 ### `DivModPinS`, the extract layer — and the reopen condition, answered
 
-`Lech/SetR/DivModPin.lean` (354 lines) lands the layer between the
+`ConLeche/SetR/DivModPin.lean` (354 lines) lands the layer between the
 checker's certificate verdict and the value equations.  All of it at
 `[propext, Classical.choice, Quot.sound]`.
 
@@ -6721,7 +6721,7 @@ unimported lemma look identical from inside the proof.*
 The one architectural consequence worth naming: the file sits **above
 both tiers** (it imports `Bridge.Main` *and* `Install.Value`), because
 an install obligation whose content is a checker run is not an install
-lemma.  `Lech/SetR.lean` is where it is wired in; nothing in either
+lemma.  `ConLeche/SetR.lean` is where it is wired in; nothing in either
 tier imports it back, so the layering is unchanged.
 
 **What is in it:**
@@ -6746,7 +6746,7 @@ where `dmBinMem` gets its hypothesis for the self case.
 
 `dmCertEq1`/`dmCertEq2` land — the packaged forms a clause
 instantiates.  Both at `[propext, Classical.choice, Quot.sound]`;
-`Lech/SetR/DivModPin.lean` is now 762 lines.
+`ConLeche/SetR/DivModPin.lean` is now 762 lines.
 
 **The design that made these short: everything a certificate needs
 from its statement is `decide`-able of the literal statement.**  The
@@ -6788,7 +6788,7 @@ is structural.
 
 ### `DivModPinS`: the fragment evaluator, and the frame
 
-`Lech/SetR/DivModPin.lean` is 1324 lines, all at
+`ConLeche/SetR/DivModPin.lean` is 1324 lines, all at
 `[propext, Classical.choice, Quot.sound]`.  Two more layers landed.
 
 **`dmEvalV` — denote *and* evaluate in one step, so no clause ever
@@ -6901,7 +6901,7 @@ consumer, never by review.
 
 Built against the actual consumer this time, not ahead of one.
 
-`CtxOkR.pinnedCtxLift` (`Lech/SetR/CtxOkR.lean`) is `pinnedCtx`'s
+`CtxOkR.pinnedCtxLift` (`ConLeche/SetR/CtxOkR.lean`) is `pinnedCtx`'s
 general form: the slot condition reads
 
 ```
@@ -6931,7 +6931,7 @@ Landed with it: `dmCtxOk_stmt`, `dmCtxOk_applied1`, `dmCtxOk_applied2`
 
 ### `dmClause1S` — one guarded div/mod clause, discharged
 
-The crux of `DivModPinS` is proved.  `Lech/SetR/DivModPin.lean` is
+The crux of `DivModPinS` is proved.  `ConLeche/SetR/DivModPin.lean` is
 1797 lines, all at `[propext, Classical.choice, Quot.sound]`.
 
 ```
@@ -6978,7 +6978,7 @@ hypotheses and wants the `dmCertEq2` twin of `dmClause1S`.
 
 ### `DivModPinS` CLOSED — one hypothesis left
 
-`Lech/SetR/DivModPin.lean` is 2879 lines; `divModPinS` stands at
+`ConLeche/SetR/DivModPin.lean` is 2879 lines; `divModPinS` stands at
 `[propext, Classical.choice, Quot.sound]` and is threaded at
 `declStepS`, so **`hdm` has left the fourteen**.  They now carry
 exactly one hypothesis: `StdAxiomKeyS V`.
@@ -7016,13 +7016,13 @@ right; a case that needs thought is a premise in the wrong place.*
 * 124 unused-simp-argument warnings, from the thirty-four membership
   steps each wanting a slightly different lemma set: the file takes
   `set_option linter.unusedSimpArgs false`, exactly as
-  `Lech/TTVerify/DivModPin.lean` does and for the same reason.
+  `ConLeche/TTVerify/DivModPin.lean` does and for the same reason.
 
 ### `StdAxiomKeyS` begun — the relocation, and the split
 
 Two pieces landed.
 
-**Relocated to the shared tier** (`Lech/Verify/StdAxiomPin.lean`,
+**Relocated to the shared tier** (`ConLeche/Verify/StdAxiomPin.lean`,
 128 lines): `iff_shapes` and `nonempty_shapes`, `stdAxiomOk`'s two
 branch inversions.  They are pure `Env`/`Bool` reasoning — no
 valuation, no typing judgement — so task #123's criterion puts them in
@@ -7036,7 +7036,7 @@ moving them would mean moving a third lemma and editing a closed lane
 for a shape neither side would share.  *Relocate what is the same, not
 what merely looks alike.*
 
-**`Lech/SetR/StdAxiomKey.lean`** carries the split (`PropextKeyS`,
+**`ConLeche/SetR/StdAxiomKey.lean`** carries the split (`PropextKeyS`,
 `ChoiceKeyS`, `stdAxiomKeyS_of`) and `denote_propext_typeS`, which
 transposes from the TT lane unchanged over a bare `cval`.
 
@@ -7057,7 +7057,7 @@ what keeps them independent of the inductive install.
 ### `StdAxiomKeyS` closes — and the fourteen are hypothesis-free
 
 The last obligation is gone.  Both halves landed in
-`Lech/SetR/StdAxiomKey.lean` (724 lines), `stdAxiomKeyS` threads at
+`ConLeche/SetR/StdAxiomKey.lean` (724 lines), `stdAxiomKeyS` threads at
 `declStepS` in `Bridge/Sound.lean` and `Main.lean`, and every one of
 the fourteen now stands with **no named hypothesis** at exactly
 `[propext, Classical.choice, Quot.sound]`.
@@ -7108,7 +7108,7 @@ and an equation is what the formers' congruence rules want.*
 **One shared-tier statement grew.**  `nonempty_shapes` returned the
 `Nonempty` former's `levelParams` but not its type; the set lane needs
 the type to compute the former's denotation (the TT lane never did).
-The conjunct was added in `Lech/Verify/StdAxiomPin.lean` and the one
+The conjunct was added in `ConLeche/Verify/StdAxiomPin.lean` and the one
 TT consumer destructures it away.  *A shared inversion lemma states
 what its consumers need; a lane that needs more is a reason to widen
 it, not to restate it locally.*
@@ -7135,18 +7135,18 @@ an explicit leading binder — exactly the Model lane's
 
 ## T7 — the retirement
 
-`Lech/Model/*` is deleted: **83 files, 62,992 lines**, the direct
-`Expr` set model and its consistency proof.  The root `Lech.lean`
-drops its sixteen `Lech.Model.*` imports; `lake build` goes from 424
+`ConLeche/Model/*` is deleted: **83 files, 62,992 lines**, the direct
+`Expr` set model and its consistency proof.  The root `ConLeche.lean`
+drops its sixteen `ConLeche.Model.*` imports; `lake build` goes from 424
 jobs to 341.
 
 **The tier was a leaf.**  A reachability scan over the import graph
-from all eight roots (`Lech.lean`, `Lech/TT.lean`,
-`Lech/TTVerify.lean`, `Lech/SetR.lean`, `Lech/PinGen/Certs.lean`,
-`Main.lean`, `AnnotateBasis.lean`, `tests/LechTests.lean`) found
-**nothing** outside `Lech/Model/` importing it but the root umbrella,
+from all eight roots (`ConLeche.lean`, `ConLeche/TT.lean`,
+`ConLeche/TTVerify.lean`, `ConLeche/SetR.lean`, `ConLeche/PinGen/Certs.lean`,
+`Main.lean`, `AnnotateBasis.lean`, `tests/ConLecheTests.lean`) found
+**nothing** outside `ConLeche/Model/` importing it but the root umbrella,
 and **no module made dead by the deletion** — every genuinely shared,
-`V`-free piece had already been relocated to `Lech/Verify/*` by tasks
+`V`-free piece had already been relocated to `ConLeche/Verify/*` by tasks
 #123 and #148 T1/T6, which is what made the cut a one-line edit rather
 than a salvage operation.
 
@@ -7155,28 +7155,28 @@ A tier that can be deleted by removing its imports was already
 retired; the commit only records it.*
 
 **What the deletion costs, stated plainly.**  The direct
-simple-structure install (`Lech/Kernel/Direct.lean`,
+simple-structure install (`ConLeche/Kernel/Direct.lean`,
 `directStructsEnabled`) had its set model only in
-`Lech/Model/Direct*.lean`.  That switch has shipped `false` since
+`ConLeche/Model/Direct*.lean`.  That switch has shipped `false` since
 T0b by user ruling, and both surviving lanes reason about the shipped
 configuration, so **no verdict changes and no theorem weakens** — but
 the direct path's recognition layer and install arm are now *unmodeled
 code behind a `false` switch*, pending their own deletion.  The
-comments in `Lech/Kernel/Direct.lean` and `Lech/Kernel/Checker.lean`
+comments in `ConLeche/Kernel/Direct.lean` and `ConLeche/Kernel/Checker.lean`
 say so.
 
-**Doc pointers.**  Fourteen present-tense references to `Lech/Model/*`
-(the "Verification: …" headers in `Lech/Kernel/*`, the "the
+**Doc pointers.**  Fourteen present-tense references to `ConLeche/Model/*`
+(the "Verification: …" headers in `ConLeche/Kernel/*`, the "the
 consistency chain covers" claims, `CLAUDE.md`'s layering rule) were
-repointed to `Lech.SetR.*`.  The ~120 *provenance* references
-("relocated from `Lech/Model/Extend/Ind.lean`, task #123") were left
+repointed to `ConLeche.SetR.*`.  The ~120 *provenance* references
+("relocated from `ConLeche/Model/Extend/Ind.lean`, task #123") were left
 alone: they are the campaign's record of where a lemma came from, and
 rewriting them would erase the history that justifies the file
 boundaries.  *A dangling pointer in a present-tense claim is a defect;
 a dangling pointer in a past-tense provenance note is a citation.*
 
 **The replacement surface** is the fourteen `*_R` theorems of
-`Lech/SetR/Main.lean`, all hypothesis-free at
+`ConLeche/SetR/Main.lean`, all hypothesis-free at
 `[propext, Classical.choice, Quot.sound]` (previous §).  Battery after
 the deletion: build warning-free, `lake test`, arena 90/92, e2e 72/72,
 split 11/11, mode flags 10/10, both sweeps as expected, zero sorries.
@@ -7184,8 +7184,8 @@ split 11/11, mode flags 10/10, both sweeps as expected, zero sorries.
 ## T7b — the declarative lane and its mode
 
 By user ruling ("TT tier and direct set model removed") the declarative
-verification lane goes too.  **`Lech/TTVerify/*.lean`: 50 files,
-33,808 lines**, plus the `LechTTV` library target and the
+verification lane goes too.  **`ConLeche/TTVerify/*.lean`: 50 files,
+33,808 lines**, plus the `ConLecheTTV` library target and the
 `--tt-model` mode it was stated at.
 
 **The cut was made at the dependency boundary, not the folder name.**
@@ -7193,20 +7193,20 @@ The measurement, in order:
 
 | piece | verdict | why |
 |---|---|---|
-| `Lech/TTVerify/*.lean` | **deleted** | nothing outside imported it; the fourteen `*_R` are the replacement |
-| `Lech/TT/Nat/*`, `TT/Nat.lean`, `TT/Examples.lean` | **deleted** | the layer's own demonstrations; reachable only from the `LechTT` umbrella |
-| `Lech/TT/Semantics/Consistency.lean` | **deleted** | the declarative lane's own consistency theorem — its consumer was the lane |
-| `Lech/TT/Deq.lean` | **deleted** | one code consumer left (`denote_beta_step`), itself TT-lane-only |
-| `Lech/Verify/Denote/Weaken.lean`, `Lech/Verify/Extend/Decl.lean` | **deleted** | made unreachable by the `TTVerify` deletion |
-| `Lech/Verify/Denote/Tele.lean` | **split** | `TeleTyped`/`VTeleTyped` (typed walk, lane-only) out; `DenoteSpine` + `denote_mkAppN*` (34 + 28 SetR call sites) kept |
-| `Lech/Verify/Denote/HasTypeSubst.lean` | **split** | the `HasType.weakenN`/`weakenHead`/`instN`/`instantiate` battery out; `LiftCtx`/`InstCtx` kept — `Lech/SetR/Weaken.lean` imports the file for them |
-| **`Lech/TT/Judgment.lean` (`HasType`)** | **STAYS** | see below |
+| `ConLeche/TTVerify/*.lean` | **deleted** | nothing outside imported it; the fourteen `*_R` are the replacement |
+| `ConLeche/TT/Nat/*`, `TT/Nat.lean`, `TT/Examples.lean` | **deleted** | the layer's own demonstrations; reachable only from the `ConLecheTT` umbrella |
+| `ConLeche/TT/Semantics/Consistency.lean` | **deleted** | the declarative lane's own consistency theorem — its consumer was the lane |
+| `ConLeche/TT/Deq.lean` | **deleted** | one code consumer left (`denote_beta_step`), itself TT-lane-only |
+| `ConLeche/Verify/Denote/Weaken.lean`, `ConLeche/Verify/Extend/Decl.lean` | **deleted** | made unreachable by the `TTVerify` deletion |
+| `ConLeche/Verify/Denote/Tele.lean` | **split** | `TeleTyped`/`VTeleTyped` (typed walk, lane-only) out; `DenoteSpine` + `denote_mkAppN*` (34 + 28 SetR call sites) kept |
+| `ConLeche/Verify/Denote/HasTypeSubst.lean` | **split** | the `HasType.weakenN`/`weakenHead`/`instN`/`instantiate` battery out; `LiftCtx`/`InstCtx` kept — `ConLeche/SetR/Weaken.lean` imports the file for them |
+| **`ConLeche/TT/Judgment.lean` (`HasType`)** | **STAYS** | see below |
 | `TT/{Syntax,Subst,Const}`, `TT/Semantics/{Value,Interp,ConstOk,Soundness}` | **stay** | `VExpr`, `interp`, `bval`, `BConst`, `Sat`, `HasType.sound` |
 
 **The declarative rule layer stays, and the reason is a measurement,
 not a preference.**  The instruction was to cut `HasType`/`Deq` *if its
 only remaining consumers were the TT lane and the tt-model config*.  Its
-consumers are not: **`Lech/SetR/Install/BasisS.lean` uses
+consumers are not: **`ConLeche/SetR/Install/BasisS.lean` uses
 `HasType.const` and `HasType.sound` at seventeen sites** — that pair is
 how each basis constant's membership in its own denoted type is
 obtained, and `HasType.sound` is proved by induction over *every*
@@ -7217,7 +7217,7 @@ the condition was false; the boundary is where the consumers put it.
 *Rule: a deletion order that names folders will cut in the wrong place.
 Name the consumers, measure them, and let the boundary fall where the
 measurement says — then write down which way each file went and why,
-because "we kept `Lech/TT/*`" is not a record and "SetR calls
+because "we kept `ConLeche/TT/*`" is not a record and "SetR calls
 `HasType.const` seventeen times" is.*
 
 **The mode.**  `CheckMode` loses its `.ttModel` arm and is two-valued;
@@ -7226,13 +7226,13 @@ with a message naming what happened to it.  `CheckMode.ttChecks` is now
 constantly `false`.
 
 **The seven gated checks are kept, statically unreachable.**  Deleting
-them would touch `Lech/Kernel/{Core,Modeled,CheckerS}.lean` and every
+them would touch `ConLeche/Kernel/{Core,Modeled,CheckerS}.lean` and every
 proof that mentions the gate, in a commit whose subject is retiring a
 *verification* tier.  They stay as reviewed code behind one accessor,
 which is also the single place a future lane would turn them back on.
 Their removal is a kernel change and belongs in its own commit.
 
-**`Lech/TTVerify/DESIGN.md` is kept, code deleted.**  Its §0 and §25
+**`ConLeche/TTVerify/DESIGN.md` is kept, code deleted.**  Its §0 and §25
 are the project's house practices, declared binding by this file, and
 twenty-two references across the tree cite its sections by number.  A
 tombstone header says the code is gone and the paths in the prose are
@@ -7343,7 +7343,7 @@ they do not become eleventh-hour surprises.  Suppliers are all
 ## FINDING (filed, not chased): `--no-model` exits 3 on the Std.Time cone
 
 `_tmp/certprof-151/std-nm-0.*`: `--no-model --pre pre2.ndjson` with
-`LECH_FUEL=200000` dies at 491.9 G instructions, exit 3, empty
+`CON_LECHE_FUEL=200000` dies at 491.9 G instructions, exit 3, empty
 stdout/stderr.  The verified lane accepts the same stream in every
 masked configuration.  Task-worthy (a silent internal error in the
 parity lane); does not gate this lane.
@@ -7881,7 +7881,7 @@ ruling):
 
     ∀ (fuel' : Nat) {ta : Expr},
       inferTypeCore μ env fuel' d a = .ok ta →
-        ∃ fuelc, Lech.isDefEqCore μ env fuelc d ta ty = .ok true
+        ∃ fuelc, ConLeche.isDefEqCore μ env fuelc d ta ty = .ok true
 
 — *every inferred type of the argument is run-certified convertible
 to the domain*.  Run-shaped, and still supplier-swappable, which
@@ -7903,7 +7903,7 @@ sharpens accordingly: the slot package must thread *run evidence*
   provability risk, named before case work.
 * **Fuel-determinism of the knot** is the phase-one discharge's
   enabler (site cert at one fuel, premise quantifies all fuels).
-  Feasibility fact banked: `Lech/Kernel/Core.lean` contains **no
+  Feasibility fact banked: `ConLeche/Kernel/Core.lean` contains **no
   tryCatch/orElse anywhere** — the bodies never backtrack through
   errors, so success-monotonicity in fuel is clean and mechanical
   (oracle-extension induction over `coreKnot`).  Sized bridge-batch;
@@ -8282,7 +8282,7 @@ subjects (there the subject's own whnf run must end at the stuck form
 — determinism — so a non-sort stuck form contradicts the
 whnf-to-sort hypothesis).  But **`defeqStep` hoists `proofIrrel`
 before lazy delta** (mirroring the official kernel — a probe order,
-not a Lech quirk, and reduction-strategy changes are barred by the
+not a ConLeche quirk, and reduction-strategy changes are barred by the
 standing ruling): the probe runs on *mid-chain* subjects that may
 still delta/nat-step onward to a literal sort.  For those, nothing in
 the probe's runs contradicts the whnf-to-sort hypothesis by
@@ -9246,7 +9246,7 @@ of the shell is unaffected: the core rides out as a hypothesis like
 ### FINDING: the claims do not thread denote facts to internal spine subjects
 
 The pre-build check the ruling required, run against the actual
-suppliers by name (`Lech/SetR/Bridge/Claims.lean`):
+suppliers by name (`ConLeche/SetR/Bridge/Claims.lean`):
 
 * `DefEqClaimsR` and `WhnfClaimsR`/`WhnfCoreClaimsR` are
   **conditional** on the subject denoting (`∀ {v}, denote … = some v
@@ -11945,7 +11945,7 @@ statement).  Two findings from the induction:
   `a.looseBVarsBounded 0` (and closed `v`); `d`-freshness of the
   argument is NOT required — the `fvar d` arm closes because closed
   `a` is `instantiate1`-invariant at any cursor
-  (`Lech.Expr.instantiate1_eq_self` + `looseBVarsBounded_mono`),
+  (`ConLeche.Expr.instantiate1_eq_self` + `looseBVarsBounded_mono`),
   regardless of whether `a` mentions `d`.  The walk still supplies
   freshness (its arguments are `substAK`-invariant spine members),
   but the lemma is the standard one.
@@ -12103,7 +12103,7 @@ mechanical SortCoh split seal, then the walk's induction.
 ### SortCoh SPLIT (mechanical seal, pure motion)
 
 `SortCoh.lean` (14,425 lines) split into seven part-files under
-`Lech/SetR/Annot/SortCoh/` with a 17-line umbrella preserving the
+`ConLeche/SetR/Annot/SortCoh/` with a 17-line umbrella preserving the
 historical module name (downstream imports untouched: `SortCohFrame`,
 `SetR`).  Cut at the actual dependency seams (file order = import
 order = the original top-down order): `Claims` (det obligation,
@@ -12128,7 +12128,7 @@ Three engines land between the simulation and the walk:
   `whnfLoop_toRawReach`, with `whnfLoop_pres` as their preservation
   supplier): a depth-`d` run embeds as a trace at its own depth with
   ZERO new inductions — shift the run one depth up (the `ShiftClaims`
-  battery; `Lech.whnfLoop_shift` de-privatized in `Deep.lean`, a
+  battery; `ConLeche.whnfLoop_shift` de-privatized in `Deep.lean`, a
   one-word visibility change), apply the simulation at a dummy closed
   argument, collapse both `substAK`s by `substAK_eq_self` (the
   subject is `d`-fresh).  The shift battery pays a second time.
@@ -12369,7 +12369,7 @@ They cannot serve `denote2`, and the obstruction is structural rather
 than a missing lemma: `Annotates` has no structural `letE` clause —
 only `zeta`, so it annotates the ζ-reduct — while `denote2`'s `letE`
 clause *is* structural, and so is `denote`'s
-(`Lech/Verify/Denote.lean`).  **For any subject carrying a `let`, a
+(`ConLeche/Verify/Denote.lean`).  **For any subject carrying a `let`, a
 `denote2` output is not an `Annotates` annotation of the same term,
 and no bridging theorem between the two can exist as they are
 stated.**
@@ -12452,7 +12452,7 @@ by `hasSortC_pi_of` induction at inner binders.
 
 ### Arc step 4 — the second soundness's per-former skeleton
 
-`Lech/SetR/Interp2/Skeleton.lean`: the `interp2` soundness's case
+`ConLeche/SetR/Interp2/Skeleton.lean`: the `interp2` soundness's case
 statements, one per `AVExpr` former, each stated over exactly the facts
 the frozen interface carries.  **Nine of ten formers close; the tenth
 is deferred to its supplier.**
@@ -12621,7 +12621,7 @@ measure.  The beec972 measure section is TOMBSTONED by this entry
 
 ### Migration step 2, entry item 1 — `BConst.type2` (the annotated basis types)
 
-`Lech/SetR/Interp2/BasisType.lean`: the first of the two suppliers
+`ConLeche/SetR/Interp2/BasisType.lean`: the first of the two suppliers
 the skeleton's `const` row waits on.  `BConst.type` yields a `VExpr`
 and `denote2` maps `Expr → AVExpr`, so neither can produce a built-in's
 *annotated* type — the former has to exist on its own, and now does,
@@ -12724,7 +12724,7 @@ recursion through the claim at strictly smaller knot sums).
 
 ### Migration step 2, entry item 2 — the capstone port, thirteen of eighteen
 
-`Lech/SetR/Interp2/BasisOk.lean`: `ConstOk.lean`'s per-constant
+`ConLeche/SetR/Interp2/BasisOk.lean`: `ConstOk.lean`'s per-constant
 memberships ported onto `piR`/`lamR` and `BConst.type2`.  **Thirteen
 cases land; five resist, each for a different and nameable reason.**
 
@@ -14161,7 +14161,7 @@ zero warnings), no `sorry`, axioms exactly the three standard, battery
 * **`denote2`'s depth-shift law exists and was nearly free.** There was
   reason to fear it could not: `denote` depends on depth only through
   its `fvar` clause, while `denote2` also calls the *checker* at that
-  depth. `Lech.shiftClaims` (`Verify/Deep.lean`), landed for the
+  depth. `ConLeche.shiftClaims` (`Verify/Deep.lean`), landed for the
   memo cache's depth-free keys, is exactly the bisimulation needed.
 
 **T5 applied, and one field added.** The dispatch quarter carried
@@ -15590,7 +15590,7 @@ point. Method, so it can be re-run rather than re-invented:
 
 1. Enumerate the checker's **level-examining primitives** — the
    functions whose result can branch control flow on a `Level`.
-   `Lech/Kernel/Level.lean` closes at seven: `isEquiv`,
+   `ConLeche/Kernel/Level.lean` closes at seven: `isEquiv`,
    `isEquivList`, `isZero`, `isNonZero`, `isNeverZero`, `leq`,
    `allParamsDefined`. Plus the two derived guards `piResultIsProp`
    and `piResultNeverZero` (`Kernel/Core.lean:127`, `:138`).
@@ -17988,7 +17988,7 @@ in restores the true numbers.
 
 **A bare "battery failed" from a worktree agent is a false alarm until
 that symlink is checked.** This is the same trap class as the
-`LECH_INDUCTIVE_MODELS` misconfiguration early in this campaign,
+`CON_LECHE_INDUCTIVE_MODELS` misconfiguration early in this campaign,
 which nearly went in as a catastrophic fake regression.
 
 ## The lane's final table
@@ -18498,7 +18498,7 @@ arity unconditionally; ours alone omitted it:
 | Lean 4 C++ | `src/kernel/inductive.h:105` | guards before instantiating the rule RHS; present since v4.0.0 |
 | lean4lean | `Inductive/Reduce.lean:98` | same test, same position |
 | nanoda | `expr.rs:387` | `subst_expr_levels` asserts it |
-| lech (pre-#9) | `Kernel/Core.lean` | **absent** — the residue seal 66 refuted |
+| con-leche (pre-#9) | `Kernel/Core.lean` | **absent** — the residue seal 66 refuted |
 
 **The countermodel** that priced it: `Interp2/IotaArity.lean`'s
 three-constant environment applies a recursor at the wrong level arity;

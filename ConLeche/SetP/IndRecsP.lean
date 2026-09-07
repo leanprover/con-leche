@@ -1,8 +1,8 @@
-import Lech.Semantics.IndBlockRun
-import Lech.Semantics.IndRecsCore
-import Lech.SetP.SwapP
-import Lech.SetP.IndMembersP
-import Lech.SetP.CapstoneP
+import ConLeche.Semantics.IndBlockRun
+import ConLeche.Semantics.IndRecsCore
+import ConLeche.SetP.SwapP
+import ConLeche.SetP.IndMembersP
+import ConLeche.SetP.CapstoneP
 
 /-!
 # The recursor-group phase, P tier (task #161, IND TIER part 10)
@@ -34,13 +34,13 @@ whole induction — the only per-step data are the block membership and
 the provisioned entry's lookup.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps)
 
 universe w
@@ -135,7 +135,7 @@ environment only through "this name is stored", and a swap changes no
 stored name. -/
 theorem blockAcvalInstalled_swap {blockNames : List Name}
     {env₀ env₃ : Env} {acval : Name → (Name → Nat) → AVExpr}
-    (hcg : Lech.SwapCongr env₀ env₃)
+    (hcg : ConLeche.SwapCongr env₀ env₃)
     (h : BlockAcvalInstalled blockNames env₀ acval) :
     BlockAcvalInstalled blockNames env₃ acval := by
   intro n hbn ci hf ψ
@@ -160,8 +160,8 @@ theorem indRecsP (hμ : μ.verifiedChecks = true)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true)
     (hall : ∀ n, blockNames.contains n = true →
       (env₂.find? n).isSome = true ∨ ∃ ci ∈ recs, ci.name = n)
-    (hEC : Lech.EtaFamiliesClosedO blockNames env₂)
-    (hBP : Lech.BlockEtaPinned μ blockNames env₂)
+    (hEC : ConLeche.EtaFamiliesClosedO blockNames env₂)
+    (hBP : ConLeche.BlockEtaPinned μ blockNames env₂)
     (h : IndRecsRun μ F blockNames env₂ recs env₃) :
     ∃ mp₃ : EnvS2PM V μ env₃,
       BlockInstalledTT blockNames env₃ mp₃.base2.cvalE ∧
@@ -227,7 +227,7 @@ theorem indRecsP (hμ : μ.verifiedChecks = true)
       (fun n cv mI rP rules hf =>
         Or.inl (provisionRecsRunS_mono recs hprov n _ hf))
       hbn hprov hfold
-  have hcg : Lech.SwapCongr envSelf env₃ := SwapShList.congr hswR
+  have hcg : ConLeche.SwapCongr envSelf env₃ := SwapShList.congr hswR
   -- the P rows at the group's output
   have hentF := indRecsFoldP (V := V) hμ mS hIS hroP
     (fun n ci hf => Or.inl (provisionRecsRunS_mono recs hprov n ci hf))
@@ -271,4 +271,4 @@ theorem indRecsP (hμ : μ.verifiedChecks = true)
         (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon),
       hlps, hren, hv⟩
 
-end Lech.SetP
+end ConLeche.SetP

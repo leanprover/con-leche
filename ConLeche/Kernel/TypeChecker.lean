@@ -1,18 +1,18 @@
-import Lech.Kernel.Core
+import ConLeche.Kernel.Core
 
 /-!
 # The pure knot
 
-The core bodies (`Lech.Kernel.Core`) tied together at `CheckM`, with
+The core bodies (`ConLeche.Kernel.Core`) tied together at `CheckM`, with
 no memoization: this instance is the **specification** — all semantic
-verification (`Lech/Verify/*`, `Lech/Semantics/*`, `Lech/SetP/*`)
+verification (`ConLeche/Verify/*`, `ConLeche/Semantics/*`, `ConLeche/SetP/*`)
 reasons about these
 fueled entry points, and the refinement bridge (see DESIGN.md) carries
 every claim over to the memoized instance the checker executes
-(`Lech.Kernel.TypeCheckerC`).
+(`ConLeche.Kernel.TypeCheckerC`).
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable (mode : CheckMode)
 
@@ -53,4 +53,4 @@ def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
 def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
   ensureSort (pureFns mode env fuel) env depth e
 
-end Lech
+end ConLeche

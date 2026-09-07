@@ -1,16 +1,16 @@
-import Lech
-import Lech.Frontend.ExportC
-import LechTests.PreludeTests
-import LechTests.Axioms
+import ConLeche
+import ConLeche.Frontend.ExportC
+import ConLecheTests.PreludeTests
+import ConLecheTests.Axioms
 
 /-!
 Test suite.  Tests are `#guard`s and `example`s, so `lake test` (which
 builds this library) fails if any of them break.
 -/
 
-namespace LechTests
+namespace ConLecheTests
 
-open Lech
+open ConLeche
 
 /-! ## Config audit (task #147/#148, vacuity protection)
 
@@ -307,7 +307,7 @@ private def basisModelExport : String := String.intercalate "\n" [
 
 /-- The declared name of a directly-parsed record (`DeclC` carries no
 `name` projection: its constructors differ in arity). -/
-private def declCName : Lech.Cached.DeclC → Name
+private def declCName : ConLeche.Cached.DeclC → Name
   | .axiomDecl cv | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ =>
     cv.name
   | .basisDecl _ => .anonymous
@@ -326,7 +326,7 @@ private def emptyModelAuxName : Name :=
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
   | .ok ⟨ds, _, _, _, _, _, _, _, _⟩ =>
-    (Lech.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
+    (ConLeche.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
   | .error _ => false
 
 /-! ## Frontend: taint skip-and-continue
@@ -377,7 +377,7 @@ private def taintSkipExport : String := String.intercalate "\n" [
 -- reach install: it is absent from the declarations).
 #guard match Frontend.parseExportD taintSkipExport with
   | .ok ⟨ds, _, _, _, _, _, _, _, _⟩ =>
-    (Lech.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
+    (ConLeche.Cached.checkDeclsSPCachedD .verified ds.toList).toBool
   | .error _ => false
 
 -- A stream without tolerated-axiom uses records no skips.
@@ -424,7 +424,7 @@ The constructor form pins the reference kernels' exact spelling
 -- the guard is `false` without the support declarations
 #guard strLitSupported Env.empty == false
 
-/-! ## The β-certificate gate (task #161 S9, `Lech/Kernel/CoreP.lean`)
+/-! ## The β-certificate gate (task #161 S9, `ConLeche/Kernel/CoreP.lean`)
 
 The gated knot is only worth its duplication if the gate is (a) LIVE —
 it reduces a redex the ungated `whnfCore` leaves stuck — and (b)
@@ -479,7 +479,7 @@ private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
   == some (gateStuck gateNever)
 #guard CheckMode.verifiedChecks .trusted == false
 
-/-! ## The io gate (the io-license batch, `Lech/Kernel/CoreIO.lean`)
+/-! ## The io gate (the io-license batch, `ConLeche/Kernel/CoreIO.lean`)
 
 The take-the-waiver probe for the io app clause's statement, at the
 kernel level: the gated arm of `inferTypeCoreIO_app_inv`'s disjunction
@@ -528,4 +528,4 @@ private def ioRedex (mb : BinderMeta) : Expr :=
 #guard (inferTypeCore .verified Env.empty 6 1 (ioRedex gateNever)).toOption
   == none
 
-end LechTests
+end ConLecheTests

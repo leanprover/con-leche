@@ -1,9 +1,9 @@
-import Lech.Kernel.Env
-import Lech.Kernel.StdAxioms
-import Lech.Kernel.TypeChecker
-import Lech.Kernel.TypeCheckerC
-import Lech.Kernel.NatOpPins
-import Lech.Kernel.Direct.Parts
+import ConLeche.Kernel.Env
+import ConLeche.Kernel.StdAxioms
+import ConLeche.Kernel.TypeChecker
+import ConLeche.Kernel.TypeCheckerC
+import ConLeche.Kernel.NatOpPins
+import ConLeche.Kernel.Direct.Parts
 
 /-!
 # The declaration checker's common ground
@@ -14,16 +14,16 @@ instantiations, the common per-declaration constant check
 install paths share (`domsMatchAux`, `openPisAtFvars`,
 `checkTypedList`, `checkDefEqList`, `piResultSort`).  The
 modeled-inductive install builds on this in
-`Lech/Kernel/Modeled.lean`, everything else in
-`Lech/Kernel/Checker.lean`.
+`ConLeche/Kernel/Modeled.lean`, everything else in
+`ConLeche/Kernel/Checker.lean`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 /-- The core entry points the declaration checker runs on: the checker
 is written once against this record, monad-polymorphically, and
 instantiated with the pure knot (`fueledOps`/`pureOps`, the
-verification's subject) and, in `Lech/Cached/CheckerC.lean`, with the
+verification's subject) and, in `ConLeche/Cached/CheckerC.lean`, with the
 memoized cached knot the binary executes. -/
 structure CheckerOps (m : Type → Type) where
   annotate : Env → Nat → Expr → m Expr
@@ -40,7 +40,7 @@ def fueledOps (F : Nat) : CheckerOps CheckM where
   inferType env d e := inferTypeCore mode env F d e
   isDefEq env d a b := isDefEqCore mode env F d a b
   ensureSort env d e := ensureSortCore mode env F d e
-  whnf env d e := Lech.whnf mode env F d e
+  whnf env d e := ConLeche.whnf mode env F d e
 
 /-- The pure instantiation, at the standard fuel. -/
 def pureOps : CheckerOps CheckM := fueledOps mode checkFuel
@@ -266,4 +266,4 @@ def checkProjRule (ops : CheckerOps m) (env' : Env) (pty : Expr) (cvj : Constant
   pure rhsA
 
 
-end Lech
+end ConLeche

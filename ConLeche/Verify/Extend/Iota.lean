@@ -1,19 +1,19 @@
-import Lech.Verify.Extend.Inversions
-import Lech.Verify.IotaWalkInv
-import Lech.Verify.Shift
-import Lech.Verify.Abstract
-import Lech.Verify.Subst
-import Lech.Verify.EnvWF
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.IotaWalkInv
+import ConLeche.Verify.Shift
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.Subst
+import ConLeche.Verify.EnvWF
 
 /-!
-# Iota — split out of `Lech.Model.Extend`
+# Iota — split out of `ConLeche.Model.Extend`
 
 The kernel-checked hypothesis kits of modeled recursor rules
 (`RuleChecked`, from `checkIotaRules_inv`) and of a block's
 capability record (`EtaPins`, from `checkEtaThm_inv` /
 `checkUnitThm_inv`).
 
-Relocated from `Lech/Model/Extend/Iota.lean` (task #123): the whole
+Relocated from `ConLeche/Model/Extend/Iota.lean` (task #123): the whole
 module is checker inversion over `Env`/`Expr` — 0 of its 1 394 lines
 mention a valuation — so both the set model and the declarative
 type-theory bridge import it from here.  The move is verbatim; the
@@ -23,7 +23,7 @@ section variable here.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -1609,4 +1609,4 @@ theorem BlockEtaPinned.cons {mode : CheckMode} {blockNames : List Name}
   · obtain ⟨hp, hc, hj⟩ := h n cvS capsS hnb hf hcape
     exact ⟨EtaPins.step hp hfresh, hc, fun hlt => hup n (hj hlt)⟩
 
-end Lech
+end ConLeche

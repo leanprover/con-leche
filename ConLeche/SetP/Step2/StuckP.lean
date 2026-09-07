@@ -1,5 +1,5 @@
-import Lech.SetP.Step2.IrrelP
-import Lech.Verify.Denote.StrLit
+import ConLeche.SetP.Step2.IrrelP
+import ConLeche.Verify.Denote.StrLit
 
 /-!
 # The stuck fallbacks over `interp2` (task #161, P4 — batch 7)
@@ -66,13 +66,13 @@ file cannot produce — are the already-routed `InferReadsP` and
 created here.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level inferTypeCore whnf
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level inferTypeCore whnf
   isDefEqCore isUnitLikeTy)
 
 universe w
@@ -195,9 +195,9 @@ theorem frame_spineP {m : EnvS2Core V env} {d : Nat} {Δa : List AVExpr}
     ∀ x ∈ a.getAppArgs, Expr.WScoped d x ∧
       x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
       CtxOkP m φ d Δa x := fun x hx =>
-  ⟨hws.getAppArgs x hx, Lech.looseBVarsBounded_getAppArgs hb x hx,
-    fun l hl => hLb l (Lech.fvarLeaves_getAppArgs hx l hl),
-    hC.of_subset (fun l hl => Lech.fvarLeaves_getAppArgs hx l hl)⟩
+  ⟨hws.getAppArgs x hx, ConLeche.looseBVarsBounded_getAppArgs hb x hx,
+    fun l hl => hLb l (ConLeche.fvarLeaves_getAppArgs hx l hl),
+    hC.of_subset (fun l hl => ConLeche.fvarLeaves_getAppArgs hx l hl)⟩
 
 /-- The frame conditions of a spine's head. -/
 theorem frame_appFnP {m : EnvS2Core V env} {d : Nat} {Δa : List AVExpr}
@@ -207,9 +207,9 @@ theorem frame_appFnP {m : EnvS2Core V env} {d : Nat} {Δa : List AVExpr}
     Expr.WScoped d a.getAppFn ∧
       a.getAppFn.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded a.getAppFn ∧ CtxOkP m φ d Δa a.getAppFn :=
-  ⟨hws.getAppFn, Lech.looseBVarsBounded_getAppFn hb,
-    fun l hl => hLb l (Lech.fvarLeaves_getAppFn l hl),
-    hC.of_subset (fun l hl => Lech.fvarLeaves_getAppFn l hl)⟩
+  ⟨hws.getAppFn, ConLeche.looseBVarsBounded_getAppFn hb,
+    fun l hl => hLb l (ConLeche.fvarLeaves_getAppFn l hl),
+    hC.of_subset (fun l hl => ConLeche.fvarLeaves_getAppFn l hl)⟩
 
 /-! ## T1 — `defEqList`'s soundness, and the shared spine congruence -/
 
@@ -220,7 +220,7 @@ certificate, in the checker's own order. -/
 theorem map_interp2_of_defEqListP {m : EnvS2Core V env}
     (ihd : DefEqClaims2P μ m φ fuel) {d : Nat} {Δa : List AVExpr} :
     ∀ {as bs : List Expr} {asa bsa : List AVExpr},
-      Lech.defEqListP μ env fuel d as bs = .ok true →
+      ConLeche.defEqListP μ env fuel d as bs = .ok true →
       (∀ x ∈ as, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
         Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x) →
       (∀ x ∈ bs, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
@@ -239,14 +239,14 @@ theorem map_interp2_of_defEqListP {m : EnvS2Core V env}
     cases bs with
     | nil => cases hsb; rfl
     | cons _ _ =>
-      simp [Lech.defEqListP, Lech.defEqList, pure, Except.pure] at h
+      simp [ConLeche.defEqListP, ConLeche.defEqList, pure, Except.pure] at h
   | cons x xs ih =>
     intro bs asa bsa h hfa hfb hsa hsb hoa hob ρ hρ
     cases bs with
     | nil =>
-      simp [Lech.defEqListP, Lech.defEqList, pure, Except.pure] at h
+      simp [ConLeche.defEqListP, ConLeche.defEqList, pure, Except.pure] at h
     | cons y ys =>
-      obtain ⟨hxy, htail⟩ := Lech.defEqList_step_inv h
+      obtain ⟨hxy, htail⟩ := ConLeche.defEqList_step_inv h
       cases hsa with | cons hx hsa' => ?_
       cases hsb with | cons hy hsb' => ?_
       obtain ⟨hwx, hbx, hLx, hCx⟩ := hfa x (by simp)
@@ -267,7 +267,7 @@ theorem map_interp2_of_defEqListP {m : EnvS2Core V env}
 theorem spine_congrP {m : EnvS2Core V env}
     (ihd : DefEqClaims2P μ m φ fuel) {d : Nat} {a b : Expr}
     {Δa : List AVExpr} {aa ba : AVExpr}
-    (hlist : Lech.defEqListP μ env fuel d a.getAppArgs b.getAppArgs
+    (hlist : ConLeche.defEqListP μ env fuel d a.getAppArgs b.getAppArgs
       = .ok true)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a)
@@ -287,9 +287,9 @@ theorem spine_congrP {m : EnvS2Core V env}
     (ρ : Nat → V) (hρ : Sat2 V Δa ρ) :
     interp2 V ρ aa = interp2 V ρ ba := by
   rw [show a = Expr.mkAppN a.getAppFn a.getAppArgs from
-    (Lech.Expr.mkAppN_getApp a).symm] at hda
+    (ConLeche.Expr.mkAppN_getApp a).symm] at hda
   rw [show b = Expr.mkAppN b.getAppFn b.getAppArgs from
-    (Lech.Expr.mkAppN_getApp b).symm] at hdb
+    (ConLeche.Expr.mkAppN_getApp b).symm] at hdb
   obtain ⟨fa, asa, hfa, hspa, rfl⟩ := denoteP_mkAppN_inv hda
   obtain ⟨fb, bsa, hfb, hspb, rfl⟩ := denoteP_mkAppN_inv hdb
   obtain ⟨hoha, hoa⟩ := hoistP_spine asa hokA
@@ -308,7 +308,7 @@ theorem defEqSpineP_of_claims {m : EnvS2Core V env}
     DefEqSpineP μ m φ fuel := by
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
-  obtain ⟨n, us, us', hfa, hfb, -, hlev, hlist⟩ := Lech.defeqSpine_inv h
+  obtain ⟨n, us, us', hfa, hfb, -, hlev, hlist⟩ := ConLeche.defeqSpine_inv h
   refine spine_congrP ihd hlist hwa hba hLa hwb hbb hLb hCa hCb hda hdb
     hokA hokB (fun {ga gb} hga hgb _ _ σ _ => ?_) ρ hρ
   rw [hfa] at hga
@@ -349,7 +349,7 @@ installs), not here — `StructEtaCertStepR`'s exact position. -/
 def StructEtaIrrelP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
-    Lech.structEtaCertP μ env fuel d a b = .ok true →
+    ConLeche.structEtaCertP μ env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -373,7 +373,7 @@ same tier.) -/
 def StructUnitIrrelP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List AVExpr},
-    Lech.structUnitCertP μ env fuel d a b = .ok true →
+    ConLeche.structUnitCertP μ env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -401,10 +401,10 @@ theorem stuckIrrelP_of_claims {m : EnvS2Core V env}
     proofIrrelPQ_of_claims ihis hsss hreads hunit
   intro d a b Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
-  simp only [Lech.stuckIrrelP, Lech.stuckIrrel, Bind.bind,
-    Except.bind, Lech.structEtaCert_fold,
-    Lech.structUnitCert_fold, Lech.proofIrrel_fold] at h
-  cases h3 : Lech.structEtaCertP μ env fuel d a b with
+  simp only [ConLeche.stuckIrrelP, ConLeche.stuckIrrel, Bind.bind,
+    Except.bind, ConLeche.structEtaCert_fold,
+    ConLeche.structUnitCert_fold, ConLeche.proofIrrel_fold] at h
+  cases h3 : ConLeche.structEtaCertP μ env fuel d a b with
   | error err => rw [h3] at h; exact nomatch h
   | ok r3 =>
   rw [h3] at h
@@ -413,7 +413,7 @@ theorem stuckIrrelP_of_claims {m : EnvS2Core V env}
   | true =>
     exact hseta h3 hwa hba hLa hwb hbb hLb hCa hCb hda hdb hokA hokB ρ hρ
   | false =>
-  cases h4 : Lech.structEtaCertP μ env fuel d b a with
+  cases h4 : ConLeche.structEtaCertP μ env fuel d b a with
   | error err => rw [h4] at h; exact nomatch h
   | ok r4 =>
   rw [h4] at h
@@ -423,7 +423,7 @@ theorem stuckIrrelP_of_claims {m : EnvS2Core V env}
     exact (hseta h4 hwb hbb hLb hwa hba hLa hCb hCa hdb hda hokB hokA
       ρ hρ).symm
   | false =>
-  cases h5 : Lech.structUnitCertP μ env fuel d a b with
+  cases h5 : ConLeche.structUnitCertP μ env fuel d a b with
   | error err => rw [h5] at h; exact nomatch h
   | ok r5 =>
   rw [h5] at h
@@ -454,7 +454,7 @@ clause keeps `Level.substFn φ [] []` rather than collapsing it to `φ`,
 which is exactly what the `strVal` clause writes). -/
 private theorem denoteP_const_nolevelsP
     {acval : Name → (Name → Nat) → AVExpr} {c : Name}
-    {ci : Lech.ConstantInfo} (hf : env.find? c = some ci)
+    {ci : ConLeche.ConstantInfo} (hf : env.find? c = some ci)
     (hlp : ci.toConstantVal.levelParams = []) (d : Nat) :
     denoteP acval env φ d (.const c [])
       = some (acval c (Level.substFn φ [] [])) := by
@@ -462,18 +462,18 @@ private theorem denoteP_const_nolevelsP
 
 /-- `List.nil.{0} Char`, read. -/
 private theorem denoteP_nilTermP {acval : Name → (Name → Nat) → AVExpr}
-    (hg : Lech.strLitSupported env = true) (d : Nat) :
+    (hg : ConLeche.strLitSupported env = true) (d : Nat) :
     denoteP acval env φ d
-        (.app (.const Lech.listNilName [.zero])
-          (.const Lech.charName []))
-      = some (.app (acval Lech.listNilName
-          (Level.substFn φ (levelParamsAt env Lech.listNilName)
+        (.app (.const ConLeche.listNilName [.zero])
+          (.const ConLeche.charName []))
+      = some (.app (acval ConLeche.listNilName
+          (Level.substFn φ (levelParamsAt env ConLeche.listNilName)
             [.zero]))
-        (acval Lech.charName (Level.substFn φ [] []))) := by
+        (acval ConLeche.charName (Level.substFn φ [] []))) := by
   obtain ⟨ciN, p, mb, hfN, hlpN, -⟩ := listNil_shape hg
   obtain ⟨ciC, hfC, hlpC, -⟩ := char_shape hg
   have hlpa : ciN.toConstantVal.levelParams
-      = levelParamsAt env Lech.listNilName := by
+      = levelParamsAt env ConLeche.listNilName := by
     simp [levelParamsAt, hfN]
   rw [denoteP, denoteP_const hfN (by simp [hlpN]),
     denoteP_const_nolevelsP hfC hlpC d, hlpa]
@@ -481,18 +481,18 @@ private theorem denoteP_nilTermP {acval : Name → (Name → Nat) → AVExpr}
 
 /-- `List.cons.{0} Char`, read. -/
 private theorem denoteP_consTermP {acval : Name → (Name → Nat) → AVExpr}
-    (hg : Lech.strLitSupported env = true) (d : Nat) :
+    (hg : ConLeche.strLitSupported env = true) (d : Nat) :
     denoteP acval env φ d
-        (.app (.const Lech.listConsName [.zero])
-          (.const Lech.charName []))
-      = some (.app (acval Lech.listConsName
-          (Level.substFn φ (levelParamsAt env Lech.listConsName)
+        (.app (.const ConLeche.listConsName [.zero])
+          (.const ConLeche.charName []))
+      = some (.app (acval ConLeche.listConsName
+          (Level.substFn φ (levelParamsAt env ConLeche.listConsName)
             [.zero]))
-        (acval Lech.charName (Level.substFn φ [] []))) := by
+        (acval ConLeche.charName (Level.substFn φ [] []))) := by
   obtain ⟨ciC', p, -, -, -, hfC', hlpC', -⟩ := listCons_shape hg
   obtain ⟨ciC, hfC, hlpC, -⟩ := char_shape hg
   have hlpa : ciC'.toConstantVal.levelParams
-      = levelParamsAt env Lech.listConsName := by
+      = levelParamsAt env ConLeche.listConsName := by
     simp [levelParamsAt, hfC']
   rw [denoteP, denoteP_const hfC' (by simp [hlpC']),
     denoteP_const_nolevelsP hfC hlpC d, hlpa]
@@ -501,32 +501,32 @@ private theorem denoteP_consTermP {acval : Name → (Name → Nat) → AVExpr}
 /-- **The character-list expression reads as `charListT2`.** -/
 private theorem denoteP_strLitListP
     {acval : Name → (Name → Nat) → AVExpr}
-    (hg : Lech.strLitSupported env = true) (d : Nat) :
+    (hg : ConLeche.strLitSupported env = true) (d : Nat) :
     ∀ cs : List Char,
-      denoteP acval env φ d (Lech.strLitList cs)
+      denoteP acval env φ d (ConLeche.strLitList cs)
         = some (charListT2
-          (.app (acval Lech.listNilName
-            (Level.substFn φ (levelParamsAt env Lech.listNilName)
+          (.app (acval ConLeche.listNilName
+            (Level.substFn φ (levelParamsAt env ConLeche.listNilName)
               [.zero]))
-            (acval Lech.charName (Level.substFn φ [] [])))
-          (.app (acval Lech.listConsName
-            (Level.substFn φ (levelParamsAt env Lech.listConsName)
+            (acval ConLeche.charName (Level.substFn φ [] [])))
+          (.app (acval ConLeche.listConsName
+            (Level.substFn φ (levelParamsAt env ConLeche.listConsName)
               [.zero]))
-            (acval Lech.charName (Level.substFn φ [] [])))
-          (acval Lech.charOfNatName (Level.substFn φ [] []))
-          (acval Lech.natZeroName (Level.substFn φ [] []))
-          (acval Lech.natSuccName (Level.substFn φ [] []))
+            (acval ConLeche.charName (Level.substFn φ [] [])))
+          (acval ConLeche.charOfNatName (Level.substFn φ [] []))
+          (acval ConLeche.natZeroName (Level.substFn φ [] []))
+          (acval ConLeche.natSuccName (Level.substFn φ [] []))
           cs) := by
-  have hnat : Lech.natLitSupported env = true := by
-    simp only [Lech.strLitSupported, Bool.and_eq_true] at hg
+  have hnat : ConLeche.natLitSupported env = true := by
+    simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hg
     exact hg.1.1.1.1.1.1.1
   obtain ⟨ciF, mb, hfF, hlpF, -⟩ := charOfNat_shape hg
   intro cs
   induction cs with
   | nil =>
-    rw [Lech.strLitList, charListT2]; exact denoteP_nilTermP hg d
+    rw [ConLeche.strLitList, charListT2]; exact denoteP_nilTermP hg d
   | cons c cs ih =>
-    rw [Lech.strLitList, charListT2, denoteP, denoteP,
+    rw [ConLeche.strLitList, charListT2, denoteP, denoteP,
       denoteP_consTermP hg d, denoteP,
       denoteP_const_nolevelsP hfF hlpF d, denoteP_natLit hnat, ih]
     rfl
@@ -538,14 +538,14 @@ theorem denotePStrLit_of_guard {m : EnvS2Core V env} :
     DenotePStrLit m φ := by
   intro d st sa hg hsa
   obtain ⟨ciO, mb, hfO, hlpO, -⟩ := stringOfList_shape hg
-  refine ⟨?_, Lech.strLitToConstructor_WScoped st d,
-    Lech.strLitToConstructor_looseBVars st 0, fun l hl => ?_, ?_⟩
-  · rw [Lech.strLitToConstructor_eq, denoteP,
+  refine ⟨?_, ConLeche.strLitToConstructor_WScoped st d,
+    ConLeche.strLitToConstructor_looseBVars st 0, fun l hl => ?_, ?_⟩
+  · rw [ConLeche.strLitToConstructor_eq, denoteP,
       denoteP_const_nolevelsP hfO hlpO d, denoteP_strLitListP hg d]
     rw [denoteP, if_pos hg] at hsa
     exact hsa
-  · rw [Lech.strLitToConstructor_fvarLeaves] at hl; exact nomatch hl
-  · exact Lech.strLitToConstructor_fvarLeaves st
+  · rw [ConLeche.strLitToConstructor_fvarLeaves] at hl; exact nomatch hl
+  · exact ConLeche.strLitToConstructor_fvarLeaves st
 
 /-! ## T3 — the η certificate
 
@@ -579,7 +579,7 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
   intro d ty bd b mb Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
   obtain ⟨tb, ty₂, fb, m₂, htb, hwtb, hdty, hdbody, hpw⟩ :=
-    Lech.etaCert_inv h
+    ConLeche.etaCert_inv h
   simp only [Expr.WScoped] at hwa
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hba
   have hLty : Expr.LeavesBounded ty := fun l hl =>
@@ -611,26 +611,26 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
   obtain ⟨tba, htba⟩ :=
     hir htb hwb hbb hLb (LeafReadsP.of_ctxOkP hCb) hdb
   have htbW : Expr.WScoped d tb :=
-    Lech.inferTypeIO_WScoped m.wf fuel htb hwb
+    ConLeche.inferTypeIO_WScoped m.wf fuel htb hwb
   have htbB : tb.looseBVarsBounded 0 = true :=
-    Lech.inferTypeIO_looseBVars m.wf fuel htb hwb hbb hLb
+    ConLeche.inferTypeIO_looseBVars m.wf fuel htb hwb hbb hLb
   have htbL : Expr.LeavesBounded tb := fun l hl =>
-    hLb l (Lech.inferTypeIO_fvarLeaves m.wf fuel htb hwb l hl)
+    hLb l (ConLeche.inferTypeIO_fvarLeaves m.wf fuel htb hwb l hl)
   have hCtb : CtxOkP m φ d Δa tb :=
-    hCb.of_subset (Lech.inferTypeIO_fvarLeaves m.wf fuel htb hwb)
+    hCb.of_subset (ConLeche.inferTypeIO_fvarLeaves m.wf fuel htb hwb)
   obtain ⟨hokTb, hmemB⟩ := ihis htb hwb hbb hLb hCb hdb htba hokB
   obtain ⟨wtba, hwtba⟩ := hwr hwtb htbW htbB htbL
     (LeafReadsP.of_ctxOkP hCtb) htba
   obtain ⟨hokW, heqW⟩ :=
     ihw hwtb htbW htbB htbL hCtb htba hwtba hokTb
   have hwrW : Expr.WScoped d (Expr.forallE ty₂ fb m₂) :=
-    Lech.whnf_WScoped m.wf fuel hwtb htbW
+    ConLeche.whnf_WScoped m.wf fuel hwtb htbW
   have hwrB : (Expr.forallE ty₂ fb m₂).looseBVarsBounded 0 = true :=
-    Lech.whnf_looseBVars m.wf fuel hwtb htbB
+    ConLeche.whnf_looseBVars m.wf fuel hwtb htbB
   have hwrL : Expr.LeavesBounded (Expr.forallE ty₂ fb m₂) :=
-    fun l hl => htbL l (Lech.whnf_fvarLeaves m.wf fuel hwtb l hl)
+    fun l hl => htbL l (ConLeche.whnf_fvarLeaves m.wf fuel hwtb l hl)
   have hCwr : CtxOkP m φ d Δa (Expr.forallE ty₂ fb m₂) :=
-    hCtb.of_subset (Lech.whnf_fvarLeaves m.wf fuel hwtb)
+    hCtb.of_subset (ConLeche.whnf_fvarLeaves m.wf fuel hwtb)
   obtain ⟨ta₂, ba₂, hta₂, -, rfl⟩ := denoteP_forallE_inv hwtba
   simp only [Expr.WScoped] at hwrW
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hwrB
@@ -695,11 +695,11 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
   have hbody : ∀ σ : Nat → V, Sat2 V (ta :: Δa) σ →
       interp2 V σ bda = interp2 V σ (.app ba.lift (.bvar 0)) :=
     ihd hdbody (Expr.WScoped.instantiate1 hwa.1 0 hwa.2)
-      (Lech.looseBVarsBounded_instantiate1 bd 0 hba.2)
+      (ConLeche.looseBVarsBounded_instantiate1 bd 0 hba.2)
       (fun l hl => by
-        rcases Lech.Expr.fvarLeaves_instantiate1 bd 0 hl with h2 | h2
+        rcases ConLeche.Expr.fvarLeaves_instantiate1 bd 0 hl with h2 | h2
         · exact hLbd l h2
-        · rw [Lech.Expr.fvarLeaves] at h2
+        · rw [ConLeche.Expr.fvarLeaves] at h2
           rcases List.mem_cons.mp h2 with rfl | h3
           · exact hba.1
           · exact hLty l h3)
@@ -709,10 +709,10 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
           Expr.WScoped.mono (by omega) hwa.1⟩)
       (by simp [Expr.looseBVarsBounded, hbb])
       (fun l hl => by
-        rw [Lech.Expr.fvarLeaves] at hl
+        rw [ConLeche.Expr.fvarLeaves] at hl
         rcases List.mem_append.mp hl with h2 | h2
         · exact hLb l h2
-        · rw [Lech.Expr.fvarLeaves] at h2
+        · rw [ConLeche.Expr.fvarLeaves] at h2
           rcases List.mem_cons.mp h2 with rfl | h3
           · exact hba.1
           · exact hLty l h3)
@@ -727,4 +727,4 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
   rw [interp2_lam, lamR_congr hpt, hbit]
   exact lamR_eta (by rw [← hdom ρ hρ]; exact hmem ρ hρ)
 
-end Lech.SetP
+end ConLeche.SetP

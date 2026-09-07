@@ -1,26 +1,26 @@
-# Working on Lech
+# Working on ConLeche
 
 Read DESIGN.md first — it holds the design decisions, verification style, and
 iteration protocol. Keep it up to date when decisions change.
 
 * Build: `lake build` (must stay warning-free). Tests: `lake test`
-  (`tests/LechTests.lean`, `#guard`/`example`-based, fails at build time).
+  (`tests/ConLecheTests.lean`, `#guard`/`example`-based, fails at build time).
 * Goal: the lean kernel arena tutorial tests (without custom axioms) are
   accepted and the checker is verified consistent.
 * Iterate one feature at a time; every feature lands together with its
   verification and regression tests. Commit often.
 * No `sorry`s on master; no new axioms. Consistency proofs stay parametric in
   the `SetTheory` interface.
-* Layering: implementation (`Lech/Kernel/*`, `Lech/Cached/*`,
+* Layering: implementation (`ConLeche/Kernel/*`, `ConLeche/Cached/*`,
   `Main.lean`) must never import theory/verification modules
-  (`Lech/SetTheory/*`, `Lech/SetModel/*`, `Lech/Semantics/*`,
-  `Lech/SetP/*`, `Lech/Verify/*`). Proofs about kernel functions go in
-  `Lech/Verify/*`; the pure set constructions (no `Expr` in sight) in
-  `Lech/SetModel/*`; the Expr-facing denotation and claims in
-  `Lech/Semantics/*`; the graded set model and the consistency proofs in
-  `Lech/SetP/*` (the direct `Lech/Model/*` tier was retired at task
-  #148 T7; the collapsed-model `Lech/SetR/*` tier was deleted 2026-09-05;
-  `Lech/SetBase/*` was split into SetModel/Semantics on 2026-09-06).
+  (`ConLeche/SetTheory/*`, `ConLeche/SetModel/*`, `ConLeche/Semantics/*`,
+  `ConLeche/SetP/*`, `ConLeche/Verify/*`). Proofs about kernel functions go in
+  `ConLeche/Verify/*`; the pure set constructions (no `Expr` in sight) in
+  `ConLeche/SetModel/*`; the Expr-facing denotation and claims in
+  `ConLeche/Semantics/*`; the graded set model and the consistency proofs in
+  `ConLeche/SetP/*` (the direct `ConLeche/Model/*` tier was retired at task
+  #148 T7; the collapsed-model `ConLeche/SetR/*` tier was deleted 2026-09-05;
+  `ConLeche/SetBase/*` was split into SetModel/Semantics on 2026-09-06).
   Direct-structure installation has its own directory per layer
   (`Kernel/Direct/*`, `Verify/Direct/*`, `Semantics/Direct/*`,
   `SetP/Direct/*`).
@@ -43,7 +43,7 @@ iteration protocol. Keep it up to date when decisions change.
   If it may exceed the tool's foreground limit, start that same command
   in the background (`run_in_background`) and wait for the completion
   notification. NEVER wait on a process-name pattern (`pgrep -f "lake
-  build"`, `pgrep -f bin/lech`): that blocks on other agents' work,
+  build"`, `pgrep -f bin/con-leche`): that blocks on other agents' work,
   for as long as anyone is building. If you must poll, poll the PID you
   launched (`kill -0 $pid`). Wall time is not a measurement here (shared
   machine); use `perf stat -e instructions:u`.

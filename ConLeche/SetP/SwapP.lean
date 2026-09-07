@@ -1,5 +1,5 @@
-import Lech.SetP.IotaRuleNestedP
-import Lech.Verify.Denote.EnvExt
+import ConLeche.SetP.IotaRuleNestedP
+import ConLeche.Verify.Denote.EnvExt
 
 /-!
 # The group rule-list swap, P tier (task #161, IND TIER part 10)
@@ -24,13 +24,13 @@ are what the group install proves (the last through `iotaRulesP`), and
 taking them here keeps the transport free of the per-rule content.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps)
 
 universe w
@@ -49,8 +49,8 @@ theorem denoteP_env_ext {acval : Name → (Name → Nat) → AVExpr}
     (henvLev : ∀ n,
       (env₁.find? n).map (fun ci => ci.toConstantVal.levelParams) =
       (env₂.find? n).map (fun ci => ci.toConstantVal.levelParams))
-    (hnat : Lech.natLitSupported env₁ = Lech.natLitSupported env₂)
-    (hstr : Lech.strLitSupported env₁ = Lech.strLitSupported env₂)
+    (hnat : ConLeche.natLitSupported env₁ = ConLeche.natLitSupported env₂)
+    (hstr : ConLeche.strLitSupported env₁ = ConLeche.strLitSupported env₂)
     (hproj : ∀ (sn : Name) (i : Nat),
       env₁.findProj? sn i = env₂.findProj? sn i) :
     ∀ (d : Nat) (e : Expr),
@@ -103,8 +103,8 @@ theorem denoteP_env_ext {acval : Name → (Name → Nat) → AVExpr}
       if_neg (fun h => hsup (hnat.trans h))]
   | case13 d s hsup =>
     rw [denoteP, if_pos hsup, denoteP, if_pos (hstr ▸ hsup),
-      levelParamsAt_ext (henvLev Lech.listNilName),
-      levelParamsAt_ext (henvLev Lech.listConsName)]
+      levelParamsAt_ext (henvLev ConLeche.listNilName),
+      levelParamsAt_ext (henvLev ConLeche.listConsName)]
   | case14 d s hsup =>
     rw [denoteP, if_neg hsup, denoteP,
       if_neg (fun h => hsup (hstr.trans h))]
@@ -126,7 +126,7 @@ theorem denoteP_env_ext {acval : Name → (Name → Nat) → AVExpr}
 
 /-- The reading crosses a swap congruence. -/
 theorem denoteP_swap {acval : Name → (Name → Nat) → AVExpr}
-    {env₀ env₃ : Env} (hcg : Lech.SwapCongr env₀ env₃)
+    {env₀ env₃ : Env} (hcg : ConLeche.SwapCongr env₀ env₃)
     (φ : Name → Nat) (d : Nat) (e : Expr) :
     denoteP acval env₀ φ d e = denoteP acval env₃ φ d e :=
   denoteP_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq d e
@@ -138,7 +138,7 @@ constructor's lookup, so it crosses the rule-list swap**
 (`RecRuleLawV.swapS`'s twin).  Both carriers have the *same* `acval`;
 the statement mentions the environment nowhere else. -/
 theorem RecRuleLawP.swapP {env₀ env₃ : Env}
-    (hcg : Lech.SwapCongr env₀ env₃)
+    (hcg : ConLeche.SwapCongr env₀ env₃)
     {m₀ : EnvS2Core V env₀} {m₃ : EnvS2Core V env₃}
     (hac : m₃.acval = m₀.acval)
     {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
@@ -183,21 +183,21 @@ carrying the checked rule lists, with the *same* annotated
 valuation. -/
 theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     (mp : EnvS2PM V μ env₀)
-    (hsw : Lech.SwapShList env₀.consts env₃.consts)
+    (hsw : ConLeche.SwapShList env₀.consts env₃.consts)
     -- the four syntactic environment facts at the swapped
     -- environment (`swapEnvFacts`, `SetBase/IndRecsCoreR.lean`;
     -- task #161 S7, Wall C): taking them rather than rebuilding them
     -- keeps this file free of the rule facts, exactly as taking the
     -- v1 carrier used to
-    (hwf₃ : EnvWF env₃) (hctors₃ : Lech.RecCtorsStored env₃)
+    (hwf₃ : EnvWF env₃) (hctors₃ : ConLeche.RecCtorsStored env₃)
     (hbp₃ : BasisPinnedTT env₃ mp.base2.cvalE)
     (hproj₃ : ProjOkT env₃)
     (hrecP : ∀ (m₃ : EnvS2Core V env₃), m₃.acval = mp.base2.acval →
       ∀ φ : Name → Nat, RecRulesP m₃ φ) :
     ∃ mp₃ : EnvS2PM V μ env₃, mp₃.base2.acval = mp.base2.acval ∧
       mp₃.base2.cvalE = mp.base2.cvalE := by
-  have hcg : Lech.SwapCongr env₀ env₃ := Lech.SwapShList.congr hsw
-  have hcorr := Lech.swapSh_find?_corr hsw
+  have hcg : ConLeche.SwapCongr env₀ env₃ := ConLeche.SwapShList.congr hsw
+  have hcorr := ConLeche.swapSh_find?_corr hsw
   have hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
       denoteP mp.base2.acval env₀ ψ d e
         = denoteP mp.base2.acval env₃ ψ d e :=
@@ -212,7 +212,7 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
   have hmemcorr : ∀ c₃ ∈ env₃.consts, ∃ c₀ ∈ env₀.consts,
       c₀.toConstantVal = c₃.toConstantVal ∧ c₀.name = c₃.name := by
     intro c₃ hc₃
-    obtain ⟨c₀, hc₀, hpair⟩ := Lech.swapSh_mem_corr hsw c₃ hc₃
+    obtain ⟨c₀, hc₀, hpair⟩ := ConLeche.swapSh_mem_corr hsw c₃ hc₃
     rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
     · exact ⟨c₀, hc₀, rfl, rfl⟩
     · exact ⟨_, hc₀, rfl, rfl⟩
@@ -261,7 +261,7 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
   · -- `mem_typeP`: the swap touches recursors only, so the tower
     -- exclusion carries over
     intro c hc ψ ta hta ρ
-    obtain ⟨c₀, hc₀, hpair⟩ := Lech.swapSh_mem_corr hsw c hc
+    obtain ⟨c₀, hc₀, hpair⟩ := ConLeche.swapSh_mem_corr hsw c hc
     have hcv : c₀.toConstantVal = c.toConstantVal := by
       rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩ <;> rfl
     have hname : c₀.name = c.name := by
@@ -272,15 +272,15 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     exact this
   · -- `defn_reads`
     intro ψ cv value hmem
-    have hmem₀ : (∃ hint : Lech.ReducibilityHint,
+    have hmem₀ : (∃ hint : ConLeche.ReducibilityHint,
         ConstantInfo.defnInfo cv value hint ∈ env₀.consts) ∨
         ConstantInfo.thmInfo cv value ∈ env₀.consts := by
       rcases hmem with ⟨hint, hd⟩ | hd
-      · obtain ⟨c₀, hc₀, hpair⟩ := Lech.swapSh_mem_corr hsw _ hd
+      · obtain ⟨c₀, hc₀, hpair⟩ := ConLeche.swapSh_mem_corr hsw _ hd
         rcases hpair with rfl | ⟨cv2, mI, rP, rules, rfl, heq⟩
         · exact Or.inl ⟨hint, hc₀⟩
         · exact nomatch heq
-      · obtain ⟨c₀, hc₀, hpair⟩ := Lech.swapSh_mem_corr hsw _ hd
+      · obtain ⟨c₀, hc₀, hpair⟩ := ConLeche.swapSh_mem_corr hsw _ hd
         rcases hpair with rfl | ⟨cv2, mI, rP, rules, rfl, heq⟩
         · exact Or.inr hc₀
         · exact nomatch heq
@@ -311,15 +311,15 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
   · -- `caps_ok`
     obtain ⟨he, hu⟩ := mp.caps_ok
     have hfam : ∀ (T : Name) (caps : IndCaps),
-        Lech.EtaFamilyStored env₃ T caps →
-        Lech.EtaFamilyStored env₀ T caps := by
+        ConLeche.EtaFamilyStored env₃ T caps →
+        ConLeche.EtaFamilyStored env₀ T caps := by
       intro T caps hst
       obtain ⟨h1, ⟨cvC, hC⟩, h3⟩ := hst
       refine ⟨h1, ⟨cvC, (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hC⟩, ?_⟩
       intro j hj
       obtain ⟨cv, mI, rP, rules, hfj⟩ := h3 j hj
-      rcases hcorr (Lech.projFnName T j) with heq |
+      rcases hcorr (ConLeche.projFnName T j) with heq |
         ⟨cv2, mI2, rP2, rules2, h₀, h₃, -⟩
       · exact ⟨cv, mI, rP, rules, by rw [← heq]; exact hfj⟩
       · exact ⟨cv2, mI2, rP2, [], h₀⟩
@@ -347,10 +347,10 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     -- is unchanged by the swap, and the readings are `hde`
     intro φ T i entry hf
     have hfP : env₀.findProj? T i = some entry := by
-      obtain ⟨tbl, h3, hi, rfl⟩ := Lech.Env.findProj?_some hf
+      obtain ⟨tbl, h3, hi, rfl⟩ := ConLeche.Env.findProj?_some hf
       have h0 := (hsame _ _
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp h3
-      exact Lech.Env.findProj?_of_table h0 hi
+      exact ConLeche.Env.findProj?_of_table h0 hi
     obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
       hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP
     refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
@@ -368,4 +368,4 @@ theorem EnvS2PM.swapP {μ : CheckMode} {env₀ env₃ : Env}
         (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hfT') us hus
       exact ⟨TVa, by rw [← hde]; exact hTVa, hok, hlaw'⟩
 
-end Lech.SetP
+end ConLeche.SetP

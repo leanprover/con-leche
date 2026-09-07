@@ -1,4 +1,4 @@
-import Lech.SetP.IndGradeP
+import ConLeche.SetP.IndGradeP
 
 /-!
 # The instantiated domains are graded (task #161, IND TIER part 4)
@@ -38,13 +38,13 @@ readings **graded** (the ratified iota-seal repair, `Annot/EnvS2P.lean`)
 exactly what this lemma asks for.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name)
 
 universe w
 
@@ -299,4 +299,4 @@ theorem AnnotOkP_mkAppN_args {ρ : Nat → V} :
     · exact AnnotOkP_app_arg (AnnotOkP_mkAppN_head xs h)
     · exact ih (g := .app g x) h a ha'
 
-end Lech.SetP
+end ConLeche.SetP

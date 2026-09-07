@@ -1,9 +1,9 @@
-import Lech.Verify.OfReducePin
-import Lech.Semantics.DeclRun
-import Lech.SetP.NatEqsP
-import Lech.SetP.CapstoneP
-import Lech.SetP.ErasePwInv
-import Lech.SetP.DivModP
+import ConLeche.Verify.OfReducePin
+import ConLeche.Semantics.DeclRun
+import ConLeche.SetP.NatEqsP
+import ConLeche.SetP.CapstoneP
+import ConLeche.SetP.ErasePwInv
+import ConLeche.SetP.DivModP
 
 /-!
 # The compiler-trust identity law, established at `interp2` from the
@@ -68,13 +68,13 @@ beside its `eq_lawP` sibling — the law mentions two stored leaves, so
 it crosses every cons that is neither of them).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal)
 
 universe w
 
@@ -88,7 +88,7 @@ element inductives — `Nat`, `Bool` — are stored level-free, so the
 spelling is the plain assignment). -/
 def elemAP {env : Env} (m : EnvS2Core V env) (c : Name)
     (ψ : Name → Nat) : AVExpr :=
-  m.acval (Lech.reduceElemName c) ψ
+  m.acval (ConLeche.reduceElemName c) ψ
 
 /-- The certificate's context: one slot, the element type. -/
 def elemCtx {env : Env} (m : EnvS2Core V env) (c : Name)
@@ -104,7 +104,7 @@ theorem sat2_elemCtx (m : EnvS2Core V env) {c : Name} {ψ : Name → Nat}
   match i with
   | 0 =>
     obtain rfl : elemAP m c ψ = Aa := by simpa [elemCtx] using hi
-    show x ∈ˢ interp2 V _ (m.acval (Lech.reduceElemName c) ψ)
+    show x ∈ˢ interp2 V _ (m.acval (ConLeche.reduceElemName c) ψ)
     rw [acval_interp2_closedC m _ ψ _ ρ]
     exact hx
 
@@ -114,30 +114,30 @@ theorem sat2_elemCtx (m : EnvS2Core V env) {c : Name} {ψ : Name → Nat}
 constant (`Verify/OfReducePin.lean`'s `ofReduce_elemTy` at the
 *operation*'s index rather than the axiom's). -/
 theorem reduceElemTy_constS (c : Name) :
-    Lech.reduceElemTy c = .const (Lech.reduceElemName c) [] := by
-  unfold Lech.reduceElemTy Lech.reduceElemName
-  split <;> simp [Lech.natName, Lech.boolName]
+    ConLeche.reduceElemTy c = .const (ConLeche.reduceElemName c) [] := by
+  unfold ConLeche.reduceElemTy ConLeche.reduceElemName
+  split <;> simp [ConLeche.natName, ConLeche.boolName]
 
 /-- **The reduce operation's pinned type, inverted through both
 erasures.**  The domain and the codomain are the *same* bare constant,
 and both erasures fix a `.const`, so the pin leaves exactly the binder
 name and the binder meta free — and neither is ever read below. -/
 theorem reduceOp_shapeS {c : Name} {type' : Expr}
-    (hc : c ∈ Lech.reduceOpNames)
+    (hc : c ∈ ConLeche.reduceOpNames)
     (h : type'.erasePw
-      = (Lech.reduceOpCvA c).type.erasePw) :
-    ∃ mb₀, type' = .forallE (Lech.reduceElemTy c)
-      (Lech.reduceElemTy c) mb₀ := by
-  have hcases : c = Lech.reduceNatName ∨ c = Lech.reduceBoolName := by
-    simpa [Lech.reduceOpNames] using hc
-  have hshape : (Lech.reduceOpCvA c).type.erasePw
+      = (ConLeche.reduceOpCvA c).type.erasePw) :
+    ∃ mb₀, type' = .forallE (ConLeche.reduceElemTy c)
+      (ConLeche.reduceElemTy c) mb₀ := by
+  have hcases : c = ConLeche.reduceNatName ∨ c = ConLeche.reduceBoolName := by
+    simpa [ConLeche.reduceOpNames] using hc
+  have hshape : (ConLeche.reduceOpCvA c).type.erasePw
       = .forallE
-          (Lech.reduceElemTy c) (Lech.reduceElemTy c)
+          (ConLeche.reduceElemTy c) (ConLeche.reduceElemTy c)
           ⟨.never⟩ := by
     rcases hcases with rfl | rfl <;>
-      simp [Lech.reduceOpCvA, Lech.reduceNatCvA,
-        Lech.reduceBoolCvA, Lech.reduceElemTy, Lech.reduceNatName,
-        Lech.reduceBoolName, Lech.natName, Lech.boolName,
+      simp [ConLeche.reduceOpCvA, ConLeche.reduceNatCvA,
+        ConLeche.reduceBoolCvA, ConLeche.reduceElemTy, ConLeche.reduceNatName,
+        ConLeche.reduceBoolName, ConLeche.natName, ConLeche.boolName,
         Expr.erasePw]
   rw [hshape] at h
   obtain ⟨ty', b', m', rfl, hty', hb'⟩ := erasePwNames_forallE_invS h
@@ -158,10 +158,10 @@ theorem reduceOp_shapeS {c : Name} {type' : Expr}
 annotation is the element type (a bare constant, so the hereditary
 recursion stops there). -/
 theorem reduceCertVar_fvarLeaves (c : Name) :
-    (Lech.reduceCertVar c).fvarLeaves
-      = [(0, Lech.reduceElemTy c)] := by
+    (ConLeche.reduceCertVar c).fvarLeaves
+      = [(0, ConLeche.reduceElemTy c)] := by
   have hE := reduceElemTy_constS c
-  simp [Lech.reduceCertVar, hE, Expr.fvarLeaves]
+  simp [ConLeche.reduceCertVar, hE, Expr.fvarLeaves]
 
 /-! ## The establishment -/
 
@@ -178,7 +178,7 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
     (hfresh : env.find? cv.name = none)
     (hvf' : value'.hasFvar = false)
     (hbv' : value'.looseBVarsBounded 0 = true)
-    (hannv : Lech.annotateCore μ env F 0 value = .ok value')
+    (hannv : ConLeche.annotateCore μ env F 0 value = .ok value')
     (hA : ∀ ψ : Name → Nat,
       denoteP mp.base2.acval env ψ 0 value' = some (A ψ))
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
@@ -189,7 +189,7 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
     (hTaOk : ∀ (ψ : Name → Nat) (ρ : Nat → V), AnnotOkP V ρ (Ta ψ))
     (hmemA : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp2 V ρ (A ψ) ∈ˢ interp2 V ρ (Ta ψ))
-    (hred : Lech.reduceOpNames.contains cv.name = true →
+    (hred : ConLeche.reduceOpNames.contains cv.name = true →
       ReducePinRun μ F env
         ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩
         cv.name value)
@@ -209,19 +209,19 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
     hred (List.contains_iff_mem.mpr hcN)
   obtain rfl : valA = value' := Except.ok.inj (hannA.symm.trans hannv)
   -- the element inductive is stored, level-free, and is not the cons
-  obtain ⟨ciE, hfE, hlpE, -⟩ := Lech.Verify.reduceElem_sort helemOk
-  have hneE : Lech.reduceElemName cv.name ≠ cv.name := by
+  obtain ⟨ciE, hfE, hlpE, -⟩ := ConLeche.Verify.reduceElem_sort helemOk
+  have hneE : ConLeche.reduceElemName cv.name ≠ cv.name := by
     intro h; rw [h, hfresh] at hfE; exact nomatch hfE
   have hEty := reduceElemTy_constS cv.name
   have hdenE : ∀ (ψ : Name → Nat) (d : Nat),
-      denoteP mp.base2.acval env ψ d (Lech.reduceElemTy cv.name)
-        = some (mp.base2.acval (Lech.reduceElemName cv.name) ψ) := by
+      denoteP mp.base2.acval env ψ d (ConLeche.reduceElemTy cv.name)
+        = some (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) := by
     intro ψ d
     rw [hEty]
     exact denoteP_levelless_const hfE hlpE
   -- the two leaf moves
-  have hmoveE : m₂.acval (Lech.reduceElemName cv.name)
-      = mp.base2.acval (Lech.reduceElemName cv.name) := by
+  have hmoveE : m₂.acval (ConLeche.reduceElemName cv.name)
+      = mp.base2.acval (ConLeche.reduceElemName cv.name) := by
     rw [hac]; exact acvalWith_ne hneE
   have hmoveC : m₂.acval cv.name = A := by
     rw [hac]; exact acvalWith_self
@@ -232,7 +232,7 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
     have h := acval_interp2_closedC m₂ cv.name ψ ρ₁ ρ₂
     rwa [hmoveC] at h
   -- the stored entry is the pinned type, and the pin fixes its shape
-  rw [Lech.Env.find?_cons, if_pos (show (ConstantInfo.axiomInfo
+  rw [ConLeche.Env.find?_cons, if_pos (show (ConstantInfo.axiomInfo
     ⟨cv.name, cv.levelParams, type'⟩).name = cv.name from rfl)] at hf₂
   obtain rfl : cvR = ⟨cv.name, cv.levelParams, type'⟩ :=
     (ConstantInfo.axiomInfo.inj (Option.some.inj hf₂)).symm
@@ -241,22 +241,22 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
   obtain ⟨mb₀, htyShape⟩ := reduceOp_shapeS hcN hpin.2
   subst htyShape
   -- the type's reading: a one-step `.pi` over the element leaf
-  have hinst : (Lech.reduceElemTy cv.name).instantiate1
-        (.fvar 0 (Lech.reduceElemTy cv.name))
-      = Lech.reduceElemTy cv.name :=
+  have hinst : (ConLeche.reduceElemTy cv.name).instantiate1
+        (.fvar 0 (ConLeche.reduceElemTy cv.name))
+      = ConLeche.reduceElemTy cv.name :=
     Expr.instantiate1_eq_self (by rw [hEty]; rfl)
   have hTaShape : ∀ ψ : Name → Nat,
       Ta ψ = .pi 0 (pwBit ψ mb₀.pw)
-        (mp.base2.acval (Lech.reduceElemName cv.name) ψ)
-        (mp.base2.acval (Lech.reduceElemName cv.name) ψ) := by
+        (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ)
+        (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) := by
     intro ψ
     have h := hTa ψ
     rw [show denoteP mp.base2.acval env ψ 0
-          (Expr.forallE (Lech.reduceElemTy cv.name)
-            (Lech.reduceElemTy cv.name) mb₀)
+          (Expr.forallE (ConLeche.reduceElemTy cv.name)
+            (ConLeche.reduceElemTy cv.name) mb₀)
         = some (.pi 0 (pwBit ψ mb₀.pw)
-            (mp.base2.acval (Lech.reduceElemName cv.name) ψ)
-            (mp.base2.acval (Lech.reduceElemName cv.name) ψ)) from by
+            (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ)
+            (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ)) from by
       rw [denoteP_forallE, hdenE ψ 0, hinst, hdenE ψ 1]; rfl] at h
     exact (Option.some.inj h).symm
   -- the certificate variable's syntactic and context packages
@@ -265,69 +265,69 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
   have hcertLeaves := reduceCertVar_fvarLeaves cv.name
   have hwsV : ∀ d : Nat, Expr.WScoped d valA :=
     fun d => Expr.WScoped.of_not_hasFvar hvf'
-  have hwsCert : Expr.WScoped 1 (Lech.reduceCertVar cv.name) := by
-    rw [Lech.reduceCertVar, hEty]
+  have hwsCert : Expr.WScoped 1 (ConLeche.reduceCertVar cv.name) := by
+    rw [ConLeche.reduceCertVar, hEty]
     simp [Expr.WScoped]
-  have hbCert : (Lech.reduceCertVar cv.name).looseBVarsBounded 0 = true := by
-    rw [Lech.reduceCertVar]; rfl
-  have hLCert : Expr.LeavesBounded (Lech.reduceCertVar cv.name) := by
+  have hbCert : (ConLeche.reduceCertVar cv.name).looseBVarsBounded 0 = true := by
+    rw [ConLeche.reduceCertVar]; rfl
+  have hLCert : Expr.LeavesBounded (ConLeche.reduceCertVar cv.name) := by
     intro l hl
     rw [hcertLeaves] at hl
-    obtain rfl : l = (0, Lech.reduceElemTy cv.name) := by simpa using hl
+    obtain rfl : l = (0, ConLeche.reduceElemTy cv.name) := by simpa using hl
     rw [hEty]; rfl
   have hwsApp : Expr.WScoped 1
-      (Expr.app valA (Lech.reduceCertVar cv.name)) := by
+      (Expr.app valA (ConLeche.reduceCertVar cv.name)) := by
     rw [Expr.WScoped]
     exact ⟨hwsV 1, hwsCert⟩
   have hbApp : Expr.looseBVarsBounded 0
-      (Expr.app valA (Lech.reduceCertVar cv.name)) = true := by
+      (Expr.app valA (ConLeche.reduceCertVar cv.name)) = true := by
     rw [show Expr.looseBVarsBounded 0
-        (Expr.app valA (Lech.reduceCertVar cv.name))
+        (Expr.app valA (ConLeche.reduceCertVar cv.name))
       = (Expr.looseBVarsBounded 0 valA &&
-          Expr.looseBVarsBounded 0 (Lech.reduceCertVar cv.name))
+          Expr.looseBVarsBounded 0 (ConLeche.reduceCertVar cv.name))
       from rfl, hbv', hbCert]
     rfl
   have hLApp : Expr.LeavesBounded
-      (Expr.app valA (Lech.reduceCertVar cv.name)) := by
+      (Expr.app valA (ConLeche.reduceCertVar cv.name)) := by
     intro l hl
-    rw [show (Expr.app valA (Lech.reduceCertVar cv.name)).fvarLeaves
-        = valA.fvarLeaves ++ (Lech.reduceCertVar cv.name).fvarLeaves
+    rw [show (Expr.app valA (ConLeche.reduceCertVar cv.name)).fvarLeaves
+        = valA.fvarLeaves ++ (ConLeche.reduceCertVar cv.name).fvarLeaves
         from by rw [Expr.fvarLeaves], hvLeaves, List.nil_append] at hl
     exact hLCert l hl
   have hctxCert : ∀ ψ : Name → Nat,
       CtxOkP mp.base2 ψ 1 (elemCtx mp.base2 cv.name ψ)
-        (Lech.reduceCertVar cv.name) := by
+        (ConLeche.reduceCertVar cv.name) := by
     intro ψ
     refine ⟨rfl, fun l hl => ?_⟩
     rw [hcertLeaves] at hl
-    obtain rfl : l = (0, Lech.reduceElemTy cv.name) := by simpa using hl
+    obtain rfl : l = (0, ConLeche.reduceElemTy cv.name) := by simpa using hl
     refine ⟨Nat.zero_lt_one, by rw [hEty]; trivial,
-      mp.base2.acval (Lech.reduceElemName cv.name) ψ,
+      mp.base2.acval (ConLeche.reduceElemName cv.name) ψ,
       elemAP mp.base2 cv.name ψ, hdenE ψ 1, rfl, fun ρ' _ => ?_,
       fun ρ' _ => ⟨mp.base2.acval_ok2 _ ψ ρ', mp.acval_validV _ ψ ρ'⟩⟩
     exact acval_interp2_closedC mp.base2 _ ψ _ _
   have hctxApp : ∀ ψ : Name → Nat,
       CtxOkP mp.base2 ψ 1 (elemCtx mp.base2 cv.name ψ)
-        (Expr.app valA (Lech.reduceCertVar cv.name)) := by
+        (Expr.app valA (ConLeche.reduceCertVar cv.name)) := by
     intro ψ
     refine ⟨rfl, fun l hl => ?_⟩
-    rw [show (Expr.app valA (Lech.reduceCertVar cv.name)).fvarLeaves
-        = valA.fvarLeaves ++ (Lech.reduceCertVar cv.name).fvarLeaves
+    rw [show (Expr.app valA (ConLeche.reduceCertVar cv.name)).fvarLeaves
+        = valA.fvarLeaves ++ (ConLeche.reduceCertVar cv.name).fvarLeaves
         from by rw [Expr.fvarLeaves], hvLeaves, List.nil_append] at hl
     exact (hctxCert ψ).2 l hl
   -- the two sides' readings at the certificate's depth
   have hdenCert : ∀ ψ : Name → Nat,
-      denoteP mp.base2.acval env ψ 1 (Lech.reduceCertVar cv.name)
+      denoteP mp.base2.acval env ψ 1 (ConLeche.reduceCertVar cv.name)
         = some (.bvar 0) := by
     intro ψ
-    rw [Lech.reduceCertVar, denoteP_fvar]
+    rw [ConLeche.reduceCertVar, denoteP_fvar]
   have hdenV1 : ∀ ψ : Name → Nat,
       denoteP mp.base2.acval env ψ 1 valA = some (A ψ) := fun ψ =>
     denoteP_depth_of_closed mp.base2.acval_closed hvf'
       (fun k => hAclosed ψ k) (hA ψ) 1
   have hdenApp : ∀ ψ : Name → Nat,
       denoteP mp.base2.acval env ψ 1
-          (Expr.app valA (Lech.reduceCertVar cv.name))
+          (Expr.app valA (ConLeche.reduceCertVar cv.name))
         = some (.app (A ψ) (.bvar 0)) := by
     intro ψ
     rw [denoteP_app, hdenV1 ψ, hdenCert ψ]
@@ -336,16 +336,16 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
   have hclaims := fun ψ =>
     checkSoundAtP (V := V) hμ (TierInputsAtP.ofSem mp ψ) F
   refine ⟨?_, fun ψ ρ x hx => ?_⟩
-  · rw [Lech.Env.find?_cons, if_neg (fun h => hneE h.symm), hfE]; rfl
+  · rw [ConLeche.Env.find?_cons, if_neg (fun h => hneE h.symm), hfE]; rfl
   obtain ⟨-, -, ihd, -⟩ := hclaims ψ
   rw [hmoveE] at hx
   rw [hmoveC]
   -- the certificate variable's slot membership, at any satisfying `ρ'`
   have hslot : ∀ ρ' : Nat → V, Sat2 V (elemCtx mp.base2 cv.name ψ) ρ' →
-      ρ' 0 ∈ˢ interp2 V ρ' (mp.base2.acval (Lech.reduceElemName cv.name) ψ) := by
+      ρ' 0 ∈ˢ interp2 V ρ' (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) := by
     intro ρ' hsat
     have h : ρ' 0 ∈ˢ interp2 V (fun j => ρ' (j + 0 + 1))
-        (mp.base2.acval (Lech.reduceElemName cv.name) ψ) :=
+        (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) :=
       hsat 0 (elemAP mp.base2 cv.name ψ) rfl
     rwa [acval_interp2_closedC mp.base2 _ ψ _ ρ'] at h
   -- the gradings: the bare variable is free, the applied side is the
@@ -358,9 +358,9 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
       AnnotOkP V ρ' (.app (A ψ) (.bvar 0)) := by
     intro ρ' hsat
     have hfib : (fun y => interp2 V (cons y ρ')
-          (mp.base2.acval (Lech.reduceElemName cv.name) ψ))
+          (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ))
         = fun _ : V => interp2 V ρ'
-            (mp.base2.acval (Lech.reduceElemName cv.name) ψ) :=
+            (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) :=
       funext fun y => acval_interp2_closedC mp.base2 _ ψ _ ρ'
     have hm := hmemA ψ ρ'
     rw [hTaShape ψ, interp2_pi, hfib] at hm
@@ -368,16 +368,16 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
     rw [hTaShape ψ, AnnotValidV_pi] at hv
     refine ⟨⟨hAok ψ ρ', by simp, ?_⟩, ⟨hAvalid ψ ρ', by simp⟩⟩
     refine ⟨pwBit ψ mb₀.pw,
-      interp2 V ρ' (mp.base2.acval (Lech.reduceElemName cv.name) ψ),
+      interp2 V ρ' (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ),
       fun _ => interp2 V ρ'
-        (mp.base2.acval (Lech.reduceElemName cv.name) ψ),
+        (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ),
       hm, hslot ρ' hsat, fun h0 y hy => ?_⟩
     have := hv.2.2 h0 y hy
     rwa [acval_interp2_closedC mp.base2 _ ψ _ ρ'] at this
   -- the run, converted
   have heq := ihd (d := 1)
-    (a := Expr.app valA (Lech.reduceCertVar cv.name))
-    (b := Lech.reduceCertVar cv.name) (Δa := elemCtx mp.base2 cv.name ψ)
+    (a := Expr.app valA (ConLeche.reduceCertVar cv.name))
+    (b := ConLeche.reduceCertVar cv.name) (Δa := elemCtx mp.base2 cv.name ψ)
     hrun hwsApp hbApp hLApp hwsCert hbCert hLCert
     (hctxApp ψ) (hctxCert ψ) (hdenApp ψ) (hdenCert ψ)
     hgradeApp hgradeCert (cons x ρ) (sat2_elemCtx mp.base2 hx)
@@ -386,4 +386,4 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
   rw [hclA ρ (cons x ρ) ψ]
   exact heq
 
-end Lech.SetP
+end ConLeche.SetP

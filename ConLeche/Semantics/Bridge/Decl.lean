@@ -1,6 +1,6 @@
-import Lech.Semantics.Decl
-import Lech.Verify.Extend.Inversions
-import Lech.Verify.IotaWalkInv
+import ConLeche.Semantics.Decl
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.IotaWalkInv
 
 /-!
 # The declaration-level RUN inversions (task #148 T6; the derivation
@@ -29,9 +29,9 @@ the template fold, and `checkDeclRun_of`'s basis arm for the pair
 below.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-- **`certifyNatEqs`, exposed as runs** (task #161 P4 H1 at the
 literal tier): the verdict is one `isDefEqCore` success per equation,
@@ -107,4 +107,4 @@ theorem declBasisRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
   · simp only [if_neg hk] at h
     exact ⟨fun hh => absurd hh hk, foldlM_installBasisDecl_invR _ h⟩
 
-end Lech.Semantics
+end ConLeche.Semantics

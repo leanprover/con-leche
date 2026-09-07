@@ -1,5 +1,5 @@
-import Lech.SetP.Step2.ReadsP
-import Lech.SetP.Step2.TowerKitP
+import ConLeche.SetP.Step2.ReadsP
+import ConLeche.SetP.Step2.TowerKitP
 
 /-!
 # The subject-side totality walk (task #161, ENDGAME A)
@@ -43,13 +43,13 @@ not about the model, which is why it can be a theorem at
 `EnvS2Core` rather than a bundle entry.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level inferTypeCore)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level inferTypeCore)
 
 universe w
 
@@ -74,10 +74,10 @@ theorem inferTypeCore_const_inv_len {fuel d : Nat}
     ∃ ci, env.find? n = some ci ∧
       us.length = ci.toConstantVal.levelParams.length := by
   match fuel, h with
-  | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
+  | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
-    rw [Lech.inferTypeCore_succ] at h
-    simp only [Lech.inferBody, pure, Except.pure,
+    rw [ConLeche.inferTypeCore_succ] at h
+    simp only [ConLeche.inferBody, pure, Except.pure,
       Bind.bind, Except.bind] at h
     revert h
     cases hf : env.find? n with
@@ -95,13 +95,13 @@ theorem inferTypeCore_const_inv_len {fuel d : Nat}
 literal guard, verbatim. -/
 theorem inferTypeCore_natLit_inv {fuel d k : Nat} {t : Expr}
     (h : inferTypeCore μ env fuel d (.lit (.natVal k)) = .ok t) :
-    Lech.natLitSupported env = true := by
+    ConLeche.natLitSupported env = true := by
   match fuel, h with
-  | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
+  | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
-    rw [Lech.inferTypeCore_succ] at h
-    simp only [Lech.inferBody, pure, Except.pure] at h
-    by_cases hg : Lech.natLitSupported env = true
+    rw [ConLeche.inferTypeCore_succ] at h
+    simp only [ConLeche.inferBody, pure, Except.pure] at h
+    by_cases hg : ConLeche.natLitSupported env = true
     · exact hg
     · rw [if_neg hg] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -109,13 +109,13 @@ theorem inferTypeCore_natLit_inv {fuel d k : Nat} {t : Expr}
 /-- **The string-literal clause's guard, recorded.** -/
 theorem inferTypeCore_strLit_inv {fuel d : Nat} {s : String} {t : Expr}
     (h : inferTypeCore μ env fuel d (.lit (.strVal s)) = .ok t) :
-    Lech.strLitSupported env = true := by
+    ConLeche.strLitSupported env = true := by
   match fuel, h with
-  | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
+  | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
-    rw [Lech.inferTypeCore_succ] at h
-    simp only [Lech.inferBody, pure, Except.pure] at h
-    by_cases hg : Lech.strLitSupported env = true
+    rw [ConLeche.inferTypeCore_succ] at h
+    simp only [ConLeche.inferBody, pure, Except.pure] at h
+    by_cases hg : ConLeche.strLitSupported env = true
     · exact hg
     · rw [if_neg hg] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -133,7 +133,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
   induction F with
   | zero =>
     intro d e t h _ _ _
-    rw [Lech.inferTypeCore_zero] at h
+    rw [ConLeche.inferTypeCore_zero] at h
     exact nomatch h
   | succ F ih =>
     intro d e t h hws hb hL
@@ -157,7 +157,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       · exact ⟨ea, rfl⟩
     | .app f a =>
       obtain ⟨tf, _, _, _, htf, -, -, ta, hta, -⟩ :=
-        Lech.inferTypeCore_app_inv h
+        ConLeche.inferTypeCore_app_inv h
       simp only [Expr.WScoped] at hws
       simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
       obtain ⟨fa, hfa⟩ := ih htf hws.1 hb.1 (fun l hl =>
@@ -167,7 +167,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       exact ⟨_, by rw [denoteP_app, hfa, haa]; rfl⟩
     | .forallE ty body mb =>
       obtain ⟨tty, u, bt, v, htty, -, hbt, -, -, -⟩ :=
-        Lech.inferTypeCore_forall_inv h
+        ConLeche.inferTypeCore_forall_inv h
       simp only [Expr.WScoped] at hws
       simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
       have hLty : Expr.LeavesBounded ty := fun l hl =>
@@ -181,7 +181,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       exact ⟨_, by rw [denoteP_forallE, hta, hba]; rfl⟩
     | .lam ty body mb =>
       obtain ⟨tty, u, bt, htty, -, hbt, -, -, -⟩ :=
-        Lech.inferTypeCore_lam_inv h
+        ConLeche.inferTypeCore_lam_inv h
       simp only [Expr.WScoped] at hws
       simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
       have hLty : Expr.LeavesBounded ty := fun l hl =>
@@ -195,7 +195,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       exact ⟨_, by rw [denoteP_lam, hta, hba]; rfl⟩
     | .proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, htpe, -, -, hfe, -, -, -, -,
-        hsn⟩ := Lech.inferTypeCore_proj_inv h
+        hsn⟩ := ConLeche.inferTypeCore_proj_inv h
       subst hsn
       simp only [Expr.WScoped] at hws
       simp only [Expr.looseBVarsBounded] at hb
@@ -204,7 +204,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       exact ⟨_, denoteP_proj_tower hfe hpa⟩
     | .letE ty val body =>
       obtain ⟨tty, s, tv, htty, -, htv, -, hbody⟩ :=
-        Lech.inferTypeCore_letE_inv h
+        ConLeche.inferTypeCore_letE_inv h
       simp only [Expr.WScoped] at hws
       simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
       have hLty : Expr.LeavesBounded ty := fun l hl =>
@@ -246,4 +246,4 @@ theorem acceptedReadsP_of (m : EnvS2Core V env) (φ : Name → Nat)
     ∃ ea, denoteP m.acval env φ d e = some ea :=
   acceptedReadsP_aux m φ F h hws hb hL
 
-end Lech.SetP
+end ConLeche.SetP

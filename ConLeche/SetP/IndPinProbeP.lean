@@ -1,5 +1,5 @@
-import Lech.SetP.NatEqsP
-import Lech.SetP.Claims2P
+import ConLeche.SetP.NatEqsP
+import ConLeche.SetP.Claims2P
 
 /-!
 # The nested-pin conjunct is refuted (task #161 ind tier part 6, THE PROBE)
@@ -12,7 +12,7 @@ nested-pin conjunct (`Annot/EnvS2P.lean`):
   ∀ i, i < RecRule.ctorParams rl →
   ∃ vpa : AVExpr,
     denoteP m.acval env φ rP
-      (Lech.Verify.openRev 0 rP
+      (ConLeche.Verify.openRev 0 rP
         ((pins.getD i default).instantiateLevelParams
           cv.levelParams us)) = some vpa ∧
     ∀ ρ : Nat → V, AnnotOkP V ρ vpa) ∧
@@ -90,13 +90,13 @@ already names, where it names it", and it is the statement layer's —
 see the DESIGN entry for this seal.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level)
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level)
 
 universe w
 
@@ -180,7 +180,7 @@ steps below are the reading's syntactic half, by `rfl`. -/
 /-- `openRev 0 6` sends the measured pin's loose `bvar 5` to `fvar 5`
 (the reverse opening consumes the innermost variable first). -/
 theorem openRev_pin_shape (c : Name) :
-    Lech.Verify.openRev 0 6
+    ConLeche.Verify.openRev 0 6
         (Expr.app (Expr.const c []) (Expr.bvar 5))
       = Expr.app (Expr.const c [])
           (Expr.fvar 5 (Expr.sort Level.zero)) := rfl
@@ -189,15 +189,15 @@ theorem openRev_pin_shape (c : Name) :
 an application with a **free** `.bvar` argument, which
 `not_uniform_annotOkP_acval_open_app` refutes. -/
 theorem denoteP_pin_shape {env : Env} (m : EnvS2Core V env)
-    (φ : Name → Nat) (c : Name) (cv : Lech.ConstantInfo)
+    (φ : Name → Nat) (c : Name) (cv : ConLeche.ConstantInfo)
     (hfind : env.find? c = some cv)
     (hlp : cv.toConstantVal.levelParams = []) :
     denoteP m.acval env φ 6
-        (Lech.Verify.openRev 0 6
+        (ConLeche.Verify.openRev 0 6
           (Expr.app (Expr.const c []) (Expr.bvar 5)))
       = some (.app (m.acval c (Level.substFn φ [] [])) (.bvar 0)) := by
   rw [openRev_pin_shape, denoteP_app, denoteP_const hfind (by simp [hlp]),
     denoteP_fvar]
   simp [hlp]
 
-end Lech.SetP
+end ConLeche.SetP

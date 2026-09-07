@@ -1,4 +1,4 @@
-import Lech.SetP.IndAnnotMemP
+import ConLeche.SetP.IndAnnotMemP
 
 /-!
 # The firing stage, at the reading (task #161, IND TIER part 7)
@@ -36,13 +36,13 @@ Three deltas against v1, all of them the P tier's own currency:
   already produced the context the stages share.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   isDefEqCore inferTypeCore)
 
 universe w
@@ -196,8 +196,8 @@ theorem eqFormerKeyP {env : Env} (mp : EnvS2PM V μ env)
     (heqfE : env.find? eqName = some eqA) :
     EqFormerKeyP mp.base2 φ := by
   intro us _hlen T hT ρ
-  have hmem := Lech.Semantics.Env.find?_mem heqfE
-  have hname := Lech.Semantics.Env.find?_name heqfE
+  have hmem := ConLeche.Semantics.Env.find?_mem heqfE
+  have hname := ConLeche.Semantics.Env.find?_name heqfE
   have hT' : denoteP mp.base2.acval env
       (Level.substFn φ eqA.toConstantVal.levelParams us) 0
       eqA.toConstantVal.type = some T := by
@@ -244,7 +244,7 @@ theorem fireP {m : EnvS2Core V env} {ψ' : Name → Nat}
     (hzslen : zs.length = K)
     (hsat : Sat2 V Γs (chainP V ρ zs))
     (hfit : TeleFitPA V ρ Tstmt zs
-      (Lech.SetP.AVExpr.instSeq zs (K - 1) Rbody)) :
+      (ConLeche.SetP.AVExpr.instSeq zs (K - 1) Rbody)) :
     ∃ vα vL vR : AVExpr,
       denoteP m.acval env ψ' K αS = some vα ∧
       denoteP m.acval env ψ' K lhsS = some vL ∧
@@ -279,7 +279,7 @@ theorem fireP {m : EnvS2Core V env} {ψ' : Name → Nat}
       (AVExpr.mkAppN vEq [vα, vL, vR]) :=
     annotOkP_tower_body_sat htowerS (hstmtAnnot _) hsat
   -- the pinned `Eq` type's reading at the stored level
-  have hbit : pwBit ψ' Lech.PropWhen.never = 1 := rfl
+  have hbit : pwBit ψ' ConLeche.PropWhen.never = 1 := rfl
   have hTden : denoteP m.acval env ψ' 0
       (eqA.toConstantVal.type.instantiateLevelParams
         eqA.toConstantVal.levelParams [ℓA])
@@ -358,21 +358,21 @@ theorem fireP {m : EnvS2Core V env} {ψ' : Name → Nat}
   have hlaw := (heqlaw heqfE
     (Level.substFn ψ' eqA.toConstantVal.levelParams [ℓA])).1
   have hresid : interp2 V ρ
-      (Lech.SetP.AVExpr.instSeq zs (K - 1)
+      (ConLeche.SetP.AVExpr.instSeq zs (K - 1)
         (AVExpr.mkAppN vEq [vα, vL, vR]))
       = eqv (interp2 V (chainP V ρ zs) vL)
         (interp2 V (chainP V ρ zs) vR) := by
     rw [show K - 1 = zs.length - 1 from by rw [hzslen],
       instSeqP_mkAppN, instSeqP_eq_self_of_closed hEqcl]
     show interp2 V ρ (AVExpr.mkAppN vEq
-        [Lech.SetP.AVExpr.instSeq zs (zs.length - 1) vα,
-         Lech.SetP.AVExpr.instSeq zs (zs.length - 1) vL,
-         Lech.SetP.AVExpr.instSeq zs (zs.length - 1) vR]) = _
+        [ConLeche.SetP.AVExpr.instSeq zs (zs.length - 1) vα,
+         ConLeche.SetP.AVExpr.instSeq zs (zs.length - 1) vL,
+         ConLeche.SetP.AVExpr.instSeq zs (zs.length - 1) vR]) = _
     show SetTheory.app (SetTheory.app (SetTheory.app
         (interp2 V ρ vEq)
-        (interp2 V ρ (Lech.SetP.AVExpr.instSeq zs (zs.length - 1) vα)))
-        (interp2 V ρ (Lech.SetP.AVExpr.instSeq zs (zs.length - 1) vL)))
-        (interp2 V ρ (Lech.SetP.AVExpr.instSeq zs (zs.length - 1) vR))
+        (interp2 V ρ (ConLeche.SetP.AVExpr.instSeq zs (zs.length - 1) vα)))
+        (interp2 V ρ (ConLeche.SetP.AVExpr.instSeq zs (zs.length - 1) vL)))
+        (interp2 V ρ (ConLeche.SetP.AVExpr.instSeq zs (zs.length - 1) vR))
       = _
     rw [interp2_instSeq, interp2_instSeq, interp2_instSeq, hvEq']
     exact hlaw ρ _ _ _ hαuniv hLmem hRmem
@@ -439,4 +439,4 @@ theorem sidesMemP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       htra hvα hokTr hokα ρ hρ
     exact heq ▸ hmemR ρ hρ
 
-end Lech.SetP
+end ConLeche.SetP

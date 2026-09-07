@@ -1,15 +1,15 @@
-import Lech.Verify.Cached.BridgeCS4
-import Lech.Verify.Direct.DirectWF
-import Lech.Verify.Direct.DirectResid
-import Lech.Verify.Direct.SumWF
-import Lech.Verify.Direct.FixWF
+import ConLeche.Verify.Cached.BridgeCS4
+import ConLeche.Verify.Direct.DirectWF
+import ConLeche.Verify.Direct.DirectResid
+import ConLeche.Verify.Direct.SumWF
+import ConLeche.Verify.Direct.FixWF
 
 /-!
 # Cached shared-state checker: the inductive block and the per-declaration bridge
 
-Port of `Lech/Verify/BridgeSDecl.lean` for the cached tier.  The tail
+Port of `ConLeche/Verify/BridgeSDecl.lean` for the cached tier.  The tail
 of the per-declaration composition whose bulk is
-`Lech/Verify/Cached/BridgeCS4.lean`: the inductive-block driver
+`ConLeche/Verify/Cached/BridgeCS4.lean`: the inductive-block driver
 (`checkIndDeclSF_run`), its dispatch (`checkIndOrDirectSF_run`), and the
 per-declaration bridge (`checkDeclSharedF_bridge`).
 
@@ -25,7 +25,7 @@ than `ISOK.fresh`.  Every pure comparand is byte-identical to the
 interned original's.
 
 One piece the interned tier keeps in a *shared* file has to be
-replicated here: `checkDeclSF_nonind` (`Lech/Verify/CheckerF.lean`)
+replicated here: `checkDeclSF_nonind` (`ConLeche/Verify/CheckerF.lean`)
 is stated for `CheckIM`, because the `throw`/`ite` peels it uses are
 monad-specific (`rfl` at a concrete `StateT`).  Its `CheckCM` twin —
 `checkDeclSFC_nonind`, with the `_push` lemmas it consumes — is proved
@@ -36,14 +36,14 @@ the transposition.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
 variable {mode : CheckMode}
 
 /-! ## `CheckCM` peels (the `CheckIM` helpers of
-`Lech/Verify/CheckerF.lean` at the cached monad) -/
+`ConLeche/Verify/CheckerF.lean` at the cached monad) -/
 
 theorem throwC_bind_eq {α β : Type} (e : CheckError)
     (f : α → CheckCM β) : ((throw e : CheckCM α) >>= f) = throw e := rfl
@@ -1030,4 +1030,4 @@ theorem checkDeclSharedF_bridge (hμ : mode.verifiedChecks = true) {env : Env} {
       rw [← checkDecl_datF]
       exact hF
 
-end Lech.Cached
+end ConLeche.Cached

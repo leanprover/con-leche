@@ -1,6 +1,6 @@
-import Lech.Kernel.Checker
-import Lech.Verify.Extend.Inversions
-import Lech.Verify.OfReducePin
+import ConLeche.Kernel.Checker
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.OfReducePin
 
 /-!
 # The standard axioms' pinned families, extracted (task #148)
@@ -8,7 +8,7 @@ import Lech.Verify.OfReducePin
 `stdAxiomOk`'s two branches, inverted.  Both are pure `Env`/`Bool`
 reasoning — no valuation, no typing judgement — so they belong in the
 shared tier by task #123's criterion, and both soundness routes read
-them.  Relocated verbatim from `Lech/TTVerify/StdAxiomKey.lean`.
+them.  Relocated verbatim from `ConLeche/TTVerify/StdAxiomKey.lean`.
 
 **Task #161 P5 — the shape statements track the pin exactly.**  Six
 conclusions here read `cv.type.erasePw = pinA.type.erasePw` where
@@ -25,7 +25,7 @@ denotation, and `denote_erasePw` (`Verify/Denote/Inst.lean`) says
 exactly as the un-erased one did.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
 variable {mode : CheckMode}
 
@@ -142,4 +142,4 @@ theorem nonempty_shapes {env : Env} {cvA : ConstantVal}
             beq_iff_eq] at hNr
           exact hNr.2
       | _ => exact nomatch hNr
-end Lech.Verify
+end ConLeche.Verify

@@ -1,5 +1,5 @@
-import Lech.Verify.Direct.DirectInv
-import Lech.Kernel.Direct.SumInstall
+import ConLeche.Verify.Direct.DirectInv
+import ConLeche.Kernel.Direct.SumInstall
 
 /-!
 # The direct sum install's stage runs, inverted (task #175 sum-types,
@@ -21,7 +21,7 @@ whose large-eliminator clause admits a non-propositional field that is
 one of the index expressions).
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -557,4 +557,4 @@ theorem directSumParts?_inv {env : Env} {block : List ConstantInfo} {p : DirectS
     · rw [if_neg hnr] at h
       exact nomatch h
 
-end Lech
+end ConLeche

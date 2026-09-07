@@ -1,5 +1,5 @@
-import Lech.Semantics.Tower.TowerLeaf
-import Lech.SetModel.TaggedSum
+import ConLeche.Semantics.Tower.TowerLeaf
+import ConLeche.SetModel.TaggedSum
 
 /-!
 # The numeral case split, spelled (task #175 sum-types, stage S1)
@@ -23,12 +23,12 @@ them back.
   `shiftE d 0 σ` — no capture-avoiding substitution anywhere.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
-open Lech.VExpr (VExpr)
+open ConLeche.SetTheory.Tower
+open ConLeche.VExpr (VExpr)
 
 universe uv
 
@@ -324,4 +324,4 @@ theorem caseAVAt_facts {w : Nat} :
         · intro b hb
           exact lamR_mem fun a _ => (hinner a b hb).1
 
-end Lech.Semantics
+end ConLeche.Semantics

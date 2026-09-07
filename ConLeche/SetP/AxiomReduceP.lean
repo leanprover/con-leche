@@ -1,4 +1,4 @@
-import Lech.SetP.AxiomPinP
+import ConLeche.SetP.AxiomPinP
 
 /-!
 # `DeclAxiomR`'s fourth branch: `ofReduceNat`/`ofReduceBool` at the
@@ -34,13 +34,13 @@ With this branch the whole pin bundle closes: `axiomStepPB_of`
 four branches, and `FoldP`'s `hax` premise is gone.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta inferTypeCore)
 
 universe w
@@ -57,25 +57,25 @@ exactly the three binder names and the three binder metas free —
 which is precisely the freedom the bit lemma below removes
 (`propext_shapeS`'s pattern at a longer spine). -/
 theorem ofReduce_shapeS {n : Name} {type' : Expr}
-    (hn : n = Lech.ofReduceNatName ∨ n = Lech.ofReduceBoolName)
+    (hn : n = ConLeche.ofReduceNatName ∨ n = ConLeche.ofReduceBoolName)
     (h : type'.erasePw
-      = (Lech.ofReducePinA n).type.erasePw) :
+      = (ConLeche.ofReducePinA n).type.erasePw) :
     ∃ m₁ m₂ m₃,
       type' = .forallE
-        (.const (Lech.reduceElemName (Lech.ofReduceOp n)) [])
+        (.const (ConLeche.reduceElemName (ConLeche.ofReduceOp n)) [])
         (.forallE
-          (.const (Lech.reduceElemName (Lech.ofReduceOp n)) [])
+          (.const (ConLeche.reduceElemName (ConLeche.ofReduceOp n)) [])
           (.forallE
             (.app (.app (.app (.const eqName [.succ .zero])
-                (.const (Lech.reduceElemName
-                  (Lech.ofReduceOp n)) []))
-              (.app (.const (Lech.ofReduceOp n) []) (.bvar 1)))
+                (.const (ConLeche.reduceElemName
+                  (ConLeche.ofReduceOp n)) []))
+              (.app (.const (ConLeche.ofReduceOp n) []) (.bvar 1)))
               (.bvar 0))
             (.app (.app (.app (.const eqName [.succ .zero])
-                (.const (Lech.reduceElemName
-                  (Lech.ofReduceOp n)) []))
+                (.const (ConLeche.reduceElemName
+                  (ConLeche.ofReduceOp n)) []))
               (.bvar 2)) (.bvar 1)) m₃) m₂) m₁ := by
-  rw [Lech.Verify.ofReducePin_type hn] at h
+  rw [ConLeche.Verify.ofReducePin_type hn] at h
   simp only [Expr.mkAppN, Expr.erasePw] at h
   obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_const_invS hty₁
@@ -128,20 +128,20 @@ theorem ofReduce_bitsP (hμ : μ.verifiedChecks = true)
       = .ok stype) (φ : Name → Nat) :
     pwBit φ m₁.pw = 0 ∧ pwBit φ m₂.pw = 0 ∧ pwBit φ m₃.pw = 0 := by
   match F, hrun with
-  | 0, hrun => rw [Lech.inferTypeCore_zero] at hrun; exact nomatch hrun
+  | 0, hrun => rw [ConLeche.inferTypeCore_zero] at hrun; exact nomatch hrun
   | F1 + 1, hrun =>
   obtain ⟨tty1, u1, bt1, v1, -, -, hbt1, hens1, hpw1, rfl⟩ :=
-    Lech.inferTypeCore_forall_inv hrun
+    ConLeche.inferTypeCore_forall_inv hrun
   match F1, hbt1 with
-  | 0, hbt1 => rw [Lech.inferTypeCore_zero] at hbt1; exact nomatch hbt1
+  | 0, hbt1 => rw [ConLeche.inferTypeCore_zero] at hbt1; exact nomatch hbt1
   | F2 + 1, hbt1 =>
   obtain ⟨tty2, u2, bt2, v2, -, -, hbt2, hens2, hpw2, rfl⟩ :=
-    Lech.inferTypeCore_forall_inv hbt1
+    ConLeche.inferTypeCore_forall_inv hbt1
   match F2, hbt2 with
-  | 0, hbt2 => rw [Lech.inferTypeCore_zero] at hbt2; exact nomatch hbt2
+  | 0, hbt2 => rw [ConLeche.inferTypeCore_zero] at hbt2; exact nomatch hbt2
   | F3 + 1, hbt2 =>
   obtain ⟨tty3, u3, bt3, v3, -, -, hbt3, hens3, hpw3, rfl⟩ :=
-    Lech.inferTypeCore_forall_inv hbt2
+    ConLeche.inferTypeCore_forall_inv hbt2
   obtain rfl : bt3 = .sort .zero := inferTypeCore_eqSpineS hEq hbt3
   obtain rfl : v3 = .zero := ensureSortCore_sort_eq hens3
   have hb3 : pwBit φ m₃.pw = 0 := by
@@ -160,21 +160,21 @@ theorem ofReduce_bitsP (hμ : μ.verifiedChecks = true)
 /-- `ofReduceAxOk`'s four conjuncts, in the forms the membership reads
 (the v1 key's own unpacking, one file over). -/
 theorem ofReduce_gatesS {cvA : ConstantVal}
-    (hok : Lech.ofReduceAxOk env cvA = true) :
+    (hok : ConLeche.ofReduceAxOk env cvA = true) :
     env.find? eqName = some eqA ∧
-    Lech.reduceElemOk env (Lech.ofReduceOp cvA.name) = true ∧
-    (∃ cvR, env.find? (Lech.ofReduceOp cvA.name)
+    ConLeche.reduceElemOk env (ConLeche.ofReduceOp cvA.name) = true ∧
+    (∃ cvR, env.find? (ConLeche.ofReduceOp cvA.name)
         = some (.axiomInfo cvR) ∧
       ConstantVal.matchesPin cvR
-        (Lech.reduceOpCvA (Lech.ofReduceOp cvA.name)) = true) ∧
+        (ConLeche.reduceOpCvA (ConLeche.ofReduceOp cvA.name)) = true) ∧
     cvA.type.erasePw
-      = (Lech.ofReducePinA cvA.name).type.erasePw := by
-  simp only [Lech.ofReduceAxOk, Bool.and_eq_true,
+      = (ConLeche.ofReducePinA cvA.name).type.erasePw := by
+  simp only [ConLeche.ofReduceAxOk, Bool.and_eq_true,
     decide_eq_true_eq] at hok
   obtain ⟨⟨⟨hEq, helem⟩, hstored⟩, hpin⟩ := hok
   refine ⟨hEq, helem, ?_, ?_⟩
-  · rw [Lech.reduceStoredOk] at hstored
-    cases hf : env.find? (Lech.ofReduceOp cvA.name) with
+  · rw [ConLeche.reduceStoredOk] at hstored
+    cases hf : env.find? (ConLeche.ofReduceOp cvA.name) with
     | none => rw [hf] at hstored; exact nomatch hstored
     | some ci =>
       rw [hf] at hstored
@@ -193,9 +193,9 @@ product is a truth value); the innermost fibre is where `ReduceOpsP`
 pays: the hypothesis spine's value is `eqv (op x) y`, the conclusion's
 is `eqv x y`, and the field says those are the same set. -/
 theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
-    {cvA : ConstantVal} (hok : Lech.ofReduceAxOk env cvA = true)
-    (hor : cvA.name = Lech.ofReduceNatName ∨
-      cvA.name = Lech.ofReduceBoolName)
+    {cvA : ConstantVal} (hok : ConLeche.ofReduceAxOk env cvA = true)
+    (hor : cvA.name = ConLeche.ofReduceNatName ∨
+      cvA.name = ConLeche.ofReduceBoolName)
     {d : Nat} {stype : Expr}
     (hrun : inferTypeCore μ env F d cvA.type = .ok stype)
     (ψ : Name → Nat) (ta : AVExpr)
@@ -203,13 +203,13 @@ theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     (ρ : Nat → V) :
     interp2 V ρ (AVExpr.prf) ∈ˢ interp2 V ρ ta := by
   obtain ⟨hEq, helem, ⟨cvR, hfR, hmpR⟩, hApinT⟩ := ofReduce_gatesS hok
-  obtain ⟨ciE, hfE, hlpE, htyE⟩ := Lech.Verify.reduceElem_sort helem
-  obtain ⟨-, hlpR⟩ := Lech.Verify.matchesPin_invT hmpR
-  rw [show (Lech.reduceOpCvA
-      (Lech.ofReduceOp cvA.name)).levelParams = [] from by
-    unfold Lech.reduceOpCvA; split <;> rfl] at hlpR
-  have hmemOp : Lech.ofReduceOp cvA.name ∈ Lech.reduceOpNames := by
-    unfold Lech.ofReduceOp; split <;> decide
+  obtain ⟨ciE, hfE, hlpE, htyE⟩ := ConLeche.Verify.reduceElem_sort helem
+  obtain ⟨-, hlpR⟩ := ConLeche.Verify.matchesPin_invT hmpR
+  rw [show (ConLeche.reduceOpCvA
+      (ConLeche.ofReduceOp cvA.name)).levelParams = [] from by
+    unfold ConLeche.reduceOpCvA; split <;> rfl] at hlpR
+  have hmemOp : ConLeche.ofReduceOp cvA.name ∈ ConLeche.reduceOpNames := by
+    unfold ConLeche.ofReduceOp; split <;> decide
   obtain ⟨m₁, m₂, m₃, hsh⟩ := ofReduce_shapeS hor hApinT
   rw [hsh] at hrun hta
   obtain ⟨hb₁, hb₂, hb₃⟩ := ofReduce_bitsP hμ hEq hrun ψ
@@ -217,13 +217,13 @@ theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   have heqψ : Level.substFn ψ eqA.toConstantVal.levelParams
       [Level.zero.succ] uN = 1 := rfl
   have hEd : ∀ e, denoteP mp.base2.acval env ψ e
-      (.const (Lech.reduceElemName (Lech.ofReduceOp cvA.name)) [])
+      (.const (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) [])
       = some (mp.base2.acval
-          (Lech.reduceElemName (Lech.ofReduceOp cvA.name)) ψ) :=
+          (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ) :=
     fun e => denoteP_levelless_const hfE hlpE
   have hOd : ∀ e, denoteP mp.base2.acval env ψ e
-      (.const (Lech.ofReduceOp cvA.name) [])
-      = some (mp.base2.acval (Lech.ofReduceOp cvA.name) ψ) :=
+      (.const (ConLeche.ofReduceOp cvA.name) [])
+      = some (mp.base2.acval (ConLeche.ofReduceOp cvA.name) ψ) :=
     fun e => denoteP_levelless_const hfR
       (show (ConstantInfo.axiomInfo cvR).toConstantVal.levelParams = []
         from hlpR)
@@ -235,39 +235,39 @@ theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   -- the stored type's reading, at the bits the run fixes
   have hden : denoteP mp.base2.acval env ψ 0
       (.forallE
-        (.const (Lech.reduceElemName (Lech.ofReduceOp cvA.name)) [])
+        (.const (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) [])
         (.forallE
-          (.const (Lech.reduceElemName
-            (Lech.ofReduceOp cvA.name)) [])
+          (.const (ConLeche.reduceElemName
+            (ConLeche.ofReduceOp cvA.name)) [])
           (.forallE
             (.app (.app (.app (.const eqName [.succ .zero])
-                (.const (Lech.reduceElemName
-                  (Lech.ofReduceOp cvA.name)) []))
-              (.app (.const (Lech.ofReduceOp cvA.name) []) (.bvar 1)))
+                (.const (ConLeche.reduceElemName
+                  (ConLeche.ofReduceOp cvA.name)) []))
+              (.app (.const (ConLeche.ofReduceOp cvA.name) []) (.bvar 1)))
               (.bvar 0))
             (.app (.app (.app (.const eqName [.succ .zero])
-                (.const (Lech.reduceElemName
-                  (Lech.ofReduceOp cvA.name)) []))
+                (.const (ConLeche.reduceElemName
+                  (ConLeche.ofReduceOp cvA.name)) []))
               (.bvar 2)) (.bvar 1)) m₃) m₂) m₁)
       = some (.pi 0 0
-          (mp.base2.acval (Lech.reduceElemName
-            (Lech.ofReduceOp cvA.name)) ψ)
+          (mp.base2.acval (ConLeche.reduceElemName
+            (ConLeche.ofReduceOp cvA.name)) ψ)
           (.pi 0 0
-            (mp.base2.acval (Lech.reduceElemName
-              (Lech.ofReduceOp cvA.name)) ψ)
+            (mp.base2.acval (ConLeche.reduceElemName
+              (ConLeche.ofReduceOp cvA.name)) ψ)
             (.pi 0 0
               (.app (.app (.app (mp.base2.acval eqName
                     (Level.substFn ψ eqA.toConstantVal.levelParams
                       [Level.zero.succ]))
-                  (mp.base2.acval (Lech.reduceElemName
-                    (Lech.ofReduceOp cvA.name)) ψ))
-                (.app (mp.base2.acval (Lech.ofReduceOp cvA.name) ψ)
+                  (mp.base2.acval (ConLeche.reduceElemName
+                    (ConLeche.ofReduceOp cvA.name)) ψ))
+                (.app (mp.base2.acval (ConLeche.ofReduceOp cvA.name) ψ)
                   (.bvar 1))) (.bvar 0))
               (.app (.app (.app (mp.base2.acval eqName
                     (Level.substFn ψ eqA.toConstantVal.levelParams
                       [Level.zero.succ]))
-                  (mp.base2.acval (Lech.reduceElemName
-                    (Lech.ofReduceOp cvA.name)) ψ))
+                  (mp.base2.acval (ConLeche.reduceElemName
+                    (ConLeche.ofReduceOp cvA.name)) ψ))
                 (.bvar 2)) (.bvar 1))))) := by
     simp [denoteP_forallE, denoteP_app, denoteP_fvar,
       Expr.instantiate1, hEd, hOd, hQd, hb₁, hb₂, hb₃]
@@ -275,13 +275,13 @@ theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   -- the three leaves' interpretations do not read the environment
   have hclE : ∀ ρ' : Nat → V,
       interp2 V ρ' (mp.base2.acval
-          (Lech.reduceElemName (Lech.ofReduceOp cvA.name)) ψ)
+          (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ)
         = interp2 V ρ (mp.base2.acval
-          (Lech.reduceElemName (Lech.ofReduceOp cvA.name)) ψ) :=
+          (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ) :=
     fun ρ' => acval_interp2_closedC mp.base2 _ ψ ρ' ρ
   have hclO : ∀ ρ' : Nat → V,
-      interp2 V ρ' (mp.base2.acval (Lech.ofReduceOp cvA.name) ψ)
-        = interp2 V ρ (mp.base2.acval (Lech.ofReduceOp cvA.name) ψ) :=
+      interp2 V ρ' (mp.base2.acval (ConLeche.ofReduceOp cvA.name) ψ)
+        = interp2 V ρ (mp.base2.acval (ConLeche.ofReduceOp cvA.name) ψ) :=
     fun ρ' => acval_interp2_closedC mp.base2 _ ψ ρ' ρ
   have hclQ : ∀ ρ' : Nat → V,
       interp2 V ρ' (mp.base2.acval eqName
@@ -293,11 +293,11 @@ theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     fun ρ' => acval_interp2_closedC mp.base2 _ _ ρ' ρ
   -- the element type inhabits `Sort 1`
   have hEmem : interp2 V ρ (mp.base2.acval
-      (Lech.reduceElemName (Lech.ofReduceOp cvA.name)) ψ)
+      (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ)
       ∈ˢ (univ 1 : V) := by
-    have h := mp.mem_typeP ciE (Lech.Semantics.Env.find?_mem hfE) ψ
+    have h := mp.mem_typeP ciE (ConLeche.Semantics.Env.find?_mem hfE) ψ
       (.sort 1) (by rw [htyE, denoteP_sort]; rfl) ρ
-    rwa [Lech.Semantics.Env.find?_name hfE, interp2_sort] at h
+    rwa [ConLeche.Semantics.Env.find?_name hfE, interp2_sort] at h
   -- three `Prop`-level products, all `pt`-inhabited
   show (pt : V) ∈ˢ _
   simp only [interp2_pi, interp2_app, interp2_bvar, cons_zero,
@@ -307,7 +307,7 @@ theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   refine pt_mem_piR_zero_of fun h hh => ?_
   -- **the field pays here**: the trusted operation is the identity
   have hopx : SetTheory.app (interp2 V ρ
-      (mp.base2.acval (Lech.ofReduceOp cvA.name) ψ)) x = x :=
+      (mp.base2.acval (ConLeche.ofReduceOp cvA.name) ψ)) x = x :=
     (mp.reduce_ops _ hmemOp cvR hfR hmpR).2 ψ ρ x hx
   rw [hopx] at hh
   rw [(mp.eq_lawP hEq _).1 ρ _ x y (by rw [heqψ]; exact hEmem) hx hy]
@@ -326,9 +326,9 @@ membership. -/
 theorem axiomOfReduceP (hμ : μ.verifiedChecks = true)
     (mp : EnvS2PM V μ env) {cv : ConstantVal} {type' : Expr}
     (hcv : ConstantValRun μ F env cv type')
-    (hor : cv.name = Lech.ofReduceNatName ∨
-      cv.name = Lech.ofReduceBoolName)
-    (hok : Lech.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩
+    (hor : cv.name = ConLeche.ofReduceNatName ∨
+      cv.name = ConLeche.ofReduceBoolName)
+    (hok : ConLeche.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
     Nonempty (EnvS2PM V μ
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
@@ -339,9 +339,9 @@ theorem axiomOfReduceP (hμ : μ.verifiedChecks = true)
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind
   obtain ⟨stype, usort, hst, hens⟩ := hrunT
-  have hwfc : Lech.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
+  have hwfc : ConLeche.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts⟩ := by
-    refine Lech.EnvWF.cons mp.base2.wf
+    refine ConLeche.EnvWF.cons mp.base2.wf
       ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_, ?_⟩
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP rules heq; exact nomatch heq
@@ -359,4 +359,4 @@ theorem axiomOfReduceP (hμ : μ.verifiedChecks = true)
 -- `Interp2/FoldP.lean`: `AxiomStepPB` is stated there, beside the two
 -- bundles still routed.)
 
-end Lech.SetP
+end ConLeche.SetP

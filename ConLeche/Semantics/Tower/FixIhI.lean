@@ -1,4 +1,4 @@
-import Lech.Semantics.Tower.FixSquashI
+import ConLeche.Semantics.Tower.FixSquashI
 /-!
 # The ih arguments at a recursive field's telescope (task #202 Stage B)
 
@@ -18,10 +18,10 @@ is graded, and lies in the ih domain (the nested product of the motive
 at the calls).
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 variable {V : Type uv} [SetTheory V]
@@ -559,4 +559,4 @@ theorem ihArgsOk_tele (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Ei
 
 end FixKI
 
-end Lech.Semantics
+end ConLeche.Semantics

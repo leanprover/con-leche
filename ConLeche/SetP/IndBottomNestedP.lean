@@ -1,6 +1,6 @@
-import Lech.SetP.IndNestedParamP
-import Lech.SetP.IndOpenerGradeP
-import Lech.SetP.IndBottomPlainP
+import ConLeche.SetP.IndNestedParamP
+import ConLeche.SetP.IndOpenerGradeP
+import ConLeche.SetP.IndBottomPlainP
 
 /-!
 # The nested bottom, at the reading (task #161, IND TIER part 8)
@@ -31,13 +31,13 @@ generalized here to an unpadded fired spine) supplies the crossing
 datum `RecRuleLawP`'s parameter premise is quantified over.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta isDefEqCore inferTypeCore DefEqListOk TypedListOk)
 
 universe w
@@ -367,7 +367,7 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
     denoteP_closed mp.base2.acval_erase mp.base2.cval_closed
       hCw hCb hTVj0 1 k
   have hokTVj : ∀ σ : Nat → V, AnnotOkP V σ TVja :=
-    mp.type_okP _ (Lech.Semantics.Env.find?_mem hctorE) _ TVja hTVj0
+    mp.type_okP _ (ConLeche.Semantics.Env.find?_mem hctorE) _ TVja hTVj0
   -- the level-instantiated (and renamed) constructor type
   have hCvLw : ctyL.hasFvar = false := by
     rw [hctyL, Expr.hasFvar_instantiateLevelParams]
@@ -671,11 +671,11 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
   have hwsL : Expr.WScoped (rP + cnF) lhsS := hwsBody.getAppArgs lhsS hmemL
   have hwsR : Expr.WScoped (rP + cnF) rhsS := hwsBody.getAppArgs rhsS hmemR
   have hbα : αS.looseBVarsBounded 0 = true :=
-    Lech.looseBVarsBounded_getAppArgs hbBody αS hmemα
+    ConLeche.looseBVarsBounded_getAppArgs hbBody αS hmemα
   have hbL : lhsS.looseBVarsBounded 0 = true :=
-    Lech.looseBVarsBounded_getAppArgs hbBody lhsS hmemL
+    ConLeche.looseBVarsBounded_getAppArgs hbBody lhsS hmemL
   have hbR : rhsS.looseBVarsBounded 0 = true :=
-    Lech.looseBVarsBounded_getAppArgs hbBody rhsS hmemR
+    ConLeche.looseBVarsBounded_getAppArgs hbBody rhsS hmemR
   have hLα : Expr.LeavesBounded αS := fun l hl =>
     hlbFvs l.1 l.2 (hleafα l hl)
   have hLL : Expr.LeavesBounded lhsS := fun l hl =>
@@ -1367,4 +1367,4 @@ theorem indBottomNestedP {μ : CheckMode} {env : Env}
     (fun τ => (hRaFacts τ).1) hinstLam hdeLam hzslen hsat
     (teleFitPA_to_chain (rP + cnF) htowerS hzslen hfitS) hzsAnnot
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,10 +1,10 @@
-import Lech.SetP.Direct.DirectReadP
-import Lech.SetP.IndTowerReadP
-import Lech.SetP.IndFrameP
-import Lech.SetP.IndDomGradeP
-import Lech.Verify.Leaves
-import Lech.Verify.BridgeWfImp
-import Lech.Verify.Denote.IndFrame
+import ConLeche.SetP.Direct.DirectReadP
+import ConLeche.SetP.IndTowerReadP
+import ConLeche.SetP.IndFrameP
+import ConLeche.SetP.IndDomGradeP
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.Denote.IndFrame
 
 /-!
 # The direct structure's opened frames (task #175 W4c, P3 module 3)
@@ -36,12 +36,12 @@ same frames in `cons` form; `Sat2_cons`/`Sat2_cons_inv` are the
 bridge, one binder at a time.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech Lech.Semantics Lech.Verify SetTheory Lech.SetModel
-open Lech.Semantics (AVExpr)
+open ConLeche ConLeche.Semantics ConLeche.Verify SetTheory ConLeche.SetModel
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -248,4 +248,4 @@ theorem ctxOkP_opened {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
     rw [e]
     exact hokΓ j (by omega) _ hd
 
-end Lech.SetP
+end ConLeche.SetP

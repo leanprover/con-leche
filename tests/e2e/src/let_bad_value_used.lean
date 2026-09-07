@@ -4,14 +4,14 @@
    the CONTROL that already agrees with official).
 
    `def letBad2 : Nat := let x : Nat := Bool.true; x`, with the bound
-   variable USED.  Official rejects at `infer_let`; lech rejects too, but
+   variable USED.  Official rejects at `infer_let`; con-leche rejects too, but
    only incidentally — the zeta-reduct is `Bool.true`, whose type does
    not match the declared `Nat`, so the definition's own type check
    fails ("type mismatch in definition letBad2").  Committed beside
    let_bad_value / let_bad_type / let_bad_thm so the conformance fix is
    visibly a widening of an existing rejection rather than a new one.
 
-   official: 1.  lech at master 700a06ca: 1 piped, 1 raw, 1 --trusted.
+   official: 1.  con-leche at master 700a06ca: 1 piped, 1 raw, 1 --trusted.
    Probe of record: _tmp/indaudit/probes/P/LetValueType.lean. -/
 
 import Lean

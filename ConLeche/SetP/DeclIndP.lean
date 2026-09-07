@@ -1,5 +1,5 @@
-import Lech.Semantics.DeclIndRun
-import Lech.SetP.ProjInstallP
+import ConLeche.Semantics.DeclIndRun
+import ConLeche.SetP.ProjInstallP
 
 /-!
 # The modeled-inductive block, assembled at the reading (task #161,
@@ -23,13 +23,13 @@ are `BlockAcvalInstalled` at `T` and at the constructor; its third is
 vacuous, the projection slots being fresh there).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule IndCaps projFnName projModelName Declaration)
 
 universe w
@@ -43,7 +43,7 @@ are taken from the v1 phases (`indRecsS` at the group), which the
 install runs anyway; the P phases carry the annotated invariants. -/
 theorem declIndP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} (mp : EnvS2PM V μ env)
-    (hE : Lech.EtaFamiliesClosed env)
+    (hE : ConLeche.EtaFamiliesClosed env)
     (h : DeclIndRun μ F env block env₂) :
     Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨hsplit, hmain⟩ := h
@@ -61,7 +61,7 @@ theorem declIndP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       | .recInfo _ _ _ _ => true | _ => false),
       (block.map (·.name)).contains ci.name = true :=
     fun ci hci => hbnAll ci (List.mem_filter.mp hci).1
-  have hEC0 : Lech.EtaFamiliesClosedO (block.map (·.name)) env :=
+  have hEC0 : ConLeche.EtaFamiliesClosedO (block.map (·.name)) env :=
     fun T cvT caps hf hcape hres _ => hE T cvT caps hf hcape hres
   have hnostore : ∀ {caps : IndCaps} {envM envR : Env},
       IndMembersRun μ F (block.map (·.name)) caps env
@@ -155,7 +155,7 @@ theorem declIndP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       rcases List.mem_append.mp hci₀ with hx | hx
       · exact (indMembersRun_nameGuards _ hmem ci₀ hx).1
       · exact (indRecsRun_nameGuards hrecs ci₀ hx).1
-    have hTnres : Lech.reservedBasisNames.contains cvT.name = false :=
+    have hTnres : ConLeche.reservedBasisNames.contains cvT.name = false :=
       (indMembersRun_nameGuards _ hmem _ hTnon).2
     -- **the group's keep-fact, off the run record** (task #161 S11b):
     -- `indRecsRun_keep` is strictly stronger than the `hnonrecUp` the
@@ -183,7 +183,7 @@ theorem declIndP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         rcases hfR : envR.find? (projFnName cvT.name 0) with _ | ci'
         · rw [hfR] at hs; exact nomatch hs
         · rw [hfR] at hnone; exact nomatch hnone
-    have hBP0 : Lech.BlockEtaPinned μ (block.map (·.name)) env :=
+    have hBP0 : ConLeche.BlockEtaPinned μ (block.map (·.name)) env :=
       fun n cvS capsS hnb hf _ =>
         absurd (hnostore hmem hrecs n hnb _ hf) (fun h => h)
     -- the member fold, both tiers
@@ -251,11 +251,11 @@ theorem declIndP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         · rw [hf] at hnone; exact nomatch hnone
     have hpinsR : ∀ (cvT' : ConstantVal) (capsT' : IndCaps),
         envR.find? cvT.name = some (.indInfo cvT' capsT') →
-        Lech.EtaPins μ envR cvT.name cvT'.levelParams capsT' := by
+        ConLeche.EtaPins μ envR cvT.name cvT'.levelParams capsT' := by
       intro cvT' capsT' hf
       obtain ⟨hlps', rfl⟩ := hidR cvT' capsT' hf
       rw [hlps']
-      exact Lech.EtaPins.transport etaPins_of_indBlockCaps
+      exact ConLeche.EtaPins.transport etaPins_of_indBlockCaps
         (fun n ci hf' _ => hkeepR n ci hf')
     have hCblockR : ∀ (cvT' : ConstantVal) (capsT' : IndCaps),
         envR.find? cvT.name = some (.indInfo cvT' capsT') →
@@ -276,7 +276,7 @@ theorem declIndP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         hinvAR hI₂ hIA₂ hpinsR hCblockR hFieldsR
     exact ⟨mp₃⟩
   · -- the generic arm: an empty capability record
-    have hBP0 : Lech.BlockEtaPinned μ (block.map (·.name)) env :=
+    have hBP0 : ConLeche.BlockEtaPinned μ (block.map (·.name)) env :=
       fun n cvS capsS hnb hf _ =>
         absurd (hnostore hmem hrecs n hnb _ hf) (fun h => h)
     obtain ⟨mp₁, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
@@ -289,4 +289,4 @@ theorem declIndP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         hbnRec (hallGen hmem) hEC₁ hBP₁ hrecs
     exact ⟨mp₂⟩
 
-end Lech.SetP
+end ConLeche.SetP

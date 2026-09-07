@@ -1,8 +1,8 @@
-import Lech.SetP.DirectFix.FixStageRecP
-import Lech.SetP.DirectFix.FixStageFormerP
-import Lech.SetP.DirectFix.FixCtorsLoopP
-import Lech.SetP.DirectFix.FixCtorCrossP
-import Lech.SetP.DirectFix.FixWitnessP
+import ConLeche.SetP.DirectFix.FixStageRecP
+import ConLeche.SetP.DirectFix.FixStageFormerP
+import ConLeche.SetP.DirectFix.FixCtorsLoopP
+import ConLeche.SetP.DirectFix.FixCtorCrossP
+import ConLeche.SetP.DirectFix.FixWitnessP
 
 /-!
 # Kit for the direct recursive install's assembly (task #188)
@@ -17,13 +17,13 @@ beside `fixChainFacts_of`: the validity halves of the shadow
 gradings).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w'
 
@@ -86,7 +86,7 @@ theorem idxValid_of (mp : EnvS2PM V μ env)
     (ψ : Name → Nat) (ρp : Nat → V)
     (hρp : Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρp) :
     FieldsValid ρp (((ppsAll ψ).drop nP).map (·.2.2)) := by
-  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)
+  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)
   simp only [ConstantInfo.toConstantVal] at hTf hTb
   have hT : OpenedP mp.base2 ψ (nP + nIdx) cvTa.type tfvs trest
       (((ppsAll ψ).map (·.2.2)).reverse) (.sort (resSort.eval ψ)) :=
@@ -107,7 +107,7 @@ data at a carrier storing the former as a λ-tower over the parameters
 theorem fixChainValidFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
-    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₁ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
@@ -368,13 +368,13 @@ theorem fixCtorPick_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     {bs : List (Expr × BinderMeta)} {ks : List RecFieldKind}
-    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₁ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
     (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort))
     (hks : ks.length = nF)
-    (hopened : Lech.directFixOpenedOk env₀ T lps nP nIdx cvCa.type nF ks = true) :
+    (hopened : ConLeche.directFixOpenedOk env₀ T lps nP nIdx cvCa.type nF ks = true) :
     ∃ q : FixCtorPick, FixCtorDataI mp.base2 env₀ T lps cvCa nP nF nIdx resSort isProp large
       q.idxArgs q.ds q.Es q.srcs ks q.fvsP q.xFvs q.xrest q.Eiss q.tss := by
   obtain ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, tss, hD⟩ :=
@@ -391,9 +391,9 @@ theorem fixCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
     (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort))
-    (hFOk : Lech.directFixFieldsOk env₀ T lps nP nIdx ctorsA kinds = true)
+    (hFOk : ConLeche.directFixFieldsOk env₀ T lps nP nIdx ctorsA kinds = true)
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
-      ∃ c : ConstantVal × Nat, Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₁ env T lps nP nIdx
+      ∃ c : ConstantVal × Nat, ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx
         resSort isProp large c.1 cA.2 cvTa = .ok cA.1) :
     ∃ (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AVExpr))
       (esF : Nat → (Name → Nat) → List AVExpr) (srcsF : Nat → List (Option Nat))
@@ -412,7 +412,7 @@ theorem fixCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
         fun _ h => nomatch h⟩
     | some cA =>
       obtain ⟨c, hCtor⟩ := hrunOf j cA hj
-      obtain ⟨ks, hks, hksLen, hopened⟩ := Lech.directFixFieldsOk_inv hFOk hj
+      obtain ⟨ks, hks, hksLen, hopened⟩ := ConLeche.directFixFieldsOk_inv hFOk hj
       have hksD : kinds.getD j [] = ks := by rw [List.getD_eq_getElem?_getD, hks]; rfl
       obtain ⟨q, hq⟩ := fixCtorPick_of hμ mp hCtor hfT hlpsT hstripT hksLen hopened
       refine ⟨q, fun cA' h => ?_⟩
@@ -596,4 +596,4 @@ theorem fixCtorDataI_ident {acval : Name → (Name → Nat) → AVExpr} {T : Nam
     rw [denoteP_acvalWith_unmentioned₂ (A₂ := A₂) hfresh (nP + i) _ (h₁.opened.ord i _ hx hk)] at hd₁
     exact Option.some.inj (hd₁.symm.trans hd₂)
 
-end Lech.SetP
+end ConLeche.SetP

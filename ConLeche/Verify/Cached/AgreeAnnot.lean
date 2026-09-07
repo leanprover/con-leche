@@ -1,4 +1,4 @@
-import Lech.Cached.ParsedC
+import ConLeche.Cached.ParsedC
 
 /-!
 # T2a / T2b — `annotate`'s config identity and the `pw` writes
@@ -40,9 +40,9 @@ The cached representation is **pure** — a node is destructured by
 "one expr type everywhere" ruling makes this batch cheap.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
 /-! ## T2a — the clause-level config identity -/
 
@@ -142,4 +142,4 @@ theorem annotateLamsLeafI_erasePwC (r : CoreFnsI) (fe : FEnv) (d : Nat)
   have ha : a₁ = a₂ := congrArg Prod.fst (Except.ok.inj (h₁.symm.trans h₂))
   rw [ha]
 
-end Lech.Cached
+end ConLeche.Cached

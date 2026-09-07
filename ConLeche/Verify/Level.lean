@@ -1,4 +1,4 @@
-import Lech.Kernel.Level
+import ConLeche.Kernel.Level
 
 /-!
 # Soundness of the level operations
@@ -16,7 +16,7 @@ Only the `true` direction is needed: a `false` verdict leads to rejection,
 which needs no justification, and `none` is an internal error.
 -/
 
-namespace Lech.Level
+namespace ConLeche.Level
 
 /-- Evaluate a level under an assignment of its parameters. -/
 def eval (φ : Name → Nat) : Level → Nat
@@ -363,7 +363,7 @@ theorem isNonZero_sound : ∀ {u : Level}, u.isNonZero = true → ∀ φ, u.eval
 
 /-! ## Substitution under pointwise-equal evaluations
 
-Relocated from `Lech/TTVerify/DefEqStep.lean` (task #148, T3): the
+Relocated from `ConLeche/TTVerify/DefEqStep.lean` (task #148, T3): the
 fact both lanes' same-head spine short-circuits need, and a statement
 about levels alone. -/
 
@@ -409,4 +409,4 @@ theorem substFn_param_self (φ : Name → Nat) :
     · simp only [List.map_cons, Level.substFn, if_neg h]
       exact congrFun ih n
 
-end Lech.Level
+end ConLeche.Level

@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectStageRecP
+import ConLeche.SetP.Direct.DirectStageRecP
 
 /-!
 # The projection entry's kit (task #175 W4c, P3 module 7, part 1)
@@ -21,13 +21,13 @@ Semantic and syntactic pieces of a tower entry's install:
   spine (`spineFit_eq_replicate_pt`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)
 
 universe w
@@ -51,8 +51,8 @@ spine of the tower's length is the body's instantiation sequence
 theorem peelPis_of_piTeleP :
     ∀ (k : Nat) {T : AVExpr} {Γ : List AVExpr} {R : AVExpr},
       PiTeleP k T Γ R → ∀ {ws : List AVExpr}, ws.length = k →
-      Lech.SetP.AVExpr.peelPis T ws
-        = some (Lech.SetP.AVExpr.instSeq ws (k - 1) R) := by
+      ConLeche.SetP.AVExpr.peelPis T ws
+        = some (ConLeche.SetP.AVExpr.instSeq ws (k - 1) R) := by
   intro k
   induction k with
   | zero =>
@@ -68,8 +68,8 @@ theorem peelPis_of_piTeleP :
     have hlen' : ws'.length = k := by simpa using hlen
     have hinst := htail.inst w 0
     have := ihk hinst hlen'
-    rw [show Lech.SetP.AVExpr.instSeq (w :: ws') (k + 1 - 1) R
-        = Lech.SetP.AVExpr.instSeq ws' (k - 1) (R.inst w k) from by
+    rw [show ConLeche.SetP.AVExpr.instSeq (w :: ws') (k + 1 - 1) R
+        = ConLeche.SetP.AVExpr.instSeq ws' (k - 1) (R.inst w k) from by
       rw [AVExpr.instSeq_cons]
       simp only [Nat.add_sub_cancel]]
     rw [show (0 : Nat) + k = k from Nat.zero_add k] at this
@@ -79,8 +79,8 @@ theorem peelPis_of_piTeleP :
 sequence of its domain. -/
 theorem instSeq_pi_dom :
     ∀ (ws : List AVExpr) (t u v : Nat) (A B : AVExpr),
-      ∃ B', Lech.SetP.AVExpr.instSeq ws t (.pi u v A B)
-        = .pi u v (Lech.SetP.AVExpr.instSeq ws t A) B'
+      ∃ B', ConLeche.SetP.AVExpr.instSeq ws t (.pi u v A B)
+        = .pi u v (ConLeche.SetP.AVExpr.instSeq ws t A) B'
   | [], _, _, _, _, B => ⟨B, rfl⟩
   | w :: ws, t, u, v, A, B => by
     rw [AVExpr.instSeq_cons, AVExpr.instSeq_cons, AVExpr.inst_pi]
@@ -265,4 +265,4 @@ theorem interp2_mkAppN_foldl (ρ : Nat → V) (as : List AVExpr) (f : AVExpr) :
       = (as.map (interp2 V ρ)).foldl SetTheory.app (interp2 V ρ f) := by
   rw [interp2_mkAppN, List.foldl_map]
 
-end Lech.SetP
+end ConLeche.SetP

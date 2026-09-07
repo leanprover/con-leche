@@ -1,4 +1,4 @@
-import Lech.Kernel.CheckerBase
+import ConLeche.Kernel.CheckerBase
 
 /-!
 # The modeled-inductive install
@@ -10,13 +10,13 @@ identified with their companions -- the preprocessor contract, upstream
 commit 572e6de "Clarify checker substitution scope"), the iota-rule
 checks against the `_model.iota_j` theorems, the capability checks
 (`checkEtaThm`/`checkUnitThm`), and the projection-function/template
-installs.  The core checker (`Lech/Kernel/Core.lean`,
-`TypeChecker*`) never imports this module; `Lech/Kernel/Checker.lean`
+installs.  The core checker (`ConLeche/Kernel/Core.lean`,
+`TypeChecker*`) never imports this module; `ConLeche/Kernel/Checker.lean`
 consumes it for `checkDecl`'s `indDecl` arm.  Verification:
-`Lech/Verify/Extend/*` and `Lech/SetP/Ind*P.lean`.
+`ConLeche/Verify/Extend/*` and `ConLeche/SetP/Ind*P.lean`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
@@ -725,7 +725,7 @@ def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
 
 /-- **Task #136: an eta-capable family's constructor returns the family
 applied to its parameters.**  Literally the conjunct `checkDirectCtor`
-(`Lech/Kernel/Checker.lean`) already makes on the direct path,
+(`ConLeche/Kernel/Checker.lean`) already makes on the direct path,
 `cbody == directFam T lps nP nF`, here on the modeled path.
 
 Two things about it are load-bearing and were measured, not argued.
@@ -813,4 +813,4 @@ def checkIndDecl (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
     checkIndRecs mode ops blockNames env₂ recs
 
 
-end Lech
+end ConLeche

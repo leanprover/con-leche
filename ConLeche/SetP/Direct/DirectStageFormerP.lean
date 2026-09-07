@@ -1,5 +1,5 @@
-import Lech.SetP.Direct.DirectDataP
-import Lech.Verify.Direct.DirectInv
+import ConLeche.SetP.Direct.DirectDataP
+import ConLeche.Verify.Direct.DirectInv
 
 /-!
 # The former's cons (task #175 W4c, P3 module 6, part 2)
@@ -13,13 +13,13 @@ constructor-stage claims that grade the real chain, and the *real*
 install builds the model the rest of the block extends.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts)
 
 universe w
 
@@ -83,9 +83,9 @@ theorem formerWalks {m : EnvS2Core V env} {cvT : ConstantVal} {nP : Nat}
 
 /-- **The P step at the former's cons**, for a given field chain. -/
 theorem stageFormer (mp : EnvS2PM V μ env)
-    (hE₀ : Lech.EtaFamiliesClosed env)
+    (hE₀ : ConLeche.EtaFamiliesClosed env)
     {F : Nat} {p : DirectParts} {envI : Env} {cvTa : ConstantVal}
-    (hind : Lech.checkDirectInd (Lech.fueledOps μ F) env p = .ok (envI, cvTa))
+    (hind : ConLeche.checkDirectInd (ConLeche.fueledOps μ F) env p = .ok (envI, cvTa))
     -- the constructor's name is fresh at the extension (it is checked
     -- there next), so the block's family is not yet η-complete
     (hCfresh : envI.find? p.cvC.name = none)
@@ -102,15 +102,15 @@ theorem stageFormer (mp : EnvS2PM V μ env)
     ∃ mp' : EnvS2PM V μ envI,
       mp'.base2.acval = acvalWith mp.base2.acval cvTa.name
         (fun ψ => directTyAV (p.resSort.eval ψ) (pps ψ) (Fs ψ)) := by
-  obtain ⟨hccv, rfl, -⟩ := Lech.checkDirectInd_shape hind
+  obtain ⟨hccv, rfl, -⟩ := ConLeche.checkDirectInd_shape hind
   obtain ⟨hfind, hnres, hpshape, -, -, -, type', -, -, -, -, htr', -, -, hty⟩ :=
-    Lech.checkConstantVal_inv hccv
+    ConLeche.checkConstantVal_inv hccv
   have hname : cvTa.name = p.cvT.name := by rw [hty]
   have hfresh : env.find? cvTa.name = none := by
     rw [hname]; exact hfind
   have htr : cvTa.type.constsResolve env = true := by rw [hty]; exact htr'
   have hcb : ConstsBound env cvTa.type := constsBound_of_constsResolve _ htr
-  obtain ⟨hwfI, -⟩ := Lech.direct_ind_wf mp.base2.wf hind
+  obtain ⟨hwfI, -⟩ := ConLeche.direct_ind_wf mp.base2.wf hind
   -- the leaf
   let A : (Name → Nat) → AVExpr :=
     fun ψ => directTyAV (p.resSort.eval ψ) (pps ψ) (Fs ψ)
@@ -121,19 +121,19 @@ theorem stageFormer (mp : EnvS2PM V μ env)
   -- the reading at the extension
   have hreadI : ∀ ψ : Name → Nat,
       denoteP (acvalWith mp.base2.acval cvTa.name A)
-        ⟨.indInfo cvTa (Lech.directCaps p) :: env.consts⟩ ψ 0 cvTa.type
+        ⟨.indInfo cvTa (ConLeche.directCaps p) :: env.consts⟩ ψ 0 cvTa.type
         = some (mkPisAV (pps ψ) (.sort (p.resSort.eval ψ))) := fun ψ =>
-    denoteP_cons_mono (c₀ := .indInfo cvTa (Lech.directCaps p)) hfresh
+    denoteP_cons_mono (c₀ := .indInfo cvTa (ConLeche.directCaps p)) hfresh
       (ConsCrossAt.ofNtc fun _ h => nomatch h) ψ 0 hcb (hFD.read ψ)
-  have hnresI : Lech.reservedBasisNames.contains
-      (ConstantInfo.indInfo cvTa (Lech.directCaps p)).name = false := by
-    show Lech.reservedBasisNames.contains cvTa.name = false
+  have hnresI : ConLeche.reservedBasisNames.contains
+      (ConstantInfo.indInfo cvTa (ConLeche.directCaps p)).name = false := by
+    show ConLeche.reservedBasisNames.contains cvTa.name = false
     rw [hname]; exact hnres
-  have hpshapeI : (ConstantInfo.indInfo cvTa (Lech.directCaps p)).name.isProjFnShape
+  have hpshapeI : (ConstantInfo.indInfo cvTa (ConLeche.directCaps p)).name.isProjFnShape
       = false := by
     show cvTa.name.isProjFnShape = false
     rw [hname]; exact hpshape
-  refine declStepPM_of_ind_member_cons mp (c₀ := .indInfo cvTa (Lech.directCaps p))
+  refine declStepPM_of_ind_member_cons mp (c₀ := .indInfo cvTa (ConLeche.directCaps p))
     (A := A) hfresh hnresI (Or.inl ⟨_, _, rfl⟩)
     (ConsHeadP.ofFresh hwfI (fun ψ => hAbelow ψ) hnresI
       (fun _ h => nomatch h)
@@ -159,30 +159,30 @@ theorem stageFormer (mp : EnvS2PM V μ env)
     -- not η-complete yet (its constructor is fresh) and is unit-like
     -- exactly when fieldless
     intro m₂ hac
-    refine capsOkP_cons_direct mp (c₀ := .indInfo cvTa (Lech.directCaps p))
+    refine capsOkP_cons_direct mp (c₀ := .indInfo cvTa (ConLeche.directCaps p))
       (A := A) (T := cvTa.name) hfresh
       (ConsCrossEnv.ofNtc fun _ h => nomatch h) hpshapeI
-      (Or.inl ⟨cvTa, Lech.directCaps p, rfl, rfl⟩)
+      (Or.inl ⟨cvTa, ConLeche.directCaps p, rfl, rfl⟩)
       (fun T' cvT' caps' hf _ hres hcape => hE₀ T' cvT' caps' hf hcape hres)
       m₂ hac ?_
     intro cvT caps hf hres
-    have hself := Lech.Env.find?_cons_self
-      (ConstantInfo.indInfo cvTa (Lech.directCaps p)) env
+    have hself := ConLeche.Env.find?_cons_self
+      (ConstantInfo.indInfo cvTa (ConLeche.directCaps p)) env
     obtain ⟨rfl, rfl⟩ :=
       ConstantInfo.indInfo.inj (Option.some.inj (hself.symm.trans hf))
     refine ⟨fun _ hfam => ?_, fun hunit φ' => ?_⟩
     · -- η-complete would store the constructor, which is fresh
       exfalso
       obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
-      rw [show (Lech.directCaps p).etaCtor = p.cvC.name from rfl, hCfresh] at hfC
+      rw [show (ConLeche.directCaps p).etaCtor = p.cvC.name from rfl, hCfresh] at hfC
       exact nomatch hfC
     · have hnF : p.nF = 0 := by
         have : (p.nF == 0) = true := hunit
         simpa using this
       have hFD₂ : FormerData m₂ cvTa p.nP p.resSort pps :=
-        hFD.cross (c₀ := .indInfo cvTa (Lech.directCaps p)) (A := A) hfresh
+        hFD.cross (c₀ := .indInfo cvTa (ConLeche.directCaps p)) (A := A) hfresh
           (ConsCrossAt.ofNtc fun _ h => nomatch h) hcb m₂ hac
-      refine directUnitLawP (m := m₂) (T := cvTa.name) (caps := Lech.directCaps p)
+      refine directUnitLawP (m := m₂) (T := cvTa.name) (caps := ConLeche.directCaps p)
         ?_ hFD₂.read hFD₂.okTy ?_ ?_
       · intro ψ
         rw [hac]
@@ -197,4 +197,4 @@ theorem stageFormer (mp : EnvS2PM V μ env)
         show p.nP = (pps ψ).length
         rw [hFD.len ψ]
 
-end Lech.SetP
+end ConLeche.SetP

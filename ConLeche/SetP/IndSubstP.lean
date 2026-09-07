@@ -1,4 +1,4 @@
-import Lech.SetP.IndFrameP
+import ConLeche.SetP.IndFrameP
 
 /-!
 # The reading's substitution algebra (task #161, IND TIER part 4)
@@ -27,18 +27,18 @@ What the stages actually consume, and nothing else:
   low-depth reading against the full spine.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
 namespace AVExprSubst
 
-open Lech.Semantics.AVExpr Lech.SetModel
+open ConLeche.Semantics.AVExpr ConLeche.SetModel
 
 /-! ## Absorption -/
 
@@ -242,19 +242,19 @@ theorem inst_eq_self_of_closed {X : AVExpr} (h : ∀ k, liftN 1 X k = X)
     (a : AVExpr) (k : Nat) : inst X a k = X := by
   have h1 : inst (liftN 1 X k) a k = liftN 0 X k :=
     inst_liftN_absorb X (m := 0) (Nat.le_refl k) (Nat.le_refl k) a
-  rw [h k, Lech.Semantics.AVExpr.liftN_zero] at h1
+  rw [h k, ConLeche.Semantics.AVExpr.liftN_zero] at h1
   exact h1
 
 end AVExprSubst
 
 /-! ## `instSeq` corollaries -/
 
-open Lech.Semantics.AVExpr in
+open ConLeche.Semantics.AVExpr in
 /-- A variable below the substituted range is untouched
 (`VExpr.instSeq_bvar_lt`). -/
 theorem instSeqP_bvar_lt : ∀ (as : List AVExpr) (t j : Nat),
     j + as.length ≤ t →
-    Lech.SetP.AVExpr.instSeq as t (.bvar j) = .bvar j := by
+    ConLeche.SetP.AVExpr.instSeq as t (.bvar j) = .bvar j := by
   intro as
   induction as with
   | nil => intro t j _; rfl
@@ -264,12 +264,12 @@ theorem instSeqP_bvar_lt : ∀ (as : List AVExpr) (t j : Nat),
     rw [AVExpr.instSeq_cons, inst_bvar, if_pos (by omega)]
     exact ih (t - 1) j (by omega)
 
-open Lech.Semantics.AVExpr in
+open ConLeche.Semantics.AVExpr in
 /-- Instantiating the variables a lift just introduced, one per
 argument (`VExpr.instSeq_liftN`). -/
 theorem instSeqP_liftN : ∀ (as : List AVExpr) (t : Nat) (a : AVExpr),
     as.length ≤ t + 1 →
-    Lech.SetP.AVExpr.instSeq as t (liftN (t + 1) a 0)
+    ConLeche.SetP.AVExpr.instSeq as t (liftN (t + 1) a 0)
       = liftN (t + 1 - as.length) a 0 := by
   intro as
   induction as with
@@ -291,14 +291,14 @@ theorem instSeqP_liftN : ∀ (as : List AVExpr) (t : Nat) (a : AVExpr),
       congr 1
       omega
 
-open Lech.Semantics.AVExpr in
+open ConLeche.Semantics.AVExpr in
 /-- **Resolving a variable in the substituted range**
 (`VExpr.instSeq_bvar_hit`): with `k` arguments at cuts `c + k - 1 … c`,
 the variable `c + i` becomes the `i`-th argument counted from the
 innermost, lifted past the `c` binders the residual sits under. -/
 theorem instSeqP_bvar_hit : ∀ (as : List AVExpr) (c i : Nat) (x : AVExpr),
     as[as.length - 1 - i]? = some x → i < as.length →
-    Lech.SetP.AVExpr.instSeq as (c + as.length - 1) (.bvar (c + i))
+    ConLeche.SetP.AVExpr.instSeq as (c + as.length - 1) (.bvar (c + i))
       = liftN c x 0 := by
   intro as
   induction as with
@@ -336,15 +336,15 @@ theorem instSeqP_bvar_hit : ∀ (as : List AVExpr) (c i : Nat) (x : AVExpr),
 
 /-! ## What the stages read -/
 
-open Lech.Semantics.AVExpr in
+open ConLeche.Semantics.AVExpr in
 /-- **A term lifted past the inner cuts sees only the outer values**
 (`instSeq_append_absorb`): every padding cut passes under the lift,
 one unit each. -/
 theorem instSeqP_append_absorb :
     ∀ (ws pads : List AVExpr) (A : AVExpr),
-      Lech.SetP.AVExpr.instSeq (ws ++ pads)
+      ConLeche.SetP.AVExpr.instSeq (ws ++ pads)
           (ws.length + pads.length - 1) (liftN pads.length A 0)
-        = Lech.SetP.AVExpr.instSeq ws (ws.length - 1) A := by
+        = ConLeche.SetP.AVExpr.instSeq ws (ws.length - 1) A := by
   intro ws
   induction ws with
   | nil =>
@@ -371,13 +371,13 @@ theorem instSeqP_append_absorb :
         omega]
     exact ih pads (A.inst w ws.length)
 
-open Lech.Semantics.AVExpr in
+open ConLeche.Semantics.AVExpr in
 /-- **A fired spine resolves a frame variable to its own slot's
 value** — v1's `padHit` at zero padding, which is all the surviving
 stages use. -/
 theorem instSeqP_bvar_full {K : Nat} {p : Nat} {vals : List AVExpr}
     (hp : p < K) (hvl : vals.length = K) :
-    Lech.SetP.AVExpr.instSeq vals (K - 1) (.bvar (K - 1 - p))
+    ConLeche.SetP.AVExpr.instSeq vals (K - 1) (.bvar (K - 1 - p))
       = vals.getD p default := by
   have hidx : vals[vals.length - 1 - (K - 1 - p)]?
       = some (vals.getD p default) := by
@@ -391,13 +391,13 @@ theorem instSeqP_bvar_full {K : Nat} {p : Nat} {vals : List AVExpr}
   rw [hvl] at h1
   rw [h1, AVExpr.liftN_zero]
 
-open Lech.Semantics.AVExpr in
+open ConLeche.Semantics.AVExpr in
 /-- **Absorb the unused inner substitutions of a lifted term**: only
 the outer `n` values reach it (`instSeq_absorb_left`). -/
 theorem instSeqP_absorb_left {vals : List AVExpr} {K n : Nat}
     {X : AVExpr} (hlen : vals.length = K) (hn : n ≤ K) :
-    Lech.SetP.AVExpr.instSeq vals (K - 1) (liftN (K - n) X 0)
-      = Lech.SetP.AVExpr.instSeq (vals.take n) (n - 1) X := by
+    ConLeche.SetP.AVExpr.instSeq vals (K - 1) (liftN (K - n) X 0)
+      = ConLeche.SetP.AVExpr.instSeq (vals.take n) (n - 1) X := by
   have h := instSeqP_append_absorb (vals.take n) (vals.drop n) X
   rw [List.take_append_drop] at h
   rw [show K - 1 = (vals.take n).length + (vals.drop n).length - 1 from by
@@ -410,14 +410,14 @@ theorem instSeqP_absorb_left {vals : List AVExpr} {K n : Nat}
       rw [List.length_take, hlen]
       omega]
 
-open Lech.Semantics.AVExpr in
+open ConLeche.Semantics.AVExpr in
 /-- `instSeq` through a `pi` (`instSeq_pi`).  The numerals ride along:
 they are not read by either operation. -/
 theorem instSeqP_pi : ∀ (as : List AVExpr) (t : Nat) (u v : Nat)
     (A B : AVExpr), as.length ≤ t + 1 →
-    Lech.SetP.AVExpr.instSeq as t (.pi u v A B)
-      = .pi u v (Lech.SetP.AVExpr.instSeq as t A)
-          (Lech.SetP.AVExpr.instSeq as (t + 1) B) := by
+    ConLeche.SetP.AVExpr.instSeq as t (.pi u v A B)
+      = .pi u v (ConLeche.SetP.AVExpr.instSeq as t A)
+          (ConLeche.SetP.AVExpr.instSeq as (t + 1) B) := by
   intro as
   induction as with
   | nil => intro t u v A B _; rfl
@@ -434,13 +434,13 @@ theorem instSeqP_pi : ∀ (as : List AVExpr) (t : Nat) (u v : Nat)
       simp only [List.length_cons] at hlen
       rw [show t - 1 + 1 = t + 1 - 1 from by omega]
 
-open Lech.Semantics.AVExpr in
+open ConLeche.Semantics.AVExpr in
 /-- `instSeq` past an innermost instantiation (`VExpr.instSeq_inst0`). -/
 theorem instSeqP_inst0 : ∀ (as : List AVExpr) (t : Nat) (X b : AVExpr),
     as.length ≤ t + 1 →
-    Lech.SetP.AVExpr.instSeq as t (X.inst b 0)
-      = (Lech.SetP.AVExpr.instSeq as (t + 1) X).inst
-          (Lech.SetP.AVExpr.instSeq as t b) 0 := by
+    ConLeche.SetP.AVExpr.instSeq as t (X.inst b 0)
+      = (ConLeche.SetP.AVExpr.instSeq as (t + 1) X).inst
+          (ConLeche.SetP.AVExpr.instSeq as t b) 0 := by
   intro as
   induction as with
   | nil => intro t X b _; rfl
@@ -462,18 +462,18 @@ theorem instSeqP_inst0 : ∀ (as : List AVExpr) (t : Nat) (X b : AVExpr),
         show t - 1 + 1 = t from by
           simp only [List.length_cons] at hlen; omega]
 
-open Lech.Semantics.AVExpr in
+open ConLeche.Semantics.AVExpr in
 /-- `instSeq` past a lift at the top (`VExpr.instSeq_liftN0`). -/
 theorem instSeqP_liftN0 : ∀ (vs : List AVExpr) (t m : Nat) (Y : AVExpr),
     vs.length ≤ t + 1 →
-    Lech.SetP.AVExpr.instSeq vs (t + m) (liftN m Y 0)
-      = liftN m (Lech.SetP.AVExpr.instSeq vs t Y) 0 := by
+    ConLeche.SetP.AVExpr.instSeq vs (t + m) (liftN m Y 0)
+      = liftN m (ConLeche.SetP.AVExpr.instSeq vs t Y) 0 := by
   intro vs
   induction vs with
   | nil => intro t m Y _; rfl
   | cons a vs ih =>
     intro t m Y h
-    show Lech.SetP.AVExpr.instSeq vs (t + m - 1)
+    show ConLeche.SetP.AVExpr.instSeq vs (t + m - 1)
         ((liftN m Y 0).inst a (t + m)) = _
     rw [AVExprSubst.inst_liftN_comm Y (by omega) a, Nat.add_sub_cancel]
     cases t with
@@ -487,14 +487,14 @@ theorem instSeqP_liftN0 : ∀ (vs : List AVExpr) (t m : Nat) (Y : AVExpr),
       exact ih t' m (Y.inst a (t' + 1))
         (by simp only [List.length_cons] at h; omega)
 
-open Lech.Semantics.AVExpr in
+open ConLeche.Semantics.AVExpr in
 /-- A closed reading is fixed by a whole `instSeq` — the P currency of
 `VExpr.instSeq_eq_self_of_closed`, stated at the lifting equation the
 carrier actually stores. -/
 theorem instSeqP_eq_self_of_closed {X : AVExpr}
     (h : ∀ k, liftN 1 X k = X) :
     ∀ (vs : List AVExpr) (t : Nat),
-      Lech.SetP.AVExpr.instSeq vs t X = X := by
+      ConLeche.SetP.AVExpr.instSeq vs t X = X := by
   intro vs
   induction vs with
   | nil => intro t; rfl
@@ -503,4 +503,4 @@ theorem instSeqP_eq_self_of_closed {X : AVExpr}
     rw [AVExpr.instSeq_cons, AVExprSubst.inst_eq_self_of_closed h a t]
     exact ih (t - 1)
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,8 +1,8 @@
-import Lech.SetP.Step2.TiersP
-import Lech.SetP.Annot.BitExtend
-import Lech.SetP.Annot.BitConsCross
-import Lech.Semantics.ConstsBound
-import Lech.Verify.Extend.Sibs
+import ConLeche.SetP.Step2.TiersP
+import ConLeche.SetP.Annot.BitExtend
+import ConLeche.SetP.Annot.BitConsCross
+import ConLeche.Semantics.ConstsBound
+import ConLeche.Verify.Extend.Sibs
 
 /-!
 # The P declaration step (task #161, P4 — the fold's species)
@@ -31,13 +31,13 @@ deltas:
 is not a literal pin; the pin installs supply it bespoke).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint)
 
 universe w
@@ -88,7 +88,7 @@ theorem denoteP_cons_fresh {acval : Name → (Name → Nat) → AVExpr}
     denoteP (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
       = denoteP acval env ψ d e := by
   rw [← denoteP_envExtend (findPreserved_cons hfresh) hlga
-      (Lech.Verify.findProj?_cons_of_base_none hntc)
+      (ConLeche.Verify.findProj?_cons_of_base_none hntc)
       d e hcb,
     denoteP_acvalWith_fresh hfresh d e]
 
@@ -108,7 +108,7 @@ theorem denoteP_cons_fresh_mono {acval : Name → (Name → Nat) → AVExpr}
       = some ea :=
   denoteP_envExtend_mono (findPreserved_cons hfresh)
     (litGuardsMono_cons hfresh)
-    (Lech.Verify.findProj?_cons_of_base_none hntc) d e hcb
+    (ConLeche.Verify.findProj?_cons_of_base_none hntc) d e hcb
     (by rw [denoteP_acvalWith_fresh hfresh]; exact h)
 
 /-- **The P cons crossing at any head** (task #175 W4c, module 4): a
@@ -124,7 +124,7 @@ theorem denoteP_cons_mono {acval : Name → (Name → Nat) → AVExpr}
     {ea : AVExpr} (h : denoteP acval env ψ d e = some ea) :
     denoteP (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
       = some ea := by
-  by_cases htw : ∃ tbl : Lech.ProjTable, c₀ = .projInfo tbl
+  by_cases htw : ∃ tbl : ConLeche.ProjTable, c₀ = .projInfo tbl
   · obtain ⟨tbl, rfl⟩ := htw
     refine denoteP_envExtend_mono_at (findPreserved_cons hfresh)
       (litGuardsMono_cons hfresh)
@@ -143,7 +143,7 @@ theorem basisPinnedTT_consFresh {cval cval' : TConstVal}
     {c₀ : ConstantInfo} (h : BasisPinnedTT env cval)
     (hfresh : env.find? c₀.name = none)
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
-    (hhead : Lech.reservedBasisNames.contains c₀.name = true →
+    (hhead : ConLeche.reservedBasisNames.contains c₀.name = true →
       (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
       ∀ (ψ : Name → Nat) (t : VExpr),
         pinnedDirectT c₀.name ψ = some t → cval' c₀.name ψ = t) :
@@ -151,10 +151,10 @@ theorem basisPinnedTT_consFresh {cval cval' : TConstVal}
   intro n ci hf hres
   by_cases hn : c₀.name = n
   · subst hn
-    rw [Lech.Env.find?_cons, if_pos rfl] at hf
+    rw [ConLeche.Env.find?_cons, if_pos rfl] at hf
     obtain rfl : ci = c₀ := (Option.some.inj hf).symm
     exact ⟨(hhead hres).1, fun t ψ hp => (hhead hres).2 ψ t hp⟩
-  · rw [Lech.Env.find?_cons, if_neg hn] at hf
+  · rw [ConLeche.Env.find?_cons, if_neg hn] at hf
     refine ⟨(h n ci hf hres).1, fun t ψ hp => ?_⟩
     rw [← hag n (fun hh => hn hh.symm)]
     exact (h n ci hf hres).2 t ψ hp
@@ -192,7 +192,7 @@ structure ConsHeadP (env : Env) (c₀ : ConstantInfo)
   vclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase)
   /-- if the head sits at a reserved basis name, it is the pinned
   declaration and its leaf erases to the direct pin -/
-  pin : Lech.reservedBasisNames.contains c₀.name = true →
+  pin : ConLeche.reservedBasisNames.contains c₀.name = true →
     (ConstantInfo.isBasis c₀ = true → c₀ = pinnedInfo c₀.name) ∧
     ∀ (ψ : Name → Nat) (t : VExpr),
       pinnedDirectT c₀.name ψ = some t → (A ψ).erase = t
@@ -203,12 +203,12 @@ structure ConsHeadP (env : Env) (c₀ : ConstantInfo)
   /-- a head table carries its head data, at every field, at the
   extension (task #175 S1) -/
   projTowerHead : ∀ tbl, c₀ = .projInfo tbl →
-    ∀ i, i < tbl.numFields → Lech.TowerHead ⟨c₀ :: env.consts⟩ (tbl.entry i)
+    ∀ i, i < tbl.numFields → ConLeche.TowerHead ⟨c₀ :: env.consts⟩ (tbl.entry i)
   /-- a head recursor's rules' constructors are stored
   (`RecCtorsStored`'s head) -/
   ctorsHead : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
     ∀ r ∈ rules, ∃ cvj cnP cnF,
-      env.find? (Lech.RecRule.ctor r)
+      env.find? (ConLeche.RecRule.ctor r)
         = some (.ctorInfo cvj cnP cnF)
 
 /-- **The head obligations of a basis cons**: the head is the pinned
@@ -224,7 +224,7 @@ theorem ConsHeadP.ofBasis {c₀ : ConstantInfo}
     (hnotproj : ∀ tbl, c₀ ≠ .projInfo tbl)
     (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
-        env.find? (Lech.RecRule.ctor r)
+        env.find? (ConLeche.RecRule.ctor r)
           = some (.ctorInfo cvj cnP cnF)) :
     ConsHeadP env c₀ A :=
   ⟨hwf, hvclosed, fun _ => ⟨hpinned, hleaf⟩,
@@ -237,11 +237,11 @@ theorem ConsHeadP.ofFresh {c₀ : ConstantInfo}
     {A : (Name → Nat) → AVExpr}
     (hwf : EnvWF ⟨c₀ :: env.consts⟩)
     (hvclosed : ∀ ψ : Name → Nat, VExpr.Closed ((A ψ).erase))
-    (hnres : Lech.reservedBasisNames.contains c₀.name = false)
+    (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
     (hprojTower : ∀ tbl, c₀ ≠ .projInfo tbl)
     (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
-        env.find? (Lech.RecRule.ctor r)
+        env.find? (ConLeche.RecRule.ctor r)
           = some (.ctorInfo cvj cnP cnF)) :
     ConsHeadP env c₀ A :=
   ⟨hwf, hvclosed,
@@ -283,7 +283,7 @@ def coreCons (m : EnvS2Core V env) {c₀ : ConstantInfo}
           acvalWith_self]
         exact (hh.pin hres).2 ψ t hp⟩)
   proj_ok := ProjOkT.cons m.proj_ok hfresh hh.projTowerHead
-  rec_ctors := Lech.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
+  rec_ctors := ConLeche.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
   acval_closed := acvalWith_closed m.acval_closed hAclosed
   acval_params := acvalWith_params m.acval_params hAparams
   acval_ok2 := acvalWith_ok2 m.acval_ok2 hAok
@@ -342,7 +342,7 @@ theorem declStepPM_of_cons_guarded (mp : EnvS2PM V μ env)
   have hbound := envWF_constsBound mp.base2.wf
   have hne : ∀ c ∈ env.consts, c.name ≠ c₀.name := by
     have h0 := hfresh
-    rw [Lech.Env.find?, List.find?_eq_none] at h0
+    rw [ConLeche.Env.find?, List.find?_eq_none] at h0
     intro c hc h
     exact h0 c hc (by simp [h])
   -- the P crossing, forward only: successful prefix readings of the
@@ -506,4 +506,4 @@ theorem declStepPM_of_cons (mp : EnvS2PM V μ env)
     hmemNew hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
     htower_ok
 
-end Lech.SetP
+end ConLeche.SetP

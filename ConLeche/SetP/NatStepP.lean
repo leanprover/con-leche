@@ -1,4 +1,4 @@
-import Lech.SetP.NatWfP
+import ConLeche.SetP.NatWfP
 
 /-!
 # `ReduceNatStepP`/`PQ`, discharged (task #161, literal tier)
@@ -23,13 +23,13 @@ The reduct's reading, grading and frame conditions are unchanged from
 lands here is the `interp2` equality, and with it the wall.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported natOpResult reduceNatP)
 
 universe w
@@ -45,16 +45,16 @@ constant, and `natLitP … 0` *is* the `Nat.zero` leaf
 (`denote_rawNatLitR`'s mirror). -/
 theorem denoteP_rawNatLitP (m : EnvS2Core V env)
     (hs : natLitSupported env = true) {a0 : Expr} {n : Nat}
-    (h : Lech.rawNatLit? a0 = some n) (d : Nat) :
+    (h : ConLeche.rawNatLit? a0 = some n) (d : Nat) :
     denoteP m.acval env φ d a0 = some (natLitP m φ n) := by
   obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
-    hlpZ, hlpS, -⟩ := Lech.natLitSupported_inv hs
+    hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   match a0, h with
   | .lit (.natVal k), h =>
     obtain rfl : k = n := Option.some.inj h
     exact denoteP_natLitP m hs d k
   | .const c [], h =>
-    simp only [Lech.rawNatLit?] at h
+    simp only [ConLeche.rawNatLit?] at h
     split at h
     · next hc =>
       subst hc
@@ -115,8 +115,8 @@ the whnf IH the consumer chain now carries. -/
 theorem argNatLitP {m : EnvS2Core V env} {fuel : Nat}
     (ihw : WhnfClaims2P μ m φ fuel) (hs : natLitSupported env = true)
     {d : Nat} {Δa : List AVExpr} {a a0 : Expr} {n : Nat} {aa : AVExpr}
-    (hwa : Lech.whnf μ env fuel d a = .ok a0)
-    (hraw : Lech.rawNatLit? a0 = some n)
+    (hwa : ConLeche.whnf μ env fuel d a = .ok a0)
+    (hraw : ConLeche.rawNatLit? a0 = some n)
     (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded a) (hC : CtxOkP m φ d Δa a)
     (haa : denoteP m.acval env φ d a = some aa)
@@ -161,18 +161,18 @@ theorem reduceNatSemP_unary (mp : EnvS2PM V μ env) {fuel : Nat}
   obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteP_app_inv hea
   have hokA : ∀ ρ' : Nat → V, Sat2 V Δa ρ' → AnnotOkP V ρ' aa :=
     fun ρ' hρ' => (annotOkP_app_inv (hok ρ' hρ')).2
-  simp only [reduceNatP, Lech.reduceNat, Bind.bind, Except.bind,
-    Lech.whnf_def] at h
+  simp only [reduceNatP, ConLeche.reduceNat, Bind.bind, Except.bind,
+    ConLeche.whnf_def] at h
   split at h
   · -- `Nat.succ` packing
     next hcond =>
     obtain ⟨rfl, hnat⟩ := hcond
-    cases hwa : Lech.whnf μ env fuel d a with
+    cases hwa : ConLeche.whnf μ env fuel d a with
     | error err => rw [hwa] at h; exact nomatch h
     | ok a0 =>
     rw [hwa] at h
     dsimp only at h
-    cases hra : Lech.rawNatLit? a0 with
+    cases hra : ConLeche.rawNatLit? a0 with
     | none => rw [hra] at h; simp [pure, Except.pure] at h
     | some n =>
       rw [hra] at h
@@ -180,8 +180,8 @@ theorem reduceNatSemP_unary (mp : EnvS2PM V μ env) {fuel : Nat}
         Option.some.injEq] at h
       subst h
       obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS,
-        hlpN, hlpZ, hlpS, -⟩ := Lech.natLitSupported_inv hnat
-      obtain rfl : fa = mp.base2.acval Lech.natSuccName φ :=
+        hlpN, hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hnat
+      obtain rfl : fa = mp.base2.acval ConLeche.natSuccName φ :=
         denoteP_headP hfS
           (show (ConstantInfo.ctorInfo cv1 i1 j1).toConstantVal.levelParams
             = [] from hlpS) hfa
@@ -226,40 +226,40 @@ theorem reduceNatSemP_binary (mp : EnvS2PM V μ env) {fuel : Nat}
   have hokA : ∀ ρ' : Nat → V, Sat2 V Δa ρ' → AnnotOkP V ρ' aa :=
     fun ρ' hρ' =>
       (annotOkP_app_inv (annotOkP_app_inv (hok ρ' hρ')).1).2
-  simp only [reduceNatP, Lech.reduceNat, Bind.bind, Except.bind,
-    Lech.whnf_def] at h
+  simp only [reduceNatP, ConLeche.reduceNat, Bind.bind, Except.bind,
+    ConLeche.whnf_def] at h
   split at h
   · next hcond =>
     obtain ⟨h14, hstored⟩ := hcond
-    have hmemN : c ∈ Lech.natOpNames ∨ c ∈ Lech.natDivModNames := by
+    have hmemN : c ∈ ConLeche.natOpNames ∨ c ∈ ConLeche.natDivModNames := by
       rcases h14 with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
         rfl | rfl | rfl | rfl | rfl | rfl <;>
         first
         | exact Or.inl (by decide)
         | exact Or.inr (by decide)
     have hguard := natOpGuardLawP_of mp _ hmemN hstored
-    obtain ⟨hnat, hdeps, hbool⟩ := Lech.natOpGuard_inv hguard
-    have hself : c ∈ Lech.natOpDeps c := by
+    obtain ⟨hnat, hdeps, hbool⟩ := ConLeche.natOpGuard_inv hguard
+    have hself : c ∈ ConLeche.natOpDeps c := by
       rcases h14 with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|
         rfl|rfl <;> decide
     obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps c hself
     -- first argument first; the second only behind a literal (D15)
-    cases hwa : Lech.whnf μ env fuel d a with
+    cases hwa : ConLeche.whnf μ env fuel d a with
     | error err => rw [hwa] at h; exact nomatch h
     | ok a0 =>
     rw [hwa] at h
     dsimp only at h
-    cases hra : Lech.rawNatLit? a0 with
+    cases hra : ConLeche.rawNatLit? a0 with
     | none => rw [hra] at h; simp [pure, Except.pure] at h
     | some n₁ =>
     rw [hra] at h
     dsimp only at h
-    cases hwb : Lech.whnf μ env fuel d b with
+    cases hwb : ConLeche.whnf μ env fuel d b with
     | error err => rw [hwb] at h; exact nomatch h
     | ok b0 =>
     rw [hwb] at h
     dsimp only at h
-    cases hrb : Lech.rawNatLit? b0 with
+    cases hrb : ConLeche.rawNatLit? b0 with
     | none => rw [hrb] at h; simp [pure, Except.pure] at h
     | some n₂ =>
       rw [hrb] at h
@@ -294,9 +294,9 @@ theorem reduceNatSemP_binary (mp : EnvS2PM V μ env) {fuel : Nat}
               (denoteP_natLitP mp.base2 hnat d K))
           rw [interp2_app, interp2_app, hA, hB]
           exact hop
-        have closeB : (c = Lech.natBeqName ∨ c = Lech.natBleName) →
+        have closeB : (c = ConLeche.natBeqName ∨ c = ConLeche.natBleName) →
             ∀ bn : Name,
-            (bn = Lech.boolTrueName ∨ bn = Lech.boolFalseName) →
+            (bn = ConLeche.boolTrueName ∨ bn = ConLeche.boolFalseName) →
             r = .const bn [] →
             SetTheory.app (SetTheory.app
               (interp2 V ρ (mp.base2.acval c φ))
@@ -338,15 +338,15 @@ theorem reduceNatSemP_binary (mp : EnvS2PM V μ env) {fuel : Nat}
             (natOpV2_pow mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
               mp.acvalValidP hfc ρ n₁ n₂)
         · refine closeB (Or.inl rfl)
-            (if n₁ = n₂ then Lech.boolTrueName
-              else Lech.boolFalseName)
+            (if n₁ = n₂ then ConLeche.boolTrueName
+              else ConLeche.boolFalseName)
             (by by_cases hh : n₁ = n₂ <;> simp [hh])
             (by simpa +decide [natOpResult] using hres.symm) ?_
           exact natOpV2_beq mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
             mp.acvalValidP hfc ρ n₁ n₂
         · refine closeB (Or.inr rfl)
-            (if n₁ ≤ n₂ then Lech.boolTrueName
-              else Lech.boolFalseName)
+            (if n₁ ≤ n₂ then ConLeche.boolTrueName
+              else ConLeche.boolFalseName)
             (by by_cases hh : n₁ ≤ n₂ <;> simp [hh])
             (by simpa +decide [natOpResult] using hres.symm) ?_
           exact natOpV2_ble mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
@@ -377,22 +377,22 @@ theorem reduceNatSemP_binary (mp : EnvS2PM V μ env) {fuel : Nat}
               (mp.div_mod φ) hfc ρ n₁ n₂)
   · split at h
     · -- the WF-pin safety net: it throws
-      cases hwa : Lech.whnf μ env fuel d a with
+      cases hwa : ConLeche.whnf μ env fuel d a with
       | error err => rw [hwa] at h; exact nomatch h
       | ok a0 =>
       rw [hwa] at h
       dsimp only at h
-      cases hra : Lech.rawNatLit? a0 with
+      cases hra : ConLeche.rawNatLit? a0 with
       | none => rw [hra] at h; simp [pure, Except.pure] at h
       | some n₁ =>
       rw [hra] at h
       dsimp only at h
-      cases hwb : Lech.whnf μ env fuel d b with
+      cases hwb : ConLeche.whnf μ env fuel d b with
       | error err => rw [hwb] at h; exact nomatch h
       | ok b0 =>
       rw [hwb] at h
       dsimp only at h
-      cases hrb : Lech.rawNatLit? b0 with
+      cases hrb : ConLeche.rawNatLit? b0 with
       | none => rw [hrb] at h; simp [pure, Except.pure] at h
       | some n₂ =>
         rw [hrb] at h
@@ -425,7 +425,7 @@ theorem reduceNatSemP (mp : EnvS2PM V μ env) {fuel : Nat}
   | .letE _ _ _, h, _, _, _, _, _, _
   | .lit _, h, _, _, _, _, _, _ | .proj _ _ _, h, _, _, _, _, _, _
   | .const _ _, h, _, _, _, _, _, _ =>
-    simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
+    simp [reduceNatP, ConLeche.reduceNat, pure, Except.pure] at h
   | .app (.bvar _) _, h, _, _, _, _, _, _
   | .app (.fvar _ _) _, h, _, _, _, _, _, _
   | .app (.sort _) _, h, _, _, _, _, _, _
@@ -434,9 +434,9 @@ theorem reduceNatSemP (mp : EnvS2PM V μ env) {fuel : Nat}
   | .app (.letE _ _ _) _, h, _, _, _, _, _, _
   | .app (.lit _) _, h, _, _, _, _, _, _
   | .app (.proj _ _ _) _, h, _, _, _, _, _, _ =>
-    simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
+    simp [reduceNatP, ConLeche.reduceNat, pure, Except.pure] at h
   | .app (.const c (_ :: _)) _, h, _, _, _, _, _, _ =>
-    simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
+    simp [reduceNatP, ConLeche.reduceNat, pure, Except.pure] at h
   | .app (.app (.bvar _) _) _, h, _, _, _, _, _, _
   | .app (.app (.fvar _ _) _) _, h, _, _, _, _, _, _
   | .app (.app (.sort _) _) _, h, _, _, _, _, _, _
@@ -446,9 +446,9 @@ theorem reduceNatSemP (mp : EnvS2PM V μ env) {fuel : Nat}
   | .app (.app (.letE _ _ _) _) _, h, _, _, _, _, _, _
   | .app (.app (.lit _) _) _, h, _, _, _, _, _, _
   | .app (.app (.proj _ _ _) _) _, h, _, _, _, _, _, _ =>
-    simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
+    simp [reduceNatP, ConLeche.reduceNat, pure, Except.pure] at h
   | .app (.app (.const c (_ :: _)) _) _, h, _, _, _, _, _, _ =>
-    simp [reduceNatP, Lech.reduceNat, pure, Except.pure] at h
+    simp [reduceNatP, ConLeche.reduceNat, pure, Except.pure] at h
 
 /-- **`ReduceNatStepP`, proved.**  The reduct's reading, grading and
 frame conditions are `Step2/NatP.lean`'s premise-free leaf analysis;
@@ -476,4 +476,4 @@ theorem reduceNatStepPQ_of (mp : EnvS2PM V μ env) {fuel : Nat}
   intro d e e₂ Δa ea h hws hb hLb hC hea hok
   exact reduceNatStepP_of mp ihw h hws hb hLb hC hea hok
 
-end Lech.SetP
+end ConLeche.SetP

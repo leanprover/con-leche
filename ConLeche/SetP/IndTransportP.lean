@@ -1,4 +1,4 @@
-import Lech.SetP.IndFireP
+import ConLeche.SetP.IndFireP
 
 /-!
 # The truthfulness transport, at the reading (task #161, IND TIER part 7)
@@ -21,13 +21,13 @@ by `chainP_tail`: `fun j => (chainP V ρ zs) (j + (K - k))` *is*
 index arithmetic.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level DefEqListOk)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level DefEqListOk)
 
 universe w
 
@@ -119,4 +119,4 @@ theorem annotTransportP {m : EnvS2Core V env} {F : Nat}
   rwa [show zs.take K = zs from
     List.take_of_length_le (Nat.le_of_eq hzslen)] at hok'
 
-end Lech.SetP
+end ConLeche.SetP

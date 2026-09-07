@@ -1,9 +1,9 @@
 import Lean.Data.Json
-import Lech.Kernel.Env
-import Lech.Kernel.ExprOps
-import Lech.Kernel.Basis
-import Lech.Kernel.StdAxioms
-import Lech.Kernel.Core
+import ConLeche.Kernel.Env
+import ConLeche.Kernel.ExprOps
+import ConLeche.Kernel.Basis
+import ConLeche.Kernel.StdAxioms
+import ConLeche.Kernel.Core
 
 /-!
 # Reading lean4export ndjson files: the shared scaffolding
@@ -33,7 +33,7 @@ proper is written against and would otherwise duplicate:
   bytes-to-record decoder and mentions no representation;
 * `taintSummary`, the driver's decline message.
 
-**The parse proper is `Lech/Frontend/ExportC.lean`** (task #171): it
+**The parse proper is `ConLeche/Frontend/ExportC.lean`** (task #171): it
 reads the stream *directly* to `ExprC` — no arena, no conversion
 detour.  Until task #172 this file also held a second parse into an
 interned arena (`State`, `parseExport`, `parseExportStream`,
@@ -46,7 +46,7 @@ Declaration kinds the checker cannot represent yet map to
 error.
 -/
 
-namespace Lech.Frontend
+namespace ConLeche.Frontend
 
 open Lean (Json)
 
@@ -71,7 +71,7 @@ stream binder to `.default`, and both sides of every
 annotation here is what kept the two sides consistent while the pinned
 literals still carried the real `BinderInfo`s of their `Init.Prelude`
 signatures.  Since task #203 the pin builder
-(`Lech/Kernel/Basis/Builder.lean`) emits `.anonymous` at `.default`
+(`ConLeche/Kernel/Basis/Builder.lean`) emits `.anonymous` at `.default`
 and the parser emits `.anonymous` too, so the name/annotation erasure
 here is the identity on both sides; what this canonical form still
 *does* is rename level parameters and reset `pw` (the pin side is
@@ -445,4 +445,4 @@ the first few skipped names. -/
 def taintSummary (skips : Array (Name × Name)) : String :=
   s!"skipped {skips.size} declarations that use a tolerated axiom ({taintDetail skips})"
 
-end Lech.Frontend
+end ConLeche.Frontend

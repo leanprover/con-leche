@@ -1,5 +1,5 @@
-import Lech.SetP.Claims2P
-import Lech.Semantics.Denote2Closed
+import ConLeche.SetP.Claims2P
+import ConLeche.Semantics.Denote2Closed
 
 /-!
 # `AnnotOkP`'s substitution metatheory (task #161, P3 batch 2)
@@ -23,13 +23,13 @@ conjunction — no half is charged for the other's premise.  See
 `Annot/ValidV.lean`'s note on why the `bvar` clause forces this.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name)
 
 universe w
 
@@ -81,13 +81,13 @@ second leaf premise, discharged from the erasure link and the
 collapse-lane closedness field.  (Shared home: both the infer and the
 whnf quarters proved this independently at their batches; deduplicated
 here at the merge.) -/
-theorem acval_inst_self {env : Lech.Env}
-    (m : EnvS2Core V env) (n : Lech.Name)
-    (ψ : Lech.Name → Nat) (y : AVExpr) (k : Nat) :
+theorem acval_inst_self {env : ConLeche.Env}
+    (m : EnvS2Core V env) (n : ConLeche.Name)
+    (ψ : ConLeche.Name → Nat) (y : AVExpr) (k : Nat) :
     (m.acval n ψ).inst y k = m.acval n ψ :=
   AVExpr.inst_eq_self _
     (by rw [m.acval_erase]
         exact VExpr.bvarsBelow.mono (Nat.zero_le k)
           (m.cval_closed n ψ)) y
 
-end Lech.SetP
+end ConLeche.SetP

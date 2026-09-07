@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.TowerConsP
+import ConLeche.SetP.Direct.TowerConsP
 
 /-!
 # `CapsOkP` across the direct block's member conses (task #175 W4c, P3 module 5, part 1)
@@ -15,13 +15,13 @@ prefix families' laws cross as at any fresh cons, and the block's
 own family's laws are the install's premise.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps
   projFnName)
 
 universe w
@@ -45,7 +45,7 @@ theorem capsOkP_cons_direct (mp : EnvS2PM V μ env)
       ∀ cv caps, c₀ ≠ .indInfo cv caps)
     (hother : ∀ (T' : Name) (cvT' : ConstantVal) (caps' : IndCaps),
       env.find? T' = some (.indInfo cvT' caps') → T' ≠ T →
-      Lech.reservedBasisNames.contains T' = false →
+      ConLeche.reservedBasisNames.contains T' = false →
       caps'.eta = true →
       ∃ cvC', env.find? caps'.etaCtor
         = some (.ctorInfo cvC' caps'.etaParams caps'.etaFields))
@@ -53,8 +53,8 @@ theorem capsOkP_cons_direct (mp : EnvS2PM V μ env)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (hTlaws : ∀ (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
-      Lech.reservedBasisNames.contains T = false →
-      (caps.eta = true → Lech.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
+      ConLeche.reservedBasisNames.contains T = false →
+      (caps.eta = true → ConLeche.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
         ∀ φ' : Name → Nat, EtaLawP m₂ φ' T cvT caps) ∧
       (caps.unitlike = true → ∀ φ' : Name → Nat, UnitLawP m₂ φ' T cvT caps)) :
     CapsOkP m₂ := by
@@ -62,14 +62,14 @@ theorem capsOkP_cons_direct (mp : EnvS2PM V μ env)
   have hdown : ∀ n : Name, n ≠ c₀.name →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
-    rw [Lech.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
+    rw [ConLeche.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
   have hneT : ∀ (T' : Name) (cvT' : ConstantVal) (caps' : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T' = some (.indInfo cvT' caps') →
       T' ≠ T → T' ≠ c₀.name := by
     intro T' cvT' caps' hf hne hh
     rcases hkind with ⟨cvT₀, caps₀, rfl, hname⟩ | hnotind
     · exact hne (hh.trans hname)
-    · rw [hh, Lech.Env.find?_cons_self] at hf
+    · rw [hh, ConLeche.Env.find?_cons_self] at hf
       exact hnotind cvT' caps' (Option.some.inj hf)
   constructor
   · -- the η half
@@ -91,7 +91,7 @@ theorem capsOkP_cons_direct (mp : EnvS2PM V μ env)
       have := projFnName_isProjFnShape T' j
       rw [hh, hpshape] at this
       exact nomatch this
-    have hfam₀ : Lech.EtaFamilyStored env T' caps' := by
+    have hfam₀ : ConLeche.EtaFamilyStored env T' caps' := by
       obtain ⟨hCres, ⟨cvC'', hfC''⟩, hfP⟩ := hfam
       refine ⟨hCres, ⟨cvC'', by rwa [hdown _ hnC] at hfC''⟩, ?_⟩
       intro j hj
@@ -104,7 +104,7 @@ theorem capsOkP_cons_direct (mp : EnvS2PM V μ env)
       exact denoteP_cons_mono hfresh
         ((hcross.typeOf hfE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
-          (Lech.Semantics.Env.find?_mem hfE) us) hTVa
+          (ConLeche.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x hlents hfit hmem
       rw [hac, acvalWith_ne hnT'] at hmem
       have hfab : etaFabArgs2
@@ -136,9 +136,9 @@ theorem capsOkP_cons_direct (mp : EnvS2PM V μ env)
       exact denoteP_cons_mono hfresh
         ((hcross.typeOf hfE).instantiateLevelParams _ _) _ 0
         (constsBound_instType mp.base2.wf
-          (Lech.Semantics.Env.find?_mem hfE) us) hTVa
+          (ConLeche.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x y hlents hfit hmx hmy
       rw [hac, acvalWith_ne hnT'] at hmx hmy
       exact hlaw ρ ts rest x y hlents hfit hmx hmy
 
-end Lech.SetP
+end ConLeche.SetP

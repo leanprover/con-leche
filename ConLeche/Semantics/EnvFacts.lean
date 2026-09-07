@@ -1,33 +1,33 @@
-import Lech.Verify.InferLemmas
-import Lech.Verify.InferLeaves
-import Lech.Verify.Denote.SubstAlgebra
-import Lech.Verify.Denote.Levels
-import Lech.Verify.EnvPreds
-import Lech.Verify.Denote
-import Lech.Verify.Denote.OpenVars
-import Lech.Verify.Denote.VClosed
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.Denote.SubstAlgebra
+import ConLeche.Verify.Denote.Levels
+import ConLeche.Verify.EnvPreds
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.Denote.VClosed
 
 /-!
 # `EnvFacts`: the environment facts the bridge consumes (task #148, T3)
 
 **Relocated to the base at task #161 S6** (whole-module move of
-`Lech/SetR/Bridge/Env.lean`, statements byte-unchanged, namespace
-`Lech.SetR` kept).  The file never had a lane: the docstring below
+`ConLeche/SetR/Bridge/Env.lean`, statements byte-unchanged, namespace
+`ConLeche.SetR` kept).  The file never had a lane: the docstring below
 already said every field is V-free, and its four imports were base
 already.  What forced the move is that **both** lanes now build an
 `EnvFacts` — the R lane by `EnvS.toEnvFacts`, the P lane by `EnvS2PM.toEnvFacts`
-— and the P lane may not import `Lech/SetR/*`.
+— and the P lane may not import `ConLeche/SetR/*`.
 
-The bridge (`Lech/SetR/Bridge/*`) turns a successful `--verified`
+The bridge (`ConLeche/SetR/Bridge/*`) turns a successful `--verified`
 checker run into a derivation of the relation family
-(`Lech/SetR/Rel.lean`).  Doing so needs a handful of facts about the
+(`ConLeche/SetR/Rel.lean`).  Doing so needs a handful of facts about the
 environment it runs against, and **all of them are V-free**: the bridge
 never mentions a set, a membership or an interpretation.  They are
 collected here rather than taken as loose hypotheses because there are
 seven of them and every clause lemma would otherwise carry all seven.
 
 **This is an interface, not a new invariant.**  Each field below is
-either literally a field of `Lech/TTVerify/EnvTT.lean`'s `EnvTT` or an
+either literally a field of `ConLeche/TTVerify/EnvTT.lean`'s `EnvTT` or an
 immediate consequence of one, and each is listed in the campaign
 design's §2 among `EnvS`'s *syntactic* fields ("verbatim from `EnvTT`,
 all mode-independent").  When T5 builds `EnvS`, it supplies an `EnvFacts`
@@ -44,9 +44,9 @@ weaker fact keeps the bridge free of any semantic content, which is the
 whole point of the factoring.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-- The environment facts the bridge consumes: a constant valuation,
 its closedness, the syntactic well-formedness of the store, level
@@ -62,7 +62,7 @@ structure EnvFacts (env : Env) where
   lifting step (`denote_weaken_top`, `denote_lift`) and by M1. -/
   cval_closed : ∀ (n : Name) (ψ : Name → Nat), VExpr.Closed (cval n ψ)
   /-- Stored declarations are syntactically well-formed.  Consumed by
-  the frame-condition lemmas of `Lech/Verify/*`. -/
+  the frame-condition lemmas of `ConLeche/Verify/*`. -/
   wf : EnvWF env
   /-- A constant's term only depends on its own level parameters.
   Consumed by the same-head spine short-circuit. -/
@@ -111,7 +111,7 @@ structure EnvFacts (env : Env) where
   /-- Every stored native projection-table entry is a pinned pair entry
   with its block stored (`ProjOkT`).  Syntactic; the bridge's I9 and R6
   clauses need it to identify the entry's type as a *concrete* closed
-  expression (`Lech/SetR/ProjPins.lean`), which is what makes their
+  expression (`ConLeche/SetR/ProjPins.lean`), which is what makes their
   denotation and residual walks computations.  `EnvS` carries the same
   field. -/
   proj_ok : ProjOkT env
@@ -147,14 +147,14 @@ they were declared in `SetR/EnvS.lean` only because that is where
 /-- A `find?` hit names the stored constant. -/
 theorem Env.find?_name {env : Env} {n : Name} {ci : ConstantInfo}
     (h : env.find? n = some ci) : ci.name = n := by
-  unfold Lech.Env.find? at h
+  unfold ConLeche.Env.find? at h
   have := List.find?_some h
   simpa using this
 
 /-- A `find?` hit is a stored constant. -/
 theorem Env.find?_mem {env : Env} {n : Name} {ci : ConstantInfo}
     (h : env.find? n = some ci) : ci ∈ env.consts := by
-  unfold Lech.Env.find? at h
+  unfold ConLeche.Env.find? at h
   exact List.mem_of_find?_eq_some h
 
-end Lech.Semantics
+end ConLeche.Semantics

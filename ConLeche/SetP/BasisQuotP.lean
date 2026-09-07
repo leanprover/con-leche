@@ -1,5 +1,5 @@
-import Lech.SetP.BasisBlocksP
-import Lech.Semantics.BasisRules
+import ConLeche.SetP.BasisBlocksP
+import ConLeche.Semantics.BasisRules
 
 /-!
 # The `Quot` block, P tier (task #161, ENDGAME H)
@@ -27,13 +27,13 @@ twice more — the reading's `lamR 0` and the value law's squash regime
 are the same point.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
 
 universe w
@@ -43,7 +43,7 @@ variable {μ : CheckMode} {env : Env}
 
 section Quot
 
-open Lech (quotA quotMkA quotLiftA quotIndA quotSoundA quotName
+open ConLeche (quotA quotMkA quotLiftA quotIndA quotSoundA quotName
   quotMkName quotLiftName quotIndName quotSoundName eqA eqName)
 
 variable {m : EnvS2Core V env} {A : (Name → Nat) → AVExpr}
@@ -60,7 +60,7 @@ theorem denoteP_quotLeaf {c₀ : ConstantInfo} (ψ : Name → Nat)
         (.const quotName [l])
       = some (AVExpr.const .quot [l.eval ψ]) := by
   refine denoteP_pinned_const (m := m) hne hQ (by decide) (by rfl) ?_ d
-  simp +decide [Lech.Verify.pinnedDirectT]
+  simp +decide [ConLeche.Verify.pinnedDirectT]
   show Level.substFn ψ [uN] [l] uN = Level.eval ψ l
   simp [Level.substFn]
 
@@ -72,7 +72,7 @@ theorem denoteP_quotMkLeaf {c₀ : ConstantInfo} (ψ : Name → Nat)
         (.const quotMkName [l])
       = some (AVExpr.const .quotMk [l.eval ψ]) := by
   refine denoteP_pinned_const (m := m) hne hM (by decide) (by rfl) ?_ d
-  simp +decide [Lech.Verify.pinnedDirectT]
+  simp +decide [ConLeche.Verify.pinnedDirectT]
   show Level.substFn ψ [uN] [l] uN = Level.eval ψ l
   simp [Level.substFn]
 
@@ -107,7 +107,7 @@ theorem bitAgree_quotA (ψ : Name → Nat) :
       (.pi 0 (pwBit ψ .never) (.sort (ψ uN))
         (.pi 0 (pwBit ψ .never) (quotRelTyP) (.sort (ψ uN))))
       (BConst.type2 .quot [ψ uN]) := by
-  have h1 : pwBit ψ Lech.PropWhen.never = 0 ↔ ψ uN + 1 = 0 := by
+  have h1 : pwBit ψ ConLeche.PropWhen.never = 0 ↔ ψ uN + 1 = 0 := by
     rw [pwBit_never]
     exact Iff.intro (fun h => nomatch h) (fun h => nomatch h)
   exact .pi h1 (.sort _) (.pi h1 (bitAgree_quotRelTyP (ψ uN))
@@ -152,7 +152,7 @@ theorem denoteP_quotMkA_type (ψ : Name → Nat)
 theorem bitAgree_quotMkA (ψ : Name → Nat) :
     AVExpr.BitAgree (quotMkTyP (pwBit ψ (.ifAllZero [uN])) (ψ uN))
       (BConst.type2 .quotMk [ψ uN]) := by
-  have hz : pwBit ψ (Lech.PropWhen.ifAllZero [uN]) = 0 ↔ ψ uN = 0 :=
+  have hz : pwBit ψ (ConLeche.PropWhen.ifAllZero [uN]) = 0 ↔ ψ uN = 0 :=
     pwBit_ifAllZero_single ψ uN
   rw [quotMkTyP]
   exact .pi hz (.sort _)
@@ -175,7 +175,7 @@ theorem extendQuotP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT quotA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT quotA.name ψ
           = some (VExpr.const .quot [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -213,7 +213,7 @@ theorem extendQuotMkP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT quotMkA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT quotMkA.name ψ
           = some (VExpr.const .quotMk [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -320,9 +320,9 @@ theorem quotApp_data {u i j : Nat} {ρ : Nat → V} {Aset R : V}
     · have h := bconst_app_data2 V .quot [u] ρ
         (A := .sort u) (A2 := relT2 u (.bvar 0)) rfl hA' hR'
       rw [← hAi, ← hRj] at h
-      simpa [interp2_const, bval2, Lech.VExpr.lv] using h
+      simpa [interp2_const, bval2, ConLeche.VExpr.lv] using h
   · rw [quotAppP]
-    simp only [interp2_app, interp2_const, bval2, Lech.VExpr.lv,
+    simp only [interp2_app, interp2_const, bval2, ConLeche.VExpr.lv,
       List.getD_cons_zero, hAi, hRj]
     exact quotV2_app V hA hR
 
@@ -358,14 +358,14 @@ theorem quotMkApp_data {u i j k : Nat} {ρ : Nat → V} {Aset R a : V}
       · have h := bconst_app_data2 V .quotMk [u] ρ
           (A := .sort u) (A2 := relT2 u (.bvar 0)) rfl hA' hR'
         rw [← hAi, ← hRj] at h
-        simpa [interp2_const, bval2, Lech.VExpr.lv] using h
+        simpa [interp2_const, bval2, ConLeche.VExpr.lv] using h
     · have h := bconst_app_data3 V .quotMk [u] ρ
         (A := .sort u) (A2 := relT2 u (.bvar 0)) (A3 := .bvar 1)
         rfl hA' hR' ha'
       rw [← hAi, ← hRj, ← hak] at h
-      simpa [interp2_const, bval2, Lech.VExpr.lv] using h
+      simpa [interp2_const, bval2, ConLeche.VExpr.lv] using h
   · rw [quotMkAppP]
-    simp only [interp2_app, interp2_const, bval2, Lech.VExpr.lv,
+    simp only [interp2_app, interp2_const, bval2, ConLeche.VExpr.lv,
       List.getD_cons_zero, hAi, hRj, hak]
     exact quotMkV2_app V hA hR ha
 
@@ -684,7 +684,7 @@ theorem quotIndLawP {m : EnvS2Core V env}
   -- the fired constructor is `Quot.mk`, stored in the prefix
   have hM' : (⟨quotIndA :: env.consts⟩ : Env).find? quotMkName
       = some quotMkA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hM
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM
   rw [show RecRule.ctor quotIndRule = quotMkName from rfl, hM'] at hfj
   obtain ⟨rfl, rfl, rfl⟩ :
       cvj = quotMkA.toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
@@ -766,7 +766,7 @@ theorem extendQuotIndP (mp : EnvS2PM V μ env)
     (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT quotIndA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT quotIndA.name ψ
           = some (VExpr.const .quotInd [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -822,7 +822,7 @@ theorem denoteP_eqLeaf {c₀ : ConstantInfo} (ψ : Name → Nat) (l : Level)
         (.const eqName [l])
       = some (m.acval eqName (Level.substFn ψ [uN] [l])) := by
   have hf' : (⟨c₀ :: env.consts⟩ : Env).find? eqName = some eqA := by
-    rw [Lech.Env.find?_cons, if_neg hne]; exact hE
+    rw [ConLeche.Env.find?_cons, if_neg hne]; exact hE
   rw [denoteP_const hf' (by rfl), acvalWith_ne (fun h => hne h.symm)]
   rfl
 
@@ -1136,7 +1136,7 @@ theorem extendQuotSoundP (mp : EnvS2PM V μ env)
     (Or.inl (by decide)) (Or.inr (by decide))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT quotSoundA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT quotSoundA.name ψ
           = some (VExpr.const .quotSound [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -2027,7 +2027,7 @@ theorem quotLiftLawP {m : EnvS2Core V env}
   obtain ⟨hval0, hgr0⟩ :=
     heq hE (Level.substFn ψ [uN] [Level.param vN])
   rw [hEuN] at hval0 hgr0
-  have hz : pwBit ψ (Lech.PropWhen.ifAllZero [vN]) = 0 ↔ ψ vN = 0 :=
+  have hz : pwBit ψ (ConLeche.PropWhen.ifAllZero [vN]) = 0 ↔ ψ vN = 0 :=
     pwBit_ifAllZero_single ψ vN
   have hRa : denoteP m₂.acval ⟨quotLiftA :: env.consts⟩ φ 0
       (quotLiftRule.rhs.instantiateLevelParams
@@ -2045,7 +2045,7 @@ theorem quotLiftLawP {m : EnvS2Core V env}
     hlev hplain hnested hpin hTVa hTVja hfitR hfitC
   have hM' : (⟨quotLiftA :: env.consts⟩ : Env).find? quotMkName
       = some quotMkA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hM
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM
   rw [show RecRule.ctor quotLiftRule = quotMkName from rfl, hM'] at hfj
   obtain ⟨rfl, rfl, rfl⟩ :
       cvj = quotMkA.toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
@@ -2140,7 +2140,7 @@ theorem quotLiftLawP {m : EnvS2Core V env}
         [Level.substFn φ quotMkA.toConstantVal.levelParams usj uN] := by
     rw [hac, acvalWith_ne (by decide)]
     refine acval_basis_pinned (m := m) hM (by decide) ?_
-    simp +decide [Lech.Verify.pinnedDirectT]
+    simp +decide [ConLeche.Verify.pinnedDirectT]
   have hctorL : m₂.acval quotMkName
       (Level.substFn φ quotMkA.toConstantVal.levelParams usj)
       = AVExpr.const .quotMk [ψ uN] := by rw [hctorL0, hulev]
@@ -2153,7 +2153,7 @@ theorem quotLiftLawP {m : EnvS2Core V env}
       show quotLiftRule.ctorParams = 2 from rfl,
       List.take, List.drop, List.cons_append, List.nil_append,
       AVExpr.mkAppN_cons, AVExpr.mkAppN_nil, hrecL, hctorL,
-      interp2_app, interp2_const, bval2, Lech.VExpr.lv,
+      interp2_app, interp2_const, bval2, ConLeche.VExpr.lv,
       List.getD_cons_zero, List.getD_cons_succ]
     rw [quotMkV2_app V g1 g2 g3, hp0, hp1,
       quotLiftV2_fired f1 f2 f3 hfv f5 hg3,
@@ -2218,7 +2218,7 @@ theorem extendQuotLiftP (mp : EnvS2PM V μ env)
     denoteP_quotLiftA_type (m := mp.base2)
       (A := fun ψ => AVExpr.const .quotLift [ψ uN, ψ vN]) ψ hQ hE
   have hz : ∀ ψ : Name → Nat,
-      pwBit ψ (Lech.PropWhen.ifAllZero [vN]) = 0 ↔ ψ vN = 0 :=
+      pwBit ψ (ConLeche.PropWhen.ifAllZero [vN]) = 0 ↔ ψ vN = 0 :=
     fun ψ => pwBit_ifAllZero_single ψ vN
   refine nonempty_of_exists (declStepPM_of_basis_rec_cons mp
     (A := fun ψ => AVExpr.const .quotLift [ψ uN, ψ vN]) hfresh
@@ -2227,7 +2227,7 @@ theorem extendQuotLiftP (mp : EnvS2PM V μ env)
     (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHeadP.ofBasis hwf (fun _ => trivial) (fun _ => rfl)
       (fun ψ t hp => by
-        rw [show Lech.Verify.pinnedDirectT quotLiftA.name ψ
+        rw [show ConLeche.Verify.pinnedDirectT quotLiftA.name ψ
           = some (VExpr.const .quotLift [ψ uN, ψ vN]) from rfl] at hp
         rw [← Option.some.inj hp]
         rfl)
@@ -2272,10 +2272,10 @@ vacuous: `Eq` must already be stored, and that is exactly what the
 `Eq` bridge consumes. -/
 theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
     (hEq : env.find? eqName = some eqA)
-    (h : Lech.Semantics.BasisInstallRun env
-      Lech.BasisKind.quotK.declsA env₁) :
+    (h : ConLeche.Semantics.BasisInstallRun env
+      ConLeche.BasisKind.quotK.declsA env₁) :
     Nonempty (EnvS2PM V μ env₁) := by
-  rw [show Lech.BasisKind.quotK.declsA
+  rw [show ConLeche.BasisKind.quotK.declsA
     = [quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] from rfl] at h
   obtain ⟨h1, h2, h3, h4, h5, hnil⟩ := h
   subst hnil
@@ -2288,9 +2288,9 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
   obtain ⟨mp1⟩ := extendQuotP mp hf1  hwf1
   have hQ1 : (⟨quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
-    rw [Lech.Env.find?_cons]; exact if_pos rfl
+    rw [ConLeche.Env.find?_cons]; exact if_pos rfl
   have hE1 : (⟨quotA :: env.consts⟩ : Env).find? eqName = some eqA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hEq
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hEq
   have hf2 : (⟨quotA :: env.consts⟩ : Env).find? quotMkA.name = none :=
     Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨quotMkA :: quotA :: env.consts⟩ := by
@@ -2300,7 +2300,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
     show Expr.constsResolve _ quotMkA.toConstantVal.type = true
     have hf : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
         = some quotA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hQ1
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ1
     rw [show quotMkA.toConstantVal.type
       = Expr.forallE (.sort (.param uN))
           (Expr.forallE
@@ -2317,22 +2317,22 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
   obtain ⟨mp2⟩ := extendQuotMkP mp1 hQ1 hf2  hwf2
   have hQ2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hQ1
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ1
   have hM2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotMkName
       = some quotMkA := by
-    rw [Lech.Env.find?_cons]; exact if_pos rfl
+    rw [ConLeche.Env.find?_cons]; exact if_pos rfl
   have hE2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? eqName
       = some eqA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE1
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE1
   have hf3 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find?
       quotLiftA.name = none := Option.isNone_iff_eq_none.mp h3
   have hwf3 : EnvWF ⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ := by
     have hfQ : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
         : Env).find? quotName = some quotA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hQ2
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ2
     have hfE : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
         : Env).find? eqName = some eqA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE2
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE2
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
@@ -2386,13 +2386,13 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
   obtain ⟨mp3⟩ := extendQuotLiftP mp2 hQ2 hM2 hE2 hf3  hwf3
   have hQ3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
       : Env).find? quotName = some quotA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hQ2
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ2
   have hM3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
       : Env).find? quotMkName = some quotMkA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hM2
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM2
   have hE3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
       : Env).find? eqName = some eqA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE2
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE2
   have hf4 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
       : Env).find? quotIndA.name = none :=
     Option.isNone_iff_eq_none.mp h4
@@ -2400,10 +2400,10 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
       :: env.consts⟩ := by
     have hfQ : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
         :: env.consts⟩ : Env).find? quotName = some quotA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hQ3
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ3
     have hfM : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
         :: env.consts⟩ : Env).find? quotMkName = some quotMkA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hM3
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM3
     refine EnvWF.cons hwf3 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
@@ -2450,13 +2450,13 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
   obtain ⟨mp4⟩ := extendQuotIndP mp3 hQ3 hM3 hf4  hwf4
   have hQ4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
       :: env.consts⟩ : Env).find? quotName = some quotA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hQ3
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ3
   have hM4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
       :: env.consts⟩ : Env).find? quotMkName = some quotMkA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hM3
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM3
   have hE4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
       :: env.consts⟩ : Env).find? eqName = some eqA := by
-    rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE3
+    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE3
   have hf5 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
       :: env.consts⟩ : Env).find? quotSoundA.name = none :=
     Option.isNone_iff_eq_none.mp h5
@@ -2465,14 +2465,14 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
     have hfQ : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA
         :: quotA :: env.consts⟩ : Env).find? quotName
         = some quotA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hQ4
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ4
     have hfM : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA
         :: quotA :: env.consts⟩ : Env).find? quotMkName
         = some quotMkA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hM4
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM4
     have hfE : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA
         :: quotA :: env.consts⟩ : Env).find? eqName = some eqA := by
-      rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE4
+      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE4
     refine EnvWF.cons hwf4 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
@@ -2507,4 +2507,4 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
 
 end Quot
 
-end Lech.SetP
+end ConLeche.SetP

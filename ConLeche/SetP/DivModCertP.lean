@@ -1,5 +1,5 @@
-import Lech.SetP.NatWfP
-import Lech.Semantics.DivModEval
+import ConLeche.SetP.NatWfP
+import ConLeche.Semantics.DivModEval
 
 /-!
 # The WF-recursive operations' clauses, established at `interp2` from
@@ -30,13 +30,13 @@ at *unknown* regime bits from `type_okP`'s `AnnotValidV` — so no bit
 positivity is taken anywhere.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   ReducibilityHint natOpGuard natLitSupported)
 
 universe w
@@ -134,19 +134,19 @@ where the fibre facts at the unknown regime bits come from). -/
 theorem dmBinV_of_parts (m : EnvS2Core V env) {ψ : Name → Nat}
     {b₁ b₂ : Nat} {codN : Name} {fa : AVExpr} {ρ : Nat → V}
     (hmem : interp2 V ρ fa ∈ˢ interp2 V ρ
-      ((.pi 0 b₁ (m.acval Lech.natName ψ)
-        (.pi 0 b₂ (m.acval Lech.natName ψ) (m.acval codN ψ)))
+      ((.pi 0 b₁ (m.acval ConLeche.natName ψ)
+        (.pi 0 b₂ (m.acval ConLeche.natName ψ) (m.acval codN ψ)))
         : AVExpr))
     (htok : AnnotOkP V ρ
-      ((.pi 0 b₁ (m.acval Lech.natName ψ)
-        (.pi 0 b₂ (m.acval Lech.natName ψ) (m.acval codN ψ)))
+      ((.pi 0 b₁ (m.acval ConLeche.natName ψ)
+        (.pi 0 b₂ (m.acval ConLeche.natName ψ) (m.acval codN ψ)))
         : AVExpr)) :
-    DmBinV (interp2 V ρ (m.acval Lech.natName ψ))
+    DmBinV (interp2 V ρ (m.acval ConLeche.natName ψ))
       (interp2 V ρ (m.acval codN ψ)) (interp2 V ρ fa) := by
   have hfib : interp2 V (cons (interp2 V ρ fa) ρ)
-        ((.pi 0 b₂ (m.acval Lech.natName ψ) (m.acval codN ψ))
+        ((.pi 0 b₂ (m.acval ConLeche.natName ψ) (m.acval codN ψ))
           : AVExpr)
-      = piR b₂ (interp2 V ρ (m.acval Lech.natName ψ))
+      = piR b₂ (interp2 V ρ (m.acval ConLeche.natName ψ))
           (fun _ => interp2 V ρ (m.acval codN ψ)) := by
     rw [interp2_pi]
     congr 1
@@ -156,9 +156,9 @@ theorem dmBinV_of_parts (m : EnvS2Core V env) {ψ : Name → Nat}
   refine ⟨b₁, b₂, ?_, ?_, ?_⟩
   · rw [interp2_pi] at hmem
     rw [show (fun x => interp2 V (cons x ρ)
-          ((.pi 0 b₂ (m.acval Lech.natName ψ) (m.acval codN ψ))
+          ((.pi 0 b₂ (m.acval ConLeche.natName ψ) (m.acval codN ψ))
             : AVExpr))
-        = fun _ => piR b₂ (interp2 V ρ (m.acval Lech.natName ψ))
+        = fun _ => piR b₂ (interp2 V ρ (m.acval ConLeche.natName ψ))
             (fun _ => interp2 V ρ (m.acval codN ψ)) from by
       funext x
       rw [interp2_pi]
@@ -172,9 +172,9 @@ theorem dmBinV_of_parts (m : EnvS2Core V env) {ψ : Name → Nat}
     rw [AnnotValidV_pi] at hv
     have h := hv.2.2 hz x hx
     rw [show interp2 V (cons x ρ)
-          ((.pi 0 b₂ (m.acval Lech.natName ψ) (m.acval codN ψ))
+          ((.pi 0 b₂ (m.acval ConLeche.natName ψ) (m.acval codN ψ))
             : AVExpr)
-        = piR b₂ (interp2 V ρ (m.acval Lech.natName ψ))
+        = piR b₂ (interp2 V ρ (m.acval ConLeche.natName ψ))
             (fun _ => interp2 V ρ (m.acval codN ψ)) from by
       rw [interp2_pi]
       congr 1
@@ -195,12 +195,12 @@ theorem dmBinV_of_parts (m : EnvS2Core V env) {ψ : Name → Nat}
 theorem dmUnV_of_parts (m : EnvS2Core V env) {ψ : Name → Nat}
     {b₁ : Nat} {codN : Name} {fa : AVExpr} {ρ : Nat → V}
     (hmem : interp2 V ρ fa ∈ˢ interp2 V ρ
-      ((.pi 0 b₁ (m.acval Lech.natName ψ) (m.acval codN ψ))
+      ((.pi 0 b₁ (m.acval ConLeche.natName ψ) (m.acval codN ψ))
         : AVExpr))
     (htok : AnnotOkP V ρ
-      ((.pi 0 b₁ (m.acval Lech.natName ψ) (m.acval codN ψ))
+      ((.pi 0 b₁ (m.acval ConLeche.natName ψ) (m.acval codN ψ))
         : AVExpr)) :
-    DmUnV (interp2 V ρ (m.acval Lech.natName ψ))
+    DmUnV (interp2 V ρ (m.acval ConLeche.natName ψ))
       (interp2 V ρ (m.acval codN ψ)) (interp2 V ρ fa) := by
   refine ⟨b₁, ?_, ?_⟩
   · rw [interp2_pi] at hmem
@@ -219,25 +219,25 @@ theorem dmUnV_of_parts (m : EnvS2Core V env) {ψ : Name → Nat}
 theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     {o : Name} {cio : ConstantInfo}
     (hf : env.find? o = some cio)
-    {mb₁ mb₂ : Lech.BinderMeta} {codN : Name}
+    {mb₁ mb₂ : ConLeche.BinderMeta} {codN : Name}
     (hty : cio.toConstantVal.type
-      = .forallE (.const Lech.natName [])
-      (.forallE (.const Lech.natName []) (.const codN []) mb₂)
+      = .forallE (.const ConLeche.natName [])
+      (.forallE (.const ConLeche.natName []) (.const codN []) mb₂)
       mb₁)
     {ciN codCi : ConstantInfo}
-    (hfN : env.find? Lech.natName = some ciN)
+    (hfN : env.find? ConLeche.natName = some ciN)
     (hlpN : ciN.toConstantVal.levelParams = [])
     (hcodF : env.find? codN = some codCi)
     (hcodLp : codCi.toConstantVal.levelParams = [])
     (ρ : Nat → V) :
-    DmBinV (interp2 V ρ (mp.base2.acval Lech.natName ψ))
+    DmBinV (interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
       (interp2 V ρ (mp.base2.acval codN ψ))
       (interp2 V ρ (mp.base2.acval o ψ)) := by
-  have hmemE := Lech.Semantics.Env.find?_mem hf
-  have hnm : cio.name = o := Lech.Semantics.Env.find?_name hf
+  have hmemE := ConLeche.Semantics.Env.find?_mem hf
+  have hnm : cio.name = o := ConLeche.Semantics.Env.find?_name hf
   have hta : denoteP mp.base2.acval env ψ 0 cio.toConstantVal.type
-      = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval Lech.natName ψ)
-          (.pi 0 (pwBit ψ mb₂.pw) (mp.base2.acval Lech.natName ψ)
+      = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval ConLeche.natName ψ)
+          (.pi 0 (pwBit ψ mb₂.pw) (mp.base2.acval ConLeche.natName ψ)
             (mp.base2.acval codN ψ))) := by
     rw [hty]
     exact denoteP_pinnedBinTy mp.base2 ψ hfN hlpN hcodF hcodLp
@@ -249,28 +249,28 @@ theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
 theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     {o : Name} {cio : ConstantInfo}
     (hf : env.find? o = some cio)
-    {mb₁ : Lech.BinderMeta} {codN : Name}
+    {mb₁ : ConLeche.BinderMeta} {codN : Name}
     (hty : cio.toConstantVal.type
-      = .forallE (.const Lech.natName []) (.const codN []) mb₁)
+      = .forallE (.const ConLeche.natName []) (.const codN []) mb₁)
     {ciN codCi : ConstantInfo}
-    (hfN : env.find? Lech.natName = some ciN)
+    (hfN : env.find? ConLeche.natName = some ciN)
     (hlpN : ciN.toConstantVal.levelParams = [])
     (hcodF : env.find? codN = some codCi)
     (hcodLp : codCi.toConstantVal.levelParams = [])
     (ρ : Nat → V) :
-    DmUnV (interp2 V ρ (mp.base2.acval Lech.natName ψ))
+    DmUnV (interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
       (interp2 V ρ (mp.base2.acval codN ψ))
       (interp2 V ρ (mp.base2.acval o ψ)) := by
-  have hmemE := Lech.Semantics.Env.find?_mem hf
-  have hnm : cio.name = o := Lech.Semantics.Env.find?_name hf
+  have hmemE := ConLeche.Semantics.Env.find?_mem hf
+  have hnm : cio.name = o := ConLeche.Semantics.Env.find?_name hf
   have hta : denoteP mp.base2.acval env ψ 0 cio.toConstantVal.type
-      = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval Lech.natName ψ)
+      = some (.pi 0 (pwBit ψ mb₁.pw) (mp.base2.acval ConLeche.natName ψ)
           (mp.base2.acval codN ψ)) := by
     rw [hty, denoteP_forallE, denoteP_levelless_const hfN hlpN]
-    rw [show (Expr.const codN ([] : List Lech.Level)).instantiate1
-          (.fvar 0 (.const Lech.natName []))
-        = Expr.const codN [] from Lech.Expr.instantiate1_eq_self
-        (by simp [Lech.Expr.looseBVarsBounded])]
+    rw [show (Expr.const codN ([] : List ConLeche.Level)).instantiate1
+          (.fvar 0 (.const ConLeche.natName []))
+        = Expr.const codN [] from ConLeche.Expr.instantiate1_eq_self
+        (by simp [ConLeche.Expr.looseBVarsBounded])]
     rw [denoteP_levelless_const hcodF hcodLp]
     rfl
   have hmem := mp.mem_typeP _ hmemE ψ _ hta ρ
@@ -295,10 +295,10 @@ def dmNatFrag (bins uns : List Name) : Expr → Bool
         dmNatFrag bins uns a && dmNatFrag bins uns b
   | .app (.const n us) a =>
       uns.contains n && us.isEmpty && dmNatFrag bins uns a
-  | .const n us => (n == Lech.natZeroName) && us.isEmpty
+  | .const n us => (n == ConLeche.natZeroName) && us.isEmpty
   | .fvar i ty =>
       ((i == 0) || (i == 1)) &&
-        ty == Expr.const Lech.natName []
+        ty == Expr.const ConLeche.natName []
   | _ => false
 
 /-- **The graded walk.**  A `Nat`-valued statement fragment reads, and
@@ -311,7 +311,7 @@ grade at every valuation satisfying the telescope, not at one. -/
 theorem dmNatFragP {m : EnvS2Core V env} {ψ : Name → Nat}
     {c : Name} {A : (Name → Nat) → AVExpr} {value' : Expr}
     {bins uns : List Name} {d : Nat} {natS : V}
-    (hread : ∀ n ∈ Lech.natZeroName :: (bins ++ uns), ∀ d' : Nat,
+    (hread : ∀ n ∈ ConLeche.natZeroName :: (bins ++ uns), ∀ d' : Nat,
       denoteP m.acval env ψ d' (Expr.substConst0 c value' (.const n []))
         = some (acvalWith m.acval c A n ψ))
     (hleafOk : ∀ (n : Name) (ρ : Nat → V),
@@ -321,7 +321,7 @@ theorem dmNatFragP {m : EnvS2Core V env} {ψ : Name → Nat}
     (hun : ∀ n ∈ uns, ∀ ρ : Nat → V,
       DmUnV natS natS (interp2 V ρ (acvalWith m.acval c A n ψ)))
     (hzero : ∀ ρ : Nat → V,
-      interp2 V ρ (acvalWith m.acval c A Lech.natZeroName ψ) ∈ˢ natS) :
+      interp2 V ρ (acvalWith m.acval c A ConLeche.natZeroName ψ) ∈ˢ natS) :
     ∀ e : Expr, dmNatFrag bins uns e = true →
       ∃ ea, denoteP m.acval env ψ d
           (Expr.substConst0 c value' e) = some ea ∧
@@ -390,14 +390,14 @@ theorem dmNatFragP {m : EnvS2Core V env} {ψ : Name → Nat}
     · refine ⟨.bvar (d - 1 - 0), ?_, fun ρ hx hy => ?_⟩
       · show denoteP m.acval env ψ d
           (.fvar 0
-            (.const Lech.natName [])) = _
+            (.const ConLeche.natName [])) = _
         rw [denoteP_fvar]
       · exact ⟨⟨by simp, by simp⟩, by rw [interp2_bvar]; exact hx,
           by rw [interp2_bvar]; rfl⟩
     · refine ⟨.bvar (d - 1 - 1), ?_, fun ρ hx hy => ?_⟩
       · show denoteP m.acval env ψ d
           (.fvar 1
-            (.const Lech.natName [])) = _
+            (.const ConLeche.natName [])) = _
         rw [denoteP_fvar]
       · exact ⟨⟨by simp, by simp⟩, by rw [interp2_bvar]; exact hy,
           by rw [interp2_bvar]; rfl⟩
@@ -422,7 +422,7 @@ bundle supplies it). -/
 /-- **One certificate, extracted at `interp2`.** -/
 theorem certValueP {F : Nat} (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     (hacc : ∀ {d : Nat} {e t : Expr},
-      Lech.inferTypeCore μ env F d e = .ok t →
+      ConLeche.inferTypeCore μ env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denoteP mp.base2.acval env ψ d e = some ea)
@@ -457,10 +457,10 @@ theorem certValueP {F : Nat} (mp : EnvS2PM V μ env) (ψ : Name → Nat)
   obtain ⟨-, appliedA, tp, hann, hinf, hde⟩ := hfacts
   -- the annotated applied proof keeps the frame
   have hWA : Expr.WScoped 4 appliedA :=
-    Lech.annotateCore_WScoped F _ hann hW
+    ConLeche.annotateCore_WScoped F _ hann hW
   have hBA : appliedA.looseBVarsBounded 0 = true :=
-    Lech.annotateCore_looseBVars F _ hann hB
-  have hsub := Lech.annotateCore_leaves_sub F _ hann hW hB
+    ConLeche.annotateCore_looseBVars F _ hann hB
+  have hsub := ConLeche.annotateCore_leaves_sub F _ hann hW hB
   have hLA : Expr.LeavesBounded appliedA := fun l hl => hL l (hsub l hl)
   have hCA' : CtxOkP mp.base2 ψ 4 Δa appliedA := hCA.of_subset hsub
   -- the readings
@@ -470,15 +470,15 @@ theorem certValueP {F : Nat} (mp : EnvS2PM V μ env) (ψ : Name → Nat)
   obtain ⟨-, hokT, hmem⟩ := hinfC hinf hWA hBA hLA hCA' hea hta
   -- the inferred type's frame
   have hWtp : Expr.WScoped 4 tp :=
-    Lech.inferTypeCore_WScoped mp.base2.wf F hinf hWA
+    ConLeche.inferTypeCore_WScoped mp.base2.wf F hinf hWA
   have hBtp : tp.looseBVarsBounded 0 = true :=
-    Lech.inferTypeCore_looseBVars mp.base2.wf F hinf hWA hBA hLA
+    ConLeche.inferTypeCore_looseBVars mp.base2.wf F hinf hWA hBA hLA
   have hLtp : Expr.LeavesBounded tp := fun l hl =>
-    hLA l (Lech.inferTypeCore_fvarLeaves mp.base2.wf F hinf hWA
+    hLA l (ConLeche.inferTypeCore_fvarLeaves mp.base2.wf F hinf hWA
       l hl)
   have hCtp : CtxOkP mp.base2 ψ 4 Δa tp :=
     hCA'.of_subset
-      (Lech.inferTypeCore_fvarLeaves mp.base2.wf F hinf hWA)
+      (ConLeche.inferTypeCore_fvarLeaves mp.base2.wf F hinf hWA)
   -- the defeq run identifies the inferred type with the statement
   have heq := hdeC hde hWtp hBtp hLtp hWE hBE hLE hCtp hCE hta hvE
     hokT hokE ρ hsat
@@ -590,23 +590,23 @@ def dmLeaf {env : Env} (m : EnvS2Core V env) (c : Name)
 /-- The binary heads the statements apply: the recurrence dependencies
 minus the guard's `Nat.ble` and the unary `Nat.pred`. -/
 def dmBinNames (c : Name) : List Name :=
-  (Lech.natOpDeps c).filter fun n =>
-    n != Lech.natBleName && n != Lech.natPredName
+  (ConLeche.natOpDeps c).filter fun n =>
+    n != ConLeche.natBleName && n != ConLeche.natPredName
 
 /-- The unary heads: `Nat.succ`.  Every pin-certified operation is
 binary (`Nat.log2` left the family with its fast path), so the
 operation itself never appears here. -/
-def dmUnNames (_c : Name) : List Name := [Lech.natSuccName]
+def dmUnNames (_c : Name) : List Name := [ConLeche.natSuccName]
 
 /-- Every head a certificate block mentions. -/
 def dmHeadNames (c : Name) : List Name :=
-  Lech.natName :: Lech.boolName :: Lech.natZeroName ::
-    Lech.natBleName :: Lech.boolTrueName ::
-    Lech.boolFalseName :: (dmBinNames c ++ dmUnNames c)
+  ConLeche.natName :: ConLeche.boolName :: ConLeche.natZeroName ::
+    ConLeche.natBleName :: ConLeche.boolTrueName ::
+    ConLeche.boolFalseName :: (dmBinNames c ++ dmUnNames c)
 
 /-- The walk's head list sits inside the frame's. -/
 theorem mem_dmHeadNames {c n : Name}
-    (h : n ∈ Lech.natZeroName :: (dmBinNames c ++ dmUnNames c)) :
+    (h : n ∈ ConLeche.natZeroName :: (dmBinNames c ++ dmUnNames c)) :
     n ∈ dmHeadNames c := by
   simp only [dmHeadNames, List.mem_cons] at h ⊢
   rcases h with rfl | h
@@ -661,7 +661,7 @@ theorem dmNatFrag_syntax {bins uns : List Name} :
     obtain ⟨rfl, rfl⟩ := h
     exact ⟨by simp [dmLeavesOk, Expr.fvarLeaves], rfl, fun _ _ =>
       Expr.WScoped.of_not_hasFvar
-        (e := .const Lech.natZeroName []) rfl⟩
+        (e := .const ConLeche.natZeroName []) rfl⟩
   | .fvar i ty, h => by
     simp only [dmNatFrag, Bool.and_eq_true, Bool.or_eq_true,
       beq_iff_eq] at h
@@ -670,11 +670,11 @@ theorem dmNatFrag_syntax {bins uns : List Name} :
     · exact ⟨by simp [dmLeavesOk, Expr.fvarLeaves], rfl,
         fun d hd => dmFvarWScoped (by omega)
           (Expr.WScoped.of_not_hasFvar
-            (e := .const Lech.natName []) rfl)⟩
+            (e := .const ConLeche.natName []) rfl)⟩
     · exact ⟨by simp [dmLeavesOk, Expr.fvarLeaves], rfl,
         fun d hd => dmFvarWScoped (by omega)
           (Expr.WScoped.of_not_hasFvar
-            (e := .const Lech.natName []) rfl)⟩
+            (e := .const ConLeche.natName []) rfl)⟩
   | .bvar _, h | .sort _, h | .lam _ _ _, h | .letE _ _ _, h
   | .forallE _ _ _, h | .lit _, h | .proj _ _ _, h => by
     simp [dmNatFrag] at h
@@ -714,8 +714,8 @@ structure DmFrameP {env : Env} (mp : EnvS2PM V μ env) (c : Name)
   /-- the pinned `Eq` is stored -/
   eqStored : env.find? eqName = some eqA
   /-- neither pinned type name is the operation being installed -/
-  natNe : Lech.natName ≠ c
-  boolNe : Lech.boolName ≠ c
+  natNe : ConLeche.natName ≠ c
+  boolNe : ConLeche.boolName ≠ c
   /-- the annotated stored value's reading, at every depth -/
   selfRead : ∀ d : Nat,
     denoteP mp.base2.acval env ψ d value' = some (A ψ)
@@ -734,31 +734,31 @@ structure DmFrameP {env : Env} (mp : EnvS2PM V μ env) (c : Name)
       = interp2 V ρ' (dmLeaf mp.base2 c A ψ n)
   /-- the frame's two types are universes -/
   natU : ∀ ρ : Nat → V,
-    interp2 V ρ (mp.base2.acval Lech.natName ψ) ∈ˢ (univ 1 : V)
+    interp2 V ρ (mp.base2.acval ConLeche.natName ψ) ∈ˢ (univ 1 : V)
   boolU : ∀ ρ : Nat → V,
-    interp2 V ρ (mp.base2.acval Lech.boolName ψ) ∈ˢ (univ 1 : V)
+    interp2 V ρ (mp.base2.acval ConLeche.boolName ψ) ∈ˢ (univ 1 : V)
   /-- the statements' heads are functions on the frame's `Nat` -/
   binHead : ∀ n ∈ dmBinNames c, ∀ ρ : Nat → V,
-    DmBinV (interp2 V ρ (mp.base2.acval Lech.natName ψ))
-      (interp2 V ρ (mp.base2.acval Lech.natName ψ))
+    DmBinV (interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
+      (interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
       (interp2 V ρ (dmLeaf mp.base2 c A ψ n))
   unHead : ∀ n ∈ dmUnNames c, ∀ ρ : Nat → V,
-    DmUnV (interp2 V ρ (mp.base2.acval Lech.natName ψ))
-      (interp2 V ρ (mp.base2.acval Lech.natName ψ))
+    DmUnV (interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
+      (interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
       (interp2 V ρ (dmLeaf mp.base2 c A ψ n))
   /-- …and the guard's `Nat.ble` is one into `Bool` -/
   bleHead : ∀ ρ : Nat → V,
-    DmBinV (interp2 V ρ (mp.base2.acval Lech.natName ψ))
-      (interp2 V ρ (mp.base2.acval Lech.boolName ψ))
-      (interp2 V ρ (dmLeaf mp.base2 c A ψ Lech.natBleName))
+    DmBinV (interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
+      (interp2 V ρ (mp.base2.acval ConLeche.boolName ψ))
+      (interp2 V ρ (dmLeaf mp.base2 c A ψ ConLeche.natBleName))
   /-- the constructors inhabit their types -/
   zeroMem : ∀ ρ : Nat → V,
-    interp2 V ρ (dmLeaf mp.base2 c A ψ Lech.natZeroName)
-      ∈ˢ interp2 V ρ (mp.base2.acval Lech.natName ψ)
+    interp2 V ρ (dmLeaf mp.base2 c A ψ ConLeche.natZeroName)
+      ∈ˢ interp2 V ρ (mp.base2.acval ConLeche.natName ψ)
   boolCtorMem : ∀ bn : Name,
-    bn = Lech.boolTrueName ∨ bn = Lech.boolFalseName →
+    bn = ConLeche.boolTrueName ∨ bn = ConLeche.boolFalseName →
     ∀ ρ : Nat → V, interp2 V ρ (dmLeaf mp.base2 c A ψ bn)
-      ∈ˢ interp2 V ρ (mp.base2.acval Lech.boolName ψ)
+      ∈ˢ interp2 V ρ (mp.base2.acval ConLeche.boolName ψ)
 
 namespace DmFrameP
 
@@ -786,17 +786,17 @@ theorem read (fr : DmFrameP mp c A value' ψ) {n : Name}
 
 /-- The `Nat` leaf is not moved by the extension. -/
 theorem natLeaf (fr : DmFrameP mp c A value' ψ) :
-    dmLeaf mp.base2 c A ψ Lech.natName
-      = mp.base2.acval Lech.natName ψ := by
-  rw [dmLeaf, show acvalWith mp.base2.acval c A Lech.natName
-    = mp.base2.acval Lech.natName from acvalWith_ne fr.natNe]
+    dmLeaf mp.base2 c A ψ ConLeche.natName
+      = mp.base2.acval ConLeche.natName ψ := by
+  rw [dmLeaf, show acvalWith mp.base2.acval c A ConLeche.natName
+    = mp.base2.acval ConLeche.natName from acvalWith_ne fr.natNe]
 
 /-- Nor is the `Bool` leaf. -/
 theorem boolLeaf (fr : DmFrameP mp c A value' ψ) :
-    dmLeaf mp.base2 c A ψ Lech.boolName
-      = mp.base2.acval Lech.boolName ψ := by
-  rw [dmLeaf, show acvalWith mp.base2.acval c A Lech.boolName
-    = mp.base2.acval Lech.boolName from acvalWith_ne fr.boolNe]
+    dmLeaf mp.base2 c A ψ ConLeche.boolName
+      = mp.base2.acval ConLeche.boolName ψ := by
+  rw [dmLeaf, show acvalWith mp.base2.acval c A ConLeche.boolName
+    = mp.base2.acval ConLeche.boolName from acvalWith_ne fr.boolNe]
 
 end DmFrameP
 
@@ -813,9 +813,9 @@ satisfying valuation. -/
 theorem DmFrameP.readNat {mp : EnvS2PM V μ env} {c : Name}
     {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
     (fr : DmFrameP mp c A value' ψ) (d : Nat) :
-    denoteP mp.base2.acval env ψ d (Expr.const Lech.natName [])
-      = some (mp.base2.acval Lech.natName ψ) := by
-  rcases fr.stored Lech.natName (by simp [dmHeadNames]) with
+    denoteP mp.base2.acval env ψ d (Expr.const ConLeche.natName [])
+      = some (mp.base2.acval ConLeche.natName ψ) := by
+  rcases fr.stored ConLeche.natName (by simp [dmHeadNames]) with
     hc | ⟨-, ci, hf, hlp⟩
   · exact absurd hc fr.natNe
   · exact denoteP_levelless_const hf hlp
@@ -824,9 +824,9 @@ theorem DmFrameP.readNat {mp : EnvS2PM V μ env} {c : Name}
 theorem DmFrameP.readBool {mp : EnvS2PM V μ env} {c : Name}
     {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
     (fr : DmFrameP mp c A value' ψ) (d : Nat) :
-    denoteP mp.base2.acval env ψ d (Expr.const Lech.boolName [])
-      = some (mp.base2.acval Lech.boolName ψ) := by
-  rcases fr.stored Lech.boolName (by simp [dmHeadNames]) with
+    denoteP mp.base2.acval env ψ d (Expr.const ConLeche.boolName [])
+      = some (mp.base2.acval ConLeche.boolName ψ) := by
+  rcases fr.stored ConLeche.boolName (by simp [dmHeadNames]) with
     hc | ⟨-, ci, hf, hlp⟩
   · exact absurd hc fr.boolNe
   · exact denoteP_levelless_const hf hlp
@@ -837,38 +837,38 @@ theorem dmCtxOkP_natLeaves {mp : EnvS2PM V μ env} {c : Name}
     {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
     (fr : DmFrameP mp c A value' ψ) {Δa : List AVExpr}
     (hlen : Δa.length = 4)
-    (h3 : Δa.getD 3 default = mp.base2.acval Lech.natName ψ)
-    (h2 : Δa.getD 2 default = mp.base2.acval Lech.natName ψ)
+    (h3 : Δa.getD 3 default = mp.base2.acval ConLeche.natName ψ)
+    (h2 : Δa.getD 2 default = mp.base2.acval ConLeche.natName ψ)
     {e : Expr} (he : dmLeavesOk e = true) :
     CtxOkP mp.base2 ψ 4 Δa (Expr.substConst0 c value' e) := by
   have hself : ∀ k : Nat,
-      (mp.base2.acval Lech.natName ψ).liftN k 0
-        = mp.base2.acval Lech.natName ψ := fun k =>
+      (mp.base2.acval ConLeche.natName ψ).liftN k 0
+        = mp.base2.acval ConLeche.natName ψ := fun k =>
     AVExpr.liftN_eq_self _
       (by rw [mp.base2.acval_erase]
-          exact mp.base2.cval_closed Lech.natName ψ) k
+          exact mp.base2.cval_closed ConLeche.natName ψ) k
   refine ctxOkP_pinnedLift hlen (fun l hl => ?_)
   rw [fvarLeaves_substConst0 (n := c) fr.valueNoFvar e] at hl
   rcases dmLeavesOk_mem he hl with rfl | rfl
   · refine ⟨by omega, trivial, _, fr.readNat 4, ?_,
       fun ρ _ => ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩⟩
-    show mp.base2.acval Lech.natName ψ
+    show mp.base2.acval ConLeche.natName ψ
       = (Δa.getD 3 default).liftN 4 0
     rw [h3, hself 4]
   · refine ⟨by omega, trivial, _, fr.readNat 4, ?_,
       fun ρ _ => ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩⟩
-    show mp.base2.acval Lech.natName ψ
+    show mp.base2.acval ConLeche.natName ψ
       = (Δa.getD 2 default).liftN 3 0
     rw [h2, hself 3]
 
 /-- The frame's two `Nat` slots, read off satisfaction. -/
 theorem dmSat_slots {mp : EnvS2PM V μ env} {ψ : Name → Nat}
     {Δa : List AVExpr} (hlen : Δa.length = 4)
-    (h3 : Δa.getD 3 default = mp.base2.acval Lech.natName ψ)
-    (h2 : Δa.getD 2 default = mp.base2.acval Lech.natName ψ)
+    (h3 : Δa.getD 3 default = mp.base2.acval ConLeche.natName ψ)
+    (h2 : Δa.getD 2 default = mp.base2.acval ConLeche.natName ψ)
     {ρ : Nat → V} (hsat : Sat2 V Δa ρ) (ρ₀ : Nat → V) :
-    ρ 3 ∈ˢ interp2 V ρ₀ (mp.base2.acval Lech.natName ψ) ∧
-      ρ 2 ∈ˢ interp2 V ρ₀ (mp.base2.acval Lech.natName ψ) := by
+    ρ 3 ∈ˢ interp2 V ρ₀ (mp.base2.acval ConLeche.natName ψ) ∧
+      ρ 2 ∈ˢ interp2 V ρ₀ (mp.base2.acval ConLeche.natName ψ) := by
   have hg : ∀ i : Nat, i < 4 →
       Δa[i]? = some (Δa.getD i default) := by
     intro i hi
@@ -886,7 +886,7 @@ theorem dmStmtEqP {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
     {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
     (fr : DmFrameP mp c A value' ψ) (heqlaw : EqLawP mp.base2)
     (hacc : ∀ {d : Nat} {e t : Expr},
-      Lech.inferTypeCore μ env F d e = .ok t →
+      ConLeche.inferTypeCore μ env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denoteP mp.base2.acval env ψ d e = some ea)
@@ -896,12 +896,12 @@ theorem dmStmtEqP {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
     {hyps : List Expr} {lhs rhs proof : Expr}
     (hfacts : CertRunFacts μ env F c value'
       (hyps, .app (.app (.app (.const eqName [.succ .zero])
-        (.const Lech.natName [])) lhs) rhs) proof)
+        (.const ConLeche.natName [])) lhs) rhs) proof)
     (hlhs : dmNatFrag (dmBinNames c) (dmUnNames c) lhs = true)
     (hrhs : dmNatFrag (dmBinNames c) (dmUnNames c) rhs = true)
     {Δa : List AVExpr} (hlen : Δa.length = 4)
-    (h3 : Δa.getD 3 default = mp.base2.acval Lech.natName ψ)
-    (h2 : Δa.getD 2 default = mp.base2.acval Lech.natName ψ)
+    (h3 : Δa.getD 3 default = mp.base2.acval ConLeche.natName ψ)
+    (h2 : Δa.getD 2 default = mp.base2.acval ConLeche.natName ψ)
     (hWA : Expr.WScoped 4 (divModCertApplied
       (Expr.substConstAll c value' proof)
       (hyps.map (Expr.substConst0 c value'))))
@@ -921,32 +921,32 @@ theorem dmStmtEqP {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
         (ρ4 3) (ρ4 2) rhs := by
   -- the walk's inputs, at the fixed `Nat` set
   have hmove : ∀ ρ : Nat → V,
-      interp2 V ρ (mp.base2.acval Lech.natName ψ)
-        = interp2 V ρ4 (mp.base2.acval Lech.natName ψ) :=
+      interp2 V ρ (mp.base2.acval ConLeche.natName ψ)
+        = interp2 V ρ4 (mp.base2.acval ConLeche.natName ψ) :=
     fun ρ => acval_interp2_closedC mp.base2 _ ψ ρ ρ4
-  have hread : ∀ n ∈ Lech.natZeroName ::
+  have hread : ∀ n ∈ ConLeche.natZeroName ::
       (dmBinNames c ++ dmUnNames c), ∀ d' : Nat,
       denoteP mp.base2.acval env ψ d'
         (Expr.substConst0 c value' (.const n []))
         = some (acvalWith mp.base2.acval c A n ψ) :=
     fun n hn d' => fr.read (mem_dmHeadNames hn) d'
   have hbin : ∀ n ∈ dmBinNames c, ∀ ρ : Nat → V,
-      DmBinV (interp2 V ρ4 (mp.base2.acval Lech.natName ψ))
-        (interp2 V ρ4 (mp.base2.acval Lech.natName ψ))
+      DmBinV (interp2 V ρ4 (mp.base2.acval ConLeche.natName ψ))
+        (interp2 V ρ4 (mp.base2.acval ConLeche.natName ψ))
         (interp2 V ρ (acvalWith mp.base2.acval c A n ψ)) := by
     intro n hn ρ
     have h := fr.binHead n hn ρ
     rwa [hmove ρ] at h
   have hun : ∀ n ∈ dmUnNames c, ∀ ρ : Nat → V,
-      DmUnV (interp2 V ρ4 (mp.base2.acval Lech.natName ψ))
-        (interp2 V ρ4 (mp.base2.acval Lech.natName ψ))
+      DmUnV (interp2 V ρ4 (mp.base2.acval ConLeche.natName ψ))
+        (interp2 V ρ4 (mp.base2.acval ConLeche.natName ψ))
         (interp2 V ρ (acvalWith mp.base2.acval c A n ψ)) := by
     intro n hn ρ
     have h := fr.unHead n hn ρ
     rwa [hmove ρ] at h
   have hzero : ∀ ρ : Nat → V,
-      interp2 V ρ (acvalWith mp.base2.acval c A Lech.natZeroName ψ)
-        ∈ˢ interp2 V ρ4 (mp.base2.acval Lech.natName ψ) := by
+      interp2 V ρ (acvalWith mp.base2.acval c A ConLeche.natZeroName ψ)
+        ∈ˢ interp2 V ρ4 (mp.base2.acval ConLeche.natName ψ) := by
     intro ρ
     have h := fr.zeroMem ρ
     rwa [hmove ρ] at h
@@ -957,13 +957,13 @@ theorem dmStmtEqP {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
     dmNatFragP (d := 4) hread fr.leafOk hbin hun hzero rhs hrhs
   -- the slots, at every satisfying valuation
   have hslots : ∀ ρ : Nat → V, Sat2 V Δa ρ →
-      ρ 3 ∈ˢ interp2 V ρ4 (mp.base2.acval Lech.natName ψ) ∧
-        ρ 2 ∈ˢ interp2 V ρ4 (mp.base2.acval Lech.natName ψ) :=
+      ρ 3 ∈ˢ interp2 V ρ4 (mp.base2.acval ConLeche.natName ψ) ∧
+        ρ 2 ∈ˢ interp2 V ρ4 (mp.base2.acval ConLeche.natName ψ) :=
     fun ρ hρ => dmSat_slots hlen h3 h2 hρ ρ4
   -- the statement's reading
   have hnatRead : denoteP mp.base2.acval env ψ 4
-      (Expr.substConst0 c value' (.const Lech.natName []))
-      = some (mp.base2.acval Lech.natName ψ) := by
+      (Expr.substConst0 c value' (.const ConLeche.natName []))
+      = some (mp.base2.acval ConLeche.natName ψ) := by
     rw [fr.read (by simp [dmHeadNames]) 4, fr.natLeaf]
   have hstmt := denoteP_eqSpine (acval := mp.base2.acval) (c := c)
     (value' := value') fr.eqStored hnatRead hdl hdr
@@ -971,7 +971,7 @@ theorem dmStmtEqP {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
   have hokE : ∀ ρ : Nat → V, Sat2 V Δa ρ →
       AnnotOkP V ρ ((.app (.app (.app (mp.base2.acval eqName
         (Level.substFn ψ eqA.toConstantVal.levelParams
-          [Level.zero.succ])) (mp.base2.acval Lech.natName ψ)) lhsa)
+          [Level.zero.succ])) (mp.base2.acval ConLeche.natName ψ)) lhsa)
         rhsa : AVExpr)) := by
     intro ρ hρ
     obtain ⟨hx, hy⟩ := hslots ρ hρ
@@ -986,30 +986,30 @@ theorem dmStmtEqP {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
   obtain ⟨hlL, hbL, hwL⟩ := dmNatFrag_syntax lhs hlhs
   obtain ⟨hlR, hbR, hwR⟩ := dmNatFrag_syntax rhs hrhs
   have hlE : dmLeavesOk (Expr.app (.app (.app
-      (.const eqName [.succ .zero]) (.const Lech.natName [])) lhs)
+      (.const eqName [.succ .zero]) (.const ConLeche.natName [])) lhs)
       rhs) = true := by
     simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append,
       List.all_append, Bool.and_eq_true]
     exact ⟨hlL, hlR⟩
   have hWE : Expr.WScoped 4 (Expr.substConst0 c value'
       (.app (.app (.app (.const eqName [.succ .zero])
-        (.const Lech.natName [])) lhs) rhs)) :=
+        (.const ConLeche.natName [])) lhs) rhs)) :=
     wscoped_substConst0 fr.valueNoFvar _
       (dmApp_wscoped (dmApp_wscoped (dmApp_wscoped
         (Expr.WScoped.of_not_hasFvar
           (e := .const eqName [.succ .zero]) rfl)
         (Expr.WScoped.of_not_hasFvar
-          (e := .const Lech.natName []) rfl))
+          (e := .const ConLeche.natName []) rfl))
         (hwL 4 (by omega))) (hwR 4 (by omega)))
   have hBE : (Expr.substConst0 c value' (.app (.app (.app
-      (.const eqName [.succ .zero]) (.const Lech.natName [])) lhs)
+      (.const eqName [.succ .zero]) (.const ConLeche.natName [])) lhs)
       rhs)).looseBVarsBounded 0 = true :=
     looseBVarsBounded_substConst0 fr.valueBounded _
       (by simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
           exact ⟨⟨⟨trivial, trivial⟩, hbL⟩, hbR⟩)
   have hLE : Expr.LeavesBounded (Expr.substConst0 c value'
       (.app (.app (.app (.const eqName [.succ .zero])
-        (.const Lech.natName [])) lhs) rhs)) :=
+        (.const ConLeche.natName [])) lhs) rhs)) :=
     dmLeavesOk_leavesBounded
       (dmLeavesOk_substConst0 fr.valueNoFvar hlE)
   have hCE := dmCtxOkP_natLeaves fr hlen h3 h2 hlE
@@ -1022,7 +1022,7 @@ theorem dmStmtEqP {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
   obtain ⟨-, hmr4, her⟩ := hfr ρ4 hx4 hy4
   rw [show interp2 V ρ4 ((.app (.app (.app (mp.base2.acval eqName
         (Level.substFn ψ eqA.toConstantVal.levelParams
-          [Level.zero.succ])) (mp.base2.acval Lech.natName ψ)) lhsa)
+          [Level.zero.succ])) (mp.base2.acval ConLeche.natName ψ)) lhsa)
         rhsa : AVExpr))
       = eqv (interp2 V ρ4 lhsa) (interp2 V ρ4 rhsa) from by
     rw [interp2_app, interp2_app, interp2_app]
@@ -1050,24 +1050,24 @@ reads. -/
 theorem dmWalkInputs {mp : EnvS2PM V μ env} {c : Name}
     {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
     (fr : DmFrameP mp c A value' ψ) (ρ₀ : Nat → V) :
-    (∀ n ∈ Lech.natZeroName :: (dmBinNames c ++ dmUnNames c),
+    (∀ n ∈ ConLeche.natZeroName :: (dmBinNames c ++ dmUnNames c),
       ∀ d' : Nat, denoteP mp.base2.acval env ψ d'
         (Expr.substConst0 c value' (.const n []))
         = some (acvalWith mp.base2.acval c A n ψ)) ∧
     (∀ n ∈ dmBinNames c, ∀ ρ : Nat → V,
-      DmBinV (interp2 V ρ₀ (mp.base2.acval Lech.natName ψ))
-        (interp2 V ρ₀ (mp.base2.acval Lech.natName ψ))
+      DmBinV (interp2 V ρ₀ (mp.base2.acval ConLeche.natName ψ))
+        (interp2 V ρ₀ (mp.base2.acval ConLeche.natName ψ))
         (interp2 V ρ (acvalWith mp.base2.acval c A n ψ))) ∧
     (∀ n ∈ dmUnNames c, ∀ ρ : Nat → V,
-      DmUnV (interp2 V ρ₀ (mp.base2.acval Lech.natName ψ))
-        (interp2 V ρ₀ (mp.base2.acval Lech.natName ψ))
+      DmUnV (interp2 V ρ₀ (mp.base2.acval ConLeche.natName ψ))
+        (interp2 V ρ₀ (mp.base2.acval ConLeche.natName ψ))
         (interp2 V ρ (acvalWith mp.base2.acval c A n ψ))) ∧
     (∀ ρ : Nat → V,
-      interp2 V ρ (acvalWith mp.base2.acval c A Lech.natZeroName ψ)
-        ∈ˢ interp2 V ρ₀ (mp.base2.acval Lech.natName ψ)) := by
+      interp2 V ρ (acvalWith mp.base2.acval c A ConLeche.natZeroName ψ)
+        ∈ˢ interp2 V ρ₀ (mp.base2.acval ConLeche.natName ψ)) := by
   have hmove : ∀ ρ : Nat → V,
-      interp2 V ρ (mp.base2.acval Lech.natName ψ)
-        = interp2 V ρ₀ (mp.base2.acval Lech.natName ψ) :=
+      interp2 V ρ (mp.base2.acval ConLeche.natName ψ)
+        = interp2 V ρ₀ (mp.base2.acval ConLeche.natName ψ) :=
     fun ρ => acval_interp2_closedC mp.base2 _ ψ ρ ρ₀
   refine ⟨fun n hn d' => fr.read (mem_dmHeadNames hn) d', ?_, ?_, ?_⟩
   · intro n hn ρ
@@ -1085,24 +1085,24 @@ theorem dmGuardSpineP {mp : EnvS2PM V μ env} {c : Name}
     {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
     (fr : DmFrameP mp c A value' ψ) (heqlaw : EqLawP mp.base2)
     {t1 t2 : Expr} {bn : Name}
-    (hbn : bn = Lech.boolTrueName ∨ bn = Lech.boolFalseName)
+    (hbn : bn = ConLeche.boolTrueName ∨ bn = ConLeche.boolFalseName)
     (ht1 : dmNatFrag (dmBinNames c) (dmUnNames c) t1 = true)
     (ht2 : dmNatFrag (dmBinNames c) (dmUnNames c) t2 = true)
     (ρ₀ : Nat → V) (d : Nat) :
     ∃ ga, denoteP mp.base2.acval env ψ d (Expr.substConst0 c value'
         (.app (.app (.app (.const eqName [.succ .zero])
-          (.const Lech.boolName []))
-          (.app (.app (.const Lech.natBleName []) t1) t2))
+          (.const ConLeche.boolName []))
+          (.app (.app (.const ConLeche.natBleName []) t1) t2))
           (.const bn []))) = some ga ∧
       ∀ ρ : Nat → V,
         ρ (d - 1 - 0)
-          ∈ˢ interp2 V ρ₀ (mp.base2.acval Lech.natName ψ) →
+          ∈ˢ interp2 V ρ₀ (mp.base2.acval ConLeche.natName ψ) →
         ρ (d - 1 - 1)
-          ∈ˢ interp2 V ρ₀ (mp.base2.acval Lech.natName ψ) →
+          ∈ˢ interp2 V ρ₀ (mp.base2.acval ConLeche.natName ψ) →
         AnnotOkP V ρ ga ∧
         interp2 V ρ ga = eqv
           (SetTheory.app (SetTheory.app
-            (interp2 V ρ (dmLeaf mp.base2 c A ψ Lech.natBleName))
+            (interp2 V ρ (dmLeaf mp.base2 c A ψ ConLeche.natBleName))
             (dmEvalV V
               (fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n))
               (ρ (d - 1 - 0)) (ρ (d - 1 - 1)) t1))
@@ -1116,8 +1116,8 @@ theorem dmGuardSpineP {mp : EnvS2PM V μ env} {c : Name}
   obtain ⟨t2a, hd2, hf2⟩ :=
     dmNatFragP (d := d) hread fr.leafOk hbin hun hzero t2 ht2
   have hbleRead : denoteP mp.base2.acval env ψ d
-      (Expr.substConst0 c value' (.const Lech.natBleName []))
-      = some (dmLeaf mp.base2 c A ψ Lech.natBleName) :=
+      (Expr.substConst0 c value' (.const ConLeche.natBleName []))
+      = some (dmLeaf mp.base2 c A ψ ConLeche.natBleName) :=
     fr.read (by simp [dmHeadNames]) d
   have hbnRead : denoteP mp.base2.acval env ψ d
       (Expr.substConst0 c value' (.const bn []))
@@ -1126,46 +1126,46 @@ theorem dmGuardSpineP {mp : EnvS2PM V μ env} {c : Name}
     rcases hbn with rfl | rfl <;> simp [dmHeadNames]
   have hbleApp : denoteP mp.base2.acval env ψ d
       (Expr.substConst0 c value'
-        (.app (.app (.const Lech.natBleName []) t1) t2))
-      = some (.app (.app (dmLeaf mp.base2 c A ψ Lech.natBleName)
+        (.app (.app (.const ConLeche.natBleName []) t1) t2))
+      = some (.app (.app (dmLeaf mp.base2 c A ψ ConLeche.natBleName)
           t1a) t2a) := by
     show denoteP mp.base2.acval env ψ d
       (.app (.app (Expr.substConst0 c value'
-        (.const Lech.natBleName [])) (Expr.substConst0 c value' t1))
+        (.const ConLeche.natBleName [])) (Expr.substConst0 c value' t1))
         (Expr.substConst0 c value' t2)) = _
     rw [denoteP_app, denoteP_app, hbleRead, hd1, hd2]
     rfl
   have hboolRead : denoteP mp.base2.acval env ψ d
-      (Expr.substConst0 c value' (.const Lech.boolName []))
-      = some (mp.base2.acval Lech.boolName ψ) := by
+      (Expr.substConst0 c value' (.const ConLeche.boolName []))
+      = some (mp.base2.acval ConLeche.boolName ψ) := by
     rw [fr.read (by simp [dmHeadNames]) d, fr.boolLeaf]
   refine ⟨_, denoteP_eqSpine fr.eqStored hboolRead hbleApp hbnRead,
     fun ρ hx hy => ?_⟩
   obtain ⟨hok1, hm1, he1⟩ := hf1 ρ hx hy
   obtain ⟨hok2, hm2, he2⟩ := hf2 ρ hx hy
-  have hmoveB : interp2 V ρ (mp.base2.acval Lech.boolName ψ)
-      = interp2 V ρ (mp.base2.acval Lech.boolName ψ) := rfl
+  have hmoveB : interp2 V ρ (mp.base2.acval ConLeche.boolName ψ)
+      = interp2 V ρ (mp.base2.acval ConLeche.boolName ψ) := rfl
   have hbleV := fr.bleHead ρ
-  have hmoveN : interp2 V ρ (mp.base2.acval Lech.natName ψ)
-      = interp2 V ρ₀ (mp.base2.acval Lech.natName ψ) :=
+  have hmoveN : interp2 V ρ (mp.base2.acval ConLeche.natName ψ)
+      = interp2 V ρ₀ (mp.base2.acval ConLeche.natName ψ) :=
     acval_interp2_closedC mp.base2 _ ψ ρ ρ₀
   rw [hmoveN] at hbleV
   have hbleOk : AnnotOkP V ρ
-      ((.app (.app (dmLeaf mp.base2 c A ψ Lech.natBleName) t1a) t2a
+      ((.app (.app (dmLeaf mp.base2 c A ψ ConLeche.natBleName) t1a) t2a
         : AVExpr)) :=
     ⟨DmBinV.ok2 hbleV hm1 hm2 (fr.leafOk _ ρ).1 hok1.1 hok2.1 rfl rfl
         rfl,
       by rw [AnnotValidV_app, AnnotValidV_app]
          exact ⟨⟨(fr.leafOk _ ρ).2, hok1.2⟩, hok2.2⟩⟩
   have hbleMem : interp2 V ρ
-      ((.app (.app (dmLeaf mp.base2 c A ψ Lech.natBleName) t1a) t2a
+      ((.app (.app (dmLeaf mp.base2 c A ψ ConLeche.natBleName) t1a) t2a
         : AVExpr))
-      ∈ˢ interp2 V ρ (mp.base2.acval Lech.boolName ψ) := by
+      ∈ˢ interp2 V ρ (mp.base2.acval ConLeche.boolName ψ) := by
     rw [interp2_app, interp2_app]
     exact DmBinV.app hbleV hm1 hm2
   have hlaw := (heqlaw fr.eqStored (Level.substFn ψ
       eqA.toConstantVal.levelParams [Level.zero.succ])).2 ρ
-    (mp.base2.acval Lech.boolName ψ) _ (dmLeaf mp.base2 c A ψ bn)
+    (mp.base2.acval ConLeche.boolName ψ) _ (dmLeaf mp.base2 c A ψ bn)
     ⟨mp.base2.acval_ok2 _ _ ρ, mp.acval_validV _ _ ρ⟩ hbleOk
     (fr.leafOk _ ρ)
     (by rw [eqSubstP_uN]; exact fr.boolU ρ) hbleMem
@@ -1191,7 +1191,7 @@ theorem dmClause1P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
     {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
     (fr : DmFrameP mp c A value' ψ) (heqlaw : EqLawP mp.base2)
     (hacc : ∀ {d : Nat} {e t : Expr},
-      Lech.inferTypeCore μ env F d e = .ok t →
+      ConLeche.inferTypeCore μ env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denoteP mp.base2.acval env ψ d e = some ea)
@@ -1199,23 +1199,23 @@ theorem dmClause1P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
     (hinfC : InferClaims2P μ mp.base2 ψ F)
     (hdeC : DefEqClaims2P μ mp.base2 ψ F)
     (ρ : Nat → V) {xx yy : V}
-    (hxx : xx ∈ˢ interp2 V ρ (mp.base2.acval Lech.natName ψ))
-    (hyy : yy ∈ˢ interp2 V ρ (mp.base2.acval Lech.natName ψ))
+    (hxx : xx ∈ˢ interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
+    (hyy : yy ∈ˢ interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
     {t1 t2 lhs rhs proof : Expr} {bn : Name}
-    (hbn : bn = Lech.boolTrueName ∨ bn = Lech.boolFalseName)
+    (hbn : bn = ConLeche.boolTrueName ∨ bn = ConLeche.boolFalseName)
     (hfacts : CertRunFacts μ env F c value'
       ([Expr.app (.app (.app (.const eqName [.succ .zero])
-          (.const Lech.boolName []))
-          (.app (.app (.const Lech.natBleName []) t1) t2))
+          (.const ConLeche.boolName []))
+          (.app (.app (.const ConLeche.natBleName []) t1) t2))
           (.const bn [])],
        Expr.app (.app (.app (.const eqName [.succ .zero])
-          (.const Lech.natName [])) lhs) rhs) proof)
+          (.const ConLeche.natName [])) lhs) rhs) proof)
     (ht1 : dmNatFrag (dmBinNames c) (dmUnNames c) t1 = true)
     (ht2 : dmNatFrag (dmBinNames c) (dmUnNames c) t2 = true)
     (hlhs : dmNatFrag (dmBinNames c) (dmUnNames c) lhs = true)
     (hrhs : dmNatFrag (dmBinNames c) (dmUnNames c) rhs = true)
     (hfired : SetTheory.app (SetTheory.app
-        (interp2 V ρ (dmLeaf mp.base2 c A ψ Lech.natBleName))
+        (interp2 V ρ (dmLeaf mp.base2 c A ψ ConLeche.natBleName))
         (dmEvalV V (fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n))
           xx yy t1))
         (dmEvalV V (fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n))
@@ -1237,31 +1237,31 @@ theorem dmClause1P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
   obtain ⟨hl2, hb2, hw2⟩ := dmNatFrag_syntax t2 ht2
   -- the hypothesis type's syntax
   have hlH : dmLeavesOk (Expr.app (.app (.app
-      (.const eqName [.succ .zero]) (.const Lech.boolName []))
-      (.app (.app (.const Lech.natBleName []) t1) t2))
+      (.const eqName [.succ .zero]) (.const ConLeche.boolName []))
+      (.app (.app (.const ConLeche.natBleName []) t1) t2))
       (.const bn [])) = true := by
     simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append,
       List.append_nil, List.all_append, Bool.and_eq_true]
     exact ⟨hl1, hl2⟩
   have hwH : Expr.WScoped 2 (Expr.substConst0 c value'
       (.app (.app (.app (.const eqName [.succ .zero])
-        (.const Lech.boolName []))
-        (.app (.app (.const Lech.natBleName []) t1) t2))
+        (.const ConLeche.boolName []))
+        (.app (.app (.const ConLeche.natBleName []) t1) t2))
         (.const bn []))) :=
     wscoped_substConst0 fr.valueNoFvar _
       (dmApp_wscoped (dmApp_wscoped (dmApp_wscoped
         (Expr.WScoped.of_not_hasFvar
           (e := .const eqName [.succ .zero]) rfl)
         (Expr.WScoped.of_not_hasFvar
-          (e := .const Lech.boolName []) rfl))
+          (e := .const ConLeche.boolName []) rfl))
         (dmApp_wscoped (dmApp_wscoped
           (Expr.WScoped.of_not_hasFvar
-            (e := .const Lech.natBleName []) rfl)
+            (e := .const ConLeche.natBleName []) rfl)
           (hw1 2 (by omega))) (hw2 2 (by omega))))
         (Expr.WScoped.of_not_hasFvar (e := .const bn []) rfl))
   have hbH : (Expr.substConst0 c value' (.app (.app (.app
-      (.const eqName [.succ .zero]) (.const Lech.boolName []))
-      (.app (.app (.const Lech.natBleName []) t1) t2))
+      (.const eqName [.succ .zero]) (.const ConLeche.boolName []))
+      (.app (.app (.const ConLeche.natBleName []) t1) t2))
       (.const bn []))).looseBVarsBounded 0 = true :=
     looseBVarsBounded_substConst0 fr.valueBounded _
       (by simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
@@ -1269,29 +1269,29 @@ theorem dmClause1P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
   -- the depth-4 reading of the hypothesis type is the entry, lifted
   have hlift : denoteP mp.base2.acval env ψ 4 (Expr.substConst0 c
       value' (.app (.app (.app (.const eqName [.succ .zero])
-        (.const Lech.boolName []))
-        (.app (.app (.const Lech.natBleName []) t1) t2))
+        (.const ConLeche.boolName []))
+        (.app (.app (.const ConLeche.natBleName []) t1) t2))
         (.const bn []))) = some (H1a.liftN 2 0) :=
     denotePLift (n := 2) mp.base2.acval_closed hwH hG2
   obtain rfl : G4 = H1a.liftN 2 0 :=
     Option.some.inj (hG4.symm.trans hlift)
   -- the telescope and its satisfying valuation
   have hnatCl : ∀ ρ' ρ'' : Nat → V,
-      interp2 V ρ' (mp.base2.acval Lech.natName ψ)
-        = interp2 V ρ'' (mp.base2.acval Lech.natName ψ) :=
+      interp2 V ρ' (mp.base2.acval ConLeche.natName ψ)
+        = interp2 V ρ'' (mp.base2.acval ConLeche.natName ψ) :=
     fun ρ' ρ'' => acval_interp2_closedC mp.base2 _ ψ ρ' ρ''
   have hshift : (fun j => cons xx (cons pt (cons yy (cons xx ρ)))
       (j + 1 + 1)) = cons yy (cons xx ρ) := funext fun _ => rfl
-  have hsat : Sat2 V [mp.base2.acval Lech.natName ψ, H1a,
-      mp.base2.acval Lech.natName ψ,
-      mp.base2.acval Lech.natName ψ]
+  have hsat : Sat2 V [mp.base2.acval ConLeche.natName ψ, H1a,
+      mp.base2.acval ConLeche.natName ψ,
+      mp.base2.acval ConLeche.natName ψ]
       (cons xx (cons pt (cons yy (cons xx ρ)))) := by
     intro i Aa hi
     match i with
     | 0 =>
-      obtain rfl : mp.base2.acval Lech.natName ψ = Aa := by
+      obtain rfl : mp.base2.acval ConLeche.natName ψ = Aa := by
         simpa using hi
-      show xx ∈ˢ interp2 V _ (mp.base2.acval Lech.natName ψ)
+      show xx ∈ˢ interp2 V _ (mp.base2.acval ConLeche.natName ψ)
       rw [hnatCl _ ρ]
       exact hxx
     | 1 =>
@@ -1307,10 +1307,10 @@ theorem dmClause1P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
             (dmLeaf mp.base2 c A ψ n))
           = fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n) from
           funext fun n => fr.leafClosed n _ ρ,
-        fr.leafClosed Lech.natBleName _ ρ,
+        fr.leafClosed ConLeche.natBleName _ ρ,
         fr.leafClosed bn _ ρ]
       show pt ∈ˢ eqv (SetTheory.app (SetTheory.app
-          (interp2 V ρ (dmLeaf mp.base2 c A ψ Lech.natBleName))
+          (interp2 V ρ (dmLeaf mp.base2 c A ψ ConLeche.natBleName))
           (dmEvalV V
             (fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n))
             xx yy t1))
@@ -1321,15 +1321,15 @@ theorem dmClause1P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
       rw [hfired]
       exact pt_mem_eqv_self _
     | 2 =>
-      obtain rfl : mp.base2.acval Lech.natName ψ = Aa := by
+      obtain rfl : mp.base2.acval ConLeche.natName ψ = Aa := by
         simpa using hi
-      show yy ∈ˢ interp2 V _ (mp.base2.acval Lech.natName ψ)
+      show yy ∈ˢ interp2 V _ (mp.base2.acval ConLeche.natName ψ)
       rw [hnatCl _ ρ]
       exact hyy
     | 3 =>
-      obtain rfl : mp.base2.acval Lech.natName ψ = Aa := by
+      obtain rfl : mp.base2.acval ConLeche.natName ψ = Aa := by
         simpa using hi
-      show xx ∈ˢ interp2 V _ (mp.base2.acval Lech.natName ψ)
+      show xx ∈ˢ interp2 V _ (mp.base2.acval ConLeche.natName ψ)
       rw [hnatCl _ ρ]
       exact hxx
     | n + 4 => simp at hi
@@ -1338,8 +1338,8 @@ theorem dmClause1P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
   have hLA : Expr.LeavesBounded (divModCertApplied
       (Expr.substConstAll c value' proof)
       [Expr.substConst0 c value' (.app (.app (.app
-        (.const eqName [.succ .zero]) (.const Lech.boolName []))
-        (.app (.app (.const Lech.natBleName []) t1) t2))
+        (.const eqName [.succ .zero]) (.const ConLeche.boolName []))
+        (.app (.app (.const ConLeche.natBleName []) t1) t2))
         (.const bn []))]) := by
     intro lf hlf
     rcases divModCertApplied_mem1 hpf hlf with rfl | rfl | rfl | hm
@@ -1349,34 +1349,34 @@ theorem dmClause1P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
     · exact dmLeavesOk_leavesBounded
         (dmLeavesOk_substConst0 fr.valueNoFvar hlH) lf hm
   have hCA : CtxOkP mp.base2 ψ 4
-      [mp.base2.acval Lech.natName ψ, H1a,
-        mp.base2.acval Lech.natName ψ,
-        mp.base2.acval Lech.natName ψ]
+      [mp.base2.acval ConLeche.natName ψ, H1a,
+        mp.base2.acval ConLeche.natName ψ,
+        mp.base2.acval ConLeche.natName ψ]
       (divModCertApplied (Expr.substConstAll c value' proof)
         [Expr.substConst0 c value' (.app (.app (.app
-          (.const eqName [.succ .zero]) (.const Lech.boolName []))
-          (.app (.app (.const Lech.natBleName []) t1) t2))
+          (.const eqName [.succ .zero]) (.const ConLeche.boolName []))
+          (.app (.app (.const ConLeche.natBleName []) t1) t2))
           (.const bn []))]) := by
     have hself : ∀ k : Nat,
-        (mp.base2.acval Lech.natName ψ).liftN k 0
-          = mp.base2.acval Lech.natName ψ := fun k =>
+        (mp.base2.acval ConLeche.natName ψ).liftN k 0
+          = mp.base2.acval ConLeche.natName ψ := fun k =>
       AVExpr.liftN_eq_self _
         (by rw [mp.base2.acval_erase]
-            exact mp.base2.cval_closed Lech.natName ψ) k
+            exact mp.base2.cval_closed ConLeche.natName ψ) k
     have hnatSlot : ∀ i k : Nat,
-        [mp.base2.acval Lech.natName ψ, H1a,
-          mp.base2.acval Lech.natName ψ,
-          mp.base2.acval Lech.natName ψ].getD i default
-          = mp.base2.acval Lech.natName ψ →
+        [mp.base2.acval ConLeche.natName ψ, H1a,
+          mp.base2.acval ConLeche.natName ψ,
+          mp.base2.acval ConLeche.natName ψ].getD i default
+          = mp.base2.acval ConLeche.natName ψ →
         ∃ tya, denoteP mp.base2.acval env ψ 4
-            (Expr.const Lech.natName []) = some tya ∧
-          tya = ([mp.base2.acval Lech.natName ψ, H1a,
-            mp.base2.acval Lech.natName ψ,
-            mp.base2.acval Lech.natName ψ].getD i default).liftN k 0
+            (Expr.const ConLeche.natName []) = some tya ∧
+          tya = ([mp.base2.acval ConLeche.natName ψ, H1a,
+            mp.base2.acval ConLeche.natName ψ,
+            mp.base2.acval ConLeche.natName ψ].getD i default).liftN k 0
             ∧ ∀ ρ' : Nat → V,
-              Sat2 V [mp.base2.acval Lech.natName ψ, H1a,
-                mp.base2.acval Lech.natName ψ,
-                mp.base2.acval Lech.natName ψ] ρ' →
+              Sat2 V [mp.base2.acval ConLeche.natName ψ, H1a,
+                mp.base2.acval ConLeche.natName ψ,
+                mp.base2.acval ConLeche.natName ψ] ρ' →
               AnnotOkP V ρ' tya := by
       intro i k hi
       exact ⟨_, fr.readNat 4, by rw [hi, hself k],
@@ -1412,7 +1412,7 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
     {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
     (fr : DmFrameP mp c A value' ψ) (heqlaw : EqLawP mp.base2)
     (hacc : ∀ {d : Nat} {e t : Expr},
-      Lech.inferTypeCore μ env F d e = .ok t →
+      ConLeche.inferTypeCore μ env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denoteP mp.base2.acval env ψ d e = some ea)
@@ -1420,22 +1420,22 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
     (hinfC : InferClaims2P μ mp.base2 ψ F)
     (hdeC : DefEqClaims2P μ mp.base2 ψ F)
     (ρ : Nat → V) {xx yy : V}
-    (hxx : xx ∈ˢ interp2 V ρ (mp.base2.acval Lech.natName ψ))
-    (hyy : yy ∈ˢ interp2 V ρ (mp.base2.acval Lech.natName ψ))
+    (hxx : xx ∈ˢ interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
+    (hyy : yy ∈ˢ interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
     {t1 t2 s1 s2 lhs rhs proof : Expr} {bn cn : Name}
-    (hbn : bn = Lech.boolTrueName ∨ bn = Lech.boolFalseName)
-    (hcn : cn = Lech.boolTrueName ∨ cn = Lech.boolFalseName)
+    (hbn : bn = ConLeche.boolTrueName ∨ bn = ConLeche.boolFalseName)
+    (hcn : cn = ConLeche.boolTrueName ∨ cn = ConLeche.boolFalseName)
     (hfacts : CertRunFacts μ env F c value'
       ([Expr.app (.app (.app (.const eqName [.succ .zero])
-          (.const Lech.boolName []))
-          (.app (.app (.const Lech.natBleName []) t1) t2))
+          (.const ConLeche.boolName []))
+          (.app (.app (.const ConLeche.natBleName []) t1) t2))
           (.const bn []),
         Expr.app (.app (.app (.const eqName [.succ .zero])
-          (.const Lech.boolName []))
-          (.app (.app (.const Lech.natBleName []) s1) s2))
+          (.const ConLeche.boolName []))
+          (.app (.app (.const ConLeche.natBleName []) s1) s2))
           (.const cn [])],
        Expr.app (.app (.app (.const eqName [.succ .zero])
-          (.const Lech.natName [])) lhs) rhs) proof)
+          (.const ConLeche.natName [])) lhs) rhs) proof)
     (ht1 : dmNatFrag (dmBinNames c) (dmUnNames c) t1 = true)
     (ht2 : dmNatFrag (dmBinNames c) (dmUnNames c) t2 = true)
     (hs1 : dmNatFrag (dmBinNames c) (dmUnNames c) s1 = true)
@@ -1443,14 +1443,14 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
     (hlhs : dmNatFrag (dmBinNames c) (dmUnNames c) lhs = true)
     (hrhs : dmNatFrag (dmBinNames c) (dmUnNames c) rhs = true)
     (hfired1 : SetTheory.app (SetTheory.app
-        (interp2 V ρ (dmLeaf mp.base2 c A ψ Lech.natBleName))
+        (interp2 V ρ (dmLeaf mp.base2 c A ψ ConLeche.natBleName))
         (dmEvalV V (fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n))
           xx yy t1))
         (dmEvalV V (fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n))
           xx yy t2)
       = interp2 V ρ (dmLeaf mp.base2 c A ψ bn))
     (hfired2 : SetTheory.app (SetTheory.app
-        (interp2 V ρ (dmLeaf mp.base2 c A ψ Lech.natBleName))
+        (interp2 V ρ (dmLeaf mp.base2 c A ψ ConLeche.natBleName))
         (dmEvalV V (fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n))
           xx yy s1))
         (dmEvalV V (fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n))
@@ -1476,8 +1476,8 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
   have hlH : ∀ {u1 u2 : Expr} {b : Name},
       dmLeavesOk u1 = true → dmLeavesOk u2 = true →
       dmLeavesOk (Expr.app (.app (.app
-        (.const eqName [.succ .zero]) (.const Lech.boolName []))
-        (.app (.app (.const Lech.natBleName []) u1) u2))
+        (.const eqName [.succ .zero]) (.const ConLeche.boolName []))
+        (.app (.app (.const ConLeche.natBleName []) u1) u2))
         (.const b [])) = true := by
     intro u1 u2 b h1 h2
     simp only [dmLeavesOk, Expr.fvarLeaves, List.nil_append,
@@ -1488,8 +1488,8 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
       (∀ d' : Nat, 2 ≤ d' → Expr.WScoped d' u2) →
       Expr.WScoped d (Expr.substConst0 c value'
         (.app (.app (.app (.const eqName [.succ .zero])
-          (.const Lech.boolName []))
-          (.app (.app (.const Lech.natBleName []) u1) u2))
+          (.const ConLeche.boolName []))
+          (.app (.app (.const ConLeche.natBleName []) u1) u2))
           (.const b []))) := by
     intro u1 u2 b d hd hu1 hu2
     exact wscoped_substConst0 fr.valueNoFvar _
@@ -1497,17 +1497,17 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
         (Expr.WScoped.of_not_hasFvar
           (e := .const eqName [.succ .zero]) rfl)
         (Expr.WScoped.of_not_hasFvar
-          (e := .const Lech.boolName []) rfl))
+          (e := .const ConLeche.boolName []) rfl))
         (dmApp_wscoped (dmApp_wscoped
           (Expr.WScoped.of_not_hasFvar
-            (e := .const Lech.natBleName []) rfl)
+            (e := .const ConLeche.natBleName []) rfl)
           (hu1 d hd)) (hu2 d hd)))
         (Expr.WScoped.of_not_hasFvar (e := .const b []) rfl))
   have hbH : ∀ {u1 u2 : Expr} {b : Name},
       u1.looseBVarsBounded 0 = true → u2.looseBVarsBounded 0 = true →
       (Expr.substConst0 c value' (.app (.app (.app
-        (.const eqName [.succ .zero]) (.const Lech.boolName []))
-        (.app (.app (.const Lech.natBleName []) u1) u2))
+        (.const eqName [.succ .zero]) (.const ConLeche.boolName []))
+        (.app (.app (.const ConLeche.natBleName []) u1) u2))
         (.const b []))).looseBVarsBounded 0 = true := by
     intro u1 u2 b h1 h2
     exact looseBVarsBounded_substConst0 fr.valueBounded _
@@ -1516,15 +1516,15 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
   -- the two entries, lifted to depth 4
   have hlift1 : denoteP mp.base2.acval env ψ 4 (Expr.substConst0 c
       value' (.app (.app (.app (.const eqName [.succ .zero])
-        (.const Lech.boolName []))
-        (.app (.app (.const Lech.natBleName []) t1) t2))
+        (.const ConLeche.boolName []))
+        (.app (.app (.const ConLeche.natBleName []) t1) t2))
         (.const bn []))) = some (H1a.liftN 2 0) :=
     denotePLift (n := 2) mp.base2.acval_closed
       (hwH 2 (by omega) hw1 hw2) hG2
   have hlift2 : denoteP mp.base2.acval env ψ 4 (Expr.substConst0 c
       value' (.app (.app (.app (.const eqName [.succ .zero])
-        (.const Lech.boolName []))
-        (.app (.app (.const Lech.natBleName []) s1) s2))
+        (.const ConLeche.boolName []))
+        (.app (.app (.const ConLeche.natBleName []) s1) s2))
         (.const cn []))) = some (H2a.liftN 1 0) :=
     denotePLift (n := 1) mp.base2.acval_closed
       (hwH 3 (by omega) hv1 hv2) hK3
@@ -1533,12 +1533,12 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
   obtain rfl : K4 = H2a.liftN 1 0 :=
     Option.some.inj (hK4.symm.trans hlift2)
   have hnatCl : ∀ ρ' ρ'' : Nat → V,
-      interp2 V ρ' (mp.base2.acval Lech.natName ψ)
-        = interp2 V ρ'' (mp.base2.acval Lech.natName ψ) :=
+      interp2 V ρ' (mp.base2.acval ConLeche.natName ψ)
+        = interp2 V ρ'' (mp.base2.acval ConLeche.natName ψ) :=
     fun ρ' ρ'' => acval_interp2_closedC mp.base2 _ ψ ρ' ρ''
   have hsat : Sat2 V [H2a, H1a,
-      mp.base2.acval Lech.natName ψ,
-      mp.base2.acval Lech.natName ψ]
+      mp.base2.acval ConLeche.natName ψ,
+      mp.base2.acval ConLeche.natName ψ]
       (cons pt (cons pt (cons yy (cons xx ρ)))) := by
     intro i Aa hi
     match i with
@@ -1557,10 +1557,10 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
             (dmLeaf mp.base2 c A ψ n))
           = fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n) from
           funext fun n => fr.leafClosed n _ ρ,
-        fr.leafClosed Lech.natBleName _ ρ,
+        fr.leafClosed ConLeche.natBleName _ ρ,
         fr.leafClosed cn _ ρ]
       show pt ∈ˢ eqv (SetTheory.app (SetTheory.app
-          (interp2 V ρ (dmLeaf mp.base2 c A ψ Lech.natBleName))
+          (interp2 V ρ (dmLeaf mp.base2 c A ψ ConLeche.natBleName))
           (dmEvalV V
             (fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n))
             xx yy s1))
@@ -1585,10 +1585,10 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
             (dmLeaf mp.base2 c A ψ n))
           = fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n) from
           funext fun n => fr.leafClosed n _ ρ,
-        fr.leafClosed Lech.natBleName _ ρ,
+        fr.leafClosed ConLeche.natBleName _ ρ,
         fr.leafClosed bn _ ρ]
       show pt ∈ˢ eqv (SetTheory.app (SetTheory.app
-          (interp2 V ρ (dmLeaf mp.base2 c A ψ Lech.natBleName))
+          (interp2 V ρ (dmLeaf mp.base2 c A ψ ConLeche.natBleName))
           (dmEvalV V
             (fun n => interp2 V ρ (dmLeaf mp.base2 c A ψ n))
             xx yy t1))
@@ -1599,15 +1599,15 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
       rw [hfired1]
       exact pt_mem_eqv_self _
     | 2 =>
-      obtain rfl : mp.base2.acval Lech.natName ψ = Aa := by
+      obtain rfl : mp.base2.acval ConLeche.natName ψ = Aa := by
         simpa using hi
-      show yy ∈ˢ interp2 V _ (mp.base2.acval Lech.natName ψ)
+      show yy ∈ˢ interp2 V _ (mp.base2.acval ConLeche.natName ψ)
       rw [hnatCl _ ρ]
       exact hyy
     | 3 =>
-      obtain rfl : mp.base2.acval Lech.natName ψ = Aa := by
+      obtain rfl : mp.base2.acval ConLeche.natName ψ = Aa := by
         simpa using hi
-      show xx ∈ˢ interp2 V _ (mp.base2.acval Lech.natName ψ)
+      show xx ∈ˢ interp2 V _ (mp.base2.acval ConLeche.natName ψ)
       rw [hnatCl _ ρ]
       exact hxx
     | n + 4 => simp at hi
@@ -1616,12 +1616,12 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
   have hLA : Expr.LeavesBounded (divModCertApplied
       (Expr.substConstAll c value' proof)
       [Expr.substConst0 c value' (.app (.app (.app
-        (.const eqName [.succ .zero]) (.const Lech.boolName []))
-        (.app (.app (.const Lech.natBleName []) t1) t2))
+        (.const eqName [.succ .zero]) (.const ConLeche.boolName []))
+        (.app (.app (.const ConLeche.natBleName []) t1) t2))
         (.const bn [])),
        Expr.substConst0 c value' (.app (.app (.app
-        (.const eqName [.succ .zero]) (.const Lech.boolName []))
-        (.app (.app (.const Lech.natBleName []) s1) s2))
+        (.const eqName [.succ .zero]) (.const ConLeche.boolName []))
+        (.app (.app (.const ConLeche.natBleName []) s1) s2))
         (.const cn []))]) := by
     intro lf hlf
     rcases divModCertApplied_mem2 hpf hlf with
@@ -1635,38 +1635,38 @@ theorem dmClause2P {F : Nat} {mp : EnvS2PM V μ env} {c : Name}
     · exact dmLeavesOk_leavesBounded
         (dmLeavesOk_substConst0 fr.valueNoFvar (hlH hm1 hm2)) lf hm
   have hself : ∀ k : Nat,
-      (mp.base2.acval Lech.natName ψ).liftN k 0
-        = mp.base2.acval Lech.natName ψ := fun k =>
+      (mp.base2.acval ConLeche.natName ψ).liftN k 0
+        = mp.base2.acval ConLeche.natName ψ := fun k =>
     AVExpr.liftN_eq_self _
       (by rw [mp.base2.acval_erase]
-          exact mp.base2.cval_closed Lech.natName ψ) k
+          exact mp.base2.cval_closed ConLeche.natName ψ) k
   have hnatSlot : ∀ i k : Nat,
-      [H2a, H1a, mp.base2.acval Lech.natName ψ,
-        mp.base2.acval Lech.natName ψ].getD i default
-        = mp.base2.acval Lech.natName ψ →
+      [H2a, H1a, mp.base2.acval ConLeche.natName ψ,
+        mp.base2.acval ConLeche.natName ψ].getD i default
+        = mp.base2.acval ConLeche.natName ψ →
       ∃ tya, denoteP mp.base2.acval env ψ 4
-          (Expr.const Lech.natName []) = some tya ∧
-        tya = ([H2a, H1a, mp.base2.acval Lech.natName ψ,
-          mp.base2.acval Lech.natName ψ].getD i default).liftN k 0
+          (Expr.const ConLeche.natName []) = some tya ∧
+        tya = ([H2a, H1a, mp.base2.acval ConLeche.natName ψ,
+          mp.base2.acval ConLeche.natName ψ].getD i default).liftN k 0
           ∧ ∀ ρ' : Nat → V,
-            Sat2 V [H2a, H1a, mp.base2.acval Lech.natName ψ,
-              mp.base2.acval Lech.natName ψ] ρ' →
+            Sat2 V [H2a, H1a, mp.base2.acval ConLeche.natName ψ,
+              mp.base2.acval ConLeche.natName ψ] ρ' →
             AnnotOkP V ρ' tya := by
     intro i k hi
     exact ⟨_, fr.readNat 4, by rw [hi, hself k],
       fun ρ' _ => ⟨mp.base2.acval_ok2 _ _ ρ',
         mp.acval_validV _ _ ρ'⟩⟩
   have hCA : CtxOkP mp.base2 ψ 4
-      [H2a, H1a, mp.base2.acval Lech.natName ψ,
-        mp.base2.acval Lech.natName ψ]
+      [H2a, H1a, mp.base2.acval ConLeche.natName ψ,
+        mp.base2.acval ConLeche.natName ψ]
       (divModCertApplied (Expr.substConstAll c value' proof)
         [Expr.substConst0 c value' (.app (.app (.app
-          (.const eqName [.succ .zero]) (.const Lech.boolName []))
-          (.app (.app (.const Lech.natBleName []) t1) t2))
+          (.const eqName [.succ .zero]) (.const ConLeche.boolName []))
+          (.app (.app (.const ConLeche.natBleName []) t1) t2))
           (.const bn [])),
          Expr.substConst0 c value' (.app (.app (.app
-          (.const eqName [.succ .zero]) (.const Lech.boolName []))
-          (.app (.app (.const Lech.natBleName []) s1) s2))
+          (.const eqName [.succ .zero]) (.const ConLeche.boolName []))
+          (.app (.app (.const ConLeche.natBleName []) s1) s2))
           (.const cn []))]) := by
     refine ctxOkP_pinnedLift rfl (fun l hl => ?_)
     rcases divModCertApplied_mem2 hpf hl with
@@ -1712,8 +1712,8 @@ set_option maxHeartbeats 1600000 in
 /-- **The div/mod certificate frame at `interp2`, assembled.** -/
 theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     {lps : List Name} {type' value' : Expr} {hint : ReducibilityHint}
-    (hmem : c ∈ Lech.natDivModNames)
-    (hgenv : Lech.divModEnvGuard
+    (hmem : c ∈ ConLeche.natDivModNames)
+    (hgenv : ConLeche.divModEnvGuard
       (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env) c
       = true)
     {A Ta : (Name → Nat) → AVExpr}
@@ -1729,54 +1729,54 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     (ψ : Name → Nat) :
     DmFrameP mp c A value' ψ := by
   obtain ⟨hnog, hdeps, hEq2, hbT2, hbF2⟩ :=
-    Lech.divModEnvGuard_inv hgenv
-  obtain ⟨hs, hdeps', hbool⟩ := Lech.natOpGuard_inv hnog
+    ConLeche.divModEnvGuard_inv hgenv
+  obtain ⟨hs, hdeps', hbool⟩ := ConLeche.natOpGuard_inv hnog
   have hdepAll := List.all_eq_true.mp hdeps
   obtain ⟨hnN0, hnZ0, hnS0, hnB0, hnT0, hnF0, hnE0, -, -, -, -⟩ :=
-    Lech.natDivModNames_ne_env hmem
-  have hnN : Lech.natName ≠ c := hnN0.symm
-  have hnZ : Lech.natZeroName ≠ c := hnZ0.symm
-  have hnS : Lech.natSuccName ≠ c := hnS0.symm
-  have hnB : Lech.boolName ≠ c := hnB0.symm
-  have hnT : Lech.boolTrueName ≠ c := hnT0.symm
-  have hnF : Lech.boolFalseName ≠ c := hnF0.symm
+    ConLeche.natDivModNames_ne_env hmem
+  have hnN : ConLeche.natName ≠ c := hnN0.symm
+  have hnZ : ConLeche.natZeroName ≠ c := hnZ0.symm
+  have hnS : ConLeche.natSuccName ≠ c := hnS0.symm
+  have hnB : ConLeche.boolName ≠ c := hnB0.symm
+  have hnT : ConLeche.boolTrueName ≠ c := hnT0.symm
+  have hnF : ConLeche.boolFalseName ≠ c := hnF0.symm
   have hnE : eqName ≠ c := hnE0.symm
   have hdown : ∀ (n : Name) (ci : ConstantInfo), n ≠ c →
       (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩
         : Env).find? n = some ci → env.find? n = some ci := by
     intro n ci hnn hf
-    rwa [Lech.Env.find?_cons, if_neg (fun hh => hnn hh.symm)] at hf
+    rwa [ConLeche.Env.find?_cons, if_neg (fun hh => hnn hh.symm)] at hf
   -- the numeral heads, at the prefix
   obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hfN2, hfZ2, hfS2,
     hlpN, hlpZ, hlpS, htyN, htyZ, mbS, htyS⟩ :=
-    Lech.natLitSupported_inv hs
-  have hfN : env.find? Lech.natName
+    ConLeche.natLitSupported_inv hs
+  have hfN : env.find? ConLeche.natName
       = some (.indInfo cvN capsN) := hdown _ _ hnN hfN2
-  have hfZ : env.find? Lech.natZeroName
+  have hfZ : env.find? ConLeche.natZeroName
       = some (.ctorInfo cv0 i0 j0) := hdown _ _ hnZ hfZ2
-  have hfS : env.find? Lech.natSuccName
+  have hfS : env.find? ConLeche.natSuccName
       = some (.ctorInfo cv1 i1 j1) := hdown _ _ hnS hfS2
   -- `Nat.ble` is a dependency of every pin-certified operation, and it
   -- is where `Bool` enters
-  have hbleDep : Lech.natBleName ∈ Lech.natOpDeps c := by
-    simp only [Lech.natDivModNames, List.mem_cons,
+  have hbleDep : ConLeche.natBleName ∈ ConLeche.natOpDeps c := by
+    simp only [ConLeche.natDivModNames, List.mem_cons,
       List.not_mem_nil, or_false] at hmem
     rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
-  have hbleNe : Lech.natBleName ≠ c := by
-    simp only [Lech.natDivModNames, List.mem_cons,
+  have hbleNe : ConLeche.natBleName ≠ c := by
+    simp only [ConLeche.natDivModNames, List.mem_cons,
       List.not_mem_nil, or_false] at hmem
     rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
-  have hstoredDep : ∀ n ∈ Lech.natOpDeps c, n ≠ c →
+  have hstoredDep : ∀ n ∈ ConLeche.natOpDeps c, n ≠ c →
       ∃ cvn vn hn, env.find? n = some (.defnInfo cvn vn hn) ∧
         cvn.levelParams = [] ∧
-        Lech.natOpTyPinned
+        ConLeche.natOpTyPinned
           (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩
             : Env) n cvn.type = true := by
     intro n hn hnc
     obtain ⟨cvn, vn, hintn, hfn2, hpinn⟩ :=
-      Lech.natOpStoredOk_tyPinned (hdepAll n hn)
+      ConLeche.natOpStoredOk_tyPinned (hdepAll n hn)
     have hd := hdepAll n hn
-    unfold Lech.natOpStoredOk at hd
+    unfold ConLeche.natOpStoredOk at hd
     rw [hfn2] at hd
     simp only [Bool.and_eq_true, List.isEmpty_iff] at hd
     exact ⟨cvn, vn, hintn, hdown _ _ hnc hfn2, hd.1, hpinn⟩
@@ -1785,47 +1785,47 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
   obtain ⟨mbb, mbb2, codb, htyb, hcodb⟩ :=
     natOpTyPinned_binaryE (by decide) hpinb
   obtain ⟨rfl, ciB, hfB2, hlpB, htyB⟩ := natOpCod_ble hcodb
-  have hfB : env.find? Lech.boolName = some ciB :=
+  have hfB : env.find? ConLeche.boolName = some ciB :=
     hdown _ _ hnB hfB2
   -- the `Bool` constructors
   obtain ⟨⟨ciT, hfT2, hlpT⟩, ⟨ciF, hfF2, hlpF⟩⟩ :=
     hbool (Or.inr (Or.inr (by simpa using hmem)))
   obtain ⟨ciT', hfT2', htyT'⟩ := hbT2
   obtain ⟨ciF', hfF2', htyF'⟩ := hbF2
-  have htyT : ciT.toConstantVal.type = .const Lech.boolName [] := by
+  have htyT : ciT.toConstantVal.type = .const ConLeche.boolName [] := by
     rw [← show ciT' = ciT from
       Option.some.inj (hfT2'.symm.trans hfT2)]
     exact htyT'
-  have htyF : ciF.toConstantVal.type = .const Lech.boolName [] := by
+  have htyF : ciF.toConstantVal.type = .const ConLeche.boolName [] := by
     rw [← show ciF' = ciF from
       Option.some.inj (hfF2'.symm.trans hfF2)]
     exact htyF'
-  have hfT : env.find? Lech.boolTrueName = some ciT :=
+  have hfT : env.find? ConLeche.boolTrueName = some ciT :=
     hdown _ _ hnT hfT2
-  have hfF : env.find? Lech.boolFalseName = some ciF :=
+  have hfF : env.find? ConLeche.boolFalseName = some ciF :=
     hdown _ _ hnF hfF2
   -- the operation's own pinned type
-  have hselfDep : c ∈ Lech.natOpDeps c := by
-    simp only [Lech.natDivModNames, List.mem_cons,
+  have hselfDep : c ∈ ConLeche.natOpDeps c := by
+    simp only [ConLeche.natDivModNames, List.mem_cons,
       List.not_mem_nil, or_false] at hmem
     rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
   obtain ⟨cvS2, vS2, hS2, hfS2', hpinS2⟩ :=
-    Lech.natOpStoredOk_tyPinned (hdepAll _ hselfDep)
+    ConLeche.natOpStoredOk_tyPinned (hdepAll _ hselfDep)
   have htyS2 : cvS2.type = type' := by
-    rw [Lech.Env.find?_cons] at hfS2'
+    rw [ConLeche.Env.find?_cons] at hfS2'
     rw [if_pos (show (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
       hint).name = c from rfl)] at hfS2'
     obtain ⟨h1, -, -⟩ :=
-      Lech.ConstantInfo.defnInfo.inj (Option.some.inj hfS2')
+      ConLeche.ConstantInfo.defnInfo.inj (Option.some.inj hfS2')
     rw [← h1]
   -- no pin-certified operation is a comparison
-  have hnotcmp : (decide (c = Lech.natBeqName)
-      || decide (c = Lech.natBleName)) = false := by
-    simp only [Lech.natDivModNames, List.mem_cons,
+  have hnotcmp : (decide (c = ConLeche.natBeqName)
+      || decide (c = ConLeche.natBleName)) = false := by
+    simp only [ConLeche.natDivModNames, List.mem_cons,
       List.not_mem_nil, or_false] at hmem
     rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
-  have hnotpred : (decide (c = Lech.natPredName)) = false := by
-    simp only [Lech.natDivModNames, List.mem_cons,
+  have hnotpred : (decide (c = ConLeche.natPredName)) = false := by
+    simp only [ConLeche.natDivModNames, List.mem_cons,
       List.not_mem_nil, or_false] at hmem
     rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
   -- the leaves' closedness and grading
@@ -1866,9 +1866,9 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         = some (.sort 1) := by
       rw [hty]
       exact denoteP_sort _ _ _
-    have h := mp.mem_typeP ci (Lech.Semantics.Env.find?_mem hf)
+    have h := mp.mem_typeP ci (ConLeche.Semantics.Env.find?_mem hf)
       ψ _ hta ρ
-    rw [show ci.name = n from Lech.Semantics.Env.find?_name hf,
+    rw [show ci.name = n from ConLeche.Semantics.Env.find?_name hf,
       interp2_sort] at h
     exact h
   -- a stored constant whose type is a stored level-mono constant
@@ -1883,9 +1883,9 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         = some (mp.base2.acval t ψ) := by
       rw [hty]
       exact denoteP_levelless_const hft hlpt
-    have h := mp.mem_typeP ci (Lech.Semantics.Env.find?_mem hf)
+    have h := mp.mem_typeP ci (ConLeche.Semantics.Env.find?_mem hf)
       ψ _ hta ρ
-    rwa [show ci.name = n from Lech.Semantics.Env.find?_name hf] at h
+    rwa [show ci.name = n from ConLeche.Semantics.Env.find?_name hf] at h
   refine
     { eqStored := hdown _ _ hnE hEq2
       natNe := hnN
@@ -1919,7 +1919,7 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
     · exact ⟨_, hfF, hlpF⟩
     · -- a recurrence dependency, or `Nat.succ`
       rcases hn with hn | hn
-      · have hnd : n ∈ Lech.natOpDeps c :=
+      · have hnd : n ∈ ConLeche.natOpDeps c :=
           (List.mem_filter.mp hn).1
         obtain ⟨cvn, vn, hintn, hfn, hlpn, -⟩ :=
           hstoredDep n hnd hnc
@@ -1931,25 +1931,25 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         exact ⟨_, hfS, hlpS⟩
   case bleHead =>
     intro ρ
-    rw [dmLeaf, show acvalWith mp.base2.acval c A Lech.natBleName
-      = mp.base2.acval Lech.natBleName from acvalWith_ne hbleNe]
+    rw [dmLeaf, show acvalWith mp.base2.acval c A ConLeche.natBleName
+      = mp.base2.acval ConLeche.natBleName from acvalWith_ne hbleNe]
     exact dmBinV_of_stored mp ψ hfble htyb hfN hlpN hfB hlpB ρ
   case binHead =>
     intro n hn ρ
     obtain ⟨hnd, hfilt⟩ := List.mem_filter.mp hn
     simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at hfilt
     obtain ⟨hnble, hnpred⟩ := hfilt
-    have hnu : ¬(n = Lech.natPredName) := hnpred
-    have hnbeqAll : ((Lech.natOpDeps c).all
-        fun m => m != Lech.natBeqName) = true := by
-      simp only [Lech.natDivModNames, List.mem_cons,
+    have hnu : ¬(n = ConLeche.natPredName) := hnpred
+    have hnbeqAll : ((ConLeche.natOpDeps c).all
+        fun m => m != ConLeche.natBeqName) = true := by
+      simp only [ConLeche.natDivModNames, List.mem_cons,
         List.not_mem_nil, or_false] at hmem
       rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
-    have hnbeq : n ≠ Lech.natBeqName := by
+    have hnbeq : n ≠ ConLeche.natBeqName := by
       have := List.all_eq_true.mp hnbeqAll n hnd
       simpa using this
-    have hnb : (decide (n = Lech.natBeqName)
-        || decide (n = Lech.natBleName)) = false := by
+    have hnb : (decide (n = ConLeche.natBeqName)
+        || decide (n = ConLeche.natBleName)) = false := by
       simp only [Bool.or_eq_false_iff, decide_eq_false_iff_not]
       exact ⟨hnbeq, hnble⟩
     by_cases hnc : n = c
@@ -1957,14 +1957,14 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
       subst hnc
       obtain ⟨mbT, mbT2, codT, htyT2, hcodT⟩ :=
         natOpTyPinned_binaryE hnu (htyS2 ▸ hpinS2)
-      have hcodN : codT = Expr.const Lech.natName [] := by
-        unfold Lech.natOpCod at hcodT
-        rw [if_neg (show ¬((decide (n = Lech.natBeqName)
-          || decide (n = Lech.natBleName)) = true) from by
+      have hcodN : codT = Expr.const ConLeche.natName [] := by
+        unfold ConLeche.natOpCod at hcodT
+        rw [if_neg (show ¬((decide (n = ConLeche.natBeqName)
+          || decide (n = ConLeche.natBleName)) = true) from by
           simp [hnb])] at hcodT
         simpa using hcodT
       subst hcodN
-      have hTshape := denoteP_pinnedBinTy (codN := Lech.natName)
+      have hTshape := denoteP_pinnedBinTy (codN := ConLeche.natName)
         (mb₁ := mbT) (mb₂ := mbT2)
         mp.base2 ψ hfN hlpN hfN hlpN
       rw [← htyT2] at hTshape
@@ -1978,10 +1978,10 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
         hstoredDep n hnd hnc
       obtain ⟨mbn, mbn2, codn, htyn, hcodn⟩ :=
         natOpTyPinned_binaryE hnu hpinn
-      have hcodN : codn = Expr.const Lech.natName [] := by
-        unfold Lech.natOpCod at hcodn
-        rw [if_neg (show ¬((decide (n = Lech.natBeqName)
-          || decide (n = Lech.natBleName)) = true) from by
+      have hcodN : codn = Expr.const ConLeche.natName [] := by
+        unfold ConLeche.natOpCod at hcodn
+        rw [if_neg (show ¬((decide (n = ConLeche.natBeqName)
+          || decide (n = ConLeche.natBleName)) = true) from by
           simp [hnb])] at hcodn
         simpa using hcodn
       subst hcodN
@@ -1990,31 +1990,31 @@ theorem dmFrameP_of {mp : EnvS2PM V μ env} {c : Name}
       exact dmBinV_of_stored mp ψ hfn htyn hfN hlpN hfN hlpN ρ
   case unHead =>
     intro n hn ρ
-    have hsuccCase : n = Lech.natSuccName →
-        DmUnV (interp2 V ρ (mp.base2.acval Lech.natName ψ))
-          (interp2 V ρ (mp.base2.acval Lech.natName ψ))
+    have hsuccCase : n = ConLeche.natSuccName →
+        DmUnV (interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
+          (interp2 V ρ (mp.base2.acval ConLeche.natName ψ))
           (interp2 V ρ (dmLeaf mp.base2 c A ψ n)) := by
       rintro rfl
-      rw [dmLeaf, show acvalWith mp.base2.acval c A Lech.natSuccName
-        = mp.base2.acval Lech.natSuccName from acvalWith_ne hnS]
+      rw [dmLeaf, show acvalWith mp.base2.acval c A ConLeche.natSuccName
+        = mp.base2.acval ConLeche.natSuccName from acvalWith_ne hnS]
       exact dmUnV_of_stored mp ψ hfS htyS hfN hlpN hfN hlpN ρ
     unfold dmUnNames at hn
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hn
     exact hsuccCase hn
   case zeroMem =>
     intro ρ
-    rw [dmLeaf, show acvalWith mp.base2.acval c A Lech.natZeroName
-      = mp.base2.acval Lech.natZeroName from acvalWith_ne hnZ]
+    rw [dmLeaf, show acvalWith mp.base2.acval c A ConLeche.natZeroName
+      = mp.base2.acval ConLeche.natZeroName from acvalWith_ne hnZ]
     exact hmemC _ _ _ _ hfZ hfN hlpN htyZ ρ
   case boolCtorMem =>
     intro bn hbn ρ
     rcases hbn with rfl | rfl
-    · rw [dmLeaf, show acvalWith mp.base2.acval c A Lech.boolTrueName
-        = mp.base2.acval Lech.boolTrueName from acvalWith_ne hnT]
+    · rw [dmLeaf, show acvalWith mp.base2.acval c A ConLeche.boolTrueName
+        = mp.base2.acval ConLeche.boolTrueName from acvalWith_ne hnT]
       exact hmemC _ _ _ _ hfT hfB hlpB htyT ρ
     · rw [dmLeaf,
-        show acvalWith mp.base2.acval c A Lech.boolFalseName
-        = mp.base2.acval Lech.boolFalseName from acvalWith_ne hnF]
+        show acvalWith mp.base2.acval c A ConLeche.boolFalseName
+        = mp.base2.acval ConLeche.boolFalseName from acvalWith_ne hnF]
       exact hmemC _ _ _ _ hfF hfB hlpB htyF ρ
 
 /-! ## `DivModP` at the operation's own install
@@ -2032,7 +2032,7 @@ theorem divModP_install {F : Nat} (mp : EnvS2PM V μ env)
     {φ : Name → Nat} (hprev : DivModP mp.base2 φ)
     (heqlaw : EqLawP mp.base2)
     (hacc : ∀ {d : Nat} {e t : Expr},
-      Lech.inferTypeCore μ env F d e = .ok t →
+      ConLeche.inferTypeCore μ env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denoteP mp.base2.acval env φ d e = some ea)
@@ -2041,14 +2041,14 @@ theorem divModP_install {F : Nat} (mp : EnvS2PM V μ env)
     (hdeC : DefEqClaims2P μ mp.base2 φ F)
     {c : Name} {lps : List Name} {type' value' : Expr}
     {hint : ReducibilityHint}
-    (hcmem : c ∈ Lech.natDivModNames)
+    (hcmem : c ∈ ConLeche.natDivModNames)
     (hfresh : env.find? c = none)
-    (hgenv : Lech.divModEnvGuard
+    (hgenv : ConLeche.divModEnvGuard
       (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩ : Env) c
       = true)
-    (hcerts : Lech.checkDivModCerts (m := Lech.CheckM)
-      (Lech.fueledOps μ F) env c value'
-      (Lech.divModCertStmts c) (Lech.divModCertProofs c)
+    (hcerts : ConLeche.checkDivModCerts (m := ConLeche.CheckM)
+      (ConLeche.fueledOps μ F) env c value'
+      (ConLeche.divModCertStmts c) (ConLeche.divModCertProofs c)
       = .ok true)
     {A Ta : (Name → Nat) → AVExpr}
     (hA : ∀ ψ, denoteP mp.base2.acval env ψ 0 value' = some (A ψ))
@@ -2075,24 +2075,24 @@ theorem divModP_install {F : Nat} (mp : EnvS2PM V μ env)
         hint).name from hne) hf₂
   subst hne
   clear hf₂ hcqN
-  refine ⟨(Lech.divModEnvGuard_inv hgenv).1, fun ρ x y hx hy => ?_⟩
-  have hnatNe : Lech.natName ≠ cq :=
-    (Lech.natDivModNames_ne_env hcmem).1.symm
-  rw [hac, show acvalWith mp.base2.acval cq A Lech.natName
-    = mp.base2.acval Lech.natName from acvalWith_ne hnatNe] at hx hy
+  refine ⟨(ConLeche.divModEnvGuard_inv hgenv).1, fun ρ x y hx hy => ?_⟩
+  have hnatNe : ConLeche.natName ≠ cq :=
+    (ConLeche.natDivModNames_ne_env hcmem).1.symm
+  rw [hac, show acvalWith mp.base2.acval cq A ConLeche.natName
+    = mp.base2.acval ConLeche.natName from acvalWith_ne hnatNe] at hx hy
   have fr := dmFrameP_of hcmem hgenv hA hAclosed hvf' hbv' hTa hTok
     hAok hmemA φ
-  have hruns := Lech.checkDivModCerts_inv hcerts
+  have hruns := ConLeche.checkDivModCerts_inv hcerts
   rw [hac]
-  simp only [Lech.natDivModNames, List.mem_cons, List.not_mem_nil,
+  simp only [ConLeche.natDivModNames, List.mem_cons, List.not_mem_nil,
     or_false] at hcmem
   rcases hcmem with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
   all_goals (
-    simp only [Lech.divModCertStmts, Lech.divModCertProofs,
-      Lech.natDivCertProofs, Lech.natModCertProofs,
-      Lech.natGcdCertProofs, Lech.natLandCertProofs,
-      Lech.natLorCertProofs, Lech.natXorCertProofs,
-      Lech.natShiftLeftCertProofs, Lech.natShiftRightCertProofs,
+    simp only [ConLeche.divModCertStmts, ConLeche.divModCertProofs,
+      ConLeche.natDivCertProofs, ConLeche.natModCertProofs,
+      ConLeche.natGcdCertProofs, ConLeche.natLandCertProofs,
+      ConLeche.natLorCertProofs, ConLeche.natXorCertProofs,
+      ConLeche.natShiftLeftCertProofs, ConLeche.natShiftRightCertProofs,
       reduceIte] at hruns
     simp +decide only [DivModClausesV, if_false, if_true])
   · -- `Nat.div`
@@ -2252,4 +2252,4 @@ theorem divModP_install {F : Nat} (mp : EnvS2PM V μ env)
       simpa +decide only [dmEvalV_app, dmEvalV_const, dmEvalV_fvar,
         reduceIte, dmLeaf] using h
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,5 +1,5 @@
-import Lech.SetP.Claims2P
-import Lech.Semantics.Tower.TowerRec
+import ConLeche.SetP.Claims2P
+import ConLeche.Semantics.Tower.TowerRec
 
 /-!
 # The direct-structure leaves' bit validity and P packages (task #175, stage 4a)
@@ -22,12 +22,12 @@ walks — the `hAok`/`hAvalid` rows of `declStepPM_of_basis_cons`, per
 leaf.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.SetTheory.Tower
+open ConLeche.SetTheory.Tower
 
 universe uv
 
@@ -216,4 +216,4 @@ theorem directRecAV_okP {ℓ w : Nat} {Fs : List AVExpr} {ρ : Nat → V}
     AnnotOkP V ρ (directRecAV ℓ (pds ++ [dM, dm, dt]) Fs.length) :=
   ⟨directRecAV_ok2 hz hpre, mkLamsC_validV hval⟩
 
-end Lech.SetP
+end ConLeche.SetP

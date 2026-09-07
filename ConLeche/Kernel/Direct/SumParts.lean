@@ -1,4 +1,4 @@
-import Lech.Kernel.Direct.Parts
+import ConLeche.Kernel.Direct.Parts
 
 /-!
 # The direct sum class: recognition (task #175 sum-types, indexed)
@@ -11,20 +11,20 @@ enumerations (`Bool`, `Ordering`), option- and sum-like types
 empty inductives (zero constructors), and the index-carrying families
 (`Eq`-shaped propositions, `Vector`-like non-recursive families,
 `SigmaHom`).  The single-constructor index-free class is the direct
-*structure* route (`Lech/Kernel/Direct/Parts.lean`), which keeps its
+*structure* route (`ConLeche/Kernel/Direct/Parts.lean`), which keeps its
 projection table, eta and unit-likeness; nothing here has those (the
 official kernel's `is_structure_like` needs one constructor AND no
 index), so the two routes are disjoint and this recogniser rejects
 `n = 1 ∧ nIdx = 0` outright.
 
 The model is the **tagged disjoint union** of one tuple tower per
-constructor (`Lech/SetModel/TaggedSum.lean`), the family's carrier
+constructor (`ConLeche/SetModel/TaggedSum.lean`), the family's carrier
 at an index tuple being the union of the towers RESTRICTED to the
 index equation `e⃗_k f⃗ = ı⃗` (one extra proof-field per constructor,
-`Lech/Semantics/Tower/SumLeaf.lean`): a value is the pair of a
+`ConLeche/Semantics/Tower/SumLeaf.lean`): a value is the pair of a
 numeral tag (the constructor's index) and the constructor's tower;
 the recursor cases on the tag.  Installation is the direct route's
-(`Lech/Kernel/Direct/SumInstall.lean`): the reference checks alone,
+(`ConLeche/Kernel/Direct/SumInstall.lean`): the reference checks alone,
 no `_model` artifact consumed, the recursor generated and compared
 (task #175 S2 — `directRecTyI`/`directRecRhs`).
 
@@ -65,7 +65,7 @@ the official `inductive.cpp`):
   index arguments instead of the (squashed) value.
 -/
 
-namespace Lech
+namespace ConLeche
 
 /-- The right-hand side body of the rule for constructor `j` of `n`:
 the minor premise `j` (sitting `n - 1 - j` binders above the fields)
@@ -236,4 +236,4 @@ def directSumParts? (env : Env) (block : List ConstantInfo) :
   | some p => if directSumNonRec env p then some p else none
   | none => none
 
-end Lech
+end ConLeche

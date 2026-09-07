@@ -1,10 +1,10 @@
-import Lech.Verify.InferLeaves
-import Lech.Verify.InferIOLemmas
+import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.InferIOLemmas
 
 /-!
 # Leaf-closure and loose-bvar preservation for the io lane
 
-`Lech/Verify/InferLeaves.lean`'s three `inferTypeCore` preservation
+`ConLeche/Verify/InferLeaves.lean`'s three `inferTypeCore` preservation
 inductions, at the io lane (task #161 stage 2, the io-license batch).
 The reduction legs are the full lane's (`whnf_*` — the io knot is a
 leaf lane), and the io app inversion's certificate **disjunct is
@@ -17,7 +17,7 @@ for clause.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -469,4 +469,4 @@ theorem inferTypeIO_looseBVars {env : Env} (henv : EnvWF env)
   | true => rw [inferTypeIO_on hg] at h
             exact inferTypeCoreIO_looseBVars henv fuel h hw hb hLb
 
-end Lech
+end ConLeche

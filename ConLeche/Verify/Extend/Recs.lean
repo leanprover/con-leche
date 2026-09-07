@@ -1,7 +1,7 @@
-import Lech.Verify.Extend.Ind
+import ConLeche.Verify.Extend.Ind
 
 /-!
-# Recs — the `V`-free half of `Lech.Model.Extend.Recs`
+# Recs — the `V`-free half of `ConLeche.Model.Extend.Recs`
 
 The recursor-group install's bookkeeping: the `ProvFacts` /
 `SwapShList` / `RulesChain` inductive records of what `provisionRecs`
@@ -9,7 +9,7 @@ and the rule fold did, and the `provisionRecs_*` / `checkIndRecs_*`
 families reading the resulting environment (names, kinds,
 monotonicity, freshness, preservation).
 
-Relocated from `Lech/Model/Extend/Recs.lean` (task #123);
+Relocated from `ConLeche/Model/Extend/Recs.lean` (task #123);
 `provisionRecs_sound`, `recMemberOk_of_kit` and `checkIndRecs_sound`
 stay there, being statements about a valuation, as do the
 `SwapList`-shaped (valuation-carrying) swap lemmas.  The
@@ -19,7 +19,7 @@ variable here.
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -946,4 +946,4 @@ theorem checkIndRecs_fresh {F : Nat} {blockNames : List Name}
   | error e => intro h; exact nomatch h
   | ok p => intro _; exact provisionRecs_fresh recs env₂ p hp
 
-end Lech
+end ConLeche

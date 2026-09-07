@@ -1,6 +1,6 @@
 module
 
-public import Lech.Kernel.PropWhen
+public import ConLeche.Kernel.PropWhen
 /- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
 is that it is *definitionally* `k ()` — which is what
 `Level.beqPtr_eq` proves.  `import all` makes that body visible **in
@@ -28,7 +28,7 @@ Design decisions (see DESIGN.md):
 
 @[expose] public section
 
-namespace Lech
+namespace ConLeche
 
 
 /-- Universe levels, mirroring `Lean.Level` without metavariables —
@@ -140,7 +140,7 @@ def levelsHash : List Level → UInt64
 /-! ## The packed node word (task #167)
 
 `Lean.Expr` stores its derived data in one `UInt64` (`Lean.Expr.Data`:
-a 32-bit hash, a 20-bit `looseBVarRange`, flags).  `Lech.Expr` does
+a 32-bit hash, a 20-bit `looseBVarRange`, flags).  `ConLeche.Expr` does
 the same, with one `@[computed_field] data : Expr → UInt64` whose
 layout is
 
@@ -307,9 +307,9 @@ nothing α-irrelevant in a node, so structural `=`/`==` and the packed
 `hash` ARE α-equivalence, with nothing to normalise and nothing a
 fabricated term could get wrong.  The frontend still *validates* a
 stream's `name` and `binderInfo` fields (a malformed record is
-malformed) and drops them (`Lech/Frontend/ExportC.lean`); the pin
+malformed) and drops them (`ConLeche/Frontend/ExportC.lean`); the pin
 builder's `pi "a"`/`piI "α"` keep the `Init.Prelude` spelling as a
-reader-facing argument (`Lech/Kernel/Basis/Builder.lean`).  Error
+reader-facing argument (`ConLeche/Kernel/Basis/Builder.lean`).  Error
 messages never printed a binder name; positions (de Bruijn level,
 constant name) are what they carry.
 
@@ -347,7 +347,7 @@ The *storage* is the compiler's: `Lean/Elab/ComputedFields.lean:33` —
 *"This file implements the computed fields feature by simulating it
 via `implemented_by`."*  That is a named trust escape; it is
 enumerated, with the user ruling that adopted it, in the trust census
-in `Lech/Cached/ExprC.lean`'s module docstring. -/
+in `ConLeche/Cached/ExprC.lean`'s module docstring. -/
 inductive Expr where
   | bvar (i : Nat)
   | fvar (idx : Nat) (type : Expr)
@@ -846,7 +846,7 @@ address-keyed memo, all rest on this); (b) *the address-keyed memo
 entries stay valid for the life of one comparison* — both roots are
 live for the whole call, so every keyed subobject is reachable and
 the collector, which never moves objects, cannot reuse a keyed
-address.  The verification (`Lech/Verify/Cached/*`) consumes only
+address.  The verification (`ConLeche/Verify/Cached/*`) consumes only
 `beq`'s pure definition and never this function. -/
 unsafe def beqFast (a b : Expr) : Bool :=
   if ptrAddrUnsafe a == ptrAddrUnsafe b then true
@@ -887,11 +887,11 @@ representation-transparent (`mkBvar_eq`, `@[simp]`), so pattern
 matching stays on `.bvar` and no statement anywhere changes.
 
 **Where it is used.**  Every *runtime* `bvar` construction goes through
-it, and the routing is one line: `Lech.Cached.ExprC.mkBVar` is the
+it, and the routing is one line: `ConLeche.Cached.ExprC.mkBVar` is the
 cached tier's only `bvar` builder, so the substitution and abstraction
 walks and the frontend's parser are all covered at once.  The
 remaining `.bvar` literals in the tree are either the pure *spec*
-functions of `Lech/Kernel/ExprOps.lean` (which must keep the bare
+functions of `ConLeche/Kernel/ExprOps.lean` (which must keep the bare
 constructor — they are what the pool is proved transparent against) or
 closed constants such as the cores' `.bvar 0`, which the compiler
 already lifts to a per-module `_init_…_closed__n` and marks persistent
@@ -920,5 +920,5 @@ a fresh one above it.  Same value either way (`mkBvar_eq`). -/
 
 end Expr
 
-end Lech
+end ConLeche
 

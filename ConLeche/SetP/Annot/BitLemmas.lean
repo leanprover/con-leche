@@ -1,4 +1,4 @@
-import Lech.SetP.Annot.Bit
+import ConLeche.SetP.Annot.Bit
 
 /-!
 # The `denoteP` lemma battery (task #161, P3.2)
@@ -23,13 +23,13 @@ validated-annotation reading:
   the constant and literal clauses read the environment).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level PropWhen)
+open ConLeche.VExpr ConLeche.Verify
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level PropWhen)
 
 variable {env : Env} {φ : Name → Nat}
 variable {acval : Name → (Name → Nat) → AVExpr}
@@ -48,7 +48,7 @@ theorem denoteP_fvar (acval : Name → (Name → Nat) → AVExpr)
   rw [denoteP]
 
 theorem denoteP_const {acval : Name → (Name → Nat) → AVExpr}
-    {d : Nat} {n : Name} {us : List Level} {ci : Lech.ConstantInfo}
+    {d : Nat} {n : Name} {us : List Level} {ci : ConLeche.ConstantInfo}
     (hf : env.find? n = some ci)
     (hlen : us.length = ci.toConstantVal.levelParams.length) :
     denoteP acval env φ d (.const n us)
@@ -97,7 +97,7 @@ theorem denoteP_proj_pair (acval : Name → (Name → Nat) → AVExpr)
     rw [hnt]
 
 theorem denoteP_forallE (acval : Name → (Name → Nat) → AVExpr)
-    (d : Nat) (ty body : Expr) (mb : Lech.BinderMeta) :
+    (d : Nat) (ty body : Expr) (mb : ConLeche.BinderMeta) :
     denoteP acval env φ d (.forallE ty body mb)
       = (do
         let ta ← denoteP acval env φ d ty
@@ -107,7 +107,7 @@ theorem denoteP_forallE (acval : Name → (Name → Nat) → AVExpr)
   rw [denoteP]
 
 theorem denoteP_lam (acval : Name → (Name → Nat) → AVExpr)
-    (d : Nat) (ty body : Expr) (mb : Lech.BinderMeta) :
+    (d : Nat) (ty body : Expr) (mb : ConLeche.BinderMeta) :
     denoteP acval env φ d (.lam ty body mb)
       = (do
         let ta ← denoteP acval env φ d ty
@@ -181,7 +181,7 @@ theorem denoteP_proj_inv_pair {d : Nat} {s : Name} {i : Nat} {e : Expr}
   · exact ⟨ia, hia, hlt, rfl⟩
 
 theorem denoteP_forallE_inv {d : Nat} {ty bd : Expr}
-    {mb : Lech.BinderMeta} {ea : AVExpr}
+    {mb : ConLeche.BinderMeta} {ea : AVExpr}
     (h : denoteP acval env φ d (.forallE ty bd mb) = some ea) :
     ∃ ta ba, denoteP acval env φ d ty = some ta ∧
       denoteP acval env φ (d + 1)
@@ -199,7 +199,7 @@ theorem denoteP_forallE_inv {d : Nat} {ty bd : Expr}
       exact ⟨ta, ba, rfl, rfl, (Option.some.inj h).symm⟩
 
 theorem denoteP_lam_inv {d : Nat} {ty bd : Expr}
-    {mb : Lech.BinderMeta} {ea : AVExpr}
+    {mb : ConLeche.BinderMeta} {ea : AVExpr}
     (h : denoteP acval env φ d (.lam ty bd mb) = some ea) :
     ∃ ta ba, denoteP acval env φ d ty = some ta ∧
       denoteP acval env φ (d + 1)
@@ -226,4 +226,4 @@ theorem denoteP_natLit_inv {d n : Nat} {ea : AVExpr}
   · next hg => exact ⟨hg, (Option.some.inj h).symm⟩
   · exact nomatch h
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,6 +1,6 @@
-import Lech.SetP.Direct.DirectBitsP
-import Lech.SetP.Annot.BitInstall
-import Lech.Verify.EnvWF
+import ConLeche.SetP.Direct.DirectBitsP
+import ConLeche.SetP.Annot.BitInstall
+import ConLeche.Verify.EnvWF
 
 /-!
 # The direct structure's readings (task #175 W4c, P3 module 2)
@@ -25,11 +25,11 @@ tower leaves are built over.  Two syntactic facts carry the module:
   variables' annotations, each at its own depth.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech Lech.Semantics Lech.Verify Lech.SetModel
+open ConLeche ConLeche.Semantics ConLeche.Verify ConLeche.SetModel
 
 /-! ## The unmentioned leaf -/
 
@@ -197,4 +197,4 @@ theorem denoteP_openPis {acval : Name → (Name → Nat) → AVExpr} {env : Env}
     | .proj _ _ _, hop =>
       simp [openPisAtFvars] at hop
 
-end Lech.SetP
+end ConLeche.SetP

@@ -1,4 +1,4 @@
-import Lech.SetModel.TupleTower
+import ConLeche.SetModel.TupleTower
 
 /-!
 # The tagged disjoint union (task #175 sum-types)
@@ -7,7 +7,7 @@ The semantic carrier of a directly-installed inductive with **any
 number of constructors other than one**: a value is the pair of a
 **numeral tag** — the constructor's index, a finite ordinal
 `vnat i ∈ ω` — and that constructor's tuple tower
-(`Lech/SetModel/TupleTower.lean`):
+(`ConLeche/SetModel/TupleTower.lean`):
 
     sumSet w f = sigmaSet w ω (natFibre f)        f i = the i-th tower
     inj i a    = spair (vnat i) a
@@ -31,7 +31,7 @@ formation lands (`sumSet_mem_univ`); at `w = 0` no bound is needed
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/
 
-namespace Lech.SetTheory.Tower
+namespace ConLeche.SetTheory.Tower
 
 universe u
 
@@ -190,4 +190,4 @@ example (a b : V) : inj 0 a ≠ inj 1 b := fun h => by
   have := (inj_inj h).1
   omega
 
-end Lech.SetTheory.Tower
+end ConLeche.SetTheory.Tower

@@ -1,4 +1,4 @@
-import Lech.Kernel.Direct.SumParts
+import ConLeche.Kernel.Direct.SumParts
 
 /-!
 # The direct recursive class: recognition and the generated recursor
@@ -13,10 +13,10 @@ expressions, `T p⃗ e⃗` (`Nat`, `List`, binary trees, `Vector`-like
 families, `Lean.Level`, `Lean.Expr`, `Lean.Name`, …; a structure with a
 recursive field is the one-constructor instance).  The model is the
 Knaster–Tarski least pre-fixed FAMILY of the constructor-tower functor
-over the index-tuple set (`Lech/SetTheory/Derive/LfpFam.lean`,
-`Lech/Semantics/Tower/FixLeafI.lean`), and the recursor the fixed
+over the index-tuple set (`ConLeche/SetTheory/Derive/LfpFam.lean`,
+`ConLeche/Semantics/Tower/FixLeafI.lean`), and the recursor the fixed
 point of its own one-step unfolding
-(`Lech/Semantics/Tower/FixRecI.lean`).
+(`ConLeche/Semantics/Tower/FixRecI.lean`).
 
 **Positivity** mirrors the official `check_positivity`
 (`inductive.cpp`; lean4lean `Inductive/Add.lean:184-199`) syntactically
@@ -48,10 +48,10 @@ order (`e⃗_i` the field's index expressions), and concludes
 `λ p⃗ motive m⃗ f⃗, minor_j f⃗ (T.rec p⃗ motive m⃗ e⃗_i f_i)…` (official
 `mk_rec_rules`: the minor at the fields, then the recursor at every
 recursive field).  The generators below are the indexed ones of
-`Lech/Kernel/Direct/Parts.lean` with the `ih` binders threaded.
+`ConLeche/Kernel/Direct/Parts.lean` with the `ih` binders threaded.
 -/
 
-namespace Lech
+namespace ConLeche
 
 /-- Does the constant `T` occur in `e`?  A syntactic walk (`fvar`
 annotations included; a `.proj` node names its structure). -/
@@ -461,4 +461,4 @@ def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
     | none => none
   | none => none
 
-end Lech
+end ConLeche

@@ -5,18 +5,18 @@ open Lean
 # `scripts/SelfcheckDecls.lean` — the self-check's declaration list (task #199)
 
 Prints, one per line, every **non-internal constant declared by one of
-lech's own modules** in the environment obtained by importing the given
+con-leche's own modules** in the environment obtained by importing the given
 root modules.  `scripts/selfcheck.sh` feeds that list to `lean4export`
 after a `--`, so the exported stream is exactly *our declarations plus
 their transitive dependency cone* — the honest reading of "an export of
-the lech code base".  Exporting the whole imported environment instead
+the con-leche code base".  Exporting the whole imported environment instead
 would drag in the ~200k constants of the Lean elaborator that nothing of
 ours depends on.
 
-    lake env lean --run scripts/SelfcheckDecls.lean Lech Lech.SetP ...
+    lake env lean --run scripts/SelfcheckDecls.lean ConLeche ConLeche.SetP ...
 
-A constant counts as ours when the module that declares it is `Lech`,
-`Lech.*`, or one of the executable roots (`Main`).  Internal names
+A constant counts as ours when the module that declares it is `ConLeche`,
+`ConLeche.*`, or one of the executable roots (`Main`).  Internal names
 (`_private.…`, `….\_unsafe_rec`, `….\_override`, macro scopes) are not
 listed: they are not stable API, and `lean4export` reaches the ones that
 matter through the dependency walk anyway.
@@ -27,7 +27,7 @@ def isOurs (env : Environment) (n : Name) : Bool :=
   | none => false
   | some i =>
     let m := (env.header.moduleNames[i.toNat]!).toString
-    m == "Lech" || "Lech.".isPrefixOf m || m == "Main"
+    m == "ConLeche" || "ConLeche.".isPrefixOf m || m == "Main"
 
 def main (args : List String) : IO UInt32 := do
   if args.isEmpty then

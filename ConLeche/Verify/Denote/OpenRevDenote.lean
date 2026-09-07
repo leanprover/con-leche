@@ -1,6 +1,6 @@
-import Lech.Verify.Denote.Tele
-import Lech.Verify.Denote.OpenVars
-import Lech.Verify.InstLevels
+import ConLeche.Verify.Denote.Tele
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.InstLevels
 
 /-!
 # Real-argument instantiation, read through the reverse opening
@@ -18,9 +18,9 @@ reverse opening, and `RecRulesTT`'s nested parameter premise is stated
 there.
 -/
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
@@ -106,11 +106,11 @@ theorem openRev_bounded {e : Expr} {d : Nat} :
       rw [show n + (m + 1) = n + 1 + m from by omega]
       exact h)
 
-end Lech.Verify
+end ConLeche.Verify
 
-namespace Lech.Verify
+namespace ConLeche.Verify
 
-open Lech.VExpr
+open ConLeche.VExpr
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 
@@ -315,4 +315,4 @@ theorem Expr.fvarsBelow_of_fvarLeaves :
     · exact List.mem_append_right _ hl
   case proj s i e ihe => exact ihe h
 
-end Lech.Verify
+end ConLeche.Verify

@@ -1,5 +1,5 @@
-import Lech.Semantics.Kit
-import Lech.SetTheory.Derive.Sigma
+import ConLeche.Semantics.Kit
+import ConLeche.SetTheory.Derive.Sigma
 
 /-!
 # `AnnotOk2`: kinded hereditary truthfulness over `interp2` (task #151 tier C)
@@ -63,11 +63,11 @@ reads the slot off unchanged, with `slotChain_fits` carrying and
 dropping the new component (it uses positivity only).
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.Semantics (AVExpr)
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -109,7 +109,7 @@ def AnnotOk2 : (Nat → V) → AVExpr → Prop
     AnnotOk2 V ρ (.bvar i) = True := by rw [AnnotOk2]
 @[simp] theorem AnnotOk2_sort (ρ : Nat → V) (u : Nat) :
     AnnotOk2 V ρ (.sort u) = True := by rw [AnnotOk2]
-@[simp] theorem AnnotOk2_const (ρ : Nat → V) (c : Lech.VExpr.BConst)
+@[simp] theorem AnnotOk2_const (ρ : Nat → V) (c : ConLeche.VExpr.BConst)
     (us : List Nat) : AnnotOk2 V ρ (.const c us) = True := by
   rw [AnnotOk2]
 @[simp] theorem AnnotOk2_prf (ρ : Nat → V) :
@@ -352,7 +352,7 @@ interpretation, the argument in its domain, and the `Π`'s *codomain
 sort fact at kind `0`*, the slot follows — new component included.
 
 The codomain premise's supplier is `HasSort.mem_univ`
-(`Lech/SetR/Annot/Kinding.lean`) at the `Π`'s own numeral `v`,
+(`ConLeche/SetR/Annot/Kinding.lean`) at the `Π`'s own numeral `v`,
 which is the same route `Annotates.lam`'s cached `HasSortC` takes for
 the λ clause's identically-shaped component.  So the two binder
 clauses are symmetric, which is what the amendment restores. -/
@@ -380,4 +380,4 @@ theorem AnnotOk2_app_of {u v : Nat} {ρ : Nat → V} {f a Aa Ba : AVExpr}
   rw [AnnotOk2_app]
   exact ⟨hokf, hoka, appSlot_of_pi V hf ha hcod⟩
 
-end Lech.Semantics
+end ConLeche.Semantics

@@ -1,4 +1,4 @@
-import Lech.Kernel.Expr
+import ConLeche.Kernel.Expr
 
 /-!
 # Level operations
@@ -14,10 +14,10 @@ hitting a case that is unreachable for simplified input — is reported as
 `none`, which callers must treat as an internal error, never as a verdict.
 
 Soundness of all of this (w.r.t. evaluation of levels into `Nat`) is proved
-in `Lech.Verify.Level`.
+in `ConLeche.Verify.Level`.
 -/
 
-namespace Lech.Level
+namespace ConLeche.Level
 
 /-- Substitute level parameters: `subst ks vs l` replaces `param k` by the
 corresponding `v`.  Unlisted parameters remain. -/
@@ -142,7 +142,7 @@ their simplified forms (the reference kernels' fast path); otherwise
 antisymmetric `leq`, short-circuited.
 
 **Conformance note (restrictions-are-findings, task #176 P2).**  The
-first disjunct is what official's `is_equivalent` does and lech did
+first disjunct is what official's `is_equivalent` does and con-leche did
 not: `bool is_equivalent(level const & lhs, level const & rhs) {
 return lhs == rhs || normalize(lhs) == normalize(rhs); }`
 (`level.cpp:518`).  It is *provably redundant* here — `l = r` implies
@@ -179,7 +179,7 @@ def isNonZero : Level → Bool
   | .param _ => false
 
 /-- The zero-ness datum of a level (task #161): the exact reading of
-`{φ | eval φ l = 0}`.  `Lech.Verify.PropWhen` proves
+`{φ | eval φ l = 0}`.  `ConLeche.Verify.PropWhen` proves
 `(zeronessOf l).holds φ = (eval φ l == 0)`.  Case notes: a `max` is
 zero iff both sides are (`inter`); an `imax` is zero iff its right
 side is (`eval (imax a b) = if eval b = 0 then 0 else max …`). -/
@@ -202,9 +202,9 @@ def substPW (ks : List Name) (vs : List Level) (pw : PropWhen) :
     PropWhen :=
   pw.bindZ fun n => zeronessOf (subst.go ks vs n)
 
-end Lech.Level
+end ConLeche.Level
 
-namespace Lech
+namespace ConLeche
 
 /-- No duplicates in a list of names. -/
 def Name.nodup : List Name → Bool
@@ -263,4 +263,4 @@ def Expr.allLevelParamsDefined (params : List Name) : Expr → Bool
   | .lit _ => true
   | .proj _ _ e => e.allLevelParamsDefined params
 
-end Lech
+end ConLeche

@@ -1,13 +1,13 @@
-import Lech.Cached.StateC
-import Lech.Verify.Cached.OpsC
-import Lech.Verify.Fueled
+import ConLeche.Cached.StateC
+import ConLeche.Verify.Cached.OpsC
+import ConLeche.Verify.Fueled
 
 /-!
 # The cached-core faithfulness kit (task #163, batch 5)
 
 The relation and combinators for proving that the cached clone core
-(`Lech/Cached/CoreC.lean`) simulates the pure fueled families — the
-port of `Lech/Verify/SimI.lean` minus the arena, and (task #172 B3a)
+(`ConLeche/Cached/CoreC.lean`) simulates the pure fueled families — the
+port of `ConLeche/Verify/SimI.lean` minus the arena, and (task #172 B3a)
 minus the erasure: the cached and pure sides are *the same terms*, so
 the value relation is equality.
 
@@ -35,9 +35,9 @@ collision pins the stored key to the query (`beq_sound`, which since
 B3a is `eq_of_beq`).
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 open ExprC
 
 variable {mode : CheckMode}
@@ -601,4 +601,4 @@ protected theorem pureB {β γ : Type} {Q : β → Prop}
 
 end CEff
 
-end Lech.Cached
+end ConLeche.Cached

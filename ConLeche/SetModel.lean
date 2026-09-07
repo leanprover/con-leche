@@ -1,11 +1,11 @@
-import Lech.SetModel.Ops
-import Lech.SetModel.Value
-import Lech.SetModel.TupleTower
+import ConLeche.SetModel.Ops
+import ConLeche.SetModel.Value
+import ConLeche.SetModel.TupleTower
 
 /-!
-# `Lech.SetModel` — the pure set constructions
+# `ConLeche.SetModel` — the pure set constructions
 
-The Expr-free half of the former `Lech/SetBase/*` (split 2026-09-06,
+The Expr-free half of the former `ConLeche/SetBase/*` (split 2026-09-06,
 cleanup pass A): set constructions over an abstract `SetTheory V` that
 mention neither `Expr` nor the annotated syntax `AVExpr`.
 
@@ -16,9 +16,9 @@ mention neither `Expr` nor the annotated syntax `AVExpr`.
 * `TupleTower` — the uniform tuple model for directly-installed
   structures: `sigmaSet`-built, unit-terminated pair towers, the
   tupler `mkTower` and the projection family (namespace
-  `Lech.SetTheory.Tower`, unchanged).
+  `ConLeche.SetTheory.Tower`, unchanged).
 
-`Ops` and `Value` carry the namespace `Lech.SetModel`.  The tier
-imports only `Lech/SetTheory/*` and `Lech/VExpr/*`; the Expr-facing
-denotation and claims stand above it in `Lech/Semantics/*`.
+`Ops` and `Value` carry the namespace `ConLeche.SetModel`.  The tier
+imports only `ConLeche/SetTheory/*` and `ConLeche/VExpr/*`; the Expr-facing
+denotation and claims stand above it in `ConLeche/Semantics/*`.
 -/

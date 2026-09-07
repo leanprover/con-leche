@@ -1,11 +1,11 @@
-import Lech.Verify.Direct.DirectBody
-import Lech.Verify.ProjSlots
+import ConLeche.Verify.Direct.DirectBody
+import ConLeche.Verify.ProjSlots
 
 /-!
 # The generated recursor, opened (task #175 S2)
 
 The direct install stores the recursor it *generates* (`directRecTy`,
-`directRecRhs`, `Lech/Kernel/Direct/Parts.lean`): the type former's
+`directRecRhs`, `ConLeche/Kernel/Direct/Parts.lean`): the type former's
 parameter binders re-emitted with the elimination datum, the motive,
 one minor premise per constructor — the constructor's field telescope
 lifted under the motive (and the earlier minors), its data reset —
@@ -32,7 +32,7 @@ from the syntax is collected here:
   `NoProjEnv` invariant.
 -/
 
-namespace Lech
+namespace ConLeche
 
 open Expr
 
@@ -558,7 +558,7 @@ theorem NoProjAt.directFam (T' : Name) (lps : List Name) (nP o : Nat) :
 
 theorem NoProjAt.directCtorSpineAt (C : Name) (lps : List Name) (o nP nF : Nat) :
     NoProjAt T i (directCtorSpineAt C lps o nP nF) := by
-  unfold Lech.directCtorSpineAt
+  unfold ConLeche.directCtorSpineAt
   refine NoProjAt.mkAppN (by simp) ?_
   intro a ha
   rcases List.mem_append.mp ha with h | h
@@ -570,7 +570,7 @@ theorem NoProjAt.directCtorSpineAt (C : Name) (lps : List Name) (o nP nF : Nat) 
 former's and the constructor's types do not have. -/
 theorem NoProjAt.directRecTy {T' C : Name} {lps : List Name} {elim : Name}
     {large : Bool} {nP nF : Nat} {tty cty recTy : Expr}
-    (h : Lech.directRecTy T' lps elim large nP tty [(C, nF, cty)] = some recTy)
+    (h : ConLeche.directRecTy T' lps elim large nP tty [(C, nF, cty)] = some recTy)
     (hT : NoProjAt T i tty) (hC : NoProjAt T i cty) : NoProjAt T i recTy := by
   obtain ⟨cbs, crest0, minorTy, hs, hm, hr⟩ := directRecTy_single h
   have hcrest : NoProjAt T i crest0 := NoProjAt.stripPis nP hs hC
@@ -578,7 +578,7 @@ theorem NoProjAt.directRecTy {T' C : Name} {lps : List Name} {elim : Name}
     NoProjAt.replacePisPw nF hm hcrest.liftLooseBVars
       (by rw [noProjAt_app]; exact ⟨by simp, NoProjAt.directCtorSpineAt _ _ _ _ _⟩)
   have hmot : NoProjAt T i (directMotiveTy T' lps nP (directElimLevel elim large)) := by
-    unfold Lech.directMotiveTy
+    unfold ConLeche.directMotiveTy
     simp only [noProjAt_forallE, noProjAt_sort, and_true]
     exact NoProjAt.directFam _ _ _ _
   refine NoProjAt.replacePisPw nP hr hT ?_
@@ -589,7 +589,7 @@ theorem NoProjAt.directRecTy {T' C : Name} {lps : List Name} {elim : Name}
 the constructor's types do not have. -/
 theorem NoProjAt.directRecRhs {T' C : Name} {lps : List Name} {elim : Name}
     {large : Bool} {nP nF : Nat} {tty cty rhs : Expr}
-    (h : Lech.directRecRhs T' lps elim large nP tty [(C, nF, cty)] 0 = some rhs)
+    (h : ConLeche.directRecRhs T' lps elim large nP tty [(C, nF, cty)] 0 = some rhs)
     (hT : NoProjAt T i tty) (hC : NoProjAt T i cty) : NoProjAt T i rhs := by
   obtain ⟨cbs, crest0, minorTy, inner, hs, hm, hi, hr⟩ := directRecRhs_single h
   have hcrest : NoProjAt T i crest0 := NoProjAt.stripPis nP hs hC
@@ -602,7 +602,7 @@ theorem NoProjAt.directRecRhs {T' C : Name} {lps : List Name} {elim : Name}
         obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha
         simp))
   have hmot : NoProjAt T i (directMotiveTy T' lps nP (directElimLevel elim large)) := by
-    unfold Lech.directMotiveTy
+    unfold ConLeche.directMotiveTy
     simp only [noProjAt_forallE, noProjAt_sort, and_true]
     exact NoProjAt.directFam _ _ _ _
   refine NoProjAt.pisToLamsPw nP hr hT ?_
@@ -611,4 +611,4 @@ theorem NoProjAt.directRecRhs {T' C : Name} {lps : List Name} {elim : Name}
 
 end Expr
 
-end Lech
+end ConLeche

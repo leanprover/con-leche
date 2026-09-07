@@ -1,9 +1,9 @@
-import Lech.Verify.Cached.DiscC1
+import ConLeche.Verify.Cached.DiscC1
 
 /-!
 # Cached body walks, part 2: the stuck-term certificates (task #163)
 
-The port of `Lech/Verify/DiscI2.lean` under the recipe (DESIGN.md,
+The port of `ConLeche/Verify/DiscI2.lean` under the recipe (DESIGN.md,
 task #163): `SimAt → SimC`, denotation hypotheses → `RelC`/`RelCL`, no
 `Ext`, node inversion by `cases` on the `ExprC`
 constructor instead of `denoteNode` unpacking, and the identity
@@ -12,9 +12,9 @@ carried interning and readback steps.  The pure comparand side of every
 statement is byte-identical to the interned original's.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech.Cached.ExprC
+open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
@@ -1271,4 +1271,4 @@ theorem stuckIrrelC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env 
 
 end Walks4
 
-end Lech.Cached
+end ConLeche.Cached

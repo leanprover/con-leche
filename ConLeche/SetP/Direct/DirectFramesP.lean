@@ -1,4 +1,4 @@
-import Lech.SetP.Direct.DirectTeleP
+import ConLeche.SetP.Direct.DirectTeleP
 
 /-!
 # The direct structure's two parameter frames, identified (task #175 W4c, P3 module 3, part 4)
@@ -18,12 +18,12 @@ wire-side currency of `TowerWire`) and the Π-bit congruence
 (`piR_congr_bit`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech Lech.Semantics Lech.VExpr Lech.Verify SetTheory Lech.SetModel
-open Lech.Semantics (AVExpr)
+open ConLeche ConLeche.Semantics ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetModel
+open ConLeche.Semantics (AVExpr)
 
 universe w
 
@@ -59,7 +59,7 @@ theorem paramFrames {m : EnvS2Core V env} {F : Nat}
     (hT : OpenedP m φ nP tty tfvs trest Γt Rt)
     (hC : OpenedP m φ (nP + nF) cty cfvs crest Γc Rc)
     (hpin : ∀ i, i < nP → ∃ a b, cfvs[i]? = some a ∧ tfvs[i]? = some b ∧
-      Lech.isDefEqCore μ env F i (Expr.fvarTypeD a) (Expr.fvarTypeD b)
+      ConLeche.isDefEqCore μ env F i (Expr.fvarTypeD a) (Expr.fvarTypeD b)
         = .ok true) :
     ∀ i, i ≤ nP →
       (∀ ρ : Nat → V, Sat2 V (Γc.drop (nP + nF - i)) ρ ↔
@@ -199,4 +199,4 @@ theorem paramFrames {m : EnvS2Core V env} {F : Nat}
       (fun ρ hρ => hC.okΓ (i + 1) (by omega) ρ hρ)
       (fun ρ hρ => hT.okΓ (i + 1) (by omega) ρ ((hsat ρ).mp hρ)) ρ hρ
 
-end Lech.SetP
+end ConLeche.SetP

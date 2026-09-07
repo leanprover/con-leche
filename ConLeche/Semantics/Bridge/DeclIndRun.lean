@@ -1,7 +1,7 @@
-import Lech.Semantics.DeclIndRun
-import Lech.Semantics.Bridge.DeclRun
-import Lech.Verify.Extend.Iota
-import Lech.Verify.Extend.Proj
+import ConLeche.Semantics.DeclIndRun
+import ConLeche.Semantics.Bridge.DeclRun
+import ConLeche.Verify.Extend.Iota
+import ConLeche.Verify.Extend.Proj
 
 /-!
 # The **run-only** `indDecl` bridge (task #161 S11b, THE SEPARATION)
@@ -45,9 +45,9 @@ four run→derivation lemmas to save them.  The seal carries both
 prices.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-! ## The block members -/
 
@@ -571,4 +571,4 @@ theorem declIndRun_of
     hres, hprojFresh,
     (by rw [if_pos hsl]; exact projInstallRunRS (List.range nF) h)⟩⟩
 
-end Lech.Semantics
+end ConLeche.Semantics

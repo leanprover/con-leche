@@ -1,4 +1,4 @@
-import Lech.SetP.IndTowerReadP
+import ConLeche.SetP.IndTowerReadP
 
 /-!
 # The reduct stage, at the reading (task #161, IND TIER part 5)
@@ -22,13 +22,13 @@ complete: once the row lands, `hokApp` is the truthfulness transport's
 own output at the frame's openers.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level isDefEqCore)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level isDefEqCore)
 
 universe w
 
@@ -133,7 +133,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     exact h
   -- the applied form's leaves, scope and bound
   have hrhsRw : (rhsA.renameConsts f).hasFvar = false :=
-    (Lech.hasFvar_renameConsts f rhsA).trans hrhsw
+    (ConLeche.hasFvar_renameConsts f rhsA).trans hrhsw
   have hleafApp : ∀ l ∈ (Expr.mkAppN (rhsA.renameConsts f)
       fvs).fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
     intro l hl
@@ -174,11 +174,11 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
         omega
   have hwsApp : Expr.WScoped (rP + cnF)
       (Expr.mkAppN (rhsA.renameConsts f) fvs) := by
-    refine Lech.Expr.WScoped.mkAppN ?_ (fun x hx => hwsFvs x hx)
+    refine ConLeche.Expr.WScoped.mkAppN ?_ (fun x hx => hwsFvs x hx)
     exact Expr.WScoped.of_not_hasFvar hrhsRw
   have hbApp : (Expr.mkAppN (rhsA.renameConsts f)
       fvs).looseBVarsBounded 0 = true := by
-    refine Lech.looseBVarsBounded_mkAppN ?_ ?_
+    refine ConLeche.looseBVarsBounded_mkAppN ?_ ?_
     · rw [looseBVarsBounded_renameConsts]
       exact hrhsb
     · intro x hx
@@ -221,7 +221,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
   -- the spine's values are the chain's
   have hsplen : vsp.length = rP + cnF := by
     rw [← hspine.length, hfvslen]
-  have hRVbb : Lech.VExpr.VExpr.bvarsBelow 0 RV.erase :=
+  have hRVbb : ConLeche.VExpr.VExpr.bvarsBelow 0 RV.erase :=
     denote_closed m.cval_closed hrhsw hrhsb
       (denoteP_erase m.acval_erase 0 rhsA hRV)
   rw [interp2_mkAppN_map, interp2_mkAppN_map,
@@ -249,4 +249,4 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
       List.getElem?_eq_none (by rw [hzslen]; omega)]
     rfl
 
-end Lech.SetP
+end ConLeche.SetP

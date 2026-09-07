@@ -1,7 +1,7 @@
-import Lech.Semantics.DeclRun
-import Lech.Semantics.Bridge.Decl
-import Lech.Verify.ReducePinInv
-import Lech.Verify.DivModInv
+import ConLeche.Semantics.DeclRun
+import ConLeche.Semantics.Bridge.Decl
+import ConLeche.Verify.ReducePinInv
+import ConLeche.Verify.DivModInv
 
 /-!
 # The **run-only** declaration bridges (task #161 S11a, THE SEPARATION)
@@ -45,9 +45,9 @@ term* nothing — the separation's criterion is the proof-term closure,
 not the import graph, which is S9's own finding.
 -/
 
-namespace Lech.Semantics
+namespace ConLeche.Semantics
 
-open Lech.VExpr Lech.Verify
+open ConLeche.VExpr ConLeche.Verify
 
 /-! ## The shared front doors, run half -/
 
@@ -502,4 +502,4 @@ theorem checkDeclRun_of {μ : CheckMode} {F : Nat}
   | basisDecl kind => exact declBasisRun h
   | indDecl block => exact hind h
 
-end Lech.Semantics
+end ConLeche.Semantics

@@ -1,5 +1,5 @@
-import Lech.Semantics.Ok2
-import Lech.Verify.Denote.VClosed
+import ConLeche.Semantics.Ok2
+import ConLeche.Verify.Denote.VClosed
 
 /-!
 # Terms that do not mention certain variables (task #188)
@@ -18,11 +18,11 @@ the recursive slots (a kernel guard, `directUsedLater`), so the
 grading transfers.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory
-open Lech.VExpr (VExpr)
+open ConLeche.VExpr (VExpr)
 
 universe w
 
@@ -247,4 +247,4 @@ theorem NoBVar_liftN (n : Nat) :
   | proj i e ihe => intro k P hP; exact ihe k hP
   | prf => intros; trivial
 
-end Lech.Semantics
+end ConLeche.Semantics

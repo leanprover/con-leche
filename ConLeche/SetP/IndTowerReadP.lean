@@ -1,4 +1,4 @@
-import Lech.SetP.IndPointP
+import ConLeche.SetP.IndPointP
 
 /-!
 # The two opened towers, read (task #161, IND TIER part 5)
@@ -30,13 +30,13 @@ reads the rule's λ-tower, which is the truthfulness transport's whole
 subject.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name BinderMeta)
 
 universe w
 
@@ -203,9 +203,9 @@ theorem instLamsAt_denotePTele :
       -- re-open at the run's opener (the reading is blind to it)
       have hB' : denoteP acval env φ (j + 1)
           (bodyE.instantiate1 (.fvar (j + 0) tyA)) = some Bv := by
-        rw [denoteP_erasedEq (Lech.Expr.ErasedEq.instantiate1
-          (Lech.Expr.ErasedEq.rfl bodyE)
-          (show Lech.Expr.ErasedEq (.fvar (j + 0) tyA)
+        rw [denoteP_erasedEq (ConLeche.Expr.ErasedEq.instantiate1
+          (ConLeche.Expr.ErasedEq.rfl bodyE)
+          (show ConLeche.Expr.ErasedEq (.fvar (j + 0) tyA)
             (.fvar j dom) from by constructor)) (j + 1)]
         exact hB
       have hshape' : ∀ (i : Nat) (x : Expr), sp[i]? = some x →
@@ -244,4 +244,4 @@ theorem instLamsAt_denotePTele :
             omega, List.getD, List.getD,
             List.getElem?_append_left (by rw [hΓlen]; omega)]
 
-end Lech.SetP
+end ConLeche.SetP

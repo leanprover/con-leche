@@ -1,11 +1,11 @@
-import Lech.SetModel.TaggedSum
+import ConLeche.SetModel.TaggedSum
 
 /-!
 # The ω-iterate of a set functor (task #188)
 
 The one place iteration survives in the recursive-type model: the
 carrier is the Knaster–Tarski least pre-fixed point
-(`Lech/SetTheory/Derive/Lfp.lean`), and every law about it assumes a
+(`ConLeche/SetTheory/Derive/Lfp.lean`), and every law about it assumes a
 CLOSED MEMBER of the universe exists.  For a *finitary* tower functor
 that witness is the ω-iterate
 
@@ -15,7 +15,7 @@ that witness is the ω-iterate
 w` at `w ≥ 1`, `omega_mem_univ_succ`; at `w = 0` truth values), and
 closed under `Φ` whenever every member of `Φ (iterU Φ)` already lies in
 some `Φ (iterF Φ n)` (`iterU_closed_of` — the finitary condition,
-discharged for the tower functor in `Lech/Semantics/Tower/FixLeaf.lean`
+discharged for the tower functor in `ConLeche/Semantics/Tower/FixLeaf.lean`
 by bounding the ranks of a tuple's finitely many recursive fields).
 The union is also where the recursor's semantic fixed point is built
 by rank recursion.
@@ -23,7 +23,7 @@ by rank recursion.
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/
 
-namespace Lech.SetTheory.Tower
+namespace ConLeche.SetTheory.Tower
 
 universe u
 
@@ -133,4 +133,4 @@ theorem iterU_closed_of {Φ : V → V}
   obtain ⟨n, hn⟩ := hfin x hx
   exact mem_iterU.mpr ⟨n + 1, hn⟩
 
-end Lech.SetTheory.Tower
+end ConLeche.SetTheory.Tower

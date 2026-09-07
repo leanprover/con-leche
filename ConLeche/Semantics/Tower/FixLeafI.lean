@@ -1,16 +1,16 @@
-import Lech.Semantics.Tower.SumLeaf
-import Lech.Semantics.Tower.SumMk
-import Lech.Semantics.NoBVar
-import Lech.SetModel.Iter
-import Lech.SetModel.TowerMono
-import Lech.Semantics.Univ
+import ConLeche.Semantics.Tower.SumLeaf
+import ConLeche.Semantics.Tower.SumMk
+import ConLeche.Semantics.NoBVar
+import ConLeche.SetModel.Iter
+import ConLeche.SetModel.TowerMono
+import ConLeche.Semantics.Univ
 
 /-!
 # The type-former leaf of a direct recursive FAMILY (task #188, indexed)
 
 The carrier of a directly installed recursive inductive family
 `T : Π p⃗ ı⃗, Sort w` is the least pre-fixed family (`lfpFam`,
-`Lech/SetTheory/Derive/LfpFam.lean`) of its constructor-tower functor
+`ConLeche/SetTheory/Derive/LfpFam.lean`) of its constructor-tower functor
 on families over the **index-tuple set** `I = ⟦Σ' ı⃗⟧` (the tower over
 the index telescope, `idxTyAV`; a tuple is `tupW u ı⃗` — the point at
 index level `0`):
@@ -35,8 +35,8 @@ hereditary premise (`ParamsOkXI`).  The functor's semantic laws
 identification with the real chains) are in `FixFamI.lean`.
 -/
 
-namespace Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.Semantics
+open ConLeche.SetModel
 
 open SetTheory SetTheory.Tower
 
@@ -554,4 +554,4 @@ theorem directFixTyAVI_fold {u w : Nat} {Ids : List AVExpr} {rss : List (List Bo
       exact Nat.succ_ne_zero w) hsp']
   exact (fixLeafBody_facts hbase).1
 
-end Lech.Semantics
+end ConLeche.Semantics

@@ -1,4 +1,4 @@
-import Lech.Verify.Knot
+import ConLeche.Verify.Knot
 
 /-!
 # A generic relational pair monad over the checker core
@@ -14,7 +14,7 @@ cascade; the three structurally recursive list helpers get hand-rolled
 commute lemmas.
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -1122,4 +1122,4 @@ theorem annotateBody_snd_proj (d : Nat) (e : Expr) :
 
 end Commute
 
-end Lech
+end ConLeche

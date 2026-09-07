@@ -1,12 +1,12 @@
-import Lech.SetP.DirectSum.SumIntroP
-import Lech.Semantics.Tower.FixRecI
+import ConLeche.SetP.DirectSum.SumIntroP
+import ConLeche.Semantics.Tower.FixRecI
 
 /-!
 # The recursive recursor leaf's bit validity (task #188)
 
 The sum route's validity kit (`SumIntroP.lean`) extended by the
 inductive-hypothesis arguments of the case split
-(`caseRecAVI`, `Lech/Semantics/Tower/FixCaseI.lean`): an ih argument
+(`caseRecAVI`, `ConLeche/Semantics/Tower/FixCaseI.lean`): an ih argument
 applies the unfolded function to the block's variables, the field's
 index expressions moved to the payload frame (`substProj`) and the
 payload's projection; its validity is the index expressions' at the
@@ -15,13 +15,13 @@ body, the one-step unfolding, the fixed-point sigma and the selected
 fixed point (`fixSelAVI`) are valid.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
 
 universe w
 
@@ -445,4 +445,4 @@ theorem fixSelAVI_validV {ℓ w nP s : Nat} {Fss Ess : List (List AVExpr)} {Ids 
     true_and]
   exact hsig
 
-end Lech.SetP
+end ConLeche.SetP

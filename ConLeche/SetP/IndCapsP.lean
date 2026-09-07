@@ -1,6 +1,6 @@
-import Lech.SetP.IndMemberP
-import Lech.Verify.Extend.Iota
-import Lech.Verify.Extend.Ind
+import ConLeche.SetP.IndMemberP
+import ConLeche.Verify.Extend.Iota
+import ConLeche.Verify.Extend.Ind
 
 /-!
 # `caps_ok` at a member cons: the split, and the two live rows (task #161, IND TIER)
@@ -35,13 +35,13 @@ unit half needs no family premise at all (the ratified repair), so
 its split is two-way where the eta half's is four-way.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics Lech.SetModel
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics ConLeche.SetModel
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   IndCaps ReducibilityHint)
 
 universe w
@@ -59,36 +59,36 @@ theorem memberEtaSplit {blockNames : List Name}
     (hpshape0 : c₀.name.isProjFnShape = false)
     (hbn : blockNames.contains cvA.name = true)
     (hpins : ∀ caps, c₀ = .indInfo cvA caps →
-      Lech.EtaPins μ env cvA.name cvA.levelParams caps ∧
+      ConLeche.EtaPins μ env cvA.name cvA.levelParams caps ∧
         (caps.eta = true → blockNames.contains caps.etaCtor = true) ∧
         (caps.eta = true → 0 < caps.etaFields →
-          env.find? (Lech.projFnName cvA.name 0) = none))
-    (hEC : Lech.EtaFamiliesClosedO blockNames env)
-    (hBP : Lech.BlockEtaPinned μ blockNames env)
+          env.find? (ConLeche.projFnName cvA.name 0) = none))
+    (hEC : ConLeche.EtaFamiliesClosedO blockNames env)
+    (hBP : ConLeche.BlockEtaPinned μ blockNames env)
     {T : Name} {cvT : ConstantVal} {caps : IndCaps}
     (hfT : (⟨c₀ :: env.consts⟩ : Env).find? T
       = some (.indInfo cvT caps))
     (hcape : caps.eta = true)
-    (hnresT : Lech.reservedBasisNames.contains T = false)
-    (hfam : Lech.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps) :
+    (hnresT : ConLeche.reservedBasisNames.contains T = false)
+    (hfam : ConLeche.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps) :
     (env.find? T = some (.indInfo cvT caps) ∧
-        Lech.EtaFamilyStored env T caps ∧
+        ConLeche.EtaFamilyStored env T caps ∧
         T ≠ c₀.name ∧ caps.etaCtor ≠ c₀.name ∧
-        ∀ j, j < caps.etaFields → Lech.projFnName T j ≠ c₀.name) ∨
-      (Lech.EtaPins μ env T cvT.levelParams caps ∧
+        ∀ j, j < caps.etaFields → ConLeche.projFnName T j ≠ c₀.name) ∨
+      (ConLeche.EtaPins μ env T cvT.levelParams caps ∧
         caps.etaFields = 0 ∧ blockNames.contains T = true ∧
         blockNames.contains caps.etaCtor = true) := by
   have hdown : ∀ n : Name, n ≠ c₀.name →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
-    rw [Lech.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
+    rw [ConLeche.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
   -- no projection slot is a member's name
   have hnP : ∀ j, j < caps.etaFields →
-      Lech.projFnName T j ≠ c₀.name :=
-    fun _ _ => Lech.projFnName_ne_of_shape hpshape0
+      ConLeche.projFnName T j ≠ c₀.name :=
+    fun _ _ => ConLeche.projFnName_ne_of_shape hpshape0
   -- `etaFields = 0` whenever the projection fold has not run
   have hzero : ∀ hprojF : 0 < caps.etaFields →
-        env.find? (Lech.projFnName T 0) = none,
+        env.find? (ConLeche.projFnName T 0) = none,
       caps.etaFields = 0 := by
     intro hprojF
     rcases Nat.eq_zero_or_pos caps.etaFields with h | h
@@ -101,7 +101,7 @@ theorem memberEtaSplit {blockNames : List Name}
   · -- the cons is the former itself
     right
     have hc₀ : c₀ = .indInfo cvT caps := by
-      rw [hT0, Lech.Env.find?_cons_self] at hfT
+      rw [hT0, ConLeche.Env.find?_cons_self] at hfT
       exact Option.some.inj hfT
     have hcvT : cvT = cvA := by rw [hc₀] at hc₀cv; exact hc₀cv
     subst hcvT
@@ -145,21 +145,21 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
     (hpshape0 : c₀.name.isProjFnShape = false)
     (hbn : blockNames.contains cvA.name = true)
     (hpins : ∀ caps, c₀ = .indInfo cvA caps →
-      Lech.EtaPins μ env cvA.name cvA.levelParams caps ∧
+      ConLeche.EtaPins μ env cvA.name cvA.levelParams caps ∧
         (caps.eta = true → blockNames.contains caps.etaCtor = true) ∧
         (caps.eta = true → 0 < caps.etaFields →
-          env.find? (Lech.projFnName cvA.name 0) = none))
-    (hEC : Lech.EtaFamiliesClosedO blockNames env)
-    (hBP : Lech.BlockEtaPinned μ blockNames env)
+          env.find? (ConLeche.projFnName cvA.name 0) = none))
+    (hEC : ConLeche.EtaFamiliesClosedO blockNames env)
+    (hBP : ConLeche.BlockEtaPinned μ blockNames env)
     -- the live η row: a block former at `etaFields = 0`
     (hetaLive : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
-      caps.eta = true → Lech.reservedBasisNames.contains T = false →
-      Lech.EtaPins μ env T cvT.levelParams caps →
+      caps.eta = true → ConLeche.reservedBasisNames.contains T = false →
+      ConLeche.EtaPins μ env T cvT.levelParams caps →
       caps.etaFields = 0 →
       blockNames.contains T = true →
       blockNames.contains caps.etaCtor = true →
-      Lech.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
+      ConLeche.EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
       ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
         m₂.acval = acvalWith mp.base2.acval c₀.name A →
         ∀ φ' : Name → Nat, EtaLawP m₂ φ' T cvT caps)
@@ -167,8 +167,8 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
     -- it — see `MemberUnitLawP`'s note; `hpins` is right here)
     (hunitLive : ∀ (cvT : ConstantVal) (caps : IndCaps),
       c₀ = .indInfo cvT caps → caps.unitlike = true →
-      Lech.reservedBasisNames.contains c₀.name = false →
-      Lech.EtaPins μ env cvA.name cvA.levelParams caps →
+      ConLeche.reservedBasisNames.contains c₀.name = false →
+      ConLeche.EtaPins μ env cvA.name cvA.levelParams caps →
       ∀ m₂ : EnvS2Core V ⟨c₀ :: env.consts⟩,
         m₂.acval = acvalWith mp.base2.acval c₀.name A →
         ∀ φ' : Name → Nat, UnitLawP m₂ φ' c₀.name cvT caps)
@@ -189,7 +189,7 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
       · rw [hac]
         exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
           (constsBound_instType mp.base2.wf
-            (Lech.Semantics.Env.find?_mem hfE) us) hTVa
+            (ConLeche.Semantics.Env.find?_mem hfE) us) hTVa
       · intro ρ ts rest x hlents hfit hmem
         rw [hac, acvalWith_ne hnT] at hmem
         have hfab : etaFabArgs2
@@ -213,13 +213,13 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
     by_cases hT0 : T = c₀.name
     · subst hT0
       have hc₀ : c₀ = .indInfo cvT caps := by
-        rw [Lech.Env.find?_cons_self] at hf
+        rw [ConLeche.Env.find?_cons_self] at hf
         exact Option.some.inj hf
       have hcvT : cvT = cvA := by rw [hc₀] at hc₀cv; exact hc₀cv
       exact hunitLive cvT caps hc₀ hcapu hres
         (hpins caps (by rw [hc₀, hcvT])).1 m₂ hac φ'
     · have hfE : env.find? T = some (.indInfo cvT caps) := by
-        rw [Lech.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hf
+        rw [ConLeche.Env.find?_cons, if_neg (fun hh => hT0 hh.symm)] at hf
         exact hf
       intro us hlen
       obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
@@ -228,9 +228,9 @@ theorem capsOkP_cons_member (mp : EnvS2PM V μ env)
       · rw [hac]
         exact denoteP_cons_fresh_mono hfresh hntc _ 0 _
           (constsBound_instType mp.base2.wf
-            (Lech.Semantics.Env.find?_mem hfE) us) hTVa
+            (ConLeche.Semantics.Env.find?_mem hfE) us) hTVa
       · intro ρ ts rest x y hlents hfit hmx hmy
         rw [hac, acvalWith_ne hT0] at hmx hmy
         exact hlaw ρ ts rest x y hlents hfit hmx hmy
 
-end Lech.SetP
+end ConLeche.SetP

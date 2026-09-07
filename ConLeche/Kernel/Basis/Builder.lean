@@ -1,4 +1,4 @@
-import Lech.Kernel.Basis.Names
+import ConLeche.Kernel.Basis.Names
 
 /-!
 # A tiny builder for the hand-written raw pins
@@ -12,7 +12,7 @@ signature says `{…}`, for the reader), the `pw` datum at the parse
 placeholder `.never` — and every install-computed recursor-rule
 field at its parse placeholder (`ctorParams := 0`, `fire := .inert`).
 
-Written out with `Lech.Expr`'s constructors and `Name.str` chains,
+Written out with `ConLeche.Expr`'s constructors and `Name.str` chains,
 one such declaration is a single unreadable line.  The helpers below —
 `pi`/`piI`/`piA`, `lm`/`lmI`, `bv`, `cnst`, `srt`, `ap2`…`ap4` — are a
 one-to-one, non-abbreviating renaming of those constructors at the
@@ -23,14 +23,14 @@ constructor application.
 
 The annotated forms are NOT written here: they are computed from these
 raw pins by the checker's own annotation pass at elaboration time
-(`#annotate_basis`, `Lech/Kernel/BasisGen.lean`).
+(`#annotate_basis`, `ConLeche/Kernel/BasisGen.lean`).
 -/
 
-namespace Lech
+namespace ConLeche
 
 /-! The raw-pin builder: `Expr` constructors under the raw binder
-annotations.  Opened by the pin modules (`Lech/Kernel/Basis/*`,
-`Lech/Kernel/StdAxioms.lean`, `Lech/Kernel/TrustAxioms.lean`). -/
+annotations.  Opened by the pin modules (`ConLeche/Kernel/Basis/*`,
+`ConLeche/Kernel/StdAxioms.lean`, `ConLeche/Kernel/TrustAxioms.lean`). -/
 
 namespace BasisDSL
 
@@ -118,4 +118,4 @@ def rule (ctor : Name) (nfields : Nat) (rhs : Expr) : RecRule :=
 
 end BasisDSL
 
-end Lech
+end ConLeche

@@ -1,9 +1,9 @@
-import Lech.Semantics.IndBlockRun
-import Lech.SetP.IotaRulePlainP
+import ConLeche.Semantics.IndBlockRun
+import ConLeche.SetP.IotaRulePlainP
 
-import Lech.SetP.IndPinRowP
+import ConLeche.SetP.IndPinRowP
 
-import Lech.SetP.IndBottomNestedP
+import ConLeche.SetP.IndBottomNestedP
 
 /-!
 # The per-rule bridge, nested branch (task #161, IND TIER part 9)
@@ -26,15 +26,15 @@ at `Level.substFn φ lps us` on the stored pin, and
 two.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
+open ConLeche.VExpr ConLeche.Verify SetTheory
 
-open Lech.Semantics Lech.SetModel
+open ConLeche.Semantics ConLeche.SetModel
 
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   BinderMeta RecRule isDefEqCore inferTypeCore DefEqListOk TypedListOk)
 
 universe w
@@ -546,4 +546,4 @@ theorem iotaRulesP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
         heqfind hkit hfire φ
     · exact ih (j + 1) rest' hrec rl hrl'
 
-end Lech.SetP
+end ConLeche.SetP

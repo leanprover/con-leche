@@ -1,7 +1,7 @@
-import Lech.SetP.Step2.MajorP
-import Lech.SetP.Step2.IotaGateP
-import Lech.SetP.Step2.ReadsP
-import Lech.Semantics.DefEqList
+import ConLeche.SetP.Step2.MajorP
+import ConLeche.SetP.Step2.IotaGateP
+import ConLeche.SetP.Step2.ReadsP
+import ConLeche.Semantics.DefEqList
 
 /-!
 # The two ι rows, discharged (task #161, iota tier)
@@ -69,13 +69,13 @@ plus the `denoteP_openRev` bridge), the index pin
 law.
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory
-open Lech.Semantics (AVExpr)
-open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
+open ConLeche.VExpr ConLeche.Verify SetTheory
+open ConLeche.Semantics (AVExpr)
+open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule inferTypeCore whnf iotaRecP)
 
 universe w
@@ -152,7 +152,7 @@ type with scoped arguments. -/
 theorem piResidual_frameP {m : EnvS2Core V env} {d : Nat}
     {Δa : List AVExpr} :
     ∀ {T : Expr} {args : List Expr} {rest : Expr},
-      Lech.piResidual T args = some rest →
+      ConLeche.piResidual T args = some rest →
       Expr.WScoped d T → T.looseBVarsBounded 0 = true →
       Expr.LeavesBounded T → CtxOkP m φ d Δa T →
       (∀ x ∈ args, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
@@ -211,13 +211,13 @@ theorem constTypeP_pkg {m : EnvS2Core V env} (hct : ConstTypeP m φ)
       (ci.toConstantVal.type.instantiateLevelParams
         ci.toConstantVal.levelParams us).looseBVarsBounded 0 = true := by
   obtain ⟨ta, hta, hok, hmem⟩ := hct 0 n ci us hf hnt hlen
-  have hwf := m.wf _ (Lech.Semantics.Env.find?_mem hf)
+  have hwf := m.wf _ (ConLeche.Semantics.Env.find?_mem hf)
   have hnf : (ci.toConstantVal.type.instantiateLevelParams
       ci.toConstantVal.levelParams us).hasFvar = false := by
-    rw [Lech.Expr.hasFvar_instantiateLevelParams]; exact hwf.1
+    rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hwf.1
   have hbd : (ci.toConstantVal.type.instantiateLevelParams
       ci.toConstantVal.levelParams us).looseBVarsBounded 0 = true := by
-    rw [Lech.Expr.looseBVarsBounded_instantiateLevelParams]
+    rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
     exact hwf.2.2.2.1
   exact ⟨ta, denoteP_depth_of_closed m.acval_closed hnf
       (fun k => denoteP_closed m.acval_erase m.cval_closed hnf hbd hta 1 k)
@@ -247,37 +247,37 @@ instance of `prepareMajorP_ind`).  Readings play no part: every step
 either preserves the leaf set or produces a closed term. -/
 theorem frame_prepareMajorP {d : Nat} {recName : Name}
     {rules : List RecRule} {a mj : Expr}
-    (h : Lech.prepareMajorP μ env fuel d recName rules a = .ok mj)
-    (hwf : Lech.EnvWF env)
+    (h : ConLeche.prepareMajorP μ env fuel d recName rules a = .ok mj)
+    (hwf : ConLeche.EnvWF env)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a) :
     Expr.WScoped d mj ∧ mj.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded mj :=
-  Lech.prepareMajorP_ind h
+  ConLeche.prepareMajorP_ind h
     (fun x => Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded x)
-    (fun hw hP => ⟨Lech.whnf_WScoped hwf fuel hw hP.1,
-      Lech.whnf_looseBVars hwf fuel hw hP.2.1,
-      fun l hl => hP.2.2 l (Lech.whnf_fvarLeaves hwf fuel hw l hl)⟩)
+    (fun hw hP => ⟨ConLeche.whnf_WScoped hwf fuel hw hP.1,
+      ConLeche.whnf_looseBVars hwf fuel hw hP.2.1,
+      fun l hl => hP.2.2 l (ConLeche.whnf_fvarLeaves hwf fuel hw l hl)⟩)
     (fun hlit hP => by
       obtain ⟨hw₀, hb₀, hL₀⟩ := hP
-      rcases Lech.litMajorToCtorP_inv hlit with rfl | ⟨s, rfl, hg, hred⟩
-      · exact ⟨Lech.litToCtorIfNat_WScoped hw₀,
-          Lech.litToCtorIfNat_looseBVars hb₀,
-          fun l hl => hL₀ l (Lech.litToCtorIfNat_fvarLeaves l hl)⟩
-      · have hwc : Expr.WScoped d (Lech.strLitToConstructor s) :=
-          Lech.strLitToConstructor_WScoped s d
-        have hbc : (Lech.strLitToConstructor s).looseBVarsBounded 0 = true :=
-          Lech.strLitToConstructor_looseBVars s 0
-        have hLc : Expr.LeavesBounded (Lech.strLitToConstructor s) :=
+      rcases ConLeche.litMajorToCtorP_inv hlit with rfl | ⟨s, rfl, hg, hred⟩
+      · exact ⟨ConLeche.litToCtorIfNat_WScoped hw₀,
+          ConLeche.litToCtorIfNat_looseBVars hb₀,
+          fun l hl => hL₀ l (ConLeche.litToCtorIfNat_fvarLeaves l hl)⟩
+      · have hwc : Expr.WScoped d (ConLeche.strLitToConstructor s) :=
+          ConLeche.strLitToConstructor_WScoped s d
+        have hbc : (ConLeche.strLitToConstructor s).looseBVarsBounded 0 = true :=
+          ConLeche.strLitToConstructor_looseBVars s 0
+        have hLc : Expr.LeavesBounded (ConLeche.strLitToConstructor s) :=
           fun l hl => by
-            rw [Lech.strLitToConstructor_fvarLeaves] at hl; exact nomatch hl
-        exact ⟨Lech.whnf_WScoped hwf fuel hred hwc,
-          Lech.whnf_looseBVars hwf fuel hred hbc,
-          fun l hl => hLc l (Lech.whnf_fvarLeaves hwf fuel hred l hl)⟩)
+            rw [ConLeche.strLitToConstructor_fvarLeaves] at hl; exact nomatch hl
+        exact ⟨ConLeche.whnf_WScoped hwf fuel hred hwc,
+          ConLeche.whnf_looseBVars hwf fuel hred hbc,
+          fun l hl => hLc l (ConLeche.whnf_fvarLeaves hwf fuel hred l hl)⟩)
     (fun hmaj hP => by
       obtain ⟨hw₁, hb₁, hL₁⟩ := hP
-      rcases Lech.majorToCtor_inv hmaj with rfl | ⟨hwsB, hbB, hleafB, -⟩
+      rcases ConLeche.majorToCtor_inv hmaj with rfl | ⟨hwsB, hbB, hleafB, -⟩
       · exact ⟨hw₁, hb₁, hL₁⟩
       · exact ⟨Expr.WScoped.of_wscopedB hwsB, hbB, fun l hl =>
           hL₁ l (by
@@ -305,14 +305,14 @@ theorem recRhsP_depth {m : EnvS2Core V env}
       ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
         us).looseBVarsBounded 0 = true := by
   obtain ⟨-, -, -, -, -, hrec', -⟩ :=
-    m.wf _ (Lech.Semantics.Env.find?_mem hf)
+    m.wf _ (ConLeche.Semantics.Env.find?_mem hf)
   obtain ⟨hRnf, -, -, hRbd, -⟩ := hrec' cv mI rP rules rfl rl hmem
   have hnf : ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
       us).hasFvar = false := by
-    rw [Lech.Expr.hasFvar_instantiateLevelParams]; exact hRnf
+    rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hRnf
   have hbd : ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
       us).looseBVarsBounded 0 = true := by
-    rw [Lech.Expr.looseBVarsBounded_instantiateLevelParams]; exact hRbd
+    rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hRbd
   exact ⟨denoteP_depth_of_closed m.acval_closed hnf
       (fun k => denoteP_closed m.acval_erase m.cval_closed hnf hbd hRa0 1 k)
       hRa0,
@@ -334,15 +334,15 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
     cnF, r, hfn, hfrec, hlenA, hlenU,
     hprep, hfnmaj, hfcj, hrfind, hlenM,
     hfire, hlev, hdefP, hcertR, hcertC, hidx,
-    rfl⟩ := Lech.iotaRec_inv h
+    rfl⟩ := ConLeche.iotaRec_inv h
   -- the subject's own spine
   have hfrE : ∀ x ∈ e.getAppArgs, Expr.WScoped d x ∧
       x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x := fun x hx =>
-    ⟨hws.getAppArgs x hx, Lech.looseBVarsBounded_getAppArgs hb x hx,
-      fun l hl => hLb l (Lech.fvarLeaves_getAppArgs hx l hl)⟩
+    ⟨hws.getAppArgs x hx, ConLeche.looseBVarsBounded_getAppArgs hb x hx,
+      fun l hl => hLb l (ConLeche.fvarLeaves_getAppArgs hx l hl)⟩
   have heaSave := hea
   rw [show e = Expr.mkAppN e.getAppFn e.getAppArgs from
-    (Lech.Expr.mkAppN_getApp e).symm, hfn] at hea
+    (ConLeche.Expr.mkAppN_getApp e).symm, hfn] at hea
   obtain ⟨vc, xs, hvc, hspx, rfl⟩ := denoteP_mkAppN_inv hea
   -- the major's frames and reading, through the whole chain (either
   -- order: an instance of `prepareMajorP_ind`).  Task #172 B4: the
@@ -350,51 +350,51 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
   -- per-argument readability comes from the subject's own reading,
   -- transported by the reads walk and the fabrication lemma.
   have hmIlt : mI < e.getAppArgs.length := by rw [hlenA]; omega
-  obtain ⟨hwMa, hbMa, hLMa⟩ := hfrE _ (Lech.getD_mem hmIlt)
+  obtain ⟨hwMa, hbMa, hLMa⟩ := hfrE _ (ConLeche.getD_mem hmIlt)
   have hlrM0 : LeafReadsP m φ d (e.getAppArgs.getD mI (.bvar 0)) :=
     hlr.of_subset
-      (fun l hl => Lech.fvarLeaves_getAppArgs (Lech.getD_mem hmIlt) l hl)
+      (fun l hl => ConLeche.fvarLeaves_getAppArgs (ConLeche.getD_mem hmIlt) l hl)
   have hdM : denoteP m.acval env φ d (e.getAppArgs.getD mI (.bvar 0))
       = some (xs.getD mI default) := hspx.getD _ mI hmIlt
   obtain ⟨⟨ma, hma⟩, hlrMj, hwm, hbm, hLm⟩ :
       (∃ w, denoteP m.acval env φ d major = some w) ∧
         LeafReadsP m φ d major ∧ Expr.WScoped d major ∧
         major.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded major :=
-    Lech.prepareMajorP_ind hprep
+    ConLeche.prepareMajorP_ind hprep
       (fun x => (∃ w, denoteP m.acval env φ d x = some w) ∧
         LeafReadsP m φ d x ∧ Expr.WScoped d x ∧
         x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x)
       (fun hw hP => by
         obtain ⟨⟨xa, hxa⟩, hlrx, hwx, hbx, hLx⟩ := hP
         obtain ⟨ya, hya⟩ := ihw hw hwx hbx hLx hlrx hxa
-        exact ⟨⟨ya, hya⟩, hlrx.of_subset (Lech.whnf_fvarLeaves m.wf fuel hw),
-          Lech.whnf_WScoped m.wf fuel hw hwx,
-          Lech.whnf_looseBVars m.wf fuel hw hbx,
-          fun l hl => hLx l (Lech.whnf_fvarLeaves m.wf fuel hw l hl)⟩)
+        exact ⟨⟨ya, hya⟩, hlrx.of_subset (ConLeche.whnf_fvarLeaves m.wf fuel hw),
+          ConLeche.whnf_WScoped m.wf fuel hw hwx,
+          ConLeche.whnf_looseBVars m.wf fuel hw hbx,
+          fun l hl => hLx l (ConLeche.whnf_fvarLeaves m.wf fuel hw l hl)⟩)
       (fun hlit hP => by
         obtain ⟨⟨xa, hxa⟩, hlrx, hwx, hbx, hLx⟩ := hP
-        rcases Lech.litMajorToCtorP_inv hlit with rfl | ⟨st, rfl, hg, hred⟩
-        · refine ⟨⟨xa, ?_⟩, hlrx.of_subset Lech.litToCtorIfNat_fvarLeaves,
-            Lech.litToCtorIfNat_WScoped hwx,
-            Lech.litToCtorIfNat_looseBVars hbx,
-            fun l hl => hLx l (Lech.litToCtorIfNat_fvarLeaves l hl)⟩
+        rcases ConLeche.litMajorToCtorP_inv hlit with rfl | ⟨st, rfl, hg, hred⟩
+        · refine ⟨⟨xa, ?_⟩, hlrx.of_subset ConLeche.litToCtorIfNat_fvarLeaves,
+            ConLeche.litToCtorIfNat_WScoped hwx,
+            ConLeche.litToCtorIfNat_looseBVars hbx,
+            fun l hl => hLx l (ConLeche.litToCtorIfNat_fvarLeaves l hl)⟩
           rw [denoteP_litToCtorIfNat]
           exact hxa
         · obtain ⟨hSC, hwc, hbc, hLc, hfv⟩ :=
             denotePStrLit_of_guard (m := m) d st hg hxa
-          have hlrc : LeafReadsP m φ d (Lech.strLitToConstructor st) := by
+          have hlrc : LeafReadsP m φ d (ConLeche.strLitToConstructor st) := by
             intro l hl; rw [hfv] at hl; exact nomatch hl
           obtain ⟨ya, hya⟩ := ihw hred hwc hbc hLc hlrc hSC
           exact ⟨⟨ya, hya⟩,
-            hlrc.of_subset (Lech.whnf_fvarLeaves m.wf fuel hred),
-            Lech.whnf_WScoped m.wf fuel hred hwc,
-            Lech.whnf_looseBVars m.wf fuel hred hbc,
-            fun l hl => hLc l (Lech.whnf_fvarLeaves m.wf fuel hred l hl)⟩)
+            hlrc.of_subset (ConLeche.whnf_fvarLeaves m.wf fuel hred),
+            ConLeche.whnf_WScoped m.wf fuel hred hwc,
+            ConLeche.whnf_looseBVars m.wf fuel hred hbc,
+            fun l hl => hLc l (ConLeche.whnf_fvarLeaves m.wf fuel hred l hl)⟩)
       (fun hmaj hP => by
         obtain ⟨⟨xa, hxa⟩, hlrx, hwx, hbx, hLx⟩ := hP
         obtain ⟨hrd, hlry⟩ := majorToCtorP_reads ihw ihio hmaj hwx hbx hLx hlrx hxa
         refine ⟨hrd, hlry, ?_⟩
-        rcases Lech.majorToCtor_inv hmaj with rfl | ⟨hwsB, hbB, hleafB, -⟩
+        rcases ConLeche.majorToCtor_inv hmaj with rfl | ⟨hwsB, hbB, hleafB, -⟩
         · exact ⟨hwx, hbx, hLx⟩
         · exact ⟨Expr.WScoped.of_wscopedB hwsB, hbB, fun l hl =>
             hLx l (by
@@ -403,13 +403,13 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
       ⟨⟨_, hdM⟩, hlrM0, hwMa, hbMa, hLMa⟩
   have hfrM : ∀ x ∈ major.getAppArgs, Expr.WScoped d x ∧
       x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x := fun x hx =>
-    ⟨hwm.getAppArgs x hx, Lech.looseBVarsBounded_getAppArgs hbm x hx,
-      fun l hl => hLm l (Lech.fvarLeaves_getAppArgs hx l hl)⟩
+    ⟨hwm.getAppArgs x hx, ConLeche.looseBVarsBounded_getAppArgs hbm x hx,
+      fun l hl => hLm l (ConLeche.fvarLeaves_getAppArgs hx l hl)⟩
   -- its spine decomposes into per-argument readings
   have hspy : ∃ ys, DenoteSpineP m.acval env φ d major.getAppArgs ys := by
     have hma' := hma
     rw [show major = Expr.mkAppN major.getAppFn major.getAppArgs from
-      (Lech.Expr.mkAppN_getApp major).symm] at hma'
+      (ConLeche.Expr.mkAppN_getApp major).symm] at hma'
     obtain ⟨-, ys, -, hspy, -⟩ := denoteP_mkAppN_inv hma'
     exact ⟨ys, hspy⟩
   obtain ⟨ys, hspy⟩ := hspy
@@ -430,25 +430,25 @@ theorem iotaReadsP_of {m : EnvS2Core V env} (hrec : RecRulesP m φ)
         rcases List.mem_append.mp hy with hy' | hy'
         · exact (hfrE y (List.mem_of_mem_take hy')).1
         · exact (hfrM y (List.mem_of_mem_drop hy')).1)
-  · exact Lech.looseBVarsBounded_mkAppN hRbd (fun y hy => by
+  · exact ConLeche.looseBVarsBounded_mkAppN hRbd (fun y hy => by
       rcases List.mem_append.mp hy with hy' | hy'
       · exact (hfrE y (List.mem_of_mem_take hy')).2.1
       · exact (hfrM y (List.mem_of_mem_drop hy')).2.1)
   · intro l hl
-    rcases Lech.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+    rcases ConLeche.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
     · exact absurd hl' (by
-        rw [Lech.Expr.fvarLeaves_eq_nil_of_not_hasFvar hRnf]; simp)
+        rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hRnf]; simp)
     · rcases List.mem_append.mp hy with hy' | hy'
       · exact (hfrE y (List.mem_of_mem_take hy')).2.2 l hly
       · exact (hfrM y (List.mem_of_mem_drop hy')).2.2 l hly
   · intro l hl
-    rcases Lech.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+    rcases ConLeche.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
     · exact absurd hl' (by
-        rw [Lech.Expr.fvarLeaves_eq_nil_of_not_hasFvar hRnf]; simp)
+        rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hRnf]; simp)
     · rcases List.mem_append.mp hy with hy' | hy'
-      · exact hlr l (Lech.fvarLeaves_getAppArgs
+      · exact hlr l (ConLeche.fvarLeaves_getAppArgs
           (List.mem_of_mem_take hy') l hly)
-      · exact hlrMj l (Lech.fvarLeaves_getAppArgs
+      · exact hlrMj l (ConLeche.fvarLeaves_getAppArgs
           (List.mem_of_mem_drop hy') l hly)
 
 /-! ## THE NAMED WALL — the `.nested` pin comparand has no grading source
@@ -500,7 +500,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     cnF, r, hfn, hfrec, hlenA, hlenU,
     hprep, hfnmaj, hfcj, hrfind, hlenM,
     hfire, hlev, hdefP, hcertR, hcertC, hidx,
-    rfl⟩ := Lech.iotaRec_inv h
+    rfl⟩ := ConLeche.iotaRec_inv h
   have hrmem : r ∈ rules := List.mem_of_find?_eq_some hrfind
   -- the law, and the right-hand side's reading at the ambient depth
   obtain ⟨hrPle, hlaw0⟩ := hrec c cv mI rP rules hfrec r hrmem hfire
@@ -508,7 +508,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   obtain ⟨hRaD, hRnf, hRbd⟩ := recRhsP_depth hfrec hrmem hRa0
   -- the recursor spine, read
   rw [show e = Expr.mkAppN e.getAppFn e.getAppArgs from
-    (Lech.Expr.mkAppN_getApp e).symm, hfn] at hea
+    (ConLeche.Expr.mkAppN_getApp e).symm, hfn] at hea
   obtain ⟨vc, xs, hvc, hspx, rfl⟩ := denoteP_mkAppN_inv hea
   rw [denoteP_const hfrec (show us.length = _ from hlenU)] at hvc
   obtain rfl : vc = m.acval c (Level.substFn φ cv.levelParams us) :=
@@ -520,12 +520,12 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   -- `prepareMajorP_ind`): read, graded, and equal to the argument's
   -- reading
   have hmIlt : mI < e.getAppArgs.length := by rw [hlenA]; omega
-  obtain ⟨hwM, hbM, hLM, hCM⟩ := hfrE _ (Lech.getD_mem hmIlt)
+  obtain ⟨hwM, hbM, hLM, hCM⟩ := hfrE _ (ConLeche.getD_mem hmIlt)
   have hdMaj : denoteP m.acval env φ d (e.getAppArgs.getD mI (.bvar 0))
       = some (xs.getD mI default) := hspx.getD _ mI hmIlt
   have hokMajArg : ∀ ρ : Nat → V, Sat2 V Δa ρ →
       AnnotOkP V ρ (xs.getD mI default) :=
-    hoX _ (Lech.getD_mem (by rw [← hspx.length]; exact hmIlt))
+    hoX _ (ConLeche.getD_mem (by rw [← hspx.length]; exact hmIlt))
   obtain ⟨vmaj, hvmajSave, hokMj, heqAll, hwmj, hbmj, hLmj, hCmj⟩ :
       ∃ v, denoteP m.acval env φ d major = some v ∧
         (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ v) ∧
@@ -533,7 +533,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
           interp2 V ρ (xs.getD mI default) = interp2 V ρ v) ∧
         Expr.WScoped d major ∧ major.looseBVarsBounded 0 = true ∧
         Expr.LeavesBounded major ∧ CtxOkP m φ d Δa major :=
-    Lech.prepareMajorP_ind hprep
+    ConLeche.prepareMajorP_ind hprep
       (fun x => ∃ v, denoteP m.acval env φ d x = some v ∧
         (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ v) ∧
         (∀ ρ : Nat → V, Sat2 V Δa ρ →
@@ -546,10 +546,10 @@ theorem iotaStepP_of {m : EnvS2Core V env}
           hwreads hw hwx hbx hLx (LeafReadsP.of_ctxOkP hCx) hv
         obtain ⟨hok', heq'⟩ := ihw hw hwx hbx hLx hCx hv hv' hok
         exact ⟨v', hv', hok', fun ρ hρ => (heq ρ hρ).trans (heq' ρ hρ),
-          Lech.whnf_WScoped m.wf fuel hw hwx,
-          Lech.whnf_looseBVars m.wf fuel hw hbx,
-          fun l hl => hLx l (Lech.whnf_fvarLeaves m.wf fuel hw l hl),
-          hCx.of_subset (Lech.whnf_fvarLeaves m.wf fuel hw)⟩)
+          ConLeche.whnf_WScoped m.wf fuel hw hwx,
+          ConLeche.whnf_looseBVars m.wf fuel hw hbx,
+          fun l hl => hLx l (ConLeche.whnf_fvarLeaves m.wf fuel hw l hl),
+          hCx.of_subset (ConLeche.whnf_fvarLeaves m.wf fuel hw)⟩)
       (fun hlit hP => by
         obtain ⟨v, hv, hok, heq, hwx, hbx, hLx, hCx⟩ := hP
         obtain ⟨v', hv', hok', heq', hw', hb', hL', hC'⟩ :=
@@ -571,7 +571,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
   rw [← hrctor] at hfnmaj hfcj hrfind
   have hvmaj := hvmajSave
   rw [show major = Expr.mkAppN major.getAppFn major.getAppArgs from
-    (Lech.Expr.mkAppN_getApp major).symm, hfnmaj] at hvmaj
+    (ConLeche.Expr.mkAppN_getApp major).symm, hfnmaj] at hvmaj
   obtain ⟨vj, ys, hvj, hspy, rfl⟩ := denoteP_mkAppN_inv hvmaj
   obtain ⟨hlenUj, rfl⟩ := denoteP_const_arity hfcj hvj
   have hfrC := frame_spineP hwmj hbmj hLmj hCmj
@@ -581,16 +581,16 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     constTypeP_pkg hct hfrec rfl (show us.length = _ from hlenU)
   obtain ⟨TVja, hTVjaD, hokTVja, hmemJ, hnfJ, hbdJ⟩ :=
     constTypeP_pkg hct hfcj rfl hlenUj
-  dsimp only [Lech.ConstantInfo.toConstantVal] at hTVaD hnfR hbdR hmemR
-  dsimp only [Lech.ConstantInfo.toConstantVal] at hTVjaD hnfJ hbdJ hmemJ
+  dsimp only [ConLeche.ConstantInfo.toConstantVal] at hTVaD hnfR hbdR hmemR
+  dsimp only [ConLeche.ConstantInfo.toConstantVal] at hTVjaD hnfJ hbdJ hmemJ
   have hCR : CtxOkP m φ d Δa (cv.type.instantiateLevelParams cv.levelParams us) :=
     ⟨hC.1, fun l hl => by
-      rw [Lech.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfR] at hl
+      rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfR] at hl
       exact nomatch hl⟩
   have hCJ : CtxOkP m φ d Δa
       (cvj.type.instantiateLevelParams cvj.levelParams usj) :=
     ⟨hC.1, fun l hl => by
-      rw [Lech.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfJ] at hl
+      rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfJ] at hl
       exact nomatch hl⟩
   -- the two telescope fits
   have hspR : DenoteSpineP m.acval env φ d (e.getAppArgs.take mI ++ [major])
@@ -626,21 +626,21 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     exact annotOkP_mkAppN_snoc_congr h (hokMj ρ hρ) (heqAll ρ hρ)
   obtain ⟨restR, hfitR, -, -⟩ :=
     certs_teleLicP ihd ihis hexi _ (e.getAppArgs.take mI ++ [major]) _ TVa _
-      hcertR (Lech.Expr.WScoped.of_not_hasFvar hnfR) hbdR
-      (Lech.Expr.LeavesBounded.of_not_hasFvar hnfR) hCR (hTVaD d)
+      hcertR (ConLeche.Expr.WScoped.of_not_hasFvar hnfR) hbdR
+      (ConLeche.Expr.LeavesBounded.of_not_hasFvar hnfR) hCR (hTVaD d)
       (fun σ _ => hokTVa σ) hframesR hspR hoksR hokSR (fun σ _ => hmemR σ)
   obtain ⟨restC, hfitC, hokRestC, -⟩ :=
     certs_teleLicP ihd ihis hexi _ major.getAppArgs ys TVja _ hcertC
-      (Lech.Expr.WScoped.of_not_hasFvar hnfJ) hbdJ
-      (Lech.Expr.LeavesBounded.of_not_hasFvar hnfJ) hCJ (hTVjaD d)
+      (ConLeche.Expr.WScoped.of_not_hasFvar hnfJ) hbdJ
+      (ConLeche.Expr.LeavesBounded.of_not_hasFvar hnfJ) hCJ (hTVjaD d)
       (fun σ _ => hokTVja σ) hfrC hspy hoY hokMj (fun σ _ => hmemJ σ)
   -- the level congruence (currency-free: the comparand reads no arguments)
   have hψ : Level.substFn φ cvj.levelParams usj
       = Level.substFn φ cvj.levelParams
-          (Lech.recFireComparands r cv.levelParams us cvj.levelParams
+          (ConLeche.recFireComparands r cv.levelParams us cvj.levelParams
             [] rP).1 := by
     rw [recFireComparands_fst_nil] at hlev
-    exact Lech.Level.substFn_congr (Lech.Level.isEquivList_sound hlev φ)
+    exact ConLeche.Level.substFn_congr (ConLeche.Level.isEquivList_sound hlev φ)
   -- the fired equation and the transported grading, at each valuation
   have hmain : ∀ ρ : Nat → V, Sat2 V Δa ρ →
       interp2 V ρ (AVExpr.mkAppN
@@ -658,19 +658,19 @@ theorem iotaStepP_of {m : EnvS2Core V env}
         (xs.take mI) := by
       by_cases hmr : mI = rP
       · exact ⟨restC, [], rfl, Or.inl hmr, fun i hi => absurd hi (by omega)⟩
-      obtain ⟨residual, hpres, hdefI⟩ := Lech.iotaIndexOk_inv hidx hmr
+      obtain ⟨residual, hpres, hdefI⟩ := ConLeche.iotaIndexOk_inv hidx hmr
       -- the residual's frames
       obtain ⟨hwRes, hbRes, hLRes, hCRes⟩ :=
-        piResidual_frameP hpres (Lech.Expr.WScoped.of_not_hasFvar hnfJ) hbdJ
-          (Lech.Expr.LeavesBounded.of_not_hasFvar hnfJ) hCJ hfrC
+        piResidual_frameP hpres (ConLeche.Expr.WScoped.of_not_hasFvar hnfJ) hbdJ
+          (ConLeche.Expr.LeavesBounded.of_not_hasFvar hnfJ) hCJ hfrC
       have hfrRes := frame_spineP hwRes hbRes hLRes hCRes
       have hresC : denoteP m.acval env φ d residual = some restC :=
         teleFitPA_residual m.acval_closed (acval_inst_self m) major.getAppArgs
-          hpres (Lech.Expr.WScoped.of_not_hasFvar hnfJ)
+          hpres (ConLeche.Expr.WScoped.of_not_hasFvar hnfJ)
           (fun x hx => ⟨(hfrC x hx).1, (hfrC x hx).2.1⟩) (hTVjaD d) hspy
           (hfitC ρ hρ)
       rw [show residual = Expr.mkAppN residual.getAppFn residual.getAppArgs from
-        (Lech.Expr.mkAppN_getApp residual).symm] at hresC
+        (ConLeche.Expr.mkAppN_getApp residual).symm] at hresC
       obtain ⟨Ha, cargsa, -, hspRes, hCeq⟩ := denoteP_mkAppN_inv hresC
       obtain ⟨-, hoCargs⟩ :=
         hoistP_spine cargsa (fun σ hσ => hCeq ▸ hokRestC σ hσ)
@@ -705,9 +705,9 @@ theorem iotaStepP_of {m : EnvS2Core V env}
           interp2 V ρ (ys.getD i default)
             = interp2 V ρ ((xs.take mI).getD i default) := by
       intro hp i hi him
-      rw [show (Lech.recFireComparands r cv.levelParams us cvj.levelParams
+      rw [show (ConLeche.recFireComparands r cv.levelParams us cvj.levelParams
           e.getAppArgs rP).2 = e.getAppArgs.take (RecRule.ctorParams r) from by
-        unfold Lech.recFireComparands; rw [hp]] at hdefP
+        unfold ConLeche.recFireComparands; rw [hp]] at hdefP
       have hmapP := map_interp2_of_defEqListP ihd hdefP
         (fun x hx => hfrC x (List.mem_of_mem_take hx))
         (fun x hx => hfrE x (List.mem_of_mem_take hx))
@@ -725,21 +725,21 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     have hnested : ∀ lvls pins, RecRule.fire r = .nested lvls pins →
         ∀ i, i < RecRule.ctorParams r →
         ∀ vpa : AVExpr,
-          denoteP m.acval env φ rP (Lech.Verify.openRev 0 rP
+          denoteP m.acval env φ rP (ConLeche.Verify.openRev 0 rP
             ((pins.getD i default).instantiateLevelParams cv.levelParams us))
             = some vpa →
           interp2 V ρ (ys.getD i default)
             = interp2 V ρ (AVExpr.instRevChain ((xs.take mI).take rP) vpa) := by
       intro lvls pins hn i hi vpa hvpa
       obtain ⟨-, -, -, -, -, hrec', -⟩ :=
-        m.wf _ (Lech.Semantics.Env.find?_mem hfrec)
+        m.wf _ (ConLeche.Semantics.Env.find?_mem hfrec)
       obtain ⟨-, -, -, -, hnest⟩ := hrec' cv mI rP rules rfl r hrmem
       obtain ⟨-, -, hpinsWf, -⟩ := hnest lvls pins hn
-      have hcmp : (Lech.recFireComparands r cv.levelParams us
+      have hcmp : (ConLeche.recFireComparands r cv.levelParams us
           cvj.levelParams e.getAppArgs rP).2
           = pins.map (fun p => Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
               (p.instantiateLevelParams cv.levelParams us)) := by
-        unfold Lech.recFireComparands; rw [hn]
+        unfold ConLeche.recFireComparands; rw [hn]
       have hlenPins : pins.length = RecRule.ctorParams r := by
         have hl := defEqListP_length hdefP
         rw [hcmp, List.length_take, List.length_map, hlenM] at hl
@@ -753,23 +753,23 @@ theorem iotaStepP_of {m : EnvS2Core V env}
         exact ⟨hw2, hb2⟩
       have hilt : i < pins.length := by rw [hlenPins]; exact hi
       obtain ⟨hpinF, -, -, hpinB⟩ :=
-        hpinsWf (pins.getD i default) (Lech.getD_mem hilt)
+        hpinsWf (pins.getD i default) (ConLeche.getD_mem hilt)
       have hpinF' : ((pins.getD i default).instantiateLevelParams
           cv.levelParams us).hasFvar = false := by
-        rw [Lech.Expr.hasFvar_instantiateLevelParams]; exact hpinF
+        rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hpinF
       have hpinB' : ((pins.getD i default).instantiateLevelParams
           cv.levelParams us).looseBVarsBounded
           (e.getAppArgs.take rP).length = true := by
-        rw [Lech.Expr.looseBVarsBounded_instantiateLevelParams, hprelen]
+        rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams, hprelen]
         exact hpinB
       have hcden := denoteP_openRev m.acval_closed (acval_inst_self m)
         (e.getAppArgs.take rP) hargsPre
-        ((Lech.Expr.WScoped.of_not_hasFvar (d := d) hpinF').fvarsBelow)
+        ((ConLeche.Expr.WScoped.of_not_hasFvar (d := d) hpinF').fvarsBelow)
         hpinB' (hspx.take rP)
       rw [hprelen] at hcden
       have hbase := denoteP_openRev_base (env := env) (φ := φ)
         m.acval_closed m.acval_erase m.cval_closed hpinF'
-        (by rw [Lech.Expr.looseBVarsBounded_instantiateLevelParams]
+        (by rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
             exact hpinB) d
       rw [hbase, hvpa] at hcden
       -- only the `i`-th comparand is known to read, so it is pulled out
@@ -790,7 +790,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
       have hcert := defEqListP_get hdefP i (by
         rw [List.length_take, hlenM]; omega)
       rw [hgetL, hgetR] at hcert
-      obtain ⟨hwA, hbA, hLA, hCA⟩ := hfrC _ (Lech.getD_mem hiy)
+      obtain ⟨hwA, hbA, hLA, hCA⟩ := hfrC _ (ConLeche.getD_mem hiy)
       have hgy : denoteP m.acval env φ d (major.getAppArgs.getD i default)
           = some (ys.getD i default) := hspy.getD _ i hiy
       have hcden' : denoteP m.acval env φ d
@@ -811,20 +811,20 @@ theorem iotaStepP_of {m : EnvS2Core V env}
           CtxOkP m φ d Δa (Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
             ((pins.getD i default).instantiateLevelParams
               cv.levelParams us)) := by
-        refine ⟨Lech.instSpine_WScoped _
-            (Lech.Expr.WScoped.of_not_hasFvar hpinF')
+        refine ⟨ConLeche.instSpine_WScoped _
+            (ConLeche.Expr.WScoped.of_not_hasFvar hpinF')
             (fun y hy => (hargsPre y hy).1), ?_, fun l hl => ?_,
           ⟨hC.1, fun l hl => ?_⟩⟩
         · rw [show rP - 1 = (e.getAppArgs.take rP).length - 1 from by
             rw [hprelen]]
-          exact Lech.instSpine_closed (fun y hy => (hargsPre y hy).2) hpinB'
-        · rcases Lech.fvarLeaves_instSpine _ hl with hl' | ⟨y, hy, hly⟩
+          exact ConLeche.instSpine_closed (fun y hy => (hargsPre y hy).2) hpinB'
+        · rcases ConLeche.fvarLeaves_instSpine _ hl with hl' | ⟨y, hy, hly⟩
           · exact absurd hl' (by
-              rw [Lech.Expr.fvarLeaves_eq_nil_of_not_hasFvar hpinF']; simp)
+              rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hpinF']; simp)
           · exact (hfrE y (List.mem_of_mem_take hy)).2.2.1 l hly
-        · rcases Lech.fvarLeaves_instSpine _ hl with hl' | ⟨y, hy, hly⟩
+        · rcases ConLeche.fvarLeaves_instSpine _ hl with hl' | ⟨y, hy, hly⟩
           · exact absurd hl' (by
-              rw [Lech.Expr.fvarLeaves_eq_nil_of_not_hasFvar hpinF']; simp)
+              rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hpinF']; simp)
           · exact ((hfrE y (List.mem_of_mem_take hy)).2.2.2).2 l hly
       have hokCmp : ∀ σ : Nat → V, Sat2 V Δa σ →
           AnnotOkP V σ (AVExpr.instRevChain (xs.take rP) vpa) := by
@@ -845,7 +845,7 @@ theorem iotaStepP_of {m : EnvS2Core V env}
           (hTVaD 0) hmid
       have hstep := ihd hcert hwA hbA hLA hfrPinX.1 hfrPinX.2.1 hfrPinX.2.2.1
         hCA hfrPinX.2.2.2 hgy hcden'
-        (hoY _ (Lech.getD_mem (by rw [← hspy.length]; exact hiy)))
+        (hoY _ (ConLeche.getD_mem (by rw [← hspy.length]; exact hiy)))
         hokCmp ρ hρ
       rw [List.take_take, Nat.min_eq_left hrPle]
       exact hstep
@@ -880,28 +880,28 @@ theorem iotaStepP_of {m : EnvS2Core V env}
     (hspx.take rP).append (hspy.drop _)
   refine ⟨_, denoteP_mkAppN hspOut (hRaD d), fun ρ hρ => (hmain ρ hρ).2,
     fun ρ hρ => (hmain ρ hρ).1, ?_, ?_, ?_, ?_⟩
-  · exact Expr.WScoped.mkAppN (Lech.Expr.WScoped.of_not_hasFvar hRnf)
+  · exact Expr.WScoped.mkAppN (ConLeche.Expr.WScoped.of_not_hasFvar hRnf)
       (fun y hy => by
         rcases List.mem_append.mp hy with hy' | hy'
         · exact (hfrE y (List.mem_of_mem_take hy')).1
         · exact (hfrC y (List.mem_of_mem_drop hy')).1)
-  · exact Lech.looseBVarsBounded_mkAppN hRbd (fun y hy => by
+  · exact ConLeche.looseBVarsBounded_mkAppN hRbd (fun y hy => by
       rcases List.mem_append.mp hy with hy' | hy'
       · exact (hfrE y (List.mem_of_mem_take hy')).2.1
       · exact (hfrC y (List.mem_of_mem_drop hy')).2.1)
   · intro l hl
-    rcases Lech.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+    rcases ConLeche.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
     · exact absurd hl' (by
-        rw [Lech.Expr.fvarLeaves_eq_nil_of_not_hasFvar hRnf]; simp)
+        rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hRnf]; simp)
     · rcases List.mem_append.mp hy with hy' | hy'
       · exact (hfrE y (List.mem_of_mem_take hy')).2.2.1 l hly
       · exact (hfrC y (List.mem_of_mem_drop hy')).2.2.1 l hly
   · refine ⟨hC.1, fun l hl => ?_⟩
-    rcases Lech.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
+    rcases ConLeche.fvarLeaves_mkAppN hl with hl' | ⟨y, hy, hly⟩
     · exact absurd hl' (by
-        rw [Lech.Expr.fvarLeaves_eq_nil_of_not_hasFvar hRnf]; simp)
+        rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hRnf]; simp)
     · rcases List.mem_append.mp hy with hy' | hy'
       · exact ((hfrE y (List.mem_of_mem_take hy')).2.2.2).2 l hly
       · exact ((hfrC y (List.mem_of_mem_drop hy')).2.2.2).2 l hly
 
-end Lech.SetP
+end ConLeche.SetP

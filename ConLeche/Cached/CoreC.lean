@@ -1,5 +1,5 @@
-import Lech.Cached.StateC
-import Lech.Kernel.Env
+import ConLeche.Cached.StateC
+import ConLeche.Kernel.Env
 
 /-!
 # The cached checker core
@@ -18,20 +18,20 @@ over `mode : CheckMode`, and the knot at the end (`coreKnotI mode`)
 ties them at a mode.  The verified core is this knot at `.verified`;
 the trusted core is this same knot at `.trusted` — there is no second
 implementation.  The hand-written cert-skipping twin
-(`Lech/Cached/CoreT.lean`, retired with this batch) is gone: what
+(`ConLeche/Cached/CoreT.lean`, retired with this batch) is gone: what
 the trusted mode omits is exactly what `mode.verifiedChecks` gates
 here (group A: the annotation validations, the λ-codomain sort check,
 the projection certificate) plus what `mode.certs` gates (the
 certificate families: every `certAtI` / `certUnlessI` site and the
 `betaSkip` / `ioSkip` reads), and nothing else (DESIGN.md, "CORET
 RETIRED").  Every read is a `match` on the two-constructor enum
-(`Lech/Kernel/Env.lean`), so at either literal mode it reduces by
+(`ConLeche/Kernel/Env.lean`), so at either literal mode it reduces by
 `rfl` and the branch is gone, not collapsed.
 -/
 
-namespace Lech.Cached
+namespace ConLeche.Cached
 
-open Lech
+open ConLeche
 
 variable {m : Type → Type}
 
@@ -45,7 +45,7 @@ structure CoreFnsI where
   defeq : Nat → ExprC → ExprC → CheckCM Bool
   annotate : Nat → ExprC → CheckCM ExprC
   /-- Type inference at the **infer-only grade** (task #170 / #172 B4)
-  — the twin of `CoreFns.inferIO` (`Lech/Kernel/Core.lean`): what
+  — the twin of `CoreFns.inferIO` (`ConLeche/Kernel/Core.lean`): what
   every internal inference call site runs.  The knot selects the
   grade's meaning per mode (`mode.ioGate`): the io body (own memo,
   `CState.inferIOC`) at **both modes** since the licence ruling of
@@ -276,7 +276,7 @@ itself since task #185).  Every configured body below takes
 `mode : CheckMode` and is instantiated at the two named concrete cores
 at the end of this module (`…PC` at `.verified`, `…TC` at `.trusted`;
 the `…RC` half retired with the R core, 2026-09-05).  Every read below
-is one of the `CheckMode` functions of `Lech/Kernel/Env.lean`, each
+is one of the `CheckMode` functions of `ConLeche/Kernel/Env.lean`, each
 a `match` on the enum.  The ι cone (`structEtaCertWithI` →
 `majorToCtorI` → `prepareMajorI` → `iotaRecI`) reads its ι-slot
 licence off `mode.betaGate` — the same function the β site reads —
@@ -286,7 +286,7 @@ variable (mode : CheckMode)
 
 /-! ### The certificate-family switch (the twin's retirement, 2026-09-06)
 
-`CheckMode.certs` (`Lech/Kernel/Env.lean`) is the task-#76 skip
+`CheckMode.certs` (`ConLeche/Kernel/Env.lean`) is the task-#76 skip
 list as a mode function: the certificate families the reference
 kernel does not run and only the soundness proof consumes.  Every such
 certificate below is spelled through one of the two wrappers here, so
@@ -294,7 +294,7 @@ the list of `certAtI`/`certUnlessI` sites — plus the `betaSkip` and
 `ioSkip` reads — **is** the list of what the trusted core omits beyond
 group A.  At `.verified` the function is `true`, so `certAtI .verified
 c` is `c` by `rfl` (`certAtI_verified`); the simulation tower
-(`Lech/Verify/Cached/*`), stated under `hμ : mode.verifiedChecks =
+(`ConLeche/Verify/Cached/*`), stated under `hμ : mode.verifiedChecks =
 true`, sees through the wrapper by `certAtI_of_verifiedChecks` — the
 spec bodies carry no such wrapper. -/
 
@@ -815,7 +815,7 @@ other heads try iota with one more argument and otherwise accumulate a
 stuck application — exactly the per-level `whnfCoreBody` app clauses,
 but with the chained per-argument `instantiate1` of the beta path
 replaced by one bulk substitution per peeled group
-(`Lech/Verify/BetaSpine.lean` proves the identification).  The
+(`ConLeche/Verify/BetaSpine.lean` proves the identification).  The
 head-normalization loop's continuation `k` is threaded through
 (task #106). -/
 def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
@@ -964,7 +964,7 @@ def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
 argument's certificate substitutes only its *domain*; the codomain is
 substituted once per peeled group.  A non-syntactic telescope step
 substitutes and normalizes, exactly like the chained `inferBody`
-recursion (`Lech/Verify/BetaSpine.lean` proves the
+recursion (`ConLeche/Verify/BetaSpine.lean` proves the
 identification). -/
 def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     ExprC → Array ExprC → List ExprC → CheckCM ExprC
@@ -994,7 +994,7 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
 
 /-- **The io-grade spine walk** (task #172 B4): `inferSpineI` with the
 per-argument certificate gated — the ONE io-graded check
-(`inferBodyIO`'s app clause, `Lech/Kernel/Core.lean`), in the bulk
+(`inferBodyIO`'s app clause, `ConLeche/Kernel/Core.lean`), in the bulk
 telescope form.  At a ∀ step whose annotation datum is `.never` the
 argument's inference and the domain comparison are skipped; the
 returned type is the same telescope walk either way, so the lane is
@@ -1079,7 +1079,7 @@ annotate the leaf once on the bulk-opened body, then rebuild with one
 `abstractRange` per domain and one over the leaf.  Each loop replays
 exactly the per-binder checks of the chained recursion, in order; the
 value-level identification with the chained spec bodies is
-`Lech/Verify/BinderLoop.lean` (the `DiscI` walks relate the loops to
+`ConLeche/Verify/BinderLoop.lean` (the `DiscI` walks relate the loops to
 their pure mirrors, and `_sound_body` theorems reproduce a mirror run
 in the original one-binder-at-a-time body at some fuel).
 The peel fuel is semantically transparent: on exhaustion the leaf phase hands
@@ -1849,7 +1849,7 @@ took a configuration record standing in for it).  `coreKnotI .verified`
 is the verified core the capstones are stated about, and
 `coreKnotI .trusted` is the trusted core `--trusted` runs — the same
 function at the other mode.  The mode-parametric simulation tower
-(`Lech/Verify/Cached/*`) is stated at `coreKnotI mode` under
+(`ConLeche/Verify/Cached/*`) is stated at `coreKnotI mode` under
 `hμ : mode.verifiedChecks = true`. -/
 def coreKnotI (fe : FEnv) : Nat → CoreFnsI
   | 0 =>
@@ -1880,7 +1880,7 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
     -- forces nothing and marks nothing; it pays E1 back (one record per
     -- cache-missing call) and that is the smaller number by 5×.
     -- `Thunk.get ⟨f⟩` is `f ()` by structure eta, so this is the same
-    -- term: no proof in `Lech/Verify/Cached/*` moved.
+    -- term: no proof in `ConLeche/Verify/Cached/*` moved.
     let prev : Unit → CoreFnsI := fun _ => coreKnotI fe fuel
     -- task #172 B2 / #185: the template's parameter is the mode, an
     -- enum passed down once per *driver* — nothing is built per knot
@@ -1921,7 +1921,7 @@ clones** — one body, one name per family, and each unfolds to a term
 with no `CheckMode` branch left in it.  Since the twin's retirement
 the trusted core is the second instantiation of the same four bodies,
 at `.trusted` (`…TC` below): of the `CheckMode` functions
-(`Lech/Kernel/Env.lean`) only `verifiedChecks` and `certs` differ
+(`ConLeche/Kernel/Env.lean`) only `verifiedChecks` and `certs` differ
 between the two constructors (`betaGate` does too, but every read of
 it here sits under a `certs` read or a `verifiedChecks` read that is
 off at `.trusted`), so **the `mode.verifiedChecks` reads plus the
@@ -1962,7 +1962,7 @@ no mode function at all: the whole δ/ι/β content sits in
 `whnfCore`, which `whnf` reaches through the knot.
 
 The `rfl` identities of the mode functions at the two constructors are
-in `Lech/Verify/BetaGate.lean` (the implementation tier may not
+in `ConLeche/Verify/BetaGate.lean` (the implementation tier may not
 import `Verify`): every landed statement about `inferBodyI mode`
 (etc.) is a statement about this core at the concrete mode,
 definitionally. -/
@@ -2026,4 +2026,4 @@ def defeqBodyTC (r : CoreFnsI) (fe : FEnv) :
     Nat → ExprC → ExprC → CheckCM Bool :=
   defeqBodyI .trusted r fe
 
-end Lech.Cached
+end ConLeche.Cached

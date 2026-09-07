@@ -1,4 +1,4 @@
-import Lech.Verify.BridgeDecl
+import ConLeche.Verify.BridgeDecl
 
 /-!
 # `wfOpsM mode` runs to pure runs, per declaration-checker function
@@ -21,13 +21,13 @@ At each operation call site the argument's well-scopedness comes from
   — the defeq comparisons run at the opened depth, over variables of
   that frame).
 
-`Lech/Model/BridgeWF.lean` composes these with the intermediate
+`ConLeche/Model/BridgeWF.lean` composes these with the intermediate
 `EnvWF` facts into `checkDecl_bridge`.
 -/
 
 set_option linter.unusedSimpArgs false
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -2737,7 +2737,7 @@ environments, so their well-formedness is owed here.  It is taken as a
 hypothesis, and every hypothesis is **run-tied** — it speaks about the
 environments and constants the run itself produces — because
 establishing it needs the declaration inversions that live with the
-model (`Lech/Model/Extend/`), exactly as `installProjFnStep`'s
+model (`ConLeche/Model/Extend/`), exactly as `installProjFnStep`'s
 does. -/
 theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
     {p : DirectParts} {F : Nat} {v : Env}
@@ -2783,4 +2783,4 @@ theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
   have _henv₃ := hwf₃ env₂ cvTa cvCa cvRa rhsA henv₂ hrc'
   exact checkDirectProjTable_wfimp h
 
-end Lech
+end ConLeche

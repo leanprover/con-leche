@@ -1,4 +1,4 @@
-import Lech.SetP.Annot.ValidV
+import ConLeche.SetP.Annot.ValidV
 
 /-!
 # `BitAgree`: two readings of the same term (task #161, ENDGAME E)
@@ -42,12 +42,12 @@ identify a `.lam` with a `.pi` or move a leaf.  `erase_eq` records that
 it refines erasure-equality, and it is strictly finer.
 -/
 
--- `AVExpr.BitAgree` extends `Lech.Semantics.AVExpr` (dot notation on
+-- `AVExpr.BitAgree` extends `ConLeche.Semantics.AVExpr` (dot notation on
 -- readings), so this module stays in the semantic tier's namespace.
-namespace Lech.Semantics
-open Lech.SetModel Lech.SetP
+namespace ConLeche.Semantics
+open ConLeche.SetModel ConLeche.SetP
 
-open Lech.Semantics SetTheory Lech.SetModel
+open ConLeche.Semantics SetTheory ConLeche.SetModel
 
 universe w
 
@@ -58,7 +58,7 @@ are unconstrained (nothing reads them). -/
 inductive AVExpr.BitAgree : AVExpr → AVExpr → Prop where
   | bvar (i : Nat) : BitAgree (.bvar i) (.bvar i)
   | sort (u : Nat) : BitAgree (.sort u) (.sort u)
-  | const (c : Lech.VExpr.BConst) (us : List Nat) :
+  | const (c : ConLeche.VExpr.BConst) (us : List Nat) :
       BitAgree (.const c us) (.const c us)
   | prf : BitAgree .prf .prf
   | app {f f' a a' : AVExpr} :
@@ -228,4 +228,4 @@ theorem validV : ∀ {e e' : AVExpr}, BitAgree e e' →
 
 end AVExpr.BitAgree
 
-end Lech.Semantics
+end ConLeche.Semantics

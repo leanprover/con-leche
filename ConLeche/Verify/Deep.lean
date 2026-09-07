@@ -1,14 +1,14 @@
-import Lech.Kernel.TypeChecker
-import Lech.Verify.Shift
-import Lech.Verify.PropRead
-import Lech.Verify.EnvWF
-import Lech.Verify.InstLevels
-import Lech.Verify.InferIOLeaves
-import Lech.Verify.Knot
-import Lech.Verify.InferLemmas
-import Lech.Verify.InferLeaves
-import Lech.Verify.Abstract
-import Lech.Verify.InstSpine
+import ConLeche.Kernel.TypeChecker
+import ConLeche.Verify.Shift
+import ConLeche.Verify.PropRead
+import ConLeche.Verify.EnvWF
+import ConLeche.Verify.InstLevels
+import ConLeche.Verify.InferIOLeaves
+import ConLeche.Verify.Knot
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.InstSpine
 
 /-!
 # Depth invariance of the checker core
@@ -17,8 +17,8 @@ The checker core threads a binder depth, used only to name freshly
 opened `fvar`s.  This module proves that every entry point's *result*
 is independent of the ambient depth, for inputs well-scoped at both
 depths — the theorem that justifies memoizing the cached knot
-(`Lech/Kernel/TypeCheckerC.lean`) under depth-free keys (see
-`Lech/Verify/Bridge.lean` for the retied cache invariant).
+(`ConLeche/Kernel/TypeCheckerC.lean`) under depth-free keys (see
+`ConLeche/Verify/Bridge.lean` for the retied cache invariant).
 
 The proof is a bisimulation: a run at depth `d` on `e` is matched
 against the run at depth `d + 1` on `shiftFrom p e` (all `fvar`s at
@@ -33,7 +33,7 @@ induction at the knot.  Setting `p := d` and shrinking with
 (`whnfCore_depth_inv` and friends).
 -/
 
-namespace Lech
+namespace ConLeche
 
 variable {mode : CheckMode}
 
@@ -1251,7 +1251,7 @@ private theorem majorToCtor_shift (henv : EnvWF env)
 `whnfPres_WScoped` proof, factored for the bisimulation).
 
 **Public, not `private` like this file's other helpers**, because the
-TTVerify bridge (`Lech/TTVerify/WhnfCoreStep.lean`) needs an iota
+TTVerify bridge (`ConLeche/TTVerify/WhnfCoreStep.lean`) needs an iota
 reduct's frame conditions from outside this file: its `IotaStepTT`
 obligation has to hand the recursive `whnfCore` call a well-scoped
 subject, exactly as the set model's `iota_sound` does.  Nothing else
@@ -3121,4 +3121,4 @@ theorem ensureSortCore_depth_inv (henv : EnvWF env) (fuel : Nat)
 
 end DepthInv
 
-end Lech
+end ConLeche

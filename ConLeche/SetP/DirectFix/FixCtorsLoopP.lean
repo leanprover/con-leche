@@ -1,9 +1,9 @@
-import Lech.SetP.DirectSum.DeclDirectSumP
+import ConLeche.SetP.DirectSum.DeclDirectSumP
 
 /-!
 # The constructors' loop, over any former leaf (task #188)
 
-`ctorsLoopGen`: `sumCtorsLoop` (`Lech/SetP/DirectSum/DeclDirectSumP.lean`)
+`ctorsLoopGen`: `sumCtorsLoop` (`ConLeche/SetP/DirectSum/DeclDirectSumP.lean`)
 with the former's leaf abstract — any closed reading `leafT` — and,
 per constructor, the fibre fold `stageCtorGen` consumes: the leaf at
 the parameter variables and the constructor's index readings, under a
@@ -12,13 +12,13 @@ union at the index values.  The recursive route provides the fold from
 the fixed-point leaf (`fixLeafApp`, `fixFamI_app_eq_sum`).
 -/
 
-namespace Lech.SetP
-open Lech.Semantics
-open Lech.SetModel
+namespace ConLeche.SetP
+open ConLeche.Semantics
+open ConLeche.SetModel
 
-open Lech.VExpr Lech.Verify SetTheory Lech.SetTheory.Tower
-open Lech.Semantics (AVExpr)
-open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts
+open ConLeche.VExpr ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AVExpr)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectSumParts
   BinderMeta RecRule)
 
 universe w
@@ -30,7 +30,7 @@ set_option maxHeartbeats 6400000 in
 theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
     {F : Nat} {p : DirectSumParts} {env₀ envI : Env} {cvTa : ConstantVal}
     {ctors ctorsA : List (ConstantVal × Nat)}
-    (hCtors : Lech.checkDirectSumCtors (Lech.fueledOps μ F) env₀ envI p.cvT.name
+    (hCtors : ConLeche.checkDirectSumCtors (ConLeche.fueledOps μ F) env₀ envI p.cvT.name
       p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok ctorsA)
     (hnd : (ctorsA.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
@@ -71,8 +71,8 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
                 (essOf (ctorDataList dsF esF ψ ctorsA 0))))) :
     ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvS2PM V μ env),
       (∀ i, rest[i]? = ctorsA[k + i]?) → k + rest.length = ctorsA.length →
-      Lech.EtaFamiliesClosed env →
-      env.find? p.cvT.name = some (.indInfo cvTa (Lech.directSumCaps p)) →
+      ConLeche.EtaFamiliesClosed env →
+      env.find? p.cvT.name = some (.indInfo cvTa (ConLeche.directSumCaps p)) →
       FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll →
       (∀ ψ, mp.base2.acval p.cvT.name ψ = leafT ψ) →
       ConsedAt mp.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
@@ -80,10 +80,10 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       PendingAt mp.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
         idxF dsF esF srcsF ctorsA k →
       Inv mp.base2 →
-      ∃ mp' : EnvS2PM V μ (Lech.consSumCtors p.nP rest env),
-        Lech.EtaFamiliesClosed (Lech.consSumCtors p.nP rest env) ∧
-        (Lech.consSumCtors p.nP rest env).find? p.cvT.name
-          = some (.indInfo cvTa (Lech.directSumCaps p)) ∧
+      ∃ mp' : EnvS2PM V μ (ConLeche.consSumCtors p.nP rest env),
+        ConLeche.EtaFamiliesClosed (ConLeche.consSumCtors p.nP rest env) ∧
+        (ConLeche.consSumCtors p.nP rest env).find? p.cvT.name
+          = some (.indInfo cvTa (ConLeche.directSumCaps p)) ∧
         FormerData mp'.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll ∧
         (∀ ψ, mp'.base2.acval p.cvT.name ψ = leafT ψ) ∧
         ConsedAt mp'.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
@@ -96,7 +96,7 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
   | cA :: rest, k, env, mp, hrest, hk, hE, hfT, hFD, hleafT, hcons, hpend, hinv => by
     have hcAk : ctorsA[k]? = some cA := by
       have := hrest 0; simpa using this.symm
-    obtain ⟨hlen, hall⟩ := Lech.checkDirectSumCtors_inv hCtors
+    obtain ⟨hlen, hall⟩ := ConLeche.checkDirectSumCtors_inv hCtors
     have hkl : k < ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hcAk).1; omega
     obtain ⟨hnF, hCtor⟩ := hall k (ctors[k]) cA (List.getElem?_eq_getElem hkl) hcAk
@@ -130,19 +130,19 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       (fun ψ ρ hρ => hFssOkP ψ ρ ((hiff k cA hcAk ψ ρ).mpr hρ)) (hIdx k cA hcAk)
     -- the invariants at the extension
     have hcbT : ConstsBound env cvTa.type :=
-      constsBound_of_constsResolve _ (mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfT)).2.2.1
+      constsBound_of_constsResolve _ (mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)).2.2.1
     have hcbC : ConstsBound env cA.1.type := constsBound_of_constsResolve _ htr
     have hcross : ∀ e : Expr, ConsCrossAt (.ctorInfo cA.1 p.nP cA.2) e :=
       fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
-    have hE' : Lech.EtaFamiliesClosed ⟨.ctorInfo cA.1 p.nP cA.2 :: env.consts⟩ := by
+    have hE' : ConLeche.EtaFamiliesClosed ⟨.ctorInfo cA.1 p.nP cA.2 :: env.consts⟩ := by
       intro T'' cvT'' caps hf he hr
-      rw [Lech.Env.find?_cons] at hf
+      rw [ConLeche.Env.find?_cons] at hf
       split at hf
       · exact nomatch (Option.some.inj hf)
       · obtain ⟨cvC', hfC'⟩ := hE T'' cvT'' caps hf he hr
-        exact ⟨cvC', Lech.Env.find?_cons_of_fresh hfresh hfC'⟩
+        exact ⟨cvC', ConLeche.Env.find?_cons_of_fresh hfresh hfC'⟩
     have hfT' : (⟨.ctorInfo cA.1 p.nP cA.2 :: env.consts⟩ : Env).find? p.cvT.name
-        = some (.indInfo cvTa (Lech.directSumCaps p)) := Lech.Env.find?_cons_of_fresh hfresh hfT
+        = some (.indInfo cvTa (ConLeche.directSumCaps p)) := ConLeche.Env.find?_cons_of_fresh hfresh hfT
     have hFD' : FormerData mpC.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll :=
       hFD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh (hcross _) hcbT mpC.base2 hacC
     have hleafT' : ∀ ψ, mpC.base2.acval p.cvT.name ψ = leafT ψ := by
@@ -159,8 +159,8 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
         have hne : cAi.1.name ≠ cA.1.name := names_ne_of_nodup hnd hcAi hcAk (by omega)
         have hcbi : ConstsBound env cAi.1.type :=
           constsBound_of_constsResolve _
-            (mp.base2.wf _ (Lech.Semantics.Env.find?_mem hfi)).2.2.1
-        refine ⟨⟨Lech.Env.find?_cons_of_fresh hfresh hfi, hlpsi,
+            (mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfi)).2.2.1
+        refine ⟨⟨ConLeche.Env.find?_cons_of_fresh hfresh hfi, hlpsi,
           hCDi.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh hTC hcross hcbi
             (fun e he => constsBound_of_constsResolve _ (hresi e he)) mpC.base2 hacC⟩,
           fun e he => Expr.constsResolve_mono (hresi e he), ?_⟩
@@ -172,7 +172,7 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       · have hik : i = k := by omega
         subst hik
         obtain rfl := Option.some.inj (hcAk.symm.trans hcAi)
-        refine ⟨⟨Lech.Env.find?_cons_self (.ctorInfo cA.1 p.nP cA.2) env, hlpsC,
+        refine ⟨⟨ConLeche.Env.find?_cons_self (.ctorInfo cA.1 p.nP cA.2) env, hlpsC,
           hCD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh hTC hcross hcbC
             (fun e he => constsBound_of_constsResolve _ (hidxRes e he)) mpC.base2 hacC⟩,
           fun e he => Expr.constsResolve_mono (hidxRes e he), ?_⟩
@@ -189,7 +189,7 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
         hCDi.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh hTC hcross
           (constsBound_of_constsResolve _ htri)
           (fun e he => constsBound_of_constsResolve _ (hresi e he)) mpC.base2 hacC⟩
-      rw [Lech.Env.find?_cons]
+      rw [ConLeche.Env.find?_cons]
       split
       · next h => exact absurd h hne
       · exact hfreshi
@@ -204,4 +204,4 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       hpend' hinv'
 
 
-end Lech.SetP
+end ConLeche.SetP

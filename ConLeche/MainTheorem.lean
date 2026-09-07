@@ -1,4 +1,4 @@
-import Lech.Verify.Cached.MainC
+import ConLeche.Verify.Cached.MainC
 
 /-!
 # The main theorem
@@ -7,7 +7,7 @@ If the checker, in its default `--verified` mode, accepts a stream of
 declarations, then the resulting environment contains no constant of
 type `False`.
 
-* `checkDeclsSPCachedD` is the function the `lech` binary runs on the
+* `checkDeclsSPCachedD` is the function the `con-leche` binary runs on the
   parsed export stream; `.verified` is the default mode.
 * `DeclC` is a parsed declaration; `Env` is the environment the checker
   builds; `env.consts` are the constants it accepted.
@@ -17,12 +17,12 @@ type `False`.
   for any `V` implementing that interface.
 
 The axioms used are exactly `propext`, `Classical.choice` and
-`Quot.sound` (`tests/LechTests/Axioms.lean`).
+`Quot.sound` (`tests/ConLecheTests/Axioms.lean`).
 -/
 
-namespace Lech
+namespace ConLeche
 
-open Lech.Cached (DeclC checkDeclsSPCachedD)
+open ConLeche.Cached (DeclC checkDeclsSPCachedD)
 
 theorem no_proof_of_False (V : Type w) [SetTheory V]
     (ds : List DeclC) (env : Env)
@@ -30,4 +30,4 @@ theorem no_proof_of_False (V : Type w) [SetTheory V]
     ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
   fun ⟨c, hc, hty⟩ => Cached.no_proof_of_False_SPCD_P V rfl accepted c hc hty
 
-end Lech
+end ConLeche

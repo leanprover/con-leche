@@ -7,7 +7,7 @@
    (`check_inductive_types`, inductive.cpp:250) and accepts the block and
    its recursors.
 
-   lech's in-process modeller compares them with `==`
+   con-leche's in-process modeller compares them with `==`
    (Frontend/InModel/Mutual.lean:164, Nested.lean:351) and declines:
    "member MD: parameter telescope or sort differs from MC's".  The
    preprocessor's native predicate checks only counts, so the block stays
@@ -18,7 +18,7 @@
    `id Type` mutual pair whose first member the v4.29.1 kernel rejects,
    which would have masked this verdict.
 
-   official: 0.  lech at master 700a06ca: 2 piped, 2 raw (both modes).
+   official: 0.  con-leche at master 700a06ca: 2 piped, 2 raw (both modes).
    Probe of record: _tmp/indaudit/probes/P/MutualDefEq.lean. -/
 
 import Lean

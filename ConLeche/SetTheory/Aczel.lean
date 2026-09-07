@@ -1,4 +1,4 @@
-import Lech.SetTheory.Core
+import ConLeche.SetTheory.Core
 
 /-!
 # Aczel's sets-as-trees: a realizability leaf for the `SetTheory` core
@@ -6,7 +6,7 @@ import Lech.SetTheory.Core
 This module demonstrates what the whole development assumes.  It builds
 Aczel's encoding of sets as well-founded trees from scratch — core Lean
 only, no external libraries — and discharges **every field of the
-minimal `SetTheory` class** (`Lech/SetTheory/Core.lean`) on the
+minimal `SetTheory` class** (`ConLeche/SetTheory/Core.lean`) on the
 quotient type `V₀`, *except* the universe chain, which stays a
 parameter (`UnivChain`).  The headline:
 
@@ -48,20 +48,20 @@ each child of either has an extensionally equivalent child of the other
   development: with choice, every meta-level class function is
   "definable enough" to fall under replacement.  This retroactively
   justifies the interface's deviation from a first-order presentation
-  (see the `Lech/SetTheory/Core.lean` module doc).
+  (see the `ConLeche/SetTheory/Core.lean` module doc).
 * `upair`, `sUnion`, `power` are the standard Aczel constructions;
   `power` re-indexes by `α → Prop` (classical subsets), the one place
   besides `image` where the ambient classical logic shows.
 
 **This module is evidence about the interface, not part of the trusted
 development**: nothing in the checker or the consistency path imports
-it; it is only reachable from the root `Lech.lean` so that it builds
+it; it is only reachable from the root `ConLeche.lean` so that it builds
 by default.  The closing `#print axioms` guard pins the assumption
 footprint of `SetTheory.ofAczelChain` to Lean's three standard axioms
 `propext`, `Classical.choice`, `Quot.sound`.
 -/
 
-namespace Lech
+namespace ConLeche
 
 universe u v
 
@@ -450,9 +450,9 @@ noncomputable def SetTheory.ofAczelChain (c : UnivChain V₀.{u} AczelMem) :
   univChain_tg := c.univChain_tg
 
 /--
-info: 'Lech.SetTheory.ofAczelChain' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.SetTheory.ofAczelChain' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms SetTheory.ofAczelChain
 
-end Lech
+end ConLeche
