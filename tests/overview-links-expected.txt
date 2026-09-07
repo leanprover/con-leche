@@ -5,6 +5,12 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
+== Main.lean#L419
+   419  def usage : String := String.intercalate "\n" [
+
+== Main.lean#L37
+    37  def ConLeche.CheckError.exitCode : CheckError → UInt32
+
 == ConLeche/MainTheorem.lean#L27-L31
     27  theorem no_proof_of_False (V : Type w) [SetTheory V]
     28      (ds : List DeclC) (env : Env)
@@ -736,4 +742,48 @@
    200  theorem carneiro_implies_conleche :
    201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
+
+== ConLeche/Kernel/StdAxioms.lean#L34-L46
+    34  def propextName : Name := anonymous |>.str "propext"
+    35  
+    36  /-- The name `Classical.choice`. -/
+    37  def choiceName : Name := (anonymous |>.str "Classical") |>.str "choice"
+    38  
+    39  /-- The axioms tolerated as *declarations* (dropped by the frontend,
+    40  never installed; any use is skipped and taints the run): exactly
+    41  `sorryAx` (user ruling).  The `Init` compiler-trust family
+    42  (`Lean.trustCompiler`, `Lean.ofReduceNat`, `Lean.ofReduceBool`) is
+    43  *installed* instead (task #95, `ConLeche/Kernel/TrustAxioms.lean`); any
+    44  other non-pinned axiom is a positive decline at its own record. -/
+    45  def toleratedAxiomNames : List Name :=
+    46    [ anonymous |>.str "sorryAx" ]
+
+== ConLeche/Kernel/TrustAxioms.lean#L8-L34
+     8  /-!
+     9  # The compiler-trust axiom family (task #95)
+    10  
+    11  `Init`'s compiler-trust scaffolding is installed instead of
+    12  taint-skipped:
+    13  
+    14  * `Lean.trustCompiler : True` is trivially realizable — it is
+    15    installed as an *opaque* (stored `thmInfo`, exactly like a checked
+    16    `opaque` declaration) with value `True.intro`, over a pinned `True`
+    17    family.  No new meta-axiom: the model is `True.intro`'s own
+    18    interpretation.
+    19  * `Lean.reduceNat` / `Lean.reduceBool` then check as ordinary
+    20    `opaque`s (their exported values are identity functions modulo the
+    21    `have := trustCompiler` wrapper); at install their stored values are
+    22    pinned against the toolchain's own definitions
+    23    (`ConLeche/Kernel/TrustPins.lean`, generated at build time) by
+    24    definitional equality — the task-#47 pattern: drift declines,
+    25    never silently.
+    26  * `Lean.ofReduceNat` / `Lean.ofReduceBool` are pinned axioms over
+    27    those stored opaques (the task-#34 standard-axioms machinery).  With
+    28    the stored reduce operation certified to be the identity (a
+    29    definitional-equality certificate at the axiom's own install,
+    30    `checkOfReduceAx`), `∀ a b, reduceNat a = b → a = b` interprets to
+    31    an inhabited proposition (the hypothesis *is* the conclusion), so
+    32    both axioms are true in the set model with the proof point as value.
+    33  
+    34  `sorryAx` remains the only tolerated (skip-taint) axiom.
 
