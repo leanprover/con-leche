@@ -146,6 +146,128 @@ def instantiate1Go (v : ExprC) (memo : MemoN) (e : ExprC) (d : Nat) :
       let r := mkProj sn i s'
       (r, memo.insert key r)
 
+/-! ### `instantiate1Lift` (task #214, P4)
+
+The capture-avoiding substitution `Expr.instantiate1Lift` — the one
+substitution on the direct install's executed path with no memoised
+twin: `directProjBodies` runs it once per field over the constructor
+telescope, turning a DAG-shared field type into an unshared tree each
+time.  The twin has the `bvarB` cutoff (a node bounded at or below the
+cursor is returned unchanged), a BUDGETED plain descent first (4096
+nodes, allocation-free of any memo table — the memo would be a tax on
+the small terms that are the common case, cf. the +33 % an
+unconditional instantiate memo cost on init-prelude), and the memoised
+descent only past the budget.  `instantiate1Lift_spec`
+(`ConLeche/Verify/Cached/OpsC.lean`) reads it as `Expr.instantiate1Lift`. -/
+
+/-- The budgeted descent: the plain rebuild on a node budget, `none`
+when it runs out (nothing built is kept). -/
+def instantiate1LiftB (v : ExprC) (fuel : Nat) (e : ExprC) (d : Nat) : Option ExprC × Nat :=
+  if e.bvarB ≤ d then (some e, fuel) else
+  match fuel, e with
+  | _, .bvar i .. =>
+    (some (if i = d then Expr.liftLooseBVars d 0 v else if i > d then mkBVar (i - 1) else e),
+      fuel)
+  | _, .fvar .. | _, .sort .. | _, .const .. | _, .lit .. => (some e, fuel)
+  | 0, _ => (none, 0)
+  | fuel + 1, .app f a .. =>
+    match instantiate1LiftB v fuel f d with
+    | (some f', fuel) =>
+      match instantiate1LiftB v fuel a d with
+      | (some a', fuel) => (some (mkApp f' a'), fuel)
+      | r => r
+    | r => r
+  | fuel + 1, .lam ty body m .. =>
+    match instantiate1LiftB v fuel ty d with
+    | (some ty', fuel) =>
+      match instantiate1LiftB v fuel body (d + 1) with
+      | (some b', fuel) => (some (mkLam ty' b' m), fuel)
+      | r => r
+    | r => r
+  | fuel + 1, .forallE ty body m .. =>
+    match instantiate1LiftB v fuel ty d with
+    | (some ty', fuel) =>
+      match instantiate1LiftB v fuel body (d + 1) with
+      | (some b', fuel) => (some (mkForallE ty' b' m), fuel)
+      | r => r
+    | r => r
+  | fuel + 1, .letE ty val body .. =>
+    match instantiate1LiftB v fuel ty d with
+    | (some ty', fuel) =>
+      match instantiate1LiftB v fuel val d with
+      | (some v', fuel) =>
+        match instantiate1LiftB v fuel body (d + 1) with
+        | (some b', fuel) => (some (mkLetE ty' v' b'), fuel)
+        | r => r
+      | r => r
+    | r => r
+  | fuel + 1, .proj sn i sub .. =>
+    match instantiate1LiftB v fuel sub d with
+    | (some s', fuel) => (some (mkProj sn i s'), fuel)
+    | r => r
+
+/-- The memoised descent, in `instantiate1Go`'s shape. -/
+def instantiate1LiftGo (v : ExprC) (memo : MemoN) (e : ExprC) (d : Nat) :
+    ExprC × MemoN :=
+  if e.bvarB ≤ d then (e, memo) else
+  match e with
+  | .bvar i .. =>
+    (if i = d then Expr.liftLooseBVars d 0 v else if i > d then mkBVar (i - 1) else e, memo)
+  | .fvar .. | .sort .. | .const .. | .lit .. => (e, memo)
+  | .app f a .. =>
+    let key := (e, d)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (f', memo) := instantiate1LiftGo v memo f d
+      let (a', memo) := instantiate1LiftGo v memo a d
+      let r := mkApp f' a'
+      (r, memo.insert key r)
+  | .lam ty body m .. =>
+    let key := (e, d)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := instantiate1LiftGo v memo ty d
+      let (b', memo) := instantiate1LiftGo v memo body (d + 1)
+      let r := mkLam ty' b' m
+      (r, memo.insert key r)
+  | .forallE ty body m .. =>
+    let key := (e, d)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := instantiate1LiftGo v memo ty d
+      let (b', memo) := instantiate1LiftGo v memo body (d + 1)
+      let r := mkForallE ty' b' m
+      (r, memo.insert key r)
+  | .letE ty val body .. =>
+    let key := (e, d)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (ty', memo) := instantiate1LiftGo v memo ty d
+      let (v', memo) := instantiate1LiftGo v memo val d
+      let (b', memo) := instantiate1LiftGo v memo body (d + 1)
+      let r := mkLetE ty' v' b'
+      (r, memo.insert key r)
+  | .proj sn i sub .. =>
+    let key := (e, d)
+    match memo[key]? with
+    | some r => (r, memo)
+    | none =>
+      let (s', memo) := instantiate1LiftGo v memo sub d
+      let r := mkProj sn i s'
+      (r, memo.insert key r)
+
+/-- `Expr.instantiate1Lift` on `ExprC`: the cutoff, the budgeted plain
+descent, the memoised one past the budget. -/
+def instantiate1Lift (e v : ExprC) (d : Nat := 0) : ExprC :=
+  if e.bvarB ≤ d then e else
+  match instantiate1LiftB v 4096 e d with
+  | (some r, _) => r
+  | (none, _) => (instantiate1LiftGo v {} e d).1
+
 /-- `Expr.instantiate1` on `ExprC` (fresh per-call memo). -/
 def instantiate1 (e v : ExprC) (d : Nat := 0) : ExprC :=
   if e.bvarB ≤ d then e else (instantiate1Go v {} e d).1

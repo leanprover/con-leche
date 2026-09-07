@@ -94,8 +94,8 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : Lis
     exact hEis j (by rw [← hFss]; exact hj) i hi fs hfs
   · -- the squash regime (task #202 A2): the K-frame, split
     intro hw0 hℓ0
-    obtain ⟨hsingle, -, -⟩ := hK.hsq hw0 hℓ0
-    have hn1 : n = 1 := by rw [← hFss]; exact hsingle
+    obtain ⟨hle, -, -⟩ := hK.hsq hw0 hℓ0
+    have hn1 : n ≤ 1 := by rw [← hFss]; exact hle
     obtain ⟨ps, ms, is', M, heq, hlenP, hlenM, hlenI'⟩ :=
       kframe_split3 (as := as₀ ++ is) (nP := nP) (n := Fss.length) (nIdx := Ids.length)
         (by rw [List.length_append, hl₀, hli])
@@ -105,6 +105,15 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : Lis
         List.take_of_length_le (by omega)]
     rw [hps] at hv hEis hfrP
     rw [hσ, consList_kframe]
+    rcases Nat.eq_zero_or_pos n with hz | hpos
+    · -- no constructor (task #210 Part B): the body reads the empty
+      -- field list, and has no recursive slot
+      have hF0 : Fss.getD 0 [] = [] := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
+      rw [hF0]
+      refine sqFixBodyAV_validV hlenM hlenI' trivial ?_ ?_
+      · intro i hi; simp [recIdx] at hi
+      · intro i hi; simp [recIdx] at hi
     refine sqFixBodyAV_validV hlenM hlenI' (hv _ (List.mem_of_getElem? (i := 0) ?_)) ?_ ?_
     · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
     · intro i hi fs hfs

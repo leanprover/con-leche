@@ -597,6 +597,27 @@ def Expr.hasLooseBVar : Nat → Expr → Bool
     hasLooseBVar i t || hasLooseBVar i v || hasLooseBVar (i + 1) b
   | i, .proj _ _ e => hasLooseBVar i e
 
+/-- `hasLooseBVar` with the packed bound's cutoff (task #214, P4): a
+node whose loose-bvar bound is at or below `i` has no `bvar i`, so the
+walk stops there without descending — `directProjGuards`' O(nF²)
+`directUsedLater` calls then touch only the spine of a large
+telescope, never its shared instance towers.  Read as `hasLooseBVar`
+by `Expr.hasLooseBVarB_eq` (`ConLeche/Verify/Direct/DirectBody.lean`). -/
+def Expr.hasLooseBVarB (i : Nat) (e : Expr) : Bool :=
+  if e.bvarB ≤ i then false else
+  match e with
+  | .bvar j => i == j
+  | .fvar .. => false
+  | .sort _ => false
+  | .const .. => false
+  | .lit _ => false
+  | .app f a => hasLooseBVarB i f || hasLooseBVarB i a
+  | .lam ty b _ => hasLooseBVarB i ty || hasLooseBVarB (i + 1) b
+  | .forallE ty b _ => hasLooseBVarB i ty || hasLooseBVarB (i + 1) b
+  | .letE t v b =>
+    hasLooseBVarB i t || hasLooseBVarB i v || hasLooseBVarB (i + 1) b
+  | .proj _ _ e => hasLooseBVarB i e
+
 /-- **Field `j` is used by a later field** — the official
 `infer_proj`'s `has_loose_bvars(binding_body(r))` at step `j`: the
 field's variable occurs in the constructor telescope's remainder after
@@ -604,7 +625,7 @@ binder `j` (a later field's domain; the result never mentions a
 field). -/
 def directUsedLater (cty : Expr) (nP j : Nat) : Bool :=
   match cty.stripPis (nP + j + 1) with
-  | some (_, rest) => rest.hasLooseBVar 0
+  | some (_, rest) => rest.hasLooseBVarB 0
   | none => false
 
 /-- **The projection guard levels** (task #175 W4c/O4): for field `i`,

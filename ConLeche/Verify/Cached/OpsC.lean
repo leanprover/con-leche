@@ -1881,6 +1881,385 @@ theorem piResidual_spec {e : ExprC} {args : List ExprC} :
   rw [Expr.instantiateList_nil] at h
   exact h
 
+/-! ## The capture-avoiding instantiation (task #214, P4)
+
+`instantiate1Lift`'s twin: the same three facts as `instantiate1`'s —
+the cutoff is `Expr.instantiate1Lift_eq_self`, the budgeted plain
+descent rebuilds exactly the substitution wherever it completes, and
+the memoised descent carries the erasure-of-key invariant. -/
+
+/-- The `instantiate1Lift` memo invariant at the ambient replacement `v`. -/
+def Memo1LInv (v : ExprC) (memo : MemoN) : Prop :=
+  ∀ (k : ExprC) (c : Nat) (r : ExprC), memo[(k, c)]? = some r →
+    r = (Expr.instantiate1Lift k v c)
+
+theorem Memo1LInv.empty {v : ExprC} : Memo1LInv v {} := by
+  intro k c r h
+  simp at h
+
+theorem Memo1LInv.insert {v : ExprC} {memo : MemoN} (hm : Memo1LInv v memo)
+    {e r : ExprC} {d : Nat}
+    (heq : r = (Expr.instantiate1Lift e v d)) :
+    Memo1LInv v (memo.insert (e, d) r) := by
+  intro k c r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    obtain ⟨he, hd⟩ := pairKey_inv hbeq
+    rw [← he, ← (beq_iff_eq ..).mp hd]
+    exact heq
+  · exact hm k c r' hk
+
+/-- The memoised descent computes `Expr.instantiate1Lift`. -/
+theorem instantiate1LiftGo_spec {v : ExprC} : ∀ {e : ExprC},
+    ∀ {memo : MemoN} {d : Nat}, Memo1LInv v memo →
+        Memo1LInv v (instantiate1LiftGo v memo e d).2 ∧
+        (instantiate1LiftGo v memo e d).1 = (Expr.instantiate1Lift e v d) := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro memo d hm
+    rw [instantiate1LiftGo.eq_def]
+    split
+    · rename_i hcut
+      exact ⟨hm, (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm⟩
+    · dsimp only
+      split
+      · rename_i hid
+        exact ⟨hm, by simp [Expr.instantiate1Lift, hid]⟩
+      · split
+        · rename_i hid hid'
+          exact ⟨hm, by simp [Expr.instantiate1Lift, hid, hid']⟩
+        · rename_i hid hid'
+          exact ⟨hm, by simp [Expr.instantiate1Lift, hid, hid']⟩
+  | fvar idx ty iht =>
+    intro memo d hm
+    rw [instantiate1LiftGo.eq_def]
+    split
+    · rename_i hcut
+      exact ⟨hm, (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm⟩
+    · exact ⟨hm, rfl⟩
+  | sort u =>
+    intro memo d hm
+    rw [instantiate1LiftGo.eq_def]
+    split
+    · rename_i hcut
+      exact ⟨hm, (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm⟩
+    · exact ⟨hm, rfl⟩
+  | const n us =>
+    intro memo d hm
+    rw [instantiate1LiftGo.eq_def]
+    split
+    · rename_i hcut
+      exact ⟨hm, (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm⟩
+    · exact ⟨hm, rfl⟩
+  | lit l =>
+    intro memo d hm
+    rw [instantiate1LiftGo.eq_def]
+    split
+    · rename_i hcut
+      exact ⟨hm, (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm⟩
+    · exact ⟨hm, rfl⟩
+  | app f a ihf iha =>
+    intro memo d hm
+    rw [instantiate1LiftGo.eq_def]
+    split
+    · rename_i hcut
+      exact ⟨hm, (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm⟩
+    · dsimp only
+      split
+      · rename_i r hhit
+        exact ⟨hm, (hm _ _ _ hhit)⟩
+      · obtain ⟨hf2, hf3⟩ := ihf (d := d) hm
+        rcases hpf : instantiate1LiftGo v memo f d with ⟨f', mf⟩
+        simp only [hpf] at hf2 hf3
+        obtain ⟨ha2, ha3⟩ := iha (d := d) hf2
+        rcases hpa : instantiate1LiftGo v mf a d with ⟨a', ma⟩
+        simp only [hpa] at ha2 ha3
+        have hres : (mkApp f' a') = (Expr.instantiate1Lift (.app f a) v d) := by
+          rw [mkApp_eq, hf3, ha3]; rfl
+        exact ⟨ha2.insert hres, hres⟩
+  | lam ty bd m iht ihb =>
+    intro memo d hm
+    rw [instantiate1LiftGo.eq_def]
+    split
+    · rename_i hcut
+      exact ⟨hm, (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm⟩
+    · dsimp only
+      split
+      · rename_i r hhit
+        exact ⟨hm, (hm _ _ _ hhit)⟩
+      · obtain ⟨h2, h3⟩ := iht (d := d) hm
+        rcases hp : instantiate1LiftGo v memo ty d with ⟨ty', mt⟩
+        simp only [hp] at h2 h3
+        obtain ⟨h5, h6⟩ := ihb (d := d + 1) h2
+        rcases hq : instantiate1LiftGo v mt bd (d + 1) with ⟨b', mb⟩
+        simp only [hq] at h5 h6
+        have hres : (mkLam ty' b' m) = (Expr.instantiate1Lift (.lam ty bd m) v d) := by
+          rw [mkLam_eq, h3, h6]; rfl
+        exact ⟨h5.insert hres, hres⟩
+  | forallE ty bd m iht ihb =>
+    intro memo d hm
+    rw [instantiate1LiftGo.eq_def]
+    split
+    · rename_i hcut
+      exact ⟨hm, (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm⟩
+    · dsimp only
+      split
+      · rename_i r hhit
+        exact ⟨hm, (hm _ _ _ hhit)⟩
+      · obtain ⟨h2, h3⟩ := iht (d := d) hm
+        rcases hp : instantiate1LiftGo v memo ty d with ⟨ty', mt⟩
+        simp only [hp] at h2 h3
+        obtain ⟨h5, h6⟩ := ihb (d := d + 1) h2
+        rcases hq : instantiate1LiftGo v mt bd (d + 1) with ⟨b', mb⟩
+        simp only [hq] at h5 h6
+        have hres : (mkForallE ty' b' m) = (Expr.instantiate1Lift (.forallE ty bd m) v d) := by
+          rw [mkForallE_eq, h3, h6]; rfl
+        exact ⟨h5.insert hres, hres⟩
+  | letE ty val bd iht ihv ihb =>
+    intro memo d hm
+    rw [instantiate1LiftGo.eq_def]
+    split
+    · rename_i hcut
+      exact ⟨hm, (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm⟩
+    · dsimp only
+      split
+      · rename_i r hhit
+        exact ⟨hm, (hm _ _ _ hhit)⟩
+      · obtain ⟨h2, h3⟩ := iht (d := d) hm
+        rcases hp : instantiate1LiftGo v memo ty d with ⟨ty', mt⟩
+        simp only [hp] at h2 h3
+        obtain ⟨h5, h6⟩ := ihv (d := d) h2
+        rcases hq : instantiate1LiftGo v mt val d with ⟨v', mv⟩
+        simp only [hq] at h5 h6
+        obtain ⟨h8, h9⟩ := ihb (d := d + 1) h5
+        rcases hr : instantiate1LiftGo v mv bd (d + 1) with ⟨b', mb⟩
+        simp only [hr] at h8 h9
+        have hres : (mkLetE ty' v' b') = (Expr.instantiate1Lift (.letE ty val bd) v d) := by
+          rw [mkLetE_eq, h3, h6, h9]; rfl
+        exact ⟨h8.insert hres, hres⟩
+  | proj sn i sub ih =>
+    intro memo d hm
+    rw [instantiate1LiftGo.eq_def]
+    split
+    · rename_i hcut
+      exact ⟨hm, (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm⟩
+    · dsimp only
+      split
+      · rename_i r hhit
+        exact ⟨hm, (hm _ _ _ hhit)⟩
+      · obtain ⟨h2, h3⟩ := ih (d := d) hm
+        rcases hp : instantiate1LiftGo v memo sub d with ⟨s', ms⟩
+        simp only [hp] at h2 h3
+        have hres : (mkProj sn i s') = (Expr.instantiate1Lift (.proj sn i sub) v d) := by
+          rw [mkProj_eq, h3]; rfl
+        exact ⟨h2.insert hres, hres⟩
+
+/-- The budgeted descent computes `Expr.instantiate1Lift` wherever it
+completes. -/
+theorem instantiate1LiftB_spec {v : ExprC} : ∀ (e : ExprC) (fuel d : Nat) (r : ExprC),
+    (instantiate1LiftB v fuel e d).1 = some r → r = Expr.instantiate1Lift e v d := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro fuel d r h
+    by_cases hcut : (Expr.bvar i).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
+      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel <;> simp only [Option.some.injEq] at h <;> subst h <;>
+        by_cases hid : i = d <;> by_cases hid' : i > d <;>
+        simp [Expr.instantiate1Lift, hid, hid']
+  | fvar idx ty _ =>
+    intro fuel d r h
+    by_cases hcut : (Expr.fvar idx ty).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
+      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel <;> simp only [Option.some.injEq] at h <;> subst h <;> rfl
+  | sort u =>
+    intro fuel d r h
+    by_cases hcut : (Expr.sort u).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
+      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel <;> simp only [Option.some.injEq] at h <;> subst h <;> rfl
+  | const n us =>
+    intro fuel d r h
+    by_cases hcut : (Expr.const n us).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
+      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel <;> simp only [Option.some.injEq] at h <;> subst h <;> rfl
+  | lit l =>
+    intro fuel d r h
+    by_cases hcut : (Expr.lit l).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
+      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel <;> simp only [Option.some.injEq] at h <;> subst h <;> rfl
+  | app f a ihf iha =>
+    intro fuel d r h
+    by_cases hcut : (Expr.app f a).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
+      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel with
+      | zero => simp at h
+      | succ fuel =>
+        simp only at h
+        rcases hpf : instantiate1LiftB v fuel f d with ⟨of, fuel₁⟩
+        rw [hpf] at h
+        cases of with
+        | none => simp at h
+        | some f' =>
+          simp only at h
+          rcases hpa : instantiate1LiftB v fuel₁ a d with ⟨oa, fuel₂⟩
+          rw [hpa] at h
+          cases oa with
+          | none => simp at h
+          | some a' =>
+            simp only [Option.some.injEq] at h
+            subst h
+            rw [mkApp_eq, ihf fuel d f' (by rw [hpf]), iha fuel₁ d a' (by rw [hpa])]
+            rfl
+  | lam ty bd m iht ihb =>
+    intro fuel d r h
+    by_cases hcut : (Expr.lam ty bd m).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
+      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel with
+      | zero => simp at h
+      | succ fuel =>
+        simp only at h
+        rcases hpf : instantiate1LiftB v fuel ty d with ⟨ot, fuel₁⟩
+        rw [hpf] at h
+        cases ot with
+        | none => simp at h
+        | some ty' =>
+          simp only at h
+          rcases hpa : instantiate1LiftB v fuel₁ bd (d + 1) with ⟨ob, fuel₂⟩
+          rw [hpa] at h
+          cases ob with
+          | none => simp at h
+          | some b' =>
+            simp only [Option.some.injEq] at h
+            subst h
+            rw [mkLam_eq, iht fuel d ty' (by rw [hpf]), ihb fuel₁ (d + 1) b' (by rw [hpa])]
+            rfl
+  | forallE ty bd m iht ihb =>
+    intro fuel d r h
+    by_cases hcut : (Expr.forallE ty bd m).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
+      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel with
+      | zero => simp at h
+      | succ fuel =>
+        simp only at h
+        rcases hpf : instantiate1LiftB v fuel ty d with ⟨ot, fuel₁⟩
+        rw [hpf] at h
+        cases ot with
+        | none => simp at h
+        | some ty' =>
+          simp only at h
+          rcases hpa : instantiate1LiftB v fuel₁ bd (d + 1) with ⟨ob, fuel₂⟩
+          rw [hpa] at h
+          cases ob with
+          | none => simp at h
+          | some b' =>
+            simp only [Option.some.injEq] at h
+            subst h
+            rw [mkForallE_eq, iht fuel d ty' (by rw [hpf]),
+              ihb fuel₁ (d + 1) b' (by rw [hpa])]
+            rfl
+  | letE ty val bd iht ihv ihb =>
+    intro fuel d r h
+    by_cases hcut : (Expr.letE ty val bd).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
+      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel with
+      | zero => simp at h
+      | succ fuel =>
+        simp only at h
+        rcases hpf : instantiate1LiftB v fuel ty d with ⟨ot, fuel₁⟩
+        rw [hpf] at h
+        cases ot with
+        | none => simp at h
+        | some ty' =>
+          simp only at h
+          rcases hpv : instantiate1LiftB v fuel₁ val d with ⟨ov, fuel₂⟩
+          rw [hpv] at h
+          cases ov with
+          | none => simp at h
+          | some v' =>
+            simp only at h
+            rcases hpa : instantiate1LiftB v fuel₂ bd (d + 1) with ⟨ob, fuel₃⟩
+            rw [hpa] at h
+            cases ob with
+            | none => simp at h
+            | some b' =>
+              simp only [Option.some.injEq] at h
+              subst h
+              rw [mkLetE_eq, iht fuel d ty' (by rw [hpf]), ihv fuel₁ d v' (by rw [hpv]),
+                ihb fuel₂ (d + 1) b' (by rw [hpa])]
+              rfl
+  | proj sn i sub ih =>
+    intro fuel d r h
+    by_cases hcut : (Expr.proj sn i sub).bvarB ≤ d
+    · rw [instantiate1LiftB.eq_def, if_pos hcut] at h
+      simp only [Option.some.injEq] at h
+      subst h
+      exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+    · rw [instantiate1LiftB.eq_def, if_neg hcut] at h
+      cases fuel with
+      | zero => simp at h
+      | succ fuel =>
+        simp only at h
+        rcases hpf : instantiate1LiftB v fuel sub d with ⟨os, fuel₁⟩
+        rw [hpf] at h
+        cases os with
+        | none => simp at h
+        | some s' =>
+          simp only [Option.some.injEq] at h
+          subst h
+          rw [mkProj_eq, ih fuel d s' (by rw [hpf])]
+          rfl
+
+/-- **`instantiate1Lift`'s twin computes `Expr.instantiate1Lift`.** -/
+theorem instantiate1Lift_spec (e v : ExprC) (d : Nat) :
+    instantiate1Lift e v d = Expr.instantiate1Lift e v d := by
+  unfold instantiate1Lift
+  split
+  · rename_i hcut
+    exact (Expr.instantiate1Lift_eq_self (bvarB_le hcut)).symm
+  · split
+    · rename_i r fuel hr
+      exact instantiate1LiftB_spec e 4096 d r (by rw [hr])
+    · exact (instantiate1LiftGo_spec (v := v) (d := d) Memo1LInv.empty).2
+
 end ExprC
 
 end ConLeche.Cached

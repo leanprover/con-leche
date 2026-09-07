@@ -58363,6 +58363,185 @@ caches; **unmemoized** — `Frontend.canonExpr`, `Frontend.occursConst`,
 twin), `Expr.hasLooseBVar` (via `directProjGuards`), and the modeled
 route's `Expr.renameConsts` / `openPisAtFvars`.
 
+### Part B — the constant-functor arm: every non-recursive block through the fixpoint route
+
+**What changed in the dispatch.**  `directFixParts?` admits every
+block whose fields are ordinary, finitary-recursive or reflexive — a
+NON-recursive block (every kind ordinary, any number of constructors
+including none, any index count) is the CONSTANT-FUNCTOR arm of the
+same install, exactly what the structure and sum recognisers took.
+The dispatch has two arms (`checkDirectFix`, else the modeled path) in
+all four places (`Kernel/Checker.lean`, `Cached/CheckerC.lean`,
+`Cached/ParsedC.lean`, `Main.lean`'s trace), and the structure/sum
+installers are unreferenced — Part C deletes them.  The recogniser
+reads the former's sort at the placeholder (task #195's arrangement,
+now on this route too): `directFixShape?` puts `.zero` where the sort
+is not syntactic, the former's run (`checkDirectSumInd`) returns the
+sort it read, and `DirectFixParts.complete p₀ p₁` is the record every
+later stage runs on.  The capability record is computed at the
+completed record (`fun p₁ => directFixCaps (p₀.complete p₁)`), so
+`isProp` is right at a def-headed `Prop` former.
+
+**The proof, three pieces.**  (1) *The assembly on the completed
+record* (`DeclDirectFixP`): the recogniser's invariants transport to
+`p` by the completion's projection lemmas, and the run shape is the
+same as Part A's with the sort generalised away.  (2) *Unit-likeness*
+(`FixZeroFieldP`): at one fieldless index-free constructor the
+fixpoint leaf folds, at any parameter spine, to the ONE tagged empty
+tuple — `fixFoldSingle` (`directFixTyAVI` at no index and a single
+empty chain is `sumSet w (sumFibre w ρ' [[] ++ [idxEqAV []]])`, through
+`fixFamI_app_eq_sum` and `chainsRealI_zero`), and the two unit laws
+`fixEmptyUnitLaw` (the dummy former, family empty) / `fixFibreUnitLaw`
+(the fix leaf) are `UnitLawP` from that fold.  The loop
+(`ctorsLoopGen`) and the rec stage (`stageFixRec`) now hand the
+former's data and the leaf to the capability laws at every carrier;
+the table stage takes the shape facts it needs instead of the
+recogniser's equation.  η is claimed exactly where official's
+`is_structure_like` claims it — one constructor, no index, not
+recursive, any field count INCLUDING NONE: the first cut withdrew η
+at a fieldless block ("unit-likeness subsumes it"), and the arena
+answered with `073_typeSingletonRecReduction` rejecting — the
+recursor's major-premise rescue at `etaFields = 0` (`Core.lean`) keys
+on η.  The η law owed at a fieldless block is *the constructor at the
+parameters* (`fixFibreEtaLaw0`: a member is the one tagged empty
+tuple, and so is the constructor's fold); the ctor stage
+(`stageCtorGen`) and the loop hand the constructor's leaf to the laws,
+the rec stage the constructors' agreement, and below the constructor's
+cons η is vacuous by the constructor's freshness (`EtaFamilyStored`
+stores it).  η with a field stays vacuous by the projection family's
+freshness (`fixTableFamFree`, `fixCapsLawsAt_vacuous`) until the table
+stage proves it (Part A).  (3) *Zero constructors*
+(`FixKI₀.hsq`, task #202 A2's squash clause): "one constructor" became
+"at most one" — the family is then empty (`fam_empty_of_mem`), so every
+K-frame claim is vacuous (`fam_single_of_mem` at each consumer: the
+recursion equation, the source spine, the graph selector), the body's
+validity reads the empty field list, and the package's producer
+(`FixRecKFrameP`) has vacuous clauses.  The stage lemmas dropped their
+positivity hypothesis.  This was first left as a modeled residual, and
+the fixtures said no: the in-process modeller (task #200) covers
+mutual and nested blocks only, so a single zero-constructor block
+(`zero_ctor`'s `PEmpty'`/`Vacant`/`Bottom`/`Nada`, `ind_empty_idx`)
+would have DECLINED where master accepted it natively.  Universal
+coverage is the brief; the proof went through.
+
+**DAG-safety on the route, and `tower_struct`.**  Task #215 committed
+`tests/e2e/tower_struct.ndjson` (a depth-60 doubling tower in a
+structure field) unwired: it hung in the structure installer's
+`Expr.constsResolveF`.  On the fix route it hung five more times, one
+walker per profile (`perf record`, each ≥ 99 % self): the
+recogniser's positivity walk `Expr.mentionsConst`; `looseBVarsBounded`
+and `hasFvar` at the recursor-type checks; `liftLooseBVars` in the rule
+and recursor generators; `instantiateList` in `openPisAtFvars`;
+`allLevelParamsDefined` and `constsResolveF` at the install's type
+checks.  Each is now DAG-safe by the task #215 arrangement — a
+memoized twin with a kernel-checked spec, swapped in by `@[csimp]`, no
+trust point, the pure walk the spec every proof consumes:
+`Expr.mentionsConstGo_spec` (RecParts), `liftLooseBVarsGo_spec` /
+`instantiateListGo_spec` (ExprOps), `allLevelParamsDefinedGo_spec`
+(Level), `constsResolveFGo_spec` (DeclCheck).  `looseBVarsBounded` and
+`hasFvar` instead READ the packed range fields (`bvarB ≤ k`,
+`fvarB != 0`): the exactness proofs `bvarBRaw_exact` /
+`fvarBRaw_exact`, the memo specs and `bvarB_eq` / `fvarB_eq` moved from
+`Verify/Cached/Erase.lean` into `Kernel/ExprOps.lean` (aliases kept),
+which retires the task #26 TODO on `looseBVarsBounded`.  `tower_struct`
+accepts at **0.38 G instructions**.  JZero P3 (`constsResolveFC`
+through `DirectWalkers` in `RecInstallF`) and P4 (`instantiate1Lift`
+memoized in `directProjBodiesC`) are Part B's first commits, credit
+task #214; measured on init-core at +0.06 % instructions in both modes
+(noise), −1.0 % on the JZero record, RSS unchanged.
+
+**Audit expectations flipped** (`tests/e2e-expected.txt`, one line per
+fixture since task #207 merged in, all verified against the binary):
+`ind_defhead_struct` 2 → **0** (A1 closed: the def-headed structure
+former reads at the placeholder on the one route), `ind_defhead_k` 2 →
+**0** (A2 closed), `ind_defhead_fix` 2 → **0**, `ind_former_redex` 2 →
+**0** — the four were the modeled path's declines after the tool went.
+`zero_ctor` 0/1/1, `ind_empty_idx` 0 unchanged (natively, on the fix
+route now).  `tower_struct` **0**, new.  Not Part B's: the three arena
+tutorial tests and two fixtures task #207 recorded at #206-A5 (a field
+type behind a definition redex — Part D's first item), and the F1
+stub-recursor declines.
+
+**Restrictions beyond official that remain on the route** (Part A's
+three; Part B adds none and removes none): the syntactic former
+reading — now at the placeholder, so a def-headed former is no longer
+a restriction; the `directUsedLater` fall-through; the syntactic rule
+comparison at the parse placeholder.  The route census on init-full is
+the coverage gate: every block the structure and sum routes took is
+on `fix`, none went to `modeled`.
+
+**What moved, by layer.**  Kernel: `Direct/RecParts.lean`
+(`directFixShape?` placeholder sort, `DirectFixParts.complete`,
+`directFixParts?` on all-ordinary kinds and zero constructors,
+`mentionsConst` memo), `Direct/RecInstall.lean` (`directFixCaps` with
+the field conjunct, `checkDirectFix` on the completed record),
+`Direct/RecInstallF.lean` + `Direct/InstallF.lean` (`DirectWalkers`,
+P3), `Direct/Parts.lean` (`hasLooseBVarB`, P4's cutoff), `ExprOps.lean`
+(the field equations, `liftLooseBVars`/`instantiateList` memos,
+`looseBVarsBounded`/`hasFvar` field reads), `Level.lean`
+(`allLevelParamsDefined` memo), `DeclCheck.lean` (`constsResolveF`
+memo), `Checker.lean` (two-arm dispatch).  Cached: `ExprOpsC.lean`
+(`instantiate1Lift` twin, P4), `CheckerC.lean` (`directWalkersC`,
+`checkDirectFixS` on the completed record, dispatch), `ParsedC.lean`.
+Semantics: `Direct/DeclDirectFix.lean` (`DeclDirectFixRun` on the
+completed record), `Direct/DeclDirectSumEta.lean`, `Bridge/Sound.lean`,
+`Tower/FixRecCoreI.lean` (`hsq` at most one), `Tower/FixSquashI.lean`
+(`fam_empty_of_mem`, `fam_single_of_mem`), `Tower/FixRecI.lean`.  P
+tier: `DirectFix/FixZeroFieldP.lean` (new), `DeclDirectFixP.lean`,
+`FixStageTableP.lean`, `FixCtorsLoopP.lean`, `FixStageRecP.lean`,
+`FixRecKFrameP.lean`, `FixRecPreP.lean`, `FixRuleOkP.lean`,
+`FixRecLeafP.lean`, `FixRecLawP.lean`, `FoldP.lean`.  Verify:
+`Direct/FixParts.lean`, `Direct/DirectBody.lean`, `CheckerF.lean`,
+`BridgeDecl.lean`, `Cached/{AgreeFloor, BridgeCP, BridgeCSDecl, OpsC,
+WalkersC (new), Erase}.lean`.  Tests: the five flips, `tower_struct`
+wired, `direct_fix_struct_*` (Part A) unchanged.  Task #207 (the tool drop)
+merged in at the gate: `ConLechePreprocess` gone, the expectation
+lines one per fixture, `tests/route-census.sh` the coverage gate.
+
+**Gates** (`agent/one-route-b` at the Part B tip, master `95613947`
+— task #207, the tool drop — merged at `dc28060a`; the gates ran ONCE
+on that merged tree, trimmed as at Part A: one init-full run, raw,
+default mode, under `perf stat`, no piped run — the pipe is gone).
+`lake build` warning-free; `lake test`; `tests/arena.sh` (`env -i`):
+tutorial 87/92 (032/033 by design; 053/118/119 the #206-A5 declines
+task #207 recorded, Part D's), e2e 156/156, annot 14/14, retired flags
+8/8, mode flags 18/18, prelude counts 3/3, progress lane 6/6, DAG-tower
+gate 2/2, trusted sweep 138 + 156 + 14 with its 3 recorded divergences,
+axioms pinned (11 theorems at `[propext, Classical.choice,
+Quot.sound]`); `tests/layering.sh`: base 274 / P 196 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; `tests/trust-surface.sh`: 18
+escapes in 4 allowlisted files (481 scanned), 0 outside;
+`tests/proofdeps.sh` regenerated ONCE: 2 898 → 2 851 rows — 16 rows
+entered (`SetP.DirectFix.FixZeroFieldP`, `Verify.Cached.WalkersC`,
+`Cached.ExprC`, `Verify.Cached.Erase` × their roots: the new laws, the
+walker twins, and the range-field equations P4's cutoff reads), 63
+left — the nine structure/sum-route P and Semantics modules
+(`Semantics.Direct.DeclDirect`, `DeclDirectSum`,
+`SetP.Direct.{DirectEntryLawP, DirectRecDataP, DirectRecLawCoreP,
+DirectRecLawP, DirectRecWalksP, DirectStageRecP}`,
+`SetP.DirectSum.SumRecLawP`) × the 7 roots: no capstone reaches the two
+retired arms any more, which is Part C's deletion list; `tests/inmodel.sh`
+OK; `tests/route-census.sh` (task #207's gate): 87 streams, 658 blocks
+— **0 struct, 0 sum, 136 fix, 0 inmodel, 522 basis, 0 modeled**.
+**init-full raw** (`--verified`, `perf stat -e instructions:u`, route
+trace on): accepted **53 118** declarations (task #207's pin), exit 0;
+route census 591 blocks — **584 fix, 6 basis, 1 inmodel** (`Lean.Syntax`,
+nested), **0 struct, 0 sum, 0 modeled** — every block the two retired
+routes took is on `fix`; **678.67 G instructions** against post-#207 master's **673.29 G**
+(the same stream, master `95613947` built in the perf worktree:
+**+0.80 %**).  The cost is the DAG-safety memos on every declaration,
+not the route: `instantiateList` (every `openPisAtFvars` domain),
+`allLevelParamsDefined` and `constsResolveF` (every constant's type and
+value) now build and drop a per-call `HashMap` where the tree walk was
+a few nodes deep — the two range-field reads are the cheap side.  A
+size cutoff below which the plain walk runs (the arrangement
+`instantiate1LiftB` uses) would recover it; left as a measured item.
+**Mathlib slices** (raw, `--verified`): `slice-small` (master's census
+1 276 struct + 259 sum + 92 fix) accepted, census **1 626 fix**, 26
+inmodel, 6 basis, 0 modeled; the Stage-B five-cone slice accepted,
+census **183 fix**, 1 inmodel, 6 basis (was 137 struct + 16 sum + 30
+fix).  `tower_struct`: 0.38 G.  No Mathlib-scale run.
+
 ## TASK #215 — THE TREE-SIZE BUDGET, DELETED (2026-09-07, `agent/jzero`)
 
 User ruling, verbatim: *"delete it if it is unlikely to help (and we

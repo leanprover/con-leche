@@ -887,19 +887,15 @@
 # TODO line; unmarked lines already agree with official.
 #
 # --- A1 / crack C1: def-headed former at a STRUCTURE, and its
-# --- projection functions.  Official whnf's the former; the structure
-# --- recogniser and ProjRec's owner test are syntactic.  Audit
-# --- follow-up 3 (extend #195's whnfTelescope to the structure arm).
-# TODO(#206-A1) official: 0 — piped (until #207): "projection on a non-structure-like type" at def S.n
-# TODO(#206-A1) official: 0 — today: no install route for S
-2 ind_defhead_struct.ndjson
+# --- projection functions.  CLOSED by task #210 Part B: the block
+# --- installs through the fixpoint route, whose recogniser reads the
+# --- former's sort at the placeholder (task #195) and whose projection
+# --- table (Part A) serves `.proj`; official 0.
+0 ind_defhead_struct.ndjson
 #
 # --- A2 / crack C2: def-headed former at a K-TARGET / unit-like Prop.
-# --- The tool's own U._model.unitlike statement check failed (exit 3).
-# --- Audit follow-up 3.
-# TODO(#206-A2) official: 0 — piped (until #207): the preprocessor failed (exit 3)
-# TODO(#206-A2) official: 0 — today: no install route for U
-2 ind_defhead_k.ndjson
+# --- CLOSED by task #210 Part B (the fixpoint route, as A1); official 0.
+0 ind_defhead_k.ndjson
 #
 # --- A3 / crack C3: def-headed formers on a MUTUAL block.  Audit
 # --- follow-up 3.
@@ -908,11 +904,11 @@
 2 ind_defhead_mutual.ndjson
 #
 # --- the clean arms of the same family (regression guards): the
-# --- RECURSIVE def-headed block and a β-redex former, both modelled by
-# --- the tool.  If follow-up 3 lands, these must stay 0 piped and are
-# --- the natural candidates to move 2 -> 0 raw.
-2 ind_defhead_fix.ndjson
-2 ind_former_redex.ndjson
+# --- RECURSIVE def-headed block and a β-redex former.  Since task
+# --- #210 Part B both install natively (the placeholder sort on the
+# --- one route; the declines were the modeled path's).
+0 ind_defhead_fix.ndjson
+0 ind_former_redex.ndjson
 #
 # --- A4 / crack C4: mutual members whose parameter telescopes (…param…)
 # --- or result sorts (…sort…) are DEFEQ but not syntactically equal.
@@ -1024,3 +1020,12 @@
 0 budget_model.ndjson
 0 budget_block.ndjson
 0 tower_thm.ndjson
+# tower_struct (task #215, wired by task #210 Part B): the tower in a
+# structure's constructor field type.  The block installs through the
+# fixpoint route, where every walk the install asks of the field type
+# is DAG-safe (`@[csimp]` memos: `Expr.mentionsConst`,
+# `liftLooseBVars`, `instantiateList`, `allLevelParamsDefined`,
+# `constsResolveF`; the range-field reads `looseBVarsBounded`,
+# `hasFvar`) and the constant walks go through `constsResolveFC`
+# (JZero P3).
+0 tower_struct.ndjson
