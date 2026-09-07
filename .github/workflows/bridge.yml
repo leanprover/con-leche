@@ -8,7 +8,6 @@
 name: Bridge (lean4lean-model)
 
 on:
-  workflow_dispatch:
   push:
     paths:
       - 'bridge/**'
