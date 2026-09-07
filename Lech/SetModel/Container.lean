@@ -437,17 +437,18 @@ noncomputable def codePred (S : V) : V :=
   if HasRoot S then image (subCode S) (B (lab S)) else empty
 
 open Classical in
-/-- The decoding step: the container's builder at the root label and
-the decoded subcodes (the point off the guard). -/
+/-- The decoding step: the container's builder at the root label (a
+shape at some index) and the decoded subcodes (the point off the
+guard). -/
 noncomputable def codeStep (S g : V) : V :=
-  if HasRoot S ∧ lab S ∈ˢ (univ w : V) ∧ B (lab S) ∈ˢ (univ w : V) then
+  if HasRoot S ∧ ∃ i, i ∈ˢ I ∧ lab S ∈ˢ A i then
     mk (lab S) (graph (fun p => app g (subCode S p)) (B (lab S)))
   else pt
 
 /-- The decoding graph: the recursion theorem's least fixed point at
 level `w + 1`, bounded by `univ w`. -/
 noncomputable def decodeGraph : V :=
-  recGraph (w + 1) (allCodes A B tgt I) (codePred B) (fun _ => univ w) (codeStep B w mk)
+  recGraph (w + 1) (allCodes A B tgt I) (codePred B) (fun _ => univ w) (codeStep A B I mk)
 
 /-- The accessible codes. -/
 noncomputable def accCodes : V := accFam (allCodes A B tgt I) (codePred B) (fun _ => True)
@@ -510,23 +511,25 @@ theorem accCodes_iff {S : V} (hS : S ∈ˢ allCodes A B tgt I) :
 section Facts
 
 variable {w : Nat} (hw : w ≠ 0)
-  (hmkU : ∀ a g, a ∈ˢ (univ w : V) → g ∈ˢ (univ w : V) → mk a g ∈ˢ (univ w : V))
-include hw hmkU
+  (hB : ∀ i a, i ∈ˢ I → a ∈ˢ A i → B a ∈ˢ (univ w : V))
+  (hmkU : ∀ i a g, i ∈ˢ I → a ∈ˢ A i → g ∈ˢ (univ w : V) → mk a g ∈ˢ (univ w : V))
+include hw hB hmkU
 
-omit hw hmkU in
+omit hw hB hmkU in
 theorem decodeGraph_hB : ∀ S, S ∈ˢ allCodes A B tgt I → (univ w : V) ∈ˢ (univ (w + 1) : V) :=
   fun _ _ => univ_mem_univ w
 
 /-- The step lands in the bound: the builder at members. -/
 theorem codeStep_mem {S g : V} (hS : S ∈ˢ allCodes A B tgt I)
     (hg : g ∈ˢ piSet (codePred B S) fun j => app (decodeGraph A B tgt I w mk) j) :
-    codeStep B w mk S g ∈ˢ (univ w : V) := by
+    codeStep A B I mk S g ∈ˢ (univ w : V) := by
   have hU := univ_isTGUniverse (V := V) hw
   unfold codeStep
   split
   · next h =>
-    obtain ⟨hroot, hlab, hBl⟩ := h
-    refine hmkU _ _ hlab ?_
+    obtain ⟨hroot, i, hi, hlab⟩ := h
+    have hBl : B (lab S) ∈ˢ (univ w : V) := hB i _ hi hlab
+    refine hmkU i _ _ hi hlab ?_
     -- the graph of the decoded subcodes over the member position set
     unfold graph
     refine hU.image_mem hBl fun p hp => ?_
@@ -544,8 +547,8 @@ theorem codeStep_mem {S g : V} (hS : S ∈ˢ allCodes A B tgt I)
 
 theorem decodeGraph_hst : ∀ S, S ∈ˢ allCodes A B tgt I →
     ∀ g, g ∈ˢ piSet (codePred B S) (fun j => app (decodeGraph A B tgt I w mk) j) →
-      codeStep B w mk S g ∈ˢ (univ w : V) :=
-  fun _ hS _ hg => codeStep_mem hw hmkU hS hg
+      codeStep A B I mk S g ∈ˢ (univ w : V) :=
+  fun _ hS _ hg => codeStep_mem hw hB hmkU hS hg
 
 /-- **Accessible codes decode uniquely**: the decoding graph's fibre is
 a singleton. -/
@@ -554,14 +557,14 @@ theorem decode_unique {S : V} (hS : S ∈ˢ allCodes A B tgt I)
     (∃ v, v ∈ˢ app (decodeGraph A B tgt I w mk) S) ∧
       ∀ v v', v ∈ˢ app (decodeGraph A B tgt I w mk) S → v' ∈ˢ app (decodeGraph A B tgt I w mk) S →
         v = v' :=
-  recGraph_exists_unique decodeGraph_hB (fun _ hS' => codePred_sub hS') (decodeGraph_hst hw hmkU)
-    S hS _ hacc.choose_spec
+  recGraph_exists_unique decodeGraph_hB (fun _ hS' => codePred_sub hS')
+    (decodeGraph_hst hw hB hmkU) S hS _ hacc.choose_spec
 
 /-- The decoding of an accessible code is a member. -/
 theorem decode_mem_univ {S : V} (hS : S ∈ˢ allCodes A B tgt I)
     (hacc : ∃ y, y ∈ˢ app (accCodes A B tgt I) S) :
     decode A B tgt I w mk S ∈ˢ (univ w : V) := by
-  have hv := recSel_mem (decode_unique hw hmkU hS hacc).1
+  have hv := recSel_mem (decode_unique hw hB hmkU hS hacc).1
   unfold decodeGraph at hv
   rw [app_recGraph_eq decodeGraph_hB (fun _ hS' => codePred_sub hS') hS] at hv
   exact (mem_recGraphFibre.mp hv).1
@@ -570,27 +573,27 @@ theorem decode_mem_univ {S : V} (hS : S ∈ˢ allCodes A B tgt I)
 builder at the root label and the decoded subcodes. -/
 theorem decode_eq {S : V} (hS : S ∈ˢ allCodes A B tgt I)
     (hacc : ∃ y, y ∈ˢ app (accCodes A B tgt I) S) (hroot : HasRoot S)
-    (hlab : lab S ∈ˢ (univ w : V)) (hBl : B (lab S) ∈ˢ (univ w : V)) :
+    (hlab : ∃ i, i ∈ˢ I ∧ lab S ∈ˢ A i) :
     decode A B tgt I w mk S
       = mk (lab S) (graph (fun p => decode A B tgt I w mk (subCode S p)) (B (lab S))) := by
   have hP : ∀ j, j ∈ˢ codePred B S →
       (∃ v, v ∈ˢ app (decodeGraph A B tgt I w mk) j) ∧
       ∀ v v', v ∈ˢ app (decodeGraph A B tgt I w mk) j → v' ∈ˢ app (decodeGraph A B tgt I w mk) j →
         v = v' :=
-    fun j hj => decode_unique hw hmkU (codePred_sub hS j hj) ((accCodes_iff hS).mp hacc j hj)
+    fun j hj => decode_unique hw hB hmkU (codePred_sub hS j hj) ((accCodes_iff hS).mp hacc j hj)
   have heq := recSel_eq decodeGraph_hB (fun _ hS' => codePred_sub hS') hS
-    (decode_unique hw hmkU hS hacc).1 hP
+    (decode_unique hw hB hmkU hS hacc).1 hP
   unfold decode
   unfold decodeGraph at heq ⊢
   rw [heq]
   unfold codeStep
-  rw [if_pos ⟨hroot, hlab, hBl⟩]
+  rw [if_pos ⟨hroot, hlab⟩]
   congr 1
   refine graph_congr fun p hp => ?_
   rw [app_graph (show subCode S p ∈ˢ codePred B S from by
     rw [codePred_of_root hroot]; exact mem_image.mpr ⟨p, hp, rfl⟩)]
 
-omit hw hmkU in
+omit hw hB hmkU in
 /-- An assembled code of accessible subcodes is accessible. -/
 theorem acc_mkCode {t a g : V} (ht : t ∈ˢ I) (ha : a ∈ˢ A t)
     (hg : ∀ p, p ∈ˢ B a → app g p ∈ˢ codeSpace A B tgt (tgt a p))
@@ -624,7 +627,7 @@ theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)
     (hA : ∀ i, i ∈ˢ I → A i ∈ˢ (univ w : V))
     (hB : ∀ i a, i ∈ˢ I → a ∈ˢ A i → B a ∈ˢ (univ w : V))
     (htgt : ∀ i a p, i ∈ˢ I → a ∈ˢ A i → p ∈ˢ B a → tgt a p ∈ˢ I)
-    (hmkU : ∀ a g, a ∈ˢ (univ w : V) → g ∈ˢ (univ w : V) → mk a g ∈ˢ (univ w : V))
+    (hmkU : ∀ i a g, i ∈ˢ I → a ∈ˢ A i → g ∈ˢ (univ w : V) → mk a g ∈ˢ (univ w : V))
     (helim : ∀ X, X ∈ˢ famSpace w I → ∀ i, i ∈ˢ I → ∀ x, x ∈ˢ app (Φ X) i →
       ∃ a, a ∈ˢ A i ∧ ∃ g, g ∈ˢ piSet (B a) (fun p => app X (tgt a p)) ∧ x = mk a g) :
     ∃ L, L ∈ˢ famSpace w I ∧ FamLe I (Φ L) L := by
@@ -636,7 +639,7 @@ theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)
     refine graph_mem_famSpace fun i hi => ?_
     refine hU.image_mem (hU.sep_mem (codeSpace_mem hw hA hB htgt hi)) fun S hS => ?_
     obtain ⟨hSi, hacc, -, -⟩ := mem_sep.mp hS
-    exact decode_mem_univ hw hmkU (mem_allCodes.mpr ⟨i, hi, hSi⟩) hacc
+    exact decode_mem_univ hw hB hmkU (mem_allCodes.mpr ⟨i, hi, hSi⟩) hacc
   refine ⟨graph Lf I, hLmem, ?_⟩
   intro i hi x hx
   obtain ⟨a, ha, g, hg, rfl⟩ := helim _ hLmem i hi x hx
@@ -670,9 +673,8 @@ theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)
   rw [app_graph hi]
   refine mem_image.mpr ⟨mkCode B a (graph cs (B a)),
     mem_sep.mpr ⟨hSmem, hSacc, hasRoot_mkCode a _, by rw [lab_mkCode]; exact ha⟩, ?_⟩
-  rw [decode_eq hw hmkU (mem_allCodes.mpr ⟨i, hi, hSmem⟩) hSacc (hasRoot_mkCode a _)
-    (by rw [lab_mkCode]; exact hU.transitive (hA i hi) ha) (by rw [lab_mkCode]; exact hB i a hi ha),
-    lab_mkCode]
+  rw [decode_eq hw hB hmkU (mem_allCodes.mpr ⟨i, hi, hSmem⟩) hSacc (hasRoot_mkCode a _)
+    ⟨i, hi, by rw [lab_mkCode]; exact ha⟩, lab_mkCode]
   congr 1
   refine (eq_graph_app_of_mem_piSet hg).symm.trans (graph_congr fun p hp => ?_)
   rw [subCode_mkCode hp (fun x hx => codeSpace_pairs (hcs p hp).1 x (by rwa [hgS p hp] at hx)),
