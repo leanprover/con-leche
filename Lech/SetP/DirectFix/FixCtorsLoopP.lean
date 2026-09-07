@@ -53,6 +53,12 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       Sat2 V (((dsF j ψ).take p.nP).map (·.2.2)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP).map (·.2.2)) bs →
         SpineFit ρ (((ppsAll ψ).drop p.nP).map (·.2.2)) (idxValsAt ρ (esF j ψ) bs))
+    (Inv : ∀ {env' : Env}, EnvS2Core V env' → Prop)
+    (hInv : ∀ {env' : Env} (m' : EnvS2Core V env') (cA : ConstantVal × Nat)
+      (A : (Name → Nat) → AVExpr)
+      (mC : EnvS2Core V ⟨.ctorInfo cA.1 p.nP cA.2 :: env'.consts⟩),
+      cA ∈ ctorsA → env'.find? cA.1.name = none →
+      mC.acval = acvalWith m'.acval cA.1.name A → Inv m' → Inv mC)
     (leafT : (Name → Nat) → AVExpr)
     (hfold : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ →
@@ -73,6 +79,7 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
         idxF dsF esF srcsF ctorsA k →
       PendingAt mp.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
         idxF dsF esF srcsF ctorsA k →
+      Inv mp.base2 →
       ∃ mp' : EnvS2PM V μ (Lech.consSumCtors p.nP rest env),
         Lech.EtaFamiliesClosed (Lech.consSumCtors p.nP rest env) ∧
         (Lech.consSumCtors p.nP rest env).find? p.cvT.name
@@ -80,12 +87,13 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
         FormerData mp'.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll ∧
         (∀ ψ, mp'.base2.acval p.cvT.name ψ = leafT ψ) ∧
         ConsedAt mp'.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
-          idxF dsF esF srcsF ctorsA ctorsA.length
-  | [], k, env, mp, _, hk, hE, hfT, hFD, hleafT, hcons, _ => by
+          idxF dsF esF srcsF ctorsA ctorsA.length ∧
+        Inv mp'.base2
+  | [], k, env, mp, _, hk, hE, hfT, hFD, hleafT, hcons, _, hinv => by
     simp only [List.length_nil, Nat.add_zero] at hk
     subst hk
-    exact ⟨mp, hE, hfT, hFD, hleafT, hcons⟩
-  | cA :: rest, k, env, mp, hrest, hk, hE, hfT, hFD, hleafT, hcons, hpend => by
+    exact ⟨mp, hE, hfT, hFD, hleafT, hcons, hinv⟩
+  | cA :: rest, k, env, mp, hrest, hk, hE, hfT, hFD, hleafT, hcons, hpend, hinv => by
     have hcAk : ctorsA[k]? = some cA := by
       have := hrest 0; simpa using this.symm
     obtain ⟨hlen, hall⟩ := Lech.checkDirectSumCtors_inv hCtors
@@ -189,8 +197,11 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       intro i
       have := hrest (i + 1)
       rwa [show k + (i + 1) = k + 1 + i from by omega] at this
-    exact ctorsLoopGen hμ hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx leafT hfold
-      rest (k + 1) _ mpC hrest' (by simp at hk; omega) hE' hfT' hFD' hleafT' hcons' hpend'
+    have hinv' : Inv mpC.base2 :=
+      hInv mp.base2 cA _ mpC.base2 (List.mem_of_getElem? hcAk) hfresh hacC hinv
+    exact ctorsLoopGen hμ hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
+      leafT hfold rest (k + 1) _ mpC hrest' (by simp at hk; omega) hE' hfT' hFD' hleafT' hcons'
+      hpend' hinv'
 
 
 end Lech.SetP
