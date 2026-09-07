@@ -2,9 +2,13 @@
 """Build the `nested_pin_names` e2e fixture: binder-name drift in a
 nested-auxiliary iota theorem's stored-pin lambdas.
 
-Takes a preprocessed stream (tests/e2e/src/nested_pin_names.lean →
-lean4export 3.x → lean-inductive-models) and, for the given iota
-theorems, renames the binder of every lambda whose body is headed by
+Takes a stream that carries a `_model` family (historically:
+tests/e2e/src/nested_pin_names.lean → lean4export 3.x →
+lean-inductive-models, before task #207 dropped the tool; the
+committed fixture is that output and stays valid — the in-process
+modeller's dump, `CON_LECHE_INMODEL_DUMP`, is the way to produce a new
+one) and, for the given iota theorems, renames the binder of every
+lambda whose body is headed by
 the given constant (the dependent pin `fun _ => PTree._model α`) to a
 fresh name.  The export format permits exactly this drift — arenas
 intern expressions name-insensitively, so a re-rendered statement can

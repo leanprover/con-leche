@@ -3,9 +3,9 @@ import ConLeche.Kernel.Basis.Builder
 /-!
 # The pinned `Eq` basis block
 
-The raw pin — the `Eq` block exactly as the lean-inductive-models
-preprocessor emits it, which is the toolchain's `Init.Prelude`
-declaration at the parser's raw binder annotations.  The *annotated*
+The raw pin — the `Eq` block exactly as an export carries it: the
+toolchain's `Init.Prelude` declaration at the parser's raw binder
+annotations.  The *annotated*
 forms (`eqA`, `eqReflA`, `eqRecA`) are computed from these by the
 checker's own annotation pass at elaboration time; see
 `ConLeche/Kernel/BasisA.lean`.

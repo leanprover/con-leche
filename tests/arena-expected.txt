@@ -10,30 +10,41 @@
 # fixtures below carry the reference-correct reject again.  (Between
 # task #148 T0b and W4c the switch shipped `false`; before T0b an
 # expectation could be a pair "<on>|<off>" run against two binaries.)
-# Task #180 (2026-09-07) — **a preprocessor reject is our reject** (user
-# ruling).  The checker no longer falls back to checking the raw stream
-# when `con-leche-preprocess` exits nonzero: the tool's verdict is passed
-# through (1 reject, 2 decline, anything else 3).  Sixteen bad tutorial
-# tests moved off the "2" they used to get from the fallback's missing
-# model (finding F1):
+# TASK #207 (2026-09-07) — the preprocessor is GONE, and with it the
+# ruling "a preprocessor reject is our reject" (task #180): there is no
+# external verdict left to pass through.  Every verdict below is now
+# con-leche's own.  Two groups of rows moved with the drop, and both
+# are recorded here deliberately rather than papered over.
 #
-#  * FOURTEEN now REJECT (1), which is the reference verdict — the tool's
-#    kernel is Lean's, and it is rejecting the block while generating its
-#    model: non-positive occurrences (052, 055), wrong parameter or
-#    constructor-result shapes (047-050, 116, 117), an occurrence in an
-#    index (051), a non-sort motive (045), a field universe that does not
-#    fit (059), a constructor type that does not reduce to the owner
-#    (054), and the two duplicate-declaration streams (136, 138).
-#  * TWO become ERRORS (3), and this is a FINDING, not a preference:
-#    071_BogusRecursor and 135_misnamed_rec_user are inputs whose
-#    *declared* recursor metadata contradicts the block, and
-#    lean-inductive-models classifies that as its own internal error
-#    ("BogusRecursor.rec's exact recursor layout differs from its
-#    installed metadata"; "2 generated statements differ from their exact
-#    exported owner interface") rather than as a rejection of the input.
-#    The reference verdict for both is a reject.  Reported upstream-shaped
-#    in DESIGN.md (task #180): the classification belongs in the tool, and
-#    con-leche must not second-guess an exit code it decided to trust.
+# A. FIFTEEN bad tutorial tests fall back to a DECLINE (2) — the
+#    verdicts they had before task #180 (arena finding F1).  045, 048,
+#    051 and 055 decline earlier still, at a non-standard axiom, and
+#    never reach their inductive at all.  The other eleven (047, 049,
+#    050, 052, 054, 059, 071, 116, 117, 135, 136) carry a STUB RECURSOR
+#    record (`nP=0 nM=0 nm=0 rules=[]`) or a misnamed recursor, which
+#    every direct recogniser refuses at its recursor pin — before the
+#    semantic check that would reject (positivity, field universe,
+#    constructor residual) can run.  Recovering the reject means
+#    splitting the recognisers into a type+constructor gate that may
+#    REJECT and a recursor pin that today only falls through; that is a
+#    verified-tier refactor and its own task (the #207 checklist, §3.3a).
+#    138 keeps its 1: the direct sum route's own pairwise
+#    duplicate-constructor guard rejects it.
+#
+# B. THREE good tutorial tests fall to a DECLINE (2), so the accepted
+#    count reads 87/92 and not 90/92: 053_reduceCtorParam.mk,
+#    118_reduceCtorParamRefl.mk and 119_reduceCtorParamRefl2.mk.  All
+#    three are the SAME class — a constructor field whose type is a
+#    DEFINITION REDEX that only whnf's to a recursive occurrence
+#    (`constType (T α) (T α)`).  Official whnf's the field before
+#    classifying it (`is_positive`/`is_rec_argument`); con-leche's
+#    fixpoint positivity check is syntactic, so the block is
+#    `.unsupported` and no model is generated for it.  This is audit
+#    finding #206-A5, already pinned by the e2e fixtures
+#    ind_pos_whnf_id / ind_pos_whnf_fn (both 2) — the tool was masking
+#    it on these three streams.  A whnf-aware field reading in the
+#    fixpoint route is the fix, and it is the conformance batch's, not
+#    this lane's.
 0 good/tutorial/001_basicDef.ndjson
 0 good/tutorial/003_arrowType.ndjson
 0 good/tutorial/004_dependentType.ndjson
@@ -71,7 +82,7 @@
 0 good/tutorial/041_eqType.ndjson
 0 good/tutorial/042_natDef.ndjson
 0 good/tutorial/043_rbTreeDef.ndjson
-0 good/tutorial/053_reduceCtorParam.mk.ndjson
+2 good/tutorial/053_reduceCtorParam.mk.ndjson
 0 good/tutorial/056_predWithTypeField.ndjson
 0 good/tutorial/057_typeWithTypeField.ndjson
 0 good/tutorial/058_typeWithTypeFieldPoly.ndjson
@@ -114,8 +125,8 @@
 0 good/tutorial/109_structEta.ndjson
 0 good/tutorial/111_funEta.ndjson
 0 good/tutorial/112_funEtaDep.ndjson
-0 good/tutorial/118_reduceCtorParamRefl.mk.ndjson
-0 good/tutorial/119_reduceCtorParamRefl2.mk.ndjson
+2 good/tutorial/118_reduceCtorParamRefl.mk.ndjson
+2 good/tutorial/119_reduceCtorParamRefl2.mk.ndjson
 0 good/tutorial/120_rTreeRec.ndjson
 0 good/tutorial/121_rtreeRecReduction.ndjson
 0 good/tutorial/122_accRecType.ndjson
@@ -133,18 +144,18 @@
 1 bad/tutorial/012_nonPropThm.ndjson
 1 bad/tutorial/017_tut06_bad01.ndjson
 1 bad/tutorial/044_inductBadNonSort.ndjson
-1 bad/tutorial/045_inductBadNonSort2.ndjson
+2 bad/tutorial/045_inductBadNonSort2.ndjson
 1 bad/tutorial/046_inductLevelParam.ndjson
-1 bad/tutorial/047_inductTooFewParams.ndjson
-1 bad/tutorial/048_inductWrongCtorParams.ndjson
-1 bad/tutorial/049_inductWrongCtorResParams.ndjson
-1 bad/tutorial/050_inductWrongCtorResLevel.ndjson
-1 bad/tutorial/051_inductInIndex.ndjson
-1 bad/tutorial/052_indNeg.ndjson
-1 bad/tutorial/054_reduceCtorType.mk.ndjson
-1 bad/tutorial/055_indNegReducible.ndjson
-1 bad/tutorial/059_typeWithTooHighTypeField.mk.ndjson
-3 bad/tutorial/071_BogusRecursor.ndjson
+2 bad/tutorial/047_inductTooFewParams.ndjson
+2 bad/tutorial/048_inductWrongCtorParams.ndjson
+2 bad/tutorial/049_inductWrongCtorResParams.ndjson
+2 bad/tutorial/050_inductWrongCtorResLevel.ndjson
+2 bad/tutorial/051_inductInIndex.ndjson
+2 bad/tutorial/052_indNeg.ndjson
+2 bad/tutorial/054_reduceCtorType.mk.ndjson
+2 bad/tutorial/055_indNegReducible.ndjson
+2 bad/tutorial/059_typeWithTooHighTypeField.mk.ndjson
+2 bad/tutorial/071_BogusRecursor.ndjson
 1 bad/tutorial/085_projOutOfRange.ndjson
 2 bad/tutorial/086_projNotStruct.ndjson
 1 bad/tutorial/088_projProp2.ndjson
@@ -164,12 +175,15 @@
 # `_model.proj_0` artifact for the indexed family hit the modeled
 # route's structure-shaped residual pin; the install now ignores such
 # artifacts and the eta claim is rejected for the reference's reason.
+#
+# 116/117 (reflOccLeft, reflOccInIndex): DECLINE since task #207 — see
+# group A of the header (stub recursor records).
 1 bad/tutorial/110_indexedStructEta.ndjson
 1 bad/tutorial/113_funEtaBad.ndjson
 1 bad/tutorial/114_etaRuleK.ndjson
 1 bad/tutorial/115_etaCtor.ndjson
-1 bad/tutorial/116_reflOccLeft.ndjson
-1 bad/tutorial/117_reflOccInIndex.ndjson
+2 bad/tutorial/116_reflOccLeft.ndjson
+2 bad/tutorial/117_reflOccInIndex.ndjson
 1 bad/tutorial/124_accRecNoEta.ndjson
 1 bad/tutorial/131_dup_defs.ndjson
 1 bad/tutorial/132_dup_ind_def.ndjson
@@ -183,19 +197,16 @@
 # freshness check.
 1 bad/tutorial/133_dup_ctor_def.ndjson
 1 bad/tutorial/134_dup_rec_def.ndjson
-3 bad/tutorial/135_misnamed_rec_user.ndjson
-1 bad/tutorial/136_dup_rec_def2.ndjson
+2 bad/tutorial/135_misnamed_rec_user.ndjson
+2 bad/tutorial/136_dup_rec_def2.ndjson
 1 bad/tutorial/137_dup_ctor_rec.ndjson
 # 138_DupConCon (task #175 sum-types, 2026-09-06): a two-constructor
 # block whose constructors share a name.  The direct SUM route checks
 # all constructors at the former's environment and conses them
 # afterwards, so it guards the names pairwise distinct up front and
 # REJECTS (the reference-correct verdict; the modeled route declined
-# at the preprocessor's model check).  Since task #180 the verdict
-# arrives one step earlier still: the preprocessor's own
-# duplicate-declaration check rejects the export ("invalid export:
-# duplicate declaration dup_ind_con_con.mk") and its verdict is ours.
-# The sum route's pairwise guard is what rejects the same stream when
-# the preprocessor is unavailable (CON_LECHE_INDUCTIVE_MODELS=/nonexistent:
-# "invalid: direct sum: duplicate constructor") — both give 1.
+# at the model check).  Task #180 briefly had the preprocessor's own
+# duplicate-declaration check reject it one step earlier; with the
+# tool gone (task #207) the sum route's pairwise guard is again what
+# rejects the stream ("invalid: direct sum: duplicate constructor").
 1 bad/tutorial/138_DupConCon.ndjson

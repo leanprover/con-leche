@@ -4,9 +4,9 @@ import ConLeche.Kernel.Basis.Names
 # A tiny builder for the hand-written raw pins
 
 The pinned basis blocks, the standard-axiom prerequisite families and
-the compiler-trust pins are all *raw* `ConstantInfo`s: exactly what the
-lean-inductive-models preprocessor emits for them, which is exactly the
-toolchain's own `Init.Prelude` declaration — binder names and infos
+the compiler-trust pins are all *raw* `ConstantInfo`s: exactly what an
+export carries for them, which is exactly the toolchain's own
+`Init.Prelude` declaration — binder names and infos
 are not part of an `Expr` (task #205; `piI`/`lmI` mark where the
 signature says `{…}`, for the reader), the `pw` datum at the parse
 placeholder `.never` — and every install-computed recursor-rule

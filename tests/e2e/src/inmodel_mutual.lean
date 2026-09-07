@@ -5,7 +5,7 @@
    for these blocks; the frontend's in-process modeller
    (`ConLeche/Frontend/InModel/Mutual.lean`) generates the tag and auxiliary
    families and the `_model` slots ahead of each block, and the modeled
-   install consumes them exactly as it consumes lean-inductive-models'.
+   install consumes them as it consumes any `_model` family.
 
    Three shapes: a data pair with recursion across the members and
    several constructors (`Even`/`Odd`; `even_two`/`odd_one` force iota

@@ -62,7 +62,7 @@ def quotSoundName : Name := quotName |>.str "sound"
 /-! The names of the string-literal support constants (see
 `strLitSupported` in `ConLeche.Kernel.Core`).  These are *not* basis
 names — the constants are ordinary stream-installed declarations
-(preprocessor-modeled inductives and plain definitions); the names are
+(inductive blocks and plain definitions); the names are
 pinned only so that a string literal knows what it unfolds to
 (`strLitToConstructor`), exactly like the `Nat` literal names above. -/
 
@@ -89,8 +89,8 @@ def charOfNatName : Name := charName.str "ofNat"
 
 /-- Names reserved for the pinned basis blocks; no other declaration
 may use them.  `PSigma'` is not among them (task #175 W6): the
-preprocessor's tight pair installs through the direct simple-structure
-path as an ordinary two-field structure. -/
+modelled basis's tight pair installs through the direct
+simple-structure path as an ordinary two-field structure. -/
 def reservedBasisNames : List Name :=
   [eqName, eqReflName, eqName.str "rec",
    natName, natZeroName, natSuccName, natName.str "rec",

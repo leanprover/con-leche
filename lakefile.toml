@@ -1,24 +1,15 @@
 name = "con-leche"
-defaultTargets = ["ConLecheBase", "ConLecheP", "ConLecheCaps", "con-leche", "con-leche-preprocess"]
+defaultTargets = ["ConLecheBase", "ConLecheP", "ConLecheCaps", "con-leche"]
 testDriver = "ConLecheTests"
 
-# THE PREPROCESSOR, AS A LIBRARY (task #178).  `lean-inductive-models` reduces
-# an export's inductives to its five-member basis; since its `45d1346` it is
-# also a Lean library, `InductiveModels.main args (native := pred)`, whose
-# `pred` says which inductive blocks the *consumer* handles itself.  con-leche's
-# direct simple-structure path handles a whole class of them, so the checker
-# ships its own front end for the tool — `con-leche-preprocess`, below — and
-# spawns that instead of the stock binary.
-#
-# The pin is a commit, not a branch: the predicate mirrors a recogniser
-# (`ConLeche/Kernel/Direct/Parts.lean`) and both sides of that mirror have to
-# move deliberately.  Nothing in the `ConLeche.*` libraries imports this
-# dependency: it is the `con-leche-preprocess` executable's alone, so the layering
-# gate and the proof-dependency pin are untouched by it.
-[[require]]
-name = "lean_inductive_models"
-git = "https://github.com/nomeata/lean-inductive-models"
-rev = "45d134663faec16f13b4885f4a5a11bdd08de1b2"
+# NO DEPENDENCIES (task #207).  The package requires nothing: the
+# `lean_inductive_models` preprocessor — its `require`, the
+# `con-leche-preprocess` executable that wrapped it and the process
+# spawn in `Main.lean` — is gone, and every inductive block is
+# installed by a direct route or through the frontend's own in-process
+# `_model` generator (`ConLeche/Frontend/InModel/*`).  A fresh clone
+# resolves with an empty `packages` array and needs the network only
+# for elan.
 
 # THE SEPARATION (task #161) — the ruled lib layout, as it stands after
 # the SetR removal (user ruling 2026-09-05, "do remove the SetR tier,
@@ -159,15 +150,3 @@ root = "Main"
 [[lean_exe]]
 name = "natop-pins-export"
 root = "PinDump"
-
-# The checker's own front end for `lean-inductive-models` (task #178): the
-# tool's `main`, passed con-leche's `NativeSupport`.  `supportInterpreter` because
-# the tool imports `Lean` and replays declarations through the kernel, exactly
-# as its own executable target does upstream.  It imports no `ConLeche.*` module
-# — the predicate is a documented mirror of `ConLeche.directPartsCore?`, gated by
-# `tests/native-agree.sh`, not a shared definition (the two sides speak
-# different `Expr` types).
-[[lean_exe]]
-name = "con-leche-preprocess"
-root = "ConLechePreprocess"
-supportInterpreter = true

@@ -5,8 +5,8 @@ import ConLeche.Kernel.Core
 
 A **simple structure** is a non-recursive, single-constructor,
 index-free inductive with a provably nonzero result sort — parameters
-and dependent fields allowed.  Such a block needs no preprocessor
-`_model` artifact: its set-theoretic model is the iterated dependent
+and dependent fields allowed.  Such a block needs no `_model`
+artifact: its set-theoretic model is the iterated dependent
 pair over the field types (modeled by the retired `ConLeche/Model/*`,
 deleted at task #148 T7), so the kernel installs it *directly*, from
 the reference checks alone.

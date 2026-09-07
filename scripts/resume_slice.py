@@ -7,14 +7,14 @@ a cut point on, plus only what the kept suffix still needs from before it.
 `CUT` is either a 1-based *declaration record index* (the numbering
 `_tmp/frontier3/decl_index.py` prints) or a declaration name; the cut
 record itself is the first record of the kept suffix.  The output is a
-valid `con-leche --pre` stream:
+valid `con-leche` stream:
 
 * every record at or after the cut is kept verbatim;
 * of the records *before* the cut, exactly the transitive dependency
   closure reachable from the kept suffix is kept -- constants named in
   kept records' types/values/recursor rules, recursively.  Inductive
   blocks are single records, so they are kept whole.  The
-  preprocessor's `_model` companions of every kept declaration are kept
+  `_model` companions of every kept declaration are kept
   (the existing slicers' rule; `Kernel/Checker.lean`'s `directParts?`
   *requires* a block's companions to be absent to take the direct
   route, so dropping one would silently change the install route, and

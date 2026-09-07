@@ -43,11 +43,14 @@ parsed declaration:
   fields and are ignored); every other minor returns `PUnit.unit.{ℓ}`;
 * `ℓ`, the recursor's elimination level, is the sort of `R`.  The
   frontend has no type inference, and the level is not syntactic in
-  `R`; it is read off the preprocessor's own artifact for the same
+  `R`; it is read off the model family's own artifact for the same
   field, `T._model.proj_i.iota : ∀ …, @Eq.{ℓ} α _ _` — the `Eq` level
-  IS the field's sort (lean-inductive-models computes it with the
-  elaborator's `getLevel`, over model types that match the public
-  ones syntactically by the preprocessor contract).  No artifact, no
+  IS the field's sort.  Since task #207 the ONLY source of that
+  artifact is the in-process modeller
+  (`ConLeche/Frontend/InModel/Mutual.lean`, which emits `proj_i` and
+  `proj_i.iota` for the structure-like non-`Prop` members of the
+  families it generates), over model types that match the public ones
+  syntactically by the modeller's own contract.  No artifact, no
   rewrite: the declaration stays as it is and declines as before.
 
 Every binder domain of the motives and minors is read off the
@@ -95,9 +98,10 @@ structure ProjRecOwner where
   numMinors : Nat
   deriving Repr, Inhabited
 
-/-- The name of the preprocessor's constructor-reduction theorem for
-field `i` of `T`: `T._model.proj_i.iota` (lean-inductive-models'
-`Naming.projectionIotaName`). -/
+/-- The name of the model family's constructor-reduction theorem for
+field `i` of `T`: `T._model.proj_i.iota` (emitted by the in-process
+modeller; the naming is the one `lean-inductive-models` used before
+task #207 dropped it). -/
 def projIotaName (T : Name) (i : Nat) : Name :=
   ((T.str "_model").str s!"proj_{i}").str "iota"
 

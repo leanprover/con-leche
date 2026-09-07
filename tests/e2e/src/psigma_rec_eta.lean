@@ -21,10 +21,9 @@ import Lean
    compiles at all is therefore the record of the *official* verdict:
    Lean 4.29.1's kernel accepts this shape.
 
-   Committed as a *raw* lean4export result (regenerate with
-   `LEAN_INDUCTIVE_MODELS_FILTER=0`); `tests/arena.sh` runs it with
-   `CON_LECHE_INDUCTIVE_MODELS=/nonexistent` (the `raw` marker in
-   `tests/e2e-expected.txt`).
+   Committed as a *raw* lean4export result (task #207: every stream
+   is; regenerate by exporting this module with the arena's
+   lean4export).
 
    What it forces, at a **neutral** major `t : PSigma'.{1,1} α β`
    (levels concrete so that the official rescue's `is_never_zero` gate

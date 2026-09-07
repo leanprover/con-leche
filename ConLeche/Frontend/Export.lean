@@ -28,8 +28,8 @@ proper is written against and would otherwise duplicate:
 * the small `Json` readers (`getIdx`, `getIdxs`, `parseBinderInfo`,
   `exprEntryChildren`, `parseHints`);
 * the byte-level fast path for hot table entries (perf-eng E5:
-  `FastNode`/`FastLine`/`fastParse` — 88 % of preprocessed
-  init-prelude lines are `{"ie":…}`), which is a pure
+  `FastNode`/`FastLine`/`fastParse` — 88 % of init-prelude lines
+  are `{"ie":…}`), which is a pure
   bytes-to-record decoder and mentions no representation;
 * `taintSummary`, the driver's decline message.
 
@@ -210,7 +210,7 @@ def parseHints (v : Json) : M ReducibilityHint := do
 
 /-! ### perf-eng E5: byte-level fast path for hot table entries
 
-The stream is dominated by tiny table-entry records — on preprocessed
+The stream is dominated by tiny table-entry records — on
 init-prelude, 88 % of lines are `{"ie":…}` and 9 % are `{"in":…}` —
 and the generic `Lean.Json` DOM (Parsec + `DTreeMap` object per line)
 is pure overhead for them.  This fast path pattern-matches the exact

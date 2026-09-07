@@ -5,7 +5,7 @@
 
    `Box` is a direct-class simple structure; `Dep` is a *modeled*
    inductive (two constructors) whose constructor mentions `Box`, so
-   the preprocessor builds `Dep._model` **out of** `Box._model`.
+   the modeller builds `Dep._model` **out of** `Box._model`.
 
    This is the POSITIVE control of the pair: the export keeps `Box`'s
    artifacts, so `Box` goes modeled (artifact presence wins under the
@@ -16,8 +16,8 @@
    artifact (`Box.mk._model`) references a constant that is no longer
    declared.  Expected: a clean **reject** (exit 1) naming the missing
    constant — "unknown constant Box._model [at def Box.mk._model]".
-   That is the failure mode a dependency-*unaware* skip rule in
-   `lean-inductive-models` would produce, and it pins that it fails
+   That is the failure mode a dependency-*unaware* skip rule in a
+   model generator would produce, and it pins that it fails
    *safe*: the checker never accepts a stream whose artifacts reference
    models that were not generated.  See DESIGN.md, "The endgame:
    ind-models' skip rule must be dependency-aware".

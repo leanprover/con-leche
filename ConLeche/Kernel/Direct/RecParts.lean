@@ -622,7 +622,7 @@ that the install rejects it exactly as the official kernel's positivity
 check would, before anything else is looked at.  A block with an
 UNSUPPORTED occurrence (nested, under a redex, a recursive field a later
 binder mentions) is NOT this route's: it falls through to the modeled
-path, which accepts what the preprocessor could model — a positive
+path, which accepts what the in-process modeller can model — a positive
 decline here would regress the verdict of every such block (found on
 the arena's `RTree`, 2026-09-06).  A reflexive field is taken at every
 sort (task #202).  A block with NO constructor is this route's too:

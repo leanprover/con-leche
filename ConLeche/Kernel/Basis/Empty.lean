@@ -3,10 +3,9 @@ import ConLeche.Kernel.Basis.Builder
 /-!
 # The pinned `Empty` basis block
 
-The raw pin — the `Empty` block exactly as the lean-inductive-models
-preprocessor emits it (no constructors, hence no iota rules), which is
-the toolchain's `Init.Prelude` declaration at the parser's raw binder
-annotations.  The *annotated* forms (`emptyA`, `emptyRecA`) are
+The raw pin — the `Empty` block exactly as an export carries it (no
+constructors, hence no iota rules): the toolchain's `Init.Prelude`
+declaration at the parser's raw binder annotations.  The *annotated* forms (`emptyA`, `emptyRecA`) are
 computed from these by the checker's own annotation pass at
 elaboration time; see `ConLeche/Kernel/BasisA.lean`.
 -/

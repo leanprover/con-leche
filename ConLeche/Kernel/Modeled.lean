@@ -3,11 +3,14 @@ import ConLeche.Kernel.CheckerBase
 /-!
 # The modeled-inductive install
 
-Everything the checker runs to install a `lean-inductive-models`-backed
-inductive block: the member checks against the `_model` artifacts under
-the **group-local** renaming (only the current block's member names are
-identified with their companions -- the preprocessor contract, upstream
-commit 572e6de "Clarify checker substitution scope"), the iota-rule
+Everything the checker runs to install a **modeled** inductive block —
+one whose `_model` family the frontend generated in-process at parse
+time (`ConLeche/Frontend/InModel/*`; task #207 made that the only
+source, and the install never knew the provenance either way): the
+member checks against the `_model` artifacts under the **group-local**
+renaming (only the current block's member names are identified with
+their companions -- the model contract, ours to keep since #207: model
+types match the renamed public types syntactically), the iota-rule
 checks against the `_model.iota_j` theorems, the capability checks
 (`checkEtaThm`/`checkUnitThm`), and the projection-function/template
 installs.  The core checker (`ConLeche/Kernel/Core.lean`,
@@ -364,8 +367,8 @@ def checkIotaRules (ops : CheckerOps m) (env' envSelf : Env) (f : Name → Name)
 /-- Check a block member's constant against its `_model` counterpart:
 `checkConstantVal`, the member may not itself be model-shaped, and its
 type is the model's under the block renaming — structurally (`==`;
-binder names are not part of an `Expr` since task #205, so the
-preprocessor's re-spelling of a shared binder cannot make this miss).
+binder names are not part of an `Expr` since task #205, so a
+generator's re-spelling of a shared binder cannot make this miss).
 On failure the
 message dumps both sides, which identifies the offending subterm
 immediately. -/
@@ -380,7 +383,9 @@ def checkMemberVal (ops : CheckerOps m) (blockNames : List Name)
     throw (.invalid s!"model-shaped member name {cvA.name}")
   -- the model counterpart
   let some (.defnInfo cvm _mval _) := env'.find? (cvA.name.str "_model")
-    | throw (.notImplemented s!"missing model for {cvA.name}")
+    | throw (.notImplemented s!"no install route for inductive block \
+        {blockNames.headD cvA.name}: no direct route recognises it and no \
+        model for {cvA.name} was generated")
   unless cvm.levelParams = cvA.levelParams do
     throw (.notImplemented s!"model level parameters mismatch for {cvA.name}")
   unless cvA.type.renameConsts f == cvm.type do
@@ -677,7 +682,7 @@ family's constructor targets the family at exactly its parameters,
 `T p⃗` — the same conjunct `checkDirectCtor` pins on the direct route —
 while an indexed family's targets `T p⃗ i⃗`.
 
-Task #175 SigmaHom (2026-09-06): the preprocessor also emits
+Task #175 SigmaHom (2026-09-06): the modeller also emits
 `T._model.proj_i` artifacts for an *indexed* one-constructor family
 (its indexed-fibre projection tranche; `CategoryTheory.Sigma.SigmaHom`
 in Mathlib), and consuming them as projection functions declined at

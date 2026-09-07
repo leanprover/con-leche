@@ -4,7 +4,7 @@ from a lean4export 3.x ndjson stream, by dependency-closure slicing
 (same approach as mk_natop_fixture.py): keep the declarations
 transitively needed to install `Lean.trustCompiler`, `Lean.reduceNat`,
 `Lean.ofReduceNat`, `Lean.reduceBool` and `Lean.ofReduceBool`
-(including `_model` companions), plus
+(including any `_model` companions the stream carries), plus
 
 * accept fixture: a theorem *using* `Lean.ofReduceNat`'s type
   vacuously (`useOfReduceNat := Lean.ofReduceNat`) — the installed
