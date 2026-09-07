@@ -185,7 +185,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     refine Expr.fvarsBelow_of_fvarLeaves fun l hl => ?_
     rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hCwR] at hl
     exact nomatch hl
-  have hfvsLt : ∀ l : Nat × Name × Expr,
+  have hfvsLt : ∀ l : Nat × Expr,
       Expr.fvar l.1 l.2.2 ∈ fvs → l.1 < rP + cnF := by
     intro l hl
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hl

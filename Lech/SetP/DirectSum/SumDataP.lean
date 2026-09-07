@@ -282,7 +282,7 @@ structure CtorDataI {env : Env} (m : EnvS2Core V env) (T : Name) (lps : List Nam
     (idxArgs : List Expr)
     (ds : (Name → Nat) → List (Nat × Nat × AVExpr)) (Es : (Name → Nat) → List AVExpr)
     (srcs : List (Option Nat)) : Prop where
-  resid : ∃ (cbs : List (Name × Expr × BinderMeta)) (es : List Expr),
+  resid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
     cvC.type.stripPis (nP + nF)
       = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (Lech.directPsAt nF nP ++ es)) ∧
     es.length = nIdx

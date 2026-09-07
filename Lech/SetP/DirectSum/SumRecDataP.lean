@@ -195,7 +195,7 @@ theorem sumRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     (hRec : Lech.checkDirectSumRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
@@ -254,7 +254,7 @@ theorem sumRuleData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     (hRec : Lech.checkDirectSumRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))

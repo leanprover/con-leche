@@ -117,7 +117,7 @@ def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
           pin.allLevelParamsDefined cv.levelParams = true ∧
           pin.constsResolve env = true ∧
           pin.looseBVarsBounded rP = true) ∧
-        ∃ pre nm dom body bm D,
+        ∃ pre dom body bm D,
           cv.type.stripPis mI = some (pre, .forallE dom body bm) ∧
           dom.getAppFn = .const D lvls ∧
           dom.getAppArgs =
@@ -248,7 +248,7 @@ theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} :
     split <;> simp_all
 
 /-- Resolution survives binder opening. -/
-theorem Expr.constsResolve_instantiate1 {env : Env} {d : Nat} {n : Name} {ty : Expr}
+theorem Expr.constsResolve_instantiate1 {env : Env} {d : Nat} {ty : Expr}
     (hty : ty.constsResolve env = true) :
     ∀ {e : Expr} (k : Nat), e.constsResolve env = true →
       (e.instantiate1 (.fvar d ty) k).constsResolve env = true := by
@@ -293,10 +293,10 @@ theorem Expr.constsResolve_congr {env₁ env₂ : Env}
 
 /-- λ-tower domains of a resolving term resolve. -/
 theorem Expr.constsResolve_stripLams {env : Env} :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr},
       e.stripLams k = some (bs, body) → e.constsResolve env = true →
-      (∀ b ∈ bs, (b.2.1).constsResolve env = true) ∧
+      (∀ b ∈ bs, (b.1).constsResolve env = true) ∧
       body.constsResolve env = true := by
   intro k
   induction k with
@@ -327,10 +327,10 @@ theorem Expr.constsResolve_stripLams {env : Env} :
 
 /-- Telescope domains of a resolving type resolve. -/
 theorem Expr.constsResolve_stripPis {env : Env} :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr},
       e.stripPis k = some (bs, body) → e.constsResolve env = true →
-      (∀ b ∈ bs, (b.2.1).constsResolve env = true) ∧
+      (∀ b ∈ bs, (b.1).constsResolve env = true) ∧
       body.constsResolve env = true := by
   intro k
   induction k with
@@ -361,11 +361,11 @@ theorem Expr.constsResolve_stripPis {env : Env} :
 
 /-- `stripPis` commutes with constant renaming. -/
 theorem Expr.stripPis_renameConsts {f : Name → Name} :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr},
       e.stripPis k = some (bs, body) →
       (e.renameConsts f).stripPis k =
-        some (bs.map (fun b => (b.1, (b.2.1).renameConsts f, b.2.2)),
+        some (bs.map (fun b => ((b.1).renameConsts f, b.2)),
           body.renameConsts f) := by
   intro k
   induction k with
@@ -394,11 +394,11 @@ theorem Expr.stripPis_renameConsts {f : Name → Name} :
 /-- Invert `stripPis` across constant renaming: a strip of the renamed
 telescope comes from a strip of the original. -/
 theorem Expr.stripPis_renameConsts_inv {f : Name → Name} :
-    ∀ (k : Nat) {e : Expr} {bs' : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs' : List (Expr × BinderMeta)}
       {body' : Expr},
       (e.renameConsts f).stripPis k = some (bs', body') →
       ∃ bs body, e.stripPis k = some (bs, body) ∧
-        bs' = bs.map (fun b => (b.1, (b.2.1).renameConsts f, b.2.2)) ∧
+        bs' = bs.map (fun b => ((b.1).renameConsts f, b.2)) ∧
         body' = body.renameConsts f := by
   intro k
   induction k with
@@ -422,7 +422,7 @@ theorem Expr.stripPis_renameConsts_inv {f : Name → Name} :
         simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
         obtain ⟨bs, body, hstrip, rfl, rfl⟩ := ih hs
-        refine ⟨(n, ty, m) :: bs, body, ?_, by simp, rfl⟩
+        refine ⟨(ty, m) :: bs, body, ?_, by simp, rfl⟩
         simp only [Expr.stripPis, hstrip, Option.map_some]
     | .bvar _, h => exact nomatch h
     | .fvar _ _, h => exact nomatch h

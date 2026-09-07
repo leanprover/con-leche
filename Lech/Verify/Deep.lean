@@ -126,7 +126,7 @@ private def shiftTy (p i : Nat) (ty : Expr) : Expr :=
 private theorem lamPw_shiftFrom (p : Nat) (e : Expr) :
     (shiftFrom p e).lamPw = e.lamPw := by
   cases e
-  case fvar idx nm t =>
+  case fvar idx t =>
     rw [shiftFrom]
     split <;> rfl
   all_goals first
@@ -336,7 +336,7 @@ private theorem piResidual_shiftFrom {p : Nat} :
   | a :: as, t => by
     cases t <;> try rfl
     case fvar => simp only [shiftFrom]; split <;> rfl
-    case forallE n ty body mb =>
+    case forallE ty body mb =>
       show piResidual ((shiftFrom p body).instantiate1 (shiftFrom p a))
         (as.map (shiftFrom p)) = _
       rw [← shiftFrom_instantiate1_gen]
@@ -981,7 +981,7 @@ private theorem etaCert_shift (henv : EnvWF env)
   intro wtb hwtb'
   cases wtb <;> try rfl
   case fvar => rw [shiftFrom_fvar]
-  case forallE n₂ ty₂ body₂ m₂ =>
+  case forallE ty₂ body₂ m₂ =>
     have hwPi : WScoped d (Expr.forallE ty₂ body₂ m₂) :=
       whnf_WScoped henv fuel hwtb' hwtb
     simp only [WScoped] at hwPi
@@ -1809,10 +1809,10 @@ private theorem instPisAt_shiftFrom (p : Nat) :
   | cons a as ih =>
     intro ty
     cases ty <;> try rfl
-    case fvar idx n ty =>
+    case fvar idx ty =>
       simp only [shiftFrom]
       split <;> rfl
-    case forallE nm dom body mb =>
+    case forallE dom body mb =>
       simp only [List.map_cons, shiftFrom, Expr.instPisAt,
         ← shiftFrom_instantiate1_gen, ih]
       cases Expr.instPisAt as (body.instantiate1 a) <;> rfl
@@ -1975,7 +1975,7 @@ private theorem infer_step (henv : EnvWF env)
     intro w hww
     cases w <;> try rfl
     case fvar => rw [shiftFrom_fvar]; rfl
-    case forallE n' ty' body' m' =>
+    case forallE ty' body' m' =>
     have hwPi : WScoped d (Expr.forallE ty' body' m') :=
       whnf_WScoped henv fuel hww (inferTypeCore_WScoped henv fuel htf hw.1)
     simp only [WScoped] at hwPi
@@ -2194,7 +2194,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
     intro w hww
     cases w <;> try rfl
     case fvar => rw [shiftFrom_fvar]; rfl
-    case forallE n' ty' body' m' =>
+    case forallE ty' body' m' =>
     have hwPi : WScoped d (Expr.forallE ty' body' m') :=
       whnf_WScoped henv fuel hww (inferTypeCoreIO_WScoped henv fuel htf hw.1)
     simp only [WScoped] at hwPi
@@ -2544,7 +2544,7 @@ private theorem defeqLoop_shift (henv : EnvWF env)
         | nil =>
           refine ite_congr' (fun _ => ?_) (fun _ => hstuck)
           exact ih.defeq hpd hwwa.2 (WScoped.of_not_hasFvar (e := .lit (.natVal k)) rfl)
-  case fvar.fvar idx₁ n₁ ty₁ idx₂ n₂ ty₂ hne =>
+  case fvar.fvar idx₁ ty₁ idx₂ ty₂ hne =>
     simp only [shiftFrom_fvar] at hstuck ⊢
     rw [shiftIdx_beq]
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
@@ -2553,7 +2553,7 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     refine bind_congr_eq rfl ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case forallE.forallE n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne =>
+  case forallE.forallE ty₁ body₁ m₁ ty₂ body₂ m₂ hne =>
     simp only [WScoped] at hwwa hwwb
     refine bind_congr_eq (ih.defeq hpd hwwa.1 hwwb.1) ?_
     intro b₁ _
@@ -2565,7 +2565,7 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     refine bind_congr_eq hb ?_
     intro b₂ _
     rfl
-  case lam.lam n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne =>
+  case lam.lam ty₁ body₁ m₁ ty₂ body₂ m₂ hne =>
     simp only [WScoped] at hwwa hwwb
     refine bind_congr_eq (ih.defeq hpd hwwa.1 hwwb.1) ?_
     intro b₁ _
@@ -2610,14 +2610,14 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     refine bind_congr_eq (ih.defeq hpd hwwa hwwb) ?_
     intro b₁ _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case lam.bvar n1 ty1 body1 m1 i hne =>
+  case lam.bvar ty1 body1 m1 i hne =>
     simp only [WScoped] at hwwa
     have he := etaCert_shift henv ih hpd n1 m1 hwwa.1 hwwa.2 hwwb
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case lam.fvar n1 ty1 body1 m1 ix nn tt hne =>
+  case lam.fvar ty1 body1 m1 ix tt hne =>
     simp only [WScoped] at hwwa
     have he := etaCert_shift henv ih hpd n1 m1 hwwa.1 hwwa.2 hwwb
     try simp only [shiftFrom_fvar] at he
@@ -2626,63 +2626,63 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case lam.sort n1 ty1 body1 m1 u hne =>
+  case lam.sort ty1 body1 m1 u hne =>
     simp only [WScoped] at hwwa
     have he := etaCert_shift henv ih hpd n1 m1 hwwa.1 hwwa.2 hwwb
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case lam.const n1 ty1 body1 m1 cn cus hne =>
+  case lam.const ty1 body1 m1 cn cus hne =>
     simp only [WScoped] at hwwa
     have he := etaCert_shift henv ih hpd n1 m1 hwwa.1 hwwa.2 hwwb
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case lam.app n1 ty1 body1 m1 ff aa hne =>
+  case lam.app ty1 body1 m1 ff aa hne =>
     simp only [WScoped] at hwwa
     have he := etaCert_shift henv ih hpd n1 m1 hwwa.1 hwwa.2 hwwb
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case lam.forallE n1 ty1 body1 m1 fn fty fbody fm hne =>
+  case lam.forallE ty1 body1 m1 fty fbody fm hne =>
     simp only [WScoped] at hwwa
     have he := etaCert_shift henv ih hpd n1 m1 hwwa.1 hwwa.2 hwwb
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case lam.letE n1 ty1 body1 m1 ln lty lv lb hne =>
+  case lam.letE ty1 body1 m1 lty lv lb hne =>
     simp only [WScoped] at hwwa
     have he := etaCert_shift henv ih hpd n1 m1 hwwa.1 hwwa.2 hwwb
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case lam.lit n1 ty1 body1 m1 ll hne =>
+  case lam.lit ty1 body1 m1 ll hne =>
     simp only [WScoped] at hwwa
     have he := etaCert_shift henv ih hpd n1 m1 hwwa.1 hwwa.2 hwwb
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case lam.proj n1 ty1 body1 m1 ps pi2 pe2 hne =>
+  case lam.proj ty1 body1 m1 ps pi2 pe2 hne =>
     simp only [WScoped] at hwwa
     have he := etaCert_shift henv ih hpd n1 m1 hwwa.1 hwwa.2 hwwb
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case bvar.lam i n2 ty2 body2 m2 hne =>
+  case bvar.lam i ty2 body2 m2 hne =>
     simp only [WScoped] at hwwb
     have he := etaCert_shift henv ih hpd n2 m2 hwwb.1 hwwb.2 hwwa
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case fvar.lam ix nn tt n2 ty2 body2 m2 hne =>
+  case fvar.lam ix tt ty2 body2 m2 hne =>
     simp only [WScoped] at hwwb
     have he := etaCert_shift henv ih hpd n2 m2 hwwb.1 hwwb.2 hwwa
     try simp only [shiftFrom_fvar] at he
@@ -2691,49 +2691,49 @@ private theorem defeqLoop_shift (henv : EnvWF env)
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case sort.lam u n2 ty2 body2 m2 hne =>
+  case sort.lam u ty2 body2 m2 hne =>
     simp only [WScoped] at hwwb
     have he := etaCert_shift henv ih hpd n2 m2 hwwb.1 hwwb.2 hwwa
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case const.lam cn cus n2 ty2 body2 m2 hne =>
+  case const.lam cn cus ty2 body2 m2 hne =>
     simp only [WScoped] at hwwb
     have he := etaCert_shift henv ih hpd n2 m2 hwwb.1 hwwb.2 hwwa
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case app.lam ff aa n2 ty2 body2 m2 hne =>
+  case app.lam ff aa ty2 body2 m2 hne =>
     simp only [WScoped] at hwwb
     have he := etaCert_shift henv ih hpd n2 m2 hwwb.1 hwwb.2 hwwa
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case forallE.lam fn fty fbody fm n2 ty2 body2 m2 hne =>
+  case forallE.lam fty fbody fm ty2 body2 m2 hne =>
     simp only [WScoped] at hwwb
     have he := etaCert_shift henv ih hpd n2 m2 hwwb.1 hwwb.2 hwwa
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case letE.lam ln lty lv lb n2 ty2 body2 m2 hne =>
+  case letE.lam lty lv lb ty2 body2 m2 hne =>
     simp only [WScoped] at hwwb
     have he := etaCert_shift henv ih hpd n2 m2 hwwb.1 hwwb.2 hwwa
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case lit.lam ll n2 ty2 body2 m2 hne =>
+  case lit.lam ll ty2 body2 m2 hne =>
     simp only [WScoped] at hwwb
     have he := etaCert_shift henv ih hpd n2 m2 hwwb.1 hwwb.2 hwwa
     try simp only [shiftFrom_fvar] at he
     refine bind_congr_eq he ?_
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
-  case proj.lam ps pi2 pe2 n2 ty2 body2 m2 hne =>
+  case proj.lam ps pi2 pe2 ty2 body2 m2 hne =>
     simp only [WScoped] at hwwb
     have he := etaCert_shift henv ih hpd n2 m2 hwwb.1 hwwb.2 hwwa
     try simp only [shiftFrom_fvar] at he

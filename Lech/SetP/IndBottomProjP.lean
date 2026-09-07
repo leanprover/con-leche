@@ -72,7 +72,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     -- the degenerate recursor's shape
     {i : Nat} (hmIrP : mI = rP) (hcnPrP : cnP = rP) (hilt : i < cnF)
     -- `checkProjShape`: the constructor's telescope and residual
-    {cbinders : List (Name × Expr × BinderMeta)} {cbody : Expr}
+    {cbinders : List (Expr × BinderMeta)} {cbody : Expr}
     (hCstrip : cvj.type.stripPis (cnP + cnF) = some (cbinders, cbody))
     (hcbodyArity : cbody.getAppArgs.length = cnP)
     -- `checkProjRule`: the rule is the constructor telescope's λ-tower
@@ -82,10 +82,10 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     -- itself, so no depth transport is needed)
     {rhsA : Expr} (_hrhsw : rhsA.hasFvar = false)
     (_hrhsb : rhsA.looseBVarsBounded 0 = true)
-    {rbinders : List (Name × Expr × BinderMeta)}
+    {rbinders : List (Expr × BinderMeta)}
     (hrhsAstrip : rhsA.stripLams (cnP + cnF)
       = some (rbinders, .bvar (cnF - 1 - i)))
-    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < cnP + cnF → rbinders[i0]? = some b →
       cbinders[i0]? = some b' → b.2.1 = b'.2.1)
     -- the rule rhs's front door, at the reading (`ProjFnR`'s recorded
@@ -114,9 +114,9 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     (hrhsSpin : rhsS = fvs.getD (rP + i) default)
     -- `checkProjIota`: the statement's domains are the constructor's,
     -- renamed to the model side
-    {sbinders : List (Name × Expr × BinderMeta)} {sbody : Expr}
+    {sbinders : List (Expr × BinderMeta)} {sbody : Expr}
     (hSstrip : stmtTy.stripPis (cnP + cnF) = some (sbinders, sbody))
-    (hdomsSC : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hdomsSC : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < cnP + cnF → sbinders[i0]? = some b →
       cbinders[i0]? = some b' → b.2.1 = b'.2.1.renameConsts f)
     -- the sides pack's two recorded runs
@@ -225,7 +225,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hSw] at h0
       exact nomatch h0
     · exact h0
-  have hfvsLt : ∀ l : Nat × Name × Expr,
+  have hfvsLt : ∀ l : Nat × Expr,
       Expr.fvar l.1 l.2.2 ∈ fvs → l.1 < rP + cnF := by
     intro l hl
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hl

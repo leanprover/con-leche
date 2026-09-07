@@ -66,7 +66,7 @@ theorem hasFvar_mkAppN :
     exact ⟨hg, hargs a (List.mem_cons_self ..)⟩
 
 theorem stripLams_not_hasFvar :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr}, Expr.stripLams k e = some (bs, body) →
       e.hasFvar = false →
       (∀ b ∈ bs, (b.2.1).hasFvar = false) ∧ body.hasFvar = false
@@ -91,7 +91,7 @@ theorem stripLams_not_hasFvar :
       · exact hrest b hb
 
 theorem stripPis_not_hasFvar :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr}, Expr.stripPis k e = some (bs, body) →
       e.hasFvar = false →
       (∀ b ∈ bs, (b.2.1).hasFvar = false) ∧ body.hasFvar = false
@@ -2468,7 +2468,7 @@ theorem checkConstantVal_typeWF {env : Env} {cv cvA : ConstantVal}
 /-- Peeling a `∀`-telescope (without instantiating) keeps every binder
 domain and the body scoped at the same frame. -/
 theorem stripPis_WScoped {d : Nat} :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr}, Expr.stripPis k e = some (bs, body) → WScoped d e →
       (∀ b ∈ bs, WScoped d b.2.1) ∧ WScoped d body
   | 0, e, bs, body, h, hw => by
@@ -2493,7 +2493,7 @@ theorem stripPis_WScoped {d : Nat} :
 
 /-- The head domain of a peeled telescope is scoped. -/
 theorem stripPis_head_WScoped {d k : Nat} {e : Expr}
-    {bs : List (Name × Expr × BinderMeta)} {body dom : Expr}
+    {bs : List (Expr × BinderMeta)} {body dom : Expr}
     (hst : Expr.stripPis k e = some (bs, body)) (hw : WScoped d e)
     (hd : (bs[0]?).map (·.2.1) = some dom) : WScoped d dom := by
   have hb : ∃ b, bs[0]? = some b ∧ b.2.1 = dom := by

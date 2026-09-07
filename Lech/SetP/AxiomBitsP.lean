@@ -16,7 +16,7 @@ says to take them: from `ConstantValR`'s own recorded
 ## The three moves, per pinned family
 
 1. **the shape** — `matchesPin` fixes the stored type up to binder
-   names and binder metas, so a chain of `erasePw ∘ eraseNames`
+   names and binder metas, so a chain of `erasePw`
    inversions (`erasePwNames_*_invS`, below) recovers the telescope
    with exactly those free.  Every domain and body of the standard
    pins is binder-free, hence erasure-rigid, so the inversion is
@@ -61,7 +61,7 @@ inversions; the pinned telescopes need the four remaining heads, and
 composing the two erasures once here keeps every consumer's chain one
 step per node. -/
 
--- The five `erasePw ∘ eraseNames` head inversions moved to
+-- The five `erasePw` head inversions moved to
 -- `Interp2/ErasePwInv.lean` at ENDGAME D: the reduce-operation pin
 -- (`Interp2/ReduceOpsP.lean`) needs them and sits *below* `HarvestP`,
 -- which this file imports.  Statements unchanged.
@@ -89,8 +89,8 @@ the whole shape and leaves exactly the three binder names and the
 three binder metas free — which is precisely the freedom the bit
 lemma below removes. -/
 theorem propext_shapeS {type' : Expr}
-    (h : type'.erasePw.eraseNames
-      = propextA.type.erasePw.eraseNames) :
+    (h : type'.erasePw
+      = propextA.type.erasePw) :
     ∃ n₁ n₂ n₃ m₁ m₂ m₃,
       type' = .forallE (.sort .zero)
         (.forallE (.sort .zero)
@@ -98,7 +98,7 @@ theorem propext_shapeS {type' : Expr}
             (.app (.app (.const iffName []) (.bvar 1)) (.bvar 0))
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.sort .zero)) (.bvar 2)) (.bvar 1)) m₃) m₂) m₁ := by
-  simp only [propextA, Expr.erasePw, Expr.eraseNames] at h
+  simp only [propextA, Expr.erasePw] at h
   obtain ⟨n₁, ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS hty₁
   obtain ⟨n₂, ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
@@ -246,13 +246,13 @@ are binder-free, so only the two names and the two metas stay free.
 The level argument is untouched by either erasure, so the stored
 `Nonempty` reference is pinned to `[.param u]` on the nose. -/
 theorem choice_shapeS {type' : Expr}
-    (h : type'.erasePw.eraseNames = choiceA.type.erasePw.eraseNames) :
+    (h : type'.erasePw = choiceA.type.erasePw) :
     ∃ n₁ n₂ m₁ m₂,
       type' = .forallE (.sort (.param uN))
         (.forallE
           (.app (.const nonemptyName [.param uN]) (.bvar 0))
           (.bvar 1) m₂) m₁ := by
-  simp only [choiceA, Expr.erasePw, Expr.eraseNames] at h
+  simp only [choiceA, Expr.erasePw] at h
   obtain ⟨n₁, ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS hty₁
   obtain ⟨n₂, ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁

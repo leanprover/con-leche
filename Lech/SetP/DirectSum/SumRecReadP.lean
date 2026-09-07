@@ -41,7 +41,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 /-- A closed instantiation sequence commutes with a strip. -/
 theorem stripPis_instSeq :
     ∀ (sp : List Expr) (t : Nat) {e : Expr} {n : Nat}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      {bs : List (Expr × BinderMeta)} {body : Expr},
       sp.length ≤ t + 1 →
       e.stripPis n = some (bs, body) →
       ∃ bs', (Expr.instSeq sp t e).stripPis n = some (bs', Expr.instSeq sp (t + n) body)
@@ -251,7 +251,7 @@ structure CtorRead {env : Env} (m : EnvS2Core V env) (ψ : Name → Nat) (T : Na
   find : ∃ ci : ConstantInfo, env.find? c.1 = some ci ∧ ci.toConstantVal.levelParams = lps
   hasFvar : c.2.2.hasFvar = false
   bounded : c.2.2.looseBVarsBounded 0 = true
-  resid : ∃ (cbs : List (Name × Expr × BinderMeta)) (es : List Expr),
+  resid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
     c.2.2.stripPis (nP + c.2.1)
       = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (Lech.directPsAt c.2.1 nP ++ es)) ∧
     es.length = nIdx
@@ -351,7 +351,7 @@ constructor body, whose spine is inverted. -/
 theorem denoteSpineP_idxArgs_lift {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name}
     {lps : List Name} {ciT : ConstantInfo} (hfT : env.find? T = some ciT)
     (hlpsT : ciT.toConstantVal.levelParams = lps)
-    {nP nF nIdx o : Nat} {crest0 : Expr} {fbs : List (Name × Expr × BinderMeta)} {es : List Expr}
+    {nP nF nIdx o : Nat} {crest0 : Expr} {fbs : List (Expr × BinderMeta)} {es : List Expr}
     (hsF : crest0.stripPis nF
       = some (fbs, Expr.mkAppN (.const T (lps.map .param)) (Lech.directPsAt nF nP ++ es)))
     {ds : List (Nat × Nat × AVExpr)} {Es : List AVExpr}
@@ -455,7 +455,7 @@ theorem denoteP_minorAt {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} {
     {nP nF nIdx : Nat} {pw : PropWhen} {cty mty : Expr} {extras : List Expr}
     (hmin : Lech.directMinorTyI C lps nP nF extras.length pw cty = some mty)
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
-    (hresid : ∃ (cbs : List (Name × Expr × BinderMeta)) (es : List Expr),
+    (hresid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
       cty.stripPis (nP + nF)
         = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (Lech.directPsAt nF nP ++ es)) ∧
       es.length = nIdx)
@@ -715,7 +715,7 @@ theorem denoteP_motiveI {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {lp
     {ciT : ConstantInfo} (hfT : env.find? T = some ciT)
     (hlpsT : ciT.toConstantVal.levelParams = lps)
     {nP nIdx : Nat} {ℓ : Level} {tty itele motiveTy : Expr}
-    {tbs : List (Name × Expr × BinderMeta)}
+    {tbs : List (Expr × BinderMeta)}
     (hsT : tty.stripPis nP = some (tbs, itele))
     (hmot : Lech.directMotiveTyI T lps nP nIdx ℓ itele = some motiveTy)
     (hTf : tty.hasFvar = false) (hstripT : (tty.stripPis (nP + nIdx)).isSome = true)

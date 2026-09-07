@@ -215,7 +215,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hSw] at h0
       exact nomatch h0
     · exact h0
-  have hfvsLt : ∀ l : Nat × Name × Expr,
+  have hfvsLt : ∀ l : Nat × Expr,
       Expr.fvar l.1 l.2.2 ∈ fvs → l.1 < rP + cnF := by
     intro l hl
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hl

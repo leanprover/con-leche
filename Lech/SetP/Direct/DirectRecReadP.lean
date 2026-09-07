@@ -193,7 +193,7 @@ theorem instSeq_stripPis_isSome :
 
 /-- The tail of a longer strip strips the remainder. -/
 theorem stripPis_isSome_drop :
-    ∀ (k : Nat) {m : Nat} {e : Expr} {bs : List (Name × Expr × BinderMeta)} {mid : Expr},
+    ∀ (k : Nat) {m : Nat} {e : Expr} {bs : List (Expr × BinderMeta)} {mid : Expr},
       (e.stripPis (k + m)).isSome = true → e.stripPis k = some (bs, mid) →
       (mid.stripPis m).isSome = true
   | 0, m, e, bs, mid, h, hs => by
@@ -315,7 +315,7 @@ theorem ctorResidual {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF : Nat} {ct
     {ds : List (Nat × Nat × AVExpr)} {bodyC : AVExpr}
     (hCread : denoteP m.acval env ψ 0 cty = some (mkPisAV ds bodyC))
     (hlenD : ds.length = nP + nF)
-    {cbs : List (Name × Expr × BinderMeta)} {crest0 : Expr}
+    {cbs : List (Expr × BinderMeta)} {crest0 : Expr}
     (hsC : cty.stripPis nP = some (cbs, crest0))
     (hstripC : (cty.stripPis (nP + nF)).isSome = true)
     {tfvs : List Expr} (hlenT : tfvs.length = nP)

@@ -30,7 +30,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 omit [SetTheory V] in
 /-- A bounded telescope's binder domains and body are bounded. -/
 theorem constsBound_stripPis {env₀ : Env} :
-    ∀ (n : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
       ConstsBound env₀ e → e.stripPis n = some (bs, body) →
       (∀ b ∈ bs, ConstsBound env₀ b.2.1) ∧ ConstsBound env₀ body
   | 0, e, bs, body, he, hst => by
@@ -181,7 +181,7 @@ theorem fixRuleData_of (mp : EnvS2PM V μ env)
     (hRec : Lech.checkDirectFixRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))

@@ -38,7 +38,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 /-- A lifted telescope strips as the telescope does, the body lifted
 above the stripped binders. -/
 theorem stripPis_liftLooseBVars :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)} {body : Expr} (n c : Nat),
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr} (n c : Nat),
       e.stripPis k = some (bs, body) →
       ∃ bs', (e.liftLooseBVars n c).stripPis k = some (bs', body.liftLooseBVars n (c + k))
   | 0, e, bs, body, n, c, h => by
@@ -426,7 +426,7 @@ theorem sumRecOpenedAll (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectSumParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {rhss : List Expr}
     (hRec : Lech.checkDirectSumRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {rds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hRD : SumRecData mp.base2 cvRa p.nP ctorsA.length p.nIdx (sumElimLevel p) rds) :
@@ -496,7 +496,7 @@ theorem stageSumRec (hE : Lech.EtaFamiliesClosed env)
     {rhss : List Expr} {mI rP : Nat}
     (hmI : mI = p.nP + 1 + ctorsA.length + p.nIdx) (hrP : rP = p.nP + 1 + ctorsA.length)
     (hRec : Lech.checkDirectSumRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {caps : IndCaps}
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))

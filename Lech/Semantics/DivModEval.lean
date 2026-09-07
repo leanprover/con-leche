@@ -128,7 +128,7 @@ theorem natOpCod_ble {env : Env} {cod : Expr}
 
 /-- Where a leaf of the two-hypothesis applied form can come from. -/
 theorem divModCertApplied_mem2 {p h1 h2 : Expr}
-    (hp : p.hasFvar = false) {l : Nat × Name × Expr}
+    (hp : p.hasFvar = false) {l : Nat × Expr}
     (hl : l ∈ (divModCertApplied p [h1, h2]).fvarLeaves) :
     l = (0, Name.anonymous.str "x", Expr.const natName []) ∨
     l = (1, Name.anonymous.str "y", Expr.const natName []) ∨
@@ -147,7 +147,7 @@ theorem divModCertApplied_mem2 {p h1 h2 : Expr}
 
 /-- Where a leaf of the one-hypothesis applied form can come from. -/
 theorem divModCertApplied_mem1 {p h1 : Expr}
-    (hp : p.hasFvar = false) {l : Nat × Name × Expr}
+    (hp : p.hasFvar = false) {l : Nat × Expr}
     (hl : l ∈ (divModCertApplied p [h1]).fvarLeaves) :
     l = (0, Name.anonymous.str "x", Expr.const natName []) ∨
     l = (1, Name.anonymous.str "y", Expr.const natName []) ∨
@@ -178,7 +178,7 @@ def dmLeavesOk (e : Expr) : Bool :=
 
 /-- A leaf of a `dmLeavesOk` term, identified. -/
 theorem dmLeavesOk_mem {e : Expr} (h : dmLeavesOk e = true)
-    {l : Nat × Name × Expr} (hl : l ∈ e.fvarLeaves) :
+    {l : Nat × Expr} (hl : l ∈ e.fvarLeaves) :
     l = (0, Name.anonymous.str "x", Expr.const natName []) ∨
     l = (1, Name.anonymous.str "y", Expr.const natName []) := by
   have hm := List.all_eq_true.mp h l hl

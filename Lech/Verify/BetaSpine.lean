@@ -397,7 +397,7 @@ theorem whnfCoreStepM_atF (d : Nat) (k : Expr → FueledM Expr)
     (whnfCoreStepM mode (fueledFns mode env) env d k e).val F
       = whnfCoreStepM mode (pureFns mode env F) env d kF e := by
   cases e <;> (unfold whnfCoreStepM; try rfl)
-  case letE nm ty v bd => exact hk _
+  case letE ty v bd => exact hk _
   case app f a =>
     rw [FueledM.atF_bind]
     congr 1

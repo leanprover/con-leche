@@ -247,7 +247,7 @@ theorem WScoped.fvarsBelow : ∀ {e : Expr} {d : Nat}, WScoped d e → Expr.fvar
     exact ih hw
   | _ => intro d hw; simp [Expr.fvarsBelow]
 
-theorem WScoped.instantiate1 {d : Nat} {n : Name} {ty : Expr} (hty : WScoped d ty) :
+theorem WScoped.instantiate1 {d : Nat} {ty : Expr} (hty : WScoped d ty) :
     ∀ {e : Expr} (k : Nat), WScoped d e →
       WScoped (d + 1) (e.instantiate1 (.fvar d ty) k) := by
   intro e
@@ -340,7 +340,7 @@ theorem WScoped.instantiate1_gen {d : Nat} {v : Expr} (hv : WScoped d v) :
 /-- Shifting commutes with instantiation by an `fvar` at the shifted
 index: opening at `d` then shifting from `p ≤ d` equals shifting the body
 first and opening at `d + 1` with the shifted annotation. -/
-theorem shiftFrom_instantiate1 {p d : Nat} (hpd : p ≤ d) {n : Name} {ty : Expr} :
+theorem shiftFrom_instantiate1 {p d : Nat} (hpd : p ≤ d) {ty : Expr} :
     ∀ (e : Expr) (k : Nat),
       shiftFrom p (e.instantiate1 (.fvar d ty) k) =
         (shiftFrom p e).instantiate1 (.fvar (d + 1) (shiftFrom p ty)) k := by
@@ -351,11 +351,11 @@ theorem shiftFrom_instantiate1 {p d : Nat} (hpd : p ≤ d) {n : Name} {ty : Expr
     split
     · simp [shiftFrom, hpd]
     · split <;> simp [shiftFrom]
-  case fvar idx n' ty' ih =>
+  case fvar idx ty' ih =>
     split <;> simp [instantiate1]
 
 /-- Opening a binder keeps reachable-`fvar` bounds. -/
-theorem fvarsBelow_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
+theorem fvarsBelow_instantiate1 {d : Nat} {ty : Expr} :
     ∀ {e : Expr} (k : Nat), fvarsBelow d e →
       fvarsBelow (d + 1) (e.instantiate1 (.fvar d ty) k) := by
   intro e
@@ -364,7 +364,7 @@ theorem fvarsBelow_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
     split
     · simp [fvarsBelow]
     · split <;> simp [fvarsBelow]
-  case fvar idx n' ty' ih => omega
+  case fvar idx ty' ih => omega
 
 /-! ## Shift commutation lemmas
 
@@ -436,14 +436,14 @@ theorem getAppFn_shiftFrom {p : Nat} :
     ∀ (e : Expr), (shiftFrom p e).getAppFn = shiftFrom p e.getAppFn := by
   intro e
   induction e <;> simp_all [shiftFrom, getAppFn]
-  case fvar idx n ty ih => split <;> simp [getAppFn]
+  case fvar idx ty ih => split <;> simp [getAppFn]
 
 /-- Shifting commutes with taking the application spine. -/
 theorem getAppArgs_shiftFrom {p : Nat} :
     ∀ (e : Expr), (shiftFrom p e).getAppArgs = e.getAppArgs.map (shiftFrom p) := by
   intro e
   induction e <;> simp_all [shiftFrom, getAppArgs]
-  case fvar idx n ty ih => split <;> simp [getAppArgs]
+  case fvar idx ty ih => split <;> simp [getAppArgs]
 
 /-- Shifting commutes with building an application spine. -/
 theorem shiftFrom_mkAppN {p : Nat} :
@@ -475,7 +475,7 @@ theorem wscopedB_shiftFrom {p : Nat} :
       (shiftFrom p e).wscopedB (d + 1) = e.wscopedB d := by
   intro e
   induction e <;> intro d hpd <;> simp_all [shiftFrom, wscopedB]
-  case fvar idx n ty ih =>
+  case fvar idx ty ih =>
     by_cases hp : p ≤ idx
     · rw [if_pos hp]
       simp only [wscopedB]
@@ -495,7 +495,7 @@ theorem looseBVarsBounded_shiftFrom {p : Nat} :
       (shiftFrom p e).looseBVarsBounded k = e.looseBVarsBounded k := by
   intro e
   induction e <;> intro k <;> simp_all [shiftFrom, looseBVarsBounded]
-  case fvar idx n ty ih => split <;> simp [looseBVarsBounded]
+  case fvar idx ty ih => split <;> simp [looseBVarsBounded]
 
 /-- The inverse of `shiftFrom p`: lower every reachable `fvar` index
 `> p` by one (shifted annotations lowered too). -/
@@ -517,7 +517,7 @@ theorem unshiftFrom_shiftFrom {p : Nat} :
     ∀ (e : Expr), unshiftFrom p (shiftFrom p e) = e := by
   intro e
   induction e <;> simp_all [shiftFrom, unshiftFrom]
-  case fvar idx n ty ih =>
+  case fvar idx ty ih =>
     by_cases hp : p ≤ idx
     · rw [if_pos hp]
       simp only [unshiftFrom]
@@ -534,18 +534,18 @@ theorem shiftFrom_injective {p : Nat} {a b : Expr}
   rwa [unshiftFrom_shiftFrom, unshiftFrom_shiftFrom] at this
 
 /-- The action of `shiftFrom p` on one recorded `fvar` leaf. -/
-def shiftLeaf (p : Nat) : Nat × Name × Expr → Nat × Name × Expr :=
-  fun l => if p ≤ l.1 then (l.1 + 1, l.2.1, shiftFrom p l.2.2) else l
+def shiftLeaf (p : Nat) : Nat × Expr → Nat × Expr :=
+  fun l => if p ≤ l.1 then (l.1 + 1, shiftFrom p l.2) else l
 
-theorem shiftLeaf_injective {p : Nat} {l₁ l₂ : Nat × Name × Expr}
+theorem shiftLeaf_injective {p : Nat} {l₁ l₂ : Nat × Expr}
     (h : shiftLeaf p l₁ = shiftLeaf p l₂) : l₁ = l₂ := by
-  obtain ⟨i₁, n₁, t₁⟩ := l₁
-  obtain ⟨i₂, n₂, t₂⟩ := l₂
+  obtain ⟨i₁, t₁⟩ := l₁
+  obtain ⟨i₂, t₂⟩ := l₂
   simp only [shiftLeaf] at h
   split at h <;> split at h <;>
     simp only [Prod.mk.injEq] at h ⊢ <;>
     first
-    | exact ⟨by omega, h.2.1, shiftFrom_injective h.2.2⟩
+    | exact ⟨by omega, shiftFrom_injective h.2⟩
     | omega
     | exact h
 
@@ -599,7 +599,7 @@ theorem fvarLeaves_fst_lt :
   | _ => intro d hw l hl; simp [fvarLeaves] at hl
 
 theorem map_shiftLeaf_eq_self {p : Nat} :
-    ∀ {ls : List (Nat × Name × Expr)}, (∀ l ∈ ls, l.1 < p) →
+    ∀ {ls : List (Nat × Expr)}, (∀ l ∈ ls, l.1 < p) →
       ls.map (shiftLeaf p) = ls := by
   intro ls
   induction ls with
@@ -654,8 +654,8 @@ theorem fvarLeaves_shiftFrom {p : Nat} :
     simp only [shiftFrom, fvarLeaves, ih hpd hw]
   | _ => intro d hpd hw; simp [shiftFrom, fvarLeaves]
 
-theorem contains_map_shiftLeaf {p : Nat} (ls : List (Nat × Name × Expr))
-    (l : Nat × Name × Expr) :
+theorem contains_map_shiftLeaf {p : Nat} (ls : List (Nat × Expr))
+    (l : Nat × Expr) :
     (ls.map (shiftLeaf p)).contains (shiftLeaf p l) = ls.contains l := by
   induction ls with
   | nil => rfl
@@ -711,7 +711,7 @@ theorem instPis_shiftFrom {p : Nat} :
   | a :: as, t => by
     cases t <;> try rfl
     case fvar => simp only [shiftFrom]; split <;> rfl
-    case forallE n ty body mb =>
+    case forallE ty body mb =>
       show Expr.instPis ((shiftFrom p body).instantiate1 (shiftFrom p a))
         (as.map (shiftFrom p)) = _
       rw [← shiftFrom_instantiate1_gen]
@@ -726,7 +726,7 @@ theorem pisToLams_shiftFrom {p : Nat} :
   | k + 1, t, body => by
     cases t <;> try rfl
     case fvar => simp only [shiftFrom]; split <;> rfl
-    case forallE n ty rest mb =>
+    case forallE ty rest mb =>
       -- task #161 P5: `pisToLams` emits the parse placeholder `.never`
       -- (a ∀'s `pw` is not the λ's claim); the shift commutation is
       -- unaffected — `shiftFrom` never reads binder metadata.

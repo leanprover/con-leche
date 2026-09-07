@@ -105,7 +105,7 @@ theorem openPisAtFvarsF_eq (n : Nat) (e : Expr) (i : Nat) :
   | none => rfl
 
 theorem domsMatchAuxA_eq (g : Nat → Expr → Expr)
-    (bs₁ bs₂ : List (Name × Expr × BinderMeta)) (o₁ o₂ n : Nat) :
+    (bs₁ bs₂ : List (Expr × BinderMeta)) (o₁ o₂ n : Nat) :
     domsMatchAuxA g bs₁.toArray bs₂.toArray o₁ o₂ n
       = domsMatchAux g bs₁ bs₂ o₁ o₂ n := by
   simp only [domsMatchAuxA, domsMatchAux, List.getElem?_toArray]

@@ -71,10 +71,10 @@ theorem Expr.getAppArgs_instSeq_fvars :
 the earlier variables.** -/
 theorem openPisAtFvars_fvarTypeD :
     ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      {bs : List (Expr × BinderMeta)} {body : Expr},
       openPisAtFvars n e d = some (fvs, o) →
       e.stripPis n = some (bs, body) →
-      ∀ (i : Nat) (b : Name × Expr × BinderMeta) (x : Expr),
+      ∀ (i : Nat) (b : Expr × BinderMeta) (x : Expr),
         bs[i]? = some b → fvs[i]? = some x →
         x.fvarTypeD = Expr.instSeq (fvs.take i) (i - 1) b.2.1
   | 0, e, d, fvs, o, bs, body, hop, hst, i, b, x, hb, _ => by

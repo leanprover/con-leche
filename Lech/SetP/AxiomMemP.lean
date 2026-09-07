@@ -139,12 +139,11 @@ and the binder metas free — the same mechanical inversion
 
 /-- The stored `Iff` former's shape. -/
 theorem iff_shapeS {ty : Expr}
-    (h : ty.erasePw.eraseNames
-      = iffA.toConstantVal.type.erasePw.eraseNames) :
+    (h : ty.erasePw
+      = iffA.toConstantVal.type.erasePw) :
     ∃ n₁ n₂ m₁ m₂, ty = .forallE (.sort .zero)
       (.forallE (.sort .zero) (.sort .zero) m₂) m₁ := by
-  simp only [iffA, ConstantInfo.toConstantVal, Expr.erasePw,
-    Expr.eraseNames] at h
+  simp only [iffA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨n₁, ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS hty₁
   obtain ⟨n₂, ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
@@ -154,8 +153,8 @@ theorem iff_shapeS {ty : Expr}
 
 /-- The stored `Iff.intro`'s shape. -/
 theorem iffIntro_shapeS {ty : Expr}
-    (h : ty.erasePw.eraseNames
-      = iffIntroA.toConstantVal.type.erasePw.eraseNames) :
+    (h : ty.erasePw
+      = iffIntroA.toConstantVal.type.erasePw) :
     ∃ n₁ n₂ n₃ n₄ n₅ n₆ m₁ m₂ m₃ m₄ m₅ m₆,
       ty = .forallE (.sort .zero)
         (.forallE (.sort .zero)
@@ -163,8 +162,7 @@ theorem iffIntro_shapeS {ty : Expr}
             (.forallE (.forallE (.bvar 1) (.bvar 3) m₆)
               (.app (.app (.const iffName []) (.bvar 3)) (.bvar 2))
               m₅) m₃) m₂) m₁ := by
-  simp only [iffIntroA, ConstantInfo.toConstantVal, Expr.erasePw,
-    Expr.eraseNames] at h
+  simp only [iffIntroA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS ht₁
   obtain ⟨n₂, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
@@ -188,8 +186,8 @@ theorem iffIntro_shapeS {ty : Expr}
 nested ones; the motive's codomain `Sort u` is what
 `pi_sort_bit_ne_zero` later fires on. -/
 theorem iffRec_shapeS {ty : Expr}
-    (h : ty.erasePw.eraseNames
-      = iffRecA.toConstantVal.type.erasePw.eraseNames) :
+    (h : ty.erasePw
+      = iffRecA.toConstantVal.type.erasePw) :
     ∃ na nb nmo nt nin nmp nr nmpr nan nma
       m₁ m₂ m₃ m₄ m₅ mt mmp mr mmpr ma,
       ty = .forallE (.sort .zero)
@@ -208,8 +206,7 @@ theorem iffRec_shapeS {ty : Expr}
               (.forallE
                 (.app (.app (.const iffName []) (.bvar 3)) (.bvar 2))
                 (.app (.bvar 2) (.bvar 0)) m₅) m₄) m₃) m₂) m₁ := by
-  simp only [iffRecA, ConstantInfo.toConstantVal, Expr.erasePw,
-    Expr.eraseNames] at h
+  simp only [iffRecA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS ht₁
   obtain ⟨n₂, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
@@ -269,8 +266,8 @@ conditions read off `type_okP`, never off a bit. -/
 theorem iffVal_app₂_memP (mp : EnvS2PM V μ env)
     {cvI : ConstantVal} {caps : Lech.IndCaps}
     (hfI : env.find? iffName = some (.indInfo cvI caps))
-    (htyI : cvI.type.erasePw.eraseNames
-      = iffA.toConstantVal.type.erasePw.eraseNames)
+    (htyI : cvI.type.erasePw
+      = iffA.toConstantVal.type.erasePw)
     (ψ : Name → Nat) (ρ : Nat → V) {A B : V}
     (hA : A ∈ˢ (univ 0 : V)) (hB : B ∈ˢ (univ 0 : V)) :
     SetTheory.app (SetTheory.app
@@ -339,8 +336,8 @@ theorem iff_forces_eqP (mp : EnvS2PM V μ env)
     (hfIi : env.find? iffIntroName = some (.ctorInfo cvIi 2 2))
     (hlpIi : cvIi.levelParams = [])
     (hfIr : env.find? iffRecName = some (.recInfo cvIr mI rP rules))
-    (htyIr : cvIr.type.erasePw.eraseNames
-      = iffRecA.toConstantVal.type.erasePw.eraseNames)
+    (htyIr : cvIr.type.erasePw
+      = iffRecA.toConstantVal.type.erasePw)
     (ψ : Name → Nat) (ρ : Nat → V) {A B w : V}
     (hA : A ∈ˢ (univ 0 : V)) (hB : B ∈ˢ (univ 0 : V))
     (hw : w ∈ˢ SetTheory.app (SetTheory.app
@@ -494,8 +491,8 @@ theorem propext_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   obtain ⟨hEq, ⟨cvI, caps, hfI, hlpI, htyI⟩, ⟨cvIi, hfIi, hlpIi, htyIi⟩,
     ⟨cvIr, mI, rP, rules, hfIr, hlpIr, htyIr⟩, hApin⟩ :=
     iff_shapes hok hn
-  have hApinT : cvA.type.erasePw.eraseNames
-      = propextA.type.erasePw.eraseNames := by
+  have hApinT : cvA.type.erasePw
+      = propextA.type.erasePw := by
     simp only [ConstantVal.matchesPin, Bool.and_eq_true,
       beq_iff_eq] at hApin
     exact hApin.2
@@ -565,11 +562,10 @@ refuted consequent is `univZero ∈ˢ univZero`. -/
 
 /-- The stored `Nonempty` former's shape. -/
 theorem nonempty_shapeS {ty : Expr}
-    (h : ty.erasePw.eraseNames
-      = nonemptyA.toConstantVal.type.erasePw.eraseNames) :
+    (h : ty.erasePw
+      = nonemptyA.toConstantVal.type.erasePw) :
     ∃ n₁ m₁, ty = .forallE (.sort (.param uN)) (.sort .zero) m₁ := by
-  simp only [nonemptyA, ConstantInfo.toConstantVal, Expr.erasePw,
-    Expr.eraseNames] at h
+  simp only [nonemptyA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS ht₁
   obtain rfl := erasePwNames_sort_invS hb₁
@@ -577,13 +573,12 @@ theorem nonempty_shapeS {ty : Expr}
 
 /-- The stored `Nonempty.intro`'s shape. -/
 theorem nonemptyIntro_shapeS {ty : Expr}
-    (h : ty.erasePw.eraseNames
-      = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames) :
+    (h : ty.erasePw
+      = nonemptyIntroA.toConstantVal.type.erasePw) :
     ∃ n₁ n₂ m₁ m₂, ty = .forallE (.sort (.param uN))
       (.forallE (.bvar 0)
         (.app (.const nonemptyName [.param uN]) (.bvar 1)) m₂) m₁ := by
-  simp only [nonemptyIntroA, ConstantInfo.toConstantVal, Expr.erasePw,
-    Expr.eraseNames] at h
+  simp only [nonemptyIntroA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS ht₁
   obtain ⟨n₂, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
@@ -595,8 +590,8 @@ theorem nonemptyIntro_shapeS {ty : Expr}
 
 /-- The stored `Nonempty.rec`'s shape. -/
 theorem nonemptyRec_shapeS {ty : Expr}
-    (h : ty.erasePw.eraseNames
-      = nonemptyRecA.toConstantVal.type.erasePw.eraseNames) :
+    (h : ty.erasePw
+      = nonemptyRecA.toConstantVal.type.erasePw) :
     ∃ nα nmo nt nin nv nma m₁ m₂ m₃ m₄ mt mv,
       ty = .forallE (.sort (.param uN))
         (.forallE
@@ -611,8 +606,7 @@ theorem nonemptyRec_shapeS {ty : Expr}
             (.forallE
               (.app (.const nonemptyName [.param uN]) (.bvar 2))
               (.app (.bvar 2) (.bvar 0)) m₄) m₃) m₂) m₁ := by
-  simp only [nonemptyRecA, ConstantInfo.toConstantVal, Expr.erasePw,
-    Expr.eraseNames] at h
+  simp only [nonemptyRecA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨nα, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS ht₁
   obtain ⟨nmo, t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
@@ -661,8 +655,8 @@ theorem denoteP_selfParam_constS {acval : Name → (Name → Nat) → AVExpr}
 theorem nonemptyVal_app_memP (mp : EnvS2PM V μ env)
     {cvN : ConstantVal} {capsN : Lech.IndCaps}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
-    (htyN : cvN.type.erasePw.eraseNames
-      = nonemptyA.toConstantVal.type.erasePw.eraseNames)
+    (htyN : cvN.type.erasePw
+      = nonemptyA.toConstantVal.type.erasePw)
     (ψ : Name → Nat) (ρ : Nat → V) {A : V} (hA : A ∈ˢ univ (ψ uN)) :
     SetTheory.app (interp2 V ρ (mp.base2.acval nonemptyName ψ)) A
       ∈ˢ (univ 0 : V) := by
@@ -685,8 +679,8 @@ theorem nonemptyIntroVal_app₂_memP (mp : EnvS2PM V μ env)
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
     (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
-    (htyNi : cvNi.type.erasePw.eraseNames
-      = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames)
+    (htyNi : cvNi.type.erasePw
+      = nonemptyIntroA.toConstantVal.type.erasePw)
     (ψ : Name → Nat) (ρ : Nat → V) {A a : V} (hA : A ∈ˢ univ (ψ uN))
     (ha : a ∈ˢ A) :
     SetTheory.app (SetTheory.app
@@ -742,8 +736,8 @@ theorem nonemptyVal_forcesP (mp : EnvS2PM V μ env)
       = nonemptyIntroA.toConstantVal.levelParams)
     (hfNr : env.find? nonemptyRecName
       = some (.recInfo cvNr mI rP rulesN))
-    (htyNr : cvNr.type.erasePw.eraseNames
-      = nonemptyRecA.toConstantVal.type.erasePw.eraseNames)
+    (htyNr : cvNr.type.erasePw
+      = nonemptyRecA.toConstantVal.type.erasePw)
     (ψ : Name → Nat) (ρ : Nat → V) {A h : V} (hA : A ∈ˢ univ (ψ uN))
     (hh : h ∈ˢ SetTheory.app
       (interp2 V ρ (mp.base2.acval nonemptyName ψ)) A) :
@@ -845,17 +839,17 @@ theorem dneg_eq_nonemptyP (mp : EnvS2PM V μ env)
     {rulesN : List Lech.RecRule}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
-    (htyN : cvN.type.erasePw.eraseNames
-      = nonemptyA.toConstantVal.type.erasePw.eraseNames)
+    (htyN : cvN.type.erasePw
+      = nonemptyA.toConstantVal.type.erasePw)
     (hfNi : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
     (hlpNi : cvNi.levelParams
       = nonemptyIntroA.toConstantVal.levelParams)
-    (htyNi : cvNi.type.erasePw.eraseNames
-      = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames)
+    (htyNi : cvNi.type.erasePw
+      = nonemptyIntroA.toConstantVal.type.erasePw)
     (hfNr : env.find? nonemptyRecName
       = some (.recInfo cvNr mI rP rulesN))
-    (htyNr : cvNr.type.erasePw.eraseNames
-      = nonemptyRecA.toConstantVal.type.erasePw.eraseNames)
+    (htyNr : cvNr.type.erasePw
+      = nonemptyRecA.toConstantVal.type.erasePw)
     (ψ : Name → Nat) (ρ : Nat → V) {A : V} (hA : A ∈ˢ univ (ψ uN)) :
     dnegSpace2 V A
       = SetTheory.app (interp2 V ρ (mp.base2.acval nonemptyName ψ)) A := by
@@ -891,8 +885,8 @@ theorem choice_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   obtain ⟨⟨cvN, capsN, hfN, hlpN, htyN⟩, ⟨cvNi, hfNi, hlpNi, htyNi⟩,
     ⟨cvNr, mI, rP, rulesN, hfNr, hlpNr, htyNr⟩, hApin⟩ :=
     nonempty_shapes hok hn
-  have hApinT : cvA.type.erasePw.eraseNames
-      = choiceA.type.erasePw.eraseNames := by
+  have hApinT : cvA.type.erasePw
+      = choiceA.type.erasePw := by
     simp only [ConstantVal.matchesPin, Bool.and_eq_true,
       beq_iff_eq] at hApin
     exact hApin.2

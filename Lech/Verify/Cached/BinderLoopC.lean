@@ -181,7 +181,7 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
   -- both sides of the erasure
   obtain rfl := ht
   cases t
-  case lam nmN tyN bodyN mbN =>
+  case lam tyN bodyN mbN =>
     dsimp only
     refine SimC.bind_left (abstractRangeM_eff hs₂ hbtd)
       (fun s₅ cur hs₅ hQcur => ?_)
@@ -297,7 +297,7 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     have ht' := ht
     obtain rfl := ht
     cases t
-    case lam nm ty body mb =>
+    case lam ty body mb =>
       dsimp only at hw ⊢
       rw [inferLams_succ_lam]
       have hlamL : (Expr.lam ty body mb).instantiateList
@@ -475,7 +475,7 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
     have ht' := ht
     obtain rfl := ht
     cases t
-    case forallE nm ty body mb =>
+    case forallE ty body mb =>
       dsimp only at hw ⊢
       rw [inferPis_succ_pi]
       have hpiL : (Expr.forallE ty body mb).instantiateList
@@ -1102,7 +1102,7 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
     have ht' := ht
     obtain rfl := ht
     cases t
-    case forallE nm ty body mb =>
+    case forallE ty body mb =>
       dsimp only at hw ⊢
       rw [annotatePis_succ_pi]
       have hpiL : (Expr.forallE ty body mb).instantiateList
@@ -1203,7 +1203,7 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     have ht' := ht
     obtain rfl := ht
     cases t
-    case lam nm ty body mb =>
+    case lam ty body mb =>
       dsimp only at hw ⊢
       rw [annotateLams_succ_lam]
       have hlamL : (Expr.lam ty body mb).instantiateList

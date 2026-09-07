@@ -212,7 +212,7 @@ theorem denote_beta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
 /-! ## Name insensitivity
 
 The standard-axiom pins compare stored types to pinned ones **up to
-binder names** (`ConstantVal.matchesPin` uses `Expr.eraseNames`), so
+binder names** (they are no longer part of an `Expr`), so
 every inhabitation key needs the denotation to ignore exactly what the
 pin ignores.  It does — `denote` reads a binder's name only to build the
 `fvar` it opens with, and an `fvar` denotes to its de Bruijn index.
@@ -289,65 +289,6 @@ decreasing_by
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
   | (simp [Expr.sizeB])
-
-/-- Name erasure only changes what `ErasedEq` ignores.  A duplicate of
-`Lech/Model/StdAxioms.lean`'s lemma of the same name; `V`-free, and
-one more member of the misfiled class named at `EtaFamilyStored`. -/
-theorem erasedEq_of_eraseNames :
-    ∀ {a b : Expr}, a.eraseNames = b.eraseNames → Expr.ErasedEq a b
-  | .bvar _, b, h => by
-    match b, h with
-    | .bvar _, h =>
-      simp only [Expr.eraseNames, Expr.bvar.injEq] at h
-      exact h
-  | .fvar _ tya, b, h => by
-    match b, h with
-    | .fvar _ tyb, h =>
-      simp only [Expr.eraseNames, Expr.fvar.injEq] at h
-      exact h.1
-  | .sort _, b, h => by
-    match b, h with
-    | .sort _, h =>
-      simp only [Expr.eraseNames, Expr.sort.injEq] at h
-      exact h
-  | .const _ _, b, h => by
-    match b, h with
-    | .const _ _, h =>
-      simp only [Expr.eraseNames, Expr.const.injEq] at h
-      exact h
-  | .app fa aa, b, h => by
-    match b, h with
-    | .app fb ab, h =>
-      simp only [Expr.eraseNames, Expr.app.injEq] at h
-      exact ⟨erasedEq_of_eraseNames h.1, erasedEq_of_eraseNames h.2⟩
-  | .lam tya ba ma, b, h => by
-    match b, h with
-    | .lam tyb bb mb, h =>
-      simp only [Expr.eraseNames, Expr.lam.injEq] at h
-      exact ⟨h.2.2.2, erasedEq_of_eraseNames h.2.1,
-        erasedEq_of_eraseNames h.2.2.1⟩
-  | .forallE tya ba ma, b, h => by
-    match b, h with
-    | .forallE tyb bb mb, h =>
-      simp only [Expr.eraseNames, Expr.forallE.injEq] at h
-      exact ⟨h.2.2.2, erasedEq_of_eraseNames h.2.1,
-        erasedEq_of_eraseNames h.2.2.1⟩
-  | .letE tya va ba, b, h => by
-    match b, h with
-    | .letE tyb vb bb, h =>
-      simp only [Expr.eraseNames, Expr.letE.injEq] at h
-      exact ⟨erasedEq_of_eraseNames h.2.1, erasedEq_of_eraseNames h.2.2.1,
-        erasedEq_of_eraseNames h.2.2.2⟩
-  | .lit _, b, h => by
-    match b, h with
-    | .lit _, h =>
-      simp only [Expr.eraseNames, Expr.lit.injEq] at h
-      exact h
-  | .proj _ _ ea, b, h => by
-    match b, h with
-    | .proj _ _ eb, h =>
-      simp only [Expr.eraseNames, Expr.proj.injEq] at h
-      exact ⟨h.1, h.2.1, erasedEq_of_eraseNames h.2.2⟩
 
 /-! ### `pw` transparency (task #161 P5)
 
@@ -426,10 +367,10 @@ types that agree after both erasures — exactly what
 form the pinned-family shape facts (`Verify/StdAxiomPin.lean`) hand to
 their consumers. -/
 theorem denote_pinEq {cval : TConstVal} {env : Env} {φ : Name → Nat}
-    {a b : Expr} (h : a.erasePw.eraseNames = b.erasePw.eraseNames)
+    {a b : Expr} (h : a.erasePw = b.erasePw)
     (d : Nat) : denote cval env φ d a = denote cval env φ d b := by
   rw [← denote_erasePw a d, ← denote_erasePw b d]
-  exact denote_erasedEq (erasedEq_of_eraseNames h) d
+  exact denote_erasedEq (h ▸ Expr.ErasedEq.rfl _) d
 
 /-- A `matchesPin` hit lets a stored type be denoted on the pin. -/
 theorem denote_matchesPin {cval : TConstVal} {env : Env} {φ : Name → Nat}
@@ -438,6 +379,6 @@ theorem denote_matchesPin {cval : TConstVal} {env : Env} {φ : Name → Nat}
     denote cval env φ d cv.type = denote cval env φ d pin.type := by
   simp only [ConstantVal.matchesPin, Bool.and_eq_true, beq_iff_eq] at h
   rw [← denote_erasePw cv.type d, ← denote_erasePw pin.type d]
-  exact denote_erasedEq (erasedEq_of_eraseNames h.2) d
+  exact denote_erasedEq (h.2 ▸ Expr.ErasedEq.rfl _) d
 
 end Lech.TTVerify

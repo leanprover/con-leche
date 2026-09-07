@@ -129,11 +129,11 @@ theorem Name.str_model_ne {n m : Name} (hm : m.isModelSuffix = false) :
   simp [Name.isModelSuffix] at hm
 
 theorem domsMatchAux_inv {g : Nat → Expr → Expr}
-    {bs₁ bs₂ : List (Name × Expr × BinderMeta)} {o₁ o₂ n : Nat}
+    {bs₁ bs₂ : List (Expr × BinderMeta)} {o₁ o₂ n : Nat}
     (h : domsMatchAux g bs₁ bs₂ o₁ o₂ n = true)
-    {i : Nat} (hi : i < n) {b b' : Name × Expr × BinderMeta}
+    {i : Nat} (hi : i < n) {b b' : Expr × BinderMeta}
     (hb : bs₁[o₁ + i]? = some b) (hb' : bs₂[o₂ + i]? = some b') :
-    b.2.1 = g i b'.2.1 := by
+    b.1 = g i b'.1 := by
   have hone := List.all_eq_true.mp h i (List.mem_range.mpr hi)
   rw [hb, hb'] at hone
   exact eq_of_beq hone

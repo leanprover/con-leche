@@ -373,13 +373,13 @@ private theorem fvarLeaves_nil_of_fvarsBelow_zero : ∀ (e : Expr),
 
 /-- Erasure of a cached leaf list (the counterpart of the arena's
 `leavesDen`; the annotation component goes through `eraseC`). -/
-def leavesEr (xs : List (Nat × Name × ExprC)) : List (Nat × Name × Expr) :=
+def leavesEr (xs : List (Nat × ExprC)) : List (Nat × Expr) :=
   xs.map fun l => (l.1, l.2.1, l.2.2)
 
 @[simp] theorem leavesEr_nil : leavesEr [] = [] := rfl
 
 @[simp] theorem leavesEr_cons (idx : Nat) (n : Name) (ty : ExprC)
-    (xs : List (Nat × Name × ExprC)) :
+    (xs : List (Nat × ExprC)) :
     leavesEr ((idx, n, ty) :: xs) = (idx, n, ty) :: leavesEr xs := rfl
 
 /-! ### The `seen`-set walk
@@ -397,19 +397,19 @@ condition is discharged by the constructor's own `sizeF`
 recurrence. -/
 
 /-- The leaf walk's `seen`-set invariant at a gray predicate `G`. -/
-def SeenInv (G : Expr → Prop) (acc : List (Nat × Name × ExprC))
+def SeenInv (G : Expr → Prop) (acc : List (Nat × ExprC))
     (seen : Std.HashMap ExprC Unit) : Prop :=
   ∀ (k : ExprC) (u : Unit), seen[k]? = some u →
     (∀ l ∈ (Expr.fvarLeaves k), l ∈ leavesEr acc) ∨ G k
 
 theorem SeenInv.empty {G : Expr → Prop}
-    {acc : List (Nat × Name × ExprC)} : SeenInv G acc {} := by
+    {acc : List (Nat × ExprC)} : SeenInv G acc {} := by
   intro k u h
   simp at h
 
 /-- Weakening: a bigger accumulator and a bigger gray predicate keep
 the invariant. -/
-theorem SeenInv.mono {G G' : Expr → Prop} {acc acc' : List (Nat × Name × ExprC)}
+theorem SeenInv.mono {G G' : Expr → Prop} {acc acc' : List (Nat × ExprC)}
     {seen : Std.HashMap ExprC Unit} (h : SeenInv G acc seen)
     (hacc : ∀ l, l ∈ leavesEr acc → l ∈ leavesEr acc')
     (hG : ∀ y, G y → G' y) : SeenInv G' acc' seen := by
@@ -421,7 +421,7 @@ theorem SeenInv.mono {G G' : Expr → Prop} {acc acc' : List (Nat × Name × Exp
 /-- Marking the node about to be descended into: it joins the gray
 predicate. -/
 theorem SeenInv.insertGray {G : Expr → Prop}
-    {acc : List (Nat × Name × ExprC)} {seen : Std.HashMap ExprC Unit}
+    {acc : List (Nat × ExprC)} {seen : Std.HashMap ExprC Unit}
     (h : SeenInv G acc seen) (e : ExprC) :
     SeenInv (fun y => G y ∨ y = e) acc (seen.insert e ()) := by
   intro k u hk
@@ -436,7 +436,7 @@ theorem SeenInv.insertGray {G : Expr → Prop}
 /-- …and, once the descent is finished and the node's leaves are in the
 accumulator, it leaves it again. -/
 theorem SeenInv.dropGray {G : Expr → Prop}
-    {acc : List (Nat × Name × ExprC)} {seen : Std.HashMap ExprC Unit}
+    {acc : List (Nat × ExprC)} {seen : Std.HashMap ExprC Unit}
     {e : ExprC} (h : SeenInv (fun y => G y ∨ y = e) acc seen)
     (he : ∀ l ∈ (Expr.fvarLeaves e), l ∈ leavesEr acc) :
     SeenInv G acc seen := by
@@ -452,7 +452,7 @@ theorem SeenInv.dropGray {G : Expr → Prop}
 `Expr.fvarLeaves`), keeps every annotation field-correct, and restores
 the `seen` invariant at the caller's gray predicate. -/
 theorem fvarLeavesGo_spec : ∀ {e : ExprC},
-    ∀ {G : Expr → Prop} {acc : List (Nat × Name × ExprC)}
+    ∀ {G : Expr → Prop} {acc : List (Nat × ExprC)}
       {seen : Std.HashMap ExprC Unit},
       SeenInv G acc seen →
       (∀ y, G y → e.sizeF < y.sizeF) →
@@ -802,12 +802,12 @@ subset walk needs of the base is exactly this pair of facts. -/
 
 /-- A cached base leaf list is a faithful stand-in for an `Expr`-side
 one: field-correct annotations, and the same *set* of erased leaves. -/
-def LeafBase (bl : List (Nat × Name × ExprC))
-    (B' : List (Nat × Name × Expr)) : Prop :=
+def LeafBase (bl : List (Nat × ExprC))
+    (B' : List (Nat × Expr)) : Prop :=
   ∀ l, l ∈ leavesEr bl ↔ l ∈ B'
 
 /-- `leafMem` decides membership in the erased list. -/
-theorem leafMem_iff : ∀ {bl : List (Nat × Name × ExprC)},
+theorem leafMem_iff : ∀ {bl : List (Nat × ExprC)},
     ∀ {idx : Nat} {nm : Name} {ty : ExprC},
       (leafMem bl idx nm ty = true ↔ (idx, nm, ty) ∈ leavesEr bl) := by
   intro bl
@@ -826,8 +826,8 @@ theorem leafMem_iff : ∀ {bl : List (Nat × Name × ExprC)},
     grind
 
 /-- …hence agrees with the `Expr`-side `contains` on a `LeafBase`. -/
-theorem leafMem_spec {bl : List (Nat × Name × ExprC)}
-    {B' : List (Nat × Name × Expr)} (h : LeafBase bl B')
+theorem leafMem_spec {bl : List (Nat × ExprC)}
+    {B' : List (Nat × Expr)} (h : LeafBase bl B')
     {idx : Nat} {nm : Name} {ty : ExprC} :
     leafMem bl idx nm ty = B'.contains (idx, nm, ty) := by
   rw [Bool.eq_iff_iff, List.contains_eq_mem, decide_eq_true_iff,
@@ -847,17 +847,17 @@ theorem fvarLeaves_leafBase {base : ExprC} :
 /-! ### The subset walk -/
 
 /-- The subset walk's memo invariant. -/
-def MemoSubInv (B' : List (Nat × Name × Expr))
+def MemoSubInv (B' : List (Nat × Expr))
     (memo : Std.HashMap ExprC Bool) : Prop :=
   ∀ (e : ExprC) (r : Bool), memo[e]? = some r →
     r = ((Expr.fvarLeaves e).all fun l => B'.contains l)
 
-theorem MemoSubInv.empty {B' : List (Nat × Name × Expr)} :
+theorem MemoSubInv.empty {B' : List (Nat × Expr)} :
     MemoSubInv B' {} := by
   intro e r h
   simp at h
 
-theorem MemoSubInv.insert {B' : List (Nat × Name × Expr)}
+theorem MemoSubInv.insert {B' : List (Nat × Expr)}
     {memo : Std.HashMap ExprC Bool} (hm : MemoSubInv B' memo) {e : ExprC}
     {r : Bool}
     (heq : r = ((Expr.fvarLeaves e).all fun l => B'.contains l)) :
@@ -872,8 +872,8 @@ theorem MemoSubInv.insert {B' : List (Nat × Name × Expr)}
   · exact hm e' r' hk
 
 /-- **The subset walk decides the `Expr`-level leaf-subset boolean.** -/
-theorem leavesSubGo_spec {bl : List (Nat × Name × ExprC)}
-    {B' : List (Nat × Name × Expr)} (hbl : LeafBase bl B') :
+theorem leavesSubGo_spec {bl : List (Nat × ExprC)}
+    {B' : List (Nat × Expr)} (hbl : LeafBase bl B') :
     ∀ {e : ExprC},
     ∀ {memo : Std.HashMap ExprC Bool}, MemoSubInv B' memo →
       (leavesSubGo bl memo e).1

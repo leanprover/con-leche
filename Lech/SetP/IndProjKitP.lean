@@ -78,7 +78,7 @@ blind to an opener's name and annotation, so any same-index opener
 family produces the same tower. -/
 theorem stripLams_denotePTele :
     ∀ (k : Nat) {e : Expr} {j : Nat}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr}
+      {bs : List (Expr × BinderMeta)} {body : Expr}
       {E : AVExpr},
       e.stripLams k = some (bs, body) →
       denoteP acval env φ j e = some E →
@@ -86,7 +86,7 @@ theorem stripLams_denotePTele :
         LamTeleP k E Γ C ∧ Γ.length = k ∧
         denoteP acval env φ (j + k)
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
-        ∀ (i0 : Nat) (b : Name × Expr × BinderMeta), bs[i0]? = some b →
+        ∀ (i0 : Nat) (b : Expr × BinderMeta), bs[i0]? = some b →
           denoteP acval env φ (j + i0)
             (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
             some (Γ.getD (k - 1 - i0) default) := by
@@ -217,20 +217,20 @@ reading-level form is what a *renamed* domain pin needs — the
 projection statement's telescope is the constructor's renamed, not
 equal to it. -/
 theorem towerCtxEqDP {k : Nat} {Γβ Γc : List AVExpr}
-    {rbinders cbinders : List (Name × Expr × BinderMeta)}
+    {rbinders cbinders : List (Expr × BinderMeta)}
     (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
     (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
-    (hβdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hβdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       rbinders[i0]? = some b →
       denoteP acval env φ (0 + i0)
         (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
         some (Γβ.getD (k - 1 - i0) default))
-    (hcdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hcdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       cbinders[i0]? = some b →
       denoteP acval env φ (0 + i0)
         (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
         some (Γc.getD (k - 1 - i0) default))
-    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
       cbinders[i0]? = some b' →
       denoteP acval env φ (0 + i0)
@@ -264,20 +264,20 @@ theorem towerCtxEqDP {k : Nat} {Γβ Γc : List AVExpr}
 /-- **Two canonically-opened towers with pointwise-equal raw domains
 have the same read context** (`towerCtxEq`). -/
 theorem towerCtxEqP {k : Nat} {Γβ Γc : List AVExpr}
-    {rbinders cbinders : List (Name × Expr × BinderMeta)}
+    {rbinders cbinders : List (Expr × BinderMeta)}
     (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
     (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
-    (hβdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hβdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       rbinders[i0]? = some b →
       denoteP acval env φ (0 + i0)
         (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
         some (Γβ.getD (k - 1 - i0) default))
-    (hcdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hcdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       cbinders[i0]? = some b →
       denoteP acval env φ (0 + i0)
         (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
         some (Γc.getD (k - 1 - i0) default))
-    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
       cbinders[i0]? = some b' → b.2.1 = b'.2.1) :
     Γβ = Γc :=

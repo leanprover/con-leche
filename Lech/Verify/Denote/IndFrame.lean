@@ -964,7 +964,7 @@ theorem instPisAt_fvar_residual_arity :
     ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
       Expr.instPisAt sp ty = some (ds, rs) →
       (∀ x ∈ sp, ∃ i nm t, x = Expr.fvar i t) →
-      ∀ {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      ∀ {bs : List (Expr × BinderMeta)} {body : Expr},
         ty.stripPis sp.length = some (bs, body) →
         rs.getAppArgs.length = body.getAppArgs.length := by
   intro sp
@@ -974,7 +974,7 @@ theorem instPisAt_fvar_residual_arity :
     simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
     have hstrip' : (some ([], ty) :
-        Option (List (Name × Expr × BinderMeta) × Expr)) = some (bs, body) :=
+        Option (List (Expr × BinderMeta) × Expr)) = some (bs, body) :=
       hstrip
     simp only [Option.some.injEq, Prod.mk.injEq] at hstrip'
     rw [hstrip'.2]
@@ -1058,7 +1058,7 @@ nested runs' spines hold pin instantiations, not variables). -/
 theorem instPisAt_residual_arity_const {c : Name} {cus : List Level} :
     ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
       Expr.instPisAt sp ty = some (ds, rs) →
-      ∀ {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      ∀ {bs : List (Expr × BinderMeta)} {body : Expr},
         ty.stripPis sp.length = some (bs, body) →
         body.getAppFn = .const c cus →
         rs.getAppArgs.length = body.getAppArgs.length := by
@@ -1069,7 +1069,7 @@ theorem instPisAt_residual_arity_const {c : Name} {cus : List Level} :
     simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
     have hstrip' : (some ([], ty) :
-        Option (List (Name × Expr × BinderMeta) × Expr)) = some (bs, body) :=
+        Option (List (Expr × BinderMeta) × Expr)) = some (bs, body) :=
       hstrip
     simp only [Option.some.injEq, Prod.mk.injEq] at hstrip'
     rw [hstrip'.2]
@@ -1601,14 +1601,14 @@ opener family produces the same values. -/
 theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
     {ψ : Name → Nat} :
     ∀ (k : Nat) {e : Expr} {j : Nat}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr} {V : VExpr},
+      {bs : List (Expr × BinderMeta)} {body : Expr} {V : VExpr},
       e.stripLams k = some (bs, body) →
       denote cval env ψ j e = some V →
       ∃ (Γ : List VExpr) (C : VExpr),
         V = lamCtx Γ C ∧ Γ.length = k ∧
         denote cval env ψ (j + k)
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
-        ∀ (i0 : Nat) (b : Name × Expr × BinderMeta), bs[i0]? = some b →
+        ∀ (i0 : Nat) (b : Expr × BinderMeta), bs[i0]? = some b →
           denote cval env ψ (j + i0)
             (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
             some (Γ.getD (k - 1 - i0) default) := by
@@ -1792,14 +1792,14 @@ opener family produces the same values. -/
 theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
     {ψ : Name → Nat} :
     ∀ (k : Nat) {e : Expr} {j : Nat}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr} {V : VExpr},
+      {bs : List (Expr × BinderMeta)} {body : Expr} {V : VExpr},
       e.stripPis k = some (bs, body) →
       denote cval env ψ j e = some V →
       ∃ (Γ : List VExpr) (C : VExpr),
         PiTele k V Γ C ∧ Γ.length = k ∧
         denote cval env ψ (j + k)
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
-        ∀ (i0 : Nat) (b : Name × Expr × BinderMeta), bs[i0]? = some b →
+        ∀ (i0 : Nat) (b : Expr × BinderMeta), bs[i0]? = some b →
           denote cval env ψ (j + i0)
             (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
             some (Γ.getD (k - 1 - i0) default) := by
@@ -1954,20 +1954,20 @@ telescope is the constructor's renamed, not equal to it — task #148,
 T5 c4); `towerCtxEq` is the syntactic corollary. -/
 theorem towerCtxEqD {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     {k : Nat} {Γβ Γc : List VExpr}
-    {rbinders cbinders : List (Name × Expr × BinderMeta)}
+    {rbinders cbinders : List (Expr × BinderMeta)}
     (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
     (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
-    (hβdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hβdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       rbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
         (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
         some (Γβ.getD (k - 1 - i0) default))
-    (hcdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hcdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       cbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
         (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
         some (Γc.getD (k - 1 - i0) default))
-    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
       cbinders[i0]? = some b' →
       denote cval env ψ (0 + i0)
@@ -2002,20 +2002,20 @@ theorem towerCtxEqD {cval : TConstVal} {env : Env} {ψ : Name → Nat}
 have the same denoted context (sealed for the same reason). -/
 theorem towerCtxEq {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     {k : Nat} {Γβ Γc : List VExpr}
-    {rbinders cbinders : List (Name × Expr × BinderMeta)}
+    {rbinders cbinders : List (Expr × BinderMeta)}
     (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
     (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
-    (hβdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hβdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       rbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
         (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
         some (Γβ.getD (k - 1 - i0) default))
-    (hcdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hcdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       cbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
         (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
         some (Γc.getD (k - 1 - i0) default))
-    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
       cbinders[i0]? = some b' → b.2.1 = b'.2.1) :
     Γβ = Γc :=
@@ -2397,7 +2397,7 @@ theorem looseBVarsBounded_renameConsts {f : Name → Name} :
 /-- `stripPis` commutes with constant renaming (renaming touches no
 binder structure). -/
 theorem stripPis_renameConsts {f : Name → Name} :
-    ∀ (n : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr},
       e.stripPis n = some (bs, body) →
       (e.renameConsts f).stripPis n =

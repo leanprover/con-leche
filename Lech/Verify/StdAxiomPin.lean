@@ -11,7 +11,7 @@ shared tier by task #123's criterion, and both soundness routes read
 them.  Relocated verbatim from `Lech/TTVerify/StdAxiomKey.lean`.
 
 **Task #161 P5 — the shape statements track the pin exactly.**  Six
-conclusions here read `cv.type.erasePw.eraseNames = pinA.type.erasePw
+conclusions here read `cv.type.erasePw = pinA.type.erasePw
 .eraseNames` where they used to read `cv.type.eraseNames =
 pinA.type.eraseNames`.  That is not a weakening of what is *proved*:
 `ConstantVal.matchesPin` itself now compares through `Expr.erasePw`
@@ -34,14 +34,14 @@ theorem iff_shapes {env : Env} {cvA : ConstantVal}
     env.find? eqName = some eqA ∧
     (∃ cvI caps, env.find? iffName = some (.indInfo cvI caps) ∧
       cvI.levelParams = [] ∧
-      cvI.type.erasePw.eraseNames = iffA.toConstantVal.type.erasePw.eraseNames) ∧
+      cvI.type.erasePw = iffA.toConstantVal.type.erasePw) ∧
     (∃ cvIi, env.find? iffIntroName = some (.ctorInfo cvIi 2 2) ∧
       cvIi.levelParams = [] ∧
-      cvIi.type.erasePw.eraseNames = iffIntroA.toConstantVal.type.erasePw.eraseNames) ∧
+      cvIi.type.erasePw = iffIntroA.toConstantVal.type.erasePw) ∧
     (∃ cvIr mI rP rules,
       env.find? iffRecName = some (.recInfo cvIr mI rP rules) ∧
       cvIr.levelParams = iffRecA.toConstantVal.levelParams ∧
-      cvIr.type.erasePw.eraseNames = iffRecA.toConstantVal.type.erasePw.eraseNames) ∧
+      cvIr.type.erasePw = iffRecA.toConstantVal.type.erasePw) ∧
     ConstantVal.matchesPin cvA propextA = true := by
   rw [stdAxiomOk, if_pos hp] at h
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
@@ -91,14 +91,14 @@ theorem nonempty_shapes {env : Env} {cvA : ConstantVal}
     (h : stdAxiomOk env cvA = true) (hc : cvA.name = choiceName) :
     (∃ cvN caps, env.find? nonemptyName = some (.indInfo cvN caps) ∧
       cvN.levelParams = nonemptyA.toConstantVal.levelParams ∧
-      cvN.type.erasePw.eraseNames = nonemptyA.toConstantVal.type.erasePw.eraseNames) ∧
+      cvN.type.erasePw = nonemptyA.toConstantVal.type.erasePw) ∧
     (∃ cvNi, env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1) ∧
       cvNi.levelParams = nonemptyIntroA.toConstantVal.levelParams ∧
-      cvNi.type.erasePw.eraseNames = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames) ∧
+      cvNi.type.erasePw = nonemptyIntroA.toConstantVal.type.erasePw) ∧
     (∃ cvNr mI rP rules,
       env.find? nonemptyRecName = some (.recInfo cvNr mI rP rules) ∧
       cvNr.levelParams = nonemptyRecA.toConstantVal.levelParams ∧
-      cvNr.type.erasePw.eraseNames = nonemptyRecA.toConstantVal.type.erasePw.eraseNames) ∧
+      cvNr.type.erasePw = nonemptyRecA.toConstantVal.type.erasePw) ∧
     ConstantVal.matchesPin cvA choiceA = true := by
   rw [stdAxiomOk, if_neg (by rw [hc]; decide), if_pos hc] at h
   simp only [Bool.and_eq_true] at h

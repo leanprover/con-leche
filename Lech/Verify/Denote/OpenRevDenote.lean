@@ -297,17 +297,17 @@ theorem Expr.fvarsBelow_of_fvarLeaves :
   induction e <;> intro n h <;>
     simp only [Expr.fvarsBelow, Expr.fvarLeaves] at h ⊢ <;>
     try trivial
-  case fvar idx nm ty ih => exact h (idx, nm, ty) List.mem_cons_self
+  case fvar idx ty ih => exact h (idx, nm, ty) List.mem_cons_self
   case app f a ihf iha =>
     exact ⟨ihf fun l hl => h l (List.mem_append_left _ hl),
       iha fun l hl => h l (List.mem_append_right _ hl)⟩
-  case lam nm ty b m ihty ihb =>
+  case lam ty b m ihty ihb =>
     exact ⟨ihty fun l hl => h l (List.mem_append_left _ hl),
       ihb fun l hl => h l (List.mem_append_right _ hl)⟩
-  case forallE nm ty b m ihty ihb =>
+  case forallE ty b m ihty ihb =>
     exact ⟨ihty fun l hl => h l (List.mem_append_left _ hl),
       ihb fun l hl => h l (List.mem_append_right _ hl)⟩
-  case letE nm ty v b ihty ihv ihb =>
+  case letE ty v b ihty ihv ihb =>
     refine ⟨ihty fun l hl => h l ?_, ihv fun l hl => h l ?_,
       ihb fun l hl => h l ?_⟩
     · exact List.mem_append_left _ (List.mem_append_left _ hl)

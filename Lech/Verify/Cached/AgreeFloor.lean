@@ -429,7 +429,7 @@ theorem constsResolveF_skel {fe : FEnv} {sk : List InstallSkel}
 /-- `directNonRecF` at the skeleton level. -/
 def directNonRecSk (sk : List InstallSkel) (p : DirectParts) : Bool :=
   match p.cvC.type.stripPis (p.nP + p.nF) with
-  | some (cbs, _) => cbs.all fun b => constsResolveSk sk b.2.1
+  | some (cbs, _) => cbs.all fun b => constsResolveSk sk b.1
   | none => false
 
 theorem directNonRecF_skel {fe : FEnv} {sk : List InstallSkel}
@@ -459,7 +459,7 @@ per constructor). -/
 def directSumNonRecSk (sk : List InstallSkel) (p : DirectSumParts) : Bool :=
   p.ctors.all fun c =>
     match c.1.type.stripPis (p.nP + c.2) with
-    | some (cbs, _) => cbs.all fun b => constsResolveSk sk b.2.1
+    | some (cbs, _) => cbs.all fun b => constsResolveSk sk b.1
     | none => false
 
 theorem directSumNonRecF_skel {fe : FEnv} {sk : List InstallSkel}

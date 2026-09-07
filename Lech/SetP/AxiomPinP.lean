@@ -28,7 +28,7 @@ supply is the leaf `A` with
 
 `hmemA` speaks about the reading of `type'`, the *stored* annotated
 type.  Every branch key knows the type only through `matchesPin`,
-which compares `erasePw ∘ eraseNames` — so the pin fixes the stored
+which compares `erasePw` — so the pin fixes the stored
 type **up to binder names and binder `pw` data**.
 
 At v1 that costs nothing: `denote` reads neither, so
@@ -163,7 +163,7 @@ theorem axiomSkipP (mp : EnvS2PM V μ env) :
 /-- **The `trustCompiler` branch, discharged.**
 
 The pin fixes the axiom's type to the stored `True` *on the nose* —
-`ConstantVal.matchesPin` compares through `erasePw ∘ eraseNames`, and
+`ConstantVal.matchesPin` compares through `erasePw`, and
 neither erasure moves a `.const` — so this is the one pinned axiom
 whose `denoteP` reading is computable from the pin alone (see the
 module docstring's WALL).  The leaf is the stored `True.intro`'s
@@ -212,14 +212,14 @@ theorem axiomTrustCompilerP (hμ : μ.verifiedChecks = true)
       | 0, 0, hTi =>
         simp only [ConstantVal.matchesPin, Bool.and_eq_true,
           decide_eq_true_eq, beq_iff_eq] at hTi
-        exact ⟨hTi.1.2, erasePw_const_invS (eraseNames_const_invS hTi.2)⟩
+        exact ⟨hTi.1.2, erasePw_const_invS hTi.2⟩
     | _ => exact nomatch hTi
   -- **the pin bites on the nose**: a `.const` has no binder, so
   -- `erasePw` forgives nothing here
   have htyA : type' = .const Lech.trueName [] := by
     simp only [ConstantVal.matchesPin, Bool.and_eq_true,
       decide_eq_true_eq, beq_iff_eq] at hA
-    exact erasePw_const_invS (eraseNames_const_invS hA.2)
+    exact erasePw_const_invS hA.2
   have hnameTi : ciTi.name = Lech.trueIntroName := Env.find?_name hfTi
   -- the leaf: the stored `True.intro`'s *annotated* valuation
   refine harvestAxiomP (V := V) hμ mp hcv

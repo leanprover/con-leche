@@ -88,7 +88,7 @@ theorem inferTypeCore_mkAppN_fn_inv {env : Env} {F d : Nat} :
 `Sort s` — the sort carries no bound variables, so the per-argument
 instantiations leave it alone. -/
 theorem inferTypeCore_mkAppN_sort {env : Env} {F d : Nat} :
-    ∀ (as : List Expr) {f ty : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (as : List Expr) {f ty : Expr} {bs : List (Expr × BinderMeta)}
       {s : Level} {t : Expr},
       inferTypeCore mode env F d f = .ok ty →
       ty.stripPis as.length = some (bs, .sort s) →
@@ -288,7 +288,7 @@ theorem openPisAtFvars_add :
 /-- Opening a telescope whose stripped body is a sort reaches that
 sort (sorts carry no bound variables). -/
 theorem openPisAtFvars_of_stripPis_sort :
-    ∀ (n : Nat) {e : Expr} (d : Nat) {bs : List (Name × Expr × BinderMeta)}
+    ∀ (n : Nat) {e : Expr} (d : Nat) {bs : List (Expr × BinderMeta)}
       {s : Level},
       e.stripPis n = some (bs, .sort s) →
       ∃ fvs, openPisAtFvars n e d = some (fvs, .sort s)
@@ -325,10 +325,10 @@ binder to the opened variable's type. -/
 theorem openPisAtFvars_dom_pred (P : Expr → Prop)
     (hP : ∀ (e v : Expr) (j : Nat), P e → P (e.instantiate1 v j)) :
     ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      {bs : List (Expr × BinderMeta)} {body : Expr},
       openPisAtFvars n e d = some (fvs, o) →
       e.stripPis n = some (bs, body) →
-      ∀ (i : Nat) (b : Name × Expr × BinderMeta) (x : Expr),
+      ∀ (i : Nat) (b : Expr × BinderMeta) (x : Expr),
         bs[i]? = some b → fvs[i]? = some x → P b.2.1 → P x.fvarTypeD
   | 0, e, d, fvs, o, bs, body, hop, hst, i, b, x, hb, _, _ => by
     simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hst

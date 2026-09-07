@@ -296,7 +296,7 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
   have hldlen : ldomsL.length = K := by
     rw [instLamsAt_length _ hinstLam, hPlen]
   -- the frame's own bounds
-  have hPlt : ∀ l : Nat × Name × Expr,
+  have hPlt : ∀ l : Nat × Expr,
       Expr.fvar l.1 l.2.2 ∈ pfvs → l.1 < K := by
     intro l hl
     have hw := hPws _ hl

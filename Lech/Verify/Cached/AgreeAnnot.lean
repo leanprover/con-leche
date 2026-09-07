@@ -56,9 +56,9 @@ def ExprC.erasePwC : ExprC → ExprC
   | .sort u => ExprC.mkSort u
   | .const n us => ExprC.mkConst n us
   | .app f a => ExprC.mkApp (erasePwC f) (erasePwC a)
-  | .lam ty b m =>
+  | .lam ty b _m =>
     ExprC.mkLam (erasePwC ty) (erasePwC b) ⟨.never⟩
-  | .forallE ty b m =>
+  | .forallE ty b _m =>
     ExprC.mkForallE (erasePwC ty) (erasePwC b) ⟨.never⟩
   | .letE ty v b =>
     ExprC.mkLetE (erasePwC ty) (erasePwC v) (erasePwC b)
@@ -73,13 +73,6 @@ theorem ExprC.eraseC_erasePwC (e : ExprC) :
   induction e <;>
     simp [ExprC.erasePwC, ExprC, Expr.erasePw, *]
 
-/-- The write touches the `pw` field and nothing else. -/
-theorem annotBinderMetaI_bi (pw? : Option PropWhen) (mb : BinderMeta) :
-    (annotBinderMetaI pw? mb).bi = mb.bi := by
-  cases pw? with
-  | none => rfl
-  | some p => by_cases h : pwWritten mb.pw <;> simp [annotBinderMetaI, h]
-
 /-- **T2b, the rebuild loop.**  `annotateBindersOutI`'s output does not
 depend on the datum written: two runs whose inputs agree modulo
 `erasePwC` agree modulo `erasePwC`, whatever `pw?` each carries.
@@ -88,11 +81,10 @@ The hypothesis on `mk` is discharged for the two instantiations the
 annotation pass uses (`.forallE` and `.lam`) by
 `forallE_erasePwC` / `lam_erasePwC` below. -/
 theorem annotateBindersOutI_erasePwC
-    (mk : Name → ExprC → ExprC → BinderMeta → ExprC)
-    (hmk : ∀ n ty b₁ b₂ m₁ m₂, ExprC.erasePwC b₁ = ExprC.erasePwC b₂ →
-      m₁.bi = m₂.bi →
-      ExprC.erasePwC (mk n ty b₁ m₁)
-        = ExprC.erasePwC (mk n ty b₂ m₂))
+    (mk : ExprC → ExprC → BinderMeta → ExprC)
+    (hmk : ∀ ty b₁ b₂ m₁ m₂, ExprC.erasePwC b₁ = ExprC.erasePwC b₂ →
+      ExprC.erasePwC (mk ty b₁ m₁)
+        = ExprC.erasePwC (mk ty b₂ m₂))
     (d : Nat) :
     ∀ (stk : List AnnotBinderEntry) (pw? pw?' : Option PropWhen) (j : Nat)
       (cur cur' : ExprC) (s s' : CState),
@@ -103,30 +95,27 @@ theorem annotateBindersOutI_erasePwC
   | [], _, _, _, cur, cur', _, _, hcur => by
       show Except.ok (ExprC.erasePwC cur) = Except.ok (ExprC.erasePwC cur')
       rw [hcur]
-  | (n, ty', mb) :: rest, pw?, pw?', j, cur, cur', s, s', hcur => by
+  | (ty', mb) :: rest, pw?, pw?', j, cur, cur', s, s', hcur => by
       show (annotateBindersOutI mk d _ rest (j - 1) _ s).map _
         = (annotateBindersOutI mk d _ rest (j - 1) _ s').map _
       exact annotateBindersOutI_erasePwC mk hmk d rest _ _ (j - 1) _ _ s s'
-        (hmk n _ cur cur' _ _ hcur
-          ((annotBinderMetaI_bi pw? mb).trans (annotBinderMetaI_bi pw?' mb).symm))
+        (hmk _ cur cur' _ _ hcur)
 
-theorem forallE_erasePwC (n : Name) (ty b₁ b₂ : ExprC)
-    (m₁ m₂ : BinderMeta) (hb : ExprC.erasePwC b₁ = ExprC.erasePwC b₂)
-    (hm : m₁.bi = m₂.bi) :
+theorem forallE_erasePwC (ty b₁ b₂ : ExprC)
+    (m₁ m₂ : BinderMeta) (hb : ExprC.erasePwC b₁ = ExprC.erasePwC b₂) :
     ExprC.erasePwC (.forallE ty b₁ m₁)
       = ExprC.erasePwC (.forallE ty b₂ m₂) := by
   show ExprC.mkForallE _ (ExprC.erasePwC b₁) ⟨.never⟩
     = ExprC.mkForallE _ (ExprC.erasePwC b₂) ⟨.never⟩
-  rw [hb, hm]
+  rw [hb]
 
-theorem lam_erasePwC (n : Name) (ty b₁ b₂ : ExprC)
-    (m₁ m₂ : BinderMeta) (hb : ExprC.erasePwC b₁ = ExprC.erasePwC b₂)
-    (hm : m₁.bi = m₂.bi) :
+theorem lam_erasePwC (ty b₁ b₂ : ExprC)
+    (m₁ m₂ : BinderMeta) (hb : ExprC.erasePwC b₁ = ExprC.erasePwC b₂) :
     ExprC.erasePwC (.lam ty b₁ m₁)
       = ExprC.erasePwC (.lam ty b₂ m₂) := by
   show ExprC.mkLam _ (ExprC.erasePwC b₁) ⟨.never⟩
     = ExprC.mkLam _ (ExprC.erasePwC b₂) ⟨.never⟩
-  rw [hb, hm]
+  rw [hb]
 
 /-! ### T2b at the two telescope leaves
 

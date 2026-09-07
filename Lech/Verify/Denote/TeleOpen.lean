@@ -337,7 +337,7 @@ openers — *exactly*, annotations included (the ErasedEq form is
 equality). -/
 theorem openPisAtFvars_instSeq :
     ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr}
-      {bs : List (Name × Expr × BinderMeta)} {body₀ : Expr},
+      {bs : List (Expr × BinderMeta)} {body₀ : Expr},
       openPisAtFvars k e d = some (fvs, body) →
       e.stripPis k = some (bs, body₀) →
       body = Expr.instSeq fvs (k - 1) body₀ := by
@@ -424,7 +424,7 @@ the strip-form body; the bottom consumes the opened form; the pinned
 spine computes through `Expr.instSeq` at the openers. -/
 theorem projStmtParts {sty : Expr} {nP nF i : Nat}
     {fvsO : List Expr} {sbodyO : Expr}
-    {sbinders : List (Name × Expr × BinderMeta)}
+    {sbinders : List (Expr × BinderMeta)}
     {tySlot : Expr} {ℓA : Level} {Pm Cm : Name}
     {lpsE cusE : List Level}
     (hilt : i < nF)

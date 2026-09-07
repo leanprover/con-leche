@@ -58,8 +58,8 @@ which is precisely the freedom the bit lemma below removes
 (`propext_shapeS`'s pattern at a longer spine). -/
 theorem ofReduce_shapeS {n : Name} {type' : Expr}
     (hn : n = Lech.ofReduceNatName ∨ n = Lech.ofReduceBoolName)
-    (h : type'.erasePw.eraseNames
-      = (Lech.ofReducePinA n).type.erasePw.eraseNames) :
+    (h : type'.erasePw
+      = (Lech.ofReducePinA n).type.erasePw) :
     ∃ n₁ n₂ n₃ m₁ m₂ m₃,
       type' = .forallE
         (.const (Lech.reduceElemName (Lech.ofReduceOp n)) [])
@@ -76,7 +76,7 @@ theorem ofReduce_shapeS {n : Name} {type' : Expr}
                   (Lech.ofReduceOp n)) []))
               (.bvar 2)) (.bvar 1)) m₃) m₂) m₁ := by
   rw [Lech.TTVerify.ofReducePin_type hn] at h
-  simp only [Expr.mkAppN, Expr.erasePw, Expr.eraseNames] at h
+  simp only [Expr.mkAppN, Expr.erasePw] at h
   obtain ⟨n₁, ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_const_invS hty₁
   obtain ⟨n₂, ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
@@ -167,8 +167,8 @@ theorem ofReduce_gatesS {cvA : ConstantVal}
         = some (.axiomInfo cvR) ∧
       ConstantVal.matchesPin cvR
         (Lech.reduceOpCvA (Lech.ofReduceOp cvA.name)) = true) ∧
-    cvA.type.erasePw.eraseNames
-      = (Lech.ofReducePinA cvA.name).type.erasePw.eraseNames := by
+    cvA.type.erasePw
+      = (Lech.ofReducePinA cvA.name).type.erasePw := by
   simp only [Lech.ofReduceAxOk, Bool.and_eq_true,
     decide_eq_true_eq] at hok
   obtain ⟨⟨⟨hEq, helem⟩, hstored⟩, hpin⟩ := hok

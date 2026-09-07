@@ -35,7 +35,7 @@ open Expr
 theorem directMinorTyR_unfold {C : Name} {lps : List Name} {nP nF o : Nat} {pw : PropWhen}
     {cty mty : Expr} {recIdx : List Nat}
     (h : directMinorTyR C lps nP nF o pw cty recIdx = some mty) :
-    ∃ (cbs fbs : List (Name × Expr × BinderMeta)) (crest0 res : Expr),
+    ∃ (cbs fbs : List (Expr × BinderMeta)) (crest0 res : Expr),
       cty.stripPis nP = some (cbs, crest0) ∧
       crest0.stripPis nF = some (fbs, res) ∧
       Expr.replacePisPw pw nF (crest0.liftLooseBVars o 0)
@@ -92,7 +92,7 @@ with the recursive minors). -/
 theorem directRecTyR_unfold {T : Name} {lps : List Name} {elim : Name} {large : Bool}
     {nP nIdx : Nat} {tty recTy : Expr} {ctors : List (Name × Nat × Expr × List Nat)}
     (h : directRecTyR T lps elim large nP nIdx tty ctors = some recTy) :
-    ∃ (tbs : List (Name × Expr × BinderMeta)) (itele motiveTy major minors : Expr),
+    ∃ (tbs : List (Expr × BinderMeta)) (itele motiveTy major minors : Expr),
       tty.stripPis nP = some (tbs, itele) ∧
       directMotiveTyI T lps nP nIdx (directElimLevel elim large) itele = some motiveTy ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nIdx
@@ -116,7 +116,7 @@ theorem directRecRhsR_unfold {T : Name} {lps : List Name} {elim : Name} {large :
     {recC : Name} {rlvls : List Level}
     (h : directRecRhsR T lps elim large nP nIdx tty ctors recC rlvls j = some rhs) :
     ∃ (C : Name) (nF : Nat) (cty : Expr) (recIdx : List Nat)
-      (tbs cbs : List (Name × Expr × BinderMeta))
+      (tbs cbs : List (Expr × BinderMeta))
       (itele motiveTy crest0 inner minors : Expr),
       ctors[j]? = some (C, nF, cty, recIdx) ∧
       tty.stripPis nP = some (tbs, itele) ∧

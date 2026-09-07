@@ -183,10 +183,10 @@ theorem PiDomsRenEqT.instantiate1 {f : Name → Name} {a₁ a₂ : Expr}
 /-- Pointwise domain relatedness assembles the prefix relation. -/
 theorem PiDomsRenEqT.of_pointwise {f : Name → Name} :
     ∀ (k : Nat) {e₁ e₂ : Expr}
-      {bs₁ bs₂ : List (Name × Expr × BinderMeta)} {body₁ body₂ : Expr},
+      {bs₁ bs₂ : List (Expr × BinderMeta)} {body₁ body₂ : Expr},
       e₁.stripPis k = some (bs₁, body₁) →
       e₂.stripPis k = some (bs₂, body₂) →
-      (∀ (i : Nat) (b₁ b₂ : Name × Expr × BinderMeta),
+      (∀ (i : Nat) (b₁ b₂ : Expr × BinderMeta),
         bs₁[i]? = some b₁ → bs₂[i]? = some b₂ → RenEqT f b₁.2.1 b₂.2.1) →
       PiDomsRenEqT f k e₁ e₂ := by
   intro k

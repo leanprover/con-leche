@@ -325,7 +325,7 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
       rhsA.constsResolve env' = true ∧
       (∃ rbinders,
         rhsA.stripLams (nP + nF) = some (rbinders, .bvar (nF - 1 - i)) ∧
-        ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta), i0 < nP + nF →
+        ∀ (i0 : Nat) (b b' : Expr × BinderMeta), i0 < nP + nF →
           rbinders[i0]? = some b → cbinders[i0]? = some b' →
           b.2.1 = b'.2.1) ∧
       (∃ t', inferTypeCore μ env' F 0 rhsA = .ok t') ∧
@@ -333,7 +333,7 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
         env'.find? ((projModelName T i).str "iota")
           = some (.thmInfo tcv tval) ∧
         tcv.levelParams = lps ∧
-        (∃ (sbinders : List (Name × Expr × BinderMeta)) (ℓA : Level)
+        (∃ (sbinders : List (Expr × BinderMeta)) (ℓA : Level)
             (tySlot : Expr),
           tcv.type.stripPis (nP + nF) = some (sbinders,
             .app (.app (.app (.const eqName [ℓA]) tySlot)
@@ -349,7 +349,7 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
                     ((List.range nF).map fun k =>
                       Expr.bvar (nF - 1 - k)))])))
               (.bvar (nF - 1 - i))) ∧
-          ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta), i0 < nP + nF →
+          ∀ (i0 : Nat) (b b' : Expr × BinderMeta), i0 < nP + nF →
             sbinders[i0]? = some b → cbinders[i0]? = some b' →
             b.2.1 = b'.2.1.renameConsts (projFwd T ctorName nF)) ∧
         ∃ fvsI sbodyO,

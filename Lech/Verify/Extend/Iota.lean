@@ -813,7 +813,7 @@ side was annotated). -/
 def RuleChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Name)
     (cvA : ConstantVal) (mI rP j : Nat) (r : RecRule) : Prop :=
   ∃ (cvj : ConstantVal) (cnP cnF : Nat) (raw rhsTy : Expr)
-    (rbinders : List (Name × Expr × BinderMeta)) (rbody : Expr),
+    (rbinders : List (Expr × BinderMeta)) (rbody : Expr),
     env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) ∧
     RecRule.nfields r = cnF ∧
     RecRule.ctorParams r = cnP ∧
@@ -1056,7 +1056,7 @@ def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
   (caps.eta = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
     (hmcvmT : ReducibilityHint)
-    (sbinders tbindersM : List (Name × Expr × BinderMeta))
+    (sbinders tbindersM : List (Expr × BinderMeta))
     (sbody tbodyM tySlot : Expr) (ℓA : Level),
     env'.find? ((T.str "_model").str "eta") = some (.thmInfo tcv tval) ∧
     tcv.levelParams = lps ∧
@@ -1070,7 +1070,7 @@ def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
     env'.find? eqName = some eqA ∧
     tcv.type.stripPis (caps.etaParams + 1) = some (sbinders, sbody) ∧
     cvmT.type.stripPis caps.etaParams = some (tbindersM, tbodyM) ∧
-    (∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < caps.etaParams →
+    (∀ (k : Nat) (b b' : Expr × BinderMeta), k < caps.etaParams →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
       b.2.1 = b'.2.1) ∧
     (∃ nx mx, sbinders[caps.etaParams]? = some (nx,
@@ -1095,7 +1095,7 @@ def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
   (caps.unitlike = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
     (hmcvmT : ReducibilityHint)
-    (sbinders tbindersM : List (Name × Expr × BinderMeta))
+    (sbinders tbindersM : List (Expr × BinderMeta))
     (sbody tbodyM tySlot : Expr) (ℓA : Level),
     env'.find? ((T.str "_model").str "unitlike") =
       some (.thmInfo tcv tval) ∧
@@ -1105,7 +1105,7 @@ def EtaPins (mode : CheckMode) (env' : Env) (T : Name) (lps : List Name)
     env'.find? eqName = some eqA ∧
     tcv.type.stripPis (caps.unitParams + 2) = some (sbinders, sbody) ∧
     cvmT.type.stripPis caps.unitParams = some (tbindersM, tbodyM) ∧
-    (∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+    (∀ (k : Nat) (b b' : Expr × BinderMeta),
       k < caps.unitParams →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
       b.2.1 = b'.2.1) ∧
@@ -1131,7 +1131,7 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
     (h : checkUnitThm mode env' T lps nP = true) :
     ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal)
       (mvalT : Expr) (hmcvmT : ReducibilityHint)
-      (sbinders tbindersM : List (Name × Expr × BinderMeta))
+      (sbinders tbindersM : List (Expr × BinderMeta))
       (sbody tbodyM tySlot : Expr) (ℓA : Level),
       env'.find? ((T.str "_model").str "unitlike") =
         some (.thmInfo tcv tval) ∧
@@ -1141,7 +1141,7 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
       env'.find? eqName = some eqA ∧
       tcv.type.stripPis (nP + 2) = some (sbinders, sbody) ∧
       cvmT.type.stripPis nP = some (tbindersM, tbodyM) ∧
-      (∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
+      (∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
         sbinders[k]? = some b → tbindersM[k]? = some b' →
         b.2.1 = b'.2.1) ∧
       (∃ nx mx, sbinders[nP]? = some (nx,
@@ -1198,7 +1198,7 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   intro hrest
   simp only [Bool.and_eq_true] at hrest
   obtain ⟨⟨⟨hdomsB, hxdomB⟩, hydomB⟩, hbodyB⟩ := hrest
-  have hdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
+  have hdoms : ∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
       b.2.1 = b'.2.1 := by
     intro k b b' hk hb hb'
@@ -1289,7 +1289,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
     (h : checkEtaThm mode env' T ctorName lps nP nF = true) :
     ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal)
       (mvalT : Expr) (hmcvmT : ReducibilityHint)
-      (sbinders tbindersM : List (Name × Expr × BinderMeta))
+      (sbinders tbindersM : List (Expr × BinderMeta))
       (sbody tbodyM tySlot : Expr) (ℓA : Level),
       env'.find? ((T.str "_model").str "eta") =
         some (.thmInfo tcv tval) ∧
@@ -1304,7 +1304,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
       env'.find? eqName = some eqA ∧
       tcv.type.stripPis (nP + 1) = some (sbinders, sbody) ∧
       cvmT.type.stripPis nP = some (tbindersM, tbodyM) ∧
-      (∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
+      (∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
         sbinders[k]? = some b → tbindersM[k]? = some b' →
         b.2.1 = b'.2.1) ∧
       (∃ nx mx, sbinders[nP]? = some (nx,
@@ -1392,7 +1392,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   simp only [Bool.and_eq_true] at hrest
   obtain ⟨⟨hdomsB, hxdomB⟩, hbodyB⟩ := hrest
   have htMlen : tbindersM.length = nP := Expr.stripPis_length _ hTm_strip
-  have hdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
+  have hdoms : ∀ (k : Nat) (b b' : Expr × BinderMeta), k < nP →
       sbinders[k]? = some b → tbindersM[k]? = some b' →
       b.2.1 = b'.2.1 := by
     intro k b b' hk hb hb'

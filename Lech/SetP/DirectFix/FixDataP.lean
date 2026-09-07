@@ -163,7 +163,7 @@ environment holding the former and the opened-form guard. -/
 theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
-    {bs : List (Name × Expr × BinderMeta)} {ks : List RecFieldKind}
+    {bs : List (Expr × BinderMeta)} {ks : List RecFieldKind}
     (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfT : env.find? T = some (.indInfo cvTa caps))

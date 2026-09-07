@@ -49,11 +49,11 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- Mirror stack entry of `inferLamsI`: binder name, opened domain,
 binder meta. -/
-abbrev InferLamEntryX := Name × Expr × BinderMeta
+abbrev InferLamEntryX := Expr × BinderMeta
 
 /-- Mirror stack entry of the annotation loops: binder name, annotated
 opened domain, binder info. -/
-abbrev AnnotBinderEntryX := Name × Expr × BinderMeta
+abbrev AnnotBinderEntryX := Expr × BinderMeta
 
 /-- Pure mirror of `inferLamsOutI` (a pure rebuild fold). -/
 def inferLamsOut (mode : CheckMode) (d : Nat) :
@@ -865,7 +865,7 @@ theorem inferLamsLeaf_sound {d : Nat} {t : Expr}
       exact h
   revert hrun
   cases t
-  case lam n' ty' body' mb' =>
+  case lam ty' body' mb' =>
     intro hrun
     simp only [Expr.isLam, Bool.not_true, Bool.and_false,
       Bool.false_eq_true, ↓reduceIte]

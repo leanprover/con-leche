@@ -264,14 +264,14 @@ theorem typeFormer_mem_univ_zero {m : EnvS2Core V env}
 
 /-- A leaf of a spine's head is a leaf of the spine. -/
 theorem mem_fvarLeaves_mkAppN : ∀ (as : List Expr) (f : Expr)
-    (l : Nat × Name × Expr), l ∈ f.fvarLeaves →
+    (l : Nat × Expr), l ∈ f.fvarLeaves →
     l ∈ (Expr.mkAppN f as).fvarLeaves
   | [], _, _, h => h
   | a :: as, f, l, h =>
     mem_fvarLeaves_mkAppN as (.app f a) l (by simp [Expr.fvarLeaves, h])
 
 /-- A leaf of a term's head is a leaf of the term. -/
-theorem mem_fvarLeaves_of_getAppFn' {a hd : Expr} {l : Nat × Name × Expr}
+theorem mem_fvarLeaves_of_getAppFn' {a hd : Expr} {l : Nat × Expr}
     (h : a.getAppFn = hd) (hl : l ∈ hd.fvarLeaves) : l ∈ a.fvarLeaves := by
   rw [← Lech.Expr.mkAppN_getApp a, h]
   exact mem_fvarLeaves_mkAppN _ _ _ hl
@@ -283,7 +283,7 @@ theorem mem_fvarLeaves_of_getAppFn {a ty : Expr} {idx : Nat} {n : Name}
 
 /-- The leaves of an fvar's type are leaves of the fvar. -/
 theorem mem_fvarLeaves_of_ty {ty : Expr} {idx : Nat} {n : Name}
-    {l : Nat × Name × Expr} (h : l ∈ ty.fvarLeaves) :
+    {l : Nat × Expr} (h : l ∈ ty.fvarLeaves) :
     l ∈ (Expr.fvar idx ty).fvarLeaves := by
   simp [Expr.fvarLeaves, h]
 

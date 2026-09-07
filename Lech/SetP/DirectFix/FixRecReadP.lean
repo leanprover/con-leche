@@ -457,7 +457,7 @@ theorem denoteP_minorAtR {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} 
     {recIdx : List Nat} {Eiss : List (List AVExpr)}
     (hmin : Lech.directMinorTyR C lps nP nF extras.length pw cty recIdx = some mty)
     (hCf : cty.hasFvar = false) (hCb : cty.looseBVarsBounded 0 = true)
-    (hresid : ∃ (cbs : List (Name × Expr × BinderMeta)) (es : List Expr),
+    (hresid : ∃ (cbs : List (Expr × BinderMeta)) (es : List Expr),
       cty.stripPis (nP + nF)
         = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (Lech.directPsAt nF nP ++ es)) ∧
       es.length = nIdx)

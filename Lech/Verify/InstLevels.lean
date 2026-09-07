@@ -108,12 +108,12 @@ theorem looseBVarsBounded_instantiateLevelParams (ks : List Name) (us : List Lev
 decomposition. -/
 theorem stripPis_instantiateLevelParams_eq (ks : List Name)
     (us : List Level) :
-    ∀ (k : Nat) {e : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs bs' : List (Expr × BinderMeta)}
       {body body' : Expr},
       e.stripPis k = some (bs, body) →
       (e.instantiateLevelParams ks us).stripPis k = some (bs', body') →
       body' = body.instantiateLevelParams ks us ∧
-      ∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
+      ∀ (i : Nat) (b b' : Expr × BinderMeta),
         bs[i]? = some b → bs'[i]? = some b' →
         b'.2.1 = b.2.1.instantiateLevelParams ks us := by
   intro k
@@ -185,12 +185,12 @@ theorem renameConsts_id :
 instantiation. -/
 theorem stripLams_instantiateLevelParams_eq (ks : List Name)
     (us : List Level) :
-    ∀ (k : Nat) {e : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs bs' : List (Expr × BinderMeta)}
       {body body' : Expr},
       e.stripLams k = some (bs, body) →
       (e.instantiateLevelParams ks us).stripLams k = some (bs', body') →
       body' = body.instantiateLevelParams ks us ∧
-      ∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
+      ∀ (i : Nat) (b b' : Expr × BinderMeta),
         bs[i]? = some b → bs'[i]? = some b' →
         b'.2.1 = b.2.1.instantiateLevelParams ks us := by
   intro k
@@ -278,7 +278,7 @@ theorem getAppFn_instantiateLevelParams (ks : List Name)
 
 /-- A stripped telescope's body keeps its level parameters defined. -/
 theorem allLevelParamsDefined_stripPis_body {ps : List Name} :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr},
       e.stripPis k = some (bs, body) →
       e.allLevelParamsDefined ps = true →

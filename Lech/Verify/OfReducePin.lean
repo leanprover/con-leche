@@ -14,17 +14,10 @@ namespace Lech.TTVerify
 
 open Lech.TT
 
-/-- `eraseNames` fixes a sort. -/
-theorem eraseNames_sort_inv {e : Expr} {u : Level}
-    (h : e.eraseNames = .sort u) : e = .sort u := by
-  cases e <;> simp only [Expr.eraseNames] at h <;> first
-    | exact h
-    | exact nomatch h
-
 /-- `erasePw` fixes a sort (task #161 P5: `matchesPin` compares through
-`Expr.erasePw` as well as `Expr.eraseNames`, so the pin-shape
-inversions must see through both).  Like `eraseNames_sort_inv` this is
-a *head* inversion: `erasePw` never changes a node's constructor. -/
+`Expr.erasePw`, so the pin-shape inversions must see through it).
+This is a *head* inversion: `erasePw` never changes a node's
+constructor. -/
 theorem erasePw_sort_inv {e : Expr} {u : Level}
     (h : e.erasePw = .sort u) : e = .sort u := by
   cases e <;> simp only [Expr.erasePw] at h <;> first
@@ -99,8 +92,8 @@ theorem reduceElem_sort {env : Env} {c : Name}
         · simp only [ConstantVal.matchesPin, Bool.and_eq_true,
             beq_iff_eq] at h
           show cvB.type = _
-          exact erasePw_sort_inv (eraseNames_sort_inv (by
-            simpa [boolCvA, Expr.eraseNames, Expr.erasePw] using h.2))
+          exact erasePw_sort_inv (by
+            simpa [boolCvA, Expr.erasePw] using h.2)
       | _ => exact nomatch h
 
 /-- Name and level-parameter components of a `matchesPin` hit.  A

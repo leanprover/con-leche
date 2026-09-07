@@ -38,7 +38,7 @@ def elimLevel (p : DirectParts) : Level :=
 theorem elimLevel_eq (p : DirectParts) :
     elimLevel p = if p.large then .param p.elim else .zero := rfl
 
-theorem stripPis_one_inv {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+theorem stripPis_one_inv {e : Expr} {bs : List (Expr × BinderMeta)}
     {b : Expr} (h : e.stripPis 1 = some (bs, b)) :
     ∃ nm dom mb, e = .forallE dom b mb ∧ bs = [(nm, dom, mb)] := by
   match e, h with

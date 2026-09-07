@@ -281,7 +281,7 @@ theorem looseBVarsBounded_mkAppN {k : Nat} : ∀ {xs : List Expr} {f : Expr},
     exact ⟨hf, hxs x List.mem_cons_self⟩
 
 theorem fvarLeaves_mkAppN : ∀ {xs : List Expr} {f : Expr}
-    {l : Nat × Name × Expr},
+    {l : Nat × Expr},
     l ∈ (Expr.mkAppN f xs).fvarLeaves →
     l ∈ f.fvarLeaves ∨ ∃ x, x ∈ xs ∧ l ∈ x.fvarLeaves := by
   intro xs

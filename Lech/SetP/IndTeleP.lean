@@ -85,7 +85,7 @@ theorem PiTeleP.succ_inv {k : Nat} {T : AVExpr} {Γ : List AVExpr}
 
 theorem stripPis_denotePTele :
     ∀ (k : Nat) {e : Expr} {j : Nat}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr}
+      {bs : List (Expr × BinderMeta)} {body : Expr}
       {E : AVExpr},
       e.stripPis k = some (bs, body) →
       denoteP acval env φ j e = some E →
@@ -93,7 +93,7 @@ theorem stripPis_denotePTele :
         PiTeleP k E Γ C ∧ Γ.length = k ∧
         denoteP acval env φ (j + k)
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
-        ∀ (i0 : Nat) (b : Name × Expr × BinderMeta), bs[i0]? = some b →
+        ∀ (i0 : Nat) (b : Expr × BinderMeta), bs[i0]? = some b →
           denoteP acval env φ (j + i0)
             (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
             some (Γ.getD (k - 1 - i0) default) := by

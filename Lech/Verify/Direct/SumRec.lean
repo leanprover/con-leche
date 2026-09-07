@@ -22,7 +22,7 @@ open Expr
 
 theorem directMinorTy_unfold {C : Name} {lps : List Name} {nP nF o : Nat} {pw : PropWhen}
     {cty mty : Expr} (h : directMinorTy C lps nP nF o pw cty = some mty) :
-    ∃ (cbs : List (Name × Expr × BinderMeta)) (crest0 : Expr),
+    ∃ (cbs : List (Expr × BinderMeta)) (crest0 : Expr),
       cty.stripPis nP = some (cbs, crest0) ∧
       Expr.replacePisPw pw nF (crest0.liftLooseBVars o 0)
         (.app (.bvar (nF + o - 1)) (directCtorSpineAt C lps o nP nF)) = some mty := by
@@ -85,7 +85,7 @@ theorem directRecTy_unfold {T : Name} {lps : List Name} {elim : Name} {large : B
 theorem directRecRhs_unfold {T : Name} {lps : List Name} {elim : Name} {large : Bool}
     {nP : Nat} {tty rhs : Expr} {ctors : List (Name × Nat × Expr)} {j : Nat}
     (h : directRecRhs T lps elim large nP tty ctors j = some rhs) :
-    ∃ (C : Name) (nF : Nat) (cty : Expr) (cbs : List (Name × Expr × BinderMeta))
+    ∃ (C : Name) (nF : Nat) (cty : Expr) (cbs : List (Expr × BinderMeta))
       (crest0 inner minors : Expr),
       ctors[j]? = some (C, nF, cty) ∧
       cty.stripPis nP = some (cbs, crest0) ∧
@@ -327,7 +327,7 @@ theorem directSumRules_getElem? {nP mI rP : Nat} {recTy : Expr} :
 
 theorem directMinorTyI_unfold {C : Name} {lps : List Name} {nP nF o : Nat} {pw : PropWhen}
     {cty mty : Expr} (h : directMinorTyI C lps nP nF o pw cty = some mty) :
-    ∃ (cbs fbs : List (Name × Expr × BinderMeta)) (crest0 res : Expr),
+    ∃ (cbs fbs : List (Expr × BinderMeta)) (crest0 res : Expr),
       cty.stripPis nP = some (cbs, crest0) ∧
       crest0.stripPis nF = some (fbs, res) ∧
       Expr.replacePisPw pw nF (crest0.liftLooseBVars o 0)
@@ -375,7 +375,7 @@ theorem directMinorsLamsI_nil {lps : List Name} {nP : Nat} {pw : PropWhen} {o : 
 theorem directRecTyI_unfold {T : Name} {lps : List Name} {elim : Name} {large : Bool}
     {nP nIdx : Nat} {tty recTy : Expr} {ctors : List (Name × Nat × Expr)}
     (h : directRecTyI T lps elim large nP nIdx tty ctors = some recTy) :
-    ∃ (tbs : List (Name × Expr × BinderMeta)) (itele motiveTy major minors : Expr),
+    ∃ (tbs : List (Expr × BinderMeta)) (itele motiveTy major minors : Expr),
       tty.stripPis nP = some (tbs, itele) ∧
       directMotiveTyI T lps nP nIdx (directElimLevel elim large) itele = some motiveTy ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nIdx
@@ -397,7 +397,7 @@ theorem directRecTyI_unfold {T : Name} {lps : List Name} {elim : Name} {large : 
 theorem directRecRhsI_unfold {T : Name} {lps : List Name} {elim : Name} {large : Bool}
     {nP nIdx : Nat} {tty rhs : Expr} {ctors : List (Name × Nat × Expr)} {j : Nat}
     (h : directRecRhsI T lps elim large nP nIdx tty ctors j = some rhs) :
-    ∃ (C : Name) (nF : Nat) (cty : Expr) (tbs cbs : List (Name × Expr × BinderMeta))
+    ∃ (C : Name) (nF : Nat) (cty : Expr) (tbs cbs : List (Expr × BinderMeta))
       (itele motiveTy crest0 inner minors : Expr),
       ctors[j]? = some (C, nF, cty) ∧
       tty.stripPis nP = some (tbs, itele) ∧

@@ -45,7 +45,7 @@ theorem abstract1_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
     have h1 : ¬ (i = k) := by omega
     have h2 : ¬ (i > k) := by omega
     simp [h1, h2]
-  case fvar idx n' ty' ih =>
+  case fvar idx ty' ih =>
     by_cases hidx : idx = d
     · obtain ⟨rfl, rfl⟩ := hc hidx
       simp [hidx, Expr.instantiate1]
@@ -57,7 +57,7 @@ theorem WScoped.abstract1 {d : Nat} :
   intro e
   induction e <;> intro k hw <;>
     simp_all [Expr.abstract1, WScoped]
-  case fvar idx n' ty' ih =>
+  case fvar idx ty' ih =>
     by_cases hidx : idx = d
     · simp [hidx, WScoped]
     · simp only [hidx, if_false, WScoped]
@@ -75,7 +75,7 @@ theorem fvarConsistent_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
     split
     · simp [Expr.fvarConsistent]
     · split <;> simp [Expr.fvarConsistent]
-  case fvar idx n' ty' ih =>
+  case fvar idx ty' ih =>
     omega
 
 /-- Consistency at `d` survives opening with a *different* index. -/
@@ -101,7 +101,7 @@ theorem fvarConsistent_abstract1 {d d' : Nat} {n : Name} {ty : Expr}
   intro e
   induction e <;> intro k hc <;>
     simp_all [Expr.abstract1, Expr.fvarConsistent]
-  case fvar idx n'' ty'' ih =>
+  case fvar idx ty'' ih =>
     split
     · simp [Expr.fvarConsistent]
     · simpa [Expr.fvarConsistent] using hc
@@ -126,7 +126,7 @@ theorem looseBVarsBounded_abstract1 {d : Nat} :
   induction e <;> intro k hb <;>
     simp_all [Expr.abstract1, Expr.looseBVarsBounded]
   case bvar i => omega
-  case fvar idx n' ty' ih =>
+  case fvar idx ty' ih =>
     split <;> simp [Expr.looseBVarsBounded] <;> omega
 
 /-! ## Preservation through `annotate` -/
@@ -535,15 +535,15 @@ theorem Expr.LeafEquiv.hasFvar_eq : ∀ (e₁ e₂ : Expr), Expr.LeafEquiv e₁ 
   | lam ty body m ihty ihbody =>
     intro e₂ hle
     cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-    case lam n' ty' body' m' => rw [ihty ty' hle.1, ihbody body' hle.2]
+    case lam ty' body' m' => rw [ihty ty' hle.1, ihbody body' hle.2]
   | forallE ty body m ihty ihbody =>
     intro e₂ hle
     cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-    case forallE n' ty' body' m' => rw [ihty ty' hle.1, ihbody body' hle.2]
+    case forallE ty' body' m' => rw [ihty ty' hle.1, ihbody body' hle.2]
   | letE ty val body ihty ihval ihbody =>
     intro e₂ hle
     cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
-    case letE n' ty' val' body' =>
+    case letE ty' val' body' =>
       rw [ihty ty' hle.1, ihval val' hle.2.1, ihbody body' hle.2.2]
   | proj s i e ih =>
     intro e₂ hle
@@ -581,7 +581,7 @@ theorem leafEquiv_abstract_of_inst {D : Nat} {n : Name} {ty : Expr} :
     by_cases hik : i = k
     · simp only [hik, if_pos rfl] at hle
       cases y <;> simp_all [Expr.LeafEquiv]
-      case fvar idx n' ty' =>
+      case fvar idx ty' =>
         obtain ⟨rfl, -, -⟩ := hle
         simp [Expr.abstract1, Expr.LeafEquiv, hik]
     · have hik' : ¬ (i > k) := by omega
@@ -595,7 +595,7 @@ theorem leafEquiv_abstract_of_inst {D : Nat} {n : Name} {ty : Expr} :
     simp only [Expr.fvarsBelow] at hf
     simp only [Expr.instantiate1] at hle
     cases y <;> simp_all [Expr.LeafEquiv]
-    case fvar idx2 n2 ty2 =>
+    case fvar idx2 ty2 =>
       obtain ⟨rfl, rfl, rfl⟩ := hle
       have : ¬ (idx = D) := by omega
       simp [Expr.abstract1, this, Expr.LeafEquiv]

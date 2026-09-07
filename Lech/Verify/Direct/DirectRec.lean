@@ -123,7 +123,7 @@ theorem pisToLamsPw_instSeq {pw : PropWhen} :
 /-- The walk keeps the telescope's binders (data reset) over the new
 body. -/
 theorem replacePisPw_stripPis {pw : PropWhen} :
-    ∀ (k : Nat) {e b r : Expr} {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+    ∀ (k : Nat) {e b r : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
       Expr.replacePisPw pw k e b = some r → e.stripPis k = some (bs, body) →
       r.stripPis k = some (bs.map fun x => (x.1, x.2.1, (⟨pw⟩ : BinderMeta)), b)
   | 0, e, b, r, bs, body, h, hs => by
@@ -151,7 +151,7 @@ theorem replacePisPw_stripPis {pw : PropWhen} :
 
 /-- Two strips compose. -/
 theorem stripPis_append :
-    ∀ (k : Nat) {m : Nat} {e : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {m : Nat} {e : Expr} {bs bs' : List (Expr × BinderMeta)}
       {mid body : Expr},
       e.stripPis k = some (bs, mid) → mid.stripPis m = some (bs', body) →
       e.stripPis (k + m) = some (bs ++ bs', body)
@@ -178,7 +178,7 @@ theorem stripPis_append :
 /-- The `instPisAt` peel at a spine is the strip's body instantiated
 along the spine (the `∀` twin of `instLamsAt_rest_of_stripLams`). -/
 theorem instPisAt_of_stripPis :
-    ∀ (sp : List Expr) {e : Expr} {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+    ∀ (sp : List Expr) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
       e.stripPis sp.length = some (bs, body) →
       ∃ ds, Expr.instPisAt sp e = some (ds, instSeq sp (sp.length - 1) body)
   | [], e, bs, body, h => by
@@ -377,7 +377,7 @@ theorem instSeq_ruleBody (tfvs xFvs : List Expr) (mfv mkfv : Expr) {nP nF : Nat}
 theorem directRecTy_single {T C : Name} {lps : List Name} {elim : Name} {large : Bool}
     {nP nF : Nat} {tty cty recTy : Expr}
     (h : directRecTy T lps elim large nP tty [(C, nF, cty)] = some recTy) :
-    ∃ (cbs : List (Name × Expr × BinderMeta)) (crest0 minorTy : Expr),
+    ∃ (cbs : List (Expr × BinderMeta)) (crest0 minorTy : Expr),
       cty.stripPis nP = some (cbs, crest0) ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nF
         (crest0.liftLooseBVars 1 0)
@@ -409,7 +409,7 @@ theorem directRecTy_single {T C : Name} {lps : List Name} {elim : Name} {large :
 theorem directRecRhs_single {T C : Name} {lps : List Name} {elim : Name} {large : Bool}
     {nP nF : Nat} {tty cty rhs : Expr}
     (h : directRecRhs T lps elim large nP tty [(C, nF, cty)] 0 = some rhs) :
-    ∃ (cbs : List (Name × Expr × BinderMeta)) (crest0 minorTy inner : Expr),
+    ∃ (cbs : List (Expr × BinderMeta)) (crest0 minorTy inner : Expr),
       cty.stripPis nP = some (cbs, crest0) ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nF
         (crest0.liftLooseBVars 1 0)
@@ -490,7 +490,7 @@ theorem NoProjAt.mkAppN :
       (fun a' ha' => has a' (List.mem_cons_of_mem _ ha'))
 
 theorem NoProjAt.stripPis :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
       e.stripPis k = some (bs, body) → NoProjAt T i e → NoProjAt T i body
   | 0, e, bs, body, h, he => by
     simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h

@@ -138,7 +138,7 @@ after binder `m` does not mention it, no later opener's annotation and
 not the opened body carries the `m`-th opener as a leaf. -/
 theorem openPisAtFvars_leaf_free :
     ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr} (m : Nat)
-      {bs : List (Name × Expr × BinderMeta)} {rest : Expr},
+      {bs : List (Expr × BinderMeta)} {rest : Expr},
       openPisAtFvars n e d = some (fvs, o) → m < n →
       e.stripPis (m + 1) = some (bs, rest) → rest.hasLooseBVar 0 = false →
       (∀ l ∈ e.fvarLeaves, l.1 ≠ d + m) →

@@ -124,13 +124,13 @@ and both erasures fix a `.const`, so the pin leaves exactly the binder
 name and the binder meta free — and neither is ever read below. -/
 theorem reduceOp_shapeS {c : Name} {type' : Expr}
     (hc : c ∈ Lech.reduceOpNames)
-    (h : type'.erasePw.eraseNames
-      = (Lech.reduceOpCvA c).type.erasePw.eraseNames) :
+    (h : type'.erasePw
+      = (Lech.reduceOpCvA c).type.erasePw) :
     ∃ n₀ mb₀, type' = .forallE (Lech.reduceElemTy c)
       (Lech.reduceElemTy c) mb₀ := by
   have hcases : c = Lech.reduceNatName ∨ c = Lech.reduceBoolName := by
     simpa [Lech.reduceOpNames] using hc
-  have hshape : (Lech.reduceOpCvA c).type.erasePw.eraseNames
+  have hshape : (Lech.reduceOpCvA c).type.erasePw
       = .forallE
           (Lech.reduceElemTy c) (Lech.reduceElemTy c)
           ⟨.never⟩ := by
@@ -138,7 +138,7 @@ theorem reduceOp_shapeS {c : Name} {type' : Expr}
       simp [Lech.reduceOpCvA, Lech.reduceNatCvA,
         Lech.reduceBoolCvA, Lech.reduceElemTy, Lech.reduceNatName,
         Lech.reduceBoolName, Lech.natName, Lech.boolName,
-        Expr.erasePw, Expr.eraseNames]
+        Expr.erasePw]
   rw [hshape] at h
   obtain ⟨n', ty', b', m', rfl, hty', hb'⟩ := erasePwNames_forallE_invS h
   have hE := reduceElemTy_constS c

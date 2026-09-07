@@ -31,12 +31,12 @@ open Expr
 `instPisAtLift_head`) -/
 
 theorem stripPis_instantiate1_full {v : Expr} :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr} (j : Nat),
       e.stripPis k = some (bs, body) →
       ∃ bs', (e.instantiate1 v j).stripPis k =
           some (bs', body.instantiate1 v (j + k)) ∧
-        ∀ (i : Nat) (b : Name × Expr × BinderMeta), bs[i]? = some b →
+        ∀ (i : Nat) (b : Expr × BinderMeta), bs[i]? = some b →
           bs'[i]? = some (b.1, b.2.1.instantiate1 v (j + i), b.2.2) := by
   intro k
   induction k with
@@ -77,8 +77,8 @@ theorem stripPis_instantiate1_full {v : Expr} :
 characterized by the raw telescope's binder list. -/
 theorem instPisAt_head :
     ∀ (args : List Expr) {e : Expr} {ds : List Expr} {rest : Expr} {mrem : Nat}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr}
-      {b : Name × Expr × BinderMeta},
+      {bs : List (Expr × BinderMeta)} {body : Expr}
+      {b : Expr × BinderMeta},
       Expr.instPisAt args e = some (ds, rest) →
       e.stripPis (args.length + (mrem + 1)) = some (bs, body) →
       bs[args.length]? = some b →
@@ -160,10 +160,10 @@ theorem instSeq_proj :
 /-- A stripped telescope's binder domains are bounded at their own
 depth. -/
 theorem stripPis_binder_bounded :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr} {j : Nat},
       e.stripPis k = some (bs, body) → e.looseBVarsBounded j = true →
-      ∀ (i : Nat) (b : Name × Expr × BinderMeta), bs[i]? = some b →
+      ∀ (i : Nat) (b : Expr × BinderMeta), bs[i]? = some b →
         b.2.1.looseBVarsBounded (j + i) = true := by
   intro k
   induction k with
