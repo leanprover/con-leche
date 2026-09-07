@@ -1,0 +1,326 @@
+import Lech.SetP.DirectFix.FixRecFramesP
+
+/-!
+# The recursive recursor's K-frames, part 2: the package (task #188)
+
+At a K-frame `(p⃗, M, m⃗, ı⃗)` over a parameter frame — the motive in
+its reading, the minors in the readings of their (ih-extended) minor
+premises, the indices fitting — the recursive route's K-frame
+package `FixKI₀` (`Lech/Semantics/Tower/FixRecI.lean`) holds and the
+major's domain reads to the carrier at the frame's index tuple.  The
+minor premise's reading is the ih-extended minor space
+(`interp_minorAVAtR`), the sum route's core computation under the ih
+tower read (`interp_ihPisAV`).
+-/
+
+namespace Lech.SetP
+open Lech.Semantics
+open Lech.SetModel
+
+open Lech.TT Lech.TTVerify SetTheory Lech.SetTheory.Tower
+open Lech.Semantics (AVExpr)
+open Lech (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps BinderMeta)
+
+universe w
+
+variable {V : Type w} [SetTheory V] {env : Env}
+
+/-! ## The minor premise, read -/
+
+/-- **A recursive minor premise reads to the ih-extended minor space**:
+at the frame of the `j` earlier minors over the motive over the
+parameter frame. -/
+theorem interp_minorAVAtR {m : EnvS2Core V env} {ψ : Name → Nat} {C : Name}
+    {nP nF nIdx ℓ w b j : Nat} (hbz : ℓ = 0 ↔ b = 0) {ρp : Nat → V} {M : V} {ms : List V}
+    (hlenM : ms.length = j) {ds : List (Nat × Nat × AVExpr)} (hlenDs : ds.length = nP + nF)
+    {Es : List AVExpr} {Fss : List (List AVExpr)} {rss : List (List Bool)}
+    {Eiss : List (List (List AVExpr))}
+    (hleafC : m.acval C ψ = directSumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss))
+    (hclC : VExpr.bvarsBelow 0 (m.acval C ψ).erase)
+    (hFsj : Fss[j]? = some ((ds.drop nP).map (·.2.2)))
+    (hokB : SumFieldsOkB w ρp Fss)
+    (hsatC : Sat2 V (((ds.take nP).map (·.2.2)).reverse) ρp) :
+    interp2 V (consList ms (cons M ρp))
+        (minorAVAtR m C ψ nP nF b (1 + j) ds Es (recIdx (rss.getD j []) nF) (Eiss.getD j []))
+      = minorSpI ℓ (fun fs => ihSpL ℓ (concI w ρp M Es j fs)
+          (ihDomsI ρp M rss Eiss (fun j' => (Fss.getD j' []).length) j fs))
+        ((ds.drop nP).map (·.2.2)) ρp [] := by
+  have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
+  have hlenFds : ((ds.drop nP)).length = nF := by simp [hlenDs]
+  have hsh : shiftE (1 + j) 0 (consList ms (cons M ρp)) = ρp := by
+    rw [← hlenM, Nat.add_comm, shiftE_consList_add ms 1 (cons M ρp), shiftE_succ_cons,
+      shiftE_zero_zero]
+  have hσj : consList ms (cons M ρp) j = M := by
+    rw [← hlenM, show ms.length = 0 + ms.length from (Nat.zero_add _).symm, consList_apply_add]
+    rfl
+  have har : (Fss.getD j []).length = nF := by
+    rw [List.getD_eq_getElem?_getD, hFsj, Option.getD_some, hlenFs]
+  unfold minorAVAtR
+  refine interp_minorSpI_of_tele
+    (by simp only [rebit_length, liftDoms_length, List.length_map]) ?_ ?_ ?_
+  · intro d hd
+    rw [mem_rebit hd]; exact hbz
+  · -- the field domains agree along a fitting chain
+    intro j' as hj' hsp
+    rw [hlenFs] at hj'
+    have hlenAs : as.length = j' := by
+      rw [hsp.length_eq, List.length_take, hlenFs]; omega
+    rw [rebit_getD _ _ _ (by rw [liftDoms_length]; omega)]
+    show interp2 V (consList as (consList ms (cons M ρp)))
+      ((liftDoms (1 + j) 0 (ds.drop nP)).getD j' default).2.2 = _
+    obtain ⟨q, hq⟩ : ∃ q, (ds.drop nP)[j']? = some q :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenFds]; exact hj')⟩
+    have hsh' : shiftE (1 + j) j' (consList as (consList ms (cons M ρp))) = consList as ρp := by
+      rw [← hlenAs, shiftE_consList_len, hsh]
+    rw [List.getD_eq_getElem?_getD, liftDoms_getElem?, hq, Option.map_some, Option.getD_some]
+    show interp2 V (consList as (consList ms (cons M ρp))) (q.2.2.liftN (1 + j) (0 + j')) = _
+    rw [interp2_liftN, Nat.zero_add, hsh', fields_getD (by rw [hlenFds]; exact hj'),
+      List.getD_eq_getElem?_getD, hq, Option.getD_some]
+  · -- the core: the ih tower over the motive at the index values and
+    -- the constructor leaf's fold
+    intro as hsp
+    have hlenAs : as.length = nF := by rw [hsp.length_eq, hlenFs]
+    rw [List.nil_append]
+    unfold ihDomsI
+    simp only [har]
+    refine interp_ihPisAV hbz (by omega) hlenAs (recIdx (rss.getD j []) nF) 0 [] _ rfl
+      (fun i hi => (mem_recIdx.mp hi).1) ?_
+    intro ihs' hl
+    rw [Nat.zero_add] at hl
+    rw [interp2_liftN, ← hl, shiftE_consList]
+    -- the conclusion at the field frame
+    have hMval : consList as (consList ms (cons M ρp)) (nF + (1 + j) - 1) = M := by
+      rw [show nF + (1 + j) - 1 = j + as.length from by omega, consList_apply_add]
+      exact hσj
+    have hσ : ∀ k, consList as (consList ms (cons M ρp)) (k + ((1 + j) + nF)) = ρp k := by
+      intro k
+      rw [show k + ((1 + j) + nF) = (k + (j + 1)) + as.length from by omega,
+        consList_apply_add, ← hlenM, show k + (ms.length + 1) = (k + 1) + ms.length from by omega,
+        consList_apply_add]
+      rfl
+    have hshF : shiftE (1 + j) nF (consList as (consList ms (cons M ρp))) = consList as ρp := by
+      rw [← hlenAs, shiftE_consList_len, hsh]
+    have hleafC' : m.acval C ψ
+        = directSumMkAV w j (ds.take nP ++ ds.drop nP) ((ds.drop nP).map (·.2.2)) (uChains Fss) := by
+      rw [hleafC, List.take_append_drop]
+    rw [AVExpr.mkAppN_append_one, interp2_app, interp2_mkAppN, interp2_bvar, hMval,
+      ← List.foldl_map (f := interp2 V (consList as (consList ms (cons M ρp)))) (g := SetTheory.app),
+      List.map_map]
+    have hidxv : Es.map ((interp2 V (consList as (consList ms (cons M ρp)))) ∘
+        fun E => E.liftN (1 + j) nF) = idxValsAt ρp Es as := by
+      unfold idxValsAt
+      apply List.map_congr_left
+      intro E _
+      simp only [Function.comp]
+      rw [interp2_liftN, hshF]
+    rw [hidxv]
+    unfold concI
+    congr 1
+    rw [interp2_mkAppN,
+      ← List.foldl_map (f := interp2 V (consList as (consList ms (cons M ρp)))) (g := SetTheory.app),
+      List.map_append, show nP + (1 + j) + nF = nP + ((1 + j) + nF) from by omega,
+      map_paramBvarsAt_interp hσ,
+      show fieldBvars nF = (List.range nF).map (fun k => AVExpr.bvar (nF - 1 - k)) from rfl,
+      map_fieldBvars_interp hlenAs, interp2_closed (V := V) hclC _ (fun k => ρp (k + nP)), hleafC']
+    have hlenP' : ((((ds.take nP).map (·.2.2)))).length = nP := by simp [hlenDs]
+    have hsp₁ := spineFit_of_sat2 (Δ₀ := []) (Ds := (ds.take nP).map (·.2.2))
+      (by rw [List.append_nil]; exact hsatC)
+    rw [hlenP'] at hsp₁
+    unfold ctorValI
+    rcases Nat.eq_zero_or_pos w with hw0 | hwpos
+    · rw [hw0, directSumMkAV_zero, foldl_app_pt_sum, if_pos rfl]
+    · have hw' : w ≠ 0 := Nat.pos_iff_ne_zero.mp hwpos
+      rw [directSumMkAV_fold hw' hsp₁ (by rw [consList_range_reverse]; exact hsp)
+        (by rw [consList_range_reverse]; exact SumFieldsOkB_uChains hokB)
+        (by rw [uChains_getElem?, hFsj]; rfl), if_neg hw']
+
+/-! ## The K-frame package -/
+
+/-- The K-frame over a parameter frame, as a cons list. -/
+theorem kframe_consList (is ms : List V) (M : V) (ρp : Nat → V) :
+    consList is (consList ms (cons M ρp)) = consList ((M :: ms) ++ is) ρp := by
+  rw [consList_append, consList_cons]
+
+/-- **The K-frame package**: at a K-frame over a parameter frame with
+the motive in its reading, the minors in their ih-extended readings and
+a fitting index tuple, `FixKI₀` holds and the major's domain reads to
+the carrier's fibre at the tuple. -/
+theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL : Level}
+    {nP nIdx n ℓ w u : Nat} (hℓ : elimL.eval ψ = ℓ)
+    {pps ips : List (Nat × Nat × AVExpr)} (hlenP : pps.length = nP) (hlenI : ips.length = nIdx)
+    {Fss Ess : List (List AVExpr)} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    (hlenFs : Fss.length = n) (hlenEs : Ess.length = n)
+    (hEs : ∀ j, j < n → (Ess.getD j []).length = nIdx)
+    (hEisLen : ∀ j i, i ∈ recIdx (rss.getD j []) (Fss.getD j []).length →
+      ((Eiss.getD j []).getD i []).length = nIdx)
+    {ρp : Nat → V} (hsatP : Sat2 V ((pps.map (·.2.2)).reverse) ρp)
+    (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss Eiss Fss Ess)
+    (hreal : ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess) u ρp
+      (ips.map (·.2.2)) rss Eiss Fss Fss Ess)
+    (hfields : ∀ j, j < n → FieldsOkB w ρp (Fss.getD j []) ∧
+      ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
+        (∀ E ∈ Ess.getD j [], AnnotOk2 V (consList bs ρp) E) ∧
+        SpineFit ρp (ips.map (·.2.2)) (idxValsAt ρp (Ess.getD j []) bs))
+    (hclT : VExpr.bvarsBelow 0 (m.acval T ψ).erase)
+    (hleafT : ∀ σ : Nat → V, interp2 V σ (m.acval T ψ)
+      = interp2 V (fun k => ρp (k + nP))
+          (directFixTyAVI u w (pps ++ ips) (ips.map (·.2.2)) rss Eiss Fss Ess))
+    {M : V} (hM : M ∈ˢ interp2 V ρp (motiveAVI m T ψ nP nIdx elimL ips))
+    {ms : List V} (hlenM : ms.length = n)
+    (hms : ∀ j, j < n → ms.getD j pt ∈ˢ minorSpI ℓ
+      (fun fs => ihSpL ℓ (concI w ρp M (Ess.getD j []) j fs)
+        (ihDomsI ρp M rss Eiss (fun j' => (Fss.getD j' []).length) j fs))
+      (Fss.getD j []) ρp [])
+    {is : List V} (hfit : SpineFit ρp (ips.map (·.2.2)) is) :
+    FixKI₀ ℓ w u (consList is (consList ms (cons M ρp))) Fss Ess Fss (ips.map (·.2.2)) rss Eiss ∧
+    interp2 V (consList is (consList ms (cons M ρp))) (majorAVAt m T ψ nP nIdx n)
+      = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess) (tupW u is) := by
+  have hlenIds : ((ips.map (·.2.2))).length = nIdx := by rw [List.length_map, hlenI]
+  have hlenIs : is.length = nIdx := by rw [hfit.length_eq, hlenIds]
+  have hlenIs' : is.length = (ips.map (·.2.2)).length := by rw [hlenIds]; exact hlenIs
+  have hlenM' : ms.length = Fss.length := by rw [hlenFs]; exact hlenM
+  have hlenAll : (pps ++ ips).length = nP + ((ips.map (·.2.2))).length := by
+    simp [hlenP, hlenI, hlenIds]
+  have hdropAll : ((pps ++ ips).drop nP).map (·.2.2) = ips.map (·.2.2) := by
+    rw [List.drop_append_of_le_length (by omega), List.drop_eq_nil_of_le (by omega),
+      List.nil_append]
+  have htakeAll : Sat2 V ((((pps ++ ips).take nP).map (·.2.2)).reverse) ρp := by
+    rw [List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
+    exact hsatP
+  have hX' : XChainsOk u w ρp (((pps ++ ips).drop nP).map (·.2.2)) rss Eiss Fss Ess := by
+    rw [hdropAll]; exact hX
+  have hleafT' : ∀ σ : Nat → V, interp2 V σ (m.acval T ψ)
+      = interp2 V (fun k => ρp (k + nP))
+          (directFixTyAVI u w (pps ++ ips) (((pps ++ ips).drop nP).map (·.2.2)) rss Eiss Fss Ess) := by
+    rw [hdropAll]; exact hleafT
+  have hlenAll' : (pps ++ ips).length = nP + (((pps ++ ips).drop nP).map (·.2.2)).length := by
+    rw [hdropAll]; exact hlenAll
+  have hfamL : fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss Ess
+      = fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess := by rw [hlenIds]
+  -- the family at an index spine, from the leaf
+  have hfamAt : ∀ (as : List V), as.length = nIdx →
+      ∀ (as₀ : List V), SpineFit ρp (ips.map (·.2.2)) as →
+      interp2 V (consList as (consList as₀ ρp))
+          (AVExpr.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + (as₀.length + nIdx)) ++ fieldBvars nIdx))
+        = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess) (tupW u as) := by
+    intro as hlenAs as₀ hspAs
+    have hfb : (fieldBvars nIdx).map (interp2 V (consList as (consList as₀ ρp))) = as := by
+      show ((List.range nIdx).map fun k => AVExpr.bvar (nIdx - 1 - k)).map
+        (interp2 V (consList as (consList as₀ ρp))) = as
+      exact map_fieldBvars_interp hlenAs _
+    have h := fixLeafApp (Eis := fieldBvars nIdx) (as := as₀ ++ as) hlenAll' hX' htakeAll hleafT'
+      (by rw [consList_append, hfb, hdropAll]; exact hspAs)
+    rw [consList_append, hfb, hdropAll, hlenIds] at h
+    rw [show as₀.length + nIdx = (as₀ ++ as).length from by simp [hlenAs]]
+    exact h
+  -- the K-frame's accessors
+  have hfrP := kframe_frP (ρp := ρp) (M := M) (n := n) (nIdx := nIdx) hlenIs hlenM
+  have hfrIdx := kframe_frameIdx (ρp := ρp) (M := M) (ms := ms) hlenIs
+  have hshK : shiftE (nIdx + n + 1) 0 (consList is (consList ms (cons M ρp))) = ρp := by
+    unfold frP at hfrP; exact hfrP
+  have hshK' : shiftE ((ips.map (·.2.2)).length + Fss.length + 1) 0
+      (consList is (consList ms (cons M ρp))) = ρp := by
+    rw [hlenIds, hlenFs]; exact hshK
+  -- the motive's value: the nested product over the index telescope
+  have hMtele : M ∈ˢ piTele (ℓ + 1) (teleOfFields ρp (ips.map (·.2.2)))
+      (fun is' => piR (ℓ + 1)
+        (SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss Ess)
+          (tupW u is'))
+        fun _ => (univ ℓ : V)) [] := by
+    have hMv := hM
+    unfold motiveAVI at hMv
+    rw [interp_mkPisAV_piTele (v := ℓ + 1) (gds := rebit (pwBit ψ PropWhen.never) ips)
+      (fun d hd => by
+        rw [mem_rebit hd]
+        exact ⟨fun h => absurd h (pwBit_ne_zero_of_isNever rfl ψ),
+          fun h => absurd h (Nat.succ_ne_zero _)⟩)
+      (B := fun is' => piR (ℓ + 1)
+        (SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss Ess)
+          (tupW u is'))
+        fun _ => (univ ℓ : V)) ?_, rebit_map_dom] at hMv
+    · exact hMv
+    intro as hsp
+    rw [rebit_map_dom] at hsp
+    have hlenAs : as.length = nIdx := by rw [hsp.length_eq, hlenIds]
+    rw [interp2_pi, hℓ, List.nil_append]
+    have h := hfamAt as hlenAs [] hsp
+    rw [consList_nil, List.length_nil, Nat.zero_add] at h
+    rw [h, ← hfamL, piR_congr_bit (v' := ℓ + 1)
+      ⟨fun h => absurd h (pwBit_ne_zero_of_isNever rfl ψ), fun h => absurd h (Nat.succ_ne_zero _)⟩]
+    rfl
+  -- the carrier's fibre at the tuple is the sum of the real fibres
+  have hfibre : SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss Eiss Fss Ess) (tupW u is)
+      = sumSet w (sumFibre w (consList is (consList ms (cons M ρp)))
+          (rChains (nIdx + n + 1) nIdx Fss Ess)) := by
+    have hreal' : ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss
+        Fss Ess) u ρp (ips.map (·.2.2)) rss Eiss Fss Fss Ess := by
+      rw [hfamL]; exact hreal
+    have h := fixFamI_app_eq_sum hX hreal' hfit
+    rw [hfamL, hlenIds] at h
+    rw [h]
+    congr 1
+    refine sumFibre_rChains_congr (fun j hj => hEs j (by rw [← hlenFs]; exact hj))
+      (by rw [hlenEs, hlenFs]) ?_ ?_
+    · rw [hshK, ← hlenIs, shiftE_consList]
+    · rw [hfrIdx, frameIdx_consList hlenIs]
+  -- the core hypotheses
+  have hcore : RecHypCore ℓ w (consList is (consList ms (cons M ρp))) Fss Ess (ips.map (·.2.2))
+      (fun is' => SetTheory.app
+        (fixFamI u w (frP Fss.length (ips.map (·.2.2)).length (consList is (consList ms (cons M ρp))))
+          (ips.map (·.2.2)) (ips.map (·.2.2)).length rss Eiss Fss Ess) (tupW u is')) := by
+    refine ⟨?_, ?_, by rw [hlenEs, hlenFs], ?_, ?_, ?_⟩
+    · -- the restricted chains are graded at the K-frame
+      intro Fs' hFs'
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem hFs'
+      rw [rChains_getElem?] at hj
+      cases hF : Fss[j]? with
+      | none => rw [hF] at hj; exact nomatch hj
+      | some Fs =>
+        cases hE : Ess[j]? with
+        | none => rw [hF, hE] at hj; exact nomatch hj
+        | some Es =>
+          rw [hF, hE] at hj
+          obtain rfl := Option.some.inj hj
+          have hjn : j < n := by
+            have := (List.getElem?_eq_some_iff.mp hF).1; rwa [hlenFs] at this
+          have hFD : Fss.getD j [] = Fs := by rw [List.getD_eq_getElem?_getD, hF]; rfl
+          have hED : Ess.getD j [] = Es := by rw [List.getD_eq_getElem?_getD, hE]; rfl
+          refine FieldsOkB_rChain (by rw [← hED, hlenIds]; exact hEs j hjn) ?_ ?_
+          · rw [hshK', ← hFD]; exact (hfields j hjn).1
+          · rw [hshK', ← hFD, ← hED]
+            intro bs hsp E hE'
+            exact ((hfields j hjn).2 bs hsp).1 E hE'
+    · intro j hj
+      rw [hlenIds]
+      exact hEs j (by rw [← hlenFs]; exact hj)
+    · rw [kframe_frM hlenIs' hlenM', kframe_frP hlenIs' hlenM']
+      exact hMtele
+    · rw [kframe_frP hlenIs' hlenM', kframe_frameIdx hlenIs']
+      exact hfit
+    · rw [kframe_frameIdx hlenIs', kframe_frP hlenIs' hlenM', hlenIds, hlenFs]
+      exact hfibre
+  refine ⟨⟨⟨hcore, ?_, ?_⟩, ?_, ?_⟩, ?_⟩
+  · -- the minors in their ih-extended spaces
+    intro j hj
+    rw [kframe_frMs hlenIs' hlenM' hj, kframe_frP hlenIs' hlenM', kframe_frM hlenIs' hlenM']
+    exact hms j (by rw [← hlenFs]; exact hj)
+  · -- the ih domains are truth values at a zero elimination level
+    intro h0 j fs A hA
+    unfold ihDomsI at hA
+    obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hA
+    have := hcore.hMapp0 h0 (is' := ((Eiss.getD j []).getD i []).map (interp2 V (consList (fs.take i) ρp)))
+      (by rw [List.length_map, hlenIds]; exact hEisLen j i hi) (fs.getD i pt)
+    rw [kframe_frM hlenIs' hlenM'] at this
+    rw [kframe_frP hlenIs' hlenM', kframe_frM hlenIs' hlenM']
+    exact this
+  · rw [kframe_frP hlenIs' hlenM']; exact hX
+  · rw [kframe_frP hlenIs' hlenM', hfamL]; exact hreal
+  · -- the major's domain
+    unfold majorAVAt
+    have h := hfamAt is hlenIs (M :: ms) hfit
+    rw [consList_cons, show (M :: ms).length + nIdx = 1 + n + nIdx from by
+      rw [List.length_cons, hlenM]; omega] at h
+    rw [show nP + 1 + n + nIdx = nP + (1 + n + nIdx) from by omega]
+    exact h
+
+end Lech.SetP
