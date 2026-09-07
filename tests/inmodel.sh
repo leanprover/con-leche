@@ -5,14 +5,13 @@
 # (`Lech/Frontend/InModel/*`) generates the `_model` families of its
 # mutual/nested blocks at parse time.  The generated AUXILIARY family is a
 # recursive indexed inductive the direct fixpoint route (task #188)
-# installs; until that route is on master at indices, the raw run declines
-# at the auxiliary block ("missing model") and the generator is gated
-# through the DEBUG DUMP instead: `LECH_INMODEL_DUMP` writes the raw input
-# with the generated records spliced in, `lech-preprocess` (told to leave
-# the in-process class alone, `LECH_INMODEL_NATIVE=1`, structural checks
-# off — it audits model roles lech never consumes) models the auxiliary
-# families, and the result must ACCEPT in both modes with every
-# in-process block routed `modeled`.
+# installs (on master since task #188), so the raw run ACCEPTS outright;
+# the generator is additionally gated through the DEBUG DUMP:
+# `LECH_INMODEL_DUMP` writes the raw input with the generated records
+# spliced in, `lech-preprocess` (structural checks off — it audits model
+# roles lech never consumes) models the auxiliary families, and the
+# result must ACCEPT in both modes with every in-process block routed
+# `modeled`.
 #
 #   * raw run (`--pre` on the raw export, in-process modelling on):
 #     exit 2 at the first recursive block no route installs (the
@@ -56,7 +55,7 @@ for f in "${fixtures[@]}"; do
     0) echo "  $name: raw run accepted (the fixpoint route installs the auxiliary families); ${blocks:-0} blocks in-process";;
     2) if grep -q "missing model for " "$WORK/raw.log"; then
          at=$(sed -n 's/.*missing model for \([^ ]*\) .*/\1/p' "$WORK/raw.log" | head -1)
-         echo "  $name: raw run declines at $at (a recursive block without the fixpoint route, task #188 not landed); ${blocks:-0} blocks in-process"
+         echo "  $name: raw run declines at $at (a block no route installs and the tool is absent on a --pre run: the residual class, e.g. reflexive); ${blocks:-0} blocks in-process"
        else
          echo "  FAIL $name: raw run declined elsewhere:"; tail -3 "$WORK/raw.log"; fail=1; continue
        fi;;
@@ -64,7 +63,7 @@ for f in "${fixtures[@]}"; do
   esac
   [ -f "$WORK/dump.ndjson" ] || { echo "  FAIL $name: no dump written"; fail=1; continue; }
   # 2. the tool over the dump, leaving the in-process class alone
-  LECH_INMODEL_NATIVE=1 timeout 600 "$PRE" --no-check -o "$WORK/pre.ndjson" "$WORK/dump.ndjson" > "$WORK/pre.log" 2>&1
+  timeout 600 "$PRE" --no-check -o "$WORK/pre.ndjson" "$WORK/dump.ndjson" > "$WORK/pre.log" 2>&1
   pexit=$?
   if [ "$pexit" != 0 ] || [ ! -f "$WORK/pre.ndjson" ]; then
     echo "  FAIL $name: lech-preprocess exit $pexit on the dump:"; tail -5 "$WORK/pre.log"; fail=1; continue
