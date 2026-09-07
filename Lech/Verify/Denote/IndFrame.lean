@@ -166,7 +166,7 @@ theorem openPisAtFvars_leaves :
         -- a leaf of the head opener resolves directly
         have head : l ∈ (Expr.fvar d dom).fvarLeaves →
             l ∈ (Expr.forallE dom bodyE mb).fvarLeaves ∨
-              Expr.fvar l.1 l.2.2 ∈
+              Expr.fvar l.1 l.2 ∈
                 Expr.fvar d dom :: p.1 := by
           intro hl'
           rw [Expr.fvarLeaves] at hl'
@@ -845,7 +845,7 @@ theorem instPisAt_denote_cross {cval : TConstVal} {env : Env}
       rw [hB] at hT
       obtain rfl : T = .pi A B := (Option.some.inj hT).symm
       -- the instantiated body, denoted through the top value
-      have hbeta := denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+      have hbeta := denote_beta (ty := dom) hcl hfb'.2 hwsa hba
         hw0den 0
       -- the spine and its values
       match ws, hwlen with
@@ -926,7 +926,7 @@ theorem VExpr.mkAppN_inj :
 /-- Substituting a *variable* never changes an application's arity: the
 inserted value is atomic, so no application node is created or
 absorbed. -/
-theorem Expr.getAppArgs_length_instantiate1_fvar {i : Nat} {nm : Name}
+theorem Expr.getAppArgs_length_instantiate1_fvar {i : Nat}
     {t : Expr} :
     ∀ (e : Expr) (k : Nat),
       ((e.instantiate1 (.fvar i t) k).getAppArgs).length =
@@ -963,7 +963,7 @@ residual's arity. -/
 theorem instPisAt_fvar_residual_arity :
     ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
       Expr.instPisAt sp ty = some (ds, rs) →
-      (∀ x ∈ sp, ∃ i nm t, x = Expr.fvar i t) →
+      (∀ x ∈ sp, ∃ i t, x = Expr.fvar i t) →
       ∀ {bs : List (Expr × BinderMeta)} {body : Expr},
         ty.stripPis sp.length = some (bs, body) →
         rs.getAppArgs.length = body.getAppArgs.length := by
@@ -980,7 +980,7 @@ theorem instPisAt_fvar_residual_arity :
     rw [hstrip'.2]
   | cons a sp ih =>
     intro ty ds rs h hsp bs body hstrip
-    obtain ⟨i, nm, t, rfl⟩ := hsp a List.mem_cons_self
+    obtain ⟨i, t, rfl⟩ := hsp a List.mem_cons_self
     match ty, h with
     | .forallE dom bodyE mb, h =>
       simp only [Expr.instPisAt] at h
@@ -1209,7 +1209,7 @@ theorem instPisAt_fvar_denote_defined {cval : TConstVal} {env : Env}
       | some B => ?_
       have hTI : denote cval env ψ D (body.instantiate1 a)
           = some (B.inst w0 0) := by
-        rw [denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+        rw [denote_beta (ty := dom) hcl hfb'.2 hwsa hba
           hw0 0, hB]
         rfl
       exact ih h1
@@ -1229,11 +1229,11 @@ theorem wscoped_renameConsts {f : Name → Name} :
     simp_all [Expr.renameConsts, Expr.WScoped]
 
 /-- Renaming rewrites each leaf's *annotation* and nothing else — the
-indices and names are untouched. -/
+indices are untouched. -/
 theorem fvarLeaves_renameConstsE {f : Name → Name} :
     ∀ (e : Expr), (e.renameConsts f).fvarLeaves
       = e.fvarLeaves.map
-        (fun l => (l.1, l.2.1, l.2.2.renameConsts f)) := by
+        (fun l => (l.1, l.2.renameConsts f)) := by
   intro e
   induction e <;> simp_all [Expr.renameConsts, Expr.fvarLeaves]
 
@@ -1299,7 +1299,7 @@ theorem instPisAt_denote_doms {cval : TConstVal} {env : Env}
       | some B => ?_
       have hTI : denote cval env ψ D (body.instantiate1 a)
           = some (B.inst w0 0) := by
-        rw [denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+        rw [denote_beta (ty := dom) hcl hfb'.2 hwsa hba
           hw0 0, hB]
         rfl
       intro d hd
@@ -1363,7 +1363,7 @@ theorem instPisAt_denote_res {cval : TConstVal} {env : Env}
       | some B => ?_
       have hTI : denote cval env ψ D (body.instantiate1 a)
           = some (B.inst w0 0) := by
-        rw [denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+        rw [denote_beta (ty := dom) hcl hfb'.2 hwsa hba
           hw0 0, hB]
         rfl
       exact ih h1 (fun j x hx => hsp (j + 1) x (by simpa using hx))
@@ -1610,7 +1610,7 @@ theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
         ∀ (i0 : Nat) (b : Expr × BinderMeta), bs[i0]? = some b →
           denote cval env ψ (j + i0)
-            (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
+            (Expr.instSeq (openFvars j i0) (i0 - 1) b.1) =
             some (Γ.getD (k - 1 - i0) default) := by
   intro k
   induction k with
@@ -1716,14 +1716,14 @@ theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
             rw [show k + 1 - 1 - (i0 + 1) = k - 1 - i0 from by omega,
               List.getElem?_append_left (by omega)]]
           show denote cval env ψ (j + (i0 + 1))
-            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.2.1)
+            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.1)
             = _
           rw [show openFvars j (i0 + 1) = .fvar j
               (.sort .zero) :: openFvars (j + 1) i0 from rfl,
             show Expr.instSeq (.fvar j (.sort .zero)
-                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.2.1 =
+                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.1 =
               Expr.instSeq (openFvars (j + 1) i0) (i0 - 1)
-                (b.2.1.instantiate1 (.fvar j
+                (b.1.instantiate1 (.fvar j
                   (.sort .zero)) i0) from by
               simp [Expr.instSeq],
             show j + (i0 + 1) = j + 1 + i0 from by omega]
@@ -1801,7 +1801,7 @@ theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
         ∀ (i0 : Nat) (b : Expr × BinderMeta), bs[i0]? = some b →
           denote cval env ψ (j + i0)
-            (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
+            (Expr.instSeq (openFvars j i0) (i0 - 1) b.1) =
             some (Γ.getD (k - 1 - i0) default) := by
   intro k
   induction k with
@@ -1909,14 +1909,14 @@ theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
             rw [show k + 1 - 1 - (i0 + 1) = k - 1 - i0 from by omega,
               List.getElem?_append_left (by omega)]]
           show denote cval env ψ (j + (i0 + 1))
-            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.2.1)
+            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.1)
             = _
           rw [show openFvars j (i0 + 1) = .fvar j
               (.sort .zero) :: openFvars (j + 1) i0 from rfl,
             show Expr.instSeq (.fvar j (.sort .zero)
-                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.2.1 =
+                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.1 =
               Expr.instSeq (openFvars (j + 1) i0) (i0 - 1)
-                (b.2.1.instantiate1 (.fvar j
+                (b.1.instantiate1 (.fvar j
                   (.sort .zero)) i0) from by
               simp [Expr.instSeq],
             show j + (i0 + 1) = j + 1 + i0 from by omega]
@@ -1960,20 +1960,20 @@ theorem towerCtxEqD {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     (hβdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       rbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γβ.getD (k - 1 - i0) default))
     (hcdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       cbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γc.getD (k - 1 - i0) default))
     (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
       cbinders[i0]? = some b' →
       denote cval env ψ (0 + i0)
-          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         denote cval env ψ (0 + i0)
-          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b'.2.1)) :
+          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b'.1)) :
     Γβ = Γc := by
   refine List.ext_getElem (by omega) ?_
   intro q h1 h2
@@ -2008,12 +2008,12 @@ theorem towerCtxEq {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     (hβdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       rbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γβ.getD (k - 1 - i0) default))
     (hcdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       cbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γc.getD (k - 1 - i0) default))
     (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
@@ -2110,7 +2110,7 @@ theorem projRhsValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     (hRden : denote cval env ψ (rP + cnF) (fvs.getD (rP + i) default)
       = some vR) :
     vR = .bvar (rP + cnF - 1 - (rP + i)) := by
-  obtain ⟨nm, t, hsh⟩ := hshapeS (rP + i) fvs[rP + i]
+  obtain ⟨t, hsh⟩ := hshapeS (rP + i) fvs[rP + i]
     (List.getElem?_eq_getElem (show rP + i < fvs.length from by omega))
   rw [show fvs.getD (rP + i) default = fvs[rP + i] from by
       simp [List.getD, List.getElem?_eq_getElem
@@ -2225,7 +2225,7 @@ theorem instLamsAt_denoteTele {cval : TConstVal} {env : Env}
       rw [hB] at hV
       obtain rfl : Vv = .lam A Bv := (Option.some.inj hV).symm
       -- the head opener's shape
-      obtain ⟨nmA, tyA, rfl⟩ := hshape 0 a rfl
+      obtain ⟨tyA, rfl⟩ := hshape 0 a rfl
       -- re-open at the run's opener (denote-irrelevant)
       have hB' : denote cval env ψ (j + 1)
           (bodyE.instantiate1 (.fvar (j + 0) tyA)) = some Bv := by
@@ -2235,10 +2235,10 @@ theorem instLamsAt_denoteTele {cval : TConstVal} {env : Env}
             (.fvar j dom) from by constructor)) (j + 1)]
         exact hB
       have hshape' : ∀ (i : Nat) (x : Expr), sp[i]? = some x →
-          ∃ nm' ty', x = Expr.fvar (j + 1 + i) ty' := by
+          ∃ ty', x = Expr.fvar (j + 1 + i) ty' := by
         intro i x hx
-        obtain ⟨nm', ty', hx'⟩ := hshape (i + 1) x (by simpa using hx)
-        exact ⟨nm', ty', by rw [hx']; congr 1; omega⟩
+        obtain ⟨ty', hx'⟩ := hshape (i + 1) x (by simpa using hx)
+        exact ⟨ty', by rw [hx']; congr 1; omega⟩
       obtain ⟨Γ', C, rfl, hΓlen, hrest, hdoms⟩ := ih h1 hshape' hB'
       have hdslen : p.1.length = sp.length := instLamsAt_length sp h1
       refine ⟨Γ' ++ [A], C, ?_, ?_, ?_, ?_⟩
@@ -2401,7 +2401,7 @@ theorem stripPis_renameConsts {f : Name → Name} :
       {body : Expr},
       e.stripPis n = some (bs, body) →
       (e.renameConsts f).stripPis n =
-        some (bs.map (fun b => (b.1, b.2.1.renameConsts f, b.2.2)),
+        some (bs.map (fun b => (b.1.renameConsts f, b.2)),
           body.renameConsts f) := by
   intro n
   induction n with

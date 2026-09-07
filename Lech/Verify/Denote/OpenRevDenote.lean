@@ -224,7 +224,7 @@ theorem denote_openRev (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
       rw [denote_lift hcl hfa (d + as.length) (by omega), ha,
         show d + as.length - d = as.length from by omega]
       rfl
-    rw [denote_beta (n := Name.anonymous) (ty := .sort .zero) hcl
+    rw [denote_beta (ty := .sort .zero) hcl
       (openRev_fvarsBelow hfb as.length)
       (hwa.mono (by omega)) hba ha' 0]
     show ((denote cval env φ (d + as.length + 1)

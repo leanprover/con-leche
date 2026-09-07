@@ -196,7 +196,7 @@ decreasing_by
 opening a binder body with the argument directly is opening it with a
 fresh variable and then instantiating.  Transpose of `interp_beta`. -/
 theorem denote_beta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
-    {d : Nat} {n : Name} {ty body a : Expr} {x : VExpr}
+    {d : Nat} {ty body a : Expr} {x : VExpr}
     (hfb : Expr.fvarsBelow d body) (hwa : Expr.WScoped d a)
     (hba : a.looseBVarsBounded 0 = true)
     (ha : denote cval env φ d a = some x) (k : Nat) :
