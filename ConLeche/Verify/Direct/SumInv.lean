@@ -210,12 +210,36 @@ theorem checkDirectFieldSortsI_inv {env : Env} {isProp large : Bool}
         rw [hp] at h0
         exact nomatch h0
 
+/-- The normalisation stage stores either the constructor as checked
+or a from-scratch check of the rebuilt constant — in both cases some
+constant with the declared name and level parameters (task #210 Part
+D). -/
+theorem normCtorVal_inv {env : Env} {T : Name} {nP nF : Nat} {cvC cvCa₀ cvCa : ConstantVal}
+    {F : Nat} (h₀ : checkConstantVal (fueledOps mode F) env cvC = .ok cvCa₀)
+    (h : normCtorVal (fueledOps mode F) env T nP nF cvC cvCa₀ = .ok cvCa) :
+    ∃ ty', checkConstantVal (fueledOps mode F) env { cvC with type := ty' } = .ok cvCa := by
+  unfold normCtorVal at h
+  obtain ⟨q, hq, h⟩ := exceptBind_ok h
+  obtain ⟨cbs, _⟩ := q
+  try simp only at h
+  obtain ⟨r, hr, h⟩ := exceptBind_ok h
+  obtain ⟨fvsP, crest⟩ := r
+  try simp only at h
+  obtain ⟨u, hu, h⟩ := exceptBind_ok h
+  obtain ⟨fbs, resid⟩ := u
+  try simp only at h
+  split at h
+  · simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨cvC.type, h₀⟩
+  · exact ⟨_, h⟩
+
 theorem checkDirectSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
     {nF : Nat} {F : Nat} {sorts : List Level}
     (h : checkDirectSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
       cvC nF cvTa = .ok (cvCa, sorts)) :
-    checkConstantVal (fueledOps mode F) env cvC = .ok cvCa ∧
+    (∃ ty', checkConstantVal (fueledOps mode F) env { cvC with type := ty' } = .ok cvCa) ∧
     (∃ cbs es, cvCa.type.stripPis (nP + nF)
       = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (directPsAt nF nP ++ es)) ∧
       es.length = nIdx) ∧
@@ -233,7 +257,9 @@ theorem checkDirectSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
       checkDirectFieldSortsI (fueledOps mode F) env isProp large resSort
         nP xFvs idxArgs nF = .ok sorts := by
   unfold checkDirectSumCtor at h
-  obtain ⟨cvCa', hccv, h⟩ := exceptBind_ok h
+  obtain ⟨cvCa₀, hccv₀, h⟩ := exceptBind_ok h
+  obtain ⟨cvCa', hnorm, h⟩ := exceptBind_ok h
+  have hccv := normCtorVal_inv hccv₀ hnorm
   obtain ⟨q, hq, h⟩ := exceptBind_ok h
   obtain ⟨cbs, cbody⟩ := q
   have hq' := unwrapOr_ok hq

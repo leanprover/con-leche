@@ -210,6 +210,10 @@ def checkDeclSPC (fe : FEnv) (pd : DeclC) : CheckCM FEnv :=
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDeclF fe
   | .indDecl block =>
+    -- ONE ROUTE (task #210 Part D): a block with an in-process `_model`
+    -- family (mutual, nested) that the raw reading refuses is the modeled
+    -- path's; every other block of the shape is the fixpoint route's
+    if blockIsModeled fe.find? block then checkIndDeclSF mode fe block else
     match directFixParts? block with
     | some p => checkDirectFixS mode fe p
     | none => checkIndDeclSF mode fe block

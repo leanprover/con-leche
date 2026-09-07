@@ -479,6 +479,17 @@
 #   direct_fix_acc_large: `Up n (n+1)` with ONE recursive constructor
 #                     and the large eliminator (the data field is an
 #                     index): taken, as `Loop` (task #202 Stage A2).
+#   direct_fix_vec_idx_occ_bad, direct_fix_vec_res_occ_bad (task #210
+#                     Part D): `Vec'.cons` with an occurrence of the
+#                     block inside an INDEX expression — the recursive
+#                     field's index `(fun β => n) (Vec' α n)`, resp. the
+#                     result's `(fun β => Nat.succ n) (Vec' α n)`.  Both
+#                     whnf to the original index, but official's
+#                     `is_valid_ind_app` runs `has_ind_occ` on every
+#                     index argument unreduced: "non valid occurrence",
+#                     resp. "invalid return type" — REJECTED (1), as
+#                     `recFamOk` / `recCtorKinds`' residual check do
+#                     (`.negative`); before Part D a decline.
 #   direct_fix_vec_ih_idx_bad: `Vec'.rec`'s `v_ih` binder patched to
 #                     `motive (Nat.succ n) v` — the hypothesis at the
 #                     wrong index, REJECTED (the patched recursor type
@@ -545,6 +556,8 @@
 0 direct_fix_le.ndjson
 0 direct_fix_acc_large.ndjson
 1 direct_fix_vec_ih_idx_bad.ndjson
+1 direct_fix_vec_idx_occ_bad.ndjson
+1 direct_fix_vec_res_occ_bad.ndjson
 0 direct_fix_refl.ndjson
 1 direct_fix_refl_neg_bad.ndjson
 1 direct_fix_refl_ih_bad.ndjson
@@ -821,7 +834,12 @@
 #   #206-A5, the same class as ind_pos_whnf_id/fn and the three arena
 #   good tests recorded in tests/arena-expected.txt; the preprocessor
 #   was masking it here.  `PadImaxIdx` itself still installs directly.
-2 pre_decline_imax_field.ndjson
+#   Task #210 Part D (2026-09-07): 0.  The fixpoint route normalises
+#   the field domain (`normPosDom`): the redex mentions the block and
+#   whnf's to `N`, which no longer mentions it — nor the recursive
+#   field `x` it was applied to, so the model's later-use guard
+#   (`directUsedLater`) has nothing to fire on.  Official's verdict.
+0 pre_decline_imax_field.ndjson
 
 # THE BUILT-IN PRELUDE AND THE GROUND HOIST (task #191, 2026-09-06;
 # ConLeche/Frontend/Prelude.lean, ConLeche/Frontend/NatOpGround.lean).  The
@@ -937,14 +955,13 @@
 #
 # --- A5 / crack C5: a recursive occurrence hidden under a DEFINITION.
 # --- Official whnf's the field before classifying it; the fixpoint
-# --- route's positivity check is syntactic.  Audit follow-up 5.
-# --- ind_pos_whnf_fn is the reflexive case (the tool errors);
-# --- ind_pos_whnf_id its finitary twin, which the tool models — the
-# --- regression guard.
-# TODO(#206-A5) official: 0 — piped (until #207): the preprocessor failed (exit 3)
-# TODO(#206-A5) official: 0 — today: no install route for R
-2 ind_pos_whnf_fn.ndjson
-2 ind_pos_whnf_id.ndjson
+# --- route's positivity check was syntactic.  Audit follow-up 5.
+# --- ind_pos_whnf_fn is the reflexive case, ind_pos_whnf_id its
+# --- finitary twin.  Task #210 Part D (2026-09-07): both ACCEPT —
+# --- the route normalises the field domains by official's positivity
+# --- walk before classifying them (`normPosDom`); official's verdict.
+0 ind_pos_whnf_fn.ndjson
+0 ind_pos_whnf_id.ndjson
 #
 # --- A6 / crack C6: the projection FUNCTIONS of a finitary RECURSIVE
 # --- structure.  A silent regression of #188 (the block went native, so
@@ -984,12 +1001,11 @@
 2 ind_nest_via_refl.ndjson
 #
 # --- A10 / crack C8: `unsafe inductive`.  Official skips positivity and
-# --- accepts; con-leche's PARSER throws, so the run errors (3) where unsafe
-# --- DEFINITIONS decline positively (2, arena 141/142).  Audit
-# --- follow-up 6 (one line in ExportC.lean:550).
-# TODO(#206-A10) official: 0 — piped (until #207): the preprocessor failed on the block too (exit 3)
-# TODO(#206-A10) official: 0 — raw: our parser throws "unsafe inductive"; a decline (2) is the intended verdict
-3 ind_unsafe.ndjson
+# --- accepts (0); con-leche supports no unsafe declaration and DECLINES
+# --- positively (2) since task #217, like unsafe axioms, opaques and
+# --- definitions (arena 141/142).  The parser used to throw, so the run
+# --- errored (3) — audit follow-up 6, closed.
+2 ind_unsafe.ndjson
 #
 # --- §2 "probed and clean": shapes nobody had a fixture for and both
 # --- checkers accept.  Pure regression guards — zero-constructor INDEXED
@@ -1005,24 +1021,19 @@
 0 ind_nest_two_pins.ndjson
 0 ind_nest_prop.ndjson
 #
-# --- S1 / crack C9: the `let` value/type checks are ABSENT (the audit's
-# --- only unlicensed accept-superset, and not an inductive matter).
-# --- `annotate`'s .letE clause returns the zeta-reduct and the annotated
-# --- term is let-free, so official's `infer_let` triple never runs and
-# --- the six .letE arms of whnfCore/infer are dead code.  Not a
-# --- soundness problem (the stored term is the reduct, which the
-# --- capstone covers) but official REJECTS all three.  Audit follow-up 1
-# --- flips them to 1.  let_bad_value_used is the control the reduct's
-# --- own type check already catches.
-# TODO(#206-S1) official: 1 — "(kernel) let-declaration type mismatch 'x'"
-# TODO(#206-S1) official: 1 — same, raw
-0 let_bad_value.ndjson
-# TODO(#206-S1) official: 1 — "type expected … Bool.true"
-# TODO(#206-S1) official: 1 — same, raw
-0 let_bad_type.ndjson
-# TODO(#206-S1) official: 1 — "(kernel) let-declaration type mismatch 'x'"
-# TODO(#206-S1) official: 1 — same, raw
-0 let_bad_thm.ndjson
+# --- S1 / crack C9: the `let` value/type checks.  `annotate`'s .letE
+# --- clause returns the zeta-reduct and the annotated term is let-free,
+# --- so `inferBody`'s own .letE arm never sees a `letE` the driver
+# --- produced: until task #217 official's `infer_let` triple ran
+# --- nowhere and all three were accepted (the audit's only unlicensed
+# --- accept-superset, and not an inductive matter).  #217 (follow-up 1)
+# --- runs the triple inside annotate, on the annotated annotation and
+# --- value, before the reduct is taken — official's three rejections
+# --- (1), reached at the same declaration.  let_bad_value_used is the
+# --- control the reduct's own type check already caught.
+1 let_bad_value.ndjson
+1 let_bad_type.ndjson
+1 let_bad_thm.ndjson
 1 let_bad_value_used.ndjson
 # The DAG-tower fixtures (task #215; scripts/mk_tower_fixtures.py) and
 # the two fixtures the retired tree-size budget left behind.  With the

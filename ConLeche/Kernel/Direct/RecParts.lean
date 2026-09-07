@@ -53,164 +53,6 @@ recursive field).  The generators below are the indexed ones of
 
 namespace ConLeche
 
-/-- Does the constant `T` occur in `e`?  A syntactic walk (`fvar`
-annotations included; a `.proj` node names its structure). -/
-def Expr.mentionsConst (T : Name) : Expr → Bool
-  | .bvar _ | .sort _ | .lit _ => false
-  | .const n _ => n == T
-  | .fvar _ ty => ty.mentionsConst T
-  | .app f a => f.mentionsConst T || a.mentionsConst T
-  | .lam ty b _ | .forallE ty b _ => ty.mentionsConst T || b.mentionsConst T
-  | .letE ty v b => ty.mentionsConst T || v.mentionsConst T || b.mentionsConst T
-  | .proj s _ e => s == T || e.mentionsConst T
-
-/-! ### `mentionsConst`, memoized (task #210 Part B)
-
-The recogniser's positivity walk asks `mentionsConst` of every field
-domain and index argument; on a DAG-shared field type (task #215's
-`tower_struct`: a depth-60 doubling tower in a structure field) the
-tree walk does not finish.  As with `instantiate1` and `renameConsts`
-(`ConLeche/Kernel/ExprOps.lean`, task #215) the memoized walk is
-swapped in by `@[csimp]`: kernel-checked, no trust point, the pure
-definition stays what every proof consumes.  The memo is keyed by the
-node and dropped after each call (the answer depends on `T`). -/
-
-/-- The memo's invariant: every recorded answer is the real one. -/
-def MentionsMemoInv (T : Name) (memo : Std.HashMap Expr Bool) : Prop :=
-  ∀ (k : Expr) (r : Bool), memo[k]? = some r → r = k.mentionsConst T
-
-theorem MentionsMemoInv.empty {T : Name} : MentionsMemoInv T {} := by
-  intro k r h; simp at h
-
-theorem MentionsMemoInv.insert {T : Name} {memo : Std.HashMap Expr Bool}
-    (hm : MentionsMemoInv T memo) {e : Expr} {r : Bool} (heq : r = e.mentionsConst T) :
-    MentionsMemoInv T (memo.insert e r) := by
-  intro k r' hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm k r' hk
-
-/-- Memoized `mentionsConst`. -/
-def Expr.mentionsConstGo (T : Name) (memo : Std.HashMap Expr Bool) :
-    Expr → Bool × Std.HashMap Expr Bool
-  | .bvar _ => (false, memo)
-  | .sort _ => (false, memo)
-  | .lit _ => (false, memo)
-  | .const n _ => (n == T, memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Bool × Std.HashMap Expr Bool :=
-        match e with
-        | .fvar _ ty => mentionsConstGo T memo ty
-        | .app f a =>
-          let (b₁, memo) := mentionsConstGo T memo f
-          let (b₂, memo) := mentionsConstGo T memo a
-          (b₁ || b₂, memo)
-        | .lam ty body _ =>
-          let (b₁, memo) := mentionsConstGo T memo ty
-          let (b₂, memo) := mentionsConstGo T memo body
-          (b₁ || b₂, memo)
-        | .forallE ty body _ =>
-          let (b₁, memo) := mentionsConstGo T memo ty
-          let (b₂, memo) := mentionsConstGo T memo body
-          (b₁ || b₂, memo)
-        | .letE ty val body =>
-          let (b₁, memo) := mentionsConstGo T memo ty
-          let (b₂, memo) := mentionsConstGo T memo val
-          let (b₃, memo) := mentionsConstGo T memo body
-          (b₁ || b₂ || b₃, memo)
-        | .proj s _ sub =>
-          let (b, memo) := mentionsConstGo T memo sub
-          (s == T || b, memo)
-        | e => (e.mentionsConst T, memo)
-      (r, memo.insert e r)
-
-/-- **The memoized walk is `mentionsConst`.** -/
-theorem Expr.mentionsConstGo_spec {T : Name} :
-    ∀ (e : Expr) (memo : Std.HashMap Expr Bool), MentionsMemoInv T memo →
-      (mentionsConstGo T memo e).1 = e.mentionsConst T ∧
-        MentionsMemoInv T (mentionsConstGo T memo e).2 := by
-  intro e
-  induction e with
-  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
-  | sort u => intro memo hm; exact ⟨rfl, hm⟩
-  | const n us => intro memo hm; exact ⟨rfl, hm⟩
-  | lit l => intro memo hm; exact ⟨rfl, hm⟩
-  | fvar i ty ih =>
-    intro memo hm
-    rw [mentionsConstGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih memo hm
-      refine ⟨by simp [mentionsConst, h1], ?_⟩
-      exact h2.insert (by simp [mentionsConst, h1])
-  | app a b iha ihb =>
-    intro memo hm
-    rw [mentionsConstGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iha memo hm
-      obtain ⟨h3, h4⟩ := ihb _ h2
-      refine ⟨by simp [mentionsConst, h1, h3], ?_⟩
-      exact h4.insert (by simp [mentionsConst, h1, h3])
-  | lam ty body bi iht ihb =>
-    intro memo hm
-    rw [mentionsConstGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihb _ h2
-      refine ⟨by simp [mentionsConst, h1, h3], ?_⟩
-      exact h4.insert (by simp [mentionsConst, h1, h3])
-  | forallE ty body bi iht ihb =>
-    intro memo hm
-    rw [mentionsConstGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihb _ h2
-      refine ⟨by simp [mentionsConst, h1, h3], ?_⟩
-      exact h4.insert (by simp [mentionsConst, h1, h3])
-  | letE ty val body iht ihv ihb =>
-    intro memo hm
-    rw [mentionsConstGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := iht memo hm
-      obtain ⟨h3, h4⟩ := ihv _ h2
-      obtain ⟨h5, h6⟩ := ihb _ h4
-      refine ⟨by simp [mentionsConst, h1, h3, h5], ?_⟩
-      exact h6.insert (by simp [mentionsConst, h1, h3, h5])
-  | proj s i sub ih =>
-    intro memo hm
-    rw [mentionsConstGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
-    · obtain ⟨h1, h2⟩ := ih memo hm
-      refine ⟨by simp [mentionsConst, h1], ?_⟩
-      exact h2.insert (by simp [mentionsConst, h1])
-
-/-- The executed `mentionsConst` (one memoized DAG walk). -/
-def Expr.mentionsConstFast (T : Name) (e : Expr) : Bool :=
-  (mentionsConstGo T {} e).1
-
-@[csimp] theorem Expr.mentionsConst_eq_mentionsConstFast :
-    @Expr.mentionsConst = @Expr.mentionsConstFast := by
-  funext T e
-  exact (mentionsConstGo_spec e {} MentionsMemoInv.empty).1.symm
-
 /-- The kind of a constructor field of a recursive block (see the
 module docstring). -/
 inductive RecFieldKind where
@@ -231,9 +73,9 @@ inductive RecFieldKind where
 
 /-- Is `e` the family at the parameter variables (sitting `o` binders
 up) followed by `nIdx` index expressions none of which mentions the
-block?  (Official `is_valid_ind_app` does not look at the index
-expressions; this route needs them free of the block — see
-`recPositivity`.) -/
+block?  Official's `is_valid_ind_app` exactly: the head, the arity,
+the parameters (structurally) and `has_ind_occ` on every index
+argument (inductive.cpp, task #210 Part D). -/
 def recFamOk (T : Name) (lps : List Name) (nP nIdx o : Nat) (e : Expr) : Bool :=
   e.getAppFn == Expr.const T (lps.map .param) &&
   e.getAppArgs.length == nP + nIdx &&
@@ -244,11 +86,10 @@ def recFamOk (T : Name) (lps : List Name) (nP nIdx o : Nat) (e : Expr) : Bool :=
 mentions the block, syntactically: `k` binders of the field's own
 telescope have been peeled (the parameters sit `o + k` binders up).
 A family application at the head whose parameters are not the
-block's, or with the wrong number of arguments, is the official
-"non valid occurrence" (`.negative`); one whose INDEX expressions
-mention the block is valid for the official kernel but not modeled
-here — the index tuple is read at an arbitrary family in the functor,
-where the block's own carrier is not yet available (`.unsupported`). -/
+block's, with the wrong number of arguments, or whose INDEX expressions
+mention the block is the official "non valid occurrence" (`.negative`:
+`is_valid_ind_app` rejects all three); an application of another
+constant is a nested occurrence (`.unsupported`: the modeled path). -/
 def recPositivity (T : Name) (lps : List Name) (nP nIdx o : Nat) : Expr → Nat → RecFieldKind
   | .forallE dom body _, k =>
     if dom.mentionsConst T then .negative else recPositivity T lps nP nIdx o body (k + 1)
@@ -258,7 +99,7 @@ def recPositivity (T : Name) (lps : List Name) (nP nIdx o : Nat) : Expr → Nat 
       if e.getAppArgs.length == nP + nIdx && e.getAppArgs.take nP == directPsAt (o + k) nP then
         (if recFamOk T lps nP nIdx (o + k) e then
           (if k == 0 then .recursive else .reflexive)
-         else .unsupported)
+         else .negative)
       else .negative
     else
       match e.getAppFn with
@@ -275,13 +116,17 @@ type.  A recursive field that a LATER binder or the constructor's
 residual mentions (`directUsedLater`) is marked unsupported: the model
 reads the ordinary domains and the index expressions at a frame whose
 recursive slots hold an arbitrary value, so neither may depend on one.
-(In a well-typed constructor a later domain can only mention a
-recursive field through a term whose type mentions the block — which
-is not ordinary; an index expression can, e.g. `T (size t)` at a
-recursive `t`, and such a block falls through to the modeled path.)
-The constructor's residual index expressions must not mention the
-block either (same reason as at `recPositivity`); a violation marks
-the constructor's fields all unsupported. -/
+On a constructor official accepts, with its field domains normalised
+(`normPosDom`), the guard cannot fire (task #210 Part D): a term
+containing a variable of type `T p⃗ e⃗` contains the constant `T`
+(its consumer's domain is a subterm, and a `T`-free term is not
+definitionally the block); the normalised later domains that mention
+`T` are Π-chains with `T`-free domains ending in the family at
+`T`-free indices (official's `is_valid_ind_app`, `recFamOk`) or
+invalid, and the residual's index expressions are `T`-free for the
+same reason (official's "invalid return type", the last conjunct
+below, `.negative`).  So the guard is the model's own invariant, never
+a verdict of its own. -/
 def recCtorKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (c : ConstantVal × Nat) :
     Option (List RecFieldKind) :=
   match c.1.type.stripPis (nP + c.2) with
@@ -292,7 +137,7 @@ def recCtorKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (c : ConstantVal �
       | .reflexive => if directUsedLater c.1.type nP i then .unsupported else .reflexive
       | k => k
     if (cbody.getAppArgs.drop nP).all (fun a => !a.mentionsConst T) then some ks
-    else some (ks.map fun k => if k == .negative then .negative else .unsupported)
+    else some (ks.map fun _ => .negative)
   | none => none
 
 /-- All leading `∀` binders of an expression (outermost first) and
@@ -530,11 +375,16 @@ def directFixCtors4 (ctorsA : List (ConstantVal × Nat)) (kinds : List (List Rec
     List (Name × Nat × Expr × List Nat) :=
   List.zipWith (fun cA ks => (cA.1.name, cA.2, cA.1.type, recIdxOf ks)) ctorsA kinds
 
-/-! ## Recognition -/
-
-/-- The stream's rules at a recursive block, in constructor order:
-rule `j` fires constructor `j` with its field count and the canonical
-right-hand side with the inductive hypotheses. -/
+/-- **The stream's rules against the generated ones** (task #210 Part
+D, at install): rule `j` fires constructor `j` with its field count,
+and its body is the canonical right-hand side with the inductive
+hypotheses — generated from the STORED constructors (their field
+domains normalised by official's positivity walk, which is what the
+elaborator generated the stream's rules from), at the parse
+placeholder's binder data (`resetMeta`).  Official's replay compares an
+exported recursor structurally with the one it generates; this is that
+comparison, on the bodies (the type is `isDefEq`'d at
+`checkDirectFixRec`). -/
 def directFixRulesOk (recC : Name) (rlvls : List Level) (pw : PropWhen) (nP n : Nat)
     (cs : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) (rhss : List Expr) :
     Bool :=
@@ -545,10 +395,12 @@ def directFixRulesOk (recC : Name) (rlvls : List Level) (pw : PropWhen) (nP n : 
       ks.length == nF &&
       (match rhs.stripLams (nP + 1 + n + nF) with
        | some (_, rbody) =>
-         rbody == directRuleBodyR recC rlvls pw nP n nF j (recIdxOf ks)
-           (directFieldTeleOf cA.type nP nF) (directFieldIdxOf cA.type nP nF)
+         rbody == Expr.resetMeta (directRuleBodyR recC rlvls pw nP n nF j (recIdxOf ks)
+           (directFieldTeleOf cA.type nP nF) (directFieldIdxOf cA.type nP nF))
        | none => false)
     | _, _, _ => false
+
+/-! ## Recognition -/
 
 /-- The block's shape at a recursive block: `directSumPartsCore?`
 without its one-constructor exclusion and without the rule bodies
@@ -607,45 +459,61 @@ def directFixShape? (block : List ConstantInfo) : Option DirectSumParts :=
     | none => none
   | _ => none
 
-/-- The field kinds of every constructor. -/
-def directFixKinds? (p : DirectSumParts) : Option (List (List RecFieldKind)) :=
-  p.ctors.mapM (recCtorKinds p.cvT.name p.cvT.levelParams p.nP p.nIdx)
+/-- The record completed with the fields' kinds (task #210 Part D):
+the install classifies them on the constructors it stored — their
+field domains normalised by official's positivity walk
+(`normCtorVal`) — and every later stage runs on this record. -/
+def DirectFixParts.withKinds (p : DirectFixParts) (ks : List (List RecFieldKind)) :
+    DirectFixParts :=
+  { p with kinds := ks }
 
-/-- Recognise a direct block — ONE ROUTE (task #210 Part B): the
-shape, the fields' kinds, and — when every field is ordinary, a
-finitary recursive one or a reflexive one — the rules' bodies.  A
-NON-recursive block (every kind ordinary, any number of constructors
-including none, any index count) is the CONSTANT-FUNCTOR arm of the
-same install: what the retired structure and sum routes took.  A block
-with a NON-POSITIVE occurrence is admitted WITHOUT the rule check so
-that the install rejects it exactly as the official kernel's positivity
-check would, before anything else is looked at.  A block with an
-UNSUPPORTED occurrence (nested, under a redex, a recursive field a later
-binder mentions) is NOT this route's: it falls through to the modeled
-path, which accepts what the in-process modeller can model — a positive
-decline here would regress the verdict of every such block (found on
-the arena's `RTree`, 2026-09-06).  A reflexive field is taken at every
-sort (task #202).  A block with NO constructor is this route's too:
-official grants it the large eliminator whatever its sort, and the
-route's squash regime — the large eliminator at a `Prop` instance — is
-proven at AT MOST one constructor (`FixKI₀.hsq`; the family is then
-empty and every K-frame claim vacuous). -/
+@[simp] theorem DirectFixParts.withKinds_kinds (p : DirectFixParts)
+    (ks : List (List RecFieldKind)) : (p.withKinds ks).kinds = ks := rfl
+@[simp] theorem DirectFixParts.withKinds_toDirectSumParts (p : DirectFixParts)
+    (ks : List (List RecFieldKind)) : (p.withKinds ks).toDirectSumParts = p.toDirectSumParts := rfl
+
+/-- Recognise a direct block — ONE ROUTE (task #210): its SHAPE
+(`directFixShape?`); the fields' kinds are a PLACEHOLDER the install
+fills (`DirectFixParts.withKinds`) after normalising every field
+domain by official's positivity walk — a syntactic reading here
+would refuse a recursive occurrence hidden under a definition, which
+official whnf's away (audit #206-A5, Part D).  A block with a
+NON-POSITIVE occurrence is admitted so that the install rejects it
+exactly as official's positivity check would, before anything else is
+looked at.  A nested block is never this route's: it carries an
+in-process `_model` family, and the dispatch reads that first.  A
+reflexive field is taken at every sort (task #202); a block with no
+constructor is this route's too (`FixKI₀.hsq` at most one). -/
 def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
-  match directFixShape? block with
-  | some p =>
-    match directFixKinds? p with
-    | some kinds =>
-      if kinds.any (fun ks => ks.any (· == .negative)) then some ⟨p, kinds⟩
-      else if kinds.any (fun ks => ks.any (· == .unsupported)) then none
-      -- the stream's rules are at the parse placeholder `⟨.never⟩` (as
-      -- are the raw constructor types the bodies are generated from),
-      -- so the comparison is at that bit; the installed rules
-      -- (`directRecRhsR`) carry the elimination regime's
-      else if directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP
-          p.ctors.length p.ctors kinds p.rhss then
-        some ⟨p, kinds⟩
-      else none
-    | none => none
-  | none => none
+  (directFixShape? block).map fun p => ⟨p, []⟩
+
+/-- The one route's reading of a block's RAW constructors: does the
+syntactic classification (`recCtorKinds`) find no occurrence the route
+does not model?  On the raw stream a nested occurrence (`List T`) and
+a definition redex over one (`Id' T`) look alike — both `.unsupported`
+— and only the install, whnf'ing, tells them apart; here the reading
+decides the DISPATCH together with the presence of a model
+(`blockIsModeled`). -/
+def rawKindsOk (p : DirectSumParts) : Bool :=
+  match p.ctors.mapM (recCtorKinds p.cvT.name p.cvT.levelParams p.nP p.nIdx) with
+  | some ks => ks.all fun k => k.all (· != .unsupported)
+  | none => false
+
+/-- Is the block the modeled path's (task #210 Part D)?  It carries an
+in-process `_model` family (the mutual and nested blocks, task #200)
+AND the one route's raw reading refuses it (`rawKindsOk`, or the shape
+is not the route's at all).  The first conjunct keeps a redex-hidden
+occurrence (`Id' T`, arena 053) where no model exists on the route,
+which whnf's it; the second keeps a block the route takes with a stale
+model beside it (the preprocessor-era fixture streams' `PProd'._model`)
+on the route, its projection table with it. -/
+def blockIsModeled (find? : Name → Option ConstantInfo) (block : List ConstantInfo) : Bool :=
+  match block with
+  | .indInfo cvT _ :: _ =>
+    (find? (cvT.name.str "_model")).isSome &&
+    (match directFixShape? block with
+     | some p => !rawKindsOk p
+     | none => true)
+  | _ => false
 
 end ConLeche

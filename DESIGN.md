@@ -58689,6 +58689,206 @@ nothing, as it should).  **Mathlib slices** (raw, `--verified`):
 `slice-small` 1 626 fix / 26 inmodel / 6 basis, the five-cone slice
 183 fix / 1 inmodel / 6 basis — unchanged.  No Mathlib-scale run.
 
+### Part D — the three conformance items, each a fixture flip to official's verdict
+
+Branch `agent/one-route-d` from master `738cfa2e` (Part C); master
+merged through `1aaed328` (OVERVIEW, PERF, README prose only — no
+re-gate).  Scope as ruled: the whnf'd reading of constructor field
+types on the one arm (field side — the frontier block
+`CategoryTheory.MorphismProperty.multiplicativeClosure` already accepts
+on Part B's tree, and ALL OF MATHLIB accepts raw in both modes there;
+its cone stays the regression slice), the `directUsedLater`
+fall-through, and the rule comparison; no nested/container work, no
+thresholds.  The restriction list at the end is the point of the
+record: **empty on the fixpoint route**, with the one remaining
+`ind_*` decline (A3/A4) the in-process modeller's by ruling.
+
+**Item 1 — the field domains, normalised by official's positivity
+walk.**  Official `check_positivity` whnf's the field domain, and —
+while the block occurs — walks under its Π binders (a Π domain
+mentioning the block is "non positive occurrence"), whnf'ing each body;
+`is_rec_argument` whnf's through the Πs the same way.  A field whose
+type only whnf's to an occurrence (`constType (T α) (T α)`, `Id' T`,
+`Nat → Id' T`) is recursive for official and invisible to a syntactic
+reading — audit finding #206-A5, arena 053/118/119, `ind_pos_whnf_id`/
+`_fn`, `pre_decline_imax_field`.  The design is *normalise, don't
+claim*: `normPosDom` (`Kernel/Direct/SumInstall.lean`) REPLACES the
+declared domain by the form official classifies — a domain the block
+does not occur in is kept as declared, unreduced (official whnf's it
+and discards the result; reduction cannot introduce the block); one it
+occurs in is whnf'd at its own depth, and while the block still occurs
+walked under its Π binders with each body whnf'd (a Π domain mentioning
+the block is INVALID); the fuel (1024) bounds the walk, exhaustion a
+positive decline.  `normFieldDoms` opens the constructor's field
+telescope at free variables as `whnfTelescope` opens the former's;
+`normCtorVal` closes it back (`closeTelescope`) and, when anything
+changed, checks the rebuilt type as the constructor's type in its
+place FROM SCRATCH (`checkConstantVal`) — nothing about the reduction is
+trusted; the verified tier sees a constant of the declared name whose
+type is *some* `ty'` (`normCtorVal_inv`: `∃ ty', checkConstantVal env
+{cvC with type := ty'} = .ok cvCa`, the first conjunct of
+`checkDirectSumCtor_shape`), and every downstream fact is about the
+checked `cvCa`.  Task #195's arrangement at the type former, now at the
+fields; the P tier never needed a whnf claim (`WhnfClaims2P`) for it.
+What the environment stores is the checked constant — the constructor
+with its NORMALISED type, definitionally the declared one: every later
+verdict is the same (types are compared by `isDefEq`), and the
+recursor's minor premises (compared by `isDefEq`, below) and the rules'
+bodies (binder types are stripped before the comparison) do not see the
+difference.  Recorded as the one syntactic deviation of the item.
+
+**The kinds, classified at install — the provisional pass.**  The
+field kinds used to be read at recognition (`directFixKinds?`, on the
+raw stream) and consumed by the former's capability record
+(`directFixCaps` reads `p.kinds`: η's `!is_rec` conjunct).  Now they
+are an install OUTPUT — `classifyFixKinds` (`Kernel/Direct/
+RecInstall.lean`) runs `recCtorKinds` on the constructors AS STORED,
+i.e. normalised — but the former, which needs them, is installed before
+the constructors.  `checkDirectFix` therefore runs a **provisional
+pass**: the former with an empty capability record into a throwaway
+environment, the constructors at it (normalised, checked), the kinds
+off those; then the real former with `directFixCaps ((p₀.complete
+p₁).withKinds kinds)`, the constructors again at the real environment,
+`directFixFieldsOk`, the rules, the recursor, the table.  The
+recogniser is shape-only (`directFixShape?`; `directFixParts? block :=
+(directFixShape? block).map (⟨·, []⟩)`), `DirectFixParts.withKinds`
+sets the kinds with two simp lemmas, and the dispatch is by MODEL
+PRESENCE AND RAW REFUSAL (`blockIsModeled`: a `T._model` constant in
+the environment AND the raw syntactic reading `rawKindsOk` refusing the
+block — a nested occurrence, indistinguishable on the raw stream from a
+redex over one — takes the modeled path, else the fix route) at
+`Kernel/Checker.lean` and `Cached/ParsedC.lean`.  The first draft
+dispatched on model presence alone and the arena caught it: the
+preprocessor-era fixture streams carry stale `PProd'._model` /
+`Box._model` families beside blocks the route takes, and the modeled
+path has no projection table (18 e2e fixtures at "projection on a
+non-structure-like type").  `DeclDirectFixRun` (`Semantics/Direct/
+DeclDirectFix.lean`) states the run with the provisional block as
+existentials (`envP cvTaP p₁P ctorsP sortssP kinds`, then the real
+install at `p = (p₀.complete p₁).withKinds kinds`); the cached side
+(`checkDirectFixS`, `checkDirectFixS_run`, `classifyFixKindsC_ok`) and
+the skeletons (`AgreeFloor`) follow it; `classifyFixKinds_inv` gives
+the mapM equation, no `.negative`, no `.unsupported`, and the length.
+
+**Item 3 — the rule comparison, and why it is NOT `isDefEq`.**  The
+brief said "the definitional rule comparison".  It was tried: comparing
+the stream's rule bodies with the generated ones by `isDefEq` fails at
+EVERY block with "sort-annotation mismatch (defeq-lam)" — the stream's
+rules are UNANNOTATED λ-terms (lean4export writes what the kernel
+generated, never type-checked as terms), and the checker's `isDefEq`
+runs on annotated terms.  What official does: `add_inductive` GENERATES
+the rules and never compares them to anything; a replay (the arena's
+F1 stub-recursor tests, which are REJECTS) compares the exported
+recursor structurally.  So the comparison at install stays syntactic —
+`directFixRulesOk` restored in `RecParts.lean`, the stream's rule body
+against `Expr.resetMeta (directRuleBodyR …)` on the NORMALISED
+constructors, i.e. up to binder metadata (`resetMeta`, memoised via
+`resetMetaGo`/`resetMetaFast`, `@[csimp]` with a proven spec,
+`Kernel/ExprOps.lean`), with the λ binders stripped: exactly what
+`mk_rec_rules` produces on the same inputs.  The recursor's TYPE is
+compared by `isDefEq` (as before: `checkDirectFixRec`), which is where
+the normalised minor premises meet the stream's raw ones.  Flagged to
+the coordinator as the deviation from the brief's wording; no fixture
+changed verdict on it.
+
+**Item 2 — `directUsedLater`, and the finding that emptied the list.**
+The guard marks a recursive field that a LATER binder or the residual
+mentions `.unsupported` (the model reads the ordinary domains and the
+index expressions at a frame whose recursive slots hold an arbitrary
+value).  It fired on `pre_decline_imax_field`'s `Foreign0.step (child :
+Foreign0) (tag : idf (Foreign0 → Type) (fun _ => N) child)`: the
+domain whnf's to `N`.  Two things were wrong, and official's source
+(`inductive.cpp` at v4.29.1, fetched and quoted in the session) settles
+both.  (i) A domain the block occurs in only before whnf must be
+REPLACED by the whnf'd form (first draft kept the declared one when the
+whnf'd form was block-free): official classifies it as an ordinary
+field, and with `N` in place the later binder no longer mentions
+`child`.  (ii) `is_valid_ind_app` runs **`has_ind_occ` on every index
+argument** (`for (i = m_nparams; i < args.size(); i++) if
+(has_ind_occ(args[i])) return false;`) — an occurrence of the block in
+an index expression, of a recursive field's family application or of
+the constructor's result, is official's REJECT ("non valid
+occurrence", "invalid return type"), not an accept the route fails to
+model.  `recFamOk`'s index conjunct and `recCtorKinds`' residual check
+are therefore `.negative` (INVALID), where they were `.unsupported`
+(decline); two bad twins of `direct_fix_vec` pin it
+(`scripts/mk_direct_fix_occ_bad.py`: `v : Vec' α ((fun β => n) (Vec' α
+n))`, resp. the result at `(fun β => Nat.succ n) (Vec' α n)` — both
+whnf to the original index, official does not whnf index arguments —
+REJECT).  With (i) and (ii), `directUsedLater` at a recursive field
+CANNOT FIRE on a constructor official accepts: a term containing a
+variable of type `T p⃗ e⃗` contains the constant `T` (its consumer's
+domain is a subterm of the constructor's type, and a `T`-free term is
+not definitionally the block — reduction in the environment holding
+`T` as a fresh former introduces no `T`), and the normalised later
+domains that mention `T` are Π-chains with `T`-free domains ending in
+the family at `T`-free indices, or invalid; the residual's indices are
+`T`-free by the same conjunct.  So the guard is the model's own
+invariant (`NoBVar` over the ordinary domains and the index tuple,
+`SetP/DirectFix/Fix{Chains,Witness,LeafOk,NoBVar}P.lean`), never a
+verdict of its own; it stays, with the argument in its docstring.
+Nested occurrences (`.unsupported`, another constant at the head) are
+the modeled path's by ruling.
+
+**Fixtures.**  Arena 053/118/119: 2 → 0 (note B rewritten; tutorial
+90/92, the two declines the custom-axiom tests 032/033).  e2e
+`ind_pos_whnf_id`/`_fn`: 2 → 0, the `TODO(#206-A5)` lines gone;
+`pre_decline_imax_field`: 2 → 0; `direct_fix_vec_idx_occ_bad`,
+`direct_fix_vec_res_occ_bad`: new, 1.  `ind_defhead_mutual` (A3) and
+the A4 pair stay 2: the mutual arm is the in-process modeller's
+(`Frontend/InModel/Mutual.lean:158`, a syntactic `stripPis … .sort`
+on the former), the arm the user ruled "the current impl is fine"; the
+`TODO(#206-A3/A4)` lines stay as the honest divergence markers.  The
+remaining `TODO(#206-…)` lines are A7 (by design, W5), A10 (unsafe
+inductive: a decline is the intended verdict) and S1 (the let-value
+gap), none on this route.  `ind_nest_via_refl` stays the modeller's
+decline as ruled.
+
+**OVERVIEW.**  The fixpoint-route paragraph re-pointed
+(`normPosDom`, `classifyFixKinds`, `checkDirectFix`'s new line;
+`directFixKinds?` and the syntactic positivity walk are gone);
+`tests/overview-links.sh --update`, expectation committed with the
+change.
+
+**Scheduled for deletion (coordinator, after Part D).**  The user has
+ruled that stream-provided `_model` records will no longer be
+supported: the in-process modeller becomes the only model source and
+its records transparent (a follow-up after Part D and #218 land — the
+input-model handling leaves the parser and the dispatch, and the 34
+fixtures that still carry preprocessor-era models are regenerated raw).
+`blockIsModeled`'s second conjunct (`rawKindsOk`, the stale-model arm)
+exists only to keep this tree green and goes with that task; nothing
+further is invested in it here.
+
+**Gates** (`agent/one-route-d` at `c150df42`, master merged through
+`1aaed328`; the trimmed set, once).  `lake build` warning-free (0
+warnings, 527 jobs); `lake test`; `tests/arena.sh` (`env -i`):
+tutorial **90/92** (032/033 by design — the custom-axiom tests; the
+three A5 declines gone), e2e **158/158** (156 + the two occ twins),
+annot 14/14, retired flags 8/8, mode flags 18/18, prelude counts 3/3,
+progress lane 6/6, DAG-tower gate 2/2, `tests/overview-links.sh` OK,
+trusted sweep 138 + 158 + 14 with its 3 recorded divergences, axioms
+pinned (11 theorems at `[propext, Classical.choice, Quot.sound]`);
+`tests/proofdeps.sh` **unchanged against the pin** (2 851 module rows,
+7 roots, 0 doors — the new lemmas live in modules already in the
+closures); `tests/layering.sh`: base 272 / P 189 / caps 3 / umbrella 1,
+0 base→lane, 0 impl→theory; `tests/trust-surface.sh`: 18 escapes in 4
+allowlisted files (472 scanned), 0 outside; `tests/inmodel.sh` OK;
+`tests/route-census.sh`: 90 streams, 682 blocks — **142 fix, 0
+inmodel, 540 basis, 0 modeled**.  **init-full raw** (`--verified`,
+`perf stat -e instructions:u`, route trace on): accepted **53 118**,
+exit 0; census **584 fix, 6 basis, 1 inmodel** (`Lean.Syntax`) — Part
+B/C's census exactly; **679.51 G instructions** against Part C's
+678.68 G (+0.12 %: one `mentionsConst` walk per field domain, the
+raw reading at the dispatch, and the whnf of the domains the block
+occurs in — no threshold anywhere).  **Mathlib slices** (raw,
+`--verified`): `slice-small` 1 626 fix / 26 inmodel / 6 basis, the
+five-cone slice 183 fix / 1 inmodel / 6 basis — unchanged; the
+frontier cone `slice-mc` (`CategoryTheory.MorphismProperty.
+multiplicativeClosure` + `String.ofList`, `Char.ofNat`, `List.cons`;
+343 485 lines) **accepts**, 46 fix / 6 basis / 1 inmodel.  No
+Mathlib-scale run.
+
 ## TASK #215 — THE TREE-SIZE BUDGET, DELETED (2026-09-07, `agent/jzero`)
 
 User ruling, verbatim: *"delete it if it is unlikely to help (and we
@@ -59201,6 +59401,129 @@ hand and all exist; those are NOT link-extracted, by design — this gate
 is about the line anchors.
 
 **Size.**  40 links across 33 files, 699 lines of expectation.
+
+## TASK #217 — CONFORMANCE BATCH, PART 1: the `let` triple and the unsafe inductive (2026-09-07, `agent/conformance`)
+
+Two of the audit's divergences (task #206, fixtures from task #208),
+each closed by a fixture flipping to the official kernel's verdict.  The
+third item of the original brief — the mutual block's definitionally
+equal member telescopes and sorts (#206-A4, `ind_mutual_*_defeq`) — was
+split off to its own lane at the user's direction and is NOT part of
+this record.
+
+### Item 2 — `unsafe inductive` declines (audit A10 / crack C8, follow-up 6)
+
+The export parser threw `"unsafe inductive"` from inside the block's
+`types` `mapM`, which the driver reports as **exit 3** — a crash — where
+every other unsafe class already declines positively: `unsafe axiom`
+(`ExportC.lean` `:475`), `unsafe opaque` (`:518`) and `unsafe def` (the
+`def` arm's safety branch, arena 141/142).  The exit-code convention
+reserves 3 for "unclear reasons"; an unsupported *feature the checker
+positively detects* is a 2.  The test now runs as an `anyM` over the
+type entries ahead of the `mapM` and returns `.inr "unsafe inductive
+declaration"`.  Every safe block parses exactly as before.
+`tests/e2e/ind_unsafe` 3 → **2** (official accepts unsafe blocks — it
+skips positivity for them — so this stays a *decline*, and remains a
+recorded restriction beyond official, now a positive one).
+
+### Gates (item 2)
+
+On top of master `1aaed328`: `lake build` warning-free (527 jobs),
+`tests/arena.sh` exit 0 in a clean env — layering 0/0, proofdeps 2 851
+rows as pinned, doors 0, pindump fresh, trust surface 0 outside the
+allowlist, inmodel OK, axioms pinned, tutorial 87/92 (unchanged), e2e
+156/156, annot 14/14, trusted sweep as expected.
+`tests/overview-links.sh` regenerated: the seven inserted lines shift
+`ExportC.lean#L876` → `#L884` (`parseExportStreamD`); the citing
+paragraph was re-read and says the same thing.  init-full unchanged:
+53 118 accepted, 678.62 G instructions.  Artefacts under
+`_tmp/conformance/`.
+
+### Item 1 — the `let` value/type checks (audit S1 / crack C9, follow-up 1)
+
+**The finding.**  `def x : Nat := let y : Nat := Bool.true; Nat.zero`
+was ACCEPTED in both modes; the official kernel rejects with "(kernel)
+let-declaration type mismatch".  This was the audit's only *unlicensed*
+accept-superset.
+
+**Why the checks ran nowhere.**  Task #100 stage 6 moved the official
+`infer_let` triple — `ensure_sort_core(infer(type))`, `infer(val)`,
+`is_def_eq(val_type, type)` — into `inferBody`'s `.letE` clause, and
+`annotate`'s `.letE` clause ran it too.  Task #161's de-gating item C2
+(harvest site 6) then deleted the annotate-side copy as *redundant with
+the inference sweep*.  It was not redundant: the annotate clause returns
+the **ζ reduct** (the standing design ruling — stored terms are
+let-free, no valued-fvar redesign), so no `letE` node the driver
+produced ever reaches `inferBody`, and the six `.letE` arms of
+`whnfCore`/`infer` in the two cores are dead code.  Deleting the one
+live copy of a check deleted the check.  The lesson for the harvest
+method: "the other site runs it" must be read against what the *first*
+site does to the term, not only against the two sites' text.
+
+**The fix.**  The triple is back in `annotate`'s `.letE` clause, run on
+the ANNOTATED annotation and the ANNOTATED value (`ty'`, `v'` — infer
+only ever sees annotated terms), before the body is annotated as
+`b.instantiate1 v`.  It is, line for line, what task #161 removed;
+`git show d79c22fb` is the inverse of this commit's kernel hunks.
+Spec body `ConLeche/Kernel/Core.lean` (`annotateBody`), cached twin
+`ConLeche/Cached/CoreC.lean` (`annotateBodyI`, hence `annotateBodyPC`
+and the trusted core, which share the body).  Both cores keep their
+`inferBody` `.letE` arms: they are official's clause, they cost nothing,
+and a hand-written or spliced stream is not the place to discover that a
+kernel arm was deleted.  (They remain unreachable from the driver — a
+finding, not a divergence.)
+
+**The proofs.**  Also the inverse of #161's: `annotateCore_letE_inv`
+(`Verify/Abstract.lean`) carries the four conjuncts again (`inferTypeCore
+ty' = .ok tty`, `ensureSortCore tty = .ok u`, `inferTypeCore v' = .ok
+tv`, `isDefEqCore tv ty' = .ok true`); its consumers in `Abstract.lean`,
+`Leaves.lean` and `ProjSlots.lean` discard them with `-`.  The
+clause-by-clause walks follow the new binds: `annotate_step`
+(`Verify/Deep.lean`, the shift battery), `annotateBody_disc`
+(`Verify/Disc.lean`, the discipline walk) and `annotateBodyC_sim`
+(`Verify/Cached/DiscC6.lean`, the cached simulation).  **No hypothesis
+was added anywhere, and no claim weakened**: a clause that can only
+reject more is sound-by-construction for the accepting direction, and
+the three walks are per-clause simulations that simply have more binds
+to relate.  The P tier needed no change — its annotate claim goes
+through those walks.  Nothing in `SetP/` moved.
+
+**Fixture flips** (`tests/e2e-expected.txt`, the `# TODO(#206-S1)` lines
+removed): `let_bad_value` 0 → **1**, `let_bad_type` 0 → **1**,
+`let_bad_thm` 0 → **1** — official's verdict on all three, and the
+messages are the corresponding ones ("let value type mismatch" twice,
+"expected a sort" for the bad let type), reached at the same
+declaration.  `let_bad_value_used` stays 1 (the control the reduct's own
+type check already caught).  All four are the audit's probes
+(`_tmp/indaudit/probes/P/LetValueType.lean`: `letBad1`, `letBadTy`,
+`letThm`, `letBad2`) — the elaborator-legal `let` shapes it covers, so
+the item is closed on its probe set, not on a sample of it.
+`--trusted` agrees with `--verified` on all four (the triple is not a
+certification-only step: it is official's check).
+
+**Cost.**  init-full, `--verified`, `perf stat -e instructions:u`:
+53 118 accepted (unchanged), 678.31 G instructions against 678.62 G for
+the same tree without the item (−0.05 %, noise; the ζ reduct is taken
+either way, and what the triple adds is one `infer` of a value whose
+reduct is inferred anyway).  Route census on init-full unchanged: 584
+fix / 6 basis / 1 in-process.
+
+### Gates (item 1)
+
+On top of item 2, i.e. master `1aaed328` + the parser decline: `lake
+build` warning-free (527
+jobs), `lake test`, `tests/arena.sh` exit 0 in a clean env — layering
+0/0, proofdeps 2 851 rows as pinned, doors 0, pindump fresh, trust
+surface 0 outside the allowlist, native audit clean, inmodel OK, axioms
+pinned (11 theorems at the three standard), tutorial 87/92 (unchanged),
+**e2e 156/156**, annot 14/14, retired 8/8, mode 18/18, prelude 3/3,
+progress 6/6, DAG tower 2/2, trusted sweep 138 + 156 + 14 as expected
+(the same three recorded divergences).  `tests/overview-links.sh`
+regenerated twice: both items shifted anchors in files OVERVIEW.md
+cites (`Core.lean#L2637-L2646` → `#L2646-L2655` for the fuel knot's
+base case; item 2 had already moved `ExportC.lean#L876` → `#L884`);
+the citing paragraphs were re-read and say the same thing — no prose
+changed.  Artefacts under `_tmp/conformance/`.
 
 ## TASK #218 — MUTUAL MEMBERS WHOSE TELESCOPES OR SORTS ARE DEFEQ BUT NOT SYNTACTICALLY EQUAL (2026-09-07, `agent/mutual-defeq`)
 

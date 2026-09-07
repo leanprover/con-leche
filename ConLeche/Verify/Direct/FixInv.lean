@@ -1,4 +1,5 @@
 import ConLeche.Verify.Direct.SumInv
+import ConLeche.Verify.Direct.FixParts
 import ConLeche.Kernel.Direct.RecInstall
 
 /-!
@@ -130,5 +131,31 @@ theorem checkDirectFixRec_shape {env : Env} {p : DirectFixParts}
   simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h1
   exact ⟨cvRi, recTy, sty, u, hcv, hrt', h1.1.1.1, h1.1.1.2, h1.1.2, h1.2, hsty, hu, hb,
     hrules, rfl⟩
+
+/-- The kinds' classification at install (task #210 Part D): the
+recogniser's syntactic reading of the stored constructors, with no
+non-positive and no unmodeled occurrence. -/
+theorem classifyFixKinds_inv {T : Name} {lps : List Name} {nP nIdx : Nat}
+    {ctorsA : List (ConstantVal × Nat)} {kinds : List (List RecFieldKind)}
+    (h : classifyFixKinds (m := CheckM) T lps nP nIdx ctorsA = .ok kinds) :
+    ctorsA.mapM (recCtorKinds T lps nP nIdx) = some kinds ∧
+    kinds.any (fun ks => ks.any (· == .negative)) = false ∧
+    kinds.any (fun ks => ks.any (· == .unsupported)) = false ∧
+    kinds.length = ctorsA.length := by
+  unfold classifyFixKinds at h
+  cases hk : ctorsA.mapM (recCtorKinds T lps nP nIdx) with
+  | none => rw [hk] at h; exact nomatch h
+  | some ks =>
+  rw [hk] at h
+  simp only [unwrapOr, bind, Except.bind, pure, Except.pure] at h
+  by_cases hneg : ks.any (fun ks => ks.any (· == .negative)) = true
+  · rw [if_pos hneg] at h; exact nomatch h
+  rw [if_neg hneg] at h
+  by_cases hun : ks.any (fun ks => ks.any (· == .unsupported)) = true
+  · rw [if_pos hun] at h; exact nomatch h
+  rw [if_neg hun] at h
+  simp only [Except.ok.injEq] at h
+  subst h
+  exact ⟨rfl, by simpa using hneg, by simpa using hun, List.mapM_option_length hk⟩
 
 end ConLeche

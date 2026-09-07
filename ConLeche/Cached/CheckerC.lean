@@ -169,14 +169,23 @@ the constructors' stages are the sum route's mirrors, the resolution
 guard pointed at the former's environment; one flush per environment
 transition. -/
 def checkDirectFixS (fe : FEnv) (p₀ : DirectFixParts) : CheckCM FEnv := do
-  if p₀.kinds.any (fun ks => ks.any (· == .negative)) then
-    throw (.invalid "direct rec: non positive occurrence of the inductive type")
   unless (p₀.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   flushC
+  -- the provisional pass (task #210 Part D): the kinds, classified on
+  -- the constructors normalised at a throwaway former
+  let (feP, cvTaP, p₁P) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀.toDirectSumParts
+    (fun _ => {})
+  let p₂P := p₀.complete p₁P
+  flushC
+  let (ctorsP, _) ← checkDirectSumCtorsF (sharedOpsC mode feP) feP feP p₂P.cvT.name
+    p₂P.cvT.levelParams p₂P.nP p₂P.nIdx p₂P.resSort p₂P.isProp p₂P.large cvTaP p₂P.ctors
+  let kinds ← classifyFixKinds (m := CheckCM) p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP p₂P.nIdx
+    ctorsP
+  flushC
   let (fe₁, cvTa, p₁) ← checkDirectSumIndF (sharedOpsC mode fe) fe p₀.toDirectSumParts
-    (fun p₁ => directFixCaps (p₀.complete p₁))
-  let p := p₀.complete p₁
+    (fun p₁ => directFixCaps ((p₀.complete p₁).withKinds kinds))
+  let p := (p₀.complete p₁).withKinds kinds
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
     throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
       whose sort may be Prop")
@@ -190,6 +199,9 @@ def checkDirectFixS (fe : FEnv) (p₀ : DirectFixParts) : CheckCM FEnv := do
   unless directFixFieldsOkF directWalkersC fe p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA
       p.kinds do
     throw (.internal "direct rec: field kinds")
+  unless directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
+      ctorsA p.kinds p.rhss do
+    throw (.invalid "direct rec: recursor rules are not the generated ones")
   let fe₂ := consSumCtorsF p.nP ctorsA fe₁
   flushC
   let (cvRa, rhss) ← checkDirectFixRecF (sharedOpsC mode fe₂) directWalkersC fe₂ p cvTa ctorsA

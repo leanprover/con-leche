@@ -202,6 +202,23 @@ def checkDirectFixTable (p : DirectFixParts) (ctorsA : List (ConstantVal × Nat)
     else pure env
   | _, _ => pure env
 
+/-- **The fields' kinds, classified at install** (task #210 Part D) on
+the stored constructors — their field domains normalised by official's
+positivity walk (`normCtorVal`), so the syntactic classification
+(`recCtorKinds`) is official's: a non-positive or non-valid occurrence
+is INVALID (official's "non positive occurrence", "non valid
+occurrence", "invalid return type"), a nested occurrence — the one
+positive occurrence the route does not model — a positive decline. -/
+def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
+    (ctorsA : List (ConstantVal × Nat)) : m (List (List RecFieldKind)) := do
+  let kinds ← unwrapOr (ctorsA.mapM (recCtorKinds T lps nP nIdx))
+    (.notImplemented "direct rec: constructor telescope")
+  if kinds.any (fun ks => ks.any (· == .negative)) then
+    throw (.invalid "direct rec: non positive or non valid occurrence of the inductive type")
+  if kinds.any (fun ks => ks.any (· == .unsupported)) then
+    throw (.notImplemented "direct rec: a nested occurrence of the block (not modeled here)")
+  pure kinds
+
 /-- Check and install a **direct recursive block**: positivity, the
 elimination restriction, the distinct names, the former (with the
 block's capability record, `directFixCaps`), the constructors (at the
@@ -209,17 +226,30 @@ former's environment), the kinds re-checked, the recursor with its
 rules, and — at a structure-like block — the projection table
 (`checkDirectFixTable`, task #210 Part A). -/
 def checkDirectFix (ops : CheckerOps m) (env : Env) (p₀ : DirectFixParts) : m Env := do
-  if p₀.kinds.any (fun ks => ks.any (· == .negative)) then
-    throw (.invalid "direct rec: non positive occurrence of the inductive type")
   unless (p₀.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
+  -- THE PROVISIONAL PASS (task #210 Part D): the block's capability
+  -- record (`directFixCaps`) needs the fields' kinds — official's
+  -- `is_rec` — and the kinds need the constructors normalised at an
+  -- environment where the former resolves.  So the former is first
+  -- installed with an EMPTY record in a throwaway environment, the
+  -- constructors normalised and checked there, and the kinds
+  -- classified from those; the real former then carries the record
+  -- at the kinds, and every later stage runs on the completed record
+  -- `p`.  (Official adds the whole block in one step; this is the
+  -- same information in two.)
+  let (envP, cvTaP, p₁P) ← checkDirectSumInd ops env p₀.toDirectSumParts (fun _ => {})
+  let p₂P := p₀.complete p₁P
+  let (ctorsP, _) ← checkDirectSumCtors ops envP envP p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP
+    p₂P.nIdx p₂P.resSort p₂P.isProp p₂P.large cvTaP p₂P.ctors
+  let kinds ← classifyFixKinds p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP p₂P.nIdx ctorsP
   -- the former's run completes the record with the sort it read
   -- (task #195: a former declared at a definition that only unfolds
   -- to its telescope); every later stage runs on the completed record
   -- `p`, whose capability record the former already carries
   let (env₁, cvTa, p₁) ← checkDirectSumInd ops env p₀.toDirectSumParts
-    (fun p₁ => directFixCaps (p₀.complete p₁))
-  let p := p₀.complete p₁
+    (fun p₁ => directFixCaps ((p₀.complete p₁).withKinds kinds))
+  let p := (p₀.complete p₁).withKinds kinds
   -- a large eliminator on a block whose sort may be `Prop`: two or more
   -- constructors is `.invalid` (official's `elim_only_at_universe_zero`);
   -- one constructor is the subsingleton case, taken (task #202 Stage
@@ -236,12 +266,18 @@ def checkDirectFix (ops : CheckerOps m) (env : Env) (p₀ : DirectFixParts) : m 
   let _isorts ← checkDirectFieldSortsI ops env₁ true false p.resSort p.nP (tq.1.drop p.nP) []
     p.nIdx
   -- the constructors' field domains may mention the block: the
-  -- resolution guard is pointed at the former's environment, and the
-  -- kinds are re-checked afterwards
+  -- resolution guard is pointed at the former's environment; the kinds
+  -- classified at the provisional pass are re-checked on the stored
+  -- (normalised) constructors
   let (ctorsA, sortss) ← checkDirectSumCtors ops env₁ env₁ p.cvT.name p.cvT.levelParams p.nP
     p.nIdx p.resSort p.isProp p.large cvTa p.ctors
   unless directFixFieldsOk env p.cvT.name p.cvT.levelParams p.nP p.nIdx ctorsA p.kinds do
     throw (.internal "direct rec: field kinds")
+  -- the stream's rules are the generated ones (official's replay
+  -- compares the exported recursor structurally with its own)
+  unless directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
+      ctorsA p.kinds p.rhss do
+    throw (.invalid "direct rec: recursor rules are not the generated ones")
   let env₂ := consSumCtors p.nP ctorsA env₁
   let (cvRa, rhss) ← checkDirectFixRec ops env₂ p cvTa ctorsA
   checkDirectFixTable p ctorsA sortss ⟨.recInfo cvRa p.majorIdx p.rulePrefix
