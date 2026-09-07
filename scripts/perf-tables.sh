@@ -36,6 +36,7 @@ PREPROC=${LECH_INDUCTIVE_MODELS:-$ROOT/.lake/build/bin/lech-preprocess}
 ARENA=$ROOT/_tmp/arena-tests/good
 CACHE=${PERF_CACHE:-$ROOT/_tmp/perf-tables}
 TSV=$CACHE/table.tsv
+CENSUS=$CACHE/census.tsv
 LOG=$CACHE/battery.log
 # The TRACKED record.  $CACHE lives under the gitignored _tmp, so the raw
 # cells behind PERF.md would not survive a clean of that directory; a full
@@ -52,8 +53,9 @@ TIMEOUT=${PERF_TIMEOUT:-3000}
 VLIMIT=${PERF_VLIMIT:-16000000}   # 16 GB virtual, the standing ceiling
 
 # Streams: label -> raw arena ndjson.  Ordered cheapest first so a
-# broken kit surfaces in seconds, not hours.
-STREAM_LABELS=(let-ladder beta-ladder init-prelude grind-ring-5 app-lam init-full)
+# broken kit surfaces in seconds, not hours.  `mathlib-full` (task #187)
+# is last and is a different weight class: see MATHLIB SCALE below.
+STREAM_LABELS=(let-ladder beta-ladder init-prelude grind-ring-5 app-lam init-full mathlib-full)
 stream_path() {
   case "$1" in
     let-ladder)   echo "$ARENA/perf/let-ladder.ndjson" ;;
@@ -62,9 +64,39 @@ stream_path() {
     grind-ring-5) echo "$ARENA/perf/grind-ring-5.ndjson" ;;
     app-lam)      echo "$ARENA/perf/app-lam.ndjson" ;;
     init-full)    echo "$ROOT/_tmp/init-exports/init-full.ndjson" ;;
+    mathlib-full) echo "$ROOT/_tmp/mathlib-scoping/mathlib-full.ndjson" ;;
     *) echo "" ;;
   esac
 }
+
+# MATHLIB SCALE (task #187).  The full-Mathlib row is measured the same
+# way as every other row — `perf stat -e instructions:u`, one run, all
+# flags explicit — but three things about it are different, and each is
+# a decision, not an accident:
+#
+#  * Preprocessing is NOT done by this script.  The preprocessor is
+#    itself a Mathlib-scale process (>1 h, >20 GB) and the session rule
+#    is ONE Mathlib-scale process at a time, so the stream is cut once,
+#    by hand, and named here.  If the file is absent the row is skipped.
+#  * The caps are the user's Mathlib ceiling: 22 GB virtual, 8 h.
+#  * The lech cells run under `LECH_PROGRESS=5000` so a stalled hour is
+#    visible in a timestamped log rather than as silence.  Measured cost
+#    of that on init-full (2026-09-06): 666 084 645 143 instructions
+#    with the progress loop against 666 088 947 489 without — −0.0006 %,
+#    i.e. below the run-to-run spread.  The progress loop is the
+#    unverified IO twin of `checkDeclsSPCachedD`; the user ruled it an
+#    acceptable producer for Mathlib-scale runs.
+# The Mathlib row also records peak RSS (`time -v`) and wall minutes,
+# which the renderer prints for that row only, as data.
+stream_pre_ready() { # $1 = label -> a preprocessed stream cut off the clock
+  case "$1" in
+    mathlib-full) echo "$ROOT/_tmp/mathlib-scoping/mathlib-full-pre-idx.ndjson" ;;
+    *) echo "" ;;
+  esac
+}
+stream_vlimit()  { case "$1" in mathlib-full) echo 22000000 ;; *) echo "$VLIMIT" ;; esac; }
+stream_timeout() { case "$1" in mathlib-full) echo 28800 ;; *) echo "$TIMEOUT" ;; esac; }
+stream_progress(){ case "$1" in mathlib-full) echo 5000 ;; *) echo 0 ;; esac; }
 
 # THE MATRIX: exactly three columns, every flag explicit, no defaults
 # relied on.  One representation, so there is no core axis; the R column
@@ -128,32 +160,52 @@ preprocess() { # $1 = label, $2 = raw path -> echoes the preprocessed path
 }
 
 # One cell: REPS timed runs, median instructions and wall.
-# Emits one TSV line: stream cfg instr wall exit decls loadavg verdict
+# Emits one TSV line:
+#   stream cfg instr wall exit decls loadavg verdict [maxrss-KB]
+# The ninth field is present only for the Mathlib row (see MATHLIB
+# SCALE): `time -v`'s maximum resident set size, in KB.
+TIMEBIN=$(command -v time)
 cell() { # $1 = stream label, $2 = config id, $3 = preprocessed stream
-  local instrs=() walls=() ex=0 decls="" verdict="" load=""
+  local instrs=() walls=() ex=0 decls="" verdict="" load="" rss=""
   config_cmd "$2" "$3"
-  local r po t0 t1 out i
+  local r po tv t0 t1 out i vl to pg
+  vl=$(stream_vlimit "$1"); to=$(stream_timeout "$1"); pg=$(stream_progress "$1")
+  # the progress heartbeat is a lech knob; official has none
+  [ "$2" = official ] && pg=0
   for r in $(seq 1 "$REPS"); do
     wait_idle
     po=$(mktemp "$CACHE/perfstat.XXXXXX")
+    tv=$(mktemp "$CACHE/timev.XXXXXX")
     load=$(cut -d' ' -f1 /proc/loadavg)
     t0=$(date +%s.%N)
-    out=$( (ulimit -v $VLIMIT; LECH_SUPERVISED=1 \
-              perf stat -e instructions:u -x, -o "$po" \
-              timeout "$TIMEOUT" nice -n 5 "${CMD[@]}") 2>&1 )
-    ex=$?
+    if [ "$1" = mathlib-full ]; then
+      # the Mathlib row: `time -v` for peak RSS, and the progress lane's
+      # timestamped stderr kept as a receipt
+      out=$( (ulimit -v $vl; LECH_SUPERVISED=1 LECH_PROGRESS=$pg \
+                perf stat -e instructions:u -x, -o "$po" \
+                timeout "$to" nice -n 5 "$TIMEBIN" -v -o "$tv" "${CMD[@]}" \
+                2> >(awk '{ printf "%d %s\n", systime(), $0; fflush() }' \
+                       >> "$CACHE/$1.$2.err")) 2>&1 )
+      ex=$?
+      rss=$(awk '/Maximum resident/{print $NF}' "$tv" 2>/dev/null)
+    else
+      out=$( (ulimit -v $vl; LECH_SUPERVISED=1 \
+                perf stat -e instructions:u -x, -o "$po" \
+                timeout "$to" nice -n 5 "${CMD[@]}") 2>&1 )
+      ex=$?
+    fi
     t1=$(date +%s.%N)
     i=$(awk -F, '/instructions/{print $1}' "$po" | head -1)
-    rm -f "$po"
+    rm -f "$po" "$tv"
     instrs+=("${i:-0}")
     walls+=("$(awk "BEGIN{printf \"%.2f\", $t1 - $t0}")")
     decls=$(printf '%s' "$out" | grep -oE '[0-9]+ declarations' | head -1 | cut -d' ' -f1)
     verdict=$(printf '%s' "$out" | tr '\n' ' ' | sed 's/\t/ /g' | cut -c1-90)
   done
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$1" "$2" "$(median "${instrs[@]}")" "$(median "${walls[@]}")" \
-    "$ex" "${decls:-}" "$load" "${verdict:-NONE}" >> "$TSV"
-  say "  $1/$2: $(median "${instrs[@]}") instr, $(median "${walls[@]}") s, exit $ex, ${decls:-?} decls"
+    "$ex" "${decls:-}" "$load" "${verdict:-NONE}" "${rss:-}" >> "$TSV"
+  say "  $1/$2: $(median "${instrs[@]}") instr, $(median "${walls[@]}") s, exit $ex, ${decls:-?} decls${rss:+, maxRSS ${rss} KB}"
 }
 
 # Render from the working copy when a run has produced one, else from
@@ -162,7 +214,9 @@ cell() { # $1 = stream label, $2 = config id, $3 = preprocessed stream
 render() {
   local t=$TSV m=$CACHE/meta.txt
   if [ ! -s "$t" ]; then t=$DATA/table.tsv; m=$DATA/meta.txt; fi
-  python3 "$ROOT/scripts/perf-tables-render.py" "$t" "$ROOT/PERF.md" "$m"
+  local cn=$CENSUS
+  if [ ! -s "$cn" ]; then cn=$DATA/census.tsv; fi
+  python3 "$ROOT/scripts/perf-tables-render.py" "$t" "$ROOT/PERF.md" "$m" "$cn"
 }
 
 # After a full run: refresh the tracked snapshot.
@@ -170,6 +224,7 @@ snapshot() {
   mkdir -p "$DATA"
   cp "$TSV" "$DATA/table.tsv"
   cp "$CACHE/meta.txt" "$DATA/meta.txt"
+  [ -s "$CENSUS" ] && cp "$CENSUS" "$DATA/census.tsv"
   say "tracked snapshot refreshed at $DATA"
 }
 
@@ -188,7 +243,7 @@ done
 if [ -n "${PERF_APPEND:-}" ] && [ -s "$TSV" ]; then
   say "APPEND mode: keeping $(wc -l < "$TSV") existing cells"
 else
-  : > "$TSV"
+  : > "$TSV"; : > "$CENSUS"
   {
     echo "sha	$(git -C "$ROOT" rev-parse HEAD)"
     echo "shashort	$(git -C "$ROOT" rev-parse --short HEAD)"
@@ -204,6 +259,11 @@ else
     echo "kernelver	$(uname -r)"
     echo "official	$(readlink -f "$OFFICIAL")"
     echo "preproc	$(readlink -f "$PREPROC")"
+    echo "binmd5	$(md5sum "$BIN" | cut -d' ' -f1)"
+    ml=$(stream_pre_ready mathlib-full)
+    if [ -s "$ml" ]; then
+      echo "mathlibstream	\`$ml\` ($(stat -c%s "$ml") bytes)"
+    fi
     # optional one-line provenance note for the header (e.g. which
     # master commit the measured tree is a merge of)
     [ -n "${PERF_NOTE:-}" ] && echo "note	$PERF_NOTE"
@@ -219,11 +279,23 @@ fi
 
 say "BATTERY START — sha $(git -C "$ROOT" rev-parse --short HEAD), reps $REPS"
 for s in $STREAMS; do
-  raw=$(stream_path "$s")
-  [ -n "$raw" ] && [ -s "$raw" ] || { say "SKIP $s (no stream at $raw)"; continue; }
-  pre=$(preprocess "$s" "$raw") || continue
+  # a stream cut off the clock (the Mathlib row) is used as it stands;
+  # everything else is preprocessed here, once, and cached
+  pre=$(stream_pre_ready "$s")
+  if [ -n "$pre" ]; then
+    [ -s "$pre" ] || { say "SKIP $s (no preprocessed stream at $pre — cut it first)"; continue; }
+  else
+    raw=$(stream_path "$s")
+    [ -n "$raw" ] && [ -s "$raw" ] || { say "SKIP $s (no stream at $raw)"; continue; }
+    pre=$(preprocess "$s" "$raw") || continue
+  fi
   say "stream $s ($(stat -c%s "$pre") bytes preprocessed)"
   for c in $CONFIGS; do cell "$s" "$c" "$pre"; done
+  # the input's own census, off the clock and AFTER the cells: record
+  # count, what official's `constMap.size` counts on the same file, the
+  # fold's record count, and the native-block split (task #187)
+  python3 "$ROOT/scripts/stream-census.py" "$pre" | tail -n +2 \
+    | sed "s|^[^\t]*|$s|" >> "$CENSUS"
   render   # keep PERF.md current after every stream
 done
 say "BATTERY DONE"

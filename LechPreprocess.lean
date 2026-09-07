@@ -56,8 +56,11 @@ shapes hold by construction; they are in the recogniser because the *checker*
 reads an untrusted stream, which this predicate does not.  Mirroring them would
 mean a second, drifting implementation of a syntactic pin over a second `Expr`
 type (`Lean.Expr` here, `Lech.Expr` there), so they are gated empirically
-instead: `tests/native-agree.sh` runs every fixture stream through this binary
-and fails on any block left `native` that the checker then declines.
+instead: `tests/native-audit.sh` (task #193) runs every fixture stream through
+this binary and, reading the checker's own route trace, fails on any block left
+`native` that the checker then declines — the predicate ⊆ recogniser direction.
+(It used to be named `tests/native-agree.sh` here, a name that never existed on
+disk; task #187's Mathlib row found the very gap the check is for.)
 
 `directNonRec` is the one genuinely environment-dependent conjunct.
 `!isRec ∧ numNested == 0` is what makes a constructor's binder domains free of

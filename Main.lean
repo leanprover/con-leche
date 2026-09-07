@@ -551,16 +551,31 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         -- the decline, which reads as an accept in a log and in
         -- anything that greps for one.
         -- **The headline number is the STREAM's declaration-record
-        -- count** (task #191): the records the fold consumed minus
-        -- the built-in prelude's, plus the stream records dropped as
-        -- identical copies of prelude records (they are installed —
-        -- from the prelude — and the official checker counts them).
-        -- So a stream re-declaring `Bool` identically reports the
-        -- same count as before the prelude existed, and the number is
-        -- comparable with the official checker's, which reports
-        -- accepted declaration RECORDS; the environment's CONSTANT
-        -- count (an inductive record installs several) is a property
-        -- of our representation and stays on stderr under
+        -- count** (task #191 arithmetic, task #187 unit): the records
+        -- the fold consumed minus the built-in prelude's, plus the
+        -- stream records dropped as identical copies of prelude
+        -- records (they ARE installed — from the prelude).  So a
+        -- stream re-declaring `Bool` identically reports the same
+        -- count as before the prelude existed.
+        --
+        -- What it replaced was `env.consts.length`, the number of
+        -- environment CONSTANTS — an inductive block's type former,
+        -- its constructors, its recursor, its projection table and the
+        -- basis extras counted separately.  That is a property of our
+        -- REPRESENTATION, not of the input: it moved whenever the
+        -- representation moved (task #175 S1's one projection table
+        -- per structure dropped init-full by 499 with no verdict
+        -- change).  The record count is a property of the input.
+        --
+        -- It still does not equal the official checker's number, and
+        -- it cannot: official prints `constMap.size`, its PARSED
+        -- export, where an inductive record counts as its type
+        -- formers, its constructors and its recursors (less the three
+        -- `Quot.mk`/`.lift`/`.ind` entries it erases).  That is a
+        -- third unit — also a function of the file, just a larger one.
+        -- `scripts/stream-census.py` derives BOTH numbers from a
+        -- stream and is checked against both checkers' actual output.
+        -- The environment-constant count stays on stderr under
         -- `LECH_VERBOSE=1`.
         let streamRecords := decls.size - preludeCount + preludeDropped
         let verboseCounts : IO Unit := do
@@ -699,16 +714,23 @@ def usage : String := String.intercalate "\n" [
   "  LECH_VERBOSE=1    add one stderr line beside the verdict giving the",
   "                    ENVIRONMENT-CONSTANT count and the fold's record",
   "                    count.  The verdict line counts the STREAM's",
-  "                    accepted declaration RECORDS — what the official",
-  "                    checker reports, so the two are comparable; the",
-  "                    built-in prelude's records are not counted, and a",
-  "                    stream record dropped as an identical copy of a",
-  "                    prelude record is (it is installed, from the",
-  "                    prelude).  An inductive record installs several",
-  "                    constants (type former, constructors, recursor,",
-  "                    projection table), so the constant count is larger",
-  "                    and is a property of our representation rather",
-  "                    than of the input.",
+  "                    accepted declaration RECORDS: one per",
+  "                    def/theorem/opaque/axiom/inductive record the",
+  "                    stream declared and the fold consumed.  The",
+  "                    built-in prelude's own records are not counted,",
+  "                    and a stream record dropped as an identical copy",
+  "                    of a prelude record is (it is installed, from the",
+  "                    prelude).  That count is a property of the INPUT.",
+  "                    The constant count is not: an inductive record",
+  "                    installs several constants (type former,",
+  "                    constructors, recursor, projection table), so it",
+  "                    moves when the representation moves.  NB the",
+  "                    official kernel's 'Accepted N declarations' is a",
+  "                    THIRD unit — its parsed constMap, where an",
+  "                    inductive record counts as its members — also a",
+  "                    function of the file, just a larger one;",
+  "                    scripts/stream-census.py derives both from a",
+  "                    stream.",
   "",
   "  --pre             assert FILE is already preprocessed output of",
   "                    lech-preprocess (or the stock",
