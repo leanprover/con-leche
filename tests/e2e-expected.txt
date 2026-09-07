@@ -558,6 +558,42 @@
 1 direct_fix_vec_ih_idx_bad.ndjson
 1 direct_fix_vec_idx_occ_bad.ndjson
 1 direct_fix_vec_res_occ_bad.ndjson
+# TASK #220 — THE TYPE-AND-CONSTRUCTOR GATE, SPLIT OFF THE RECURSOR PIN.
+# Six twins of `direct_fix_nat.ndjson`, patched by
+# `scripts/mk_ind_stub_bad.py`, each carrying a BROKEN RECURSOR RECORD:
+# the arena's finding-F1 shape, where a stub recursor used to make the
+# recogniser refuse the block so that the semantic reject was never
+# reached.  Official reads no recursor from the stream — `add_inductive`
+# GENERATES it and the replay compares the exported record with the
+# generated one structurally (`checkPostponedRecursors`) — so all six
+# are REJECTS (1) for official too.
+#   ind_stub_rec:     `Nat'.rec`'s record blanked (`numMotives = 0`,
+#                     `numMinors = 0`, `rules = []`) beside an intact
+#                     block: the reject is the pin's own, "recursor rules
+#                     are not the generated ones".
+#   ind_stub_pos:     the same stub, plus `Nat'.succ`'s field patched to
+#                     `Nat' → Nat'` — the reject is POSITIVITY's, reached
+#                     because the gate no longer waits on the recursor.
+#   ind_stub_resid:   the same stub, plus `Nat'.zero : Nat' → Nat'` at
+#                     `numFields = 0` — official's `is_valid_ind_app` on
+#                     the constructor's result ("invalid return type").
+#   ind_stub_univ:    the same stub, plus `Nat'.succ`'s field patched to
+#                     `Type` — a field universe too large for a `Type 0`
+#                     block.
+#   ind_stub_recname: the block intact, its recursor record (and the
+#                     occurrence its rules recurse through) named
+#                     `Nat'.not_rec`: official generates only `Nat'.rec`
+#                     and its replay rejects with "No such recursor".
+#   ind_stub_reclps:  the block intact, its recursor record's level
+#                     parameters `[u, u]` — neither the block's own (the
+#                     small eliminator) nor a fresh one in front (the
+#                     large one).
+1 ind_stub_rec.ndjson
+1 ind_stub_pos.ndjson
+1 ind_stub_resid.ndjson
+1 ind_stub_univ.ndjson
+1 ind_stub_recname.ndjson
+1 ind_stub_reclps.ndjson
 0 direct_fix_refl.ndjson
 1 direct_fix_refl_neg_bad.ndjson
 1 direct_fix_refl_ih_bad.ndjson
