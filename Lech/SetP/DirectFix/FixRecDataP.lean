@@ -57,7 +57,8 @@ theorem fixRdsAV_length {m : EnvS2Core V env} {p : DirectFixParts}
 
 section Congr
 
-variable {m₁ m₂ : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {nP nIdx : Nat}
+variable {env₁ env₂ : Env} {m₁ : EnvS2Core V env₁} {m₂ : EnvS2Core V env₂} {ψ : Name → Nat}
+  {T : Name} {nP nIdx : Nat}
 
 theorem minorAVAtR_congr {C : Name} {nF b o : Nat} {ds : List (Nat × Nat × AVExpr)}
     {Es : List AVExpr} {recIdx : List Nat} {Eiss : List (List AVExpr)}
