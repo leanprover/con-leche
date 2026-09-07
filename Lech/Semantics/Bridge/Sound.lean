@@ -21,7 +21,7 @@ built it.
 -/
 
 namespace Lech.Semantics
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 universe w
 
 

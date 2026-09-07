@@ -30,7 +30,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.TTVerify SetTheory
 open Lech.Semantics (AVExpr eqValT eqReflValT eqRecValT)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)

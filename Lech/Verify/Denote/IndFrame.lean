@@ -34,7 +34,7 @@ set_option linter.unusedVariables false
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 /-- Indexing a list by its own `range` is mapping it. -/
 theorem map_range_getD {α β : Type} [Inhabited α] (xs : List α)

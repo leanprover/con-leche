@@ -17,7 +17,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory Lech.SetTheory.Tower
+open Lech.VExpr Lech.TTVerify SetTheory Lech.SetTheory.Tower
 open Lech.Semantics (AVExpr)
 open Lech (Env Expr Name Level ConstantInfo ConstantVal IndCaps DirectParts
   BinderMeta)

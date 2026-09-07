@@ -31,7 +31,7 @@ below.
 
 namespace Lech.Semantics
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 
 /-- **`certifyNatEqs`, exposed as runs** (task #161 P4 H1 at the
 literal tier): the verdict is one `isDefEqCore` success per equation,

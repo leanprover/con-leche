@@ -15,7 +15,7 @@ payload's projection only.
 
 namespace Lech.Semantics
 open Lech.SetModel
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 
 /-! ## Instantiation and the payload's projections -/
 

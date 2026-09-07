@@ -14,7 +14,7 @@ swap in both verification lanes.
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 /-- The stored level parameters only read the constant's
 level-parameter slot. -/

@@ -9,7 +9,7 @@ declarative layer, where it denotes to a bare `BConst` built-in.
 
 Relocated verbatim from `Lech/TTVerify/EnvTT.lean` (task #148, T1):
 the definition is `V`-free — it is a table from the checker's reserved
-names to `Lech/TT/Const.lean`'s built-ins — so it belongs where both
+names to `Lech/VExpr/Const.lean`'s built-ins — so it belongs where both
 verification lanes can import it.  The level-parameter names it reads
 are `Lech/Verify/EnvPreds.lean`'s `uN`/`vN`/`u1N` (the `uN`/`vN`/
 `u1N` restatements that stood beside it were the same relocation's
@@ -18,7 +18,7 @@ fourth item).
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 /-- What a reserved basis constant denotes to, where it denotes to a
 bare built-in.  `none` for the four the layer derives rather than
@@ -39,7 +39,7 @@ built-in `empty` at level `0` is `Sort 0`-valued (`BConst.type`), and
 
 Each would have been caught only here, because `val_params` is what
 they violate and nothing before the install asserts it for a basis
-constant.  That is the house rule's point exactly (`Lech/TT/DESIGN.md`
+constant.  That is the house rule's point exactly (`Lech/VExpr/DESIGN.md`
 §3.1): a definition is a conjecture until a consumer elaborates it. -/
 def pinnedDirectT (n : Name) (ψ : Name → Nat) : Option VExpr :=
   if n = natName then some (.const .nat [])

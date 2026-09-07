@@ -18,7 +18,7 @@ lemma (`Interp2/ReduceOpsP.lean`) needed them from *below* `HarvestP`
 namespace Lech.SetP
 open Lech.Semantics
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 open Lech (Expr Name Level BinderMeta)
 
 /-- `erasePw` inversion at a `∀`: the head is a `∀`, and

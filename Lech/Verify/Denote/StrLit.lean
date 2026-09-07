@@ -23,7 +23,7 @@ the shape lemmas already live; the module sits below both lanes.
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 /-- The empty level substitution is the identity assignment. -/
 theorem substFn_nil (φ : Name → Nat) : Level.substFn φ [] [] = φ := by

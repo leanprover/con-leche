@@ -78,7 +78,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.TTVerify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode CheckM Env Expr Name Level PropWhen isDefEqCore
   whnfCore defeqStep defeqLoop defeqBody defeqLoopFuel pureFns)

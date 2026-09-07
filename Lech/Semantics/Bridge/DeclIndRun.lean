@@ -47,7 +47,7 @@ prices.
 
 namespace Lech.Semantics
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 
 /-! ## The block members -/
 

@@ -61,7 +61,7 @@ DeclIndRun μ F env` and **`DeclRun`'s own text does not change**.
 
 namespace Lech.Semantics
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 
 /-! ## Shared syntactic plumbing
 

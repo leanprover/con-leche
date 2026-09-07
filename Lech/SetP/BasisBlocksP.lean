@@ -29,7 +29,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.TTVerify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
@@ -54,7 +54,7 @@ theorem denoteP_pinned_const {m : EnvS2Core V env}
     (hf : env.find? n = some ci)
     (hres : Lech.reservedBasisNames.contains n = true)
     (hlen : ls.length = ci.toConstantVal.levelParams.length)
-    {c : Lech.TT.BConst} {us : List Nat}
+    {c : Lech.VExpr.BConst} {us : List Nat}
     (hpd : Lech.TTVerify.pinnedDirectT n
       (Level.substFn ψ ci.toConstantVal.levelParams ls)
         = some (VExpr.const c us)) (d : Nat) :
@@ -133,7 +133,7 @@ theorem denoteP_punitUnitA_type (ψ : Name → Nat)
       = Expr.const punitName [Level.param uN] from rfl]
   refine denoteP_pinned_const (m := m) (by decide) hP (by decide)
     (by rfl) ?_ 0
-  simp +decide [Lech.TTVerify.pinnedDirectT, Lech.TT.lv]
+  simp +decide [Lech.TTVerify.pinnedDirectT, Lech.VExpr.lv]
   show Level.substFn ψ [uN] [Level.param uN] uN = ψ uN
   simp [Level.substFn]
   rfl
@@ -408,7 +408,7 @@ theorem punitRecLawP {m : EnvS2Core V env}
       show punitRecRule.ctorParams = 0 from rfl,
       List.take, List.drop, List.cons_append, List.nil_append,
       List.append_nil, AVExpr.mkAppN_cons, AVExpr.mkAppN_nil,
-      hrecL, hctorL, interp2_app, interp2_const, bval2, Lech.TT.lv,
+      hrecL, hctorL, interp2_app, interp2_const, bval2, Lech.VExpr.lv,
       List.getD_cons_zero, List.getD_cons_succ]
     rw [punitRecV2_app V hMmot hm (pt_mem_unitSet (V := V)),
       punitRaP_interp]
@@ -1201,7 +1201,7 @@ theorem natSuccRaP_interp (ψ : Name → Nat) (ρ : Nat → V) :
                     n))))) := by
   simp only [natSuccRaP, interp2_lam, interp2_app, interp2_bvar,
     interp2_const, cons, bval2, natMotiveTyP_interp,
-    natStepTyP_interp, Lech.TT.lv, List.getD_cons_zero]
+    natStepTyP_interp, Lech.VExpr.lv, List.getD_cons_zero]
 
 /-- **The recursive spine is graded**, once and for all: four
 `bconst_app_data` steps at `Nat.rec`'s own `type2` binders, with the
@@ -1216,7 +1216,7 @@ theorem natRecSpine_ok2 {u : Nat} (ρ : Nat → V) {e1 e2 e3 e4 : AVExpr}
     (m4 : interp2 V ρ e4 ∈ˢ (omega : V)) :
     AnnotOk2 V ρ
       (.app (.app (.app (.app (.const .natRec [u]) e1) e2) e3) e4) := by
-  have hlv : Lech.TT.lv [u] 0 = u := rfl
+  have hlv : Lech.VExpr.lv [u] 0 = u := rfl
   have d1 : interp2 V ρ (arrowA 1 (u + 1) natT2 (.sort u))
       = natMotiveSpace V u := by
     simp [arrowA, natT2, AVExpr.lift, AVExpr.liftN, interp2_pi,
@@ -1371,7 +1371,7 @@ theorem natSuccRaP_okP (ψ : Name → Nat) (ρ : Nat → V) :
           (.bvar 2)) (.bvar 1)) (.bvar 0))
         = app (app (app (app (natRecV2 V (ψ uN)) M) z) s) n := by
       simp [interp2_app, interp2_bvar, interp2_const, cons, bval2,
-        Lech.TT.lv]
+        Lech.VExpr.lv]
     have eapp : interp2 V (cons n (cons s (cons z (cons M ρ))))
         (AVExpr.app (.bvar 1) (.bvar 0)) = app s n := by
       simp [interp2_app, interp2_bvar, cons]
@@ -1698,7 +1698,7 @@ theorem natRecZeroLawP {m : EnvS2Core V env}
   · simp only [show natRecZeroRule.ctorParams = 0 from rfl,
       List.take, List.drop, List.cons_append, List.nil_append,
       List.append_nil, AVExpr.mkAppN_cons, AVExpr.mkAppN_nil, hrecL,
-      hctorL, interp2_app, interp2_const, bval2, Lech.TT.lv,
+      hctorL, interp2_app, interp2_const, bval2, Lech.VExpr.lv,
       List.getD_cons_zero]
     rw [natRecV2_app V hM hz hs (natzero_mem (V := V)), natrec_zero,
       natZeroRaP_interp]
@@ -1782,7 +1782,7 @@ theorem natRecSuccLawP {m : EnvS2Core V env}
   refine ⟨?_, ?_⟩
   · simp only [List.take, List.drop, List.cons_append, List.nil_append,
       AVExpr.mkAppN_cons, AVExpr.mkAppN_nil, hrecL,
-      hctorL, interp2_app, interp2_const, bval2, Lech.TT.lv,
+      hctorL, interp2_app, interp2_const, bval2, Lech.VExpr.lv,
       List.getD_cons_zero, show natRecSuccRule.ctorParams = 0 from rfl]
     rw [natSuccV2_app V hn',
       natRecV2_app V hM hz hs' (natsucc_mem hn'), natrec_succ _ _ hn',

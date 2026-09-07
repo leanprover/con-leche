@@ -26,7 +26,7 @@ priced comparison).
 
 namespace Lech.Semantics
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 
 /-! ## The projection fold -/
 

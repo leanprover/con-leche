@@ -19,7 +19,7 @@ denote stack to a neutral home"; this is the slice the bridge forced.)
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 /-! ## The denotation reads only an expression's own level parameters
 

@@ -47,7 +47,7 @@ not the import graph, which is S9's own finding.
 
 namespace Lech.Semantics
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 
 /-! ## The shared front doors, run half -/
 

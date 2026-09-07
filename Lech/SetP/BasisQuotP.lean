@@ -31,7 +31,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.TTVerify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level ConstantInfo ConstantVal
   RecRule uN u1N vN)
@@ -320,9 +320,9 @@ theorem quotApp_data {u i j : Nat} {ρ : Nat → V} {Aset R : V}
     · have h := bconst_app_data2 V .quot [u] ρ
         (A := .sort u) (A2 := relT2 u (.bvar 0)) rfl hA' hR'
       rw [← hAi, ← hRj] at h
-      simpa [interp2_const, bval2, Lech.TT.lv] using h
+      simpa [interp2_const, bval2, Lech.VExpr.lv] using h
   · rw [quotAppP]
-    simp only [interp2_app, interp2_const, bval2, Lech.TT.lv,
+    simp only [interp2_app, interp2_const, bval2, Lech.VExpr.lv,
       List.getD_cons_zero, hAi, hRj]
     exact quotV2_app V hA hR
 
@@ -358,14 +358,14 @@ theorem quotMkApp_data {u i j k : Nat} {ρ : Nat → V} {Aset R a : V}
       · have h := bconst_app_data2 V .quotMk [u] ρ
           (A := .sort u) (A2 := relT2 u (.bvar 0)) rfl hA' hR'
         rw [← hAi, ← hRj] at h
-        simpa [interp2_const, bval2, Lech.TT.lv] using h
+        simpa [interp2_const, bval2, Lech.VExpr.lv] using h
     · have h := bconst_app_data3 V .quotMk [u] ρ
         (A := .sort u) (A2 := relT2 u (.bvar 0)) (A3 := .bvar 1)
         rfl hA' hR' ha'
       rw [← hAi, ← hRj, ← hak] at h
-      simpa [interp2_const, bval2, Lech.TT.lv] using h
+      simpa [interp2_const, bval2, Lech.VExpr.lv] using h
   · rw [quotMkAppP]
-    simp only [interp2_app, interp2_const, bval2, Lech.TT.lv,
+    simp only [interp2_app, interp2_const, bval2, Lech.VExpr.lv,
       List.getD_cons_zero, hAi, hRj, hak]
     exact quotMkV2_app V hA hR ha
 
@@ -2153,7 +2153,7 @@ theorem quotLiftLawP {m : EnvS2Core V env}
       show quotLiftRule.ctorParams = 2 from rfl,
       List.take, List.drop, List.cons_append, List.nil_append,
       AVExpr.mkAppN_cons, AVExpr.mkAppN_nil, hrecL, hctorL,
-      interp2_app, interp2_const, bval2, Lech.TT.lv,
+      interp2_app, interp2_const, bval2, Lech.VExpr.lv,
       List.getD_cons_zero, List.getD_cons_succ]
     rw [quotMkV2_app V g1 g2 g3, hp0, hp1,
       quotLiftV2_fired f1 f2 f3 hfv f5 hg3,

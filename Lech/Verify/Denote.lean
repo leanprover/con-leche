@@ -1,12 +1,12 @@
 import Lech.Kernel.Checker
 import Lech.Verify.Level
 import Lech.Verify.EnvWF
-import Lech.TT.Const
+import Lech.VExpr.Const
 
 /-!
 # Denotation of kernel expressions into the declarative type theory
 
-`denote cval env φ d e` maps a kernel `Expr` to a `Lech.TT.VExpr`.
+`denote cval env φ d e` maps a kernel `Expr` to a `Lech.VExpr.VExpr`.
 It is **the structural transpose of `Lech/Model/Interp.lean`'s
 `interpExpr`**, clause for clause, and the reader should hold the two
 side by side: everything below is `interpExpr` with the set-theoretic
@@ -52,7 +52,7 @@ an *equation between denotations that already holds*, not a rule of the
 type theory — which is the concrete sense in which the reduction
 strategy drops out of the consistency argument.
 
-(`Lech/TT/DESIGN.md` §2.1 describes the denotation as unfolding
+(`Lech/VExpr/DESIGN.md` §2.1 describes the denotation as unfolding
 constants by well-founded recursion on the environment.  Carrying a
 valuation instead is the same thing done the way the set model already
 does it: the recursion on the environment becomes the *incremental
@@ -79,7 +79,7 @@ substitute `⟦value⟧` into the denoted body, i.e. emit `b.inst xv`.
 That was the original choice here and it is **withdrawn**: a `denote`
 that performs a substitution forces the bridge's own metatheory to
 prove that lifting commutes with instantiation, and then that lifting
-commutes with lifting, and the swamp `Lech/TT/DESIGN.md` §6 is proud
+commutes with lifting, and the swamp `Lech/VExpr/DESIGN.md` §6 is proud
 of avoiding (lean4lean's 123 syntactic lemmas) reappears one layer
 down.  The shift lemma (`Lech/Verify/Denote/Shift.lean`) is where this
 showed up concretely: with `b.inst xv` its `letE` case needs two
@@ -112,8 +112,8 @@ them, and a *relational* denotation is not an option either: the defeq
 claim of the fuel induction needs both sides denoted by the *same*
 function, or the two existentials do not meet.
 
-So the layer gained `VExpr.proj` (task #119; `Lech/TT/Syntax.lean`
-§3, `Lech/TT/DESIGN.md`), a former carrying exactly what the
+So the layer gained `VExpr.proj` (task #119; `Lech/VExpr/Syntax.lean`
+§3, `Lech/VExpr/DESIGN.md`), a former carrying exactly what the
 checker's node carries, whose typing rules read `A` and `B` off the
 premise.  This clause is then the plain transpose of `interpExpr`'s,
 `i < 2` guard included, and the layer came out *smaller*: `psigmaFst`
@@ -124,7 +124,7 @@ set_option linter.unusedVariables false
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 /-- A valuation of the environment's constants by *terms* of the
 declarative type theory — level-polymorphically, each constant being a

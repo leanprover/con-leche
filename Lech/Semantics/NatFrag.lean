@@ -27,7 +27,7 @@ cone for one definition.
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 variable {env : Env}
 

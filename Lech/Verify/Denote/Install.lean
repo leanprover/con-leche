@@ -31,7 +31,7 @@ set_option linter.unusedVariables false
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 /-- `env₂` extends `env₁`: every constant stored in `env₁` is stored in
 `env₂`, unchanged.  (The checker's installs are cons-extensions with a

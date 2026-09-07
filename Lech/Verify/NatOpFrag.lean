@@ -28,7 +28,7 @@ which is stated over an `EnvTT`.
 -- downstream re-qualifies
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 variable {env : Env}
 

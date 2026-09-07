@@ -18,7 +18,7 @@ them without importing the TT lane.
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 /-- Which reserved names carry recursor-shaped pinned declarations.
 The transpose of `Lech/Model/BasisVal.lean`'s

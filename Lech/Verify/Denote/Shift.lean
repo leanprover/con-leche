@@ -70,7 +70,7 @@ set_option linter.unusedVariables false
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 variable {cval : TConstVal} {env : Env} {φ : Name → Nat}
 

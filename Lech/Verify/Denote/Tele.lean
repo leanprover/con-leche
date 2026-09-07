@@ -18,7 +18,7 @@ rescues and the iota clause's redex reassembly run on it.
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 /-! ## Spines
 

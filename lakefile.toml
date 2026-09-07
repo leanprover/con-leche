@@ -25,7 +25,7 @@ rev = "45d134663faec16f13b4885f4a5a11bdd08de1b2"
 # for more focus").
 #
 #             LechBase
-#   Kernel/* · model-free Verify/* · SetTheory/* · TT/*
+#   Kernel/* · model-free Verify/* · SetTheory/* · VExpr/*
 #   SetModel/* (pure set constructions) · Semantics/* (Expr-facing
 #   denotation and claims; the two halves of the former SetBase/*)
 #                               ↑
@@ -96,15 +96,16 @@ roots = ["Lech.PinGen.Certs"]
 
 # The shared base: the checker itself (`Lech.Kernel.*`), the model-free
 # verification tier (`Lech.Verify.*`), the `SetTheory` interface, the
-# declarative type-theory layer (`Lech.TT.*`, task #74 — its own module
-# hierarchy, importing nothing from the checker), `Lech.SetModel.*`
+# erased term language (`Lech.VExpr.*`, task #74 — its own module
+# hierarchy, importing nothing from the checker; it was `Lech.TT.*`
+# until task #209 removed the declarative lane above it), `Lech.SetModel.*`
 # (the pure set constructions) and `Lech.Semantics.*` (the Expr-facing
 # denotation and claims) — the two halves the former `Lech.SetBase.*`
 # (task #161 S1) was split into on 2026-09-06.  The model lane stands on
 # this and nothing here may import it.
 [[lean_lib]]
 name = "LechBase"
-roots = ["Lech", "Lech.TT", "Lech.SetModel", "Lech.Semantics"]
+roots = ["Lech", "Lech.VExpr", "Lech.SetModel", "Lech.Semantics"]
 
 # The graded-model lane (task #161 S2): the `AnnotOk2` bit carriers, the
 # de-basing's `EnvS2Core`/`EnvS2P`, the per-rule `…P` quarters and rows,

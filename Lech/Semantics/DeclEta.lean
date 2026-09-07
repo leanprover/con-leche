@@ -41,7 +41,7 @@ blocker), this file moves with it.
 
 namespace Lech.Semantics
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 
 /-- Does every pinned basis declaration that is an eta-capable
 former carry a reserved name?  Decidable, and `decide`d at each

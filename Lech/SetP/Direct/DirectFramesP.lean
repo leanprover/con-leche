@@ -22,7 +22,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech Lech.Semantics Lech.TT Lech.TTVerify SetTheory Lech.SetModel
+open Lech Lech.Semantics Lech.VExpr Lech.TTVerify SetTheory Lech.SetModel
 open Lech.Semantics (AVExpr)
 
 universe w

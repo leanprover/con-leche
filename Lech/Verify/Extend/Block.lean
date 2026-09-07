@@ -18,7 +18,7 @@ them; the namespace stays `Lech.TTVerify` so no call site moves.
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 /-! ## The block fold invariant -/
 

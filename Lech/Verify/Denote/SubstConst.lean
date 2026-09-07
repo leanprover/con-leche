@@ -28,7 +28,7 @@ over constants and two free variables, with no binder anywhere.
 
 namespace Lech.TTVerify
 
-open Lech.TT
+open Lech.VExpr
 
 private theorem substFn_nil0 (φ : Name → Nat) :
     Level.substFn φ [] [] = φ := funext fun _ => rfl

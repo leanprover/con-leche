@@ -8,7 +8,7 @@ Two halves.
 
 **The substitution stack** — `interp2_liftN` and `interp2_inst`, the
 layer's *entire* substitution metatheory, transposed from
-`Lech/TT/Semantics/Interp.lean` unchanged in shape.  That they
+`Lech/VExpr/Semantics/Interp.lean` unchanged in shape.  That they
 transpose is the point: `interp2` is structural, so removing the
 collapse costs nothing here.  (lean4lean needs ~123 syntactic lemmas at
 this spot because its metatheory is syntactic; soundness against a
@@ -153,7 +153,7 @@ no `interp2` analogue. -/
 
 theorem interp2_congr_below :
     ∀ (e : AVExpr) (k : Nat) (ρ ρ' : Nat → V),
-      Lech.TT.VExpr.bvarsBelow k e.erase →
+      Lech.VExpr.VExpr.bvarsBelow k e.erase →
       (∀ i, i < k → ρ i = ρ' i) →
       interp2 V ρ e = interp2 V ρ' e := by
   intro e
@@ -199,7 +199,7 @@ theorem interp2_congr_below :
 
 /-- A closed term interprets the same under every environment. -/
 theorem interp2_closed {e : AVExpr}
-    (he : Lech.TT.VExpr.bvarsBelow 0 e.erase) (ρ ρ' : Nat → V) :
+    (he : Lech.VExpr.VExpr.bvarsBelow 0 e.erase) (ρ ρ' : Nat → V) :
     interp2 V ρ e = interp2 V ρ' e :=
   interp2_congr_below V e 0 ρ ρ' he
     (fun i hi => absurd hi (Nat.not_lt_zero i))

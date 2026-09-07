@@ -37,7 +37,7 @@ design finding, not a proof gap).
 namespace Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level inferTypeCore whnf
   natLitSupported strLitSupported)

@@ -45,7 +45,7 @@ Model-free by construction: no `V`, no `SetTheory`, no `EnvS`.
 
 namespace Lech.Semantics
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 
 /-! ## The provisioning fold, at the `EnvFacts` level -/
 

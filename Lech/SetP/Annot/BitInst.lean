@@ -117,7 +117,7 @@ open Lech.Semantics
 open Lech.SetModel
 
 
-open Lech.TT Lech.TTVerify
+open Lech.VExpr Lech.TTVerify
 open Lech.Semantics (AVExpr)
 open Lech (Env Expr Name Level PropWhen)
 

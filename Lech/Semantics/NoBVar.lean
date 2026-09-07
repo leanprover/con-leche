@@ -22,7 +22,7 @@ namespace Lech.Semantics
 open Lech.SetModel
 
 open SetTheory
-open Lech.TT (VExpr)
+open Lech.VExpr (VExpr)
 
 universe w
 

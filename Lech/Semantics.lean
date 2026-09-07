@@ -84,7 +84,7 @@ S1 re-based them here, below both lanes:
 
 * `Ops` — `piR`, `lamC`, `app`, `piR_dom_unique` over the `SetTheory`
   interface;
-* `Value` — the graded value tower (with `TT.Const`);
+* `Value` — the graded value tower (with `VExpr.Const`);
 * `Syntax` — `AVExpr` and `AVExpr.erase`, the annotated syntax both
   lanes read (`erase` is the collapsed lane's own reading function);
 * `Interp` — `interp`/`interp2`;

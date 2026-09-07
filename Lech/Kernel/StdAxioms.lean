@@ -235,7 +235,7 @@ arm stays a single conditional.
 type.**  The verification has to *realize* the axiom, and the two
 spellings differ: the checker's `propext` takes `Iff a b`, while the
 declarative layer's takes the two implications separately
-(`Lech/TT/Const.lean`).  Bridging them needs the implications
+(`Lech/VExpr/Const.lean`).  Bridging them needs the implications
 extracted from the `Iff` — and **nothing in the layer turns an
 inhabitant of an opaque family into its fields except that family's own
 recursor**, since a modeled inductive is opaque to the interpretation

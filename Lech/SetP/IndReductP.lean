@@ -26,7 +26,7 @@ namespace Lech.SetP
 open Lech.Semantics
 open Lech.SetModel
 
-open Lech.TT Lech.TTVerify SetTheory
+open Lech.VExpr Lech.TTVerify SetTheory
 open Lech.Semantics (AVExpr)
 open Lech (CheckMode Env Expr Name Level isDefEqCore)
 
@@ -221,7 +221,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
   -- the spine's values are the chain's
   have hsplen : vsp.length = rP + cnF := by
     rw [← hspine.length, hfvslen]
-  have hRVbb : Lech.TT.VExpr.bvarsBelow 0 RV.erase :=
+  have hRVbb : Lech.VExpr.VExpr.bvarsBelow 0 RV.erase :=
     denote_closed m.cval_closed hrhsw hrhsb
       (denoteP_erase m.acval_erase 0 rhsA hRV)
   rw [interp2_mkAppN_map, interp2_mkAppN_map,
