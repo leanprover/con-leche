@@ -57887,12 +57887,28 @@ not, and three of them are on the executed path.
 
 | budgeted kind | the unmemoized walker | verdict |
 |---|---|---|
-| inductive block (every member type, every rule rhs) | `Frontend.canonExpr` (`Export.lean`) rebuilds the **whole block** for the basis-pin match, on every block, memo-free; then at the install `Expr.renameConsts` (`Kernel/ExprOps.lean`) and the `Expr.instantiate1` inside `openPisAtFvars` (`Kernel/CheckerBase.lean`) | **keep** |
-| quotient record | `ConstantInfo.canon` against the `Quot` pin | **keep** |
+| inductive block (every member type, every rule rhs) | `Frontend.canonExpr` (`Export.lean`) rebuilds the **whole block** for the basis-pin match, on every block, memo-free; then at the install `Expr.renameConsts` (`Kernel/ExprOps.lean`) and the `Expr.instantiate1` inside `openPisAtFvars` (`Kernel/CheckerBase.lean`) | **keep — pending task #214** |
+| quotient record | `ConstantInfo.canon` against the `Quot` pin | **keep — pending task #214** |
 | axiom record | `Expr.erasePw` (`Kernel/StdAxioms.lean`) via `ConstantVal.matchesPin`, and `ConstantInfo.canon` for `Quot.sound`.  Reachable only under a *pinned* name (`stdAxiomOk` dispatches on the name first) — but a stream may spell a pinned name with any type at all, so the walk is reachable on adversarial input | **keep** (narrow) |
 | record under a built-in prelude name (task #191) | `DeclC.sameCanon` → `ConstantInfo.canon` | **keep** |
 | certified `Nat` operations (`natOpNames`/`natDivModNames`) | `Expr.substConstAll`/`substConst0` embed the stored value in the vendored certificate proofs and the recurrence equations, and the syntactic guards then run over the result | **keep** (a fixed eight-name set; adversarial only) |
 | **`_model`-named def/theorem/opaque** | `openPisAtFvars` on an `iota_j` statement *is* unmemoized — but see below | **LIFTED** |
+
+**"Pending #214", and what the user's own stream turned out to be.**
+While this task was in flight the reporter localised the tripping
+record: it is the **recursor rule right-hand side of a one-constructor
+structure** — `ModularCurve.JZeroGoodReductionSpecialization_alt`, 22
+fields — i.e. an *inductive block* record, not a `_model` definition.
+So the `_model` lift below is a real misapplication removed, but it is
+not what that particular 37.77 GB stream hit; `tests/e2e/budget_block.ndjson`,
+written here as the block-kind fixture, is the reduced shape of the
+real case.  Whether the block row can be exempted too — by memoizing
+`canonExpr` and the openings rather than by budgeting the record —
+depends on which post-parse consumers actually walk an inductive
+block's expressions unmemoized and how large those expressions are on
+that stream; that is task #214's read-only measurement
+(`_tmp/jzero_struct.ndjson`), and this record does not pre-empt it.
+The three walkers named in the table are what the code says today.
 
 **Why the `_model` class goes.**  The justification predates the
 in-process modeller.  Since task #200 con-leche *generates* the
