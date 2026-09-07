@@ -114,10 +114,10 @@ theorem denoteP_falseRecA_type {m : EnvS2Core V env}
       rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE
     rw [denoteP_levelless_const hf (by rfl), hleaf]
   rw [show falseRecA.toConstantVal.type
-      = Expr.forallE (Name.anonymous.str "motive")
-          (Expr.forallE (Name.anonymous.str "t") (.const falseName [])
+      = Expr.forallE .anonymous
+          (Expr.forallE .anonymous (.const falseName [])
             (.sort (.param uN)) { bi := .default, pw := .never })
-          (Expr.forallE (Name.anonymous.str "t") (.const falseName [])
+          (Expr.forallE .anonymous (.const falseName [])
             (.app (.bvar 1) (.bvar 0))
             { bi := .default, pw := .ifAllZero [uN] })
           { bi := .default, pw := .ifAllZero [uN] } from rfl]
@@ -221,10 +221,10 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvS2PM V μ env)
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     show Expr.constsResolve _ falseRecA.toConstantVal.type = true
     simp only [show falseRecA.toConstantVal.type
-        = Expr.forallE (Name.anonymous.str "motive")
-            (Expr.forallE (Name.anonymous.str "t") (.const falseName [])
+        = Expr.forallE .anonymous
+            (Expr.forallE .anonymous (.const falseName [])
               (.sort (.param uN)) { bi := .default, pw := .never })
-            (Expr.forallE (Name.anonymous.str "t") (.const falseName [])
+            (Expr.forallE .anonymous (.const falseName [])
               (.app (.bvar 1) (.bvar 0))
               { bi := .default, pw := .ifAllZero [uN] })
             { bi := .default, pw := .ifAllZero [uN] } from rfl,

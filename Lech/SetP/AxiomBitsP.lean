@@ -140,26 +140,26 @@ theorem inferTypeCore_eqSpineS {fuel d : Nat} {X Y Z bt : Expr}
   subst hb3
   rw [show (Expr.instantiateLevelParams eqA.toConstantVal.levelParams
         [Level.zero.succ] eqA.toConstantVal.type)
-      = .forallE (Name.anonymous.str "α") (.sort (.succ .zero))
-        (.forallE (Name.anonymous.str "a") (.bvar 0)
-          (.forallE (Name.anonymous.str "b") (.bvar 1) (.sort .zero)
+      = .forallE .anonymous (.sort (.succ .zero))
+        (.forallE .anonymous (.bvar 0)
+          (.forallE .anonymous (.bvar 1) (.sort .zero)
             ⟨.default, .never⟩) ⟨.default, .never⟩)
-        ⟨.implicit, .never⟩ from rfl] at hw3
+        ⟨.default, .never⟩ from rfl] at hw3
   injection Lech.whnf_forallE_eq hw3 with e1 e2 e3 e4
   subst e3
   subst hb2
-  rw [show (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
-        (.forallE (Name.anonymous.str "b") (.bvar 1) (.sort .zero)
+  rw [show (Expr.forallE .anonymous (.bvar 0)
+        (.forallE .anonymous (.bvar 1) (.sort .zero)
           ⟨.default, .never⟩) ⟨.default, .never⟩).instantiate1 X
-      = .forallE (Name.anonymous.str "a") X
-        (.forallE (Name.anonymous.str "b") X (.sort .zero)
+      = .forallE .anonymous X
+        (.forallE .anonymous X (.sort .zero)
           ⟨.default, .never⟩) ⟨.default, .never⟩ from rfl] at hw2
   injection Lech.whnf_forallE_eq hw2 with f1 f2 f3 f4
   subst f3
   subst hb1
-  rw [show (Expr.forallE (Name.anonymous.str "b") X
+  rw [show (Expr.forallE .anonymous X
         (.sort .zero) ⟨.default, .never⟩).instantiate1 Y
-      = .forallE (Name.anonymous.str "b") (X.instantiate1 Y 0)
+      = .forallE .anonymous (X.instantiate1 Y 0)
         (.sort .zero) ⟨.default, .never⟩ from rfl] at hw1
   injection Lech.whnf_forallE_eq hw1 with g1 g2 g3 g4
   subst g3

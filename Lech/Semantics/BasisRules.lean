@@ -22,14 +22,14 @@ open Lech
 /-- `Nat.rec`'s two stored rules. -/
 def natRecZeroRule : RecRule :=
   { ctor := natZeroName, nfields := 0, ctorParams := 0, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "motive")
-      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+    rhs := Expr.lam .anonymous
+      (Expr.forallE .anonymous (.const natName [])
         (.sort (.param uN)) { bi := .default, pw := .never })
-      (Expr.lam (Name.anonymous.str "zero")
+      (Expr.lam .anonymous
         (.app (.bvar 0) (.const natZeroName []))
-        (Expr.lam (Name.anonymous.str "succ")
-          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
-            (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2)
+        (Expr.lam .anonymous
+          (Expr.forallE .anonymous (.const natName [])
+            (Expr.forallE .anonymous (.app (.bvar 2)
               (.bvar 0))
               (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
               { bi := .default, pw := .ifAllZero [uN] })
@@ -40,19 +40,19 @@ def natRecZeroRule : RecRule :=
 
 def natRecSuccRule : RecRule :=
   { ctor := natSuccName, nfields := 1, ctorParams := 0, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "motive")
-      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+    rhs := Expr.lam .anonymous
+      (Expr.forallE .anonymous (.const natName [])
         (.sort (.param uN)) { bi := .default, pw := .never })
-      (Expr.lam (Name.anonymous.str "zero")
+      (Expr.lam .anonymous
         (.app (.bvar 0) (.const natZeroName []))
-        (Expr.lam (Name.anonymous.str "succ")
-          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
-            (Expr.forallE (Name.anonymous.str "n_ih") (.app (.bvar 2)
+        (Expr.lam .anonymous
+          (Expr.forallE .anonymous (.const natName [])
+            (Expr.forallE .anonymous (.app (.bvar 2)
               (.bvar 0))
               (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
               { bi := .default, pw := .ifAllZero [uN] })
             { bi := .default, pw := .ifAllZero [uN] })
-          (Expr.lam (Name.anonymous.str "n") (.const natName [])
+          (Expr.lam .anonymous (.const natName [])
             (.app (.app (.bvar 1) (.bvar 0))
               (.app (.app (.app (.app (.const (natName.str "rec")
                 [.param uN]) (.bvar 3)) (.bvar 2)) (.bvar 1)) (.bvar
@@ -71,23 +71,23 @@ theorem natRecA_eq :
 /-- `Quot.ind`'s single stored rule. -/
 def quotIndRule : RecRule :=
   { ctor := quotMkName, nfields := 1, ctorParams := 2, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uN))
-      (Expr.lam (Name.anonymous.str "r")
+    rhs := Expr.lam .anonymous (.sort (.param uN))
+      (Expr.lam .anonymous
         (Expr.forallE Name.anonymous (.bvar 0)
           (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
             { bi := .default, pw := .never }) { bi := .default, pw := .never })
-        (Expr.lam (Name.anonymous.str "β")
-          (Expr.forallE (Name.anonymous.str "a")
+        (Expr.lam .anonymous
+          (Expr.forallE .anonymous
             (.app (.app (.const quotName [.param uN]) (.bvar 1)) (.bvar
               0))
             (.sort .zero) { bi := .default, pw := .never })
-          (Expr.lam (Name.anonymous.str "mk")
-            (Expr.forallE (Name.anonymous.str "a") (.bvar 2)
+          (Expr.lam .anonymous
+            (Expr.forallE .anonymous (.bvar 2)
               (.app (.bvar 1)
                 (.app (.app (.app (.const quotMkName [.param uN])
                   (.bvar 3)) (.bvar 2)) (.bvar 0)))
               { bi := .default, pw := .ifAllZero [] })
-            (Expr.lam (Name.anonymous.str "a") (.bvar 3)
+            (Expr.lam .anonymous (.bvar 3)
               (.app (.bvar 1) (.bvar 0)) { bi := .default, pw := .ifAllZero [] })
             { bi := .default, pw := .ifAllZero [] })
           { bi := .default, pw := .ifAllZero [] })
@@ -98,26 +98,26 @@ def quotIndRule : RecRule :=
 /-- `Quot.lift`'s single stored rule. -/
 def quotLiftRule : RecRule :=
   { ctor := quotMkName, nfields := 1, ctorParams := 2, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uN))
-      (Expr.lam (Name.anonymous.str "r")
+    rhs := Expr.lam .anonymous (.sort (.param uN))
+      (Expr.lam .anonymous
         (Expr.forallE Name.anonymous (.bvar 0)
           (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
             { bi := .default, pw := .never }) { bi := .default, pw := .never })
-        (Expr.lam (Name.anonymous.str "β") (.sort (.param vN))
-          (Expr.lam (Name.anonymous.str "f")
-            (Expr.forallE (Name.anonymous.str "a") (.bvar 2) (.bvar 1)
+        (Expr.lam .anonymous (.sort (.param vN))
+          (Expr.lam .anonymous
+            (Expr.forallE .anonymous (.bvar 2) (.bvar 1)
               { bi := .default, pw := .ifAllZero [vN] })
-            (Expr.lam (Name.anonymous.str "h")
-              (Expr.forallE (Name.anonymous.str "a") (.bvar 3)
-                (Expr.forallE (Name.anonymous.str "b") (.bvar 4)
-                  (Expr.forallE (Name.anonymous.str "a")
+            (Expr.lam .anonymous
+              (Expr.forallE .anonymous (.bvar 3)
+                (Expr.forallE .anonymous (.bvar 4)
+                  (Expr.forallE .anonymous
                     (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0))
                     (.app (.app (.app (.const eqName [.param vN])
                       (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
                       (.app (.bvar 3) (.bvar 1)))
                     { bi := .default, pw := .ifAllZero [] }) { bi := .default, pw := .ifAllZero [] })
                 { bi := .default, pw := .ifAllZero [] })
-              (Expr.lam (Name.anonymous.str "a") (.bvar 4)
+              (Expr.lam .anonymous (.bvar 4)
                 (.app (.bvar 2) (.bvar 0)) { bi := .default, pw := .ifAllZero [vN] })
               { bi := .default, pw := .ifAllZero [vN] })
             { bi := .default, pw := .ifAllZero [vN] })
@@ -129,23 +129,23 @@ def quotLiftRule : RecRule :=
 /-- `Eq.rec`'s single stored rule. -/
 def eqRecRule : RecRule :=
   { ctor := eqReflName, nfields := 0, ctorParams := 2, fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uN))
-      (Expr.lam (Name.anonymous.str "a") (.bvar 0)
-        (Expr.lam (Name.anonymous.str "motive")
-          (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
-            (Expr.forallE (Name.anonymous.str "t")
+    rhs := Expr.lam .anonymous (.sort (.param uN))
+      (Expr.lam .anonymous (.bvar 0)
+        (Expr.lam .anonymous
+          (Expr.forallE .anonymous (.bvar 1)
+            (Expr.forallE .anonymous
               (.app (.app (.app (.const eqName [.param uN]) (.bvar 2))
                 (.bvar 1)) (.bvar 0))
               (.sort (.param u1N)) { bi := .default, pw := .never })
             { bi := .default, pw := .never })
-          (Expr.lam (Name.anonymous.str "refl")
+          (Expr.lam .anonymous
             (.app (.app (.bvar 0) (.bvar 1))
               (.app (.app (.const eqReflName [.param uN]) (.bvar 2))
                 (.bvar 1)))
             (.bvar 0) { bi := .default, pw := .ifAllZero [u1N] })
           { bi := .default, pw := .ifAllZero [u1N] })
         { bi := .default, pw := .ifAllZero [u1N] })
-      { bi := .implicit, pw := .ifAllZero [u1N] } }
+      { bi := .default, pw := .ifAllZero [u1N] } }
 
 
 /-- The stored declaration, with its rule named. -/

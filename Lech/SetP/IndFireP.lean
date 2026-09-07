@@ -287,32 +287,32 @@ theorem fireP {m : EnvS2Core V env} {ψ' : Name → Nat}
           (.pi 0 1 (.bvar 0) (.pi 0 1 (.bvar 1) (.sort 0)))) := by
     have hinst : eqA.toConstantVal.type.instantiateLevelParams
         eqA.toConstantVal.levelParams [ℓA]
-        = .forallE (.str .anonymous "α") (.sort ℓA)
-            (.forallE (.str .anonymous "a") (.bvar 0)
-              (.forallE (.str .anonymous "b") (.bvar 1)
+        = .forallE .anonymous (.sort ℓA)
+            (.forallE .anonymous (.bvar 0)
+              (.forallE .anonymous (.bvar 1)
                 (.sort .zero) ⟨.default, .never⟩)
-              ⟨.default, .never⟩) ⟨.implicit, .never⟩ := rfl
-    have hb1 : (Expr.forallE (.str .anonymous "a") (.bvar 0)
-        (.forallE (.str .anonymous "b") (.bvar 1)
+              ⟨.default, .never⟩) ⟨.default, .never⟩ := rfl
+    have hb1 : (Expr.forallE .anonymous (.bvar 0)
+        (.forallE .anonymous (.bvar 1)
           (.sort .zero) ⟨.default, .never⟩) ⟨.default, .never⟩).instantiate1
-        (.fvar 0 (.str .anonymous "α") (.sort ℓA))
-        = .forallE (.str .anonymous "a")
-            (.fvar 0 (.str .anonymous "α") (.sort ℓA))
-            (.forallE (.str .anonymous "b")
-              (.fvar 0 (.str .anonymous "α") (.sort ℓA))
+        (.fvar 0 .anonymous (.sort ℓA))
+        = .forallE .anonymous
+            (.fvar 0 .anonymous (.sort ℓA))
+            (.forallE .anonymous
+              (.fvar 0 .anonymous (.sort ℓA))
               (.sort .zero) ⟨.default, .never⟩)
             ⟨.default, .never⟩ := rfl
-    have hb2 : (Expr.forallE (.str .anonymous "b")
-        (.fvar 0 (.str .anonymous "α") (.sort ℓA))
+    have hb2 : (Expr.forallE .anonymous
+        (.fvar 0 .anonymous (.sort ℓA))
         (.sort .zero) ⟨.default, .never⟩).instantiate1
-        (.fvar 1 (.str .anonymous "a")
-          (.fvar 0 (.str .anonymous "α") (.sort ℓA)))
-        = .forallE (.str .anonymous "b")
-            (.fvar 0 (.str .anonymous "α") (.sort ℓA))
+        (.fvar 1 .anonymous
+          (.fvar 0 .anonymous (.sort ℓA)))
+        = .forallE .anonymous
+            (.fvar 0 .anonymous (.sort ℓA))
             (.sort .zero) ⟨.default, .never⟩ := rfl
     have hb3 : (Expr.sort .zero).instantiate1
-        (.fvar 2 (.str .anonymous "b")
-          (.fvar 0 (.str .anonymous "α") (.sort ℓA)))
+        (.fvar 2 .anonymous
+          (.fvar 0 .anonymous (.sort ℓA)))
         = .sort .zero := rfl
     rw [hinst, denoteP_forallE, denoteP_sort, hb1, denoteP_forallE,
       denoteP_fvar, hb2, denoteP_forallE, denoteP_fvar, hb3,

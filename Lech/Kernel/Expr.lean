@@ -89,8 +89,13 @@ instance : LawfulBEq Level where
   eq_of_beq h := of_decide_eq_true h
   rfl := by simp [BEq.beq, Level.beq]
 
-/-- Binder annotations. Irrelevant to checking; kept for round-tripping and
-error messages. -/
+/-- Binder annotations.  Irrelevant to checking, and **always
+`.default` on every term the checker holds**: the frontend maps every
+parsed binder to `.default` (task #142), the pin builder
+(`Lech/Kernel/Basis/Builder.lean`) and the pin generator
+(`Lech/PinGen.lean`) do the same for the hand-written and generated
+literals (task #203).  The type keeps its four constructors so that a
+stream's spelling can still be *validated* (`parseBinderInfo`). -/
 inductive BinderInfo where
   | default
   | implicit
@@ -303,6 +308,40 @@ theorem hash32_lt (w : UInt64) : (hash32 w).toNat < 4294967296 := by
 `idx` *and* its type; the binder `name` is display-only.  Closed input terms
 contain no `fvar`s.
 
+## Equality and hashing are α-equivalence (task #203, user ruling)
+
+The official kernel's `is_equal` and `hash` ignore binder names and
+`BinderInfo`s (`expr_eq_fn.cpp:52, :100-103`; `expr.cpp` hash).  Here
+the *type* still carries a `name` on `fvar`/`lam`/`forallE`/`letE` and
+a `bi` in `BinderMeta` (dropping the fields would touch ~4 200
+constructor patterns in 237 files), and `==` stays `decide (a = b)`
+(`LawfulBEq`, which every `==`-to-`=` step in the verification tier
+consumes).  What makes that α-equivalence in practice is a **single
+normal form** for the display data: every binder name and `fvar` name
+is `.anonymous` and every `bi` is `.default` — on every term the
+checker holds.  It is established at the three places a term enters
+the world from outside the kernel:
+
+* the parser (`Lech/Frontend/ExportC.lean`, JSON and byte paths):
+  `.anonymous` / `⟨.default, pw⟩` for every `lam`/`forallE`/`letE`;
+* the hand-written pin literals (`Lech/Kernel/Basis/Builder.lean`:
+  `pi`/`piI`/`lm`/`lmI` take a name for the reader and emit
+  `.anonymous` at `.default`; `piA` was always so);
+* the generated pins (`Lech/PinGen.lean`, `toLech`).
+
+Kernel-built terms inherit their names from those (a binder opens as
+`.fvar d n ty` at the binder's own `n`; `pisToLams` and the
+substitution walks copy).  The residual — install-time generators that
+spell their own names (`Kernel/Direct/{Parts,RecParts}.lean`,
+`Frontend/InModel/*`, whose proofs pin those spellings) — is on record
+in DESIGN (task #203); it costs a binder-arm step where a name-blind
+`==` would have hit, never a verdict.
+
+The packed `hash` below is α-blind *by its recurrence* (no name, no
+`bi`), so it never separates α-equivalent terms whatever their
+spelling; `beq`'s spec stays exact equality, which on the normal form
+is the same relation.
+
 ## The computed field (task #172 B3a; packed at task #167)
 
 Every node carries a block of derived data, **computed once at
@@ -355,9 +394,9 @@ with
   @[computed_field] data : Expr → UInt64
     | .bvar i =>
       packData (hash32 (mixHash 3 (Hashable.hash i))) (satSucc i) 0 false
-    | .fvar idx n ty =>
+    | .fvar idx _ ty =>
       packData (hash32 (mixHash 5 (mixHash (Hashable.hash idx)
-          (mixHash (Hashable.hash n) (hashOfData ty.data)))))
+          (hashOfData ty.data))))
         0 (satSucc idx) (lpOfData ty.data)
     | .sort u =>
       packData (hash32 (mixHash 7 (levelHash u))) 0 0 (levelHasParam u)
@@ -370,24 +409,24 @@ with
         (max (bvarOfData f.data) (bvarOfData a.data))
         (max (fvarOfData f.data) (fvarOfData a.data))
         (lpOfData f.data || lpOfData a.data)
-    | .lam n ty b m =>
-      packData (hash32 (mixHash 19 (mixHash (Hashable.hash n)
+    | .lam _ ty b m =>
+      packData (hash32 (mixHash 19
           (mixHash (hashOfData ty.data)
-            (mixHash (hashOfData b.data) (Hashable.hash m))))))
+            (mixHash (hashOfData b.data) (Hashable.hash m.pw)))))
         (max (bvarOfData ty.data) (satPred (bvarOfData b.data)))
         (max (fvarOfData ty.data) (fvarOfData b.data))
         (lpOfData ty.data || lpOfData b.data || m.pw.hasParams)
-    | .forallE n ty b m =>
-      packData (hash32 (mixHash 23 (mixHash (Hashable.hash n)
+    | .forallE _ ty b m =>
+      packData (hash32 (mixHash 23
           (mixHash (hashOfData ty.data)
-            (mixHash (hashOfData b.data) (Hashable.hash m))))))
+            (mixHash (hashOfData b.data) (Hashable.hash m.pw)))))
         (max (bvarOfData ty.data) (satPred (bvarOfData b.data)))
         (max (fvarOfData ty.data) (fvarOfData b.data))
         (lpOfData ty.data || lpOfData b.data || m.pw.hasParams)
-    | .letE n ty v b =>
-      packData (hash32 (mixHash 29 (mixHash (Hashable.hash n)
+    | .letE _ ty v b =>
+      packData (hash32 (mixHash 29
           (mixHash (hashOfData ty.data)
-            (mixHash (hashOfData v.data) (hashOfData b.data))))))
+            (mixHash (hashOfData v.data) (hashOfData b.data)))))
         (max (max (bvarOfData ty.data) (bvarOfData v.data))
           (satPred (bvarOfData b.data)))
         (max (max (fvarOfData ty.data) (fvarOfData v.data))
@@ -411,9 +450,14 @@ walk. -/
 
 namespace Expr
 
-/-- The node's 32-bit hash (`O(1)`; display-only payload is included,
-which a hash may do — `DecidableEq` remains full structural
-equality). -/
+/-- The node's 32-bit hash (`O(1)`).  **α-blind** (task #203): the
+recurrence reads no binder name, no `fvar` display name and no
+`BinderInfo` — only what `is_equal` in the official kernel reads
+(`expr_eq_fn.cpp`), plus the validated `pw` datum — so two terms equal
+up to display data always hash alike.  `DecidableEq` remains full
+structural equality; the display fields are the *same* on every term
+the checker holds (see the `Expr` docstring), which is what makes
+`==` α-equivalence in practice. -/
 @[inline] def hash (e : Expr) : UInt64 := hashOfData e.data
 
 /-- Has-level-param: is level instantiation ever non-trivial here?

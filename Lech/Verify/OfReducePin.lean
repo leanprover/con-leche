@@ -49,11 +49,11 @@ its two instances share. -/
 theorem ofReducePin_type {n : Name}
     (hn : n = ofReduceNatName ∨ n = ofReduceBoolName) :
     (ofReducePinA n).type =
-      .forallE (Name.anonymous.str "a")
+      .forallE .anonymous
         (.const (reduceElemName (ofReduceOp n)) [])
-        (.forallE (Name.anonymous.str "b")
+        (.forallE .anonymous
           (.const (reduceElemName (ofReduceOp n)) [])
-          (.forallE (Name.anonymous.str "h")
+          (.forallE .anonymous
             (Expr.mkAppN (.const eqName [.succ .zero])
               [.const (reduceElemName (ofReduceOp n)) [],
                .app (.const (ofReduceOp n) []) (.bvar 1), .bvar 0])
@@ -68,7 +68,7 @@ theorem ofReducePin_type {n : Name}
 theorem reduceOpCv_type {n : Name}
     (hn : n = ofReduceNatName ∨ n = ofReduceBoolName) :
     (reduceOpCvA (ofReduceOp n)).type =
-      .forallE (Name.anonymous.str "n")
+      .forallE .anonymous
         (.const (reduceElemName (ofReduceOp n)) [])
         (.const (reduceElemName (ofReduceOp n)) []) ⟨.default, .never⟩ := by
   rcases hn with rfl | rfl <;> rfl

@@ -30,10 +30,12 @@ match.  The comparison itself (`Expr.eraseNames`) is unchanged, so
 relate binder metadata — still bridges a `matchesPin` hit.  The
 annotation pass preserves this normalization (it writes `pw` and
 touches nothing else), so `#annotate_basis` keeps it by construction;
-an edit to a RAW pin must keep it too.  The *basis* pins
-(`Lech/Kernel/Basis/*`) are
-different — they are compared through `ConstantInfo.canon`, which
-erases the annotation on both sides, so they keep theirs.
+an edit to a RAW pin must keep it too.  *(Task #203: the builder
+itself now enforces both halves — `pi`/`piI`/`lm`/`lmI` emit
+`.anonymous` at `.default` whatever they are told — so the basis pins
+(`Lech/Kernel/Basis/*`), once compared through `ConstantInfo.canon`
+because they kept their `.implicit`s, are at the same normal form as
+these and as every parsed stream binder.)*
 -/
 
 namespace Lech

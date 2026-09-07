@@ -555,7 +555,15 @@ annotation (part of the variable's identity).  lean4export interns
 expressions irrespective of binder names (the first occurrence's
 spelling wins for every shared subterm), so even a correct
 preprocessor stream can differ from the input in binder names only;
-`checkMemberVal` compares member types with this. -/
+`checkMemberVal` compares member types with this.
+
+Task #203: since the frontend parses every binder name to
+`.anonymous`, this coincides with `==` on every pair `checkMemberVal`
+feeds it (both sides are stream terms).  It is kept as the spec the
+proofs consume (`ErasedEq.of_eqUpToNames`, `Verify/Subst.lean`, and
+its ~20 consumers across `Verify/Extend/*`, `Semantics/*`, `SetP/*`)
+rather than replaced by `==`, whose proof-side transport would be the
+same theorem restated at `rfl`. -/
 def eqUpToNames : Expr → Expr → Bool
   | .bvar i, .bvar j => i == j
   | .fvar i _ ty, .fvar j _ ty' => i == j && eqUpToNames ty ty'

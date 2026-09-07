@@ -331,18 +331,27 @@ private def parseExprEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
       pure (ExprC.mkConst n us.toList, taintC)
     else if let .ok v := j.getObjVal? "app" then do
       pure (ExprC.mkApp (← getExprD st v "fn") (← getExprD st v "arg"), none)
+    -- Binder names are display data the official kernel's equality
+    -- and hash ignore; ours are `.anonymous` on every parsed binder
+    -- (task #203, beside the `.default` annotation of task #142), so
+    -- `==` is α-equivalence downstream.  The `name` field is still
+    -- required to be present and well-formed (`getIdx`), it is just
+    -- not resolved.
     else if let .ok v := j.getObjVal? "lam" then do
       parseBinderInfo v
-      pure (ExprC.mkLam (← getNameD st v "name")
+      let _ ← getIdx v "name"
+      pure (ExprC.mkLam .anonymous
         (← getExprD st v "type") (← getExprD st v "body")
         ⟨.default, ← parsePwD st v⟩, none)
     else if let .ok v := j.getObjVal? "forallE" then do
       parseBinderInfo v
-      pure (ExprC.mkForallE (← getNameD st v "name")
+      let _ ← getIdx v "name"
+      pure (ExprC.mkForallE .anonymous
         (← getExprD st v "type") (← getExprD st v "body")
         ⟨.default, ← parsePwD st v⟩, none)
     else if let .ok v := j.getObjVal? "letE" then do
-      pure (ExprC.mkLetE (← getNameD st v "name")
+      let _ ← getIdx v "name"
+      pure (ExprC.mkLetE .anonymous
         (← getExprD st v "type") (← getExprD st v "value")
         (← getExprD st v "body"), none)
     else if let .ok v := j.getObjVal? "proj" then do
@@ -729,18 +738,18 @@ private def fastApplyIED (st : StateD) (i : Nat) (fn : FastNode) : FastResD :=
       let fe ← st.exprs[f]?
       let ae ← st.exprs[a]?
       pure (ExprC.mkApp fe ae, [f, a])
-    | .binder isAll nm ty bd => do
-      let nI ← st.names[nm]?
+    -- binder names: `.anonymous`, as on the generic path (task #203);
+    -- the name index is parsed, not resolved
+    | .binder isAll _nm ty bd => do
       let tI ← st.exprs[ty]?
       let bI ← st.exprs[bd]?
-      pure (if isAll then (ExprC.mkForallE nI tI bI ⟨.default, .never⟩, [ty, bd])
-            else (ExprC.mkLam nI tI bI ⟨.default, .never⟩, [ty, bd]))
-    | .letE nm ty vl bd => do
-      let nI ← st.names[nm]?
+      pure (if isAll then (ExprC.mkForallE .anonymous tI bI ⟨.default, .never⟩, [ty, bd])
+            else (ExprC.mkLam .anonymous tI bI ⟨.default, .never⟩, [ty, bd]))
+    | .letE _nm ty vl bd => do
       let tI ← st.exprs[ty]?
       let vI ← st.exprs[vl]?
       let bI ← st.exprs[bd]?
-      pure (ExprC.mkLetE nI tI vI bI, [ty, vl, bd])
+      pure (ExprC.mkLetE .anonymous tI vI bI, [ty, vl, bd])
     | .const nm us => do
       let nI ← st.names[nm]?
       let usI ← us.mapM (st.levels[·]?)

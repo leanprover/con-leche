@@ -594,6 +594,17 @@
 # `.proj` whnfCore clause whnf'd `g x` on an open `x`, and `Nat.mul x 2^32`
 # was iota-ground unarily (exit 3, fuel).  Official accepts.
 0 binder_shared_local.ndjson
+# binder_name_proj.ndjson: task #203 — `==` and the packed hash are
+# α-equivalence (binder names and binder infos are parsed to ONE normal
+# form, `.anonymous`/`.default`).  The statement `.proj 1 (h (fun y => y)
+# x) = .proj 1 (h (fun tw_1 => tw_1) x)` with the two λs distinct table
+# nodes differing in the binder name and info alone, the struct a
+# 40 000-step Nat.rec tower (`scripts/mk_binder_twin_fixture.py --proj`);
+# before #203 the pair missed the fast path and the `.proj` clause
+# whnf'd both structs in full (3.38 G instructions against 0.37 G).
+# RAW: the preprocessor's re-export hash-conses up to α and would
+# collapse the twin before lech sees it.  Official accepts.
+0 binder_name_proj.ndjson raw
 # mutual_struct_proj / nested_struct_proj (the projection-function
 # rewrite, Lech/Frontend/ProjRec.lean, 2026-09-06): the elaborator's
 # `T.f := fun self => self.i` on structure-likes the direct install
