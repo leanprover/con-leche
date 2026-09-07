@@ -8,7 +8,7 @@
    predicate leaves it to the preprocessor, which models it and the
    stream accepts.  Raw it is a documented decline ("reflexive member").
 
-   official: 0.  lech at master 700a06ca: 0 piped, 2 raw (both modes).
+   official: 0.  con-leche at master 700a06ca: 0 piped, 2 raw (both modes).
    Probe of record: _tmp/indaudit/probes/P/NestInf.lean. -/
 inductive InfNest
   | leaf

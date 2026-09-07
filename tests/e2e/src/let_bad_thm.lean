@@ -6,13 +6,13 @@
    `theorem letThm : True := let x : Nat := Bool.true; True.intro`: the
    same missing `infer_let` triple on the THEOREM path, where the value
    is checked against a `Prop`.  Official rejects ("let-declaration type
-   mismatch 'x'"); lech's annotated term is let-free, the reduct is
+   mismatch 'x'"); con-leche's annotated term is let-free, the reduct is
    `True.intro`, and the stream ACCEPTS.
 
    THE EXPECTATION BELOW PINS TODAY'S BEHAVIOUR (0); the fix flips it
    to 1.
 
-   official: 1.  lech at master 700a06ca: 0 piped, 0 raw, 0 --trusted.
+   official: 1.  con-leche at master 700a06ca: 0 piped, 0 raw, 0 --trusted.
    Probe of record: _tmp/indaudit/probes/P/LetValueType.lean. -/
 
 import Lean

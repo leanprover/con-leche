@@ -10,7 +10,7 @@
    in a `Sort`), so they do NOT take such a block; the preprocessor's
    predicate used to say `native` off `numIndices` alone, and the
    checker then had neither a model nor a direct install — a decline.
-   With `lechFormerTelescope` in the predicate the block is modelled
+   With `conlecheFormerTelescope` in the predicate the block is modelled
    again and the stream ACCEPTS through the modelled path.  `Rel` is the
    control: the same family declared with its telescope spelled out,
    which the direct indexed route takes. -/

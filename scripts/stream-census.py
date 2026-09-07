@@ -6,7 +6,7 @@ that are properties of the INPUT, not of anybody's environment
 representation:
 
   * `records`   — declaration records in the file (def/thm/opaque/axiom/
-                  inductive/quot lines).  This is what lech's verdict line
+                  inductive/quot lines).  This is what con-leche's verdict line
                   counts, up to the fold's own exact adjustments below.
   * `official`  — what the official kernel prints.  Its Main.lean says
                   `Accepted {constMap.size} declarations`, and its
@@ -16,14 +16,14 @@ representation:
                   three `Quot.mk`/`Quot.lift`/`Quot.ind` entries it erases
                   before replay.  Hence
                       official = plain + types + ctors + recs - 3.
-  * `fold`      — lech's fold positions = accepted declaration records:
+  * `fold`      — con-leche's fold positions = accepted declaration records:
                   the four `quot` records fold to one `basisDecl` (-3),
                   the `Quot.sound` axiom record is part of that basis
                   block (-1), and records using a tolerated axiom are
                   skipped at parse (`sorryAx` and friends).
 
 and the NATIVE-BLOCK census: which inductive records the preprocessor
-left for lech to install natively (no `_model` companion in the stream),
+left for con-leche to install natively (no `_model` companion in the stream),
 split by shape — indexed (numIndices > 0), structure (no indices, one
 constructor), sum (no indices, not one constructor).
 
@@ -34,7 +34,7 @@ import sys
 
 TOLERATED = {"sorryAx"}
 QUOT_EXTRA = {"Quot.sound"}
-# the pinned basis blocks (`Lech.reservedBasisNames`): recognised at the
+# the pinned basis blocks (`ConLeche.reservedBasisNames`): recognised at the
 # parse and folded to a `basisDecl`, so they are neither modeled nor
 # natively installed
 PINNED = {"Eq", "Nat", "PUnit", "Empty", "False"}

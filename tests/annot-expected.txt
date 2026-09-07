@@ -82,7 +82,7 @@
 # Declines: one per stream-reachable validation site.  (The three
 # defensive sites — defeq-forall, defeq-lam, eta — cannot be reached
 # by any input that got past the front door; they are unit-tested in
-# tests/LechTests.lean instead.)  Each carries an EXPLICIT wrong
+# tests/ConLecheTests.lean instead.)  Each carries an EXPLICIT wrong
 # claim — "[]" ("always a proposition") on a Type-level binder — which
 # the pass must not overwrite.
 # def tidBad : Type → Type, the ∀ claiming "[]": (forall-cod).

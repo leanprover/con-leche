@@ -34,9 +34,9 @@ its fast path here and, with the difference sitting inside a
 `tests/e2e/src/binder_name_proj.lean`'s raw export through this
 script with `--proj` and THM = `w2`.
 
-The result must be checked RAW (`LECH_INDUCTIVE_MODELS=/nonexistent`,
+The result must be checked RAW (`CON_LECHE_INDUCTIVE_MODELS=/nonexistent`,
 a `raw` line in `tests/e2e-expected.txt`): the preprocessor
-(`lech-preprocess`, lean-inductive-models) re-exports the stream
+(`con-leche-preprocess`, lean-inductive-models) re-exports the stream
 through `Lean.Expr`, whose hash-consing is α-equivalence, so a piped
 run collapses the clone back into the original node and the pair never
 reaches the checker.

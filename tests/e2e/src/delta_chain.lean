@@ -1,7 +1,7 @@
 --#export w3
 /-! Witness D3 (proof irrelevance re-run at every lazy-delta step): two
 lockstep delta chains of equal height, compared by `rfl`.  Official runs
-`is_def_eq_proof_irrel` once before `lazy_delta_reduction`; lech's
+`is_def_eq_proof_irrel` once before `lazy_delta_reduction`; con-leche's
 `defeqStep` re-enters the whole step (incl. `propIrrel`: two io inferences,
 a whnf and a level test per side) after every unfolding.  The measured
 witness is the 2 000-step instance (generated the same way, DESIGN.md

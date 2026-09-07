@@ -21,7 +21,7 @@
 #                                     stripped, internals infer-only.
 #                                     THE PARITY LANE, always.
 #   --trusted --core=cached-parsed   a parity engine ONLY IF
-#                                     `Lech/Cached/CoreT.lean` is in
+#                                     `ConLeche/Cached/CoreT.lean` is in
 #                                     the tree (landed at `1fa6444f`).
 #                                     Without it this dispatches to the
 #                                     CERTIFIED cached driver with
@@ -46,7 +46,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-BIN=${BIN:-.lake/build/bin/lech}
+BIN=${BIN:-.lake/build/bin/con-leche}
 VARIANTS=${VARIANTS:-production,interned-shared,cached}
 REPS=${REPS:-3}
 TIMEOUT=${PILOT_TIMEOUT:-900}

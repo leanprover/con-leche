@@ -2,7 +2,7 @@
 
 /- End-to-end fixture (task #208; inductive audit #206, A10 / crack C8):
    an `unsafe inductive`.  Official skips positivity for unsafe blocks
-   (inductive.cpp:443) and accepts.  lech's parser throws
+   (inductive.cpp:443) and accepts.  con-leche's parser throws
    "unsafe inductive" (Frontend/ExportC.lean:550) -> exit 3, where unsafe
    DEFINITIONS decline positively with exit 2 (arena 141/142): the
    inductive path is the odd one out.
@@ -16,7 +16,7 @@
    at lean4export caccfbe / leanprover/lean4:v4.29.1 (the exporter every
    other fixture here uses).
 
-   official: 0.  lech at master 700a06ca: 3 raw (our parser throws) and
+   official: 0.  con-leche at master 700a06ca: 3 raw (our parser throws) and
    3 piped (the preprocessor fails on the block as well); both modes.
    Probe of record: _tmp/indaudit/probes/P/UnsafeInd.lean. -/
 unsafe inductive Bad

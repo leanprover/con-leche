@@ -12,7 +12,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-BIN=${BIN:-.lake/build/bin/lech}
+BIN=${BIN:-.lake/build/bin/con-leche}
 GEN=tests/scale/gen.py
 # Generated streams go to DISK, never tmpfs (task #180): honour TMPDIR if
 # set, else the project's on-disk ./_tmp/tmp.

@@ -23,7 +23,7 @@ Usage in a check (instructions per declaration must stay flat):
 
     for n in 100000 300000 1000000; do
       scripts/gen_linear_stream.py $n /tmp/syn-$n.ndjson
-      perf stat -e instructions:u lech --verified --pre /tmp/syn-$n.ndjson
+      perf stat -e instructions:u con-leche --verified --pre /tmp/syn-$n.ndjson
     done
 
 Measured on master 339e026d: 89 851 / 88 941 / 88 823 instructions per

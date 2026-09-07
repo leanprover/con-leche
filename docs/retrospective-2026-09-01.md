@@ -39,7 +39,7 @@ Literature claims are cited to fetched sources; unverified items are marked.
    clause — baked-in convergence is the literature's pattern only
    because its theories normalize, which Lean's does not.  (Global) no
    typed-conversion-equivalence third route exists for Lean's theory;
-   lech v1 is already past the published frontier (nobody has verified
+   con-leche v1 is already past the published frontier (nobody has verified
    a DTT checker against a set model — the only architectural precedent
    is HOL/Candle), so treat #151 as research and portfolio accordingly.
 
@@ -50,7 +50,7 @@ Literature claims are cited to fetched sources; unverified items are marked.
 ### A.0 What the tier is actually claiming (for orientation)
 
 The tier's centerpiece is stated in
-`Lech/SetR/Annot/SortCoh/Claims.lean:7-31`: *"a true defeq verdict plus
+`ConLeche/SetR/Annot/SortCoh/Claims.lean:7-31`: *"a true defeq verdict plus
 sort-computation runs on both arguments forces numeral agreement"* — a
 **valuation-free, purely syntactic** statement about the untyped checker's
 runs.  The Θ walk (`SortCoh/Theta.lean:19-32`) exists because defeq's
@@ -98,7 +98,7 @@ record itself says so:
    hereditary, with *definitional inversion*, introduced at the push sites
    the walk itself executes.
 6. **Model-side arbitration closed** (the lane's earlier findings, restated
-   in `Lech/NbE/DESIGN.md:333-340` from the other side):
+   in `ConLeche/NbE/DESIGN.md:333-340` from the other side):
    `kind_not_semantic`, `piC_dom_not_determined` (a denotation does not
    determine the Π family), universes overlapping at `pt` — the untagged set
    model cannot supply structure agreement.
@@ -118,7 +118,7 @@ the witness and *"no syntactic premise does"* (:3890-3899).
 
 The sharpening, which matters for strategy: **adding typing does not buy the
 standard SR package here, because for Lean's theory that package is refuted
-in-tree.**  The TT tombstone (`Lech/TTVerify/DESIGN.md:1580-1660`) records:
+in-tree.**  The TT tombstone (`ConLeche/TTVerify/DESIGN.md:1580-1660`) records:
 Π-domain-injectivity refuted by `propext`; the official kernel's global
 justification "everything reduction sees descends from a well-typed term"
 *is* subject reduction, which the TT layer refutes by design; and the
@@ -155,7 +155,7 @@ True: the v1 model collapsed exactly the structure (levels, Π-domains) that
 annotations are the carrier; hence a syntactic coherence tier.  But the NbE
 lane shows the price is **not intrinsic to collapse-freedom**: its slice
 never inverts the model (*"the model is only ever applied forward
-(`univ ∘ eval φ`), never inverted"*, `Lech/NbE/DESIGN.md:100-111`), and
+(`univ ∘ eval φ`), never inverted"*, `ConLeche/NbE/DESIGN.md:100-111`), and
 class 2 (cross-run sort agreement) is *"absent from this slice,
 structurally."*  So the correct statement is: the tier is the price of
 extracting structure agreement **from an untyped substitution-based
@@ -170,7 +170,7 @@ The pattern repeats with remarkable regularity:
   telescope*) is what finally made the composite column travel, after six
   extensional formulations died (:8719-9420, §F records).
 * NbE lane, the same law from the other side
-  (`Lech/NbE/DESIGN.md:253-258`): `EnvOk` (extensional) refuted, its
+  (`ConLeche/NbE/DESIGN.md:253-258`): `EnvOk` (extensional) refuted, its
   repair `EnvTyped` (denotational) refuted too, and the finding elevated to
   a **methodological law**: *"in a δ-unfolding checker, an environment
   invariant phrased about denotations is never enough, because unfolding
@@ -215,7 +215,7 @@ premises (what the checker did), relations in conclusions (what must
 follow).  The NbE lane learned the matching lesson from the other end: its
 LR is stated over fuel-free relational mirrors (`EvalsTo`/`Applies`,
 functional by `eval_fun`), not over the fueled functions
-(`Lech/NbE/DESIGN.md:325-332`).
+(`ConLeche/NbE/DESIGN.md:325-332`).
 
 ### A.7 Why it *kept* failing (process, briefly)
 
@@ -466,7 +466,7 @@ Isabelle/AFP *Residuated Transition Systems* (2022); Guidi (Matita, JFR
   axioms/sorries — infrastructure, not residuals, but relevant if a
   RawReach confluence lemma is attempted.
 
-### B.6 Set-theoretic models — lech is past the published frontier; the untyped-conversion obstruction is classical
+### B.6 Set-theoretic models — con-leche is past the published frontier; the untyped-conversion obstruction is classical
 
 Sources read: Werner *Sets in Types, Types in Sets* (TACS 1997); Barras
 *Sets in Coq, Coq in Sets* (JFR 2010) + habilitation + cic-model repo;
@@ -527,7 +527,7 @@ Gilbert et al. POPL 2019; Kumar–Arthan–Myreen–Owens JAR 2016.
   against mechanized set-theoretic semantics is HOL Light/Candle
   (Kumar–Arthan–Myreen–Owens, JAR 56:221-259) — which uses **exactly the
   parametric-`SetTheory` architecture** (`is_set_theory (mem : U→U→bool)`
-  over a type variable), for a conversion-free logic.  **Lech's v1
+  over a type variable), for a conversion-free logic.  **ConLeche's v1
   fourteen theorems already stand past the published frontier for DTT.**
 
 ---
@@ -688,7 +688,7 @@ convergence.**  Confidence: medium-high.  Reasoning:
 ("hereditary alignment of `B x` with `B' x` does not follow from the
 conversion run") is the created-redex phenomenon in semantic clothing —
 a codomain body that is neutral at the fresh point is a Π at a Π-shaped
-instance (`Lech/NbE/DESIGN.md:516-523`).  The lane's recorded
+instance (`ConLeche/NbE/DESIGN.md:516-523`).  The lane's recorded
 constraint (*never* attempt machine-level verdict-stability under
 instantiation) is exactly right per B.4; the semantic quantification
 over instances **is** the relation.  Expect `CodeConv` to need the
@@ -701,7 +701,7 @@ Confidence: high.  The MetaCoq equivalence (untyped conversion ⟷ typed
 spec) rests on confluence + SR + Π-injectivity, all of which hold for
 PCUIC and are refuted or open for Lean's theory (Carneiro §3.1-4.1;
 lean4lean's Injectivity sorries; the in-tree TT refutation record,
-`Lech/TTVerify/DESIGN.md:1580-1660` — Π-injectivity refuted by
+`ConLeche/TTVerify/DESIGN.md:1580-1660` — Π-injectivity refuted by
 propext, SR refuted by design).  The TT bridge is moreover deleted
 (T7b, 2026-08-29); resurrecting it for this purpose would re-buy a
 refuted program.  The field's honest position is: for Lean-shaped

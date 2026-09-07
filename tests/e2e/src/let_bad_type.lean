@@ -6,14 +6,14 @@
    `def letBadTy : Nat := let x : Bool.true := Nat.zero; Nat.zero`: the
    let's declared TYPE is not a type at all.  Official's `infer_let`
    starts with `ensure_sort (infer ty)` and rejects ("type expected …
-   Bool.true").  lech's `annotate` drops the let before anything looks at
+   Bool.true").  con-leche's `annotate` drops the let before anything looks at
    its type, the reduct is `Nat.zero`, and the stream ACCEPTS.  This is
    the arm the conformance fix's `ensureSort` restores.
 
    THE EXPECTATION BELOW PINS TODAY'S BEHAVIOUR (0); the fix flips it
    to 1.
 
-   official: 1.  lech at master 700a06ca: 0 piped, 0 raw, 0 --trusted.
+   official: 1.  con-leche at master 700a06ca: 0 piped, 0 raw, 0 --trusted.
    Probe of record: _tmp/indaudit/probes/P/LetValueType.lean. -/
 
 import Lean

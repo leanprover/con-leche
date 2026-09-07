@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Extract, from lean4export 3.x ndjson streams, the set of constant
 names declared *before* each pin-certified Nat operation — the
-allowlists the elab-time pin generator (Lech/PinGen.lean) checks the
+allowlists the elab-time pin generator (ConLeche/PinGen.lean) checks the
 pinned expressions against (a pin may only mention constants that
 exist in the stream when the pinned operation is installed).  Since
 task #113 the allowlists apply to the *pins* only: the certificate

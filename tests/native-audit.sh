@@ -2,10 +2,10 @@
 # tests/native-audit.sh — THE NATIVE-PREDICATE AUDIT (task #193):
 # predicate ⊆ recogniser, mechanically, block by block.
 #
-# WHY.  `lech-preprocess` leaves a block unmodelled ("native") when its
-# predicate `lechNative` (LechPreprocess.lean) says the checker installs
+# WHY.  `con-leche-preprocess` leaves a block unmodelled ("native") when its
+# predicate `conlecheNative` (ConLechePreprocess.lean) says the checker installs
 # it directly; the checker installs it directly when a RECOGNISER
-# (`directPartsF?` / `directSumPartsF?`, Lech/Kernel/Direct/*) takes it.
+# (`directPartsF?` / `directSumPartsF?`, ConLeche/Kernel/Direct/*) takes it.
 # The standing rule is that the predicate must be no LOOSER than the
 # recogniser: a block the predicate leaves native and the recogniser
 # then rejects reaches the checker with neither a model nor a direct
@@ -18,10 +18,10 @@
 # again; this script is the gate that catches the drift on every stream
 # it is given.
 #
-# HOW.  For each RAW stream: `lech-preprocess -o PRE STREAM` and the
+# HOW.  For each RAW stream: `con-leche-preprocess -o PRE STREAM` and the
 # names on its "native — left to the consumer" lines are the
-# predicate's verdicts; `LECH_ROUTE_TRACE=1 lech --pre PRE` prints one
-# `lech: route <block> <struct|sum|fix|inmodel|modeled>` line per inductive block
+# predicate's verdicts; `CON_LECHE_ROUTE_TRACE=1 con-leche --pre PRE` prints one
+# `con-leche: route <block> <struct|sum|fix|inmodel|modeled>` line per inductive block
 # the fold reaches — the recogniser's verdict on the SAME environment
 # the install sees (Main.lean, the progress lane).  Every native block
 # must read `struct`, `sum`, `fix` (task #188) or `inmodel` (task #200:
@@ -46,8 +46,8 @@
 set -u
 cd "$(dirname "$0")/.."
 
-BIN=.lake/build/bin/lech
-PRE=.lake/build/bin/lech-preprocess
+BIN=.lake/build/bin/con-leche
+PRE=.lake/build/bin/con-leche-preprocess
 [ -x "$BIN" ] || { echo "native audit: $BIN not built"; exit 1; }
 [ -x "$PRE" ] || { echo "native audit: $PRE not built"; exit 1; }
 
@@ -78,19 +78,19 @@ for s in "${streams[@]}"; do
   "$PRE" -o "$WORK/pre.ndjson" "$s" > "$WORK/pre.log" 2>&1
   pexit=$?
   if [ "$pexit" != 0 ] || [ ! -f "$WORK/pre.ndjson" ]; then
-    echo "  NOTE $s: lech-preprocess exit $pexit, no output — not audited"
+    echo "  NOTE $s: con-leche-preprocess exit $pexit, no output — not audited"
     nskipped=$((nskipped+1)); continue
   fi
   nstreams=$((nstreams+1))
   sed -n 's/: native — left to the consumer$//p' "$WORK/pre.log" | sort -u > "$WORK/native.txt"
-  ( ulimit -v 16000000; LECH_ROUTE_TRACE=1 timeout 3000 "$BIN" --pre "$WORK/pre.ndjson" \
+  ( ulimit -v 16000000; CON_LECHE_ROUTE_TRACE=1 timeout 3000 "$BIN" --pre "$WORK/pre.ndjson" \
       > "$WORK/out.txt" 2> "$WORK/trace.txt" )
   cexit=$?
   if grep -q 'missing model for' "$WORK/trace.txt"; then
     echo "  FAIL $s: $(grep -m1 -o 'missing model for [^ ]*' "$WORK/trace.txt") — native, not recognised"
     fail=1
   fi
-  sed -n 's/^lech: route //p' "$WORK/trace.txt" > "$WORK/routes.txt"
+  sed -n 's/^con-leche: route //p' "$WORK/trace.txt" > "$WORK/routes.txt"
   while read -r name; do
     [ -n "$name" ] || continue
     nnative=$((nnative+1))

@@ -4,12 +4,12 @@
    raw `.proj` nodes OUTSIDE the projection functions, on a MUTUAL member
    structure and on a NESTED structure.  Official's `infer_proj` needs
    one constructor and `nparams + nindices` arguments and types both.
-   lech rewrites the projection FUNCTIONS from the `_model.proj_i.iota`
+   con-leche rewrites the projection FUNCTIONS from the `_model.proj_i.iota`
    artifacts (Frontend/ProjRec.lean) — `MA.n_mk`/`NT.lbl_mk` exercise
    those and would accept on their own — but a raw `.proj` anywhere else
    has no table and declines by design (W5, Core.lean:2596-2622).
 
-   official: 0.  lech at master 700a06ca: 2 piped, 2 raw (both modes).
+   official: 0.  con-leche at master 700a06ca: 2 piped, 2 raw (both modes).
    Probe of record: _tmp/indaudit/probes/P/ProjMutualNested.lean. -/
 
 import Lean

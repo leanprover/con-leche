@@ -8,7 +8,7 @@
    block and does structure eta on it, so all four consumers below are
    accepted.
 
-   lech's structure recogniser needs a SYNTACTIC `∀ p⃗, Sort`
+   con-leche's structure recogniser needs a SYNTACTIC `∀ p⃗, Sort`
    (Kernel/Direct/Parts.lean:469), the sum route refuses `n = 1 ∧
    nIdx = 0` and the fixpoint route wants recursion, so no direct route
    takes the block; the preprocessor models it, but
@@ -18,7 +18,7 @@
    the SUM arm to whnf the former (fixture direct_idx_defhead); the
    structure arm and the projection-owner test were not taught.
 
-   official: 0.  lech at master 700a06ca: 2 piped ("projection on a
+   official: 0.  con-leche at master 700a06ca: 2 piped ("projection on a
    non-structure-like type" at `def S.n`), 2 raw ("missing model for S";
    both modes).
    Probe of record: _tmp/indaudit/probes/P/DefHeadStruct.lean. -/

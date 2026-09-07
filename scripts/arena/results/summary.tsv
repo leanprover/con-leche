@@ -1,8 +1,8 @@
 # Lean Kernel Arena, every test but mathlib. Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
 # arena leanprover/lean-kernel-arena @ 91f376e; exports lean4export 3.1.0 @ leanprover/lean4:v4.29.1.
-# official = the arena's own checker at v4.34.0-rc2.  setlec-* = the pre-rename run (master 2664b1dd);
-# lech-* = the post-rename re-run (master b7fa7331, task #180).  '-' = not run in that column.
-test	expected	official	setlec_verified	setlec_trusted	lech_verified	lech_trusted	correctness
+# official = the arena's own checker at v4.34.0-rc2.  setlec-* = the run before the first rename (master 2664b1dd);
+# con-leche-* = the re-run after it (master b7fa7331, task #180).  '-' = not run in that column.
+test	expected	official	setlec_verified	setlec_trusted	conleche_verified	conleche_trusted	correctness
 bogus1	reject	1	1	1	1	1	correct
 cedar	accept	-	2	-	-	-	-
 constlevels	reject	1	1	1	1	1	correct

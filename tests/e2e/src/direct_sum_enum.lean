@@ -4,7 +4,7 @@
    an enumeration — three constructors, no fields, `Type`.
 
    Regenerate with `_tmp/lean-inductive-models/scripts/export-fixture.sh`
-   pointed at this directory and at `lech-preprocess` (the widened
+   pointed at this directory and at `con-leche-preprocess` (the widened
    predicate leaves the block unmodelled: not a single `_model`
    declaration in the stream).  Everything here goes through
    `checkDirectSum`: the type former with no capability, the three

@@ -30,11 +30,11 @@
 # subject.  A gate whose targets do not exist measures nothing.
 #
 # WHAT IT MEASURES NOW: a FROZEN MODULE-LEVEL DEPENDENCY PIN.  For each
-# of the six pinned roots — the two MAIN THEOREMS (`Lech/
+# of the six pinned roots — the two MAIN THEOREMS (`ConLeche/
 # MainTheorem.lean`, added 2026-09-07) and the four capstone letters
 # and assembly lemmas they are corollaries of — `tests/ProofDeps.lean`
 # prints the
-# exact set of `Lech.*` modules its type and proof term reach at the
+# exact set of `ConLeche.*` modules its type and proof term reach at the
 # constant level, sorted; `tests/proofdeps-expected.txt` is the frozen
 # expectation and this gate is a diff.  Drift shows up as a named module
 # appearing or disappearing.

@@ -7,7 +7,7 @@
    type_checker.cpp:239-283) — so `Chain.h := fun self => self.1`
    type-checks.
 
-   In lech the block goes native on the fixpoint route (`Chain fix`), so
+   In con-leche the block goes native on the fixpoint route (`Chain fix`), so
    no `Chain._model.proj_i.iota` artifact exists; the frontend's
    projection rewrite (Frontend/ProjRec.lean:240-260) cannot read the
    field's sort, does not rewrite, and the raw `.proj` node declines
@@ -18,7 +18,7 @@
    finitary one-constructor recursive block occurs in init-full or
    Mathlib, so nothing else in the suites covers it.
 
-   official: 0.  lech at master 700a06ca: 2 piped, 2 raw (both modes).
+   official: 0.  con-leche at master 700a06ca: 2 piped, 2 raw (both modes).
    Probe of record: _tmp/indaudit/probes/P/RecStructOnly.lean. -/
 structure Chain where
   h : Nat

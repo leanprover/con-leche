@@ -1,216 +1,216 @@
 THE ARENA SUITE — every Lean Kernel Arena test but mathlib, 206 runs
 arena @ 91f376e; exports lean4export 3.1.0 @ leanprover/lean4:v4.29.1; official = v4.34.0-rc2
-verdict column: lech at --verified (master b7fa7331); rows marked setlec* are the pre-rename
+verdict column: con-leche at --verified (master b7fa7331); rows marked setlec* are the pre-rename
 run of init/std/cedar (master 2664b1dd) and were not re-measured -- see DESIGN.md section 7.
 exit codes: 0 accept, 1 reject, 2 decline, 3 error.
 
 test                                       expect  verdict src     off     exit ok             wall   peakRSS  message
 ---------------------------------------------------------------------------------------------------------------
-bogus1                                     reject  reject  lech    reject     1 correct       0.13s       98M  lech: invalid: type mismatch in theorem thm [at theorem thm, fold position 6] (--verified) t=0.0s
+bogus1                                     reject  reject  con-leche    reject     1 correct       0.13s       98M  con-leche: invalid: type mismatch in theorem thm [at theorem thm, fold position 6] (--verified) t=0.0s
 cedar                                      accept  decline setlec* -          2 declined    284.13s     2503M  setlec: 22 projection functions of non-direct structure-likes rewritten to recursor form setlec: not implemented yet: no
-constlevels                                reject  reject  lech    reject     1 correct       0.14s      100M  lech: invalid: incorrect number of universe levels for Eq.casesOn [at theorem _test, fold position 11] (--verified) t=0.
-corner-cases/alg-conv-trans-acc            either  reject  lech    reject     1 either        0.18s      102M  lech: invalid: type mismatch in theorem trans [at theorem trans, fold position 67] (--verified) t=0.1s
-corner-cases/alg-conv-trans-acc-left       either  accept  lech    accept     0 either        0.17s      102M  lech: accepted 112 declarations (--verified)
-corner-cases/alg-conv-trans-acc-right      either  accept  lech    accept     0 either        0.38s       89M  lech: accepted 112 declarations (--verified)
-corner-cases/alg-conv-trans-quot           either  reject  lech    reject     1 either        0.17s       98M  lech: invalid: type mismatch in theorem trans [at theorem trans, fold position 2] (--verified) t=0.0s
-corner-cases/alg-conv-trans-quot-left      either  reject  lech    reject     1 either        0.13s       98M  lech: invalid: type mismatch in theorem left [at theorem left, fold position 2] (--verified) t=0.0s
-corner-cases/alg-conv-trans-quot-left-def  either  accept  lech    accept     0 either        0.14s       99M  lech: accepted 11 declarations (--verified)
-corner-cases/alg-conv-trans-quot-right     either  accept  lech    accept     0 either        0.17s       86M  lech: accepted 10 declarations (--verified)
-corner-cases/imax-right-successor          either  accept  lech    reject     0 either        0.10s       66M  lech: accepted 2 declarations (--verified)
-corner-cases/positivity-whnf               either  reject  lech    reject     1 either        0.19s       92M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/positivity-whnf.ndjson: kernel rejecte
-corner-cases/proj-maybe-prop               either  accept  lech    accept     0 either        0.13s       98M  lech: accepted 15 declarations (--verified)
-corner-cases/proj-maybe-prop-past          either  accept  lech    accept     0 either        0.14s       99M  lech: accepted 15 declarations (--verified)
-corner-cases/proof-param-ok                accept  accept  lech    accept     0 correct       0.21s       96M  lech: accepted 4 declarations (--verified)
-corner-cases/proof-param-swap              either  reject  lech    reject     1 either        0.28s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/proof-param-swap.ndjson: kernel reject
-corner-cases/subject-reduction-redex       either  accept  lech    accept     0 either        0.36s       95M  lech: accepted 114 declarations (--verified)
-corner-cases/subject-reduction-reduct      either  reject  lech    reject     1 either        0.28s       89M  lech: invalid: application type mismatch [at def reduct, fold position 69] (--verified) t=0.1s
-cslib                                      accept  accept  lech    -          0 correct     976.69s     5836M  lech: 65 projection functions of non-direct structure-likes rewritten to recursor form lech: progress parse done: 380211
-ctor-num-fields                            reject  ERROR   lech    reject     3 error         0.13s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/ctor-num-fields.ndjson: internal error: unit-like c
-extra-rec                                  reject  ERROR   lech    reject     3 error         0.13s       99M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/extra-rec.ndjson: internal error: 1 generated state
+constlevels                                reject  reject  con-leche    reject     1 correct       0.14s      100M  con-leche: invalid: incorrect number of universe levels for Eq.casesOn [at theorem _test, fold position 11] (--verified) t=0.
+corner-cases/alg-conv-trans-acc            either  reject  con-leche    reject     1 either        0.18s      102M  con-leche: invalid: type mismatch in theorem trans [at theorem trans, fold position 67] (--verified) t=0.1s
+corner-cases/alg-conv-trans-acc-left       either  accept  con-leche    accept     0 either        0.17s      102M  con-leche: accepted 112 declarations (--verified)
+corner-cases/alg-conv-trans-acc-right      either  accept  con-leche    accept     0 either        0.38s       89M  con-leche: accepted 112 declarations (--verified)
+corner-cases/alg-conv-trans-quot           either  reject  con-leche    reject     1 either        0.17s       98M  con-leche: invalid: type mismatch in theorem trans [at theorem trans, fold position 2] (--verified) t=0.0s
+corner-cases/alg-conv-trans-quot-left      either  reject  con-leche    reject     1 either        0.13s       98M  con-leche: invalid: type mismatch in theorem left [at theorem left, fold position 2] (--verified) t=0.0s
+corner-cases/alg-conv-trans-quot-left-def  either  accept  con-leche    accept     0 either        0.14s       99M  con-leche: accepted 11 declarations (--verified)
+corner-cases/alg-conv-trans-quot-right     either  accept  con-leche    accept     0 either        0.17s       86M  con-leche: accepted 10 declarations (--verified)
+corner-cases/imax-right-successor          either  accept  con-leche    reject     0 either        0.10s       66M  con-leche: accepted 2 declarations (--verified)
+corner-cases/positivity-whnf               either  reject  con-leche    reject     1 either        0.19s       92M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/positivity-whnf.ndjson: kernel rejecte
+corner-cases/proj-maybe-prop               either  accept  con-leche    accept     0 either        0.13s       98M  con-leche: accepted 15 declarations (--verified)
+corner-cases/proj-maybe-prop-past          either  accept  con-leche    accept     0 either        0.14s       99M  con-leche: accepted 15 declarations (--verified)
+corner-cases/proof-param-ok                accept  accept  con-leche    accept     0 correct       0.21s       96M  con-leche: accepted 4 declarations (--verified)
+corner-cases/proof-param-swap              either  reject  con-leche    reject     1 either        0.28s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/corner-cases/proof-param-swap.ndjson: kernel reject
+corner-cases/subject-reduction-redex       either  accept  con-leche    accept     0 either        0.36s       95M  con-leche: accepted 114 declarations (--verified)
+corner-cases/subject-reduction-reduct      either  reject  con-leche    reject     1 either        0.28s       89M  con-leche: invalid: application type mismatch [at def reduct, fold position 69] (--verified) t=0.1s
+cslib                                      accept  accept  con-leche    -          0 correct     976.69s     5836M  con-leche: 65 projection functions of non-direct structure-likes rewritten to recursor form con-leche: progress parse done: 380211
+ctor-num-fields                            reject  ERROR   con-leche    reject     3 error         0.13s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/ctor-num-fields.ndjson: internal error: unit-like c
+extra-rec                                  reject  ERROR   con-leche    reject     3 error         0.13s       99M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/extra-rec.ndjson: internal error: 1 generated state
 init                                       accept  accept  setlec* -          0 correct     155.05s      838M  setlec: accepted 56291 declarations
-init-prelude                               accept  accept  lech    accept     0 correct       1.01s      121M  lech: accepted 2626 declarations (--verified)
-k-rec-conv                                 reject  reject  lech    reject     1 correct       0.14s      100M  lech: invalid: type mismatch in theorem bad [at theorem bad, fold position 9] (--verified) t=0.0s
-large-elim-param                           reject  reject  lech    reject     1 correct       0.13s       99M  lech: invalid: direct sum: large eliminator on a multi-constructor inductive whose sort may be Prop [at inductive MyBool
-large-elim-prop-bool                       reject  reject  lech    reject     1 correct       0.13s      100M  lech: invalid: direct sum: large eliminator on a multi-constructor inductive whose sort may be Prop [at inductive NewBoo
-level-imax-leq                             reject  reject  lech    reject     1 correct       0.13s       96M  lech: invalid: type mismatch in definition down [at def down, fold position 3] (--verified) t=0.0s
-level-imax-normalization                   reject  reject  lech    reject     1 correct       0.13s       96M  lech: invalid: type mismatch in definition down [at def down, fold position 3] (--verified) t=0.0s
-level-index-out-of-order                   accept  decline lech    accept     2 declined      0.07s       67M  lech: not implemented yet: non-standard axiom (foo) [at axiom foo, fold position 0] (--verified) t=0.0s
-nat-rec-k-lie                              reject  decline lech    reject     2 declined      0.14s       96M  lech: declined: the preprocessor declined to model a block (re-run lech-preprocess without --quiet for the owner names) 
-nat-rec-rules                              reject  decline lech    reject     2 declined      0.14s       98M  lech: declined: the preprocessor declined to model a block (re-run lech-preprocess without --quiet for the owner names) 
-nested-nonuniform-param                    either  accept  lech    reject     0 either        0.17s      102M  lech: accepted 91 declarations (--verified)
-nested-unused-param                        reject  reject  lech    reject     1 correct       0.14s      102M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/nested-unused-param.ndjson: kernel rejected an inpu
-orphan-ctor                                reject  ERROR   lech    reject     3 error         0.15s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-ctor.ndjson: internal error: 1 generated sta
-orphan-rec                                 reject  ERROR   lech    reject     3 error         0.14s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-rec.ndjson: internal error: 1 generated stat
-perf/app-lam                               accept  accept  lech    accept     0 correct      57.82s     4061M  lech: accepted 38 declarations (--verified)
-perf/args-before-unfold                    accept  accept  lech    accept     0 correct       0.58s       97M  lech: accepted 33 declarations (--verified)
-perf/beta-ladder                           accept  accept  lech    accept     0 correct      12.81s      890M  lech: accepted 21 declarations (--verified)
-perf/church-numerals                       accept  accept  lech    accept     0 correct       0.67s       86M  lech: accepted 6 declarations (--verified)
-perf/discarded-argument                    accept  accept  lech    accept     0 correct       0.42s       89M  lech: accepted 34 declarations (--verified)
-perf/discarded-argument-match              accept  accept  lech    accept     0 correct       0.23s      102M  lech: accepted 45 declarations (--verified)
-perf/folded-constant-first                 accept  accept  lech    accept     0 correct       0.18s      102M  lech: accepted 43 declarations (--verified)
-perf/folded-constant-last                  accept  accept  lech    accept     0 correct       0.39s       88M  lech: accepted 43 declarations (--verified)
-perf/grind-ring-5                          accept  accept  lech    accept     0 correct       5.98s      217M  lech: accepted 3018 declarations (--verified)
-perf/identical-nesting                     accept  accept  lech    accept     0 correct       0.21s      100M  lech: accepted 36 declarations (--verified)
-perf/irrelevance-before-evaluation         accept  accept  lech    accept     0 correct       0.17s      102M  lech: accepted 38 declarations (--verified)
-perf/let-ladder                            accept  accept  lech    accept     0 correct       1.82s      287M  lech: accepted 24 declarations (--verified)
-perf/refute-cheap-first                    reject  reject  lech    reject     1 correct       0.15s      100M  lech: invalid: type mismatch in theorem kernel_refute_cheap_first [at theorem kernel_refute_cheap_first, fold position 2
-perf/refute-cheap-last                     reject  reject  lech    reject     1 correct       0.29s       95M  lech: invalid: type mismatch in theorem kernel_refute_cheap_last [at theorem kernel_refute_cheap_last, fold position 21]
-perf/repeated-subproblem                   accept  accept  lech    accept     0 correct       0.41s       98M  lech: accepted 327 declarations (--verified)
-perf/shared-subterm                        accept  accept  lech    accept     0 correct       0.36s      105M  lech: accepted 330 declarations (--verified)
-perf/shift-cascade                         accept  accept  lech    accept     0 correct       0.35s       91M  lech: accepted 11 declarations (--verified)
-perf/unroll-versus-evaluate                accept  accept  lech    accept     0 correct       0.26s       92M  lech: accepted 33 declarations (--verified)
-proj-non-structure                         reject  decline lech    reject     2 declined      0.13s       96M  lech: not implemented yet: projection on a non-structure-like type [at theorem bad, fold position 3] (--verified) t=0.0s
-proj-of-imax-prop                          reject  reject  lech    reject     1 correct       0.27s      102M  lech: invalid: application type mismatch [at def ImaxProp._model.proj_0, fold position 21] (--verified) t=0.0s
-proj-of-prop                               reject  reject  lech    reject     1 correct       0.15s       95M  lech: invalid: application type mismatch [at theorem badFalse, fold position 3] (--verified) t=0.0s
-proj-of-stuck-prop                         reject  decline lech    reject     2 declined      0.20s       98M  lech: not implemented yet: missing model for Native64ResultSortOwner [at inductive Native64ResultSortOwner, fold positio
-proj-of-subst-prop                         reject  decline lech    reject     2 declined      0.37s       93M  lech: not implemented yet: missing model for PR14806Subst.Owner [at inductive PR14806Subst.Owner, fold position 131] (--
-proof-irrel                                accept  decline lech    accept     2 declined      0.06s       68M  lech: not implemented yet: non-standard axiom (A) [at axiom A, fold position 0] (--verified) t=0.0s
-rec-k-lie                                  reject  reject  lech    reject     1 correct       0.22s       85M  lech: invalid: type mismatch in theorem bad [at theorem bad, fold position 4] (--verified) t=0.1s
-rec-missing-ih                             reject  ERROR   lech    reject     3 error         0.32s       95M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/rec-missing-ih.ndjson: internal error: a field of N
-rec-of-subst-prop                          reject  decline lech    reject     2 declined      0.43s       98M  lech: not implemented yet: missing model for Issue.Owner [at inductive Issue.Owner, fold position 132] (--verified) t=0.
-sparse-name-index                          accept  decline lech    accept     2 declined      0.06s       68M  lech: not implemented yet: non-standard axiom (foo) [at axiom foo, fold position 0] (--verified) t=0.0s
+init-prelude                               accept  accept  con-leche    accept     0 correct       1.01s      121M  con-leche: accepted 2626 declarations (--verified)
+k-rec-conv                                 reject  reject  con-leche    reject     1 correct       0.14s      100M  con-leche: invalid: type mismatch in theorem bad [at theorem bad, fold position 9] (--verified) t=0.0s
+large-elim-param                           reject  reject  con-leche    reject     1 correct       0.13s       99M  con-leche: invalid: direct sum: large eliminator on a multi-constructor inductive whose sort may be Prop [at inductive MyBool
+large-elim-prop-bool                       reject  reject  con-leche    reject     1 correct       0.13s      100M  con-leche: invalid: direct sum: large eliminator on a multi-constructor inductive whose sort may be Prop [at inductive NewBoo
+level-imax-leq                             reject  reject  con-leche    reject     1 correct       0.13s       96M  con-leche: invalid: type mismatch in definition down [at def down, fold position 3] (--verified) t=0.0s
+level-imax-normalization                   reject  reject  con-leche    reject     1 correct       0.13s       96M  con-leche: invalid: type mismatch in definition down [at def down, fold position 3] (--verified) t=0.0s
+level-index-out-of-order                   accept  decline con-leche    accept     2 declined      0.07s       67M  con-leche: not implemented yet: non-standard axiom (foo) [at axiom foo, fold position 0] (--verified) t=0.0s
+nat-rec-k-lie                              reject  decline con-leche    reject     2 declined      0.14s       96M  con-leche: declined: the preprocessor declined to model a block (re-run con-leche-preprocess without --quiet for the owner names) 
+nat-rec-rules                              reject  decline con-leche    reject     2 declined      0.14s       98M  con-leche: declined: the preprocessor declined to model a block (re-run con-leche-preprocess without --quiet for the owner names) 
+nested-nonuniform-param                    either  accept  con-leche    reject     0 either        0.17s      102M  con-leche: accepted 91 declarations (--verified)
+nested-unused-param                        reject  reject  con-leche    reject     1 correct       0.14s      102M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/nested-unused-param.ndjson: kernel rejected an inpu
+orphan-ctor                                reject  ERROR   con-leche    reject     3 error         0.15s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-ctor.ndjson: internal error: 1 generated sta
+orphan-rec                                 reject  ERROR   con-leche    reject     3 error         0.14s      100M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/orphan-rec.ndjson: internal error: 1 generated stat
+perf/app-lam                               accept  accept  con-leche    accept     0 correct      57.82s     4061M  con-leche: accepted 38 declarations (--verified)
+perf/args-before-unfold                    accept  accept  con-leche    accept     0 correct       0.58s       97M  con-leche: accepted 33 declarations (--verified)
+perf/beta-ladder                           accept  accept  con-leche    accept     0 correct      12.81s      890M  con-leche: accepted 21 declarations (--verified)
+perf/church-numerals                       accept  accept  con-leche    accept     0 correct       0.67s       86M  con-leche: accepted 6 declarations (--verified)
+perf/discarded-argument                    accept  accept  con-leche    accept     0 correct       0.42s       89M  con-leche: accepted 34 declarations (--verified)
+perf/discarded-argument-match              accept  accept  con-leche    accept     0 correct       0.23s      102M  con-leche: accepted 45 declarations (--verified)
+perf/folded-constant-first                 accept  accept  con-leche    accept     0 correct       0.18s      102M  con-leche: accepted 43 declarations (--verified)
+perf/folded-constant-last                  accept  accept  con-leche    accept     0 correct       0.39s       88M  con-leche: accepted 43 declarations (--verified)
+perf/grind-ring-5                          accept  accept  con-leche    accept     0 correct       5.98s      217M  con-leche: accepted 3018 declarations (--verified)
+perf/identical-nesting                     accept  accept  con-leche    accept     0 correct       0.21s      100M  con-leche: accepted 36 declarations (--verified)
+perf/irrelevance-before-evaluation         accept  accept  con-leche    accept     0 correct       0.17s      102M  con-leche: accepted 38 declarations (--verified)
+perf/let-ladder                            accept  accept  con-leche    accept     0 correct       1.82s      287M  con-leche: accepted 24 declarations (--verified)
+perf/refute-cheap-first                    reject  reject  con-leche    reject     1 correct       0.15s      100M  con-leche: invalid: type mismatch in theorem kernel_refute_cheap_first [at theorem kernel_refute_cheap_first, fold position 2
+perf/refute-cheap-last                     reject  reject  con-leche    reject     1 correct       0.29s       95M  con-leche: invalid: type mismatch in theorem kernel_refute_cheap_last [at theorem kernel_refute_cheap_last, fold position 21]
+perf/repeated-subproblem                   accept  accept  con-leche    accept     0 correct       0.41s       98M  con-leche: accepted 327 declarations (--verified)
+perf/shared-subterm                        accept  accept  con-leche    accept     0 correct       0.36s      105M  con-leche: accepted 330 declarations (--verified)
+perf/shift-cascade                         accept  accept  con-leche    accept     0 correct       0.35s       91M  con-leche: accepted 11 declarations (--verified)
+perf/unroll-versus-evaluate                accept  accept  con-leche    accept     0 correct       0.26s       92M  con-leche: accepted 33 declarations (--verified)
+proj-non-structure                         reject  decline con-leche    reject     2 declined      0.13s       96M  con-leche: not implemented yet: projection on a non-structure-like type [at theorem bad, fold position 3] (--verified) t=0.0s
+proj-of-imax-prop                          reject  reject  con-leche    reject     1 correct       0.27s      102M  con-leche: invalid: application type mismatch [at def ImaxProp._model.proj_0, fold position 21] (--verified) t=0.0s
+proj-of-prop                               reject  reject  con-leche    reject     1 correct       0.15s       95M  con-leche: invalid: application type mismatch [at theorem badFalse, fold position 3] (--verified) t=0.0s
+proj-of-stuck-prop                         reject  decline con-leche    reject     2 declined      0.20s       98M  con-leche: not implemented yet: missing model for Native64ResultSortOwner [at inductive Native64ResultSortOwner, fold positio
+proj-of-subst-prop                         reject  decline con-leche    reject     2 declined      0.37s       93M  con-leche: not implemented yet: missing model for PR14806Subst.Owner [at inductive PR14806Subst.Owner, fold position 131] (--
+proof-irrel                                accept  decline con-leche    accept     2 declined      0.06s       68M  con-leche: not implemented yet: non-standard axiom (A) [at axiom A, fold position 0] (--verified) t=0.0s
+rec-k-lie                                  reject  reject  con-leche    reject     1 correct       0.22s       85M  con-leche: invalid: type mismatch in theorem bad [at theorem bad, fold position 4] (--verified) t=0.1s
+rec-missing-ih                             reject  ERROR   con-leche    reject     3 error         0.32s       95M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/rec-missing-ih.ndjson: internal error: a field of N
+rec-of-subst-prop                          reject  decline con-leche    reject     2 declined      0.43s       98M  con-leche: not implemented yet: missing model for Issue.Owner [at inductive Issue.Owner, fold position 132] (--verified) t=0.
+sparse-name-index                          accept  decline con-leche    accept     2 declined      0.06s       68M  con-leche: not implemented yet: non-standard axiom (foo) [at axiom foo, fold position 0] (--verified) t=0.0s
 std                                        accept  accept  setlec* -          0 correct     326.50s     1516M  setlec: accepted 96159 declarations
-tutorial/001_basicDef                      accept  accept  lech    accept     0 correct       0.18s       63M  lech: accepted 1 declarations (--verified)
-tutorial/002_badDef                        reject  reject  lech    reject     1 correct       0.11s       63M  lech: invalid: type mismatch in definition badDef [at def badDef, fold position 0] (--verified) t=0.0s
-tutorial/003_arrowType                     accept  accept  lech    accept     0 correct       0.09s       63M  lech: accepted 1 declarations (--verified)
-tutorial/004_dependentType                 accept  accept  lech    accept     0 correct       0.13s       64M  lech: accepted 1 declarations (--verified)
-tutorial/005_constType                     accept  accept  lech    accept     0 correct       0.13s       63M  lech: accepted 1 declarations (--verified)
-tutorial/006_betaReduction                 accept  accept  lech    accept     0 correct       0.14s       64M  lech: accepted 2 declarations (--verified)
-tutorial/007_betaReduction2                accept  accept  lech    accept     0 correct       0.20s       63M  lech: accepted 2 declarations (--verified)
-tutorial/008_forallSortWhnf                accept  accept  lech    accept     0 correct       0.12s       65M  lech: accepted 2 declarations (--verified)
-tutorial/009_forallSortBad                 reject  reject  lech    reject     1 correct       0.20s       63M  lech: invalid: expected a sort [at def forallSortBad, fold position 1] (--verified) t=0.0s
-tutorial/010_nonTypeType                   reject  reject  lech    reject     1 correct       0.20s       63M  lech: invalid: expected a sort [at def nonTypeType, fold position 1] (--verified) t=0.0s
-tutorial/011_nonTypeAxiom                  reject  reject  lech    reject     1 correct       0.19s       66M  lech: invalid: expected a sort [at axiom nonTypeAxiom, fold position 1] (--verified) t=0.0s
-tutorial/012_nonPropThm                    reject  reject  lech    reject     1 correct       0.10s       68M  lech: invalid: type of theorem nonPropThm is not a proposition [at theorem nonPropThm, fold position 0] (--verified) t=0
-tutorial/013_thmProof                      accept  accept  lech    accept     0 correct       0.11s       65M  lech: accepted 2 declarations (--verified)
-tutorial/014_selfProof                     reject  reject  lech    reject     1 correct       0.11s       65M  lech: invalid: unknown constant in value of selfProof [at theorem selfProof, fold position 0] (--verified) t=0.0s
-tutorial/015_levelComp1                    accept  accept  lech    accept     0 correct       0.12s       63M  lech: accepted 1 declarations (--verified)
-tutorial/016_levelComp2                    accept  accept  lech    accept     0 correct       0.16s       65M  lech: accepted 1 declarations (--verified)
-tutorial/017_levelComp3                    accept  accept  lech    accept     0 correct       0.13s       66M  lech: accepted 1 declarations (--verified)
-tutorial/018_levelParams                   accept  accept  lech    accept     0 correct       0.09s       63M  lech: accepted 2 declarations (--verified)
-tutorial/019_tut06_bad01                   reject  reject  lech    reject     1 correct       0.14s       63M  lech: invalid: duplicate universe parameters in tut06_bad01 [at def tut06_bad01, fold position 0] (--verified) t=0.0s
-tutorial/020_levelComp4                    accept  accept  lech    accept     0 correct       0.12s       64M  lech: accepted 1 declarations (--verified)
-tutorial/021_levelComp5                    accept  accept  lech    accept     0 correct       0.14s       67M  lech: accepted 1 declarations (--verified)
-tutorial/022_imax1                         accept  accept  lech    accept     0 correct       0.06s       68M  lech: accepted 1 declarations (--verified)
-tutorial/023_imax2                         accept  accept  lech    accept     0 correct       0.08s       68M  lech: accepted 1 declarations (--verified)
-tutorial/024_levelMaxComm                  accept  accept  lech    accept     0 correct       0.12s       64M  lech: accepted 1 declarations (--verified)
-tutorial/025_levelMaxAssoc                 accept  accept  lech    accept     0 correct       0.11s       64M  lech: accepted 1 declarations (--verified)
-tutorial/026_levelMaxIdem                  accept  accept  lech    accept     0 correct       0.17s       63M  lech: accepted 1 declarations (--verified)
-tutorial/027_levelMaxAbsorb                accept  accept  lech    accept     0 correct       0.17s       63M  lech: accepted 1 declarations (--verified)
-tutorial/028_inferVar                      accept  accept  lech    accept     0 correct       0.13s       63M  lech: accepted 1 declarations (--verified)
-tutorial/029_defEqLambda                   accept  accept  lech    accept     0 correct       0.11s       67M  lech: accepted 1 declarations (--verified)
-tutorial/030_peano1                        accept  accept  lech    accept     0 correct       0.15s       64M  lech: accepted 7 declarations (--verified)
-tutorial/031_peano2                        accept  accept  lech    accept     0 correct       0.20s       63M  lech: accepted 8 declarations (--verified)
-tutorial/032_peano3                        accept  accept  lech    accept     0 correct       0.12s       67M  lech: accepted 10 declarations (--verified)
-tutorial/033_letType                       accept  accept  lech    accept     0 correct       0.07s       68M  lech: accepted 1 declarations (--verified)
-tutorial/034_letTypeDep                    accept  decline lech    accept     2 declined      0.14s       63M  lech: not implemented yet: non-standard axiom (aDepProp) [at axiom aDepProp, fold position 0] (--verified) t=0.0s
-tutorial/035_letRed                        accept  decline lech    accept     2 declined      0.16s       63M  lech: not implemented yet: non-standard axiom (aProp) [at axiom aProp, fold position 0] (--verified) t=0.0s
-tutorial/036_empty                         accept  accept  lech    accept     0 correct       0.28s       88M  lech: accepted 25 declarations (--verified)
-tutorial/037_boolType                      accept  accept  lech    accept     0 correct       0.23s       98M  lech: accepted 5 declarations (--verified)
-tutorial/038_twoBool                       accept  accept  lech    accept     0 correct       0.42s       90M  lech: accepted 9 declarations (--verified)
-tutorial/039_andType                       accept  accept  lech    accept     0 correct       0.25s       85M  lech: accepted 5 declarations (--verified)
-tutorial/040_prodType                      accept  accept  lech    accept     0 correct       0.30s       91M  lech: accepted 5 declarations (--verified)
-tutorial/041_pprodType                     accept  accept  lech    accept     0 correct       0.30s       85M  lech: accepted 5 declarations (--verified)
-tutorial/042_pUnitType                     accept  accept  lech    accept     0 correct       0.35s       89M  lech: accepted 4 declarations (--verified)
-tutorial/043_eqType                        accept  accept  lech    accept     0 correct       0.27s       96M  lech: accepted 4 declarations (--verified)
-tutorial/044_natDef                        accept  accept  lech    accept     0 correct       0.24s       88M  lech: accepted 31 declarations (--verified)
-tutorial/045_rbTreeDef                     accept  accept  lech    accept     0 correct       0.39s      100M  lech: accepted 347 declarations (--verified)
-tutorial/046_inductBadNonSort              reject  reject  lech    reject     1 correct       0.36s       88M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/046_inductBadNonSort.ndjson: kernel re
-tutorial/047_inductBadNonSort2             reject  reject  lech    reject     1 correct       0.27s       93M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/047_inductBadNonSort2.ndjson: kernel r
-tutorial/048_inductLevelParam              reject  reject  lech    reject     1 correct       0.29s       97M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/048_inductLevelParam.ndjson: kernel re
-tutorial/049_inductTooFewParams            reject  reject  lech    reject     1 correct       0.14s       98M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/049_inductTooFewParams.ndjson: kernel 
-tutorial/050_inductWrongCtorParams         reject  reject  lech    reject     1 correct       0.13s       98M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/050_inductWrongCtorParams.ndjson: kern
-tutorial/051_inductWrongCtorResParams      reject  reject  lech    reject     1 correct       0.13s       98M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/051_inductWrongCtorResParams.ndjson: k
-tutorial/052_inductWrongCtorResLevel       reject  reject  lech    reject     1 correct       0.14s       97M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/052_inductWrongCtorResLevel.ndjson: ke
-tutorial/053_inductInIndex                 reject  reject  lech    reject     1 correct       0.13s       98M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/053_inductInIndex.ndjson: kernel rejec
-tutorial/054_indNeg                        reject  reject  lech    reject     1 correct       0.13s       98M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/054_indNeg.ndjson: kernel rejected an 
-tutorial/055_reduceCtorParam.mk            accept  accept  lech    accept     0 correct       0.15s       99M  lech: accepted 32 declarations (--verified)
-tutorial/056_reduceCtorType.mk             reject  reject  lech    reject     1 correct       0.34s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/056_reduceCtorType.mk.ndjson: kernel r
-tutorial/057_indNegReducible               reject  reject  lech    reject     1 correct       0.27s       97M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/057_indNegReducible.ndjson: kernel rej
-tutorial/058_predWithTypeField             accept  accept  lech    accept     0 correct       0.27s       86M  lech: accepted 5 declarations (--verified)
-tutorial/059_typeWithTypeField             accept  accept  lech    accept     0 correct       0.27s       97M  lech: accepted 5 declarations (--verified)
-tutorial/060_typeWithTypeFieldPoly         accept  accept  lech    accept     0 correct       0.31s       97M  lech: accepted 5 declarations (--verified)
-tutorial/061_typeWithTooHighTypeField.mk   reject  reject  lech    reject     1 correct       0.34s       90M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/061_typeWithTooHighTypeField.mk.ndjson
-tutorial/062_emptyRec                      accept  accept  lech    accept     0 correct       0.18s      101M  lech: accepted 25 declarations (--verified)
-tutorial/063_boolRec                       accept  accept  lech    accept     0 correct       0.27s       88M  lech: accepted 5 declarations (--verified)
-tutorial/064_twoBoolRec                    accept  accept  lech    accept     0 correct       0.32s       86M  lech: accepted 9 declarations (--verified)
-tutorial/065_andRec                        accept  accept  lech    accept     0 correct       0.13s       99M  lech: accepted 5 declarations (--verified)
-tutorial/066_prodRec                       accept  accept  lech    accept     0 correct       0.31s       88M  lech: accepted 5 declarations (--verified)
-tutorial/067_pprodRec                      accept  accept  lech    accept     0 correct       0.26s       98M  lech: accepted 5 declarations (--verified)
-tutorial/068_punitRec                      accept  accept  lech    accept     0 correct       0.31s       85M  lech: accepted 4 declarations (--verified)
-tutorial/069_eqRec                         accept  accept  lech    accept     0 correct       0.35s       86M  lech: accepted 4 declarations (--verified)
-tutorial/070_nRec                          accept  accept  lech    accept     0 correct       0.33s       89M  lech: accepted 31 declarations (--verified)
-tutorial/071_rbTreeRef                     accept  accept  lech    accept     0 correct       0.60s       96M  lech: accepted 347 declarations (--verified)
-tutorial/072_boolPropRec                   accept  accept  lech    accept     0 correct       0.27s       86M  lech: accepted 5 declarations (--verified)
-tutorial/073_BogusRecursor                 reject  ERROR   lech    reject     3 error         0.35s       96M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/073_BogusRecursor.ndjson: internal err
-tutorial/074_existsRec                     accept  accept  lech    accept     0 correct       0.13s       98M  lech: accepted 5 declarations (--verified)
-tutorial/075_typeSingletonRecReduction     accept  accept  lech    accept     0 correct       0.34s       87M  lech: accepted 13 declarations (--verified)
-tutorial/076_sortElimPropRec               accept  accept  lech    accept     0 correct       0.30s       90M  lech: accepted 8 declarations (--verified)
-tutorial/077_sortElimProp2Rec              accept  accept  lech    accept     0 correct       0.21s       91M  lech: accepted 9 declarations (--verified)
-tutorial/078_boolRecEqns                   accept  accept  lech    accept     0 correct       0.25s       99M  lech: accepted 12 declarations (--verified)
-tutorial/079_prodRecEqns                   accept  accept  lech    accept     0 correct       0.14s       99M  lech: accepted 8 declarations (--verified)
-tutorial/080_nRecReduction                 accept  accept  lech    accept     0 correct       0.34s       90M  lech: accepted 37 declarations (--verified)
-tutorial/081_listRecReduction              accept  accept  lech    accept     0 correct       0.36s       87M  lech: accepted 42 declarations (--verified)
-tutorial/082_RBTree.id_spec                accept  accept  lech    accept     0 correct       0.42s      102M  lech: accepted 349 declarations (--verified)
-tutorial/083_And.right                     accept  accept  lech    accept     0 correct       0.37s       85M  lech: accepted 6 declarations (--verified)
-tutorial/084_Prod.snd                      accept  accept  lech    accept     0 correct       0.29s       92M  lech: accepted 6 declarations (--verified)
-tutorial/085_PProd.snd                     accept  accept  lech    accept     0 correct       0.28s       89M  lech: accepted 6 declarations (--verified)
-tutorial/086_PSigma.snd                    accept  accept  lech    accept     0 correct       0.42s       87M  lech: accepted 6 declarations (--verified)
-tutorial/087_projOutOfRange                reject  reject  lech    reject     1 correct       0.38s       86M  lech: invalid: projection index out of range [at def projOutOfRange, fold position 1] (--verified) t=0.2s
-tutorial/088_projNotStruct                 reject  decline lech    reject     2 declined      0.31s       90M  lech: not implemented yet: projection on a non-structure-like type [at def projNotStruct, fold position 17] (--verified)
-tutorial/089_projProp1                     accept  accept  lech    accept     0 correct       0.13s       98M  lech: accepted 11 declarations (--verified)
-tutorial/090_projProp2                     reject  reject  lech    reject     1 correct       0.13s       98M  lech: invalid: projection from a propositional structure must be a proposition [at def projProp2, fold position 3] (--ve
-tutorial/091_projProp3                     accept  accept  lech    accept     0 correct       0.17s       98M  lech: accepted 11 declarations (--verified)
-tutorial/092_projProp4                     reject  reject  lech    reject     1 correct       0.14s       99M  lech: invalid: projection from a propositional structure must be a proposition [at def projProp4, fold position 3] (--ve
-tutorial/093_projProp5                     reject  reject  lech    reject     1 correct       0.14s       98M  lech: invalid: projection from a propositional structure must be a proposition [at def projProp5, fold position 3] (--ve
-tutorial/094_projProp6                     reject  reject  lech    reject     1 correct       0.20s       86M  lech: invalid: projection from a propositional structure must be a proposition [at def projProp6, fold position 3] (--ve
-tutorial/095_projDataIndexRec              accept  accept  lech    accept     0 correct       0.43s       88M  lech: accepted 39 declarations (--verified)
-tutorial/096_projIndexData                 reject  reject  lech    reject     1 correct       0.25s       90M  lech: invalid: type mismatch in definition projIndexData [at def projIndexData, fold position 19] (--verified) t=0.1s
-tutorial/097_projIndexData2                reject  reject  lech    reject     1 correct       0.13s      100M  lech: invalid: projection index out of range [at def projIndexData2, fold position 19] (--verified) t=0.0s
-tutorial/098_projRed                       accept  accept  lech    accept     0 correct       0.19s       98M  lech: accepted 14 declarations (--verified)
-tutorial/099_ruleK                         accept  accept  lech    accept     0 correct       0.15s       99M  lech: accepted 8 declarations (--verified)
-tutorial/100_ruleKbad                      reject  reject  lech    reject     1 correct       0.19s       86M  lech: invalid: type mismatch in theorem ruleKbad [at theorem ruleKbad, fold position 2] (--verified) t=0.1s
-tutorial/101_ruleKAcc                      reject  reject  lech    reject     1 correct       0.32s       90M  lech: invalid: type mismatch in theorem ruleKAcc [at theorem ruleKAcc, fold position 26] (--verified) t=0.1s
-tutorial/102_aNatLit                       accept  accept  lech    accept     0 correct       0.23s       86M  lech: accepted 5 declarations (--verified)
-tutorial/103_natLitEq                      accept  accept  lech    accept     0 correct       0.22s       85M  lech: accepted 8 declarations (--verified)
-tutorial/104_proofIrrelevance              accept  accept  lech    accept     0 correct       0.27s       87M  lech: accepted 5 declarations (--verified)
-tutorial/105_proofIrrelevanceBad           reject  reject  lech    reject     1 correct       0.25s       87M  lech: invalid: type mismatch in definition proofIrrelevanceBad [at def proofIrrelevanceBad, fold position 2] (--verified
-tutorial/106_proofIrrelevanceWhnf          accept  accept  lech    accept     0 correct       0.13s       96M  lech: accepted 6 declarations (--verified)
-tutorial/107_unitEta1                      accept  accept  lech    accept     0 correct       0.18s       96M  lech: accepted 9 declarations (--verified)
-tutorial/108_unitEta2                      accept  accept  lech    accept     0 correct       0.27s       85M  lech: accepted 8 declarations (--verified)
-tutorial/109_unitEta3                      accept  accept  lech    accept     0 correct       0.19s       96M  lech: accepted 8 declarations (--verified)
-tutorial/110_indexedUnitEta                reject  reject  lech    reject     1 correct       0.13s       98M  lech: invalid: type mismatch in definition indexedUnitEta [at def indexedUnitEta, fold position 3] (--verified) t=0.0s
-tutorial/111_structEta                     accept  accept  lech    accept     0 correct       0.14s       98M  lech: accepted 15 declarations (--verified)
-tutorial/112_indexedStructEta              reject  reject  lech    reject     1 correct       0.14s       98M  lech: invalid: type mismatch in definition indexedStructEta [at def indexedStructEta, fold position 4] (--verified) t=0.
-tutorial/113_funEta                        accept  accept  lech    accept     0 correct       0.13s       97M  lech: accepted 5 declarations (--verified)
-tutorial/114_funEtaDep                     accept  accept  lech    accept     0 correct       0.13s       96M  lech: accepted 5 declarations (--verified)
-tutorial/115_funEtaBad                     reject  reject  lech    reject     1 correct       0.15s       97M  lech: invalid: type mismatch in theorem funEtaBad [at theorem funEtaBad, fold position 1] (--verified) t=0.0s
-tutorial/116_etaRuleK                      reject  reject  lech    reject     1 correct       0.23s       88M  lech: invalid: type mismatch in definition etaRuleK [at def etaRuleK, fold position 2] (--verified) t=0.1s
-tutorial/117_etaCtor                       reject  reject  lech    reject     1 correct       0.25s       86M  lech: invalid: type mismatch in definition etaCtor [at def etaCtor, fold position 5] (--verified) t=0.1s
-tutorial/118_reflOccLeft                   reject  reject  lech    reject     1 correct       0.22s       89M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/118_reflOccLeft.ndjson: kernel rejecte
-tutorial/119_reflOccInIndex                reject  reject  lech    reject     1 correct       0.26s       86M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/119_reflOccInIndex.ndjson: kernel reje
-tutorial/120_reduceCtorParamRefl.mk        accept  accept  lech    accept     0 correct       0.40s       97M  lech: accepted 317 declarations (--verified)
-tutorial/121_reduceCtorParamRefl2.mk       accept  accept  lech    accept     0 correct       0.46s       95M  lech: accepted 317 declarations (--verified)
-tutorial/122_rTreeRec                      accept  accept  lech    accept     0 correct       0.43s       96M  lech: accepted 320 declarations (--verified)
-tutorial/123_rtreeRecReduction             accept  accept  lech    accept     0 correct       0.41s       95M  lech: accepted 322 declarations (--verified)
-tutorial/124_accRecType                    accept  accept  lech    accept     0 correct       0.14s      101M  lech: accepted 40 declarations (--verified)
-tutorial/125_accRecReduction               accept  accept  lech    accept     0 correct       0.15s      101M  lech: accepted 44 declarations (--verified)
-tutorial/126_accRecNoEta                   reject  reject  lech    reject     1 correct       0.14s      101M  lech: invalid: type mismatch in theorem accRecNoEta [at theorem accRecNoEta, fold position 26] (--verified) t=0.0s
-tutorial/127_quotMkType                    accept  accept  lech    accept     0 correct       0.13s       99M  lech: accepted 9 declarations (--verified)
-tutorial/128_quotIndType                   accept  accept  lech    accept     0 correct       0.13s       98M  lech: accepted 9 declarations (--verified)
-tutorial/129_quotLiftType                  accept  accept  lech    accept     0 correct       0.28s       90M  lech: accepted 9 declarations (--verified)
-tutorial/130_quotSoundType                 accept  accept  lech    accept     0 correct       0.21s       86M  lech: accepted 9 declarations (--verified)
-tutorial/131_quotLiftReduction             accept  accept  lech    accept     0 correct       0.31s       86M  lech: accepted 9 declarations (--verified)
-tutorial/132_quotIndReduction              accept  accept  lech    accept     0 correct       0.16s       99M  lech: accepted 9 declarations (--verified)
-tutorial/133_dup_defs                      reject  reject  lech    reject     1 correct       0.12s       64M  lech: invalid: duplicate declaration dup_defs [at def dup_defs, fold position 1] (--verified) t=0.0s
-tutorial/134_dup_ind_def                   reject  reject  lech    reject     1 correct       0.22s       85M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/134_dup_ind_def.ndjson: invalid export
-tutorial/135_dup_ctor_def                  reject  reject  lech    reject     1 correct       0.23s       86M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/135_dup_ctor_def.ndjson: invalid expor
-tutorial/136_dup_rec_def                   reject  reject  lech    reject     1 correct       0.16s       86M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/136_dup_rec_def.ndjson: invalid export
-tutorial/137_misnamed_rec_user             reject  ERROR   lech    reject     3 error         0.32s       89M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/137_misnamed_rec_user.ndjson: internal
-tutorial/138_dup_rec_def2                  reject  reject  lech    reject     1 correct       0.33s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/138_dup_rec_def2.ndjson: kernel reject
-tutorial/139_dup_ctor_rec                  reject  reject  lech    reject     1 correct       0.24s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/139_dup_ctor_rec.ndjson: invalid expor
-tutorial/140_DupConCon                     reject  reject  lech    reject     1 correct       0.20s       88M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/140_DupConCon.ndjson: invalid export: 
-tutorial/141_falseFromUnsafe               reject  decline lech    reject     2 declined      0.21s       86M  lech: declined: definition with safety 'unsafe' (--verified)
-tutorial/142_falseFromPartial              reject  decline lech    reject     2 declined      0.24s       85M  lech: declined: definition with safety 'partial' (--verified)
+tutorial/001_basicDef                      accept  accept  con-leche    accept     0 correct       0.18s       63M  con-leche: accepted 1 declarations (--verified)
+tutorial/002_badDef                        reject  reject  con-leche    reject     1 correct       0.11s       63M  con-leche: invalid: type mismatch in definition badDef [at def badDef, fold position 0] (--verified) t=0.0s
+tutorial/003_arrowType                     accept  accept  con-leche    accept     0 correct       0.09s       63M  con-leche: accepted 1 declarations (--verified)
+tutorial/004_dependentType                 accept  accept  con-leche    accept     0 correct       0.13s       64M  con-leche: accepted 1 declarations (--verified)
+tutorial/005_constType                     accept  accept  con-leche    accept     0 correct       0.13s       63M  con-leche: accepted 1 declarations (--verified)
+tutorial/006_betaReduction                 accept  accept  con-leche    accept     0 correct       0.14s       64M  con-leche: accepted 2 declarations (--verified)
+tutorial/007_betaReduction2                accept  accept  con-leche    accept     0 correct       0.20s       63M  con-leche: accepted 2 declarations (--verified)
+tutorial/008_forallSortWhnf                accept  accept  con-leche    accept     0 correct       0.12s       65M  con-leche: accepted 2 declarations (--verified)
+tutorial/009_forallSortBad                 reject  reject  con-leche    reject     1 correct       0.20s       63M  con-leche: invalid: expected a sort [at def forallSortBad, fold position 1] (--verified) t=0.0s
+tutorial/010_nonTypeType                   reject  reject  con-leche    reject     1 correct       0.20s       63M  con-leche: invalid: expected a sort [at def nonTypeType, fold position 1] (--verified) t=0.0s
+tutorial/011_nonTypeAxiom                  reject  reject  con-leche    reject     1 correct       0.19s       66M  con-leche: invalid: expected a sort [at axiom nonTypeAxiom, fold position 1] (--verified) t=0.0s
+tutorial/012_nonPropThm                    reject  reject  con-leche    reject     1 correct       0.10s       68M  con-leche: invalid: type of theorem nonPropThm is not a proposition [at theorem nonPropThm, fold position 0] (--verified) t=0
+tutorial/013_thmProof                      accept  accept  con-leche    accept     0 correct       0.11s       65M  con-leche: accepted 2 declarations (--verified)
+tutorial/014_selfProof                     reject  reject  con-leche    reject     1 correct       0.11s       65M  con-leche: invalid: unknown constant in value of selfProof [at theorem selfProof, fold position 0] (--verified) t=0.0s
+tutorial/015_levelComp1                    accept  accept  con-leche    accept     0 correct       0.12s       63M  con-leche: accepted 1 declarations (--verified)
+tutorial/016_levelComp2                    accept  accept  con-leche    accept     0 correct       0.16s       65M  con-leche: accepted 1 declarations (--verified)
+tutorial/017_levelComp3                    accept  accept  con-leche    accept     0 correct       0.13s       66M  con-leche: accepted 1 declarations (--verified)
+tutorial/018_levelParams                   accept  accept  con-leche    accept     0 correct       0.09s       63M  con-leche: accepted 2 declarations (--verified)
+tutorial/019_tut06_bad01                   reject  reject  con-leche    reject     1 correct       0.14s       63M  con-leche: invalid: duplicate universe parameters in tut06_bad01 [at def tut06_bad01, fold position 0] (--verified) t=0.0s
+tutorial/020_levelComp4                    accept  accept  con-leche    accept     0 correct       0.12s       64M  con-leche: accepted 1 declarations (--verified)
+tutorial/021_levelComp5                    accept  accept  con-leche    accept     0 correct       0.14s       67M  con-leche: accepted 1 declarations (--verified)
+tutorial/022_imax1                         accept  accept  con-leche    accept     0 correct       0.06s       68M  con-leche: accepted 1 declarations (--verified)
+tutorial/023_imax2                         accept  accept  con-leche    accept     0 correct       0.08s       68M  con-leche: accepted 1 declarations (--verified)
+tutorial/024_levelMaxComm                  accept  accept  con-leche    accept     0 correct       0.12s       64M  con-leche: accepted 1 declarations (--verified)
+tutorial/025_levelMaxAssoc                 accept  accept  con-leche    accept     0 correct       0.11s       64M  con-leche: accepted 1 declarations (--verified)
+tutorial/026_levelMaxIdem                  accept  accept  con-leche    accept     0 correct       0.17s       63M  con-leche: accepted 1 declarations (--verified)
+tutorial/027_levelMaxAbsorb                accept  accept  con-leche    accept     0 correct       0.17s       63M  con-leche: accepted 1 declarations (--verified)
+tutorial/028_inferVar                      accept  accept  con-leche    accept     0 correct       0.13s       63M  con-leche: accepted 1 declarations (--verified)
+tutorial/029_defEqLambda                   accept  accept  con-leche    accept     0 correct       0.11s       67M  con-leche: accepted 1 declarations (--verified)
+tutorial/030_peano1                        accept  accept  con-leche    accept     0 correct       0.15s       64M  con-leche: accepted 7 declarations (--verified)
+tutorial/031_peano2                        accept  accept  con-leche    accept     0 correct       0.20s       63M  con-leche: accepted 8 declarations (--verified)
+tutorial/032_peano3                        accept  accept  con-leche    accept     0 correct       0.12s       67M  con-leche: accepted 10 declarations (--verified)
+tutorial/033_letType                       accept  accept  con-leche    accept     0 correct       0.07s       68M  con-leche: accepted 1 declarations (--verified)
+tutorial/034_letTypeDep                    accept  decline con-leche    accept     2 declined      0.14s       63M  con-leche: not implemented yet: non-standard axiom (aDepProp) [at axiom aDepProp, fold position 0] (--verified) t=0.0s
+tutorial/035_letRed                        accept  decline con-leche    accept     2 declined      0.16s       63M  con-leche: not implemented yet: non-standard axiom (aProp) [at axiom aProp, fold position 0] (--verified) t=0.0s
+tutorial/036_empty                         accept  accept  con-leche    accept     0 correct       0.28s       88M  con-leche: accepted 25 declarations (--verified)
+tutorial/037_boolType                      accept  accept  con-leche    accept     0 correct       0.23s       98M  con-leche: accepted 5 declarations (--verified)
+tutorial/038_twoBool                       accept  accept  con-leche    accept     0 correct       0.42s       90M  con-leche: accepted 9 declarations (--verified)
+tutorial/039_andType                       accept  accept  con-leche    accept     0 correct       0.25s       85M  con-leche: accepted 5 declarations (--verified)
+tutorial/040_prodType                      accept  accept  con-leche    accept     0 correct       0.30s       91M  con-leche: accepted 5 declarations (--verified)
+tutorial/041_pprodType                     accept  accept  con-leche    accept     0 correct       0.30s       85M  con-leche: accepted 5 declarations (--verified)
+tutorial/042_pUnitType                     accept  accept  con-leche    accept     0 correct       0.35s       89M  con-leche: accepted 4 declarations (--verified)
+tutorial/043_eqType                        accept  accept  con-leche    accept     0 correct       0.27s       96M  con-leche: accepted 4 declarations (--verified)
+tutorial/044_natDef                        accept  accept  con-leche    accept     0 correct       0.24s       88M  con-leche: accepted 31 declarations (--verified)
+tutorial/045_rbTreeDef                     accept  accept  con-leche    accept     0 correct       0.39s      100M  con-leche: accepted 347 declarations (--verified)
+tutorial/046_inductBadNonSort              reject  reject  con-leche    reject     1 correct       0.36s       88M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/046_inductBadNonSort.ndjson: kernel re
+tutorial/047_inductBadNonSort2             reject  reject  con-leche    reject     1 correct       0.27s       93M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/047_inductBadNonSort2.ndjson: kernel r
+tutorial/048_inductLevelParam              reject  reject  con-leche    reject     1 correct       0.29s       97M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/048_inductLevelParam.ndjson: kernel re
+tutorial/049_inductTooFewParams            reject  reject  con-leche    reject     1 correct       0.14s       98M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/049_inductTooFewParams.ndjson: kernel 
+tutorial/050_inductWrongCtorParams         reject  reject  con-leche    reject     1 correct       0.13s       98M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/050_inductWrongCtorParams.ndjson: kern
+tutorial/051_inductWrongCtorResParams      reject  reject  con-leche    reject     1 correct       0.13s       98M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/051_inductWrongCtorResParams.ndjson: k
+tutorial/052_inductWrongCtorResLevel       reject  reject  con-leche    reject     1 correct       0.14s       97M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/052_inductWrongCtorResLevel.ndjson: ke
+tutorial/053_inductInIndex                 reject  reject  con-leche    reject     1 correct       0.13s       98M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/053_inductInIndex.ndjson: kernel rejec
+tutorial/054_indNeg                        reject  reject  con-leche    reject     1 correct       0.13s       98M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/054_indNeg.ndjson: kernel rejected an 
+tutorial/055_reduceCtorParam.mk            accept  accept  con-leche    accept     0 correct       0.15s       99M  con-leche: accepted 32 declarations (--verified)
+tutorial/056_reduceCtorType.mk             reject  reject  con-leche    reject     1 correct       0.34s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/056_reduceCtorType.mk.ndjson: kernel r
+tutorial/057_indNegReducible               reject  reject  con-leche    reject     1 correct       0.27s       97M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/057_indNegReducible.ndjson: kernel rej
+tutorial/058_predWithTypeField             accept  accept  con-leche    accept     0 correct       0.27s       86M  con-leche: accepted 5 declarations (--verified)
+tutorial/059_typeWithTypeField             accept  accept  con-leche    accept     0 correct       0.27s       97M  con-leche: accepted 5 declarations (--verified)
+tutorial/060_typeWithTypeFieldPoly         accept  accept  con-leche    accept     0 correct       0.31s       97M  con-leche: accepted 5 declarations (--verified)
+tutorial/061_typeWithTooHighTypeField.mk   reject  reject  con-leche    reject     1 correct       0.34s       90M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/061_typeWithTooHighTypeField.mk.ndjson
+tutorial/062_emptyRec                      accept  accept  con-leche    accept     0 correct       0.18s      101M  con-leche: accepted 25 declarations (--verified)
+tutorial/063_boolRec                       accept  accept  con-leche    accept     0 correct       0.27s       88M  con-leche: accepted 5 declarations (--verified)
+tutorial/064_twoBoolRec                    accept  accept  con-leche    accept     0 correct       0.32s       86M  con-leche: accepted 9 declarations (--verified)
+tutorial/065_andRec                        accept  accept  con-leche    accept     0 correct       0.13s       99M  con-leche: accepted 5 declarations (--verified)
+tutorial/066_prodRec                       accept  accept  con-leche    accept     0 correct       0.31s       88M  con-leche: accepted 5 declarations (--verified)
+tutorial/067_pprodRec                      accept  accept  con-leche    accept     0 correct       0.26s       98M  con-leche: accepted 5 declarations (--verified)
+tutorial/068_punitRec                      accept  accept  con-leche    accept     0 correct       0.31s       85M  con-leche: accepted 4 declarations (--verified)
+tutorial/069_eqRec                         accept  accept  con-leche    accept     0 correct       0.35s       86M  con-leche: accepted 4 declarations (--verified)
+tutorial/070_nRec                          accept  accept  con-leche    accept     0 correct       0.33s       89M  con-leche: accepted 31 declarations (--verified)
+tutorial/071_rbTreeRef                     accept  accept  con-leche    accept     0 correct       0.60s       96M  con-leche: accepted 347 declarations (--verified)
+tutorial/072_boolPropRec                   accept  accept  con-leche    accept     0 correct       0.27s       86M  con-leche: accepted 5 declarations (--verified)
+tutorial/073_BogusRecursor                 reject  ERROR   con-leche    reject     3 error         0.35s       96M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/073_BogusRecursor.ndjson: internal err
+tutorial/074_existsRec                     accept  accept  con-leche    accept     0 correct       0.13s       98M  con-leche: accepted 5 declarations (--verified)
+tutorial/075_typeSingletonRecReduction     accept  accept  con-leche    accept     0 correct       0.34s       87M  con-leche: accepted 13 declarations (--verified)
+tutorial/076_sortElimPropRec               accept  accept  con-leche    accept     0 correct       0.30s       90M  con-leche: accepted 8 declarations (--verified)
+tutorial/077_sortElimProp2Rec              accept  accept  con-leche    accept     0 correct       0.21s       91M  con-leche: accepted 9 declarations (--verified)
+tutorial/078_boolRecEqns                   accept  accept  con-leche    accept     0 correct       0.25s       99M  con-leche: accepted 12 declarations (--verified)
+tutorial/079_prodRecEqns                   accept  accept  con-leche    accept     0 correct       0.14s       99M  con-leche: accepted 8 declarations (--verified)
+tutorial/080_nRecReduction                 accept  accept  con-leche    accept     0 correct       0.34s       90M  con-leche: accepted 37 declarations (--verified)
+tutorial/081_listRecReduction              accept  accept  con-leche    accept     0 correct       0.36s       87M  con-leche: accepted 42 declarations (--verified)
+tutorial/082_RBTree.id_spec                accept  accept  con-leche    accept     0 correct       0.42s      102M  con-leche: accepted 349 declarations (--verified)
+tutorial/083_And.right                     accept  accept  con-leche    accept     0 correct       0.37s       85M  con-leche: accepted 6 declarations (--verified)
+tutorial/084_Prod.snd                      accept  accept  con-leche    accept     0 correct       0.29s       92M  con-leche: accepted 6 declarations (--verified)
+tutorial/085_PProd.snd                     accept  accept  con-leche    accept     0 correct       0.28s       89M  con-leche: accepted 6 declarations (--verified)
+tutorial/086_PSigma.snd                    accept  accept  con-leche    accept     0 correct       0.42s       87M  con-leche: accepted 6 declarations (--verified)
+tutorial/087_projOutOfRange                reject  reject  con-leche    reject     1 correct       0.38s       86M  con-leche: invalid: projection index out of range [at def projOutOfRange, fold position 1] (--verified) t=0.2s
+tutorial/088_projNotStruct                 reject  decline con-leche    reject     2 declined      0.31s       90M  con-leche: not implemented yet: projection on a non-structure-like type [at def projNotStruct, fold position 17] (--verified)
+tutorial/089_projProp1                     accept  accept  con-leche    accept     0 correct       0.13s       98M  con-leche: accepted 11 declarations (--verified)
+tutorial/090_projProp2                     reject  reject  con-leche    reject     1 correct       0.13s       98M  con-leche: invalid: projection from a propositional structure must be a proposition [at def projProp2, fold position 3] (--ve
+tutorial/091_projProp3                     accept  accept  con-leche    accept     0 correct       0.17s       98M  con-leche: accepted 11 declarations (--verified)
+tutorial/092_projProp4                     reject  reject  con-leche    reject     1 correct       0.14s       99M  con-leche: invalid: projection from a propositional structure must be a proposition [at def projProp4, fold position 3] (--ve
+tutorial/093_projProp5                     reject  reject  con-leche    reject     1 correct       0.14s       98M  con-leche: invalid: projection from a propositional structure must be a proposition [at def projProp5, fold position 3] (--ve
+tutorial/094_projProp6                     reject  reject  con-leche    reject     1 correct       0.20s       86M  con-leche: invalid: projection from a propositional structure must be a proposition [at def projProp6, fold position 3] (--ve
+tutorial/095_projDataIndexRec              accept  accept  con-leche    accept     0 correct       0.43s       88M  con-leche: accepted 39 declarations (--verified)
+tutorial/096_projIndexData                 reject  reject  con-leche    reject     1 correct       0.25s       90M  con-leche: invalid: type mismatch in definition projIndexData [at def projIndexData, fold position 19] (--verified) t=0.1s
+tutorial/097_projIndexData2                reject  reject  con-leche    reject     1 correct       0.13s      100M  con-leche: invalid: projection index out of range [at def projIndexData2, fold position 19] (--verified) t=0.0s
+tutorial/098_projRed                       accept  accept  con-leche    accept     0 correct       0.19s       98M  con-leche: accepted 14 declarations (--verified)
+tutorial/099_ruleK                         accept  accept  con-leche    accept     0 correct       0.15s       99M  con-leche: accepted 8 declarations (--verified)
+tutorial/100_ruleKbad                      reject  reject  con-leche    reject     1 correct       0.19s       86M  con-leche: invalid: type mismatch in theorem ruleKbad [at theorem ruleKbad, fold position 2] (--verified) t=0.1s
+tutorial/101_ruleKAcc                      reject  reject  con-leche    reject     1 correct       0.32s       90M  con-leche: invalid: type mismatch in theorem ruleKAcc [at theorem ruleKAcc, fold position 26] (--verified) t=0.1s
+tutorial/102_aNatLit                       accept  accept  con-leche    accept     0 correct       0.23s       86M  con-leche: accepted 5 declarations (--verified)
+tutorial/103_natLitEq                      accept  accept  con-leche    accept     0 correct       0.22s       85M  con-leche: accepted 8 declarations (--verified)
+tutorial/104_proofIrrelevance              accept  accept  con-leche    accept     0 correct       0.27s       87M  con-leche: accepted 5 declarations (--verified)
+tutorial/105_proofIrrelevanceBad           reject  reject  con-leche    reject     1 correct       0.25s       87M  con-leche: invalid: type mismatch in definition proofIrrelevanceBad [at def proofIrrelevanceBad, fold position 2] (--verified
+tutorial/106_proofIrrelevanceWhnf          accept  accept  con-leche    accept     0 correct       0.13s       96M  con-leche: accepted 6 declarations (--verified)
+tutorial/107_unitEta1                      accept  accept  con-leche    accept     0 correct       0.18s       96M  con-leche: accepted 9 declarations (--verified)
+tutorial/108_unitEta2                      accept  accept  con-leche    accept     0 correct       0.27s       85M  con-leche: accepted 8 declarations (--verified)
+tutorial/109_unitEta3                      accept  accept  con-leche    accept     0 correct       0.19s       96M  con-leche: accepted 8 declarations (--verified)
+tutorial/110_indexedUnitEta                reject  reject  con-leche    reject     1 correct       0.13s       98M  con-leche: invalid: type mismatch in definition indexedUnitEta [at def indexedUnitEta, fold position 3] (--verified) t=0.0s
+tutorial/111_structEta                     accept  accept  con-leche    accept     0 correct       0.14s       98M  con-leche: accepted 15 declarations (--verified)
+tutorial/112_indexedStructEta              reject  reject  con-leche    reject     1 correct       0.14s       98M  con-leche: invalid: type mismatch in definition indexedStructEta [at def indexedStructEta, fold position 4] (--verified) t=0.
+tutorial/113_funEta                        accept  accept  con-leche    accept     0 correct       0.13s       97M  con-leche: accepted 5 declarations (--verified)
+tutorial/114_funEtaDep                     accept  accept  con-leche    accept     0 correct       0.13s       96M  con-leche: accepted 5 declarations (--verified)
+tutorial/115_funEtaBad                     reject  reject  con-leche    reject     1 correct       0.15s       97M  con-leche: invalid: type mismatch in theorem funEtaBad [at theorem funEtaBad, fold position 1] (--verified) t=0.0s
+tutorial/116_etaRuleK                      reject  reject  con-leche    reject     1 correct       0.23s       88M  con-leche: invalid: type mismatch in definition etaRuleK [at def etaRuleK, fold position 2] (--verified) t=0.1s
+tutorial/117_etaCtor                       reject  reject  con-leche    reject     1 correct       0.25s       86M  con-leche: invalid: type mismatch in definition etaCtor [at def etaCtor, fold position 5] (--verified) t=0.1s
+tutorial/118_reflOccLeft                   reject  reject  con-leche    reject     1 correct       0.22s       89M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/118_reflOccLeft.ndjson: kernel rejecte
+tutorial/119_reflOccInIndex                reject  reject  con-leche    reject     1 correct       0.26s       86M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/119_reflOccInIndex.ndjson: kernel reje
+tutorial/120_reduceCtorParamRefl.mk        accept  accept  con-leche    accept     0 correct       0.40s       97M  con-leche: accepted 317 declarations (--verified)
+tutorial/121_reduceCtorParamRefl2.mk       accept  accept  con-leche    accept     0 correct       0.46s       95M  con-leche: accepted 317 declarations (--verified)
+tutorial/122_rTreeRec                      accept  accept  con-leche    accept     0 correct       0.43s       96M  con-leche: accepted 320 declarations (--verified)
+tutorial/123_rtreeRecReduction             accept  accept  con-leche    accept     0 correct       0.41s       95M  con-leche: accepted 322 declarations (--verified)
+tutorial/124_accRecType                    accept  accept  con-leche    accept     0 correct       0.14s      101M  con-leche: accepted 40 declarations (--verified)
+tutorial/125_accRecReduction               accept  accept  con-leche    accept     0 correct       0.15s      101M  con-leche: accepted 44 declarations (--verified)
+tutorial/126_accRecNoEta                   reject  reject  con-leche    reject     1 correct       0.14s      101M  con-leche: invalid: type mismatch in theorem accRecNoEta [at theorem accRecNoEta, fold position 26] (--verified) t=0.0s
+tutorial/127_quotMkType                    accept  accept  con-leche    accept     0 correct       0.13s       99M  con-leche: accepted 9 declarations (--verified)
+tutorial/128_quotIndType                   accept  accept  con-leche    accept     0 correct       0.13s       98M  con-leche: accepted 9 declarations (--verified)
+tutorial/129_quotLiftType                  accept  accept  con-leche    accept     0 correct       0.28s       90M  con-leche: accepted 9 declarations (--verified)
+tutorial/130_quotSoundType                 accept  accept  con-leche    accept     0 correct       0.21s       86M  con-leche: accepted 9 declarations (--verified)
+tutorial/131_quotLiftReduction             accept  accept  con-leche    accept     0 correct       0.31s       86M  con-leche: accepted 9 declarations (--verified)
+tutorial/132_quotIndReduction              accept  accept  con-leche    accept     0 correct       0.16s       99M  con-leche: accepted 9 declarations (--verified)
+tutorial/133_dup_defs                      reject  reject  con-leche    reject     1 correct       0.12s       64M  con-leche: invalid: duplicate declaration dup_defs [at def dup_defs, fold position 1] (--verified) t=0.0s
+tutorial/134_dup_ind_def                   reject  reject  con-leche    reject     1 correct       0.22s       85M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/134_dup_ind_def.ndjson: invalid export
+tutorial/135_dup_ctor_def                  reject  reject  con-leche    reject     1 correct       0.23s       86M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/135_dup_ctor_def.ndjson: invalid expor
+tutorial/136_dup_rec_def                   reject  reject  con-leche    reject     1 correct       0.16s       86M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/136_dup_rec_def.ndjson: invalid export
+tutorial/137_misnamed_rec_user             reject  ERROR   con-leche    reject     3 error         0.32s       89M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/137_misnamed_rec_user.ndjson: internal
+tutorial/138_dup_rec_def2                  reject  reject  con-leche    reject     1 correct       0.33s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/138_dup_rec_def2.ndjson: kernel reject
+tutorial/139_dup_ctor_rec                  reject  reject  con-leche    reject     1 correct       0.24s       87M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/139_dup_ctor_rec.ndjson: invalid expor
+tutorial/140_DupConCon                     reject  reject  con-leche    reject     1 correct       0.20s       88M  /home/joachim/setlec/_tmp/arena-suite/lean-kernel-arena/_build/tests/tutorial/bad/140_DupConCon.ndjson: invalid export: 
+tutorial/141_falseFromUnsafe               reject  decline con-leche    reject     2 declined      0.21s       86M  con-leche: declined: definition with safety 'unsafe' (--verified)
+tutorial/142_falseFromPartial              reject  decline con-leche    reject     2 declined      0.24s       85M  con-leche: declined: definition with safety 'partial' (--verified)
 ---------------------------------------------------------------------------------------------------------------
 206 results: correct=169, declined=15, either=15, error=7

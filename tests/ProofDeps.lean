@@ -1,8 +1,8 @@
-import Lech.SetModel
-import Lech.Semantics
-import Lech.SetP
-import Lech.Verify.Cached
-import Lech.MainTheorem
+import ConLeche.SetModel
+import ConLeche.Semantics
+import ConLeche.SetP
+import ConLeche.Verify.Cached
+import ConLeche.MainTheorem
 
 /-!
 # The proof-term dependency gate's instrument (task #161 S10; redefined
@@ -45,7 +45,7 @@ weaker; there is no second lane to be separated from.*
 
 A **frozen module-level dependency pin**: for each of the six
 pinned roots (the two main theorems and the four capstone letters and
-assembly lemmas under them), the exact set of `Lech.*` modules its type and
+assembly lemmas under them), the exact set of `ConLeche.*` modules its type and
 proof term reach, transitively, at the constant level.  The expectation
 is `tests/proofdeps-expected.txt` and the gate is a diff, so any drift
 shows up as a named module appearing or disappearing — which is the
@@ -83,16 +83,16 @@ open Lean
 
 /-- Transitive constant dependencies of a root's type **and proof
 term**. -/
-partial def lechDeps (env : Environment) (todo : List Name)
+partial def conlecheDeps (env : Environment) (todo : List Name)
     (seen : NameSet) : NameSet :=
   match todo with
   | [] => seen
   | n :: rest =>
-    if seen.contains n then lechDeps env rest seen
+    if seen.contains n then conlecheDeps env rest seen
     else
       let seen := seen.insert n
       match env.find? n with
-      | none => lechDeps env rest seen
+      | none => conlecheDeps env rest seen
       | some ci =>
         -- `.thmInfo` matched directly: `value?` is `none` for
         -- theorems, which would make this walk vacuous.
@@ -101,18 +101,18 @@ partial def lechDeps (env : Environment) (todo : List Name)
           | .defnInfo v => v.value.getUsedConstants
           | .opaqueInfo v => v.value.getUsedConstants
           | _ => #[]
-        lechDeps env ((ci.type.getUsedConstants ++ vcs).toList ++ rest)
+        conlecheDeps env ((ci.type.getUsedConstants ++ vcs).toList ++ rest)
           seen
 
 /-- The seven pinned roots: the MAIN THEOREM first, then the letters it
 is a corollary of and the assembly under those.
 
 * `main_False` — **the statement the project exists to make**
-  (`Lech/MainTheorem.lean`): an accepted stream, at the shipped
+  (`ConLeche/MainTheorem.lean`): an accepted stream, at the shipped
   `--verified` configuration named outright, yields no constant of type
   `False`.  It is pinned as a root because it is what a reader checks
   first; it should reach exactly what the letter it wraps reaches, plus
-  `Lech.MainTheorem` itself.  (The `Empty` main theorem and the
+  `ConLeche.MainTheorem` itself.  (The `Empty` main theorem and the
   `IO`-loop one were dropped from that file on 2026-09-07 — one main
   theorem, and one loop that the theorem is about: the printing lane
   runs an openly unverified twin fold in `Main.lean`.)
@@ -126,33 +126,33 @@ is a corollary of and the assembly under those.
 * `False_P` / `P` — the pure fueled checker the graded tower is stated
   about. -/
 private def roots : List (String × Name) :=
-  [("main_False", `Lech.no_proof_of_False),
-   ("False_SPCD_P", `Lech.Cached.no_proof_of_False_SPCD_P),
-   ("False_P", `Lech.SetP.no_proof_of_False_P),
-   ("SPCD_P", `Lech.Cached.no_proof_of_Empty_SPCD_P),
-   ("sound_P", `Lech.Cached.checkDeclsSPCachedD_sound_P),
-   ("foldSPC_PM", `Lech.Cached.foldSPC_PM),
-   ("P", `Lech.SetP.no_proof_of_Empty_P)]
+  [("main_False", `ConLeche.no_proof_of_False),
+   ("False_SPCD_P", `ConLeche.Cached.no_proof_of_False_SPCD_P),
+   ("False_P", `ConLeche.SetP.no_proof_of_False_P),
+   ("SPCD_P", `ConLeche.Cached.no_proof_of_Empty_SPCD_P),
+   ("sound_P", `ConLeche.Cached.checkDeclsSPCachedD_sound_P),
+   ("foldSPC_PM", `ConLeche.Cached.foldSPC_PM),
+   ("P", `ConLeche.SetP.no_proof_of_Empty_P)]
 
 /-- The measured rows, in a fixed order: one `<label> :: <module>` per
-`Lech.*` module the root's proof term reaches, sorted.  The pinned
+`ConLeche.*` module the root's proof term reaches, sorted.  The pinned
 expectations are in `tests/proofdeps-expected.txt`. -/
-def lechProofDeps : CoreM Unit := do
+def conlecheProofDeps : CoreM Unit := do
   let env ← getEnv
   let names := env.header.moduleNames
   for (lbl, r) in roots do
     if (env.find? r).isNone then
       IO.println s!"MISSING-ROOT {lbl} :: {r}"
     else
-      let s := lechDeps env [r] {}
+      let s := conlecheDeps env [r] {}
       let mut mods : NameSet := {}
       for n in s.toList do
         match env.getModuleIdxFor? n with
         | some i =>
           let m := names[i.toNat]!
-          if (`Lech).isPrefixOf m then mods := mods.insert m
+          if (`ConLeche).isPrefixOf m then mods := mods.insert m
         | none => pure ()
       for m in (mods.toList.map toString).toArray.qsort (· < ·) do
         IO.println s!"{lbl} :: {m}"
 
-#eval lechProofDeps
+#eval conlecheProofDeps

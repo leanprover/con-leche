@@ -1,11 +1,11 @@
-import Lech.Cached.ParsedC
-import Lech.Frontend.ExportC
-import Lech.Frontend.Prelude
-import Lech.Frontend.InModelDump
+import ConLeche.Cached.ParsedC
+import ConLeche.Frontend.ExportC
+import ConLeche.Frontend.Prelude
+import ConLeche.Frontend.InModelDump
 
 /-!
-Command-line driver: `lech FILE.ndjson` reads a lean4export NDJSON file
-(the `lech-preprocess` front end for lean-inductive-models is run
+Command-line driver: `con-leche FILE.ndjson` reads a lean4export NDJSON file
+(the `con-leche-preprocess` front end for lean-inductive-models is run
 transparently first, unless `--pre` says the input is already
 preprocessed) and checks the declarations in order.
 
@@ -35,7 +35,7 @@ never default to the system temp directory.
 
 **THE PREPROCESSOR'S VERDICT IS OURS** (user ruling, 2026-09-07).  The
 tool is spawned `--quiet --no-type-check-generated` (its kernel
-re-check of the model islands is work lech repeats declaration by
+re-check of the model islands is work con-leche repeats declaration by
 declaration; its structural checks stay, `--type-check-input` stays
 off), and a nonzero exit is *passed through* — 1 reject, 2 decline,
 anything else an error — instead of the old fallback that re-checked
@@ -44,9 +44,9 @@ cannot be *run* still falls back to the raw stream; that is the one
 remaining fallback.
 -/
 
-open Lech
+open ConLeche
 
-def Lech.CheckError.exitCode : CheckError → UInt32
+def ConLeche.CheckError.exitCode : CheckError → UInt32
   | .notImplemented _ => 2
   | .invalid _ => 1
   | .internal _ => 3
@@ -64,41 +64,41 @@ def resolveTool (p : String) : IO (Option String) := do
           return some cand
   return none
 
-/-- Locate the preprocessor (task #178: `lech-preprocess`, the checker's own
-front end for `lean-inductive-models` — the tool's `main` passed lech's
+/-- Locate the preprocessor (task #178: `con-leche-preprocess`, the checker's own
+front end for `lean-inductive-models` — the tool's `main` passed con-leche's
 `NativeSupport`, so the blocks `directParts?` installs directly come back
-unmodelled; `LechPreprocess.lean`).  Search order:
+unmodelled; `ConLechePreprocess.lean`).  Search order:
 
-1. `$LECH_INDUCTIVE_MODELS` — the explicit override, unchanged; the test
+1. `$CON_LECHE_INDUCTIVE_MODELS` — the explicit override, unchanged; the test
    harnesses point it at a nonexistent path to run a stream *raw*.
-2. this build's `lech-preprocess`;
+2. this build's `con-leche-preprocess`;
 3. the stock `lean-inductive-models` development checkout under `_tmp/` — the
    legacy fallback, which costs one `pathExists` and keeps a tree without a
-   built `lech-preprocess` working (its output is a superset: every block
+   built `con-leche-preprocess` working (its output is a superset: every block
    left native here is modelled there, and the direct install ignores the
    model either way);
-4. `lech-preprocess` on `$PATH`.
+4. `con-leche-preprocess` on `$PATH`.
 
 **Every branch resolves to a path that EXISTS, or to `none`** (task
-#180): since a nonzero preprocessor exit is now lech's verdict, "the
+#180): since a nonzero preprocessor exit is now con-leche's verdict, "the
 tool is not there" has to be decided *before* the spawn — Lean's
 `IO.Process.spawn` does not fail for a missing binary, it succeeds and
 the child exits 255 after printing "could not execute external
 process", which is indistinguishable at the exit-code level from a tool
 that ran and failed.  So the `$PATH` step is resolved here rather than
-at spawn time, and a `$LECH_INDUCTIVE_MODELS` naming nothing that
+at spawn time, and a `$CON_LECHE_INDUCTIVE_MODELS` naming nothing that
 exists means "no preprocessor" — which is exactly what the `raw` test
 fixtures mean by pointing it at `/nonexistent`. -/
 def findPreprocessor : IO (Option String) := do
-  if let some p ← IO.getEnv "LECH_INDUCTIVE_MODELS" then
+  if let some p ← IO.getEnv "CON_LECHE_INDUCTIVE_MODELS" then
     return ← resolveTool p
-  let dev := ".lake/build/bin/lech-preprocess"
+  let dev := ".lake/build/bin/con-leche-preprocess"
   if ← System.FilePath.pathExists dev then
     return some dev
   let legacy := "_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models"
   if ← System.FilePath.pathExists legacy then
     return some legacy
-  resolveTool "lech-preprocess"
+  resolveTool "con-leche-preprocess"
 
 /-- Does the input contain records the preprocessor must reduce
 (`inductive`/`quot`)?  Streaming scan, line by line — the keys cannot
@@ -117,16 +117,16 @@ partial def needsPreprocess (file : String) : IO Bool := do
 /-- What the input side of a run produced: either a parse (successful
 or not) of the stream the checker is to check, or a verdict of the
 *preprocessor's* own that is, per the user's ruling of 2026-09-07,
-lech's verdict. -/
+con-leche's verdict. -/
 inductive InputResult where
   /-- the stream was read and parsed (`.error` = the checker's own
   decline or a malformed stream) -/
   | parsed (res : Except Frontend.FrontendError Frontend.ParseResultD)
   /-- the preprocessor rejected/declined/failed; `code` is already
-  translated to lech's exit code -/
+  translated to con-leche's exit code -/
   | preVerdict (code : UInt32)
 
-/-- Translate a nonzero preprocessor exit code into lech's, and say
+/-- Translate a nonzero preprocessor exit code into con-leche's, and say
 so on stderr.  **"A preprocessor reject is our reject"** (user ruling,
 2026-09-07): `lean-inductive-models` follows the same arena contract we
 do (its README: 1 rejected by a requested structural or kernel check,
@@ -144,16 +144,16 @@ but never its failures) — except for the per-owner decline lines, which
 are success-path reports; hence the pointer in the decline message. -/
 def preprocessorVerdict (code : UInt32) (modeTag : String) : IO UInt32 := do
   if code = 1 then
-    IO.eprintln s!"lech: the preprocessor rejected the input (message \
+    IO.eprintln s!"con-leche: the preprocessor rejected the input (message \
       above) ({modeTag})"
     return 1
   else if code = 2 then
-    IO.eprintln s!"lech: declined: the preprocessor declined to model a \
-      block (re-run lech-preprocess without --quiet for the owner names) \
+    IO.eprintln s!"con-leche: declined: the preprocessor declined to model a \
+      block (re-run con-leche-preprocess without --quiet for the owner names) \
       ({modeTag})"
     return 2
   else
-    IO.eprintln s!"lech: the preprocessor failed (exit {code}) ({modeTag})"
+    IO.eprintln s!"con-leche: the preprocessor failed (exit {code}) ({modeTag})"
     return 3
 
 /-- Read a handle to EOF and discard it.  Used only when the parse
@@ -181,7 +181,7 @@ so no output flag is passed at all.
 line per generated model — thousands on `init-full`) and nothing else:
 every failure message is printed unconditionally.
 `--no-type-check-generated` switches off the tool's *kernel* re-check
-of each generated model island: lech checks those generated
+of each generated model island: con-leche checks those generated
 definitions and theorems itself, as ordinary declarations of the
 stream it is handed, so running Lean's kernel over them first is
 duplicated work and buys no trust we would otherwise lack.  The two
@@ -199,7 +199,7 @@ first.
 `none` means "the tool could not be run" — the *only* remaining
 fallback to the raw input (the checker then declines at the first
 inductive); it is what the `raw` test fixtures exercise by pointing
-`LECH_INDUCTIVE_MODELS` at a nonexistent path.  A nonzero exit is a
+`CON_LECHE_INDUCTIVE_MODELS` at a nonexistent path.  A nonzero exit is a
 `.preVerdict` (see `preprocessorVerdict`).  A checker decline reached
 before the tool exits is ours: the child is killed first, since we have
 stopped draining its pipe and a blocked writer would never exit.  A *parse
@@ -239,7 +239,7 @@ the preprocessor to do, or a preprocessor that could not be run) or
 through the preprocessor's pipe — or the preprocessor's own verdict. -/
 def parseInput (file : String) (pre : Bool) (modeTag : String)
     (prelude : Frontend.PreludeIx) (inModel : Bool) : IO InputResult := do
-  let census := (← IO.getEnv "LECH_INMODEL_CENSUS") == some "1"
+  let census := (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1"
   let raw : IO InputResult :=
     InputResult.parsed <$> Frontend.parseExportStreamD file (modeled := true) prelude inModel census
   if pre then return ← raw
@@ -250,16 +250,16 @@ def parseInput (file : String) (pre : Bool) (modeTag : String)
   | none => raw
 
 /-- `declPName` for the direct-parse `DeclC` records (task #171).  The
-formatting itself lives beside the checker (`Lech.Cached.declCLabel`)
+formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)
 because the progress heartbeat's compiled hook prints it too, and the
 two must never drift apart. -/
-def declCName : Lech.Cached.DeclC → String := Lech.Cached.declCLabel
+def declCName : ConLeche.Cached.DeclC → String := ConLeche.Cached.declCLabel
 
 /-- **The progress lane's fold — UNVERIFIED, and the only unverified
-loop in the driver** (`LECH_PROGRESS`, user ruling 2026-09-07).
+loop in the driver** (`CON_LECHE_PROGRESS`, user ruling 2026-09-07).
 
-The default run calls `Lech.Cached.checkDeclsSPCachedD` — the pure
-function `Lech.no_proof_of_False` is about — and prints nothing per
+The default run calls `ConLeche.Cached.checkDeclsSPCachedD` — the pure
+function `ConLeche.no_proof_of_False` is about — and prints nothing per
 declaration.  A pure fold cannot print, so when the heartbeat is on the
 driver runs a *different, plainly unverified* fold instead.
 
@@ -268,7 +268,7 @@ position-carrying step of the verified fold, over the same records from
 the same empty environment and state — with one line printed before
 each declaration.  Nobody should be bothered by the difference between
 these two trivial folds; what matters is that the difference is
-*stated*: a run with `LECH_PROGRESS` set is not covered by the main
+*stated*: a run with `CON_LECHE_PROGRESS` set is not covered by the main
 theorem, and a run without it is.
 
 **Written tail-recursively, threading `fe` and `s` LINEARLY** (task
@@ -282,30 +282,30 @@ the recursive call, so the C carries no `lean_inc` of either before the
 step (checked in `.lake/build/ir/Main.c`), and the cost per declaration
 is flat.
 
-**Stride 1 is the localisation lane.**  With `LECH_PROGRESS=1` every
+**Stride 1 is the localisation lane.**  With `CON_LECHE_PROGRESS=1` every
 declaration is announced before it is checked, so a run that dies — an
 OOM, a timeout, a `SIGKILL` — names on its last line the declaration it
 died in.  The index is the FOLD position, not the stream's record
 index: the parse folds the basis and `quot` blocks and drops
 taint-skipped records, so the two drift apart by a stream-dependent
 amount.  Calibrate by NAME. -/
-def checkDeclsProgressIO (mode : Lech.CheckMode) (err : IO.FS.Stream)
+def checkDeclsProgressIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     (stride total t0 : Nat) (trace : Bool) (inModelled : Array Name) :
-    List Lech.Cached.DeclC → Nat → Lech.FEnv → Lech.Cached.CState →
-      IO (Except (Lech.CheckError × Nat) Lech.Env)
+    List ConLeche.Cached.DeclC → Nat → ConLeche.FEnv → ConLeche.Cached.CState →
+      IO (Except (ConLeche.CheckError × Nat) ConLeche.Env)
   | [], _, fe, _ => return .ok fe.env
   | pd :: ds, i, fe, s => do
     if stride > 0 && i % stride == 0 then
       let now ← IO.monoMsNow
-      err.putStr s!"lech: progress {i}/{total} \
-        {Lech.Cached.declCLabel pd} \
-        t={Lech.Cached.msSecs (now - t0)}s\n"
+      err.putStr s!"con-leche: progress {i}/{total} \
+        {ConLeche.Cached.declCLabel pd} \
+        t={ConLeche.Cached.msSecs (now - t0)}s\n"
       err.flush
-    -- THE ROUTE TRACE (`LECH_ROUTE_TRACE`, task #193): one line per
+    -- THE ROUTE TRACE (`CON_LECHE_ROUTE_TRACE`, task #193): one line per
     -- inductive block naming the install route the checker is about
     -- to take — the recognisers run here on the same environment the
     -- step sees, so the line is exactly the dispatch of
-    -- `checkIndDeclSF` (`Lech/Cached/CheckerC.lean`).  This is the
+    -- `checkIndDeclSF` (`ConLeche/Cached/CheckerC.lean`).  This is the
     -- instrument `tests/native-audit.sh` compares against the
     -- preprocessor's `native` lines: a block left native there must
     -- read `struct`, `sum` or `fix` here.
@@ -313,39 +313,39 @@ def checkDeclsProgressIO (mode : Lech.CheckMode) (err : IO.FS.Stream)
       match pd with
       | .indDecl block =>
         let route :=
-          if (Lech.directPartsF? fe block).isSome then "struct"
-          else if (Lech.directSumPartsF? fe block).isSome then "sum"
-          else if (Lech.directFixParts? block).isSome then "fix"
+          if (ConLeche.directPartsF? fe block).isSome then "struct"
+          else if (ConLeche.directSumPartsF? fe block).isSome then "sum"
+          else if (ConLeche.directFixParts? block).isSome then "fix"
           else if inModelled.contains ((block.head?.map (·.name)).getD .anonymous)
             then "inmodel"
           else "modeled"
-        err.putStr s!"lech: route \
+        err.putStr s!"con-leche: route \
           {(block.head?.map (·.name)).getD .anonymous} {route}\n"
         err.flush
       | .basisDecl k =>
         -- a pinned basis block: matched by the parse before any
         -- recogniser runs, installed from the pin
-        err.putStr s!"lech: route \
+        err.putStr s!"con-leche: route \
           {(k.decls.head?.map (·.name)).getD .anonymous} basis\n"
         err.flush
       | _ => pure ()
-    match Lech.Cached.checkDeclStepIdxC mode (i, fe) pd s with
+    match ConLeche.Cached.checkDeclStepIdxC mode (i, fe) pd s with
     | .ok ((i', fe'), s') =>
       checkDeclsProgressIO mode err stride total t0 trace inModelled ds i' fe' s'
     | .error e => return .error e
 
-/-- The progress heartbeat's stride (`LECH_PROGRESS=<stride>`;
+/-- The progress heartbeat's stride (`CON_LECHE_PROGRESS=<stride>`;
 2026-09-07).  `none` — the variable unset — is off; a value that is not
 a decimal numeral is a hard error, per the provenance discipline the
 retired-variable arms follow (a run's output must be readable off its
 invocation, never silently degraded).  `0` is the explicit "off". -/
 def progressStride : IO (Except String Nat) := do
-  match ← IO.getEnv "LECH_PROGRESS" with
+  match ← IO.getEnv "CON_LECHE_PROGRESS" with
   | none => return .ok 0
   | some s =>
     match s.toNat? with
     | some n => return .ok n
-    | none => return .error s!"LECH_PROGRESS must be a declaration stride \
+    | none => return .error s!"CON_LECHE_PROGRESS must be a declaration stride \
         (a decimal numeral; 0 or unset is off), got {repr s}"
 
 /-- The real driver (run in the supervised child process).  `mode` is
@@ -362,20 +362,20 @@ hand-written trusted twin retired into an instantiation
 cached driver — at `.verified` under `--verified` (the default), at `.trusted`
 under `--trusted`.  The verified instance is covered by
 `no_proof_of_Empty_SPCD_P` over `checkDeclsSPCachedD`
-(`Lech/Verify/Cached/MainC.lean`); the trusted one is unverified by
+(`ConLeche/Verify/Cached/MainC.lean`); the trusted one is unverified by
 design and agrees with it on the install skeletons whenever both
 accept (`trusted_agrees_P_skels_shipped`). -/
 def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be
     -- readable off the invocation (task #147).
-    if (← IO.getEnv "LECH_NO_PROOF_CERTS") == some "1" then
-      IO.eprintln "lech: LECH_NO_PROOF_CERTS is retired; the \
+    if (← IO.getEnv "CON_LECHE_NO_PROOF_CERTS") == some "1" then
+      IO.eprintln "con-leche: CON_LECHE_NO_PROOF_CERTS is retired; the \
         cert-skipping measurement lane is the --trusted mode \
         (checking-mode front door included — see DESIGN.md, task #147)"
       return 3
-    if (← IO.getEnv "LECH_INFER_ONLY") == some "1" then
-      IO.eprintln "lech: LECH_INFER_ONLY is retired; the infer-only \
+    if (← IO.getEnv "CON_LECHE_INFER_ONLY") == some "1" then
+      IO.eprintln "con-leche: CON_LECHE_INFER_ONLY is retired; the infer-only \
         internal discipline is part of the --trusted mode, and the \
         certified mode is --verified, the default \
         (see DESIGN.md, task #147)"
@@ -383,13 +383,13 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- The opt-in progress heartbeat (2026-09-07): validated here, once,
     -- before any work is done.
     let stride ← match ← progressStride with
-      | .error msg => IO.eprintln s!"lech: {msg}"; return 3
+      | .error msg => IO.eprintln s!"con-leche: {msg}"; return 3
       | .ok n => pure n
-    -- The route trace (`LECH_ROUTE_TRACE`, task #193): one `lech:
+    -- The route trace (`CON_LECHE_ROUTE_TRACE`, task #193): one `con-leche:
     -- route <block> <struct|sum|fix|inmodel|modeled>` line per inductive block,
     -- on the progress lane (so a traced run is as unverified as a
     -- heartbeat run, and says so).
-    let trace := (← IO.getEnv "LECH_ROUTE_TRACE").isSome
+    let trace := (← IO.getEnv "CON_LECHE_ROUTE_TRACE").isSome
     let t0 ← IO.monoMsNow
     -- Every VERDICT line names the mode (2026-09-07): a `--trusted`
     -- run — the unverified lane — must never be mistaken for a
@@ -397,7 +397,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     let modeTag : String := match mode with
       | .verified => "--verified"
       | .trusted => "--trusted"
-    -- THE BUILT-IN PRELUDE (task #191, `Lech/Frontend/Prelude.lean`):
+    -- THE BUILT-IN PRELUDE (task #191, `ConLeche/Frontend/Prelude.lean`):
     -- the pinned basis blocks and `Bool`, parsed from the committed
     -- `pins/<toolchain>.prelude.ndjson` and PREPENDED to every parsed
     -- stream, so the fold installs them first and unconditionally; a
@@ -407,12 +407,12 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     let prelude ← match Frontend.builtinPreludeE with
       | .ok p => pure p
       | .error (.parseError line msg) =>
-        IO.eprintln s!"lech: the built-in prelude does not parse (line \
+        IO.eprintln s!"con-leche: the built-in prelude does not parse (line \
           {line}: {msg}); regenerate it with `lake exe natop-pins-export` \
           ({modeTag})"
         return 3
       | .error (.unsupported what) =>
-        IO.eprintln s!"lech: the built-in prelude is unsupported ({what}); \
+        IO.eprintln s!"con-leche: the built-in prelude is unsupported ({what}); \
           regenerate it with `lake exe natop-pins-export` ({modeTag})"
         return 3
     -- Streaming frontend (task #57, task #180): the preprocessor's
@@ -423,10 +423,10 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- preprocessor spawn.
     -- THE IN-PROCESS MODELLER (task #200): mutual and nested blocks
     -- without a model in the stream get their `_model` family generated
-    -- at parse time (`Lech/Frontend/InModel.lean`); `LECH_INMODEL=0`
-    -- turns it off, `LECH_INMODEL_DUMP=OUT` writes the raw input with the
+    -- at parse time (`ConLeche/Frontend/InModel.lean`); `CON_LECHE_INMODEL=0`
+    -- turns it off, `CON_LECHE_INMODEL_DUMP=OUT` writes the raw input with the
     -- generated records spliced in (the generator's debug gate).
-    let inModel := (← IO.getEnv "LECH_INMODEL") != some "0"
+    let inModel := (← IO.getEnv "CON_LECHE_INMODEL") != some "0"
     match ← parseInput file pre modeTag prelude inModel with
     | .preVerdict code =>
       -- the preprocessor's verdict is ours (user ruling 2026-09-07);
@@ -434,49 +434,49 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       -- and is never an accept (it is reached only on a nonzero exit)
       return code
     | .parsed (.error (.unsupported what)) =>
-      IO.eprintln s!"lech: declined: {what} ({modeTag})"
+      IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
     | .parsed (.error (.parseError line msg)) =>
-      IO.eprintln s!"lech: {file}:{line}: {msg}"
+      IO.eprintln s!"con-leche: {file}:{line}: {msg}"
       return 3
     | .parsed (.ok ⟨decls, taintSkipped, projRewrites, preludeCount,
                     preludeDropped, hoisted, inModelled, inModelGen, inModelDeclined⟩) =>
       -- the in-process modeller's receipt (task #200)
       if inModelled.size > 0 then
-        IO.eprintln s!"lech: {inModelled.size} inductive blocks modelled \
+        IO.eprintln s!"con-leche: {inModelled.size} inductive blocks modelled \
           in-process: {String.intercalate ", " (inModelled.toList.map toString)}"
-      -- the census (`LECH_INMODEL_CENSUS=1`): every mutual/nested block's
+      -- the census (`CON_LECHE_INMODEL_CENSUS=1`): every mutual/nested block's
       -- outcome, then stop — the parse only, no fold
-      if (← IO.getEnv "LECH_INMODEL_CENSUS") == some "1" then
+      if (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1" then
         for (n, why) in inModelDeclined do
-          IO.eprintln s!"lech: inmodel declined {n}: {why}"
-        IO.eprintln s!"lech: inmodel census: {inModelled.size} modelled, \
+          IO.eprintln s!"con-leche: inmodel declined {n}: {why}"
+        IO.eprintln s!"con-leche: inmodel census: {inModelled.size} modelled, \
           {inModelDeclined.size} declined ({modeTag}, parse only)"
         return 0
-      if let some out ← IO.getEnv "LECH_INMODEL_DUMP" then
+      if let some out ← IO.getEnv "CON_LECHE_INMODEL_DUMP" then
         if inModelGen.size > 0 then
           Frontend.dumpInModel file out inModelGen
-          IO.eprintln s!"lech: in-process models dumped to {out}"
+          IO.eprintln s!"con-leche: in-process models dumped to {out}"
       -- `decls` = the prelude's `preludeCount` records, then the
       -- stream's (minus `preludeDropped` identical copies of prelude
       -- records); fold positions count from the prelude's first record,
       -- and the stream's accepted-record count is
       -- `decls.size - preludeCount + preludeDropped`
       -- the projection-function rewrite's receipt (2026-09-06,
-      -- `Lech/Frontend/ProjRec.lean`): how many non-direct
+      -- `ConLeche/Frontend/ProjRec.lean`): how many non-direct
       -- structure-like projection functions the parse replaced by
       -- recursor applications
       if projRewrites.size > 0 then
-        IO.eprintln s!"lech: {projRewrites.size} projection functions of \
+        IO.eprintln s!"con-leche: {projRewrites.size} projection functions of \
           non-direct structure-likes rewritten to recursor form"
-        if (← IO.getEnv "LECH_PROJREC_TRACE").isSome then
+        if (← IO.getEnv "CON_LECHE_PROJREC_TRACE").isSome then
           for n in projRewrites do
-            IO.eprintln s!"lech:   rewritten {n}"
+            IO.eprintln s!"con-leche:   rewritten {n}"
       -- the ground hoist's receipt (task #191,
-      -- `Lech/Frontend/NatOpGround.lean`): records moved ahead of a
+      -- `ConLeche/Frontend/NatOpGround.lean`): records moved ahead of a
       -- pinned Nat operation whose certificate statements they ground
       if hoisted.size > 0 then
-        IO.eprintln s!"lech: {hoisted.size} declarations hoisted ahead of \
+        IO.eprintln s!"con-leche: {hoisted.size} declarations hoisted ahead of \
           the pinned Nat operations they ground: \
           {String.intercalate ", " (hoisted.toList.map toString)}"
       -- Taint-skip verdict (user directive 2026-08-24): declarations
@@ -490,15 +490,15 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       -- accepting case is the arm below: it never prints "accepted".)
       let taintNote : IO Unit := do
         unless taintSkipped.isEmpty do
-          IO.eprintln s!"lech: declined: \
+          IO.eprintln s!"con-leche: declined: \
             {Frontend.taintSummary taintSkipped} ({modeTag})"
       -- ONE driver, two modes (2026-09-06; task #185): the trusted
       -- mode is the shared bodies at `.trusted`, the verified mode the
       -- same bodies at `.verified` — the mode is passed straight down.
       -- **Two loops** (user ruling, 2026-09-07).  Without
-      -- `LECH_PROGRESS` the driver calls the verified fold
-      -- `Lech.Cached.checkDeclsSPCachedD` directly — the exact
-      -- function `Lech.no_proof_of_False` (`Lech/MainTheorem.lean`)
+      -- `CON_LECHE_PROGRESS` the driver calls the verified fold
+      -- `ConLeche.Cached.checkDeclsSPCachedD` directly — the exact
+      -- function `ConLeche.no_proof_of_False` (`ConLeche/MainTheorem.lean`)
       -- is about.  With it, the driver calls `checkDeclsProgressIO`
       -- above: the same steps in the same order, in `IO`, printing one
       -- line before each declaration — plainly unverified, and said so
@@ -513,15 +513,15 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       -- taint-skipping stream loses more (measured on
       -- `init-full-pre-native`: 54 351 records against 54 346 fold
       -- positions, offset 0 through position 5 000 and 5 by the end;
-      -- the `LECH_TRACE_DECLS` lane's `+4` is the Mathlib stream's
+      -- the `CON_LECHE_TRACE_DECLS` lane's `+4` is the Mathlib stream's
       -- own total).  The declaration NAME on the line is the
       -- portable handle.
       let tParse ← IO.monoMsNow
       if stride > 0 then
-        IO.eprintln s!"lech: progress parse done: {decls.size - preludeCount} \
+        IO.eprintln s!"con-leche: progress parse done: {decls.size - preludeCount} \
           declarations after the {preludeCount} built-in prelude records \
           ({preludeDropped} stream copies of prelude records dropped) \
-          t={Lech.Cached.msSecs (tParse - t0)}s \
+          t={ConLeche.Cached.msSecs (tParse - t0)}s \
           (preprocess and parse; the progress lane's fold is \
           UNVERIFIED — see --help)"
         (← IO.getStderr).flush
@@ -530,16 +530,16 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       let progressDone : Nat → IO Unit := fun reached => do
         if stride > 0 then
           let now ← IO.monoMsNow
-          IO.eprintln s!"lech: progress fold done: {reached}/\
-            {decls.size} t={Lech.Cached.msSecs (now - t0)}s \
-            (fold {Lech.Cached.msSecs (now - tParse)}s)"
+          IO.eprintln s!"con-leche: progress fold done: {reached}/\
+            {decls.size} t={ConLeche.Cached.msSecs (now - t0)}s \
+            (fold {ConLeche.Cached.msSecs (now - tParse)}s)"
           (← IO.getStderr).flush
       let verdict ←
         if stride > 0 || trace then
           checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0 trace
-            inModelled decls.toList 0 (Lech.mkFEnv Lech.Env.empty) {}
+            inModelled decls.toList 0 (ConLeche.mkFEnv ConLeche.Env.empty) {}
         else
-          pure (Lech.Cached.checkDeclsSPCachedD mode decls.toList)
+          pure (ConLeche.Cached.checkDeclsSPCachedD mode decls.toList)
       match verdict with
       | .ok env =>
         progressDone decls.size
@@ -577,21 +577,21 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         -- `scripts/stream-census.py` derives BOTH numbers from a
         -- stream and is checked against both checkers' actual output.
         -- The environment-constant count stays on stderr under
-        -- `LECH_VERBOSE=1`.
+        -- `CON_LECHE_VERBOSE=1`.
         let streamRecords := decls.size - preludeCount + preludeDropped
         let verboseCounts : IO Unit := do
-          if (← IO.getEnv "LECH_VERBOSE").isSome then
-            IO.eprintln s!"lech: environment: {env.consts.length} constants \
+          if (← IO.getEnv "CON_LECHE_VERBOSE").isSome then
+            IO.eprintln s!"con-leche: environment: {env.consts.length} constants \
               from {decls.size} fold records ({preludeCount} built-in \
               prelude records, {preludeDropped} stream copies of them \
               dropped)"
         if taintSkipped.isEmpty then
-          IO.println s!"lech: accepted {streamRecords} \
+          IO.println s!"con-leche: accepted {streamRecords} \
             declarations ({modeTag})"
           verboseCounts
           return 0
         else
-          IO.eprintln s!"lech: declined ({streamRecords} \
+          IO.eprintln s!"con-leche: declined ({streamRecords} \
             declarations checked, {taintSkipped.size} skipped for \
             tolerated axioms) ({modeTag}): \
             {Frontend.taintDetail taintSkipped}"
@@ -613,7 +613,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
         -- records into one `basisDecl` and drops a few others, so
         -- `init-full` runs at offset 0 for most of the stream and
         -- ends 5 short (54 351 declaration records, 54 346 fold
-        -- positions), while the `LECH_TRACE_DECLS` lane measured
+        -- positions), while the `CON_LECHE_TRACE_DECLS` lane measured
         -- +4 on the Mathlib stream.  The declaration NAME is the
         -- portable handle (`_tmp/frontier3/decl_index.py <stream>
         -- <name>` turns it into a record index and a percentage).
@@ -621,14 +621,14 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
             s!" [at {declCName decls[i]}, fold position {i}]"
           else s!" [at fold position {i}]"
         let now ← IO.monoMsNow
-        IO.eprintln s!"lech: {e}{loc} ({modeTag}) \
-          t={Lech.Cached.msSecs (now - t0)}s"
+        IO.eprintln s!"con-leche: {e}{loc} ({modeTag}) \
+          t={ConLeche.Cached.msSecs (now - t0)}s"
         taintNote
         return e.exitCode
 
 
 def usage : String := String.intercalate "\n" [
-  "usage: lech [--verified|--trusted] [--pre] FILE.ndjson",
+  "usage: con-leche [--verified|--trusted] [--pre] FILE.ndjson",
   "",
   "  --verified        the default: the verified mode (graded model,",
   "                    annotation-gated checks).  The validated-",
@@ -640,7 +640,7 @@ def usage : String := String.intercalate "\n" [
   "                    #135/#136/#137/#146) are off; every other",
   "                    certificate family runs.  Covered by",
   "                    no_proof_of_Empty_SPCD_P over the driver this",
-  "                    binary runs (Lech/Verify/Cached/MainC.lean)",
+  "                    binary runs (ConLeche/Verify/Cached/MainC.lean)",
   "  --trusted         the unverified mode: the SAME checker bodies as",
   "                    --verified, instantiated at the mode with the",
   "                    certification-only work switched off (the",
@@ -657,11 +657,11 @@ def usage : String := String.intercalate "\n" [
   "                    proof to go through), and the mode is never",
   "                    optimized on its own: it is the real mode with",
   "                    certain steps omitted.  Replaces the retired",
-  "                    --yolo/LECH_NO_PROOF_CERTS and",
-  "                    --infer-only/LECH_INFER_ONLY",
-  "  LECH_PROGRESS=<stride>",
+  "                    --yolo/CON_LECHE_NO_PROOF_CERTS and",
+  "                    --infer-only/CON_LECHE_INFER_ONLY",
+  "  CON_LECHE_PROGRESS=<stride>",
   "                    opt-in progress heartbeat on STDERR: one",
-  "                    'lech: progress <i>/<N> <decl> t=<s>s' line",
+  "                    'con-leche: progress <i>/<N> <decl> t=<s>s' line",
   "                    every <stride> declarations, plus one line when",
   "                    the parse finishes and one when the fold does.",
   "                    t= is the elapsed time since the run started, so",
@@ -679,26 +679,26 @@ def usage : String := String.intercalate "\n" [
   "                    printed before each declaration, because a pure",
   "                    fold cannot print.  A run WITHOUT this variable",
   "                    calls checkDeclsSPCachedD, the function the main",
-  "                    theorem (Lech.no_proof_of_False) is about; a",
+  "                    theorem (ConLeche.no_proof_of_False) is about; a",
   "                    run with it is not covered by that theorem.",
-  "  LECH_ROUTE_TRACE=1",
+  "  CON_LECHE_ROUTE_TRACE=1",
   "                    the install-route audit (task #193): one",
-  "                    'lech: route <block> <struct|sum|fix|inmodel|modeled>'",
+  "                    'con-leche: route <block> <struct|sum|fix|inmodel|modeled>'",
   "                    line",
   "                    on STDERR per inductive block, naming the route",
   "                    the checker takes for it (the direct structure",
   "                    route, the direct sum/indexed route, the direct",
   "                    fixed-point route (task #188), or the",
   "                    preprocessor's model).  tests/native-audit.sh",
-  "                    compares these against lech-preprocess's",
+  "                    compares these against con-leche-preprocess's",
   "                    'native' lines: a block the predicate leaves",
   "                    native must read struct or sum here.  Runs on",
   "                    the progress lane's UNVERIFIED fold (above).",
   "",
-  "  LECH_INMODEL=0    turn the IN-PROCESS MODELLER off (task #200).  By",
+  "  CON_LECHE_INMODEL=0    turn the IN-PROCESS MODELLER off (task #200).  By",
   "                    default a mutual or nested inductive block the",
   "                    stream carries no `_model` family for gets one",
-  "                    generated at parse time (Lech/Frontend/InModel/*)",
+  "                    generated at parse time (ConLeche/Frontend/InModel/*)",
   "                    and pushed ahead of the block; the generated",
   "                    records are checked by the fold like any stream",
   "                    declaration, and the block installs through the",
@@ -707,13 +707,13 @@ def usage : String := String.intercalate "\n" [
   "                    reason.  The route trace reads `inmodel` for such",
   "                    a block.  With the flag off the block reaches the",
   "                    fold bare and declines with 'missing model'.",
-  "  LECH_INMODEL_DUMP=OUT",
+  "  CON_LECHE_INMODEL_DUMP=OUT",
   "                    write a copy of the raw input with the generated",
   "                    records spliced in ahead of each modelled block",
   "                    (lean4export format; the generator's debug gate,",
   "                    tests/inmodel.sh).",
   "",
-  "  LECH_VERBOSE=1    add one stderr line beside the verdict giving the",
+  "  CON_LECHE_VERBOSE=1    add one stderr line beside the verdict giving the",
   "                    ENVIRONMENT-CONSTANT count and the fold's record",
   "                    count.  The verdict line counts the STREAM's",
   "                    accepted declaration RECORDS: one per",
@@ -735,7 +735,7 @@ def usage : String := String.intercalate "\n" [
   "                    stream.",
   "",
   "  --pre             assert FILE is already preprocessed output of",
-  "                    lech-preprocess (or the stock",
+  "                    con-leche-preprocess (or the stock",
   "                    lean-inductive-models): skip the preprocessor",
   "                    detection scan and spawn entirely",
   "",
@@ -743,7 +743,7 @@ def usage : String := String.intercalate "\n" [
   "unconditionally, the checker's own little prelude — the six pinned",
   "basis blocks (Eq, Nat, PUnit, Empty, False, Quot) and the toolchain's",
   "Bool block (pins/<toolchain>.prelude.ndjson, embedded at build time;",
-  "Lech/Frontend/Prelude.lean) — so the pin-certified Nat operations",
+  "ConLeche/Frontend/Prelude.lean) — so the pin-certified Nat operations",
   "find their ground whatever order the export chose.  A stream's own",
   "copy of a prelude declaration is dropped when it is the same",
   "declaration and DECLINES the run (exit 2, naming it) when it differs;",
@@ -751,36 +751,36 @@ def usage : String := String.intercalate "\n" [
   "A pinned operation's stream-certified structural ground (Nat.ble,",
   "Nat.sub, Nat.mul — spelled into the certificate statements, not",
   "reachable from the operation's own value) is HOISTED ahead of the",
-  "operation when the stream declares it later (Lech/Frontend/",
+  "operation when the stream declares it later (ConLeche/Frontend/",
   "NatOpGround.lean): a dependency-closed reorder of the parsed list,",
   "reported on stderr.  Both are pure transformations of the parsed",
   "list below the verified fold; the main theorem is about the fold",
   "over prelude ++ stream.",
   "",
   "THE PREPROCESSOR.  Unless --pre says otherwise, an input containing",
-  "inductive/quot records is run through lech-preprocess, which",
+  "inductive/quot records is run through con-leche-preprocess, which",
   "reduces inductives to the modelled basis.  It is spawned with",
-  "--quiet --no-type-check-generated (lech checks the generated",
+  "--quiet --no-type-check-generated (con-leche checks the generated",
   "declarations itself; its structural model checks stay on, and the",
   "input is never submitted to Lean's kernel), it writes its export to",
-  "its stdout, and lech parses that pipe as it is produced: no",
+  "its stdout, and con-leche parses that pipe as it is produced: no",
   "temporary file is created, by either process, anywhere.",
   "",
   "A PREPROCESSOR REJECT IS OUR REJECT.  The tool follows the same",
   "arena exit-code contract; its verdict is passed through — exit 1",
   "(its kernel rejected a block: a non-positive occurrence, a wrong",
-  "parameter count) is lech's reject, exit 2 its decline, any other",
+  "parameter count) is con-leche's reject, exit 2 its decline, any other",
   "failure an error (3), each with the tool's own message on stderr.",
   "Only a preprocessor that cannot be RUN falls back to checking the",
   "raw stream (which then declines at the first inductive); set",
-  "LECH_INDUCTIVE_MODELS to a nonexistent path to force that.",
+  "CON_LECHE_INDUCTIVE_MODELS to a nonexistent path to force that.",
   "",
   "There is ONE core at two modes and one parse: the verified mode",
   "(--verified, the default) and the unverified trusted mode",
   "(--trusted).  The stream is read directly to the cached",
   "representation and checked by the one driver, which the capstone",
   "letter is about at the verified mode (no_proof_of_Empty_SPCD_P in",
-  "Lech/Verify/Cached/MainC.lean).  Retired: --set-model/",
+  "ConLeche/Verify/Cached/MainC.lean).  Retired: --set-model/",
   "--set-model=p (now --verified) and --no-model (now --trusted),",
   "2026-09-06; the --core selector, the interned arena and the",
   "--install-only/--check-range split driver (task #172); and the R",
@@ -788,7 +788,7 @@ def usage : String := String.intercalate "\n" [
   "consistency proof it was the subject of)."]
 
 structure Args where
-  mode : Lech.CheckMode := .verified
+  mode : ConLeche.CheckMode := .verified
   pre : Bool := false
   files : Array String := #[]
   bad : Option String := none
@@ -883,13 +883,13 @@ def main (args : List String) : IO UInt32 := do
   -- here once and threaded as configuration.  Two cores since the R
   -- core's retirement (2026-09-05): the graded verified one and the
   -- unverified trusted one.
-  -- `--pre`: the input is already-preprocessed `lech-preprocess`
+  -- `--pre`: the input is already-preprocessed `con-leche-preprocess`
   -- output (explicit user assertion — the checker never sniffs input
   -- content for it); skips the `needsPreprocess` scan and the
   -- preprocessor spawn.
   let a := parseArgs args {}
   if let some msg := a.bad then
-    IO.eprintln s!"lech: {msg}"
+    IO.eprintln s!"con-leche: {msg}"
     IO.eprintln usage
     return 3
   let pre := a.pre
@@ -904,13 +904,13 @@ def main (args : List String) : IO UInt32 := do
     -- exit 3 (error), per the arena convention that 1 means "invalid
     -- input proof".  Progress output streams through (stdout is
     -- inherited); stderr is buffered for inspection and re-printed.
-    if (← IO.getEnv "LECH_SUPERVISED").isSome then
+    if (← IO.getEnv "CON_LECHE_SUPERVISED").isSome then
       checkMain file a.mode pre
     else
       let child ← IO.Process.spawn {
         cmd := (← IO.appPath).toString
         args := childArgs a file
-        env := #[("LECH_SUPERVISED", some "1")]
+        env := #[("CON_LECHE_SUPERVISED", some "1")]
         stdout := .inherit
         stderr := .piped }
       -- The child's stderr is STREAMED, line by line, rather than read
@@ -930,7 +930,7 @@ def main (args : List String) : IO UInt32 := do
         if (line.splitOn "INTERNAL PANIC").length > 1 then panicked := true
       let code ← child.wait
       if code = 1 ∧ panicked then
-        IO.eprintln "lech: internal panic in the checker process"
+        IO.eprintln "con-leche: internal panic in the checker process"
         return 3
       return code
   | _ =>

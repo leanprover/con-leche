@@ -5,7 +5,7 @@
    (`List TwoPins`, `List (Option TwoPins)`, `List (List TwoPins)`).
    The in-process modeller's B3/B4 arms take it; official agrees.
 
-   official: 0.  lech at master 700a06ca: 0 piped, 0 raw (both modes).
+   official: 0.  con-leche at master 700a06ca: 0 piped, 0 raw (both modes).
    Probe of record: _tmp/indaudit/probes/P/NestTwoPins.lean. -/
 inductive TwoPins
   | a (l : List TwoPins)

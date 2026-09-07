@@ -10,7 +10,7 @@ import Lean
    floor — cannot be written with Lean's `inductive` command (the
    surface checker refuses a result sort that may be `Prop`), so it is
    *kernel-added* here exactly as the preprocessor splices it
-   (`InductiveModels.psigmaPrimeDecl`).  lech's frontend matches the
+   (`InductiveModels.psigmaPrimeDecl`).  con-leche's frontend matches the
    resulting block against its pinned basis declarations, so this
    fixture runs the real pin.
 
@@ -23,7 +23,7 @@ import Lean
 
    Committed as a *raw* lean4export result (regenerate with
    `LEAN_INDUCTIVE_MODELS_FILTER=0`); `tests/arena.sh` runs it with
-   `LECH_INDUCTIVE_MODELS=/nonexistent` (the `raw` marker in
+   `CON_LECHE_INDUCTIVE_MODELS=/nonexistent` (the `raw` marker in
    `tests/e2e-expected.txt`).
 
    What it forces, at a **neutral** major `t : PSigma'.{1,1} α β`
@@ -32,12 +32,12 @@ import Lean
 
    * `Eq.refl (motive t) (minor t.1 t.2)` must have type
      `Eq (motive t) …`, i.e. `motive (PSigma'.mk α β t.1 t.2) ≡
-     motive t` — defeq-side pair eta (`pairEtaCert` in lech,
+     motive t` — defeq-side pair eta (`pairEtaCert` in con-leche,
      `try_eta_struct` officially);
    * the stated left-hand side `PSigma'.rec α β motive minor t` must
      be identified with `minor t.1 t.2` — the *stuck-major* rescue
      (`to_cnstr_when_structure` / lean4lean `toCtorWhenStruct`), which
-     for the pinned `PSigma'` is inert in lech (the generic
+     for the pinned `PSigma'` is inert in con-leche (the generic
      `structEtaCertWith` excludes reserved basis names and the 0-field
      `PUnit` fallback needs `etaFields = 0`).
 
@@ -45,7 +45,7 @@ import Lean
    result sort `max u v` may be zero, so Lean's kernel derives a small
    eliminator: `motive : PSigma' α β → Sort 0`, two level parameters).
    Every term the rescue could produce is therefore a *proof*, and
-   lech identifies the two sides by proof irrelevance instead — the
+   con-leche identifies the two sides by proof irrelevance instead — the
    verdict is the same.  This fixture pins that equality of verdicts.
 -/
 
