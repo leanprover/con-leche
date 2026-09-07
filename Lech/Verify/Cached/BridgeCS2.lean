@@ -427,11 +427,11 @@ theorem checkIotaThmNS_sim (hμ : mode.verifiedChecks = true) {env' : Env} (henv
       (.bvar 0)).getAppArgs.take rP == fvs.take rP) = true
   case neg => simp only [if_neg h6]; exact SimC.throw_bind
   simp only [if_pos h6]
-  by_cases h7 : Expr.eqUpToNames ((tbody.getAppArgs.getD 1
+  by_cases h7 : (((tbody.getAppArgs.getD 1
       (.bvar 0)).getAppArgs.getLastD (.bvar 0))
-      (Expr.mkAppN (.const (f r.ctor) lvls)
+      == (Expr.mkAppN (.const (f r.ctor) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
-          (p.renameConsts f)) ++ fvs.drop rP)) = true
+          (p.renameConsts f)) ++ fvs.drop rP))) = true
   case neg => simp only [if_neg h7]; exact SimC.throw_bind
   simp only [if_pos h7]
   refine SimC.bind (SimC.unwrapOr' hs₂)
@@ -690,9 +690,9 @@ theorem checkMemberValS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
   by_cases h2 : cvm.levelParams = cvA.levelParams
   case neg => simp only [if_neg h2]; exact SimC.throw_bind
   simp only [if_pos h2]
-  by_cases h3 : Expr.eqUpToNames (cvA.type.renameConsts
+  by_cases h3 : ((cvA.type.renameConsts
       (fun n => if blockNames.contains n then n.str "_model" else n))
-      cvm.type = true
+      == cvm.type) = true
   case neg => simp only [if_neg h3]; exact SimC.throw_bind
   simp only [if_pos h3]
   exact SimC.pure hs₁ ⟨rfl, hwty⟩

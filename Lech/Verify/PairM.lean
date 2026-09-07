@@ -528,15 +528,15 @@ theorem structUnitCert_snd_proj (d : Nat) (a b : Expr) :
   unfold structUnitCert
   snd_tac
 
-theorem etaCert_fst_proj (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta) (b : Expr) :
-    (etaCert mode (pairFns r₁ r₂ h) env d n ty body mb b).val.1 =
-      etaCert mode r₁ env d n ty body mb b := by
+theorem etaCert_fst_proj (d : Nat) (ty body : Expr) (mb : BinderMeta) (b : Expr) :
+    (etaCert mode (pairFns r₁ r₂ h) env d ty body mb b).val.1 =
+      etaCert mode r₁ env d ty body mb b := by
   unfold etaCert
   fst_tac
 
-theorem etaCert_snd_proj (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta) (b : Expr) :
-    (etaCert mode (pairFns r₁ r₂ h) env d n ty body mb b).val.2 =
-      etaCert mode r₂ env d n ty body mb b := by
+theorem etaCert_snd_proj (d : Nat) (ty body : Expr) (mb : BinderMeta) (b : Expr) :
+    (etaCert mode (pairFns r₁ r₂ h) env d ty body mb b).val.2 =
+      etaCert mode r₂ env d ty body mb b := by
   unfold etaCert
   snd_tac
 

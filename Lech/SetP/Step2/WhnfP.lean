@@ -496,7 +496,7 @@ the subject, so its reading is the subject's (`Option.some.inj`) and
 both conjuncts are reflexivity. -/
 theorem whnfCore_leaf_claimP (m : EnvS2Core V env) {fuel d : Nat}
     {e e' : Expr} {Δa : List AVExpr} {ea ea' : AVExpr}
-    (hleaf : (∃ u, e = .sort u) ∨ (∃ idx n ty, e = .fvar idx ty) ∨
+    (hleaf : (∃ u, e = .sort u) ∨ (∃ idx ty, e = .fvar idx ty) ∨
       (∃ n ty body bi, e = .forallE ty body bi) ∨
       (∃ n ty body mb, e = .lam ty body mb) ∨
       (∃ n us, e = .const n us) ∨ (∃ l, e = .lit l))
@@ -508,7 +508,7 @@ theorem whnfCore_leaf_claimP (m : EnvS2Core V env) {fuel d : Nat}
       ∀ ρ : Nat → V, Sat2 V Δa ρ →
         interp2 V ρ ea = interp2 V ρ ea' := by
   have he : e' = e := by
-    rcases hleaf with ⟨u, rfl⟩ | ⟨idx, n, ty, rfl⟩ |
+    rcases hleaf with ⟨u, rfl⟩ | ⟨idx, ty, rfl⟩ |
       ⟨n, ty, body, bi, rfl⟩ | ⟨n, ty, body, mb, rfl⟩ |
       ⟨n, us, rfl⟩ | ⟨l, rfl⟩ <;>
       simp only [whnfCore_leaf_sort, whnfCore_leaf_fvar, whnfCore_leaf_forallE,
@@ -731,7 +731,7 @@ theorem whnfCore_claimsP (m : EnvS2Core V env) {fuel : Nat}
   | .sort u =>
     exact whnfCore_leaf_claimP m (Or.inl ⟨u, rfl⟩) h hea hea' hok
   | .fvar idx ty =>
-    exact whnfCore_leaf_claimP m (Or.inr (Or.inl ⟨idx, n, ty, rfl⟩))
+    exact whnfCore_leaf_claimP m (Or.inr (Or.inl ⟨idx, ty, rfl⟩))
       h hea hea' hok
   | .forallE ty body bi =>
     exact whnfCore_leaf_claimP m

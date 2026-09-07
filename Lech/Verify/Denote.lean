@@ -275,7 +275,7 @@ rewrite rules every consumer uses. -/
   rw [denote]
 
 @[simp] theorem denote_fvar (cval : TConstVal) (env : Env) (φ : Name → Nat)
-    (d idx : Nat) (n : Name) (ty : Expr) :
+    (d idx : Nat) (ty : Expr) :
     denote cval env φ d (.fvar idx ty) = some (.bvar (d - 1 - idx)) := by
   rw [denote]
 
@@ -299,7 +299,7 @@ theorem denote_app (cval : TConstVal) (env : Env) (φ : Name → Nat)
   rw [denote]
 
 theorem denote_forallE (cval : TConstVal) (env : Env) (φ : Name → Nat)
-    (d : Nat) (n : Name) (ty body : Expr) (m : BinderMeta) :
+    (d : Nat) (ty body : Expr) (m : BinderMeta) :
     denote cval env φ d (.forallE ty body m) =
       match denote cval env φ d ty with
       | none => none
@@ -310,7 +310,7 @@ theorem denote_forallE (cval : TConstVal) (env : Env) (φ : Name → Nat)
   rw [denote]
 
 theorem denote_lam (cval : TConstVal) (env : Env) (φ : Name → Nat)
-    (d : Nat) (n : Name) (ty body : Expr) (m : BinderMeta) :
+    (d : Nat) (ty body : Expr) (m : BinderMeta) :
     denote cval env φ d (.lam ty body m) =
       match denote cval env φ d ty with
       | none => none
@@ -321,7 +321,7 @@ theorem denote_lam (cval : TConstVal) (env : Env) (φ : Name → Nat)
   rw [denote]
 
 theorem denote_letE (cval : TConstVal) (env : Env) (φ : Name → Nat)
-    (d : Nat) (n : Name) (ty val body : Expr) :
+    (d : Nat) (ty val body : Expr) :
     denote cval env φ d (.letE ty val body) =
       match denote cval env φ d ty, denote cval env φ d val with
       | some A, some xv =>

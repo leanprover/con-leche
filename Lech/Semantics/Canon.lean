@@ -205,7 +205,7 @@ theorem denote2_erase {mode : CheckMode}
     obtain rfl := Option.some.inj h
     rw [denote_sort]
     rfl
-  | case2 d idx nm ty =>
+  | case2 d idx ty =>
     intro ea h
     rw [denote2] at h
     obtain rfl := Option.some.inj h
@@ -230,7 +230,7 @@ theorem denote2_erase {mode : CheckMode}
     intro ea h
     rw [denote2, hf] at h
     exact nomatch h
-  | case6 d n ty body m ihty ihbody =>
+  | case6 d ty body m ihty ihbody =>
     intro ea h
     rw [denote2] at h
     rcases hta : denote2 mode acval env φ fuel d ty with _ | ta
@@ -250,7 +250,7 @@ theorem denote2_erase {mode : CheckMode}
     obtain rfl := Option.some.inj h
     rw [denote_forallE, ihty hta, ihbody hba]
     rfl
-  | case7 d n ty body m ihty ihbody =>
+  | case7 d ty body m ihty ihbody =>
     intro ea h
     rw [denote2] at h
     rcases hta : denote2 mode acval env φ fuel d ty with _ | ta
@@ -279,7 +279,7 @@ theorem denote2_erase {mode : CheckMode}
     obtain rfl := Option.some.inj h
     rw [denote_app, ihf hfa, iha haa]
     rfl
-  | case9 d n ty val body ihty ihval ihbody =>
+  | case9 d ty val body ihty ihval ihbody =>
     intro ea h
     rw [denote2] at h
     rcases hta : denote2 mode acval env φ fuel d ty with _ | ta
@@ -360,12 +360,12 @@ theorem denote2_erase {mode : CheckMode}
       rw [denote2.eq_def] at h
       exact nomatch h
     | sort u => exact absurd rfl (hs u)
-    | fvar i ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i ty)
     | const n us => exact absurd rfl (hc n us)
-    | forallE ty b m => exact absurd rfl (hpi n ty b m)
-    | lam ty b m => exact absurd rfl (hlam n ty b m)
+    | forallE ty b m => exact absurd rfl (hpi ty b m)
+    | lam ty b m => exact absurd rfl (hlam ty b m)
     | app f a => exact absurd rfl (happ f a)
-    | letE ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

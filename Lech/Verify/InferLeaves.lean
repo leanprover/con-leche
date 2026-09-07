@@ -121,21 +121,21 @@ open Expr
 
 /-- Every leaf annotation is bvar-closed. -/
 def Expr.LeavesBounded (e : Expr) : Prop :=
-  ∀ l ∈ e.fvarLeaves, Expr.looseBVarsBounded 0 l.2.2 = true
+  ∀ l ∈ e.fvarLeaves, Expr.looseBVarsBounded 0 l.2 = true
 
 /-- The per-index leaf condition backing `fvarConsistent`. -/
-def Expr.LeafCond (d : Nat) (n : Name) (ty : Expr) (e : Expr) : Prop :=
-  ∀ l ∈ e.fvarLeaves, l.1 = d → l.2.1 = n ∧ l.2.2 = ty
+def Expr.LeafCond (d : Nat) (ty : Expr) (e : Expr) : Prop :=
+  ∀ l ∈ e.fvarLeaves, l.1 = d → l.2 = ty
 
-theorem Expr.fvarConsistent_of_leafCond {d : Nat} {n : Name} {ty : Expr} :
-    ∀ (e : Expr), Expr.LeafCond d n ty e → fvarConsistent d n ty e := by
+theorem Expr.fvarConsistent_of_leafCond {d : Nat} {ty : Expr} :
+    ∀ (e : Expr), Expr.LeafCond d ty e → fvarConsistent d ty e := by
   intro e
   induction e with
   | fvar idx ty' ih =>
     intro hc
     simp only [fvarConsistent]
     intro hd
-    exact hc (idx, n', ty') (by simp [fvarLeaves]) hd
+    exact hc (idx, ty') (by simp [fvarLeaves]) hd
   | app f a ihf iha =>
     intro hc
     exact ⟨ihf (fun l hl => hc l (by simp [fvarLeaves, hl])),
@@ -159,9 +159,9 @@ theorem Expr.fvarConsistent_of_leafCond {d : Nat} {n : Name} {ty : Expr} :
   | _ => intro _; simp [fvarConsistent]
 
 /-- The leaf condition holds for a freshly opened binder body. -/
-theorem Expr.LeafCond_opened {d : Nat} {n : Name} {ty body : Expr}
+theorem Expr.LeafCond_opened {d : Nat} {ty body : Expr}
     (hwty : WScoped d ty) (hwbody : WScoped d body) (k : Nat) :
-    Expr.LeafCond d n ty (body.instantiate1 (.fvar d ty) k) := by
+    Expr.LeafCond d ty (body.instantiate1 (.fvar d ty) k) := by
   intro l hl hld
   rcases fvarLeaves_instantiate1 body k hl with hl' | hl'
   · obtain ⟨hlt, -⟩ := WScoped_leaves body hwbody l hl'

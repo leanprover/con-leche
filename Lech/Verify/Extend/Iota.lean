@@ -581,10 +581,10 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   case neg => rw [if_neg hlpre] at h; exact nomatch h
   rw [if_pos hlpre] at h
   try dsimp only at h
-  by_cases hmaj : Expr.eqUpToNames (lhsS.getAppArgs.getLastD (.bvar 0))
-      (Expr.mkAppN (.const (f (RecRule.ctor r)) lvls)
-        (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
-          (p.renameConsts f)) ++ fvs.drop rP)) = true
+  by_cases hmaj : ((lhsS.getAppArgs.getLastD (.bvar 0))
+    == (Expr.mkAppN (.const (f (RecRule.ctor r)) lvls)
+      (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
+        (p.renameConsts f)) ++ fvs.drop rP))) = true
   case neg => rw [if_neg hmaj] at h; exact nomatch h
   rw [if_pos hmaj] at h
   try dsimp only at h
@@ -761,7 +761,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
           tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
           restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
           hfthm, hcvt, rfl, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
-          eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj,
+          eq_of_beq hlpre, (eq_of_beq hmaj ▸ Expr.ErasedEq.rfl _),
           ⟨bsC0, cbody0, Dc, usc, hcstrip, hcheadEq⟩,
           hcinst, hclen,
           checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
@@ -795,7 +795,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
         restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
         hfthm, hcvt, rfl, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
-        eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj,
+        eq_of_beq hlpre, (eq_of_beq hmaj ▸ Expr.ErasedEq.rfl _),
         ⟨bsC0, cbody0, Dc, usc, hcstrip, hcheadEq⟩,
         hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,

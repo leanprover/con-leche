@@ -310,7 +310,7 @@ theorem prf_of_isProofFast {m : EnvS2Core V env} (hct : ConstTypeP m φ)
   refine interp2_mkAppN_pt ?_ vs
   rcases headProofPW_some_inv env.find? hhead with
     ⟨c, us, ci, hfn, hf, hnt, hlen, pw0, hty, rfl⟩ |
-    ⟨idx, n, ty, hfn, hty⟩ | rfl
+    ⟨idx, ty, hfn, hty⟩ | rfl
   · -- a constant head: the stored type decides
     rw [hfn, denoteP_const hf hlen] at hfa
     obtain rfl := Option.some.inj hfa

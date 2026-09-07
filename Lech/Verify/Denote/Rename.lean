@@ -206,13 +206,13 @@ theorem PiDomsRenEqT.of_pointwise {f : Name → Name} :
       rw [hs1] at h1
       rw [hs2] at h2
       simp only [Option.map_some, Option.some.injEq] at h1 h2
-      obtain ⟨hb1, -⟩ : (n₁, d₁, m₁) :: p1.1 = bs₁ ∧ p1.2 = body₁ := by
+      obtain ⟨hb1, -⟩ : (d₁, m₁) :: p1.1 = bs₁ ∧ p1.2 = body₁ := by
         cases h1; exact ⟨rfl, rfl⟩
-      obtain ⟨hb2, -⟩ : (n₂, d₂, m₂) :: p2.1 = bs₂ ∧ p2.2 = body₂ := by
+      obtain ⟨hb2, -⟩ : (d₂, m₂) :: p2.1 = bs₂ ∧ p2.2 = body₂ := by
         cases h2; exact ⟨rfl, rfl⟩
       subst hb1 hb2
       refine ⟨n₂, d₂, b₂, m₂, rfl, ?_, ?_⟩
-      · exact hdoms 0 (n₁, d₁, m₁) (n₂, d₂, m₂) rfl rfl
+      · exact hdoms 0 (d₁, m₁) (d₂, m₂) rfl rfl
       · exact ih hs1 hs2 (fun i c₁ c₂ hc₁ hc₂ =>
           hdoms (i + 1) c₁ c₂ (by simpa using hc₁) (by simpa using hc₂))
 

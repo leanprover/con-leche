@@ -386,7 +386,7 @@ theorem inferProjReadsP_of {m : EnvS2Core V env} (htower : TowerOkP m φ)
 the subject. -/
 private theorem whnfCoreReads_leaf {m : EnvS2Core V env}
     {d : Nat} {e e' : Expr} {ea : AVExpr}
-    (hleaf : (∃ u, e = .sort u) ∨ (∃ idx n ty, e = .fvar idx ty) ∨
+    (hleaf : (∃ u, e = .sort u) ∨ (∃ idx ty, e = .fvar idx ty) ∨
       (∃ n ty body bi, e = .forallE ty body bi) ∨
       (∃ n ty body mb, e = .lam ty body mb) ∨
       (∃ n us, e = .const n us) ∨ (∃ l, e = .lit l))
@@ -394,7 +394,7 @@ private theorem whnfCoreReads_leaf {m : EnvS2Core V env}
     (hea : denoteP m.acval env φ d e = some ea) :
     ∃ ea', denoteP m.acval env φ d e' = some ea' := by
   have he : e' = e := by
-    rcases hleaf with ⟨u, rfl⟩ | ⟨idx, n, ty, rfl⟩ |
+    rcases hleaf with ⟨u, rfl⟩ | ⟨idx, ty, rfl⟩ |
       ⟨n, ty, body, bi, rfl⟩ | ⟨n, ty, body, mb, rfl⟩ |
       ⟨n, us, rfl⟩ | ⟨l, rfl⟩ <;>
       simp only [whnfCore_leaf_sort, whnfCore_leaf_fvar, whnfCore_leaf_forallE,
@@ -534,7 +534,7 @@ theorem whnfCoreReadsP_succ {m : EnvS2Core V env}
   match e with
   | .sort u => exact whnfCoreReads_leaf (Or.inl ⟨u, rfl⟩) h hea
   | .fvar idx ty =>
-    exact whnfCoreReads_leaf (Or.inr (Or.inl ⟨idx, n, ty, rfl⟩)) h hea
+    exact whnfCoreReads_leaf (Or.inr (Or.inl ⟨idx, ty, rfl⟩)) h hea
   | .forallE ty body bi =>
     exact whnfCoreReads_leaf
       (Or.inr (Or.inr (Or.inl ⟨n, ty, body, bi, rfl⟩))) h hea
@@ -805,7 +805,7 @@ private theorem inferReads_lam {m : EnvS2Core V env}
     frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
   -- the abstraction round trip (`infer_lam_claimP`'s move)
   have hleaf :
-      Expr.LeafCond d n ty (body.instantiate1 (.fvar d ty)) := by
+      Expr.LeafCond d ty (body.instantiate1 (.fvar d ty)) := by
     intro l hl hd
     rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
     · exact absurd hd (by
@@ -817,7 +817,7 @@ private theorem inferReads_lam {m : EnvS2Core V env}
       · exact absurd hd (by
           have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
           omega)
-  have hcons : Expr.fvarConsistent d n ty bt :=
+  have hcons : Expr.fvarConsistent d ty bt :=
     Expr.fvarConsistent_of_leafCond bt (fun l hl =>
       hleaf l (inferTypeCore_fvarLeaves m.wf fuel hbt hwopen l hl))
   have hbtb : bt.looseBVarsBounded 0 = true :=

@@ -53,7 +53,7 @@ theorem stripPis_liftLooseBVars :
       simp only [Prod.mk.injEq] at heq
       obtain ⟨-, rfl⟩ := heq
       obtain ⟨bs'', hs''⟩ := stripPis_liftLooseBVars k n (c + 1) hs
-      refine ⟨(nm, ty.liftLooseBVars n c, mb) :: bs'', ?_⟩
+      refine ⟨(ty.liftLooseBVars n c, mb) :: bs'', ?_⟩
       show (Expr.forallE (Expr.liftLooseBVars n c ty) (Expr.liftLooseBVars n (c + 1) b) mb).stripPis
         (k + 1) = _
       simp only [Expr.stripPis, hs'', Option.map_some]

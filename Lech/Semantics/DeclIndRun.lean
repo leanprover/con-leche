@@ -66,10 +66,9 @@ def MemberValRun (μ : CheckMode) (F : Nat) (env' : Env)
       env'.find? (cvA.name.str "_model")
         = some (.defnInfo cvm mval hint) ∧
       cvm.levelParams = cvA.levelParams ∧
-      Expr.eqUpToNames
-        (cvA.type.renameConsts fun n =>
+      ((cvA.type.renameConsts fun n =>
           if blockNames.contains n then n.str "_model" else n)
-        cvm.type = true
+          == cvm.type) = true
 
 /-- `IndMembersR`'s run/guard half.  **The running valuation is gone**:
 `IndMembersR` threads `cvalModeled` from step to step so that member

@@ -4,11 +4,10 @@ import Lech.Verify.Denote
 /-!
 # The `erasePw` head inversions (task #161)
 
-`ConstantVal.matchesPin` compares through `erasePw` *and*
-`eraseNames`.  `Install/Axiom.lean` has the two constant-head
-inversions; the pinned telescopes need the four remaining heads, and
-composing the two erasures once here keeps every consumer's chain one
-step per node.
+`ConstantVal.matchesPin` compares through `erasePw`.
+`Install/Axiom.lean` has the constant-head inversion; the pinned
+telescopes need the four remaining heads, and doing the erasure once
+here keeps every consumer's chain one step per node.
 
 These lemmas landed in `Interp2/AxiomBitsP.lean` (ENDGAME A) and moved
 here **verbatim** at ENDGAME D, when the reduce-operation pin's shape
@@ -23,20 +22,19 @@ open Lech.TT Lech.TTVerify
 open Lech (Expr Name Level BinderMeta)
 
 /-- `erasePw` inversion at a `∀`: the head is a `∀`, and
-its name and meta are exactly what the comparison forgives. -/
-theorem erasePwNames_forallE_invS {e : Expr} {n : Name} {ty b : Expr}
+its meta is exactly what the comparison forgives. -/
+theorem erasePwNames_forallE_invS {e : Expr} {ty b : Expr}
     {m : BinderMeta}
     (h : e.erasePw = .forallE ty b m) :
-    ∃ n' ty' b' m', e = .forallE ty' b' m' ∧
+    ∃ ty' b' m', e = .forallE ty' b' m' ∧
       ty'.erasePw = ty ∧ b'.erasePw = b := by
   cases e with
   | forallE ty' b' m' =>
     simp only [Expr.erasePw, Expr.forallE.injEq] at h
-    exact ⟨n', ty', b', m', rfl, h.2.1, h.2.2.1⟩
+    exact ⟨ty', b', m', rfl, h.1, h.2.1⟩
   | _ => simp only [Expr.erasePw] at h; exact nomatch h
 
-/-- `erasePw` inversion at a sort (both erasures fix
-it). -/
+/-- `erasePw` inversion at a sort (the erasure fixes it). -/
 theorem erasePwNames_sort_invS {e : Expr} {u : Level}
     (h : e.erasePw = .sort u) : e = .sort u := by
   cases e with
@@ -54,8 +52,8 @@ theorem erasePwNames_app_invS {e : Expr} {f a : Expr}
     exact ⟨f', a', rfl, h.1, h.2⟩
   | _ => simp only [Expr.erasePw] at h; exact nomatch h
 
-/-- `erasePw` inversion at a constant (the composite of
-`Install/Axiom.lean`'s two head inversions). -/
+/-- `erasePw` inversion at a constant (`Install/Axiom.lean`'s head
+inversion). -/
 theorem erasePwNames_const_invS {e : Expr} {n : Name} {us : List Level}
     (h : e.erasePw = .const n us) : e = .const n us :=
   erasePw_const_invS h

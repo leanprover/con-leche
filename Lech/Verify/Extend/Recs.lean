@@ -46,9 +46,9 @@ inductive ProvFacts (F : Nat) (blockNames : List Name) :
       (∃ cvm mval hmcvm, envAcc.find? (cvA.name.str "_model") =
         some (.defnInfo cvm mval hmcvm) ∧
         cvm.levelParams = cvA.levelParams ∧
-        Expr.eqUpToNames (cvA.type.renameConsts (fun n =>
+        ((cvA.type.renameConsts (fun n =>
           if blockNames.contains n then n.str "_model" else n))
-          cvm.type = true) →
+          == cvm.type) = true) →
       ProvFacts F blockNames
         ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ envSelf rest →
       ProvFacts F blockNames envAcc envSelf
@@ -278,9 +278,9 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
         (∃ cvm mval hmcvm, envSelf.find? (c.1.name.str "_model") =
           some (.defnInfo cvm mval hmcvm) ∧
           cvm.levelParams = c.1.levelParams ∧
-          Expr.eqUpToNames (c.1.type.renameConsts (fun n =>
+          ((c.1.type.renameConsts (fun n =>
             if blockNames.contains n then n.str "_model" else n))
-            cvm.type = true) ∧
+            == cvm.type) = true) ∧
         envSelf.find? c.1.name =
           some (.recInfo c.1 c.2.1 c.2.2.1 []) := by
   intro envAcc envSelf checked h

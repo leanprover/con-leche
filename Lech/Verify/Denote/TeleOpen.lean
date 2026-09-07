@@ -309,7 +309,7 @@ theorem openPisAtFvars_stripPis :
           stripPis_instantiate1_fvar_isSome_rev k 0 (by rw [hstrip']; rfl)
         obtain ⟨⟨bs, body₀⟩, hstrip⟩ := Option.isSome_iff_exists.mp hsome
         obtain ⟨hbody0, -⟩ := Expr.stripPis_instantiate1_eq k 0 hstrip hstrip'
-        refine ⟨(nm, dom, mb) :: bs, body₀, by simp [Expr.stripPis, hstrip],
+        refine ⟨(dom, mb) :: bs, body₀, by simp [Expr.stripPis, hstrip],
           by simp [hlen'], ?_, ?_⟩
         · intro j hj
           cases j with

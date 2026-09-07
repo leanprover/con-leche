@@ -40,7 +40,7 @@ theorem elimLevel_eq (p : DirectParts) :
 
 theorem stripPis_one_inv {e : Expr} {bs : List (Expr × BinderMeta)}
     {b : Expr} (h : e.stripPis 1 = some (bs, b)) :
-    ∃ nm dom mb, e = .forallE dom b mb ∧ bs = [(nm, dom, mb)] := by
+    ∃ nm dom mb, e = .forallE dom b mb ∧ bs = [(dom, mb)] := by
   match e, h with
   | .forallE dom body mb, h =>
     simp only [Expr.stripPis, Option.map_some, Option.some.injEq, Prod.mk.injEq] at h

@@ -372,20 +372,20 @@ private theorem instList_app (f a : Expr) (ws : List Expr) (d : Nat) :
       = .app (f.instantiateList ws d) (a.instantiateList ws d) := by
   rw [Expr.instantiateList]
 
-private theorem instList_lam (n : Name) (ty b : Expr) (m : BinderMeta)
+private theorem instList_lam (ty b : Expr) (m : BinderMeta)
     (ws : List Expr) (d : Nat) :
     (Expr.lam ty b m).instantiateList ws d
       = .lam (ty.instantiateList ws d) (b.instantiateList ws (d + 1)) m := by
   rw [Expr.instantiateList]
 
-private theorem instList_forallE (n : Name) (ty b : Expr) (m : BinderMeta)
+private theorem instList_forallE (ty b : Expr) (m : BinderMeta)
     (ws : List Expr) (d : Nat) :
     (Expr.forallE ty b m).instantiateList ws d
       = .forallE (ty.instantiateList ws d)
           (b.instantiateList ws (d + 1)) m := by
   rw [Expr.instantiateList]
 
-private theorem instList_letE (n : Name) (ty v b : Expr) (ws : List Expr)
+private theorem instList_letE (ty v b : Expr) (ws : List Expr)
     (d : Nat) :
     (Expr.letE ty v b).instantiateList ws d
       = .letE (ty.instantiateList ws d) (v.instantiateList ws d)
@@ -1491,7 +1491,7 @@ private theorem wscopedB_const (n : Name) (us : List Level) (d : Nat) :
 private theorem wscopedB_lit (l : Literal) (d : Nat) :
     (Expr.lit l).wscopedB d = true := by rw [Expr.wscopedB]
 
-private theorem wscopedB_fvar (idx : Nat) (n : Name) (ty : Expr) (d : Nat) :
+private theorem wscopedB_fvar (idx : Nat) (ty : Expr) (d : Nat) :
     (Expr.fvar idx ty).wscopedB d
       = (decide (idx < d) && ty.wscopedB idx) := by rw [Expr.wscopedB]
 
@@ -1499,17 +1499,17 @@ private theorem wscopedB_app (f a : Expr) (d : Nat) :
     (Expr.app f a).wscopedB d = (f.wscopedB d && a.wscopedB d) := by
   rw [Expr.wscopedB]
 
-private theorem wscopedB_lam (n : Name) (ty b : Expr) (m : BinderMeta)
+private theorem wscopedB_lam (ty b : Expr) (m : BinderMeta)
     (d : Nat) :
     (Expr.lam ty b m).wscopedB d = (ty.wscopedB d && b.wscopedB d) := by
   rw [Expr.wscopedB]
 
-private theorem wscopedB_forallE (n : Name) (ty b : Expr) (m : BinderMeta)
+private theorem wscopedB_forallE (ty b : Expr) (m : BinderMeta)
     (d : Nat) :
     (Expr.forallE ty b m).wscopedB d = (ty.wscopedB d && b.wscopedB d) := by
   rw [Expr.wscopedB]
 
-private theorem wscopedB_letE (n : Name) (ty v b : Expr) (d : Nat) :
+private theorem wscopedB_letE (ty v b : Expr) (d : Nat) :
     (Expr.letE ty v b).wscopedB d
       = (ty.wscopedB d && v.wscopedB d && b.wscopedB d) := by
   rw [Expr.wscopedB]

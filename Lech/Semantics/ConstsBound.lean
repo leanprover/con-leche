@@ -64,19 +64,19 @@ and the one closure fact `denote2`'s binder cases need. -/
       ConstsBound env₀ f ∧ ConstsBound env₀ a := by
   rw [ConstsBound]
 
-@[simp] theorem constsBound_lam {env₀ : Env} {n : Name} {ty b : Expr}
+@[simp] theorem constsBound_lam {env₀ : Env} {ty b : Expr}
     {m : Lech.BinderMeta} :
     ConstsBound env₀ (.lam ty b m) ↔
       ConstsBound env₀ ty ∧ ConstsBound env₀ b := by
   rw [ConstsBound]
 
-@[simp] theorem constsBound_forallE {env₀ : Env} {n : Name}
+@[simp] theorem constsBound_forallE {env₀ : Env}
     {ty b : Expr} {m : Lech.BinderMeta} :
     ConstsBound env₀ (.forallE ty b m) ↔
       ConstsBound env₀ ty ∧ ConstsBound env₀ b := by
   rw [ConstsBound]
 
-@[simp] theorem constsBound_letE {env₀ : Env} {n : Name}
+@[simp] theorem constsBound_letE {env₀ : Env}
     {t v b : Expr} :
     ConstsBound env₀ (.letE t v b) ↔
       ConstsBound env₀ t ∧ ConstsBound env₀ v ∧ ConstsBound env₀ b := by
@@ -87,7 +87,7 @@ and the one closure fact `denote2`'s binder cases need. -/
     ConstsBound env₀ (.proj s i e) ↔ ConstsBound env₀ e := by
   rw [ConstsBound]
 
-@[simp] theorem constsBound_fvar {env₀ : Env} {idx : Nat} {n : Name}
+@[simp] theorem constsBound_fvar {env₀ : Env} {idx : Nat}
     {ty : Expr} :
     ConstsBound env₀ (.fvar idx ty) ↔ ConstsBound env₀ ty := by
   rw [ConstsBound]

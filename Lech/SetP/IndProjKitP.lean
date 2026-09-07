@@ -167,7 +167,7 @@ theorem stripLams_denotePTele :
       · intro i0 b hb
         cases i0 with
         | zero =>
-          obtain rfl : (nm, dom, mb) = b := by simpa using hb
+          obtain rfl : (dom, mb) = b := by simpa using hb
           show denoteP acval env φ (j + 0)
             (Expr.instSeq (openFvars j 0) (0 - 1) dom) = _
           rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by

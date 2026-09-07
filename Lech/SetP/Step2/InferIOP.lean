@@ -505,7 +505,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
   obtain ⟨hwopen, hbopen, hLopen⟩ :=
     frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
   have hleaf :
-      Expr.LeafCond d n ty (body.instantiate1 (.fvar d ty)) := by
+      Expr.LeafCond d ty (body.instantiate1 (.fvar d ty)) := by
     intro l hl hd
     rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
     · exact absurd hd (by
@@ -517,7 +517,7 @@ theorem infer_lam_claimIOP (m : EnvS2Core V env)
       · exact absurd hd (by
           have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
           omega)
-  have hcons : Expr.fvarConsistent d n ty bt :=
+  have hcons : Expr.fvarConsistent d ty bt :=
     Expr.fvarConsistent_of_leafCond bt (fun l hl =>
       hleaf l (inferTypeCoreIO_fvarLeaves m.wf fuel hbt hwopen l hl))
   have hbtb : bt.looseBVarsBounded 0 = true :=

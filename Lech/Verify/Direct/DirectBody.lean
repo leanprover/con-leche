@@ -55,18 +55,18 @@ theorem stripPis_instantiate1_full {v : Expr} :
       | some p =>
         rw [hs] at h
         simp only [Option.map_some, Option.some.injEq] at h
-        obtain ⟨hb, hbody⟩ : (n, d, m) :: p.1 = bs ∧ p.2 = body := by
+        obtain ⟨hb, hbody⟩ : (d, m) :: p.1 = bs ∧ p.2 = body := by
           cases h; exact ⟨rfl, rfl⟩
         subst hbody
         obtain ⟨bs', h1, h2⟩ := ih (j + 1) (by rw [hs])
-        refine ⟨(n, d.instantiate1 v j, m) :: bs', ?_, ?_⟩
+        refine ⟨(d.instantiate1 v j, m) :: bs', ?_, ?_⟩
         · simp only [instantiate1, stripPis, h1,
             show j + 1 + k = j + (k + 1) from by omega, Option.map_some]
         · intro i b hbi
           rw [← hb] at hbi
           cases i with
           | zero =>
-            obtain rfl : (n, d, m) = b := by simpa using hbi
+            obtain rfl : (d, m) = b := by simpa using hbi
             rfl
           | succ i =>
             simp only [List.getElem?_cons_succ] at hbi ⊢
@@ -99,10 +99,10 @@ theorem instPisAt_head :
       | some p =>
         rw [hs] at hstrip
         simp only [Option.map_some, Option.some.injEq] at hstrip
-        obtain ⟨hbs, -⟩ : (n, d, m) :: p.1 = bs ∧ p.2 = body := by
+        obtain ⟨hbs, -⟩ : (d, m) :: p.1 = bs ∧ p.2 = body := by
           cases hstrip; exact ⟨rfl, rfl⟩
         rw [← hbs] at hb
-        obtain rfl : (n, d, m) = b := by simpa using hb
+        obtain rfl : (d, m) = b := by simpa using hb
         exact ⟨bo, rfl⟩
   | cons a as ih =>
     intro e ds rest mrem bs body b h hstrip hb
@@ -119,7 +119,7 @@ theorem instPisAt_head :
       | some q =>
         rw [hs] at hstrip
         simp only [Option.map_some, Option.some.injEq] at hstrip
-        obtain ⟨hbs, -⟩ : (n, d, m) :: q.1 = bs ∧ q.2 = body := by
+        obtain ⟨hbs, -⟩ : (d, m) :: q.1 = bs ∧ q.2 = body := by
           cases hstrip; exact ⟨rfl, rfl⟩
         rw [← hbs] at hb
         simp only [List.length_cons, List.getElem?_cons_succ] at hb
@@ -178,12 +178,12 @@ theorem stripPis_binder_bounded :
     | .forallE ty bo m, h =>
       simp only [stripPis, Option.map_eq_some_iff] at h
       obtain ⟨⟨bs', body'⟩, hbstrip, heq⟩ := h
-      obtain ⟨rfl, -⟩ : (n, ty, m) :: bs' = bs ∧ body' = body := by
+      obtain ⟨rfl, -⟩ : (ty, m) :: bs' = bs ∧ body' = body := by
         simpa using heq
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb
       cases i with
       | zero =>
-        obtain rfl : (n, ty, m) = b := by simpa using hbi
+        obtain rfl : (ty, m) = b := by simpa using hbi
         simpa using hb.1
       | succ i =>
         simp only [List.getElem?_cons_succ] at hbi

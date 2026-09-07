@@ -1689,7 +1689,7 @@ theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
       · intro i0 b hb
         cases i0 with
         | zero =>
-          obtain rfl : (nm, dom, mb) = b := by simpa using hb
+          obtain rfl : (dom, mb) = b := by simpa using hb
           show denote cval env ψ (j + 0)
             (Expr.instSeq (openFvars j 0) (0 - 1) dom) = _
           rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
@@ -1882,7 +1882,7 @@ theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
       · intro i0 b hb
         cases i0 with
         | zero =>
-          obtain rfl : (nm, dom, mb) = b := by simpa using hb
+          obtain rfl : (dom, mb) = b := by simpa using hb
           show denote cval env ψ (j + 0)
             (Expr.instSeq (openFvars j 0) (0 - 1) dom) = _
           rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
@@ -2420,7 +2420,7 @@ theorem stripPis_renameConsts {f : Name → Name} :
       | some p =>
         rw [hs] at h
         simp only [Option.map_some, Option.some.injEq] at h
-        obtain ⟨hbs, hbody⟩ : (nm, dom, m) :: p.1 = bs ∧ p.2 = body := by
+        obtain ⟨hbs, hbody⟩ : (dom, m) :: p.1 = bs ∧ p.2 = body := by
           cases h; exact ⟨rfl, rfl⟩
         subst hbs hbody
         show ((b.renameConsts f).stripPis n).map _ = _

@@ -8,7 +8,7 @@ import Lech.Verify.Shift
 `annotate` opens each binder, processes the body, and re-closes it with
 `abstract1`.  The lemmas here make that roundtrip exact:
 
-* `fvarConsistent d n ty e`: every reachable `fvar d` leaf is exactly
+* `fvarConsistent d ty e`: every reachable `fvar d` leaf is exactly
   `fvar d n ty` — true of any opened body and preserved by `annotate`;
 * `abstract1_instantiate1`: closing then re-opening is the identity,
   given consistency and no loose bound variables;
@@ -25,18 +25,18 @@ variable {mode : CheckMode}
 
 open Expr
 
-/-- Every reachable `fvar` leaf with index `d` is exactly `fvar d n ty`. -/
-def Expr.fvarConsistent (d : Nat) (n : Name) (ty : Expr) : Expr → Prop
-  | .fvar idx ty' => idx = d → n' = n ∧ ty' = ty
-  | .app f a => fvarConsistent d n ty f ∧ fvarConsistent d n ty a
-  | .lam t b _ | .forallE t b _ => fvarConsistent d n ty t ∧ fvarConsistent d n ty b
-  | .letE t v b => fvarConsistent d n ty t ∧ fvarConsistent d n ty v ∧ fvarConsistent d n ty b
-  | .proj _ _ e => fvarConsistent d n ty e
+/-- Every reachable `fvar` leaf with index `d` is exactly `fvar d ty`. -/
+def Expr.fvarConsistent (d : Nat) (ty : Expr) : Expr → Prop
+  | .fvar idx ty' => idx = d → ty' = ty
+  | .app f a => fvarConsistent d ty f ∧ fvarConsistent d ty a
+  | .lam t b _ | .forallE t b _ => fvarConsistent d ty t ∧ fvarConsistent d ty b
+  | .letE t v b => fvarConsistent d ty t ∧ fvarConsistent d ty v ∧ fvarConsistent d ty b
+  | .proj _ _ e => fvarConsistent d ty e
   | _ => True
 
 /-- Closing then re-opening a binder body is the identity. -/
-theorem abstract1_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
-    ∀ (e : Expr) (k : Nat), fvarConsistent d n ty e → e.looseBVarsBounded k = true →
+theorem abstract1_instantiate1 {d : Nat} {ty : Expr} :
+    ∀ (e : Expr) (k : Nat), fvarConsistent d ty e → e.looseBVarsBounded k = true →
       (e.abstract1 d k).instantiate1 (.fvar d ty) k = e := by
   intro e
   induction e <;> intro k hc hb <;>
@@ -47,7 +47,7 @@ theorem abstract1_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
     simp [h1, h2]
   case fvar idx ty' ih =>
     by_cases hidx : idx = d
-    · obtain ⟨rfl, rfl⟩ := hc hidx
+    · obtain rfl := hc hidx
       simp [hidx, Expr.instantiate1]
     · simp [hidx, Expr.instantiate1]
 
@@ -65,9 +65,9 @@ theorem WScoped.abstract1 {d : Nat} :
 
 /-- Opening establishes consistency: a body free of `fvar d` opened with
 `fvar d n ty` mentions it consistently. -/
-theorem fvarConsistent_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
+theorem fvarConsistent_instantiate1 {d : Nat} {ty : Expr} :
     ∀ (e : Expr) (k : Nat), fvarsBelow d e →
-      fvarConsistent d n ty (e.instantiate1 (.fvar d ty) k) := by
+      fvarConsistent d ty (e.instantiate1 (.fvar d ty) k) := by
   intro e
   induction e <;> intro k hb <;>
     simp_all [Expr.instantiate1, fvarsBelow, Expr.fvarConsistent]
@@ -79,10 +79,10 @@ theorem fvarConsistent_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
     omega
 
 /-- Consistency at `d` survives opening with a *different* index. -/
-theorem fvarConsistent_instantiate1' {d d' : Nat} {n n' : Name} {ty ty' : Expr}
+theorem fvarConsistent_instantiate1' {d d' : Nat} {ty ty' : Expr}
     (hne : d ≠ d') :
-    ∀ (e : Expr) (k : Nat), fvarConsistent d n ty e →
-      fvarConsistent d n ty (e.instantiate1 (.fvar d' ty') k) := by
+    ∀ (e : Expr) (k : Nat), fvarConsistent d ty e →
+      fvarConsistent d ty (e.instantiate1 (.fvar d' ty') k) := by
   intro e
   induction e <;> intro k hc <;>
     simp_all [Expr.instantiate1, Expr.fvarConsistent]
@@ -94,10 +94,10 @@ theorem fvarConsistent_instantiate1' {d d' : Nat} {n n' : Name} {ty ty' : Expr}
     · split <;> simp [Expr.fvarConsistent]
 
 /-- Consistency at `d` survives abstracting a *different* index. -/
-theorem fvarConsistent_abstract1 {d d' : Nat} {n : Name} {ty : Expr}
+theorem fvarConsistent_abstract1 {d d' : Nat} {ty : Expr}
     (hne : d ≠ d') :
-    ∀ (e : Expr) (k : Nat), fvarConsistent d n ty e →
-      fvarConsistent d n ty (e.abstract1 d' k) := by
+    ∀ (e : Expr) (k : Nat), fvarConsistent d ty e →
+      fvarConsistent d ty (e.abstract1 d' k) := by
   intro e
   induction e <;> intro k hc <;>
     simp_all [Expr.abstract1, Expr.fvarConsistent]
@@ -107,7 +107,7 @@ theorem fvarConsistent_abstract1 {d d' : Nat} {n : Name} {ty : Expr}
     · simpa [Expr.fvarConsistent] using hc
 
 /-- Opening lowers the loose-bvar bound by one. -/
-theorem looseBVarsBounded_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
+theorem looseBVarsBounded_instantiate1 {d : Nat} {ty : Expr} :
     ∀ (e : Expr) (k : Nat), e.looseBVarsBounded (k + 1) = true →
       (e.instantiate1 (.fvar d ty) k).looseBVarsBounded k = true := by
   intro e
@@ -221,7 +221,7 @@ the official `infer_let` triple (`ensure_sort_core(infer(ty'))`,
 `.letE` clause runs.  They were redundant, so the four extra conjuncts
 are gone from this inversion; every consumer takes them from the
 inference side (`inferCore_letE_inv`). -/
-theorem annotateCore_letE_inv {env : Env} {fuel d : Nat} {n : Name}
+theorem annotateCore_letE_inv {env : Env} {fuel d : Nat}
     {ty v b e' : Expr}
     (h : annotateCore mode env (fuel + 1) d (.letE ty v b) = .ok e') :
     ∃ ty' v', annotateCore mode env fuel d ty = .ok ty' ∧
@@ -255,7 +255,7 @@ battery) read it off the rebuilt node instead. -/
 /-- Inversion for `annotate` on ∀-binders: the domain and the opened
 body are annotated and the node is rebuilt, carrying *some* prop-ness
 datum (the P5 write at the verified modes, the input datum otherwise). -/
-theorem annotateCore_forallE_inv {env : Env} {fuel d : Nat} {n : Name}
+theorem annotateCore_forallE_inv {env : Env} {fuel d : Nat}
     {ty body e' : Expr} {m : BinderMeta}
     (h : annotateCore mode env (fuel + 1) d (.forallE ty body m) = .ok e') :
     ∃ ty' body' pw, annotateCore mode env fuel d ty = .ok ty' ∧
@@ -287,7 +287,7 @@ theorem annotateCore_forallE_inv {env : Env} {fuel d : Nat} {n : Name}
     exact ⟨ty', body', m.pw, rfl, hbody, h.symm⟩
 
 /-- Inversion for `annotate` on λ-binders (the ∀ twin; `annotPwLam`). -/
-theorem annotateCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
+theorem annotateCore_lam_inv {env : Env} {fuel d : Nat}
     {ty body e' : Expr} {m : BinderMeta}
     (h : annotateCore mode env (fuel + 1) d (.lam ty body m) = .ok e') :
     ∃ ty' body' pw, annotateCore mode env fuel d ty = .ok ty' ∧
@@ -501,10 +501,10 @@ captures exactly what `FvarsOk` can see, so `FvarsOk` transports across it.
 -/
 
 /-- Same constructor skeleton and identical `fvar`/`bvar` leaves;
-binder names/metadata may differ. -/
+binder metadata may differ. -/
 def Expr.LeafEquiv : Expr → Expr → Prop
   | .bvar i, .bvar j => i = j
-  | .fvar idx ty, .fvar idx' ty' => idx = idx' ∧ n = n' ∧ ty = ty'
+  | .fvar idx ty, .fvar idx' ty' => idx = idx' ∧ ty = ty'
   | .sort _, .sort _ => True
   | .const _ _, .const _ _ => True
   | .lit _, .lit _ => True
@@ -567,7 +567,7 @@ theorem Expr.LeafEquiv.hasFvar_eq : ∀ (e₁ e₂ : Expr), Expr.LeafEquiv e₁ 
 /-- Un-instantiation: if `y` has the same leaves as `x` opened with
 `fvar D`, then abstracting `D` out of `y` recovers the leaves of `x` —
 provided `x` does not mention `fvar D` and has no loose bvars above `k`. -/
-theorem leafEquiv_abstract_of_inst {D : Nat} {n : Name} {ty : Expr} :
+theorem leafEquiv_abstract_of_inst {D : Nat} {ty : Expr} :
     ∀ (x : Expr) (k : Nat) (y : Expr),
       Expr.LeafEquiv (x.instantiate1 (.fvar D ty) k) y →
       fvarsBelow D x → x.looseBVarsBounded (k + 1) = true →
@@ -617,7 +617,7 @@ theorem leafEquiv_abstract_of_inst {D : Nat} {n : Name} {ty : Expr} :
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     simp only [Expr.instantiate1] at hle
     cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
-  | lam nm tyx body ihm ihty ihbody =>
+  | lam tyx body ihm ihty ihbody =>
     intro k y hle hf hb
     simp only [Expr.fvarsBelow] at hf
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb

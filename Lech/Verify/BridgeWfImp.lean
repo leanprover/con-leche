@@ -80,7 +80,7 @@ theorem stripLams_not_hasFvar :
     | .lam ty b m, h =>
       simp only [Expr.stripLams, Option.map_eq_some_iff] at h
       obtain ⟨⟨bs', body'⟩, hstrip, heq⟩ := h
-      obtain ⟨rfl, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body :=
+      obtain ⟨rfl, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body :=
         ⟨congrArg Prod.fst heq, congrArg Prod.snd heq⟩
       simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
       obtain ⟨hrest, hbody⟩ := stripLams_not_hasFvar k hstrip hf.2
@@ -105,7 +105,7 @@ theorem stripPis_not_hasFvar :
     | .forallE ty b m, h =>
       simp only [Expr.stripPis, Option.map_eq_some_iff] at h
       obtain ⟨⟨bs', body'⟩, hstrip, heq⟩ := h
-      obtain ⟨rfl, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body :=
+      obtain ⟨rfl, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body :=
         ⟨congrArg Prod.fst heq, congrArg Prod.snd heq⟩
       simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
       obtain ⟨hrest, hbody⟩ := stripPis_not_hasFvar k hstrip hf.2
@@ -1174,11 +1174,11 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
       fvs.take rP) = true
   case neg => rw [if_neg h6] at h; exact absurd h atF_throw_bind
   rw [if_pos h6] at h ⊢
-  by_cases h7 : Expr.eqUpToNames ((tbody.getAppArgs.getD 1
+  by_cases h7 : (((tbody.getAppArgs.getD 1
       (.bvar 0)).getAppArgs.getLastD (.bvar 0))
-      (Expr.mkAppN (.const (f r.ctor) lvls)
+      == (Expr.mkAppN (.const (f r.ctor) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
-          (p.renameConsts f)) ++ fvs.drop rP)) = true
+          (p.renameConsts f)) ++ fvs.drop rP))) = true
   case neg => rw [if_neg h7] at h; exact absurd h atF_throw_bind
   rw [if_pos h7] at h ⊢
   obtain ⟨q8, hstrip8, h⟩ := atF_bind_ok h
@@ -1533,9 +1533,9 @@ theorem checkMemberVal_wfimp {blockNames : List Name} {env' : Env}
   by_cases h2 : cvm.levelParams = cvA.levelParams
   case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
   rw [if_pos h2] at h ⊢
-  by_cases h3 : Expr.eqUpToNames (cvA.type.renameConsts
+  by_cases h3 : ((cvA.type.renameConsts
       (fun n => if blockNames.contains n then n.str "_model" else n))
-      cvm.type = true
+      == cvm.type) = true
   case neg => rw [if_neg h3] at h; exact absurd h atF_throw_bind
   rw [if_pos h3] at h ⊢
   exact h
@@ -2481,7 +2481,7 @@ theorem stripPis_WScoped {d : Nat} :
     | .forallE ty b m, h =>
       simp only [Expr.stripPis, Option.map_eq_some_iff] at h
       obtain ⟨⟨bs', body'⟩, hstrip, heq⟩ := h
-      obtain ⟨rfl, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body :=
+      obtain ⟨rfl, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body :=
         ⟨congrArg Prod.fst heq, congrArg Prod.snd heq⟩
       simp only [WScoped] at hw
       obtain ⟨hrest, hbody⟩ := stripPis_WScoped k hstrip hw.2
