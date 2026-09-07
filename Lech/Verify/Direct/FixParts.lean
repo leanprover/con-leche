@@ -142,7 +142,8 @@ theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
     directFixKinds? p.toDirectSumParts = some p.kinds ∧
     p.kinds.length = p.ctors.length ∧
     (p.kinds.any (fun ks => ks.any (· == .negative)) = true ∨
-      (p.kinds.any (fun ks => ks.any (· == .reflexive)) = true → p.isProp = true)) := by
+      (p.kinds.any (fun ks => ks.any (· == .reflexive)) = true → p.isProp = true)) ∧
+    0 < p.ctors.length := by
   unfold directFixParts? at h
   split at h
   · next p' hshape =>
@@ -151,19 +152,26 @@ theorem directFixParts?_inv {block : List ConstantInfo} {p : DirectFixParts}
       have hlen : kinds.length = p'.ctors.length := by
         unfold directFixKinds? at hkinds
         exact List.mapM_option_length hkinds
+      have hpos : ∀ (f : List RecFieldKind → Bool), kinds.any f = true → 0 < p'.ctors.length := by
+        intro f hf
+        rw [List.any_eq_true] at hf
+        obtain ⟨ks, hks, -⟩ := hf
+        rw [← hlen]
+        exact List.length_pos_of_mem hks
       split at h
       · next hneg =>
         obtain rfl := Option.some.inj h
-        exact ⟨hshape, hkinds, hlen, Or.inl hneg⟩
+        exact ⟨hshape, hkinds, hlen, Or.inl hneg, hpos _ hneg⟩
       · split at h
         · exact nomatch h
         · split at h
           · exact nomatch h
           · next hguard =>
             split at h
-            · split at h
+            · next hany =>
+              split at h
               · obtain rfl := Option.some.inj h
-                refine ⟨hshape, hkinds, hlen, Or.inr fun hr => ?_⟩
+                refine ⟨hshape, hkinds, hlen, Or.inr fun hr => ?_, hpos _ hany⟩
                 have hr' : kinds.any (fun ks => ks.any (· == .reflexive)) = true := hr
                 show p'.isProp = true
                 revert hguard

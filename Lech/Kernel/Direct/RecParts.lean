@@ -205,11 +205,11 @@ def directIdxAt (nF o i l m : Nat) (e : Expr) : Expr :=
 
 /-- Field `i`'s own telescope moved as `directIdxAt` moves its
 expressions (binder `k` sits under `k` earlier telescope binders). -/
-def directTeleAt (nF o i l : Nat) (tele : List (Expr × BinderMeta)) :
+def directTeleAt (nF o i l : Nat) (pw : PropWhen) (tele : List (Expr × BinderMeta)) :
     List (Expr × BinderMeta) :=
   (List.range tele.length).map fun k =>
     let b := tele.getD k default
-    (directIdxAt nF o i l k b.1, b.2)
+    (directIdxAt nF o i l k b.1, ⟨pw⟩)
 
 /-- The variables of an `m`-binder telescope, innermost last. -/
 def directTeleVars (m : Nat) : List Expr := (List.range m).map fun k => Expr.bvar (m - 1 - k)
@@ -228,10 +228,10 @@ of a rule body (the motive and the `n` minors are the extras):
 `λ a⃗, T.rec p⃗ motive m⃗ e⃗_i(a⃗) (f_i a⃗)` — at a finitary field the
 telescope is empty and this is the recursor at the prefix, the field's
 indices and the field. -/
-def directIhApp (recC : Name) (rlvls : List Level) (nP n nF i : Nat)
+def directIhApp (recC : Name) (rlvls : List Level) (pw : PropWhen) (nP n nF i : Nat)
     (tele : List (Expr × BinderMeta)) (idx : List Expr) : Expr :=
   let m := tele.length
-  Expr.mkLamsOf (directTeleAt nF (n + 1) i 0 tele)
+  Expr.mkLamsOf (directTeleAt nF (n + 1) i 0 pw tele)
     (Expr.mkAppN (.const recC rlvls)
       (directRecPrefixAt nP n nF m ++ idx.map (directIdxAt nF (n + 1) i 0 m) ++
         [Expr.mkAppN (.bvar (nF - 1 - i + m)) (directTeleVars m)]))
@@ -240,11 +240,12 @@ def directIhApp (recC : Name) (rlvls : List Level) (nP n nF i : Nat)
 `j` at the fields, then at the inductive hypotheses of the recursive
 fields (`directRuleBodyAt` with the `ih` arguments; `teleOf i` and
 `idxOf i` are field `i`'s telescope and index expressions). -/
-def directRuleBodyR (recC : Name) (rlvls : List Level) (nP n nF j : Nat) (recIdx : List Nat)
+def directRuleBodyR (recC : Name) (rlvls : List Level) (pw : PropWhen) (nP n nF j : Nat)
+    (recIdx : List Nat)
     (teleOf : Nat → List (Expr × BinderMeta)) (idxOf : Nat → List Expr) : Expr :=
   Expr.mkAppN (.bvar (nF + n - 1 - j))
     (((List.range nF).map fun k => Expr.bvar (nF - 1 - k)) ++
-      recIdx.map fun i => directIhApp recC rlvls nP n nF i (teleOf i) (idxOf i))
+      recIdx.map fun i => directIhApp recC rlvls pw nP n nF i (teleOf i) (idxOf i))
 
 /-- The `ih` binders of a minor premise: for each recursive field
 position (in order), `∀ a⃗, motive e⃗_i(a⃗) (f_i a⃗)` under the `l`
@@ -257,7 +258,7 @@ def directIhPis (nF o : Nat) (pw : PropWhen) (teleOf : Nat → List (Expr × Bin
   | i :: is, l, body =>
     let m := (teleOf i).length
     .forallE
-      (Expr.mkPisOf (directTeleAt nF o i l (teleOf i))
+      (Expr.mkPisOf (directTeleAt nF o i l pw (teleOf i))
         (Expr.mkAppN (.bvar (nF + o - 1 + l + m))
           ((idxOf i).map (directIdxAt nF o i l m) ++
             [Expr.mkAppN (.bvar (nF - 1 - i + l + m)) (directTeleVars m)])))
@@ -337,7 +338,7 @@ def directRecRhsR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (directMotiveTyI T lps nP nIdx ℓ tq.2).bind fun motiveTy =>
     (cty.stripPis nP).bind fun q =>
     (Expr.pisToLamsPw pw nF (q.2.liftLooseBVars (n + 1) 0)
-        (directRuleBodyR recC rlvls nP n nF j recIdx (directFieldTeleOf cty nP nF)
+        (directRuleBodyR recC rlvls pw nP n nF j recIdx (directFieldTeleOf cty nP nF)
           (directFieldIdxOf cty nP nF))).bind
       fun inner =>
     (directMinorsLamsR lps nP pw ctors 1 inner).bind fun minors =>
@@ -355,7 +356,7 @@ def directFixCtors4 (ctorsA : List (ConstantVal × Nat)) (kinds : List (List Rec
 /-- The stream's rules at a recursive block, in constructor order:
 rule `j` fires constructor `j` with its field count and the canonical
 right-hand side with the inductive hypotheses. -/
-def directFixRulesOk (recC : Name) (rlvls : List Level) (nP n : Nat)
+def directFixRulesOk (recC : Name) (rlvls : List Level) (pw : PropWhen) (nP n : Nat)
     (cs : List (ConstantVal × Nat)) (kinds : List (List RecFieldKind)) (rhss : List Expr) :
     Bool :=
   rhss.length == n && kinds.length == n &&
@@ -365,7 +366,7 @@ def directFixRulesOk (recC : Name) (rlvls : List Level) (nP n : Nat)
       ks.length == nF &&
       (match rhs.stripLams (nP + 1 + n + nF) with
        | some (_, rbody) =>
-         rbody == directRuleBodyR recC rlvls nP n nF j (recIdxOf ks)
+         rbody == directRuleBodyR recC rlvls pw nP n nF j (recIdxOf ks)
            (directFieldTeleOf cA.type nP nF) (directFieldIdxOf cA.type nP nF)
        | none => false)
     | _, _, _ => false
@@ -443,13 +444,18 @@ def directFixParts? (block : List ConstantInfo) : Option DirectFixParts :=
     | some kinds =>
       if kinds.any (fun ks => ks.any (· == .negative)) then some ⟨p, kinds⟩
       else if kinds.any (fun ks => ks.any (· == .unsupported)) then none
-      -- a reflexive field is taken only at a `Prop`-valued block with the
-      -- small eliminator (task #202, Stage A1): elsewhere the block falls
-      -- through to the modeled path (subsingleton large elimination is
-      -- Stage A2, the `Type`-valued membership bound is Stage B)
-      else if kinds.any (fun ks => ks.any (· == .reflexive)) && (!p.isProp || p.large) then none
+      -- a reflexive field is taken only at a `Prop`-valued block (task
+      -- #202, Stage A: the small eliminator, and the subsingleton large
+      -- one of a one-constructor block); elsewhere the block falls
+      -- through to the modeled path (the `Type`-valued membership bound
+      -- is Stage B)
+      else if kinds.any (fun ks => ks.any (· == .reflexive)) && !p.isProp then none
       else if kinds.any (fun ks => ks.any fun k => k == .recursive || k == .reflexive) then
-        if directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) p.nP p.ctors.length
+        -- the stream's rules are at the parse placeholder `⟨.never⟩`
+        -- (as are the raw constructor types the bodies are generated
+        -- from), so the comparison is at that bit; the installed rules
+        -- (`directRecRhsR`) carry the elimination regime's
+        if directFixRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
             p.ctors kinds p.rhss then
           some ⟨p, kinds⟩
         else none

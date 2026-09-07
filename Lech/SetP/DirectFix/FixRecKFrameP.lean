@@ -107,8 +107,7 @@ theorem interp_minorAVAtR {m : EnvS2Core V env} {ψ : Name → Nat} {C : Name}
     (hclC : VExpr.bvarsBelow 0 (m.acval C ψ).erase)
     (hFsj : Fss[j]? = some ((ds.drop nP).map (·.2.2)))
     (hokB : SumFieldsOkB w ρp Fss)
-    (hsatC : Sat2 V (((ds.take nP).map (·.2.2)).reverse) ρp)
-    (htl : ∀ i ∈ recIdx (rss.getD j []) nF, ∀ d ∈ (tlss.getD j []).getD i [], (d.2.1 = 0 ↔ ℓ = 0)) :
+    (hsatC : Sat2 V (((ds.take nP).map (·.2.2)).reverse) ρp) :
     interp2 V (consList ms (cons M ρp))
         (minorAVAtR m C ψ nP nF b (1 + j) ds Es (recIdx (rss.getD j []) nF) (tlss.getD j [])
           (Eiss.getD j []))
@@ -151,7 +150,7 @@ theorem interp_minorAVAtR {m : EnvS2Core V env} {ψ : Name → Nat} {C : Name}
     unfold ihDomsI
     simp only [har]
     refine interp_ihPisAV hbz (by omega) hlenAs (recIdx (rss.getD j []) nF) 0 [] _ rfl
-      (fun i hi => (mem_recIdx.mp hi).1) htl ?_
+      (fun i hi => (mem_recIdx.mp hi).1) ?_
     intro ihs' hl
     rw [Nat.zero_add] at hl
     rw [interp2_liftN, ← hl, shiftE_consList]
@@ -266,6 +265,11 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
       (fun fs => ihSpL ℓ (concI w ρp M (Ess.getD j []) j fs)
         (ihDomsI ℓ ρp M rss tlss Eiss (fun j' => (Fss.getD j' []).length) j fs))
       (Fss.getD j []) ρp [])
+    (hsingle : w = 0 → ℓ ≠ 0 → n = 1)
+    (hprop : w = 0 → ℓ ≠ 0 → ∀ j, j < n → ∀ i, i < (Fss.getD j []).length →
+      srcOfEs (Ess.getD j []) (Fss.getD j []).length i = none →
+      ∀ fs : List V, SpineFit ρp ((Fss.getD j []).take i) fs →
+        interp2 V (consList fs ρp) ((Fss.getD j []).getD i default) ∈ˢ (univZero : V))
     {is : List V} (hfit : SpineFit ρp (ips.map (·.2.2)) is) :
     FixKI₀ ℓ w u (consList is (consList ms (cons M ρp))) Fss Ess Fss₀ (ips.map (·.2.2)) rss tlss Eiss ∧
     interp2 V (consList is (consList ms (cons M ρp))) (majorAVAt m T ψ nP nIdx n)
@@ -362,7 +366,7 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
       exact hfit
     · rw [kframe_frameIdx hlenIs', kframe_frP hlenIs' hlenM', hlenIds, hlenFs]
       exact hfibre
-  refine ⟨⟨⟨hcore, ?_, ?_⟩, ?_, ?_⟩, ?_⟩
+  refine ⟨⟨⟨hcore, ?_, ?_⟩, ?_, ?_, ?_⟩, ?_⟩
   · -- the minors in their ih-extended spaces
     intro j hj
     rw [kframe_frMs hlenIs' hlenM' hj, kframe_frP hlenIs' hlenM', kframe_frM hlenIs' hlenM']
@@ -382,6 +386,16 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
     exact this
   · rw [kframe_frP hlenIs' hlenM']; exact hX
   · rw [kframe_frP hlenIs' hlenM', hfamL]; exact hreal
+  · -- the squash regime (task #202 A2): one constructor, its fields a
+    -- `Prop` chain, the unsourced fields propositions
+    intro hw0 hℓ0
+    have hn1 : n = 1 := hsingle hw0 hℓ0
+    refine ⟨by rw [hlenFs, hn1], ?_, ?_⟩
+    · rw [kframe_frP hlenIs' hlenM']
+      have := (hfields 0 (by rw [hn1]; exact Nat.zero_lt_one)).1
+      rwa [hw0] at this
+    · rw [kframe_frP hlenIs' hlenM']
+      exact hprop hw0 hℓ0 0 (by rw [hn1]; exact Nat.zero_lt_one)
   · exact interp_majorAVAt hlenP hlenI hsatP hX hleafT hlenM hfit
 
 end Lech.SetP

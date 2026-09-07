@@ -28,10 +28,10 @@ non-positive occurrence is `.invalid`, an unsupported positive one
 `.notImplemented`), the elimination restriction
 (`elim_only_at_universe_zero`: a large eliminator on a block whose
 sort may be `Prop` is `.invalid` at two or more constructors; at one
-constructor it is positively DECLINED here — the recursive squash
-regime's large eliminator is the fixed-point equation on the proof
-point, not modeled yet — see DESIGN.md, task #188), the constructors'
-distinct names.  The index-threaded twins are
+constructor it is the subsingleton case, taken with the per-field
+criterion at `checkDirectFieldSortsI` — the recursive squash regime's
+large eliminator, task #202 Stage A2), the constructors' distinct
+names.  The index-threaded twins are
 `Lech/Kernel/Direct/RecInstallF.lean`.
 -/
 
@@ -154,13 +154,13 @@ recursor with its rules. -/
 def checkDirectFix (ops : CheckerOps m) (env : Env) (p : DirectFixParts) : m Env := do
   if p.kinds.any (fun ks => ks.any (· == .negative)) then
     throw (.invalid "direct rec: non positive occurrence of the inductive type")
-  if p.large && !p.resSort.isNeverZero then
-    if decide (2 ≤ p.ctors.length) then
-      throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
-        whose sort may be Prop")
-    else
-      throw (.notImplemented "direct rec: large eliminator on a recursive inductive \
-        whose sort may be Prop")
+  -- a large eliminator on a block whose sort may be `Prop`: two or more
+  -- constructors is `.invalid` (official's `elim_only_at_universe_zero`);
+  -- one constructor is the subsingleton case, taken (task #202 Stage
+  -- A2) with the per-field criterion at `checkDirectFieldSortsI`
+  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
+    throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
+      whose sort may be Prop")
   unless (p.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   let (env₁, cvTa, p₁) ← checkDirectSumInd ops env p.toDirectSumParts

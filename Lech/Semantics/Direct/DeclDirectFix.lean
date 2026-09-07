@@ -32,8 +32,9 @@ def DeclDirectFixRun (μ : CheckMode) (F : Nat) (env : Env)
   -- positivity: no non-positive occurrence
   p.kinds.any (fun ks => ks.any (· == .negative)) = false ∧
   -- the elimination restriction: a large eliminator needs a provably
-  -- nonzero sort (the one-constructor `Prop` case is declined)
-  (p.large = true → p.resSort.isNeverZero = true) ∧
+  -- nonzero sort unless the block has one constructor (the subsingleton
+  -- case, task #202 Stage A2)
+  (p.large = true → p.resSort.isNeverZero = true ∨ p.ctors.length < 2) ∧
   (p.ctors.map (·.1.name)).Nodup ∧
   ∃ (cvTa : ConstantVal) (env₁ : Env) (p₁ : DirectSumParts)
     (ctorsA : List (ConstantVal × Nat))
@@ -71,15 +72,17 @@ theorem declDirectFixRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
     exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   rw [if_neg hneg] at h
   -- the elimination guard
-  by_cases hg : (p.large && !p.resSort.isNeverZero) = true
+  by_cases hg : (p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length)) = true
   · rw [if_pos hg] at h
-    split at h <;> exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
+    exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   rw [if_neg hg] at h
-  have helim : p.large = true → p.resSort.isNeverZero = true := by
+  have helim : p.large = true → p.resSort.isNeverZero = true ∨ p.ctors.length < 2 := by
     intro hl
     cases hz : p.resSort.isNeverZero with
-    | true => rfl
-    | false => exact absurd (by simp [hl, hz]) hg
+    | true => exact Or.inl rfl
+    | false =>
+      right
+      exact Classical.byContradiction fun hge => hg (by simp [hl, hz]; omega)
   -- the distinct-names guard
   by_cases hnd : (p.ctors.map (·.1.name)).Nodup
   case neg =>

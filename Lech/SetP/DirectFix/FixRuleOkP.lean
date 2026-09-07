@@ -103,7 +103,7 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
     (hspB : SpineFit ρ ((rds.take (nP + 1 + n)).map (·.2.2)) ((as₁ ++ [M]) ++ ms))
     (hreal : ChainsRealI (fixFamI u w (consList as₁ ρ) Ids nIdx rss tlss Eiss Fss₀ Ess) u w
       (consList as₁ ρ) Ids rss tlss Eiss Fss₀ Fss Ess)
-    (hbits : ∀ d ∈ (tlss.getD j []).getD i [], (d.2.1 = 0 ↔ ℓ = 0))
+    {b : Nat} (hbz : ℓ = 0 ↔ b = 0)
     (hTV : FieldsValid (consList (as₂.take i) (consList as₁ ρ))
       (((tlss.getD j []).getD i []).map (·.2.2)))
     (hEisV : ∀ bs : List V,
@@ -113,11 +113,11 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
     (hsp₂ : SpineFit (consList as₁ ρ) Fs as₂)
     (hi : i ∈ recIdx (rss.getD j []) nF) :
     AnnotOk2 V (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-        (ihAppAV R nP n nF i ((tlss.getD j []).getD i []) ((Eiss.getD j []).getD i [])) ∧
+        (ihAppAV R nP n nF i (rebit b ((tlss.getD j []).getD i [])) ((Eiss.getD j []).getD i [])) ∧
       AnnotValidV V (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-        (ihAppAV R nP n nF i ((tlss.getD j []).getD i []) ((Eiss.getD j []).getD i [])) ∧
+        (ihAppAV R nP n nF i (rebit b ((tlss.getD j []).getD i [])) ((Eiss.getD j []).getD i [])) ∧
       interp2 V (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-          (ihAppAV R nP n nF i ((tlss.getD j []).getD i []) ((Eiss.getD j []).getD i []))
+          (ihAppAV R nP n nF i (rebit b ((tlss.getD j []).getD i [])) ((Eiss.getD j []).getD i []))
         ∈ˢ piTele ℓ (teleOfFields (consList (as₂.take i) (consList as₁ ρ))
             (((tlss.getD j []).getD i []).map (·.2.2)))
           (fun as => SetTheory.app
@@ -273,41 +273,47 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
       · rw [List.mem_singleton] at ha; subst ha
         refine mkAppN_validV trivial fun a ha => ?_
         obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha; trivial
-  -- **the tower**: the moved telescope's walk and the leaf facts
+  -- **the tower**: the moved telescope's walk and the leaf facts (the
+  -- telescope re-bit to the elimination bit, task #202 A2)
+  have hdom_eq : (ihTeleAtR nF (n + 1) i 0 (rebit b ((tlss.getD j []).getD i []))).map (·.2.2)
+      = (ihTeleAtR nF (n + 1) i 0 ((tlss.getD j []).getD i [])).map (·.2.2) := by
+    rw [ihTeleAtR, ihTeleAtR, ihTeleAtGo_rebit, rebit_map_dom]
   have hspIff : ∀ bs : List V,
       SpineFit (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-          ((ihTeleAtR nF (n + 1) i 0 ((tlss.getD j []).getD i [])).map (·.2.2)) bs ↔
+          ((ihTeleAtR nF (n + 1) i 0 (rebit b ((tlss.getD j []).getD i []))).map (·.2.2)) bs ↔
         SpineFit (consList (as₂.take i) (consList as₁ ρ)) (((tlss.getD j []).getD i []).map (·.2.2)) bs := by
     intro bs
     have := spineFit_ihTeleAtGo (o := n + 1) (ρp := consList as₁ ρ) (M := M) (ms := ms) (by omega)
       (fs := as₂) (ihs := []) hlen₂ rfl (Nat.le_of_lt hik) ((tlss.getD j []).getD i []) [] bs
     simp only [List.length_nil, consList] at this
+    rw [hdom_eq]
     exact this
   have hwalk : DomsWalk (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-      (ihTeleAtR nF (n + 1) i 0 ((tlss.getD j []).getD i [])) := by
+      (ihTeleAtR nF (n + 1) i 0 (rebit b ((tlss.getD j []).getD i []))) := by
     refine domsWalk_of_fieldsOkB (w := w) ?_
     have := fieldsOkB_ihTeleAtGo (o := n + 1) (ρp := consList as₁ ρ) (M := M) (ms := ms) (by omega)
       (fs := as₂) (ihs := []) hlen₂ rfl (Nat.le_of_lt hik) ((tlss.getD j []).getD i []) [] hfitS.1
     simp only [List.length_nil, consList] at this
+    rw [hdom_eq]
     exact this
-  have hz : ∀ d ∈ ihTeleAtR nF (n + 1) i 0 ((tlss.getD j []).getD i []), (ℓ = 0 ↔ d.2.1 = 0) := by
+  have hz : ∀ d ∈ ihTeleAtR nF (n + 1) i 0 (rebit b ((tlss.getD j []).getD i [])), (ℓ = 0 ↔ d.2.1 = 0) := by
     intro d hd
-    obtain ⟨d', hd', he⟩ := mem_ihTeleAtGo hd
-    rw [he]; exact (hbits d' hd').symm
+    rw [ihTeleAtR, ihTeleAtGo_rebit] at hd
+    rw [mem_rebit hd]; exact hbz
   have hunder : UnderTowerOk ℓ (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-      (AVExpr.mkAppN R (recPrefixBvarsM nP n nF ((tlss.getD j []).getD i []).length ++
-        ((Eiss.getD j []).getD i []).map (ihIdxAtM nF (n + 1) i 0 ((tlss.getD j []).getD i []).length) ++
-        [AVExpr.mkAppN (.bvar (nF - 1 - i + ((tlss.getD j []).getD i []).length))
-          (teleVarsAV ((tlss.getD j []).getD i []).length)]))
-      (AVExpr.mkAppN (.bvar (nF + (n + 1) - 1 + 0 + ((tlss.getD j []).getD i []).length))
-        (((Eiss.getD j []).getD i []).map (ihIdxAtM nF (n + 1) i 0 ((tlss.getD j []).getD i []).length) ++
-          [AVExpr.mkAppN (.bvar (nF - 1 - i + 0 + ((tlss.getD j []).getD i []).length))
-            (teleVarsAV ((tlss.getD j []).getD i []).length)]))
-      (ihTeleAtR nF (n + 1) i 0 ((tlss.getD j []).getD i [])) := by
+      (AVExpr.mkAppN R (recPrefixBvarsM nP n nF (rebit b ((tlss.getD j []).getD i [])).length ++
+        ((Eiss.getD j []).getD i []).map (ihIdxAtM nF (n + 1) i 0 (rebit b ((tlss.getD j []).getD i [])).length) ++
+        [AVExpr.mkAppN (.bvar (nF - 1 - i + (rebit b ((tlss.getD j []).getD i [])).length))
+          (teleVarsAV (rebit b ((tlss.getD j []).getD i [])).length)]))
+      (AVExpr.mkAppN (.bvar (nF + (n + 1) - 1 + 0 + (rebit b ((tlss.getD j []).getD i [])).length))
+        (((Eiss.getD j []).getD i []).map (ihIdxAtM nF (n + 1) i 0 (rebit b ((tlss.getD j []).getD i [])).length) ++
+          [AVExpr.mkAppN (.bvar (nF - 1 - i + 0 + (rebit b ((tlss.getD j []).getD i [])).length))
+            (teleVarsAV (rebit b ((tlss.getD j []).getD i [])).length)]))
+      (ihTeleAtR nF (n + 1) i 0 (rebit b ((tlss.getD j []).getD i []))) := by
     refine underTowerOk_of_walk hwalk fun bs hsp => ?_
     have hsp' := (hspIff bs).mp hsp
-    have hlen : bs.length = ((tlss.getD j []).getD i []).length := by
-      rw [hsp'.length_eq, List.length_map]
+    have hlen : bs.length = (rebit b ((tlss.getD j []).getD i [])).length := by
+      rw [hsp'.length_eq, List.length_map, rebit_length]
     obtain ⟨hok, hmem, h0, -⟩ := hbody bs hsp'
     have hT := interp_ihDomBody (o := n + 1) (l := 0) (ρp := consList as₁ ρ) (M := M) (ms := ms)
       (by omega) (fs := as₂) (ihs := []) hlen₂ rfl hik bs ((Eiss.getD j []).getD i [])
@@ -323,21 +329,24 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
         hTV
       simp only [List.length_nil, consList] at hv
       have hv' : FieldsValid (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-        ((ihTeleAtR nF (n + 1) i 0 ((tlss.getD j []).getD i [])).map (·.2.2)) := hv
+        ((ihTeleAtR nF (n + 1) i 0 (rebit b ((tlss.getD j []).getD i []))).map (·.2.2)) := by
+        rw [hdom_eq]; exact hv
       have := fieldsValid_getD hv' (j := k)
         (by rw [List.length_map]; exact (List.getElem?_eq_some_iff.mp hk).1)
         (bs := bs) (by rw [← List.map_take]; exact hsp)
       rw [List.getD_eq_getElem?_getD, List.getElem?_map, hk] at this
       exact this
     · have hsp' := (hspIff bs).mp hsp
-      have hlen : bs.length = ((tlss.getD j []).getD i []).length := by
-        rw [hsp'.length_eq, List.length_map]
+      have hlen : bs.length = (rebit b ((tlss.getD j []).getD i [])).length := by
+        rw [hsp'.length_eq, List.length_map, rebit_length]
       rw [← hlen]
       exact (hbody bs hsp').2.2.2
   · -- the value lies in the ih domain
     have hdom := interp_ihDomAV (ℓ := ℓ) (o := n + 1) (l := 0) (ρp := consList as₁ ρ) (M := M)
-      (ms := ms) (by omega) (fs := as₂) (ihs := []) hlen₂ rfl hik hbits ((Eiss.getD j []).getD i [])
-    rw [consList_nil] at hdom
+      (ms := ms) (by omega) (fs := as₂) (ihs := []) hlen₂ rfl hik
+      (tl := rebit b ((tlss.getD j []).getD i [])) (fun d hd => by rw [mem_rebit hd]; exact hbz.symm)
+      ((Eiss.getD j []).getD i [])
+    rw [consList_nil, rebit_map_dom] at hdom
     rw [← hdom]
     unfold ihDomAV ihAppAV
     exact mkLamsAV_bits_mem hz hunder
@@ -392,7 +401,12 @@ theorem fixRuleOkP {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL :
         FieldsValid (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) ∧
         ∀ bs : List V, SpineFit (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)) bs →
         ∀ E ∈ (Eiss.getD j []).getD i [], AnnotValidV V (consList bs (consList (fs.take i) ρp)) E))
-    (hbits : ∀ j i, ∀ d ∈ (tlss.getD j []).getD i [], (d.2.1 = 0 ↔ ℓ = 0))
+    (hsingle : w = 0 → ℓ ≠ 0 → n = 1)
+    (hprop : w = 0 → ℓ ≠ 0 → ∀ ρp : Nat → V, Sat2 V ((pps.map (·.2.2)).reverse) ρp →
+      ∀ j, j < n → ∀ i, i < (Fss.getD j []).length →
+      srcOfEs (Ess.getD j []) (Fss.getD j []).length i = none →
+      ∀ fs : List V, SpineFit ρp ((Fss.getD j []).take i) fs →
+        interp2 V (consList fs ρp) ((Fss.getD j []).getD i default) ∈ˢ (univZero : V))
     {j : Nat} {C : Name} {nF : Nat} {ds : List (Nat × Nat × AVExpr)} {Es : List AVExpr}
     {recIdxJ : List Nat} {EissJ : List (List AVExpr)} {tlsJ : List (List (Nat × Nat × AVExpr))}
     (hcd : cds[j]? = some (C, nF, ds, Es, recIdxJ, EissJ, tlsJ))
@@ -404,7 +418,7 @@ theorem fixRuleOkP {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL :
     (hiff : ∀ ρp : Nat → V, Sat2 V ((pps.map (·.2.2)).reverse) ρp ↔
       Sat2 V (((ds.take nP).map (·.2.2)).reverse) ρp) :
     ∀ ρ : Nat → V, AnnotOkP V ρ (mkLamsAV (fixRuleDataAV m T ψ nP nIdx elimL pps ips cds ds)
-      (fixRuleCoreAV R nP nF n j recIdxJ tlsJ EissJ)) := by
+      (fixRuleCoreAV b R nP nF n j recIdxJ tlsJ EissJ)) := by
   intro ρ
   subst hrecIdx
   subst hEissJ
@@ -473,18 +487,18 @@ theorem fixRuleOkP {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL :
       · exact mem_rebit hd
     rw [hbit]
   rw [hlds]
-  show AnnotOkP V ρ (mkLamsC b (X ++ D) (fixRuleCoreAV R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j [])))
+  show AnnotOkP V ρ (mkLamsC b (X ++ D) (fixRuleCoreAV b R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j [])))
   -- the conclusion, spelled at the rule's leaf frame
   generalize hT : AVExpr.mkAppN (.bvar (nF + (n + 1) - 1))
       ((Es.map fun E => E.liftN (n + 1) nF) ++
         [AVExpr.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + (n + 1) + nF) ++ fieldBvars nF)]) = TC
   -- **the leaf facts** at every fitting spine of the rule's binder data
   have hleaf : ∀ as : List V, SpineFit ρ ((X ++ D).map (·.2.2)) as →
-      AnnotOk2 V (consList as ρ) (fixRuleCoreAV R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j [])) ∧
-      interp2 V (consList as ρ) (fixRuleCoreAV R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j []))
+      AnnotOk2 V (consList as ρ) (fixRuleCoreAV b R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j [])) ∧
+      interp2 V (consList as ρ) (fixRuleCoreAV b R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j []))
         ∈ˢ interp2 V (consList as ρ) TC ∧
       (b = 0 → interp2 V (consList as ρ) TC ∈ˢ (univZero : V)) ∧
-      AnnotValidV V (consList as ρ) (fixRuleCoreAV R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j [])) := by
+      AnnotValidV V (consList as ρ) (fixRuleCoreAV b R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j [])) := by
     intro as hsp
     rw [List.map_append] at hsp
     obtain ⟨block, as₂, rfl, hspB, hspD⟩ := spineFit_append_inv hsp
@@ -512,7 +526,7 @@ theorem fixRuleOkP {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL :
       have := ((hfields j hjn).2 as₂ (by rw [hFsD]; exact hspD)).2
       rwa [hEsD] at this
     obtain ⟨hK, -⟩ := fixKFrame_of hℓ hlenP hlenI hlenFs hlenEs hEs hEisLen hρp hXc hreal hfields
-      hleafT hM hlenm hms hfit
+      hleafT hM hlenm hms hsingle (fun hw0 hℓ0 => hprop hw0 hℓ0 (consList as₁ ρ) hρp) hfit
     have hlenIs' : (idxValsAt (consList as₁ ρ) Es as₂).length = (ips.map (·.2.2)).length := by
       rw [hfit.length_eq]
     have hlenm' : ms.length = Fss.length := by rw [hlenFs]; exact hlenm
@@ -560,11 +574,11 @@ theorem fixRuleOkP {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL :
     have har : (Fss.getD j []).length = nF := by rw [hFsD, hlenFs']
     have hih : ∀ i ∈ recIdx (rss.getD j []) nF,
         AnnotOk2 V (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-          (ihAppAV R nP n nF i ((tlss.getD j []).getD i []) ((Eiss.getD j []).getD i [])) ∧
+          (ihAppAV R nP n nF i (rebit b ((tlss.getD j []).getD i [])) ((Eiss.getD j []).getD i [])) ∧
         AnnotValidV V (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-          (ihAppAV R nP n nF i ((tlss.getD j []).getD i []) ((Eiss.getD j []).getD i [])) ∧
+          (ihAppAV R nP n nF i (rebit b ((tlss.getD j []).getD i [])) ((Eiss.getD j []).getD i [])) ∧
         interp2 V (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-            (ihAppAV R nP n nF i ((tlss.getD j []).getD i []) ((Eiss.getD j []).getD i []))
+            (ihAppAV R nP n nF i (rebit b ((tlss.getD j []).getD i [])) ((Eiss.getD j []).getD i []))
           ∈ˢ piTele ℓ (teleOfFields (consList (as₂.take i) (consList as₁ ρ))
               (((tlss.getD j []).getD i []).map (·.2.2)))
             (fun as => SetTheory.app
@@ -575,7 +589,7 @@ theorem fixRuleOkP {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL :
       intro i hi
       have hV := hEisV j hjn i (by rw [har]; exact hi) as₂ (by rw [hFsD]; exact hspD)
       exact ihAppAV_facts h hlenFs hlenIds hjn hFsj hlenFs' hR hRcl hlen₁ hlenm hlen₂ hRok
-        (by rw [hprefix, hXdoms]; exact hspB) hreal (hbits j i) hV.1 hV.2 hspD hi
+        (by rw [hprefix, hXdoms]; exact hspB) hreal hbz hV.1 hV.2 hspD hi
     -- the ih tower's fold
     have hAs : ihDomsI ℓ (consList as₁ ρ) M rss tlss Eiss (fun j' => (Fss.getD j' []).length) j as₂
         = (recIdx (rss.getD j []) nF).map fun i =>
@@ -592,7 +606,7 @@ theorem fixRuleOkP {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL :
       (C := concI w (consList as₁ ρ) M (Ess.getD j []) j as₂)
       (As := ihDomsI ℓ (consList as₁ ρ) M rss tlss Eiss (fun j' => (Fss.getD j' []).length) j as₂)
       (args := (recIdx (rss.getD j []) nF).map fun i =>
-        ihAppAV R nP n nF i ((tlss.getD j []).getD i []) ((Eiss.getD j []).getD i []))
+        ihAppAV R nP n nF i (rebit b ((tlss.getD j []).getD i [])) ((Eiss.getD j []).getD i []))
       (f := AVExpr.mkAppN (.bvar (nF + n - 1 - j)) (fieldBvars nF))
       (σ := consList as₂ (consList ms (cons M (consList as₁ ρ))))
       (fun h0 => by

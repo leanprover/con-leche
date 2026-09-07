@@ -182,22 +182,166 @@ theorem fixCaseRec_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (
     exact fixCaseRec_validV hyp hw hfin hv hEV r (hfr.step a b) trivial
 
 /-- **The recursor body is bit-valid** at the frame under the K-frame,
-both regimes. -/
+all three regimes (the squash regime's body by `hsq`, task #202 A2). -/
 theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms)
     (hfin : w ≠ 0 → ∀ j i, (tlss.getD j []).getD i [] = [])
     (hv : SumFieldsValid ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess))
     (hEV : w ≠ 0 → ∀ j, j < Fss.length → ∀ i ∈ recIdx (rss.getD j []) (Fss.getD j []).length,
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
       ∀ E ∈ (Eiss.getD j []).getD i [],
-        AnnotValidV V (consList (fs.take i) (frP Fss.length Ids.length ρ₀)) E) :
+        AnnotValidV V (consList (fs.take i) (frP Fss.length Ids.length ρ₀)) E)
+    (hsq : w = 0 → ℓ ≠ 0 → AnnotValidV V σ
+      (sqFixBodyAV ℓ nP Fss.length Ids.length (Fss.getD 0 []) (Ess.getD 0 []) (rss.getD 0 [])
+        (tlss.getD 0 []) (Eiss.getD 0 []))) :
     AnnotValidV V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) := by
   by_cases hw : w = 0
   · subst hw
-    rw [fixRecBodyAVI_zero]
-    trivial
+    by_cases hℓ : ℓ = 0
+    · rw [fixRecBodyAVI_zero hℓ]
+      trivial
+    · rw [fixRecBodyAVI_sq hℓ]
+      exact hsq rfl hℓ
   · rw [fixRecBodyAVI_pos hw, AnnotValidV_app]
     exact ⟨fixCaseRec_validV hyp hw (hfin hw) hv (hEV hw) Fss.length hfr (major_proj_validV 0 σ),
       major_proj_validV 1 σ⟩
+
+/-! ## The ih-moved telescopes' validity (task #202) -/
+
+theorem AnnotValidV_ihIdxAtM {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
+    (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
+    (hi : i ≤ nF) (as : List V) (E : AVExpr) :
+    AnnotValidV V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
+        (ihIdxAtM nF o i l as.length E) ↔
+      AnnotValidV V (consList as (consList (fs.take i) ρp)) E := by
+  unfold ihIdxAtM
+  rw [AnnotValidV_liftN, show nF + l + as.length = as.length + (fs.length + ihs.length) from by omega,
+    shiftE_consList_len', shiftE_fieldFrame hms, AnnotValidV_liftN, shiftE_consList_len,
+    ← consList_append]
+  have hsplit : fs ++ ihs = fs.take i ++ (fs.drop i ++ ihs) := by
+    rw [← List.append_assoc, List.take_append_drop]
+  rw [hsplit, consList_append, show nF - i + l = (fs.drop i ++ ihs).length from by
+    rw [List.length_append, List.length_drop]; omega, shiftE_consList]
+
+/-- The telescope's validity moved to the ih frame. -/
+theorem fieldsValid_ihTeleAtGo {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
+    (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
+    (hi : i ≤ nF) :
+    ∀ (tl : List (Nat × Nat × AVExpr)) (as : List V),
+      FieldsValid (consList as (consList (fs.take i) ρp)) (tl.map (·.2.2)) →
+      FieldsValid (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
+        ((ihTeleAtGo nF o i l as.length tl).map (·.2.2))
+  | [], _, _ => trivial
+  | d :: tl, as, hF => by
+    show FieldsValid _ (ihIdxAtM nF o i l as.length d.2.2 ::
+      (ihTeleAtGo nF o i l (as.length + 1) tl).map (·.2.2))
+    rw [List.map_cons] at hF
+    obtain ⟨hv, hrest⟩ := hF
+    refine ⟨(AnnotValidV_ihIdxAtM hms hfs hihs hi as _).mpr hv, fun a ha => ?_⟩
+    rw [interp_ihIdxAtM hms hfs hihs hi] at ha
+    rw [consList_snoc']
+    have := fieldsValid_ihTeleAtGo (M := M) (ρp := ρp) hms hfs hihs hi tl (as ++ [a])
+      (by rw [← consList_snoc']; exact hrest a ha)
+    rw [length_snoc'] at this
+    exact this
+
+/-- `UnderTowerValid` from the domains' validity and the leaf's at
+every fitting spine. -/
+theorem underTowerValid_of_fieldsValid {b : AVExpr} :
+    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
+      FieldsValid ρ (ds.map (·.2.2)) →
+      (∀ as, SpineFit ρ (ds.map (·.2.2)) as → AnnotValidV V (consList as ρ) b) →
+      UnderTowerValid ρ b ds
+  | [], ρ, _, hb => by
+    show AnnotValidV V ρ b
+    simpa using hb [] trivial
+  | d :: ds, ρ, hv, hb => by
+    rw [List.map_cons] at hv
+    refine ⟨hv.1, fun a ha => underTowerValid_of_fieldsValid (hv.2 a ha) fun as hsp => ?_⟩
+    have := hb (a :: as) ⟨ha, hsp⟩
+    rwa [consList_cons] at this
+
+/-- **The squash regime's body is bit-valid** at a K-frame (task #202
+A2): the constructor's field telescope lifted under the frame, the
+minor at the fields and the ih applications (their telescopes and
+index expressions moved to the ih frame), the sources. -/
+theorem sqFixBodyAV_validV {ℓ nP n nIdx : Nat} {Fs Es : List AVExpr} {rs : List Bool}
+    {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)}
+    {ρp : Nat → V} {M t : V} {ms is : List V} (hlenM : ms.length = n) (hlenI : is.length = nIdx)
+    (hFv : FieldsValid ρp Fs)
+    (hTV : ∀ i ∈ recIdx rs Fs.length, ∀ fs : List V, SpineFit ρp Fs fs →
+      FieldsValid (consList (fs.take i) ρp) ((tls.getD i []).map (·.2.2)))
+    (hEV : ∀ i ∈ recIdx rs Fs.length, ∀ fs : List V, SpineFit ρp Fs fs →
+      ∀ bs : List V, SpineFit (consList (fs.take i) ρp) ((tls.getD i []).map (·.2.2)) bs →
+      ∀ E ∈ Eis.getD i [], AnnotValidV V (consList bs (consList (fs.take i) ρp)) E) :
+    AnnotValidV V (cons t (consList is (consList ms (cons M ρp))))
+      (sqFixBodyAV ℓ nP n nIdx Fs Es rs tls Eis) := by
+  have hσ : cons t (consList is (consList ms (cons M ρp)))
+      = consList (ms ++ is ++ [t]) (cons M ρp) := by
+    rw [List.append_assoc, consList_append, consList_snoc']
+  have hlen' : (ms ++ is ++ [t]).length + 1 = n + 1 + (nIdx + 1) := by
+    simp [hlenM, hlenI]; omega
+  have hsh : shiftE (nIdx + n + 2) 0 (consList (ms ++ is ++ [t]) (cons M ρp)) = ρp := by
+    rw [show nIdx + n + 2 = (ms ++ is ++ [t]).length + 1 from by omega, shiftE_consList_add,
+      shiftE_succ_cons, shiftE_zero_zero]
+  rw [hσ]
+  unfold sqFixBodyAV
+  refine mkAppN_validV ?_ fun a ha => ?_
+  · refine mkLamsC_validV ?_
+    unfold fieldTeleAt
+    refine underTowerValid_of_fieldsValid ?_ ?_
+    · have hmap : ((liftFields (nIdx + n + 2) 0 Fs).map fun F => (0, 0, F)).map (·.2.2)
+          = liftFields (nIdx + n + 2) 0 Fs := by
+        rw [List.map_map]; exact List.map_id'' (fun _ => rfl) _
+      rw [hmap, FieldsValid_liftFields, hsh]
+      exact hFv
+    · intro fs hfit
+      rw [List.map_map, show ((fun x : Nat × Nat × AVExpr => x.2.2) ∘ fun F : AVExpr => (0, 0, F)) = id
+        from rfl, List.map_id, spineFit_liftFields, hsh] at hfit
+      have hlenF : fs.length = Fs.length := hfit.length_eq
+      refine mkAppN_validV trivial fun a ha => ?_
+      rcases List.mem_append.mp ha with ha | ha
+      · obtain ⟨q, -, rfl⟩ := List.mem_map.mp ha
+        trivial
+      · obtain ⟨i, hi, rfl⟩ := List.mem_map.mp ha
+        obtain ⟨hik, -⟩ := mem_recIdx.mp hi
+        unfold ihAppAVb
+        refine mkLamsC_validV (underTowerValid_of_fieldsValid ?_ ?_)
+        · have := fieldsValid_ihTeleAtGo (o := n + 1 + (nIdx + 1)) (M := M) (ρp := ρp)
+            (ms := ms ++ is ++ [t]) hlen' hlenF (ihs := []) rfl (Nat.le_of_lt hik) (tls.getD i []) []
+            (hTV i hi fs hfit)
+          simp only [consList_nil, List.length_nil] at this
+          exact this
+        · intro bs hbs
+          have hbs' : SpineFit (consList (fs.take i) ρp) ((tls.getD i []).map (·.2.2)) bs := by
+            have := (spineFit_ihTeleAtGo (o := n + 1 + (nIdx + 1)) (M := M) (ρp := ρp)
+              (ms := ms ++ is ++ [t]) hlen' hlenF (ihs := []) rfl (Nat.le_of_lt hik) (tls.getD i [])
+              [] bs).mp (by simp only [consList_nil, List.length_nil]; exact hbs)
+            simpa using this
+          have hlenbs : bs.length = (tls.getD i []).length := by
+            rw [hbs.length_eq, List.length_map, ihTeleAtR_length]
+          refine mkAppN_validV trivial fun a ha => ?_
+          rcases List.mem_append.mp ha with ha | ha
+          · rcases List.mem_append.mp ha with ha | ha
+            · unfold prefixVarsAV at ha
+              rcases List.mem_append.mp ha with ha | ha
+              · rcases List.mem_append.mp ha with ha | ha
+                · obtain ⟨q, -, rfl⟩ := List.mem_map.mp ha; trivial
+                · rw [List.mem_singleton] at ha; subst ha; trivial
+              · obtain ⟨q, -, rfl⟩ := List.mem_map.mp ha; trivial
+            · obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
+              rw [← hlenbs]
+              have := (AnnotValidV_ihIdxAtM (o := n + 1 + (nIdx + 1)) (M := M) (ρp := ρp)
+                (ms := ms ++ is ++ [t]) hlen' hlenF (ihs := []) rfl (Nat.le_of_lt hik) bs E).mpr
+                (hEV i hi fs hfit bs hbs' E hE)
+              simp only [consList_nil] at this
+              exact this
+          · rw [List.mem_singleton] at ha
+            subst ha
+            refine mkAppN_validV trivial fun a ha => ?_
+            obtain ⟨q, -, rfl⟩ := List.mem_map.mp ha
+            trivial
+  · obtain ⟨s', -, rfl⟩ := List.mem_map.mp ha
+    exact srcAV_validV _ _ _ _
 
 end IhValid
 

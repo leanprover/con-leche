@@ -124,7 +124,8 @@ theorem directRecRhsR_unfold {T : Name} {lps : List Name} {elim : Name} {large :
       cty.stripPis nP = some (cbs, crest0) ∧
       Expr.pisToLamsPw (Level.zeronessOf (directElimLevel elim large)) nF
         (crest0.liftLooseBVars (ctors.length + 1) 0)
-        (directRuleBodyR recC rlvls nP ctors.length nF j recIdx (directFieldTeleOf cty nP nF)
+        (directRuleBodyR recC rlvls (Level.zeronessOf (directElimLevel elim large)) nP ctors.length nF
+          j recIdx (directFieldTeleOf cty nP nF)
           (directFieldIdxOf cty nP nF)) = some inner ∧
       directMinorsLamsR lps nP (Level.zeronessOf (directElimLevel elim large)) ctors 1 inner
         = some minors ∧

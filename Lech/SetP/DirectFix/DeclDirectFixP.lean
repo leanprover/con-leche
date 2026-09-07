@@ -61,7 +61,7 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
     (h : Lech.Semantics.DeclDirectFixRun μ F env p env₂) : Nonempty (EnvS2PM V μ env₂) := by
   obtain ⟨-, hwl, hnd, cvTa, env₁, p₁, ctorsA, cvRa, rhss, tfvs, trest, isorts, hInd, hsort,
     hopT2, hsorts, hCtors, hFOk, hRec, rfl⟩ := h
-  obtain ⟨hshape, -, hlenK, hguard⟩ := Lech.directFixParts?_inv hdp
+  obtain ⟨hshape, -, hlenK, hguard, hpos⟩ := Lech.directFixParts?_inv hdp
   obtain ⟨hProp, -, hClps, -, -, helimR, hRlps, -, -⟩ := Lech.directFixShape?_inv hshape
   -- the former: its run completed the record with the sort it read
   -- (task #195), pinned equal to the syntactic one — so the record is
@@ -782,7 +782,8 @@ theorem declDirectFixP (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : 
       exact ((hf.2.2 bs hsp).1 E hE).2
   obtain ⟨sAV, mp₃, -⟩ := stageFixRec (fssZ := Fss₀) hE_C hμ mpC hmI hrP rfl rfl hRec hstripT hfT_C
     rfl rfl hlpsT hopT helimR hRlps hFD_C hlenK' hks hcf_C hidxRes_C hUparams hleafT_C' hleafC_C
-    (fun j cA hj => (hframes j cA hj).1) hframesR hwl
+    (fun j cA hj => (hframes j cA hj).1) hframesR
+    (fun hl => (hwl hl).imp_right fun h => by rw [hlenA]; exact h) (by rw [hlenA]; exact hpos)
     (fun ⟨ψ, j, i, hj, hne⟩ => by
       obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
       rw [(hident j cA hjA).2.2.2.1 ψ] at hne

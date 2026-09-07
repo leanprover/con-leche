@@ -451,9 +451,8 @@
 #                     recursive one) — SMALL elimination only.
 #   direct_fix_prop_large: `Loop : Prop` with ONE recursive constructor:
 #                     the official kernel gives it the LARGE eliminator
-#                     (every field is a proposition); the route DECLINES
-#                     positively (the squash-regime fixed point is not
-#                     modeled yet — DESIGN.md, task #188).
+#                     (every field is a proposition) — the recursive
+#                     squash regime, taken since task #202 Stage A2.
 #   direct_fix_nat_neg_bad: `Nat'.succ`'s field patched to `Nat' → Nat'` —
 #                     a non-positive occurrence, REJECTED as official
 #                     (`check_positivity`).
@@ -472,7 +471,7 @@
 #                     constructors, SMALL elimination only.
 #   direct_fix_acc_large: `Up n (n+1)` with ONE recursive constructor
 #                     and the large eliminator (the data field is an
-#                     index): DECLINED positively, as `Loop`.
+#                     index): taken, as `Loop` (task #202 Stage A2).
 #   direct_fix_vec_ih_idx_bad: `Vec'.rec`'s `v_ih` binder patched to
 #                     `motive (Nat.succ n) v` — the hypothesis at the
 #                     wrong index, REJECTED (the patched recursor type
@@ -492,19 +491,30 @@
 #   direct_fix_refl_ih_bad: `Iter.rec`'s `h_ih` binder patched to
 #                     `∀ k a, motive n (h k a)` — the hypothesis at the
 #                     wrong index, REJECTED (ill-typed recursor type).
+#   direct_fix_acc:   an `Acc` clone (task #202 Stage A2) — ONE
+#                     constructor, the data field an index, the
+#                     reflexive field a `Prop`-valued function; the
+#                     official kernel gives it the LARGE eliminator
+#                     (subsingleton elimination); consumers eliminate
+#                     into `Type` (`Acc'.fix`, iota by `rfl`); the
+#                     export also carries `Acc'.below`, the
+#                     `Acc.below`-shaped two-index `Prop` block (one
+#                     constructor, large eliminator), both on the
+#                     `fix` route.
 0 direct_fix_nat.ndjson pre
 0 direct_fix_tree.ndjson pre
 0 direct_fix_prop.ndjson pre
-2 direct_fix_prop_large.ndjson pre
+0 direct_fix_prop_large.ndjson pre
 1 direct_fix_nat_neg_bad.ndjson pre
 1 direct_fix_nat_ih_bad.ndjson pre
 0 direct_fix_vec.ndjson pre
 0 direct_fix_le.ndjson pre
-2 direct_fix_acc_large.ndjson pre
+0 direct_fix_acc_large.ndjson pre
 1 direct_fix_vec_ih_idx_bad.ndjson pre
 0 direct_fix_refl.ndjson pre
 1 direct_fix_refl_neg_bad.ndjson pre
 1 direct_fix_refl_ih_bad.ndjson pre
+0 direct_fix_acc.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the

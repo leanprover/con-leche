@@ -31,54 +31,6 @@ variable {V : Type w} [SetTheory V] {env : Env}
 
 /-! ## The ih binders -/
 
-/-- Field `i`'s index expression (read at the field's own frame: the
-parameters, the `i` earlier fields) moved under all `nF` fields, `l`
-ih binders below them and `o` extras between the parameters and the
-fields — `directIdxAt`'s reading. -/
-def ihIdxAt (nF o i l : Nat) (E : AVExpr) : AVExpr :=
-  (E.liftN (nF - i + l) 0).liftN o (nF + l)
-
-/-- `directIdxAt nF o i l m`'s reading: field `i`'s expression sitting
-under `m` binders of the field's own telescope, moved as `ihIdxAt`
-moves it (task #202). -/
-def ihIdxAtM (nF o i l m : Nat) (E : AVExpr) : AVExpr :=
-  (E.liftN (nF - i + l) m).liftN o (nF + l + m)
-
-theorem ihIdxAtM_zero (nF o i l : Nat) (E : AVExpr) : ihIdxAtM nF o i l 0 E = ihIdxAt nF o i l E :=
-  rfl
-
-/-- `directTeleAt`'s reading: field `i`'s telescope (its entries read
-at the field's own frame, binder `k` under `k` earlier telescope
-binders) moved to the ih binder's frame. -/
-def ihTeleAtGo (nF o i l : Nat) : Nat → List (Nat × Nat × AVExpr) → List (Nat × Nat × AVExpr)
-  | _, [] => []
-  | k, d :: tl => (d.1, d.2.1, ihIdxAtM nF o i l k d.2.2) :: ihTeleAtGo nF o i l (k + 1) tl
-
-/-- The whole telescope moved (binder `k` under `k` earlier ones). -/
-def ihTeleAtR (nF o i l : Nat) (tl : List (Nat × Nat × AVExpr)) : List (Nat × Nat × AVExpr) :=
-  ihTeleAtGo nF o i l 0 tl
-
-@[simp] theorem ihTeleAtR_nil (nF o i l : Nat) : ihTeleAtR nF o i l [] = [] := rfl
-
-theorem ihTeleAtGo_length (nF o i l : Nat) :
-    ∀ (k : Nat) (tl : List (Nat × Nat × AVExpr)), (ihTeleAtGo nF o i l k tl).length = tl.length
-  | _, [] => rfl
-  | k, _ :: tl => by simp [ihTeleAtGo, ihTeleAtGo_length nF o i l (k + 1) tl]
-
-theorem ihTeleAtR_length (nF o i l : Nat) (tl : List (Nat × Nat × AVExpr)) :
-    (ihTeleAtR nF o i l tl).length = tl.length := ihTeleAtGo_length nF o i l 0 tl
-
-theorem mem_ihTeleAtGo {nF o i l : Nat} :
-    ∀ {k : Nat} {tl : List (Nat × Nat × AVExpr)} {d : Nat × Nat × AVExpr},
-      d ∈ ihTeleAtGo nF o i l k tl → ∃ d' ∈ tl, d.2.1 = d'.2.1
-  | _, [], _, h => nomatch h
-  | k, d' :: tl, d, h => by
-    simp only [ihTeleAtGo, List.mem_cons] at h
-    rcases h with rfl | h
-    · exact ⟨d', List.mem_cons_self, rfl⟩
-    · obtain ⟨d'', hd'', he⟩ := mem_ihTeleAtGo h
-      exact ⟨d'', List.mem_cons_of_mem _ hd'', he⟩
-
 /-- The ih binder's domain for recursive field `i` at ih position `l`:
 under the field's telescope, the motive at the field's index readings
 and the field applied to the telescope's variables (a finitary field:
@@ -97,12 +49,13 @@ theorem ihDomAV_nil (nF o i l : Nat) (Eis : List AVExpr) :
     List.range_zero, List.map_nil, AVExpr.mkAppN]
   rfl
 
-/-- The ih binders' Π-tower over the recursive positions. -/
+/-- The ih binders' Π-tower over the recursive positions (the moved
+telescopes re-bit to the elimination bit `b`, task #202 A2). -/
 def ihPisAV (nF o b : Nat) (tls : List (List (Nat × Nat × AVExpr))) (Eiss : List (List AVExpr)) :
     List Nat → Nat → AVExpr → AVExpr
   | [], _, body => body
   | i :: is, l, body =>
-    .pi 0 b (ihDomAV nF o i l (tls.getD i []) (Eiss.getD i []))
+    .pi 0 b (ihDomAV nF o i l (rebit b (tls.getD i [])) (Eiss.getD i []))
       (ihPisAV nF o b tls Eiss is (l + 1) body)
 
 /-- The minor premise's domain reading at a recursive block: the
@@ -235,11 +188,13 @@ theorem ihAppAV_nil (R : AVExpr) (nP n nF i : Nat) (Eis : List AVExpr) :
   rfl
 
 /-- Rule `j`'s core at a recursive block: minor `j` at the field
-variables and the ih applications. -/
-def fixRuleCoreAV (R : AVExpr) (nP nF n j : Nat) (recIdx : List Nat)
+variables and the ih applications (their telescopes re-bit to the
+elimination bit `b`, task #202 A2). -/
+def fixRuleCoreAV (b : Nat) (R : AVExpr) (nP nF n j : Nat) (recIdx : List Nat)
     (tls : List (List (Nat × Nat × AVExpr))) (Eiss : List (List AVExpr)) : AVExpr :=
   AVExpr.mkAppN (.bvar (nF + n - 1 - j))
-    (fieldBvars nF ++ recIdx.map fun i => ihAppAV R nP n nF i (tls.getD i []) (Eiss.getD i []))
+    (fieldBvars nF ++ recIdx.map fun i =>
+      ihAppAV R nP n nF i (rebit b (tls.getD i [])) (Eiss.getD i []))
 
 /-- **Rule `j`'s binder data** at a recursive block: the recursor's
 parameter, motive and minor entries, then constructor `j`'s field data

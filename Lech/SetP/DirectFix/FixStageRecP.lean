@@ -240,7 +240,8 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
       AnnotOkP V ρ (mkLamsAV (fixRuleDataAV mp.base2 p.cvT.name ψ p.nP p.nIdx
           (Lech.directElimLevel p.elim p.large) ((ppsAll ψ).take p.nP) ((ppsAll ψ).drop p.nP)
           (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) (dsF j ψ))
-        (fixRuleCoreAV (A ψ) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ))))
+        (fixRuleCoreAV (pwBit ψ (Level.zeronessOf (Lech.directElimLevel p.elim p.large))) (A ψ) p.nP
+          cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ))))
     (hfresh : env.find? cvRa.name = none)
     {rule : RecRule} (hrule : rule = ⟨cA.1.name, cA.2, p.nP, .plain, rhs⟩)
     {rules : List RecRule}
@@ -308,7 +309,8 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
       = some (mkLamsAV (fixRuleDataAV mp.base2 p.cvT.name ψR p.nP p.nIdx
           (Lech.directElimLevel p.elim p.large) ((ppsAll ψR).take p.nP) ((ppsAll ψR).drop p.nP)
           (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0) (dsF j ψR))
-        (fixRuleCoreAV (A ψR) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψR) (eissF j ψR))) := by
+        (fixRuleCoreAV (pwBit ψR (Level.zeronessOf (Lech.directElimLevel p.elim p.large))) (A ψR) p.nP
+          cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψR) (eissF j ψR))) := by
     rw [hinstR, hread ψR, fixRuleDataAV_congr (hTac ψR) (hCac ψR)]
   refine ⟨_, hRa₂, hRuleOk ψR, fun _ _ h => absurd h (by simp), ?_⟩
   intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl husjl hψ hplain _ hidx hTVa
@@ -463,7 +465,10 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
     unfold fixRdsAV at hρ
     rw [fixRecDataAV_take_nP hlenPps] at hρ
     exact hokFssH ψR ρp hρ
-  have hcore := fixRecLawCore (hpre ψR) (n := ctorsA.length) (nF := cA.2) (nIdx := p.nIdx) (j := j)
+  have hbzR : (Lech.directElimLevel p.elim p.large).eval ψR = 0 ↔
+      pwBit ψR (Level.zeronessOf (Lech.directElimLevel p.elim p.large)) = 0 := by
+    rw [pwBit_eq_zero_iff, Lech.PropWhen.zeronessOf_sound, beq_iff_eq]
+  have hcore := fixRecLawCore hbzR (hpre ψR) (n := ctorsA.length) (nF := cA.2) (nIdx := p.nIdx) (j := j)
     (by rw [fssOfR_length, hlenCds]) (by rw [List.length_map, hlenIps]) (hCD.len ψR) hjn hFsj hEsj
     (hCD.lenE ψR) (R := A ψR) (by rw [hA ψR]) (hAcl ψR) hokFss
     (lds := fixRuleDataAV mp.base2 p.cvT.name ψR p.nP p.nIdx (Lech.directElimLevel p.elim p.large)
@@ -473,13 +478,37 @@ theorem fixRecRuleLaw (mp : EnvS2PM V μ env)
     (Ra := mkLamsAV (fixRuleDataAV mp.base2 p.cvT.name ψR p.nP p.nIdx
         (Lech.directElimLevel p.elim p.large) ((ppsAll ψR).take p.nP) ((ppsAll ψR).drop p.nP)
         (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0) (dsF j ψR))
-      (fixRuleCoreAV (A ψR) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψR) (eissF j ψR)))
+      (fixRuleCoreAV (pwBit ψR (Level.zeronessOf (Lech.directElimLevel p.elim p.large))) (A ψR) p.nP
+        cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψR) (eissF j ψR)))
     (by rw [hEisj, hTlsj, hrssj, ← recIdx_rsOf, hD.ksLen]) (hRuleOk ψR) (by rw [hxl, hmI])
     (by simpa using hyl) hspR hspC hplain' hpin
   try simp only [RecRule.ctor, RecRule.ctorParams] at hcore ⊢
   rw [hleafR₂, hleafC₂, hrP]
   exact hcore
 
+
+/-! ## The subsingleton criterion at a field (task #202 A2) -/
+
+/-- An unsourced field of a source-bounded chain is a truth value at
+every fitting prefix spine. -/
+theorem fieldsBoundSrc_at {ρ : Nat → V} :
+    ∀ {Fs : List AVExpr} {srcs : List (Option Nat)} {i : Nat} {fs : List V},
+      FieldsBoundSrc ρ Fs srcs → srcs[i]? = some none → SpineFit ρ (Fs.take i) fs → i < Fs.length →
+      interp2 V (consList fs ρ) (Fs.getD i default) ∈ˢ (univ 0 : V)
+  | [], _, _, _, _, _, _, hi => absurd hi (Nat.not_lt_zero _)
+  | _ :: _, [], _, _, _, hs, _, _ => by simp at hs
+  | F :: Fs, s :: srcs, 0, fs, hb, hs, hsp, _ => by
+    simp only [List.getElem?_cons_zero, Option.some.injEq] at hs
+    cases fs with
+    | nil => exact hb.1 hs
+    | cons a fs' => exact hsp.elim
+  | F :: Fs, s :: srcs, i + 1, fs, hb, hs, hsp, hi => by
+    cases fs with
+    | nil => exact hsp.elim
+    | cons a fs' =>
+      obtain ⟨ha, hsp'⟩ := hsp
+      rw [consList_cons, List.getD_cons_succ]
+      exact fieldsBoundSrc_at (hb.2 a ha) (by simpa using hs) hsp' (by simpa using hi)
 
 /-! ## The stage -/
 
@@ -580,7 +609,8 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
         ∀ bs : List V, SpineFit ρp ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []) bs →
         ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
           AnnotValidV V (consList bs ρp) E))
-    (hwl : p.large = true → p.resSort.isNeverZero = true)
+    (hwl : p.large = true → p.resSort.isNeverZero = true ∨ ctorsA.length < 2)
+    (hpos : 0 < ctorsA.length)
     (hrefl : (∃ (ψ : Name → Nat) (j i : Nat), j < ctorsA.length ∧ (tssF j ψ).getD i [] ≠ []) →
       ∀ ψ : Name → Nat, p.resSort.eval ψ = 0) :
     ∃ (sAV : (Name → Nat) → Nat)
@@ -668,17 +698,23 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
   have hbz : ∀ ψ, elimL.eval ψ = 0 ↔ pwBit ψ (Level.zeronessOf elimL) = 0 := by
     intro ψ
     rw [pwBit_eq_zero_iff, Lech.PropWhen.zeronessOf_sound, beq_iff_eq]
-  have hwℓ : ∀ ψ, p.resSort.eval ψ = 0 → elimL.eval ψ = 0 := by
-    intro ψ hw0
-    rw [← hElimL]
+  have hlarge_of : ∀ ψ, elimL.eval ψ ≠ 0 → p.large = true := by
+    intro ψ hl0
     cases hpl : p.large
-    · simp [Lech.directElimLevel, Level.eval]
-    · exact absurd hw0 (Lech.Level.isNeverZero_sound ψ _ (hwl hpl))
+    · exfalso; apply hl0; rw [← hElimL]; simp [Lech.directElimLevel, hpl, Level.eval]
+    · rfl
+  -- the squash regime (task #202 A2): a large eliminator at a `Prop`
+  -- instance has one constructor
+  have hsingle : ∀ ψ, p.resSort.eval ψ = 0 → elimL.eval ψ ≠ 0 → ctorsA.length = 1 := by
+    intro ψ hw0 hl0
+    rcases hwl (hlarge_of ψ hl0) with hnz | hlt
+    · exact absurd hw0 (Lech.Level.isNeverZero_sound ψ _ hnz)
+    · omega
   have hs0 : ∀ ψ, sAV ψ = 0 ↔ elimL.eval ψ = 0 := fun ψ => fixSortAV_zero_iff elimL u _ ψ
   -- the finitary-or-`Prop` gate and the telescope bits (task #202)
   have hfin : ∀ ψ, (∀ j i,
       ((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [] = []) ∨
-      (p.resSort.eval ψ = 0 ∧ elimL.eval ψ = 0) := by
+      p.resSort.eval ψ = 0 := by
     intro ψ
     by_cases hall : ∀ j i, ((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [] = []
     · exact Or.inl hall
@@ -690,21 +726,41 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
       by_cases hj : j < ctorsA.length
       · obtain ⟨cA, hjA⟩ := hcAof j hj
         rw [hTlsjD ψ j cA hjA] at hne
-        have hw0 := hrefl ⟨ψ, j, i, hj, hne⟩ ψ
-        exact ⟨hw0, hwℓ ψ hw0⟩
+        exact hrefl ⟨ψ, j, i, hj, hne⟩ ψ
       · rw [hTlsNone ψ j hj] at hne
         exact absurd rfl hne
-  have hbits : ∀ ψ j i, ∀ d ∈ ((tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i [],
-      (d.2.1 = 0 ↔ elimL.eval ψ = 0) := by
-    intro ψ j i d hd
-    by_cases hj : j < ctorsA.length
-    · obtain ⟨cA, hjA⟩ := hcAof j hj
-      rw [hTlsjD ψ j cA hjA] at hd
-      have hw0 := hrefl ⟨ψ, j, i, hj, List.ne_nil_of_mem hd⟩ ψ
-      have hb := (hcf j cA hjA).2.2.tssBits ψ i d hd
-      exact ⟨fun _ => hwℓ ψ hw0, fun _ => hb.mpr hw0⟩
-    · rw [hTlsNone ψ j hj] at hd
-      exact nomatch hd
+  -- the subsingleton criterion (task #202 A2): at a `Prop` instance
+  -- with a large eliminator, a field not sourced by an index
+  -- expression is a proposition (the kernel's `checkDirectFieldSortsI`)
+  have hprop : ∀ ψ, p.resSort.eval ψ = 0 → elimL.eval ψ ≠ 0 → ∀ ρp : Nat → V,
+      Sat2 V ((((ppsAll ψ).take p.nP).map (·.2.2)).reverse) ρp →
+      ∀ j, j < ctorsA.length →
+      ∀ i, i < ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).length →
+      srcOfEs ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [])
+        ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).length i = none →
+      ∀ fs : List V,
+        SpineFit ρp (((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).take i) fs →
+        interp2 V (consList fs ρp)
+            (((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).getD i default)
+          ∈ˢ (univZero : V) := by
+    intro ψ hw0 hℓ0 ρp hρp j hj i hi hsrc fs hfs
+    obtain ⟨cA, hjA⟩ := hcAof j hj
+    obtain ⟨-, -, hCD⟩ := hcf j cA hjA
+    rw [hFsjD ψ j cA hjA] at hi hfs hsrc ⊢
+    rw [hEsjD ψ j cA hjA] at hsrc
+    have hsatC := (hiff j cA hjA ψ ρp).mp hρp
+    have hbnd := hCD.srcProp (hlarge_of ψ hℓ0) ψ hw0 ρp hsatC
+    have hlenF : (((dsF j ψ).drop p.nP).map (·.2.2)).length = cA.2 := by simp [hCD.len ψ]
+    rw [hlenF] at hi hsrc
+    obtain ⟨s', hs⟩ : ∃ s', (srcsF j)[i]? = some s' :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hCD.srcLen]; exact hi)⟩
+    have hsn : s' = none := by
+      cases s' with
+      | none => rfl
+      | some l => exact absurd (hCD.srcIdx i l hs ψ) fun h => srcOfEs_none hsrc h
+    subst hsn
+    rw [← univ_zero]
+    exact fieldsBoundSrc_at hbnd hs hfs (by rw [hlenF]; exact hi)
   -- the recursor type's universe
   have hunivTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp2 V ρ (mkPisAV (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ)
@@ -800,7 +856,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
       rw [hrss, ← hEisjD ψ j cA hj, ← hTlsjD ψ j cA hj, hEsjD ψ j cA hj, hFsjD ψ j cA hj]
       exact interp_minorAVAtR (hbz ψ) hlenM (hD.len ψ) (hleafC j cA hj ψ)
         (mp.base2.cval_closedL cA.1.name ψ) (by rw [fssOfR_getElem?, hjd ψ j cA hj]; rfl) hokB
-        ((hiff j cA hj ψ ρp).mp hρp) (fun i _ d hd => hbits ψ j i d hd)
+        ((hiff j cA hj ψ ρp).mp hρp)
   -- the per-field data's pins
   have hEs : ∀ ψ j, j < ctorsA.length →
       ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).length = p.nIdx := by
@@ -861,8 +917,9 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
       (fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψ) (sAV ψ) := by
     intro ψ
     rw [hrdsE ψ]
-    refine fixPre_of rfl rfl (hbz ψ) (hwℓ ψ) (hs0 ψ) (hlenPps ψ) (hlenIps ψ) (hn ψ) (hlenFs ψ)
-      (hlenEs ψ) (hEs ψ) (hEisLen ψ) (hEbelow ψ) (hfin ψ) ?_ ?_ ?_ ?_ (hframes' ψ)
+    refine fixPre_of rfl rfl (hbz ψ) (hs0 ψ) (hlenPps ψ) (hlenIps ψ) (hn ψ) (hlenFs ψ)
+      (hlenEs ψ) (hEs ψ) (hEisLen ψ) (hEbelow ψ) (hfin ψ) (hsingle ψ) (hprop ψ) (hTlsBelow ψ)
+      ?_ ?_ ?_ ?_ (hframes' ψ)
     · have := hRD.below ψ; rw [hrdsE ψ] at this; exact this
     · have := (hR ψ).okΓ; rw [hrdsE ψ] at this; exact this
     · intro ρ; have := (hRD.okTy ψ ρ).1; rw [hrdsE ψ] at this; exact this
@@ -901,9 +958,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
   have hAcl : ∀ ψ, VExpr.bvarsBelow 0 (A ψ).erase := by
     intro ψ
     rw [hA ψ]
-    refine directFixRecAVI_below 0 (hRD.below ψ) (by rw [hRD.len ψ, hlenFs ψ, hlenIds ψ]; omega) rfl ?_
-      (hTlsBelow ψ) (hEbelow ψ)
-    -- the restricted chains are bounded
+    -- the fields are bounded at the parameters
     have hFssB : ∀ Fs ∈ fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0), FieldsBelow (0 + p.nP) Fs := by
       intro Fs hFs
       obtain ⟨j, hj⟩ := List.getElem?_of_mem hFs
@@ -913,6 +968,9 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
       rw [List.getD_eq_getElem?_getD, hj, Option.getD_some] at hFj
       rw [hFj]
       exact (DomsBelow.drop p.nP ((hcf j cA hjA).2.2.below ψ)).fields
+    refine directFixRecAVI_below 0 (hRD.below ψ) (by rw [hRD.len ψ, hlenFs ψ, hlenIds ψ]; omega) rfl ?_
+      (fun Fs hFs => by have := hFssB Fs hFs; rwa [Nat.zero_add] at this) (hTlsBelow ψ) (hEbelow ψ)
+    -- the restricted chains are bounded
     have hEssB : ∀ j, j < (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).length →
         ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j []).length = p.nIdx ∧
         ∀ E ∈ (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD j [],
@@ -937,7 +995,8 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
       AnnotOkP V ρ (mkLamsAV (fixRuleDataAV mp.base2 p.cvT.name ψ p.nP p.nIdx elimL
           ((ppsAll ψ).take p.nP) ((ppsAll ψ).drop p.nP)
           (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0) (dsF j ψ))
-        (fixRuleCoreAV (A ψ) p.nP cA.2 ctorsA.length j (Lech.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ))) := by
+        (fixRuleCoreAV (pwBit ψ (Level.zeronessOf elimL)) (A ψ) p.nP cA.2 ctorsA.length j
+          (Lech.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ))) := by
     intro j cA hj ψ ρ
     obtain ⟨-, -, hD⟩ := hcf j cA hj
     have hjn : j < ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
@@ -947,7 +1006,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
     rw [hrdsE ψ] at hpre'
     refine fixRuleOkP rfl rfl (hbz ψ) (hlenPps ψ) (hlenIps ψ) (hn ψ) (hlenFs ψ) (hlenEs ψ) (hEs ψ)
       (hEisLen ψ) hpre' ?_ (by rw [hA ψ, hrdsE ψ]) (hAcl ψ) (fun ρ' => (hleafF ψ ρ').1) (hframes' ψ)
-      (fun ρp hρp => ⟨(hframes ψ ρp hρp).2.2.2.1, (hframes ψ ρp hρp).2.2.2.2.1⟩) (hbits ψ)
+      (fun ρp hρp => ⟨(hframes ψ ρp hρp).2.2.2.1, (hframes ψ ρp hρp).2.2.2.2.1⟩) (hsingle ψ) (hprop ψ)
       (hjd ψ j cA hj) (hD.len ψ) (by rw [fssOfR_getElem?, hjd ψ j cA hj]; rfl)
       (by rw [essOfR_getElem?, hjd ψ j cA hj]; rfl) hrss (hEisjD ψ j cA hj) (hTlsjD ψ j cA hj)
       (hleafC j cA hj ψ)
