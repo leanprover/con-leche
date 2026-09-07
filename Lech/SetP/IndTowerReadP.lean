@@ -162,7 +162,7 @@ theorem instLamsAt_denotePTele :
       {rest : Expr} {Va : AVExpr},
       Expr.instLamsAt sp e = some (ds, rest) →
       (∀ (i : Nat) (x : Expr), sp[i]? = some x →
-        ∃ nm ty, x = Expr.fvar (j + i) ty) →
+        ∃ ty, x = Expr.fvar (j + i) ty) →
       denoteP acval env φ j e = some Va →
       ∃ (Γ : List AVExpr) (C : AVExpr),
         LamTeleP sp.length Va Γ C ∧ Γ.length = sp.length ∧

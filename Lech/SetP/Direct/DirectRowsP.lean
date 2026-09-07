@@ -120,19 +120,19 @@ structure OpenedP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
   /-- the variables are indexed by position, annotated at their own
   depth by bounded, leaf-bounded terms over the earlier variables -/
   var : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-    (∃ nm ty, x = Expr.fvar i ty) ∧
+    (∃ ty, x = Expr.fvar i ty) ∧
     Expr.WScoped i (Expr.fvarTypeD x) ∧
     (Expr.fvarTypeD x).looseBVarsBounded 0 = true ∧
     Expr.LeavesBounded (Expr.fvarTypeD x) ∧
-    ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs
+    ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs
   /-- the opened body is scoped at `k` over the variables -/
   bodyScoped : Expr.WScoped k o ∧ o.looseBVarsBounded 0 = true ∧
     Expr.LeavesBounded o ∧
-    ∀ l ∈ o.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs
+    ∀ l ∈ o.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs
   /-- any term over the variables correlates with the context at its
   depth -/
   ctx : ∀ {i : Nat}, i ≤ k → ∀ {x : Expr}, Expr.WScoped i x →
-    (∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs) →
+    (∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) →
     CtxOkP m φ i (Γ.drop (k - i)) x
 
 /-- The opened type record, from the opening, the closedness and the
@@ -156,7 +156,7 @@ theorem openedP_of {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
   have hnil : e.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hcl
   -- a leaf reachable from the opening is an opener
   have hopener : ∀ l, (l ∈ o.fvarLeaves ∨ ∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.2 ∈ fvs := by
+      Expr.fvar l.1 l.2 ∈ fvs := by
     intro l hl
     rcases hleaves l hl with h | h
     · rw [hnil] at h; exact absurd h List.not_mem_nil
@@ -164,7 +164,7 @@ theorem openedP_of {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
   -- an opener's annotation is bounded and leaf-bounded
   have hLB : ∀ y ∈ fvs, Expr.LeavesBounded (Expr.fvarTypeD y) := by
     intro y hy l hl
-    have hmem : Expr.fvar l.1 l.2.2 ∈ fvs := by
+    have hmem : Expr.fvar l.1 l.2 ∈ fvs := by
       refine hopener l (Or.inr ⟨y, hy, ?_⟩)
       obtain ⟨p, hp⟩ := List.getElem?_of_mem hy
       obtain ⟨nm, ty, rfl⟩ := hidx p y hp

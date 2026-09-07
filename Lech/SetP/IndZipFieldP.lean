@@ -60,7 +60,7 @@ theorem zipFieldTermEqP
     {sp : List Expr} (hsplen : sp.length = cnP + cnF)
     (hspLeaf : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       ∀ l ∈ x.fvarLeaves,
-        Expr.fvar l.1 l.2.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP))
+        Expr.fvar l.1 l.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP))
     (hspScope : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       Expr.WScoped (rP + cnF) x ∧ x.looseBVarsBounded 0 = true)
     {cdoms : List Expr} {cres : Expr}
@@ -73,7 +73,7 @@ theorem zipFieldTermEqP
     {j : Nat} (hj : j < cnF) :
     Expr.WScoped (rP + j) (cdoms.getD (cnP + j) default) ∧
     (∀ l ∈ (cdoms.getD (cnP + j) default).fvarLeaves,
-      Expr.fvar l.1 l.2.2 ∈ fvs ∧ l.1 < rP + j) ∧
+      Expr.fvar l.1 l.2 ∈ fvs ∧ l.1 < rP + j) ∧
     ∃ vdomLow,
       denoteP acval env φ (rP + j) (cdoms.getD (cnP + j) default)
         = some vdomLow ∧
@@ -140,7 +140,7 @@ theorem zipFieldTermEqP
     rfl
   -- leaves of the domain: among the first `rP + j` openers
   have hleafDom : ∀ l ∈ domJ.fvarLeaves,
-      Expr.fvar l.1 l.2.2 ∈ fvs ∧ l.1 < rP + j := by
+      Expr.fvar l.1 l.2 ∈ fvs ∧ l.1 < rP + j := by
     intro l hl
     have hlmid : l ∈ (Expr.forallE domJ bodyJ mbJ).fvarLeaves := by
       rw [Expr.fvarLeaves]

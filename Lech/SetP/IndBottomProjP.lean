@@ -185,7 +185,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   have hΓslen : Γs.length = rP + cnF := htowerS.length
   have hfvslen : fvs.length = rP + cnF := openPisAtFvars_length _ hopen
   have hshapeS : ∀ (q : Nat) (x : Expr), fvs[q]? = some x →
-      ∃ nm ty, x = Expr.fvar q ty := by
+      ∃ ty, x = Expr.fvar q ty := by
     intro q x hx
     obtain ⟨nm, ty, hx'⟩ := openPisAtFvars_index _ _ _ hopen q x hx
     exact ⟨nm, ty, by simpa using hx'⟩
@@ -211,7 +211,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     simp only [Expr.WScoped] at h
     exact h.2
   have hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.2 ∈ fvs := by
+      Expr.fvar l.1 l.2 ∈ fvs := by
     intro l ⟨x, hx, hl⟩
     rcases openPisAtFvars_leaves _ hopen l (Or.inr ⟨x, hx, hl⟩) with
       h0 | h0
@@ -219,14 +219,14 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       exact nomatch h0
     · exact h0
   have hleafBody : ∀ l ∈ tbody.fvarLeaves,
-      Expr.fvar l.1 l.2.2 ∈ fvs := by
+      Expr.fvar l.1 l.2 ∈ fvs := by
     intro l hl
     rcases openPisAtFvars_leaves _ hopen l (Or.inl hl) with h0 | h0
     · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hSw] at h0
       exact nomatch h0
     · exact h0
   have hfvsLt : ∀ l : Nat × Expr,
-      Expr.fvar l.1 l.2.2 ∈ fvs → l.1 < rP + cnF := by
+      Expr.fvar l.1 l.2 ∈ fvs → l.1 < rP + cnF := by
     intro l hl
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hl
     obtain ⟨nm', ty', heq⟩ := hshapeS q _ hq
@@ -419,10 +419,10 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   have hbBody : tbody.looseBVarsBounded 0 = true :=
     (openPisAtFvars_bounded (rP + cnF) hopen hSb).1
   have hargLeaf : ∀ e : Expr, e ∈ tbody.getAppArgs →
-      (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs) ∧
+      (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) ∧
       (∀ l ∈ e.fvarLeaves, l.1 < rP + cnF) := by
     intro e hmem
-    have h1 : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs :=
+    have h1 : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs :=
       fun l hl => hleafBody l (fvarLeaves_getAppArgs hmem l hl)
     exact ⟨h1, fun l hl => hfvsLt l (h1 l hl)⟩
   have hmemα : αS ∈ tbody.getAppArgs := by
@@ -460,7 +460,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       List.replicate_zero, List.nil_append, List.drop_zero]
     exact hσ
   have hctxOf : ∀ e : Expr,
-      (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs) →
+      (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) →
       (∀ l ∈ e.fvarLeaves, l.1 < rP + cnF) →
       CtxOkP mp.base2 (Level.substFn φ lps us) (rP + cnF) Γs e :=
     fun e hleafE hltE =>
@@ -517,10 +517,10 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     inferTypeCore_WScoped mp.base2.wf F hInfL hwsL
   have hwsTr : Expr.WScoped (rP + cnF) tr :=
     inferTypeCore_WScoped mp.base2.wf F hInfR hwsR
-  have hleafTl : ∀ l ∈ tl.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs :=
+  have hleafTl : ∀ l ∈ tl.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs :=
     fun l hl => hleafL l
       (inferTypeCore_fvarLeaves mp.base2.wf F hInfL hwsL l hl)
-  have hleafTr : ∀ l ∈ tr.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs :=
+  have hleafTr : ∀ l ∈ tr.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs :=
     fun l hl => hleafR l
       (inferTypeCore_fvarLeaves mp.base2.wf F hInfR hwsR l hl)
   have hltTl : ∀ l ∈ tl.fvarLeaves, l.1 < rP + cnF :=
@@ -564,7 +564,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       fvs (by rw [hfvslen, ← hKeq, hCstripR]; rfl))
   have hspLeaf : ∀ (q : Nat) (x : Expr), fvs[q]? = some x →
       ∀ l ∈ x.fvarLeaves,
-        Expr.fvar l.1 l.2.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP) := by
+        Expr.fvar l.1 l.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP) := by
     intro q x hx l hl
     obtain ⟨nm, ty, rfl⟩ := hshapeS q x hx
     have hmem := List.mem_of_getElem? hx

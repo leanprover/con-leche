@@ -255,7 +255,7 @@ theorem paramBvars_eq_paramBvarsAt (nP nF : Nat) :
 /-- A same-index `fvar` spine reads to the parameter variables. -/
 theorem denoteSpineP_fvars {acval : Name → (Name → Nat) → AVExpr} (D : Nat) :
     ∀ (fvs : List Expr) (k₀ : Nat),
-      (∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ nm ty, x = Expr.fvar (k₀ + k) ty) →
+      (∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ ty, x = Expr.fvar (k₀ + k) ty) →
       DenoteSpineP acval env φ D fvs
         ((List.range fvs.length).map fun k => .bvar (D - 1 - (k₀ + k)))
   | [], _, _ => .nil
@@ -284,7 +284,7 @@ theorem famSpine_read {m : EnvS2Core V env} {T : Name} {lps : List Name}
     {ci : ConstantInfo} (hfT : env.find? T = some ci)
     (hlps : ci.toConstantVal.levelParams = lps)
     {fvs : List Expr} {nP : Nat} (hlen : fvs.length = nP)
-    (hidx : ∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ nm ty, x = Expr.fvar k ty)
+    (hidx : ∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (D : Nat) (ψ : Name → Nat) :
     denoteP m.acval env ψ D (Expr.mkAppN (.const T (lps.map .param)) fvs)
       = some (AVExpr.mkAppN (m.acval T ψ) (paramBvarsAt nP D)) := by
@@ -303,7 +303,7 @@ theorem famSpine_read_at {m : EnvS2Core V env} {T : Name} {lps : List Name}
     {us : List Level} {ψ : Name → Nat}
     (hus : Level.substFn ψ lps us = ψ) (hlus : us.length = lps.length)
     {fvs : List Expr} {nP : Nat} (hlen : fvs.length = nP)
-    (hidx : ∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ nm ty, x = Expr.fvar k ty)
+    (hidx : ∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (D : Nat) :
     denoteP m.acval env ψ D (Expr.mkAppN (.const T us) fvs)
       = some (AVExpr.mkAppN (m.acval T ψ) (paramBvarsAt nP D)) := by

@@ -141,7 +141,7 @@ theorem openPisAtFvars_leaves :
     ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr},
       openPisAtFvars k e d = some (fvs, body) →
       ∀ l, (l ∈ body.fvarLeaves ∨ ∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-        l ∈ e.fvarLeaves ∨ Expr.fvar l.1 l.2.2 ∈ fvs := by
+        l ∈ e.fvarLeaves ∨ Expr.fvar l.1 l.2 ∈ fvs := by
   intro k
   induction k with
   | zero =>
@@ -2105,7 +2105,7 @@ frame variable (sealed). -/
 theorem projRhsValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     {fvs : List Expr} {rP cnF i : Nat} {vR : VExpr}
     (hshapeS : ∀ (i0 : Nat) (x : Expr), fvs[i0]? = some x →
-      ∃ nm ty, x = Expr.fvar i0 ty)
+      ∃ ty, x = Expr.fvar i0 ty)
     (hfvslen : fvs.length = rP + cnF) (hilt : i < cnF)
     (hRden : denote cval env ψ (rP + cnF) (fvs.getD (rP + i) default)
       = some vR) :
@@ -2187,7 +2187,7 @@ theorem instLamsAt_denoteTele {cval : TConstVal} {env : Env}
       {rest : Expr} {Vv : VExpr},
       Expr.instLamsAt sp e = some (ds, rest) →
       (∀ (i : Nat) (x : Expr), sp[i]? = some x →
-        ∃ nm ty, x = Expr.fvar (j + i) ty) →
+        ∃ ty, x = Expr.fvar (j + i) ty) →
       denote cval env ψ j e = some Vv →
       ∃ (Γ : List VExpr) (C : VExpr),
         Vv = lamCtx Γ C ∧ Γ.length = sp.length ∧

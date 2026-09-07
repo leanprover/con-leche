@@ -59,7 +59,7 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
     -- the statement frame and its tower
     {fvs : List Expr} (hfvslen : fvs.length = K)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped K x)
     (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
       Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
@@ -72,7 +72,7 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
     -- the public λ-frame (`annotTransportP`'s own premises)
     {pfvs : List Expr} (hPlen : pfvs.length = K)
     (hPshape : ∀ (i : Nat) (x : Expr), pfvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hPws : ∀ x ∈ pfvs, Expr.WScoped K x)
     (hPleafClosed : ∀ l, (∃ x ∈ pfvs, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2.2 ∈ pfvs)

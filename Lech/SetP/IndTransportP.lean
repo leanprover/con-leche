@@ -42,7 +42,7 @@ theorem annotTransportP {m : EnvS2Core V env} {F : Nat}
     -- the public frame
     {pfvs : List Expr} (hPlen : pfvs.length = K)
     (hPshape : ∀ (i : Nat) (x : Expr), pfvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hPws : ∀ x ∈ pfvs, Expr.WScoped K x)
     (hPleafClosed : ∀ l, (∃ x ∈ pfvs, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2.2 ∈ pfvs)

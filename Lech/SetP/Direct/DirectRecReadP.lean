@@ -228,7 +228,7 @@ position, scoped one above their index. -/
 theorem opening_vars {n : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
     (hop : openPisAtFvars n e 0 = some (fvs, o)) (hcl : e.hasFvar = false) :
     fvs.length = n ∧
-    (∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ nm ty, x = Expr.fvar k ty) ∧
+    (∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ ty, x = Expr.fvar k ty) ∧
     (∀ a ∈ fvs, a.looseBVarsBounded 0 = true) ∧
     (∀ (i : Nat) (a : Expr), fvs[i]? = some a → Expr.WScoped (0 + i + 1) a) := by
   have hidx := openPisAtFvars_index n e 0 hop
@@ -251,7 +251,7 @@ by position from the depth, closed. -/
 theorem opening_vars_at {n d : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
     (hop : openPisAtFvars n e d = some (fvs, o)) :
     fvs.length = n ∧
-    (∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ nm ty, x = Expr.fvar (d + k) ty) ∧
+    (∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ ty, x = Expr.fvar (d + k) ty) ∧
     (∀ a ∈ fvs, a.looseBVarsBounded 0 = true) :=
   ⟨openPisAtFvars_length n hop, openPisAtFvars_index n e d hop, fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
@@ -319,7 +319,7 @@ theorem ctorResidual {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF : Nat} {ct
     (hsC : cty.stripPis nP = some (cbs, crest0))
     (hstripC : (cty.stripPis (nP + nF)).isSome = true)
     {tfvs : List Expr} (hlenT : tfvs.length = nP)
-    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ nm ty, x = Expr.fvar k ty)
+    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (hspW : ∀ (i : Nat) (a : Expr), tfvs[i]? = some a → Expr.WScoped (0 + i + 1) a) :
     denoteP m.acval env ψ nP (Expr.instSeq tfvs (nP - 1) crest0)
         = some (mkPisAV (ds.drop nP) bodyC) ∧
@@ -357,8 +357,8 @@ theorem denoteP_minorCore {m : EnvS2Core V env} {ψ : Name → Nat} {C : Name} {
     {ci : ConstantInfo} (hfC : env.find? C = some ci) (hlpsC : ci.toConstantVal.levelParams = lps)
     {nP nF : Nat} {tfvs xFvs : List Expr} {nmM : Name} {tyM : Expr}
     (hlenT : tfvs.length = nP) (hlenX : xFvs.length = nF)
-    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ nm ty, x = Expr.fvar k ty)
-    (hidxX : ∀ (k : Nat) (x : Expr), xFvs[k]? = some x → ∃ nm ty, x = Expr.fvar (nP + 1 + k) ty) :
+    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
+    (hidxX : ∀ (k : Nat) (x : Expr), xFvs[k]? = some x → ∃ ty, x = Expr.fvar (nP + 1 + k) ty) :
     denoteP m.acval env ψ (nP + 1 + nF)
         (.app (.fvar nP tyM) (Expr.mkAppN (.const C (lps.map .param)) (tfvs ++ xFvs)))
       = some (.app (.bvar nF)
@@ -574,7 +574,7 @@ theorem rebit_map_lam (b : Nat) (ds : List (Nat × Nat × AVExpr)) :
 /-- The rule's body `minor f⃗`, read at the full frame. -/
 theorem denoteP_ruleCore {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF : Nat}
     {xFvs : List Expr} {nmK : Name} {tyK : Expr} (hlenX : xFvs.length = nF)
-    (hidxX : ∀ (k : Nat) (x : Expr), xFvs[k]? = some x → ∃ nm ty, x = Expr.fvar (nP + 2 + k) ty) :
+    (hidxX : ∀ (k : Nat) (x : Expr), xFvs[k]? = some x → ∃ ty, x = Expr.fvar (nP + 2 + k) ty) :
     denoteP m.acval env ψ (nP + 2 + nF) (Expr.mkAppN (.fvar (nP + 1) tyK) xFvs)
       = some (AVExpr.mkAppN (.bvar nF) (fieldBvars nF)) := by
   have hspX : DenoteSpineP m.acval env ψ (nP + 2 + nF) xFvs (fieldBvars nF) := by

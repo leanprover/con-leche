@@ -285,7 +285,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       (env := envSelf) (φ := ψ) rP hopenP hTV0
   have hfvsPlen : fvsP.length = rP := openPisAtFvars_length _ hopenP
   have hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i ty := by
+      ∃ ty, x = Expr.fvar i ty := by
     intro i x hx
     obtain ⟨nm, ty, hx'⟩ := openPisAtFvars_index _ _ _ hopenP i x hx
     exact ⟨nm, ty, by simpa using hx'⟩
@@ -306,7 +306,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     fun i nm ty hmem =>
       (openPisAtFvars_bounded rP hopenP htyb).2 _ hmem
   have hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.2 ∈ fvsP := by
+      Expr.fvar l.1 l.2 ∈ fvsP := by
     intro l ⟨x, hx, hl⟩
     rcases openPisAtFvars_leaves _ hopenP l (Or.inr ⟨x, hx, hl⟩) with
       h0 | h0
@@ -368,7 +368,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     rfl
   have hopenerLeafP : ∀ (q0 : Nat) (a : Expr),
       (fvsP.take rP)[q0]? = some a → ∀ l ∈ a.fvarLeaves,
-        Expr.fvar l.1 l.2.2 ∈ fvsP := by
+        Expr.fvar l.1 l.2 ∈ fvsP := by
     intro q0 a ha l hl
     have hq0lt : q0 < rP := by
       have := (List.getElem?_eq_some_iff.mp ha).1

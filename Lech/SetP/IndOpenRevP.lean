@@ -228,7 +228,7 @@ theorem pinOpenRevReadsP
     {rP cnF : Nat}
     {os : List Expr} (hoslen : os.length = rP)
     (hshape : ∀ (i : Nat) (x : Expr), os[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hwsOs : ∀ x ∈ os, Expr.WScoped (rP + cnF) x)
     (hbOs : ∀ x ∈ os, x.looseBVarsBounded 0 = true)
     {p : Expr} (hpw : p.hasFvar = false)
@@ -307,7 +307,7 @@ theorem pinCrossP
     {rP cnF : Nat} (q : AVExpr)
     {os : List Expr} (hoslen : os.length = rP)
     (hshape : ∀ (i : Nat) (x : Expr), os[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hwsOs : ∀ x ∈ os, Expr.WScoped (rP + cnF) x)
     (hbOs : ∀ x ∈ os, x.looseBVarsBounded 0 = true)
     {p : Expr} (hpw : p.hasFvar = false)

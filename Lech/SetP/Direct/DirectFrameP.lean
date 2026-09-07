@@ -185,7 +185,7 @@ theorem ctxOkP_opened {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
     (hokΓ : ∀ i, i < k → ∀ ρ : Nat → V, Sat2 V (Γ.drop (k - i)) ρ →
       AnnotOkP V ρ (Γ.getD (k - 1 - i) default))
     {i : Nat} (hik : i ≤ k) {x : Expr} (hwx : Expr.WScoped i x)
-    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs) :
+    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) :
     CtxOkP m φ i (Γ.drop (k - i)) x := by
   have hidx := openPisAtFvars_index k e 0 hop
   have hlenF : fvs.length = k := openPisAtFvars_length k hop

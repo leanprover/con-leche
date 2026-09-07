@@ -447,7 +447,7 @@ theorem openPisAtFvars_index :
     ∀ (n : Nat) (e : Expr) (i : Nat) {fvs : List Expr} {body : Expr},
       openPisAtFvars n e i = some (fvs, body) →
       ∀ (j : Nat) (x : Expr), fvs[j]? = some x →
-        ∃ nm ty, x = Expr.fvar (i + j) ty := by
+        ∃ ty, x = Expr.fvar (i + j) ty := by
   intro n
   induction n with
   | zero =>

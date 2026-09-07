@@ -116,13 +116,13 @@ theorem shadowCtxOk {m : EnvS2Core V env} {ψ : Name → Nat} {k : Nat} {e : Exp
     (hO : OpenedP m ψ k e fvs o Γ R) (hlenF : fvs.length = k)
     {nP : Nat} {ks : List RecFieldKind}
     {b : Nat} (hb : b ≤ k) {x : Expr} (hwx : Expr.WScoped b x)
-    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs)
+    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs)
     (hnorec : ∀ l ∈ x.fvarLeaves, ¬ recAt nP ks l.1)
     (hok : ∀ i, i < b → ¬ recAt nP ks i → ∀ ρ : Nat → V,
       Sat2 V ((shadowCtx nP ks k Γ).drop (k - i)) ρ →
       AnnotOkP V ρ (Γ.getD (k - 1 - i) default)) :
     CtxOkP m ψ b ((shadowCtx nP ks k Γ).drop (k - b)) x := by
-  have hidx : ∀ i x, fvs[i]? = some x → ∃ nm ty, x = Expr.fvar i ty :=
+  have hidx : ∀ i x, fvs[i]? = some x → ∃ ty, x = Expr.fvar i ty :=
     fun i x hx => (hO.var i x hx).1
   -- a leaf's opener sits at its own position
   have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2.2) := by

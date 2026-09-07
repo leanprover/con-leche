@@ -80,10 +80,10 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     {rP cnF : Nat} {fvs : List Expr}
     (hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
     (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.2 ∈ fvs)
+      Expr.fvar l.1 l.2 ∈ fvs)
     (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
       Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Tstmt : AVExpr} {Γs : List AVExpr} {Rbody : AVExpr}
@@ -104,7 +104,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (hvR : denoteP m.acval env ψ' (rP + cnF) rhsS = some vR)
     (hwsR : Expr.WScoped (rP + cnF) rhsS)
     (hbR : rhsS.looseBVarsBounded 0 = true)
-    (hleafR : ∀ l ∈ rhsS.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs)
+    (hleafR : ∀ l ∈ rhsS.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs)
     (hltR : ∀ l ∈ rhsS.fvarLeaves, l.1 < rP + cnF)
     (hokR : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ vR)
     -- the recorded rhs run, and the applied form's grading (the third
@@ -135,7 +135,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
   have hrhsRw : (rhsA.renameConsts f).hasFvar = false :=
     (Lech.hasFvar_renameConsts f rhsA).trans hrhsw
   have hleafApp : ∀ l ∈ (Expr.mkAppN (rhsA.renameConsts f)
-      fvs).fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs := by
+      fvs).fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
     intro l hl
     rcases fvarLeaves_mkAppN hl with hf | ⟨x, hx, hlx⟩
     · exfalso

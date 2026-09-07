@@ -198,7 +198,7 @@ theorem entryProjAVs_length (i : Nat) : (entryProjAVs i).length = i := by
 /-- The opened parameters read to `entryParamBvars` at depth `nP + 1`. -/
 theorem denoteSpineP_entryParams {acval : Name → (Name → Nat) → AVExpr} {env : Env}
     {φ : Name → Nat} {nP : Nat} {fvsP : List Expr}
-    (hidx : ∀ (k : Nat) (x : Expr), fvsP[k]? = some x → ∃ nm ty, x = Expr.fvar k ty)
+    (hidx : ∀ (k : Nat) (x : Expr), fvsP[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (hlen : fvsP.length = nP) :
     DenoteSpineP acval env φ (nP + 1) fvsP (entryParamBvars nP) := by
   have h := denoteSpineP_fvars (acval := acval) (env := env) (φ := φ) (nP + 1) fvsP 0

@@ -309,7 +309,7 @@ theorem projBodyValueP {cnP cnF i : Nat} (hilt : i < cnF) {Cβ : AVExpr}
 variable** (`projRhsValue`). -/
 theorem projRhsValueP {fvs : List Expr} {rP cnF i : Nat} {vR : AVExpr}
     (hshapeS : ∀ (i0 : Nat) (x : Expr), fvs[i0]? = some x →
-      ∃ nm ty, x = Expr.fvar i0 ty)
+      ∃ ty, x = Expr.fvar i0 ty)
     (hfvslen : fvs.length = rP + cnF) (hilt : i < cnF)
     (hRden : denoteP acval env φ (rP + cnF)
       (fvs.getD (rP + i) default) = some vR) :
@@ -433,7 +433,7 @@ theorem projSpineMemP
       (acval n ψ).liftN 1 k = acval n ψ)
     {K : Nat} {fvs : List Expr} (hfvslen : fvs.length = K)
     (hshapeS : ∀ (q : Nat) (x : Expr), fvs[q]? = some x →
-      ∃ nm ty, x = Expr.fvar q ty)
+      ∃ ty, x = Expr.fvar q ty)
     (hwsTy : ∀ (q : Nat) (nm : Name) (ty : Expr),
       Expr.fvar q ty ∈ fvs → Expr.WScoped q ty)
     {ctyR : Expr} (hCwR : ctyR.hasFvar = false)

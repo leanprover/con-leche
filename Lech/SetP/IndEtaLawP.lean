@@ -268,7 +268,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
       (K := mp.base2.acval K ψ) (fun q => d - 1 - (0 + q)) hσ
       (acval_interp2_closedC mp.base2 _ ψ σ ρ)
   -- the major's slot
-  obtain ⟨nx, mx, hxb⟩ := hxdom
+  obtain ⟨mx, hxb⟩ := hxdom
   have hAx : Ax = AVExpr.mkAppN (mp.base2.acval (T.str "_model") ψ)
       ((List.range caps.etaParams).map fun q =>
         AVExpr.bvar (caps.etaParams - 1 - (0 + q))) := by

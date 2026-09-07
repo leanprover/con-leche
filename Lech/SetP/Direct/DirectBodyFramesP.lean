@@ -164,7 +164,7 @@ theorem bodyFrames {env : Env} (m : EnvS2Core V env)
   -- the arguments' scoping
   have hlenP : (Lech.fvsD nP).length = nP := Lech.fvsD_length nP
   have hfvsDidx : ∀ (k : Nat) (x : Expr), (Lech.fvsD nP)[k]? = some x →
-      ∃ nm ty, x = Expr.fvar k ty := by
+      ∃ ty, x = Expr.fvar k ty := by
     intro k x hx
     have hk : k < nP := by
       have := (List.getElem?_eq_some_iff.mp hx).1; rwa [hlenP] at this

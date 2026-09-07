@@ -308,9 +308,9 @@ theorem denoteP_famSpine_at {m : EnvS2Core V env} {ψ : Name → Nat} {C : Name}
     (hlpsC : ci.toConstantVal.levelParams = lps)
     {nP nF o : Nat} {tfvs xFvs : List Expr}
     (hlenT : tfvs.length = nP) (hlenX : xFvs.length = nF)
-    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ nm ty, x = Expr.fvar k ty)
+    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (hidxX : ∀ (k : Nat) (x : Expr), xFvs[k]? = some x →
-      ∃ nm ty, x = Expr.fvar (nP + o + k) ty) :
+      ∃ ty, x = Expr.fvar (nP + o + k) ty) :
     denoteP m.acval env ψ (nP + o + nF) (Expr.mkAppN (.const C (lps.map .param)) (tfvs ++ xFvs))
       = some (AVExpr.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)) := by
   have hspP : DenoteSpineP m.acval env ψ (nP + o + nF) tfvs (paramBvarsAt nP (nP + o + nF)) := by
@@ -358,7 +358,7 @@ theorem denoteSpineP_idxArgs_lift {m : EnvS2Core V env} {ψ : Name → Nat} {T :
     {tfvs xFvs : List Expr} (hlenT : tfvs.length = nP) (hlenX : xFvs.length = nF)
     (hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true)
     (hidxX : ∀ (k : Nat) (x : Expr), xFvs[k]? = some x →
-      ∃ nm ty, x = Expr.fvar (nP + o + k) ty)
+      ∃ ty, x = Expr.fvar (nP + o + k) ty)
     (hcreadO : denoteP m.acval env ψ (nP + o) (Expr.instSeq tfvs (nP - 1) crest0)
       = some (mkPisAV (liftDoms o 0 (ds.drop nP))
           ((AVExpr.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN o nF)))
@@ -424,7 +424,7 @@ motive and `n` minors. -/
 theorem denoteP_ruleCore_at {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF n j : Nat}
     {xFvs : List Expr} {nmK : Name} {tyK : Expr} (hlenX : xFvs.length = nF) (hj : j < n)
     (hidxX : ∀ (k : Nat) (x : Expr), xFvs[k]? = some x →
-      ∃ nm ty, x = Expr.fvar (nP + 1 + n + k) ty) :
+      ∃ ty, x = Expr.fvar (nP + 1 + n + k) ty) :
     denoteP m.acval env ψ (nP + 1 + n + nF) (Expr.mkAppN (.fvar (nP + 1 + j) tyK) xFvs)
       = some (sumRuleCoreAV nF n j) := by
   have hspX : DenoteSpineP m.acval env ψ (nP + 1 + n + nF) xFvs (fieldBvars nF) := by
@@ -464,10 +464,10 @@ theorem denoteP_minorAt {m : EnvS2Core V env} {ψ : Name → Nat} {T C : Name} {
       = some (mkPisAV ds (AVExpr.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es))))
     (hlenD : ds.length = nP + nF) (hlenE : Es.length = nIdx)
     {tfvs : List Expr} (hlenT : tfvs.length = nP)
-    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ nm ty, x = Expr.fvar k ty)
+    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (hspW : ∀ (i : Nat) (a : Expr), tfvs[i]? = some a → Expr.WScoped (0 + i + 1) a)
     (ho : 0 < extras.length)
-    (hidxE : ∀ (k : Nat) (x : Expr), extras[k]? = some x → ∃ nm ty, x = Expr.fvar (nP + k) ty) :
+    (hidxE : ∀ (k : Nat) (x : Expr), extras[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty) :
     denoteP m.acval env ψ (nP + extras.length)
         (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) mty)
       = some (minorAVAt m C ψ nP nF (pwBit ψ pw) extras.length ds Es) := by
@@ -540,16 +540,16 @@ theorem denoteP_minorsPis {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {
     {ciT : ConstantInfo} (hfT : env.find? T = some ciT)
     (hlpsT : ciT.toConstantVal.levelParams = lps)
     {nP nIdx : Nat} {pw : PropWhen} {tfvs : List Expr} (hlenT : tfvs.length = nP)
-    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ nm ty, x = Expr.fvar k ty)
+    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (hspW : ∀ (i : Nat) (a : Expr), tfvs[i]? = some a → Expr.WScoped (0 + i + 1) a) :
     ∀ {ctors : List (Name × Nat × Expr)} {cds : List CtorDatum}
       {body mins : Expr} {extras : List Expr},
       CtorReads m ψ T lps nP nIdx ctors cds →
       Lech.directMinorsPisI lps nP pw ctors extras.length body = some mins →
       0 < extras.length →
-      (∀ (k : Nat) (x : Expr), extras[k]? = some x → ∃ nm ty, x = Expr.fvar (nP + k) ty) →
+      (∀ (k : Nat) (x : Expr), extras[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty) →
       ∃ extras' : List Expr, extras'.length = ctors.length + extras.length ∧
-        (∀ (k : Nat) (x : Expr), extras'[k]? = some x → ∃ nm ty, x = Expr.fvar (nP + k) ty) ∧
+        (∀ (k : Nat) (x : Expr), extras'[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty) ∧
         denoteP m.acval env ψ (nP + extras.length)
             (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) mins)
           = (denoteP m.acval env ψ (nP + extras.length + ctors.length)
@@ -589,7 +589,7 @@ theorem denoteP_minorsPis {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {
         show nP + (extras.length + 1) - 1 = nP + extras.length from by omega, Nat.sub_self]
       rfl
     have hidxE' : ∀ (k : Nat) (x : Expr), (extras ++ [mkfv])[k]? = some x →
-        ∃ nm ty, x = Expr.fvar (nP + k) ty := by
+        ∃ ty, x = Expr.fvar (nP + k) ty := by
       intro k x hx
       by_cases hk : k < extras.length
       · rw [List.getElem?_append_left hk] at hx
@@ -628,16 +628,16 @@ theorem denoteP_minorsLams {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} 
     {ciT : ConstantInfo} (hfT : env.find? T = some ciT)
     (hlpsT : ciT.toConstantVal.levelParams = lps)
     {nP nIdx : Nat} {pw : PropWhen} {tfvs : List Expr} (hlenT : tfvs.length = nP)
-    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ nm ty, x = Expr.fvar k ty)
+    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (hspW : ∀ (i : Nat) (a : Expr), tfvs[i]? = some a → Expr.WScoped (0 + i + 1) a) :
     ∀ {ctors : List (Name × Nat × Expr)} {cds : List CtorDatum}
       {body mins : Expr} {extras : List Expr},
       CtorReads m ψ T lps nP nIdx ctors cds →
       Lech.directMinorsLamsI lps nP pw ctors extras.length body = some mins →
       0 < extras.length →
-      (∀ (k : Nat) (x : Expr), extras[k]? = some x → ∃ nm ty, x = Expr.fvar (nP + k) ty) →
+      (∀ (k : Nat) (x : Expr), extras[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty) →
       ∃ extras' : List Expr, extras'.length = ctors.length + extras.length ∧
-        (∀ (k : Nat) (x : Expr), extras'[k]? = some x → ∃ nm ty, x = Expr.fvar (nP + k) ty) ∧
+        (∀ (k : Nat) (x : Expr), extras'[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty) ∧
         denoteP m.acval env ψ (nP + extras.length)
             (Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) mins)
           = (denoteP m.acval env ψ (nP + extras.length + ctors.length)
@@ -676,7 +676,7 @@ theorem denoteP_minorsLams {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} 
         show nP + (extras.length + 1) - 1 = nP + extras.length from by omega, Nat.sub_self]
       rfl
     have hidxE' : ∀ (k : Nat) (x : Expr), (extras ++ [mkfv])[k]? = some x →
-        ∃ nm ty, x = Expr.fvar (nP + k) ty := by
+        ∃ ty, x = Expr.fvar (nP + k) ty := by
       intro k x hx
       by_cases hk : k < extras.length
       · rw [List.getElem?_append_left hk] at hx
@@ -723,7 +723,7 @@ theorem denoteP_motiveI {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {lp
     (hTread : denoteP m.acval env ψ 0 tty = some (mkPisAV ppsAll (.sort w)))
     (hlenP : ppsAll.length = nP + nIdx)
     {tfvs : List Expr} (hlenT : tfvs.length = nP)
-    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ nm ty, x = Expr.fvar k ty)
+    (hidxT : ∀ (k : Nat) (x : Expr), tfvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
     (hspW : ∀ (i : Nat) (a : Expr), tfvs[i]? = some a → Expr.WScoped (0 + i + 1) a) :
     denoteP m.acval env ψ nP (Expr.instSeq tfvs (nP - 1) motiveTy)
       = some (motiveAVI m T ψ nP nIdx ℓ (ppsAll.drop nP)) := by
@@ -839,7 +839,7 @@ theorem denoteP_directRecTyI {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
       = Expr.instSeq (tfvs ++ [mfv]) nP minors := by
     rw [Expr.instSeq_append, hlenT, Nat.sub_self]
     rfl
-  have hidxE : ∀ (k : Nat) (x : Expr), [mfv][k]? = some x → ∃ nm ty, x = Expr.fvar (nP + k) ty := by
+  have hidxE : ∀ (k : Nat) (x : Expr), [mfv][k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty := by
     intro k x hx
     cases k with
     | zero =>
@@ -1059,7 +1059,7 @@ theorem denoteP_directRecRhsI {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
       = Expr.instSeq (tfvs ++ [mfv]) nP minors := by
     rw [Expr.instSeq_append, hlenT, Nat.sub_self]
     rfl
-  have hidxE : ∀ (k : Nat) (x : Expr), [mfv][k]? = some x → ∃ nm ty, x = Expr.fvar (nP + k) ty := by
+  have hidxE : ∀ (k : Nat) (x : Expr), [mfv][k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty := by
     intro k x hx
     cases k with
     | zero =>
@@ -1112,7 +1112,7 @@ theorem denoteP_directRecRhsI {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
     show nF + (n + 1 - 1) - 1 - j = nF + n - 1 - j from by omega] at hrb
   rw [hrb, show nP + 1 + n + nF = nP + 1 + n + nF from rfl] at hinnerR
   have hidxX' : ∀ (k : Nat) (x : Expr), xFvs[k]? = some x →
-      ∃ nm ty, x = Expr.fvar (nP + 1 + n + k) ty := hidxX
+      ∃ ty, x = Expr.fvar (nP + 1 + n + k) ty := hidxX
   rw [show Expr.fvar (nP + (j + 1)) tyK = Expr.fvar (nP + 1 + j) tyK from by
       congr 1; omega,
     denoteP_ruleCore_at hlenX hjn hidxX', Option.map_some] at hinnerR

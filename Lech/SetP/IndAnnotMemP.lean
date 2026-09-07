@@ -79,7 +79,7 @@ theorem annotPFrameEqP {m : EnvS2Core V env}
     (hcinst : Expr.instPisAt (psR ++ fvs.drop rP) cvjR
       = some (cdoms, cres))
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i ty)
+      ∃ ty, x = Expr.fvar i ty)
     -- the two ladders, fired at the ambient context
     {Δa : List AVExpr}
     (hpre : ∀ n, n < rP → ∀ ρ' : Nat → V, Sat2 V Δa ρ' →
@@ -257,7 +257,7 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
     -- the public frame
     {pfvs : List Expr} (hPlen : pfvs.length = K)
     (hPshape : ∀ (i : Nat) (x : Expr), pfvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hPws : ∀ x ∈ pfvs, Expr.WScoped K x)
     (hPleafClosed : ∀ l, (∃ x ∈ pfvs, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2.2 ∈ pfvs)

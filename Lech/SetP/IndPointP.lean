@@ -72,7 +72,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     -- the statement frame
     {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
     (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
       Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
@@ -102,7 +102,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (hctorHead : denoteP m.acval env ψ' (rP + cnF) ctorHead
       = some (m.acval ctor (Level.substFn φ cvj.levelParams usj)))
     (hleafLhs : ∀ l ∈ lhsS.fvarLeaves,
-      Expr.fvar l.1 l.2.2 ∈ fvs)
+      Expr.fvar l.1 l.2 ∈ fvs)
     (hltLhs : ∀ l ∈ lhsS.fvarLeaves, l.1 < rP + cnF)
     -- the constructor's type and run at the statement frame
     {ctyR : Expr} (hCwR : ctyR.hasFvar = false)
@@ -116,7 +116,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (hsplen : sp.length = cnP + cnF)
     (hspLeaf : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       ∀ l ∈ x.fvarLeaves,
-        Expr.fvar l.1 l.2.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP))
+        Expr.fvar l.1 l.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP))
     (hspScope : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       Expr.WScoped (rP + cnF) x ∧ x.looseBVarsBounded 0 = true)
     {cdoms : List Expr} {cres : Expr}
@@ -186,7 +186,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hCwR] at hl
     exact nomatch hl
   have hfvsLt : ∀ l : Nat × Expr,
-      Expr.fvar l.1 l.2.2 ∈ fvs → l.1 < rP + cnF := by
+      Expr.fvar l.1 l.2 ∈ fvs → l.1 < rP + cnF := by
     intro l hl
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hl
     obtain ⟨nm', ty', heq⟩ := hshapeS q _ hq
@@ -311,7 +311,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
           exact h
         -- leaves of the two subjects
         have hleafA : ∀ l ∈ ai.fvarLeaves,
-            Expr.fvar l.1 l.2.2 ∈ fvs := by
+            Expr.fvar l.1 l.2 ∈ fvs := by
           intro l hl
           exact hleafLhs l
             (fvarLeaves_getAppArgs (List.mem_of_getElem? hai) l hl)
@@ -320,7 +320,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
           exact hltLhs l
             (fvarLeaves_getAppArgs (List.mem_of_getElem? hai) l hl)
         have hleafB : ∀ l ∈ bx.fvarLeaves,
-            Expr.fvar l.1 l.2.2 ∈ fvs := by
+            Expr.fvar l.1 l.2 ∈ fvs := by
           intro l hl
           have hlc : l ∈ cres.fvarLeaves :=
             fvarLeaves_getAppArgs (List.mem_of_getElem? hbx) l hl
