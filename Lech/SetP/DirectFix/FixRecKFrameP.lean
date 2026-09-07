@@ -107,9 +107,11 @@ theorem interp_minorAVAtR {m : EnvS2Core V env} {ψ : Name → Nat} {C : Name}
     (hclC : VExpr.bvarsBelow 0 (m.acval C ψ).erase)
     (hFsj : Fss[j]? = some ((ds.drop nP).map (·.2.2)))
     (hokB : SumFieldsOkB w ρp Fss)
-    (hsatC : Sat2 V (((ds.take nP).map (·.2.2)).reverse) ρp) :
+    (hsatC : Sat2 V (((ds.take nP).map (·.2.2)).reverse) ρp)
+    (htl : ∀ i ∈ recIdx (rss.getD j []) nF, ∀ d ∈ (tlss.getD j []).getD i [], (d.2.1 = 0 ↔ ℓ = 0)) :
     interp2 V (consList ms (cons M ρp))
-        (minorAVAtR m C ψ nP nF b (1 + j) ds Es (recIdx (rss.getD j []) nF) (Eiss.getD j []))
+        (minorAVAtR m C ψ nP nF b (1 + j) ds Es (recIdx (rss.getD j []) nF) (tlss.getD j [])
+          (Eiss.getD j []))
       = minorSpI ℓ (fun fs => ihSpL ℓ (concI w ρp M Es j fs)
           (ihDomsI ℓ ρp M rss tlss Eiss (fun j' => (Fss.getD j' []).length) j fs))
         ((ds.drop nP).map (·.2.2)) ρp [] := by
@@ -149,7 +151,7 @@ theorem interp_minorAVAtR {m : EnvS2Core V env} {ψ : Name → Nat} {C : Name}
     unfold ihDomsI
     simp only [har]
     refine interp_ihPisAV hbz (by omega) hlenAs (recIdx (rss.getD j []) nF) 0 [] _ rfl
-      (fun i hi => (mem_recIdx.mp hi).1) ?_
+      (fun i hi => (mem_recIdx.mp hi).1) htl ?_
     intro ihs' hl
     rw [Nat.zero_add] at hl
     rw [interp2_liftN, ← hl, shiftE_consList]
@@ -223,6 +225,16 @@ theorem interp_majorAVAt {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {n
   rw [show nP + 1 + n + nIdx = nP + (1 + n + nIdx) from by omega]
   exact h
 
+/-- A nested product at a zero elimination level is a truth value. -/
+theorem piTele_zero_mem_univZero {B : List V → V} :
+    ∀ {k : Nat} {T : TeleS V k} {acc : List V},
+      (∀ as, FitsS T as → B (acc ++ as) ∈ˢ (univZero : V)) →
+      piTele 0 T B acc ∈ˢ (univZero : V)
+  | _, .nil, acc, h => by simpa [piTele] using h [] trivial
+  | _, .cons A T, acc, _ => by
+    show piR 0 A _ ∈ˢ (univZero : V)
+    exact piR_zero_mem_univZero
+
 /-! ## The K-frame package -/
 
 /-- **The K-frame package**: at a K-frame over a parameter frame with
@@ -239,7 +251,7 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
       ((Eiss.getD j []).getD i []).length = nIdx)
     {ρp : Nat → V} (hsatP : Sat2 V ((pps.map (·.2.2)).reverse) ρp)
     (hX : XChainsOk u w ρp (ips.map (·.2.2)) rss tlss Eiss Fss₀ Ess)
-    (hreal : ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) u ρp
+    (hreal : ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) u w ρp
       (ips.map (·.2.2)) rss tlss Eiss Fss₀ Fss Ess)
     (hfields : ∀ j, j < n → FieldsOkB w ρp (Fss.getD j []) ∧
       ∀ bs : List V, SpineFit ρp (Fss.getD j []) bs →
@@ -304,7 +316,7 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
       = sumSet w (sumFibre w (consList is (consList ms (cons M ρp)))
           (rChains (nIdx + n + 1) nIdx Fss Ess)) := by
     have hreal' : ChainsRealI (fixFamI u w ρp (ips.map (·.2.2)) (ips.map (·.2.2)).length rss tlss Eiss
-        Fss₀ Ess) u ρp (ips.map (·.2.2)) rss tlss Eiss Fss₀ Fss Ess := by
+        Fss₀ Ess) u w ρp (ips.map (·.2.2)) rss tlss Eiss Fss₀ Fss Ess := by
       rw [hfamL]; exact hreal
     have h := fixFamI_app_eq_sum hX hreal' hfit
     rw [hfamL, hlenIds] at h
@@ -359,8 +371,12 @@ theorem fixKFrame_of {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} {elimL
     intro h0 j fs A hA
     unfold ihDomsI at hA
     obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hA
-    have := hcore.hMapp0 h0 (is' := ((Eiss.getD j []).getD i []).map (interp2 V (consList (fs.take i) ρp)))
-      (by rw [List.length_map, hlenIds]; exact hEisLen j i hi) (fs.getD i pt)
+    rw [h0]
+    refine piTele_zero_mem_univZero fun as _ => ?_
+    rw [List.nil_append]
+    have := hcore.hMapp0 h0
+      (is' := ((Eiss.getD j []).getD i []).map (interp2 V (consList as (consList (fs.take i) ρp))))
+      (by rw [List.length_map, hlenIds]; exact hEisLen j i hi) (as.foldl SetTheory.app (fs.getD i pt))
     rw [kframe_frM hlenIs' hlenM'] at this
     rw [kframe_frP hlenIs' hlenM', kframe_frM hlenIs' hlenM']
     exact this
