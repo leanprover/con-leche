@@ -540,7 +540,7 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     · exact nomatch hjl'
     · have hidxl := firstIdx_some hjl'
       obtain ⟨fv, hfv⟩ : ∃ fv, xFvs[j]? = some fv := ⟨_, List.getElem?_eq_getElem (by omega)⟩
-      obtain ⟨nm, ty, rfl⟩ := hidxX j fv hfv
+      obtain ⟨ty, rfl⟩ := hidxX j fv hfv
       rw [List.getD_eq_getElem?_getD, hfv, Option.getD_some] at hidxl
       obtain ⟨v, hv, hread⟩ := DenoteSpineP.getElem? ((hspec ψ).2.2.2.1) hidxl
       rw [denoteP_fvar, show nP + nF - 1 - (nP + j) = nF - 1 - j from by omega] at hread

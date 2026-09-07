@@ -170,7 +170,7 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
             (by rw [List.length_take]; omega)] at ha
           exact nomatch ha
       rw [List.getElem?_take_of_lt hi] at ha
-      obtain ⟨nm', ty', rfl⟩ := hshapeS i a ha
+      obtain ⟨ty', rfl⟩ := hshapeS i a ha
       have h'' := hwsFvs _ (List.mem_of_getElem? ha)
       simp only [Expr.WScoped] at h'' ⊢
       exact ⟨by omega, h''.2⟩
@@ -200,7 +200,7 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
             (by rw [List.length_take]; omega)] at hq
           exact nomatch hq
       rw [List.getElem?_take_of_lt hqrP] at hq
-      obtain ⟨nm', ty', rfl⟩ := hshapeS q _ hq
+      obtain ⟨ty', rfl⟩ := hshapeS q _ hq
       rw [Expr.fvarLeaves] at hla
       rcases List.mem_cons.mp hla with rfl | hla'
       · exact List.mem_of_getElem? hq
@@ -225,7 +225,7 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
           (by rw [List.length_take]; omega)] at hq
         exact nomatch hq
     rw [List.getElem?_take_of_lt hqrP] at hq
-    obtain ⟨nm', ty', rfl⟩ := hshapeS q _ hq
+    obtain ⟨ty', rfl⟩ := hshapeS q _ hq
     rfl
   -- the strong induction on the position: the grading and the
   -- equality, both at EVERY satisfying environment, because the

@@ -187,9 +187,9 @@ theorem plainParamSupplyP {m : EnvS2Core V env} {F : Nat}
             (by rw [List.length_take, hfvsPlen]; omega)] at ha
           exact nomatch ha
       rw [List.getElem?_take_of_lt hi] at ha ha'
-      obtain ⟨nmP, tyP, rfl⟩ := hshapeP i a ha
+      obtain ⟨tyP, rfl⟩ := hshapeP i a ha
       rw [hspPar i hi] at ha'
-      obtain ⟨nm, ty, rfl⟩ := hshapeS i a' ha'
+      obtain ⟨ty, rfl⟩ := hshapeS i a' ha'
       exact RenEqT.fvar
     have hlen : (fvsP.take cnP).length = (sp.take cnP).length := by
       rw [List.length_take, List.length_take, hfvsPlen, hsplen]

@@ -153,7 +153,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
       · rw [List.getElem?_eq_none (by omega)] at hx
         exact nomatch hx
     rw [List.getElem?_take_of_lt hi₀] at hx
-    obtain ⟨nm, ty, rfl⟩ := hshapeP i₀ x hx
+    obtain ⟨ty, rfl⟩ := hshapeP i₀ x hx
     have hw := hwsFvsP _ (List.mem_of_getElem? hx)
     simp only [Expr.WScoped] at hw ⊢
     exact ⟨⟨by omega, hw.2⟩, rfl⟩
@@ -176,7 +176,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
         · rw [List.getElem?_eq_none (by omega)] at ha
           exact nomatch ha
       rw [List.getElem?_take_of_lt hi] at ha
-      obtain ⟨nm', ty', rfl⟩ := hshapeP i a ha
+      obtain ⟨ty', rfl⟩ := hshapeP i a ha
       have h'' := hwsFvsP _ (List.mem_of_getElem? ha)
       simp only [Expr.WScoped] at h'' ⊢
       exact ⟨by omega, h''.2⟩
@@ -205,7 +205,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
         · rw [List.getElem?_eq_none (by omega)] at hq'
           exact nomatch hq'
       rw [List.getElem?_take_of_lt hq'lt] at hq'
-      obtain ⟨nm', ty', rfl⟩ := hshapeP q' _ hq'
+      obtain ⟨ty', rfl⟩ := hshapeP q' _ hq'
       rw [Expr.fvarLeaves] at hla
       rcases List.mem_cons.mp hla with rfl | hla'
       · exact ⟨List.mem_of_getElem? hq', hq'lt⟩
@@ -274,7 +274,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
     intro i₀ x hlt hx
     have hi₀ : i₀ < cnP := by omega
     rw [List.getElem?_take_of_lt hi₀] at hx
-    obtain ⟨nm₀, ty₀, rfl⟩ := hshapeP i₀ x hx
+    obtain ⟨ty₀, rfl⟩ := hshapeP i₀ x hx
     refine ⟨.bvar (K - 1 - i₀), denoteP_fvar _ _ _ _, ?_, ?_⟩
     · exact ⟨by simp, by simp⟩
     · intro dw0 hdw0

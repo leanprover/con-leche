@@ -167,7 +167,7 @@ theorem openedP_of {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
     have hmem : Expr.fvar l.1 l.2 ∈ fvs := by
       refine hopener l (Or.inr ⟨y, hy, ?_⟩)
       obtain ⟨p, hp⟩ := List.getElem?_of_mem hy
-      obtain ⟨nm, ty, rfl⟩ := hidx p y hp
+      obtain ⟨ty, rfl⟩ := hidx p y hp
       simp only [Expr.fvarTypeD] at hl
       simp only [Expr.fvarLeaves]
       exact List.mem_cons_of_mem _ hl

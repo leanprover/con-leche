@@ -2587,14 +2587,14 @@ theorem checkDirectCtor_wfimp {env₀ env : Env} (henv : EnvWF env)
     (WScoped.of_not_hasFvar hTf)
   have hd1' := checkDirectDomsAt_wfimp (off := 0) henv
     (fun i x hx => by
-      obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nP cvCa.type 0 hop' i x hx
+      obtain ⟨ty, rfl⟩ := openPisAtFvars_index p.nP cvCa.type 0 hop' i x hx
       have hw := hfvsW0 _ (List.mem_of_getElem? hx)
       simp only [WScoped] at hw
       exact hw.2)
     (fun i x hx => by
       rw [List.getElem?_map] at hx
       obtain ⟨y, hy, rfl⟩ := Option.map_eq_some_iff.mp hx
-      obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nP cvTa.type 0 hci' i y hy
+      obtain ⟨ty, rfl⟩ := openPisAtFvars_index p.nP cvTa.type 0 hci' i y hy
       have hw := htfvsW0 _ (List.mem_of_getElem? hy)
       simp only [WScoped] at hw
       exact hw.2)
@@ -2616,7 +2616,7 @@ theorem checkDirectCtor_wfimp {env₀ env : Env} (henv : EnvWF env)
   have hxPos : ∀ (i : Nat) (x : Expr), xFvs[i]? = some x →
       WScoped (p.nP + i) (Expr.fvarTypeD x) := by
     intro i x hx
-    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nF crest p.nP hox' i x hx
+    obtain ⟨ty, rfl⟩ := openPisAtFvars_index p.nF crest p.nP hox' i x hx
     have hw := hxW _ (List.mem_of_getElem? hx)
     simp only [WScoped] at hw
     exact hw.2

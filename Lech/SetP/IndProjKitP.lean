@@ -314,7 +314,7 @@ theorem projRhsValueP {fvs : List Expr} {rP cnF i : Nat} {vR : AVExpr}
     (hRden : denoteP acval env φ (rP + cnF)
       (fvs.getD (rP + i) default) = some vR) :
     vR = .bvar (rP + cnF - 1 - (rP + i)) := by
-  obtain ⟨nm, t, hsh⟩ := hshapeS (rP + i) fvs[rP + i]
+  obtain ⟨t, hsh⟩ := hshapeS (rP + i) fvs[rP + i]
     (List.getElem?_eq_getElem (show rP + i < fvs.length from by omega))
   rw [show fvs.getD (rP + i) default = fvs[rP + i] from by
       simp [List.getD, List.getElem?_eq_getElem
@@ -353,7 +353,7 @@ theorem instPisAt_openerDomsP :
     exact absurd hq (by simp)
   | cons a sp ih =>
     intro ty ds rs h j T hshape hT Γ R htele q hq
-    obtain ⟨nm0, t0, rfl⟩ := hshape 0 a rfl
+    obtain ⟨t0, rfl⟩ := hshape 0 a rfl
     match ty, h with
     | .forallE dom bodyE mb, h =>
       simp only [Expr.instPisAt] at h
@@ -409,7 +409,7 @@ theorem instPisAt_openerDomsP :
         have hshape' : ∀ (q0 : Nat) (x : Expr), sp[q0]? = some x →
             ∃ nm t, x = Expr.fvar (j + 1 + q0) t := by
           intro q0 x hx
-          obtain ⟨nm', t', hx'⟩ := hshape (q0 + 1) x (by simpa using hx)
+          obtain ⟨t', hx'⟩ := hshape (q0 + 1) x (by simpa using hx)
           exact ⟨nm', t', by rw [hx']; congr 1; omega⟩
         have hrec := ih h1 hshape' hB' htele' q hqs
         rw [show (dom :: p.1).getD (q + 1) default
@@ -459,7 +459,7 @@ theorem projSpineMemP
     have h := instPisAt_index_WScoped fvs hcinst
       (d := 0) (Expr.WScoped.of_not_hasFvar hCwR)
       (fun i a ha => by
-        obtain ⟨nm0, t0, rfl⟩ := hshapeS i a ha
+        obtain ⟨t0, rfl⟩ := hshapeS i a ha
         have hty := hwsTy i nm0 t0 (List.mem_of_getElem? ha)
         simp only [Expr.WScoped]
         exact ⟨by omega, hty⟩)
@@ -473,7 +473,7 @@ theorem projSpineMemP
     · exact h'
     · rw [List.getElem?_eq_none (by omega)] at hx
       exact nomatch hx
-  obtain ⟨nm, ty, rfl⟩ := hshapeS q x hx
+  obtain ⟨ty, rfl⟩ := hshapeS q x hx
   refine ⟨.bvar (K - 1 - q), denoteP_fvar acval K q nm ty,
     ⟨by simp, by simp⟩, ?_⟩
   intro dw hdw

@@ -220,7 +220,7 @@ theorem ctxOkP_opened {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
       rw [List.length_take] at this
       omega
     rw [List.getElem?_take_of_lt hji] at hj
-    obtain ⟨nm, ty, rfl⟩ := hidx j y hj
+    obtain ⟨ty, rfl⟩ := hidx j y hj
     have hw := hws _ (List.mem_of_getElem? hj)
     rw [Nat.zero_add] at hw ⊢
     simp only [Expr.WScoped, Nat.zero_add] at hw ⊢

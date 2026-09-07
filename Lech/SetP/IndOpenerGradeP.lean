@@ -75,8 +75,8 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
       ∃ ty, x = Expr.fvar i ty)
     (hPws : ∀ x ∈ pfvs, Expr.WScoped K x)
     (hPleafClosed : ∀ l, (∃ x ∈ pfvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.2 ∈ pfvs)
-    (hlbP : ∀ (i : Nat) (nm : Name) (ty : Expr),
+      Expr.fvar l.1 l.2 ∈ pfvs)
+    (hlbP : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ pfvs → ty.looseBVarsBounded 0 = true)
     (hIdent : ∀ i, i < K → ∃ Bi : AVExpr,
       denoteP m.acval env φ K
@@ -102,7 +102,7 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
     intro mIdx hmIdx
     rcases hx : fvs[mIdx]? with _ | x
     · rw [List.getElem?_eq_none_iff, hfvslen] at hx; omega
-    obtain ⟨nm, ty, rfl⟩ := hshapeS mIdx x hx
+    obtain ⟨ty, rfl⟩ := hshapeS mIdx x hx
     have hmem := List.mem_of_getElem? hx
     have hws : Expr.WScoped mIdx ty := by
       have h := hwsFvs _ hmem
@@ -134,7 +134,7 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
     rw [hfvslen] at hq
     rcases hx : fvs[q]? with _ | x
     · rw [List.getElem?_eq_none_iff, hfvslen] at hx; omega
-    obtain ⟨nm, ty, rfl⟩ := hshapeS q x hx
+    obtain ⟨ty, rfl⟩ := hshapeS q x hx
     rw [show fvs.getD q default = Expr.fvar q ty from by
         rw [List.getD, hx]; rfl, hbvsgetD q hq]
     exact denoteP_fvar m.acval (K) q nm ty

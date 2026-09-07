@@ -172,7 +172,7 @@ theorem openPisAtFvars_leaf_free :
             rcases hopen l hl with h | h
             · exact hbody l (hsub l h)
             · obtain ⟨q, hq⟩ := List.getElem?_of_mem h
-              obtain ⟨nm', ty', heq⟩ := hidx q _ hq
+              obtain ⟨ty', heq⟩ := hidx q _ hq
               have : l.1 = d + 1 + q := by
                 have := congrArg (fun e => match e with | .fvar i _ => i | _ => 0) heq
                 simpa using this

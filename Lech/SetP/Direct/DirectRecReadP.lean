@@ -233,14 +233,14 @@ theorem opening_vars {n : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
     (∀ (i : Nat) (a : Expr), fvs[i]? = some a → Expr.WScoped (0 + i + 1) a) := by
   have hidx := openPisAtFvars_index n e 0 hop
   refine ⟨openPisAtFvars_length n hop, fun k x hx => by
-    obtain ⟨nm, ty, h⟩ := hidx k x hx
+    obtain ⟨ty, h⟩ := hidx k x hx
     exact ⟨nm, ty, by rw [h, Nat.zero_add]⟩, ?_, ?_⟩
   · intro a ha
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := hidx q a hq
+    obtain ⟨ty, rfl⟩ := hidx q a hq
     rfl
   · intro i a ha
-    obtain ⟨nm, ty, rfl⟩ := hidx i a ha
+    obtain ⟨ty, rfl⟩ := hidx i a ha
     have hw := openPisAtFvars_typeWScoped n hop (Expr.WScoped.of_not_hasFvar hcl) i _ ha
     simp only [Expr.fvarTypeD, Nat.zero_add] at hw
     simp only [Expr.WScoped, Nat.zero_add]
@@ -255,7 +255,7 @@ theorem opening_vars_at {n d : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
     (∀ a ∈ fvs, a.looseBVarsBounded 0 = true) :=
   ⟨openPisAtFvars_length n hop, openPisAtFvars_index n e d hop, fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index n e d hop q a hq
+    obtain ⟨ty, rfl⟩ := openPisAtFvars_index n e d hop q a hq
     rfl⟩
 
 /-! ## The three special entries -/
@@ -329,7 +329,7 @@ theorem ctorResidual {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF : Nat} {ct
   rw [hlenT] at hci
   have hidxT' : ∀ (q : Nat) (x : Expr), tfvs[q]? = some x → ∃ nm t, x = Expr.fvar (0 + q) t :=
     fun q x hx => by
-      obtain ⟨nm, t, h⟩ := hidxT q x hx
+      obtain ⟨t, h⟩ := hidxT q x hx
       exact ⟨nm, t, by rw [h, Nat.zero_add]⟩
   have hteleP := piTeleP_of_stripPisAV (stripPisAV_mkPisAV_take nP ds bodyC (by omega))
   refine ⟨?_, ?_, ?_⟩
@@ -366,7 +366,7 @@ theorem denoteP_minorCore {m : EnvS2Core V env} {ψ : Name → Nat} {C : Name} {
   have hspP : DenoteSpineP m.acval env ψ (nP + 1 + nF) tfvs (paramBvarsAt nP (nP + 1 + nF)) := by
     have := denoteSpineP_fvars (acval := m.acval) (env := env) (φ := ψ) (nP + 1 + nF) tfvs 0
       (fun k x hx => by
-        obtain ⟨nm, ty, h⟩ := hidxT k x hx
+        obtain ⟨ty, h⟩ := hidxT k x hx
         exact ⟨nm, ty, by rw [h, Nat.zero_add]⟩)
     rw [hlenT] at this
     have he : ((List.range nP).map fun k => AVExpr.bvar (nP + 1 + nF - 1 - (0 + k)))

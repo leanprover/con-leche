@@ -158,7 +158,7 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
   have hbFvsP : ∀ x ∈ fvsP, x.looseBVarsBounded 0 = true := by
     intro x hx
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-    obtain ⟨nm, ty, rfl⟩ := hshapeP q x hq
+    obtain ⟨ty, rfl⟩ := hshapeP q x hq
     rfl
   have hwsFvsPK : ∀ x ∈ fvsP, Expr.WScoped K x :=
     fun x hx => (hwsFvsP x hx).mono (by omega)
@@ -196,7 +196,7 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
       rw [htkPlen] at this
       exact this
     rw [List.getElem?_take_of_lt hq0lt] at ha
-    obtain ⟨nm, ty, rfl⟩ := hshapeP q0 a ha
+    obtain ⟨ty, rfl⟩ := hshapeP q0 a ha
     rw [Expr.fvarLeaves] at hl
     rcases List.mem_cons.mp hl with rfl | hl'
     · exact ⟨List.mem_of_getElem? ha, hq0lt⟩

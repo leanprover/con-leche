@@ -97,7 +97,7 @@ theorem nestedPinRowP {m : EnvS2Core V env} {F : Nat}
   have hbFvsP : ∀ x ∈ fvsP, x.looseBVarsBounded 0 = true := by
     intro x hx
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-    obtain ⟨nm, ty, rfl⟩ := hshapeP q x hq
+    obtain ⟨ty, rfl⟩ := hshapeP q x hq
     rfl
   -- the truncated frame's own facts (the spine `nestedPinGradeP` runs
   -- its certificate at)

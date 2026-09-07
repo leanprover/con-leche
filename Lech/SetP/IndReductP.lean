@@ -199,7 +199,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (env := env) (φ := ψ') (d := rP + cnF) fvs (by
       intro a ha
       obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-      obtain ⟨nm, ty, rfl⟩ := hshapeS q a hq
+      obtain ⟨ty, rfl⟩ := hshapeS q a hq
       exact ⟨_, denoteP_fvar _ _ _ _⟩)
   have hAppRead : denoteP m.acval env ψ' (rP + cnF)
       (Expr.mkAppN (rhsA.renameConsts f) fvs)
@@ -233,7 +233,7 @@ theorem reductP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
   · rcases hx : fvs[i]? with _ | x
     · rw [List.getElem?_eq_none_iff, hfvslen] at hx
       omega
-    obtain ⟨nm, ty, rfl⟩ := hshapeS i x hx
+    obtain ⟨ty, rfl⟩ := hshapeS i x hx
     obtain ⟨v, hvspi, hdv⟩ := denoteSpineP_getElem?' hspine i _ hx
     rw [denoteP_fvar] at hdv
     obtain rfl : AVExpr.bvar (rP + cnF - 1 - i) = v :=

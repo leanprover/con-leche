@@ -269,7 +269,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
         have h1 := congrArg (fun l => l[i]?) hlpre
         simp only [List.getElem?_take_of_lt hiP] at h1
         exact h1
-      obtain ⟨nm, ty, rfl⟩ := hshapeS i ai (by rw [← hlargsFv]; exact hai)
+      obtain ⟨ty, rfl⟩ := hshapeS i ai (by rw [← hlargsFv]; exact hai)
       rw [denoteP_fvar] at hdi
       obtain rfl : vi = .bvar (rP + cnF - 1 - i) :=
         (Option.some.inj hdi).symm

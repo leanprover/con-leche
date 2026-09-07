@@ -187,7 +187,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   have hshapeS : ∀ (q : Nat) (x : Expr), fvs[q]? = some x →
       ∃ ty, x = Expr.fvar q ty := by
     intro q x hx
-    obtain ⟨nm, ty, hx'⟩ := openPisAtFvars_index _ _ _ hopen q x hx
+    obtain ⟨ty, hx'⟩ := openPisAtFvars_index _ _ _ hopen q x hx
     exact ⟨nm, ty, by simpa using hx'⟩
   have hwsS := openPisAtFvars_WScoped (rP + cnF) stmtTy 0 hopen
     (Expr.WScoped.of_not_hasFvar hSw)
@@ -198,7 +198,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   have hbFvs : ∀ x ∈ fvs, x.looseBVarsBounded 0 = true := by
     intro x hx
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-    obtain ⟨nm, ty, rfl⟩ := hshapeS q x hq
+    obtain ⟨ty, rfl⟩ := hshapeS q x hq
     rfl
   have hlbFvs : ∀ (q : Nat) (nm : Name) (ty : Expr),
       Expr.fvar q ty ∈ fvs → ty.looseBVarsBounded 0 = true :=
@@ -229,7 +229,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       Expr.fvar l.1 l.2 ∈ fvs → l.1 < rP + cnF := by
     intro l hl
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hl
-    obtain ⟨nm', ty', heq⟩ := hshapeS q _ hq
+    obtain ⟨ty', heq⟩ := hshapeS q _ hq
     have hql : q < fvs.length := (List.getElem?_eq_some_iff.mp hq).1
     injection heq with h1 _
     rw [h1, ← hfvslen]
@@ -566,7 +566,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       ∀ l ∈ x.fvarLeaves,
         Expr.fvar l.1 l.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP) := by
     intro q x hx l hl
-    obtain ⟨nm, ty, rfl⟩ := hshapeS q x hx
+    obtain ⟨ty, rfl⟩ := hshapeS q x hx
     have hmem := List.mem_of_getElem? hx
     have hqlt : q < rP + cnF := by
       have := (List.getElem?_eq_some_iff.mp hx).1
@@ -593,7 +593,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     have hqlt : q < rP + cnF := by
       have := (List.getElem?_eq_some_iff.mp hx).1
       rwa [hfvslen] at this
-    obtain ⟨nm, ty, rfl⟩ := hshapeS q x hx
+    obtain ⟨ty, rfl⟩ := hshapeS q x hx
     refine ⟨.bvar (rP + cnF - 1 - q),
       denoteP_fvar mp.base2.acval (rP + cnF) q nm ty, ?_⟩
     rw [instSeqP_bvar_full hqlt hzslen, List.getD]
@@ -610,7 +610,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     have h := instPisAt_openerDomsP (acval := mp.base2.acval)
       (env := env) (φ := Level.substFn φ lps us) fvs hcinst
       (j := 0) (fun q0 x hx => by
-        obtain ⟨nm, ty, hsh⟩ := hshapeS q0 x hx
+        obtain ⟨ty, hsh⟩ := hshapeS q0 x hx
         exact ⟨nm, ty, by rw [hsh, Nat.zero_add]⟩)
       hTVjR0 (Γ := Γj) (R := Rj) (by rw [hfvslen, ← hKeq]; exact htowerJ)
       q (by rw [hfvslen]; exact hq)
@@ -624,7 +624,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     have h1 := instPisAt_fvar_residual_arity fvs hcinst
       (fun x hx => by
         obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-        obtain ⟨nm, ty, hsh⟩ := hshapeS q x hq
+        obtain ⟨ty, hsh⟩ := hshapeS q x hq
         exact ⟨q, nm, ty, hsh⟩)
       (bs := cbinders.map (fun b => (b.1, b.2.1.renameConsts f, b.2.2)))
       (body := cbody.renameConsts f)

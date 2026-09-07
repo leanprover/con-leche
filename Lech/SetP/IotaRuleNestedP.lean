@@ -287,7 +287,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   have hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
       ∃ ty, x = Expr.fvar i ty := by
     intro i x hx
-    obtain ⟨nm, ty, hx'⟩ := openPisAtFvars_index _ _ _ hopenP i x hx
+    obtain ⟨ty, hx'⟩ := openPisAtFvars_index _ _ _ hopenP i x hx
     exact ⟨nm, ty, by simpa using hx'⟩
   have hdomsP0 : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
       denoteP mp.base2.acval envSelf ψ i (Expr.fvarTypeD x)
@@ -364,7 +364,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   have hbFvsP : ∀ x ∈ fvsP, x.looseBVarsBounded 0 = true := by
     intro x hx
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-    obtain ⟨nm, ty, rfl⟩ := hshapeP q x hq
+    obtain ⟨ty, rfl⟩ := hshapeP q x hq
     rfl
   have hopenerLeafP : ∀ (q0 : Nat) (a : Expr),
       (fvsP.take rP)[q0]? = some a → ∀ l ∈ a.fvarLeaves,
@@ -375,7 +375,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       rw [htkPlen] at this
       exact this
     rw [List.getElem?_take_of_lt hq0lt] at ha
-    obtain ⟨nm, ty, rfl⟩ := hshapeP q0 a ha
+    obtain ⟨ty, rfl⟩ := hshapeP q0 a ha
     rw [Expr.fvarLeaves] at hl
     rcases List.mem_cons.mp hl with rfl | hl'
     · exact List.mem_of_getElem? ha

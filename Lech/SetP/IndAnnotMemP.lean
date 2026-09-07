@@ -128,10 +128,9 @@ theorem annotPFrameEqP {m : EnvS2Core V env}
       exact hpsRen i a a' ha ha'
     · rw [List.getElem?_append_right (by omega), hpsPlen] at ha
       rw [List.getElem?_append_right (by omega), hpsRlen] at ha'
-      obtain ⟨nm, ty, ha2⟩ :=
-        openPisAtFvars_index _ _ _ hopenXP (i - cnP) a ha
+      obtain ⟨ty, ha2⟩ := openPisAtFvars_index _ _ _ hopenXP (i - cnP) a ha
       rw [List.getElem?_drop] at ha'
-      obtain ⟨nm', ty', rfl⟩ := hshapeS (rP + (i - cnP)) a' ha'
+      obtain ⟨ty', rfl⟩ := hshapeS (rP + (i - cnP)) a' ha'
       rw [ha2]
       exact RenEqT.fvar
   have hlenA : (psP ++ xFvsP).length = (psR ++ fvs.drop rP).length := by
@@ -167,7 +166,7 @@ theorem annotPFrameEqP {m : EnvS2Core V env}
   · -- prefix: the public opener's annotation lifts the recursor slot
     rcases hp : fvsPl[i]? with _ | px
     · rw [List.getElem?_eq_none_iff, hfvsPlen] at hp; omega
-    obtain ⟨nm, ty, hp2⟩ := openPisAtFvars_index _ _ _ hopenP i px hp
+    obtain ⟨ty, hp2⟩ := openPisAtFvars_index _ _ _ hopenP i px hp
     rw [Nat.zero_add] at hp2
     have hgetP : (fvsPl ++ xFvsP).getD i default = px := by
       rw [List.getD, List.getElem?_append_left (by omega), hp]
@@ -204,7 +203,7 @@ theorem annotPFrameEqP {m : EnvS2Core V env}
     have hjc : j < cnF := by omega
     rcases hxj : xFvsP[j]? with _ | xj
     · rw [List.getElem?_eq_none_iff, hxlen] at hxj; omega
-    obtain ⟨nm, ty, hx2⟩ := openPisAtFvars_index _ _ _ hopenXP j xj hxj
+    obtain ⟨ty, hx2⟩ := openPisAtFvars_index _ _ _ hopenXP j xj hxj
     have hgetX : (fvsPl ++ xFvsP).getD (rP + j) default = xj := by
       rw [List.getD, List.getElem?_append_right (by omega), hfvsPlen,
         Nat.add_sub_cancel_left, hxj]
@@ -260,8 +259,8 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
       ∃ ty, x = Expr.fvar i ty)
     (hPws : ∀ x ∈ pfvs, Expr.WScoped K x)
     (hPleafClosed : ∀ l, (∃ x ∈ pfvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.2 ∈ pfvs)
-    (hlbP : ∀ (i : Nat) (nm : Name) (ty : Expr),
+      Expr.fvar l.1 l.2 ∈ pfvs)
+    (hlbP : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ pfvs → ty.looseBVarsBounded 0 = true)
     -- the statement tower and the ambient context
     {Γs : List AVExpr} {Δa : List AVExpr} (hΔalen : Δa.length = K)
@@ -297,7 +296,7 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
     rw [instLamsAt_length _ hinstLam, hPlen]
   -- the frame's own bounds
   have hPlt : ∀ l : Nat × Expr,
-      Expr.fvar l.1 l.2.2 ∈ pfvs → l.1 < K := by
+      Expr.fvar l.1 l.2 ∈ pfvs → l.1 < K := by
     intro l hl
     have hw := hPws _ hl
     simp only [Expr.WScoped] at hw
@@ -305,7 +304,7 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
   have hPbnd : ∀ a ∈ pfvs, a.looseBVarsBounded 0 = true := by
     intro a ha
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-    obtain ⟨nm, ty, rfl⟩ := hPshape q a hq
+    obtain ⟨ty, rfl⟩ := hPshape q a hq
     rfl
   -- the walk datum `ctxOkP_of_walked_openers` reads
   have hwalk : ∀ (i : Nat) (x : Expr), pfvs[i]? = some x →
@@ -379,7 +378,7 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
   obtain ⟨Bk, hBk, hBkP⟩ := hIdent k hkK
   rcases hpk : pfvs[k]? with _ | pk
   · rw [List.getElem?_eq_none_iff, hPlen] at hpk; omega
-  obtain ⟨nm, ty, rfl⟩ := hPshape k pk hpk
+  obtain ⟨ty, rfl⟩ := hPshape k pk hpk
   have hgpk : pfvs.getD k default = Expr.fvar k ty := by
     rw [List.getD, hpk]
     rfl
@@ -402,7 +401,7 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
       (Expr.WScoped.of_not_hasFvar hrhsw) ?_ k ld hld
     · simpa using h1
     · intro i a ha
-      obtain ⟨nm', ty', rfl⟩ := hPshape i a ha
+      obtain ⟨ty', rfl⟩ := hPshape i a ha
       have hw := hPws _ (List.mem_of_getElem? ha)
       simp only [Expr.WScoped] at hw ⊢
       exact ⟨by omega, hw.2⟩
@@ -414,12 +413,12 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
   -- leaves and frames of the two comparands
   have hmemPk : Expr.fvar k ty ∈ pfvs := List.mem_of_getElem? hpk
   have hleafA : ∀ l ∈ ty.fvarLeaves,
-      Expr.fvar l.1 l.2.2 ∈ pfvs := by
+      Expr.fvar l.1 l.2 ∈ pfvs := by
     intro l hl
     exact hPleafClosed l ⟨_, hmemPk, by
       rw [Expr.fvarLeaves]; exact List.mem_cons_of_mem _ hl⟩
   have hleafB : ∀ l ∈ ld.fvarLeaves,
-      Expr.fvar l.1 l.2.2 ∈ pfvs := by
+      Expr.fvar l.1 l.2 ∈ pfvs := by
     intro l hl
     rcases instLamsAt_leaves _ hinstLam l
       (Or.inl ⟨_, List.mem_of_getElem? hld, hl⟩) with h0 | ⟨a, ha, hla⟩
@@ -430,7 +429,7 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
     have hw := hPws _ hmemPk
     simp only [Expr.WScoped] at hw
     exact hw.2
-  have hbA : ty.looseBVarsBounded 0 = true := hlbP k nm ty hmemPk
+  have hbA : ty.looseBVarsBounded 0 = true := hlbP k ty hmemPk
   have hbB : ld.looseBVarsBounded 0 = true :=
     (instLamsAt_bounded _ hinstLam hrhsb hPbnd).1 _
       (List.mem_of_getElem? hld)
@@ -451,9 +450,9 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
     show (if j < 0 then ρ0 j else ρ0 (j + (K - k))) = _
     rw [if_neg (Nat.not_lt_zero j)]
   have hfire := hclaims hrun (hwsA.mono (by omega)) hbA
-    (fun l hl => hlbP l.1 l.2.1 l.2.2 (hleafA l hl))
+    (fun l hl => hlbP l.1 l.2 (hleafA l hl))
     (hwsLd.mono (by omega)) hbB
-    (fun l hl => hlbP l.1 l.2.1 l.2.2 (hleafB l hl))
+    (fun l hl => hlbP l.1 l.2 (hleafB l hl))
     hctxA hctxB hBk' hLkden
     (fun ρ0 hρ0 => (hBkP ρ0 hρ0).1)
     (fun ρ0 hρ0 => (AnnotOkP_liftN V (K - k) _ 0 ρ0).mpr (by
