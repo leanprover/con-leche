@@ -145,7 +145,7 @@ theorem instPisAt_openerResP {acval : Name → (Name → Nat) → AVExpr} :
       Expr.instPisAt sp ty = some (ds, rs) →
       ∀ {j : Nat} {T : AVExpr},
         (∀ (q : Nat) (x : Expr), sp[q]? = some x →
-          ∃ nm t, x = Expr.fvar (j + q) t) →
+          ∃ t, x = Expr.fvar (j + q) t) →
         denoteP acval env φ j ty = some T →
         ∀ {Γ : List AVExpr} {R : AVExpr}, PiTeleP sp.length T Γ R →
           denoteP acval env φ (j + sp.length) rs = some R := by
@@ -159,7 +159,7 @@ theorem instPisAt_openerResP {acval : Name → (Name → Nat) → AVExpr} :
     exact hT
   | cons a sp ih =>
     intro ty ds rs h j T hshape hT Γ R htele
-    obtain ⟨nm0, t0, rfl⟩ := hshape 0 a rfl
+    obtain ⟨t0, rfl⟩ := hshape 0 a rfl
     match ty, h with
     | .forallE dom bodyE mb, h =>
       simp only [Expr.instPisAt] at h
@@ -182,10 +182,10 @@ theorem instPisAt_openerResP {acval : Name → (Name → Nat) → AVExpr} :
             rw [Nat.add_zero]; constructor)) (j + 1)]
         exact hB
       have hshape' : ∀ (q0 : Nat) (x : Expr), sp[q0]? = some x →
-          ∃ nm t, x = Expr.fvar (j + 1 + q0) t := by
+          ∃ t, x = Expr.fvar (j + 1 + q0) t := by
         intro q0 x hx
-        obtain ⟨nm', t', hx'⟩ := hshape (q0 + 1) x (by simpa using hx)
-        exact ⟨nm', t', by rw [hx']; congr 1; omega⟩
+        obtain ⟨t', hx'⟩ := hshape (q0 + 1) x (by simpa using hx)
+        exact ⟨t', by rw [hx']; congr 1; omega⟩
       have := ih h1 hshape' hB' htele'
       simp only [List.length_cons]
       rw [show j + (sp.length + 1) = j + 1 + sp.length from by omega]
@@ -265,8 +265,8 @@ theorem denoteSpineP_fvars {acval : Name → (Name → Nat) → AVExpr} (D : Nat
     refine .cons (by rw [denoteP_fvar, Nat.add_zero]) ?_
     have := denoteSpineP_fvars (acval := acval) D fvs (k₀ + 1)
       (fun k y hy => by
-        obtain ⟨nm', ty', h⟩ := hidx (k + 1) y (by simpa using hy)
-        exact ⟨nm', ty', by rw [h]; congr 1; omega⟩)
+        obtain ⟨ty', h⟩ := hidx (k + 1) y (by simpa using hy)
+        exact ⟨ty', by rw [h]; congr 1; omega⟩)
     have hmapeq : (List.map ((fun k => AVExpr.bvar (D - 1 - (k₀ + k))) ∘ Nat.succ)
           (List.range fvs.length))
         = (List.range fvs.length).map fun k => AVExpr.bvar (D - 1 - (k₀ + 1 + k)) := by
@@ -289,7 +289,7 @@ theorem famSpine_read {m : EnvS2Core V env} {T : Name} {lps : List Name}
     denoteP m.acval env ψ D (Expr.mkAppN (.const T (lps.map .param)) fvs)
       = some (AVExpr.mkAppN (m.acval T ψ) (paramBvarsAt nP D)) := by
   have hsp := denoteSpineP_fvars (acval := m.acval) (env := env) (φ := ψ) D fvs 0
-    (fun k x hx => by obtain ⟨nm, ty, h⟩ := hidx k x hx; exact ⟨nm, ty, by rw [h, Nat.zero_add]⟩)
+    (fun k x hx => by obtain ⟨ty, h⟩ := hidx k x hx; exact ⟨ty, by rw [h, Nat.zero_add]⟩)
   simp only [Nat.zero_add, hlen] at hsp
   refine denoteP_mkAppN hsp ?_
   rw [denoteP_const hfT (by rw [hlps]; simp), hlps, Level.substFn_param_self]
@@ -308,7 +308,7 @@ theorem famSpine_read_at {m : EnvS2Core V env} {T : Name} {lps : List Name}
     denoteP m.acval env ψ D (Expr.mkAppN (.const T us) fvs)
       = some (AVExpr.mkAppN (m.acval T ψ) (paramBvarsAt nP D)) := by
   have hsp := denoteSpineP_fvars (acval := m.acval) (env := env) (φ := ψ) D fvs 0
-    (fun k x hx => by obtain ⟨nm, ty, h⟩ := hidx k x hx; exact ⟨nm, ty, by rw [h, Nat.zero_add]⟩)
+    (fun k x hx => by obtain ⟨ty, h⟩ := hidx k x hx; exact ⟨ty, by rw [h, Nat.zero_add]⟩)
   simp only [Nat.zero_add, hlen] at hsp
   refine denoteP_mkAppN hsp ?_
   rw [denoteP_const hfT (by rw [hlps]; exact hlus), hlps, hus]
