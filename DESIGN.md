@@ -54748,3 +54748,222 @@ the block's (`u`, everywhere) was rewritten inside the pins; levels are
 instantiated on the bare skeleton first (`P (α : Type u)` through
 `Box.{u}` in the fixture pins it, 625 declarations).  **The Mathlib
 census now reads 51/51 modelled, 0 declined.**
+
+## TASK #199 — THE SELF-CHECK: lech checks its own development (2026-09-07, `agent/selfcheck`)
+
+**The question** (user, verbatim): *"can we run setlec on an export of the
+setlec code base?"*  Yes.  This section is the recipe, the numbers, and
+what the run found.
+
+### 1. The exporter
+
+`leanprover/lean4export` @ **`15f6055`** — the `chore: bump toolchain to
+v4.33.0 (#44)` commit, i.e. the newest one whose `lean-toolchain` equals
+ours.  The export format tracks the Lean version, so the exporter MUST be
+built at the tree's toolchain; the `_tmp/lean4export` checkout in a
+developer tree is v4.29.1 and the arena suite's cached builds are v4.29.1
+and v4.30.0 — none of them usable here.  `scripts/selfcheck.sh`
+automates the search (walk `git log -- lean-toolchain`, take the first
+commit whose file matches, `lake build`), which is the same recipe the
+arena harness uses (`lka.py:setup_lean4export`).
+
+Stream header: `lean4export 3.1.0`, format 3.1.0, Lean 4.33.0
+(`d8b18978`).
+
+Two flags matter.  `--export-unsafe` is OFF by default and the exporter
+skips `isUnsafe` declarations **even when it reaches them as
+dependencies** (`Export.lean:238`); `--export-mdata` is off, so `.mdata`
+never enters the stream.
+
+### 2. What is exported — the cone, not the environment
+
+`Lech` reaches `Lean` (through `Lech/Kernel/BasisGen.lean`'s
+elaborator and `Lech/Frontend/Export.lean`'s JSON reader), so the
+imported environment holds ~233 k constants, almost all of them
+elaborator internals no declaration of ours depends on.  Exporting that
+would be a self-check of the Lean elaborator.
+
+What is exported instead: **every non-internal constant declared by a
+lech module** as a root (`scripts/SelfcheckDecls.lean` prints the list),
+with `lean4export` walking the transitive dependency cone from there.
+
+Roots: `Lech Lech.TT Lech.SetModel Lech.Semantics` (LechBase) ·
+`Lech.SetP` (LechP) · `Lech.Verify.Cached Lech.MainTheorem` (LechCaps) ·
+`Lech.PinGen.Certs` (LechPinCerts) · `Main` (the `lech` executable).
+
+Deliberately absent:
+
+* **`Lech.Challenge`** — the Palomar challenge statement is a deliberate
+  `sorry`.  It roots its own library, is in no default target, has no
+  `.olean` in a normal build and nothing imports it, so it cannot enter
+  the cone.  Verified absent from the stream.
+* **`LechPreprocess`** — a five-line front end for the external
+  `lean-inductive-models`; its cone is that tool plus the whole Lean
+  elaborator, i.e. someone else's code.
+* **`LechTests`** — fixtures, not the development.
+* **`PinDump`** — the pin-dump generator's root; no `.olean` in a
+  default build (it is in no default target).  `Lech.PinGen` and
+  `Lech.PinGen.Dump` are exported anyway, reached through
+  `Lech.PinGen.Certs`; the one module its exclusion costs is
+  `Lech.PinGen.Prelude`, which nothing else imports.  That is
+  generator tooling rather than checker code, and what matters about it
+  — the prelude it emits — is in the export regardless: the committed
+  `pins/<toolchain>.prelude.ndjson` is embedded through
+  `Lech/Frontend/Prelude.lean`, which `Main` imports.
+
+### 3. Our own compiler escapes, and why none of them refuses
+
+`tests/trust-surface.sh`'s census names four escape classes in the tree.
+Each was traced into the export before the run (`_tmp/selfcheck/Escapes.lean`):
+
+* **`unsafe`.**  The only `isUnsafe` constants in the cone are
+  `Lech.Expr.beqB`, `Lech.Expr.beqFast`, `Lech.Expr.beqGo` (the
+  `@[implemented_by]` pointer-equality fast path) and `ptrAddrUnsafe`
+  itself — and **no safe constant in the cone refers to any of them**.
+  An `@[implemented_by]` attribute is not part of the kernel
+  declaration, so `Lech.Expr.beq` exports as the ordinary definition it
+  is.  The exporter's silent skip therefore leaves no dangling
+  reference.  (Had one existed, the stream would have named an
+  undeclared constant and lech would have rejected it — this is the
+  failure mode the check was for.)
+* **`@[computed_field]`.**  Invisible to the kernel, hence absent from
+  the export: the packed `Expr.data` word and `Name.hashData` are
+  compiler storage, and what the export carries is what the kernel saw.
+* **`partial def`.**  Each is two declarations: an internal
+  `f._unsafe_rec` (`unsafe`, skipped) and `f` itself as an **opaque**
+  constant.  The opaques ARE exported and lech installs them
+  non-unfoldable (task #95).  There are **no `.partial`-safety
+  definitions in the cone at all**.  Note the ~330 `def(partial)`
+  `._unsafe_rec` constants that a census of Lech modules reports are
+  compiler companions of ordinary recursive definitions, not our
+  `partial def`s; ours number 13.
+* **`native_decide` / `sorry`.**  Neither is declared nor used.  The
+  export's axioms are **exactly `propext`, `Quot.sound`,
+  `Classical.choice`** — the three `tests/Axioms.lean` pins.  The
+  textual hits for `sorryAx`, `ofReduceBool` and `trustCompiler` in the
+  stream are the checker's own *data* (`strVal "sorryAx"`, the constant
+  `Lech.ofReduceBoolName`) — the same false positives the trust-surface
+  gate's comment-stripping exists to avoid.
+
+So the prediction going in was: **no refusal attributable to an escape
+of ours.**  That held.
+
+### 4. The sizes
+
+At master `2d36855d` (tasks #198 deintern, #200 inmodel B1–B4 merged):
+
+| | |
+|---|---|
+| root declarations (ours, non-internal) | **15 738** |
+| environment they were picked from | 233 431 constants, 2 739 modules |
+| exported declarations | **34 417** |
+| — theorems / definitions | 17 062 / 16 315 |
+| — inductive blocks / opaques / quotient / axioms | 781 / 252 / 4 / 3 |
+| stream | **533 MB, 9 640 004 lines** |
+| export wall / peak RSS | **17 s / 2.4 GB** |
+
+The exporter is cheap; it is the CHECK that is Mathlib-scale.  For
+comparison the cone's composition by origin (measured pre-#198 at 34 348
+declarations, and stable across the three re-exports): Lech 21 767, Init
+9 863, Lean 3 176, Std 1 657, Main 81.  The Lean and Std entries are
+real: our proofs stand on `Std.HashMap`, `Array`, `Nat`, `UInt64` and
+`Lean.Name`-shaped material, and the export carries the statements AND
+the proofs of everything they use.
+
+Three re-exports were needed because the tree moved under the roots
+while the task ran (#201's binder fix, then #198 and #200).  Each cost
+~20 s, which is the point of keeping the export a script rather than an
+artifact.
+
+### 5. THE VERDICT — accepted, with no refusals at all
+
+    $ ./.lake/build/bin/lech --verified _tmp/selfcheck/lech-export.ndjson
+    lech: accepted 37198 declarations (--verified)
+    $ echo $?
+    0
+
+| | `--verified` | `--trusted` |
+|---|---|---|
+| verdict | **exit 0, `accepted 37198 declarations`** | **exit 0, `accepted 37198 declarations`** |
+| declarations installed | **37 198** | **37 198** |
+| wall | **3 min 43 s** | 3 min 23 s |
+| peak RSS | **1.53 GB** | 1.55 GB |
+| instructions:u | **1.493 T** | 1.447 T |
+
+(34 417 stream records install as 37 198 declarations: the surplus is
+the preprocessor's models and the 7 built-in prelude records.
+Instruction counts are for the whole process tree, preprocessor
+included.)
+
+The two modes agree to the declaration — **the same 37 198, both exit
+0** — which is what the mode split promises: `--trusted` is
+`--verified` minus the certification-only steps, never a separately
+optimised lane (DESIGN "MODE RENAME").  Certification costs
+**+3.2 % instructions** on this stream.
+
+**Zero declines, zero rejections, zero internal errors.**  The refusal
+list is empty, so there is nothing to attribute: every prediction in §3
+held, and no feature of our own code turned out to be one the direct or
+modelled routes do not take.
+
+The measurement is honest about the mode: neither run set
+`LECH_PROGRESS`, so both are the **verified fold**, not the heartbeat's
+unverified twin.
+
+The split, from a separate `LECH_PROGRESS=5000` diagnostic run (which
+does NOT stand behind the capstone and is not the verdict): **preprocess
+and parse 42.8 s**, the rest of the ~3.5 min being the fold.  So most of
+the cost is checking, not reading — the 533 MB stream is a small part of
+the bill, and the peak RSS of 1.5 GB against a 533 MB input says the
+parse is streaming (task #57) rather than retaining the file.
+
+**What that means.**  The accepted set contains lech's consistency
+argument about lech.  Present as ordinary checked declarations, among
+the 15 663 `Lech.*` roots:
+
+* `Lech.no_proof_of_False` — the `Lech.MainTheorem` capstone, the
+  solution half of the Comparator pair (task #183);
+* `Lech.Cached.no_proof_of_False_SPCD_P` and
+  `Lech.Cached.no_proof_of_Empty_SPCD_P` — the shipped cached driver's
+  corollaries;
+* `Lech.SetP.no_proof_of_False_P`, `Lech.SetP.no_proof_of_Empty_P` —
+  the graded-model lane's, with the 3 192 `Lech.SetP.*` roots that
+  carry it;
+* `Lech.checkDecls` itself, the function the theorems are about.
+
+So the checker type-checked the proof that the checker is consistent —
+against exactly the three standard axioms and nothing else.  This is of
+course not a proof of its own consistency (Gödel's second theorem is
+not repealed by running a program): what it establishes is that the
+development is *within the fragment the checker implements*, which is a
+statement about coverage, not about truth.  The consistency proof's own
+force still comes from the Lean kernel that elaborated it, and from
+`SetTheory` being an interface rather than an assumption.
+
+**What it cost to get here.**  One genuine checker gap, found on the
+first full attempt and fixed before this run: the `whnfCore` runaway on
+`Lech.Cached.ExprC.abstract1Go_spec`, which was the defeq binder arms
+opening two locals for one bound variable where official opens one.
+The finding, the probe and the fix are their own section — see "THE
+BINDER ARMS OPEN ONE LOCAL" (task #201).  The self-check paid for
+itself on its first run: that bug was reachable from ordinary Mathlib
+material too, and nothing else in the tree had exercised it.
+
+### 6. Reproducing it
+
+    scripts/selfcheck.sh                 # --verified, into _tmp/selfcheck
+    scripts/selfcheck.sh --trusted OUT   # the same stream, trusted mode
+
+The script is idempotent per artifact: the exporter build, the
+declaration list and the export are each skipped when already present,
+so a re-run only redoes the check.  `LECH_PROGRESS` is deliberately NOT
+set by it — the heartbeat lane is the driver's one unverified fold
+(DESIGN "`LECH_PROGRESS` — TWO LOOPS"), so a verdict run must not use
+it; set it in the environment only to localise a failure.
+
+Diagnostics used by this task, kept in `_tmp/selfcheck/`:
+`Census.lean` / `Escapes.lean` (the environment and escape censuses
+above) and `drop_cone.py` (drop a declaration and its reverse cone from
+a stream, so a run can be continued past a refusal to enumerate the
+rest).  The cone slicer is the existing
+`_tmp/indexed-fix/slice_multi_fast.py`.

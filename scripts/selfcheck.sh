@@ -12,11 +12,16 @@
 # no declaration of ours depends on.  What is exported is **every
 # non-internal constant declared by a lech module, plus its transitive
 # dependency cone** — `scripts/SelfcheckDecls.lean` prints the root list,
-# `lean4export` walks the cone.  On master at task #199 that is 15,514
-# roots and 34,348 exported declarations (17,028 theorems, 16,280
-# definitions, 781 inductive blocks, 252 opaques, 4 quotient constants,
-# and exactly the 3 standard axioms `propext`, `Quot.sound`,
-# `Classical.choice`), 534 MB / 9.65M NDJSON lines.
+# `lean4export` walks the cone.  On master `2d36855d` (task #199) that
+# is 15,738 roots and 34,417 exported declarations (17,062 theorems,
+# 16,315 definitions, 781 inductive blocks, 252 opaques, 4 quotient
+# constants, and exactly the 3 standard axioms `propext`, `Quot.sound`,
+# `Classical.choice`), 533 MB / 9.64M NDJSON lines.
+#
+# THE VERDICT at that tree, both modes: **exit 0, 37,198 declarations
+# accepted**, ~3.5 min, 1.5 GB peak RSS, ~1.5 T instructions:u — no
+# declines, no rejections, no internal errors.  See DESIGN.md
+# "TASK #199 — THE SELF-CHECK".
 #
 # WHAT IS NOT EXPORTED, and why.
 #
