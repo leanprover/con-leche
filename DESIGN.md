@@ -57905,7 +57905,8 @@ in process.  And that tool is being retired.  User ruling, verbatim:
 *"Certainly preprocessed.  But we are dropping the preprocessor
 anyways.  Ok, we have the internal one.  No need to limit the size of
 these defs, though."*  `budgetedName` loses the `anyComponentModel`
-clause (and the predicate itself, its only reader, is deleted).
+clause, and `anyComponentModel` — whose only reader that clause was —
+is deleted with it.
 
 **The residue, stated rather than hidden.**  `openPisAtFvars` — and
 `renameConsts`, and `canonExpr` — are genuine `no-unmemoized-traversals`
