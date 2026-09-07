@@ -912,14 +912,28 @@
 #
 # --- A4 / crack C4: mutual members whose parameter telescopes (…param…)
 # --- or result sorts (…sort…) are DEFEQ but not syntactically equal.
-# --- The in-process modeller compares with `==`; official with
-# --- `is_def_eq`/`is_equivalent`.  Audit follow-up 4.
-# TODO(#206-A4) official: 0 — "member MB2: parameter telescope or sort differs from MA2's"
-# TODO(#206-A4) official: 0 — same decline raw
-2 ind_mutual_param_defeq.ndjson
-# TODO(#206-A4) official: 0 — "member MD: parameter telescope or sort differs from MC's"
-# TODO(#206-A4) official: 0 — same decline raw
-2 ind_mutual_sort_defeq.ndjson
+# --- Official compares with `is_def_eq`/`is_equivalent`; since task
+# --- #218 the in-process modeller does not compare them at all — it
+# --- builds the auxiliary family over the FIRST member's telescope and
+# --- sort and emits the public slots at each member's own type, and the
+# --- fold's typing of those slots is the comparison (CLOSED: 2 → 0).
+0 ind_mutual_param_defeq.ndjson
+0 ind_mutual_sort_defeq.ndjson
+# --- the BAD twins (scripts/mk_mutual_bad.py): the second member's
+# --- parameter domain replaced by `Type 1` / its sort by `Sort (max u 1)`.
+# --- Official REJECTS ("parameters of all inductive datatypes must
+# --- match" / "mutually inductive types must live in the same
+# --- universe"); con-leche rejects at the generated `MB2._model` /
+# --- `MD._model` record's type check — by the user's ruling the
+# --- modeller may be "yolo-like", invalid input is caught in the
+# --- checked code, and the message names the record, not the member.
+1 ind_mutual_param_bad.ndjson
+1 ind_mutual_sort_bad.ndjson
+# --- the universal-coverage probe (probe kit, exact spellings): three
+# --- members over a DEPENDENT telescope, the second spelling a domain
+# --- as a β-redex, the third through `id` with sort `max 1 1` and an
+# --- index; and a Prop pair `Prop` / `Sort (max 0 0)`.  Official 0.
+0 ind_mutual_three.ndjson
 #
 # --- A5 / crack C5: a recursive occurrence hidden under a DEFINITION.
 # --- Official whnf's the field before classifying it; the fixpoint
