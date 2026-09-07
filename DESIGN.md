@@ -58850,6 +58850,45 @@ decline as ruled.
 `tests/overview-links.sh --update`, expectation committed with the
 change.
 
+**Scheduled for deletion (coordinator, after Part D).**  The user has
+ruled that stream-provided `_model` records will no longer be
+supported: the in-process modeller becomes the only model source and
+its records transparent (a follow-up after Part D and #218 land — the
+input-model handling leaves the parser and the dispatch, and the 34
+fixtures that still carry preprocessor-era models are regenerated raw).
+`blockIsModeled`'s second conjunct (`rawKindsOk`, the stale-model arm)
+exists only to keep this tree green and goes with that task; nothing
+further is invested in it here.
+
+**Gates** (`agent/one-route-d` at `c150df42`, master merged through
+`1aaed328`; the trimmed set, once).  `lake build` warning-free (0
+warnings, 527 jobs); `lake test`; `tests/arena.sh` (`env -i`):
+tutorial **90/92** (032/033 by design — the custom-axiom tests; the
+three A5 declines gone), e2e **158/158** (156 + the two occ twins),
+annot 14/14, retired flags 8/8, mode flags 18/18, prelude counts 3/3,
+progress lane 6/6, DAG-tower gate 2/2, `tests/overview-links.sh` OK,
+trusted sweep 138 + 158 + 14 with its 3 recorded divergences, axioms
+pinned (11 theorems at `[propext, Classical.choice, Quot.sound]`);
+`tests/proofdeps.sh` **unchanged against the pin** (2 851 module rows,
+7 roots, 0 doors — the new lemmas live in modules already in the
+closures); `tests/layering.sh`: base 272 / P 189 / caps 3 / umbrella 1,
+0 base→lane, 0 impl→theory; `tests/trust-surface.sh`: 18 escapes in 4
+allowlisted files (472 scanned), 0 outside; `tests/inmodel.sh` OK;
+`tests/route-census.sh`: 90 streams, 682 blocks — **142 fix, 0
+inmodel, 540 basis, 0 modeled**.  **init-full raw** (`--verified`,
+`perf stat -e instructions:u`, route trace on): accepted **53 118**,
+exit 0; census **584 fix, 6 basis, 1 inmodel** (`Lean.Syntax`) — Part
+B/C's census exactly; **679.51 G instructions** against Part C's
+678.68 G (+0.12 %: one `mentionsConst` walk per field domain, the
+raw reading at the dispatch, and the whnf of the domains the block
+occurs in — no threshold anywhere).  **Mathlib slices** (raw,
+`--verified`): `slice-small` 1 626 fix / 26 inmodel / 6 basis, the
+five-cone slice 183 fix / 1 inmodel / 6 basis — unchanged; the
+frontier cone `slice-mc` (`CategoryTheory.MorphismProperty.
+multiplicativeClosure` + `String.ofList`, `Char.ofNat`, `List.cons`;
+343 485 lines) **accepts**, 46 fix / 6 basis / 1 inmodel.  No
+Mathlib-scale run.
+
 ## TASK #215 — THE TREE-SIZE BUDGET, DELETED (2026-09-07, `agent/jzero`)
 
 User ruling, verbatim: *"delete it if it is unlikely to help (and we
