@@ -12,18 +12,24 @@
     30      ¬ ∃ c ∈ env.consts, c.toConstantVal.type = .const falseName [] :=
     31    fun ⟨c, hc, hty⟩ => Cached.no_proof_of_False_SPCD_P V rfl accepted c hc hty
 
-== Main.lean#L59-L63
-    59  The default run calls `ConLeche.Cached.checkDeclsSPCachedD` — the pure
-    60  function `ConLeche.no_proof_of_False` is about — and prints nothing per
-    61  declaration.  A pure fold cannot print, so when the heartbeat is on the
-    62  driver runs a *different, plainly unverified* fold instead.
-    63  
+== tests/ConLecheTests/Axioms.lean#L85-L86
+    85  #guard_msgs in
+    86  #print axioms ConLeche.no_proof_of_False
+
+== ConLeche/Frontend/ExportC.lean#L876
+   876  def parseExportStreamD (path : System.FilePath)
+
+== Main.lean#L331
+   331            pure (ConLeche.Cached.checkDeclsSPCachedD mode decls.toList)
 
 == ConLeche/Cached/ParsedC.lean#L276-L279
    276  def checkDeclsSPCachedD (mode : CheckMode) (ds : List DeclC) :
    277      Except (CheckError × Nat) Env := do
    278    let p ← (ds.foldlM (checkDeclStepIdxC mode) (0, mkFEnv Env.empty)).run' {}
    279    pure p.2.env
+
+== ConLeche/Cached/ParsedC.lean#L244
+   244  def checkDeclStepIdxC (p : Nat × FEnv) (pd : DeclC) :
 
 == ConLeche/Verify/Cached/MainC.lean#L155-L163
    155  theorem checkDeclsSPCachedD_sound_P (hμ : μ.verifiedChecks = true)
@@ -109,6 +115,20 @@
    152      c hc hty
    153  
 
+== tests/layering.sh#L1-L3
+     1  #!/usr/bin/env bash
+     2  # tests/layering.sh — THE LAYERING GATE (task #161, S1; re-cut at the
+     3  # SetR removal, 2026-09-05).
+
+== ConLeche/Kernel/Env.lean#L65
+    65  inductive CheckMode where
+
+== ConLeche/Kernel/Core.lean#L1809
+  1809  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+
+== ConLeche/Kernel/Core.lean#L2530
+  2530  def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
      2  
@@ -151,13 +171,15 @@
     39  (`Level.substPW_self`, `ConLeche/Verify/PropWhen.lean`) holds
     40  unconditionally — amendment 2's counterexample (DESIGN.md, task #161
 
-== ConLeche/Kernel/Expr.lean#L101-L104
+== ConLeche/Kernel/Expr.lean#L101-L103
    101  structure BinderMeta where
    102    pw : PropWhen
    103    deriving DecidableEq, Repr, Hashable
-   104  
 
-== ConLeche/VExpr/Syntax.lean#L165-L178
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1219
+  1219  theorem checkDeclsSPCachedD_skels {mode : CheckMode} {ds : List DeclC}
+
+== ConLeche/VExpr/Syntax.lean#L165-L179
    165  inductive VExpr where
    166    /-- de Bruijn index -/
    167    | bvar (i : Nat)
@@ -172,8 +194,9 @@
    176    /-- `(_ : ty) → body` -/
    177    | pi (ty body : VExpr)
    178    /-- `let _ : ty := value; body` -/
+   179    | letE (ty value body : VExpr)
 
-== ConLeche/Semantics/Syntax.lean#L69-L85
+== ConLeche/Semantics/Syntax.lean#L69-L86
     69  inductive AVExpr where
     70    /-- de Bruijn index -/
     71    | bvar (i : Nat)
@@ -191,6 +214,7 @@
     83    | pi (u v : Nat) (ty body : AVExpr)
     84    /-- `let _ : ty := value; body` — **no sort slot**, see the module
     85    docstring -/
+    86    | letE (ty value body : AVExpr)
 
 == ConLeche/Semantics/Interp.lean#L149-L159
    149  noncomputable def interp2 : (Nat → V) → AVExpr → V
@@ -413,28 +437,9 @@
    155  /-- The P-generation step. -/
    156  def CheckStep2P (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 
-== ConLeche/SetP/Step2/WhnfP.lean#L468-L488
-   468  theorem whnfCore_packageP (m : EnvS2Core V env) {fuel d : Nat}
-   469      {Δa : List AVExpr} {a a' : Expr} {aa aa' : AVExpr}
-   470      (ihwc : WhnfCoreClaims2P μ m φ fuel)
-   471      (hw : whnfCore μ env fuel d a = .ok a')
-   472      (hws : Expr.WScoped d a) (hb : a.looseBVarsBounded 0 = true)
-   473      (hLb : Expr.LeavesBounded a) (hC : CtxOkP m φ d Δa a)
-   474      (haa : denoteP m.acval env φ d a = some aa)
-   475      (haa' : denoteP m.acval env φ d a' = some aa')
-   476      (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ aa) :
-   477      (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ aa') ∧
-   478        (∀ ρ : Nat → V, Sat2 V Δa ρ →
-   479          interp2 V ρ aa = interp2 V ρ aa') ∧
-   480        Expr.WScoped d a' ∧ a'.looseBVarsBounded 0 = true ∧
-   481        Expr.LeavesBounded a' ∧ CtxOkP m φ d Δa a' := by
-   482    obtain ⟨hok', heq⟩ := ihwc hw hws hb hLb hC haa haa' hok
-   483    exact ⟨hok', heq, whnfCore_WScoped m.wf fuel hw hws,
-   484      whnfCore_looseBVars m.wf fuel hw hb,
-   485      fun l hl => hLb l (whnfCore_fvarLeaves m.wf fuel hw l hl),
-   486      hC.of_subset (whnfCore_fvarLeaves m.wf fuel hw)⟩
-   487  
-   488  /-- **The `.bvar` clause.**  Vacuous on the annotation side. -/
+== ConLeche/SetP/Step2/WhnfP.lean#L908-L909
+   908  theorem whnfStepP_of (_hμ : μ.verifiedChecks = true)
+   909      (hin : WhnfInputsP V μ) : WhnfStepP μ V :=
 
 == ConLeche/SetP/Step2/DefEqP.lean#L1328-L1337
   1328  theorem defEqStepP_of (hμ : μ.verifiedChecks = true)
@@ -458,6 +463,9 @@
   1134    intro env m φ fuel _hv _ihwc ihw ihd ihi ihio
   1135    have hss : SortSemAtP m μ φ fuel :=
 
+== ConLeche/Kernel/Basis/False.lean#L48
+    48  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
+
 == ConLeche/Frontend/Prelude.lean#L1-L15
      1  import ConLeche.Frontend.ExportC
      2  
@@ -475,8 +483,24 @@
     14  
     15  **Why.**  A user report (2026-09-06): the Nat-op pins were sensitive
 
+== ConLeche/Kernel/Direct/RecParts.lean#L611
+   611  def directFixKinds? (p : DirectSumParts) : Option (List (List RecFieldKind)) :=
+
+== ConLeche/Kernel/Direct/RecParts.lean#L243
+   243  /-- Official `check_positivity`'s telescope walk on a field domain that
+
 == ConLeche/Kernel/Direct/RecInstall.lean#L211
    211  def checkDirectFix (ops : CheckerOps m) (env : Env) (p₀ : DirectFixParts) : m Env := do
+
+== ConLeche/SetModel/Value.lean#L517-L524
+   517  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
+   518  
+   519  /-- `(I → Sort w) → (I → Sort w)`, the functor space. -/
+   520  noncomputable def lfpFamFunSpace (u w : Nat) (I : V) : V :=
+   521    piR (Nat.max u (w + 1)) (lfpFamSpace V w I) fun _ => lfpFamSpace V w I
+   522  
+   523  /-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
+   524  noncomputable def lfpFamV2 (u w : Nat) : V :=
 
 == ConLeche/SetModel/Container.lean#L622
    622  theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)
@@ -497,6 +521,20 @@
     73      -- open the theorem's telescope: params, motives, minors, fields
     74      let depth := rP + cnF
     75      let (fvs, tbody) ← unwrapOr (openPisAtFvars depth cvt.type 0)
+
+== ConLeche/Frontend/InModel/Kit.lean#L1-L12
+     1  import ConLeche.Kernel.Direct.Parts
+     2  import ConLeche.Kernel.Level
+     3  
+     4  /-!
+     5  # The in-process modeller's kit (task #200)
+     6  
+     7  Shared pieces of the in-process construction of `_model` families for
+     8  nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
+     9  
+    10  * the naming scheme (lean-inductive-models' `_impl` names, so the two
+    11    generators' streams are diffable — none of these names is special to
+    12    the checker: only the public `_model` slots are consumed, and only
 
 == ConLeche/Frontend/InModel/Nested.lean#L43-L48
     43  Declines (the residual): a field mentioning the block other than as a
