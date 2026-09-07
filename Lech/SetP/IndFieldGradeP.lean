@@ -240,7 +240,7 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
       have hxf : fvs[rP + j']? = some x := by
         rw [← hspFld j' (by omega)]
         exact hx'
-      obtain ⟨nm', ty', hx''⟩ := hfvsAt (rP + j') (by omega)
+      obtain ⟨ty', hx''⟩ := hfvsAt (rP + j') (by omega)
       obtain rfl : x = Expr.fvar (rP + j') ty' := by
         rw [hxf] at hx''
         exact Option.some.inj hx''
