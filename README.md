@@ -23,7 +23,10 @@ The project was called Setlec until 2026-09-06.
 * Support for inductive types is incremental. The checker natively supports:
 
   * `False`, `Empty`, `PUnit`, `Eq`, `Nat`, `Quot`
-  * Unindexed, unrecursive inductives
+  * Non-recursive inductives (structures, sums, indexed families)
+  * Recursive inductives, indexed or not, whose recursive fields are
+    finitary (no reflexive/function-typed recursive fields, no nested
+    or mutual recursion)
 
   For everything else is relies on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models that we can validate.
 
