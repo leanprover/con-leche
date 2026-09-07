@@ -573,6 +573,12 @@
 # routing as inmodel_mutual through the default pipe; tests/inmodel.sh
 # gates the in-process path.
 0 inmodel_nested.ndjson
+# inmodel_groups.ndjson (task #200 B4): CONTAINER GROUPS — `M` nesting
+# through the nested `TT` (TaggedText-shaped), `N` through the mutual
+# `F`/`G`, `H` through `TT (List H)` (a group whose pin is another
+# mimic's carrier).  Through the default pipe the tool models them;
+# tests/inmodel.sh gates the in-process path.
+0 inmodel_groups.ndjson
 # indexed_one_ctor.ndjson (task #175 SigmaHom, 2026-09-06): an INDEXED
 # one-constructor family in Type (Mathlib's CategoryTheory.Sigma.SigmaHom
 # shape: two indices built from the fields, dependent fields).  Not

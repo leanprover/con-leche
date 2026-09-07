@@ -38,7 +38,7 @@ fixtures=("$@")
 if [ ${#fixtures[@]} = 0 ]; then
   fixtures=(tests/e2e/inmodel_mutual.ndjson tests/e2e/inmodel_mutual_idx.ndjson
             tests/e2e/inmodel_nested.ndjson tests/e2e/nested_rec.ndjson
-            tests/e2e/nested_struct_proj.ndjson)
+            tests/e2e/nested_struct_proj.ndjson tests/e2e/inmodel_groups.ndjson)
 fi
 
 WORK=$(mktemp -d "$TMPDIR/inmodel.XXXXXX")

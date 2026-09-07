@@ -95,6 +95,20 @@ structure ACtor where
   jIn : Nat
   deriving Repr, Inhabited
 
+/-- A container group (B4): the mimics that are one container's
+recursor family instantiated at the pins, in the container's motive
+order, with each member's recursor name; `lv`/`pins` are the
+container's levels and pins (shared by the group), `large` whether its
+recursors carry an elimination level. -/
+structure Group where
+  tags : List Nat
+  recNames : List Name
+  lv : List Level
+  pins : List Expr
+  nPI : Nat
+  large : Bool
+  deriving Repr, Inhabited
+
 /-- The family read off the block. -/
 structure Family where
   T : Name
@@ -301,8 +315,10 @@ where
       -- the motive over `z` at position `pos`: positions of earlier
       -- moved entries at `r`, later ones at `l`; `F o` builds the spine
       -- `o` binders below the chain's frame
+      -- `S'_k`: the first `k` moved positions at `l`, the later ones at `r`
+      -- (unmoved positions agree)
       let mid : List Expr := (List.range ls.length).map fun i =>
-        if (moved.take k).any (·.1 == i) then rs.getD i default else ls.getD i default
+        if (moved.drop k).any (·.1 == i) then rs.getD i default else ls.getD i default
       let motive : Expr := .lam (.str .anonymous "z") ty
         (.lam (.str .anonymous "h")
           (mkEq ℓty (ty.liftLooseBVars 1 0) ((ls.getD pos default).liftLooseBVars 1 0) (.bvar 0))
@@ -390,42 +406,71 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
     let own := ctors.filter (·.mem == m)
     unless own.map (·.cname) == t.ctors do
       throw s!"member {t.cv.name}: constructors differ from the recursor's minors"
-  -- containers: plain (single, non-nested) inductives, acyclic
+  -- containers: CONTAINER GROUPS (B4).  A container's whole recursor
+  -- family — its real members and its own mimics, instantiated at the
+  -- pins — is among our mimics (the kernel flattens nesting), so every
+  -- mimic belongs to the group of its container's family, in the
+  -- container's motive order; `pack`/`unpackPack` for a group are one
+  -- application of each group member's recursor with the group's
+  -- motives.  A plain container is a singleton group.
   let mimics := mems.filter (·.real?.isNone)
-  let containerKind : Name → Option (Nat × Nat) := fun I =>  -- (numNested, all)
-    match ctx.tbl (I.str "rec") with
-    | some _ => some (0, 1)
-    | none => none
+  let mut groups : List Group := []
   for mem in mimics do
-    unless (containerKind mem.I).isSome do
-      throw s!"container {mem.I} has no recursor in the declaration table"
-    match ctx.blocks mem.I with
-    | some cb =>
-      unless cb.types.length == 1 && (cb.types.getD 0 default).numNested == 0 do
-        throw s!"container {mem.I} is itself nested or mutual (B4)"
-      unless (cb.types.getD 0 default).nIdx == mem.nIdx do
-        throw s!"container {mem.I}: index count"
-    | none => throw s!"container {mem.I}: no block record"
-  -- dependency order among the mimics: `j` needs `j'` when a field of
-  -- one of its constructors has carrier `j'`
-  let depsOf : Mem → List Nat := fun mem =>
-    (ctors.filter (·.mem == mem.tag)).foldl (fun acc c =>
+    if groups.any (·.tags.contains mem.tag) then continue
+    let some cb := ctx.blocks mem.I | throw s!"container {mem.I}: no block record"
+    let cI0 := cb.types.getD 0 default
+    let I1 := cI0.cv.name
+    let lpsI := cI0.cv.levelParams
+    let nPI := cI0.nP
+    unless nPI == mem.pins.length do throw s!"container {mem.I}: parameter count"
+    unless lpsI.length == mem.lv.length do throw s!"container {mem.I}: level count"
+    let some rI := cb.recs.find? (·.cv.name == I1.str "rec") | throw s!"container {I1}: no recursor"
+    let MI := rI.nM
+    let some (_, afterPI) := rI.cv.type.stripPis nPI | throw s!"container {I1}: recursor parameters"
+    let some (motivesI, _) := afterPI.stripPis MI | throw s!"container {I1}: recursor motives"
+    let memsI ← readMems lpsI nPI cb.types (motivesI.map (·.2.1))
+    let mut tags : List Nat := []
+    let mut recNames : List Name := []
+    for memI in memsI do
+      -- the family member's carrier at the pins: instantiate the
+      -- container's parameters (under the member's index binders)
+      -- (the carrier under the member's `nIdx` index binders: the
+      -- container's parameters sit above them)
+      let carrI := carrierAt ⟨I1, lpsI, nPI, [], .zero, cb.types.length, memsI, [], false, .anonymous⟩
+        memI memI.nIdx (varsAt 0 memI.nIdx) false
+      -- levels first (the container's level names may coincide with the
+      -- block's, which the pins mention), then the pins
+      let carr := substParams memI.nIdx nPI (mem.pins.map (·.liftLooseBVars memI.nIdx 0))
+        (carrI.instantiateLevelParams lpsI mem.lv)
+      let some (t, _) := matchCarrier fam memI.nIdx carr
+        | throw s!"container {mem.I}: family member {memI.I} at the pins is not among the mimics"
+      tags := tags ++ [t]
+      recNames := recNames ++ [match memI.real? with
+        | some m => (cb.types.getD m default).cv.name.str "rec"
+        | none => I1.str s!"rec_{memI.j + 1}"]
+    let large := rI.cv.levelParams.length == lpsI.length + 1
+    groups := groups ++ [⟨tags, recNames, mem.lv, mem.pins, nPI, large⟩]
+  -- dependency order among the groups: a group needs another when a
+  -- field of one of its constructors has a carrier outside the group
+  let groupOf : Nat → Option Group := fun t => groups.find? (·.tags.contains t)
+  let depsOfGroup : Group → List Nat := fun g =>
+    (ctors.filter (fun c => g.tags.contains c.mem)).foldl (fun acc c =>
       acc ++ c.kinds.filterMap fun k => match k with
-        | some t => if t ≥ r && t != mem.tag then some t else none
+        | some t => if t ≥ r && !g.tags.contains t then some t else none
         | none => none) []
-  let mut order : List Nat := []   -- tags, in emission order
-  let mut pending := mimics.map (·.tag)
+  let mut order : List Group := []
+  let mut pending := groups
   let mut progress := true
   while progress && !pending.isEmpty do
     progress := false
-    for t in pending do
-      let mem := mems.getD t default
-      if (depsOf mem).all (fun d => order.contains d) then
-        order := order ++ [t]
-        pending := pending.filter (· != t)
+    for g in pending do
+      if (depsOfGroup g).all (fun d => order.any (·.tags.contains d)) then
+        order := order ++ [g]
+        pending := pending.filter (·.tags != g.tags)
         progress := true
   unless pending.isEmpty do
-    throw s!"the mimics form a cycle (B4): {pending}"
+    throw s!"the container groups form a cycle: {pending.map (·.tags)}"
+  let _ := groupOf
   let isProp := Level.isEquiv u .zero == some true
   if isProp && large then
     throw "Prop block with a large eliminator (the auxiliary family eliminates into Prop only)"
@@ -609,95 +654,111 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       (varsAt 0 nP ++ [motU 0] ++ unpackMinors 0))
   if !large && !isProp then throw "small eliminator on a non-Prop block"
   (out, heights) := push out heights unpackAll lps unpackAllTy unpackAllVal
-  -- 4. per mimic, in dependency order: `pack_j`, `unpack_j`, `congrPack_j`, `unpackPack_j`
-  for t in order do
-    let mem := mems.getD t default
-    let j := mem.j
-    let nI := mem.nIdx
-    let own := ctors.filter (·.mem == t)
-    -- the container's recursor levels: large or small
-    let some (crlps, _) := ctx.tbl (mem.I.str "rec") | throw s!"no {mem.I}.rec"
-    let cLarge := crlps.length == mem.lv.length + 1
-    let cRec := fun (ℓe : Level) => Expr.const (mem.I.str "rec") ((if cLarge then [ℓe] else []) ++ mem.lv)
-    if !cLarge && !(Level.isEquiv u .zero == some true) then
-      throw s!"container {mem.I} eliminates into Prop only but the block is not Prop"
-    -- frames: the definitions bind `p⃗ ı⃗ x` (`nI + 1` below the parameters)
-    let o0 := nI + 1
-    -- `pack_j : ∀ p⃗ ı⃗ (x : Carrier), aux p⃗ (tag.j ı⃗)`
-    let packTy := mkPis (pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "x", carrM mem nI (varsAt 0 nI))])
-      (auxAt fam t o0 (varsAt 1 nI))
-    -- the container's minors: `λ g⃗ ih⃗_I, aux.j.c p⃗ (g mapped)` at frame `o`
-    let packMinors := fun (o : Nat) => own.map fun c =>
-      let selfRec := (List.range c.nF).filter fun i => c.kinds.getD i none == some t
-      let nIhI := selfRec.length
+  -- 4. per container group, in dependency order: `pack_j` and
+  --    `unpackPack_j` for every member by that member's container
+  --    recursor at the group's motives, `unpack_j`/`congrPack_j` per member
+  for g in order do
+    let cRec := fun (k : Nat) (ℓe : Level) =>
+      Expr.const (g.recNames.getD k .anonymous) ((if g.large then [ℓe] else []) ++ g.lv)
+    if !g.large && !(Level.isEquiv u .zero == some true) then
+      throw s!"container of group {g.tags} eliminates into Prop only but the block is not Prop"
+    let pinsAt := fun (o : Nat) => (carrM (mems.getD (g.tags.getD 0 0) default) o []).getAppArgs.take g.nPI
+    let inGroup := fun (k : Option Nat) => match k with
+      | some t' => g.tags.contains t'
+      | none => false
+    -- the group's constructors, in the container family's order
+    let gctors := g.tags.foldl (fun acc t => acc ++ ctors.filter (·.mem == t)) []
+    -- the pack motives at frame `o`: `λ ı⃗ x, aux p⃗ (tag.t ı⃗)` per member
+    let packMotives := fun (o : Nat) => g.tags.map fun t =>
+      let mem := mems.getD t default
+      mkLams (idxBsAtM mem o ++ [(.str .anonymous "x", carrM mem (o + mem.nIdx) (varsAt 0 mem.nIdx))])
+        (auxAt fam t (o + mem.nIdx + 1) (varsAt 1 mem.nIdx))
+    -- the pack minors at frame `o`
+    let packMinors := fun (o : Nat) => gctors.map fun c =>
+      let grpRec := (List.range c.nF).filter fun i => inGroup (c.kinds.getD i none)
+      let nIhI := grpRec.length
       let gbs := modelDoms c o
-      let ihbs := selfRec.map fun i =>
-        let k := (selfRec.filter (· < i)).length
+      let ihbs := grpRec.map fun i =>
+        let k := (grpRec.filter (· < i)).length
         let fo := c.nF + k
-        (.str .anonymous "ih", auxAt fam t (o + fo) (fieldIdx c i (fo - i)))
+        (.str .anonymous "ih", auxAt fam ((c.kinds.getD i none).getD 0) (o + fo) (fieldIdx c i (fo - i)))
       let gVar := fun (i : Nat) => Expr.bvar (nIhI + c.nF - 1 - i)
-      let ihVarI := fun (i : Nat) => Expr.bvar (nIhI - 1 - (selfRec.filter (· < i)).length)
+      let ihVarI := fun (i : Nat) => Expr.bvar (nIhI - 1 - (grpRec.filter (· < i)).length)
       let fo := c.nF + nIhI
       mkLams (gbs ++ ihbs)
         (Expr.mkAppN (constP (auxCtorName' c) lps) (varsAt (o + fo) nP ++
           (List.range c.nF).map fun i =>
             match c.kinds.getD i none with
             | some t' =>
-              if t' == t then ihVarI i
+              if g.tags.contains t' then ihVarI i
               else if t' ≥ r then
                 let mem' := mems.getD t' default
                 appImpl (packName mem'.j) (o + fo) (fieldIdx c i (fo - i)) [gVar i]
               else gVar i
             | none => gVar i))
-    let packVal := mkLams (pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "x", carrM mem nI (varsAt 0 nI))])
-      (Expr.mkAppN (cRec u)
-        ((carrM mem o0 []).getAppArgs.take mem.pins.length ++
-         [mkLams (idxBsAtM mem o0 ++ [(.str .anonymous "x", carrM mem (o0 + nI) (varsAt 0 nI))])
-            (auxAt fam t (o0 + nI + 1) (varsAt 1 nI))] ++
-         packMinors o0 ++ varsAt 1 nI ++ [.bvar 0]))
-    (out, heights) := push out heights (packName j) lps packTy packVal
-    -- `unpack_j : ∀ p⃗ ı⃗ (s : aux p⃗ (tag.j ı⃗)), Carrier := λ …, _impl.unpack p⃗ (tag.j ı⃗) s`
-    let unpackTy := mkPis (pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "s", auxAt fam t nI (varsAt 0 nI))])
-      (carrM mem o0 (varsAt 1 nI))
-    let unpackVal := mkLams (pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "s", auxAt fam t nI (varsAt 0 nI))])
-      (Expr.mkAppN (constP unpackAll lps)
-        (varsAt o0 nP ++ [Expr.mkAppN (constP (tagCtorName T t) lps) (varsAt o0 nP ++ varsAt 1 nI), .bvar 0]))
-    (out, heights) := push out heights (unpackName j) lps unpackTy unpackVal
-    -- `congrPack_j : ∀ p⃗ ı⃗ (a b : Carrier) (h : a = b), pack a = pack b`
-    let carrAt := fun (o : Nat) => carrM mem o (varsAt (o - nI) nI)
-    let cpBs := pbs ++ idxBsAtM mem 0 ++
-      [(.str .anonymous "a", carrAt nI), (.str .anonymous "b", carrAt (nI + 1)),
-       (.str .anonymous "h", mkEq u (carrAt (nI + 2)) (.bvar 1) (.bvar 0))]
-    let packApp := fun (o : Nat) (x : Expr) => appImpl (packName j) o (varsAt (o - nI) nI) [x]
-    let cpTy := mkPis cpBs (mkEq u (auxAt fam t (nI + 3) (varsAt 3 nI)) (packApp (nI + 3) (.bvar 2)) (packApp (nI + 3) (.bvar 1)))
-    let cpVal := mkLams cpBs
-      (mkEqRec .zero u (carrAt (nI + 3)) (.bvar 2)
-        (.lam (.str .anonymous "z") (carrAt (nI + 3))
-          (.lam (.str .anonymous "h'") (mkEq u (carrAt (nI + 4)) (.bvar 3) (.bvar 0))
-            (mkEq u (auxAt fam t (nI + 5) (varsAt 5 nI)) (packApp (nI + 5) (.bvar 4)) (packApp (nI + 5) (.bvar 1))) bm) bm)
-        (mkRefl u (auxAt fam t (nI + 3) (varsAt 3 nI)) (packApp (nI + 3) (.bvar 2)))
-        (.bvar 1) (.bvar 0))
-    (out, heights) := push out heights (congrPackName j) lps cpTy cpVal
-    -- `unpackPack_j : ∀ p⃗ ı⃗ (x : Carrier), unpack (pack x) = x` by the container's recursor
-    let unpackApp := fun (o : Nat) (idx : List Expr) (s : Expr) => appImpl (unpackName j) o idx [s]
-    let packAppI := fun (o : Nat) (idx : List Expr) (x : Expr) => appImpl (packName j) o idx [x]
-    let upStmt := fun (o : Nat) (idx : List Expr) (x : Expr) =>
-      mkEq u (carrM mem o idx) (unpackApp o idx (packAppI o idx x)) x
-    let upTy := mkPis (pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "x", carrM mem nI (varsAt 0 nI))])
-      (upStmt o0 (varsAt 1 nI) (.bvar 0))
-    let upMinors := fun (o : Nat) => own.map fun c =>
-      let selfRec := (List.range c.nF).filter fun i => c.kinds.getD i none == some t
-      let nIhI := selfRec.length
+    for k in List.range g.tags.length do
+      let t := g.tags.getD k 0
+      let mem := mems.getD t default
+      let j := mem.j
+      let nI := mem.nIdx
+      let o0 := nI + 1
+      let bsX := pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "x", carrM mem nI (varsAt 0 nI))]
+      let packTy := mkPis bsX (auxAt fam t o0 (varsAt 1 nI))
+      let packVal := mkLams bsX
+        (Expr.mkAppN (cRec k u)
+          (pinsAt o0 ++ packMotives o0 ++ packMinors o0 ++ varsAt 1 nI ++ [.bvar 0]))
+      (out, heights) := push out heights (packName j) lps packTy packVal
+    for t in g.tags do
+      let mem := mems.getD t default
+      let j := mem.j
+      let nI := mem.nIdx
+      let o0 := nI + 1
+      -- `unpack_j`
+      let bsS := pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "s", auxAt fam t nI (varsAt 0 nI))]
+      let unpackTy := mkPis bsS (carrM mem o0 (varsAt 1 nI))
+      let unpackVal := mkLams bsS
+        (Expr.mkAppN (constP unpackAll lps)
+          (varsAt o0 nP ++ [Expr.mkAppN (constP (tagCtorName T t) lps) (varsAt o0 nP ++ varsAt 1 nI), .bvar 0]))
+      (out, heights) := push out heights (unpackName j) lps unpackTy unpackVal
+      -- `congrPack_j`
+      let carrAt := fun (o : Nat) => carrM mem o (varsAt (o - nI) nI)
+      let cpBs := pbs ++ idxBsAtM mem 0 ++
+        [(.str .anonymous "a", carrAt nI), (.str .anonymous "b", carrAt (nI + 1)),
+         (.str .anonymous "h", mkEq u (carrAt (nI + 2)) (.bvar 1) (.bvar 0))]
+      let packApp := fun (o : Nat) (x : Expr) => appImpl (packName j) o (varsAt (o - nI) nI) [x]
+      let cpTy := mkPis cpBs (mkEq u (auxAt fam t (nI + 3) (varsAt 3 nI)) (packApp (nI + 3) (.bvar 2)) (packApp (nI + 3) (.bvar 1)))
+      let cpVal := mkLams cpBs
+        (mkEqRec .zero u (carrAt (nI + 3)) (.bvar 2)
+          (.lam (.str .anonymous "z") (carrAt (nI + 3))
+            (.lam (.str .anonymous "h'") (mkEq u (carrAt (nI + 4)) (.bvar 3) (.bvar 0))
+              (mkEq u (auxAt fam t (nI + 5) (varsAt 5 nI)) (packApp (nI + 5) (.bvar 4)) (packApp (nI + 5) (.bvar 1))) bm) bm)
+          (mkRefl u (auxAt fam t (nI + 3) (varsAt 3 nI)) (packApp (nI + 3) (.bvar 2)))
+          (.bvar 1) (.bvar 0))
+      (out, heights) := push out heights (congrPackName j) lps cpTy cpVal
+    -- `unpackPack_j` for every member, by its container recursor into Prop
+    let upStmtOf := fun (mem : Mem) (o : Nat) (idx : List Expr) (x : Expr) =>
+      mkEq u (carrM mem o idx) (appImpl (unpackName mem.j) o idx [appImpl (packName mem.j) o idx [x]]) x
+    let upMotives := fun (o : Nat) => g.tags.map fun t =>
+      let mem := mems.getD t default
+      mkLams (idxBsAtM mem o ++ [(.str .anonymous "x", carrM mem (o + mem.nIdx) (varsAt 0 mem.nIdx))])
+        (upStmtOf mem (o + mem.nIdx + 1) (varsAt 1 mem.nIdx) (.bvar 0))
+    let upMinors := fun (o : Nat) => gctors.map fun c =>
+      let memC := mems.getD c.mem default
+      let grpRec := (List.range c.nF).filter fun i => inGroup (c.kinds.getD i none)
+      let nIhI := grpRec.length
       let gbs := modelDoms c o
       let fo := c.nF + nIhI
       let gVarAt := fun (i : Nat) (o' : Nat) => Expr.bvar (o' + nIhI + c.nF - 1 - i)
-      let ihbs := selfRec.map fun i =>
-        let k := (selfRec.filter (· < i)).length
+      let ihbs := grpRec.map fun i =>
+        let k := (grpRec.filter (· < i)).length
         let fo' := c.nF + k
-        (.str .anonymous "ih", upStmt (o + fo') (fieldIdx c i (fo' - i)) (.bvar (fo' - 1 - i)))
-      -- the spine `c pins g⃗` with positions mapped
-      let pinsAt := fun (o' : Nat) => (carrM mem o' []).getAppArgs.take mem.pins.length
-      let F := fun (o' : Nat) (args : List Expr) => Expr.mkAppN (.const c.cname c.clv) (pinsAt (o + fo + o') ++ args)
+        let mem' := mems.getD ((c.kinds.getD i none).getD 0) default
+        (.str .anonymous "ih", upStmtOf mem' (o + fo') (fieldIdx c i (fo' - i)) (.bvar (fo' - 1 - i)))
+      -- the spine's pins are the constructor's OWN container's (a group
+      -- member's container differs from the group's head container)
+      let F := fun (o' : Nat) (args : List Expr) =>
+        Expr.mkAppN (.const c.cname c.clv)
+          ((carrM memC (o + fo + o') []).getAppArgs.take memC.pins.length ++ args)
       let ls := (List.range c.nF).map fun i =>
         match c.kinds.getD i none with
         | some t' =>
@@ -711,8 +772,9 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       let moved := (List.range c.nF).filterMap fun i =>
         match c.kinds.getD i none with
         | some t' =>
-          if t' == t then
-            some (i, Expr.bvar (nIhI - 1 - (selfRec.filter (· < i)).length), (modelDoms c (o + fo)).getD i default |>.2 |> fun d => d.liftLooseBVars (fo - i) 0 |> fun _ => carrM (mems.getD t' default) (o + fo) (fieldIdx c i (fo - i)), u)
+          if g.tags.contains t' then
+            some (i, Expr.bvar (nIhI - 1 - (grpRec.filter (· < i)).length),
+              carrM (mems.getD t' default) (o + fo) (fieldIdx c i (fo - i)), u)
           else if t' ≥ r then
             let mem' := mems.getD t' default
             let idx := fieldIdx c i (fo - i)
@@ -720,14 +782,18 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
           else none
         | none => none
       mkLams (gbs ++ ihbs)
-        (congrChain u (carrM mem (o + fo) (c.idx.map (·.liftLooseBVars nIhI 0))) F ls rs moved)
-    let upVal := mkLams (pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "x", carrM mem nI (varsAt 0 nI))])
-      (Expr.mkAppN (cRec .zero)
-        ((carrM mem o0 []).getAppArgs.take mem.pins.length ++
-         [mkLams (idxBsAtM mem o0 ++ [(.str .anonymous "x", carrM mem (o0 + nI) (varsAt 0 nI))])
-            (upStmt (o0 + nI + 1) (varsAt 1 nI) (.bvar 0))] ++
-         upMinors o0 ++ varsAt 1 nI ++ [.bvar 0]))
-    out := out.push (.thmDecl ⟨unpackPackName j, lps, upTy⟩ upVal)
+        (congrChain u (carrM memC (o + fo) (c.idx.map (·.liftLooseBVars nIhI 0))) F ls rs moved)
+    for k in List.range g.tags.length do
+      let t := g.tags.getD k 0
+      let mem := mems.getD t default
+      let nI := mem.nIdx
+      let o0 := nI + 1
+      let bsX := pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "x", carrM mem nI (varsAt 0 nI))]
+      let upTy := mkPis bsX (upStmtOf mem o0 (varsAt 1 nI) (.bvar 0))
+      let upVal := mkLams bsX
+        (Expr.mkAppN (cRec k .zero)
+          (pinsAt o0 ++ upMotives o0 ++ upMinors o0 ++ varsAt 1 nI ++ [.bvar 0]))
+      out := out.push (.thmDecl ⟨unpackPackName mem.j, lps, upTy⟩ upVal)
   -- 5. `_impl.packUnpack : ∀ p⃗ i s, MotPU i s` (all mimics at once)
   let motPU := fun (o : Nat) => dispatchMotive o .zero fun o2 =>
     mems.map fun mem =>

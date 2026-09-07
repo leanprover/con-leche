@@ -54716,3 +54716,35 @@ before and after merging the master the branch lands on:
 Neutral, as expected: every wrapper removed was `@[inline]`, so the
 code generator had already erased them.  The change is to what a reader
 has to hold in their head, not to what the machine does.
+
+### B4 — container groups (landed on `agent/inmodel-b4`)
+
+As scoped above: a mimic's container block record and its first
+recursor's motives give the container's family (`readMems` on the
+container), each family member's carrier at the pins — the container's
+parameters substituted simultaneously (`Kit.substParams`; the fold
+semantics of `instantiateList` re-traverses open replacements, which
+mangled a dependent pin) and level-instantiated — is matched to one of
+our mimics, and the group carries each member's recursor name (`I_k.rec`
+or `I_1.rec_j`).  `pack_t`/`unpackPack_t` for every group member are
+that member's recursor at the group's motives and the minors of every
+group constructor (our aux constructors in the container family's
+order; a group-member-typed field takes the hypothesis, another mimic's
+field `pack`/`unpackPack` of that mimic, real members and plain fields
+pass); the spine's pins are the constructor's own container's, not the
+group head's.  Groups are ordered topologically by the mimics they
+reference outside themselves.  The congruence chain's motive had the
+already-moved positions on the wrong side — invisible while no
+container constructor had two mimic-typed fields (`List.cons` at
+`TT M` has), now `S'_k` = the first `k` moved positions at `l`, the rest
+at `r`.  Fixture `tests/e2e/src/inmodel_groups.lean`: `TT` (nested,
+`TaggedText`-shaped), `M` through `TT M`, the mutual `F`/`G`, `N` through
+`F N`, `H` through `TT (List H)` — **579 declarations in both modes**
+through the dump gate; 626 through the default pipe (tool-modelled).
+One more bug the Mathlib census caught after the fixture passed: the
+container's carrier skeleton was level-instantiated AFTER the pins were
+substituted, so a container level parameter whose NAME coincides with
+the block's (`u`, everywhere) was rewritten inside the pins; levels are
+instantiated on the bare skeleton first (`P (α : Type u)` through
+`Box.{u}` in the fixture pins it, 625 declarations).  **The Mathlib
+census now reads 51/51 modelled, 0 declined.**
