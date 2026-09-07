@@ -731,7 +731,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
         (minorAVAtR mp.base2 cA.1.name ψ p.nP cA.2 _ (1 + j) (dsF j ψ) (esF j ψ)
           (Lech.recIdxOf (ksF j)) (eissF j ψ)) = _
       rw [hrss, ← hEisjD ψ j cA hj, hEsjD ψ j cA hj, hFsjD ψ j cA hj]
-      exact interp_minorAVAtR (nIdx := p.nIdx) (hbz ψ) hlenM (hD.len ψ) (hleafC j cA hj ψ)
+      exact interp_minorAVAtR (hbz ψ) hlenM (hD.len ψ) (hleafC j cA hj ψ)
         (mp.base2.cval_closedL cA.1.name ψ) (by rw [fssOfR_getElem?, hjd ψ j cA hj]; rfl) hokB
         ((hiff j cA hj ψ ρp).mp hρp)
   -- the per-field data's pins
