@@ -1,6 +1,7 @@
 import Lech.Cached.ParsedC
 import Lech.Frontend.ExportC
 import Lech.Frontend.Prelude
+import Lech.Frontend.InModelDump
 
 /-!
 Command-line driver: `lech FILE.ndjson` reads a lean4export NDJSON file
@@ -205,15 +206,15 @@ stopped draining its pipe and a blocked writer would never exit.  A *parse
 error* drains instead of killing, so that a tool which failed
 mid-stream — leaving us a truncated record — still gets to state its
 verdict, which then wins over our reading of its debris. -/
-def preprocessParse (tool file modeTag : String) (prelude : Frontend.PreludeIx) :
-    IO (Option InputResult) := do
+def preprocessParse (tool file modeTag : String) (prelude : Frontend.PreludeIx)
+    (inModel : Bool) : IO (Option InputResult) := do
   let child ← try
       IO.Process.spawn
         { cmd := tool
           args := #["--quiet", "--no-type-check-generated", file]
           stdin := .null, stdout := .piped, stderr := .inherit }
     catch _ => return none
-  match ← Frontend.parseExportHandleD child.stdout (modeled := true) prelude with
+  match ← Frontend.parseExportHandleD child.stdout (modeled := true) prelude inModel with
   | .error (.unsupported what) =>
     try child.kill catch _ => pure ()
     let _ ← child.wait
@@ -237,13 +238,14 @@ either straight from the file (`--pre`, or an input with nothing for
 the preprocessor to do, or a preprocessor that could not be run) or
 through the preprocessor's pipe — or the preprocessor's own verdict. -/
 def parseInput (file : String) (pre : Bool) (modeTag : String)
-    (prelude : Frontend.PreludeIx) : IO InputResult := do
+    (prelude : Frontend.PreludeIx) (inModel : Bool) : IO InputResult := do
+  let census := (← IO.getEnv "LECH_INMODEL_CENSUS") == some "1"
   let raw : IO InputResult :=
-    InputResult.parsed <$> Frontend.parseExportStreamD file (modeled := true) prelude
+    InputResult.parsed <$> Frontend.parseExportStreamD file (modeled := true) prelude inModel census
   if pre then return ← raw
   unless ← needsPreprocess file do return ← raw
   let some tool ← findPreprocessor | raw
-  match ← preprocessParse tool file modeTag prelude with
+  match ← preprocessParse tool file modeTag prelude inModel with
   | some res => return res
   | none => raw
 
@@ -258,13 +260,8 @@ loop in the driver** (`LECH_PROGRESS`, user ruling 2026-09-07).
 
 The default run calls `Lech.Cached.checkDeclsSPCachedD` — the pure
 function `Lech.no_proof_of_False` is about — and prints nothing per
-declaration.  A pure fold cannot print, and the ways to make it print
-without leaving the verified statement behind all cost more than the
-printing is worth: a compiled-only hook (`@[implemented_by]`, refused
-by the project's standing ruling), a `dbgTrace` branch on the checked
-path, or a monad-generic loop with callbacks plus a `LawfulMonad IO`
-instance core does not ship.  The user's ruling ends that: run a
-*different, plainly unverified* fold when the heartbeat is on.
+declaration.  A pure fold cannot print, so when the heartbeat is on the
+driver runs a *different, plainly unverified* fold instead.
 
 It is the same steps in the same order — `checkDeclStepIdxC mode`, the
 position-carrying step of the verified fold, over the same records from
@@ -293,7 +290,7 @@ index: the parse folds the basis and `quot` blocks and drops
 taint-skipped records, so the two drift apart by a stream-dependent
 amount.  Calibrate by NAME. -/
 def checkDeclsProgressIO (mode : Lech.CheckMode) (err : IO.FS.Stream)
-    (stride total t0 : Nat) (trace : Bool) :
+    (stride total t0 : Nat) (trace : Bool) (inModelled : Array Name) :
     List Lech.Cached.DeclC → Nat → Lech.FEnv → Lech.Cached.CState →
       IO (Except (Lech.CheckError × Nat) Lech.Env)
   | [], _, fe, _ => return .ok fe.env
@@ -318,6 +315,8 @@ def checkDeclsProgressIO (mode : Lech.CheckMode) (err : IO.FS.Stream)
         let route :=
           if (Lech.directPartsF? fe block).isSome then "struct"
           else if (Lech.directSumPartsF? fe block).isSome then "sum"
+          else if inModelled.contains ((block.head?.map (·.name)).getD .anonymous)
+            then "inmodel"
           else "modeled"
         err.putStr s!"lech: route \
           {(block.head?.map (·.name)).getD .anonymous} {route}\n"
@@ -331,7 +330,7 @@ def checkDeclsProgressIO (mode : Lech.CheckMode) (err : IO.FS.Stream)
       | _ => pure ()
     match Lech.Cached.checkDeclStepIdxC mode (i, fe) pd s with
     | .ok ((i', fe'), s') =>
-      checkDeclsProgressIO mode err stride total t0 trace ds i' fe' s'
+      checkDeclsProgressIO mode err stride total t0 trace inModelled ds i' fe' s'
     | .error e => return .error e
 
 /-- The progress heartbeat's stride (`LECH_PROGRESS=<stride>`;
@@ -421,7 +420,13 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
     -- file exists in this process.  `--pre` (an explicit user
     -- assertion, never content sniffing) skips detection and the
     -- preprocessor spawn.
-    match ← parseInput file pre modeTag prelude with
+    -- THE IN-PROCESS MODELLER (task #200): mutual and nested blocks
+    -- without a model in the stream get their `_model` family generated
+    -- at parse time (`Lech/Frontend/InModel.lean`); `LECH_INMODEL=0`
+    -- turns it off, `LECH_INMODEL_DUMP=OUT` writes the raw input with the
+    -- generated records spliced in (the generator's debug gate).
+    let inModel := (← IO.getEnv "LECH_INMODEL") != some "0"
+    match ← parseInput file pre modeTag prelude inModel with
     | .preVerdict code =>
       -- the preprocessor's verdict is ours (user ruling 2026-09-07);
       -- `preVerdict` has already printed the line, which names the mode
@@ -434,7 +439,23 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       IO.eprintln s!"lech: {file}:{line}: {msg}"
       return 3
     | .parsed (.ok ⟨decls, taintSkipped, projRewrites, preludeCount,
-                    preludeDropped, hoisted⟩) =>
+                    preludeDropped, hoisted, inModelled, inModelGen, inModelDeclined⟩) =>
+      -- the in-process modeller's receipt (task #200)
+      if inModelled.size > 0 then
+        IO.eprintln s!"lech: {inModelled.size} inductive blocks modelled \
+          in-process: {String.intercalate ", " (inModelled.toList.map toString)}"
+      -- the census (`LECH_INMODEL_CENSUS=1`): every mutual/nested block's
+      -- outcome, then stop — the parse only, no fold
+      if (← IO.getEnv "LECH_INMODEL_CENSUS") == some "1" then
+        for (n, why) in inModelDeclined do
+          IO.eprintln s!"lech: inmodel declined {n}: {why}"
+        IO.eprintln s!"lech: inmodel census: {inModelled.size} modelled, \
+          {inModelDeclined.size} declined ({modeTag}, parse only)"
+        return 0
+      if let some out ← IO.getEnv "LECH_INMODEL_DUMP" then
+        if inModelGen.size > 0 then
+          Frontend.dumpInModel file out inModelGen
+          IO.eprintln s!"lech: in-process models dumped to {out}"
       -- `decls` = the prelude's `preludeCount` records, then the
       -- stream's (minus `preludeDropped` identical copies of prelude
       -- records); fold positions count from the prelude's first record,
@@ -515,7 +536,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       let verdict ←
         if stride > 0 || trace then
           checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0 trace
-            decls.toList 0 (Lech.mkFEnv Lech.Env.empty) {}
+            inModelled decls.toList 0 (Lech.mkFEnv Lech.Env.empty) {}
         else
           pure (Lech.Cached.checkDeclsSPCachedD mode decls.toList)
       match verdict with
@@ -661,7 +682,8 @@ def usage : String := String.intercalate "\n" [
   "                    run with it is not covered by that theorem.",
   "  LECH_ROUTE_TRACE=1",
   "                    the install-route audit (task #193): one",
-  "                    'lech: route <block> <struct|sum|modeled>' line",
+  "                    'lech: route <block> <struct|sum|inmodel|modeled>'",
+  "                    line",
   "                    on STDERR per inductive block, naming the route",
   "                    the checker takes for it (the direct structure",
   "                    route, the direct sum/indexed route, or the",
@@ -670,6 +692,24 @@ def usage : String := String.intercalate "\n" [
   "                    'native' lines: a block the predicate leaves",
   "                    native must read struct or sum here.  Runs on",
   "                    the progress lane's UNVERIFIED fold (above).",
+  "",
+  "  LECH_INMODEL=0    turn the IN-PROCESS MODELLER off (task #200).  By",
+  "                    default a mutual or nested inductive block the",
+  "                    stream carries no `_model` family for gets one",
+  "                    generated at parse time (Lech/Frontend/InModel/*)",
+  "                    and pushed ahead of the block; the generated",
+  "                    records are checked by the fold like any stream",
+  "                    declaration, and the block installs through the",
+  "                    modeled route exactly as a preprocessed one.  A",
+  "                    generator decline is the run's decline, naming the",
+  "                    reason.  The route trace reads `inmodel` for such",
+  "                    a block.  With the flag off the block reaches the",
+  "                    fold bare and declines with 'missing model'.",
+  "  LECH_INMODEL_DUMP=OUT",
+  "                    write a copy of the raw input with the generated",
+  "                    records spliced in ahead of each modelled block",
+  "                    (lean4export format; the generator's debug gate,",
+  "                    tests/inmodel.sh).",
   "",
   "  LECH_VERBOSE=1    add one stderr line beside the verdict giving the",
   "                    ENVIRONMENT-CONSTANT count and the fold's record",

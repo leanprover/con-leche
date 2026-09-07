@@ -11,7 +11,7 @@ kernelver	6.12.100
 official	<main-checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel
 preproc	<checkout>/.lake/build/bin/lech-preprocess
 binmd5	642fb47bb6f35156100e93d5c329d940
-note	clean checkout of `agent/perf-regen` at its merge of master 9f8afb32 (tasks #191 prelude, #192, #193 native predicate, #194, #196) plus task #187's verdict-line and tooling commits
+note	clean checkout of `agent/perf-regen` at 66b4190c — its merge of master 9f8afb32 (tasks #191 prelude, #192, #193 native predicate, #194, #196) plus task #187's verdict-line and tooling commits.  The branch's landing merge takes master further (#195, #197, #198, #200, #201 and the arena record); those landed AFTER this battery ran and are not in these numbers.
 loadnote	other agents' builds and single-process checkers ran on the machine throughout; battery cells still ran strictly one at a time, and `instructions:u` is contention-independent
 configs	official trusted verified
 reps	1

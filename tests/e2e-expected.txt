@@ -408,17 +408,26 @@
 0 direct_idx_prop.ndjson pre
 1 direct_idx_prop_large_bad.ndjson pre
 1 direct_idx_prop_idx_bad.ndjson pre
-#   direct_idx_defhead (task #193): `OfFn f : Pred α` — an indexed
-#                    one-constructor family declared AT A DEFINITION
-#                    (`Pred α := α → Prop`) that only unfolds to the
-#                    telescope, Mathlib's `Presieve.ofArrows` shape; the
-#                    direct routes' `stripPis (nP + nIdx)` does not take
-#                    it, so `lechFormerTelescope` keeps it MODELLED
-#                    (the predicate used to say native off `numIndices`
-#                    alone: neither model nor install, a decline).  The
-#                    control `Rel` (telescope spelled out) goes direct.
-#                    Exported through the fixed `lech-preprocess`.
+#   direct_idx_defhead (task #193, flipped at task #195): `OfFn f :
+#                    Pred α` — an indexed one-constructor family declared
+#                    AT A DEFINITION (`Pred α := α → Prop`) that only
+#                    unfolds to the telescope, Mathlib's
+#                    `Presieve.ofArrows` shape.  #193 kept it modelled
+#                    (the sum recogniser read the declared type
+#                    syntactically); #195's install reads the telescope
+#                    through official's whnf loop and stores the former
+#                    AT THE WHNF'D TELESCOPE, so the block goes DIRECT
+#                    (route `sum`, beside the control `Rel`).  Exported
+#                    through the #195 `lech-preprocess` (both native).
 0 direct_idx_defhead.ndjson pre
+#   presieve_ofarrows_cone (task #195): the dependency cone of Mathlib's
+#                    `CategoryTheory.Presieve.ofArrows` (with the
+#                    String-support constants), preprocessed by the #195
+#                    `lech-preprocess` — the block whose "missing model"
+#                    decline at 7.5 % of the regenerated Mathlib stream
+#                    was task #193's finding; it installs directly here
+#                    (638 declarations, both modes).
+0 presieve_ofarrows_cone.ndjson pre
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
@@ -520,6 +529,12 @@
 # delta chains compared by rfl); a plain accept, kept as the fixture the
 # lazy-delta restructuring is measured on
 0 delta_chain.ndjson
+# binder_shared_local.ndjson: task #201 — the defeq binder arms open BOTH
+# bodies with ONE local (official `is_def_eq_binding`); before the fix two
+# bodies equal up to the bound variable's display name were not `==`, the
+# `.proj` whnfCore clause whnf'd `g x` on an open `x`, and `Nat.mul x 2^32`
+# was iota-ground unarily (exit 3, fuel).  Official accepts.
+0 binder_shared_local.ndjson
 # mutual_struct_proj / nested_struct_proj (the projection-function
 # rewrite, Lech/Frontend/ProjRec.lean, 2026-09-06): the elaborator's
 # `T.f := fun self => self.i` on structure-likes the direct install
@@ -533,6 +548,37 @@
 # decline at Lean.Meta.Grind.AC.DiseqCnstr.lhs).
 0 mutual_struct_proj.ndjson
 0 nested_struct_proj.ndjson
+# inmodel_mutual.ndjson (task #200 B1, the in-process modeller): three
+# index-free MUTUAL blocks — a data pair with cross recursion, a
+# structure-like pair with a universe-polymorphic parameter (projection
+# rewrites at the sorts the generated `proj_i.iota` artifacts name), a
+# Prop pair with a small eliminator.  Here, through the default pipe,
+# the stock predicate lets `lech-preprocess` model the blocks and the
+# in-process modeller stands down (it sees the models in the stream);
+# the in-process path itself is gated by tests/inmodel.sh.
+0 inmodel_mutual.ndjson
+# inmodel_mutual_idx.ndjson (task #200 B2): four INDEXED mutual blocks —
+# a Prop pair over Nat, a data pair with a shifted-index constructor and
+# a recursor-spelled size (`rfl` through both model recursors at the
+# indices), members with different index telescopes, a universe-
+# polymorphic index (the tag's universe inferred).  Same routing as
+# inmodel_mutual through the default pipe; tests/inmodel.sh gates the
+# in-process path.
+0 inmodel_mutual_idx.ndjson
+# inmodel_nested.ndjson (task #200 B3): seven NESTED blocks — through
+# `List`, through the indexed `Vec`, through `Option`+`Prod` (two
+# mimics), through a structure `Wrap` over `List` (a mimic depending on
+# a mimic), at a dependent pin `DMap α (fun _ => PT α)`, a nested
+# structure with projections, and a mutual-and-nested pair.  Same
+# routing as inmodel_mutual through the default pipe; tests/inmodel.sh
+# gates the in-process path.
+0 inmodel_nested.ndjson
+# inmodel_groups.ndjson (task #200 B4): CONTAINER GROUPS — `M` nesting
+# through the nested `TT` (TaggedText-shaped), `N` through the mutual
+# `F`/`G`, `H` through `TT (List H)` (a group whose pin is another
+# mimic's carrier).  Through the default pipe the tool models them;
+# tests/inmodel.sh gates the in-process path.
+0 inmodel_groups.ndjson
 # indexed_one_ctor.ndjson (task #175 SigmaHom, 2026-09-06): an INDEXED
 # one-constructor family in Type (Mathlib's CategoryTheory.Sigma.SigmaHom
 # shape: two indices built from the fields, dependent fields).  Not

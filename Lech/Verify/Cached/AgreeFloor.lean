@@ -598,7 +598,7 @@ theorem SkelIs.isSome {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
 /-! ## The cached certified driver's install stages -/
 
 theorem checkConstantValC_name (mode : CheckMode) (fe : FEnv)
-    (cv : ConstantValC) :
+    (cv : ConstantVal) :
     Yields (checkConstantValC mode fe cv) (fun p => p.1.name = cv.name) := by
   unfold checkConstantValC
   yields
@@ -902,17 +902,37 @@ block's (`checkConstantValF` keeps the name, the stage keeps the
 count), and the generated recursor's rules are one per constructor, so
 the rule-name list the skeleton records is the block's own. -/
 
+/-- The former's telescope stage keeps the block's name (task #195):
+the checked constant is the input or a re-check at the block's own
+header. -/
+theorem checkDirectSumTeleF_name (ops : CheckerOps CheckCM) (fe : FEnv)
+    (cv : ConstantVal) (n : Nat) (cvTa₀ : ConstantVal) :
+    Yields (checkDirectSumTeleF ops fe cv n cvTa₀)
+      (fun r => r.1.name = cvTa₀.name ∨ r.1.name = cv.name) := by
+  unfold checkDirectSumTeleF
+  split
+  · exact Yields.pure (Or.inl rfl)
+  · ybind
+    refine Yields.bind' (checkConstantValF_name ops fe _) fun cvTa hn => ?_
+    exact Yields.pure (Or.inr hn)
+
 theorem checkDirectSumIndF_skels {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (ops : CheckerOps CheckCM) (p : DirectSumParts) :
     Yields (checkDirectSumIndF ops fe p)
-      (fun r => SkelIs r.1 (.ind p.cvT.name :: sk)) := by
+      (fun r => SkelIs r.1 (.ind p.cvT.name :: sk) ∧ ∃ s, r.2.2 = p.withSort s) := by
   unfold checkDirectSumIndF
-  refine Yields.bind' (checkConstantValF_name ops fe p.cvT) fun cvTa hn => ?_
+  refine Yields.bind' (checkConstantValF_name ops fe p.cvT) fun cvTa₀ hn₀ => ?_
+  refine Yields.bind' (checkDirectSumTeleF_name ops fe p.cvT _ cvTa₀) fun r hn => ?_
+  obtain ⟨cvTa, s⟩ := r
+  have hn' : cvTa.name = p.cvT.name := by
+    rcases hn with h1 | h1
+    · exact h1.trans hn₀
+    · exact h1
   yields
   all_goals
-    (refine Yields.pure ?_
-     have := h.push (.indInfo cvTa (directSumCaps p))
-     simpa [ciSkel, hn] using this)
+    (refine Yields.pure ⟨?_, s, rfl⟩
+     have := h.push (.indInfo cvTa (directSumCaps (p.withSort s)))
+     simpa [ciSkel, hn'] using this)
 
 theorem checkDirectSumCtorF_name (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
@@ -1019,33 +1039,40 @@ theorem checkDirectSumS_skels (mode : CheckMode) {fe : FEnv}
     Yields (checkDirectSumS mode fe p)
       (fun fe' => SkelIs fe' (directSumSkels p sk)) := by
   unfold checkDirectSumS
-  -- the two front guards: the elimination restriction, the distinct
-  -- constructor names
-  apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => ?elim) (fun _ => ?elimBad)
-  case elimBad => exact Yields.ofThrowBind
-  case elim =>
+  -- the distinct-names guard
   apply Yields.letFun
   refine Yields.ofDecCases (fun _ => ?dupBad) (fun _ => ?main)
   case dupBad => exact Yields.ofThrowBind
   case main =>
   ybind
   refine Yields.bind' (checkDirectSumIndF_skels h _ p) fun r₁ h₁ => ?_
-  obtain ⟨fe₁, cvTa⟩ := r₁
+  obtain ⟨fe₁, cvTa, p'⟩ := r₁
+  obtain ⟨h₁, s, hps⟩ := h₁
+  try simp only [] at hps
+  subst hps
   try simp only []
+  -- the elimination restriction, at the completed record
+  try apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => ?elim) (fun _ => ?elimBad)
+  case elimBad => exact Yields.ofThrowBind
+  case elim =>
   ybind
-  refine Yields.bind' (checkDirectSumCtorsF_names _ fe fe₁ p.cvT.name
-    p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa p.ctors)
+  refine Yields.bind' (checkDirectSumCtorsF_names _ fe fe₁ (p.withSort s).cvT.name
+    (p.withSort s).cvT.levelParams (p.withSort s).nP (p.withSort s).nIdx (p.withSort s).resSort
+    (p.withSort s).isProp (p.withSort s).large cvTa (p.withSort s).ctors)
     fun ctorsA hns => ?_
   try simp only []
   ybind
-  refine Yields.bind' (checkDirectSumRecF_yields _ _ p cvTa ctorsA)
+  refine Yields.bind' (checkDirectSumRecF_yields _ _ (p.withSort s) cvTa ctorsA)
     fun r₃ h₃ => ?_
   obtain ⟨cvRa, rhss⟩ := r₃
   obtain ⟨hnR, hlen⟩ := h₃
   try simp only [] at hnR hlen
   try simp only []
   refine Yields.pure ?_
+  simp only [DirectSumParts.withSort_ctors, DirectSumParts.withSort_nP,
+    DirectSumParts.withSort_cvR, DirectSumParts.withSort_majorIdx,
+    DirectSumParts.withSort_rulePrefix] at hns hnR hlen h₁ ⊢
   have hctors : ctorsA.map (·.1.name) = p.ctors.map (·.1.name) := by
     have := congrArg (List.map Prod.fst) hns
     simpa [List.map_map, Function.comp_def] using this

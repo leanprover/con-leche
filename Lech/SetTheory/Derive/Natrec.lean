@@ -63,9 +63,6 @@ theorem natrec_mem_vsucc {M z s n : V}
   | succ k ih =>
     exact hs (vnat k) (vnat_mem_omega k) (natIter z s k) ih
 
-/- No compiler stubs (see `Derive/Empty.lean`): the `implemented_by … unsafeCast ()`
-stubs for these operators were removed 2026-09-06. -/
-
 /- Opaque interface operator (see `Derive/Empty.lean`). -/
 attribute [irreducible] natrec
 

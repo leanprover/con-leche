@@ -4,17 +4,14 @@ import Lech.Verify.Level
 # The zero-ness datum against `Level` (task #161)
 
 `Lech/Kernel/PropWhen.lean` owns the datum: its representation, its
-API, and every law about the datum *alone* (the readout algebra, the
-soundness **and completeness** of the comparison `equiv`, the
+API, and every law about the datum *alone* (the readout algebra,
+`eq_iff_holds` — equality decides zero-ness agreement — and the
 `inter`/`bindZ` algebra).  This file is a *consumer* of that API; it
 proves what the datum alone cannot say, namely how it relates to
 `Level`:
 
 * **Soundness of the readout** — `zeronessOf_sound`:
   `(zeronessOf l).holds φ = (eval φ l == 0)`.
-* **The establishment law** — `holds_of_equiv_zeronessOf`: a datum the
-  checker validated against a computed codomain sort reads out that
-  sort's zero bit.
 * **The substitution pushforward** — `zeronessOf_subst`:
   `zeronessOf (subst ks vs l) = substPW ks vs (zeronessOf l)`, an
   *equality* of data (`bindZ` distributes over `inter`).
@@ -62,14 +59,6 @@ theorem zeronessOf_sound (φ : Name → Nat) :
       have h2 : (Max.max (Level.eval φ a) (Level.eval φ b) == 0) = false :=
         by simpa using hm
       rw [h1, if_neg hb, h2]
-
-/-- **The establishment law**: a datum the checker validated against a
-computed codomain sort reads out that sort's zero bit, at every ground
-valuation. -/
-theorem holds_of_equiv_zeronessOf {v : Lech.Level} {pw : PropWhen}
-    (h : equiv (Lech.Level.zeronessOf v) pw = true) (φ : Name → Nat) :
-    pw.holds φ = (Lech.Level.eval φ v == 0) := by
-  rw [← holds_eq_of_equiv h φ, zeronessOf_sound]
 
 end Lech.PropWhen
 

@@ -144,15 +144,15 @@ theorem ofReduce_bitsP (hμ : μ.verifiedChecks = true)
     Lech.inferTypeCore_forall_inv hbt2
   obtain rfl : bt3 = .sort .zero := inferTypeCore_eqSpineS hEq hbt3
   obtain rfl : v3 = .zero := ensureSortCore_sort_eq hens3
-  have hb3 : pwBit φ m₃.pw = 0 :=
-    (pwBit_of_equiv_zeronessOf (hpw3 hμ) φ).mpr rfl
+  have hb3 : pwBit φ m₃.pw = 0 := by
+    rw [← hpw3 hμ]; exact (pwBit_zeronessOf φ _).mpr rfl
   obtain rfl : v2 = .imax u3 .zero := ensureSortCore_sort_eq hens2
-  have hb2 : pwBit φ m₂.pw = 0 :=
-    (pwBit_of_equiv_zeronessOf (hpw2 hμ) φ).mpr (by simp [Level.eval])
+  have hb2 : pwBit φ m₂.pw = 0 := by
+    rw [← hpw2 hμ]; exact (pwBit_zeronessOf φ _).mpr (by simp [Level.eval])
   obtain rfl : v1 = .imax u2 (.imax u3 .zero) :=
     ensureSortCore_sort_eq hens1
-  have hb1 : pwBit φ m₁.pw = 0 :=
-    (pwBit_of_equiv_zeronessOf (hpw1 hμ) φ).mpr (by simp [Level.eval])
+  have hb1 : pwBit φ m₁.pw = 0 := by
+    rw [← hpw1 hμ]; exact (pwBit_zeronessOf φ _).mpr (by simp [Level.eval])
   exact ⟨hb1, hb2, hb3⟩
 
 /-! ## The gates, unpacked -/

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | commit measured | `66b4190ced90c7e628a2d9c6aadf6ac62bbe18e5` |
-| tree | clean checkout of `agent/perf-regen` at its merge of master 9f8afb32 (tasks #191 prelude, #192, #193 native predicate, #194, #196) plus task #187's verdict-line and tooling commits |
+| tree | clean checkout of `agent/perf-regen` at 66b4190c — its merge of master 9f8afb32 (tasks #191 prelude, #192, #193 native predicate, #194, #196) plus task #187's verdict-line and tooling commits.  The branch's landing merge takes master further (#195, #197, #198, #200, #201 and the arena record); those landed AFTER this battery ran and are not in these numbers. |
 | date | 2026-09-06T21:37:34+00:00 |
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |

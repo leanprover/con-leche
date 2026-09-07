@@ -25,7 +25,7 @@ This README is actually human written (with AI only doing copy-editing, fact che
   * `False`, `Empty`, `PUnit`, `Eq`, `Nat`, `Quot`
   * Non-recursive inductives
 
-  For everything else is relies on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models that we can validate.
+  For everything else is uses [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models. Lech checks these models as normal definitions, and then checks that they faithfully model the given inductive. The lean-inductive-models code is thus outside the trusted code base of Lech.
 
 * Accepted incompleteness: Primitive projections are only supported
   - on non-recursive non-indexed structures or
@@ -78,6 +78,13 @@ For sort-polymorphic functions the checker does perform an extra `infer` of the 
 The checker performs fast reduction of `Nat` operations on literals, using Lean's own `Nat` type. When functions like `Nat.add` are declared it checks if the definition is defeq to the expected definition (embedded at build time based on the functions in the building toolchain) for this to be sound. This check can be extended to recognize multiple variants of the functions to support multiple prelude versions, should this be needed.
 
 Bugs in the Lean runtime support for `Nat` can lead to unsoundness here. It should be straightforward to hook up a different (verified) bignum implementation.
+
+### implemented_by
+
+The equality operation on expression has an unverified `implemented_by` that memoizes recursive calls. This seemed to be necessary for performance.
+```
+@[implemented_by beqFast] def beq (a b : Expr) : Bool
+```
 
 ### Proof structure
 

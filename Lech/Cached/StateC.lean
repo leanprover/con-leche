@@ -2,96 +2,59 @@ import Lech.Kernel.FEnv
 import Lech.Cached.ExprOpsC
 
 /-!
-# The cached-clone checker state and its operation wrappers
+# The cached checker state and its operation wrappers
 
-The `ExprC` counterpart of `IState` (`Lech/Kernel/CoreI.lean`) and of
-the monadic store-access layer above it.  Same cache set, same
-lifetimes, same linear-update discipline (detach a component from the
-state record before mutating it); the arena is gone, so the
-"interning" wrappers become plain smart-constructor calls and the
-node-view wrappers become field reads.
+The per-declaration state: the converted-constant cache, the memo
+caches for the five entry points, the level-operation memos and the
+persistent bulk-instantiation memo, with the linear-update discipline
+(detach a component from the state record before mutating it) each of
+them is written in.
 
-The environment index (`FEnv`) and every `FEnv`-based guard are
-**reused verbatim** from the interned checker — they are
-representation-free.  Only the store-based guards (`isCtorAppI`,
-`isUnitLikeTyI`, `headHintI`, `unfoldableHeadI`, `sameConstHeadsI`,
-`rawNatLitI?`) get `ExprC` twins here.
+Task #198 removed the last of the arena's shape from this module: the
+unit `CStore` and its twenty forwarding "methods", and the `withStore`
+wrapper that ran a query against it.  The environment-index guards
+below (`isUnitLikeTyC`, `isCtorAppC`, `headHintC`, `unfoldableHeadC`,
+`sameConstHeadsC`, `rawNatLitC?`, `etaCtorShapeC`) are what the core
+calls directly.
 
-## Memo key discipline (the pilot's central decision)
+## Memo key discipline
 
 Pointer identity is not available as a *key*, so the memo maps are
 keyed on `ExprC` values with:
 
-* `Hashable ExprC` = the cached hash field (`O(1)`, no traversal — the
-  arena gets `O(1)` from the index instead);
+* `Hashable ExprC` = the cached hash field (`O(1)`, no traversal);
 * `BEq ExprC` = pointer identity, then the cached hashes, then
   structural descent.  Bucket comparisons therefore cost `O(1)` on
   the overwhelmingly common shared-subterm case (instantiation and
   abstraction return unchanged subterms *by reference*), and a hash
   mismatch rejects the rest without descending.
 
-A hash-cons table was deliberately **not** added: it would reintroduce
-the arena's central data structure, which is exactly what the pilot
-exists to do without.  The `Level`-keyed and `Name`-keyed caches
-(`lsimpC`, `eqvC`, `constTyAt`, …) are the one place where structural
-hashing survives — see the pilot's assessment in DESIGN.md.
+A hash-cons table is deliberately **not** used: it would reintroduce
+the deleted arena's central data structure.  The `Level`-keyed and
+`Name`-keyed caches (`lsimpC`, `eqvC`, `constTyAt`, …) are the one
+place where structural hashing survives.
 -/
 
 namespace Lech.Cached
 
 open Lech
 
-/-! ## The vestigial store
+/-! ## The zero-ness memo
 
-The interned twins read the arena through a store value (`withStore
-(fun st => st.getAppArgsI e)` &c.).  `ExprC` needs no store, but the
-clone keeps the *shape* of every such call so that it mirrors its
-interned original character for character — `CStore` is a unit type
-whose "methods" are the corresponding `ExprC` operations, and
-`withStore` is `pure`.  This is what makes the clone auditable against
-`Lech/Kernel/CoreI.lean` line by line. -/
-
-/-- The vestigial store (a unit). -/
-structure CStore where
-  dummy : Unit := ()
-  deriving Inhabited
-
-namespace CStore
-
-@[inline] def getNode (_ : CStore) (e : ExprC) : Option (ExprView ExprC) :=
-  some e.view
-
-@[inline] def getAppFnI (_ : CStore) (e : ExprC) : ExprC := ExprC.getAppFn e
-
-@[inline] def getAppArgsI (_ : CStore) (e : ExprC) : List ExprC :=
-  ExprC.getAppArgs e
-
-@[inline] def wscopedBI (_ : CStore) (d : Nat) (e : ExprC) : Bool :=
-  ExprC.wscopedB d e
-
-@[inline] def looseBVarsBoundedI (_ : CStore) (k : Nat) (e : ExprC) : Bool :=
-  ExprC.looseBVarsBounded k e
-
-@[inline] def leafGuardI (_ : CStore) (fab base : ExprC) : Bool :=
-  ExprC.leafGuard fab base
-
-@[inline] def hasFvarI (_ : CStore) (e : ExprC) : Bool := e.hasFvar
-
-@[inline] def stripPisBodyI (_ : CStore) (k : Nat) (e : ExprC) :
-    Option ExprC := ExprC.stripPisBody k e
+The only piece of the retired `CStore` that computed anything: a
+`Level`-keyed memo for the binder loops' zero-ness readout. -/
 
 /-- Memo table for the zero-ness readout (structural `Level` keys). -/
 abbrev PWMemo := Std.HashMap Level PropWhen
 
-@[inline] def zeronessOfLIGo (_ : CStore) (memo : PWMemo) (u : Level) :
+/-- The zero-ness readout, memoized on the level tree. -/
+@[inline] def zeronessOfLGo (memo : PWMemo) (u : Level) :
     PropWhen × PWMemo :=
   match memo[u]? with
   | some r => (r, memo)
   | none => let r := Level.zeronessOf u; (r, memo.insert u r)
 
-end CStore
-
-/-! ## Store-free guard twins -/
+/-! ## The environment-index guards -/
 
 /-- `isUnitLikeTy` through the index, on a (whnf'd) `ExprC`. -/
 def isUnitLikeTyC (fe : FEnv) (e : ExprC) : Bool :=
@@ -151,15 +114,6 @@ def rawNatLitC? (e : ExprC) : Option Nat :=
   | .const c [] .. => if c == natZeroName then some 0 else none
   | _ => none
 
-/-! The store-shaped spellings the twins use (a `CStore` argument in
-the interned original's position). -/
-
-@[inline] def isUnitLikeTyI (fe : FEnv) (_ : CStore) (e : ExprC) : Bool :=
-  isUnitLikeTyC fe e
-
-@[inline] def isCtorAppI (fe : FEnv) (_ : CStore) (e : ExprC) : Bool :=
-  isCtorAppC fe e
-
 /-- Twin of `etaCtorShape` (the audit's D13 gate; `ExprC = Expr`). -/
 def etaCtorShapeC (fe : FEnv) (e : ExprC) : Bool :=
   match Expr.getAppFn e with
@@ -169,24 +123,6 @@ def etaCtorShapeC (fe : FEnv) (e : ExprC) : Bool :=
     | _ => false
   | _ => false
 
-@[inline] def etaCtorShapeI (fe : FEnv) (_ : CStore) (e : ExprC) : Bool :=
-  etaCtorShapeC fe e
-
-/-- The store read of `Expr.quickPair` (the audit's D4 gate; `ExprC = Expr`). -/
-@[inline] def quickPairI (_ : CStore) (a b : ExprC) : Bool := Expr.quickPair a b
-
-@[inline] def headHintI (fe : FEnv) (_ : CStore) (e : ExprC) :
-    ReducibilityHint := headHintC fe e
-
-@[inline] def unfoldableHeadI (fe : FEnv) (_ : CStore) (e : ExprC) : Bool :=
-  unfoldableHeadC fe e
-
-@[inline] def sameConstHeadsI (_ : CStore) (a b : ExprC) : Bool :=
-  sameConstHeadsC a b
-
-@[inline] def rawNatLitI? (_ : CStore) (e : ExprC) : Option Nat :=
-  rawNatLitC? e
-
 /-! ## The state -/
 
 /-- One cached-environment entry: a stored constant's annotated type
@@ -194,7 +130,7 @@ and (for definitions/theorems/opaques) value converted to `ExprC`,
 each tagged with the very `Expr` object it came from.  A use validates
 the tag by pointer equality (`Expr.exprPtrBEq`, reused), so the
 conversion of a stored constant is paid once per declaration instead
-of once per delta step — the counterpart of `IState.ienv`. -/
+of once per delta step. -/
 structure CConstE where
   tyE : Expr
   ty : ExprC
@@ -203,8 +139,7 @@ structure CConstE where
 /-- Per-declaration state: the converted-constant cache, the memo
 caches for the five entry points, the lazy caches for
 level-instantiated stored constants, the level-operation memos, and
-the persistent bulk-instantiation memo (task #145).  Mirrors `IState`
-field for field, minus the arena. -/
+the persistent bulk-instantiation memo (task #145). -/
 structure CState where
   ienv : Std.HashMap Name CConstE := {}
   constTyAt : Std.HashMap (Name × List Level) ExprC := {}
@@ -235,59 +170,15 @@ structure CState where
 instance : Inhabited CState := ⟨{}⟩
 
 /-- Entry bound for the persistent bulk-instantiation memo (the
-interned checker's `instCCap`, reused unchanged). -/
+`instCCap` of the retired interned checker, reused unchanged). -/
 def instCCapC : Nat := 32000000
 
-/-- The cached-clone checker monad. -/
+/-- The cached checker's monad: the per-declaration memo state over
+`CheckM`. -/
 abbrev CheckCM := StateT CState CheckM
 
-/-! ## Node access (pure; kept monadic so the clone mirrors the
-interned twins call for call) -/
-
-/-- Read a node's one-level view. -/
-@[inline] def viewI (e : ExprC) : CheckCM (Option (ExprView ExprC)) :=
-  pure (some e.view)
-
-/-- Build one node. -/
-@[inline] def internI (n : ExprView ExprC) : CheckCM ExprC :=
-  pure (ExprC.ofView n)
-
-/-- Convert a whole `Expr` (fabricated terms, stored instantiations).
-The identity since task #172 B3a — one type — kept under the interned
-twin's name so the two read the same. -/
-@[inline] def internExprM (x : Expr) : CheckCM ExprC :=
-  pure x
-
-/-- Run a store query (the store is a unit here). -/
-@[inline] def withStore {α : Type} (f : CStore → α) : CheckCM α :=
-  pure (f default)
-
-/-! Names and levels are plain trees in the clone, so the interned
-checker's name/level interning and readback wrappers are identities —
-kept under their original names so the twins read the same. -/
-
-@[inline] def internNameM (n : Name) : CheckCM Name := pure n
-
-@[inline] def readbackNM (n : Name) : CheckCM Name := pure n
-
-@[inline] def beqNameM (i : Name) (nm : Name) : CheckCM Bool := pure (i == nm)
-
-@[inline] def projFnIdxM (T : Name) (i : Nat) : CheckCM Name :=
-  pure (projFnName T i)
-
-@[inline] def internLM (u : Level) : CheckCM Level := pure u
-
-@[inline] def viewLM (u : Level) : CheckCM (Option Level) := pure (some u)
-
-@[inline] def readbackLevelM (u : Level) : CheckCM Level := pure u
-
-@[inline] def readbackLevelsM (us : List Level) : CheckCM (List Level) :=
-  pure us
-
-/-- Peel fuel of the binder-telescope loops.  The interned loops use
-the arena's node count (an upper bound on any binder chain in a
-canonical arena); there is no such count here, so a constant beyond
-any real chain serves — the fuel is *semantically transparent*: on
+/-- Peel fuel of the binder-telescope loops.  A constant beyond any
+real binder chain; the fuel is *semantically transparent*: on
 exhaustion the leaf phase hands the residual chain back to the knot,
 which is exactly the chained specification's next step. -/
 def peelFuel : Nat := 16777216
@@ -305,7 +196,7 @@ when the target has no loose bvar at or above the cursor. -/
   pure (ExprC.instantiate1 e v d)
 
 /-- Bulk instantiation with the persistent result memo (task #145),
-keyed by the whole argument tuple exactly as `IState.instC`. -/
+keyed by the whole argument tuple. -/
 def instListM (e : ExprC) (vs : List ExprC) (d : Nat := 0) : CheckCM ExprC :=
   modifyGet fun s =>
     if e.bvarB ≤ d then (e, s)
@@ -320,7 +211,7 @@ def instListM (e : ExprC) (vs : List ExprC) (d : Nat := 0) : CheckCM ExprC :=
         (r, { s with instC := mp.insert (e, vs, d) r })
 
 /-- Bulk instantiation on a reversed accumulator array (deliberately
-not memoized, as in the interned checker). -/
+not memoized). -/
 @[inline] def instListRevM (e : ExprC) (vs : Array ExprC) (d : Nat := 0) :
     CheckCM ExprC :=
   pure (ExprC.instantiateRev e vs d)
@@ -342,10 +233,6 @@ not memoized, as in the interned checker). -/
     CheckCM (Option ExprC) :=
   pure (ExprC.piResidual e args)
 
-@[inline] def pisToLamsM (k : Nat) (e body : ExprC) :
-    CheckCM (Option ExprC) :=
-  pure (ExprC.pisToLams k e body)
-
 @[inline] def instLevelParamsM (ks : List Name) (us : List Level)
     (e : ExprC) : CheckCM ExprC :=
   pure (ExprC.instLevelParams ks us e)
@@ -353,18 +240,9 @@ not memoized, as in the interned checker). -/
 /-! ## Level operations
 
 Levels are plain trees here (there is no level arena), so the level
-memos are keyed structurally — the one place the clone pays a
-non-`O(1)` hash.  The *results* are cached exactly as in the interned
-checker (`lsimpC`, `lnzC`, `eqvC`), so a decided comparison is never
-recomputed. -/
-
-@[inline] def substLM (ks : List Name) (us : List Level) (u : Level) :
-    CheckCM Level :=
-  pure (Level.subst ks us u)
-
-@[inline] def substLevelTreeM (ks : List Name) (us : List Level)
-    (l : Level) : CheckCM Level :=
-  pure (Level.subst ks us l)
+memos are keyed structurally — the one place a non-`O(1)` hash is
+paid.  The *results* are cached (`lsimpC`, `lnzC`, `eqvC`), so a
+decided comparison is never recomputed. -/
 
 @[inline] def substLevelTreesM (ks : List Name) (us : List Level)
     (ls : List Level) : CheckCM (List Level) :=
@@ -392,9 +270,8 @@ def isNonZeroLM (u : Level) : CheckCM Bool :=
       let r := Level.isNonZero u
       (r, { s with lnzC := mp.insert u r })
 
-/-- Level equivalence with a persistent result cache (the interned
-`isEquivLM`, same shape: simplify both sides, compare, then the
-`leqCore` cascade both ways).
+/-- Level equivalence with a persistent result cache: simplify both
+sides, compare, then the `leqCore` cascade both ways.
 
 The `l == r` head test is official's `is_equivalent` disjunct
 (`level.cpp:518`, task #176 P2) and is what makes the *shared* case —
@@ -442,10 +319,6 @@ def isEquivListLM : List Level → List Level → CheckCM (Option Bool)
     | some true => isEquivListLM ls rs
   | _, _ => pure (some false)
 
-/-- The zero-ness datum of a level (task #161). -/
-@[inline] def zeronessOfM (u : Level) : CheckCM PropWhen :=
-  pure (Level.zeronessOf u)
-
 /-! ## Lazy stored-constant conversions -/
 
 /-- The `ExprC` of a stored constant's type: the cached entry when its
@@ -455,8 +328,8 @@ def storedTyIdxM (n : Name) (ty : Expr) : CheckCM ExprC := do
   match ent? with
   | some ent =>
     if Expr.exprPtrBEq ent.tyE ty then pure ent.ty
-    else internExprM ty
-  | none => internExprM ty
+    else pure ty
+  | none => pure ty
 
 /-- The `ExprC` of a stored definition/theorem value (see
 `storedTyIdxM`). -/
@@ -465,8 +338,8 @@ def storedValIdxM (n : Name) (v : Expr) : CheckCM ExprC := do
   match ent? with
   | some ⟨_, _, some (vE, vi)⟩ =>
     if Expr.exprPtrBEq vE v then pure vi
-    else internExprM v
-  | _ => internExprM v
+    else pure v
+  | _ => pure v
 
 /-- The level-instantiated *type* of the stored constant `n`. -/
 def constTyAtM (fe : FEnv) (_nI : Name) (n : Name) (us : List Level) :
@@ -525,8 +398,7 @@ def ruleRhsAtM (fe : FEnv) (_cI _jI : Name) (c j : Name) (us : List Level) :
     | some (.recInfo cv _ _ rules) =>
       match rules.find? (fun r' => r'.ctor == j) with
       | some rl =>
-        let raw ← internExprM rl.rhs
-        let i ← instLevelParamsM cv.levelParams us raw
+        let i ← instLevelParamsM cv.levelParams us rl.rhs
         modify fun s =>
           let mp := s.ruleRhsAt
           let s := { s with ruleRhsAt := ∅ }
@@ -538,7 +410,7 @@ def ruleRhsAtM (fe : FEnv) (_cI _jI : Name) (c j : Name) (us : List Level) :
 /-- Drop the environment-dependent caches (an environment transition).
 The environment-independent components — the converted-constant cache
 `ienv` (self-certified by its `Expr` tags) and the level-operation
-memos — survive, exactly as in `IState.flushed`. -/
+memos — survive. -/
 def CState.flushed (s : CState) : CState :=
   { s with
       constTyAt := {}, constValAt := {}, ruleRhsAt := {},
@@ -596,12 +468,6 @@ def constsResolveFCGo (fe : FEnv) (memo : Std.HashMap ExprC Bool)
 /-- `Expr.constsResolveF fe` on `ExprC` (one memoized DAG walk). -/
 def constsResolveFC (fe : FEnv) (e : ExprC) : Bool :=
   (constsResolveFCGo fe {} e).1
-
-@[inline] def CStore.constsResolveFI (_ : CStore) (fe : FEnv) (e : ExprC) :
-    Bool := constsResolveFC fe e
-
-@[inline] def CStore.allLevelParamsDefinedI (_ : CStore) (ps : List Name)
-    (e : ExprC) : Bool := ExprC.allLevelParamsDefined ps e
 
 /-- Record an accepted constant's converted type/value, tagged with the
 very `Expr` objects pushed into the environment (the counterpart of

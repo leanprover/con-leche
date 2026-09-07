@@ -51,34 +51,6 @@ instance : ToString CheckError where
 
 abbrev CheckM := Except CheckError
 
-/-- One-level view of a term: the constructor with immediate children.
-The genericization seam for interned representations (task #26): core
-bodies destructure terms through `viewM`, which is `pure ∘ Expr.view`
-here and a store read for an interned index type. -/
-inductive ExprView (τ : Type) where
-  | bvar (i : Nat)
-  | fvar (idx : Nat) (name : Name) (type : τ)
-  | sort (u : Level)
-  | const (n : Name) (us : List Level)
-  | app (f a : τ)
-  | lam (n : Name) (type body : τ) (m : BinderMeta)
-  | forallE (n : Name) (type body : τ) (m : BinderMeta)
-  | letE (n : Name) (type value body : τ)
-  | lit (l : Literal)
-  | proj (structName : Name) (idx : Nat) (e : τ)
-
-@[inline] def Expr.view : Expr → ExprView Expr
-  | .bvar i => .bvar i
-  | .fvar idx n ty => .fvar idx n ty
-  | .sort u => .sort u
-  | .const n us => .const n us
-  | .app f a => .app f a
-  | .lam n ty b mb => .lam n ty b mb
-  | .forallE n ty b mb => .forallE n ty b mb
-  | .letE n ty v b => .letE n ty v b
-  | .lit l => .lit l
-  | .proj s i e => .proj s i e
-
 /-- The record of mutually recursive core entry points.  `whnfCore`
 computes a head normal form without delta; `whnf` is the full reduction
 loop; `infer` is type inference;
@@ -1181,7 +1153,7 @@ def etaCert (mode : CheckMode) (r : CoreFns m) (_env : Env) (depth : Nat)
       unless ← r.defeq (depth + 1)
           (body₁.instantiate1 (.fvar depth n₁ ty₁))
           (.app b (.fvar depth n₁ ty₁)) do return false
-      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (eta)")
       pure true
     else pure false
@@ -1845,15 +1817,12 @@ def ensureSort (r : CoreFns m) (_env : Env) (depth : Nat) (e : Expr) :
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
-/-- Destructure a term one level (see `ExprView`). -/
-@[inline] def viewM (e : Expr) : m (ExprView Expr) := pure e.view
-
 /-- The inference body — **infer-only**: the application rule's
 argument check ran once, in the annotation pass, and is trusted here
 (so speculative inference inside reduction cannot reject). -/
 def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e => do
-    match ← viewM (m := m) e with
+    match e with
     | .sort u => pure (.sort (.succ u))
     | .fvar idx _ ty =>
       -- Scope check at the leaf of a traversal that happens anyway
@@ -1891,8 +1860,8 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- The ∀-formation rule, official-kernel style (task #100 stage 6):
       -- the codomain sort is *inferred* from the opened body.  Task
       -- #161: at the verified modes the node's prop-ness annotation is
-      -- VALIDATED against the inferred codomain sort — `equiv` is
-      -- complete for zero-ness agreement, and a mismatch is a decline
+      -- VALIDATED against the inferred codomain sort — the datum is
+      -- canonical, so `==` decides zero-ness agreement, and a mismatch is a decline
       -- (a positively detected annotation the checker cannot certify),
       -- never a reject.  The annotation is never read by reduction.
       match ← r.whnf depth (← r.infer depth ty) with
@@ -1900,7 +1869,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         let v ← ensureSort r env (depth + 1)
           (← r.infer (depth + 1) (body.instantiate1 (.fvar depth n ty)))
         if mode.verifiedChecks then
-          unless (Level.zeronessOf v).equiv mb.pw do
+          unless Level.zeronessOf v == mb.pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         pure (.sort (.imax u v))
       | _ => throw (.invalid "expected a sort")
@@ -1939,7 +1908,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             -- no inference (this dissolves the #152 chain guard's
             -- information loss: the per-node fact is now checked at
             -- every node, at O(1) each).
-            unless mb.pw.equiv pwI do
+            unless mb.pw == pwI do
               throw (.notImplemented
                 "sort-annotation mismatch (lam-cod-chain)")
           | none =>
@@ -1949,7 +1918,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             -- (the recursive call just established the body type)
             let btt ← r.inferIO (depth + 1) bt
             let vb ← ensureSort r env (depth + 1) btt
-            unless (Level.zeronessOf vb).equiv mb.pw do
+            unless Level.zeronessOf vb == mb.pw do
               throw (.notImplemented
                 "sort-annotation mismatch (lam-cod-leaf)")
         pure (.forallE n ty (bt.abstract1 depth) mb)
@@ -2036,7 +2005,7 @@ can tie the io slot; the definition is byte-identical to the io-license
 batch's. -/
 def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e => do
-    match ← viewM (m := m) e with
+    match e with
     | .sort u => pure (.sort (.succ u))
     | .fvar idx _ ty =>
       if idx < depth then pure ty
@@ -2066,7 +2035,7 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         let v ← ensureSort r env (depth + 1)
           (← r.infer (depth + 1) (body.instantiate1 (.fvar depth n ty)))
         if mode.verifiedChecks then
-          unless (Level.zeronessOf v).equiv mb.pw do
+          unless Level.zeronessOf v == mb.pw do
             throw (.notImplemented "sort-annotation mismatch (forall-cod)")
         pure (.sort (.imax u v))
       | _ => throw (.invalid "expected a sort")
@@ -2082,13 +2051,13 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       if mode.verifiedChecks then
         match body.lamPw with
         | some pwI =>
-          unless mb.pw.equiv pwI do
+          unless mb.pw == pwI do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-chain)")
         | none =>
           let btt ← r.infer (depth + 1) bt
           let vb ← ensureSort r env (depth + 1) btt
-          unless (Level.zeronessOf vb).equiv mb.pw do
+          unless Level.zeronessOf vb == mb.pw do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
       pure (.forallE n ty (bt.abstract1 depth) mb)
@@ -2373,9 +2342,9 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
           pure true
         else stuckIrrel mode r env depth (.const n us) (.const n' us')
       else stuckIrrel mode r env depth (.const n us) (.const n' us')
-    | .forallE n₁ ty₁ body₁ m₁, .forallE n₂ ty₂ body₂ m₂ => do
+    | .forallE _n₁ ty₁ body₁ m₁, .forallE n₂ ty₂ body₂ m₂ => do
       -- Binder congruence.  Task #161: at the verified modes the two
-      -- prop-ness annotations must agree (`equiv`, complete) for the
+      -- prop-ness annotations must agree (`==`; the datum is canonical) for the
       -- two-regime interpretations to coincide (`piR_zero_agree`'s
       -- premise).  The comparison runs LAST — only a pair that is
       -- otherwise definitionally equal can reach it, so benign
@@ -2385,17 +2354,17 @@ def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
       -- pre-#100 zero-ness comparison is back in validated clothing.)
       unless ← r.defeq depth ty₁ ty₂ do return false
       unless ← r.defeq (depth + 1)
-          (body₁.instantiate1 (.fvar depth n₁ ty₁))
+          (body₁.instantiate1 (.fvar depth n₂ ty₂))
           (body₂.instantiate1 (.fvar depth n₂ ty₂)) do return false
-      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
       pure true
-    | .lam n₁ ty₁ body₁ m₁, .lam n₂ ty₂ body₂ m₂ => do
+    | .lam _n₁ ty₁ body₁ m₁, .lam n₂ ty₂ body₂ m₂ => do
       unless ← r.defeq depth ty₁ ty₂ do return false
       unless ← r.defeq (depth + 1)
-          (body₁.instantiate1 (.fvar depth n₁ ty₁))
+          (body₁.instantiate1 (.fvar depth n₂ ty₂))
           (body₂.instantiate1 (.fvar depth n₂ ty₂)) do return false
-      if mode.verifiedChecks && !(m₁.pw.equiv m₂.pw) then
+      if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
         throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
       pure true
     | .app f₁ a₁, .app f₂ a₂ => do

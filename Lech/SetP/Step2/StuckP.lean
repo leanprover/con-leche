@@ -43,8 +43,8 @@ same reason `IrrelP.lean`'s proof irrelevance was:
   disappears.  What the bit is used for instead is the *identification*
   of the two annotations: the λ's own `pwBit φ m₁.pw` must be the
   ∀-type's `pwBit φ m₂.pw`, and task #161 P2 put exactly that
-  certificate into `etaCert`'s tail (`m₁.pw.equiv m₂.pw` at
-  `μ.verifiedChecks`), so `pwBit_eq_of_equiv` closes it.  This is the
+  certificate into `etaCert`'s tail (`m₁.pw == m₂.pw` at
+  `μ.verifiedChecks`), so a rewrite closes it.  This is the
   extraction idiom of `DefEqP.lean`'s "THE KEY DELTA" blocks, at the η
   site.
 
@@ -551,11 +551,11 @@ theorem denotePStrLit_of_guard {m : EnvS2Core V env} :
 
 `etaCert` (`Kernel/Core.lean:1027`) infers the stuck side's type,
 reduces it to a `∀`, defeqs the domains, defeqs the λ's opened body
-against `app b x`, and — task #161 P2 — certifies `m₁.pw.equiv m₂.pw`
+against `app b x`, and — task #161 P2 — certifies `m₁.pw == m₂.pw`
 at `μ.verifiedChecks`.  Read at `interp2` those are exactly `lamR_eta`'s
 premises:
 
-* the certificate identifies the two **bits** (`pwBit_eq_of_equiv`),
+* the certificate identifies the two **data**, hence the two **bits**,
 * `ihd` at the domains identifies the two **domains**,
 * `ihi` + `ihw` put `⟦b⟧` **in the product** those two name,
 * `ihd` at the opened body makes `⟦λ⟧`'s fibre **`app ⟦b⟧ x`**,
@@ -657,8 +657,8 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
     rw [heqW σ hσ, interp2_pi] at hm
     exact hm
   -- premise three (the P2 certificate): the two bits are equal
-  have hbit : pwBit φ mb.pw = pwBit φ m₂.pw :=
-    pwBit_eq_of_equiv (hpw hμ) φ
+  have hbit : pwBit φ mb.pw = pwBit φ m₂.pw := by
+    rw [hpw hμ]
   -- premise four: the λ's fibre is `app ⟦b⟧`
   have hdbUp : denoteP m.acval env φ (d + 1) b = some ba.lift := by
     rw [denoteP_weaken_top m.acval_closed hwb, hdb]; rfl

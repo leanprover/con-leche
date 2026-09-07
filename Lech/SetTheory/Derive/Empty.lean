@@ -52,18 +52,6 @@ theorem not_mem_self (x : V) : ¬ x ∈ˢ x := by
   subst hyx
   exact hmin ⟨y, hx, mem_upair.mpr (Or.inl rfl)⟩
 
-/- NO COMPILER STUB (removed 2026-09-06, external review §5.6).  Until
-this date every operator below carried a `private unsafe def …Impl … :=
-unsafeCast ()` plus `attribute [implemented_by …]`, on the theory that
-"consumers may mention them in computable definitions (as the legacy
-class projections allowed)".  No consumer does: the operators are
-`noncomputable def`s, the model layer is proof-only, and the
-implementation may not even import it (`tests/layering.sh`).  So the
-stubs bought nothing and cost a line of trusted surface each — they
-turned noncomputable operators into compilable garbage that
-`#print axioms` cannot see.  All twenty-one are gone;
-`tests/trust-surface.sh` is what stops them growing back. -/
-
 /- Interface operators are opaque from here on (as the legacy class
 projections were): consumers reason only through the laws, never by
 unfolding.  Everything above this line may use the definition. -/

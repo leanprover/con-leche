@@ -41,10 +41,10 @@ theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat} {n : Name}
       inferTypeCoreIO mode env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
       ensureSortCore mode env fuel (d + 1) bt = .ok v ∧
-      (mode.verifiedChecks = true → (Level.zeronessOf v).equiv m.pw = true) ∧
+      (mode.verifiedChecks = true → Level.zeronessOf v = m.pw) ∧
       t = .sort (.imax u v) := by
   rw [inferTypeCoreIO_succ] at h
-  simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure, Bind.bind,
+  simp only [inferBodyIO, pure, Except.pure, Bind.bind,
     Except.bind] at h
   simp only [inferIO_def, pureFnsIO_whnf, ensureSortIO_def] at h
   try dsimp only at h
@@ -84,10 +84,10 @@ theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat} {n : Name}
     exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes,
       fun hv' => absurd hv' hv, h.symm⟩
   rw [if_pos hv] at h
-  by_cases hz : (Level.zeronessOf v).equiv m.pw = true
+  by_cases hz : (Level.zeronessOf v == m.pw) = true
   · rw [if_pos hz] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes, fun _ => hz, h.symm⟩
+    exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes, fun _ => eq_of_beq hz, h.symm⟩
   · rw [if_neg hz] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
@@ -107,12 +107,12 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       (mode.verifiedChecks = true → body.isLam = false → ∃ btt v,
         inferTypeCoreIO mode env fuel (d + 1) bt = .ok btt ∧
         ensureSortCore mode env fuel (d + 1) btt = .ok v ∧
-        (Level.zeronessOf v).equiv m.pw = true) ∧
+        Level.zeronessOf v = m.pw) ∧
       (mode.verifiedChecks = true → ∀ pwI, body.lamPw = some pwI →
-        m.pw.equiv pwI = true) ∧
+        m.pw = pwI) ∧
       t = .forallE n ty (bt.abstract1 d) m := by
   rw [inferTypeCoreIO_succ] at h
-  simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure, Bind.bind,
+  simp only [inferBodyIO, pure, Except.pure, Bind.bind,
     Except.bind] at h
   simp only [inferIO_def, pureFnsIO_whnf, ensureSortIO_def] at h
   cases hbt : inferTypeCoreIO mode env fuel (d + 1)
@@ -134,7 +134,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
   | .lam nI tyI bI mbI =>
     intro h
     simp only [Expr.lamPw] at h
-    by_cases hpw : m.pw.equiv mbI.pw = true
+    by_cases hpw : (m.pw == mbI.pw) = true
     · rw [if_pos hpw] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       refine ⟨bt, rfl, ?_, ?_, h.symm⟩
@@ -142,9 +142,9 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       · intro _ pwI heq
         try simp only [Expr.lamPw, Option.some.injEq] at heq
         first
-          | (cases heq; exact hpw)
-          | (rw [← heq]; exact hpw)
-          | (injection heq with heq; rw [← heq]; exact hpw)
+          | (cases heq; exact eq_of_beq hpw)
+          | (rw [← heq]; exact eq_of_beq hpw)
+          | (injection heq with heq; rw [← heq]; exact eq_of_beq hpw)
     · rw [if_neg hpw] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
   | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
@@ -161,11 +161,11 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     | ok v => ?_
     intro h
     dsimp only at h
-    by_cases hz : (Level.zeronessOf v).equiv m.pw = true
+    by_cases hz : (Level.zeronessOf v == m.pw) = true
     · rw [if_pos hz] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       refine ⟨bt, rfl,
-        fun _ _ => ⟨btt, v, hbtt, hes, hz⟩, ?_, h.symm⟩
+        fun _ _ => ⟨btt, v, hbtt, hes, eq_of_beq hz⟩, ?_, h.symm⟩
       intro _ pwI heq
       first
         | exact nomatch heq
@@ -205,7 +205,7 @@ theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
         ∃ ta, inferTypeCoreIO mode env fuel d a = .ok ta ∧
           isDefEqCore mode env fuel d ta ty' = .ok true) := by
   rw [inferTypeCoreIO_succ] at h
-  simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure, Bind.bind,
+  simp only [inferBodyIO, pure, Except.pure, Bind.bind,
     Except.bind] at h
   simp only [inferIO_def, pureFnsIO_whnf, pureFnsIO_defeq] at h
   cases htf : inferTypeCoreIO mode env fuel d f with
@@ -330,7 +330,7 @@ theorem inferTypeCoreIO_const_inv {env : Env} {fuel d : Nat}
   | 0, h => rw [inferTypeCoreIO_zero] at h; exact nomatch h
   | fuel + 1, h =>
     rw [inferTypeCoreIO_succ] at h
-    simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+    simp only [inferBodyIO, pure, Except.pure,
       Bind.bind, Except.bind] at h
     revert h
     cases hf : env.find? n with
@@ -367,7 +367,7 @@ theorem inferTypeCoreIO_letE_inv {env : Env} {fuel d : Nat} {n : Name}
       isDefEqCore mode env fuel d tv ty = .ok true ∧
       inferTypeCoreIO mode env fuel d (b.instantiate1 v) = .ok t := by
   rw [inferTypeCoreIO_succ] at h
-  simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure, Bind.bind,
+  simp only [inferBodyIO, pure, Except.pure, Bind.bind,
     Except.bind] at h
   simp only [inferIO_def, pureFnsIO_whnf, pureFnsIO_defeq,
     ensureSortIO_def] at h
@@ -418,7 +418,7 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
        -- task #175 wiring W5: the node's struct name is the head's
        T = sn) := by
   rw [inferTypeCoreIO_succ] at h
-  simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure, Bind.bind,
+  simp only [inferBodyIO, pure, Except.pure, Bind.bind,
     Except.bind] at h
   simp only [inferIO_def, pureFnsIO_whnf] at h
   cases hte : inferTypeCoreIO mode env fuel d e with
@@ -551,14 +551,14 @@ theorem inferTypeCoreIO_of_full {env : Env} :
     | .lit l => rw [inferTypeCoreIO_lit_eq]; exact h
     | .bvar i =>
       rw [inferTypeCore_succ] at h
-      simp [inferBody, viewM, Expr.view, throw, throwThe,
+      simp [inferBody, throw, throwThe,
         MonadExceptOf.throw, Bind.bind, Except.bind, pure,
         Except.pure] at h
     | .forallE n ty body mb =>
       obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, hval, rfl⟩ :=
         inferTypeCore_forall_inv h
       rw [inferTypeCoreIO_succ]
-      simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+      simp only [inferBodyIO, pure, Except.pure,
         Bind.bind, Except.bind]
       simp only [inferIO_def, pureFnsIO_whnf, ensureSortIO_def]
       rw [inferTypeCoreIO_of_full hty]
@@ -576,7 +576,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       obtain ⟨tty, u, bt, hty, hwt, hbt, hleaf, hchain, rfl⟩ :=
         inferTypeCore_lam_inv h
       rw [inferTypeCoreIO_succ]
-      simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+      simp only [inferBodyIO, pure, Except.pure,
         Bind.bind, Except.bind]
       simp only [inferIO_def, pureFnsIO_whnf, ensureSortIO_def]
       -- task #168 stage 2: the io λ clause has no domain-sort run
@@ -623,7 +623,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       obtain ⟨tf, n', ty', body', m', htf, hw, rfl, ta, hta, hde⟩ :=
         inferTypeCore_app_inv h
       rw [inferTypeCoreIO_succ]
-      simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+      simp only [inferBodyIO, pure, Except.pure,
         Bind.bind, Except.bind]
       simp only [inferIO_def, pureFnsIO_whnf, pureFnsIO_defeq]
       rw [inferTypeCoreIO_of_full htf]
@@ -641,7 +641,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
       obtain ⟨tty, sv, tv, hty, hes, htv, hde, htail⟩ :=
         inferTypeCore_letE_inv h
       rw [inferTypeCoreIO_succ]
-      simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+      simp only [inferBodyIO, pure, Except.pure,
         Bind.bind, Except.bind]
       simp only [inferIO_def, pureFnsIO_whnf, pureFnsIO_defeq,
         ensureSortIO_def]
@@ -659,7 +659,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
         hlenArgs, hlenUs, hguard, rfl, hsn⟩ :=
         Lech.inferTypeCore_proj_inv h
       rw [inferTypeCoreIO_succ]
-      simp only [inferBodyIO, viewM, Expr.view, pure, Except.pure,
+      simp only [inferBodyIO, pure, Except.pure,
         Bind.bind, Except.bind]
       simp only [inferIO_def, pureFnsIO_whnf]
       rw [inferTypeCoreIO_of_full htpe]

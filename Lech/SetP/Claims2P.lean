@@ -44,7 +44,7 @@ run-inversion conjuncts instead —
 
 | E-tier residue | P-tier replacement |
 |---|---|
-| `BinderSortAgree2` (residue 9) | the `(defeq-forall)`/`(defeq-lam)` arm inversions: `equiv` ⇒ equal bits (`pwBit_eq_of_equiv`), and bits are canonical in `{0,1}` |
+| `BinderSortAgree2` (residue 9) | the `(defeq-forall)`/`(defeq-lam)` arm inversions: `==` ⇒ equal data ⇒ equal bits, and bits are canonical in `{0,1}` |
 | `LamCodSort2` | the λ front door: leaf case delivered by `inferTypeCore_lam_inv`'s conjunct + `pwBit_zero_mem_univZero`; chain case by `piR_zero_mem_univZero` (impredicativity, no run) |
 | `SortOfEInstLevels`/`LamSortEInstLevels` | `denotePInstLevels` — proved, unconditional, exact |
 | `SortAgree` (env crossing) | dropped: `denoteP_envExtend` needs `FindPreserved`/`LitGuardsAgree` only |

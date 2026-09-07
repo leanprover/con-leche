@@ -18,7 +18,7 @@ and recursor's binders carry a bit that is zero exactly when the
 result sort (resp. the elimination sort) evaluates to zero.  Validity
 (`AnnotValidV`) is one-directional — a zero bit at an empty-domain
 codomain is valid — so the content is *syntactic*: in verified mode
-`inferTypeCore`'s `.forallE` clause validates `equiv (zeronessOf v)
+`inferTypeCore`'s `.forallE` clause validates `zeronessOf v ==
 mb.pw` against the opened body's inferred sort `v`
 (`inferTypeCore_forall_inv`), and `checkConstantVal` runs that
 inference on the annotated type.  This module walks the Π-prefix
@@ -57,8 +57,7 @@ theorem inferTypeCore_sort_inv {env : Env} {F d : Nat} {u : Level} {t : Expr}
   | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
   | F + 1, h =>
     rw [Lech.inferTypeCore_succ] at h
-    simp only [Lech.inferBody, Lech.viewM, Expr.view, pure, Except.pure,
-      Bind.bind, Except.bind] at h
+    simp only [Lech.inferBody, pure, Except.pure] at h
     exact (Except.ok.inj h).symm
 
 theorem inferTypeCore_fvar_inv {env : Env} {F d idx : Nat} {n : Name}
@@ -68,8 +67,7 @@ theorem inferTypeCore_fvar_inv {env : Env} {F d idx : Nat} {n : Name}
   | 0, h => rw [Lech.inferTypeCore_zero] at h; exact nomatch h
   | F + 1, h =>
     rw [Lech.inferTypeCore_succ] at h
-    simp only [Lech.inferBody, Lech.viewM, Expr.view, pure, Except.pure,
-      Bind.bind, Except.bind] at h
+    simp only [Lech.inferBody, pure, Except.pure] at h
     split at h
     · exact ⟨‹_›, (Except.ok.inj h).symm⟩
     · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
@@ -195,8 +193,9 @@ theorem piBits_of_infer {env : Env} (hver : mode.verifiedChecks = true) :
             rw [ensureSortCore_sort_eq hens, eval_imax_eq_zero_iff]
             exact hv φ
           · intro φ
-            exact ⟨(pwBit_of_equiv_zeronessOf (hz hver) φ).trans (hv φ),
-              hbits φ⟩
+            refine ⟨?_, hbits φ⟩
+            rw [← hz hver]
+            exact (pwBit_zeronessOf φ _).trans (hv φ)
         · exact nomatch hop
     | .bvar _, hop, _ | .fvar _ _ _, hop, _ | .sort _, hop, _
     | .const _ _, hop, _ | .app _ _, hop, _ | .lam _ _ _ _, hop, _
