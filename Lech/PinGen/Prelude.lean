@@ -97,11 +97,11 @@ where
   go : Lech.Expr → NameSet → NameSet
     | .const n _, s => s.insert (toLeanName n)
     | .app f a, s => go a (go f s)
-    | .lam _ ty b _, s => go b (go ty s)
-    | .forallE _ ty b _, s => go b (go ty s)
-    | .letE _ ty v b, s => go b (go v (go ty s))
+    | .lam ty b _, s => go b (go ty s)
+    | .forallE ty b _, s => go b (go ty s)
+    | .letE ty v b, s => go b (go v (go ty s))
     | .proj _ _ x, s => go x s
-    | .fvar _ _ ty, s => go ty s
+    | .fvar _ ty, s => go ty s
     | _, s => s
 
 /-! ## Owners: the declaring record of a constant -/

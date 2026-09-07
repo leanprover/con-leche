@@ -52,7 +52,7 @@ theorem denoteP_openPis_agree {acval₁ acval₂ : Name → (Name → Nat) → A
     rw [← hst₁.1, ← hst₂.1]
   | n + 1, d, k, e, fvs, o, ea₁, ea₂, pps₁, pps₂, b₁, b₂, hop, h₁, h₂, hst₁, hst₂, hag => by
     match e, hop with
-    | .forallE nm dom body mb, hop =>
+    | .forallE dom body mb, hop =>
       simp only [openPisAtFvars] at hop
       split at hop
       · next fvs' o' hop' =>
@@ -89,8 +89,8 @@ theorem denoteP_openPis_agree {acval₁ acval₂ : Name → (Name → Nat) → A
             have := hag (i + 1) x (by simpa using hx) (by omega)
             rwa [show d + (i + 1) = d + 1 + i from by omega] at this
       · exact nomatch hop
-    | .bvar _, hop | .fvar _ _ _, hop | .sort _, hop | .const _ _, hop
-    | .app _ _, hop | .lam _ _ _ _, hop | .letE _ _ _ _, hop | .lit _, hop
+    | .bvar _, hop | .fvar _ _, hop | .sort _, hop | .const _ _, hop
+    | .app _ _, hop | .lam _ _ _, hop | .letE _ _ _, hop | .lit _, hop
     | .proj _ _ _, hop =>
       simp [openPisAtFvars] at hop
 

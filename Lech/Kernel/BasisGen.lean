@@ -109,12 +109,6 @@ private def qLevel : Lech.Level → Lean.Expr
 private def qLevels (us : List Lech.Level) : Lean.Expr :=
   qList levelTy (us.map qLevel)
 
-private def qBinderInfo : Lech.BinderInfo → Lean.Expr
-  | .default => mkConst ``Lech.BinderInfo.default
-  | .implicit => mkConst ``Lech.BinderInfo.implicit
-  | .strictImplicit => mkConst ``Lech.BinderInfo.strictImplicit
-  | .instImplicit => mkConst ``Lech.BinderInfo.instImplicit
-
 /-- The zero-ness datum through its public API (the representation is
 `private` to `Lech/Kernel/PropWhen.lean`): `never`, or `ifAllZero`
 of its parameter list. -/
@@ -124,7 +118,7 @@ private def qPropWhen (pw : Lech.PropWhen) : Lean.Expr :=
   | some ps => mkApp (mkConst ``Lech.PropWhen.ifAllZero) (qNames ps)
 
 private def qBinderMeta (m : Lech.BinderMeta) : Lean.Expr :=
-  mkApp2 (mkConst ``Lech.BinderMeta.mk) (qBinderInfo m.bi) (qPropWhen m.pw)
+  mkApp (mkConst ``Lech.BinderMeta.mk) (qPropWhen m.pw)
 
 private def qLiteral : Lech.Literal → Lean.Expr
   | .natVal n => mkApp (mkConst ``Lech.Literal.natVal) (mkRawNatLit n)
@@ -132,17 +126,16 @@ private def qLiteral : Lech.Literal → Lean.Expr
 
 private def qExpr : Lech.Expr → Lean.Expr
   | .bvar i => mkApp (mkConst ``Lech.Expr.bvar) (mkRawNatLit i)
-  | .fvar i n ty =>
-    mkApp3 (mkConst ``Lech.Expr.fvar) (mkRawNatLit i) (qName n) (qExpr ty)
+  | .fvar i ty => mkApp2 (mkConst ``Lech.Expr.fvar) (mkRawNatLit i) (qExpr ty)
   | .sort u => mkApp (mkConst ``Lech.Expr.sort) (qLevel u)
   | .const n us => mkApp2 (mkConst ``Lech.Expr.const) (qName n) (qLevels us)
   | .app f a => mkApp2 (mkConst ``Lech.Expr.app) (qExpr f) (qExpr a)
-  | .lam n ty b m =>
-    mkApp4 (mkConst ``Lech.Expr.lam) (qName n) (qExpr ty) (qExpr b) (qBinderMeta m)
-  | .forallE n ty b m =>
-    mkApp4 (mkConst ``Lech.Expr.forallE) (qName n) (qExpr ty) (qExpr b) (qBinderMeta m)
-  | .letE n ty v b =>
-    mkApp4 (mkConst ``Lech.Expr.letE) (qName n) (qExpr ty) (qExpr v) (qExpr b)
+  | .lam ty b m =>
+    mkApp3 (mkConst ``Lech.Expr.lam) (qExpr ty) (qExpr b) (qBinderMeta m)
+  | .forallE ty b m =>
+    mkApp3 (mkConst ``Lech.Expr.forallE) (qExpr ty) (qExpr b) (qBinderMeta m)
+  | .letE ty v b =>
+    mkApp3 (mkConst ``Lech.Expr.letE) (qExpr ty) (qExpr v) (qExpr b)
   | .lit l => mkApp (mkConst ``Lech.Expr.lit) (qLiteral l)
   | .proj s i e =>
     mkApp3 (mkConst ``Lech.Expr.proj) (qName s) (mkRawNatLit i) (qExpr e)

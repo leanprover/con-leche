@@ -17,23 +17,13 @@ checker's own annotation produces for them, in dependency order — are
 computed from them at elaboration time by `#annotate_basis` /
 `#annotate_pins` (`Lech/Kernel/BasisGen.lean`).
 
-**Binder annotations (task #142).**  Every binder in the pins below is
-`⟨.default, .never⟩`, including the ones the real signatures mark implicit
-(`propext`'s `{a b : Prop}`, `Iff.intro`'s, `Classical.choice`'s
-`{α}`).  These pins are compared against *stream* declarations by
-`ConstantVal.matchesPin`, and the frontend maps every parsed binder to
-`.default` — kernel typing erases binder annotations, so an
-annotation-only deviation must not change a verdict.  Keeping the
-pins' own annotations would invert that: no standard axiom would ever
-match.  The comparison itself (`Expr.eraseNames`) is unchanged, so
-`Expr.ErasedEq` — the model's "same denotation" relation, which does
-relate binder metadata — still bridges a `matchesPin` hit.  The
-annotation pass preserves this normalization (it writes `pw` and
-touches nothing else), so `#annotate_basis` keeps it by construction;
-an edit to a RAW pin must keep it too.  The *basis* pins
-(`Lech/Kernel/Basis/*`) are
-different — they are compared through `ConstantInfo.canon`, which
-erases the annotation on both sides, so they keep theirs.
+**Binder annotations (tasks #142, #203, #205).**  A pin carries no
+binder name and no binder info — `Expr` has neither field (task #205),
+so `propext`'s `{a b : Prop}` and `Classical.choice`'s `{α}` are
+`pi`/`piI` for the reader only.  The comparison `ConstantVal.matchesPin`
+is exact up to the `pw` datum (`erasePw`); `Expr.ErasedEq` — the
+model's "same denotation" relation, up to `fvar` type annotations —
+bridges a hit.
 -/
 
 namespace Lech
@@ -74,24 +64,8 @@ def nonemptyIntroName : Name := nonemptyName |>.str "intro"
 /-- The name `Nonempty.rec`. -/
 def nonemptyRecName : Name := nonemptyName |>.str "rec"
 
-/-- Erase binder and `fvar` names (annotations preserved): the
-standard shapes are pinned up to the exporter's unstable hygienic
-binder names, which the interpretation never reads. -/
-def Expr.eraseNames : Expr → Expr
-  | .bvar i => .bvar i
-  | .fvar i _ ty => .fvar i .anonymous ty.eraseNames
-  | .sort u => .sort u
-  | .const n us => .const n us
-  | .app f a => .app f.eraseNames a.eraseNames
-  | .lam _ ty b m => .lam .anonymous ty.eraseNames b.eraseNames m
-  | .forallE _ ty b m => .forallE .anonymous ty.eraseNames b.eraseNames m
-  | .letE _ ty v b => .letE .anonymous ty.eraseNames v.eraseNames
-      b.eraseNames
-  | .lit l => .lit l
-  | .proj s i e => .proj s i e.eraseNames
-
 /-- Shape comparison for the standard pins: exact name, level
-parameters and counts, type up to binder names.
+parameters and counts, type up to the `pw` datum.
 
 **Guidance for anyone adding a pin.**  Two properties of a pin decide
 how expensive it is for a *consumer* of the pin (the checker's own
@@ -133,19 +107,19 @@ annotated pin, i.e. an annotation-only deviation would change a
 verdict, exactly what the binder-info paragraph above forbids. -/
 def Expr.erasePw : Expr → Expr
   | .bvar i => .bvar i
-  | .fvar i n ty => .fvar i n ty.erasePw
+  | .fvar i ty => .fvar i ty.erasePw
   | .sort u => .sort u
   | .const n us => .const n us
   | .app f a => .app f.erasePw a.erasePw
-  | .lam n ty b m => .lam n ty.erasePw b.erasePw ⟨m.bi, .never⟩
-  | .forallE n ty b m => .forallE n ty.erasePw b.erasePw ⟨m.bi, .never⟩
-  | .letE n ty v b => .letE n ty.erasePw v.erasePw b.erasePw
+  | .lam ty b _ => .lam ty.erasePw b.erasePw ⟨.never⟩
+  | .forallE ty b _ => .forallE ty.erasePw b.erasePw ⟨.never⟩
+  | .letE ty v b => .letE ty.erasePw v.erasePw b.erasePw
   | .lit l => .lit l
   | .proj s i e => .proj s i e.erasePw
 
 def ConstantVal.matchesPin (cv pin : ConstantVal) : Bool :=
   cv.name = pin.name && cv.levelParams = pin.levelParams &&
-    cv.type.erasePw.eraseNames == pin.type.erasePw.eraseNames
+    cv.type.erasePw == pin.type.erasePw
 
 /-- `Iff (a b : Prop) : Prop`. -/
 def iffRaw : ConstantInfo :=

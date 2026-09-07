@@ -612,6 +612,17 @@
 # `.proj` whnfCore clause whnf'd `g x` on an open `x`, and `Nat.mul x 2^32`
 # was iota-ground unarily (exit 3, fuel).  Official accepts.
 0 binder_shared_local.ndjson
+# binder_name_proj.ndjson: task #203 — `==` and the packed hash are
+# α-equivalence (binder names and binder infos are parsed to ONE normal
+# form, `.anonymous`/`.default`).  The statement `.proj 1 (h (fun y => y)
+# x) = .proj 1 (h (fun tw_1 => tw_1) x)` with the two λs distinct table
+# nodes differing in the binder name and info alone, the struct a
+# 40 000-step Nat.rec tower (`scripts/mk_binder_twin_fixture.py --proj`);
+# before #203 the pair missed the fast path and the `.proj` clause
+# whnf'd both structs in full (3.38 G instructions against 0.37 G).
+# RAW: the preprocessor's re-export hash-conses up to α and would
+# collapse the twin before lech sees it.  Official accepts.
+0 binder_name_proj.ndjson raw
 # mutual_struct_proj / nested_struct_proj (the projection-function
 # rewrite, Lech/Frontend/ProjRec.lean, 2026-09-06): the elaborator's
 # `T.f := fun self => self.i` on structure-likes the direct install
@@ -751,3 +762,178 @@
 0 natop_before_eq.ndjson
 0 natop_before_ble.ndjson
 2 prelude_bool_redefined.ndjson
+
+# ====================================================================
+# THE INDUCTIVE-AUDIT FIXTURES (task #208; audit task #206, report
+# _tmp/indaudit/REPORT.md, probes _tmp/indaudit/probes/P/*.lean).
+#
+# Every probe the audit ran is committed here as a fixture: the six
+# divergences it found, plus the "probed and clean" shapes, which are
+# regression guards.  Each source under tests/e2e/src/ names, in its
+# header, the audit finding, the official verdict, the lech verdict at
+# master 700a06ca and the route/arm responsible.
+#
+# All 26 exports are RAW lean4export output (scripts/export-fixture.sh
+# with LEAN_INDUCTIVE_MODELS_FILTER=0, lean4export caccfbe /
+# leanprover/lean4:v4.29.1 — the exporter every other fixture here came
+# from; ind_unsafe additionally needs its `--export-unsafe` flag, see
+# that source's header).  Each fixture therefore gets TWO lines:
+#
+#   * the plain line = the PIPED verdict (the preprocessor is available,
+#     lech spawns it: the shipped configuration), and
+#   * the `raw` line = LECH_INDUCTIVE_MODELS=/nonexistent, the verdict of
+#     the direct routes and the in-process modeller alone.
+#
+# The audit's cracks live in the gap between those two columns, so both
+# are pinned.  `--trusted` agrees with `--verified` on all 26 (no
+# tests/trusted-expected.txt override).
+#
+# A `# TODO(#206-…)` line above an expectation marks a DIVERGENCE: the
+# code below it is TODAY'S behaviour, deliberately pinned so that the
+# conformance work flips it consciously.  The official verdict is on the
+# TODO line; unmarked lines already agree with official.
+#
+# --- A1 / crack C1: def-headed former at a STRUCTURE, and its
+# --- projection functions.  Official whnf's the former; the structure
+# --- recogniser and ProjRec's owner test are syntactic.  Audit
+# --- follow-up 3 (extend #195's whnfTelescope to the structure arm).
+# TODO(#206-A1) official: 0 — "projection on a non-structure-like type" at def S.n
+2 ind_defhead_struct.ndjson
+# TODO(#206-A1) official: 0 — raw: "missing model for S"
+2 ind_defhead_struct.ndjson raw
+#
+# --- A2 / crack C2: def-headed former at a K-TARGET / unit-like Prop.
+# --- The tool's own U._model.unitlike statement check fails (exit 3).
+# --- Audit follow-up 3.
+# TODO(#206-A2) official: 0 — the preprocessor failed (exit 3)
+3 ind_defhead_k.ndjson
+# TODO(#206-A2) official: 0 — raw: "missing model for U"
+2 ind_defhead_k.ndjson raw
+#
+# --- A3 / crack C3: def-headed formers on a MUTUAL block.  Audit
+# --- follow-up 3.
+# TODO(#206-A3) official: 0 — the preprocessor failed (exit 3)
+3 ind_defhead_mutual.ndjson
+# TODO(#206-A3) official: 0 — raw: "former MA is not a telescope ending in a sort"
+2 ind_defhead_mutual.ndjson raw
+#
+# --- the clean arms of the same family (regression guards): the
+# --- RECURSIVE def-headed block and a β-redex former, both modelled by
+# --- the tool.  If follow-up 3 lands, these must stay 0 piped and are
+# --- the natural candidates to move 2 -> 0 raw.
+0 ind_defhead_fix.ndjson
+2 ind_defhead_fix.ndjson raw
+0 ind_former_redex.ndjson
+2 ind_former_redex.ndjson raw
+#
+# --- A4 / crack C4: mutual members whose parameter telescopes (…param…)
+# --- or result sorts (…sort…) are DEFEQ but not syntactically equal.
+# --- The in-process modeller compares with `==`; official with
+# --- `is_def_eq`/`is_equivalent`.  Audit follow-up 4.
+# TODO(#206-A4) official: 0 — "member MB2: parameter telescope or sort differs from MA2's"
+2 ind_mutual_param_defeq.ndjson
+# TODO(#206-A4) official: 0 — same decline raw
+2 ind_mutual_param_defeq.ndjson raw
+# TODO(#206-A4) official: 0 — "member MD: parameter telescope or sort differs from MC's"
+2 ind_mutual_sort_defeq.ndjson
+# TODO(#206-A4) official: 0 — same decline raw
+2 ind_mutual_sort_defeq.ndjson raw
+#
+# --- A5 / crack C5: a recursive occurrence hidden under a DEFINITION.
+# --- Official whnf's the field before classifying it; the fixpoint
+# --- route's positivity check is syntactic.  Audit follow-up 5.
+# --- ind_pos_whnf_fn is the reflexive case (the tool errors);
+# --- ind_pos_whnf_id its finitary twin, which the tool models — the
+# --- regression guard.
+# TODO(#206-A5) official: 0 — the preprocessor failed (exit 3)
+3 ind_pos_whnf_fn.ndjson
+# TODO(#206-A5) official: 0 — raw: "missing model for R"
+2 ind_pos_whnf_fn.ndjson raw
+0 ind_pos_whnf_id.ndjson
+2 ind_pos_whnf_id.ndjson raw
+#
+# --- A6 / crack C6: the projection FUNCTIONS of a finitary RECURSIVE
+# --- structure.  A silent regression of #188 (the block went native, so
+# --- its _model.proj_i.iota artifacts went away).  Audit follow-up 2.
+# TODO(#206-A6) official: 0 — "projection on a non-structure-like type" at def Chain.h
+2 ind_rec_struct_proj.ndjson
+# TODO(#206-A6) official: 0 — same decline raw
+2 ind_rec_struct_proj.ndjson raw
+#
+# --- A7 / crack C7: raw `.proj` nodes on structure-likes the direct
+# --- route does not serve.  A DOCUMENTED decline (design rule W5), not a
+# --- follow-up; pinned so the design stays visible.  ind_rec_struct_proj_raw
+# --- puts the recursive structure first (so its decline is A6's);
+# --- ind_proj_mutual_nested drops it and declines at a raw `.proj`.
+# TODO(#206-A7) official: 0 — by design (W5)
+2 ind_rec_struct_proj_raw.ndjson
+# TODO(#206-A7) official: 0 — by design (W5)
+2 ind_rec_struct_proj_raw.ndjson raw
+# TODO(#206-A7) official: 0 — by design (W5)
+2 ind_proj_mutual_nested.ndjson
+# TODO(#206-A7) official: 0 — by design (W5)
+2 ind_proj_mutual_nested.ndjson raw
+#
+# --- A9: reflexive blocks, infinitary nesting, nesting through a
+# --- reflexive container.  Piped the tool models them all; raw they are
+# --- documented declines.  The raw lines are the guard for task #202 /
+# --- the `.reflexive` kind: they must move 2 -> 0 when that lands.
+0 ind_reflexive_tool.ndjson
+2 ind_reflexive_tool.ndjson raw
+0 ind_nest_inf.ndjson
+2 ind_nest_inf.ndjson raw
+0 ind_nest_via_refl.ndjson
+2 ind_nest_via_refl.ndjson raw
+#
+# --- A10 / crack C8: `unsafe inductive`.  Official skips positivity and
+# --- accepts; lech's PARSER throws, so the run errors (3) where unsafe
+# --- DEFINITIONS decline positively (2, arena 141/142).  Audit
+# --- follow-up 6 (one line in ExportC.lean:550).
+# TODO(#206-A10) official: 0 — the preprocessor fails on the block too (exit 3)
+3 ind_unsafe.ndjson
+# TODO(#206-A10) official: 0 — raw: our parser throws "unsafe inductive"; a decline (2) is the intended verdict
+3 ind_unsafe.ndjson raw
+#
+# --- §2 "probed and clean": shapes nobody had a fixture for and both
+# --- checkers accept.  Pure regression guards — zero-constructor INDEXED
+# --- families, `Sort u`-valued structure/sum with SMALL eliminators
+# --- (plus `.proj` and eta on the structure), a mutual block with a
+# --- zero-constructor member, a mutual index whose domain's type is not
+# --- a syntactic sort, the same container at two pins / doubly nested,
+# --- and Prop blocks nested through Prop containers.
+0 ind_empty_idx.ndjson
+0 ind_empty_idx.ndjson raw
+0 ind_sort_u.ndjson
+0 ind_sort_u.ndjson raw
+0 ind_mutual_zero_ctor.ndjson
+0 ind_mutual_zero_ctor.ndjson raw
+0 ind_idx_defhead_sort.ndjson
+0 ind_idx_defhead_sort.ndjson raw
+0 ind_nest_two_pins.ndjson
+0 ind_nest_two_pins.ndjson raw
+0 ind_nest_prop.ndjson
+0 ind_nest_prop.ndjson raw
+#
+# --- S1 / crack C9: the `let` value/type checks are ABSENT (the audit's
+# --- only unlicensed accept-superset, and not an inductive matter).
+# --- `annotate`'s .letE clause returns the zeta-reduct and the annotated
+# --- term is let-free, so official's `infer_let` triple never runs and
+# --- the six .letE arms of whnfCore/infer are dead code.  Not a
+# --- soundness problem (the stored term is the reduct, which the
+# --- capstone covers) but official REJECTS all three.  Audit follow-up 1
+# --- flips them to 1.  let_bad_value_used is the control the reduct's
+# --- own type check already catches.
+# TODO(#206-S1) official: 1 — "(kernel) let-declaration type mismatch 'x'"
+0 let_bad_value.ndjson
+# TODO(#206-S1) official: 1 — same, raw
+0 let_bad_value.ndjson raw
+# TODO(#206-S1) official: 1 — "type expected … Bool.true"
+0 let_bad_type.ndjson
+# TODO(#206-S1) official: 1 — same, raw
+0 let_bad_type.ndjson raw
+# TODO(#206-S1) official: 1 — "(kernel) let-declaration type mismatch 'x'"
+0 let_bad_thm.ndjson
+# TODO(#206-S1) official: 1 — same, raw
+0 let_bad_thm.ndjson raw
+1 let_bad_value_used.ndjson
+1 let_bad_value_used.ndjson raw

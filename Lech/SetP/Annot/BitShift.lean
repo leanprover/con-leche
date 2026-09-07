@@ -96,7 +96,7 @@ theorem denoteP_shiftFrom
       split
       · simp only [Option.map_some, hacl]
       · rfl
-  | .fvar idx n ty, d, hpd, hw => by
+  | .fvar idx ty, d, hpd, hw => by
     rw [Lech.Expr.WScoped] at hw
     have hlt : idx < d := hw.1
     simp only [Lech.Expr.shiftFrom]
@@ -116,52 +116,52 @@ theorem denoteP_shiftFrom
       denoteP_shiftFrom hacl a d hpd hw.2]
     cases denoteP acval env φ d fe <;>
       cases denoteP acval env φ d a <;> rfl
-  | .forallE n ty body mb, d, hpd, hw => by
+  | .forallE ty body mb, d, hpd, hw => by
     rw [Lech.Expr.WScoped] at hw
     have hwb : Expr.WScoped (d + 1)
-        (body.instantiate1 (.fvar d n ty)) :=
+        (body.instantiate1 (.fvar d ty)) :=
       Lech.Expr.WScoped.instantiate1 hw.1 0 hw.2
     simp only [Lech.Expr.shiftFrom, denoteP]
     rw [← Lech.Expr.shiftFrom_instantiate1 hpd body 0,
       denoteP_shiftFrom hacl ty d hpd hw.1,
-      denoteP_shiftFrom hacl (body.instantiate1 (.fvar d n ty))
+      denoteP_shiftFrom hacl (body.instantiate1 (.fvar d ty))
         (d + 1) (by omega) hwb,
       show d + 1 - p = d - p + 1 from by omega]
     cases denoteP acval env φ d ty with
     | none => rfl
     | some ta =>
       cases denoteP acval env φ (d + 1)
-          (body.instantiate1 (.fvar d n ty)) with
+          (body.instantiate1 (.fvar d ty)) with
       | none => rfl
       | some ba => rfl
-  | .lam n ty body mb, d, hpd, hw => by
+  | .lam ty body mb, d, hpd, hw => by
     rw [Lech.Expr.WScoped] at hw
     have hwb : Expr.WScoped (d + 1)
-        (body.instantiate1 (.fvar d n ty)) :=
+        (body.instantiate1 (.fvar d ty)) :=
       Lech.Expr.WScoped.instantiate1 hw.1 0 hw.2
     simp only [Lech.Expr.shiftFrom, denoteP]
     rw [← Lech.Expr.shiftFrom_instantiate1 hpd body 0,
       denoteP_shiftFrom hacl ty d hpd hw.1,
-      denoteP_shiftFrom hacl (body.instantiate1 (.fvar d n ty))
+      denoteP_shiftFrom hacl (body.instantiate1 (.fvar d ty))
         (d + 1) (by omega) hwb,
       show d + 1 - p = d - p + 1 from by omega]
     cases denoteP acval env φ d ty with
     | none => rfl
     | some ta =>
       cases denoteP acval env φ (d + 1)
-          (body.instantiate1 (.fvar d n ty)) with
+          (body.instantiate1 (.fvar d ty)) with
       | none => rfl
       | some ba => rfl
-  | .letE n ty val body, d, hpd, hw => by
+  | .letE ty val body, d, hpd, hw => by
     rw [Lech.Expr.WScoped] at hw
     have hwb : Expr.WScoped (d + 1)
-        (body.instantiate1 (.fvar d n ty)) :=
+        (body.instantiate1 (.fvar d ty)) :=
       Lech.Expr.WScoped.instantiate1 hw.1 0 hw.2.2
     simp only [Lech.Expr.shiftFrom, denoteP]
     rw [← Lech.Expr.shiftFrom_instantiate1 hpd body 0,
       denoteP_shiftFrom hacl ty d hpd hw.1,
       denoteP_shiftFrom hacl val d hpd hw.2.1,
-      denoteP_shiftFrom hacl (body.instantiate1 (.fvar d n ty))
+      denoteP_shiftFrom hacl (body.instantiate1 (.fvar d ty))
         (d + 1) (by omega) hwb,
       show d + 1 - p = d - p + 1 from by omega]
     cases denoteP acval env φ d ty with
@@ -171,7 +171,7 @@ theorem denoteP_shiftFrom
       | none => rfl
       | some va =>
         cases denoteP acval env φ (d + 1)
-            (body.instantiate1 (.fvar d n ty)) with
+            (body.instantiate1 (.fvar d ty)) with
         | none => rfl
         | some ba => rfl
   | .proj sn i e, d, hpd, hw => by

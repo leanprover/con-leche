@@ -60,12 +60,12 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
     -- the public (recursor) frame
     {fvsP : List Expr} (hfvsPlen : fvsP.length = rP)
     (hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     (hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP)
-    (hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
+      Expr.fvar l.1 l.2 ∈ fvsP)
+    (hlbFvsP : ∀ (i : Nat) (ty : Expr),
+      Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)
     (hokTV : ∀ σ : Nat → V, AnnotOkP V σ TV)
@@ -100,12 +100,12 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
     exact h
   -- the frame's per-index data
   have hfvsPAt : ∀ n, n < rP →
-      ∃ nm ty, fvsP[n]? = some (.fvar n nm ty) := by
+      ∃ ty, fvsP[n]? = some (.fvar n ty) := by
     intro n hn
     rcases hx : fvsP[n]? with _ | x
     · rw [List.getElem?_eq_none_iff] at hx; omega
-    · obtain ⟨nm, ty, rfl⟩ := hshapeP n x hx
-      exact ⟨_, _, rfl⟩
+    · obtain ⟨ty, rfl⟩ := hshapeP n x hx
+      exact ⟨_, rfl⟩
   -- the tower's slots are graded by satisfaction alone
   have hokAll : ∀ i, i < rP → ∀ ρ0 : Nat → V, Sat2 V Δb ρ0 →
       AnnotOkP V (fun j => ρ0 (j + (K - 1 - i) + 1))
@@ -153,7 +153,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
       · rw [List.getElem?_eq_none (by omega)] at hx
         exact nomatch hx
     rw [List.getElem?_take_of_lt hi₀] at hx
-    obtain ⟨nm, ty, rfl⟩ := hshapeP i₀ x hx
+    obtain ⟨ty, rfl⟩ := hshapeP i₀ x hx
     have hw := hwsFvsP _ (List.mem_of_getElem? hx)
     simp only [Expr.WScoped] at hw ⊢
     exact ⟨⟨by omega, hw.2⟩, rfl⟩
@@ -176,7 +176,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
         · rw [List.getElem?_eq_none (by omega)] at ha
           exact nomatch ha
       rw [List.getElem?_take_of_lt hi] at ha
-      obtain ⟨nm', ty', rfl⟩ := hshapeP i a ha
+      obtain ⟨ty', rfl⟩ := hshapeP i a ha
       have h'' := hwsFvsP _ (List.mem_of_getElem? ha)
       simp only [Expr.WScoped] at h'' ⊢
       exact ⟨by omega, h''.2⟩
@@ -186,7 +186,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
       · rfl
   have hleafCdAll : ∀ q, q < cnP →
       ∀ l ∈ (cdomsP.getD q default).fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP ∧ l.1 < cnP := by
+        Expr.fvar l.1 l.2 ∈ fvsP ∧ l.1 < cnP := by
     intro q hq l hl
     have hmem : cdomsP.getD q default ∈ cdomsP := by
       rw [List.getD]
@@ -205,7 +205,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
         · rw [List.getElem?_eq_none (by omega)] at hq'
           exact nomatch hq'
       rw [List.getElem?_take_of_lt hq'lt] at hq'
-      obtain ⟨nm', ty', rfl⟩ := hshapeP q' _ hq'
+      obtain ⟨ty', rfl⟩ := hshapeP q' _ hq'
       rw [Expr.fvarLeaves] at hla
       rcases List.mem_cons.mp hla with rfl | hla'
       · exact ⟨List.mem_of_getElem? hq', hq'lt⟩
@@ -232,21 +232,21 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
   induction q using Nat.strongRecOn with
   | _ q ihq =>
   intro hq
-  obtain ⟨nmP, tyP, hxP⟩ := hfvsPAt q (by omega)
-  have hmemFvsP : Expr.fvar q nmP tyP ∈ fvsP := List.mem_of_getElem? hxP
+  obtain ⟨tyP, hxP⟩ := hfvsPAt q (by omega)
+  have hmemFvsP : Expr.fvar q tyP ∈ fvsP := List.mem_of_getElem? hxP
   have hwsTyP : Expr.WScoped q tyP := by
     have h' := hwsFvsP _ hmemFvsP
     simp only [Expr.WScoped] at h'
     exact h'.2
   have hleafTyP : ∀ l ∈ tyP.fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP := by
+      Expr.fvar l.1 l.2 ∈ fvsP := by
     intro l hl
     exact hleafClosedP l ⟨_, hmemFvsP, by
       rw [Expr.fvarLeaves]; exact List.mem_cons_of_mem _ hl⟩
   have hltTyP : ∀ l ∈ tyP.fvarLeaves, l.1 < q :=
     Expr.fvarLeaves_lt_of_wscoped hwsTyP
   have hbTyP : tyP.looseBVarsBounded 0 = true :=
-    hlbFvsP q nmP tyP hmemFvsP
+    hlbFvsP q tyP hmemFvsP
   -- the a-side reading at the ambient depth
   have hdomTyP : denoteP m.acval env φ q tyP
       = some (ΓP.getD (rP - 1 - q) default) := hdomsP0 q _ hxP
@@ -274,8 +274,8 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
     intro i₀ x hlt hx
     have hi₀ : i₀ < cnP := by omega
     rw [List.getElem?_take_of_lt hi₀] at hx
-    obtain ⟨nm₀, ty₀, rfl⟩ := hshapeP i₀ x hx
-    refine ⟨.bvar (K - 1 - i₀), denoteP_fvar _ _ _ _ _, ?_, ?_⟩
+    obtain ⟨ty₀, rfl⟩ := hshapeP i₀ x hx
+    refine ⟨.bvar (K - 1 - i₀), denoteP_fvar _ _ _ _, ?_, ?_⟩
     · exact ⟨by simp, by simp⟩
     · intro dw0 hdw0
       exact (ihq i₀ hlt (by omega) ρ0 hρ0 dw0 hdw0).2
@@ -293,9 +293,9 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
       rfl] at h
     exact h
   have hLbTyP : Expr.LeavesBounded tyP := fun l hl =>
-    hlbFvsP l.1 l.2.1 l.2.2 (hleafTyP l hl)
+    hlbFvsP l.1 l.2 (hleafTyP l hl)
   have hLbCd : Expr.LeavesBounded (cdomsP.getD q default) := fun l hl =>
-    hlbFvsP l.1 l.2.1 l.2.2 (hleafCdAll q hq l hl).1
+    hlbFvsP l.1 l.2 (hleafCdAll q hq l hl).1
   have hfire := defEqAtP_of_run (m := m) hclaims (k := K) (fvs := fvsP)
     (Aa := fun i => ΓP.getD (rP - 1 - i) default) (Δa := Δb) hΔblen
     hshapeP (fun x hx => (hwsFvsP x hx).mono (by omega))

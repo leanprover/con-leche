@@ -58,10 +58,10 @@ annotations included; a `.proj` node names its structure). -/
 def Expr.mentionsConst (T : Name) : Expr → Bool
   | .bvar _ | .sort _ | .lit _ => false
   | .const n _ => n == T
-  | .fvar _ _ ty => ty.mentionsConst T
+  | .fvar _ ty => ty.mentionsConst T
   | .app f a => f.mentionsConst T || a.mentionsConst T
-  | .lam _ ty b _ | .forallE _ ty b _ => ty.mentionsConst T || b.mentionsConst T
-  | .letE _ ty v b => ty.mentionsConst T || v.mentionsConst T || b.mentionsConst T
+  | .lam ty b _ | .forallE ty b _ => ty.mentionsConst T || b.mentionsConst T
+  | .letE ty v b => ty.mentionsConst T || v.mentionsConst T || b.mentionsConst T
   | .proj s _ e => s == T || e.mentionsConst T
 
 /-- The kind of a constructor field of a recursive block (see the
@@ -103,7 +103,7 @@ mention the block is valid for the official kernel but not modeled
 here — the index tuple is read at an arbitrary family in the functor,
 where the block's own carrier is not yet available (`.unsupported`). -/
 def recPositivity (T : Name) (lps : List Name) (nP nIdx o : Nat) : Expr → Nat → RecFieldKind
-  | .forallE _ dom body _, k =>
+  | .forallE dom body _, k =>
     if dom.mentionsConst T then .negative else recPositivity T lps nP nIdx o body (k + 1)
   | e, k =>
     if !e.mentionsConst T then .ordinary
@@ -140,7 +140,7 @@ def recCtorKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (c : ConstantVal �
   match c.1.type.stripPis (nP + c.2) with
   | some (cbs, cbody) =>
     let ks := (List.range c.2).map fun i =>
-      match recFieldKind T lps nP nIdx i (cbs.getD (nP + i) default).2.1 with
+      match recFieldKind T lps nP nIdx i (cbs.getD (nP + i) default).1 with
       | .recursive => if directUsedLater c.1.type nP i then .unsupported else .recursive
       | .reflexive => if directUsedLater c.1.type nP i then .unsupported else .reflexive
       | k => k
@@ -151,17 +151,17 @@ def recCtorKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (c : ConstantVal �
 /-- All leading `∀` binders of an expression (outermost first) and
 the body — a recursive field's own telescope (`[]` at a finitary
 field, the `a⃗ : A⃗` of a reflexive one, task #202). -/
-def Expr.piBinders : Expr → List (Name × Expr × BinderMeta) × Expr
-  | .forallE n ty b m =>
+def Expr.piBinders : Expr → List (Expr × BinderMeta) × Expr
+  | .forallE ty b m =>
     let (bs, e) := piBinders b
-    ((n, ty, m) :: bs, e)
+    ((ty, m) :: bs, e)
   | e => ([], e)
 
 /-- Field `i`'s own telescope `a⃗ : A⃗` (at the field's frame: the
 parameters and the earlier fields), off the constructor's type. -/
-def directFieldTeleOf (cty : Expr) (nP nF i : Nat) : List (Name × Expr × BinderMeta) :=
+def directFieldTeleOf (cty : Expr) (nP nF i : Nat) : List (Expr × BinderMeta) :=
   match cty.stripPis (nP + nF) with
-  | some (cbs, _) => ((cbs.getD (nP + i) default).2.1.piBinders).1
+  | some (cbs, _) => ((cbs.getD (nP + i) default).1.piBinders).1
   | none => []
 
 /-- The index expressions of field `i`'s domain `Π a⃗, T p⃗ e⃗` (under
@@ -169,7 +169,7 @@ the field's own telescope, at the field's frame), off the
 constructor's type; `[]` when the field is not of that shape. -/
 def directFieldIdxOf (cty : Expr) (nP nF i : Nat) : List Expr :=
   match cty.stripPis (nP + nF) with
-  | some (cbs, _) => ((cbs.getD (nP + i) default).2.1.piBinders).2.getAppArgs.drop nP
+  | some (cbs, _) => ((cbs.getD (nP + i) default).1.piBinders).2.getAppArgs.drop nP
   | none => []
 
 /-- The positions of the recursive fields (finitary or reflexive: the
@@ -205,22 +205,22 @@ def directIdxAt (nF o i l m : Nat) (e : Expr) : Expr :=
 
 /-- Field `i`'s own telescope moved as `directIdxAt` moves its
 expressions (binder `k` sits under `k` earlier telescope binders). -/
-def directTeleAt (nF o i l : Nat) (tele : List (Name × Expr × BinderMeta)) :
-    List (Name × Expr × BinderMeta) :=
+def directTeleAt (nF o i l : Nat) (tele : List (Expr × BinderMeta)) :
+    List (Expr × BinderMeta) :=
   (List.range tele.length).map fun k =>
     let b := tele.getD k default
-    (b.1, directIdxAt nF o i l k b.2.1, b.2.2)
+    (directIdxAt nF o i l k b.1, b.2)
 
 /-- The variables of an `m`-binder telescope, innermost last. -/
 def directTeleVars (m : Nat) : List Expr := (List.range m).map fun k => Expr.bvar (m - 1 - k)
 
 /-- `∀ tele, body` / `λ tele, body` over a binder list (outermost first). -/
-def Expr.mkPisOf : List (Name × Expr × BinderMeta) → Expr → Expr
+def Expr.mkPisOf : List (Expr × BinderMeta) → Expr → Expr
   | [], body => body
-  | (n, ty, mt) :: bs, body => .forallE n ty (mkPisOf bs body) mt
-def Expr.mkLamsOf : List (Name × Expr × BinderMeta) → Expr → Expr
+  | (ty, mt) :: bs, body => .forallE ty (mkPisOf bs body) mt
+def Expr.mkLamsOf : List (Expr × BinderMeta) → Expr → Expr
   | [], body => body
-  | (n, ty, mt) :: bs, body => .lam n ty (mkLamsOf bs body) mt
+  | (ty, mt) :: bs, body => .lam ty (mkLamsOf bs body) mt
 
 /-- The inductive hypothesis' value for recursive field `i` with
 telescope `tele` and index expressions `idx`, spelled under the fields
@@ -229,7 +229,7 @@ of a rule body (the motive and the `n` minors are the extras):
 telescope is empty and this is the recursor at the prefix, the field's
 indices and the field. -/
 def directIhApp (recC : Name) (rlvls : List Level) (nP n nF i : Nat)
-    (tele : List (Name × Expr × BinderMeta)) (idx : List Expr) : Expr :=
+    (tele : List (Expr × BinderMeta)) (idx : List Expr) : Expr :=
   let m := tele.length
   Expr.mkLamsOf (directTeleAt nF (n + 1) i 0 tele)
     (Expr.mkAppN (.const recC rlvls)
@@ -241,7 +241,7 @@ def directIhApp (recC : Name) (rlvls : List Level) (nP n nF i : Nat)
 fields (`directRuleBodyAt` with the `ih` arguments; `teleOf i` and
 `idxOf i` are field `i`'s telescope and index expressions). -/
 def directRuleBodyR (recC : Name) (rlvls : List Level) (nP n nF j : Nat) (recIdx : List Nat)
-    (teleOf : Nat → List (Name × Expr × BinderMeta)) (idxOf : Nat → List Expr) : Expr :=
+    (teleOf : Nat → List (Expr × BinderMeta)) (idxOf : Nat → List Expr) : Expr :=
   Expr.mkAppN (.bvar (nF + n - 1 - j))
     (((List.range nF).map fun k => Expr.bvar (nF - 1 - k)) ++
       recIdx.map fun i => directIhApp recC rlvls nP n nF i (teleOf i) (idxOf i))
@@ -251,17 +251,17 @@ position (in order), `∀ a⃗, motive e⃗_i(a⃗) (f_i a⃗)` under the `l`
 earlier `ih` binders, the motive sitting `nF + o - 1` binders above the
 fields and the field's telescope and index expressions moved to that
 frame (a finitary field: `motive e⃗_i f_i`). -/
-def directIhPis (nF o : Nat) (pw : PropWhen) (teleOf : Nat → List (Name × Expr × BinderMeta))
+def directIhPis (nF o : Nat) (pw : PropWhen) (teleOf : Nat → List (Expr × BinderMeta))
     (idxOf : Nat → List Expr) : List Nat → Nat → Expr → Expr
   | [], _, body => body
   | i :: is, l, body =>
     let m := (teleOf i).length
-    .forallE (.str .anonymous "ih")
+    .forallE
       (Expr.mkPisOf (directTeleAt nF o i l (teleOf i))
         (Expr.mkAppN (.bvar (nF + o - 1 + l + m))
           ((idxOf i).map (directIdxAt nF o i l m) ++
             [Expr.mkAppN (.bvar (nF - 1 - i + l + m)) (directTeleVars m)])))
-      (directIhPis nF o pw teleOf idxOf is (l + 1) body) ⟨.default, pw⟩
+      (directIhPis nF o pw teleOf idxOf is (l + 1) body) ⟨pw⟩
 
 /-- A constructor's minor premise at a recursive block: its field
 telescope lifted under the `o` extras, every binder's datum reset to
@@ -286,7 +286,7 @@ def directMinorsPisR (lps : List Name) (nP : Nat) (pw : PropWhen) :
   | (C, nF, cty, recIdx) :: cs, o, body =>
     (directMinorTyR C lps nP nF o pw cty recIdx).bind fun mty =>
       (directMinorsPisR lps nP pw cs (o + 1) body).map fun rest =>
-        .forallE (Name.lastStr C) mty rest ⟨.default, pw⟩
+        .forallE mty rest ⟨pw⟩
 
 /-- The `λ` twin of `directMinorsPisR`. -/
 def directMinorsLamsR (lps : List Name) (nP : Nat) (pw : PropWhen) :
@@ -295,7 +295,7 @@ def directMinorsLamsR (lps : List Name) (nP : Nat) (pw : PropWhen) :
   | (C, nF, cty, recIdx) :: cs, o, body =>
     (directMinorTyR C lps nP nF o pw cty recIdx).bind fun mty =>
       (directMinorsLamsR lps nP pw cs (o + 1) body).map fun rest =>
-        .lam (Name.lastStr C) mty rest ⟨.default, pw⟩
+        .lam mty rest ⟨pw⟩
 
 /-- **The generated recursor type at a recursive block**
 
@@ -313,12 +313,12 @@ def directRecTyR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
   (tty.stripPis nP).bind fun q =>
   (directMotiveTyI T lps nP nIdx ℓ q.2).bind fun motiveTy =>
   (Expr.replacePisPw pw nIdx (q.2.liftLooseBVars (n + 1) 0)
-      (.forallE (.str .anonymous "t") (directFamI T lps nP nIdx (n + 1) 0)
+      (.forallE (directFamI T lps nP nIdx (n + 1) 0)
         (Expr.mkAppN (.bvar (nIdx + n + 1)) (directPsAt 1 nIdx ++ [.bvar 0]))
-        ⟨.default, pw⟩)).bind fun major =>
+        ⟨pw⟩)).bind fun major =>
   (directMinorsPisR lps nP pw ctors 1 major).bind fun minors =>
     Expr.replacePisPw pw nP tty
-      (.forallE (.str .anonymous "motive") motiveTy minors ⟨.default, pw⟩)
+      (.forallE motiveTy minors ⟨pw⟩)
 
 /-- **The generated rule** for constructor `j` at a recursive block:
 `λ p⃗ motive minor⃗ f⃗_j, minor_j f⃗_j (T.rec p⃗ motive minor⃗ e⃗_i f_i)…`
@@ -342,7 +342,7 @@ def directRecRhsR (T : Name) (lps : List Name) (elim : Name) (large : Bool)
       fun inner =>
     (directMinorsLamsR lps nP pw ctors 1 inner).bind fun minors =>
     Expr.pisToLamsPw pw nP tty
-      (.lam (.str .anonymous "motive") motiveTy minors ⟨.default, pw⟩)
+      (.lam motiveTy minors ⟨pw⟩)
 
 /-- The constructors zipped with their recursive positions, as the
 generators take them. -/

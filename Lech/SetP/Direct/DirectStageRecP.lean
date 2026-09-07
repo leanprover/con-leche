@@ -31,7 +31,7 @@ type strips its `nP + 3` binders by construction. -/
 theorem recOpenedAll (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {rhsA : Expr}
     (hRec : Lech.checkDirectRec (Lech.fueledOps μ F) env p cvTa cvCa = .ok (cvRa, rhsA))
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis p.nP = some (bsT, .sort p.resSort))
     {rds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     (hRD : RecData mp.base2 cvRa p.nP (elimLevel p) rds) :
@@ -52,7 +52,7 @@ theorem stageRec (hE : Lech.EtaFamiliesClosed env)
     (mp : EnvS2PM V μ env)
     {F : Nat} {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {rhsA : Expr}
     (hRec : Lech.checkDirectRec (Lech.fueledOps μ F) env p cvTa cvCa = .ok (cvRa, rhsA))
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis p.nP = some (bsT, .sort p.resSort))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa (Lech.directCaps p)))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)

@@ -120,15 +120,15 @@ theorem denoteP_instPisAt_peel
     intro ty rest ds Ta vs hpr hwty hargs hty hsp
     match ty, hpr, hwty, hty with
     | .bvar _, hpr, _, _ => exact nomatch hpr
-    | .fvar _ _ _, hpr, _, _ => exact nomatch hpr
+    | .fvar _ _, hpr, _, _ => exact nomatch hpr
     | .sort _, hpr, _, _ => exact nomatch hpr
     | .const _ _, hpr, _, _ => exact nomatch hpr
     | .app _ _, hpr, _, _ => exact nomatch hpr
-    | .lam _ _ _ _, hpr, _, _ => exact nomatch hpr
-    | .letE _ _ _ _, hpr, _, _ => exact nomatch hpr
+    | .lam _ _ _, hpr, _, _ => exact nomatch hpr
+    | .letE _ _ _, hpr, _, _ => exact nomatch hpr
     | .lit _, hpr, _, _ => exact nomatch hpr
     | .proj _ _ _, hpr, _, _ => exact nomatch hpr
-    | .forallE n dom body mb, hpr, hwty, hty => ?_
+    | .forallE dom body mb, hpr, hwty, hty => ?_
     -- the peel's own step
     simp only [Expr.instPisAt, Option.map_eq_some_iff] at hpr
     obtain ⟨⟨ds', rest'⟩, hpr', heq⟩ := hpr
@@ -141,7 +141,7 @@ theorem denoteP_instPisAt_peel
     obtain ⟨doma, bodya, hdoma, hbodya, rfl⟩ := denoteP_forallE_inv hty
     have hbody' : denoteP acval env φ d (body.instantiate1 a)
         = some (bodya.inst va) := by
-      rw [denoteP_beta hacl hainst (n := n) (ty := dom)
+      rw [denoteP_beta hacl hainst (ty := dom)
         hbodyw.fvarsBelow hwa hba ha 0, hbodya]
       rfl
     obtain ⟨restA, hrestA, hpeel⟩ := ih hpr'

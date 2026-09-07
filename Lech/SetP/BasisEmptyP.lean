@@ -185,13 +185,13 @@ theorem denoteP_emptyRecA_type {m : EnvS2Core V env}
       rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE
     rw [denoteP_levelless_const hf (by rfl), hleaf]
   rw [show emptyRecA.toConstantVal.type
-      = Expr.forallE (Name.anonymous.str "motive")
-          (Expr.forallE (Name.anonymous.str "t") (.const emptyName [])
-            (.sort (.param uN)) { bi := .default, pw := .never })
-          (Expr.forallE (Name.anonymous.str "t") (.const emptyName [])
+      = Expr.forallE
+          (Expr.forallE (.const emptyName [])
+            (.sort (.param uN)) { pw := .never })
+          (Expr.forallE (.const emptyName [])
             (.app (.bvar 1) (.bvar 0))
-            { bi := .default, pw := .ifAllZero [uN] })
-          { bi := .default, pw := .ifAllZero [uN] } from rfl]
+            { pw := .ifAllZero [uN] })
+          { pw := .ifAllZero [uN] } from rfl]
   simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
     Expr.instantiate1, hEc, Level.eval]
 
@@ -292,13 +292,13 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvS2PM V μ env)
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     show Expr.constsResolve _ emptyRecA.toConstantVal.type = true
     simp only [show emptyRecA.toConstantVal.type
-        = Expr.forallE (Name.anonymous.str "motive")
-            (Expr.forallE (Name.anonymous.str "t") (.const emptyName [])
-              (.sort (.param uN)) { bi := .default, pw := .never })
-            (Expr.forallE (Name.anonymous.str "t") (.const emptyName [])
+        = Expr.forallE
+            (Expr.forallE (.const emptyName [])
+              (.sort (.param uN)) { pw := .never })
+            (Expr.forallE (.const emptyName [])
               (.app (.bvar 1) (.bvar 0))
-              { bi := .default, pw := .ifAllZero [uN] })
-            { bi := .default, pw := .ifAllZero [uN] } from rfl,
+              { pw := .ifAllZero [uN] })
+            { pw := .ifAllZero [uN] } from rfl,
       Expr.constsResolve, Bool.and_eq_true, Option.isSome_iff_exists]
     have hf : (⟨emptyRecA :: emptyA :: env.consts⟩ : Env).find?
         emptyName = some emptyA := by

@@ -178,12 +178,12 @@ theorem isEqHead_inv {e : Expr} (h : isEqHead e = true) :
   | .const _ [], h => simp [isEqHead] at h
   | .const _ (_ :: _ :: _), h => simp [isEqHead] at h
   | .bvar _, h => simp [isEqHead] at h
-  | .fvar _ _ _, h => simp [isEqHead] at h
+  | .fvar _ _, h => simp [isEqHead] at h
   | .sort _, h => simp [isEqHead] at h
   | .app _ _, h => simp [isEqHead] at h
-  | .lam _ _ _ _, h => simp [isEqHead] at h
-  | .forallE _ _ _ _, h => simp [isEqHead] at h
-  | .letE _ _ _ _, h => simp [isEqHead] at h
+  | .lam _ _ _, h => simp [isEqHead] at h
+  | .forallE _ _ _, h => simp [isEqHead] at h
+  | .letE _ _ _, h => simp [isEqHead] at h
   | .lit _, h => simp [isEqHead] at h
   | .proj _ _ _, h => simp [isEqHead] at h
 

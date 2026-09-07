@@ -49,9 +49,9 @@ theorem denoteP_erasedEq {acval : Name → (Name → Nat) → AVExpr}
   | .bvar i, e₂, he, _ => by
     match e₂, he with
     | .bvar j, he => obtain rfl : i = j := he; rfl
-  | .fvar i n ty, e₂, he, d => by
+  | .fvar i ty, e₂, he, d => by
     match e₂, he with
-    | .fvar j n' ty', he =>
+    | .fvar j ty', he =>
       obtain rfl : i = j := he
       simp [denoteP_fvar]
   | .sort u, e₂, he, _ => by
@@ -68,33 +68,33 @@ theorem denoteP_erasedEq {acval : Name → (Name → Nat) → AVExpr}
       obtain ⟨h1, h2⟩ : Expr.ErasedEq f g ∧ Expr.ErasedEq a b := he
       simp only [denoteP_app, denoteP_erasedEq h1 d,
         denoteP_erasedEq h2 d]
-  | .forallE n ty body m, e₂, he, d => by
+  | .forallE ty body m, e₂, he, d => by
     match e₂, he with
-    | .forallE n' ty' body' m', he =>
+    | .forallE ty' body' m', he =>
       obtain ⟨rfl, h1, h2⟩ :
           m = m' ∧ Expr.ErasedEq ty ty' ∧ Expr.ErasedEq body body' := he
       simp only [denoteP_forallE, denoteP_erasedEq h1 d,
         denoteP_erasedEq (Expr.ErasedEq.instantiate1 h2
-          (show Expr.ErasedEq (.fvar d n ty) (.fvar d n' ty') from rfl))
+          (show Expr.ErasedEq (.fvar d ty) (.fvar d ty') from rfl))
           (d + 1)]
-  | .lam n ty body m, e₂, he, d => by
+  | .lam ty body m, e₂, he, d => by
     match e₂, he with
-    | .lam n' ty' body' m', he =>
+    | .lam ty' body' m', he =>
       obtain ⟨rfl, h1, h2⟩ :
           m = m' ∧ Expr.ErasedEq ty ty' ∧ Expr.ErasedEq body body' := he
       simp only [denoteP_lam, denoteP_erasedEq h1 d,
         denoteP_erasedEq (Expr.ErasedEq.instantiate1 h2
-          (show Expr.ErasedEq (.fvar d n ty) (.fvar d n' ty') from rfl))
+          (show Expr.ErasedEq (.fvar d ty) (.fvar d ty') from rfl))
           (d + 1)]
-  | .letE n ty vl body, e₂, he, d => by
+  | .letE ty vl body, e₂, he, d => by
     match e₂, he with
-    | .letE n' ty' vl' body', he =>
+    | .letE ty' vl' body', he =>
       obtain ⟨h1, h2, h3⟩ : Expr.ErasedEq ty ty' ∧
         Expr.ErasedEq vl vl' ∧ Expr.ErasedEq body body' := he
       rw [denoteP, denoteP]
       simp only [denoteP_erasedEq h1 d, denoteP_erasedEq h2 d,
         denoteP_erasedEq (Expr.ErasedEq.instantiate1 h3
-          (show Expr.ErasedEq (.fvar d n ty) (.fvar d n' ty') from rfl))
+          (show Expr.ErasedEq (.fvar d ty) (.fvar d ty') from rfl))
           (d + 1)]
   | .lit l, e₂, he, _ => by
     match e₂, he with
@@ -126,7 +126,7 @@ theorem denoteP_renameConsts_resolve {f : Name → Name}
         = denoteP acval env φ d e
   | .bvar _, _, _ => by simp [Expr.renameConsts]
   | .sort _, _, _ => by simp [Expr.renameConsts]
-  | .fvar _ _ _, _, _ => by simp [Expr.renameConsts, denoteP_fvar]
+  | .fvar _ _, _, _ => by simp [Expr.renameConsts, denoteP_fvar]
   | .lit (.natVal _), _, _ => by rw [Expr.renameConsts]
   | .lit (.strVal _), _, _ => by rw [Expr.renameConsts]
   | .const n ws, d, hr => by
@@ -152,23 +152,23 @@ theorem denoteP_renameConsts_resolve {f : Name → Name}
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denoteP_proj,
       denoteP_renameConsts_resolve hup hval e d hr.2]
-  | .forallE n ty body m, d, hr => by
+  | .forallE ty body m, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denoteP_forallE]
     rw [← Expr.renameConsts_instantiate1]
     rw [denoteP_renameConsts_resolve hup hval ty d hr.1,
       denoteP_renameConsts_resolve hup hval
-        (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (body.instantiate1 (.fvar d ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
-  | .lam n ty body m, d, hr => by
+  | .lam ty body m, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denoteP_lam]
     rw [← Expr.renameConsts_instantiate1]
     rw [denoteP_renameConsts_resolve hup hval ty d hr.1,
       denoteP_renameConsts_resolve hup hval
-        (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (body.instantiate1 (.fvar d ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
-  | .letE n ty val body, d, hr => by
+  | .letE ty val body, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts]
     rw [denoteP, denoteP]
@@ -176,7 +176,7 @@ theorem denoteP_renameConsts_resolve {f : Name → Name}
     rw [denoteP_renameConsts_resolve hup hval ty d hr.1.1,
       denoteP_renameConsts_resolve hup hval val d hr.1.2,
       denoteP_renameConsts_resolve hup hval
-        (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (body.instantiate1 (.fvar d ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1.1 0 hr.2)]
   termination_by e => e.sizeB
   decreasing_by

@@ -141,7 +141,7 @@ theorem openPisAtFvars_leaves :
     ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr},
       openPisAtFvars k e d = some (fvs, body) →
       ∀ l, (l ∈ body.fvarLeaves ∨ ∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-        l ∈ e.fvarLeaves ∨ Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+        l ∈ e.fvarLeaves ∨ Expr.fvar l.1 l.2 ∈ fvs := by
   intro k
   induction k with
   | zero =>
@@ -154,9 +154,9 @@ theorem openPisAtFvars_leaves :
   | succ k ih =>
     intro e d fvs body h l hl
     match e, h with
-    | .forallE nm dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [openPisAtFvars] at h
-      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d nm dom))
+      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d dom))
           (d + 1) with
       | none => rw [hop] at h; exact nomatch h
       | some p =>
@@ -164,10 +164,10 @@ theorem openPisAtFvars_leaves :
         simp only [Option.some.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
         -- a leaf of the head opener resolves directly
-        have head : l ∈ (Expr.fvar d nm dom).fvarLeaves →
-            l ∈ (Expr.forallE nm dom bodyE mb).fvarLeaves ∨
-              Expr.fvar l.1 l.2.1 l.2.2 ∈
-                Expr.fvar d nm dom :: p.1 := by
+        have head : l ∈ (Expr.fvar d dom).fvarLeaves →
+            l ∈ (Expr.forallE dom bodyE mb).fvarLeaves ∨
+              Expr.fvar l.1 l.2 ∈
+                Expr.fvar d dom :: p.1 := by
           intro hl'
           rw [Expr.fvarLeaves] at hl'
           rcases List.mem_cons.mp hl' with rfl | hl'
@@ -221,9 +221,9 @@ theorem openPisAtFvars_denoteTele {cval : TConstVal} {env : Env}
   | succ k ih =>
     intro e j fvs body T h hT
     match e, h with
-    | .forallE nm dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [openPisAtFvars] at h
-      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar j nm dom))
+      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar j dom))
           (j + 1) with
       | none => rw [hop] at h; exact nomatch h
       | some p =>
@@ -236,7 +236,7 @@ theorem openPisAtFvars_denoteTele {cval : TConstVal} {env : Env}
         | some A => ?_
         rw [hA] at hT
         cases hB : denote cval env ψ (j + 1)
-            (bodyE.instantiate1 (.fvar j nm dom)) with
+            (bodyE.instantiate1 (.fvar j dom)) with
         | none => rw [hB] at hT; exact nomatch hT
         | some B => ?_
         rw [hB] at hT
@@ -249,7 +249,7 @@ theorem openPisAtFvars_denoteTele {cval : TConstVal} {env : Env}
         · intro i x hx
           cases i with
           | zero =>
-            obtain rfl : Expr.fvar j nm dom = x := by
+            obtain rfl : Expr.fvar j dom = x := by
               simpa using hx
             show denote cval env ψ (j + 0) dom = _
             rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
@@ -401,9 +401,9 @@ theorem openPisAtFvars_instPisAt :
   | succ k ih =>
     intro e d fvs body h
     match e, h with
-    | .forallE nm dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [openPisAtFvars] at h
-      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d nm dom))
+      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d dom))
           (d + 1) with
       | none => rw [hop] at h; exact nomatch h
       | some p =>
@@ -411,7 +411,7 @@ theorem openPisAtFvars_instPisAt :
         simp only [Option.some.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
         show (Expr.instPisAt p.1 (bodyE.instantiate1
-          (Expr.fvar d nm dom))).map _ = _
+          (Expr.fvar d dom))).map _ = _
         rw [ih hop]
         rfl
 
@@ -446,14 +446,14 @@ theorem instPisAt_renEq {f : Name → Name} :
     | nil => exact nomatch hlen
     | cons a' as'' => ?_
     match ty, h with
-    | .forallE n₁ d₁ b₁ m₁, h => ?_
+    | .forallE d₁ b₁ m₁, h => ?_
     match ty', h' with
-    | .forallE n₂ d₂ b₂ m₂, h' => ?_
+    | .forallE d₂ b₂ m₂, h' => ?_
     have hty' : (m₁ = m₂ ∧ Expr.ErasedEq (d₁.renameConsts f) d₂ ∧
         Expr.ErasedEq (b₁.renameConsts f) b₂) := by
       have h0 : Expr.ErasedEq
-          (Expr.forallE n₁ (d₁.renameConsts f) (b₁.renameConsts f) m₁)
-          (.forallE n₂ d₂ b₂ m₂) := hty
+          (Expr.forallE (d₁.renameConsts f) (b₁.renameConsts f) m₁)
+          (.forallE d₂ b₂ m₂) := hty
       simpa [Expr.ErasedEq] using h0
     obtain ⟨-, hdom, hbody⟩ := hty'
     simp only [Expr.instPisAt] at h h'
@@ -504,7 +504,7 @@ theorem instPisAt_leaves :
   | cons a as ih =>
     intro ty ds rs h l hl
     match ty, h with
-    | .forallE n₁ d₁ b₁ m₁, h => ?_
+    | .forallE d₁ b₁ m₁, h => ?_
     simp only [Expr.instPisAt] at h
     cases h1 : Expr.instPisAt as (b₁.instantiate1 a) with
     | none => rw [h1] at h; exact nomatch h
@@ -513,10 +513,10 @@ theorem instPisAt_leaves :
     simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
     have step : l ∈ (b₁.instantiate1 a).fvarLeaves ∨
-        (l ∈ (Expr.forallE n₁ d₁ b₁ m₁).fvarLeaves ∨
+        (l ∈ (Expr.forallE d₁ b₁ m₁).fvarLeaves ∨
           ∃ x ∈ a :: as, l ∈ x.fvarLeaves) → _ := fun h => h
     have push : l ∈ (b₁.instantiate1 a).fvarLeaves →
-        l ∈ (Expr.forallE n₁ d₁ b₁ m₁).fvarLeaves ∨
+        l ∈ (Expr.forallE d₁ b₁ m₁).fvarLeaves ∨
           ∃ x ∈ a :: as, l ∈ x.fvarLeaves := by
       intro hb
       rcases Expr.fvarLeaves_instantiate1 b₁ 0 hb with hb' | hb'
@@ -549,17 +549,17 @@ theorem openPisAtFvars_isSome_of_stripPis :
   | succ k ih =>
     intro e hs d
     match e, hs with
-    | .forallE nm dom body mb, hs =>
+    | .forallE dom body mb, hs =>
       have hs' : (body.stripPis k).isSome = true := by
         simp only [Expr.stripPis, Option.isSome_map] at hs
         exact hs
       have h1 : ((body.instantiate1
-          (.fvar d nm dom)).stripPis k).isSome = true :=
+          (.fvar d dom)).stripPis k).isSome = true :=
         Expr.stripPis_instantiate1_isSome k 0 hs'
       have h2 := ih h1 (d + 1)
       simp only [openPisAtFvars]
       revert h2
-      cases openPisAtFvars k (body.instantiate1 (.fvar d nm dom))
+      cases openPisAtFvars k (body.instantiate1 (.fvar d dom))
           (d + 1) with
       | none => intro h; exact nomatch h
       | some p => intro _; rfl
@@ -582,9 +582,9 @@ theorem openPisAtFvars_bounded :
   | succ k ih =>
     intro e d fvs body h hb
     match e, h with
-    | .forallE nm dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [openPisAtFvars] at h
-      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d nm dom))
+      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d dom))
           (d + 1) with
       | none => rw [hop] at h; exact nomatch h
       | some p =>
@@ -620,7 +620,7 @@ theorem instPisAt_take :
   | cons a sp ih =>
     intro n ty ds rs h
     match ty, h with
-    | .forallE nm dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -630,7 +630,7 @@ theorem instPisAt_take :
         obtain ⟨rfl, rfl⟩ := h
         cases n with
         | zero =>
-          refine ⟨.forallE nm dom body mb, by simp [Expr.instPisAt], ?_⟩
+          refine ⟨.forallE dom body mb, by simp [Expr.instPisAt], ?_⟩
           simp only [List.drop_zero, Expr.instPisAt, h1]
           rfl
         | succ n =>
@@ -657,7 +657,7 @@ theorem instPisAt_bounded :
   | cons a sp ih =>
     intro ty ds rs h hb hsp
     match ty, h with
-    | .forallE nm dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -817,7 +817,7 @@ theorem instPisAt_denote_cross {cval : TConstVal} {env : Env}
     obtain ⟨hwsa, hba⟩ := hsp 0 a rfl
     obtain ⟨w0, hw0den, hw0⟩ := hws 0 a rfl
     match ty, h with
-    | .forallE nmT dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp
           (body.instantiate1 a) with
@@ -839,13 +839,13 @@ theorem instPisAt_denote_cross {cval : TConstVal} {env : Env}
       | some A => ?_
       rw [hA] at hT
       cases hB : denote cval env ψ (D + 1)
-          (body.instantiate1 (.fvar D nmT dom)) with
+          (body.instantiate1 (.fvar D dom)) with
       | none => rw [hB] at hT; exact nomatch hT
       | some B => ?_
       rw [hB] at hT
       obtain rfl : T = .pi A B := (Option.some.inj hT).symm
       -- the instantiated body, denoted through the top value
-      have hbeta := denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+      have hbeta := denote_beta (ty := dom) hcl hfb'.2 hwsa hba
         hw0den 0
       -- the spine and its values
       match ws, hwlen with
@@ -926,10 +926,10 @@ theorem VExpr.mkAppN_inj :
 /-- Substituting a *variable* never changes an application's arity: the
 inserted value is atomic, so no application node is created or
 absorbed. -/
-theorem Expr.getAppArgs_length_instantiate1_fvar {i : Nat} {nm : Name}
+theorem Expr.getAppArgs_length_instantiate1_fvar {i : Nat}
     {t : Expr} :
     ∀ (e : Expr) (k : Nat),
-      ((e.instantiate1 (.fvar i nm t) k).getAppArgs).length =
+      ((e.instantiate1 (.fvar i t) k).getAppArgs).length =
         e.getAppArgs.length := by
   intro e
   induction e with
@@ -963,8 +963,8 @@ residual's arity. -/
 theorem instPisAt_fvar_residual_arity :
     ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
       Expr.instPisAt sp ty = some (ds, rs) →
-      (∀ x ∈ sp, ∃ i nm t, x = Expr.fvar i nm t) →
-      ∀ {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      (∀ x ∈ sp, ∃ i t, x = Expr.fvar i t) →
+      ∀ {bs : List (Expr × BinderMeta)} {body : Expr},
         ty.stripPis sp.length = some (bs, body) →
         rs.getAppArgs.length = body.getAppArgs.length := by
   intro sp
@@ -974,17 +974,17 @@ theorem instPisAt_fvar_residual_arity :
     simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
     have hstrip' : (some ([], ty) :
-        Option (List (Name × Expr × BinderMeta) × Expr)) = some (bs, body) :=
+        Option (List (Expr × BinderMeta) × Expr)) = some (bs, body) :=
       hstrip
     simp only [Option.some.injEq, Prod.mk.injEq] at hstrip'
     rw [hstrip'.2]
   | cons a sp ih =>
     intro ty ds rs h hsp bs body hstrip
-    obtain ⟨i, nm, t, rfl⟩ := hsp a List.mem_cons_self
+    obtain ⟨i, t, rfl⟩ := hsp a List.mem_cons_self
     match ty, h with
-    | .forallE nmT dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [Expr.instPisAt] at h
-      cases h1 : Expr.instPisAt sp (bodyE.instantiate1 (.fvar i nm t)) with
+      cases h1 : Expr.instPisAt sp (bodyE.instantiate1 (.fvar i t)) with
       | none => rw [h1] at h; exact nomatch h
       | some p => ?_
       rw [h1] at h
@@ -999,7 +999,7 @@ theorem instPisAt_fvar_residual_arity :
       obtain ⟨-, rfl⟩ := hstrip
       -- the instantiated body strips to the instantiated residual
       have h3 : ((bodyE.instantiate1
-          (.fvar i nm t)).stripPis sp.length).isSome = true :=
+          (.fvar i t)).stripPis sp.length).isSome = true :=
         Expr.stripPis_instantiate1_isSome sp.length 0 (by rw [h2]; rfl)
       obtain ⟨⟨bs', body'⟩, h4⟩ := Option.isSome_iff_exists.mp h3
       obtain ⟨hbody', -⟩ := Expr.stripPis_instantiate1_eq sp.length 0 h2 h4
@@ -1058,7 +1058,7 @@ nested runs' spines hold pin instantiations, not variables). -/
 theorem instPisAt_residual_arity_const {c : Name} {cus : List Level} :
     ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
       Expr.instPisAt sp ty = some (ds, rs) →
-      ∀ {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      ∀ {bs : List (Expr × BinderMeta)} {body : Expr},
         ty.stripPis sp.length = some (bs, body) →
         body.getAppFn = .const c cus →
         rs.getAppArgs.length = body.getAppArgs.length := by
@@ -1069,14 +1069,14 @@ theorem instPisAt_residual_arity_const {c : Name} {cus : List Level} :
     simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
     have hstrip' : (some ([], ty) :
-        Option (List (Name × Expr × BinderMeta) × Expr)) = some (bs, body) :=
+        Option (List (Expr × BinderMeta) × Expr)) = some (bs, body) :=
       hstrip
     simp only [Option.some.injEq, Prod.mk.injEq] at hstrip'
     rw [hstrip'.2]
   | cons a sp ih =>
     intro ty ds rs h bs body hstrip hhead
     match ty, h with
-    | .forallE nmT dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (bodyE.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -1149,7 +1149,7 @@ theorem instPisAt_length :
   | cons a sp ih =>
     intro ty ds rs h
     match ty, h with
-    | .forallE nm dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -1184,7 +1184,7 @@ theorem instPisAt_fvar_denote_defined {cval : TConstVal} {env : Env}
     intro ty ds rs h D hsp hfb hb T hT
     obtain ⟨⟨w0, hw0⟩, hwsa, hba⟩ := hsp 0 a rfl
     match ty, h with
-    | .forallE nmT dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp
           (body.instantiate1 a) with
@@ -1204,12 +1204,12 @@ theorem instPisAt_fvar_denote_defined {cval : TConstVal} {env : Env}
       | some A => ?_
       rw [hA] at hT
       cases hB : denote cval env ψ (D + 1)
-          (body.instantiate1 (.fvar D nmT dom)) with
+          (body.instantiate1 (.fvar D dom)) with
       | none => rw [hB] at hT; exact nomatch hT
       | some B => ?_
       have hTI : denote cval env ψ D (body.instantiate1 a)
           = some (B.inst w0 0) := by
-        rw [denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+        rw [denote_beta (ty := dom) hcl hfb'.2 hwsa hba
           hw0 0, hB]
         rfl
       exact ih h1
@@ -1229,11 +1229,11 @@ theorem wscoped_renameConsts {f : Name → Name} :
     simp_all [Expr.renameConsts, Expr.WScoped]
 
 /-- Renaming rewrites each leaf's *annotation* and nothing else — the
-indices and names are untouched. -/
+indices are untouched. -/
 theorem fvarLeaves_renameConstsE {f : Name → Name} :
     ∀ (e : Expr), (e.renameConsts f).fvarLeaves
       = e.fvarLeaves.map
-        (fun l => (l.1, l.2.1, l.2.2.renameConsts f)) := by
+        (fun l => (l.1, l.2.renameConsts f)) := by
   intro e
   induction e <;> simp_all [Expr.renameConsts, Expr.fvarLeaves]
 
@@ -1275,7 +1275,7 @@ theorem instPisAt_denote_doms {cval : TConstVal} {env : Env}
     intro ty ds rs h D hsp hfb hb T hT
     obtain ⟨⟨w0, hw0⟩, hwsa, hba⟩ := hsp 0 a rfl
     match ty, h with
-    | .forallE nmT dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -1294,12 +1294,12 @@ theorem instPisAt_denote_doms {cval : TConstVal} {env : Env}
       | some A => ?_
       rw [hA] at hT
       cases hB : denote cval env ψ (D + 1)
-          (body.instantiate1 (.fvar D nmT dom)) with
+          (body.instantiate1 (.fvar D dom)) with
       | none => rw [hB] at hT; exact nomatch hT
       | some B => ?_
       have hTI : denote cval env ψ D (body.instantiate1 a)
           = some (B.inst w0 0) := by
-        rw [denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+        rw [denote_beta (ty := dom) hcl hfb'.2 hwsa hba
           hw0 0, hB]
         rfl
       intro d hd
@@ -1338,7 +1338,7 @@ theorem instPisAt_denote_res {cval : TConstVal} {env : Env}
     intro ty ds rs h D hsp hfb hb T hT
     obtain ⟨⟨w0, hw0⟩, hwsa, hba⟩ := hsp 0 a rfl
     match ty, h with
-    | .forallE nmT dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -1358,12 +1358,12 @@ theorem instPisAt_denote_res {cval : TConstVal} {env : Env}
       | some A => ?_
       rw [hA] at hT
       cases hB : denote cval env ψ (D + 1)
-          (body.instantiate1 (.fvar D nmT dom)) with
+          (body.instantiate1 (.fvar D dom)) with
       | none => rw [hB] at hT; exact nomatch hT
       | some B => ?_
       have hTI : denote cval env ψ D (body.instantiate1 a)
           = some (B.inst w0 0) := by
-        rw [denote_beta (n := nmT) (ty := dom) hcl hfb'.2 hwsa hba
+        rw [denote_beta (ty := dom) hcl hfb'.2 hwsa hba
           hw0 0, hB]
         rfl
       exact ih h1 (fun j x hx => hsp (j + 1) x (by simpa using hx))
@@ -1390,7 +1390,7 @@ theorem instLamsAt_bounded :
   | cons a sp ih =>
     intro ty ds rs h hb hsp
     match ty, h with
-    | .lam nm dom body mb, h =>
+    | .lam dom body mb, h =>
       simp only [Expr.instLamsAt] at h
       cases h1 : Expr.instLamsAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -1433,7 +1433,7 @@ theorem instLamsAt_index_WScoped :
     exact nomatch hx
   | a :: as, d, ty, ds, rs, h, hty, hsp => by
     cases ty with
-    | lam nm dom body mb =>
+    | lam dom body mb =>
       simp only [Expr.instLamsAt, Option.map_eq_some_iff] at h
       obtain ⟨q, hq, hqe⟩ := h
       simp only [Prod.mk.injEq] at hqe
@@ -1461,8 +1461,8 @@ theorem instLamsAt_index_WScoped :
             exact h0) i x hx
         rw [show d + (i + 1) = d + 1 + i from by omega]
         exact hrec
-    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _
-    | forallE _ _ _ _ | letE _ _ _ _ | lit _ | proj _ _ _ =>
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | forallE _ _ _ | letE _ _ _ | lit _ | proj _ _ _ =>
       exact nomatch h
 
 /-- A nonempty tower's head domain is its context's outermost entry. -/
@@ -1601,16 +1601,16 @@ opener family produces the same values. -/
 theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
     {ψ : Name → Nat} :
     ∀ (k : Nat) {e : Expr} {j : Nat}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr} {V : VExpr},
+      {bs : List (Expr × BinderMeta)} {body : Expr} {V : VExpr},
       e.stripLams k = some (bs, body) →
       denote cval env ψ j e = some V →
       ∃ (Γ : List VExpr) (C : VExpr),
         V = lamCtx Γ C ∧ Γ.length = k ∧
         denote cval env ψ (j + k)
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
-        ∀ (i0 : Nat) (b : Name × Expr × BinderMeta), bs[i0]? = some b →
+        ∀ (i0 : Nat) (b : Expr × BinderMeta), bs[i0]? = some b →
           denote cval env ψ (j + i0)
-            (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
+            (Expr.instSeq (openFvars j i0) (i0 - 1) b.1) =
             some (Γ.getD (k - 1 - i0) default) := by
   intro k
   induction k with
@@ -1622,7 +1622,7 @@ theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
   | succ k ih =>
     intro e j bs body V h hV
     match e, h with
-    | .lam nm dom bodyE mb, h =>
+    | .lam dom bodyE mb, h =>
       simp only [Expr.stripLams] at h
       cases hs : bodyE.stripLams k with
       | none => rw [hs] at h; exact nomatch h
@@ -1637,27 +1637,27 @@ theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
       | some A => ?_
       rw [hA] at hV
       cases hB : denote cval env ψ (j + 1)
-          (bodyE.instantiate1 (.fvar j nm dom)) with
+          (bodyE.instantiate1 (.fvar j dom)) with
       | none => rw [hB] at hV; exact nomatch hV
       | some Bv => ?_
       rw [hB] at hV
       obtain rfl : V = .lam A Bv := (Option.some.inj hV).symm
       -- re-open at the anonymous opener (denote-irrelevant)
       have hB' : denote cval env ψ (j + 1)
-          (bodyE.instantiate1 (.fvar j Name.anonymous (.sort .zero)))
+          (bodyE.instantiate1 (.fvar j (.sort .zero)))
           = some Bv := by
         rw [denote_erasedEq (Expr.ErasedEq.instantiate1
           (Expr.ErasedEq.rfl bodyE)
-          (show Expr.ErasedEq (.fvar j Name.anonymous (.sort .zero))
-            (.fvar j nm dom) from by constructor)) (j + 1)]
+          (show Expr.ErasedEq (.fvar j (.sort .zero))
+            (.fvar j dom) from by constructor)) (j + 1)]
         exact hB
-      have hsI : ((bodyE.instantiate1 (.fvar j Name.anonymous
+      have hsI : ((bodyE.instantiate1 (.fvar j
           (.sort .zero))).stripLams k).isSome :=
         Expr.stripLams_instantiate1_isSome k 0 (by rw [hs]; rfl)
       obtain ⟨bs', body', hsI2⟩ : ∃ bs' body',
-          (bodyE.instantiate1 (.fvar j Name.anonymous
+          (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripLams k = some (bs', body') := by
-        cases hq : (bodyE.instantiate1 (.fvar j Name.anonymous
+        cases hq : (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripLams k with
         | none => rw [hq] at hsI; exact nomatch hsI
         | some q => exact ⟨q.1, q.2, rfl⟩
@@ -1672,16 +1672,16 @@ theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
       · show denote cval env ψ (j + (k + 1))
           (Expr.instSeq (openFvars j (k + 1)) (k + 1 - 1) p.2)
           = some C
-        rw [show openFvars j (k + 1) = .fvar j Name.anonymous
+        rw [show openFvars j (k + 1) = .fvar j
             (.sort .zero) :: openFvars (j + 1) k from rfl,
-          show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
+          show Expr.instSeq (.fvar j (.sort .zero)
               :: openFvars (j + 1) k) (k + 1 - 1) p.2 =
             Expr.instSeq (openFvars (j + 1) k) (k - 1)
-              (p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+              (p.2.instantiate1 (.fvar j (.sort .zero))
                 k) from by
             simp [Expr.instSeq],
           show j + (k + 1) = j + 1 + k from by omega,
-          show p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+          show p.2.instantiate1 (.fvar j (.sort .zero))
               k = body' from by
             rw [hbody']
             simp only [Nat.zero_add]]
@@ -1689,7 +1689,7 @@ theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
       · intro i0 b hb
         cases i0 with
         | zero =>
-          obtain rfl : (nm, dom, mb) = b := by simpa using hb
+          obtain rfl : (dom, mb) = b := by simpa using hb
           show denote cval env ψ (j + 0)
             (Expr.instSeq (openFvars j 0) (0 - 1) dom) = _
           rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
@@ -1716,14 +1716,14 @@ theorem stripLams_denoteTele {cval : TConstVal} {env : Env}
             rw [show k + 1 - 1 - (i0 + 1) = k - 1 - i0 from by omega,
               List.getElem?_append_left (by omega)]]
           show denote cval env ψ (j + (i0 + 1))
-            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.2.1)
+            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.1)
             = _
-          rw [show openFvars j (i0 + 1) = .fvar j Name.anonymous
+          rw [show openFvars j (i0 + 1) = .fvar j
               (.sort .zero) :: openFvars (j + 1) i0 from rfl,
-            show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
-                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.2.1 =
+            show Expr.instSeq (.fvar j (.sort .zero)
+                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.1 =
               Expr.instSeq (openFvars (j + 1) i0) (i0 - 1)
-                (b.2.1.instantiate1 (.fvar j Name.anonymous
+                (b.1.instantiate1 (.fvar j
                   (.sort .zero)) i0) from by
               simp [Expr.instSeq],
             show j + (i0 + 1) = j + 1 + i0 from by omega]
@@ -1792,16 +1792,16 @@ opener family produces the same values. -/
 theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
     {ψ : Name → Nat} :
     ∀ (k : Nat) {e : Expr} {j : Nat}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr} {V : VExpr},
+      {bs : List (Expr × BinderMeta)} {body : Expr} {V : VExpr},
       e.stripPis k = some (bs, body) →
       denote cval env ψ j e = some V →
       ∃ (Γ : List VExpr) (C : VExpr),
         PiTele k V Γ C ∧ Γ.length = k ∧
         denote cval env ψ (j + k)
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
-        ∀ (i0 : Nat) (b : Name × Expr × BinderMeta), bs[i0]? = some b →
+        ∀ (i0 : Nat) (b : Expr × BinderMeta), bs[i0]? = some b →
           denote cval env ψ (j + i0)
-            (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
+            (Expr.instSeq (openFvars j i0) (i0 - 1) b.1) =
             some (Γ.getD (k - 1 - i0) default) := by
   intro k
   induction k with
@@ -1813,7 +1813,7 @@ theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
   | succ k ih =>
     intro e j bs body V h hV
     match e, h with
-    | .forallE nm dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [Expr.stripPis] at h
       cases hs : bodyE.stripPis k with
       | none => rw [hs] at h; exact nomatch h
@@ -1828,27 +1828,27 @@ theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
       | some A => ?_
       rw [hA] at hV
       cases hB : denote cval env ψ (j + 1)
-          (bodyE.instantiate1 (.fvar j nm dom)) with
+          (bodyE.instantiate1 (.fvar j dom)) with
       | none => rw [hB] at hV; exact nomatch hV
       | some Bv => ?_
       rw [hB] at hV
       obtain rfl : V = .pi A Bv := (Option.some.inj hV).symm
       -- re-open at the anonymous opener (denote-irrelevant)
       have hB' : denote cval env ψ (j + 1)
-          (bodyE.instantiate1 (.fvar j Name.anonymous (.sort .zero)))
+          (bodyE.instantiate1 (.fvar j (.sort .zero)))
           = some Bv := by
         rw [denote_erasedEq (Expr.ErasedEq.instantiate1
           (Expr.ErasedEq.rfl bodyE)
-          (show Expr.ErasedEq (.fvar j Name.anonymous (.sort .zero))
-            (.fvar j nm dom) from by constructor)) (j + 1)]
+          (show Expr.ErasedEq (.fvar j (.sort .zero))
+            (.fvar j dom) from by constructor)) (j + 1)]
         exact hB
-      have hsI : ((bodyE.instantiate1 (.fvar j Name.anonymous
+      have hsI : ((bodyE.instantiate1 (.fvar j
           (.sort .zero))).stripPis k).isSome :=
         Expr.stripPis_instantiate1_isSome k 0 (by rw [hs]; rfl)
       obtain ⟨bs', body', hsI2⟩ : ∃ bs' body',
-          (bodyE.instantiate1 (.fvar j Name.anonymous
+          (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripPis k = some (bs', body') := by
-        cases hq : (bodyE.instantiate1 (.fvar j Name.anonymous
+        cases hq : (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripPis k with
         | none => rw [hq] at hsI; exact nomatch hsI
         | some q => exact ⟨q.1, q.2, rfl⟩
@@ -1865,16 +1865,16 @@ theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
       · show denote cval env ψ (j + (k + 1))
           (Expr.instSeq (openFvars j (k + 1)) (k + 1 - 1) p.2)
           = some C
-        rw [show openFvars j (k + 1) = .fvar j Name.anonymous
+        rw [show openFvars j (k + 1) = .fvar j
             (.sort .zero) :: openFvars (j + 1) k from rfl,
-          show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
+          show Expr.instSeq (.fvar j (.sort .zero)
               :: openFvars (j + 1) k) (k + 1 - 1) p.2 =
             Expr.instSeq (openFvars (j + 1) k) (k - 1)
-              (p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+              (p.2.instantiate1 (.fvar j (.sort .zero))
                 k) from by
             simp [Expr.instSeq],
           show j + (k + 1) = j + 1 + k from by omega,
-          show p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+          show p.2.instantiate1 (.fvar j (.sort .zero))
               k = body' from by
             rw [hbody']
             simp only [Nat.zero_add]]
@@ -1882,7 +1882,7 @@ theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
       · intro i0 b hb
         cases i0 with
         | zero =>
-          obtain rfl : (nm, dom, mb) = b := by simpa using hb
+          obtain rfl : (dom, mb) = b := by simpa using hb
           show denote cval env ψ (j + 0)
             (Expr.instSeq (openFvars j 0) (0 - 1) dom) = _
           rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
@@ -1909,14 +1909,14 @@ theorem stripPis_denoteTele {cval : TConstVal} {env : Env}
             rw [show k + 1 - 1 - (i0 + 1) = k - 1 - i0 from by omega,
               List.getElem?_append_left (by omega)]]
           show denote cval env ψ (j + (i0 + 1))
-            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.2.1)
+            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.1)
             = _
-          rw [show openFvars j (i0 + 1) = .fvar j Name.anonymous
+          rw [show openFvars j (i0 + 1) = .fvar j
               (.sort .zero) :: openFvars (j + 1) i0 from rfl,
-            show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
-                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.2.1 =
+            show Expr.instSeq (.fvar j (.sort .zero)
+                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.1 =
               Expr.instSeq (openFvars (j + 1) i0) (i0 - 1)
-                (b.2.1.instantiate1 (.fvar j Name.anonymous
+                (b.1.instantiate1 (.fvar j
                   (.sort .zero)) i0) from by
               simp [Expr.instSeq],
             show j + (i0 + 1) = j + 1 + i0 from by omega]
@@ -1954,26 +1954,26 @@ telescope is the constructor's renamed, not equal to it — task #148,
 T5 c4); `towerCtxEq` is the syntactic corollary. -/
 theorem towerCtxEqD {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     {k : Nat} {Γβ Γc : List VExpr}
-    {rbinders cbinders : List (Name × Expr × BinderMeta)}
+    {rbinders cbinders : List (Expr × BinderMeta)}
     (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
     (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
-    (hβdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hβdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       rbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γβ.getD (k - 1 - i0) default))
-    (hcdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hcdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       cbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γc.getD (k - 1 - i0) default))
-    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
       cbinders[i0]? = some b' →
       denote cval env ψ (0 + i0)
-          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         denote cval env ψ (0 + i0)
-          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b'.2.1)) :
+          (Expr.instSeq (openFvars 0 i0) (i0 - 1) b'.1)) :
     Γβ = Γc := by
   refine List.ext_getElem (by omega) ?_
   intro q h1 h2
@@ -2002,22 +2002,22 @@ theorem towerCtxEqD {cval : TConstVal} {env : Env} {ψ : Name → Nat}
 have the same denoted context (sealed for the same reason). -/
 theorem towerCtxEq {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     {k : Nat} {Γβ Γc : List VExpr}
-    {rbinders cbinders : List (Name × Expr × BinderMeta)}
+    {rbinders cbinders : List (Expr × BinderMeta)}
     (hrblen : rbinders.length = k) (hcblen : cbinders.length = k)
     (hΓβlen : Γβ.length = k) (hΓclen : Γc.length = k)
-    (hβdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hβdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       rbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γβ.getD (k - 1 - i0) default))
-    (hcdoms : ∀ (i0 : Nat) (b : Name × Expr × BinderMeta),
+    (hcdoms : ∀ (i0 : Nat) (b : Expr × BinderMeta),
       cbinders[i0]? = some b →
       denote cval env ψ (0 + i0)
-        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.2.1) =
+        (Expr.instSeq (openFvars 0 i0) (i0 - 1) b.1) =
         some (Γc.getD (k - 1 - i0) default))
-    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < k → rbinders[i0]? = some b →
-      cbinders[i0]? = some b' → b.2.1 = b'.2.1) :
+      cbinders[i0]? = some b' → b.1 = b'.1) :
     Γβ = Γc :=
   towerCtxEqD hrblen hcblen hΓβlen hΓclen hβdoms hcdoms
     (fun i0 b b' hi hb hb' => by rw [hrdomsEq i0 b b' hi hb hb'])
@@ -2105,12 +2105,12 @@ frame variable (sealed). -/
 theorem projRhsValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
     {fvs : List Expr} {rP cnF i : Nat} {vR : VExpr}
     (hshapeS : ∀ (i0 : Nat) (x : Expr), fvs[i0]? = some x →
-      ∃ nm ty, x = Expr.fvar i0 nm ty)
+      ∃ ty, x = Expr.fvar i0 ty)
     (hfvslen : fvs.length = rP + cnF) (hilt : i < cnF)
     (hRden : denote cval env ψ (rP + cnF) (fvs.getD (rP + i) default)
       = some vR) :
     vR = .bvar (rP + cnF - 1 - (rP + i)) := by
-  obtain ⟨nm, t, hsh⟩ := hshapeS (rP + i) fvs[rP + i]
+  obtain ⟨t, hsh⟩ := hshapeS (rP + i) fvs[rP + i]
     (List.getElem?_eq_getElem (show rP + i < fvs.length from by omega))
   rw [show fvs.getD (rP + i) default = fvs[rP + i] from by
       simp [List.getD, List.getElem?_eq_getElem
@@ -2133,7 +2133,7 @@ theorem instLamsAt_length :
   | cons a sp ih =>
     intro e ds rest h
     match e, h with
-    | .lam nm dom body mb, h =>
+    | .lam dom body mb, h =>
       simp only [Expr.instLamsAt] at h
       cases h1 : Expr.instLamsAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -2162,7 +2162,7 @@ theorem Expr.instPisAt_append :
   | cons a as ih =>
     intro bs ty ds ds2 rs rs2 h h2
     match ty, h with
-    | .forallE nm dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt as (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -2187,7 +2187,7 @@ theorem instLamsAt_denoteTele {cval : TConstVal} {env : Env}
       {rest : Expr} {Vv : VExpr},
       Expr.instLamsAt sp e = some (ds, rest) →
       (∀ (i : Nat) (x : Expr), sp[i]? = some x →
-        ∃ nm ty, x = Expr.fvar (j + i) nm ty) →
+        ∃ ty, x = Expr.fvar (j + i) ty) →
       denote cval env ψ j e = some Vv →
       ∃ (Γ : List VExpr) (C : VExpr),
         Vv = lamCtx Γ C ∧ Γ.length = sp.length ∧
@@ -2205,7 +2205,7 @@ theorem instLamsAt_denoteTele {cval : TConstVal} {env : Env}
   | cons a sp ih =>
     intro e j ds rest Vv h hshape hV
     match e, h with
-    | .lam nm dom bodyE mb, h =>
+    | .lam dom bodyE mb, h =>
       simp only [Expr.instLamsAt] at h
       cases h1 : Expr.instLamsAt sp (bodyE.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -2219,26 +2219,26 @@ theorem instLamsAt_denoteTele {cval : TConstVal} {env : Env}
       | some A => ?_
       rw [hA] at hV
       cases hB : denote cval env ψ (j + 1)
-          (bodyE.instantiate1 (.fvar j nm dom)) with
+          (bodyE.instantiate1 (.fvar j dom)) with
       | none => rw [hB] at hV; exact nomatch hV
       | some Bv => ?_
       rw [hB] at hV
       obtain rfl : Vv = .lam A Bv := (Option.some.inj hV).symm
       -- the head opener's shape
-      obtain ⟨nmA, tyA, rfl⟩ := hshape 0 a rfl
+      obtain ⟨tyA, rfl⟩ := hshape 0 a rfl
       -- re-open at the run's opener (denote-irrelevant)
       have hB' : denote cval env ψ (j + 1)
-          (bodyE.instantiate1 (.fvar (j + 0) nmA tyA)) = some Bv := by
+          (bodyE.instantiate1 (.fvar (j + 0) tyA)) = some Bv := by
         rw [denote_erasedEq (Expr.ErasedEq.instantiate1
           (Expr.ErasedEq.rfl bodyE)
-          (show Expr.ErasedEq (.fvar (j + 0) nmA tyA)
-            (.fvar j nm dom) from by constructor)) (j + 1)]
+          (show Expr.ErasedEq (.fvar (j + 0) tyA)
+            (.fvar j dom) from by constructor)) (j + 1)]
         exact hB
       have hshape' : ∀ (i : Nat) (x : Expr), sp[i]? = some x →
-          ∃ nm' ty', x = Expr.fvar (j + 1 + i) nm' ty' := by
+          ∃ ty', x = Expr.fvar (j + 1 + i) ty' := by
         intro i x hx
-        obtain ⟨nm', ty', hx'⟩ := hshape (i + 1) x (by simpa using hx)
-        exact ⟨nm', ty', by rw [hx']; congr 1; omega⟩
+        obtain ⟨ty', hx'⟩ := hshape (i + 1) x (by simpa using hx)
+        exact ⟨ty', by rw [hx']; congr 1; omega⟩
       obtain ⟨Γ', C, rfl, hΓlen, hrest, hdoms⟩ := ih h1 hshape' hB'
       have hdslen : p.1.length = sp.length := instLamsAt_length sp h1
       refine ⟨Γ' ++ [A], C, ?_, ?_, ?_, ?_⟩
@@ -2294,7 +2294,7 @@ theorem instLamsAt_leaves :
   | cons a as ih =>
     intro ty ds rs h l hl
     match ty, h with
-    | .lam n₁ d₁ b₁ m₁, h => ?_
+    | .lam d₁ b₁ m₁, h => ?_
     simp only [Expr.instLamsAt] at h
     cases h1 : Expr.instLamsAt as (b₁.instantiate1 a) with
     | none => rw [h1] at h; exact nomatch h
@@ -2303,7 +2303,7 @@ theorem instLamsAt_leaves :
     simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
     have push : l ∈ (b₁.instantiate1 a).fvarLeaves →
-        l ∈ (Expr.lam n₁ d₁ b₁ m₁).fvarLeaves ∨
+        l ∈ (Expr.lam d₁ b₁ m₁).fvarLeaves ∨
           ∃ x ∈ a :: as, l ∈ x.fvarLeaves := by
       intro hb
       rcases Expr.fvarLeaves_instantiate1 b₁ 0 hb with hb' | hb'
@@ -2338,9 +2338,9 @@ theorem openPisAtFvars_length :
   | succ k ih =>
     intro e d fvs body h
     match e, h with
-    | .forallE nm dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [openPisAtFvars] at h
-      cases h1 : openPisAtFvars k (bodyE.instantiate1 (.fvar d nm dom))
+      cases h1 : openPisAtFvars k (bodyE.instantiate1 (.fvar d dom))
           (d + 1) with
       | none => rw [h1] at h; exact nomatch h
       | some p =>
@@ -2365,7 +2365,7 @@ theorem instLamsAt_take :
   | cons a sp ih =>
     intro n ty ds rs h
     match ty, h with
-    | .lam nm dom body mb, h =>
+    | .lam dom body mb, h =>
       simp only [Expr.instLamsAt] at h
       cases h1 : Expr.instLamsAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -2375,7 +2375,7 @@ theorem instLamsAt_take :
         obtain ⟨rfl, rfl⟩ := h
         cases n with
         | zero =>
-          refine ⟨.lam nm dom body mb, by simp [Expr.instLamsAt], ?_⟩
+          refine ⟨.lam dom body mb, by simp [Expr.instLamsAt], ?_⟩
           simp only [List.drop_zero, Expr.instLamsAt, h1]
           rfl
         | succ n =>
@@ -2397,11 +2397,11 @@ theorem looseBVarsBounded_renameConsts {f : Name → Name} :
 /-- `stripPis` commutes with constant renaming (renaming touches no
 binder structure). -/
 theorem stripPis_renameConsts {f : Name → Name} :
-    ∀ (n : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr},
       e.stripPis n = some (bs, body) →
       (e.renameConsts f).stripPis n =
-        some (bs.map (fun b => (b.1, b.2.1.renameConsts f, b.2.2)),
+        some (bs.map (fun b => (b.1.renameConsts f, b.2)),
           body.renameConsts f) := by
   intro n
   induction n with
@@ -2413,14 +2413,14 @@ theorem stripPis_renameConsts {f : Name → Name} :
   | succ n ih =>
     intro e bs body h
     match e, h with
-    | .forallE nm dom b m, h =>
+    | .forallE dom b m, h =>
       simp only [Expr.stripPis] at h
       cases hs : b.stripPis n with
       | none => rw [hs] at h; exact nomatch h
       | some p =>
         rw [hs] at h
         simp only [Option.map_some, Option.some.injEq] at h
-        obtain ⟨hbs, hbody⟩ : (nm, dom, m) :: p.1 = bs ∧ p.2 = body := by
+        obtain ⟨hbs, hbody⟩ : (dom, m) :: p.1 = bs ∧ p.2 = body := by
           cases h; exact ⟨rfl, rfl⟩
         subst hbs hbody
         show ((b.renameConsts f).stripPis n).map _ = _
@@ -2439,12 +2439,12 @@ theorem getAppArgs_length_renameConsts {f : Name → Name} :
     rw [List.length_append, List.length_append, ihg]
     rfl
   | bvar i => rfl
-  | fvar i n ty => rfl
+  | fvar i ty => rfl
   | sort u => rfl
   | const n us => rfl
-  | lam n ty b m => rfl
-  | forallE n ty b m => rfl
-  | letE n ty v b => rfl
+  | lam ty b m => rfl
+  | forallE ty b m => rfl
+  | letE ty v b => rfl
   | lit l => rfl
   | proj s i e => rfl
 

@@ -42,8 +42,8 @@ theorem denoteP_sort (acval : Name → (Name → Nat) → AVExpr)
   rw [denoteP]
 
 theorem denoteP_fvar (acval : Name → (Name → Nat) → AVExpr)
-    (d idx : Nat) (n : Name) (ty : Expr) :
-    denoteP acval env φ d (.fvar idx n ty)
+    (d idx : Nat) (ty : Expr) :
+    denoteP acval env φ d (.fvar idx ty)
       = some (.bvar (d - 1 - idx)) := by
   rw [denoteP]
 
@@ -97,22 +97,22 @@ theorem denoteP_proj_pair (acval : Name → (Name → Nat) → AVExpr)
     rw [hnt]
 
 theorem denoteP_forallE (acval : Name → (Name → Nat) → AVExpr)
-    (d : Nat) (n : Name) (ty body : Expr) (mb : Lech.BinderMeta) :
-    denoteP acval env φ d (.forallE n ty body mb)
+    (d : Nat) (ty body : Expr) (mb : Lech.BinderMeta) :
+    denoteP acval env φ d (.forallE ty body mb)
       = (do
         let ta ← denoteP acval env φ d ty
         let ba ← denoteP acval env φ (d + 1)
-          (body.instantiate1 (.fvar d n ty))
+          (body.instantiate1 (.fvar d ty))
         some (.pi 0 (pwBit φ mb.pw) ta ba)) := by
   rw [denoteP]
 
 theorem denoteP_lam (acval : Name → (Name → Nat) → AVExpr)
-    (d : Nat) (n : Name) (ty body : Expr) (mb : Lech.BinderMeta) :
-    denoteP acval env φ d (.lam n ty body mb)
+    (d : Nat) (ty body : Expr) (mb : Lech.BinderMeta) :
+    denoteP acval env φ d (.lam ty body mb)
       = (do
         let ta ← denoteP acval env φ d ty
         let ba ← denoteP acval env φ (d + 1)
-          (body.instantiate1 (.fvar d n ty))
+          (body.instantiate1 (.fvar d ty))
         some (.lam (pwBit φ mb.pw) ta ba)) := by
   rw [denoteP]
 
@@ -180,37 +180,37 @@ theorem denoteP_proj_inv_pair {d : Nat} {s : Name} {i : Nat} {e : Expr}
   · rw [hnt] at hfp; exact nomatch hfp
   · exact ⟨ia, hia, hlt, rfl⟩
 
-theorem denoteP_forallE_inv {d : Nat} {n : Name} {ty bd : Expr}
+theorem denoteP_forallE_inv {d : Nat} {ty bd : Expr}
     {mb : Lech.BinderMeta} {ea : AVExpr}
-    (h : denoteP acval env φ d (.forallE n ty bd mb) = some ea) :
+    (h : denoteP acval env φ d (.forallE ty bd mb) = some ea) :
     ∃ ta ba, denoteP acval env φ d ty = some ta ∧
       denoteP acval env φ (d + 1)
-        (bd.instantiate1 (.fvar d n ty)) = some ba ∧
+        (bd.instantiate1 (.fvar d ty)) = some ba ∧
       ea = .pi 0 (pwBit φ mb.pw) ta ba := by
   rw [denoteP] at h
   cases ht : denoteP acval env φ d ty with
   | none => rw [ht] at h; exact nomatch h
   | some ta =>
     cases hb : denoteP acval env φ (d + 1)
-        (bd.instantiate1 (.fvar d n ty)) with
+        (bd.instantiate1 (.fvar d ty)) with
     | none => rw [ht, hb] at h; exact nomatch h
     | some ba =>
       rw [ht, hb] at h
       exact ⟨ta, ba, rfl, rfl, (Option.some.inj h).symm⟩
 
-theorem denoteP_lam_inv {d : Nat} {n : Name} {ty bd : Expr}
+theorem denoteP_lam_inv {d : Nat} {ty bd : Expr}
     {mb : Lech.BinderMeta} {ea : AVExpr}
-    (h : denoteP acval env φ d (.lam n ty bd mb) = some ea) :
+    (h : denoteP acval env φ d (.lam ty bd mb) = some ea) :
     ∃ ta ba, denoteP acval env φ d ty = some ta ∧
       denoteP acval env φ (d + 1)
-        (bd.instantiate1 (.fvar d n ty)) = some ba ∧
+        (bd.instantiate1 (.fvar d ty)) = some ba ∧
       ea = .lam (pwBit φ mb.pw) ta ba := by
   rw [denoteP] at h
   cases ht : denoteP acval env φ d ty with
   | none => rw [ht] at h; exact nomatch h
   | some ta =>
     cases hb : denoteP acval env φ (d + 1)
-        (bd.instantiate1 (.fvar d n ty)) with
+        (bd.instantiate1 (.fvar d ty)) with
     | none => rw [ht, hb] at h; exact nomatch h
     | some ba =>
       rw [ht, hb] at h

@@ -224,7 +224,7 @@ resolves in the pre-block environment (see `directNonRec`). -/
 def directSumNonRec (env : Env) (p : DirectSumParts) : Bool :=
   p.ctors.all fun c =>
     match c.1.type.stripPis (p.nP + c.2) with
-    | some (cbs, _) => cbs.all fun b => b.2.1.constsResolve env
+    | some (cbs, _) => cbs.all fun b => b.1.constsResolve env
     | none => false
 
 /-- Recognise a direct sum block against an environment.  Like

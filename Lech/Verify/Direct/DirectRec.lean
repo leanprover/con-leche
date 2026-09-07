@@ -49,15 +49,15 @@ theorem replacePisPw_instantiate1 {pw : PropWhen} {v : Expr} :
     simp [Expr.replacePisPw]
   | k + 1, e, b, r, j, h => by
     match e, h with
-    | .forallE n ty rest m, h =>
+    | .forallE ty rest m, h =>
       simp only [Expr.replacePisPw, Option.map_eq_some_iff] at h
       obtain ⟨r', hr', rfl⟩ := h
       simp only [Expr.instantiate1, Expr.replacePisPw]
       rw [show j + (k + 1) = j + 1 + k from by omega,
         replacePisPw_instantiate1 k (j + 1) hr']
       rfl
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.replacePisPw] at h
 
 theorem pisToLamsPw_instantiate1 {pw : PropWhen} {v : Expr} :
@@ -71,15 +71,15 @@ theorem pisToLamsPw_instantiate1 {pw : PropWhen} {v : Expr} :
     simp [Expr.pisToLamsPw]
   | k + 1, e, b, r, j, h => by
     match e, h with
-    | .forallE n ty rest m, h =>
+    | .forallE ty rest m, h =>
       simp only [Expr.pisToLamsPw, Option.map_eq_some_iff] at h
       obtain ⟨r', hr', rfl⟩ := h
       simp only [Expr.instantiate1, Expr.pisToLamsPw]
       rw [show j + (k + 1) = j + 1 + k from by omega,
         pisToLamsPw_instantiate1 k (j + 1) hr']
       rfl
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.pisToLamsPw] at h
 
 /-- An instantiation sequence pushes through the walk: the telescope
@@ -123,9 +123,9 @@ theorem pisToLamsPw_instSeq {pw : PropWhen} :
 /-- The walk keeps the telescope's binders (data reset) over the new
 body. -/
 theorem replacePisPw_stripPis {pw : PropWhen} :
-    ∀ (k : Nat) {e b r : Expr} {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+    ∀ (k : Nat) {e b r : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
       Expr.replacePisPw pw k e b = some r → e.stripPis k = some (bs, body) →
-      r.stripPis k = some (bs.map fun x => (x.1, x.2.1, (⟨x.2.2.bi, pw⟩ : BinderMeta)), b)
+      r.stripPis k = some (bs.map fun x => (x.1, (⟨pw⟩ : BinderMeta)), b)
   | 0, e, b, r, bs, body, h, hs => by
     simp only [Expr.replacePisPw, Option.some.injEq] at h
     simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at hs
@@ -134,7 +134,7 @@ theorem replacePisPw_stripPis {pw : PropWhen} :
     rfl
   | k + 1, e, b, r, bs, body, h, hs => by
     match e, h, hs with
-    | .forallE n ty rest m, h, hs =>
+    | .forallE ty rest m, h, hs =>
       simp only [Expr.replacePisPw, Option.map_eq_some_iff] at h
       obtain ⟨r', hr', rfl⟩ := h
       simp only [stripPis] at hs
@@ -145,13 +145,13 @@ theorem replacePisPw_stripPis {pw : PropWhen} :
         simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hs
         obtain ⟨rfl, rfl⟩ := hs
         simp only [stripPis, replacePisPw_stripPis k hr' hs', Option.map_some, List.map_cons]
-    | .bvar _, h, _ | .fvar _ _ _, h, _ | .sort _, h, _ | .const _ _, h, _
-    | .app _ _, h, _ | .lam _ _ _ _, h, _ | .letE _ _ _ _, h, _ | .lit _, h, _
+    | .bvar _, h, _ | .fvar _ _, h, _ | .sort _, h, _ | .const _ _, h, _
+    | .app _ _, h, _ | .lam _ _ _, h, _ | .letE _ _ _, h, _ | .lit _, h, _
     | .proj _ _ _, h, _ => simp [Expr.replacePisPw] at h
 
 /-- Two strips compose. -/
 theorem stripPis_append :
-    ∀ (k : Nat) {m : Nat} {e : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {m : Nat} {e : Expr} {bs bs' : List (Expr × BinderMeta)}
       {mid body : Expr},
       e.stripPis k = some (bs, mid) → mid.stripPis m = some (bs', body) →
       e.stripPis (k + m) = some (bs ++ bs', body)
@@ -161,7 +161,7 @@ theorem stripPis_append :
     simpa using h'
   | k + 1, m, e, bs, bs', mid, body, h, h' => by
     match e, h with
-    | .forallE n ty rest mb, h =>
+    | .forallE ty rest mb, h =>
       simp only [stripPis] at h
       cases hs : rest.stripPis k with
       | none => rw [hs] at h; exact nomatch h
@@ -171,14 +171,14 @@ theorem stripPis_append :
         obtain ⟨rfl, rfl⟩ := h
         rw [show k + 1 + m = (k + m) + 1 from by omega]
         simp only [stripPis, stripPis_append k hs h', Option.map_some, List.cons_append]
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [stripPis] at h
 
 /-- The `instPisAt` peel at a spine is the strip's body instantiated
 along the spine (the `∀` twin of `instLamsAt_rest_of_stripLams`). -/
 theorem instPisAt_of_stripPis :
-    ∀ (sp : List Expr) {e : Expr} {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+    ∀ (sp : List Expr) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
       e.stripPis sp.length = some (bs, body) →
       ∃ ds, Expr.instPisAt sp e = some (ds, instSeq sp (sp.length - 1) body)
   | [], e, bs, body, h => by
@@ -187,7 +187,7 @@ theorem instPisAt_of_stripPis :
     exact ⟨[], rfl⟩
   | a :: sp, e, bs, body, h => by
     match e, h with
-    | .forallE n ty rest m, h =>
+    | .forallE ty rest m, h =>
       simp only [List.length_cons, stripPis] at h
       cases hs : rest.stripPis sp.length with
       | none => rw [hs] at h; exact nomatch h
@@ -201,29 +201,29 @@ theorem instPisAt_of_stripPis :
         refine ⟨ty :: ds, ?_⟩
         simp only [Expr.instPisAt, hds, Option.map_some, List.length_cons, Nat.add_sub_cancel]
         rfl
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [stripPis] at h
 
 /-- An instantiation sequence pushes through a `λ` (the twin of
 `instSeq_forallE`). -/
 theorem instSeq_lam :
-    ∀ (args : List Expr) (t : Nat) (n : Name) (d b : Expr)
+    ∀ (args : List Expr) (t : Nat) (d b : Expr)
       (m : BinderMeta), args.length ≤ t + 1 →
-      instSeq args t (.lam n d b m) =
-        .lam n (instSeq args t d) (instSeq args (t + 1) b) m := by
+      instSeq args t (.lam d b m) =
+        .lam (instSeq args t d) (instSeq args (t + 1) b) m := by
   intro args
   induction args with
-  | nil => intro t n d b m _; rfl
+  | nil => intro t d b m _; rfl
   | cons a as ih =>
-    intro t n d b m hlen
+    intro t d b m hlen
     show instSeq as (t - 1)
-      (.lam n (d.instantiate1 a t) (b.instantiate1 a (t + 1)) m) = _
-    rw [ih (t - 1) n (d.instantiate1 a t) (b.instantiate1 a (t + 1)) m
+      (.lam (d.instantiate1 a t) (b.instantiate1 a (t + 1)) m) = _
+    rw [ih (t - 1) (d.instantiate1 a t) (b.instantiate1 a (t + 1)) m
       (by simp only [List.length_cons] at hlen; omega)]
-    show Expr.lam n (instSeq as (t - 1) (d.instantiate1 a t))
+    show Expr.lam (instSeq as (t - 1) (d.instantiate1 a t))
         (instSeq as (t - 1 + 1) (b.instantiate1 a (t + 1))) m =
-      Expr.lam n (instSeq as (t - 1) (d.instantiate1 a t))
+      Expr.lam (instSeq as (t - 1) (d.instantiate1 a t))
         (instSeq as (t + 1 - 1) (b.instantiate1 a (t + 1))) m
     cases as with
     | nil => rfl
@@ -377,20 +377,20 @@ theorem instSeq_ruleBody (tfvs xFvs : List Expr) (mfv mkfv : Expr) {nP nF : Nat}
 theorem directRecTy_single {T C : Name} {lps : List Name} {elim : Name} {large : Bool}
     {nP nF : Nat} {tty cty recTy : Expr}
     (h : directRecTy T lps elim large nP tty [(C, nF, cty)] = some recTy) :
-    ∃ (cbs : List (Name × Expr × BinderMeta)) (crest0 minorTy : Expr),
+    ∃ (cbs : List (Expr × BinderMeta)) (crest0 minorTy : Expr),
       cty.stripPis nP = some (cbs, crest0) ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nF
         (crest0.liftLooseBVars 1 0)
         (.app (.bvar nF) (directCtorSpineAt C lps 1 nP nF)) = some minorTy ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nP tty
-        (.forallE (.str .anonymous "motive")
+        (.forallE
           (directMotiveTy T lps nP (directElimLevel elim large))
-          (.forallE (Name.lastStr C) minorTy
-            (.forallE (.str .anonymous "t") (directFam T lps nP 2)
+          (.forallE minorTy
+            (.forallE (directFam T lps nP 2)
               (.app (.bvar 2) (.bvar 0))
-              ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩)
-            ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩)
-          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
+              ⟨Level.zeronessOf (directElimLevel elim large)⟩)
+            ⟨Level.zeronessOf (directElimLevel elim large)⟩)
+          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
   unfold directRecTy at h
   simp only [List.length_singleton, Option.bind_eq_some_iff] at h
   obtain ⟨minors, hminors, hr⟩ := h
@@ -409,7 +409,7 @@ theorem directRecTy_single {T C : Name} {lps : List Name} {elim : Name} {large :
 theorem directRecRhs_single {T C : Name} {lps : List Name} {elim : Name} {large : Bool}
     {nP nF : Nat} {tty cty rhs : Expr}
     (h : directRecRhs T lps elim large nP tty [(C, nF, cty)] 0 = some rhs) :
-    ∃ (cbs : List (Name × Expr × BinderMeta)) (crest0 minorTy inner : Expr),
+    ∃ (cbs : List (Expr × BinderMeta)) (crest0 minorTy inner : Expr),
       cty.stripPis nP = some (cbs, crest0) ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nF
         (crest0.liftLooseBVars 1 0)
@@ -419,11 +419,11 @@ theorem directRecRhs_single {T C : Name} {lps : List Name} {elim : Name} {large 
         (Expr.mkAppN (.bvar nF)
           ((List.range nF).map fun k => Expr.bvar (nF - 1 - k))) = some inner ∧
       Expr.pisToLamsPw (Level.zeronessOf (directElimLevel elim large)) nP tty
-        (.lam (.str .anonymous "motive")
+        (.lam
           (directMotiveTy T lps nP (directElimLevel elim large))
-          (.lam (Name.lastStr C) minorTy inner
-            ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩)
-          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
+          (.lam minorTy inner
+            ⟨Level.zeronessOf (directElimLevel elim large)⟩)
+          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
   unfold directRecRhs at h
   simp only [List.length_singleton, List.getElem?_cons_zero, Option.bind_eq_some_iff] at h
   obtain ⟨q, hq, inner, hinner, minors, hminors, hr⟩ := h
@@ -450,7 +450,7 @@ theorem NoProjAt.liftLooseBVars {k : Nat} :
   intro e
   induction e with
   | bvar j => intro c _; simp only [Expr.liftLooseBVars]; split <;> simp
-  | fvar idx n ty ih => intro c h; simpa [Expr.liftLooseBVars] using h
+  | fvar idx ty ih => intro c h; simpa [Expr.liftLooseBVars] using h
   | sort u => intro c _; simp [Expr.liftLooseBVars]
   | const n us => intro c _; simp [Expr.liftLooseBVars]
   | lit l => intro c _; simp [Expr.liftLooseBVars]
@@ -459,17 +459,17 @@ theorem NoProjAt.liftLooseBVars {k : Nat} :
     rw [noProjAt_app] at h
     simp only [Expr.liftLooseBVars, noProjAt_app]
     exact ⟨ihf h.1, iha h.2⟩
-  | lam n ty b m ihty ihb =>
+  | lam ty b m ihty ihb =>
     intro c h
     rw [noProjAt_lam] at h
     simp only [Expr.liftLooseBVars, noProjAt_lam]
     exact ⟨ihty h.1, ihb h.2⟩
-  | forallE n ty b m ihty ihb =>
+  | forallE ty b m ihty ihb =>
     intro c h
     rw [noProjAt_forallE] at h
     simp only [Expr.liftLooseBVars, noProjAt_forallE]
     exact ⟨ihty h.1, ihb h.2⟩
-  | letE n t v b iht ihv ihb =>
+  | letE t v b iht ihv ihb =>
     intro c h
     rw [noProjAt_letE] at h
     simp only [Expr.liftLooseBVars, noProjAt_letE]
@@ -490,14 +490,14 @@ theorem NoProjAt.mkAppN :
       (fun a' ha' => has a' (List.mem_cons_of_mem _ ha'))
 
 theorem NoProjAt.stripPis :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
       e.stripPis k = some (bs, body) → NoProjAt T i e → NoProjAt T i body
   | 0, e, bs, body, h, he => by
     simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
     rw [← h.2]; exact he
   | k + 1, e, bs, body, h, he => by
     match e, h with
-    | .forallE n ty rest m, h =>
+    | .forallE ty rest m, h =>
       simp only [Expr.stripPis] at h
       cases hs : rest.stripPis k with
       | none => rw [hs] at h; exact nomatch h
@@ -507,8 +507,8 @@ theorem NoProjAt.stripPis :
         obtain ⟨-, rfl⟩ := h
         rw [noProjAt_forallE] at he
         exact NoProjAt.stripPis k hs he.2
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.stripPis] at h
 
 theorem NoProjAt.replacePisPw {pw : PropWhen} :
@@ -519,13 +519,13 @@ theorem NoProjAt.replacePisPw {pw : PropWhen} :
     rw [← h]; exact hb
   | k + 1, e, b, r, h, he, hb => by
     match e, h with
-    | .forallE n ty rest m, h =>
+    | .forallE ty rest m, h =>
       simp only [Expr.replacePisPw, Option.map_eq_some_iff] at h
       obtain ⟨r', hr', rfl⟩ := h
       rw [noProjAt_forallE] at he ⊢
       exact ⟨he.1, NoProjAt.replacePisPw k hr' he.2 hb⟩
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.replacePisPw] at h
 
 theorem NoProjAt.pisToLamsPw {pw : PropWhen} :
@@ -536,14 +536,14 @@ theorem NoProjAt.pisToLamsPw {pw : PropWhen} :
     rw [← h]; exact hb
   | k + 1, e, b, r, h, he, hb => by
     match e, h with
-    | .forallE n ty rest m, h =>
+    | .forallE ty rest m, h =>
       simp only [Expr.pisToLamsPw, Option.map_eq_some_iff] at h
       obtain ⟨r', hr', rfl⟩ := h
       rw [noProjAt_forallE] at he
       rw [noProjAt_lam]
       exact ⟨he.1, NoProjAt.pisToLamsPw k hr' he.2 hb⟩
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.pisToLamsPw] at h
 
 theorem NoProjAt.directPsAt (o nP : Nat) : ∀ a ∈ directPsAt o nP, NoProjAt T i a := by

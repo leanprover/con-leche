@@ -29,7 +29,7 @@ genuine divergence between the two fits:
 
 * `TeleFitV` (`AnnotOkV.lean:292`) is *syntactic* — its cons peels
   `.pi A B` to `B.inst a`, exactly as `iotaCerts` peels
-  `.forallE _ ty body` to `body.instantiate1 arg`.  The two walks
+  `.forallE ty body` to `body.instantiate1 arg`.  The two walks
   step in lockstep, so `certs_teleR` needs no substitution lemma.
 * `TeleFitP` (frozen) is *semantic* — its cons peels `.pi u v A B` to
   `B` under `cons a ρ`.  The checker's walk lands on the reading of
@@ -225,15 +225,15 @@ theorem certs_teleP {m : EnvS2Core V env}
     intro vs Ta hc hpc hwty hbty hLbty hCty hity hokT hargs hsp hokvs
     match ty, hc, hwty, hbty, hLbty, hCty, hity with
     | .bvar _, hc, _, _, _, _, _ => exact nomatch hc
-    | .fvar _ _ _, hc, _, _, _, _, _ => exact nomatch hc
+    | .fvar _ _, hc, _, _, _, _, _ => exact nomatch hc
     | .sort _, hc, _, _, _, _, _ => exact nomatch hc
     | .const _ _, hc, _, _, _, _, _ => exact nomatch hc
     | .app _ _, hc, _, _, _, _, _ => exact nomatch hc
-    | .lam _ _ _ _, hc, _, _, _, _, _ => exact nomatch hc
-    | .letE _ _ _ _, hc, _, _, _, _, _ => exact nomatch hc
+    | .lam _ _ _, hc, _, _, _, _, _ => exact nomatch hc
+    | .letE _ _ _, hc, _, _, _, _, _ => exact nomatch hc
     | .lit _, hc, _, _, _, _, _ => exact nomatch hc
     | .proj _ _ _, hc, _, _, _, _, _ => exact nomatch hc
-    | .forallE n dom body mb, hc, hwty, hbty, hLbty, hCty, hity => ?_
+    | .forallE dom body mb, hc, hwty, hbty, hLbty, hCty, hity => ?_
     -- the certificate's step, and the argument's frames
     obtain ⟨ta, hta, hde, hrestc⟩ := Lech.iotaCerts_step_inv hc
     obtain ⟨haw, hab, haLb, haC⟩ := hargs a List.mem_cons_self
@@ -284,7 +284,7 @@ theorem certs_teleP {m : EnvS2Core V env}
     have hbody' : denoteP m.acval env φ d (body.instantiate1 a)
         = some (bodya.inst aa) := by
       rw [denoteP_beta m.acval_closed (acval_inst_self m)
-        (n := n) (ty := dom) hbodyw.fvarsBelow haw hab haa 0, hbodya]
+        (ty := dom) hbodyw.fvarsBelow haw hab haa 0, hbodya]
       rfl
     have hwbody : Expr.WScoped d (body.instantiate1 a) :=
       Expr.WScoped.instantiate1_gen haw 0 hbodyw
@@ -455,15 +455,15 @@ theorem piChainP_of_stripPis {acval : Name → (Name → Nat) → AVExpr} :
     intro d e ea hs hd
     match e, hs with
     | .bvar _, hs => exact nomatch hs
-    | .fvar _ _ _, hs => exact nomatch hs
+    | .fvar _ _, hs => exact nomatch hs
     | .sort _, hs => exact nomatch hs
     | .const _ _, hs => exact nomatch hs
     | .app _ _, hs => exact nomatch hs
-    | .lam _ _ _ _, hs => exact nomatch hs
-    | .letE _ _ _ _, hs => exact nomatch hs
+    | .lam _ _ _, hs => exact nomatch hs
+    | .letE _ _ _, hs => exact nomatch hs
     | .lit _, hs => exact nomatch hs
     | .proj _ _ _, hs => exact nomatch hs
-    | .forallE nm ty bd mb, hs =>
+    | .forallE ty bd mb, hs =>
       obtain ⟨ta, ba, -, hba, rfl⟩ := denoteP_forallE_inv hd
       simp only [Lech.Expr.stripPis, Option.isSome_map] at hs
       exact ih (Lech.Expr.stripPis_instantiate1_isSome n 0 hs) hba

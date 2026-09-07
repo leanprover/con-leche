@@ -46,7 +46,7 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
   intro d e
   induction d, e using denoteP.induct (env := env₀) with
   | case1 d u => intro _ _ ea h; rw [denoteP] at h ⊢; exact h
-  | case2 d idx nm ty => intro _ _ ea h; rw [denoteP] at h ⊢; exact h
+  | case2 d idx ty => intro _ _ ea h; rw [denoteP] at h ⊢; exact h
   | case3 d n us ci hf hlen =>
     intro _ _ ea h
     rw [denoteP, hf] at h
@@ -62,26 +62,26 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     intro hc _ ea h
     rw [constsBound_const, hf] at hc
     exact nomatch hc
-  | case6 d n ty body m ihty ihbody =>
+  | case6 d ty body m ihty ihbody =>
     intro hc hnp ea h
     rw [constsBound_forallE] at hc
     have hnp' := fun j => Expr.noProjAt_forallE.mp (hnp j)
-    have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d n ty)) :=
+    have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d ty)) :=
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2
-    have hnpb : ∀ j, Expr.NoProjAt T j (body.instantiate1 (.fvar d n ty)) :=
+    have hnpb : ∀ j, Expr.NoProjAt T j (body.instantiate1 (.fvar d ty)) :=
       fun j => Expr.NoProjAt.instantiate1 (Expr.noProjAt_fvar.mpr (hnp' j).1) _ _ (hnp' j).2
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_forallE_inv h
     rw [denoteP, ihty hc.1 (fun j => (hnp' j).1) hta, ihbody hcb hnpb hba]
     rfl
-  | case7 d n ty body m ihty ihbody =>
+  | case7 d ty body m ihty ihbody =>
     intro hc hnp ea h
     rw [constsBound_lam] at hc
     have hnp' := fun j => Expr.noProjAt_lam.mp (hnp j)
-    have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d n ty)) :=
+    have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d ty)) :=
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2
-    have hnpb : ∀ j, Expr.NoProjAt T j (body.instantiate1 (.fvar d n ty)) :=
+    have hnpb : ∀ j, Expr.NoProjAt T j (body.instantiate1 (.fvar d ty)) :=
       fun j => Expr.NoProjAt.instantiate1 (Expr.noProjAt_fvar.mpr (hnp' j).1) _ _ (hnp' j).2
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_lam_inv h
     rw [denoteP, ihty hc.1 (fun j => (hnp' j).1) hta, ihbody hcb hnpb hba]
@@ -93,14 +93,14 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteP_app_inv h
     rw [denoteP, ihf hc.1 (fun j => (hnp' j).1) hfa, iha hc.2 (fun j => (hnp' j).2) haa]
     rfl
-  | case9 d n ty val body ihty ihval ihbody =>
+  | case9 d ty val body ihty ihval ihbody =>
     intro hc hnp ea h
     rw [constsBound_letE] at hc
     have hnp' := fun j => Expr.noProjAt_letE.mp (hnp j)
-    have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d n ty)) :=
+    have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d ty)) :=
       ConstsBound.instantiate1
         (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2.2
-    have hnpb : ∀ j, Expr.NoProjAt T j (body.instantiate1 (.fvar d n ty)) :=
+    have hnpb : ∀ j, Expr.NoProjAt T j (body.instantiate1 (.fvar d ty)) :=
       fun j => Expr.NoProjAt.instantiate1 (Expr.noProjAt_fvar.mpr (hnp' j).1) _ _ (hnp' j).2.2
     rw [denoteP] at h
     rcases hta : denoteP acval env₀ φ d ty with _ | ta
@@ -110,7 +110,7 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     · rw [hva] at h; exact nomatch h
     rw [hva] at h
     rcases hba : denoteP acval env₀ φ (d + 1)
-        (body.instantiate1 (.fvar d n ty)) with _ | ba
+        (body.instantiate1 (.fvar d ty)) with _ | ba
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
     rw [denoteP, ihty hc.1 (fun j => (hnp' j).1) hta, ihval hc.2.1 (fun j => (hnp' j).2.1) hva,
@@ -162,12 +162,12 @@ theorem denoteP_envExtend_mono_at {env₀ env : Env}
     cases x with
     | bvar i => rw [denoteP.eq_def] at h; exact nomatch h
     | sort u => exact absurd rfl (hs u)
-    | fvar i nm ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i ty)
     | const n us => exact absurd rfl (hc n us)
-    | forallE n ty b m => exact absurd rfl (hpi n ty b m)
-    | lam n ty b m => exact absurd rfl (hlam n ty b m)
+    | forallE ty b m => exact absurd rfl (hpi ty b m)
+    | lam ty b m => exact absurd rfl (hlam ty b m)
     | app f a => exact absurd rfl (happ f a)
-    | letE n ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

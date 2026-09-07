@@ -66,10 +66,10 @@ theorem hasFvar_mkAppN :
     exact ⟨hg, hargs a (List.mem_cons_self ..)⟩
 
 theorem stripLams_not_hasFvar :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr}, Expr.stripLams k e = some (bs, body) →
       e.hasFvar = false →
-      (∀ b ∈ bs, (b.2.1).hasFvar = false) ∧ body.hasFvar = false
+      (∀ b ∈ bs, (b.1).hasFvar = false) ∧ body.hasFvar = false
   | 0, e, bs, body, h, hf => by
     simp only [Expr.stripLams, Option.some.injEq] at h
     obtain ⟨rfl, rfl⟩ : [] = bs ∧ e = body :=
@@ -77,10 +77,10 @@ theorem stripLams_not_hasFvar :
     exact ⟨(fun b hb => nomatch hb), hf⟩
   | k + 1, e, bs, body, h, hf => by
     match e, h with
-    | .lam n ty b m, h =>
+    | .lam ty b m, h =>
       simp only [Expr.stripLams, Option.map_eq_some_iff] at h
       obtain ⟨⟨bs', body'⟩, hstrip, heq⟩ := h
-      obtain ⟨rfl, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body :=
+      obtain ⟨rfl, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body :=
         ⟨congrArg Prod.fst heq, congrArg Prod.snd heq⟩
       simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
       obtain ⟨hrest, hbody⟩ := stripLams_not_hasFvar k hstrip hf.2
@@ -91,10 +91,10 @@ theorem stripLams_not_hasFvar :
       · exact hrest b hb
 
 theorem stripPis_not_hasFvar :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr}, Expr.stripPis k e = some (bs, body) →
       e.hasFvar = false →
-      (∀ b ∈ bs, (b.2.1).hasFvar = false) ∧ body.hasFvar = false
+      (∀ b ∈ bs, (b.1).hasFvar = false) ∧ body.hasFvar = false
   | 0, e, bs, body, h, hf => by
     simp only [Expr.stripPis, Option.some.injEq] at h
     obtain ⟨rfl, rfl⟩ : [] = bs ∧ e = body :=
@@ -102,10 +102,10 @@ theorem stripPis_not_hasFvar :
     exact ⟨(fun b hb => nomatch hb), hf⟩
   | k + 1, e, bs, body, h, hf => by
     match e, h with
-    | .forallE n ty b m, h =>
+    | .forallE ty b m, h =>
       simp only [Expr.stripPis, Option.map_eq_some_iff] at h
       obtain ⟨⟨bs', body'⟩, hstrip, heq⟩ := h
-      obtain ⟨rfl, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body :=
+      obtain ⟨rfl, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body :=
         ⟨congrArg Prod.fst heq, congrArg Prod.snd heq⟩
       simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
       obtain ⟨hrest, hbody⟩ := stripPis_not_hasFvar k hstrip hf.2
@@ -447,7 +447,7 @@ theorem openPisAtFvars_index :
     ∀ (n : Nat) (e : Expr) (i : Nat) {fvs : List Expr} {body : Expr},
       openPisAtFvars n e i = some (fvs, body) →
       ∀ (j : Nat) (x : Expr), fvs[j]? = some x →
-        ∃ nm ty, x = Expr.fvar (i + j) nm ty := by
+        ∃ ty, x = Expr.fvar (i + j) ty := by
   intro n
   induction n with
   | zero =>
@@ -458,11 +458,11 @@ theorem openPisAtFvars_index :
   | succ n ih =>
     intro e i fvs body h j x hx
     cases e with
-    | forallE nm dom bodyE mb =>
+    | forallE dom bodyE mb =>
       simp only [openPisAtFvars] at h
       revert h
       cases hrec : openPisAtFvars n
-          (bodyE.instantiate1 (.fvar i nm dom)) (i + 1) with
+          (bodyE.instantiate1 (.fvar i dom)) (i + 1) with
       | none => intro h; exact nomatch h
       | some p =>
         obtain ⟨fvs', bodyR⟩ := p
@@ -472,13 +472,13 @@ theorem openPisAtFvars_index :
         cases j with
         | zero =>
           simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
-          exact ⟨nm, dom, by rw [← hx, Nat.add_zero]⟩
+          exact ⟨dom, by rw [← hx, Nat.add_zero]⟩
         | succ j =>
           simp only [List.getElem?_cons_succ] at hx
-          obtain ⟨nm', ty', hx'⟩ := ih _ (i + 1) hrec j x hx
-          exact ⟨nm', ty', by rw [hx']; congr 1; omega⟩
-    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _
-    | lam _ _ _ _ | letE _ _ _ _ | lit _ | proj _ _ _ =>
+          obtain ⟨ty', hx'⟩ := ih _ (i + 1) hrec j x hx
+          exact ⟨ty', by rw [hx']; congr 1; omega⟩
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ =>
       exact nomatch h
 
 /-- Opening a `∀`-telescope at fresh free variables produces variables
@@ -497,11 +497,11 @@ theorem openPisAtFvars_WScoped :
   | succ n ih =>
     intro e i fvs body h hw
     cases e with
-    | forallE nm dom bodyE mb =>
+    | forallE dom bodyE mb =>
       simp only [openPisAtFvars] at h
       revert h
       cases hrec : openPisAtFvars n
-          (bodyE.instantiate1 (.fvar i nm dom)) (i + 1) with
+          (bodyE.instantiate1 (.fvar i dom)) (i + 1) with
       | none => intro h; exact nomatch h
       | some p =>
         obtain ⟨fvs', bodyR⟩ := p
@@ -511,7 +511,7 @@ theorem openPisAtFvars_WScoped :
         simp only [WScoped] at hw
         obtain ⟨hdom, hbody⟩ := hw
         have hinst : WScoped (i + 1)
-            (bodyE.instantiate1 (.fvar i nm dom)) :=
+            (bodyE.instantiate1 (.fvar i dom)) :=
           WScoped.instantiate1 hdom 0 hbody
         obtain ⟨hfvs', hbody'⟩ := ih _ _ hrec hinst
         have harith : i + 1 + n = i + (n + 1) := by omega
@@ -523,12 +523,12 @@ theorem openPisAtFvars_WScoped :
           exact ⟨by omega, hdom⟩
         · exact hfvs' x hx
     | bvar k => exact nomatch h
-    | fvar a b c => exact nomatch h
+    | fvar a c => exact nomatch h
     | sort u => exact nomatch h
     | const c us => exact nomatch h
     | app f a => exact nomatch h
-    | lam a b c d => exact nomatch h
-    | letE a b c d => exact nomatch h
+    | lam b c d => exact nomatch h
+    | letE b c d => exact nomatch h
     | lit l => exact nomatch h
     | proj s k e => exact nomatch h
 
@@ -549,7 +549,7 @@ theorem instPisAt_index_WScoped :
     exact nomatch hx
   | a :: as, d, ty, doms, res, h, hty, hsp => by
     cases ty with
-    | forallE nm dom body mb =>
+    | forallE dom body mb =>
       simp only [Expr.instPisAt, Option.map_eq_some_iff] at h
       obtain ⟨q, hq, hqe⟩ := h
       simp only [Prod.mk.injEq] at hqe
@@ -575,8 +575,8 @@ theorem instPisAt_index_WScoped :
             exact h0) i x hx
         rw [show d + (i + 1) = d + 1 + i from by omega]
         exact hrec
-    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
-    | letE _ _ _ _ | lit _ | proj _ _ _ => exact nomatch h
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _ | lam _ _ _
+    | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h
 
 /-- `instPisAt` for `λ`-binders, scoped. -/
 theorem instLamsAt_WScoped {d : Nat} :
@@ -590,7 +590,7 @@ theorem instLamsAt_WScoped {d : Nat} :
     exact ⟨(fun x hx => nomatch hx), hty⟩
   | a :: as, ty, doms, res, h, hty, hargs => by
     cases ty with
-    | lam nm dom body mb =>
+    | lam dom body mb =>
       simp only [Expr.instLamsAt] at h
       revert h
       cases hrec : Expr.instLamsAt as (body.instantiate1 a) with
@@ -613,12 +613,12 @@ theorem instLamsAt_WScoped {d : Nat} :
         · exact hdom
         · exact hds x hx
     | bvar k => exact nomatch h
-    | fvar a' b c => exact nomatch h
+    | fvar a' c => exact nomatch h
     | sort u => exact nomatch h
     | const c us => exact nomatch h
     | app f a' => exact nomatch h
-    | forallE a' b c d' => exact nomatch h
-    | letE a' b c d' => exact nomatch h
+    | forallE b c d' => exact nomatch h
+    | letE b c d' => exact nomatch h
     | lit l => exact nomatch h
     | proj s k e => exact nomatch h
 
@@ -626,16 +626,16 @@ theorem instLamsAt_WScoped {d : Nat} :
 theorem fvarTypeD_WScoped {d : Nat} {e : Expr} (h : WScoped d e) :
     WScoped d (Expr.fvarTypeD e) := by
   cases e with
-  | fvar idx nm ty =>
+  | fvar idx ty =>
     simp only [WScoped] at h
     exact WScoped.mono (Nat.le_of_lt h.1) h.2
   | bvar k => exact h
   | sort u => exact h
   | const c us => exact h
   | app f a => exact h
-  | lam a b c d' => exact h
-  | forallE a b c d' => exact h
-  | letE a b c d' => exact h
+  | lam b c d' => exact h
+  | forallE b c d' => exact h
+  | letE b c d' => exact h
   | lit l => exact h
   | proj s k e => exact h
 
@@ -1174,11 +1174,11 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
       fvs.take rP) = true
   case neg => rw [if_neg h6] at h; exact absurd h atF_throw_bind
   rw [if_pos h6] at h ⊢
-  by_cases h7 : Expr.eqUpToNames ((tbody.getAppArgs.getD 1
+  by_cases h7 : (((tbody.getAppArgs.getD 1
       (.bvar 0)).getAppArgs.getLastD (.bvar 0))
-      (Expr.mkAppN (.const (f r.ctor) lvls)
+      == (Expr.mkAppN (.const (f r.ctor) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
-          (p.renameConsts f)) ++ fvs.drop rP)) = true
+          (p.renameConsts f)) ++ fvs.drop rP))) = true
   case neg => rw [if_neg h7] at h; exact absurd h atF_throw_bind
   rw [if_pos h7] at h ⊢
   obtain ⟨q8, hstrip8, h⟩ := atF_bind_ok h
@@ -1533,9 +1533,9 @@ theorem checkMemberVal_wfimp {blockNames : List Name} {env' : Env}
   by_cases h2 : cvm.levelParams = cvA.levelParams
   case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
   rw [if_pos h2] at h ⊢
-  by_cases h3 : Expr.eqUpToNames (cvA.type.renameConsts
+  by_cases h3 : ((cvA.type.renameConsts
       (fun n => if blockNames.contains n then n.str "_model" else n))
-      cvm.type = true
+      == cvm.type) = true
   case neg => rw [if_neg h3] at h; exact absurd h atF_throw_bind
   rw [if_pos h3] at h ⊢
   exact h
@@ -1621,16 +1621,16 @@ theorem checkProjRule_wfimp {env' : Env} (henv' : EnvWF env')
     obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
     have hw := hfvsW x hx
     cases x with
-    | fvar idx nm ty =>
+    | fvar idx ty =>
       simp only [WScoped] at hw
       exact hw.2.mono (by omega)
     | bvar _ => exact hw.mono (by omega)
     | sort _ => exact hw.mono (by omega)
     | const _ _ => exact hw.mono (by omega)
     | app _ _ => exact hw.mono (by omega)
-    | lam _ _ _ _ => exact hw.mono (by omega)
-    | forallE _ _ _ _ => exact hw.mono (by omega)
-    | letE _ _ _ _ => exact hw.mono (by omega)
+    | lam _ _ _ => exact hw.mono (by omega)
+    | forallE _ _ _ => exact hw.mono (by omega)
+    | letE _ _ _ => exact hw.mono (by omega)
     | lit _ => exact hw.mono (by omega)
     | proj _ _ _ => exact hw.mono (by omega)
   obtain ⟨hcdW, hcrW⟩ := instPisAt_WScoped (d := nP) fvsP cvj.type
@@ -1672,16 +1672,16 @@ theorem checkProjRule_wfimp {env' : Env} (henv' : EnvWF env')
     obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
     have hw := hspineW x hx
     cases x with
-    | fvar idx nm ty =>
+    | fvar idx ty =>
       simp only [WScoped] at hw
       exact hw.2.mono (by omega)
     | bvar _ => exact hw.mono (by omega)
     | sort _ => exact hw.mono (by omega)
     | const _ _ => exact hw.mono (by omega)
     | app _ _ => exact hw.mono (by omega)
-    | lam _ _ _ _ => exact hw.mono (by omega)
-    | forallE _ _ _ _ => exact hw.mono (by omega)
-    | letE _ _ _ _ => exact hw.mono (by omega)
+    | lam _ _ _ => exact hw.mono (by omega)
+    | forallE _ _ _ => exact hw.mono (by omega)
+    | letE _ _ _ => exact hw.mono (by omega)
     | lit _ => exact hw.mono (by omega)
     | proj _ _ _ => exact hw.mono (by omega)
   obtain ⟨hldW, -⟩ := instLamsAt_WScoped (fvsP ++ xFvs) rhsA hlinst
@@ -2017,9 +2017,9 @@ theorem wscopedB_substConst0 {n : Name} {r : Expr}
   | .app f a, d, he => by
     simp only [Expr.substConst0, Expr.wscopedB, Bool.and_eq_true] at he ⊢
     exact ⟨wscopedB_substConst0 hr f he.1, wscopedB_substConst0 hr a he.2⟩
-  | .bvar _, _, he | .fvar _ _ _, _, he | .sort _, _, he | .lit _, _, he
-  | .lam _ _ _ _, _, he | .forallE _ _ _ _, _, he
-  | .letE _ _ _ _, _, he | .proj _ _ _, _, he => he
+  | .bvar _, _, he | .fvar _ _, _, he | .sort _, _, he | .lit _, _, he
+  | .lam _ _ _, _, he | .forallE _ _ _, _, he
+  | .letE _ _ _, _, he | .proj _ _ _, _, he => he
 
 /-! ## The div/mod pin gate, `wfOpsM mode` runs to pure runs -/
 
@@ -2468,9 +2468,9 @@ theorem checkConstantVal_typeWF {env : Env} {cv cvA : ConstantVal}
 /-- Peeling a `∀`-telescope (without instantiating) keeps every binder
 domain and the body scoped at the same frame. -/
 theorem stripPis_WScoped {d : Nat} :
-    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr}, Expr.stripPis k e = some (bs, body) → WScoped d e →
-      (∀ b ∈ bs, WScoped d b.2.1) ∧ WScoped d body
+      (∀ b ∈ bs, WScoped d b.1) ∧ WScoped d body
   | 0, e, bs, body, h, hw => by
     simp only [Expr.stripPis, Option.some.injEq] at h
     obtain ⟨rfl, rfl⟩ : [] = bs ∧ e = body :=
@@ -2478,10 +2478,10 @@ theorem stripPis_WScoped {d : Nat} :
     exact ⟨(fun b hb => nomatch hb), hw⟩
   | k + 1, e, bs, body, h, hw => by
     match e, h with
-    | .forallE n ty b m, h =>
+    | .forallE ty b m, h =>
       simp only [Expr.stripPis, Option.map_eq_some_iff] at h
       obtain ⟨⟨bs', body'⟩, hstrip, heq⟩ := h
-      obtain ⟨rfl, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body :=
+      obtain ⟨rfl, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body :=
         ⟨congrArg Prod.fst heq, congrArg Prod.snd heq⟩
       simp only [WScoped] at hw
       obtain ⟨hrest, hbody⟩ := stripPis_WScoped k hstrip hw.2
@@ -2493,10 +2493,10 @@ theorem stripPis_WScoped {d : Nat} :
 
 /-- The head domain of a peeled telescope is scoped. -/
 theorem stripPis_head_WScoped {d k : Nat} {e : Expr}
-    {bs : List (Name × Expr × BinderMeta)} {body dom : Expr}
+    {bs : List (Expr × BinderMeta)} {body dom : Expr}
     (hst : Expr.stripPis k e = some (bs, body)) (hw : WScoped d e)
-    (hd : (bs[0]?).map (·.2.1) = some dom) : WScoped d dom := by
-  have hb : ∃ b, bs[0]? = some b ∧ b.2.1 = dom := by
+    (hd : (bs[0]?).map (·.1) = some dom) : WScoped d dom := by
+  have hb : ∃ b, bs[0]? = some b ∧ b.1 = dom := by
     revert hd
     cases hbs : bs[0]? with
     | none => intro hd; exact nomatch hd
@@ -2587,14 +2587,14 @@ theorem checkDirectCtor_wfimp {env₀ env : Env} (henv : EnvWF env)
     (WScoped.of_not_hasFvar hTf)
   have hd1' := checkDirectDomsAt_wfimp (off := 0) henv
     (fun i x hx => by
-      obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nP cvCa.type 0 hop' i x hx
+      obtain ⟨ty, rfl⟩ := openPisAtFvars_index p.nP cvCa.type 0 hop' i x hx
       have hw := hfvsW0 _ (List.mem_of_getElem? hx)
       simp only [WScoped] at hw
       exact hw.2)
     (fun i x hx => by
       rw [List.getElem?_map] at hx
       obtain ⟨y, hy, rfl⟩ := Option.map_eq_some_iff.mp hx
-      obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nP cvTa.type 0 hci' i y hy
+      obtain ⟨ty, rfl⟩ := openPisAtFvars_index p.nP cvTa.type 0 hci' i y hy
       have hw := htfvsW0 _ (List.mem_of_getElem? hy)
       simp only [WScoped] at hw
       exact hw.2)
@@ -2616,7 +2616,7 @@ theorem checkDirectCtor_wfimp {env₀ env : Env} (henv : EnvWF env)
   have hxPos : ∀ (i : Nat) (x : Expr), xFvs[i]? = some x →
       WScoped (p.nP + i) (Expr.fvarTypeD x) := by
     intro i x hx
-    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nF crest p.nP hox' i x hx
+    obtain ⟨ty, rfl⟩ := openPisAtFvars_index p.nF crest p.nP hox' i x hx
     have hw := hxW _ (List.mem_of_getElem? hx)
     simp only [WScoped] at hw
     exact hw.2

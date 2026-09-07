@@ -141,13 +141,13 @@ theorem whnfCoreBodyP_eq (r : CoreFns m) (env : Env) (d : Nat) (e : Expr)
   cases e with
   | app f a => exact absurd rfl (hne f a)
   | sort u => rfl
-  | fvar idx n ty => rfl
-  | forallE n ty body bi => rfl
-  | lam n ty body mb => rfl
+  | fvar idx ty => rfl
+  | forallE ty body bi => rfl
+  | lam ty body mb => rfl
   | const n us => rfl
   | lit l => rfl
   | proj sn i pe => rfl
-  | letE n t v b => rfl
+  | letE t v b => rfl
   | bvar i => rfl
 
 /-! ## The one changed clause -/
@@ -177,7 +177,7 @@ list to branches that need different subsets of it.) -/
 theorem whnfCoreP_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     (h : whnfCoreP mode env (fuel + 1) d (.app f a) = .ok e') :
     ∃ f', whnfCoreP mode env fuel d f = .ok f' ∧
-      ((∃ n ty body mb, f' = .lam n ty body mb ∧
+      ((∃ ty body mb, f' = .lam ty body mb ∧
           whnfCoreP mode env fuel d (body.instantiate1 a) = .ok e' ∧
           ((mode.verifiedChecks && mb.pw.isNever) = true ∨
             ∃ ta, inferTypeCoreP mode env fuel d a = .ok ta ∧
@@ -196,21 +196,21 @@ theorem whnfCoreP_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
   dsimp only at h
   refine ⟨f', rfl, ?_⟩
   match f', h with
-  | .lam n ty body mb, h => ?_
+  | .lam ty body mb, h => ?_
   | .sort u, h => ?_
-  | .fvar i n' t', h => ?_
+  | .fvar i t', h => ?_
   | .const n' us, h => ?_
-  | .forallE n' t' b' m', h => ?_
+  | .forallE t' b' m', h => ?_
   | .bvar i, h => ?_
   | .app f'' a'', h => ?_
-  | .letE n' t' v' b', h => ?_
+  | .letE t' v' b', h => ?_
   | .lit l', h => ?_
   | .proj s' i' e'', h => ?_
   case _ =>
     dsimp only at h
     by_cases hg : (mode.verifiedChecks && mb.pw.isNever) = true
     · rw [if_pos hg] at h
-      exact Or.inl ⟨n, ty, body, mb, rfl, h, Or.inl hg⟩
+      exact Or.inl ⟨ty, body, mb, rfl, h, Or.inl hg⟩
     · rw [if_neg hg] at h
       cases hta : inferTypeCoreP mode env fuel d a with
       | error err => rw [hta] at h; exact nomatch h
@@ -224,7 +224,7 @@ theorem whnfCoreP_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
       cases bb with
       | true =>
         simp only [if_true] at h
-        exact Or.inl ⟨n, ty, body, mb, rfl, h, Or.inr ⟨ta, rfl, hde⟩⟩
+        exact Or.inl ⟨ty, body, mb, rfl, h, Or.inr ⟨ta, rfl, hde⟩⟩
       | false =>
         simp only [Bool.false_eq_true, if_false, pure, Except.pure,
           Except.ok.injEq] at h

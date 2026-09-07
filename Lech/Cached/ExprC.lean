@@ -133,8 +133,8 @@ so nothing is added at runtime. -/
 
 @[inline] def mkBVar (i : Nat) : ExprC := Expr.mkBvar i
 
-@[inline] def mkFVar (idx : Nat) (n : Name) (ty : ExprC) : ExprC :=
-  .fvar idx n ty
+@[inline] def mkFVar (idx : Nat) (ty : ExprC) : ExprC :=
+  .fvar idx ty
 
 @[inline] def mkSort (u : Level) : ExprC := .sort u
 
@@ -142,14 +142,14 @@ so nothing is added at runtime. -/
 
 @[inline] def mkApp (f a : ExprC) : ExprC := .app f a
 
-@[inline] def mkLam (n : Name) (ty body : ExprC) (m : BinderMeta) : ExprC :=
-  .lam n ty body m
+@[inline] def mkLam (ty body : ExprC) (m : BinderMeta) : ExprC :=
+  .lam ty body m
 
-@[inline] def mkForallE (n : Name) (ty body : ExprC) (m : BinderMeta) :
-    ExprC := .forallE n ty body m
+@[inline] def mkForallE (ty body : ExprC) (m : BinderMeta) :
+    ExprC := .forallE ty body m
 
-@[inline] def mkLetE (n : Name) (ty val body : ExprC) : ExprC :=
-  .letE n ty val body
+@[inline] def mkLetE (ty val body : ExprC) : ExprC :=
+  .letE ty val body
 
 @[inline] def mkLit (l : Literal) : ExprC := .lit l
 
@@ -192,8 +192,8 @@ own equations, and the tier still rewrites with them. -/
 
 @[simp] theorem mkBVar_eq (i : Nat) : mkBVar i = .bvar i := Expr.mkBvar_eq i
 
-@[simp] theorem mkFVar_eq (idx : Nat) (n : Name) (ty : ExprC) :
-    mkFVar idx n ty = .fvar idx n ty := rfl
+@[simp] theorem mkFVar_eq (idx : Nat) (ty : ExprC) :
+    mkFVar idx ty = .fvar idx ty := rfl
 
 @[simp] theorem mkSort_eq (u : Level) : mkSort u = .sort u := rfl
 
@@ -202,14 +202,14 @@ own equations, and the tier still rewrites with them. -/
 
 @[simp] theorem mkApp_eq (f a : ExprC) : mkApp f a = .app f a := rfl
 
-@[simp] theorem mkLam_eq (n : Name) (ty b : ExprC) (m : BinderMeta) :
-    mkLam n ty b m = .lam n ty b m := rfl
+@[simp] theorem mkLam_eq (ty b : ExprC) (m : BinderMeta) :
+    mkLam ty b m = .lam ty b m := rfl
 
-@[simp] theorem mkForallE_eq (n : Name) (ty b : ExprC) (m : BinderMeta) :
-    mkForallE n ty b m = .forallE n ty b m := rfl
+@[simp] theorem mkForallE_eq (ty b : ExprC) (m : BinderMeta) :
+    mkForallE ty b m = .forallE ty b m := rfl
 
-@[simp] theorem mkLetE_eq (n : Name) (ty v b : ExprC) :
-    mkLetE n ty v b = .letE n ty v b := rfl
+@[simp] theorem mkLetE_eq (ty v b : ExprC) :
+    mkLetE ty v b = .letE ty v b := rfl
 
 @[simp] theorem mkLit_eq (l : Literal) : mkLit l = .lit l := rfl
 

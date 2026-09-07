@@ -35,7 +35,7 @@ open Expr
 theorem directMinorTyR_unfold {C : Name} {lps : List Name} {nP nF o : Nat} {pw : PropWhen}
     {cty mty : Expr} {recIdx : List Nat}
     (h : directMinorTyR C lps nP nF o pw cty recIdx = some mty) :
-    ∃ (cbs fbs : List (Name × Expr × BinderMeta)) (crest0 res : Expr),
+    ∃ (cbs fbs : List (Expr × BinderMeta)) (crest0 res : Expr),
       cty.stripPis nP = some (cbs, crest0) ∧
       crest0.stripPis nF = some (fbs, res) ∧
       Expr.replacePisPw pw nF (crest0.liftLooseBVars o 0)
@@ -56,7 +56,7 @@ theorem directMinorsPisR_cons {lps : List Name} {nP : Nat} {pw : PropWhen} {C : 
     (h : directMinorsPisR lps nP pw ((C, nF, cty, recIdx) :: cs) o body = some mins) :
     ∃ mty rest, directMinorTyR C lps nP nF o pw cty recIdx = some mty ∧
       directMinorsPisR lps nP pw cs (o + 1) body = some rest ∧
-      mins = .forallE (Name.lastStr C) mty rest ⟨.default, pw⟩ := by
+      mins = .forallE mty rest ⟨pw⟩ := by
   unfold directMinorsPisR at h
   simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
   obtain ⟨mty, hmty, rest, hrest, hmin⟩ := h
@@ -69,7 +69,7 @@ theorem directMinorsLamsR_cons {lps : List Name} {nP : Nat} {pw : PropWhen} {C :
     (h : directMinorsLamsR lps nP pw ((C, nF, cty, recIdx) :: cs) o body = some mins) :
     ∃ mty rest, directMinorTyR C lps nP nF o pw cty recIdx = some mty ∧
       directMinorsLamsR lps nP pw cs (o + 1) body = some rest ∧
-      mins = .lam (Name.lastStr C) mty rest ⟨.default, pw⟩ := by
+      mins = .lam mty rest ⟨pw⟩ := by
   unfold directMinorsLamsR at h
   simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
   obtain ⟨mty, hmty, rest, hrest, hmin⟩ := h
@@ -92,19 +92,19 @@ with the recursive minors). -/
 theorem directRecTyR_unfold {T : Name} {lps : List Name} {elim : Name} {large : Bool}
     {nP nIdx : Nat} {tty recTy : Expr} {ctors : List (Name × Nat × Expr × List Nat)}
     (h : directRecTyR T lps elim large nP nIdx tty ctors = some recTy) :
-    ∃ (tbs : List (Name × Expr × BinderMeta)) (itele motiveTy major minors : Expr),
+    ∃ (tbs : List (Expr × BinderMeta)) (itele motiveTy major minors : Expr),
       tty.stripPis nP = some (tbs, itele) ∧
       directMotiveTyI T lps nP nIdx (directElimLevel elim large) itele = some motiveTy ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nIdx
         (itele.liftLooseBVars (ctors.length + 1) 0)
-        (.forallE (.str .anonymous "t") (directFamI T lps nP nIdx (ctors.length + 1) 0)
+        (.forallE (directFamI T lps nP nIdx (ctors.length + 1) 0)
           (Expr.mkAppN (.bvar (nIdx + ctors.length + 1)) (directPsAt 1 nIdx ++ [.bvar 0]))
-          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some major ∧
+          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some major ∧
       directMinorsPisR lps nP (Level.zeronessOf (directElimLevel elim large)) ctors 1 major
         = some minors ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nP tty
-        (.forallE (.str .anonymous "motive") motiveTy minors
-          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
+        (.forallE motiveTy minors
+          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
   unfold directRecTyR at h
   simp only [Option.bind_eq_some_iff] at h
   obtain ⟨q, hq, motiveTy, hmot, major, hmaj, minors, hmin, hr⟩ := h
@@ -116,7 +116,7 @@ theorem directRecRhsR_unfold {T : Name} {lps : List Name} {elim : Name} {large :
     {recC : Name} {rlvls : List Level}
     (h : directRecRhsR T lps elim large nP nIdx tty ctors recC rlvls j = some rhs) :
     ∃ (C : Name) (nF : Nat) (cty : Expr) (recIdx : List Nat)
-      (tbs cbs : List (Name × Expr × BinderMeta))
+      (tbs cbs : List (Expr × BinderMeta))
       (itele motiveTy crest0 inner minors : Expr),
       ctors[j]? = some (C, nF, cty, recIdx) ∧
       tty.stripPis nP = some (tbs, itele) ∧
@@ -129,8 +129,8 @@ theorem directRecRhsR_unfold {T : Name} {lps : List Name} {elim : Name} {large :
       directMinorsLamsR lps nP (Level.zeronessOf (directElimLevel elim large)) ctors 1 inner
         = some minors ∧
       Expr.pisToLamsPw (Level.zeronessOf (directElimLevel elim large)) nP tty
-        (.lam (.str .anonymous "motive") motiveTy minors
-          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
+        (.lam motiveTy minors
+          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
   unfold directRecRhsR at h
   cases hj : ctors[j]? with
   | none => rw [hj] at h; exact nomatch h
@@ -155,7 +155,7 @@ theorem Expr.looseBVarsBounded_liftLooseBVars (k : Nat) :
     simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb
     simp only [Expr.liftLooseBVars]
     split <;> simp only [Expr.looseBVarsBounded, decide_eq_true_eq] <;> omega
-  | fvar _ _ _ _ => intro b c _; rfl
+  | fvar _ _ _ => intro b c _; rfl
   | sort _ => intro b c _; rfl
   | const _ _ => intro b c _; rfl
   | lit _ => intro b c _; rfl
@@ -163,21 +163,21 @@ theorem Expr.looseBVarsBounded_liftLooseBVars (k : Nat) :
     intro b c hb
     simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
     exact ⟨ihf hb.1, iha hb.2⟩
-  | lam _ ty body _ ihty ihb =>
+  | lam ty body _ ihty ihb =>
     intro b c hb
     simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
     refine ⟨ihty hb.1, ?_⟩
     have := ihb (b := b + 1) (c := c + 1) hb.2
     rw [show b + 1 + k = b + k + 1 from by omega] at this
     exact this
-  | forallE _ ty body _ ihty ihb =>
+  | forallE ty body _ ihty ihb =>
     intro b c hb
     simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
     refine ⟨ihty hb.1, ?_⟩
     have := ihb (b := b + 1) (c := c + 1) hb.2
     rw [show b + 1 + k = b + k + 1 from by omega] at this
     exact this
-  | letE _ ty v body ihty ihv ihb =>
+  | letE ty v body ihty ihv ihb =>
     intro b c hb
     simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
     refine ⟨⟨ihty hb.1.1, ihv hb.1.2⟩, ?_⟩
@@ -261,24 +261,24 @@ theorem Expr.shiftFromN_eq_self_of_not_hasFvar {p : Nat} :
 
 /-- A shift bumps a free variable at or above the cut by one. -/
 theorem Expr.shiftFromN_fvar (p : Nat) :
-    ∀ (n idx : Nat) (nm : Name) (ty : Expr),
-      ∃ (nm' : Name) (ty' : Expr),
-        Expr.shiftFromN p n (Expr.fvar idx nm ty)
-          = Expr.fvar (if idx < p then idx else idx + n) nm' ty'
-  | 0, idx, nm, ty => ⟨nm, ty, by
-      show Expr.fvar idx nm ty = _
+    ∀ (n idx : Nat) (ty : Expr),
+      ∃ (ty' : Expr),
+        Expr.shiftFromN p n (Expr.fvar idx ty)
+          = Expr.fvar (if idx < p then idx else idx + n) ty'
+  | 0, idx, ty => ⟨ty, by
+      show Expr.fvar idx ty = _
       by_cases h : idx < p
       · rw [if_pos h]
       · rw [if_neg h, Nat.add_zero]⟩
-  | n + 1, idx, nm, ty => by
-    obtain ⟨nm', ty', hn⟩ := Expr.shiftFromN_fvar p n idx nm ty
+  | n + 1, idx, ty => by
+    obtain ⟨ty', hn⟩ := Expr.shiftFromN_fvar p n idx ty
     by_cases h : idx < p
-    · refine ⟨nm', ty', ?_⟩
-      show Expr.shiftFrom p (Expr.shiftFromN p n (Expr.fvar idx nm ty)) = _
+    · refine ⟨ty', ?_⟩
+      show Expr.shiftFrom p (Expr.shiftFromN p n (Expr.fvar idx ty)) = _
       rw [hn, if_pos h, if_pos h]
       simp only [Expr.shiftFrom, if_neg (show ¬ idx ≥ p from by omega)]
-    · refine ⟨nm', Expr.shiftFrom p ty', ?_⟩
-      show Expr.shiftFrom p (Expr.shiftFromN p n (Expr.fvar idx nm ty)) = _
+    · refine ⟨Expr.shiftFrom p ty', ?_⟩
+      show Expr.shiftFrom p (Expr.shiftFromN p n (Expr.fvar idx ty)) = _
       rw [hn, if_neg h, if_neg h,
         show idx + (n + 1) = idx + n + 1 from by omega]
       simp only [Expr.shiftFrom, if_pos (show idx + n ≥ p from by omega)]
@@ -292,7 +292,7 @@ theorem Expr.WScoped_shiftFrom {p : Nat} :
   | sort u => intro d _; simp [Expr.shiftFrom, Expr.WScoped]
   | const n us => intro d _; simp [Expr.shiftFrom, Expr.WScoped]
   | lit l => intro d _; simp [Expr.shiftFrom, Expr.WScoped]
-  | fvar idx n ty ih =>
+  | fvar idx ty ih =>
     intro d hw
     simp only [Expr.WScoped] at hw
     simp only [Expr.shiftFrom]
@@ -306,17 +306,17 @@ theorem Expr.WScoped_shiftFrom {p : Nat} :
     simp only [Expr.WScoped] at hw
     simp only [Expr.shiftFrom, Expr.WScoped]
     exact ⟨ihf hw.1, iha hw.2⟩
-  | lam n ty b bi ihty ihb =>
+  | lam ty b bi ihty ihb =>
     intro d hw
     simp only [Expr.WScoped] at hw
     simp only [Expr.shiftFrom, Expr.WScoped]
     exact ⟨ihty hw.1, ihb hw.2⟩
-  | forallE n ty b bi ihty ihb =>
+  | forallE ty b bi ihty ihb =>
     intro d hw
     simp only [Expr.WScoped] at hw
     simp only [Expr.shiftFrom, Expr.WScoped]
     exact ⟨ihty hw.1, ihb hw.2⟩
-  | letE n ty v b ihty ihv ihb =>
+  | letE ty v b ihty ihv ihb =>
     intro d hw
     simp only [Expr.WScoped] at hw
     simp only [Expr.shiftFrom, Expr.WScoped]

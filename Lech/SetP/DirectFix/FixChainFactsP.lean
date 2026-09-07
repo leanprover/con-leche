@@ -126,12 +126,12 @@ theorem WScoped_of_mem_getAppArgs : ∀ (e a : Expr) {d : Nat}, Expr.WScoped d e
     · exact WScoped_of_mem_getAppArgs f a hw.1 ha
     · exact hw.2
   | .bvar _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
-  | .fvar _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
+  | .fvar _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
   | .sort _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
   | .const _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
-  | .lam _ _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
-  | .forallE _ _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
-  | .letE _ _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
+  | .lam _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
+  | .forallE _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
+  | .letE _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
   | .proj _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
   | .lit _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
 
@@ -160,18 +160,18 @@ theorem openPisAtFvars_leaf_bound {n : Nat} {e : Expr} {d : Nat} {fvs : List Exp
     (h : openPisAtFvars n e d = some (fvs, o)) :
     (∀ x ∈ fvs, ∀ l ∈ x.fvarTypeD.fvarLeaves, l ∈ e.fvarLeaves ∨ d ≤ l.1) ∧
     (∀ l ∈ o.fvarLeaves, l ∈ e.fvarLeaves ∨ d ≤ l.1) := by
-  have key : ∀ l : Nat × Name × Expr, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs → d ≤ l.1 := by
+  have key : ∀ l : Nat × Expr, Expr.fvar l.1 l.2 ∈ fvs → d ≤ l.1 := by
     intro l hl
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hl
-    obtain ⟨nm, ty, heq⟩ := openPisAtFvars_index n e d h j _ hj
+    obtain ⟨ty, heq⟩ := openPisAtFvars_index n e d h j _ hj
     have : l.1 = d + j := by
-      have := congrArg (fun e => match e with | .fvar i _ _ => i | _ => 0) heq
+      have := congrArg (fun e => match e with | .fvar i _ => i | _ => 0) heq
       simpa using this
     omega
   refine ⟨fun x hx l hl => ?_, fun l hl => ?_⟩
   · obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
-    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index n e d h j _ hj
-    have hl' : l ∈ (Expr.fvar (d + j) nm ty).fvarLeaves := by
+    obtain ⟨ty, rfl⟩ := openPisAtFvars_index n e d h j _ hj
+    have hl' : l ∈ (Expr.fvar (d + j) ty).fvarLeaves := by
       simp only [Expr.fvarLeaves]
       exact List.mem_cons_of_mem _ hl
     rcases openPisAtFvars_leaves n h l (Or.inr ⟨_, hx, hl'⟩) with h' | h'

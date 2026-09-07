@@ -16,7 +16,7 @@ says to take them: from `ConstantValR`'s own recorded
 ## The three moves, per pinned family
 
 1. **the shape** — `matchesPin` fixes the stored type up to binder
-   names and binder metas, so a chain of `erasePw ∘ eraseNames`
+   names and binder metas, so a chain of `erasePw`
    inversions (`erasePwNames_*_invS`, below) recovers the telescope
    with exactly those free.  Every domain and body of the standard
    pins is binder-free, hence erasure-rigid, so the inversion is
@@ -61,7 +61,7 @@ inversions; the pinned telescopes need the four remaining heads, and
 composing the two erasures once here keeps every consumer's chain one
 step per node. -/
 
--- The five `erasePw ∘ eraseNames` head inversions moved to
+-- The five `erasePw` head inversions moved to
 -- `Interp2/ErasePwInv.lean` at ENDGAME D: the reduce-operation pin
 -- (`Interp2/ReduceOpsP.lean`) needs them and sits *below* `HarvestP`,
 -- which this file imports.  Statements unchanged.
@@ -89,21 +89,21 @@ the whole shape and leaves exactly the three binder names and the
 three binder metas free — which is precisely the freedom the bit
 lemma below removes. -/
 theorem propext_shapeS {type' : Expr}
-    (h : type'.erasePw.eraseNames
-      = propextA.type.erasePw.eraseNames) :
-    ∃ n₁ n₂ n₃ m₁ m₂ m₃,
-      type' = .forallE n₁ (.sort .zero)
-        (.forallE n₂ (.sort .zero)
-          (.forallE n₃
+    (h : type'.erasePw
+      = propextA.type.erasePw) :
+    ∃ m₁ m₂ m₃,
+      type' = .forallE (.sort .zero)
+        (.forallE (.sort .zero)
+          (.forallE
             (.app (.app (.const iffName []) (.bvar 1)) (.bvar 0))
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.sort .zero)) (.bvar 2)) (.bvar 1)) m₃) m₂) m₁ := by
-  simp only [propextA, Expr.erasePw, Expr.eraseNames] at h
-  obtain ⟨n₁, ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
+  simp only [propextA, Expr.erasePw] at h
+  obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS hty₁
-  obtain ⟨n₂, ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain ⟨ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   obtain rfl := erasePwNames_sort_invS hty₂
-  obtain ⟨n₃, ty₃, b₃, m₃, rfl, hty₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
+  obtain ⟨ty₃, b₃, m₃, rfl, hty₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hty₃
   obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
   obtain rfl := erasePwNames_const_invS hf'
@@ -116,7 +116,7 @@ theorem propext_shapeS {type' : Expr}
   obtain rfl := erasePwNames_sort_invS hc''
   obtain rfl := erasePwNames_bvar_invS hc'
   obtain rfl := erasePwNames_bvar_invS hc
-  exact ⟨n₁, n₂, n₃, m₁, m₂, m₃, rfl⟩
+  exact ⟨m₁, m₂, m₃, rfl⟩
 
 /-- **The `Eq`-spine's inferred type, symbolically.**  `stdAxiomOk`
 pins the stored `Eq` **on the nose**, so the spine's head carries the
@@ -128,11 +128,11 @@ theorem inferTypeCore_eqSpineS {fuel d : Nat} {X Y Z bt : Expr}
     (h : inferTypeCore μ env fuel d
       (.app (.app (.app (.const eqName [.succ .zero]) X) Y) Z)
       = .ok bt) : bt = .sort .zero := by
-  obtain ⟨tf1, n1, ty1, b1, m1, h1, hw1, rfl, -⟩ :=
+  obtain ⟨tf1, ty1, b1, m1, h1, hw1, rfl, -⟩ :=
     Lech.inferTypeCore_app_inv' h
-  obtain ⟨tf2, n2, ty2, b2, m2, h2, hw2, hb1, -⟩ :=
+  obtain ⟨tf2, ty2, b2, m2, h2, hw2, hb1, -⟩ :=
     Lech.inferTypeCore_app_inv' h1
-  obtain ⟨tf3, n3, ty3, b3, m3, h3, hw3, hb2, -⟩ :=
+  obtain ⟨tf3, ty3, b3, m3, h3, hw3, hb2, -⟩ :=
     Lech.inferTypeCore_app_inv' h2
   obtain ⟨ci, hci, -, hb3⟩ := Lech.inferTypeCore_const_inv h3
   rw [hEq] at hci
@@ -140,29 +140,29 @@ theorem inferTypeCore_eqSpineS {fuel d : Nat} {X Y Z bt : Expr}
   subst hb3
   rw [show (Expr.instantiateLevelParams eqA.toConstantVal.levelParams
         [Level.zero.succ] eqA.toConstantVal.type)
-      = .forallE (Name.anonymous.str "α") (.sort (.succ .zero))
-        (.forallE (Name.anonymous.str "a") (.bvar 0)
-          (.forallE (Name.anonymous.str "b") (.bvar 1) (.sort .zero)
-            ⟨.default, .never⟩) ⟨.default, .never⟩)
-        ⟨.implicit, .never⟩ from rfl] at hw3
-  injection Lech.whnf_forallE_eq hw3 with e1 e2 e3 e4
-  subst e3
+      = .forallE (.sort (.succ .zero))
+        (.forallE (.bvar 0)
+          (.forallE (.bvar 1) (.sort .zero)
+            ⟨.never⟩) ⟨.never⟩)
+        ⟨.never⟩ from rfl] at hw3
+  injection Lech.whnf_forallE_eq hw3 with e1 e2 e3
+  subst e2
   subst hb2
-  rw [show (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
-        (.forallE (Name.anonymous.str "b") (.bvar 1) (.sort .zero)
-          ⟨.default, .never⟩) ⟨.default, .never⟩).instantiate1 X
-      = .forallE (Name.anonymous.str "a") X
-        (.forallE (Name.anonymous.str "b") X (.sort .zero)
-          ⟨.default, .never⟩) ⟨.default, .never⟩ from rfl] at hw2
-  injection Lech.whnf_forallE_eq hw2 with f1 f2 f3 f4
-  subst f3
+  rw [show (Expr.forallE (.bvar 0)
+        (.forallE (.bvar 1) (.sort .zero)
+          ⟨.never⟩) ⟨.never⟩).instantiate1 X
+      = .forallE X
+        (.forallE X (.sort .zero)
+          ⟨.never⟩) ⟨.never⟩ from rfl] at hw2
+  injection Lech.whnf_forallE_eq hw2 with f1 f2 f3
+  subst f2
   subst hb1
-  rw [show (Expr.forallE (Name.anonymous.str "b") X
-        (.sort .zero) ⟨.default, .never⟩).instantiate1 Y
-      = .forallE (Name.anonymous.str "b") (X.instantiate1 Y 0)
-        (.sort .zero) ⟨.default, .never⟩ from rfl] at hw1
-  injection Lech.whnf_forallE_eq hw1 with g1 g2 g3 g4
-  subst g3
+  rw [show (Expr.forallE X
+        (.sort .zero) ⟨.never⟩).instantiate1 Y
+      = .forallE (X.instantiate1 Y 0)
+        (.sort .zero) ⟨.never⟩ from rfl] at hw1
+  injection Lech.whnf_forallE_eq hw1 with g1 g2 g3
+  subst g2
   rfl
 
 /-- **THE NAMED FACT, at `propext`.**  Every binder of the stored
@@ -173,12 +173,12 @@ collapse carries that bit outward through the two remaining binders,
 which is why this is one fact and not three. -/
 theorem propext_bitsP (hμ : μ.verifiedChecks = true)
     (hEq : env.find? eqName = some eqA)
-    {n₁ n₂ n₃ : Name} {m₁ m₂ m₃ : BinderMeta}
+    {m₁ m₂ m₃ : BinderMeta}
     {F d : Nat} {stype : Expr}
     (hrun : inferTypeCore μ env F d
-      (.forallE n₁ (.sort .zero)
-        (.forallE n₂ (.sort .zero)
-          (.forallE n₃
+      (.forallE (.sort .zero)
+        (.forallE (.sort .zero)
+          (.forallE
             (.app (.app (.const iffName []) (.bvar 1)) (.bvar 0))
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.sort .zero)) (.bvar 2)) (.bvar 1)) m₃) m₂) m₁)
@@ -226,9 +226,9 @@ one step rather than a spine peel. -/
 /-- `inferTypeCore` returns an `fvar`'s stored annotation (a local
 twin of `Annot/SortCoh/Discharge.lean`'s `inferTypeCore_fvar_out`,
 transcribed here so this file's imports stay at the pin tier's). -/
-theorem inferTypeCore_fvar_outS {f d : Nat} {i : Nat} {n : Name}
+theorem inferTypeCore_fvar_outS {f d : Nat} {i : Nat}
     {ty t : Expr}
-    (h : inferTypeCore μ env f d (.fvar i n ty) = .ok t) : t = ty := by
+    (h : inferTypeCore μ env f d (.fvar i ty) = .ok t) : t = ty := by
   cases f with
   | zero => exact nomatch h
   | succ f =>
@@ -246,21 +246,21 @@ are binder-free, so only the two names and the two metas stay free.
 The level argument is untouched by either erasure, so the stored
 `Nonempty` reference is pinned to `[.param u]` on the nose. -/
 theorem choice_shapeS {type' : Expr}
-    (h : type'.erasePw.eraseNames = choiceA.type.erasePw.eraseNames) :
-    ∃ n₁ n₂ m₁ m₂,
-      type' = .forallE n₁ (.sort (.param uN))
-        (.forallE n₂
+    (h : type'.erasePw = choiceA.type.erasePw) :
+    ∃ m₁ m₂,
+      type' = .forallE (.sort (.param uN))
+        (.forallE
           (.app (.const nonemptyName [.param uN]) (.bvar 0))
           (.bvar 1) m₂) m₁ := by
-  simp only [choiceA, Expr.erasePw, Expr.eraseNames] at h
-  obtain ⟨n₁, ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
+  simp only [choiceA, Expr.erasePw] at h
+  obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_sort_invS hty₁
-  obtain ⟨n₂, ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain ⟨ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hty₂
   obtain rfl := erasePwNames_const_invS hf
   obtain rfl := erasePwNames_bvar_invS ha
   obtain rfl := erasePwNames_bvar_invS hb₂
-  exact ⟨n₁, n₂, m₁, m₂, rfl⟩
+  exact ⟨m₁, m₂, rfl⟩
 
 /-- **THE NAMED FACT, at `Classical.choice`.**  Both binders of the
 stored type carry the bit the pin's own datum computes — zero exactly
@@ -268,10 +268,10 @@ when the level parameter is.  The innermost codomain is the outer
 binder's variable, whose sort is `Sort u`, and the telescope collapse
 carries it to the outer binder. -/
 theorem choice_bitsP (hμ : μ.verifiedChecks = true)
-    {n₁ n₂ : Name} {m₁ m₂ : BinderMeta} {F d : Nat} {stype : Expr}
+    {m₁ m₂ : BinderMeta} {F d : Nat} {stype : Expr}
     (hrun : inferTypeCore μ env F d
-      (.forallE n₁ (.sort (.param uN))
-        (.forallE n₂
+      (.forallE (.sort (.param uN))
+        (.forallE
           (.app (.const nonemptyName [.param uN]) (.bvar 0))
           (.bvar 1) m₂) m₁) = .ok stype) (φ : Name → Nat) :
     (pwBit φ m₁.pw = 0 ↔ φ uN = 0) ∧ (pwBit φ m₂.pw = 0 ↔ φ uN = 0) := by

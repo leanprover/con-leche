@@ -470,7 +470,7 @@ private theorem denoteP_nilTermP {acval : Name → (Name → Nat) → AVExpr}
           (Level.substFn φ (levelParamsAt env Lech.listNilName)
             [.zero]))
         (acval Lech.charName (Level.substFn φ [] []))) := by
-  obtain ⟨ciN, p, nm, mb, hfN, hlpN, -⟩ := listNil_shape hg
+  obtain ⟨ciN, p, mb, hfN, hlpN, -⟩ := listNil_shape hg
   obtain ⟨ciC, hfC, hlpC, -⟩ := char_shape hg
   have hlpa : ciN.toConstantVal.levelParams
       = levelParamsAt env Lech.listNilName := by
@@ -489,7 +489,7 @@ private theorem denoteP_consTermP {acval : Name → (Name → Nat) → AVExpr}
           (Level.substFn φ (levelParamsAt env Lech.listConsName)
             [.zero]))
         (acval Lech.charName (Level.substFn φ [] []))) := by
-  obtain ⟨ciC', p, -, -, -, -, -, -, hfC', hlpC', -⟩ := listCons_shape hg
+  obtain ⟨ciC', p, -, -, -, hfC', hlpC', -⟩ := listCons_shape hg
   obtain ⟨ciC, hfC, hlpC, -⟩ := char_shape hg
   have hlpa : ciC'.toConstantVal.levelParams
       = levelParamsAt env Lech.listConsName := by
@@ -520,7 +520,7 @@ private theorem denoteP_strLitListP
   have hnat : Lech.natLitSupported env = true := by
     simp only [Lech.strLitSupported, Bool.and_eq_true] at hg
     exact hg.1.1.1.1.1.1.1
-  obtain ⟨ciF, nm, mb, hfF, hlpF, -⟩ := charOfNat_shape hg
+  obtain ⟨ciF, mb, hfF, hlpF, -⟩ := charOfNat_shape hg
   intro cs
   induction cs with
   | nil =>
@@ -537,7 +537,7 @@ four frame conditions (all free: the form is closed). -/
 theorem denotePStrLit_of_guard {m : EnvS2Core V env} :
     DenotePStrLit m φ := by
   intro d st sa hg hsa
-  obtain ⟨ciO, nm, mb, hfO, hlpO, -⟩ := stringOfList_shape hg
+  obtain ⟨ciO, mb, hfO, hlpO, -⟩ := stringOfList_shape hg
   refine ⟨?_, Lech.strLitToConstructor_WScoped st d,
     Lech.strLitToConstructor_looseBVars st 0, fun l hl => ?_, ?_⟩
   · rw [Lech.strLitToConstructor_eq, denoteP,
@@ -576,9 +576,9 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
     (ihis : InferClaimsIOS2P μ m φ fuel)
     (hir : InferReadsIOSP m μ φ fuel) (hwr : WhnfReadsP m μ φ fuel) :
     EtaCertStepP μ m φ fuel := by
-  intro d n ty bd b mb Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
+  intro d ty bd b mb Δa h hwa hba hLa hwb hbb hLb aa ba hCa hCb hda hdb
     hokA hokB ρ hρ
-  obtain ⟨tb, n₂, ty₂, fb, m₂, htb, hwtb, hdty, hdbody, hpw⟩ :=
+  obtain ⟨tb, ty₂, fb, m₂, htb, hwtb, hdty, hdbody, hpw⟩ :=
     Lech.etaCert_inv h
   simp only [Expr.WScoped] at hwa
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hba
@@ -623,13 +623,13 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
     (LeafReadsP.of_ctxOkP hCtb) htba
   obtain ⟨hokW, heqW⟩ :=
     ihw hwtb htbW htbB htbL hCtb htba hwtba hokTb
-  have hwrW : Expr.WScoped d (Expr.forallE n₂ ty₂ fb m₂) :=
+  have hwrW : Expr.WScoped d (Expr.forallE ty₂ fb m₂) :=
     Lech.whnf_WScoped m.wf fuel hwtb htbW
-  have hwrB : (Expr.forallE n₂ ty₂ fb m₂).looseBVarsBounded 0 = true :=
+  have hwrB : (Expr.forallE ty₂ fb m₂).looseBVarsBounded 0 = true :=
     Lech.whnf_looseBVars m.wf fuel hwtb htbB
-  have hwrL : Expr.LeavesBounded (Expr.forallE n₂ ty₂ fb m₂) :=
+  have hwrL : Expr.LeavesBounded (Expr.forallE ty₂ fb m₂) :=
     fun l hl => htbL l (Lech.whnf_fvarLeaves m.wf fuel hwtb l hl)
-  have hCwr : CtxOkP m φ d Δa (Expr.forallE n₂ ty₂ fb m₂) :=
+  have hCwr : CtxOkP m φ d Δa (Expr.forallE ty₂ fb m₂) :=
     hCtb.of_subset (Lech.whnf_fvarLeaves m.wf fuel hwtb)
   obtain ⟨ta₂, ba₂, hta₂, -, rfl⟩ := denoteP_forallE_inv hwtba
   simp only [Expr.WScoped] at hwrW
@@ -662,16 +662,16 @@ theorem etaCertStepP_of_claims {m : EnvS2Core V env}
   -- premise four: the λ's fibre is `app ⟦b⟧`
   have hdbUp : denoteP m.acval env φ (d + 1) b = some ba.lift := by
     rw [denoteP_weaken_top m.acval_closed hwb, hdb]; rfl
-  have hdapp : denoteP m.acval env φ (d + 1) (.app b (.fvar d n ty))
+  have hdapp : denoteP m.acval env φ (d + 1) (.app b (.fvar d ty))
       = some (.app ba.lift (.bvar 0)) := by
     rw [denoteP, hdbUp, denoteP_fvar]
     simp
-  have hCfvar : CtxOkP m φ (d + 1) (ta :: Δa) (.fvar d n ty) := by
-    have := CtxOkP.openS (n := n) (body := Expr.bvar 0) hCty
+  have hCfvar : CtxOkP m φ (d + 1) (ta :: Δa) (.fvar d ty) := by
+    have := CtxOkP.openS (body := Expr.bvar 0) hCty
       (CtxOkP.of_fvarLeaves_nil hCa.1 (by simp [Expr.fvarLeaves])) hta
       hokTa
     simpa [Expr.instantiate1] using this
-  have hCapp : CtxOkP m φ (d + 1) (ta :: Δa) (.app b (.fvar d n ty)) :=
+  have hCapp : CtxOkP m φ (d + 1) (ta :: Δa) (.app b (.fvar d ty)) :=
     CtxOkP.app (CtxOkP.weakenTop hCb) hCfvar
   have hokApp : ∀ σ : Nat → V, Sat2 V (ta :: Δa) σ →
       AnnotOkP V σ (.app ba.lift (.bvar 0)) := by

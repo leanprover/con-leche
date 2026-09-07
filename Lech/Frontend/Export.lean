@@ -66,23 +66,26 @@ auto-bound universe names and hygienic binder names, both semantically
 irrelevant).
 
 Task #142, pin-side normalization: the parser already maps every
-stream binder to `.default`, but the pinned declarations keep the real
-`BinderInfo`s of the toolchain signatures they were generated from
-(`Lech/Kernel/Basis/*`, `Lech/Kernel/StdAxioms.lean` — the
-`TTVerify` layer pins those literals).  Both sides of every
+stream binder to `.default`, and both sides of every
 `ConstantInfo.canon` comparison go through here, so erasing the
-annotation here is what keeps the two sides consistent; without it the
-strip would *invert* the bug and no basis block would ever match. -/
+annotation here is what kept the two sides consistent while the pinned
+literals still carried the real `BinderInfo`s of their `Init.Prelude`
+signatures.  Since task #203 the pin builder
+(`Lech/Kernel/Basis/Builder.lean`) emits `.anonymous` at `.default`
+and the parser emits `.anonymous` too, so the name/annotation erasure
+here is the identity on both sides; what this canonical form still
+*does* is rename level parameters and reset `pw` (the pin side is
+annotated, the stream side is at the parse placeholder). -/
 def canonExpr (m : Name → Name) : Expr → Expr
   | .bvar i => .bvar i
-  | .fvar idx _ ty => .fvar idx .anonymous (canonExpr m ty)
+  | .fvar idx ty => .fvar idx (canonExpr m ty)
   | .sort u => .sort (canonLevel m u)
   | .const n us => .const n (us.map (canonLevel m))
   | .app f a => .app (canonExpr m f) (canonExpr m a)
-  | .lam _ ty b _ => .lam .anonymous (canonExpr m ty) (canonExpr m b) ⟨.default, .never⟩
-  | .forallE _ ty b _ =>
-      .forallE .anonymous (canonExpr m ty) (canonExpr m b) ⟨.default, .never⟩
-  | .letE _ ty v b => .letE .anonymous (canonExpr m ty) (canonExpr m v)
+  | .lam ty b _ => .lam (canonExpr m ty) (canonExpr m b) ⟨.never⟩
+  | .forallE ty b _ =>
+      .forallE (canonExpr m ty) (canonExpr m b) ⟨.never⟩
+  | .letE ty v b => .letE (canonExpr m ty) (canonExpr m v)
       (canonExpr m b)
   | .lit l => .lit l
   | .proj s i e => .proj s i (canonExpr m e)

@@ -98,12 +98,12 @@ theorem noBVar_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name → Nat
     rw [denoteP] at h
     rw [← Option.some.inj h]
     trivial
-  | case2 d idx nm ty =>
+  | case2 d idx ty =>
     intro hw Q hQ hl ea h
     rw [denoteP] at h
     obtain rfl := Option.some.inj h
     simp only [Expr.WScoped] at hw
-    have hne : ¬ Q idx := hl (idx, nm, ty) (by simp [Expr.fvarLeaves])
+    have hne : ¬ Q idx := hl (idx, ty) (by simp [Expr.fvarLeaves])
     show ¬ exclP Q d (d - 1 - idx)
     rintro ⟨q, hq, hlt, heq⟩
     have : q = idx := by omega
@@ -125,7 +125,7 @@ theorem noBVar_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name → Nat
     intro _ Q _ _ ea h
     rw [denoteP, hf] at h
     exact nomatch h
-  | case6 d n ty body mb ihty ihbody =>
+  | case6 d ty body mb ihty ihbody =>
     intro hw Q hQ hl ea h
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_forallE_inv h
     simp only [Expr.WScoped] at hw
@@ -141,7 +141,7 @@ theorem noBVar_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name → Nat
           · exact fun hq => by have := hQ _ hq; simp at this
           · exact hl l (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl hl')) hba
     exact ⟨h1, NoBVar_congr (fun i => (shiftP_exclP Q d hQ i).symm) _ h2⟩
-  | case7 d n ty body mb ihty ihbody =>
+  | case7 d ty body mb ihty ihbody =>
     intro hw Q hQ hl ea h
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_lam_inv h
     simp only [Expr.WScoped] at hw
@@ -165,7 +165,7 @@ theorem noBVar_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name → Nat
         simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl hl')) hfa,
       iha hw.2 hQ (fun l hl' => hl l (by
         simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inr hl')) haa⟩
-  | case9 d n ty val body ihty ihval ihbody =>
+  | case9 d ty val body ihty ihval ihbody =>
     intro hw Q hQ hl ea h
     obtain ⟨ta, va, ba, hta, hva, hba, rfl⟩ := denoteP_letE_inv' h
     simp only [Expr.WScoped] at hw
@@ -219,12 +219,12 @@ theorem noBVar_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name → Nat
     cases x with
     | bvar i => rw [denoteP.eq_def] at h; exact nomatch h
     | sort u => exact absurd rfl (hs u)
-    | fvar i nm ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i ty)
     | const n us => exact absurd rfl (hc n us)
-    | forallE n ty b mb => exact absurd rfl (hpi n ty b mb)
-    | lam n ty b mb => exact absurd rfl (hlam n ty b mb)
+    | forallE ty b mb => exact absurd rfl (hpi ty b mb)
+    | lam ty b mb => exact absurd rfl (hlam ty b mb)
     | app f a => exact absurd rfl (happ f a)
-    | letE n ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

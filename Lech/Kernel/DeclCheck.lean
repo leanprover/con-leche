@@ -44,11 +44,11 @@ def Expr.constsResolveF (fe : FEnv) : Expr → Bool
       (fe.find? listNilName).isSome && (fe.find? listConsName).isSome &&
       (fe.find? charName).isSome && (fe.find? charOfNatName).isSome
   | .const n _ => (fe.find? n).isSome
-  | .fvar _ _ ty => ty.constsResolveF fe
+  | .fvar _ ty => ty.constsResolveF fe
   | .app f a => f.constsResolveF fe && a.constsResolveF fe
-  | .lam _ ty body _ | .forallE _ ty body _ =>
+  | .lam ty body _ | .forallE ty body _ =>
     ty.constsResolveF fe && body.constsResolveF fe
-  | .letE _ ty val body =>
+  | .letE ty val body =>
     ty.constsResolveF fe && val.constsResolveF fe &&
       body.constsResolveF fe
   | .proj s _ e => (fe.find? s).isSome && e.constsResolveF fe
@@ -70,12 +70,12 @@ def natOpCodF (fe : FEnv) (c : Name) (e : Expr) : Bool :=
 def natOpTyPinnedF (fe : FEnv) (c : Name) (ty : Expr) : Bool :=
   if c = natPredName then
     match ty with
-    | .forallE _ dom body _mb =>
+    | .forallE dom body _mb =>
       dom == .const natName [] && natOpCodF fe c body
     | _ => false
   else
     match ty with
-    | .forallE _ dom (.forallE _ dom2 body _mb2) _mb =>
+    | .forallE dom (.forallE dom2 body _mb2) _mb =>
       dom == .const natName [] && dom2 == .const natName [] &&
       natOpCodF fe c body
     | _ => false
@@ -208,7 +208,7 @@ def checkEtaThmF (fe : FEnv) (T ctorName : Name) (lps : List Name)
      | some (sbinders, sbody), some (tbindersM, tbodyM) =>
        domsMatchAux (fun _ e => e) sbinders tbindersM 0 0 nP &&
        (match sbinders[nP]? with
-        | some (_, xdom, _) =>
+        | some (xdom, _) =>
           xdom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
             ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))
         | none => false) &&
@@ -242,12 +242,12 @@ def checkUnitThmF (fe : FEnv) (T : Name) (lps : List Name)
      | some (sbinders, sbody), some (tbindersM, tbodyM) =>
        domsMatchAux (fun _ e => e) sbinders tbindersM 0 0 nP &&
        (match sbinders[nP]? with
-        | some (_, xdom, _) =>
+        | some (xdom, _) =>
           xdom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
             ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))
         | none => false) &&
        (match sbinders[nP + 1]? with
-        | some (_, ydom, _) =>
+        | some (ydom, _) =>
           ydom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
             ((List.range nP).map fun k => Expr.bvar (nP - k))
         | none => false) &&
@@ -339,7 +339,7 @@ def checkMemberValF (ops : CheckerOps m) (blockNames : List Name)
     | throw (.notImplemented s!"missing model for {cvA.name}")
   unless cvm.levelParams = cvA.levelParams do
     throw (.notImplemented s!"model level parameters mismatch for {cvA.name}")
-  unless Expr.eqUpToNames (cvA.type.renameConsts f) cvm.type do
+  unless cvA.type.renameConsts f == cvm.type do
     throw (.notImplemented
       s!"model type mismatch for {cvA.name}\n  member (renamed): \
         {reprStr (cvA.type.renameConsts f)}\n  model: {reprStr cvm.type}")
@@ -420,7 +420,7 @@ def nestedRuleShapeF (fe' feSelf : FEnv) (cvName : Name)
   if (fe'.findCV? ((cvName.str "_model").str s!"iota_{j}")).isSome ∧
       rP ≤ mI then
     match tyA.stripPis mI with
-    | some (_, .forallE _ dom _ _) =>
+    | some (_, .forallE dom _ _) =>
       match dom.getAppFn with
       | .const _D lvls =>
         let args := dom.getAppArgs
@@ -476,7 +476,7 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
     -- up to display-only binder names, like `checkIotaThmN` (the pins
     -- may contain binders; the artifact contract fixes statements only
     -- up to `Expr.eqv`)
-    unless Expr.eqUpToNames major (Expr.mkAppN (.const (f r.ctor) lvls)
+    unless major == (Expr.mkAppN (.const (f r.ctor) lvls)
         (pinsF ++ xFvs)) do
       throw (.notImplemented s!"iota statement major mismatch for {cvName}")
     let (_, cbody0) ← unwrapOr (cvj.type.stripPis (cnP + cnF))

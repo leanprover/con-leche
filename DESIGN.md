@@ -40347,6 +40347,14 @@ Two remarks that matter downstream.
   consequence of "one `Expr`, decidable equality, `LawfulBEq`" and is
   not proposed for change — but it is precisely why a pointer-first
   `Name` pays off more here than it would in the C++ kernel.
+  *(SUPERSEDED by task #203, user ruling "hashing and comparison up to
+  binder names and binder info of course!": `beq` is still
+  `decide (a = b)` and still compares the two fields, but every term
+  the checker holds carries them at ONE normal form — `.anonymous`,
+  `.default`, established at the parser, the pin builder and the pin
+  generator — so the comparison never separates α-equivalent terms,
+  and the packed hash reads neither field.  Section "HASHING AND
+  COMPARISON UP TO BINDER NAMES AND BINDER INFO" at the end.)*
 
 ### 2. What Lech does — every equality entry point on the core data
 
@@ -43665,7 +43673,7 @@ Official clause (file:line at v4.33.0) → ours (spec `Core.lean` / P
 | N3 | `unfold_definition` (`:517-564`): `is_delta` = head constant with a value (definitions AND theorems, `declaration.h:230`) at matching level arity; level-polymorphic instantiations cached (`m_unfold`) | `unfoldDefinition :212-234` (defn + thm), `unfoldableHead :236`; `constValAt` memo (`unfoldDefinitionI CoreC:52-72`) | same | |
 | N4 | `reduce_nat` (`:639-668`): `Nat.succ` (1 arg) and 14 binary ops `add sub mul pow gcd mod div beq ble land lor xor shiftLeft shiftRight`, head an EXACT level-free constant, arity exact; `reduce_bin_nat_op` whnf's ARG 1, returns `none` if not a literal WITHOUT touching arg 2 (`:606-614`); `is_nat_lit_ext` = literal or `Nat.zero` (`:599`); `reduce_pow` refuses exponents `> 2^24` (`:616-627`) | `reduceNat :752-798`; `reduceNatI CoreC:83-160` — `match rawNatLit? (← r.whnf a), rawNatLit? (← r.whnf b)` whnf's BOTH arguments before matching (`:787-788`, `CoreC:140-141`); `rawNatLit? :345` accepts `Nat.zero`; additionally reduces **`Nat.pred`** and **`Nat.log2`** (`:764-771`) which official's list lacks; **no pow cap** (`natOpResult :610`, `a ^ b` unbounded) | **D15 cost (ours more) — witnessed**: the second argument is whnf'd even when the first is stuck; **S1 superset**: `pred`/`log2` fast paths; **S2 superset**: no `2^24` pow cap (official grinds `Nat.pow` unfolded instead; ours computes, or allocates without bound) | witness `_tmp/divergence-audit/src/natop_arg_order.lean` (`Nat.add o (slow 40000) = Nat.add (id o) (slow 40000)` with `o` opaque): official 0.221 G (control without the computation 0.204 G — official never evaluates `slow`), parity 16.13 G, P 14.04 G; at `slow 80000` official 0.221 G accepts, **parity exit 3** (fuel, 33.1 G) — the K-bug class, verdict-visible |
 | **is_def_eq_core** `:1086-1162` | | | | |
-| E1 | `quick_is_def_eq` (`:770-793`): equivalence manager (union-find + structural walk modulo it, `use_hash`), then by kind: λ/Π → `is_def_eq_binding` (all nested binders in ONE loop, domain compared only when syntactically different, `:720-747`); Sort → level equivalence; Lit → value equality | `defeqStep :2075` `a == b` (structural); binder/sort/lit dispatch LATER, in the `false,false` arm (`:2169-2240`) one binder per `defeq` call | **cost (ours more)**: (a) no equivalence classes — `f a b =?= f a' b'` with `a ~ a'` known needs the full step; (b) the binder/sort/lit dispatch runs AFTER `whnfCore` (no-op on them) and AFTER `propIrrel` (D4); **(c) two locals for one bound variable — FIXED, task #201** (`is_def_eq_binding` opens ONE local for both bodies, `:738`; our binder arms opened each body with its own `.fvar depth nᵢ tyᵢ`, so bodies equal up to the variable's display data were never `==` — the self-check's `whnfCore` runaway; section "THE BINDER ARMS OPEN ONE LOCAL" at the end); **(d) `==` is `decide (a = b)`, which compares binder names, fvar display names and fvar type annotations** — official's `is_equal`/`equiv_manager` skip binder names and compare fvars by id (`expr_eq_fn.cpp:52, :100-103`, `equiv_manager.cpp:80-92`); recorded and priced in the same section as the residual of this class | (c) was the audit's blind spot: the row read the fast path as "structural" and never asked what the ARMS open |
+| E1 | `quick_is_def_eq` (`:770-793`): equivalence manager (union-find + structural walk modulo it, `use_hash`), then by kind: λ/Π → `is_def_eq_binding` (all nested binders in ONE loop, domain compared only when syntactically different, `:720-747`); Sort → level equivalence; Lit → value equality | `defeqStep :2075` `a == b` (structural); binder/sort/lit dispatch LATER, in the `false,false` arm (`:2169-2240`) one binder per `defeq` call | **cost (ours more)**: (a) no equivalence classes — `f a b =?= f a' b'` with `a ~ a'` known needs the full step; (b) the binder/sort/lit dispatch runs AFTER `whnfCore` (no-op on them) and AFTER `propIrrel` (D4); **(c) two locals for one bound variable — FIXED, task #201** (`is_def_eq_binding` opens ONE local for both bodies, `:738`; our binder arms opened each body with its own `.fvar depth nᵢ tyᵢ`, so bodies equal up to the variable's display data were never `==` — the self-check's `whnfCore` runaway; section "THE BINDER ARMS OPEN ONE LOCAL" at the end); **(d) binder names and binder infos — FIXED, task #203** (user ruling "hashing and comparison up to binder names and binder info of course!"): `==` is still `decide (a = b)`, but every term the checker holds carries its display data at ONE normal form (`.anonymous`/`.default`, established at the parser, the pin builder and the pin generator), and the packed hash reads neither field — so `==`, the memo keys and the packed hash are α-equivalence on the world's terms, as official's `is_equal`/`equiv_manager` are (`expr_eq_fn.cpp:52, :100-103`, `equiv_manager.cpp:80-92`); what remains of (d) is the **fvar type annotation** (official compares fvars by id alone; ours by index AND type — the variable's identity by design, and since (c) no variable has two openings inside one comparison) and the display-named terms three install-time generators still fabricate (cost of one binder-arm step, never D5's `whnf`; section "HASHING AND COMPARISON UP TO BINDER NAMES AND BINDER INFO" at the end) | (c) was the audit's blind spot: the row read the fast path as "structural" and never asked what the ARMS open |
 | E2 | Bool.true heuristic (`:1093-1101`, §1) | absent | cost (ours more; rides on D3) | |
 | E3 | `whnf_core(t, cheap_proj=true)`, same for `s`; `quick_is_def_eq` again if either changed (`:1110-1116`) | `:2076-2078` — `whnfCore` (never cheap: projections' structs fully whnf'd, W6), `a' == b'` | **D5 cost, both directions**: official's first pass leaves `a.i =?= b.i` with `a`, `b` merely head-normalised and tries `a =?= b` (E7) before ever whnf'ing a struct; ours whnf's both structs (delta included) at the first touch | `tryUnfoldProjApp`/`cheapProj` are on record as deferred (DESIGN "Defeq-side Nat folding", 2026-08-24) |
 | E4 | `is_def_eq_proof_irrel` (`:866-873`): `infer(t)`, `is_prop` (whnf'd sort normalises to zero), `infer(s)`, **`is_def_eq(t_type, s_type)` — commits `false`**; runs ONCE, before lazy delta | `propIrrel :920-943` (P: head-symbol arms `notProofFast`/`isProofFast`, `PropRead.lean:140-147`; parity: the two io inferences + whnf + level test per side) at `:2089`; no type comparison; `false` falls through | proofIrrel class — **STAYS** (2026-09-03 conformance ruling, both halves) | |
@@ -43718,6 +43726,14 @@ Cost-only (no verdict class change; may proceed without a go):
    `lazyDeltaProjReduction`); on record as deferred; both-direction
    cost; no witness built (needs `instFoo.1 a` vs expensive-term
    shapes).  Recommend after 1-3 are measured on init-full.
+   *(2026-09-07, task #203: the OTHER half of why a fast-path miss
+   under a `.proj` was expensive — a miss on display data alone — is
+   gone: `==` and the packed hash are α-equivalence now, so a
+   `.proj`-headed pair whose structs differ in a binder name or info
+   is decided by the fast path before this clause is reached; the
+   witness `tests/e2e/binder_name_proj.ndjson` was exit 3 (fuel) and
+   accepts.  `cheap_proj` itself is still not done: a pair whose
+   structs differ *semantically* still whnf's both in full.)*
 
 Verdict-class changes (WAIT for the user's go):
 
@@ -45426,7 +45442,7 @@ official kernel does not").  S1 is therefore LANDED, and with it the
 | S1 (`pred`/`log2` fast paths) | **landed** — `agent/nat-ops-official`, by the user's 2026-09-06 conformance ruling (§15); §13's "nobody grinds" measurement stands and is why the removal is free |
 | S2 (the pow cap at 2^24) | **landed** — this branch (`agent/divergence-s12`) |
 | W4 (one iota attempt per spine) | **deferred to the docket** — touches `iotaRec`'s exact-arity contract and `IotaRowsP`; cost linear in spine length, no witness built |
-| D5 (`cheap_proj` first pass, `tryUnfoldProjApp`, `lazyDeltaProjReduction`) | **deferred to the docket** — the largest restructuring (a second `whnfCore` entry + two lazy-delta helpers), both-direction cost, no witness built |
+| D5 (`cheap_proj` first pass, `tryUnfoldProjApp`, `lazyDeltaProjReduction`) | **deferred to the docket** — the largest restructuring (a second `whnfCore` entry + two lazy-delta helpers), both-direction cost, no witness built; *(task #203 removed the display-data half of the fast-path misses that fed it: `==`/hash are α-equivalence now)* |
 | eager flag (item 6) | **deferred to the docket** — §8: full six-field threading (283 sites + ~770 lemma mentions) vs defeq-cone-only (57 + ~170, whnf-nested residual); separate memo tables either way; 1 use per stream, accepted; a cost divergence, not a verdict one |
 | E4 (proofIrrel type comparison / fall-through), N2 (`reduce_native`) | **stay** by the standing rulings |
 
@@ -54495,7 +54511,7 @@ retired flags 8/8, mode flags 16/16, prelude counts 3/3, progress lane
 6/6, trusted sweep as expected (the 3 recorded divergences).
 Artefacts: `_tmp/whnfdiv/` (probe outputs, perf files, logs).
 
-### 8. The residual — (d), priced, not done
+### 8. The residual — (d), priced, not done *(DONE at task #203, 2026-09-07: route (i) below — the recurrence dropped the names, the parser/builder/generator strip to one normal form; section "HASHING AND COMPARISON UP TO BINDER NAMES AND BINDER INFO" at the end)*
 
 Official's `quick_is_def_eq` also **ignores binder names** and compares
 fvars **by id only**; ours is `decide (a = b)` — binder names, fvar
@@ -56060,3 +56076,666 @@ B)** — `WType`, `PSet`, `FirstOrder.Language.Term`,
 `Turing.PartrecToTM2.Λ'`, `PFunctor.Approx.CofixA`.  init-full: `Acc`,
 `Acc.below` (A2), `Lean.Order.iterates`, `Lean.Order.iterates.below`
 (A1).
+
+## TASK #204 — THE lean4lean-model BRIDGE: Carneiro's hypothesis implies Lech's, in Lean (2026-09-07, `agent/bridge`)
+
+**Question (user).**  "Can you have an agent prove that Mario's
+statement implies our theory?  It seems we don't actually say that but
+only something vaguely like it."  README.md said the Aczel realization's
+chain assumption is "similar to" the ω-many-inaccessibles hypothesis of
+Carneiro's lean4lean-model; the task is to state his hypothesis exactly
+and prove the implication.
+
+**What his hypothesis is.**  `_tmp/lean4lean-model/Lean4LeanModel/
+Consistency.lean` (Lean `v4.30.0`, Mathlib `v4.30.0`, lean4lean master):
+
+```lean
+def OmegaInaccessibles : Prop :=
+  ∃ κ : ℕ → Cardinal.{u}, StrictMono κ ∧ ∀ n, (κ n).IsInaccessible
+
+theorem consistency (_ : OmegaInaccessibles.{u}) {env : VEnv} (_ : env.WF) (U : Nat) :
+    ¬ ∃ e, env.HasType U [] e VExpr.false := by
+  sorry
+```
+
+`Cardinal.IsInaccessible` is Mathlib's strongly-inaccessible structure
+(`ℵ₀ < c`, `c ≤ c.ord.cof`, closed under `2 ^ ·`), the same structure at
+his pin and at ours.  His file is internal to his repository (which
+also depends on lean4lean), so the bridge transcribes the definition
+verbatim rather than importing it; the text is identical.
+
+**Where the proof lives.**  `bridge/lean4lean-model/`, a SEPARATE Lake
+package (its own `lakefile.toml`, `lean-toolchain` = a copy of ours,
+Mathlib pinned at the matching tag `v4.33.0`, Lech required by path
+`../..`, its own gitignored `.lake`).  The Lech libraries gain no
+Mathlib dependency — build time, trust surface and the layering fence
+are untouched; the main `lake build` and gates never see the directory.
+Build: `cd bridge/lean4lean-model && lake build` (Mathlib's oleans come
+from the cache; `lake update` already fetched them, `lake exe cache
+get` otherwise).  CI: `.github/workflows/bridge.yml`, an optional
+separate job (`workflow_dispatch` + pushes touching `bridge/**` or
+`Lech/SetTheory/Core.lean`), not part of the default gates.
+
+**The theorem** (`LechBridge/Carneiro.lean`):
+
+```lean
+theorem carneiro_implies_lech :
+    OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), Lech.SetTheory V)
+```
+
+via the explicit instance `setTheoryOfChain κ hmono hinacc :
+Lech.SetTheory ZFSet.{u}` on Mathlib's `ZFSet`: the ZF⁻ fields are
+Mathlib's (`ZFSet.ext`, `{a, b}`, `⋃₀`, `powerset`, `mem_wf` for
+regularity, `image` under `Classical.allZFSetDefinable` for the
+Lean-level replacement scheme), and `univChain n := V_ (κ n).ord`,
+Mathlib's von Neumann hierarchy (`ZFSet.vonNeumann`, with
+`mem_vonNeumann : x ∈ V_ o ↔ x.rank < o` and `card_vonNeumann :
+card (V_ o) = preBeth o` — both already in Mathlib, which made the ZFSet
+route the shortest honest path; the Aczel `UnivChain` route would have
+had to re-derive rank and cardinality on our own trees).  The chain
+clause is `ord_lt_ord` + `vonNeumann_mem_of_lt`.  The work is
+
+```lean
+theorem isTGUniverse_vonNeumann (hκ : κ.IsInaccessible) :
+    Lech.IsTGUniverse (· ∈ ·) (V_ κ.ord)
+```
+
+Transitivity, subset- and power-set closure are Mathlib's lemmas (the
+latter needs `κ.ord` to be a limit, i.e. `ℵ₀ ≤ κ`).  Tarski's
+cardinality clause — a subset `y ⊆ V_ κ` is a member or equinumerous
+with `V_ κ` — is where inaccessibility enters: `rank y ≤ κ.ord`; if
+`< κ.ord`, member.  Otherwise `|y| ≥ κ`, because fewer than `κ`
+ordinals below `κ.ord` have a strict upper bound below it
+(**regularity**, `Ordinal.iSup_add_one_lt_of_lt_cof` with
+`hκ.cof_ord`), so a `y` of size `< κ` would have rank `< κ.ord`
+(`rank_lt_ord_of_card_lt`); and `|V_ κ| = preBeth κ.ord = κ`
+(`card_vonNeumann_ord`: `≥` is Mathlib's `le_preBeth_ord`, `≤` is
+`preBeth a < κ` for `a < κ.ord` by `limitRecOn` — the successor step is
+**strong limitness**, the limit step regularity again through
+`Cardinal.lift_iSup_lt_of_lt_cof_ord`).  So `card y = card (V_ κ)`,
+`Cardinal.eq` gives a bijection of the (shrunk) member types, and
+`equinumerous_of_card_eq` extends it to the global function
+`Lech.Equinumerous` asks for.  Nothing beyond his hypothesis was used.
+`#guard_msgs in #print axioms carneiro_implies_lech`: `propext`,
+`Classical.choice`, `Quot.sound`.
+
+**FINDING — the briefed converse-countermodel is wrong; the two
+hypotheses are equivalent (up to a shift).**  The task briefing (and
+the `agent/reflexive` DESIGN draft for #202) hold that `IsTGUniverse`
+is strictly weaker than "`V_κ`, `κ` inaccessible" because `H(κ)` for a
+singular strong-limit `κ` satisfies all four clauses.  It does not:
+with `κ = ℶ_ω` and `y = {V_{ω+n} | n < ω}`, every member is in `H(κ)`
+(`|TC(V_{ω+n})| = ℶ_n < κ`) so `y ⊆ H(κ)`, but `|TC(y)| = ℶ_ω = κ` so
+`y ∉ H(κ)`, and `|y| = ℵ₀ ≠ κ = |H(κ)|` so `y ≉ H(κ)` — Tarski's clause
+fails.  In general (over any model with the ambient cardinal
+arithmetic) a transitive Tarski-form universe `U` with `κ := |U|` has
+every member of size `< κ` and `κ` a strong limit (power sets of
+members are members), contains exactly the ordinals `< κ`, and has `κ`
+REGULAR: `U` contains every subset of itself of size `< κ` (Tarski's
+clause), of which there are `κ^{<κ} ≥ κ^{cof κ} > κ` for singular `κ`
+(König), more than `|U|`.  Hence `U ∈ {∅, V_ω} ∪ {V_κ | κ inaccessible}`
+(`∅` and `V_ω` do satisfy the four clauses: `ℵ₀` is regular and a
+strong limit in Mathlib's sense but not `IsInaccessible`).  For Lech's
+chain this means `univChain (n + 2) = V_{κ_n}` with `κ_n` strictly
+increasing inaccessibles — Lech's hypothesis implies Carneiro's, up to
+reindexing by two.  Consequences: (i) README's "similar to" can become
+"equivalent to (up to the bottom two universes)" once the converse is
+mechanized; (ii) #202's remark that union-closure "is not derivable"
+from the Tarski form is true only in the sense that Lech's *internal*
+derivation apparatus lacks cardinal arithmetic — semantically the
+union of a member IS a member in every `IsTGUniverse` (its union is a
+subset of size `< κ`), so a `univChain_union` field would add no
+axiomatic content, only a shortcut past the counting argument; the
+user rules on which.  The converse is NOT mechanized here: it needs a
+lower bound on the number of small subsets (`κ^μ ≤ #{y : Set U // #y ≤ μ}`)
+that Mathlib does not provide off the shelf, and the statement lives on
+an abstract `Lech.SetTheory V` (cardinals of `{z // z ∈ˢ univChain n}`).
+Recorded as a follow-up (task to be numbered): `lech_implies_carneiro :
+Lech.SetTheory V → OmegaInaccessibles.{u}` for `V : Type u`.
+
+**README.md suggestion (not applied; the user edits README).**  Replace
+"that assumption is similar to the ω-many-inaccessible-cardinals
+hypothesis of Carneiro's consistency analysis in lean4lean-model" by:
+"Carneiro's ω-many-inaccessibles hypothesis (`OmegaInaccessibles` of
+[lean4lean-model](https://github.com/digama0/lean4lean-model)) implies
+this interface: `bridge/lean4lean-model/` proves it in Lean on
+Mathlib's `ZFSet`, with `univChain n := V_{κ_n}`."
+
+## HASHING AND COMPARISON UP TO BINDER NAMES AND BINDER INFO (2026-09-07, `agent/alpha`, task #203)
+
+*(SUPERSEDED the same day by task #205, section "THE FIELDS GO" at the
+end: the user's ruling on this design — "if we don't keep the names we
+should drop the fields!" — removed the `name` and `bi` fields from
+`Expr` outright, so the normal form below, its three entry points and
+the residual list are history; the measurements and the fixture
+stand.)*
+
+**The ruling (user, verbatim):** *"D5: hashing and comparison up to
+binder names and binder info of course!"* — the official kernel's
+equality and hash are α-equivalence (`expr_eq_fn.cpp:52, :100-103`
+skip binder names and infos and compare fvars by id; `expr.cpp`'s
+hash mixes neither), and ours must be the same, so that (i) a memo
+probe or the syntactic fast path never misses on a display-data
+difference — the task #201 residual (d), a pair differing only in a
+binder name nested under a `.proj`-headed argument paying D5's full
+`whnf` — and (ii) the packed hash never separates α-equivalent terms.
+
+### 1. The two designs, priced
+
+**(A) Strip at the boundary — CHOSEN.**  Keep `Expr` as it is (a
+`name` on `fvar`/`lam`/`forallE`/`letE`, a `bi` in `BinderMeta`), keep
+`beq = decide (a = b)` and `LawfulBEq`, and establish ONE normal form
+for the display data on every term the checker holds: name
+`.anonymous`, info `.default`.  Then structural `=`, `==`,
+`DecidableEq`, `beqFast` and every memo key ARE α-equivalence on the
+world's terms, with no change to any proof about `beq`.  The precedent
+is task #142 (binder infos stripped at the parser after a fuzz hit);
+this task finishes it for names and moves the pin side to the same
+form instead of erasing both sides at comparison time.
+
+**(B) Keep names, compare and hash up to them — REJECTED.**  Making
+`Hashable`/`BEq`/`DecidableEq` α-equivalence breaks `LawfulBEq`
+(`eq_of_beq` no longer holds) and hence every `==`-to-`=` step in the
+verification tier: `beq_iff_eq`/`eq_of_beq`/`LawfulBEq` are consumed
+at 600+ sites across `Verify/*`, `Semantics/*`, `SetP/*`
+(`grep -c "eq_of_beq\|beq_iff_eq\|LawfulBEq"`), each of which would
+need an `ErasedEq`-style transport of its conclusion through
+α-equivalence — the `TowerOk`-shaped fallout task #142 already
+measured for the *annotation* alone and rejected.  Same observable
+behaviour as (A), a proof refactor of a different order.
+
+**Dropping the fields outright** (the "cheap if the type can lose the
+field" variant of (A)) was measured and not taken: `.fvar`/`.lam`/
+`.forallE`/`.letE` constructor patterns occur 4 201 times in 237
+files (`grep -rhoE "\.(lam|forallE|letE|fvar)\b" Lech | sort | uniq -c`),
+every one of which would move.  The field costs nothing at the normal
+form (a `.anonymous` is a scalar, `.default` a tag), and the type
+keeps its round-trip ability (`Frontend/ExportWrite.lean`) and the
+reader-facing spelling of the pins.
+
+### 2. What observed names and infos — the audit
+
+Every reader of a binder name, `fvar` name or `BinderInfo` in the
+tree, and what happened to it:
+
+| reader | what it did | after #203 |
+|---|---|---|
+| `Frontend/ExportC.lean` `parseExprEntryD` (JSON) and `fastApplyIED` (byte path) | resolved the `name` index into the node | **the strip**: `.anonymous`; the index is still parsed (`getIdx`) so a malformed record is still malformed; `parseBinderInfo`/`fsBinderInfo` unchanged (validate, discard — #142) |
+| `Frontend/Export.lean` `canonExpr` / `ConstantInfo.canon` (basis-block, quotient-kind and `Quot.sound` matching) | erased names and infos on BOTH sides, renamed level parameters, reset `pw` | kept; the name/info half is now the identity on both sides, the level renaming and the `pw` reset are what it still does; docstring says so |
+| `Kernel/Basis/Builder.lean` `pi`/`piI`/`lm`/`lmI` — the hand-written pins (`Basis/*`, `StdAxioms`, `TrustAxioms`) | emitted the `Init.Prelude` name and, for `piI`/`lmI`, `.implicit` | **the pin-side strip**: the name argument documents the spelling, the node is `.anonymous` at `⟨.default, .never⟩`; `#annotate_basis`/`#annotate_pins` copy the display fields, so the installed annotated forms follow |
+| `PinGen.lean` `toLech` — the generated pins (the Nat-op dump `pins/<toolchain>.json`, its prelude sidecar, `TrustPins`) | `sanitizeBinderName` + `toLechBI` | **the generator-side strip**: `.anonymous`, `.default` (both helpers deleted); dump and sidecar regenerated (`lake exe natop-pins-export`), `TrustPins` regenerates at build |
+| `Kernel/StdAxioms.lean` `Expr.eraseNames` / `ConstantVal.matchesPin` (standard axioms, trust family, `Iff`/`Nonempty` shapes) | compared up to names, pins pre-normalised to `.default` (#142) | unchanged (the erasure is now the identity on both sides; `ErasedEq.of_eraseNames` keeps bridging a hit) |
+| `Kernel/ExprOps.lean` `Expr.eqUpToNames` (`checkMemberVal`, the modeled-block contract; the nested-rule major pin) | up to names, everything else exact | kept, one-paragraph note: on stream-vs-stream pairs it coincides with `==`; the proofs consume `ErasedEq.of_eqUpToNames` at ~20 sites (`Verify/Extend/*`, `Semantics/DeclIndRun`, `SetP/IndMemberP`, `IndUnitLawP`, `BridgeCS2`, …), and swapping it for `==` would restate the same theorem at `rfl` for no behavioural gain |
+| the defeq binder arms (`Core.lean`, `CoreC.lean`; task #201) | open both bodies at `.fvar depth n₂ ty₂` | unchanged: `n₂` is the binder's own name, `.anonymous` |
+| `pisToLams`, `replacePiBody`, `stripPis`/`stripLams`, the substitution and level-instantiation walks, `renameConsts` | copy the name through | unchanged (copies of `.anonymous`) |
+| `Frontend/ExportWrite.lean` (the in-model dump writer) | writes `"name":<idx>` and `binderInfo` | unchanged; writes the anonymous index and `default` |
+| `PinGen/Prelude.lean` (the built-in prelude sidecar `pins/<toolchain>.prelude.ndjson`) | serialised from the toolchain's own environment (`Lean.Expr`, a port of lean4export) | unchanged by this task (its regeneration is byte-identical); the parser strips it at load like any stream |
+| `PinGen/Dump.lean` share table (`exLam`/`exForall`/`exLet` entries carry a name ref and a `bi`) | — | format unchanged; the regenerated dump's entries reference the anonymous name |
+| error messages | none prints a binder or `fvar` name: every `s!"…{n}…"` in `Core.lean`/`CoreC.lean`/`DeclCheck.lean` is a *constant* name (`unknown constant {n}` …); `Name.toString .anonymous = "[anonymous]"` is never reached from a binder | nothing lost |
+| the progress/trace lines | declaration names | unaffected |
+| the `pw` annotation | independent of names | unaffected — it stays in `BinderMeta`, is validated, and is hashed (`Hashable.hash m.pw`) |
+| generated recursors (`S2`/#175/#188: stored vs generated by `isDefEq`) | — | unaffected in verdict; see the residual below for the *stored* one |
+
+**Proof-side spellings.**  Nine proof files spelled pin literals with
+their names/infos in `show … from rfl` steps, and moved to the normal
+form mechanically (one regex over `.forallE/.lam/.letE/.fvar k (…)`
+name arguments and `.implicit` → `.default`; 228 sites):
+`Semantics/BasisRules.lean` (37), `SetP/BasisQuotP.lean` (66),
+`SetP/BasisBlocksP.lean` (50), `SetP/BasisEqP.lean` (30),
+`SetP/IndFireP.lean` (19), `SetP/AxiomBitsP.lean` (10),
+`SetP/BasisEmptyP.lean` (6), `SetP/BasisFalseP.lean` (6),
+`Verify/OfReducePin.lean` (4).  Nothing else in the tree cared: the
+theory reads an `fvar` by index (`denoteP`, `SetP/Annot/Bit.lean`) and
+`ErasedEq` relates fvars by index (`Verify/Subst.lean`).
+
+**The residual — display-named terms that still exist, and why they
+do not matter.**  Three classes of terms are *fabricated* inside the
+checker with spelled names, and were left alone:
+
+1. the direct-route recursor generators — `Kernel/Direct/Parts.lean`,
+   `RecParts.lean` (`"t"`, `"motive"`, `Name.lastStr C` for the minors,
+   `"ih"`) — whose output is what the direct install STORES
+   (`RecInstall.lean:127`: `cvRa := ⟨name, lps, recTy⟩` with `recTy` the
+   generated type, after `isDefEq` against the stream's) and whose
+   spellings are pinned by `Verify/Direct/*` and `SetP/Direct*/*`
+   (~50 sites; `agent/reflexive` is live in those directories);
+2. the in-process modeller's `_model` families
+   (`Frontend/InModel/{Mutual,Nested,Kit}.lean`: `"i"`, `"s"`, `"z"`,
+   `"h"`, `"x"`, `"t"`), pushed as `DeclC` records without a re-parse;
+3. the certificate locals of the Nat-operation and reduce-op
+   certificates (`Kernel/Checker.lean:147-226` `"x"`/`"y"`/`"h1"`/`"h2"`,
+   `TrustAxioms.reduceCertVar` `"a"`), spelled by `SetP/NatSemP`,
+   `NatEqsP`, `DivModEval`, `DivModCertP`, `ReduceOpsP`,
+   `Verify/NatOpFrag` (~70 sites).
+
+Class 3 never meets a stream binder in `==` at all (the local is
+applied to the blob and compared against itself).  Classes 1 and 2
+put named binders into the environment (a stored recursor's *type*,
+a `_model` definition's value); a term derived from one of them —
+`infer`'s `∀ (t : T), motive t` for a partially applied recursor,
+an unfolded `_model` body — can meet an anonymous stream spelling in
+`==`, miss, and pay ONE binder-arm step (`whnfCore` is the identity
+on a `∀`/`λ`, the domains are `==`, both bodies open at the same
+local — task #201), never D5's `whnf` of a struct.  The recipe for
+sweeping them is the one this task applied (`.str .anonymous "…"` →
+`.anonymous` at the generator and in the proofs that spell it); it
+waits for `agent/reflexive` to release `Kernel/Direct/*` and is not
+worth a merge conflict now.  The packed hash is α-blind for these
+terms too, so no memo ever holds two entries for one α-class.
+
+**What is NOT covered — the `fvar` type annotation.**  E1(d) also
+listed the `fvar`'s *type* (official compares fvars by id alone).
+Untouched: it is part of the variable's identity by design (the
+implicit local context), and since #201 no single variable has two
+openings inside one comparison.  It stays on E1's row.
+
+### 3. The hash recurrence, read
+
+`Lech/Kernel/Expr.lean`, `Expr.data`: `.fvar` mixes the index and the
+type's hash; `.lam`/`.forallE` mix the domain's, the body's and
+**`Hashable.hash m.pw`** (was `Hashable.hash m`, which read `bi`);
+`.letE` mixes the three children.  No arm reads a `Name` other than
+`.const`'s and `.proj`'s (constant and structure names — semantic).
+The `bvarBRaw_*`/`fvarBRaw_*`/`hasLP_*` equations abstract the hash
+argument (`packData _ …`), so no proof moved for this.  `beqFast`'s
+docstring did not change a claim: its cheap reject is the whole word
+`a.data`, which is still a function of `a`.
+
+### 4. The fixture, and what it took to make an α-twin reach the checker
+
+`tests/e2e/src/binder_name_proj.lean` → `tests/e2e/binder_name_proj.ndjson`
+(`scripts/mk_binder_twin_fixture.py --proj`, a `raw` line, expectation
+`0`):
+
+    noncomputable def h (f : Nat → Nat) (x : Nat) : Nat × Nat :=
+      Nat.rec (motive := fun _ => Nat × Nat) (x, f 0) (fun _ ih => ih) 40000
+    theorem w2 : ∀ (x : Nat), (h (fun y => y) x).2 = (h (fun y => y) x).2 := fun _ => rfl
+
+The statement the checker sees is `.proj Prod 1 (h (fun y => y) x) =
+.proj Prod 1 (h (fun tw_1 => tw_1) x)` with the right-hand λ a
+distinct table node at binder info `implicit` — a pair that differs
+in display data alone, under a `.proj` whose struct is a 40 000-step
+`Nat.rec` tower (`whnf` grinds it unarily, ~43 k instructions per
+step, measured on a 2 000-step probe forced through `Eq.refl 0`).
+Three findings on the way, each of which hid the residual from the
+first cut of the fixture:
+
+1. **lean4export interns up to α.**  A source spelling two binder
+   names exports ONE node (`Lean.Expr`'s `BEq` is `eqv`), so the twin
+   has to be manufactured on the export: the script deep-copies the
+   right-hand side under fresh names and `implicit`.
+2. **The elaborator's `p.2` is `Prod.snd p`, not `.proj`.**  Two
+   `Prod.snd` applications are decided by the lazy-delta same-head
+   spine congruence (E6: `sameRegular ∧ sameConstHeads → defeqSpine`),
+   which compares `h (λ…) x =?= h (λ…) x` the same way and reaches the
+   λ pair through two more spine steps — the struct is never whnf'd,
+   before or after this task.  The residual's shape needs the kernel
+   projection node itself (what a real stream has once the projection
+   function has been unfolded — the task #201 trace's
+   `Prod.snd ExprC MemoN (abstract1Go …)` was exactly that); `--proj`
+   rewrites the shared `Prod.snd Nat Nat s` node to `.proj Prod 1 s`
+   in place, so the value's `rfl` and both sides of the statement see
+   it.
+3. **The preprocessor is an α-normaliser.**  `lech-preprocess`
+   (lean-inductive-models) re-exports the stream through `Lean.Expr`,
+   whose hash-consing is α-equivalence, so on a piped run the twin
+   collapses back into one node before lech reads it — master
+   accepted the first fixture at the raw export's cost, and a traced
+   master binary (`dbgTrace` at `defeqStepI` and the `whnfCoreBodyI`
+   projection clause) showed the declared type arriving with `fun y`
+   on BOTH sides.  Hence the `raw` line.  This also says where the
+   α-variants that matter in production come from: not the input
+   (which the tool normalises whenever it runs) but the **checker's own
+   fabrications** — the pins (`Nat.rec`'s `motive`/`t`, `Eq`'s `α`, …
+   on master), `pisToLams` copies, the generated recursors, the
+   `_model` families — meeting stream spellings; the fixture is the
+   synthetic witness of the mechanism those go through.
+
+**Receipts** (`perf stat -e instructions:u`, `ulimit -v 16G`,
+`timeout`, one run per cell; master = `a77ac1d6` built in its own
+worktree, alpha = this branch at the seal; wall time is not a
+measurement on this machine):
+
+| stream | mode | master | alpha |
+|---|---|---|---|
+| `binder_name_proj` (raw, the twin) | `--verified` | accept, **3.38 G** | accept, **0.37 G** |
+| `binder_name_proj` (raw, the twin) | `--trusted` | accept, 3.18 G | accept, 0.37 G |
+| the same export without the twin (raw) | `--verified` | accept, 0.37 G | accept, 0.37 G |
+| the 2 000-step probe twin (raw) | `--verified` | 0.52 G (= 0.37 + 2 × 76 M) | 0.37 G |
+| `binder_shared_local` (#201's fixture, piped) | `--verified` / `--trusted` | 0.79 G / 0.79 G (90 decl.) | 0.79 G / 0.79 G (90 decl.) |
+
+The twin's 3.0 G on master is the two structs' `whnf` (the traced
+binary's `PROJWHNF` fires three times on the raw twin, never on the
+piped one); on alpha the `Eq` pair is `==` and nothing below it runs.
+
+**The five `_tmp/slowest/slices` cells and init-full**, master vs
+alpha, `--pre` on the slices (target-only = full − the same slice
+without the target declaration; `_tmp/alpha/cells-{master,alpha}.tsv`,
+`_tmp/alpha/measure.sh`):
+
+| slice | mode | master full | alpha full | Δ | master target-only | alpha target-only | Δ |
+|---|---|---|---|---|---|---|---|
+| t1 | verified | 310.74 G | 304.98 G | -1.9 % | 24.62 G | 24.32 G | -1.2 % |
+| t1 | trusted | 296.25 G | 291.10 G | -1.7 % | 24.49 G | 24.16 G | -1.3 % |
+| t2 | verified | 696.19 G | 685.09 G | -1.6 % | 36.71 G | 37.66 G | +2.6 % |
+| t2 | trusted | 607.51 G | 596.86 G | -1.8 % | 16.59 G | 16.45 G | -0.8 % |
+| t3 | verified | 79.95 G | 65.74 G | -17.8 % | 23.73 G | 11.43 G | -51.9 % |
+| t3 | trusted | 79.22 G | 65.09 G | -17.8 % | 23.67 G | 11.41 G | -51.8 % |
+| t4 | verified | 148.83 G | 135.15 G | -9.2 % | 20.00 G | 7.08 G | -64.6 % |
+| t4 | trusted | 128.16 G | 126.33 G | -1.4 % | 2.24 G | 1.10 G | -50.8 % |
+| t5 | verified | 65.62 G | 65.31 G | -0.5 % | 16.73 G | 16.91 G | +1.1 % |
+| t5 | trusted | 63.72 G | 63.40 G | -0.5 % | 16.76 G | 16.87 G | +0.6 % |
+| init-full | verified | 798.51 G | 789.58 G | -1.1 % | | | |
+| init-full | trusted | 778.81 G | 770.27 G | -1.1 % | | | |
+
+* **init-full** (raw, the tool in the pipe): **−1.1 % both modes**,
+  accepted **53 164 declarations in all four cells** (the same
+  in-process `Lean.Syntax` model line), verdicts unchanged.  The
+  saving is every fast-path hit that used to miss on a pin's or a
+  fabricated binder's display name (`Nat.rec`'s `motive`/`t`, `Eq`'s
+  `α`/`a`/`b`, …, against the stream's spellings) — task #201's
+  `−1.4 %` came from the same class one step earlier.
+* **t3 (`d₂₃_aux._proof_17`) and t4
+  (`exists_variableChange_of_char_ne_two_or_three`)**: the target-only
+  cost falls by **−52 % (t3, both modes) and −65 % / −51 % (t4)** — a
+  large part of what those two targets paid was fast-path misses on
+  display data (the slowest campaign's table put them at 8.5× and
+  75× official's target-only cost; now 3.4× and 20× `--verified`,
+  3.1× `--trusted` on t4).  Which α-variants those were (pins,
+  `pisToLams` copies, generated binders — the classes in §2) was not
+  profiled here; the point of the normal form is that it no longer
+  matters.  On t4 `--verified` the full cell drops 9.2 %.
+* t1, t2, t5: −0.5 … −1.9 % on the full cells; the target-only
+  deltas (−1.3 … +2.6 %) are differences of two large cells and
+  within the memo-order noise a changed hash induces (t2
+  `--verified`'s +0.95 G target-only sits on a −11.1 G full cell).
+* No cell moved by more than the sign expected: nothing got worse
+  that a name-blind fast path could have made worse.
+
+**Gates at the seal** (`tests/arena.sh`, `_tmp/alpha/arena2.log`):
+`lake build` warning-free (699 jobs), `lake test`, layering 0/0,
+proofdeps 2 821 rows as pinned across 7 roots, doors 0 (rows moved
+only by relocation), pindump fresh (dump regenerated — the entries'
+name refs are the anonymous name now; the prelude sidecar
+byte-identical), trust surface 0 outside the allowlist, native audit
+0 unrecognised, axioms pinned (11 theorems at the three standard),
+tutorial 90/92, **e2e 118/118** (the new `raw` fixture in), annot
+14/14, retired/mode flags 8/8 + 16/16, prelude counts 3/3, progress
+lane 6/6, trusted sweep as expected (the 3 recorded divergences).
+Artefacts: `_tmp/alpha/` (builds, cells, the traced-master probe
+outputs `dbg-twinp*.out`, the export scratch dirs).
+
+## TASK #208 — THE INDUCTIVE AUDIT'S PROBES, COMMITTED AS e2e FIXTURES (2026-09-07, `agent/auditfix`)
+
+Task #206 audited every check of the official kernel's `add_inductive`
+against our four direct routes, the in-process modeller and
+`lech-preprocess`, and ran 23 hand-written probes for the points of the
+shape space no fixture covered
+(`_tmp/indaudit/REPORT.md`, `_tmp/indaudit/probes/P/*.lean`).  The
+probes lived in a scratch project and would have rotted.  This task
+turns **all of them** into committed e2e fixtures — the six divergences
+*and* the "probed and clean" shapes, which are exactly the regression
+guards the follow-ups need.  Nothing in `Lech/` changed: this is
+`tests/e2e/*`, `tests/e2e-expected.txt` and this section.
+
+**The pinning rule.**  A divergence's expectation is set to **today's
+lech verdict**, not to official's.  The suite must stay green at master,
+and the conformance work must flip each line *deliberately*; the
+official verdict sits on a `# TODO(#206-…)` comment line immediately
+above it (`tests/e2e-expected.txt` supports whole-line `#` comments
+only — a trailing comment would be read as the mode field).  Fixtures
+whose verdict already equals official's carry no TODO line.
+
+**Two lines per fixture.**  Every export is RAW lean4export output, and
+the audit's cracks live in the gap between the *piped* run (the
+preprocessor available — the shipped configuration) and the *raw* run
+(`LECH_INDUCTIVE_MODELS=/nonexistent`, the direct routes and the
+in-process modeller alone).  So each fixture gets a plain line and a
+`raw` line; both are pinned, and no new harness mode was needed —
+`tests/arena.sh`'s existing `raw` mode is exactly this.  `--trusted`
+agrees with `--verified` on all 26, so `tests/trusted-expected.txt` is
+untouched.
+
+**Provenance.**  Sources under `tests/e2e/src/`, each with a header
+naming the audit finding, the official verdict, the lech verdict at
+master `700a06ca` and the route/arm responsible.  Exports regenerated
+with the same exporter as every other fixture here —
+lean-inductive-models' `scripts/export-fixture.sh`, lean4export
+`caccfbe` on `leanprover/lean4:v4.29.1`, `LEAN_INDUCTIVE_MODELS_FILTER=0`
+(raw), `FIXTURE_DIR=tests/e2e/src OUT_DIR=tests/e2e`.  `ind_unsafe` is
+the one exception: it needs lean4export's `--export-unsafe`, which the
+script does not pass, so it was exported by hand with the same exporter
+and toolchain (the recipe is in its source header).  Declarations the
+Lean *elaborator* refuses to write down (a raw `Expr.proj`, a `let` with
+a mistyped value, a positivity-violating block, a `Sort u` former) are
+added with `debug.skipKernelTC` from an inlined probe kit in the source;
+inductive declarations still go through `add_inductive`, so every
+inductive here is one the kernel really admits.  Official verdicts
+re-measured on the regenerated exports with the arena's `official`
+(v4.34.0-rc2): all 26 match the audit's record.
+
+### The fixture ↔ finding table
+
+`off` = official (arena `official` v4.34.0-rc2); `pipe` / `raw` = lech at
+master `700a06ca`, identical in `--verified` and `--trusted`.  **Bold**
+rows are divergences (a `# TODO(#206-…)` line in the expectations);
+plain rows are regression guards.
+
+| fixture | audit finding | probe | off | pipe | raw | responsible | follow-up |
+|---|---|---|---|---|---|---|---|
+| **ind_defhead_struct** | A1 / C1 def-headed former at a STRUCTURE, and its projection functions | `DefHeadStruct` | 0 | **2** | **2** | `directPartsCore?`'s syntactic `∀ p⃗, Sort` (Parts.lean:469) + `ProjRec.projRecOwners`'s (ProjRec.lean:255) | #206 fu-3 |
+| **ind_defhead_k** | A2 / C2 def-headed former at a K-target / unit-like Prop | `DefHeadK` | 0 | **3** | **2** | ditto; the tool's own `U._model.unitlike` check then fails | #206 fu-3 |
+| **ind_defhead_mutual** | A3 / C3 def-headed formers on a MUTUAL block | `DefHeadMutualOnly` | 0 | **3** | **2** | `genMutual`'s syntactic `stripPis … .sort` (InModel/Mutual.lean:158) | #206 fu-3 |
+| ind_defhead_fix | the clean recursive arm of the same family | `DefHeadFixOnly` | 0 | 0 | 2 | fix route syntactic; the tool models it | guard |
+| ind_former_redex | β-redex former `(fun x => x) Type` | `FormerRedex` | 0 | 0 | 2 | as above | guard |
+| **ind_mutual_param_defeq** | A4 / C4, PARAMETER variant (`Type` vs `id Type`) | `MutualParamDefEq` | 0 | **2** | **2** | `piBinders … == …` (InModel/Mutual.lean:164) vs official's `is_def_eq` | #206 fu-4 |
+| **ind_mutual_sort_defeq** | A4 / C4, SORT variant (`Sort (max u v)` vs `Sort (max v u)`) | `MutualDefEq` (sort half) | 0 | **2** | **2** | `u' == u` (InModel/Mutual.lean:164) vs official's `is_equivalent` | #206 fu-4 |
+| **ind_pos_whnf_fn** | A5 / C5 reflexive occurrence hidden under a definition (`Fn α := Nat → α`) | `WhnfPosFn` | 0 | **3** | **2** | `recPositivity` syntactic (RecParts.lean:102-114) → `.unsupported` → the tool errors | #206 fu-5 |
+| ind_pos_whnf_id | its finitary twin (`Id' α := α`), which the tool models | `WhnfPosId` | 0 | 0 | 2 | as above | guard |
+| **ind_rec_struct_proj** | A6 / C6 projection FUNCTIONS of a finitary recursive `structure` | `RecStructOnly` | 0 | **2** | **2** | the block is native on `fix`, so no `Chain._model.proj_i.iota` for ProjRec to read — a silent regression of #188 | #206 fu-2 |
+| **ind_rec_struct_proj_raw** | A7 / C7 raw `.proj` on recursive + mutual + nested structure-likes | `RecStructProj` | 0 | **2** | **2** | no projection table (Core.lean:2596-2622); on this stream `Chain.h` declines first (= A6) | by design (W5) |
+| **ind_proj_mutual_nested** | A7 / C7, without the recursive structure | `ProjMutualNested` | 0 | **2** | **2** | ditto; declines at a raw `.proj` | by design (W5) |
+| ind_reflexive_tool | A9 reflexive `W'` + an `Acc` clone | `ReflexiveTool` | 0 | 0 | 2 | fix `.unsupported`; the tool models them | #202 (raw 2 → 0) |
+| ind_nest_inf | A9 infinitary nesting `List (Nat → T)` | `NestInf` | 0 | 0 | 2 | the export's `isReflexive` flag routes it to the tool | #202 |
+| ind_nest_via_refl | A9 nesting through a reflexive container | `NestViaRefl` | 0 | 0 | 2 | ditto | #202 |
+| **ind_unsafe** | A10 / C8 `unsafe inductive` | `UnsafeInd` | 0 | **3** | **3** | the PARSER throws (ExportC.lean:550) where unsafe *definitions* decline with 2 | #206 fu-6 |
+| ind_empty_idx | zero-constructor INDEXED families, Type and Prop | `EmptyIdx` | 0 | 0 | 0 | direct sum route | guard |
+| ind_sort_u | `Sort u` structure + sum with SMALL eliminators, `.proj` and eta | `SortU` | 0 | 0 | 0 | direct structure/sum routes | guard |
+| ind_mutual_zero_ctor | mutual block with a zero-constructor member | `MutualZeroCtor` | 0 | 0 | 0 | in-process modeller | guard |
+| ind_idx_defhead_sort | mutual index whose domain's TYPE is not a syntactic sort | `IdxDefHeadSort` | 0 | 0 | 0 | in-process modeller (`Kit.sortOf`) | guard |
+| ind_nest_two_pins | same container at two pins, doubly nested | `NestTwoPins` | 0 | 0 | 0 | in-process modeller B3/B4 | guard |
+| ind_nest_prop | Prop blocks nested through Prop containers | `NestProp` | 0 | 0 | 0 | in-process modeller | guard |
+| **let_bad_value** | S1 / C9 `let x : Nat := Bool.true; Nat.zero` (x unused) | `LetValueType` | 1 | **0** | **0** | `annotate`'s `.letE` returns the zeta-reduct (Core.lean:2577-2596); official's `infer_let` triple never runs | #206 fu-1 |
+| **let_bad_type** | S1 / C9 `let x : Bool.true := Nat.zero; …` (let type not a sort) | `LetValueType` | 1 | **0** | **0** | ditto — the missing `ensureSort` | #206 fu-1 |
+| **let_bad_thm** | S1 / C9 the same on the THEOREM path | `LetValueType` | 1 | **0** | **0** | ditto | #206 fu-1 |
+| let_bad_value_used | the control: `let x : Nat := Bool.true; x` | `LetValueType` | 1 | 1 | 1 | caught incidentally — the reduct `Bool.true` mismatches the declared `Nat` | guard |
+
+Not committed as fixtures, deliberately: A8 (`Acc`-class Prop+large,
+already `direct_fix_prop_large` / `direct_fix_acc_large`), A11 (the
+axiom rulings), A12 (cosmetic — official rejects too), S2/S3 (licensed
+accept-supersets already carried by arena corner cases), S4
+(`irrel_commit`), S5 (cosmetic).
+
+**What the fixtures buy.**  Each conformance follow-up now has its
+acceptance test written down before the work starts: fu-1 flips six
+`let_*` lines to 1, fu-2 flips `ind_rec_struct_proj` to 0, fu-3 flips
+the three `ind_defhead_*` divergence lines, fu-4 the two
+`ind_mutual_*_defeq`, fu-5 `ind_pos_whnf_fn`, fu-6 `ind_unsafe` 3 → 2 —
+and the guard rows say what must NOT move while they do.  Task #202 /
+`agent/reflexive` has its own three raw rows (`ind_reflexive_tool`,
+`ind_nest_inf`, `ind_nest_via_refl`) plus `ind_defhead_fix` /
+`ind_former_redex` / `ind_pos_whnf_id`, which should follow the same 2 →
+0 direction when the direct routes learn the shapes.
+
+**Gates at the seal** (`tests/arena.sh`, `_tmp/auditfix/arena.log`, exit
+0): layering 0/0, proofdeps as pinned, pindump fresh, trust surface 0
+outside the allowlist, native audit 0 unrecognised, inmodel OK, axioms
+pinned (11 theorems at the three standard), tutorial 90/92 (unchanged),
+**e2e 170/170** (118 → 170: the 26 new fixtures at two lines each),
+annot 14/14, retired/mode flags 8/8 + 16/16, prelude counts 3/3,
+progress lane 6/6, trusted sweep 138 arena + 170 e2e + 14 annot as
+expected (the same 3 recorded divergences — none of the new fixtures
+needed one).  `lake build` is untouched: no `Lech/` source changed.
+Artefacts: `_tmp/auditfix/` (`arena.log`, `verdicts.txt` = the 26 × 4
+verdict matrix, `official.txt` = the arena `official` re-measurement,
+`design.md`).
+
+## TASK #205 — THE FIELDS GO: `Expr` carries no binder name and no binder info (2026-09-07, `agent/nofields`)
+
+**The ruling (user, verbatim, on task #203's normal form):** *"that is
+an odd design. if we don't keep the names we should drop the fields!
+yes, touches many files, but that is ok."*
+
+Task #203 had made every term the checker holds carry its display data
+at one normal form (`.anonymous`, `.default`) so that `==` and the
+packed hash were α-equivalence *in practice*.  This task removes the
+data itself:
+
+    | fvar (idx : Nat) (type : Expr)                 -- was (idx) (name : Name) (type)
+    | lam (type body : Expr) (m : BinderMeta)        -- was (n : Name) (type body) (m)
+    | forallE (type body : Expr) (m : BinderMeta)
+    | letE (type value body : Expr)                  -- was (n : Name) (type value body)
+    structure BinderMeta where pw : PropWhen          -- `bi : BinderInfo` gone; `BinderInfo` deleted
+
+so that there is nothing α-irrelevant in a node: structural `=`, `==`,
+`DecidableEq`, `beqFast` and the packed `hash` are α-equivalence by
+construction, with no normal form to establish and nothing a fabricated
+term (the direct-route recursors, the in-process `_model` families, the
+certificate locals — task #203's residual list) could get wrong.  The
+`pw` datum stays: it is validated, not display data.
+
+### What moved
+
+* **Representation** (`Lech/Kernel/Expr.lean`): the four constructors,
+  the `data` recurrence (the `.fvar`/`.lam`/`.forallE`/`.letE` arms
+  lose their name/`bi` inputs — `Hashable.hash m.pw` is what a binder
+  contributes), `beqGo`/`beqB` (no `n == n'` conjunct), the per-field
+  lemmas' binders.  `beqFast`'s docstring: no claim changed.
+* **Frontend** (`Lech/Frontend/ExportC.lean`, JSON and byte paths): the
+  stream's `name` index is still required to be present and
+  well-formed (`getIdx`), `binderInfo` is still validated
+  (`parseBinderInfo`/`fsBinderInfo`); neither is stored.  `FastNode`
+  (the byte-level pre-parse) keeps its `name` field — it is a stream
+  index, not an `Expr` field — which is where the sweep's one
+  systematic misfire was (`FastNode.letE` shares the constructor name).
+  `ExportWrite` writes `"name":0` and `"binderInfo":"default"`.
+* **Pins**: `Basis/Builder.lean`'s `pi "a"`/`piI "α"`/`lm`/`lmI` keep
+  the `Init.Prelude` spelling as a reader-facing argument and build the
+  same node; `PinGen.toLech`, `BasisGen`'s quoting, and the pin dump
+  (`PinGen/Dump.lean`: `exFVar idx ty`, `exLam ty b pw`, `exForall ty b
+  pw`, `exLet ty v b`; format tag `lech-natop-pins/3`; the committed
+  dump converted mechanically to bootstrap the build, then regenerated
+  by `lake exe natop-pins-export` — `tests/pindump.sh` gates it).
+* **Kernel signatures**: `Expr.stripPis`/`stripLams` return
+  `List (Expr × BinderMeta)`; `Expr.fvarLeaves`/`ExprC.fvarLeaves`
+  return `List (Nat × Expr)` (`leafMem bl idx ty`); `CoreC`'s
+  `InferLamEntry`/`AnnotBinderEntry` are `ExprC × BinderMeta`;
+  `etaCert`/`etaCertI` lose their name parameter; the `ExprC.mk*` smart
+  constructors lose theirs; `Frontend/ProjRec.stripPisAll`,
+  `InModel.Kit.mkLams/mkPis/piBinders` and the InModel generators'
+  binder lists are bare domains (`List Expr`);
+  `Direct/SumInstall.closeTelescope` likewise.
+* **Deleted**: `Expr.eqUpToNames` (the kernel compares with `==`:
+  `checkMemberVal`, the nested-rule major pin), `Expr.eraseNames`
+  (`ConstantVal.matchesPin` is `cv.type.erasePw == pin.type.erasePw`),
+  `Expr.piBinderInfos` (no user), `BinderInfo`, `PinGen`'s
+  `sanitizeBinderName`/`toLechBI`, `ExportWrite.binfo`,
+  `Dump.quoteBinderInfo`/`biToJson`/`biOfNat`.  `Frontend/Export.canonExpr`
+  keeps its level-renaming and `pw`-reset role.  `Expr.ErasedEq`
+  (`Verify/Subst.lean`) keeps its meaning — equality up to `fvar` TYPE
+  annotations — minus the name arms.
+* **Error messages**: none printed a binder name (audited at task #203);
+  positions — de Bruijn level, constant name — are what they carry.
+
+### The mechanical grind
+
+`_tmp/nofields/sweep.py` (committed with the task's receipts under
+`_tmp/`, not in the tree) removed the name argument at every
+`.lam/.forallE/.letE/.fvar` constructor application, pattern and
+`| lam …` induction alternative — deciding `Expr.lam` (4 arguments)
+against `VExpr.lam ty body` (`Lech/TT/Syntax.lean`, 2) and
+`Expr.letE` (4) against `VExpr.letE` (3) by argument count, with the
+inductive hypotheses (`ih*`) discounted in alternatives — and the
+`bi` half of every `BinderMeta` literal: **4 841 sites in 209 files**
+in one pass (the task #203 price estimate was 4 201 patterns in 237
+files).  The implementation tier then took eleven short build rounds
+of hand fixes (tuple projections on the moved signatures, the
+`FastNode` collision, the InModel binder pairs); the verification tier
+was delegated to one Opus subagent with the recipe
+(`_tmp/nofields/RECIPE.md`), serial, in the same worktree, and
+reviewed.
+
+**The grind's report** (Opus subagent, 62 commits `01fe38b3..d964e6b3`,
+170 files, +2 416/−2 591; reviewed):
+
+* `lake build` and `lake test` green and warning-free; `tests/arena.sh`
+  exit 0 — layering 0/0, proofdeps **2 821 rows as pinned, doors 0, no
+  row moved** (the one new declaration lives in an existing module),
+  pindump fresh (the mechanically converted dump is byte-identical to
+  a regeneration — the format-3 entries reference no name, and the
+  share table's name entries were all still referenced by constants),
+  trust surface 0, native audit 0 unrecognised, axioms pinned (11
+  theorems at the three standard), tutorial 90/92, e2e 118/118, annot
+  14/14, flags 8/8 + 16/16, prelude 3/3, progress 6/6, trusted sweep
+  as expected.
+* Deleted: `Expr.eqUpToNames_rfl`, `Expr.ErasedEq.of_eqUpToNames`
+  (`Verify/Subst`), `erasedEq_of_eraseNames` (`Verify/Denote/Inst`),
+  `eraseNames_const_invS` (`Semantics/EraseInv`; its `erasePw` twin
+  absorbs the consumers), `eraseNames_sort_inv` (`Verify/OfReducePin`),
+  `annotBinderMetaI_bi` (`Verify/Cached/AgreeAnnot`; it said the `pw`
+  write leaves `bi` alone).  Added: `Expr.ErasedEq.of_eq : a = b →
+  ErasedEq a b` (the elaboration anchor at `rw [← denoteP_erasedEq …]`
+  sites where a bare `h ▸ ErasedEq.rfl _` cannot infer its motive).
+  ~130 theorems lost a vacuous `(n : Name)` binder, ~250 vacuous
+  `∃ n, …` binders and their witnesses went.
+* **Nothing was weakened and no proof distinguished two `fvar`s by
+  display name** (the grind's hard rule was to stop and report if one
+  did).  Three predicates lost a conjunct the index already decided:
+  `Expr.fvarConsistent d ty` / `Expr.LeafCond d ty`
+  (`Verify/Abstract`, `Verify/InferLeaves`), `Expr.LeafEquiv`'s `fvar`
+  arm, and `DivModEval.dmLeavesOk` (whose `name == "x"` /
+  `name == "y"` checks sat beside `l.1 == 0` / `l.1 == 1`).
+* Two findings outside the sweep's scope: `Lech/PinGen/Prelude.lean`
+  (not a default target; only `tests/pindump.sh` builds it) still had
+  four-field patterns — fixed; `tests/LechTests.lean`'s η
+  stuck-annotation `#guard` pair passed `etaCert` a binder name —
+  fixed, both guards still discriminate the two modes.
+
+### Receipts
+
+`perf stat -e instructions:u`, `ulimit -v 16G`, `timeout`, one run per
+cell; the "#203" column is the task #203 landing (`700a06ca`, its
+binary measured at that seal), "#205" this branch's implementation-tier
+binary (`01fe38b3`, the same kernel the verified build ships);
+`_tmp/nofields/cells-nofields.tsv`, `_tmp/alpha/cells-alpha.tsv`.
+
+| stream | mode | #203 | #205 | Δ |
+|---|---|---|---|---|
+| init-full (raw, 53 164 declarations in every cell) | `--verified` | 789.58 G | **783.22 G** | **−0.8 %** |
+| init-full | `--trusted` | 770.27 G | **764.26 G** | **−0.8 %** |
+| `binder_name_proj` (the #203 twin, raw) | `--verified` / `--trusted` | 0.37 G / 0.37 G | 0.37 G / 0.37 G | — |
+| `binder_shared_local` (piped, 90 decl.) | `--verified` / `--trusted` | 0.79 G / 0.79 G | 0.79 G / 0.78 G | −0.7 % |
+
+The five `_tmp/slowest/slices` cells (`--pre`; target-only = full −
+the slice without the target):
+
+| slice | mode | #203 full | #205 full | Δ | #203 target-only | #205 target-only | Δ |
+|---|---|---|---|---|---|---|---|
+| t1 | verified | 304.98 G | 301.74 G | −1.1 % | 24.32 G | 24.11 G | −0.9 % |
+| t1 | trusted | 291.10 G | 288.14 G | −1.0 % | 24.16 G | 23.99 G | −0.7 % |
+| t2 | verified | 685.09 G | 678.61 G | −0.9 % | 37.66 G | 38.14 G | +1.3 % |
+| t2 | trusted | 596.86 G | 591.22 G | −0.9 % | 16.45 G | 16.39 G | −0.4 % |
+| t3 | verified | 65.74 G | 65.45 G | −0.4 % | 11.43 G | 11.35 G | −0.7 % |
+| t3 | trusted | 65.09 G | 64.83 G | −0.4 % | 11.41 G | 11.36 G | −0.5 % |
+| t4 | verified | 135.15 G | 134.32 G | −0.6 % | 7.08 G | 7.01 G | −1.0 % |
+| t4 | trusted | 126.33 G | 125.62 G | −0.6 % | 1.10 G | 1.09 G | −1.1 % |
+| t5 | verified | 65.31 G | 64.85 G | −0.7 % | 16.91 G | 16.88 G | −0.2 % |
+| t5 | trusted | 63.40 G | 62.98 G | −0.7 % | 16.87 G | 16.83 G | −0.2 % |
+
+Neutral-to-better everywhere, as expected of a representation with
+one field fewer per binder node and two fewer per `fvar` (a smaller
+node to allocate, hash and compare; no `Name.beq` per binder in
+`beqB`/`beqGo`): −0.4 … −1.1 % on every full cell, the target-only
+deltas inside the difference-of-large-cells noise (t2 `--verified`'s
++0.48 G target-only sits on a −6.5 G full cell).  Verdicts and
+accepted counts identical in every cell.

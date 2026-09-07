@@ -82,10 +82,9 @@ theorem memberValRun_of {env' : Env} {μ : CheckMode} {F : Nat}
       dsimp only at h
       by_cases hlp : cvm.levelParams = cv.levelParams
       · rw [if_pos hlp] at h
-        by_cases het : Expr.eqUpToNames
-            (type.renameConsts fun n =>
-              if blockNames.contains n then n.str "_model" else n)
-            cvm.type = true
+        by_cases het : ((type.renameConsts fun n =>
+            if blockNames.contains n then n.str "_model" else n) == cvm.type)
+            = true
         · rw [if_pos het] at h
           simp only [pure, Except.pure, Except.ok.injEq] at h
           subst h

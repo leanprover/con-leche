@@ -179,7 +179,7 @@ theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
         exact infer_sort_claimP m hrun hea hta
       | .bvar i, hrun, _, _, _, _, hea =>
         exact infer_bvar_claimP m hrun hea hta
-      | .fvar idx nm ty, hrun, _, _, _, hC, hea =>
+      | .fvar idx ty, hrun, _, _, _, hC, hea =>
         exact infer_fvar_claimP m hC hrun hea hta
       | .const nm us, hrun, _, _, _, _, hea =>
         exact infer_const_claimP m h.reads.const_ty h.acval_valid
@@ -190,15 +190,15 @@ theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
       | .lit (.strVal s), hrun, _, _, _, _, hea =>
         exact inferStrLitStepP_of_claims h.reads.const_ty h.acval_valid
           h.nat_heads hrun hea hta
-      | .forallE nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
+      | .forallE ty body mb, hrun, hws, hb, hLb, hC, hea =>
         exact infer_forallE_claimP m hμ hss hrun hws hb hLb hC hea hta
-      | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
+      | .lam ty body mb, hrun, hws, hb, hLb, hC, hea =>
         exact infer_lam_claimP m hμ hss hsss ihi hrun hws hb hLb hC hea
           hta
       | .app fe ae, hrun, hws, hb, hLb, hC, hea =>
         exact infer_app_claimP m hreads hwreads ihw ihd ihi hrun
           hws hb hLb hC hea hta
-      | .letE nm ty val bd, hrun, hws, hb, hLb, hC, hea =>
+      | .letE ty val bd, hrun, hws, hb, hLb, hC, hea =>
         exact infer_letE_claimP m hss hreads ihi hrun hws hb hLb
           hC hea hta
       | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
@@ -213,7 +213,7 @@ theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
         exact infer_sort_claimIOP m hrun hea hta
       | .bvar i, hrun, _, _, _, _, hea, _ =>
         exact infer_bvar_claimIOP m hrun hea hta
-      | .fvar idx nm ty, hrun, _, _, _, hC, hea, _ =>
+      | .fvar idx ty, hrun, _, _, _, hC, hea, _ =>
         exact infer_fvar_claimIOP m hC hrun hea hta
       | .const nm us, hrun, _, _, _, _, hea, _ =>
         exact infer_const_claimIOP m (h.reads.const_ty) hrun hea hta
@@ -224,16 +224,16 @@ theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
         exact infer_strLit_claimIOP m
           (inferStrLitStepP_of_claims h.reads.const_ty h.acval_valid
             h.nat_heads) hrun hea hta
-      | .forallE nm ty body mb, hrun, hws, hb, hLb, hC, hea, hok =>
+      | .forallE ty body mb, hrun, hws, hb, hLb, hC, hea, hok =>
         exact infer_forallE_claimIOP m hμ hssio hrun hws hb hLb hC hea
           hta hok
-      | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea, hok =>
+      | .lam ty body mb, hrun, hws, hb, hLb, hC, hea, hok =>
         exact infer_lam_claimIOP m hμ hssio ihio hrun hws hb hLb hC hea
           hta hok
       | .app fe ae, hrun, hws, hb, hLb, hC, hea, hok =>
         exact infer_app_claimIOP m hreads_io hwreads ihw ihd ihio hrun
           hws hb hLb hC hea hta hok
-      | .letE nm ty val bd, hrun, hws, hb, hLb, hC, hea, hok =>
+      | .letE ty val bd, hrun, hws, hb, hLb, hC, hea, hok =>
         exact infer_letE_claimIOP m ihio hrun hws hb hLb hC hea hta hok
       | .proj sn i pe, hrun, hws, hb, hLb, hC, hea, hok =>
         exact inferProjStepIOP_of_claims h.reads.tower_ok ihw ihio hreads_io

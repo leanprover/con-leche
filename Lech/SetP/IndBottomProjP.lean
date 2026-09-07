@@ -72,7 +72,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     -- the degenerate recursor's shape
     {i : Nat} (hmIrP : mI = rP) (hcnPrP : cnP = rP) (hilt : i < cnF)
     -- `checkProjShape`: the constructor's telescope and residual
-    {cbinders : List (Name × Expr × BinderMeta)} {cbody : Expr}
+    {cbinders : List (Expr × BinderMeta)} {cbody : Expr}
     (hCstrip : cvj.type.stripPis (cnP + cnF) = some (cbinders, cbody))
     (hcbodyArity : cbody.getAppArgs.length = cnP)
     -- `checkProjRule`: the rule is the constructor telescope's λ-tower
@@ -82,12 +82,12 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     -- itself, so no depth transport is needed)
     {rhsA : Expr} (_hrhsw : rhsA.hasFvar = false)
     (_hrhsb : rhsA.looseBVarsBounded 0 = true)
-    {rbinders : List (Name × Expr × BinderMeta)}
+    {rbinders : List (Expr × BinderMeta)}
     (hrhsAstrip : rhsA.stripLams (cnP + cnF)
       = some (rbinders, .bvar (cnF - 1 - i)))
-    (hrdomsEq : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hrdomsEq : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < cnP + cnF → rbinders[i0]? = some b →
-      cbinders[i0]? = some b' → b.2.1 = b'.2.1)
+      cbinders[i0]? = some b' → b.1 = b'.1)
     -- the rule rhs's front door, at the reading (`ProjFnR`'s recorded
     -- run row, graded through `InferClaims2P` at the caller)
     (hrhsKey : ∀ ψ : Name → Nat, ∃ Ra ta,
@@ -114,11 +114,11 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     (hrhsSpin : rhsS = fvs.getD (rP + i) default)
     -- `checkProjIota`: the statement's domains are the constructor's,
     -- renamed to the model side
-    {sbinders : List (Name × Expr × BinderMeta)} {sbody : Expr}
+    {sbinders : List (Expr × BinderMeta)} {sbody : Expr}
     (hSstrip : stmtTy.stripPis (cnP + cnF) = some (sbinders, sbody))
-    (hdomsSC : ∀ (i0 : Nat) (b b' : Name × Expr × BinderMeta),
+    (hdomsSC : ∀ (i0 : Nat) (b b' : Expr × BinderMeta),
       i0 < cnP + cnF → sbinders[i0]? = some b →
-      cbinders[i0]? = some b' → b.2.1 = b'.2.1.renameConsts f)
+      cbinders[i0]? = some b' → b.1 = b'.1.renameConsts f)
     -- the sides pack's two recorded runs
     (hsideL : ∃ tl, inferTypeCore μ env F (rP + cnF) lhsS = .ok tl ∧
       isDefEqCore μ env F (rP + cnF) tl αS = .ok true)
@@ -185,10 +185,10 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   have hΓslen : Γs.length = rP + cnF := htowerS.length
   have hfvslen : fvs.length = rP + cnF := openPisAtFvars_length _ hopen
   have hshapeS : ∀ (q : Nat) (x : Expr), fvs[q]? = some x →
-      ∃ nm ty, x = Expr.fvar q nm ty := by
+      ∃ ty, x = Expr.fvar q ty := by
     intro q x hx
-    obtain ⟨nm, ty, hx'⟩ := openPisAtFvars_index _ _ _ hopen q x hx
-    exact ⟨nm, ty, by simpa using hx'⟩
+    obtain ⟨ty, hx'⟩ := openPisAtFvars_index _ _ _ hopen q x hx
+    exact ⟨ty, by simpa using hx'⟩
   have hwsS := openPisAtFvars_WScoped (rP + cnF) stmtTy 0 hopen
     (Expr.WScoped.of_not_hasFvar hSw)
   have hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x := by
@@ -198,20 +198,20 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   have hbFvs : ∀ x ∈ fvs, x.looseBVarsBounded 0 = true := by
     intro x hx
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-    obtain ⟨nm, ty, rfl⟩ := hshapeS q x hq
+    obtain ⟨ty, rfl⟩ := hshapeS q x hq
     rfl
-  have hlbFvs : ∀ (q : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar q nm ty ∈ fvs → ty.looseBVarsBounded 0 = true :=
-    fun q nm ty hmem =>
+  have hlbFvs : ∀ (q : Nat) (ty : Expr),
+      Expr.fvar q ty ∈ fvs → ty.looseBVarsBounded 0 = true :=
+    fun q ty hmem =>
       (openPisAtFvars_bounded (rP + cnF) hopen hSb).2 _ hmem
-  have hwsTy : ∀ (q : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar q nm ty ∈ fvs → Expr.WScoped q ty := by
-    intro q nm ty hmem
+  have hwsTy : ∀ (q : Nat) (ty : Expr),
+      Expr.fvar q ty ∈ fvs → Expr.WScoped q ty := by
+    intro q ty hmem
     have h := hwsFvs _ hmem
     simp only [Expr.WScoped] at h
     exact h.2
   have hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+      Expr.fvar l.1 l.2 ∈ fvs := by
     intro l ⟨x, hx, hl⟩
     rcases openPisAtFvars_leaves _ hopen l (Or.inr ⟨x, hx, hl⟩) with
       h0 | h0
@@ -219,17 +219,17 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       exact nomatch h0
     · exact h0
   have hleafBody : ∀ l ∈ tbody.fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+      Expr.fvar l.1 l.2 ∈ fvs := by
     intro l hl
     rcases openPisAtFvars_leaves _ hopen l (Or.inl hl) with h0 | h0
     · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hSw] at h0
       exact nomatch h0
     · exact h0
-  have hfvsLt : ∀ l : Nat × Name × Expr,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs → l.1 < rP + cnF := by
+  have hfvsLt : ∀ l : Nat × Expr,
+      Expr.fvar l.1 l.2 ∈ fvs → l.1 < rP + cnF := by
     intro l hl
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hl
-    obtain ⟨nm', ty', heq⟩ := hshapeS q _ hq
+    obtain ⟨ty', heq⟩ := hshapeS q _ hq
     have hql : q < fvs.length := (List.getElem?_eq_some_iff.mp hq).1
     injection heq with h1 _
     rw [h1, ← hfvslen]
@@ -324,11 +324,11 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
         have := (List.getElem?_eq_some_iff.mp hq0).1
         rwa [openFvars_length] at this
       rw [openFvars_getElem? (d := 0) hq0lt] at hq0
-      obtain rfl : a = Expr.fvar (0 + q0) Name.anonymous (.sort .zero) :=
+      obtain rfl : a = Expr.fvar (0 + q0) (.sort .zero) :=
         (Option.some.inj hq0).symm
       exact rfl
     have hee := Expr.instSeq_renameConsts (f := f) (openFvars 0 i0)
-      (i0 - 1) (X := b'.2.1) hopeners
+      (i0 - 1) (X := b'.1) hopeners
     rw [hdom, ← denoteP_erasedEq hee (0 + i0),
       denoteP_renameConsts hroT]
   -- ===== the fired spine =====
@@ -419,10 +419,10 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   have hbBody : tbody.looseBVarsBounded 0 = true :=
     (openPisAtFvars_bounded (rP + cnF) hopen hSb).1
   have hargLeaf : ∀ e : Expr, e ∈ tbody.getAppArgs →
-      (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs) ∧
+      (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) ∧
       (∀ l ∈ e.fvarLeaves, l.1 < rP + cnF) := by
     intro e hmem
-    have h1 : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs :=
+    have h1 : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs :=
       fun l hl => hleafBody l (fvarLeaves_getAppArgs hmem l hl)
     exact ⟨h1, fun l hl => hfvsLt l (h1 l hl)⟩
   have hmemα : αS ∈ tbody.getAppArgs := by
@@ -446,11 +446,11 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   have hbR : rhsS.looseBVarsBounded 0 = true :=
     Lech.looseBVarsBounded_getAppArgs hbBody rhsS hmemR
   have hLα : Expr.LeavesBounded αS := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafα l hl)
+    hlbFvs l.1 l.2 (hleafα l hl)
   have hLL : Expr.LeavesBounded lhsS := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafL l hl)
+    hlbFvs l.1 l.2 (hleafL l hl)
   have hLR : Expr.LeavesBounded rhsS := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafR l hl)
+    hlbFvs l.1 l.2 (hleafR l hl)
   have hokA : ∀ q, q < rP + cnF → ∀ σ : Nat → V, Sat2 V Γs σ →
       AnnotOkP V (fun j => σ (j + (rP + cnF - 1 - q) + 1))
         (Γs.getD (rP + cnF - 1 - q) default) := by
@@ -460,7 +460,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       List.replicate_zero, List.nil_append, List.drop_zero]
     exact hσ
   have hctxOf : ∀ e : Expr,
-      (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs) →
+      (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) →
       (∀ l ∈ e.fvarLeaves, l.1 < rP + cnF) →
       CtxOkP mp.base2 (Level.substFn φ lps us) (rP + cnF) Γs e :=
     fun e hleafE hltE =>
@@ -517,10 +517,10 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     inferTypeCore_WScoped mp.base2.wf F hInfL hwsL
   have hwsTr : Expr.WScoped (rP + cnF) tr :=
     inferTypeCore_WScoped mp.base2.wf F hInfR hwsR
-  have hleafTl : ∀ l ∈ tl.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs :=
+  have hleafTl : ∀ l ∈ tl.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs :=
     fun l hl => hleafL l
       (inferTypeCore_fvarLeaves mp.base2.wf F hInfL hwsL l hl)
-  have hleafTr : ∀ l ∈ tr.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs :=
+  have hleafTr : ∀ l ∈ tr.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs :=
     fun l hl => hleafR l
       (inferTypeCore_fvarLeaves mp.base2.wf F hInfR hwsR l hl)
   have hltTl : ∀ l ∈ tl.fvarLeaves, l.1 < rP + cnF :=
@@ -532,9 +532,9 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
   have hbTr : tr.looseBVarsBounded 0 = true :=
     inferTypeCore_looseBVars mp.base2.wf F hInfR hwsR hbR hLR
   have hLTl : Expr.LeavesBounded tl := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafTl l hl)
+    hlbFvs l.1 l.2 (hleafTl l hl)
   have hLTr : Expr.LeavesBounded tr := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafTr l hl)
+    hlbFvs l.1 l.2 (hleafTr l hl)
   obtain ⟨tla, htla⟩ := hreadsP (Level.substFn φ lps us) hInfL hwsL hbL
     hLL (LeafReadsP.of_ctxOkP (hctxOf lhsS hleafL hltL)) hvl0
   obtain ⟨tra, htra⟩ := hreadsP (Level.substFn φ lps us) hInfR hwsR hbR
@@ -564,9 +564,9 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       fvs (by rw [hfvslen, ← hKeq, hCstripR]; rfl))
   have hspLeaf : ∀ (q : Nat) (x : Expr), fvs[q]? = some x →
       ∀ l ∈ x.fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP) := by
+        Expr.fvar l.1 l.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP) := by
     intro q x hx l hl
-    obtain ⟨nm, ty, rfl⟩ := hshapeS q x hx
+    obtain ⟨ty, rfl⟩ := hshapeS q x hx
     have hmem := List.mem_of_getElem? hx
     have hqlt : q < rP + cnF := by
       have := (List.getElem?_eq_some_iff.mp hx).1
@@ -574,7 +574,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     rw [Expr.fvarLeaves] at hl
     rcases List.mem_cons.mp hl with rfl | hl'
     · exact ⟨hmem, by omega⟩
-    · have hlt := Expr.fvarLeaves_lt_of_wscoped (hwsTy q nm ty hmem) l hl'
+    · have hlt := Expr.fvarLeaves_lt_of_wscoped (hwsTy q ty hmem) l hl'
       refine ⟨hleafClosed l ⟨_, hmem, ?_⟩, by omega⟩
       rw [Expr.fvarLeaves]
       exact List.mem_cons_of_mem _ hl'
@@ -593,9 +593,9 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     have hqlt : q < rP + cnF := by
       have := (List.getElem?_eq_some_iff.mp hx).1
       rwa [hfvslen] at this
-    obtain ⟨nm, ty, rfl⟩ := hshapeS q x hx
+    obtain ⟨ty, rfl⟩ := hshapeS q x hx
     refine ⟨.bvar (rP + cnF - 1 - q),
-      denoteP_fvar mp.base2.acval (rP + cnF) q nm ty, ?_⟩
+      denoteP_fvar mp.base2.acval (rP + cnF) q ty, ?_⟩
     rw [instSeqP_bvar_full hqlt hzslen, List.getD]
     rcases hz : (xs.take rP ++ ys.drop cnP)[q]? with _ | v
     · rw [List.getElem?_eq_none_iff, hzslen] at hz
@@ -610,8 +610,8 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     have h := instPisAt_openerDomsP (acval := mp.base2.acval)
       (env := env) (φ := Level.substFn φ lps us) fvs hcinst
       (j := 0) (fun q0 x hx => by
-        obtain ⟨nm, ty, hsh⟩ := hshapeS q0 x hx
-        exact ⟨nm, ty, by rw [hsh, Nat.zero_add]⟩)
+        obtain ⟨ty, hsh⟩ := hshapeS q0 x hx
+        exact ⟨ty, by rw [hsh, Nat.zero_add]⟩)
       hTVjR0 (Γ := Γj) (R := Rj) (by rw [hfvslen, ← hKeq]; exact htowerJ)
       q (by rw [hfvslen]; exact hq)
     rw [Nat.zero_add, hfvslen] at h
@@ -624,9 +624,9 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
     have h1 := instPisAt_fvar_residual_arity fvs hcinst
       (fun x hx => by
         obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-        obtain ⟨nm, ty, hsh⟩ := hshapeS q x hq
-        exact ⟨q, nm, ty, hsh⟩)
-      (bs := cbinders.map (fun b => (b.1, b.2.1.renameConsts f, b.2.2)))
+        obtain ⟨ty, hsh⟩ := hshapeS q x hq
+        exact ⟨q, ty, hsh⟩)
+      (bs := cbinders.map (fun b => (b.1.renameConsts f, b.2)))
       (body := cbody.renameConsts f)
       (by rw [hfvslen, ← hKeq]; exact hCstripR)
     rw [getAppArgs_length_renameConsts] at h1

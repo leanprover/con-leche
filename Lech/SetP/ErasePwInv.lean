@@ -2,13 +2,12 @@ import Lech.Semantics.EraseInv
 import Lech.Verify.Denote
 
 /-!
-# The `erasePw ∘ eraseNames` head inversions (task #161)
+# The `erasePw` head inversions (task #161)
 
-`ConstantVal.matchesPin` compares through `erasePw` *and*
-`eraseNames`.  `Install/Axiom.lean` has the two constant-head
-inversions; the pinned telescopes need the four remaining heads, and
-composing the two erasures once here keeps every consumer's chain one
-step per node.
+`ConstantVal.matchesPin` compares through `erasePw`.
+`Install/Axiom.lean` has the constant-head inversion; the pinned
+telescopes need the four remaining heads, and doing the erasure once
+here keeps every consumer's chain one step per node.
 
 These lemmas landed in `Interp2/AxiomBitsP.lean` (ENDGAME A) and moved
 here **verbatim** at ENDGAME D, when the reduce-operation pin's shape
@@ -22,50 +21,49 @@ open Lech.Semantics
 open Lech.TT Lech.TTVerify
 open Lech (Expr Name Level BinderMeta)
 
-/-- `erasePw ∘ eraseNames` inversion at a `∀`: the head is a `∀`, and
-its name and meta are exactly what the comparison forgives. -/
-theorem erasePwNames_forallE_invS {e : Expr} {n : Name} {ty b : Expr}
+/-- `erasePw` inversion at a `∀`: the head is a `∀`, and
+its meta is exactly what the comparison forgives. -/
+theorem erasePwNames_forallE_invS {e : Expr} {ty b : Expr}
     {m : BinderMeta}
-    (h : e.erasePw.eraseNames = .forallE n ty b m) :
-    ∃ n' ty' b' m', e = .forallE n' ty' b' m' ∧
-      ty'.erasePw.eraseNames = ty ∧ b'.erasePw.eraseNames = b := by
+    (h : e.erasePw = .forallE ty b m) :
+    ∃ ty' b' m', e = .forallE ty' b' m' ∧
+      ty'.erasePw = ty ∧ b'.erasePw = b := by
   cases e with
-  | forallE n' ty' b' m' =>
-    simp only [Expr.erasePw, Expr.eraseNames, Expr.forallE.injEq] at h
-    exact ⟨n', ty', b', m', rfl, h.2.1, h.2.2.1⟩
-  | _ => simp only [Expr.erasePw, Expr.eraseNames] at h; exact nomatch h
+  | forallE ty' b' m' =>
+    simp only [Expr.erasePw, Expr.forallE.injEq] at h
+    exact ⟨ty', b', m', rfl, h.1, h.2.1⟩
+  | _ => simp only [Expr.erasePw] at h; exact nomatch h
 
-/-- `erasePw ∘ eraseNames` inversion at a sort (both erasures fix
-it). -/
+/-- `erasePw` inversion at a sort (the erasure fixes it). -/
 theorem erasePwNames_sort_invS {e : Expr} {u : Level}
-    (h : e.erasePw.eraseNames = .sort u) : e = .sort u := by
+    (h : e.erasePw = .sort u) : e = .sort u := by
   cases e with
-  | sort u' => simp only [Expr.erasePw, Expr.eraseNames] at h; rw [h]
-  | _ => simp only [Expr.erasePw, Expr.eraseNames] at h; exact nomatch h
+  | sort u' => simp only [Expr.erasePw] at h; rw [h]
+  | _ => simp only [Expr.erasePw] at h; exact nomatch h
 
-/-- `erasePw ∘ eraseNames` inversion at an application. -/
+/-- `erasePw` inversion at an application. -/
 theorem erasePwNames_app_invS {e : Expr} {f a : Expr}
-    (h : e.erasePw.eraseNames = .app f a) :
-    ∃ f' a', e = .app f' a' ∧ f'.erasePw.eraseNames = f ∧
-      a'.erasePw.eraseNames = a := by
+    (h : e.erasePw = .app f a) :
+    ∃ f' a', e = .app f' a' ∧ f'.erasePw = f ∧
+      a'.erasePw = a := by
   cases e with
   | app f' a' =>
-    simp only [Expr.erasePw, Expr.eraseNames, Expr.app.injEq] at h
+    simp only [Expr.erasePw, Expr.app.injEq] at h
     exact ⟨f', a', rfl, h.1, h.2⟩
-  | _ => simp only [Expr.erasePw, Expr.eraseNames] at h; exact nomatch h
+  | _ => simp only [Expr.erasePw] at h; exact nomatch h
 
-/-- `erasePw ∘ eraseNames` inversion at a constant (the composite of
-`Install/Axiom.lean`'s two head inversions). -/
+/-- `erasePw` inversion at a constant (`Install/Axiom.lean`'s head
+inversion). -/
 theorem erasePwNames_const_invS {e : Expr} {n : Name} {us : List Level}
-    (h : e.erasePw.eraseNames = .const n us) : e = .const n us :=
-  erasePw_const_invS (eraseNames_const_invS h)
+    (h : e.erasePw = .const n us) : e = .const n us :=
+  erasePw_const_invS h
 
-/-- `erasePw ∘ eraseNames` inversion at a bound variable. -/
+/-- `erasePw` inversion at a bound variable. -/
 theorem erasePwNames_bvar_invS {e : Expr} {i : Nat}
-    (h : e.erasePw.eraseNames = .bvar i) : e = .bvar i := by
+    (h : e.erasePw = .bvar i) : e = .bvar i := by
   cases e with
-  | bvar i' => simp only [Expr.erasePw, Expr.eraseNames] at h; rw [h]
-  | _ => simp only [Expr.erasePw, Expr.eraseNames] at h; exact nomatch h
+  | bvar i' => simp only [Expr.erasePw] at h; rw [h]
+  | _ => simp only [Expr.erasePw] at h; exact nomatch h
 
 
 end Lech.SetP

@@ -24,14 +24,14 @@ Loose `bvar`s above `d` are lowered by one. -/
 def instantiate1 (e : Expr) (v : Expr) (d : Nat := 0) : Expr :=
   match e with
   | .bvar i => if i = d then v else if i > d then .bvar (i - 1) else .bvar i
-  | .fvar idx n ty => .fvar idx n ty
+  | .fvar idx ty => .fvar idx ty
   | .sort u => .sort u
   | .const n us => .const n us
   | .app f a => .app (instantiate1 f v d) (instantiate1 a v d)
-  | .lam n ty body bi => .lam n (instantiate1 ty v d) (instantiate1 body v (d + 1)) bi
-  | .forallE n ty body bi => .forallE n (instantiate1 ty v d) (instantiate1 body v (d + 1)) bi
-  | .letE n ty val body =>
-    .letE n (instantiate1 ty v d) (instantiate1 val v d) (instantiate1 body v (d + 1))
+  | .lam ty body bi => .lam (instantiate1 ty v d) (instantiate1 body v (d + 1)) bi
+  | .forallE ty body bi => .forallE (instantiate1 ty v d) (instantiate1 body v (d + 1)) bi
+  | .letE ty val body =>
+    .letE (instantiate1 ty v d) (instantiate1 val v d) (instantiate1 body v (d + 1))
   | .lit l => .lit l
   | .proj s i e => .proj s i (instantiate1 e v d)
 
@@ -62,16 +62,16 @@ def instantiateList (e : Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
     else if h : j - d < vs.length then
       instantiateList vs[j - d] (vs.take (j - d)) d
     else .bvar (j - vs.length)
-  | .fvar idx n ty => .fvar idx n ty
+  | .fvar idx ty => .fvar idx ty
   | .sort u => .sort u
   | .const n us => .const n us
   | .app f a => .app (instantiateList f vs d) (instantiateList a vs d)
-  | .lam n ty body bi =>
-    .lam n (instantiateList ty vs d) (instantiateList body vs (d + 1)) bi
-  | .forallE n ty body bi =>
-    .forallE n (instantiateList ty vs d) (instantiateList body vs (d + 1)) bi
-  | .letE n ty val body =>
-    .letE n (instantiateList ty vs d) (instantiateList val vs d)
+  | .lam ty body bi =>
+    .lam (instantiateList ty vs d) (instantiateList body vs (d + 1)) bi
+  | .forallE ty body bi =>
+    .forallE (instantiateList ty vs d) (instantiateList body vs (d + 1)) bi
+  | .letE ty val body =>
+    .letE (instantiateList ty vs d) (instantiateList val vs d)
       (instantiateList body vs (d + 1))
   | .lit l => .lit l
   | .proj s i e => .proj s i (instantiateList e vs d)
@@ -89,16 +89,16 @@ and minor binders, and by the zeta expansion's substitution to carry
 open let-values under binders. -/
 def liftLooseBVars (amount : Nat) : (cutoff : Nat) → Expr → Expr
   | c, .bvar i => if i ≥ c then .bvar (i + amount) else .bvar i
-  | _, .fvar i n ty => .fvar i n ty
+  | _, .fvar i ty => .fvar i ty
   | _, .sort u => .sort u
   | _, .const n us => .const n us
   | c, .app a b => .app (liftLooseBVars amount c a) (liftLooseBVars amount c b)
-  | c, .lam n ty body m =>
-    .lam n (liftLooseBVars amount c ty) (liftLooseBVars amount (c + 1) body) m
-  | c, .forallE n ty body m =>
-    .forallE n (liftLooseBVars amount c ty) (liftLooseBVars amount (c + 1) body) m
-  | c, .letE n ty v body =>
-    .letE n (liftLooseBVars amount c ty) (liftLooseBVars amount c v)
+  | c, .lam ty body m =>
+    .lam (liftLooseBVars amount c ty) (liftLooseBVars amount (c + 1) body) m
+  | c, .forallE ty body m =>
+    .forallE (liftLooseBVars amount c ty) (liftLooseBVars amount (c + 1) body) m
+  | c, .letE ty v body =>
+    .letE (liftLooseBVars amount c ty) (liftLooseBVars amount c v)
       (liftLooseBVars amount (c + 1) body)
   | _, .lit l => .lit l
   | c, .proj s i e => .proj s i (liftLooseBVars amount c e)
@@ -113,16 +113,16 @@ context (`rP` binders): `p = (p.lowerBVars (mI - rP) 0).liftLooseBVars
 (mI - rP) 0` holds exactly when `p` mentions no index variable. -/
 def lowerBVars (amount : Nat) : (cutoff : Nat) → Expr → Expr
   | c, .bvar i => if i ≥ c + amount then .bvar (i - amount) else .bvar i
-  | _, .fvar i n ty => .fvar i n ty
+  | _, .fvar i ty => .fvar i ty
   | _, .sort u => .sort u
   | _, .const n us => .const n us
   | c, .app a b => .app (lowerBVars amount c a) (lowerBVars amount c b)
-  | c, .lam n ty body m =>
-    .lam n (lowerBVars amount c ty) (lowerBVars amount (c + 1) body) m
-  | c, .forallE n ty body m =>
-    .forallE n (lowerBVars amount c ty) (lowerBVars amount (c + 1) body) m
-  | c, .letE n ty v body =>
-    .letE n (lowerBVars amount c ty) (lowerBVars amount c v)
+  | c, .lam ty body m =>
+    .lam (lowerBVars amount c ty) (lowerBVars amount (c + 1) body) m
+  | c, .forallE ty body m =>
+    .forallE (lowerBVars amount c ty) (lowerBVars amount (c + 1) body) m
+  | c, .letE ty v body =>
+    .letE (lowerBVars amount c ty) (lowerBVars amount c v)
       (lowerBVars amount (c + 1) body)
   | _, .lit l => .lit l
   | c, .proj s i e => .proj s i (lowerBVars amount c e)
@@ -136,16 +136,16 @@ def instantiate1Lift (e : Expr) (v : Expr) (d : Nat := 0) : Expr :=
   | .bvar i =>
     if i = d then Expr.liftLooseBVars d 0 v
     else if i > d then .bvar (i - 1) else .bvar i
-  | .fvar idx n ty => .fvar idx n ty
+  | .fvar idx ty => .fvar idx ty
   | .sort u => .sort u
   | .const n us => .const n us
   | .app f a => .app (instantiate1Lift f v d) (instantiate1Lift a v d)
-  | .lam n ty body bi =>
-    .lam n (instantiate1Lift ty v d) (instantiate1Lift body v (d + 1)) bi
-  | .forallE n ty body bi =>
-    .forallE n (instantiate1Lift ty v d) (instantiate1Lift body v (d + 1)) bi
-  | .letE n ty val body =>
-    .letE n (instantiate1Lift ty v d) (instantiate1Lift val v d)
+  | .lam ty body bi =>
+    .lam (instantiate1Lift ty v d) (instantiate1Lift body v (d + 1)) bi
+  | .forallE ty body bi =>
+    .forallE (instantiate1Lift ty v d) (instantiate1Lift body v (d + 1)) bi
+  | .letE ty val body =>
+    .letE (instantiate1Lift ty v d) (instantiate1Lift val v d)
       (instantiate1Lift body v (d + 1))
   | .lit l => .lit l
   | .proj s i e => .proj s i (instantiate1Lift e v d)
@@ -155,8 +155,8 @@ Termination measure for recursion into instantiated binder bodies. -/
 def sizeB : Expr → Nat
   | .bvar _ | .fvar .. | .sort _ | .const .. | .lit _ => 1
   | .app f a => sizeB f + sizeB a + 1
-  | .lam _ ty body _ | .forallE _ ty body _ => sizeB ty + sizeB body + 1
-  | .letE _ ty val body => sizeB ty + sizeB val + sizeB body + 1
+  | .lam ty body _ | .forallE ty body _ => sizeB ty + sizeB body + 1
+  | .letE ty val body => sizeB ty + sizeB val + sizeB body + 1
   | .proj _ _ e => sizeB e + 1
 
 theorem sizeB_pos (e : Expr) : 0 < sizeB e := by
@@ -179,14 +179,14 @@ theorem sizeB_instantiate1 (v : Expr) (hv : sizeB v = 1) :
 def abstract1 (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
   match e with
   | .bvar i => .bvar i
-  | .fvar idx n ty => if idx = d then .bvar k else .fvar idx n ty
+  | .fvar idx ty => if idx = d then .bvar k else .fvar idx ty
   | .sort u => .sort u
   | .const n us => .const n us
   | .app f a => .app (abstract1 f d k) (abstract1 a d k)
-  | .lam n ty body m => .lam n (abstract1 ty d k) (abstract1 body d (k + 1)) m
-  | .forallE n ty body m => .forallE n (abstract1 ty d k) (abstract1 body d (k + 1)) m
-  | .letE n ty val body =>
-    .letE n (abstract1 ty d k) (abstract1 val d k) (abstract1 body d (k + 1))
+  | .lam ty body m => .lam (abstract1 ty d k) (abstract1 body d (k + 1)) m
+  | .forallE ty body m => .forallE (abstract1 ty d k) (abstract1 body d (k + 1)) m
+  | .letE ty val body =>
+    .letE (abstract1 ty d k) (abstract1 val d k) (abstract1 body d (k + 1))
   | .lit l => .lit l
   | .proj s i e => .proj s i (abstract1 e d k)
 
@@ -206,18 +206,18 @@ per-binder `abstract1` chain of a telescope rebuild equals one
 def abstractRange (e : Expr) (d k : Nat) (c : Nat := 0) : Expr :=
   match e with
   | .bvar i => .bvar i
-  | .fvar idx n ty =>
+  | .fvar idx ty =>
     if d ≤ idx ∧ idx < d + k then .bvar (c + (d + k - 1 - idx))
-    else .fvar idx n ty
+    else .fvar idx ty
   | .sort u => .sort u
   | .const n us => .const n us
   | .app f a => .app (abstractRange f d k c) (abstractRange a d k c)
-  | .lam n ty body m =>
-    .lam n (abstractRange ty d k c) (abstractRange body d k (c + 1)) m
-  | .forallE n ty body m =>
-    .forallE n (abstractRange ty d k c) (abstractRange body d k (c + 1)) m
-  | .letE n ty val body =>
-    .letE n (abstractRange ty d k c) (abstractRange val d k c)
+  | .lam ty body m =>
+    .lam (abstractRange ty d k c) (abstractRange body d k (c + 1)) m
+  | .forallE ty body m =>
+    .forallE (abstractRange ty d k c) (abstractRange body d k (c + 1)) m
+  | .letE ty val body =>
+    .letE (abstractRange ty d k c) (abstractRange val d k c)
       (abstractRange body d k (c + 1))
   | .lit l => .lit l
   | .proj s i e => .proj s i (abstractRange e d k c)
@@ -227,19 +227,19 @@ measure for predicates that recurse into annotations (but never into
 instantiated bodies). -/
 def sizeF : Expr → Nat
   | .bvar _ | .sort _ | .const .. | .lit _ => 1
-  | .fvar _ _ ty => sizeF ty + 1
+  | .fvar _ ty => sizeF ty + 1
   | .app f a => sizeF f + sizeF a + 1
-  | .lam _ ty body _ | .forallE _ ty body _ => sizeF ty + sizeF body + 1
-  | .letE _ ty val body => sizeF ty + sizeF val + sizeF body + 1
+  | .lam ty body _ | .forallE ty body _ => sizeF ty + sizeF body + 1
+  | .letE ty val body => sizeF ty + sizeF val + sizeF body + 1
   | .proj _ _ e => sizeF e + 1
 
 /-- All reachable `fvar` leaves, including (hereditarily) those inside
 their type annotations. -/
-def fvarLeaves : Expr → List (Nat × Name × Expr)
-  | .fvar idx n ty => (idx, n, ty) :: fvarLeaves ty
+def fvarLeaves : Expr → List (Nat × Expr)
+  | .fvar idx ty => (idx, ty) :: fvarLeaves ty
   | .app f a => fvarLeaves f ++ fvarLeaves a
-  | .lam _ ty b _ | .forallE _ ty b _ => fvarLeaves ty ++ fvarLeaves b
-  | .letE _ t v b => fvarLeaves t ++ fvarLeaves v ++ fvarLeaves b
+  | .lam ty b _ | .forallE ty b _ => fvarLeaves ty ++ fvarLeaves b
+  | .letE t v b => fvarLeaves t ++ fvarLeaves v ++ fvarLeaves b
   | .proj _ _ e => fvarLeaves e
   | _ => []
 termination_by e => e.sizeF
@@ -260,11 +260,11 @@ eliminations went with task #175 wiring W5), each O(small
 fabricated term) once per fabrication.  TODO(cleanup, task #26):
 interning should cache the fvar range per node, making those O(1). -/
 def wscopedB : (d : Nat) → Expr → Bool
-  | d, .fvar idx _ ty => idx < d && wscopedB idx ty
+  | d, .fvar idx ty => idx < d && wscopedB idx ty
   | d, .app f a => wscopedB d f && wscopedB d a
-  | d, .lam _ ty body _ => wscopedB d ty && wscopedB d body
-  | d, .forallE _ ty body _ => wscopedB d ty && wscopedB d body
-  | d, .letE _ ty val body =>
+  | d, .lam ty body _ => wscopedB d ty && wscopedB d body
+  | d, .forallE ty body _ => wscopedB d ty && wscopedB d body
+  | d, .letE ty val body =>
     wscopedB d ty && wscopedB d val && wscopedB d body
   | d, .proj _ _ e => wscopedB d e
   | _, .bvar _ | _, .sort _ | _, .const _ _ | _, .lit _ => true
@@ -281,12 +281,12 @@ on shared terms); interning should cache the loose-bvar bound per
 node, making this O(1). -/
 def looseBVarsBounded (k : Nat) : Expr → Bool
   | .bvar i => i < k
-  | .fvar _ _ _ => true
+  | .fvar _ _ => true
   | .sort _ | .const _ _ | .lit _ => true
   | .app f a => looseBVarsBounded k f && looseBVarsBounded k a
-  | .lam _ ty body _ | .forallE _ ty body _ =>
+  | .lam ty body _ | .forallE ty body _ =>
     looseBVarsBounded k ty && looseBVarsBounded (k + 1) body
-  | .letE _ ty val body =>
+  | .letE ty val body =>
     looseBVarsBounded k ty && looseBVarsBounded k val && looseBVarsBounded (k + 1) body
   | .proj _ _ e => looseBVarsBounded k e
 
@@ -304,7 +304,7 @@ prop-ness is its body-λ's own annotation).  Total, so the walks
 commute with it structurally (`lamPw_instantiateList_fvars`,
 `lamPw_shiftFrom` in `Lech/Verify`). -/
 def lamPw : Expr → Option PropWhen
-  | .lam _ _ _ mbI => some mbI.pw
+  | .lam _ _ mbI => some mbI.pw
   | _ => none
 
 /-- The ∀ twin of `lamPw`: a ∀ node's prop-ness datum, read off the
@@ -312,7 +312,7 @@ node.  Task #161 P5 repair — `annotPwPi` reads it to realise the
 telescope collapse (`zeronessOf (imax u v) = zeronessOf v`) as a chain
 rule, exactly as `annotPwLam` reads `lamPw`. -/
 def forallPw : Expr → Option PropWhen
-  | .forallE _ _ _ mbI => some mbI.pw
+  | .forallE _ _ mbI => some mbI.pw
   | _ => none
 
 /-- Does the expression contain any free variable (`fvar`)?  Input
@@ -322,8 +322,8 @@ def hasFvar : Expr → Bool
   | .bvar _ | .sort _ | .const .. | .lit _ => false
   | .fvar .. => true
   | .app f a => hasFvar f || hasFvar a
-  | .lam _ ty body _ | .forallE _ ty body _ => hasFvar ty || hasFvar body
-  | .letE _ ty val body => hasFvar ty || hasFvar val || hasFvar body
+  | .lam ty body _ | .forallE ty body _ => hasFvar ty || hasFvar body
+  | .letE ty val body => hasFvar ty || hasFvar val || hasFvar body
   | .proj _ _ e => hasFvar e
 
 /-- The head of an application spine. -/
@@ -347,20 +347,20 @@ to compare a modeled inductive's members against their `_model`
 counterparts. -/
 def renameConsts (f : Name → Name) : Expr → Expr
   | .bvar i => .bvar i
-  | .fvar i n ty => .fvar i n (renameConsts f ty)
+  | .fvar i ty => .fvar i (renameConsts f ty)
   | .sort u => .sort u
   | .const n us => .const (f n) us
   | .app a b => .app (renameConsts f a) (renameConsts f b)
-  | .lam n ty body m => .lam n (renameConsts f ty) (renameConsts f body) m
-  | .forallE n ty body m =>
-    .forallE n (renameConsts f ty) (renameConsts f body) m
-  | .letE n ty v body =>
-    .letE n (renameConsts f ty) (renameConsts f v) (renameConsts f body)
+  | .lam ty body m => .lam (renameConsts f ty) (renameConsts f body) m
+  | .forallE ty body m =>
+    .forallE (renameConsts f ty) (renameConsts f body) m
+  | .letE ty v body =>
+    .letE (renameConsts f ty) (renameConsts f v) (renameConsts f body)
   | .lit l => .lit l
   -- Task #175 wiring W5: a `.proj` node's struct name is NOT renamed.
   -- The renaming exists for the modeled-block contract (a public
-  -- block's types against its `_model` artifacts, `eqUpToNames` and
-  -- the fire comparands); a block's own projections can never be
+  -- block's types against its `_model` artifacts, compared with `==`
+  -- since task #205, and the fire comparands); a block's own projections can never be
   -- spelled inside its types (their entries do not exist when the
   -- types are annotated), and a `.proj` on any *other* structure names
   -- it the same on both sides — so the rename never had a matching
@@ -371,30 +371,30 @@ def renameConsts (f : Name → Name) : Expr → Expr
 
 /-- Strip `k` leading lambdas: the binder list (outermost first) and
 the body. -/
-def stripLams : Nat → Expr → Option (List (Name × Expr × BinderMeta) × Expr)
+def stripLams : Nat → Expr → Option (List (Expr × BinderMeta) × Expr)
   | 0, e => some ([], e)
-  | k + 1, .lam n ty b m =>
-    (stripLams k b).map fun (bs, e) => ((n, ty, m) :: bs, e)
+  | k + 1, .lam ty b m =>
+    (stripLams k b).map fun (bs, e) => ((ty, m) :: bs, e)
   | _ + 1, _ => none
 
 /-- Strip `k` leading `∀`s: the binder list (outermost first) and the
 body. -/
-def stripPis : Nat → Expr → Option (List (Name × Expr × BinderMeta) × Expr)
+def stripPis : Nat → Expr → Option (List (Expr × BinderMeta) × Expr)
   | 0, e => some ([], e)
-  | k + 1, .forallE n ty b m =>
-    (stripPis k b).map fun (bs, e) => ((n, ty, m) :: bs, e)
+  | k + 1, .forallE ty b m =>
+    (stripPis k b).map fun (bs, e) => ((ty, m) :: bs, e)
   | _ + 1, _ => none
 
 /-- The body of a syntactic `∀`-telescope (the expression itself when
 it is not a `∀`). -/
 def piResult : Expr → Expr
-  | .forallE _ _ b _ => piResult b
+  | .forallE _ b _ => piResult b
   | e => e
 
 /-- Instantiate a `∀`-telescope with arguments, in order. -/
 def instPis : Expr → List Expr → Option Expr
   | e, [] => some e
-  | .forallE _ _ body _, a :: as => instPis (body.instantiate1 a) as
+  | .forallE _ body _, a :: as => instPis (body.instantiate1 a) as
   | _, _ :: _ => none
 
 /-- Instantiate the leading `∀`-binders at the given arguments,
@@ -402,7 +402,7 @@ returning each binder's (progressively instantiated) domain together
 with the fully instantiated residual. -/
 def instPisAt : List Expr → Expr → Option (List Expr × Expr)
   | [], e => some ([], e)
-  | a :: as, .forallE _ dom body _ =>
+  | a :: as, .forallE dom body _ =>
     (instPisAt as (body.instantiate1 a)).map fun (ds, rest) =>
       (dom :: ds, rest)
   | _ :: _, _ => none
@@ -414,13 +414,13 @@ mention loose `bvar`s of the surrounding context — which is what
 building a projection's type out of the constructor telescope needs. -/
 def instPisAtLift : List Expr → Expr → Option Expr
   | [], e => some e
-  | a :: as, .forallE _ _ body _ => instPisAtLift as (body.instantiate1Lift a)
+  | a :: as, .forallE _ body _ => instPisAtLift as (body.instantiate1Lift a)
   | _ :: _, _ => none
 
 /-- `instPisAt` for `λ`-binders. -/
 def instLamsAt : List Expr → Expr → Option (List Expr × Expr)
   | [], e => some ([], e)
-  | a :: as, .lam _ dom body _ =>
+  | a :: as, .lam dom body _ =>
     (instLamsAt as (body.instantiate1 a)).map fun (ds, rest) =>
       (dom :: ds, rest)
   | _ :: _, _ => none
@@ -446,7 +446,7 @@ innermost binder first.  Computes
 `args.length` `∀`-binders (`instPisAtFGo_sound`), `none` otherwise. -/
 def instPisAtFGo (acc : List Expr) : List Expr → Expr → Option (List Expr × Expr)
   | [], e => some ([], e.instantiateList acc)
-  | a :: as, .forallE _ dom body _ =>
+  | a :: as, .forallE dom body _ =>
     (instPisAtFGo (a :: acc) as body).map fun (ds, rest) =>
       (dom.instantiateList acc :: ds, rest)
   | _ :: _, _ => none
@@ -460,7 +460,7 @@ def instPisAtF (args : List Expr) (e : Expr) : Option (List Expr × Expr) :=
 /-- Core of `instLamsAtF` (the `λ` counterpart of `instPisAtFGo`). -/
 def instLamsAtFGo (acc : List Expr) : List Expr → Expr → Option (List Expr × Expr)
   | [], e => some ([], e.instantiateList acc)
-  | a :: as, .lam _ dom body _ =>
+  | a :: as, .lam dom body _ =>
     (instLamsAtFGo (a :: acc) as body).map fun (ds, rest) =>
       (dom.instantiateList acc :: ds, rest)
   | _ :: _, _ => none
@@ -475,7 +475,7 @@ def instLamsAtF (args : List Expr) (e : Expr) : Option (List Expr × Expr) :=
 otherwise; used to read the domains off an opened telescope's
 variables). -/
 def fvarTypeD : Expr → Expr
-  | .fvar _ _ ty => ty
+  | .fvar _ ty => ty
   | e => e
 
 /-- Instantiate a telescope-context expression at an argument spine:
@@ -500,7 +500,7 @@ obligation. -/
 def recRulePlain (recTy : Expr) (mI rP cnP : Nat) : Bool :=
   decide (cnP ≤ rP) && decide (rP ≤ mI) &&
   match recTy.stripPis mI with
-  | some (_, .forallE _ dom _ _) =>
+  | some (_, .forallE dom _ _) =>
     dom.getAppArgs.take cnP ==
       (List.range cnP).map (fun k => Expr.bvar (mI - 1 - k))
   | _ => false
@@ -518,59 +518,28 @@ manufacture-site audit row 9; the third consumer, `annotateProjRec`,
 went with task #175 wiring W5). -/
 def pisToLams : Nat → Expr → Expr → Option Expr
   | 0, _, body => some body
-  | k + 1, .forallE n ty rest m, body =>
-    (pisToLams k rest body).map fun b => .lam n ty b ⟨m.bi, .never⟩
+  | k + 1, .forallE ty rest _, body =>
+    (pisToLams k rest body).map fun b => .lam ty b ⟨.never⟩
   | _ + 1, _, _ => none
 
 /-- Replace the body under the first `k` `∀`-binders (binder domains and
 names kept, codomain-sort annotations reset — the caller annotates). -/
 def replacePiBody : Nat → Expr → Expr → Option Expr
   | 0, _, b => some b
-  | k + 1, .forallE n ty rest m, b =>
-    (replacePiBody k rest b).map fun r => .forallE n ty r ⟨m.bi, m.pw⟩
+  | k + 1, .forallE ty rest m, b =>
+    (replacePiBody k rest b).map fun r => .forallE ty r ⟨m.pw⟩
   | _ + 1, _, _ => none
 
 /-- The length of the leading `∀`-telescope. -/
 def piArity : Expr → Nat
-  | .forallE _ _ b _ => piArity b + 1
+  | .forallE _ b _ => piArity b + 1
   | _ => 0
-
-/-- The binder infos of the first `k` binders of a `∀`-telescope. -/
-def piBinderInfos : Nat → Expr → Option (List BinderInfo)
-  | 0, _ => some []
-  | k + 1, .forallE _ _ b m => (piBinderInfos k b).map (m.bi :: ·)
-  | _ + 1, _ => none
 
 /-- The result sort at the end of a `∀`-telescope. -/
 def resultSort : Expr → Option Level
-  | .forallE _ _ b _ => resultSort b
+  | .forallE _ b _ => resultSort b
   | .sort u => some u
   | _ => none
-
-/-- Structural equality ignoring display-only names: the binder names
-of `lam`/`forallE`/`letE` and an `fvar`'s display name.  Everything
-semantic still compares — indices, constants, levels, `BinderMeta`
-(binder info *and* the codomain sort annotation), and an `fvar`'s type
-annotation (part of the variable's identity).  lean4export interns
-expressions irrespective of binder names (the first occurrence's
-spelling wins for every shared subterm), so even a correct
-preprocessor stream can differ from the input in binder names only;
-`checkMemberVal` compares member types with this. -/
-def eqUpToNames : Expr → Expr → Bool
-  | .bvar i, .bvar j => i == j
-  | .fvar i _ ty, .fvar j _ ty' => i == j && eqUpToNames ty ty'
-  | .sort u, .sort v => u == v
-  | .const n us, .const n' us' => n == n' && us == us'
-  | .app f a, .app g b => eqUpToNames f g && eqUpToNames a b
-  | .lam _ ty b m, .lam _ ty' b' m' =>
-    m == m' && eqUpToNames ty ty' && eqUpToNames b b'
-  | .forallE _ ty b m, .forallE _ ty' b' m' =>
-    m == m' && eqUpToNames ty ty' && eqUpToNames b b'
-  | .letE _ ty v b, .letE _ ty' v' b' =>
-    eqUpToNames ty ty' && eqUpToNames v v' && eqUpToNames b b'
-  | .lit l, .lit l' => l == l'
-  | .proj s i e, .proj s' i' e' => s == s' && i == i' && eqUpToNames e e'
-  | _, _ => false
 
 /-! ## Derived-field spec functions, and their exactness
 
@@ -589,11 +558,11 @@ interned removal; the cached engine's field facts
 eager `bvarBs` entries). -/
 def _root_.Lech.Expr.bvarBound : Expr → Nat
   | .bvar i => i + 1
-  | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => 0
+  | .fvar _ _ | .sort _ | .const _ _ | .lit _ => 0
   | .app f a => max f.bvarBound a.bvarBound
-  | .lam _ ty body _ | .forallE _ ty body _ =>
+  | .lam ty body _ | .forallE ty body _ =>
     max ty.bvarBound (body.bvarBound - 1)
-  | .letE _ ty val body =>
+  | .letE ty val body =>
     max (max ty.bvarBound val.bvarBound) (body.bvarBound - 1)
   | .proj _ _ e => e.bvarBound
 
@@ -608,12 +577,12 @@ theorem looseBVarsBounded_iff {x : Expr} :
 `fvarBs` entries; `fvar` type annotations are not descended, matching
 `fvarsBelow` and the abstraction traversals). -/
 def _root_.Lech.Expr.fvarRange : Expr → Nat
-  | .fvar idx _ _ => idx + 1
+  | .fvar idx _ => idx + 1
   | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
   | .app f a => max f.fvarRange a.fvarRange
-  | .lam _ ty body _ | .forallE _ ty body _ =>
+  | .lam ty body _ | .forallE ty body _ =>
     max ty.fvarRange body.fvarRange
-  | .letE _ ty val body =>
+  | .letE ty val body =>
     max (max ty.fvarRange val.fvarRange) body.fvarRange
   | .proj _ _ e => e.fvarRange
 
@@ -669,16 +638,16 @@ def bvarBoundGo (memo : Std.HashMap Expr Nat) (e : Expr) :
     let (r, memo) : Nat × Std.HashMap Expr Nat :=
       match e with
       | .bvar i => (i + 1, memo)
-      | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => (0, memo)
+      | .fvar _ _ | .sort _ | .const _ _ | .lit _ => (0, memo)
       | .app f a =>
         let (rf, memo) := bvarBoundGo memo f
         let (ra, memo) := bvarBoundGo memo a
         (max rf ra, memo)
-      | .lam _ ty body _ | .forallE _ ty body _ =>
+      | .lam ty body _ | .forallE ty body _ =>
         let (rt, memo) := bvarBoundGo memo ty
         let (rb, memo) := bvarBoundGo memo body
         (max rt (rb - 1), memo)
-      | .letE _ ty val body =>
+      | .letE ty val body =>
         let (rt, memo) := bvarBoundGo memo ty
         let (rv, memo) := bvarBoundGo memo val
         let (rb, memo) := bvarBoundGo memo body
@@ -698,17 +667,17 @@ def fvarRangeGo (memo : Std.HashMap Expr Nat) (e : Expr) :
   | none =>
     let (r, memo) : Nat × Std.HashMap Expr Nat :=
       match e with
-      | .fvar idx _ _ => (idx + 1, memo)
+      | .fvar idx _ => (idx + 1, memo)
       | .bvar _ | .sort _ | .const _ _ | .lit _ => (0, memo)
       | .app f a =>
         let (rf, memo) := fvarRangeGo memo f
         let (ra, memo) := fvarRangeGo memo a
         (max rf ra, memo)
-      | .lam _ ty body _ | .forallE _ ty body _ =>
+      | .lam ty body _ | .forallE ty body _ =>
         let (rt, memo) := fvarRangeGo memo ty
         let (rb, memo) := fvarRangeGo memo body
         (max rt rb, memo)
-      | .letE _ ty val body =>
+      | .letE ty val body =>
         let (rt, memo) := fvarRangeGo memo ty
         let (rv, memo) := fvarRangeGo memo val
         let (rb, memo) := fvarRangeGo memo body
@@ -783,11 +752,11 @@ def _root_.Lech.Expr.hasLevelParam : Expr → Bool
   | .bvar _ | .lit _ => false
   | .sort u => u.hasParam
   | .const _ us => us.any Level.hasParam
-  | .fvar _ _ ty => ty.hasLevelParam
+  | .fvar _ ty => ty.hasLevelParam
   | .app f a => f.hasLevelParam || a.hasLevelParam
-  | .lam _ ty body m | .forallE _ ty body m =>
+  | .lam ty body m | .forallE ty body m =>
     ty.hasLevelParam || body.hasLevelParam || m.pw.hasParams
-  | .letE _ ty val body =>
+  | .letE ty val body =>
     ty.hasLevelParam || val.hasLevelParam || body.hasLevelParam
   | .proj _ _ e => e.hasLevelParam
 
@@ -837,23 +806,23 @@ theorem _root_.Lech.Expr.instantiateLevelParams_eq_self
         rw [Level.subst_eq_self (by simpa using h v (by simp)),
           iht fun w hw => h w (by simp [hw])]
     simp [Expr.instantiateLevelParams, hmap]
-  | fvar idx nm ty ih =>
+  | fvar idx ty ih =>
     simp only [Expr.hasLevelParam] at h
     simp [Expr.instantiateLevelParams, ih h]
   | app f a ihf iha =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
     simp [Expr.instantiateLevelParams, ihf h.1, iha h.2]
-  | lam nm ty body m iht ihb =>
+  | lam ty body m iht ihb =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
     obtain ⟨⟨ht, hb⟩, hm⟩ := h
     simp [Expr.instantiateLevelParams, iht ht, ihb hb,
       Level.substPW_eq_self hm]
-  | forallE nm ty body m iht ihb =>
+  | forallE ty body m iht ihb =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
     obtain ⟨⟨ht, hb⟩, hm⟩ := h
     simp [Expr.instantiateLevelParams, iht ht, ihb hb,
       Level.substPW_eq_self hm]
-  | letE nm ty val body iht ihv ihb =>
+  | letE ty val body iht ihv ihb =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
     simp [Expr.instantiateLevelParams, iht h.1.1, ihv h.1.2, ihb h.2]
   | proj sp j e ihe =>
@@ -866,12 +835,12 @@ theorem _root_.Lech.Expr.allLevelParamsDefined_of_not_hasLevelParam
     {params : List Name} {x : Expr} (h : x.hasLevelParam = false) :
     x.allLevelParamsDefined params = true := by
   induction x with
-  | lam nm ty body m iht ihb =>
+  | lam ty body m iht ihb =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
     obtain ⟨⟨ht, hb⟩, hm⟩ := h
     simp [Expr.allLevelParamsDefined, iht ht, ihb hb,
       PropWhen.paramsDefined_of_not_hasParams hm]
-  | forallE nm ty body m iht ihb =>
+  | forallE ty body m iht ihb =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
     obtain ⟨⟨ht, hb⟩, hm⟩ := h
     simp [Expr.allLevelParamsDefined, iht ht, ihb hb,

@@ -70,7 +70,7 @@ theorem defEqAtP_of_run {m : EnvS2Core V env} {F : Nat}
     {k : Nat} {fvs : List Expr} {Aa : Nat → AVExpr} {Δa : List AVExpr}
     (hΔlen : Δa.length = k)
     (hshape : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hws : ∀ x ∈ fvs, Expr.WScoped k x)
     (hdoms : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       denoteP m.acval env φ i (Expr.fvarTypeD x) = some (Aa i))
@@ -84,9 +84,9 @@ theorem defEqAtP_of_run {m : EnvS2Core V env} {F : Nat}
     (hLa : Expr.LeavesBounded a)
     (hwb : Expr.WScoped k b) (hbb : b.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded b)
-    (hleafA : ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hleafA : ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs)
     (hltA : ∀ l ∈ a.fvarLeaves, l.1 < n)
-    (hleafB : ∀ l ∈ b.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hleafB : ∀ l ∈ b.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs)
     (hltB : ∀ l ∈ b.fvarLeaves, l.1 < n)
     {aa ba : AVExpr}
     (haa : denoteP m.acval env φ k a = some aa)
@@ -156,7 +156,7 @@ theorem defEqListP_of_runs {m : EnvS2Core V env} {F : Nat}
     {k : Nat} {fvs : List Expr} {Aa : Nat → AVExpr} {Δa : List AVExpr}
     (hΔlen : Δa.length = k)
     (hshape : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hws : ∀ x ∈ fvs, Expr.WScoped k x)
     (hdoms : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       denoteP m.acval env φ i (Expr.fvarTypeD x) = some (Aa i))
@@ -173,10 +173,10 @@ theorem defEqListP_of_runs {m : EnvS2Core V env} {F : Nat}
     (hbb : (bs.getD i default).looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded (bs.getD i default))
     (hleafA : ∀ l ∈ (as.getD i default).fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+      Expr.fvar l.1 l.2 ∈ fvs)
     (hltA : ∀ l ∈ (as.getD i default).fvarLeaves, l.1 < n)
     (hleafB : ∀ l ∈ (bs.getD i default).fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+      Expr.fvar l.1 l.2 ∈ fvs)
     (hltB : ∀ l ∈ (bs.getD i default).fvarLeaves, l.1 < n)
     {aa ba : AVExpr}
     (haa : denoteP m.acval env φ k (as.getD i default) = some aa)

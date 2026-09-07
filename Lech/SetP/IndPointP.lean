@@ -72,10 +72,10 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     -- the statement frame
     {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
-    (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvs → ty.looseBVarsBounded 0 = true)
+    (hlbFvs : ∀ (i : Nat) (ty : Expr),
+      Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Tstmt : AVExpr} {Γs : List AVExpr} {Rbody : AVExpr}
     (htowerS : PiTeleP (rP + cnF) Tstmt Γs Rbody)
     (hokTst : ∀ σ : Nat → V, AnnotOkP V σ Tstmt)
@@ -102,7 +102,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (hctorHead : denoteP m.acval env ψ' (rP + cnF) ctorHead
       = some (m.acval ctor (Level.substFn φ cvj.levelParams usj)))
     (hleafLhs : ∀ l ∈ lhsS.fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+      Expr.fvar l.1 l.2 ∈ fvs)
     (hltLhs : ∀ l ∈ lhsS.fvarLeaves, l.1 < rP + cnF)
     -- the constructor's type and run at the statement frame
     {ctyR : Expr} (hCwR : ctyR.hasFvar = false)
@@ -116,7 +116,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     (hsplen : sp.length = cnP + cnF)
     (hspLeaf : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       ∀ l ∈ x.fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP))
+        Expr.fvar l.1 l.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP))
     (hspScope : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       Expr.WScoped (rP + cnF) x ∧ x.looseBVarsBounded 0 = true)
     {cdoms : List Expr} {cres : Expr}
@@ -185,11 +185,11 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
     refine Expr.fvarsBelow_of_fvarLeaves fun l hl => ?_
     rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hCwR] at hl
     exact nomatch hl
-  have hfvsLt : ∀ l : Nat × Name × Expr,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs → l.1 < rP + cnF := by
+  have hfvsLt : ∀ l : Nat × Expr,
+      Expr.fvar l.1 l.2 ∈ fvs → l.1 < rP + cnF := by
     intro l hl
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hl
-    obtain ⟨nm', ty', heq⟩ := hshapeS q _ hq
+    obtain ⟨ty', heq⟩ := hshapeS q _ hq
     have hql : q < fvs.length := (List.getElem?_eq_some_iff.mp hq).1
     injection heq with h1 _
     rw [h1, ← hfvslen]
@@ -269,7 +269,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
         have h1 := congrArg (fun l => l[i]?) hlpre
         simp only [List.getElem?_take_of_lt hiP] at h1
         exact h1
-      obtain ⟨nm, ty, rfl⟩ := hshapeS i ai (by rw [← hlargsFv]; exact hai)
+      obtain ⟨ty, rfl⟩ := hshapeS i ai (by rw [← hlargsFv]; exact hai)
       rw [denoteP_fvar] at hdi
       obtain rfl : vi = .bvar (rP + cnF - 1 - i) :=
         (Option.some.inj hdi).symm
@@ -311,7 +311,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
           exact h
         -- leaves of the two subjects
         have hleafA : ∀ l ∈ ai.fvarLeaves,
-            Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+            Expr.fvar l.1 l.2 ∈ fvs := by
           intro l hl
           exact hleafLhs l
             (fvarLeaves_getAppArgs (List.mem_of_getElem? hai) l hl)
@@ -320,7 +320,7 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
           exact hltLhs l
             (fvarLeaves_getAppArgs (List.mem_of_getElem? hai) l hl)
         have hleafB : ∀ l ∈ bx.fvarLeaves,
-            Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+            Expr.fvar l.1 l.2 ∈ fvs := by
           intro l hl
           have hlc : l ∈ cres.fvarLeaves :=
             fvarLeaves_getAppArgs (List.mem_of_getElem? hbx) l hl
@@ -340,14 +340,14 @@ theorem pointP {m : EnvS2Core V env} {F : Nat} {ψ' : Name → Nat}
           Lech.looseBVarsBounded_getAppArgs hbLhs ai
             (List.mem_of_getElem? hai)
         have hLA : Expr.LeavesBounded ai := fun l hl =>
-          hlbFvs l.1 l.2.1 l.2.2 (hleafA l hl)
+          hlbFvs l.1 l.2 (hleafA l hl)
         have hwsB : Expr.WScoped (rP + cnF) bx :=
           hwsCres.getAppArgs bx (List.mem_of_getElem? hbx)
         have hbB : bx.looseBVarsBounded 0 = true :=
           Lech.looseBVarsBounded_getAppArgs hbCres bx
             (List.mem_of_getElem? hbx)
         have hLB : Expr.LeavesBounded bx := fun l hl =>
-          hlbFvs l.1 l.2.1 l.2.2 (hleafB l hl)
+          hlbFvs l.1 l.2 (hleafB l hl)
         -- the residual's read spine
         have hvCres1 : denoteP m.acval env ψ' (rP + cnF)
             (Expr.mkAppN cres.getAppFn cres.getAppArgs)

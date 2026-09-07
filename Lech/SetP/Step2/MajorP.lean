@@ -79,8 +79,8 @@ theorem denoteP_litToCtorIfNat {acval : Name → (Name → Nat) → AVExpr}
           denoteP_natLit hg, denoteP_natLit hg]
         rfl
     · rw [if_neg hg]
-  | .lit (.strVal _) | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _
-  | .app _ _ | .lam _ _ _ _ | .forallE _ _ _ _ | .letE _ _ _ _
+  | .lit (.strVal _) | .bvar _ | .fvar _ _ | .sort _ | .const _ _
+  | .app _ _ | .lam _ _ _ | .forallE _ _ _ | .letE _ _ _
   | .proj _ _ _ => rfl
 
 /-- The frame conditions survive the `Nat`-literal major conversion
@@ -105,8 +105,8 @@ theorem frame_litToCtorIfNatP {m : EnvS2Core V env} {d : Nat}
       · rw [Lech.natLitToConstructor_fvarLeaves] at hl
         exact nomatch hl
     · rw [if_neg hg]; exact ⟨hws, hb, hLb, hC⟩
-  | .lit (.strVal _) | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _
-  | .app _ _ | .lam _ _ _ _ | .forallE _ _ _ _ | .letE _ _ _ _
+  | .lit (.strVal _) | .bvar _ | .fvar _ _ | .sort _ | .const _ _
+  | .app _ _ | .lam _ _ _ | .forallE _ _ _ | .letE _ _ _
   | .proj _ _ _ => exact ⟨hws, hb, hLb, hC⟩
 
 /-- **The literal major conversion's step.**  Two branches: the `Nat`

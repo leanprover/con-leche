@@ -75,13 +75,13 @@ theorem bvarBRaw_exact : ∀ e : ExprC, e.bvarBRaw < satRange →
   intro e
   induction e with
   | bvar i => intro h; simp_all [satRange, Expr.bvarBound]; omega
-  | fvar _ _ _ _ | sort _ | const _ _ | lit _ =>
+  | fvar _ _ _ | sort _ | const _ _ | lit _ =>
     intro _; simp [Expr.bvarBound]
   | app f a ihf iha =>
     intro h
     rw [Expr.bvarBRaw_app] at h ⊢
     rw [ihf (by omega), iha (by omega), Expr.bvarBound]
-  | lam n ty b m iht ihb =>
+  | lam ty b m iht ihb =>
     intro h
     rw [Expr.bvarBRaw_lam] at h ⊢
     have hb : b.bvarBRaw ≠ satRange := by
@@ -89,7 +89,7 @@ theorem bvarBRaw_exact : ∀ e : ExprC, e.bvarBRaw < satRange →
     have hb2 : b.bvarBRaw < satRange := by
       have := Expr.bvarBRaw_lt b; simp [satRange] at *; omega
     rw [if_neg hb, iht (by omega), ihb hb2, Expr.bvarBound]
-  | forallE n ty b m iht ihb =>
+  | forallE ty b m iht ihb =>
     intro h
     rw [Expr.bvarBRaw_forallE] at h ⊢
     have hb : b.bvarBRaw ≠ satRange := by
@@ -97,7 +97,7 @@ theorem bvarBRaw_exact : ∀ e : ExprC, e.bvarBRaw < satRange →
     have hb2 : b.bvarBRaw < satRange := by
       have := Expr.bvarBRaw_lt b; simp [satRange] at *; omega
     rw [if_neg hb, iht (by omega), ihb hb2, Expr.bvarBound]
-  | letE n ty v b iht ihv ihb =>
+  | letE ty v b iht ihv ihb =>
     intro h
     rw [Expr.bvarBRaw_letE] at h ⊢
     have hb : b.bvarBRaw ≠ satRange := by
@@ -116,21 +116,21 @@ theorem fvarBRaw_exact : ∀ e : ExprC, e.fvarBRaw < satRange →
     e.fvarBRaw = Expr.fvarRange e := by
   intro e
   induction e with
-  | fvar idx _ _ _ => intro h; simp_all [satRange, Expr.fvarRange]; omega
+  | fvar idx _ _ => intro h; simp_all [satRange, Expr.fvarRange]; omega
   | bvar _ | sort _ | const _ _ | lit _ => intro _; simp [Expr.fvarRange]
   | app f a ihf iha =>
     intro h
     rw [Expr.fvarBRaw_app] at h ⊢
     rw [ihf (by omega), iha (by omega), Expr.fvarRange]
-  | lam n ty b m iht ihb =>
+  | lam ty b m iht ihb =>
     intro h
     rw [Expr.fvarBRaw_lam] at h ⊢
     rw [iht (by omega), ihb (by omega), Expr.fvarRange]
-  | forallE n ty b m iht ihb =>
+  | forallE ty b m iht ihb =>
     intro h
     rw [Expr.fvarBRaw_forallE] at h ⊢
     rw [iht (by omega), ihb (by omega), Expr.fvarRange]
-  | letE n ty v b iht ihv ihb =>
+  | letE ty v b iht ihv ihb =>
     intro h
     rw [Expr.fvarBRaw_letE] at h ⊢
     rw [iht (by omega), ihv (by omega), ihb (by omega), Expr.fvarRange]
@@ -176,7 +176,7 @@ theorem bvarBoundGo_spec : ∀ (e : ExprC) {memo : Std.HashMap ExprC Nat},
     split
     · rename_i r hhit; exact ⟨hm _ _ hhit, hm⟩
     · exact ⟨rfl, hm.insert rfl⟩
-  | fvar idx n ty _ | sort u | const n us | lit l =>
+  | fvar idx ty _ | sort u | const n us | lit l =>
     intro memo hm
     rw [Expr.bvarBoundGo.eq_def]
     split
@@ -191,7 +191,7 @@ theorem bvarBoundGo_spec : ∀ (e : ExprC) {memo : Std.HashMap ExprC Nat},
       obtain ⟨h2, hm2⟩ := iha hm1
       refine ⟨by simp [h1, h2, Expr.bvarBound], hm2.insert ?_⟩
       simp [h1, h2, Expr.bvarBound]
-  | lam n ty b m iht ihb | forallE n ty b m iht ihb =>
+  | lam ty b m iht ihb | forallE ty b m iht ihb =>
     intro memo hm
     rw [Expr.bvarBoundGo.eq_def]
     split
@@ -200,7 +200,7 @@ theorem bvarBoundGo_spec : ∀ (e : ExprC) {memo : Std.HashMap ExprC Nat},
       obtain ⟨h2, hm2⟩ := ihb hm1
       refine ⟨by simp [h1, h2, Expr.bvarBound], hm2.insert ?_⟩
       simp [h1, h2, Expr.bvarBound]
-  | letE n ty v b iht ihv ihb =>
+  | letE ty v b iht ihv ihb =>
     intro memo hm
     rw [Expr.bvarBoundGo.eq_def]
     split
@@ -250,7 +250,7 @@ theorem fvarRangeGo_spec : ∀ (e : ExprC) {memo : Std.HashMap ExprC Nat},
         MemoFInv (Expr.fvarRangeGo memo e).2 := by
   intro e
   induction e with
-  | fvar idx n ty _ =>
+  | fvar idx ty _ =>
     intro memo hm
     rw [Expr.fvarRangeGo.eq_def]
     split
@@ -271,7 +271,7 @@ theorem fvarRangeGo_spec : ∀ (e : ExprC) {memo : Std.HashMap ExprC Nat},
       obtain ⟨h2, hm2⟩ := iha hm1
       refine ⟨by simp [h1, h2, Expr.fvarRange], hm2.insert ?_⟩
       simp [h1, h2, Expr.fvarRange]
-  | lam n ty b m iht ihb | forallE n ty b m iht ihb =>
+  | lam ty b m iht ihb | forallE ty b m iht ihb =>
     intro memo hm
     rw [Expr.fvarRangeGo.eq_def]
     split
@@ -280,7 +280,7 @@ theorem fvarRangeGo_spec : ∀ (e : ExprC) {memo : Std.HashMap ExprC Nat},
       obtain ⟨h2, hm2⟩ := ihb hm1
       refine ⟨by simp [h1, h2, Expr.fvarRange], hm2.insert ?_⟩
       simp [h1, h2, Expr.fvarRange]
-  | letE n ty v b iht ihv ihb =>
+  | letE ty v b iht ihv ihb =>
     intro memo hm
     rw [Expr.fvarRangeGo.eq_def]
     split

@@ -85,7 +85,7 @@ theorem PiTeleP.succ_inv {k : Nat} {T : AVExpr} {Γ : List AVExpr}
 
 theorem stripPis_denotePTele :
     ∀ (k : Nat) {e : Expr} {j : Nat}
-      {bs : List (Name × Expr × BinderMeta)} {body : Expr}
+      {bs : List (Expr × BinderMeta)} {body : Expr}
       {E : AVExpr},
       e.stripPis k = some (bs, body) →
       denoteP acval env φ j e = some E →
@@ -93,9 +93,9 @@ theorem stripPis_denotePTele :
         PiTeleP k E Γ C ∧ Γ.length = k ∧
         denoteP acval env φ (j + k)
           (Expr.instSeq (openFvars j k) (k - 1) body) = some C ∧
-        ∀ (i0 : Nat) (b : Name × Expr × BinderMeta), bs[i0]? = some b →
+        ∀ (i0 : Nat) (b : Expr × BinderMeta), bs[i0]? = some b →
           denoteP acval env φ (j + i0)
-            (Expr.instSeq (openFvars j i0) (i0 - 1) b.2.1) =
+            (Expr.instSeq (openFvars j i0) (i0 - 1) b.1) =
             some (Γ.getD (k - 1 - i0) default) := by
   intro k
   induction k with
@@ -108,7 +108,7 @@ theorem stripPis_denotePTele :
   | succ k ih =>
     intro e j bs body E h hE
     match e, h with
-    | .forallE nm dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [Lech.Expr.stripPis] at h
       cases hs : bodyE.stripPis k with
       | none => rw [hs] at h; exact nomatch h
@@ -123,7 +123,7 @@ theorem stripPis_denotePTele :
       | some A => ?_
       rw [hA] at hE
       cases hB : denoteP acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar j nm dom)) with
+          (bodyE.instantiate1 (.fvar j dom)) with
       | none => rw [hB] at hE; exact nomatch hE
       | some Bv => ?_
       rw [hB] at hE
@@ -131,21 +131,21 @@ theorem stripPis_denotePTele :
         simpa using hE.symm
       -- re-open at the anonymous opener (the reading is blind to it)
       have hB' : denoteP acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar j Name.anonymous (.sort .zero)))
+          (bodyE.instantiate1 (.fvar j (.sort .zero)))
           = some Bv := by
         rw [denoteP_erasedEq (Lech.Expr.ErasedEq.instantiate1
           (Lech.Expr.ErasedEq.rfl bodyE)
           (show Lech.Expr.ErasedEq
-              (.fvar j Name.anonymous (.sort .zero)) (.fvar j nm dom)
+              (.fvar j (.sort .zero)) (.fvar j dom)
             from by constructor)) (j + 1)]
         exact hB
-      have hsI : ((bodyE.instantiate1 (.fvar j Name.anonymous
+      have hsI : ((bodyE.instantiate1 (.fvar j
           (.sort .zero))).stripPis k).isSome :=
         Lech.Expr.stripPis_instantiate1_isSome k 0 (by rw [hs]; rfl)
       obtain ⟨bs', body', hsI2⟩ : ∃ bs' body',
-          (bodyE.instantiate1 (.fvar j Name.anonymous
+          (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripPis k = some (bs', body') := by
-        cases hq : (bodyE.instantiate1 (.fvar j Name.anonymous
+        cases hq : (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripPis k with
         | none => rw [hq] at hsI; exact nomatch hsI
         | some q => exact ⟨q.1, q.2, rfl⟩
@@ -159,22 +159,22 @@ theorem stripPis_denotePTele :
       · show denoteP acval env φ (j + (k + 1))
           (Expr.instSeq (openFvars j (k + 1)) (k + 1 - 1) p.2)
           = some C
-        rw [show openFvars j (k + 1) = .fvar j Name.anonymous
+        rw [show openFvars j (k + 1) = .fvar j
             (.sort .zero) :: openFvars (j + 1) k from rfl,
-          show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
+          show Expr.instSeq (.fvar j (.sort .zero)
               :: openFvars (j + 1) k) (k + 1 - 1) p.2 =
             Expr.instSeq (openFvars (j + 1) k) (k - 1)
-              (p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+              (p.2.instantiate1 (.fvar j (.sort .zero))
                 k) from by simp [Expr.instSeq],
           show j + (k + 1) = j + 1 + k from by omega,
-          show p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+          show p.2.instantiate1 (.fvar j (.sort .zero))
               k = body' from by
             rw [hbody']; simp only [Nat.zero_add]]
         exact hbody
       · intro i0 b hb
         cases i0 with
         | zero =>
-          obtain rfl : (nm, dom, mb) = b := by simpa using hb
+          obtain rfl : (dom, mb) = b := by simpa using hb
           show denoteP acval env φ (j + 0)
             (Expr.instSeq (openFvars j 0) (0 - 1) dom) = _
           rw [show (Γ' ++ [A]).getD (k + 1 - 1 - 0) default = A from by
@@ -201,14 +201,14 @@ theorem stripPis_denotePTele :
             rw [show k + 1 - 1 - (i0 + 1) = k - 1 - i0 from by omega,
               List.getElem?_append_left (by omega)]]
           show denoteP acval env φ (j + (i0 + 1))
-            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.2.1)
+            (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.1)
             = _
-          rw [show openFvars j (i0 + 1) = .fvar j Name.anonymous
+          rw [show openFvars j (i0 + 1) = .fvar j
               (.sort .zero) :: openFvars (j + 1) i0 from rfl,
-            show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
-                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.2.1 =
+            show Expr.instSeq (.fvar j (.sort .zero)
+                :: openFvars (j + 1) i0) (i0 + 1 - 1) b.1 =
               Expr.instSeq (openFvars (j + 1) i0) (i0 - 1)
-                (b.2.1.instantiate1 (.fvar j Name.anonymous
+                (b.1.instantiate1 (.fvar j
                   (.sort .zero)) i0) from by
               simp [Expr.instSeq],
             show j + (i0 + 1) = j + 1 + i0 from by omega]
@@ -554,10 +554,10 @@ theorem denoteSpineP_openFvars :
       congr 1
       omega
     rw [show openFvars j (k + 1)
-      = Lech.Expr.fvar j Name.anonymous (.sort .zero)
+      = Lech.Expr.fvar j (.sort .zero)
         :: openFvars (j + 1) k from rfl, hlist]
     exact DenoteSpineP.cons
-      (denoteP_fvar acval d j Name.anonymous (.sort .zero))
+      (denoteP_fvar acval d j (.sort .zero))
       (ih (j + 1) d (by omega))
 
 /-- The opened parameter spine, evaluated: it applies the head to the

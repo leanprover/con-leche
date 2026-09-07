@@ -52,12 +52,12 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
     -- the statement frame
     {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
     (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
-    (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvs → ty.looseBVarsBounded 0 = true)
+      Expr.fvar l.1 l.2 ∈ fvs)
+    (hlbFvs : ∀ (i : Nat) (ty : Expr),
+      Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Tstmt : AVExpr} {Γs : List AVExpr} {Rbody : AVExpr}
     (htowerS : PiTeleP (rP + cnF) Tstmt Γs Rbody)
     (hokTst : ∀ σ : Nat → V, AnnotOkP V σ Tstmt)
@@ -82,7 +82,7 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
       Expr.WScoped (rP + j) (cdoms.getD (cnP + j) default))
     (hleafCd : ∀ j, j < cnF →
       ∀ l ∈ (cdoms.getD (cnP + j) default).fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs ∧ l.1 < rP + j)
+        Expr.fvar l.1 l.2 ∈ fvs ∧ l.1 < rP + j)
     -- the recorded field run
     (hdeFld : DefEqListOk μ F env (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
@@ -152,12 +152,12 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
         · rw [List.getElem?_eq_none_iff] at hg; omega
         · rfl)
   have hfvsAt : ∀ n, n < (rP + cnF) →
-      ∃ nm ty, fvs[n]? = some (.fvar n nm ty) := by
+      ∃ ty, fvs[n]? = some (.fvar n ty) := by
     intro n hn
     rcases hx : fvs[n]? with _ | x
     · rw [List.getElem?_eq_none_iff] at hx; omega
-    · obtain ⟨nm, ty, rfl⟩ := hshapeS n x hx
-      exact ⟨_, _, rfl⟩
+    · obtain ⟨ty, rfl⟩ := hshapeS n x hx
+      exact ⟨_, rfl⟩
   -- the field domains' bvar bound
   have hbCdAll : ∀ j, j < cnF →
       (cdoms.getD (cnP + j) default).looseBVarsBounded 0 = true := by
@@ -187,20 +187,20 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
   induction n using Nat.strongRecOn with
   | _ n ihn =>
   intro hnN hrPn hnK
-  obtain ⟨nm, ty, hx⟩ := hfvsAt n (by omega)
-  have hmemFvs : Expr.fvar n nm ty ∈ fvs := List.mem_of_getElem? hx
+  obtain ⟨ty, hx⟩ := hfvsAt n (by omega)
+  have hmemFvs : Expr.fvar n ty ∈ fvs := List.mem_of_getElem? hx
   have hwsTy : Expr.WScoped n ty := by
     have h' := hwsFvs _ hmemFvs
     simp only [Expr.WScoped] at h'
     exact h'.2
   have hleafTy : ∀ l ∈ ty.fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+      Expr.fvar l.1 l.2 ∈ fvs := by
     intro l hl
     exact hleafClosed l ⟨_, hmemFvs, by
       rw [Expr.fvarLeaves]; exact List.mem_cons_of_mem _ hl⟩
   have hltTy : ∀ l ∈ ty.fvarLeaves, l.1 < n :=
     Expr.fvarLeaves_lt_of_wscoped hwsTy
-  have hbTy : ty.looseBVarsBounded 0 = true := hlbFvs n nm ty hmemFvs
+  have hbTy : ty.looseBVarsBounded 0 = true := hlbFvs n ty hmemFvs
   have hjlt : n - rP < cnF := by omega
   have hnj : rP + (n - rP) = n := by omega
   -- the a-side reading at the frame depth
@@ -240,12 +240,12 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
       have hxf : fvs[rP + j']? = some x := by
         rw [← hspFld j' (by omega)]
         exact hx'
-      obtain ⟨nm', ty', hx''⟩ := hfvsAt (rP + j') (by omega)
-      obtain rfl : x = Expr.fvar (rP + j') nm' ty' := by
+      obtain ⟨ty', hx''⟩ := hfvsAt (rP + j') (by omega)
+      obtain rfl : x = Expr.fvar (rP + j') ty' := by
         rw [hxf] at hx''
         exact Option.some.inj hx''
       refine ⟨.bvar ((rP + cnF) - 1 - (rP + j')),
-        denoteP_fvar _ _ _ _ _, ⟨by simp, by simp⟩, ?_⟩
+        denoteP_fvar _ _ _ _, ⟨by simp, by simp⟩, ?_⟩
       intro dw0 hdw0
       have hIH := ihn (rP + j') (by omega) (by omega) (by omega)
         (by omega) ρ0 hρ0 dw0 (by
@@ -275,9 +275,9 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
       rw [List.getD, List.getD, List.getElem?_drop]] at h
     exact h
   have hLbTy : Expr.LeavesBounded ty := fun l hl =>
-    hlbFvs l.1 l.2.1 l.2.2 (hleafTy l hl)
+    hlbFvs l.1 l.2 (hleafTy l hl)
   have hLbCd : Expr.LeavesBounded (cdoms.getD (cnP + (n - rP)) default) :=
-    fun l hl => hlbFvs l.1 l.2.1 l.2.2
+    fun l hl => hlbFvs l.1 l.2
       (hleafCd (n - rP) hjlt l hl).1
   have hfire := defEqAtP_of_run (m := m) hclaims (k := (rP + cnF))
     (fvs := fvs) (Aa := fun i => Γs.getD ((rP + cnF) - 1 - i) default)

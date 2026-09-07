@@ -55,20 +55,20 @@ theorem hasLooseBVar_instantiate1_lt {v : Expr} (hv : ∀ i, v.hasLooseBVar i = 
         rw [beq_eq_false_iff_ne.mpr (show i ≠ j - 1 from by omega),
           beq_eq_false_iff_ne.mpr (show i ≠ j from by omega)]
       · rfl
-  | fvar _ _ _ => intros; rfl
+  | fvar _ _ => intros; rfl
   | sort _ => intros; rfl
   | const _ _ => intros; rfl
   | lit _ => intros; rfl
   | app f a ihf iha =>
     intro i k hik
     simp only [Expr.instantiate1, Expr.hasLooseBVar, ihf i k hik, iha i k hik]
-  | lam _ ty b _ ihty ihb =>
+  | lam ty b _ ihty ihb =>
     intro i k hik
     simp only [Expr.instantiate1, Expr.hasLooseBVar, ihty i k hik, ihb (i + 1) (k + 1) (by omega)]
-  | forallE _ ty b _ ihty ihb =>
+  | forallE ty b _ ihty ihb =>
     intro i k hik
     simp only [Expr.instantiate1, Expr.hasLooseBVar, ihty i k hik, ihb (i + 1) (k + 1) (by omega)]
-  | letE _ t v' b iht ihv ihb =>
+  | letE t v' b iht ihv ihb =>
     intro i k hik
     simp only [Expr.instantiate1, Expr.hasLooseBVar, iht i k hik, ihv i k hik,
       ihb (i + 1) (k + 1) (by omega)]
@@ -89,7 +89,7 @@ theorem fvarLeaves_instantiate1_of_not_hasLooseBVar :
     simp only [Expr.instantiate1] at hl
     rw [if_neg (Ne.symm hk)] at hl
     split at hl <;> simp [Expr.fvarLeaves] at hl
-  | fvar _ _ _ => intro v k _ l hl; exact hl
+  | fvar _ _ => intro v k _ l hl; exact hl
   | sort _ => intro v k _ l hl; exact hl
   | const _ _ => intro v k _ l hl; exact hl
   | lit _ => intro v k _ l hl; exact hl
@@ -100,21 +100,21 @@ theorem fvarLeaves_instantiate1_of_not_hasLooseBVar :
     rcases hl with hl | hl
     · exact Or.inl (ihf v k hk.1 l hl)
     · exact Or.inr (iha v k hk.2 l hl)
-  | lam _ ty b _ ihty ihb =>
+  | lam ty b _ ihty ihb =>
     intro v k hk l hl
     simp only [Expr.hasLooseBVar, Bool.or_eq_false_iff] at hk
     simp only [Expr.instantiate1, Expr.fvarLeaves, List.mem_append] at hl ⊢
     rcases hl with hl | hl
     · exact Or.inl (ihty v k hk.1 l hl)
     · exact Or.inr (ihb v (k + 1) hk.2 l hl)
-  | forallE _ ty b _ ihty ihb =>
+  | forallE ty b _ ihty ihb =>
     intro v k hk l hl
     simp only [Expr.hasLooseBVar, Bool.or_eq_false_iff] at hk
     simp only [Expr.instantiate1, Expr.fvarLeaves, List.mem_append] at hl ⊢
     rcases hl with hl | hl
     · exact Or.inl (ihty v k hk.1 l hl)
     · exact Or.inr (ihb v (k + 1) hk.2 l hl)
-  | letE _ t v' b iht ihv ihb =>
+  | letE t v' b iht ihv ihb =>
     intro v k hk l hl
     simp only [Expr.hasLooseBVar, Bool.or_eq_false_iff] at hk
     simp only [Expr.instantiate1, Expr.fvarLeaves, List.mem_append] at hl ⊢
@@ -129,8 +129,8 @@ theorem fvarLeaves_instantiate1_of_not_hasLooseBVar :
     exact ihe v k hk l hl
 
 omit [SetTheory V] in
-theorem fvar_hasLooseBVar (idx : Nat) (nm : Name) (ty : Expr) (i : Nat) :
-    (Expr.fvar idx nm ty).hasLooseBVar i = false := rfl
+theorem fvar_hasLooseBVar (idx : Nat) (ty : Expr) (i : Nat) :
+    (Expr.fvar idx ty).hasLooseBVar i = false := rfl
 
 omit [SetTheory V] in
 /-- **An unused binder is absent from the opening.**  If the telescope
@@ -138,7 +138,7 @@ after binder `m` does not mention it, no later opener's annotation and
 not the opened body carries the `m`-th opener as a leaf. -/
 theorem openPisAtFvars_leaf_free :
     ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr} (m : Nat)
-      {bs : List (Name × Expr × BinderMeta)} {rest : Expr},
+      {bs : List (Expr × BinderMeta)} {rest : Expr},
       openPisAtFvars n e d = some (fvs, o) → m < n →
       e.stripPis (m + 1) = some (bs, rest) → rest.hasLooseBVar 0 = false →
       (∀ l ∈ e.fvarLeaves, l.1 ≠ d + m) →
@@ -147,7 +147,7 @@ theorem openPisAtFvars_leaf_free :
   | 0, _, _, _, _, m, _, _, _, hm, _, _, _ => absurd hm (Nat.not_lt_zero m)
   | n + 1, e, d, fvs, o, m, bs, rest, hop, hm, hst, hfree, hleaves => by
     match e, hop, hst with
-    | .forallE nm dom body mb, hop, hst =>
+    | .forallE dom body mb, hop, hst =>
       simp only [openPisAtFvars] at hop
       split at hop
       · next fvs' o' hop' =>
@@ -161,7 +161,7 @@ theorem openPisAtFvars_leaf_free :
           -- `rest` is the body: the opener at `d` is never substituted
           simp only [Expr.stripPis, Option.map_some, Option.some.injEq, Prod.mk.injEq] at hst
           obtain ⟨-, rfl⟩ := hst
-          have hsub : ∀ l, l ∈ (body.instantiate1 (.fvar d nm dom)).fvarLeaves →
+          have hsub : ∀ l, l ∈ (body.instantiate1 (.fvar d dom)).fvarLeaves →
               l ∈ body.fvarLeaves :=
             fun l hl => fvarLeaves_instantiate1_of_not_hasLooseBVar body _ 0 hfree l hl
           have hbody : ∀ l ∈ body.fvarLeaves, l.1 ≠ d + 0 := by
@@ -172,9 +172,9 @@ theorem openPisAtFvars_leaf_free :
             rcases hopen l hl with h | h
             · exact hbody l (hsub l h)
             · obtain ⟨q, hq⟩ := List.getElem?_of_mem h
-              obtain ⟨nm', ty', heq⟩ := hidx q _ hq
+              obtain ⟨ty', heq⟩ := hidx q _ hq
               have : l.1 = d + 1 + q := by
-                have := congrArg (fun e => match e with | .fvar i _ _ => i | _ => 0) heq
+                have := congrArg (fun e => match e with | .fvar i _ => i | _ => 0) heq
                 simpa using this
               omega
           refine ⟨?_, fun l hl => key l (Or.inl hl)⟩
@@ -190,16 +190,16 @@ theorem openPisAtFvars_leaf_free :
           obtain ⟨⟨bs', rest'⟩, hst', heq⟩ := hst
           simp only [Prod.mk.injEq] at heq
           obtain ⟨-, rfl⟩ := heq
-          have hsome := Expr.stripPis_instantiate1_isSome (v := .fvar d nm dom) (m + 1) (e := body) 0
+          have hsome := Expr.stripPis_instantiate1_isSome (v := .fvar d dom) (m + 1) (e := body) 0
             (by rw [hst']; rfl)
           obtain ⟨⟨bs'', rest''⟩, hst''⟩ := Option.isSome_iff_exists.mp hsome
-          obtain ⟨hr, -⟩ := Expr.stripPis_instantiate1_eq (v := .fvar d nm dom) (m + 1) 0 hst' hst''
+          obtain ⟨hr, -⟩ := Expr.stripPis_instantiate1_eq (v := .fvar d dom) (m + 1) 0 hst' hst''
           rw [Nat.zero_add] at hr
           have hfree' : rest''.hasLooseBVar 0 = false := by
-            rw [hr, hasLooseBVar_instantiate1_lt (fvar_hasLooseBVar d nm dom) rest' 0 (m + 1)
+            rw [hr, hasLooseBVar_instantiate1_lt (fvar_hasLooseBVar d dom) rest' 0 (m + 1)
               (by omega)]
             exact hfree
-          have hleaves' : ∀ l ∈ (body.instantiate1 (.fvar d nm dom)).fvarLeaves,
+          have hleaves' : ∀ l ∈ (body.instantiate1 (.fvar d dom)).fvarLeaves,
               l.1 ≠ d + 1 + m := by
             intro l hl
             rcases Expr.fvarLeaves_instantiate1 body 0 hl with hl | hl
@@ -220,8 +220,8 @@ theorem openPisAtFvars_leaf_free :
             have := h1 k (by omega) x hx l hl
             omega
       · exact nomatch hop
-    | .bvar _, hop, _ | .fvar _ _ _, hop, _ | .sort _, hop, _ | .const _ _, hop, _
-    | .app _ _, hop, _ | .lam _ _ _ _, hop, _ | .letE _ _ _ _, hop, _ | .lit _, hop, _
+    | .bvar _, hop, _ | .fvar _ _, hop, _ | .sort _, hop, _ | .const _ _, hop, _
+    | .app _ _, hop, _ | .lam _ _ _, hop, _ | .letE _ _ _, hop, _ | .lit _, hop, _
     | .proj _ _ _, hop, _ =>
       simp [openPisAtFvars] at hop
 
@@ -237,10 +237,10 @@ theorem natLitT2_liftN {za sa : AVExpr} {k : Nat} (hz : za.liftN 1 k = za)
 
 /-- The `let` clause's inversion (`denoteP_forallE_inv`'s twin). -/
 theorem denoteP_letE_inv' {acval : Name → (Name → Nat) → AVExpr} {env : Env} {φ : Name → Nat}
-    {d : Nat} {n : Name} {ty val body : Expr} {ea : AVExpr}
-    (h : denoteP acval env φ d (.letE n ty val body) = some ea) :
+    {d : Nat} {ty val body : Expr} {ea : AVExpr}
+    (h : denoteP acval env φ d (.letE ty val body) = some ea) :
     ∃ ta va ba, denoteP acval env φ d ty = some ta ∧ denoteP acval env φ d val = some va ∧
-      denoteP acval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) = some ba ∧
+      denoteP acval env φ (d + 1) (body.instantiate1 (.fvar d ty)) = some ba ∧
       ea = .letE ta va ba := by
   rw [denoteP] at h
   cases ht : denoteP acval env φ d ty with
@@ -249,7 +249,7 @@ theorem denoteP_letE_inv' {acval : Name → (Name → Nat) → AVExpr} {env : En
     cases hv : denoteP acval env φ d val with
     | none => rw [ht, hv] at h; exact nomatch h
     | some va =>
-      cases hb : denoteP acval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
+      cases hb : denoteP acval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
       | none => rw [ht, hv, hb] at h; exact nomatch h
       | some ba =>
         rw [ht, hv, hb] at h
@@ -270,12 +270,12 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
     intro _ q _ _ ea h
     rw [denoteP] at h
     exact ⟨ea, by rw [← Option.some.inj h]; rfl⟩
-  | case2 d idx nm ty =>
+  | case2 d idx ty =>
     intro hw q hq hl ea h
     rw [denoteP] at h
     obtain rfl := Option.some.inj h
     simp only [Expr.WScoped] at hw
-    have hne : idx ≠ q := hl (idx, nm, ty) (by simp [Expr.fvarLeaves])
+    have hne : idx ≠ q := hl (idx, ty) (by simp [Expr.fvarLeaves])
     rcases Nat.lt_or_gt_of_ne hne with hlt | hgt
     · refine ⟨.bvar (d - 2 - idx), ?_⟩
       rw [AVExpr.liftN_bvar, if_neg (by omega)]
@@ -300,7 +300,7 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
     intro _ q _ _ ea h
     rw [denoteP, hf] at h
     exact nomatch h
-  | case6 d n ty body mb ihty ihbody =>
+  | case6 d ty body mb ihty ihbody =>
     intro hw q hq hl ea h
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_forallE_inv h
     simp only [Expr.WScoped] at hw
@@ -316,7 +316,7 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
         · exact hl l (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl hl')) hba
     refine ⟨.pi 0 (pwBit φ mb.pw) Xt Xb, ?_⟩
     rw [AVExpr.liftN_pi, show d + 1 - 1 - q = d - 1 - q + 1 from by omega]
-  | case7 d n ty body mb ihty ihbody =>
+  | case7 d ty body mb ihty ihbody =>
     intro hw q hq hl ea h
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteP_lam_inv h
     simp only [Expr.WScoped] at hw
@@ -341,7 +341,7 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
     obtain ⟨Xa, rfl⟩ := iha hw.2 hq (fun l hl' => hl l (by
       simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inr hl')) haa
     exact ⟨.app Xf Xa, by rw [AVExpr.liftN_app]⟩
-  | case9 d n ty val body ihty ihval ihbody =>
+  | case9 d ty val body ihty ihval ihbody =>
     intro hw q hq hl ea h
     obtain ⟨ta, va, ba, hta, hva, hba, rfl⟩ := denoteP_letE_inv' h
     simp only [Expr.WScoped] at hw
@@ -393,12 +393,12 @@ theorem denoteP_liftN_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name 
     cases x with
     | bvar i => rw [denoteP.eq_def] at h; exact nomatch h
     | sort u => exact absurd rfl (hs u)
-    | fvar i nm ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i ty)
     | const n us => exact absurd rfl (hc n us)
-    | forallE n ty b mb => exact absurd rfl (hpi n ty b mb)
-    | lam n ty b mb => exact absurd rfl (hlam n ty b mb)
+    | forallE ty b mb => exact absurd rfl (hpi ty b mb)
+    | lam ty b mb => exact absurd rfl (hlam ty b mb)
     | app f a => exact absurd rfl (happ f a)
-    | letE n ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

@@ -181,18 +181,18 @@ theorem denoteP_punitRecA_type (ψ : Name → Nat)
               (.app (.bvar 2) (.bvar 0))))) := by
   obtain ⟨hPc, hUc⟩ := denoteP_punitRec_leaves (m := m) (A := A) ψ hP hU
   rw [show punitRecA.toConstantVal.type
-      = Expr.forallE (Name.anonymous.str "motive")
-          (Expr.forallE (Name.anonymous.str "t")
+      = Expr.forallE
+          (Expr.forallE
             (.const punitName [.param uN]) (.sort (.param u1N))
-            { bi := .default, pw := .never })
-          (Expr.forallE (Name.anonymous.str "unit")
+            { pw := .never })
+          (Expr.forallE
             (.app (.bvar 0) (.const punitUnitName [.param uN]))
-            (Expr.forallE (Name.anonymous.str "t")
+            (Expr.forallE
               (.const punitName [.param uN])
               (.app (.bvar 2) (.bvar 0))
-              { bi := .default, pw := .ifAllZero [u1N] })
-            { bi := .default, pw := .ifAllZero [u1N] })
-          { bi := .implicit, pw := .ifAllZero [u1N] } from rfl]
+              { pw := .ifAllZero [u1N] })
+            { pw := .ifAllZero [u1N] })
+          { pw := .ifAllZero [u1N] } from rfl]
   simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
     Expr.instantiate1, hPc, hUc, Level.eval]
 
@@ -223,14 +223,14 @@ theorem bitAgree_punitRecA (ψ : Name → Nat) :
 def punitRecRule : RecRule :=
   { ctor := punitUnitName, nfields := 0, ctorParams := 0,
     fire := .plain,
-    rhs := Expr.lam (Name.anonymous.str "motive")
-      (Expr.forallE (Name.anonymous.str "t")
+    rhs := Expr.lam
+      (Expr.forallE
         (.const punitName [.param uN]) (.sort (.param u1N))
-        { bi := .default, pw := .never })
-      (Expr.lam (Name.anonymous.str "unit")
+        { pw := .never })
+      (Expr.lam
         (.app (.bvar 0) (.const punitUnitName [.param uN]))
-        (.bvar 0) { bi := .default, pw := .ifAllZero [u1N] })
-      { bi := .default, pw := .ifAllZero [u1N] } }
+        (.bvar 0) { pw := .ifAllZero [u1N] })
+      { pw := .ifAllZero [u1N] } }
 
 theorem punitRecA_eq :
     punitRecA = .recInfo punitRecA.toConstantVal 2 2 [punitRecRule] :=
@@ -249,14 +249,14 @@ theorem denoteP_punitRec_rhs (ψ : Name → Nat)
             (.app (.bvar 0) (.const .punitUnit [ψ uN]))
             (.bvar 0))) := by
   obtain ⟨hPc, hUc⟩ := denoteP_punitRec_leaves (m := m) (A := A) ψ hP hU
-  rw [show punitRecRule.rhs = Expr.lam (Name.anonymous.str "motive")
-      (Expr.forallE (Name.anonymous.str "t")
+  rw [show punitRecRule.rhs = Expr.lam
+      (Expr.forallE
         (.const punitName [.param uN]) (.sort (.param u1N))
-        { bi := .default, pw := .never })
-      (Expr.lam (Name.anonymous.str "unit")
+        { pw := .never })
+      (Expr.lam
         (.app (.bvar 0) (.const punitUnitName [.param uN]))
-        (.bvar 0) { bi := .default, pw := .ifAllZero [u1N] })
-      { bi := .default, pw := .ifAllZero [u1N] } from rfl]
+        (.bvar 0) { pw := .ifAllZero [u1N] })
+      { pw := .ifAllZero [u1N] } from rfl]
   simp [denoteP_lam, denoteP_forallE, denoteP_sort, denoteP_app,
     denoteP_fvar, Expr.instantiate1, hPc, hUc, Level.eval]
 
@@ -627,18 +627,18 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvS2PM V μ env)
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     · show Expr.constsResolve _ punitRecA.toConstantVal.type = true
       rw [show punitRecA.toConstantVal.type
-          = Expr.forallE (Name.anonymous.str "motive")
-              (Expr.forallE (Name.anonymous.str "t")
+          = Expr.forallE
+              (Expr.forallE
                 (.const punitName [.param uN]) (.sort (.param u1N))
-                { bi := .default, pw := .never })
-              (Expr.forallE (Name.anonymous.str "unit")
+                { pw := .never })
+              (Expr.forallE
                 (.app (.bvar 0) (.const punitUnitName [.param uN]))
-                (Expr.forallE (Name.anonymous.str "t")
+                (Expr.forallE
                   (.const punitName [.param uN])
                   (.app (.bvar 2) (.bvar 0))
-                  { bi := .default, pw := .ifAllZero [u1N] })
-                { bi := .default, pw := .ifAllZero [u1N] })
-              { bi := .implicit, pw := .ifAllZero [u1N] } from rfl]
+                  { pw := .ifAllZero [u1N] })
+                { pw := .ifAllZero [u1N] })
+              { pw := .ifAllZero [u1N] } from rfl]
       simp only [Expr.constsResolve, hfP, hfU, Option.isSome_some,
         Bool.and_self]
     · intro cv mI rP rules heq
@@ -650,14 +650,14 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvS2PM V μ env)
         · subst h1'; rfl
         · show Expr.constsResolve _ punitRecRule.rhs = true
           rw [show punitRecRule.rhs = Expr.lam
-              (Name.anonymous.str "motive")
-              (Expr.forallE (Name.anonymous.str "t")
+
+              (Expr.forallE
                 (.const punitName [.param uN]) (.sort (.param u1N))
-                { bi := .default, pw := .never })
-              (Expr.lam (Name.anonymous.str "unit")
+                { pw := .never })
+              (Expr.lam
                 (.app (.bvar 0) (.const punitUnitName [.param uN]))
-                (.bvar 0) { bi := .default, pw := .ifAllZero [u1N] })
-              { bi := .default, pw := .ifAllZero [u1N] } from rfl]
+                (.bvar 0) { pw := .ifAllZero [u1N] })
+              { pw := .ifAllZero [u1N] } from rfl]
           simp only [Expr.constsResolve, hfP, hfU, Option.isSome_some,
             Bool.and_self]
       · exact nomatch hr'
@@ -722,8 +722,8 @@ theorem denoteP_natSuccTy {c₀ : ConstantInfo} (ψ : Name → Nat)
   have hNc := fun d => denoteP_natLeaf (m := m) (A := A) (c₀ := c₀)
     ψ hne hN d
   rw [show natSuccA.toConstantVal.type
-      = Expr.forallE (Name.anonymous.str "n") (.const natName [])
-          (.const natName []) { bi := .default, pw := .never } from rfl]
+      = Expr.forallE (.const natName [])
+          (.const natName []) { pw := .never } from rfl]
   simp [denoteP_forallE, Expr.instantiate1, hNc]
 
 theorem denoteP_natSuccA_type (ψ : Name → Nat)
@@ -787,25 +787,25 @@ theorem denoteP_natRecA_type (ψ : Name → Nat)
   obtain ⟨hNc, hZc, hSc⟩ :=
     denoteP_natRec_leaves (m := m) (A := A) ψ hN hZ hS
   rw [show natRecA.toConstantVal.type
-      = Expr.forallE (Name.anonymous.str "motive")
-          (Expr.forallE (Name.anonymous.str "t") (.const natName [])
-            (.sort (.param uN)) { bi := .default, pw := .never })
-          (Expr.forallE (Name.anonymous.str "zero")
+      = Expr.forallE
+          (Expr.forallE (.const natName [])
+            (.sort (.param uN)) { pw := .never })
+          (Expr.forallE
             (.app (.bvar 0) (.const natZeroName []))
-            (Expr.forallE (Name.anonymous.str "succ")
-              (Expr.forallE (Name.anonymous.str "n") (.const natName [])
-                (Expr.forallE (Name.anonymous.str "n_ih")
+            (Expr.forallE
+              (Expr.forallE (.const natName [])
+                (Expr.forallE
                   (.app (.bvar 2) (.bvar 0))
                   (.app (.bvar 3)
                     (.app (.const natSuccName []) (.bvar 1)))
-                  { bi := .default, pw := .ifAllZero [uN] })
-                { bi := .default, pw := .ifAllZero [uN] })
-              (Expr.forallE (Name.anonymous.str "t") (.const natName [])
+                  { pw := .ifAllZero [uN] })
+                { pw := .ifAllZero [uN] })
+              (Expr.forallE (.const natName [])
                 (.app (.bvar 3) (.bvar 0))
-                { bi := .default, pw := .ifAllZero [uN] })
-              { bi := .default, pw := .ifAllZero [uN] })
-            { bi := .default, pw := .ifAllZero [uN] })
-          { bi := .implicit, pw := .ifAllZero [uN] } from rfl]
+                { pw := .ifAllZero [uN] })
+              { pw := .ifAllZero [uN] })
+            { pw := .ifAllZero [uN] })
+          { pw := .ifAllZero [uN] } from rfl]
   simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
     Expr.instantiate1, hNc, hZc, hSc, Level.eval]
 
@@ -1040,21 +1040,21 @@ theorem denoteP_natRec_zeroRhs (ψ : Name → Nat)
       = some (natZeroRaP ψ) := by
   obtain ⟨hNc, hZc, hSc⟩ :=
     denoteP_natRec_leaves (m := m) (A := A) ψ hN hZ hS
-  rw [show natRecZeroRule.rhs = Expr.lam (Name.anonymous.str "motive")
-      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
-        (.sort (.param uN)) { bi := .default, pw := .never })
-      (Expr.lam (Name.anonymous.str "zero")
+  rw [show natRecZeroRule.rhs = Expr.lam
+      (Expr.forallE (.const natName [])
+        (.sort (.param uN)) { pw := .never })
+      (Expr.lam
         (.app (.bvar 0) (.const natZeroName []))
-        (Expr.lam (Name.anonymous.str "succ")
-          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
-            (Expr.forallE (Name.anonymous.str "n_ih")
+        (Expr.lam
+          (Expr.forallE (.const natName [])
+            (Expr.forallE
               (.app (.bvar 2) (.bvar 0))
               (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
-              { bi := .default, pw := .ifAllZero [uN] })
-            { bi := .default, pw := .ifAllZero [uN] })
-          (.bvar 1) { bi := .default, pw := .ifAllZero [uN] })
-        { bi := .default, pw := .ifAllZero [uN] })
-      { bi := .default, pw := .ifAllZero [uN] } from rfl]
+              { pw := .ifAllZero [uN] })
+            { pw := .ifAllZero [uN] })
+          (.bvar 1) { pw := .ifAllZero [uN] })
+        { pw := .ifAllZero [uN] })
+      { pw := .ifAllZero [uN] } from rfl]
   simp [denoteP_lam, denoteP_forallE, denoteP_sort, denoteP_app,
     denoteP_fvar, Expr.instantiate1, hNc, hZc, hSc, Level.eval,
     natZeroRaP, natMotiveTyP, natStepTyP]
@@ -1087,27 +1087,27 @@ theorem denoteP_natRec_succRhs (ψ : Name → Nat)
         [Level.param uN] uN]) = _
     rw [show Level.substFn ψ natRecA.toConstantVal.levelParams
         [Level.param uN] uN = ψ uN from rfl]
-  rw [show natRecSuccRule.rhs = Expr.lam (Name.anonymous.str "motive")
-      (Expr.forallE (Name.anonymous.str "t") (.const natName [])
-        (.sort (.param uN)) { bi := .default, pw := .never })
-      (Expr.lam (Name.anonymous.str "zero")
+  rw [show natRecSuccRule.rhs = Expr.lam
+      (Expr.forallE (.const natName [])
+        (.sort (.param uN)) { pw := .never })
+      (Expr.lam
         (.app (.bvar 0) (.const natZeroName []))
-        (Expr.lam (Name.anonymous.str "succ")
-          (Expr.forallE (Name.anonymous.str "n") (.const natName [])
-            (Expr.forallE (Name.anonymous.str "n_ih")
+        (Expr.lam
+          (Expr.forallE (.const natName [])
+            (Expr.forallE
               (.app (.bvar 2) (.bvar 0))
               (.app (.bvar 3) (.app (.const natSuccName []) (.bvar 1)))
-              { bi := .default, pw := .ifAllZero [uN] })
-            { bi := .default, pw := .ifAllZero [uN] })
-          (Expr.lam (Name.anonymous.str "n") (.const natName [])
+              { pw := .ifAllZero [uN] })
+            { pw := .ifAllZero [uN] })
+          (Expr.lam (.const natName [])
             (.app (.app (.bvar 1) (.bvar 0))
               (.app (.app (.app (.app
                 (.const (natName.str "rec") [.param uN]) (.bvar 3))
                 (.bvar 2)) (.bvar 1)) (.bvar 0)))
-            { bi := .default, pw := .ifAllZero [uN] })
-          { bi := .default, pw := .ifAllZero [uN] })
-        { bi := .default, pw := .ifAllZero [uN] })
-      { bi := .default, pw := .ifAllZero [uN] } from rfl]
+            { pw := .ifAllZero [uN] })
+          { pw := .ifAllZero [uN] })
+        { pw := .ifAllZero [uN] })
+      { pw := .ifAllZero [uN] } from rfl]
   simp [denoteP_lam, denoteP_forallE, denoteP_sort, denoteP_app,
     denoteP_fvar, Expr.instantiate1, hNc, hZc, hSc, hRc, Level.eval,
     natSuccRaP, natMotiveTyP, natStepTyP]
@@ -1930,8 +1930,8 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
         : Env).find? natName = some natA := by
       rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hN2
     rw [show natSuccA.toConstantVal.type
-      = Expr.forallE (Name.anonymous.str "n") (.const natName [])
-        (.const natName []) { bi := .default, pw := .never } from rfl]
+      = Expr.forallE (.const natName [])
+        (.const natName []) { pw := .never } from rfl]
     simp [Expr.constsResolve, hf]
   obtain ⟨mp3⟩ := extendNatSuccP mp2 hN2 hZ2 hf3  hwf3
   have hN3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩
@@ -1962,27 +1962,27 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvS2PM V μ env)
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     · show Expr.constsResolve _ natRecA.toConstantVal.type = true
       rw [show natRecA.toConstantVal.type
-          = Expr.forallE (Name.anonymous.str "motive")
-              (Expr.forallE (Name.anonymous.str "t")
+          = Expr.forallE
+              (Expr.forallE
                 (.const natName []) (.sort (.param uN))
-                { bi := .default, pw := .never })
-              (Expr.forallE (Name.anonymous.str "zero")
+                { pw := .never })
+              (Expr.forallE
                 (.app (.bvar 0) (.const natZeroName []))
-                (Expr.forallE (Name.anonymous.str "succ")
-                  (Expr.forallE (Name.anonymous.str "n")
+                (Expr.forallE
+                  (Expr.forallE
                     (.const natName [])
-                    (Expr.forallE (Name.anonymous.str "n_ih")
+                    (Expr.forallE
                       (.app (.bvar 2) (.bvar 0))
                       (.app (.bvar 3)
                         (.app (.const natSuccName []) (.bvar 1)))
-                      { bi := .default, pw := .ifAllZero [uN] })
-                    { bi := .default, pw := .ifAllZero [uN] })
-                  (Expr.forallE (Name.anonymous.str "t")
+                      { pw := .ifAllZero [uN] })
+                    { pw := .ifAllZero [uN] })
+                  (Expr.forallE
                     (.const natName []) (.app (.bvar 3) (.bvar 0))
-                    { bi := .default, pw := .ifAllZero [uN] })
-                  { bi := .default, pw := .ifAllZero [uN] })
-                { bi := .default, pw := .ifAllZero [uN] })
-              { bi := .implicit, pw := .ifAllZero [uN] } from rfl]
+                    { pw := .ifAllZero [uN] })
+                  { pw := .ifAllZero [uN] })
+                { pw := .ifAllZero [uN] })
+              { pw := .ifAllZero [uN] } from rfl]
       simp only [Expr.constsResolve, hfN, hfZ, hfS, Option.isSome_some,
         Bool.and_self]
     · intro cv mI rP rules heq

@@ -144,7 +144,7 @@ theorem stripPisAV_denoteP_bits {acval : Name → (Name → Nat) → AVExpr} {en
     exact fun _ h => nomatch h
   | n + 1, d, e, fvs, o, ea, pps, b, hop, hr, hst => by
     match e, hop with
-    | .forallE nm ty bd mb, hop =>
+    | .forallE ty bd mb, hop =>
       obtain ⟨ta, ba, -, hba, rfl⟩ := denoteP_forallE_inv hr
       simp only [openPisAtFvars] at hop
       split at hop
@@ -165,12 +165,12 @@ theorem stripPisAV_denoteP_bits {acval : Name → (Name → Nat) → AVExpr} {en
           · exact stripPisAV_denoteP_bits n hop' hba hst' p hp
       · exact nomatch hop
     | .bvar _, hop => nomatch hop
-    | .fvar _ _ _, hop => nomatch hop
+    | .fvar _ _, hop => nomatch hop
     | .sort _, hop => nomatch hop
     | .const _ _, hop => nomatch hop
     | .app _ _, hop => nomatch hop
-    | .lam _ _ _ _, hop => nomatch hop
-    | .letE _ _ _ _, hop => nomatch hop
+    | .lam _ _ _, hop => nomatch hop
+    | .letE _ _ _, hop => nomatch hop
     | .proj _ _ _, hop => nomatch hop
     | .lit _, hop => nomatch hop
 
@@ -190,8 +190,8 @@ structure FixCtorDataI {env : Env} (m : EnvS2Core V env) (env₀ : Env) (T : Nam
   ksLen : ks.length = nF
   xLen : xFvs.length = nF
   pLen : fvsP.length = nP
-  xIdx : ∀ k x, xFvs[k]? = some x → ∃ nm ty, x = Expr.fvar (nP + k) nm ty
-  pIdx : ∀ k x, fvsP[k]? = some x → ∃ nm ty, x = Expr.fvar k nm ty
+  xIdx : ∀ k x, xFvs[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty
+  pIdx : ∀ k x, fvsP[k]? = some x → ∃ ty, x = Expr.fvar k ty
   idxEq : idxArgs = xrest.getAppArgs.drop nP
   domRead : ∀ ψ i x, xFvs[i]? = some x →
     denoteP m.acval env ψ (nP + i) x.fvarTypeD = some ((ds ψ).getD (nP + i) default).2.2
@@ -258,12 +258,12 @@ variable {V : Type w'} [SetTheory V] {μ : CheckMode} {env : Env}
 /-- The parameter variables read to the parameter spine at depth `D`. -/
 theorem denoteSpineP_params {acval : Name → (Name → Nat) → AVExpr} {φ : Name → Nat}
     (D : Nat) {fvsP : List Expr} {nP : Nat} (hlen : fvsP.length = nP)
-    (hidx : ∀ k x, fvsP[k]? = some x → ∃ nm ty, x = Expr.fvar k nm ty) :
+    (hidx : ∀ k x, fvsP[k]? = some x → ∃ ty, x = Expr.fvar k ty) :
     DenoteSpineP acval env φ D fvsP (paramBvarsAt nP D) := by
   have := denoteSpineP_fvars (acval := acval) (env := env) (φ := φ) D fvsP 0
     (fun k x hx => by
-      obtain ⟨nm, ty, h⟩ := hidx k x hx
-      exact ⟨nm, ty, by rw [h, Nat.zero_add]⟩)
+      obtain ⟨ty, h⟩ := hidx k x hx
+      exact ⟨ty, by rw [h, Nat.zero_add]⟩)
   rw [hlen] at this
   have he : ((List.range nP).map fun k => AVExpr.bvar (D - 1 - (0 + k))) = paramBvarsAt nP D := by
     unfold paramBvarsAt
@@ -289,7 +289,7 @@ environment holding the former and the opened-form guard. -/
 theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
-    {bs : List (Name × Expr × BinderMeta)} {ks : List RecFieldKind}
+    {bs : List (Expr × BinderMeta)} {ks : List RecFieldKind}
     (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok cvCa)
     (hfT : env.find? T = some (.indInfo cvTa caps))
@@ -317,10 +317,10 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))
   obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hopX.symm.trans hopX₂))
   obtain ⟨-, hrows⟩ := Lech.checkDirectFieldSortsI_inv hsorts
-  have hidxX' : ∀ k x, xFvs[k]? = some x → ∃ nm ty, x = Expr.fvar (nP + k) nm ty := hidxX
-  have hidxP' : ∀ k x, fvsP[k]? = some x → ∃ nm ty, x = Expr.fvar k nm ty := fun k x hx => by
-    obtain ⟨nm, ty, h⟩ := hidxP k x hx
-    exact ⟨nm, ty, by rw [h, Nat.zero_add]⟩
+  have hidxX' : ∀ k x, xFvs[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty := hidxX
+  have hidxP' : ∀ k x, fvsP[k]? = some x → ∃ ty, x = Expr.fvar k ty := fun k x hx => by
+    obtain ⟨ty, h⟩ := hidxP k x hx
+    exact ⟨ty, by rw [h, Nat.zero_add]⟩
   have hopAll : openPisAtFvars (nP + nF) cvCa.type 0 = some (fvsP ++ xFvs, xrest) :=
     openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopX)
   -- every field's opened domain reads to its entry

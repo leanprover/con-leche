@@ -148,15 +148,15 @@ theorem certs_teleLicP {m : EnvS2Core V env}
     intro vs Ta fa hc hwty hbty hLbty hCty hity hokT hargs hsp hokvs hokS hfa
     match ty, hc, hwty, hbty, hLbty, hCty, hity with
     | .bvar _, hc, _, _, _, _, _ => exact nomatch hc
-    | .fvar _ _ _, hc, _, _, _, _, _ => exact nomatch hc
+    | .fvar _ _, hc, _, _, _, _, _ => exact nomatch hc
     | .sort _, hc, _, _, _, _, _ => exact nomatch hc
     | .const _ _, hc, _, _, _, _, _ => exact nomatch hc
     | .app _ _, hc, _, _, _, _, _ => exact nomatch hc
-    | .lam _ _ _ _, hc, _, _, _, _, _ => exact nomatch hc
-    | .letE _ _ _ _, hc, _, _, _, _, _ => exact nomatch hc
+    | .lam _ _ _, hc, _, _, _, _, _ => exact nomatch hc
+    | .letE _ _ _, hc, _, _, _, _, _ => exact nomatch hc
     | .lit _, hc, _, _, _, _, _ => exact nomatch hc
     | .proj _ _ _, hc, _, _, _, _, _ => exact nomatch hc
-    | .forallE n dom body mb, hc, hwty, hbty, hLbty, hCty, hity => ?_
+    | .forallE dom body mb, hc, hwty, hbty, hLbty, hCty, hity => ?_
     obtain ⟨haw, hab, haLb, haC⟩ := hargs a List.mem_cons_self
     cases hsp with | @cons _ aa _ vs' haa hsp' => ?_
     obtain ⟨hdomw, hbodyw⟩ : Expr.WScoped d dom ∧ Expr.WScoped d body := by
@@ -228,7 +228,7 @@ theorem certs_teleLicP {m : EnvS2Core V env}
     have hbody' : denoteP m.acval env φ d (body.instantiate1 a)
         = some (bodya.inst aa) := by
       rw [denoteP_beta m.acval_closed (acval_inst_self m)
-        (n := n) (ty := dom) hbodyw.fvarsBelow haw hab haa 0, hbodya]
+        (ty := dom) hbodyw.fvarsBelow haw hab haa 0, hbodya]
       rfl
     have hwbody : Expr.WScoped d (body.instantiate1 a) :=
       Expr.WScoped.instantiate1_gen haw 0 hbodyw

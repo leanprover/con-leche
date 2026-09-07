@@ -58,14 +58,14 @@ which is precisely the freedom the bit lemma below removes
 (`propext_shapeS`'s pattern at a longer spine). -/
 theorem ofReduce_shapeS {n : Name} {type' : Expr}
     (hn : n = Lech.ofReduceNatName ∨ n = Lech.ofReduceBoolName)
-    (h : type'.erasePw.eraseNames
-      = (Lech.ofReducePinA n).type.erasePw.eraseNames) :
-    ∃ n₁ n₂ n₃ m₁ m₂ m₃,
-      type' = .forallE n₁
+    (h : type'.erasePw
+      = (Lech.ofReducePinA n).type.erasePw) :
+    ∃ m₁ m₂ m₃,
+      type' = .forallE
         (.const (Lech.reduceElemName (Lech.ofReduceOp n)) [])
-        (.forallE n₂
+        (.forallE
           (.const (Lech.reduceElemName (Lech.ofReduceOp n)) [])
-          (.forallE n₃
+          (.forallE
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.const (Lech.reduceElemName
                   (Lech.ofReduceOp n)) []))
@@ -76,12 +76,12 @@ theorem ofReduce_shapeS {n : Name} {type' : Expr}
                   (Lech.ofReduceOp n)) []))
               (.bvar 2)) (.bvar 1)) m₃) m₂) m₁ := by
   rw [Lech.TTVerify.ofReducePin_type hn] at h
-  simp only [Expr.mkAppN, Expr.erasePw, Expr.eraseNames] at h
-  obtain ⟨n₁, ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
+  simp only [Expr.mkAppN, Expr.erasePw] at h
+  obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
   obtain rfl := erasePwNames_const_invS hty₁
-  obtain ⟨n₂, ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
+  obtain ⟨ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   obtain rfl := erasePwNames_const_invS hty₂
-  obtain ⟨n₃, ty₃, b₃, m₃, rfl, hty₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
+  obtain ⟨ty₃, b₃, m₃, rfl, hty₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
   -- the hypothesis spine
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hty₃
   obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
@@ -100,7 +100,7 @@ theorem ofReduce_shapeS {n : Name} {type' : Expr}
   obtain rfl := erasePwNames_const_invS hq''
   obtain rfl := erasePwNames_bvar_invS hq'
   obtain rfl := erasePwNames_bvar_invS hq
-  exact ⟨n₁, n₂, n₃, m₁, m₂, m₃, rfl⟩
+  exact ⟨m₁, m₂, m₃, rfl⟩
 
 /-! ## The bits -/
 
@@ -114,12 +114,12 @@ element type is the spine's type argument, and the peel never reads
 it, so nothing about the stored `Nat`/`Bool` enters. -/
 theorem ofReduce_bitsP (hμ : μ.verifiedChecks = true)
     (hEq : env.find? eqName = some eqA)
-    {E c : Name} {n₁ n₂ n₃ : Name} {m₁ m₂ m₃ : BinderMeta}
+    {E c : Name} {m₁ m₂ m₃ : BinderMeta}
     {d : Nat} {stype : Expr}
     (hrun : inferTypeCore μ env F d
-      (.forallE n₁ (.const E [])
-        (.forallE n₂ (.const E [])
-          (.forallE n₃
+      (.forallE (.const E [])
+        (.forallE (.const E [])
+          (.forallE
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.const E [])) (.app (.const c []) (.bvar 1)))
               (.bvar 0))
@@ -167,8 +167,8 @@ theorem ofReduce_gatesS {cvA : ConstantVal}
         = some (.axiomInfo cvR) ∧
       ConstantVal.matchesPin cvR
         (Lech.reduceOpCvA (Lech.ofReduceOp cvA.name)) = true) ∧
-    cvA.type.erasePw.eraseNames
-      = (Lech.ofReducePinA cvA.name).type.erasePw.eraseNames := by
+    cvA.type.erasePw
+      = (Lech.ofReducePinA cvA.name).type.erasePw := by
   simp only [Lech.ofReduceAxOk, Bool.and_eq_true,
     decide_eq_true_eq] at hok
   obtain ⟨⟨⟨hEq, helem⟩, hstored⟩, hpin⟩ := hok
@@ -210,7 +210,7 @@ theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     unfold Lech.reduceOpCvA; split <;> rfl] at hlpR
   have hmemOp : Lech.ofReduceOp cvA.name ∈ Lech.reduceOpNames := by
     unfold Lech.ofReduceOp; split <;> decide
-  obtain ⟨n₁, n₂, n₃, m₁, m₂, m₃, hsh⟩ := ofReduce_shapeS hor hApinT
+  obtain ⟨m₁, m₂, m₃, hsh⟩ := ofReduce_shapeS hor hApinT
   rw [hsh] at hrun hta
   obtain ⟨hb₁, hb₂, hb₃⟩ := ofReduce_bitsP hμ hEq hrun ψ
   -- the `Eq` former's one level parameter is pinned to `1`
@@ -234,12 +234,12 @@ theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     fun e => denoteP_const hEq rfl
   -- the stored type's reading, at the bits the run fixes
   have hden : denoteP mp.base2.acval env ψ 0
-      (.forallE n₁
+      (.forallE
         (.const (Lech.reduceElemName (Lech.ofReduceOp cvA.name)) [])
-        (.forallE n₂
+        (.forallE
           (.const (Lech.reduceElemName
             (Lech.ofReduceOp cvA.name)) [])
-          (.forallE n₃
+          (.forallE
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.const (Lech.reduceElemName
                   (Lech.ofReduceOp cvA.name)) []))

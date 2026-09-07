@@ -120,19 +120,19 @@ structure OpenedP {env : Env} (m : EnvS2Core V env) (φ : Name → Nat)
   /-- the variables are indexed by position, annotated at their own
   depth by bounded, leaf-bounded terms over the earlier variables -/
   var : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-    (∃ nm ty, x = Expr.fvar i nm ty) ∧
+    (∃ ty, x = Expr.fvar i ty) ∧
     Expr.WScoped i (Expr.fvarTypeD x) ∧
     (Expr.fvarTypeD x).looseBVarsBounded 0 = true ∧
     Expr.LeavesBounded (Expr.fvarTypeD x) ∧
-    ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs
+    ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs
   /-- the opened body is scoped at `k` over the variables -/
   bodyScoped : Expr.WScoped k o ∧ o.looseBVarsBounded 0 = true ∧
     Expr.LeavesBounded o ∧
-    ∀ l ∈ o.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs
+    ∀ l ∈ o.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs
   /-- any term over the variables correlates with the context at its
   depth -/
   ctx : ∀ {i : Nat}, i ≤ k → ∀ {x : Expr}, Expr.WScoped i x →
-    (∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs) →
+    (∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) →
     CtxOkP m φ i (Γ.drop (k - i)) x
 
 /-- The opened type record, from the opening, the closedness and the
@@ -156,7 +156,7 @@ theorem openedP_of {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
   have hnil : e.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hcl
   -- a leaf reachable from the opening is an opener
   have hopener : ∀ l, (l ∈ o.fvarLeaves ∨ ∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+      Expr.fvar l.1 l.2 ∈ fvs := by
     intro l hl
     rcases hleaves l hl with h | h
     · rw [hnil] at h; exact absurd h List.not_mem_nil
@@ -164,10 +164,10 @@ theorem openedP_of {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
   -- an opener's annotation is bounded and leaf-bounded
   have hLB : ∀ y ∈ fvs, Expr.LeavesBounded (Expr.fvarTypeD y) := by
     intro y hy l hl
-    have hmem : Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+    have hmem : Expr.fvar l.1 l.2 ∈ fvs := by
       refine hopener l (Or.inr ⟨y, hy, ?_⟩)
       obtain ⟨p, hp⟩ := List.getElem?_of_mem hy
-      obtain ⟨nm, ty, rfl⟩ := hidx p y hp
+      obtain ⟨ty, rfl⟩ := hidx p y hp
       simp only [Expr.fvarTypeD] at hl
       simp only [Expr.fvarLeaves]
       exact List.mem_cons_of_mem _ hl
@@ -182,11 +182,11 @@ theorem openedP_of {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
     have hik : i < k := by
       have := (List.getElem?_eq_some_iff.mp hx).1
       omega
-    obtain ⟨nm, ty, rfl⟩ := hidx i x hx
+    obtain ⟨ty, rfl⟩ := hidx i x hx
     rw [Nat.zero_add] at *
     have hw := hwsF _ (List.mem_of_getElem? hx)
     simp only [Expr.WScoped] at hw
-    refine ⟨⟨nm, ty, rfl⟩, hw.2, ?_, hLB _ (List.mem_of_getElem? hx), ?_⟩
+    refine ⟨⟨ty, rfl⟩, hw.2, ?_, hLB _ (List.mem_of_getElem? hx), ?_⟩
     · simpa [Expr.fvarTypeD] using hbF _ (List.mem_of_getElem? hx)
     · intro l hl
       refine hopener l (Or.inr ⟨_, List.mem_of_getElem? hx, ?_⟩)

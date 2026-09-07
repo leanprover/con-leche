@@ -457,12 +457,12 @@ theorem ctxOkP_of_openers {env : Env} {m : EnvS2Core V env}
     {k : Nat} {fvs : List Expr} {Aa : Nat → AVExpr} {Δa : List AVExpr}
     (hΔlen : Δa.length = k)
     (hshape : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ ty, x = Expr.fvar i ty)
     (hws : ∀ x ∈ fvs, Expr.WScoped k x)
     (hdoms : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       denoteP m.acval env φ i (Expr.fvarTypeD x) = some (Aa i))
     {e : Expr} {n : Nat}
-    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs)
     (hltE : ∀ l ∈ e.fvarLeaves, l.1 < n)
     (hent : ∀ i, i < n → Δa[k - 1 - i]? = some (Aa i))
     (hokA : ∀ i, i < n → ∀ ρ : Nat → V, Sat2 V Δa ρ →
@@ -472,19 +472,19 @@ theorem ctxOkP_of_openers {env : Env} {m : EnvS2Core V env}
   intro l hl
   have hmem := hleaf l hl
   obtain ⟨pos, hpos⟩ := List.getElem?_of_mem hmem
-  obtain ⟨nm, ty, hx⟩ := hshape pos _ hpos
-  obtain ⟨h1, h2, h3⟩ : l.1 = pos ∧ l.2.1 = nm ∧ l.2.2 = ty := by
-    injection hx with a b c
-    exact ⟨a, b, c⟩
-  subst h1 h2 h3
+  obtain ⟨ty, hx⟩ := hshape pos _ hpos
+  obtain ⟨h1, h2⟩ : l.1 = pos ∧ l.2 = ty := by
+    injection hx with a b
+    exact ⟨a, b⟩
+  subst h1 h2
   have hlt : l.1 < n := hltE l hl
   have hw := hws _ (List.mem_of_getElem? hpos)
-  have hwty : l.1 < k ∧ Expr.WScoped l.1 l.2.2 := by
+  have hwty : l.1 < k ∧ Expr.WScoped l.1 l.2 := by
     simpa [Expr.WScoped] using hw
   refine ⟨hwty.1, hwty.2.fvarsBelow, (Aa l.1).liftN (k - l.1) 0, Aa l.1,
     ?_, hent l.1 hlt, ?_, ?_⟩
   · have hd1 := hdoms l.1 _ hpos
-    rw [show Expr.fvarTypeD (Expr.fvar l.1 l.2.1 l.2.2) = l.2.2 from rfl]
+    rw [show Expr.fvarTypeD (Expr.fvar l.1 l.2) = l.2 from rfl]
       at hd1
     rw [denoteP_lift hacl hwty.2 k (by omega), hd1]
     rfl

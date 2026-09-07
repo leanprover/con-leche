@@ -89,27 +89,20 @@ instance : LawfulBEq Level where
   eq_of_beq h := of_decide_eq_true h
   rfl := by simp [BEq.beq, Level.beq]
 
-/-- Binder annotations. Irrelevant to checking; kept for round-tripping and
-error messages. -/
-inductive BinderInfo where
-  | default
-  | implicit
-  | strictImplicit
-  | instImplicit
-  deriving DecidableEq, Repr, Inhabited, Hashable
-
-/-- Metadata carried by a binder (`forallE`, `lam`): the display
-`BinderInfo` and the codomain prop-ness annotation `pw` (task #161 —
-the validated-annotation design; one datum per binder, written by the
-untrusted annotate pass or the input stream and *validated* by the
-checker; the reduction rules never read it).  Unannotated input
-defaults to `.never` at the parser — a definite, validatable claim. -/
+/-- Metadata carried by a binder (`forallE`, `lam`): the codomain
+prop-ness annotation `pw` (task #161 — the validated-annotation design;
+one datum per binder, written by the untrusted annotate pass or the
+input stream and *validated* by the checker; the reduction rules never
+read it).  Unannotated input defaults to `.never` at the parser — a
+definite, validatable claim.  The display `BinderInfo` that used to
+sit beside it is gone (task #205): the official kernel's equality and
+hash ignore it, so it was never data the checker held — the frontend
+validates a stream's spelling and drops it (`parseBinderInfo`). -/
 structure BinderMeta where
-  bi : BinderInfo
   pw : PropWhen
   deriving DecidableEq, Repr, Hashable
 
-instance : Inhabited BinderMeta := ⟨⟨.default, .never⟩⟩
+instance : Inhabited BinderMeta := ⟨⟨.never⟩⟩
 
 /-- Literals. -/
 inductive Literal where
@@ -299,9 +292,26 @@ theorem hash32_lt (w : UInt64) : (hash32 w).toNat < 4294967296 := by
 
 /-- Kernel expressions.
 
-`fvar idx name type`: an opened variable, identified by its de Bruijn level
-`idx` *and* its type; the binder `name` is display-only.  Closed input terms
-contain no `fvar`s.
+`fvar idx type`: an opened variable, identified by its de Bruijn level
+`idx` *and* its type.  Closed input terms contain no `fvar`s.
+
+## No display data (task #205, user ruling)
+
+The official kernel's `is_equal` and `hash` ignore binder names and
+`BinderInfo`s (`expr_eq_fn.cpp:52, :100-103`).  Task #203 first made
+every term the checker holds carry them at one normal form; the user's
+ruling on that — *"if we don't keep the names we should drop the
+fields!"* — is why `lam`/`forallE`/`letE` carry no binder name,
+`fvar` no display name and `BinderMeta` no `BinderInfo`: there is
+nothing α-irrelevant in a node, so structural `=`/`==` and the packed
+`hash` ARE α-equivalence, with nothing to normalise and nothing a
+fabricated term could get wrong.  The frontend still *validates* a
+stream's `name` and `binderInfo` fields (a malformed record is
+malformed) and drops them (`Lech/Frontend/ExportC.lean`); the pin
+builder's `pi "a"`/`piI "α"` keep the `Init.Prelude` spelling as a
+reader-facing argument (`Lech/Kernel/Basis/Builder.lean`).  Error
+messages never printed a binder name; positions (de Bruijn level,
+constant name) are what they carry.
 
 ## The computed field (task #172 B3a; packed at task #167)
 
@@ -340,13 +350,13 @@ enumerated, with the user ruling that adopted it, in the trust census
 in `Lech/Cached/ExprC.lean`'s module docstring. -/
 inductive Expr where
   | bvar (i : Nat)
-  | fvar (idx : Nat) (name : Name) (type : Expr)
+  | fvar (idx : Nat) (type : Expr)
   | sort (u : Level)
   | const (n : Name) (us : List Level)
   | app (f a : Expr)
-  | lam (n : Name) (type body : Expr) (m : BinderMeta)
-  | forallE (n : Name) (type body : Expr) (m : BinderMeta)
-  | letE (n : Name) (type value body : Expr)
+  | lam (type body : Expr) (m : BinderMeta)
+  | forallE (type body : Expr) (m : BinderMeta)
+  | letE (type value body : Expr)
   | lit (l : Literal)
   | proj (structName : Name) (idx : Nat) (e : Expr)
 with
@@ -355,9 +365,9 @@ with
   @[computed_field] data : Expr → UInt64
     | .bvar i =>
       packData (hash32 (mixHash 3 (Hashable.hash i))) (satSucc i) 0 false
-    | .fvar idx n ty =>
+    | .fvar idx ty =>
       packData (hash32 (mixHash 5 (mixHash (Hashable.hash idx)
-          (mixHash (Hashable.hash n) (hashOfData ty.data)))))
+          (hashOfData ty.data))))
         0 (satSucc idx) (lpOfData ty.data)
     | .sort u =>
       packData (hash32 (mixHash 7 (levelHash u))) 0 0 (levelHasParam u)
@@ -370,24 +380,24 @@ with
         (max (bvarOfData f.data) (bvarOfData a.data))
         (max (fvarOfData f.data) (fvarOfData a.data))
         (lpOfData f.data || lpOfData a.data)
-    | .lam n ty b m =>
-      packData (hash32 (mixHash 19 (mixHash (Hashable.hash n)
+    | .lam ty b m =>
+      packData (hash32 (mixHash 19
           (mixHash (hashOfData ty.data)
-            (mixHash (hashOfData b.data) (Hashable.hash m))))))
+            (mixHash (hashOfData b.data) (Hashable.hash m.pw)))))
         (max (bvarOfData ty.data) (satPred (bvarOfData b.data)))
         (max (fvarOfData ty.data) (fvarOfData b.data))
         (lpOfData ty.data || lpOfData b.data || m.pw.hasParams)
-    | .forallE n ty b m =>
-      packData (hash32 (mixHash 23 (mixHash (Hashable.hash n)
+    | .forallE ty b m =>
+      packData (hash32 (mixHash 23
           (mixHash (hashOfData ty.data)
-            (mixHash (hashOfData b.data) (Hashable.hash m))))))
+            (mixHash (hashOfData b.data) (Hashable.hash m.pw)))))
         (max (bvarOfData ty.data) (satPred (bvarOfData b.data)))
         (max (fvarOfData ty.data) (fvarOfData b.data))
         (lpOfData ty.data || lpOfData b.data || m.pw.hasParams)
-    | .letE n ty v b =>
-      packData (hash32 (mixHash 29 (mixHash (Hashable.hash n)
+    | .letE ty v b =>
+      packData (hash32 (mixHash 29
           (mixHash (hashOfData ty.data)
-            (mixHash (hashOfData v.data) (hashOfData b.data))))))
+            (mixHash (hashOfData v.data) (hashOfData b.data)))))
         (max (max (bvarOfData ty.data) (bvarOfData v.data))
           (satPred (bvarOfData b.data)))
         (max (max (fvarOfData ty.data) (fvarOfData v.data))
@@ -411,9 +421,10 @@ walk. -/
 
 namespace Expr
 
-/-- The node's 32-bit hash (`O(1)`; display-only payload is included,
-which a hash may do — `DecidableEq` remains full structural
-equality). -/
+/-- The node's 32-bit hash (`O(1)`).  The recurrence reads exactly
+what `is_equal` in the official kernel reads (`expr_eq_fn.cpp`) plus
+the validated `pw` datum; there is no display data in a node (task
+#205), so hashing and `DecidableEq` are α-equivalence outright. -/
 @[inline] def hash (e : Expr) : UInt64 := hashOfData e.data
 
 /-- Has-level-param: is level instantiation ever non-trivial here?
@@ -471,8 +482,8 @@ private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
   show (bvarOfData (packData _ (satSucc i) 0 false)).toNat = _
   rw [bvarOfData_pack _ _ _ _ (satSucc_lt i) (by decide), toNat_satSucc]
 
-@[simp] theorem bvarBRaw_fvar (idx : Nat) (n : Name) (ty : Expr) :
-    (Expr.fvar idx n ty).bvarBRaw = 0 := by
+@[simp] theorem bvarBRaw_fvar (idx : Nat) (ty : Expr) :
+    (Expr.fvar idx ty).bvarBRaw = 0 := by
   show (bvarOfData (packData _ 0 (satSucc idx) _)).toNat = _
   rw [bvarOfData_pack _ _ _ _ (by decide) (satSucc_lt idx)]; rfl
 
@@ -497,8 +508,8 @@ private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
     (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _)), toNat_max]
   rfl
 
-@[simp] theorem bvarBRaw_lam (n : Name) (ty b : Expr) (m : BinderMeta) :
-    (Expr.lam n ty b m).bvarBRaw =
+@[simp] theorem bvarBRaw_lam (ty b : Expr) (m : BinderMeta) :
+    (Expr.lam ty b m).bvarBRaw =
       max ty.bvarBRaw
         (if b.bvarBRaw = satRange then satRange else b.bvarBRaw - 1) := by
   show (bvarOfData (packData _ (max _ (satPred _)) (max _ _) _)).toNat = _
@@ -508,8 +519,8 @@ private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
     toNat_satPred (bvarOfData_lt _)]
   rfl
 
-@[simp] theorem bvarBRaw_forallE (n : Name) (ty b : Expr) (m : BinderMeta) :
-    (Expr.forallE n ty b m).bvarBRaw =
+@[simp] theorem bvarBRaw_forallE (ty b : Expr) (m : BinderMeta) :
+    (Expr.forallE ty b m).bvarBRaw =
       max ty.bvarBRaw
         (if b.bvarBRaw = satRange then satRange else b.bvarBRaw - 1) := by
   show (bvarOfData (packData _ (max _ (satPred _)) (max _ _) _)).toNat = _
@@ -519,8 +530,8 @@ private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
     toNat_satPred (bvarOfData_lt _)]
   rfl
 
-@[simp] theorem bvarBRaw_letE (n : Name) (ty v b : Expr) :
-    (Expr.letE n ty v b).bvarBRaw =
+@[simp] theorem bvarBRaw_letE (ty v b : Expr) :
+    (Expr.letE ty v b).bvarBRaw =
       max (max ty.bvarBRaw v.bvarBRaw)
         (if b.bvarBRaw = satRange then satRange else b.bvarBRaw - 1) := by
   show (bvarOfData (packData _ (max (max _ _) (satPred _)) (max (max _ _) _)
@@ -543,8 +554,8 @@ private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
   show (fvarOfData (packData _ (satSucc i) 0 false)).toNat = _
   rw [fvarOfData_pack _ _ _ _ (satSucc_lt i) (by decide)]; rfl
 
-@[simp] theorem fvarBRaw_fvar (idx : Nat) (n : Name) (ty : Expr) :
-    (Expr.fvar idx n ty).fvarBRaw = min (idx + 1) satRange := by
+@[simp] theorem fvarBRaw_fvar (idx : Nat) (ty : Expr) :
+    (Expr.fvar idx ty).fvarBRaw = min (idx + 1) satRange := by
   show (fvarOfData (packData _ 0 (satSucc idx) _)).toNat = _
   rw [fvarOfData_pack _ _ _ _ (by decide) (satSucc_lt idx), toNat_satSucc]
 
@@ -569,24 +580,24 @@ private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
     (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _)), toNat_max]
   rfl
 
-@[simp] theorem fvarBRaw_lam (n : Name) (ty b : Expr) (m : BinderMeta) :
-    (Expr.lam n ty b m).fvarBRaw = max ty.fvarBRaw b.fvarBRaw := by
+@[simp] theorem fvarBRaw_lam (ty b : Expr) (m : BinderMeta) :
+    (Expr.lam ty b m).fvarBRaw = max ty.fvarBRaw b.fvarBRaw := by
   show (fvarOfData (packData _ (max _ (satPred _)) (max _ _) _)).toNat = _
   rw [fvarOfData_pack _ _ _ _
     (max_lt_32768 (bvarOfData_lt _) (satPred_lt (bvarOfData_lt _)))
     (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _)), toNat_max]
   rfl
 
-@[simp] theorem fvarBRaw_forallE (n : Name) (ty b : Expr) (m : BinderMeta) :
-    (Expr.forallE n ty b m).fvarBRaw = max ty.fvarBRaw b.fvarBRaw := by
+@[simp] theorem fvarBRaw_forallE (ty b : Expr) (m : BinderMeta) :
+    (Expr.forallE ty b m).fvarBRaw = max ty.fvarBRaw b.fvarBRaw := by
   show (fvarOfData (packData _ (max _ (satPred _)) (max _ _) _)).toNat = _
   rw [fvarOfData_pack _ _ _ _
     (max_lt_32768 (bvarOfData_lt _) (satPred_lt (bvarOfData_lt _)))
     (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _)), toNat_max]
   rfl
 
-@[simp] theorem fvarBRaw_letE (n : Name) (ty v b : Expr) :
-    (Expr.letE n ty v b).fvarBRaw =
+@[simp] theorem fvarBRaw_letE (ty v b : Expr) :
+    (Expr.letE ty v b).fvarBRaw =
       max (max ty.fvarBRaw v.fvarBRaw) b.fvarBRaw := by
   show (fvarOfData (packData _ (max (max _ _) (satPred _)) (max (max _ _) _)
     _)).toNat = _
@@ -609,8 +620,8 @@ private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
   show lpOfData (packData _ (satSucc i) 0 false) = _
   rw [lpOfData_pack _ _ _ _ (satSucc_lt i) (by decide)]
 
-@[simp] theorem hasLP_fvar (idx : Nat) (n : Name) (ty : Expr) :
-    (Expr.fvar idx n ty).hasLP = ty.hasLP := by
+@[simp] theorem hasLP_fvar (idx : Nat) (ty : Expr) :
+    (Expr.fvar idx ty).hasLP = ty.hasLP := by
   show lpOfData (packData _ 0 (satSucc idx) _) = _
   rw [lpOfData_pack _ _ _ _ (by decide) (satSucc_lt idx)]; rfl
 
@@ -636,16 +647,16 @@ private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
     (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _))]
   rfl
 
-@[simp] theorem hasLP_lam (n : Name) (ty b : Expr) (m : BinderMeta) :
-    (Expr.lam n ty b m).hasLP = (ty.hasLP || b.hasLP || m.pw.hasParams) := by
+@[simp] theorem hasLP_lam (ty b : Expr) (m : BinderMeta) :
+    (Expr.lam ty b m).hasLP = (ty.hasLP || b.hasLP || m.pw.hasParams) := by
   show lpOfData (packData _ (max _ (satPred _)) (max _ _) _) = _
   rw [lpOfData_pack _ _ _ _
     (max_lt_32768 (bvarOfData_lt _) (satPred_lt (bvarOfData_lt _)))
     (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _))]
   rfl
 
-@[simp] theorem hasLP_forallE (n : Name) (ty b : Expr) (m : BinderMeta) :
-    (Expr.forallE n ty b m).hasLP =
+@[simp] theorem hasLP_forallE (ty b : Expr) (m : BinderMeta) :
+    (Expr.forallE ty b m).hasLP =
       (ty.hasLP || b.hasLP || m.pw.hasParams) := by
   show lpOfData (packData _ (max _ (satPred _)) (max _ _) _) = _
   rw [lpOfData_pack _ _ _ _
@@ -653,8 +664,8 @@ private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
     (max_lt_32768 (fvarOfData_lt _) (fvarOfData_lt _))]
   rfl
 
-@[simp] theorem hasLP_letE (n : Name) (ty v b : Expr) :
-    (Expr.letE n ty v b).hasLP = (ty.hasLP || v.hasLP || b.hasLP) := by
+@[simp] theorem hasLP_letE (ty v b : Expr) :
+    (Expr.letE ty v b).hasLP = (ty.hasLP || v.hasLP || b.hasLP) := by
   show lpOfData (packData _ (max (max _ _) (satPred _)) (max (max _ _) _)
     _) = _
   rw [lpOfData_pack _ _ _ _
@@ -757,20 +768,18 @@ unsafe def beqGo (memo : Std.HashMap Nat Nat) (a b : Expr) :
       let (r, memo) : Bool × Std.HashMap Nat Nat :=
         match a, b with
         | .bvar i .., .bvar j .. => (i == j, memo)
-        | .fvar i n t .., .fvar j m u .. =>
-          if i == j && n == m then beqGo memo t u else (false, memo)
+        | .fvar i t .., .fvar j u .. =>
+          if i == j then beqGo memo t u else (false, memo)
         | .sort u .., .sort v .. => (u == v, memo)
         | .const n us .., .const m vs .. => (n == m && us == vs, memo)
         | .app f x .., .app g y .. => and2 memo f g x y
-        | .lam n t b m .., .lam n' t' b' m' .. =>
-          if n == n' && m == m' then and2 memo t t' b b' else (false, memo)
-        | .forallE n t b m .., .forallE n' t' b' m' .. =>
-          if n == n' && m == m' then and2 memo t t' b b' else (false, memo)
-        | .letE n t v b .., .letE n' t' v' b' .. =>
-          if n == n' then
-            let (r₁, memo) := beqGo memo t t'
-            if r₁ then and2 memo v v' b b' else (false, memo)
-          else (false, memo)
+        | .lam t b m .., .lam t' b' m' .. =>
+          if m == m' then and2 memo t t' b b' else (false, memo)
+        | .forallE t b m .., .forallE t' b' m' .. =>
+          if m == m' then and2 memo t t' b b' else (false, memo)
+        | .letE t v b .., .letE t' v' b' .. =>
+          let (r₁, memo) := beqGo memo t t'
+          if r₁ then and2 memo v v' b b' else (false, memo)
         | .lit l .., .lit l' .. => (l == l', memo)
         | .proj s i e .., .proj s' i' e' .. =>
           if s == s' && i == i' then beqGo memo e e' else (false, memo)
@@ -801,21 +810,19 @@ unsafe def beqB (fuel : Nat) (a b : Expr) : Option Bool × Nat :=
         | r => r
       match a, b with
       | .bvar i .., .bvar j .. => (some (i == j), fuel)
-      | .fvar i n t .., .fvar j m u .. =>
-        if i == j && n == m then beqB fuel t u else (some false, fuel)
+      | .fvar i t .., .fvar j u .. =>
+        if i == j then beqB fuel t u else (some false, fuel)
       | .sort u .., .sort v .. => (some (u == v), fuel)
       | .const n us .., .const m vs .. => (some (n == m && us == vs), fuel)
       | .app f x .., .app g y .. => and2 fuel f g x y
-      | .lam n t b m .., .lam n' t' b' m' .. =>
-        if n == n' && m == m' then and2 fuel t t' b b' else (some false, fuel)
-      | .forallE n t b m .., .forallE n' t' b' m' .. =>
-        if n == n' && m == m' then and2 fuel t t' b b' else (some false, fuel)
-      | .letE n t v b .., .letE n' t' v' b' .. =>
-        if n == n' then
-          match beqB fuel t t' with
-          | (some true, fuel) => and2 fuel v v' b b'
-          | r => r
-        else (some false, fuel)
+      | .lam t b m .., .lam t' b' m' .. =>
+        if m == m' then and2 fuel t t' b b' else (some false, fuel)
+      | .forallE t b m .., .forallE t' b' m' .. =>
+        if m == m' then and2 fuel t t' b b' else (some false, fuel)
+      | .letE t v b .., .letE t' v' b' .. =>
+        match beqB fuel t t' with
+        | (some true, fuel) => and2 fuel v v' b b'
+        | r => r
       | .lit l .., .lit l' .. => (some (l == l'), fuel)
       | .proj s i e .., .proj s' i' e' .. =>
         if s == s' && i == i' then beqB fuel e e' else (some false, fuel)

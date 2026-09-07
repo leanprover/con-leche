@@ -34,10 +34,10 @@ variable {V : Type w} [SetTheory V] {env : Env}
 /-! ## Instantiation at variables and the argument spine -/
 
 /-- Substituting a variable maps an application's arguments. -/
-theorem Expr.getAppArgs_instantiate1_fvar {i : Nat} {nm : Name} {t : Expr} :
+theorem Expr.getAppArgs_instantiate1_fvar {i : Nat} {t : Expr} :
     ∀ (e : Expr) (k : Nat),
-      (e.instantiate1 (.fvar i nm t) k).getAppArgs
-        = e.getAppArgs.map (fun a => a.instantiate1 (.fvar i nm t) k) := by
+      (e.instantiate1 (.fvar i t) k).getAppArgs
+        = e.getAppArgs.map (fun a => a.instantiate1 (.fvar i t) k) := by
   intro e
   induction e with
   | app g a ihg iha =>
@@ -55,12 +55,12 @@ theorem Expr.getAppArgs_instantiate1_fvar {i : Nat} {nm : Name} {t : Expr} :
 /-- Instantiation at variables maps an application's arguments. -/
 theorem Expr.getAppArgs_instSeq_fvars :
     ∀ (as : List Expr) (t : Nat) (e : Expr),
-      (∀ a ∈ as, ∃ (i : Nat) (nm : Name) (ty : Expr), a = Expr.fvar i nm ty) →
+      (∀ a ∈ as, ∃ (i : Nat) (ty : Expr), a = Expr.fvar i ty) →
       (Expr.instSeq as t e).getAppArgs = e.getAppArgs.map (Expr.instSeq as t)
   | [], _, e, _ => by simp [Expr.instSeq]
   | a :: as, t, e, hfv => by
-    obtain ⟨i, nm, ty, rfl⟩ := hfv a List.mem_cons_self
-    show (Expr.instSeq as (t - 1) (e.instantiate1 (.fvar i nm ty) t)).getAppArgs = _
+    obtain ⟨i, ty, rfl⟩ := hfv a List.mem_cons_self
+    show (Expr.instSeq as (t - 1) (e.instantiate1 (.fvar i ty) t)).getAppArgs = _
     rw [Expr.getAppArgs_instSeq_fvars as (t - 1) _ (fun a ha => hfv a (List.mem_cons_of_mem _ ha)),
       Expr.getAppArgs_instantiate1_fvar, List.map_map]
     rfl
@@ -202,10 +202,10 @@ theorem fixCtorReadsR_of {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps : 
       rw [List.getElem?_append_right (by rw [hD.pLen]; omega), hD.pLen, Nat.add_sub_cancel_left]
       exact hx
     have hfvL : ∀ (i' : Nat), ∀ a ∈ (fvsPF i ++ xFvsF i).take (nP + i'),
-        ∃ (k : Nat) (nm : Name) (ty : Expr), a = Expr.fvar k nm ty := by
+        ∃ (k : Nat) (nm : Name) (ty : Expr), a = Expr.fvar k ty := by
       intro i' a ha
       obtain ⟨q, hq⟩ := List.getElem?_of_mem (List.mem_of_mem_take ha)
-      obtain ⟨nm, ty, rfl⟩ := hidxAll q a hq
+      obtain ⟨ty, rfl⟩ := hidxAll q a hq
       exact ⟨_, nm, ty, rfl⟩
     have hbGet : ∀ (i' : Nat), i' < cA.2 → ∃ b, cbs[nP + i']? = some b ∧
         cbs.getD (nP + i') default = b := by
@@ -218,9 +218,9 @@ theorem fixCtorReadsR_of {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps : 
     -- variable's type's
     have hpb : ∀ (i' : Nat), i' < cA.2 → ∀ x, (xFvsF i)[i']? = some x →
         ∀ b, cbs[nP + i']? = some b →
-          (x.fvarTypeD.piBinders).1.length = (b.2.1.piBinders).1.length ∧
+          (x.fvarTypeD.piBinders).1.length = (b.1.piBinders).1.length ∧
           (x.fvarTypeD.piBinders).2.getAppArgs.length
-            = (b.2.1.piBinders).2.getAppArgs.length := by
+            = (b.1.piBinders).2.getAppArgs.length := by
       intro i' hi' x hx b hb
       have hty := openPisAtFvars_fvarTypeD (nP + cA.2) hopAll hst (nP + i') b x hb
         (hxAt i' hi' x hx)
@@ -228,7 +228,7 @@ theorem fixCtorReadsR_of {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps : 
         rw [List.length_take, hlenAll]
         omega
       obtain ⟨h1, h2⟩ := Expr.piBinders_instSeq ((fvsPF i ++ xFvsF i).take (nP + i'))
-        (nP + i' - 1) b.2.1 (hfvL i') (by rw [hlenTake]; omega)
+        (nP + i' - 1) b.1 (hfvL i') (by rw [hlenTake]; omega)
       rw [hty]
       refine ⟨h1, ?_⟩
       rw [h2, Expr.getAppArgs_instSeq_fvars _ _ _ (hfvL i'), List.length_map]
@@ -251,7 +251,7 @@ theorem fixCtorReadsR_of {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps : 
       obtain ⟨x, hx⟩ : ∃ x, (xFvsF i)[i']? = some x :=
         ⟨_, List.getElem?_eq_getElem (by rw [hD.xLen]; exact hlt)⟩
       obtain ⟨b, hb, hbd⟩ := hbGet i' hlt
-      have hteleEq : Lech.directFieldTeleOf cA.1.type nP cA.2 i' = (b.2.1.piBinders).1 := by
+      have hteleEq : Lech.directFieldTeleOf cA.1.type nP cA.2 i' = (b.1.piBinders).1 := by
         unfold Lech.directFieldTeleOf
         rw [hst]
         simp only [List.getD_eq_getElem?_getD, hb, Option.getD_some]
@@ -287,10 +287,10 @@ theorem fixCtorReadsR_of {m : EnvS2Core V env} {env₀ : Env} {T : Name} {lps : 
       · obtain ⟨afvs, body, hop, -, -, -, -, hlenA, -, -, -⟩ := hD.opened.reflF i' x hx hk
         have hbody := openPisAtFvars_instSeq (x.fvarTypeD.piBinders).1.length hop
           (Expr.stripPis_piBinders x.fvarTypeD)
-        have hfvA : ∀ a ∈ afvs, ∃ (k : Nat) (nm : Name) (ty : Expr), a = Expr.fvar k nm ty := by
+        have hfvA : ∀ a ∈ afvs, ∃ (k : Nat) (nm : Name) (ty : Expr), a = Expr.fvar k ty := by
           intro a ha
           obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
-          obtain ⟨nm, ty, rfl⟩ := (opening_vars_at hop).2.1 q a hq
+          obtain ⟨ty, rfl⟩ := (opening_vars_at hop).2.1 q a hq
           exact ⟨_, nm, ty, rfl⟩
         rw [hbody, Expr.getAppArgs_instSeq_fvars _ _ _ hfvA, List.length_map] at hlenA
         exact hlenA

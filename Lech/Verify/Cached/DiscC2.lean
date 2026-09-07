@@ -124,20 +124,20 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       | bvar k => exact SimC.pure hs₈ rfl
       | const nm us => exact SimC.pure hs₈ rfl
       | lit l => exact SimC.pure hs₈ rfl
-      | fvar idx nm t => exact SimC.pure hs₈ rfl
+      | fvar idx t => exact SimC.pure hs₈ rfl
       | app f' a' => exact SimC.pure hs₈ rfl
-      | lam nm t b' m => exact SimC.pure hs₈ rfl
-      | forallE nm t b' m => exact SimC.pure hs₈ rfl
-      | letE nm t v b' => exact SimC.pure hs₈ rfl
+      | lam t b' m => exact SimC.pure hs₈ rfl
+      | forallE t b' m => exact SimC.pure hs₈ rfl
+      | letE t v b' => exact SimC.pure hs₈ rfl
       | proj s i e => exact SimC.pure hs₈ rfl
     | bvar k => exact SimC.pure hs₄ rfl
     | const nm us => exact SimC.pure hs₄ rfl
     | lit l => exact SimC.pure hs₄ rfl
-    | fvar idx nm t => exact SimC.pure hs₄ rfl
+    | fvar idx t => exact SimC.pure hs₄ rfl
     | app f' a' => exact SimC.pure hs₄ rfl
-    | lam nm t b' m => exact SimC.pure hs₄ rfl
-    | forallE nm t b' m => exact SimC.pure hs₄ rfl
-    | letE nm t v b' => exact SimC.pure hs₄ rfl
+    | lam t b' m => exact SimC.pure hs₄ rfl
+    | forallE t b' m => exact SimC.pure hs₄ rfl
+    | letE t v b' => exact SimC.pure hs₄ rfl
     | proj s i e => exact SimC.pure hs₄ rfl
 
 /-- `Expr.isBoolTrue` transported along the value equation. -/
@@ -286,20 +286,20 @@ theorem proofIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : ExprC}
       | bvar k => exact SimC.pure hs₈ rfl
       | const nm us => exact SimC.pure hs₈ rfl
       | lit l => exact SimC.pure hs₈ rfl
-      | fvar idx nm t => exact SimC.pure hs₈ rfl
+      | fvar idx t => exact SimC.pure hs₈ rfl
       | app f' a' => exact SimC.pure hs₈ rfl
-      | lam nm t b' m => exact SimC.pure hs₈ rfl
-      | forallE nm t b' m => exact SimC.pure hs₈ rfl
-      | letE nm t v b' => exact SimC.pure hs₈ rfl
+      | lam t b' m => exact SimC.pure hs₈ rfl
+      | forallE t b' m => exact SimC.pure hs₈ rfl
+      | letE t v b' => exact SimC.pure hs₈ rfl
       | proj sn j' e' => exact SimC.pure hs₈ rfl
     | bvar k => exact SimC.pure hs₄ rfl
     | const nm us => exact SimC.pure hs₄ rfl
     | lit l => exact SimC.pure hs₄ rfl
-    | fvar idx nm t => exact SimC.pure hs₄ rfl
+    | fvar idx t => exact SimC.pure hs₄ rfl
     | app f' a' => exact SimC.pure hs₄ rfl
-    | lam nm t b' m => exact SimC.pure hs₄ rfl
-    | forallE nm t b' m => exact SimC.pure hs₄ rfl
-    | letE nm t v b' => exact SimC.pure hs₄ rfl
+    | lam t b' m => exact SimC.pure hs₄ rfl
+    | forallE t b' m => exact SimC.pure hs₄ rfl
+    | letE t v b' => exact SimC.pure hs₄ rfl
     | proj sn j' e' => exact SimC.pure hs₄ rfl
 
 end Walks
@@ -308,11 +308,11 @@ section Walks2
 
 variable {env : Env} {f : Nat}
 
-/-- Port of `etaCertI_sim`.  The name and binder-meta bridges collapse:
-the cached representation stores `Name`s and `BinderMeta`s directly, so
-`hn₁` and `hbm₁` are identities and the spec side reads the very
-arguments the twin is given. -/
-theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
+/-- Port of `etaCertI_sim`.  The binder-meta bridge collapses: the
+cached representation stores `BinderMeta`s directly, so `hbm₁` is an
+identity and the spec side reads the very arguments the twin is
+given. -/
+theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat}
     {ty₁ body₁ b : ExprC} {ty₁x body₁x bx : Expr} {m₁ : BinderMeta}
     {s₀ : CState} (hs : CSOK mode env s₀)
     (hty : RelC ty₁ ty₁x) (hbody : RelC body₁ body₁x) (hb : RelC b bx)
@@ -320,17 +320,17 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
     (hwb : Expr.WScoped d bx) :
     SimC mode env s₀ RelVC
       (etaCertI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d
-        n₁ ty₁ body₁ m₁ b)
-      (etaCert mode (fueledFns mode env) env d n₁ ty₁x body₁x m₁ bx) := by
+        ty₁ body₁ m₁ b)
+      (etaCert mode (fueledFns mode env) env d ty₁x body₁x m₁ bx) := by
   show SimC mode env s₀ RelVC
     ((coreKnotI mode (mkFEnv env) f).inferIO d b >>= fun tb =>
       (coreKnotI mode (mkFEnv env) f).whnf d tb >>= fun wtb =>
       
       match wtb with
-      | .forallE _ ty₂ _ m₂ =>
+      | .forallE ty₂ _ m₂ =>
         (coreKnotI mode (mkFEnv env) f).defeq d ty₂ ty₁ >>= fun r =>
         if r then
-          pure (Expr.fvar d n₁ ty₁) >>= fun fv =>
+          pure (Expr.fvar d ty₁) >>= fun fv =>
           inst1M body₁ fv >>= fun b₁ =>
           pure (Expr.app b fv) >>= fun ba =>
           (coreKnotI mode (mkFEnv env) f).defeq (d + 1) b₁ ba
@@ -346,12 +346,12 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
     ((fueledFns mode env).inferIO d bx >>= fun tb =>
       (fueledFns mode env).whnf d tb >>= fun wtb =>
       match wtb with
-      | .forallE _ ty₂ _ m₂ =>
+      | .forallE ty₂ _ m₂ =>
         (fueledFns mode env).defeq d ty₂ ty₁x >>= fun r =>
         if r then
           (fueledFns mode env).defeq (d + 1)
-            (body₁x.instantiate1 (.fvar d n₁ ty₁x))
-            (.app bx (.fvar d n₁ ty₁x)) >>= fun r₂ =>
+            (body₁x.instantiate1 (.fvar d ty₁x))
+            (.app bx (.fvar d ty₁x)) >>= fun r₂ =>
           if r₂ = true then
             if (mode.verifiedChecks && !(m₁.pw == m₂.pw)) = true then
               (throw (.notImplemented "sort-annotation mismatch (eta)")
@@ -372,10 +372,10 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
   obtain ⟨hwtbd, hwwtb⟩ := hP₂
   obtain rfl := hwtbd
   cases wtb with
-  | forallE nm ty₂ b₂ m₂ =>
+  | forallE ty₂ b₂ m₂ =>
     have hwty₂x : Expr.WScoped d (ty₂) := by
-      rw [show (Expr.forallE nm ty₂ b₂ m₂)
-          = Expr.forallE nm (ty₂) (b₂) m₂ from rfl] at hwwtb
+      rw [show (Expr.forallE ty₂ b₂ m₂)
+          = Expr.forallE (ty₂) (b₂) m₂ from rfl] at hwwtb
       simp only [Expr.WScoped] at hwwtb
       exact hwwtb.1
     refine SimC.bind (ih.defeq hs₂ rfl hty hwty₂x hwty)
@@ -388,20 +388,20 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
     | true =>
       simp only [↓reduceIte]
       refine SimC.bind_left
-        (pureC_eff hs₄ (x := Expr.fvar d n₁ ty₁))
+        (pureC_eff hs₄ (x := Expr.fvar d ty₁))
         (fun s₅ fv hs₅ hQfv => ?_)
-      have hQfv' : RelC fv (.fvar d n₁ (ty₁)) := hQfv
+      have hQfv' : RelC fv (.fvar d (ty₁)) := hQfv
       refine SimC.bind_left (inst1M_eff hs₅ hbody hQfv')
         (fun s₆ b₁ hs₆ hQb₁ => ?_)
       refine SimC.bind_left
         (pureC_eff hs₆ (x := Expr.app b fv))
         (fun s₇ ba hs₇ hQba => ?_)
-      have hQba' : RelC ba (.app b (.fvar d n₁ (ty₁))) := by
+      have hQba' : RelC ba (.app b (.fvar d (ty₁))) := by
         show _ = _
         rw [show ba = .app b fv from hQba,
           hQfv']
       have hwapp : Expr.WScoped (d + 1)
-          (.app b (.fvar d n₁ (ty₁))) := by
+          (.app b (.fvar d (ty₁))) := by
         simp only [Expr.WScoped]
         exact ⟨Expr.WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d,
           hwty⟩
@@ -422,10 +422,10 @@ theorem etaCertC_sim (ih : SSimC mode env f) {d : Nat} {n₁ : Name}
   | sort u => exact SimC.pure hs₂ rfl
   | const nm us => exact SimC.pure hs₂ rfl
   | lit l => exact SimC.pure hs₂ rfl
-  | fvar idx nm t => exact SimC.pure hs₂ rfl
+  | fvar idx t => exact SimC.pure hs₂ rfl
   | app f' a' => exact SimC.pure hs₂ rfl
-  | lam nm t b' m => exact SimC.pure hs₂ rfl
-  | letE nm t v b' => exact SimC.pure hs₂ rfl
+  | lam t b' m => exact SimC.pure hs₂ rfl
+  | letE t v b' => exact SimC.pure hs₂ rfl
   | proj sn j' e' => exact SimC.pure hs₂ rfl
 
 /-- Indexed readout of a related list (the `DenL.getD` transposition:
@@ -619,25 +619,25 @@ theorem structUnitCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode 
   | lit l =>
     rw [show (Expr.getAppFn wta) = Expr.lit l from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | fvar idx nm t =>
-    rw [show (Expr.getAppFn wta) = Expr.fvar idx nm t
+  | fvar idx t =>
+    rw [show (Expr.getAppFn wta) = Expr.fvar idx t
       from hfn.symm]
     exact SimC.pure hs₂ rfl
   | app f' a' =>
     rw [show (Expr.getAppFn wta) = Expr.app f' a'
       from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | lam nm t b' m =>
-    rw [show (Expr.getAppFn wta) = Expr.lam nm t b' m
+  | lam t b' m =>
+    rw [show (Expr.getAppFn wta) = Expr.lam t b' m
       from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | forallE nm t b' m =>
-    rw [show (Expr.getAppFn wta) = Expr.forallE nm t b' m
+  | forallE t b' m =>
+    rw [show (Expr.getAppFn wta) = Expr.forallE t b' m
       from hfn.symm]
     exact SimC.pure hs₂ rfl
-  | letE nm t v b' =>
+  | letE t v b' =>
     rw [show (Expr.getAppFn wta)
-      = Expr.letE nm t v b' from hfn.symm]
+      = Expr.letE t v b' from hfn.symm]
     exact SimC.pure hs₂ rfl
   | proj sn j' e' =>
     rw [show (Expr.getAppFn wta) = Expr.proj sn j' e'
@@ -1120,25 +1120,25 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
           | lit l =>
             rw [show (Expr.getAppFn w) = Expr.lit l from hfw.symm]
             exact SimC.pure hs rfl
-          | fvar ix nm t =>
-            rw [show (Expr.getAppFn w) = Expr.fvar ix nm t
+          | fvar ix t =>
+            rw [show (Expr.getAppFn w) = Expr.fvar ix t
               from hfw.symm]
             exact SimC.pure hs rfl
           | app f' a' =>
             rw [show (Expr.getAppFn w) = Expr.app f' a'
               from hfw.symm]
             exact SimC.pure hs rfl
-          | lam nm t b' m =>
+          | lam t b' m =>
             rw [show (Expr.getAppFn w)
-              = Expr.lam nm t b' m from hfw.symm]
+              = Expr.lam t b' m from hfw.symm]
             exact SimC.pure hs rfl
-          | forallE nm t b' m =>
+          | forallE t b' m =>
             rw [show (Expr.getAppFn w)
-              = Expr.forallE nm t b' m from hfw.symm]
+              = Expr.forallE t b' m from hfw.symm]
             exact SimC.pure hs rfl
-          | letE nm t v b' =>
+          | letE t v b' =>
             rw [show (Expr.getAppFn w)
-              = Expr.letE nm t v b'
+              = Expr.letE t v b'
               from hfw.symm]
             exact SimC.pure hs rfl
           | proj sn jx e' =>
@@ -1161,24 +1161,24 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
   | lit l =>
     rw [show (Expr.getAppFn i) = Expr.lit l from hfa.symm]
     exact SimC.pure hs rfl
-  | fvar ix nm t =>
-    rw [show (Expr.getAppFn i) = Expr.fvar ix nm t from hfa.symm]
+  | fvar ix t =>
+    rw [show (Expr.getAppFn i) = Expr.fvar ix t from hfa.symm]
     exact SimC.pure hs rfl
   | app f' a' =>
     rw [show (Expr.getAppFn i) = Expr.app f' a'
       from hfa.symm]
     exact SimC.pure hs rfl
-  | lam nm t b' m =>
-    rw [show (Expr.getAppFn i) = Expr.lam nm t b' m
+  | lam t b' m =>
+    rw [show (Expr.getAppFn i) = Expr.lam t b' m
       from hfa.symm]
     exact SimC.pure hs rfl
-  | forallE nm t b' m =>
-    rw [show (Expr.getAppFn i) = Expr.forallE nm t b' m
+  | forallE t b' m =>
+    rw [show (Expr.getAppFn i) = Expr.forallE t b' m
       from hfa.symm]
     exact SimC.pure hs rfl
-  | letE nm t v b' =>
+  | letE t v b' =>
     rw [show (Expr.getAppFn i)
-      = Expr.letE nm t v b' from hfa.symm]
+      = Expr.letE t v b' from hfa.symm]
     exact SimC.pure hs rfl
   | proj sn jx e' =>
     rw [show (Expr.getAppFn i) = Expr.proj sn jx e' from hfa.symm]

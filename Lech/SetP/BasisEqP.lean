@@ -154,12 +154,12 @@ theorem denoteP_eqReflTy {c₀ : ConstantInfo} (ψ : Name → Nat)
         = List.map Level.param [uN] from rfl,
       Level.substFn_param_self ψ [uN], hEv]
   rw [show eqReflA.toConstantVal.type
-      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
-          (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+      = Expr.forallE (.sort (.param uN))
+          (Expr.forallE (.bvar 0)
             (.app (.app (.app (.const eqName [.param uN]) (.bvar 1))
               (.bvar 0)) (.bvar 0))
-            { bi := .default, pw := .ifAllZero [] })
-          { bi := .implicit, pw := .ifAllZero [] } from rfl]
+            { pw := .ifAllZero [] })
+          { pw := .ifAllZero [] } from rfl]
   simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
     Expr.instantiate1, eqReflTyP, eqSpineP, pwBit_ifAllZero_nil, hEc,
     Level.eval]
@@ -661,31 +661,31 @@ theorem denoteP_eqRecA_type (ψ : Name → Nat)
           (List.map Level.param [uN]) from rfl,
       Level.substFn_param_self ψ [uN], hRv]
   rw [show eqRecA.toConstantVal.type
-      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
-          (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
-            (Expr.forallE (Name.anonymous.str "motive")
-              (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
-                (Expr.forallE (Name.anonymous.str "t")
+      = Expr.forallE (.sort (.param uN))
+          (Expr.forallE (.bvar 0)
+            (Expr.forallE
+              (Expr.forallE (.bvar 1)
+                (Expr.forallE
                   (.app (.app (.app (.const eqName [.param uN])
                     (.bvar 2)) (.bvar 1)) (.bvar 0))
                   (.sort (.param u1N))
-                  { bi := .default, pw := .never })
-                { bi := .default, pw := .never })
-              (Expr.forallE (Name.anonymous.str "refl")
+                  { pw := .never })
+                { pw := .never })
+              (Expr.forallE
                 (.app (.app (.bvar 0) (.bvar 1))
                   (.app (.app (.const eqReflName [.param uN])
                     (.bvar 2)) (.bvar 1)))
-                (Expr.forallE (Name.anonymous.str "b") (.bvar 3)
-                  (Expr.forallE (Name.anonymous.str "t")
+                (Expr.forallE (.bvar 3)
+                  (Expr.forallE
                     (.app (.app (.app (.const eqName [.param uN])
                       (.bvar 4)) (.bvar 3)) (.bvar 0))
                     (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))
-                    { bi := .default, pw := .ifAllZero [u1N] })
-                  { bi := .implicit, pw := .ifAllZero [u1N] })
-                { bi := .default, pw := .ifAllZero [u1N] })
-              { bi := .implicit, pw := .ifAllZero [u1N] })
-            { bi := .implicit, pw := .ifAllZero [u1N] })
-          { bi := .implicit, pw := .ifAllZero [u1N] } from rfl]
+                    { pw := .ifAllZero [u1N] })
+                  { pw := .ifAllZero [u1N] })
+                { pw := .ifAllZero [u1N] })
+              { pw := .ifAllZero [u1N] })
+            { pw := .ifAllZero [u1N] })
+          { pw := .ifAllZero [u1N] } from rfl]
   simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
     Expr.instantiate1, eqRecTyP, eqRecMotiveTyP, eqRecMinorTyP,
     eqSpineP, eqReflSpineP, pwBit_never, hEc, hRc, Level.eval]
@@ -1252,12 +1252,12 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
         = some eqA := by
       rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE1
     rw [show eqReflA.toConstantVal.type
-        = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
-            (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+        = Expr.forallE (.sort (.param uN))
+            (Expr.forallE (.bvar 0)
               (.app (.app (.app (.const eqName [.param uN]) (.bvar 1))
                 (.bvar 0)) (.bvar 0))
-              { bi := .default, pw := .ifAllZero [] })
-            { bi := .implicit, pw := .ifAllZero [] } from rfl]
+              { pw := .ifAllZero [] })
+            { pw := .ifAllZero [] } from rfl]
     simp [Expr.constsResolve, hf]
   obtain ⟨mp2, hac2⟩ := extendEqReflP mp1 hE1 hEv1 hf2 hwf2
   have hE2 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
@@ -1289,31 +1289,31 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvS2PM V μ env)
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     · show Expr.constsResolve _ eqRecA.toConstantVal.type = true
       rw [show eqRecA.toConstantVal.type
-          = Expr.forallE (Name.anonymous.str "α") (.sort (.param uN))
-              (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
-                (Expr.forallE (Name.anonymous.str "motive")
-                  (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
-                    (Expr.forallE (Name.anonymous.str "t")
+          = Expr.forallE (.sort (.param uN))
+              (Expr.forallE (.bvar 0)
+                (Expr.forallE
+                  (Expr.forallE (.bvar 1)
+                    (Expr.forallE
                       (.app (.app (.app (.const eqName [.param uN])
                         (.bvar 2)) (.bvar 1)) (.bvar 0))
                       (.sort (.param u1N))
-                      { bi := .default, pw := .never })
-                    { bi := .default, pw := .never })
-                  (Expr.forallE (Name.anonymous.str "refl")
+                      { pw := .never })
+                    { pw := .never })
+                  (Expr.forallE
                     (.app (.app (.bvar 0) (.bvar 1))
                       (.app (.app (.const eqReflName [.param uN])
                         (.bvar 2)) (.bvar 1)))
-                    (Expr.forallE (Name.anonymous.str "b") (.bvar 3)
-                      (Expr.forallE (Name.anonymous.str "t")
+                    (Expr.forallE (.bvar 3)
+                      (Expr.forallE
                         (.app (.app (.app (.const eqName [.param uN])
                           (.bvar 4)) (.bvar 3)) (.bvar 0))
                         (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))
-                        { bi := .default, pw := .ifAllZero [u1N] })
-                      { bi := .implicit, pw := .ifAllZero [u1N] })
-                    { bi := .default, pw := .ifAllZero [u1N] })
-                  { bi := .implicit, pw := .ifAllZero [u1N] })
-                { bi := .implicit, pw := .ifAllZero [u1N] })
-              { bi := .implicit, pw := .ifAllZero [u1N] } from rfl]
+                        { pw := .ifAllZero [u1N] })
+                      { pw := .ifAllZero [u1N] })
+                    { pw := .ifAllZero [u1N] })
+                  { pw := .ifAllZero [u1N] })
+                { pw := .ifAllZero [u1N] })
+              { pw := .ifAllZero [u1N] } from rfl]
       simp [Expr.constsResolve, hfE, hfR]
     · intro cv mI rP rules heq
       injection heq with h1' _ _ h4'

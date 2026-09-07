@@ -205,7 +205,7 @@ theorem denote_params_ext {env : Env} {cval : TConstVal}
     intro hd
     rw [denote_sort, denote_sort,
       Level.eval_ext (by simpa [Expr.allLevelParamsDefined] using hd) hφ]
-  | case2 d idx nm ty => intro _; rw [denote_fvar, denote_fvar]
+  | case2 d idx ty => intro _; rw [denote_fvar, denote_fvar]
   | case3 d n us ci h1 h2 =>
     intro hd
     simp only [denote_const, h1, if_pos h2]
@@ -217,30 +217,30 @@ theorem denote_params_ext {env : Env} {cval : TConstVal}
   | case4 d n us ci h1 h2 =>
     intro _; simp only [denote_const, h1, if_neg h2]
   | case5 d n us h1 => intro _; simp only [denote_const, h1]
-  | case6 d n ty body mb h1 ihty =>
+  | case6 d ty body mb h1 ihty =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denote_forallE, denote_forallE, ← ihty hd.1.1, h1]
-  | case7 d n ty body mb B h1 h2 ihty ihbody =>
+  | case7 d ty body mb B h1 h2 ihty ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denote_forallE, denote_forallE, ← ihty hd.1.1,
       ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.1.2)]
-  | case8 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case8 d ty body mb B h1 B' h2 ihty ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denote_forallE, denote_forallE, ← ihty hd.1.1,
       ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.1.2)]
-  | case9 d n ty body mb h1 ihty =>
+  | case9 d ty body mb h1 ihty =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denote_lam, denote_lam, ← ihty hd.1.1, h1]
-  | case10 d n ty body mb B h1 h2 ihty ihbody =>
+  | case10 d ty body mb B h1 h2 ihty ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denote_lam, denote_lam, ← ihty hd.1.1,
       ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.1.2)]
-  | case11 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case11 d ty body mb B h1 B' h2 ihty ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denote_lam, denote_lam, ← ihty hd.1.1,
@@ -253,17 +253,17 @@ theorem denote_params_ext {env : Env} {cval : TConstVal}
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denote_app, denote_app, ← ihf hd.1, ← iha hd.2]
-  | case14 d n ty val body vf va h1 h2 h3 ihty ihval ihbody =>
+  | case14 d ty val body vf va h1 h2 h3 ihty ihval ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denote_letE, denote_letE, ← ihty hd.1.1, ← ihval hd.1.2,
       ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.2)]
-  | case15 d n ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
+  | case15 d ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denote_letE, denote_letE, ← ihty hd.1.1, ← ihval hd.1.2,
       ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.2)]
-  | case16 d n ty val body hbad ihty ihval =>
+  | case16 d ty val body hbad ihty ihval =>
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denote_letE, denote_letE, ← ihty hd.1.1, ← ihval hd.1.2]
@@ -303,12 +303,12 @@ theorem denote_params_ext {env : Env} {cval : TConstVal}
     match x with
     | .bvar i => rw [denote_bvar, denote_bvar]
     | .sort u => exact (k1 u rfl).elim
-    | .fvar a b c => exact (k2 a b c rfl).elim
+    | .fvar a c => exact (k2 a c rfl).elim
     | .const a b => exact (k3 a b rfl).elim
-    | .forallE a b c dd => exact (k4 a b c dd rfl).elim
-    | .lam a b c dd => exact (k5 a b c dd rfl).elim
+    | .forallE b c dd => exact (k4 b c dd rfl).elim
+    | .lam b c dd => exact (k5 b c dd rfl).elim
     | .app a b => exact (k6 a b rfl).elim
-    | .letE a b c dd => exact (k7 a b c dd rfl).elim
+    | .letE b c dd => exact (k7 b c dd rfl).elim
     | .proj a b c => exact (k8 a b c rfl).elim
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim
@@ -333,7 +333,7 @@ theorem denote_instLevels {env : Env} {cval : TConstVal}
     (cval := cval) (env := env) (φ := Level.substFn φ ks us) with
   | case1 d u =>
     simp only [Expr.instantiateLevelParams, denote_sort, Level.eval_subst]
-  | case2 d idx nm ty =>
+  | case2 d idx ty =>
     simp only [Expr.instantiateLevelParams, denote_fvar]
   | case3 d n ws ci h1 h2 =>
     simp only [Expr.instantiateLevelParams, denote_const, h1]
@@ -347,33 +347,33 @@ theorem denote_instLevels {env : Env} {cval : TConstVal}
     rw [if_neg (by rw [hlen]; exact h2), if_neg h2]
   | case5 d n ws h1 =>
     simp only [Expr.instantiateLevelParams, denote_const, h1]
-  | case6 d n ty body mb h1 ihty =>
+  | case6 d ty body mb h1 ihty =>
     simp only [Expr.instantiateLevelParams, denote_forallE, ihty, h1]
-  | case7 d n ty body mb B h1 h2 ihty ihbody =>
-    simp only [Expr.instantiateLevelParams, denote_forallE, ihty, h1]
-    rw [← Expr.instantiateLevelParams_instantiate1, ihbody, h2]
-  | case8 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case7 d ty body mb B h1 h2 ihty ihbody =>
     simp only [Expr.instantiateLevelParams, denote_forallE, ihty, h1]
     rw [← Expr.instantiateLevelParams_instantiate1, ihbody, h2]
-  | case9 d n ty body mb h1 ihty =>
+  | case8 d ty body mb B h1 B' h2 ihty ihbody =>
+    simp only [Expr.instantiateLevelParams, denote_forallE, ihty, h1]
+    rw [← Expr.instantiateLevelParams_instantiate1, ihbody, h2]
+  | case9 d ty body mb h1 ihty =>
     simp only [Expr.instantiateLevelParams, denote_lam, ihty, h1]
-  | case10 d n ty body mb B h1 h2 ihty ihbody =>
+  | case10 d ty body mb B h1 h2 ihty ihbody =>
     simp only [Expr.instantiateLevelParams, denote_lam, ihty, h1]
     rw [← Expr.instantiateLevelParams_instantiate1, ihbody, h2]
-  | case11 d n ty body mb B h1 B' h2 ihty ihbody =>
+  | case11 d ty body mb B h1 B' h2 ihty ihbody =>
     simp only [Expr.instantiateLevelParams, denote_lam, ihty, h1]
     rw [← Expr.instantiateLevelParams_instantiate1, ihbody, h2]
   | case12 d f a vf va h1 h2 ihf iha =>
     simp only [Expr.instantiateLevelParams, denote_app, ihf, iha]
   | case13 d f a hbad ihf iha =>
     simp only [Expr.instantiateLevelParams, denote_app, ihf, iha]
-  | case14 d n ty val body vf va h1 h2 h3 ihty ihval ihbody =>
+  | case14 d ty val body vf va h1 h2 h3 ihty ihval ihbody =>
     simp only [Expr.instantiateLevelParams, denote_letE, ihty, ihval]
     rw [← Expr.instantiateLevelParams_instantiate1, ihbody]
-  | case15 d n ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
+  | case15 d ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
     simp only [Expr.instantiateLevelParams, denote_letE, ihty, ihval]
     rw [← Expr.instantiateLevelParams_instantiate1, ihbody]
-  | case16 d n ty val body hbad ihty ihval =>
+  | case16 d ty val body hbad ihty ihval =>
     simp only [Expr.instantiateLevelParams, denote_letE, ihty, ihval]
   | case17 d sn i e h1 ihe =>
     simp only [Expr.instantiateLevelParams, denote_proj, ihe]
@@ -399,12 +399,12 @@ theorem denote_instLevels {env : Env} {cval : TConstVal}
     match x with
     | .bvar i => simp only [Expr.instantiateLevelParams, denote_bvar]
     | .sort u => exact (k1 u rfl).elim
-    | .fvar a b c => exact (k2 a b c rfl).elim
+    | .fvar a c => exact (k2 a c rfl).elim
     | .const a b => exact (k3 a b rfl).elim
-    | .forallE a b c dd => exact (k4 a b c dd rfl).elim
-    | .lam a b c dd => exact (k5 a b c dd rfl).elim
+    | .forallE b c dd => exact (k4 b c dd rfl).elim
+    | .lam b c dd => exact (k5 b c dd rfl).elim
     | .app a b => exact (k6 a b rfl).elim
-    | .letE a b c dd => exact (k7 a b c dd rfl).elim
+    | .letE b c dd => exact (k7 b c dd rfl).elim
     | .proj a b c => exact (k8 a b c rfl).elim
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim

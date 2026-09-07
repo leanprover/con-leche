@@ -30,16 +30,16 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 omit [SetTheory V] in
 /-- A bounded telescope's binder domains and body are bounded. -/
 theorem constsBound_stripPis {env₀ : Env} :
-    ∀ (n : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
       ConstsBound env₀ e → e.stripPis n = some (bs, body) →
-      (∀ b ∈ bs, ConstsBound env₀ b.2.1) ∧ ConstsBound env₀ body
+      (∀ b ∈ bs, ConstsBound env₀ b.1) ∧ ConstsBound env₀ body
   | 0, e, bs, body, he, hst => by
     simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hst
     obtain ⟨rfl, rfl⟩ := hst
     exact ⟨(fun b hb => nomatch hb), he⟩
   | n + 1, e, bs, body, he, hst => by
     match e, he, hst with
-    | .forallE nm dom bd mb, he, hst =>
+    | .forallE dom bd mb, he, hst =>
       simp only [Expr.stripPis, Option.map_eq_some_iff] at hst
       obtain ⟨⟨bs', body₀⟩, hst', heq⟩ := hst
       simp only [Prod.mk.injEq] at heq
@@ -62,12 +62,12 @@ theorem constsBound_getAppArgs {env₀ : Env} :
     · exact constsBound_getAppArgs f he.1 x hx
     · exact he.2
   | .bvar _, _, _, hx => nomatch hx
-  | .fvar _ _ _, _, _, hx => nomatch hx
+  | .fvar _ _, _, _, hx => nomatch hx
   | .sort _, _, _, hx => nomatch hx
   | .const _ _, _, _, hx => nomatch hx
-  | .lam _ _ _ _, _, _, hx => nomatch hx
-  | .forallE _ _ _ _, _, _, hx => nomatch hx
-  | .letE _ _ _ _, _, _, hx => nomatch hx
+  | .lam _ _ _, _, _, hx => nomatch hx
+  | .forallE _ _ _, _, _, hx => nomatch hx
+  | .letE _ _ _, _, _, hx => nomatch hx
   | .lit _, _, _, hx => nomatch hx
   | .proj _ _ _, _, _, hx => nomatch hx
 
@@ -94,14 +94,14 @@ theorem openPisAtFvars_constsBound {env₀ : Env} :
     exact ⟨(fun x hx => nomatch hx), he⟩
   | n + 1, e, d, fvs, o, he, hop => by
     match e, he, hop with
-    | .forallE nm dom bd mb, he, hop =>
+    | .forallE dom bd mb, he, hop =>
       simp only [openPisAtFvars] at hop
       split at hop
       · next fvs₁ e₁ h₁ =>
         simp only [Option.some.injEq, Prod.mk.injEq] at hop
         obtain ⟨rfl, rfl⟩ := hop
         rw [constsBound_forallE] at he
-        have hfv : ConstsBound env₀ (Expr.fvar d nm dom) := by
+        have hfv : ConstsBound env₀ (Expr.fvar d dom) := by
           rw [constsBound_fvar]; exact he.1
         obtain ⟨hfvs, ho⟩ := openPisAtFvars_constsBound n
           (ConstsBound.instantiate1 hfv bd 0 he.2) h₁
@@ -172,7 +172,7 @@ theorem fixRuleData_of (mp : EnvS2PM V μ env)
     (hRec : Lech.checkDirectFixRec (Lech.fueledOps μ F) env p cvTa ctorsA = .ok (cvRa, rhss))
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
-    {bsT : List (Name × Expr × BinderMeta)}
+    {bsT : List (Expr × BinderMeta)}
     (hstripT : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort))
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))

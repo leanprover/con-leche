@@ -18,7 +18,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 def directSumNonRecF (fe : FEnv) (p : DirectSumParts) : Bool :=
   p.ctors.all fun c =>
     match c.1.type.stripPis (p.nP + c.2) with
-    | some (cbs, _) => cbs.all fun b => b.2.1.constsResolveF fe
+    | some (cbs, _) => cbs.all fun b => b.1.constsResolveF fe
     | none => false
 
 /-- `directSumParts?` through the index. -/

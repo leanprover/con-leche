@@ -58,19 +58,19 @@ theorem natFrag_subst_syntax {c : Name} {v : Expr}
       (Expr.substConst0 c v e).looseBVarsBounded 0 = true ∧
       Expr.LeavesBounded (Expr.substConst0 c v e) ∧
       (∀ l ∈ (Expr.substConst0 c v e).fvarLeaves,
-        l.1 < 2 ∧ l.2.2 = .const natName [])
+        l.1 < 2 ∧ l.2 = .const natName [])
   | .sort u, _ => by
     rw [show Expr.substConst0 c v (Expr.sort u) = Expr.sort u from rfl]
     refine ⟨by rw [Expr.WScoped]; trivial, rfl, ?_, ?_⟩
     · intro l hl; simp [Expr.fvarLeaves] at hl
     · intro l hl; simp [Expr.fvarLeaves] at hl
-  | .fvar i n ty, h => by
+  | .fvar i ty, h => by
     simp only [natFragOk, Bool.and_eq_true, Bool.or_eq_true,
       decide_eq_true_eq, beq_iff_eq] at h
     obtain ⟨hi, rfl⟩ := h
     have hilt : i < 2 := by rcases hi with rfl | rfl <;> omega
-    rw [show Expr.substConst0 c v (Expr.fvar i n (.const natName []))
-      = Expr.fvar i n (.const natName []) from rfl]
+    rw [show Expr.substConst0 c v (Expr.fvar i (.const natName []))
+      = Expr.fvar i (.const natName []) from rfl]
     refine ⟨?_, rfl, ?_, ?_⟩
     · rw [Expr.WScoped]
       exact ⟨hilt, by rw [Expr.WScoped]; trivial⟩
@@ -120,8 +120,8 @@ theorem natFrag_subst_syntax {c : Name} {v : Expr}
       rcases List.mem_append.mp hl with h' | h'
       · exact hlf l h'
       · exact hla l h'
-  | .bvar _, h | .lam _ _ _ _, h | .forallE _ _ _ _, h
-  | .letE _ _ _ _, h | .proj _ _ _, h | .lit _, h => by
+  | .bvar _, h | .lam _ _ _, h | .forallE _ _ _, h
+  | .letE _ _ _, h | .proj _ _ _, h | .lit _, h => by
     simp [natFragOk] at h
 
 end Lech.TTVerify

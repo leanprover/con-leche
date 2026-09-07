@@ -49,7 +49,7 @@ telescope walk without a certificate (`neverChainP_of_peel`,
 regime, `io_domain_transfer`). -/
 def peelNeverPis : Nat → Expr → Option Expr
   | 0, e => some e
-  | k + 1, .forallE _ _ b m => if m.pw.isNever then peelNeverPis k b else none
+  | k + 1, .forallE _ b m => if m.pw.isNever then peelNeverPis k b else none
   | _ + 1, _ => none
 
 /-- The number of arguments of an application spine. -/
@@ -83,7 +83,7 @@ def headTypePW (find? : Name → Option ConstantInfo) : Expr → Nat →
           (Level.substPW cv.levelParams us)
       else none
     | none => none
-  | .fvar _ _ ty, n => residualPW (ty.peelNeverPis n)
+  | .fvar _ ty, n => residualPW (ty.peelNeverPis n)
   | _, _ => none
 
 /-- The zero-ness datum of the sort of the *type* `T` ("is `T` a
@@ -95,7 +95,7 @@ residual, level-instantiated for a constant.  `none` = unknown. -/
 def typeSortPW (find? : Name → Option ConstantInfo) (T : Expr) :
     Option PropWhen :=
   match T with
-  | .forallE _ _ _ m => some m.pw
+  | .forallE _ _ m => some m.pw
   | .sort _ => some .never
   | T => headTypePW find? T.getAppFn T.numArgs
 
@@ -114,7 +114,7 @@ def headProofPW (find? : Name → Option ConstantInfo) : Expr →
         (typeSortPW find? cv.type).map (Level.substPW cv.levelParams us)
       else none
     | none => none
-  | .fvar _ _ ty => typeSortPW find? ty
+  | .fvar _ ty => typeSortPW find? ty
   | .sort _ | .forallE .. | .lit _ => some .never
   | _ => none
 
@@ -127,7 +127,7 @@ unknown. -/
 def proofPW (find? : Name → Option ConstantInfo) (a : Expr) :
     Option PropWhen :=
   match a with
-  | .lam _ _ _ m => some m.pw
+  | .lam _ _ m => some m.pw
   | a => headProofPW find? a.getAppFn
 
 /-- Is the datum "always zero" — the sort is `Prop` at every
