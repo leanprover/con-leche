@@ -275,12 +275,12 @@ private def etaStuckF (pw : PropWhen) : Expr :=
   .fvar 0 (etaStuckTy pw)
 
 #guard etaCert .verified (pureFns .verified Env.empty 100) Env.empty 1
-    (.str .anonymous "p") (.sort .zero)
+    (.sort .zero)
     (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.never⟩
     (etaStuckF (.ifAllZero []))
   matches .error (.notImplemented _)
 #guard etaCert .trusted (pureFns .trusted Env.empty 100) Env.empty 1
-    (.str .anonymous "p") (.sort .zero)
+    (.sort .zero)
     (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.never⟩
     (etaStuckF (.ifAllZero []))
   matches .ok true
