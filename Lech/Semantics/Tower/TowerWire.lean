@@ -48,6 +48,26 @@ def FieldsBelow (k : Nat) : List AVExpr → Prop
   | [] => True
   | F :: Fs => VExpr.bvarsBelow k F.erase ∧ FieldsBelow (k + 1) Fs
 
+/-- The domains' closedness, entry by entry. -/
+theorem DomsBelow.getD_below {K : Nat} :
+    ∀ {ds : List (Nat × Nat × AVExpr)}, DomsBelow K ds → ∀ k, k < ds.length →
+      VExpr.bvarsBelow (K + k) (ds.getD k default).2.2.erase
+  | [], _, _, hk => absurd hk (Nat.not_lt_zero _)
+  | d :: ds, h, 0, _ => by simpa using h.1
+  | d :: ds, h, k + 1, hk => by
+    simp only [List.getD_cons_succ]
+    have := DomsBelow.getD_below (K := K + 1) (ds := ds) h.2 k (by simpa using hk)
+    rwa [show K + 1 + k = K + (k + 1) from by omega] at this
+
+theorem domsBelow_of_getD {K : Nat} :
+    ∀ {ds : List (Nat × Nat × AVExpr)},
+      (∀ k, k < ds.length → VExpr.bvarsBelow (K + k) (ds.getD k default).2.2.erase) → DomsBelow K ds
+  | [], _ => trivial
+  | d :: ds, h => by
+    refine ⟨by simpa using h 0 (by simp), domsBelow_of_getD (K := K + 1) (ds := ds) fun k hk => ?_⟩
+    have := h (k + 1) (by simpa using hk)
+    simpa [show K + (k + 1) = K + 1 + k from by omega] using this
+
 theorem DomsBelow.map {k : Nat} :
     ∀ {ds : List (Nat × Nat × AVExpr)}, DomsBelow k ds →
       LamDomsBelow k (ds.map fun d => (d.1, d.2.2))

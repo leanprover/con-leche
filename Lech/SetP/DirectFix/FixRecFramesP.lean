@@ -1,7 +1,7 @@
 import Lech.SetP.DirectFix.FixRecReadDefsP
 import Lech.SetP.DirectFix.FixRealChainsP
 import Lech.SetP.DirectSum.SumRecFramesP
-import Lech.Semantics.Tower.FixRecI
+import Lech.Semantics.Tower.FixSquashI
 
 /-!
 # The recursive recursor's K-frames, part 1: the ih tower read (task #188)
@@ -40,71 +40,6 @@ theorem recIdx_rsOf (ks : List RecFieldKind) : recIdx (rsOf ks) ks.length = Lech
   cases ks.getD i .ordinary <;> simp
 
 /-! ## The ih domain, read -/
-
-omit [SetTheory V] in
-/-- The field frame over a K-frame: `l` ih values over the `nF`
-fields over the `o - 1` minors and the motive over the parameter
-frame.  The frame `o` below the fields is the parameter frame. -/
-theorem shiftE_fieldFrame {o : Nat} {ρp : Nat → V} {M : V} {ms : List V} (hms : ms.length + 1 = o)
-    (fs ihs : List V) :
-    shiftE o (fs.length + ihs.length) (consList ihs (consList fs (consList ms (cons M ρp)))) = consList ihs (consList fs ρp) := by
-  rw [← consList_append, ← List.length_append, shiftE_consList_len, ← hms,
-    shiftE_consList_add, shiftE_succ_cons, shiftE_zero_zero, consList_append]
-
-/-- Field `i`'s index expression, moved to the ih binder's frame, reads
-at the field's own frame. -/
-theorem interp_ihIdxAt {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
-    (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
-    (hi : i ≤ nF) (E : AVExpr) :
-    interp2 V (consList ihs (consList fs (consList ms (cons M ρp)))) (ihIdxAt nF o i l E)
-      = interp2 V (consList (fs.take i) ρp) E := by
-  unfold ihIdxAt
-  rw [interp2_liftN, show nF + l = fs.length + ihs.length from by omega, shiftE_fieldFrame hms,
-    interp2_liftN, ← consList_append]
-  have hsplit : fs ++ ihs = fs.take i ++ (fs.drop i ++ ihs) := by
-    rw [← List.append_assoc, List.take_append_drop]
-  rw [hsplit, consList_append, show nF - i + l = (fs.drop i ++ ihs).length from by
-    rw [List.length_append, List.length_drop]; omega, shiftE_consList]
-
-/-- `ihIdxAtM` under `as` telescope values reads the field's
-expression at the field's own frame under those values. -/
-theorem interp_ihIdxAtM {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
-    (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
-    (hi : i ≤ nF) (as : List V) (E : AVExpr) :
-    interp2 V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
-        (ihIdxAtM nF o i l as.length E)
-      = interp2 V (consList as (consList (fs.take i) ρp)) E := by
-  unfold ihIdxAtM
-  rw [interp2_liftN, show nF + l + as.length = as.length + (fs.length + ihs.length) from by omega,
-    shiftE_consList_len', shiftE_fieldFrame hms, interp2_liftN, shiftE_consList_len,
-    ← consList_append]
-  have hsplit : fs ++ ihs = fs.take i ++ (fs.drop i ++ ihs) := by
-    rw [← List.append_assoc, List.take_append_drop]
-  rw [hsplit, consList_append, show nF - i + l = (fs.drop i ++ ihs).length from by
-    rw [List.length_append, List.length_drop]; omega, shiftE_consList]
-
-/-- The nested product over the moved telescope at the ih frame is
-the nested product over the telescope at the field's own frame. -/
-theorem piTele_ihTeleAtGo {v : Nat} {B : List V → V} {nF o i l : Nat} {ρp : Nat → V} {M : V}
-    {ms : List V} (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF)
-    (hihs : ihs.length = l) (hi : i ≤ nF) :
-    ∀ (tl : List (Nat × Nat × AVExpr)) (as acc : List V),
-      piTele v (teleOfFields (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
-          ((ihTeleAtGo nF o i l as.length tl).map (·.2.2))) B acc
-        = piTele v (teleOfFields (consList as (consList (fs.take i) ρp)) (tl.map (·.2.2))) B acc
-  | [], _, _ => rfl
-  | d :: tl, as, acc => by
-    show piTele v (teleOfFields _
-      (((d.1, d.2.1, ihIdxAtM nF o i l as.length d.2.2) :: ihTeleAtGo nF o i l (as.length + 1) tl).map
-        (·.2.2))) B acc = _
-    rw [List.map_cons, List.map_cons]
-    simp only [teleOfFields, piTele]
-    rw [interp_ihIdxAtM hms hfs hihs hi]
-    refine piR_congr fun a _ => ?_
-    have := piTele_ihTeleAtGo (v := v) (B := B) (M := M) (ρp := ρp) hms hfs hihs hi tl (as ++ [a])
-      (acc ++ [a])
-    rw [length_snoc', ← consList_snoc', ← consList_snoc'] at this
-    exact this
 
 /-- The ih domain's body under `as` telescope values: the motive at the
 field's index values (under those values) at the field applied to

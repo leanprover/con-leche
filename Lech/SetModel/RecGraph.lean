@@ -163,6 +163,71 @@ section RecTheorem
 
 variable {ℓ : Nat} {I : V} {pred : V → V} {B : V → V} {st : V → V → V} {Cond : V → Prop}
 
+/-- **The local step**: at an index whose predecessors' fibres are all
+singletons, the recursor's graph has exactly one value. -/
+theorem recGraph_singleton_of_preds (hB : ∀ i, i ∈ˢ I → B i ∈ˢ (univ ℓ : V))
+    (hpred : ∀ i, i ∈ˢ I → pred i ⊆ˢ I)
+    {i : V} (hi : i ∈ˢ I)
+    (hst : ∀ g, g ∈ˢ piSet (pred i) (fun j => app (recGraph ℓ I pred B st) j) → st i g ∈ˢ B i)
+    (hP : ∀ j, j ∈ˢ pred i → (∃ v, v ∈ˢ app (recGraph ℓ I pred B st) j) ∧
+      ∀ v v', v ∈ˢ app (recGraph ℓ I pred B st) j → v' ∈ˢ app (recGraph ℓ I pred B st) j →
+        v = v') :
+    (∃ v, v ∈ˢ app (recGraph ℓ I pred B st) i) ∧
+      ∀ v v', v ∈ˢ app (recGraph ℓ I pred B st) i → v' ∈ˢ app (recGraph ℓ I pred B st) i →
+        v = v' := by
+  -- the choice function of the predecessors' values
+  have hchoice : ∀ j, ∃ v, j ∈ˢ pred i → v ∈ˢ app (recGraph ℓ I pred B st) j := fun j =>
+    Classical.byCases (fun h : j ∈ˢ pred i => ⟨_, fun _ => Classical.choose_spec (hP j h).1⟩)
+      (fun h => ⟨pt, fun h' => absurd h' h⟩)
+  have hu : ∀ j, j ∈ˢ pred i →
+      Classical.choose (hchoice j) ∈ˢ app (recGraph ℓ I pred B st) j :=
+    fun j hj => Classical.choose_spec (hchoice j) hj
+  have hg : graph (fun j => Classical.choose (hchoice j)) (pred i)
+      ∈ˢ piSet (pred i) (fun j => app (recGraph ℓ I pred B st) j) := graph_mem_piSet hu
+  -- any value at `i` is the step at that choice function
+  have key : ∀ v, v ∈ˢ app (recGraph ℓ I pred B st) i →
+      v = st i (graph (fun j => Classical.choose (hchoice j)) (pred i)) := by
+    intro v hv
+    rw [app_recGraph_eq hB hpred hi] at hv
+    obtain ⟨-, g', hg', rfl⟩ := mem_recGraphFibre.mp hv
+    congr 1
+    rw [← eq_graph_app_of_mem_piSet hg']
+    exact graph_congr fun j hj => (hP j hj).2 _ _ (app_mem_of_mem_piSet hg' hj) (hu j hj)
+  refine ⟨⟨st i (graph (fun j => Classical.choose (hchoice j)) (pred i)), ?_⟩,
+    fun v v' hv hv' => by rw [key v hv, key v' hv']⟩
+  rw [app_recGraph_eq hB hpred hi]
+  exact mem_recGraphFibre.mpr ⟨hst _ hg, _, hg, rfl⟩
+
+/-- The graph's selector: the fibre's element (the point off the graph). -/
+noncomputable def recSel (G : V) (i : V) : V :=
+  open Classical in
+  if h : ∃ v, v ∈ˢ app G i then Classical.choose h else pt
+
+theorem recSel_mem {G i : V} (h : ∃ v, v ∈ˢ app G i) : recSel G i ∈ˢ app G i := by
+  unfold recSel
+  rw [dif_pos h]
+  exact Classical.choose_spec h
+
+/-- **The recursion equation** at an index whose fibre and whose
+predecessors' fibres are singletons: the selector's value is the step
+at the selector's graph over the predecessors. -/
+theorem recSel_eq (hB : ∀ i, i ∈ˢ I → B i ∈ˢ (univ ℓ : V))
+    (hpred : ∀ i, i ∈ˢ I → pred i ⊆ˢ I) {i : V} (hi : i ∈ˢ I)
+    (hPi : ∃ v, v ∈ˢ app (recGraph ℓ I pred B st) i)
+    (hP : ∀ j, j ∈ˢ pred i → (∃ v, v ∈ˢ app (recGraph ℓ I pred B st) j) ∧
+      ∀ v v', v ∈ˢ app (recGraph ℓ I pred B st) j → v' ∈ˢ app (recGraph ℓ I pred B st) j →
+        v = v') :
+    recSel (recGraph ℓ I pred B st) i
+      = st i (graph (fun j => recSel (recGraph ℓ I pred B st) j) (pred i)) := by
+  have hv := recSel_mem hPi
+  rw [app_recGraph_eq hB hpred hi] at hv
+  obtain ⟨-, g', hg', hst⟩ := mem_recGraphFibre.mp hv
+  rw [hst]
+  congr 1
+  rw [← eq_graph_app_of_mem_piSet hg']
+  exact graph_congr fun j hj =>
+    (hP j hj).2 _ _ (app_mem_of_mem_piSet hg' hj) (recSel_mem (hP j hj).1)
+
 /-- **The recursion theorem by lfp induction**: at every index whose
 `Acc`-family fibre is inhabited, the recursor's graph has exactly one
 value. -/
@@ -186,36 +251,10 @@ theorem recGraph_exists_unique (hB : ∀ i, i ∈ˢ I → B i ∈ˢ (univ ℓ : 
     graph_mem_famSpace fun i hi => univ_sep_mem (famSpace_app (lfpFamSet_mem _ _ _) hi)
   rw [app_app_accStep hsubmem hi] at hx
   obtain ⟨⟨-, hall⟩, -⟩ := mem_truthVal.mp hx
-  -- every predecessor's fibre is a singleton
-  have hP : ∀ j, j ∈ˢ pred i → (∃ v, v ∈ˢ app (recGraph ℓ I pred B st) j) ∧
-      ∀ v v', v ∈ˢ app (recGraph ℓ I pred B st) j → v' ∈ˢ app (recGraph ℓ I pred B st) j →
-        v = v' := by
-    intro j hj
-    obtain ⟨y, hy⟩ := hall j hj
-    rw [app_graph (hpred i hi j hj)] at hy
-    exact (mem_sep.mp hy).2
-  -- the choice function of the predecessors' values
-  have hchoice : ∀ j, ∃ v, j ∈ˢ pred i → v ∈ˢ app (recGraph ℓ I pred B st) j := fun j =>
-    Classical.byCases (fun h : j ∈ˢ pred i => ⟨_, fun _ => Classical.choose_spec (hP j h).1⟩)
-      (fun h => ⟨pt, fun h' => absurd h' h⟩)
-  have hu : ∀ j, j ∈ˢ pred i →
-      Classical.choose (hchoice j) ∈ˢ app (recGraph ℓ I pred B st) j :=
-    fun j hj => Classical.choose_spec (hchoice j) hj
-  have hg : graph (fun j => Classical.choose (hchoice j)) (pred i)
-      ∈ˢ piSet (pred i) (fun j => app (recGraph ℓ I pred B st) j) := graph_mem_piSet hu
-  -- any value at `i` is the step at that choice function
-  have key : ∀ v, v ∈ˢ app (recGraph ℓ I pred B st) i →
-      v = st i (graph (fun j => Classical.choose (hchoice j)) (pred i)) := by
-    intro v hv
-    rw [app_recGraph_eq hB hpred hi] at hv
-    obtain ⟨-, g', hg', rfl⟩ := mem_recGraphFibre.mp hv
-    congr 1
-    rw [← eq_graph_app_of_mem_piSet hg']
-    exact graph_congr fun j hj => (hP j hj).2 _ _ (app_mem_of_mem_piSet hg' hj) (hu j hj)
-  refine ⟨⟨st i (graph (fun j => Classical.choose (hchoice j)) (pred i)), ?_⟩,
-    fun v v' hv hv' => by rw [key v hv, key v' hv']⟩
-  rw [app_recGraph_eq hB hpred hi]
-  exact mem_recGraphFibre.mpr ⟨hst i hi _ hg, _, hg, rfl⟩
+  refine recGraph_singleton_of_preds hB hpred hi (hst i hi) fun j hj => ?_
+  obtain ⟨y, hy⟩ := hall j hj
+  rw [app_graph (hpred i hi j hj)] at hy
+  exact (mem_sep.mp hy).2
 
 end RecTheorem
 

@@ -1170,9 +1170,7 @@ theorem checkDirectFixS_skels (mode : CheckMode) {fe : FEnv}
   case pos =>
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => ?elim) (fun _ => ?elimBad)
-  case elimBad =>
-    try apply Yields.letFun
-    exact Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => Yields.ofThrowBind)
+  case elimBad => exact Yields.ofThrowBind
   case elim =>
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => ?dupBad) (fun _ => ?main)
