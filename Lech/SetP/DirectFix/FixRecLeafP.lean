@@ -86,7 +86,7 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : Lis
     · rw [hsh]
       intro j hj bs hsp' E hE'
       exact hE j (by rw [← hFss]; exact hj) bs hsp' E hE'
-  refine fixRecBody_validV hfr hK.hyp hv' ?_
+  refine fixRecBody_validV hfr hK.hyp (fun hw => h.hfin.resolve_right fun hh => hw hh.1) hv' ?_
   intro j hj i hi fs hfs E hE'
   rw [hfrP] at hfs ⊢
   exact hEis j (by rw [← hFss]; exact hj) i hi fs hfs E hE'
