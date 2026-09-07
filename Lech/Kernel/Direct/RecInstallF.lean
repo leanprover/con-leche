@@ -33,6 +33,20 @@ def directFixOpenedOkF (fe₀ : FEnv) (T : Name) (lps : List Name) (nP nIdx : Na
           (x.fvarTypeD.getAppArgs.drop nP).all (fun e => e.constsResolveF fe₀) &&
           !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
           !xrest.mentionsFvar (nP + i)
+        | some x, .reflexive =>
+          -- the field's own telescope resolves in `env₀` (so it is free
+          -- of the block), its body is the family at the parameter
+          -- variables and `nIdx` index expressions resolving in `env₀`
+          -- (task #202)
+          let (tele, body) := x.fvarTypeD.piBinders
+          tele.length != 0 &&
+          tele.all (fun b => b.2.1.constsResolveF fe₀) &&
+          body.getAppFn == Expr.const T (lps.map .param) &&
+          body.getAppArgs.take nP == fvsP &&
+          body.getAppArgs.length == nP + nIdx &&
+          (body.getAppArgs.drop nP).all (fun e => e.constsResolveF fe₀) &&
+          !(xFvs.drop (i + 1)).any (fun y => y.fvarTypeD.mentionsFvar (nP + i)) &&
+          !xrest.mentionsFvar (nP + i)
         | _, _ => false
     | none => false
   | none => false

@@ -194,12 +194,18 @@ def lechFixFieldsOk (T : Lean.Name) (lps : List Lean.Name) (nP nIdx : Nat) :
     if k < nP then lechFixFieldsOk T lps nP nIdx body (k + 1) i
     else
       let noT := fun (e : Lean.Expr) => (e.find? fun e => e.isConstOf T).isNone
+      -- the domain's own `∀`-telescope (empty at a finitary field, the
+      -- `a⃗ : A⃗` of a reflexive one — task #202) and its body
+      let rec peel : Lean.Expr → Nat → Nat × Lean.Expr
+        | .forallE _ d b _, m => if noT d then peel b (m + 1) else (m, .forallE .anonymous d b .default)
+        | e, m => (m, e)
+      let (m, fam) := peel dom 0
       (noT dom ||
-        (dom.getAppFn == Lean.mkConst T (lps.map .param) &&
-          dom.getAppNumArgs == nP + nIdx &&
-          dom.getAppArgs.toList.take nP ==
-            ((List.range nP).map fun j => Lean.mkBVar (i + nP - 1 - j)) &&
-          (dom.getAppArgs.toList.drop nP).all noT &&
+        (fam.getAppFn == Lean.mkConst T (lps.map .param) &&
+          fam.getAppNumArgs == nP + nIdx &&
+          fam.getAppArgs.toList.take nP ==
+            ((List.range nP).map fun j => Lean.mkBVar (m + i + nP - 1 - j)) &&
+          (fam.getAppArgs.toList.drop nP).all noT &&
           !body.hasLooseBVar 0)) &&
       lechFixFieldsOk T lps nP nIdx body (k + 1) (i + 1)
   | e, _, _ => (e.getAppArgs.toList.drop nP).all fun a => (a.find? fun e => e.isConstOf T).isNone
