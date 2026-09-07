@@ -57571,3 +57571,225 @@ master `a92f687b`"); it is corrected here rather than quietly edited,
 because the failure mode — an environment variable that survives its
 reason — is the transferable part.
 
+
+## TASK #211 — THE SECOND RENAME: the project is called ConLeche (2026-09-07, `agent/conleche`)
+
+The user's directive, verbatim but for the one elision the rule below
+forces: *"… is a bad word in English. so (when things are quiet) rename
+the project to con-leche (ConLeche), for CONsistent LEan CHEcker"*, and,
+asked about the lower-case classes, *"yes, con-leche as the binary name.
+CON_LECHE_ for env vars."*
+
+**ConLeche is CONsistent LEan CHEcker.**  The expansion is spelled out
+once in DESIGN's opening block and once in `README.md`'s name paragraph,
+and nowhere else.
+
+### THE RULE, unchanged from task #186, now covering two old names
+
+**`git grep -n -i` for either old name returns exactly two lines**, and
+they are the two history sentences:
+
+* `DESIGN.md`, in the opening block;
+* `README.md`, the name paragraph under the title — which keeps, as
+  history, the joke the previous name was chosen for.
+
+Everything else says **ConLeche**.  As in #186, *this* section may not
+spell the thing it renamed; where the old spelling is load-bearing it is
+written as *the old name*, and the literal strings are one
+`git show adead519` away.
+
+The case-insensitive receipt has a permanent residue that is **not** the
+project's name and never was: **27 lines** (before this section itself
+names them) carrying the letters `leCh`
+inside `RuleChecked` / `ruleChecked_rhs_facts` (`DESIGN.md`,
+`docs/SetR-DESIGN.md`) and inside the Mathlib declaration
+`exists_variableChange_of_char_ne_two_or_three` that the perf sections
+quote.  A case-*sensitive* pass cannot touch them, which is what made
+the substitution below safe to run blind; a reader of the `-i` receipt
+has to know they are there, and that `lp_con_x2dleche_…` (below) is the
+*new* name mangled, not the old one.  The environment-variable stem has
+no residue at all: every upper-case hit in the tree is `CON_LECHE_`.
+
+### THE NAME CLASSES, one rule each
+
+| class | rule | examples |
+|---|---|---|
+| the project, and every CamelCase name built on it | **`ConLeche`** | `ConLeche/`, `ConLeche.lean`, `namespace ConLeche`, `ConLecheBase`/`ConLecheP`/`ConLecheCaps`/`ConLechePinCerts`/`ConLecheTests`/`ConLecheChallenge`, `ConLechePreprocess.lean`, `ConLecheBridge`, `ConLeche.no_proof_of_False` |
+| the bare word, **where a hyphen is legal** | **`con-leche`** | the binary `con-leche`, `con-leche-preprocess`, the Lake package, the verdict prefix `con-leche: accepted …`, the help text, `scripts/arena/con-leche.yaml`, the pin-dump format tag `con-leche-natop-pins/3`, the prelude exporter tag `con-leche-prelude` |
+| the bare word, **where a hyphen is not legal** | **`conleche`** | Lean identifiers — `conlecheNative`, `conlecheReservedBasisNames`, `conlecheFormerTelescope`, `conlecheFixFieldsOk`, `carneiro_implies_conleche`, … — and the `conleche_verified`/`conleche_trusted` columns of `scripts/arena/results/summary.tsv`, which follow the `setlec_*` columns beside them |
+| environment variables | **`CON_LECHE_*`** | all 29, `CON_LECHE_PROGRESS` … `CON_LECHE_VLIMIT_BIG` |
+
+### What moved
+
+| kind | after |
+|---|---|
+| module tree | `ConLeche/`, `ConLeche.lean` |
+| preprocessor root | `ConLechePreprocess.lean` |
+| test driver | `tests/ConLecheTests.lean`, `tests/ConLecheTests/` |
+| package | `name = "con-leche"`, `«con-leche»` in both manifests |
+| libraries | `ConLecheBase`, `ConLecheP`, `ConLecheCaps`, `ConLechePinCerts`, `ConLecheTests`, `ConLecheChallenge` |
+| executables | `con-leche`, `con-leche-preprocess` (`natop-pins-export` unchanged, again — it never carried the name) |
+| namespaces | `ConLeche.*`, including the frozen `ConLeche.SetR.{Interp2, Annot}` and `ConLeche.VExpr.*` |
+| binary strings | `con-leche: accepted …`, `con-leche: progress …`, `con-leche: declined: …`, the usage block |
+| environment | 29 variables, all `CON_LECHE_*` |
+| generated tags | `con-leche-natop-pins/3` (`ConLeche/PinGen/Dump.lean`), `con-leche-prelude` (`ConLeche/PinGen/Prelude.lean`) |
+| gates and scripts | every `tests/*.sh` and `scripts/*` mention; `scripts/arena/con-leche.yaml`; the three `scripts/arena/results/con-leche-*.jsonl` |
+| registry | `comparator.json`, `formalization.yaml`, `.github/workflows/{ci,bridge}.yml` |
+| bridge | `bridge/lean4lean-model/ConLecheBridge{,.lean}`, its lakefile, manifest and README |
+
+`LICENSE` is untouched.  The checkout **directory** is not renamed and
+could not be (the user owns the path); the `_tmp/` artefact directories
+keep their names.
+
+### The substitution, and why it was safe to run blind
+
+`git mv` first — **481 paths**, history preserved — then **one**
+`perl -pe` pass over every tracked *text* file, **586 files**:
+
+    <OLD>_         -> CON_LECHE_
+    <Old>          -> ConLeche
+    <old><ident>   -> conleche<ident>
+    <old>          -> con-leche
+
+(`<Old>`, `<old>`, `<OLD>` are the three case variants of the old name;
+the rule forbids this section from writing them out.)
+
+Master carried **16 710 occurrences across 586 of 827 tracked files** —
+14 334 capitalised, 2 055 lower-case, 321 upper-case.  Unlike the first
+rename there *was* a fourth case variant, `leCh`, 35 of them: the
+`RuleChecked` / `variableChange` residue above, which the case-sensitive
+rules step over.  The old name is a fragment of a longer identifier only
+in the pin generator's `to…` converter family and in the quoted `lp_…`
+compiled symbols, and the rename is correct for both.
+
+**One pass, not four `sed -e`s** (the batch's first mistake).  The
+sequential version produced `lp_concon-lechee_…`: the last rule has no
+word boundary to protect it, so it fired again *inside* the `conleche`
+the previous rule had just written.  The fix is a single pass in which
+the identifier rule writes a sentinel byte that the bare-word rule
+cannot match and a final rule expands.  **A rewrite pipeline whose
+output alphabet overlaps its input alphabet is not a rename; it is a
+fixpoint iteration.**
+
+**The 21 gzipped fixtures** (the batch's second mistake).
+`git ls-files | xargs perl -i` rewrote `tests/e2e/*.ndjson.gz` and
+`tests/arena/lean-arena-tests.tar.gz`: compressed bytes happen to
+contain the four-letter sequence, so a text substitution corrupts them
+silently — `git status` was the only witness.  They were restored from
+`HEAD` and are byte-identical; their *decompressed* content carries no
+occurrence of the name, so there was nothing to rename inside them.
+**A tree-wide substitution must exclude non-text files by
+`file --mime-type`, never by trusting that the pattern is textual.**
+
+### The package name, and what Lake actually objects to
+
+The first build after the substitution failed at once and precisely:
+
+    error: lake-manifest.json: name: expected a `Name`, got '"con-leche"'
+
+which reads like "a package name may not contain a hyphen" and is not
+what it says.  A hyphen is legal in a Lean `Name`; it just has to be
+*escaped*, and Lake's own generated manifests already do it — this tree's
+second package has been `«con-leche-bridge-lean4lean-model»` in
+`bridge/lean4lean-model/lake-manifest.json` since task #204.  What Lake
+rejected was a hand-substituted manifest, a file it writes and reads in
+escaped form.  The package is therefore `con-leche` in the lakefile and
+`«con-leche»` in both manifests (the bridge's path-`require` included),
+and the class rule needs no exception: only genuine Lean identifiers
+stay `conleche`.
+
+The cost is in the compiled symbols, which the perf sections quote by
+name.  The package name is what `lp_…` is built out of, and Lean escapes
+the hyphen there too, so the prefix is `lp_con_x2dleche_`:
+
+    $ nm .lake/build/bin/con-leche | grep Expr_beqB
+    … lp_con_x2dleche_ConLeche_Expr_beqB
+
+Those eight quoted symbols in DESIGN were rewritten to that spelling,
+which is the one the shipped binary carries.
+
+### The generated artefacts: regenerated, and byte-identical
+
+* **The pin dump.**  `pins/leanprover-lean4-v4.33.0.json` spells the name
+  in its *checked* format tag, its `_README` and sixteen
+  `pinName`/`proofsName` fields; the sidecar `…prelude.ndjson` spells it
+  in its exporter tag.  Both were regenerated with
+  `lake exe natop-pins-export` and `diff`ed against the substituted
+  files: **byte-identical, both of them**.  Task #186's regeneration
+  differed from its substitution in 36 lines; this one differs in none,
+  which says the substitution reproduced the generator's own output
+  field for field.
+* **`tests/proofdeps-expected.txt`.**  A rename is neither a **door** nor
+  a **departure** — no capstone acquires or sheds a dependency by being
+  spelled differently — so the pin was regenerated
+  (`tests/proofdeps.sh --list`) and `diff`ed against the substituted
+  file: **byte-identical, 2 884 rows across the same 7 roots, 0 doors, 0
+  departures**, the row count unchanged from master.  The mapping is
+  total and mechanical: every row's module prefix moves, nothing is
+  added, nothing is dropped.  It is again the sharpest single check in
+  the batch — the module-level proof-term graph of all seven capstones
+  is master's, edge for edge, under new names.
+
+### Findings
+
+* **`scripts/arena/results/` said "pre-rename" and "post-rename"**, which
+  stopped being a unique reference the moment there were two renames.
+  `summary.tsv`'s header and `scripts/arena/README.md`'s table now say
+  "before the first rename" / "the re-run after it".  The `setlec-*`
+  baseline keeps its name — there it tags a *particular measured build*,
+  master `2664b1dd`, and is what the §9 diff is against — while the
+  records of master `b7fa7331` were re-tagged `con-leche-*.jsonl` and
+  their captured `stderr` transcripts substituted, as was
+  `perf-data/table.tsv`'s verdict column.  That is task #186's
+  precedent and its finding stands: this is the one place where a rename
+  lightly rewrites history rather than the tree; the numbers, which are
+  what the tables are for, are untouched; recorded rather than hidden.
+* **README's name paragraph was a factual claim ABOUT the old name.**  It
+  said the project shares its name with a river in South West Germany —
+  true of the old name, false of this one — so a blind substitution turns
+  a joke into a wrong sentence.  It now carries the acronym, and the joke
+  as history, and it is the README half of the two-line receipt.  **A
+  rename has to read every sentence that is *about* the name, not only
+  the ones that use it.**
+* **Task #186's own section could not survive substitution as written.**
+  It is a section about a rename, written under a rule that forbids
+  spelling the name it renamed *from*; substituting it makes it claim it
+  installed *this* name.  Exempting it would break the receipt and
+  rewriting its receipts would falsify them, so it keeps a short reading
+  note at its head instead: preserved as written, with the name it
+  installed replaced by the one installed a day later, and its "old
+  name" is the first of the two.
+* **Nothing was renamed that a statement pins.**  There was no frozen
+  name this rename had to leave alone: `ConLeche.no_proof_of_False`,
+  the `ConLeche.SetR.*` names that #161 S2 had deliberately not moved,
+  and `ConLeche.VExpr.*` all moved with everything else, and
+  `comparator.json` moved with them.  The proof-dependency pin is the
+  evidence that moving them cost nothing.
+
+### Gates (`agent/conleche` at its tip, master `51fe64d4` merged)
+
+`lake build` **707 jobs, zero warnings, zero errors**; a **cold**
+`lake build con-leche` (an emptied `.lake/build/bin`) succeeds;
+`lake test` green.
+
+`tests/arena.sh` under `env -i HOME=$HOME PATH=$PATH` **exit 0, 0 FAIL**:
+layering base 274 / P 193 / caps 3 / umbrella 1, 0 base→lane and 0
+impl→theory; proofdeps 2 884 rows across 7 roots, 0 doors; pindump fresh
+(40 378 lines, 229 prelude lines / 11 records, toolchain
+`leanprover/lean4:v4.33.0`); trust surface 18 escapes in 4 allowlisted
+files of 479 scanned, 0 outside; native audit 92 streams, 98 native
+blocks (48 struct, 31 sum, 19 fix, 0 unrecognised); inmodel OK; axioms
+pinned at 11 theorems, `[propext, Classical.choice, Quot.sound]`; arena
+tutorial 90/92; e2e 180/180; annot 14/14; retired flags 8/8; mode flags
+16/16; prelude counts 3/3; progress lane 6/6; trusted sweep 138 + 180 +
+14 with its three recorded divergences.
+
+**init-full raw through the default pipe**: accepted **53 127**
+declarations in `--verified` and in `--trusted`, exit 0 both — the
+number master records, unchanged.
+
+The bridge package (`bridge/lean4lean-model/`) was **not** built: it
+needs Mathlib and this worktree has no `.lake` for it.  Its rename is
+source-only — `ConLecheBridge{,.lean}`, the lakefile, the manifest's
+escaped package names, the README — and `.github/workflows/bridge.yml`
+is the gate that will build it.
