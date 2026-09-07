@@ -55958,3 +55958,80 @@ step (3), which is syntactic.  Whether the tower functor is taken
 "isomorphic to a container" or "literally a container up to the
 tupler encoding already landed" — whichever makes the identification
 with the landed fibres cheapest — is to be recorded here when chosen.
+
+### Stage A1 — progress record (2026-09-07, `agent/reflexive`)
+
+**Kernel + preprocessor (lockstep).**  `RecFieldKind.reflexive`;
+`recPositivity` returns it for a field `∀ a⃗ : A⃗, T p⃗ e⃗(a⃗)` whose
+telescope domains do not mention the block; `recIdxOf` lists the
+recursive AND reflexive positions (both carry an inductive
+hypothesis); `directFixOpenedOk` opens the field's own telescope at
+the field's depth and checks the domains resolve before the block and
+the body is the family at the parameter variables; the generators
+(`directIdxAt nF o i l m`, `directTeleAt`, `directIhPis`,
+`directIhApp`, `directRuleBodyR`) take the field's telescope
+(`directFieldTeleOf`) and index expressions (`directFieldIdxOf`,
+under the telescope).  **Guard** (`directFixKinds?`): a reflexive field
+is taken only at a `Prop`-valued block with the SMALL eliminator
+(`p.isProp && !p.large`); otherwise the block falls through to the
+modeled path — subsingleton large elimination (`Acc`) is Stage A2, the
+`Type`-valued membership bound is Stage B.  The preprocessor's
+`lechNativeFix` mirrors it (`lechFixFieldsOk … allowRefl` with
+`allowRefl := result sort is Prop ∧ rec.levelParams = type.levelParams`;
+the old `!type.isReflexive` conjunct is gone).  Fixture
+`tests/e2e/direct_fix_refl` (`Iter f n`, the two-index `Reach r x y`;
+both accepted on the `fix` route in both modes) with the twins
+`_neg_bad` (non-positive occurrence under the binder — the
+preprocessor's kernel already rejects it, exit 1) and `_ih_bad`
+(`h_ih` at the wrong index — ill-typed recursor type, exit 1).
+
+**A2 note (recorded for the next stage).**  The kernel's `directIhPis`
+and `directIhApp` reuse the constructor's telescope binder METAS for
+the ih binders and the ih λ-towers, so their bits are the family's
+regime (`w`); the P tier's readings (`ihTeleAtR`, `ihAppAV` as
+`mkLamsAV` with the entries' own bits) and interpretations
+(`interp_ihDomAV`, `mkLamsAV_bits_*`) take `∀ d ∈ tl, (d.2.1 = 0 ↔ ℓ = 0)`
+as a hypothesis — at A1 `ℓ = 0 = w`, so the bits agree.  A large
+eliminator (`ℓ ≠ 0` with `w = 0`) needs the kernel to RE-BIT the ih
+telescopes to the elimination regime; do that in A2 together with the
+subsingleton clause.
+
+**Semantics tier.**  The X-chains' recursive slots are Π-slots
+(`slotXI` = `mkPisAV (liftTele2 i tl) (X ⟨e⃗(a⃗)⟩)`, valued by
+`slotSet w u ρ tl Eis X` = `piTele w` over the telescope of the family
+at the tuple); `SlotFit` (telescope graded, bits at `w`'s regime,
+readings graded and fitting under every telescope spine) replaces the
+old finitary clause everywhere (`SlotsFitX`, `ChainRealI`, `FixKI₀`,
+`chainRealI_at`); `XChainsOk.hwit : finitary ∨ w = 0`; `FixPre.hfin :
+finitary ∨ (w = 0 ∧ ℓ = 0)` and `hEbelow` under the telescope length.
+The ih values are λ-towers (`ihArgAV` = `mkLamsC ℓ (ihTeleAt …)`,
+`ihDomsI`/`ihValsI` via `piTele`/`lamTower`); the finitary shapes are
+recovered by `ihArgsI_fin`/`ihDomsI_fin`/`ihValsI_fin` under `hfin`,
+which gates the ω-iterate stage lemmas; the `Prop` regime's
+inhabitation is by lfp induction (`famK_inhab_zero_ind`).
+
+**P tier (the graded readings), the pattern.**  Wherever a proof
+consumed a finitary ih shape it now splits on `FixPre.hfin`: the
+finitary branch rewrites with the `_fin` lemmas and keeps the old
+proof; the `Prop` branch (`w = 0 ∧ ℓ = 0`) is proved by the point
+(`fixRecLawCore`: both sides of the rule are `pt`; `fixRecBody_validV`
+at `w ≠ 0` only).  The GENERAL parts — the chain walks over Π-slots
+(`FixChainsP`, `FixRealChainsP`, `FixLeafOkP`, with `SlotFit` carried
+off the shadow frame by `slotFit_congr_shadow`), the chain facts at
+reflexive fields (`FixChainFactsP`: the opened telescope is leaf-free
+of the recursive slots, `openPisAtFvars_leaf_bound`), the minor's ih
+binders (`FixRecFramesP.interp_ihDomAV`), the K-frame package, and the
+rule's grading (`FixRuleOkP.ihAppAV_facts`: the ih application is a
+`mkLamsAV` tower in the ih domain, its body typed by the recursor's
+Π-type at the spine extended along the telescope; the field applied
+along a telescope spine lies in the family by `slotSet_fold_mem`, its
+chain by `slotSet_chainOk`) — are proved for arbitrary telescopes.
+`FixCtorDataI` carries `tss` (per-field telescopes; `reflOpen` pins
+the telescope length to the raw binders' count, `tssBits` their bits
+at `w`'s regime, `tssBelow`, `reflEntry` the Π-tower entry).  The
+recursor READINGS (`FixRecReadDefsP`: `ihIdxAtM`, `ihTeleAtR`,
+`ihDomAV`, `ihAppAV`, `CtorDatumR` with the telescopes, `CtorReadR`
+with `fieldRead`/`teleLen`/the Π-tower `recEntry` instead of
+`eisRead`) are the contract of the reading lane (`agent/reflexive-read`,
+`FixRecReadP`/`FixCtorReadsP`/`FixRuleDataP`/`FixRecDataP`/
+`FixCtorCrossP`), merged back here.
