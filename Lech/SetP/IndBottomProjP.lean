@@ -188,7 +188,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       ∃ ty, x = Expr.fvar q ty := by
     intro q x hx
     obtain ⟨ty, hx'⟩ := openPisAtFvars_index _ _ _ hopen q x hx
-    exact ⟨nm, ty, by simpa using hx'⟩
+    exact ⟨ty, by simpa using hx'⟩
   have hwsS := openPisAtFvars_WScoped (rP + cnF) stmtTy 0 hopen
     (Expr.WScoped.of_not_hasFvar hSw)
   have hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x := by
@@ -595,7 +595,7 @@ theorem indBottomProjP {μ : CheckMode} {env : Env}
       rwa [hfvslen] at this
     obtain ⟨ty, rfl⟩ := hshapeS q x hx
     refine ⟨.bvar (rP + cnF - 1 - q),
-      denoteP_fvar mp.base2.acval (rP + cnF) q nm ty, ?_⟩
+      denoteP_fvar mp.base2.acval (rP + cnF) q ty, ?_⟩
     rw [instSeqP_bvar_full hqlt hzslen, List.getD]
     rcases hz : (xs.take rP ++ ys.drop cnP)[q]? with _ | v
     · rw [List.getElem?_eq_none_iff, hzslen] at hz

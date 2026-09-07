@@ -288,7 +288,7 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
       ∃ ty, x = Expr.fvar i ty := by
     intro i x hx
     obtain ⟨ty, hx'⟩ := openPisAtFvars_index _ _ _ hopenP i x hx
-    exact ⟨nm, ty, by simpa using hx'⟩
+    exact ⟨ty, by simpa using hx'⟩
   have hdomsP0 : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
       denoteP mp.base2.acval envSelf ψ i (Expr.fvarTypeD x)
         = some (ΓP.getD (rP - 1 - i) default) := by
@@ -301,9 +301,9 @@ theorem iotaRuleNestedP {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     intro x hx
     have h := hwsP.1 x hx
     rwa [Nat.zero_add] at h
-  have hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
+  have hlbFvsP : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true :=
-    fun i nm ty hmem =>
+    fun i ty hmem =>
       (openPisAtFvars_bounded rP hopenP htyb).2 _ hmem
   have hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvsP := by

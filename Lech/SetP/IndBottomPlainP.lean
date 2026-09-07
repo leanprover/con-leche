@@ -184,7 +184,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
       ∃ ty, x = Expr.fvar i ty := by
     intro i x hx
     obtain ⟨ty, hx'⟩ := openPisAtFvars_index _ _ _ hopen i x hx
-    exact ⟨nm, ty, by simpa using hx'⟩
+    exact ⟨ty, by simpa using hx'⟩
   have hwsS := openPisAtFvars_WScoped (rP + cnF) stmtTy 0 hopen
     (Expr.WScoped.of_not_hasFvar hSw)
   have hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x := by
@@ -196,9 +196,9 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
     obtain ⟨ty, rfl⟩ := hshapeS q x hq
     rfl
-  have hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
+  have hlbFvs : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true :=
-    fun i nm ty hmem =>
+    fun i ty hmem =>
       (openPisAtFvars_bounded (rP + cnF) hopen hSb).2 _ hmem
   have hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvs := by
@@ -259,7 +259,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
       ∃ ty, x = Expr.fvar i ty := by
     intro i x hx
     obtain ⟨ty, hx'⟩ := openPisAtFvars_index _ _ _ hopenP i x hx
-    exact ⟨nm, ty, by simpa using hx'⟩
+    exact ⟨ty, by simpa using hx'⟩
   have hdomsP0 : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
       denoteP mp.base2.acval env (Level.substFn φ lps us) i
           (Expr.fvarTypeD x)
@@ -273,9 +273,9 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     intro x hx
     have h := hwsP.1 x hx
     rwa [Nat.zero_add] at h
-  have hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
+  have hlbFvsP : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true :=
-    fun i nm ty hmem =>
+    fun i ty hmem =>
       (openPisAtFvars_bounded rP hopenP htyb).2 _ hmem
   have hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvsP := by
@@ -377,12 +377,12 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
             rw [← List.getElem?_take_of_lt hql]
             exact hq
           obtain ⟨ty, rfl⟩ := hshapeS q x hq'
-          exact ⟨q, nm, ty, rfl⟩
+          exact ⟨q, ty, rfl⟩
         · obtain ⟨q, hq⟩ := List.getElem?_of_mem hx'
           rw [List.getElem?_drop] at hq
           obtain ⟨ty, rfl⟩ := hshapeS (rP + q) x hq
-          exact ⟨rP + q, nm, ty, rfl⟩)
-      (bs := bsC.map (fun b => (b.1, b.2.1.renameConsts f, b.2.2)))
+          exact ⟨rP + q, ty, rfl⟩)
+      (bs := bsC.map (fun b => (b.1.renameConsts f, b.2)))
       (body := cbody.renameConsts f)
       (by rw [hsplen]; exact hstripR)
     rw [getAppArgs_length_renameConsts] at h1
@@ -473,7 +473,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
       ∀ l ∈ x.fvarLeaves,
         Expr.fvar l.1 l.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP) := by
     intro q x hx l hl
-    obtain ⟨nm, ty, rfl, hmem, hidx0⟩ := hspIdx q x hx
+    obtain ⟨ty, rfl, hmem, hidx0⟩ := hspIdx q x hx
     rw [Expr.fvarLeaves] at hl
     rcases List.mem_cons.mp hl with rfl | hl'
     · exact ⟨hmem, hidx0⟩
@@ -491,7 +491,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
       (fvs.take cnP ++ fvs.drop rP)[q]? = some x →
       Expr.WScoped (rP + cnF) x ∧ x.looseBVarsBounded 0 = true := by
     intro q x hx
-    obtain ⟨nm, ty, rfl, hmem, -⟩ := hspIdx q x hx
+    obtain ⟨ty, rfl, hmem, -⟩ := hspIdx q x hx
     exact ⟨hwsFvs _ hmem, hbFvs _ hmem⟩
   have hspPar : ∀ q, q < cnP →
       (fvs.take cnP ++ fvs.drop rP)[q]? = fvs[q]? := by
@@ -541,14 +541,14 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
       · exact h'
       · rw [List.getElem?_eq_none (by omega)] at hx
         exact nomatch hx
-    obtain ⟨nm, ty, rfl, hmem, -⟩ := hspIdx q x hx
+    obtain ⟨ty, rfl, hmem, -⟩ := hspIdx q x hx
     have hidxK : (if q < cnP then q else rP + (q - cnP)) < rP + cnF := by
       by_cases hqc : q < cnP
       · rw [if_pos hqc]; omega
       · rw [if_neg hqc]; omega
     refine ⟨.bvar (rP + cnF - 1
         - (if q < cnP then q else rP + (q - cnP))),
-      denoteP_fvar mp.base2.acval (rP + cnF) _ nm ty, ?_⟩
+      denoteP_fvar mp.base2.acval (rP + cnF) _ ty, ?_⟩
     rw [instSeqP_bvar_full hidxK hzslen]
     by_cases hqc : q < cnP
     · rw [if_pos hqc, List.getElem?_append_left
@@ -819,7 +819,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     have hx' : fvsP[j]? = some x := by
       rw [← List.getElem?_take_of_lt hj]; exact hx
     obtain ⟨ty, rfl⟩ := hshapeP j x hx'
-    exact ⟨⟨_, denoteP_fvar mp.base2.acval rP j nm ty⟩,
+    exact ⟨⟨_, denoteP_fvar mp.base2.acval rP j ty⟩,
       hwsFvsP _ (List.mem_of_getElem? hx'), rfl⟩
   obtain ⟨Xcrest, hXcrest⟩ := instPisAt_denoteP_defined
     mp.base2.acval_closed hainst (fvsP.take cnP) hcinstP hpsPfacts
@@ -888,9 +888,9 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
   have hbCrestP : crestP.looseBVarsBounded 0 = true :=
     (instPisAt_bounded (fvsP.take cnP) hcinstP hCb
       (fun a ha => hbFvsP a (List.mem_of_mem_take ha))).2
-  have hlbP : ∀ (i : Nat) (nm : Name) (ty : Expr),
+  have hlbP : ∀ (i : Nat) (ty : Expr),
       Expr.fvar i ty ∈ fvsP ++ xFvsP → ty.looseBVarsBounded 0 = true := by
-    intro i nm ty hmem
+    intro i ty hmem
     rcases List.mem_append.mp hmem with h' | h'
     · exact hlbFvsP i ty h'
     · exact (openPisAtFvars_bounded cnF hopenXP hbCrestP).2 _ h'
@@ -954,7 +954,7 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
     obtain ⟨ty, rfl⟩ := hshapeS q x hx
     rw [show fvs.getD q default = Expr.fvar q ty from by
         rw [List.getD, hx]; rfl, hbvsgetD q hq]
-    exact denoteP_fvar mp.base2.acval (rP + cnF) q nm ty
+    exact denoteP_fvar mp.base2.acval (rP + cnF) q ty
   have hchainbvs : ∀ (τ : Nat → V) (i : Nat), i < rP + cnF →
       chainP V τ bvs i = τ i := by
     intro τ i hi
@@ -1100,13 +1100,13 @@ theorem indBottomPlainP {μ : CheckMode} {env : Env}
         · exact h'
         · rw [List.getElem?_eq_none (by rw [hsplen]; omega)] at hx
           exact nomatch hx
-      obtain ⟨nm, ty, rfl, hmem, -⟩ := hspIdx q x hx
+      obtain ⟨ty, rfl, hmem, -⟩ := hspIdx q x hx
       have hqc' : ¬ q < cnP := by omega
       rw [if_neg hqc'] at hx ⊢
       refine ⟨.bvar (rP + cnF - 1 - (rP + (q - cnP))), ?_,
         ⟨by simp, by simp⟩, ?_⟩
       · exact denoteP_fvar mp.base2.acval (env := env)
-          (φ := Level.substFn φ lps us) (rP + cnF) (rP + (q - cnP)) nm ty
+          (φ := Level.substFn φ lps us) (rP + cnF) (rP + (q - cnP)) ty
       · intro dw hdw
         -- task #77: `grind`, not `omega`, on the three position side
         -- conditions (seconds of `omega` in this ambient context).
