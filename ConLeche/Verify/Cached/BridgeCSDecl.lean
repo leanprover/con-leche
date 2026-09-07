@@ -3,6 +3,7 @@ import ConLeche.Verify.Direct.DirectWF
 import ConLeche.Verify.Direct.DirectResid
 import ConLeche.Verify.Direct.SumWF
 import ConLeche.Verify.Direct.FixWF
+import ConLeche.Verify.Cached.WalkersC
 
 /-!
 # Cached shared-state checker: the inductive block and the per-declaration bridge
@@ -154,12 +155,12 @@ theorem checkDirectCtorF_pushC (ops : CheckerOps CheckCM) (env₀ env : Env)
 theorem checkDirectProjTableF_pushC (T C : Name) (lps : List Name)
     (nP nF : Nat) (rs : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal)
     (env : Env) :
-    checkDirectProjTableF (m := CheckCM) T C lps nP nF rs guards off cvCa (mkFEnv env)
+    checkDirectProjTableF (m := CheckCM) .plain T C lps nP nF rs guards off cvCa (mkFEnv env)
       = checkDirectProjTable (m := CheckCM) T C lps nP nF rs guards off cvCa env
           >>= fun e => pure (mkFEnv e) := by
   unfold checkDirectProjTableF checkDirectProjTable
-  simp only [constsResolveF_eq, mkFEnv_find?, push_mkFEnv, bind_assoc, pure_bind,
-    ite_bindC, throwC_bind_eq] <;> rfl
+  simp only [DirectWalkers.plain, constsResolveF_eq, mkFEnv_find?, push_mkFEnv, bind_assoc,
+    pure_bind, ite_bindC, throwC_bind_eq] <;> rfl
 
 /-- The non-inductive branches of the cached `checkDeclSF` are the
 generic `checkDecl` (at the cached shared operations) followed by
@@ -310,7 +311,7 @@ theorem checkDirectProjTableS_run {T C : Name} {lps : List Name} {nP nF : Nat}
     {rs : Level} {guards : List Level} {off : Nat} {cvCa : ConstantVal}
     (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState}
     (henv : EnvWF env) (hwf : CSOKF s₀)
-    (h : checkDirectProjTableF (m := CheckCM) T C lps nP nF rs guards off cvCa
+    (h : checkDirectProjTableF (m := CheckCM) .plain T C lps nP nF rs guards off cvCa
       (mkFEnv env) s₀ = .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
     ∃ F, (checkDirectProjTable T C lps nP nF rs guards off cvCa env : FueledM Env).val F
@@ -550,7 +551,8 @@ environment unchanged. -/
 theorem checkDirectFixTableS_run {p : DirectFixParts} {ctorsA : List (ConstantVal × Nat)}
     {sortss : List (List Level)} (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState}
     (henv : EnvWF env) (hwf : CSOKF s₀)
-    (h : checkDirectFixTableF (m := CheckCM) p ctorsA sortss (mkFEnv env) s₀ = .ok (fe', s')) :
+    (h : checkDirectFixTableF (m := CheckCM) .plain p ctorsA sortss (mkFEnv env) s₀
+      = .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
     ∃ F, (checkDirectFixTable (m := FueledM) p ctorsA sortss env).val F = .ok fe'.env := by
   match ctorsA, sortss with
@@ -592,6 +594,7 @@ theorem checkDirectFixS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDirectFix (fueledOps mode F) env p = .ok feOut.env := by
   unfold checkDirectFixS at h
+  rw [directWalkersC_eq_plain] at h
   -- the three front guards
   by_cases hneg : p.kinds.any (fun ks => ks.any (· == .negative)) = true
   · rw [if_pos hneg] at h; exact absurd h throwC_bind_ok

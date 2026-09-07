@@ -808,10 +808,10 @@ theorem checkDirectCtorF_skels {fe₀ fe : FEnv} {sk : List InstallSkel}
      have := h.push (.ctorInfo cvCa p.nP p.nF)
      simpa [ciSkel, hn] using this)
 
-theorem checkDirectProjTableF_skels {fe : FEnv} {sk : List InstallSkel}
+theorem checkDirectProjTableF_skels {w : DirectWalkers} {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (T C : Name) (lps : List Name) (nP nF : Nat)
     (resSort : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal) :
-    Yields (checkDirectProjTableF (m := CheckCM) T C lps nP nF resSort guards
+    Yields (checkDirectProjTableF (m := CheckCM) w T C lps nP nF resSort guards
         off cvCa fe)
       (fun fe' => SkelIs fe' (.proj (projTableName T) :: sk)) := by
   unfold checkDirectProjTableF
@@ -1121,12 +1121,12 @@ private theorem directFixCtors4_length' {ctorsA : List (ConstantVal × Nat)}
     (directFixCtors4 ctorsA kinds).length = ctorsA.length := by
   simp [directFixCtors4, List.length_zipWith, h]
 
-theorem checkDirectFixRulesF_len (fe : FEnv)
+theorem checkDirectFixRulesF_len {w : DirectWalkers} (fe : FEnv)
     (rlps : List Name) (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat))
     (recC : Name) (rlvls : List Level) :
     ∀ (k j : Nat),
-      Yields (checkDirectFixRulesF (m := CheckCM) fe rlps T lps elim large nP nIdx tty ctors
+      Yields (checkDirectFixRulesF (m := CheckCM) w fe rlps T lps elim large nP nIdx tty ctors
           recC rlvls k j)
         (fun rhss => rhss.length = k)
   | 0, _ => Yields.pure rfl
@@ -1143,10 +1143,10 @@ theorem checkDirectFixRulesF_len (fe : FEnv)
 
 /-- The recursor stage stores the generated recursor at the stream's
 name, with one rule per generator entry. -/
-theorem checkDirectFixRecF_yields (ops : CheckerOps CheckCM) (fe : FEnv)
+theorem checkDirectFixRecF_yields (ops : CheckerOps CheckCM) {w : DirectWalkers} (fe : FEnv)
     (p : DirectFixParts) (cvTa : ConstantVal)
     (ctorsA : List (ConstantVal × Nat)) :
-    Yields (checkDirectFixRecF ops fe p cvTa ctorsA)
+    Yields (checkDirectFixRecF ops w fe p cvTa ctorsA)
       (fun r => r.1.name = p.cvR.name ∧
         r.2.length = (directFixCtors4 ctorsA p.kinds).length) := by
   unfold checkDirectFixRecF
@@ -1176,11 +1176,11 @@ theorem checkDirectFixRecF_yields (ops : CheckerOps CheckCM) (fe : FEnv)
 otherwise — decided by the block's constructor count and index count,
 since the annotated constructor list and the sort lists are one per
 constructor. -/
-theorem checkDirectFixTableF_skels {fe : FEnv} {sk : List InstallSkel}
+theorem checkDirectFixTableF_skels {w : DirectWalkers} {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (p : DirectFixParts) (ctorsA : List (ConstantVal × Nat))
     (sortss : List (List Level)) (hlen : ctorsA.length = p.ctors.length)
     (hlenS : sortss.length = p.ctors.length) :
-    Yields (checkDirectFixTableF (m := CheckCM) p ctorsA sortss fe)
+    Yields (checkDirectFixTableF (m := CheckCM) w p ctorsA sortss fe)
       (fun fe' => SkelIs fe' (if p.ctors.length == 1 && p.nIdx == 0 then
         .proj (projTableName p.cvT.name) :: sk else sk)) := by
   match ctorsA, sortss, hlen, hlenS with

@@ -279,6 +279,7 @@ theorem stageFixTable (mp : EnvS2PM V μ env)
     have hrest : rest.hasLooseBVar 0 = false := by
       unfold ConLeche.directUsedLater at hun
       rw [hst] at hun
+      rw [ConLeche.Expr.hasLooseBVarB_eq] at hun
       exact hun
     obtain ⟨hleavesK, -⟩ := openPisAtFvars_leaf_free (p.nP + nF) (p.nP + j) hopAll (by omega)
       hst hrest (by
