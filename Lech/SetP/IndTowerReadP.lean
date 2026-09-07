@@ -199,7 +199,7 @@ theorem instLamsAt_denotePTele :
       | some Bv => ?_
       rw [hB] at hV
       obtain rfl : Va = .lam (pwBit φ mb.pw) A Bv := by simpa using hV.symm
-      obtain ⟨nmA, tyA, rfl⟩ := hshape 0 a rfl
+      obtain ⟨tyA, rfl⟩ := hshape 0 a rfl
       -- re-open at the run's opener (the reading is blind to it)
       have hB' : denoteP acval env φ (j + 1)
           (bodyE.instantiate1 (.fvar (j + 0) tyA)) = some Bv := by
@@ -209,10 +209,10 @@ theorem instLamsAt_denotePTele :
             (.fvar j dom) from by constructor)) (j + 1)]
         exact hB
       have hshape' : ∀ (i : Nat) (x : Expr), sp[i]? = some x →
-          ∃ nm' ty', x = Expr.fvar (j + 1 + i) ty' := by
+          ∃ ty', x = Expr.fvar (j + 1 + i) ty' := by
         intro i x hx
-        obtain ⟨nm', ty', hx'⟩ := hshape (i + 1) x (by simpa using hx)
-        exact ⟨nm', ty', by rw [hx']; congr 1; omega⟩
+        obtain ⟨ty', hx'⟩ := hshape (i + 1) x (by simpa using hx)
+        exact ⟨ty', by rw [hx']; congr 1; omega⟩
       obtain ⟨Γ', C, htele, hΓlen, hrest, hdoms⟩ := ih h1 hshape' hB'
       refine ⟨Γ' ++ [A], C, .cons htele, ?_, ?_, ?_⟩
       · simp [hΓlen]
