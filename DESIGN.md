@@ -55689,7 +55689,7 @@ init-full (16 GB cap): stock stream `--verified` 58 604 / `--trusted`
 in-process-modelled blocks' `_model` records); REGENERATED with the
 merged `lech-preprocess` (byte-identical to the pre-merge
 regeneration, md5 `6dfc96ae…`; 585 native blocks, the 49 recursive
-ones included) `--verified` 53 184 / `--trusted` <<FIXT>> (exit 0) —
+ones included) `--verified` 53 184 / `--trusted` 53 184 (exit 0) —
 706 fewer than master's regenerated sum-types stream (53 890): the
 recursive blocks' `_model` artifacts.  Mathlib slices:
 `diseq-slice-pre` 1 406 / 1 406, `sigmahom-comp-slice-pre` 1 051 /
