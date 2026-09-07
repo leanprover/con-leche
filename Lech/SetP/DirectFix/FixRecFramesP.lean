@@ -106,6 +106,46 @@ theorem piTele_ihTeleAtGo {v : Nat} {B : List V → V} {nF o i l : Nat} {ρp : N
     rw [length_snoc', ← consList_snoc', ← consList_snoc'] at this
     exact this
 
+/-- The ih domain's body under `as` telescope values: the motive at the
+field's index values (under those values) at the field applied to
+them. -/
+theorem interp_ihDomBody {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
+    (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
+    (hi : i < nF) (as : List V) (Eis : List AVExpr) :
+    interp2 V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
+        (AVExpr.mkAppN (.bvar (nF + o - 1 + l + as.length))
+          (Eis.map (ihIdxAtM nF o i l as.length) ++
+            [AVExpr.mkAppN (.bvar (nF - 1 - i + l + as.length)) (teleVarsAV as.length)]))
+      = SetTheory.app
+          ((Eis.map (interp2 V (consList as (consList (fs.take i) ρp)))).foldl SetTheory.app M)
+          (as.foldl SetTheory.app (fs.getD i pt)) := by
+  rw [AVExpr.mkAppN_append_one, interp2_app, interp2_mkAppN,
+    interp2_bvar, interp2_mkAppN, interp2_bvar,
+    ← List.foldl_map (f := interp2 V (consList as (consList ihs (consList fs (consList ms (cons M ρp))))))
+      (g := SetTheory.app) (l := Eis.map (ihIdxAtM nF o i l as.length)),
+    ← List.foldl_map (f := interp2 V (consList as (consList ihs (consList fs (consList ms (cons M ρp))))))
+      (g := SetTheory.app) (l := teleVarsAV as.length), List.map_map]
+  have hM : consList as (consList ihs (consList fs (consList ms (cons M ρp))))
+      (nF + o - 1 + l + as.length) = M := by
+    rw [consList_apply_add, show nF + o - 1 + l = (nF + o - 1) + ihs.length from by omega,
+      consList_apply_add, show nF + o - 1 = (o - 1) + fs.length from by omega, consList_apply_add,
+      show o - 1 = 0 + ms.length from by omega, consList_apply_add]
+    rfl
+  have hf : consList as (consList ihs (consList fs (consList ms (cons M ρp))))
+      (nF - 1 - i + l + as.length) = fs.getD i pt := by
+    rw [consList_apply_add, show nF - 1 - i + l = (nF - 1 - i) + ihs.length from by omega,
+      consList_apply_add, consList_apply_lt' fs _ (by omega),
+      show fs.length - 1 - (nF - 1 - i) = i from by omega]
+  have hvars : (teleVarsAV as.length).map
+      (interp2 V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))) = as :=
+    map_fieldBvars_interp rfl _
+  rw [hM, hf, hvars]
+  congr 2
+  apply List.map_congr_left
+  intro E _
+  simp only [Function.comp]
+  exact interp_ihIdxAtM hms hfs hihs (Nat.le_of_lt hi) as E
+
 /-- The ih domain reads to the nested product over the field's
 telescope of the motive at the field's index values and the field
 applied to the telescope's values (a finitary field: the motive at
@@ -136,32 +176,8 @@ theorem interp_ihDomAV {ℓ nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List
   · intro as hsp
     have hlen : as.length = tl.length := by
       rw [hsp.length_eq, List.length_map, ihTeleAtR_length]
-    rw [List.nil_append, ← hlen, AVExpr.mkAppN_append_one, interp2_app, interp2_mkAppN,
-      interp2_bvar, interp2_mkAppN, interp2_bvar,
-      ← List.foldl_map (f := interp2 V (consList as (consList ihs (consList fs (consList ms (cons M ρp))))))
-        (g := SetTheory.app) (l := Eis.map (ihIdxAtM nF o i l as.length)),
-      ← List.foldl_map (f := interp2 V (consList as (consList ihs (consList fs (consList ms (cons M ρp))))))
-        (g := SetTheory.app) (l := teleVarsAV as.length), List.map_map]
-    have hM : consList as (consList ihs (consList fs (consList ms (cons M ρp))))
-        (nF + o - 1 + l + as.length) = M := by
-      rw [consList_apply_add, show nF + o - 1 + l = (nF + o - 1) + ihs.length from by omega,
-        consList_apply_add, show nF + o - 1 = (o - 1) + fs.length from by omega, consList_apply_add,
-        show o - 1 = 0 + ms.length from by omega, consList_apply_add]
-      rfl
-    have hf : consList as (consList ihs (consList fs (consList ms (cons M ρp))))
-        (nF - 1 - i + l + as.length) = fs.getD i pt := by
-      rw [consList_apply_add, show nF - 1 - i + l = (nF - 1 - i) + ihs.length from by omega,
-        consList_apply_add, consList_apply_lt' fs _ (by omega),
-        show fs.length - 1 - (nF - 1 - i) = i from by omega]
-    have hvars : (teleVarsAV as.length).map
-        (interp2 V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))) = as :=
-      map_fieldBvars_interp rfl _
-    rw [hM, hf, hvars]
-    congr 2
-    apply List.map_congr_left
-    intro E _
-    simp only [Function.comp]
-    exact interp_ihIdxAtM hms hfs hihs (Nat.le_of_lt hi) as E
+    rw [List.nil_append, ← hlen]
+    exact interp_ihDomBody hms hfs hihs hi as Eis
 
 /-! ## The ih tower, read -/
 

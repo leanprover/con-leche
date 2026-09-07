@@ -71,6 +71,56 @@ theorem map_recPrefixBvars_interp {nP n nF : Nat} {as₁ ms as₂ : List V} {M :
         show ms.length - 1 - (n - 1 - l) = l from by omega,
         List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
 
+/-- The recursor's leading spine under `bs` telescope binders reads to
+the block (task #202). -/
+theorem map_recPrefixBvarsM_interp {nP n nF : Nat} {as₁ ms as₂ : List V} {M : V} {ρ : Nat → V}
+    (hlenP : as₁.length = nP) (hlenM : ms.length = n) (hlenF : as₂.length = nF) (bs : List V) :
+    (recPrefixBvarsM nP n nF bs.length).map
+        (interp2 V (consList bs (consList as₂ (consList ms (cons M (consList as₁ ρ))))))
+      = (as₁ ++ [M]) ++ ms := by
+  unfold recPrefixBvarsM
+  rw [List.map_append, List.map_append]
+  congr 1
+  congr 1
+  · rw [show nP + nF + n + 1 + bs.length = nP + (nF + n + 1 + bs.length) from by omega,
+      map_paramBvarsAt_interp (ρp := consList as₁ ρ) (fun k => by
+        rw [show k + (nF + n + 1 + bs.length) = (k + (nF + n + 1)) + bs.length from by omega,
+          consList_apply_add,
+          show k + (nF + n + 1) = (k + (n + 1)) + as₂.length from by omega, consList_apply_add,
+          show k + (n + 1) = (k + 1) + ms.length from by omega, consList_apply_add]
+        rfl), ← hlenP, range_reverse_map_consList]
+  · simp only [List.map_cons, List.map_nil, interp2_bvar]
+    rw [consList_apply_add, show nF + n = n + as₂.length from by omega, consList_apply_add,
+      show n = 0 + ms.length from by omega, consList_apply_add]
+    rfl
+  · apply List.ext_getElem
+    · simp [hlenM]
+    · intro l h1 h2
+      have hl : l < n := by simpa using h1
+      simp only [List.getElem_map, List.getElem_range, interp2_bvar]
+      rw [consList_apply_add, show nF + n - 1 - l = (n - 1 - l) + as₂.length from by omega,
+        consList_apply_add, consList_apply_lt' ms _ (by omega),
+        show ms.length - 1 - (n - 1 - l) = l from by omega,
+        List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
+
+theorem recPrefixBvarsM_ok2 {nP n nF m : Nat} {σ : Nat → V} {a : AVExpr}
+    (ha : a ∈ recPrefixBvarsM nP n nF m) : AnnotOk2 V σ a := by
+  unfold recPrefixBvarsM at ha
+  rcases List.mem_append.mp ha with ha | ha
+  · rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha; trivial
+    · rw [List.mem_singleton] at ha; subst ha; trivial
+  · obtain ⟨l, -, rfl⟩ := List.mem_map.mp ha; trivial
+
+theorem recPrefixBvarsM_validV {nP n nF m : Nat} {σ : Nat → V} {a : AVExpr}
+    (ha : a ∈ recPrefixBvarsM nP n nF m) : AnnotValidV V σ a := by
+  unfold recPrefixBvarsM at ha
+  rcases List.mem_append.mp ha with ha | ha
+  · rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha; trivial
+    · rw [List.mem_singleton] at ha; subst ha; trivial
+  · obtain ⟨l, -, rfl⟩ := List.mem_map.mp ha; trivial
+
 /-- **The rule's core reads to the minor's fold** at the fields and the
 inductive-hypothesis values. -/
 theorem interp_fixRuleCoreAV {nP n nF j : Nat} {as₁ ms as₂ : List V} {M : V} {ρ : Nat → V}
