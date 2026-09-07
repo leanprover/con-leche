@@ -47,10 +47,10 @@ per line, sorted by test name:
 
 | file | run |
 |---|---|
-| `con-leche-verified.jsonl`, `con-leche-trusted.jsonl` | the 202 small tests, both modes, at master `b7fa7331` (post-rename, task #180) |
+| `con-leche-verified.jsonl`, `con-leche-trusted.jsonl` | the 202 small tests, both modes, at master `b7fa7331` (after the first rename, task #180) |
 | `con-leche-verified-big.jsonl` | `cslib` |
-| `setlec-verified.jsonl`, `setlec-trusted.jsonl` | the same 202 before the rename, at master `2664b1dd` — kept as the baseline the §9 diff is against |
-| `setlec-verified-big.jsonl` | `init`, `std`, `cedar` (pre-rename; not re-measured, see DESIGN.md §7) |
+| `setlec-verified.jsonl`, `setlec-trusted.jsonl` | the same 202 before the first rename, at master `2664b1dd` — kept as the baseline the §9 diff is against |
+| `setlec-verified-big.jsonl` | `init`, `std`, `cedar` (before the first rename; not re-measured, see DESIGN.md §7) |
 | `official.jsonl` | the arena's own checker at v4.34.0-rc2 over the same 202 |
 
 Provenance: arena `91f376e`, exports by `lean4export` 3.1.0 at
