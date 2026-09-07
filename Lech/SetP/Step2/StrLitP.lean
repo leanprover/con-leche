@@ -180,8 +180,8 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
         interp2 V ρ (m.acval Lech.stringName (Level.substFn φ [] [])) := by
   obtain ⟨hs, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO,
     hfL, hfN, hfC, hfH, hfF, hlpS, hlpO, hlpL, hlpN, hlpC, hlpH, hlpF,
-    hTS, hTH, ⟨nmO, mbO, hTO⟩, ⟨nmL, mbL, hTL⟩, ⟨nmN, mbN, hTN⟩,
-    ⟨nm1, nm2, nm3, mb1, mb2, mb3, hTC⟩, ⟨nmF, mbF, hTF⟩⟩ :=
+    hTS, hTH, ⟨mbO, hTO⟩, ⟨mbL, hTL⟩, ⟨mbN, hTN⟩,
+    ⟨mb1, mb2, mb3, hTC⟩, ⟨mbF, hTF⟩⟩ :=
     Lech.strLitSupported_inv hg
   obtain ⟨cvNat, capsNat, cv0, i0, j0, cv1, i1, j1, hfNat, hfZ, hfSc,
     hlpNat, hlpZ, hlpSc, hTNat, hTZ, hTSc⟩ :=

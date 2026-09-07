@@ -140,7 +140,7 @@ theorem denoteP_openRev
       rw [denoteP_lift hacl hwa (d + as.length) (by omega), ha,
         show d + as.length - d = as.length from by omega]
       rfl
-    rw [denoteP_beta (n := Name.anonymous) (ty := .sort .zero) hacl hainst
+    rw [denoteP_beta (ty := .sort .zero) hacl hainst
       (openRev_fvarsBelow hfb as.length) (hwa.mono (by omega)) hba ha' 0]
     show ((denoteP acval env φ (d + as.length + 1)
       (openRev d (as.length + 1) e)).map
@@ -211,7 +211,7 @@ theorem teleFitPA_residual
     obtain ⟨doma, bodya, hdoma, hbodya, rfl⟩ := denoteP_forallE_inv hty
     have hbody' : denoteP acval env φ d (body.instantiate1 a)
         = some (bodya.inst va) := by
-      rw [denoteP_beta hacl hainst (n := n) (ty := dom)
+      rw [denoteP_beta hacl hainst (ty := dom)
         hbodyw.fvarsBelow hwa hba ha 0, hbodya]
       rfl
     cases hfit with
@@ -323,7 +323,7 @@ theorem certs_telePA {m : EnvS2Core V env}
     have hbody' : denoteP m.acval env φ d (body.instantiate1 a)
         = some (bodya.inst aa) := by
       rw [denoteP_beta m.acval_closed (acval_inst_self m)
-        (n := n) (ty := dom) hbodyw.fvarsBelow haw hab haa 0, hbodya]
+        (ty := dom) hbodyw.fvarsBelow haw hab haa 0, hbodya]
       rfl
     have hwbody : Expr.WScoped d (body.instantiate1 a) :=
       Expr.WScoped.instantiate1_gen haw 0 hbodyw

@@ -156,7 +156,7 @@ theorem instPisAt_domsP_graded {ρ' : Nat → V}
         -- the tail: the run on the β-reduct
         have hTI : denoteP acval env φ D (body.instantiate1 a)
             = some (B.inst w 0) := by
-          rw [denoteP_beta hacl hainst (n := nmT) (ty := dom) hfb'.2
+          rw [denoteP_beta hacl hainst (ty := dom) hfb'.2
             hwsa hba hw 0, hB]
           rfl
         have hokBI : AnnotOkP V ρ' (B.inst w 0) :=
@@ -243,7 +243,7 @@ theorem instPisAt_resP_graded {ρ' : Nat → V}
         hmem0 A (by rw [hdom0]; exact hA)
       have hTI : denoteP acval env φ D (body.instantiate1 a)
           = some (B.inst w 0) := by
-        rw [denoteP_beta hacl hainst (n := nmT) (ty := dom) hfb'.2
+        rw [denoteP_beta hacl hainst (ty := dom) hfb'.2
           hwsa hba hw 0, hB]
         rfl
       have hokBI : AnnotOkP V ρ' (B.inst w 0) :=

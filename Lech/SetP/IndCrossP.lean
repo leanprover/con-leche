@@ -93,7 +93,7 @@ theorem instPisAt_denoteP_defined
       | some B => ?_
       have hTI : denoteP acval env φ D (body.instantiate1 a)
           = some (B.inst w0 0) := by
-        rw [denoteP_beta hacl hainst (n := nmT) (ty := dom) hfb'.2 hwsa
+        rw [denoteP_beta hacl hainst (ty := dom) hfb'.2 hwsa
           hba hw0 0, hB]
         rfl
       exact ih h1
@@ -170,7 +170,7 @@ theorem instPisAt_denoteP_cross
       rw [hB] at hT
       obtain rfl : T = .pi 0 (pwBit φ mb.pw) A B :=
         (Option.some.inj hT).symm
-      have hbeta := denoteP_beta hacl hainst (n := nmT) (ty := dom)
+      have hbeta := denoteP_beta hacl hainst (ty := dom)
         hfb'.2 hwsa hba hw0den 0
       match ws, hwlen with
       | w :: ws', hwlen => ?_

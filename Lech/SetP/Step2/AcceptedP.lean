@@ -142,7 +142,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       simp only [Expr.looseBVarsBounded] at hb
       exact absurd (of_decide_eq_true hb) (Nat.not_lt_zero i)
     | .sort u => exact ⟨_, denoteP_sort _ _ _⟩
-    | .fvar idx ty => exact ⟨_, denoteP_fvar _ _ _ _ _⟩
+    | .fvar idx ty => exact ⟨_, denoteP_fvar _ _ _ _⟩
     | .const n us =>
       obtain ⟨ci, hf, hlen⟩ := inferTypeCore_const_inv_len h
       exact ⟨_, denoteP_const hf hlen⟩
@@ -156,7 +156,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
         exact nomatch hd
       · exact ⟨ea, rfl⟩
     | .app f a =>
-      obtain ⟨tf, _, _, _, _, htf, -, -, ta, hta, -⟩ :=
+      obtain ⟨tf, _, _, _, htf, -, -, ta, hta, -⟩ :=
         Lech.inferTypeCore_app_inv h
       simp only [Expr.WScoped] at hws
       simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -175,7 +175,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       have hLbd : Expr.LeavesBounded body := fun l hl =>
         hL l (by simp [Expr.fvarLeaves, hl])
       obtain ⟨hwo, hbo, hLo⟩ :=
-        frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbd
+        frame_open2 hws.1 hb.1 hws.2 hb.2 hLty hLbd
       obtain ⟨ta, hta⟩ := ih htty hws.1 hb.1 hLty
       obtain ⟨ba, hba⟩ := ih hbt hwo hbo hLo
       exact ⟨_, by rw [denoteP_forallE, hta, hba]; rfl⟩
@@ -189,7 +189,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
       have hLbd : Expr.LeavesBounded body := fun l hl =>
         hL l (by simp [Expr.fvarLeaves, hl])
       obtain ⟨hwo, hbo, hLo⟩ :=
-        frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbd
+        frame_open2 hws.1 hb.1 hws.2 hb.2 hLty hLbd
       obtain ⟨ta, hta⟩ := ih htty hws.1 hb.1 hLty
       obtain ⟨ba, hba⟩ := ih hbt hwo hbo hLo
       exact ⟨_, by rw [denoteP_lam, hta, hba]; rfl⟩
@@ -228,7 +228,7 @@ private theorem acceptedReadsP_aux (m : EnvS2Core V env) (φ : Name → Nat) :
         (fun l hl => hL l (hsubred l hl))
       -- … and `denoteP_beta` reads it as the *opened* body's reading
       rw [denoteP_beta m.acval_closed (acval_inst_self m)
-        (n := n) (ty := ty) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0] at hza
+        (ty := ty) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0] at hza
       rcases hba : denoteP m.acval env φ (d + 1)
           (body.instantiate1 (.fvar d ty)) with _ | ba
       · rw [hba] at hza; exact nomatch hza

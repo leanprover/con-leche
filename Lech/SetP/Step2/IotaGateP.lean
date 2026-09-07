@@ -228,7 +228,7 @@ theorem certs_teleLicP {m : EnvS2Core V env}
     have hbody' : denoteP m.acval env φ d (body.instantiate1 a)
         = some (bodya.inst aa) := by
       rw [denoteP_beta m.acval_closed (acval_inst_self m)
-        (n := n) (ty := dom) hbodyw.fvarsBelow haw hab haa 0, hbodya]
+        (ty := dom) hbodyw.fvarsBelow haw hab haa 0, hbodya]
       rfl
     have hwbody : Expr.WScoped d (body.instantiate1 a) :=
       Expr.WScoped.instantiate1_gen haw 0 hbodyw

@@ -90,7 +90,7 @@ which reads unconditionally.  The two recursive runs (the domain's
 inference, the codomain's) are discarded — a sort node's reading needs
 no induction hypothesis. -/
 private theorem inferReadsIO_forallE {m : EnvS2Core V env}
-    {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
     (h : inferTypeCoreIO μ env (fuel + 1) d (.forallE ty body mb)
       = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
@@ -106,7 +106,7 @@ io induction hypothesis at the opened body, transported across the
 rather than the full lane's. -/
 private theorem inferReadsIO_lam {m : EnvS2Core V env}
     (ihi : InferReadsIOP m μ φ fuel)
-    {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
+    {d : Nat} {ty body t : Expr} {mb : Lech.BinderMeta}
     {ea : AVExpr}
     (h : inferTypeCoreIO μ env (fuel + 1) d (.lam ty body mb) = .ok t)
     (hws : Expr.WScoped d (.lam ty body mb))
@@ -125,7 +125,7 @@ private theorem inferReadsIO_lam {m : EnvS2Core V env}
     hLb l (by simp [Expr.fvarLeaves, hl])
   obtain ⟨tyA, ba, htyA, hba, -⟩ := denoteP_lam_inv hea
   obtain ⟨hwopen, hbopen, hLopen⟩ :=
-    frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
+    frame_open2 hws.1 hb.1 hws.2 hb.2 hLty hLbody
   have hleaf :
       Expr.LeafCond d ty (body.instantiate1 (.fvar d ty)) := by
     intro l hl hd
@@ -135,7 +135,7 @@ private theorem inferReadsIO_lam {m : EnvS2Core V env}
         omega)
     · rw [Expr.fvarLeaves] at h2
       rcases List.mem_cons.mp h2 with rfl | h3
-      · exact ⟨rfl, rfl⟩
+      · exact rfl
       · exact absurd hd (by
           have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
           omega)
@@ -148,7 +148,7 @@ private theorem inferReadsIO_lam {m : EnvS2Core V env}
     abstract1_instantiate1 bt 0 hcons hbtb
   obtain ⟨bta, hbta⟩ :=
     ihi hbt hwopen hbopen hLopen
-      (LeafReadsP.openS (n := n) hws.1 hws.2
+      (LeafReadsP.openS hws.1 hws.2
         (hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]))
         (hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]))
         htyA)
@@ -175,7 +175,7 @@ private theorem inferReadsIO_app {m : EnvS2Core V env}
     (hlr : LeafReadsP m φ d (.app f a))
     (hea : denoteP m.acval env φ d (.app f a) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
-  obtain ⟨tf, n', ty', body', mt', hif, hwf, rfl, -⟩ :=
+  obtain ⟨tf, ty', body', mt', hif, hwf, rfl, -⟩ :=
     Lech.inferTypeCoreIO_app_inv h
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -203,7 +203,7 @@ private theorem inferReadsIO_app {m : EnvS2Core V env}
   simp only [Expr.WScoped] at hwW
   refine ⟨b'a.inst aa, ?_⟩
   rw [denoteP_beta m.acval_closed (acval_inst_self m)
-    (n := n') (ty := ty') hwW.2.fvarsBelow hws.2 hb.2 haa 0, hb'a]
+    (ty := ty') hwW.2.fvarsBelow hws.2 hb.2 haa 0, hb'a]
   rfl
 
 /-- `.letE`, io lane: the ζ-shaped recursion, whose three preceding
@@ -213,7 +213,7 @@ opened at the value*'s own inferred type, and its reading is
 `denoteP_beta` at the `letE` node's three readings. -/
 private theorem inferReadsIO_letE {m : EnvS2Core V env}
     (ihi : InferReadsIOP m μ φ fuel)
-    {d : Nat} {nn : Name} {tt vv bb t : Expr} {ea : AVExpr}
+    {d : Nat} {tt vv bb t : Expr} {ea : AVExpr}
     (h : inferTypeCoreIO μ env (fuel + 1) d (.letE tt vv bb) = .ok t)
     (hws : Expr.WScoped d (.letE tt vv bb))
     (hb : (Expr.letE tt vv bb).looseBVarsBounded 0 = true)
@@ -244,7 +244,7 @@ private theorem inferReadsIO_letE {m : EnvS2Core V env}
   have hred : denoteP m.acval env φ d (bb.instantiate1 vv)
       = some (ba.inst va) := by
     rw [denoteP_beta m.acval_closed (acval_inst_self m)
-      (n := nn) (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
+      (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
       hba]
     rfl
   exact ihi hbody (Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2)
