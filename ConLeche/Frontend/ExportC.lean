@@ -731,17 +731,17 @@ private def sizeDeclineMsgD (st : StateD) (j : Json)
     else "declaration"
   let why : String :=
     if (j.getObjVal? "inductive").isOk || (j.getObjVal? "quot").isOk then
-      "the basis-pin match canonicalises the whole block as a tree, and the \
-       modeled install renames and opens its member types"
+      "the basis-pin match canonicalises the whole block as a tree, "
+        ++ "and the modeled install renames and opens its member types"
     else if natOpNames.contains name || natDivModNames.contains name then
-      "the pinned Nat-operation certification substitutes the stored value \
-       into the vendored certificate proofs"
+      "the pinned Nat-operation certification substitutes the stored value "
+        ++ "into the vendored certificate proofs"
     else if st.prelude.byName.contains name then
-      "the built-in prelude dedupe compares this record against the checker's \
-       own copy as a tree"
+      "the built-in prelude dedupe compares this record against the "
+        ++ "checker's own copy as a tree"
     else "this record kind is still walked as a tree"
-  s!"{name} ({kind}): unshared tree size ≥ {st.treeBudget} nodes exceeds the \
-    frontend tree-size budget (CON_LECHE_TREE_BUDGET={st.treeBudget}; {why})"
+  s!"{name} ({kind}): unshared tree size ≥ {st.treeBudget} nodes exceeds "
+    ++ s!"the frontend tree-size budget (CON_LECHE_TREE_BUDGET={st.treeBudget}; {why})"
 
 /-- Twin of `processLine` (the taint policy). -/
 private def processLineD (st : StateD) (j : Json)

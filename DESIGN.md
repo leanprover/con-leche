@@ -57828,3 +57828,136 @@ lived in the deleted file and had no other reader (`IsTGUniverse` stays
 in `SetTheory/Core.lean`).  No capstone statement, pin, or proofdeps row
 changes (the module was in no root's closure).  Historical mentions in
 this journal and `docs/` stay as written.
+
+## TASK #213 — THE FRONTEND TREE-SIZE BUDGET: named, overridable, and one class lifted (2026-09-07, `agent/budget`)
+
+**The report (user, verbatim verdict):** `lech: declined: declaration's
+unshared tree size exceeds the frontend budget (heavily DAG-shared
+input; this record kind still materializes trees) (--verified)` — on a
+37.77 GB stream, after reading 14.67 GB, rc=2, peak RSS 37.3 GB.  The
+message names neither the declaration, nor its record kind, nor how
+big it was, nor which budget it failed; there is nothing the reporter
+can act on.  Three things came out of it.
+
+### 1. The message names the offender
+
+`sizeDeclineMsgD` (`ConLeche/Frontend/ExportC.lean`).  The record's
+first declared name comes from `declRecordScanD` — the read-only
+pre-scan the *taint* policy already runs on every declaration record,
+now bound once and read twice, so naming the offender costs nothing.
+The kind comes from the record's own key, and `why` names the walker
+that is the reason this kind is budgeted at all:
+
+```
+con-leche: declined: Big (inductive block): unshared tree size ≥ 1000 nodes
+exceeds the frontend tree-size budget (CON_LECHE_TREE_BUDGET=1000; the
+basis-pin match canonicalises the whole block as a tree, and the modeled
+install renames and opens its member types) (--verified)
+```
+
+The size is reported as **`≥ budget`**, not as a number, and that is a
+property of the counter, not a shortcut: `State.sizes` *saturates* at
+the budget (`min budget (Σ children)`), which is exactly what keeps it
+from computing a 10^1160-digit `Nat` on `good/perf/app-lam`.  The
+frontend therefore knows that some expression of the record reached the
+cap and nothing more.  One parser, one message: the wholesale and the
+piped drivers (`parseExportD` / `parseExportHandleD`) share
+`feedLineD`, so there is no twin to keep in step.
+
+### 2. `CON_LECHE_TREE_BUDGET=<nodes>`
+
+Read once in `Main.treeBudget`, beside `CON_LECHE_PROGRESS` and under
+the same provenance discipline — a non-numeral is a hard error (exit
+3), never a silently ignored knob — and threaded into the parser state
+as `StateD.treeBudget` (default `declTreeSizeBudget`).  The saturating
+`min` in both size counters (the generic entry parser and the byte fast
+path) uses the *effective* budget, so a raised budget really raises the
+counter's ceiling.  **`0` is unlimited**, and it is unlimited by not
+tracking: at `0` the per-entry size is left at `1`, nothing is inserted
+into `st.sizes`, and the guard in `getDeclD` is off — so the "no budget"
+configuration is also the cheapest one.
+
+### 3. The audit: what still needs the budget, and what does not
+
+The standard applied, per the user's instruction, was **an unmemoized
+tree walk over the stored artifact, or no budget**.  Two facts frame
+it: `Expr`'s `==` has been memoized since task #192 (`beqGo`), so
+*comparison* is `O(DAG)`; but the pure `Expr` rebuilds and openings are
+not, and three of them are on the executed path.
+
+| budgeted kind | the unmemoized walker | verdict |
+|---|---|---|
+| inductive block (every member type, every rule rhs) | `Frontend.canonExpr` (`Export.lean`) rebuilds the **whole block** for the basis-pin match, on every block, memo-free; then at the install `Expr.renameConsts` (`Kernel/ExprOps.lean`) and the `Expr.instantiate1` inside `openPisAtFvars` (`Kernel/CheckerBase.lean`) | **keep** |
+| quotient record | `ConstantInfo.canon` against the `Quot` pin | **keep** |
+| axiom record | `Expr.erasePw` (`Kernel/StdAxioms.lean`) via `ConstantVal.matchesPin`, and `ConstantInfo.canon` for `Quot.sound`.  Reachable only under a *pinned* name (`stdAxiomOk` dispatches on the name first) — but a stream may spell a pinned name with any type at all, so the walk is reachable on adversarial input | **keep** (narrow) |
+| record under a built-in prelude name (task #191) | `DeclC.sameCanon` → `ConstantInfo.canon` | **keep** |
+| certified `Nat` operations (`natOpNames`/`natDivModNames`) | `Expr.substConstAll`/`substConst0` embed the stored value in the vendored certificate proofs and the recurrence equations, and the syntactic guards then run over the result | **keep** (a fixed eight-name set; adversarial only) |
+| **`_model`-named def/theorem/opaque** | `openPisAtFvars` on an `iota_j` statement *is* unmemoized — but see below | **LIFTED** |
+
+**Why the `_model` class goes.**  The justification predates the
+in-process modeller.  Since task #200 con-leche *generates* the
+`_model` family itself and pushes it with `pushGenD`, which goes
+straight to `pushDecl` and never through `getDeclD` — so the native
+route has never budgeted those records.  The clause therefore did not
+protect a walker; it penalised exactly one thing: the same declaration
+arriving through the **external** preprocessor rather than being made
+in process.  And that tool is being retired.  User ruling, verbatim:
+*"Certainly preprocessed.  But we are dropping the preprocessor
+anyways.  Ok, we have the internal one.  No need to limit the size of
+these defs, though."*  `budgetedName` loses the `anyComponentModel`
+clause (and the predicate itself, its only reader, is deleted).
+
+**The residue, stated rather than hidden.**  `openPisAtFvars` — and
+`renameConsts`, and `canonExpr` — are genuine `no-unmemoized-traversals`
+violations on the executed path.  They are bounded today by the budget
+on the *block*, which the model artifacts' shapes track; they are not
+bounded on a `_model` artifact by anything, and were not before this
+task either on the in-process route.  The honest fix is a memo — a
+`@[csimp]` swap of `Expr.instantiate1` for the memoized
+`Cached.ExprC.instantiate1`, and a memo table in `canonExpr` — priced
+as a follow-up, not done here: the analogous memo on `beq` measured
++33 % on `init-prelude` when it was applied unconditionally, so the
+swap needs the same budgeted-descent treatment `beqFast` got.
+
+### 4. Fixtures
+
+`scripts/mk_budget_fixtures.py` generates both.
+
+* `tests/e2e/budget_model.ndjson.gz` — `dag_tower` with its 2^28-node
+  definition renamed `DagTower._model`.  **Master reproduces the user's
+  verbatim verdict on it**, this tree accepts it (exit 0), which is the
+  whole of change 3 in one file.
+* `tests/e2e/budget_block.ndjson` — a hand-written one-constructor
+  structure block, `Big.mk : (h : @Eq Nat T T) → Big`, where `T` is a
+  ~2^12-node doubling tower `(fun a b => a) T' T'` (defeq to the
+  numeral it replaces, so the block installs).  It accepts at the
+  default budget and declines, **by name**, at
+  `CON_LECHE_TREE_BUDGET=1000`.  Written over the built-in prelude —
+  the stream declares neither `Eq` nor `Nat`, since task #191 installs
+  both first and unconditionally.
+
+`tests/arena.sh` gains a four-check budget section: the decline's exit
+code, that it names the declaration *and* the record kind, that it
+names the budget in force, that `0` is unlimited, and that a
+non-numeral is exit 3.
+
+### 5. Memory scaling — read-only finding, no change
+
+The 37.3 GB RSS at 40 % of a 37.77 GB stream is not the budget's doing
+and the budget cannot help it: `StateD.exprs` retains **every** interned
+node of the stream for the whole run.  Can the frontend release a node
+after its last use?  **Not from the format as it stands.**
+lean4export's `ie` entries are *global* indices: the table is one flat
+namespace with no scoping, no per-declaration segmentation and no
+"last use" marker, and any later record — an expression entry, a
+declaration record thousands of lines on — may reference index 3.
+Liveness is therefore not a function of any prefix of the stream, so a
+single forward pass (which is what a *pipe* allows, and the pipe is the
+point — task #180) cannot know when a node dies.  Two ways out exist
+and both are outside this task: a producer-side annotation (a last-use
+field, or explicit `free` records, in a format revision), or a
+two-pass read, which forfeits the preprocessor pipe and needs a seekable
+input.  Mechanically the release itself is free once liveness is known —
+dropping the `HashMap` entry drops the last reference and the runtime's
+reference counting reclaims the subtree — so the missing thing is
+exactly the liveness information, not the freeing.
