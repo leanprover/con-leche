@@ -70,7 +70,7 @@ theorem denoteP_instSeq_shift {m : EnvS2Core V env} {ψ : Name → Nat} {p o d t
     {A B : List Expr} (hlen : A.length = B.length) (hpd : p ≤ d)
     (hAw : ∀ (k : Nat) (x : Expr), A[k]? = some x → Expr.WScoped d x)
     (hAB : ∀ (k : Nat) (a b : Expr), A[k]? = some a → B[k]? = some b →
-      ∃ (ia : Nat) (nma nmb : Name) (tya tyb : Expr),
+      ∃ (ia : Nat) (tya tyb : Expr),
         a = Expr.fvar ia tya ∧ b = Expr.fvar (if ia < p then ia else ia + o) tyb)
     {E : AVExpr}
     (hE : denoteP m.acval env ψ d (Expr.instSeq A t e) = some E) :
@@ -93,7 +93,7 @@ theorem denoteP_instSeq_shift {m : EnvS2Core V env} {ψ : Name → Nat} {p o d t
     | none => rw [hA] at ha₁; exact nomatch ha₁
     | some a =>
       rw [hA, Option.map_some, Option.some.injEq] at ha₁
-      obtain ⟨ia, nma, nmb, tya, tyb, rfl, hb⟩ := hAB k a a₂ hA ha₂
+      obtain ⟨ia, tya, tyb, rfl, hb⟩ := hAB k a a₂ hA ha₂
       obtain ⟨ty', hsh⟩ := Expr.shiftFromN_fvar p o ia tya
       rw [← ha₁, hsh, hb]
       exact Eq.refl _
@@ -141,7 +141,7 @@ theorem directFieldIdx_props {cty : Expr} {nP nF i : Nat}
   rw [hs] at he
   simp only at he
   rw [hbd] at he
-  have hmem : e ∈ b.2.1.getAppArgs := List.mem_of_mem_drop he
+  have hmem : e ∈ b.1.getAppArgs := List.mem_of_mem_drop he
   refine ⟨Lech.hasFvar_getAppArgs ?_ e hmem, Lech.looseBVarsBounded_getAppArgs ?_ e hmem⟩
   · exact (Lech.stripPis_not_hasFvar _ hs hCf).1 b (List.mem_of_getElem? hb)
   · have := Lech.stripPis_binder_bounded (nP + nF) hs hCb (nP + i) b hb
@@ -224,12 +224,12 @@ theorem denoteSpineP_ihIdx {m : EnvS2Core V env} {ψ : Name → Nat}
       by_cases hk : k < nP
       · rw [List.getElem?_append_left (by rw [hP]; omega)] at hb
         obtain ⟨tyb, rfl⟩ := hidxP k b hb
-        exact ⟨k, nma, nmb, tya, tyb, rfl, by rw [if_pos hk]⟩
+        exact ⟨k, tya, tyb, rfl, by rw [if_pos hk]⟩
       · rw [List.getElem?_append_right (by rw [hP]; omega), hP] at hb
         have hb' : F[k - nP]? = some b := by
           rw [← hb, List.getElem?_take, if_pos (show k - nP < i from by omega)]
         obtain ⟨tyb, rfl⟩ := hidxF (k - nP) b hb'
-        refine ⟨k, nma, nmb, tya, tyb, rfl, ?_⟩
+        refine ⟨k, tya, tyb, rfl, ?_⟩
         rw [if_neg hk]
         congr 1
         omega)
@@ -261,15 +261,15 @@ theorem frameIdx {P X F I : List Expr} {nP o nF : Nat}
       · rw [List.getElem?_append_left (by rw [hP]; omega)] at hx
         exact hidxP k x hx
       · rw [List.getElem?_append_right (by rw [hP]; omega), hP] at hx
-        obtain ⟨nm, ty, hy⟩ := hidxX (k - nP) x hx
+        obtain ⟨ty, hy⟩ := hidxX (k - nP) x hx
         exact ⟨ty, by rw [hy]; congr 1; omega⟩
     · rw [List.getElem?_append_right (by simp [hP, hX]; omega)] at hx
       simp only [List.length_append, hP, hX] at hx
-      obtain ⟨nm, ty, hy⟩ := hidxF (k - (nP + o)) x hx
+      obtain ⟨ty, hy⟩ := hidxF (k - (nP + o)) x hx
       exact ⟨ty, by rw [hy]; congr 1; omega⟩
   · rw [List.getElem?_append_right (by simp [hP, hX, hF]; omega)] at hx
     simp only [List.length_append, hP, hX, hF] at hx
-    obtain ⟨nm, ty, hy⟩ := hidxI (k - (nP + o + nF)) x hx
+    obtain ⟨ty, hy⟩ := hidxI (k - (nP + o + nF)) x hx
     exact ⟨ty, by rw [hy]; congr 1; omega⟩
 
 /-! ## The `ih` binders -/
@@ -330,7 +330,7 @@ theorem denoteP_ihPis {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o : Nat} 
       intro j hj
       have hb := Expr.instSeq_bvar (P ++ X ++ F ++ I) (nP + o + nF + l - 1) j hclL
         (by omega) (by rw [hlenL]; omega)
-      obtain ⟨nm, ty, hy⟩ := hLidx _ _ hb
+      obtain ⟨ty, hy⟩ := hLidx _ _ hb
       rw [hy, denoteP_fvar,
         show nP + o + nF + l - 1 - (nP + o + nF + l - 1 - j) = j from by omega]
     have hspI := denoteSpineP_ihIdx (m := m) (ψ := ψ) (l := l) hop0 hCf hCb hstripC
@@ -347,7 +347,7 @@ theorem denoteP_ihPis {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o : Nat} 
         (hbvar (nF + o - 1 + l) (by omega))]
       rfl
     simp only [Lech.directIhPis]
-    rw [Expr.instSeq_forallE (P ++ X ++ F ++ I) (nP + o + nF + l - 1) _ _ _ _
+    rw [Expr.instSeq_forallE (P ++ X ++ F ++ I) (nP + o + nF + l - 1) _ _ _
         (by rw [hlenL]; omega),
       show nP + o + nF + l - 1 + 1 = nP + o + nF + l from by omega,
       denoteP_forallE, hdom]
@@ -380,7 +380,7 @@ theorem denoteP_ihPis {m : EnvS2Core V env} {ψ : Name → Nat} {nP nF o : Nat} 
         subst hx
         have hkl : k = l := by omega
         subst hkl
-        exact ⟨_, _, hfv.symm⟩
+        exact ⟨_, hfv.symm⟩
     obtain ⟨I', hlenI'', hidxI'', hread⟩ := ihs (l + 1) body (I ++ [ifv])
       (fun i' hi' => hlt i' (List.mem_cons_of_mem _ hi'))
       (fun i' hi' => heis i' (List.mem_cons_of_mem _ hi'))
@@ -722,8 +722,7 @@ theorem denoteP_minorsPisR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name} 
         rw [hk0] at hx
         simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
         subst hx
-        refine ⟨Lech.Name.lastStr C,
-          Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) mty, ?_⟩
+        refine ⟨Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) mty, ?_⟩
         rw [← hmk]
         congr 1
         omega
@@ -811,8 +810,7 @@ theorem denoteP_minorsLamsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name}
         rw [hk0] at hx
         simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
         subst hx
-        refine ⟨Lech.Name.lastStr C,
-          Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) mty, ?_⟩
+        refine ⟨Expr.instSeq (tfvs ++ extras) (nP + extras.length - 1) mty, ?_⟩
         rw [← hmk]
         congr 1
         omega
@@ -886,7 +884,7 @@ theorem denoteP_directRecTyR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
       subst hx
-      exact ⟨_, _, by rw [← hmfv, Nat.add_zero]⟩
+      exact ⟨_, by rw [← hmfv, Nat.add_zero]⟩
     | succ k => simp at hx
   have hmin' : Lech.directMinorsPisR lps nP pw ctors [mfv].length major = some minors := by
     rw [List.length_singleton]; exact hmin
@@ -987,7 +985,7 @@ theorem denoteP_directRecTyR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Name
         ⟨pw⟩))
       = .forallE (Expr.mkAppN (.const T (lps.map .param)) (tfvs ++ ifvs))
           (Expr.mkAppN (.fvar nP tyM) (ifvs ++ [.bvar 0])) ⟨pw⟩ := by
-    rw [Expr.instSeq_forallE (tfvs ++ extras') (nP + 1 + n - 1 + nIdx) _ _ _ _
+    rw [Expr.instSeq_forallE (tfvs ++ extras') (nP + 1 + n - 1 + nIdx) _ _ _
         (by rw [hlenTE]; omega), hdom1, hcod1,
       Expr.instSeq_forallE ifvs (nIdx - 1) _ _ _ (by omega), hdom2, hcod2]
   rw [hbody] at hmajR
@@ -1125,7 +1123,7 @@ theorem denoteP_ruleCoreR {m : EnvS2Core V env} {ψ : Name → Nat}
   have hidxX' : ∀ (k : Nat) (x : Expr), xFvs[k]? = some x →
       ∃ ty, x = Expr.fvar (nP + (n + 1) + k) ty := by
     intro k x hx
-    obtain ⟨nm, ty, hy⟩ := hidxX k x hx
+    obtain ⟨ty, hy⟩ := hidxX k x hx
     exact ⟨ty, by rw [hy]; congr 1; omega⟩
   have hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true := fun a ha => by
     obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
@@ -1161,7 +1159,7 @@ theorem denoteP_ruleCoreR {m : EnvS2Core V env} {ψ : Name → Nat}
     intro q hq
     have hb := Expr.instSeq_bvar (tfvs ++ extras ++ xFvs) (nP + n + nF) q hclL
       (by omega) (by rw [hlenL]; omega)
-    obtain ⟨nm, ty, hy⟩ := hLidx _ _ hb
+    obtain ⟨ty, hy⟩ := hLidx _ _ hb
     rw [hy, denoteP_fvar,
       show nP + 1 + n + nF - 1 - (nP + n + nF - q) = q from by omega]
   have hpremap : (Lech.directRecPrefixAt nP n nF 0).map
@@ -1180,7 +1178,7 @@ theorem denoteP_ruleCoreR {m : EnvS2Core V env} {ψ : Name → Nat}
           · exact h
           · rw [List.getElem?_eq_none h] at hx
             exact nomatch hx
-        obtain ⟨nm, ty, hy⟩ := hLidx k x (by
+        obtain ⟨ty, hy⟩ := hLidx k x (by
           rw [List.getElem?_append_left hklt]
           exact hx)
         exact ⟨ty, by rw [hy, Nat.zero_add]⟩)
@@ -1300,7 +1298,7 @@ theorem denoteP_directRecRhsR {m : EnvS2Core V env} {ψ : Name → Nat} {T : Nam
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
       subst hx
-      exact ⟨_, _, by rw [← hmfv, Nat.add_zero]⟩
+      exact ⟨_, by rw [← hmfv, Nat.add_zero]⟩
     | succ k => simp at hx
   have hmin' : Lech.directMinorsLamsR lps nP pw ctors [mfv].length inner = some minors := by
     rw [List.length_singleton]; exact hmin
