@@ -7237,7 +7237,10 @@ are the project's house practices, declared binding by this file, and
 twenty-two references across the tree cite its sections by number.  A
 tombstone header says the code is gone and the paths in the prose are
 citations.  *Deleting a lane's code does not delete what building it
-taught.*
+taught.*  (SUPERSEDED at task #209: the file itself was deleted and
+its §0/§25 folded into DESIGN.md's **House practices** section, which
+is where the practices are binding now.  The sentiment stands; the
+carrier moved.)
 
 **Battery:** build warning-free (279 jobs, from 424 before T7),
 `lake test`, arena 90/92, e2e 72/72, split 11/11, mode flags **9/9**
