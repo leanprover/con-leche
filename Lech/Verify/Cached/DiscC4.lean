@@ -1365,7 +1365,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       dsimp only
       have hnl : ∀ dom' body' bi',
           (Expr.bvar k) ≠ Expr.forallE dom' body' bi' :=
-        fun _ _ _ _ h => nomatch h
+        fun _ _ _ h => nomatch h
       rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
@@ -1418,7 +1418,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       dsimp only
       have hnl : ∀ dom' body' bi',
           (Expr.sort u) ≠ Expr.forallE dom' body' bi' :=
-        fun _ _ _ _ h => nomatch h
+        fun _ _ _ h => nomatch h
       rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
@@ -1471,7 +1471,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       dsimp only
       have hnl : ∀ dom' body' bi',
           (Expr.const nm us) ≠ Expr.forallE dom' body' bi' :=
-        fun _ _ _ _ h => nomatch h
+        fun _ _ _ h => nomatch h
       rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
@@ -1524,7 +1524,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       dsimp only
       have hnl : ∀ dom' body' bi',
           (Expr.lit l) ≠ Expr.forallE dom' body' bi' :=
-        fun _ _ _ _ h => nomatch h
+        fun _ _ _ h => nomatch h
       rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
@@ -1577,7 +1577,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       dsimp only
       have hnl : ∀ dom' body' bi',
           (Expr.fvar idx tt) ≠ Expr.forallE dom' body' bi' :=
-        fun _ _ _ _ h => nomatch h
+        fun _ _ _ h => nomatch h
       rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
@@ -1630,7 +1630,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       dsimp only
       have hnl : ∀ dom' body' bi',
           (Expr.app f₂ a₂) ≠ Expr.forallE dom' body' bi' :=
-        fun _ _ _ _ h => nomatch h
+        fun _ _ _ h => nomatch h
       rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
@@ -1683,7 +1683,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       dsimp only
       have hnl : ∀ dom' body' bi',
           (Expr.lam tt b mm) ≠ Expr.forallE dom' body' bi' :=
-        fun _ _ _ _ h => nomatch h
+        fun _ _ _ h => nomatch h
       rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
@@ -1736,7 +1736,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       dsimp only
       have hnl : ∀ dom' body' bi',
           (Expr.letE tt vv b) ≠ Expr.forallE dom' body' bi' :=
-        fun _ _ _ _ h => nomatch h
+        fun _ _ _ h => nomatch h
       rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
@@ -1789,7 +1789,7 @@ theorem inferSpineIOC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       dsimp only
       have hnl : ∀ dom' body' bi',
           (Expr.proj sn j pe) ≠ Expr.forallE dom' body' bi' :=
-        fun _ _ _ _ h => nomatch h
+        fun _ _ _ h => nomatch h
       rw [inferSpineIO_ne_pi _ _ hnl]
       unfold inferSpineIOWhnf
       refine SimC.bind_left (instListRevM_eff (d := 0) hs htr hacc)
@@ -2006,7 +2006,7 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     unfold inferBody
     dsimp only
     try dsimp only
-    obtain ⟨mbi, mpw⟩ := m
+    obtain ⟨mpw⟩ := m
     refine SimC.bind (ih.infer hs rfl hwtb.1)
       (fun s₁ tty ttyx hs₁ hP => ?_)
     obtain ⟨httyd, hwtty⟩ := hP
