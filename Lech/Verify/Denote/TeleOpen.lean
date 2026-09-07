@@ -251,7 +251,7 @@ restriction is not cosmetic**: for a general `v` the statement is
 false, since `(.bvar 0).instantiate1 v 0 = v` may be a `∀` while
 `.bvar 0` is not.  Sibling of `stripLams_instantiate1_fvar_isSome_rev`,
 and the checker only ever opens at variables. -/
-theorem stripPis_instantiate1_fvar_isSome_rev {i : Nat} {nm : Name}
+theorem stripPis_instantiate1_fvar_isSome_rev {i : Nat}
     {ty : Expr} :
     ∀ (k : Nat) {e : Expr} (j : Nat),
       ((e.instantiate1 (.fvar i ty) j).stripPis k).isSome = true →
@@ -281,7 +281,7 @@ theorem openPisAtFvars_stripPis :
       openPisAtFvars k e d = some (fvs, body) →
       ∃ bs body₀, e.stripPis k = some (bs, body₀) ∧
         fvs.length = k ∧
-        (∀ j, j < k → ∃ nm ty, fvs[j]? = some (.fvar (d + j) ty)) ∧
+        (∀ j, j < k → ∃ ty, fvs[j]? = some (.fvar (d + j) ty)) ∧
         Expr.ErasedEq body
           (Expr.instSeq (openFvars d k) (k - 1) body₀) := by
   intro k
@@ -313,10 +313,10 @@ theorem openPisAtFvars_stripPis :
           by simp [hlen'], ?_, ?_⟩
         · intro j hj
           cases j with
-          | zero => exact ⟨nm, dom, by simp⟩
+          | zero => exact ⟨dom, by simp⟩
           | succ j =>
-            obtain ⟨nm', ty', hj'⟩ := hidx' j (by omega)
-            refine ⟨nm', ty', ?_⟩
+            obtain ⟨ty', hj'⟩ := hidx' j (by omega)
+            refine ⟨ty', ?_⟩
             rw [List.getElem?_cons_succ, hj']
             congr 2
             omega
@@ -452,7 +452,7 @@ theorem projStmtParts {sty : Expr} {nP nF i : Nat}
   have hfvsB : ∀ a ∈ fvsO, a.looseBVarsBounded 0 = true := by
     intro a ha
     obtain ⟨j, hjlt, rfl⟩ := List.mem_iff_getElem.mp ha
-    obtain ⟨nm, ty, hfj⟩ := hIdx j (by rw [← hlenO]; exact hjlt)
+    obtain ⟨ty, hfj⟩ := hIdx j (by rw [← hlenO]; exact hjlt)
     rw [List.getElem?_eq_getElem hjlt] at hfj
     rw [Option.some.inj hfj]
     rfl

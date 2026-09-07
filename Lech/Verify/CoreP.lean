@@ -177,7 +177,7 @@ list to branches that need different subsets of it.) -/
 theorem whnfCoreP_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     (h : whnfCoreP mode env (fuel + 1) d (.app f a) = .ok e') :
     ∃ f', whnfCoreP mode env fuel d f = .ok f' ∧
-      ((∃ n ty body mb, f' = .lam ty body mb ∧
+      ((∃ ty body mb, f' = .lam ty body mb ∧
           whnfCoreP mode env fuel d (body.instantiate1 a) = .ok e' ∧
           ((mode.verifiedChecks && mb.pw.isNever) = true ∨
             ∃ ta, inferTypeCoreP mode env fuel d a = .ok ta ∧
@@ -210,7 +210,7 @@ theorem whnfCoreP_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     dsimp only at h
     by_cases hg : (mode.verifiedChecks && mb.pw.isNever) = true
     · rw [if_pos hg] at h
-      exact Or.inl ⟨n, ty, body, mb, rfl, h, Or.inl hg⟩
+      exact Or.inl ⟨ty, body, mb, rfl, h, Or.inl hg⟩
     · rw [if_neg hg] at h
       cases hta : inferTypeCoreP mode env fuel d a with
       | error err => rw [hta] at h; exact nomatch h
@@ -224,7 +224,7 @@ theorem whnfCoreP_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
       cases bb with
       | true =>
         simp only [if_true] at h
-        exact Or.inl ⟨n, ty, body, mb, rfl, h, Or.inr ⟨ta, rfl, hde⟩⟩
+        exact Or.inl ⟨ty, body, mb, rfl, h, Or.inr ⟨ta, rfl, hde⟩⟩
       | false =>
         simp only [Bool.false_eq_true, if_false, pure, Except.pure,
           Except.ok.injEq] at h

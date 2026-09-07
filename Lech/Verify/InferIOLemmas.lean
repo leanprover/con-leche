@@ -32,7 +32,7 @@ the only deltas are the lane of the two recursive inferences and the
 lane-folding rewrites.  The stored annotation is validated here exactly
 as in the full lane — the io grade narrows the application clause and
 nothing else. -/
-theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat} {n : Name}
+theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCoreIO mode env (fuel + 1) d (.forallE ty body m)
       = .ok t) :
@@ -97,7 +97,7 @@ run packaged as its `ensureSortCore` spelling (consumers reach the
 whnf form through `ensureSortCore_inv`, as the ∀ clause does).  The
 validation block is verbatim: the io grade narrows the application
 clause and nothing else. -/
-theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
+theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCoreIO mode env (fuel + 1) d (.lam ty body m)
       = .ok t) :
@@ -176,7 +176,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat} {n : Name}
 /-- The λ→∀ meta copy at the io lane (`infer_lam_meta_copy`'s twin):
 the type the io lane returns for a λ is a `∀` carrying the λ's own
 binder meta — annotation included. -/
-theorem inferIO_lam_meta_copy {env : Env} {fuel d : Nat} {n : Name}
+theorem inferIO_lam_meta_copy {env : Env} {fuel d : Nat}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCoreIO mode env (fuel + 1) d (.lam ty body m)
       = .ok t) :
@@ -198,7 +198,7 @@ so the conjunct was never a premise anything needed, and carrying it
 made the trusted mode run a certificate the verified mode skips. -/
 theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
     (h : inferTypeCoreIO mode env (fuel + 1) d (.app f a) = .ok t) :
-    ∃ tf n' ty' body' m', inferTypeCoreIO mode env fuel d f = .ok tf ∧
+    ∃ tf ty' body' m', inferTypeCoreIO mode env fuel d f = .ok tf ∧
       whnf mode env fuel d tf = .ok (.forallE ty' body' m') ∧
       t = body'.instantiate1 a ∧
       (m'.pw.isNever = true ∨
@@ -233,7 +233,7 @@ theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   by_cases hg : m'.pw.isNever = true
   · rw [if_pos hg] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tf, n', ty', body', m', rfl, hw, h.symm, Or.inl hg⟩
+    exact ⟨tf, ty', body', m', rfl, hw, h.symm, Or.inl hg⟩
   · rw [if_neg hg] at h
     try simp only [Bind.bind, Except.bind] at h
     try dsimp only at h
@@ -250,7 +250,7 @@ theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
     | false => simp [throw, throwThe, MonadExceptOf.throw] at h
     | true =>
       simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
-      exact ⟨tf, n', ty', body', m', rfl, hw, h.symm,
+      exact ⟨tf, ty', body', m', rfl, hw, h.symm,
         Or.inr ⟨ta, rfl, hde⟩⟩
 
 /-- **Fuel monotonicity for the io leaf lane** (task #172 B4): the
@@ -299,7 +299,7 @@ fuel (`inferTypeCore_app_inv'`'s io twin). -/
 theorem inferTypeCoreIO_app_inv' {env : Env} {fuel d : Nat}
     {f a t : Expr}
     (h : inferTypeCoreIO mode env fuel d (.app f a) = .ok t) :
-    ∃ tf n' ty' body' m', inferTypeCoreIO mode env fuel d f = .ok tf ∧
+    ∃ tf ty' body' m', inferTypeCoreIO mode env fuel d f = .ok tf ∧
       whnf mode env fuel d tf = .ok (.forallE ty' body' m') ∧
       t = body'.instantiate1 a ∧
       (m'.pw.isNever = true ∨
@@ -308,9 +308,9 @@ theorem inferTypeCoreIO_app_inv' {env : Env} {fuel d : Nat}
   match fuel, h with
   | 0, h => rw [inferTypeCoreIO_zero] at h; exact nomatch h
   | fuel + 1, h =>
-    obtain ⟨tf, n', ty', body', m', h1, h2, h3, hd⟩ :=
+    obtain ⟨tf, ty', body', m', h1, h2, h3, hd⟩ :=
       inferTypeCoreIO_app_inv h
-    refine ⟨tf, n', ty', body', m',
+    refine ⟨tf, ty', body', m',
       inferTypeCoreIO_mono (Nat.le_succ _) h1,
       whnf_mono (Nat.le_succ _) h2, h3, ?_⟩
     rcases hd with hd | ⟨ta, h4, h5⟩
@@ -357,7 +357,7 @@ theorem inferTypeCoreIO_const_inv {env : Env} {fuel d : Nat}
 /-- Inversion for the let-rule of the io lane
 (`inferTypeCore_letE_inv`'s twin: the three inferences at the io lane,
 the sort/conversion runs at the full one). -/
-theorem inferTypeCoreIO_letE_inv {env : Env} {fuel d : Nat} {n : Name}
+theorem inferTypeCoreIO_letE_inv {env : Env} {fuel d : Nat}
     {ty v b t : Expr}
     (h : inferTypeCoreIO mode env (fuel + 1) d (.letE ty v b)
       = .ok t) :
@@ -510,7 +510,7 @@ theorem inferTypeCoreIO_sort_eq {env : Env} {fuel d : Nat} {u : Level} :
 
 /-- `.fvar` is lane-independent (the stored annotation, no run). -/
 theorem inferTypeCoreIO_fvar_eq {env : Env} {fuel d idx : Nat}
-    {n : Name} {ty : Expr} :
+    {ty : Expr} :
     inferTypeCoreIO mode env (fuel + 1) d (.fvar idx ty) =
       inferTypeCore mode env (fuel + 1) d (.fvar idx ty) := by
   rw [inferTypeCoreIO_succ, inferTypeCore_succ]
@@ -620,7 +620,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
           dsimp only
           simp [heqv]
     | .app f a =>
-      obtain ⟨tf, n', ty', body', m', htf, hw, rfl, ta, hta, hde⟩ :=
+      obtain ⟨tf, ty', body', m', htf, hw, rfl, ta, hta, hde⟩ :=
         inferTypeCore_app_inv h
       rw [inferTypeCoreIO_succ]
       simp only [inferBodyIO, pure, Except.pure,

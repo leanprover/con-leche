@@ -96,7 +96,7 @@ theorem Expr.NoProjAt.projTele (T : Name) (i : Nat) :
 
 theorem projTele_stripPis : ∀ (k : Nat) (body : Expr),
     (projTele k body).stripPis k
-      = some (List.replicate k (.anonymous, .sort .zero, ⟨.never⟩), body)
+      = some (List.replicate k ((.sort .zero : Expr), (⟨.never⟩ : BinderMeta)), body)
   | 0, _ => rfl
   | k + 1, body => by
     simp [projTele, Expr.stripPis, projTele_stripPis k body, List.replicate_succ]

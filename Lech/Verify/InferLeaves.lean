@@ -168,7 +168,7 @@ theorem Expr.LeafCond_opened {d : Nat} {ty body : Expr}
     omega
   · simp only [fvarLeaves, List.mem_cons] at hl'
     rcases hl' with rfl | hl'
-    · exact ⟨rfl, rfl⟩
+    · exact rfl
     · obtain ⟨hlt, -⟩ := WScoped_leaves ty hwty l hl'
       omega
 
@@ -509,7 +509,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
         intro l hl
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
         simp only [fvarLeaves, List.mem_append]
-        rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, -⟩ |
+        rcases hcase with ⟨ty, body, mm, rfl, hbeta, -⟩ |
           ⟨e'', hio, hwe''⟩ | rfl
         · have hl' := ihCore hbeta l hl
           rcases fvarLeaves_instantiate1 body 0 hl' with hb | hb
@@ -661,7 +661,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
         simp only [looseBVarsBounded, Bool.and_eq_true] at hb
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
         have hbf' := ihCore hwf hb.1
-        rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, -⟩ |
+        rcases hcase with ⟨ty, body, mm, rfl, hbeta, -⟩ |
           ⟨e'', hio, hwe''⟩ | rfl
         · simp only [looseBVarsBounded, Bool.and_eq_true] at hbf'
           exact ihCore hbeta
@@ -852,7 +852,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       simp only [WScoped]
       exact ⟨hw.1, WScoped.abstract1 0 hwbt⟩
     | app f a =>
-      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl, -⟩ :=
+      obtain ⟨tf, ty', body', m', htf, hwh, rfl, -⟩ :=
         inferTypeCore_app_inv h
       simp only [WScoped] at hw
       have hwtf := inferTypeCore_WScoped henv fuel htf hw.1
@@ -978,7 +978,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
           · exact absurd rfl hlne
           · exact Or.inl hb
     | app f a =>
-      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl, -⟩ :=
+      obtain ⟨tf, ty', body', m', htf, hwh, rfl, -⟩ :=
         inferTypeCore_app_inv h
       simp only [WScoped] at hw
       intro l hl
@@ -1044,7 +1044,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       · intro h
         simp only [Except.ok.injEq] at h
         subst h
-        exact hLb (idx, n, ty) (by simp [fvarLeaves])
+        exact hLb (idx, ty) (by simp [fvarLeaves])
       · intro h
         simp [throw, throwThe, MonadExceptOf.throw] at h
     | const n ws =>
@@ -1121,7 +1121,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       simp only [looseBVarsBounded, Bool.and_eq_true]
       exact ⟨hb.1, looseBVarsBounded_abstract1 bt 0 hbbt⟩
     | app f a =>
-      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl, -⟩ :=
+      obtain ⟨tf, ty', body', m', htf, hwh, rfl, -⟩ :=
         inferTypeCore_app_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb

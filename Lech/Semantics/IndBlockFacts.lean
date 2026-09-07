@@ -211,7 +211,7 @@ def RuleFacts (envSelf : Env) (cvalSelf : TConstVal)
       pin.allLevelParamsDefined cv.levelParams = true ∧
       pin.constsResolve envSelf = true ∧
       pin.looseBVarsBounded rP = true) ∧
-    ∃ pre nm dom body bm D,
+    ∃ pre dom body bm D,
       cv.type.stripPis mI = some (pre, .forallE dom body bm) ∧
       dom.getAppFn = .const D lvls ∧
       dom.getAppArgs =
