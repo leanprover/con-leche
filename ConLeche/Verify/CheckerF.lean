@@ -18,14 +18,15 @@ only the value-level pieces are proven equal.
 
 namespace ConLeche
 
-variable {mode : CheckMode}
-
 /-- `FEnv.find?` under `mkFEnv`, as a function equation. -/
 theorem mkFEnv_find?_fun (env : Env) :
     FEnv.find? (mkFEnv env) = env.find? :=
   funext (mkFEnv_find? env)
 
+
 theorem mkFEnv_env (env : Env) : (mkFEnv env).env = env := rfl
+
+variable {mode : CheckMode}
 
 theorem mkFEnv_findCV? (env : Env) (n : Name) :
     (mkFEnv env).findCV? n = env.findCV? n := by
@@ -159,26 +160,6 @@ theorem nestedRuleShapeF_eq (env' envS : Env) (cvName : Name)
   simp only [nestedRuleShapeF, nestedRuleShape, mkFEnv_findCV?,
     constsResolveF_eq] <;> rfl
 
-theorem directNonRecF_eq (env : Env) (p : DirectParts) :
-    directNonRecF (mkFEnv env) p = directNonRec env p := by
-  simp only [directNonRecF, directNonRec, constsResolveF_eq] <;> rfl
-
-/-- The direct-structure recognition through the index is the pure
-one (task #82; the priority gate since task #175 W4c). -/
-theorem directPartsF?_eq (env : Env) (block : List ConstantInfo) :
-    directPartsF? (mkFEnv env) block = directParts? env block := by
-  simp only [directPartsF?, directParts?, directNonRecF_eq] <;> rfl
-
-theorem directSumNonRecF_eq (env : Env) (p : DirectSumParts) :
-    directSumNonRecF (mkFEnv env) p = directSumNonRec env p := by
-  simp only [directSumNonRecF, directSumNonRec, constsResolveF_eq] <;> rfl
-
-/-- The direct-sum recognition through the index is the pure one
-(task #175 sum-types; the second gate of the three-way dispatch). -/
-theorem directSumPartsF?_eq (env : Env) (block : List ConstantInfo) :
-    directSumPartsF? (mkFEnv env) block = directSumParts? env block := by
-  simp only [directSumPartsF?, directSumParts?, directSumNonRecF_eq] <;> rfl
-
 /-! ## Monadic mirrors (non-extending: plain program equalities) -/
 
 section Monadic
@@ -271,16 +252,6 @@ theorem checkProjIotaF_eq (ops : CheckerOps m) (env : Env)
 
 /-! ### The direct simple-structure path (task #82) -/
 
-theorem checkDirectFieldSortsF_eq (ops : CheckerOps m) (env : Env)
-    (isProp large : Bool) (s : Level) (nP : Nat) (fvs : List Expr) :
-    ∀ (j : Nat),
-      checkDirectFieldSortsF ops (mkFEnv env) isProp large s nP fvs j
-        = checkDirectFieldSorts ops env isProp large s nP fvs j
-  | 0 => rfl
-  | j + 1 => by
-    simp only [checkDirectFieldSortsF, checkDirectFieldSorts, mkFEnv_env,
-      checkDirectFieldSortsF_eq ops env isProp large s nP fvs j]
-
 theorem checkDirectDomsAtF_eq (ops : CheckerOps m) (env : Env)
     (off : Nat) (fvs doms : List Expr) :
     ∀ (j : Nat),
@@ -290,13 +261,6 @@ theorem checkDirectDomsAtF_eq (ops : CheckerOps m) (env : Env)
   | j + 1 => by
     simp only [checkDirectDomsAtF, checkDirectDomsAt, mkFEnv_env,
       checkDirectDomsAtF_eq ops env off fvs doms j]
-
-theorem checkDirectRecF_eq (ops : CheckerOps m) (env : Env)
-    (p : DirectParts) (cvTa cvCa : ConstantVal) :
-    checkDirectRecF ops (mkFEnv env) p cvTa cvCa
-      = checkDirectRec ops env p cvTa cvCa := by
-  simp only [checkDirectRecF, checkDirectRec, mkFEnv_env, constsResolveF_eq,
-    checkConstantValF_eq]
 
 /-! ### The direct sum path (task #175 sum-types, indexed) -/
 
@@ -344,26 +308,6 @@ theorem checkDirectSumCtorsF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Nam
   | c :: cs => by
     simp only [checkDirectSumCtorsF, checkDirectSumCtors, checkDirectSumCtorF_eq,
       checkDirectSumCtorsF_eq ops env₀ env T lps nP nIdx resSort isProp large cvTa cs]
-
-theorem checkDirectSumRulesF_eq (ops : CheckerOps m) (env : Env)
-    (rlps : List Name) (T : Name) (lps : List Name) (elim : Name) (large : Bool)
-    (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) :
-    ∀ (k j : Nat),
-      checkDirectSumRulesF ops (mkFEnv env) rlps T lps elim large nP nIdx tty ctors k j
-        = checkDirectSumRules ops env rlps T lps elim large nP nIdx tty ctors k j
-  | 0, _ => rfl
-  | k + 1, j => by
-    simp only [checkDirectSumRulesF, checkDirectSumRules, mkFEnv_env,
-      constsResolveF_eq,
-      checkDirectSumRulesF_eq ops env rlps T lps elim large nP nIdx tty ctors k (j + 1)]
-
-theorem checkDirectSumRecF_eq (ops : CheckerOps m) (env : Env)
-    (p : DirectSumParts) (cvTa : ConstantVal)
-    (ctorsA : List (ConstantVal × Nat)) :
-    checkDirectSumRecF ops (mkFEnv env) p cvTa ctorsA
-      = checkDirectSumRec ops env p cvTa ctorsA := by
-  simp only [checkDirectSumRecF, checkDirectSumRec, mkFEnv_env, constsResolveF_eq,
-    checkConstantValF_eq, checkDirectSumRulesF_eq]
 
 omit [MonadExceptOf CheckError m] in
 theorem checkDivModCertsF_eq (ops : CheckerOps m) (env : Env) (c : Name)
@@ -460,6 +404,5 @@ theorem checkDirectFixRecF_eq (ops : CheckerOps m) (env : Env) (p : DirectFixPar
   simp only [DirectWalkers.plain, constsResolveF_eq]
 
 end FixMirrors
-
 
 end ConLeche

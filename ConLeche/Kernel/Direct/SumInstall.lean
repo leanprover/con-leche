@@ -36,13 +36,6 @@ namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- The capabilities a direct sum block earns: `ruleK` exactly at
-official's `is_K_target` — a `Prop` result, one constructor, no
-fields (task #175 indexed; at a plain sum the constructor count is
-never one, so the record is empty). -/
-def directSumCaps (p : DirectSumParts) : IndCaps where
-  ruleK := p.ctors.length == 1 && p.ctors.all (fun c => c.2 == 0) && p.isProp
-
 /-- **Official's telescope loop** (`check_inductive_types`,
 `inductive.cpp`; task #195): peel `n` Π binders off `e`, reducing the
 residual to weak head normal form before each binder and at the end,
@@ -200,50 +193,6 @@ def consSumCtors (nP : Nat) : List (ConstantVal × Nat) → Env → Env
   | [], env => env
   | c :: cs, env => consSumCtors nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts⟩
 
-/-- The generated rules for constructors `j, j+1, …` (`k` of them):
-each is scoped-checked and inferred (task #175 S2's discipline for the
-single rule). -/
-def checkDirectSumRules (ops : CheckerOps m) (env : Env) (rlps : List Name)
-    (T : Name) (lps : List Name) (elim : Name) (large : Bool) (nP nIdx : Nat)
-    (tty : Expr) (ctors : List (Name × Nat × Expr)) : Nat → Nat → m (List Expr)
-  | 0, _ => pure []
-  | k + 1, j => do
-    let rhs ← unwrapOr (directRecRhsI T lps elim large nP nIdx tty ctors j)
-      (.internal "direct sum: recursor rule")
-    unless rhs.allLevelParamsDefined rlps && rhs.constsResolve env &&
-        rhs.looseBVarsBounded 0 && !rhs.hasFvar do
-      throw (.internal "direct sum: recursor rule scoping")
-    let _rhsTy ← ops.inferType env 0 rhs
-    let rest ← checkDirectSumRules ops env rlps T lps elim large nP nIdx tty ctors k (j + 1)
-    pure (rhs :: rest)
-
-/-- Stage 3: the recursor, generated and compared (task #175 S2) — the
-generated type has one minor premise per constructor and the index
-binders after the minors (`directRecTyI`), the generated rules are
-one per constructor. -/
-def checkDirectSumRec (ops : CheckerOps m) (env : Env) (p : DirectSumParts)
-    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
-    m (ConstantVal × List Expr) := do
-  let cvRi ← checkConstantVal ops env p.cvR
-  let T := p.cvT.name
-  let lps := p.cvT.levelParams
-  let ctors := ctorsA.map fun c => (c.1.name, c.2, c.1.type)
-  let recTy ← unwrapOr (directRecTyI T lps p.elim p.large p.nP p.nIdx cvTa.type ctors)
-    (.internal "direct sum: recursor type")
-  unless recTy.allLevelParamsDefined p.cvR.levelParams && recTy.constsResolve env &&
-      recTy.looseBVarsBounded 0 && !recTy.hasFvar do
-    throw (.internal "direct sum: recursor type scoping")
-  let sty ← ops.inferType env 0 recTy
-  let _u ← ops.ensureSort env 0 sty
-  -- the stream's recursor is the generated one
-  unless ← ops.isDefEq env 0 cvRi.type recTy do
-    -- a recognised block's recursor is derived, so a different type is
-    -- INVALID input (task #181), not an unsupported shape
-    throw (.invalid "direct sum: recursor type is not the generated one")
-  let rhss ← checkDirectSumRules ops env p.cvR.levelParams T lps p.elim p.large p.nP p.nIdx
-    cvTa.type ctors ctors.length 0
-  pure (⟨p.cvR.name, p.cvR.levelParams, recTy⟩, rhss)
-
 /-- The stored rules: constructor `j`'s with the generated right-hand
 side `j`, plain when the generated type's major is the family at the
 parameters (always, by construction). -/
@@ -264,30 +213,5 @@ def DirectSumParts.majorIdx (p : DirectSumParts) : Nat := p.rulePrefix + p.nIdx
     (p.withSort s).rulePrefix = p.rulePrefix := rfl
 @[simp] theorem DirectSumParts.withSort_majorIdx (p : DirectSumParts) (s : Level) :
     (p.withSort s).majorIdx = p.majorIdx := rfl
-
-/-- Check and install a **direct sum**: the type former, the
-constructors, the recursor with its rules.  The elimination
-restriction (official `elim_only_at_universe_zero`) is enforced up
-front: with two or more constructors and a result sort that is not
-provably nonzero, only the small eliminator is admissible (the
-one-constructor case is the per-field test in
-`checkDirectFieldSortsI`). -/
-def checkDirectSum (ops : CheckerOps m) (env : Env) (p₀ : DirectSumParts) : m Env := do
-  -- the constructors are checked at one environment and consed
-  -- afterwards, so their names must be pairwise distinct here
-  unless (p₀.ctors.map (·.1.name)).Nodup do
-    throw (.invalid "direct sum: duplicate constructor")
-  -- the former first: the result sort the elimination restriction
-  -- reads is known only after its telescope (task #195)
-  let (env₁, cvTa, p) ← checkDirectSumInd ops env p₀ directSumCaps
-  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
-    throw (.invalid "direct sum: large eliminator on a multi-constructor inductive \
-      whose sort may be Prop")
-  let (ctorsA, _) ← checkDirectSumCtors ops env env₁ p.cvT.name p.cvT.levelParams p.nP p.nIdx
-    p.resSort p.isProp p.large cvTa p.ctors
-  let env₂ := consSumCtors p.nP ctorsA env₁
-  let (cvRa, rhss) ← checkDirectSumRec ops env₂ p cvTa ctorsA
-  pure ⟨.recInfo cvRa p.majorIdx p.rulePrefix
-    (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss) :: env₂.consts⟩
 
 end ConLeche

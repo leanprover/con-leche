@@ -190,60 +190,6 @@ theorem Expr.looseBVarsBounded_liftLooseBVars (k : Nat) :
     simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded] at hb ⊢
     exact ih hb
 
-/-- **`directIdxAt`, instantiated at the recursor's frame.**  The
-frame is `p⃗ x⃗ f⃗ ih⃗` (parameters, `o` extras, `nF` fields, `l`
-inductive hypotheses); field `i`'s index expression mentions only the
-parameters and the `i` earlier fields, so both of `directIdxAt`'s
-lifts are undone by the frame's own instantiation
-(`instSeq_liftLooseBVars_mid`, once per lift). -/
-theorem instSeq_directIdxAt (P X F I : List Expr) {nP o nF l i : Nat} {e : Expr}
-    (hP : P.length = nP) (hX : X.length = o) (hF : F.length = nF) (hI : I.length = l)
-    (hclP : ∀ a ∈ P, a.looseBVarsBounded 0 = true)
-    (hclF : ∀ a ∈ F, a.looseBVarsBounded 0 = true)
-    (hi : i ≤ nF) (heb : e.looseBVarsBounded (nP + i) = true) :
-    instSeq (P ++ X ++ F ++ I) (nP + o + nF + l - 1) (directIdxAt nF o i l 0 e)
-      = instSeq (P ++ F.take i) (nP + i - 1) e := by
-  unfold directIdxAt
-  rw [Nat.add_zero]
-  have hq : (e.liftLooseBVars (nF - i + l) 0).looseBVarsBounded (P.length + (nF + l)) = true := by
-    have := Expr.looseBVarsBounded_liftLooseBVars (nF - i + l) e (b := nP + i) (c := 0) heb
-    exact Expr.looseBVarsBounded_mono (by rw [hP]; omega) this
-  -- the outer lift: the `o` extras
-  have h1 : instSeq (P ++ X) (nP + o + nF + l - 1)
-      ((e.liftLooseBVars (nF - i + l) 0).liftLooseBVars o (nF + l))
-      = instSeq P (nP + nF + l - 1) (e.liftLooseBVars (nF - i + l) 0) := by
-    have h := instSeq_liftLooseBVars_mid P X (c := nF + l) hclP hq
-    rw [hP, hX] at h
-    rw [show nP + o + nF + l - 1 = nP + o + (nF + l) - 1 from by omega,
-      show nP + nF + l - 1 = nP + (nF + l) - 1 from by omega]
-    exact h
-  -- the inner lift: the fields at and after `i`, and the hypotheses
-  have hsplit : P ++ X ++ F ++ I = (P ++ X) ++ (F ++ I) := by simp
-  have hsplit2 : P ++ (F ++ I) = (P ++ F.take i) ++ (F.drop i ++ I) := by
-    rw [List.append_assoc, ← List.append_assoc (F.take i), List.take_append_drop]
-  have hlen2 : (F.drop i ++ I).length = nF - i + l := by simp [hF, hI]
-  have hcl2 : ∀ a ∈ P ++ F.take i, a.looseBVarsBounded 0 = true := by
-    intro a ha
-    rcases List.mem_append.mp ha with h | h
-    · exact hclP a h
-    · exact hclF a (List.mem_of_mem_take h)
-  have hlenPF : (P ++ F.take i).length = nP + i := by simp [hP, hF]; omega
-  have h2 : instSeq (P ++ (F ++ I)) (nP + nF + l - 1) (e.liftLooseBVars (nF - i + l) 0)
-      = instSeq (P ++ F.take i) (nP + i - 1) e := by
-    rw [hsplit2]
-    have := instSeq_liftLooseBVars_mid (P ++ F.take i) (F.drop i ++ I) (c := 0) hcl2
-      (by rw [hlenPF, Nat.add_zero]; exact heb)
-    rw [hlenPF, hlen2, Nat.add_zero, Nat.add_zero] at this
-    rw [show nP + nF + l - 1 = nP + i + (nF - i + l) - 1 from by omega]
-    exact this
-  rw [hsplit, Expr.instSeq_append (P ++ X) (F ++ I)]
-  show instSeq (F ++ I) (nP + o + nF + l - 1 - (P ++ X).length)
-      (instSeq (P ++ X) (nP + o + nF + l - 1)
-        ((e.liftLooseBVars (nF - i + l) 0).liftLooseBVars o (nF + l))) = _
-  rw [h1, show (P ++ X).length = nP + o from by simp [hP, hX],
-    show nP + o + nF + l - 1 - (nP + o) = nP + nF + l - 1 - P.length from by rw [hP]; omega,
-    ← Expr.instSeq_append P (F ++ I), h2]
-
 /-! ## Iterated variable shifts -/
 
 /-- `Expr.shiftFrom p`, iterated `n` times: insert `n` fresh variable

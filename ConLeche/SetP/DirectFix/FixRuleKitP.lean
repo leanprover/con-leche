@@ -66,38 +66,7 @@ theorem mkLamsAV_bits_validV {b : AVExpr} :
     rw [AnnotValidV_lam]
     exact ⟨h.1, fun a ha => mkLamsAV_bits_validV (h.2 a ha)⟩
 
-
 /-! ## The ih-moved index expressions -/
-
-/-- The ih-moved index expression is graded exactly when the expression
-is at the field's own frame. -/
-theorem AnnotOk2_ihIdxAt {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
-    (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
-    (hi : i ≤ nF) (E : AVExpr) :
-    AnnotOk2 V (consList ihs (consList fs (consList ms (cons M ρp)))) (ihIdxAt nF o i l E) ↔
-      AnnotOk2 V (consList (fs.take i) ρp) E := by
-  unfold ihIdxAt
-  rw [AnnotOk2_liftN, show nF + l = fs.length + ihs.length from by omega, shiftE_fieldFrame hms,
-    AnnotOk2_liftN, ← consList_append]
-  have hsplit : fs ++ ihs = fs.take i ++ (fs.drop i ++ ihs) := by
-    rw [← List.append_assoc, List.take_append_drop]
-  rw [hsplit, consList_append, show nF - i + l = (fs.drop i ++ ihs).length from by
-    rw [List.length_append, List.length_drop]; omega, shiftE_consList]
-
-/-- The ih-moved index expression is valid exactly when the expression
-is at the field's own frame. -/
-theorem AnnotValidV_ihIdxAt {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
-    (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
-    (hi : i ≤ nF) (E : AVExpr) :
-    AnnotValidV V (consList ihs (consList fs (consList ms (cons M ρp)))) (ihIdxAt nF o i l E) ↔
-      AnnotValidV V (consList (fs.take i) ρp) E := by
-  unfold ihIdxAt
-  rw [AnnotValidV_liftN, show nF + l = fs.length + ihs.length from by omega, shiftE_fieldFrame hms,
-    AnnotValidV_liftN, ← consList_append]
-  have hsplit : fs ++ ihs = fs.take i ++ (fs.drop i ++ ihs) := by
-    rw [← List.append_assoc, List.take_append_drop]
-  rw [hsplit, consList_append, show nF - i + l = (fs.drop i ++ ihs).length from by
-    rw [List.length_append, List.length_drop]; omega, shiftE_consList]
 
 /-! ## Domain walks -/
 

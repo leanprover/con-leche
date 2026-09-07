@@ -25,43 +25,6 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## Openings at any depth -/
 
-theorem stripPis_isSome_of_instantiate1_fvar :
-    ∀ (n : Nat) {e : Expr} {i : Nat} {ty : Expr} {k : Nat},
-      (Expr.stripPis n (e.instantiate1 (.fvar i ty) k)).isSome = true →
-      (Expr.stripPis n e).isSome = true
-  | 0, _, _, _, _, _ => by simp [Expr.stripPis]
-  | n + 1, e, i, ty, k, h => by
-    match e, h with
-    | .forallE dom body mb, h =>
-      simp only [Expr.instantiate1_forallE, Expr.stripPis, Option.isSome_map] at h ⊢
-      exact stripPis_isSome_of_instantiate1_fvar n h
-    | .bvar j, h =>
-      simp only [Expr.instantiate1_bvar] at h
-      split at h
-      · simp [Expr.stripPis] at h
-      · split at h <;> simp [Expr.stripPis] at h
-    | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
-      simp [Expr.instantiate1, Expr.stripPis] at h
-
-theorem openPisAtFvars_stripPis_isSome :
-    ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr},
-      openPisAtFvars n e d = some (fvs, o) → (Expr.stripPis n e).isSome = true
-  | 0, _, _, _, _, _ => by simp [Expr.stripPis]
-  | n + 1, e, d, fvs, o, h => by
-    match e, h with
-    | .forallE dom body mb, h =>
-      simp only [openPisAtFvars] at h
-      split at h
-      · next fvs' o' h' =>
-        have := openPisAtFvars_stripPis_isSome n h'
-        simp only [Expr.stripPis, Option.isSome_map]
-        exact stripPis_isSome_of_instantiate1_fvar n this
-      · exact nomatch h
-    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
-      simp [openPisAtFvars] at h
-
 theorem openPisAtFvars_of_stripPis_isSome :
     ∀ (n : Nat) {e : Expr} (d : Nat), (Expr.stripPis n e).isSome = true →
       ∃ fvs o, openPisAtFvars n e d = some (fvs, o)
@@ -76,12 +39,6 @@ theorem openPisAtFvars_of_stripPis_isSome :
     | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
     | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.stripPis] at h
-
-/-- An opening at one depth exists at every depth. -/
-theorem openPisAtFvars_any_depth {n : Nat} {e : Expr} {d : Nat} {fvs : List Expr}
-    {o : Expr} (h : openPisAtFvars n e d = some (fvs, o)) (d' : Nat) :
-    ∃ fvs' o', openPisAtFvars n e d' = some (fvs', o') :=
-  openPisAtFvars_of_stripPis_isSome n d' (openPisAtFvars_stripPis_isSome n h)
 
 /-! ## Per-index scoping -/
 
@@ -160,15 +117,6 @@ theorem instPisAt_res_WScoped :
     | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.instPisAt] at h
 
-theorem WScoped_mkAppN {d : Nat} :
-    ∀ {as : List Expr} {f : Expr}, Expr.WScoped d f → (∀ a ∈ as, Expr.WScoped d a) →
-      Expr.WScoped d (Expr.mkAppN f as)
-  | [], _, hf, _ => hf
-  | a :: as, f, hf, has => by
-    simp only [Expr.mkAppN]
-    exact WScoped_mkAppN (by simp only [Expr.WScoped]; exact ⟨hf, has a List.mem_cons_self⟩)
-      (fun a' ha' => has a' (List.mem_cons_of_mem _ ha'))
-
 /-! ## Frame shifts under a consed spine -/
 
 omit [SetTheory V] in
@@ -199,31 +147,7 @@ theorem shiftE_consList_len (n : Nat) (as : List V) (σ : Nat → V) :
   have := shiftE_consList_len' n as 0 σ
   rwa [Nat.add_zero] at this
 
-omit [SetTheory V] in
-theorem shiftE_cons_cons (a b : V) (σ : Nat → V) :
-    shiftE 2 0 (cons a (cons b σ)) = σ := by
-  rw [shiftE_succ_cons, shiftE_succ_cons, shiftE_zero_zero]
-
-omit [SetTheory V] in
-theorem shiftE_one_cons (a : V) (σ : Nat → V) : shiftE 1 0 (cons a σ) = σ := by
-  rw [shiftE_succ_cons, shiftE_zero_zero]
-
 /-! ## List arithmetic -/
-
-theorem getD_drop' {α : Type _} [Inhabited α] (l : List α) (k i : Nat) :
-    (l.drop k).getD i default = l.getD (k + i) default := by
-  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_drop]
-
-theorem drop_succ_eq_getD_cons {Γ : List AVExpr} {n i : Nat} (hΓ : Γ.length = n)
-    (hi : i < n) :
-    Γ.drop (n - (i + 1)) = Γ.getD (n - 1 - i) default :: Γ.drop (n - i) := by
-  rw [show n - (i + 1) = n - i - 1 from by omega,
-    List.drop_eq_getElem_cons (l := Γ) (i := n - i - 1) (by omega)]
-  have hG : Γ[n - i - 1]'(by omega) = Γ.getD (n - 1 - i) default := by
-    rw [List.getD, List.getElem?_eq_getElem (by omega)]
-    simp only [Option.getD_some]
-    congr 1; omega
-  rw [hG, show n - i - 1 + 1 = n - i from by omega]
 
 theorem mkPisAV_append :
     ∀ (l₁ l₂ : List (Nat × Nat × AVExpr)) (b : AVExpr),
@@ -231,55 +155,7 @@ theorem mkPisAV_append :
   | [], _, _ => rfl
   | d :: l₁, l₂, b => by simp [mkPisAV, mkPisAV_append l₁ l₂ b]
 
-theorem Sat2_cons_of_tail {Δ : List AVExpr} {A : AVExpr} {ρ : Nat → V}
-    (ht : Sat2 V Δ (fun j => ρ (j + 1)))
-    (hx : ρ 0 ∈ˢ interp2 V (fun j => ρ (j + 1)) A) : Sat2 V (A :: Δ) ρ := by
-  have h := Sat2_cons V ht hx
-  have e : cons (ρ 0) (fun j => ρ (j + 1)) = ρ := by
-    funext i; cases i <;> rfl
-  rwa [e] at h
-
 /-! ## The minor space as a Π-tower reading -/
-
-/-- **The minor space is the interpreted Π-tower** over field domains
-that agree with the chain's, bits zero exactly at a zero elimination
-level, whose core is the motive at the accumulated tuple. -/
-theorem interp_minorSp_of_tele {ℓ w : Nat} {M : V} :
-    ∀ {Fs : List AVExpr} {gds : List (Nat × Nat × AVExpr)} {Rm : AVExpr}
-      {σ ρf : Nat → V} {acc : List V},
-      gds.length = Fs.length →
-      (∀ d ∈ gds, (ℓ = 0 ↔ d.2.1 = 0)) →
-      (∀ (j : Nat) (as : List V), j < Fs.length → SpineFit ρf (Fs.take j) as →
-        interp2 V (consList as σ) ((gds.getD j default).2.2)
-          = interp2 V (consList as ρf) (Fs.getD j default)) →
-      (∀ as : List V, SpineFit ρf Fs as →
-        interp2 V (consList as σ) Rm
-          = SetTheory.app M (if w = 0 then pt else mkTower (acc ++ as))) →
-      interp2 V σ (mkPisAV gds Rm) = minorSp ℓ w M Fs ρf acc
-  | [], [], Rm, σ, ρf, acc, _, _, _, hbase => by
-    have := hbase [] trivial
-    simp only [consList, List.append_nil] at this
-    simpa [mkPisAV, minorSp] using this
-  | [], _ :: _, _, _, _, _, hlen, _, _, _ => by simp at hlen
-  | _ :: _, [], _, _, _, _, hlen, _, _, _ => by simp at hlen
-  | F :: Fs, d :: gds, Rm, σ, ρf, acc, hlen, hbits, hdom, hbase => by
-    simp only [mkPisAV, interp2_pi, minorSp]
-    have hd0 : interp2 V σ d.2.2 = interp2 V ρf F := by
-      have := hdom 0 [] (by simp) trivial
-      simpa [consList] using this
-    rw [hd0, piR_congr_bit (v := d.2.1) (v' := ℓ) (hbits d List.mem_cons_self).symm]
-    apply piR_congr
-    intro a ha
-    refine interp_minorSp_of_tele (by simpa using hlen)
-      (fun d' hd' => hbits d' (List.mem_cons_of_mem _ hd')) ?_ ?_
-    · intro j as hj hsp
-      have := hdom (j + 1) (a :: as) (by simpa using hj)
-        (by simp only [List.take_succ_cons, SpineFit]; exact ⟨ha, hsp⟩)
-      simpa [consList_cons] using this
-    · intro as hsp
-      have := hbase (a :: as) ⟨ha, hsp⟩
-      rw [consList_cons] at this
-      rw [this, List.append_cons]
 
 /-! ## Lifted domains, field spines, and frame arithmetic (from the retired
 `DirectRecMinorP`, task #175 S2) -/
@@ -349,55 +225,5 @@ theorem map_fieldBvars_interp {nF : Nat} {as : List V} (hlen : as.length = nF)
     rw [consList_apply_lt as σ (nF - 1 - i) (by omega), hlen,
       show nF - 1 - (nF - 1 - i) = i from by omega, List.getElem?_eq_getElem h2,
       Option.getD_some]
-
-theorem stripPisAV_liftN_inv (n' c : Nat) :
-    ∀ (n : Nat) {e : AVExpr} {gds : List (Nat × Nat × AVExpr)} {R : AVExpr},
-      stripPisAV n (e.liftN n' c) = some (gds, R) →
-      ∃ gds₀ R₀, stripPisAV n e = some (gds₀, R₀) ∧ gds = liftDoms n' c gds₀ ∧
-        R = R₀.liftN n' (c + n)
-  | 0, e, gds, R, h => by
-    simp only [stripPisAV, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨[], e, rfl, rfl, by simp⟩
-  | n + 1, e, gds, R, h => by
-    match e, h with
-    | .pi u v A B, h =>
-      simp only [AVExpr.liftN_pi, stripPisAV] at h
-      cases h1 : stripPisAV n (B.liftN n' (c + 1)) with
-      | none => rw [h1] at h; exact nomatch h
-      | some p =>
-        obtain ⟨gds', R'⟩ := p
-        rw [h1] at h
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        obtain ⟨gds₀, R₀, hst, rfl, rfl⟩ := stripPisAV_liftN_inv n' (c + 1) n h1
-        refine ⟨(u, v, A) :: gds₀, R₀, by simp [stripPisAV, hst], rfl, ?_⟩
-        rw [show c + 1 + n = c + (n + 1) from by omega]
-    | .bvar _, h | .sort _, h | .const _ _, h | .app _ _, h | .lam _ _ _, h
-    | .letE _ _ _, h | .eqE _ _ _, h | .proj _ _, h | .prf, h =>
-      simp [AVExpr.liftN, stripPisAV] at h
-
-theorem mem_take_of_le {α : Type _} {l : List α} {a : α} {n n' : Nat}
-    (h : a ∈ l.take n) (hn : n ≤ n') : a ∈ l.take n' := by
-  obtain ⟨q, hq⟩ := List.getElem?_of_mem h
-  have hq' : q < n := by
-    have := (List.getElem?_eq_some_iff.mp hq).1
-    simp at this; omega
-  rw [List.getElem?_take_of_lt hq'] at hq
-  exact List.mem_of_getElem? (by rw [List.getElem?_take_of_lt (i := q) (j := n') (by omega)]; exact hq)
-
-omit [SetTheory V] in
-/-- The consed reversed range at a shifted frame is the shift. -/
-theorem consList_range_reverse_shift (j : Nat) (ρ : Nat → V) :
-    consList ((List.range j).reverse.map ρ) (fun i => ρ (i + j + 2)) = shiftE 2 j ρ := by
-  have h1 : (List.range j).reverse.map ρ = (List.range j).reverse.map (shiftE 2 j ρ) := by
-    apply List.map_congr_left
-    intro k hk
-    have : k < j := by simpa using hk
-    simp [shiftE, this]
-  have h2 : (fun i => ρ (i + j + 2)) = fun i => shiftE 2 j ρ (i + j) := by
-    funext i; simp only [shiftE]; rw [if_neg (by omega)]
-  rw [h1, h2]
-  exact consList_range_reverse j (shiftE 2 j ρ)
 
 end ConLeche.SetP

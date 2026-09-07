@@ -28,30 +28,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 /-! ## Boundness through openings -/
 
 omit [SetTheory V] in
-/-- A bounded telescope's binder domains and body are bounded. -/
-theorem constsBound_stripPis {env₀ : Env} :
-    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
-      ConstsBound env₀ e → e.stripPis n = some (bs, body) →
-      (∀ b ∈ bs, ConstsBound env₀ b.1) ∧ ConstsBound env₀ body
-  | 0, e, bs, body, he, hst => by
-    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hst
-    obtain ⟨rfl, rfl⟩ := hst
-    exact ⟨(fun b hb => nomatch hb), he⟩
-  | n + 1, e, bs, body, he, hst => by
-    match e, he, hst with
-    | .forallE dom bd mb, he, hst =>
-      simp only [Expr.stripPis, Option.map_eq_some_iff] at hst
-      obtain ⟨⟨bs', body₀⟩, hst', heq⟩ := hst
-      simp only [Prod.mk.injEq] at heq
-      obtain ⟨rfl, rfl⟩ := heq
-      rw [constsBound_forallE] at he
-      obtain ⟨hbs, hbody⟩ := constsBound_stripPis n he.2 hst'
-      refine ⟨fun b hb => ?_, hbody⟩
-      rcases List.mem_cons.mp hb with rfl | hb
-      · exact he.1
-      · exact hbs b hb
-
-omit [SetTheory V] in
 /-- A bounded application's arguments are bounded. -/
 theorem constsBound_getAppArgs {env₀ : Env} :
     ∀ (e : Expr), ConstsBound env₀ e → ∀ a ∈ e.getAppArgs, ConstsBound env₀ a
@@ -70,16 +46,6 @@ theorem constsBound_getAppArgs {env₀ : Env} :
   | .letE _ _ _, _, _, hx => nomatch hx
   | .lit _, _, _, hx => nomatch hx
   | .proj _ _ _, _, _, hx => nomatch hx
-
-omit [SetTheory V] in
-/-- Instantiation at bounded terms preserves boundness. -/
-theorem constsBound_instSeq {env₀ : Env} :
-    ∀ (as : List Expr) (t : Nat) (e : Expr), (∀ a ∈ as, ConstsBound env₀ a) →
-      ConstsBound env₀ e → ConstsBound env₀ (Expr.instSeq as t e)
-  | [], _, _, _, he => he
-  | a :: as, t, e, has, he =>
-    constsBound_instSeq as (t - 1) _ (fun a' ha' => has a' (List.mem_cons_of_mem _ ha'))
-      (ConstsBound.instantiate1 (has a List.mem_cons_self) e t he)
 
 omit [SetTheory V] in
 /-- An opening's variables (their types) and residual are bounded when

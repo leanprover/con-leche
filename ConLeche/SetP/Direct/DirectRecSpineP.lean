@@ -1,4 +1,4 @@
-import ConLeche.SetP.Direct.DirectRecDataP
+import ConLeche.SetP.Direct.DirectStageCtorP
 import ConLeche.SetP.IndProjKitP
 
 /-!
@@ -34,56 +34,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 
 /-! ## Inference kit -/
 
-theorem ensureSortCore_of_whnf {F d : Nat} {t : Expr} {u : Level}
-    (h : ConLeche.whnf μ env F d t = .ok (.sort u)) :
-    ConLeche.ensureSortCore μ env F d t = .ok u := by
-  unfold ConLeche.ensureSortCore ConLeche.ensureSort
-  simp only [Bind.bind, Except.bind, ConLeche.whnf_def]
-  rw [h]
-  exact rfl
-
-/-- **The Π-prefix's domain runs, with their sorts.** -/
-theorem piDomsSorts_of_infer :
-    ∀ (n : Nat) {F d : Nat} {e t : Expr} {fvs : List Expr} {opened : Expr},
-      openPisAtFvars n e d = some (fvs, opened) →
-      ConLeche.inferTypeCore μ env F d e = .ok t →
-      ∀ (j : Nat) (x : Expr), fvs[j]? = some x →
-        ∃ (F' : Nat) (tj : Expr) (u : Level),
-          ConLeche.inferTypeCore μ env F' (d + j) (Expr.fvarTypeD x) = .ok tj ∧
-          ConLeche.ensureSortCore μ env F' (d + j) tj = .ok u
-  | 0, F, d, e, t, fvs, opened, hop, _, j, x, hx => by
-    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
-    obtain ⟨rfl, -⟩ := hop
-    exact nomatch hx
-  | n + 1, F, d, e, t, fvs, opened, hop, h, j, x, hx => by
-    match e, hop, h with
-    | .forallE dom body mb, hop, h =>
-      match F, h with
-      | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
-      | F + 1, h =>
-        obtain ⟨tty, u, bt, v, hty, hwh, hbt, -, -, rfl⟩ :=
-          ConLeche.inferTypeCore_forall_inv h
-        simp only [openPisAtFvars] at hop
-        split at hop
-        · next fvs' e' hop' =>
-          simp only [Option.some.injEq, Prod.mk.injEq] at hop
-          obtain ⟨rfl, rfl⟩ := hop
-          cases j with
-          | zero =>
-            obtain rfl : Expr.fvar d dom = x := by simpa using hx
-            exact ⟨F, tty, u, by rw [Nat.add_zero]; exact hty,
-              by rw [Nat.add_zero]; exact ensureSortCore_of_whnf hwh⟩
-          | succ j =>
-            simp only [List.getElem?_cons_succ] at hx
-            obtain ⟨F', tj, u', hj, hu'⟩ := piDomsSorts_of_infer n hop' hbt j x hx
-            exact ⟨F', tj, u', by rw [show d + (j + 1) = d + 1 + j from by omega]; exact hj,
-              by rw [show d + (j + 1) = d + 1 + j from by omega]; exact hu'⟩
-        · exact nomatch hop
-    | .bvar _, hop, _ | .fvar _ _, hop, _ | .sort _, hop, _
-    | .const _ _, hop, _ | .app _ _, hop, _ | .lam _ _ _, hop, _
-    | .letE _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
-      simp [openPisAtFvars] at hop
-
 /-! ## Lifted Π-towers -/
 
 /-- The binder data of a lifted Π-tower: each domain lifted at its own
@@ -105,17 +55,6 @@ theorem liftDoms_getElem? (n : Nat) :
   | _ :: ds, k, i + 1 => by
     simp only [liftDoms, List.getElem?_cons_succ, liftDoms_getElem? n ds (k + 1) i]
     rw [show k + 1 + i = k + (i + 1) from by omega]
-
-theorem liftDoms_mem (n : Nat) :
-    ∀ {ds : List (Nat × Nat × AVExpr)} {k : Nat} {d : Nat × Nat × AVExpr},
-      d ∈ liftDoms n k ds → ∃ d' ∈ ds, d.1 = d'.1 ∧ d.2.1 = d'.2.1
-  | [], _, _, h => nomatch h
-  | d₀ :: ds, k, d, h => by
-    simp only [liftDoms, List.mem_cons] at h
-    rcases h with rfl | h
-    · exact ⟨d₀, List.mem_cons_self, rfl, rfl⟩
-    · obtain ⟨d', hd', h1, h2⟩ := liftDoms_mem n h
-      exact ⟨d', List.mem_cons_of_mem _ hd', h1, h2⟩
 
 theorem liftN_mkPisAV (n : Nat) :
     ∀ (ds : List (Nat × Nat × AVExpr)) (b : AVExpr) (k : Nat),
@@ -213,36 +152,6 @@ theorem spineFit_congr_below :
       | zero => rfl
       | succ i => exact hρ i (by omega)
 
-/-- **A graded head inhabiting a Π-tower (bits nonzero), applied along
-a fitting spine, is graded and lands in the core** — the type's frame
-`σ` and the spine's `ρ` kept apart, as the fit peels by `cons`. -/
-theorem mkAppN_okP_of_spineFit :
-    ∀ {pds : List (Nat × Nat × AVExpr)} {b f : AVExpr} {args : List AVExpr}
-      {ρ σ : Nat → V},
-      (∀ d ∈ pds, d.2.1 ≠ 0) → AnnotOkP V ρ f → (∀ a ∈ args, AnnotOkP V ρ a) →
-      interp2 V ρ f ∈ˢ interp2 V σ (mkPisAV pds b) →
-      SpineFit σ (pds.map (·.2.2)) (args.map (interp2 V ρ)) →
-      AnnotOkP V ρ (AVExpr.mkAppN f args) ∧
-        interp2 V ρ (AVExpr.mkAppN f args)
-          ∈ˢ interp2 V (consList (args.map (interp2 V ρ)) σ) b
-  | [], _, _, [], _, _, _, hf, _, hmem, _ => ⟨hf, hmem⟩
-  | [], _, _, _ :: _, _, _, _, _, _, _, hsp => hsp.elim
-  | _ :: _, _, _, [], _, _, _, _, _, _, hsp => hsp.elim
-  | d :: pds, b, f, a :: args, ρ, σ, hnz, hf, hargs, hmem, hsp => by
-    simp only [List.map_cons, SpineFit] at hsp
-    simp only [mkPisAV, interp2_pi] at hmem
-    rw [AVExpr.mkAppN_cons, List.map_cons, consList_cons]
-    have ha := hargs a List.mem_cons_self
-    refine mkAppN_okP_of_spineFit (fun d' hd' => hnz d' (List.mem_cons_of_mem _ hd'))
-      ⟨?_, ?_⟩ (fun a' ha' => hargs a' (List.mem_cons_of_mem _ ha')) ?_ hsp.2
-    · rw [AnnotOk2_app]
-      exact ⟨hf.1, ha.1, d.2.1, interp2 V σ d.2.2,
-        fun x => interp2 V (cons x σ) (mkPisAV pds b), hmem, hsp.1,
-        fun h0 => absurd h0 (hnz d List.mem_cons_self)⟩
-    · rw [AnnotValidV_app]; exact ⟨hf.2, ha.2⟩
-    · rw [interp2_app]
-      exact app_mem_piR_pos (hnz d List.mem_cons_self) hmem hsp.1
-
 /-! ## The family spine above the parameters -/
 
 /-- The parameter variables as seen from depth `D` (`D ≥ nP`). -/
@@ -278,41 +187,6 @@ theorem denoteSpineP_fvars {acval : Name → (Name → Nat) → AVExpr} (D : Nat
     rw [hmapeq]
     exact this
 
-/-- **The family spine's reading**: `T p⃗` at depth `D` reads to the
-former's leaf applied to the parameter variables. -/
-theorem famSpine_read {m : EnvS2Core V env} {T : Name} {lps : List Name}
-    {ci : ConstantInfo} (hfT : env.find? T = some ci)
-    (hlps : ci.toConstantVal.levelParams = lps)
-    {fvs : List Expr} {nP : Nat} (hlen : fvs.length = nP)
-    (hidx : ∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
-    (D : Nat) (ψ : Name → Nat) :
-    denoteP m.acval env ψ D (Expr.mkAppN (.const T (lps.map .param)) fvs)
-      = some (AVExpr.mkAppN (m.acval T ψ) (paramBvarsAt nP D)) := by
-  have hsp := denoteSpineP_fvars (acval := m.acval) (env := env) (φ := ψ) D fvs 0
-    (fun k x hx => by obtain ⟨ty, h⟩ := hidx k x hx; exact ⟨ty, by rw [h, Nat.zero_add]⟩)
-  simp only [Nat.zero_add, hlen] at hsp
-  refine denoteP_mkAppN hsp ?_
-  rw [denoteP_const hfT (by rw [hlps]; simp), hlps, Level.substFn_param_self]
-
-/-- `famSpine_read` at any level instantiation fixed by the valuation
-(task #175 W4c P3 module 7; the guard's zeroing instantiation it
-served retired with the per-slot entry stage at task #175 S1). -/
-theorem famSpine_read_at {m : EnvS2Core V env} {T : Name} {lps : List Name}
-    {ci : ConstantInfo} (hfT : env.find? T = some ci)
-    (hlps : ci.toConstantVal.levelParams = lps)
-    {us : List Level} {ψ : Name → Nat}
-    (hus : Level.substFn ψ lps us = ψ) (hlus : us.length = lps.length)
-    {fvs : List Expr} {nP : Nat} (hlen : fvs.length = nP)
-    (hidx : ∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ ty, x = Expr.fvar k ty)
-    (D : Nat) :
-    denoteP m.acval env ψ D (Expr.mkAppN (.const T us) fvs)
-      = some (AVExpr.mkAppN (m.acval T ψ) (paramBvarsAt nP D)) := by
-  have hsp := denoteSpineP_fvars (acval := m.acval) (env := env) (φ := ψ) D fvs 0
-    (fun k x hx => by obtain ⟨ty, h⟩ := hidx k x hx; exact ⟨ty, by rw [h, Nat.zero_add]⟩)
-  simp only [Nat.zero_add, hlen] at hsp
-  refine denoteP_mkAppN hsp ?_
-  rw [denoteP_const hfT (by rw [hlps]; exact hlus), hlps, hus]
-
 theorem map_paramBvarsAt_interp {nP e : Nat} {ρp σ : Nat → V}
     (hσ : ∀ j, σ (j + e) = ρp j) :
     (paramBvarsAt nP (nP + e)).map (interp2 V σ) = (List.range nP).reverse.map ρp := by
@@ -325,35 +199,3 @@ theorem map_paramBvarsAt_interp {nP e : Nat} {ρp σ : Nat → V}
     congr 1
     have : i < nP := by simpa [paramBvarsAt] using h1
     omega
-
-/-- **The family spine's value and grading** at any frame `σ` whose
-`e`-th tail is a parameter valuation: the instantiated carrier
-(`formerFold`), graded (`mkAppN_okP_of_spineFit`). -/
-theorem famSpine_val {w : Nat} {Fs : List AVExpr}
-    {pps : List (Nat × Nat × AVExpr)} {nP : Nat}
-    (hbits : ∀ d ∈ pps, d.2.1 ≠ 0) (hbelow : DomsBelow 0 pps) (hlen : pps.length = nP)
-    (hok : ∀ ρ : Nat → V, ParamsOkT w ρ Fs pps)
-    (hval : ∀ ρ : Nat → V, UnderTowerValid ρ (towerBodyAV w Fs) pps)
-    (hcl : VExpr.bvarsBelow 0 (directTyAV w pps Fs).erase)
-    {ρp σ : Nat → V} {e : Nat} (hσ : ∀ j, σ (j + e) = ρp j)
-    (hsat : Sat2 V ((pps.map (·.2.2)).reverse) ρp) :
-    AnnotOkP V σ (AVExpr.mkAppN (directTyAV w pps Fs) (paramBvarsAt nP (nP + e))) ∧
-      interp2 V σ (AVExpr.mkAppN (directTyAV w pps Fs) (paramBvarsAt nP (nP + e)))
-        = towerSet w (teleOfFields ρp Fs) := by
-  have hspP := spineFit_of_sat2 (Δ₀ := []) (Ds := pps.map (·.2.2))
-    (by rw [List.append_nil]; exact hsat)
-  simp only [List.length_map, hlen] at hspP
-  have hmap := map_paramBvarsAt_interp (V := V) (nP := nP) hσ
-  -- the fit, at the application's own frame
-  have hspσ : SpineFit σ (pps.map (·.2.2)) ((paramBvarsAt nP (nP + e)).map (interp2 V σ)) := by
-    rw [hmap]
-    exact spineFit_congr_below hbelow (fun i hi => absurd hi (Nat.not_lt_zero i)) hspP
-  refine ⟨(mkAppN_okP_of_spineFit (b := .sort w) hbits (directTyAV_okP (hok σ) (hval σ))
-    (fun a ha => by
-      obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha
-      exact ⟨by rw [AnnotOk2_bvar]; trivial, by rw [AnnotValidV_bvar]; trivial⟩)
-    (directTyAV_mem (hok σ)) hspσ).1, ?_⟩
-  -- the value: the former's fold along the parameters
-  rw [interp2_mkAppN, ← List.foldl_map (f := interp2 V σ) (g := SetTheory.app), hmap,
-    interp2_closed (V := V) hcl σ (fun j => ρp (j + nP)), formerFold (hok _) hspP,
-    consList_range_reverse]

@@ -1,4 +1,4 @@
-import ConLeche.SetP.Direct.DirectRecWalksP
+import ConLeche.SetP.Direct.DirectRecFramesP
 
 /-!
 # λ-towers fold to their body (task #175 W4c, P3 module 6, part 15)
@@ -78,40 +78,6 @@ theorem mkLamsAV_fold_graded :
     · simp only [mkLamsAV, interp2_lam]
       rw [app_lamR_pos (Nat.pos_iff_ne_zero.mp hpos) hsp.1]
       exact mkLamsAV_fold_graded (hrest a hsp.1) hsp.2
-
-/-- The layers of a graded λ-tower are graded along any fitting prefix
-of a spine. -/
-theorem mkLamsAV_layers_ok :
-    ∀ {lds : List (Nat × AVExpr)} {b : AVExpr} {ρ : Nat → V} {as : List V},
-      AnnotOk2 V ρ (mkLamsAV lds b) → SpineFit ρ (lds.map (·.2)) as →
-      ∀ i, i < lds.length →
-        AnnotOk2 V (consList (as.take i) ρ) ((lds.getD i default).2)
-  | [], _, _, _, _, _, i, hi => absurd hi (Nat.not_lt_zero _)
-  | _ :: _, _, _, [], _, hsp, _, _ => hsp.elim
-  | d :: lds, b, ρ, a :: as, hok, hsp, i, hi => by
-    simp only [List.map_cons, SpineFit] at hsp
-    have hok' := hok
-    simp only [mkLamsAV, AnnotOk2_lam] at hok'
-    obtain ⟨hA, hrest, -⟩ := hok'
-    cases i with
-    | zero => simpa using hA
-    | succ i =>
-      simp only [List.take_succ_cons, consList_cons, List.getD_cons_succ]
-      exact mkLamsAV_layers_ok (hrest a hsp.1) hsp.2 i (by simpa using hi)
-
-/-- A λ telescope's peel: the binder data with bits, whose reversed
-domains are the telescope's context. -/
-theorem stripLamsAV_of_lamTeleP :
-    ∀ {k : Nat} {T : AVExpr} {Γ : List AVExpr} {C : AVExpr},
-      LamTeleP k T Γ C →
-      ∃ lds : List (Nat × AVExpr), T = mkLamsAV lds C ∧ (lds.map (·.2)).reverse = Γ ∧
-        lds.length = k := by
-  intro k T Γ C h
-  induction h with
-  | nil => exact ⟨[], rfl, rfl, rfl⟩
-  | @cons k v A B R Γ' _ ih =>
-    obtain ⟨lds, rfl, hΓ, hlen⟩ := ih
-    exact ⟨(v, A) :: lds, rfl, by simp [hΓ], by simp [hlen]⟩
 
 /-- **A graded λ-tower applied along a fitting spine is graded**: each
 step's Π-package is the layer's own (`lamR_mem` over the grading's

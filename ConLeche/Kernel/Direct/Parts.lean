@@ -132,9 +132,6 @@ The domains are re-emitted verbatim, their inner data untouched. -/
 def directPsAt (o nP : Nat) : List Expr :=
   (List.range nP).map fun k => Expr.bvar (o + nP - 1 - k)
 
-theorem directFam_eq (T : Name) (lps : List Name) (nP o : Nat) :
-    directFam T lps nP o = Expr.mkAppN (.const T (lps.map .param)) (directPsAt o nP) := rfl
-
 /-- The recursor's elimination level: the fresh parameter at the large
 eliminator, `zero` at the small one. -/
 def directElimLevel (elim : Name) (large : Bool) : Level :=
@@ -147,21 +144,6 @@ motive and the earlier minor premises); `directCtorSpine` is the
 def directCtorSpineAt (C : Name) (lps : List Name) (o nP nF : Nat) : Expr :=
   Expr.mkAppN (.const C (lps.map .param))
     (directPsAt (o + nF) nP ++ (List.range nF).map fun j => Expr.bvar (nF - 1 - j))
-
-theorem directCtorSpine_eq_at (C : Name) (lps : List Name) (nP nF : Nat) :
-    directCtorSpine C lps nP nF = directCtorSpineAt C lps 1 nP nF := by
-  unfold directCtorSpine directCtorSpineAt directPsAt
-  congr 2
-  apply List.map_congr_left
-  intro k _
-  congr 1
-  omega
-
-/-- The last string component of a name, as a binder name (`T.mk ↦
-mk`). -/
-def Name.lastStr : Name → Name
-  | .str _ s => .str .anonymous s
-  | n => n
 
 /-- Replace the body under the first `k` `∀`-binders, resetting their
 codomain data to `pw` (the domains are kept). -/
@@ -179,83 +161,6 @@ def Expr.pisToLamsPw (pw : PropWhen) : Nat → Expr → Expr → Option Expr
   | k + 1, .forallE ty rest _, b =>
     (pisToLamsPw pw k rest b).map fun r => .lam ty r ⟨pw⟩
   | _ + 1, _, _ => none
-
-/-- The motive's domain `∀ (t : T p⃗), Sort ℓ`, at the parameters'
-frame. -/
-def directMotiveTy (T : Name) (lps : List Name) (nP : Nat) (ℓ : Level) : Expr :=
-  .forallE (directFam T lps nP 0) (.sort ℓ) ⟨.never⟩
-
-/-- A constructor's minor premise: its field telescope — the
-constructor type's binders past the parameters, lifted under the `o`
-binders between the parameters and the fields (the motive and the
-earlier minor premises), every field binder's datum reset to the
-elimination datum — ending in `motive (C p⃗ f⃗)`. -/
-def directMinorTy (C : Name) (lps : List Name) (nP nF o : Nat) (pw : PropWhen)
-    (cty : Expr) : Option Expr :=
-  (cty.stripPis nP).bind fun q =>
-    Expr.replacePisPw pw nF (q.2.liftLooseBVars o 0)
-      (.app (.bvar (nF + o - 1)) (directCtorSpineAt C lps o nP nF))
-
-/-- The minor premises' `∀`-telescope over `body`, one per constructor
-(`(C, nF, cty)`), the first sitting `o` binders below the parameters. -/
-def directMinorsPis (lps : List Name) (nP : Nat) (pw : PropWhen) :
-    List (Name × Nat × Expr) → Nat → Expr → Option Expr
-  | [], _, body => some body
-  | (C, nF, cty) :: cs, o, body =>
-    (directMinorTy C lps nP nF o pw cty).bind fun mty =>
-      (directMinorsPis lps nP pw cs (o + 1) body).map fun rest =>
-        .forallE mty rest ⟨pw⟩
-
-/-- The `λ` twin of `directMinorsPis` (the rule's minor binders). -/
-def directMinorsLams (lps : List Name) (nP : Nat) (pw : PropWhen) :
-    List (Name × Nat × Expr) → Nat → Expr → Option Expr
-  | [], _, body => some body
-  | (C, nF, cty) :: cs, o, body =>
-    (directMinorTy C lps nP nF o pw cty).bind fun mty =>
-      (directMinorsLams lps nP pw cs (o + 1) body).map fun rest =>
-        .lam mty rest ⟨pw⟩
-
-/-- **The generated recursor type**
-
-    ∀ p⃗ {motive : ∀ (t : T p⃗), Sort ℓ} (minor_C : ∀ f⃗, motive (C p⃗ f⃗))…
-      (t : T p⃗), motive t
-
-over the type former's parameter binders (`tty = ∀ p⃗, Sort w`, the
-annotated stored type) and the constructors' field telescopes (their
-annotated stored types). -/
-def directRecTy (T : Name) (lps : List Name) (elim : Name) (large : Bool)
-    (nP : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) : Option Expr :=
-  let ℓ := directElimLevel elim large
-  let pw := Level.zeronessOf ℓ
-  let n := ctors.length
-  (directMinorsPis lps nP pw ctors 1
-      (.forallE (directFam T lps nP (n + 1))
-        (.app (.bvar (n + 1)) (.bvar 0)) ⟨pw⟩)).bind fun minors =>
-    Expr.replacePisPw pw nP tty
-      (.forallE (directMotiveTy T lps nP ℓ) minors
-        ⟨pw⟩)
-
-/-- **The generated rule** for constructor `j`:
-`λ p⃗ motive minor⃗ f⃗_j, minor_j f⃗_j`, its `λ`-domains verbatim the
-recursor type's `Π`-domains (the field domains under the `n + 1`
-binders of the motive and the minors). -/
-def directRecRhs (T : Name) (lps : List Name) (elim : Name) (large : Bool)
-    (nP : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) (j : Nat) :
-    Option Expr :=
-  let ℓ := directElimLevel elim large
-  let pw := Level.zeronessOf ℓ
-  let n := ctors.length
-  match ctors[j]? with
-  | none => none
-  | some (_, nF, cty) =>
-    (cty.stripPis nP).bind fun q =>
-    (Expr.pisToLamsPw pw nF (q.2.liftLooseBVars (n + 1) 0)
-        (Expr.mkAppN (.bvar (nF + n - 1 - j))
-          ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))).bind fun inner =>
-    (directMinorsLams lps nP pw ctors 1 inner).bind fun minors =>
-    Expr.pisToLamsPw pw nP tty
-      (.lam (directMotiveTy T lps nP ℓ) minors
-        ⟨pw⟩)
 
 /-! ## The generated recursor at an indexed family (task #175 indexed)
 
@@ -284,10 +189,6 @@ frame. -/
 def directFamI (T : Name) (lps : List Name) (nP nIdx e o : Nat) : Expr :=
   Expr.mkAppN (.const T (lps.map .param)) (directPsAt (o + e + nIdx) nP ++ directPsAt o nIdx)
 
-theorem directFamI_zero (T : Name) (lps : List Name) (nP e : Nat) :
-    directFamI T lps nP 0 e 0 = directFam T lps nP e := by
-  simp [directFamI, directFam_eq, directPsAt]
-
 /-- A constructor residual's shape at an indexed family: the family
 at exactly the parameter variables (`o` binders below the parameter
 frame) followed by `nIdx` index expressions. -/
@@ -304,78 +205,6 @@ def directMotiveTyI (T : Name) (lps : List Name) (nP nIdx : Nat) (ℓ : Level) (
     Option Expr :=
   Expr.replacePisPw .never nIdx itele
     (.forallE (directFamI T lps nP nIdx 0 0) (.sort ℓ) ⟨.never⟩)
-
-/-- Constructor `C`'s minor premise at an indexed family: its field
-telescope lifted under the `o` extras, ending in
-`motive e⃗ (C p⃗ f⃗)` — the residual's index expressions lifted under
-the extras (cutoff `nF`: the fields stay, the parameters move). -/
-def directMinorTyI (C : Name) (lps : List Name) (nP nF o : Nat) (pw : PropWhen)
-    (cty : Expr) : Option Expr :=
-  (cty.stripPis nP).bind fun q =>
-  (q.2.stripPis nF).bind fun r =>
-    Expr.replacePisPw pw nF (q.2.liftLooseBVars o 0)
-      (Expr.mkAppN (.bvar (nF + o - 1))
-        ((r.2.getAppArgs.drop nP).map (Expr.liftLooseBVars o nF) ++
-          [directCtorSpineAt C lps o nP nF]))
-
-/-- The minor premises' `∀`-telescope at an indexed family. -/
-def directMinorsPisI (lps : List Name) (nP : Nat) (pw : PropWhen) :
-    List (Name × Nat × Expr) → Nat → Expr → Option Expr
-  | [], _, body => some body
-  | (C, nF, cty) :: cs, o, body =>
-    (directMinorTyI C lps nP nF o pw cty).bind fun mty =>
-      (directMinorsPisI lps nP pw cs (o + 1) body).map fun rest =>
-        .forallE mty rest ⟨pw⟩
-
-/-- The `λ` twin of `directMinorsPisI` (the rule's minor binders). -/
-def directMinorsLamsI (lps : List Name) (nP : Nat) (pw : PropWhen) :
-    List (Name × Nat × Expr) → Nat → Expr → Option Expr
-  | [], _, body => some body
-  | (C, nF, cty) :: cs, o, body =>
-    (directMinorTyI C lps nP nF o pw cty).bind fun mty =>
-      (directMinorsLamsI lps nP pw cs (o + 1) body).map fun rest =>
-        .lam mty rest ⟨pw⟩
-
-/-- **The generated rule** for constructor `j` at an indexed family:
-`λ p⃗ motive minor⃗ f⃗_j, minor_j f⃗_j` — `directRecRhs` with the motive's
-and the minors' λ-domains at the indexed shapes (a rule binds no
-index). -/
-def directRecRhsI (T : Name) (lps : List Name) (elim : Name) (large : Bool)
-    (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) (j : Nat) :
-    Option Expr :=
-  let ℓ := directElimLevel elim large
-  let pw := Level.zeronessOf ℓ
-  let n := ctors.length
-  match ctors[j]? with
-  | none => none
-  | some (_, nF, cty) =>
-    (tty.stripPis nP).bind fun tq =>
-    (directMotiveTyI T lps nP nIdx ℓ tq.2).bind fun motiveTy =>
-    (cty.stripPis nP).bind fun q =>
-    (Expr.pisToLamsPw pw nF (q.2.liftLooseBVars (n + 1) 0)
-        (Expr.mkAppN (.bvar (nF + n - 1 - j))
-          ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))).bind fun inner =>
-    (directMinorsLamsI lps nP pw ctors 1 inner).bind fun minors =>
-    Expr.pisToLamsPw pw nP tty
-      (.lam motiveTy minors ⟨pw⟩)
-
-/-- **The generated recursor type at an indexed family** (see the
-section docstring).  `tty = ∀ p⃗ ı⃗, Sort w` is the annotated type
-former's type. -/
-def directRecTyI (T : Name) (lps : List Name) (elim : Name) (large : Bool)
-    (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) : Option Expr :=
-  let ℓ := directElimLevel elim large
-  let pw := Level.zeronessOf ℓ
-  let n := ctors.length
-  (tty.stripPis nP).bind fun q =>
-  (directMotiveTyI T lps nP nIdx ℓ q.2).bind fun motiveTy =>
-  (Expr.replacePisPw pw nIdx (q.2.liftLooseBVars (n + 1) 0)
-      (.forallE (directFamI T lps nP nIdx (n + 1) 0)
-        (Expr.mkAppN (.bvar (nIdx + n + 1)) (directPsAt 1 nIdx ++ [.bvar 0]))
-        ⟨pw⟩)).bind fun major =>
-  (directMinorsPisI lps nP pw ctors 1 major).bind fun minors =>
-    Expr.replacePisPw pw nP tty
-      (.forallE motiveTy minors ⟨pw⟩)
 
 /-- The pieces of a recognised simple-structure block. -/
 structure DirectParts where
@@ -503,49 +332,6 @@ subject binder). -/
 def directProjPs (nP : Nat) : List Expr :=
   (List.range nP).map fun k => Expr.bvar (nP - k)
 
-/-- The `j`-th earlier-projection substitute in a generated projection
-type: `T.proj.j p⃗ t`, at the same final frame. -/
-def directProjArg (T : Name) (lps : List Name) (nP j : Nat) : Expr :=
-  Expr.mkAppN (.const (projFnName T j) (lps.map .param))
-    (directProjPs nP ++ [Expr.bvar 0])
-
-/-- The constructor telescope peeled at the parameters and the first
-`i` earlier-projection substitutes —
-`Expr.instPisAtLift (directProjPs nP ++ (List.range i).map
-(directProjArg T lps nP)) cty` (`directProjResid_eq`), but computed
-*incrementally*: step `i → i + 1` is a single `instantiate1Lift`, so a
-projection loop that threads this residual does one telescope pass per
-projection instead of redoing all earlier substitutions. -/
-def directProjResid (T : Name) (lps : List Name) (nP : Nat)
-    (cty : Expr) : Nat → Option Expr
-  | 0 => Expr.instPisAtLift (directProjPs nP) cty
-  | i + 1 => (directProjResid T lps nP cty i).bind
-      (Expr.instPisAtLift [directProjArg T lps nP i])
-
-/-- The projection type for field `i` read off the peeled residual
-(`directProjTy_eq_resid`: at `directProjResid T lps nP cty i` this is
-exactly `directProjTy`). -/
-def directProjTyR (T : Name) (lps : List Name) (nP nF i : Nat)
-    (tty : Expr) : Option Expr → Option Expr
-  | some (.forallE fdom _ _) =>
-    if i < nF then
-      Expr.replacePiBody nP tty
-        (.forallE (directFam T lps nP 0) fdom
-          ⟨.never⟩)
-    else none
-  | _ => none
-
-/-- The projection function's generated type for field `i`:
-
-    ∀ p⃗ (t : T p⃗), F_i[p⃗ ; f_j := T.proj.j p⃗ t  (j < i)]
-
-read off the constructor telescope — the direct-recognition counterpart
-of the modeled path's `T._model.proj_i` artifact type. -/
-def directProjTy (T : Name) (lps : List Name) (nP nF i : Nat)
-    (tty cty : Expr) : Option Expr :=
-  let args := directProjPs nP ++ (List.range i).map (directProjArg T lps nP)
-  directProjTyR T lps nP nF i tty (Expr.instPisAtLift args cty)
-
 /-- The `j`-th earlier-field substitute in a **tower entry's**
 generated type (task #175 wiring): the first-class node `t.j`
 (`.proj T j` of the subject), at `directProjArg`'s frame (subject
@@ -562,25 +348,6 @@ def directProjResidP (T : Name) (nP : Nat) (cty : Expr) : Nat → Option Expr
   | 0 => Expr.instPisAtLift (directProjPs nP) cty
   | i + 1 => (directProjResidP T nP cty i).bind
       (Expr.instPisAtLift [directProjArgP T i])
-
-/-- The tower entry's projection type for field `i` —
-`∀ p⃗ (t : T p⃗), F_i[p⃗ ; f_j := t.j  (j < i)]`: `directProjTy` with
-earlier fields spelled as `.proj` nodes (the native-entry `ty`
-discipline recorded at `ProjEntry`). -/
-def directProjTyP (T : Name) (lps : List Name) (nP nF i : Nat)
-    (tty cty : Expr) : Option Expr :=
-  let args := directProjPs nP ++ (List.range i).map (directProjArgP T)
-  directProjTyR T lps nP nF i tty (Expr.instPisAtLift args cty)
-
-/-- Every `.proj s j` node of `e` satisfies `P s j` (not through fvar
-type annotations). -/
-def Expr.projNodesOk (P : Name → Nat → Bool) : Expr → Bool
-  | .proj s j e => P s j && projNodesOk P e
-  | .app f a => projNodesOk P f && projNodesOk P a
-  | .lam ty b _ => projNodesOk P ty && projNodesOk P b
-  | .forallE ty b _ => projNodesOk P ty && projNodesOk P b
-  | .letE t v b => projNodesOk P t && projNodesOk P v && projNodesOk P b
-  | _ => true
 
 /-- Does `bvar i` occur loose in `e`?  (Not through fvar type
 annotations — the generated telescopes are fvar-free.) -/
@@ -666,34 +433,6 @@ def directProjBodiesGo (T : Name) : Nat → Nat → Expr → Option (List Expr)
 def directProjBodies (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr) :=
   match Expr.instPisAtLift (directProjPs nP) cty with
   | some r => (directProjBodiesGo T nF 0 r).map List.toArray
-  | none => none
-
-/-- **Non-recursive**: every binder domain of the constructor already
-resolves in the *pre-block* environment.  This subsumes the reference
-positivity check (`checkPositivity`/`hasIndOcc`, lean4lean
-`Inductive/Add.lean:184-199`) for a single-inductive block, and it is
-exactly what the model construction needs — the type former's value is
-built from the field types' interpretations in the environment *before*
-the block, so a self-reference would make it circular. -/
-def directNonRec (env : Env) (p : DirectParts) : Bool :=
-  match p.cvC.type.stripPis (p.nP + p.nF) with
-  | some (cbs, _) => cbs.all fun b => b.1.constsResolve env
-  | none => false
-
-/-- Recognise a direct simple-structure block against an environment:
-`directPartsCore?` and non-recursiveness.  **Priority gate** (task
-#175 W4c, the user's ruling that every supported `.proj` is served by
-a direct-installed model): every recognised block installs directly,
-whether or not the stream carries `_model` artifacts for it — those
-artifacts are then ordinary, unconsumed declarations.  The modeled
-path keeps the blocks recognition rejects (recursive, indexed,
-mutual, multi-constructor) and carries no projection machinery for
-them.  (The former master switch `directStructsEnabled` and the
-artifact-absence conjunct `directNoModel` are gone with the flip.) -/
-def directParts? (env : Env) (block : List ConstantInfo) :
-    Option DirectParts :=
-  match directPartsCore? block with
-  | some p => if directNonRec env p then some p else none
   | none => none
 
 end ConLeche

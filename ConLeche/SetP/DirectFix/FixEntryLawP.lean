@@ -1,4 +1,4 @@
-import ConLeche.SetP.Direct.DirectEntryLawP
+import ConLeche.SetP.Direct.DirectBodyFramesP
 import ConLeche.SetP.DirectFix.FixRealChainsP
 
 /-!

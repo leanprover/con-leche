@@ -297,147 +297,7 @@ theorem instSeq_minorTele (tfvs extras : List Expr) {nP : Nat} {crest0 : Expr}
   have := instSeq_liftLooseBVars_prefix tfvs extras hclT (by rw [hlenT]; exact hb)
   rwa [hlenT] at this
 
-/-- The minor premise's conclusion `motive (C p⃗ f⃗)` (spelled under the
-motive, `o = 1`), instantiated at the parameters and the motive and
-then at the fields. -/
-theorem instSeq_minorBody (tfvs xFvs : List Expr) (mfv : Expr) {C : Name}
-    {lps : List Name} {nP nF : Nat}
-    (hlenT : tfvs.length = nP) (hlenX : xFvs.length = nF)
-    (hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true)
-    (hclM : mfv.looseBVarsBounded 0 = true)
-    (hclX : ∀ a ∈ xFvs, a.looseBVarsBounded 0 = true) :
-    instSeq xFvs (nF - 1) (instSeq (tfvs ++ [mfv]) (nP + nF)
-        (.app (.bvar nF) (directCtorSpineAt C lps 1 nP nF)))
-      = .app mfv (Expr.mkAppN (.const C (lps.map .param)) (tfvs ++ xFvs)) := by
-  have hcl : ∀ a ∈ tfvs ++ [mfv], a.looseBVarsBounded 0 = true := by
-    intro a ha
-    rcases List.mem_append.mp ha with h | h
-    · exact hclT a h
-    · rw [List.mem_singleton.mp h]; exact hclM
-  have hlen : (tfvs ++ [mfv]).length = nP + 1 := by simp [hlenT]
-  unfold directCtorSpineAt
-  rw [instSeq_app, instSeq_mkAppN, instSeq_app, instSeq_mkAppN,
-    List.map_append, List.map_append]
-  -- the head: the motive variable
-  have hhead : instSeq (tfvs ++ [mfv]) (nP + nF) (.bvar nF) = mfv := by
-    have := instSeq_bvar (tfvs ++ [mfv]) (nP + nF) nF hcl (by omega) (by omega)
-    rw [show nP + nF - nF = nP from by omega, List.getElem?_append_right (by omega),
-      hlenT, Nat.sub_self] at this
-    exact (Option.some.inj this).symm
-  rw [hhead, instSeq_eq_self _ _ hclM,
-    instSeq_eq_self (e := Expr.const C (lps.map .param)) _ _ rfl,
-    instSeq_eq_self (e := Expr.const C (lps.map .param)) _ _ rfl,
-    show nP + nF = 1 + nF + nP - 1 from by omega,
-    map_instSeq_directPsAt (tfvs ++ [mfv]) (1 + nF) nP hcl (by omega),
-    List.take_append_of_le_length (by omega), List.take_of_length_le (by omega),
-    show 1 + nF + nP - 1 = nP + nF from by omega,
-    map_instSeq_fieldBvars_above (tfvs ++ [mfv]) (nP + nF) nF (by omega),
-    map_instSeq_fieldBvars xFvs nF hclX hlenX]
-  have htfvs : tfvs.map (fun x => instSeq xFvs (nF - 1) x) = tfvs := by
-    apply List.ext_getElem (by simp)
-    intro k h1 h2
-    simp only [List.getElem_map]
-    exact instSeq_eq_self _ _ (hclT _ (List.getElem_mem h2))
-  rw [htfvs]
-
-/-- The rule's body `minor f⃗` (spelled under the motive and the
-minor, `n = 1`), instantiated at the parameters, the motive and the
-minor and then at the fields. -/
-theorem instSeq_ruleBody (tfvs xFvs : List Expr) (mfv mkfv : Expr) {nP nF : Nat}
-    (hlenT : tfvs.length = nP) (hlenX : xFvs.length = nF)
-    (hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true)
-    (hclM : mfv.looseBVarsBounded 0 = true) (hclK : mkfv.looseBVarsBounded 0 = true)
-    (hclX : ∀ a ∈ xFvs, a.looseBVarsBounded 0 = true) :
-    instSeq xFvs (nF - 1) (instSeq (tfvs ++ [mfv, mkfv]) (nP + 1 + nF)
-        (Expr.mkAppN (.bvar nF)
-          ((List.range nF).map fun k => Expr.bvar (nF - 1 - k))))
-      = Expr.mkAppN mkfv xFvs := by
-  have hcl : ∀ a ∈ tfvs ++ [mfv, mkfv], a.looseBVarsBounded 0 = true := by
-    intro a ha
-    rcases List.mem_append.mp ha with h | h
-    · exact hclT a h
-    · simp only [List.mem_cons, List.not_mem_nil, or_false] at h
-      rcases h with rfl | rfl
-      · exact hclM
-      · exact hclK
-  rw [instSeq_mkAppN, instSeq_mkAppN]
-  have hhead : instSeq (tfvs ++ [mfv, mkfv]) (nP + 1 + nF) (.bvar nF) = mkfv := by
-    have := instSeq_bvar (tfvs ++ [mfv, mkfv]) (nP + 1 + nF) nF hcl (by omega)
-      (by simp only [List.length_append, List.length_cons, List.length_nil, hlenT]; omega)
-    rw [show nP + 1 + nF - nF = nP + 1 from by omega, List.getElem?_append_right (by omega),
-      hlenT, show nP + 1 - nP = 1 from by omega] at this
-    exact (Option.some.inj this).symm
-  rw [hhead, instSeq_eq_self _ _ hclK,
-    map_instSeq_fieldBvars_above (tfvs ++ [mfv, mkfv]) (nP + 1 + nF) nF (by simp [hlenT]; omega),
-    map_instSeq_fieldBvars xFvs nF hclX hlenX]
-
 /-! ## The generated forms at one constructor -/
-
-/-- `directRecTy` at a single constructor, unfolded. -/
-theorem directRecTy_single {T C : Name} {lps : List Name} {elim : Name} {large : Bool}
-    {nP nF : Nat} {tty cty recTy : Expr}
-    (h : directRecTy T lps elim large nP tty [(C, nF, cty)] = some recTy) :
-    ∃ (cbs : List (Expr × BinderMeta)) (crest0 minorTy : Expr),
-      cty.stripPis nP = some (cbs, crest0) ∧
-      Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nF
-        (crest0.liftLooseBVars 1 0)
-        (.app (.bvar nF) (directCtorSpineAt C lps 1 nP nF)) = some minorTy ∧
-      Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nP tty
-        (.forallE
-          (directMotiveTy T lps nP (directElimLevel elim large))
-          (.forallE minorTy
-            (.forallE (directFam T lps nP 2)
-              (.app (.bvar 2) (.bvar 0))
-              ⟨Level.zeronessOf (directElimLevel elim large)⟩)
-            ⟨Level.zeronessOf (directElimLevel elim large)⟩)
-          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
-  unfold directRecTy at h
-  simp only [List.length_singleton, Option.bind_eq_some_iff] at h
-  obtain ⟨minors, hminors, hr⟩ := h
-  unfold directMinorsPis at hminors
-  simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at hminors
-  obtain ⟨mty, hmty, rest, hrest, hmin⟩ := hminors
-  simp only [directMinorsPis, Option.some.injEq] at hrest
-  subst hrest
-  subst hmin
-  unfold directMinorTy at hmty
-  simp only [Option.bind_eq_some_iff] at hmty
-  obtain ⟨q, hq, hmty⟩ := hmty
-  exact ⟨q.1, q.2, mty, hq, hmty, hr⟩
-
-/-- `directRecRhs` at a single constructor (rule `0`), unfolded. -/
-theorem directRecRhs_single {T C : Name} {lps : List Name} {elim : Name} {large : Bool}
-    {nP nF : Nat} {tty cty rhs : Expr}
-    (h : directRecRhs T lps elim large nP tty [(C, nF, cty)] 0 = some rhs) :
-    ∃ (cbs : List (Expr × BinderMeta)) (crest0 minorTy inner : Expr),
-      cty.stripPis nP = some (cbs, crest0) ∧
-      Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nF
-        (crest0.liftLooseBVars 1 0)
-        (.app (.bvar nF) (directCtorSpineAt C lps 1 nP nF)) = some minorTy ∧
-      Expr.pisToLamsPw (Level.zeronessOf (directElimLevel elim large)) nF
-        (crest0.liftLooseBVars 2 0)
-        (Expr.mkAppN (.bvar nF)
-          ((List.range nF).map fun k => Expr.bvar (nF - 1 - k))) = some inner ∧
-      Expr.pisToLamsPw (Level.zeronessOf (directElimLevel elim large)) nP tty
-        (.lam
-          (directMotiveTy T lps nP (directElimLevel elim large))
-          (.lam minorTy inner
-            ⟨Level.zeronessOf (directElimLevel elim large)⟩)
-          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
-  unfold directRecRhs at h
-  simp only [List.length_singleton, List.getElem?_cons_zero, Option.bind_eq_some_iff] at h
-  obtain ⟨q, hq, inner, hinner, minors, hminors, hr⟩ := h
-  unfold directMinorsLams at hminors
-  simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at hminors
-  obtain ⟨mty, hmty, rest, hrest, hmin⟩ := hminors
-  simp only [directMinorsLams, Option.some.injEq] at hrest
-  subst hrest
-  subst hmin
-  unfold directMinorTy at hmty
-  simp only [Option.bind_eq_some_iff] at hmty
-  obtain ⟨q', hq', hmty⟩ := hmty
-  obtain rfl : q = q' := Option.some.inj (hq.symm.trans hq')
-  exact ⟨q.1, q.2, mty, inner, hq, hmty, hinner, hr⟩
 
 /-! ## No projection nodes -/
 
@@ -551,11 +411,6 @@ theorem NoProjAt.directPsAt (o nP : Nat) : ∀ a ∈ directPsAt o nP, NoProjAt T
   obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha
   simp
 
-theorem NoProjAt.directFam (T' : Name) (lps : List Name) (nP o : Nat) :
-    NoProjAt T i (directFam T' lps nP o) := by
-  rw [directFam_eq]
-  exact NoProjAt.mkAppN (by simp) (NoProjAt.directPsAt o nP)
-
 theorem NoProjAt.directCtorSpineAt (C : Name) (lps : List Name) (o nP nF : Nat) :
     NoProjAt T i (directCtorSpineAt C lps o nP nF) := by
   unfold ConLeche.directCtorSpineAt
@@ -565,49 +420,6 @@ theorem NoProjAt.directCtorSpineAt (C : Name) (lps : List Name) (o nP nF : Nat) 
   · exact NoProjAt.directPsAt _ _ a h
   · obtain ⟨k, -, rfl⟩ := List.mem_map.mp h
     simp
-
-/-- **The generated recursor type has no `.proj` node** the type
-former's and the constructor's types do not have. -/
-theorem NoProjAt.directRecTy {T' C : Name} {lps : List Name} {elim : Name}
-    {large : Bool} {nP nF : Nat} {tty cty recTy : Expr}
-    (h : ConLeche.directRecTy T' lps elim large nP tty [(C, nF, cty)] = some recTy)
-    (hT : NoProjAt T i tty) (hC : NoProjAt T i cty) : NoProjAt T i recTy := by
-  obtain ⟨cbs, crest0, minorTy, hs, hm, hr⟩ := directRecTy_single h
-  have hcrest : NoProjAt T i crest0 := NoProjAt.stripPis nP hs hC
-  have hminor : NoProjAt T i minorTy :=
-    NoProjAt.replacePisPw nF hm hcrest.liftLooseBVars
-      (by rw [noProjAt_app]; exact ⟨by simp, NoProjAt.directCtorSpineAt _ _ _ _ _⟩)
-  have hmot : NoProjAt T i (directMotiveTy T' lps nP (directElimLevel elim large)) := by
-    unfold ConLeche.directMotiveTy
-    simp only [noProjAt_forallE, noProjAt_sort, and_true]
-    exact NoProjAt.directFam _ _ _ _
-  refine NoProjAt.replacePisPw nP hr hT ?_
-  simp only [noProjAt_forallE, noProjAt_app, noProjAt_bvar, and_true]
-  exact ⟨hmot, hminor, NoProjAt.directFam _ _ _ _⟩
-
-/-- **The generated rule has no `.proj` node** the type former's and
-the constructor's types do not have. -/
-theorem NoProjAt.directRecRhs {T' C : Name} {lps : List Name} {elim : Name}
-    {large : Bool} {nP nF : Nat} {tty cty rhs : Expr}
-    (h : ConLeche.directRecRhs T' lps elim large nP tty [(C, nF, cty)] 0 = some rhs)
-    (hT : NoProjAt T i tty) (hC : NoProjAt T i cty) : NoProjAt T i rhs := by
-  obtain ⟨cbs, crest0, minorTy, inner, hs, hm, hi, hr⟩ := directRecRhs_single h
-  have hcrest : NoProjAt T i crest0 := NoProjAt.stripPis nP hs hC
-  have hminor : NoProjAt T i minorTy :=
-    NoProjAt.replacePisPw nF hm hcrest.liftLooseBVars
-      (by rw [noProjAt_app]; exact ⟨by simp, NoProjAt.directCtorSpineAt _ _ _ _ _⟩)
-  have hinner : NoProjAt T i inner :=
-    NoProjAt.pisToLamsPw nF hi hcrest.liftLooseBVars
-      (NoProjAt.mkAppN (by simp) (fun a ha => by
-        obtain ⟨k, -, rfl⟩ := List.mem_map.mp ha
-        simp))
-  have hmot : NoProjAt T i (directMotiveTy T' lps nP (directElimLevel elim large)) := by
-    unfold ConLeche.directMotiveTy
-    simp only [noProjAt_forallE, noProjAt_sort, and_true]
-    exact NoProjAt.directFam _ _ _ _
-  refine NoProjAt.pisToLamsPw nP hr hT ?_
-  simp only [noProjAt_lam]
-  exact ⟨hmot, hminor, hinner⟩
 
 end Expr
 

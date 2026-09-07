@@ -533,9 +533,6 @@ theorem uChains_getElem? (Fss : List (List AVExpr)) (j : Nat) :
     (uChains Fss)[j]? = Fss[j]?.map fun Fs => Fs ++ [idxEqAV []] := by
   simp [uChains]
 
-theorem uChains_length (Fss : List (List AVExpr)) : (uChains Fss).length = Fss.length := by
-  simp [uChains]
-
 /-- The unit-restricted chains are graded when the chains are. -/
 theorem SumFieldsOkB_uChains {w : Nat} {ρ : Nat → V} {Fss : List (List AVExpr)}
     (hok : SumFieldsOkB w ρ Fss) : SumFieldsOkB w ρ (uChains Fss) := by

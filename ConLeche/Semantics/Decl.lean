@@ -33,7 +33,6 @@ namespace ConLeche.Semantics
 
 open ConLeche.VExpr ConLeche.Verify
 
-
 /-- The structural-`Nat` recurrences' **checker runs** (task #161 P4
 H1, extended to the literal tier): `certifyNatEqs`'s verdict is the
 conjunction of one `isDefEqCore` run per equation
@@ -104,31 +103,5 @@ readings, with the semantics coming from the claims interface.  The
 per-stage anatomy is exposed by inversion lemmas on the stage
 functions where the dischargers need it (`SetBase/DeclDirect.lean`
 holds the `checkDirectStruct` inversion). -/
-
-/-- **The direct-structure declaration, as checked**: the stage runs
-of `checkDirectStruct`, with the intermediate environments and the
-recursor install named.  `env` is the pre-block environment. -/
-def DeclDirectRun (μ : CheckMode) (F : Nat) (env : Env)
-    (p : DirectParts) (env₂ : Env) : Prop :=
-  ∃ (cvTa cvCa cvRa : ConstantVal) (sorts : List Level) (rhsA : Expr)
-    (envI envC : Env),
-    checkDirectInd (m := ConLeche.CheckM) (fueledOps μ F) env p
-      = .ok (envI, cvTa) ∧
-    checkDirectCtor (m := ConLeche.CheckM) (fueledOps μ F) env envI p cvTa
-      = .ok (envC, cvCa, sorts) ∧
-    -- the recursor, generated and compared (task #175 S2)
-    checkDirectRec (m := ConLeche.CheckM) (fueledOps μ F) envC p cvTa cvCa
-      = .ok (cvRa, rhsA) ∧
-    (let env₃ : Env :=
-      ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
-        [⟨p.cvC.name, p.nF, p.nP,
-          if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-            .plain else .inert,
-          rhsA⟩] :: envC.consts⟩
-     -- the projection table (task #175 S1): one constant, the fields'
-     -- bodies off the annotated constructor type and the guard levels
-     checkDirectProjTable (m := ConLeche.CheckM) p.cvT.name p.cvC.name
-        p.cvT.levelParams p.nP p.nF p.resSort
-        (directProjGuards cvCa.type p.nP p.nF sorts) 0 cvCa env₃ = .ok env₂)
 
 end ConLeche.Semantics

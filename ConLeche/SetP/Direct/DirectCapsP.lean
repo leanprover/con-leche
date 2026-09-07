@@ -44,13 +44,6 @@ def CapsLawsAt {env : Env} (m : EnvS2Core V env) (T : Name) (cvT : ConstantVal)
     ∀ φ' : Name → Nat, EtaLawP m φ' T cvT caps) ∧
   (caps.unitlike = true → ∀ φ' : Name → Nat, UnitLawP m φ' T cvT caps)
 
-/-- A record claiming nothing owes nothing. -/
-theorem capsLawsAt_of_none {env : Env} (m : EnvS2Core V env) {T : Name} {cvT : ConstantVal}
-    {caps : IndCaps} (hE : caps.eta = false) (hU : caps.unitlike = false) :
-    CapsLawsAt m T cvT caps :=
-  ⟨fun he => absurd (hE.symm.trans he) Bool.false_ne_true,
-   fun hu => absurd (hU.symm.trans hu) Bool.false_ne_true⟩
-
 /-- A record claiming η at a family with a field and no unit-likeness
 owes nothing while its projection-function family is free: the η
 half's premise `EtaFamilyStored` stores a projection function at every
