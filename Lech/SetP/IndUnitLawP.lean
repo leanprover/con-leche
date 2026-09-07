@@ -340,7 +340,7 @@ theorem memberUnitLawP : MemberUnitLawP V := by
       (fun q => d - 1 - (0 + q)) hσ
       (acval_interp2_closedC mp.base2 _ ψ σ ρ)
   -- the x-slot
-  obtain ⟨nx, mx, hxb⟩ := hxdom
+  obtain ⟨mx, hxb⟩ := hxdom
   have hAx : Ax = AVExpr.mkAppN
       (mp.base2.acval (cvA.name.str "_model") ψ)
       ((List.range caps.unitParams).map fun q =>
@@ -355,7 +355,7 @@ theorem memberUnitLawP : MemberUnitLawP V := by
       at h
     exact (Option.some.inj h).symm
   -- the y-slot
-  obtain ⟨ny, my, hyb⟩ := hydom
+  obtain ⟨my, hyb⟩ := hydom
   have hAy : Ay = AVExpr.mkAppN
       (mp.base2.acval (cvA.name.str "_model") ψ)
       ((List.range caps.unitParams).map fun q =>
@@ -441,10 +441,10 @@ theorem memberUnitLawP : MemberUnitLawP V := by
       (DenoteSpineP.cons (hKle (caps.unitParams + 2) (by omega))
         (DenoteSpineP.cons
           (denoteP_fvar mp.base2.acval (caps.unitParams + 2)
-            caps.unitParams Name.anonymous (.sort .zero))
+            caps.unitParams (.sort .zero))
           (DenoteSpineP.cons
             (denoteP_fvar mp.base2.acval (caps.unitParams + 2)
-              (caps.unitParams + 1) Name.anonymous (.sort .zero))
+              (caps.unitParams + 1) (.sort .zero))
             DenoteSpineP.nil)))
       (denoteP_const heqfE rfl)] at h
     rw [show caps.unitParams + 2 - 1 - caps.unitParams = 1 from by omega,
