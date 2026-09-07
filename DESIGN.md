@@ -58929,12 +58929,32 @@ This is residual class 4 of the #207 checklist — the one it recorded as
 *vacuous on both corpora* — and audit finding #206-A3/A5, already pinned
 by `tests/e2e/ind_defhead_fix.ndjson` (expected `2`).
 
-**Why the checklist missed it.**  Its Mathlib census was
-`CON_LECHE_INMODEL_CENSUS=1`, which is **parse-only**: it reports what
-the in-process modeller does with the mutual/nested blocks and never
-runs the fold, so it cannot see a block the *direct recognisers* refuse
-at check time.  The lesson for the next inventory: a coverage census
-must be a FOLD, not a parse.
+**Why the checklist missed it — and the RULE that follows.**  Its
+Mathlib census was `CON_LECHE_INMODEL_CENSUS=1`, which is
+**parse-only**: it reports what the in-process modeller does with the
+mutual and nested blocks, and then STOPS — it never runs the fold.  A
+block the direct recognisers refuse at *check* time is invisible to it,
+because the recognisers run on the environment the install sees, not on
+the parse.  So the census could report "51 modelled, 0 declined" on a
+corpus that does not accept.
+
+> **RULE (task #207).  A coverage census must be a FOLD, not a parse.**
+> `CON_LECHE_INMODEL_CENSUS=1` answers one question only — what the
+> in-process modeller does with the blocks it *wants* — and it is
+> never evidence that a stream accepts.  The instruments that ARE
+> evidence: a full run (the verdict and its exit code), and
+> `CON_LECHE_ROUTE_TRACE=1` (`tests/route-census.sh`), which prints a
+> route per block *as the fold reaches it* and whose gate fails on a
+> block that reaches the fold bare.  Point the census at the fold, or
+> it will tell you what you hoped rather than what happens.
+
+**And the milestone it corrects.**  "ALL OF MATHLIB ACCEPTED
+(2026-09-06)" was measured on the **preprocessed** stream
+(`mathlib-full-pre-idx.ndjson`, cut by `con-leche-preprocess`), which is
+the only stream that existed for the checker then.  It stands as what
+it was; it was never a statement about the raw export.  **The raw
+status is what this run establishes**, and it is recorded here rather
+than quietly inherited.
 
 **What it costs.**  The standing "ALL OF MATHLIB ACCEPTED (2026-09-06)"
 milestone was measured on the PREPROCESSED stream (1.45× verified /
