@@ -80,7 +80,7 @@
 # of the Init export through `Unit.sizeOf`.
 0 unit_sizeof_rescue.ndjson
 # Frontend zeta-expands rec-rule right-hand sides (task #60): the
-# preprocessor emits a `let` in `Std.Packages.PreorderOfLEArgs`'s
+# export carries a `let` in `Std.Packages.PreorderOfLEArgs`'s
 # recursor rule; install annotates the rhs and must not see `letE`.
 # Init-export slice through the block (committed gzipped).
 0 let_rec_rhs.ndjson
@@ -96,13 +96,14 @@
 # nat_ops_edge: zero operands, truncated sub, pred 0, 0^0, nested
 # chains, succ-application and Nat.zero-constant argument forms.
 0 nat_ops_edge.ndjson
-# nat_*_wrong: hand-patched from the (preprocessed) bad_base exports —
-# ONE stated result literal (resp. the theorem-side Bool constant) is
-# perturbed, so acceptance would require e.g. add 11 12 ≡ 24: a wrong
-# fast-path value would ACCEPT, a missing fast path would exit 3 —
-# only the correct certified computation rejects (1).  Patching after
-# preprocessing matters: the preprocessor's own kernel check would
-# otherwise crash to the raw-input fallback.
+# nat_*_wrong: hand-patched from the bad_base exports — ONE stated
+# result literal (resp. the theorem-side Bool constant) is perturbed,
+# so acceptance would require e.g. add 11 12 ≡ 24: a wrong fast-path
+# value would ACCEPT, a missing fast path would exit 3 — only the
+# correct certified computation rejects (1).  (The base exports were
+# preprocessed, and the patch had to come after that step, or the
+# preprocessor's own kernel check crashed the run; the tool went at
+# task #207 and the streams stand as they are.)
 1 nat_add_wrong.ndjson
 1 nat_sub_wrong.ndjson
 1 nat_mul_wrong.ndjson
@@ -152,8 +153,11 @@
 # and `size_example`'s rfl fires them on concrete majors.
 0 nested_rec.ndjson
 
-# nested_pin_names.ndjson (tests/e2e/src/nested_pin_names.lean,
-# preprocessed then perturbed by scripts/mk_nested_pin_fixture.py):
+# nested_pin_names.ndjson (tests/e2e/src/nested_pin_names.lean, run
+# through the preprocessor and then perturbed by
+# scripts/mk_nested_pin_fixture.py; the tool went at task #207 and the
+# committed stream stands as it is — it is one of the streams that
+# carry their own `_model` family):
 # nested-auxiliary rules whose stored pins contain a *binder* (the
 # dependent nested occurrence `DMap α (fun _ => PTree α)`), with the
 # iota theorems' majors spelling the pin lambda under a different
@@ -256,8 +260,7 @@
 # 2^28 nodes.
 0 dag_tower_unfold.ndjson
 # The direct simple-structure install (task #82).  A *raw* lean4export
-# fixture, run with the preprocessor made unavailable, so the stream
-# carries no `_model` declaration at all — the artifact-free route
+# fixture: the stream carries no `_model` declaration at all — the artifact-free route
 # `directParts?` recognises, installed and modelled from the reference
 # checks alone.  Accepted from task #82 until task #148 T0b (which
 # switched the route off: both lines declined, 2, the modeled fallback
@@ -300,22 +303,16 @@
 # Std.Time.Week.Offset.ofMilliseconds._proof_1 (record 126,329).
 0 k_major_raw.ndjson
 
-# --pre flag (explicit "already preprocessed" assertion): the
-# detection scan and the preprocessor spawn are skipped entirely,
-# even with the preprocessor available.  std_axioms is a raw export
-# whose `Iff` block then has no `_model` family; until task #175 W4c
-# that made it decline (vs 0 on its plain line), which proved the
-# spawn was skipped.  Since W4c the block installs directly whether or
-# not the artifacts exist (the priority gate), so both lines accept and
-# the spawn-skip is no longer observable through a verdict here — the
-# `raw`/`pre` lines' byte-identity is what the pass now pins.
+# std_axioms is a raw export whose `Iff` block has no `_model` family;
+# the block installs directly since task #175 W4c (the priority gate),
+# whether or not artifacts exist.  (Until task #207 this row had a
+# `pre` twin, asserting that the preprocessor spawn was skipped.)
 0 std_axioms.ndjson
 # The direct SUM install (task #175 sum-types, 2026-09-06): non-recursive,
 # non-indexed inductives with any number of constructors other than one
 # — the tagged disjoint union of one tuple tower per constructor.  The
-# fixtures were exported through `con-leche-preprocess` (the widened
-# `conlecheNative` leaves every such block unmodelled: not one `_model`
-# declaration in the streams), so they assert `--pre`.
+# fixtures are raw exports: not one `_model` declaration in the
+# streams, every block installed by the sum route.
 #   direct_sum_enum:   a three-constructor enumeration (`Color`), iota
 #                      on every constructor through `Color.rec` and
 #                      `Color.casesOn`; the exported `Bool`/`OfNat`
@@ -339,9 +336,8 @@
 0 direct_sum_option.ndjson
 0 direct_sum_or.ndjson
 1 direct_sum_or_large_bad.ndjson
-# Zero-constructor inductives at every level (task #181, 2026-09-06),
-# exported through `con-leche-preprocess` (every block native, no `_model`
-# declaration in the stream), so they assert `--pre`:
+# Zero-constructor inductives at every level (task #181, 2026-09-06);
+# raw exports, no `_model` declaration in the stream:
 #   zero_ctor:             `PEmpty'` (universe-polymorphic, `Sort u`),
 #                          `Vacant α n` (a type and a Nat parameter,
 #                          `Type u`), `Bottom p` (a `Prop` with a `Prop`
@@ -381,8 +377,7 @@
 # route widened to non-recursive, non-nested families with indices —
 # any number of constructors, the carrier at an index tuple the tagged
 # union of the constructor towers restricted to the index equation.
-# Exported through the widened `con-leche-preprocess` (every indexed block
-# native), so they assert `--pre`.
+# Raw exports; every indexed block installs directly.
 #   direct_idx_eq:   an `Eq`-clone (`MyEq`: Prop, one constructor, no
 #                    field, one index) — LARGE elimination (`cast` into
 #                    `Sort v`), iota on `refl`, and the K rescue on a
@@ -420,13 +415,16 @@
 #                    syntactically); #195's install reads the telescope
 #                    through official's whnf loop and stores the former
 #                    AT THE WHNF'D TELESCOPE, so the block goes DIRECT
-#                    (route `sum`, beside the control `Rel`).  Exported
-#                    through the #195 `con-leche-preprocess` (both native).
+#                    (route `sum`, beside the control `Rel`).
 0 direct_idx_defhead.ndjson
 #   presieve_ofarrows_cone (task #195): the dependency cone of Mathlib's
 #                    `CategoryTheory.Presieve.ofArrows` (with the
-#                    String-support constants), preprocessed by the #195
-#                    `con-leche-preprocess` — the block whose "missing model"
+#                    String-support constants), cut from a stream the
+#                    preprocessor had written — so this fixture still
+#                    CARRIES `_model` records, deliberately: it is one
+#                    of the two streams that exercise a model arriving
+#                    from the INPUT (task #207).  The block whose
+#                    "missing model"
 #                    decline at 7.5 % of the regenerated Mathlib stream
 #                    was task #193's finding; it installs directly here
 #                    (638 declarations, both modes).
@@ -435,9 +433,9 @@
 # The direct FIXED-POINT route (task #188): RECURSIVE inductive types
 # through the direct install — the carrier is the Knaster–Tarski least
 # pre-fixed point of the constructor-tower functor, the recursor the
-# fixed point of its own one-step unfolding.  Exported through the
-# widened `con-leche-preprocess` (every finitary recursive block native), so
-# they assert `--pre`; the two bad twins are patched off
+# fixed point of its own one-step unfolding.  Raw exports (every
+# finitary recursive block installs directly); the two bad twins are
+# patched off
 # `direct_fix_nat.ndjson` by `scripts/mk_direct_fix_bad.py`.
 #   direct_fix_nat:   `Nat'` (a `Nat` clone) and `List' α` — iota on the
 #                     recursive constructors reading the inductive
@@ -588,7 +586,7 @@
 
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
-# fixture source, exactly as the lean-inductive-models preprocessor
+# fixture source, exactly as a `_model` family
 # splices the tight pair, so the block matches con-leche's pin -- a
 # non-matching block would be rejected as a reserved basis name).
 # `Eq.refl (motive t) (minor t.1 t.2)` at a *neutral* `t` forces both
@@ -629,7 +627,8 @@
 # drops that argument's universe-arity, non-function-application,
 # binder-domain-is-a-sort and projection-shape checks.
 1 yolo_arg_escape_univs.ndjson
-# yolo_decline_vs_accept: a preprocessed `PProd'._model` family whose
+# yolo_decline_vs_accept: a `PProd'._model` family (out of the stream)
+# whose
 # `eta` theorem reaches an unsupported projection shape (`projection
 # on a non-structure type`) from inside an application argument.  The
 # certified stack positively DECLINES it (2); yolo never infers the
@@ -700,8 +699,9 @@
 # 40 000-step Nat.rec tower (`scripts/mk_binder_twin_fixture.py --proj`);
 # before #203 the pair missed the fast path and the `.proj` clause
 # whnf'd both structs in full (3.38 G instructions against 0.37 G).
-# RAW: the preprocessor's re-export hash-conses up to α and would
-# collapse the twin before con-leche sees it.  Official accepts.
+# The stream must reach the checker raw — until task #207 that took
+# saying, since the preprocessor's re-export hash-consed up to α and
+# would have collapsed the twin first.  Official accepts.
 0 binder_name_proj.ndjson
 # mutual_struct_proj / nested_struct_proj (the projection-function
 # rewrite, ConLeche/Frontend/ProjRec.lean, 2026-09-06): the elaborator's
@@ -728,25 +728,23 @@
 # index-free MUTUAL blocks — a data pair with cross recursion, a
 # structure-like pair with a universe-polymorphic parameter (projection
 # rewrites at the sorts the generated `proj_i.iota` artifacts name), a
-# Prop pair with a small eliminator.  Here, through the default pipe,
-# the stock predicate lets `con-leche-preprocess` model the blocks and the
-# in-process modeller stands down (it sees the models in the stream);
-# the in-process path itself is gated by tests/inmodel.sh.
+# Prop pair with a small eliminator.  The in-process modeller takes
+# every one of them (route `inmodel`); tests/inmodel.sh additionally
+# re-checks its dump, where the models come from the stream instead.
 0 inmodel_mutual.ndjson
 # inmodel_mutual_idx.ndjson (task #200 B2): four INDEXED mutual blocks —
 # a Prop pair over Nat, a data pair with a shifted-index constructor and
 # a recursor-spelled size (`rfl` through both model recursors at the
 # indices), members with different index telescopes, a universe-
 # polymorphic index (the tag's universe inferred).  Same routing as
-# inmodel_mutual through the default pipe; tests/inmodel.sh gates the
-# in-process path.
+# inmodel_mutual; tests/inmodel.sh gates the in-process path.
 0 inmodel_mutual_idx.ndjson
 # inmodel_nested.ndjson (task #200 B3): seven NESTED blocks — through
 # `List`, through the indexed `Vec`, through `Option`+`Prod` (two
 # mimics), through a structure `Wrap` over `List` (a mimic depending on
 # a mimic), at a dependent pin `DMap α (fun _ => PT α)`, a nested
 # structure with projections, and a mutual-and-nested pair.  Same
-# routing as inmodel_mutual through the default pipe; tests/inmodel.sh
+# routing as inmodel_mutual; tests/inmodel.sh
 # gates the in-process path.
 0 inmodel_nested.ndjson
 # inmodel_groups.ndjson (task #200 B4): CONTAINER GROUPS — `M` nesting
@@ -759,14 +757,14 @@
 # one-constructor family in Type (Mathlib's CategoryTheory.Sigma.SigmaHom
 # shape: two indices built from the fields, dependent fields).  Not
 # structure-like by official's `is_non_rec_structure` (one ctor AND no
-# indices), yet the preprocessor emits `IdxHom._model.proj_{0..3}` and
-# `.eta` for it (its indexed-fibre tranche); the modeled install must
+# indices), yet the model family carries `IdxHom._model.proj_{0..3}`
+# and `.eta` for it (its indexed-fibre tranche); the modeled install must
 # ignore those artifacts (they stay ordinary definitions) instead of
 # declining at the structure-shaped residual pin.  The consumer goes
 # through casesOn and a `rfl` forces the indexed iota.  Pre-fix verdict:
 # 2 ("projection constructor residual arity").
 0 indexed_one_ctor.ndjson
-# indexed_one_ctor_proj.ndjson: the preprocessed stream above plus a
+# indexed_one_ctor_proj.ndjson: the stream above plus a
 # hand-written `def IdxHom.badProj := fun h => h.0` — a `.proj` node on
 # the indexed family.  No projection table exists for it, so the node is
 # a positive decline (user ruling: indexed types get no projections;
@@ -866,20 +864,16 @@
 # header, the audit finding, the official verdict, the con-leche verdict at
 # master 700a06ca and the route/arm responsible.
 #
-# All 26 exports are RAW lean4export output (scripts/export-fixture.sh
-# with LEAN_INDUCTIVE_MODELS_FILTER=0, lean4export caccfbe /
+# All 26 exports are RAW lean4export output (lean4export caccfbe /
 # leanprover/lean4:v4.29.1 — the exporter every other fixture here came
 # from; ind_unsafe additionally needs its `--export-unsafe` flag, see
-# that source's header).  Each fixture therefore gets TWO lines:
-#
-#   * the plain line = the PIPED verdict (the preprocessor is available,
-#     con-leche spawns it: the shipped configuration), and
-#   * the `raw` line = CON_LECHE_INDUCTIVE_MODELS=/nonexistent, the verdict of
-#     the direct routes and the in-process modeller alone.
-#
-# The audit's cracks live in the gap between those two columns, so both
-# are pinned.  `--trusted` agrees with `--verified` on all 26 (no
-# tests/trusted-expected.txt override).
+# that source's header).  Until task #207 each fixture got TWO lines —
+# the piped verdict (the preprocessor available) and the raw one — and
+# the audit's cracks lived in the gap between them.  The tool is gone,
+# so only the RAW column survives, and it is the one below; the
+# `TODO(#206-…)` lines keep both historical verdicts because the gap is
+# what the conformance work has to close.  `--trusted` agrees with
+# `--verified` on all 26 (no tests/trusted-expected.txt override).
 #
 # A `# TODO(#206-…)` line above an expectation marks a DIVERGENCE: the
 # code below it is TODAY'S behaviour, deliberately pinned so that the
@@ -890,20 +884,20 @@
 # --- projection functions.  Official whnf's the former; the structure
 # --- recogniser and ProjRec's owner test are syntactic.  Audit
 # --- follow-up 3 (extend #195's whnfTelescope to the structure arm).
-# TODO(#206-A1) official: 0 — "projection on a non-structure-like type" at def S.n
-# TODO(#206-A1) official: 0 — raw: "missing model for S"
+# TODO(#206-A1) official: 0 — piped (until #207): "projection on a non-structure-like type" at def S.n
+# TODO(#206-A1) official: 0 — today: no install route for S
 2 ind_defhead_struct.ndjson
 #
 # --- A2 / crack C2: def-headed former at a K-TARGET / unit-like Prop.
-# --- The tool's own U._model.unitlike statement check fails (exit 3).
+# --- The tool's own U._model.unitlike statement check failed (exit 3).
 # --- Audit follow-up 3.
-# TODO(#206-A2) official: 0 — the preprocessor failed (exit 3)
-# TODO(#206-A2) official: 0 — raw: "missing model for U"
+# TODO(#206-A2) official: 0 — piped (until #207): the preprocessor failed (exit 3)
+# TODO(#206-A2) official: 0 — today: no install route for U
 2 ind_defhead_k.ndjson
 #
 # --- A3 / crack C3: def-headed formers on a MUTUAL block.  Audit
 # --- follow-up 3.
-# TODO(#206-A3) official: 0 — the preprocessor failed (exit 3)
+# TODO(#206-A3) official: 0 — piped (until #207): the preprocessor failed (exit 3)
 # TODO(#206-A3) official: 0 — raw: "former MA is not a telescope ending in a sort"
 2 ind_defhead_mutual.ndjson
 #
@@ -931,8 +925,8 @@
 # --- ind_pos_whnf_fn is the reflexive case (the tool errors);
 # --- ind_pos_whnf_id its finitary twin, which the tool models — the
 # --- regression guard.
-# TODO(#206-A5) official: 0 — the preprocessor failed (exit 3)
-# TODO(#206-A5) official: 0 — raw: "missing model for R"
+# TODO(#206-A5) official: 0 — piped (until #207): the preprocessor failed (exit 3)
+# TODO(#206-A5) official: 0 — today: no install route for R
 2 ind_pos_whnf_fn.ndjson
 2 ind_pos_whnf_id.ndjson
 #
@@ -977,7 +971,7 @@
 # --- accepts; con-leche's PARSER throws, so the run errors (3) where unsafe
 # --- DEFINITIONS decline positively (2, arena 141/142).  Audit
 # --- follow-up 6 (one line in ExportC.lean:550).
-# TODO(#206-A10) official: 0 — the preprocessor fails on the block too (exit 3)
+# TODO(#206-A10) official: 0 — piped (until #207): the preprocessor failed on the block too (exit 3)
 # TODO(#206-A10) official: 0 — raw: our parser throws "unsafe inductive"; a decline (2) is the intended verdict
 3 ind_unsafe.ndjson
 #

@@ -144,15 +144,30 @@ checker is verified to be consistent.
   thesis about the core type theory construction remain relevant, the
   inductive construction does not.
 
-## Inductives via preprocessing
+## Inductives via generated models
 
-The checker uses https://github.com/nomeata/lean-inductive-models as a
-preprocessor (invoked transparently by the `con-leche` binary). For
-each inductive it builds, *in Lean*, a model: type former, constructors,
-recursors, projections as `def`s, and their iota rules as theorems. The
-checker then only needs to check that this model matches the declared
-inductive. For an inductive with a `_model` from the preprocessor,
+**Since task #207 there is no preprocessor and no dependency: the
+binary reads raw `lean4export` NDJSON.**  Every inductive block is
+installed by a DIRECT route — simple structures (#82), sums and indexed
+families (#175), finitary fixed points (#188), reflexive blocks (#202)
+— or through a `_model` family the frontend GENERATES IN-PROCESS at
+parse time (`ConLeche/Frontend/InModel/*`, task #200: mutual and nested
+blocks) and pushes ahead of the block, where the fold checks it like
+any stream declaration.  For a block with a `_model` family,
 `⟦T⟧ := ⟦T._model⟧`, so the model theorems apply without rewriting.
+
+A model is a type former, constructors, recursors and projections as
+`def`s and their iota rules as theorems; the checker only has to check
+that the model matches the declared inductive.  The generator is **not
+trusted**: a wrong generated record is rejected or declined by the
+fold, never accepted.  It decides *coverage* only, and a block no route
+takes declines (exit 2) naming its class.
+
+(Until task #207 the models came from
+https://github.com/nomeata/lean-inductive-models, run as a preprocessor
+the `con-leche` binary spawned transparently.  Task #200 moved the
+mutual/nested class in-process, #188/#202 took the rest of the corpus
+natively, and #207 removed the tool.)
 
 **Modeled inductives are opaque (decision 2026-08-19, per review).** A
 modeled inductive `T` is *not* installed as an alias definition
@@ -188,14 +203,14 @@ serve (mutual, recursive, nested), the frontend rewrites the
 elaborator's projection function `T.f := fun p⃗ self => .proj T i self`
 into a `T.rec` application, and the recursor's elimination level — the
 sort of the field, which the frontend cannot infer — is taken from the
-`Eq` level of the preprocessor's artifact `T._model.proj_i.iota`
-(`ConLeche/Frontend/ProjRec.lean`).  So the contract with
-lean-inductive-models includes: for every projectable field `i` of
-every structure-like member it models, a theorem
+`Eq` level of the artifact `T._model.proj_i.iota`
+(`ConLeche/Frontend/ProjRec.lean`).  Since task #207 the ONLY source of
+that artifact is the in-process modeller, so the contract is ours to
+keep: for every projectable field `i` of every structure-like non-`Prop`
+member it models, `InModel/Mutual.lean` emits
 `T._model.proj_i.iota : ∀ …, @Eq.{ℓ} F_i … …` with `ℓ` the field's
-sort (its `getLevel`), emitted before the block.  A missing artifact
-costs no verdict beyond the pre-existing decline of the `.proj`.  The
-user's ruling: this dependency on the `_model` output stays for now.
+sort, before the block.  A missing artifact costs no verdict beyond the
+pre-existing decline of the `.proj`.
 
 Consequently the environment invariant carries per-stored-constant
 semantic facts abstractly — for every stored fireable recursor rule a
@@ -551,10 +566,11 @@ would have failed this test and would have been wrong.
   worktrees) go into `_tmp/` inside this repository (gitignored).
 * If the checker may OOM, run it under a timeout and memory limit; a process
   eating all memory can kill the whole session.
-* In a fresh worktree `_tmp/` is empty (gitignored), so the lean-inductive-models
-  preprocessor is missing and every inductive fixture declines (exit 2) —
-  `tests/arena.sh` then reports spurious CHANGE/FAIL lines.  Run it with
-  `CON_LECHE_INDUCTIVE_MODELS=<main checkout>/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models`.
+* A fresh worktree needs no external tool to run the suites (task
+  #207): the checker reads raw streams and installs every block
+  itself.  `_tmp/` is still gitignored and empty, so symlink the large
+  artifacts a lane needs (`_tmp/arena-tests`, `_tmp/init-exports`,
+  `_tmp/mathlib-scoping`, `_tmp/perfcmp`) from the main checkout.
 * For Lean proof work, https://github.com/ejgallego/lean-beam/ may speed
   things up.
 
@@ -58424,3 +58440,175 @@ The JZero stream (130 MB, 2 455 508 lines, 22 470 declarations), which
 
 The −1.63 GB is the name pre-filter alone: the 78 394 796-node canonical
 rebuild is simply not built any more.
+
+## TASK #207 — THE PREPROCESSOR IS GONE: `lean-inductive-models` dropped from the code base (2026-09-07, `agent/tooldrop`)
+
+**The user's goal, verbatim:** "reflexive types natively.
+inductive-models dropped from the code base (dependency, process
+calling, `--pre` flag, the stream `_model` handling)."  Task #202 did
+the first half; this is the second.  The inventory it was executed
+against is `_tmp/droptool/CHECKLIST.md` (624 lines, read-only, master
+`700a06ca`).
+
+### What went
+
+* **The dependency.**  `lakefile.toml`'s `[[require]]`, the
+  `con-leche-preprocess` entry in `defaultTargets`, the `[[lean_exe]]`
+  target and `ConLechePreprocess.lean` (372 lines).  `lake-manifest.json`'s
+  `packages` array is `[]` — a fresh clone resolves with no package at
+  all, and the CI's only network need is elan.  `supportInterpreter` was
+  on that executable alone, so the interpreter link left the build with
+  it.
+* **The doctrine that went with the file.**  `conlecheNative` was a
+  hand-written MIRROR of the recognisers over a second `Expr` type —
+  "no looser than the recogniser, conjunct for conjunct" — gated
+  empirically by `tests/native-audit.sh`, and it had drifted once at
+  Mathlib scale (#193).  There is no second predicate now, so the
+  doctrine, the audit and the drift risk are **retired together**.  This
+  is a simplification, not an oversight: record it as a retired
+  invariant.
+* **The process calling.**  `Main.lean` lost `resolveTool`,
+  `findPreprocessor`, `needsPreprocess`, `preprocessorVerdict`,
+  `drainHandle`, `preprocessParse` and the `InputResult` type;
+  `parseInput` is now the raw parse and nothing else.  `$CON_LECHE_INDUCTIVE_MODELS`
+  is gone.  `--pre` is a **retired spelling** (hard error naming #207),
+  per the standing rule that a verdict's provenance must be readable off
+  the invocation.
+* **The ruling "A PREPROCESSOR REJECT IS OUR REJECT"** (task #180,
+  2026-09-07) is **retired**: there is no external verdict left to pass
+  through.  Its cost is recorded below.
+* **The stream `_model` handling.**  `Frontend/ExportC.lean` lost the
+  `modeled : Bool` parameter from six entry points and, with it, the
+  dead `else` branch that aliased every block member to `T._model`
+  (`aliasMember`).  What STAYS, and why: `constTypes.contains (T._model)`
+  — a hand-written or spliced stream may still declare a model family,
+  and the modeller must not generate a second; `noteProjIota` /
+  `projLevels` — the projection-function rewrite still reads the field's
+  sort off `T._model.proj_i.iota`'s `Eq` level, and since #207 the ONLY
+  source of that artifact is the in-process modeller
+  (`InModel/Mutual.lean`, structure-like non-`Prop` members).
+  `Kernel/Modeled.lean` and the modeled install are unchanged: they read
+  the environment, and never knew the models' provenance either way.
+
+### The contract is now ours
+
+`checkMemberValF`'s `Expr.eqUpToNames` pin — "model types match the
+renamed public types syntactically" — used to be an UPSTREAM contract.
+It is the in-process modeller's now.  A mismatch is a decline, and the
+fix belongs in `ConLeche/Frontend/InModel/*`; never a weakening to defeq.
+
+The decline a residual block gets was `missing model for X`, which named
+neither the class nor the reason.  It is now
+
+    no install route for inductive block T: no direct route recognises
+    it and no model for X was generated
+
+### The residual, measured — and it is bigger than the inventory said
+
+The checklist's census was taken on init-full and Mathlib, where the
+residual classes are vacuous.  Running the arena and e2e suites raw
+found **two classes the tool was masking**, both of them audit finding
+**#206-A5** and one of them costing accepted tests:
+
+| class | where | verdict | message |
+|---|---|---|---|
+| a constructor field whose type is a DEFINITION REDEX that only whnf's to a recursive occurrence | arena `good/tutorial/{053_reduceCtorParam.mk, 118_reduceCtorParamRefl.mk, 119_reduceCtorParamRefl2.mk}`, e2e `ind_pos_whnf_id`, `ind_pos_whnf_fn`, `pre_decline_imax_field` | 2 | `no install route for inductive block T: …` |
+| a REFLEXIVE member inside a **mutual** block | e2e `mutual_struct_proj` | 2 | `in-process model of MutualStructProj.Node: reflexive member` |
+| infinitary nesting (a nested occurrence under a binder) | e2e `ind_nest_inf`, `ind_nest_via_refl` | 2 (unchanged) | `in-process model of X: field i of C mentions the block other than as a whole member or container occurrence` |
+| a def-headed former the fix arm reads with `stripPis`; a mutual member whose parameter telescope or sort differs only up to defeq | e2e `ind_defhead_{struct,k,mutual,fix}`, `ind_former_redex`, `ind_mutual_{param,sort}_defeq` | 2 (unchanged raw) | the modeller's own named decline |
+
+So the **arena tutorial's accepted count moves 90/92 → 87/92**.  This is
+the honest price of the drop and it is recorded, not papered over
+(`tests/arena-expected.txt`'s header, group B): official whnf's a
+constructor field before classifying it
+(`is_positive`/`is_rec_argument`), the fixpoint route's positivity check
+is syntactic, and the tool — which used Lean's own kernel — was covering
+the difference.  A whnf-aware field reading in the fixpoint route is the
+fix; it is the conformance batch's, not this lane's.
+
+**The 15 arena F1 rejects.**  With the passthrough gone they fall back
+to the DECLINE (2) they had before #180.  Four (045, 048, 051, 055)
+decline earlier still, at a non-standard axiom, and never reach their
+inductive.  The other eleven carry a STUB RECURSOR record
+(`nP=0 nM=0 nm=0 rules=[]`) or a misnamed recursor, which every direct
+recogniser refuses at its RECURSOR PIN — before the semantic check that
+would reject can run.  Recovering the reject means splitting the
+recognisers into a type+constructor gate that may REJECT and a recursor
+pin that today only falls through: a verified-tier refactor, its own
+task (checklist §3.3a).  138 keeps its `1` from the sum route's own
+pairwise duplicate-constructor guard.
+
+### The gate that replaced the audit
+
+`tests/native-audit.sh` → **`tests/route-census.sh`**, and the failure
+meaning is different: it does not compare two implementations, it pins
+what the one implementation does.  Over the ACCEPTING `good/` arena
+fixtures every block must route `struct`, `sum`, `fix`, `inmodel` or
+`basis`; a `modeled` line (the model came from the stream) or a
+`no install route` line fails.  Measured: **87 streams, 658 blocks — 28
+struct, 93 sum, 15 fix, 0 inmodel, 522 basis, 0 modeled.**
+
+`tests/inmodel.sh` keeps its four stages minus one: the dump is
+re-checked by con-leche itself (it carries the generated `_model` family,
+so the modeller stands down and the block takes the MODELED route)
+instead of being piped through the tool first.
+
+### init-full, raw — and the nine records the tool used to add
+
+| | raw (task #207) | through the pipe (task #215's record) |
+|---|---:|---:|
+| accepted declarations | **53 118** | 53 127 |
+| inductive blocks | 591 | 592 |
+| `struct` | 477 | 478 |
+| `sum` / `fix` / `inmodel` / `basis` | 55 / 52 / 1 / 6 | 55 / 52 / 1 / 6 |
+| `modeled` | **0** | 0 |
+| `--verified` instructions:u | **673 312 627 309** | 782 622 299 748 |
+| `--trusted` instructions:u | **654 239 110 074** | — |
+
+Both modes exit 0 and accept the same 53 118.  The nine-record,
+one-block difference is **the tool's own `PSigma'` family**, spliced
+into every stream it re-exported: `grep -c "PSigma'"` is 0 on
+`init-full.ndjson` and nonzero on `init-full-pre-idx.ndjson`.  It
+installed through the direct structure route, which is why the census
+differs by exactly one `struct`.  The −14 % of instructions is the same
+change of input plus the loss of the tool's re-export; it is not a
+checker improvement and must not be read as one.  The in-process
+receipt is unchanged: `1 inductive blocks modelled in-process:
+Lean.Syntax`, `inmodel census: 1 modelled, 0 declined`.
+
+### Gates
+
+`lake build` warning-free, including from an empty `.lake/build/bin`
+(`lake build con-leche`, 120 jobs); `lake build con-leche-preprocess`
+errors with `unknown target`.  `lake test` (the axiom pin unmoved: 11
+theorems at `[propext, Classical.choice, Quot.sound]`).
+`tests/arena.sh` exit 0: arena tutorial 87/92 as recorded, e2e 155/155,
+annot 14/14, retired flags 8/8, mode flags 16/16, prelude counts 3/3,
+progress lane 6/6, DAG-tower 2/2, trusted sweep 138 arena + 155 e2e + 14
+annot with the 3 recorded divergences.  `tests/layering.sh` 273/195/3/1,
+0 base→lane, 0 impl→theory.  `tests/proofdeps.sh` 2 898 rows across 7
+roots, 0 doors — unchanged, as expected: `Main.lean` and `Frontend/*`
+are outside the roots.  `tests/trust-surface.sh` 18 escapes in 4
+allowlisted files (479 scanned), 0 outside — one file fewer scanned,
+`ConLechePreprocess.lean`.  `tests/pindump.sh` fresh.
+`tests/inmodel.sh` OK.  `.lake/packages` is gone.
+
+### `tests/e2e-expected.txt` has one line per fixture
+
+The third field (`raw` | `pre`) is gone and so is the two-verdict-per-
+fixture shape: 35 rows were a plain run beside a `raw` or `pre` one, and
+where the two disagreed the RAW verdict is the survivor (it is what the
+checker does now).  118 rows became 155 fixtures at one line each;
+`pre_reject_nonpositive.ndjson` was deleted with its fixture (it existed
+to pin the passthrough mapping, and its stream is the arena's
+`bad/tutorial/052_indNeg`, still checked there).  `pre_decline_imax_field`
+keeps its historical name and is now a `2`.
+
+### PERF.md
+
+Wholly regenerated on RAW streams — every published cell before this
+task was measured on a preprocessed stream with `--pre` on the con-leche
+side.  The methodological change is stated in the file: both checkers
+now read the same raw bytes and do the SAME job, inductive blocks
+included, which con-leche used to have done for it.  **No cell is
+comparable with an earlier PERF.md.**
