@@ -229,7 +229,7 @@ theorem eissOfR_fixCtorDataList_getD {dsF : Nat → (Name → Nat) → List (Nat
 /-- **The functor's premise and the chains' validity**, from the
 per-constructor chain facts. -/
 theorem xChainsOk_of {u w nP n : Nat} {ρp : Nat → V} {Ids : List AVExpr}
-    {ksF : Nat → List RecFieldKind} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    {ksF : Nat → List RecFieldKind} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))}
     {Fss Ess : List (List AVExpr)}
     (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids) (hlenF : Fss.length = n)
     (hrss : ∀ j, j < n → rss.getD j [] = rsOf (ksF j))
@@ -237,10 +237,10 @@ theorem xChainsOk_of {u w nP n : Nat} {ρp : Nat → V} {Ids : List AVExpr}
       (Eiss.getD j []) (Ess.getD j []))
     (hCV : ∀ j, j < n → ChainValidFacts nP (Fss.getD j []).length ρp (ksF j) (Fss.getD j [])
       (Eiss.getD j []) (Ess.getD j [])) :
-    XChainsOk u w ρp Ids rss Eiss Fss Ess ∧
+    XChainsOk u w ρp Ids rss tlss Eiss Fss Ess ∧
     ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
-      SumFieldsValid (cons t (cons X ρp)) (chainsXI u Ids Ids.length rss Eiss Fss Ess) := by
-  have hmem : ∀ chain ∈ chainsXI u Ids Ids.length rss Eiss Fss Ess, ∃ j, j < n ∧
+      SumFieldsValid (cons t (cons X ρp)) (chainsXI u Ids Ids.length rss tlss Eiss Fss Ess) := by
+  have hmem : ∀ chain ∈ chainsXI u Ids Ids.length rss tlss Eiss Fss Ess, ∃ j, j < n ∧
       chain = chainXI u Ids Ids.length (rsOf (ksF j)) (Eiss.getD j []) (Fss.getD j [])
         (Ess.getD j []) := by
     intro chain hc
@@ -263,14 +263,14 @@ theorem xChainsOk_of {u w nP n : Nat} {ρp : Nat → V} {Ids : List AVExpr}
 /-- The X-chains are closed under the parameters, the family and the
 tuple. -/
 theorem chainsXI_below_of {u nP nIdx n : Nat} {Ids : List AVExpr} {rss : List (List Bool)}
-    {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
     (hIds : FieldsBelow nP Ids) (hlenF : Fss.length = n)
     (hEis : ∀ j, j < n → ∀ i, ∀ E ∈ (Eiss.getD j []).getD i [], VExpr.bvarsBelow (nP + i) E.erase)
     (hFs : ∀ j, j < n → FieldsBelow nP (Fss.getD j []))
     (hEsLen : ∀ j, j < n → (Ess.getD j []).length = nIdx)
     (hEs : ∀ j, j < n → ∀ E ∈ Ess.getD j [],
       VExpr.bvarsBelow (nP + (Fss.getD j []).length) E.erase) :
-    ∀ chain ∈ chainsXI u Ids nIdx rss Eiss Fss Ess, FieldsBelow (nP + 2) chain := by
+    ∀ chain ∈ chainsXI u Ids nIdx rss tlss Eiss Fss Ess, FieldsBelow (nP + 2) chain := by
   intro chain hc
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
   rw [chainsXI_getElem?] at hj

@@ -702,7 +702,7 @@ theorem stageFixRec (hE : Lech.EtaFamiliesClosed env)
               cd.2.2.1 cd.2.2.2.1 cd.2.2.2.2.1 cd.2.2.2.2.2)
           = minorSpI (elimL.eval ψ) (fun fs => ihSpL (elimL.eval ψ)
               (concI (p.resSort.eval ψ) ρp M ((essOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) j fs)
-              (ihDomsI ρp M (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
+              (ihDomsI ℓ ρp M (rssOfK ksF ctorsA.length) (eissOfR (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0))
                 (fun j' => ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j' []).length) j fs))
             ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF ψ ctorsA 0)).getD j []) ρp []) := by
     intro ψ ρp hρp

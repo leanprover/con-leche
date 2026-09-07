@@ -237,7 +237,7 @@ end Valid
 section Below
 
 variable {u w nP nIdx nF : Nat} {Ids Fs Es : List AVExpr} {rs : List Bool}
-  {Eis : List (List AVExpr)}
+  {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)}
 
 omit [SetTheory V] in
 theorem domsBelow_tuplerData {k : Nat} :
@@ -258,7 +258,7 @@ omit [SetTheory V] in
 theorem chainXIGo_below (hIds : FieldsBelow nP Ids)
     (hEis : ∀ i, ∀ E ∈ Eis.getD i [], VExpr.bvarsBelow (nP + i) E.erase) :
     ∀ (Fs : List AVExpr) (i : Nat), FieldsBelow (nP + i) Fs →
-      FieldsBelow (nP + 2 + i) (chainXIGo u Ids rs Eis Fs i)
+      FieldsBelow (nP + 2 + i) (chainXIGo u Ids rs tls Eis Fs i)
   | [], _, _ => trivial
   | F :: Fs, i, hF => by
     rw [chainXIGo_cons]
@@ -292,7 +292,7 @@ theorem chainXI_below (hIds : FieldsBelow nP Ids)
     (hEis : ∀ i, ∀ E ∈ Eis.getD i [], VExpr.bvarsBelow (nP + i) E.erase)
     (hFs : FieldsBelow nP Fs) (hEsLen : Es.length = nIdx)
     (hEs : ∀ E ∈ Es, VExpr.bvarsBelow (nP + Fs.length) E.erase) :
-    FieldsBelow (nP + 2) (chainXI u Ids nIdx rs Eis Fs Es) := by
+    FieldsBelow (nP + 2) (chainXI u Ids nIdx rs tls Eis Fs Es) := by
   unfold chainXI
   refine FieldsBelow_append_idxEq (by simpa using chainXIGo_below hIds hEis Fs 0 (by simpa using hFs))
     ?_
@@ -314,10 +314,10 @@ theorem chainXI_below (hIds : FieldsBelow nP Ids)
 
 omit [SetTheory V] in
 /-- The functor's λ, below the parameter frame. -/
-theorem fixBodyAVI_below {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+theorem fixBodyAVI_below {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))}
     {Fss Ess : List (List AVExpr)} (hIds : FieldsBelow nP Ids)
-    (hchains : ∀ chain ∈ chainsXI u Ids nIdx rss Eiss Fss Ess, FieldsBelow (nP + 2) chain) :
-    VExpr.bvarsBelow nP (fixBodyAVI u w Ids nIdx rss Eiss Fss Ess).erase := by
+    (hchains : ∀ chain ∈ chainsXI u Ids nIdx rss tlss Eiss Fss Ess, FieldsBelow (nP + 2) chain) :
+    VExpr.bvarsBelow nP (fixBodyAVI u w Ids nIdx rss tlss Eiss Fss Ess).erase := by
   unfold fixBodyAVI
   rw [AVExpr.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN (by simp [VExpr.bvarsBelow]) ?_
@@ -336,12 +336,12 @@ theorem fixBodyAVI_below {rss : List (List Bool)} {Eiss : List (List (List AVExp
 omit [SetTheory V] in
 /-- **The former's leaf is closed.** -/
 theorem directFixTyAVI_below {pps : List (Nat × Nat × AVExpr)} {rss : List (List Bool)}
-    {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
     (hp : DomsBelow 0 pps) (hlen : pps.length = nP + nIdx)
     (hIdsLen : (((pps.drop nP).map (·.2.2))).length = nIdx)
-    (hchains : ∀ chain ∈ chainsXI u Ids nIdx rss Eiss Fss Ess, FieldsBelow (nP + 2) chain)
+    (hchains : ∀ chain ∈ chainsXI u Ids nIdx rss tlss Eiss Fss Ess, FieldsBelow (nP + 2) chain)
     (hIds : Ids = (pps.drop nP).map (·.2.2)) :
-    VExpr.bvarsBelow 0 (directFixTyAVI u w pps Ids rss Eiss Fss Ess).erase := by
+    VExpr.bvarsBelow 0 (directFixTyAVI u w pps Ids rss tlss Eiss Fss Ess).erase := by
   have hIdsB : FieldsBelow nP Ids := by
     rw [hIds]
     have := (DomsBelow.drop nP hp).fields
@@ -353,7 +353,7 @@ theorem directFixTyAVI_below {pps : List (Nat × Nat × AVExpr)} {rss : List (Li
   refine ⟨?_, ?_⟩
   · rw [AVExpr.erase_liftN]
     have := VExprAux.bvarsBelow_liftN Ids.length
-      (fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).erase nP 0
+      (fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).erase nP 0
       (fixBodyAVI_below (w := w) (nIdx := Ids.length) hIdsB (by rw [hIL]; exact hchains))
     rw [hIL] at this ⊢
     exact this
@@ -367,16 +367,16 @@ end Below
 section Currency
 
 variable {u w nP : Nat} {Ids : List AVExpr} {rss : List (List Bool)}
-  {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
+  {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)}
 
 /-- The body's validity at the frame below the parameters and the
 index variables. -/
 theorem fixBody_validV {ρp : Nat → V} (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids)
     (hchains : ∀ X, X ∈ˢ lfpFamSpace V w (idxSet u ρp Ids) → ∀ t, t ∈ˢ idxSet u ρp Ids →
-      SumFieldsValid (cons t (cons X ρp)) (chainsXI u Ids Ids.length rss Eiss Fss Ess))
+      SumFieldsValid (cons t (cons X ρp)) (chainsXI u Ids Ids.length rss tlss Eiss Fss Ess))
     {is : List V} (hsp : SpineFit ρp Ids is) :
     AnnotValidV V (consList is ρp)
-      (.app ((fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).liftN Ids.length 0)
+      (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids)) := by
   have hsh : shiftE Ids.length 0 (consList is ρp) = ρp := by
     rw [← hsp.length_eq]; exact shiftE_consList is ρp
@@ -408,11 +408,11 @@ theorem fixBody_validV {ρp : Nat → V} (hI : IdxOk u ρp Ids) (hIV : FieldsVal
 /-- **The former leaf's P currency**: graded at the hereditary premise,
 valid under the tower. -/
 theorem directFixTyAVI_okP {pps : List (Nat × Nat × AVExpr)} {ρ : Nat → V}
-    (hok : ParamsOkXI u w ρ Ids rss Eiss Fss Ess pps)
+    (hok : ParamsOkXI u w ρ Ids rss tlss Eiss Fss Ess pps)
     (hval : UnderTowerValid ρ
-      (.app ((fixBodyAVI u w Ids Ids.length rss Eiss Fss Ess).liftN Ids.length 0)
+      (.app ((fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).liftN Ids.length 0)
         (mkTowerGo u Ids)) pps) :
-    AnnotOkP V ρ (directFixTyAVI u w pps Ids rss Eiss Fss Ess) :=
+    AnnotOkP V ρ (directFixTyAVI u w pps Ids rss tlss Eiss Fss Ess) :=
   ⟨directFixTyAVI_ok2 hok, mkLamsC_validV (m := w + 1) hval⟩
 
 end Currency

@@ -52,7 +52,7 @@ section IhValid
 
 variable {ℓ w nP : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
   {famAt : List V → V} {ihDoms : Nat → List V → List V} {rss : List (List Bool)}
-  {Eiss : List (List (List AVExpr))} {D : Nat}
+  {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {D : Nat}
 
 /-- The payload of constructor `j`'s fibre projects to a fitting field
 spine at the parameter frame. -/
@@ -79,7 +79,7 @@ theorem ihArgsI_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw 
       ∀ E ∈ (Eiss.getD j []).getD i [],
         AnnotValidV V (consList (fs.take i) (frP Fss.length Ids.length ρ₀)) E)
     {y : V} (hy : y ∈ˢ sumFibre w ρ₀ (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess) j) :
-    ∀ a ∈ ihArgsI nP Fss.length Ids.length rss Eiss (fun j => (Fss.getD j []).length) D j,
+    ∀ a ∈ ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length) D j,
       AnnotValidV V (cons y σ) a := by
   have hspP := fibre_projList_fit hyp hw hj hy
   intro a ha
@@ -114,7 +114,7 @@ theorem fixBase_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (hw 
     AnnotValidV V σ
       (caseBaseAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
         (fun j => (Fss.getD j []).length)
-        (ihArgsI nP Fss.length Ids.length rss Eiss (fun j => (Fss.getD j []).length))
+        (ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length))
         Fss.length Ids.length D j) := by
   show AnnotValidV V σ (.lam ℓ _ _)
   rw [AnnotValidV_lam]
@@ -163,7 +163,7 @@ theorem fixCaseRec_validV (hyp : RecHypI ℓ w ρ₀ Fss Ess Ids famAt ihDoms) (
       AnnotValidV V σ
         (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           (fun j => (Fss.getD j []).length)
-          (ihArgsI nP Fss.length Ids.length rss Eiss (fun j => (Fss.getD j []).length))
+          (ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length))
           Fss.length Ids.length r D j kx)
   | 0, _, _, σ, _, _, _ => by
     show AnnotValidV V σ (.lam ℓ (.const .empty [w]) .prf)
@@ -186,7 +186,7 @@ theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ�
       ∀ fs : List V, SpineFit (frP Fss.length Ids.length ρ₀) (Fss.getD j []) fs →
       ∀ E ∈ (Eiss.getD j []).getD i [],
         AnnotValidV V (consList (fs.take i) (frP Fss.length Ids.length ρ₀)) E) :
-    AnnotValidV V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss) := by
+    AnnotValidV V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) := by
   by_cases hw : w = 0
   · subst hw
     rw [fixRecBodyAVI_zero]
@@ -202,17 +202,17 @@ end IhValid
 /-- **The recursor leaf is bit-valid**: from the type's validity and the
 body's validity under the binder data over every function value. -/
 theorem fixSelAVI_validV {ℓ w nP s : Nat} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
-    {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))}
     {rds : List (Nat × Nat × AVExpr)} {ρ : Nat → V}
     (hTy : AnnotValidV V ρ (recTyAV Fss.length Ids.length rds))
     (hbody : ∀ r : V, r ∈ˢ interp2 V ρ (recTyAV Fss.length Ids.length rds) →
-      UnderTowerValid (cons r ρ) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss) rds) :
-    AnnotValidV V ρ (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds s) := by
-  have hstep : AnnotValidV V ρ (fixStepAVI ℓ w nP Fss Ess Ids rss Eiss rds s) := by
+      UnderTowerValid (cons r ρ) (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) rds) :
+    AnnotValidV V ρ (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
+  have hstep : AnnotValidV V ρ (fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
     show AnnotValidV V ρ (.lam s (recTyAV Fss.length Ids.length rds) _)
     rw [AnnotValidV_lam]
     exact ⟨hTy, fun r hr => mkLamsC_validV (hbody r hr)⟩
-  have hsig : AnnotValidV V ρ (fixSigAVI ℓ w nP Fss Ess Ids rss Eiss rds s) := by
+  have hsig : AnnotValidV V ρ (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) := by
     show AnnotValidV V ρ (.app (.app (.const .psigma [s, 0]) (recTyAV Fss.length Ids.length rds))
       (.lam 1 (recTyAV Fss.length Ids.length rds) _))
     simp only [AnnotValidV_app, AnnotValidV_const, AnnotValidV_lam, AnnotValidV_eqE,

@@ -55936,3 +55936,25 @@ lemma; nothing per shape remains.  If injection-preservation is
 awkward to state for the family functor, the equivalent "`F` preserves
 subsets of the coded space along the coding" (`F' : P(T) → P(T)`) is
 acceptable — the choice is to be recorded here when made (Stage B).
+
+**Refinement (user, 2026-09-07): the container structure.**  The
+"small algebra with a mono" property does not compose directly; the
+CONTAINER property does and implies it.  Set-model side: (1)
+`MemberContainer` := shapes `A` a member, positions `B : A → member`;
+`F_{A,B} X = Σ_{a ∈ A} (B a → X)` (families: per fibre); (2) closure
+lemmas — constant, identity, SUM (shapes: disjoint union, positions
+inherited), PRODUCT (shapes: pairs, positions: disjoint union), ARROW
+with member domain `D` (shapes `D → A`, positions `Σ_{d∈D} B (g d)`) —
+each with its `A`, `B` computed; (3) the tower functor of a block IS
+such a container derived compositionally from the constructor data: a
+sum over the constructors of the product over the fields, identity at
+a recursive field, arrow at a reflexive field, constant at a
+non-recursive field; (4) ONE theorem: the lfp of a member container is
+a member (`T` := `P(labelled-path space from A, B)`, `s` := the
+one-step coding, the injection `μ ↪ T` by lfp induction — the
+W-type-is-a-member lemma), monotonicity and injection-preservation
+coming with the container form.  Stage B's per-block work is then
+step (3), which is syntactic.  Whether the tower functor is taken
+"isomorphic to a container" or "literally a container up to the
+tupler encoding already landed" — whichever makes the identification
+with the landed fibres cheapest — is to be recorded here when chosen.

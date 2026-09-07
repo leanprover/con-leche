@@ -75,7 +75,7 @@ theorem map_recPrefixBvars_interp {nP n nF : Nat} {as₁ ms as₂ : List V} {M :
 inductive-hypothesis values. -/
 theorem interp_fixRuleCoreAV {nP n nF j : Nat} {as₁ ms as₂ : List V} {M : V} {ρ : Nat → V}
     (hlenP : as₁.length = nP) (hlenM : ms.length = n) (hlenF : as₂.length = nF) (hjn : j < n)
-    {R : AVExpr} (hRcl : VExpr.bvarsBelow 0 R.erase) {rs : List Bool} {Eis : List (List AVExpr)} :
+    {R : AVExpr} (hRcl : VExpr.bvarsBelow 0 R.erase) {rs : List Bool} {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)} :
     interp2 V (consList as₂ (consList ms (cons M (consList as₁ ρ))))
         (fixRuleCoreAV R nP nF n j (recIdx rs nF) Eis)
       = (as₂ ++ (recIdx rs nF).map fun i =>
@@ -115,13 +115,13 @@ set_option maxHeartbeats 6400000 in
 /-- **The recursive recursor rule's law at the readings.** -/
 theorem fixRecLawCore {ℓ w u s nP nF nIdx n j : Nat} {rds ds : List (Nat × Nat × AVExpr)}
     {Fss₀ Fss Ess : List (List AVExpr)} {Ids : List AVExpr} {rss : List (List Bool)}
-    {Eiss : List (List (List AVExpr))} {Es : List AVExpr}
-    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s)
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Es : List AVExpr}
+    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
     (hFss : Fss.length = n) (hIds : Ids.length = nIdx)
     (hlenDs : ds.length = nP + nF) (hjn : j < n)
     (hFsj : Fss[j]? = some ((ds.drop nP).map (·.2.2))) (hEsj : Ess[j]? = some Es)
     (hEs : Es.length = nIdx)
-    {R : AVExpr} (hR : R = directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds s)
+    {R : AVExpr} (hR : R = directFixRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
     (hRcl : VExpr.bvarsBelow 0 R.erase)
     (hokFss : ∀ ρp : Nat → V, Sat2 V (((rds.take nP).map (·.2.2)).reverse) ρp →
       SumFieldsOkB w ρp Fss)

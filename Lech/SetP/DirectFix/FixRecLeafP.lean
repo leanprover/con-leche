@@ -29,9 +29,9 @@ variable {V : Type w} [SetTheory V]
 /-- **The body's validity** at a frame satisfying the recursor's binder
 data. -/
 theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List AVExpr)}
-    {Ids : List AVExpr} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    {Ids : List AVExpr} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))}
     {rds : List (Nat × Nat × AVExpr)}
-    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s)
+    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
     (hFss : Fss.length = n) (hIds : Ids.length = nIdx)
     (hvFss : ∀ ρp : Nat → V, Sat2 V (((rds.take nP).map (·.2.2)).reverse) ρp →
       SumFieldsValid ρp Fss ∧
@@ -41,7 +41,7 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : Lis
         ∀ fs : List V, SpineFit ρp (Fss.getD j []) fs →
         ∀ E ∈ (Eiss.getD j []).getD i [], AnnotValidV V (consList (fs.take i) ρp) E))
     (σ : Nat → V) (hsat : Sat2 V (((rds.map (·.2.2)).reverse)) σ) :
-    AnnotValidV V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss) := by
+    AnnotValidV V σ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) := by
   have hsp := spineFit_of_sat2 (Δ₀ := []) (Ds := rds.map (·.2.2))
     (by rw [List.append_nil]; exact hsat)
   have hσ0 : consList (((List.range (rds.map (·.2.2)).length).reverse).map σ)
@@ -93,9 +93,9 @@ theorem fixRecBodyValid_of_sat {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : Lis
 
 /-- **The recursor leaf's P currency and membership**, at every frame. -/
 theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List AVExpr)}
-    {Ids : List AVExpr} {rss : List (List Bool)} {Eiss : List (List (List AVExpr))}
+    {Ids : List AVExpr} {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))}
     {rds : List (Nat × Nat × AVExpr)}
-    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss Eiss rds s)
+    (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds s)
     (hFss : Fss.length = n) (hIds : Ids.length = nIdx)
     (okΓ : ∀ i, i < nP + n + nIdx + 2 → ∀ ρ : Nat → V,
       Sat2 V ((((rds.map (·.2.2)).reverse)).drop (nP + n + nIdx + 2 - i)) ρ →
@@ -109,8 +109,8 @@ theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List
         ∀ fs : List V, SpineFit ρp (Fss.getD j []) fs →
         ∀ E ∈ (Eiss.getD j []).getD i [], AnnotValidV V (consList (fs.take i) ρp) E)) :
     ∀ ρ : Nat → V,
-      AnnotOkP V ρ (directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds s) ∧
-      interp2 V ρ (directFixRecAVI ℓ w nP Fss Ess Ids rss Eiss rds s)
+      AnnotOkP V ρ (directFixRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) ∧
+      interp2 V ρ (directFixRecAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
         ∈ˢ interp2 V ρ (mkPisAV rds (recConcAV n nIdx)) := by
   intro ρ
   have hlenR : rds.length = nP + n + nIdx + 2 := by have := h.hlen; omega
@@ -127,10 +127,10 @@ theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List
     exact ⟨_, List.getElem?_eq_getElem hil,
       by rw [getD_reverse_of_peel hlenR hi (List.getElem?_eq_getElem hil)]⟩
   have hwalk : ∀ ρ' : Nat → V,
-      UnderTowerValid ρ' (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss) rds := by
+      UnderTowerValid ρ' (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) rds := by
     intro ρ'
     have hw := hereditaryWalk (V := V)
-      (Q := fun ρ ds' => UnderTowerValid ρ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss Eiss) ds')
+      (Q := fun ρ ds' => UnderTowerValid ρ (fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss) ds')
       hΓlen hlenR hent okΓ
       (fun σ hσ => fixRecBodyValid_of_sat h hFss hIds hvFss σ hσ)
       (fun ρ d ds' _ hok hrec => ⟨hok.2, hrec⟩)
@@ -139,7 +139,7 @@ theorem fixRecLeafFacts {ℓ w u s nP n nIdx : Nat} {Fss₀ Fss Ess : List (List
         exact Sat2_nil V ρ')
     rw [List.drop_zero] at hw
     exact hw
-  show AnnotValidV V ρ (fixSelAVI ℓ w nP Fss Ess Ids rss Eiss rds s)
+  show AnnotValidV V ρ (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)
   refine fixSelAVI_validV ?_ fun r _ => hwalk (cons r ρ)
   show AnnotValidV V ρ (mkPisAV rds (recConcAV Fss.length Ids.length))
   rw [hFss, hIds]

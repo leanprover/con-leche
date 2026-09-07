@@ -33,17 +33,17 @@ variable {V : Type w'} [SetTheory V]
 expressions** reads, under `as` field values at the parameter frame
 `ρp`, to the family at the tuple of the expressions' values. -/
 theorem fixLeafApp {u w nP : Nat} {pps : List (Nat × Nat × AVExpr)} {rss : List (List Bool)}
-    {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)} {ρp : Nat → V}
+    {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {Fss Ess : List (List AVExpr)} {ρp : Nat → V}
     (hlen : pps.length = nP + (((pps.drop nP).map (·.2.2))).length)
-    (hX : XChainsOk u w ρp ((pps.drop nP).map (·.2.2)) rss Eiss Fss Ess)
+    (hX : XChainsOk u w ρp ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess)
     (hρp : Sat2 V ((pps.take nP).map (·.2.2)).reverse ρp)
     {A : AVExpr} (hA : ∀ σ : Nat → V, interp2 V σ A
-      = interp2 V (fun j => ρp (j + nP)) (directFixTyAVI u w pps ((pps.drop nP).map (·.2.2)) rss Eiss Fss Ess))
+      = interp2 V (fun j => ρp (j + nP)) (directFixTyAVI u w pps ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess))
     {as : List V} {Eis : List AVExpr}
     (hsp : SpineFit ρp ((pps.drop nP).map (·.2.2)) (Eis.map (interp2 V (consList as ρp)))) :
     interp2 V (consList as ρp) (AVExpr.mkAppN A (paramBvarsAt nP (nP + as.length) ++ Eis))
       = SetTheory.app (fixFamI u w ρp ((pps.drop nP).map (·.2.2)) ((pps.drop nP).map (·.2.2)).length
-          rss Eiss Fss Ess) (tupW u (Eis.map (interp2 V (consList as ρp)))) := by
+          rss tlss Eiss Fss Ess) (tupW u (Eis.map (interp2 V (consList as ρp)))) := by
   have hlenI : (Eis.map (interp2 V (consList as ρp))).length
       = ((pps.drop nP).map (·.2.2)).length := hsp.length_eq
   -- the argument values: the parameters, then the index values
@@ -77,7 +77,7 @@ theorem fixLeafApp {u w nP : Nat} {pps : List (Nat × Nat × AVExpr)} {rss : Lis
     rw [← hlenI]; exact frameIdx_consList' _ ρp
   have hbase : FixBaseI u w (consList ((List.range nP).reverse.map ρp ++
       Eis.map (interp2 V (consList as ρp))) (fun j => ρp (j + nP)))
-      ((pps.drop nP).map (·.2.2)) rss Eiss Fss Ess := by
+      ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess := by
     rw [hframe]
     refine ⟨?_, ?_, ?_⟩
     · rw [hsh]; exact hX.hI
