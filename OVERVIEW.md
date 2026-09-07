@@ -198,14 +198,16 @@ Inductive blocks are not trusted from the stream. Three cases:
 * **The fixpoint route** takes every other single, non-nested block:
   any number of parameters, indices, constructors and fields, recursive
   and reflexive fields, `Prop` or `Type`. The recogniser reads the
-  block's constructor data and classifies each field
-  ([function `directFixKinds?` in `ConLeche/Kernel/Direct/RecParts.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecParts.lean#L611)),
-  runs official's checks, positivity
-  ([the positivity walk in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecParts.lean#L243)),
-  universe bound, elimination restriction and index occurrence,
-  generates the recursor and its rules, and compares the generated
-  recursor with the stream's; the whole install is one entry
-  ([function `checkDirectFix` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L211)).
+  block's shape; the install normalises every constructor field domain
+  by official's positivity walk — weak head normal form before
+  classifying, again under each Π binder
+  ([function `normPosDom` in `ConLeche/Kernel/Direct/SumInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/SumInstall.lean#L153)) —
+  and classifies each field on the constructors it stored
+  ([function `classifyFixKinds` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L212)),
+  runs official's checks — universe bound, elimination restriction and
+  index occurrence — generates the recursor and its rules, and compares
+  the generated recursor with the stream's; the whole install is one entry
+  ([function `checkDirectFix` in `ConLeche/Kernel/Direct/RecInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Direct/RecInstall.lean#L229)).
   In the model the block's carrier is the least fixed point of its
   family functor over the index fibres
   ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Value.lean#L517-L524));
