@@ -20,7 +20,14 @@
    member's type mentions.)
 
    official: 0.  con-leche at master 700a06ca: 2 piped, 2 raw (both modes).
-   Probe of record: _tmp/indaudit/probes/P/MutualParamDefEq.lean. -/
+   Probe of record: _tmp/indaudit/probes/P/MutualParamDefEq.lean.
+
+   CLOSED by task #218: the modeller no longer compares the telescopes;
+   it builds the auxiliary family over the first member's and emits
+   `MB2._model : ∀ (α : id Type), Type := λ α, aux α (tag.1 α)`, whose
+   type check is official's `is_def_eq` (`id Type` against `Type`).
+   con-leche: 0 (both modes).  The bad twin ind_mutual_param_bad
+   (scripts/mk_mutual_bad.py) rejects there, as official does. -/
 mutual
   inductive MA2 (α : Type) : Type
     | mk (b : MB2 α) (h : id True)

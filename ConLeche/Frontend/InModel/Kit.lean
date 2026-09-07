@@ -103,6 +103,21 @@ def constP (n : Name) (lps : List Name) : Expr := .const n (lps.map .param)
 def piBinders (bs : List (Expr × BinderMeta)) : List Expr :=
   bs.map (·.1)
 
+/-- A member's or constructor's telescope `ty` re-spelled over the
+FIRST member's parameter binders: the first `nP` binders of `former`
+(the first member's type) with `ty`'s residual after its own `nP`
+parameter binders under them.  Task #218: official compares the
+members' (and constructors') parameter domains with `is_def_eq`, so a
+member may spell a domain differently from the first (`id Type` for
+`Type`); the auxiliary family is built over the first's telescope, and
+this is where every generated constructor of it gets that telescope.
+The re-spelling is checked, not trusted: the residual was typed under
+the member's own domains, and the fold's typing of the generated record
+is what compares them (a genuinely different domain makes the record
+ill-typed and the fold rejects it). -/
+def overFirstParams (nP : Nat) (former ty : Expr) : Option Expr :=
+  (ty.stripPis nP).bind fun q => Expr.replacePiBody nP former q.2
+
 /-! ## Family occurrences -/
 
 /-- Rewrite every occurrence `T_m a⃗` (exactly `nP + nIdx_m` arguments)

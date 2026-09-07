@@ -19,7 +19,18 @@
    which would have masked this verdict.
 
    official: 0.  con-leche at master 700a06ca: 2 piped, 2 raw (both modes).
-   Probe of record: _tmp/indaudit/probes/P/MutualDefEq.lean. -/
+   Probe of record: _tmp/indaudit/probes/P/MutualDefEq.lean.
+
+   CLOSED by task #218: the modeller no longer compares the sorts; it
+   builds the auxiliary family at the first member's `Sort (max u v)` and
+   emits `MD._model : Sort (max v u) := aux tag.1`, whose definition
+   check is official's `is_equivalent`.  (The block has a SMALL
+   eliminator — a possibly-zero sort with two members — which exposed
+   that the projection artifacts of a structure-like member assumed an
+   elimination level; they are now emitted only under a large one.)
+   con-leche: 0 (both modes).  The bad twin ind_mutual_sort_bad
+   (`MD : Sort (max u 1)`, scripts/mk_mutual_bad.py) rejects there, as
+   official does. -/
 
 import Lean
 open Lean Elab Command

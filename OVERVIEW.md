@@ -240,7 +240,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   ([the modeller's kit in `ConLeche/Frontend/InModel/Kit.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/InModel/Kit.lean#L1-L12)).
   The model is generated and checked; nothing external is trusted. A
   nested occurrence under a binder is outside the scheme and declines
-  ([the modeller's residual in `ConLeche/Frontend/InModel/Nested.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/InModel/Nested.lean#L43-L48)).
+  ([the modeller's residual in `ConLeche/Frontend/InModel/Nested.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/InModel/Nested.lean#L43-L50)).
 
 A block no route takes is a positive decline naming its class, never
 an acceptance.
