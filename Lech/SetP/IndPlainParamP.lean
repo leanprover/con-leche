@@ -210,7 +210,7 @@ theorem plainParamSupplyP {m : EnvS2Core V env} {F : Nat}
   have hqlt : q < rP + cnF := by omega
   rcases hxq : fvs[q]? with _ | x
   · rw [List.getElem?_eq_none_iff] at hxq; omega
-  obtain ⟨nm, ty, rfl⟩ := hshapeS q x hxq
+  obtain ⟨ty, rfl⟩ := hshapeS q x hxq
   have hspq : sp.getD q default = Expr.fvar q ty := by
     rw [List.getD, hspPar q hq, hxq]
     rfl
