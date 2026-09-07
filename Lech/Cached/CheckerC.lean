@@ -183,13 +183,9 @@ transition. -/
 def checkDirectFixS (fe : FEnv) (p : DirectFixParts) : CheckCM FEnv := do
   if p.kinds.any (fun ks => ks.any (· == .negative)) then
     throw (.invalid "direct rec: non positive occurrence of the inductive type")
-  if p.large && !p.resSort.isNeverZero then
-    if decide (2 ≤ p.ctors.length) then
-      throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
-        whose sort may be Prop")
-    else
-      throw (.notImplemented "direct rec: large eliminator on a recursive inductive \
-        whose sort may be Prop")
+  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
+    throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
+      whose sort may be Prop")
   unless (p.ctors.map (·.1.name)).Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   flushC

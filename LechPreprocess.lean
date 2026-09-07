@@ -231,11 +231,10 @@ def lechNativeFix (type : EIndType) (ctors : List ECtor) (rec : ERec) : Bool :=
     ctor.levelParams == type.levelParams &&
     ctor.numParams == type.numParams && !ctor.isUnsafe &&
     !lechReservedBasisNames.contains ctor.name &&
-    -- a reflexive field only at a `Prop`-valued block with the small
-    -- eliminator (task #202, Stage A1; `directFixKinds?`'s guard)
+    -- a reflexive field only at a `Prop`-valued block (task #202, Stage
+    -- A; `directFixKinds?`'s guard)
     lechFixFieldsOk type.name type.levelParams type.numParams type.numIndices
-      (type.type.getForallBody == Lean.mkSort Lean.Level.zero &&
-        rec.levelParams == type.levelParams) ctor.type 0 0) &&
+      (type.type.getForallBody == Lean.mkSort Lean.Level.zero) ctor.type 0 0) &&
   -- the recursor: `T.rec`, the family's indices, one motive, one minor
   -- and one rule per constructor in constructor order
   rec.name == type.name.str "rec" && rec.numIndices == type.numIndices &&
