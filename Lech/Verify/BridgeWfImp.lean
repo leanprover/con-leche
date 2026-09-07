@@ -69,7 +69,7 @@ theorem stripLams_not_hasFvar :
     ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr}, Expr.stripLams k e = some (bs, body) →
       e.hasFvar = false →
-      (∀ b ∈ bs, (b.2.1).hasFvar = false) ∧ body.hasFvar = false
+      (∀ b ∈ bs, (b.1).hasFvar = false) ∧ body.hasFvar = false
   | 0, e, bs, body, h, hf => by
     simp only [Expr.stripLams, Option.some.injEq] at h
     obtain ⟨rfl, rfl⟩ : [] = bs ∧ e = body :=
@@ -94,7 +94,7 @@ theorem stripPis_not_hasFvar :
     ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr}, Expr.stripPis k e = some (bs, body) →
       e.hasFvar = false →
-      (∀ b ∈ bs, (b.2.1).hasFvar = false) ∧ body.hasFvar = false
+      (∀ b ∈ bs, (b.1).hasFvar = false) ∧ body.hasFvar = false
   | 0, e, bs, body, h, hf => by
     simp only [Expr.stripPis, Option.some.injEq] at h
     obtain ⟨rfl, rfl⟩ : [] = bs ∧ e = body :=
@@ -472,11 +472,11 @@ theorem openPisAtFvars_index :
         cases j with
         | zero =>
           simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
-          exact ⟨nm, dom, by rw [← hx, Nat.add_zero]⟩
+          exact ⟨dom, by rw [← hx, Nat.add_zero]⟩
         | succ j =>
           simp only [List.getElem?_cons_succ] at hx
-          obtain ⟨nm', ty', hx'⟩ := ih _ (i + 1) hrec j x hx
-          exact ⟨nm', ty', by rw [hx']; congr 1; omega⟩
+          obtain ⟨ty', hx'⟩ := ih _ (i + 1) hrec j x hx
+          exact ⟨ty', by rw [hx']; congr 1; omega⟩
     | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
     | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ =>
       exact nomatch h
@@ -2470,7 +2470,7 @@ domain and the body scoped at the same frame. -/
 theorem stripPis_WScoped {d : Nat} :
     ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
       {body : Expr}, Expr.stripPis k e = some (bs, body) → WScoped d e →
-      (∀ b ∈ bs, WScoped d b.2.1) ∧ WScoped d body
+      (∀ b ∈ bs, WScoped d b.1) ∧ WScoped d body
   | 0, e, bs, body, h, hw => by
     simp only [Expr.stripPis, Option.some.injEq] at h
     obtain ⟨rfl, rfl⟩ : [] = bs ∧ e = body :=
@@ -2495,8 +2495,8 @@ theorem stripPis_WScoped {d : Nat} :
 theorem stripPis_head_WScoped {d k : Nat} {e : Expr}
     {bs : List (Expr × BinderMeta)} {body dom : Expr}
     (hst : Expr.stripPis k e = some (bs, body)) (hw : WScoped d e)
-    (hd : (bs[0]?).map (·.2.1) = some dom) : WScoped d dom := by
-  have hb : ∃ b, bs[0]? = some b ∧ b.2.1 = dom := by
+    (hd : (bs[0]?).map (·.1) = some dom) : WScoped d dom := by
+  have hb : ∃ b, bs[0]? = some b ∧ b.1 = dom := by
     revert hd
     cases hbs : bs[0]? with
     | none => intro hd; exact nomatch hd

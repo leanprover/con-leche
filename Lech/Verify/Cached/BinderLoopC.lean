@@ -85,11 +85,11 @@ theorem toListRev_empty {α} :
 /-! ## Stack relations -/
 
 /-- Pointwise relation of `inferLamsI` stack entries (the port of
-`DenILE`: names and binder metas are trees here, so their legs are
-equations). -/
+`DenILE`: binder metas are trees here, so their leg is an
+equation). -/
 def RelILE : InferLamEntry → InferLamEntryX → Prop
-  | (tyo, mb), (nx, tyox, mbx) =>
-    n = nx ∧ RelC tyo tyox ∧ mb = mbx
+  | (tyo, mb), (tyox, mbx) =>
+    RelC tyo tyox ∧ mb = mbx
 
 def RelILStk : List InferLamEntry → List InferLamEntryX → Prop
   | [], [] => True
@@ -124,14 +124,13 @@ theorem inferLamsOutC_sim {d : Nat} :
     | nil => exact SimC.pure hs hcur
     | cons ex rx => exact absurd hstk (by simp [RelILStk])
   | cons e rest ihOut =>
-    obtain ⟨n, tyo, mb⟩ := e
+    obtain ⟨tyo, mb⟩ := e
     intro stkx j cur curx prevPw s₀ hs hstk hcur
     cases stkx with
     | nil => exact absurd hstk (by simp [RelILStk])
     | cons ex rx =>
-      obtain ⟨nx, tyox, mbx⟩ := ex
-      obtain ⟨⟨hnnm, htyo, hmb⟩, hrest⟩ := hstk
-      subst hnnm
+      obtain ⟨tyox, mbx⟩ := ex
+      obtain ⟨⟨htyo, hmb⟩, hrest⟩ := hstk
       subst hmb
       show SimC mode env s₀ RelDC
         (do
@@ -210,9 +209,9 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
           exact absurd hstk (by simp [RelILStk])
         | cons e0x r0x =>
           rw [hstk0, hstkx0] at hstk
-          obtain ⟨n0, ty0, mb0⟩ := e0
-          obtain ⟨n0x, ty0x, mb0x⟩ := e0x
-          obtain rfl : mb0x = mb0 := hstk.1.2.2.symm
+          obtain ⟨ty0, mb0⟩ := e0
+          obtain ⟨ty0x, mb0x⟩ := e0x
+          obtain rfl : mb0x = mb0 := hstk.1.2.symm
           dsimp only
           exact inferLamsOutC_sim hs₅ hstk hQcur
     simp only [hv, ↓reduceIte]
@@ -246,9 +245,9 @@ theorem inferLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
           exact absurd hstk (by simp [RelILStk])
         | cons e0x r0x =>
           rw [hstk0, hstkx0] at hstk
-          obtain ⟨n0, ty0, mb0⟩ := e0
-          obtain ⟨n0x, ty0x, mb0x⟩ := e0x
-          obtain rfl : mb0x = mb0 := hstk.1.2.2.symm
+          obtain ⟨ty0, mb0⟩ := e0
+          obtain ⟨ty0x, mb0x⟩ := e0x
+          obtain rfl : mb0x = mb0 := hstk.1.2.symm
           dsimp only
           refine SimC.pureB ?_
           obtain ⟨-, hzeq⟩ := zeronessOfLGo_spec v
@@ -333,16 +332,16 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
             ((Expr.instantiateList body
               (Expr.fvar (d + k) (ty.instantiateList ws) :: ws))) := by
           rw [Expr.instantiateList_cons]
-          have := Expr.WScoped.instantiate1 (n := nm) hwcomp.1 0 hwcomp.2
+          have := Expr.WScoped.instantiate1 hwcomp.1 0 hwcomp.2
           simpa [Nat.add_assoc] using this
         refine inferLamsC_sim ih fuel hs₄ rfl
           (by rw [toListRev_push]
               exact RelCL.cons hQfv' hfvs)
-          ⟨⟨rfl, hQtyo, rfl⟩, hstk⟩ hwopen
+          ⟨⟨hQtyo, rfl⟩, hstk⟩ hwopen
       all_goals exact SimC.throw
     all_goals
       dsimp only
-      rw [inferLams_succ_ne_lam _ (fun _ _ _ _ h => Expr.noConfusion h)]
+      rw [inferLams_succ_ne_lam _ (fun _ _ _ h => Expr.noConfusion h)]
       exact inferLamsLeafC_sim ih hs ht' hfvs hstk hw
 
 /-! ## The infer-∀ loop walks (task #100 stage 6: the ∀-rule infers
@@ -511,7 +510,7 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
             ((Expr.instantiateList body
               (Expr.fvar (d + k) (ty.instantiateList ws) :: ws))) := by
           rw [Expr.instantiateList_cons]
-          have := Expr.WScoped.instantiate1 (n := nm) hwcomp.1 0 hwcomp.2
+          have := Expr.WScoped.instantiate1 hwcomp.1 0 hwcomp.2
           simpa [Nat.add_assoc] using this
         exact inferPisC_sim ih fuel hs₄ rfl
           (by rw [toListRev_push]
@@ -520,7 +519,7 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
       all_goals exact SimC.throw
     all_goals
       dsimp only
-      rw [inferPis_succ_ne_pi _ (fun _ _ _ _ h => Expr.noConfusion h)]
+      rw [inferPis_succ_ne_pi _ (fun _ _ _ h => Expr.noConfusion h)]
       exact inferPisLeafC_sim ih hs ht' hfvs hstk hw
 
 /-! ## Tail compositions: the infer loops against the chained bodies'
@@ -531,7 +530,7 @@ The two `*_atF` normalizations below are pure comparand-side lemmas
 `BinderLoopI`'s private originals, restated here because the cached
 tier does not import the interned walks. -/
 
-private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
+private theorem inferLamTail_atF {env : Env} (d : Nat)
     (tyx bodyx : Expr) (mbx : BinderMeta) (F : Nat) :
     ((do
       let bt ← (fueledFns mode env).infer (d + 1)
@@ -629,7 +628,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
         [(tyx, ⟨mbpw⟩)]) := by
     refine inferLamsC_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact RelCL.cons hfv RelCL.nil)
-      ⟨⟨rfl, hty, rfl⟩, trivial⟩ hwopen
+      ⟨⟨hty, rfl⟩, trivial⟩ hwopen
   refine SimC.wp (SimC.wr hcore ?himp) ?hsc
   case himp =>
     intro res F hF
@@ -639,7 +638,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
       (by
         intro x hx
         rcases List.mem_singleton.mp hx with rfl
-        exact ⟨_, _, _, rfl⟩)
+        exact ⟨_, _, rfl⟩)
       hF
     refine ⟨F', ?_⟩
     rw [inferLamTail_atF]
@@ -753,7 +752,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
       exact ⟨hwty, Lech.WScoped.abstract1 0 hwbt⟩ :
       Expr.WScoped d (Expr.forallE tyx (bt.abstract1 d) ⟨mbpw⟩))
 
-private theorem inferPiTail_atF {env : Env} (d : Nat) (nm : Name)
+private theorem inferPiTail_atF {env : Env} (d : Nat)
     (tyx bodyx : Expr) (lu : Level) (pw : PropWhen) (F : Nat) :
     ((do
       let v ← ensureSort (fueledFns mode env) env (d + 1)
@@ -788,7 +787,7 @@ private theorem inferPiTail_atF {env : Env} (d : Nat) (nm : Name)
 stage 6: the codomain sort is inferred, not read off an annotation). -/
 theorem inferPisC_tail_sim (ih : SSimC mode env f)
     {d fuel : Nat} {b fv : ExprC} {bodyx tyx : Expr}
-    {nmx : Name} {u : Level} {lu : Level} {pw : PropWhen} {s₀ : CState}
+    {u : Level} {lu : Level} {pw : PropWhen} {s₀ : CState}
     (hs : CSOK mode env s₀)
     (hbody : RelC b bodyx)
     (hlu : u = lu)
@@ -889,7 +888,7 @@ theorem annotBinderMetaI_eq (pw? : Option PropWhen) (mb : BinderMeta) :
 theorem annotateBindersOutC_sim
     {mk : ExprC → ExprC → BinderMeta → ExprC}
     {mkX : Expr → Expr → BinderMeta → Expr}
-    (hmk : ∀ (n : Name) (ty : ExprC) (tyx : Expr) (b : ExprC) (bx : Expr)
+    (hmk : ∀ (ty : ExprC) (tyx : Expr) (b : ExprC) (bx : Expr)
       (mi : BinderMeta), RelC ty tyx → RelC b bx →
         mk ty b mi = mkX tyx bx mi) {d : Nat} :
     ∀ {stk : List AnnotBinderEntry} {stkx : List AnnotBinderEntryX}
@@ -936,7 +935,7 @@ theorem annotateBindersOutC_sim
       refine ihOut hs₂ hrest ?_
       show _ = _
       rw [hQnode,
-        (hmk n tyAbs (tyx'.abstractRange d j) cur curx
+        (hmk tyAbs (tyx'.abstractRange d j) cur curx
           (annotBinderMeta pw? bi) hQab hcur)]
 
 /-- A bare pure read against a pure fueled result (the write's last
@@ -1065,7 +1064,7 @@ theorem annotatePisLeafC_sim (ih : SSimC mode env f) {d : Nat}
   refine SimC.bind_left (abstractRangeM_eff hs₄ hld)
     (fun s₅ cur hs₅ hQcur => ?_)
   refine annotateBindersOutC_sim ?_ hs₅ hstk hQcur
-  exact fun _n ty tyx b bx _mi hty hb => by
+  exact fun ty tyx b bx _mi hty hb => by
     rw [hty, hb]
 
 theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
@@ -1128,16 +1127,16 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
       have hwopen : Expr.WScoped (d + (k + 1))
           ((Expr.instantiateList body (Expr.fvar (d + k) tyx' :: ws))) := by
         rw [Expr.instantiateList_cons]
-        have := Expr.WScoped.instantiate1 (n := nm) hwty' 0 hwcomp.2
+        have := Expr.WScoped.instantiate1 hwty' 0 hwcomp.2
         simpa [Nat.add_assoc] using this
       refine annotatePisC_sim ih fuel hs₃ rfl
         (by rw [toListRev_push]
             exact RelCL.cons hQfv' hfvs)
-        ⟨⟨rfl, rfl, hty'd, (by simpa using hwty')⟩, (by simpa using hstk)⟩
+        ⟨⟨rfl, hty'd, (by simpa using hwty')⟩, (by simpa using hstk)⟩
         hwopen
     all_goals
       dsimp only
-      rw [annotatePis_succ_ne_pi _ (fun _ _ _ _ h => Expr.noConfusion h)]
+      rw [annotatePis_succ_ne_pi _ (fun _ _ _ h => Expr.noConfusion h)]
       exact annotatePisLeafC_sim ih hs ht' hfvs hstk hw
 
 /-! ## The λ-annotation loop walks -/
@@ -1166,7 +1165,7 @@ theorem annotateLamsLeafC_sim (ih : SSimC mode env f) {d : Nat}
   refine SimC.bind_left (abstractRangeM_eff hs₄ hld)
     (fun s₆ cur hs₆ hQcur => ?_)
   refine annotateBindersOutC_sim ?_ hs₆ hstk hQcur
-  exact fun _n ty tyx b bx _mi hty hb => by
+  exact fun ty tyx b bx _mi hty hb => by
     rw [hty, hb]
 
 theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
@@ -1229,16 +1228,16 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
       have hwopen : Expr.WScoped (d + (k + 1))
           ((Expr.instantiateList body (Expr.fvar (d + k) tyx' :: ws))) := by
         rw [Expr.instantiateList_cons]
-        have := Expr.WScoped.instantiate1 (n := nm) hwty' 0 hwcomp.2
+        have := Expr.WScoped.instantiate1 hwty' 0 hwcomp.2
         simpa [Nat.add_assoc] using this
       refine annotateLamsC_sim ih fuel hs₃ rfl
         (by rw [toListRev_push]
             exact RelCL.cons hQfv' hfvs)
-        ⟨⟨rfl, rfl, hty'd, (by simpa using hwty')⟩, (by simpa using hstk)⟩
+        ⟨⟨rfl, hty'd, (by simpa using hwty')⟩, (by simpa using hstk)⟩
         hwopen
     all_goals
       dsimp only
-      rw [annotateLams_succ_ne_lam _ (fun _ _ _ _ h => Expr.noConfusion h)]
+      rw [annotateLams_succ_ne_lam _ (fun _ _ _ h => Expr.noConfusion h)]
       exact annotateLamsLeafC_sim ih hs ht' hfvs hstk hw
 
 /-! ## Tail compositions: the annotation loops against the chained
@@ -1248,7 +1247,7 @@ As with the infer tails, the two `*_atF` normalizations are pure
 comparand-side lemmas, byte-identical copies of `BinderLoopI`'s private
 originals (the cached tier does not import the interned walks). -/
 
-private theorem annPiTail_atF {env : Env} (d : Nat) (nm : Name)
+private theorem annPiTail_atF {env : Env} (d : Nat)
     (tyx' bodyx : Expr) (mx : BinderMeta) (F : Nat) :
     ((do
       let body' ← (fueledFns mode env).annotate (d + 1)
@@ -1277,10 +1276,9 @@ private theorem annPiTail_atF {env : Env} (d : Nat) (nm : Name)
 /-- The ∀-annotation loop against `annotateBody`'s own ∀-tail (pure
 post-erasure: the pass computes nothing at binders). -/
 theorem annotatePisC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
-    {b ty' fv : ExprC} {bodyx tyx' : Expr} {nm nmx : Name}
+    {b ty' fv : ExprC} {bodyx tyx' : Expr}
     {mi mx : BinderMeta} {s₀ : CState}
     (hs : CSOK mode env s₀)
-    (hnm : nm = nmx)
     (hbm : mi = mx)
     (hbody : RelC b bodyx)
     (hty' : RelC ty' tyx')
@@ -1305,16 +1303,16 @@ theorem annotatePisC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
       (annotatePisI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fuel b 1 #[fv]
         [(ty', mi)])
       (annotatePis (fueledFns mode env) env d fuel bodyx 1
-        [Expr.fvar d tyx'] [(nmx, tyx', mx)]) := by
+        [Expr.fvar d tyx'] [(tyx', mx)]) := by
     refine annotatePisC_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact RelCL.cons hfv RelCL.nil)
-      ⟨⟨hnm, hbm, hty', (hwty' : Expr.WScoped (d + 0) tyx')⟩, trivial⟩ hwopen
+      ⟨⟨hbm, hty', (hwty' : Expr.WScoped (d + 0) tyx')⟩, trivial⟩ hwopen
   refine SimC.wp (SimC.wr hcore ?himp) ?hsc
   case himp =>
     intro res F hF
     rw [annotatePis_atF] at hF
     obtain ⟨F', hchain⟩ := annotatePis_sound fuel bodyx 1
-      [Expr.fvar d tyx'] [(nmx, tyx', mx)] F res rfl hF
+      [Expr.fvar d tyx'] [(tyx', mx)] F res rfl hF
     refine ⟨F', ?_⟩
     rw [annPiTail_atF]
     obtain ⟨body', hbody', hwrap⟩ := bind_okB hchain
@@ -1354,7 +1352,7 @@ theorem annotatePisC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
       injection hF with hres
       exact hres ▸ hnode mx.pw
 
-private theorem annLamTail_atF {env : Env} (d : Nat) (nmx : Name)
+private theorem annLamTail_atF {env : Env} (d : Nat)
     (tyx' bodyx : Expr) (mx : BinderMeta) (F : Nat) :
     ((do
       let body' ← (fueledFns mode env).annotate (d + 1)
@@ -1382,10 +1380,9 @@ private theorem annLamTail_atF {env : Env} (d : Nat) (nmx : Name)
 
 /-- The λ-annotation loop against `annotateBody`'s own λ-tail. -/
 theorem annotateLamsC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
-    {b ty' fv : ExprC} {bodyx tyx' : Expr} {nm nmx : Name}
+    {b ty' fv : ExprC} {bodyx tyx' : Expr}
     {mi mx : BinderMeta} {s₀ : CState}
     (hs : CSOK mode env s₀)
-    (hnm : nm = nmx)
     (hbm : mi = mx)
     (hbody : RelC b bodyx)
     (hty' : RelC ty' tyx')
@@ -1410,16 +1407,16 @@ theorem annotateLamsC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
       (annotateLamsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fuel b 1 #[fv]
         [(ty', mi)])
       (annotateLams (fueledFns mode env) env d fuel bodyx 1
-        [Expr.fvar d tyx'] [(nmx, tyx', mx)]) := by
+        [Expr.fvar d tyx'] [(tyx', mx)]) := by
     refine annotateLamsC_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact RelCL.cons hfv RelCL.nil)
-      ⟨⟨hnm, hbm, hty', (hwty' : Expr.WScoped (d + 0) tyx')⟩, trivial⟩ hwopen
+      ⟨⟨hbm, hty', (hwty' : Expr.WScoped (d + 0) tyx')⟩, trivial⟩ hwopen
   refine SimC.wp (SimC.wr hcore ?himp) ?hsc
   case himp =>
     intro res F hF
     rw [annotateLams_atF] at hF
     obtain ⟨F', hchain⟩ := annotateLams_sound fuel bodyx 1
-      [Expr.fvar d tyx'] [(nmx, tyx', mx)] F res rfl hF
+      [Expr.fvar d tyx'] [(tyx', mx)] F res rfl hF
     refine ⟨F', ?_⟩
     rw [annLamTail_atF]
     obtain ⟨body', hbody', hwrap⟩ := bind_okB hchain
