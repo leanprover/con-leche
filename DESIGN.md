@@ -59201,3 +59201,128 @@ hand and all exist; those are NOT link-extracted, by design — this gate
 is about the line anchors.
 
 **Size.**  40 links across 33 files, 699 lines of expectation.
+
+## TASK #218 — MUTUAL MEMBERS WHOSE TELESCOPES OR SORTS ARE DEFEQ BUT NOT SYNTACTICALLY EQUAL (2026-09-07, `agent/mutual-defeq`)
+
+### 0. The divergence, and the ruling
+
+Audit finding #206-A4 / crack C4 (fixtures `ind_mutual_param_defeq`,
+`ind_mutual_sort_defeq`, task #208): official's `add_inductive`
+compares the members' parameter domains with `is_def_eq`
+(`check_inductive_types`, inductive.cpp:230) and their result sorts
+with `is_equivalent` (:250); the in-process modeller compared them
+SYNTACTICALLY at parse time (`piBinders … == …`, `u' == u`,
+`Mutual.lean:164` / `Nested.lean:351`) and declined the block naming
+the member.  The modeller runs before any environment exists, so it
+cannot call `isDefEq`; the brief's option (a) was to record per-member
+obligations and discharge them at the modeled install.
+
+**User ruling (verbatim):** *"For #218: it is ok if the untrusted
+modeller works a bit yolo-like, and invalid input gets caught (in
+possible not very user friendly ways) when checking the model or
+installing the modelled inductive in the trusted code."*
+
+### 1. The design: the comparison lives nowhere — the fold's typing IS official's check
+
+The modeller does not decide telescope or sort agreement at all.  It
+builds the tag and the auxiliary family over the FIRST member's
+parameter telescope and sort (the nested rung always did:
+`Expr.replacePiBody nP t0.cv.type …` for every tag and auxiliary
+constructor; the mutual rung's tag and auxiliary constructors now do
+too, `Kit.overFirstParams`), and emits every PUBLIC slot at the
+member's OWN declared type — `T_m._model : (T_m's type)`, `C._model :
+(C's type renamed)`, `T_m.rec._model : (T_m.rec's type renamed)`, the
+iota statements over the recursor's own prefix — which is what the
+modeled install pins structurally (`checkMemberVal`: model type `==`
+public type under the group renaming).  Official's two checks then
+fall out of the fold's ordinary typing of the generated records, at
+exactly the sites where official makes them:
+
+* **parameter domains:** `T_m._model := λ p⃗_m ı⃗, aux p⃗ (tag.m p⃗ ı⃗)`
+  applies `aux : ∀ p⃗_1 …` (the first member's domains) to variables
+  bound at member `m`'s domains; the application rule's
+  `isDefEq dom_m[p⃗] dom_1[p⃗]`, under the earlier parameters, is
+  official's `is_def_eq(binding_domain(type), m_params[i].type)` —
+  the same dependent telescope, opened at the same variables;
+  `C._model := λ p⃗_C f⃗, aux.m.C p⃗ f⃗` does the same for each
+  constructor's parameter binders (official: `check_constructors`,
+  inductive.cpp:301);
+* **result sorts:** the definition check of `T_m._model` compares its
+  declared residual `Sort u_m` with the value's inferred `Sort u_1`
+  — `isDefEq` on sorts is `Level.isEquiv`, official's `is_equivalent`
+  (both decide by normal forms; `Level.isEquiv` is 3-valued only for
+  fuel exhaustion, an internal error, never a verdict).
+
+Nothing is trusted from the modeller: a genuinely different telescope
+or sort makes a generated record ill-typed and the fold REJECTS it
+(exit 1) — the intended behaviour, by the ruling: official rejects
+such a block with a type error ("parameters of all inductive datatypes
+must match" / "mutually inductive types must live in the same
+universe"), exit 1 too.  The message names the generated record
+(`MB2._model`), not the member — accepted as "not very user friendly".
+Tag and auxiliary constructors over the first telescope are not
+load-bearing for the verdict: the direct routes pin constructor
+parameter domains definitionally anyway (`checkDirectDomsAt`); the
+rewrite keeps the two rungs uniform and the auxiliary family's
+constructors spelled over its own former's telescope.
+
+**What the P tier consumes, and why it is unaffected.**  The modeled
+route's soundness (`SetP/Ind*P.lean`, `Verify/Extend/*`) reads the
+STORED declarations: each member is checked against its own `_model`
+(`checkMemberVal`, `checkIotaThm`), never against a sibling — no
+theorem in the tier mentions two members' telescopes, and the modeled
+install has no cross-member check to verify.  The generated records
+exist in the stored environment only if the fold accepted them, so the
+"obligations" are the fold's own typing derivations, consumed by the
+existing claims.  No proof changes; the diff is confined to
+`ConLeche/Frontend/InModel/{Kit,Mutual,Nested}.lean` (implementation,
+no theory import) plus fixtures.  No accept-superset: every record the
+modeller emits is checked, and every check official makes on the
+block's members is one of those records' type checks.
+
+### 2. Coverage
+
+Any number of members, parameters, indices; dependent telescopes (the
+defeq is checked under the earlier parameters, as official's); sorts
+with any level expressions (`Level.isEquiv`); `Prop` and `Type`
+members (`isProp` is read off the first member's sort — official's
+`m_result_level` is the first's too, the others being equivalent by
+the check); mutual-and-nested blocks (the nested rung, the same code
+path).  The tag's universe is still read by the syntactic sort inferer
+(`Kit.sortOf`), now at the FIRST member's parameter binders plus the
+member's own index binders (the nested rung's arrangement) — an index
+domain whose sort is not syntactically readable declines the block
+naming the index (the #200 residual, unchanged; a finding, below).
+
+### 3. Fixtures and gates
+
+* `ind_mutual_param_defeq`, `ind_mutual_sort_defeq`: **2 → 0** (the
+  `# TODO(#206-A4)` lines removed).
+* `ind_mutual_param_bad` (hand-derived from the parameter fixture's
+  export by `scripts/mk_mutual_bad.py`: the second member's parameter
+  domain `id Type` replaced by `Type 1`, the field mentioning the first
+  member dropped so the telescope mismatch is the block's ONLY fault):
+  official rejects (`parameters of all inductive datatypes must
+  match`, exit 1); con-leche rejects at `MB2._model`'s type check,
+  exit 1.  `ind_mutual_sort_bad` (the sort fixture with `MD : Sort
+  (max u 1)`): official `mutually inductive types must live in the
+  same universe`, exit 1; con-leche rejects at `MD._model`, exit 1.
+* `ind_mutual_three` (probe kit, exact spellings): three members over
+  a DEPENDENT telescope `(α : Type) (β : α → Type)` — the second spells
+  `β`'s domain as the redex `(fun x => x) α → Type`, the third `α` as
+  `id Type` — with cross recursion, one indexed member, and a `Prop`
+  pair `PA : Prop` / `PB : Sort (max 0 0)`: official 0, con-leche 0.
+* The Mathlib mutual slice, init-full (Lean.Syntax, the one
+  mutual/nested block, still `inmodel`), and the suite gates: receipts
+  in the READY message and the landing record.
+
+### 4. Findings (restrictions beyond official that remain)
+
+* The tag's universe by the syntactic sort inferer (#200): a mutual or
+  nested member whose index domain's sort needs `whnf` (an index
+  `(x : α)` where the FIRST member binds `α : id Type`, or an index
+  domain declared at a definition) declines with "cannot infer the
+  sort of index j"; official's `mk_rec_infos` infers it with the
+  environment.  Not this task's; needs the modeller to read sorts
+  through the environment (the #195 pattern on the tag's universe) or
+  to defer the tag's universe to a checked artifact.
