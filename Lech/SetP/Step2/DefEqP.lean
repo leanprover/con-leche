@@ -367,9 +367,9 @@ def AppCongrStuckP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
 /-- **Residue 11 — the η certificate**, P currency. -/
 def EtaCertStepP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
-  ∀ {d : Nat} {n : Name} {ty bd b : Expr} {mb : Lech.BinderMeta}
+  ∀ {d : Nat} {ty bd b : Expr} {mb : Lech.BinderMeta}
     {Δa : List AVExpr},
-    Lech.etaCertP μ env fuel d n ty bd mb b = .ok true →
+    Lech.etaCertP μ env fuel d ty bd mb b = .ok true →
     Expr.WScoped d (.lam ty bd mb) →
     (Expr.lam ty bd mb).looseBVarsBounded 0 = true →
     Expr.LeavesBounded (.lam ty bd mb) →
@@ -752,7 +752,7 @@ The gradings come in at `AnnotOkP`, which is what `CtxOkP`'s leaf
 package and `DefEqClaims2P`'s premises both speak. -/
 theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
     (ihd : DefEqClaims2P μ m φ fuel)
-    {d : Nat} {Δa : List AVExpr} {n₁ n₂ : Name}
+    {d : Nat} {Δa : List AVExpr}
     {ty₁ bd₁ ty₂ bd₂ : Expr} {ta₁ ba₁ ta₂ ba₂ : AVExpr}
     (hdt : isDefEqCore μ env fuel d ty₁ ty₂ = .ok true)
     (hdd : isDefEqCore μ env fuel (d + 1)
@@ -1029,7 +1029,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
         hokB ρ hρ
     · exact hfall h
   -- 9: the same de Bruijn level
-  · rename_i i n₁ t₁ j n₂ t₂
+  · rename_i i t₁ j t₂
     split at h
     · next hij =>
       obtain rfl : i = j := eq_of_beq hij
@@ -1057,7 +1057,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
           rfl
     · exact hfall h
   -- 11: ∀-congruence
-  · rename_i n₁ ty₁ bd₁ mb₁ n₂ ty₂ bd₂ mb₂
+  · rename_i ty₁ bd₁ mb₁ ty₂ bd₂ mb₂
     cases hdt : isDefEqCore μ env fuel d ty₁ ty₂ with
     | error err => rw [hdt] at h; exact nomatch h
     | ok r =>
@@ -1112,7 +1112,7 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       rw [hpw]
       exact deqStep2_piCong hDA hDB
   -- 12: λ-congruence
-  · rename_i n₁ ty₁ bd₁ mb₁ n₂ ty₂ bd₂ mb₂
+  · rename_i ty₁ bd₁ mb₁ ty₂ bd₂ mb₂
     cases hdt : isDefEqCore μ env fuel d ty₁ ty₂ with
     | error err => rw [hdt] at h; exact nomatch h
     | ok r =>
@@ -1231,8 +1231,8 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
               he₁ he₂ (hoistP_proj hokA) (hoistP_proj hokB) ρ hρ)
     · exact hfall h
   -- 15: one-sided λ on the left
-  · rename_i n₁ ty₁ bd₁ mb₁ hnl
-    cases he : Lech.etaCertP μ env fuel d n₁ ty₁ bd₁ mb₁ b' with
+  · rename_i ty₁ bd₁ mb₁ hnl
+    cases he : Lech.etaCertP μ env fuel d ty₁ bd₁ mb₁ b' with
     | error err => rw [he] at h; exact nomatch h
     | ok r =>
     rw [he] at h
@@ -1243,8 +1243,8 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
         hokB ρ hρ
     | false => exact hfall h
   -- 16: one-sided λ on the right
-  · rename_i n₂ ty₂ bd₂ mb₂ hnl
-    cases he : Lech.etaCertP μ env fuel d n₂ ty₂ bd₂ mb₂ a' with
+  · rename_i ty₂ bd₂ mb₂ hnl
+    cases he : Lech.etaCertP μ env fuel d ty₂ bd₂ mb₂ a' with
     | error err => rw [he] at h; exact nomatch h
     | ok r =>
     rw [he] at h

@@ -259,8 +259,8 @@ theorem Expr.shiftFromN_eq_self_of_not_hasFvar {p : Nat} :
 
 /-- A shift bumps a free variable at or above the cut by one. -/
 theorem Expr.shiftFromN_fvar (p : Nat) :
-    ∀ (n idx : Nat) (nm : Name) (ty : Expr),
-      ∃ (nm' : Name) (ty' : Expr),
+    ∀ (n idx : Nat) (ty : Expr),
+      ∃ (ty' : Expr),
         Expr.shiftFromN p n (Expr.fvar idx ty)
           = Expr.fvar (if idx < p then idx else idx + n) ty'
   | 0, idx, nm, ty => ⟨nm, ty, by
