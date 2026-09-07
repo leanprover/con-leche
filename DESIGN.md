@@ -55849,3 +55849,29 @@ Two ways out, and the split they induce:
    ending in the family), the ih reading, the rule's ih argument as a
    λ over the field's domain applied to the recursive call.
 **Stage B (after the ruling): `Type`-valued reflexive blocks.**
+
+### RULING (user, via the coordinator, 2026-09-07): Stage B is an in-process `_model`, not a model extension
+
+The five `Type`-valued reflexive blocks (`WType`, `PSet`,
+`FirstOrder.Language.Term`, `Turing.PartrecToTM2.Λ'`,
+`PFunctor.Approx.CofixA`) are NOT taken by extending the fixpoint
+route's model — no union clause on `IsTGUniverse`, no tree-coding of
+the least fixed point.  After Stage A lands (A1 + A2, `Acc` native),
+Stage B ports lean-inductive-models' W-tree arm over `Lech.Expr` in
+`Lech/Frontend/InModel/*` on the #200 pattern: the carrier coded as
+trees (sets of labelled paths inside a function space built from the
+basis operations), constructors and recursor as definitions by
+well-founded recursion on the coding (why `Acc` must be native first),
+the `_model` slots, the iota theorems, `proj_i` where structure-like —
+generated at parse time, checked by the fold, installed through the
+unchanged modeled route; `lechNative` in lockstep; the native audit
+learns the class; fixtures for a W-type, a `PSet`-shaped and a
+first-order-term-shaped block; the five Mathlib cones accepting.  The
+set-theory interface stays untouched.  WHY it suffices: the model
+route never builds a least fixed point — every generated declaration
+is a definition over the basis, and its carrier's membership in
+`univ w` is power-set/subset closure, which Tarski's form gives — the
+same reason those blocks already check today through the tool.  The
+uniform fixpoint treatment of the five goes to the quiet-time docket
+as a refinement.  Stage B runs on a fresh branch after Stage A's
+READY.
