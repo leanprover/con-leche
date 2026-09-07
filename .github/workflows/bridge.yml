@@ -1,0 +1,66 @@
+# The lean4lean-model bridge (task #204, `bridge/lean4lean-model/`):
+# Carneiro's `OmegaInaccessibles` implies Lech's `SetTheory`.  A
+# SEPARATE, OPTIONAL job — it needs Mathlib (cached oleans, a few GB),
+# which the Lech libraries must never depend on, so it is not part of
+# the default gates (`ci.yml`).  Runs on demand and when the bridge or
+# the interface it bridges to changes.
+
+name: Bridge (lean4lean-model)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'bridge/**'
+      - 'Lech/SetTheory/Core.lean'
+      - 'lean-toolchain'
+      - '.github/workflows/bridge.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bridge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: bridge/lean4lean-model
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan (toolchain comes from lean-toolchain)
+        run: |
+          set -euo pipefail
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Cache the bridge's .lake (Mathlib oleans)
+        uses: actions/cache@v4
+        with:
+          path: bridge/lean4lean-model/.lake
+          key: bridge-${{ runner.os }}-${{ hashFiles('bridge/lean4lean-model/lean-toolchain', 'bridge/lean4lean-model/lakefile.toml', 'bridge/lean4lean-model/lake-manifest.json') }}
+          restore-keys: |
+            bridge-${{ runner.os }}-
+
+      - name: Mathlib oleans
+        run: |
+          set -euo pipefail
+          lake exe cache get
+
+      # Same warning-free rule as the main gate; the axiom pin is a
+      # `#guard_msgs in #print axioms` inside the module, so it is
+      # checked by the build itself.
+      - name: lake build (warning-free; includes the axiom pin)
+        run: |
+          set -euo pipefail
+          lake build 2>&1 | tee build.log
+          if grep -n 'warning:' build.log; then
+            echo '::error::the bridge build produced warnings.'
+            exit 1
+          fi

@@ -55756,3 +55756,127 @@ Mathlib census: 51/51) — is lech's own.  So the `lean_inductive_models`
 require, the `lech-preprocess` executable and the pipe in `Main.lean`
 stay for class 1 alone (`Acc` is in init-full); a route for reflexive
 inductives is the separate design the coordinator raised with the user.
+
+## TASK #204 — THE lean4lean-model BRIDGE: Carneiro's hypothesis implies Lech's, in Lean (2026-09-07, `agent/bridge`)
+
+**Question (user).**  "Can you have an agent prove that Mario's
+statement implies our theory?  It seems we don't actually say that but
+only something vaguely like it."  README.md said the Aczel realization's
+chain assumption is "similar to" the ω-many-inaccessibles hypothesis of
+Carneiro's lean4lean-model; the task is to state his hypothesis exactly
+and prove the implication.
+
+**What his hypothesis is.**  `_tmp/lean4lean-model/Lean4LeanModel/
+Consistency.lean` (Lean `v4.30.0`, Mathlib `v4.30.0`, lean4lean master):
+
+```lean
+def OmegaInaccessibles : Prop :=
+  ∃ κ : ℕ → Cardinal.{u}, StrictMono κ ∧ ∀ n, (κ n).IsInaccessible
+
+theorem consistency (_ : OmegaInaccessibles.{u}) {env : VEnv} (_ : env.WF) (U : Nat) :
+    ¬ ∃ e, env.HasType U [] e VExpr.false := by
+  sorry
+```
+
+`Cardinal.IsInaccessible` is Mathlib's strongly-inaccessible structure
+(`ℵ₀ < c`, `c ≤ c.ord.cof`, closed under `2 ^ ·`), the same structure at
+his pin and at ours.  His file is internal to his repository (which
+also depends on lean4lean), so the bridge transcribes the definition
+verbatim rather than importing it; the text is identical.
+
+**Where the proof lives.**  `bridge/lean4lean-model/`, a SEPARATE Lake
+package (its own `lakefile.toml`, `lean-toolchain` = a copy of ours,
+Mathlib pinned at the matching tag `v4.33.0`, Lech required by path
+`../..`, its own gitignored `.lake`).  The Lech libraries gain no
+Mathlib dependency — build time, trust surface and the layering fence
+are untouched; the main `lake build` and gates never see the directory.
+Build: `cd bridge/lean4lean-model && lake build` (Mathlib's oleans come
+from the cache; `lake update` already fetched them, `lake exe cache
+get` otherwise).  CI: `.github/workflows/bridge.yml`, an optional
+separate job (`workflow_dispatch` + pushes touching `bridge/**` or
+`Lech/SetTheory/Core.lean`), not part of the default gates.
+
+**The theorem** (`LechBridge/Carneiro.lean`):
+
+```lean
+theorem carneiro_implies_lech :
+    OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), Lech.SetTheory V)
+```
+
+via the explicit instance `setTheoryOfChain κ hmono hinacc :
+Lech.SetTheory ZFSet.{u}` on Mathlib's `ZFSet`: the ZF⁻ fields are
+Mathlib's (`ZFSet.ext`, `{a, b}`, `⋃₀`, `powerset`, `mem_wf` for
+regularity, `image` under `Classical.allZFSetDefinable` for the
+Lean-level replacement scheme), and `univChain n := V_ (κ n).ord`,
+Mathlib's von Neumann hierarchy (`ZFSet.vonNeumann`, with
+`mem_vonNeumann : x ∈ V_ o ↔ x.rank < o` and `card_vonNeumann :
+card (V_ o) = preBeth o` — both already in Mathlib, which made the ZFSet
+route the shortest honest path; the Aczel `UnivChain` route would have
+had to re-derive rank and cardinality on our own trees).  The chain
+clause is `ord_lt_ord` + `vonNeumann_mem_of_lt`.  The work is
+
+```lean
+theorem isTGUniverse_vonNeumann (hκ : κ.IsInaccessible) :
+    Lech.IsTGUniverse (· ∈ ·) (V_ κ.ord)
+```
+
+Transitivity, subset- and power-set closure are Mathlib's lemmas (the
+latter needs `κ.ord` to be a limit, i.e. `ℵ₀ ≤ κ`).  Tarski's
+cardinality clause — a subset `y ⊆ V_ κ` is a member or equinumerous
+with `V_ κ` — is where inaccessibility enters: `rank y ≤ κ.ord`; if
+`< κ.ord`, member.  Otherwise `|y| ≥ κ`, because fewer than `κ`
+ordinals below `κ.ord` have a strict upper bound below it
+(**regularity**, `Ordinal.iSup_add_one_lt_of_lt_cof` with
+`hκ.cof_ord`), so a `y` of size `< κ` would have rank `< κ.ord`
+(`rank_lt_ord_of_card_lt`); and `|V_ κ| = preBeth κ.ord = κ`
+(`card_vonNeumann_ord`: `≥` is Mathlib's `le_preBeth_ord`, `≤` is
+`preBeth a < κ` for `a < κ.ord` by `limitRecOn` — the successor step is
+**strong limitness**, the limit step regularity again through
+`Cardinal.lift_iSup_lt_of_lt_cof_ord`).  So `card y = card (V_ κ)`,
+`Cardinal.eq` gives a bijection of the (shrunk) member types, and
+`equinumerous_of_card_eq` extends it to the global function
+`Lech.Equinumerous` asks for.  Nothing beyond his hypothesis was used.
+`#guard_msgs in #print axioms carneiro_implies_lech`: `propext`,
+`Classical.choice`, `Quot.sound`.
+
+**FINDING — the briefed converse-countermodel is wrong; the two
+hypotheses are equivalent (up to a shift).**  The task briefing (and
+the `agent/reflexive` DESIGN draft for #202) hold that `IsTGUniverse`
+is strictly weaker than "`V_κ`, `κ` inaccessible" because `H(κ)` for a
+singular strong-limit `κ` satisfies all four clauses.  It does not:
+with `κ = ℶ_ω` and `y = {V_{ω+n} | n < ω}`, every member is in `H(κ)`
+(`|TC(V_{ω+n})| = ℶ_n < κ`) so `y ⊆ H(κ)`, but `|TC(y)| = ℶ_ω = κ` so
+`y ∉ H(κ)`, and `|y| = ℵ₀ ≠ κ = |H(κ)|` so `y ≉ H(κ)` — Tarski's clause
+fails.  In general (over any model with the ambient cardinal
+arithmetic) a transitive Tarski-form universe `U` with `κ := |U|` has
+every member of size `< κ` and `κ` a strong limit (power sets of
+members are members), contains exactly the ordinals `< κ`, and has `κ`
+REGULAR: `U` contains every subset of itself of size `< κ` (Tarski's
+clause), of which there are `κ^{<κ} ≥ κ^{cof κ} > κ` for singular `κ`
+(König), more than `|U|`.  Hence `U ∈ {∅, V_ω} ∪ {V_κ | κ inaccessible}`
+(`∅` and `V_ω` do satisfy the four clauses: `ℵ₀` is regular and a
+strong limit in Mathlib's sense but not `IsInaccessible`).  For Lech's
+chain this means `univChain (n + 2) = V_{κ_n}` with `κ_n` strictly
+increasing inaccessibles — Lech's hypothesis implies Carneiro's, up to
+reindexing by two.  Consequences: (i) README's "similar to" can become
+"equivalent to (up to the bottom two universes)" once the converse is
+mechanized; (ii) #202's remark that union-closure "is not derivable"
+from the Tarski form is true only in the sense that Lech's *internal*
+derivation apparatus lacks cardinal arithmetic — semantically the
+union of a member IS a member in every `IsTGUniverse` (its union is a
+subset of size `< κ`), so a `univChain_union` field would add no
+axiomatic content, only a shortcut past the counting argument; the
+user rules on which.  The converse is NOT mechanized here: it needs a
+lower bound on the number of small subsets (`κ^μ ≤ #{y : Set U // #y ≤ μ}`)
+that Mathlib does not provide off the shelf, and the statement lives on
+an abstract `Lech.SetTheory V` (cardinals of `{z // z ∈ˢ univChain n}`).
+Recorded as a follow-up (task to be numbered): `lech_implies_carneiro :
+Lech.SetTheory V → OmegaInaccessibles.{u}` for `V : Type u`.
+
+**README.md suggestion (not applied; the user edits README).**  Replace
+"that assumption is similar to the ω-many-inaccessible-cardinals
+hypothesis of Carneiro's consistency analysis in lean4lean-model" by:
+"Carneiro's ω-many-inaccessibles hypothesis (`OmegaInaccessibles` of
+[lean4lean-model](https://github.com/digama0/lean4lean-model)) implies
+this interface: `bridge/lean4lean-model/` proves it in Lean on
+Mathlib's `ZFSet`, with `univChain n := V_{κ_n}`."
