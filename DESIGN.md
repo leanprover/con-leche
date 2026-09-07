@@ -58604,6 +58604,26 @@ to pin the passthrough mapping, and its stream is the arena's
 `bad/tutorial/052_indNeg`, still checked there).  `pre_decline_imax_field`
 keeps its historical name and is now a `2`.
 
+### The published arena-suite record, and what is deferred
+
+`scripts/arena/results/` is a dated record of a full `lka.py` run at
+master `b7fa7331`.  Two of its 206 rows quoted the retired passthrough
+message (`declined: the preprocessor declined to model a block`).  Both
+were re-run for their VERDICT on this tree and both now **reject (1)**,
+which is the expected outcome:
+
+| test | expected | recorded | today |
+|---|---|---|---|
+| `nat-rec-k-lie` | reject | declined (2) | **1** — `invalid: type mismatch in theorem k1` |
+| `nat-rec-rules` | reject | declined (2) | **1** — `invalid: duplicate declaration Nat` |
+
+The suite's instruction/wall/RSS cells were NOT re-measured — a full
+`run-small` regeneration is its own job, and half-refreshing a dated
+record is worse than annotating it (the convention the `setlec*` rows
+already follow).  The note is in `scripts/arena/README.md` and in
+`results/table.txt`'s header.  **Deferred, by decision:** the
+regeneration itself.
+
 ### PERF.md
 
 Wholly regenerated on RAW streams — every published cell before this

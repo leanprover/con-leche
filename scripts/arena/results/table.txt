@@ -3,6 +3,9 @@ arena @ 91f376e; exports lean4export 3.1.0 @ leanprover/lean4:v4.29.1; official 
 verdict column: con-leche at --verified (master b7fa7331); rows marked setlec* are the pre-rename
 run of init/std/cedar (master 2664b1dd) and were not re-measured -- see DESIGN.md section 7.
 exit codes: 0 accept, 1 reject, 2 decline, 3 error.
+STALE SINCE TASK #207: nat-rec-k-lie and nat-rec-rules read "declined" with a
+preprocessor message; the tool is gone and both REJECT (1) now, which is the
+expected verdict.  See scripts/arena/README.md.  The suite was not re-measured.
 
 test                                       expect  verdict src     off     exit ok             wall   peakRSS  message
 ---------------------------------------------------------------------------------------------------------------

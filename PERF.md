@@ -22,6 +22,7 @@
 | `init-prelude` | 2.21 G | 4.41 G | 4.55 G | 2.00× | 2.06× |
 | `grind-ring-5` | 13.41 G | 25.28 G | 26.10 G | 1.88× | 1.95× |
 | `app-lam` | 29.41 G | 158.01 G | 158.01 G | 5.37× | 5.37× |
+| `init-full` | 403.62 G | 654.08 G | 673.20 G | 1.62× | 1.67× |
 
 ## exit code / accepted declaration records
 
@@ -32,6 +33,7 @@
 | `init-prelude` | 0 / 2056 | 0 / 1803 | 0 / 1803 |
 | `grind-ring-5` | 0 / 2429 | 0 / 2211 | 0 / 2211 |
 | `app-lam` | 0 / 34 | 0 / 21 | 0 / 21 |
+| `init-full` | 0 / 54472 | 0 / 53118 | 0 / 53118 |
 
 Exit codes: 0 accept, 1 reject, 2 decline, 3 error.
 
@@ -54,6 +56,7 @@ it generates in-process), split by shape.
 | `init-prelude` | 1777 | 1773 | 2056 | 5 | 0 | 121 | 104 | 14 | 3 |
 | `grind-ring-5` | 2185 | 2181 | 2429 | 4 | 0 | 101 | 78 | 16 | 7 |
 | `app-lam` | 21 | 21 | 31 | 2 | 0 | 4 | 4 | 0 | 0 |
+| `init-full` | 53093 | 53088 | 54472 | 5 | 0 | 583 | 477 | 59 | 47 |
 
 ## Notes
 
