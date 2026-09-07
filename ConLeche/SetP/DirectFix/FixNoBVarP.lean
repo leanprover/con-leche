@@ -189,8 +189,8 @@ theorem noBVar_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name → Nat
     obtain ⟨ia, hia, hcase⟩ := denoteP_proj_inv h
     simp only [Expr.WScoped] at hw
     have h1 := ihe hw hQ (fun l hl' => hl l (by simpa [Expr.fvarLeaves] using hl')) hia
-    rcases hcase with ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩
-    · exact NoBVar_projAV i ia h1
+    rcases hcase with ⟨_, -, rfl⟩ | ⟨-, -, rfl⟩
+    · exact NoBVar_projAV _ ia h1
     · exact h1
   | case11 d n hsup =>
     intro _ Q _ _ ea h

@@ -570,10 +570,10 @@ theorem checkDirectRec_datF (env : Env) (p : DirectParts)
     fueledOpsM_ensureSort_atF, unwrapOr_atF, checkConstantVal_datF]
 
 theorem checkDirectProjTable_datF (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs : Level) (guards : List Level) (cvCa : ConstantVal)
+    (nP nF : Nat) (rs : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal)
     (env : Env) (F : Nat) :
-    (checkDirectProjTable T C lps nP nF rs guards cvCa env : FueledM _).val F =
-      (checkDirectProjTable T C lps nP nF rs guards cvCa env : CheckM _) := by
+    (checkDirectProjTable T C lps nP nF rs guards off cvCa env : FueledM _).val F =
+      (checkDirectProjTable T C lps nP nF rs guards off cvCa env : CheckM _) := by
   unfold checkDirectProjTable
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF]

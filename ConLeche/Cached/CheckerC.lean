@@ -154,7 +154,7 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckCM FEnv := do
         .plain else .inert,
       rhsA⟩])
   checkDirectProjTableF (m := CheckCM) p.cvT.name p.cvC.name p.cvT.levelParams
-    p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) cvCa fe₃
+    p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) 0 cvCa fe₃
 
 /-- `checkDirectSum` through the index (task #175 sum-types).  One
 flush per environment transition: the former's, the constructors'

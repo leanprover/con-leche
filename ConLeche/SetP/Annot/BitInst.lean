@@ -317,7 +317,7 @@ theorem denoteP_substFvarAt
     | some ea =>
       simp only [Option.map_some]
       split
-      · exact congrArg some (projAV_inst i ea x (D - p)).symm
+      · exact congrArg some (projAV_inst _ ea x (D - p)).symm
       · split <;> rfl
   | .lit (.natVal k), D, hpD, hfb => by
     simp only [ConLeche.Expr.substFvarAt, denoteP]

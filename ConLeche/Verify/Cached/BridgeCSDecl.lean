@@ -152,10 +152,10 @@ theorem checkDirectCtorF_pushC (ops : CheckerOps CheckCM) (env₀ env : Env)
 
 /-- The projection table through the index (task #175 S1). -/
 theorem checkDirectProjTableF_pushC (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs : Level) (guards : List Level) (cvCa : ConstantVal)
+    (nP nF : Nat) (rs : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal)
     (env : Env) :
-    checkDirectProjTableF (m := CheckCM) T C lps nP nF rs guards cvCa (mkFEnv env)
-      = checkDirectProjTable (m := CheckCM) T C lps nP nF rs guards cvCa env
+    checkDirectProjTableF (m := CheckCM) T C lps nP nF rs guards off cvCa (mkFEnv env)
+      = checkDirectProjTable (m := CheckCM) T C lps nP nF rs guards off cvCa env
           >>= fun e => pure (mkFEnv e) := by
   unfold checkDirectProjTableF checkDirectProjTable
   simp only [constsResolveF_eq, mkFEnv_find?, push_mkFEnv, bind_assoc, pure_bind,
@@ -307,13 +307,13 @@ projection route) -/
 #175 S1): operation-free, the state is unchanged, the environment is
 the pure stage's. -/
 theorem checkDirectProjTableS_run {T C : Name} {lps : List Name} {nP nF : Nat}
-    {rs : Level} {guards : List Level} {cvCa : ConstantVal}
+    {rs : Level} {guards : List Level} {off : Nat} {cvCa : ConstantVal}
     (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState}
     (henv : EnvWF env) (hwf : CSOKF s₀)
-    (h : checkDirectProjTableF (m := CheckCM) T C lps nP nF rs guards cvCa
+    (h : checkDirectProjTableF (m := CheckCM) T C lps nP nF rs guards off cvCa
       (mkFEnv env) s₀ = .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
-    ∃ F, (checkDirectProjTable T C lps nP nF rs guards cvCa env : FueledM Env).val F
+    ∃ F, (checkDirectProjTable T C lps nP nF rs guards off cvCa env : FueledM Env).val F
       = .ok fe'.env := by
   rw [checkDirectProjTableF_pushC] at h
   obtain ⟨e₁, s₁, hstep, h⟩ := bindC_ok h
@@ -321,7 +321,7 @@ theorem checkDirectProjTableS_run {T C : Name} {lps : List Name} {nP nF : Nat}
   subst hfe
   -- the pure stage in the cached monad: state unchanged, the value the
   -- `CheckM` instantiation's
-  have hrun : s₀ = s₁ ∧ checkDirectProjTable (m := CheckM) T C lps nP nF rs guards cvCa env
+  have hrun : s₀ = s₁ ∧ checkDirectProjTable (m := CheckM) T C lps nP nF rs guards off cvCa env
       = .ok e₁ := by
     unfold checkDirectProjTable at hstep ⊢
     cases hb : directProjBodies T nP nF cvCa.type with
@@ -412,7 +412,7 @@ theorem checkDirectStructS_run (hμ : mode.verifiedChecks = true) {env : Env} (h
   obtain ⟨hwfO, hfeO, henvO, F₆, hF₆⟩ :=
     checkDirectProjTableS_run (T := p.cvT.name) (C := p.cvC.name)
       (lps := p.cvT.levelParams) (nP := p.nP) (nF := p.nF) (rs := p.resSort)
-      (guards := directProjGuards cvCa.type p.nP p.nF sorts)
+      (guards := directProjGuards cvCa.type p.nP p.nF sorts) (off := 0)
       (cvCa := cvCa) _ henv₃ hs₃.residue h
   obtain ⟨G, hle₁, hle₂, hle₃, hle₆⟩ :
       ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₆ ≤ G :=
@@ -427,7 +427,7 @@ theorem checkDirectStructS_run (hμ : mode.verifiedChecks = true) {env : Env} (h
     rw [← checkDirectRec_datF]; exact FueledM.up hle₃ hF₃
   have g₆ : checkDirectProjTable (m := CheckM) p.cvT.name p.cvC.name
       p.cvT.levelParams p.nP p.nF p.resSort
-      (directProjGuards cvCa.type p.nP p.nF sorts) cvCa
+      (directProjGuards cvCa.type p.nP p.nF sorts) 0 cvCa
       ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
         [⟨p.cvC.name, p.nF, p.nP,
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then

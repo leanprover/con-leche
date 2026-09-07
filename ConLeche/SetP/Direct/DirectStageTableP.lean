@@ -49,7 +49,7 @@ theorem stageTable (mp : EnvS2PM V μ env)
       p.resSort p.nP xFvs p.nF = .ok sorts)
     (hTbl : ConLeche.checkDirectProjTable (m := ConLeche.CheckM) p.cvT.name p.cvC.name
       p.cvT.levelParams p.nP p.nF p.resSort
-      (ConLeche.directProjGuards cvCa.type p.nP p.nF sorts) cvCa env = .ok envOut)
+      (ConLeche.directProjGuards cvCa.type p.nP p.nF sorts) 0 cvCa env = .ok envOut)
     (hfT : env.find? p.cvT.name = some (.indInfo cvTa (ConLeche.directCaps p)))
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hfC : env.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF))
@@ -88,7 +88,7 @@ theorem stageTable (mp : EnvS2PM V μ env)
   have hwf' : ConLeche.EnvWF envOut := ConLeche.direct_table_wf mp.base2.wf hTbl
   obtain ⟨bodies, hbodies, -, -, hfresh, rfl⟩ := ConLeche.checkDirectProjTable_inv hTbl
   let tbl : ProjTable := ⟨p.cvT.name, p.cvT.levelParams, p.nP, p.cvC.name, p.nF, p.resSort,
-    bodies, ConLeche.directProjGuards cvCa.type p.nP p.nF sorts⟩
+    bodies, ConLeche.directProjGuards cvCa.type p.nP p.nF sorts, 0⟩
   obtain ⟨hlenS, hsortsAll⟩ := ConLeche.checkDirectFieldSorts_inv hsorts
   -- the field-chain facts, in the frames' spelling
   have hbound : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -277,13 +277,37 @@ theorem stageTable (mp : EnvS2PM V μ env)
   · -- the per-instantiation laws
     intro us _
     -- the body's frame at the instantiation
-    obtain ⟨fdomA, hfdA, hokFd, hresFd⟩ := bodyFrames m₂ hcf hCf hCb
-      (fun j hj => hprev₂ j (by omega)) hi
+    -- the subject's frame: a member of the bare tuple tower (offset 0)
+    obtain ⟨fdomA, hfdA, hokFd, hresFd⟩ := bodyFrames m₂ (off := 0) hcf hCf hCb
+      (fun j hj => by
+        obtain ⟨entry, hfe⟩ := hprev₂ j (by omega)
+        refine ⟨entry, hfe, ?_⟩
+        obtain ⟨tbl', hf', -, rfl⟩ := ConLeche.Env.findProj?_some hfe
+        obtain rfl : tbl = tbl' := ConstantInfo.projInfo.inj (Option.some.inj (hfTbl₂.symm.trans hf'))
+        rfl) hi
       (hCD₂.len (Level.substFn φ p.cvT.levelParams us))
       (hCD₂.below (Level.substFn φ p.cvT.levelParams us))
       (hCD₂.read (Level.substFn φ p.cvT.levelParams us))
-      (hokB _) (hbound _) (hsortsF _)
+      (hokB _) (hsortsF _)
       (used := ConLeche.directUsedLater cvCa.type p.nP) (hfree _ i hi)
+      (fun ρ => ρ 0 ∈ˢ towerSet (p.resSort.eval (Level.substFn φ p.cvT.levelParams us))
+        (teleOfFields (fun j => ρ (j + 1))
+          (((ds (Level.substFn φ p.cvT.levelParams us)).drop p.nP).map (·.2.2))))
+      (fun ρ hx _ hw => by
+        rw [hw] at hx
+        obtain ⟨hpt, as', hfits⟩ := towerSet_zero_elim _ hx
+        exact ⟨hpt, as', fitsS_teleOfFields.mp hfits⟩)
+      (fun ρ hx _ hw => by
+        obtain ⟨hspAll, -⟩ := towerSet_elim_teleOfFields hw hx
+        rw [List.length_map, List.length_drop, hCD₂.len, Nat.add_sub_cancel_left] at hspAll
+        exact hspAll)
+      (fun ρ hx hsat j hj => by
+        by_cases hw0 : p.resSort.eval (Level.substFn φ p.cvT.levelParams us) = 0
+        · rw [hw0] at hx
+          obtain ⟨hpt, -⟩ := towerSet_zero_elim _ hx
+          exact annotOk2_projAV_pt trivial (by rw [interp2_bvar, hpt])
+        · exact annotOk2_projAV_tower (hbound _ _ hsat hw0) hx trivial (by rw [interp2_bvar])
+            (by rw [List.length_map, List.length_drop, hCD₂.len, Nat.add_sub_cancel_left]; exact hj))
     have hread : denoteP m₂.acval ⟨.projInfo tbl :: env.consts⟩ φ 0
         (ConLeche.projTele ((tbl.entry i).numParams + 1)
           ((tbl.entry i).body.instantiateLevelParams (tbl.entry i).levelParams us))

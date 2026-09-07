@@ -114,9 +114,9 @@ theorem checkDirectRec_inv {μ : CheckMode} {F : Nat} {env : Env}
 name (task #175 S1). -/
 theorem checkDirectProjTable_shape {T C : Name}
     {lps : List Name} {nP nF : Nat} {resSort : Level}
-    {guards : List Level} {cvCa : ConstantVal} {env env' : Env}
+    {guards : List Level} {off : Nat} {cvCa : ConstantVal} {env env' : Env}
     (h : checkDirectProjTable (m := ConLeche.CheckM) T C lps nP nF
-      resSort guards cvCa env = .ok env') :
+      resSort guards off cvCa env = .ok env') :
     ∃ tbl : ConLeche.ProjTable, env.find? (projTableName T) = none ∧
       tbl.structName = T ∧ env' = ⟨.projInfo tbl :: env.consts⟩ := by
   obtain ⟨bodies, -, -, -, hfresh, rfl⟩ := ConLeche.checkDirectProjTable_inv h
@@ -128,9 +128,9 @@ theorem checkDirectProjTable_shape {T C : Name}
 table. -/
 theorem checkDirectProjTable_etaClosed {T C : Name}
     {lps : List Name} {nP nF : Nat} {resSort : Level}
-    {guards : List Level} {cvCa : ConstantVal} {env env₂ : Env}
+    {guards : List Level} {off : Nat} {cvCa : ConstantVal} {env env₂ : Env}
     (h : checkDirectProjTable (m := ConLeche.CheckM) T C lps nP nF
-      resSort guards cvCa env = .ok env₂)
+      resSort guards off cvCa env = .ok env₂)
     (hE : EtaFamiliesClosed env) : EtaFamiliesClosed env₂ := by
   obtain ⟨tbl, hfresh, hsn, rfl⟩ := checkDirectProjTable_shape h
   refine EtaFamiliesClosed.cons_nonind hE ?_ (fun _ _ heq => nomatch heq)

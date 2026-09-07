@@ -68,6 +68,30 @@ theorem Env.findProj?_none_of_fresh {env : Env} {T : Name}
   unfold Env.findProj?
   rw [h]
 
+/-- **The stored table's projection offset** of structure `T` (task
+#210 Part A; `0` when no table is stored): what every entry of the
+table carries (`Env.findProj?_off`). -/
+def Env.projOff (env : Env) (T : Name) : Nat :=
+  match env.find? (projTableName T) with
+  | some (.projInfo tbl) => tbl.off
+  | _ => 0
+
+theorem Env.findProj?_off {env : Env} {T : Name} {i : Nat} {e : ProjEntry}
+    (hi : env.findProj? T i = some e) : e.off = env.projOff T := by
+  obtain ⟨tbl, hf, -, rfl⟩ := Env.findProj?_some hi
+  unfold Env.projOff
+  rw [hf]
+  rfl
+
+/-- Two entries of one structure's table carry the same projection
+offset (task #210 Part A): both are views of the one stored table. -/
+theorem Env.findProj?_off_eq {env : Env} {T : Name} {i j : Nat} {e e' : ProjEntry}
+    (hi : env.findProj? T i = some e) (hj : env.findProj? T j = some e') : e.off = e'.off := by
+  obtain ⟨tbl, hf, -, rfl⟩ := Env.findProj?_some hi
+  obtain ⟨tbl', hf', -, rfl⟩ := Env.findProj?_some hj
+  obtain rfl : tbl = tbl' := ConstantInfo.projInfo.inj (Option.some.inj (hf.symm.trans hf'))
+  rfl
+
 /-- A stored table's view fixes the entry's data. -/
 @[simp] theorem ProjTable.entry_structName (tbl : ProjTable) (i : Nat) :
     (tbl.entry i).structName = tbl.structName := rfl
@@ -87,6 +111,8 @@ theorem Env.findProj?_none_of_fresh {env : Env} {T : Name}
     (tbl.entry i).fieldSort = tbl.guards.getD i .zero := rfl
 @[simp] theorem ProjTable.entry_structSort (tbl : ProjTable) (i : Nat) :
     (tbl.entry i).structSort = tbl.structSort := rfl
+@[simp] theorem ProjTable.entry_off (tbl : ProjTable) (i : Nat) :
+    (tbl.entry i).off = tbl.off := rfl
 /-- Syntactic well-formedness of one stored constant w.r.t. `env`. -/
 def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
   c.toConstantVal.type.hasFvar = false ∧

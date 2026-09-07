@@ -614,7 +614,7 @@ def TowerEtaLawP {V : Type w} [SetTheory V] {env : Env}
         x ∈ˢ ts.foldl SetTheory.app
           (interp2 V ρ (m.acval T (Level.substFn φ entry.levelParams us))) →
         x = (ts ++ (List.range entry.numFields).map fun j =>
-              ConLeche.SetTheory.Tower.projS j x).foldl SetTheory.app
+              ConLeche.SetTheory.Tower.projS (j + entry.off) x).foldl SetTheory.app
             (interp2 V ρ
               (m.acval entry.ctor (Level.substFn φ entry.levelParams us)))
 
@@ -717,8 +717,8 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
           interp2 V ρ x ∈ˢ interp2 V ρ (AVExpr.mkAppN
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
           ConLeche.SetP.AVExpr.peelPis Ta (vs ++ [x]) = some rest →
-          AnnotOkP V ρ (projAV i x) ∧ AnnotOkP V ρ rest ∧
-            interp2 V ρ (projAV i x) ∈ˢ interp2 V ρ rest)) ∧
+          AnnotOkP V ρ (projAV (i + entry.off) x) ∧ AnnotOkP V ρ rest ∧
+            interp2 V ρ (projAV (i + entry.off) x) ∈ˢ interp2 V ρ rest)) ∧
       -- (B) the iota law: the projection of a *graded* constructor
       -- application is the selected field, at every valuation under
       -- the guard (task #175 W6).  Two premises: the application's
@@ -740,7 +740,7 @@ def TowerEntryLawP {V : Type w} [SetTheory V] {env : Env}
         AnnotOkP V ρ (AVExpr.mkAppN
           (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys) →
         TeleFitP V ρ TCa (ys.map (interp2 V ρ)) rest →
-        interp2 V ρ (projAV i (AVExpr.mkAppN
+        interp2 V ρ (projAV (i + entry.off) (AVExpr.mkAppN
             (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys))
           = interp2 V ρ (ys.getD (entry.numParams + i) default)))) ∧
     -- (C) the structural-η law (task #175 W4c)

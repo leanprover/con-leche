@@ -803,9 +803,9 @@ theorem checkDirectCtorF_skels {fe₀ fe : FEnv} {sk : List InstallSkel}
 
 theorem checkDirectProjTableF_skels {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (T C : Name) (lps : List Name) (nP nF : Nat)
-    (resSort : Level) (guards : List Level) (cvCa : ConstantVal) :
+    (resSort : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal) :
     Yields (checkDirectProjTableF (m := CheckCM) T C lps nP nF resSort guards
-        cvCa fe)
+        off cvCa fe)
       (fun fe' => SkelIs fe' (.proj (projTableName T) :: sk)) := by
   unfold checkDirectProjTableF
   yields
@@ -839,7 +839,7 @@ theorem checkDirectStructS_skels (mode : CheckMode) {fe : FEnv}
       [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩])
     simpa [ciSkel, hnR] using this
   exact checkDirectProjTableF_skels h₃ p.cvT.name p.cvC.name p.cvT.levelParams
-    p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) cvCa
+    p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) 0 cvCa
 
 /-- The members-then-recursors phase, shared by both arms of
 `checkIndDeclSF`'s block match. -/

@@ -249,7 +249,7 @@ def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
     | none => none
     | some ve =>
       match env.findProj? sn i with
-      | some _ => some (projNV i ve)
+      | some entry => some (projNV (i + entry.off) ve)
       | none => if i < 2 then some (.proj i ve) else none
   | _, .lit (.natVal n) =>
     -- guarded exactly like the checker's literal paths
@@ -348,7 +348,7 @@ theorem denote_proj (cval : TConstVal) (env : Env) (φ : Name → Nat)
       | none => none
       | some ve =>
         match env.findProj? T i with
-        | some _ => some (projNV i ve)
+        | some entry => some (projNV (i + entry.off) ve)
         | none => if i < 2 then some (.proj i ve) else none := by
   rw [denote]
 

@@ -511,15 +511,18 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               exact (ConstantInfo.indInfo.inj (Option.some.inj hfT')).1.symm
             exact ⟨entry, hfe, by rw [← hlpsT', hcvT']⟩
           have hpfacts : ∀ j ∈ List.range caps.etaFields,
-              denoteP m.acval env φ d (.proj T j major) = some (projAV j vm) := by
+              denoteP m.acval env φ d (.proj T j major)
+                = some (projAV (j + env.projOff T) vm) := by
             intro j hj
             obtain ⟨entry, hfe, -⟩ := hslotE j (List.mem_range.mp hj)
+            rw [← ConLeche.Env.findProj?_off hfe]
             exact denoteP_proj_tower hfe hvm
           have hokProj : ∀ j ∈ List.range caps.etaFields, ∀ ρ : Nat → V,
-              Sat2 V Δa ρ → AnnotOkP V ρ (projAV j vm) := by
+              Sat2 V Δa ρ → AnnotOkP V ρ (projAV (j + env.projOff T) vm) := by
             intro j hj ρ hρ
             obtain ⟨entry, hfe, hlpe⟩ :=
               hslotE j (List.mem_range.mp hj)
+            rw [← ConLeche.Env.findProj?_off hfe]
             obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j,
               _, -, -, hlawj, -⟩ := htower T j entry hfe
             have hcapsTj : capsTj = caps := by
@@ -545,7 +548,8 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
               (hmemMW ρ hρ) hpeel).1
           have hspF : DenoteSpineP m.acval env φ d
               (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
-              (tsa ++ (List.range caps.etaFields).map fun j => projAV j vm) := by
+              (tsa ++ (List.range caps.etaFields).map fun j =>
+                projAV (j + env.projOff T) vm) := by
             rw [ConLeche.etaFabArgsE, ConLeche.etaProjs, if_pos htow]
             exact hspt.append (DenoteSpineP.map_list _ hpfacts)
           have hfrF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major
@@ -562,7 +566,7 @@ theorem majorToCtorP_stepP {m : EnvS2Core V env}
                 fun l hl => hLb l (by simpa [Expr.fvarLeaves] using hl),
                 ⟨hC.1, fun l hl => hC.2 l (by simpa [Expr.fvarLeaves] using hl)⟩⟩
           have hoksF : ∀ x ∈ (tsa ++ (List.range caps.etaFields).map fun j =>
-              projAV j vm),
+              projAV (j + env.projOff T) vm),
               ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ x := by
             intro x hx
             rcases List.mem_append.mp hx with hx' | hx'

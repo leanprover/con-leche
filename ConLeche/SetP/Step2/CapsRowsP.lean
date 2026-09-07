@@ -680,16 +680,22 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
     obtain ⟨rest, hfitT⟩ := hfitOf TVa hTVa hokTVa
     have hb := hlaw ρ (tsa.map (interp2 V ρ)) rest (interp2 V ρ ba)
       (by rw [hlenTs, hpar']) hfitT (by rw [← hlpsT']; exact hmemFam)
+    -- every slot of the table carries slot `0`'s projection offset
+    -- (task #210 Part A: the tagged tower of the fixpoint route)
+    have hoffE : ∀ j entry, env.findProj? T j = some entry → entry.off = e0.off :=
+      fun j entry hfe => ConLeche.Env.findProj?_off_eq hfe hfe0
     have hprojden : ∀ j ∈ List.range cnF,
-        denoteP m.acval env φ d (.proj T j b) = some (projAV j ba) := by
+        denoteP m.acval env φ d (.proj T j b) = some (projAV (j + e0.off) ba) := by
       intro j hj
       obtain ⟨entry, hfe, -⟩ := hslotE j (List.mem_range.mp hj)
+      rw [← hoffE j entry hfe]
       exact denoteP_proj_tower hfe hdb
-    have hokProj : ∀ x ∈ (List.range cnF).map (fun j => projAV j ba),
+    have hokProj : ∀ x ∈ (List.range cnF).map (fun j => projAV (j + e0.off) ba),
         ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ x := by
       intro x hx σ hσ
       obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
       obtain ⟨entry, hfe, hlpe⟩ := hslotE j (List.mem_range.mp hj)
+      rw [← hoffE j entry hfe]
       obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, -, hetaj, -, hparj, -⟩, hO5j, _,
         -, -, hlawj, -⟩ := htower T j entry hfe
       have hcapsTj : capsTj = caps := by
@@ -725,7 +731,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
         ⟨hCb.1, fun l hl => hCb.2 l (by simpa [Expr.fvarLeaves] using hl)⟩⟩
     rw [ConLeche.etaProjs, if_pos htow] at hdefL2
     have hdrop : (asa.drop cnP).map (interp2 V ρ)
-        = ((List.range cnF).map fun j => projAV j ba).map (interp2 V ρ) :=
+        = ((List.range cnF).map fun j => projAV (j + e0.off) ba).map (interp2 V ρ) :=
       map_interp2_of_defEqListP ihd hdefL2
         (fun x hx => frame_spineP hwa hba hLa hCa x (List.mem_of_mem_drop hx))
         hframeProj (hspa.drop cnP)
@@ -734,7 +740,7 @@ theorem structEtaCertWithP_step {m : EnvS2Core V env}
     -- the constructor's arguments ARE the fabricated spine
     have hfab : asa.map (interp2 V ρ)
         = tsa.map (interp2 V ρ) ++ (List.range e0.numFields).map
-            (fun j => ConLeche.SetTheory.Tower.projS j (interp2 V ρ ba)) := by
+            (fun j => ConLeche.SetTheory.Tower.projS (j + e0.off) (interp2 V ρ ba)) := by
       rw [← List.take_append_drop cnP asa, List.map_append, htake, hdrop,
         List.map_map, ← hfld', hefld]
       refine congrArg _ (List.map_congr_left fun j _ => ?_)

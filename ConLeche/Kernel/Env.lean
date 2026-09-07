@@ -376,6 +376,14 @@ structure ProjTable where
   infer branch checks it at every use of a `Prop`-declared
   structure. -/
   guards : List Level
+  /-- **The projection offset** (task #210 Part A): the position of
+  field `0` in the carrier's pair chain — `0` at a bare tuple tower
+  (the direct structure route's carrier, `mkTower fs`), `1` at the
+  TAGGED tower of the fixpoint route (`inj 0 (mkTower (fs ++ [pt]))`,
+  the tag in front), so that the model reads `.proj T i` as
+  `projS (i + off)`.  Syntactic to the kernel: the typing, iota and
+  eta rules never look at it. -/
+  off : Nat
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One projection-table entry** — the per-field VIEW of a
@@ -395,13 +403,15 @@ structure ProjEntry where
   /-- the projection's `Prop` guard level (see `ProjTable.guards`) -/
   fieldSort : Level
   structSort : Level
+  /-- the table's projection offset (see `ProjTable.off`) -/
+  off : Nat
   deriving DecidableEq, Repr, Inhabited
 
 /-- The per-field view of a table at field `i` (meaningful for `i <
 numFields`). -/
 def ProjTable.entry (tbl : ProjTable) (i : Nat) : ProjEntry :=
   ⟨tbl.structName, i, tbl.levelParams, tbl.numParams, tbl.ctor, tbl.numFields,
-    tbl.bodies.getD i default, tbl.guards.getD i .zero, tbl.structSort⟩
+    tbl.bodies.getD i default, tbl.guards.getD i .zero, tbl.structSort, tbl.off⟩
 
 /-- Information stored about an accepted constant. -/
 inductive ConstantInfo where

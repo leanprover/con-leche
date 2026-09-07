@@ -240,7 +240,7 @@ is the table consed. -/
 theorem checkDirectProjTable_inv {env envOut : Env} {T C : Name}
     {lps : List Name} {nP nF : Nat} {rs : Level} {guards : List Level}
     {cvCa : ConstantVal}
-    (h : checkDirectProjTable (m := CheckM) T C lps nP nF rs guards cvCa env
+    (h : checkDirectProjTable (m := CheckM) T C lps nP nF rs guards off cvCa env
       = .ok envOut) :
     ∃ bodies : Array Expr,
       directProjBodies T nP nF cvCa.type = some bodies ∧
@@ -249,7 +249,7 @@ theorem checkDirectProjTable_inv {env envOut : Env} {T C : Name}
         b.looseBVarsBounded (nP + 1)) = true) ∧
       (List.range nF).all (fun j => (env.find? (projFnName T j)).isNone) = true ∧
       env.find? (projTableName T) = none ∧
-      envOut = ⟨.projInfo ⟨T, lps, nP, C, nF, rs, bodies, guards⟩
+      envOut = ⟨.projInfo ⟨T, lps, nP, C, nF, rs, bodies, guards, off⟩
         :: env.consts⟩ := by
   unfold checkDirectProjTable at h
   obtain ⟨bodies, hb, h⟩ := exceptBind_ok h
@@ -269,8 +269,8 @@ environment it produces is well-formed — the table's constant type is
 the closed `Sort 1`, and the bodies' scoping is the stage's own guard. -/
 theorem direct_table_wf {env envOut : Env} (henv : EnvWF env)
     {T C : Name} {lps : List Name} {nP nF : Nat} {rs : Level}
-    {guards : List Level} {cvCa : ConstantVal}
-    (h : checkDirectProjTable (m := CheckM) T C lps nP nF rs guards cvCa env
+    {guards : List Level} {off : Nat} {cvCa : ConstantVal}
+    (h : checkDirectProjTable (m := CheckM) T C lps nP nF rs guards off cvCa env
       = .ok envOut) :
     EnvWF envOut := by
   obtain ⟨bodies, -, ⟨hsize, hall⟩, -, -, rfl⟩ := checkDirectProjTable_inv h
