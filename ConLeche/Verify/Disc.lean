@@ -1002,16 +1002,34 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
       simpa only [WScoped] using hw
     show DiscV mode env _
-      ((C : CoreFns CheckSM).annotate d ty >>= fun _ =>
-        (C : CoreFns CheckSM).annotate d v >>= fun _ =>
-          (C : CoreFns CheckSM).annotate d (b.instantiate1 v))
-      ((G : CoreFns CheckSM).annotate d ty >>= fun _ =>
-        (G : CoreFns CheckSM).annotate d v >>= fun _ =>
-          (G : CoreFns CheckSM).annotate d (b.instantiate1 v))
+      ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
+        (C : CoreFns CheckSM).infer d ty' >>= fun tty =>
+        ensureSort C env d tty >>= fun _ =>
+        (C : CoreFns CheckSM).annotate d v >>= fun v' =>
+        (C : CoreFns CheckSM).infer d v' >>= fun tv =>
+        (C : CoreFns CheckSM).defeq d tv ty' >>= fun bb =>
+        if bb then
+          (C : CoreFns CheckSM).annotate d (b.instantiate1 v)
+        else throw (.invalid "let value type mismatch"))
+      ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
+        (G : CoreFns CheckSM).infer d ty' >>= fun tty =>
+        ensureSort G env d tty >>= fun _ =>
+        (G : CoreFns CheckSM).annotate d v >>= fun v' =>
+        (G : CoreFns CheckSM).infer d v' >>= fun tv =>
+        (G : CoreFns CheckSM).defeq d tv ty' >>= fun bb =>
+        if bb then
+          (G : CoreFns CheckSM).annotate d (b.instantiate1 v)
+        else throw (.invalid "let value type mismatch"))
     refine DiscV.bind (ih.site_annotate hwtvb.1) (fun ty' hty' => ?_)
+    refine DiscV.bind (ih.site_infer henv hty') (fun tty htty => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv htty) (fun u _ => ?_)
     refine DiscV.bind (ih.site_annotate hwtvb.2.1) (fun v' hv' => ?_)
-    exact ih.site_annotate
-      (WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
+    refine DiscV.bind (ih.site_infer henv hv') (fun tv htv => ?_)
+    refine DiscV.bind (ih.site_defeq htv hty') (fun bb _ => ?_)
+    split
+    · exact ih.site_annotate
+        (WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
+    · exact DiscV.throw _
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by
       simpa only [WScoped] using hw

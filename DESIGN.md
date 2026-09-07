@@ -59401,3 +59401,126 @@ hand and all exist; those are NOT link-extracted, by design — this gate
 is about the line anchors.
 
 **Size.**  40 links across 33 files, 699 lines of expectation.
+
+## TASK #217 — CONFORMANCE BATCH, PART 1: the `let` triple and the unsafe inductive (2026-09-07, `agent/conformance`)
+
+Two of the audit's divergences (task #206, fixtures from task #208),
+each closed by a fixture flipping to the official kernel's verdict.  The
+third item of the original brief — the mutual block's definitionally
+equal member telescopes and sorts (#206-A4, `ind_mutual_*_defeq`) — was
+split off to its own lane at the user's direction and is NOT part of
+this record.
+
+### Item 2 — `unsafe inductive` declines (audit A10 / crack C8, follow-up 6)
+
+The export parser threw `"unsafe inductive"` from inside the block's
+`types` `mapM`, which the driver reports as **exit 3** — a crash — where
+every other unsafe class already declines positively: `unsafe axiom`
+(`ExportC.lean` `:475`), `unsafe opaque` (`:518`) and `unsafe def` (the
+`def` arm's safety branch, arena 141/142).  The exit-code convention
+reserves 3 for "unclear reasons"; an unsupported *feature the checker
+positively detects* is a 2.  The test now runs as an `anyM` over the
+type entries ahead of the `mapM` and returns `.inr "unsafe inductive
+declaration"`.  Every safe block parses exactly as before.
+`tests/e2e/ind_unsafe` 3 → **2** (official accepts unsafe blocks — it
+skips positivity for them — so this stays a *decline*, and remains a
+recorded restriction beyond official, now a positive one).
+
+### Gates (item 2)
+
+On top of master `1aaed328`: `lake build` warning-free (527 jobs),
+`tests/arena.sh` exit 0 in a clean env — layering 0/0, proofdeps 2 851
+rows as pinned, doors 0, pindump fresh, trust surface 0 outside the
+allowlist, inmodel OK, axioms pinned, tutorial 87/92 (unchanged), e2e
+156/156, annot 14/14, trusted sweep as expected.
+`tests/overview-links.sh` regenerated: the seven inserted lines shift
+`ExportC.lean#L876` → `#L884` (`parseExportStreamD`); the citing
+paragraph was re-read and says the same thing.  init-full unchanged:
+53 118 accepted, 678.62 G instructions.  Artefacts under
+`_tmp/conformance/`.
+
+### Item 1 — the `let` value/type checks (audit S1 / crack C9, follow-up 1)
+
+**The finding.**  `def x : Nat := let y : Nat := Bool.true; Nat.zero`
+was ACCEPTED in both modes; the official kernel rejects with "(kernel)
+let-declaration type mismatch".  This was the audit's only *unlicensed*
+accept-superset.
+
+**Why the checks ran nowhere.**  Task #100 stage 6 moved the official
+`infer_let` triple — `ensure_sort_core(infer(type))`, `infer(val)`,
+`is_def_eq(val_type, type)` — into `inferBody`'s `.letE` clause, and
+`annotate`'s `.letE` clause ran it too.  Task #161's de-gating item C2
+(harvest site 6) then deleted the annotate-side copy as *redundant with
+the inference sweep*.  It was not redundant: the annotate clause returns
+the **ζ reduct** (the standing design ruling — stored terms are
+let-free, no valued-fvar redesign), so no `letE` node the driver
+produced ever reaches `inferBody`, and the six `.letE` arms of
+`whnfCore`/`infer` in the two cores are dead code.  Deleting the one
+live copy of a check deleted the check.  The lesson for the harvest
+method: "the other site runs it" must be read against what the *first*
+site does to the term, not only against the two sites' text.
+
+**The fix.**  The triple is back in `annotate`'s `.letE` clause, run on
+the ANNOTATED annotation and the ANNOTATED value (`ty'`, `v'` — infer
+only ever sees annotated terms), before the body is annotated as
+`b.instantiate1 v`.  It is, line for line, what task #161 removed;
+`git show d79c22fb` is the inverse of this commit's kernel hunks.
+Spec body `ConLeche/Kernel/Core.lean` (`annotateBody`), cached twin
+`ConLeche/Cached/CoreC.lean` (`annotateBodyI`, hence `annotateBodyPC`
+and the trusted core, which share the body).  Both cores keep their
+`inferBody` `.letE` arms: they are official's clause, they cost nothing,
+and a hand-written or spliced stream is not the place to discover that a
+kernel arm was deleted.  (They remain unreachable from the driver — a
+finding, not a divergence.)
+
+**The proofs.**  Also the inverse of #161's: `annotateCore_letE_inv`
+(`Verify/Abstract.lean`) carries the four conjuncts again (`inferTypeCore
+ty' = .ok tty`, `ensureSortCore tty = .ok u`, `inferTypeCore v' = .ok
+tv`, `isDefEqCore tv ty' = .ok true`); its consumers in `Abstract.lean`,
+`Leaves.lean` and `ProjSlots.lean` discard them with `-`.  The
+clause-by-clause walks follow the new binds: `annotate_step`
+(`Verify/Deep.lean`, the shift battery), `annotateBody_disc`
+(`Verify/Disc.lean`, the discipline walk) and `annotateBodyC_sim`
+(`Verify/Cached/DiscC6.lean`, the cached simulation).  **No hypothesis
+was added anywhere, and no claim weakened**: a clause that can only
+reject more is sound-by-construction for the accepting direction, and
+the three walks are per-clause simulations that simply have more binds
+to relate.  The P tier needed no change — its annotate claim goes
+through those walks.  Nothing in `SetP/` moved.
+
+**Fixture flips** (`tests/e2e-expected.txt`, the `# TODO(#206-S1)` lines
+removed): `let_bad_value` 0 → **1**, `let_bad_type` 0 → **1**,
+`let_bad_thm` 0 → **1** — official's verdict on all three, and the
+messages are the corresponding ones ("let value type mismatch" twice,
+"expected a sort" for the bad let type), reached at the same
+declaration.  `let_bad_value_used` stays 1 (the control the reduct's own
+type check already caught).  All four are the audit's probes
+(`_tmp/indaudit/probes/P/LetValueType.lean`: `letBad1`, `letBadTy`,
+`letThm`, `letBad2`) — the elaborator-legal `let` shapes it covers, so
+the item is closed on its probe set, not on a sample of it.
+`--trusted` agrees with `--verified` on all four (the triple is not a
+certification-only step: it is official's check).
+
+**Cost.**  init-full, `--verified`, `perf stat -e instructions:u`:
+53 118 accepted (unchanged), 678.31 G instructions against 678.62 G for
+the same tree without the item (−0.05 %, noise; the ζ reduct is taken
+either way, and what the triple adds is one `infer` of a value whose
+reduct is inferred anyway).  Route census on init-full unchanged: 584
+fix / 6 basis / 1 in-process.
+
+### Gates (item 1)
+
+On top of item 2, i.e. master `1aaed328` + the parser decline: `lake
+build` warning-free (527
+jobs), `lake test`, `tests/arena.sh` exit 0 in a clean env — layering
+0/0, proofdeps 2 851 rows as pinned, doors 0, pindump fresh, trust
+surface 0 outside the allowlist, native audit clean, inmodel OK, axioms
+pinned (11 theorems at the three standard), tutorial 87/92 (unchanged),
+**e2e 156/156**, annot 14/14, retired 8/8, mode 18/18, prelude 3/3,
+progress 6/6, DAG tower 2/2, trusted sweep 138 + 156 + 14 as expected
+(the same three recorded divergences).  `tests/overview-links.sh`
+regenerated twice: both items shifted anchors in files OVERVIEW.md
+cites (`Core.lean#L2637-L2646` → `#L2646-L2655` for the fuel knot's
+base case; item 2 had already moved `ExportC.lean#L876` → `#L884`);
+the citing paragraphs were re-read and say the same thing — no prose
+changed.  Artefacts under `_tmp/conformance/`.

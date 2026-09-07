@@ -18,6 +18,8 @@
 
    official: 0.  con-leche at master 700a06ca: 3 raw (our parser throws) and
    3 piped (the preprocessor fails on the block as well); both modes.
+   Task #217 closed follow-up 6: the parser declines the block by name
+   ("unsafe inductive declaration"), so the fixture is a 2.
    Probe of record: _tmp/indaudit/probes/P/UnsafeInd.lean. -/
 unsafe inductive Bad
   | mk (f : Bad → Nat)
