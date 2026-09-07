@@ -215,14 +215,14 @@ theorem fixRecOpenedAll (mp : EnvS2PM V μ env)
       obtain ⟨C, nF, cty, recIdx⟩ := c
       obtain ⟨mty, rest, -, hrest, rfl⟩ := Lech.directMinorsPisR_cons h
       obtain ⟨bs, hbs⟩ := ih (o + 1) body rest hrest
-      exact ⟨(Lech.Name.lastStr C, mty,
+      exact ⟨((mty : Expr),
         ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩) :: bs,
         by simp [Expr.stripPis, hbs]⟩
   obtain ⟨bsm, hbsm⟩ := hsmin _ _ _ _ hmin
   have h23 := Lech.stripPis_append _ hbsm hs34
   have hs2 := Lech.stripPis_append 1 (e := Expr.forallE motiveTy minors
       ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)
-    (bs := [(.str .anonymous "motive", motiveTy,
+    (bs := [((motiveTy : Expr),
       ⟨Level.zeronessOf (Lech.directElimLevel p.elim p.large)⟩)])
     (by simp [Expr.stripPis]) h23
   have hs1 := Lech.replacePisPw_stripPis p.nP hrec hsT
