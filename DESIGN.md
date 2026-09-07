@@ -58387,7 +58387,7 @@ declaration decline.
 |---|---|---|
 | `tower_thm` (theorem type + value) | **accepts** — committed, in `tests/e2e-expected.txt` | — |
 | `budget_block` / `budget_model` (the retired budget's own fixtures) | **accept**, uncapped — kept | — |
-| `tower_struct` (structure constructor field type, the JZero shape) | **hangs** | `Expr.constsResolveF` via `directNonRecF` (`Kernel/Direct/InstallF.lean:25`) — 19.8 % self plus the `FEnv.find?` lookups it drives, ≈ 60 % of the run.  This is **P3**, staged on `agent/one-route-p` 8fda3e6d; the fixture is committed but **not** wired into the harness until that lands |
+| `tower_struct` (structure constructor field type, the JZero shape) | **hangs** | `Expr.constsResolveF` via `directNonRecF` (`Kernel/Direct/InstallF.lean`) — 21.7 % self plus the `FEnv.find?` lookups it drives, ≈ 60 % of the run (re-profiled after task #210 Part A merged, which does not carry it).  This is **P3**, staged on `agent/one-route-p` 8fda3e6d; the fixture is committed but **not** wired into `tests/e2e-expected.txt` until that lands.  It was `Frontend.occursConst` at 79.7 % before P2 moved into this task |
 | `tower_axiom` (pinned axiom name, tower type) | **OOM (exit 3)** | `Expr.erasePw` via `ConstantVal.matchesPin` (`Kernel/StdAxioms.lean`) and `ConstantInfo.canon` for `Quot.sound`.  User ruling: *"A DAG mine in an axiom under a prelude name is not a concern that should hold us up."*  → docket |
 | `tower_quot`, `tower_prelude` | **OOM / hang** | `ConstantInfo.canon` against the `Quot` pin, and `DeclC.sameCanon` for a prelude-named record.  Both are fixed by a *short-circuiting* `canonEq` (a lockstep comparison bounded by the pin), prototyped and reverted under the name-filter ruling → docket |
 
@@ -58399,10 +58399,14 @@ quotient and prelude-named mines, plus a projection-body tower — and the
 
 `init-core` (3 436 declarations), the memo-tax check #213 asked for:
 
-| mode | master `99bdfb87` | #215 | delta |
+| mode | master `99bdfb87` | #215 (on `b76a3d60`) | delta |
 |---|---:|---:|---:|
-| `--trusted` | 9 950 410 160 | 9 961 015 732 | +0.11 % |
-| `--verified` | 10 136 641 491 | 10 147 234 300 | +0.10 % |
+| `--trusted` | 9 950 410 160 | 9 928 200 196 | −0.22 % |
+| `--verified` | 10 136 641 491 | 10 115 543 872 | −0.21 % |
+
+`init-full` (53 127 declarations, default mode, raw through the default
+pipe): **782 622 299 748 instructions:u, 722 272 kB peak RSS** — parity
+with master's ≈ 783 G.
 
 No +33 % tax: the pure `Expr.instantiate1` is not the hot path (the
 cached core runs `Cached.ExprC.instantiate1`, which has had a cutoff and
@@ -58415,8 +58419,8 @@ The JZero stream (130 MB, 2 455 508 lines, 22 470 declarations), which
 | | master (budget lifted by hand) | #215 (no budget) |
 |---|---:|---:|
 | verdict | accept | **accept, by default** |
-| instructions:u | 421 220 723 468 | 397 430 810 591 |
-| peak RSS | 3 253 672 kB | 1 625 280 kB |
+| instructions:u | 421 220 723 468 | 397 939 595 553 |
+| peak RSS | 3 253 672 kB | 1 624 192 kB |
 
 The −1.63 GB is the name pre-filter alone: the 78 394 796-node canonical
 rebuild is simply not built any more.
