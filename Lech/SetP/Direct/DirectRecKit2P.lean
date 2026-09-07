@@ -26,11 +26,11 @@ variable {V : Type w} [SetTheory V]
 /-! ## Openings at any depth -/
 
 theorem stripPis_isSome_of_instantiate1_fvar :
-    ∀ (n : Nat) {e : Expr} {i : Nat} {nm : Name} {ty : Expr} {k : Nat},
+    ∀ (n : Nat) {e : Expr} {i : Nat} {ty : Expr} {k : Nat},
       (Expr.stripPis n (e.instantiate1 (.fvar i ty) k)).isSome = true →
       (Expr.stripPis n e).isSome = true
-  | 0, _, _, _, _, _, _ => by simp [Expr.stripPis]
-  | n + 1, e, i, nm, ty, k, h => by
+  | 0, _, _, _, _, _ => by simp [Expr.stripPis]
+  | n + 1, e, i, ty, k, h => by
     match e, h with
     | .forallE dom body mb, h =>
       simp only [Expr.instantiate1_forallE, Expr.stripPis, Option.isSome_map] at h ⊢
