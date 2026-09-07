@@ -60,7 +60,7 @@ theorem ofReduce_shapeS {n : Name} {type' : Expr}
     (hn : n = Lech.ofReduceNatName ∨ n = Lech.ofReduceBoolName)
     (h : type'.erasePw
       = (Lech.ofReducePinA n).type.erasePw) :
-    ∃ n₁ n₂ n₃ m₁ m₂ m₃,
+    ∃ m₁ m₂ m₃,
       type' = .forallE
         (.const (Lech.reduceElemName (Lech.ofReduceOp n)) [])
         (.forallE
@@ -100,7 +100,7 @@ theorem ofReduce_shapeS {n : Name} {type' : Expr}
   obtain rfl := erasePwNames_const_invS hq''
   obtain rfl := erasePwNames_bvar_invS hq'
   obtain rfl := erasePwNames_bvar_invS hq
-  exact ⟨n₁, n₂, n₃, m₁, m₂, m₃, rfl⟩
+  exact ⟨m₁, m₂, m₃, rfl⟩
 
 /-! ## The bits -/
 
@@ -114,7 +114,7 @@ element type is the spine's type argument, and the peel never reads
 it, so nothing about the stored `Nat`/`Bool` enters. -/
 theorem ofReduce_bitsP (hμ : μ.verifiedChecks = true)
     (hEq : env.find? eqName = some eqA)
-    {E c : Name} {n₁ n₂ n₃ : Name} {m₁ m₂ m₃ : BinderMeta}
+    {E c : Name} {m₁ m₂ m₃ : BinderMeta}
     {d : Nat} {stype : Expr}
     (hrun : inferTypeCore μ env F d
       (.forallE (.const E [])
@@ -210,7 +210,7 @@ theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     unfold Lech.reduceOpCvA; split <;> rfl] at hlpR
   have hmemOp : Lech.ofReduceOp cvA.name ∈ Lech.reduceOpNames := by
     unfold Lech.ofReduceOp; split <;> decide
-  obtain ⟨n₁, n₂, n₃, m₁, m₂, m₃, hsh⟩ := ofReduce_shapeS hor hApinT
+  obtain ⟨m₁, m₂, m₃, hsh⟩ := ofReduce_shapeS hor hApinT
   rw [hsh] at hrun hta
   obtain ⟨hb₁, hb₂, hb₃⟩ := ofReduce_bitsP hμ hEq hrun ψ
   -- the `Eq` former's one level parameter is pinned to `1`

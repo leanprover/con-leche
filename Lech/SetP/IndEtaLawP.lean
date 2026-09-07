@@ -337,7 +337,7 @@ theorem memberEtaLawP : MemberEtaLawP V := by
         (hKle _ _ hTmE hTmlps (caps.etaParams + 1) (by omega))
         (DenoteSpineP.cons
           (denoteP_fvar mp.base2.acval (caps.etaParams + 1)
-            caps.etaParams Name.anonymous (.sort .zero))
+            caps.etaParams (.sort .zero))
           (DenoteSpineP.cons
             (hKle _ _ hCmE' hCmlps (caps.etaParams + 1) (by omega))
             DenoteSpineP.nil)))
