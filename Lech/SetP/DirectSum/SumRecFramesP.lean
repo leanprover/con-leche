@@ -981,7 +981,7 @@ theorem sumRecFrames {m : EnvS2Core V env} {p : DirectSumParts} {cvTa cvRa : Con
         · rw [hfrIdx, frameIdx_consList hlenIs]
       refine ⟨by rw [hval, hfibre], ?_, ?_⟩
       · -- `RecHypS`
-        refine ⟨?_, ?_, by rw [hlenEs, hlenFs], ?_, ?_, ?_, ?_⟩
+        refine ⟨⟨?_, ?_, by rw [hlenEs, hlenFs], ?_, ?_, ?_⟩, ?_⟩
         · -- the restricted chains are graded at the K-frame
           intro Fs' hFs'
           obtain ⟨j, hj⟩ := List.getElem?_of_mem hFs'

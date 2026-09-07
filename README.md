@@ -23,7 +23,10 @@ This README is actually human written (with AI only doing copy-editing, fact che
 * The checker supports some inductive types natively:
 
   * `False`, `Empty`, `PUnit`, `Eq`, `Nat`, `Quot`
-  * Non-recursive inductives
+  * Non-recursive inductives (structures, sums, indexed families)
+  * Recursive inductives, indexed or not, whose recursive fields are
+    finitary (no reflexive/function-typed recursive fields, no nested
+    or mutual recursion)
 
   For everything else is uses [lean-inductive-models](https://github.com/nomeata/lean-inductive-models) as a preprocessor that produces models. Lech checks these models as normal definitions, and then checks that they faithfully model the given inductive. The lean-inductive-models code is thus outside the trusted code base of Lech.
 

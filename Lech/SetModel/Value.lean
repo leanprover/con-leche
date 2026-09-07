@@ -504,6 +504,47 @@ theorem emptyRecV2_ne_pt {v : Nat} (hv : v ≠ 0) : emptyRecV2 V v ≠ pt :=
 /-- …and it is still the canonical proof in the squash regime. -/
 theorem emptyRecV2_zero : emptyRecV2 V 0 = pt := lamR_zero
 
+/-! ## `lfpFam` (task #188, indexed)
+
+The least pre-fixed point of a functor on FAMILIES over an index set `I`
+(`lfpFamSet`, `Lech/SetTheory/Derive/LfpFam.lean`).  The family space
+`I → Sort w` is `piR (w + 1) I (fun _ => univ w)` — bit `w + 1`, the
+codomain's sort, so a graph at every regime; the functor space is the
+arrow over it at the sort `max u (w + 1)` of `I → Sort w`.  Total: the
+value is a member of the family space for EVERY functor. -/
+
+/-- `I → Sort w`, the family space. -/
+noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
+
+/-- `(I → Sort w) → (I → Sort w)`, the functor space. -/
+noncomputable def lfpFamFunSpace (u w : Nat) (I : V) : V :=
+  piR (Nat.max u (w + 1)) (lfpFamSpace V w I) fun _ => lfpFamSpace V w I
+
+/-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
+noncomputable def lfpFamV2 (u w : Nat) : V :=
+  lamR (Nat.max u (w + 1)) (univ u) fun I =>
+    lamR (Nat.max u (w + 1)) (lfpFamFunSpace V u w I) fun F => lfpFamSet w I F
+
+theorem max_succ_ne_zero (u w : Nat) : Nat.max u (w + 1) ≠ 0 := by
+  show max u (w + 1) ≠ 0
+  rw [Nat.max_def]
+  split <;> omega
+
+theorem lfpFamSet_mem_space (w : Nat) (I F : V) : lfpFamSet w I F ∈ˢ lfpFamSpace V w I := by
+  unfold lfpFamSpace
+  rw [piR_pos (Nat.succ_ne_zero w)]
+  exact lfpFamSet_mem w I F
+
+theorem lfpFamV2_app {u w : Nat} {I F : V} (hI : I ∈ˢ (univ u : V))
+    (hF : F ∈ˢ lfpFamFunSpace V u w I) :
+    app (app (lfpFamV2 V u w) I) F = lfpFamSet w I F := by
+  rw [lfpFamV2, app_lamR_pos (max_succ_ne_zero u w) hI, app_lamR_pos (max_succ_ne_zero u w) hF]
+
+theorem lfpFamV2_mem (u w : Nat) :
+    lfpFamV2 V u w ∈ˢ piR (Nat.max u (w + 1)) (univ u : V) fun I =>
+      piR (Nat.max u (w + 1)) (lfpFamFunSpace V u w I) fun _ => lfpFamSpace V w I :=
+  lamR_mem fun I _ => lamR_mem fun F _ => lfpFamSet_mem_space V w I F
+
 /-! ## The value assignment -/
 
 /-- The two-regime value of each built-in constant at a concrete level
@@ -531,5 +572,6 @@ noncomputable def bval2 : BConst → List Nat → V
   | .quotSound, _ => pt
   | .propext, _ => pt
   | .choice, us => choiceV2 V (lv us 0)
+  | .lfpFam, us => lfpFamV2 V (lv us 0) (lv us 1)
 
 end Lech.SetModel

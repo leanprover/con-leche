@@ -1,4 +1,4 @@
-import Lech.Semantics.Direct.DeclDirectSum
+import Lech.Semantics.Direct.DeclDirectFix
 import Lech.Semantics.Bridge.DeclRun
 import Lech.Semantics.Bridge.DeclIndRun
 
@@ -66,7 +66,12 @@ theorem checkDeclRun_ofEnvFactsE
           intro hh
           exact declDirectSumRun_of hh
         | none =>
-          intro hh
-          exact declIndRun_of hh) h
+          cases hdf : directFixParts? block with
+          | some p =>
+            intro hh
+            exact declDirectFixRun_of hh
+          | none =>
+            intro hh
+            exact declIndRun_of hh) h
 
 end Lech.Semantics

@@ -308,13 +308,14 @@ def checkDeclsProgressIO (mode : Lech.CheckMode) (err : IO.FS.Stream)
     -- `checkIndDeclSF` (`Lech/Cached/CheckerC.lean`).  This is the
     -- instrument `tests/native-audit.sh` compares against the
     -- preprocessor's `native` lines: a block left native there must
-    -- read `struct` or `sum` here.
+    -- read `struct`, `sum` or `fix` here.
     if trace then
       match pd with
       | .indDecl block =>
         let route :=
           if (Lech.directPartsF? fe block).isSome then "struct"
           else if (Lech.directSumPartsF? fe block).isSome then "sum"
+          else if (Lech.directFixParts? block).isSome then "fix"
           else if inModelled.contains ((block.head?.map (·.name)).getD .anonymous)
             then "inmodel"
           else "modeled"
@@ -385,7 +386,7 @@ def checkMain (file : String) (mode : CheckMode) (pre : Bool) : IO UInt32 := do
       | .error msg => IO.eprintln s!"lech: {msg}"; return 3
       | .ok n => pure n
     -- The route trace (`LECH_ROUTE_TRACE`, task #193): one `lech:
-    -- route <block> <struct|sum|modeled>` line per inductive block,
+    -- route <block> <struct|sum|fix|inmodel|modeled>` line per inductive block,
     -- on the progress lane (so a traced run is as unverified as a
     -- heartbeat run, and says so).
     let trace := (← IO.getEnv "LECH_ROUTE_TRACE").isSome
@@ -682,11 +683,12 @@ def usage : String := String.intercalate "\n" [
   "                    run with it is not covered by that theorem.",
   "  LECH_ROUTE_TRACE=1",
   "                    the install-route audit (task #193): one",
-  "                    'lech: route <block> <struct|sum|inmodel|modeled>'",
+  "                    'lech: route <block> <struct|sum|fix|inmodel|modeled>'",
   "                    line",
   "                    on STDERR per inductive block, naming the route",
   "                    the checker takes for it (the direct structure",
-  "                    route, the direct sum/indexed route, or the",
+  "                    route, the direct sum/indexed route, the direct",
+  "                    fixed-point route (task #188), or the",
   "                    preprocessor's model).  tests/native-audit.sh",
   "                    compares these against lech-preprocess's",
   "                    'native' lines: a block the predicate leaves",

@@ -5,6 +5,7 @@ import Lech.Semantics.IndBlockFacts
 import Lech.Semantics.Bridge.Sound
 import Lech.Semantics.Direct.DeclDirectSumEta
 import Lech.SetP.DirectSum.DeclDirectSumP
+import Lech.SetP.DirectFix.DeclDirectFixP
 import Lech.SetP.BasisFalseP
 
 /-!
@@ -189,9 +190,10 @@ theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
   | indDecl block =>
-    -- the `.indDecl` dispatch: the recognised direct class installs
-    -- directly (task #175 W4c), everything else through the modeled
-    -- path — the kernel's own `directParts?` case split
+    -- the `.indDecl` dispatch: the recognised direct classes install
+    -- directly (task #175 W4c: structures, sums; task #188: recursive
+    -- types), everything else through the modeled path — the kernel's
+    -- own three-stage case split
     have hrun' : Lech.Semantics.DeclIndRunDispatch μ F env block env₂ := hrun
     unfold Lech.Semantics.DeclIndRunDispatch at hrun'
     cases hdp : Lech.directParts? env block with
@@ -206,7 +208,13 @@ theorem declStepPM (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         exact declDirectSumP hμ mp hE hds hrun'
       | none =>
         rw [hds] at hrun'
-        exact indStepPB_of hμ mp hE hrun'
+        cases hdf : Lech.directFixParts? block with
+        | some p =>
+          rw [hdf] at hrun'
+          exact declDirectFixP hμ mp hE hdf hrun'
+        | none =>
+          rw [hdf] at hrun'
+          exact indStepPB_of hμ mp hE hrun'
 
 /-- **The P fold**: `foldlM_R`'s recursion at the P invariant. -/
 theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :

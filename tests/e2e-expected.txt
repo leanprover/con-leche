@@ -429,6 +429,65 @@
 #                    (638 declarations, both modes).
 0 presieve_ofarrows_cone.ndjson pre
 
+# The direct FIXED-POINT route (task #188): RECURSIVE inductive types
+# through the direct install — the carrier is the Knaster–Tarski least
+# pre-fixed point of the constructor-tower functor, the recursor the
+# fixed point of its own one-step unfolding.  Exported through the
+# widened `lech-preprocess` (every finitary recursive block native), so
+# they assert `--pre`; the two bad twins are patched off
+# `direct_fix_nat.ndjson` by `scripts/mk_direct_fix_bad.py`.
+#   direct_fix_nat:   `Nat'` (a `Nat` clone) and `List' α` — iota on the
+#                     recursive constructors reading the inductive
+#                     hypothesis (`add`, `length`, `append`, `map`), on
+#                     the nullary ones, dropping the hypothesis (`pred`),
+#                     into `Prop` (`small`).
+#   direct_fix_tree:  `Tree α` (two recursive fields around a data field:
+#                     two hypotheses per minor, `mirror`/`depth`) and the
+#                     one-constructor recursive `Chain α` (NOT
+#                     structure-like: official's `is_structure_like`
+#                     excludes recursive blocks).
+#   direct_fix_prop:  the two-constructor recursive `Prop`s `Ev` and
+#                     `Chain' P` (a data and a proof field before the
+#                     recursive one) — SMALL elimination only.
+#   direct_fix_prop_large: `Loop : Prop` with ONE recursive constructor:
+#                     the official kernel gives it the LARGE eliminator
+#                     (every field is a proposition); the route DECLINES
+#                     positively (the squash-regime fixed point is not
+#                     modeled yet — DESIGN.md, task #188).
+#   direct_fix_nat_neg_bad: `Nat'.succ`'s field patched to `Nat' → Nat'` —
+#                     a non-positive occurrence, REJECTED as official
+#                     (`check_positivity`).
+#   direct_fix_nat_ih_bad: `Nat'.rec`'s `n_ih` binder patched from
+#                     `motive n` to `Nat'` — the stream's recursor is not
+#                     the generated one, REJECTED at the S2 comparison.
+# INDEXED recursive families (the route is indexed from the start):
+#   direct_fix_vec:   `Vec' α n` with the recursive `cons` at index
+#                     `Nat.succ n` (`length`, `map` with a motive reading
+#                     the index, `headD`, `small`) and `Tm k n` — a
+#                     parameter and an index, two recursive fields at
+#                     different index expressions in one constructor.
+#   direct_fix_le:    the two-index `Le' a b` (added by `addDecl`: the
+#                     `inductive` command would promote the fixed first
+#                     index) and `Even' n` — recursive `Prop`s with two
+#                     constructors, SMALL elimination only.
+#   direct_fix_acc_large: `Up n (n+1)` with ONE recursive constructor
+#                     and the large eliminator (the data field is an
+#                     index): DECLINED positively, as `Loop`.
+#   direct_fix_vec_ih_idx_bad: `Vec'.rec`'s `v_ih` binder patched to
+#                     `motive (Nat.succ n) v` — the hypothesis at the
+#                     wrong index, REJECTED (the patched recursor type
+#                     is ill-typed before the S2 comparison is reached).
+0 direct_fix_nat.ndjson pre
+0 direct_fix_tree.ndjson pre
+0 direct_fix_prop.ndjson pre
+2 direct_fix_prop_large.ndjson pre
+1 direct_fix_nat_neg_bad.ndjson pre
+1 direct_fix_nat_ih_bad.ndjson pre
+0 direct_fix_vec.ndjson pre
+0 direct_fix_le.ndjson pre
+2 direct_fix_acc_large.ndjson pre
+1 direct_fix_vec_ih_idx_bad.ndjson pre
+
 # Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
 # A *raw* export (`PSigma'` and the theorem are kernel-added by the
 # fixture source, exactly as the lean-inductive-models preprocessor

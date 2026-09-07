@@ -56,6 +56,7 @@ a type**, so a codomain `.sort k` gets `k + 1`, never `k`.  That is why
 | `quotLift` | `v` | `quotLiftV2` |
 | `quotInd`/`quotSound`/`propext` | `0` | `pt`: the types are `Prop` |
 | `choice` | `u` | `choiceV2` |
+| `lfpFam` | `max (u + 1) (w + 1)` | `lfpFamV2` (a type former) |
 
 The faithfulness check is `type2_erase` below: erasure returns
 `BConst.type` on the nose, so the former adds annotations and nothing
@@ -215,6 +216,15 @@ def BConst.type2 : BConst → List Nat → AVExpr
     .pi (u + 1) u (.sort u) <|
     .pi 0 u (negT2 0 (negT2 u (.bvar 0))) <|
     .bvar 1
+  | .lfpFam, us =>
+    let u := lv us 0; let w := lv us 1
+    let m := Nat.max u (w + 1)
+    -- `Π (I : Sort u), ((I → Sort w) → (I → Sort w)) → I → Sort w` (task
+    -- #188, indexed): `I → Sort w` has sort `max u (w + 1)`, and so do the
+    -- functor space and the tail
+    .pi (u + 1) m (.sort u) <|
+    .pi m m (arrowA m m (arrowA u (w + 1) (.bvar 0) (.sort w)) (arrowA u (w + 1) (.bvar 0) (.sort w))) <|
+    .pi u (w + 1) (.bvar 1) (.sort w)
 
 /-! ## Faithfulness
 

@@ -609,7 +609,7 @@ under the parameters the field chain graded (at the block's level),
 bit-valid, bounded when the family is not `Prop`, and the index
 expressions graded and fitting the former's index telescope at every
 fitting field spine. -/
-theorem sumCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
+theorem ctorFramesGen (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₀ env T lps nP nIdx resSort
@@ -621,8 +621,7 @@ theorem sumCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
     {Es : (Name → Nat) → List AVExpr} {srcs : List (Option Nat)}
     (hCD : CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs)
-    {Fss : (Name → Nat) → List (List AVExpr)}
-    (hleafT : ∀ ψ, mp.base2.acval T ψ = directSumTyAV (resSort.eval ψ) (ppsAll ψ) (Fss ψ)) :
+    (hleafT : ∀ ψ, ∃ B, mp.base2.acval T ψ = mkLamsC (resSort.eval ψ + 1) (ppsAll ψ) B) :
     (∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ ↔
         Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ) ∧
@@ -745,10 +744,11 @@ theorem sumCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
       refine ⟨fun E hE => ⟨hargs E (List.mem_append_right _ hE),
         hargsV E (List.mem_append_right _ hE)⟩, ?_⟩
       -- the spine fits the former's leaf
+      obtain ⟨B, hB⟩ := hleafT ψ
       have hfit := spineFit_of_ok2_lams (u := resSort.eval ψ + 1) (Nat.succ_ne_zero _)
-        (b := sumBodyAV (resSort.eval ψ) (Fss ψ)) (args := paramBvars nP nF ++ Es ψ)
+        (b := B) (args := paramBvars nP nF ++ Es ψ)
         (ds := ppsAll ψ) (σ := consList bs ρ) (ρ := consList bs ρ) (f := mp.base2.acval T ψ)
-        (by simp [paramBvars, hCD.lenE ψ, hFD.len ψ]) hokR (by rw [hleafT ψ]; rfl)
+        (by simp [paramBvars, hCD.lenE ψ, hFD.len ψ]) hokR (by rw [hB])
       rw [List.take_of_length_le (by simp [paramBvars, hCD.lenE ψ, hFD.len ψ]),
         ← List.take_append_drop nP (ppsAll ψ), List.map_append, List.map_append] at hfit
       obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_inv hfit
@@ -766,5 +766,34 @@ theorem sumCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
       rw [Nat.zero_add] at hi
       exact consList_params_apply ρ _ hi
   exact ⟨fun ψ => (hframes ψ).1, fun ψ => (hframes ψ).2⟩
+
+/-- `ctorFramesGen` at the sum's leaf. -/
+theorem sumCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
+    {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
+    (hCtor : Lech.checkDirectSumCtor (Lech.fueledOps μ F) env₀ env T lps nP nIdx resSort
+      isProp large cvC nF cvTa = .ok cvCa)
+    (hfT : env.find? T = some (.indInfo cvTa caps))
+    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
+    {ppsAll : (Name → Nat) → List (Nat × Nat × AVExpr)}
+    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
+    {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
+    {Es : (Name → Nat) → List AVExpr} {srcs : List (Option Nat)}
+    (hCD : CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs)
+    {Fss : (Name → Nat) → List (List AVExpr)}
+    (hleafT : ∀ ψ, mp.base2.acval T ψ = directSumTyAV (resSort.eval ψ) (ppsAll ψ) (Fss ψ)) :
+    (∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ ↔
+        Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ) ∧
+    (∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
+        FieldsOkB (resSort.eval ψ) ρ (((ds ψ).drop nP).map (·.2.2)) ∧
+        FieldsValid ρ (((ds ψ).drop nP).map (·.2.2)) ∧
+        (isProp = false →
+          FieldsBound (resSort.eval ψ) ρ (((ds ψ).drop nP).map (·.2.2))) ∧
+        (∀ bs : List V, SpineFit ρ (((ds ψ).drop nP).map (·.2.2)) bs →
+          (∀ E ∈ Es ψ, AnnotOkP V (consList bs ρ) E) ∧
+          SpineFit ρ (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs))) :=
+  ctorFramesGen hμ mp hCtor hfT hProp hFD hCD fun ψ => ⟨_, hleafT ψ⟩
 
 end Lech.SetP

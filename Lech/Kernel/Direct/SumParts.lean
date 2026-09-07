@@ -195,6 +195,17 @@ def DirectSumParts.withSort (p : DirectSumParts) (s : Level) : DirectSumParts :=
     (p.withSort s).nP = p.nP := rfl
 @[simp] theorem DirectSumParts.withSort_nIdx (p : DirectSumParts) (s : Level) :
     (p.withSort s).nIdx = p.nIdx := rfl
+/-- Completing a record that already carries its own sort (with the
+`isProp` flag the recogniser pinned) changes nothing (task #188: the
+recursive route's recogniser reads the telescope syntactically). -/
+theorem DirectSumParts.withSort_self (p : DirectSumParts)
+    (h : p.isProp = (Level.isEquiv p.resSort .zero == some true)) :
+    p.withSort p.resSort = p := by
+  cases p with
+  | mk cvT ctors nP nIdx cvR elim resSort rhss large isProp =>
+    simp only [DirectSumParts.withSort]
+    simp only at h
+    rw [← h]
 @[simp] theorem DirectSumParts.withSort_cvR (p : DirectSumParts) (s : Level) :
     (p.withSort s).cvR = p.cvR := rfl
 @[simp] theorem DirectSumParts.withSort_elim (p : DirectSumParts) (s : Level) :

@@ -573,6 +573,75 @@ theorem checkDirectSumRecS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF 
   obtain rfl : rhss = rhss' := hRs
   exact SimC.pure hs₆ rfl
 
+/-! ### The direct recursive install (task #188) -/
+
+/-- The generated rules loop of the recursive route: no operation is
+called (a rule mentions the recursor and is not inferred), so the walk
+is the identity on a pure program. -/
+theorem checkDirectFixRulesS_sim {envR : Env} {rlps : List Name} {T : Name}
+    {lps : List Name} {elim : Name} {large : Bool} {nP nIdx : Nat} {tty : Expr}
+    {ctors : List (Name × Nat × Expr × List Nat)} {recC : Name} {rlvls : List Level} :
+    ∀ {k j : Nat} {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (checkDirectFixRules (m := CheckCM) envR rlps T lps elim large nP nIdx tty ctors
+          recC rlvls k j)
+        (checkDirectFixRules (m := FueledM) envR rlps T lps elim large nP nIdx tty ctors
+          recC rlvls k j)
+  | 0, _, s₀, hs => SimC.pure hs rfl
+  | k + 1, j, s₀, hs => by
+    unfold checkDirectFixRules
+    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ rhs rhs' hs₁ hP => ?_)
+    obtain ⟨rfl, -⟩ := hP
+    by_cases h1 : (Expr.allLevelParamsDefined rlps rhs &&
+        Expr.constsResolve envR rhs && Expr.looseBVarsBounded 0 rhs &&
+        !rhs.hasFvar) = true
+    case neg => simp only [if_neg h1]; exact SimC.throw_bind
+    simp only [if_pos h1]
+    refine SimC.bind (checkDirectFixRulesS_sim hs₁)
+      (fun s₂ rest rest' hs₂ hR => ?_)
+    obtain rfl : rest = rest' := hR
+    exact SimC.pure hs₂ rfl
+
+/-- Stage 3 (the recursor with the inductive hypotheses, generated and
+compared) of the recursive route at the shared operations. -/
+theorem checkDirectFixRecS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {p : DirectFixParts} {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
+    (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC
+      (checkDirectFixRec (sharedOpsC mode (mkFEnv env)) env p cvTa ctorsA)
+      (checkDirectFixRec (fueledOpsM mode) env p cvTa ctorsA) := by
+  unfold checkDirectFixRec
+  dsimp only [sharedOpsC]
+  refine SimC.bind (checkConstantValS_sim hμ henv hs) (fun s₁ cvRi cvRi' hs₁ hP => ?_)
+  obtain ⟨rfl, hwI⟩ := hP
+  try dsimp only
+  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ recTy recTy' hs₂ hR => ?_)
+  obtain ⟨rfl, -⟩ := hR
+  by_cases h1 : (Expr.allLevelParamsDefined p.cvR.levelParams recTy &&
+      Expr.constsResolve env recTy && Expr.looseBVarsBounded 0 recTy &&
+      !recTy.hasFvar) = true
+  case neg => simp only [if_neg h1]; exact SimC.throw_bind
+  simp only [if_pos h1]
+  have hRf : recTy.hasFvar = false := by
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h1
+    exact h1.2
+  have hwR : WScoped 0 recTy := WScoped.of_not_hasFvar hRf
+  refine SimC.bind (opE_infer_sim hμ henv hs₂ hwR) (fun s₃ sty sty' hs₃ hS => ?_)
+  obtain ⟨rfl, hwsty⟩ := hS
+  refine SimC.bind (opS_sim hμ henv hs₃ hwsty) (fun s₄ u u' hs₄ hU => ?_)
+  refine SimC.bind (opB_sim hμ henv hs₄ hwI hwR) (fun s₅ b b' hs₅ hB => ?_)
+  obtain rfl : b = b' := hB
+  cases b with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    exact SimC.throw_bind
+  | true =>
+  simp only [↓reduceIte]
+  refine SimC.bind (checkDirectFixRulesS_sim hs₅)
+    (fun s₆ rhss rhss' hs₆ hRs => ?_)
+  obtain rfl : rhss = rhss' := hRs
+  exact SimC.pure hs₆ rfl
+
 end Walks3
 
 end Lech.Cached
