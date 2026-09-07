@@ -22,7 +22,6 @@ import ConLeche.Verify.AnnotDefense
 import ConLeche.SetTheory.Basic
 import ConLeche.SetTheory.Core
 import ConLeche.SetTheory.Derive.Collapse
-import ConLeche.SetTheory.Aczel
 import ConLeche.Verify.Mono
 import ConLeche.Verify.Deep
 import ConLeche.Verify.BridgeDecl

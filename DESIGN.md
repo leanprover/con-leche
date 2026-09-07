@@ -57501,7 +57501,7 @@ any of them would delete a claim, not cruft.
 | module | non-umbrella importers | verdict |
 |---|---|---|
 | `ConLeche.VExpr` | none | umbrella (new) |
-| `ConLeche.SetTheory.Aczel` | none | **KEEP** — the realizability leaf: every field of the `SetTheory` class discharged on Aczel trees.  It is the evidence the whole development is not vacuous |
+| `ConLeche.SetTheory.Aczel` | none | **KEEP** — the realizability leaf: every field of the `SetTheory` class discharged on Aczel trees.  It is the evidence the whole development is not vacuous.  (Superseded: deleted at task #212, the bridge subsumes it.) |
 | `ConLeche.SetTheory.Derive.Collapse` | none | **KEEP** — the design evidence that fixed the domain-relative collapse (two refutation horns + the forcing lemma) |
 | `ConLeche.Kernel.CoreP` | `Kernel.CheckerP`, `Verify.CoreP` | **KEEP** — the β-cert-gated knot; deliberately not reachable from `Main.lean` (the S9 seal), it is a statement subject |
 | `ConLeche.Kernel.CheckerP` | none | **KEEP** — that knot's driver instantiation, same reason |
@@ -57793,3 +57793,38 @@ needs Mathlib and this worktree has no `.lake` for it.  Its rename is
 source-only — `ConLecheBridge{,.lean}`, the lakefile, the manifest's
 escaped package names, the README — and `.github/workflows/bridge.yml`
 is the gate that will build it.
+
+---
+
+## TASK #212 — `SetTheory/Aczel.lean` deleted (2026-09-07)
+
+**User ruling (verbatim):** "Now that we have bridge/lean4lean-model, we
+can remove the far less interesting Lech/SetTheory/Aczel.lean, right?"
+… "Yes, delete it after the rename."
+
+**What it was.** The in-repo sets-as-trees realization of the `SetTheory`
+class's ZF⁻ fields on a quotient of Aczel trees, with the universe chain
+left as a parameter (`SetTheory.ofAczelChain (c : UnivChain V₀ AczelMem)`),
+built from core Lean only; evidence that the interface is realizable,
+imported by nothing but the umbrella (the #209 census kept it "by
+statement").
+
+**Why it goes.** The bridge package `bridge/lean4lean-model` (task #204)
+proves the strictly stronger statement on the same construction:
+`carneiro_implies_conleche` instantiates the WHOLE class — chain
+included — on Mathlib's `ZFSet` (itself the Aczel quotient, maintained
+upstream) from Carneiro's `OmegaInaccessibles`.  Keeping both meant two
+copies of the interface's instantiation to move with every interface
+change (the finite-universe-chain idea in the README would have needed
+it twice).  What is lost: the realizability check no longer runs in the
+Mathlib-free default build; `.github/workflows/bridge.yml` already runs
+the bridge on every change to the interface it bridges to.
+
+**Diff.** `ConLeche/SetTheory/Aczel.lean` deleted (458 lines); its
+`import` removed from `ConLeche.lean`; README's "Set theory assumption"
+paragraph now points at the bridge theorem; the axiom pin's prose
+(`tests/ConLecheTests/Axioms.lean`) notes the deletion.  `UnivChain`
+lived in the deleted file and had no other reader (`IsTGUniverse` stays
+in `SetTheory/Core.lean`).  No capstone statement, pin, or proofdeps row
+changes (the module was in no root's closure).  Historical mentions in
+this journal and `docs/` stay as written.

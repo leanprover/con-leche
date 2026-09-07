@@ -12,8 +12,9 @@ consistency theorems stand on nothing but Lean's three standard axioms:
     [propext, Classical.choice, Quot.sound]
 
 Until now that was a *claim in the design journal* — the tree had exactly
-one `#guard_msgs in #print axioms`, on `SetTheory.ofAczelChain`
-(`ConLeche/SetTheory/Aczel.lean`), and none on any capstone.  An external
+one `#guard_msgs in #print axioms`, on the Aczel realizability leaf
+(`SetTheory/Aczel.lean`, deleted at task #212 in favour of the Mathlib
+bridge `bridge/lean4lean-model`), and none on any capstone.  An external
 reviewer could not confirm the headline without a full rebuild and a
 scratch file of their own.  The guards below are that scratch file,
 in-tree and run by `lake test`: if a `sorry`, a new axiom, or a stray
