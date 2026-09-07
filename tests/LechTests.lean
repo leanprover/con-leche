@@ -129,7 +129,7 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 
 -- `def arrowType : Type := Prop → Prop` (tutorial test 003)
 #guard (checkDecls .verified (pureOps .verified) [mkDef "arrowType" [] (.sort (.succ .zero))
-  (.forallE (.str .anonymous "a") (.sort .zero) (.sort .zero) ⟨.default, .never⟩)]).toBool
+  (.forallE (.sort .zero) (.sort .zero) ⟨.never⟩)]).toBool
 
 -- `def dependentType : Prop := ∀ (p : Prop), p` (tutorial test 004):
 -- impredicativity.  The binder carries the task-#161 sort annotation
@@ -137,7 +137,7 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 -- verified mode validates annotations and declines a `.never` on a
 -- Prop-codomain binder.
 #guard (checkDecls .verified (pureOps .verified) [mkDef "dependentType" [] (.sort .zero)
-  (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩)]).toBool
+  (.forallE (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩)]).toBool
 
 -- … and the same declaration with the unannotated (`.never`) binder is
 -- **accepted** since task #161 P5: `.never` is the parser's placeholder
@@ -149,18 +149,18 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 -- silently corrected rather than falsified, so the falsifiable claims
 -- are exactly the `ifAllZero` ones (see the `bad*` guards below).
 #guard (checkDecls .verified (pureOps .verified) [mkDef "dependentType" [] (.sort .zero)
-  (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]).toBool
+  (.forallE (.sort .zero) (.bvar 0) ⟨.never⟩)]).toBool
 #guard (checkDecls .trusted (pureOps .trusted) [mkDef "dependentType" [] (.sort .zero)
-  (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)]).toBool
+  (.forallE (.sort .zero) (.bvar 0) ⟨.never⟩)]).toBool
 
 -- `∀ (p : Prop), p : Type` is rejected (it is a Prop).
 #guard checkDecls .verified (pureOps .verified) [mkDef "bad2" [] (.sort (.succ .zero))
-    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩)]
+    (.forallE (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩)]
   matches .error (.invalid _)
 
 -- Input expressions containing fvars are rejected.
 #guard checkDecls .verified (pureOps .verified) [mkDef "sneaky" [] (.sort (.succ .zero))
-    (.fvar 0 (.str .anonymous "x") (.sort (.succ .zero)))]
+    (.fvar 0 (.sort (.succ .zero)))]
   matches .error (.invalid _)
 
 /-! ## Theorems -/
@@ -171,8 +171,8 @@ private def mkThm (n : String) (type value : Expr) : Declaration :=
 -- `theorem t : ∀ (p : Prop), p → p`-shaped: a Prop-typed theorem is accepted
 -- when its (in-fragment) value matches.
 #guard (checkDecls .verified (pureOps .verified) [mkThm "t"
-    (.forallE (.str .anonymous "p") (.sort .zero) (.sort .zero) ⟨.default, .never⟩)
-    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .never⟩)])
+    (.forallE (.sort .zero) (.sort .zero) ⟨.never⟩)
+    (.forallE (.sort .zero) (.bvar 0) ⟨.never⟩)])
   matches .error (.invalid _)  -- value `∀ p, p : Prop` vs type `Prop → Prop : Prop`? mismatch
 
 -- A theorem whose type is not a proposition is rejected (tutorial 012).
@@ -182,7 +182,7 @@ private def mkThm (n : String) (type value : Expr) : Declaration :=
 -- A theorem stating an accepted Prop with a matching proof-shaped value:
 -- `theorem t2 : Prop-valued-forall` where value has exactly that type.
 #guard (checkDecls .verified (pureOps .verified) [mkDef "prp" [] (.sort .zero)
-    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) ⟨.default, .ifAllZero []⟩),
+    (.forallE (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩),
   mkThm "t2" (.sort .zero) (.const (.str .anonymous "prp") [])]).toBool == false
   -- (const prp : Prop, but Prop ≠ prp's type Prop... value `prp : Prop`; type `Prop`:
   --  `prp : Prop` vs declared `Prop : ?` — declared type must be a Prop; `Prop` is not)
@@ -212,10 +212,10 @@ private def stubFns : CoreFns CheckM where
   inferIO _ _ := pure (.sort (.succ .zero))
 
 private def pwForall (pw : PropWhen) : Expr :=
-  .forallE (.str .anonymous "p") (.sort .zero) (.sort .zero) ⟨.default, pw⟩
+  .forallE (.sort .zero) (.sort .zero) ⟨pw⟩
 
 private def pwLam (pw : PropWhen) : Expr :=
-  .lam (.str .anonymous "p") (.sort .zero) (.sort .zero) ⟨.default, pw⟩
+  .lam (.sort .zero) (.sort .zero) ⟨pw⟩
 
 -- (defeq-forall): inequivalent binder annotations on otherwise defeq
 -- ∀s are a positive decline at the verified mode …
@@ -272,16 +272,16 @@ private def nW : Name := .str .anonymous "w"
 -- not walked), so the mismatched ∀ meta reaches the comparison.
 private def etaStuckTy (pw : PropWhen) : Expr := pwForall pw
 private def etaStuckF (pw : PropWhen) : Expr :=
-  .fvar 0 (.str .anonymous "f") (etaStuckTy pw)
+  .fvar 0 (etaStuckTy pw)
 
 #guard etaCert .verified (pureFns .verified Env.empty 100) Env.empty 1
     (.str .anonymous "p") (.sort .zero)
-    (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.default, .never⟩
+    (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.never⟩
     (etaStuckF (.ifAllZero []))
   matches .error (.notImplemented _)
 #guard etaCert .trusted (pureFns .trusted Env.empty 100) Env.empty 1
     (.str .anonymous "p") (.sort .zero)
-    (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.default, .never⟩
+    (.app (etaStuckF (.ifAllZero [])) (.bvar 0)) ⟨.never⟩
     (etaStuckF (.ifAllZero []))
   matches .ok true
 
@@ -437,11 +437,11 @@ The subject is `(fun x : Prop => x) Prop`: the argument's type is
 reduction is stuck at the redex.  Only the binder's `pw` datum and the
 mode distinguish the outcomes. -/
 
-private def gateNever : BinderMeta := ⟨.default, .never⟩
-private def gateMaybe : BinderMeta := ⟨.default, .ifAllZero []⟩
+private def gateNever : BinderMeta := ⟨.never⟩
+private def gateMaybe : BinderMeta := ⟨.ifAllZero []⟩
 
 private def gateRedex (mb : BinderMeta) : Expr :=
-  .app (.lam (.str .anonymous "x") (.sort .zero) (.bvar 0) mb)
+  .app (.lam (.sort .zero) (.bvar 0) mb)
     (.sort .zero)
 
 private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
@@ -497,10 +497,10 @@ certificate fails, and only a *fired* licence succeeds.  Only the ∀'s
 `pw` datum distinguishes the outcomes. -/
 
 private def ioPiTy (mb : BinderMeta) : Expr :=
-  .forallE (.str .anonymous "x") (.sort .zero) (.sort .zero) mb
+  .forallE (.sort .zero) (.sort .zero) mb
 
 private def ioRedex (mb : BinderMeta) : Expr :=
-  .app (.fvar 0 (.str .anonymous "f") (ioPiTy mb)) (.bvar 0)
+  .app (.fvar 0 (ioPiTy mb)) (.bvar 0)
 
 -- (a) THE io GATE IS LIVE: at a `.never` binder the io lane skips the
 -- argument certificate and computes the type.

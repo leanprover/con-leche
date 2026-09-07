@@ -32,7 +32,7 @@ theorem instPisAt_fvarLeaves :
     exact Or.inl hl
   | a :: as, ty, doms, res, h, l, hl => by
     cases ty with
-    | forallE nm dom body mb =>
+    | forallE dom body mb =>
       simp only [Expr.instPisAt] at h
       revert h
       cases hrec : Expr.instPisAt as (body.instantiate1 a) with
@@ -50,8 +50,8 @@ theorem instPisAt_fvarLeaves :
             exact Or.inr hb
           · exact Or.inr ⟨a, List.mem_cons_self, hb⟩
         · exact Or.inr ⟨a', List.mem_cons_of_mem _ ha', hla⟩
-    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
-    | letE _ _ _ _ | lit _ | proj _ _ _ => exact nomatch h
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _ | lam _ _ _
+    | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h
 
 open Expr in
 /-- Peeling a `∀`-telescope along scoped arguments preserves
@@ -65,7 +65,7 @@ theorem piResidual_WScoped {d : Nat} :
     exact h ▸ hw
   | a :: as, t, res, h, hw, has => by
     match t, h with
-    | .forallE n ty body mb, h =>
+    | .forallE ty body mb, h =>
       have hw' : WScoped d ty ∧ WScoped d body := by
         simpa only [WScoped] using hw
       have h' : piResidual (body.instantiate1 a) as = some res := h
@@ -85,7 +85,7 @@ theorem piResidual_fvarLeaves :
     exact Or.inl (h ▸ hl)
   | a :: as, t, res, h, l, hl => by
     match t, h with
-    | .forallE n ty body mb, h =>
+    | .forallE ty body mb, h =>
       have h' : piResidual (body.instantiate1 a) as = some res := h
       rcases piResidual_fvarLeaves h' l hl with hb | ⟨x, hx, hlx⟩
       · rcases fvarLeaves_instantiate1 body 0 hb with hb | hb
@@ -106,7 +106,7 @@ theorem piResidual_looseBVars :
     exact h ▸ hb
   | a :: as, t, res, h, hb, has => by
     match t, h with
-    | .forallE n ty body mb, h =>
+    | .forallE ty body mb, h =>
       have hb' : ty.looseBVarsBounded 0 = true ∧
           body.looseBVarsBounded 1 = true := by
         simpa only [Expr.looseBVarsBounded, Bool.and_eq_true] using hb
@@ -131,7 +131,7 @@ theorem Expr.fvarConsistent_of_leafCond {d : Nat} {n : Name} {ty : Expr} :
     ∀ (e : Expr), Expr.LeafCond d n ty e → fvarConsistent d n ty e := by
   intro e
   induction e with
-  | fvar idx n' ty' ih =>
+  | fvar idx ty' ih =>
     intro hc
     simp only [fvarConsistent]
     intro hd
@@ -140,15 +140,15 @@ theorem Expr.fvarConsistent_of_leafCond {d : Nat} {n : Name} {ty : Expr} :
     intro hc
     exact ⟨ihf (fun l hl => hc l (by simp [fvarLeaves, hl])),
       iha (fun l hl => hc l (by simp [fvarLeaves, hl]))⟩
-  | lam n' ty' body m ihty ihbody =>
+  | lam ty' body m ihty ihbody =>
     intro hc
     exact ⟨ihty (fun l hl => hc l (by simp [fvarLeaves, hl])),
       ihbody (fun l hl => hc l (by simp [fvarLeaves, hl]))⟩
-  | forallE n' ty' body m ihty ihbody =>
+  | forallE ty' body m ihty ihbody =>
     intro hc
     exact ⟨ihty (fun l hl => hc l (by simp [fvarLeaves, hl])),
       ihbody (fun l hl => hc l (by simp [fvarLeaves, hl]))⟩
-  | letE n' ty' val body ihty ihval ihbody =>
+  | letE ty' val body ihty ihval ihbody =>
     intro hc
     exact ⟨ihty (fun l hl => hc l (by simp [fvarLeaves, hl])),
       ihval (fun l hl => hc l (by simp [fvarLeaves, hl])),
@@ -161,7 +161,7 @@ theorem Expr.fvarConsistent_of_leafCond {d : Nat} {n : Name} {ty : Expr} :
 /-- The leaf condition holds for a freshly opened binder body. -/
 theorem Expr.LeafCond_opened {d : Nat} {n : Name} {ty body : Expr}
     (hwty : WScoped d ty) (hwbody : WScoped d body) (k : Nat) :
-    Expr.LeafCond d n ty (body.instantiate1 (.fvar d n ty) k) := by
+    Expr.LeafCond d n ty (body.instantiate1 (.fvar d ty) k) := by
   intro l hl hld
   rcases fvarLeaves_instantiate1 body k hl with hl' | hl'
   · obtain ⟨hlt, -⟩ := WScoped_leaves body hwbody l hl'
@@ -178,7 +178,7 @@ theorem Expr.fvarLeaves_abstract1_ne {D : Nat} :
       ∀ l ∈ (e.abstract1 D k).fvarLeaves, l ∈ e.fvarLeaves ∧ l.1 ≠ D := by
   intro e
   induction e with
-  | fvar idx n ty ih =>
+  | fvar idx ty ih =>
     intro k hw l hl
     simp only [WScoped] at hw
     simp only [abstract1] at hl
@@ -199,7 +199,7 @@ theorem Expr.fvarLeaves_abstract1_ne {D : Nat} :
       exact ⟨Or.inl h1, h2⟩
     · obtain ⟨h1, h2⟩ := iha k hw.2 l hl
       exact ⟨Or.inr h1, h2⟩
-  | lam n ty body m ihty ihbody =>
+  | lam ty body m ihty ihbody =>
     intro k hw l hl
     simp only [WScoped] at hw
     simp only [abstract1, fvarLeaves, List.mem_append] at hl ⊢
@@ -208,7 +208,7 @@ theorem Expr.fvarLeaves_abstract1_ne {D : Nat} :
       exact ⟨Or.inl h1, h2⟩
     · obtain ⟨h1, h2⟩ := ihbody (k + 1) hw.2 l hl
       exact ⟨Or.inr h1, h2⟩
-  | forallE n ty body m ihty ihbody =>
+  | forallE ty body m ihty ihbody =>
     intro k hw l hl
     simp only [WScoped] at hw
     simp only [abstract1, fvarLeaves, List.mem_append] at hl ⊢
@@ -217,7 +217,7 @@ theorem Expr.fvarLeaves_abstract1_ne {D : Nat} :
       exact ⟨Or.inl h1, h2⟩
     · obtain ⟨h1, h2⟩ := ihbody (k + 1) hw.2 l hl
       exact ⟨Or.inr h1, h2⟩
-  | letE n ty val body ihty ihval ihbody =>
+  | letE ty val body ihty ihval ihbody =>
     intro k hw l hl
     simp only [WScoped] at hw
     simp only [abstract1, fvarLeaves, List.mem_append] at hl ⊢
@@ -321,9 +321,9 @@ theorem litToCtorIfNat_fvarLeaves {env : Env} {e : Expr} :
       cases hl
     · exact hl
   | .lit (.strVal _), hl => exact hl
-  | .bvar _, hl | .fvar _ _ _, hl | .sort _, hl | .const _ _, hl
-  | .app _ _, hl | .lam _ _ _ _, hl | .forallE _ _ _ _, hl
-  | .letE _ _ _ _, hl | .proj _ _ _, hl => exact hl
+  | .bvar _, hl | .fvar _ _, hl | .sort _, hl | .const _ _, hl
+  | .app _ _, hl | .lam _ _ _, hl | .forallE _ _ _, hl
+  | .letE _ _ _, hl | .proj _ _ _, hl => exact hl
 
 /-- The literal-major conversion preserves the bvar bound. -/
 theorem litToCtorIfNat_looseBVars {env : Env} {e : Expr} {k : Nat}
@@ -336,8 +336,8 @@ theorem litToCtorIfNat_looseBVars {env : Env} {e : Expr} {k : Nat}
     · exact natLitToConstructor_looseBVars n
     · exact hb
   | .lit (.strVal _) => exact hb
-  | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
-  | .lam _ _ _ _ | .forallE _ _ _ _ | .letE _ _ _ _ | .proj _ _ _ =>
+  | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
+  | .lam _ _ _ | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ =>
     exact hb
 
 /-- Unfolding a definition at the head only shrinks the leaf
@@ -349,8 +349,8 @@ theorem unfoldDefinition_fvarLeaves {env : Env} (henv : EnvWF env)
   revert h
   match hfn : e.getAppFn with
   | .const n us => ?_
-  | .bvar _ | .fvar _ _ _ | .sort _ | .app _ _ | .lam _ _ _ _
-  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+  | .bvar _ | .fvar _ _ | .sort _ | .app _ _ | .lam _ _ _
+  | .forallE _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ =>
     intro h; exact nomatch h
   intro h
   dsimp only at h
@@ -406,8 +406,8 @@ theorem unfoldDefinition_looseBVars {env : Env} (henv : EnvWF env)
   revert h
   match hfn : e.getAppFn with
   | .const n us => ?_
-  | .bvar _ | .fvar _ _ _ | .sort _ | .app _ _ | .lam _ _ _ _
-  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+  | .bvar _ | .fvar _ _ | .sort _ | .app _ _ | .lam _ _ _
+  | .forallE _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ =>
     intro h; exact nomatch h
   intro h
   dsimp only at h
@@ -473,15 +473,15 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
         rw [whnfCore_succ] at h
         simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ fun l hl => hl
-      | fvar idx n ty =>
+      | fvar idx ty =>
         rw [whnfCore_succ] at h
         simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ fun l hl => hl
-      | forallE n ty body bi =>
+      | forallE ty body bi =>
         rw [whnfCore_succ] at h
         simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ fun l hl => hl
-      | lam n ty body bi =>
+      | lam ty body bi =>
         rw [whnfCore_succ] at h
         simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ fun l hl => hl
@@ -496,7 +496,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
       | bvar i =>
         rw [whnfCore_succ] at h
         simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
-      | letE nn tt vv bb =>
+      | letE tt vv bb =>
         rw [whnfCore_succ] at h
         simp only [whnfCoreBody, whnfCore_def] at h
         intro l hl
@@ -629,15 +629,15 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
         rw [whnfCore_succ] at h
         simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ hb
-      | fvar idx n ty =>
+      | fvar idx ty =>
         rw [whnfCore_succ] at h
         simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ hb
-      | forallE n ty body bi =>
+      | forallE ty body bi =>
         rw [whnfCore_succ] at h
         simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ hb
-      | lam n ty body bi =>
+      | lam ty body bi =>
         rw [whnfCore_succ] at h
         simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ hb
@@ -652,7 +652,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
       | bvar i =>
         rw [whnfCore_succ] at h
         simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
-      | letE nn tt vv bb =>
+      | letE tt vv bb =>
         rw [whnfCore_succ] at h
         simp only [whnfCoreBody, whnfCore_def] at h
         simp only [looseBVarsBounded, Bool.and_eq_true] at hb
@@ -776,7 +776,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       rw [inferTypeCore_succ] at h
       simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h; simp [WScoped]
-    | fvar idx n ty =>
+    | fvar idx ty =>
       rw [inferTypeCore_succ] at h
       simp only [inferBody, pure,
         Except.pure] at h
@@ -838,15 +838,15 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
           intro h
           simp only [Except.ok.injEq] at h
           subst h; simp [WScoped]
-    | forallE n ty body m =>
+    | forallE ty body m =>
       obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, -, rfl⟩ :=
         inferTypeCore_forall_inv h
       simp [WScoped]
-    | lam n ty body m =>
+    | lam ty body m =>
       obtain ⟨tty, u, bt, -, -, hbt, -, -, rfl⟩ :=
         inferTypeCore_lam_inv h
       simp only [WScoped] at hw
-      have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
+      have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d ty)) :=
         hw.1.instantiate1 0 hw.2
       have hwbt := inferTypeCore_WScoped henv fuel hbt hwo
       simp only [WScoped]
@@ -872,7 +872,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
-    | letE n' t' v' b' =>
+    | letE t' v' b' =>
       obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCore_letE_inv h
       simp only [WScoped] at hw
       exact inferTypeCore_WScoped henv fuel h'
@@ -889,7 +889,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       rw [inferTypeCore_succ] at h
       simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h; intro l hl; simp [fvarLeaves] at hl
-    | fvar idx n ty =>
+    | fvar idx ty =>
       rw [inferTypeCore_succ] at h
       simp only [inferBody, pure,
         Except.pure] at h
@@ -953,16 +953,16 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
           intro h
           simp only [Except.ok.injEq] at h
           subst h; intro l hl; simp [fvarLeaves] at hl
-    | forallE n ty body m =>
+    | forallE ty body m =>
       obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, -, rfl⟩ :=
         inferTypeCore_forall_inv h
       intro l hl
       simp [fvarLeaves] at hl
-    | lam n ty body m =>
+    | lam ty body m =>
       obtain ⟨tty, u, bt, -, -, hbt, -, -, rfl⟩ :=
         inferTypeCore_lam_inv h
       simp only [WScoped] at hw
-      have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
+      have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d ty)) :=
         hw.1.instantiate1 0 hw.2
       have hwbt := inferTypeCore_WScoped henv fuel hbt hwo
       intro l hl
@@ -1012,7 +1012,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
-    | letE n' t' v' b' =>
+    | letE t' v' b' =>
       obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCore_letE_inv h
       simp only [WScoped] at hw
       intro l hl
@@ -1035,7 +1035,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       rw [inferTypeCore_succ] at h
       simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h; simp [looseBVarsBounded]
-    | fvar idx n ty =>
+    | fvar idx ty =>
       rw [inferTypeCore_succ] at h
       simp only [inferBody, pure,
         Except.pure] at h
@@ -1096,20 +1096,20 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
           intro h
           simp only [Except.ok.injEq] at h
           subst h; simp [looseBVarsBounded]
-    | forallE n ty body m =>
+    | forallE ty body m =>
       obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, -, rfl⟩ :=
         inferTypeCore_forall_inv h
       simp [looseBVarsBounded]
-    | lam n ty body m =>
+    | lam ty body m =>
       obtain ⟨tty, u, bt, -, -, hbt, -, -, rfl⟩ :=
         inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb
-      have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
+      have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d ty)) :=
         hw.1.instantiate1 0 hw.2
-      have hbo : (body.instantiate1 (.fvar d n ty)).looseBVarsBounded 0
+      have hbo : (body.instantiate1 (.fvar d ty)).looseBVarsBounded 0
           = true := looseBVarsBounded_instantiate1 body 0 hb.2
-      have hLbo : Expr.LeavesBounded (body.instantiate1 (.fvar d n ty)) := by
+      have hLbo : Expr.LeavesBounded (body.instantiate1 (.fvar d ty)) := by
         intro l hl
         rcases fvarLeaves_instantiate1 body 0 hl with hb' | hb'
         · exact hLb l (by simp [fvarLeaves, hb'])
@@ -1146,7 +1146,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
-    | letE n' t' v' b' =>
+    | letE t' v' b' =>
       obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCore_letE_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb

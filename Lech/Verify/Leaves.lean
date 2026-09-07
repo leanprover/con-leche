@@ -34,7 +34,7 @@ theorem fvarLeaves_instantiate1 {a : Expr} :
     split at hl
     · exact Or.inr hl
     · split at hl <;> simp [fvarLeaves] at hl
-  | fvar idx n ty _ =>
+  | fvar idx ty _ =>
     intro k l hl
     simp only [instantiate1] at hl
     exact Or.inl hl
@@ -48,7 +48,7 @@ theorem fvarLeaves_instantiate1 {a : Expr} :
     · rcases ihb k hl with h | h
       · exact Or.inl (Or.inr h)
       · exact Or.inr h
-  | lam n ty body m ihty ihbody =>
+  | lam ty body m ihty ihbody =>
     intro k l hl
     simp only [instantiate1, fvarLeaves, List.mem_append] at hl ⊢
     rcases hl with hl | hl
@@ -58,7 +58,7 @@ theorem fvarLeaves_instantiate1 {a : Expr} :
     · rcases ihbody (k + 1) hl with h | h
       · exact Or.inl (Or.inr h)
       · exact Or.inr h
-  | forallE n ty body m ihty ihbody =>
+  | forallE ty body m ihty ihbody =>
     intro k l hl
     simp only [instantiate1, fvarLeaves, List.mem_append] at hl ⊢
     rcases hl with hl | hl
@@ -68,7 +68,7 @@ theorem fvarLeaves_instantiate1 {a : Expr} :
     · rcases ihbody (k + 1) hl with h | h
       · exact Or.inl (Or.inr h)
       · exact Or.inr h
-  | letE n ty v body ihty ihv ihbody =>
+  | letE ty v body ihty ihv ihbody =>
     intro k l hl
     simp only [instantiate1, fvarLeaves, List.mem_append] at hl ⊢
     rcases hl with (hl | hl) | hl
@@ -96,7 +96,7 @@ theorem fvarLeaves_abstract1 {D : Nat} :
   intro e
   induction e with
   | bvar i => intro k l hl; simp [abstract1, fvarLeaves] at hl
-  | fvar idx n ty _ =>
+  | fvar idx ty _ =>
     intro k l hl
     simp only [abstract1] at hl
     split at hl
@@ -108,19 +108,19 @@ theorem fvarLeaves_abstract1 {D : Nat} :
     rcases hl with hl | hl
     · exact Or.inl (ihf k hl)
     · exact Or.inr (ihb k hl)
-  | lam n ty body m ihty ihbody =>
+  | lam ty body m ihty ihbody =>
     intro k l hl
     simp only [abstract1, fvarLeaves, List.mem_append] at hl ⊢
     rcases hl with hl | hl
     · exact Or.inl (ihty k hl)
     · exact Or.inr (ihbody (k + 1) hl)
-  | forallE n ty body m ihty ihbody =>
+  | forallE ty body m ihty ihbody =>
     intro k l hl
     simp only [abstract1, fvarLeaves, List.mem_append] at hl ⊢
     rcases hl with hl | hl
     · exact Or.inl (ihty k hl)
     · exact Or.inr (ihbody (k + 1) hl)
-  | letE n ty v body ihty ihv ihbody =>
+  | letE ty v body ihty ihv ihbody =>
     intro k l hl
     simp only [abstract1, fvarLeaves, List.mem_append] at hl ⊢
     rcases hl with (hl | hl) | hl
@@ -140,10 +140,10 @@ theorem fvarLeaves_of_leafEquiv : ∀ (e₁ e₂ : Expr), Expr.LeafEquiv e₁ e�
     e₂.fvarLeaves = e₁.fvarLeaves := by
   intro e₁
   induction e₁ with
-  | fvar idx n ty _ =>
+  | fvar idx ty _ =>
     intro e₂ hle
     cases e₂ with
-    | fvar idx' n' ty' =>
+    | fvar idx' ty' =>
       simp only [Expr.LeafEquiv] at hle
       obtain ⟨rfl, rfl, rfl⟩ := hle
       rfl
@@ -155,24 +155,24 @@ theorem fvarLeaves_of_leafEquiv : ∀ (e₁ e₂ : Expr), Expr.LeafEquiv e₁ e�
       simp only [Expr.LeafEquiv] at hle
       simp only [fvarLeaves, ihf f' hle.1, iha a' hle.2]
     | _ => exact absurd hle (by simp [Expr.LeafEquiv])
-  | lam n ty body m ihty ihbody =>
+  | lam ty body m ihty ihbody =>
     intro e₂ hle
     cases e₂ with
-    | lam n' ty' body' m' =>
+    | lam ty' body' m' =>
       simp only [Expr.LeafEquiv] at hle
       simp only [fvarLeaves, ihty ty' hle.1, ihbody body' hle.2]
     | _ => exact absurd hle (by simp [Expr.LeafEquiv])
-  | forallE n ty body m ihty ihbody =>
+  | forallE ty body m ihty ihbody =>
     intro e₂ hle
     cases e₂ with
-    | forallE n' ty' body' m' =>
+    | forallE ty' body' m' =>
       simp only [Expr.LeafEquiv] at hle
       simp only [fvarLeaves, ihty ty' hle.1, ihbody body' hle.2]
     | _ => exact absurd hle (by simp [Expr.LeafEquiv])
-  | letE n ty val body ihty ihval ihbody =>
+  | letE ty val body ihty ihval ihbody =>
     intro e₂ hle
     cases e₂ with
-    | letE n' ty' val' body' =>
+    | letE ty' val' body' =>
       simp only [Expr.LeafEquiv] at hle
       simp only [fvarLeaves, ihty ty' hle.1, ihval val' hle.2.1, ihbody body' hle.2.2]
     | _ => exact absurd hle (by simp [Expr.LeafEquiv])
@@ -209,7 +209,7 @@ theorem WScoped_leaves : ∀ (e : Expr) {d : Nat}, WScoped d e →
     ∀ l ∈ e.fvarLeaves, l.1 < d ∧ WScoped l.1 l.2.2 := by
   intro e
   induction e with
-  | fvar idx n ty ih =>
+  | fvar idx ty ih =>
     intro d hw l hl
     simp only [WScoped] at hw
     simp only [fvarLeaves, List.mem_cons] at hl
@@ -224,21 +224,21 @@ theorem WScoped_leaves : ∀ (e : Expr) {d : Nat}, WScoped d e →
     rcases hl with hl | hl
     · exact ihf hw.1 l hl
     · exact iha hw.2 l hl
-  | lam n ty body m ihty ihbody =>
+  | lam ty body m ihty ihbody =>
     intro d hw l hl
     simp only [WScoped] at hw
     simp only [fvarLeaves, List.mem_append] at hl
     rcases hl with hl | hl
     · exact ihty hw.1 l hl
     · exact ihbody hw.2 l hl
-  | forallE n ty body m ihty ihbody =>
+  | forallE ty body m ihty ihbody =>
     intro d hw l hl
     simp only [WScoped] at hw
     simp only [fvarLeaves, List.mem_append] at hl
     rcases hl with hl | hl
     · exact ihty hw.1 l hl
     · exact ihbody hw.2 l hl
-  | letE n ty val body ihty ihval ihbody =>
+  | letE ty val body ihty ihval ihbody =>
     intro d hw l hl
     simp only [WScoped] at hw
     simp only [fvarLeaves, List.mem_append] at hl
@@ -261,7 +261,7 @@ theorem fvarLeaves_lt_of_wscoped :
     ∀ {e : Expr} {D : Nat}, WScoped D e → ∀ l ∈ e.fvarLeaves, l.1 < D := by
   intro e
   induction e with
-  | fvar idx n ty ih =>
+  | fvar idx ty ih =>
     intro D hw l hl
     simp only [WScoped] at hw
     simp only [fvarLeaves, List.mem_cons] at hl
@@ -275,21 +275,21 @@ theorem fvarLeaves_lt_of_wscoped :
     rcases hl with hl | hl
     · exact ihf hw.1 l hl
     · exact iha hw.2 l hl
-  | lam n ty body m ihty ihbody =>
+  | lam ty body m ihty ihbody =>
     intro D hw l hl
     simp only [WScoped] at hw
     simp only [fvarLeaves, List.mem_append] at hl
     rcases hl with hl | hl
     · exact ihty hw.1 l hl
     · exact ihbody hw.2 l hl
-  | forallE n ty body m ihty ihbody =>
+  | forallE ty body m ihty ihbody =>
     intro D hw l hl
     simp only [WScoped] at hw
     simp only [fvarLeaves, List.mem_append] at hl
     rcases hl with hl | hl
     · exact ihty hw.1 l hl
     · exact ihbody hw.2 l hl
-  | letE n ty val body ihty ihval ihbody =>
+  | letE ty val body ihty ihval ihbody =>
     intro D hw l hl
     simp only [WScoped] at hw
     simp only [fvarLeaves, List.mem_append] at hl
@@ -314,7 +314,7 @@ theorem fvarLeaves_abstract1_lt {D : Nat} :
       ∀ l ∈ (e.abstract1 D k).fvarLeaves, l ∈ e.fvarLeaves ∧ l.1 < D := by
   intro e
   induction e with
-  | fvar idx n ty ih =>
+  | fvar idx ty ih =>
     intro k hw l hl
     simp only [WScoped] at hw
     simp only [abstract1] at hl
@@ -336,7 +336,7 @@ theorem fvarLeaves_abstract1_lt {D : Nat} :
       exact ⟨Or.inl h1, h2⟩
     · obtain ⟨h1, h2⟩ := iha k hw.2 l hl
       exact ⟨Or.inr h1, h2⟩
-  | lam n ty body m ihty ihbody =>
+  | lam ty body m ihty ihbody =>
     intro k hw l hl
     simp only [WScoped] at hw
     simp only [abstract1, fvarLeaves, List.mem_append] at hl ⊢
@@ -345,7 +345,7 @@ theorem fvarLeaves_abstract1_lt {D : Nat} :
       exact ⟨Or.inl h1, h2⟩
     · obtain ⟨h1, h2⟩ := ihbody (k + 1) hw.2 l hl
       exact ⟨Or.inr h1, h2⟩
-  | forallE n ty body m ihty ihbody =>
+  | forallE ty body m ihty ihbody =>
     intro k hw l hl
     simp only [WScoped] at hw
     simp only [abstract1, fvarLeaves, List.mem_append] at hl ⊢
@@ -354,7 +354,7 @@ theorem fvarLeaves_abstract1_lt {D : Nat} :
       exact ⟨Or.inl h1, h2⟩
     · obtain ⟨h1, h2⟩ := ihbody (k + 1) hw.2 l hl
       exact ⟨Or.inr h1, h2⟩
-  | letE n ty val body ihty ihval ihbody =>
+  | letE ty val body ihty ihval ihbody =>
     intro k hw l hl
     simp only [WScoped] at hw
     simp only [abstract1, fvarLeaves, List.mem_append] at hl ⊢
@@ -396,7 +396,7 @@ theorem annotateCore_leaves_sub {env : Env} :
     rw [annotateCore_succ] at h
     simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     subst h; intro l hl; exact hl
-  | fuel + 1, .fvar idx n ty, d, e', h, _, _ => by
+  | fuel + 1, .fvar idx ty, d, e', h, _, _ => by
     rw [annotateCore_succ] at h
     simp only [annotateBody] at h
     revert h
@@ -433,17 +433,17 @@ theorem annotateCore_leaves_sub {env : Env} :
     intro l hl
     simp only [fvarLeaves] at hl ⊢
     exact hsub₂ l hl
-  | fuel + 1, .forallE n ty body m, d, e', h, hw, hb => by
+  | fuel + 1, .forallE ty body m, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_forallE_inv h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
     have hwbody' := annotateCore_WScoped fuel
-      (body.instantiate1 (.fvar d n ty')) hbody (hwty'.instantiate1 0 hw.2)
+      (body.instantiate1 (.fvar d ty')) hbody (hwty'.instantiate1 0 hw.2)
     have hsubty : ∀ l ∈ ty'.fvarLeaves, l ∈ ty.fvarLeaves :=
       annotateCore_leaves_sub fuel ty hty hw.1 hb.1
     have hsubbody : ∀ l ∈ body'.fvarLeaves,
-        l ∈ (body.instantiate1 (.fvar d n ty')).fvarLeaves :=
+        l ∈ (body.instantiate1 (.fvar d ty')).fvarLeaves :=
       annotateCore_leaves_sub fuel _ hbody (hwty'.instantiate1 0 hw.2)
         (looseBVarsBounded_instantiate1 body 0 hb.2)
     intro l hl
@@ -458,17 +458,17 @@ theorem annotateCore_leaves_sub {env : Env} :
         rcases h2 with rfl | h2
         · omega
         · exact Or.inl (hsubty l h2)
-  | fuel + 1, .lam n ty body m, d, e', h, hw, hb => by
+  | fuel + 1, .lam ty body m, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_lam_inv h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
     have hwbody' := annotateCore_WScoped fuel
-      (body.instantiate1 (.fvar d n ty')) hbody (hwty'.instantiate1 0 hw.2)
+      (body.instantiate1 (.fvar d ty')) hbody (hwty'.instantiate1 0 hw.2)
     have hsubty : ∀ l ∈ ty'.fvarLeaves, l ∈ ty.fvarLeaves :=
       annotateCore_leaves_sub fuel ty hty hw.1 hb.1
     have hsubbody : ∀ l ∈ body'.fvarLeaves,
-        l ∈ (body.instantiate1 (.fvar d n ty')).fvarLeaves :=
+        l ∈ (body.instantiate1 (.fvar d ty')).fvarLeaves :=
       annotateCore_leaves_sub fuel _ hbody (hwty'.instantiate1 0 hw.2)
         (looseBVarsBounded_instantiate1 body 0 hb.2)
     intro l hl
@@ -483,7 +483,7 @@ theorem annotateCore_leaves_sub {env : Env} :
         rcases h2 with rfl | h2
         · omega
         · exact Or.inl (hsubty l h2)
-  | fuel + 1, .letE n ty v b, d, e', h, hw, hb => by
+  | fuel + 1, .letE ty v b, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨ty', v', -, -, hbody⟩ := annotateCore_letE_inv h

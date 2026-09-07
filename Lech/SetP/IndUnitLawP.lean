@@ -414,7 +414,7 @@ theorem memberUnitLawP : MemberUnitLawP V := by
     -- the two member variables, opened
     have hb1 : Expr.instSeq (openFvars 0 (caps.unitParams + 2))
         (caps.unitParams + 1) (Expr.bvar 1)
-        = Expr.fvar caps.unitParams Name.anonymous (.sort .zero) := by
+        = Expr.fvar caps.unitParams (.sort .zero) := by
       have hhit := Expr.instSeq_bvar (openFvars 0 (caps.unitParams + 2))
         (caps.unitParams + 1) 1
         (openFvars_bounded 0 (caps.unitParams + 2)) (by omega)
@@ -426,7 +426,7 @@ theorem memberUnitLawP : MemberUnitLawP V := by
       exact (Option.some.inj hhit).symm
     have hb0 : Expr.instSeq (openFvars 0 (caps.unitParams + 2))
         (caps.unitParams + 1) (Expr.bvar 0)
-        = Expr.fvar (caps.unitParams + 1) Name.anonymous (.sort .zero) := by
+        = Expr.fvar (caps.unitParams + 1) (.sort .zero) := by
       have hhit := Expr.instSeq_bvar (openFvars 0 (caps.unitParams + 2))
         (caps.unitParams + 1) 0
         (openFvars_bounded 0 (caps.unitParams + 2)) (by omega)

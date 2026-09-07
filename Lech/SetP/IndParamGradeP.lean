@@ -60,12 +60,12 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
     -- the public (recursor) frame
     {fvsP : List Expr} (hfvsPlen : fvsP.length = rP)
     (hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     (hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP)
+      Expr.fvar l.1 l.2.2 ∈ fvsP)
     (hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)
     (hokTV : ∀ σ : Nat → V, AnnotOkP V σ TV)
@@ -100,7 +100,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
     exact h
   -- the frame's per-index data
   have hfvsPAt : ∀ n, n < rP →
-      ∃ nm ty, fvsP[n]? = some (.fvar n nm ty) := by
+      ∃ nm ty, fvsP[n]? = some (.fvar n ty) := by
     intro n hn
     rcases hx : fvsP[n]? with _ | x
     · rw [List.getElem?_eq_none_iff] at hx; omega
@@ -186,7 +186,7 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
       · rfl
   have hleafCdAll : ∀ q, q < cnP →
       ∀ l ∈ (cdomsP.getD q default).fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP ∧ l.1 < cnP := by
+        Expr.fvar l.1 l.2.2 ∈ fvsP ∧ l.1 < cnP := by
     intro q hq l hl
     have hmem : cdomsP.getD q default ∈ cdomsP := by
       rw [List.getD]
@@ -233,13 +233,13 @@ theorem paramGradeFireP {m : EnvS2Core V env} {F : Nat}
   | _ q ihq =>
   intro hq
   obtain ⟨nmP, tyP, hxP⟩ := hfvsPAt q (by omega)
-  have hmemFvsP : Expr.fvar q nmP tyP ∈ fvsP := List.mem_of_getElem? hxP
+  have hmemFvsP : Expr.fvar q tyP ∈ fvsP := List.mem_of_getElem? hxP
   have hwsTyP : Expr.WScoped q tyP := by
     have h' := hwsFvsP _ hmemFvsP
     simp only [Expr.WScoped] at h'
     exact h'.2
   have hleafTyP : ∀ l ∈ tyP.fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP := by
+      Expr.fvar l.1 l.2.2 ∈ fvsP := by
     intro l hl
     exact hleafClosedP l ⟨_, hmemFvsP, by
       rw [Expr.fvarLeaves]; exact List.mem_cons_of_mem _ hl⟩

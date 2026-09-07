@@ -71,7 +71,7 @@ theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
       env.find? natSuccName = some (.ctorInfo cv1 i1 j1) ∧
       cv.levelParams = [] ∧ cv0.levelParams = [] ∧ cv1.levelParams = [] ∧
       cv.type = .sort (.succ .zero) ∧ cv0.type = .const natName [] ∧
-      ∃ nm mb, cv1.type = .forallE nm (.const natName []) (.const natName []) mb := by
+      ∃ nm mb, cv1.type = .forallE (.const natName []) (.const natName []) mb := by
   unfold natLitSupported at hs
   simp only [Bool.and_eq_true] at hs
   obtain ⟨⟨hi, hz⟩, hsc⟩ := hs
@@ -131,20 +131,20 @@ theorem strLitSupported_inv {env : Env} (hs : strLitSupported env = true) :
       ciS.toConstantVal.type = .sort (.succ .zero) ∧
       ciH.toConstantVal.type = .sort (.succ .zero) ∧
       (∃ nm mb, ciO.toConstantVal.type =
-        .forallE nm (.app (.const listName [.zero]) (.const charName []))
+        .forallE (.app (.const listName [.zero]) (.const charName []))
           (.const stringName []) mb) ∧
       (∃ nm mb, ciL.toConstantVal.type =
-        .forallE nm (.sort (.succ (.param pL))) (.sort (.succ (.param pL))) mb) ∧
+        .forallE (.sort (.succ (.param pL))) (.sort (.succ (.param pL))) mb) ∧
       (∃ nm mb, ciN.toConstantVal.type =
-        .forallE nm (.sort (.succ (.param pN)))
+        .forallE (.sort (.succ (.param pN)))
           (.app (.const listName [.param pN]) (.bvar 0)) mb) ∧
       (∃ nm1 nm2 nm3 mb1 mb2 mb3, ciC.toConstantVal.type =
-        .forallE nm1 (.sort (.succ (.param pC)))
-          (.forallE nm2 (.bvar 0)
-            (.forallE nm3 (.app (.const listName [.param pC]) (.bvar 1))
+        .forallE (.sort (.succ (.param pC)))
+          (.forallE (.bvar 0)
+            (.forallE (.app (.const listName [.param pC]) (.bvar 1))
               (.app (.const listName [.param pC]) (.bvar 2)) mb3) mb2) mb1) ∧
       (∃ nm mb, ciF.toConstantVal.type =
-        .forallE nm (.const natName []) (.const charName []) mb) := by
+        .forallE (.const natName []) (.const charName []) mb) := by
   unfold strLitSupported at hs
   simp only [Bool.and_eq_true] at hs
   obtain ⟨⟨⟨⟨⟨⟨⟨hnat, hS⟩, hO⟩, hL⟩, hN⟩, hC⟩, hH⟩, hF⟩ := hs

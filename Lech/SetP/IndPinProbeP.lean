@@ -183,7 +183,7 @@ theorem openRev_pin_shape (c : Name) :
     Lech.TTVerify.openRev 0 6
         (Expr.app (Expr.const c []) (Expr.bvar 5))
       = Expr.app (Expr.const c [])
-          (Expr.fvar 5 Name.anonymous (Expr.sort Level.zero)) := rfl
+          (Expr.fvar 5 (Expr.sort Level.zero)) := rfl
 
 /-- …and `denoteP … 6` reads that as `.app (acval c ψ) (.bvar 0)` —
 an application with a **free** `.bvar` argument, which

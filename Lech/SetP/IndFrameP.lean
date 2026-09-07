@@ -457,12 +457,12 @@ theorem ctxOkP_of_openers {env : Env} {m : EnvS2Core V env}
     {k : Nat} {fvs : List Expr} {Aa : Nat → AVExpr} {Δa : List AVExpr}
     (hΔlen : Δa.length = k)
     (hshape : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hws : ∀ x ∈ fvs, Expr.WScoped k x)
     (hdoms : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       denoteP m.acval env φ i (Expr.fvarTypeD x) = some (Aa i))
     {e : Expr} {n : Nat}
-    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs)
     (hltE : ∀ l ∈ e.fvarLeaves, l.1 < n)
     (hent : ∀ i, i < n → Δa[k - 1 - i]? = some (Aa i))
     (hokA : ∀ i, i < n → ∀ ρ : Nat → V, Sat2 V Δa ρ →
@@ -484,7 +484,7 @@ theorem ctxOkP_of_openers {env : Env} {m : EnvS2Core V env}
   refine ⟨hwty.1, hwty.2.fvarsBelow, (Aa l.1).liftN (k - l.1) 0, Aa l.1,
     ?_, hent l.1 hlt, ?_, ?_⟩
   · have hd1 := hdoms l.1 _ hpos
-    rw [show Expr.fvarTypeD (Expr.fvar l.1 l.2.1 l.2.2) = l.2.2 from rfl]
+    rw [show Expr.fvarTypeD (Expr.fvar l.1 l.2.2) = l.2.2 from rfl]
       at hd1
     rw [denoteP_lift hacl hwty.2 k (by omega), hd1]
     rfl

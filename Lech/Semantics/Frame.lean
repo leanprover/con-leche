@@ -32,9 +32,9 @@ theorem frame_open2 {d : Nat} {n : Name} {ty body : Expr}
     (hbb : body.looseBVarsBounded 1 = true)
     (hLty : Expr.LeavesBounded ty)
     (hLbody : Expr.LeavesBounded body) :
-    Expr.WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) ∧
-      (body.instantiate1 (.fvar d n ty)).looseBVarsBounded 0 = true ∧
-      Expr.LeavesBounded (body.instantiate1 (.fvar d n ty)) := by
+    Expr.WScoped (d + 1) (body.instantiate1 (.fvar d ty)) ∧
+      (body.instantiate1 (.fvar d ty)).looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded (body.instantiate1 (.fvar d ty)) := by
   refine ⟨Expr.WScoped.instantiate1 hwty 0 hwb,
     Lech.looseBVarsBounded_instantiate1 body 0 hbb, fun l hl => ?_⟩
   rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2

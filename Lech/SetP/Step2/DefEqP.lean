@@ -370,15 +370,15 @@ def EtaCertStepP (μ : CheckMode) {env : Env} (m : EnvS2Core V env)
   ∀ {d : Nat} {n : Name} {ty bd b : Expr} {mb : Lech.BinderMeta}
     {Δa : List AVExpr},
     Lech.etaCertP μ env fuel d n ty bd mb b = .ok true →
-    Expr.WScoped d (.lam n ty bd mb) →
-    (Expr.lam n ty bd mb).looseBVarsBounded 0 = true →
-    Expr.LeavesBounded (.lam n ty bd mb) →
+    Expr.WScoped d (.lam ty bd mb) →
+    (Expr.lam ty bd mb).looseBVarsBounded 0 = true →
+    Expr.LeavesBounded (.lam ty bd mb) →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
     Expr.LeavesBounded b →
     ∀ {aa ba : AVExpr},
-      CtxOkP m φ d Δa (.lam n ty bd mb) →
+      CtxOkP m φ d Δa (.lam ty bd mb) →
       CtxOkP m φ d Δa b →
-      denoteP m.acval env φ d (.lam n ty bd mb) = some aa →
+      denoteP m.acval env φ d (.lam ty bd mb) = some aa →
       denoteP m.acval env φ d b = some ba →
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ aa) →
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ba) →
@@ -756,8 +756,8 @@ theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
     {ty₁ bd₁ ty₂ bd₂ : Expr} {ta₁ ba₁ ta₂ ba₂ : AVExpr}
     (hdt : isDefEqCore μ env fuel d ty₁ ty₂ = .ok true)
     (hdd : isDefEqCore μ env fuel (d + 1)
-      (bd₁.instantiate1 (.fvar d n₂ ty₂))
-      (bd₂.instantiate1 (.fvar d n₂ ty₂)) = .ok true)
+      (bd₁.instantiate1 (.fvar d ty₂))
+      (bd₂.instantiate1 (.fvar d ty₂)) = .ok true)
     (hwt₁ : Expr.WScoped d ty₁) (hbt₁ : ty₁.looseBVarsBounded 0 = true)
     (hLt₁ : Expr.LeavesBounded ty₁)
     (hCt₁ : CtxOkP m φ d Δa ty₁)
@@ -772,10 +772,10 @@ theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
     (hCb₂ : CtxOkP m φ d Δa bd₂)
     (hta₁ : denoteP m.acval env φ d ty₁ = some ta₁)
     (hva₁ : denoteP m.acval env φ (d + 1)
-      (bd₁.instantiate1 (.fvar d n₁ ty₁)) = some ba₁)
+      (bd₁.instantiate1 (.fvar d ty₁)) = some ba₁)
     (hta₂ : denoteP m.acval env φ d ty₂ = some ta₂)
     (hva₂ : denoteP m.acval env φ (d + 1)
-      (bd₂.instantiate1 (.fvar d n₂ ty₂)) = some ba₂)
+      (bd₂.instantiate1 (.fvar d ty₂)) = some ba₂)
     (hoT₁ : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ ta₁)
     (hoT₂ : ∀ σ : Nat → V, Sat2 V Δa σ → AnnotOkP V σ ta₂)
     (hoB₁ : ∀ σ : Nat → V, Sat2 V (ta₁ :: Δa) σ → AnnotOkP V σ ba₁)
@@ -792,13 +792,13 @@ theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
   -- `is_def_eq_binding`, task #201); the left body's denotation is
   -- read off its own opening — `denoteP` reads an fvar's index only.
   have hva₁' : denoteP m.acval env φ (d + 1)
-      (bd₁.instantiate1 (.fvar d n₂ ty₂)) = some ba₁ := by
+      (bd₁.instantiate1 (.fvar d ty₂)) = some ba₁ := by
     rw [denoteP_erasedEq (Expr.ErasedEq.instantiate1
       (Expr.ErasedEq.rfl bd₁)
-      (show Expr.ErasedEq (.fvar d n₂ ty₂) (.fvar d n₁ ty₁) from rfl))]
+      (show Expr.ErasedEq (.fvar d ty₂) (.fvar d ty₁) from rfl))]
     exact hva₁
   have hLo₁ : Expr.LeavesBounded
-      (bd₁.instantiate1 (.fvar d n₂ ty₂)) := by
+      (bd₁.instantiate1 (.fvar d ty₂)) := by
     intro l hl
     rcases Expr.fvarLeaves_instantiate1 bd₁ 0 hl with h2 | h2
     · exact hLb₁ l h2
@@ -807,7 +807,7 @@ theorem binder_congrP {m : EnvS2Core V env} {fuel : Nat}
       · exact hbt₂
       · exact hLt₂ l h3
   have hLo₂ : Expr.LeavesBounded
-      (bd₂.instantiate1 (.fvar d n₂ ty₂)) := by
+      (bd₂.instantiate1 (.fvar d ty₂)) := by
     intro l hl
     rcases Expr.fvarLeaves_instantiate1 bd₂ 0 hl with h2 | h2
     · exact hLb₂ l h2
@@ -1071,12 +1071,12 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       obtain ⟨ta₁, ba₁, hta₁, hva₁, rfl⟩ := denoteP_forallE_inv hda
       obtain ⟨ta₂, ba₂, hta₂, hva₂, rfl⟩ := denoteP_forallE_inv hdb
       have hbd : isDefEqCore μ env fuel (d + 1)
-          (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
-          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+          (bd₁.instantiate1 (Expr.fvar d ty₂))
+          (bd₂.instantiate1 (Expr.fvar d ty₂)) = .ok true := by
         revert h
         cases hbd0 : isDefEqCore μ env fuel (d + 1)
-            (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
-            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+            (bd₁.instantiate1 (Expr.fvar d ty₂))
+            (bd₂.instantiate1 (Expr.fvar d ty₂)) with
         | error err => intro h; exact nomatch h
         | ok rb =>
           intro h
@@ -1126,12 +1126,12 @@ theorem defeqStuck_claimP {m : EnvS2Core V env} {fuel : Nat}
       obtain ⟨ta₁, ba₁, hta₁, hva₁, rfl⟩ := denoteP_lam_inv hda
       obtain ⟨ta₂, ba₂, hta₂, hva₂, rfl⟩ := denoteP_lam_inv hdb
       have hbd : isDefEqCore μ env fuel (d + 1)
-          (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
-          (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) = .ok true := by
+          (bd₁.instantiate1 (Expr.fvar d ty₂))
+          (bd₂.instantiate1 (Expr.fvar d ty₂)) = .ok true := by
         revert h
         cases hbd0 : isDefEqCore μ env fuel (d + 1)
-            (bd₁.instantiate1 (Expr.fvar d n₂ ty₂))
-            (bd₂.instantiate1 (Expr.fvar d n₂ ty₂)) with
+            (bd₁.instantiate1 (Expr.fvar d ty₂))
+            (bd₂.instantiate1 (Expr.fvar d ty₂)) with
         | error err => intro h; exact nomatch h
         | ok rb =>
           intro h

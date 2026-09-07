@@ -889,12 +889,12 @@ theorem checkProjShapeS_sim {pty cty : Expr} {nP nF : Nat}
   match h5 : cbody.getAppFn with
   | .const _ _ => exact SimC.pure hs rfl
   | .bvar _ => exact SimC.throw
-  | .fvar _ _ _ => exact SimC.throw
+  | .fvar _ _ => exact SimC.throw
   | .sort _ => exact SimC.throw
   | .app _ _ => exact SimC.throw
-  | .lam _ _ _ _ => exact SimC.throw
-  | .forallE _ _ _ _ => exact SimC.throw
-  | .letE _ _ _ _ => exact SimC.throw
+  | .lam _ _ _ => exact SimC.throw
+  | .forallE _ _ _ => exact SimC.throw
+  | .letE _ _ _ => exact SimC.throw
   | .lit _ => exact SimC.throw
   | .proj _ _ _ => exact SimC.throw
 

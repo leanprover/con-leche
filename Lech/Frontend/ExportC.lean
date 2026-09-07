@@ -340,18 +340,18 @@ private def parseExprEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
     else if let .ok v := j.getObjVal? "lam" then do
       parseBinderInfo v
       let _ ← getIdx v "name"
-      pure (ExprC.mkLam .anonymous
+      pure (ExprC.mkLam
         (← getExprD st v "type") (← getExprD st v "body")
-        ⟨.default, ← parsePwD st v⟩, none)
+        ⟨← parsePwD st v⟩, none)
     else if let .ok v := j.getObjVal? "forallE" then do
       parseBinderInfo v
       let _ ← getIdx v "name"
-      pure (ExprC.mkForallE .anonymous
+      pure (ExprC.mkForallE
         (← getExprD st v "type") (← getExprD st v "body")
-        ⟨.default, ← parsePwD st v⟩, none)
+        ⟨← parsePwD st v⟩, none)
     else if let .ok v := j.getObjVal? "letE" then do
       let _ ← getIdx v "name"
-      pure (ExprC.mkLetE .anonymous
+      pure (ExprC.mkLetE
         (← getExprD st v "type") (← getExprD st v "value")
         (← getExprD st v "body"), none)
     else if let .ok v := j.getObjVal? "proj" then do
@@ -743,13 +743,13 @@ private def fastApplyIED (st : StateD) (i : Nat) (fn : FastNode) : FastResD :=
     | .binder isAll _nm ty bd => do
       let tI ← st.exprs[ty]?
       let bI ← st.exprs[bd]?
-      pure (if isAll then (ExprC.mkForallE .anonymous tI bI ⟨.default, .never⟩, [ty, bd])
-            else (ExprC.mkLam .anonymous tI bI ⟨.default, .never⟩, [ty, bd]))
+      pure (if isAll then (ExprC.mkForallE tI bI ⟨.never⟩, [ty, bd])
+            else (ExprC.mkLam tI bI ⟨.never⟩, [ty, bd]))
     | .letE _nm ty vl bd => do
       let tI ← st.exprs[ty]?
       let vI ← st.exprs[vl]?
       let bI ← st.exprs[bd]?
-      pure (ExprC.mkLetE .anonymous tI vI bI, [ty, vl, bd])
+      pure (ExprC.mkLetE tI vI bI, [ty, vl, bd])
     | .const nm us => do
       let nI ← st.names[nm]?
       let usI ← us.mapM (st.levels[·]?)

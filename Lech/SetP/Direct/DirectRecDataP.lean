@@ -40,20 +40,20 @@ theorem elimLevel_eq (p : DirectParts) :
 
 theorem stripPis_one_inv {e : Expr} {bs : List (Name × Expr × BinderMeta)}
     {b : Expr} (h : e.stripPis 1 = some (bs, b)) :
-    ∃ nm dom mb, e = .forallE nm dom b mb ∧ bs = [(nm, dom, mb)] := by
+    ∃ nm dom mb, e = .forallE dom b mb ∧ bs = [(nm, dom, mb)] := by
   match e, h with
-  | .forallE nm dom body mb, h =>
+  | .forallE dom body mb, h =>
     simp only [Expr.stripPis, Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
     exact ⟨nm, dom, mb, rfl, rfl⟩
-  | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-  | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+  | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+  | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
     simp [Expr.stripPis] at h
 
 theorem openPisAtFvars_one (nm : Name) (dom body : Expr) (mb : BinderMeta)
     (d : Nat) :
-    openPisAtFvars 1 (.forallE nm dom body mb) d
-      = some ([.fvar d nm dom], body.instantiate1 (.fvar d nm dom)) := rfl
+    openPisAtFvars 1 (.forallE dom body mb) d
+      = some ([.fvar d dom], body.instantiate1 (.fvar d dom)) := rfl
 
 /-! ## The recursor's data -/
 

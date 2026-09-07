@@ -71,7 +71,7 @@ structure Mem where
   /-- the index count -/
   nIdx : Nat
   /-- the index telescope, at the parameter frame -/
-  idxBs : List (Name × Expr)
+  idxBs : List Expr
   deriving Repr, Inhabited
 
 /-- One constructor of the auxiliary family. -/
@@ -84,7 +84,7 @@ structure ACtor where
   /-- field count -/
   nF : Nat
   /-- the field binders, each at its own frame over the parameter frame -/
-  doms : List (Name × Expr)
+  doms : List Expr
   /-- per field: the member it recurses to, or `none` -/
   kinds : List (Option Nat)
   /-- the residual's index expressions, at the fields' frame -/
@@ -115,7 +115,7 @@ structure Family where
   lps : List Name
   nP : Nat
   /-- the parameter binders (from the first former) -/
-  pbs : List (Name × Expr)
+  pbs : List Expr
   u : Level
   /-- the real member count -/
   r : Nat
@@ -175,18 +175,18 @@ partial def specAll (fam : Family) (o : Nat) (e : Expr) : Expr :=
   | none =>
     match e with
     | .app f a => .app (specAll fam o f) (specAll fam o a)
-    | .lam n d b m => .lam n (specAll fam o d) (specAll fam (o + 1) b) m
-    | .forallE n d b m => .forallE n (specAll fam o d) (specAll fam (o + 1) b) m
-    | .letE n t v b => .letE n (specAll fam o t) (specAll fam o v) (specAll fam (o + 1) b)
+    | .lam d b m => .lam (specAll fam o d) (specAll fam (o + 1) b) m
+    | .forallE d b m => .forallE (specAll fam o d) (specAll fam (o + 1) b) m
+    | .letE t v b => .letE (specAll fam o t) (specAll fam o v) (specAll fam (o + 1) b)
     | .proj s i x => .proj s i (specAll fam o x)
     | e => e
 
 /-! ## Reading the family off the recursor -/
 
 /-- Strip every leading `∀`, returning binders and body. -/
-def stripAllPis (e : Expr) : List (Name × Expr × BinderMeta) × Expr :=
+def stripAllPis (e : Expr) : List (Expr × BinderMeta) × Expr :=
   match e with
-  | .forallE n d b m => let (bs, r) := stripAllPis b; ((n, d, m) :: bs, r)
+  | .forallE d b m => let (bs, r) := stripAllPis b; ((d, m) :: bs, r)
   | e => ([], e)
 
 /-- Read the members off the motives of the first recursor's type
@@ -202,7 +202,7 @@ def readMems (lps : List Name) (nP : Nat) (types : List IndTypeRec)
     let dom := (motives.getD m default).lowerBVars m 0
     let (bs, body) := stripAllPis dom
     let .sort _ := body | throw s!"motive {m} does not end in a sort"
-    let some (_, carr, _) := bs.getLast?
+    let some (carr, _) := bs.getLast?
       | throw s!"motive {m} has no major binder"
     let nIdx := bs.length - 1
     let idxBs := piBinders (bs.take nIdx)
@@ -258,19 +258,19 @@ def readCtors (fam : Family) (M : Nat) (minors : List Expr)
     -- and earlier minors sit between the parameters and the fields)
     -- (head-β-reduced: a container at a dependent pin `I α (fun _ => T α)`
     -- leaves `(fun _ => T α) k` in the kernel's minor)
-    let doms : List (Name × Expr) := (List.range nF).map fun i =>
-      let (n, d, _) := bs.getD i default
-      (n, betaHead (d.lowerBVars (M + J) i))
+    let doms : List Expr := (List.range nF).map fun i =>
+      let (d, _) := bs.getD i default
+      betaHead (d.lowerBVars (M + J) i)
     -- the kinds, by the carrier match at each field's frame
     let kinds : List (Option Nat) := (List.range nF).map fun i =>
-      (matchCarrier fam i (doms.getD i default).2).map (·.1)
+      (matchCarrier fam i (doms.getD i default)).map (·.1)
     let nRec := kinds.filter (·.isSome) |>.length
     unless nRec == nIh do
       throw s!"minor {J} ({cname}): {nIh} inductive hypotheses for {nRec} recursive fields"
     -- every other field must not mention the block at all
     let memberNames := fam.mems.filterMap fun m => if m.real?.isSome then some m.I else none
     for i in List.range nF do
-      if (kinds.getD i none).isNone && mentionsAny memberNames (doms.getD i default).2 then
+      if (kinds.getD i none).isNone && mentionsAny memberNames (doms.getD i default) then
         throw s!"field {i} of {cname} mentions the block other than as a whole member or \
           container occurrence (nested under a binder)"
     -- the residual's index expressions at the fields' frame
@@ -319,8 +319,8 @@ where
       -- (unmoved positions agree)
       let mid : List Expr := (List.range ls.length).map fun i =>
         if (moved.drop k).any (·.1 == i) then rs.getD i default else ls.getD i default
-      let motive : Expr := .lam (.str .anonymous "z") ty
-        (.lam (.str .anonymous "h")
+      let motive : Expr := .lam ty
+        (.lam
           (mkEq ℓty (ty.liftLooseBVars 1 0) ((ls.getD pos default).liftLooseBVars 1 0) (.bvar 0))
           (mkEq ℓα (α.liftLooseBVars 2 0)
             (F 2 (liftAll 2 ls))
@@ -360,7 +360,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let some (motiveBs, afterM) := afterP.stripPis M | throw "recursor: motive telescope"
   let some (minorBs, _) := afterM.stripPis n | throw "recursor: minor telescope"
   -- the members: real ones and mimics
-  let mems ← readMems lps nP b.types (motiveBs.map (·.2.1))
+  let mems ← readMems lps nP b.types (motiveBs.map (·.1))
   let large? : Option Name :=
     match r0.cv.levelParams with
     | e :: rest => if rest == lps && !lps.contains e then some e else none
@@ -397,7 +397,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       match rr.rules.find? (·.ctor == cname) with
       | some rule => pure rule.nfields
       | none => throw s!"no rule for {cname} in {rr.cv.name}"
-  let ctors ← readCtors fam0 M (minorBs.map (·.2.1)) nFOf
+  let ctors ← readCtors fam0 M (minorBs.map (·.1)) nFOf
   let fam : Family := { fam0 with ctors := ctors }
   unless ctors.length == n do throw "minor count"
   -- the real members' constructors must be the block's, in order
@@ -428,7 +428,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
     let MI := rI.nM
     let some (_, afterPI) := rI.cv.type.stripPis nPI | throw s!"container {I1}: recursor parameters"
     let some (motivesI, _) := afterPI.stripPis MI | throw s!"container {I1}: recursor motives"
-    let memsI ← readMems lpsI nPI cb.types (motivesI.map (·.2.1))
+    let memsI ← readMems lpsI nPI cb.types (motivesI.map (·.1))
     let mut tags : List Nat := []
     let mut recNames : List Name := []
     for memI in memsI do
@@ -497,15 +497,15 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let mut W : Level := .succ .zero
   for mem in mems do
     for j in List.range mem.nIdx do
-      let ctxJ := ((pbs.map (·.2)) ++ ((mem.idxBs.take j).map (·.2))).reverse
-      let dom := (mem.idxBs.getD j default).2
+      let ctxJ := (pbs ++ (mem.idxBs.take j)).reverse
+      let dom := (mem.idxBs.getD j default)
       let some ℓj := sortOf ctx.tbl ctxJ (dom.renameConsts rnF)
         | throw s!"cannot infer the sort of index {j} of member {mem.tag} (the tag's universe)"
       W := .max W ℓj
   let tagTy ← need "tag type" (Expr.replacePiBody nP t0.cv.type (.sort W))
   let tagCtors : List (Name × Nat × Expr × List Nat) ← mems.mapM fun mem => do
     let ty ← need "tag constructor type" (Expr.replacePiBody nP t0.cv.type
-      (mkPis (mem.idxBs.map fun (nm, d) => (nm, specAll fam 0 d))
+      (mkPis (mem.idxBs.map fun d => specAll fam 0 d)
         (Expr.mkAppN (constP tag lps) (varsAt mem.nIdx nP))))
     pure (tagCtorName T mem.tag, mem.nIdx, ty, [])
   let tagRecTy ← need "tag recursor type" (recTy tag lps elimTag true nP 0 tagTy tagCtors)
@@ -519,11 +519,10 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
      [.recInfo ⟨tag.str "rec", elimTag :: lps, tagRecTy⟩ (nP + 1 + M) (nP + 1 + M) tagRules]))
   -- 2. the auxiliary family
   let auxTy ← need "aux type" (Expr.replacePiBody nP t0.cv.type
-    (.forallE (.str .anonymous "t") (Expr.mkAppN (constP tag lps) (varsAt 0 nP)) (.sort u) bm))
+    (.forallE (Expr.mkAppN (constP tag lps) (varsAt 0 nP)) (.sort u) bm))
   let auxCtors : List (Name × Nat × Expr × List Nat) ← ctors.mapM fun c => do
     let doms' := (List.range c.nF).map fun i =>
-      let (nm, d) := c.doms.getD i default
-      (nm, specAll fam i d)
+      specAll fam i (c.doms.getD i default)
     let ty ← need "aux constructor type" (Expr.replacePiBody nP t0.cv.type
       (mkPis doms' (auxAt fam c.mem c.nF c.idx)))
     pure (auxCtorName T c.mem c.cname, c.nF, ty,
@@ -543,43 +542,39 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   -- the spec'd field domains of a constructor at `o` extra binders
   -- below the parameter frame (field `i` sits `o + i` below)
   let specDoms := fun (c : ACtor) (o : Nat) => (List.range c.nF).map fun i =>
-    let (nm, d) := c.doms.getD i default
-    (nm, specAll fam (o + i) (d.liftLooseBVars o i))
+    specAll fam (o + i) ((c.doms.getD i default).liftLooseBVars o i)
   -- the model-side field domains (public spelling renamed)
   let modelDoms := fun (c : ACtor) (o : Nat) => (List.range c.nF).map fun i =>
-    let (nm, d) := c.doms.getD i default
-    (nm, rn (d.liftLooseBVars o i))
+    rn ((c.doms.getD i default).liftLooseBVars o i)
   -- a field's index arguments off its domain, at `o'` below the
   -- field's own frame
   let fieldIdx := fun (c : ACtor) (i : Nat) (o' : Nat) =>
-    ((matchCarrier fam i (c.doms.getD i default).2).map (·.2)).getD [] |>.map (·.liftLooseBVars o' 0)
+    ((matchCarrier fam i (c.doms.getD i default)).map (·.2)).getD [] |>.map (·.liftLooseBVars o' 0)
   -- `tag.rec p⃗ (λ i', ∀ s, aux p⃗ i' → Sort ℓs) branches i s` at frame
   -- `o` below the parameters, given the per-member branches (each a
   -- term at frame `o + 3`... no: branches are built by the caller at
   -- frame `o`, the motive λ adds binders itself)
   let tagDispatch := fun (o : Nat) (ℓs : Level) (branches : List Expr) (i s : Expr) =>
-    let motTag : Expr := .lam (.str .anonymous "i")
+    let motTag : Expr := .lam
       (Expr.mkAppN (constP tag lps) (varsAt o nP))
-      (.forallE (.str .anonymous "s")
+      (.forallE
         (Expr.mkAppN (constP aux lps) (varsAt (o + 1) nP ++ [.bvar 0])) (.sort ℓs) bm) bm
     Expr.mkAppN (.const (tag.str "rec") (Level.imax u (.succ ℓs) :: lps.map .param))
       (varsAt o nP ++ [motTag] ++ branches ++ [i, s])
   -- the dispatching motive `λ i s, tag.rec … i s` at frame `o`, with
   -- the branches built at frame `o + 2`
   let dispatchMotive := fun (o : Nat) (ℓs : Level) (branchesAt : Nat → List Expr) =>
-    Expr.lam (.str .anonymous "i") (Expr.mkAppN (constP tag lps) (varsAt o nP))
-      (.lam (.str .anonymous "s") (Expr.mkAppN (constP aux lps) (varsAt (o + 1) nP ++ [.bvar 0]))
+    Expr.lam (Expr.mkAppN (constP tag lps) (varsAt o nP))
+      (.lam (Expr.mkAppN (constP aux lps) (varsAt (o + 1) nP ++ [.bvar 0]))
         (tagDispatch (o + 2) ℓs (branchesAt (o + 2)) (.bvar 1) (.bvar 0)) bm) bm
   -- a member's branch `λ ı⃗ s, body` at frame `o` (the body built at
   -- frame `o + nIdx + 1`)
   -- (index binders of a member at frame `o`: the domains at their own
   -- frames, lifted past the `o` extras)
   let idxBsAt := fun (mem : Mem) (o : Nat) => (List.range mem.nIdx).map fun j =>
-    let (nm, d) := mem.idxBs.getD j default
-    (nm, (specAll fam j d).liftLooseBVars o j)
+    (specAll fam j (mem.idxBs.getD j default)).liftLooseBVars o j
   let idxBsAtM := fun (mem : Mem) (o : Nat) => (List.range mem.nIdx).map fun j =>
-    let (nm, d) := mem.idxBs.getD j default
-    (nm, (rn d).liftLooseBVars o j)
+    (rn (mem.idxBs.getD j default)).liftLooseBVars o j
   let packName := fun (j : Nat) => implName T s!"pack_{j}"
   let unpackName := fun (j : Nat) => implName T s!"unpack_{j}"
   let unpackPackName := fun (j : Nat) => implName T s!"unpackPack_{j}"
@@ -608,7 +603,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   -- 3. `_impl.unpack : ∀ p⃗ (i : tag p⃗) (s : aux p⃗ i), MotU i s`
   --    `MotU`: the identity carrier at a real member, `Carrier_j` at a mimic
   let motU := fun (o : Nat) => dispatchMotive o u fun o2 =>
-    mems.map fun mem => mkLams (idxBsAt mem o2 ++ [(.str .anonymous "s", auxAt fam mem.tag (o2 + mem.nIdx) (varsAt 0 mem.nIdx))])
+    mems.map fun mem => mkLams (idxBsAt mem o2 ++ [auxAt fam mem.tag (o2 + mem.nIdx) (varsAt 0 mem.nIdx)])
       (match mem.real? with
        | some _ => auxAt fam mem.tag (o2 + mem.nIdx + 1) (varsAt 1 mem.nIdx)
        | none => carrM mem (o2 + mem.nIdx + 1) (varsAt 1 mem.nIdx))
@@ -622,10 +617,9 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
         let k := ihPos c i
         -- at the ih's frame: `o + nF + k` below the parameters
         let fo := c.nF + k
-        some (.str .anonymous "ih",
-          Expr.mkAppN (motU (o + fo))
+        some <| Expr.mkAppN (motU (o + fo))
             [Expr.mkAppN (constP (tagCtorName T t) lps) (varsAt (o + fo) nP ++ (fieldIdx c i (fo - i))),
-             .bvar (fo - 1 - i)])
+             .bvar (fo - 1 - i)]
       | none => none
     let D := o + c.nF + nIh
     let fieldVar := fun (i : Nat) => Expr.bvar (nIh + c.nF - 1 - i)
@@ -646,8 +640,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
              | none => fieldVar i)
     let _ := D
     mkLams (fbs ++ ihbs) body
-  let unpackAllTy := mkPis (pbs ++ [(.str .anonymous "i", Expr.mkAppN (constP tag lps) (varsAt 0 nP)),
-      (.str .anonymous "s", Expr.mkAppN (constP aux lps) (varsAt 1 nP ++ [.bvar 0]))])
+  let unpackAllTy := mkPis (pbs ++ [Expr.mkAppN (constP tag lps) (varsAt 0 nP),
+      Expr.mkAppN (constP aux lps) (varsAt 1 nP ++ [.bvar 0])])
     (Expr.mkAppN (motU 2) [.bvar 1, .bvar 0])
   let unpackAllVal := mkLams pbs
     (Expr.mkAppN (.const (aux.str "rec") ((if large then [u] else []) ++ lps.map .param))
@@ -671,7 +665,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
     -- the pack motives at frame `o`: `λ ı⃗ x, aux p⃗ (tag.t ı⃗)` per member
     let packMotives := fun (o : Nat) => g.tags.map fun t =>
       let mem := mems.getD t default
-      mkLams (idxBsAtM mem o ++ [(.str .anonymous "x", carrM mem (o + mem.nIdx) (varsAt 0 mem.nIdx))])
+      mkLams (idxBsAtM mem o ++ [carrM mem (o + mem.nIdx) (varsAt 0 mem.nIdx)])
         (auxAt fam t (o + mem.nIdx + 1) (varsAt 1 mem.nIdx))
     -- the pack minors at frame `o`
     let packMinors := fun (o : Nat) => gctors.map fun c =>
@@ -681,7 +675,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       let ihbs := grpRec.map fun i =>
         let k := (grpRec.filter (· < i)).length
         let fo := c.nF + k
-        (.str .anonymous "ih", auxAt fam ((c.kinds.getD i none).getD 0) (o + fo) (fieldIdx c i (fo - i)))
+        auxAt fam ((c.kinds.getD i none).getD 0) (o + fo) (fieldIdx c i (fo - i))
       let gVar := fun (i : Nat) => Expr.bvar (nIhI + c.nF - 1 - i)
       let ihVarI := fun (i : Nat) => Expr.bvar (nIhI - 1 - (grpRec.filter (· < i)).length)
       let fo := c.nF + nIhI
@@ -702,7 +696,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       let j := mem.j
       let nI := mem.nIdx
       let o0 := nI + 1
-      let bsX := pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "x", carrM mem nI (varsAt 0 nI))]
+      let bsX := pbs ++ idxBsAtM mem 0 ++ [carrM mem nI (varsAt 0 nI)]
       let packTy := mkPis bsX (auxAt fam t o0 (varsAt 1 nI))
       let packVal := mkLams bsX
         (Expr.mkAppN (cRec k u)
@@ -714,7 +708,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       let nI := mem.nIdx
       let o0 := nI + 1
       -- `unpack_j`
-      let bsS := pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "s", auxAt fam t nI (varsAt 0 nI))]
+      let bsS := pbs ++ idxBsAtM mem 0 ++ [auxAt fam t nI (varsAt 0 nI)]
       let unpackTy := mkPis bsS (carrM mem o0 (varsAt 1 nI))
       let unpackVal := mkLams bsS
         (Expr.mkAppN (constP unpackAll lps)
@@ -723,14 +717,14 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       -- `congrPack_j`
       let carrAt := fun (o : Nat) => carrM mem o (varsAt (o - nI) nI)
       let cpBs := pbs ++ idxBsAtM mem 0 ++
-        [(.str .anonymous "a", carrAt nI), (.str .anonymous "b", carrAt (nI + 1)),
-         (.str .anonymous "h", mkEq u (carrAt (nI + 2)) (.bvar 1) (.bvar 0))]
+        [carrAt nI, carrAt (nI + 1),
+         mkEq u (carrAt (nI + 2)) (.bvar 1) (.bvar 0)]
       let packApp := fun (o : Nat) (x : Expr) => appImpl (packName j) o (varsAt (o - nI) nI) [x]
       let cpTy := mkPis cpBs (mkEq u (auxAt fam t (nI + 3) (varsAt 3 nI)) (packApp (nI + 3) (.bvar 2)) (packApp (nI + 3) (.bvar 1)))
       let cpVal := mkLams cpBs
         (mkEqRec .zero u (carrAt (nI + 3)) (.bvar 2)
-          (.lam (.str .anonymous "z") (carrAt (nI + 3))
-            (.lam (.str .anonymous "h'") (mkEq u (carrAt (nI + 4)) (.bvar 3) (.bvar 0))
+          (.lam (carrAt (nI + 3))
+            (.lam (mkEq u (carrAt (nI + 4)) (.bvar 3) (.bvar 0))
               (mkEq u (auxAt fam t (nI + 5) (varsAt 5 nI)) (packApp (nI + 5) (.bvar 4)) (packApp (nI + 5) (.bvar 1))) bm) bm)
           (mkRefl u (auxAt fam t (nI + 3) (varsAt 3 nI)) (packApp (nI + 3) (.bvar 2)))
           (.bvar 1) (.bvar 0))
@@ -740,7 +734,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       mkEq u (carrM mem o idx) (appImpl (unpackName mem.j) o idx [appImpl (packName mem.j) o idx [x]]) x
     let upMotives := fun (o : Nat) => g.tags.map fun t =>
       let mem := mems.getD t default
-      mkLams (idxBsAtM mem o ++ [(.str .anonymous "x", carrM mem (o + mem.nIdx) (varsAt 0 mem.nIdx))])
+      mkLams (idxBsAtM mem o ++ [carrM mem (o + mem.nIdx) (varsAt 0 mem.nIdx)])
         (upStmtOf mem (o + mem.nIdx + 1) (varsAt 1 mem.nIdx) (.bvar 0))
     let upMinors := fun (o : Nat) => gctors.map fun c =>
       let memC := mems.getD c.mem default
@@ -753,7 +747,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
         let k := (grpRec.filter (· < i)).length
         let fo' := c.nF + k
         let mem' := mems.getD ((c.kinds.getD i none).getD 0) default
-        (.str .anonymous "ih", upStmtOf mem' (o + fo') (fieldIdx c i (fo' - i)) (.bvar (fo' - 1 - i)))
+        upStmtOf mem' (o + fo') (fieldIdx c i (fo' - i)) (.bvar (fo' - 1 - i))
       -- the spine's pins are the constructor's OWN container's (a group
       -- member's container differs from the group's head container)
       let F := fun (o' : Nat) (args : List Expr) =>
@@ -788,7 +782,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       let mem := mems.getD t default
       let nI := mem.nIdx
       let o0 := nI + 1
-      let bsX := pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "x", carrM mem nI (varsAt 0 nI))]
+      let bsX := pbs ++ idxBsAtM mem 0 ++ [carrM mem nI (varsAt 0 nI)]
       let upTy := mkPis bsX (upStmtOf mem o0 (varsAt 1 nI) (.bvar 0))
       let upVal := mkLams bsX
         (Expr.mkAppN (cRec k .zero)
@@ -798,7 +792,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let motPU := fun (o : Nat) => dispatchMotive o .zero fun o2 =>
     mems.map fun mem =>
       let sAt := fun (o' : Nat) => auxAt fam mem.tag o' (varsAt (o' - (o2 + mem.nIdx)) mem.nIdx)
-      mkLams (idxBsAt mem o2 ++ [(.str .anonymous "s", sAt (o2 + mem.nIdx))])
+      mkLams (idxBsAt mem o2 ++ [sAt (o2 + mem.nIdx)])
         (let o3 := o2 + mem.nIdx + 1
          match mem.real? with
          | some _ => mkEq u (sAt o3) (.bvar 0) (.bvar 0)
@@ -817,10 +811,9 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       | some t =>
         let k := ihPos c i
         let fo' := c.nF + k
-        some (.str .anonymous "ih",
-          Expr.mkAppN (motPU (o + fo'))
+        some <| Expr.mkAppN (motPU (o + fo'))
             [Expr.mkAppN (constP (tagCtorName T t) lps) (varsAt (o + fo') nP ++ fieldIdx c i (fo' - i)),
-             .bvar (fo' - 1 - i)])
+             .bvar (fo' - 1 - i)]
       | none => none
     let self := Expr.mkAppN (constP (auxCtorName' c) lps) (varsAt (o + fo) nP ++ (List.range c.nF).map fieldVar)
     let body := match (mems.getD c.mem default).real? with
@@ -844,8 +837,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
           | none => none
         congrChain u (auxAt fam c.mem (o + fo) (c.idx.map (·.liftLooseBVars nIh 0))) F ls rs moved
     mkLams (fbs ++ ihbs) body
-  let puTy := mkPis (pbs ++ [(.str .anonymous "i", Expr.mkAppN (constP tag lps) (varsAt 0 nP)),
-      (.str .anonymous "s", Expr.mkAppN (constP aux lps) (varsAt 1 nP ++ [.bvar 0]))])
+  let puTy := mkPis (pbs ++ [Expr.mkAppN (constP tag lps) (varsAt 0 nP),
+      Expr.mkAppN (constP aux lps) (varsAt 1 nP ++ [.bvar 0])])
     (Expr.mkAppN (motPU 2) [.bvar 1, .bvar 0])
   let puVal := mkLams pbs
     (Expr.mkAppN (.const (aux.str "rec") ((if large then [Level.zero] else []) ++ lps.map .param))
@@ -856,7 +849,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
     let nI := mem.nIdx
     let o0 := nI + 1
     let idx := varsAt 1 nI
-    let bs := pbs ++ idxBsAtM mem 0 ++ [(.str .anonymous "s", auxAt fam t nI (varsAt 0 nI))]
+    let bs := pbs ++ idxBsAtM mem 0 ++ [auxAt fam t nI (varsAt 0 nI)]
     let ty := mkPis bs (mkEq u (auxAt fam t o0 idx)
       (appImpl (packName mem.j) o0 idx [appImpl (unpackName mem.j) o0 idx [.bvar 0]]) (.bvar 0))
     let v := mkLams bs (Expr.mkAppN (constP packUnpackAll lps)
@@ -896,7 +889,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       | some m => motVar oo m
       | none =>
         let sAt := fun (o' : Nat) => auxAt fam mem.tag o' (varsAt (o' - (o2 + mem.nIdx)) mem.nIdx)
-        mkLams (idxBsAt mem o2 ++ [(.str .anonymous "s", sAt (o2 + mem.nIdx))])
+        mkLams (idxBsAt mem o2 ++ [sAt (o2 + mem.nIdx)])
           (let o3 := o2 + mem.nIdx + 1
            Expr.mkAppN (motVar (oo + mem.nIdx + 1) mem.tag)
              (varsAt 1 mem.nIdx ++ [appImpl (unpackName mem.j) o3 (varsAt 1 mem.nIdx) [.bvar 0]]))
@@ -913,10 +906,9 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       | some t =>
         let k := ihPos c i
         let fo' := c.nF + k
-        some (.str .anonymous "ih",
-          Expr.mkAppN (motR (o + fo'))
+        some <| Expr.mkAppN (motR (o + fo'))
             [Expr.mkAppN (constP (tagCtorName T t) lps) (varsAt (oP + fo') nP ++ fieldIdx c i (fo' - i)),
-             .bvar (fo' - 1 - i)])
+             .bvar (fo' - 1 - i)]
       | none => none
     -- the public minor applied: fields (unpacked where mimic-typed) and the ihs
     let unpacked := fun (i : Nat) =>
@@ -956,14 +948,14 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
               else if done.contains i then (fieldVar i).liftLooseBVars o' 0
               else if packed.contains i then (packUnpackOf i).1.liftLooseBVars o' 0
               else (fieldVar i).liftLooseBVars o' 0
-            let motive : Expr := .lam (.str .anonymous "z") ty
-              (.lam (.str .anonymous "h") (mkEq u (ty.liftLooseBVars 1 0) (pu.liftLooseBVars 1 0) (.bvar 0))
+            let motive : Expr := .lam ty
+              (.lam (mkEq u (ty.liftLooseBVars 1 0) (pu.liftLooseBVars 1 0) (.bvar 0))
                 (motApp 2 (args 2 (.bvar 1))) bm) bm
             go rest (done ++ [k]) (mkEqRec ℓ u ty pu motive acc (fieldVar k) prf)
         go packed [] X
     mkLams (fbs ++ ihbs) body
-  let recAllTy := mkPis (prefixBsL ++ [(.str .anonymous "i", Expr.mkAppN (constP tag lps) (varsAt (M + n) nP)),
-      (.str .anonymous "s", Expr.mkAppN (constP aux lps) (varsAt (M + n + 1) nP ++ [.bvar 0]))])
+  let recAllTy := mkPis (prefixBsL ++ [Expr.mkAppN (constP tag lps) (varsAt (M + n) nP),
+      Expr.mkAppN (constP aux lps) (varsAt (M + n + 1) nP ++ [.bvar 0])])
     (Expr.mkAppN (motR 2) [.bvar 1, .bvar 0])
   let recAllVal := mkLams prefixBsL
     (Expr.mkAppN (.const (aux.str "rec") rlvls) (varsAt (M + n) nP ++ [motR 0] ++ recMinors 0))
@@ -987,8 +979,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
         let inner := Expr.mkAppN (constP recAll rlps) (prefixVars ++ [tagApp, packX])
         let up := appImpl (unpackName mem.j) oP idx [packX]
         mkEqRec ℓ u carr up
-          (.lam (.str .anonymous "z") carr
-            (.lam (.str .anonymous "h") (mkEq u (carr.liftLooseBVars 1 0) (up.liftLooseBVars 1 0) (.bvar 0))
+          (.lam carr
+            (.lam (mkEq u (carr.liftLooseBVars 1 0) (up.liftLooseBVars 1 0) (.bvar 0))
               (Expr.mkAppN (motVar (e + 2) mem.tag) (liftAll 2 idx ++ [.bvar 1])) bm) bm)
           inner (.bvar 0) (appImpl (unpackPackName mem.j) oP idx [.bvar 0])
     let value ← need "recursor model" (Expr.pisToLams D ty body)
@@ -1076,8 +1068,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
                     let mem' := mems.getD t' default
                     let idx := fieldIdx c i (nF - i) |>.map rn |>.map (·.liftLooseBVars (M + n) nF) |> liftAll o'
                     some (mkEqRec ℓ u carr (uOf o' i)
-                      (.lam (.str .anonymous "z") carr
-                        (.lam (.str .anonymous "h") (mkEq u (carr.liftLooseBVars 1 0) ((uOf o' i).liftLooseBVars 1 0) (.bvar 0))
+                      (.lam carr
+                        (.lam (mkEq u (carr.liftLooseBVars 1 0) ((uOf o' i).liftLooseBVars 1 0) (.bvar 0))
                           (Expr.mkAppN (motVar (nF + o' + 2) mem'.tag) (liftAll 2 idx ++ [.bvar 1])) bm) bm)
                       (rOf o' i) (zOf i) (hOfk i))
                   else some ((ihApp i).liftLooseBVars o' 0)
@@ -1113,8 +1105,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
                         (if done.contains i then packOf o'' i ((zOf i).liftLooseBVars o'' 0)
                          else packOf o'' i ((uOf o' i).liftLooseBVars o'' 0))
                       else (Expr.bvar (nF - 1 - i)).liftLooseBVars (o' + o'') 0
-                    let motive : Expr := .lam (.str .anonymous "z") auxTyK
-                      (.lam (.str .anonymous "h") (mkEq u (auxTyK.liftLooseBVars 1 0) (packOf 1 k ((uOf o' k).liftLooseBVars 1 0)) (.bvar 0))
+                    let motive : Expr := .lam auxTyK
+                      (.lam (mkEq u (auxTyK.liftLooseBVars 1 0) (packOf 1 k ((uOf o' k).liftLooseBVars 1 0)) (.bvar 0))
                         (motApp 2 (args 2 (.bvar 1))) bm) bm
                     let mem' := mems.getD ((c.kinds.getD k none).getD 0) default
                     let idx := fieldIdx c k (nF - k) |>.map rn |>.map (·.liftLooseBVars (M + n) nF) |> liftAll o'
@@ -1130,8 +1122,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
                 let carr := carrM mem (oP + o') idxCG
                 let chain := congrChain u carr F ls rs moved
                 mkEqRec ℓ u carr (F 0 ls)
-                  (.lam (.str .anonymous "z") carr
-                    (.lam (.str .anonymous "h") (mkEq u (carr.liftLooseBVars 1 0) ((F 0 ls).liftLooseBVars 1 0) (.bvar 0))
+                  (.lam carr
+                    (.lam (mkEq u (carr.liftLooseBVars 1 0) ((F 0 ls).liftLooseBVars 1 0) (.bvar 0))
                       (Expr.mkAppN (motVar (nF + o' + 2) mem.tag) (liftAll 2 idxCG ++ [.bvar 1])) bm) bm)
                   X (F 0 rs) chain
             (αG, lhsG, rhsG)
@@ -1147,8 +1139,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
               let zs' := fun (i : Nat) => if i == k then some (Expr.bvar 1) else (zs i).map (·.liftLooseBVars 2 0)
               let hs' := fun (i : Nat) => if i == k then some (Expr.bvar 0) else (hs i).map (·.liftLooseBVars 2 0)
               let (αM, lhsM, rhsM) := stmtAt (o' + 2) zs' hs'
-              let motive : Expr := .lam (.str .anonymous "z") carr
-                (.lam (.str .anonymous "h") (mkEq u (carr.liftLooseBVars 1 0) ((uOf o' k).liftLooseBVars 1 0) (.bvar 0))
+              let motive : Expr := .lam carr
+                (.lam (mkEq u (carr.liftLooseBVars 1 0) ((uOf o' k).liftLooseBVars 1 0) (.bvar 0))
                   (mkEq ℓ αM lhsM rhsM) bm) bm
               -- the base: position k at `u_k`, `Eq.refl`
               let zsB := fun (i : Nat) => if i == k then some (uOf o' k) else zs i
@@ -1178,27 +1170,27 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       let mut stop := false
       for i in List.range nF do
         if stop then continue
-        let ctxI := ((cbs.take (nP + i)).map (·.2.1)).reverse
-        let dom := (cbs.getD (nP + i) default).2.1
+        let ctxI := ((cbs.take (nP + i)).map (·.1)).reverse
+        let dom := (cbs.getD (nP + i) default).1
         let some ℓi := sortOf tbl' ctxI dom | stop := true; continue
         let args := directProjPs nP ++ (List.range i).map fun j =>
           Expr.mkAppN (constP (projModelName t.cv.name j) lps) (directProjPs nP ++ [.bvar 0])
-        let some (.forallE _ fdom _ _) := Expr.instPisAtLift args cty | stop := true; continue
+        let some (.forallE fdom _ _) := Expr.instPisAtLift args cty | stop := true; continue
         let some pty := Expr.replacePiBody nP t.cv.type
-            (.forallE (.str .anonymous "x")
+            (.forallE
               (Expr.mkAppN (constP (modelName t.cv.name) lps) (varsAt 0 nP)) fdom bm)
           | stop := true; continue
         -- the value: `λ p⃗ x, aux.rec p⃗ MotP minorsP (tag.m p⃗) x`
         let motP := fun (o : Nat) => dispatchMotive o ℓi fun o2 =>
           mems.map fun mem =>
             let sAt := fun (o' : Nat) => auxAt fam mem.tag o' (varsAt (o' - (o2 + mem.nIdx)) mem.nIdx)
-            mkLams (idxBsAt mem o2 ++ [(.str .anonymous "s", sAt (o2 + mem.nIdx))])
+            mkLams (idxBsAt mem o2 ++ [sAt (o2 + mem.nIdx)])
               (if mem.tag == m then
                 -- `F_i[f_j := proj_j p⃗ s]`, at frame o2 + 1
                 let argsS := directProjPs nP ++ (List.range i).map fun j =>
                   Expr.mkAppN (constP (projModelName t.cv.name j) lps) (directProjPs nP ++ [.bvar 0])
                 match Expr.instPisAtLift argsS cty with
-                | some (.forallE _ fd _ _) => fd.liftLooseBVars (o2 + 1 - 1) 1 |> fun x => x.liftLooseBVars 0 0 |> fun _ =>
+                | some (.forallE fd _ _) => fd.liftLooseBVars (o2 + 1 - 1) 1 |> fun x => x.liftLooseBVars 0 0 |> fun _ =>
                     -- fd is at frame `p⃗, x`: lift the parameters past the extras
                     fd.liftLooseBVars o2 1
                 | _ => .sort .zero
@@ -1211,10 +1203,9 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
             | some t' =>
               let k := ihPos c' i'
               let fo' := c'.nF + k
-              some (.str .anonymous "ih",
-                Expr.mkAppN (motP (o + fo'))
+              some <| Expr.mkAppN (motP (o + fo'))
                   [Expr.mkAppN (constP (tagCtorName T t') lps) (varsAt (o + fo') nP ++ fieldIdx c' i' (fo' - i')),
-                   .bvar (fo' - 1 - i')])
+                   .bvar (fo' - 1 - i')]
             | none => none
           let fo := c'.nF + nIh
           let fieldVar := fun (i' : Nat) => Expr.bvar (nIh + c'.nF - 1 - i')
@@ -1227,7 +1218,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
               | none => fieldVar i
             else .const punitUnitName [ℓi]
           mkLams (fbs ++ ihbs) body
-        let pval := mkLams (pbs ++ [(.str .anonymous "x", Expr.mkAppN (constP (modelName t.cv.name) lps) (varsAt 0 nP))])
+        let pval := mkLams (pbs ++ [Expr.mkAppN (constP (modelName t.cv.name) lps) (varsAt 0 nP)])
           (Expr.mkAppN (.const (aux.str "rec") ((if large then [ℓi] else []) ++ lps.map .param))
             (varsAt 1 nP ++ [motP 1] ++ minorsP 1 ++
              [Expr.mkAppN (constP (tagCtorName T m) lps) (varsAt 1 nP), .bvar 0]))

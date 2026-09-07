@@ -76,10 +76,10 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Con
 /-- Compare binder domains at offsets `o₁`/`o₂` for `n` positions, the
 right side viewed through `g` (identity, lifting, or renaming). -/
 def domsMatchAux (g : Nat → Expr → Expr)
-    (bs₁ bs₂ : List (Name × Expr × BinderMeta)) (o₁ o₂ n : Nat) : Bool :=
+    (bs₁ bs₂ : List (Expr × BinderMeta)) (o₁ o₂ n : Nat) : Bool :=
   (List.range n).all fun i =>
     match bs₁[o₁ + i]?, bs₂[o₂ + i]? with
-    | some b₁, some b₂ => b₁.2.1 == g i b₂.2.1
+    | some b₁, some b₂ => b₁.1 == g i b₂.1
     | _, _ => false
 
 /-- Open the first `n` `∀`-binders at fresh free variables `0..n-1`
@@ -87,8 +87,8 @@ def domsMatchAux (g : Nat → Expr → Expr)
 fvars).  Returns the fvars and the opened body. -/
 def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
   | 0, e, _ => some ([], e)
-  | n + 1, .forallE nm dom body _, i =>
-    let fv : Expr := .fvar i nm dom
+  | n + 1, .forallE dom body _, i =>
+    let fv : Expr := .fvar i dom
     match openPisAtFvars n (body.instantiate1 fv) (i + 1) with
     | some (fvs, e) => some (fv :: fvs, e)
     | none => none
@@ -99,10 +99,10 @@ def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
 which made the binder-domain comparison quadratic on wide
 telescopes. -/
 def domsMatchAuxA (g : Nat → Expr → Expr)
-    (bs₁ bs₂ : Array (Name × Expr × BinderMeta)) (o₁ o₂ n : Nat) : Bool :=
+    (bs₁ bs₂ : Array (Expr × BinderMeta)) (o₁ o₂ n : Nat) : Bool :=
   (List.range n).all fun i =>
     match bs₁[o₁ + i]?, bs₂[o₂ + i]? with
-    | some b₁, some b₂ => b₁.2.1 == g i b₂.2.1
+    | some b₁, some b₂ => b₁.1 == g i b₂.1
     | _, _ => false
 
 /-- Core of `openPisAtFvarsF`: `acc` holds the already-created fvars,
@@ -114,8 +114,8 @@ one `instantiateList` pass per domain instead of one whole-telescope
 def openPisAtFvarsFGo (acc : List Expr) :
     Nat → Expr → Nat → Option (List Expr × Expr)
   | 0, e, _ => some ([], e.instantiateList acc)
-  | n + 1, .forallE nm dom body _, i =>
-    let fv : Expr := .fvar i nm (dom.instantiateList acc)
+  | n + 1, .forallE dom body _, i =>
+    let fv : Expr := .fvar i (dom.instantiateList acc)
     match openPisAtFvarsFGo (fv :: acc) n body (i + 1) with
     | some (fvs, e) => some (fv :: fvs, e)
     | none => none

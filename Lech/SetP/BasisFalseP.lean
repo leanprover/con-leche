@@ -114,13 +114,13 @@ theorem denoteP_falseRecA_type {m : EnvS2Core V env}
       rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hE
     rw [denoteP_levelless_const hf (by rfl), hleaf]
   rw [show falseRecA.toConstantVal.type
-      = Expr.forallE .anonymous
-          (Expr.forallE .anonymous (.const falseName [])
-            (.sort (.param uN)) { bi := .default, pw := .never })
-          (Expr.forallE .anonymous (.const falseName [])
+      = Expr.forallE
+          (Expr.forallE (.const falseName [])
+            (.sort (.param uN)) { pw := .never })
+          (Expr.forallE (.const falseName [])
             (.app (.bvar 1) (.bvar 0))
-            { bi := .default, pw := .ifAllZero [uN] })
-          { bi := .default, pw := .ifAllZero [uN] } from rfl]
+            { pw := .ifAllZero [uN] })
+          { pw := .ifAllZero [uN] } from rfl]
   simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
     Expr.instantiate1, hEc, Level.eval]
 
@@ -221,13 +221,13 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvS2PM V μ env)
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     show Expr.constsResolve _ falseRecA.toConstantVal.type = true
     simp only [show falseRecA.toConstantVal.type
-        = Expr.forallE .anonymous
-            (Expr.forallE .anonymous (.const falseName [])
-              (.sort (.param uN)) { bi := .default, pw := .never })
-            (Expr.forallE .anonymous (.const falseName [])
+        = Expr.forallE
+            (Expr.forallE (.const falseName [])
+              (.sort (.param uN)) { pw := .never })
+            (Expr.forallE (.const falseName [])
               (.app (.bvar 1) (.bvar 0))
-              { bi := .default, pw := .ifAllZero [uN] })
-            { bi := .default, pw := .ifAllZero [uN] } from rfl,
+              { pw := .ifAllZero [uN] })
+            { pw := .ifAllZero [uN] } from rfl,
       Expr.constsResolve, Bool.and_eq_true, Option.isSome_iff_exists]
     have hf : (⟨falseRecA :: falseA :: env.consts⟩ : Env).find?
         falseName = some falseA := by

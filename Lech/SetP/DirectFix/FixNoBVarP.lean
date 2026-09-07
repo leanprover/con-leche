@@ -219,12 +219,12 @@ theorem noBVar_of_leaf_free {env : Env} (m : EnvS2Core V env) {φ : Name → Nat
     cases x with
     | bvar i => rw [denoteP.eq_def] at h; exact nomatch h
     | sort u => exact absurd rfl (hs u)
-    | fvar i nm ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i nm ty)
     | const n us => exact absurd rfl (hc n us)
-    | forallE n ty b mb => exact absurd rfl (hpi n ty b mb)
-    | lam n ty b mb => exact absurd rfl (hlam n ty b mb)
+    | forallE ty b mb => exact absurd rfl (hpi n ty b mb)
+    | lam ty b mb => exact absurd rfl (hlam n ty b mb)
     | app f a => exact absurd rfl (happ f a)
-    | letE n ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet n ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

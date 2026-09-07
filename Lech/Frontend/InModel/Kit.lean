@@ -79,18 +79,18 @@ where
 
 /-! ## Binders and frames -/
 
-/-- The default binder datum of a generated binder: `.default`,
-`.never` — what the frontend gives every parsed binder (task #142/#161;
-the annotate pass recomputes the datum before it is validated). -/
-def bm : BinderMeta := ⟨.default, .never⟩
+/-- The default binder datum of a generated binder: `.never` — what the
+frontend gives every parsed binder (task #161; the annotate pass
+recomputes the datum before it is validated). -/
+def bm : BinderMeta := ⟨.never⟩
 
-/-- `λ`-telescope over `(name, domain)` binders (outermost first). -/
-def mkLams (bs : List (Name × Expr)) (body : Expr) : Expr :=
-  bs.foldr (fun (n, d) acc => .lam n d acc bm) body
+/-- `λ`-telescope over domains (outermost first). -/
+def mkLams (bs : List Expr) (body : Expr) : Expr :=
+  bs.foldr (fun d acc => .lam d acc bm) body
 
-/-- `∀`-telescope over `(name, domain)` binders (outermost first). -/
-def mkPis (bs : List (Name × Expr)) (body : Expr) : Expr :=
-  bs.foldr (fun (n, d) acc => .forallE n d acc bm) body
+/-- `∀`-telescope over domains (outermost first). -/
+def mkPis (bs : List Expr) (body : Expr) : Expr :=
+  bs.foldr (fun d acc => .forallE d acc bm) body
 
 /-- The variables `bvar (o + n - 1 - k)`, `k < n`: a telescope of `n`
 binders seen from `o` binders below it (`directPsAt`). -/
@@ -99,9 +99,9 @@ def varsAt (o n : Nat) : List Expr := directPsAt o n
 /-- A constant at its level parameters. -/
 def constP (n : Name) (lps : List Name) : Expr := .const n (lps.map .param)
 
-/-- The binder list of a `∀`-telescope as `(name, domain)` pairs. -/
-def piBinders (bs : List (Name × Expr × BinderMeta)) : List (Name × Expr) :=
-  bs.map fun (n, d, _) => (n, d)
+/-- The domains of a `∀`-telescope's binder list. -/
+def piBinders (bs : List (Expr × BinderMeta)) : List Expr :=
+  bs.map (·.1)
 
 /-! ## Family occurrences -/
 
@@ -135,10 +135,10 @@ partial def specFam (T : Name) (lps : List Name) (nP : Nat)
         Expr.mkAppN (constP (auxName T) lps) [constP (tagCtorName T m) lps]
       else .const n us
     | none => .const n us
-  | .lam n d b m => .lam n (specFam T lps nP members d) (specFam T lps nP members b) m
-  | .forallE n d b m => .forallE n (specFam T lps nP members d) (specFam T lps nP members b) m
-  | .letE n t v b =>
-    .letE n (specFam T lps nP members t) (specFam T lps nP members v) (specFam T lps nP members b)
+  | .lam d b m => .lam (specFam T lps nP members d) (specFam T lps nP members b) m
+  | .forallE d b m => .forallE (specFam T lps nP members d) (specFam T lps nP members b) m
+  | .letE t v b =>
+    .letE (specFam T lps nP members t) (specFam T lps nP members v) (specFam T lps nP members b)
   | .proj s i e => .proj s i (specFam T lps nP members e)
   | e => e
 
@@ -158,21 +158,21 @@ where
       else if i < d + k + n then (vals.getD (n - 1 - (i - d - k)) default).liftLooseBVars k 0
       else .bvar (i - n)
     | .app f a => .app (go k f) (go k a)
-    | .lam nm t b m => .lam nm (go k t) (go (k + 1) b) m
-    | .forallE nm t b m => .forallE nm (go k t) (go (k + 1) b) m
-    | .letE nm t v b => .letE nm (go k t) (go k v) (go (k + 1) b)
+    | .lam t b m => .lam (go k t) (go (k + 1) b) m
+    | .forallE t b m => .forallE (go k t) (go (k + 1) b) m
+    | .letE t v b => .letE (go k t) (go k v) (go (k + 1) b)
     | .proj s i x => .proj s i (go k x)
-    | .fvar i nm t => .fvar i nm (go k t)
+    | .fvar i t => .fvar i (go k t)
     | e => e
 
 /-- Does `e` mention any of the names? -/
 def mentionsAny (ns : List Name) : Expr → Bool
   | .bvar _ | .sort _ | .lit _ => false
   | .const n _ => ns.contains n
-  | .fvar _ _ ty => mentionsAny ns ty
+  | .fvar _ ty => mentionsAny ns ty
   | .app f a => mentionsAny ns f || mentionsAny ns a
-  | .lam _ ty b _ | .forallE _ ty b _ => mentionsAny ns ty || mentionsAny ns b
-  | .letE _ ty v b => mentionsAny ns ty || mentionsAny ns v || mentionsAny ns b
+  | .lam ty b _ | .forallE ty b _ => mentionsAny ns ty || mentionsAny ns b
+  | .letE ty v b => mentionsAny ns ty || mentionsAny ns v || mentionsAny ns b
   | .proj s _ e => ns.contains s || mentionsAny ns e
 
 /-! ## The kernel-shape recursor of an indexed recursive family
@@ -205,10 +205,10 @@ binders; the motive sits `nF + o - 1` binders above the fields. -/
 def ihPis (nP nF o : Nat) (pw : PropWhen) (doms : List Expr) : List Nat → Nat → Expr → Expr
   | [], _, body => body
   | i :: is, l, body =>
-    .forallE (.str .anonymous "ih")
+    .forallE
       (Expr.mkAppN (.bvar (nF + o - 1 + l))
         (recFieldIdx nP nF i l doms ++ [.bvar (nF - 1 - i + l)]))
-      (ihPis nP nF o pw doms is (l + 1) body) ⟨.default, pw⟩
+      (ihPis nP nF o pw doms is (l + 1) body) ⟨pw⟩
 
 /-- Constructor `C`'s minor premise: the field telescope lifted under
 the `o` extras (every field datum reset to the elimination datum), the
@@ -221,7 +221,7 @@ def minorTy (C : Name) (lps : List Name) (nP nF o : Nat) (pw : PropWhen)
   (cty.stripPis nP).bind fun q =>
   let tele := q.2.liftLooseBVars o 0
   (tele.stripPis nF).bind fun r =>
-    let doms := r.1.map (·.2.1)
+    let doms := r.1.map (·.1)
     let nIh := recIdx.length
     Expr.replacePisPw pw nF tele
       (ihPis nP nF o pw doms recIdx 0
@@ -237,7 +237,7 @@ def minorsPis (lps : List Name) (nP : Nat) (pw : PropWhen) :
   | (C, nF, cty, recIdx) :: cs, o, body =>
     (minorTy C lps nP nF o pw cty recIdx).bind fun mty =>
       (minorsPis lps nP pw cs (o + 1) body).map fun rest =>
-        .forallE (Name.lastStr C) mty rest ⟨.default, pw⟩
+        .forallE mty rest ⟨pw⟩
 
 /-- The `λ` twin of `minorsPis`. -/
 def minorsLams (lps : List Name) (nP : Nat) (pw : PropWhen) :
@@ -246,7 +246,7 @@ def minorsLams (lps : List Name) (nP : Nat) (pw : PropWhen) :
   | (C, nF, cty, recIdx) :: cs, o, body =>
     (minorTy C lps nP nF o pw cty recIdx).bind fun mty =>
       (minorsLams lps nP pw cs (o + 1) body).map fun rest =>
-        .lam (Name.lastStr C) mty rest ⟨.default, pw⟩
+        .lam mty rest ⟨pw⟩
 
 /-- **The recursor type**
 
@@ -264,12 +264,12 @@ def recTy (T : Name) (lps : List Name) (elim : Name) (large : Bool)
   (tty.stripPis nP).bind fun q =>
   (directMotiveTyI T lps nP nIdx ℓ q.2).bind fun motiveTy =>
   (Expr.replacePisPw pw nIdx (q.2.liftLooseBVars (n + 1) 0)
-      (.forallE (.str .anonymous "t") (directFamI T lps nP nIdx (n + 1) 0)
+      (.forallE (directFamI T lps nP nIdx (n + 1) 0)
         (Expr.mkAppN (.bvar (nIdx + n + 1)) (directPsAt 1 nIdx ++ [.bvar 0]))
-        ⟨.default, pw⟩)).bind fun major =>
+        ⟨pw⟩)).bind fun major =>
   (minorsPis lps nP pw ctors 1 major).bind fun minors =>
     Expr.replacePisPw pw nP tty
-      (.forallE (.str .anonymous "motive") motiveTy minors ⟨.default, pw⟩)
+      (.forallE motiveTy minors ⟨pw⟩)
 
 /-- **The rule** of constructor `j`:
 `λ p⃗ motive m⃗ f⃗, minor_j f⃗ (T.rec p⃗ motive m⃗ e⃗_i f_i)…` (`recC`,
@@ -288,7 +288,7 @@ def recRhs (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (cty.stripPis nP).bind fun q =>
     let tele := q.2.liftLooseBVars (n + 1) 0
     (tele.stripPis nF).bind fun r =>
-    let doms := r.1.map (·.2.1)
+    let doms := r.1.map (·.1)
     let body := Expr.mkAppN (.bvar (nF + n - 1 - j))
       (((List.range nF).map fun k => Expr.bvar (nF - 1 - k)) ++
         recIdx.map fun i =>
@@ -297,7 +297,7 @@ def recRhs (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (Expr.pisToLamsPw pw nF tele body).bind fun inner =>
     (minorsLams lps nP pw ctors 1 inner).bind fun minors =>
     Expr.pisToLamsPw pw nP tty
-      (.lam (.str .anonymous "motive") motiveTy minors ⟨.default, pw⟩)
+      (.lam motiveTy minors ⟨pw⟩)
 
 /-! ## A syntactic sort inferer
 
@@ -316,7 +316,7 @@ abbrev ConstTable := Name → Option (List Name × Expr)
 partial def betaHead : Expr → Expr
   | .app f a =>
     match betaHead f with
-    | .lam _ _ b _ => betaHead (b.instantiate1 a)
+    | .lam _ b _ => betaHead (b.instantiate1 a)
     | f' => .app f' a
   | e => e
 
@@ -329,13 +329,13 @@ partial def inferTy (tbl : ConstTable) (ctx : List Expr) : Expr → Option Expr
   | .app f a =>
     (inferTy tbl ctx f).bind fun ft =>
       match betaHead ft with
-      | .forallE _ _ b _ => some (b.instantiate1 a)
+      | .forallE _ b _ => some (b.instantiate1 a)
       | _ => none
-  | .lam n d b m => (inferTy tbl (d :: ctx) b).map fun bt => .forallE n d bt m
-  | .forallE _ d b _ =>
+  | .lam d b m => (inferTy tbl (d :: ctx) b).map fun bt => .forallE d bt m
+  | .forallE d b _ =>
     (sortOf tbl ctx d).bind fun u =>
       (sortOf tbl (d :: ctx) b).map fun v => .sort (.imax u v)
-  | .letE _ _ v b => inferTy tbl ctx (b.instantiate1 v)
+  | .letE _ v b => inferTy tbl ctx (b.instantiate1 v)
   | .lit (.natVal _) => some (.const natName [])
   | .lit (.strVal _) => some (.const stringName [])
   | _ => none
@@ -358,10 +358,10 @@ def sortOf (tbl : ConstTable) (ctx : List Expr) (e : Expr) : Option Level :=
 anything else). -/
 def maxHeight (heights : Name → Nat) : Expr → Nat
   | .const n _ => heights n
-  | .fvar _ _ ty => maxHeight heights ty
+  | .fvar _ ty => maxHeight heights ty
   | .app f a => max (maxHeight heights f) (maxHeight heights a)
-  | .lam _ ty b _ | .forallE _ ty b _ => max (maxHeight heights ty) (maxHeight heights b)
-  | .letE _ ty v b => max (maxHeight heights ty) (max (maxHeight heights v) (maxHeight heights b))
+  | .lam ty b _ | .forallE ty b _ => max (maxHeight heights ty) (maxHeight heights b)
+  | .letE ty v b => max (maxHeight heights ty) (max (maxHeight heights v) (maxHeight heights b))
   | .proj _ _ e => maxHeight heights e
   | _ => 0
 

@@ -86,19 +86,19 @@ theorem instantiateList_cons :
           simp [instantiate1, show ¬ d + 1 + i - vs.length = d by omega,
             hgt2]
           omega
-  | vs, .fvar idx n ty, v, d => by simp [instantiateList, instantiate1]
+  | vs, .fvar idx ty, v, d => by simp [instantiateList, instantiate1]
   | vs, .sort u, v, d => by simp [instantiateList, instantiate1]
   | vs, .const n us, v, d => by simp [instantiateList, instantiate1]
   | vs, .app f a, v, d => by
     simp only [instantiateList, instantiate1]
     rw [instantiateList_cons vs f v d, instantiateList_cons vs a v d]
-  | vs, .lam n ty body bi, v, d => by
+  | vs, .lam ty body bi, v, d => by
     simp only [instantiateList, instantiate1]
     rw [instantiateList_cons vs ty v d, instantiateList_cons vs body v (d + 1)]
-  | vs, .forallE n ty body bi, v, d => by
+  | vs, .forallE ty body bi, v, d => by
     simp only [instantiateList, instantiate1]
     rw [instantiateList_cons vs ty v d, instantiateList_cons vs body v (d + 1)]
-  | vs, .letE n ty val body, v, d => by
+  | vs, .letE ty val body, v, d => by
     simp only [instantiateList, instantiate1]
     rw [instantiateList_cons vs ty v d, instantiateList_cons vs val v d,
       instantiateList_cons vs body v (d + 1)]

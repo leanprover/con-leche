@@ -28,7 +28,7 @@ theorem instPisAtFGo_sound :
   | [], e, acc, r, h => by
     simp only [instPisAtFGo, Option.some.injEq] at h
     simp only [instPisAt, ← h]
-  | a :: as, .forallE nm dom body bi, acc, r, h => by
+  | a :: as, .forallE dom body bi, acc, r, h => by
     simp only [instPisAtFGo, Option.map_eq_some_iff] at h
     obtain ⟨⟨ds, rest⟩, hgo, rfl⟩ := h
     have ih := instPisAtFGo_sound as body (a :: acc) hgo
@@ -55,7 +55,7 @@ theorem instLamsAtFGo_sound :
   | [], e, acc, r, h => by
     simp only [instLamsAtFGo, Option.some.injEq] at h
     simp only [instLamsAt, ← h]
-  | a :: as, .lam nm dom body bi, acc, r, h => by
+  | a :: as, .lam dom body bi, acc, r, h => by
     simp only [instLamsAtFGo, Option.map_eq_some_iff] at h
     obtain ⟨⟨ds, rest⟩, hgo, rfl⟩ := h
     have ih := instLamsAtFGo_sound as body (a :: acc) hgo
@@ -82,12 +82,12 @@ theorem openPisAtFvarsFGo_sound :
   | 0, e, i, acc, r, h => by
     simp only [openPisAtFvarsFGo, Option.some.injEq] at h
     simp only [openPisAtFvars, ← h]
-  | n + 1, .forallE nm dom body bi, i, acc, r, h => by
+  | n + 1, .forallE dom body bi, i, acc, r, h => by
     simp only [openPisAtFvarsFGo] at h
     split at h
     case _ fvs e' hgo =>
       have ih := openPisAtFvarsFGo_sound n body (i + 1)
-        (Expr.fvar i nm (dom.instantiateList acc) :: acc) hgo
+        (Expr.fvar i (dom.instantiateList acc) :: acc) hgo
       rw [instantiateList_cons] at ih
       simp only [instantiateList, openPisAtFvars, ih]
       exact h
@@ -139,12 +139,12 @@ theorem instPisAtLift_append :
     ∀ (xs ys : List Expr) (e : Expr),
       instPisAtLift (xs ++ ys) e = (instPisAtLift xs e).bind (instPisAtLift ys)
   | [], ys, e => by simp only [List.nil_append, instPisAtLift, Option.bind_some]
-  | x :: xs, ys, .forallE nm dom body bi => by
+  | x :: xs, ys, .forallE dom body bi => by
     simp only [List.cons_append, instPisAtLift,
       instPisAtLift_append xs ys (body.instantiate1Lift x)]
-  | x :: xs, ys, .bvar _ | x :: xs, ys, .fvar _ _ _ | x :: xs, ys, .sort _
-  | x :: xs, ys, .const _ _ | x :: xs, ys, .app _ _ | x :: xs, ys, .lam _ _ _ _
-  | x :: xs, ys, .letE _ _ _ _ | x :: xs, ys, .lit _
+  | x :: xs, ys, .bvar _ | x :: xs, ys, .fvar _ _ | x :: xs, ys, .sort _
+  | x :: xs, ys, .const _ _ | x :: xs, ys, .app _ _ | x :: xs, ys, .lam _ _ _
+  | x :: xs, ys, .letE _ _ _ | x :: xs, ys, .lit _
   | x :: xs, ys, .proj _ _ _ => rfl
 
 /-- The threaded residual is the full peel at the parameters and the

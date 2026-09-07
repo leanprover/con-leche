@@ -27,7 +27,7 @@ erasure factoring of `interp2` through `interp`, refuted at the very
 > = .ok true`
 
 — `isDefEq` at depth `1`, applied side first, over the canonical
-one-entry element context `reduceCertVar c = .fvar 0 _ (reduceElemTy c)`.
+one-entry element context `reduceCertVar c = .fvar 0 (reduceElemTy c)`.
 `DefEqClaims2P` at the **pre-insertion** environment turns that run
 into an `interp2` equality of the two sides' readings, and the two
 readings are `.app (A ψ) (.bvar 0)` and `.bvar 0`: the law falls out
@@ -49,7 +49,7 @@ applied side's `AnnotOk2` app clause needs the *applied* membership
 
 and every part of it is already established at the install:
 
-* the pin fixes the stored type to `.forallE _ (.const E []) (.const E [])
+* the pin fixes the stored type to `.forallE (.const E []) (.const E [])
   mb₀` **on the nose** below the binder meta — both erasures fix a
   `.const` (the `trustCompiler` branch's lesson, reused) — so the
   type's reading is `.pi 0 (pwBit ψ mb₀.pw) (acval E ψ) (acval E ψ)`
@@ -126,14 +126,14 @@ theorem reduceOp_shapeS {c : Name} {type' : Expr}
     (hc : c ∈ Lech.reduceOpNames)
     (h : type'.erasePw.eraseNames
       = (Lech.reduceOpCvA c).type.erasePw.eraseNames) :
-    ∃ n₀ mb₀, type' = .forallE n₀ (Lech.reduceElemTy c)
+    ∃ n₀ mb₀, type' = .forallE (Lech.reduceElemTy c)
       (Lech.reduceElemTy c) mb₀ := by
   have hcases : c = Lech.reduceNatName ∨ c = Lech.reduceBoolName := by
     simpa [Lech.reduceOpNames] using hc
   have hshape : (Lech.reduceOpCvA c).type.erasePw.eraseNames
-      = .forallE Lech.Name.anonymous
+      = .forallE
           (Lech.reduceElemTy c) (Lech.reduceElemTy c)
-          ⟨.default, .never⟩ := by
+          ⟨.never⟩ := by
     rcases hcases with rfl | rfl <;>
       simp [Lech.reduceOpCvA, Lech.reduceNatCvA,
         Lech.reduceBoolCvA, Lech.reduceElemTy, Lech.reduceNatName,
@@ -242,7 +242,7 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
   subst htyShape
   -- the type's reading: a one-step `.pi` over the element leaf
   have hinst : (Lech.reduceElemTy cv.name).instantiate1
-        (.fvar 0 n₀ (Lech.reduceElemTy cv.name))
+        (.fvar 0 (Lech.reduceElemTy cv.name))
       = Lech.reduceElemTy cv.name :=
     Expr.instantiate1_eq_self (by rw [hEty]; rfl)
   have hTaShape : ∀ ψ : Name → Nat,
@@ -252,7 +252,7 @@ theorem reduceOpsP_install (hμ : μ.verifiedChecks = true)
     intro ψ
     have h := hTa ψ
     rw [show denoteP mp.base2.acval env ψ 0
-          (Expr.forallE n₀ (Lech.reduceElemTy cv.name)
+          (Expr.forallE (Lech.reduceElemTy cv.name)
             (Lech.reduceElemTy cv.name) mb₀)
         = some (.pi 0 (pwBit ψ mb₀.pw)
             (mp.base2.acval (Lech.reduceElemName cv.name) ψ)

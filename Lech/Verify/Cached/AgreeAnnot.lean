@@ -52,16 +52,16 @@ open Lech
 rebuilt with the `pw` field cleared, every other node structurally. -/
 def ExprC.erasePwC : ExprC → ExprC
   | .bvar i => ExprC.mkBVar i
-  | .fvar idx n ty => ExprC.mkFVar idx n (erasePwC ty)
+  | .fvar idx ty => ExprC.mkFVar idx (erasePwC ty)
   | .sort u => ExprC.mkSort u
   | .const n us => ExprC.mkConst n us
   | .app f a => ExprC.mkApp (erasePwC f) (erasePwC a)
-  | .lam n ty b m =>
-    ExprC.mkLam n (erasePwC ty) (erasePwC b) ⟨m.bi, .never⟩
-  | .forallE n ty b m =>
-    ExprC.mkForallE n (erasePwC ty) (erasePwC b) ⟨m.bi, .never⟩
-  | .letE n ty v b =>
-    ExprC.mkLetE n (erasePwC ty) (erasePwC v) (erasePwC b)
+  | .lam ty b m =>
+    ExprC.mkLam (erasePwC ty) (erasePwC b) ⟨.never⟩
+  | .forallE ty b m =>
+    ExprC.mkForallE (erasePwC ty) (erasePwC b) ⟨.never⟩
+  | .letE ty v b =>
+    ExprC.mkLetE (erasePwC ty) (erasePwC v) (erasePwC b)
   | .lit l => ExprC.mkLit l
   | .proj s i e => ExprC.mkProj s i (erasePwC e)
 
@@ -113,19 +113,19 @@ theorem annotateBindersOutI_erasePwC
 theorem forallE_erasePwC (n : Name) (ty b₁ b₂ : ExprC)
     (m₁ m₂ : BinderMeta) (hb : ExprC.erasePwC b₁ = ExprC.erasePwC b₂)
     (hm : m₁.bi = m₂.bi) :
-    ExprC.erasePwC (.forallE n ty b₁ m₁)
-      = ExprC.erasePwC (.forallE n ty b₂ m₂) := by
-  show ExprC.mkForallE n _ (ExprC.erasePwC b₁) ⟨m₁.bi, .never⟩
-    = ExprC.mkForallE n _ (ExprC.erasePwC b₂) ⟨m₂.bi, .never⟩
+    ExprC.erasePwC (.forallE ty b₁ m₁)
+      = ExprC.erasePwC (.forallE ty b₂ m₂) := by
+  show ExprC.mkForallE _ (ExprC.erasePwC b₁) ⟨.never⟩
+    = ExprC.mkForallE _ (ExprC.erasePwC b₂) ⟨.never⟩
   rw [hb, hm]
 
 theorem lam_erasePwC (n : Name) (ty b₁ b₂ : ExprC)
     (m₁ m₂ : BinderMeta) (hb : ExprC.erasePwC b₁ = ExprC.erasePwC b₂)
     (hm : m₁.bi = m₂.bi) :
-    ExprC.erasePwC (.lam n ty b₁ m₁)
-      = ExprC.erasePwC (.lam n ty b₂ m₂) := by
-  show ExprC.mkLam n _ (ExprC.erasePwC b₁) ⟨m₁.bi, .never⟩
-    = ExprC.mkLam n _ (ExprC.erasePwC b₂) ⟨m₂.bi, .never⟩
+    ExprC.erasePwC (.lam ty b₁ m₁)
+      = ExprC.erasePwC (.lam ty b₂ m₂) := by
+  show ExprC.mkLam _ (ExprC.erasePwC b₁) ⟨.never⟩
+    = ExprC.mkLam _ (ExprC.erasePwC b₂) ⟨.never⟩
   rw [hb, hm]
 
 /-! ### T2b at the two telescope leaves

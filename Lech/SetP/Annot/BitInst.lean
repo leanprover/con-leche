@@ -19,7 +19,7 @@ across the substitution, `denoteP`'s binder numeral is `pwBit φ mb.pw`
 — a function of the term's own meta — and `Expr.substFvarAt` carries
 binder metas through **unchanged**.  Read its definition
 (`Verify/Subst.lean`): the `.lam`/`.forallE` clauses are
-`.lam n (substFvarAt p a ty) (substFvarAt p a body) m`, the meta `m`
+`.lam (substFvarAt p a ty) (substFvarAt p a body) m`, the meta `m`
 copied verbatim.  So the numeral is literally the same expression on
 both sides of every binder clause and each closes by the recursion
 alone.
@@ -226,27 +226,27 @@ theorem denoteP_substFvarAt
       split
       · simp only [Option.map_some, hainst]
       · rfl
-  | .fvar idx n ty, D, hpD, hfb => by
+  | .fvar idx ty, D, hpD, hfb => by
     have hlt : idx < D + 1 := hfb
     by_cases h1 : idx = p
     · subst h1
-      rw [show Lech.Expr.substFvarAt idx a (Expr.fvar idx n ty) = a from by
+      rw [show Lech.Expr.substFvarAt idx a (Expr.fvar idx ty) = a from by
             simp [Lech.Expr.substFvarAt],
         denoteP_lift hacl hwa D hpD, ha, denoteP]
       simp only [Option.map_some, AVExpr.inst_bvar,
         show D + 1 - 1 - idx = D - idx from by omega]
       simp
     · by_cases h2 : idx > p
-      · rw [show Lech.Expr.substFvarAt p a (Expr.fvar idx n ty)
-              = .fvar (idx - 1) n (Lech.Expr.substFvarAt p a ty) from by
+      · rw [show Lech.Expr.substFvarAt p a (Expr.fvar idx ty)
+              = .fvar (idx - 1) (Lech.Expr.substFvarAt p a ty) from by
               simp [Lech.Expr.substFvarAt, h1, h2],
           denoteP, denoteP]
         simp only [Option.map_some, AVExpr.inst_bvar,
           if_pos (show D + 1 - 1 - idx < D - p from by omega)]
         congr 2
         omega
-      · rw [show Lech.Expr.substFvarAt p a (Expr.fvar idx n ty)
-              = .fvar idx n ty from by
+      · rw [show Lech.Expr.substFvarAt p a (Expr.fvar idx ty)
+              = .fvar idx ty from by
               simp [Lech.Expr.substFvarAt, h1, h2],
           denoteP, denoteP]
         simp only [Option.map_some, AVExpr.inst_bvar,
@@ -260,43 +260,43 @@ theorem denoteP_substFvarAt
       denoteP_substFvarAt hacl hainst hwa hba ha b D hpD hfb.2]
     cases denoteP acval env φ (D + 1) fe <;>
       cases denoteP acval env φ (D + 1) b <;> rfl
-  | .forallE n ty body mb, D, hpD, hfb => by
+  | .forallE ty body mb, D, hpD, hfb => by
     simp only [Lech.Expr.substFvarAt, denoteP]
     rw [denoteP_substFvarAt hacl hainst hwa hba ha ty D hpD hfb.1,
       ← Lech.Expr.substFvarAt_instantiate1 hpD hba body 0,
       denoteP_substFvarAt hacl hainst hwa hba ha
-        (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1) (by omega)
+        (body.instantiate1 (.fvar (D + 1) ty)) (D + 1) (by omega)
         (Lech.Expr.fvarsBelow_instantiate1 0 hfb.2),
       show D + 1 - p = D - p + 1 from by omega]
     cases denoteP acval env φ (D + 1) ty with
     | none => rfl
     | some ta =>
       cases denoteP acval env φ (D + 2)
-          (body.instantiate1 (.fvar (D + 1) n ty)) with
+          (body.instantiate1 (.fvar (D + 1) ty)) with
       | none => rfl
       | some ba => rfl
-  | .lam n ty body mb, D, hpD, hfb => by
+  | .lam ty body mb, D, hpD, hfb => by
     simp only [Lech.Expr.substFvarAt, denoteP]
     rw [denoteP_substFvarAt hacl hainst hwa hba ha ty D hpD hfb.1,
       ← Lech.Expr.substFvarAt_instantiate1 hpD hba body 0,
       denoteP_substFvarAt hacl hainst hwa hba ha
-        (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1) (by omega)
+        (body.instantiate1 (.fvar (D + 1) ty)) (D + 1) (by omega)
         (Lech.Expr.fvarsBelow_instantiate1 0 hfb.2),
       show D + 1 - p = D - p + 1 from by omega]
     cases denoteP acval env φ (D + 1) ty with
     | none => rfl
     | some ta =>
       cases denoteP acval env φ (D + 2)
-          (body.instantiate1 (.fvar (D + 1) n ty)) with
+          (body.instantiate1 (.fvar (D + 1) ty)) with
       | none => rfl
       | some ba => rfl
-  | .letE n ty val body, D, hpD, hfb => by
+  | .letE ty val body, D, hpD, hfb => by
     simp only [Lech.Expr.substFvarAt, denoteP]
     rw [denoteP_substFvarAt hacl hainst hwa hba ha ty D hpD hfb.1,
       denoteP_substFvarAt hacl hainst hwa hba ha val D hpD hfb.2.1,
       ← Lech.Expr.substFvarAt_instantiate1 hpD hba body 0,
       denoteP_substFvarAt hacl hainst hwa hba ha
-        (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1) (by omega)
+        (body.instantiate1 (.fvar (D + 1) ty)) (D + 1) (by omega)
         (Lech.Expr.fvarsBelow_instantiate1 0 hfb.2.2),
       show D + 1 - p = D - p + 1 from by omega]
     cases denoteP acval env φ (D + 1) ty with
@@ -306,7 +306,7 @@ theorem denoteP_substFvarAt
       | none => rfl
       | some va =>
         cases denoteP acval env φ (D + 2)
-            (body.instantiate1 (.fvar (D + 1) n ty)) with
+            (body.instantiate1 (.fvar (D + 1) ty)) with
         | none => rfl
         | some ba => rfl
   | .proj sn i e, D, hpD, hfb => by
@@ -359,9 +359,9 @@ theorem denoteP_beta
     (ha : denoteP acval env φ d a = some x) (k : Nat) :
     denoteP acval env φ d (body.instantiate1 a k) =
       (denoteP acval env φ (d + 1)
-        (body.instantiate1 (.fvar d n ty) k)).map (AVExpr.inst · x 0) := by
+        (body.instantiate1 (.fvar d ty) k)).map (AVExpr.inst · x 0) := by
   have h := denoteP_substFvarAt (p := d) hacl hainst hwa hba ha
-    (body.instantiate1 (.fvar d n ty) k) d (Nat.le_refl d)
+    (body.instantiate1 (.fvar d ty) k) d (Nat.le_refl d)
     (Lech.Expr.fvarsBelow_instantiate1 k hfb)
   rw [Lech.Expr.substFvarAt_instantiate1_self body k hfb,
     Nat.sub_self] at h

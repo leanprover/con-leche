@@ -107,7 +107,7 @@ theorem Expr.numArgs_eq_length : ∀ (e : Expr), e.numArgs = e.getAppArgs.length
   induction e <;> simp_all [numArgs, getAppArgs]
 
 theorem Expr.lamPw_some_inv {a : Expr} {pw : PropWhen} (h : a.lamPw = some pw) :
-    ∃ n ty bd mb, a = .lam n ty bd mb ∧ pw = mb.pw := by
+    ∃ n ty bd mb, a = .lam ty bd mb ∧ pw = mb.pw := by
   cases a <;> simp only [lamPw, reduceCtorEq, Option.some.injEq] at h
   exact ⟨_, _, _, _, rfl, h.symm⟩
 
@@ -116,7 +116,7 @@ theorem Expr.peelNeverPis_zero_inv {T R : Expr} (h : T.peelNeverPis 0 = some R) 
 
 theorem Expr.peelNeverPis_succ_inv {k : Nat} {T R : Expr}
     (h : T.peelNeverPis (k + 1) = some R) :
-    ∃ n ty b m, T = .forallE n ty b m ∧ m.pw.isNever = true ∧
+    ∃ n ty b m, T = .forallE ty b m ∧ m.pw.isNever = true ∧
       b.peelNeverPis k = some R := by
   cases T <;> simp only [peelNeverPis, reduceCtorEq] at h
   case forallE n ty b m =>
@@ -183,7 +183,7 @@ theorem Expr.stripPis_of_peelNeverPis : ∀ (k : Nat) {T R : Expr},
     exact ⟨(n, ty, m) :: bs, by simp [stripPis, hbs]⟩
 
 theorem Expr.hasFvar_of_getAppFn_fvar : ∀ {e : Expr} {idx : Nat} {n : Name}
-    {ty : Expr}, e.getAppFn = .fvar idx n ty → e.hasFvar = true := by
+    {ty : Expr}, e.getAppFn = .fvar idx ty → e.hasFvar = true := by
   intro e
   induction e <;> intro idx n ty h <;> simp_all [getAppFn, hasFvar]
 
@@ -193,9 +193,9 @@ theorem residualPW_some_inv {o : Option Expr} {pw : PropWhen}
   match o, h with
   | some (.sort u), h => exact ⟨u, rfl, (Option.some.inj h).symm⟩
   | none, h => exact nomatch h
-  | some (.bvar _), h | some (.fvar _ _ _), h | some (.const _ _), h
-  | some (.app _ _), h | some (.lam _ _ _ _), h | some (.forallE _ _ _ _), h
-  | some (.letE _ _ _ _), h | some (.lit _), h | some (.proj _ _ _), h =>
+  | some (.bvar _), h | some (.fvar _ _), h | some (.const _ _), h
+  | some (.app _ _), h | some (.lam _ _ _), h | some (.forallE _ _ _), h
+  | some (.letE _ _ _), h | some (.lit _), h | some (.proj _ _ _), h =>
     exact nomatch h
 
 theorem headTypePW_some_inv (find? : Name → Option ConstantInfo) {hd : Expr}
@@ -206,7 +206,7 @@ theorem headTypePW_some_inv (find? : Name → Option ConstantInfo) {hd : Expr}
         ci.toConstantVal.type.peelNeverPis k = some (.sort u) ∧
         pw = Level.substPW ci.toConstantVal.levelParams us
           (Level.zeronessOf u)) ∨
-    (∃ idx n ty u, hd = .fvar idx n ty ∧
+    (∃ idx n ty u, hd = .fvar idx ty ∧
         ty.peelNeverPis k = some (.sort u) ∧ pw = Level.zeronessOf u) := by
   cases hd <;> simp only [headTypePW, reduceCtorEq] at h
   case const I us =>
@@ -237,14 +237,14 @@ inversion rewrites). -/
 theorem typeSortPW_eq (find? : Name → Option ConstantInfo) (T : Expr) :
     typeSortPW find? T =
       match T with
-      | .forallE _ _ _ m => some m.pw
+      | .forallE _ _ m => some m.pw
       | .sort _ => some .never
       | T => headTypePW find? T.getAppFn T.getAppArgs.length := by
   cases T <;> simp [typeSortPW, Expr.numArgs_eq_length]
 
 theorem typeSortPW_some_inv (find? : Name → Option ConstantInfo) {T : Expr}
     {pw : PropWhen} (h : typeSortPW find? T = some pw) :
-    (∃ n A B mb, T = .forallE n A B mb ∧ pw = mb.pw) ∨
+    (∃ n A B mb, T = .forallE A B mb ∧ pw = mb.pw) ∨
     pw = .never ∨
     (∃ I us ci u, T.getAppFn = .const I us ∧ find? I = some ci ∧
         ci.isTowerEntry = false ∧
@@ -253,7 +253,7 @@ theorem typeSortPW_some_inv (find? : Name → Option ConstantInfo) {T : Expr}
           some (.sort u) ∧
         pw = Level.substPW ci.toConstantVal.levelParams us
           (Level.zeronessOf u)) ∨
-    (∃ idx n ty u, T.getAppFn = .fvar idx n ty ∧
+    (∃ idx n ty u, T.getAppFn = .fvar idx ty ∧
         ty.peelNeverPis T.getAppArgs.length = some (.sort u) ∧
         pw = Level.zeronessOf u) := by
   rw [typeSortPW_eq] at h
@@ -274,7 +274,7 @@ theorem headProofPW_some_inv (find? : Name → Option ConstantInfo) {hd : Expr}
         us.length = ci.toConstantVal.levelParams.length ∧
         ∃ pw0, typeSortPW find? ci.toConstantVal.type = some pw0 ∧
           pw = Level.substPW ci.toConstantVal.levelParams us pw0) ∨
-    (∃ idx n ty, hd = .fvar idx n ty ∧ typeSortPW find? ty = some pw) ∨
+    (∃ idx n ty, hd = .fvar idx ty ∧ typeSortPW find? ty = some pw) ∨
     pw = .never := by
   cases hd <;> simp only [headProofPW, reduceCtorEq, Option.some.injEq] at h
   case const c us =>
@@ -300,7 +300,7 @@ theorem headProofPW_some_inv (find? : Name → Option ConstantInfo) {hd : Expr}
 
 theorem proofPW_some_inv (find? : Name → Option ConstantInfo) {a : Expr}
     {pw : PropWhen} (h : proofPW find? a = some pw) :
-    (∃ n ty bd mb, a = .lam n ty bd mb ∧ pw = mb.pw) ∨
+    (∃ n ty bd mb, a = .lam ty bd mb ∧ pw = mb.pw) ∨
     (a.lamPw = none ∧ headProofPW find? a.getAppFn = some pw) := by
   rw [proofPW_eq] at h
   cases hl : a.lamPw with

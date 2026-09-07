@@ -212,7 +212,7 @@ def RuleFacts (envSelf : Env) (cvalSelf : TConstVal)
       pin.constsResolve envSelf = true ∧
       pin.looseBVarsBounded rP = true) ∧
     ∃ pre nm dom body bm D,
-      cv.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
+      cv.type.stripPis mI = some (pre, .forallE dom body bm) ∧
       dom.getAppFn = .const D lvls ∧
       dom.getAppArgs =
         pins.map (Expr.liftLooseBVars (mI - rP) 0) ++

@@ -51,17 +51,17 @@ theorem plainParamSupplyP {m : EnvS2Core V env} {F : Nat}
     -- the statement frame
     {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     {Γs : List AVExpr} (hΓslen : Γs.length = rP + cnF)
     -- the public (recursor) frame and its tower
     {fvsP : List Expr} (hfvsPlen : fvsP.length = rP)
     (hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     (hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP)
+      Expr.fvar l.1 l.2.2 ∈ fvsP)
     (hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)
     (hokTV : ∀ σ : Nat → V, AnnotOkP V σ TV)
@@ -211,7 +211,7 @@ theorem plainParamSupplyP {m : EnvS2Core V env} {F : Nat}
   rcases hxq : fvs[q]? with _ | x
   · rw [List.getElem?_eq_none_iff] at hxq; omega
   obtain ⟨nm, ty, rfl⟩ := hshapeS q x hxq
-  have hspq : sp.getD q default = Expr.fvar q nm ty := by
+  have hspq : sp.getD q default = Expr.fvar q ty := by
     rw [List.getD, hspPar q hq, hxq]
     rfl
   refine ⟨.bvar ((rP + cnF) - 1 - q), by

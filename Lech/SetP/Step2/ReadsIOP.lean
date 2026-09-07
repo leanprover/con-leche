@@ -91,7 +91,7 @@ inference, the codomain's) are discarded — a sort node's reading needs
 no induction hypothesis. -/
 private theorem inferReadsIO_forallE {m : EnvS2Core V env}
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
-    (h : inferTypeCoreIO μ env (fuel + 1) d (.forallE n ty body mb)
+    (h : inferTypeCoreIO μ env (fuel + 1) d (.forallE ty body mb)
       = .ok t) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨-, -, -, -, -, -, -, -, -, rfl⟩ :=
@@ -108,12 +108,12 @@ private theorem inferReadsIO_lam {m : EnvS2Core V env}
     (ihi : InferReadsIOP m μ φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
     {ea : AVExpr}
-    (h : inferTypeCoreIO μ env (fuel + 1) d (.lam n ty body mb) = .ok t)
-    (hws : Expr.WScoped d (.lam n ty body mb))
-    (hb : (Expr.lam n ty body mb).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.lam n ty body mb))
-    (hlr : LeafReadsP m φ d (.lam n ty body mb))
-    (hea : denoteP m.acval env φ d (.lam n ty body mb) = some ea) :
+    (h : inferTypeCoreIO μ env (fuel + 1) d (.lam ty body mb) = .ok t)
+    (hws : Expr.WScoped d (.lam ty body mb))
+    (hb : (Expr.lam ty body mb).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.lam ty body mb))
+    (hlr : LeafReadsP m φ d (.lam ty body mb))
+    (hea : denoteP m.acval env φ d (.lam ty body mb) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨bt, hbt, -, -, rfl⟩ :=
     Lech.inferTypeCoreIO_lam_inv h
@@ -127,7 +127,7 @@ private theorem inferReadsIO_lam {m : EnvS2Core V env}
   obtain ⟨hwopen, hbopen, hLopen⟩ :=
     frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
   have hleaf :
-      Expr.LeafCond d n ty (body.instantiate1 (.fvar d n ty)) := by
+      Expr.LeafCond d n ty (body.instantiate1 (.fvar d ty)) := by
     intro l hl hd
     rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
     · exact absurd hd (by
@@ -144,7 +144,7 @@ private theorem inferReadsIO_lam {m : EnvS2Core V env}
       hleaf l (inferTypeCoreIO_fvarLeaves m.wf fuel hbt hwopen l hl))
   have hbtb : bt.looseBVarsBounded 0 = true :=
     inferTypeCoreIO_looseBVars m.wf fuel hbt hwopen hbopen hLopen
-  have hround : (bt.abstract1 d).instantiate1 (.fvar d n ty) = bt :=
+  have hround : (bt.abstract1 d).instantiate1 (.fvar d ty) = bt :=
     abstract1_instantiate1 bt 0 hcons hbtb
   obtain ⟨bta, hbta⟩ :=
     ihi hbt hwopen hbopen hLopen
@@ -198,7 +198,7 @@ private theorem inferReadsIO_app {m : EnvS2Core V env}
     ((hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl])).of_subset
       (inferTypeCoreIO_fvarLeaves m.wf fuel hif hws.1)) htfa
   obtain ⟨-, b'a, -, hb'a, -⟩ := denoteP_forallE_inv hwa
-  have hwW : Expr.WScoped d (.forallE n' ty' body' mt') :=
+  have hwW : Expr.WScoped d (.forallE ty' body' mt') :=
     Lech.whnf_WScoped m.wf fuel hwf hwtf
   simp only [Expr.WScoped] at hwW
   refine ⟨b'a.inst aa, ?_⟩
@@ -214,12 +214,12 @@ opened at the value*'s own inferred type, and its reading is
 private theorem inferReadsIO_letE {m : EnvS2Core V env}
     (ihi : InferReadsIOP m μ φ fuel)
     {d : Nat} {nn : Name} {tt vv bb t : Expr} {ea : AVExpr}
-    (h : inferTypeCoreIO μ env (fuel + 1) d (.letE nn tt vv bb) = .ok t)
-    (hws : Expr.WScoped d (.letE nn tt vv bb))
-    (hb : (Expr.letE nn tt vv bb).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.letE nn tt vv bb))
-    (hlr : LeafReadsP m φ d (.letE nn tt vv bb))
-    (hea : denoteP m.acval env φ d (.letE nn tt vv bb) = some ea) :
+    (h : inferTypeCoreIO μ env (fuel + 1) d (.letE tt vv bb) = .ok t)
+    (hws : Expr.WScoped d (.letE tt vv bb))
+    (hb : (Expr.letE tt vv bb).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.letE tt vv bb))
+    (hlr : LeafReadsP m φ d (.letE tt vv bb))
+    (hea : denoteP m.acval env φ d (.letE tt vv bb) = some ea) :
     ∃ ta, denoteP m.acval env φ d t = some ta := by
   obtain ⟨-, -, -, -, -, -, -, hbody⟩ :=
     Lech.inferTypeCoreIO_letE_inv h
@@ -233,10 +233,10 @@ private theorem inferReadsIO_letE {m : EnvS2Core V env}
   · rw [hva] at hea; exact nomatch hea
   rw [hva] at hea
   rcases hba : denoteP m.acval env φ (d + 1)
-      (bb.instantiate1 (.fvar d nn tt)) with _ | ba
+      (bb.instantiate1 (.fvar d tt)) with _ | ba
   · rw [hba] at hea; exact nomatch hea
   have hsubred : ∀ l ∈ (bb.instantiate1 vv).fvarLeaves,
-      l ∈ (Expr.letE nn tt vv bb).fvarLeaves := by
+      l ∈ (Expr.letE tt vv bb).fvarLeaves := by
     intro l hl
     rcases Expr.fvarLeaves_instantiate1 bb 0 hl with h2 | h2
     · simp [Expr.fvarLeaves, h2]
@@ -320,7 +320,7 @@ theorem inferReadsIOP_succ {m : EnvS2Core V env}
     rw [Lech.inferTypeCoreIO_sort_eq] at h
     exact inferReads_sort h
   | .bvar i => rw [denoteP_bvar] at hea; exact nomatch hea
-  | .fvar idx n ty =>
+  | .fvar idx ty =>
     rw [Lech.inferTypeCoreIO_fvar_eq] at h
     exact inferReads_fvar h hlr
   | .const n us =>
@@ -332,11 +332,11 @@ theorem inferReadsIOP_succ {m : EnvS2Core V env}
   | .lit (.strVal s) =>
     rw [Lech.inferTypeCoreIO_lit_eq] at h
     exact inferReads_strLit h
-  | .forallE n ty body mb => exact inferReadsIO_forallE h
-  | .lam n ty body mb =>
+  | .forallE ty body mb => exact inferReadsIO_forallE h
+  | .lam ty body mb =>
     exact inferReadsIO_lam ihi h hws hb hLb hlr hea
   | .app f a => exact inferReadsIO_app ihi ihw h hws hb hLb hlr hea
-  | .letE nn tt vv bb =>
+  | .letE tt vv bb =>
     exact inferReadsIO_letE ihi h hws hb hLb hlr hea
   | .proj sn i pe =>
     exact inferReadsIO_proj htower ihi ihw h hws hb hLb hlr hea

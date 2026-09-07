@@ -126,12 +126,12 @@ theorem WScoped_of_mem_getAppArgs : ∀ (e a : Expr) {d : Nat}, Expr.WScoped d e
     · exact WScoped_of_mem_getAppArgs f a hw.1 ha
     · exact hw.2
   | .bvar _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
-  | .fvar _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
+  | .fvar _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
   | .sort _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
   | .const _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
-  | .lam _ _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
-  | .forallE _ _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
-  | .letE _ _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
+  | .lam _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
+  | .forallE _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
+  | .letE _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
   | .proj _ _ _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
   | .lit _, _, _, _, ha => absurd ha (by simp [Expr.getAppArgs])
 

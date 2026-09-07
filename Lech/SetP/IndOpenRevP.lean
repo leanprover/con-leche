@@ -228,7 +228,7 @@ theorem pinOpenRevReadsP
     {rP cnF : Nat}
     {os : List Expr} (hoslen : os.length = rP)
     (hshape : ∀ (i : Nat) (x : Expr), os[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hwsOs : ∀ x ∈ os, Expr.WScoped (rP + cnF) x)
     (hbOs : ∀ x ∈ os, x.looseBVarsBounded 0 = true)
     {p : Expr} (hpw : p.hasFvar = false)
@@ -249,7 +249,7 @@ theorem pinOpenRevReadsP
     · rw [List.getElem?_eq_none_iff, hoslen] at hx
       omega
     obtain ⟨nm, ty, rfl⟩ := hshape q x hx
-    have h1 : os.getD q default = Expr.fvar q nm ty := by
+    have h1 : os.getD q default = Expr.fvar q ty := by
       rw [List.getD, hx]
       rfl
     have h2 : ((List.range rP).map
@@ -307,7 +307,7 @@ theorem pinCrossP
     {rP cnF : Nat} (q : AVExpr)
     {os : List Expr} (hoslen : os.length = rP)
     (hshape : ∀ (i : Nat) (x : Expr), os[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hwsOs : ∀ x ∈ os, Expr.WScoped (rP + cnF) x)
     (hbOs : ∀ x ∈ os, x.looseBVarsBounded 0 = true)
     {p : Expr} (hpw : p.hasFvar = false)
@@ -336,7 +336,7 @@ theorem pinCrossP
     · rw [List.getElem?_eq_none_iff, hoslen] at hx
       omega
     obtain ⟨nm, ty, rfl⟩ := hshape q x hx
-    have h1 : os.getD q default = Expr.fvar q nm ty := by
+    have h1 : os.getD q default = Expr.fvar q ty := by
       rw [List.getD, hx]
       rfl
     have h2 : ((List.range rP).map

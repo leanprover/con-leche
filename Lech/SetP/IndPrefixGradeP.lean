@@ -59,12 +59,12 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
     -- the statement frame
     {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
     (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+      Expr.fvar l.1 l.2.2 ∈ fvs)
     (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvs → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Tstmt : AVExpr} {Γs : List AVExpr} {Rbody : AVExpr}
     (htowerS : PiTeleP (rP + cnF) Tstmt Γs Rbody)
     (hokTst : ∀ σ : Nat → V, AnnotOkP V σ Tstmt)
@@ -74,7 +74,7 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
     -- the public (recursor) frame
     {fvsP : List Expr} (hfvsPlen : fvsP.length = rP)
     (hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)
     (hokTV : ∀ σ : Nat → V, AnnotOkP V σ TV)
@@ -143,14 +143,14 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
         · rw [List.getElem?_eq_none_iff] at hg; omega
         · rfl)
   -- the frame's per-index data
-  have hfvsAt : ∀ n, n < (rP + cnF) → ∃ nm ty, fvs[n]? = some (.fvar n nm ty) := by
+  have hfvsAt : ∀ n, n < (rP + cnF) → ∃ nm ty, fvs[n]? = some (.fvar n ty) := by
     intro n hn
     rcases hx : fvs[n]? with _ | x
     · rw [List.getElem?_eq_none_iff] at hx; omega
     · obtain ⟨nm, ty, rfl⟩ := hshapeS n x hx
       exact ⟨_, _, rfl⟩
   have hfvsPAt : ∀ n, n < rP →
-      ∃ nm ty, fvsP[n]? = some (.fvar n nm ty) := by
+      ∃ nm ty, fvsP[n]? = some (.fvar n ty) := by
     intro n hn
     rcases hx : fvsP[n]? with _ | x
     · rw [List.getElem?_eq_none_iff] at hx; omega
@@ -180,7 +180,7 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
       · rfl
   have hleafRdAll : ∀ n, n < rP →
       ∀ l ∈ (rdoms.getD n default).fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+        Expr.fvar l.1 l.2.2 ∈ fvs := by
     intro n hn l hl
     have hmem : rdoms.getD n default ∈ rdoms := by
       rw [List.getD]
@@ -236,13 +236,13 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
   intro hnN hnrP
   obtain ⟨nm, ty, hx⟩ := hfvsAt n (by omega)
   obtain ⟨nmP, tyP, hxP⟩ := hfvsPAt n hnrP
-  have hmemFvs : Expr.fvar n nm ty ∈ fvs := List.mem_of_getElem? hx
+  have hmemFvs : Expr.fvar n ty ∈ fvs := List.mem_of_getElem? hx
   have hwsTy : Expr.WScoped n ty := by
     have h' := hwsFvs _ hmemFvs
     simp only [Expr.WScoped] at h'
     exact h'.2
   have hleafTy : ∀ l ∈ ty.fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+      Expr.fvar l.1 l.2.2 ∈ fvs := by
     intro l hl
     exact hleafClosed l ⟨_, hmemFvs, by
       rw [Expr.fvarLeaves]; exact List.mem_cons_of_mem _ hl⟩
@@ -250,7 +250,7 @@ theorem prefixGradeFireP {m : EnvS2Core V env} {F : Nat}
     Expr.fvarLeaves_lt_of_wscoped hwsTy
   have hwsRd : Expr.WScoped n (rdoms.getD n default) := hwsRdAll n hnrP
   have hleafRd : ∀ l ∈ (rdoms.getD n default).fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := hleafRdAll n hnrP
+      Expr.fvar l.1 l.2.2 ∈ fvs := hleafRdAll n hnrP
   have hltRd : ∀ l ∈ (rdoms.getD n default).fvarLeaves, l.1 < n :=
     Expr.fvarLeaves_lt_of_wscoped hwsRd
   -- the two readings at the frame depth

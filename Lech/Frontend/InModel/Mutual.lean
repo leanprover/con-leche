@@ -126,7 +126,7 @@ def classifyCtor (members : List (Name × Nat × Nat)) (lps : List Name) (nP : N
     throw s!"constructor {c.cv.name} does not return its member at the parameters"
   let mut recFields : List (Nat × Nat) := []
   for i in List.range c.nF do
-    let d := (bs.getD (nP + i) default).2.1
+    let d := (bs.getD (nP + i) default).1
     match memberApp? members lps nP i d with
     | some m' => recFields := recFields ++ [(i, m')]
     | none =>
@@ -233,8 +233,8 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   for t in b.types do
     let some (ibs, _) := t.cv.type.stripPis (nP + t.nIdx) | throw "unreachable"
     for j in List.range t.nIdx do
-      let ctxJ := ((ibs.take (nP + j)).map (·.2.1)).reverse
-      let dom := (ibs.getD (nP + j) default).2.1
+      let ctxJ := ((ibs.take (nP + j)).map (·.1)).reverse
+      let dom := (ibs.getD (nP + j) default).1
       let some ℓj := sortOf ctx.tbl ctxJ dom
         | throw s!"cannot infer the sort of index {j} of {t.cv.name} (the tag's universe)"
       W := .max W ℓj
@@ -257,7 +257,7 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
      [.recInfo ⟨tag.str "rec", elimTag :: lps, tagRecTy⟩ (nP + 1 + k) (nP + 1 + k) tagRules]))
   -- 2. the auxiliary family
   let auxTy ← need "aux type" (Expr.replacePiBody nP t0.cv.type
-    (.forallE (.str .anonymous "t") (Expr.mkAppN (constP tag lps) ps0) (.sort u) bm))
+    (.forallE (Expr.mkAppN (constP tag lps) ps0) (.sort u) bm))
   let auxCtors : List (Name × Nat × Expr × List Nat) := mctors.map fun mc =>
     (auxCtorName T mc.m mc.c.cv.name, mc.c.nF, specFam T lps nP members mc.c.cv.type,
      mc.recFields.map (·.1))
@@ -301,15 +301,15 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
     let D := rP + nI + 1
     let e := nI + 1
     -- `Mot := λ (i : tag p⃗) (s : aux p⃗ i), tag.rec p⃗ (λ i', ∀ s, aux p⃗ i' → Sort ℓ) M⃗ i s`
-    let motTag : Expr := .lam (.str .anonymous "i")
+    let motTag : Expr := .lam
       (Expr.mkAppN (constP tag lps) (varsAt (k + n + e + 2) nP))
-      (.forallE (.str .anonymous "s")
+      (.forallE
         (Expr.mkAppN (constP aux lps) (varsAt (k + n + e + 3) nP ++ [.bvar 0])) (.sort ℓ) bm) bm
     let tagRecApp := Expr.mkAppN (.const (tag.str "rec") (ℓ' :: lps.map .param))
       (varsAt (k + n + e + 2) nP ++ [motTag] ++ varsAt (n + e + 2) k ++ [.bvar 1, .bvar 0])
-    let mot : Expr := .lam (.str .anonymous "i")
+    let mot : Expr := .lam
       (Expr.mkAppN (constP tag lps) (varsAt (k + n + e) nP))
-      (.lam (.str .anonymous "s")
+      (.lam
         (Expr.mkAppN (constP aux lps) (varsAt (k + n + e + 1) nP ++ [.bvar 0])) tagRecApp bm) bm
     let body := Expr.mkAppN (.const (aux.str "rec") rlvls)
       (varsAt (k + n + e) nP ++ [mot] ++ varsAt e n ++
@@ -336,7 +336,7 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       -- sit above the `k + n` motive and minor binders
       let some (fieldBs, cresid) := (ctele.liftLooseBVars (k + n) 0).stripPis nF
         | throw s!"constructor {mc.c.cv.name}: field telescope"
-      let doms := fieldBs.map (·.2.1)
+      let doms := fieldBs.map (·.1)
       let fields := (List.range nF).map fun i => Expr.bvar (nF - 1 - i)
       let prefixVars := varsAt (nF + k + n) nP ++ varsAt (nF + n) k ++ varsAt nF n
       let ctorApp := Expr.mkAppN (constP (modelName mc.c.cv.name) lps) (varsAt (nF + k + n) nP ++ fields)
@@ -381,15 +381,15 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
       for i in List.range nF do
         if stop then continue
         -- the field's sort, at the constructor frame
-        let ctxI := ((cbs.take (nP + i)).map (·.2.1)).reverse
-        let dom := (cbs.getD (nP + i) default).2.1
+        let ctxI := ((cbs.take (nP + i)).map (·.1)).reverse
+        let dom := (cbs.getD (nP + i) default).1
         let some ℓi := sortOf tbl' ctxI dom | stop := true; continue
         -- the projection type `∀ p⃗ (x : T._model p⃗), F_i[f_j := proj_j p⃗ x]`
         let args := directProjPs nP ++ (List.range i).map fun j =>
           Expr.mkAppN (constP (projModelName t.cv.name j) lps) (directProjPs nP ++ [.bvar 0])
-        let some (.forallE _ fdom _ _) := Expr.instPisAtLift args cty | stop := true; continue
+        let some (.forallE fdom _ _) := Expr.instPisAtLift args cty | stop := true; continue
         let some pty := Expr.replacePiBody nP t.cv.type
-            (.forallE (.str .anonymous "x")
+            (.forallE
               (Expr.mkAppN (constP (modelName t.cv.name) lps) ps0) fdom bm)
           | stop := true; continue
         let some (pbs', _) := pty.stripPis (nP + 1) | stop := true; continue

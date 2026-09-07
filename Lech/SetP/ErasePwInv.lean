@@ -26,11 +26,11 @@ open Lech (Expr Name Level BinderMeta)
 its name and meta are exactly what the comparison forgives. -/
 theorem erasePwNames_forallE_invS {e : Expr} {n : Name} {ty b : Expr}
     {m : BinderMeta}
-    (h : e.erasePw.eraseNames = .forallE n ty b m) :
-    ∃ n' ty' b' m', e = .forallE n' ty' b' m' ∧
+    (h : e.erasePw.eraseNames = .forallE ty b m) :
+    ∃ n' ty' b' m', e = .forallE ty' b' m' ∧
       ty'.erasePw.eraseNames = ty ∧ b'.erasePw.eraseNames = b := by
   cases e with
-  | forallE n' ty' b' m' =>
+  | forallE ty' b' m' =>
     simp only [Expr.erasePw, Expr.eraseNames, Expr.forallE.injEq] at h
     exact ⟨n', ty', b', m', rfl, h.2.1, h.2.2.1⟩
   | _ => simp only [Expr.erasePw, Expr.eraseNames] at h; exact nomatch h

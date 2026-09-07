@@ -22,7 +22,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 /-- `directNonRec` through the index. -/
 def directNonRecF (fe : FEnv) (p : DirectParts) : Bool :=
   match p.cvC.type.stripPis (p.nP + p.nF) with
-  | some (cbs, _) => cbs.all fun b => b.2.1.constsResolveF fe
+  | some (cbs, _) => cbs.all fun b => b.1.constsResolveF fe
   | none => false
 
 /-- `directParts?` through the index (the priority gate, task #175

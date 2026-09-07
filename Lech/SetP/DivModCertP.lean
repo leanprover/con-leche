@@ -221,8 +221,8 @@ theorem dmBinV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     (hf : env.find? o = some cio)
     {n₁ n₂ : Name} {mb₁ mb₂ : Lech.BinderMeta} {codN : Name}
     (hty : cio.toConstantVal.type
-      = .forallE n₁ (.const Lech.natName [])
-      (.forallE n₂ (.const Lech.natName []) (.const codN []) mb₂)
+      = .forallE (.const Lech.natName [])
+      (.forallE (.const Lech.natName []) (.const codN []) mb₂)
       mb₁)
     {ciN codCi : ConstantInfo}
     (hfN : env.find? Lech.natName = some ciN)
@@ -251,7 +251,7 @@ theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
     (hf : env.find? o = some cio)
     {n₁ : Name} {mb₁ : Lech.BinderMeta} {codN : Name}
     (hty : cio.toConstantVal.type
-      = .forallE n₁ (.const Lech.natName []) (.const codN []) mb₁)
+      = .forallE (.const Lech.natName []) (.const codN []) mb₁)
     {ciN codCi : ConstantInfo}
     (hfN : env.find? Lech.natName = some ciN)
     (hlpN : ciN.toConstantVal.levelParams = [])
@@ -268,7 +268,7 @@ theorem dmUnV_of_stored (mp : EnvS2PM V μ env) (ψ : Name → Nat)
           (mp.base2.acval codN ψ)) := by
     rw [hty, denoteP_forallE, denoteP_levelless_const hfN hlpN]
     rw [show (Expr.const codN ([] : List Lech.Level)).instantiate1
-          (.fvar 0 n₁ (.const Lech.natName []))
+          (.fvar 0 (.const Lech.natName []))
         = Expr.const codN [] from Lech.Expr.instantiate1_eq_self
         (by simp [Lech.Expr.looseBVarsBounded])]
     rw [denoteP_levelless_const hcodF hcodLp]
@@ -296,7 +296,7 @@ def dmNatFrag (bins uns : List Name) : Expr → Bool
   | .app (.const n us) a =>
       uns.contains n && us.isEmpty && dmNatFrag bins uns a
   | .const n us => (n == Lech.natZeroName) && us.isEmpty
-  | .fvar i nm ty =>
+  | .fvar i ty =>
       ((i == 0 && nm == Name.anonymous.str "x") ||
         (i == 1 && nm == Name.anonymous.str "y")) &&
         ty == Expr.const Lech.natName []
@@ -383,27 +383,27 @@ theorem dmNatFragP {m : EnvS2Core V env} {ψ : Name → Nat}
     obtain ⟨rfl, rfl⟩ := h
     exact ⟨_, hread _ (by simp) d,
       fun ρ _ _ => ⟨hleafOk _ ρ, hzero ρ, rfl⟩⟩
-  | .fvar i nm ty, h => by
+  | .fvar i ty, h => by
     simp only [dmNatFrag, Bool.and_eq_true, Bool.or_eq_true,
       beq_iff_eq] at h
     obtain ⟨hi, rfl⟩ := h
     rcases hi with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
     · refine ⟨.bvar (d - 1 - 0), ?_, fun ρ hx hy => ?_⟩
       · show denoteP m.acval env ψ d
-          (.fvar 0 (Name.anonymous.str "x")
+          (.fvar 0
             (.const Lech.natName [])) = _
         rw [denoteP_fvar]
       · exact ⟨⟨by simp, by simp⟩, by rw [interp2_bvar]; exact hx,
           by rw [interp2_bvar]; rfl⟩
     · refine ⟨.bvar (d - 1 - 1), ?_, fun ρ hx hy => ?_⟩
       · show denoteP m.acval env ψ d
-          (.fvar 1 (Name.anonymous.str "y")
+          (.fvar 1
             (.const Lech.natName [])) = _
         rw [denoteP_fvar]
       · exact ⟨⟨by simp, by simp⟩, by rw [interp2_bvar]; exact hy,
           by rw [interp2_bvar]; rfl⟩
-  | .bvar _, h | .sort _, h | .lam _ _ _ _, h | .letE _ _ _ _, h
-  | .forallE _ _ _ _, h | .lit _, h | .proj _ _ _, h => by
+  | .bvar _, h | .sort _, h | .lam _ _ _, h | .letE _ _ _, h
+  | .forallE _ _ _, h | .lit _, h | .proj _ _ _, h => by
     simp [dmNatFrag] at h
 
 /-! ## One certificate, converted
@@ -623,7 +623,7 @@ condition the frame asks for is a consequence of the grammar, not a
 
 /-- A frame variable is well-scoped at any depth above its index. -/
 theorem dmFvarWScoped {d i : Nat} {n : Name} {ty : Expr} (hi : i < d)
-    (hty : Expr.WScoped i ty) : Expr.WScoped d (Expr.fvar i n ty) := by
+    (hty : Expr.WScoped i ty) : Expr.WScoped d (Expr.fvar i ty) := by
   simp only [Expr.WScoped]
   exact ⟨hi, hty⟩
 
@@ -663,7 +663,7 @@ theorem dmNatFrag_syntax {bins uns : List Name} :
     exact ⟨by simp [dmLeavesOk, Expr.fvarLeaves], rfl, fun _ _ =>
       Expr.WScoped.of_not_hasFvar
         (e := .const Lech.natZeroName []) rfl⟩
-  | .fvar i nm ty, h => by
+  | .fvar i ty, h => by
     simp only [dmNatFrag, Bool.and_eq_true, Bool.or_eq_true,
       beq_iff_eq] at h
     obtain ⟨hi, rfl⟩ := h
@@ -676,8 +676,8 @@ theorem dmNatFrag_syntax {bins uns : List Name} :
         fun d hd => dmFvarWScoped (by omega)
           (Expr.WScoped.of_not_hasFvar
             (e := .const Lech.natName []) rfl)⟩
-  | .bvar _, h | .sort _, h | .lam _ _ _ _, h | .letE _ _ _ _, h
-  | .forallE _ _ _ _, h | .lit _, h | .proj _ _ _, h => by
+  | .bvar _, h | .sort _, h | .lam _ _ _, h | .letE _ _ _, h
+  | .forallE _ _ _, h | .lit _, h | .proj _ _ _, h => by
     simp [dmNatFrag] at h
 
 /-- Scoping survives the operation substitution (the `WScoped` twin of
@@ -696,9 +696,9 @@ theorem wscoped_substConst0 {c : Name} {v : Expr}
     simp only [Expr.WScoped] at hw
     exact dmApp_wscoped (wscoped_substConst0 hv f hw.1)
       (wscoped_substConst0 hv a hw.2)
-  | .bvar _, _, hw | .fvar _ _ _, _, hw | .sort _, _, hw
-  | .lit _, _, hw | .lam _ _ _ _, _, hw | .forallE _ _ _ _, _, hw
-  | .letE _ _ _ _, _, hw | .proj _ _ _, _, hw => hw
+  | .bvar _, _, hw | .fvar _ _, _, hw | .sort _, _, hw
+  | .lit _, _, hw | .lam _ _ _, _, hw | .forallE _ _ _, _, hw
+  | .letE _ _ _, _, hw | .proj _ _ _, _, hw => hw
 
 /-! ## The certificate frame
 

@@ -369,26 +369,26 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                     rw [show (Expr.getAppFn tmaj) = Expr.lit l
                       from hfn.symm]
                     exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                  | fvar ix nm t =>
+                  | fvar ix t =>
                     rw [show (Expr.getAppFn tmaj)
-                      = Expr.fvar ix nm t from hfn.symm]
+                      = Expr.fvar ix t from hfn.symm]
                     exact SimC.pure hs₂ ⟨hden, hmaj⟩
                   | app f' a' =>
                     rw [show (Expr.getAppFn tmaj)
                       = Expr.app f' a' from hfn.symm]
                     exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                  | lam nm t b' m =>
+                  | lam t b' m =>
                     rw [show (Expr.getAppFn tmaj)
-                      = Expr.lam nm t b' m from hfn.symm]
+                      = Expr.lam t b' m from hfn.symm]
                     exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                  | forallE nm t b' m =>
+                  | forallE t b' m =>
                     rw [show (Expr.getAppFn tmaj)
-                      = Expr.forallE nm t b' m
+                      = Expr.forallE t b' m
                       from hfn.symm]
                     exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                  | letE nm t v b' =>
+                  | letE t v b' =>
                     rw [show (Expr.getAppFn tmaj)
-                      = Expr.letE nm t v b'
+                      = Expr.letE t v b'
                       from hfn.symm]
                     exact SimC.pure hs₂ ⟨hden, hmaj⟩
                   | proj sn jx e' =>
@@ -532,27 +532,27 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       rw [show (Expr.getAppFn tmaj) = Expr.lit l
                         from hfn.symm]
                       exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                    | fvar ix nm t =>
+                    | fvar ix t =>
                       rw [show (Expr.getAppFn tmaj)
-                        = Expr.fvar ix nm t from hfn.symm]
+                        = Expr.fvar ix t from hfn.symm]
                       exact SimC.pure hs₂ ⟨hden, hmaj⟩
                     | app f' a' =>
                       rw [show (Expr.getAppFn tmaj)
                         = Expr.app f' a' from hfn.symm]
                       exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                    | lam nm t b' m =>
+                    | lam t b' m =>
                       rw [show (Expr.getAppFn tmaj)
-                        = Expr.lam nm t b' m
+                        = Expr.lam t b' m
                         from hfn.symm]
                       exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                    | forallE nm t b' m =>
+                    | forallE t b' m =>
                       rw [show (Expr.getAppFn tmaj)
-                        = Expr.forallE nm t b' m
+                        = Expr.forallE t b' m
                         from hfn.symm]
                       exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                    | letE nm t v b' =>
+                    | letE t v b' =>
                       rw [show (Expr.getAppFn tmaj)
-                        = Expr.letE nm t v b'
+                        = Expr.letE t v b'
                         from hfn.symm]
                       exact SimC.pure hs₂ ⟨hden, hmaj⟩
                     | proj sn jx e' =>
@@ -568,12 +568,12 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
               | recInfo cv mI rP rules' => exact SimC.pure hs ⟨hden, hmaj⟩
               | projInfo entry => exact SimC.pure hs ⟨hden, hmaj⟩
           | bvar k => exact SimC.pure hs ⟨hden, hmaj⟩
-          | fvar ix nmᵢ t => exact SimC.pure hs ⟨hden, hmaj⟩
+          | fvar ix t => exact SimC.pure hs ⟨hden, hmaj⟩
           | sort u => exact SimC.pure hs ⟨hden, hmaj⟩
           | app f' a' => exact SimC.pure hs ⟨hden, hmaj⟩
-          | lam nmᵢ t b' m => exact SimC.pure hs ⟨hden, hmaj⟩
-          | forallE nmᵢ t b' m => exact SimC.pure hs ⟨hden, hmaj⟩
-          | letE nmᵢ t v b' => exact SimC.pure hs ⟨hden, hmaj⟩
+          | lam t b' m => exact SimC.pure hs ⟨hden, hmaj⟩
+          | forallE t b' m => exact SimC.pure hs ⟨hden, hmaj⟩
+          | letE t v b' => exact SimC.pure hs ⟨hden, hmaj⟩
           | lit l => exact SimC.pure hs ⟨hden, hmaj⟩
           | proj s'ᵢ j' e' => exact SimC.pure hs ⟨hden, hmaj⟩
         | axiomInfo cv => exact SimC.pure hs ⟨hden, hmaj⟩
@@ -1086,25 +1086,25 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
           | lit l =>
             rw [show (Expr.getAppFn major) = Expr.lit l from hfn'.symm]
             exact SimC.pure hs₄ trivial
-          | fvar ix nm t =>
+          | fvar ix t =>
             rw [show (Expr.getAppFn major)
-              = Expr.fvar ix nm t from hfn'.symm]
+              = Expr.fvar ix t from hfn'.symm]
             exact SimC.pure hs₄ trivial
           | app f' a' =>
             rw [show (Expr.getAppFn major)
               = Expr.app f' a' from hfn'.symm]
             exact SimC.pure hs₄ trivial
-          | lam nm t b' m =>
+          | lam t b' m =>
             rw [show (Expr.getAppFn major)
-              = Expr.lam nm t b' m from hfn'.symm]
+              = Expr.lam t b' m from hfn'.symm]
             exact SimC.pure hs₄ trivial
-          | forallE nm t b' m =>
+          | forallE t b' m =>
             rw [show (Expr.getAppFn major)
-              = Expr.forallE nm t b' m from hfn'.symm]
+              = Expr.forallE t b' m from hfn'.symm]
             exact SimC.pure hs₄ trivial
-          | letE nm t v b' =>
+          | letE t v b' =>
             rw [show (Expr.getAppFn major)
-              = Expr.letE nm t v b'
+              = Expr.letE t v b'
               from hfn'.symm]
             exact SimC.pure hs₄ trivial
           | proj sn jx e' =>
@@ -1128,25 +1128,25 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
   | lit l =>
     rw [show (Expr.getAppFn i) = Expr.lit l from hfn.symm]
     exact SimC.pure hs trivial
-  | fvar ix nmᵢ t =>
-    rw [show (Expr.getAppFn i) = Expr.fvar ix nmᵢ t
+  | fvar ix t =>
+    rw [show (Expr.getAppFn i) = Expr.fvar ix t
       from hfn.symm]
     exact SimC.pure hs trivial
   | app f' a' =>
     rw [show (Expr.getAppFn i) = Expr.app f' a'
       from hfn.symm]
     exact SimC.pure hs trivial
-  | lam nmᵢ t b' m =>
-    rw [show (Expr.getAppFn i) = Expr.lam nmᵢ t b' m
+  | lam t b' m =>
+    rw [show (Expr.getAppFn i) = Expr.lam t b' m
       from hfn.symm]
     exact SimC.pure hs trivial
-  | forallE nmᵢ t b' m =>
+  | forallE t b' m =>
     rw [show (Expr.getAppFn i)
-      = Expr.forallE nmᵢ t b' m from hfn.symm]
+      = Expr.forallE t b' m from hfn.symm]
     exact SimC.pure hs trivial
-  | letE nmᵢ t v b' =>
+  | letE t v b' =>
     rw [show (Expr.getAppFn i)
-      = Expr.letE nmᵢ t v b' from hfn.symm]
+      = Expr.letE t v b' from hfn.symm]
     exact SimC.pure hs trivial
   | proj s'ᵢ j' e' =>
     rw [show (Expr.getAppFn i) = Expr.proj s'ᵢ j' e'

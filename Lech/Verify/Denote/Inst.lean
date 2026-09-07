@@ -76,12 +76,12 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
         rw [VExpr.inst_eq_self_of_closed (hcl _ _)]
       · rfl
     · rfl
-  | .fvar idx n ty, D, hpD, hfb => by
+  | .fvar idx ty, D, hpD, hfb => by
     have hlt : idx < D + 1 := hfb
     by_cases h1 : idx = p
     · -- the substituted variable: `denote_lift` is exactly the fact
       subst h1
-      rw [show Expr.substFvarAt idx a (Expr.fvar idx n ty) = a from by
+      rw [show Expr.substFvarAt idx a (Expr.fvar idx ty) = a from by
             simp [Expr.substFvarAt],
         denote_lift (env := env) (φ := φ) hcl hwa.fvarsBelow D hpD, ha]
       simp only [denote_fvar, Option.map_some, VExpr.inst_bvar,
@@ -105,7 +105,7 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       denote_substFvarAt hcl hwa hba ha b D hpD hfb.2]
     cases denote cval env φ (D + 1) f <;>
       cases denote cval env φ (D + 1) b <;> rfl
-  | .forallE n ty body m, D, hpD, hfb => by
+  | .forallE ty body m, D, hpD, hfb => by
     simp only [Expr.substFvarAt, denote_forallE]
     rw [denote_substFvarAt hcl hwa hba ha ty D hpD hfb.1]
     cases hty : denote cval env φ (D + 1) ty with
@@ -114,14 +114,14 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       simp only [Option.map_some]
       rw [← Expr.substFvarAt_instantiate1 hpD hba body 0,
         denote_substFvarAt hcl hwa hba ha
-          (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1) (by omega)
+          (body.instantiate1 (.fvar (D + 1) ty)) (D + 1) (by omega)
           (Expr.fvarsBelow_instantiate1 0 hfb.2),
         show D + 1 - p = D - p + 1 from by omega]
       cases denote cval env φ (D + 2)
-          (body.instantiate1 (.fvar (D + 1) n ty)) with
+          (body.instantiate1 (.fvar (D + 1) ty)) with
       | none => rfl
       | some B => simp only [Option.map_some, VExpr.inst_pi]
-  | .lam n ty body m, D, hpD, hfb => by
+  | .lam ty body m, D, hpD, hfb => by
     simp only [Expr.substFvarAt, denote_lam]
     rw [denote_substFvarAt hcl hwa hba ha ty D hpD hfb.1]
     cases hty : denote cval env φ (D + 1) ty with
@@ -130,14 +130,14 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
       simp only [Option.map_some]
       rw [← Expr.substFvarAt_instantiate1 hpD hba body 0,
         denote_substFvarAt hcl hwa hba ha
-          (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1) (by omega)
+          (body.instantiate1 (.fvar (D + 1) ty)) (D + 1) (by omega)
           (Expr.fvarsBelow_instantiate1 0 hfb.2),
         show D + 1 - p = D - p + 1 from by omega]
       cases denote cval env φ (D + 2)
-          (body.instantiate1 (.fvar (D + 1) n ty)) with
+          (body.instantiate1 (.fvar (D + 1) ty)) with
       | none => rfl
       | some B => simp only [Option.map_some, VExpr.inst_lam]
-  | .letE n ty val body, D, hpD, hfb => by
+  | .letE ty val body, D, hpD, hfb => by
     simp only [Expr.substFvarAt, denote_letE]
     rw [denote_substFvarAt hcl hwa hba ha ty D hpD hfb.1,
       denote_substFvarAt hcl hwa hba ha val D hpD hfb.2.1]
@@ -150,11 +150,11 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
         simp only [Option.map_some]
         rw [← Expr.substFvarAt_instantiate1 hpD hba body 0,
           denote_substFvarAt hcl hwa hba ha
-            (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1) (by omega)
+            (body.instantiate1 (.fvar (D + 1) ty)) (D + 1) (by omega)
             (Expr.fvarsBelow_instantiate1 0 hfb.2.2),
           show D + 1 - p = D - p + 1 from by omega]
         cases denote cval env φ (D + 2)
-            (body.instantiate1 (.fvar (D + 1) n ty)) with
+            (body.instantiate1 (.fvar (D + 1) ty)) with
         | none => rfl
         | some B => simp only [Option.map_some, VExpr.inst_letE]
   | .proj s i e, D, hpD, hfb => by
@@ -202,9 +202,9 @@ theorem denote_beta (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
     (ha : denote cval env φ d a = some x) (k : Nat) :
     denote cval env φ d (body.instantiate1 a k) =
       (denote cval env φ (d + 1)
-        (body.instantiate1 (.fvar d n ty) k)).map (VExpr.inst · x 0) := by
+        (body.instantiate1 (.fvar d ty) k)).map (VExpr.inst · x 0) := by
   have h := denote_substFvarAt (p := d) hcl hwa hba ha
-    (body.instantiate1 (.fvar d n ty) k) d (Nat.le_refl d)
+    (body.instantiate1 (.fvar d ty) k) d (Nat.le_refl d)
     (Expr.fvarsBelow_instantiate1 k hfb)
   rw [Expr.substFvarAt_instantiate1_self body k hfb, Nat.sub_self] at h
   exact h
@@ -229,9 +229,9 @@ theorem denote_erasedEq {cval : TConstVal} {env : Env} {φ : Name → Nat} :
   | .bvar i, e₂, he, d => by
     match e₂, he with
     | .bvar j, he => obtain rfl : i = j := he; rfl
-  | .fvar i n ty, e₂, he, d => by
+  | .fvar i ty, e₂, he, d => by
     match e₂, he with
-    | .fvar j n' ty', he =>
+    | .fvar j ty', he =>
       obtain rfl : i = j := he
       simp [denote_fvar]
   | .sort u, e₂, he, d => by
@@ -247,32 +247,32 @@ theorem denote_erasedEq {cval : TConstVal} {env : Env} {φ : Name → Nat} :
     | .app g b, he =>
       obtain ⟨h1, h2⟩ : Expr.ErasedEq f g ∧ Expr.ErasedEq a b := he
       simp only [denote_app, denote_erasedEq h1 d, denote_erasedEq h2 d]
-  | .forallE n ty body m, e₂, he, d => by
+  | .forallE ty body m, e₂, he, d => by
     match e₂, he with
-    | .forallE n' ty' body' m', he =>
+    | .forallE ty' body' m', he =>
       obtain ⟨rfl, h1, h2⟩ :
           m = m' ∧ Expr.ErasedEq ty ty' ∧ Expr.ErasedEq body body' := he
       simp only [denote_forallE, denote_erasedEq h1 d,
         denote_erasedEq (Expr.ErasedEq.instantiate1 h2
-          (show Expr.ErasedEq (.fvar d n ty) (.fvar d n' ty') from rfl))
+          (show Expr.ErasedEq (.fvar d ty) (.fvar d ty') from rfl))
           (d + 1)]
-  | .lam n ty body m, e₂, he, d => by
+  | .lam ty body m, e₂, he, d => by
     match e₂, he with
-    | .lam n' ty' body' m', he =>
+    | .lam ty' body' m', he =>
       obtain ⟨rfl, h1, h2⟩ :
           m = m' ∧ Expr.ErasedEq ty ty' ∧ Expr.ErasedEq body body' := he
       simp only [denote_lam, denote_erasedEq h1 d,
         denote_erasedEq (Expr.ErasedEq.instantiate1 h2
-          (show Expr.ErasedEq (.fvar d n ty) (.fvar d n' ty') from rfl))
+          (show Expr.ErasedEq (.fvar d ty) (.fvar d ty') from rfl))
           (d + 1)]
-  | .letE n ty vl body, e₂, he, d => by
+  | .letE ty vl body, e₂, he, d => by
     match e₂, he with
-    | .letE n' ty' vl' body', he =>
+    | .letE ty' vl' body', he =>
       obtain ⟨h1, h2, h3⟩ : Expr.ErasedEq ty ty' ∧ Expr.ErasedEq vl vl' ∧
         Expr.ErasedEq body body' := he
       simp only [denote_letE, denote_erasedEq h1 d, denote_erasedEq h2 d,
         denote_erasedEq (Expr.ErasedEq.instantiate1 h3
-          (show Expr.ErasedEq (.fvar d n ty) (.fvar d n' ty') from rfl))
+          (show Expr.ErasedEq (.fvar d ty) (.fvar d ty') from rfl))
           (d + 1)]
   | .lit l, e₂, he, d => by
     match e₂, he with
@@ -300,9 +300,9 @@ theorem erasedEq_of_eraseNames :
     | .bvar _, h =>
       simp only [Expr.eraseNames, Expr.bvar.injEq] at h
       exact h
-  | .fvar _ _ tya, b, h => by
+  | .fvar _ tya, b, h => by
     match b, h with
-    | .fvar _ _ tyb, h =>
+    | .fvar _ tyb, h =>
       simp only [Expr.eraseNames, Expr.fvar.injEq] at h
       exact h.1
   | .sort _, b, h => by
@@ -320,21 +320,21 @@ theorem erasedEq_of_eraseNames :
     | .app fb ab, h =>
       simp only [Expr.eraseNames, Expr.app.injEq] at h
       exact ⟨erasedEq_of_eraseNames h.1, erasedEq_of_eraseNames h.2⟩
-  | .lam _ tya ba ma, b, h => by
+  | .lam tya ba ma, b, h => by
     match b, h with
-    | .lam _ tyb bb mb, h =>
+    | .lam tyb bb mb, h =>
       simp only [Expr.eraseNames, Expr.lam.injEq] at h
       exact ⟨h.2.2.2, erasedEq_of_eraseNames h.2.1,
         erasedEq_of_eraseNames h.2.2.1⟩
-  | .forallE _ tya ba ma, b, h => by
+  | .forallE tya ba ma, b, h => by
     match b, h with
-    | .forallE _ tyb bb mb, h =>
+    | .forallE tyb bb mb, h =>
       simp only [Expr.eraseNames, Expr.forallE.injEq] at h
       exact ⟨h.2.2.2, erasedEq_of_eraseNames h.2.1,
         erasedEq_of_eraseNames h.2.2.1⟩
-  | .letE _ tya va ba, b, h => by
+  | .letE tya va ba, b, h => by
     match b, h with
-    | .letE _ tyb vb bb, h =>
+    | .letE tyb vb bb, h =>
       simp only [Expr.eraseNames, Expr.letE.injEq] at h
       exact ⟨erasedEq_of_eraseNames h.2.1, erasedEq_of_eraseNames h.2.2.1,
         erasedEq_of_eraseNames h.2.2.2⟩
@@ -386,30 +386,30 @@ theorem denote_erasePw {cval : TConstVal} {env : Env} {φ : Name → Nat} :
     ∀ (e : Expr) (d : Nat),
       denote cval env φ d e.erasePw = denote cval env φ d e
   | .bvar _, _ => rfl
-  | .fvar i n ty, d => by simp [Expr.erasePw, denote_fvar]
+  | .fvar i ty, d => by simp [Expr.erasePw, denote_fvar]
   | .sort _, _ => rfl
   | .const _ _, _ => rfl
   | .app f a, d => by
     simp only [Expr.erasePw, denote_app, denote_erasePw f d, denote_erasePw a d]
-  | .forallE n ty body m, d => by
-    have hb : (body.erasePw).instantiate1 (Expr.fvar d n ty.erasePw)
-        = (body.instantiate1 (.fvar d n ty)).erasePw := by
+  | .forallE ty body m, d => by
+    have hb : (body.erasePw).instantiate1 (Expr.fvar d ty.erasePw)
+        = (body.instantiate1 (.fvar d ty)).erasePw := by
       rw [Expr.erasePw_instantiate1]; rfl
     simp only [Expr.erasePw, denote_forallE, denote_erasePw ty d, hb,
-      denote_erasePw (body.instantiate1 (.fvar d n ty)) (d + 1)]
-  | .lam n ty body m, d => by
-    have hb : (body.erasePw).instantiate1 (Expr.fvar d n ty.erasePw)
-        = (body.instantiate1 (.fvar d n ty)).erasePw := by
+      denote_erasePw (body.instantiate1 (.fvar d ty)) (d + 1)]
+  | .lam ty body m, d => by
+    have hb : (body.erasePw).instantiate1 (Expr.fvar d ty.erasePw)
+        = (body.instantiate1 (.fvar d ty)).erasePw := by
       rw [Expr.erasePw_instantiate1]; rfl
     simp only [Expr.erasePw, denote_lam, denote_erasePw ty d, hb,
-      denote_erasePw (body.instantiate1 (.fvar d n ty)) (d + 1)]
-  | .letE n ty vl body, d => by
-    have hb : (body.erasePw).instantiate1 (Expr.fvar d n ty.erasePw)
-        = (body.instantiate1 (.fvar d n ty)).erasePw := by
+      denote_erasePw (body.instantiate1 (.fvar d ty)) (d + 1)]
+  | .letE ty vl body, d => by
+    have hb : (body.erasePw).instantiate1 (Expr.fvar d ty.erasePw)
+        = (body.instantiate1 (.fvar d ty)).erasePw := by
       rw [Expr.erasePw_instantiate1]; rfl
     simp only [Expr.erasePw, denote_letE, denote_erasePw ty d,
       denote_erasePw vl d, hb,
-      denote_erasePw (body.instantiate1 (.fvar d n ty)) (d + 1)]
+      denote_erasePw (body.instantiate1 (.fvar d ty)) (d + 1)]
   | .lit _, _ => rfl
   | .proj sn i pe, d => by
     simp only [Expr.erasePw, denote_proj, denote_erasePw pe d]

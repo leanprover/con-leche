@@ -425,32 +425,32 @@ theorem denoteP_quotIndA_type (ψ : Name → Nat)
     denoteP_quotMkLeaf (m := m) (A := A) ψ (by decide) hM d
       (Level.param uN)
   rw [show quotIndA.toConstantVal.type
-      = Expr.forallE .anonymous (.sort (.param uN))
-          (Expr.forallE .anonymous
-            (Expr.forallE Name.anonymous (.bvar 0)
-              (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default, pw := .never })
-              { bi := .default, pw := .never })
-            (Expr.forallE .anonymous
-              (Expr.forallE .anonymous
+      = Expr.forallE (.sort (.param uN))
+          (Expr.forallE
+            (Expr.forallE (.bvar 0)
+              (Expr.forallE (.bvar 1) (.sort .zero)
+                { pw := .never })
+              { pw := .never })
+            (Expr.forallE
+              (Expr.forallE
                 (.app (.app (.const quotName [.param uN]) (.bvar 1))
                   (.bvar 0)) (.sort .zero)
-                { bi := .default, pw := .never })
-              (Expr.forallE .anonymous
-                (Expr.forallE .anonymous (.bvar 2)
+                { pw := .never })
+              (Expr.forallE
+                (Expr.forallE (.bvar 2)
                   (.app (.bvar 1)
                     (.app (.app (.app (.const quotMkName [.param uN])
                       (.bvar 3)) (.bvar 2)) (.bvar 0)))
-                  { bi := .default, pw := .ifAllZero [] })
-                (Expr.forallE .anonymous
+                  { pw := .ifAllZero [] })
+                (Expr.forallE
                   (.app (.app (.const quotName [.param uN]) (.bvar 3))
                     (.bvar 2))
                   (.app (.bvar 2) (.bvar 0))
-                  { bi := .default, pw := .ifAllZero [] })
-                { bi := .default, pw := .ifAllZero [] })
-              { bi := .default, pw := .ifAllZero [] })
-            { bi := .default, pw := .ifAllZero [] })
-          { bi := .default, pw := .ifAllZero [] } from rfl]
+                  { pw := .ifAllZero [] })
+                { pw := .ifAllZero [] })
+              { pw := .ifAllZero [] })
+            { pw := .ifAllZero [] })
+          { pw := .ifAllZero [] } from rfl]
   simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
     Expr.instantiate1, quotRelTyP, quotAppP, quotMkAppP,
     quotIndMotiveTyP, quotIndMinorTyP, quotIndTyP, pwBit_never,
@@ -905,15 +905,15 @@ theorem denoteP_quotSoundA_type (ψ : Name → Nat)
         = List.map Level.param [uN] from rfl,
       Level.substFn_param_self ψ [uN]]
   rw [show quotSoundA.toConstantVal.type
-      = Expr.forallE .anonymous (.sort (.param uN))
-          (Expr.forallE .anonymous
-            (Expr.forallE Name.anonymous (.bvar 0)
-              (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default, pw := .never })
-              { bi := .default, pw := .never })
-            (Expr.forallE .anonymous (.bvar 1)
-              (Expr.forallE .anonymous (.bvar 2)
-                (Expr.forallE Name.anonymous
+      = Expr.forallE (.sort (.param uN))
+          (Expr.forallE
+            (Expr.forallE (.bvar 0)
+              (Expr.forallE (.bvar 1) (.sort .zero)
+                { pw := .never })
+              { pw := .never })
+            (Expr.forallE (.bvar 1)
+              (Expr.forallE (.bvar 2)
+                (Expr.forallE
                   (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0))
                   (.app (.app (.app (.const eqName [.param uN])
                     (.app (.app (.const quotName [.param uN]) (.bvar 4))
@@ -922,11 +922,11 @@ theorem denoteP_quotSoundA_type (ψ : Name → Nat)
                       (.bvar 4)) (.bvar 3)) (.bvar 2)))
                     (.app (.app (.app (.const quotMkName [.param uN])
                       (.bvar 4)) (.bvar 3)) (.bvar 1)))
-                  { bi := .default, pw := .ifAllZero [] })
-                { bi := .default, pw := .ifAllZero [] })
-              { bi := .default, pw := .ifAllZero [] })
-            { bi := .default, pw := .ifAllZero [] })
-          { bi := .default, pw := .ifAllZero [] } from rfl]
+                  { pw := .ifAllZero [] })
+                { pw := .ifAllZero [] })
+              { pw := .ifAllZero [] })
+            { pw := .ifAllZero [] })
+          { pw := .ifAllZero [] } from rfl]
   simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
     Expr.instantiate1, quotRelTyP, quotAppP, quotMkAppP, quotSoundTyP,
     pwBit_never, pwBit_ifAllZero_nil, hQc, hMc, hEc, Level.eval]
@@ -1608,36 +1608,36 @@ theorem denoteP_quotLiftA_type (ψ : Name → Nat)
     denoteP_eqLeaf (m := m) (A := A) ψ (Level.param vN) (by decide)
       hE d
   rw [show quotLiftA.toConstantVal.type
-      = Expr.forallE .anonymous (.sort (.param uN))
-          (Expr.forallE .anonymous
-            (Expr.forallE Name.anonymous (.bvar 0)
-              (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default, pw := .never })
-              { bi := .default, pw := .never })
-            (Expr.forallE .anonymous (.sort (.param vN))
-              (Expr.forallE .anonymous
-                (Expr.forallE .anonymous (.bvar 2)
-                  (.bvar 1) { bi := .default, pw := .ifAllZero [vN] })
-                (Expr.forallE .anonymous
-                  (Expr.forallE .anonymous (.bvar 3)
-                    (Expr.forallE .anonymous (.bvar 4)
-                      (Expr.forallE .anonymous
+      = Expr.forallE (.sort (.param uN))
+          (Expr.forallE
+            (Expr.forallE (.bvar 0)
+              (Expr.forallE (.bvar 1) (.sort .zero)
+                { pw := .never })
+              { pw := .never })
+            (Expr.forallE (.sort (.param vN))
+              (Expr.forallE
+                (Expr.forallE (.bvar 2)
+                  (.bvar 1) { pw := .ifAllZero [vN] })
+                (Expr.forallE
+                  (Expr.forallE (.bvar 3)
+                    (Expr.forallE (.bvar 4)
+                      (Expr.forallE
                         (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0))
                         (.app (.app (.app (.const eqName [.param vN])
                           (.bvar 4)) (.app (.bvar 3) (.bvar 2)))
                           (.app (.bvar 3) (.bvar 1)))
-                        { bi := .default, pw := .ifAllZero [] })
-                      { bi := .default, pw := .ifAllZero [] })
-                    { bi := .default, pw := .ifAllZero [] })
-                  (Expr.forallE .anonymous
+                        { pw := .ifAllZero [] })
+                      { pw := .ifAllZero [] })
+                    { pw := .ifAllZero [] })
+                  (Expr.forallE
                     (.app (.app (.const quotName [.param uN]) (.bvar 4))
                       (.bvar 3))
-                    (.bvar 3) { bi := .default, pw := .ifAllZero [vN] })
-                  { bi := .default, pw := .ifAllZero [vN] })
-                { bi := .default, pw := .ifAllZero [vN] })
-              { bi := .default, pw := .ifAllZero [vN] })
-            { bi := .default, pw := .ifAllZero [vN] })
-          { bi := .default, pw := .ifAllZero [vN] } from rfl]
+                    (.bvar 3) { pw := .ifAllZero [vN] })
+                  { pw := .ifAllZero [vN] })
+                { pw := .ifAllZero [vN] })
+              { pw := .ifAllZero [vN] })
+            { pw := .ifAllZero [vN] })
+          { pw := .ifAllZero [vN] } from rfl]
   simp [denoteP_forallE, denoteP_sort, denoteP_app, denoteP_fvar,
     Expr.instantiate1, quotRelTyP, quotAppP, quotLiftInvTyP,
     quotLiftTyP, pwBit_never, pwBit_ifAllZero_nil, hQc, hEc,
@@ -2302,17 +2302,17 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
         = some quotA := by
       rw [Lech.Env.find?_cons, if_neg (by decide)]; exact hQ1
     rw [show quotMkA.toConstantVal.type
-      = Expr.forallE .anonymous (.sort (.param uN))
-          (Expr.forallE .anonymous
-            (Expr.forallE Name.anonymous (.bvar 0)
-              (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                { bi := .default, pw := .never })
-              { bi := .default, pw := .never })
-            (Expr.forallE .anonymous (.bvar 1)
+      = Expr.forallE (.sort (.param uN))
+          (Expr.forallE
+            (Expr.forallE (.bvar 0)
+              (Expr.forallE (.bvar 1) (.sort .zero)
+                { pw := .never })
+              { pw := .never })
+            (Expr.forallE (.bvar 1)
               (.app (.app (.const quotName [.param uN]) (.bvar 2))
-                (.bvar 1)) { bi := .default, pw := .ifAllZero [uN] })
-            { bi := .default, pw := .ifAllZero [uN] })
-          { bi := .default, pw := .ifAllZero [uN] } from rfl]
+                (.bvar 1)) { pw := .ifAllZero [uN] })
+            { pw := .ifAllZero [uN] })
+          { pw := .ifAllZero [uN] } from rfl]
     simp [Expr.constsResolve, hf]
   obtain ⟨mp2⟩ := extendQuotMkP mp1 hQ1 hf2  hwf2
   have hQ2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
@@ -2338,40 +2338,40 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     · show Expr.constsResolve _ quotLiftA.toConstantVal.type = true
       rw [show quotLiftA.toConstantVal.type
-          = Expr.forallE .anonymous (.sort (.param uN))
-              (Expr.forallE .anonymous
-                (Expr.forallE Name.anonymous (.bvar 0)
-                  (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                    { bi := .default, pw := .never })
-                  { bi := .default, pw := .never })
-                (Expr.forallE .anonymous
+          = Expr.forallE (.sort (.param uN))
+              (Expr.forallE
+                (Expr.forallE (.bvar 0)
+                  (Expr.forallE (.bvar 1) (.sort .zero)
+                    { pw := .never })
+                  { pw := .never })
+                (Expr.forallE
                   (.sort (.param vN))
-                  (Expr.forallE .anonymous
-                    (Expr.forallE .anonymous (.bvar 2)
+                  (Expr.forallE
+                    (Expr.forallE (.bvar 2)
                       (.bvar 1)
-                      { bi := .default, pw := .ifAllZero [vN] })
-                    (Expr.forallE .anonymous
-                      (Expr.forallE .anonymous (.bvar 3)
-                        (Expr.forallE .anonymous (.bvar 4)
-                          (Expr.forallE .anonymous
+                      { pw := .ifAllZero [vN] })
+                    (Expr.forallE
+                      (Expr.forallE (.bvar 3)
+                        (Expr.forallE (.bvar 4)
+                          (Expr.forallE
                             (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0))
                             (.app (.app (.app
                               (.const eqName [.param vN]) (.bvar 4))
                               (.app (.bvar 3) (.bvar 2)))
                               (.app (.bvar 3) (.bvar 1)))
-                            { bi := .default, pw := .ifAllZero [] })
-                          { bi := .default, pw := .ifAllZero [] })
-                        { bi := .default, pw := .ifAllZero [] })
-                      (Expr.forallE .anonymous
+                            { pw := .ifAllZero [] })
+                          { pw := .ifAllZero [] })
+                        { pw := .ifAllZero [] })
+                      (Expr.forallE
                         (.app (.app (.const quotName [.param uN])
                           (.bvar 4)) (.bvar 3))
                         (.bvar 3)
-                        { bi := .default, pw := .ifAllZero [vN] })
-                      { bi := .default, pw := .ifAllZero [vN] })
-                    { bi := .default, pw := .ifAllZero [vN] })
-                  { bi := .default, pw := .ifAllZero [vN] })
-                { bi := .default, pw := .ifAllZero [vN] })
-              { bi := .default, pw := .ifAllZero [vN] } from rfl]
+                        { pw := .ifAllZero [vN] })
+                      { pw := .ifAllZero [vN] })
+                    { pw := .ifAllZero [vN] })
+                  { pw := .ifAllZero [vN] })
+                { pw := .ifAllZero [vN] })
+              { pw := .ifAllZero [vN] } from rfl]
       simp [Expr.constsResolve, hfQ, hfE]
     · intro cv mI rP rules heq
       injection heq with h1' _ _ h4'
@@ -2409,33 +2409,33 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     · show Expr.constsResolve _ quotIndA.toConstantVal.type = true
       rw [show quotIndA.toConstantVal.type
-          = Expr.forallE .anonymous (.sort (.param uN))
-              (Expr.forallE .anonymous
-                (Expr.forallE Name.anonymous (.bvar 0)
-                  (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                    { bi := .default, pw := .never })
-                  { bi := .default, pw := .never })
-                (Expr.forallE .anonymous
-                  (Expr.forallE .anonymous
+          = Expr.forallE (.sort (.param uN))
+              (Expr.forallE
+                (Expr.forallE (.bvar 0)
+                  (Expr.forallE (.bvar 1) (.sort .zero)
+                    { pw := .never })
+                  { pw := .never })
+                (Expr.forallE
+                  (Expr.forallE
                     (.app (.app (.const quotName [.param uN]) (.bvar 1))
                       (.bvar 0)) (.sort .zero)
-                    { bi := .default, pw := .never })
-                  (Expr.forallE .anonymous
-                    (Expr.forallE .anonymous (.bvar 2)
+                    { pw := .never })
+                  (Expr.forallE
+                    (Expr.forallE (.bvar 2)
                       (.app (.bvar 1)
                         (.app (.app (.app
                           (.const quotMkName [.param uN])
                           (.bvar 3)) (.bvar 2)) (.bvar 0)))
-                      { bi := .default, pw := .ifAllZero [] })
-                    (Expr.forallE .anonymous
+                      { pw := .ifAllZero [] })
+                    (Expr.forallE
                       (.app (.app (.const quotName [.param uN])
                         (.bvar 3)) (.bvar 2))
                       (.app (.bvar 2) (.bvar 0))
-                      { bi := .default, pw := .ifAllZero [] })
-                    { bi := .default, pw := .ifAllZero [] })
-                  { bi := .default, pw := .ifAllZero [] })
-                { bi := .default, pw := .ifAllZero [] })
-              { bi := .default, pw := .ifAllZero [] } from rfl]
+                      { pw := .ifAllZero [] })
+                    { pw := .ifAllZero [] })
+                  { pw := .ifAllZero [] })
+                { pw := .ifAllZero [] })
+              { pw := .ifAllZero [] } from rfl]
       simp [Expr.constsResolve, hfQ, hfM]
     · intro cv mI rP rules heq
       injection heq with h1' _ _ h4'
@@ -2478,15 +2478,15 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
       (fun _ _ heq => nomatch heq), (fun _ heq => nomatch heq)⟩
     show Expr.constsResolve _ quotSoundA.toConstantVal.type = true
     rw [show quotSoundA.toConstantVal.type
-        = Expr.forallE .anonymous (.sort (.param uN))
-            (Expr.forallE .anonymous
-              (Expr.forallE Name.anonymous (.bvar 0)
-                (Expr.forallE Name.anonymous (.bvar 1) (.sort .zero)
-                  { bi := .default, pw := .never })
-                { bi := .default, pw := .never })
-              (Expr.forallE .anonymous (.bvar 1)
-                (Expr.forallE .anonymous (.bvar 2)
-                  (Expr.forallE Name.anonymous
+        = Expr.forallE (.sort (.param uN))
+            (Expr.forallE
+              (Expr.forallE (.bvar 0)
+                (Expr.forallE (.bvar 1) (.sort .zero)
+                  { pw := .never })
+                { pw := .never })
+              (Expr.forallE (.bvar 1)
+                (Expr.forallE (.bvar 2)
+                  (Expr.forallE
                     (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0))
                     (.app (.app (.app (.const eqName [.param uN])
                       (.app (.app (.const quotName [.param uN])
@@ -2497,11 +2497,11 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvS2PM V μ env)
                       (.app (.app (.app
                         (.const quotMkName [.param uN])
                         (.bvar 4)) (.bvar 3)) (.bvar 1)))
-                    { bi := .default, pw := .ifAllZero [] })
-                  { bi := .default, pw := .ifAllZero [] })
-                { bi := .default, pw := .ifAllZero [] })
-              { bi := .default, pw := .ifAllZero [] })
-            { bi := .default, pw := .ifAllZero [] } from rfl]
+                    { pw := .ifAllZero [] })
+                  { pw := .ifAllZero [] })
+                { pw := .ifAllZero [] })
+              { pw := .ifAllZero [] })
+            { pw := .ifAllZero [] } from rfl]
     simp [Expr.constsResolve, hfQ, hfM, hfE]
   exact extendQuotSoundP mp4 hQ4 hM4 hE4 hf5  hwf5
 

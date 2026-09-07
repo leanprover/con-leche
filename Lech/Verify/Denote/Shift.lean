@@ -48,8 +48,8 @@ otherwise stop at this file and wonder what went wrong.
 its binder clause compares
 
 ```
-denote (D+2) (body.instantiate1 (.fvar (D+1) n ty))
-denote (D+1) (body.instantiate1 (.fvar  D    n ty))
+denote (D+2) (body.instantiate1 (.fvar (D+1) ty))
+denote (D+1) (body.instantiate1 (.fvar  D    ty))
 ```
 
 — two **genuinely different expressions**, related by
@@ -177,7 +177,7 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
         rw [VExpr.liftN_eq_self_of_closed (hcl _ _)]
       · rfl
     · rfl
-  | .fvar idx n ty, d, hpd, hfb => by
+  | .fvar idx ty, d, hpd, hfb => by
     have hlt : idx < d := hfb
     simp only [Expr.shiftFrom]
     split
@@ -196,7 +196,7 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
     simp only [Expr.shiftFrom, denote_app]
     rw [denote_shiftFrom hcl f d hpd hfb.1, denote_shiftFrom hcl a d hpd hfb.2]
     cases denote cval env φ d f <;> cases denote cval env φ d a <;> rfl
-  | .forallE n ty body m, d, hpd, hfb => by
+  | .forallE ty body m, d, hpd, hfb => by
     simp only [Expr.shiftFrom, denote_forallE]
     rw [denote_shiftFrom hcl ty d hpd hfb.1]
     cases hty : denote cval env φ d ty with
@@ -204,13 +204,13 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
     | some A =>
       simp only [Option.map_some]
       rw [← Expr.shiftFrom_instantiate1 hpd body 0,
-        denote_shiftFrom hcl (body.instantiate1 (.fvar d n ty)) (d + 1)
+        denote_shiftFrom hcl (body.instantiate1 (.fvar d ty)) (d + 1)
           (by omega) (Expr.fvarsBelow_instantiate1 0 hfb.2),
         show d + 1 - p = d - p + 1 from by omega]
-      cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
+      cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
       | none => rfl
       | some B => simp only [Option.map_some, VExpr.liftN_pi]
-  | .lam n ty body m, d, hpd, hfb => by
+  | .lam ty body m, d, hpd, hfb => by
     simp only [Expr.shiftFrom, denote_lam]
     rw [denote_shiftFrom hcl ty d hpd hfb.1]
     cases hty : denote cval env φ d ty with
@@ -218,13 +218,13 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
     | some A =>
       simp only [Option.map_some]
       rw [← Expr.shiftFrom_instantiate1 hpd body 0,
-        denote_shiftFrom hcl (body.instantiate1 (.fvar d n ty)) (d + 1)
+        denote_shiftFrom hcl (body.instantiate1 (.fvar d ty)) (d + 1)
           (by omega) (Expr.fvarsBelow_instantiate1 0 hfb.2),
         show d + 1 - p = d - p + 1 from by omega]
-      cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
+      cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
       | none => rfl
       | some B => simp only [Option.map_some, VExpr.liftN_lam]
-  | .letE n ty val body, d, hpd, hfb => by
+  | .letE ty val body, d, hpd, hfb => by
     simp only [Expr.shiftFrom, denote_letE]
     rw [denote_shiftFrom hcl ty d hpd hfb.1,
       denote_shiftFrom hcl val d hpd hfb.2.1]
@@ -236,10 +236,10 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) {p : Nat} :
       | some xv =>
         simp only [Option.map_some]
         rw [← Expr.shiftFrom_instantiate1 hpd body 0,
-          denote_shiftFrom hcl (body.instantiate1 (.fvar d n ty)) (d + 1)
+          denote_shiftFrom hcl (body.instantiate1 (.fvar d ty)) (d + 1)
             (by omega) (Expr.fvarsBelow_instantiate1 0 hfb.2.2),
           show d + 1 - p = d - p + 1 from by omega]
-        cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
+        cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
         | none => rfl
         | some B => simp only [Option.map_some, VExpr.liftN_letE]
   | .proj s i e, d, hpd, hfb => by
@@ -464,12 +464,12 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, VExpr.Closed (cval n ψ)) :
     match x with
     | .bvar i => rw [denote_bvar] at h; exact nomatch h
     | .sort u => exact (k1 u rfl).elim
-    | .fvar a b c => exact (k2 a b c rfl).elim
+    | .fvar a c => exact (k2 a b c rfl).elim
     | .const a b => exact (k3 a b rfl).elim
-    | .forallE a b c dd => exact (k4 a b c dd rfl).elim
-    | .lam a b c dd => exact (k5 a b c dd rfl).elim
+    | .forallE b c dd => exact (k4 a b c dd rfl).elim
+    | .lam b c dd => exact (k5 a b c dd rfl).elim
     | .app a b => exact (k6 a b rfl).elim
-    | .letE a b c dd => exact (k7 a b c dd rfl).elim
+    | .letE b c dd => exact (k7 a b c dd rfl).elim
     | .proj a b c => exact (k8 a b c rfl).elim
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim

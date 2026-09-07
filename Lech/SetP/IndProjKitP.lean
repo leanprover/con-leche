@@ -101,7 +101,7 @@ theorem stripLams_denotePTele :
   | succ k ih =>
     intro e j bs body E h hE
     match e, h with
-    | .lam nm dom bodyE mb, h =>
+    | .lam dom bodyE mb, h =>
       simp only [Lech.Expr.stripLams] at h
       cases hs : bodyE.stripLams k with
       | none => rw [hs] at h; exact nomatch h
@@ -116,7 +116,7 @@ theorem stripLams_denotePTele :
       | some A => ?_
       rw [hA] at hE
       cases hB : denoteP acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar j nm dom)) with
+          (bodyE.instantiate1 (.fvar j dom)) with
       | none => rw [hB] at hE; exact nomatch hE
       | some Bv => ?_
       rw [hB] at hE
@@ -124,21 +124,21 @@ theorem stripLams_denotePTele :
         simpa using hE.symm
       -- re-open at the anonymous opener (the reading is blind to it)
       have hB' : denoteP acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar j Name.anonymous (.sort .zero)))
+          (bodyE.instantiate1 (.fvar j (.sort .zero)))
           = some Bv := by
         rw [denoteP_erasedEq (Lech.Expr.ErasedEq.instantiate1
           (Lech.Expr.ErasedEq.rfl bodyE)
           (show Lech.Expr.ErasedEq
-              (.fvar j Name.anonymous (.sort .zero)) (.fvar j nm dom)
+              (.fvar j (.sort .zero)) (.fvar j dom)
             from by constructor)) (j + 1)]
         exact hB
-      have hsI : ((bodyE.instantiate1 (.fvar j Name.anonymous
+      have hsI : ((bodyE.instantiate1 (.fvar j
           (.sort .zero))).stripLams k).isSome :=
         Lech.Expr.stripLams_instantiate1_isSome k 0 (by rw [hs]; rfl)
       obtain ⟨bs', body', hsI2⟩ : ∃ bs' body',
-          (bodyE.instantiate1 (.fvar j Name.anonymous
+          (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripLams k = some (bs', body') := by
-        cases hq : (bodyE.instantiate1 (.fvar j Name.anonymous
+        cases hq : (bodyE.instantiate1 (.fvar j
             (.sort .zero))).stripLams k with
         | none => rw [hq] at hsI; exact nomatch hsI
         | some q => exact ⟨q.1, q.2, rfl⟩
@@ -151,15 +151,15 @@ theorem stripLams_denotePTele :
       · show denoteP acval env φ (j + (k + 1))
           (Expr.instSeq (openFvars j (k + 1)) (k + 1 - 1) p.2)
           = some C
-        rw [show openFvars j (k + 1) = .fvar j Name.anonymous
+        rw [show openFvars j (k + 1) = .fvar j
             (.sort .zero) :: openFvars (j + 1) k from rfl,
-          show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
+          show Expr.instSeq (.fvar j (.sort .zero)
               :: openFvars (j + 1) k) (k + 1 - 1) p.2 =
             Expr.instSeq (openFvars (j + 1) k) (k - 1)
-              (p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+              (p.2.instantiate1 (.fvar j (.sort .zero))
                 k) from by simp [Expr.instSeq],
           show j + (k + 1) = j + 1 + k from by omega,
-          show p.2.instantiate1 (.fvar j Name.anonymous (.sort .zero))
+          show p.2.instantiate1 (.fvar j (.sort .zero))
               k = body' from by
             rw [hbody']
             simp only [Nat.zero_add]]
@@ -197,12 +197,12 @@ theorem stripLams_denotePTele :
           show denoteP acval env φ (j + (i0 + 1))
             (Expr.instSeq (openFvars j (i0 + 1)) (i0 + 1 - 1) b.2.1)
             = _
-          rw [show openFvars j (i0 + 1) = .fvar j Name.anonymous
+          rw [show openFvars j (i0 + 1) = .fvar j
               (.sort .zero) :: openFvars (j + 1) i0 from rfl,
-            show Expr.instSeq (.fvar j Name.anonymous (.sort .zero)
+            show Expr.instSeq (.fvar j (.sort .zero)
                 :: openFvars (j + 1) i0) (i0 + 1 - 1) b.2.1 =
               Expr.instSeq (openFvars (j + 1) i0) (i0 - 1)
-                (b.2.1.instantiate1 (.fvar j Name.anonymous
+                (b.2.1.instantiate1 (.fvar j
                   (.sort .zero)) i0) from by
               simp [Expr.instSeq],
             show j + (i0 + 1) = j + 1 + i0 from by omega]
@@ -309,7 +309,7 @@ theorem projBodyValueP {cnP cnF i : Nat} (hilt : i < cnF) {Cβ : AVExpr}
 variable** (`projRhsValue`). -/
 theorem projRhsValueP {fvs : List Expr} {rP cnF i : Nat} {vR : AVExpr}
     (hshapeS : ∀ (i0 : Nat) (x : Expr), fvs[i0]? = some x →
-      ∃ nm ty, x = Expr.fvar i0 nm ty)
+      ∃ nm ty, x = Expr.fvar i0 ty)
     (hfvslen : fvs.length = rP + cnF) (hilt : i < cnF)
     (hRden : denoteP acval env φ (rP + cnF)
       (fvs.getD (rP + i) default) = some vR) :
@@ -340,7 +340,7 @@ theorem instPisAt_openerDomsP :
       Expr.instPisAt sp ty = some (ds, rs) →
       ∀ {j : Nat} {T : AVExpr},
         (∀ (q : Nat) (x : Expr), sp[q]? = some x →
-          ∃ nm t, x = Expr.fvar (j + q) nm t) →
+          ∃ nm t, x = Expr.fvar (j + q) t) →
         denoteP acval env φ j ty = some T →
         ∀ {Γ : List AVExpr} {R : AVExpr}, PiTeleP sp.length T Γ R →
         ∀ q, q < sp.length →
@@ -355,10 +355,10 @@ theorem instPisAt_openerDomsP :
     intro ty ds rs h j T hshape hT Γ R htele q hq
     obtain ⟨nm0, t0, rfl⟩ := hshape 0 a rfl
     match ty, h with
-    | .forallE nmT dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (bodyE.instantiate1
-          (.fvar (j + 0) nm0 t0)) with
+          (.fvar (j + 0) t0)) with
       | none => rw [h1] at h; exact nomatch h
       | some p => ?_
       rw [h1] at h
@@ -370,7 +370,7 @@ theorem instPisAt_openerDomsP :
       | some A => ?_
       rw [hA] at hT
       cases hB : denoteP acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar j nmT dom)) with
+          (bodyE.instantiate1 (.fvar j dom)) with
       | none => rw [hB] at hT; exact nomatch hT
       | some Bv => ?_
       rw [hB] at hT
@@ -399,15 +399,15 @@ theorem instPisAt_openerDomsP :
         -- the recursion runs at the *spine's* opener; the reading is
         -- blind to it
         have hB' : denoteP acval env φ (j + 1)
-            (bodyE.instantiate1 (.fvar (j + 0) nm0 t0)) = some B' := by
+            (bodyE.instantiate1 (.fvar (j + 0) t0)) = some B' := by
           rw [denoteP_erasedEq (Lech.Expr.ErasedEq.instantiate1
             (Lech.Expr.ErasedEq.rfl bodyE)
-            (show Lech.Expr.ErasedEq (.fvar (j + 0) nm0 t0)
-                (.fvar j nmT dom) from by
+            (show Lech.Expr.ErasedEq (.fvar (j + 0) t0)
+                (.fvar j dom) from by
               rw [Nat.add_zero]; constructor)) (j + 1)]
           exact hB
         have hshape' : ∀ (q0 : Nat) (x : Expr), sp[q0]? = some x →
-            ∃ nm t, x = Expr.fvar (j + 1 + q0) nm t := by
+            ∃ nm t, x = Expr.fvar (j + 1 + q0) t := by
           intro q0 x hx
           obtain ⟨nm', t', hx'⟩ := hshape (q0 + 1) x (by simpa using hx)
           exact ⟨nm', t', by rw [hx']; congr 1; omega⟩
@@ -433,9 +433,9 @@ theorem projSpineMemP
       (acval n ψ).liftN 1 k = acval n ψ)
     {K : Nat} {fvs : List Expr} (hfvslen : fvs.length = K)
     (hshapeS : ∀ (q : Nat) (x : Expr), fvs[q]? = some x →
-      ∃ nm ty, x = Expr.fvar q nm ty)
+      ∃ nm ty, x = Expr.fvar q ty)
     (hwsTy : ∀ (q : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar q nm ty ∈ fvs → Expr.WScoped q ty)
+      Expr.fvar q ty ∈ fvs → Expr.WScoped q ty)
     {ctyR : Expr} (hCwR : ctyR.hasFvar = false)
     {cdoms : List Expr} {cres : Expr}
     (hcinst : Expr.instPisAt fvs ctyR = some (cdoms, cres))

@@ -61,11 +61,11 @@ theorem ofReduce_shapeS {n : Name} {type' : Expr}
     (h : type'.erasePw.eraseNames
       = (Lech.ofReducePinA n).type.erasePw.eraseNames) :
     ∃ n₁ n₂ n₃ m₁ m₂ m₃,
-      type' = .forallE n₁
+      type' = .forallE
         (.const (Lech.reduceElemName (Lech.ofReduceOp n)) [])
-        (.forallE n₂
+        (.forallE
           (.const (Lech.reduceElemName (Lech.ofReduceOp n)) [])
-          (.forallE n₃
+          (.forallE
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.const (Lech.reduceElemName
                   (Lech.ofReduceOp n)) []))
@@ -117,9 +117,9 @@ theorem ofReduce_bitsP (hμ : μ.verifiedChecks = true)
     {E c : Name} {n₁ n₂ n₃ : Name} {m₁ m₂ m₃ : BinderMeta}
     {d : Nat} {stype : Expr}
     (hrun : inferTypeCore μ env F d
-      (.forallE n₁ (.const E [])
-        (.forallE n₂ (.const E [])
-          (.forallE n₃
+      (.forallE (.const E [])
+        (.forallE (.const E [])
+          (.forallE
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.const E [])) (.app (.const c []) (.bvar 1)))
               (.bvar 0))
@@ -234,12 +234,12 @@ theorem ofReduce_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     fun e => denoteP_const hEq rfl
   -- the stored type's reading, at the bits the run fixes
   have hden : denoteP mp.base2.acval env ψ 0
-      (.forallE n₁
+      (.forallE
         (.const (Lech.reduceElemName (Lech.ofReduceOp cvA.name)) [])
-        (.forallE n₂
+        (.forallE
           (.const (Lech.reduceElemName
             (Lech.ofReduceOp cvA.name)) [])
-          (.forallE n₃
+          (.forallE
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.const (Lech.reduceElemName
                   (Lech.ofReduceOp cvA.name)) []))

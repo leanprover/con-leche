@@ -141,8 +141,8 @@ and the binder metas free — the same mechanical inversion
 theorem iff_shapeS {ty : Expr}
     (h : ty.erasePw.eraseNames
       = iffA.toConstantVal.type.erasePw.eraseNames) :
-    ∃ n₁ n₂ m₁ m₂, ty = .forallE n₁ (.sort .zero)
-      (.forallE n₂ (.sort .zero) (.sort .zero) m₂) m₁ := by
+    ∃ n₁ n₂ m₁ m₂, ty = .forallE (.sort .zero)
+      (.forallE (.sort .zero) (.sort .zero) m₂) m₁ := by
   simp only [iffA, ConstantInfo.toConstantVal, Expr.erasePw,
     Expr.eraseNames] at h
   obtain ⟨n₁, ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
@@ -157,10 +157,10 @@ theorem iffIntro_shapeS {ty : Expr}
     (h : ty.erasePw.eraseNames
       = iffIntroA.toConstantVal.type.erasePw.eraseNames) :
     ∃ n₁ n₂ n₃ n₄ n₅ n₆ m₁ m₂ m₃ m₄ m₅ m₆,
-      ty = .forallE n₁ (.sort .zero)
-        (.forallE n₂ (.sort .zero)
-          (.forallE n₃ (.forallE n₄ (.bvar 1) (.bvar 1) m₄)
-            (.forallE n₅ (.forallE n₆ (.bvar 1) (.bvar 3) m₆)
+      ty = .forallE (.sort .zero)
+        (.forallE (.sort .zero)
+          (.forallE (.forallE (.bvar 1) (.bvar 1) m₄)
+            (.forallE (.forallE (.bvar 1) (.bvar 3) m₆)
               (.app (.app (.const iffName []) (.bvar 3)) (.bvar 2))
               m₅) m₃) m₂) m₁ := by
   simp only [iffIntroA, ConstantInfo.toConstantVal, Expr.erasePw,
@@ -192,20 +192,20 @@ theorem iffRec_shapeS {ty : Expr}
       = iffRecA.toConstantVal.type.erasePw.eraseNames) :
     ∃ na nb nmo nt nin nmp nr nmpr nan nma
       m₁ m₂ m₃ m₄ m₅ mt mmp mr mmpr ma,
-      ty = .forallE na (.sort .zero)
-        (.forallE nb (.sort .zero)
-          (.forallE nmo
-            (.forallE nt
+      ty = .forallE (.sort .zero)
+        (.forallE (.sort .zero)
+          (.forallE
+            (.forallE
               (.app (.app (.const iffName []) (.bvar 1)) (.bvar 0))
               (.sort (.param uN)) mt)
-            (.forallE nin
-              (.forallE nmp (.forallE nr (.bvar 2) (.bvar 2) mr)
-                (.forallE nmpr (.forallE nan (.bvar 2) (.bvar 4) ma)
+            (.forallE
+              (.forallE (.forallE (.bvar 2) (.bvar 2) mr)
+                (.forallE (.forallE (.bvar 2) (.bvar 4) ma)
                   (.app (.bvar 2)
                     (.app (.app (.app (.app (.const iffIntroName [])
                       (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0)))
                   mmpr) mmp)
-              (.forallE nma
+              (.forallE
                 (.app (.app (.const iffName []) (.bvar 3)) (.bvar 2))
                 (.app (.bvar 2) (.bvar 0)) m₅) m₄) m₃) m₂) m₁ := by
   simp only [iffRecA, ConstantInfo.toConstantVal, Expr.erasePw,
@@ -517,9 +517,9 @@ theorem propext_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     fun e => denoteP_const hEq rfl
   -- the stored type's reading, at the bits the run fixes
   have hden : denoteP mp.base2.acval env ψ 0
-      (.forallE n₁ (.sort .zero)
-        (.forallE n₂ (.sort .zero)
-          (.forallE n₃
+      (.forallE (.sort .zero)
+        (.forallE (.sort .zero)
+          (.forallE
             (.app (.app (.const iffName []) (.bvar 1)) (.bvar 0))
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.sort .zero)) (.bvar 2)) (.bvar 1)) m₃) m₂) m₁)
@@ -567,7 +567,7 @@ refuted consequent is `univZero ∈ˢ univZero`. -/
 theorem nonempty_shapeS {ty : Expr}
     (h : ty.erasePw.eraseNames
       = nonemptyA.toConstantVal.type.erasePw.eraseNames) :
-    ∃ n₁ m₁, ty = .forallE n₁ (.sort (.param uN)) (.sort .zero) m₁ := by
+    ∃ n₁ m₁, ty = .forallE (.sort (.param uN)) (.sort .zero) m₁ := by
   simp only [nonemptyA, ConstantInfo.toConstantVal, Expr.erasePw,
     Expr.eraseNames] at h
   obtain ⟨n₁, t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
@@ -579,8 +579,8 @@ theorem nonempty_shapeS {ty : Expr}
 theorem nonemptyIntro_shapeS {ty : Expr}
     (h : ty.erasePw.eraseNames
       = nonemptyIntroA.toConstantVal.type.erasePw.eraseNames) :
-    ∃ n₁ n₂ m₁ m₂, ty = .forallE n₁ (.sort (.param uN))
-      (.forallE n₂ (.bvar 0)
+    ∃ n₁ n₂ m₁ m₂, ty = .forallE (.sort (.param uN))
+      (.forallE (.bvar 0)
         (.app (.const nonemptyName [.param uN]) (.bvar 1)) m₂) m₁ := by
   simp only [nonemptyIntroA, ConstantInfo.toConstantVal, Expr.erasePw,
     Expr.eraseNames] at h
@@ -598,17 +598,17 @@ theorem nonemptyRec_shapeS {ty : Expr}
     (h : ty.erasePw.eraseNames
       = nonemptyRecA.toConstantVal.type.erasePw.eraseNames) :
     ∃ nα nmo nt nin nv nma m₁ m₂ m₃ m₄ mt mv,
-      ty = .forallE nα (.sort (.param uN))
-        (.forallE nmo
-          (.forallE nt
+      ty = .forallE (.sort (.param uN))
+        (.forallE
+          (.forallE
             (.app (.const nonemptyName [.param uN]) (.bvar 0))
             (.sort .zero) mt)
-          (.forallE nin
-            (.forallE nv (.bvar 1)
+          (.forallE
+            (.forallE (.bvar 1)
               (.app (.bvar 1)
                 (.app (.app (.const nonemptyIntroName [.param uN])
                   (.bvar 2)) (.bvar 0))) mv)
-            (.forallE nma
+            (.forallE
               (.app (.const nonemptyName [.param uN]) (.bvar 2))
               (.app (.bvar 2) (.bvar 0)) m₄) m₃) m₂) m₁ := by
   simp only [nonemptyRecA, ConstantInfo.toConstantVal, Expr.erasePw,
@@ -905,8 +905,8 @@ theorem choice_memP (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
     fun e => denoteP_selfParam_constS hfN (by
       show cvN.levelParams = [uN]; rw [hlpN]; rfl)
   have hden : denoteP mp.base2.acval env ψ 0
-      (.forallE n₁ (.sort (.param uN))
-        (.forallE n₂
+      (.forallE (.sort (.param uN))
+        (.forallE
           (.app (.const nonemptyName [.param uN]) (.bvar 0))
           (.bvar 1) m₂) m₁)
       = some (.pi 0 (pwBit ψ m₁.pw) (.sort (ψ uN))

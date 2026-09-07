@@ -118,7 +118,7 @@ def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
           pin.constsResolve env = true ∧
           pin.looseBVarsBounded rP = true) ∧
         ∃ pre nm dom body bm D,
-          cv.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
+          cv.type.stripPis mI = some (pre, .forallE dom body bm) ∧
           dom.getAppFn = .const D lvls ∧
           dom.getAppArgs =
             pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
@@ -214,7 +214,7 @@ theorem Expr.constsResolve_of_find {env env' : Env}
         hf _ h.1.1.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.1.1.2⟩,
         hf _ h.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.2⟩, hf _ h.1.1.1.2⟩,
         hf _ h.1.1.2⟩, hf _ h.1.2⟩, hf _ h.2⟩
-  | fvar idx nm ty ih =>
+  | fvar idx ty ih =>
     intro h
     simp only [Expr.constsResolve] at h ⊢
     exact ih h
@@ -222,15 +222,15 @@ theorem Expr.constsResolve_of_find {env env' : Env}
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
     exact ⟨ihf h.1, iha h.2⟩
-  | lam nm ty body mb ihty ihbody =>
+  | lam ty body mb ihty ihbody =>
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
     exact ⟨ihty h.1, ihbody h.2⟩
-  | forallE nm ty body mb ihty ihbody =>
+  | forallE ty body mb ihty ihbody =>
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
     exact ⟨ihty h.1, ihbody h.2⟩
-  | letE nm ty val body ihty ihval ihbody =>
+  | letE ty val body ihty ihval ihbody =>
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
     exact ⟨⟨ihty h.1.1, ihval h.1.2⟩, ihbody h.2⟩
@@ -251,7 +251,7 @@ theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} :
 theorem Expr.constsResolve_instantiate1 {env : Env} {d : Nat} {n : Name} {ty : Expr}
     (hty : ty.constsResolve env = true) :
     ∀ {e : Expr} (k : Nat), e.constsResolve env = true →
-      (e.instantiate1 (.fvar d n ty) k).constsResolve env = true := by
+      (e.instantiate1 (.fvar d ty) k).constsResolve env = true := by
   intro e
   induction e <;> intro k h <;> simp_all [Expr.instantiate1, Expr.constsResolve]
   case bvar i =>
@@ -308,7 +308,7 @@ theorem Expr.constsResolve_stripLams {env : Env} :
   | succ k ih =>
     intro e bs body h hres
     match e, h with
-    | .lam n ty b m, h =>
+    | .lam ty b m, h =>
       simp only [Expr.stripLams] at h
       cases hs : b.stripLams k with
       | none => rw [hs] at h; exact nomatch h
@@ -342,7 +342,7 @@ theorem Expr.constsResolve_stripPis {env : Env} :
   | succ k ih =>
     intro e bs body h hres
     match e, h with
-    | .forallE n ty b m, h =>
+    | .forallE ty b m, h =>
       simp only [Expr.stripPis] at h
       cases hs : b.stripPis k with
       | none => rw [hs] at h; exact nomatch h
@@ -377,7 +377,7 @@ theorem Expr.stripPis_renameConsts {f : Name → Name} :
   | succ k ih =>
     intro e bs body h
     match e, h with
-    | .forallE n ty b m, h =>
+    | .forallE ty b m, h =>
       simp only [Expr.stripPis] at h
       cases hs : b.stripPis k with
       | none => rw [hs] at h; exact nomatch h
@@ -386,9 +386,9 @@ theorem Expr.stripPis_renameConsts {f : Name → Name} :
         obtain ⟨bs', body'⟩ := pr
         simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
-        show ((Expr.forallE n ty b m).renameConsts f).stripPis (k + 1) = _
-        rw [show (Expr.forallE n ty b m).renameConsts f =
-          .forallE n (ty.renameConsts f) (b.renameConsts f) m from rfl]
+        show ((Expr.forallE ty b m).renameConsts f).stripPis (k + 1) = _
+        rw [show (Expr.forallE ty b m).renameConsts f =
+          .forallE (ty.renameConsts f) (b.renameConsts f) m from rfl]
         simp only [Expr.stripPis, ih hs, Option.map_some, List.map_cons]
 
 /-- Invert `stripPis` across constant renaming: a strip of the renamed
@@ -410,9 +410,9 @@ theorem Expr.stripPis_renameConsts_inv {f : Name → Name} :
   | succ k ih =>
     intro e bs' body' h
     match e, h with
-    | .forallE n ty b m, h =>
-      rw [show (Expr.forallE n ty b m).renameConsts f =
-        .forallE n (ty.renameConsts f) (b.renameConsts f) m from rfl] at h
+    | .forallE ty b m, h =>
+      rw [show (Expr.forallE ty b m).renameConsts f =
+        .forallE (ty.renameConsts f) (b.renameConsts f) m from rfl] at h
       simp only [Expr.stripPis] at h
       cases hs : (b.renameConsts f).stripPis k with
       | none => rw [hs] at h; exact nomatch h
@@ -425,12 +425,12 @@ theorem Expr.stripPis_renameConsts_inv {f : Name → Name} :
         refine ⟨(n, ty, m) :: bs, body, ?_, by simp, rfl⟩
         simp only [Expr.stripPis, hstrip, Option.map_some]
     | .bvar _, h => exact nomatch h
-    | .fvar _ _ _, h => exact nomatch h
+    | .fvar _ _, h => exact nomatch h
     | .sort _, h => exact nomatch h
     | .const _ _, h => exact nomatch h
     | .app _ _, h => exact nomatch h
-    | .lam _ _ _ _, h => exact nomatch h
-    | .letE _ _ _ _, h => exact nomatch h
+    | .lam _ _ _, h => exact nomatch h
+    | .letE _ _ _, h => exact nomatch h
     | .lit _, h => exact nomatch h
     | .proj _ _ _, h => exact nomatch h
 
@@ -503,7 +503,7 @@ theorem Expr.constsResolve_le {envA envB : Env}
         hf _ h.1.1.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.1.1.2⟩,
         hf _ h.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.2⟩, hf _ h.1.1.1.2⟩,
         hf _ h.1.1.2⟩, hf _ h.1.2⟩, hf _ h.2⟩
-  | fvar idx nm ty ih =>
+  | fvar idx ty ih =>
     intro h
     simp only [Expr.constsResolve] at h ⊢
     exact ih h
@@ -511,15 +511,15 @@ theorem Expr.constsResolve_le {envA envB : Env}
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
     exact ⟨ihf h.1, iha h.2⟩
-  | lam nm ty body mb ihty ihbody =>
+  | lam ty body mb ihty ihbody =>
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
     exact ⟨ihty h.1, ihbody h.2⟩
-  | forallE nm ty body mb ihty ihbody =>
+  | forallE ty body mb ihty ihbody =>
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
     exact ⟨ihty h.1, ihbody h.2⟩
-  | letE nm ty val body ihty ihval ihbody =>
+  | letE ty val body ihty ihval ihbody =>
     intro h
     simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
     exact ⟨⟨ihty h.1.1, ihval h.1.2⟩, ihbody h.2⟩

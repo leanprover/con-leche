@@ -25,7 +25,7 @@ namespace Lech.TTVerify
 first. -/
 def openFvars : Nat → Nat → List Expr
   | _, 0 => []
-  | d, k + 1 => Expr.fvar d Name.anonymous (.sort .zero) :: openFvars (d + 1) k
+  | d, k + 1 => Expr.fvar d (.sort .zero) :: openFvars (d + 1) k
 
 @[simp] theorem openFvars_length : ∀ (d k : Nat), (openFvars d k).length = k
   | _, 0 => rfl
@@ -35,7 +35,7 @@ theorem openFvars_zero (d : Nat) : openFvars d 0 = [] := rfl
 
 theorem openFvars_succ (d k : Nat) :
     openFvars d (k + 1) =
-      Expr.fvar d Name.anonymous (.sort .zero) :: openFvars (d + 1) k := rfl
+      Expr.fvar d (.sort .zero) :: openFvars (d + 1) k := rfl
 
 theorem openFvars_bounded : ∀ (d k : Nat),
     ∀ a ∈ openFvars d k, a.looseBVarsBounded 0 = true
@@ -48,7 +48,7 @@ theorem openFvars_bounded : ∀ (d k : Nat),
 
 theorem openFvars_getElem? : ∀ {d k i : Nat}, i < k →
     (openFvars d k)[i]? =
-      some (Expr.fvar (d + i) Name.anonymous (.sort .zero))
+      some (Expr.fvar (d + i) (.sort .zero))
   | _, 0, _, h => absurd h (by omega)
   | d, k + 1, 0, _ => by simp [openFvars]
   | d, k + 1, i + 1, h => by
@@ -72,7 +72,7 @@ ascending opener indices from `d`. -/
 def openRev (d : Nat) : Nat → Expr → Expr
   | 0, e => e
   | n + 1, e =>
-    (openRev d n e).instantiate1 (.fvar (d + n) Name.anonymous (.sort .zero)) 0
+    (openRev d n e).instantiate1 (.fvar (d + n) (.sort .zero)) 0
 
 /-- The value chain `denote` produces for a real-argument instantiation
 read through the reverse opening: outermost argument consumed first,

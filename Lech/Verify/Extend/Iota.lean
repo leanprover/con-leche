@@ -434,7 +434,7 @@ theorem nestedRuleShape_inv {env' envSelf : Env} {cvName : Name}
       pin.constsResolve envSelf = true ∧
       pin.looseBVarsBounded rP = true) ∧
     ∃ pre nm dom body bm D,
-      tyA.stripPis mI = some (pre, .forallE nm dom body bm) ∧
+      tyA.stripPis mI = some (pre, .forallE dom body bm) ∧
       dom.getAppFn = .const D lvls ∧
       dom.getAppArgs =
         pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
@@ -449,26 +449,26 @@ theorem nestedRuleShape_inv {env' envSelf : Env} {cvName : Name}
   match hstrip : tyA.stripPis mI with
   | none => intro h; exact nomatch h
   | some (pre, .bvar _) => intro h; exact nomatch h
-  | some (pre, .fvar _ _ _) => intro h; exact nomatch h
+  | some (pre, .fvar _ _) => intro h; exact nomatch h
   | some (pre, .sort _) => intro h; exact nomatch h
   | some (pre, .const _ _) => intro h; exact nomatch h
   | some (pre, .app _ _) => intro h; exact nomatch h
-  | some (pre, .lam _ _ _ _) => intro h; exact nomatch h
-  | some (pre, .letE _ _ _ _) => intro h; exact nomatch h
+  | some (pre, .lam _ _ _) => intro h; exact nomatch h
+  | some (pre, .letE _ _ _) => intro h; exact nomatch h
   | some (pre, .lit _) => intro h; exact nomatch h
   | some (pre, .proj _ _ _) => intro h; exact nomatch h
-  | some (pre, .forallE nm dom body bm) => ?_
+  | some (pre, .forallE dom body bm) => ?_
   intro h
   try dsimp only at h
   revert h
   match hfn : dom.getAppFn with
   | .bvar _ => intro h; exact nomatch h
-  | .fvar _ _ _ => intro h; exact nomatch h
+  | .fvar _ _ => intro h; exact nomatch h
   | .sort _ => intro h; exact nomatch h
   | .app _ _ => intro h; exact nomatch h
-  | .lam _ _ _ _ => intro h; exact nomatch h
-  | .forallE _ _ _ _ => intro h; exact nomatch h
-  | .letE _ _ _ _ => intro h; exact nomatch h
+  | .lam _ _ _ => intro h; exact nomatch h
+  | .forallE _ _ _ => intro h; exact nomatch h
+  | .letE _ _ _ => intro h; exact nomatch h
   | .lit _ => intro h; exact nomatch h
   | .proj _ _ _ => intro h; exact nomatch h
   | .const D lvls' => ?_
@@ -598,12 +598,12 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   revert h
   match hcheadEq : cbody0.getAppFn with
   | .bvar _ => intro h; exact nomatch h
-  | .fvar _ _ _ => intro h; exact nomatch h
+  | .fvar _ _ => intro h; exact nomatch h
   | .sort _ => intro h; exact nomatch h
   | .app _ _ => intro h; exact nomatch h
-  | .lam _ _ _ _ => intro h; exact nomatch h
-  | .forallE _ _ _ _ => intro h; exact nomatch h
-  | .letE _ _ _ _ => intro h; exact nomatch h
+  | .lam _ _ _ => intro h; exact nomatch h
+  | .forallE _ _ _ => intro h; exact nomatch h
+  | .letE _ _ _ => intro h; exact nomatch h
   | .lit _ => intro h; exact nomatch h
   | .proj _ _ _ => intro h; exact nomatch h
   | .const Dc usc => ?_
@@ -827,7 +827,7 @@ def RuleChecked (mode : CheckMode) (F : Nat) (env env₀ : Env) (f : Name → Na
         pin.constsResolve env₀ = true ∧
         pin.looseBVarsBounded rP = true) ∧
       (∃ pre nm dom body bm D,
-        cvA.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
+        cvA.type.stripPis mI = some (pre, .forallE dom body bm) ∧
         dom.getAppFn = .const D lvls ∧
         dom.getAppArgs =
           pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
@@ -1226,41 +1226,41 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   match hsb : sbody with
   | .app (.app (.app (.const c ℓs) tySlot) lhsC) rhsC => ?_
   | .bvar _ => intro hb; exact nomatch hb
-  | .fvar _ _ _ => intro hb; exact nomatch hb
+  | .fvar _ _ => intro hb; exact nomatch hb
   | .sort _ => intro hb; exact nomatch hb
   | .const _ _ => intro hb; exact nomatch hb
-  | .lam _ _ _ _ => intro hb; exact nomatch hb
-  | .forallE _ _ _ _ => intro hb; exact nomatch hb
-  | .letE _ _ _ _ => intro hb; exact nomatch hb
+  | .lam _ _ _ => intro hb; exact nomatch hb
+  | .forallE _ _ _ => intro hb; exact nomatch hb
+  | .letE _ _ _ => intro hb; exact nomatch hb
   | .lit _ => intro hb; exact nomatch hb
   | .proj _ _ _ => intro hb; exact nomatch hb
   | .app (.bvar _) _ => intro hb; exact nomatch hb
-  | .app (.fvar _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.fvar _ _) _ => intro hb; exact nomatch hb
   | .app (.sort _) _ => intro hb; exact nomatch hb
   | .app (.const _ _) _ => intro hb; exact nomatch hb
-  | .app (.lam _ _ _ _) _ => intro hb; exact nomatch hb
-  | .app (.forallE _ _ _ _) _ => intro hb; exact nomatch hb
-  | .app (.letE _ _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.lam _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.forallE _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.letE _ _ _) _ => intro hb; exact nomatch hb
   | .app (.lit _) _ => intro hb; exact nomatch hb
   | .app (.proj _ _ _) _ => intro hb; exact nomatch hb
   | .app (.app (.bvar _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.fvar _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.fvar _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.sort _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.const _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.lam _ _ _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.forallE _ _ _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.letE _ _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.lam _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.forallE _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.letE _ _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.lit _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.proj _ _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.bvar _) _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.app (.fvar _ _ _) _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.app (.fvar _ _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.sort _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.app _ _) _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.app (.lam _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.lam _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
-  | .app (.app (.app (.forallE _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.forallE _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
-  | .app (.app (.app (.letE _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.letE _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
   | .app (.app (.app (.lit _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.proj _ _ _) _) _) _ =>
@@ -1411,41 +1411,41 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   match hsb : sbody with
   | .app (.app (.app (.const c ℓs) tySlot) lhsC) rhsC => ?_
   | .bvar _ => intro hb; exact nomatch hb
-  | .fvar _ _ _ => intro hb; exact nomatch hb
+  | .fvar _ _ => intro hb; exact nomatch hb
   | .sort _ => intro hb; exact nomatch hb
   | .const _ _ => intro hb; exact nomatch hb
-  | .lam _ _ _ _ => intro hb; exact nomatch hb
-  | .forallE _ _ _ _ => intro hb; exact nomatch hb
-  | .letE _ _ _ _ => intro hb; exact nomatch hb
+  | .lam _ _ _ => intro hb; exact nomatch hb
+  | .forallE _ _ _ => intro hb; exact nomatch hb
+  | .letE _ _ _ => intro hb; exact nomatch hb
   | .lit _ => intro hb; exact nomatch hb
   | .proj _ _ _ => intro hb; exact nomatch hb
   | .app (.bvar _) _ => intro hb; exact nomatch hb
-  | .app (.fvar _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.fvar _ _) _ => intro hb; exact nomatch hb
   | .app (.sort _) _ => intro hb; exact nomatch hb
   | .app (.const _ _) _ => intro hb; exact nomatch hb
-  | .app (.lam _ _ _ _) _ => intro hb; exact nomatch hb
-  | .app (.forallE _ _ _ _) _ => intro hb; exact nomatch hb
-  | .app (.letE _ _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.lam _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.forallE _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.letE _ _ _) _ => intro hb; exact nomatch hb
   | .app (.lit _) _ => intro hb; exact nomatch hb
   | .app (.proj _ _ _) _ => intro hb; exact nomatch hb
   | .app (.app (.bvar _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.fvar _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.fvar _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.sort _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.const _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.lam _ _ _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.forallE _ _ _ _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.letE _ _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.lam _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.forallE _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.letE _ _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.lit _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.proj _ _ _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.bvar _) _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.app (.fvar _ _ _) _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.app (.fvar _ _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.sort _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.app _ _) _) _) _ => intro hb; exact nomatch hb
-  | .app (.app (.app (.lam _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.lam _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
-  | .app (.app (.app (.forallE _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.forallE _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
-  | .app (.app (.app (.letE _ _ _ _) _) _) _ =>
+  | .app (.app (.app (.letE _ _ _) _) _) _ =>
     intro hb; exact nomatch hb
   | .app (.app (.app (.lit _) _) _) _ => intro hb; exact nomatch hb
   | .app (.app (.app (.proj _ _ _) _) _) _ =>

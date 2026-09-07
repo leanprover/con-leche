@@ -255,12 +255,12 @@ theorem denoteP_instLevels (hp : AcvalParamsAt env acval)
     | bvar i =>
       rw [Expr.instantiateLevelParams, denoteP.eq_def, denoteP.eq_def]
     | sort u => exact absurd rfl (hxs u)
-    | fvar i nm ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i nm ty)
     | const n vs => exact absurd rfl (hc n vs)
-    | forallE n ty b mb => exact absurd rfl (hpi n ty b mb)
-    | lam n ty b mb => exact absurd rfl (hlam n ty b mb)
+    | forallE ty b mb => exact absurd rfl (hpi n ty b mb)
+    | lam ty b mb => exact absurd rfl (hlam n ty b mb)
     | app fe a => exact absurd rfl (happ fe a)
-    | letE n ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet n ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

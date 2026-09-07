@@ -447,14 +447,14 @@ def constsResolveFCGo (fe : FEnv) (memo : Std.HashMap ExprC Bool)
           (fe.find? listConsName).isSome && (fe.find? charName).isSome &&
           (fe.find? charOfNatName).isSome, memo)
       | .const nm _ .. => ((fe.find? nm).isSome, memo)
-      | .fvar _ _ ty .. => constsResolveFCGo fe memo ty
+      | .fvar _ ty .. => constsResolveFCGo fe memo ty
       | .app f a .. =>
         let (rf, memo) := constsResolveFCGo fe memo f
         if rf then constsResolveFCGo fe memo a else (false, memo)
-      | .lam _ ty body _ .. | .forallE _ ty body _ .. =>
+      | .lam ty body _ .. | .forallE ty body _ .. =>
         let (rt, memo) := constsResolveFCGo fe memo ty
         if rt then constsResolveFCGo fe memo body else (false, memo)
-      | .letE _ ty val body .. =>
+      | .letE ty val body .. =>
         let (rt, memo) := constsResolveFCGo fe memo ty
         if rt then
           let (rv, memo) := constsResolveFCGo fe memo val

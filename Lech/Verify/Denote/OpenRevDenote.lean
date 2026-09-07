@@ -33,10 +33,10 @@ theorem openRev_fvarsBelow {e : Expr} {d : Nat}
   | zero => exact Expr.fvarsBelow_mono (by omega) hfb
   | succ n ih =>
     show Expr.fvarsBelow (d + (n + 1))
-      ((openRev d n e).instantiate1 (.fvar (d + n) _ _) 0)
+      ((openRev d n e).instantiate1 (.fvar (d + n) _) 0)
     refine Expr.fvarsBelow_instantiate1_gen ?_ 0
       (Expr.fvarsBelow_mono (by omega) ih)
-    show Expr.fvarsBelow (d + (n + 1)) (.fvar (d + n) _ _)
+    show Expr.fvarsBelow (d + (n + 1)) (.fvar (d + n) _)
     simp [Expr.fvarsBelow]
 
 /-- Instantiation strips one loose level at any cut below the bound. -/
@@ -58,7 +58,7 @@ private theorem bounded_instantiate1_le {a : Expr}
         omega
       · simp only [Expr.looseBVarsBounded, decide_eq_true_eq]
         omega
-  | fvar idx nm ty ih => intro k m _ _; rfl
+  | fvar idx ty ih => intro k m _ _; rfl
   | sort u => intro k m _ _; rfl
   | const n us => intro k m _ _; rfl
   | lit l => intro k m _ _; rfl
@@ -67,17 +67,17 @@ private theorem bounded_instantiate1_le {a : Expr}
     simp only [Expr.instantiate1, Expr.looseBVarsBounded,
       Bool.and_eq_true] at hb ⊢
     exact ⟨ihf k m hkm hb.1, ihx k m hkm hb.2⟩
-  | lam nm ty body bi ihty ihbody =>
+  | lam ty body bi ihty ihbody =>
     intro k m hkm hb
     simp only [Expr.instantiate1, Expr.looseBVarsBounded,
       Bool.and_eq_true] at hb ⊢
     exact ⟨ihty k m hkm hb.1, ihbody (k + 1) (m + 1) (by omega) hb.2⟩
-  | forallE nm ty body bi ihty ihbody =>
+  | forallE ty body bi ihty ihbody =>
     intro k m hkm hb
     simp only [Expr.instantiate1, Expr.looseBVarsBounded,
       Bool.and_eq_true] at hb ⊢
     exact ⟨ihty k m hkm hb.1, ihbody (k + 1) (m + 1) (by omega) hb.2⟩
-  | letE nm ty val body ihty ihval ihbody =>
+  | letE ty val body ihty ihval ihbody =>
     intro k m hkm hb
     simp only [Expr.instantiate1, Expr.looseBVarsBounded,
       Bool.and_eq_true] at hb ⊢
@@ -123,7 +123,7 @@ theorem openRev_WScoped {e : Expr} {d : Nat}
   | zero => exact hws.mono (by omega)
   | succ n ih =>
     show Expr.WScoped (d + (n + 1))
-      ((openRev d n e).instantiate1 (.fvar (d + n) _ _) 0)
+      ((openRev d n e).instantiate1 (.fvar (d + n) _) 0)
     have h1 := Expr.WScoped.instantiate1 (d := d + n)
       (n := Name.anonymous) (ty := .sort .zero)
       (by simp [Expr.WScoped]) 0 ih
@@ -140,10 +140,10 @@ theorem openRev_shiftFrom {e : Expr} (hnf : e.hasFvar = false) :
       ((Expr.WScoped.of_not_hasFvar (d := 0) hnf).fvarsBelow)
   | succ n ih =>
     show ((openRev d n e).instantiate1
-      (.fvar (d + n) Name.anonymous (.sort .zero)) 0).shiftFrom 0 = _
+      (.fvar (d + n) (.sort .zero)) 0).shiftFrom 0 = _
     rw [Expr.shiftFrom_instantiate1 (Nat.zero_le (d + n)), ih]
     show (openRev (d + 1) n e).instantiate1
-      (.fvar (d + n + 1) Name.anonymous (.sort .zero)) 0 = _
+      (.fvar (d + n + 1) (.sort .zero)) 0 = _
     rw [show d + n + 1 = d + 1 + n from by omega]
     rfl
 
@@ -259,11 +259,11 @@ theorem openRev_instantiateLevelParams (ks : List Name)
   | succ n ih =>
     intro e
     show (openRev d n (e.instantiateLevelParams ks us)).instantiate1
-        (.fvar (d + n) Name.anonymous (.sort .zero)) 0 = _
+        (.fvar (d + n) (.sort .zero)) 0 = _
     rw [ih,
       show (openRev d (n + 1) e).instantiateLevelParams ks us
         = ((openRev d n e).instantiate1
-            (.fvar (d + n) Name.anonymous (.sort .zero))
+            (.fvar (d + n) (.sort .zero))
             0).instantiateLevelParams ks us from rfl,
       Expr.instantiateLevelParams_instantiate1 ks us (openRev d n e) 0]
     rfl
@@ -280,11 +280,11 @@ theorem openRev_renameConsts (f : Name → Name) :
   | succ n ih =>
     intro e
     show (openRev d n (e.renameConsts f)).instantiate1
-        (.fvar (d + n) Name.anonymous (.sort .zero)) 0 = _
+        (.fvar (d + n) (.sort .zero)) 0 = _
     rw [ih,
       show (openRev d (n + 1) e).renameConsts f
         = ((openRev d n e).instantiate1
-            (.fvar (d + n) Name.anonymous (.sort .zero))
+            (.fvar (d + n) (.sort .zero))
             0).renameConsts f from rfl,
       Expr.renameConsts_instantiate1 f (openRev d n e) 0]
     rfl

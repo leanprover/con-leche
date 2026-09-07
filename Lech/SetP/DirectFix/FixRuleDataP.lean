@@ -39,7 +39,7 @@ theorem constsBound_stripPis {env₀ : Env} :
     exact ⟨(fun b hb => nomatch hb), he⟩
   | n + 1, e, bs, body, he, hst => by
     match e, he, hst with
-    | .forallE nm dom bd mb, he, hst =>
+    | .forallE dom bd mb, he, hst =>
       simp only [Expr.stripPis, Option.map_eq_some_iff] at hst
       obtain ⟨⟨bs', body₀⟩, hst', heq⟩ := hst
       simp only [Prod.mk.injEq] at heq
@@ -62,12 +62,12 @@ theorem constsBound_getAppArgs {env₀ : Env} :
     · exact constsBound_getAppArgs f he.1 x hx
     · exact he.2
   | .bvar _, _, _, hx => nomatch hx
-  | .fvar _ _ _, _, _, hx => nomatch hx
+  | .fvar _ _, _, _, hx => nomatch hx
   | .sort _, _, _, hx => nomatch hx
   | .const _ _, _, _, hx => nomatch hx
-  | .lam _ _ _ _, _, _, hx => nomatch hx
-  | .forallE _ _ _ _, _, _, hx => nomatch hx
-  | .letE _ _ _ _, _, _, hx => nomatch hx
+  | .lam _ _ _, _, _, hx => nomatch hx
+  | .forallE _ _ _, _, _, hx => nomatch hx
+  | .letE _ _ _, _, _, hx => nomatch hx
   | .lit _, _, _, hx => nomatch hx
   | .proj _ _ _, _, _, hx => nomatch hx
 
@@ -94,14 +94,14 @@ theorem openPisAtFvars_constsBound {env₀ : Env} :
     exact ⟨(fun x hx => nomatch hx), he⟩
   | n + 1, e, d, fvs, o, he, hop => by
     match e, he, hop with
-    | .forallE nm dom bd mb, he, hop =>
+    | .forallE dom bd mb, he, hop =>
       simp only [openPisAtFvars] at hop
       split at hop
       · next fvs₁ e₁ h₁ =>
         simp only [Option.some.injEq, Prod.mk.injEq] at hop
         obtain ⟨rfl, rfl⟩ := hop
         rw [constsBound_forallE] at he
-        have hfv : ConstsBound env₀ (Expr.fvar d nm dom) := by
+        have hfv : ConstsBound env₀ (Expr.fvar d dom) := by
           rw [constsBound_fvar]; exact he.1
         obtain ⟨hfvs, ho⟩ := openPisAtFvars_constsBound n
           (ConstsBound.instantiate1 hfv bd 0 he.2) h₁

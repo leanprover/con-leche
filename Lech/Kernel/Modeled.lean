@@ -164,7 +164,7 @@ def nestedRuleShape (env' envSelf : Env) (cvName : Name)
   if (env'.findCV? ((cvName.str "_model").str s!"iota_{j}")).isSome ∧
       rP ≤ mI then
     match tyA.stripPis mI with
-    | some (_, .forallE _ dom _ _) =>
+    | some (_, .forallE dom _ _) =>
       match dom.getAppFn with
       | .const _D lvls =>
         let args := dom.getAppArgs
@@ -243,7 +243,7 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     -- contract only fixes statements up to `Expr.eqv` — export arenas
     -- intern name-insensitively, so the theorem's pin spelling can
     -- differ from the recursor type's in binder names only
-    unless Expr.eqUpToNames major (Expr.mkAppN (.const (f r.ctor) lvls)
+    unless major == (Expr.mkAppN (.const (f r.ctor) lvls)
         (pinsF ++ xFvs)) do
       throw (.notImplemented s!"iota statement major mismatch for {cvName}")
     -- the constructor's telescope at the stored level instantiations
@@ -384,7 +384,7 @@ def checkMemberVal (ops : CheckerOps m) (blockNames : List Name)
     | throw (.notImplemented s!"missing model for {cvA.name}")
   unless cvm.levelParams = cvA.levelParams do
     throw (.notImplemented s!"model level parameters mismatch for {cvA.name}")
-  unless Expr.eqUpToNames (cvA.type.renameConsts f) cvm.type do
+  unless cvA.type.renameConsts f == cvm.type do
     throw (.notImplemented
       s!"model type mismatch for {cvA.name}\n  member (renamed): \
         {reprStr (cvA.type.renameConsts f)}\n  model: {reprStr cvm.type}")
@@ -602,7 +602,7 @@ def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
      | some (sbinders, sbody), some (tbindersM, tbodyM) =>
        domsMatchAux (fun _ e => e) sbinders tbindersM 0 0 nP &&
        (match sbinders[nP]? with
-        | some (_, xdom, _) =>
+        | some (xdom, _) =>
           xdom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
             ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))
         | none => false) &&
@@ -647,12 +647,12 @@ def checkUnitThm (env' : Env) (T : Name) (lps : List Name)
      | some (sbinders, sbody), some (tbindersM, tbodyM) =>
        domsMatchAux (fun _ e => e) sbinders tbindersM 0 0 nP &&
        (match sbinders[nP]? with
-        | some (_, xdom, _) =>
+        | some (xdom, _) =>
           xdom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
             ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))
         | none => false) &&
        (match sbinders[nP + 1]? with
-        | some (_, ydom, _) =>
+        | some (ydom, _) =>
           ydom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
             ((List.range nP).map fun k => Expr.bvar (nP - k))
         | none => false) &&

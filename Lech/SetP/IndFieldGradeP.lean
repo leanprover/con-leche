@@ -52,12 +52,12 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
     -- the statement frame
     {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
     (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+      Expr.fvar l.1 l.2.2 ∈ fvs)
     (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvs → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Tstmt : AVExpr} {Γs : List AVExpr} {Rbody : AVExpr}
     (htowerS : PiTeleP (rP + cnF) Tstmt Γs Rbody)
     (hokTst : ∀ σ : Nat → V, AnnotOkP V σ Tstmt)
@@ -82,7 +82,7 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
       Expr.WScoped (rP + j) (cdoms.getD (cnP + j) default))
     (hleafCd : ∀ j, j < cnF →
       ∀ l ∈ (cdoms.getD (cnP + j) default).fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs ∧ l.1 < rP + j)
+        Expr.fvar l.1 l.2.2 ∈ fvs ∧ l.1 < rP + j)
     -- the recorded field run
     (hdeFld : DefEqListOk μ F env (rP + cnF)
       ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
@@ -152,7 +152,7 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
         · rw [List.getElem?_eq_none_iff] at hg; omega
         · rfl)
   have hfvsAt : ∀ n, n < (rP + cnF) →
-      ∃ nm ty, fvs[n]? = some (.fvar n nm ty) := by
+      ∃ nm ty, fvs[n]? = some (.fvar n ty) := by
     intro n hn
     rcases hx : fvs[n]? with _ | x
     · rw [List.getElem?_eq_none_iff] at hx; omega
@@ -188,13 +188,13 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
   | _ n ihn =>
   intro hnN hrPn hnK
   obtain ⟨nm, ty, hx⟩ := hfvsAt n (by omega)
-  have hmemFvs : Expr.fvar n nm ty ∈ fvs := List.mem_of_getElem? hx
+  have hmemFvs : Expr.fvar n ty ∈ fvs := List.mem_of_getElem? hx
   have hwsTy : Expr.WScoped n ty := by
     have h' := hwsFvs _ hmemFvs
     simp only [Expr.WScoped] at h'
     exact h'.2
   have hleafTy : ∀ l ∈ ty.fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs := by
+      Expr.fvar l.1 l.2.2 ∈ fvs := by
     intro l hl
     exact hleafClosed l ⟨_, hmemFvs, by
       rw [Expr.fvarLeaves]; exact List.mem_cons_of_mem _ hl⟩
@@ -241,7 +241,7 @@ theorem fieldGradeFireP {m : EnvS2Core V env} {F : Nat}
         rw [← hspFld j' (by omega)]
         exact hx'
       obtain ⟨nm', ty', hx''⟩ := hfvsAt (rP + j') (by omega)
-      obtain rfl : x = Expr.fvar (rP + j') nm' ty' := by
+      obtain rfl : x = Expr.fvar (rP + j') ty' := by
         rw [hxf] at hx''
         exact Option.some.inj hx''
       refine ⟨.bvar ((rP + cnF) - 1 - (rP + j')),

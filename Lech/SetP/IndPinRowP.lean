@@ -49,12 +49,12 @@ theorem nestedPinRowP {m : EnvS2Core V env} {F : Nat}
     -- the public (recursor) frame
     {fvsP : List Expr} (hfvsPlen : fvsP.length = rP)
     (hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     (hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP)
+      Expr.fvar l.1 l.2.2 ∈ fvsP)
     (hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)
     (hokTV : ∀ σ : Nat → V, AnnotOkP V σ TV)
@@ -102,7 +102,7 @@ theorem nestedPinRowP {m : EnvS2Core V env} {F : Nat}
   -- the truncated frame's own facts (the spine `nestedPinGradeP` runs
   -- its certificate at)
   have hosShape : ∀ (i : Nat) (x : Expr), (fvsP.take rP)[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty := by
+      ∃ nm ty, x = Expr.fvar i ty := by
     intro i x hx
     have hi : i < rP := by
       rcases Nat.lt_or_ge i rP with h' | h'

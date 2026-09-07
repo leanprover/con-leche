@@ -90,12 +90,6 @@ partial def level (w : ExportWriter) : Level → Nat × ExportWriter
 private def levelIds (w : ExportWriter) (ls : List Level) : List Nat × ExportWriter :=
   ls.foldl (fun (acc, w) l => let (i, w) := w.level l; (acc ++ [i], w)) ([], w)
 
-private def binfo : BinderInfo → String
-  | .default => "default"
-  | .implicit => "implicit"
-  | .strictImplicit => "strictImplicit"
-  | .instImplicit => "instImplicit"
-
 partial def expr (w : ExportWriter) (e : Expr) : Nat × ExportWriter :=
   match w.exprs[e]? with
   | some i => (i, w)
@@ -110,22 +104,25 @@ partial def expr (w : ExportWriter) (e : Expr) : Nat × ExportWriter :=
       | .app f a =>
         let (fi, w) := w.expr f; let (ai, w) := w.expr a
         (s!"\"app\":\{\"arg\":{ai},\"fn\":{fi}}", w)
-      | .lam n ty b m =>
-        let (ni, w) := w.name n; let (ti, w) := w.expr ty; let (bi, w) := w.expr b
-        (s!"\"lam\":\{\"binderInfo\":\"{binfo m.bi}\",\"body\":{bi},\"name\":{ni},\"type\":{ti}}", w)
-      | .forallE n ty b m =>
-        let (ni, w) := w.name n; let (ti, w) := w.expr ty; let (bi, w) := w.expr b
-        (s!"\"forallE\":\{\"binderInfo\":\"{binfo m.bi}\",\"body\":{bi},\"name\":{ni},\"type\":{ti}}", w)
-      | .letE n ty v b =>
-        let (ni, w) := w.name n; let (ti, w) := w.expr ty; let (vi, w) := w.expr v
+      -- binder names and infos: the format's fields, at the values the
+      -- checker never holds (task #205: `Expr` carries neither) — the
+      -- anonymous name (index 0) and `default`
+      | .lam ty b _ =>
+        let (ti, w) := w.expr ty; let (bi, w) := w.expr b
+        (s!"\"lam\":\{\"binderInfo\":\"default\",\"body\":{bi},\"name\":0,\"type\":{ti}}", w)
+      | .forallE ty b _ =>
+        let (ti, w) := w.expr ty; let (bi, w) := w.expr b
+        (s!"\"forallE\":\{\"binderInfo\":\"default\",\"body\":{bi},\"name\":0,\"type\":{ti}}", w)
+      | .letE ty v b =>
+        let (ti, w) := w.expr ty; let (vi, w) := w.expr v
         let (bi, w) := w.expr b
-        (s!"\"letE\":\{\"body\":{bi},\"name\":{ni},\"nondep\":false,\"type\":{ti},\"value\":{vi}}", w)
+        (s!"\"letE\":\{\"body\":{bi},\"name\":0,\"nondep\":false,\"type\":{ti},\"value\":{vi}}", w)
       | .lit (.natVal k) => (s!"\"natVal\":\"{k}\"", w)
       | .lit (.strVal s) => (s!"\"strVal\":{jstr s}", w)
       | .proj s k x =>
         let (si, w) := w.name s; let (xi, w) := w.expr x
         (s!"\"proj\":\{\"idx\":{k},\"struct\":{xi},\"typeName\":{si}}", w)
-      | .fvar _ _ _ => ("\"bvar\":0", w)
+      | .fvar _ _ => ("\"bvar\":0", w)
     let (i, w) := w.fresh
     let w := { w with exprs := w.exprs.insert e i }
     (i, w.emit s!"\{\"ie\":{i},{body}}")
@@ -142,10 +139,10 @@ private def hints : ReducibilityHint → String
 private def mentions (n : Name) : Expr → Bool
   | .const m _ => m == n
   | .app f a => mentions n f || mentions n a
-  | .lam _ t b _ | .forallE _ t b _ => mentions n t || mentions n b
-  | .letE _ t v b => mentions n t || mentions n v || mentions n b
+  | .lam t b _ | .forallE t b _ => mentions n t || mentions n b
+  | .letE t v b => mentions n t || mentions n v || mentions n b
   | .proj _ _ e => mentions n e
-  | .fvar _ _ t => mentions n t
+  | .fvar _ t => mentions n t
   | _ => false
 
 /-- One declaration record.  Inductive blocks are written with the

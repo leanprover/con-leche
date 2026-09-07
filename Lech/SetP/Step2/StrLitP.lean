@@ -259,9 +259,9 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
   -- `List.nil`
   have hIN : ciN.toConstantVal.type.instantiateLevelParams
       ciN.toConstantVal.levelParams [Level.zero]
-      = Expr.forallE nmN (.sort (Level.succ Level.zero))
+      = Expr.forallE (.sort (Level.succ Level.zero))
           (.app (.const Lech.listName [Level.zero]) (.bvar 0))
-          ⟨mbN.bi, Level.substPW [pN] [Level.zero] mbN.pw⟩ := by
+          ⟨Level.substPW [pN] [Level.zero] mbN.pw⟩ := by
     rw [hlpN, hTN]
     simp [Expr.instantiateLevelParams, Level.subst, Level.subst.go]
   have hRN : denoteP m.acval env φ 0
@@ -274,22 +274,22 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
             (.bvar 0))) : AVExpr) := by
     rw [hIN, denoteP_forallE, denoteP_sort,
       show (Expr.app (.const Lech.listName [Level.zero]) (.bvar 0)).instantiate1
-          (.fvar 0 nmN (Expr.sort (Level.succ Level.zero)))
+          (.fvar 0 (Expr.sort (Level.succ Level.zero)))
         = Expr.app (.const Lech.listName [Level.zero])
-            (.fvar 0 nmN (Expr.sort (Level.succ Level.zero))) from rfl,
+            (.fvar 0 (Expr.sort (Level.succ Level.zero))) from rfl,
       denoteP_app, hKL, denoteP_fvar]
     rfl
   obtain ⟨hokRN, hmemRN⟩ := head _ _ _ _ hfN (Lech.isTowerEntry_false_of_find? hfN (fun _ _ h => by simp [Lech.listNilName] at h)) (by simp [hlpN]) hRN
   -- `List.cons`
   have hIC : ciC.toConstantVal.type.instantiateLevelParams
       ciC.toConstantVal.levelParams [Level.zero]
-      = Expr.forallE nm1 (.sort (Level.succ Level.zero))
-          (.forallE nm2 (.bvar 0)
-            (.forallE nm3 (.app (.const Lech.listName [Level.zero]) (.bvar 1))
+      = Expr.forallE (.sort (Level.succ Level.zero))
+          (.forallE (.bvar 0)
+            (.forallE (.app (.const Lech.listName [Level.zero]) (.bvar 1))
               (.app (.const Lech.listName [Level.zero]) (.bvar 2))
-              ⟨mb3.bi, Level.substPW [pC] [Level.zero] mb3.pw⟩)
-            ⟨mb2.bi, Level.substPW [pC] [Level.zero] mb2.pw⟩)
-          ⟨mb1.bi, Level.substPW [pC] [Level.zero] mb1.pw⟩ := by
+              ⟨Level.substPW [pC] [Level.zero] mb3.pw⟩)
+            ⟨Level.substPW [pC] [Level.zero] mb2.pw⟩)
+          ⟨Level.substPW [pC] [Level.zero] mb1.pw⟩ := by
     rw [hlpC, hTC]
     simp [Expr.instantiateLevelParams, Level.subst, Level.subst.go]
   have hRC : denoteP m.acval env φ 0
@@ -306,50 +306,50 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
                 (Level.substFn φ ciL.toConstantVal.levelParams [Level.zero]))
                 (.bvar 2))))) : AVExpr) := by
     rw [hIC, denoteP_forallE, denoteP_sort,
-      show (Expr.forallE nm2 (.bvar 0)
-            (.forallE nm3 (.app (.const Lech.listName [Level.zero]) (.bvar 1))
+      show (Expr.forallE (.bvar 0)
+            (.forallE (.app (.const Lech.listName [Level.zero]) (.bvar 1))
               (.app (.const Lech.listName [Level.zero]) (.bvar 2))
-              ⟨mb3.bi, Level.substPW [pC] [Level.zero] mb3.pw⟩)
-            ⟨mb2.bi, Level.substPW [pC] [Level.zero] mb2.pw⟩).instantiate1
-          (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero)))
-        = Expr.forallE nm2 (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero)))
-            (.forallE nm3
+              ⟨Level.substPW [pC] [Level.zero] mb3.pw⟩)
+            ⟨Level.substPW [pC] [Level.zero] mb2.pw⟩).instantiate1
+          (.fvar 0 (Expr.sort (Level.succ Level.zero)))
+        = Expr.forallE (.fvar 0 (Expr.sort (Level.succ Level.zero)))
+            (.forallE
               (.app (.const Lech.listName [Level.zero])
-                (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
+                (.fvar 0 (Expr.sort (Level.succ Level.zero))))
               (.app (.const Lech.listName [Level.zero])
-                (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
-              ⟨mb3.bi, Level.substPW [pC] [Level.zero] mb3.pw⟩)
-            ⟨mb2.bi, Level.substPW [pC] [Level.zero] mb2.pw⟩ from rfl,
+                (.fvar 0 (Expr.sort (Level.succ Level.zero))))
+              ⟨Level.substPW [pC] [Level.zero] mb3.pw⟩)
+            ⟨Level.substPW [pC] [Level.zero] mb2.pw⟩ from rfl,
       denoteP_forallE, denoteP_fvar,
-      show (Expr.forallE nm3
+      show (Expr.forallE
               (.app (.const Lech.listName [Level.zero])
-                (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
+                (.fvar 0 (Expr.sort (Level.succ Level.zero))))
               (.app (.const Lech.listName [Level.zero])
-                (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
-              ⟨mb3.bi, Level.substPW [pC] [Level.zero] mb3.pw⟩).instantiate1
-          (.fvar (0 + 1) nm2 (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
-        = Expr.forallE nm3
+                (.fvar 0 (Expr.sort (Level.succ Level.zero))))
+              ⟨Level.substPW [pC] [Level.zero] mb3.pw⟩).instantiate1
+          (.fvar (0 + 1) (.fvar 0 (Expr.sort (Level.succ Level.zero))))
+        = Expr.forallE
             (.app (.const Lech.listName [Level.zero])
-              (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
+              (.fvar 0 (Expr.sort (Level.succ Level.zero))))
             (.app (.const Lech.listName [Level.zero])
-              (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))))
-            ⟨mb3.bi, Level.substPW [pC] [Level.zero] mb3.pw⟩ from rfl,
+              (.fvar 0 (Expr.sort (Level.succ Level.zero))))
+            ⟨Level.substPW [pC] [Level.zero] mb3.pw⟩ from rfl,
       denoteP_forallE, denoteP_app, hKL, denoteP_fvar,
       show (Expr.app (.const Lech.listName [Level.zero])
-              (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero)))).instantiate1
-          (.fvar (0 + 1 + 1) nm3
+              (.fvar 0 (Expr.sort (Level.succ Level.zero)))).instantiate1
+          (.fvar (0 + 1 + 1)
             (.app (.const Lech.listName [Level.zero])
-              (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero)))))
+              (.fvar 0 (Expr.sort (Level.succ Level.zero)))))
         = Expr.app (.const Lech.listName [Level.zero])
-            (.fvar 0 nm1 (Expr.sort (Level.succ Level.zero))) from rfl,
+            (.fvar 0 (Expr.sort (Level.succ Level.zero))) from rfl,
       denoteP_app, hKL, denoteP_fvar]
     rfl
   obtain ⟨hokRC, hmemRC⟩ := head _ _ _ _ hfC (Lech.isTowerEntry_false_of_find? hfC (fun _ _ h => by simp [Lech.listConsName] at h)) (by simp [hlpC]) hRC
   -- `Char.ofNat`
   have hIF : ciF.toConstantVal.type.instantiateLevelParams
       ciF.toConstantVal.levelParams []
-      = Expr.forallE nmF (.const Lech.natName []) (.const Lech.charName [])
-          ⟨mbF.bi, Level.substPW [] [] mbF.pw⟩ := by
+      = Expr.forallE (.const Lech.natName []) (.const Lech.charName [])
+          ⟨Level.substPW [] [] mbF.pw⟩ := by
     rw [hlpF, hTF]
     simp [Expr.instantiateLevelParams]
   have hRF : denoteP m.acval env φ 0
@@ -360,18 +360,18 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
           (m.acval Lech.charName (Level.substFn φ [] []))) : AVExpr) := by
     rw [hIF, denoteP_forallE, hKNat,
       show (Expr.const Lech.charName ([] : List Level)).instantiate1
-          (.fvar 0 nmF (Expr.const Lech.natName []))
+          (.fvar 0 (Expr.const Lech.natName []))
         = Expr.const Lech.charName [] from rfl, hKH]
     rfl
   obtain ⟨hokRF, hmemRF⟩ := head _ _ _ _ hfF (Lech.isTowerEntry_false_of_find? hfF (fun _ _ h => by simp [Lech.charOfNatName] at h)) (by simp [hlpF]) hRF
   -- `String.ofList`
   have hIO : ciO.toConstantVal.type.instantiateLevelParams
       ciO.toConstantVal.levelParams []
-      = Expr.forallE nmO
+      = Expr.forallE
           (.app (.const Lech.listName [Level.zero])
             (.const Lech.charName []))
           (.const Lech.stringName [])
-          ⟨mbO.bi, Level.substPW [] [] mbO.pw⟩ := by
+          ⟨Level.substPW [] [] mbO.pw⟩ := by
     rw [hlpO, hTO]
     simp [Expr.instantiateLevelParams, Level.subst]
   have hRO : denoteP m.acval env φ 0
@@ -385,7 +385,7 @@ theorem strLitFactsP {m : EnvS2Core V env} (hct : ConstTypeP m φ)
             (Level.substFn φ [] []))) : AVExpr) := by
     rw [hIO, denoteP_forallE, denoteP_app, hKL, hKH,
       show (Expr.const Lech.stringName ([] : List Level)).instantiate1
-          (.fvar 0 nmO (Expr.app (.const Lech.listName [Level.zero])
+          (.fvar 0 (Expr.app (.const Lech.listName [Level.zero])
             (.const Lech.charName [])))
         = Expr.const Lech.stringName [] from rfl, hKS]
     rfl

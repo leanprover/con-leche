@@ -95,7 +95,7 @@ theorem iotaCerts_atF (d : Nat) (lic : Bool) (F : Nat) :
       (iotaCerts (fueledFns mode env) env d lic ty args).val F =
         iotaCerts (pureFns mode env F) env d lic ty args
   | _, [] => rfl
-  | .forallE n ty body mb, arg :: rest => by
+  | .forallE ty body mb, arg :: rest => by
     show (if lic && mb.pw.isNever then
         iotaCerts (fueledFns mode env) env d lic (body.instantiate1 arg) rest
       else (do
@@ -124,9 +124,9 @@ theorem iotaCerts_atF (d : Nat) (lic : Bool) (F : Nat) :
         simp only [↓reduceIte]
         exact iotaCerts_atF d lic F (body.instantiate1 arg) rest
       | false => rfl
-  | .bvar _, _ :: _ | .fvar _ _ _, _ :: _ | .sort _, _ :: _
-  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
-  | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+  | .bvar _, _ :: _ | .fvar _ _, _ :: _ | .sort _, _ :: _
+  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _, _ :: _
+  | .letE _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
 
 theorem defEqList_atF (d : Nat) (F : Nat) :
     ∀ (as bs : List Expr),

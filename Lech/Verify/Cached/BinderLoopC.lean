@@ -139,26 +139,26 @@ theorem inferLamsOutC_sim {d : Nat} :
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-chain)")
           let tyAbs ← abstractRangeM tyo d j
-          let node ← pure (Expr.forallE n tyAbs cur mb)
+          let node ← pure (Expr.forallE tyAbs cur mb)
           inferLamsOutI mode d rest (j - 1) node mb.pw)
         (do
           if mode.verifiedChecks && !(mb.pw == prevPw) then
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-chain)")
           inferLamsOut (m := FueledM) mode d rx (j - 1)
-            (Expr.forallE n (tyox.abstractRange d j) curx mb) mb.pw)
+            (Expr.forallE (tyox.abstractRange d j) curx mb) mb.pw)
       split
       · exact SimC.throw_bind
       refine SimC.bind_left (abstractRangeM_eff hs htyo)
         (fun s₃ tyAbs hs₃ hQab => ?_)
       refine SimC.bind_left
-        (pureC_eff hs₃ (x := Expr.forallE n tyAbs cur mb))
+        (pureC_eff hs₃ (x := Expr.forallE tyAbs cur mb))
         (fun s₄ node hs₄ hQnode => ?_)
       have hQnode' : RelC node
-          (Expr.forallE n (tyox.abstractRange d j) curx mb) := by
+          (Expr.forallE (tyox.abstractRange d j) curx mb) := by
         show _ = _
         rw [show node
-            = .forallE n tyAbs cur mb from hQnode,
+            = .forallE tyAbs cur mb from hQnode,
           hQab, hcur]
       exact ihOut hs₄ hrest hQnode'
 
@@ -282,13 +282,13 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     show SimC mode env s₀ RelDC
       (do
         match t with
-        | .lam n ty body mb => do
+        | .lam ty body mb => do
           let tyo ← instListRevM ty fvs
           let tty ← (coreKnotI mode (mkFEnv env) f).infer (d + k) tyo
           let wtty ← (coreKnotI mode (mkFEnv env) f).whnf (d + k) tty
           match wtty with
           | .sort _ => do
-            let fv ← pure (Expr.fvar (d + k) n tyo)
+            let fv ← pure (Expr.fvar (d + k) tyo)
             inferLamsI mode (coreKnotI mode (mkFEnv env) f) d fuel body (k + 1)
               (fvs.push fv) ((n, tyo, mb) :: stk)
           | _ => throw (.invalid "expected a sort")
@@ -300,8 +300,8 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     case lam nm ty body mb =>
       dsimp only at hw ⊢
       rw [inferLams_succ_lam]
-      have hlamL : (Expr.lam nm ty body mb).instantiateList
-          ws = Expr.lam nm ((Expr.instantiateList ty ws))
+      have hlamL : (Expr.lam ty body mb).instantiateList
+          ws = Expr.lam ((Expr.instantiateList ty ws))
             ((Expr.instantiateList body ws 1)) mb := by
         simp [Expr.instantiateList]
       have hwcomp : Expr.WScoped (d + k) ((Expr.instantiateList ty ws))
@@ -322,16 +322,16 @@ theorem inferLamsC_sim (ih : SSimC mode env f) {d : Nat} :
       case sort u =>
         dsimp only
         refine SimC.bind_left
-          (pureC_eff hs₃ (x := Expr.fvar (d + k) nm tyo))
+          (pureC_eff hs₃ (x := Expr.fvar (d + k) tyo))
           (fun s₄ fv hs₄ hQfv => ?_)
         have hQfv' : RelC fv
-            (Expr.fvar (d + k) nm ((Expr.instantiateList ty ws))) := by
+            (Expr.fvar (d + k) ((Expr.instantiateList ty ws))) := by
           show _ = _
-          rw [show fv = .fvar (d + k) nm tyo from hQfv,
+          rw [show fv = .fvar (d + k) tyo from hQfv,
             hQtyo]
         have hwopen : Expr.WScoped (d + (k + 1))
             ((Expr.instantiateList body
-              (Expr.fvar (d + k) nm (ty.instantiateList ws) :: ws))) := by
+              (Expr.fvar (d + k) (ty.instantiateList ws) :: ws))) := by
           rw [Expr.instantiateList_cons]
           have := Expr.WScoped.instantiate1 (n := nm) hwcomp.1 0 hwcomp.2
           simpa [Nat.add_assoc] using this
@@ -458,13 +458,13 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
     show SimC mode env s₀ RelDC
       (do
         match t with
-        | .forallE n ty body mb => do
+        | .forallE ty body mb => do
           let tyo ← instListRevM ty fvs
           let tty ← (coreKnotI mode (mkFEnv env) f).infer (d + k) tyo
           let wtty ← (coreKnotI mode (mkFEnv env) f).whnf (d + k) tty
           match wtty with
           | .sort u => do
-            let fv ← pure (Expr.fvar (d + k) n tyo)
+            let fv ← pure (Expr.fvar (d + k) tyo)
             inferPisI mode (coreKnotI mode (mkFEnv env) f) d fuel body
               (k + 1) (fvs.push fv) ((u, mb.pw) :: stk)
           | _ => throw (.invalid "expected a sort")
@@ -478,8 +478,8 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
     case forallE nm ty body mb =>
       dsimp only at hw ⊢
       rw [inferPis_succ_pi]
-      have hpiL : (Expr.forallE nm ty body mb).instantiateList
-          ws = Expr.forallE nm ((Expr.instantiateList ty ws))
+      have hpiL : (Expr.forallE ty body mb).instantiateList
+          ws = Expr.forallE ((Expr.instantiateList ty ws))
             ((Expr.instantiateList body ws 1)) mb := by
         simp [Expr.instantiateList]
       have hwcomp : Expr.WScoped (d + k) ((Expr.instantiateList ty ws))
@@ -500,16 +500,16 @@ theorem inferPisC_sim (ih : SSimC mode env f) {d : Nat} :
       case sort u =>
         dsimp only
         refine SimC.bind_left
-          (pureC_eff hs₃ (x := Expr.fvar (d + k) nm tyo))
+          (pureC_eff hs₃ (x := Expr.fvar (d + k) tyo))
           (fun s₄ fv hs₄ hQfv => ?_)
         have hQfv' : RelC fv
-            (Expr.fvar (d + k) nm ((Expr.instantiateList ty ws))) := by
+            (Expr.fvar (d + k) ((Expr.instantiateList ty ws))) := by
           show _ = _
-          rw [show fv = .fvar (d + k) nm tyo from hQfv,
+          rw [show fv = .fvar (d + k) tyo from hQfv,
             hQtyo]
         have hwopen : Expr.WScoped (d + (k + 1))
             ((Expr.instantiateList body
-              (Expr.fvar (d + k) nm (ty.instantiateList ws) :: ws))) := by
+              (Expr.fvar (d + k) (ty.instantiateList ws) :: ws))) := by
           rw [Expr.instantiateList_cons]
           have := Expr.WScoped.instantiate1 (n := nm) hwcomp.1 0 hwcomp.2
           simpa [Nat.add_assoc] using this
@@ -535,7 +535,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
     (tyx bodyx : Expr) (mbx : BinderMeta) (F : Nat) :
     ((do
       let bt ← (fueledFns mode env).infer (d + 1)
-        (bodyx.instantiate1 (.fvar d nm tyx))
+        (bodyx.instantiate1 (.fvar d tyx))
       if mode.verifiedChecks then
         match bodyx.lamPw with
         | some pwI =>
@@ -548,8 +548,8 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
           unless Level.zeronessOf vb == mbx.pw do
             throw (.notImplemented
               "sort-annotation mismatch (lam-cod-leaf)")
-      pure (Expr.forallE nm tyx (bt.abstract1 d) mbx)) : FueledM Expr).val F
-    = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx))
+      pure (Expr.forallE tyx (bt.abstract1 d) mbx)) : FueledM Expr).val F
+    = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d tyx))
         >>= fun bt => (do
           if mode.verifiedChecks then
             match bodyx.lamPw with
@@ -563,7 +563,7 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
               unless Level.zeronessOf vb == mbx.pw do
                 throw (.notImplemented
                   "sort-annotation mismatch (lam-cod-leaf)")
-          pure (Expr.forallE nm tyx (bt.abstract1 d) mbx))) := by
+          pure (Expr.forallE tyx (bt.abstract1 d) mbx))) := by
   rw [FueledM.atF_bind]
   congr 1
   funext bt
@@ -597,14 +597,14 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
     (hs : CSOK mode env s₀)
     (hbody : RelC b bodyx)
     (hty : RelC t tyx)
-    (hfv : RelC fv (.fvar d nm tyx))
+    (hfv : RelC fv (.fvar d tyx))
     (hwty : Expr.WScoped d tyx) (hwbody : Expr.WScoped d bodyx) :
     SimC mode env s₀ (RelEC d)
       (inferLamsI mode (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
         [(nm, t, ⟨mbbi, mbpw⟩)])
       (do
         let bt ← (fueledFns mode env).infer (d + 1)
-          (bodyx.instantiate1 (.fvar d nm tyx))
+          (bodyx.instantiate1 (.fvar d tyx))
         if mode.verifiedChecks then
           match bodyx.lamPw with
           | some pwI =>
@@ -617,15 +617,15 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
             unless Level.zeronessOf vb == (⟨mbbi, mbpw⟩ : BinderMeta).pw do
               throw (.notImplemented
                 "sort-annotation mismatch (lam-cod-leaf)")
-        pure (Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, mbpw⟩)) := by
+        pure (Expr.forallE tyx (bt.abstract1 d) ⟨mbbi, mbpw⟩)) := by
   have hwopen : Expr.WScoped (d + 1)
-      (bodyx.instantiateList [Expr.fvar d nm tyx]) := by
+      (bodyx.instantiateList [Expr.fvar d tyx]) := by
     rw [instList_single]
     exact Expr.WScoped.instantiate1 hwty 0 hwbody
   have hcore : SimC mode env s₀ RelDC
       (inferLamsI mode (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
         [(nm, t, ⟨mbbi, mbpw⟩)])
-      (inferLams mode (fueledFns mode env) d fuel bodyx 1 [Expr.fvar d nm tyx]
+      (inferLams mode (fueledFns mode env) d fuel bodyx 1 [Expr.fvar d tyx]
         [(nm, tyx, ⟨mbbi, mbpw⟩)]) := by
     refine inferLamsC_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact RelCL.cons hfv RelCL.nil)
@@ -635,7 +635,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
     intro res F hF
     rw [inferLams_atF] at hF
     obtain ⟨F', hchain⟩ := inferLams_sound fuel bodyx 1
-      [Expr.fvar d nm tyx] [(nm, tyx, ⟨mbbi, mbpw⟩)] F res rfl
+      [Expr.fvar d tyx] [(nm, tyx, ⟨mbbi, mbpw⟩)] F res rfl
       (by
         intro x hx
         rcases List.mem_singleton.mp hx with rfl
@@ -645,8 +645,8 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
     rw [inferLamTail_atF]
     obtain ⟨bt, hbt, htail⟩ := bind_okB hchain
     have hbt' : inferTypeCore mode env F' (d + 1)
-        (bodyx.instantiate1 (.fvar d nm tyx)) = .ok bt := by
-      rw [← instList_single bodyx (Expr.fvar d nm tyx)]
+        (bodyx.instantiate1 (.fvar d tyx)) = .ok bt := by
+      rw [← instList_single bodyx (Expr.fvar d tyx)]
       exact hbt
     rw [hbt', okB_bind]
     unfold inferLamsTail at htail
@@ -713,7 +713,7 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
     have hwbt : Expr.WScoped (d + 1) bt :=
       inferTypeCore_WScoped henv F hbt
         (Expr.WScoped.instantiate1 hwty 0 hwbody)
-    have hres : vv = Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, mbpw⟩ := by
+    have hres : vv = Expr.forallE tyx (bt.abstract1 d) ⟨mbbi, mbpw⟩ := by
       revert hF
       by_cases hv : mode.verifiedChecks = true
       case neg =>
@@ -751,19 +751,19 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
     exact (by
       simp only [Expr.WScoped]
       exact ⟨hwty, Lech.WScoped.abstract1 0 hwbt⟩ :
-      Expr.WScoped d (Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, mbpw⟩))
+      Expr.WScoped d (Expr.forallE tyx (bt.abstract1 d) ⟨mbbi, mbpw⟩))
 
 private theorem inferPiTail_atF {env : Env} (d : Nat) (nm : Name)
     (tyx bodyx : Expr) (lu : Level) (pw : PropWhen) (F : Nat) :
     ((do
       let v ← ensureSort (fueledFns mode env) env (d + 1)
         (← (fueledFns mode env).infer (d + 1)
-          (bodyx.instantiate1 (.fvar d nm tyx)))
+          (bodyx.instantiate1 (.fvar d tyx)))
       if mode.verifiedChecks then
         unless Level.zeronessOf v == pw do
           throw (.notImplemented "sort-annotation mismatch (forall-cod)")
       pure (Expr.sort (.imax lu v))) : FueledM Expr).val F
-    = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx))
+    = (inferTypeCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d tyx))
         >>= fun bt => ensureSortCore mode env F (d + 1) bt >>= fun v =>
         (do
           if mode.verifiedChecks then
@@ -792,7 +792,7 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
     (hs : CSOK mode env s₀)
     (hbody : RelC b bodyx)
     (hlu : u = lu)
-    (hfv : RelC fv (.fvar d nmx tyx))
+    (hfv : RelC fv (.fvar d tyx))
     (hwty : Expr.WScoped d tyx) (hwbody : Expr.WScoped d bodyx) :
     SimC mode env s₀ (RelEC d)
       (inferPisI mode (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
@@ -800,21 +800,21 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
       (do
         let v ← ensureSort (fueledFns mode env) env (d + 1)
           (← (fueledFns mode env).infer (d + 1)
-            (bodyx.instantiate1 (.fvar d nmx tyx)))
+            (bodyx.instantiate1 (.fvar d tyx)))
         if mode.verifiedChecks then
           unless Level.zeronessOf v == pw do
             throw (.notImplemented
               "sort-annotation mismatch (forall-cod)")
         pure (Expr.sort (.imax lu v))) := by
   have hwopen : Expr.WScoped (d + 1)
-      (bodyx.instantiateList [Expr.fvar d nmx tyx]) := by
+      (bodyx.instantiateList [Expr.fvar d tyx]) := by
     rw [instList_single]
     exact Expr.WScoped.instantiate1 hwty 0 hwbody
   have hcore : SimC mode env s₀ RelDC
       (inferPisI mode (coreKnotI mode (mkFEnv env) f) d fuel b 1 #[fv]
         [(u, pw)])
       (inferPis mode (fueledFns mode env) d fuel bodyx 1
-        [Expr.fvar d nmx tyx] [(lu, pw)]) := by
+        [Expr.fvar d tyx] [(lu, pw)]) := by
     refine inferPisC_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact RelCL.cons hfv RelCL.nil)
       ⟨⟨hlu, rfl⟩, trivial⟩ hwopen
@@ -823,13 +823,13 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
     intro res F hF
     rw [inferPis_atF] at hF
     obtain ⟨F', hchain⟩ := inferPis_sound fuel bodyx 1
-      [Expr.fvar d nmx tyx] [(lu, pw)] F res rfl (Nat.le_refl 1) hF
+      [Expr.fvar d tyx] [(lu, pw)] F res rfl (Nat.le_refl 1) hF
     refine ⟨F', ?_⟩
     rw [inferPiTail_atF]
     obtain ⟨bt, hbt, hwrap⟩ := bind_okB hchain
     have hbt' : inferTypeCore mode env F' (d + 1)
-        (bodyx.instantiate1 (.fvar d nmx tyx)) = .ok bt := by
-      rw [← instList_single bodyx (Expr.fvar d nmx tyx)]
+        (bodyx.instantiate1 (.fvar d tyx)) = .ok bt := by
+      rw [← instList_single bodyx (Expr.fvar d tyx)]
       exact hbt
     rw [hbt', okB_bind]
     unfold inferPisWrap at hwrap
@@ -1089,10 +1089,10 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
     show SimC mode env s₀ RelDC
       (do
         match t with
-        | .forallE n ty body mb => do
+        | .forallE ty body mb => do
           let tyo ← instListRevM ty fvs
           let ty' ← (coreKnotI mode (mkFEnv env) f).annotate (d + k) tyo
-          let fv ← pure (Expr.fvar (d + k) n ty')
+          let fv ← pure (Expr.fvar (d + k) ty')
           annotatePisI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fuel body
             (k + 1) (fvs.push fv) ((n, ty', mb) :: stk)
         | _ =>
@@ -1105,8 +1105,8 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
     case forallE nm ty body mb =>
       dsimp only at hw ⊢
       rw [annotatePis_succ_pi]
-      have hpiL : (Expr.forallE nm ty body mb).instantiateList
-          ws = Expr.forallE nm ((Expr.instantiateList ty ws))
+      have hpiL : (Expr.forallE ty body mb).instantiateList
+          ws = Expr.forallE ((Expr.instantiateList ty ws))
             ((Expr.instantiateList body ws 1)) mb := by
         simp [Expr.instantiateList]
       have hwcomp : Expr.WScoped (d + k) ((Expr.instantiateList ty ws))
@@ -1120,14 +1120,14 @@ theorem annotatePisC_sim (ih : SSimC mode env f) {d : Nat} :
         (fun s₂ ty' tyx' hs₂ hPty' => ?_)
       obtain ⟨hty'd, hwty'⟩ := hPty'
       refine SimC.bind_left
-        (pureC_eff hs₂ (x := Expr.fvar (d + k) nm ty'))
+        (pureC_eff hs₂ (x := Expr.fvar (d + k) ty'))
         (fun s₃ fv hs₃ hQfv => ?_)
-      have hQfv' : RelC fv (Expr.fvar (d + k) nm tyx') := by
+      have hQfv' : RelC fv (Expr.fvar (d + k) tyx') := by
         show _ = _
-        rw [show fv = .fvar (d + k) nm ty' from hQfv,
+        rw [show fv = .fvar (d + k) ty' from hQfv,
           hty'd]
       have hwopen : Expr.WScoped (d + (k + 1))
-          ((Expr.instantiateList body (Expr.fvar (d + k) nm tyx' :: ws))) := by
+          ((Expr.instantiateList body (Expr.fvar (d + k) tyx' :: ws))) := by
         rw [Expr.instantiateList_cons]
         have := Expr.WScoped.instantiate1 (n := nm) hwty' 0 hwcomp.2
         simpa [Nat.add_assoc] using this
@@ -1190,10 +1190,10 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     show SimC mode env s₀ RelDC
       (do
         match t with
-        | .lam n ty body mb => do
+        | .lam ty body mb => do
           let tyo ← instListRevM ty fvs
           let ty' ← (coreKnotI mode (mkFEnv env) f).annotate (d + k) tyo
-          let fv ← pure (Expr.fvar (d + k) n ty')
+          let fv ← pure (Expr.fvar (d + k) ty')
           annotateLamsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fuel body
             (k + 1) (fvs.push fv) ((n, ty', mb) :: stk)
         | _ =>
@@ -1206,8 +1206,8 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
     case lam nm ty body mb =>
       dsimp only at hw ⊢
       rw [annotateLams_succ_lam]
-      have hlamL : (Expr.lam nm ty body mb).instantiateList
-          ws = Expr.lam nm ((Expr.instantiateList ty ws))
+      have hlamL : (Expr.lam ty body mb).instantiateList
+          ws = Expr.lam ((Expr.instantiateList ty ws))
             ((Expr.instantiateList body ws 1)) mb := by
         simp [Expr.instantiateList]
       have hwcomp : Expr.WScoped (d + k) ((Expr.instantiateList ty ws))
@@ -1221,14 +1221,14 @@ theorem annotateLamsC_sim (ih : SSimC mode env f) {d : Nat} :
         (fun s₂ ty' tyx' hs₂ hPty' => ?_)
       obtain ⟨hty'd, hwty'⟩ := hPty'
       refine SimC.bind_left
-        (pureC_eff hs₂ (x := Expr.fvar (d + k) nm ty'))
+        (pureC_eff hs₂ (x := Expr.fvar (d + k) ty'))
         (fun s₃ fv hs₃ hQfv => ?_)
-      have hQfv' : RelC fv (Expr.fvar (d + k) nm tyx') := by
+      have hQfv' : RelC fv (Expr.fvar (d + k) tyx') := by
         show _ = _
-        rw [show fv = .fvar (d + k) nm ty' from hQfv,
+        rw [show fv = .fvar (d + k) ty' from hQfv,
           hty'd]
       have hwopen : Expr.WScoped (d + (k + 1))
-          ((Expr.instantiateList body (Expr.fvar (d + k) nm tyx' :: ws))) := by
+          ((Expr.instantiateList body (Expr.fvar (d + k) tyx' :: ws))) := by
         rw [Expr.instantiateList_cons]
         have := Expr.WScoped.instantiate1 (n := nm) hwty' 0 hwcomp.2
         simpa [Nat.add_assoc] using this
@@ -1253,19 +1253,19 @@ private theorem annPiTail_atF {env : Env} (d : Nat) (nm : Name)
     (tyx' bodyx : Expr) (mx : BinderMeta) (F : Nat) :
     ((do
       let body' ← (fueledFns mode env).annotate (d + 1)
-        (bodyx.instantiate1 (.fvar d nm tyx'))
+        (bodyx.instantiate1 (.fvar d tyx'))
       if !pwWritten mx.pw then
         annotPwPi (fueledFns mode env) env (d + 1) body' >>= fun pw =>
-          pure (Expr.forallE nm tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
-      else pure (Expr.forallE nm tyx' (body'.abstract1 d) ⟨mx.bi, mx.pw⟩))
+          pure (Expr.forallE tyx' (body'.abstract1 d) ⟨pw⟩)
+      else pure (Expr.forallE tyx' (body'.abstract1 d) ⟨mx.pw⟩))
       : FueledM Expr).val F
-    = (annotateCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx'))
+    = (annotateCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d tyx'))
         >>= fun body' =>
         if !pwWritten mx.pw then
           annotPwPi (pureFns mode env F) env (d + 1) body' >>= fun pw =>
-            pure (Expr.forallE nm tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
-        else pure (Expr.forallE nm tyx' (body'.abstract1 d)
-          ⟨mx.bi, mx.pw⟩)) := by
+            pure (Expr.forallE tyx' (body'.abstract1 d) ⟨pw⟩)
+        else pure (Expr.forallE tyx' (body'.abstract1 d)
+          ⟨mx.pw⟩)) := by
   rw [FueledM.atF_bind]
   congr 1
   funext body'
@@ -1285,28 +1285,28 @@ theorem annotatePisC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
     (hbm : mi = mx)
     (hbody : RelC b bodyx)
     (hty' : RelC ty' tyx')
-    (hfv : RelC fv (.fvar d nmx tyx'))
+    (hfv : RelC fv (.fvar d tyx'))
     (hwty' : Expr.WScoped d tyx') (hwbody : Expr.WScoped d bodyx) :
     SimC mode env s₀ (RelEC d)
       (annotatePisI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fuel b 1 #[fv]
         [(nm, ty', mi)])
       (do
         let body' ← (fueledFns mode env).annotate (d + 1)
-          (bodyx.instantiate1 (.fvar d nmx tyx'))
+          (bodyx.instantiate1 (.fvar d tyx'))
         if !pwWritten mx.pw then
           annotPwPi (fueledFns mode env) env (d + 1) body' >>= fun pw =>
-            pure (Expr.forallE nmx tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
-        else pure (Expr.forallE nmx tyx' (body'.abstract1 d)
-          ⟨mx.bi, mx.pw⟩)) := by
+            pure (Expr.forallE tyx' (body'.abstract1 d) ⟨pw⟩)
+        else pure (Expr.forallE tyx' (body'.abstract1 d)
+          ⟨mx.pw⟩)) := by
   have hwopen : Expr.WScoped (d + 1)
-      (bodyx.instantiateList [Expr.fvar d nmx tyx']) := by
+      (bodyx.instantiateList [Expr.fvar d tyx']) := by
     rw [instList_single]
     exact Expr.WScoped.instantiate1 hwty' 0 hwbody
   have hcore : SimC mode env s₀ RelDC
       (annotatePisI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fuel b 1 #[fv]
         [(nm, ty', mi)])
       (annotatePis (fueledFns mode env) env d fuel bodyx 1
-        [Expr.fvar d nmx tyx'] [(nmx, tyx', mx)]) := by
+        [Expr.fvar d tyx'] [(nmx, tyx', mx)]) := by
     refine annotatePisC_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact RelCL.cons hfv RelCL.nil)
       ⟨⟨hnm, hbm, hty', (hwty' : Expr.WScoped (d + 0) tyx')⟩, trivial⟩ hwopen
@@ -1315,13 +1315,13 @@ theorem annotatePisC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
     intro res F hF
     rw [annotatePis_atF] at hF
     obtain ⟨F', hchain⟩ := annotatePis_sound fuel bodyx 1
-      [Expr.fvar d nmx tyx'] [(nmx, tyx', mx)] F res rfl hF
+      [Expr.fvar d tyx'] [(nmx, tyx', mx)] F res rfl hF
     refine ⟨F', ?_⟩
     rw [annPiTail_atF]
     obtain ⟨body', hbody', hwrap⟩ := bind_okB hchain
     have hbody'' : annotateCore mode env F' (d + 1)
-        (bodyx.instantiate1 (.fvar d nmx tyx')) = .ok body' := by
-      rw [← instList_single bodyx (Expr.fvar d nmx tyx')]
+        (bodyx.instantiate1 (.fvar d tyx')) = .ok body' := by
+      rw [← instList_single bodyx (Expr.fvar d tyx')]
       exact hbody'
     rw [hbody'', okB_bind]
     -- the chained tail at a one-entry stack IS `annotateBody`'s own
@@ -1341,7 +1341,7 @@ theorem annotatePisC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
     -- the node's scoping does not depend on the written datum
     have hnode : ∀ pw : PropWhen,
         Expr.WScoped d
-          (Expr.forallE nmx tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩) :=
+          (Expr.forallE tyx' (body'.abstract1 d) ⟨pw⟩) :=
       fun _ => by
         simp only [Expr.WScoped]
         exact ⟨hwty', Lech.WScoped.abstract1 0 hwb⟩
@@ -1359,19 +1359,19 @@ private theorem annLamTail_atF {env : Env} (d : Nat) (nmx : Name)
     (tyx' bodyx : Expr) (mx : BinderMeta) (F : Nat) :
     ((do
       let body' ← (fueledFns mode env).annotate (d + 1)
-        (bodyx.instantiate1 (.fvar d nmx tyx'))
+        (bodyx.instantiate1 (.fvar d tyx'))
       if !pwWritten mx.pw then
         annotPwLam (fueledFns mode env) env (d + 1) body' >>= fun pw =>
-          pure (Expr.lam nmx tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
-      else pure (Expr.lam nmx tyx' (body'.abstract1 d) ⟨mx.bi, mx.pw⟩))
+          pure (Expr.lam tyx' (body'.abstract1 d) ⟨pw⟩)
+      else pure (Expr.lam tyx' (body'.abstract1 d) ⟨mx.pw⟩))
       : FueledM Expr).val F
-    = (annotateCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d nmx tyx'))
+    = (annotateCore mode env F (d + 1) (bodyx.instantiate1 (.fvar d tyx'))
         >>= fun body' =>
         if !pwWritten mx.pw then
           annotPwLam (pureFns mode env F) env (d + 1) body' >>= fun pw =>
-            pure (Expr.lam nmx tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
-        else pure (Expr.lam nmx tyx' (body'.abstract1 d)
-          ⟨mx.bi, mx.pw⟩)) := by
+            pure (Expr.lam tyx' (body'.abstract1 d) ⟨pw⟩)
+        else pure (Expr.lam tyx' (body'.abstract1 d)
+          ⟨mx.pw⟩)) := by
   rw [FueledM.atF_bind]
   congr 1
   funext body'
@@ -1390,28 +1390,28 @@ theorem annotateLamsC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
     (hbm : mi = mx)
     (hbody : RelC b bodyx)
     (hty' : RelC ty' tyx')
-    (hfv : RelC fv (.fvar d nmx tyx'))
+    (hfv : RelC fv (.fvar d tyx'))
     (hwty' : Expr.WScoped d tyx') (hwbody : Expr.WScoped d bodyx) :
     SimC mode env s₀ (RelEC d)
       (annotateLamsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fuel b 1 #[fv]
         [(nm, ty', mi)])
       (do
         let body' ← (fueledFns mode env).annotate (d + 1)
-          (bodyx.instantiate1 (.fvar d nmx tyx'))
+          (bodyx.instantiate1 (.fvar d tyx'))
         if !pwWritten mx.pw then
           annotPwLam (fueledFns mode env) env (d + 1) body' >>= fun pw =>
-            pure (Expr.lam nmx tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩)
-        else pure (Expr.lam nmx tyx' (body'.abstract1 d)
-          ⟨mx.bi, mx.pw⟩)) := by
+            pure (Expr.lam tyx' (body'.abstract1 d) ⟨pw⟩)
+        else pure (Expr.lam tyx' (body'.abstract1 d)
+          ⟨mx.pw⟩)) := by
   have hwopen : Expr.WScoped (d + 1)
-      (bodyx.instantiateList [Expr.fvar d nmx tyx']) := by
+      (bodyx.instantiateList [Expr.fvar d tyx']) := by
     rw [instList_single]
     exact Expr.WScoped.instantiate1 hwty' 0 hwbody
   have hcore : SimC mode env s₀ RelDC
       (annotateLamsI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fuel b 1 #[fv]
         [(nm, ty', mi)])
       (annotateLams (fueledFns mode env) env d fuel bodyx 1
-        [Expr.fvar d nmx tyx'] [(nmx, tyx', mx)]) := by
+        [Expr.fvar d tyx'] [(nmx, tyx', mx)]) := by
     refine annotateLamsC_sim ih fuel hs hbody
       (by rw [toListRev_singleton]; exact RelCL.cons hfv RelCL.nil)
       ⟨⟨hnm, hbm, hty', (hwty' : Expr.WScoped (d + 0) tyx')⟩, trivial⟩ hwopen
@@ -1420,13 +1420,13 @@ theorem annotateLamsC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
     intro res F hF
     rw [annotateLams_atF] at hF
     obtain ⟨F', hchain⟩ := annotateLams_sound fuel bodyx 1
-      [Expr.fvar d nmx tyx'] [(nmx, tyx', mx)] F res rfl hF
+      [Expr.fvar d tyx'] [(nmx, tyx', mx)] F res rfl hF
     refine ⟨F', ?_⟩
     rw [annLamTail_atF]
     obtain ⟨body', hbody', hwrap⟩ := bind_okB hchain
     have hbody'' : annotateCore mode env F' (d + 1)
-        (bodyx.instantiate1 (.fvar d nmx tyx')) = .ok body' := by
-      rw [← instList_single bodyx (Expr.fvar d nmx tyx')]
+        (bodyx.instantiate1 (.fvar d tyx')) = .ok body' := by
+      rw [← instList_single bodyx (Expr.fvar d tyx')]
       exact hbody'
     rw [hbody'', okB_bind]
     -- the chained tail at a one-entry stack IS `annotateBody`'s own
@@ -1445,7 +1445,7 @@ theorem annotateLamsC_tail_sim (ih : SSimC mode env f) {d fuel : Nat}
         (Expr.WScoped.instantiate1 hwty' 0 hwbody)
     -- the node's scoping does not depend on the written datum
     have hnode : ∀ pw : PropWhen,
-        Expr.WScoped d (Expr.lam nmx tyx' (body'.abstract1 d) ⟨mx.bi, pw⟩) :=
+        Expr.WScoped d (Expr.lam tyx' (body'.abstract1 d) ⟨pw⟩) :=
       fun _ => by
         simp only [Expr.WScoped]
         exact ⟨hwty', Lech.WScoped.abstract1 0 hwb⟩

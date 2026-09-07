@@ -106,12 +106,12 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
     -- the public (recursor) frame
     {fvsP : List Expr} (hfvsPlen : fvsP.length = rP)
     (hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     (hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP)
+      Expr.fvar l.1 l.2.2 ∈ fvsP)
     (hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)
     (hokTV : ∀ σ : Nat → V, AnnotOkP V σ TV)
@@ -189,7 +189,7 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
   -- the openers' leaves stay in the frame, below `rP`
   have hopenerLeafP : ∀ (q0 : Nat) (a : Expr), (fvsP.take rP)[q0]? = some a →
       ∀ l ∈ a.fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP ∧ l.1 < rP := by
+        Expr.fvar l.1 l.2.2 ∈ fvsP ∧ l.1 < rP := by
     intro q0 a ha l hl
     have hq0lt : q0 < rP := by
       have := (List.getElem?_eq_some_iff.mp ha).1
@@ -226,7 +226,7 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
     rwa [htkPlen] at h
   have hpinLeaf : ∀ p ∈ pins.map (Expr.instSpine (fvsP.take rP) (rP - 1)),
       ∀ l ∈ p.fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP ∧ l.1 < rP := by
+        Expr.fvar l.1 l.2.2 ∈ fvsP ∧ l.1 < rP := by
     intro a ha l hl
     obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
     rcases fvarLeaves_instSpine (rP - 1) hl with hl' | ⟨x, hx, hlx⟩
@@ -265,7 +265,7 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
     exact (instPisAt_bounded _ hcinstP hCb hpinB).1 _ (hcdMem q hq)
   have hleafCdAll : ∀ q, q < cnP →
       ∀ l ∈ (cdomsP.getD q default).fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP ∧ l.1 < rP := by
+        Expr.fvar l.1 l.2.2 ∈ fvsP ∧ l.1 < rP := by
     intro q hq l hl
     rcases instPisAt_leaves _ hcinstP l (Or.inl ⟨_, hcdMem q hq, hl⟩) with
       hty' | ⟨a, ha, hla⟩
@@ -342,7 +342,7 @@ theorem nestedPinFireP {m : EnvS2Core V env} {F : Nat}
   have hwsTy : Expr.WScoped K ty :=
     inferTypeCore_WScoped m.wf F hInf (hpinWs _ (hpinMem q hq))
   have hleafTy : ∀ l ∈ ty.fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP ∧ l.1 < rP := fun l hl =>
+      Expr.fvar l.1 l.2.2 ∈ fvsP ∧ l.1 < rP := fun l hl =>
     hpinLeaf _ (hpinMem q hq) l
       (inferTypeCore_fvarLeaves m.wf F hInf
         (hpinWs _ (hpinMem q hq)) l hl)
@@ -408,12 +408,12 @@ theorem nestedParamSupplyP {m : EnvS2Core V env} {F : Nat}
     -- the public (recursor) frame and its tower
     {fvsP : List Expr} (hfvsPlen : fvsP.length = rP)
     (hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hwsFvsP : ∀ x ∈ fvsP, Expr.WScoped rP x)
     (hleafClosedP : ∀ l, (∃ x ∈ fvsP, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvsP)
+      Expr.fvar l.1 l.2.2 ∈ fvsP)
     (hlbFvsP : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ fvsP → ty.looseBVarsBounded 0 = true)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)
     (hokTV : ∀ σ : Nat → V, AnnotOkP V σ TV)

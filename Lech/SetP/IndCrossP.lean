@@ -69,7 +69,7 @@ theorem instPisAt_denoteP_defined
     intro ty ds rs h D hsp hfb hb T hT
     obtain ⟨⟨w0, hw0⟩, hwsa, hba⟩ := hsp 0 a rfl
     match ty, h with
-    | .forallE nmT dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -88,7 +88,7 @@ theorem instPisAt_denoteP_defined
       | some A => ?_
       rw [hA] at hT
       cases hB : denoteP acval env φ (D + 1)
-          (body.instantiate1 (.fvar D nmT dom)) with
+          (body.instantiate1 (.fvar D dom)) with
       | none => rw [hB] at hT; exact nomatch hT
       | some B => ?_
       have hTI : denoteP acval env φ D (body.instantiate1 a)
@@ -145,7 +145,7 @@ theorem instPisAt_denoteP_cross
     obtain ⟨hwsa, hba⟩ := hsp 0 a rfl
     obtain ⟨w0, hw0den, hw0⟩ := hws 0 a rfl
     match ty, h with
-    | .forallE nmT dom body mb, h =>
+    | .forallE dom body mb, h =>
       simp only [Expr.instPisAt] at h
       cases h1 : Expr.instPisAt sp (body.instantiate1 a) with
       | none => rw [h1] at h; exact nomatch h
@@ -164,7 +164,7 @@ theorem instPisAt_denoteP_cross
       | some A => ?_
       rw [hA] at hT
       cases hB : denoteP acval env φ (D + 1)
-          (body.instantiate1 (.fvar D nmT dom)) with
+          (body.instantiate1 (.fvar D dom)) with
       | none => rw [hB] at hT; exact nomatch hT
       | some B => ?_
       rw [hB] at hT
@@ -247,7 +247,7 @@ theorem WScoped_sharpen : ∀ {e : Expr} {d d' : Nat}, Expr.WScoped d e →
   | sort u => intro d d' _ _; simp [Expr.WScoped]
   | const c us => intro d d' _ _; simp [Expr.WScoped]
   | lit l => intro d d' _ _; simp [Expr.WScoped]
-  | fvar idx nm ty _ih =>
+  | fvar idx ty _ih =>
     intro d d' h hl
     simp only [Expr.WScoped] at h ⊢
     exact ⟨hl (idx, nm, ty) (by simp [Expr.fvarLeaves]), h.2⟩
@@ -256,17 +256,17 @@ theorem WScoped_sharpen : ∀ {e : Expr} {d d' : Nat}, Expr.WScoped d e →
     simp only [Expr.WScoped] at h ⊢
     exact ⟨ihf h.1 (fun l hl' => hl l (by simp [Expr.fvarLeaves, hl'])),
       iha h.2 (fun l hl' => hl l (by simp [Expr.fvarLeaves, hl']))⟩
-  | lam nm ty body mb ihty ihbody =>
+  | lam ty body mb ihty ihbody =>
     intro d d' h hl
     simp only [Expr.WScoped] at h ⊢
     exact ⟨ihty h.1 (fun l hl' => hl l (by simp [Expr.fvarLeaves, hl'])),
       ihbody h.2 (fun l hl' => hl l (by simp [Expr.fvarLeaves, hl']))⟩
-  | forallE nm ty body mb ihty ihbody =>
+  | forallE ty body mb ihty ihbody =>
     intro d d' h hl
     simp only [Expr.WScoped] at h ⊢
     exact ⟨ihty h.1 (fun l hl' => hl l (by simp [Expr.fvarLeaves, hl'])),
       ihbody h.2 (fun l hl' => hl l (by simp [Expr.fvarLeaves, hl']))⟩
-  | letE nm ty val body ihty ihval ihbody =>
+  | letE ty val body ihty ihval ihbody =>
     intro d d' h hl
     simp only [Expr.WScoped] at h ⊢
     exact ⟨ihty h.1 (fun l hl' => hl l (by simp [Expr.fvarLeaves, hl'])),

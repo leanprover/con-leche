@@ -93,12 +93,12 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
   | const nmN us =>
     dsimp only
     exact SimC.pure hs ⟨hden, hw⟩
-  | letE nmN t v b =>
+  | letE t v b =>
     dsimp only
     have hwtvb : Expr.WScoped d t ∧ Expr.WScoped d v ∧
         Expr.WScoped d b := by
       have hw' : Expr.WScoped d
-        (Expr.letE nmN t v b) := hw
+        (Expr.letE t v b) := hw
       simpa only [Expr.WScoped] using hw'
     unfold annotateBody
     try dsimp only
@@ -112,7 +112,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       (fun s₇ ob hs₇ hQob => ?_)
     exact ih.annotate hs₇ hQob
       (Expr.WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
-  | fvar idx nmN t =>
+  | fvar idx t =>
     dsimp only
     unfold annotateBody
     try dsimp only
@@ -166,11 +166,11 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       (fun r hQ => ⟨hQ, by
         simp only [Expr.WScoped]
         exact ⟨Expr.WScoped.mono (Nat.le_refl _) hwg'', hwa''⟩⟩)
-  | forallE nmN t b m =>
+  | forallE t b m =>
     dsimp only
     have hwtb : Expr.WScoped d t ∧ Expr.WScoped d b := by
       have hw' : Expr.WScoped d
-        (Expr.forallE nmN t b m) := hw
+        (Expr.forallE t b m) := hw
       simpa only [Expr.WScoped] using hw'
     unfold annotateBody
     try dsimp only
@@ -179,18 +179,18 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     obtain ⟨hty'd, hwty'⟩ := hP
     obtain rfl := hty'd
     refine SimC.bind_left
-      (pureC_eff hs₁ (x := Expr.fvar d nmN ty'))
+      (pureC_eff hs₁ (x := Expr.fvar d ty'))
       (fun s₂ fv hs₂ hQfv => ?_)
-    have hQfv' : RelC fv (Expr.fvar d nmN ty') := hQfv
+    have hQfv' : RelC fv (Expr.fvar d ty') := hQfv
     refine SimC.bind_left (peelFuelM_eff hs₂)
       (fun s₃ fuel hs₃ _hQfuel => ?_)
     exact annotatePisC_tail_sim ih hs₃ rfl rfl rfl rfl
       hQfv' hwty' hwtb.2
-  | lam nmN t b m =>
+  | lam t b m =>
     dsimp only
     have hwtb : Expr.WScoped d t ∧ Expr.WScoped d b := by
       have hw' : Expr.WScoped d
-        (Expr.lam nmN t b m) := hw
+        (Expr.lam t b m) := hw
       simpa only [Expr.WScoped] using hw'
     unfold annotateBody
     try dsimp only
@@ -204,9 +204,9 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       obtain ⟨hty'd, hwty'⟩ := hP
       obtain rfl := hty'd
       refine SimC.bind_left
-        (pureC_eff hs₁ (x := Expr.fvar d nmN ty'))
+        (pureC_eff hs₁ (x := Expr.fvar d ty'))
         (fun s₂ fv hs₂ hQfv => ?_)
-      have hQfv' : RelC fv (Expr.fvar d nmN ty') := hQfv
+      have hQfv' : RelC fv (Expr.fvar d ty') := hQfv
       refine SimC.bind_left (peelFuelM_eff hs₂)
         (fun s₃ fuel hs₃ _hQfuel => ?_)
       exact annotateLamsC_tail_sim ih hs₃ rfl rfl rfl rfl
@@ -217,9 +217,9 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       obtain ⟨hty'd, hwty'⟩ := hP
       obtain rfl := hty'd
       refine SimC.bind_left
-        (pureC_eff hs₁ (x := Expr.fvar d nmN ty'))
+        (pureC_eff hs₁ (x := Expr.fvar d ty'))
         (fun s₂ fv hs₂ hQfv => ?_)
-      have hQfv' : RelC fv (Expr.fvar d nmN ty') := hQfv
+      have hQfv' : RelC fv (Expr.fvar d ty') := hQfv
       refine SimC.bind_left (inst1M_eff hs₂ rfl hQfv')
         (fun s₃ ob hs₃ hQob => ?_)
       refine SimC.bind (ih.annotate hs₃ hQob
@@ -233,15 +233,15 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       -- The rebuilt node is the same on both sides whatever the datum.
       have hstep : ∀ (s' : CState) (pw : PropWhen), CSOK mode env s' →
           SimC mode env s' (RelEC d)
-            (pure (Expr.lam nmN ty' bAbs ⟨m.bi, pw⟩))
-            (pure (Expr.lam nmN ty' (body'x.abstract1 d)
-              ⟨m.bi, pw⟩)) := by
+            (pure (Expr.lam ty' bAbs ⟨pw⟩))
+            (pure (Expr.lam ty' (body'x.abstract1 d)
+              ⟨pw⟩)) := by
         intro s' pw hsS
         refine SimC.of_eff (pureC_eff hsS
-          (x := Expr.lam nmN ty' bAbs ⟨m.bi, pw⟩)) _ (fun r hQ => ⟨by
+          (x := Expr.lam ty' bAbs ⟨pw⟩)) _ (fun r hQ => ⟨by
             show _ = _
             have h2 : r
-              = Expr.lam nmN ty' bAbs ⟨m.bi, pw⟩ := hQ
+              = Expr.lam ty' bAbs ⟨pw⟩ := hQ
             rw [h2, hQabs], by
             simp only [Expr.WScoped]
             exact ⟨hwty', Lech.WScoped.abstract1 0 hwbody'⟩⟩)
@@ -316,25 +316,25 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     | lit l =>
       rw [show (Expr.getAppFn te) = Expr.lit l from hfn.symm]
       exact SimC.throw
-    | fvar idx nm' t' =>
-      rw [show (Expr.getAppFn te) = Expr.fvar idx nm' t'
+    | fvar idx t' =>
+      rw [show (Expr.getAppFn te) = Expr.fvar idx t'
         from hfn.symm]
       exact SimC.throw
     | app f₂ a₂ =>
       rw [show (Expr.getAppFn te) = Expr.app (f₂) (a₂)
         from hfn.symm]
       exact SimC.throw
-    | lam nm' t' b' m' =>
-      rw [show (Expr.getAppFn te) = Expr.lam nm' t' b' m'
+    | lam t' b' m' =>
+      rw [show (Expr.getAppFn te) = Expr.lam t' b' m'
         from hfn.symm]
       exact SimC.throw
-    | forallE nm' t' b' m' =>
+    | forallE t' b' m' =>
       rw [show (Expr.getAppFn te)
-        = Expr.forallE nm' t' b' m' from hfn.symm]
+        = Expr.forallE t' b' m' from hfn.symm]
       exact SimC.throw
-    | letE nm' t' v' b' =>
+    | letE t' v' b' =>
       rw [show (Expr.getAppFn te)
-        = Expr.letE nm' t' v' b' from hfn.symm]
+        = Expr.letE t' v' b' from hfn.symm]
       exact SimC.throw
     | proj s' j' e'' =>
       rw [show (Expr.getAppFn te) = Expr.proj s' j' e''

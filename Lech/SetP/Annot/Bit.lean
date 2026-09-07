@@ -146,7 +146,7 @@ def denoteP (acval : Name → (Name → Nat) → AVExpr)
     (env : Env) (φ : Name → Nat) :
     (d : Nat) → Expr → Option AVExpr
   | _, .sort u => some (.sort (u.eval φ))
-  | d, .fvar idx _ _ => some (.bvar (d - 1 - idx))
+  | d, .fvar idx _ => some (.bvar (d - 1 - idx))
   | _, .const n us =>
     match env.find? n with
     | some ci =>
@@ -154,25 +154,25 @@ def denoteP (acval : Name → (Name → Nat) → AVExpr)
         some (acval n (Level.substFn φ ci.toConstantVal.levelParams us))
       else none
     | none => none
-  | d, .forallE n ty body m => do
+  | d, .forallE ty body m => do
     let ta ← denoteP acval env φ d ty
     let ba ← denoteP acval env φ (d + 1)
-      (body.instantiate1 (.fvar d n ty))
+      (body.instantiate1 (.fvar d ty))
     some (.pi 0 (pwBit φ m.pw) ta ba)
-  | d, .lam n ty body m => do
+  | d, .lam ty body m => do
     let ta ← denoteP acval env φ d ty
     let ba ← denoteP acval env φ (d + 1)
-      (body.instantiate1 (.fvar d n ty))
+      (body.instantiate1 (.fvar d ty))
     some (.lam (pwBit φ m.pw) ta ba)
   | d, .app f a => do
     let fa ← denoteP acval env φ d f
     let aa ← denoteP acval env φ d a
     some (.app fa aa)
-  | d, .letE n ty val body => do
+  | d, .letE ty val body => do
     let ta ← denoteP acval env φ d ty
     let va ← denoteP acval env φ d val
     let ba ← denoteP acval env φ (d + 1)
-      (body.instantiate1 (.fvar d n ty))
+      (body.instantiate1 (.fvar d ty))
     some (.letE ta va ba)
   | d, .proj sn i e => do
     let ea ← denoteP acval env φ d e
@@ -266,7 +266,7 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     · rw [hta] at h; exact nomatch h
     rw [hta] at h
     rcases hba : denoteP acval env φ (d + 1)
-        (body.instantiate1 (.fvar d n ty)) with _ | ba
+        (body.instantiate1 (.fvar d ty)) with _ | ba
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
     obtain rfl := Option.some.inj h
@@ -279,7 +279,7 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     · rw [hta] at h; exact nomatch h
     rw [hta] at h
     rcases hba : denoteP acval env φ (d + 1)
-        (body.instantiate1 (.fvar d n ty)) with _ | ba
+        (body.instantiate1 (.fvar d ty)) with _ | ba
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
     obtain rfl := Option.some.inj h
@@ -307,7 +307,7 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     · rw [hva] at h; exact nomatch h
     rw [hva] at h
     rcases hba : denoteP acval env φ (d + 1)
-        (body.instantiate1 (.fvar d n ty)) with _ | ba
+        (body.instantiate1 (.fvar d ty)) with _ | ba
     · rw [hba] at h; exact nomatch h
     rw [hba] at h
     obtain rfl := Option.some.inj h
@@ -376,12 +376,12 @@ theorem denoteP_erase {acval : Name → (Name → Nat) → AVExpr}
     cases x with
     | bvar i => rw [denoteP.eq_def] at h; exact nomatch h
     | sort u => exact absurd rfl (hxs u)
-    | fvar i nm ty => exact absurd rfl (hfv i nm ty)
+    | fvar i ty => exact absurd rfl (hfv i nm ty)
     | const n vs => exact absurd rfl (hc n vs)
-    | forallE n ty b mb => exact absurd rfl (hpi n ty b mb)
-    | lam n ty b mb => exact absurd rfl (hlam n ty b mb)
+    | forallE ty b mb => exact absurd rfl (hpi n ty b mb)
+    | lam ty b mb => exact absurd rfl (hlam n ty b mb)
     | app fe a => exact absurd rfl (happ fe a)
-    | letE n ty v b => exact absurd rfl (hlet n ty v b)
+    | letE ty v b => exact absurd rfl (hlet n ty v b)
     | proj sn i e => exact absurd rfl (hproj sn i e)
     | lit l =>
       cases l with

@@ -27,17 +27,17 @@ open Expr
 
 /-- Every reachable `fvar` leaf with index `d` is exactly `fvar d n ty`. -/
 def Expr.fvarConsistent (d : Nat) (n : Name) (ty : Expr) : Expr → Prop
-  | .fvar idx n' ty' => idx = d → n' = n ∧ ty' = ty
+  | .fvar idx ty' => idx = d → n' = n ∧ ty' = ty
   | .app f a => fvarConsistent d n ty f ∧ fvarConsistent d n ty a
-  | .lam _ t b _ | .forallE _ t b _ => fvarConsistent d n ty t ∧ fvarConsistent d n ty b
-  | .letE _ t v b => fvarConsistent d n ty t ∧ fvarConsistent d n ty v ∧ fvarConsistent d n ty b
+  | .lam t b _ | .forallE t b _ => fvarConsistent d n ty t ∧ fvarConsistent d n ty b
+  | .letE t v b => fvarConsistent d n ty t ∧ fvarConsistent d n ty v ∧ fvarConsistent d n ty b
   | .proj _ _ e => fvarConsistent d n ty e
   | _ => True
 
 /-- Closing then re-opening a binder body is the identity. -/
 theorem abstract1_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
     ∀ (e : Expr) (k : Nat), fvarConsistent d n ty e → e.looseBVarsBounded k = true →
-      (e.abstract1 d k).instantiate1 (.fvar d n ty) k = e := by
+      (e.abstract1 d k).instantiate1 (.fvar d ty) k = e := by
   intro e
   induction e <;> intro k hc hb <;>
     simp_all [Expr.fvarConsistent, Expr.looseBVarsBounded, Expr.abstract1, Expr.instantiate1]
@@ -67,7 +67,7 @@ theorem WScoped.abstract1 {d : Nat} :
 `fvar d n ty` mentions it consistently. -/
 theorem fvarConsistent_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
     ∀ (e : Expr) (k : Nat), fvarsBelow d e →
-      fvarConsistent d n ty (e.instantiate1 (.fvar d n ty) k) := by
+      fvarConsistent d n ty (e.instantiate1 (.fvar d ty) k) := by
   intro e
   induction e <;> intro k hb <;>
     simp_all [Expr.instantiate1, fvarsBelow, Expr.fvarConsistent]
@@ -82,7 +82,7 @@ theorem fvarConsistent_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
 theorem fvarConsistent_instantiate1' {d d' : Nat} {n n' : Name} {ty ty' : Expr}
     (hne : d ≠ d') :
     ∀ (e : Expr) (k : Nat), fvarConsistent d n ty e →
-      fvarConsistent d n ty (e.instantiate1 (.fvar d' n' ty') k) := by
+      fvarConsistent d n ty (e.instantiate1 (.fvar d' ty') k) := by
   intro e
   induction e <;> intro k hc <;>
     simp_all [Expr.instantiate1, Expr.fvarConsistent]
@@ -109,7 +109,7 @@ theorem fvarConsistent_abstract1 {d d' : Nat} {n : Name} {ty : Expr}
 /-- Opening lowers the loose-bvar bound by one. -/
 theorem looseBVarsBounded_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
     ∀ (e : Expr) (k : Nat), e.looseBVarsBounded (k + 1) = true →
-      (e.instantiate1 (.fvar d n ty) k).looseBVarsBounded k = true := by
+      (e.instantiate1 (.fvar d ty) k).looseBVarsBounded k = true := by
   intro e
   induction e <;> intro k hb <;>
     simp_all [Expr.instantiate1, Expr.looseBVarsBounded]
@@ -169,11 +169,11 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   | const T us => ?_
   | bvar i2 => intro h; exact nomatch h
   | sort u => intro h; exact nomatch h
-  | fvar i2 n2 t2 => intro h; exact nomatch h
+  | fvar i2 t2 => intro h; exact nomatch h
   | app f2 a2 => intro h; exact nomatch h
-  | lam n2 t2 b2 m2 => intro h; exact nomatch h
-  | forallE n2 t2 b2 m2 => intro h; exact nomatch h
-  | letE n2 t2 v2 b2 => intro h; exact nomatch h
+  | lam t2 b2 m2 => intro h; exact nomatch h
+  | forallE t2 b2 m2 => intro h; exact nomatch h
+  | letE t2 v2 b2 => intro h; exact nomatch h
   | lit l2 => intro h; exact nomatch h
   | proj s2 i2 e2 => intro h; exact nomatch h
   intro h
@@ -223,7 +223,7 @@ are gone from this inversion; every consumer takes them from the
 inference side (`inferCore_letE_inv`). -/
 theorem annotateCore_letE_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty v b e' : Expr}
-    (h : annotateCore mode env (fuel + 1) d (.letE n ty v b) = .ok e') :
+    (h : annotateCore mode env (fuel + 1) d (.letE ty v b) = .ok e') :
     ∃ ty' v', annotateCore mode env fuel d ty = .ok ty' ∧
       annotateCore mode env fuel d v = .ok v' ∧
       annotateCore mode env fuel d (b.instantiate1 v) = .ok e' := by
@@ -257,11 +257,11 @@ body are annotated and the node is rebuilt, carrying *some* prop-ness
 datum (the P5 write at the verified modes, the input datum otherwise). -/
 theorem annotateCore_forallE_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty body e' : Expr} {m : BinderMeta}
-    (h : annotateCore mode env (fuel + 1) d (.forallE n ty body m) = .ok e') :
+    (h : annotateCore mode env (fuel + 1) d (.forallE ty body m) = .ok e') :
     ∃ ty' body' pw, annotateCore mode env fuel d ty = .ok ty' ∧
       annotateCore mode env fuel (d + 1)
-        (body.instantiate1 (.fvar d n ty')) = .ok body' ∧
-      e' = .forallE n ty' (body'.abstract1 d) ⟨m.bi, pw⟩ := by
+        (body.instantiate1 (.fvar d ty')) = .ok body' ∧
+      e' = .forallE ty' (body'.abstract1 d) ⟨pw⟩ := by
   rw [annotateCore_succ] at h
   simp only [annotateBody, Bind.bind, Except.bind] at h
   simp only [annotate_def] at h
@@ -270,7 +270,7 @@ theorem annotateCore_forallE_inv {env : Env} {fuel d : Nat} {n : Name}
   | ok ty' =>
   rw [hty] at h; dsimp only at h
   cases hbody : annotateCore mode env fuel (d + 1)
-      (body.instantiate1 (.fvar d n ty')) with
+      (body.instantiate1 (.fvar d ty')) with
   | error e => rw [hbody] at h; exact nomatch h
   | ok body' =>
   rw [hbody] at h; dsimp only at h
@@ -289,11 +289,11 @@ theorem annotateCore_forallE_inv {env : Env} {fuel d : Nat} {n : Name}
 /-- Inversion for `annotate` on λ-binders (the ∀ twin; `annotPwLam`). -/
 theorem annotateCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty body e' : Expr} {m : BinderMeta}
-    (h : annotateCore mode env (fuel + 1) d (.lam n ty body m) = .ok e') :
+    (h : annotateCore mode env (fuel + 1) d (.lam ty body m) = .ok e') :
     ∃ ty' body' pw, annotateCore mode env fuel d ty = .ok ty' ∧
       annotateCore mode env fuel (d + 1)
-        (body.instantiate1 (.fvar d n ty')) = .ok body' ∧
-      e' = .lam n ty' (body'.abstract1 d) ⟨m.bi, pw⟩ := by
+        (body.instantiate1 (.fvar d ty')) = .ok body' ∧
+      e' = .lam ty' (body'.abstract1 d) ⟨pw⟩ := by
   rw [annotateCore_succ] at h
   simp only [annotateBody, Bind.bind, Except.bind] at h
   simp only [annotate_def] at h
@@ -302,7 +302,7 @@ theorem annotateCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
   | ok ty' =>
   rw [hty] at h; dsimp only at h
   cases hbody : annotateCore mode env fuel (d + 1)
-      (body.instantiate1 (.fvar d n ty')) with
+      (body.instantiate1 (.fvar d ty')) with
   | error e => rw [hbody] at h; exact nomatch h
   | ok body' =>
   rw [hbody] at h; dsimp only at h
@@ -327,7 +327,7 @@ theorem annotateCore_WScoped {env : Env} :
     rw [annotateCore_succ] at h
     simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ hw
-  | fuel + 1, .fvar idx n ty, d, e', h, hw => by
+  | fuel + 1, .fvar idx ty, d, e', h, hw => by
     rw [annotateCore_succ] at h
     simp only [annotateBody] at h
     revert h
@@ -383,23 +383,23 @@ theorem annotateCore_WScoped {env : Env} :
       annotateCore_proj_inv h
     simp only [WScoped]
     exact annotateCore_WScoped fuel e he hw
-  | fuel + 1, .forallE n ty body m, d, e', h, hw => by
+  | fuel + 1, .forallE ty body m, d, e', h, hw => by
     simp only [WScoped] at hw
     obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_forallE_inv h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
-    have hwbody' := annotateCore_WScoped fuel (body.instantiate1 (.fvar d n ty')) hbody
+    have hwbody' := annotateCore_WScoped fuel (body.instantiate1 (.fvar d ty')) hbody
       (hwty'.instantiate1 0 hw.2)
     simp only [WScoped]
     exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩
-  | fuel + 1, .lam n ty body m, d, e', h, hw => by
+  | fuel + 1, .lam ty body m, d, e', h, hw => by
     simp only [WScoped] at hw
     obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_lam_inv h
     have hwty' := annotateCore_WScoped fuel ty hty hw.1
-    have hwbody' := annotateCore_WScoped fuel (body.instantiate1 (.fvar d n ty')) hbody
+    have hwbody' := annotateCore_WScoped fuel (body.instantiate1 (.fvar d ty')) hbody
       (hwty'.instantiate1 0 hw.2)
     simp only [WScoped]
     exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩
-  | fuel + 1, .letE n ty v b, d, e', h, hw => by
+  | fuel + 1, .letE ty v b, d, e', h, hw => by
     simp only [WScoped] at hw
     obtain ⟨ty', v', -, -, hb⟩ := annotateCore_letE_inv h
     exact annotateCore_WScoped fuel _ hb
@@ -415,7 +415,7 @@ theorem annotateCore_looseBVars {env : Env} :
     rw [annotateCore_succ] at h
     simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ hb
-  | fuel + 1, .fvar idx n ty, d, e', h, hb => by
+  | fuel + 1, .fvar idx ty, d, e', h, hb => by
     rw [annotateCore_succ] at h
     simp only [annotateBody] at h
     revert h
@@ -471,21 +471,21 @@ theorem annotateCore_looseBVars {env : Env} :
     obtain ⟨f', a', hf, ha, rfl, -⟩ := annotateCore_app_inv h
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
     exact ⟨annotateCore_looseBVars fuel f hf hb.1, annotateCore_looseBVars fuel a ha hb.2⟩
-  | fuel + 1, .forallE n ty body m, d, e', h, hb => by
+  | fuel + 1, .forallE ty body m, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_forallE_inv h
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
     refine ⟨annotateCore_looseBVars fuel ty hty hb.1, ?_⟩
     exact looseBVarsBounded_abstract1 _ 0
       (annotateCore_looseBVars fuel _ hbody (looseBVarsBounded_instantiate1 body 0 hb.2))
-  | fuel + 1, .lam n ty body m, d, e', h, hb => by
+  | fuel + 1, .lam ty body m, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨ty', body', pw, hty, hbody, rfl⟩ := annotateCore_lam_inv h
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
     refine ⟨annotateCore_looseBVars fuel ty hty hb.1, ?_⟩
     exact looseBVarsBounded_abstract1 _ 0
       (annotateCore_looseBVars fuel _ hbody (looseBVarsBounded_instantiate1 body 0 hb.2))
-  | fuel + 1, .letE n ty v bd, d, e', h, hb => by
+  | fuel + 1, .letE ty v bd, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨ty', v', -, -, hbody⟩ := annotateCore_letE_inv h
     exact annotateCore_looseBVars fuel _ hbody
@@ -504,14 +504,14 @@ captures exactly what `FvarsOk` can see, so `FvarsOk` transports across it.
 binder names/metadata may differ. -/
 def Expr.LeafEquiv : Expr → Expr → Prop
   | .bvar i, .bvar j => i = j
-  | .fvar idx n ty, .fvar idx' n' ty' => idx = idx' ∧ n = n' ∧ ty = ty'
+  | .fvar idx ty, .fvar idx' ty' => idx = idx' ∧ n = n' ∧ ty = ty'
   | .sort _, .sort _ => True
   | .const _ _, .const _ _ => True
   | .lit _, .lit _ => True
   | .app f a, .app f' a' => LeafEquiv f f' ∧ LeafEquiv a a'
-  | .lam _ ty b _, .lam _ ty' b' _ => LeafEquiv ty ty' ∧ LeafEquiv b b'
-  | .forallE _ ty b _, .forallE _ ty' b' _ => LeafEquiv ty ty' ∧ LeafEquiv b b'
-  | .letE _ ty v b, .letE _ ty' v' b' =>
+  | .lam ty b _, .lam ty' b' _ => LeafEquiv ty ty' ∧ LeafEquiv b b'
+  | .forallE ty b _, .forallE ty' b' _ => LeafEquiv ty ty' ∧ LeafEquiv b b'
+  | .letE ty v b, .letE ty' v' b' =>
     LeafEquiv ty ty' ∧ LeafEquiv v v' ∧ LeafEquiv b b'
   | .proj _ _ e, .proj _ _ e' => LeafEquiv e e'
   | _, _ => False
@@ -525,22 +525,22 @@ theorem Expr.LeafEquiv.hasFvar_eq : ∀ (e₁ e₂ : Expr), Expr.LeafEquiv e₁ 
     e₁.hasFvar = e₂.hasFvar := by
   intro e₁
   induction e₁ with
-  | fvar idx n ty _ =>
+  | fvar idx ty _ =>
     intro e₂ hle
     cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
   | app f a ihf iha =>
     intro e₂ hle
     cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
     case app f' a' => rw [ihf f' hle.1, iha a' hle.2]
-  | lam n ty body m ihty ihbody =>
+  | lam ty body m ihty ihbody =>
     intro e₂ hle
     cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
     case lam n' ty' body' m' => rw [ihty ty' hle.1, ihbody body' hle.2]
-  | forallE n ty body m ihty ihbody =>
+  | forallE ty body m ihty ihbody =>
     intro e₂ hle
     cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
     case forallE n' ty' body' m' => rw [ihty ty' hle.1, ihbody body' hle.2]
-  | letE n ty val body ihty ihval ihbody =>
+  | letE ty val body ihty ihval ihbody =>
     intro e₂ hle
     cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
     case letE n' ty' val' body' =>
@@ -569,7 +569,7 @@ theorem Expr.LeafEquiv.hasFvar_eq : ∀ (e₁ e₂ : Expr), Expr.LeafEquiv e₁ 
 provided `x` does not mention `fvar D` and has no loose bvars above `k`. -/
 theorem leafEquiv_abstract_of_inst {D : Nat} {n : Name} {ty : Expr} :
     ∀ (x : Expr) (k : Nat) (y : Expr),
-      Expr.LeafEquiv (x.instantiate1 (.fvar D n ty) k) y →
+      Expr.LeafEquiv (x.instantiate1 (.fvar D ty) k) y →
       fvarsBelow D x → x.looseBVarsBounded (k + 1) = true →
       Expr.LeafEquiv x (y.abstract1 D k) := by
   intro x
@@ -590,7 +590,7 @@ theorem leafEquiv_abstract_of_inst {D : Nat} {n : Name} {ty : Expr} :
       case bvar j =>
         subst hle
         simp [Expr.abstract1, Expr.LeafEquiv]
-  | fvar idx n' ty' _ =>
+  | fvar idx ty' _ =>
     intro k y hle hf hb
     simp only [Expr.fvarsBelow] at hf
     simp only [Expr.instantiate1] at hle
@@ -623,13 +623,13 @@ theorem leafEquiv_abstract_of_inst {D : Nat} {n : Name} {ty : Expr} :
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     simp only [Expr.instantiate1] at hle
     cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
-  | forallE nm tyx body ihm ihty ihbody =>
+  | forallE tyx body ihm ihty ihbody =>
     intro k y hle hf hb
     simp only [Expr.fvarsBelow] at hf
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     simp only [Expr.instantiate1] at hle
     cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
-  | letE nm tyx vx body ihty ihv ihbody =>
+  | letE tyx vx body ihty ihv ihbody =>
     intro k y hle hf hb
     simp only [Expr.fvarsBelow] at hf
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb

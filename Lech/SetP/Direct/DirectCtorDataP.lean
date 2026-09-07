@@ -36,7 +36,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 theorem denoteSpineP_indexed {acval : Name → (Name → Nat) → AVExpr} {d : Nat} :
     ∀ (fvs : List Expr) (off : Nat),
       (∀ (j : Nat) (x : Expr), fvs[j]? = some x →
-        ∃ nm ty, x = Expr.fvar (off + j) nm ty) →
+        ∃ nm ty, x = Expr.fvar (off + j) ty) →
       DenoteSpineP acval env φ d fvs
         ((List.range fvs.length).map fun j => AVExpr.bvar (d - 1 - (off + j)))
   | [], _, _ => .nil

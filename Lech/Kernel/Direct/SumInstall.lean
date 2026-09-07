@@ -52,7 +52,7 @@ does), so the returned binder domains and the sort are scoped at the
 free variables `0 ..< n`.  A residual that does not reduce to a Π, or
 finally to a sort, is INVALID input — official fails there too. -/
 def whnfTelescope (ops : CheckerOps m) (env : Env) :
-    Nat → Nat → Expr → m (List (Name × Expr × BinderMeta) × Level)
+    Nat → Nat → Expr → m (List (Expr × BinderMeta) × Level)
   | i, 0, e => do
     let e' ← ops.whnf env i e
     match e' with
@@ -62,9 +62,9 @@ def whnfTelescope (ops : CheckerOps m) (env : Env) :
   | i, n + 1, e => do
     let e' ← ops.whnf env i e
     match e' with
-    | .forallE nm dom body bm =>
-      let (bs, s) ← whnfTelescope ops env (i + 1) n (body.instantiate1 (.fvar i nm dom))
-      pure ((nm, dom, bm) :: bs, s)
+    | .forallE dom body bm =>
+      let (bs, s) ← whnfTelescope ops env (i + 1) n (body.instantiate1 (.fvar i dom))
+      pure ((dom, bm) :: bs, s)
     | _ => throw (.invalid "direct sum: type former does not reduce to a telescope \
         of its parameters and indices")
 
@@ -73,10 +73,10 @@ back into a syntactic Π-telescope over `body`: innermost binder first,
 each abstraction turning the binder's own free variable into the bound
 one (`abstract1`; the domains of the inner binders are closed by the
 outer abstractions, which descend into binder domains). -/
-def closeTelescope : List (Name × Expr × BinderMeta) → Nat → Expr → Expr
+def closeTelescope : List (Expr × BinderMeta) → Nat → Expr → Expr
   | [], _, body => body
-  | (nm, dom, bm) :: bs, i, body =>
-    .forallE nm dom ((closeTelescope bs (i + 1) body).abstract1 i 0) bm
+  | (dom, bm) :: bs, i, body =>
+    .forallE dom ((closeTelescope bs (i + 1) body).abstract1 i 0) bm
 
 /-- The type former's TELESCOPE (task #195): the checked declared type
 when it is already a syntactic telescope of `n` Π binders ending in a

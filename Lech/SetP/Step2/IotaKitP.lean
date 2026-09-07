@@ -195,15 +195,15 @@ theorem teleFitPA_residual
     intro ty rest Ta restA vs hpr hwty hargs hty hsp hfit
     match ty, hpr, hwty, hty with
     | .bvar _, hpr, _, _ => exact nomatch hpr
-    | .fvar _ _ _, hpr, _, _ => exact nomatch hpr
+    | .fvar _ _, hpr, _, _ => exact nomatch hpr
     | .sort _, hpr, _, _ => exact nomatch hpr
     | .const _ _, hpr, _, _ => exact nomatch hpr
     | .app _ _, hpr, _, _ => exact nomatch hpr
-    | .lam _ _ _ _, hpr, _, _ => exact nomatch hpr
-    | .letE _ _ _ _, hpr, _, _ => exact nomatch hpr
+    | .lam _ _ _, hpr, _, _ => exact nomatch hpr
+    | .letE _ _ _, hpr, _, _ => exact nomatch hpr
     | .lit _, hpr, _, _ => exact nomatch hpr
     | .proj _ _ _, hpr, _, _ => exact nomatch hpr
-    | .forallE n dom body mb, hpr, hwty, hty => ?_
+    | .forallE dom body mb, hpr, hwty, hty => ?_
     cases hsp with | @cons _ va _ vs' ha hsp' => ?_
     obtain ⟨hwa, hba⟩ := hargs a List.mem_cons_self
     obtain ⟨hdomw, hbodyw⟩ : Expr.WScoped d dom ∧ Expr.WScoped d body := by
@@ -268,15 +268,15 @@ theorem certs_telePA {m : EnvS2Core V env}
     intro vs Ta hc hwty hbty hLbty hCty hity hokT hargs hsp hokvs
     match ty, hc, hwty, hbty, hLbty, hCty, hity with
     | .bvar _, hc, _, _, _, _, _ => exact nomatch hc
-    | .fvar _ _ _, hc, _, _, _, _, _ => exact nomatch hc
+    | .fvar _ _, hc, _, _, _, _, _ => exact nomatch hc
     | .sort _, hc, _, _, _, _, _ => exact nomatch hc
     | .const _ _, hc, _, _, _, _, _ => exact nomatch hc
     | .app _ _, hc, _, _, _, _, _ => exact nomatch hc
-    | .lam _ _ _ _, hc, _, _, _, _, _ => exact nomatch hc
-    | .letE _ _ _ _, hc, _, _, _, _, _ => exact nomatch hc
+    | .lam _ _ _, hc, _, _, _, _, _ => exact nomatch hc
+    | .letE _ _ _, hc, _, _, _, _, _ => exact nomatch hc
     | .lit _, hc, _, _, _, _, _ => exact nomatch hc
     | .proj _ _ _, hc, _, _, _, _, _ => exact nomatch hc
-    | .forallE n dom body mb, hc, hwty, hbty, hLbty, hCty, hity => ?_
+    | .forallE dom body mb, hc, hwty, hbty, hLbty, hCty, hity => ?_
     obtain ⟨ta, hta, hde, hrestc⟩ := Lech.iotaCerts_step_inv hc
     obtain ⟨haw, hab, haLb, haC⟩ := hargs a List.mem_cons_self
     cases hsp with | @cons _ aa _ vs' haa hsp' => ?_

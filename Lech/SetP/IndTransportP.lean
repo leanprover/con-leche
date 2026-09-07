@@ -42,12 +42,12 @@ theorem annotTransportP {m : EnvS2Core V env} {F : Nat}
     -- the public frame
     {pfvs : List Expr} (hPlen : pfvs.length = K)
     (hPshape : ∀ (i : Nat) (x : Expr), pfvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hPws : ∀ x ∈ pfvs, Expr.WScoped K x)
     (hPleafClosed : ∀ l, (∃ x ∈ pfvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ pfvs)
+      Expr.fvar l.1 l.2.2 ∈ pfvs)
     (hlbP : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ pfvs → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ pfvs → ty.looseBVarsBounded 0 = true)
     -- the statement tower and the ambient context
     {Γs : List AVExpr} {Δa : List AVExpr} (hΔalen : Δa.length = K)
     (hΔaent : ∀ i, i < K →

@@ -48,7 +48,7 @@ theorem stripPis_instantiate1_full {v : Expr} :
   | succ k ih =>
     intro e bs body j h
     match e, h with
-    | .forallE n d bo m, h =>
+    | .forallE d bo m, h =>
       simp only [stripPis] at h
       cases hs : bo.stripPis k with
       | none => rw [hs] at h; exact nomatch h
@@ -82,7 +82,7 @@ theorem instPisAt_head :
       Expr.instPisAt args e = some (ds, rest) →
       e.stripPis (args.length + (mrem + 1)) = some (bs, body) →
       bs[args.length]? = some b →
-      ∃ bodyR, rest = .forallE b.1
+      ∃ bodyR, rest = .forallE
         (instSeq args (args.length - 1) b.2.1) bodyR b.2.2 := by
   intro args
   induction args with
@@ -92,7 +92,7 @@ theorem instPisAt_head :
     obtain ⟨-, rfl⟩ := h
     rw [show [].length + (mrem + 1) = mrem + 1 from by simp] at hstrip
     match e, hstrip with
-    | .forallE n d bo m, hstrip =>
+    | .forallE d bo m, hstrip =>
       simp only [stripPis] at hstrip
       cases hs : bo.stripPis mrem with
       | none => rw [hs] at hstrip; exact nomatch hstrip
@@ -107,7 +107,7 @@ theorem instPisAt_head :
   | cons a as ih =>
     intro e ds rest mrem bs body b h hstrip hb
     match e, h with
-    | .forallE n d bo m, h =>
+    | .forallE d bo m, h =>
       simp only [instPisAt, Option.map_eq_some_iff] at h
       obtain ⟨⟨ds', rest'⟩, h', heq⟩ := h
       obtain ⟨-, rfl⟩ : d :: ds' = ds ∧ rest' = rest := by simpa using heq
@@ -175,7 +175,7 @@ theorem stripPis_binder_bounded :
   | succ k ih =>
     intro e bs body j h hb i b hbi
     match e, h with
-    | .forallE n ty bo m, h =>
+    | .forallE ty bo m, h =>
       simp only [stripPis, Option.map_eq_some_iff] at h
       obtain ⟨⟨bs', body'⟩, hbstrip, heq⟩ := h
       obtain ⟨rfl, -⟩ : (n, ty, m) :: bs' = bs ∧ body' = body := by
@@ -203,7 +203,7 @@ theorem stripPis_isSome_of_le :
     match n, hle with
     | n + 1, hle =>
       match e, h with
-      | .forallE nm d bo m, h =>
+      | .forallE d bo m, h =>
         simp only [stripPis, Option.isSome_map] at h ⊢
         exact ih (by omega) h
 
@@ -217,14 +217,14 @@ theorem directProjBodiesGo_spec (T : Name) :
         ((List.range j).foldl
             (fun acc jj => acc.bind (Expr.instPisAtLift [directProjArgP T (i + jj)]))
             (some r))
-          = some (.forallE nm (bs.getD j default) b' mb)
+          = some (.forallE (bs.getD j default) b' mb)
   | 0, i, r, bs, h => by
     simp only [directProjBodiesGo, Option.some.injEq] at h
     subst h
     exact ⟨rfl, fun j hj => absurd hj (Nat.not_lt_zero _)⟩
   | k + 1, i, r, bs, h => by
     match r, h with
-    | .forallE nm fdom body mb, h =>
+    | .forallE fdom body mb, h =>
       simp only [directProjBodiesGo, Option.map_eq_some_iff] at h
       obtain ⟨bs', hrec, rfl⟩ := h
       obtain ⟨hlen, hrest⟩ := directProjBodiesGo_spec T k (i + 1) _ bs' hrec
@@ -241,8 +241,8 @@ theorem directProjBodiesGo_spec (T : Name) :
         congr 1
         funext acc jj
         rw [show i + (jj + 1) = i + 1 + jj from by omega]
-    | .bvar _, h | .fvar _ _ _, h | .sort _, h | .const _ _, h | .app _ _, h
-    | .lam _ _ _ _, h | .letE _ _ _ _, h | .lit _, h | .proj _ _ _, h =>
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       exact nomatch h
 
 /-- **The bodies are the peel's domains**: body `i` is the head domain
@@ -254,7 +254,7 @@ theorem directProjBodies_spec {T : Name} {nP nF : Nat} {cty : Expr}
     bodies.size = nF ∧
     ∀ i, i < nF → ∃ nm b' mb,
       directProjResidP T nP cty i
-        = some (.forallE nm (bodies.getD i default) b' mb) := by
+        = some (.forallE (bodies.getD i default) b' mb) := by
   unfold directProjBodies at h
   cases hr : Expr.instPisAtLift (directProjPs nP) cty with
   | none => rw [hr] at h; exact nomatch h
@@ -283,10 +283,10 @@ theorem directProjBodies_spec {T : Name} {nP nF : Nat} {cty : Expr}
 /-- The parameter variables, dummy-annotated (the reading ignores
 annotations). -/
 def fvsD (nP : Nat) : List Expr :=
-  (List.range nP).map fun k => Expr.fvar k .anonymous (.sort .zero)
+  (List.range nP).map fun k => Expr.fvar k (.sort .zero)
 
 /-- The subject variable. -/
-def tfvD (nP : Nat) : Expr := Expr.fvar nP .anonymous (.sort .zero)
+def tfvD (nP : Nat) : Expr := Expr.fvar nP (.sort .zero)
 
 /-- The earlier projections of the subject variable. -/
 def projArgsD (T : Name) (i nP : Nat) : List Expr :=
@@ -304,7 +304,7 @@ theorem fvsD_closed (nP : Nat) : ∀ a ∈ fvsD nP ++ [tfvD nP], a.looseBVarsBou
   · rw [List.mem_singleton] at ha; subst ha; rfl
 
 theorem fvsD_getElem? (nP k : Nat) (hk : k < nP) :
-    (fvsD nP)[k]? = some (Expr.fvar k .anonymous (.sort .zero)) := by
+    (fvsD nP)[k]? = some (Expr.fvar k (.sort .zero)) := by
   simp [fvsD, List.getElem?_map, List.getElem?_range hk]
 
 /-- The loose parameter variables and projection substitutes are
@@ -332,7 +332,7 @@ theorem directProjArgs_instSeq (T : Name) (nP i : Nat) :
   have hlen : (fvsD nP ++ [tfvD nP]).length = nP + 1 := by simp [fvsD_length]
   -- the variable at each slot
   have hget : ∀ k, k < nP + 1 →
-      (fvsD nP ++ [tfvD nP])[k]? = some (Expr.fvar k .anonymous (.sort .zero)) := by
+      (fvsD nP ++ [tfvD nP])[k]? = some (Expr.fvar k (.sort .zero)) := by
     intro k hk
     rcases Nat.lt_or_ge k nP with hk' | hk'
     · rw [List.getElem?_append_left (by rw [fvsD_length]; exact hk')]
@@ -343,7 +343,7 @@ theorem directProjArgs_instSeq (T : Name) (nP i : Nat) :
       rfl
   have hbvar : ∀ j, j ≤ nP →
       instSeq (fvsD nP ++ [tfvD nP]) nP (.bvar j)
-        = Expr.fvar (nP - j) .anonymous (.sort .zero) := by
+        = Expr.fvar (nP - j) (.sort .zero) := by
     intro j hj
     have := instSeq_bvar (fvsD nP ++ [tfvD nP]) nP j hclosed hj (by rw [hlen]; omega)
     rw [hget (nP - j) (by omega)] at this
@@ -351,7 +351,7 @@ theorem directProjArgs_instSeq (T : Name) (nP i : Nat) :
   rw [List.map_append]
   congr 1
   · show (directProjPs nP).map (instSeq (fvsD nP ++ [tfvD nP]) nP)
-      = (List.range nP).map (fun k => Expr.fvar k .anonymous (.sort .zero))
+      = (List.range nP).map (fun k => Expr.fvar k (.sort .zero))
     unfold directProjPs
     rw [List.map_map]
     apply List.map_congr_left
@@ -380,7 +380,7 @@ theorem directProjBody_open {T : Name} {nP nF : Nat} {cty : Expr}
     (hcl : cty.looseBVarsBounded 0 = true) {i : Nat} (hi : i < nF) :
     ∃ (cds : List Expr) (nm : Name) (bodyC : Expr) (mb : BinderMeta),
       Expr.instPisAt (fvsD nP ++ projArgsD T i nP) cty
-        = some (cds, .forallE nm
+        = some (cds, .forallE
             (Expr.instSpine (fvsD nP ++ [tfvD nP]) nP (bodies.getD i default)) bodyC mb) := by
   obtain ⟨-, hspec⟩ := directProjBodies_spec h
   obtain ⟨nm, b', mb, hres⟩ := hspec i hi

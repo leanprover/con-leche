@@ -41,8 +41,8 @@ theorem fvarLeaves_substConst0 {n : Name} {r : Expr}
   | .app f a => by
     simp only [Expr.substConst0, Expr.fvarLeaves,
       fvarLeaves_substConst0 hr f, fvarLeaves_substConst0 hr a]
-  | .bvar _ | .fvar _ _ _ | .sort _ | .lit _ | .lam _ _ _ _
-  | .forallE _ _ _ _ | .letE _ _ _ _ | .proj _ _ _ => rfl
+  | .bvar _ | .fvar _ _ | .sort _ | .lit _ | .lam _ _ _
+  | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ => rfl
 
 /-- A `looseBVars`-closed replacement keeps the bound. -/
 theorem looseBVarsBounded_substConst0 {n : Name} {r : Expr}
@@ -59,32 +59,32 @@ theorem looseBVarsBounded_substConst0 {n : Name} {r : Expr}
       Bool.and_eq_true] at he ⊢
     exact ⟨looseBVarsBounded_substConst0 hr f he.1,
       looseBVarsBounded_substConst0 hr a he.2⟩
-  | .bvar _, _, he | .fvar _ _ _, _, he | .sort _, _, he
-  | .lit _, _, he | .lam _ _ _ _, _, he | .forallE _ _ _ _, _, he
-  | .letE _ _ _ _, _, he | .proj _ _ _, _, he => he
+  | .bvar _, _, he | .fvar _ _, _, he | .sort _, _, he
+  | .lit _, _, he | .lam _ _ _, _, he | .forallE _ _ _, _, he
+  | .letE _ _ _, _, he | .proj _ _ _, _, he => he
 
 /-- The binary pinned type, inverted. -/
 theorem natOpTyPinned_binaryE {env : Env} {n : Name} {ty : Expr}
     (hn : ¬(n = natPredName))
     (h : natOpTyPinned env n ty = true) :
-    ∃ nm nm2 mb mb2 cod, ty = .forallE nm (.const natName [])
-      (.forallE nm2 (.const natName []) cod mb2) mb ∧
+    ∃ nm nm2 mb mb2 cod, ty = .forallE (.const natName [])
+      (.forallE (.const natName []) cod mb2) mb ∧
       natOpCod env n cod = true := by
   unfold natOpTyPinned at h
   rw [if_neg hn] at h
   revert h
   match ty with
-  | .forallE nm dom (.forallE nm2 dom2 cod mb2) mb =>
+  | .forallE dom (.forallE dom2 cod mb2) mb =>
     intro h
     simp only [Bool.and_eq_true, beq_iff_eq] at h
     exact ⟨nm, nm2, mb, mb2, cod, by rw [h.1.1, h.1.2], h.2⟩
-  | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
-  | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _
-  | .forallE _ _ (.bvar _) _ | .forallE _ _ (.fvar _ _ _) _
-  | .forallE _ _ (.sort _) _ | .forallE _ _ (.const _ _) _
-  | .forallE _ _ (.app _ _) _ | .forallE _ _ (.lam _ _ _ _) _
-  | .forallE _ _ (.letE _ _ _ _) _ | .forallE _ _ (.lit _) _
-  | .forallE _ _ (.proj _ _ _) _ => intro h; exact nomatch h
+  | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
+  | .lam _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _
+  | .forallE _ (.bvar _) _ | .forallE _ (.fvar _ _) _
+  | .forallE _ (.sort _) _ | .forallE _ (.const _ _) _
+  | .forallE _ (.app _ _) _ | .forallE _ (.lam _ _ _) _
+  | .forallE _ (.letE _ _ _) _ | .forallE _ (.lit _) _
+  | .forallE _ (.proj _ _ _) _ => intro h; exact nomatch h
 
 /-- The codomain is a stored, level-monomorphic constant. -/
 theorem natOpCod_stored {env : Env} {n : Name} {cod : Expr}
@@ -211,7 +211,7 @@ theorem dmLeavesOk_leavesBounded {e : Expr} (h : dmLeavesOk e = true) :
 /-- A frame variable is well-scoped at depth 4. -/
 theorem dmFvar_wscoped {i : Nat} {n : Name} {ty : Expr} (hi : i < 4)
     (hty : Expr.WScoped i ty) :
-    Expr.WScoped 4 (Expr.fvar i n ty) := by
+    Expr.WScoped 4 (Expr.fvar i ty) := by
   simp only [Expr.WScoped]
   exact ⟨hi, hty⟩
 
@@ -262,7 +262,7 @@ noncomputable def dmEvalV (W : Type w) [SetTheory W]
   | Expr.const n _ => val n
   | Expr.app f a =>
     SetTheory.app (dmEvalV W val x y f) (dmEvalV W val x y a)
-  | Expr.fvar i _ _ => if i = 0 then x else y
+  | Expr.fvar i _ => if i = 0 then x else y
   | _ => pt
 
 @[simp] theorem dmEvalV_const (val : Name → V) (x y : V) (n : Name)
@@ -274,7 +274,7 @@ noncomputable def dmEvalV (W : Type w) [SetTheory W]
 
 @[simp] theorem dmEvalV_fvar (val : Name → V) (x y : V) (i : Nat)
     (n : Name) (ty : Expr) :
-    dmEvalV V val x y (Expr.fvar i n ty) = if i = 0 then x else y := rfl
+    dmEvalV V val x y (Expr.fvar i ty) = if i = 0 then x else y := rfl
 
 
 /-- The `ble`-guarded value-level clauses of a pin-certified

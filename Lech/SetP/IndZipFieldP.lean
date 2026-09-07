@@ -60,7 +60,7 @@ theorem zipFieldTermEqP
     {sp : List Expr} (hsplen : sp.length = cnP + cnF)
     (hspLeaf : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       ∀ l ∈ x.fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP))
+        Expr.fvar l.1 l.2.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP))
     (hspScope : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       Expr.WScoped (rP + cnF) x ∧ x.looseBVarsBounded 0 = true)
     {cdoms : List Expr} {cres : Expr}
@@ -73,7 +73,7 @@ theorem zipFieldTermEqP
     {j : Nat} (hj : j < cnF) :
     Expr.WScoped (rP + j) (cdoms.getD (cnP + j) default) ∧
     (∀ l ∈ (cdoms.getD (cnP + j) default).fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs ∧ l.1 < rP + j) ∧
+      Expr.fvar l.1 l.2.2 ∈ fvs ∧ l.1 < rP + j) ∧
     ∃ vdomLow,
       denoteP acval env φ (rP + j) (cdoms.getD (cnP + j) default)
         = some vdomLow ∧
@@ -100,10 +100,10 @@ theorem zipFieldTermEqP
     · exact ⟨x, sp', rfl⟩
   rw [hsp0] at hdr
   obtain ⟨nmJ, domJ, bodyJ, mbJ, rfl, hds⟩ : ∃ nmJ domJ bodyJ mbJ,
-      midJ = .forallE nmJ domJ bodyJ mbJ ∧
+      midJ = .forallE domJ bodyJ mbJ ∧
       (cdoms.drop (cnP + j))[0]? = some domJ := by
     cases midJ with
-    | forallE nmJ domJ bodyJ mbJ =>
+    | forallE domJ bodyJ mbJ =>
       simp only [Expr.instPisAt] at hdr
       rcases hrec : Expr.instPisAt sp' (bodyJ.instantiate1 x0)
         with _ | ⟨ds', rs'⟩
@@ -122,10 +122,10 @@ theorem zipFieldTermEqP
     | bvar i => simp [Expr.instPisAt] at hdr
     | sort u => simp [Expr.instPisAt] at hdr
     | const c us => simp [Expr.instPisAt] at hdr
-    | fvar a b c => simp [Expr.instPisAt] at hdr
-    | lam a b c d => simp [Expr.instPisAt] at hdr
+    | fvar a c => simp [Expr.instPisAt] at hdr
+    | lam b c d => simp [Expr.instPisAt] at hdr
     | app a b => simp [Expr.instPisAt] at hdr
-    | letE a b c d => simp [Expr.instPisAt] at hdr
+    | letE b c d => simp [Expr.instPisAt] at hdr
     | proj a b c => simp [Expr.instPisAt] at hdr
     | lit l => simp [Expr.instPisAt] at hdr
   have hcdlen : cdoms.length = cnP + cnF := by
@@ -140,9 +140,9 @@ theorem zipFieldTermEqP
     rfl
   -- leaves of the domain: among the first `rP + j` openers
   have hleafDom : ∀ l ∈ domJ.fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs ∧ l.1 < rP + j := by
+      Expr.fvar l.1 l.2.2 ∈ fvs ∧ l.1 < rP + j := by
     intro l hl
-    have hlmid : l ∈ (Expr.forallE nmJ domJ bodyJ mbJ).fvarLeaves := by
+    have hlmid : l ∈ (Expr.forallE domJ bodyJ mbJ).fvarLeaves := by
       rw [Expr.fvarLeaves]
       exact List.mem_append_left _ hl
     rcases instPisAt_leaves _ htr l (Or.inr hlmid) with hty | ⟨a, ha, hla⟩
@@ -197,7 +197,7 @@ theorem zipFieldTermEqP
     exact nomatch hvMid
   rw [hvd] at hvMid
   rcases hvb : denoteP acval env φ (rP + cnF + 1)
-      (bodyJ.instantiate1 (.fvar (rP + cnF) nmJ domJ)) with _ | vBodyK
+      (bodyJ.instantiate1 (.fvar (rP + cnF) domJ)) with _ | vBodyK
   · rw [hvb] at hvMid
     exact nomatch hvMid
   rw [hvb] at hvMid
@@ -235,7 +235,7 @@ theorem zipFieldTermEqP
     obtain ⟨w0, hw0, hmx⟩ := hmixsp q x hx'
     exact ⟨w0, hw0, by rw [List.getElem?_take_of_lt hqm]; exact hmx⟩
   have hvMid' : denoteP acval env φ (rP + cnF)
-      (Expr.forallE nmJ domJ bodyJ mbJ)
+      (Expr.forallE domJ bodyJ mbJ)
       = some (.pi 0 (pwBit φ mbJ.pw) vDomK vBodyK) := by
     rw [denoteP_forallE, hvd, hvb]
     rfl

@@ -221,9 +221,9 @@ fourth conjunct at `AnnotOkP`, so the clause takes no residue —
 theorem infer_fvar_claimP (m : EnvS2Core V env)
     {d idx : Nat} {n : Name} {ty t : Expr} {Δa : List AVExpr}
     {ea ta : AVExpr}
-    (hC : CtxOkP m φ d Δa (.fvar idx n ty))
-    (h : inferTypeCore μ env (fuel + 1) d (.fvar idx n ty) = .ok t)
-    (hea : denoteP m.acval env φ d (.fvar idx n ty) = some ea)
+    (hC : CtxOkP m φ d Δa (.fvar idx ty))
+    (h : inferTypeCore μ env (fuel + 1) d (.fvar idx ty) = .ok t)
+    (hea : denoteP m.acval env φ d (.fvar idx ty) = some ea)
     (hta : denoteP m.acval env φ d t = some ta) :
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
@@ -252,13 +252,13 @@ theorem infer_forallE_claimP (m : EnvS2Core V env)
     (hμ : μ.verifiedChecks = true) (hss : SortSemAtP m μ φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
-    (h : inferTypeCore μ env (fuel + 1) d (.forallE n ty body mb)
+    (h : inferTypeCore μ env (fuel + 1) d (.forallE ty body mb)
       = .ok t)
-    (hws : Expr.WScoped d (.forallE n ty body mb))
-    (hb : (Expr.forallE n ty body mb).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.forallE n ty body mb))
-    (hC : CtxOkP m φ d Δa (.forallE n ty body mb))
-    (hea : denoteP m.acval env φ d (.forallE n ty body mb) = some ea)
+    (hws : Expr.WScoped d (.forallE ty body mb))
+    (hb : (Expr.forallE ty body mb).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.forallE ty body mb))
+    (hC : CtxOkP m φ d Δa (.forallE ty body mb))
+    (hea : denoteP m.acval env φ d (.forallE ty body mb) = some ea)
     (hta : denoteP m.acval env φ d t = some ta) :
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
@@ -284,7 +284,7 @@ theorem infer_forallE_claimP (m : EnvS2Core V env)
   -- sort fact, with the opened context built in place
   have hdomU := hss hC.forallE_ty hws.1 hb.1 hLty hty hwu htyA
   have hCop : CtxOkP m φ (d + 1) (tyA :: Δa)
-      (body.instantiate1 (.fvar d n ty)) :=
+      (body.instantiate1 (.fvar d ty)) :=
     CtxOkP.openS (n := n) hC.forallE_ty hC.forallE_body htyA
       (fun ρ hρ => (hdomU ρ hρ).1)
   have hcodU := hss hCop hwopen hbopen hLopen hbt
@@ -358,12 +358,12 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
     (ihi : InferClaims2P μ m φ fuel)
     {d : Nat} {n : Name} {ty body t : Expr} {mb : Lech.BinderMeta}
     {Δa : List AVExpr} {ea ta : AVExpr}
-    (h : inferTypeCore μ env (fuel + 1) d (.lam n ty body mb) = .ok t)
-    (hws : Expr.WScoped d (.lam n ty body mb))
-    (hb : (Expr.lam n ty body mb).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.lam n ty body mb))
-    (hC : CtxOkP m φ d Δa (.lam n ty body mb))
-    (hea : denoteP m.acval env φ d (.lam n ty body mb) = some ea)
+    (h : inferTypeCore μ env (fuel + 1) d (.lam ty body mb) = .ok t)
+    (hws : Expr.WScoped d (.lam ty body mb))
+    (hb : (Expr.lam ty body mb).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.lam ty body mb))
+    (hC : CtxOkP m φ d Δa (.lam ty body mb))
+    (hea : denoteP m.acval env φ d (.lam ty body mb) = some ea)
     (hta : denoteP m.acval env φ d t = some ta) :
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
@@ -383,7 +383,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
   · rw [htyA] at hea; exact nomatch hea
   rw [htyA] at hea
   rcases hba : denoteP m.acval env φ (d + 1)
-      (body.instantiate1 (.fvar d n ty)) with _ | ba
+      (body.instantiate1 (.fvar d ty)) with _ | ba
   · rw [hba] at hea; exact nomatch hea
   rw [hba] at hea
   obtain rfl : ea = .lam (pwBit φ mb.pw) tyA ba :=
@@ -392,7 +392,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
   obtain ⟨hwopen, hbopen, hLopen⟩ :=
     frame_open2 (n := n) hws.1 hb.1 hws.2 hb.2 hLty hLbody
   have hleaf :
-      Expr.LeafCond d n ty (body.instantiate1 (.fvar d n ty)) := by
+      Expr.LeafCond d n ty (body.instantiate1 (.fvar d ty)) := by
     intro l hl hd
     rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
     · exact absurd hd (by
@@ -409,7 +409,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
       hleaf l (inferTypeCore_fvarLeaves m.wf fuel hbt hwopen l hl))
   have hbtb : bt.looseBVarsBounded 0 = true :=
     inferTypeCore_looseBVars m.wf fuel hbt hwopen hbopen hLopen
-  have hround : (bt.abstract1 d).instantiate1 (.fvar d n ty) = bt :=
+  have hround : (bt.abstract1 d).instantiate1 (.fvar d ty) = bt :=
     abstract1_instantiate1 bt 0 hcons hbtb
   rw [denoteP, htyA, hround] at hta
   rcases hbtA : denoteP m.acval env φ (d + 1) bt with _ | btA
@@ -421,7 +421,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
   -- place (`CtxOkP.openS` at the residue's own grading)
   have hdomU := hss hC.lam_ty hws.1 hb.1 hLty hty hwu htyA
   have hCop : CtxOkP m φ (d + 1) (tyA :: Δa)
-      (body.instantiate1 (.fvar d n ty)) :=
+      (body.instantiate1 (.fvar d ty)) :=
     CtxOkP.openS (n := n) hC.lam_ty hC.lam_body htyA
       (fun ρ hρ => (hdomU ρ hρ).1)
   obtain ⟨hrowE, hrowT, hrowM⟩ :=
@@ -437,7 +437,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
     by_cases hbl : body.isLam
     · -- chain: no run — impredicativity at the copied meta
       obtain ⟨nI, tyI, bI, mbI, rfl⟩ :
-          ∃ nI tyI bI mbI, body = .lam nI tyI bI mbI := by
+          ∃ nI tyI bI mbI, body = .lam tyI bI mbI := by
         cases body <;> simp [Expr.isLam] at hbl
         exact ⟨_, _, _, _, rfl⟩
       have hpwEq : mb.pw = mbI.pw :=
@@ -445,7 +445,7 @@ theorem infer_lam_claimP (m : EnvS2Core V env)
       -- the opened body is a λ with the same meta; the inferred type
       -- copies it
       obtain ⟨btI, rfl⟩ : ∃ btI,
-          bt = .forallE nI (tyI.instantiate1 (.fvar d n ty)) btI mbI := by
+          bt = .forallE (tyI.instantiate1 (.fvar d ty)) btI mbI := by
         cases fuel with
         | zero =>
           rw [Lech.inferTypeCore_zero] at hbt
@@ -684,7 +684,7 @@ literally this existential, so `of_ctxOkP` is a projection.
 This is the side condition batch 6's FINDING identified as missing
 from `InferReadsP` — without it that residue is REFUTABLE, since
 `inferBody`'s `.fvar` clause returns the leaf's stored annotation and
-`denoteP`'s `fvar` clause never looks at it (witness: `.fvar 0 n
+`denoteP`'s `fvar` clause never looks at it (witness: `.fvar 0
 (.const c [])` at `d = 1` with `c ∉ env`).  Batch 8 repaired the
 statement by adding this premise, so nothing is routed: every consumer
 holds a `CtxOkP` and discharges it by `of_ctxOkP`, and the walk
@@ -734,7 +734,7 @@ theorem openS {d : Nat} {n : Name} {ty body : Expr} {ta : AVExpr}
     (hwt : Expr.WScoped d ty) (hwb : Expr.WScoped d body)
     (ht : LeafReadsP m φ d ty) (hbd : LeafReadsP m φ d body)
     (hty : denoteP m.acval env φ d ty = some ta) :
-    LeafReadsP m φ (d + 1) (body.instantiate1 (.fvar d n ty)) := by
+    LeafReadsP m φ (d + 1) (body.instantiate1 (.fvar d ty)) := by
   intro l hl
   rcases Lech.Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
   · exact weakenTop hwb hbd l hl'
@@ -834,12 +834,12 @@ theorem infer_letE_claimP (m : EnvS2Core V env)
     (hir : InferReadsP m μ φ fuel) (ihi : InferClaims2P μ m φ fuel)
     {d : Nat} {n : Name} {ty val b t : Expr} {Δa : List AVExpr}
     {ea ta : AVExpr}
-    (h : inferTypeCore μ env (fuel + 1) d (.letE n ty val b) = .ok t)
-    (hws : Expr.WScoped d (.letE n ty val b))
-    (hb : (Expr.letE n ty val b).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.letE n ty val b))
-    (hC : CtxOkP m φ d Δa (.letE n ty val b))
-    (hea : denoteP m.acval env φ d (.letE n ty val b) = some ea)
+    (h : inferTypeCore μ env (fuel + 1) d (.letE ty val b) = .ok t)
+    (hws : Expr.WScoped d (.letE ty val b))
+    (hb : (Expr.letE ty val b).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.letE ty val b))
+    (hC : CtxOkP m φ d Δa (.letE ty val b))
+    (hea : denoteP m.acval env φ d (.letE ty val b) = some ea)
     (hta : denoteP m.acval env φ d t = some ta) :
     (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ea) ∧
       (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) ∧
@@ -854,7 +854,7 @@ theorem infer_letE_claimP (m : EnvS2Core V env)
   have hLty : Expr.LeavesBounded ty := fun l hl =>
     hLb l (by simp [Expr.fvarLeaves, hl])
   have hsubred : ∀ l ∈ (b.instantiate1 val).fvarLeaves,
-      l ∈ (Expr.letE n ty val b).fvarLeaves := by
+      l ∈ (Expr.letE ty val b).fvarLeaves := by
     intro l hl
     rcases Expr.fvarLeaves_instantiate1 b 0 hl with h2 | h2
     · simp [Expr.fvarLeaves, h2]
@@ -876,7 +876,7 @@ theorem infer_letE_claimP (m : EnvS2Core V env)
   · rw [hvA] at hea; exact nomatch hea
   rw [hvA] at hea
   rcases hbA : denoteP m.acval env φ (d + 1)
-      (b.instantiate1 (.fvar d n ty)) with _ | bA
+      (b.instantiate1 (.fvar d ty)) with _ | bA
   · rw [hbA] at hea; exact nomatch hea
   rw [hbA] at hea
   obtain rfl : ea = .letE tyA vA bA := (Option.some.inj hea).symm
@@ -981,17 +981,17 @@ theorem infer_app_claimP (m : EnvS2Core V env)
     (LeafReadsP.of_ctxOkP htfC) htfa
   obtain ⟨hokpa, hredf⟩ :=
     ihw hwf htfw htfb htfL htfC htfa hpa hrowfT
-  have hwfe : Expr.WScoped d (Expr.forallE n' ty' body' mb') :=
+  have hwfe : Expr.WScoped d (Expr.forallE ty' body' mb') :=
     whnf_WScoped m.wf fuel hwf htfw
-  have hbfe : (Expr.forallE n' ty' body' mb').looseBVarsBounded 0
+  have hbfe : (Expr.forallE ty' body' mb').looseBVarsBounded 0
       = true := whnf_looseBVars m.wf fuel hwf htfb
-  have hLfe : Expr.LeavesBounded (.forallE n' ty' body' mb') :=
+  have hLfe : Expr.LeavesBounded (.forallE ty' body' mb') :=
     fun l hl => htfL l (whnf_fvarLeaves m.wf fuel hwf l hl)
   simp only [Expr.WScoped] at hwfe
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbfe
   have hLty' : Expr.LeavesBounded ty' := fun l hl =>
     hLfe l (by simp [Expr.fvarLeaves, hl])
-  have hCpi : CtxOkP m φ d Δa (.forallE n' ty' body' mb') :=
+  have hCpi : CtxOkP m φ d Δa (.forallE ty' body' mb') :=
     (hC.app_fn.of_subset htfsub).of_subset
       (whnf_fvarLeaves m.wf fuel hwf)
   obtain ⟨Aa, Ba, hAa, hBa, rfl⟩ := denoteP_forallE_inv hpa
@@ -1141,7 +1141,7 @@ theorem inferStepP_of (h : InferInputsP V μ)
     exact infer_sort_claimP m hrun hea hta
   | .bvar i, hrun, _, _, _, _, hea =>
     exact infer_bvar_claimP m hrun hea hta
-  | .fvar idx nm ty, hrun, _, _, _, hC, hea =>
+  | .fvar idx ty, hrun, _, _, _, hC, hea =>
     exact infer_fvar_claimP m hC hrun hea hta
   | .const nm us, hrun, _, _, _, _, hea =>
     exact infer_const_claimP m (h.const_ty m φ) (h.acval_valid m) hrun
@@ -1151,15 +1151,15 @@ theorem inferStepP_of (h : InferInputsP V μ)
       hrun hea hta
   | .lit (.strVal s), hrun, _, _, _, _, hea =>
     exact h.str_lit m φ fuel hrun hea hta
-  | .forallE nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
+  | .forallE ty body mb, hrun, hws, hb, hLb, hC, hea =>
     exact infer_forallE_claimP m hμ hss hrun hws hb hLb hC hea hta
-  | .lam nm ty body mb, hrun, hws, hb, hLb, hC, hea =>
+  | .lam ty body mb, hrun, hws, hb, hLb, hC, hea =>
     exact infer_lam_claimP m hμ hss hsss ihi hrun hws hb hLb
       hC hea hta
   | .app fe ae, hrun, hws, hb, hLb, hC, hea =>
     exact infer_app_claimP m (h.infer_reads m φ fuel)
       (h.whnf_reads m φ fuel) ihw ihd ihi hrun hws hb hLb hC hea hta
-  | .letE nm ty val bd, hrun, hws, hb, hLb, hC, hea =>
+  | .letE ty val bd, hrun, hws, hb, hLb, hC, hea =>
     exact infer_letE_claimP m hss (h.infer_reads m φ fuel)
       ihi hrun hws hb hLb hC hea hta
   | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>

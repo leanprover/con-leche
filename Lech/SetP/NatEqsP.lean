@@ -149,7 +149,7 @@ def NatArgP (m : EnvS2Core V env) (ψ : Name → Nat) (e : Expr) :
 
 /-- The first equation variable (`fvar 0`). -/
 theorem natArgP_var0 (m : EnvS2Core V env) (ψ : Name → Nat)
-    (n : Name) : NatArgP m ψ (.fvar 0 n (.const Lech.natName [])) := by
+    (n : Name) : NatArgP m ψ (.fvar 0 (.const Lech.natName [])) := by
   refine ⟨.bvar 1, denoteP_fvar _ 2 0 n _, fun ρ hρ => ?_⟩
   refine ⟨⟨by simp, by simp⟩, ?_⟩
   rw [interp2_bvar]
@@ -157,7 +157,7 @@ theorem natArgP_var0 (m : EnvS2Core V env) (ψ : Name → Nat)
 
 /-- The second equation variable (`fvar 1`). -/
 theorem natArgP_var1 (m : EnvS2Core V env) (ψ : Name → Nat)
-    (n : Name) : NatArgP m ψ (.fvar 1 n (.const Lech.natName [])) := by
+    (n : Name) : NatArgP m ψ (.fvar 1 (.const Lech.natName [])) := by
   refine ⟨.bvar 0, denoteP_fvar _ 2 1 n _, fun ρ hρ => ?_⟩
   refine ⟨⟨by simp, by simp⟩, ?_⟩
   rw [interp2_bvar]
@@ -330,8 +330,8 @@ theorem natOpTyPinned_shape_bin {env' : Env} {c : Name} {ty : Expr}
     (hnu : ¬(c = Lech.natPredName))
     (h : Lech.natOpTyPinned env' c ty = true) :
     ∃ n₁ n₂ mb₁ mb₂ cod,
-      ty = .forallE n₁ (.const Lech.natName [])
-        (.forallE n₂ (.const Lech.natName []) cod mb₂) mb₁ ∧
+      ty = .forallE (.const Lech.natName [])
+        (.forallE (.const Lech.natName []) cod mb₂) mb₁ ∧
       ((c = Lech.natBeqName ∨ c = Lech.natBleName) →
         cod = .const Lech.boolName [] ∧
         ∃ ci, env'.find? Lech.boolName = some ci ∧
@@ -377,7 +377,7 @@ theorem natOpTyPinned_shape_bin {env' : Env} {c : Name} {ty : Expr}
 theorem natOpTyPinned_shape_un {env' : Env} {c : Name} {ty : Expr}
     (hu : c = Lech.natPredName)
     (h : Lech.natOpTyPinned env' c ty = true) :
-    ∃ n₁ mb₁, ty = .forallE n₁ (.const Lech.natName [])
+    ∃ n₁ mb₁, ty = .forallE (.const Lech.natName [])
       (.const Lech.natName []) mb₁ := by
   unfold Lech.natOpTyPinned at h
   split at h
@@ -419,22 +419,22 @@ theorem denoteP_pinnedBinTy (m : EnvS2Core V env) (ψ : Name → Nat)
     (hcodF : env.find? codN = some codCi)
     (hcodLp : codCi.toConstantVal.levelParams = []) :
     denoteP m.acval env ψ 0
-        (.forallE n₁ (.const Lech.natName [])
-          (.forallE n₂ (.const Lech.natName []) (.const codN []) mb₂)
+        (.forallE (.const Lech.natName [])
+          (.forallE (.const Lech.natName []) (.const codN []) mb₂)
           mb₁)
       = some (.pi 0 (pwBit ψ mb₁.pw) (m.acval Lech.natName ψ)
           (.pi 0 (pwBit ψ mb₂.pw) (m.acval Lech.natName ψ)
             (m.acval codN ψ))) := by
   rw [denoteP_forallE, denoteP_levelless_const hfN hlpN]
-  rw [show (Expr.forallE n₂ (.const Lech.natName [])
+  rw [show (Expr.forallE (.const Lech.natName [])
         (.const codN []) mb₂).instantiate1
-        (.fvar 0 n₁ (.const Lech.natName []))
-      = Expr.forallE n₂ (.const Lech.natName []) (.const codN []) mb₂
+        (.fvar 0 (.const Lech.natName []))
+      = Expr.forallE (.const Lech.natName []) (.const codN []) mb₂
     from Lech.Expr.instantiate1_eq_self
       (by simp [Lech.Expr.looseBVarsBounded])]
   rw [denoteP_forallE, denoteP_levelless_const hfN hlpN]
   rw [show (Expr.const codN ([] : List Lech.Level)).instantiate1
-        (.fvar 1 n₂ (.const Lech.natName []))
+        (.fvar 1 (.const Lech.natName []))
       = Expr.const codN [] from Lech.Expr.instantiate1_eq_self
       (by simp [Lech.Expr.looseBVarsBounded])]
   rw [denoteP_levelless_const hcodF hcodLp]
@@ -447,13 +447,13 @@ theorem denoteP_pinnedUnTy (m : EnvS2Core V env) (ψ : Name → Nat)
     (hfN : env.find? Lech.natName = some ciN)
     (hlpN : ciN.toConstantVal.levelParams = []) :
     denoteP m.acval env ψ 0
-        (.forallE n₁ (.const Lech.natName [])
+        (.forallE (.const Lech.natName [])
           (.const Lech.natName []) mb₁)
       = some (.pi 0 (pwBit ψ mb₁.pw) (m.acval Lech.natName ψ)
           (m.acval Lech.natName ψ)) := by
   rw [denoteP_forallE, denoteP_levelless_const hfN hlpN]
   rw [show (Expr.const Lech.natName ([] : List Lech.Level)).instantiate1
-        (.fvar 0 n₁ (.const Lech.natName []))
+        (.fvar 0 (.const Lech.natName []))
       = Expr.const Lech.natName [] from Lech.Expr.instantiate1_eq_self
       (by simp [Lech.Expr.looseBVarsBounded])]
   rw [denoteP_levelless_const hfN hlpN]
@@ -559,8 +559,8 @@ theorem natBinHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
     (hf : env.find? o = some (.defnInfo cvo vo ho))
     (hlp : cvo.levelParams = [])
     {n₁ n₂ : Name} {mb₁ mb₂ : Lech.BinderMeta} {codN : Name}
-    (hty : cvo.type = .forallE n₁ (.const Lech.natName [])
-      (.forallE n₂ (.const Lech.natName []) (.const codN []) mb₂)
+    (hty : cvo.type = .forallE (.const Lech.natName [])
+      (.forallE (.const Lech.natName []) (.const codN []) mb₂)
       mb₁)
     {ciN codCi : ConstantInfo}
     (hfN : env.find? Lech.natName = some ciN)
@@ -594,7 +594,7 @@ theorem natUnHeadP_of_stored (mp : EnvS2PM V μ env) {ψ : Name → Nat}
     (hf : env.find? o = some (.defnInfo cvo vo ho))
     (hlp : cvo.levelParams = [])
     {n₁ : Name} {mb₁ : Lech.BinderMeta}
-    (hty : cvo.type = .forallE n₁ (.const Lech.natName [])
+    (hty : cvo.type = .forallE (.const Lech.natName [])
       (.const Lech.natName []) mb₁)
     {ciN : ConstantInfo}
     (hfN : env.find? Lech.natName = some ciN)
@@ -709,10 +709,10 @@ theorem denoteP_substConst0 {acval : Name → (Name → Nat) → AVExpr}
     show denoteP (acvalWith acval c A) ⟨c₀ :: env.consts⟩ ψ d (.sort u)
       = denoteP acval env ψ d (.sort u)
     rw [denoteP_sort, denoteP_sort]
-  | fvar idx n ty =>
+  | fvar idx ty =>
     intro _
     show denoteP (acvalWith acval c A) ⟨c₀ :: env.consts⟩ ψ d
-        (.fvar idx n ty) = denoteP acval env ψ d (.fvar idx n ty)
+        (.fvar idx ty) = denoteP acval env ψ d (.fvar idx ty)
     rw [denoteP_fvar, denoteP_fvar]
   | const n us =>
     intro _
@@ -755,9 +755,9 @@ theorem denoteP_substConst0 {acval : Name → (Name → Nat) → AVExpr}
       rfl]
     rw [denoteP_app, denoteP_app, ihf hfr.1, iha hfr.2]
   | bvar _ => intro hfr; simp [shallowE] at hfr
-  | lam _ _ _ _ => intro hfr; simp [shallowE] at hfr
-  | forallE _ _ _ _ => intro hfr; simp [shallowE] at hfr
-  | letE _ _ _ _ => intro hfr; simp [shallowE] at hfr
+  | lam _ _ _ => intro hfr; simp [shallowE] at hfr
+  | forallE _ _ _ => intro hfr; simp [shallowE] at hfr
+  | letE _ _ _ => intro hfr; simp [shallowE] at hfr
   | proj _ _ _ => intro hfr; simp [shallowE] at hfr
   | lit _ => intro hfr; simp [shallowE] at hfr
 
@@ -861,7 +861,7 @@ theorem constsBound_of_natFragOk {c : Name}
   intro e
   induction e with
   | sort u => intro _; unfold ConstsBound; trivial
-  | fvar idx n ty =>
+  | fvar idx ty =>
     intro h
     simp only [Lech.TTVerify.natFragOk, Bool.and_eq_true,
       beq_iff_eq] at h
@@ -886,9 +886,9 @@ theorem constsBound_of_natFragOk {c : Name}
     unfold ConstsBound
     exact ⟨ihf h.1, iha h.2⟩
   | bvar _ => intro h; simp [Lech.TTVerify.natFragOk] at h
-  | lam _ _ _ _ => intro h; simp [Lech.TTVerify.natFragOk] at h
-  | forallE _ _ _ _ => intro h; simp [Lech.TTVerify.natFragOk] at h
-  | letE _ _ _ _ => intro h; simp [Lech.TTVerify.natFragOk] at h
+  | lam _ _ _ => intro h; simp [Lech.TTVerify.natFragOk] at h
+  | forallE _ _ _ => intro h; simp [Lech.TTVerify.natFragOk] at h
+  | letE _ _ _ => intro h; simp [Lech.TTVerify.natFragOk] at h
   | proj _ _ _ => intro h; simp [Lech.TTVerify.natFragOk] at h
   | lit _ => intro h; simp [Lech.TTVerify.natFragOk] at h
 
@@ -913,7 +913,7 @@ theorem consCrossAt_of_natFragOk {c : Name} {c₀ : ConstantInfo} :
   intro e
   induction e with
   | sort _ => intro _ _ _ _; simp
-  | fvar i n ty =>
+  | fvar i ty =>
     intro h entry heq j
     simp only [Lech.TTVerify.natFragOk, Bool.and_eq_true, beq_iff_eq] at h
     simp [h.2]
@@ -923,7 +923,7 @@ theorem consCrossAt_of_natFragOk {c : Name} {c₀ : ConstantInfo} :
     simp only [Lech.TTVerify.natFragOk, Bool.and_eq_true] at h
     simp only [Expr.NoProjAt]
     exact ⟨ihf h.1 entry heq j, iha h.2 entry heq j⟩
-  | bvar _ | lam _ _ _ _ | forallE _ _ _ _ | letE _ _ _ _ | lit _ | proj _ _ _ =>
+  | bvar _ | lam _ _ _ | forallE _ _ _ | letE _ _ _ | lit _ | proj _ _ _ =>
     intro h; simp [Lech.TTVerify.natFragOk] at h
 
 /-- **The per-operation crossing at a fresh cons**: an operation

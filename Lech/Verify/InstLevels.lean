@@ -127,7 +127,7 @@ theorem stripPis_instantiateLevelParams_eq (ks : List Name)
   | succ k ih =>
     intro e bs bs' body body' h1 h2
     match e, h1 with
-    | .forallE n d b m, h1 =>
+    | .forallE d b m, h1 =>
       simp only [Expr.instantiateLevelParams, Expr.stripPis] at h1 h2
       cases hs1 : b.stripPis k with
       | none => rw [hs1] at h1; exact nomatch h1
@@ -142,7 +142,7 @@ theorem stripPis_instantiateLevelParams_eq (ks : List Name)
         cases h1; exact ⟨rfl, rfl⟩
       obtain ⟨hb2, hbody2⟩ :
           (n, d.instantiateLevelParams ks us,
-            (⟨m.bi, Level.substPW ks us m.pw⟩ : BinderMeta)) :: p2.1
+            (⟨Level.substPW ks us m.pw⟩ : BinderMeta)) :: p2.1
               = bs' ∧
             p2.2 = body' := by
         cases h2; exact ⟨rfl, rfl⟩
@@ -170,7 +170,7 @@ theorem stripPis_instantiateLevelParams_isSome (ks : List Name)
   | succ k ih =>
     intro e h
     match e, h with
-    | .forallE n ty body m, h =>
+    | .forallE ty body m, h =>
       simp only [Expr.instantiateLevelParams, Expr.stripPis,
         Option.isSome_map] at h ⊢
       exact ih h
@@ -204,7 +204,7 @@ theorem stripLams_instantiateLevelParams_eq (ks : List Name)
   | succ k ih =>
     intro e bs bs' body body' h1 h2
     match e, h1 with
-    | .lam n d b m, h1 =>
+    | .lam d b m, h1 =>
       simp only [Expr.instantiateLevelParams, Expr.stripLams] at h1 h2
       cases hs1 : b.stripLams k with
       | none => rw [hs1] at h1; exact nomatch h1
@@ -219,7 +219,7 @@ theorem stripLams_instantiateLevelParams_eq (ks : List Name)
         cases h1; exact ⟨rfl, rfl⟩
       obtain ⟨hb2, hbody2⟩ :
           (n, d.instantiateLevelParams ks us,
-            (⟨m.bi, Level.substPW ks us m.pw⟩ : BinderMeta)) :: p2.1
+            (⟨Level.substPW ks us m.pw⟩ : BinderMeta)) :: p2.1
               = bs' ∧
             p2.2 = body' := by
         cases h2; exact ⟨rfl, rfl⟩
@@ -293,7 +293,7 @@ theorem allLevelParamsDefined_stripPis_body {ps : List Name} :
   | succ k ih =>
     intro e bs body h hp
     match e, h with
-    | .forallE n ty b m, h =>
+    | .forallE ty b m, h =>
       simp only [Expr.stripPis, Option.map_eq_some_iff] at h
       obtain ⟨⟨bs', body'⟩, hb, heq⟩ := h
       obtain ⟨-, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body := by
@@ -361,9 +361,9 @@ theorem renameConsts_instantiate1_gen (f : Name → Name) {v : Expr} :
 theorem instantiateLevelParams_instantiate1 (ks : List Name) (us : List Level)
     {d : Nat} {n : Name} {ty : Expr} :
     ∀ (e : Expr) (k : Nat),
-      (e.instantiate1 (.fvar d n ty) k).instantiateLevelParams ks us =
+      (e.instantiate1 (.fvar d ty) k).instantiateLevelParams ks us =
         (e.instantiateLevelParams ks us).instantiate1
-          (.fvar d n (ty.instantiateLevelParams ks us)) k := by
+          (.fvar d (ty.instantiateLevelParams ks us)) k := by
   intro e
   induction e <;> intro k <;> simp_all [instantiate1, instantiateLevelParams]
   case bvar i =>
@@ -374,9 +374,9 @@ theorem instantiateLevelParams_instantiate1 (ks : List Name) (us : List Level)
 theorem renameConsts_instantiate1 (f : Name → Name)
     {d : Nat} {n : Name} {ty : Expr} :
     ∀ (e : Expr) (k : Nat),
-      (e.instantiate1 (.fvar d n ty) k).renameConsts f =
+      (e.instantiate1 (.fvar d ty) k).renameConsts f =
         (e.renameConsts f).instantiate1
-          (.fvar d n (ty.renameConsts f)) k := by
+          (.fvar d (ty.renameConsts f)) k := by
   intro e
   induction e <;> intro k <;> simp_all [Expr.instantiate1, Expr.renameConsts]
   case bvar i =>
@@ -406,12 +406,12 @@ theorem instantiateLevelParams_instantiateLevelParams
       simp only [Expr.allLevelParamsDefined, List.all_eq_true] at h
       exact h l hml
     simpa [Function.comp] using Level.subst_subst (u := l) hl hb
-  | lam n ty body m ihty ihbody =>
+  | lam ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
     simp only [instantiateLevelParams, ihty h.1.1, ihbody h.1.2,
       Level.substPW_comp hl h.2]
-  | forallE n ty body m ihty ihbody =>
+  | forallE ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
     simp only [instantiateLevelParams, ihty h.1.1, ihbody h.1.2,
@@ -430,14 +430,14 @@ theorem allLevelParamsDefined_instantiateLevelParams
       (e.instantiateLevelParams ks us).allLevelParamsDefined ps' = true := by
   intro e
   induction e with
-  | lam n ty body m ihty ihbody =>
+  | lam ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
     simp only [instantiateLevelParams, allLevelParamsDefined,
       ihty h.1.1, ihbody h.1.2,
       Level.substPW_paramsDefined hl hus h.2,
       Bool.and_eq_true, Bool.true_and]
-  | forallE n ty body m ihty ihbody =>
+  | forallE ty body m ihty ihbody =>
     intro h
     simp only [allLevelParamsDefined, Bool.and_eq_true] at h
     simp only [instantiateLevelParams, allLevelParamsDefined,
@@ -462,7 +462,7 @@ theorem allLevelParamsDefined_instantiateLevelParams
 theorem allLevelParamsDefined_instantiate1 {ps : List Name} {d : Nat} {n : Name} {ty : Expr}
     (hty : ty.allLevelParamsDefined ps = true) :
     ∀ {e : Expr} (k : Nat), e.allLevelParamsDefined ps = true →
-      (e.instantiate1 (.fvar d n ty) k).allLevelParamsDefined ps = true := by
+      (e.instantiate1 (.fvar d ty) k).allLevelParamsDefined ps = true := by
   intro e
   induction e <;> intro k h <;> simp_all [instantiate1, allLevelParamsDefined]
   case bvar i =>
@@ -496,7 +496,7 @@ instantiation sequence. -/
 theorem instSeq_instantiateLevelParams_fvars (ks : List Name)
     (us : List Level) :
     ∀ (args : List Expr) (t : Nat) (e : Expr),
-      (∀ a ∈ args, ∃ i n ty, a = .fvar i n ty) →
+      (∀ a ∈ args, ∃ i n ty, a = .fvar i ty) →
       (instSeq args t e).instantiateLevelParams ks us =
       instSeq (args.map (·.instantiateLevelParams ks us)) t
         (e.instantiateLevelParams ks us) := by
@@ -507,7 +507,7 @@ theorem instSeq_instantiateLevelParams_fvars (ks : List Name)
     intro t e hfv
     obtain ⟨i, n, ty, rfl⟩ := hfv x List.mem_cons_self
     show (instSeq xs (t - 1)
-        (e.instantiate1 (.fvar i n ty) t)).instantiateLevelParams ks us = _
+        (e.instantiate1 (.fvar i ty) t)).instantiateLevelParams ks us = _
     rw [ih (t - 1) _ (fun y hy => hfv y (List.mem_cons_of_mem _ hy))]
     rw [instantiateLevelParams_instantiate1]
     rfl
@@ -518,7 +518,7 @@ sequence whose variables carry parameter-defined types. -/
 theorem allLevelParamsDefined_instSeq_fvars {ps : List Name} :
     ∀ (args : List Expr) (t : Nat) {e : Expr},
       (∀ a ∈ args, a.allLevelParamsDefined ps = true ∧
-        ∃ i n ty, a = .fvar i n ty) →
+        ∃ i n ty, a = .fvar i ty) →
       e.allLevelParamsDefined ps = true →
       (instSeq args t e).allLevelParamsDefined ps = true := by
   intro args

@@ -278,13 +278,13 @@ theorem mem_fvarLeaves_of_getAppFn' {a hd : Expr} {l : Nat × Name × Expr}
 
 /-- The leaf of a term's head fvar is a leaf of the term. -/
 theorem mem_fvarLeaves_of_getAppFn {a ty : Expr} {idx : Nat} {n : Name}
-    (h : a.getAppFn = .fvar idx n ty) : (idx, n, ty) ∈ a.fvarLeaves :=
+    (h : a.getAppFn = .fvar idx ty) : (idx, n, ty) ∈ a.fvarLeaves :=
   mem_fvarLeaves_of_getAppFn' h (by simp [Expr.fvarLeaves])
 
 /-- The leaves of an fvar's type are leaves of the fvar. -/
 theorem mem_fvarLeaves_of_ty {ty : Expr} {idx : Nat} {n : Name}
     {l : Nat × Name × Expr} (h : l ∈ ty.fvarLeaves) :
-    l ∈ (Expr.fvar idx n ty).fvarLeaves := by
+    l ∈ (Expr.fvar idx ty).fvarLeaves := by
   simp [Expr.fvarLeaves, h]
 
 /-- **A term whose validated data say "proof" is `pt`.**  The

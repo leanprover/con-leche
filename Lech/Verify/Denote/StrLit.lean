@@ -81,7 +81,7 @@ theorem charOfNat_shape {env : Env} (hg : strLitSupported env = true) :
     ∃ ci nm mb, env.find? charOfNatName = some ci ∧
       ci.toConstantVal.levelParams = [] ∧
       ci.toConstantVal.type =
-        .forallE nm (.const natName []) (.const charName []) mb := by
+        .forallE (.const natName []) (.const charName []) mb := by
   simp only [strLitSupported, Bool.and_eq_true] at hg
   obtain ⟨⟨⟨⟨⟨⟨⟨-, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩, h7⟩ := hg
   cases hf : env.find? charOfNatName with
@@ -102,7 +102,7 @@ theorem stringOfList_shape {env : Env} (hg : strLitSupported env = true) :
     ∃ ci nm mb, env.find? stringOfListName = some ci ∧
       ci.toConstantVal.levelParams = [] ∧
       ci.toConstantVal.type =
-        .forallE nm (.app (.const listName [.zero]) (.const charName []))
+        .forallE (.app (.const listName [.zero]) (.const charName []))
           (.const stringName []) mb := by
   simp only [strLitSupported, Bool.and_eq_true] at hg
   obtain ⟨⟨⟨⟨⟨⟨⟨-, -⟩, h2⟩, -⟩, -⟩, -⟩, -⟩, -⟩ := hg
@@ -133,7 +133,7 @@ theorem listNil_shape {env : Env} (hg : strLitSupported env = true) :
     ∃ ci p nm mb, env.find? listNilName = some ci ∧
       ci.toConstantVal.levelParams = [p] ∧
       ci.toConstantVal.type =
-        .forallE nm (.sort (.succ (.param p)))
+        .forallE (.sort (.succ (.param p)))
           (.app (.const listName [.param p]) (.bvar 0)) mb := by
   simp only [strLitSupported, Bool.and_eq_true] at hg
   obtain ⟨⟨⟨⟨⟨⟨⟨-, -⟩, -⟩, -⟩, h4⟩, -⟩, -⟩, -⟩ := hg
@@ -158,9 +158,9 @@ theorem listCons_shape {env : Env} (hg : strLitSupported env = true) :
     ∃ ci p nm₁ nm₂ nm₃ mb₁ mb₂ mb₃, env.find? listConsName = some ci ∧
       ci.toConstantVal.levelParams = [p] ∧
       ci.toConstantVal.type =
-        .forallE nm₁ (.sort (.succ (.param p)))
-          (.forallE nm₂ (.bvar 0)
-            (.forallE nm₃ (.app (.const listName [.param p]) (.bvar 1))
+        .forallE (.sort (.succ (.param p)))
+          (.forallE (.bvar 0)
+            (.forallE (.app (.const listName [.param p]) (.bvar 1))
               (.app (.const listName [.param p]) (.bvar 2)) mb₃) mb₂) mb₁ := by
   simp only [strLitSupported, Bool.and_eq_true] at hg
   obtain ⟨⟨⟨⟨⟨⟨⟨-, -⟩, -⟩, -⟩, -⟩, h5⟩, -⟩, -⟩ := hg

@@ -96,15 +96,15 @@ theorem reduceNat_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     DiscV mode env (WScopedO d) (reduceNat C env d e)
       (reduceNat G env d e) := by
   match e with
-  | .bvar _ | .fvar _ _ _ | .sort _ | .lam _ _ _ _ | .forallE _ _ _ _
-  | .letE _ _ _ _ | .lit _ | .proj _ _ _ | .const _ _ =>
+  | .bvar _ | .fvar _ _ | .sort _ | .lam _ _ _ | .forallE _ _ _
+  | .letE _ _ _ | .lit _ | .proj _ _ _ | .const _ _ =>
     exact DiscV.pure WScopedO.none
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by
       simpa only [WScoped] using hw
     match g' with
-    | .bvar _ | .fvar _ _ _ | .sort _ | .lam _ _ _ _ | .forallE _ _ _ _
-    | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    | .bvar _ | .fvar _ _ | .sort _ | .lam _ _ _ | .forallE _ _ _
+    | .letE _ _ _ | .lit _ | .proj _ _ _ =>
       exact DiscV.pure WScopedO.none
     | .const c us =>
       match us with
@@ -121,8 +121,8 @@ theorem reduceNat_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       have hwgb : WScoped d g ∧ WScoped d b := by
         simpa only [WScoped] using hwfa.1
       match g with
-      | .bvar _ | .fvar _ _ _ | .sort _ | .lam _ _ _ _ | .forallE _ _ _ _
-      | .letE _ _ _ _ | .lit _ | .proj _ _ _ | .app _ _ =>
+      | .bvar _ | .fvar _ _ | .sort _ | .lam _ _ _ | .forallE _ _ _
+      | .letE _ _ _ | .lit _ | .proj _ _ _ | .app _ _ =>
         exact DiscV.pure WScopedO.none
       | .const c us =>
         match us with
@@ -184,7 +184,7 @@ theorem iotaCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     have hwrest : ∀ x ∈ rest, WScoped d x :=
       fun x hx => hwargs x (List.mem_cons_of_mem _ hx)
     cases ty with
-    | forallE n ty body mb =>
+    | forallE ty body mb =>
       have hwtb : WScoped d ty ∧ WScoped d body := by
         simpa only [WScoped] using hwty
       show DiscV mode env _
@@ -213,8 +213,8 @@ theorem iotaCerts_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           simp only [↓reduceIte]
           exact ihrest (WScoped.instantiate1_gen hwarg 0 hwtb.2) hwrest
         | false => exact DiscV.pure trivial
-    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
-    | letE _ _ _ _ | lit _ | proj _ _ _ => exact DiscV.pure trivial
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _ | lam _ _ _
+    | letE _ _ _ | lit _ | proj _ _ _ => exact DiscV.pure trivial
 
 theorem defEqList_disc (ih : ScopedSim mode env f) {d : Nat} :
     ∀ {as bs : List Expr}, (∀ x ∈ as, WScoped d x) →
@@ -499,7 +499,7 @@ theorem etaCert_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     exact hwtb.1
   refine DiscV.bind (ih.site_defeq hwty₂ hwty) (fun r _ => ?_)
   split <;> try exact DiscV.pure trivial
-  have hwapp : WScoped (d + 1) (.app b (.fvar d n₁ ty₁)) := by
+  have hwapp : WScoped (d + 1) (.app b (.fvar d ty₁)) := by
     simp only [WScoped]
     exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d, hwty⟩
   refine DiscV.bind (ih.site_defeq
@@ -797,11 +797,11 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     DiscV mode env (WScoped d) (whnfCoreBody mode C env d e)
       (whnfCoreBody mode G env d e) := by
   match e with
-  | .sort u | .fvar _ _ _ | .forallE _ _ _ _ | .lam _ _ _ _
+  | .sort u | .fvar _ _ | .forallE _ _ _ | .lam _ _ _
   | .const _ _ | .lit _ =>
     exact DiscV.pure hw
   | .bvar _ => exact DiscV.throw _
-  | .letE _ ty v b =>
+  | .letE ty v b =>
     have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
       simpa only [WScoped] using hw
     show DiscV mode env _
@@ -815,7 +815,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     show DiscV mode env _
       ((C : CoreFns CheckSM).whnfCore d g' >>= fun f' =>
         match f' with
-        | .lam n ty body mb =>
+        | .lam ty body mb =>
           if betaGateFires mode mb.pw then
             (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
           else
@@ -823,7 +823,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
           if b then
             (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
-          else pure (.app (.lam n ty body mb) a)
+          else pure (.app (.lam ty body mb) a)
         | f' =>
           iotaRec mode C env d (.app f' a) >>= fun o =>
           match o with
@@ -831,7 +831,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           | none => pure (.app f' a))
       ((G : CoreFns CheckSM).whnfCore d g' >>= fun f' =>
         match f' with
-        | .lam n ty body mb =>
+        | .lam ty body mb =>
           if betaGateFires mode mb.pw then
             (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
           else
@@ -839,7 +839,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
           if b then
             (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
-          else pure (.app (.lam n ty body mb) a)
+          else pure (.app (.lam ty body mb) a)
         | f' =>
           iotaRec mode G env d (.app f' a) >>= fun o =>
           match o with
@@ -851,7 +851,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       rename_i n ty body mb
       have hwtb : WScoped d ty ∧ WScoped d body := by
         simpa only [WScoped] using hf'
-      have hwapp : WScoped d (Expr.app (.lam n ty body mb) a) := by
+      have hwapp : WScoped d (Expr.app (.lam ty body mb) a) := by
         simp only [WScoped]
         exact ⟨hwtb, hwfa.2⟩
       have hwred : WScoped d (body.instantiate1 a) :=
@@ -967,11 +967,11 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       (annotateBody G env d e) := by
   match e with
   | .bvar i => exact DiscV.pure (by simp [WScoped])
-  | .fvar idx n ty =>
+  | .fvar idx ty =>
     show DiscV mode env _
-      (if idx < d then pure (Expr.fvar idx n ty)
+      (if idx < d then pure (Expr.fvar idx ty)
        else throw (.invalid "free variable out of scope"))
-      (if idx < d then pure (Expr.fvar idx n ty)
+      (if idx < d then pure (Expr.fvar idx ty)
        else throw (.invalid "free variable out of scope"))
     split
     · exact DiscV.pure hw
@@ -998,7 +998,7 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     split
     · exact DiscV.pure (by simp [WScoped])
     · exact DiscV.throw _
-  | .letE n ty v b =>
+  | .letE ty v b =>
     have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
       simpa only [WScoped] using hw
     show DiscV mode env _
@@ -1025,24 +1025,24 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     refine DiscV.bind (ih.site_annotate hwfa.1) (fun f' hf' => ?_)
     refine DiscV.bind (ih.site_annotate hwfa.2) (fun a' ha' => ?_)
     exact DiscV.pure (by simp only [WScoped]; exact ⟨hf', ha'⟩)
-  | .forallE n ty body mb =>
+  | .forallE ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
     show DiscV mode env _
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
-            (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
+            (body.instantiate1 (.fvar d ty')) >>= fun body' =>
         if !pwWritten mb.pw then
           annotPwPi C env (d + 1) body' >>= fun pw =>
-            pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
-        else pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
+            pure (Expr.forallE ty' (body'.abstract1 d) ⟨pw⟩)
+        else pure (Expr.forallE ty' (body'.abstract1 d) ⟨mb.pw⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
-            (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
+            (body.instantiate1 (.fvar d ty')) >>= fun body' =>
         if !pwWritten mb.pw then
           annotPwPi G env (d + 1) body' >>= fun pw =>
-            pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
-        else pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
+            pure (Expr.forallE ty' (body'.abstract1 d) ⟨pw⟩)
+        else pure (Expr.forallE ty' (body'.abstract1 d) ⟨mb.pw⟩))
     refine DiscV.bind (ih.site_annotate hwtb.1) (fun ty' hty' => ?_)
     refine DiscV.bind (ih.site_annotate
       (WScoped.instantiate1 hty' 0 hwtb.2)) (fun body' hbody' => ?_)
@@ -1055,24 +1055,24 @@ theorem annotateBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     · refine DiscV.bind (annotPwPi_disc ih henv hbody') (fun pw _ => ?_)
       exact DiscV.pure (by simp only [WScoped]; exact hnode)
     · exact DiscV.pure (by simp only [WScoped]; exact hnode)
-  | .lam n ty body mb =>
+  | .lam ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
     show DiscV mode env _
       ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (C : CoreFns CheckSM).annotate (d + 1)
-            (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
+            (body.instantiate1 (.fvar d ty')) >>= fun body' =>
         if !pwWritten mb.pw then
           annotPwLam C env (d + 1) body' >>= fun pw =>
-            pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
-        else pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
+            pure (Expr.lam ty' (body'.abstract1 d) ⟨pw⟩)
+        else pure (Expr.lam ty' (body'.abstract1 d) ⟨mb.pw⟩))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).annotate (d + 1)
-            (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
+            (body.instantiate1 (.fvar d ty')) >>= fun body' =>
         if !pwWritten mb.pw then
           annotPwLam G env (d + 1) body' >>= fun pw =>
-            pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, pw⟩)
-        else pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, mb.pw⟩))
+            pure (Expr.lam ty' (body'.abstract1 d) ⟨pw⟩)
+        else pure (Expr.lam ty' (body'.abstract1 d) ⟨mb.pw⟩))
     refine DiscV.bind (ih.site_annotate hwtb.1) (fun ty' hty' => ?_)
     refine DiscV.bind (ih.site_annotate
       (WScoped.instantiate1 hty' 0 hwtb.2)) (fun body' hbody' => ?_)
@@ -1134,7 +1134,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       (inferBody mode G env d e) := by
   match e with
   | .bvar _ => exact DiscV.throw _
-  | .letE _ ty v b =>
+  | .letE ty v b =>
     have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
       simpa only [WScoped] using hw
     unfold inferBody
@@ -1159,7 +1159,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     · exact DiscV.pure (by simp [WScoped])
     · exact DiscV.throw _
   | .sort u => exact DiscV.pure (by simp [WScoped])
-  | .fvar idx n ty =>
+  | .fvar idx ty =>
     have h' : idx < d ∧ WScoped idx ty := by
       simpa only [WScoped] using hw
     show DiscV mode env _
@@ -1193,7 +1193,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           (fun _ h => h.elim)
     · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
         (fun _ h => h.elim)
-  | .forallE n ty body mb =>
+  | .forallE ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
     unfold inferBody
@@ -1210,7 +1210,7 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
           (fun _ h => h.elim)
     · exact DiscV.pure (by simp [WScoped])
-  | .lam n ty body mb =>
+  | .lam ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
     unfold inferBody
@@ -1225,8 +1225,8 @@ theorem inferBody_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     -- innermost
     have hpure : DiscV mode env
         (fun r => Expr.WScoped d r)
-        (pure (Expr.forallE n ty (bt.abstract1 d) mb))
-        (pure (Expr.forallE n ty (bt.abstract1 d) mb)) :=
+        (pure (Expr.forallE ty (bt.abstract1 d) mb))
+        (pure (Expr.forallE ty (bt.abstract1 d) mb)) :=
       DiscV.pure (by
         simp only [WScoped]
         exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)
@@ -1305,7 +1305,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       (inferBodyIO mode (CoreFns.ioView G) env d e) := by
   match e with
   | .bvar _ => exact DiscV.throw _
-  | .letE _ ty v b =>
+  | .letE ty v b =>
     have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
       simpa only [WScoped] using hw
     unfold inferBodyIO
@@ -1330,7 +1330,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
     · exact DiscV.pure (by simp [WScoped])
     · exact DiscV.throw _
   | .sort u => exact DiscV.pure (by simp [WScoped])
-  | .fvar idx n ty =>
+  | .fvar idx ty =>
     have h' : idx < d ∧ WScoped idx ty := by
       simpa only [WScoped] using hw
     show DiscV mode env _
@@ -1364,7 +1364,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
           (fun _ h => h.elim)
     · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
         (fun _ h => h.elim)
-  | .forallE n ty body mb =>
+  | .forallE ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
     unfold inferBodyIO
@@ -1381,7 +1381,7 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
           (fun _ h => h.elim)
     · exact DiscV.pure (by simp [WScoped])
-  | .lam n ty body mb =>
+  | .lam ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
       simpa only [WScoped] using hw
     unfold inferBodyIO
@@ -1391,8 +1391,8 @@ theorem inferBodyIO_disc (ih : ScopedSim mode env f) (henv : EnvWF env)
       (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
     have hpure : DiscV mode env
         (fun r => Expr.WScoped d r)
-        (pure (Expr.forallE n ty (bt.abstract1 d) mb))
-        (pure (Expr.forallE n ty (bt.abstract1 d) mb)) :=
+        (pure (Expr.forallE ty (bt.abstract1 d) mb))
+        (pure (Expr.forallE ty (bt.abstract1 d) mb)) :=
       DiscV.pure (by
         simp only [WScoped]
         exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)

@@ -59,10 +59,10 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
     -- the statement frame and its tower
     {fvs : List Expr} (hfvslen : fvs.length = K)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped K x)
     (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvs → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Γs : List AVExpr} (hΓslen : Γs.length = K)
     (hdomsS0 : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       denoteP m.acval env φ i (Expr.fvarTypeD x)
@@ -72,12 +72,12 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
     -- the public λ-frame (`annotTransportP`'s own premises)
     {pfvs : List Expr} (hPlen : pfvs.length = K)
     (hPshape : ∀ (i : Nat) (x : Expr), pfvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hPws : ∀ x ∈ pfvs, Expr.WScoped K x)
     (hPleafClosed : ∀ l, (∃ x ∈ pfvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ pfvs)
+      Expr.fvar l.1 l.2.2 ∈ pfvs)
     (hlbP : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ pfvs → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ pfvs → ty.looseBVarsBounded 0 = true)
     (hIdent : ∀ i, i < K → ∃ Bi : AVExpr,
       denoteP m.acval env φ K
         (Expr.fvarTypeD (pfvs.getD i default)) = some Bi ∧
@@ -135,7 +135,7 @@ theorem annotOpenersP {m : EnvS2Core V env} {F : Nat}
     rcases hx : fvs[q]? with _ | x
     · rw [List.getElem?_eq_none_iff, hfvslen] at hx; omega
     obtain ⟨nm, ty, rfl⟩ := hshapeS q x hx
-    rw [show fvs.getD q default = Expr.fvar q nm ty from by
+    rw [show fvs.getD q default = Expr.fvar q ty from by
         rw [List.getD, hx]; rfl, hbvsgetD q hq]
     exact denoteP_fvar m.acval (K) q nm ty
   have hchainbvs : ∀ (τ : Nat → V) (i : Nat), i < K →

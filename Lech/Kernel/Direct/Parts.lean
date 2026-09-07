@@ -164,11 +164,11 @@ def Name.lastStr : Name → Name
   | n => n
 
 /-- Replace the body under the first `k` `∀`-binders, resetting their
-codomain data to `pw` (the domains and binder infos are kept). -/
+codomain data to `pw` (the domains are kept). -/
 def Expr.replacePisPw (pw : PropWhen) : Nat → Expr → Expr → Option Expr
   | 0, _, b => some b
-  | k + 1, .forallE n ty rest m, b =>
-    (replacePisPw pw k rest b).map fun r => .forallE n ty r ⟨m.bi, pw⟩
+  | k + 1, .forallE ty rest _, b =>
+    (replacePisPw pw k rest b).map fun r => .forallE ty r ⟨pw⟩
   | _ + 1, _, _ => none
 
 /-- Convert the first `k` `∀`-binders into `λ`-binders with datum `pw`
@@ -176,14 +176,14 @@ over a body (`pisToLams` with the datum supplied instead of the
 `.never` placeholder). -/
 def Expr.pisToLamsPw (pw : PropWhen) : Nat → Expr → Expr → Option Expr
   | 0, _, b => some b
-  | k + 1, .forallE n ty rest m, b =>
-    (pisToLamsPw pw k rest b).map fun r => .lam n ty r ⟨m.bi, pw⟩
+  | k + 1, .forallE ty rest _, b =>
+    (pisToLamsPw pw k rest b).map fun r => .lam ty r ⟨pw⟩
   | _ + 1, _, _ => none
 
 /-- The motive's domain `∀ (t : T p⃗), Sort ℓ`, at the parameters'
 frame. -/
 def directMotiveTy (T : Name) (lps : List Name) (nP : Nat) (ℓ : Level) : Expr :=
-  .forallE (.str .anonymous "t") (directFam T lps nP 0) (.sort ℓ) ⟨.default, .never⟩
+  .forallE (directFam T lps nP 0) (.sort ℓ) ⟨.never⟩
 
 /-- A constructor's minor premise: its field telescope — the
 constructor type's binders past the parameters, lifted under the `o`
@@ -204,7 +204,7 @@ def directMinorsPis (lps : List Name) (nP : Nat) (pw : PropWhen) :
   | (C, nF, cty) :: cs, o, body =>
     (directMinorTy C lps nP nF o pw cty).bind fun mty =>
       (directMinorsPis lps nP pw cs (o + 1) body).map fun rest =>
-        .forallE (Name.lastStr C) mty rest ⟨.default, pw⟩
+        .forallE mty rest ⟨pw⟩
 
 /-- The `λ` twin of `directMinorsPis` (the rule's minor binders). -/
 def directMinorsLams (lps : List Name) (nP : Nat) (pw : PropWhen) :
@@ -213,7 +213,7 @@ def directMinorsLams (lps : List Name) (nP : Nat) (pw : PropWhen) :
   | (C, nF, cty) :: cs, o, body =>
     (directMinorTy C lps nP nF o pw cty).bind fun mty =>
       (directMinorsLams lps nP pw cs (o + 1) body).map fun rest =>
-        .lam (Name.lastStr C) mty rest ⟨.default, pw⟩
+        .lam mty rest ⟨pw⟩
 
 /-- **The generated recursor type**
 
@@ -229,11 +229,11 @@ def directRecTy (T : Name) (lps : List Name) (elim : Name) (large : Bool)
   let pw := Level.zeronessOf ℓ
   let n := ctors.length
   (directMinorsPis lps nP pw ctors 1
-      (.forallE (.str .anonymous "t") (directFam T lps nP (n + 1))
-        (.app (.bvar (n + 1)) (.bvar 0)) ⟨.default, pw⟩)).bind fun minors =>
+      (.forallE (directFam T lps nP (n + 1))
+        (.app (.bvar (n + 1)) (.bvar 0)) ⟨pw⟩)).bind fun minors =>
     Expr.replacePisPw pw nP tty
-      (.forallE (.str .anonymous "motive") (directMotiveTy T lps nP ℓ) minors
-        ⟨.default, pw⟩)
+      (.forallE (directMotiveTy T lps nP ℓ) minors
+        ⟨pw⟩)
 
 /-- **The generated rule** for constructor `j`:
 `λ p⃗ motive minor⃗ f⃗_j, minor_j f⃗_j`, its `λ`-domains verbatim the
@@ -254,8 +254,8 @@ def directRecRhs (T : Name) (lps : List Name) (elim : Name) (large : Bool)
           ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))).bind fun inner =>
     (directMinorsLams lps nP pw ctors 1 inner).bind fun minors =>
     Expr.pisToLamsPw pw nP tty
-      (.lam (.str .anonymous "motive") (directMotiveTy T lps nP ℓ) minors
-        ⟨.default, pw⟩)
+      (.lam (directMotiveTy T lps nP ℓ) minors
+        ⟨pw⟩)
 
 /-! ## The generated recursor at an indexed family (task #175 indexed)
 
@@ -303,7 +303,7 @@ proposition. -/
 def directMotiveTyI (T : Name) (lps : List Name) (nP nIdx : Nat) (ℓ : Level) (itele : Expr) :
     Option Expr :=
   Expr.replacePisPw .never nIdx itele
-    (.forallE (.str .anonymous "t") (directFamI T lps nP nIdx 0 0) (.sort ℓ) ⟨.default, .never⟩)
+    (.forallE (directFamI T lps nP nIdx 0 0) (.sort ℓ) ⟨.never⟩)
 
 /-- Constructor `C`'s minor premise at an indexed family: its field
 telescope lifted under the `o` extras, ending in
@@ -325,7 +325,7 @@ def directMinorsPisI (lps : List Name) (nP : Nat) (pw : PropWhen) :
   | (C, nF, cty) :: cs, o, body =>
     (directMinorTyI C lps nP nF o pw cty).bind fun mty =>
       (directMinorsPisI lps nP pw cs (o + 1) body).map fun rest =>
-        .forallE (Name.lastStr C) mty rest ⟨.default, pw⟩
+        .forallE mty rest ⟨pw⟩
 
 /-- The `λ` twin of `directMinorsPisI` (the rule's minor binders). -/
 def directMinorsLamsI (lps : List Name) (nP : Nat) (pw : PropWhen) :
@@ -334,7 +334,7 @@ def directMinorsLamsI (lps : List Name) (nP : Nat) (pw : PropWhen) :
   | (C, nF, cty) :: cs, o, body =>
     (directMinorTyI C lps nP nF o pw cty).bind fun mty =>
       (directMinorsLamsI lps nP pw cs (o + 1) body).map fun rest =>
-        .lam (Name.lastStr C) mty rest ⟨.default, pw⟩
+        .lam mty rest ⟨pw⟩
 
 /-- **The generated rule** for constructor `j` at an indexed family:
 `λ p⃗ motive minor⃗ f⃗_j, minor_j f⃗_j` — `directRecRhs` with the motive's
@@ -357,7 +357,7 @@ def directRecRhsI (T : Name) (lps : List Name) (elim : Name) (large : Bool)
           ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))).bind fun inner =>
     (directMinorsLamsI lps nP pw ctors 1 inner).bind fun minors =>
     Expr.pisToLamsPw pw nP tty
-      (.lam (.str .anonymous "motive") motiveTy minors ⟨.default, pw⟩)
+      (.lam motiveTy minors ⟨pw⟩)
 
 /-- **The generated recursor type at an indexed family** (see the
 section docstring).  `tty = ∀ p⃗ ı⃗, Sort w` is the annotated type
@@ -370,12 +370,12 @@ def directRecTyI (T : Name) (lps : List Name) (elim : Name) (large : Bool)
   (tty.stripPis nP).bind fun q =>
   (directMotiveTyI T lps nP nIdx ℓ q.2).bind fun motiveTy =>
   (Expr.replacePisPw pw nIdx (q.2.liftLooseBVars (n + 1) 0)
-      (.forallE (.str .anonymous "t") (directFamI T lps nP nIdx (n + 1) 0)
+      (.forallE (directFamI T lps nP nIdx (n + 1) 0)
         (Expr.mkAppN (.bvar (nIdx + n + 1)) (directPsAt 1 nIdx ++ [.bvar 0]))
-        ⟨.default, pw⟩)).bind fun major =>
+        ⟨pw⟩)).bind fun major =>
   (directMinorsPisI lps nP pw ctors 1 major).bind fun minors =>
     Expr.replacePisPw pw nP tty
-      (.forallE (.str .anonymous "motive") motiveTy minors ⟨.default, pw⟩)
+      (.forallE motiveTy minors ⟨pw⟩)
 
 /-- The pieces of a recognised simple-structure block. -/
 structure DirectParts where
@@ -429,21 +429,21 @@ def directShape (T C : Name) (lps : List Name) (elim : Name) (large : Bool)
     cbody == directFam T lps nP nF &&
     rbody == Expr.app (.bvar 2) (.bvar 0) &&
     (match rbs[nP]? with
-     | some (_, .forallE _ mmaj (.sort s') _, _) =>
+     | some (.forallE mmaj (.sort s') _, _) =>
        -- the motive's codomain: `Sort elim` for the large eliminator,
        -- `Prop` for the small one (task #175 W4c/O4)
        (if large then s' == .param elim else s' == .zero) &&
          mmaj == directFam T lps nP 0
      | _ => false) &&
     (match rbs[nP + 1]? with
-     | some (_, mindom, _) =>
+     | some (mindom, _) =>
        match mindom.stripPis nF with
        | some (_, mbody) =>
          mbody == Expr.app (.bvar nF) (directCtorSpine C lps nP nF)
        | none => false
      | none => false) &&
     (match rbs[nP + 2]? with
-     | some (_, majdom, _) => majdom == directFam T lps nP 2
+     | some (majdom, _) => majdom == directFam T lps nP 2
      | none => false)
   | _, _, _ => false
 
@@ -527,11 +527,11 @@ def directProjResid (T : Name) (lps : List Name) (nP : Nat)
 exactly `directProjTy`). -/
 def directProjTyR (T : Name) (lps : List Name) (nP nF i : Nat)
     (tty : Expr) : Option Expr → Option Expr
-  | some (.forallE _ fdom _ _) =>
+  | some (.forallE fdom _ _) =>
     if i < nF then
       Expr.replacePiBody nP tty
-        (.forallE (.str .anonymous "t") (directFam T lps nP 0) fdom
-          ⟨.default, .never⟩)
+        (.forallE (directFam T lps nP 0) fdom
+          ⟨.never⟩)
     else none
   | _ => none
 
@@ -577,9 +577,9 @@ type annotations). -/
 def Expr.projNodesOk (P : Name → Nat → Bool) : Expr → Bool
   | .proj s j e => P s j && projNodesOk P e
   | .app f a => projNodesOk P f && projNodesOk P a
-  | .lam _ ty b _ => projNodesOk P ty && projNodesOk P b
-  | .forallE _ ty b _ => projNodesOk P ty && projNodesOk P b
-  | .letE _ t v b => projNodesOk P t && projNodesOk P v && projNodesOk P b
+  | .lam ty b _ => projNodesOk P ty && projNodesOk P b
+  | .forallE ty b _ => projNodesOk P ty && projNodesOk P b
+  | .letE t v b => projNodesOk P t && projNodesOk P v && projNodesOk P b
   | _ => true
 
 /-- Does `bvar i` occur loose in `e`?  (Not through fvar type
@@ -591,9 +591,9 @@ def Expr.hasLooseBVar : Nat → Expr → Bool
   | _, .const .. => false
   | _, .lit _ => false
   | i, .app f a => hasLooseBVar i f || hasLooseBVar i a
-  | i, .lam _ ty b _ => hasLooseBVar i ty || hasLooseBVar (i + 1) b
-  | i, .forallE _ ty b _ => hasLooseBVar i ty || hasLooseBVar (i + 1) b
-  | i, .letE _ t v b =>
+  | i, .lam ty b _ => hasLooseBVar i ty || hasLooseBVar (i + 1) b
+  | i, .forallE ty b _ => hasLooseBVar i ty || hasLooseBVar (i + 1) b
+  | i, .letE t v b =>
     hasLooseBVar i t || hasLooseBVar i v || hasLooseBVar (i + 1) b
   | i, .proj _ _ e => hasLooseBVar i e
 
@@ -637,7 +637,7 @@ table holds every field (the official `infer_proj` restriction at a
 `directProjGuards`); no entry is annotated, inferred or pinned. -/
 def directProjBodiesGo (T : Name) : Nat → Nat → Expr → Option (List Expr)
   | 0, _, _ => some []
-  | k + 1, i, .forallE _ fdom body _ =>
+  | k + 1, i, .forallE fdom body _ =>
     (directProjBodiesGo T k (i + 1) (body.instantiate1Lift (directProjArgP T i))).map
       (fdom :: ·)
   | _ + 1, _, _ => none
@@ -656,7 +656,7 @@ built from the field types' interpretations in the environment *before*
 the block, so a self-reference would make it circular. -/
 def directNonRec (env : Env) (p : DirectParts) : Bool :=
   match p.cvC.type.stripPis (p.nP + p.nF) with
-  | some (cbs, _) => cbs.all fun b => b.2.1.constsResolve env
+  | some (cbs, _) => cbs.all fun b => b.1.constsResolve env
   | none => false
 
 /-- Recognise a direct simple-structure block against an environment:

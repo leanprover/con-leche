@@ -36,7 +36,7 @@ theorem directMinorsPis_cons {lps : List Name} {nP : Nat} {pw : PropWhen} {C : N
     (h : directMinorsPis lps nP pw ((C, nF, cty) :: cs) o body = some mins) :
     ∃ mty rest, directMinorTy C lps nP nF o pw cty = some mty ∧
       directMinorsPis lps nP pw cs (o + 1) body = some rest ∧
-      mins = .forallE (Name.lastStr C) mty rest ⟨.default, pw⟩ := by
+      mins = .forallE mty rest ⟨pw⟩ := by
   unfold directMinorsPis at h
   simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
   obtain ⟨mty, hmty, rest, hrest, hmin⟩ := h
@@ -47,7 +47,7 @@ theorem directMinorsLams_cons {lps : List Name} {nP : Nat} {pw : PropWhen} {C : 
     (h : directMinorsLams lps nP pw ((C, nF, cty) :: cs) o body = some mins) :
     ∃ mty rest, directMinorTy C lps nP nF o pw cty = some mty ∧
       directMinorsLams lps nP pw cs (o + 1) body = some rest ∧
-      mins = .lam (Name.lastStr C) mty rest ⟨.default, pw⟩ := by
+      mins = .lam mty rest ⟨pw⟩ := by
   unfold directMinorsLams at h
   simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
   obtain ⟨mty, hmty, rest, hrest, hmin⟩ := h
@@ -69,13 +69,13 @@ theorem directRecTy_unfold {T : Name} {lps : List Name} {elim : Name} {large : B
     (h : directRecTy T lps elim large nP tty ctors = some recTy) :
     ∃ minors : Expr,
       directMinorsPis lps nP (Level.zeronessOf (directElimLevel elim large)) ctors 1
-        (.forallE (.str .anonymous "t") (directFam T lps nP (ctors.length + 1))
+        (.forallE (directFam T lps nP (ctors.length + 1))
           (.app (.bvar (ctors.length + 1)) (.bvar 0))
-          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some minors ∧
+          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some minors ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nP tty
-        (.forallE (.str .anonymous "motive")
+        (.forallE
           (directMotiveTy T lps nP (directElimLevel elim large)) minors
-          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
+          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
   unfold directRecTy at h
   simp only [Option.bind_eq_some_iff] at h
   obtain ⟨minors, hminors, hr⟩ := h
@@ -96,9 +96,9 @@ theorem directRecRhs_unfold {T : Name} {lps : List Name} {elim : Name} {large : 
       directMinorsLams lps nP (Level.zeronessOf (directElimLevel elim large)) ctors 1 inner
         = some minors ∧
       Expr.pisToLamsPw (Level.zeronessOf (directElimLevel elim large)) nP tty
-        (.lam (.str .anonymous "motive")
+        (.lam
           (directMotiveTy T lps nP (directElimLevel elim large)) minors
-          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
+          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
   unfold directRecRhs at h
   cases hj : ctors[j]? with
   | none => rw [hj] at h; exact nomatch h
@@ -344,7 +344,7 @@ theorem directMinorsPisI_cons {lps : List Name} {nP : Nat} {pw : PropWhen} {C : 
     (h : directMinorsPisI lps nP pw ((C, nF, cty) :: cs) o body = some mins) :
     ∃ mty rest, directMinorTyI C lps nP nF o pw cty = some mty ∧
       directMinorsPisI lps nP pw cs (o + 1) body = some rest ∧
-      mins = .forallE (Name.lastStr C) mty rest ⟨.default, pw⟩ := by
+      mins = .forallE mty rest ⟨pw⟩ := by
   unfold directMinorsPisI at h
   simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
   obtain ⟨mty, hmty, rest, hrest, hmin⟩ := h
@@ -355,7 +355,7 @@ theorem directMinorsLamsI_cons {lps : List Name} {nP : Nat} {pw : PropWhen} {C :
     (h : directMinorsLamsI lps nP pw ((C, nF, cty) :: cs) o body = some mins) :
     ∃ mty rest, directMinorTyI C lps nP nF o pw cty = some mty ∧
       directMinorsLamsI lps nP pw cs (o + 1) body = some rest ∧
-      mins = .lam (Name.lastStr C) mty rest ⟨.default, pw⟩ := by
+      mins = .lam mty rest ⟨pw⟩ := by
   unfold directMinorsLamsI at h
   simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
   obtain ⟨mty, hmty, rest, hrest, hmin⟩ := h
@@ -380,14 +380,14 @@ theorem directRecTyI_unfold {T : Name} {lps : List Name} {elim : Name} {large : 
       directMotiveTyI T lps nP nIdx (directElimLevel elim large) itele = some motiveTy ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nIdx
         (itele.liftLooseBVars (ctors.length + 1) 0)
-        (.forallE (.str .anonymous "t") (directFamI T lps nP nIdx (ctors.length + 1) 0)
+        (.forallE (directFamI T lps nP nIdx (ctors.length + 1) 0)
           (Expr.mkAppN (.bvar (nIdx + ctors.length + 1)) (directPsAt 1 nIdx ++ [.bvar 0]))
-          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some major ∧
+          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some major ∧
       directMinorsPisI lps nP (Level.zeronessOf (directElimLevel elim large)) ctors 1 major
         = some minors ∧
       Expr.replacePisPw (Level.zeronessOf (directElimLevel elim large)) nP tty
-        (.forallE (.str .anonymous "motive") motiveTy minors
-          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
+        (.forallE motiveTy minors
+          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some recTy := by
   unfold directRecTyI at h
   simp only [Option.bind_eq_some_iff] at h
   obtain ⟨q, hq, motiveTy, hmot, major, hmaj, minors, hmin, hr⟩ := h
@@ -410,8 +410,8 @@ theorem directRecRhsI_unfold {T : Name} {lps : List Name} {elim : Name} {large :
       directMinorsLamsI lps nP (Level.zeronessOf (directElimLevel elim large)) ctors 1 inner
         = some minors ∧
       Expr.pisToLamsPw (Level.zeronessOf (directElimLevel elim large)) nP tty
-        (.lam (.str .anonymous "motive") motiveTy minors
-          ⟨.default, Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
+        (.lam motiveTy minors
+          ⟨Level.zeronessOf (directElimLevel elim large)⟩) = some rhs := by
   unfold directRecRhsI at h
   cases hj : ctors[j]? with
   | none => rw [hj] at h; exact nomatch h

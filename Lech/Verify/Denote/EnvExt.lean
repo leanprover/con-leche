@@ -110,12 +110,12 @@ theorem denote_env_ext {cval : TConstVal} {env₁ env₂ : Env}
     match x with
     | .bvar i => simp only [denote_bvar]
     | .sort u => exact (k1 u rfl).elim
-    | .fvar a b c => exact (k2 a b c rfl).elim
+    | .fvar a c => exact (k2 a b c rfl).elim
     | .const a b => exact (k3 a b rfl).elim
-    | .forallE a b c dd => exact (k4 a b c dd rfl).elim
-    | .lam a b c dd => exact (k5 a b c dd rfl).elim
+    | .forallE b c dd => exact (k4 a b c dd rfl).elim
+    | .lam b c dd => exact (k5 a b c dd rfl).elim
     | .app a b => exact (k6 a b rfl).elim
-    | .letE a b c dd => exact (k7 a b c dd rfl).elim
+    | .letE b c dd => exact (k7 a b c dd rfl).elim
     | .proj a b c => exact (k8 a b c rfl).elim
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim

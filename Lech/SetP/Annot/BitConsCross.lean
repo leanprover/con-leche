@@ -86,7 +86,7 @@ theorem ConsCrossAt.sort {c₀ : ConstantInfo} (u : Level) :
     ConsCrossAt c₀ (.sort u) := fun _ _ _ => by simp
 
 theorem ConsCrossAt.fvar_sort {c₀ : ConstantInfo} (idx : Nat) (n : Name)
-    (u : Level) : ConsCrossAt c₀ (.fvar idx n (.sort u)) :=
+    (u : Level) : ConsCrossAt c₀ (.fvar idx (.sort u)) :=
   fun _ _ _ => by simp
 
 theorem ConsCrossAt.openRev {c₀ : ConstantInfo} {e : Expr}

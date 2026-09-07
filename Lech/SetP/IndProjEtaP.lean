@@ -428,7 +428,7 @@ theorem projEtaLawP : ProjEtaLawP V := by
       hprojList] at h
     have hb0 : Expr.instSeq (openFvars 0 (caps.etaParams + 1))
         caps.etaParams (Expr.bvar 0)
-        = Expr.fvar caps.etaParams Name.anonymous (.sort .zero) := by
+        = Expr.fvar caps.etaParams (.sort .zero) := by
       have hhit := Expr.instSeq_bvar (openFvars 0 (caps.etaParams + 1))
         caps.etaParams 0 (openFvars_bounded 0 (caps.etaParams + 1))
         (by omega) (by rw [openFvars_length]; omega)

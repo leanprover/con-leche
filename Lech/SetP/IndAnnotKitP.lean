@@ -112,7 +112,7 @@ theorem ctxOkP_of_walked_openers {env : Env} {m : EnvS2Core V env}
     {k : Nat} {fvs : List Expr} {Aa : Nat → AVExpr} {Δa : List AVExpr}
     (hΔlen : Δa.length = k)
     (hshape : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hws : ∀ x ∈ fvs, Expr.WScoped k x)
     (hwalk : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
       ∃ tya, denoteP m.acval env φ k (Expr.fvarTypeD x) = some tya ∧
@@ -121,7 +121,7 @@ theorem ctxOkP_of_walked_openers {env : Env} {m : EnvS2Core V env}
             = interp2 V (fun j => ρ (j + (k - 1 - i) + 1)) (Aa i)) ∧
         (∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ tya))
     {e : Expr} {n : Nat}
-    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs)
     (hltE : ∀ l ∈ e.fvarLeaves, l.1 < n)
     (hent : ∀ i, i < n → Δa[k - 1 - i]? = some (Aa i)) :
     CtxOkP m φ k Δa e := by
@@ -139,7 +139,7 @@ theorem ctxOkP_of_walked_openers {env : Env} {m : EnvS2Core V env}
   have hwty : l.1 < k ∧ Expr.WScoped l.1 l.2.2 := by
     simpa [Expr.WScoped] using hw
   obtain ⟨tya, htya, heq, hok⟩ := hwalk l.1 _ hpos
-  rw [show Expr.fvarTypeD (Expr.fvar l.1 l.2.1 l.2.2) = l.2.2 from rfl]
+  rw [show Expr.fvarTypeD (Expr.fvar l.1 l.2.2) = l.2.2 from rfl]
     at htya
   exact ⟨hwty.1, hwty.2.fvarsBelow, tya, Aa l.1, htya,
     hent l.1 hlt, heq, hok⟩

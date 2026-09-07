@@ -185,14 +185,14 @@ theorem ctxOkP_opened {env : Env} {m : EnvS2Core V env} {φ : Name → Nat}
     (hokΓ : ∀ i, i < k → ∀ ρ : Nat → V, Sat2 V (Γ.drop (k - i)) ρ →
       AnnotOkP V ρ (Γ.getD (k - 1 - i) default))
     {i : Nat} (hik : i ≤ k) {x : Expr} (hwx : Expr.WScoped i x)
-    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs) :
+    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2.2 ∈ fvs) :
     CtxOkP m φ i (Γ.drop (k - i)) x := by
   have hidx := openPisAtFvars_index k e 0 hop
   have hlenF : fvs.length = k := openPisAtFvars_length k hop
   have hws := (openPisAtFvars_WScoped k e 0 hop
     (Expr.WScoped.of_not_hasFvar hcl)).1
   -- the positions of the variables a leaf can be
-  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2.1 l.2.2) := by
+  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2.2) := by
     intro l hl
     obtain ⟨p, hp⟩ := List.getElem?_of_mem (hleaf l hl)
     obtain ⟨nm, ty, hx⟩ := hidx p _ hp

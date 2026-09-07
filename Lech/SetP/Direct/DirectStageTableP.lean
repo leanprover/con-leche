@@ -186,7 +186,7 @@ theorem stageTable (mp : EnvS2PM V μ env)
       intro l hl
       have hsub : l ∈ x.fvarLeaves := by
         cases x with
-        | fvar idx nm ty =>
+        | fvar idx ty =>
           simp only [Expr.fvarLeaves, Expr.fvarTypeD] at hl ⊢
           exact List.mem_cons_of_mem _ hl
         | _ => exact hl

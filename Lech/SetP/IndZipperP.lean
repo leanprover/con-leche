@@ -56,12 +56,12 @@ theorem zipperP {m : EnvS2Core V env} {F : Nat}
     -- the statement frame
     {fvs : List Expr} (hfvslen : fvs.length = rP + cnF)
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hwsFvs : ∀ x ∈ fvs, Expr.WScoped (rP + cnF) x)
     (hleafClosed : ∀ l, (∃ x ∈ fvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs)
+      Expr.fvar l.1 l.2.2 ∈ fvs)
     (hlbFvs : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ fvs → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ fvs → ty.looseBVarsBounded 0 = true)
     {Tstmt : AVExpr} {Γs : List AVExpr} {Rbody : AVExpr}
     (htowerS : PiTeleP (rP + cnF) Tstmt Γs Rbody)
     (hokTst : ∀ σ : Nat → V, AnnotOkP V σ Tstmt)
@@ -71,7 +71,7 @@ theorem zipperP {m : EnvS2Core V env} {F : Nat}
     -- the public (recursor) frame
     {fvsP : List Expr} (hfvsPlen : fvsP.length = rP)
     (hshapeP : ∀ (i : Nat) (x : Expr), fvsP[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     {TV : AVExpr} {ΓP : List AVExpr} {RP : AVExpr}
     (htowerP : PiTeleP rP TV ΓP RP)
     (hokTV : ∀ σ : Nat → V, AnnotOkP V σ TV)
@@ -98,7 +98,7 @@ theorem zipperP {m : EnvS2Core V env} {F : Nat}
     {sp : List Expr} (hsplen : sp.length = cnP + cnF)
     (hspLeaf : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       ∀ l ∈ x.fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP))
+        Expr.fvar l.1 l.2.2 ∈ fvs ∧ l.1 < rP + (q + 1 - cnP))
     (hspScope : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       Expr.WScoped (rP + cnF) x ∧ x.looseBVarsBounded 0 = true)
     (hspFld : ∀ j, j < cnF → sp[cnP + j]? = fvs[rP + j]?)
@@ -211,7 +211,7 @@ theorem zipperP {m : EnvS2Core V env} {F : Nat}
   have hzipAll : ∀ j, j < cnF →
       Expr.WScoped (rP + j) (cdoms.getD (cnP + j) default) ∧
       (∀ l ∈ (cdoms.getD (cnP + j) default).fvarLeaves,
-        Expr.fvar l.1 l.2.1 l.2.2 ∈ fvs ∧ l.1 < rP + j) ∧
+        Expr.fvar l.1 l.2.2 ∈ fvs ∧ l.1 < rP + j) ∧
       ∃ vdomLow,
         denoteP m.acval env φ (rP + j) (cdoms.getD (cnP + j) default)
           = some vdomLow ∧

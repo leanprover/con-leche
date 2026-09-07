@@ -42,7 +42,7 @@ whose statements are the same shape but mention `Eq.{1}` — which is why
 the constant clause counts levels instead of demanding none. -/
 def natFragOk (env : Env) (c : Name) : Expr → Bool
   | .sort _ => true
-  | .fvar i _ ty =>
+  | .fvar i ty =>
     (decide (i = 0) || decide (i = 1)) && (ty == .const natName [])
   | .const n us => (decide (n = c) && us.isEmpty) ||
       (match env.find? n with
@@ -56,14 +56,14 @@ it. -/
 theorem shallowE_of_natFragOk {env : Env} {c : Name} :
     ∀ {e : Expr}, natFragOk env c e = true → shallowE e = true
   | .sort _, _ => rfl
-  | .fvar _ _ _, _ => rfl
+  | .fvar _ _, _ => rfl
   | .const _ _, _ => rfl
   | .app f a, h => by
     simp only [natFragOk, Bool.and_eq_true] at h
     simp only [shallowE, Bool.and_eq_true]
     exact ⟨shallowE_of_natFragOk h.1, shallowE_of_natFragOk h.2⟩
-  | .bvar _, h | .lam _ _ _ _, h | .forallE _ _ _ _, h
-  | .letE _ _ _ _, h | .proj _ _ _, h | .lit _, h => by
+  | .bvar _, h | .lam _ _ _, h | .forallE _ _ _, h
+  | .letE _ _ _, h | .proj _ _ _, h | .lit _, h => by
     simp [natFragOk] at h
 
 /-! ## The equations are in the fragment
@@ -106,10 +106,10 @@ theorem natOpEquations_frag {env : Env} {c : Name}
     ∀ eq ∈ natOpEquations 0 c,
       natFragOk env c eq.1 = true ∧ natFragOk env c eq.2 = true := by
   have hx : natFragOk env c
-      (.fvar 0 (.str .anonymous "x") (.const natName [])) = true := by
+      (.fvar 0 (.const natName [])) = true := by
     simp [natFragOk]
   have hy : natFragOk env c
-      (.fvar 1 (.str .anonymous "y") (.const natName [])) = true := by
+      (.fvar 1 (.const natName [])) = true := by
     simp [natFragOk]
   have happ : ∀ f a, natFragOk env c f = true → natFragOk env c a = true →
       natFragOk env c (.app f a) = true := by
@@ -314,7 +314,7 @@ theorem natOpGuard_succTy {env : Env} {c : Name} (h : natOpGuard env c = true) :
     ∃ ci nm mb, env.find? natSuccName = some ci ∧
       ci.toConstantVal.levelParams = [] ∧
       ci.toConstantVal.type
-        = .forallE nm (.const natName []) (.const natName []) mb := by
+        = .forallE (.const natName []) (.const natName []) mb := by
   simp only [natOpGuard, Bool.and_eq_true] at h
   obtain ⟨⟨hlit, -⟩, -⟩ := h
   simp only [natLitSupported, Bool.and_eq_true] at hlit
@@ -326,29 +326,29 @@ theorem natOpGuard_succTy {env : Env} {c : Name} (h : natOpGuard env c = true) :
     obtain ⟨hlp, hty⟩ := hs
     revert hty
     match hcvs : cvS.type with
-    | .forallE nm (.const c1 []) (.const c2 []) mb =>
+    | .forallE (.const c1 []) (.const c2 []) mb =>
       intro hty
       simp only [Bool.and_eq_true, beq_iff_eq] at hty
       obtain ⟨rfl, rfl⟩ := hty
       exact ⟨_, nm, mb, hfd, hlp, by simp [ConstantInfo.toConstantVal, hcvs]⟩
-    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
-    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _
-    | .forallE _ (.bvar _) _ _ | .forallE _ (.fvar _ _ _) _ _
-    | .forallE _ (.sort _) _ _ | .forallE _ (.app _ _) _ _
-    | .forallE _ (.lam _ _ _ _) _ _ | .forallE _ (.letE _ _ _ _) _ _
-    | .forallE _ (.lit _) _ _ | .forallE _ (.proj _ _ _) _ _
-    | .forallE _ (.forallE _ _ _ _) _ _
-    | .forallE _ (.const _ (_ :: _)) _ _
-    | .forallE _ (.const _ []) (.bvar _) _
-    | .forallE _ (.const _ []) (.fvar _ _ _) _
-    | .forallE _ (.const _ []) (.sort _) _
-    | .forallE _ (.const _ []) (.app _ _) _
-    | .forallE _ (.const _ []) (.lam _ _ _ _) _
-    | .forallE _ (.const _ []) (.letE _ _ _ _) _
-    | .forallE _ (.const _ []) (.lit _) _
-    | .forallE _ (.const _ []) (.proj _ _ _) _
-    | .forallE _ (.const _ []) (.forallE _ _ _ _) _
-    | .forallE _ (.const _ []) (.const _ (_ :: _)) _ =>
+    | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _
+    | .forallE (.bvar _) _ _ | .forallE (.fvar _ _) _ _
+    | .forallE (.sort _) _ _ | .forallE (.app _ _) _ _
+    | .forallE (.lam _ _ _) _ _ | .forallE (.letE _ _ _) _ _
+    | .forallE (.lit _) _ _ | .forallE (.proj _ _ _) _ _
+    | .forallE (.forallE _ _ _) _ _
+    | .forallE (.const _ (_ :: _)) _ _
+    | .forallE (.const _ []) (.bvar _) _
+    | .forallE (.const _ []) (.fvar _ _) _
+    | .forallE (.const _ []) (.sort _) _
+    | .forallE (.const _ []) (.app _ _) _
+    | .forallE (.const _ []) (.lam _ _ _) _
+    | .forallE (.const _ []) (.letE _ _ _) _
+    | .forallE (.const _ []) (.lit _) _
+    | .forallE (.const _ []) (.proj _ _ _) _
+    | .forallE (.const _ []) (.forallE _ _ _) _
+    | .forallE (.const _ []) (.const _ (_ :: _)) _ =>
       intro hty; exact nomatch hty
   · exact nomatch hs
 

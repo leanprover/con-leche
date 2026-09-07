@@ -103,13 +103,13 @@ inductive PinEntry where
   | levImax (u v : PinRef)
   | levParam (n : PinRef)
   | exBVar (i : Nat)
-  | exFVar (idx : Nat) (n ty : PinRef)
+  | exFVar (idx : Nat) (ty : PinRef)
   | exSort (u : PinRef)
   | exConst (n : PinRef) (us : List PinRef)
   | exApp (f a : PinRef)
-  | exLam (n ty b : PinRef) (bi : Lech.BinderInfo) (pw : Option (List Lech.Name))
-  | exForall (n ty b : PinRef) (bi : Lech.BinderInfo) (pw : Option (List Lech.Name))
-  | exLet (n ty v b : PinRef)
+  | exLam (ty b : PinRef) (pw : Option (List Lech.Name))
+  | exForall (ty b : PinRef) (pw : Option (List Lech.Name))
+  | exLet (ty v b : PinRef)
   | exLitNat (v : Nat)
   | exLitStr (s : String)
   | exProj (s : PinRef) (i : Nat) (e : PinRef)
@@ -151,7 +151,7 @@ structure PinDumpFile where
 
 /-- The format tag written into, and required of, a dump file.
 `/2` since task #191: the prelude fields. -/
-def dumpFormatTag : String := "lech-natop-pins/2"
+def dumpFormatTag : String := "lech-natop-pins/3"
 
 /-- The dump file's basename for a toolchain: the `lean-toolchain`
 string with everything outside `[A-Za-z0-9._-]` turned into `-`
@@ -179,12 +179,6 @@ def quoteName : Lech.Name → Lean.Expr
   | .str p s => mkApp2 (.const ``Lech.Name.str []) (quoteName p) (mkStrLit s)
   | .num p n => mkApp2 (.const ``Lech.Name.num []) (quoteName p) (mkRawNatLit n)
 
-def quoteBinderInfo : Lech.BinderInfo → Lean.Expr
-  | .default => .const ``Lech.BinderInfo.default []
-  | .implicit => .const ``Lech.BinderInfo.implicit []
-  | .strictImplicit => .const ``Lech.BinderInfo.strictImplicit []
-  | .instImplicit => .const ``Lech.BinderInfo.instImplicit []
-
 def quoteNameList (ns : List Lech.Name) : Lean.Expr :=
   ns.foldr
     (fun n acc => mkApp3 (.const ``List.cons [.zero]) nameT (quoteName n) acc)
@@ -196,10 +190,8 @@ def quotePropWhen : Option (List Lech.Name) → Lean.Expr
   | none => .const ``Lech.PropWhen.never []
   | some ps => .app (.const ``Lech.PropWhen.ifAllZero []) (quoteNameList ps)
 
-def quoteBinderMeta (bi : Lech.BinderInfo)
-    (pw : Option (List Lech.Name)) : Lean.Expr :=
-  mkApp2 (.const ``Lech.BinderMeta.mk []) (quoteBinderInfo bi)
-    (quotePropWhen pw)
+def quoteBinderMeta (pw : Option (List Lech.Name)) : Lean.Expr :=
+  .app (.const ``Lech.BinderMeta.mk []) (quotePropWhen pw)
 
 /-- A reference as an *absolute* `.bvar` (entry references) or an
 inline constant.  `assemble` rewrites the `.bvar`s into de Bruijn
@@ -238,24 +230,22 @@ def PinEntry.value : PinEntry → Lean.Expr
     mkApp2 (.const ``Lech.Level.imax []) (refExpr u) (refExpr v)
   | .levParam n => .app (.const ``Lech.Level.param []) (refExpr n)
   | .exBVar i => .app (.const ``Lech.Expr.bvar []) (mkRawNatLit i)
-  | .exFVar idx n ty =>
-    mkApp3 (.const ``Lech.Expr.fvar []) (mkRawNatLit idx) (refExpr n)
-      (refExpr ty)
+  | .exFVar idx ty =>
+    mkApp2 (.const ``Lech.Expr.fvar []) (mkRawNatLit idx) (refExpr ty)
   | .exSort u => .app (.const ``Lech.Expr.sort []) (refExpr u)
   | .exConst n us =>
     mkApp2 (.const ``Lech.Expr.const []) (refExpr n)
       (levelListE (us.map refExpr))
   | .exApp f a =>
     mkApp2 (.const ``Lech.Expr.app []) (refExpr f) (refExpr a)
-  | .exLam n ty b bi pw =>
-    mkApp4 (.const ``Lech.Expr.lam []) (refExpr n) (refExpr ty) (refExpr b)
-      (quoteBinderMeta bi pw)
-  | .exForall n ty b bi pw =>
-    mkApp4 (.const ``Lech.Expr.forallE []) (refExpr n) (refExpr ty)
-      (refExpr b) (quoteBinderMeta bi pw)
-  | .exLet n ty v b =>
-    mkApp4 (.const ``Lech.Expr.letE []) (refExpr n) (refExpr ty) (refExpr v)
-      (refExpr b)
+  | .exLam ty b pw =>
+    mkApp3 (.const ``Lech.Expr.lam []) (refExpr ty) (refExpr b)
+      (quoteBinderMeta pw)
+  | .exForall ty b pw =>
+    mkApp3 (.const ``Lech.Expr.forallE []) (refExpr ty) (refExpr b)
+      (quoteBinderMeta pw)
+  | .exLet ty v b =>
+    mkApp3 (.const ``Lech.Expr.letE []) (refExpr ty) (refExpr v) (refExpr b)
   | .exLitNat v =>
     .app (.const ``Lech.Expr.lit [])
       (.app (.const ``Lech.Literal.natVal []) (mkRawNatLit v))
@@ -348,10 +338,9 @@ partial def shareExpr (e : Lech.Expr) : ShareM PinRef := do
   if let some r := (← get).exprMap[e]? then return r
   let r ← match e with
     | .bvar i => pushEntry (.exBVar i)
-    | .fvar idx n ty => do
-      let nv ← shareName n
+    | .fvar idx ty => do
       let tv ← shareExpr ty
-      pushEntry (.exFVar idx nv tv)
+      pushEntry (.exFVar idx tv)
     | .sort u => do pushEntry (.exSort (← shareLevel u))
     | .const n us => do
       let nv ← shareName n
@@ -361,22 +350,19 @@ partial def shareExpr (e : Lech.Expr) : ShareM PinRef := do
       let fv ← shareExpr f
       let av ← shareExpr a
       pushEntry (.exApp fv av)
-    | .lam n ty b m => do
-      let nv ← shareName n
+    | .lam ty b m => do
       let tv ← shareExpr ty
       let bv ← shareExpr b
-      pushEntry (.exLam nv tv bv m.bi m.pw.toList?)
-    | .forallE n ty b m => do
-      let nv ← shareName n
+      pushEntry (.exLam tv bv m.pw.toList?)
+    | .forallE ty b m => do
       let tv ← shareExpr ty
       let bv ← shareExpr b
-      pushEntry (.exForall nv tv bv m.bi m.pw.toList?)
-    | .letE n ty v b => do
-      let nv ← shareName n
+      pushEntry (.exForall tv bv m.pw.toList?)
+    | .letE ty v b => do
       let tv ← shareExpr ty
       let vv ← shareExpr v
       let bv ← shareExpr b
-      pushEntry (.exLet nv tv vv bv)
+      pushEntry (.exLet tv vv bv)
     | .lit (.natVal v) => pushEntry (.exLitNat v)
     | .lit (.strVal s) => pushEntry (.exLitStr s)
     | .proj s i x => do
@@ -411,19 +397,6 @@ def refOfJson (j : Json) : Except String PinRef :=
   | Json.str "anon" => return .anon
   | Json.str "lzero" => return .lzero
   | _ => .error s!"bad pin reference: {j.compress}"
-
-def biToJson : Lech.BinderInfo → Json
-  | .default => natJ 0
-  | .implicit => natJ 1
-  | .strictImplicit => natJ 2
-  | .instImplicit => natJ 3
-
-def biOfNat : Nat → Except String Lech.BinderInfo
-  | 0 => return .default
-  | 1 => return .implicit
-  | 2 => return .strictImplicit
-  | 3 => return .instImplicit
-  | k => .error s!"bad binder info tag {k}"
 
 /-- A `Lech.Name` as the array of its components, outermost last. -/
 def snameComps : Lech.Name → Array Json → Array Json
@@ -461,22 +434,18 @@ def PinEntry.toJson : PinEntry → Json
   | .levImax u v => Json.arr #[Json.str "lI", refToJson u, refToJson v]
   | .levParam n => Json.arr #[Json.str "lp", refToJson n]
   | .exBVar i => Json.arr #[Json.str "b", natJ i]
-  | .exFVar idx n ty =>
-    Json.arr #[Json.str "f", natJ idx, refToJson n, refToJson ty]
+  | .exFVar idx ty => Json.arr #[Json.str "f", natJ idx, refToJson ty]
   | .exSort u => Json.arr #[Json.str "s", refToJson u]
   | .exConst n us =>
     Json.arr #[Json.str "c", refToJson n,
       Json.arr (us.map refToJson).toArray]
   | .exApp f a => Json.arr #[Json.str "a", refToJson f, refToJson a]
-  | .exLam n ty b bi pw =>
-    Json.arr #[Json.str "lam", refToJson n, refToJson ty, refToJson b,
-      biToJson bi, pwToJson pw]
-  | .exForall n ty b bi pw =>
-    Json.arr #[Json.str "fa", refToJson n, refToJson ty, refToJson b,
-      biToJson bi, pwToJson pw]
-  | .exLet n ty v b =>
-    Json.arr #[Json.str "le", refToJson n, refToJson ty, refToJson v,
-      refToJson b]
+  | .exLam ty b pw =>
+    Json.arr #[Json.str "lam", refToJson ty, refToJson b, pwToJson pw]
+  | .exForall ty b pw =>
+    Json.arr #[Json.str "fa", refToJson ty, refToJson b, pwToJson pw]
+  | .exLet ty v b =>
+    Json.arr #[Json.str "le", refToJson ty, refToJson v, refToJson b]
   | .exLitNat v => Json.arr #[Json.str "ln", natJ v]
   | .exLitStr s => Json.arr #[Json.str "lstr", Json.str s]
   | .exProj s i e =>
@@ -500,19 +469,15 @@ def pinEntryOfJson (j : Json) : Except String PinEntry := do
   | "lI" => return .levImax (← ref 1) (← ref 2)
   | "lp" => return .levParam (← ref 1)
   | "b" => return .exBVar (← nat 1)
-  | "f" => return .exFVar (← nat 1) (← ref 2) (← ref 3)
+  | "f" => return .exFVar (← nat 1) (← ref 2)
   | "s" => return .exSort (← ref 1)
   | "c" => do
     let us ← (← at? 2).getArr?
     return .exConst (← ref 1) (← us.toList.mapM refOfJson)
   | "a" => return .exApp (← ref 1) (← ref 2)
-  | "lam" =>
-    return .exLam (← ref 1) (← ref 2) (← ref 3) (← biOfNat (← nat 4))
-      (← pwOfJson (← at? 5))
-  | "fa" =>
-    return .exForall (← ref 1) (← ref 2) (← ref 3) (← biOfNat (← nat 4))
-      (← pwOfJson (← at? 5))
-  | "le" => return .exLet (← ref 1) (← ref 2) (← ref 3) (← ref 4)
+  | "lam" => return .exLam (← ref 1) (← ref 2) (← pwOfJson (← at? 3))
+  | "fa" => return .exForall (← ref 1) (← ref 2) (← pwOfJson (← at? 3))
+  | "le" => return .exLet (← ref 1) (← ref 2) (← ref 3)
   | "ln" => return .exLitNat (← nat 1)
   | "lstr" => return .exLitStr (← str 1)
   | "p" => return .exProj (← ref 1) (← nat 2) (← ref 3)

@@ -67,7 +67,7 @@ theorem constsBound_openRev {env₀ : Env} {e : Expr}
   | zero => exact h
   | succ n ih =>
     show ConstsBound env₀ ((openRev d n e).instantiate1
-      (.fvar (d + n) Name.anonymous (.sort .zero)) 0)
+      (.fvar (d + n) (.sort .zero)) 0)
     exact ConstsBound.instantiate1 (by simp) _ 0 ih
 
 /-- **The fired modeled-iota contract survives a fresh cons that is

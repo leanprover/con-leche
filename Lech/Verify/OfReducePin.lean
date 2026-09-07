@@ -49,28 +49,28 @@ its two instances share. -/
 theorem ofReducePin_type {n : Name}
     (hn : n = ofReduceNatName ∨ n = ofReduceBoolName) :
     (ofReducePinA n).type =
-      .forallE .anonymous
+      .forallE
         (.const (reduceElemName (ofReduceOp n)) [])
-        (.forallE .anonymous
+        (.forallE
           (.const (reduceElemName (ofReduceOp n)) [])
-          (.forallE .anonymous
+          (.forallE
             (Expr.mkAppN (.const eqName [.succ .zero])
               [.const (reduceElemName (ofReduceOp n)) [],
                .app (.const (ofReduceOp n) []) (.bvar 1), .bvar 0])
             (Expr.mkAppN (.const eqName [.succ .zero])
               [.const (reduceElemName (ofReduceOp n)) [],
-               .bvar 2, .bvar 1]) ⟨.default, .ifAllZero []⟩)
-          ⟨.default, .ifAllZero []⟩)
-        ⟨.default, .ifAllZero []⟩ := by
+               .bvar 2, .bvar 1]) ⟨.ifAllZero []⟩)
+          ⟨.ifAllZero []⟩)
+        ⟨.ifAllZero []⟩ := by
   rcases hn with rfl | rfl <;> rfl
 
 /-- The pinned type of the operation itself. -/
 theorem reduceOpCv_type {n : Name}
     (hn : n = ofReduceNatName ∨ n = ofReduceBoolName) :
     (reduceOpCvA (ofReduceOp n)).type =
-      .forallE .anonymous
+      .forallE
         (.const (reduceElemName (ofReduceOp n)) [])
-        (.const (reduceElemName (ofReduceOp n)) []) ⟨.default, .never⟩ := by
+        (.const (reduceElemName (ofReduceOp n)) []) ⟨.never⟩ := by
   rcases hn with rfl | rfl <;> rfl
 
 /-- The element inductive's pinned type is `Sort 1`. -/

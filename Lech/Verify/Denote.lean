@@ -195,7 +195,7 @@ obligation. -/
 def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
     (d : Nat) → Expr → Option VExpr
   | _, .sort u => some (.sort (u.eval φ))
-  | d, .fvar idx _ _ => some (.bvar (d - 1 - idx))
+  | d, .fvar idx _ => some (.bvar (d - 1 - idx))
   | _, .const n us =>
     match env.find? n with
     | some ci =>
@@ -203,30 +203,30 @@ def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
         some (cval n (Level.substFn φ ci.toConstantVal.levelParams us))
       else none
     | none => none
-  | d, .forallE n ty body m =>
+  | d, .forallE ty body m =>
     match denote cval env φ d ty with
     | none => none
     | some A =>
-      match denote cval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
+      match denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
       | none => none
       | some B => some (.pi A B)
-  | d, .lam n ty body m =>
+  | d, .lam ty body m =>
     match denote cval env φ d ty with
     | none => none
     | some A =>
-      match denote cval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
+      match denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
       | none => none
       | some b => some (.lam A b)
   | d, .app f a =>
     match denote cval env φ d f, denote cval env φ d a with
     | some vf, some va => some (.app vf va)
     | _, _ => none
-  | d, .letE n ty val body =>
+  | d, .letE ty val body =>
     -- structural: a `let` denotes to the layer's own `letE`, *not* to
     -- its zeta reduct.  See "Why `denote` is structural" above.
     match denote cval env φ d ty, denote cval env φ d val with
     | some A, some xv =>
-      match denote cval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
+      match denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
       | none => none
       | some b => some (.letE A xv b)
     | _, _ => none
@@ -276,7 +276,7 @@ rewrite rules every consumer uses. -/
 
 @[simp] theorem denote_fvar (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (d idx : Nat) (n : Name) (ty : Expr) :
-    denote cval env φ d (.fvar idx n ty) = some (.bvar (d - 1 - idx)) := by
+    denote cval env φ d (.fvar idx ty) = some (.bvar (d - 1 - idx)) := by
   rw [denote]
 
 theorem denote_const (cval : TConstVal) (env : Env) (φ : Name → Nat)
@@ -300,32 +300,32 @@ theorem denote_app (cval : TConstVal) (env : Env) (φ : Name → Nat)
 
 theorem denote_forallE (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (d : Nat) (n : Name) (ty body : Expr) (m : BinderMeta) :
-    denote cval env φ d (.forallE n ty body m) =
+    denote cval env φ d (.forallE ty body m) =
       match denote cval env φ d ty with
       | none => none
       | some A =>
-        match denote cval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
+        match denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
         | none => none
         | some B => some (.pi A B) := by
   rw [denote]
 
 theorem denote_lam (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (d : Nat) (n : Name) (ty body : Expr) (m : BinderMeta) :
-    denote cval env φ d (.lam n ty body m) =
+    denote cval env φ d (.lam ty body m) =
       match denote cval env φ d ty with
       | none => none
       | some A =>
-        match denote cval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
+        match denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
         | none => none
         | some b => some (.lam A b) := by
   rw [denote]
 
 theorem denote_letE (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (d : Nat) (n : Name) (ty val body : Expr) :
-    denote cval env φ d (.letE n ty val body) =
+    denote cval env φ d (.letE ty val body) =
       match denote cval env φ d ty, denote cval env φ d val with
       | some A, some xv =>
-        match denote cval env φ (d + 1) (body.instantiate1 (.fvar d n ty)) with
+        match denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
         | none => none
         | some b => some (.letE A xv b)
       | _, _ => none := by

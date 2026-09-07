@@ -127,7 +127,7 @@ theorem iotaCerts_fst (d : Nat) (lic : Bool) :
       (iotaCerts (pairFns r₁ r₂ h) env d lic ty args).val.1 =
         iotaCerts r₁ env d lic ty args
   | _, [] => rfl
-  | .forallE n ty body mb, arg :: rest => by
+  | .forallE ty body mb, arg :: rest => by
     show (if lic && mb.pw.isNever then
         iotaCerts (pairFns r₁ r₂ h) env d lic (body.instantiate1 arg) rest
       else (do
@@ -156,16 +156,16 @@ theorem iotaCerts_fst (d : Nat) (lic : Bool) :
         simp only [↓reduceIte]
         exact iotaCerts_fst d lic (body.instantiate1 arg) rest
       | false => rfl
-  | .bvar _, _ :: _ | .fvar _ _ _, _ :: _ | .sort _, _ :: _
-  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
-  | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+  | .bvar _, _ :: _ | .fvar _ _, _ :: _ | .sort _, _ :: _
+  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _, _ :: _
+  | .letE _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
 
 theorem iotaCerts_snd (d : Nat) (lic : Bool) :
     ∀ (ty : Expr) (args : List Expr),
       (iotaCerts (pairFns r₁ r₂ h) env d lic ty args).val.2 =
         iotaCerts r₂ env d lic ty args
   | _, [] => rfl
-  | .forallE n ty body mb, arg :: rest => by
+  | .forallE ty body mb, arg :: rest => by
     show (if lic && mb.pw.isNever then
         iotaCerts (pairFns r₁ r₂ h) env d lic (body.instantiate1 arg) rest
       else (do
@@ -194,9 +194,9 @@ theorem iotaCerts_snd (d : Nat) (lic : Bool) :
         simp only [↓reduceIte]
         exact iotaCerts_snd d lic (body.instantiate1 arg) rest
       | false => rfl
-  | .bvar _, _ :: _ | .fvar _ _ _, _ :: _ | .sort _, _ :: _
-  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
-  | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+  | .bvar _, _ :: _ | .fvar _ _, _ :: _ | .sort _, _ :: _
+  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _, _ :: _
+  | .letE _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
 
 theorem defEqList_fst (d : Nat) :
     ∀ (as bs : List Expr),

@@ -92,9 +92,9 @@ theorem propext_shapeS {type' : Expr}
     (h : type'.erasePw.eraseNames
       = propextA.type.erasePw.eraseNames) :
     ∃ n₁ n₂ n₃ m₁ m₂ m₃,
-      type' = .forallE n₁ (.sort .zero)
-        (.forallE n₂ (.sort .zero)
-          (.forallE n₃
+      type' = .forallE (.sort .zero)
+        (.forallE (.sort .zero)
+          (.forallE
             (.app (.app (.const iffName []) (.bvar 1)) (.bvar 0))
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.sort .zero)) (.bvar 2)) (.bvar 1)) m₃) m₂) m₁ := by
@@ -140,27 +140,27 @@ theorem inferTypeCore_eqSpineS {fuel d : Nat} {X Y Z bt : Expr}
   subst hb3
   rw [show (Expr.instantiateLevelParams eqA.toConstantVal.levelParams
         [Level.zero.succ] eqA.toConstantVal.type)
-      = .forallE .anonymous (.sort (.succ .zero))
-        (.forallE .anonymous (.bvar 0)
-          (.forallE .anonymous (.bvar 1) (.sort .zero)
-            ⟨.default, .never⟩) ⟨.default, .never⟩)
-        ⟨.default, .never⟩ from rfl] at hw3
+      = .forallE (.sort (.succ .zero))
+        (.forallE (.bvar 0)
+          (.forallE (.bvar 1) (.sort .zero)
+            ⟨.never⟩) ⟨.never⟩)
+        ⟨.never⟩ from rfl] at hw3
   injection Lech.whnf_forallE_eq hw3 with e1 e2 e3 e4
   subst e3
   subst hb2
-  rw [show (Expr.forallE .anonymous (.bvar 0)
-        (.forallE .anonymous (.bvar 1) (.sort .zero)
-          ⟨.default, .never⟩) ⟨.default, .never⟩).instantiate1 X
-      = .forallE .anonymous X
-        (.forallE .anonymous X (.sort .zero)
-          ⟨.default, .never⟩) ⟨.default, .never⟩ from rfl] at hw2
+  rw [show (Expr.forallE (.bvar 0)
+        (.forallE (.bvar 1) (.sort .zero)
+          ⟨.never⟩) ⟨.never⟩).instantiate1 X
+      = .forallE X
+        (.forallE X (.sort .zero)
+          ⟨.never⟩) ⟨.never⟩ from rfl] at hw2
   injection Lech.whnf_forallE_eq hw2 with f1 f2 f3 f4
   subst f3
   subst hb1
-  rw [show (Expr.forallE .anonymous X
-        (.sort .zero) ⟨.default, .never⟩).instantiate1 Y
-      = .forallE .anonymous (X.instantiate1 Y 0)
-        (.sort .zero) ⟨.default, .never⟩ from rfl] at hw1
+  rw [show (Expr.forallE X
+        (.sort .zero) ⟨.never⟩).instantiate1 Y
+      = .forallE (X.instantiate1 Y 0)
+        (.sort .zero) ⟨.never⟩ from rfl] at hw1
   injection Lech.whnf_forallE_eq hw1 with g1 g2 g3 g4
   subst g3
   rfl
@@ -176,9 +176,9 @@ theorem propext_bitsP (hμ : μ.verifiedChecks = true)
     {n₁ n₂ n₃ : Name} {m₁ m₂ m₃ : BinderMeta}
     {F d : Nat} {stype : Expr}
     (hrun : inferTypeCore μ env F d
-      (.forallE n₁ (.sort .zero)
-        (.forallE n₂ (.sort .zero)
-          (.forallE n₃
+      (.forallE (.sort .zero)
+        (.forallE (.sort .zero)
+          (.forallE
             (.app (.app (.const iffName []) (.bvar 1)) (.bvar 0))
             (.app (.app (.app (.const eqName [.succ .zero])
                 (.sort .zero)) (.bvar 2)) (.bvar 1)) m₃) m₂) m₁)
@@ -228,7 +228,7 @@ twin of `Annot/SortCoh/Discharge.lean`'s `inferTypeCore_fvar_out`,
 transcribed here so this file's imports stay at the pin tier's). -/
 theorem inferTypeCore_fvar_outS {f d : Nat} {i : Nat} {n : Name}
     {ty t : Expr}
-    (h : inferTypeCore μ env f d (.fvar i n ty) = .ok t) : t = ty := by
+    (h : inferTypeCore μ env f d (.fvar i ty) = .ok t) : t = ty := by
   cases f with
   | zero => exact nomatch h
   | succ f =>
@@ -248,8 +248,8 @@ The level argument is untouched by either erasure, so the stored
 theorem choice_shapeS {type' : Expr}
     (h : type'.erasePw.eraseNames = choiceA.type.erasePw.eraseNames) :
     ∃ n₁ n₂ m₁ m₂,
-      type' = .forallE n₁ (.sort (.param uN))
-        (.forallE n₂
+      type' = .forallE (.sort (.param uN))
+        (.forallE
           (.app (.const nonemptyName [.param uN]) (.bvar 0))
           (.bvar 1) m₂) m₁ := by
   simp only [choiceA, Expr.erasePw, Expr.eraseNames] at h
@@ -270,8 +270,8 @@ carries it to the outer binder. -/
 theorem choice_bitsP (hμ : μ.verifiedChecks = true)
     {n₁ n₂ : Name} {m₁ m₂ : BinderMeta} {F d : Nat} {stype : Expr}
     (hrun : inferTypeCore μ env F d
-      (.forallE n₁ (.sort (.param uN))
-        (.forallE n₂
+      (.forallE (.sort (.param uN))
+        (.forallE
           (.app (.const nonemptyName [.param uN]) (.bvar 0))
           (.bvar 1) m₂) m₁) = .ok stype) (φ : Name → Nat) :
     (pwBit φ m₁.pw = 0 ↔ φ uN = 0) ∧ (pwBit φ m₂.pw = 0 ↔ φ uN = 0) := by

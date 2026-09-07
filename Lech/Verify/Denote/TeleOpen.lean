@@ -254,7 +254,7 @@ and the checker only ever opens at variables. -/
 theorem stripPis_instantiate1_fvar_isSome_rev {i : Nat} {nm : Name}
     {ty : Expr} :
     ∀ (k : Nat) {e : Expr} (j : Nat),
-      ((e.instantiate1 (.fvar i nm ty) j).stripPis k).isSome = true →
+      ((e.instantiate1 (.fvar i ty) j).stripPis k).isSome = true →
       (e.stripPis k).isSome = true := by
   intro k
   induction k with
@@ -262,7 +262,7 @@ theorem stripPis_instantiate1_fvar_isSome_rev {i : Nat} {nm : Name}
   | succ k ih =>
     intro e j h
     cases e with
-    | forallE n ty' body m =>
+    | forallE ty' body m =>
       simp only [Expr.instantiate1, Expr.stripPis, Option.isSome_map] at h ⊢
       exact ih (j + 1) h
     | bvar l =>
@@ -281,7 +281,7 @@ theorem openPisAtFvars_stripPis :
       openPisAtFvars k e d = some (fvs, body) →
       ∃ bs body₀, e.stripPis k = some (bs, body₀) ∧
         fvs.length = k ∧
-        (∀ j, j < k → ∃ nm ty, fvs[j]? = some (.fvar (d + j) nm ty)) ∧
+        (∀ j, j < k → ∃ nm ty, fvs[j]? = some (.fvar (d + j) ty)) ∧
         Expr.ErasedEq body
           (Expr.instSeq (openFvars d k) (k - 1) body₀) := by
   intro k
@@ -295,9 +295,9 @@ theorem openPisAtFvars_stripPis :
   | succ k ih =>
     intro e d fvs body h
     match e, h with
-    | .forallE nm dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [openPisAtFvars] at h
-      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d nm dom))
+      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d dom))
           (d + 1) with
       | none => rw [hop] at h; exact nomatch h
       | some p =>
@@ -326,8 +326,8 @@ theorem openPisAtFvars_stripPis :
           simp only [Nat.zero_add]
           exact Expr.instSeq_erasedEq _ (k - 1)
             (Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl _)
-              (show Expr.ErasedEq (Expr.fvar d nm dom)
-                (Expr.fvar d Name.anonymous (.sort .zero)) from rfl))
+              (show Expr.ErasedEq (Expr.fvar d dom)
+                (Expr.fvar d (.sort .zero)) from rfl))
 
 /-! ## The opened statement -/
 
@@ -353,9 +353,9 @@ theorem openPisAtFvars_instSeq :
   | succ k ih =>
     intro e d fvs body bs body₀ h hs
     match e, h with
-    | .forallE nm dom bodyE mb, h =>
+    | .forallE dom bodyE mb, h =>
       simp only [openPisAtFvars] at h
-      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d nm dom))
+      cases hop : openPisAtFvars k (bodyE.instantiate1 (.fvar d dom))
           (d + 1) with
       | none => rw [hop] at h; exact nomatch h
       | some p =>
@@ -372,17 +372,17 @@ theorem openPisAtFvars_instSeq :
           obtain ⟨-, rfl⟩ := hs
           obtain ⟨q1, hq1⟩ := Option.isSome_iff_exists.mp
             (Expr.stripPis_instantiate1_isSome
-              (v := .fvar d nm dom) k 0 (by rw [hs1]; rfl))
+              (v := .fvar d dom) k 0 (by rw [hs1]; rfl))
           obtain ⟨hbody1, -⟩ := Expr.stripPis_instantiate1_eq k 0 hs1 hq1
           have hihb := ih hop (show Expr.stripPis k
-            (bodyE.instantiate1 (Expr.fvar d nm dom)) =
+            (bodyE.instantiate1 (Expr.fvar d dom)) =
               some (q1.1, q1.2) from by rw [hq1])
           rw [Nat.zero_add] at hbody1
           rw [hihb, hbody1]
-          show _ = Expr.instSeq (Expr.fvar d nm dom :: p.1) (k + 1 - 1) _
-          rw [show Expr.instSeq (Expr.fvar d nm dom :: p.1) (k + 1 - 1)
+          show _ = Expr.instSeq (Expr.fvar d dom :: p.1) (k + 1 - 1) _
+          rw [show Expr.instSeq (Expr.fvar d dom :: p.1) (k + 1 - 1)
               p1.2 = Expr.instSeq p.1 (k + 1 - 1 - 1)
-              (p1.2.instantiate1 (.fvar d nm dom) (k + 1 - 1)) from rfl,
+              (p1.2.instantiate1 (.fvar d dom) (k + 1 - 1)) from rfl,
             Nat.add_sub_cancel]
 
 /-- Indexing a prefix of a list by `range`. -/

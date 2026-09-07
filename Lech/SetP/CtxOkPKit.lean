@@ -42,7 +42,7 @@ theorem length {d : Nat} {Δa : List AVExpr} {e : Expr}
 package at the leaf itself. -/
 theorem fvar_leaf {d idx : Nat} {n : Name} {ty : Expr}
     {Δa : List AVExpr}
-    (h : CtxOkP m φ d Δa (.fvar idx n ty)) :
+    (h : CtxOkP m φ d Δa (.fvar idx ty)) :
     idx < d ∧ Expr.fvarsBelow idx ty ∧
       ∃ tya Aa,
         denoteP m.acval env φ d ty = some tya ∧
@@ -109,35 +109,35 @@ theorem app_arg {d : Nat} {Δa : List AVExpr} {f x : Expr}
 
 theorem forallE_ty {d : Nat} {Δa : List AVExpr} {n : Name}
     {ty body : Expr} {mb : Lech.BinderMeta}
-    (hC : CtxOkP m φ d Δa (.forallE n ty body mb)) :
+    (hC : CtxOkP m φ d Δa (.forallE ty body mb)) :
     CtxOkP m φ d Δa ty :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_left _ hl
 
 theorem forallE_body {d : Nat} {Δa : List AVExpr} {n : Name}
     {ty body : Expr} {mb : Lech.BinderMeta}
-    (hC : CtxOkP m φ d Δa (.forallE n ty body mb)) :
+    (hC : CtxOkP m φ d Δa (.forallE ty body mb)) :
     CtxOkP m φ d Δa body :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl
 
 theorem lam_ty {d : Nat} {Δa : List AVExpr} {n : Name}
     {ty body : Expr} {mb : Lech.BinderMeta}
-    (hC : CtxOkP m φ d Δa (.lam n ty body mb)) :
+    (hC : CtxOkP m φ d Δa (.lam ty body mb)) :
     CtxOkP m φ d Δa ty :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_left _ hl
 
 theorem lam_body {d : Nat} {Δa : List AVExpr} {n : Name}
     {ty body : Expr} {mb : Lech.BinderMeta}
-    (hC : CtxOkP m φ d Δa (.lam n ty body mb)) :
+    (hC : CtxOkP m φ d Δa (.lam ty body mb)) :
     CtxOkP m φ d Δa body :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl
 
 theorem letE_ty {d : Nat} {Δa : List AVExpr} {n : Name}
     {ty val body : Expr}
-    (hC : CtxOkP m φ d Δa (.letE n ty val body)) :
+    (hC : CtxOkP m φ d Δa (.letE ty val body)) :
     CtxOkP m φ d Δa ty :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]
@@ -145,7 +145,7 @@ theorem letE_ty {d : Nat} {Δa : List AVExpr} {n : Name}
 
 theorem letE_val {d : Nat} {Δa : List AVExpr} {n : Name}
     {ty val body : Expr}
-    (hC : CtxOkP m φ d Δa (.letE n ty val body)) :
+    (hC : CtxOkP m φ d Δa (.letE ty val body)) :
     CtxOkP m φ d Δa val :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]
@@ -153,7 +153,7 @@ theorem letE_val {d : Nat} {Δa : List AVExpr} {n : Name}
 
 theorem letE_body {d : Nat} {Δa : List AVExpr} {n : Name}
     {ty val body : Expr}
-    (hC : CtxOkP m φ d Δa (.letE n ty val body)) :
+    (hC : CtxOkP m φ d Δa (.letE ty val body)) :
     CtxOkP m φ d Δa body :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl
@@ -166,7 +166,7 @@ theorem proj_arg {d : Nat} {Δa : List AVExpr} {sn : Name}
 
 /-- A leaf's annotation is itself covered. -/
 theorem fvar_ty {d idx : Nat} {Δa : List AVExpr} {n : Name}
-    {ty : Expr} (hC : CtxOkP m φ d Δa (.fvar idx n ty)) :
+    {ty : Expr} (hC : CtxOkP m φ d Δa (.fvar idx ty)) :
     CtxOkP m φ d Δa ty :=
   hC.of_subset fun _ hl => by
     rw [Expr.fvarLeaves]; exact List.mem_cons_of_mem _ hl
@@ -206,22 +206,22 @@ private theorem fvarsBelow_of_leavesP : ∀ (e : Expr) {d : Nat},
     (∀ l ∈ e.fvarLeaves, l.1 < d) → Expr.fvarsBelow d e := by
   intro e
   induction e with
-  | fvar idx n ty ih =>
+  | fvar idx ty ih =>
     intro d h
     exact h (idx, n, ty) (by simp [Lech.Expr.fvarLeaves])
   | app f a ihf iha =>
     intro d h
     exact ⟨ihf (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
       iha (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
-  | lam _ ty b _ iht ihb =>
+  | lam ty b _ iht ihb =>
     intro d h
     exact ⟨iht (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
       ihb (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
-  | forallE _ ty b _ iht ihb =>
+  | forallE ty b _ iht ihb =>
     intro d h
     exact ⟨iht (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
       ihb (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
-  | letE _ t v b iht ihv ihb =>
+  | letE t v b iht ihv ihb =>
     intro d h
     exact ⟨iht (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
       ihv (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
@@ -241,7 +241,7 @@ private theorem wScoped_of_leavesP : ∀ (e : Expr) {d : Nat},
     Expr.WScoped d e := by
   intro e
   induction e with
-  | fvar idx n ty ih =>
+  | fvar idx ty ih =>
     intro d hfb h
     rw [Lech.Expr.WScoped]
     refine ⟨hfb, ih (h (idx, n, ty) (by simp [Lech.Expr.fvarLeaves]))
@@ -253,21 +253,21 @@ private theorem wScoped_of_leavesP : ∀ (e : Expr) {d : Nat},
         (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
       iha hfb.2
         (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
-  | lam _ ty b _ iht ihb =>
+  | lam ty b _ iht ihb =>
     intro d hfb h
     rw [Lech.Expr.WScoped]
     exact ⟨iht hfb.1
         (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
       ihb hfb.2
         (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
-  | forallE _ ty b _ iht ihb =>
+  | forallE ty b _ iht ihb =>
     intro d hfb h
     rw [Lech.Expr.WScoped]
     exact ⟨iht hfb.1
         (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl])),
       ihb hfb.2
         (fun l hl => h l (by simp [Lech.Expr.fvarLeaves, hl]))⟩
-  | letE _ t v b iht ihv ihb =>
+  | letE t v b iht ihv ihb =>
     intro d hfb h
     rw [Lech.Expr.WScoped]
     exact ⟨iht hfb.1
@@ -337,7 +337,7 @@ theorem openCongC {d : Nat} {Δa : List AVExpr} {body ty : Expr}
     (hdom : ∀ ρ : Nat → V, Sat2 V Δa ρ →
       interp2 V ρ ta₁ = interp2 V ρ ta₂) :
     CtxOkP m φ (d + 1) (ta₁ :: Δa)
-      (body.instantiate1 (.fvar d n ty)) := by
+      (body.instantiate1 (.fvar d ty)) := by
   have hwt : Expr.WScoped d ty := ht.wScoped
   refine ⟨by simp [hb.1], fun l hl => ?_⟩
   rcases Lech.Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
@@ -374,7 +374,7 @@ theorem openCong {d : Nat} {Δa : List AVExpr} {body ty : Expr}
     (hdom : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta₁ →
       AnnotOkP V ρ ta₂ → interp2 V ρ ta₁ = interp2 V ρ ta₂) :
     CtxOkP m φ (d + 1) (ta₁ :: Δa)
-      (body.instantiate1 (.fvar d n ty)) :=
+      (body.instantiate1 (.fvar d ty)) :=
   openCongC hb ht hty hok₂ fun ρ hρ => hdom ρ hρ (hok₁ ρ hρ) (hok₂ ρ hρ)
 
 /-- **`CtxOk2Open`'s body in the P currency.**  Argument order is
@@ -386,7 +386,7 @@ theorem openS {d : Nat} {Δa : List AVExpr} {n : Name}
     (hty : denoteP m.acval env φ d ty = some ta)
     (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) :
     CtxOkP m φ (d + 1) (ta :: Δa)
-      (body.instantiate1 (.fvar d n ty)) :=
+      (body.instantiate1 (.fvar d ty)) :=
   openCongC hb ht hty hok fun _ _ => rfl
 
 end CtxOkP
@@ -402,7 +402,7 @@ theorem CtxOkP.open {d : Nat} {Δa : List AVExpr} {body ty : Expr}
     (hty : denoteP m.acval env φ d ty = some ta)
     (hok : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ ta) :
     CtxOkP m φ (d + 1) (ta :: Δa)
-      (body.instantiate1 (.fvar d n ty)) :=
+      (body.instantiate1 (.fvar d ty)) :=
   CtxOkP.openS ht hb hty hok
 
 end Lech.SetP

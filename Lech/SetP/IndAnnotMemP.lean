@@ -79,7 +79,7 @@ theorem annotPFrameEqP {m : EnvS2Core V env}
     (hcinst : Expr.instPisAt (psR ++ fvs.drop rP) cvjR
       = some (cdoms, cres))
     (hshapeS : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     -- the two ladders, fired at the ambient context
     {Δa : List AVExpr}
     (hpre : ∀ n, n < rP → ∀ ρ' : Nat → V, Sat2 V Δa ρ' →
@@ -184,7 +184,7 @@ theorem annotPFrameEqP {m : EnvS2Core V env}
       exact h
     refine ⟨(ΓP.getD (rP - 1 - i) default).liftN (rP + cnF - i) 0, ?_, ?_⟩
     · rw [hgetP, hp2,
-        show Expr.fvarTypeD (Expr.fvar i nm ty) = ty from rfl,
+        show Expr.fvarTypeD (Expr.fvar i ty) = ty from rfl,
         denoteP_lift m.acval_closed hwsTy (rP + cnF) (by omega), hdomI]
       rfl
     · intro ρ' hρ'
@@ -224,7 +224,7 @@ theorem annotPFrameEqP {m : EnvS2Core V env}
         = some ((Γx.getD (cnF - 1 - j) default).liftN
             (rP + cnF - (rP + j)) 0) := by
       rw [hgetX, hx2,
-        show Expr.fvarTypeD (Expr.fvar (rP + j) nm ty) = ty from rfl,
+        show Expr.fvarTypeD (Expr.fvar (rP + j) ty) = ty from rfl,
         denoteP_lift m.acval_closed hwsTy (rP + cnF) (by omega), hdomI]
       rfl
     refine ⟨(Γx.getD (cnF - 1 - j) default).liftN
@@ -257,12 +257,12 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
     -- the public frame
     {pfvs : List Expr} (hPlen : pfvs.length = K)
     (hPshape : ∀ (i : Nat) (x : Expr), pfvs[i]? = some x →
-      ∃ nm ty, x = Expr.fvar i nm ty)
+      ∃ nm ty, x = Expr.fvar i ty)
     (hPws : ∀ x ∈ pfvs, Expr.WScoped K x)
     (hPleafClosed : ∀ l, (∃ x ∈ pfvs, l ∈ x.fvarLeaves) →
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ pfvs)
+      Expr.fvar l.1 l.2.2 ∈ pfvs)
     (hlbP : ∀ (i : Nat) (nm : Name) (ty : Expr),
-      Expr.fvar i nm ty ∈ pfvs → ty.looseBVarsBounded 0 = true)
+      Expr.fvar i ty ∈ pfvs → ty.looseBVarsBounded 0 = true)
     -- the statement tower and the ambient context
     {Γs : List AVExpr} {Δa : List AVExpr} (hΔalen : Δa.length = K)
     (hΔaent : ∀ i, i < K →
@@ -297,7 +297,7 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
     rw [instLamsAt_length _ hinstLam, hPlen]
   -- the frame's own bounds
   have hPlt : ∀ l : Nat × Name × Expr,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ pfvs → l.1 < K := by
+      Expr.fvar l.1 l.2.2 ∈ pfvs → l.1 < K := by
     intro l hl
     have hw := hPws _ hl
     simp only [Expr.WScoped] at hw
@@ -380,7 +380,7 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
   rcases hpk : pfvs[k]? with _ | pk
   · rw [List.getElem?_eq_none_iff, hPlen] at hpk; omega
   obtain ⟨nm, ty, rfl⟩ := hPshape k pk hpk
-  have hgpk : pfvs.getD k default = Expr.fvar k nm ty := by
+  have hgpk : pfvs.getD k default = Expr.fvar k ty := by
     rw [List.getD, hpk]
     rfl
   rcases hld : ldomsL[k]? with _ | ld
@@ -412,14 +412,14 @@ theorem annotMemP {m : EnvS2Core V env} {F : Nat}
       hdomsLam k ld hld]
     rfl
   -- leaves and frames of the two comparands
-  have hmemPk : Expr.fvar k nm ty ∈ pfvs := List.mem_of_getElem? hpk
+  have hmemPk : Expr.fvar k ty ∈ pfvs := List.mem_of_getElem? hpk
   have hleafA : ∀ l ∈ ty.fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ pfvs := by
+      Expr.fvar l.1 l.2.2 ∈ pfvs := by
     intro l hl
     exact hPleafClosed l ⟨_, hmemPk, by
       rw [Expr.fvarLeaves]; exact List.mem_cons_of_mem _ hl⟩
   have hleafB : ∀ l ∈ ld.fvarLeaves,
-      Expr.fvar l.1 l.2.1 l.2.2 ∈ pfvs := by
+      Expr.fvar l.1 l.2.2 ∈ pfvs := by
     intro l hl
     rcases instLamsAt_leaves _ hinstLam l
       (Or.inl ⟨_, List.mem_of_getElem? hld, hl⟩) with h0 | ⟨a, ha, hla⟩

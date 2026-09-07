@@ -72,7 +72,7 @@ theorem denote_renameConsts {f : Name → Name} (hro : RenameOkT cval env f) :
       denote cval env φ d (e.renameConsts f) = denote cval env φ d e
   | .bvar _, _ => by simp [Expr.renameConsts]
   | .sort _, _ => by simp [Expr.renameConsts]
-  | .fvar _ _ _, _ => by simp [Expr.renameConsts]
+  | .fvar _ _, _ => by simp [Expr.renameConsts]
   | .lit (.natVal _), _ => by rw [Expr.renameConsts]
   | .lit (.strVal _), _ => by rw [Expr.renameConsts]
   | .const n ws, d => by
@@ -94,21 +94,21 @@ theorem denote_renameConsts {f : Name → Name} (hro : RenameOkT cval env f) :
     -- the struct name is fixed under renaming, so both readings
     -- consult the same entry
     simp only [Expr.renameConsts, denote_proj, denote_renameConsts hro e d]
-  | .forallE n ty body m, d => by
+  | .forallE ty body m, d => by
     simp only [Expr.renameConsts, denote_forallE]
     rw [← Expr.renameConsts_instantiate1]
     rw [denote_renameConsts hro ty d,
-      denote_renameConsts hro (body.instantiate1 (.fvar d n ty)) (d + 1)]
-  | .lam n ty body m, d => by
+      denote_renameConsts hro (body.instantiate1 (.fvar d ty)) (d + 1)]
+  | .lam ty body m, d => by
     simp only [Expr.renameConsts, denote_lam]
     rw [← Expr.renameConsts_instantiate1]
     rw [denote_renameConsts hro ty d,
-      denote_renameConsts hro (body.instantiate1 (.fvar d n ty)) (d + 1)]
-  | .letE n ty val body, d => by
+      denote_renameConsts hro (body.instantiate1 (.fvar d ty)) (d + 1)]
+  | .letE ty val body, d => by
     simp only [Expr.renameConsts, denote_letE]
     rw [← Expr.renameConsts_instantiate1]
     rw [denote_renameConsts hro ty d, denote_renameConsts hro val d,
-      denote_renameConsts hro (body.instantiate1 (.fvar d n ty)) (d + 1)]
+      denote_renameConsts hro (body.instantiate1 (.fvar d ty)) (d + 1)]
   termination_by e => e.sizeB
   decreasing_by
     all_goals first
@@ -150,16 +150,16 @@ their binders were called and whatever they were annotated with:
 `renameConsts` reaches only the annotation, and erasure compares only
 the index.  This is what lets one alignment step open *both* sides. -/
 theorem RenEqT.fvar {f : Name → Name} {i : Nat} {n n' : Name}
-    {ty ty' : Expr} : RenEqT f (.fvar i n ty) (.fvar i n' ty') := by
-  show Expr.ErasedEq (.fvar i n (ty.renameConsts f)) (.fvar i n' ty')
+    {ty ty' : Expr} : RenEqT f (.fvar i ty) (.fvar i ty') := by
+  show Expr.ErasedEq (.fvar i (ty.renameConsts f)) (.fvar i ty')
   rfl
 
 /-- The first `k` domains of two `∀`-telescopes are related by the
 renaming; their residuals are unconstrained. -/
 def PiDomsRenEqT (f : Name → Name) : Nat → Expr → Expr → Prop
   | 0, _, _ => True
-  | k + 1, .forallE _ d₁ b₁ _, e₂ =>
-    ∃ n₂ d₂ b₂ m₂, e₂ = .forallE n₂ d₂ b₂ m₂ ∧ RenEqT f d₁ d₂ ∧
+  | k + 1, .forallE d₁ b₁ _, e₂ =>
+    ∃ n₂ d₂ b₂ m₂, e₂ = .forallE d₂ b₂ m₂ ∧ RenEqT f d₁ d₂ ∧
       PiDomsRenEqT f k b₁ b₂
   | _ + 1, _, _ => False
 
@@ -175,7 +175,7 @@ theorem PiDomsRenEqT.instantiate1 {f : Name → Name} {a₁ a₂ : Expr}
   | succ k ih =>
     intro e₁ e₂ j h
     match e₁, h with
-    | .forallE n₁ d₁ b₁ m₁, h =>
+    | .forallE d₁ b₁ m₁, h =>
       obtain ⟨n₂, d₂, b₂, m₂, rfl, hd, hb⟩ := h
       exact ⟨n₂, d₂.instantiate1 a₂ j, b₂.instantiate1 a₂ (j + 1), m₂, rfl,
         RenEqT.instantiate1 hd ha, ih (j + 1) hb⟩
@@ -195,7 +195,7 @@ theorem PiDomsRenEqT.of_pointwise {f : Name → Name} :
   | succ k ih =>
     intro e₁ e₂ bs₁ bs₂ body₁ body₂ h1 h2 hdoms
     match e₁, e₂, h1, h2 with
-    | .forallE n₁ d₁ b₁ m₁, .forallE n₂ d₂ b₂ m₂, h1, h2 =>
+    | .forallE d₁ b₁ m₁, .forallE d₂ b₂ m₂, h1, h2 =>
       simp only [Expr.stripPis] at h1 h2
       cases hs1 : b₁.stripPis k with
       | none => rw [hs1] at h1; exact nomatch h1
@@ -233,7 +233,7 @@ theorem denote_renameConsts_resolve {f : Name → Name}
       denote cval env φ d (e.renameConsts f) = denote cval env φ d e
   | .bvar _, _, _ => by simp [Expr.renameConsts]
   | .sort _, _, _ => by simp [Expr.renameConsts]
-  | .fvar _ _ _, _, _ => by simp [Expr.renameConsts]
+  | .fvar _ _, _, _ => by simp [Expr.renameConsts]
   | .lit (.natVal _), _, _ => by rw [Expr.renameConsts]
   | .lit (.strVal _), _, _ => by rw [Expr.renameConsts]
   | .const n ws, d, hr => by
@@ -259,30 +259,30 @@ theorem denote_renameConsts_resolve {f : Name → Name}
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denote_proj,
       denote_renameConsts_resolve hup hval e d hr.2]
-  | .forallE n ty body m, d, hr => by
+  | .forallE ty body m, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denote_forallE]
     rw [← Expr.renameConsts_instantiate1]
     rw [denote_renameConsts_resolve hup hval ty d hr.1,
       denote_renameConsts_resolve hup hval
-        (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (body.instantiate1 (.fvar d ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
-  | .lam n ty body m, d, hr => by
+  | .lam ty body m, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denote_lam]
     rw [← Expr.renameConsts_instantiate1]
     rw [denote_renameConsts_resolve hup hval ty d hr.1,
       denote_renameConsts_resolve hup hval
-        (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (body.instantiate1 (.fvar d ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
-  | .letE n ty val body, d, hr => by
+  | .letE ty val body, d, hr => by
     simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denote_letE]
     rw [← Expr.renameConsts_instantiate1]
     rw [denote_renameConsts_resolve hup hval ty d hr.1.1,
       denote_renameConsts_resolve hup hval val d hr.1.2,
       denote_renameConsts_resolve hup hval
-        (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (body.instantiate1 (.fvar d ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1.1 0 hr.2)]
   termination_by e => e.sizeB
   decreasing_by
