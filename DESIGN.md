@@ -55880,3 +55880,29 @@ shaped block and the five Mathlib cones accepting on route `fix`.
 WHY the direct route: no certification tax (a generated `_model`
 family would be checked declaration by declaration), one route for
 all recursive blocks, no generated family to maintain in lockstep.
+
+**Addendum (user, 2026-09-07) — the abstract membership argument for
+Stage B, and the bookkeeping choice.**  Let `T` be the path-code
+space, a MEMBER of the universe: the power set of `List (Σ a, B a) × A`-
+shaped pairs built from the field domains by the basis operations.
+Transport the tower functor along the coding so that a constructor
+step on coded subtrees yields a coded tree (prefix each subtree's
+paths with its branch, add the root label): then `F : P(T) → P(T)` and
+`μ := ⋂ {X ⊆ T | F X ⊆ X}` is Knaster–Tarski in the complete lattice
+`P(T)` — a nonempty family (`T` itself is a pre-fixed point), the
+fixed-point equation and the induction principle as usual, and `μ ⊆ T`
+so `μ ∈ univ` by power-set closure.  No ordinals, no cardinal
+arithmetic, no ω-iterate, no case split.  Bookkeeping choice (mine,
+by cost against what is landed): **(ii) elements stay the tagged
+tuples of the sum route and the coding is an INJECTION into `T`**,
+defined by the same membership recursion as the recursor and
+injective by lfp induction — the landed identification of the fibres
+with the sum route's restricted tagged union (`ChainsRealI`,
+`fixFamI_app_eq_sum`, every P-tier reading of a constructor and a
+rule) stays untouched, and the bound arrives through the injection
+alone; (i) (elements ARE codes) would re-route every fibre
+identification through the coding.  The generic closure-witness lemma
+is stated once for arbitrary constructor data and replaces
+`XChainsOk.hwit`.  Env-level invariant: NOT needed — only the
+membership of denotations is used; nothing about the checker's
+environment enters the argument.  To be executed in Stage B, after A2.

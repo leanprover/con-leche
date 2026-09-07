@@ -324,33 +324,88 @@ theorem consList_frKSpine (nP n nIdx : Nat) (ρ₀ : Nat → V) :
 
 /-! ## The inductive hypothesis arguments -/
 
+/-- `substProj` under `m` binders: substitute the `i` field variables
+sitting `m` binders up by the projections of the payload below them. -/
+def substProjAt (m : Nat) : Nat → AVExpr → AVExpr
+  | 0, e => e
+  | i + 1, e => substProjAt m i (e.inst (projAV i (.bvar (i + m))) m)
+
+omit [SetTheory V] in
+theorem substProjAt_zero : ∀ (i : Nat) (e : AVExpr), substProjAt 0 i e = substProj i e
+  | 0, _ => rfl
+  | i + 1, e => by
+    show substProjAt 0 i (e.inst (projAV i (.bvar (i + 0))) 0) = substProj i (e.inst (projAV i (.bvar i)))
+    rw [Nat.add_zero]
+    exact substProjAt_zero i _
+
+/-- A recursive field's telescope at the payload frame: binder `k`'s
+domain lifted past the `(p⃗, M, m⃗)` block under the `i` field variables
+and the `k` earlier telescope binders, the field variables replaced by
+the payload's projections. -/
+def ihTeleAt (nIdx n D i : Nat) (tl : List (Nat × Nat × AVExpr)) : List (Nat × Nat × AVExpr) :=
+  (List.range tl.length).map fun k =>
+    let d := tl.getD k default
+    (d.1, d.2.1, substProjAt k i (d.2.2.liftN (D + nIdx + n + 2) (i + k)))
+
+omit [SetTheory V] in
+@[simp] theorem ihTeleAt_nil (nIdx n D i : Nat) : ihTeleAt nIdx n D i [] = [] := rfl
+
 /-- The ih argument for recursive field `i` at the payload frame (depth
-`D + 1`): the unfolded function at the `(p⃗, M, m⃗)` block, the field's
-index expressions (read at the payload's projections) and the field. -/
-def ihArgAV (nP n nIdx D i : Nat) (Eis : List AVExpr) : AVExpr :=
-  AVExpr.mkAppN (.bvar (D + 1 + nIdx + n + 1 + nP))
-    (idxVarsAV (nP + 1 + n) (D + 1 + nIdx) ++
-      Eis.map (fun E => substProj i (E.liftN (D + nIdx + n + 2) i)) ++ [projAV i (.bvar 0)])
+`D + 1`): under the field's telescope (a λ-tower at the elimination
+level `ℓ`, empty at a finitary field), the unfolded function at the
+`(p⃗, M, m⃗)` block, the field's index expressions (read at the
+payload's projections, under the telescope) and the field applied to
+the telescope's variables — `λ a⃗, r p⃗ M m⃗ e⃗_i(a⃗) (f_i a⃗)`. -/
+def ihArgAV (ℓ nP n nIdx D i : Nat) (tl : List (Nat × Nat × AVExpr)) (Eis : List AVExpr) : AVExpr :=
+  let m := tl.length
+  mkLamsC ℓ (ihTeleAt nIdx n D i tl)
+    (AVExpr.mkAppN (.bvar (D + 1 + nIdx + n + 1 + nP + m))
+      (idxVarsAV (nP + 1 + n) (D + 1 + nIdx + m) ++
+        Eis.map (fun E => substProjAt m i (E.liftN (D + nIdx + n + 2) (i + m))) ++
+        [AVExpr.mkAppN (projAV i (.bvar m)) (teleVarsAV m)]))
+
+omit [SetTheory V] in
+/-- At a finitary field the ih argument is the function at the block,
+the index expressions and the field. -/
+theorem ihArgAV_nil (ℓ nP n nIdx D i : Nat) (Eis : List AVExpr) :
+    ihArgAV ℓ nP n nIdx D i [] Eis
+      = AVExpr.mkAppN (.bvar (D + 1 + nIdx + n + 1 + nP))
+          (idxVarsAV (nP + 1 + n) (D + 1 + nIdx) ++
+            Eis.map (fun E => substProj i (E.liftN (D + nIdx + n + 2) i)) ++ [projAV i (.bvar 0)]) := by
+  simp only [ihArgAV, ihTeleAt_nil, mkLamsC, List.map_nil, mkLamsAV, List.length_nil, Nat.add_zero,
+    substProjAt_zero, teleVarsAV, List.range_zero, AVExpr.mkAppN]
 
 /-- The ih arguments of constructor `j`. -/
-def ihArgsI (nP n nIdx : Nat) (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr)))
-    (ar : Nat → Nat) (D j : Nat) : List AVExpr :=
-  (recIdx (rss.getD j []) (ar j)).map fun i => ihArgAV nP n nIdx D i ((Eiss.getD j []).getD i [])
-
-/-- The ih domains at a field spine: the motive at the field's index
-values, at the field. -/
-noncomputable def ihDomsI (ρp : Nat → V) (M : V) (rss : List (List Bool))
-    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (ar : Nat → Nat) (j : Nat) (fs : List V) : List V :=
+def ihArgsI (ℓ nP n nIdx : Nat) (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AVExpr))))
+    (Eiss : List (List (List AVExpr))) (ar : Nat → Nat) (D j : Nat) : List AVExpr :=
   (recIdx (rss.getD j []) (ar j)).map fun i =>
-    SetTheory.app ((((Eiss.getD j []).getD i []).map (interp2 V (consList (fs.take i) ρp))).foldl
-      SetTheory.app M) (fs.getD i pt)
+    ihArgAV ℓ nP n nIdx D i ((tlss.getD j []).getD i []) ((Eiss.getD j []).getD i [])
 
-/-- The ih values at a payload: the function at the spine. -/
-noncomputable def ihValsI (ρp : Nat → V) (rV : V) (kspine : List V) (rss : List (List Bool))
-    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (ar : Nat → Nat) (j : Nat) (y : V) : List V :=
+/-- The ih domains at a field spine: under the field's telescope (a
+nested product at the elimination level `ℓ`), the motive at the
+field's index values at the field applied to the telescope's values —
+at a finitary field the motive at the index values at the field. -/
+noncomputable def ihDomsI (ℓ : Nat) (ρp : Nat → V) (M : V) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr)))
+    (ar : Nat → Nat) (j : Nat) (fs : List V) : List V :=
   (recIdx (rss.getD j []) (ar j)).map fun i =>
-    (kspine ++ (((Eiss.getD j []).getD i []).map (interp2 V (consList (projList i y) ρp)))
-      ++ [projS i y]).foldl SetTheory.app rV
+    piTele ℓ (teleOfFields (consList (fs.take i) ρp) (((tlss.getD j []).getD i []).map (·.2.2)))
+      (fun as => SetTheory.app
+        ((((Eiss.getD j []).getD i []).map (interp2 V (consList as (consList (fs.take i) ρp)))).foldl
+          SetTheory.app M)
+        (as.foldl SetTheory.app (fs.getD i pt))) []
+
+/-- The ih values at a payload: under the field's telescope (a λ-tower
+at the elimination level `ℓ`), the function at the spine and the field
+applied to the telescope's values. -/
+noncomputable def ihValsI (ℓ : Nat) (ρp : Nat → V) (rV : V) (kspine : List V) (rss : List (List Bool))
+    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr)))
+    (ar : Nat → Nat) (j : Nat) (y : V) : List V :=
+  (recIdx (rss.getD j []) (ar j)).map fun i =>
+    lamTower ℓ (consList (projList i y) ρp) ((tlss.getD j []).getD i []) fun σ' =>
+      (kspine ++ (((Eiss.getD j []).getD i []).map (interp2 V σ'))
+        ++ [(frameIdx ((tlss.getD j []).getD i []).length σ').foldl SetTheory.app (projS i y)]).foldl
+        SetTheory.app rV
 
 section IhFacts
 
@@ -415,15 +470,14 @@ end IhFacts
 /-- The real-chain relation, walked down to a recursive position along a
 fitting field spine: the index expressions there are graded and fit,
 and the real domain reads to the carrier at their tuple. -/
-theorem chainRealI_at {u : Nat} {ρp : Nat → V} {Ids : List AVExpr} {μ : V} {rs : List Bool}
+theorem chainRealI_at {u w : Nat} {ρp : Nat → V} {Ids : List AVExpr} {μ : V} {rs : List Bool}
     {tls : List (List (Nat × Nat × AVExpr))} {Eis : List (List AVExpr)} :
     ∀ (Fs₀ Fs : List AVExpr) (i₀ : Nat) (as fs : List V), as.length = i₀ →
-      ChainRealI μ u ρp Ids rs tls Eis i₀ as Fs₀ Fs → SpineFit (consList as ρp) Fs fs →
+      ChainRealI μ u w ρp Ids rs tls Eis i₀ as Fs₀ Fs → SpineFit (consList as ρp) Fs fs →
       ∀ l, l < Fs.length → rs.getD (i₀ + l) false = true →
-        (∀ E ∈ Eis.getD (i₀ + l) [], AnnotOk2 V (consList (as ++ fs.take l) ρp) E) ∧
-        SpineFit ρp Ids ((Eis.getD (i₀ + l) []).map (interp2 V (consList (as ++ fs.take l) ρp))) ∧
+        SlotFit u w ρp Ids (tls.getD (i₀ + l) []) (Eis.getD (i₀ + l) []) (as ++ fs.take l) ∧
         interp2 V (consList (as ++ fs.take l) ρp) (Fs.getD l default)
-          = SetTheory.app μ (tupW u ((Eis.getD (i₀ + l) []).map (interp2 V (consList (as ++ fs.take l) ρp))))
+          = slotSet w u (consList (as ++ fs.take l) ρp) (tls.getD (i₀ + l) []) (Eis.getD (i₀ + l) []) μ
   | [], [], _, _, _, _, _, _, _, hl, _ => absurd hl (Nat.not_lt_zero _)
   | [], _ :: _, _, _, _, _, hc, _, _, _, _ => hc.elim
   | _ :: _, [], _, _, _, _, hc, _, _, _, _ => hc.elim
@@ -471,11 +525,11 @@ structure FixKI₀ (ℓ w u : Nat) (ρ₀ : Nat → V) (Fss Ess Fss₀ : List (L
   hyp : RecHypI ℓ w ρ₀ Fss Ess Ids
     (fun is => SetTheory.app
       (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss tlss Eiss Fss₀ Ess) (tupW u is))
-    (ihDomsI (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀) rss tlss Eiss
+    (ihDomsI ℓ (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀) rss tlss Eiss
       (fun j => (Fss.getD j []).length))
   hX : XChainsOk u w (frP Fss.length Ids.length ρ₀) Ids rss tlss Eiss Fss₀ Ess
   hreal : ChainsRealI (fixFamI u w (frP Fss.length Ids.length ρ₀) Ids Ids.length rss tlss Eiss Fss₀ Ess)
-    u (frP Fss.length Ids.length ρ₀) Ids rss tlss Eiss Fss₀ Fss Ess
+    u w (frP Fss.length Ids.length ρ₀) Ids rss tlss Eiss Fss₀ Fss Ess
 
 /-- `FixKI₀` plus the unfolded function's typing at the recursor's type
 (a closed Π-tower over the binder data `rds`, read at the frame below
@@ -575,11 +629,11 @@ split (graph regime). -/
 theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss rds) (hw : w ≠ 0)
     {D : Nat} {σ : Nat → V} (hfr : RecFrameS D ρ₀ σ) {j : Nat} (hj : j < Fss.length) :
     IhArgsOk w ρ₀ σ Fss Ess Ids
-      (ihDomsI (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀) rss tlss Eiss
+      (ihDomsI ℓ (frP Fss.length Ids.length ρ₀) (frM Fss.length Ids.length ρ₀) rss tlss Eiss
         (fun j => (Fss.getD j []).length))
-      (ihValsI (frP Fss.length Ids.length ρ₀) (frR nP Fss.length Ids.length ρ₀)
+      (ihValsI ℓ (frP Fss.length Ids.length ρ₀) (frR nP Fss.length Ids.length ρ₀)
         (frKSpine nP Fss.length Ids.length ρ₀) rss tlss Eiss (fun j => (Fss.getD j []).length))
-      (ihArgsI nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length)) D j := by
+      (ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length)) D j := by
   intro y hy
   have hjF := h.hyp.rChain_getElem? hj
   rw [sumFibre_of_getElem? hjF] at hy
@@ -665,7 +719,7 @@ theorem ihArgsOk_of (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Eiss
     unfold ihDomsI at hl ⊢
     rw [List.length_map] at hl
     obtain ⟨hik, hEok, hvsp, hfmem⟩ := hpos l hl
-    have hgetA : (ihArgsI nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length) D j).getD l default
+    have hgetA : (ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length) D j).getD l default
         = ihArgAV nP Fss.length Ids.length D ((recIdx (rss.getD j []) (Fss.getD j []).length)[l])
             ((Eiss.getD j []).getD ((recIdx (rss.getD j []) (Fss.getD j []).length)[l]) []) := by
       unfold ihArgsI
@@ -910,7 +964,7 @@ theorem fixSemK_mem (h : FixKI₀ ℓ w u K Fss Ess Fss₀ Ids rss tlss Eiss) (h
     rw [List.nil_append] at hfold
     have hC0 : ℓ = 0 → concI w (frP Fss.length Ids.length K) (frM Fss.length Ids.length K) (Ess.getD j []) j fs
         ∈ˢ (univZero : V) := fun h0 => absurd h0 hℓ
-    have := ihSpL_fold hC0 (As := ihDomsI (frP Fss.length Ids.length K) (frM Fss.length Ids.length K) rss tlss Eiss
+    have := ihSpL_fold hC0 (As := ihDomsI ℓ (frP Fss.length Ids.length K) (frM Fss.length Ids.length K) rss tlss Eiss
         (fun j => (Fss.getD j []).length) j fs)
       (vs := (recIdx (rss.getD j []) (Fss.getD j []).length).map fun i =>
         fixSemK K Fss Ids rss n (fs.getD i pt)) hfold (by simp [ihDomsI]) ?_
@@ -1052,7 +1106,7 @@ def fixRecBodyAVI (ℓ w nP : Nat) (Fss Ess : List (List AVExpr)) (Ids : List AV
   if w = 0 then .prf
   else .app (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
       (fun j => (Fss.getD j []).length)
-      (ihArgsI nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length))
+      (ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length))
       Fss.length Ids.length Fss.length 1 0 (.proj 0 (.bvar 0)))
     (.proj 1 (.bvar 0))
 
@@ -1065,7 +1119,7 @@ theorem fixRecBodyAVI_pos {w : Nat} (hw : w ≠ 0) (ℓ nP : Nat) (Fss Ess : Lis
     fixRecBodyAVI ℓ w nP Fss Ess Ids rss tlss Eiss
       = .app (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           (fun j => (Fss.getD j []).length)
-          (ihArgsI nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length))
+          (ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length))
           Fss.length Ids.length Fss.length 1 0 (.proj 0 (.bvar 0)))
         (.proj 1 (.bvar 0)) := if_neg hw
 

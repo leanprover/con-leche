@@ -82,7 +82,7 @@ K-frame's depth over the function's), the block's variables, the
 field's index expressions and the payload's projection. -/
 theorem ihArgAV_below {k nP n nIdx D i : Nat} {Eis : List AVExpr}
     (hE : ∀ E ∈ Eis, VExpr.bvarsBelow (nP + i) E.erase) :
-    VExpr.bvarsBelow (k + 1 + nP + 1 + n + nIdx + D + 1) (ihArgAV nP n nIdx D i Eis).erase := by
+    VExpr.bvarsBelow (k + 1 + nP + 1 + n + nIdx + D + 1) (ihArgAV ℓ nP n nIdx D i Eis).erase := by
   unfold ihArgAV
   rw [AVExpr.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN (show D + 1 + nIdx + n + 1 + nP < k + 1 + nP + 1 + n + nIdx + D + 1 by omega) ?_
@@ -110,7 +110,7 @@ theorem ihArgsI_below {k nP n nIdx : Nat} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {ar : Nat → Nat}
     (hE : ∀ j i, ∀ E ∈ (Eiss.getD j []).getD i [], VExpr.bvarsBelow (nP + i) E.erase)
     (D j : Nat) :
-    ∀ a ∈ ihArgsI nP n nIdx rss tlss Eiss ar D j,
+    ∀ a ∈ ihArgsI ℓ nP n nIdx rss tlss Eiss ar D j,
       VExpr.bvarsBelow (k + 1 + nP + 1 + n + nIdx + D + 1) a.erase := by
   intro a ha
   obtain ⟨i, -, rfl⟩ := List.mem_map.mp ha
@@ -173,7 +173,7 @@ theorem fixRecBodyAVI_below {ℓ w k nP nIdx : Nat} {Fss Ess : List (List AVExpr
     refine ⟨?_, show (0 : Nat) < k + 1 + nP + 1 + Fss.length + nIdx + 1 by omega⟩
     have := caseRecAVI_below (ℓ := ℓ) (w := w) (K := k + 1 + nP + 1 + Fss.length + nIdx)
       (ar := fun j => (Fss.getD j []).length)
-      (ihArgs := ihArgsI nP Fss.length nIdx rss tlss Eiss (fun j => (Fss.getD j []).length))
+      (ihArgs := ihArgsI ℓ nP Fss.length nIdx rss tlss Eiss (fun j => (Fss.getD j []).length))
       (show nIdx + Fss.length < k + 1 + nP + 1 + Fss.length + nIdx by omega) h
       (fun D j => ihArgsI_below (k := k) (rss := rss) (ar := fun j => (Fss.getD j []).length) hE D j)
       Fss.length (D := 1) (j := 0)
