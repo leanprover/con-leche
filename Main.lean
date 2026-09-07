@@ -105,9 +105,11 @@ def checkDeclsProgressIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     -- step sees, so the line is exactly the dispatch of
     -- `checkIndDeclSF` (`ConLeche/Cached/CheckerC.lean`).  It is the
     -- route census's instrument (`tests/route-census.sh`): every block
-    -- must read `struct`, `sum`, `fix`, `inmodel` or `basis` — a
-    -- `modeled` line on a raw stream means the block's model came
-    -- from the stream itself, and nothing emits one since task #207.
+    -- must read `fix`, `inmodel` or `basis` — a `modeled` line means
+    -- the block is on NO route (the recogniser refused it and the
+    -- in-process modeller did not model it), so the install declines.
+    -- Since task #219 a `_model` record in the stream is an ordinary
+    -- declaration and cannot route a block.
     if trace then
       match pd with
       | .indDecl block =>
@@ -229,11 +231,14 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
       IO.eprintln s!"con-leche: {file}:{line}: {msg}"
       return 3
     | .ok ⟨decls, taintSkipped, projRewrites, preludeCount,
-           preludeDropped, hoisted, inModelled, inModelGen, inModelDeclined⟩ =>
+           preludeDropped, hoisted, inModelled, genRecords, genOwner,
+           inModelGen, inModelDeclined⟩ =>
       -- the in-process modeller's receipt (task #200)
       if inModelled.size > 0 then
         IO.eprintln s!"con-leche: {inModelled.size} inductive blocks modelled \
-          in-process: {String.intercalate ", " (inModelled.toList.map toString)}"
+          in-process: {String.intercalate ", " (inModelled.toList.map toString)} \
+          ({genRecords} generated records, checked by the fold as \
+          declarations and not counted as records of the file)"
       -- the census (`CON_LECHE_INMODEL_CENSUS=1`): every mutual/nested block's
       -- outcome, then stop — the parse only, no fold
       if (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1" then
@@ -301,11 +306,15 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
       -- others, a taint-skipping stream loses more, and — since task
       -- #200 — the in-process modeller ADDS records the file does not
       -- contain, so the fold can run AHEAD of the file's index.
-      -- Measured on raw `init-full` (task #207): 53 093 declaration
-      -- records in the file against 53 118 fold positions, the +25
-      -- being `Lean.Syntax`'s generated model family (30 records) less
-      -- the 5 folded and skipped ones.  The declaration NAME on the
-      -- line is the portable handle.
+      -- Measured on raw `init-full`: 53 093 declaration records in the
+      -- file against 53 118 fold positions, the +25 being
+      -- `Lean.Syntax`'s generated model family (30 records) less the
+      -- 5 folded and skipped ones.  Since task #219 the generated
+      -- records are subtracted from the VERDICT's count (they are
+      -- declarations of the fold, never records of the file) and a
+      -- generated record that fails is named with its block; the fold
+      -- POSITION still counts them.  The declaration NAME on the line
+      -- is the portable handle.
       let tParse ← IO.monoMsNow
       if stride > 0 then
         IO.eprintln s!"con-leche: progress parse done: {decls.size - preludeCount} \
@@ -367,7 +376,10 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
         -- stream and is checked against both checkers' actual output.
         -- The environment-constant count stays on stderr under
         -- `CON_LECHE_VERBOSE=1`.
-        let streamRecords := decls.size - preludeCount + preludeDropped
+        -- ... and minus the records the in-process modeller generated
+        -- (task #219): they are checked as declarations, but they are
+        -- not in the file, and the headline number is the FILE's.
+        let streamRecords := decls.size - preludeCount + preludeDropped - genRecords
         let verboseCounts : IO Unit := do
           if (← IO.getEnv "CON_LECHE_VERBOSE").isSome then
             IO.eprintln s!"con-leche: environment: {env.consts.length} constants \
@@ -407,7 +419,14 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
         -- portable handle (`_tmp/frontier3/decl_index.py <stream>
         -- <name>` turns it into a record index and a percentage).
         let loc := if h : i < decls.size then
-            s!" [at {declCName decls[i]}, fold position {i}]"
+            let d := decls[i]
+            match d.names.findSome? (fun n => genOwner[n]?) with
+            | some T =>
+              -- a record the in-process modeller generated: the file has
+              -- no position for it, so the BLOCK it models is the handle
+              s!" [at {declCName d}, a generated model record of \
+                inductive {T}, fold position {i}]"
+            | none => s!" [at {declCName d}, fold position {i}]"
           else s!" [at fold position {i}]"
         let now ← IO.monoMsNow
         IO.eprintln s!"con-leche: {e}{loc} ({modeTag}) \

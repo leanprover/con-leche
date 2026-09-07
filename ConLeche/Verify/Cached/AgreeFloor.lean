@@ -458,15 +458,10 @@ def directFixSkels (p : DirectFixParts) (sk : List InstallSkel) : List InstallSk
 
 /-- The dispatch below the direct-sum gate: the direct recursive gate
 (task #188; the sum's skeleton with the table at a structure-like
-block), then the modeled block. -/
+block), then the modeled block.  The RECOGNISER decides, and nothing
+else (task #219), so the skeleton list needs no environment at all. -/
 def indDeclSkels (block : List ConstantInfo) (sk : List InstallSkel) :
     List InstallSkel :=
-  -- a block with an in-process `_model` family that the raw reading
-  -- refuses is the modeled path's (task #210 Part D); the skeleton list
-  -- decides as the index does
-  if blockIsModeled (fun n => (skFind? sk n).map fun _ => .indInfo default {}) block then
-    indDeclSkelsModeled block sk
-  else
   match directFixParts? block with
   | some p => directFixSkels p sk
   | none => indDeclSkelsModeled block sk
@@ -1199,22 +1194,9 @@ theorem checkDeclSPC_skels (mode : CheckMode) {fe : FEnv}
   | indDecl block =>
     simp only []
     unfold indDeclSkels
-    have hm : blockIsModeled fe.find? block
-        = blockIsModeled (fun n => (skFind? sk n).map fun _ => .indInfo default {}) block := by
-      cases block with
-      | nil => rfl
-      | cons c rest =>
-        cases c with
-        | indInfo cvT caps =>
-          simp only [blockIsModeled, Option.isSome_map]
-          rw [h.isSome']
-        | _ => rfl
-    rw [← hm]
-    split
-    · exact checkIndDeclSF_skels mode h block
-    · cases directFixParts? block with
-      | none => exact checkIndDeclSF_skels mode h block
-      | some p => exact checkDirectFixS_skels mode h p
+    cases directFixParts? block with
+    | none => exact checkIndDeclSF_skels mode h block
+    | some p => exact checkDirectFixS_skels mode h p
 
 theorem checkDeclSPStepC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : DeclC) :
