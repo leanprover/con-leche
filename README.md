@@ -1,10 +1,8 @@
-# ConLeche – a CONsistent LEan CHEcker
+# con-leche – a CONsistent LEan CHEcker
 
-ConLeche is an external checker for the Lean theorem prover that is proven (in Lean) to be consistent in that it does not accept a proof of False.
+This is an external checker for the Lean theorem prover that is proven (in Lean) to be consistent in that it does not accept a proof of False.
 
 The core idea of this project is: What if we allow the checker implementation to do extra work (annotations, checks) that is not strictly necessary for soundness, but makes the proof easier.
-
-The name is short for **CON**sistent **LE**an **CHE**cker. (The project was called Setlec until 2026-09-06, and then Lech — a river in South West Germany, and rivers in South West Germany are good for theorem provers, somehow — until 2026-09-07.)
 
 ## Status
 
@@ -12,7 +10,7 @@ The checker is practically useful; it can process a mathlib export in about an h
 
 It was implemented and proven to be consistent by Claude (Fable and Opus), under heavy supervision by Joachim Breitner at the Lean FRO. See the git history for all the detours and dead ends it took. It is a huge pile of code and a mess. Maybe this will improve over time. Until then: It works and is proven. 
 
-This README is actually human written (with AI only doing copy-editing, fact checking and filling in numbers).
+This README is actually human written (with AI only doing copy-editing, fact checking and filling in numbers). It is probably the only human written thing in this repository.
 
 ## Design of the checker implementation
 
@@ -28,7 +26,7 @@ This README is actually human written (with AI only doing copy-editing, fact che
     The modelling code is taken from [lean-inductive-models](https://github.com/nomeata/lean-inductive-models). During development, that tool was run as a preprocessor to handle almost all inductive types, and this was very conductive to bootstrap the project. Later the naive support was extended and we dropped the dependency.
 
 * Accepted incompleteness: Primitive projections are only supported
-  - on non-recursive non-indexed structures or
+  - for structures that are not mutually recursive
   - inside the projection *functions* that the elaborator produces.
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
 
@@ -57,7 +55,7 @@ The parser is not covered by the verification.
 
 The set model we assume in `[SetTheory V]` is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form. Choice is inherited from Lean as the meta-logic. See [`ConLeche/SetTheory/Core.lean`](./ConLeche/SetTheory/Core.lean) for the precise formulation of our set theory.
 
-The interface is instantiated on Mathlib's `ZFSet` from the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model): the theorem `carneiro_implies_conleche` in [`bridge/lean4lean-model`](./bridge/lean4lean-model) (a separate Lake package, since the main development does not depend on Mathlib).
+The interface is instantiated on Mathlib's `ZFSet` from the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model): see the theorem `carneiro_implies_conleche` in [`bridge/lean4lean-model`](./bridge/lean4lean-model) (separte package due to the Mathlib depenency).
 
 Future work: The assumption that we need a ω-chain is maybe unnecessary strong. Every concrete stream has an upper bound of universe levels it needs, and we could assume only a chain of length `k`. For every concrete `k` we can prove their existence in lean without further assumptions, just not for all `k`.
 

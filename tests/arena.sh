@@ -481,6 +481,44 @@ prog_check "the rejection still names the failing declaration" \
   "$(printf '%s' "$prog_errB" | grep -q '\[at .*, fold position [0-9]' && echo ok)"
 echo "progress lane: $prog_ok/$prog_total as expected"
 
+# THE FRONTEND TREE-SIZE BUDGET (task #213).  `CON_LECHE_TREE_BUDGET`
+# overrides the default 2^25 cap on a declaration's *unshared* tree
+# size; `0` is unlimited; a non-numeral is a hard error.  The decline
+# must NAME the offender — which declaration, which record kind, which
+# budget — which is what the user report that opened the task could not
+# read off the old wording.  The two fixtures are the e2e half's
+# (budget_block accepts at the default, budget_model is the lifted
+# `_model` class); here we drive the same streams at other budgets.
+budget_ok=0
+budget_total=0
+budget_check() { # <description> <condition-result>
+  budget_total=$((budget_total+1))
+  if [ "$2" = ok ]; then
+    budget_ok=$((budget_ok+1))
+  else
+    echo "BUDGET FAIL: $1"; fail=1
+  fi
+}
+b_out=$(CON_LECHE_INDUCTIVE_MODELS=/nonexistent CON_LECHE_TREE_BUDGET=1000 \
+  timeout 60 "$BIN" tests/e2e/budget_block.ndjson 2>&1 >/dev/null); b_code=$?
+budget_check "a block over the budget declines (exit 2)" \
+  "$([ "$b_code" = 2 ] && echo ok)"
+budget_check "the decline names the declaration and the record kind" \
+  "$(printf '%s' "$b_out" | grep -q 'declined: Big (inductive block)' && echo ok)"
+budget_check "the decline names the budget in force" \
+  "$(printf '%s' "$b_out" | grep -q 'CON_LECHE_TREE_BUDGET=1000' && echo ok)"
+b_code=0
+CON_LECHE_INDUCTIVE_MODELS=/nonexistent CON_LECHE_TREE_BUDGET=0 \
+  timeout 60 "$BIN" tests/e2e/budget_block.ndjson >/dev/null 2>&1 || b_code=$?
+budget_check "CON_LECHE_TREE_BUDGET=0 is unlimited (the block accepts)" \
+  "$([ "$b_code" = 0 ] && echo ok)"
+b_code=0
+CON_LECHE_TREE_BUDGET=notanumber timeout 60 "$BIN" tests/e2e/budget_block.ndjson \
+  >/dev/null 2>&1 || b_code=$?
+budget_check "a non-numeral budget is a hard error (exit 3)" \
+  "$([ "$b_code" = 3 ] && echo ok)"
+echo "tree-size budget: $budget_ok/$budget_total as expected"
+
 # The mode sweep (task #147): both suites again with `--trusted`
 # (certified expectations plus the recorded overrides in
 # tests/trusted-expected.txt).  See the header.
