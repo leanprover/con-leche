@@ -6,7 +6,7 @@
       the frontend budgeted every `_model`-named record and DECLINED
       this stream; the audit lifted that class (the in-process modeller
       pushes identical records unbudgeted, and the external
-      preprocessor is being retired), so it now ACCEPTS like its
+      preprocessor was retired at #207), so it now ACCEPTS like its
       unrenamed twin.
 
   tests/e2e/budget_block.ndjson — a one-field structure block whose

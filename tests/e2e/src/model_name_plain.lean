@@ -13,10 +13,9 @@
    (exit 0).  Any reservation or shadow check on the `_model` suffix
    sneaking back in would reject it.
 
-   Committed as a *raw* lean4export result and run with
-   `CON_LECHE_INDUCTIVE_MODELS=/nonexistent` (the `raw` marker in
-   `tests/e2e-expected.txt`), so no preprocessor invents a `_model`
-   declaration of its own.
+   Committed as a *raw* lean4export result: nothing invents a `_model`
+   declaration of its own (task #207 — there is no preprocessor, and
+   the in-process modeller does not want this block).
 -/
 
 def Foo : Nat := Nat.zero

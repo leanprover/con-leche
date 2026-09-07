@@ -32,9 +32,9 @@
 #     never build another checker, so they are not required.
 #
 # The checker definition is scripts/arena/con-leche.yaml; it is copied into the
-# clone's checkers/ on every run, and takes the binary, the preprocessor, the
-# mode and the limits from the environment (see below), so the arena clone
-# stays a pure checkout.
+# clone's checkers/ on every run, and takes the binary, the mode and the
+# limits from the environment (see below), so the arena clone stays a pure
+# checkout.
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -43,12 +43,10 @@ ARENA=${CON_LECHE_ARENA_DIR:-$WORK/lean-kernel-arena}
 ARENA_URL=${CON_LECHE_ARENA_URL:-https://github.com/leanprover/lean-kernel-arena}
 
 export CON_LECHE_BIN=${CON_LECHE_BIN:-$ROOT/.lake/build/bin/con-leche}
-export CON_LECHE_PREPROC=${CON_LECHE_PREPROC:-$ROOT/.lake/build/bin/con-leche-preprocess}
 export CON_LECHE_MODE=${CON_LECHE_MODE:---verified}
-# Scratch.  Since task #180 the preprocessor's output is a pipe, so a run
-# writes no scratch file at all — the multi-gigabyte temp stream that used to
-# land in the tmpfs `/tmp` is gone.  This stays as the project's standing rule
-# for anything that does need scratch (and for lka.py's own children).
+# Scratch.  A run writes no scratch file at all (task #180/#207).  This stays
+# as the project's standing rule for anything that does need scratch (and for
+# lka.py's own children).
 export CON_LECHE_TMPDIR=${CON_LECHE_TMPDIR:-$WORK/tmp}
 mkdir -p "$CON_LECHE_TMPDIR"
 export TMPDIR=$CON_LECHE_TMPDIR
@@ -88,9 +86,7 @@ do_clone() {
 install_checker() {
   [ -d "$ARENA/checkers" ] || { echo "no arena clone at $ARENA (run 'clone')" >&2; exit 1; }
   cp "$ROOT/scripts/arena/con-leche.yaml" "$ARENA/checkers/con-leche.yaml"
-  for f in "$CON_LECHE_BIN" "$CON_LECHE_PREPROC"; do
-    [ -x "$f" ] || { echo "missing binary: $f  (lake build)" >&2; exit 1; }
-  done
+  [ -x "$CON_LECHE_BIN" ] || { echo "missing binary: $CON_LECHE_BIN  (lake build)" >&2; exit 1; }
   lka build-checker con-leche
 }
 

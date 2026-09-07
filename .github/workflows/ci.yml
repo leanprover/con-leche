@@ -39,9 +39,6 @@
 #     making it more informative.  See DESIGN.md's frontier sections.
 #   * the performance battery (PERF.md).  Timings on a shared CI runner
 #     are noise.
-#   * anything needing the `lean-inductive-models` checkout in `_tmp/`
-#     beyond the pinned Lake dependency (the preprocessor IS built here,
-#     as `con-leche-preprocess`, because `lake build` builds it).
 #
 # ---------------------------------------------------------------------
 # NOTES ON THE ENVIRONMENT
@@ -51,9 +48,10 @@
 #     version here — `lean-toolchain` is the single source, and
 #     `tests/pindump.sh` independently refuses a pin dump that is not
 #     the running toolchain's.
-#   * Network: needed once, for elan and for the pinned Lake dependency
-#     `lean_inductive_models` (a git rev in `lakefile.toml`).  The arena
-#     fixtures are vendored, so no arena download happens.
+#   * Network: needed once, for elan.  The package has NO dependencies
+#     since task #207 (`lake-manifest.json`'s `packages` array is
+#     empty) and the arena fixtures are vendored, so nothing else is
+#     fetched.
 #   * TIME.  A cold full build is ~650 modules of proof-heavy Lean; on a
 #     two-core runner that is long.  The `.lake` cache below makes the
 #     common case incremental; `timeout-minutes` is set generously and

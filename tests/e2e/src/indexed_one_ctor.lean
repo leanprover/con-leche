@@ -3,7 +3,7 @@
    `CategoryTheory.Sigma.SigmaHom` (parameters, two indices built from
    the fields, dependent fields, a `Type`-valued former).  It is not
    structure-like by the official kernel's test (`is_non_rec_structure`:
-   one constructor AND no indices), yet the preprocessor emits
+   one constructor AND no indices), yet the model family carries
    `IdxHom._model.proj_{0..3}` artifacts for it (its indexed-fibre
    projection tranche).  The checker must ignore those at install — an
    indexed family gets no projection functions — instead of declining

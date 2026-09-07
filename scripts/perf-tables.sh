@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Regenerate PERF.md from scratch: the three-column stream battery
-# (official / trusted / verified), preprocessed input on both sides.
+# (official / trusted / verified) on RAW lean4export streams.
 #
 #   scripts/perf-tables.sh              # full battery, writes PERF.md
 #   scripts/perf-tables.sh --render     # re-render PERF.md from the last TSV
@@ -12,27 +12,28 @@
 #     the only metric reported (contention-independent).
 #   * every run under `ulimit -v 16G`, `nice -n 5`, `timeout`,
 #     `CON_LECHE_SUPERVISED=1` (no supervisor re-exec).
-#   * PREPROCESSED INPUT ON BOTH SIDES: the preprocessor
-#     (`con-leche-preprocess`, task #178 — `lean-inductive-models` told
-#     which blocks con-leche installs natively) is run once per stream,
-#     off the clock, and BOTH the
-#     official kernel and con-leche (`--pre`) ingest that same file.  This
-#     removes the preprocessor floor and the spawn from every con-leche
-#     cell and puts the two checkers on the same bytes.
+#   * RAW INPUT ON BOTH SIDES (task #207).  Both checkers ingest the
+#     same raw `lean4export` file, as it comes off the exporter.  Until
+#     #207 con-leche needed a preprocessing step the official kernel
+#     did not, so the battery ran the tool once per stream off the
+#     clock and fed BOTH sides its output, to keep the two on the same
+#     bytes; there is no such step any more, so the honest input is the
+#     raw stream and the comparison is between the two checkers doing
+#     the SAME job — inductive blocks included, which con-leche used to
+#     have done for it.  The numbers are therefore NOT comparable, cell
+#     for cell, with any PERF.md before this regeneration.
 #   * ALL flags are passed EXPLICITLY: no cell relies on a default.
 #   * one timed cell at a time; before each cell the script waits until
-#     no other measurement process (con-leche / official kernel / perf /
-#     the preprocessor) is running anywhere on the machine.
+#     no other measurement process (con-leche / official kernel /
+#     perf) is running anywhere on the machine.
 #
 # Environment overrides: PERF_REPS, PERF_TIMEOUT, PERF_STREAMS,
-# PERF_CONFIGS, PERF_CACHE, CON_LECHE_OFFICIAL_KERNEL,
-# CON_LECHE_INDUCTIVE_MODELS.
+# PERF_CONFIGS, PERF_CACHE, CON_LECHE_OFFICIAL_KERNEL.
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 BIN=$ROOT/.lake/build/bin/con-leche
 OFFICIAL=${CON_LECHE_OFFICIAL_KERNEL:-$ROOT/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel}
-PREPROC=${CON_LECHE_INDUCTIVE_MODELS:-$ROOT/.lake/build/bin/con-leche-preprocess}
 ARENA=$ROOT/_tmp/arena-tests/good
 CACHE=${PERF_CACHE:-$ROOT/_tmp/perf-tables}
 TSV=$CACHE/table.tsv
@@ -74,10 +75,8 @@ stream_path() {
 # flags explicit — but three things about it are different, and each is
 # a decision, not an accident:
 #
-#  * Preprocessing is NOT done by this script.  The preprocessor is
-#    itself a Mathlib-scale process (>1 h, >20 GB) and the session rule
-#    is ONE Mathlib-scale process at a time, so the stream is cut once,
-#    by hand, and named here.  If the file is absent the row is skipped.
+#  * The stream is the raw full-Mathlib export, cut once by hand and
+#    named by `stream_path`.  If the file is absent the row is skipped.
 #  * The caps are the user's Mathlib ceiling: 22 GB virtual, 8 h.
 #  * The con-leche cells run under `CON_LECHE_PROGRESS=5000` so a stalled hour is
 #    visible in a timestamped log rather than as silence.  Measured cost
@@ -88,12 +87,6 @@ stream_path() {
 #    acceptable producer for Mathlib-scale runs.
 # The Mathlib row also records peak RSS (`time -v`) and wall minutes,
 # which the renderer prints for that row only, as data.
-stream_pre_ready() { # $1 = label -> a preprocessed stream cut off the clock
-  case "$1" in
-    mathlib-full) echo "$ROOT/_tmp/mathlib-scoping/mathlib-full-pre-idx.ndjson" ;;
-    *) echo "" ;;
-  esac
-}
 stream_vlimit()  { case "$1" in mathlib-full) echo 22000000 ;; *) echo "$VLIMIT" ;; esac; }
 stream_timeout() { case "$1" in mathlib-full) echo 28800 ;; *) echo "$TIMEOUT" ;; esac; }
 stream_progress(){ case "$1" in mathlib-full) echo 5000 ;; *) echo 0 ;; esac; }
@@ -106,8 +99,8 @@ CONFIG_IDS=(official trusted verified)
 config_cmd() { # $1 = config id, $2 = stream file -> fills CMD
   case "$1" in
     official)  CMD=("$OFFICIAL" "$2") ;;
-    trusted)   CMD=("$BIN" --trusted  --pre "$2") ;;
-    verified)  CMD=("$BIN" --verified --pre "$2") ;;
+    trusted)   CMD=("$BIN" --trusted  "$2") ;;
+    verified)  CMD=("$BIN" --verified "$2") ;;
     *) echo "unknown config $1" >&2; exit 1 ;;
   esac
 }
@@ -129,12 +122,9 @@ median() { printf '%s\n' "$@" | sort -n | awk '{a[NR]=$0} END{print a[int((NR+1)
 wait_idle() {
   local waited=0
   [ -n "${PERF_NO_WAIT:-}" ] && return
-  # NB `pgrep -x` matches /proc/PID/comm, which the kernel truncates to
-  # 15 characters — hence the truncated preprocessor name.
   while pgrep -x con-leche >/dev/null 2>&1 \
      || pgrep -x kernel >/dev/null 2>&1 \
-     || pgrep -x perf >/dev/null 2>&1 \
-     || pgrep -x lean-inductive- >/dev/null 2>&1; do
+     || pgrep -x perf >/dev/null 2>&1; do
     if [ "$waited" -eq 0 ]; then say "waiting for the machine to go idle"; fi
     sleep 10; waited=$((waited + 10))
     if [ "$waited" -ge "${PERF_IDLE_MAX:-7200}" ]; then
@@ -144,28 +134,13 @@ wait_idle() {
   done
 }
 
-# Preprocess once per stream, off the clock, cached on disk.
-preprocess() { # $1 = label, $2 = raw path -> echoes the preprocessed path
-  local out=$CACHE/pre/$1.pre.ndjson
-  if [ ! -s "$out" ]; then
-    say "preprocessing $1"
-    mkdir -p "$CACHE/pre"
-    if ! "$PREPROC" --quiet -o "$out.part" "$2" >/dev/null 2>"$CACHE/pre/$1.err"; then
-      say "FATAL: preprocessor failed on $1 (see $CACHE/pre/$1.err)"
-      rm -f "$out.part"; return 1
-    fi
-    mv "$out.part" "$out"
-  fi
-  echo "$out"
-}
-
 # One cell: REPS timed runs, median instructions and wall.
 # Emits one TSV line:
 #   stream cfg instr wall exit decls loadavg verdict [maxrss-KB]
 # The ninth field is present only for the Mathlib row (see MATHLIB
 # SCALE): `time -v`'s maximum resident set size, in KB.
 TIMEBIN=$(command -v time)
-cell() { # $1 = stream label, $2 = config id, $3 = preprocessed stream
+cell() { # $1 = stream label, $2 = config id, $3 = stream path
   local instrs=() walls=() ex=0 decls="" verdict="" load="" rss=""
   config_cmd "$2" "$3"
   local r po tv t0 t1 out i vl to pg
@@ -232,7 +207,7 @@ snapshot() {
 mkdir -p "$CACHE"
 if [ "${1:-}" = "--render" ]; then render; echo "PERF.md rewritten from $TSV"; exit 0; fi
 
-for f in "$BIN" "$OFFICIAL" "$PREPROC"; do
+for f in "$BIN" "$OFFICIAL"; do
   [ -x "$f" ] || { echo "missing binary: $f  (lake build con-leche)" >&2; exit 1; }
 done
 
@@ -258,11 +233,10 @@ else
     echo "mem	$(awk '/MemTotal/{printf "%.0f GB", $2/1048576}' /proc/meminfo)"
     echo "kernelver	$(uname -r)"
     echo "official	$(readlink -f "$OFFICIAL")"
-    echo "preproc	$(readlink -f "$PREPROC")"
     echo "binmd5	$(md5sum "$BIN" | cut -d' ' -f1)"
-    ml=$(stream_pre_ready mathlib-full)
+    ml=$(stream_path mathlib-full)
     if [ -s "$ml" ]; then
-      echo "mathlibstream	\`$ml\` ($(stat -c%s "$ml") bytes)"
+      echo "mathlibstream	\`$ml\` ($(stat -c%s "$ml") bytes, raw)"
     fi
     # optional one-line provenance note for the header (e.g. which
     # master commit the measured tree is a merge of)
@@ -279,22 +253,14 @@ fi
 
 say "BATTERY START — sha $(git -C "$ROOT" rev-parse --short HEAD), reps $REPS"
 for s in $STREAMS; do
-  # a stream cut off the clock (the Mathlib row) is used as it stands;
-  # everything else is preprocessed here, once, and cached
-  pre=$(stream_pre_ready "$s")
-  if [ -n "$pre" ]; then
-    [ -s "$pre" ] || { say "SKIP $s (no preprocessed stream at $pre — cut it first)"; continue; }
-  else
-    raw=$(stream_path "$s")
-    [ -n "$raw" ] && [ -s "$raw" ] || { say "SKIP $s (no stream at $raw)"; continue; }
-    pre=$(preprocess "$s" "$raw") || continue
-  fi
-  say "stream $s ($(stat -c%s "$pre") bytes preprocessed)"
-  for c in $CONFIGS; do cell "$s" "$c" "$pre"; done
+  raw=$(stream_path "$s")
+  [ -n "$raw" ] && [ -s "$raw" ] || { say "SKIP $s (no stream at $raw)"; continue; }
+  say "stream $s ($(stat -c%s "$raw") bytes, raw)"
+  for c in $CONFIGS; do cell "$s" "$c" "$raw"; done
   # the input's own census, off the clock and AFTER the cells: record
   # count, what official's `constMap.size` counts on the same file, the
   # fold's record count, and the native-block split (task #187)
-  python3 "$ROOT/scripts/stream-census.py" "$pre" | tail -n +2 \
+  python3 "$ROOT/scripts/stream-census.py" "$raw" | tail -n +2 \
     | sed "s|^[^\t]*|$s|" >> "$CENSUS"
   render   # keep PERF.md current after every stream
 done

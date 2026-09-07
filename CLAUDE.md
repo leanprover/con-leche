@@ -31,7 +31,7 @@ iteration protocol. Keep it up to date when decisions change.
   structure carries its invariant; downstream never re-proves it.
 * Large artifacts (reference checkouts, worktrees) go in `_tmp/` (gitignored;
   /tmp and /home are tmpfs). Reference clones already there: nanodatg,
-  lean-inductive-models, lean4lean-model.
+  lean4lean-model.
 * If running the checker may OOM, use a timeout and memory limit
   (`ulimit -v 16000000` for ordinary runs, 22 GB for Mathlib scale;
   `timeout` on every checker run; builds get `timeout` only).

@@ -2,7 +2,7 @@
 """Build small e2e fixtures for the pin-certified Nat operations from a
 lean4export 3.x ndjson stream, by *dependency-closure slicing*: keep
 only the declarations transitively needed to install the operation
-(including the preprocessor's `_model` companion families and the
+(including any `_model` companion families the stream carries and the
 pin/certificate ground constants, whose names are supplied via a roots
 json produced from the generated pins), plus
 

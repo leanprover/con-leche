@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Census of a PREPROCESSED arena stream (task #187).
+"""Census of an arena stream (task #187; raw since task #207).
 
 For every stream in the performance battery PERF.md wants three numbers
 that are properties of the INPUT, not of anybody's environment
@@ -22,10 +22,13 @@ representation:
                   block (-1), and records using a tolerated axiom are
                   skipped at parse (`sorryAx` and friends).
 
-and the NATIVE-BLOCK census: which inductive records the preprocessor
-left for con-leche to install natively (no `_model` companion in the stream),
-split by shape — indexed (numIndices > 0), structure (no indices, one
-constructor), sum (no indices, not one constructor).
+and the BLOCK census: which inductive records the stream carries a
+`_model` companion for (`modeled` — since task #207 no exporter emits
+one, so this is 0 on every raw stream and nonzero only for a
+hand-written or spliced one) and which con-leche therefore installs
+itself (`native`: a direct route, or a `_model` family generated
+in-process), split by shape — indexed (numIndices > 0), structure (no
+indices, one constructor), sum (no indices, not one constructor).
 
     scripts/stream-census.py STREAM.ndjson [...]
 """
