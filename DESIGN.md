@@ -56161,6 +56161,121 @@ lane 6/6, trusted sweep as expected (the 3 recorded divergences).
 Artefacts: `_tmp/alpha/` (builds, cells, the traced-master probe
 outputs `dbg-twinp*.out`, the export scratch dirs).
 
+## TASK #208 — THE INDUCTIVE AUDIT'S PROBES, COMMITTED AS e2e FIXTURES (2026-09-07, `agent/auditfix`)
+
+Task #206 audited every check of the official kernel's `add_inductive`
+against our four direct routes, the in-process modeller and
+`lech-preprocess`, and ran 23 hand-written probes for the points of the
+shape space no fixture covered
+(`_tmp/indaudit/REPORT.md`, `_tmp/indaudit/probes/P/*.lean`).  The
+probes lived in a scratch project and would have rotted.  This task
+turns **all of them** into committed e2e fixtures — the six divergences
+*and* the "probed and clean" shapes, which are exactly the regression
+guards the follow-ups need.  Nothing in `Lech/` changed: this is
+`tests/e2e/*`, `tests/e2e-expected.txt` and this section.
+
+**The pinning rule.**  A divergence's expectation is set to **today's
+lech verdict**, not to official's.  The suite must stay green at master,
+and the conformance work must flip each line *deliberately*; the
+official verdict sits on a `# TODO(#206-…)` comment line immediately
+above it (`tests/e2e-expected.txt` supports whole-line `#` comments
+only — a trailing comment would be read as the mode field).  Fixtures
+whose verdict already equals official's carry no TODO line.
+
+**Two lines per fixture.**  Every export is RAW lean4export output, and
+the audit's cracks live in the gap between the *piped* run (the
+preprocessor available — the shipped configuration) and the *raw* run
+(`LECH_INDUCTIVE_MODELS=/nonexistent`, the direct routes and the
+in-process modeller alone).  So each fixture gets a plain line and a
+`raw` line; both are pinned, and no new harness mode was needed —
+`tests/arena.sh`'s existing `raw` mode is exactly this.  `--trusted`
+agrees with `--verified` on all 26, so `tests/trusted-expected.txt` is
+untouched.
+
+**Provenance.**  Sources under `tests/e2e/src/`, each with a header
+naming the audit finding, the official verdict, the lech verdict at
+master `700a06ca` and the route/arm responsible.  Exports regenerated
+with the same exporter as every other fixture here —
+lean-inductive-models' `scripts/export-fixture.sh`, lean4export
+`caccfbe` on `leanprover/lean4:v4.29.1`, `LEAN_INDUCTIVE_MODELS_FILTER=0`
+(raw), `FIXTURE_DIR=tests/e2e/src OUT_DIR=tests/e2e`.  `ind_unsafe` is
+the one exception: it needs lean4export's `--export-unsafe`, which the
+script does not pass, so it was exported by hand with the same exporter
+and toolchain (the recipe is in its source header).  Declarations the
+Lean *elaborator* refuses to write down (a raw `Expr.proj`, a `let` with
+a mistyped value, a positivity-violating block, a `Sort u` former) are
+added with `debug.skipKernelTC` from an inlined probe kit in the source;
+inductive declarations still go through `add_inductive`, so every
+inductive here is one the kernel really admits.  Official verdicts
+re-measured on the regenerated exports with the arena's `official`
+(v4.34.0-rc2): all 26 match the audit's record.
+
+### The fixture ↔ finding table
+
+`off` = official (arena `official` v4.34.0-rc2); `pipe` / `raw` = lech at
+master `700a06ca`, identical in `--verified` and `--trusted`.  **Bold**
+rows are divergences (a `# TODO(#206-…)` line in the expectations);
+plain rows are regression guards.
+
+| fixture | audit finding | probe | off | pipe | raw | responsible | follow-up |
+|---|---|---|---|---|---|---|---|
+| **ind_defhead_struct** | A1 / C1 def-headed former at a STRUCTURE, and its projection functions | `DefHeadStruct` | 0 | **2** | **2** | `directPartsCore?`'s syntactic `∀ p⃗, Sort` (Parts.lean:469) + `ProjRec.projRecOwners`'s (ProjRec.lean:255) | #206 fu-3 |
+| **ind_defhead_k** | A2 / C2 def-headed former at a K-target / unit-like Prop | `DefHeadK` | 0 | **3** | **2** | ditto; the tool's own `U._model.unitlike` check then fails | #206 fu-3 |
+| **ind_defhead_mutual** | A3 / C3 def-headed formers on a MUTUAL block | `DefHeadMutualOnly` | 0 | **3** | **2** | `genMutual`'s syntactic `stripPis … .sort` (InModel/Mutual.lean:158) | #206 fu-3 |
+| ind_defhead_fix | the clean recursive arm of the same family | `DefHeadFixOnly` | 0 | 0 | 2 | fix route syntactic; the tool models it | guard |
+| ind_former_redex | β-redex former `(fun x => x) Type` | `FormerRedex` | 0 | 0 | 2 | as above | guard |
+| **ind_mutual_param_defeq** | A4 / C4, PARAMETER variant (`Type` vs `id Type`) | `MutualParamDefEq` | 0 | **2** | **2** | `piBinders … == …` (InModel/Mutual.lean:164) vs official's `is_def_eq` | #206 fu-4 |
+| **ind_mutual_sort_defeq** | A4 / C4, SORT variant (`Sort (max u v)` vs `Sort (max v u)`) | `MutualDefEq` (sort half) | 0 | **2** | **2** | `u' == u` (InModel/Mutual.lean:164) vs official's `is_equivalent` | #206 fu-4 |
+| **ind_pos_whnf_fn** | A5 / C5 reflexive occurrence hidden under a definition (`Fn α := Nat → α`) | `WhnfPosFn` | 0 | **3** | **2** | `recPositivity` syntactic (RecParts.lean:102-114) → `.unsupported` → the tool errors | #206 fu-5 |
+| ind_pos_whnf_id | its finitary twin (`Id' α := α`), which the tool models | `WhnfPosId` | 0 | 0 | 2 | as above | guard |
+| **ind_rec_struct_proj** | A6 / C6 projection FUNCTIONS of a finitary recursive `structure` | `RecStructOnly` | 0 | **2** | **2** | the block is native on `fix`, so no `Chain._model.proj_i.iota` for ProjRec to read — a silent regression of #188 | #206 fu-2 |
+| **ind_rec_struct_proj_raw** | A7 / C7 raw `.proj` on recursive + mutual + nested structure-likes | `RecStructProj` | 0 | **2** | **2** | no projection table (Core.lean:2596-2622); on this stream `Chain.h` declines first (= A6) | by design (W5) |
+| **ind_proj_mutual_nested** | A7 / C7, without the recursive structure | `ProjMutualNested` | 0 | **2** | **2** | ditto; declines at a raw `.proj` | by design (W5) |
+| ind_reflexive_tool | A9 reflexive `W'` + an `Acc` clone | `ReflexiveTool` | 0 | 0 | 2 | fix `.unsupported`; the tool models them | #202 (raw 2 → 0) |
+| ind_nest_inf | A9 infinitary nesting `List (Nat → T)` | `NestInf` | 0 | 0 | 2 | the export's `isReflexive` flag routes it to the tool | #202 |
+| ind_nest_via_refl | A9 nesting through a reflexive container | `NestViaRefl` | 0 | 0 | 2 | ditto | #202 |
+| **ind_unsafe** | A10 / C8 `unsafe inductive` | `UnsafeInd` | 0 | **3** | **3** | the PARSER throws (ExportC.lean:550) where unsafe *definitions* decline with 2 | #206 fu-6 |
+| ind_empty_idx | zero-constructor INDEXED families, Type and Prop | `EmptyIdx` | 0 | 0 | 0 | direct sum route | guard |
+| ind_sort_u | `Sort u` structure + sum with SMALL eliminators, `.proj` and eta | `SortU` | 0 | 0 | 0 | direct structure/sum routes | guard |
+| ind_mutual_zero_ctor | mutual block with a zero-constructor member | `MutualZeroCtor` | 0 | 0 | 0 | in-process modeller | guard |
+| ind_idx_defhead_sort | mutual index whose domain's TYPE is not a syntactic sort | `IdxDefHeadSort` | 0 | 0 | 0 | in-process modeller (`Kit.sortOf`) | guard |
+| ind_nest_two_pins | same container at two pins, doubly nested | `NestTwoPins` | 0 | 0 | 0 | in-process modeller B3/B4 | guard |
+| ind_nest_prop | Prop blocks nested through Prop containers | `NestProp` | 0 | 0 | 0 | in-process modeller | guard |
+| **let_bad_value** | S1 / C9 `let x : Nat := Bool.true; Nat.zero` (x unused) | `LetValueType` | 1 | **0** | **0** | `annotate`'s `.letE` returns the zeta-reduct (Core.lean:2577-2596); official's `infer_let` triple never runs | #206 fu-1 |
+| **let_bad_type** | S1 / C9 `let x : Bool.true := Nat.zero; …` (let type not a sort) | `LetValueType` | 1 | **0** | **0** | ditto — the missing `ensureSort` | #206 fu-1 |
+| **let_bad_thm** | S1 / C9 the same on the THEOREM path | `LetValueType` | 1 | **0** | **0** | ditto | #206 fu-1 |
+| let_bad_value_used | the control: `let x : Nat := Bool.true; x` | `LetValueType` | 1 | 1 | 1 | caught incidentally — the reduct `Bool.true` mismatches the declared `Nat` | guard |
+
+Not committed as fixtures, deliberately: A8 (`Acc`-class Prop+large,
+already `direct_fix_prop_large` / `direct_fix_acc_large`), A11 (the
+axiom rulings), A12 (cosmetic — official rejects too), S2/S3 (licensed
+accept-supersets already carried by arena corner cases), S4
+(`irrel_commit`), S5 (cosmetic).
+
+**What the fixtures buy.**  Each conformance follow-up now has its
+acceptance test written down before the work starts: fu-1 flips six
+`let_*` lines to 1, fu-2 flips `ind_rec_struct_proj` to 0, fu-3 flips
+the three `ind_defhead_*` divergence lines, fu-4 the two
+`ind_mutual_*_defeq`, fu-5 `ind_pos_whnf_fn`, fu-6 `ind_unsafe` 3 → 2 —
+and the guard rows say what must NOT move while they do.  Task #202 /
+`agent/reflexive` has its own three raw rows (`ind_reflexive_tool`,
+`ind_nest_inf`, `ind_nest_via_refl`) plus `ind_defhead_fix` /
+`ind_former_redex` / `ind_pos_whnf_id`, which should follow the same 2 →
+0 direction when the direct routes learn the shapes.
+
+**Gates at the seal** (`tests/arena.sh`, `_tmp/auditfix/arena.log`, exit
+0): layering 0/0, proofdeps as pinned, pindump fresh, trust surface 0
+outside the allowlist, native audit 0 unrecognised, inmodel OK, axioms
+pinned (11 theorems at the three standard), tutorial 90/92 (unchanged),
+**e2e 170/170** (118 → 170: the 26 new fixtures at two lines each),
+annot 14/14, retired/mode flags 8/8 + 16/16, prelude counts 3/3,
+progress lane 6/6, trusted sweep 138 arena + 170 e2e + 14 annot as
+expected (the same 3 recorded divergences — none of the new fixtures
+needed one).  `lake build` is untouched: no `Lech/` source changed.
+Artefacts: `_tmp/auditfix/` (`arena.log`, `verdicts.txt` = the 26 × 4
+verdict matrix, `official.txt` = the arena `official` re-measurement,
+`design.md`).
+
 ## TASK #205 — THE FIELDS GO: `Expr` carries no binder name and no binder info (2026-09-07, `agent/nofields`)
 
 **The ruling (user, verbatim, on task #203's normal form):** *"that is
