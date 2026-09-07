@@ -308,15 +308,6 @@ structure CtorDataI {env : Env} (m : EnvS2Core V env) (T : Name) (lps : List Nam
     Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
     FieldsBoundSrc ρ (((ds ψ).drop nP).map (·.2.2)) srcs
 
-theorem CtorDataI.strip {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvC : ConstantVal}
-    {nP nF nIdx : Nat} {resSort : Level} {isProp large : Bool} {idxArgs : List Expr}
-    {ds : (Name → Nat) → List (Nat × Nat × AVExpr)} {Es : (Name → Nat) → List AVExpr}
-    {srcs : List (Option Nat)}
-    (h : CtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs) :
-    (cvC.type.stripPis (nP + nF)).isSome = true := by
-  obtain ⟨cbs, es, hs, -⟩ := h.resid
-  rw [hs]; rfl
-
 /-- The data crosses a cons whose head is neither the former nor
 mentioned. -/
 theorem CtorDataI.cross {m : EnvS2Core V env} {T : Name} {lps : List Name} {cvC : ConstantVal}
@@ -814,36 +805,5 @@ theorem ctorFramesGen (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
   obtain ⟨-, -, u, -, hu, -, -, hleq, -⟩ := hfields j hj
   rw [List.getD_eq_getElem?_getD, hu]
   exact hleq hnp
-
-/-- `ctorFramesGen` at the sum's leaf. -/
-theorem sumCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvS2PM V μ env)
-    {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
-    {sorts : List Level}
-    (hCtor : ConLeche.checkDirectSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok (cvCa, sorts))
-    (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
-    {ppsAll : (Name → Nat) → List (Nat × Nat × AVExpr)}
-    (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
-    {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AVExpr)}
-    {Es : (Name → Nat) → List AVExpr} {srcs : List (Option Nat)}
-    (hCD : CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs)
-    {Fss : (Name → Nat) → List (List AVExpr)}
-    (hleafT : ∀ ψ, mp.base2.acval T ψ = directSumTyAV (resSort.eval ψ) (ppsAll ψ) (Fss ψ)) :
-    (∀ (ψ : Name → Nat) (ρ : Nat → V),
-      Sat2 V (((ppsAll ψ).take nP).map (·.2.2)).reverse ρ ↔
-        Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ) ∧
-    (∀ (ψ : Name → Nat) (ρ : Nat → V),
-      Sat2 V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
-        FieldsOkB (resSort.eval ψ) ρ (((ds ψ).drop nP).map (·.2.2)) ∧
-        FieldsValid ρ (((ds ψ).drop nP).map (·.2.2)) ∧
-        (isProp = false →
-          FieldsBound (resSort.eval ψ) ρ (((ds ψ).drop nP).map (·.2.2))) ∧
-        (∀ bs : List V, SpineFit ρ (((ds ψ).drop nP).map (·.2.2)) bs →
-          (∀ E ∈ Es ψ, AnnotOkP V (consList bs ρ) E) ∧
-          SpineFit ρ (((ppsAll ψ).drop nP).map (·.2.2)) (idxValsAt ρ (Es ψ) bs))) :=
-  let h := ctorFramesGen hμ mp hCtor hfT hProp hFD hCD fun ψ => ⟨_, hleafT ψ⟩
-  ⟨h.1, h.2.1⟩
 
 end ConLeche.SetP

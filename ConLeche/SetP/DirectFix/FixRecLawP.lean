@@ -43,34 +43,6 @@ theorem block_split {as₀ : List V} {nP n : Nat} (hlen : as₀.length = nP + 1 
     · rw [List.append_assoc, List.singleton_append, ← hd, ← hsplit]
     · rw [hd] at hlenD; simp at hlenD; omega
 
-/-- The rule's leading spine reads to the block. -/
-theorem map_recPrefixBvars_interp {nP n nF : Nat} {as₁ ms as₂ : List V} {M : V} {ρ : Nat → V}
-    (hlenP : as₁.length = nP) (hlenM : ms.length = n) (hlenF : as₂.length = nF) :
-    (recPrefixBvars nP n nF).map (interp2 V (consList as₂ (consList ms (cons M (consList as₁ ρ)))))
-      = (as₁ ++ [M]) ++ ms := by
-  unfold recPrefixBvars
-  rw [List.map_append, List.map_append]
-  congr 1
-  congr 1
-  · rw [show nP + nF + n + 1 = nP + (nF + n + 1) from by omega,
-      map_paramBvarsAt_interp (ρp := consList as₁ ρ) (fun k => by
-        rw [show k + (nF + n + 1) = (k + (n + 1)) + as₂.length from by omega, consList_apply_add,
-          show k + (n + 1) = (k + 1) + ms.length from by omega, consList_apply_add]
-        rfl), ← hlenP, range_reverse_map_consList]
-  · simp only [List.map_cons, List.map_nil, interp2_bvar]
-    rw [show nF + n = n + as₂.length from by omega, consList_apply_add,
-      show n = 0 + ms.length from by omega, consList_apply_add]
-    rfl
-  · apply List.ext_getElem
-    · simp [hlenM]
-    · intro l h1 h2
-      have hl : l < n := by simpa using h1
-      simp only [List.getElem_map, List.getElem_range, interp2_bvar]
-      rw [show nF + n - 1 - l = (n - 1 - l) + as₂.length from by omega,
-        consList_apply_add, consList_apply_lt' ms _ (by omega),
-        show ms.length - 1 - (n - 1 - l) = l from by omega,
-        List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2, Option.getD_some]
-
 /-- The recursor's leading spine under `bs` telescope binders reads to
 the block (task #202). -/
 theorem map_recPrefixBvarsM_interp {nP n nF : Nat} {as₁ ms as₂ : List V} {M : V} {ρ : Nat → V}

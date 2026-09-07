@@ -24,12 +24,4 @@ theorem directProjResidP_eq (T : Name) (nP : Nat) (cty : Expr) :
       instPisAtLift_append (directProjPs nP ++ (List.range i).map (directProjArgP T))
         [directProjArgP T i]]
 
-/-- The slot type read off the incremental residual is the generator's. -/
-theorem directProjTyR_residP (T : Name) (lps : List Name) (nP nF i : Nat)
-    (tty cty : Expr) :
-    directProjTyR T lps nP nF i tty (directProjResidP T nP cty i)
-      = directProjTyP T lps nP nF i tty cty := by
-  unfold directProjTyP
-  rw [directProjResidP_eq]
-
 end ConLeche

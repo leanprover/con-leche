@@ -41,14 +41,6 @@ def ihDomAV (nF o i l : Nat) (tl : List (Nat × Nat × AVExpr)) (Eis : List AVEx
       (Eis.map (ihIdxAtM nF o i l tl.length) ++
         [AVExpr.mkAppN (.bvar (nF - 1 - i + l + tl.length)) (teleVarsAV tl.length)]))
 
-theorem ihDomAV_nil (nF o i l : Nat) (Eis : List AVExpr) :
-    ihDomAV nF o i l [] Eis
-      = AVExpr.mkAppN (.bvar (nF + o - 1 + l))
-          (Eis.map (ihIdxAt nF o i l) ++ [.bvar (nF - 1 - i + l)]) := by
-  simp only [ihDomAV, ihTeleAtR_nil, mkPisAV, List.length_nil, Nat.add_zero, teleVarsAV,
-    List.range_zero, List.map_nil, AVExpr.mkAppN]
-  rfl
-
 /-- The ih binders' Π-tower over the recursive positions (the moved
 telescopes re-bit to the elimination bit `b`, task #202 A2). -/
 def ihPisAV (nF o b : Nat) (tls : List (List (Nat × Nat × AVExpr))) (Eiss : List (List AVExpr)) :
@@ -163,9 +155,6 @@ def recPrefixBvarsM (nP n nF m : Nat) : List AVExpr :=
   paramBvarsAt nP (nP + nF + n + 1 + m) ++ [.bvar (nF + n + m)] ++
     (List.range n).map fun l => AVExpr.bvar (nF + n - 1 - l + m)
 
-theorem recPrefixBvarsM_zero (nP n nF : Nat) : recPrefixBvarsM nP n nF 0 = recPrefixBvars nP n nF := by
-  simp [recPrefixBvarsM, recPrefixBvars]
-
 /-- The ih application in a rule for recursive field `i`: under the
 field's telescope (a λ-tower with the telescope's own bits), the
 recursor's leaf `R` at the block's variables, the field's index
@@ -178,14 +167,6 @@ def ihAppAV (R : AVExpr) (nP n nF i : Nat) (tl : List (Nat × Nat × AVExpr)) (E
     (AVExpr.mkAppN R (recPrefixBvarsM nP n nF tl.length ++
       Eis.map (ihIdxAtM nF (n + 1) i 0 tl.length) ++
       [AVExpr.mkAppN (.bvar (nF - 1 - i + tl.length)) (teleVarsAV tl.length)]))
-
-theorem ihAppAV_nil (R : AVExpr) (nP n nF i : Nat) (Eis : List AVExpr) :
-    ihAppAV R nP n nF i [] Eis
-      = AVExpr.mkAppN R (recPrefixBvars nP n nF ++ Eis.map (ihIdxAt nF (n + 1) i 0) ++
-          [.bvar (nF - 1 - i)]) := by
-  simp only [ihAppAV, ihTeleAtR_nil, List.map_nil, mkLamsAV, List.length_nil, recPrefixBvarsM_zero,
-    Nat.add_zero, teleVarsAV, List.range_zero, AVExpr.mkAppN]
-  rfl
 
 /-- Rule `j`'s core at a recursive block: minor `j` at the field
 variables and the ih applications (their telescopes re-bit to the

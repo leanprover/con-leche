@@ -23,14 +23,6 @@ theorem directFixCtors4_length {ctorsA : List (ConstantVal × Nat)}
     (directFixCtors4 ctorsA kinds).length = ctorsA.length := by
   simp [directFixCtors4, List.length_zipWith, h]
 
-/-- The field-kinds guard pins one kind list per constructor. -/
-theorem directFixFieldsOk_length {env₀ : Env} {T : Name} {lps : List Name} {nP nIdx : Nat}
-    {ctorsA : List (ConstantVal × Nat)} {kinds : List (List RecFieldKind)}
-    (h : directFixFieldsOk env₀ T lps nP nIdx ctorsA kinds = true) :
-    ctorsA.length = kinds.length := by
-  simp only [directFixFieldsOk, Bool.and_eq_true, beq_iff_eq] at h
-  exact h.1
-
 /-- The recursor stage's stored pieces, as its own guards checked
 them; the rules resolve at the environment holding the recursor's
 (rule-less) cons. -/
@@ -93,20 +85,6 @@ theorem direct_fix_rec_wf {env : Env} (henv : EnvWF env)
         (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)) rfl) hrres, hrbv, ?_⟩
   intro lvls pins hf
   exact absurd hf (hfire lvls pins)
-
-/-- The projection table at a structure-like block (task #210 Part A)
-keeps well-formedness: the table stage is the direct structure's
-(`direct_table_wf`), and the other arms return the environment. -/
-theorem direct_fix_table_wf {env envOut : Env} (henv : EnvWF env)
-    {p : DirectFixParts} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (h : checkDirectFixTable (m := CheckM) p ctorsA sortss env = .ok envOut) :
-    EnvWF envOut := by
-  unfold checkDirectFixTable at h
-  split at h
-  · split at h
-    · exact direct_table_wf henv h
-    · obtain rfl := Except.ok.inj h; exact henv
-  · obtain rfl := Except.ok.inj h; exact henv
 
 /-- The field-kinds guard, per constructor: the kind list has one
 entry per field and the opened form passes the guard at the pre-block

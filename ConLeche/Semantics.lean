@@ -25,8 +25,7 @@ import ConLeche.Semantics.Hoist
 import ConLeche.Semantics.Decl
 import ConLeche.Semantics.DeclEta
 import ConLeche.Semantics.DeclRun
-import ConLeche.Semantics.Direct.DeclDirect
-import ConLeche.Semantics.Direct.DeclDirectSum
+import ConLeche.Verify.Direct.SumWF
 import ConLeche.Semantics.Direct.DeclDirectSumEta
 import ConLeche.Semantics.DeclIndRun
 import ConLeche.Semantics.IndBlockFacts

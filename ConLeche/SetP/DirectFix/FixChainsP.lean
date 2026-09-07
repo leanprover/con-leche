@@ -48,9 +48,6 @@ theorem rsOf_getD_iff {ks : List RecFieldKind} {i : Nat} (hi : i < ks.length) :
       (ks.getD i .ordinary = .recursive ∨ ks.getD i .ordinary = .reflexive) := by
   rw [rsOf_getD hi, decide_eq_true_eq]
 
-omit [SetTheory V] in
-theorem rsOf_length (ks : List RecFieldKind) : (rsOf ks).length = ks.length := by simp [rsOf]
-
 /-- The shadow fields: the ordinary domains, `Sort 0` at the recursive
 positions. -/
 def shadowFs (nP : Nat) (ks : List RecFieldKind) (nF : Nat) (Fs : List AVExpr) : List AVExpr :=

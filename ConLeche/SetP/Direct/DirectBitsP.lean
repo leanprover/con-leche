@@ -60,18 +60,6 @@ theorem inferTypeCore_sort_inv {env : Env} {F d : Nat} {u : Level} {t : Expr}
     simp only [ConLeche.inferBody, pure, Except.pure] at h
     exact (Except.ok.inj h).symm
 
-theorem inferTypeCore_fvar_inv {env : Env} {F d idx : Nat}
-    {ty t : Expr} (h : inferTypeCore mode env F d (.fvar idx ty) = .ok t) :
-    idx < d ∧ t = ty := by
-  match F, h with
-  | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
-  | F + 1, h =>
-    rw [ConLeche.inferTypeCore_succ] at h
-    simp only [ConLeche.inferBody, pure, Except.pure] at h
-    split at h
-    · exact ⟨‹_›, (Except.ok.inj h).symm⟩
-    · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
-
 /-- A run on an application spine carries a run on its head. -/
 theorem inferTypeCore_mkAppN_fn_inv {env : Env} {F d : Nat} :
     ∀ (as : List Expr) {f t : Expr},
@@ -134,16 +122,6 @@ def PiBitsOpen (φ : Name → Nat) (z : Prop) : Nat → Nat → Expr → Prop
     (pwBit φ mb.pw = 0 ↔ z) ∧
       PiBitsOpen φ z n (d + 1) (body.instantiate1 (.fvar d dom))
   | _ + 1, _, _ => False
-
-theorem PiBitsOpen.congr {φ : Name → Nat} {z z' : Prop} (hz : z ↔ z') :
-    ∀ {n d : Nat} {e : Expr}, PiBitsOpen φ z n d e → PiBitsOpen φ z' n d e
-  | 0, _, _, _ => trivial
-  | _ + 1, _, .forallE _ _ _, h =>
-    ⟨h.1.trans hz, PiBitsOpen.congr hz h.2⟩
-  | _ + 1, _, .bvar _, h | _ + 1, _, .fvar _ _, h | _ + 1, _, .sort _, h
-  | _ + 1, _, .const _ _, h | _ + 1, _, .app _ _, h | _ + 1, _, .lam _ _ _, h
-  | _ + 1, _, .letE _ _ _, h | _ + 1, _, .lit _, h | _ + 1, _, .proj _ _ _, h =>
-    h.elim
 
 theorem eval_imax_eq_zero_iff (φ : Name → Nat) (l r : Level) :
     Level.eval φ (.imax l r) = 0 ↔ Level.eval φ r = 0 := by
@@ -319,59 +297,5 @@ theorem openPisAtFvars_of_stripPis_sort :
     | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
     | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.stripPis] at h
-
-/-- A domain shape preserved by instantiation carries from the raw
-binder to the opened variable's type. -/
-theorem openPisAtFvars_dom_pred (P : Expr → Prop)
-    (hP : ∀ (e v : Expr) (j : Nat), P e → P (e.instantiate1 v j)) :
-    ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr}
-      {bs : List (Expr × BinderMeta)} {body : Expr},
-      openPisAtFvars n e d = some (fvs, o) →
-      e.stripPis n = some (bs, body) →
-      ∀ (i : Nat) (b : Expr × BinderMeta) (x : Expr),
-        bs[i]? = some b → fvs[i]? = some x → P b.1 → P x.fvarTypeD
-  | 0, e, d, fvs, o, bs, body, hop, hst, i, b, x, hb, _, _ => by
-    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hst
-    rw [← hst.1] at hb
-    exact nomatch hb
-  | n + 1, e, d, fvs, o, bs, body, hop, hst, i, b, x, hb, hx, hPb => by
-    match e, hop, hst with
-    | .forallE dom bd mb, hop, hst =>
-      simp only [openPisAtFvars] at hop
-      split at hop
-      · next fvs₁ e₁ h₁ =>
-        simp only [Option.some.injEq, Prod.mk.injEq] at hop
-        obtain ⟨rfl, rfl⟩ := hop
-        simp only [Expr.stripPis, Option.map_eq_some_iff] at hst
-        obtain ⟨⟨bs', body₀⟩, hst', heq⟩ := hst
-        simp only [Prod.mk.injEq] at heq
-        obtain ⟨rfl, rfl⟩ := heq
-        cases i with
-        | zero =>
-          simp only [List.getElem?_cons_zero, Option.some.injEq] at hb hx
-          subst hb; subst hx
-          exact hPb
-        | succ i =>
-          simp only [List.getElem?_cons_succ] at hb hx
-          have hsome := Expr.stripPis_instantiate1_isSome
-            (v := .fvar d dom) n (e := bd) 0 (by rw [hst']; rfl)
-          obtain ⟨⟨bs'', body''⟩, hst''⟩ := Option.isSome_iff_exists.mp hsome
-          obtain ⟨-, hdoms⟩ := Expr.stripPis_instantiate1_eq
-            (v := .fvar d dom) n 0 hst' hst''
-          have hlen : bs''.length = bs'.length := by
-            rw [Expr.stripPis_length n hst'', Expr.stripPis_length n hst']
-          have hi : i < bs''.length := by
-            rw [hlen]; exact (List.getElem?_eq_some_iff.mp hb).1
-          obtain ⟨b'', hb''⟩ : ∃ b'', bs''[i]? = some b'' :=
-            ⟨_, List.getElem?_eq_getElem hi⟩
-          have hdom := hdoms i b b'' hb hb''
-          refine openPisAtFvars_dom_pred P hP n h₁ hst'' i b'' x hb'' hx ?_
-          rw [hdom, Nat.zero_add]
-          exact hP _ _ _ hPb
-      · exact nomatch hop
-    | .bvar _, hop, _ | .fvar _ _, hop, _ | .sort _, hop, _
-    | .const _ _, hop, _ | .app _ _, hop, _ | .lam _ _ _, hop, _
-    | .letE _ _ _, hop, _ | .lit _, hop, _ | .proj _ _ _, hop, _ =>
-      simp [openPisAtFvars] at hop
 
 end ConLeche.SetP

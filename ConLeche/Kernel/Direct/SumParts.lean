@@ -1,11 +1,15 @@
 import ConLeche.Kernel.Direct.Parts
 
 /-!
-# The direct sum class: recognition (task #175 sum-types, indexed)
+# The block's shape record and its readers (task #175, kept for the one route)
 
-A **direct sum** is a non-recursive, non-nested inductive with **any
-number of constructors other than one**, or — task #175 indexed — an
-**indexed family** (`numIndices > 0`) with any number of constructors:
+`DirectSumParts` is the shape every block on the fixpoint route is
+read into (`directFixShape?`, `ConLeche/Kernel/Direct/RecParts.lean`,
+extends it with the fields' kinds).  The sum route that named it was
+deleted at task #210 Part C; the recognition helpers below are the
+one route's.  Historically a **direct sum** was a non-recursive,
+non-nested inductive with **any number of constructors other than
+one**, or an **indexed family** with any number of constructors:
 enumerations (`Bool`, `Ordering`), option- and sum-like types
 (`Option`, `Sum`, `Decidable`), propositional disjunctions (`Or`), the
 empty inductives (zero constructors), and the index-carrying families
@@ -67,13 +71,6 @@ the official `inductive.cpp`):
 
 namespace ConLeche
 
-/-- The right-hand side body of the rule for constructor `j` of `n`:
-the minor premise `j` (sitting `n - 1 - j` binders above the fields)
-applied to the field variables.  `directRuleBody nF = directRuleBodyAt
-nF 1 0`. -/
-def directRuleBodyAt (nF n j : Nat) : Expr :=
-  Expr.mkAppN (.bvar (nF + n - 1 - j)) ((List.range nF).map fun k => Expr.bvar (nF - 1 - k))
-
 /-- The pieces of a recognised direct sum block. -/
 structure DirectSumParts where
   /-- the type former -/
@@ -106,76 +103,6 @@ def directSumSplit : List ConstantInfo →
   | [.recInfo cvR mI rP rules] => some ([], cvR, mI, rP, rules)
   | .ctorInfo cvC nP nF :: rest =>
     (directSumSplit rest).map fun q => ((cvC, nP, nF) :: q.1, q.2)
-  | _ => none
-
-/-- The rules of a recognised block, in constructor order: rule `j`
-fires constructor `j` with its field count and the canonical
-right-hand side shape. -/
-def directSumRulesOk (nP n : Nat) (cs : List (ConstantVal × Nat × Nat))
-    (rules : List RecRule) : Bool :=
-  rules.length == n &&
-  (List.range n).all fun j =>
-    match rules[j]?, cs[j]? with
-    | some rule, some (cvC, _, nF) =>
-      rule.ctor == cvC.name && rule.nfields == nF &&
-      (match rule.rhs.stripLams (nP + 1 + n + nF) with
-       | some (_, rbody) => rbody == directRuleBodyAt nF n j
-       | none => false)
-    | _, _ => false
-
-/-- Recognise a direct sum block (see the module docs).  `none` means
-"not this class" — the caller falls through to the modeled path. -/
-def directSumPartsCore? (block : List ConstantInfo) : Option DirectSumParts :=
-  match block with
-  | .indInfo cvT _ :: rest =>
-    match directSumSplit rest with
-    | some (cs, cvR, mI, rP, rules) =>
-      let T := cvT.name
-      let lps := cvT.levelParams
-      let n := cs.length
-      -- the parameter and index counts are read off the recursor
-      -- (`rulePrefix = nP + 1 + n`, `majorIdx = rulePrefix + nIdx`)
-      -- and must agree with every constructor's; one constructor
-      -- without an index is the direct structure route
-      if rP < n + 1 || mI < rP then none else
-      let nP := rP - (n + 1)
-      let nIdx := mI - rP
-      if n == 1 && nIdx == 0 then none else
-      if cvR.name == T.str "rec" &&
-          reservedBasisNames.contains T == false &&
-          reservedBasisNames.contains cvR.name == false &&
-          cs.all (fun c => c.2.1 == nP && c.1.levelParams == lps &&
-            reservedBasisNames.contains c.1.name == false &&
-            (match c.1.type.stripPis (nP + c.2.2) with
-             | some (_, cbody) => directCtorResidOk T lps nP c.2.2 nIdx cbody
-             | none => false)) &&
-          directSumRulesOk nP n cs rules then
-        -- the result sort: read off the declared type when it is a
-        -- syntactic telescope ending in a sort; otherwise (task #195: a
-        -- former declared AT A DEFINITION that only unfolds to its
-        -- telescope, `inductive … : Presieve X`) a PLACEHOLDER that the
-        -- install's whnf loop replaces (`checkDirectSumInd`,
-        -- `DirectSumParts.withSort`) — official's own
-        -- `check_inductive_types` reads the telescope through `whnf`
-        let s : Level := match cvT.type.stripPis (nP + nIdx) with
-          | some (_, .sort s) => s
-          | _ => .zero
-        let isProp := Level.isEquiv s .zero == some true
-        let ctors := cs.map fun c => (c.1, c.2.2)
-        let rhss := rules.map (·.rhs)
-        let large? : Option Name :=
-          match cvR.levelParams with
-          | elim :: relps =>
-            if relps == lps && !lps.contains elim then some elim else none
-          | [] => none
-        match large? with
-        | some elim => some ⟨cvT, ctors, nP, nIdx, cvR, elim, s, rhss, true, isProp⟩
-        | none =>
-          if cvR.levelParams == lps then
-            some ⟨cvT, ctors, nP, nIdx, cvR, .anonymous, s, rhss, false, isProp⟩
-          else none
-      else none
-    | none => none
   | _ => none
 
 /-- The record completed with the former's result sort (task #195):
@@ -218,22 +145,5 @@ theorem DirectSumParts.withSort_self (p : DirectSumParts)
     (p.withSort s).large = p.large := rfl
 @[simp] theorem DirectSumParts.withSort_isProp (p : DirectSumParts) (s : Level) :
     (p.withSort s).isProp = (Level.isEquiv s .zero == some true) := rfl
-
-/-- **Non-recursive**: every binder domain of every constructor
-resolves in the pre-block environment (see `directNonRec`). -/
-def directSumNonRec (env : Env) (p : DirectSumParts) : Bool :=
-  p.ctors.all fun c =>
-    match c.1.type.stripPis (p.nP + c.2) with
-    | some (cbs, _) => cbs.all fun b => b.1.constsResolve env
-    | none => false
-
-/-- Recognise a direct sum block against an environment.  Like
-`directParts?` this is a priority gate: a recognised block installs
-directly whether or not the stream carries `_model` artifacts for it. -/
-def directSumParts? (env : Env) (block : List ConstantInfo) :
-    Option DirectSumParts :=
-  match directSumPartsCore? block with
-  | some p => if directSumNonRec env p then some p else none
-  | none => none
 
 end ConLeche

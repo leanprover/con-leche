@@ -113,16 +113,6 @@ theorem domsMatchAuxA_eq (g : Nat → Expr → Expr)
 section
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-theorem checkDirectFieldSortsFA_eq (ops : CheckerOps m) (fe : FEnv)
-    (isProp large : Bool) (s : Level) (nP : Nat) (fvs : List Expr) :
-    ∀ j, checkDirectFieldSortsFA ops fe isProp large s nP fvs.toArray j
-      = checkDirectFieldSortsF ops fe isProp large s nP fvs j
-  | 0 => rfl
-  | j + 1 => by
-    simp only [checkDirectFieldSortsFA, checkDirectFieldSortsF,
-      List.getElem?_toArray,
-      checkDirectFieldSortsFA_eq ops fe isProp large s nP fvs j]
-
 theorem checkDirectDomsAtFA_eq (ops : CheckerOps m) (fe : FEnv)
     (off : Nat) (fvs doms : List Expr) :
     ∀ j, checkDirectDomsAtFA ops fe off fvs.toArray doms.toArray j
@@ -146,30 +136,3 @@ theorem instPisAtLift_append :
   | x :: xs, ys, .const _ _ | x :: xs, ys, .app _ _ | x :: xs, ys, .lam _ _ _
   | x :: xs, ys, .letE _ _ _ | x :: xs, ys, .lit _
   | x :: xs, ys, .proj _ _ _ => rfl
-
-/-- The threaded residual is the full peel at the parameters and the
-first `i` earlier-projection substitutes. -/
-theorem directProjResid_eq (T : Name) (lps : List Name) (nP : Nat)
-    (cty : Expr) :
-    ∀ i, directProjResid T lps nP cty i
-      = Expr.instPisAtLift
-          (directProjPs nP ++ (List.range i).map (directProjArg T lps nP))
-          cty
-  | 0 => by
-    simp only [directProjResid, List.range_zero, List.map_nil,
-      List.append_nil]
-  | i + 1 => by
-    rw [List.range_succ, List.map_append, List.map_cons, List.map_nil,
-      ← List.append_assoc,
-      instPisAtLift_append
-        (directProjPs nP ++ (List.range i).map (directProjArg T lps nP)),
-      ← directProjResid_eq T lps nP cty i]
-    rfl
-
-/-- Reading the projection type off the threaded residual is exactly
-the generator (`checkDirectProjF`'s caller invariant). -/
-theorem directProjTy_eq_resid (T : Name) (lps : List Name)
-    (nP nF i : Nat) (tty cty : Expr) :
-    directProjTy T lps nP nF i tty cty
-      = directProjTyR T lps nP nF i tty (directProjResid T lps nP cty i) := by
-  rw [directProjTy, directProjResid_eq]

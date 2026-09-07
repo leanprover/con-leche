@@ -50,8 +50,6 @@ theorem natzero_eq_vnat : (natzero : V) = vnat 0 := by
 theorem natsucc_eq_vsucc (n : V) : natsucc n = vsucc n := by
   unfold natsucc; rfl
 
-@[simp] theorem interp2_natAV (ρ : Nat → V) : interp2 V ρ natAV = omega := rfl
-
 theorem interp2_numeralAV : ∀ (i : Nat) (ρ : Nat → V), interp2 V ρ (numeralAV i) = vnat i
   | 0, _ => natzero_eq_vnat
   | i + 1, ρ => by
@@ -67,11 +65,6 @@ theorem numeralAV_ok2 : ∀ (i : Nat) (ρ : Nat → V), AnnotOk2 V ρ (numeralAV
       fun h => absurd h Nat.one_ne_zero⟩
     rw [interp2_numeralAV]
     exact vnat_mem_omega i
-
-theorem numeralAV_liftN (i n k : Nat) : (numeralAV i).liftN n k = numeralAV i := by
-  induction i with
-  | zero => rfl
-  | succ i ih => rw [numeralAV, AVExpr.liftN_app, ih]; rfl
 
 theorem numeralAV_erase_below (i k : Nat) : VExpr.bvarsBelow k (numeralAV i).erase := by
   induction i with
@@ -232,12 +225,6 @@ theorem shiftE_step (d : Nat) (σ : Nat → V) (a b : V) :
 beyond. -/
 noncomputable def selFibre (ρ : Nat → V) (Ts : List AVExpr) (i : Nat) : V :=
   (Ts.map (interp2 V ρ)).getD i empty
-
-theorem selFibre_nil (ρ : Nat → V) (i : Nat) : selFibre ρ ([] : List AVExpr) i = empty := rfl
-theorem selFibre_cons_zero (ρ : Nat → V) (T : AVExpr) (Ts : List AVExpr) :
-    selFibre ρ (T :: Ts) 0 = interp2 V ρ T := rfl
-theorem selFibre_cons_succ (ρ : Nat → V) (T : AVExpr) (Ts : List AVExpr) (i : Nat) :
-    selFibre ρ (T :: Ts) (i + 1) = selFibre ρ Ts i := rfl
 
 /-- The selector's three facts, in one induction: at every member of
 `ω` the selector's reading lies in `univ w`, at the numeral `i` it is

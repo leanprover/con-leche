@@ -106,14 +106,6 @@ theorem mkAppN_validV :
     rw [AnnotValidV_app]
     exact ⟨hf, hargs a (.head _)⟩
 
-/-- The recursor body is bit-valid unconditionally. -/
-theorem recBodyAV_validV (n : Nat) (σ : Nat → V) :
-    AnnotValidV V σ (recBodyAV n) := by
-  refine mkAppN_validV (by rw [AnnotValidV_bvar]; trivial) ?_
-  intro a ha
-  obtain ⟨i, -, rfl⟩ := List.mem_map.mp ha
-  exact projAV_validV (by rw [AnnotValidV_bvar]; trivial)
-
 /-- The constructor tupler is bit-valid at a fitting frame — the one
 walk that crosses the λ-frame lifts (`AnnotValidV_liftN` +
 `shiftE_consList`). -/
@@ -187,33 +179,5 @@ theorem mkLamsC_validV {m : Nat} {b : AVExpr} :
     exact ⟨h.1, fun a ha => mkLamsC_validV (h.2 a ha)⟩
 
 /-! ## The `AnnotOkP` packages -/
-
-/-- The type-former leaf's P currency (`hAok`+`hAvalid`, packaged). -/
-theorem directTyAV_okP {w : Nat} {Fs : List AVExpr}
-    {pps : List (Nat × Nat × AVExpr)} {ρ : Nat → V}
-    (hok : ParamsOkT w ρ Fs pps)
-    (hval : UnderTowerValid ρ (towerBodyAV w Fs) pps) :
-    AnnotOkP V ρ (directTyAV w pps Fs) :=
-  ⟨directTyAV_ok2 hok, mkLamsC_validV hval⟩
-
-/-- The constructor leaf's P currency. -/
-theorem directMkAV_okP {w : Nat} {bodyC : AVExpr} {ρ : Nat → V}
-    {pds fds : List (Nat × Nat × AVExpr)}
-    (hz : ∀ d ∈ pds ++ fds, (w = 0 ↔ d.2.1 = 0))
-    (hpre : MkPre w ρ (fds.map (·.2.2)) bodyC pds)
-    (hval : UnderTowerValid ρ (mkTowerGo w (fds.map (·.2.2)))
-      (pds ++ fds)) :
-    AnnotOkP V ρ (directMkAV w (pds ++ fds) (fds.map (·.2.2))) :=
-  ⟨directMkAV_ok2 hz hpre, mkLamsC_validV hval⟩
-
-/-- The recursor leaf's P currency. -/
-theorem directRecAV_okP {ℓ w : Nat} {Fs : List AVExpr} {ρ : Nat → V}
-    {pds : List (Nat × Nat × AVExpr)} {dM dm dt : Nat × Nat × AVExpr}
-    (hz : ∀ d ∈ pds ++ [dM, dm, dt], (ℓ = 0 ↔ d.2.1 = 0))
-    (hpre : RecPre ℓ w ρ Fs dM dm dt pds)
-    (hval : UnderTowerValid ρ (recBodyAV Fs.length)
-      (pds ++ [dM, dm, dt])) :
-    AnnotOkP V ρ (directRecAV ℓ (pds ++ [dM, dm, dt]) Fs.length) :=
-  ⟨directRecAV_ok2 hz hpre, mkLamsC_validV hval⟩
 
 end ConLeche.SetP

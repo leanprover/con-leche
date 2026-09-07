@@ -81,12 +81,6 @@ theorem fixMinorsData_congr {b : Nat} :
     rw [minorAVAtR_congr (h _ List.mem_cons_self),
       fixMinorsData_congr cs (o + 1) fun cd hcd => h cd (List.mem_cons_of_mem _ hcd)]
 
-theorem fixRecDataAV_congr {ℓ : Level} {pps ips : List (Nat × Nat × AVExpr)} {cds : List CtorDatumR}
-    (hT : m₁.acval T ψ = m₂.acval T ψ) (hC : ∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) :
-    fixRecDataAV m₁ T ψ nP nIdx ℓ pps ips cds = fixRecDataAV m₂ T ψ nP nIdx ℓ pps ips cds := by
-  unfold fixRecDataAV motiveAVI majorAVAt
-  rw [hT, fixMinorsData_congr cds 1 hC]
-
 theorem fixRuleDataAV_congr {ℓ : Level} {pps ips : List (Nat × Nat × AVExpr)} {cds : List CtorDatumR}
     {ds : List (Nat × Nat × AVExpr)}
     (hT : m₁.acval T ψ = m₂.acval T ψ) (hC : ∀ cd ∈ cds, m₁.acval cd.1 ψ = m₂.acval cd.1 ψ) :

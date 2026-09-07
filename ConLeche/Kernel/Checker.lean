@@ -483,15 +483,11 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- (`CheckerBase ← Modeled ← Checker`) is why
     -- the dispatch lives here and not inside `checkIndDecl`.
     -- The direct sum route (task #175 sum-types) takes the blocks with
-    -- any number of constructors other than one; the two recognisers
-    -- are disjoint by the constructor count.
-    -- The direct recursive route (task #188) takes the blocks in which
-    -- the type former occurs in a constructor field: recognised
-    -- syntactically after the two non-recursive routes.
-    -- ONE ROUTE (task #210 Part B): the fixpoint route takes every
-    -- block the structure and sum recognisers took (its constant-
-    -- functor arm), so those two arms are gone from the dispatch; their
-    -- installers stay unreferenced until Part C deletes them
+    -- ONE ROUTE (task #210): the fixpoint route takes every block whose
+    -- fields are ordinary, finitary-recursive or reflexive — the
+    -- structure and sum routes it replaced were deleted at Part C;
+    -- what it refuses (nested, a redex over a recursive field, a
+    -- recursive field a later binder mentions) is the modeled path's
     match directFixParts? block with
     | some p => checkDirectFix ops env p
     | none => checkIndDecl mode ops env block

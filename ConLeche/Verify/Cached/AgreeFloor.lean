@@ -426,47 +426,12 @@ theorem constsResolveF_skel {fe : FEnv} {sk : List InstallSkel}
   | proj s _ e ihe =>
     simp only [Expr.constsResolveF, constsResolveSk, h.isSome', ihe]
 
-/-- `directNonRecF` at the skeleton level. -/
-def directNonRecSk (sk : List InstallSkel) (p : DirectParts) : Bool :=
-  match p.cvC.type.stripPis (p.nP + p.nF) with
-  | some (cbs, _) => cbs.all fun b => constsResolveSk sk b.1
-  | none => false
-
-theorem directNonRecF_skel {fe : FEnv} {sk : List InstallSkel}
-    (h : SkelIs fe sk) (p : DirectParts) :
-    directNonRecF fe p = directNonRecSk sk p := by
-  unfold directNonRecF directNonRecSk
-  cases p.cvC.type.stripPis (p.nP + p.nF) with
-  | none => rfl
-  | some q => simp only [constsResolveF_skel h]
-
-/-- The direct install's skeleton: the former, the constructor, the
-recursor, then the projection table (task #175 S1: one constant per
-structure). -/
-def directSkels (p : DirectParts) (sk : List InstallSkel) : List InstallSkel :=
-  .proj (projTableName p.cvT.name) ::
-    .recr p.cvR.name (p.nP + 2) (p.nP + 2) [p.cvC.name] ::
-      .ctor p.cvC.name p.nP p.nF :: .ind p.cvT.name :: sk
-
 /-! ### The direct sum clause (task #175 sum-types)
 
 The second gate reads the index exactly as the first does — `constsResolveF`
 on the raw constructor domains — and its install decisions are the block's
 own; only the *number* of constants it pushes varies with the block (one
 per constructor). -/
-
-/-- `directSumNonRecF` at the skeleton level. -/
-def directSumNonRecSk (sk : List InstallSkel) (p : DirectSumParts) : Bool :=
-  p.ctors.all fun c =>
-    match c.1.type.stripPis (p.nP + c.2) with
-    | some (cbs, _) => cbs.all fun b => constsResolveSk sk b.1
-    | none => false
-
-theorem directSumNonRecF_skel {fe : FEnv} {sk : List InstallSkel}
-    (h : SkelIs fe sk) (p : DirectSumParts) :
-    directSumNonRecF fe p = directSumNonRecSk sk p := by
-  unfold directSumNonRecF directSumNonRecSk
-  simp only [constsResolveF_skel h] <;> rfl
 
 /-- The constructors' conses at the skeleton level (the first
 constructor deepest, as `consSumCtors`). -/
@@ -511,10 +476,6 @@ def declCSkels : DeclC → List InstallSkel → List InstallSkel
     kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk
   | .indDecl block, sk => indDeclSkels block sk
 
-
-
-
-
 /-! ## The shared install stages
 
 `checkConstantValF`, `checkMemberValF`, `checkIotaRule(s)F` and
@@ -526,15 +487,6 @@ theorem checkConstantValF_name (ops : CheckerOps CheckCM) (fe : FEnv)
     (cv : ConstantVal) :
     Yields (checkConstantValF ops fe cv) (fun cvA => cvA.name = cv.name) := by
   unfold checkConstantValF
-  yields
-  all_goals (apply Yields.pure; rfl)
-
-/-- The recursor stage stores the generated recursor at the stream's
-name (task #175 S2). -/
-theorem checkDirectRecF_name (ops : CheckerOps CheckCM) (fe : FEnv)
-    (p : DirectParts) (cvTa cvCa : ConstantVal) :
-    Yields (checkDirectRecF ops fe p cvTa cvCa) (fun r => r.1.name = p.cvR.name) := by
-  unfold checkDirectRecF
   yields
   all_goals (apply Yields.pure; rfl)
 
@@ -763,31 +715,6 @@ Every stage's install decision is the block's own or a freshness
 check; the stored constants' names are the block's (`checkConstantValF`
 keeps the name). -/
 
-theorem checkDirectIndF_skels {fe : FEnv} {sk : List InstallSkel}
-    (h : SkelIs fe sk) (ops : CheckerOps CheckCM) (p : DirectParts) :
-    Yields (checkDirectIndF ops fe p)
-      (fun r => SkelIs r.1 (.ind p.cvT.name :: sk)) := by
-  unfold checkDirectIndF
-  refine Yields.bind' (checkConstantValF_name ops fe p.cvT) fun cvTa hn => ?_
-  yields
-  all_goals
-    (refine Yields.pure ?_
-     have := h.push (.indInfo cvTa (directCaps p))
-     simpa [ciSkel, hn] using this)
-
-theorem checkDirectCtorF_skels {fe₀ fe : FEnv} {sk : List InstallSkel}
-    (h : SkelIs fe sk) (ops : CheckerOps CheckCM) (p : DirectParts)
-    (cvTa : ConstantVal) :
-    Yields (checkDirectCtorF ops fe₀ fe p cvTa)
-      (fun r => SkelIs r.1 (.ctor p.cvC.name p.nP p.nF :: sk)) := by
-  unfold checkDirectCtorF
-  refine Yields.bind' (checkConstantValF_name ops fe p.cvC) fun cvCa hn => ?_
-  yields
-  all_goals
-    (refine Yields.pure ?_
-     have := h.push (.ctorInfo cvCa p.nP p.nF)
-     simpa [ciSkel, hn] using this)
-
 theorem checkDirectProjTableF_skels {w : DirectWalkers} {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (T C : Name) (lps : List Name) (nP nF : Nat)
     (resSort : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal) :
@@ -797,36 +724,6 @@ theorem checkDirectProjTableF_skels {w : DirectWalkers} {fe : FEnv} {sk : List I
   unfold checkDirectProjTableF
   yields
   all_goals (refine Yields.pure ?_; exact h.push _)
-
-theorem checkDirectStructS_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (p : DirectParts) :
-    Yields (checkDirectStructS mode fe p)
-      (fun fe' => SkelIs fe' (directSkels p sk)) := by
-  unfold checkDirectStructS
-  ybind
-  refine Yields.bind' (checkDirectIndF_skels h _ p) fun r₁ h₁ => ?_
-  obtain ⟨fe₁, cvTa⟩ := r₁
-  simp only []
-  ybind
-  refine Yields.bind' (checkDirectCtorF_skels h₁ _ p cvTa) fun r₂ h₂ => ?_
-  obtain ⟨fe₂, cvCa, sorts⟩ := r₂
-  simp only []
-  ybind
-  refine Yields.bind' (checkDirectRecF_name _ fe₂ p cvTa cvCa) fun r₃ hnR => ?_
-  obtain ⟨cvRa, rhsA⟩ := r₃
-  simp only [] at hnR
-  try simp only []
-  generalize (if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
-      RecRuleFire.plain else RecRuleFire.inert) = fire
-  have h₃ : SkelIs (fe₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
-      [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩]))
-      (.recr p.cvR.name (p.nP + 2) (p.nP + 2) [p.cvC.name] ::
-        .ctor p.cvC.name p.nP p.nF :: .ind p.cvT.name :: sk) := by
-    have := h₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
-      [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩])
-    simpa [ciSkel, hnR] using this
-  exact checkDirectProjTableF_skels h₃ p.cvT.name p.cvC.name p.cvT.levelParams
-    p.nP p.nF p.resSort (directProjGuards cvCa.type p.nP p.nF sorts) 0 cvCa
 
 /-- The members-then-recursors phase, shared by both arms of
 `checkIndDeclSF`'s block match. -/
@@ -975,54 +872,6 @@ theorem consSumCtorsF_skels (nP : Nat) :
       (h.push (.ctorInfo c.1 nP c.2))
     simpa [consSumCtorsF, sumCtorSkels, ciSkel] using hstep
 
-/-- The generated rules loop returns exactly `k` right-hand sides. -/
-theorem checkDirectSumRulesF_len (ops : CheckerOps CheckCM) (fe : FEnv)
-    (rlps : List Name) (T : Name) (lps : List Name) (elim : Name) (large : Bool)
-    (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr)) :
-    ∀ (k j : Nat),
-      Yields (checkDirectSumRulesF ops fe rlps T lps elim large nP nIdx tty ctors k j)
-        (fun rhss => rhss.length = k)
-  | 0, _ => Yields.pure rfl
-  | k + 1, j => by
-    unfold checkDirectSumRulesF
-    refine Yields.bind fun rhs => ?_
-    try ylet
-    split
-    case isTrue =>
-      refine Yields.bind fun _rhsTy => ?_
-      refine Yields.bind' (checkDirectSumRulesF_len ops fe rlps T lps elim large
-        nP nIdx tty ctors k (j + 1)) fun rest hrest => ?_
-      exact Yields.pure (by simp [hrest])
-    case isFalse => exact Yields.ofThrowBind
-
-/-- The recursor stage stores the generated recursor at the stream's
-name, with one rule per constructor. -/
-theorem checkDirectSumRecF_yields (ops : CheckerOps CheckCM) (fe : FEnv)
-    (p : DirectSumParts) (cvTa : ConstantVal)
-    (ctorsA : List (ConstantVal × Nat)) :
-    Yields (checkDirectSumRecF ops fe p cvTa ctorsA)
-      (fun r => r.1.name = p.cvR.name ∧ r.2.length = ctorsA.length) := by
-  unfold checkDirectSumRecF
-  refine Yields.bind fun cvRi => ?_
-  refine Yields.bind fun recTy => ?_
-  try ylet
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue =>
-  refine Yields.bind fun _sty => ?_
-  refine Yields.bind fun _u => ?_
-  refine Yields.bind fun b => ?_
-  try ylet
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue =>
-  refine Yields.bind' (checkDirectSumRulesF_len ops fe p.cvR.levelParams
-    p.cvT.name p.cvT.levelParams p.elim p.large p.nP p.nIdx cvTa.type
-    (ctorsA.map fun c => (c.1.name, c.2, c.1.type))
-    (ctorsA.map fun c => (c.1.name, c.2, c.1.type)).length 0)
-    fun rhss hrhss => ?_
-  exact Yields.pure ⟨rfl, by simpa using hrhss⟩
-
 /-- The stored rules are one per constructor, in constructor order. -/
 theorem directSumRules_map_ctor (nP mI rP : Nat) (recTy : Expr) :
     ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr},
@@ -1035,60 +884,6 @@ theorem directSumRules_map_ctor (nP mI rP : Nat) (recTy : Expr) :
   | c :: cs, rhs :: rhss, h => by
     simp only [directSumRules, List.map_cons, List.cons.injEq, true_and]
     exact directSumRules_map_ctor nP mI rP recTy (by simpa using h)
-
-theorem checkDirectSumS_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (p : DirectSumParts) :
-    Yields (checkDirectSumS mode fe p)
-      (fun fe' => SkelIs fe' (directSumSkels p sk)) := by
-  unfold checkDirectSumS
-  -- the distinct-names guard
-  apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => ?dupBad) (fun _ => ?main)
-  case dupBad => exact Yields.ofThrowBind
-  case main =>
-  ybind
-  refine Yields.bind' (checkDirectSumIndF_skels h _ p directSumCaps) fun r₁ h₁ => ?_
-  obtain ⟨fe₁, cvTa, p'⟩ := r₁
-  obtain ⟨h₁, s, hps⟩ := h₁
-  try simp only [] at hps
-  subst hps
-  try simp only []
-  -- the elimination restriction, at the completed record
-  try apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => ?elim) (fun _ => ?elimBad)
-  case elimBad => exact Yields.ofThrowBind
-  case elim =>
-  ybind
-  refine Yields.bind' (checkDirectSumCtorsF_names _ fe fe₁ (p.withSort s).cvT.name
-    (p.withSort s).cvT.levelParams (p.withSort s).nP (p.withSort s).nIdx (p.withSort s).resSort
-    (p.withSort s).isProp (p.withSort s).large cvTa (p.withSort s).ctors)
-    fun r hr => ?_
-  obtain ⟨ctorsA, sortss⟩ := r
-  obtain ⟨hns, -⟩ := hr
-  try simp only []
-  ybind
-  refine Yields.bind' (checkDirectSumRecF_yields _ _ (p.withSort s) cvTa ctorsA)
-    fun r₃ h₃ => ?_
-  obtain ⟨cvRa, rhss⟩ := r₃
-  obtain ⟨hnR, hlen⟩ := h₃
-  try simp only [] at hnR hlen
-  try simp only []
-  refine Yields.pure ?_
-  simp only [DirectSumParts.withSort_ctors, DirectSumParts.withSort_nP,
-    DirectSumParts.withSort_cvR, DirectSumParts.withSort_majorIdx,
-    DirectSumParts.withSort_rulePrefix] at hns hnR hlen h₁ ⊢
-  have hctors : ctorsA.map (·.1.name) = p.ctors.map (·.1.name) := by
-    have := congrArg (List.map Prod.fst) hns
-    simpa [List.map_map, Function.comp_def] using this
-  have hbase : SkelIs (consSumCtorsF p.nP ctorsA fe₁)
-      (sumCtorSkels p.nP (p.ctors.map fun c => (c.1.name, c.2))
-        (.ind p.cvT.name :: sk)) := by
-    have hcs := consSumCtorsF_skels p.nP (ctorsA := ctorsA) h₁
-    rwa [hns] at hcs
-  have hpush := hbase.push (.recInfo cvRa p.majorIdx p.rulePrefix
-    (directSumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss))
-  simpa [ciSkel, directSumSkels, hnR, directSumRules_map_ctor _ _ _ _ hlen,
-    hctors] using hpush
 
 /-! ### The direct recursive install (task #188) -/
 
