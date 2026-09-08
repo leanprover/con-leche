@@ -47,7 +47,7 @@ variable {V : Type uv} [SetTheory V]
 the earlier binders (the equations are scoped at the chain's head). -/
 def eqChainAV : List (AnnotTerm × AnnotTerm) → AnnotTerm
   | [] => .const .empty [0]
-  | (a, b) :: r => .pi 0 0 (.eqE (.sort 0) a b) ((eqChainAV r).liftN 1 0)
+  | (a, b) :: r => .pi 0 0 (.eqE a b) ((eqChainAV r).liftN 1 0)
 
 /-- **The index equation**: the truth value of every equation holding. -/
 def idxEqAV (eqs : List (AnnotTerm × AnnotTerm)) : AnnotTerm := negAV (eqChainAV eqs)
@@ -135,7 +135,7 @@ theorem eqChainAV_wellDenoted :
       WellDenoted V ρ (eqChainAV eqs)
   | [], _, _ => trivial
   | (a, b) :: r, ρ, hok => by
-    show WellDenoted V ρ (.pi 0 0 (.eqE (.sort 0) a b) ((eqChainAV r).liftN 1 0))
+    show WellDenoted V ρ (.pi 0 0 (.eqE a b) ((eqChainAV r).liftN 1 0))
     rw [WellDenoted_pi, WellDenoted_eqE]
     refine ⟨hok (a, b) List.mem_cons_self, fun x _ => ?_⟩
     rw [WellDenoted_liftN, show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
@@ -249,7 +249,7 @@ theorem eqChainAV_below {k : Nat} :
       Term.bvarsBelow k (eqChainAV eqs).erase
   | [], _ => trivial
   | (a, b) :: r, h => by
-    refine ⟨⟨trivial, (h (a, b) List.mem_cons_self).1, (h (a, b) List.mem_cons_self).2⟩, ?_⟩
+    refine ⟨⟨(h (a, b) List.mem_cons_self).1, (h (a, b) List.mem_cons_self).2⟩, ?_⟩
     rw [AnnotTerm.erase_liftN]
     exact VExprAux.bvarsBelow_liftN 1 _ k 0
       (eqChainAV_below fun e he => h e (List.mem_cons_of_mem _ he))

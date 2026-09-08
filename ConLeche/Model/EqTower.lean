@@ -105,7 +105,7 @@ former a graph and not a proof point. -/
 the graph regime (forced — see the module docstring). -/
 @[expose] def eqValAV (ψ : Name → Nat) : AnnotTerm :=
   .lam 1 (.sort (ψ uN)) (.lam 1 (.bvar 0) (.lam 1 (.bvar 1)
-    (.eqE (.bvar 2) (.bvar 1) (.bvar 0))))
+    (.eqE (.bvar 1) (.bvar 0))))
 
 /-- `Eq.refl`'s annotated valuation: `.prf` under two **squash-regime**
 binders (forced: the pinned `pw` is `.ifAllZero []` at both, because

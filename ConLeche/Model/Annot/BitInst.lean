@@ -83,7 +83,7 @@ theorem liftN_zero : ∀ (e : AnnotTerm) (k : Nat), liftN 0 e k = e := by
   | lam u A b ihA ihb => intro k; rw [liftN_lam, ihA, ihb]
   | pi u v A B ihA ihB => intro k; rw [liftN_pi, ihA, ihB]
   | letE T v b ihT ihv ihb => intro k; rw [liftN_letE, ihT, ihv, ihb]
-  | eqE T a b ihT iha ihb => intro k; rw [liftN_eqE, ihT, iha, ihb]
+  | eqE a b iha ihb => intro k; rw [liftN_eqE, iha, ihb]
   | fst e ihe => intro k; rw [liftN_fst, ihe]
   | snd e ihe => intro k; rw [liftN_snd, ihe]
 
@@ -111,8 +111,8 @@ theorem liftN_liftN : ∀ (e : AnnotTerm) (n m k : Nat),
     intro n m k; rw [liftN_pi, liftN_pi, ihA, ihB]; rfl
   | letE T v b ihT ihv ihb =>
     intro n m k; rw [liftN_letE, liftN_letE, ihT, ihv, ihb]; rfl
-  | eqE T a b ihT iha ihb =>
-    intro n m k; rw [liftN_eqE, liftN_eqE, ihT, iha, ihb]; rfl
+  | eqE a b iha ihb =>
+    intro n m k; rw [liftN_eqE, liftN_eqE, iha, ihb]; rfl
   | fst e ihe =>
     intro n m k; rw [liftN_fst, liftN_fst, ihe]; rfl
   | snd e ihe =>

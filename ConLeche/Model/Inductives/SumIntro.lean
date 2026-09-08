@@ -113,7 +113,7 @@ theorem eqChainAV_validV :
       AnnotValid V ρ (eqChainAV eqs)
   | [], _, _ => trivial
   | (a, b) :: r, ρ, h => by
-    show AnnotValid V ρ (.pi 0 0 (.eqE (.sort 0) a b) ((eqChainAV r).liftN 1 0))
+    show AnnotValid V ρ (.pi 0 0 (.eqE a b) ((eqChainAV r).liftN 1 0))
     rw [AnnotValid_pi, AnnotValid_eqE]
     refine ⟨h (a, b) List.mem_cons_self, fun x _ => ?_, fun _ x _ => ?_⟩
     · rw [AnnotValid_liftN, show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]

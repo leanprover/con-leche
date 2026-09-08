@@ -185,40 +185,37 @@
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1286
   1286  `.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
 
-== ConLeche/Term/Syntax.lean#L174-L206
-   174  inductive Term where
-   175    /-- de Bruijn index -/
-   176    | bvar (i : Nat)
-   177    /-- `Sort u` at a concrete level -/
-   178    | sort (u : Nat)
-   179    /-- a built-in constant at a concrete level instantiation -/
-   180    | const (c : BConst) (us : List Nat)
-   181    /-- application -/
-   182    | app (f a : Term)
-   183    /-- `fun (_ : ty) => body` -/
-   184    | lam (ty body : Term)
-   185    /-- `(_ : ty) → body` -/
-   186    | pi (ty body : Term)
-   187    /-- `let _ : ty := value; body` -/
-   188    | letE (ty value body : Term)
-   189    /-- `@Eq ty lhs rhs`.
-   190  
-   191    **`ty` is never checked.**  It is carried so that the eventual
-   192    denotation of `@Eq A a b` is transparently `eqE A a b`, but the
-   193    interpretation reads only `lhs` and `rhs`
-   194  (`⟦eqE T a b⟧ = eqv ⟦a⟧ ⟦b⟧`), so
-   195    soundness never constrains it — and it is a trap if you assume
-   196    otherwise: do **not** expect `ty` to relate the two sides. -/
-   197    | eqE (ty lhs rhs : Term)
-   198    /-- First field of a pair.  Carries **only** the subject: the pair's
-   199    type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
-   200    not from the term — see the module docstring.  Interpreted by
-   201    `sfst`, i.e. literally `interpExpr`'s clause. -/
-   202    | fst (e : Term)
-   203    /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
-   204    | snd (e : Term)
-   205    /-- the canonical (irrelevant) proof of a derivable equation -/
-   206    | prf
+== ConLeche/Term/Syntax.lean#L176-L205
+   176  inductive Term where
+   177    /-- de Bruijn index -/
+   178    | bvar (i : Nat)
+   179    /-- `Sort u` at a concrete level -/
+   180    | sort (u : Nat)
+   181    /-- a built-in constant at a concrete level instantiation -/
+   182    | const (c : BConst) (us : List Nat)
+   183    /-- application -/
+   184    | app (f a : Term)
+   185    /-- `fun (_ : ty) => body` -/
+   186    | lam (ty body : Term)
+   187    /-- `(_ : ty) → body` -/
+   188    | pi (ty body : Term)
+   189    /-- `let _ : ty := value; body` -/
+   190    | letE (ty value body : Term)
+   191    /-- `@Eq _ lhs rhs`, **without the type**: the interpretation is
+   192    `⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`, so soundness never constrains the type,
+   193    and a census (task #237) found no definition and no theorem in any
+   194    tier reading the slot the former used to carry.  It is gone; a
+   195    producer that knows the type simply drops it. -/
+   196    | eqE (lhs rhs : Term)
+   197    /-- First field of a pair.  Carries **only** the subject: the pair's
+   198    type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
+   199    not from the term — see the module docstring.  Interpreted by
+   200    `sfst`, i.e. literally `interpExpr`'s clause. -/
+   201    | fst (e : Term)
+   202    /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
+   203    | snd (e : Term)
+   204    /-- the canonical (irrelevant) proof of a derivable equation -/
+   205    | prf
 
 == ConLeche/Semantics/Syntax.lean#L73-L99
     73  inductive AnnotTerm where
@@ -239,9 +236,9 @@
     88    /-- `let _ : ty := value; body` — **no sort slot**, see the module
     89    docstring -/
     90    | letE (ty value body : AnnotTerm)
-    91    /-- `@Eq ty lhs rhs`; the `ty` slot is carried and never read, as in
-    92    `Term` -/
-    93    | eqE (ty lhs rhs : AnnotTerm)
+    91    /-- `@Eq _ lhs rhs`; no annotation, and no type slot either, as in
+    92    `Term` (task #237) -/
+    93    | eqE (lhs rhs : AnnotTerm)
     94    /-- first field of a pair -/
     95    | fst (e : AnnotTerm)
     96    /-- second field of a pair -/
@@ -258,7 +255,7 @@
    158    | ρ, .lam v A b => lamR v (interp ρ A) fun x => interp (cons x ρ) b
    159    | ρ, .pi _ v A B => piR v (interp ρ A) fun x => interp (cons x ρ) B
    160    | ρ, .letE _ e b => interp (cons (interp ρ e) ρ) b
-   161    | ρ, .eqE _ a b => eqv (interp ρ a) (interp ρ b)
+   161    | ρ, .eqE a b => eqv (interp ρ a) (interp ρ b)
    162    | ρ, .fst e => sfst (interp ρ e)
    163    | ρ, .snd e => ssnd (interp ρ e)
    164    | _, .prf => pt
@@ -290,7 +287,7 @@
    104      WellDenoted ρ e ∧
    105      ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
    106        A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
-   107    | ρ, .eqE _ a b => WellDenoted ρ a ∧ WellDenoted ρ b
+   107    | ρ, .eqE a b => WellDenoted ρ a ∧ WellDenoted ρ b
    108    | _, .bvar _ => True
    109    | _, .sort _ => True
    110    | _, .const _ _ => True

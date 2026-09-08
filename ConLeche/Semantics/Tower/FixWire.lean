@@ -54,8 +54,8 @@ theorem bvarsBelow_inst {a : Term} {n : Nat} (ha : Term.bvarsBelow n a) :
     have := bvarsBelow_inst ha b (k + 1) (by
       rw [show n + (k + 1) + 1 = n + k + 1 + 1 from by omega]; exact he.2.2)
     rwa [show n + (k + 1) = n + k + 1 from by omega] at this
-  | .eqE T b c, k, he =>
-    ⟨bvarsBelow_inst ha T k he.1, bvarsBelow_inst ha b k he.2.1, bvarsBelow_inst ha c k he.2.2⟩
+  | .eqE b c, k, he =>
+    ⟨bvarsBelow_inst ha b k he.1, bvarsBelow_inst ha c k he.2⟩
   | .fst e, k, he => bvarsBelow_inst ha e k he
   | .snd e, k, he => bvarsBelow_inst ha e k he
   | .prf, _, _ => trivial
@@ -439,12 +439,9 @@ theorem nativeRecAVI_below {ℓ w nP s : Nat} {Fss Ess : List (List AnnotTerm)}
       rw [hlen]; omega] at this
   have hsig : Term.bvarsBelow k (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).erase := by
     refine ⟨⟨trivial, hTy k⟩, hTy k, ?_⟩
-    refine ⟨?_, ⟨?_, show (0 : Nat) < k + 1 by omega⟩, show (0 : Nat) < k + 1 by omega⟩
-    · rw [AnnotTerm.erase_liftN]
-      have := VExprAux.bvarsBelow_liftN 1 _ k 0 (hTy k)
-      exact this
-    · rw [AnnotTerm.erase_liftN]
-      exact VExprAux.bvarsBelow_liftN 1 _ k 0 (hstep k)
+    refine ⟨⟨?_, show (0 : Nat) < k + 1 by omega⟩, show (0 : Nat) < k + 1 by omega⟩
+    rw [AnnotTerm.erase_liftN]
+    exact VExprAux.bvarsBelow_liftN 1 _ k 0 (hstep k)
   show Term.bvarsBelow k (AnnotTerm.erase (.fst (.app (.app (.const .choice [s]) _) .prf)))
   exact ⟨⟨trivial, hsig⟩, trivial⟩
 

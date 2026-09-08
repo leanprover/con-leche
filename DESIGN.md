@@ -62640,3 +62640,174 @@ mode: **677.94 G** instructions:u verified (677 937 227 291) and **659.37 G**
 trusted (659 366 697 861) against master's 678.17 G / 659.54 G —
 **−0.03 % in both**, 53 088 accepted, which is what an import-only
 change should look like.
+
+## TASK #237 — THE `eqE` TYPE SLOT GOES; `letE` STAYS, AND THE REASON IS ONE THEOREM (2026-09-08, `agent/lete`)
+
+The brief was "drop the dead `letE` constructor from `Term` and
+`AnnotTerm`, plus a census of unread fields", with the standing
+instruction to **stop and report if the producer census finds a real
+producer**.  It does.  `letE` is still here; the census is the
+deliverable, and what did land is the other half — `eqE`'s type slot,
+which is read by nothing at all.
+
+### 1. The `letE` producer census
+
+Three functions apply a constructor, and they are the same function at
+three tiers:
+
+| producer | file | clause |
+|---|---|---|
+| `denote` (Expr → `Term`) | `ConLeche/Verify/Denote.lean` | `.letE ty val body ↦ .letE ⟦ty⟧ ⟦val⟧ ⟦body opened⟧` |
+| `denoteAnnot` (Expr → `AnnotTerm`, canonical) | `ConLeche/Semantics/Canon.lean` | the same, clause-parallel |
+| `denoteMeta` (Expr → `AnnotTerm`, the model's) | `ConLeche/Model/Annot/Bit.lean` | the same |
+
+Nothing else builds one: `Term.letE` and `AnnotTerm.letE` appear
+nowhere else except as pattern arms, `liftN`/`inst`/`erase` clauses and
+the invariants' clauses.  So the brief's premise is *almost* right —
+**no stored term carries a `let`**, because `annotateCore` returns the
+ζ reduct (task #217, `ConLeche/Kernel/Core.lean`'s `.letE` arm of
+`annotateBody`), and that is a fact about the checker's *output*.
+
+### 2. Why that is not enough, and the exact obstruction
+
+`denote` and its two siblings are **total functions on `Expr`**, and
+`Expr.letE` is a constructor.  Dropping the term-level former forces
+the clause to `none` (there is no ζ-reducing alternative: `denote` is
+well-founded on `Expr.sizeB`, and `sizeB_instantiate1`
+(`ConLeche/Kernel/ExprOps.lean`) holds only for a size-1 substituend,
+so `denote (b.instantiate1 v)` has no measure).  And `none` at `letE`
+**falsifies a theorem that is on master**:
+
+> `acceptedReads_of` (`ConLeche/Model/Steps/Accepted.lean`) — "whatever
+> the front door's inference accepts, the validated-annotation reading
+> reads": `inferTypeCore μ env F d e = .ok t → ∃ ea, denoteMeta … d e =
+> some ea`, for **every** `e`.
+
+`inferTypeCore`'s `.letE` arm is live (`Core.lean`, the official
+`infer_let` triple, then `r.infer depth (b.instantiate1 v)`); it
+accepts a `let` whenever it accepts the reduct.  So the hypothesis is
+satisfiable at `.letE`, the conclusion would be `∃ ea, none = some ea`,
+and the theorem is false.  It is not a local repair: `acceptedReads_of`
+is the leaf of `harvestDefn`/`harvestThm`, of both iota-rule harvests,
+of `ProjInstall`, `IndRecs`, `SumData` and `StructData` — about fifteen
+call sites, and through them of `Model/Capstone.lean`.
+
+Everything *else* survives the drop.  The reduction-step walks
+(`Model/Steps/Whnf.lean`'s ζ, `Steps/Infer.lean`, `Steps/InferIO.lean`)
+carry `denoteMeta e = some ea` as a **premise**, so their `letE` cases
+become vacuous rather than false; so do all the transport lemmas
+(`Denote/{Shift,Inst,Rename,Levels,Install,EnvExt}.lean`).  The single
+load-bearing use is the ∃-direction.
+
+### 3. The two ways to close it, and why neither is this task
+
+**(a) A `letE`-carrying denotation stays, but the constructor goes** —
+`denote (.letE ty val body) = (⟦body opened⟧).inst ⟦val⟧`, the ζ
+contractum at the *term* level.  This is the design
+`ConLeche/Verify/Denote.lean`'s "Why `denote` is structural" section
+**explicitly withdrew**, and the recorded reason is exactly the price:
+the shift lemma's `letE` case then needs `liftN`/`inst` to commute, the
+substitution lemma needs `inst`/`inst`, and `ConLeche/Term/Subst.lean`
+today has **no** commutation lemmas at all — only the eleven clause
+equations.  Reintroducing them is the first three lemmas of lean4lean's
+123, in a file whose stated point is not having them.
+
+**(b) Let-freedom becomes an install-time invariant** — an
+`Expr.LetFree` predicate, `annotate_syntax`
+(`ConLeche/Verify/Abstract.lean`) gains it as a third conjunct beside
+`¬ hasFvar` and `looseBVarsBounded`, and `acceptedReads_of` takes it as
+a premise.  This is the right shape by CLAUDE.md's rule — "any per-call
+check whose fact is a property of the stored declarations becomes an
+install-time invariant" — and the brief scoped it out ("design notes
+only, no implementation").  Its real cost is not the annotate walk (the
+recipe is `annotate_syntax`'s own, ~60 lines): it is that four of the
+fifteen `acceptedReads_of` sites are **not** annotate outputs — the
+fired iota-rule RHS (`IndRecs.lean`), the plain and nested rule RHSs,
+the projection rule — where let-freedom has to come from the *stored
+rule data*, i.e. from a second invariant on the installed tables
+(`IndCapsWF`'s neighbourhood, which task #232 prototyped).
+
+**Recommendation**: (b), as its own task, after or beside #232's
+`IndCapsWF`.  It buys more than the constructor: it is the statement
+"stored declarations are let-free", which is what makes the kernel's
+own dead `.letE` arms *provably* dead rather than dead by inspection.
+
+### 4. The kernel's `.letE` arms, for the record
+
+Not in scope to change; enumerated because §3(b) is about them.
+
+* **Live**: `annotateBody`'s arm (`Kernel/Core.lean`, and
+  `Cached/CoreC.lean`'s `annotateBodyC`) — the ζ reduct plus the
+  official `infer_let` triple.  This is the only pass that meets a
+  `letE` node from the stream.
+* **Dead by construction, kept**: `whnfCore`'s ζ
+  (`Core.lean`, `CoreGated.lean`, `CoreC.lean`), `inferBody`'s and
+  `inferBodyIO`'s arms (`Core.lean` ×2, `CoreC.lean`),
+  `inferBodyC`'s arm.  Each is reachable only from an expression that
+  still carries a `let`, and no stored expression does.
+* **Structural, and live because the *input* stream has lets**: every
+  `Expr` traversal — `instantiate1`/`instantiateList`/`liftLooseBVars`/
+  `resetMeta`/`substConstAll`/`constsResolve` (`Kernel/ExprOps.lean`,
+  `Core.lean`, `DeclCheck.lean`) and their arena twins
+  (`Cached/ExprOpsC.lean`, `StateC.lean`, `ExprC.mkLetE`).  These run
+  *before* annotation and must keep the node.
+
+### 5. The census of unread fields, and the one that went
+
+A field is **read** if some definition or theorem consumes its value;
+recursing into it (`liftN`, `inst`, `erase`, `NoBVar`, `bvarsBelow`,
+`BitAgree`) is traversal, not reading.  Two facts frame the table:
+`Term` has **no interpretation at all** (there is no `interp` on
+`Term`; it is only `denote`'s target and `erase`'s image), and the
+annotation relation `Annotates` no longer exists — so every `Term`-side
+verdict is about traversal, and the semantic readers all live on
+`AnnotTerm`.
+
+| field | readers | verdict |
+|---|---|---|
+| `eqE`'s `ty`, **both** syntaxes | none — `interp` (`Interp.lean:161`), `WellDenoted` (`WellDenoted.lean:107`) and `AnnotValid` (`Annot/Valid.lean:71`) all match `_`, `WellDenoted` does not even recurse into it, `Skeleton.lean` has no `sound_eqE`, and no denotation ever *emits* an `.eqE` | **DROPPED** |
+| `AnnotTerm.lam`'s `u` | `interp` (`lamR v`), `WellDenoted`'s third component (`v = 0 → …`), `WellDenoted_beta_pos`/`_zero`, `BitAgree.lam`, `sound_lam`, `mkLamsAV_fold` | read; kept |
+| `AnnotTerm.pi`'s `v` | `interp` (`piR v`), `AnnotValid`'s bit component, `BitAgree.pi`, `NeverChain` (`Steps/IrrelFast.lean`), `stripPisAV_bits` | read; kept |
+| `AnnotTerm.pi`'s `u` | **no semantic reader** — `interp`, `WellDenoted`, `AnnotValid`, `erase`, `NoBVar` all match `_`, and `Model/Annot/Bit.lean`'s own docstring says so — but syntactically live: `denoteMeta` pins it to `0`, `stripPisAV` returns it, and `stripPisAV_denoteMeta_bits` / `denoteMeta_openPis` / `denoteMeta_instSeq_mkPisOf` / `FieldReadAt` state `p.1 = 0`, which `FixAssemblyKit.lean` **consumes** to equate two Π-data lists | not removable for free; **finding recorded** |
+| `AnnotTerm.letE`'s `ty` | not interpreted (`interp` matches `_`), but hereditarily constrained by `WellDenoted_letE`, `AnnotValid_letE` and `sound_letE` | one notch stronger than `eqE`'s; moot if §3 ever lands |
+| everything else | read by `interp`/`WellDenoted`, or by `BConst.type`/`projPair?`/`PiTele` on the `Term` side | kept |
+
+**`eqE` is now binary.**  `Term.eqE (lhs rhs)` and
+`AnnotTerm.eqE (lhs rhs)`; `interp` is unchanged
+(`⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`), and the six producers that knew a type
+simply stop writing it: `BConst.type`'s `quotLift`/`quotSound`/
+`propext` rows and their `typeAV` mirrors, `eqValT`/`eqValAV`,
+`eqChainAV` (`Semantics/Tower/IdxEq.lean`) and `padA`
+(`Model/IndPinGrade.lean`, the padding whose whole point was that
+nothing reads the slot).  34 files, **−6 lines net** (203 855 →
+203 849 across `ConLeche/` and `tests/`) — the slot was cheap to carry
+and the saving is not the point; the point is that a field a soundness
+argument never constrains is a trap for the next reader, and the
+docstring said so in three places.
+
+### 6. Gates
+
+Build warning-free (517 jobs), `lake test` warning-free,
+`tests/arena.sh` green under `env -i`: layering 263/189/3/1 with 0
+impl→theory edges, proofdeps 2846 rows / 0 doors, axioms **pinned, 11
+theorems at `[propext, Classical.choice, Quot.sound]`**, arena 90/92,
+e2e 177/177, annot 14/14, retired flags 8/8, mode flags 18/18, DAG
+tower 10/10, trusted sweep unchanged, shake 464 proposals all
+allowlisted.  `tests/overview-links.sh` 58 links / 44 files — **one
+anchor repointed**, `ConLeche/Term/Syntax.lean#L174-L206 → #L176-L205`,
+a pure shift from the two extra docstring lines, its citing paragraph
+re-read (it says "de Bruijn indices, sorts at concrete levels, built-in
+constants …, no names, no binder infos" and is unaffected by an `eqE`
+slot) and its new target byte-identical except the `eqE` lines
+themselves.
+
+**The checker is untouched.**  All 34 changed files are in the proof
+tier; none is in `Main.lean`'s 64-module compiled cone (computed by
+transitive import walk, and the layering gate's `0 impl->theory` says
+the same from the other side).  init-full, one run per mode:
+**677.96 G** instructions:u verified (677 960 789 709) and **659.35 G**
+trusted (659 347 769 288) against master's 677.94 G / 659.37 G — **+0.003 %
+and −0.003 %**, 53 088 accepted in both.  And the binary is **byte-identical**:
+`md5 ad555ff0c0b41d7132da5a8918453aa5` with the change applied and with it
+stashed, built twice in the same worktree so the baked-in paths match — lake
+does not relink, because no olean in the cone changed.

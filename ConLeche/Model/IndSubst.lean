@@ -79,9 +79,9 @@ theorem liftN_liftN_absorb : ∀ (e : AnnotTerm) {j k m : Nat}, k ≤ j →
     intro j k m hkj hjk n
     simp only [liftN_letE, ihT hkj hjk n, ihv hkj hjk n,
       ihb (show k + 1 ≤ j + 1 by omega) (show j + 1 ≤ k + 1 + m by omega) n]
-  | eqE T a b ihT iha ihb =>
+  | eqE a b iha ihb =>
     intro j k m hkj hjk n
-    simp only [liftN_eqE, ihT hkj hjk n, iha hkj hjk n, ihb hkj hjk n]
+    simp only [liftN_eqE, iha hkj hjk n, ihb hkj hjk n]
   | fst e ihe =>
     intro j k m hkj hjk n
     simp only [liftN_fst, ihe hkj hjk n]
@@ -122,9 +122,9 @@ theorem inst_liftN_absorb : ∀ (e : AnnotTerm) {j k m : Nat}, j ≤ k →
     intro j k m hjk hkj a
     simp only [liftN_letE, inst_letE, ihT hjk hkj a, ihv hjk hkj a,
       ihb (show j + 1 ≤ k + 1 by omega) (show k + 1 ≤ j + 1 + m by omega) a]
-  | eqE T b c ihT ihb ihc =>
+  | eqE b c ihb ihc =>
     intro j k m hjk hkj a
-    simp only [liftN_eqE, inst_eqE, ihT hjk hkj a, ihb hjk hkj a,
+    simp only [liftN_eqE, inst_eqE, ihb hjk hkj a,
       ihc hjk hkj a]
   | fst e ihe =>
     intro j k m hjk hkj a
@@ -181,9 +181,9 @@ theorem inst_liftN_comm : ∀ (e : AnnotTerm) {j k m : Nat}, j + m ≤ k →
     simp only [liftN_letE, inst_letE, ihT hjk a, ihv hjk a,
       ihb (show j + 1 + m ≤ k + 1 by omega) a]
     rw [show k + 1 - m = k - m + 1 by omega]
-  | eqE T b c ihT ihb ihc =>
+  | eqE b c ihb ihc =>
     intro j k m hjk a
-    simp only [liftN_eqE, inst_eqE, ihT hjk a, ihb hjk a, ihc hjk a]
+    simp only [liftN_eqE, inst_eqE, ihb hjk a, ihc hjk a]
   | fst e ihe =>
     intro j k m hjk a
     simp only [liftN_fst, inst_fst, ihe hjk a]
@@ -240,9 +240,9 @@ theorem inst_inst_comm : ∀ (e : AnnotTerm) {j k : Nat}, j ≤ k →
     simp only [inst_letE, ihT hjk, ihv hjk,
       ihc (show j + 1 ≤ k + 1 by omega)]
     rw [show k + 1 - (j + 1) = k - j by omega]
-  | eqE T c d ihT ihc ihd =>
+  | eqE c d ihc ihd =>
     intro j k hjk a b
-    simp only [inst_eqE, ihT hjk, ihc hjk, ihd hjk]
+    simp only [inst_eqE, ihc hjk, ihd hjk]
   | fst e ihe =>
     intro j k hjk a b
     simp only [inst_fst, ihe hjk]

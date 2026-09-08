@@ -163,7 +163,7 @@ is stated semantically.
 
 **Terms.** A kernel `Expr` denotes, under a level valuation, an
 *erased* term
-([type `Term` in `ConLeche/Term/Syntax.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Term/Syntax.lean#L174-L206)):
+([type `Term` in `ConLeche/Term/Syntax.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Term/Syntax.lean#L176-L205)):
 de Bruijn indices, sorts at concrete levels, built-in constants at
 concrete level instantiations, no names, no binder infos. The
 *annotated* variant is the same syntax with a numeral sort at each
