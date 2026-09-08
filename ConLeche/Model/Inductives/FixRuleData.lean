@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.FixRecData
+module
+
+public import ConLeche.Model.Inductives.FixRecData
+
+@[expose] public section
 
 /-!
 # The recursive rules' readings at the recursor's cons (task #188)

@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Env
+module
+
+public import ConLeche.Kernel.Env
+
+@[expose] public section
 
 /-!
 # Basis names

@@ -1,6 +1,10 @@
-import ConLeche.Verify.Inductives.StructResid
-import ConLeche.Verify.ProjTele
-import ConLeche.Verify.Cached.Erase
+module
+
+public import ConLeche.Verify.Inductives.StructResid
+public import ConLeche.Verify.ProjTele
+public import ConLeche.Verify.Cached.Erase
+
+@[expose] public section
 
 /-!
 # The projection bodies, opened (task #175 S1)

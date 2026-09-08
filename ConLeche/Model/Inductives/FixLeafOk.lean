@@ -1,6 +1,10 @@
-import ConLeche.Model.Inductives.FixRealChains
-import ConLeche.Semantics.Tower.FixWire
-import ConLeche.Model.Inductives.SumIntro
+module
+
+public import ConLeche.Model.Inductives.FixRealChains
+public import ConLeche.Semantics.Tower.FixWire
+public import ConLeche.Model.Inductives.SumIntro
+
+@[expose] public section
 
 /-!
 # The fixed-point leaf's P currency (task #188)

@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.FixRecReadDefs
-import ConLeche.Verify.Inductives.FixRec
+module
+
+public import ConLeche.Model.Inductives.FixRecReadDefs
+public import ConLeche.Verify.Inductives.FixRec
+
+@[expose] public section
 
 /-!
 # The generated recursive recursor's readings (task #188)

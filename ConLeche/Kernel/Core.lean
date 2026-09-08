@@ -1,8 +1,12 @@
-import ConLeche.Kernel.Env
-import ConLeche.Kernel.PropRead
-import ConLeche.Kernel.Level
-import ConLeche.Kernel.ExprOps
-import ConLeche.Kernel.Basis
+module
+
+public import ConLeche.Kernel.Env
+public import ConLeche.Kernel.PropRead
+public import ConLeche.Kernel.Level
+public import ConLeche.Kernel.ExprOps
+public import ConLeche.Kernel.Basis
+
+@[expose] public section
 
 /-!
 # The checker core, in open-recursion style

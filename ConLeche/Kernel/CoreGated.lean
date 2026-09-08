@@ -1,4 +1,8 @@
-import ConLeche.Kernel.TypeChecker
+module
+
+public import ConLeche.Kernel.TypeChecker
+
+@[expose] public section
 
 /-!
 # The P lane: head normalization with the β-certificate gate

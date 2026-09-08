@@ -1,4 +1,8 @@
-import ConLeche.SetTheory.Core
+module
+
+public import ConLeche.SetTheory.Core
+
+@[expose] public section
 
 /-!
 # The empty set, derived

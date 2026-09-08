@@ -1,5 +1,9 @@
-import ConLeche.Verify.Inductives.StructInv
-import ConLeche.Kernel.Inductives.SumInstall
+module
+
+public import ConLeche.Verify.Inductives.StructInv
+public import ConLeche.Kernel.Inductives.SumInstall
+
+@[expose] public section
 
 /-!
 # The direct sum install's stage runs, inverted (task #175 sum-types,

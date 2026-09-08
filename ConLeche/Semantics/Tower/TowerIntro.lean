@@ -1,5 +1,9 @@
-import ConLeche.Semantics.WellDenoted
-import ConLeche.SetModel.TupleTower
+module
+
+public import ConLeche.Semantics.WellDenoted
+public import ConLeche.SetModel.TupleTower
+
+@[expose] public section
 
 /-!
 # The telescope introduction: `TeleS` from an interpreted binder chain

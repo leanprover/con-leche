@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Tower.SumRec
-import ConLeche.Semantics.Tower.TowerWire
+module
+
+public import ConLeche.Semantics.Tower.SumRec
+public import ConLeche.Semantics.Tower.TowerWire
+
+@[expose] public section
 
 /-!
 # The sum leaves' syntactic battery (task #175 sum-types, indexed)

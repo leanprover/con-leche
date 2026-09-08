@@ -1,13 +1,17 @@
-import ConLeche.Semantics.DeclEta
-import ConLeche.Verify.Extend.Iota
+module
 
-import ConLeche.Verify.Extend.Block
+public import ConLeche.Semantics.DeclEta
+public import ConLeche.Verify.Extend.Iota
 
-import ConLeche.Verify.Denote.Rename
+public import ConLeche.Verify.Extend.Block
 
-import ConLeche.Verify.Extend.Recs
+public import ConLeche.Verify.Denote.Rename
 
-import ConLeche.Semantics.DeclRun
+public import ConLeche.Verify.Extend.Recs
+
+public import ConLeche.Semantics.DeclRun
+
+@[expose] public section
 /-!
 # The inductive block's **relation-level** residue (task #161 S5,
 THE SEPARATION — the C4 refutation's bill, paid)

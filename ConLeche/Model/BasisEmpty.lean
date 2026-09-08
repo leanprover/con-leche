@@ -1,4 +1,13 @@
-import ConLeche.Model.BasisStep
+module
+
+public import ConLeche.Model.BasisStep
+/- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
+`Std.HashMap` pattern, task #194): the datum's module is `public` but not
+`@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
+`import all` restores that view HERE only. -/
+import all ConLeche.Kernel.PropWhen
+
+@[expose] public section
 
 /-!
 # The `Empty` block, P tier: the type-reading recipe, executed once
@@ -110,7 +119,7 @@ are all three of them. -/
 
 /-- `pwBit` at a `.never` pin: the graph regime, unconditionally. -/
 theorem pwBit_never (ψ : Name → Nat) :
-    pwBit ψ ConLeche.PropWhen.never = 1 := rfl
+    pwBit ψ ConLeche.PropWhen.never = 1 := by rfl
 
 /-- `pwBit` at a one-parameter `.ifAllZero` pin: zero exactly when the
 parameter is.  One of the *three* shapes every basis binder reduces to

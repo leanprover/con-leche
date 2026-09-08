@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.StructRecFrames
+module
+
+public import ConLeche.Model.Inductives.StructRecFrames
+
+@[expose] public section
 
 /-!
 # λ-towers fold to their body (task #175 W4c, P3 module 6, part 15)

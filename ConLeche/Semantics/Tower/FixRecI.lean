@@ -1,6 +1,10 @@
-import ConLeche.Semantics.Tower.FixSquashI
-import ConLeche.Semantics.Tower.FixIhI
-import ConLeche.Semantics.Tower.FixElemI
+module
+
+public import ConLeche.Semantics.Tower.FixSquashI
+public import ConLeche.Semantics.Tower.FixIhI
+public import ConLeche.Semantics.Tower.FixElemI
+
+@[expose] public section
 
 /-!
 # The recursive family's recursor: the fixed point and its leaf (task #188, indexed)

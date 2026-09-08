@@ -1,7 +1,11 @@
-import ConLeche.Kernel.Inductives.Modeled
-import ConLeche.Kernel.TrustAxioms
-import ConLeche.Kernel.Inductives.SumInstall
-import ConLeche.Kernel.Inductives.NativeInstall
+module
+
+public import ConLeche.Kernel.Inductives.Modeled
+public import ConLeche.Kernel.TrustAxioms
+public import ConLeche.Kernel.Inductives.SumInstall
+public import ConLeche.Kernel.Inductives.NativeInstall
+
+@[expose] public section
 
 /-!
 # The checker

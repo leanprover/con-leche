@@ -1,4 +1,8 @@
-import ConLeche.Kernel.CoreGated
+module
+
+public import ConLeche.Kernel.CoreGated
+
+@[expose] public section
 
 /-!
 # The gated knot's equations and its one changed clause (task #161, S12)

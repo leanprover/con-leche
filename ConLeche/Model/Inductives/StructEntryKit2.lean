@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.StructEntryKit
+module
+
+public import ConLeche.Model.Inductives.StructEntryKit
+
+@[expose] public section
 
 /-!
 # The projection entry's kit, continued (task #175 W4c, P3 module 7, part 3)

@@ -1,6 +1,10 @@
-import ConLeche.Cached.ParsedC
-import ConLeche.Verify.Cached.OpsC
-import ConLeche.Verify.EnvBound
+module
+
+public import ConLeche.Cached.ParsedC
+public import ConLeche.Verify.Cached.OpsC
+public import ConLeche.Verify.EnvBound
+
+@[expose] public section
 
 /-!
 # The cached representation's guard walks and the conversion boundary

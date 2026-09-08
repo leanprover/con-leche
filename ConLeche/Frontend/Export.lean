@@ -1,9 +1,13 @@
-import Lean.Data.Json
-import ConLeche.Kernel.Env
-import ConLeche.Kernel.ExprOps
-import ConLeche.Kernel.Basis
-import ConLeche.Kernel.StdAxioms
-import ConLeche.Kernel.Core
+module
+
+public import Lean.Data.Json
+public import ConLeche.Kernel.Env
+public import ConLeche.Kernel.ExprOps
+public import ConLeche.Kernel.Basis
+public import ConLeche.Kernel.StdAxioms
+public import ConLeche.Kernel.Core
+
+@[expose] public section
 
 /-!
 # Reading lean4export ndjson files: the shared scaffolding
@@ -383,7 +387,7 @@ regression should do, rather than telling a user with a legitimate
 declaration "no".  User ruling, 2026-09-07: *"delete it if it is
 unlikely to help (and we know such DAGs appear in practice)."* -/
 
-private abbrev M := Except String
+abbrev M := Except String
 
 def getIdx (j : Json) (key : String) : M Nat := do
   (← j.getObjVal? key).getNat?
@@ -467,29 +471,29 @@ inductive FastLine where
   | ie (i : Nat) (n : FastNode)
   | inStr (i pre : Nat) (s : String)
 
-private def bIE : ByteArray := "{\"ie\":".toUTF8
-private def bIN : ByteArray := "{\"in\":".toUTF8
-private def bAPP : ByteArray := ",\"app\":{\"arg\":".toUTF8
-private def bFN : ByteArray := ",\"fn\":".toUTF8
-private def bLAM : ByteArray := ",\"lam\":{\"binderInfo\":\"".toUTF8
-private def bFORALL : ByteArray := ",\"forallE\":{\"binderInfo\":\"".toUTF8
-private def bBODYQ : ByteArray := "\",\"body\":".toUTF8
-private def bNAME : ByteArray := ",\"name\":".toUTF8
-private def bTYPE : ByteArray := ",\"type\":".toUTF8
-private def bCONST : ByteArray := ",\"const\":{\"name\":".toUTF8
-private def bUS : ByteArray := ",\"us\":[".toUTF8
-private def bBVAR : ByteArray := ",\"bvar\":".toUTF8
-private def bSORT : ByteArray := ",\"sort\":".toUTF8
-private def bLETE : ByteArray := ",\"letE\":{\"body\":".toUTF8
-private def bVALUE : ByteArray := ",\"value\":".toUTF8
-private def bSTRPRE : ByteArray := ",\"str\":{\"pre\":".toUTF8
-private def bSTRK : ByteArray := ",\"str\":".toUTF8
-private def bCLOSE2 : ByteArray := "}}".toUTF8
-private def bCLOSE1 : ByteArray := "}".toUTF8
-private def bBIdefault : ByteArray := "default".toUTF8
-private def bBIimplicit : ByteArray := "implicit".toUTF8
-private def bBIstrict : ByteArray := "strictImplicit".toUTF8
-private def bBIinst : ByteArray := "instImplicit".toUTF8
+def bIE : ByteArray := "{\"ie\":".toUTF8
+def bIN : ByteArray := "{\"in\":".toUTF8
+def bAPP : ByteArray := ",\"app\":{\"arg\":".toUTF8
+def bFN : ByteArray := ",\"fn\":".toUTF8
+def bLAM : ByteArray := ",\"lam\":{\"binderInfo\":\"".toUTF8
+def bFORALL : ByteArray := ",\"forallE\":{\"binderInfo\":\"".toUTF8
+def bBODYQ : ByteArray := "\",\"body\":".toUTF8
+def bNAME : ByteArray := ",\"name\":".toUTF8
+def bTYPE : ByteArray := ",\"type\":".toUTF8
+def bCONST : ByteArray := ",\"const\":{\"name\":".toUTF8
+def bUS : ByteArray := ",\"us\":[".toUTF8
+def bBVAR : ByteArray := ",\"bvar\":".toUTF8
+def bSORT : ByteArray := ",\"sort\":".toUTF8
+def bLETE : ByteArray := ",\"letE\":{\"body\":".toUTF8
+def bVALUE : ByteArray := ",\"value\":".toUTF8
+def bSTRPRE : ByteArray := ",\"str\":{\"pre\":".toUTF8
+def bSTRK : ByteArray := ",\"str\":".toUTF8
+def bCLOSE2 : ByteArray := "}}".toUTF8
+def bCLOSE1 : ByteArray := "}".toUTF8
+def bBIdefault : ByteArray := "default".toUTF8
+def bBIimplicit : ByteArray := "implicit".toUTF8
+def bBIstrict : ByteArray := "strictImplicit".toUTF8
+def bBIinst : ByteArray := "instImplicit".toUTF8
 
 /-- Match a literal byte string at `i`; the position after it. -/
 def fsLit (b : ByteArray) (i : Nat) (lit : ByteArray) :

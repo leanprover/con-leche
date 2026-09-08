@@ -1,25 +1,29 @@
-import ConLeche.Verify.Cached.Erase
-import ConLeche.Verify.Cached.GuardsC
-import ConLeche.Verify.Cached.OpsC
-import ConLeche.Verify.Cached.SimC
-import ConLeche.Verify.Cached.SimCEff
-import ConLeche.Verify.Cached.DiscC1
-import ConLeche.Verify.Cached.DiscC2
-import ConLeche.Verify.Cached.DiscC3
-import ConLeche.Verify.Cached.BinderLoopC
-import ConLeche.Verify.Cached.DiscC4
-import ConLeche.Verify.Cached.DiscC5
-import ConLeche.Verify.Cached.DiscC6
-import ConLeche.Verify.Cached.KnotC
-import ConLeche.Verify.Cached.SimCS
-import ConLeche.Verify.Cached.BridgeCS1
-import ConLeche.Verify.Cached.BridgeCS2
-import ConLeche.Verify.Cached.BridgeCS3
-import ConLeche.Verify.Cached.BridgeCS4
-import ConLeche.Verify.Cached.BridgeCSDecl
-import ConLeche.Verify.Cached.BridgeC
-import ConLeche.Verify.Cached.MainC
-import ConLeche.Verify.Cached.AgreeFloor
+module
+
+public import ConLeche.Verify.Cached.Erase
+public import ConLeche.Verify.Cached.GuardsC
+public import ConLeche.Verify.Cached.OpsC
+public import ConLeche.Verify.Cached.SimC
+public import ConLeche.Verify.Cached.SimCEff
+public import ConLeche.Verify.Cached.DiscC1
+public import ConLeche.Verify.Cached.DiscC2
+public import ConLeche.Verify.Cached.DiscC3
+public import ConLeche.Verify.Cached.BinderLoopC
+public import ConLeche.Verify.Cached.DiscC4
+public import ConLeche.Verify.Cached.DiscC5
+public import ConLeche.Verify.Cached.DiscC6
+public import ConLeche.Verify.Cached.KnotC
+public import ConLeche.Verify.Cached.SimCS
+public import ConLeche.Verify.Cached.BridgeCS1
+public import ConLeche.Verify.Cached.BridgeCS2
+public import ConLeche.Verify.Cached.BridgeCS3
+public import ConLeche.Verify.Cached.BridgeCS4
+public import ConLeche.Verify.Cached.BridgeCSDecl
+public import ConLeche.Verify.Cached.BridgeC
+public import ConLeche.Verify.Cached.MainC
+public import ConLeche.Verify.Cached.AgreeFloor
+
+@[expose] public section
 
 /-!
 # The cached checker variant's verification (task #163)

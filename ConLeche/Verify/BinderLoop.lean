@@ -1,8 +1,12 @@
-import ConLeche.Verify.BetaSpine
-import ConLeche.Verify.Abstract
-import ConLeche.Verify.AbstractRange
-import ConLeche.Verify.InferLeaves
-import ConLeche.Verify.Leaves
+module
+
+public import ConLeche.Verify.BetaSpine
+public import ConLeche.Verify.Abstract
+public import ConLeche.Verify.AbstractRange
+public import ConLeche.Verify.InferLeaves
+public import ConLeche.Verify.Leaves
+
+@[expose] public section
 
 /-!
 # Binder-telescope loops and their identification with the chained

@@ -1,8 +1,12 @@
-import ConLeche.Model.Annot.BitExtendTower
-import ConLeche.Model.Annot.BitInstall
-import ConLeche.Verify.Denote.OpenVars
-import ConLeche.Verify.InferLemmas
-import ConLeche.Semantics.EnvFacts
+module
+
+public import ConLeche.Model.Annot.BitExtendTower
+public import ConLeche.Model.Annot.BitInstall
+public import ConLeche.Verify.Denote.OpenVars
+public import ConLeche.Verify.InferLemmas
+public import ConLeche.Semantics.EnvFacts
+
+@[expose] public section
 
 /-!
 # The P cons crossing at a tower head (task #175 W4c, P3 module 4)

@@ -1,4 +1,8 @@
-import ConLeche.SetModel.TupleTower
+module
+
+public import ConLeche.SetModel.TupleTower
+
+@[expose] public section
 
 /-!
 # The tagged disjoint union (task #175 sum-types)

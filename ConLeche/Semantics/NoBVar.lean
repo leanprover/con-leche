@@ -1,5 +1,9 @@
-import ConLeche.Semantics.WellDenoted
-import ConLeche.Verify.Denote.VClosed
+module
+
+public import ConLeche.Semantics.WellDenoted
+public import ConLeche.Verify.Denote.VClosed
+
+@[expose] public section
 
 /-!
 # Terms that do not mention certain variables (task #188)

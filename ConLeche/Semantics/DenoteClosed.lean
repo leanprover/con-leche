@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Canon
-import ConLeche.Verify.Denote.Shift
+module
+
+public import ConLeche.Semantics.Canon
+public import ConLeche.Verify.Denote.Shift
+
+@[expose] public section
 
 /-!
 # `denote_closed`'s `denoteAnnot` twin

@@ -1,7 +1,11 @@
-import ConLeche.Model.Steps.Reads
-import ConLeche.Model.Annot.ValidSpine
-import ConLeche.Semantics.LitStep
-import ConLeche.Verify.EnvGuards
+module
+
+public import ConLeche.Model.Steps.Reads
+public import ConLeche.Model.Annot.ValidSpine
+public import ConLeche.Semantics.LitStep
+public import ConLeche.Verify.EnvGuards
+
+@[expose] public section
 
 /-!
 # The literal tier, P currency (task #161)
@@ -379,4 +383,3 @@ theorem reduceNatReads_of (m : EnvModel V env) (hlaw : NatOpGuardLaw env)
   exact nomatch hl
 
 end ConLeche.Model
-

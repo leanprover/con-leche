@@ -1,4 +1,8 @@
-import ConLeche.Kernel.StdAxioms
+module
+
+public import ConLeche.Kernel.StdAxioms
+
+@[expose] public section
 
 /-!
 # `erasePw` head inversions (task #161, S1)

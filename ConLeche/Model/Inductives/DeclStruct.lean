@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.StructStageTable
+module
+
+public import ConLeche.Model.Inductives.StructStageTable
+
+@[expose] public section
 
 /-!
 # The direct structure's install, assembled (task #175 W4c, P3 module 7, part 9; S1)

@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.StructEntryFree
-import ConLeche.Semantics.NoBVar
+module
+
+public import ConLeche.Model.Inductives.StructEntryFree
+public import ConLeche.Semantics.NoBVar
+
+@[expose] public section
 
 /-!
 # Readings of leaf-free terms mention no excluded variable (task #188)

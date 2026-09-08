@@ -1,4 +1,8 @@
-import ConLeche.Model.Steps.CapsRows
+module
+
+public import ConLeche.Model.Steps.CapsRows
+
+@[expose] public section
 
 /-!
 # The `String`-literal inference row (task #161, PROJ/STR install tier)

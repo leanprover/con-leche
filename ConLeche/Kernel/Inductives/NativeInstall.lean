@@ -1,5 +1,9 @@
-import ConLeche.Kernel.Inductives.SumInstall
-import ConLeche.Kernel.Inductives.NativeParts
+module
+
+public import ConLeche.Kernel.Inductives.SumInstall
+public import ConLeche.Kernel.Inductives.NativeParts
+
+@[expose] public section
 
 /-!
 # The direct recursive install (pure fueled checker; task #188)

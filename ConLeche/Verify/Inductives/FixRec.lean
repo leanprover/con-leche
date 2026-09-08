@@ -1,5 +1,9 @@
-import ConLeche.Verify.Inductives.SumRec
-import ConLeche.Kernel.Inductives.NativeParts
+module
+
+public import ConLeche.Verify.Inductives.SumRec
+public import ConLeche.Kernel.Inductives.NativeParts
+
+@[expose] public section
 
 /-!
 # The generated recursive recursor, unfolded (task #188)

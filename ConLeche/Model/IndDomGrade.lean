@@ -1,4 +1,8 @@
-import ConLeche.Model.IndGrade
+module
+
+public import ConLeche.Model.IndGrade
+
+@[expose] public section
 
 /-!
 # The instantiated domains are graded (task #161, IND TIER part 4)

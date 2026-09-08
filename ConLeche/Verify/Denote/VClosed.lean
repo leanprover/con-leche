@@ -1,4 +1,8 @@
-import ConLeche.Term.Subst
+module
+
+public import ConLeche.Term.Subst
+
+@[expose] public section
 
 /-!
 # Closed `Term`s

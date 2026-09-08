@@ -1,8 +1,12 @@
-import ConLeche.Cached.ExprOpsC
-import ConLeche.Verify.Cached.Erase
-import ConLeche.Verify.Subst
-import ConLeche.Verify.InstList
-import ConLeche.Verify.AbstractRange
+module
+
+public import ConLeche.Cached.ExprOpsC
+public import ConLeche.Verify.Cached.Erase
+public import ConLeche.Verify.Subst
+public import ConLeche.Verify.InstList
+public import ConLeche.Verify.AbstractRange
+
+@[expose] public section
 
 /-!
 # The cached representation's syntactic operations are the pure ones

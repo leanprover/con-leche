@@ -1,4 +1,8 @@
-import ConLeche.Frontend.ExportWrite
+module
+
+public import ConLeche.Frontend.ExportWrite
+
+@[expose] public section
 
 /-!
 # The in-process modeller's debug dump (task #200)
@@ -19,13 +23,13 @@ open ConLeche.Cached (DeclC)
 
 /-- The number after a fixed key in a record line (`"ie":N`,
 `{"in":N`, …), `0` when absent. -/
-private def numAfter (line key : String) : Nat :=
+def numAfter (line key : String) : Nat :=
   match line.splitOn key with
   | _ :: rest :: _ => (rest.takeWhile Char.isDigit).toNat?.getD 0
   | _ => 0
 
 /-- The largest name/level/expression index the input uses. -/
-private partial def maxIndex (file : String) : IO Nat := do
+partial def maxIndex (file : String) : IO Nat := do
   let h ← IO.FS.Handle.mk file .read
   let rec loop (m : Nat) : IO Nat := do
     let line ← h.getLine

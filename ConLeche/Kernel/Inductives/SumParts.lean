@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Inductives.StructParts
+module
+
+public import ConLeche.Kernel.Inductives.StructParts
+
+@[expose] public section
 
 /-!
 # The block's shape record and its readers (task #175, kept for the one route)

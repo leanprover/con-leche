@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.FixChainFacts
+module
+
+public import ConLeche.Model.Inductives.FixChainFacts
+
+@[expose] public section
 
 /-!
 # The real chains against the X-chains (task #188)

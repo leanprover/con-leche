@@ -1,4 +1,8 @@
-import ConLeche.SetTheory.Derive.Univ
+module
+
+public import ConLeche.SetTheory.Derive.Univ
+
+@[expose] public section
 
 /-!
 # Dependent pairs, with the level-0 truncation

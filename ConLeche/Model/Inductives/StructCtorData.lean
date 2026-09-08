@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.StructStageFormer
+module
+
+public import ConLeche.Model.Inductives.StructStageFormer
+
+@[expose] public section
 
 /-!
 # The constructor's stage data (task #175 W4c, P3 module 6, part 3)

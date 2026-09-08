@@ -1,7 +1,11 @@
-import ConLeche.Model.Inductives.FixRuleData
-import ConLeche.Model.Inductives.FixRuleOk
-import ConLeche.Model.Inductives.FixRecLeaf
-import ConLeche.Semantics.Tower.FixWire
+module
+
+public import ConLeche.Model.Inductives.FixRuleData
+public import ConLeche.Model.Inductives.FixRuleOk
+public import ConLeche.Model.Inductives.FixRecLeaf
+public import ConLeche.Semantics.Tower.FixWire
+
+@[expose] public section
 
 /-!
 # The recursive recursor's stage, part 1: the rule law (task #188)

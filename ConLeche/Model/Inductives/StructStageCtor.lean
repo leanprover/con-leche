@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.StructCtorFrames
+module
+
+public import ConLeche.Model.Inductives.StructCtorFrames
+
+@[expose] public section
 
 /-!
 # The constructor's cons (task #175 W4c, P3 module 6, part 5)

@@ -1,5 +1,9 @@
-import ConLeche.Verify.InferLeaves
-import ConLeche.Verify.InferIOLemmas
+module
+
+public import ConLeche.Verify.InferLeaves
+public import ConLeche.Verify.InferIOLemmas
+
+@[expose] public section
 
 /-!
 # Leaf-closure and loose-bvar preservation for the io lane

@@ -1,5 +1,9 @@
-import ConLeche.Verify.Denote
-import ConLeche.Verify.EnvPreds
+module
+
+public import ConLeche.Verify.Denote
+public import ConLeche.Verify.EnvPreds
+
+@[expose] public section
 
 /-!
 # The pinned basis constants' direct valuations

@@ -1,6 +1,10 @@
-import ConLeche.Verify.DivModInv
-import ConLeche.Verify.Denote
-import ConLeche.SetTheory.Basic
+module
+
+public import ConLeche.Verify.DivModInv
+public import ConLeche.Verify.Denote
+public import ConLeche.SetTheory.Basic
+
+@[expose] public section
 
 /-!
 # The div/mod certificates' model-free half (task #161, S1)

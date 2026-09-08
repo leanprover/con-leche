@@ -1,12 +1,16 @@
-import ConLeche.Model.AxiomReduce
-import ConLeche.Model.DeclInd
-import ConLeche.Model.Inductives.DeclStruct
-import ConLeche.Semantics.IndBlockFacts
-import ConLeche.Semantics.Bridge.Sound
-import ConLeche.Semantics.Inductives.DeclSumEta
-import ConLeche.Model.Inductives.DeclSum
-import ConLeche.Model.Inductives.DeclNative
-import ConLeche.Model.BasisFalse
+module
+
+public import ConLeche.Model.AxiomReduce
+public import ConLeche.Model.DeclInd
+public import ConLeche.Model.Inductives.DeclStruct
+public import ConLeche.Semantics.IndBlockFacts
+public import ConLeche.Semantics.Bridge.Sound
+public import ConLeche.Semantics.Inductives.DeclSumEta
+public import ConLeche.Model.Inductives.DeclSum
+public import ConLeche.Model.Inductives.DeclNative
+public import ConLeche.Model.BasisFalse
+
+@[expose] public section
 
 /-!
 # The P declaration fold, and the conditional capstone (task #161, P4)

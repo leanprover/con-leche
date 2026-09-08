@@ -1,4 +1,8 @@
-import ConLeche.Model.IndLamTower
+module
+
+public import ConLeche.Model.IndLamTower
+
+@[expose] public section
 
 /-!
 # The transport's two kit pieces (task #161, IND TIER part 5)

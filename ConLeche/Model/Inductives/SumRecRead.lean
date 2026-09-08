@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.StructRecRead
+module
+
+public import ConLeche.Model.Inductives.StructRecRead
+
+@[expose] public section
 
 /-!
 # The generated sum recursor's readings (task #175 sum-types, indexed)

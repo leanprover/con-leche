@@ -1,4 +1,8 @@
-import ConLeche.Model.BasisStep
+module
+
+public import ConLeche.Model.BasisStep
+
+@[expose] public section
 
 /-!
 # The inductive cons, P tier: the mechanical rows at an ind-kind head (task #161, IND TIER)

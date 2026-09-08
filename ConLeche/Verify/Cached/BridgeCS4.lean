@@ -1,9 +1,13 @@
-import ConLeche.Verify.Cached.BridgeCS3
-import ConLeche.Verify.CheckerF
-import ConLeche.Verify.Extend.Inversions
-import ConLeche.Verify.Extend.Modeled
-import ConLeche.Verify.Extend.Recs
-import ConLeche.Verify.Extend.Proj
+module
+
+public import ConLeche.Verify.Cached.BridgeCS3
+public import ConLeche.Verify.CheckerF
+public import ConLeche.Verify.Extend.Inversions
+public import ConLeche.Verify.Extend.Modeled
+public import ConLeche.Verify.Extend.Recs
+public import ConLeche.Verify.Extend.Proj
+
+@[expose] public section
 
 /-!
 # Cached shared-state checker: the per-declaration composition

@@ -1,5 +1,14 @@
-import ConLeche.Verify.EnvBound
-import ConLeche.Verify.Cached.SimC
+module
+
+public import ConLeche.Verify.EnvBound
+public import ConLeche.Verify.Cached.SimC
+/- `withPtrEq` (`Init.Util`) is `public` but not `@[expose]`, and the
+pointer-guarded `Expr.exprPtrBEq`/`beq` identities below are exactly the
+`k ()` unfolding of it — the same escape `ConLeche/Kernel/Name.lean` and
+`ConLeche/Kernel/Expr.lean` take at the definition sites. -/
+import all Init.Util
+
+@[expose] public section
 
 /-!
 # Effect specs for the cached checker's state wrappers (task #163, batch 5)

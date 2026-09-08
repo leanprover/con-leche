@@ -1,4 +1,8 @@
-import ConLeche.Kernel.TypeChecker
+module
+
+public import ConLeche.Kernel.TypeChecker
+
+@[expose] public section
 
 /-!
 # The io lane: infer at the licensed infer-only grade (task #161, stage 2)

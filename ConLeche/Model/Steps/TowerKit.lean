@@ -1,7 +1,11 @@
-import ConLeche.Model.Annot.EnvModelM
-import ConLeche.Model.Steps.Stuck
-import ConLeche.Model.Steps.ProjAVKit
-import ConLeche.Verify.ProjTele
+module
+
+public import ConLeche.Model.Annot.EnvModelM
+public import ConLeche.Model.Steps.Stuck
+public import ConLeche.Model.Steps.ProjAVKit
+public import ConLeche.Verify.ProjTele
+
+@[expose] public section
 
 /-!
 # The tower-entry kit for the P `.proj` rows (task #175 wiring, W5 S3)

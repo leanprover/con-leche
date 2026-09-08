@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Syntax
-import ConLeche.Term.Const
+module
+
+public import ConLeche.Semantics.Syntax
+public import ConLeche.Term.Const
+
+@[expose] public section
 
 /-!
 # `BConst.typeAV` — the annotated basis-constant types (#151, step 2)

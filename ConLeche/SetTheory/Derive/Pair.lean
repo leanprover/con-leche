@@ -1,4 +1,8 @@
-import ConLeche.SetTheory.Derive.Sep
+module
+
+public import ConLeche.SetTheory.Derive.Sep
+
+@[expose] public section
 
 /-!
 # Singletons, binary unions, and Kuratowski ordered pairs

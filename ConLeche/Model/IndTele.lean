@@ -1,5 +1,9 @@
-import ConLeche.Model.IndMembers
-import ConLeche.Model.Steps.CapsRows
+module
+
+public import ConLeche.Model.IndMembers
+public import ConLeche.Model.Steps.CapsRows
+
+@[expose] public section
 
 /-!
 # The reading's ∀-telescope (task #161, IND TIER part 2)

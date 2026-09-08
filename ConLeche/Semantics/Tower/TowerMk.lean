@@ -1,4 +1,8 @@
-import ConLeche.Semantics.Tower.TowerLeaf
+module
+
+public import ConLeche.Semantics.Tower.TowerLeaf
+
+@[expose] public section
 
 /-!
 # The constructor tupler (task #175, stage 3b)

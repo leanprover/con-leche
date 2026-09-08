@@ -1,5 +1,9 @@
-import ConLeche.Verify.Inductives.StructRec
-import ConLeche.Kernel.Inductives.SumInstall
+module
+
+public import ConLeche.Verify.Inductives.StructRec
+public import ConLeche.Kernel.Inductives.SumInstall
+
+@[expose] public section
 
 /-!
 # The generated recursor at a constructor list (task #175 sum-types)

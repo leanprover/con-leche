@@ -1,7 +1,11 @@
-import ConLeche.Semantics.DeclRun
-import ConLeche.Semantics.Bridge.Decl
-import ConLeche.Verify.ReducePinInv
-import ConLeche.Verify.DivModInv
+module
+
+public import ConLeche.Semantics.DeclRun
+public import ConLeche.Semantics.Bridge.Decl
+public import ConLeche.Verify.ReducePinInv
+public import ConLeche.Verify.DivModInv
+
+@[expose] public section
 
 /-!
 # The **run-only** declaration bridges (task #161 S11a, THE SEPARATION)

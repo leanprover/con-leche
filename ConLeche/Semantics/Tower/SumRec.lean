@@ -1,4 +1,8 @@
-import ConLeche.Semantics.Tower.SumRecCase
+module
+
+public import ConLeche.Semantics.Tower.SumRecCase
+
+@[expose] public section
 
 /-!
 # The sum recursor leaf (task #175 sum-types, stage S4b; indexed)

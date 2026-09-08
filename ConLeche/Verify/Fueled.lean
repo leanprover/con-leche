@@ -1,5 +1,9 @@
-import ConLeche.Verify.Mono
-import ConLeche.Verify.Deep
+module
+
+public import ConLeche.Verify.Mono
+public import ConLeche.Verify.Deep
+
+@[expose] public section
 
 /-!
 # The cache-refinement bridge, part A: fueled families

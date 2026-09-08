@@ -1,4 +1,8 @@
-import ConLeche.Model.IndFire
+module
+
+public import ConLeche.Model.IndFire
+
+@[expose] public section
 
 /-!
 # The truthfulness transport, at the reading (task #161, IND TIER part 7)

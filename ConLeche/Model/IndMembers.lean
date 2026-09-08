@@ -1,6 +1,10 @@
-import ConLeche.Semantics.IndBlockRun
-import ConLeche.Model.IndCaps
-import ConLeche.Semantics.EnvFactsCons
+module
+
+public import ConLeche.Semantics.IndBlockRun
+public import ConLeche.Model.IndCaps
+public import ConLeche.Semantics.EnvFactsCons
+
+@[expose] public section
 
 /-!
 # The member phase, P tier (task #161, IND TIER)

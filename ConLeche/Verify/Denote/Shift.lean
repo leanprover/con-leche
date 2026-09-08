@@ -1,7 +1,11 @@
-import ConLeche.Verify.Denote
-import ConLeche.Verify.Denote.VClosed
-import ConLeche.Verify.Shift
-import ConLeche.Verify.Abstract
+module
+
+public import ConLeche.Verify.Denote
+public import ConLeche.Verify.Denote.VClosed
+public import ConLeche.Verify.Shift
+public import ConLeche.Verify.Abstract
+
+@[expose] public section
 
 /-!
 # Depth shifting

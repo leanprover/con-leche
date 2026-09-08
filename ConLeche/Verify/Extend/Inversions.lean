@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Checker
+module
+
+public import ConLeche.Kernel.Checker
+
+@[expose] public section
 
 /-!
 # Inversions — split out of `ConLeche.ModelV1.Extend`

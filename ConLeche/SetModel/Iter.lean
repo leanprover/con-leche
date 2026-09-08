@@ -1,4 +1,8 @@
-import ConLeche.SetModel.TaggedSum
+module
+
+public import ConLeche.SetModel.TaggedSum
+
+@[expose] public section
 
 /-!
 # The ω-iterate of a set functor (task #188)

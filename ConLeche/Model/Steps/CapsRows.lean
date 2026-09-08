@@ -1,6 +1,10 @@
-import ConLeche.Model.Steps.Stuck
-import ConLeche.Model.Annot.EnvModelM
-import ConLeche.Model.Steps.TowerKit
+module
+
+public import ConLeche.Model.Steps.Stuck
+public import ConLeche.Model.Annot.EnvModelM
+public import ConLeche.Model.Steps.TowerKit
+
+@[expose] public section
 
 /-!
 # The stored-family rows of `stuckIrrel`'s cascade (task #161, caps

@@ -1,6 +1,10 @@
-import ConLeche.SetTheory.Core
-import ConLeche.SetTheory.Derive.Natrec
-import ConLeche.SetTheory.Derive.Univ
+module
+
+public import ConLeche.SetTheory.Core
+public import ConLeche.SetTheory.Derive.Natrec
+public import ConLeche.SetTheory.Derive.Univ
+
+@[expose] public section
 
 /-!
 # The target set theory: the derived operator interface

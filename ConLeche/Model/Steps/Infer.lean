@@ -1,14 +1,18 @@
-import ConLeche.Model.ClaimsIO
-import ConLeche.Model.CtxOkKit
-import ConLeche.Model.Annot.BitLemmas
-import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Annot.ValidSpine
-import ConLeche.Verify.InferLemmas
-import ConLeche.Semantics.Frame
-import ConLeche.Semantics.Skeleton
-import ConLeche.Semantics.Hoist
-import ConLeche.Semantics.LitStep
-import ConLeche.Semantics.LitParams
+module
+
+public import ConLeche.Model.ClaimsIO
+public import ConLeche.Model.CtxOkKit
+public import ConLeche.Model.Annot.BitLemmas
+public import ConLeche.Model.Annot.BitInst
+public import ConLeche.Model.Annot.ValidSpine
+public import ConLeche.Verify.InferLemmas
+public import ConLeche.Semantics.Frame
+public import ConLeche.Semantics.Skeleton
+public import ConLeche.Semantics.Hoist
+public import ConLeche.Semantics.LitStep
+public import ConLeche.Semantics.LitParams
+
+@[expose] public section
 
 /-!
 # The infer quarter, P currency — the worked ∀ clause (task #161, P3.5)

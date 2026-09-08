@@ -1,4 +1,8 @@
-import ConLeche.Model.RecRulesCons
+module
+
+public import ConLeche.Model.RecRulesCons
+
+@[expose] public section
 
 /-!
 # The basis-cons preservation kit (task #161, ENDGAME B, task 2)

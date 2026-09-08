@@ -1,6 +1,10 @@
-import ConLeche.Verify.Denote.Install
-import ConLeche.Verify.Denote.VClosed
-import ConLeche.Verify.Denote.Shift
+module
+
+public import ConLeche.Verify.Denote.Install
+public import ConLeche.Verify.Denote.VClosed
+public import ConLeche.Verify.Denote.Shift
+
+@[expose] public section
 
 /-!
 # Substituting the operation for its own constant

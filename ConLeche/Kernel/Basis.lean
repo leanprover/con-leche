@@ -1,11 +1,15 @@
-import ConLeche.Kernel.Basis.Names
-import ConLeche.Kernel.Basis.Builder
-import ConLeche.Kernel.Basis.Eq
-import ConLeche.Kernel.Basis.Nat
-import ConLeche.Kernel.Basis.PUnit
-import ConLeche.Kernel.Basis.Empty
-import ConLeche.Kernel.Basis.False
-import ConLeche.Kernel.Basis.Quot
+module
+
+public import ConLeche.Kernel.Basis.Names
+public import ConLeche.Kernel.Basis.Builder
+public import ConLeche.Kernel.Basis.Eq
+public import ConLeche.Kernel.Basis.Nat
+public import ConLeche.Kernel.Basis.PUnit
+public import ConLeche.Kernel.Basis.Empty
+public import ConLeche.Kernel.Basis.False
+public import ConLeche.Kernel.Basis.Quot
+
+@[expose] public section
 
 /-!
 # The pinned basis inductives

@@ -39,6 +39,29 @@ iteration protocol. Keep it up to date when decisions change.
   importing no other Model/Verify modules) may live with, and be
   imported by, the implementation — the Std.HashMap pattern: the
   structure carries its invariant; downstream never re-proves it.
+* The module system (task #231): every `.lean` file under `ConLeche/`,
+  the roots and `tests/*` carries the `module` header.  A `module` may
+  not import a non-`module`, so the tree converts as a whole and stays
+  that way; `_probe/*`, `scripts/*.lean` and `bridge/*` are outside the
+  build and stay classic (a classic file may import a `module`).
+  **Checker code is exposed, because it is the subject of the proofs**:
+  `ConLeche/Kernel/*`, `ConLeche/Cached/*`, `ConLeche/Frontend/*` and
+  `Main.lean` open one `@[expose] public section` — the Verify/Model
+  tiers unfold their bodies by design, so a `private` helper there must
+  be public if any *definition* mentions it (a `theorem` proof may
+  still use one: proofs are private regardless).  **Proof code is
+  private by default**: the theory tiers narrow to plain `import`,
+  `public` only on what another file names, `@[expose]` only on a `def`
+  a downstream *proof* unfolds.  `import all X` is the escape for a
+  representation that is sealed on purpose — `ConLeche/Kernel/PropWhen`
+  (the datum's API and laws are its whole interface) and `Init.Util`'s
+  `withPtrEq` — and nothing else; each site carries the reason.
+  Elaboration-time code (`Kernel/BasisGen`, `PinGen/*`, the pin and
+  basis splices) is `meta`: `meta section`, `public meta import`, and a
+  module needed at BOTH levels is imported twice (`public import X` +
+  `meta import X`).  A term-mode `theorem … := rfl` is elaborated in
+  the PUBLIC view and fails on a hidden unfolding; `:= by rfl` is
+  elaborated in the private view and is the fix.
 * Large artifacts (reference checkouts, worktrees) go in `_tmp/` (gitignored;
   /tmp and /home are tmpfs). Reference clones already there: nanodatg,
   lean4lean-model.

@@ -1,4 +1,8 @@
-import ConLeche.Verify.BridgeDecl
+module
+
+public import ConLeche.Verify.BridgeDecl
+
+@[expose] public section
 
 /-!
 # `wfOpsM mode` runs to pure runs, per declaration-checker function

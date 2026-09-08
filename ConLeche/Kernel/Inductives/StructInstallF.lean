@@ -1,4 +1,8 @@
-import ConLeche.Kernel.DeclCheck
+module
+
+public import ConLeche.Kernel.DeclCheck
+
+@[expose] public section
 
 /-!
 # The projection table's checks, through the index

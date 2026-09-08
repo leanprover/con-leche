@@ -1,5 +1,9 @@
-import ConLeche.Kernel.Inductives.Modeled
-import ConLeche.Kernel.TrustAxioms
+module
+
+public import ConLeche.Kernel.Inductives.Modeled
+public import ConLeche.Kernel.TrustAxioms
+
+@[expose] public section
 
 /-!
 # The projection table's checks (pure fueled checker)

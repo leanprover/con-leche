@@ -1,5 +1,9 @@
-import ConLeche.Verify.Denote.Shift
-import ConLeche.Verify.Subst
+module
+
+public import ConLeche.Verify.Denote.Shift
+public import ConLeche.Verify.Subst
+
+@[expose] public section
 
 /-!
 # Denotation commutes with instantiation

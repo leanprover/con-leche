@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.StructRows
-import ConLeche.Semantics.Tower.TowerRec
+module
+
+public import ConLeche.Model.Inductives.StructRows
+public import ConLeche.Semantics.Tower.TowerRec
+
+@[expose] public section
 
 /-!
 # The direct structure's telescope walks (task #175 W4c, P3 module 3, part 3)

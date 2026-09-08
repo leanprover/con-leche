@@ -1,7 +1,11 @@
-import ConLeche.Semantics.DeclIndRun
-import ConLeche.Semantics.Bridge.DeclRun
-import ConLeche.Verify.Extend.Iota
-import ConLeche.Verify.Extend.Proj
+module
+
+public import ConLeche.Semantics.DeclIndRun
+public import ConLeche.Semantics.Bridge.DeclRun
+public import ConLeche.Verify.Extend.Iota
+public import ConLeche.Verify.Extend.Proj
+
+@[expose] public section
 
 /-!
 # The **run-only** `indDecl` bridge (task #161 S11b, THE SEPARATION)

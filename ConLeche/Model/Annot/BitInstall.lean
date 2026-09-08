@@ -1,6 +1,10 @@
-import ConLeche.Model.Annot.BitClosed
-import ConLeche.Semantics.Install
-import ConLeche.Verify.EnvGuards
+module
+
+public import ConLeche.Model.Annot.BitClosed
+public import ConLeche.Semantics.Install
+public import ConLeche.Verify.EnvGuards
+
+@[expose] public section
 
 /-!
 # `denoteMeta` at an install (task #161, P3.2)

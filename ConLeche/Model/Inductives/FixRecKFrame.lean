@@ -1,4 +1,13 @@
-import ConLeche.Model.Inductives.FixRecFrames
+module
+
+public import ConLeche.Model.Inductives.FixRecFrames
+/- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
+`Std.HashMap` pattern, task #194): the datum's module is `public` but not
+`@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
+`import all` restores that view HERE only. -/
+import all ConLeche.Kernel.PropWhen
+
+@[expose] public section
 
 /-!
 # The recursive recursor's K-frames, part 2: the package (task #188)

@@ -1,10 +1,14 @@
-import ConLeche.Model.Capstone
-import ConLeche.Model.NatEqs
-import ConLeche.Model.DivModCert
-import ConLeche.Model.Caps
-import ConLeche.Model.RecRulesCons
-import ConLeche.Model.ReduceOps
-import ConLeche.Semantics.DeclRun
+module
+
+public import ConLeche.Model.Capstone
+public import ConLeche.Model.NatEqs
+public import ConLeche.Model.DivModCert
+public import ConLeche.Model.Caps
+public import ConLeche.Model.RecRulesCons
+public import ConLeche.Model.ReduceOps
+public import ConLeche.Semantics.DeclRun
+
+@[expose] public section
 
 /-!
 # The harvest, value kinds (task #161, P4 — the fold's species)

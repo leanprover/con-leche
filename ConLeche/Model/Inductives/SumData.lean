@@ -1,7 +1,11 @@
-import ConLeche.Model.Inductives.StructCtorFrames
-import ConLeche.Model.Inductives.SumIntro
-import ConLeche.Model.Inductives.SumRecRead
-import ConLeche.Verify.Inductives.SumInv
+module
+
+public import ConLeche.Model.Inductives.StructCtorFrames
+public import ConLeche.Model.Inductives.SumIntro
+public import ConLeche.Model.Inductives.SumRecRead
+public import ConLeche.Verify.Inductives.SumInv
+
+@[expose] public section
 
 /-!
 # The direct sum's constructor data and frames (task #175 sum-types,

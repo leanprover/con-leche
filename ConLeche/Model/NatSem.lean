@@ -1,4 +1,8 @@
-import ConLeche.Model.NatEqs
+module
+
+public import ConLeche.Model.NatEqs
+
+@[expose] public section
 
 /-!
 # The numeral transports at `interp` (task #161, literal tier)

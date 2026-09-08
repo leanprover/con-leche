@@ -1,5 +1,9 @@
-import ConLeche.Verify.Denote
-import ConLeche.Verify.EnvWF
+module
+
+public import ConLeche.Verify.Denote
+public import ConLeche.Verify.EnvWF
+
+@[expose] public section
 
 /-!
 # Denotation across level-preserving environment correspondences

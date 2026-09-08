@@ -1,7 +1,11 @@
-import ConLeche.MainTheorem
-import ConLeche.Verify.Cached.MainC
-import ConLeche.Model.Fold
-import ConLeche.Model.Capstone
+module
+
+public import ConLeche.MainTheorem
+public import ConLeche.Verify.Cached.MainC
+public import ConLeche.Model.Fold
+public import ConLeche.Model.Capstone
+
+@[expose] public section
 
 /-!
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1)

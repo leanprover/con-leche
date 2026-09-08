@@ -1,7 +1,11 @@
-import ConLeche.Semantics.WellDenoted
-import ConLeche.Semantics.Sat
-import ConLeche.Semantics.Univ
-import ConLeche.Semantics.BasisOk
+module
+
+public import ConLeche.Semantics.WellDenoted
+public import ConLeche.Semantics.Sat
+public import ConLeche.Semantics.Univ
+public import ConLeche.Semantics.BasisOk
+
+@[expose] public section
 
 /-!
 # The second soundness's per-former skeleton (task #151, arc step 4)

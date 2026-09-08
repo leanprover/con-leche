@@ -1,4 +1,8 @@
-import ConLeche.Verify.Cached.BridgeCS2
+module
+
+public import ConLeche.Verify.Cached.BridgeCS2
+
+@[expose] public section
 
 /-!
 # Cached shared-state walks, part 3: the direct simple-structure install

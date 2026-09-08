@@ -1,4 +1,8 @@
-import ConLeche.Frontend.InModel.Mutual
+module
+
+public import ConLeche.Frontend.InModel.Mutual
+
+@[expose] public section
 
 /-!
 # In-process models of a NESTED (or nested-and-mutual) block (task #200, B3)

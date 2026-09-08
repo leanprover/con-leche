@@ -1,4 +1,8 @@
-import ConLeche.Semantics.Kit
+module
+
+public import ConLeche.Semantics.Kit
+
+@[expose] public section
 
 /-!
 # `CheckStep2`, the definitional-equality quarter — Tier A clauses

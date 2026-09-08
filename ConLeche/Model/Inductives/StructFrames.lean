@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.StructTele
+module
+
+public import ConLeche.Model.Inductives.StructTele
+
+@[expose] public section
 
 /-!
 # The direct structure's two parameter frames, identified (task #175 W4c, P3 module 3, part 4)

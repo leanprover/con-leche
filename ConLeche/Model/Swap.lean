@@ -1,5 +1,9 @@
-import ConLeche.Model.IotaRuleNested
-import ConLeche.Verify.Denote.EnvExt
+module
+
+public import ConLeche.Model.IotaRuleNested
+public import ConLeche.Verify.Denote.EnvExt
+
+@[expose] public section
 
 /-!
 # The group rule-list swap, P tier (task #161, IND TIER part 10)

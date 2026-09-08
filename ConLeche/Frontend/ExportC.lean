@@ -1,8 +1,12 @@
-import ConLeche.Frontend.Export
-import ConLeche.Frontend.ProjRec
-import ConLeche.Frontend.InModel
-import ConLeche.Frontend.NatOpGround
-import ConLeche.Cached.ParsedC
+module
+
+public import ConLeche.Frontend.Export
+public import ConLeche.Frontend.ProjRec
+public import ConLeche.Frontend.InModel
+public import ConLeche.Frontend.NatOpGround
+public import ConLeche.Cached.ParsedC
+
+@[expose] public section
 
 /-!
 # Direct-to-`ExprC` export parsing (task #171)
@@ -62,7 +66,6 @@ open Lean (Json)
 open ConLeche
 open ConLeche.Cached (ExprC DeclC)
 
-private abbrev M := Except String
 
 /-! ## The built-in prelude (task #191)
 
@@ -85,7 +88,7 @@ dropped as the prelude's duplicate. -/
 /-- The constant a definition-like record would store, for the canon
 comparison (`opaqueDecl` is told apart from `defnDecl` by `sameCanon`'s
 constructor test, not here). -/
-private def _root_.ConLeche.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
+def _root_.ConLeche.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
   | .axiomDecl cv => some (.axiomInfo ⟨cv.name, cv.levelParams, cv.type⟩)
   | .defnDecl cv v h => some (.defnInfo ⟨cv.name, cv.levelParams, cv.type⟩ v h)
   | .thmDecl cv v => some (.thmInfo ⟨cv.name, cv.levelParams, cv.type⟩ v)
@@ -193,7 +196,7 @@ structure StateD where
   preludeDropped : Nat := 0
 /-- Record a pushed declaration's constants in the declaration table
 (`constTypes`, `heights`; task #200). -/
-private def noteDecl (st : StateD) (d : DeclC) : StateD :=
+def noteDecl (st : StateD) (d : DeclC) : StateD :=
   let cvs : List (Name × List Name × ExprC × Option Nat) := match d with
     | .axiomDecl cv => [(cv.name, cv.levelParams, cv.type, none)]
     | .defnDecl cv _ h => [(cv.name, cv.levelParams, cv.type, some (InModel.hintHeight h))]
@@ -214,7 +217,7 @@ private def noteDecl (st : StateD) (d : DeclC) : StateD :=
 basis block the prelude holds is dropped by kind; a record under a
 prelude name is dropped when it is the same declaration
 (`DeclC.sameCanon`) and declines the stream when it differs. -/
-private def pushDecl (st : StateD) (d : DeclC) : StateD ⊕ String :=
+def pushDecl (st : StateD) (d : DeclC) : StateD ⊕ String :=
   match d with
   | .basisDecl k =>
     if st.prelude.basis.contains k then
@@ -229,25 +232,25 @@ private def pushDecl (st : StateD) (d : DeclC) : StateD ⊕ String :=
       else .inr (s!"declaration {n} differs from the checker's built-in " ++
         s!"prelude (the toolchain's own {n}, installed first)")
 
-private def StateD.name (st : StateD) (i : Nat) : M Name :=
+def StateD.name (st : StateD) (i : Nat) : M Name :=
   match st.names[i]? with
   | some n => pure n
   | none => throw s!"undefined name index {i}"
 
-private def StateD.level (st : StateD) (i : Nat) : M Level :=
+def StateD.level (st : StateD) (i : Nat) : M Level :=
   match st.levels[i]? with
   | some l => pure l
   | none => throw s!"undefined level index {i}"
 
-private def StateD.expr (st : StateD) (i : Nat) : M ExprC :=
+def StateD.expr (st : StateD) (i : Nat) : M ExprC :=
   match st.exprs[i]? with
   | some e => pure e
   | none => throw s!"undefined expr index {i}"
 
-private def getNameD (st : StateD) (j : Json) (key : String) : M Name := do
+def getNameD (st : StateD) (j : Json) (key : String) : M Name := do
   st.name (← getIdx j key)
 
-private def getExprD (st : StateD) (j : Json) (key : String) : M ExprC := do
+def getExprD (st : StateD) (j : Json) (key : String) : M ExprC := do
   st.expr (← getIdx j key)
 
 /-- Declaration-level expression lookup (twin of `getDeclEIdx'`): the
@@ -260,7 +263,7 @@ basis-pin match) or a memoized DAG walk (`Expr.renameConsts`,
 the adversarial DAG-tower fixtures in `tests/e2e` are the standing
 gate in its place — a limit told a user "no", a fixture tells *us*
 which walker regressed. -/
-private def getDeclD (st : StateD) (j : Json) (key : String) : M ExprC := do
+def getDeclD (st : StateD) (j : Json) (key : String) : M ExprC := do
   let i ← getIdx j key
   if st.tainted[i]?.isSome then
     throw taintSentinel
@@ -269,11 +272,11 @@ private def getDeclD (st : StateD) (j : Json) (key : String) : M ExprC := do
 /-- Declaration-level lookup for the inductive-block and quotient
 readers (twin of `getDeclExpr'`); since task #172 B3a there is one
 type, so the "tree" is the parsed node itself. -/
-private def getDeclExprD (st : StateD) (j : Json) (key : String) : M Expr := do
+def getDeclExprD (st : StateD) (j : Json) (key : String) : M Expr := do
   getDeclD st j key
 
 /-- Twin of `parsePw` over the direct name table. -/
-private def parsePwD (st : StateD) (j : Json) : M PropWhen := do
+def parsePwD (st : StateD) (j : Json) : M PropWhen := do
   match j.getObjVal? "pw" with
   | .error _ => pure .never
   | .ok v =>
@@ -289,7 +292,7 @@ private def parsePwD (st : StateD) (j : Json) : M PropWhen := do
 /-! ## Table entries -/
 
 /-- Twin of `parseNameEntry`: the name value is built directly. -/
-private def parseNameEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
+def parseNameEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
   let n ← if let .ok v := j.getObjVal? "str" then do
       let p ← st.name (← getIdx v "pre")
       pure (Name.str p (← (← v.getObjVal? "str").getStr?))
@@ -301,7 +304,7 @@ private def parseNameEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
   pure { st with names := st.names.insert i n }
 
 /-- Twin of `parseLevelEntry`. -/
-private def parseLevelEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
+def parseLevelEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
   let l ←
     if let .ok v := j.getObjVal? "succ" then
       pure (Level.succ (← st.level (← v.getNat?)))
@@ -322,7 +325,7 @@ private def parseLevelEntryD (st : StateD) (j : Json) (i : Nat) : M StateD := do
 /-- Twin of `parseExprEntry`: build the `ExprC` node from the
 children's table values (the derived fields are the compiler's, task
 #172 B3a), with the taint/size bookkeeping unchanged. -/
-private def parseExprEntryD (st : StateD) (j : Json) (i : Nat)
+def parseExprEntryD (st : StateD) (j : Json) (i : Nat)
     : M StateD := do
   let (e, taintConst) ←
     if let .ok v := j.getObjVal? "bvar" then do
@@ -387,7 +390,7 @@ private def parseExprEntryD (st : StateD) (j : Json) (i : Nat)
 /-! ## Declaration records -/
 
 /-- Twin of `parseConstantValP`: the type stays `ExprC`. -/
-private def parseConstantValD (st : StateD) (v : Json) : M ConstantVal := do
+def parseConstantValD (st : StateD) (v : Json) : M ConstantVal := do
   let name ← getNameD st v "name"
   let ty ← getDeclD st v "type"
   pure { name := name
@@ -395,7 +398,7 @@ private def parseConstantValD (st : StateD) (v : Json) : M ConstantVal := do
          type := ty }
 
 /-- Twin of `parseConstantVal` (tree form, the bounded consumers). -/
-private def parseConstantValTD (st : StateD) (v : Json) : M ConstantVal := do
+def parseConstantValTD (st : StateD) (v : Json) : M ConstantVal := do
   pure {
     name := ← getNameD st v "name"
     levelParams := (← (← getIdxs v "levelParams").mapM st.name).toList
@@ -407,7 +410,7 @@ private def parseConstantValTD (st : StateD) (v : Json) : M ConstantVal := do
 self` for a recorded owner `T`, the field's sort is on record from the
 artifact, `PUnit` is available, and the definition's level parameters
 are the block's.  `none` = leave the record as parsed. -/
-private def projRewriteD (st : StateD) (cv : ConstantVal) (vl : ExprC) :
+def projRewriteD (st : StateD) (cv : ConstantVal) (vl : ExprC) :
     Option ExprC := do
   let .proj T i (.bvar 0) := lamBody vl | none
   let o ← st.projOwners[T]?
@@ -421,7 +424,7 @@ private def projRewriteD (st : StateD) (cv : ConstantVal) (vl : ExprC) :
 the in-process modeller GENERATES and on those alone (task #219): a
 stream record is an ordinary declaration whatever it is called, and
 the rewrite's field sorts come from the modeller's own family. -/
-private def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
+def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
   if isProjIotaName cvp.name then
     match projIotaLevel cvp.type with
     | some l =>
@@ -435,7 +438,7 @@ private def noteProjIota (st : StateD) (cvp : ConstantVal) : StateD :=
 `pushDecl`, plus the projection-iota registration (the ONLY place it
 runs since task #219 — a stream record is an ordinary declaration
 whatever it is called). -/
-private def pushGenD (st : StateD) (d : DeclC) : StateD ⊕ String :=
+def pushGenD (st : StateD) (d : DeclC) : StateD ⊕ String :=
   match d with
   | .thmDecl cv _ => pushDecl (noteProjIota st cv) d
   | _ => pushDecl st d
@@ -444,7 +447,7 @@ private def pushGenD (st : StateD) (d : DeclC) : StateD ⊕ String :=
 (task #219): a declaration of the FOLD, never a record of the file, so
 the driver's headline count subtracts it and a failure at it is
 reported with the block it models. -/
-private def noteGen (st : StateD) (d : DeclC) (T0 : Name) : StateD :=
+def noteGen (st : StateD) (d : DeclC) (T0 : Name) : StateD :=
   let m := st.genOwner
   let st := { st with genOwner := {} }
   { st with genRecords := st.genRecords + 1,
@@ -452,7 +455,7 @@ private def noteGen (st : StateD) (d : DeclC) (T0 : Name) : StateD :=
 
 /-- The export's shape data of an inductive record, for the in-process
 modeller (task #200). -/
-private def blockRecOf (st : StateD) (v : Json) : M InModel.BlockRec := do
+def blockRecOf (st : StateD) (v : Json) : M InModel.BlockRec := do
   let types ← (← (← v.getObjVal? "types").getArr?).toList.mapM fun t => do
     pure { cv := ← parseConstantValTD st t
            nP := ← (← t.getObjVal? "numParams").getNat?
@@ -481,7 +484,7 @@ private def blockRecOf (st : StateD) (v : Json) : M InModel.BlockRec := do
 /-- Twin of `processLineCore` over the direct state, producing `DeclC`
 records.  Every branch, guard and error string mirrors the arena
 parser's. -/
-private def processLineCoreD (st : StateD) (j : Json) :
+def processLineCoreD (st : StateD) (j : Json) :
     M (StateD ⊕ String) := do
   if let .ok v := j.getObjVal? "in" then
     return .inl (← parseNameEntryD st j (← v.getNat?))
@@ -701,7 +704,7 @@ where
 
 /-- Twin of `declRecordScan` (read-only pre-scan for the taint
 policy). -/
-private def declRecordScanD (st : StateD) (j : Json) :
+def declRecordScanD (st : StateD) (j : Json) :
     M (Option (List Name × List Nat)) := do
   for k in ["axiom", "quot"] do
     if let .ok v := j.getObjVal? k then
@@ -724,7 +727,7 @@ private def declRecordScanD (st : StateD) (j : Json) :
   return none
 
 /-- Twin of `processLine` (the taint policy). -/
-private def processLineD (st : StateD) (j : Json) :
+def processLineD (st : StateD) (j : Json) :
     M (StateD ⊕ String) := do
   if let .ok v := j.getObjVal? "axiom" then
     let name ← getNameD st v "name"
@@ -758,12 +761,12 @@ private def processLineD (st : StateD) (j : Json) :
 /-! ## The byte fast path's direct apply functions -/
 
 /-- Fast-path outcome over the direct state (see `FastRes`). -/
-private inductive FastResD where
+inductive FastResD where
   | handled (r : Except String StateD)
   | fallback (st : StateD)
 
 /-- Semantic phase for a hot `{"ie":…}` line, direct construction. -/
-private def fastApplyIED (st : StateD) (i : Nat) (fn : FastNode)
+def fastApplyIED (st : StateD) (i : Nat) (fn : FastNode)
     : FastResD :=
   let mk : Option (ExprC × List Nat) :=
     match fn with
@@ -807,7 +810,7 @@ private def fastApplyIED (st : StateD) (i : Nat) (fn : FastNode)
         .handled (.ok st)
 
 /-- Semantic phase for a hot `{"in":…,"str":…}` line. -/
-private def fastApplyIND (st : StateD) (i pre : Nat) (s : String) : FastResD :=
+def fastApplyIND (st : StateD) (i pre : Nat) (s : String) : FastResD :=
   match st.names[pre]? with
   | none => .fallback st
   | some p =>
@@ -815,7 +818,7 @@ private def fastApplyIND (st : StateD) (i pre : Nat) (s : String) : FastResD :=
 
 /-- The fast path over the direct state (shares `fastParse` with the
 arena parser — the byte layer produces stream indices). -/
-private def fastEntryD (st : StateD) (line : String) : FastResD :=
+def fastEntryD (st : StateD) (line : String) : FastResD :=
   match fastParse line.toUTF8 with
   | some (.ie i n) => fastApplyIED st i n
   | some (.inStr i pre s) => fastApplyIND st i pre s
@@ -860,7 +863,7 @@ structure ParseResultD where
 /-- The initial parse state over a prelude: `PUnit` counts as seen for
 the projection rewrite when the prelude installs it; the prelude's
 constants seed the declaration table (task #200). -/
-private def StateD.init (prelude : PreludeIx) (inModel : Bool)
+def StateD.init (prelude : PreludeIx) (inModel : Bool)
     (census : Bool := false) : StateD :=
   prelude.decls.foldl noteDecl
     { prelude, punitSeen := prelude.basis.contains .punitK, inModel,
@@ -869,14 +872,14 @@ private def StateD.init (prelude : PreludeIx) (inModel : Bool)
 /-- The result: the prelude's records, then the stream's with every
 pinned operation's stream-certified ground hoisted ahead of it
 (`hoistNatOpGround`). -/
-private def ParseResultD.ofState (st : StateD) : ParseResultD :=
+def ParseResultD.ofState (st : StateD) : ParseResultD :=
   let (decls, hoisted) := hoistNatOpGround st.decls
   ⟨st.prelude.decls ++ decls, st.taintSkipped, st.projRewrites,
    st.prelude.decls.size, st.preludeDropped, hoisted, st.inModelled,
    st.genRecords, st.genOwner, st.inModelGen, st.inModelDeclined⟩
 
 /-- Twin of `feedLine`. -/
-private def feedLineD (st : StateD) (line : String) (lineNo : Nat) :
+def feedLineD (st : StateD) (line : String) (lineNo : Nat) :
     Except FrontendError StateD :=
   if line.trimAscii.isEmpty then .ok st
   else

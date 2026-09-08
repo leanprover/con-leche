@@ -1,7 +1,11 @@
-import ConLeche.Verify.InferLeaves
-import ConLeche.Semantics.Skeleton
-import ConLeche.Model.Annot.Valid
-import ConLeche.Model.Annot.EnvModel
+module
+
+public import ConLeche.Verify.InferLeaves
+public import ConLeche.Semantics.Skeleton
+public import ConLeche.Model.Annot.Valid
+public import ConLeche.Model.Annot.EnvModel
+
+@[expose] public section
 
 /-!
 # The P-generation claims: the ladder over `denoteMeta` (task #161, P3.3)

@@ -1,4 +1,8 @@
-import ConLeche.Verify.Cached.DiscC2
+module
+
+public import ConLeche.Verify.Cached.DiscC2
+
+@[expose] public section
 
 /-!
 # Cached body walks, part 3: the stuck-major rescue and iota

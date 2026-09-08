@@ -1,5 +1,9 @@
-import ConLeche.Verify.Denote
-import ConLeche.Verify.InstLevels
+module
+
+public import ConLeche.Verify.Denote
+public import ConLeche.Verify.InstLevels
+
+@[expose] public section
 
 /-!
 # The denotation and level parameters

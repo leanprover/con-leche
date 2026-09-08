@@ -1,6 +1,10 @@
-import ConLeche.Semantics.Inductives.DeclNative
-import ConLeche.Semantics.Bridge.DeclRun
-import ConLeche.Semantics.Bridge.DeclIndRun
+module
+
+public import ConLeche.Semantics.Inductives.DeclNative
+public import ConLeche.Semantics.Bridge.DeclRun
+public import ConLeche.Semantics.Bridge.DeclIndRun
+
+@[expose] public section
 
 /-!
 # The assembly (task #148, T6): the RUN bridge

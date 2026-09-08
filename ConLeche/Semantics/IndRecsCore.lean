@@ -1,7 +1,11 @@
-import ConLeche.Semantics.EnvFactsCons
-import ConLeche.Verify.Denote.EnvExt
+module
 
-import ConLeche.Verify.Denote.Levels
+public import ConLeche.Semantics.EnvFactsCons
+public import ConLeche.Verify.Denote.EnvExt
+
+public import ConLeche.Verify.Denote.Levels
+
+@[expose] public section
 
 /-!
 # The recursor group's **model-free core** (task #161 S7, Wall A)

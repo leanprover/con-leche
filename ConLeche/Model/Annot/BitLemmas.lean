@@ -1,4 +1,8 @@
-import ConLeche.Model.Annot.Bit
+module
+
+public import ConLeche.Model.Annot.Bit
+
+@[expose] public section
 
 /-!
 # The `denoteMeta` lemma battery (task #161, P3.2)

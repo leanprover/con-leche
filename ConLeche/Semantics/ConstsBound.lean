@@ -1,6 +1,10 @@
-import ConLeche.Kernel.Core
-import ConLeche.Verify.Denote
-import ConLeche.Verify.EnvWF
+module
+
+public import ConLeche.Kernel.Core
+public import ConLeche.Verify.Denote
+public import ConLeche.Verify.EnvWF
+
+@[expose] public section
 
 /-!
 # `SetBase/ConstsBound` — "every constant this term mentions is stored"

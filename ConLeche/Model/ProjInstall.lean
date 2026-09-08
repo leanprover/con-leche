@@ -1,5 +1,9 @@
-import ConLeche.Semantics.IndBlockRun
-import ConLeche.Model.ProjCons
+module
+
+public import ConLeche.Semantics.IndBlockRun
+public import ConLeche.Model.ProjCons
+
+@[expose] public section
 
 /-!
 # The projection-function phase, P tier (task #161, IND TIER part 10)

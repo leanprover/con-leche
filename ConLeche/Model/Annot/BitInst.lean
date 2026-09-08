@@ -1,6 +1,10 @@
-import ConLeche.Model.Annot.BitShift
-import ConLeche.Semantics.DenoteClosed
-import ConLeche.Verify.Denote.Inst
+module
+
+public import ConLeche.Model.Annot.BitShift
+public import ConLeche.Semantics.DenoteClosed
+public import ConLeche.Verify.Denote.Inst
+
+@[expose] public section
 
 /-!
 # `denoteMeta` commutes with instantiation (task #161, P3 batch 2)

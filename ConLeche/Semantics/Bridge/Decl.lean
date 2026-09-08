@@ -1,6 +1,10 @@
-import ConLeche.Semantics.Decl
-import ConLeche.Verify.Extend.Inversions
-import ConLeche.Verify.IotaWalkInv
+module
+
+public import ConLeche.Semantics.Decl
+public import ConLeche.Verify.Extend.Inversions
+public import ConLeche.Verify.IotaWalkInv
+
+@[expose] public section
 
 /-!
 # The declaration-level RUN inversions (task #148 T6; the derivation

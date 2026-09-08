@@ -552,12 +552,22 @@ bridge's `CertRuns` destructuring) then never zeta through the blobs'
 `let`-chains — the self-contained blobs of task #113 are deep enough
 that doing so exceeds the kernel's recursion depth, and the blobs are
 meant to stay opaque to the model anyway. -/
+/- MODULE SYSTEM (task #231).  Every constant spliced here must land in the
+*public* scope with its body exposed, exactly as the `def` it stands for
+would: `addDecl` otherwise gives the public view an opaque `axiom`
+presentation (`Lean/AddDecl.lean`), and the pins' `rfl`/`decide`/`simp`
+consumers — `ConLeche/Kernel/Checker.lean`, `ConLeche/Model/DivModCert.lean` —
+read the *value*. -/
+private def addExposed (decl : Declaration) : Elab.TermElabM Unit := do
+  withExporting (isExporting := true) do
+    addDecl decl (forceExpose := true)
+  compileDecl decl
+
 def spliceOpDump (o : PinOpDump) : Elab.TermElabM Unit := do
   let pinDecl := Declaration.defnDecl {
     name := o.pinName.toName, levelParams := [], type := exprT,
     value := o.pin.value, hints := .abbrev, safety := .safe }
-  addDecl pinDecl
-  compileDecl pinDecl
+  addExposed pinDecl
   let proofsName := o.proofsName.toName
   let mut proofConsts : List Lean.Expr := []
   for i in [0:o.proofs.size] do
@@ -565,8 +575,7 @@ def spliceOpDump (o : PinOpDump) : Elab.TermElabM Unit := do
     let elemDecl := Declaration.defnDecl {
       name := elemName, levelParams := [], type := exprT,
       value := o.proofs[i]!.value, hints := .abbrev, safety := .safe }
-    addDecl elemDecl
-    compileDecl elemDecl
+    addExposed elemDecl
     proofConsts := proofConsts ++ [.const elemName []]
   let proofsDecl := Declaration.defnDecl {
     name := proofsName, levelParams := [],
@@ -575,8 +584,7 @@ def spliceOpDump (o : PinOpDump) : Elab.TermElabM Unit := do
       (fun p acc => mkApp3 (.const ``List.cons [.zero]) exprT p acc)
       (.app (.const ``List.nil [.zero]) exprT),
     hints := .abbrev, safety := .safe }
-  addDecl proofsDecl
-  compileDecl proofsDecl
+  addExposed proofsDecl
 
 /-- Parse a committed dump and splice every operation in it. -/
 def loadPinsFromText (text : String) : Elab.Command.CommandElabM Unit := do

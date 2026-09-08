@@ -1,9 +1,13 @@
-import ConLeche.Semantics.Tower.SumLeaf
-import ConLeche.Semantics.Tower.SumMk
-import ConLeche.Semantics.NoBVar
-import ConLeche.SetModel.Iter
-import ConLeche.SetModel.TowerMono
-import ConLeche.Semantics.Univ
+module
+
+public import ConLeche.Semantics.Tower.SumLeaf
+public import ConLeche.Semantics.Tower.SumMk
+public import ConLeche.Semantics.NoBVar
+public import ConLeche.SetModel.Iter
+public import ConLeche.SetModel.TowerMono
+public import ConLeche.Semantics.Univ
+
+@[expose] public section
 
 /-!
 # The type-former leaf of a direct recursive FAMILY (task #188, indexed)

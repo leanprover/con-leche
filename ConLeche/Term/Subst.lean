@@ -1,4 +1,8 @@
-import ConLeche.Term.Syntax
+module
+
+public import ConLeche.Term.Syntax
+
+@[expose] public section
 
 /-!
 # Lifting and instantiation

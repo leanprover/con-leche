@@ -1,3 +1,7 @@
+module
+
+@[expose] public section
+
 /-!
 # The axiomatic core: ZF⁻ plus an ω-chain of Grothendieck universes
 

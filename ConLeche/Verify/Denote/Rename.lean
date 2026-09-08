@@ -1,5 +1,9 @@
-import ConLeche.Verify.InstLevels
-import ConLeche.Verify.Denote.Inst
+module
+
+public import ConLeche.Verify.InstLevels
+public import ConLeche.Verify.Denote.Inst
+
+@[expose] public section
 
 /-!
 # Constant renaming and level instantiation, on the denotation side

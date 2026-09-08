@@ -1,4 +1,8 @@
-import ConLeche.Verify.Knot
+module
+
+public import ConLeche.Verify.Knot
+
+@[expose] public section
 
 /-!
 # A generic relational pair monad over the checker core

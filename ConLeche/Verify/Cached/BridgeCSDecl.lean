@@ -1,8 +1,12 @@
-import ConLeche.Verify.Cached.BridgeCS4
-import ConLeche.Verify.Inductives.StructWF
-import ConLeche.Verify.Inductives.SumWF
-import ConLeche.Verify.Inductives.FixWF
-import ConLeche.Verify.Cached.WalkersC
+module
+
+public import ConLeche.Verify.Cached.BridgeCS4
+public import ConLeche.Verify.Inductives.StructWF
+public import ConLeche.Verify.Inductives.SumWF
+public import ConLeche.Verify.Inductives.FixWF
+public import ConLeche.Verify.Cached.WalkersC
+
+@[expose] public section
 
 /-!
 # Cached shared-state checker: the inductive block and the per-declaration bridge

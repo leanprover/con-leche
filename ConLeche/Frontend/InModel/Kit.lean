@@ -1,5 +1,9 @@
-import ConLeche.Kernel.Inductives.StructParts
-import ConLeche.Kernel.Level
+module
+
+public import ConLeche.Kernel.Inductives.StructParts
+public import ConLeche.Kernel.Level
+
+@[expose] public section
 
 /-!
 # The in-process modeller's kit (task #200)

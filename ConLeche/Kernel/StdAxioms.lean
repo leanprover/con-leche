@@ -1,5 +1,10 @@
-import ConLeche.Kernel.BasisA
-import ConLeche.Kernel.BasisGen
+module
+
+public import ConLeche.Kernel.BasisA
+meta import ConLeche.Kernel.BasisA
+public import ConLeche.Kernel.BasisGen
+
+@[expose] public section
 
 /-!
 # Recognized standard axioms and their prerequisite shapes
@@ -225,7 +230,7 @@ def iffIntroRaw : ConstantInfo :=
 
 /-- `Iff.rec`'s minor premise, in the `a`/`b`/`motive` binder context:
 `∀ (mp : a → b) (mpr : b → a), motive (Iff.intro a b mp mpr)`. -/
-private def iffRecIntro : Expr :=
+def iffRecIntro : Expr :=
   pi "mp" (pi "right" (bv 2) (bv 2)) <|
   pi "mpr" (piA (bv 2) (bv 4)) <|
   .app (bv 2) (ap4 (cnst iffIntroName) (bv 4) (bv 3) (bv 1) (bv 0))

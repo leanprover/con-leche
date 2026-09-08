@@ -1,5 +1,9 @@
-import ConLeche.Verify.NatOpFrag
-import ConLeche.Verify.InferLeaves
+module
+
+public import ConLeche.Verify.NatOpFrag
+public import ConLeche.Verify.InferLeaves
+
+@[expose] public section
 
 /-!
 # The pinned-`Nat` fragment's syntactic package (task #161 S4, THE

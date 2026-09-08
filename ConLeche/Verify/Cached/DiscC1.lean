@@ -1,7 +1,11 @@
-import ConLeche.Cached.CoreC
-import ConLeche.Verify.Cached.GuardsC
-import ConLeche.Verify.Cached.SimCEff
-import ConLeche.Verify.InstSpine
+module
+
+public import ConLeche.Cached.CoreC
+public import ConLeche.Verify.Cached.GuardsC
+public import ConLeche.Verify.Cached.SimCEff
+public import ConLeche.Verify.InstSpine
+
+@[expose] public section
 
 /-!
 # Cached body walks, part 1: list helpers and small twins (task #163)

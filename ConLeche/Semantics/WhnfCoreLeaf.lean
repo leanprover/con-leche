@@ -1,4 +1,8 @@
-import ConLeche.Verify.Knot
+module
+
+public import ConLeche.Verify.Knot
+
+@[expose] public section
 
 /-!
 # `SetBase/WhnfCoreLeaf` — the six shapes `whnfCore` returns unchanged

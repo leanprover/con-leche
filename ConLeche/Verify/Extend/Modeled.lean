@@ -1,5 +1,9 @@
-import ConLeche.Verify.Extend.Iota
-import ConLeche.Verify.EnvWF
+module
+
+public import ConLeche.Verify.Extend.Iota
+public import ConLeche.Verify.EnvWF
+
+@[expose] public section
 
 /-!
 # Modeled — the `V`-free half of `ConLeche.ModelV1.Extend.Modeled`

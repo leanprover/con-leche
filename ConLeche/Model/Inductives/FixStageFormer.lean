@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.FixLeafOk
+module
+
+public import ConLeche.Model.Inductives.FixLeafOk
+
+@[expose] public section
 
 /-!
 # The recursive former's cons (task #188)

@@ -1,6 +1,10 @@
-import ConLeche.Model.Steps.Reads
-import ConLeche.Model.Steps.TowerKit
-import ConLeche.Model.Steps.InferIO
+module
+
+public import ConLeche.Model.Steps.Reads
+public import ConLeche.Model.Steps.TowerKit
+public import ConLeche.Model.Steps.InferIO
+
+@[expose] public section
 
 /-!
 # The io reads walk — `InferReadsIO` DISCHARGED (task #172, batch B3)

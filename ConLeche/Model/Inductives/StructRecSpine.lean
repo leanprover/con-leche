@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.StructStageCtor
-import ConLeche.Model.IndProjKit
+module
+
+public import ConLeche.Model.Inductives.StructStageCtor
+public import ConLeche.Model.IndProjKit
+
+@[expose] public section
 
 /-!
 # The recursor's frame kit (task #175 W4c, P3 module 6, part 8)

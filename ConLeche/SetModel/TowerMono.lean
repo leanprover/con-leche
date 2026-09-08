@@ -1,4 +1,8 @@
-import ConLeche.SetModel.TaggedSum
+module
+
+public import ConLeche.SetModel.TaggedSum
+
+@[expose] public section
 
 /-!
 # Monotonicity of the tuple towers and the tagged union (task #188)

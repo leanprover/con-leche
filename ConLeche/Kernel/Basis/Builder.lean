@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Basis.Names
+module
+
+public import ConLeche.Kernel.Basis.Names
+
+@[expose] public section
 
 /-!
 # A tiny builder for the hand-written raw pins

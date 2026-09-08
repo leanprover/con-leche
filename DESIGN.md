@@ -9576,6 +9576,33 @@ plumbing difficulty.  The carrier is the bridge's own `EnvTT` field,
 discharged from this install's inline inversion, and that work is the
 bridge agent's.
 
+### What phase 1 already bought, measured
+
+A cold build's oleans, split by scope (454 modules):
+
+| part | size |
+|---|---|
+| `.olean` (the **public interface**) | **92.5 MB** |
+| `.olean.private` | 382.7 MB |
+| `.olean.server` | 4.3 MB |
+
+**80 % of the tree's olean bytes are already hidden from importers**, with a
+blanket `@[expose] public section` and no per-declaration work at all —
+because a theorem's proof term is private regardless.  That is #184 §5's
+`Verify/PropWhen` row ("~70 % of a proof file's olean hidden from `module` +
+a blanket `public section` alone") holding at whole-tree scale, and it is
+what phase 2's selective `public` marking builds on rather than replaces.
+
+The other thing it bought is the tool #184 §6 said the migration would
+unlock: **`lake shake` runs on this tree** — the unpatched one that ships
+with the toolchain, no `scripts/shake-setup.sh` vendoring, no patches.  A
+`lake shake --keep-implied` reports 324 removals and 372 additions over 380
+files.  Not applied here: shake's output is a proposal to be read against
+#223's criterion (and, per its own documentation, it does not attempt to
+turn a `public import` into a plain one), so it belongs with phase 2's
+import narrowing, not with a conversion whose whole point is that nothing
+else changed.
+
 ### Gates
 
 Build warning-free (touched oleans force-deleted and recompiled),
@@ -61755,3 +61782,211 @@ translated: below ~3.3 GB the run dies in startup with
 `tests/layering.sh`, `tests/trust-surface.sh`,
 `tests/overview-links.sh` (58 links, three anchors repointed),
 `tests/route-census.sh --full`.
+
+## TASK #231 — THE MODULE SYSTEM, PHASE 1: EVERY FILE IS A `module` (2026-09-08, `agent/modules`)
+
+The user's directive, verbatim: *"we really should modularize the whole
+project. with nothing else going on, now is a good time. begin by first
+turning every file into a module that has everything in a public expose
+section and uses public import. once that builds, iterate"* — and then
+*"iterate to using only normal import and marking only as public what needs
+to be public"*, which is phase 2.
+
+Task #184 §5 audited the migration and recorded the hard constraint: a
+`module` may not import a non-`module`
+(`Lean/Environment.lean`, *"cannot import non-`module` … from `module`"*),
+so adoption sweeps a whole import cone bottom-up and partial adoption buys
+nothing.  This section is what the sweep actually cost.
+
+### What converted, and what did not
+
+**461 files are in the build** (`ConLeche/**`, the three roots, the four
+`tests/*.lean` that a Lake target reaches).  Eight already carried the
+header (`Kernel/{Name, PropWhen, Expr, NatOpPins, TrustPins}`, `PinGen`,
+`PinGen/{Dump, Prelude}`); **453 were converted**, mechanically: `module`
+as line 1, every `import X` becomes `public import X`, one
+`@[expose] public section` after the last import.
+
+**The section is never closed.**  The first draft appended `end` at end of
+file and three files failed — `Kernel/Inductives/StructInstallF.lean`,
+`Model/AxiomMem.lean`, `Model/Inductives/StructRecSpine.lean` leave a
+`namespace`/`section` open at EOF (Lean closes it implicitly), so a bare
+`end` tried to close a *named* scope.  Lean's own `Init/Core.lean` and
+`Std/Data/HashMap/Basic.lean` open `public section` / `@[expose] section`
+at the top and never close them; the tree now does the same.
+
+**Four kinds of file stay classic**, and a classic file may import a
+`module` — that is the direction the rule allows:
+
+* `scripts/*.lean` — run with `lake env lean --run`, not in any target;
+* `_probe/*.lean` — parked archives, not in any target (one of them still
+  imports a module deleted in 2026-09);
+* `bridge/lean4lean-model/*` — a separate package with its own toolchain;
+* `tests/ProofDeps.lean` and `PinDump.lean` — **built or run, but they
+  cannot be modules.**  `ProofDeps` is run by `tests/proofdeps.sh` with
+  `lake env lean` and `#eval`s a full-view `Lean` walk over the imported
+  environment.  `PinDump`'s `main` calls `ConLeche/PinGen/Prelude.lean`'s
+  `computeDumpAndPrelude`, which is `meta` (that module is a
+  `public meta section`): a non-`meta` definition may not call one, and
+  making the root `meta` instead produced an executable that **segfaulted
+  on start** (exit 139, no output) — so the generator root stays classic.
+
+### The five things the compiler asked for
+
+**(1) The sealed representation — `import all`, 20 lines in all.**  Exactly the
+escape #184's pilot predicted.  `Kernel/PropWhen` is `public section`
+*without* `@[expose]` **on purpose** (the `Std.HashMap` pattern the project
+licenses: the datum's API and laws are its whole interface, task #194), so
+a proof that closes a goal by `rfl`/`decide` against the representation
+loses the reduct.  `import all ConLeche.Kernel.PropWhen` restores the view
+in the importer alone.  **15 files need it** — and the number is *measured*,
+not guessed: every escape was dropped again and the module rebuilt alone, and
+six speculative ones (`Model/{AxiomMem, AxiomPin, AxiomReduce, BasisCons,
+BasisStep, BasisTypeOk}`) came out, along with the one in
+`Verify/Cached/BinderLoopC` that a different fix had already made
+unnecessary.  The 14 that stay:
+
+| where | what rfls against the seal |
+|---|---|
+| `Kernel/ExprOps` | `substPW_eq_self`, `paramsDefined_of_not_hasParams` — `cases pw` then `rfl` |
+| `Verify/{PropWhen, PropRead, ProjTele}` | the level-instantiation laws |
+| `Model/{Annot/Bit, Steps/IrrelFast}` | `pwBit`/`holds` at `never` and `ifAllZero []` |
+| `Model/{AxiomBits, BasisBlocks, BasisEmpty, BasisEq, BasisFalse, BasisQuot}` | the pinned constants' `instantiateLevelParams`/`allLevelParamsDefined` read by `rfl` |
+| `Model/{IndFire, Inductives/FixRecKFrame, Inductives/StructBodyFrames}` | `pwBit ψ never = 1` inside the tower proofs |
+
+Two more `import all` lines are `Init.Util` (`Verify/Cached/SimCEff`, joining
+the two already in `Kernel/{Name, Expr}`): `withPtrEq` is `public` but not
+exposed, and the pointer-guarded `==` identities *are* its `k ()` unfolding.
+Two are `Init.Data.Nat.{Gcd, Bitwise.Basic}` in `PinGen/Certs` — see (5).
+
+**That is a finding, not just a cost.**  The tree's *source* discipline
+around `PropWhen` is honoured everywhere (nothing outside the module names a
+constructor); its *proofs* nevertheless rely on the representation
+definitionally in 15 files.  The module system is the first tool that made
+that visible, and the 15 `import all` lines are now the ledger of it.
+
+**(2) A `private` helper reached from an exposed body — 79 promotions in
+11 files.**  With a blanket `@[expose] public section` every `def` body is
+part of the public interface, and such a body may not mention a
+module-private declaration (*"A private declaration `x` … exists but would
+need to be public to access here"*).  A `theorem` proof still may: proofs
+are private regardless.  So the promotions are all in checker code, which
+the user's phase-2 ruling keeps exposed anyway (*"all the verified code of
+the checker can stay in a public expose section, as else we cannot prove
+things about it"*): `Frontend/{Export 24, ExportC 32, ExportWrite 8,
+InModelDump 2, NatOpGround 1}`, `Kernel/Basis/{Eq 1, Nat 3, PUnit 1, Quot 5}`,
+`Kernel/StdAxioms 1`, `Verify/Cached/BinderLoopC 1`.
+`Frontend/ExportC`'s duplicate `private abbrev M := Except String` was
+deleted rather than promoted — `Frontend/Export`'s, now public, is the same
+definition and ExportC imports it.
+
+Mathlib's migration kept such declarations in the public scope with the
+option `backward.privateInPublic`.  We did not: that option *exports the
+private declaration as is*, so it is exactly as exposing as the promotion
+and only hides the fact in a compatibility flag.  The promotions are the
+honest end state for code the proofs unfold.
+
+**(3) `meta`, and a module imported twice.**  Elaboration-time code has to
+say so.  `Kernel/BasisGen` — the `#annotate_basis`/`#annotate_pins`
+elaborators — is `meta section` throughout and takes `public meta import`
+for `Lean` and `Kernel/TypeChecker` (*"Cannot add attribute … must be
+marked as `meta`"*, then *"Invalid `meta` definition … consider adding
+`public meta import`"*).  It is also the one checker module that is
+`public section` **without** `@[expose]`: nothing downstream unfolds an
+elaborator, and an exposed body may not mention its `private` quoters.
+
+`public meta import X` makes X visible to meta code **instead of**, not in
+addition to, ordinary code — `Kernel/StdAxioms` proved it by failing on 20
+ordinary definitions.  A module needed at both levels is therefore imported
+**twice**: `public import X` *and* `meta import X`.  Four files do that:
+`Kernel/{StdAxioms, TrustAxioms}` (their `#annotate_basis over [eqA]`
+evaluates a term naming `Kernel/BasisA`'s constants) and
+`tests/{ConLecheTests, ConLecheTests/PreludeTests}` (a `#guard` is
+*evaluated*, so every constant it names must be reachable from meta code —
+otherwise *"IR of declaration … not available"*).
+
+**(4) A spliced constant is an axiom in the public view unless told
+otherwise.**  `Lean/AddDecl.lean` derives an opaque `axiom` presentation for
+the public scope of anything `addDecl`ed while `isExporting` is false, and
+command elaborators run with it false.  Both of our splices define
+constants whose *value* downstream reads by `rfl`/`decide`/`simp`, so both
+now go through
+
+```lean
+withExporting (isExporting := true) do
+  addDecl decl (forceExpose := true)
+compileDecl decl
+```
+
+— `Kernel/BasisGen.splice` (the annotated basis and axiom pins: without it
+`Verify/EnvPreds`'s `delta pinnedInfo … nomatch` reported fourteen
+*"Missing cases"*) and `PinGen/Dump.spliceOpDump` (the Nat-op pins and
+their certificate blobs: without it `Model/DivModCert` reported
+*"Invalid simp theorem `natXorCertProofs`: Expected a definition with an
+exposed body"* eight times per operation).
+
+**(5) `theorem … := rfl` is elaborated in the PUBLIC view; `:= by rfl` is
+not.**  A term-mode proof of an exported theorem must typecheck against the
+exposed definitions (*"This theorem is exported from the current module.
+This requires that all definitions that need to be unfolded to prove this
+theorem must be exposed"*); a tactic proof is elaborated in the private view
+(`Lean/Elab/BuiltinTerm.lean`'s `delayOnMVars := env.isExporting && …`),
+which is the module system's rule that proofs are private.  Three
+statements were affected and **not one statement changed**, only the proof
+script: `Verify/PropRead`'s `PropWhen.isProp_never` and
+`Level.substPW_never`, `Model/BasisEmpty`'s `pwBit_never`.
+
+`PinGen/Certs` is the same phenomenon at toolchain scale.  Its header said
+it was *"deliberately not a `module`: the proofs unfold core definition
+bodies that the module system hides"* — true, and it could not stay classic,
+because `Model/NatWf` imports it and had to become a module.  The two
+`import all` lines it needs are exactly `Init.Data.Nat.Gcd` and
+`Init.Data.Nat.Bitwise.Basic` (`Nat.gcd`, `Nat.bitwise`, `Nat.land/lor/xor`);
+`import all Init` does **not** help — `import all` is not transitive.
+
+### One failure that was not about visibility at all
+
+`Verify/Cached/BinderLoopC` failed with `rw [inferLamTail_atF]`: *"Did not
+find an occurrence of the pattern"*, with the pattern and the target
+**printing identically**.  Under `pp.explicit` the difference was one
+constant: `inferLamTail_atF.match_1` against `inferLamsC_tail_sim.match_1`.
+The lemma's statement carries a `match bodyx.lamPw with`, which generates an
+auxiliary matcher; the module system reuses an existing matcher only when it
+is *visible*, and `inferLamTail_atF` was `private`, so the two consumer
+proofs re-generated the matcher under their own names.  **Dropping
+`private` fixed it** — the one place where a declaration had to become
+public for a reason that has nothing to do with what anything outside the
+file references.  Worth remembering in phase 2, which will be putting
+`private` back on a great many things: *a `private` lemma whose statement
+contains a `match` is a `rw` failure waiting to happen.*
+
+### What did not change
+
+`Std.Data.HashSet` and `Std.Data.HashSet.Basic` had to be imported
+explicitly by `Frontend/{ProjRec, NatOpGround}` — they had been arriving
+through a transitive *private* import of a core module, which a `module`
+does not see.  That is the module system doing its job.
+
+`tests/layering.sh`'s import regex was taught `import all X` (it read `all`
+as the module name, which would have made an `import all ConLeche.…` edge
+**invisible to the fence** — `import all` is the *widest* of the three
+import forms, so it must count).  No other gate needed teaching:
+`tests/trust-surface.sh`'s lexer reads `module`, `public` and `@[expose]` as
+ordinary tokens and reports 18 escapes in 4 of 464 files, unchanged.
+
+### Gates
+
+`lake build` 517 jobs warning-free, cold and warm; `lake test`;
+`tests/arena.sh` under a clean environment with **every count unchanged**
+(90/92 arena, 176/176 e2e, 14/14 annot, 8/8 retired flags, 18/18 mode flags,
+3/3 prelude, 12/12 progress, 9/9 DAG-tower, trusted sweep 138+176+14 with
+the three recorded divergences, axioms pinned at 11 theorems over the three
+standard axioms); `tests/layering.sh` 263/189/3/1 with 0 and 0 edges;
+`tests/trust-surface.sh` 18 in 4 of 464, 0 outside; `tests/pindump.sh`
+fresh; `tests/proofdeps.sh` **2846 rows as pinned across 7 roots, doors 0 —
+the expectation file did not have to be regenerated at all**;
+`tests/overview-links.sh` 58 links, 53 anchors repointed, and the cited
+*text* is byte-identical for 55 of them.  The three that are not are the
+three links that cited a file's opening `import` line together with its
+module docstring (`Frontend/{Prelude, InModel/Kit, NatOpGround}`); they now
+cite the docstring alone, which is what the citing sentence was ever about.

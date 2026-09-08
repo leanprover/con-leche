@@ -1,6 +1,10 @@
-import ConLeche.SetModel.Ops
-import ConLeche.SetModel.Value
-import ConLeche.SetModel.TupleTower
+module
+
+public import ConLeche.SetModel.Ops
+public import ConLeche.SetModel.Value
+public import ConLeche.SetModel.TupleTower
+
+@[expose] public section
 
 /-!
 # `ConLeche.SetModel` — the pure set constructions

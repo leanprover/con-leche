@@ -1,5 +1,9 @@
-import ConLeche.Kernel.Checker
-import ConLeche.Verify.OfReducePin
+module
+
+public import ConLeche.Kernel.Checker
+public import ConLeche.Verify.OfReducePin
+
+@[expose] public section
 
 /-!
 # The standard axioms' pinned families, extracted (task #148)

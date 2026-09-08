@@ -1,4 +1,8 @@
-import ConLeche.Model.NatSem
+module
+
+public import ConLeche.Model.NatSem
+
+@[expose] public section
 
 /-!
 # The WF-recursive `Nat` operations' guarded clauses at `interp`

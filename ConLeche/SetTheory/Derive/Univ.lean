@@ -1,5 +1,9 @@
-import ConLeche.SetTheory.Derive.Graphs
-import ConLeche.SetTheory.Derive.Omega
+module
+
+public import ConLeche.SetTheory.Derive.Graphs
+public import ConLeche.SetTheory.Derive.Omega
+
+@[expose] public section
 
 /-!
 # The universe tower

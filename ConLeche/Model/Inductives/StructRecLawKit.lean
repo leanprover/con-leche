@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.StructRecLam
+module
+
+public import ConLeche.Model.Inductives.StructRecLam
+
+@[expose] public section
 
 /-!
 # The recursor rule's kit (task #175 W4c, P3 module 6, part 16)

@@ -1,6 +1,10 @@
-import ConLeche.Semantics.WellDenoted
-import ConLeche.Verify.EnvWF
-import ConLeche.Verify.Denote.Pinned
+module
+
+public import ConLeche.Semantics.WellDenoted
+public import ConLeche.Verify.EnvWF
+public import ConLeche.Verify.Denote.Pinned
+
+@[expose] public section
 
 /-!
 # `EnvModel` — the denoteAnnot-free carrier (task #161, P4 — a FINDING)

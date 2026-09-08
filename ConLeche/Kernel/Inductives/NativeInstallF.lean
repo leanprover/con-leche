@@ -1,5 +1,9 @@
-import ConLeche.Kernel.Inductives.SumInstallF
-import ConLeche.Kernel.Inductives.NativeInstall
+module
+
+public import ConLeche.Kernel.Inductives.SumInstallF
+public import ConLeche.Kernel.Inductives.NativeInstall
+
+@[expose] public section
 
 /-!
 # The direct recursive install, through the index (task #188)

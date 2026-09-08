@@ -1,5 +1,9 @@
-import ConLeche.Verify.InferLemmas
-import ConLeche.Verify.Denote.Pinned
+module
+
+public import ConLeche.Verify.InferLemmas
+public import ConLeche.Verify.Denote.Pinned
+
+@[expose] public section
 
 /-!
 # The pinned-shape identifications (lane-shared)

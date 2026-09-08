@@ -1,4 +1,8 @@
-import ConLeche.Verify.Extend.Ind
+module
+
+public import ConLeche.Verify.Extend.Ind
+
+@[expose] public section
 
 /-!
 # Recs — the `V`-free half of `ConLeche.ModelV1.Extend.Recs`

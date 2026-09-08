@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Basis.Builder
+module
+
+public import ConLeche.Kernel.Basis.Builder
+
+@[expose] public section
 
 /-!
 # The pinned `Nat` basis block
@@ -15,7 +19,7 @@ namespace ConLeche
 open BasisDSL
 
 /-- The type `Nat`, as a closed constant. -/
-private def natT : Expr := cnst natName
+def natT : Expr := cnst natName
 
 /-- `Nat : Type`. -/
 def natRaw : ConstantInfo :=
@@ -30,11 +34,11 @@ def natSuccRaw : ConstantInfo :=
   .ctorInfo ⟨natSuccName, [], pi "n" natT natT⟩ 0 1
 
 /-- The motive of `Nat.rec`: `∀ (t : Nat), Sort u`. -/
-private def natRecMotive : Expr := pi "t" natT (srt u)
+def natRecMotive : Expr := pi "t" natT (srt u)
 
 /-- The successor minor premise of `Nat.rec`, in the `motive`/`zero`
 binder context: `∀ (n : Nat), motive n → motive (Nat.succ n)`. -/
-private def natRecSucc : Expr :=
+def natRecSucc : Expr :=
   pi "n" natT <|
   pi "n_ih" (.app (bv 2) (bv 0)) <|
   .app (bv 3) (.app (cnst natSuccName) (bv 1))

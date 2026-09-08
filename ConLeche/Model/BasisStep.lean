@@ -1,7 +1,11 @@
-import ConLeche.Model.EqTower
-import ConLeche.Model.DivMod
-import ConLeche.Model.NatEqs
-import ConLeche.Model.BasisTypeOk
+module
+
+public import ConLeche.Model.EqTower
+public import ConLeche.Model.DivMod
+public import ConLeche.Model.NatEqs
+public import ConLeche.Model.BasisTypeOk
+
+@[expose] public section
 
 /-!
 # The basis cons, P tier: the seven rows discharged once (task #161, ENDGAME E)

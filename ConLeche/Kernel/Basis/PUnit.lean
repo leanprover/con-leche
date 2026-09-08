@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Basis.Builder
+module
+
+public import ConLeche.Kernel.Basis.Builder
+
+@[expose] public section
 
 /-!
 # The pinned `PUnit` basis block
@@ -28,7 +32,7 @@ def punitUnitRaw : ConstantInfo :=
   .ctorInfo ⟨punitUnitName, [uN], cnst punitName [u]⟩ 0 0
 
 /-- The motive of `PUnit.rec`: `∀ (t : PUnit.{u}), Sort u_1`. -/
-private def punitRecMotive : Expr :=
+def punitRecMotive : Expr :=
   pi "t" (cnst punitName [u]) (srt u1)
 
 /-- `PUnit.rec.{u_1, u} {motive : PUnit.{u} → Sort u_1}

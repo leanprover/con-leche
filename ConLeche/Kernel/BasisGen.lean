@@ -1,5 +1,13 @@
-import Lean
-import ConLeche.Kernel.TypeChecker
+module
+
+public meta import Lean
+public meta import ConLeche.Kernel.TypeChecker
+
+/- `public section`, deliberately NOT `@[expose]`: every definition here is
+elaboration-time machinery whose body no importer unfolds, and an exposed
+body may not mention the module's `private` helpers (`splice`, the quoters,
+the `evalX` wrappers). -/
+public section
 
 /-!
 # `#annotate_basis` — the pinned declarations, annotated at elaboration time
@@ -64,6 +72,13 @@ command's `over`.
 The `over` term is elaborated and evaluated at `List ConstantInfo`, so
 it may name constants this command defined earlier in the file.
 -/
+
+/- The whole module is elaboration-time code: quoters, the `#eval`-style
+evaluators and the two command elaborators.  The module system wants a
+`CommandElab` to be `meta` (`Cannot add attribute … must be marked as
+`meta``), and `meta section` is how a file that is meta THROUGHOUT says
+so once. -/
+meta section
 
 namespace ConLeche.BasisGen
 
@@ -263,7 +278,13 @@ private def splice (declName : Lean.Name) (ty value : Lean.Expr) :
   let hints : Lean.ReducibilityHints := .regular (getMaxHeight (← getEnv) value + 1)
   let decl : Lean.Declaration := .defnDecl
     (← mkDefinitionValInferringUnsafe declName [] ty value hints)
-  addDecl decl
+  -- MODULE SYSTEM (task #231).  A spliced constant must land in the *public*
+  -- scope with its body exposed, exactly as the `def` it replaces would:
+  -- `addDecl` otherwise derives an opaque `axiom` presentation for the public
+  -- view (`Lean/AddDecl.lean`), and downstream `rfl`/`decide` proofs over the
+  -- pins — every `Model/Basis*` consumer — would lose the value they read.
+  withExporting (isExporting := true) do
+    addDecl decl (forceExpose := true)
   compileDecl decl
 
 /-! ## The commands -/
@@ -321,3 +342,5 @@ def elabAnnotatePins : CommandElab := fun stx => do
       splice ((← getCurrNamespace) ++ id.getId) constantValTy (qConstantVal cv)
 
 end ConLeche.BasisGen
+
+end  -- meta section

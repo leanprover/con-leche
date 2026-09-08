@@ -1,5 +1,9 @@
-import ConLeche.Model.IndFieldGrade
-import ConLeche.Model.IndPrefixGrade
+module
+
+public import ConLeche.Model.IndFieldGrade
+public import ConLeche.Model.IndPrefixGrade
+
+@[expose] public section
 
 /-!
 # The `.plain` fire's parameter supply (task #161, IND TIER part 5)

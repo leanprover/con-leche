@@ -1,4 +1,8 @@
-import ConLeche.Semantics.DeclRun
+module
+
+public import ConLeche.Semantics.DeclRun
+
+@[expose] public section
 
 /-!
 # `declEtaStep` — the declaration fold's η-closure half, model-free

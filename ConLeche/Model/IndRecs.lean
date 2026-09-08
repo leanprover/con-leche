@@ -1,8 +1,12 @@
-import ConLeche.Semantics.IndBlockRun
-import ConLeche.Semantics.IndRecsCore
-import ConLeche.Model.Swap
-import ConLeche.Model.IndMembers
-import ConLeche.Model.Capstone
+module
+
+public import ConLeche.Semantics.IndBlockRun
+public import ConLeche.Semantics.IndRecsCore
+public import ConLeche.Model.Swap
+public import ConLeche.Model.IndMembers
+public import ConLeche.Model.Capstone
+
+@[expose] public section
 
 /-!
 # The recursor-group phase, P tier (task #161, IND TIER part 10)

@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Tower.FixRecCoreI
-import ConLeche.SetModel.RecGraph
+module
+
+public import ConLeche.Semantics.Tower.FixRecCoreI
+public import ConLeche.SetModel.RecGraph
+
+@[expose] public section
 
 /-!
 # The recursive squash regime's large eliminator (task #202, Stage A2)

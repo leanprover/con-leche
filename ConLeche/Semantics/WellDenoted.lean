@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Kit
-import ConLeche.SetTheory.Derive.Sigma
+module
+
+public import ConLeche.Semantics.Kit
+public import ConLeche.SetTheory.Derive.Sigma
+
+@[expose] public section
 
 /-!
 # `WellDenoted`: kinded hereditary truthfulness over `interp` (task #151 tier C)

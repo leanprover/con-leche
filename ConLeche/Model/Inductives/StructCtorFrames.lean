@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.StructCtorData
+module
+
+public import ConLeche.Model.Inductives.StructCtorData
+
+@[expose] public section
 
 /-!
 # The constructor's frames (task #175 W4c, P3 module 6, part 4)

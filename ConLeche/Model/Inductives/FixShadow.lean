@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.FixData
-import ConLeche.Model.Inductives.FixNoBVar
+module
+
+public import ConLeche.Model.Inductives.FixData
+public import ConLeche.Model.Inductives.FixNoBVar
+
+@[expose] public section
 
 /-!
 # The shadow context: a recursive constructor's entries graded off the

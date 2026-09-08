@@ -1,13 +1,17 @@
-import ConLeche.Model.Steps.DefEq
-import ConLeche.Model.Steps.InferIO
-import ConLeche.Model.Steps.Infer
-import ConLeche.Model.Steps.Whnf
-import ConLeche.Semantics.EnvFacts
-import ConLeche.Semantics.DivModEval
-import ConLeche.Verify.Denote
-import ConLeche.Verify.Denote.OpenVars
-import ConLeche.Verify.Denote.VClosed
-import ConLeche.Verify.ProjTele
+module
+
+public import ConLeche.Model.Steps.DefEq
+public import ConLeche.Model.Steps.InferIO
+public import ConLeche.Model.Steps.Infer
+public import ConLeche.Model.Steps.Whnf
+public import ConLeche.Semantics.EnvFacts
+public import ConLeche.Semantics.DivModEval
+public import ConLeche.Verify.Denote
+public import ConLeche.Verify.Denote.OpenVars
+public import ConLeche.Verify.Denote.VClosed
+public import ConLeche.Verify.ProjTele
+
+@[expose] public section
 
 /-!
 # `EnvModelM` — the P-tier environment invariant (task #161, P4)

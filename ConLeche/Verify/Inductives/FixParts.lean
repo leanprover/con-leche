@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Inductives.NativeParts
+module
+
+public import ConLeche.Kernel.Inductives.NativeParts
+
+@[expose] public section
 
 /-!
 # The direct recursive recogniser, inverted (task #188)

@@ -1,4 +1,8 @@
-import ConLeche.Model.Annot.Valid
+module
+
+public import ConLeche.Model.Annot.Valid
+
+@[expose] public section
 
 /-!
 # `BitAgree`: two readings of the same term (task #161, ENDGAME E)

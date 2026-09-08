@@ -1,3 +1,9 @@
+module
+
+import all Init.Data.Nat.Gcd
+import all Init.Data.Nat.Bitwise.Basic
+@[expose] public section
+
 /-!
 # Certificate theorems for the pin-certified Nat operations (elab-time)
 

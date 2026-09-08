@@ -1,12 +1,16 @@
-import ConLeche.Model.Annot.BitLemmas
-import ConLeche.Semantics.Tower.TowerLeaf
-import ConLeche.Verify.InferLemmas
-import ConLeche.Verify.Extend.Inversions
-import ConLeche.Verify.InstLevels
-import ConLeche.Verify.BinderLoop
-import ConLeche.Verify.Mono
-import ConLeche.Verify.Subst
-import ConLeche.Kernel.Inductives.StructParts
+module
+
+public import ConLeche.Model.Annot.BitLemmas
+public import ConLeche.Semantics.Tower.TowerLeaf
+public import ConLeche.Verify.InferLemmas
+public import ConLeche.Verify.Extend.Inversions
+public import ConLeche.Verify.InstLevels
+public import ConLeche.Verify.BinderLoop
+public import ConLeche.Verify.Mono
+public import ConLeche.Verify.Subst
+public import ConLeche.Kernel.Inductives.StructParts
+
+@[expose] public section
 
 /-!
 # The direct structure's annotated Π-bits are exact (task #175 W4c, P3 module 1)

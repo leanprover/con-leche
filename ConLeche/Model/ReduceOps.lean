@@ -1,9 +1,13 @@
-import ConLeche.Verify.OfReducePin
-import ConLeche.Semantics.DeclRun
-import ConLeche.Model.NatEqs
-import ConLeche.Model.Capstone
-import ConLeche.Model.ErasePwInv
-import ConLeche.Model.DivMod
+module
+
+public import ConLeche.Verify.OfReducePin
+public import ConLeche.Semantics.DeclRun
+public import ConLeche.Model.NatEqs
+public import ConLeche.Model.Capstone
+public import ConLeche.Model.ErasePwInv
+public import ConLeche.Model.DivMod
+
+@[expose] public section
 
 /-!
 # The compiler-trust identity law, established at `interp` from the

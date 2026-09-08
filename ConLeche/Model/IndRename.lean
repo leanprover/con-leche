@@ -1,5 +1,9 @@
-import ConLeche.Model.IndZipField
-import ConLeche.Model.Annot.BitRename
+module
+
+public import ConLeche.Model.IndZipField
+public import ConLeche.Model.Annot.BitRename
+
+@[expose] public section
 
 /-!
 # The block renaming, at the reading (task #161, IND TIER part 4)

@@ -1,5 +1,9 @@
-import ConLeche.Verify.Fueled
-import ConLeche.Kernel.Checker
+module
+
+public import ConLeche.Verify.Fueled
+public import ConLeche.Kernel.Checker
+
+@[expose] public section
 
 /-!
 # The cache-refinement bridge, part C: the declaration checker

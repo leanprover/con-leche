@@ -1,4 +1,8 @@
-import ConLeche.SetTheory.Basic
+module
+
+public import ConLeche.SetTheory.Basic
+
+@[expose] public section
 
 /-!
 # The two-regime product and abstraction (task #151, tier B)

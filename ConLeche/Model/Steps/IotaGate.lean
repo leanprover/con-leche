@@ -1,5 +1,9 @@
-import ConLeche.Model.Steps.IotaKit
-import ConLeche.Model.IOLicense
+module
+
+public import ConLeche.Model.Steps.IotaKit
+public import ConLeche.Model.IOLicense
+
+@[expose] public section
 
 /-!
 # The ι-slot licence (the ι batch, 2026-09-05)

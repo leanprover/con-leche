@@ -1,4 +1,8 @@
-import ConLeche.Model.IndFrame
+module
+
+public import ConLeche.Model.IndFrame
+
+@[expose] public section
 
 /-!
 # The reading's substitution algebra (task #161, IND TIER part 4)

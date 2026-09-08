@@ -1,4 +1,8 @@
-import ConLeche.Semantics.Interp
+module
+
+public import ConLeche.Semantics.Interp
+
+@[expose] public section
 
 /-!
 # `SetBase/Sat` — the annotated context's satisfaction, and its

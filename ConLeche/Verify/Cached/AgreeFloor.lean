@@ -1,5 +1,9 @@
-import ConLeche.Cached.ParsedC
-import ConLeche.Verify.EnvBound
+module
+
+public import ConLeche.Cached.ParsedC
+public import ConLeche.Verify.EnvBound
+
+@[expose] public section
 
 /-!
 # The trusted↔P agreement floor (task #172, batch B7; restated at the

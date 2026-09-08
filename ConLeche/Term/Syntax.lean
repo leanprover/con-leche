@@ -1,3 +1,7 @@
+module
+
+@[expose] public section
+
 /-!
 # Syntax of the erased term language (task #74; relocated at #209)
 

@@ -1,5 +1,9 @@
-import ConLeche.Model.Claims
-import ConLeche.Kernel.CoreIO
+module
+
+public import ConLeche.Model.Claims
+public import ConLeche.Kernel.CoreIO
+
+@[expose] public section
 
 /-!
 # The io claims family, PREMISE FORM (task #161, stage 2 — the freeze)

@@ -1,5 +1,9 @@
-import ConLeche.Verify.EnvWF
-import ConLeche.Kernel.Checker
+module
+
+public import ConLeche.Verify.EnvWF
+public import ConLeche.Kernel.Checker
+
+@[expose] public section
 
 /-!
 # `V`-free readings of the environment's guards (task #123)

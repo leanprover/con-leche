@@ -1,5 +1,9 @@
-import ConLeche.Kernel.FEnv
-import ConLeche.Cached.ExprOpsC
+module
+
+public import ConLeche.Kernel.FEnv
+public import ConLeche.Cached.ExprOpsC
+
+@[expose] public section
 
 /-!
 # The cached checker state and its operation wrappers

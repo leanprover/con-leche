@@ -1,5 +1,9 @@
-import ConLeche.Semantics.BasisType
-import ConLeche.Semantics.Interp
+module
+
+public import ConLeche.Semantics.BasisType
+public import ConLeche.Semantics.Interp
+
+@[expose] public section
 
 /-!
 # `bval_mem_type` — every built-in inhabits its annotated type

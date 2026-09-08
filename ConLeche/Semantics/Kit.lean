@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Interp
-import ConLeche.Verify.Denote.VClosed
+module
+
+public import ConLeche.Semantics.Interp
+public import ConLeche.Verify.Denote.VClosed
+
+@[expose] public section
 
 /-!
 # The `interp` lemma kit (task #151, tier B)

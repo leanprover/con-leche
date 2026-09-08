@@ -1,5 +1,9 @@
-import ConLeche.Kernel.CheckerBase
-import ConLeche.Kernel.CoreGated
+module
+
+public import ConLeche.Kernel.CheckerBase
+public import ConLeche.Kernel.CoreGated
+
+@[expose] public section
 
 /-!
 # The P lane's checker entry point (task #161, S9)

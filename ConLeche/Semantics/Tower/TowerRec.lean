@@ -1,4 +1,8 @@
-import ConLeche.Semantics.Tower.TowerMk
+module
+
+public import ConLeche.Semantics.Tower.TowerMk
+
+@[expose] public section
 
 /-!
 # The recursor leaf (task #175, stage 3d)

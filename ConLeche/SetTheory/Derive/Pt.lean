@@ -1,4 +1,8 @@
-import ConLeche.SetTheory.Derive.Universe
+module
+
+public import ConLeche.SetTheory.Derive.Universe
+
+@[expose] public section
 
 /-!
 # The proof point, truth values, `univ 0`, and `eqv`

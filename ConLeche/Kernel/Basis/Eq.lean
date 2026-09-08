@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Basis.Builder
+module
+
+public import ConLeche.Kernel.Basis.Builder
+
+@[expose] public section
 
 /-!
 # The pinned `Eq` basis block
@@ -33,7 +37,7 @@ def eqReflRaw : ConstantInfo :=
 
 /-- The motive of `Eq.rec`: `∀ (b : α) (t : Eq α a b), Sort u_1`, in
 the `α`/`a` binder context (`α` is `#1`, `a` is `#0` at its head). -/
-private def eqRecMotive : Expr :=
+def eqRecMotive : Expr :=
   pi "b" (bv 1) <|
   pi "t" (ap3 (cnst eqName [u]) (bv 2) (bv 1) (bv 0)) (srt u1)
 
