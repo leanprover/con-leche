@@ -121,7 +121,7 @@ A(f"| machine | {meta.get('host', '?')} — {meta.get('cpu', '?')}, "
 A("| columns | " + " · ".join(LABELS[c] for c in live) + " |")
 A(f"| metric | `perf stat -e instructions:u`, one run per cell, "
   f"`ulimit -v {meta.get('vlimit', '?')}`, `timeout {meta.get('timeout', '?')}`, `nice -n 5` "
-  f"(the `mathlib-full` row: 22 GB, 8 h, `CON_LECHE_PROGRESS=5000`) |")
+  f"(the `mathlib-full` row: 22 GB, 8 h, `--progress=5000`) |")
 A("| streams | `lean4export` NDJSON, read unchanged by both checkers |")
 if meta.get("mathlibstream"):
     A(f"| Mathlib stream | {meta['mathlibstream']} |")

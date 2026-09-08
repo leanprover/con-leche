@@ -5,8 +5,8 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L419
-   419          -- +4 on the Mathlib stream.  The declaration NAME is the
+== Main.lean#L441
+   441  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L37
     37  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -25,8 +25,8 @@
 == ConLeche/Frontend/ExportC.lean#L901
    901    for line in contents.splitToList (· == '\n') do
 
-== Main.lean#L331
-   331            let now ← IO.monoMsNow
+== Main.lean#L343
+   343            pure (ConLeche.Cached.checkDecls mode decls.toList)
 
 == ConLeche/Cached/ParsedC.lean#L283-L286
    283  def checkDecls (mode : CheckMode) (ds : List DeclC) :

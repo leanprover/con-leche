@@ -78,7 +78,7 @@ stream_path() {
 #  * The stream is the raw full-Mathlib export, cut once by hand and
 #    named by `stream_path`.  If the file is absent the row is skipped.
 #  * The caps are the user's Mathlib ceiling: 22 GB virtual, 8 h.
-#  * The con-leche cells run under `CON_LECHE_PROGRESS=5000` so a stalled hour is
+#  * The con-leche cells run under `--progress=5000` so a stalled hour is
 #    visible in a timestamped log rather than as silence.  Measured cost
 #    of that on init-full (2026-09-06): 666 084 645 143 instructions
 #    with the progress loop against 666 088 947 489 without — −0.0006 %,
@@ -147,6 +147,10 @@ cell() { # $1 = stream label, $2 = config id, $3 = stream path
   vl=$(stream_vlimit "$1"); to=$(stream_timeout "$1"); pg=$(stream_progress "$1")
   # the progress heartbeat is a con-leche knob; official has none
   [ "$2" = official ] && pg=0
+  # ... and it is a FLAG since task #229, so it goes into the command
+  # rather than the environment (position is free: the driver accepts it
+  # in any order with the mode flag and the file)
+  if [ "$pg" != 0 ]; then CMD+=("--progress=$pg"); fi
   for r in $(seq 1 "$REPS"); do
     wait_idle
     po=$(mktemp "$CACHE/perfstat.XXXXXX")
@@ -156,7 +160,7 @@ cell() { # $1 = stream label, $2 = config id, $3 = stream path
     if [ "$1" = mathlib-full ]; then
       # the Mathlib row: `time -v` for peak RSS, and the progress lane's
       # timestamped stderr kept as a receipt
-      out=$( (ulimit -v $vl; CON_LECHE_SUPERVISED=1 CON_LECHE_PROGRESS=$pg \
+      out=$( (ulimit -v $vl; CON_LECHE_SUPERVISED=1 \
                 perf stat -e instructions:u -x, -o "$po" \
                 timeout "$to" nice -n 5 "$TIMEBIN" -v -o "$tv" "${CMD[@]}" \
                 2> >(awk '{ printf "%d %s\n", systime(), $0; fflush() }' \

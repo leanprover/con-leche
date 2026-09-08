@@ -18,7 +18,7 @@ con-leche [--verified|--trusted] FILE.ndjson
 `--verified` is the default and the mode the theorem is about;
 `--trusted` runs the same checker bodies with the certification-only
 work switched off, is faster, and is outside the theorem
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L419)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L441)).
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L37)):
 
@@ -35,9 +35,9 @@ is never used for "something unexpectedly went wrong"; that is exit 3,
 which verification is meant to make rare. Only exit 0 carries the
 theorem's guarantee.
 
-`CON_LECHE_PROGRESS=<stride>` prints a heartbeat line before every
-`stride`-th declaration on stderr; it runs a separate, unverified copy
-of the fold (see §2).
+The flag `--progress[=<stride>]` prints a heartbeat line before every
+`stride`-th declaration on stderr (bare, the stride is 1); it runs a
+separate, unverified copy of the fold (see §2).
 
 ## 1. What is proved
 
@@ -66,20 +66,21 @@ Read from the outside in:
    ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L901))
    and calls the pure fold `checkDecls`, printing nothing per
    declaration
-   ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L331)).
-   The optional progress lane (`CON_LECHE_PROGRESS`) runs a separate,
+   ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L343)).
+   The optional progress lane (`--progress`) runs a separate,
    plainly unverified fold of the same steps with a line printed before
-   each declaration; a run with it set is not covered by the theorem.
+   each declaration; a run with that flag is not covered by the theorem.
 2. **The shipped fold**
    ([function `checkDecls` in `ConLeche/Cached/ParsedC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L283-L286))
    folds the per-declaration step of the *cached* checker
    ([function `checkDeclStep` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L248))
-   over the records, threading the hash-consed environment and the memo
+   over the records, threading the environment and the memo
    state. Its error carries the position of the failing declaration.
 3. **The cached checker** (`ConLeche/Cached/*`) is the implementation
-   that ships: interned expressions, memo tables for equality,
-   reduction, inference and definitional equality, and the direct
-   parser's record type. It is related to the pure checker by a
+   that ships: the same terms with a packed hash on every node, memo
+   tables for reduction, inference and definitional equality keyed by
+   those hashes, and the direct parser's record type. Nothing is
+   interned; the hash is what makes a term a usable memo key. It is related to the pure checker by a
    one-directional simulation: whatever the cached checker accepts, the
    pure checker accepts
    ([theorem `checkDecls_sound` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/MainC.lean#L155-L163)).
@@ -435,7 +436,7 @@ declare it.)
   accepted as the changed statement. The rewrites are written to be
   meaning-preserving and each is small and inspectable, but that is a
   review claim, not a theorem.
-* `--trusted` mode and the `CON_LECHE_PROGRESS` lane.
+* `--trusted` mode and the `--progress` lane.
 * Non-acceptance: a decline or a reject carries no claim. The verdict
   line reports the count of accepted stream records.
 * Two deliberate accept-supersets relative to the official kernel, a
@@ -454,7 +455,7 @@ to know is short:
 | marker | reading |
 |---|---|
 | `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `ExprC`, `SimC`) — the implementation that ships |
-| `I` | interned / indexed (`nativeRecAVI`-style readings that carry an index) |
+| `I` | indexed (`nativeRecAVI`-style readings that carry an index) |
 | `F` | stated over the environment-with-index `FEnv` (`checkNativeRecF`) |
 | `D` | the direct-parse record type `DeclC` and the functions over it |
 | `AV`, `Annot` | annotated terms: `AnnotTerm` is `Term` with a numeral sort at every binder, and `*AV` names are its readers (`structTyAV`, `natLitAV`) |
@@ -484,7 +485,7 @@ it is not `ConLeche/Model/*`, which is this document's model tier.
 |---|---|
 | `Main.lean` | The driver: argument parsing, the stream parse, the two folds, verdict and exit codes. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the two inductive routes (`Inductives/`: `Native*.lean` and `Modeled.lean`), the Nat-op pins. Imports no theory module. |
-| `ConLeche/Cached/` | The shipped cached checker: interned expressions, memo state, the cached core and declaration step, the parsed-record fold. |
+| `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record fold. |
 | `ConLeche/Frontend/` | The export parser (`Export*.lean`), the built-in prelude, the Nat-op ground reordering, the projection-function rewrite, the in-process modeller (`InModel/`) — the only source of a block's model. |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/Term/` | The erased term language, its substitution algebra and the basis constants. |
