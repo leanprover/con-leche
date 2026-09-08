@@ -62291,3 +62291,91 @@ and 678 997 282 875 on the master before it — inside the noise band
 between them (+0.04 % / −0.12 %).  Two per-call hash maps on the
 install path cost nothing measurable, which is what the cutoff staying
 in front of the memo buys.
+
+## TASK #234 — PERF.md REGENERATED ON THE MODULARISED TREE (2026-09-08, `agent/perf`)
+
+The user's ruling when the module batches were measured by API size
+rather than by instructions: *"api size measure is fine.  no need to run
+instruction counts.  maybe at the end, post merge, when updating PERF."*
+This is that step.  The previous table was measured at `96344cd1`
+(task #210 Part B); the tree since then is twenty-odd tasks of checker
+work — #217 to #233 — and the whole module migration (#231), which
+changes what a module exports and nothing a `perf stat` can see.
+
+**The run.**  `1e6881c6`, binary md5 `68724d97d28c735f885ffbf057e415be`,
+`scripts/perf-tables.sh` with `PERF_NO_WAIT=1` (the script's idle wait
+is a process-NAME poll and would have blocked on other agents' arena
+runs; `instructions:u` is contention-independent, which is why the
+battery reports it and not wall time).  One run per cell, all seven
+streams, `mathlib-full` at 22 GB with `--progress=5000`.  PERF.md was
+rendered from the TRACKED record —
+`python3 scripts/perf-tables-render.py perf-data/table.tsv PERF.md
+perf-data/meta.txt perf-data/census.tsv` — not with `--render`, which
+prefers the gitignored `_tmp` cache; the two agree here, but only the
+tracked one survives a clean.
+
+| stream | official | trusted | verified | t÷o | v÷o | con-leche vs `96344cd1` |
+|---|---:|---:|---:|---:|---:|---|
+| `let-ladder` | 6.12 G | 8.31 G | 8.31 G | 1.36× | 1.36× | +0.05 % / +0.05 % |
+| `beta-ladder` | 10.13 G | 39.43 G | 39.44 G | 3.89× | 3.89× | +0.00 % / +0.00 % |
+| `init-prelude` | 2.21 G | 4.65 G | 4.79 G | 2.11× | 2.17× | **+0.93 % / +0.87 %** |
+| `grind-ring-5` | 13.43 G | 27.11 G | 27.93 G | 2.02× | 2.08× | **+0.49 % / +0.51 %** |
+| `app-lam` | 29.41 G | 158.01 G | 158.01 G | 5.37× | 5.37× | −0.01 % / −0.01 % |
+| `init-full` | 403.53 G | 659.54 G | 678.17 G | **1.63×** | **1.68×** | +0.01 % / −0.04 % |
+| `mathlib-full` | 10.54 T | 13.32 T | 14.21 T | **1.26×** | **1.35×** | **+1.32 %** / +0.55 % |
+
+**All of Mathlib still accepts, in both modes**: exit 0, **654 499**
+declaration records each (official 670 627 — its own `constMap.size`
+counting, unchanged), the whole 5 636 308 621 B raw export.  Wall
+31.3 / 41.1 / 43.6 min and peak RSS 8.51 / 12.56 / 12.56 GiB, both
+DATA: this battery ran against a load average of 3–17, the previous one
+against 1.6–3.6, so the minutes are not comparable and the instructions
+are.
+
+**The like-for-like reading.**  The two headline rows do not move:
+`init-full` stays at **1.63× / 1.68×** and its three cells are within
+±0.05 % of the previous table — the module migration is not a runtime
+change, and the numbers say so rather than the other way round.  The
+`mathlib-full` ratios print one hundredth worse (1.25×→1.26×,
+1.34×→1.35×), and the two ladders and `app-lam` are unmoved to three
+figures.
+
+**THE ONE ROW THAT MOVED, recorded and NOT chased.**  `mathlib-full`
+`--trusted` is **+1.32 %** (13.145 T → 13.319 T) where `--verified` on
+the same stream is +0.55 % and `init-full` `--trusted` is +0.01 %.  A
+mode that does strictly less work moving twice as much as the mode that
+does more, on one stream out of seven, is not a shape any single change
+explains, and the brief for this task is explicit that a >1 % row is
+reported rather than fixed.  Two things bound what can be said from one
+run per cell:
+
+* **the noise floor here is not 0.02 %.**  The OFFICIAL binary is
+  byte-identical between the two tables and its cells moved by
+  −0.25 % (`let-ladder`), +0.22 % (`grind-ring-5`) and +0.03 %
+  (`mathlib-full`); its peak RSS on the Mathlib row moved 9.17 → 8.51
+  GiB.  So the machine's run-to-run spread on this battery is a
+  quarter of a percent at least, and allocator behaviour at Mathlib
+  scale visibly is not reproducible run to run.
+* **+1.32 % is still outside it**, and the honest reading is that the
+  trusted Mathlib cell is either a real per-block install cost that
+  only shows at 6 639 native blocks, or a Mathlib-scale allocator
+  effect.  ONE re-measurement of that single cell
+  (`PERF_STREAMS=mathlib-full PERF_CONFIGS=trusted PERF_APPEND=1`,
+  ~41 min) separates the two; it was not run here.
+
+The published table is the measurement, not the flattering half of it:
+`1.26×` trusted goes into PERF.md as measured.  Better to underpromise.
+
+**Master moved under the battery** — to `021ebda9` (task #236, the
+projection guard table in the `StructParts` memo traversal, −42 % on a
+54-field open tower and parity on `init-full`) — while the Mathlib
+cells were running.  The table therefore names `1e6881c6`, which is the
+commit its binary was built from, and #236 is NOT in any cell here.
+This landing merges master without re-measuring: its diff is PERF.md,
+`perf-data/*` and this record, and no cell describes a file it touches.
+
+Gates: `tests/overview-links.sh` 58 links, 44 files, OK (PERF.md carries
+no anchored link); `git diff --stat` = `PERF.md`, `perf-data/table.tsv`,
+`perf-data/meta.txt`, `DESIGN.md` — the input census (`perf-data/census.tsv`)
+regenerated byte-identical, which is the check that the streams are the
+same bytes as last time.

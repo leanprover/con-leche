@@ -1,20 +1,20 @@
-sha	96344cd145c54d4bc4674ba854dfc3d94a6ce14c
-shashort	96344cd1
-binsha	96344cd145c54d4bc4674ba854dfc3d94a6ce14c
+sha	1e6881c6e7e8bcb60e0a5af696dbfdaade12e10b
+shashort	1e6881c6
+binsha	b82cc1393ec0e5824eb0e440f52047c19296401b
 dirty	0
-date	2026-09-07T19:09:51+00:00
+date	2026-09-08T14:35:06+00:00
 host	bubblewrap
 cpu	AMD EPYC 9455 48-Core Processor
 cores	96
 mem	125 GB
 kernelver	6.12.100
 official	<checkout>/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel
-binmd5	e5c5c0540d27fda0635982ef15e5c7ec
-mathlibstream	`<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes)
-note	master at the commit above: every inductive block installs through the one fixpoint route (task #210 Part B). No cell here is comparable with any earlier PERF.md.
+binmd5	68724d97d28c735f885ffbf057e415be
+mathlibstream	`<checkout>/_tmp/mathlib-scoping/mathlib-full.ndjson` (5636308621 bytes, raw)
+note	master at the commit above: every file a `module`, the proof tiers' interfaces narrowed (task #231), the DAG-tower memos (task #233).  Same streams and the same method as the `96344cd1` table, so the cells are like-for-like against it.
 configs	official trusted verified
 reps	1
 timeout	3000
 vlimit	16000000
-stalenote	**Nothing here is comparable with any earlier table.**  Task #210 Part B put every inductive block on the one fixpoint route, and the streams and the census are those of this tree; older tables measured a different checker on different inputs.
-mathlibnote	**All of Mathlib, all three checkers, one stream.** The `mathlib-full` row is the whole export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells. **Every cell accepts**: official 670 627 declarations, con-leche 656 667 declaration records in BOTH modes -> **1.34x verified, 1.25x trusted**; the smaller `init-full` stream sits at 1.68x / 1.63x. The count difference is the official binary's counting (see below), not a verdict difference.
+stalenote	**Comparable with the previous table (`96344cd1`), and with nothing before it.**  The streams, the method and the census are unchanged since the raw-stream regeneration at task #207, so these cells read against that table directly; the tree between the two is twenty-odd tasks of checker work (#217-#233).  What moved: `init-full` and the two ladders not at all, `init-prelude` +0.9 % and `grind-ring-5` +0.5 % on both con-leche columns, and `mathlib-full` +0.55 % verified / **+1.32 % trusted** -- the trusted Mathlib cell is the one number outside the spread the official binary itself showed between the two runs (up to 0.25 % on the small streams, +0.03 % at Mathlib scale), and it is recorded here rather than chased.  Master moved to `021ebda9` (task #236, a memo repair with parity on `init-full`) while this battery ran; that commit is not in these cells.
+mathlibnote	**All of Mathlib, all three checkers, one stream.** The `mathlib-full` row is the whole export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells. **Every cell accepts**: official 670 627 declarations, con-leche 654 499 declaration records in BOTH modes -> **1.35x verified, 1.26x trusted**; the smaller `init-full` stream sits at 1.68x / 1.63x. The count difference is the official binary's counting (see below), not a verdict difference.
