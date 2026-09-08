@@ -250,4 +250,34 @@ theorem recFireComparands_nested {rl : RecRule} {lps : List Name}
   unfold recFireComparands
   rw [h]
 
+/-! ## Two scoping facts the cached call-discipline needs
+
+Rehomed here at task #221 with the deletion of `Verify/Disc.lean` (the
+*memoized* knot's call discipline, whose knot induction had already
+gone): these two were the only
+declarations of that module the cached discipline
+(`Verify/Cached/DiscC*.lean`) still read. -/
+
+/-- A list of well-scoped expressions has a well-scoped `getD`. -/
+theorem wscoped_getD {d : Nat} :
+    ∀ {l : List Expr}, (∀ x ∈ l, WScoped d x) → ∀ (n : Nat),
+      WScoped d (l.getD n (.bvar 0)) := by
+  intro l
+  induction l with
+  | nil => intro _ n; simp [List.getD, WScoped]
+  | cons x xs ih =>
+    intro h n
+    cases n with
+    | zero => exact h x (List.mem_cons_self ..)
+    | succ n =>
+      simpa [List.getD] using
+        ih (fun y hy => h y (List.mem_cons_of_mem _ hy)) n
+
+/-- A level-instantiated `fvar`-free expression (e.g. a stored type or
+rule right-hand side) is well-scoped at any depth. -/
+theorem wscoped_instLevels_of_not_hasFvar {e : Expr}
+    (h : e.hasFvar = false) (ps : List Name) (us : List Level) {d : Nat} :
+    WScoped d (e.instantiateLevelParams ps us) :=
+  WScoped.of_not_hasFvar (by rw [hasFvar_instantiateLevelParams]; exact h)
+
 end ConLeche

@@ -463,14 +463,6 @@ theorem directRecAV_mem {ℓ w : Nat} {Fs : List AVExpr} {ρ : Nat → V}
         (mkPisAV (pds ++ [dM, dm, dt]) (.app (.bvar 2) (.bvar 0))) :=
   mkLamsC_mem hz (underTowerOk_of_recPre hpre)
 
-/-- **The recursor leaf is graded** (`AnnotOk2`). -/
-theorem directRecAV_ok2 {ℓ w : Nat} {Fs : List AVExpr} {ρ : Nat → V}
-    {pds : List (Nat × Nat × AVExpr)} {dM dm dt : Nat × Nat × AVExpr}
-    (hz : ∀ d ∈ pds ++ [dM, dm, dt], (ℓ = 0 ↔ d.2.1 = 0))
-    (hpre : RecPre ℓ w ρ Fs dM dm dt pds) :
-    AnnotOk2 V ρ (directRecAV ℓ (pds ++ [dM, dm, dt]) Fs.length) :=
-  mkLamsC_ok2 hz (underTowerOk_of_recPre hpre)
-
 /-! ## The iota side -/
 
 /-- The body's raw interpretation: the minor slot applied along the

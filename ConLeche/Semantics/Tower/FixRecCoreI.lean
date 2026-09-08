@@ -182,16 +182,6 @@ def TowerWalk (m : Nat) (C : AVExpr) (g : (Nat → V) → V) :
   | ρ, [] => g ρ ∈ˢ interp2 V ρ C ∧ (m = 0 → interp2 V ρ C ∈ˢ (univZero : V))
   | ρ, d :: ds => ∀ a, a ∈ˢ interp2 V ρ d.2.2 → TowerWalk m C g (cons a ρ) ds
 
-theorem towerWalk_res_univZero {m : Nat} {C : AVExpr} {g : (Nat → V) → V} (h0 : m = 0) :
-    ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
-      (∀ d ∈ ds, (m = 0 ↔ d.2.1 = 0)) → TowerWalk m C g ρ ds →
-      interp2 V ρ (mkPisAV ds C) ∈ˢ (univZero : V)
-  | [], _, _, h => h.2 h0
-  | d :: _, _, hz, _ => by
-    show piR d.2.1 _ _ ∈ˢ _
-    rw [(hz d (.head _)).mp h0]
-    exact piR_zero_mem_univZero
-
 /-- **The tower inhabits the Π-tower's reading.** -/
 theorem lamTower_mem {m : Nat} {C : AVExpr} {g : (Nat → V) → V} :
     ∀ {ds : List (Nat × Nat × AVExpr)} {ρ : Nat → V},
@@ -354,15 +344,6 @@ def ihArgAV (ℓ nP n nIdx D i : Nat) (tl : List (Nat × Nat × AVExpr)) (Eis : 
         [AVExpr.mkAppN (projAV i (.bvar m)) (teleVarsAV m)]))
 
 omit [SetTheory V] in
-/-- At a finitary field the ih argument is the function at the block,
-the index expressions and the field. -/
-theorem ihArgAV_nil (ℓ nP n nIdx D i : Nat) (Eis : List AVExpr) :
-    ihArgAV ℓ nP n nIdx D i [] Eis
-      = AVExpr.mkAppN (.bvar (D + 1 + nIdx + n + 1 + nP))
-          (idxVarsAV (nP + 1 + n) (D + 1 + nIdx) ++
-            Eis.map (fun E => substProj i (E.liftN (D + nIdx + n + 2) i)) ++ [projAV i (.bvar 0)]) := by
-  simp only [ihArgAV, ihTeleAt_nil, mkLamsC, List.map_nil, mkLamsAV, List.length_nil, Nat.add_zero,
-    substProjAt_zero, teleVarsAV, List.range_zero, AVExpr.mkAppN]
 
 /-- The ih arguments of constructor `j`. -/
 def ihArgsI (ℓ nP n nIdx : Nat) (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AVExpr))))
@@ -401,15 +382,6 @@ section IhFacts
 variable {ℓ w u nP : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (List AVExpr)} {Ids : List AVExpr}
   {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AVExpr)))} {Eiss : List (List (List AVExpr))} {D : Nat}
 
-/-- The `(p⃗, M, m⃗)` block's variables read to the K-frame's spine. -/
-theorem kSpineAt_interp (hfr : RecFrameS D ρ₀ σ) (y : V) :
-    (idxVarsAV (nP + 1 + Fss.length) (D + 1 + Ids.length)).map (interp2 V (cons y σ))
-      = frKSpine nP Fss.length Ids.length ρ₀ := by
-  have hfr' : RecFrameS (D + 1 + Ids.length) (shiftE Ids.length 0 ρ₀) (cons y σ) := by
-    unfold RecFrameS
-    rw [shiftE_add', shiftE_succ_cons, hfr]
-  exact map_idxVarsAV_interp hfr'
-
 theorem rAt_interp (hfr : RecFrameS D ρ₀ σ) (y : V) :
     interp2 V (cons y σ) (.bvar (D + 1 + Ids.length + Fss.length + 1 + nP))
       = frR nP Fss.length Ids.length ρ₀ := by
@@ -421,10 +393,6 @@ theorem rAt_interp (hfr : RecFrameS D ρ₀ σ) (y : V) :
   congr 1
   omega
 
-theorem MAt_interp (hfr : RecFrameS D ρ₀ σ) (y : V) :
-    interp2 V (cons y σ) (.bvar (D + 1 + Ids.length + Fss.length)) = frM Fss.length Ids.length ρ₀ := by
-  rw [interp2_bvar]; exact (hfr.push y).motive
-
 omit [SetTheory V] in
 /-- The payload frame's shift by the K-frame's depth over the
 parameter frame. -/
@@ -433,24 +401,6 @@ theorem shiftE_payload (hfr : RecFrameS D ρ₀ σ) (y : V) :
   rw [show D + Ids.length + Fss.length + 2 = (D + 1) + (Ids.length + Fss.length + 1) from by omega,
     shiftE_add', shiftE_succ_cons, hfr]
   rfl
-
-/-- An index expression of field `i`, read at the payload's
-projections. -/
-theorem ihIdx_interp (hfr : RecFrameS D ρ₀ σ) (y : V) (i : Nat) (E : AVExpr) :
-    interp2 V (cons y σ) (substProj i (E.liftN (D + Ids.length + Fss.length + 2) i))
-      = interp2 V (consList (projList i y) (frP Fss.length Ids.length ρ₀)) E := by
-  have h := shiftE_consList_len (D + Ids.length + Fss.length + 2) (projList i y) (cons y σ)
-  rw [projList_length] at h
-  rw [interp2_substProj, interp2_liftN, h, shiftE_payload hfr]
-
-theorem ihIdx_ok2 (hfr : RecFrameS D ρ₀ σ) (y : V) (i : Nat) (E : AVExpr)
-    (hp : ∀ m, m < i → AnnotOk2 V (consList (projList m y) (cons y σ)) (projAV m (.bvar m)))
-    (hE : AnnotOk2 V (consList (projList i y) (frP Fss.length Ids.length ρ₀)) E) :
-    AnnotOk2 V (cons y σ) (substProj i (E.liftN (D + Ids.length + Fss.length + 2) i)) := by
-  have h := shiftE_consList_len (D + Ids.length + Fss.length + 2) (projList i y) (cons y σ)
-  rw [projList_length] at h
-  rw [AnnotOk2_substProj σ y i _ hp, AnnotOk2_liftN, h, shiftE_payload hfr]
-  exact hE
 
 end IhFacts
 
@@ -676,12 +626,6 @@ theorem interp2_closed_bottom {e : AVExpr} {k : Nat} (hcl : VExpr.bvarsBelow k e
   interp2_congr_noBVar e (NoBVar_of_bvarsBelow hcl fun _ hi => hlen ▸ hi)
     (agreeOff_consList_ge as ρ₁ ρ₂)
 
-theorem AnnotOk2_closed_bottom {e : AVExpr} {k : Nat} (hcl : VExpr.bvarsBelow k e.erase)
-    {as : List V} (hlen : as.length = k) (ρ₁ ρ₂ : Nat → V) :
-    AnnotOk2 V (consList as ρ₁) e ↔ AnnotOk2 V (consList as ρ₂) e :=
-  AnnotOk2_congr_noBVar e (NoBVar_of_bvarsBelow hcl fun _ hi => hlen ▸ hi)
-    (agreeOff_consList_ge as ρ₁ ρ₂)
-
 /-- A spine fits closed binder data at any bottom. -/
 theorem spineFit_closed_bottom :
     ∀ {ds : List (Nat × Nat × AVExpr)} {as bs : List V} {ρ₁ ρ₂ : Nat → V},
@@ -722,11 +666,6 @@ theorem mkPisAV_closed_bottom {C : AVExpr} :
     simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using this
 
 /-! ## The spelled recursor -/
-
-/-- The sort of a Π-tower's reading from its first binder's bits. -/
-def recSortOf : List (Nat × Nat × AVExpr) → Nat
-  | [] => 0
-  | d :: _ => imaxN d.1 d.2.1
 
 /-- The recursor's type, spelled: the Π-tower over its binder data
 ending in `M ı⃗ t`. -/

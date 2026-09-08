@@ -70,10 +70,6 @@ noncomputable def chainP (V : Type w) [SetTheory V] (ρ : Nat → V)
 
 @[simp] theorem chainP_nil (ρ : Nat → V) : chainP V ρ [] = ρ := rfl
 
-theorem chainP_cons (ρ : Nat → V) (w : AVExpr) (ws : List AVExpr) :
-    chainP V ρ (w :: ws)
-      = consN (ws.map (interp2 V ρ)) (cons (interp2 V ρ w) ρ) := rfl
-
 /-- Chain lookup at or above the spine: the ambient environment,
 shifted (`chainE_ge`). -/
 theorem chainP_ge {ρ : Nat → V} {ws : List AVExpr} {i : Nat}

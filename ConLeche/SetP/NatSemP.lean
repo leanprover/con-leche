@@ -87,18 +87,6 @@ theorem natLitP_mem (m : EnvS2Core V env) (hnh : NatHeadsP m φ)
       ∈ˢ interp2 V ρ (m.acval ConLeche.natName φ) :=
   (natLitP_facts m hnh hval hs ρ n).2
 
-/-- The spine's interpretation ignores the two-slot extension: its
-leaves are closed. -/
-theorem interp2_cons2_natLitP (m : EnvS2Core V env)
-    (ρ : Nat → V) (x y : V) (n : Nat) :
-    interp2 V (cons y (cons x ρ)) (natLitP m φ n)
-      = interp2 V ρ (natLitP m φ n) := by
-  induction n with
-  | zero => exact acval_interp2_closedC m _ _ _ ρ
-  | succ n ih =>
-    simp only [natLitP_succ, interp2_app]
-    rw [ih, acval_interp2_closedC m ConLeche.natSuccName _ _ ρ]
-
 /-! ## Reading one recurrence at values -/
 
 /-- One certified recurrence equation, read at value slots

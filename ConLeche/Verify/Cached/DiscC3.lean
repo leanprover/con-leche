@@ -5,7 +5,8 @@ import ConLeche.Verify.Cached.DiscC2
 
 Simulation walks for the cached `majorToCtorI`/`pinArgsI`/`iotaRecI`
 (`ConLeche/Cached/CoreC.lean`) against `majorToCtor`/`iotaRec`
-(`ConLeche/Verify/Disc.lean`) — the port of `ConLeche/Verify/DiscI3.lean`
+(`ConLeche/Verify/Disc.lean`, deleted at task #221) — the port of
+`ConLeche/Verify/DiscI3.lean`
 under the task #163 recipe.  The pure comparand side of every statement
 is byte-identical to the interned original's.
 -/

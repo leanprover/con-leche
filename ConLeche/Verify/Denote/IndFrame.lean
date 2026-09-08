@@ -1,7 +1,6 @@
 import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Verify.Denote.Inst
-import ConLeche.Verify.Denote.InstSimp
 import ConLeche.Verify.Denote.Rename
 import ConLeche.Verify.Denote.Levels
 import ConLeche.Verify.Denote.Tele
@@ -104,18 +103,6 @@ theorem ctxInstAt_snoc (v : VExpr) (j : Nat) (Γ : List VExpr) (A : VExpr) :
     ctxInstAt v j (Γ ++ [A]) = ctxInstAt v (j + 1) Γ ++ [A.inst v j] := by
   rw [ctxInstAt_append]
   rfl
-
-/-- Closed entries are untouched. -/
-theorem ctxInstAt_closed (v : VExpr) (j : Nat) :
-    ∀ {Γ : List VExpr}, (∀ B ∈ Γ, VExpr.Closed B) → ctxInstAt v j Γ = Γ := by
-  intro Γ
-  induction Γ with
-  | nil => intro _; rfl
-  | cons B Γ ih =>
-    intro h
-    rw [ctxInstAt_cons,
-      VExpr.inst_eq_self_of_closed (h B List.mem_cons_self) _ _,
-      ih fun C hC => h C (List.mem_cons_of_mem _ hC)]
 
 /-- A substituted tower is a tower over the substituted context — the
 `PiTele` transcription of `PiTower.inst`. -/
@@ -277,42 +264,6 @@ theorem openPisAtFvars_denoteTele {cval : TConstVal} {env : Env}
                 List.getElem?_append_left (by omega)]]
             rw [show j + (i + 1) = j + 1 + i from by omega]
             exact h1
-
-/-- **A lifted term under a padded spine.**  A depth-`k` denote of an
-expression over the first `n` openers is the depth-`n` denote lifted by
-the padding's width; instantiating the padded spine on the lift is
-instantiating the real prefix on the original — every padding cut
-passes under the lift, one unit each.  Unconditional in `A`: bvars
-beyond the real prefix shift identically on both sides. -/
-theorem instSeq_append_absorb :
-    ∀ (ws pads : List VExpr) (A : VExpr),
-      VExpr.instSeq (ws ++ pads) (ws.length + pads.length - 1)
-        (VExpr.liftN pads.length A 0) =
-      VExpr.instSeq ws (ws.length - 1) A := by
-  intro ws
-  induction ws with
-  | nil =>
-    intro pads A
-    rcases Nat.eq_zero_or_pos pads.length with h0 | h0
-    · rw [List.eq_nil_of_length_eq_zero h0]
-      simp [VExpr.liftN_zero]
-    · rw [List.nil_append, VExpr.instSeq_nil]
-      have h := VExpr.instSeq_liftN pads (pads.length - 1) A
-        (by omega)
-      rw [show pads.length - 1 + 1 = pads.length from by omega] at h
-      simpa [Nat.sub_self, VExpr.liftN_zero] using h
-  | cons w ws ih =>
-    intro pads A
-    have e1 : (w :: ws).length + pads.length - 1 =
-        ws.length + pads.length := by
-      simp only [List.length_cons]
-      omega
-    have e2 : (w :: ws).length - 1 = ws.length := by
-      simp only [List.length_cons, Nat.add_sub_cancel]
-    rw [e1, e2, List.cons_append, VExpr.instSeq_cons, VExpr.instSeq_cons]
-    rw [VExpr.inst_liftN_comm A (by omega) w,
-      show ws.length + pads.length - pads.length = ws.length from by omega]
-    exact ih pads (A.inst w ws.length)
 
 /-- `ctxInstAt`, per entry: the entry at index `i` is instantiated at
 its own residual depth. -/
@@ -536,34 +487,6 @@ theorem instPisAt_leaves :
       · exact push h2
       · exact Or.inr ⟨b, List.mem_cons_of_mem _ hb, hlb⟩
 
-/-- A telescope that strips opens — the checker's opener succeeds
-whenever `stripPis` does, because opening substitutes variables and
-variables preserve the `∀`-structure (`stripPis_instantiate1_isSome`,
-forward direction). -/
-theorem openPisAtFvars_isSome_of_stripPis :
-    ∀ (k : Nat) {e : Expr}, (e.stripPis k).isSome = true →
-      ∀ (d : Nat), (openPisAtFvars k e d).isSome = true := by
-  intro k
-  induction k with
-  | zero => intro e _ d; rfl
-  | succ k ih =>
-    intro e hs d
-    match e, hs with
-    | .forallE dom body mb, hs =>
-      have hs' : (body.stripPis k).isSome = true := by
-        simp only [Expr.stripPis, Option.isSome_map] at hs
-        exact hs
-      have h1 : ((body.instantiate1
-          (.fvar d dom)).stripPis k).isSome = true :=
-        Expr.stripPis_instantiate1_isSome k 0 hs'
-      have h2 := ih h1 (d + 1)
-      simp only [openPisAtFvars]
-      revert h2
-      cases openPisAtFvars k (body.instantiate1 (.fvar d dom))
-          (d + 1) with
-      | none => intro h; exact nomatch h
-      | some p => intro _; rfl
-
 /-- Opening keeps everything at loose-bvar level zero: the body and
 each opener's annotation. -/
 theorem openPisAtFvars_bounded :
@@ -679,55 +602,6 @@ theorem instPisAt_bounded :
         · exact hb'.1
         · exact hds x hx'
 
-/-- Instantiation at cut `0` commutes with a value spine. -/
-theorem VExpr.instSeq_inst0 :
-    ∀ (as : List VExpr) (t : Nat) (X b : VExpr), as.length ≤ t + 1 →
-      VExpr.instSeq as t (X.inst b 0) =
-        (VExpr.instSeq as (t + 1) X).inst (VExpr.instSeq as t b) 0 := by
-  intro as
-  induction as with
-  | nil => intro t X b _; rfl
-  | cons w as ih =>
-    intro t X b hlen
-    simp only [List.length_cons] at hlen
-    rw [VExpr.instSeq_cons (e := X.inst b 0),
-      VExpr.inst_inst_comm X (Nat.zero_le t) w b, Nat.sub_zero]
-    cases as with
-    | nil => simp only [VExpr.instSeq_nil, VExpr.instSeq_cons]
-    | cons y ys =>
-      have hlen' : (y :: ys).length ≤ t - 1 + 1 := by
-        simp only [List.length_cons] at hlen ⊢
-        omega
-      have ht : 1 ≤ t := by
-        simp only [List.length_cons] at hlen
-        omega
-      have h2 := ih (t - 1) (X.inst w (t + 1)) (b.inst w t) hlen'
-      rw [show t - 1 + 1 = t from by omega] at h2
-      rw [h2, VExpr.instSeq_cons (e := X), VExpr.instSeq_cons (e := b),
-        show t + 1 - 1 = t from by omega]
-
-/-- `instSeq` moves under an outer lift at cut `0`: the cut shifts by
-the lift (task #119, the nested arc's chain algebra). -/
-theorem VExpr.instSeq_liftN0 :
-    ∀ (vs : List VExpr) (t m : Nat) (Y : VExpr), vs.length ≤ t + 1 →
-      VExpr.instSeq vs (t + m) (Y.liftN m)
-        = (VExpr.instSeq vs t Y).liftN m
-  | [], _, _, _, _ => rfl
-  | a :: vs, t, m, Y, h => by
-    show VExpr.instSeq vs (t + m - 1) ((VExpr.liftN m Y).inst a (t + m))
-      = _
-    rw [VExpr.inst_liftN_comm Y (by omega) a, Nat.add_sub_cancel]
-    cases t with
-    | zero =>
-      obtain rfl : vs = [] := by
-        simp only [List.length_cons] at h
-        exact List.eq_nil_of_length_eq_zero (by omega)
-      rfl
-    | succ t' =>
-      rw [show t' + 1 + m - 1 = t' + m from by omega]
-      exact VExpr.instSeq_liftN0 vs t' m (Y.inst a (t' + 1))
-        (by simpa using Nat.le_of_succ_le_succ (by simpa using h))
-
 /-- A subject with only low bound variables passes through `instSeq`
 untouched: every cut is above its range. -/
 theorem VExpr.instSeq_eq_self_of_bvarsBelow :
@@ -750,156 +624,6 @@ theorem VExpr.instSeq_eq_self_of_bvarsBelow :
       exact VExpr.instSeq_eq_self_of_bvarsBelow vs t' hb (by
         simp only [List.length_cons] at h
         omega)
-
-/-- **`instSeq` through a reverse-instantiation chain**, with no side
-conditions: the chain's elements move to the ambient cut, the subject
-to the cut shifted past the chain (task #119, the nested bottom's
-statement-side pins under the fired spine). -/
-theorem VExpr.instSeq_instRevChain :
-    ∀ (bs : List VExpr) (X : VExpr) (vs : List VExpr) (t : Nat),
-      vs.length ≤ t + 1 →
-      VExpr.instSeq vs t (VExpr.instRevChain bs X)
-        = VExpr.instRevChain (bs.map (VExpr.instSeq vs t))
-            (VExpr.instSeq vs (t + bs.length) X)
-  | [], X, vs, t, _ => rfl
-  | b :: bs, X, vs, t, h => by
-    show VExpr.instSeq vs t (VExpr.instRevChain bs
-        (X.inst (b.liftN bs.length) 0)) = _
-    rw [VExpr.instSeq_instRevChain bs _ vs t h,
-      VExpr.instSeq_inst0 vs (t + bs.length) X _ (by omega),
-      VExpr.instSeq_liftN0 vs t bs.length b h]
-    show VExpr.instRevChain (List.map _ bs) _ = _
-    rw [show (b :: bs).map (VExpr.instSeq vs t)
-        = VExpr.instSeq vs t b :: bs.map (VExpr.instSeq vs t) from rfl]
-    show _ = VExpr.instRevChain (bs.map (VExpr.instSeq vs t)) _
-    rw [show (bs.map (VExpr.instSeq vs t)).length = bs.length from by
-        simp]
-    simp only [List.length_cons]
-    rfl
-
-/-- **The cross-frame instantiation.**  An `instPisAt` run at scattered
-frame variables, denoted at the frame and instantiated along the
-frame's full value spine, is the walk of the (spine-instantiated)
-denoted tower at the values the openers map to.  The openers may sit at
-*any* indices below the frame — which is exactly how the kit's
-constructor runs mix parameter and field variables — and the subject
-may itself be open over the frame. -/
-theorem instPisAt_denote_cross {cval : TConstVal} {env : Env}
-    {ψ : Name → Nat} (hcl : ∀ n ψ', VExpr.Closed (cval n ψ')) :
-    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rs : Expr},
-      Expr.instPisAt sp ty = some (ds, rs) →
-      ∀ {D : Nat} {vals : List VExpr}, vals.length = D →
-      (∀ (j : Nat) (x : Expr), sp[j]? = some x →
-        Expr.WScoped D x ∧ x.looseBVarsBounded 0 = true) →
-      Expr.fvarsBelow D ty → ty.looseBVarsBounded 0 = true →
-      ∀ {T : VExpr}, denote cval env ψ D ty = some T →
-      ∀ {vRs : VExpr}, denote cval env ψ D rs = some vRs →
-      ∀ {ws : List VExpr}, ws.length = sp.length →
-      (∀ (j : Nat) (x : Expr), sp[j]? = some x →
-        ∃ w0, denote cval env ψ D x = some w0 ∧
-          ws[j]? = some (VExpr.instSeq vals (D - 1) w0)) →
-      ∀ {Γ : List VExpr} {R : VExpr},
-        PiTele sp.length (VExpr.instSeq vals (D - 1) T) Γ R →
-        VExpr.instSeq vals (D - 1) vRs =
-          VExpr.instSeq ws (ws.length - 1) R := by
-  intro sp
-  induction sp with
-  | nil =>
-    intro ty ds rs h D vals hvlen hsp hfb hb T hT vRs hRs ws hwlen hws Γ R hp
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    obtain rfl : T = vRs := by rw [hT] at hRs; exact Option.some.inj hRs
-    obtain rfl : ws = [] := List.eq_nil_of_length_eq_zero hwlen
-    cases hp
-    rfl
-  | cons a sp ih =>
-    intro ty ds rs h D vals hvlen hsp hfb hb T hT vRs hRs ws hwlen hws Γ R hp
-    obtain ⟨hwsa, hba⟩ := hsp 0 a rfl
-    obtain ⟨w0, hw0den, hw0⟩ := hws 0 a rfl
-    match ty, h with
-    | .forallE dom body mb, h =>
-      simp only [Expr.instPisAt] at h
-      cases h1 : Expr.instPisAt sp
-          (body.instantiate1 a) with
-      | none => rw [h1] at h; exact nomatch h
-      | some p => ?_
-      rw [h1] at h
-      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      -- the frame facts of the head
-      have hfb' : Expr.fvarsBelow D dom ∧ Expr.fvarsBelow D body := hfb
-      have hb' : dom.looseBVarsBounded 0 = true ∧
-          body.looseBVarsBounded 1 = true := by
-        revert hb
-        simp [Expr.looseBVarsBounded]
-      -- the head, denoted
-      rw [denote_forallE] at hT
-      cases hA : denote cval env ψ D dom with
-      | none => rw [hA] at hT; exact nomatch hT
-      | some A => ?_
-      rw [hA] at hT
-      cases hB : denote cval env ψ (D + 1)
-          (body.instantiate1 (.fvar D dom)) with
-      | none => rw [hB] at hT; exact nomatch hT
-      | some B => ?_
-      rw [hB] at hT
-      obtain rfl : T = .pi A B := (Option.some.inj hT).symm
-      -- the instantiated body, denoted through the top value
-      have hbeta := denote_beta (ty := dom) hcl hfb'.2 hwsa hba
-        hw0den 0
-      -- the spine and its values
-      match ws, hwlen with
-      | w :: ws', hwlen => ?_
-      have hw : w = VExpr.instSeq vals (D - 1) w0 := by
-        simpa using hw0
-      -- the tower, peeled
-      rw [show VExpr.instSeq vals (D - 1) (VExpr.pi A B) =
-          .pi (VExpr.instSeq vals (D - 1) A)
-            (VExpr.instSeq vals D B) from by
-        rw [VExpr.instSeq_pi _ _ _ _ (by omega)]
-        congr 1
-        rcases Nat.eq_zero_or_pos D with h0 | h0
-        · obtain rfl : vals = [] := by
-            rw [h0] at hvlen
-            exact List.eq_nil_of_length_eq_zero hvlen
-          rfl
-        · rw [show D - 1 + 1 = D from by omega]] at hp
-      cases hp with
-      | @cons _ _ _ _ Γ' hp' => ?_
-      -- the recursive frame
-      have hfbI : Expr.fvarsBelow D (body.instantiate1 a) :=
-        Expr.fvarsBelow_instantiate1_gen hwsa.fvarsBelow 0 hfb'.2
-      have hbI : (body.instantiate1 a).looseBVarsBounded 0 = true :=
-        Expr.looseBVarsBounded_instantiate1_gen hba hb'.2
-      have hTI : denote cval env ψ D (body.instantiate1 a)
-          = some (B.inst w0 0) := by
-        rw [hbeta, hB]
-        rfl
-      -- the instantiated tower for the recursion
-      have hp2 := hp'.inst w 0
-      rw [Nat.zero_add] at hp2
-      have hrec := ih h1 hvlen
-        (fun j x hx => hsp (j + 1) x (by simpa using hx))
-        hfbI hbI hTI hRs (by simpa using hwlen)
-        (fun j x hj => by
-          obtain ⟨w1, hd1, hg1⟩ := hws (j + 1) x (by simpa using hj)
-          exact ⟨w1, hd1, by simpa using hg1⟩)
-        (Γ := ctxInstAt w 0 Γ') (R := R.inst w sp.length) ?_
-      · have hlen' : ws'.length = sp.length := by simpa using hwlen
-        rw [hrec, show (w :: ws').length - 1 = ws'.length from by simp,
-          VExpr.instSeq_cons, hlen']
-      · have hID : VExpr.instSeq vals (D - 1)
-            (B.inst w0 0) = (VExpr.instSeq vals D B).inst w 0 := by
-          rcases Nat.eq_zero_or_pos D with h0 | h0
-          · obtain rfl : vals = [] := by
-              rw [h0] at hvlen
-              exact List.eq_nil_of_length_eq_zero hvlen
-            simp only [VExpr.instSeq] at hw ⊢
-            rw [hw]
-          · rw [VExpr.instSeq_inst0 vals (D - 1) B w0
-              (by omega), show D - 1 + 1 = D from by omega, ← hw]
-        rw [hID]
-        exact hp2
 
 /-- Equal applications of equal arity have equal heads and spines. -/
 theorem VExpr.mkAppN_inj :
@@ -1510,89 +1234,6 @@ theorem DenoteSpine.of_getElem {cval : TConstVal} {env : Env}
         simpa using h1
 
 
-/-- A padded fired spine resolves a frame variable to its slot's value
-(`hpadhit`). -/
-theorem padHit {K : Nat} :
-    ∀ (n p : Nat) (vals : List VExpr), p < n →
-    vals.length = n → n ≤ K →
-    VExpr.instSeq (vals ++ List.replicate (K - n) dummyPropT)
-      (K - 1) (.bvar (K - 1 - p)) =
-      vals.getD p default := by
-  intro n p vals hp hvl hn
-  have hlenT : (vals ++ List.replicate (K - n) dummyPropT).length
-      = K := by
-    simp only [List.length_append, List.length_replicate, hvl]
-    omega
-  have hidx : (vals ++ List.replicate (K - n)
-      dummyPropT)[(vals ++ List.replicate (K - n)
-        dummyPropT).length - 1 - (K - 1 - p)]? =
-      some (vals.getD p default) := by
-    rw [hlenT, show K - 1 - (K - 1 - p) = p from by omega,
-      List.getElem?_append_left (by omega),
-      List.getElem?_eq_getElem (by omega : p < vals.length)]
-    simp [List.getD, List.getElem?_eq_getElem
-      (by omega : p < vals.length)]
-  have h1 := VExpr.instSeq_bvar_hit
-    (vals ++ List.replicate (K - n) dummyPropT) 0
-    (K - 1 - p) (vals.getD p default) hidx (by omega)
-  simp only [Nat.zero_add] at h1
-  rw [hlenT] at h1
-  rw [h1, VExpr.liftN_zero]
-
-/-- A list whose entries all denote has a denotation spine. -/
-theorem DenoteSpine.of_denotes {cval : TConstVal} {env : Env}
-    {φ : Name → Nat} {d : Nat} :
-    ∀ {as : List Expr},
-      (∀ a ∈ as, ∃ w, denote cval env φ d a = some w) →
-      ∃ vs, DenoteSpine cval env φ d as vs := by
-  intro as
-  induction as with
-  | nil => intro _; exact ⟨[], .nil⟩
-  | cons a as ih =>
-    intro h
-    obtain ⟨w, hw⟩ := h a List.mem_cons_self
-    obtain ⟨vs, hvs⟩ := ih (fun x hx => h x (List.mem_cons_of_mem _ hx))
-    exact ⟨w :: vs, .cons hw hvs⟩
-
-/-- The chain identity (`hchain`): a pin's frame value under any fired
-spine that starts with the prefix values is the canonical reverse
-chain at those values. -/
-theorem nestedChain {rP cnF : Nat} {xs : List VExpr}
-    (hxstakelen : (xs.take rP).length = rP) :
-    ∀ (vals : List VExpr) (n : Nat) (wp : VExpr),
-    vals.length = n → n ≤ rP + cnF → rP ≤ n →
-    vals.take rP = xs.take rP →
-    VExpr.bvarsBelow rP wp →
-    VExpr.instSeq (vals ++ List.replicate (rP + cnF - n) dummyPropT)
-      (rP + cnF - 1)
-      (VExpr.instRevChain ((List.range rP).map fun j =>
-        VExpr.bvar (rP + cnF - 1 - j)) wp)
-      = VExpr.instRevChain (xs.take rP) wp := by
-  have hpadhit := padHit (K := rP + cnF)
-  intro vals n wp hvl hn hrn hpre hbv
-  rw [VExpr.instSeq_instRevChain _ _ _ _ (by
-      simp only [List.length_append, List.length_replicate, hvl]
-      omega),
-    List.length_map, List.length_range,
-    VExpr.instSeq_eq_self_of_bvarsBelow _ _ hbv (by
-      simp only [List.length_append, List.length_replicate, hvl]
-      omega),
-    List.map_map]
-  congr 1
-  have hxrlen : (xs.take rP).length = rP := hxstakelen
-  conv => rhs; rw [show xs.take rP = (List.range rP).map
-    (fun j => (xs.take rP).getD j default) from by
-      conv => lhs; rw [← List.map_id (xs.take rP)]
-      rw [← map_range_getD (xs.take rP) id, hxrlen]
-      simp only [id_eq]]
-  refine List.map_congr_left fun j hj => ?_
-  have hjr : j < rP := List.mem_range.mp hj
-  show VExpr.instSeq (vals ++ List.replicate (rP + cnF - n)
-      dummyPropT) (rP + cnF - 1) (.bvar (rP + cnF - 1 - j)) = _
-  rw [hpadhit n j vals (by omega) hvl hn, ← hpre]
-  simp only [List.getD]
-  rw [List.getElem?_take_of_lt hjr]
-
 /-- **The λ-tower, denoted** (`openPisAtFvars_denoteTele`'s mirror for
 `stripLams`): a denoting λ-tower is `lamCtx` of its domains' values,
 with the body and each raw domain denoted under the anonymous openers
@@ -2076,30 +1717,6 @@ theorem nestedLvlsLength {cval : TConstVal} {env₀ : Env} {ψ : Name → Nat}
   · next hlen => exact hlen
   · exact nomatch hvc
 
-/-- The fired-spine value of the projection field's bound variable
-(sealed). -/
-theorem projFieldValue {rP cnP cnF i : Nat} {xs ys : List VExpr}
-    (hcnPrP : cnP = rP) (hilt : i < cnF)
-    (hxslen : rP ≤ xs.length) (hlenY : ys.length = cnP + cnF) :
-    VExpr.instSeq (xs.take rP ++ ys.drop cnP)
-      ((xs.take rP ++ ys.drop cnP).length - 1)
-      (.bvar (cnP + cnF - 1 - (cnP + i))) = ys.getD (cnP + i) default := by
-  have hpadhit := padHit (K := rP + cnF)
-  have hzslen : (xs.take rP ++ ys.drop cnP).length = rP + cnF := by
-    simp only [List.length_append, List.length_take, List.length_drop]
-    omega
-  have h1 := hpadhit (rP + cnF) (rP + i) (xs.take rP ++ ys.drop cnP)
-    (by omega) hzslen (Nat.le_refl _)
-  rw [Nat.sub_self] at h1
-  simp only [List.replicate, List.append_nil] at h1
-  rw [hzslen, show cnP + cnF - 1 - (cnP + i) = rP + cnF - 1 - (rP + i)
-    from by omega, h1]
-  simp only [List.getD]
-  rw [List.getElem?_append_right (by rw [List.length_take]; omega),
-    List.length_take,
-    show rP + i - min rP xs.length = i from by omega,
-    List.getElem?_drop]
-
 /-- The projection statement's right side denotes to the field's
 frame variable (sealed). -/
 theorem projRhsValue {cval : TConstVal} {env : Env} {ψ : Name → Nat}
@@ -2348,41 +1965,6 @@ theorem openPisAtFvars_length :
         simp only [Option.some.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
         simp [ih h1]
-
-/-- Truncating an `instLamsAt` run (the λ mirror of `instPisAt_take`). -/
-theorem instLamsAt_take :
-    ∀ (sp : List Expr) (n : Nat) {ty : Expr} {ds : List Expr} {rs : Expr},
-      Expr.instLamsAt sp ty = some (ds, rs) →
-      ∃ mid, Expr.instLamsAt (sp.take n) ty = some (ds.take n, mid) ∧
-        Expr.instLamsAt (sp.drop n) mid = some (ds.drop n, rs) := by
-  intro sp
-  induction sp with
-  | nil =>
-    intro n ty ds rs h
-    simp only [Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨ty, by simp [Expr.instLamsAt], by simp [Expr.instLamsAt]⟩
-  | cons a sp ih =>
-    intro n ty ds rs h
-    match ty, h with
-    | .lam dom body mb, h =>
-      simp only [Expr.instLamsAt] at h
-      cases h1 : Expr.instLamsAt sp (body.instantiate1 a) with
-      | none => rw [h1] at h; exact nomatch h
-      | some p =>
-        rw [h1] at h
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        cases n with
-        | zero =>
-          refine ⟨.lam dom body mb, by simp [Expr.instLamsAt], ?_⟩
-          simp only [List.drop_zero, Expr.instLamsAt, h1]
-          rfl
-        | succ n =>
-          obtain ⟨mid, h2, h3⟩ := ih n h1
-          refine ⟨mid, ?_, by simpa using h3⟩
-          simp only [List.take_succ_cons, Expr.instLamsAt, h2]
-          rfl
 
 
 /-- Constant renaming leaves the loose-bvar bound unchanged. -/

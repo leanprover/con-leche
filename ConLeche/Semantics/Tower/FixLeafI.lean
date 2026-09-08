@@ -202,10 +202,6 @@ def slotXI (u : Nat) (Ids : List AVExpr) (tl : List (Nat × Nat × AVExpr)) (Eis
         (Eis.map (·.liftN 2 (i + tl.length)))))
 
 omit [SetTheory V] in
-theorem slotXI_nil (u : Nat) (Ids : List AVExpr) (Eis : List AVExpr) (i : Nat) :
-    slotXI u Ids [] Eis i
-      = .app (.bvar (i + 1)) (AVExpr.mkAppN ((tuplerAV u Ids).liftN (i + 2) 0) (Eis.map (·.liftN 2 i))) := by
-  simp [slotXI, mkPisAV]
 
 /-- The X-chain of one constructor from position `i` on, at the frame
 `(ρp, X, t, f₀ … f_{i-1})`: a recursive slot reads `X ⟨e⃗_i⟩` under the
@@ -247,10 +243,6 @@ theorem chainsXI_getElem? (u : Nat) (Ids : List AVExpr) (nIdx : Nat) (rss : List
   · next h => rw [List.getElem?_eq_none (by simpa using h)]; rfl
 
 omit [SetTheory V] in
-theorem chainsXI_length (u : Nat) (Ids : List AVExpr) (nIdx : Nat) (rss : List (List Bool))
-    (tlss : List (List (List (Nat × Nat × AVExpr)))) (Eiss : List (List (List AVExpr))) (Fss Ess : List (List AVExpr)) :
-    (chainsXI u Ids nIdx rss tlss Eiss Fss Ess).length = Fss.length := by
-  simp [chainsXI]
 
 /-- The functor's λ: `λ (X : I → Sort w) (t : I). Σ_j tower_j(X, t)`. -/
 def fixFunAVI (u w : Nat) (Ids : List AVExpr) (nIdx : Nat) (rss : List (List Bool))

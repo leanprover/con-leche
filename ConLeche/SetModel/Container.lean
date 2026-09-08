@@ -240,13 +240,6 @@ theorem paths_step_sub : paths A B tgt (tgt a p) ⊆ˢ paths A B tgt t := by
   obtain ⟨n, hn⟩ := mem_paths.mp hx
   exact mem_paths.mpr ⟨n, pathsN_step_sub ha hp n x hn⟩
 
-theorem codeSpace_step_sub : codeSpace A B tgt (tgt a p) ⊆ˢ codeSpace A B tgt t := by
-  intro S hS
-  rw [mem_codeSpace] at hS ⊢
-  intro x hx
-  obtain ⟨q, hq, a', ha', rfl⟩ := hS x hx
-  exact ⟨q, paths_step_sub ha hp q hq, a', shapes_step_sub ha hp a' ha', rfl⟩
-
 /-- A position of a root shape is a position of the root's space. -/
 theorem mem_positions_of_root : p ∈ˢ positions A B tgt t :=
   mem_positions.mpr ⟨a, mem_shapes.mpr ⟨0, ha⟩, hp⟩
@@ -328,20 +321,6 @@ theorem lab_mkCode (a g : V) : lab (mkCode B a g) = a := by
   rw [rootLabels_mkCode]
   exact mem_sing.mp (schoice_mem (mem_sing.mpr rfl))
 
-/-- With a root, the root label sits at the empty path. -/
-theorem kpair_pt_lab_mem {S : V} (h : HasRoot S) (hpairs : ∀ x, x ∈ˢ S → ∃ q a, x = kpair q a) :
-    kpair pt (lab S) ∈ˢ S := by
-  obtain ⟨a, ha⟩ := h
-  have hmem : a ∈ˢ rootLabels S :=
-    mem_rootLabels.mpr ⟨kpair pt a, ha, sfst_kpair _ _, ssnd_kpair _ _⟩
-  obtain ⟨pr, hpr, h1, h2⟩ := mem_rootLabels.mp (schoice_mem hmem)
-  obtain ⟨q, a', rfl⟩ := hpairs pr hpr
-  rw [sfst_kpair] at h1
-  rw [ssnd_kpair] at h2
-  unfold lab
-  rw [← h2, ← h1]
-  exact hpr
-
 /-- The subcode of an assembled code at a position is the subcode put
 there (the codes' elements being labelled paths). -/
 theorem subCode_mkCode {a g p : V} (hp : p ∈ˢ B a)
@@ -405,14 +384,6 @@ theorem mkCode_mem_codeSpace {t a g : V} (ha : a ∈ˢ A t)
     rw [sfst_kpair, ssnd_kpair]
     refine ⟨kpair p q, kpair_mem_paths (mem_positions_of_root ha hp) (paths_step_sub ha hp q hq),
       b, shapes_step_sub ha hp b hb, rfl⟩
-
-/-- The root label of a code in the space is a reachable shape. -/
-theorem lab_mem_shapes {t S : V} (hS : S ∈ˢ codeSpace A B tgt t) (hr : HasRoot S) :
-    lab S ∈ˢ shapes A B tgt t := by
-  have := kpair_pt_lab_mem hr (codeSpace_pairs hS)
-  obtain ⟨q, -, a, ha, heq⟩ := mem_codeSpace.mp hS _ this
-  obtain ⟨-, rfl⟩ := kpair_inj heq
-  exact ha
 
 end InSpace
 

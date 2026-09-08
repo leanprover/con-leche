@@ -14,9 +14,12 @@ through the record — bodies never call themselves, and the few helpers
 that do recurse (`iotaCerts`, `defEqList`, `structEtaProjCerts`) do so
 structurally on a list.  Fuel lives only in the *knots* that tie the
 record: the pure knot (`ConLeche.Kernel.TypeChecker`) instantiates the
-bodies at `CheckM` and is the verification's subject; the memoized knot
-(`ConLeche.Kernel.TypeCheckerC`) instantiates them at a state monad
-carrying the caches and is what the checker executes.  A refinement
+bodies at `CheckM` and is the verification's subject; the cached knot
+(`ConLeche.Cached.CoreC`) instantiates them over the cached
+representation with the memo caches and is what the checker executes.
+(A third, *memoized* knot over plain `Expr` — `Kernel/TypeCheckerC.lean`
+— was the executed one until the cached tier replaced it; it and its
+call discipline went at task #221.)  A refinement
 bridge relates the two (see DESIGN.md).
 
 The reduction loop follows the official kernel (`whnfCore` never

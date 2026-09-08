@@ -93,11 +93,6 @@ theorem denotePDeltaP_of_fields (m : EnvS2Core V env)
     (hdi : AcvalDefnInstP m) : DenotePDeltaP m φ :=
   fun hud hea => deltaP_of m hdi hud hea
 
-/-- `DenotePDeltaP`, read straight off the P environment invariant. -/
-theorem EnvS2PM.denotePDeltaP (mp : EnvS2PM V μ env) :
-    DenotePDeltaP mp.base2 φ :=
-  denotePDeltaP_of_fields mp.base2 mp.defn_reads
-
 /-- **`WhnfCoreExistsP` and `WhnfCoreReductExistsP` are the same
 statement.**  Compared field by field: same implicit binders
 (`d`, `e`, `e'`, `Δa`, then `ea`), same run, same scoping package,
@@ -117,19 +112,6 @@ theorem whnfCoreExistsP_of_reduct {m : EnvS2Core V env}
     WhnfCoreExistsP μ m φ fuel := by
   intro _d _e _e' _Δa hrun hws hb hLb _ea hC hea hok
   exact h hrun hws hb hLb hC hea hok
-
-/-- **`InferReadsP → InferExistsP`, one direction only.**  The two
-differ in their premise sets: `InferExistsP` (`Step2/WhnfP.lean`)
-carries the whole `CtxOkP m φ d Δa e`, `InferReadsP`
-(`Step2/InferP.lean`) only its leaf weakening `LeafReadsP`.  So the
-conversion holds *from the weaker-premised statement to the
-stronger-premised one* — the context projects to the leaf package
-(`LeafReadsP.of_ctxOkP`) — and the converse does **not** hold as a
-conversion (there is no `Δa` to supply). -/
-theorem inferExistsP_of_reads {m : EnvS2Core V env}
-    (h : InferReadsP m μ φ fuel) : InferExistsP μ m φ fuel := by
-  intro _d _e _t _Δa hrun hws hb hLb _ea hC hea
-  exact h hrun hws hb hLb (LeafReadsP.of_ctxOkP hC) hea
 
 /-! # T2/T3 — the readability walk
 

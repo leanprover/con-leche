@@ -62,20 +62,6 @@ theorem char_shape {env : Env} (hg : strLitSupported env = true) :
     simp only [charTyOk, Bool.and_eq_true, beq_iff_eq] at h6
     exact ⟨ci, rfl, by simpa [List.isEmpty_iff] using h6.1, h6.2⟩
 
-/-- `String : Type`. -/
-theorem string_shape {env : Env} (hg : strLitSupported env = true) :
-    ∃ ci, env.find? stringName = some ci ∧
-      ci.toConstantVal.levelParams = [] ∧
-      ci.toConstantVal.type = .sort (.succ .zero) := by
-  simp only [strLitSupported, Bool.and_eq_true] at hg
-  obtain ⟨⟨⟨⟨⟨⟨⟨-, h1⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩ := hg
-  cases hf : env.find? stringName with
-  | none => rw [hf] at h1; exact nomatch h1
-  | some ci =>
-    rw [hf] at h1
-    simp only [stringTyOk, Bool.and_eq_true, beq_iff_eq] at h1
-    exact ⟨ci, rfl, by simpa [List.isEmpty_iff] using h1.1, h1.2⟩
-
 /-- `Char.ofNat : Nat → Char`. -/
 theorem charOfNat_shape {env : Env} (hg : strLitSupported env = true) :
     ∃ ci mb, env.find? charOfNatName = some ci ∧
@@ -178,22 +164,6 @@ theorem listCons_shape {env : Env} (hg : strLitSupported env = true) :
         exact ⟨ci, p, mb₁, mb₂, mb₃, rfl, hlp, hsh⟩
       · exact nomatch h5
     · exact nomatch h5
-
-/-- `List.{p} : Sort (p+1) → Sort (p+1)`; only the parameter count is
-used below. -/
-theorem list_shape {env : Env} (hg : strLitSupported env = true) :
-    ∃ ci p, env.find? listName = some ci ∧
-      ci.toConstantVal.levelParams = [p] := by
-  simp only [strLitSupported, Bool.and_eq_true] at hg
-  obtain ⟨⟨⟨⟨⟨⟨⟨-, -⟩, -⟩, h3⟩, -⟩, -⟩, -⟩, -⟩ := hg
-  cases hf : env.find? listName with
-  | none => rw [hf] at h3; exact nomatch h3
-  | some ci =>
-    rw [hf] at h3
-    simp only [listTyOk] at h3
-    split at h3
-    · next p hlp => exact ⟨ci, p, rfl, hlp⟩
-    · exact nomatch h3
 
 /-! ## The chain, generalized
 

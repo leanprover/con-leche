@@ -135,15 +135,6 @@ theorem interp2_univ_cod_inversion (V : Type w) [SetTheory V] {v : Nat}
     f ≠ pt :=
   interp2_mem_pi_pos V hv hf
 
-/-- Nothing in the positive regime is ever the proof point — neither
-the products nor their members nor the abstractions.  This is what
-un-forces `pt ∈ univ (u+1)`: the reason the collapse needed the proof
-point in every universe was that a `Type`-level abstraction could be
-it. -/
-theorem interp2_pos_values_ne_pt {v : Nat} (hv : v ≠ 0) {A : V} {F B : V → V}
-    {f : V} (hf : f ∈ˢ piR v A B) : lamR v A F ≠ pt ∧ f ≠ pt :=
-  ⟨lamR_ne_pt hv, (mem_piR_pos hv hf).2.2.2⟩
-
 /-! ## What the collapse's cohabitation actually was -/
 
 /-- The proof point is **not** a truth value: `pt = {ptTag}` and
@@ -155,23 +146,6 @@ theorem pt_not_mem_univZero : ¬ (pt : V) ∈ˢ univZero := by
   have h3 : (pt : V) ∈ˢ pt := mem_pt.mpr h2.symm
   exact not_mem_self (pt : V) h3
 
-/-- **The cohabitation, located.**  Under the collapse the proof point
-inhabits the `Prop`-valued function space `A → Prop` **iff** the domain
-is empty.  So the T5 c5 wall — "a typing cannot separate `Eq α a` from
-`pt`" — is exactly the *unknown-empty-domain* case, not a general
-degeneracy of `Prop`-valued function spaces. -/
-theorem pt_mem_piC_univZero_iff {A : V} :
-    (pt : V) ∈ˢ piC A (fun _ => (univ 0 : V)) ↔ A = empty := by
-  rw [pt_mem_piC_iff]
-  constructor
-  · intro h
-    refine eq_empty fun z hz => ?_
-    have hz2 : (pt : V) ∈ˢ univZero := by
-      have := h z hz; rwa [univ_zero] at this
-    exact pt_not_mem_univZero hz2
-  · rintro rfl x hx
-    exact absurd hx (not_mem_empty x)
-
 /-- …and in the two-regime world it cannot happen even there: the
 empty-domain graph-regime product is `{∅}`, whose only member is the
 empty graph. -/
@@ -182,8 +156,5 @@ theorem not_pt_mem_piR_empty {v : Nat} (hv : v ≠ 0) (B : V → V) :
 
 theorem interp2_sort_mem (V : Type w) [SetTheory V] (ρ : Nat → V) (n : Nat) :
     interp2 V ρ (.sort n) ∈ˢ interp2 V ρ (.sort (n + 1)) := univ_mem_univ n
-
-theorem interp2_sort_mono (V : Type w) [SetTheory V] (ρ : Nat → V) {m n : Nat}
-    (h : m ≤ n) : interp2 V ρ (.sort m) ⊆ˢ interp2 V ρ (.sort n) := univ_mono h
 
 end ConLeche.Semantics

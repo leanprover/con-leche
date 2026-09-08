@@ -29,17 +29,11 @@ def natT : VExpr := .const .nat []
 def natZeroT : VExpr := .const .natZero []
 /-- `Nat.succ e` -/
 def natSuccT (e : VExpr) : VExpr := .app (.const .natSucc []) e
-/-- `@Nat.rec.{u} M z s t` -/
-def natRecT (u : Nat) (M z s t : VExpr) : VExpr :=
-  mkAppN (.const .natRec [u]) [M, z, s, t]
 
 /-- `PUnit.{u}` -/
 def punitT (u : Nat) : VExpr := .const .punit [u]
 /-- `PUnit.unit.{u}` -/
 def punitUnitT (u : Nat) : VExpr := .const .punitUnit [u]
-/-- `@PUnit.rec.{u,v} M m t` -/
-def punitRecT (u v : Nat) (M m t : VExpr) : VExpr :=
-  mkAppN (.const .punitRec [u, v]) [M, m, t]
 
 /-- `@PSigma'.{u,v} A B` -/
 def psigmaT (u v : Nat) (A B : VExpr) : VExpr :=
@@ -47,12 +41,6 @@ def psigmaT (u v : Nat) (A B : VExpr) : VExpr :=
 /-- `@PSigma'.mk.{u,v} A B a b` -/
 def psigmaMkT (u v : Nat) (A B a b : VExpr) : VExpr :=
   mkAppN (.const .psigmaMk [u, v]) [A, B, a, b]
-/-- `p.1` — field `0` of a pair.  A *former*, so it needs neither the
-pair's type arguments nor its levels: the typing rule reads them off
-the premise (`ConLeche/VExpr/Syntax.lean`). -/
-def pfstT (p : VExpr) : VExpr := .proj 0 p
-/-- `p.2` — field `1` of a pair. -/
-def psndT (p : VExpr) : VExpr := .proj 1 p
 
 /-- `Empty.{u}` (level-polymorphic: `Empty.{0}` is `False`) -/
 def emptyT (u : Nat) : VExpr := .const .empty [u]
@@ -65,9 +53,6 @@ def quotT (u : Nat) (A r : VExpr) : VExpr :=
 /-- `@Quot.mk.{u} A r a` -/
 def quotMkT (u : Nat) (A r a : VExpr) : VExpr :=
   mkAppN (.const .quotMk [u]) [A, r, a]
-/-- `@Quot.lift.{u,v} A r B f h q` -/
-def quotLiftT (u v : Nat) (A r B f h q : VExpr) : VExpr :=
-  mkAppN (.const .quotLift [u, v]) [A, r, B, f, h, q]
 
 /-- The type of a relation on `A`, where `A` is the term `a` in the
 ambient context: `A → A → Prop`.  (Written out rather than built from

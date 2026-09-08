@@ -820,17 +820,6 @@ theorem DmFrameP.readNat {mp : EnvS2PM V μ env} {c : Name}
   · exact absurd hc fr.natNe
   · exact denoteP_levelless_const hf hlp
 
-/-- The frame's `Bool` leaf reads. -/
-theorem DmFrameP.readBool {mp : EnvS2PM V μ env} {c : Name}
-    {A : (Name → Nat) → AVExpr} {value' : Expr} {ψ : Name → Nat}
-    (fr : DmFrameP mp c A value' ψ) (d : Nat) :
-    denoteP mp.base2.acval env ψ d (Expr.const ConLeche.boolName [])
-      = some (mp.base2.acval ConLeche.boolName ψ) := by
-  rcases fr.stored ConLeche.boolName (by simp [dmHeadNames]) with
-    hc | ⟨-, ci, hf, hlp⟩
-  · exact absurd hc fr.boolNe
-  · exact denoteP_levelless_const hf hlp
-
 /-- A `dmLeavesOk` term's leaves are the two `Nat` slots, so the frame
 discipline is free for it. -/
 theorem dmCtxOkP_natLeaves {mp : EnvS2PM V μ env} {c : Name}

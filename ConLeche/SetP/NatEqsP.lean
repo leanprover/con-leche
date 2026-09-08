@@ -91,12 +91,6 @@ theorem natAP_interp2_closed (m : EnvS2Core V env) (ψ : Name → Nat)
     interp2 V ρ (natAP m ψ) = interp2 V ρ' (natAP m ψ) :=
   acval_interp2_closedC m _ ψ ρ ρ'
 
-/-- The stored `Nat`'s interpretation does not read the
-environment. -/
-theorem natSP_closed (m : EnvS2Core V env) (ψ : Name → Nat)
-    (ρ ρ' : Nat → V) : natSP m ψ ρ = natSP m ψ ρ' :=
-  acval_interp2_closedC m _ ψ ρ ρ'
-
 /-- The two-variable context: both slots are the `Nat` leaf. -/
 def natCtx2 {env : Env} (m : EnvS2Core V env) (ψ : Name → Nat) :
     List AVExpr :=

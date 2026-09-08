@@ -6,7 +6,8 @@ import ConLeche.SetTheory.Derive.Universe
 * `pt := {ptTag}` with `ptTag := {∅, {{∅}}}` — the tagged proof
   point: the canonical inhabitant of every true proposition.  The tag
   is chosen so that **no data-value encoding produces `pt`** (task
-  #109; the battery is `Derive/PtFresh.lean`).  Selection principle:
+  #109; the battery was `Derive/PtFresh.lean`, deleted at task #221 with
+the collapse it served).  Selection principle:
   `pt` must be a singleton whose element (a) has an *empty* member —
   so neither the tag nor `pt` is a Kuratowski pair, pair elements
   being nonempty (the anti-pair tag `Derive/Graphs.lean` exploits, one

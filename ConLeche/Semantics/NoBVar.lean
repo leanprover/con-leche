@@ -205,46 +205,4 @@ theorem NoBVar_of_bvarsBelow :
   | proj i e ihe => intro k P h hP; exact ihe h hP
   | prf => intros; trivial
 
-omit [SetTheory V] in
-/-- Lifting at a cutoff never introduces the inserted variables. -/
-theorem NoBVar_liftN (n : Nat) :
-    ∀ (e : AVExpr) (k : Nat) {P : Nat → Prop},
-      (∀ i, P i → k ≤ i ∧ i < k + n) → NoBVar P (e.liftN n k) := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro k P hP
-    show ¬ P (if i < k then i else i + n)
-    intro h
-    split at h
-    · have := hP _ h; omega
-    · have := hP _ h; omega
-  | sort u => intros; trivial
-  | const c us => intros; trivial
-  | app f a ihf iha => intro k P hP; exact ⟨ihf k hP, iha k hP⟩
-  | lam v A b ihA ihb =>
-    intro k P hP
-    refine ⟨ihA k hP, ihb (k + 1) ?_⟩
-    intro i hi
-    cases i with
-    | zero => exact hi.elim
-    | succ i => have := hP i hi; omega
-  | pi u v A B ihA ihB =>
-    intro k P hP
-    refine ⟨ihA k hP, ihB (k + 1) ?_⟩
-    intro i hi
-    cases i with
-    | zero => exact hi.elim
-    | succ i => have := hP i hi; omega
-  | letE T v b ihT ihv ihb =>
-    intro k P hP
-    refine ⟨ihT k hP, ihv k hP, ihb (k + 1) ?_⟩
-    intro i hi
-    cases i with
-    | zero => exact hi.elim
-    | succ i => have := hP i hi; omega
-  | eqE T a b ihT iha ihb => intro k P hP; exact ⟨ihT k hP, iha k hP, ihb k hP⟩
-  | proj i e ihe => intro k P hP; exact ihe k hP
-  | prf => intros; trivial
-
 end ConLeche.Semantics

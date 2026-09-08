@@ -496,14 +496,6 @@ theorem directMkAV_mem {w : Nat} {bodyC : AVExpr} {ρ : Nat → V}
       ∈ˢ interp2 V ρ (mkPisAV (pds ++ fds) bodyC) :=
   mkLamsC_mem hz (underTowerOk_of_mkPre hpre rfl)
 
-/-- **The constructor leaf is graded** (`AnnotOk2`). -/
-theorem directMkAV_ok2 {w : Nat} {bodyC : AVExpr} {ρ : Nat → V}
-    {pds fds : List (Nat × Nat × AVExpr)}
-    (hz : ∀ d ∈ pds ++ fds, (w = 0 ↔ d.2.1 = 0))
-    (hpre : MkPre w ρ (fds.map (·.2.2)) bodyC pds) :
-    AnnotOk2 V ρ (directMkAV w (pds ++ fds) (fds.map (·.2.2))) :=
-  mkLamsC_ok2 hz (underTowerOk_of_mkPre hpre rfl)
-
 /-- **The constructor leaf's application fold** (graph regime): along
 a fitting parameter + field spine, the leaf computes the tier's
 tupler — the iota side's `⟦C p⃗ f⃗⟧ = mkTower f⃗`. -/

@@ -388,12 +388,6 @@ theorem shiftFrom_eq_self_of_not_hasFvar {p : Nat} :
   intro e
   induction e <;> simp_all [hasFvar, shiftFrom]
 
-/-- Shifting is untouched by (commutes trivially with) a `WScoped`
-bound below the shift point. -/
-theorem shiftFrom_eq_self_of_WScoped {p : Nat} {e : Expr}
-    (hw : WScoped p e) : shiftFrom p e = e :=
-  shiftFrom_eq_self hw.fvarsBelow
-
 /-- Shifting commutes with instantiation by an arbitrary term. -/
 theorem shiftFrom_instantiate1_gen {p : Nat} {v : Expr} :
     ∀ (e : Expr) (k : Nat),
@@ -454,19 +448,6 @@ theorem shiftFrom_mkAppN {p : Nat} :
   induction as with
   | nil => intro f; rfl
   | cons a as ih => intro f; simp [mkAppN, ih, shiftFrom]
-
-/-- Shifting (fvar indices) commutes with level instantiation
-(sorts and constant levels). -/
-theorem shiftFrom_instantiateLevelParams {p : Nat} (ks : List Name)
-    (us : List Level) :
-    ∀ (e : Expr), shiftFrom p (e.instantiateLevelParams ks us) =
-      (shiftFrom p e).instantiateLevelParams ks us := by
-  intro e
-  induction e with
-  | fvar idx ty ih =>
-    simp only [instantiateLevelParams, shiftFrom]
-    split <;> simp [instantiateLevelParams, ih]
-  | _ => simp_all [shiftFrom, instantiateLevelParams]
 
 /-- The scope check tracks the shift: a shift from `p ≤ d` moves
 scoping at `d` to scoping at `d + 1`. -/

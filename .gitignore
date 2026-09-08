@@ -1,3 +1,4 @@
 /.lake
 /_tmp
 .claude/
+__pycache__/

@@ -70,47 +70,6 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
       throw (.notImplemented "whnf beyond the supported fragment")) := by
   cases e <;> rfl
 
-/-- The stuck/iota tail of `whnfCoreBodyI`'s application case. -/
-private theorem whnfCoreC_iota_tail (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {f' a : ExprC} {f'x xa : Expr} {s₀ : CState}
-    (hs : CSOK mode env s₀) (hf'd : RelC f' f'x)
-    (had : RelC a xa)
-    (hwf' : Expr.WScoped d f'x) (hwa : Expr.WScoped d xa) :
-    SimC mode env s₀ (RelEC d)
-      (pure (Expr.app f' a) >>= fun fa =>
-        iotaRecI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d fa >>= fun o =>
-        match o with
-        | some e'' => (coreKnotI mode (mkFEnv env) f).whnfCore d e''
-        | none => pure fa)
-      (iotaRec mode (fueledFns mode env) env d (.app f'x xa) >>= fun o =>
-        match o with
-        | some e'' => (fueledFns mode env).whnfCore d e''
-        | none => pure (.app f'x xa)) := by
-  have hwapp : Expr.WScoped d (Expr.app f'x xa) := by
-    simp only [Expr.WScoped]
-    exact ⟨hwf', hwa⟩
-  refine SimC.bind_left
-    (pureC_eff hs (x := Expr.app f' a))
-    (fun s₁ fa hs₁ hQfa => ?_)
-  have hQfa' : RelC fa (Expr.app f'x xa) := by
-    show _ = _
-    have h := hQfa
-    rw [hf'd, had] at h
-    exact h
-  refine SimC.bind (iotaRecC_sim hμ ih henv hμ hs₁ hQfa' hwapp)
-    (fun s₂ o ox hs₂ hPo => ?_)
-  cases o with
-  | some e'' =>
-    cases ox with
-    | none => exact absurd hPo (by simp [RelOC])
-    | some e''x =>
-      obtain ⟨hred, hwred⟩ := hPo
-      exact ih.whnfCore hs₂ hred hwred
-  | none =>
-    cases ox with
-    | some e''x => exact absurd hPo (by simp [RelOC])
-    | none => exact SimC.pure hs₂ ⟨hQfa', hwapp⟩
-
 mutual
 
 /-- The bulk-beta argument loop simulates its pure mirror. -/

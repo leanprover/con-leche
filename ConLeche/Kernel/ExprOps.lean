@@ -738,9 +738,6 @@ def sizeB : Expr → Nat
   | .letE ty val body => sizeB ty + sizeB val + sizeB body + 1
   | .proj _ _ e => sizeB e + 1
 
-theorem sizeB_pos (e : Expr) : 0 < sizeB e := by
-  cases e <;> simp [sizeB]
-
 /-- Instantiating with a size-1 replacement preserves `sizeB`. -/
 theorem sizeB_instantiate1 (v : Expr) (hv : sizeB v = 1) :
     ∀ (e : Expr) (d : Nat), sizeB (instantiate1 e v d) = sizeB e := by
@@ -830,9 +827,11 @@ decreasing_by all_goals first
 hereditarily through annotations (the `Bool` mirror of the
 verification-side `WScoped`).
 
-Not on any per-memo-op path (task #43): the memoized knot's cache
+Not on any per-memo-op path (task #43): the executed knot's cache
 operations run unguarded, justified by the proven call discipline
-(`ConLeche/Verify/Disc.lean`).  Remaining executable call sites are the
+(`ConLeche/Verify/Cached/DiscC*.lean`; the memoized knot's own
+discipline, `ConLeche/Verify/Disc.lean`, went with that knot at task
+#221).  Remaining executable call sites are the
 scope guards on checker-fabricated terms in `ConLeche/Kernel/Core.lean`
 (the stuck-major rescues in `majorToCtor`; the projection
 eliminations went with task #175 wiring W5), each O(small

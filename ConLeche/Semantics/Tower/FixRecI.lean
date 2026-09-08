@@ -381,22 +381,6 @@ theorem frMs_bottom {as₀ is : List V} (hl₀ : as₀.length = nP + 1 + Fss.len
   rw [frMs_of Fss.length Ids.length hli ρ₁ hj, frMs_of Fss.length Ids.length hli ρ₂ hj]
   exact agreeOff_consList_ge as₀ ρ₁ ρ₂ _ (by omega)
 
-omit [SetTheory V] in
-theorem frM_bottom {as₀ is : List V} (hl₀ : as₀.length = nP + 1 + Fss.length) (hli : is.length = Ids.length)
-    (ρ₁ ρ₂ : Nat → V) :
-    frM Fss.length Ids.length (consList (as₀ ++ is) ρ₁) = frM Fss.length Ids.length (consList (as₀ ++ is) ρ₂) := by
-  rw [frM_of Fss.length Ids.length hli ρ₁, frM_of Fss.length Ids.length hli ρ₂]
-  exact agreeOff_consList_ge as₀ ρ₁ ρ₂ _ (by omega)
-
-omit [SetTheory V] in
-theorem frMsL_bottom {as₀ is : List V} (hl₀ : as₀.length = nP + 1 + Fss.length) (hli : is.length = Ids.length)
-    (ρ₁ ρ₂ : Nat → V) :
-    frMsL Fss.length Ids.length (consList (as₀ ++ is) ρ₁) = frMsL Fss.length Ids.length (consList (as₀ ++ is) ρ₂) := by
-  unfold frMsL
-  apply List.map_congr_left
-  intro j hj
-  exact frMs_bottom (nP := nP) hl₀ hli ρ₁ ρ₂ (List.mem_range.mp hj)
-
 /-- The elements' graph at a K-frame depends on the block only. -/
 theorem elemGraph_block {ρb : Nat → V} {as₀ is is' : List V}
     (hli : is.length = Ids.length) (hli' : is'.length = Ids.length) :

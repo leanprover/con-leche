@@ -52,9 +52,6 @@ moves it (task #202). -/
 def ihIdxAtM (nF o i l m : Nat) (E : AVExpr) : AVExpr :=
   (E.liftN (nF - i + l) m).liftN o (nF + l + m)
 
-theorem ihIdxAtM_zero (nF o i l : Nat) (E : AVExpr) : ihIdxAtM nF o i l 0 E = ihIdxAt nF o i l E :=
-  rfl
-
 /-- `directTeleAt`'s reading: field `i`'s telescope (its entries read
 at the field's own frame, binder `k` under `k` earlier telescope
 binders) moved to the ih binder's frame. -/

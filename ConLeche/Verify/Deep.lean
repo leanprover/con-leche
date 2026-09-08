@@ -16,9 +16,8 @@ import ConLeche.Verify.InstSpine
 The checker core threads a binder depth, used only to name freshly
 opened `fvar`s.  This module proves that every entry point's *result*
 is independent of the ambient depth, for inputs well-scoped at both
-depths — the theorem that justifies memoizing the cached knot
-(`ConLeche/Kernel/TypeCheckerC.lean`) under depth-free keys (see
-`ConLeche/Verify/Bridge.lean` for the retied cache invariant).
+depths — the theorem that justifies memoizing the executed knot
+(`ConLeche/Cached/CoreC.lean`) under depth-free keys.
 
 The proof is a bisimulation: a run at depth `d` on `e` is matched
 against the run at depth `d + 1` on `shiftFrom p e` (all `fvar`s at
@@ -1574,22 +1573,6 @@ private theorem iotaRec_shift (henv : EnvWF env)
         rw [hout]
         rfl
 
-private theorem isPropType_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {ty : Expr}
-    (hwty : WScoped d ty) :
-    isPropType (pureFns mode env fuel) env (d + 1) (shiftFrom p ty) =
-      isPropType (pureFns mode env fuel) env d ty := by
-  simp only [isPropType]
-  refine bind_congr _ (ih.annotate hpd hwty) ?_
-  intro ty' hty'
-  have hwty' : WScoped d ty' := annotateCore_WScoped fuel ty hty' hwty
-  refine bind_congr _ (ih.inferIO hpd hwty') ?_
-  intro t ht
-  refine bind_congr_eq (ensureSort_shift henv ih hpd
-    (inferTypeIO_WScoped henv fuel ht hwty')) ?_
-  intro sk _
-  rfl
-
 theorem instPis_WScoped {d : Nat} :
     ∀ {as : List Expr} {t res : Expr}, Expr.instPis t as = some res →
       WScoped d t → (∀ x ∈ as, WScoped d x) → WScoped d res
@@ -3118,19 +3101,6 @@ theorem annotateCore_depth_inv (henv : EnvWF env) (fuel : Nat)
   · exact (annotateCore_depth_le henv fuel hle
       (WScoped.of_wscopedB h₁)).symm
   · exact annotateCore_depth_le henv fuel hle (WScoped.of_wscopedB h₂)
-
-/-- **Depth invariance of `ensureSort`**: only the reduction step sees
-the depth. -/
-theorem ensureSortCore_depth_inv (henv : EnvWF env) (fuel : Nat)
-    {d₁ d₂ : Nat} {e : Expr} (h₁ : e.wscopedB d₁ = true)
-    (h₂ : e.wscopedB d₂ = true) :
-    ensureSortCore mode env fuel d₁ e = ensureSortCore mode env fuel d₂ e := by
-  show (whnf mode env fuel d₁ e >>= fun w =>
-      match w with
-      | .sort u => pure u
-      | _ => throw (.invalid "expected a sort")) = _
-  rw [whnf_depth_inv henv fuel h₁ h₂]
-  rfl
 
 end DepthInv
 

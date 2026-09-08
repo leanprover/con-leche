@@ -63,7 +63,8 @@ open ConLeche.SetModel
 
 /-! ### Two lift identities the depth-lift needs
 
-`VExpr` has these (`Verify/Denote/SubstAlgebra.lean`); `AVExpr` did
+`VExpr` had these (`Verify/Denote/SubstAlgebra.lean`, deleted unread
+at task #221); `AVExpr` did
 not, because nothing before this file iterated a lift. -/
 
 /-- A zero lift is the identity. -/

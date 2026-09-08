@@ -375,7 +375,6 @@ main_False :: ConLeche.Verify.Direct.FixWF
 main_False :: ConLeche.Verify.Direct.SumInv
 main_False :: ConLeche.Verify.Direct.SumRec
 main_False :: ConLeche.Verify.Direct.SumWF
-main_False :: ConLeche.Verify.Disc
 main_False :: ConLeche.Verify.DivModInv
 main_False :: ConLeche.Verify.EnvBound
 main_False :: ConLeche.Verify.EnvGuards
@@ -793,7 +792,6 @@ False_SPCD_P :: ConLeche.Verify.Direct.FixWF
 False_SPCD_P :: ConLeche.Verify.Direct.SumInv
 False_SPCD_P :: ConLeche.Verify.Direct.SumRec
 False_SPCD_P :: ConLeche.Verify.Direct.SumWF
-False_SPCD_P :: ConLeche.Verify.Disc
 False_SPCD_P :: ConLeche.Verify.DivModInv
 False_SPCD_P :: ConLeche.Verify.EnvBound
 False_SPCD_P :: ConLeche.Verify.EnvGuards
@@ -1591,7 +1589,6 @@ SPCD_P :: ConLeche.Verify.Direct.FixWF
 SPCD_P :: ConLeche.Verify.Direct.SumInv
 SPCD_P :: ConLeche.Verify.Direct.SumRec
 SPCD_P :: ConLeche.Verify.Direct.SumWF
-SPCD_P :: ConLeche.Verify.Disc
 SPCD_P :: ConLeche.Verify.DivModInv
 SPCD_P :: ConLeche.Verify.EnvBound
 SPCD_P :: ConLeche.Verify.EnvGuards
@@ -2009,7 +2006,6 @@ sound_P :: ConLeche.Verify.Direct.FixWF
 sound_P :: ConLeche.Verify.Direct.SumInv
 sound_P :: ConLeche.Verify.Direct.SumRec
 sound_P :: ConLeche.Verify.Direct.SumWF
-sound_P :: ConLeche.Verify.Disc
 sound_P :: ConLeche.Verify.DivModInv
 sound_P :: ConLeche.Verify.EnvBound
 sound_P :: ConLeche.Verify.EnvGuards
@@ -2427,7 +2423,6 @@ foldSPC_PM :: ConLeche.Verify.Direct.FixWF
 foldSPC_PM :: ConLeche.Verify.Direct.SumInv
 foldSPC_PM :: ConLeche.Verify.Direct.SumRec
 foldSPC_PM :: ConLeche.Verify.Direct.SumWF
-foldSPC_PM :: ConLeche.Verify.Disc
 foldSPC_PM :: ConLeche.Verify.DivModInv
 foldSPC_PM :: ConLeche.Verify.EnvBound
 foldSPC_PM :: ConLeche.Verify.EnvGuards

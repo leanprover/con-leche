@@ -7,7 +7,8 @@ import ConLeche.SetTheory.Basic
 abstraction: they read a numeral — the codomain sort of the binder,
 supplied by the annotation pass — and dispatch on it, rather than
 inspecting the semantic value the way the domain-relative collapse
-(`pcol`/`piC`/`lamC`, `ConLeche/SetTheory/Derive/Pi.lean`) does.
+(`pcol`/`piC`/`lamC`, `ConLeche/SetTheory/Derive/Pi.lean` — deleted at
+task #221, unread since these operators replaced it) does.
 
 * **`v = 0` — the truth-value (squash) regime.**  `piR 0 A B` is the
   truth value `[∀ x ∈ A, B x inhabited]`, `lamR 0 A F` is the canonical

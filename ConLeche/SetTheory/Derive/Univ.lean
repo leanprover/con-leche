@@ -1,4 +1,4 @@
-import ConLeche.SetTheory.Derive.Pi
+import ConLeche.SetTheory.Derive.Graphs
 import ConLeche.SetTheory.Derive.Omega
 
 /-!
@@ -91,40 +91,6 @@ theorem unitSet_mem_univ : ∀ n : Nat, (unitSet : V) ∈ˢ univ n
   | 0 => mem_univZero.mpr (Subset.refl _)
   | n + 1 =>
     (univ_isTGUniverse (Nat.succ_ne_zero n)).unitSet_mem (univChain_one_mem_univ_succ n)
-
-/-- Formation along the tower — the same `imax`-shaped statement as the
-old leveled law, but with the `v = 0` branch a consequence of the fibre
-facts rather than of the operator's level argument. -/
-theorem piC_mem_univ {u v : Nat} {A : V} {B : V → V}
-    (hA : A ∈ˢ (univ u : V)) (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univ v : V)) :
-    piC A B ∈ˢ (univ (if v = 0 then 0 else Nat.max u v) : V) := by
-  rcases Nat.eq_zero_or_pos v with rfl | hv
-  · rw [if_pos rfl, univ_zero]
-    exact piC_prop_mem_univZero fun x hx => univ_zero (V := V) ▸ hB x hx
-  · have hv' : v ≠ 0 := Nat.pos_iff_ne_zero.mp hv
-    rw [if_neg hv']
-    have hw : (Nat.max u v : Nat) ≠ 0 :=
-      fun h => hv' (Nat.le_zero.mp (h ▸ Nat.le_max_right u v))
-    exact (univ_isTGUniverse hw).piC_mem
-      (univ_mono (Nat.le_max_left u v) A hA)
-      (fun x hx => univ_mono (Nat.le_max_right u v) _ (hB x hx))
-
-/-- Collapsed values may land *smaller* (a `Type`-level product can be
-a truth value), and nothing needs exact placement: cumulativity
-recovers the unconditional `max`-level bound. -/
-theorem piC_mem_univ_max {u v : Nat} {A : V} {B : V → V}
-    (hA : A ∈ˢ (univ u : V)) (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univ v : V)) :
-    piC A B ∈ˢ (univ (Nat.max u v) : V) := by
-  have h := piC_mem_univ hA hB
-  split at h
-  · exact univ_mono (Nat.zero_le _) _ h
-  · exact h
-
-/-- Compat (vestigial level): `piC_mem_univ`. -/
-theorem pi_mem_univ {u v : Nat} {A : V} {B : V → V}
-    (hA : A ∈ˢ (univ u : V)) (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univ v : V)) :
-    pi v A B ∈ˢ (univ (if v = 0 then 0 else Nat.max u v) : V) :=
-  piC_mem_univ hA hB
 
 /- Opaque interface operator (see `Derive/Empty.lean`). -/
 attribute [irreducible] univ

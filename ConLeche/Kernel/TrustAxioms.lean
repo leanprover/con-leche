@@ -90,12 +90,6 @@ def trueIntroCvA : ConstantVal := ⟨trueIntroName, [], .const trueName []⟩
 /-- Pinned `Lean.trustCompiler`. -/
 def trustCompilerA : ConstantVal := ⟨trustCompilerName, [], .const trueName []⟩
 
-/-- The realizability witness of the installed `Lean.trustCompiler`:
-`True.intro` (a constant is its own annotated form).  Not stored —
-opaques are stored as `axiomInfo` — but the model interprets the
-constant by this value's interpretation. -/
-def trustCompilerValueA : Expr := .const trueIntroName []
-
 /-- Pinned `Bool` (shape only). -/
 def boolCvA : ConstantVal := ⟨boolName, [], .sort (.succ .zero)⟩
 

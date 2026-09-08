@@ -151,25 +151,11 @@ theorem letE_val {d : Nat} {Δa : List AVExpr}
     rw [Expr.fvarLeaves]
     exact List.mem_append_left _ (List.mem_append_right _ hl)
 
-theorem letE_body {d : Nat} {Δa : List AVExpr}
-    {ty val body : Expr}
-    (hC : CtxOkP m φ d Δa (.letE ty val body)) :
-    CtxOkP m φ d Δa body :=
-  hC.of_subset fun _ hl => by
-    rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl
-
 theorem proj_arg {d : Nat} {Δa : List AVExpr} {sn : Name}
     {i : Nat} {e : Expr}
     (hC : CtxOkP m φ d Δa (.proj sn i e)) :
     CtxOkP m φ d Δa e :=
   hC.of_subset fun _ hl => by rw [Expr.fvarLeaves]; exact hl
-
-/-- A leaf's annotation is itself covered. -/
-theorem fvar_ty {d idx : Nat} {Δa : List AVExpr}
-    {ty : Expr} (hC : CtxOkP m φ d Δa (.fvar idx ty)) :
-    CtxOkP m φ d Δa ty :=
-  hC.of_subset fun _ hl => by
-    rw [Expr.fvarLeaves]; exact List.mem_cons_of_mem _ hl
 
 end CtxOkP
 

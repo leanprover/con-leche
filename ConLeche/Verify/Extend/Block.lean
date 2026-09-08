@@ -149,25 +149,5 @@ valuation is its `_model` companion's. -/
 def cvalAlias (cval : TConstVal) (n mn : Name) : TConstVal := fun c ψ =>
   if c = n then cval mn ψ else cval c ψ
 
-theorem cvalAlias_ne {cval : TConstVal} {n mn c : Name} (h : c ≠ n) :
-    cvalAlias cval n mn c = cval c := by
-  funext ψ; simp [cvalAlias, h]
-
-theorem cvalAlias_self {cval : TConstVal} {n mn : Name} :
-    cvalAlias cval n mn n = cval mn := by
-  funext ψ; simp [cvalAlias]
-
-/-- An alias of a closed valuation is closed. -/
-theorem cvalAlias_closed {cval : TConstVal} {n mn : Name}
-    (hcl : ∀ c ψ, VExpr.Closed (cval c ψ)) :
-    ∀ c ψ, VExpr.Closed (cvalAlias cval n mn c ψ) := by
-  intro c ψ
-  by_cases hc : c = n
-  · subst hc
-    rw [cvalAlias_self]
-    exact hcl mn ψ
-  · rw [cvalAlias_ne hc]
-    exact hcl c ψ
-
 
 end ConLeche.Verify

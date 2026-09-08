@@ -71,35 +71,6 @@ theorem ProvFacts.find?_preserved {F : Nat} {blockNames : List Name} :
     rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
     exact hf
 
-/-- The provisional environments only add rule-less recursors: every
-lookup is either preserved or hits a provisioned recursor. -/
-theorem ProvFacts.find?_corr {F : Nat} {blockNames : List Name} :
-    ∀ {envAcc envSelf : Env}
-      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
-      ProvFacts F blockNames envAcc envSelf checked →
-      ∀ n : Name, envSelf.find? n = envAcc.find? n ∨
-        ∃ cvA mI rP,
-          envSelf.find? n = some (.recInfo cvA mI rP []) ∧
-          cvA.name = n := by
-  intro envAcc envSelf checked h
-  induction h with
-  | nil => intro n; exact Or.inl rfl
-  | @cons envAcc envSelf cvA mI rP rules rest hfresh _ _ _ _ _ _ _
-      _ _ _ ih =>
-    intro n
-    rcases ih n with heq | hrec
-    · by_cases hn : cvA.name = n
-      · subst hn
-        refine Or.inr ⟨cvA, mI, rP, ?_, rfl⟩
-        rw [heq, Env.find?_cons,
-          if_pos (show (ConstantInfo.recInfo cvA mI rP
-            []).name = cvA.name from rfl)]
-      · left
-        rw [heq, Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA mI rP
-            []).name = n from hn)]
-    · exact Or.inr hrec
-
 /-- The shape-level swap pair (no obligations). -/
 def SwapPairSh (c₀ c₃ : ConstantInfo) : Prop :=
   c₀ = c₃ ∨
@@ -383,29 +354,6 @@ theorem provisionRecs_fresh {F : Nat} {blockNames : List Name} :
       · exact nomatch h1
       · exact h1
 
-/-- Every input recursor was fresh at the environment `checkIndRecs`
-started from. -/
-theorem checkIndRecs_names {F : Nat} {blockNames : List Name}
-    {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃) :
-    ∀ ci ∈ recs, env₂.find? ci.name = none := by
-  rw [checkIndRecs] at h
-  by_cases hemp : recs.isEmpty = true
-  · intro ci hci
-    rw [List.isEmpty_iff.mp hemp] at hci
-    exact nomatch hci
-  rw [if_neg hemp] at h
-  simp only [Bind.bind, Except.bind] at h
-  by_cases heqf : env₂.find? eqName = some eqA
-  case neg => rw [if_neg heqf] at h; exact nomatch h
-  rw [if_pos heqf] at h
-  simp only [pure, Except.pure] at h
-  try dsimp only at h
-  revert h
-  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
-  | error e => intro h; exact nomatch h
-  | ok p => intro h; exact provisionRecs_fresh recs env₂ p hprov
-
 /-- Provisioned recursors never carry a model-shaped name
 (`checkMemberVal` rejects them). -/
 theorem provisionRecs_modelfree {F : Nat} {blockNames : List Name} :
@@ -424,28 +372,6 @@ theorem provisionRecs_modelfree {F : Nat} {blockNames : List Name} :
       rw [hcvA] at hms
       exact hms
     · exact provisionRecs_modelfree rest _ p' hrec ci hci
-
-/-- Installed recursors never carry a model-shaped name. -/
-theorem checkIndRecs_modelfree {F : Nat} {blockNames : List Name}
-    {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃) :
-    ∀ ci ∈ recs, ci.name.isModelSuffix = false := by
-  rw [checkIndRecs] at h
-  by_cases hemp : recs.isEmpty = true
-  · intro ci hci
-    rw [List.isEmpty_iff.mp hemp] at hci
-    exact nomatch hci
-  rw [if_neg hemp] at h
-  simp only [Bind.bind, Except.bind] at h
-  by_cases heqf : env₂.find? eqName = some eqA
-  case neg => rw [if_neg heqf] at h; exact nomatch h
-  rw [if_pos heqf] at h
-  simp only [pure, Except.pure] at h
-  try dsimp only at h
-  revert h
-  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
-  | error e => intro h; exact nomatch h
-  | ok p => intro h; exact provisionRecs_modelfree recs env₂ p hprov
 
 
 /-- The provisioning chain's facts, model-free (for the run-level
@@ -556,29 +482,6 @@ theorem provisionRecs_projshape {F : Nat} {blockNames : List Name} :
       exact hpshape0
     · exact provisionRecs_projshape rest _ p' hrec ci hci
 
-/-- Installed recursors never carry a projection-function-shaped
-name. -/
-theorem checkIndRecs_projshape {F : Nat} {blockNames : List Name}
-    {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃) :
-    ∀ ci ∈ recs, ci.name.isProjFnShape = false := by
-  rw [checkIndRecs] at h
-  by_cases hemp : recs.isEmpty = true
-  · intro ci hci
-    rw [List.isEmpty_iff.mp hemp] at hci
-    exact nomatch hci
-  rw [if_neg hemp] at h
-  simp only [Bind.bind, Except.bind] at h
-  by_cases heqf : env₂.find? eqName = some eqA
-  case neg => rw [if_neg heqf] at h; exact nomatch h
-  rw [if_pos heqf] at h
-  simp only [pure, Except.pure] at h
-  try dsimp only at h
-  revert h
-  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
-  | error e => intro h; exact nomatch h
-  | ok p => intro h; exact provisionRecs_projshape recs env₂ p hprov
-
 /-- Provisioning adds only recursor-kind constants. -/
 theorem provisionRecs_find_new {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
@@ -600,54 +503,6 @@ theorem provisionRecs_find_new {F : Nat} {blockNames : List Name} :
       · exact Or.inr ⟨cvA, mI, rP, [], Option.some.inj hf'.symm ▸ rfl⟩
       · exact Or.inl hf'
     · exact Or.inr hk
-
-/-- The recursor phase adds only recursor-kind constants. -/
-theorem checkIndRecs_find_new {F : Nat} {blockNames : List Name}
-    {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃)
-    (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true) :
-    ∀ (n : Name) (ci : ConstantInfo), env₃.find? n = some ci →
-    env₂.find? n = some ci ∨
-      ∃ cv mI rP rules, ci = .recInfo cv mI rP rules := by
-  rw [checkIndRecs] at h
-  by_cases hemp : recs.isEmpty = true
-  · rw [if_pos hemp] at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    exact fun n ci hf => Or.inl hf
-  rw [if_neg hemp] at h
-  simp only [Bind.bind, Except.bind] at h
-  by_cases heqf : env₂.find? eqName = some eqA
-  case neg => rw [if_neg heqf] at h; exact nomatch h
-  rw [if_pos heqf] at h
-  simp only [pure, Except.pure] at h
-  try dsimp only at h
-  revert h
-  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
-  | error e => intro h; exact nomatch h
-  | ok p => ?_
-  intro h
-  try dsimp only at h
-  obtain ⟨envSelf, checked⟩ := p
-  try dsimp only at h
-  obtain ⟨zipped, hmap, hchain⟩ := rulesFold_inv checked env₂ env₃ h
-  have hProv := provisionRecs_facts recs env₂ (envSelf, checked)
-    hprov hbn
-  rw [show checked = zipped.map Prod.fst from hmap.symm] at hProv
-  have hswSh := chains_swapSh hProv hchain (SwapShList.of_eq env₂.consts)
-  have hcorr0 := swapSh_find?_corr hswSh
-  intro n ci hf
-  rcases hcorr0 n with heq | ⟨cv, a, b, e0, h₀, h₃, -⟩
-  · rw [heq] at hf
-    rcases provisionRecs_find_new recs env₂ (envSelf, zipped.map Prod.fst)
-      (by rw [show (envSelf, zipped.map Prod.fst) = (envSelf, checked)
-            from by rw [hmap]]
-          exact hprov) n ci hf with hf' | hk
-    · exact Or.inl hf'
-    · exact Or.inr hk
-  · rw [h₃] at hf
-    obtain rfl := Option.some.inj hf
-    exact Or.inr ⟨cv, a, b, _, rfl⟩
 
 
 /-- Provisioning preserves stored lookups exactly (every cons is
@@ -676,100 +531,6 @@ theorem provisionRecs_find_preserved {F : Nat} {blockNames : List Name} :
     refine provisionRecs_find_preserved rest _ p' hrec n ci ?_
     rw [Env.find?_cons_of_isSome hfindA (by rw [hf]; rfl)]
     exact hf
-
-/-- The recursor phase preserves non-recursor stored lookups exactly
-(only provisioned recursors get their rule lists attached). -/
-theorem checkIndRecs_find_preserved {F : Nat} {blockNames : List Name}
-    {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃)
-    (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true) :
-    ∀ (n : Name) (ci : ConstantInfo), env₂.find? n = some ci →
-    (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
-    env₃.find? n = some ci := by
-  rw [checkIndRecs] at h
-  by_cases hemp : recs.isEmpty = true
-  · rw [if_pos hemp] at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    exact fun n ci hf _ => hf
-  rw [if_neg hemp] at h
-  simp only [Bind.bind, Except.bind] at h
-  by_cases heqf : env₂.find? eqName = some eqA
-  case neg => rw [if_neg heqf] at h; exact nomatch h
-  rw [if_pos heqf] at h
-  simp only [pure, Except.pure] at h
-  try dsimp only at h
-  revert h
-  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
-  | error e => intro h; exact nomatch h
-  | ok p => ?_
-  intro h
-  try dsimp only at h
-  obtain ⟨envSelf, checked⟩ := p
-  try dsimp only at h
-  obtain ⟨zipped, hmap, hchain⟩ := rulesFold_inv checked env₂ env₃ h
-  have hProv := provisionRecs_facts recs env₂ (envSelf, checked)
-    hprov hbn
-  rw [show checked = zipped.map Prod.fst from hmap.symm] at hProv
-  have hswSh := chains_swapSh hProv hchain (SwapShList.of_eq env₂.consts)
-  have hcorr0 := swapSh_find?_corr hswSh
-  intro n ci hf hnr
-  have hfS : ((envSelf, zipped.map Prod.fst).1.find? n) = some ci :=
-    provisionRecs_find_preserved recs env₂ _
-      (by rw [show (envSelf, zipped.map Prod.fst) = (envSelf, checked)
-            from by rw [hmap]]
-          exact hprov) n ci hf
-  rcases hcorr0 n with heq | ⟨cv, a, b, e0, h₀, h₃, -⟩
-  · rw [heq]
-    exact hfS
-  · rw [h₀] at hfS
-    exact absurd (Option.some.inj hfS).symm (hnr cv a b [])
-
-/-- The recursor phase only extends the environment: stored lookups
-stay stored. -/
-theorem checkIndRecs_mono {F : Nat} {blockNames : List Name}
-    {env₂ env₃ : Env} {recs : List ConstantInfo}
-    (h : checkIndRecs mode (fueledOps mode F) blockNames env₂ recs = .ok env₃)
-    (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true) :
-    ∀ n, (env₂.find? n).isSome = true → (env₃.find? n).isSome = true := by
-  rw [checkIndRecs] at h
-  by_cases hemp : recs.isEmpty = true
-  · rw [if_pos hemp] at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    exact fun n hn => hn
-  rw [if_neg hemp] at h
-  simp only [Bind.bind, Except.bind] at h
-  by_cases heqf : env₂.find? eqName = some eqA
-  case neg => rw [if_neg heqf] at h; exact nomatch h
-  rw [if_pos heqf] at h
-  simp only [pure, Except.pure] at h
-  try dsimp only at h
-  revert h
-  cases hprov : provisionRecs (fueledOps mode F) blockNames env₂ recs with
-  | error e => intro h; exact nomatch h
-  | ok p => ?_
-  intro h
-  try dsimp only at h
-  obtain ⟨envSelf, checked⟩ := p
-  try dsimp only at h
-  obtain ⟨zipped, hmap, hchain⟩ := rulesFold_inv checked env₂ env₃ h
-  have hProv := provisionRecs_facts recs env₂ (envSelf, checked)
-    hprov hbn
-  rw [show checked = zipped.map Prod.fst from hmap.symm] at hProv
-  have hswSh := chains_swapSh hProv hchain (SwapShList.of_eq env₂.consts)
-  have hcorr0 := swapSh_find?_corr hswSh
-  intro n hn
-  have hnS : ((envSelf, zipped.map Prod.fst).1.find? n).isSome = true :=
-    provisionRecs_mono recs env₂ _
-      (by rw [show (envSelf, zipped.map Prod.fst) = (envSelf, checked)
-            from by rw [hmap]]
-          exact hprov) n hn
-  rcases hcorr0 n with heq | ⟨cv, a, b, e0, h₀, h₃, -⟩
-  · rw [heq]
-    exact hnS
-  · rw [h₃]
-    rfl
 
 /-! ## The congruences a shape-level swap induces
 

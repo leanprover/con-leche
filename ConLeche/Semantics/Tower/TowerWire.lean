@@ -279,31 +279,6 @@ theorem stripPisAV_below :
 
 /-! ## The three leaves -/
 
-/-- **The type-former leaf is bounded** from the parameter frame's
-and the field chain's bounds. -/
-theorem directTyAV_below {w : Nat} {pps : List (Nat × Nat × AVExpr)}
-    {Fs : List AVExpr} {k : Nat} (hp : DomsBelow k pps)
-    (hF : FieldsBelow (k + pps.length) Fs) :
-    VExpr.bvarsBelow k (directTyAV w pps Fs).erase :=
-  mkLamsAV_below hp.mapC (by
-    rw [List.length_map]
-    exact towerBodyAV_below hF)
-
-/-- **The constructor leaf is bounded**: the binder frame is the
-parameter+field frame and the tupler sits at its top.  `hlen` is the
-frame accounting the wiring computes (`ds = pds ++ fds`,
-`Fs = fds.map (·.2.2)`, so the tupler's own frame ends exactly at the
-binder tower's). -/
-theorem directMkAV_below {w : Nat} {ds : List (Nat × Nat × AVExpr)}
-    {Fs : List AVExpr} {k j : Nat} (hd : DomsBelow k ds)
-    (hF : FieldsBelow (k + j) Fs)
-    (hlen : j + Fs.length = ds.length) :
-    VExpr.bvarsBelow k (directMkAV w ds Fs).erase :=
-  mkLamsC_below hd (by
-    have := mkTowerGo_below (w := w) hF
-    rw [show k + j + Fs.length = k + ds.length by omega] at this
-    exact this)
-
 /-- **The recursor leaf is bounded**: the body reads only the minor
 and the major, which sit inside any frame of length ≥ 2. -/
 theorem directRecAV_below {ℓ : Nat} {ds : List (Nat × Nat × AVExpr)}

@@ -60033,3 +60033,239 @@ declaration and to the block — at **679.17 G instructions:u** against
 #219's 679.12 G, i.e. parity (+0.008 %): the recogniser trades a
 recursor-driven subtraction for a Π-spine walk of the type former.
 
+
+
+## TASK #221 — DEAD-CODE REMOVAL ACROSS THE TREE: ten modules, 214 declarations, six macros (2026-09-08, `agent/deadcode2`)
+
+User directive: *"remove unused code"* (standing rule), *"dead code
+removal sounds good"* (this task).  Net: **7 747 deletions against 625
+insertions across 116 files**, `ConLeche/` 463 → 454 modules and
+202 610 → 195 404 lines, the build 527 → 517 jobs, and — the census's
+own proof that nothing reachable was touched — **the live-constant
+count is 18 370 before and 18 369 after, the one departure being a
+declaration this batch removes on purpose** (below).
+
+### 1. The instrument is committed this time
+
+Task #210 Part C built a per-constant liveness census in `_tmp` and did
+not keep it; #221 had to re-derive it.  It is now
+`scripts/dead-census.lean` (dumps the constant dependency graph of an
+imported environment) plus `scripts/dead-census.py` (runs it over the
+two executable environments — `Main.lean` and `PinDump.lean` both
+declare `main`, so they cannot share one — picks the seeds, walks, and
+classifies the dead against the sources).  **The next census is a
+re-run.**
+
+LIVE is the union of: the seven capstone roots of `tests/ProofDeps.lean`;
+`main`, in each environment; everything `ConLecheTests*`,
+`ConLeche.Challenge` and `ConLeche.PinGen.Certs` declare (the last is
+read *by name out of the built olean* at pin-generation time, which no
+static walk can see); every `@[csimp]` theorem, with `@[csimp]` and
+`@[implemented_by]` as extra graph edges; and everything reachable by
+**registration** — `syntax`/`macro`/`elab`/`notation`/`instance`,
+`@[command_elab]`, and every declaration of a module that declares a
+*command* elaborator (`Kernel/BasisGen.lean`, `PinGen.lean`,
+`PinGen/Dump.lean`, whose private helpers are reached only through the
+command).  Two of these seed classes were learned by getting the census
+wrong first: without the registration seeds, `Kernel/BasisGen.lean` —
+the `#annotate_basis` command that derives every pinned basis constant
+— reads **33 dead declarations**, and `PinGen/Certs.lean` reads dead
+entire.
+
+The dead are then split against the sources, because the closure is not
+the whole story:
+
+| class | meaning | this tree |
+|---|---:|---|
+| generated | not a source declaration (`.rec`, equation lemmas, match auxiliaries, anonymous instances) | 9 053 |
+| attributed | a source declaration carrying an attribute, `@[simp]` above all: deleting one changes what a tactic can *reach*, so only the build can say | 194 |
+| soft | its short name still occurs somewhere else (or twice in its own file — a tactic macro's quotation): a `simp` argument, a docstring, a fixture | 1 139 |
+| hard | a source declaration, no attribute, and its name occurs **nowhere else in the tree** | 234 |
+
+The own-file *count* matters and was the second thing learned wrong: a
+name used only inside its own file — inside a tactic macro's syntax
+quotation, say — occurs twice there, and a name nothing mentions occurs
+once.  Counting files instead of occurrences put 60 such names in the
+hard list.
+
+### 2. The nine kept-by-statement modules, re-judged
+
+#209's finding stands and is the reason this section exists: *"imported
+by nothing" is not a dead-code criterion in a verification tree.*  Its
+table was written before #210 deleted the routes some of its entries
+were instruments for, so every entry was re-read.
+
+| module | what its STATEMENT is | verdict |
+|---|---|---|
+| `SetTheory.Derive.Collapse` | two refutation horns + the forcing lemma that fixed the domain-relative point collapse `pcol`/`piC`/`lamC` | **DELETED** — the operators it is evidence *about* have no reader: the interpretation reads the graded `piR`/`lamR` (`SetModel/Ops.lean`).  A design instrument whose subject is deleted is dead; the finding itself is this document's ("Annotation erasure") |
+| `Kernel.CoreP` | the β-cert-gated `whnfCore` knot, deliberately unreachable from `Main.lean` (the S9 seal) | **KEPT** — the flag-less-core endgame names this knot's collapse `whnfCoreBodyP_eq` as the pattern its route C reuses, and the gate's mode accessors (`betaGate`, `verifiedChecks`) are live in the shipped checker.  The decision is open, not settled |
+| `Kernel.CheckerP` | that knot's driver instantiation | **KEPT**, same reason |
+| `Verify.CoreP` | the gated knot's equations, the collapse, and its one changed clause `whnfCoreP_app_inv` | **KEPT**, same reason |
+| `SetP.Step2.GateP` | the β-gate's licence as a theorem, with the asymmetry fence | **KEPT**, same reason (Part C's residual list, same family) |
+| `Verify.AnnotDefense` | `DefensiveSitesQuiet`, the #161 P3 theorem *candidate* under the decide-by-proof mandate | **KEPT** — the mandate is open and the three defensive sites are still in the shipped core |
+| `SetP.IndPinProbeP` | the mechanized refutation of the nested-pin conjunct's unconditional `∀ ρ` grading | **KEPT** — the clause it shaped is still `Annot/EnvS2P.lean`'s, at both its spellings; the refutation is why it reads as it does |
+| `Verify.Cached.AgreeFloor` | the trusted↔P agreement floor (`checkDeclsSPCachedD_skels`, proved once for every mode) | **KEPT** — a result that is not a corollary, and `OVERVIEW.md` links it: a linked module is alive by documentation |
+| `Verify.Cached.AgreeAnnot` | T2a/T2b — `annotate`'s config identity and the `pw` writes | **DELETED** — T2a is an empty section and T2b's two leaf theorems compare one function's run *with itself*: since the `pw` writers were ungated there is one annotation pass and the obligations are discharged by the signature.  #190 had already scheduled it "for the batch that owns those files" |
+
+Part C's residual list, same treatment: `Kernel.TypeCheckerC`,
+`Verify.Scoped` and `Verify.Disc` **DELETED** (§3); `Semantics.WhnfCoreLeaf`
+**KEPT — by the build** (§4); `SetTheory.Derive.{Pi, PtFresh}` and
+`Verify.Denote.SubstAlgebra` **DELETED** (§3);
+`Verify.Denote.InstSimp` **DELETED** (§5).
+
+### 3. What went, by layer
+
+**The memoized knot and its call discipline** (2 281 lines) —
+`Kernel/TypeCheckerC.lean` (121), `Verify/Scoped.lean` (422),
+`Verify/Disc.lean` (1 738).  The knot induction that closed them
+(`Verify/Bridge.lean`) was already gone; the checker executes the
+**cached** knot (`Cached/CoreC.lean`), whose discipline is
+`Verify/Cached/DiscC*.lean`.  Two general scoping facts of `Disc` that
+the cached discipline still reads — `wscoped_getD`,
+`wscoped_instLevels_of_not_hasFvar` — are rehomed to
+`Verify/InstSpine.lean`, which is the whole proofdeps delta (§6).
+
+**The domain-relative collapse** (1 004 lines) —
+`SetTheory/Derive/{Pi, PtFresh, Collapse}.lean`.  `piC`/`lamC`/`pcol`
+and the pt-freshness battery that made the collapse safe have no
+reader: the interpretation reads `.pi`/`.lam` through the
+annotation-driven `piR`/`lamR` over `Derive/Graphs`'s `piSet`.  The
+prose comparisons that survive in `SetModel/Ops.lean`,
+`Semantics/{Syntax,Kit,Univ,LitStep2}.lean` and `SetP/{IndFireP,
+IndLamTowerP,EqTowerP}.lean` — "`app_lamC` fires on domain membership
+alone", "v1 needed `app_mem_piC`" — are exactly why the graded
+operators are shaped as they are, and they stay: #209's convention, a
+citation of a deleted declaration is resolvable in git history and the
+*reason* is the part worth keeping.
+
+**The `VExpr` substitution algebra** (516) —
+`Verify/Denote/SubstAlgebra.lean`.  Its consumer was the declarative
+lane; #209 deleted the four lemmas whose subject had gone and the rest
+went unread.  The live algebra is `SetP/IndSubstP.lean`'s, at `AVExpr`
+(a different namespace with the same short names, which is why the
+grep-only reading of #190 §6 could not see this).
+
+**`Verify/Cached/AgreeAnnot.lean`** (145), §2.
+
+**208 declarations** inside modules that stay, in two rounds.  The
+deletion set is not the candidate list: it is the **closure of the
+candidates under "a dead user goes with what it uses"**.  No live
+declaration can depend on a dead one — that is how the closure was
+computed — so the closure stays inside the dead set and the tree still
+compiles; 175 candidates closed to 195 (round 1) and the re-run's 13
+(round 2, what the first cut itself killed: `VExpr/Const.lean`'s five
+basis-constant types that only the deleted algebra typed,
+`Verify/Cached/SimCEff`'s three `lnz` facts, `Extend/Block`'s two
+`cvalAlias` lemmas, three singletons).
+
+Ruled out of the candidate set by hand, and listed so the next census
+does not re-propose them: `SetTheory/Derive/*`'s law lists (#190's
+ruling — under the minimal-axiomatization directive those per-construction
+modules' law lists *are* the derived interface), `BridgeWfImp`'s
+`*_wfimp` family and `AgreeFloor`'s skeleton results (results that are
+not corollaries), and the six modules of §2 with everything they use.
+
+### 4. The one restore, and it is finding (1) again
+
+`Semantics/WhnfCoreLeaf.lean`'s six `rfl` lemmas read **dead** and are
+**needed**: `SetP/Step2/WhnfP.lean` passes them to `simp` by name and
+they do not end up in the proof term.  That is #210 Part C's finding
+(1) — *a syntactic-only use leaves no trace in the proof term* — met
+again, and the module is back with its imports.  It is the only restore
+the build demanded out of 214 cut declarations and ten cut modules,
+which is the measure of how well the text filter compensates: the six
+lemmas were in the **soft** class, and the cut took them only because
+their module was cut whole.
+
+### 5. Two classes the constant census cannot see at all
+
+A *registered* declaration is reachable by registration, which is why
+the census seeds it — but seeding says nothing about whether anything
+**uses** it.  Grepping the registrations found two:
+
+* `Verify/Denote/InstSimp.lean` (61 lines) — the `inst_simp` tactic.
+  Its "customers", named in its own header, were the declarative lane's
+  `CheckStepTT` clauses; they went at #209 and the tactic has had **no
+  invocation anywhere** since.  This is the census's one live-set
+  departure: 18 370 → 18 369.
+* six tactic macros in `Verify/BridgeDecl.lean` — `datF_step`,
+  `datF_step4`, `datF_step5`, `datF_stepPI`, `datF_tac5`, and then
+  `datF_step5_alt` whose last caller was `datF_tac5` — defined, never
+  invoked.
+
+**The rule, for the next census**: seed the registrations so their
+cones do not read dead, then grep the registrations themselves for a
+call site.  The two questions are different and the census answers only
+the first.
+
+### 6. Gates
+
+`lake build` warning-free, **517 jobs** (was 527); cold
+(`rm -rf .lake/build/bin && lake build con-leche`) clean; `lake test`.
+`tests/arena.sh` under `env -i HOME=$HOME PATH=$PATH`, **exit 0**:
+tutorial 90/92 (032/033 by design), e2e 166/166, annot 14/14, retired
+flags 8/8, mode flags 18/18, prelude counts 3/3, progress lane 6/6,
+DAG-tower 2/2, `inmodel` OK, axioms pinned (11 theorems at `[propext,
+Classical.choice, Quot.sound]`), trusted sweep 138 + 166 + 14 with its
+three recorded divergences.  `tests/layering.sh`: base **263** / P 189 /
+caps 3 / umbrella 1 (was 272 / 189 / 3 / 1 — the nine deleted base
+modules), 0 base→lane, 0 impl→theory.  `tests/trust-surface.sh`: 18
+escapes in 4 allowlisted files (**464** scanned, was 472), 0 outside.
+`tests/route-census.sh`: 90 streams, 682 blocks — 142 fix, 0 inmodel,
+540 basis, 0 modeled (#219's exactly).  `tests/overview-links.sh`: 57
+links, 44 files, OK — eleven anchors moved and **no cited text
+changed**; each citing paragraph was re-read against the declaration it
+names before `--update`.  `tests/proofdeps.sh` regenerated once:
+**2 851 → 2 846 rows, doors 0**; the five that left are one module
+across five roots (`ConLeche.Verify.Disc` on `main_False`,
+`False_SPCD_P`, `SPCD_P`, `sound_P`, `foldSPC_PM`), and they left
+because its two live declarations moved to `Verify/InstSpine.lean`,
+which is already in each of those closures — the closures' *constants*
+are unchanged.  No capstone statement, axiom pin or root changed.
+
+**init-full**, raw, default mode, under `perf stat -e instructions:u`:
+accepted **53 088** declarations, exit 0, route census **584 fix / 6
+basis / 1 inmodel**, at **679.08 G instructions:u** against #219's
+published 679.12 G — parity (−0.006 %).  **A deletion costs nothing, as
+it should**, and the census's live set says why: nothing the binary can
+reach was touched.
+
+**The live-constant count, before and after**: 18 370 → 18 369.  The
+whole difference is `ConLeche.Verify.instSimp` (§5).  Four
+`match_N` auxiliaries also change name — Lean renumbers a private
+module's match auxiliaries when declarations around them go — which is
+renaming, not departure.
+
+### 7. What was NOT done, and the residue
+
+**Unused imports: attempted, reverted, and the reason is the finding.**
+The local criterion — *an import `I` of `M` is redundant when everything
+`M`'s own declarations reference is still reachable through `M`'s other
+imports* — yields 43 candidates, and applying them **breaks the build**:
+`SetTheory/Basic.lean`'s `import ConLeche.SetTheory.Derive.Sigma` is
+redundant for `Basic`'s own declarations and is how `SetModel/TupleTower.lean`
+reaches `sigmaSet`.  The correct criterion is global (no module that
+reaches `M` may lose a need), and stating it needs the **module
+system's** import semantics modelled exactly: this tree mixes `module`
+files, where a plain `import` is *not* re-exported, with classic files,
+where it is.  A first cut of that model still leaves 78 modules whose
+needs it cannot account for.  Recorded as a docket item, not attempted
+further: it is a task with its own instrument, and no verdict payoff.
+
+**The residue, for the next pass** (from the final census): **38 hard**
+candidates and 939 soft.  The hard ones are the six kept-by-statement
+modules' declarations (`Verify.CoreP` 12, `Kernel.CoreP`/`CheckerP`,
+`GateP`, `AnnotDefense`, `IndPinProbeP`), `BridgeWfImp`'s eight
+`*_wfimp`, `AgreeFloor`'s four, and eleven `SetTheory/Derive/*` laws —
+i.e. exactly the classes §3 ruled out by hand.  **Seven modules have no
+live declaration**: the six of §2 and `Semantics/WhnfCoreLeaf.lean`,
+whose entry in that list is now a *feature* — it is the standing
+example of a module that is dead to the closure and alive to `simp`.
+
+**`scripts/`**: `jzero_{drill,ladder,sizes}.py` (task #214's
+investigation tooling, referenced by nothing) moved to `_tmp/jzero/`
+beside that lane's `REPORT.md`.  Kept, with their consumers named:
+`natop_prefix.json` (`include_str`'d by `ConLeche/PinGen.lean`),
+`natop_cone_roots.json` (read by `mk_natop_fixture.py`),
+`extract_natop_prefix.py` and `diagnose_natop_prefix.py` (the recipe
+this document's §"Prefix allowlists" describes).

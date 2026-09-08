@@ -14,8 +14,10 @@ import ConLeche.SetTheory.Derive.Pt
 * `piSet A B ⊆ power (sigmaPairs A B)` — the total single-valued
   graphs: the `v ≠ 0` dependent product.
 
-The level-`0` truncations (`lam 0 = pt`, `pi 0` a truth value) are
-layered on top in `Derive/Pi.lean`.
+The level-`0` truncations (`lam 0 = pt`, `pi 0` a truth value) were
+layered on top in `Derive/Pi.lean`, deleted at task #221: the model
+reads the *annotation-driven* `piR`/`lamR` (`SetModel/Ops.lean`), which
+dispatch on the annotation instead of collapsing.
 -/
 
 namespace ConLeche.SetTheory
@@ -193,7 +195,7 @@ graph's off-domain behavior is *canonical*: two graphs over the same
 domain that agree on the domain agree everywhere, which is what makes
 a **total** equality between interpreted function towers equivalent to
 pointwise agreement on fitting inputs (`eq_of_mem_piSet_app_eq`, and
-`eq_of_mem_pi_app_eq` in `Derive/Pi.lean`). -/
+`eq_of_mem_pi_app_eq`, deleted with `Derive/Pi.lean` at task #221). -/
 
 theorem app_eq_empty_of_not_mem {f a : V} (hf : f ≠ pt)
     (h : ∀ y, ¬ kpair a y ∈ˢ f) : app f a = empty := by

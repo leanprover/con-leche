@@ -26,59 +26,6 @@ variable {mode : CheckMode}
 
 variable {env : Env}
 
-/-- The `Bool` pins hidden in `Nat.ble`'s pinned type. -/
-theorem natOpTyPinned_boolFacts {ty : Expr}
-    (h : natOpTyPinned env natBleName ty = true) :
-    ∃ ci, env.find? boolName = some ci ∧
-      ci.toConstantVal.levelParams = [] ∧
-      ci.toConstantVal.type = .sort (.succ .zero) := by
-  unfold natOpTyPinned at h
-  rw [if_neg (by decide)] at h
-  revert h
-  match ty with
-  | .forallE dom (.forallE dom2 body mb2) mb => ?_
-  | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
-  | .lam _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _
-  | .forallE _ (.bvar _) _ | .forallE _ (.fvar _ _) _
-  | .forallE _ (.sort _) _ | .forallE _ (.const _ _) _
-  | .forallE _ (.app _ _) _ | .forallE _ (.lam _ _ _) _
-  | .forallE _ (.letE _ _ _) _ | .forallE _ (.lit _) _
-  | .forallE _ (.proj _ _ _) _ =>
-    intro h; exact nomatch h
-  intro h
-  simp only [Bool.and_eq_true] at h
-  have hcod := h.2
-  unfold natOpCod at hcod
-  rw [if_pos (by decide)] at hcod
-  revert hcod
-  split
-  · next ci heq =>
-    intro hcod
-    simp only [Bool.and_eq_true, beq_iff_eq, List.isEmpty_iff] at hcod
-    exact ⟨ci, heq, hcod.2.1, hcod.2.2⟩
-  · intro hcod
-    simp at hcod
-
-/-- `LeavesBounded` composes over applications. -/
-theorem LeavesBounded.app_intro {f a : Expr}
-    (hf : Expr.LeavesBounded f) (ha : Expr.LeavesBounded a) :
-    Expr.LeavesBounded (.app f a) := by
-  intro l hl
-  simp only [Expr.fvarLeaves, List.mem_append] at hl
-  rcases hl with hl | hl
-  · exact hf l hl
-  · exact ha l hl
-
-/-- `LeavesBounded` at a free variable. -/
-theorem LeavesBounded.fvar_intro {idx : Nat} {ty : Expr}
-    (hb : ty.looseBVarsBounded 0 = true) (hty : Expr.LeavesBounded ty) :
-    Expr.LeavesBounded (.fvar idx ty) := by
-  intro l hl
-  simp only [Expr.fvarLeaves, List.mem_cons] at hl
-  rcases hl with rfl | hl
-  · exact hb
-  · exact hty l hl
-
 /-- Pairwise facts over the certificate statement/proof lists. -/
 inductive CertRuns (P : (List Expr × Expr) → Expr → Prop) :
     List (List Expr × Expr) → List Expr → Prop

@@ -24,14 +24,8 @@ budgets, kept `irreducible` so that the `rfl` knot equations above do
 not try to evaluate them.  Proofs that need to peel one iteration use
 these positivity witnesses instead. -/
 
-theorem whnfCoreLoopFuel_succ : ∃ n, whnfCoreLoopFuel = n + 1 :=
-  ⟨999999, by unfold whnfCoreLoopFuel; rfl⟩
-
 theorem whnfLoopFuel_succ : ∃ n, whnfLoopFuel = n + 1 :=
   ⟨99999, by unfold whnfLoopFuel; rfl⟩
-
-theorem defeqLoopFuel_succ : ∃ n, defeqLoopFuel = n + 1 :=
-  ⟨99999, by unfold defeqLoopFuel; rfl⟩
 
 
 @[simp] theorem pureFns_whnfCore (env : Env) (f d : Nat) (e : Expr) :
@@ -277,9 +271,6 @@ abbrev projCertP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Bool → 
 abbrev projCertAtP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Bool → Bool → Name →
     List Level → List Expr → CheckM Bool := projCertAt (pureFns mode env fuel) env
 
-abbrev isPropTypeP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → CheckM Bool :=
-  isPropType (pureFns mode env fuel) env
-
 abbrev reduceNatP (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr →
     CheckM (Option Expr) := reduceNat (pureFns mode env fuel) env
 
@@ -326,8 +317,6 @@ theorem prepareMajor_fold (env : Env) (fuel : Nat) :
     prepareMajor mode (pureFns mode env fuel) env = prepareMajorP mode env fuel := rfl
 theorem projLitToCtor_fold (env : Env) (fuel : Nat) :
     projLitToCtor (pureFns mode env fuel) env = projLitToCtorP mode env fuel := rfl
-theorem projCert_fold (env : Env) (fuel : Nat) :
-    projCert (pureFns mode env fuel) env = projCertP mode env fuel := rfl
 theorem projCertAt_fold (env : Env) (fuel : Nat) :
     projCertAt (pureFns mode env fuel) env = projCertAtP mode env fuel := rfl
 theorem reduceNat_fold (env : Env) (fuel : Nat) :

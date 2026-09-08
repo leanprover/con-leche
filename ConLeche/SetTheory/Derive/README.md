@@ -33,9 +33,12 @@ asserted — see Core.lean's module doc.
 - [x] `Derive/Graphs.lean` — `graph`, tagged `app` (`app pt a = pt`),
   `sigmaPairs`, `piSet`; beta on graphs, eta, domain determination,
   universe membership.
-- [x] `Derive/Pi.lean` — level-truncated `pi`/`lam` (`pi 0` a truth
-  value, `lam 0 = pt`) with the interface laws (`v = 0` fibre
-  premises phrased as `v = 0 → … ∈ˢ univZero`).
+- ~~`Derive/Pi.lean`~~ — level-truncated `pi`/`lam` (`pi 0` a truth
+  value, `lam 0 = pt`) with the interface laws.  **Deleted at task
+  #221**, with `Derive/Collapse.lean` (its design evidence) and
+  `Derive/PtFresh.lean` (the freshness battery it needed): the model
+  reads the annotation-driven `piR`/`lamR` of `SetModel/Ops.lean` and
+  had stopped reading these.  Resolvable in git history.
 - [x] `Derive/Omega.lean` — von Neumann naturals: `omega` separated
   from the inductive universe `univChain 1`, `vnat : Nat → V`
   (injective), `mem_omega_iff`; `omega ∈ U` for any universe with

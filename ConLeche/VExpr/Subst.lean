@@ -16,7 +16,9 @@ substitution facts that are actually needed are *semantic* ones
 (`ConLeche/Semantics/*`).  Everything below is definitions plus their
 constructor-wise `rfl` equations; what syntactic commutation the
 bridge does need is filed with the bridge, in
-`ConLeche/Verify/Denote/SubstAlgebra.lean`.
+`ConLeche/Verify/Denote/SubstAlgebra.lean` until task #221 deleted it
+unread; the live algebra is `ConLeche/SetP/IndSubstP.lean`'s, at
+`AVExpr`.
 -/
 
 namespace ConLeche.VExpr

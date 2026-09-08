@@ -1,6 +1,5 @@
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
-import ConLeche.Verify.Denote.SubstAlgebra
 import ConLeche.Verify.Denote.Levels
 import ConLeche.Verify.EnvPreds
 import ConLeche.Verify.Denote

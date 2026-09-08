@@ -20,7 +20,6 @@ import ConLeche.Verify.Cached.BridgeCSDecl
 import ConLeche.Verify.Cached.BridgeCP
 import ConLeche.Verify.Cached.MainC
 import ConLeche.Verify.Cached.AgreeFloor
-import ConLeche.Verify.Cached.AgreeAnnot
 
 /-!
 # The cached checker variant's verification (task #163)

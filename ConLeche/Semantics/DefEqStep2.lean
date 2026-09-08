@@ -34,9 +34,6 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## The equivalence -/
 
-theorem deqStep2_refl {ρ : Nat → V} (ea : AVExpr) :
-    interp2 V ρ ea = interp2 V ρ ea := rfl
-
 theorem deqStep2_symm {ρ : Nat → V} {aa ba : AVExpr}
     (h : interp2 V ρ aa = interp2 V ρ ba) :
     interp2 V ρ ba = interp2 V ρ aa := h.symm
@@ -61,12 +58,6 @@ theorem deqStep2_projCong {ρ : Nat → V} {i : Nat} {ea eb : AVExpr}
     (h : interp2 V ρ ea = interp2 V ρ eb) :
     interp2 V ρ (.proj i ea) = interp2 V ρ (.proj i eb) := by
   simp only [interp2_proj, h]
-
-theorem deqStep2_eqECong {ρ : Nat → V} {Ta Tb aa ab ba bb : AVExpr}
-    (ha : interp2 V ρ aa = interp2 V ρ ab)
-    (hb : interp2 V ρ ba = interp2 V ρ bb) :
-    interp2 V ρ (.eqE Ta aa ba) = interp2 V ρ (.eqE Tb ab bb) := by
-  simp only [interp2_eqE, ha, hb]
 
 /-- **∀-congruence.**  The codomain descends at the *domain's* own
 value set, which is where `Sat2_cons` enters. -/
@@ -98,22 +89,9 @@ propositions are.  The checker certifies each side's type separately
 and never that the two agree — so this takes two independent
 memberships, as the rule does. -/
 
-theorem deqStep2_proofIrrel {ρ : Nat → V} {aa ba Ta Tb : AVExpr}
-    (hTa : interp2 V ρ Ta ∈ˢ (univZero : V))
-    (hTb : interp2 V ρ Tb ∈ˢ (univZero : V))
-    (ha : interp2 V ρ aa ∈ˢ interp2 V ρ Ta)
-    (hb : interp2 V ρ ba ∈ˢ interp2 V ρ Tb) :
-    interp2 V ρ aa = interp2 V ρ ba :=
-  (eq_pt_of_mem_univZero hTa ha).trans
-    (eq_pt_of_mem_univZero hTb hb).symm
-
 /-! ## η for functions
 
 `lamR_eta` at the stuck side's product — premise-free above kind `0`,
 and at kind `0` both sides are the canonical proof anyway. -/
-
-theorem deqStep2_eta {v : Nat} {A f : V} {B : V → V}
-    (hf : f ∈ˢ piR v A B) :
-    lamR v A (fun x => SetTheory.app f x) = f := lamR_eta hf
 
 end ConLeche.Semantics

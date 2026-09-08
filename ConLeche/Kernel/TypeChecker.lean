@@ -8,8 +8,8 @@ no memoization: this instance is the **specification** — all semantic
 verification (`ConLeche/Verify/*`, `ConLeche/Semantics/*`, `ConLeche/SetP/*`)
 reasons about these
 fueled entry points, and the refinement bridge (see DESIGN.md) carries
-every claim over to the memoized instance the checker executes
-(`ConLeche.Kernel.TypeCheckerC`).
+every claim over to the cached instance the checker executes
+(`ConLeche.Cached.CoreC`).
 -/
 
 namespace ConLeche

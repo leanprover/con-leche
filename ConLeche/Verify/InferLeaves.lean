@@ -158,20 +158,6 @@ theorem Expr.fvarConsistent_of_leafCond {d : Nat} {ty : Expr} :
     exact ih (fun l hl => hc l (by simp [fvarLeaves, hl]))
   | _ => intro _; simp [fvarConsistent]
 
-/-- The leaf condition holds for a freshly opened binder body. -/
-theorem Expr.LeafCond_opened {d : Nat} {ty body : Expr}
-    (hwty : WScoped d ty) (hwbody : WScoped d body) (k : Nat) :
-    Expr.LeafCond d ty (body.instantiate1 (.fvar d ty) k) := by
-  intro l hl hld
-  rcases fvarLeaves_instantiate1 body k hl with hl' | hl'
-  · obtain ⟨hlt, -⟩ := WScoped_leaves body hwbody l hl'
-    omega
-  · simp only [fvarLeaves, List.mem_cons] at hl'
-    rcases hl' with rfl | hl'
-    · exact rfl
-    · obtain ⟨hlt, -⟩ := WScoped_leaves ty hwty l hl'
-      omega
-
 /-- Abstraction removes exactly the index-`d` leaves (for scoped terms). -/
 theorem Expr.fvarLeaves_abstract1_ne {D : Nat} :
     ∀ (e : Expr) (k : Nat), WScoped (D + 1) e →

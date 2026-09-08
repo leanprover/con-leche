@@ -27,6 +27,7 @@ nothing outside the four modules ever imported them, and the P tier's
 with them — went at task #209, together with the premise-type formers
 `natStepT`/`quotInvT` and their four substitution lemmas in
 `Verify/Denote/SubstAlgebra`, which nothing outside those rules ever
-mentioned.  The two lane records went with them; what of them is
+mentioned — and that module went the same way at task #221, its whole
+lift/instantiate algebra unread (resolvable in git history).  The two lane records went with them; what of them is
 still live is DESIGN.md's "House practices" section.
 -/
