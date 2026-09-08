@@ -538,7 +538,11 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 # added the EQUALITY-memo tower: two structurally equal towers that are
 # not the same objects, shaped so that one node's memo entry alternates
 # between two partners — which is what a memo keyed on one side of the
-# comparison cannot answer and only a pair-keyed one can.  The memory
+# comparison cannot answer and only a pair-keyed one can.  Task #246
+# added the three block shapes the earlier kinds never entered: a
+# RECURSIVE field (the fvar-occurrence question the install asks of
+# every later field), and a MUTUAL and a NESTED block, which is where
+# the in-process modeller's own walkers live.  The memory
 # cap makes an unbounded walk fail fast instead of swapping the machine.
 tower_ok=0
 tower_total=0
@@ -575,6 +579,12 @@ tower_run tower_usedlater 0 \
   "a tower over a field variable, asked about a LATER field, accepts"
 tower_run tower_beqpair 0 \
   "two equal towers whose comparison alternates a node's partner accept"
+tower_run tower_recfield 0 \
+  "a tower after a RECURSIVE field, asked about that field, accepts"
+tower_run tower_mutual 0 \
+  "a tower in a MUTUAL block's field domain accepts"
+tower_run tower_nested 0 \
+  "a tower in a NESTED block's field domain accepts"
 echo "DAG-tower gate: $tower_ok/$tower_total as expected"
 
 # The mode sweep (task #147): both suites again with `--trusted`

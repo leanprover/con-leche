@@ -1212,3 +1212,38 @@
 # exactly one of the two is the exponential one.  (It is `beqPairB`
 # today -- the declared type is the memo's key side.)
 0 tower_beqpair.ndjson
+# tower_recfield (task #246): a RECURSIVE structure whose field after
+# the recursive one is a depth-60 tower over the FIRST field's
+# variable.  `nativeOpenedOk`/`nativeOpenedOkF` re-check the
+# recogniser's kinds on the constructor type opened at variables, and
+# at a recursive field they ask that its variable occur in no later
+# field's domain -- `Expr.mentionsFvar`, i.e. `Expr.fvarLeaves`, whose
+# result list is tree-sized by construction.  The answer is `false`
+# here, so nothing short-circuits, and there is no cutoff to put in
+# front of it: the packed `fvarB` field stops at an `fvar` leaf while
+# `fvarLeaves` descends into the leaf's type annotation, so the range
+# cannot answer the question at all.  The fix is at the consumer:
+# `mentionsFvarGo` memoizes the `Bool` question, keyed by the node
+# (`q` is fixed for the walk), `@[csimp]`.
+0 tower_recfield.ndjson
+# tower_mutual (task #246): a two-member MUTUAL block whose first
+# constructor carries a depth-60 tower over its own first field.  A
+# mutual block goes to the modeled route, so the in-process modeller
+# builds its `_model` family: `classifyCtor` asks
+# `InModel.mentionsAny` of every ordinary field domain and
+# `InModel.hintFor`/`maxHeight` walks every generated value, both plain
+# `Expr` recursions with no cutoff and, on a domain that mentions no
+# member, nothing to short-circuit on.  Every earlier tower fixture is
+# a single non-mutual block, so the modeller was never entered.  Both
+# walkers memoize; the modeller is untrusted, so neither owes a spec
+# lemma.
+0 tower_mutual.ndjson
+# tower_nested (task #246): a NESTED block -- a container `NBox` on the
+# fixpoint route, then `NTow` nesting it -- whose constructor carries
+# the same depth-60 tower.  The nested rung specialises the container
+# and moves every motive, pin and domain out of the rule-prefix context
+# with `Expr.lowerBVars`, a plain rebuild that had neither cutoff nor
+# memo; it now carries both, as `abstract1` does (`lowerBVarsGo`, keyed
+# by the node and the CUTOFF, behind an `O(1)` loose-bvar field read),
+# with the kernel-checked `lowerBVarsGo_spec` and `@[csimp]`.
+0 tower_nested.ndjson
