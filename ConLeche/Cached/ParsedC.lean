@@ -171,6 +171,24 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
   thmPrepC mode fe cvA jty value (fun jv =>
     thmBodyC mode fe cvA.name jty jv (pure (fe.push (.thmInfo cvA jv))))
 
+/-- **The prefix does not depend on its continuation**: running the
+install half with any `k` is running it with `pure` and then `k`.  This
+is what lets a run recorded with one continuation (the install pass's
+job-building one) be composed with another (the branch's body half). -/
+theorem thmPrepC_eq_bind {α : Type} (fe : FEnv) (cvA : ConstantVal)
+    (jty value : ExprC) (k : ExprC → CheckCM α) :
+    thmPrepC mode fe cvA jty value k
+      = thmPrepC mode fe cvA jty value pure >>= k := by
+  funext s
+  unfold thmPrepC
+  simp only [bind, StateT.bind, Except.bind, pure]
+  -- the two sides run the same chain and differ only in the tail, so
+  -- splitting each step's result closes every branch by `rfl`
+  repeat' (first
+    | rfl
+    | dsimp only [bind, StateT.bind, Except.bind]
+    | split)
+
 /-- **The decomposition.**  The theorem branch IS its install half, its
 body half and the push, in that order, at the same index and in the same
 state — definitionally, because the two halves are the branch's own text
@@ -383,6 +401,65 @@ theorem foldIdxC_ok (mode : CheckMode) (ds : List DeclC) :
       obtain ⟨fe₁, s₁⟩ := pr
       simp only [checkDeclStepIdxC, hstep] at h
       exact ih (i + 1) fe₁ h
+
+/-! ### The deferred-body driver, as functions
+
+The fan-out's own pieces, in the implementation layer so that the bridge
+can be stated ABOUT them rather than about a restatement of them
+(`Main.lean` drives these; the queue, the tasks and the reporting stay
+there, because none of that is what a theorem is about).
+
+The job carries the very `FEnv` the fold held before the theorem's push
+— a pointer, because the index is persistent — so a worker checks the
+body at exactly the environment the sequential fold would have. -/
+
+/-- A deferred theorem body: where it sat in the fold, the index it must
+be checked at, and the annotated statement and value. -/
+structure BodyJob where
+  idx : Nat
+  fe : FEnv
+  name : Name
+  jty : ExprC
+  jv : ExprC
+
+/-- The install pass's theorem step: the branch's install half
+(`thmPrepC`) and the push, with the body deferred as a job. -/
+def thmInstallJobC (fe : FEnv) (cvA : ConstantVal) (jty : ExprC)
+    (value : ExprC) : CheckCM (FEnv × BodyJob) :=
+  thmPrepC mode fe cvA jty value (fun jv =>
+    pure (fe.push (.thmInfo cvA jv), ⟨0, fe, cvA.name, jty, jv⟩))
+
+/-- One step of the install pass: the ordinary step for every kind
+except `thmDecl`, whose body is deferred. -/
+def installStepC (p : Nat × FEnv × Array BodyJob) (pd : DeclC) :
+    StateT CState (Except (CheckError × Nat)) (Nat × FEnv × Array BodyJob) :=
+  fun s =>
+    let (i, fe, jobs) := p
+    match pd with
+    | .thmDecl cv value =>
+      match (do
+          flushC
+          let (cvA, jty) ← checkConstantValC mode fe cv
+          thmInstallJobC mode fe cvA jty value : CheckCM (FEnv × BodyJob)) s with
+      | .ok ((fe', job), s') => .ok ((i + 1, fe', jobs.push { job with idx := i }), s')
+      | .error e => .error (e, i)
+    | _ =>
+      match checkDeclSPStepC mode fe pd s with
+      | .ok (fe', s') => .ok ((i + 1, fe', jobs), s')
+      | .error e => .error (e, i)
+
+/-- The install pass over a stream. -/
+def installPassC (ds : List DeclC) :
+    Except (CheckError × Nat) (FEnv × Array BodyJob) := do
+  let p ← (ds.foldlM (installStepC mode) (0, mkFEnv Env.empty, #[])).run' {}
+  pure (p.2.1, p.2.2)
+
+/-- One deferred body, checked at its captured index from a FRESH memo
+state — which is the whole point: a worker shares no `CState` with the
+fold, and `CSOK.empty` says the fresh state is sound, so the body's
+cached run reaches the spec exactly as the fold's would. -/
+def bodyCheckC (j : BodyJob) : Except CheckError Unit :=
+  (thmBodyC mode j.fe j.name j.jty j.jv (pure ())).run' {}
 
 /-! ### Checking in chunks is checking the stream
 

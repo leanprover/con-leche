@@ -86,6 +86,23 @@ private theorem fueledM_bind_pure' {α : Type} (x : FueledM α) :
   show x.val F >>= pure = x.val F
   cases x.val F <;> rfl
 
+/-- **The spec prefix does not depend on its continuation** (the twin of
+`thmPrepC_eq_bind`, at the fueled instance the simulations use).  With
+it, a prefix run recorded under one continuation composes with any
+other — which is what lets a worker's body success and an install pass's
+prefix success be put together into the branch. -/
+theorem thmPrep_eq_bind {α : Type} (ops : CheckerOps FueledM) (env : Env)
+    (cv : ConstantVal) (value : Expr) (k : Expr → FueledM α) :
+    thmPrep ops env cv value k = thmPrep ops env cv value pure >>= k := by
+  refine Subtype.ext (funext fun F => ?_)
+  unfold thmPrep
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite]
+  repeat' (first
+    | rfl
+    | dsimp only [bind, Except.bind, pure, Except.pure]
+    | split)
+
 /-! ## The `ExprC` guards agree with the `Expr` guards -/
 
 /-- `ExprC.hasFvar` is `Expr.hasFvar` of the erasure (the store-shaped
@@ -247,15 +264,30 @@ theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
     obtain ⟨-, rfl, -⟩ := hf
     exact Expr.not_hasFvar_of_fvarsBelow_zero hwv.fvarsBelow
 
-/-- `checkThmValC` simulates the generic `checkThmVal`. -/
-theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
+/-! ### The branch's two halves simulate the spec's two halves
+
+The deferred-body fan-out runs `thmPrepC` in the install pass and
+`thmBodyC` in a worker, in DIFFERENT memo states, so it needs the
+simulation cut where the branch is (`checkThmValC_split`,
+`checkThmVal_split`) rather than only for the whole branch.  Both
+lemmas are continuation-parametric — the halves are CPS — and
+`checkThmValC_sim` below is their composition, so the branch's own
+statement is unchanged and nothing that consumes it moves. -/
+
+/-- The install half simulates the spec's install half, for any pair of
+continuations the annotated value's simulation carries. -/
+theorem thmPrepC_sim {β α : Type} (hμ : mode.verifiedChecks = true)
+    (henv : EnvWF env) {cvA : ConstantVal}
     {jty : ExprC} {value : ExprC} {ve : Expr}
     (htf : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
-    (hdenv : RelC value ve) (hs : CSOK mode env s₀) :
-    SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
-      (checkThmValC mode (mkFEnv env) cvA jty value)
-      (checkThmVal (fueledOpsM mode) env cvA ve) := by
-  unfold checkThmValC thmPrepC thmBodyC checkThmVal
+    (hdenv : RelC value ve) (hs : CSOK mode env s₀)
+    {P : β → α → Prop} {kC : ExprC → CheckCM β} {kM : Expr → FueledM α}
+    (hk : ∀ {s : CState} {jv : ExprC} {wv : Expr}, CSOK mode env s →
+      RelC jv wv → Expr.WScoped 0 wv → SimC mode env s P (kC jv) (kM wv)) :
+    SimC mode env s₀ P
+      (thmPrepC mode (mkFEnv env) cvA jty value kC)
+      (thmPrep (fueledOpsM mode) env cvA ve kM) := by
+  unfold thmPrepC thmPrep
   refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs hjty htf)
     (fun s₁ jsty wsty hs₁ hP => ?_)
   obtain ⟨hjsty, hwsty⟩ := hP
@@ -305,7 +337,21 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
         cases h
         exact rfl))
     (fun s₅' u₀ hs₅' hQ' => ?_)
-  refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs₅' rfl hwv)
+  exact hk hs₅' rfl hwv
+
+/-- The body half simulates the spec's body half. -/
+theorem thmBodyC_sim {β α : Type} (hμ : mode.verifiedChecks = true)
+    (henv : EnvWF env) {cvA : ConstantVal} {jty jv : ExprC} {wv : Expr}
+    (htf : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
+    (hjv : RelC jv wv) (hwv : Expr.WScoped 0 wv) (hs : CSOK mode env s₀)
+    {P : β → α → Prop} {kC : CheckCM β} {kM : FueledM α}
+    (hk : ∀ {s : CState}, CSOK mode env s → SimC mode env s P kC kM) :
+    SimC mode env s₀ P
+      (thmBodyC mode (mkFEnv env) cvA.name jty jv kC)
+      (thmBody (fueledOpsM mode) env cvA wv kM) := by
+  unfold thmBodyC thmBody
+  obtain rfl := hjv
+  refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs rfl hwv)
     (fun s₅ jvt wvt hs₅ hP₅ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₅
   refine SimC.bind ((ssimC hμ env henv checkFuel).defeq hs₅ hjvt hjty hwvt htf)
@@ -317,7 +363,75 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     exact SimC.throw_bind
   | true =>
     simp only [↓reduceIte]
-    exact SimC.pure hs₆ ⟨rfl, push_mkFEnv env _⟩
+    exact hk hs₆
+
+/-- `checkThmValC` simulates the generic `checkThmVal` — the two halves,
+composed.  The statement is the one it always was. -/
+theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
+    {jty : ExprC} {value : ExprC} {ve : Expr}
+    (htf : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
+    (hdenv : RelC value ve) (hs : CSOK mode env s₀) :
+    SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
+      (checkThmValC mode (mkFEnv env) cvA jty value)
+      (checkThmVal (fueledOpsM mode) env cvA ve) := by
+  rw [checkThmValC_split, checkThmVal_split]
+  refine thmPrepC_sim hμ henv htf hjty hdenv hs
+    (fun {s jv wv} hs' hjv hwv => ?_)
+  obtain rfl := hjv
+  exact thmBodyC_sim hμ henv htf hjty rfl hwv hs'
+    (fun {s''} hs'' => SimC.pure hs'' ⟨rfl, push_mkFEnv env _⟩)
+
+/-- **The deferred branch, reassembled through the spec.**  An install
+pass's theorem step and a worker's body check — run in DIFFERENT memo
+states, the worker's from a fresh one — together give the SPEC theorem
+branch at that environment.  Neither cache has to be complete: each
+cached half's success reaches the spec through its own simulation, and
+the spec has no memo state to disagree about.
+
+This is what makes the fan-out's verdict mean something: the pieces two
+passes computed separately are the branch the model tier is stated
+about. -/
+theorem thmInstallJobC_run (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    (hs : CSOK mode env s₀) {cvA : ConstantVal}
+    {jty value : ExprC} {ve : Expr}
+    (hwty : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
+    (hv : RelC value ve)
+    {fe' : FEnv} {job : BodyJob} {s' : CState}
+    (hrun : thmInstallJobC mode (mkFEnv env) cvA jty value s₀
+      = .ok ((fe', job), s'))
+    (hbody : ∃ s'', thmBodyC mode job.fe job.name job.jty job.jv (pure ()) {}
+      = .ok ((), s'')) :
+    CSOK mode env s' ∧ fe' = mkFEnv fe'.env ∧
+      ∃ F, (checkThmVal (fueledOpsM mode) env cvA ve).val F = .ok fe'.env := by
+  -- the install half, freed from its continuation
+  rw [thmInstallJobC, thmPrepC_eq_bind] at hrun
+  obtain ⟨jv, s₁, hpre, htail⟩ := bindC_ok hrun
+  -- the tail is a `pure`, so it pins the step's outputs
+  simp only [pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at htail
+  obtain ⟨⟨rfl, rfl⟩, rfl⟩ := htail
+  -- the cached prefix reaches the spec prefix
+  obtain ⟨hs₁, wv, ⟨hjv, hwv⟩, F₁, hF₁⟩ :=
+    (thmPrepC_sim (P := fun (a : ExprC) (b : Expr) => RelC a b ∧ Expr.WScoped 0 b)
+      hμ henv hwty hjty hv hs
+      (fun {_ jv' wv'} hs' hjv' hwv' => SimC.pure hs' ⟨hjv', hwv'⟩)) jv s₁ hpre
+  obtain rfl := hjv
+  -- the worker's body reaches the spec body
+  obtain ⟨s'', hbrun⟩ := hbody
+  obtain ⟨_, w₂, hw₂, F₂, hF₂⟩ :=
+    (thmBodyC_sim (P := fun (_ : Unit) (w : Env) =>
+        w = ⟨.thmInfo cvA jv :: env.consts⟩)
+      hμ henv hwty hjty rfl hwv (CSOK.empty env)
+      (fun {_} hs'' => SimC.pure hs'' rfl)) () s'' hbrun
+  obtain rfl := hw₂
+  -- put the two spec halves back together
+  refine ⟨hs₁, push_mkFEnv env _, ?_⟩
+  rw [checkThmVal_split, thmPrep_eq_bind]
+  refine ⟨max F₁ F₂, ?_⟩
+  rw [FueledM.atF_bind]
+  rw [(thmPrep (fueledOpsM mode) env cvA ve pure).property (Nat.le_max_left F₁ F₂) hF₁]
+  dsimp only [bind, Except.bind]
+  rw [(thmBody (fueledOpsM mode) env cvA jv _).property (Nat.le_max_right F₁ F₂) hF₂]
+  simp only [mkFEnv_env, FEnv.push]
 
 /-- `checkOpaqueValC` simulates the generic `checkOpaqueVal`. -/
 theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}

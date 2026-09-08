@@ -59446,3 +59446,59 @@ nearer 3.8 ×.  Instruction shares understate what a fan-out can take.
 Gates: `lake build` 0 warnings, `lake test` exit 0, proofdeps 2 851
 rows / doors 0, trust surface 18 escapes in 4 allowlisted files,
 138/138 e2e fixtures agreeing sequential against the lane.
+
+### 12. The bridge, closed: the fan-out has its own letters
+
+The deferred-body driver is now **verified**, at the same axiom
+footprint as the shipped one.
+
+    installPassC μ ds = .ok (fe', jobs)                    -- the install pass accepted
+    ∀ j ∈ jobs, bodyCheckC μ j = .ok ()                    -- every deferred body checked
+    ────────────────────────────────────────────────────────
+    ∀ c ∈ fe'.env.consts, c.type = .const falseName [] → False
+
+`no_proof_of_False_par_P` and `no_proof_of_Empty_par_P`
+(`ConLeche/Verify/Cached/ParBridgeC.lean`) are the same sentences as
+`no_proof_of_{False,Empty}_SPCD_P`, about a run whose bodies were
+checked in any order, in any number of workers, **sharing no memo state
+with the pass that installed them**.  `#print axioms` on both:
+`[propext, Classical.choice, Quot.sound]`.
+
+**The chain, and why no cache has to be complete.**
+
+| | |
+|---|---|
+| `checkThmValC_split`, `checkThmVal_split` | the branch IS its two halves, definitionally, in both tiers |
+| `thmPrepC_eq_bind`, `thmPrep_eq_bind` | a half run with any continuation is that half run with `pure`, bound |
+| `thmPrepC_sim`, `thmBodyC_sim` | each cached half simulates its spec half, continuation-parametrically |
+| `thmInstallJobC_run` | install step + worker's body ⇒ the SPEC branch |
+| `installStepC_run` | the same for a whole declaration, all six kinds |
+| `foldParPM` | the install pass preserves `EnvSPOk`, `declStepPM` unchanged |
+| `installPassC_sound_P` | the model invariant at the accepted environment |
+
+The soundness direction is all that is used: a cached run's success
+gives a spec run's success.  Going cached-to-cached — from a worker's
+state to the fold's — would need the caches to be COMPLETE, which the
+simulation does not give; the spec has no memo state, so the two halves
+meet there instead.  That is the whole reason the pivot is the spec and
+not the sequential fold.
+
+**What is still unverified, and stated**: `Main.lean`'s IO fan-out is
+the loop that COMPUTES those two facts — the install pass and the body
+checks — exactly as the progress lane is the unverified loop that
+computes the ordinary fold.  The theorem is about `installPassC` and
+`bodyCheckC`, both pure; a run's verdict is covered to the extent that
+the IO loop computes them, and that step is a trivial fold, stated
+rather than engineered away.
+
+**Three proof-engineering findings, each of which cost a cycle.**
+
+* `rw [installStepC] at h` picks the definition's CATCH-ALL equation,
+  whose side condition ("the earlier patterns do not match") is not
+  provable for a generic kind and arrives as a stray goal.  `unfold`
+  takes the definition without choosing an equation.
+* `nomatch` inside `first`/`<;>` does not fail gracefully — it raises an
+  elaboration error the combinator cannot catch (`lean-monad-proofs`
+  records this).  `contradiction` is the alternative that backtracks.
+* `cases h : e` rewrites the GOAL as well as the hypothesis, so the
+  branch closes by `rfl`, not by `h` — three times in this module.

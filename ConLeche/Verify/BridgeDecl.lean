@@ -834,6 +834,24 @@ theorem checkDefnVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
   unfold checkDefnVal
   datF_tac
 
+/-- The install half at a fuel, with the continuation carried through:
+what a deferred-body bridge needs, since it composes the halves rather
+than the branch. -/
+theorem thmPrep_datF {α : Type} (env : Env) (cv : ConstantVal) (value : Expr)
+    (k : Expr → FueledM α) (F : Nat) :
+    (thmPrep (fueledOpsM mode) env cv value k).val F =
+      thmPrep (fueledOps mode F) env cv value (fun jv => (k jv).val F) := by
+  unfold thmPrep
+  datF_tac
+
+/-- The body half at a fuel. -/
+theorem thmBody_datF {α : Type} (env : Env) (cv : ConstantVal) (value : Expr)
+    (k : FueledM α) (F : Nat) :
+    (thmBody (fueledOpsM mode) env cv value k).val F =
+      thmBody (fueledOps mode F) env cv value (k.val F) := by
+  unfold thmBody
+  datF_tac
+
 theorem checkThmVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
     (F : Nat) :
     (checkThmVal (fueledOpsM mode) env cv value).val F =

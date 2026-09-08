@@ -314,56 +314,11 @@ this lane is an experiment. -/
 section Par
 open ConLeche.Cached
 
-/-- A deferred theorem-body check. -/
-structure BodyJob where
-  idx : Nat
-  /-- The index the body must be checked at: the very `FEnv` the fold
-  held before this theorem's push, CAPTURED.  It costs a pointer because
-  `FEnv.idx` is persistent (`Std.TreeMap`); with the hash index a
-  capture would have cost the next insert its exclusivity, i.e. task
-  #179's bucket-array copy per constant. -/
-  fe : FEnv
-  name : Name
-  jty : ExprC
-  jv : ExprC
-
-/-- The install half of a theorem, emitting its deferred body job.
-It IS the branch's own install half — `thmPrepC`
-(`ConLeche/Cached/ParsedC.lean`) — followed by the push, so what the
-fan-out defers is exactly what `checkThmValC_split` says it is. -/
-def parThmInstall (mode : CheckMode) (fe : FEnv) (cvA : ConstantVal)
-    (jty : ExprC) (value : ExprC) : CheckCM (FEnv × BodyJob) :=
-  thmPrepC mode fe cvA jty value (fun jv =>
-    pure (fe.push (.thmInfo cvA jv), ⟨0, fe, cvA.name, jty, jv⟩))
-
-/-- The install pass's step: `checkDeclSPStepC` with theorem bodies
-deferred.  The accumulator carries the fold position, the environment
-and the jobs collected so far. -/
-def parInstallStep (mode : CheckMode) (p : Nat × FEnv × Array BodyJob) (pd : DeclC) :
-    StateT CState (Except (CheckError × Nat)) (Nat × FEnv × Array BodyJob) := fun s =>
-  let (i, fe, jobs) := p
-  match pd with
-  | .thmDecl cv value =>
-    match (do flushC; let (cvA, jty) ← checkConstantValC mode fe cv
-              parThmInstall mode fe cvA jty value : CheckCM (FEnv × BodyJob)) s with
-    | .ok ((fe', job), s') => .ok ((i + 1, fe', jobs.push { job with idx := i }), s')
-    | .error e => .error (e, i)
-  | _ =>
-    match checkDeclSPStepC mode fe pd s with
-    | .ok (fe', s') => .ok ((i + 1, fe', jobs), s')
-    | .error e => .error (e, i)
-
-/-- The install pass. -/
-def parInstall (mode : CheckMode) (ds : List DeclC) :
-    Except (CheckError × Nat) (FEnv × Array BodyJob) := do
-  let p ← (ds.foldlM (parInstallStep mode) (0, mkFEnv Env.empty, #[])).run' {}
-  pure (p.2.1, p.2.2)
-
-/-- One deferred body's check: the branch's own body half (`thmBodyC`)
-at the index the fold held, and nothing else. -/
-def bodyAct (mode : CheckMode) (j : BodyJob) : CheckCM Unit := do
-  flushC
-  thmBodyC mode j.fe j.name j.jty j.jv (pure ())
+-- The lane's pure core — the job record, the install step, the install
+-- pass and the body check — lives in `ConLeche/Cached/ParsedC.lean`, so
+-- the bridge can be stated about the functions this driver actually
+-- runs.  What stays here is the driving: the queue, the tasks, the
+-- heartbeat and the reporting.
 
 /-- Keep the failure of lowest fold position. -/
 def firstFailure : Option (CheckError × Nat) → Option (CheckError × Nat) →
@@ -376,7 +331,7 @@ def firstFailure : Option (CheckError × Nat) → Option (CheckError × Nat) →
 with a fresh memo state. -/
 def checkOneJob (mode : CheckMode) (j : BodyJob) :
     Option (CheckError × Nat) :=
-  match (bodyAct mode j).run' {} with
+  match bodyCheckC mode j with
   | .ok _ => none
   | .error e => some (e, j.idx)
 
@@ -488,7 +443,7 @@ partial def parInstallIO (mode : CheckMode) (err : IO.FS.Stream)
         {ConLeche.Cached.declCLabel pd} \
         t={ConLeche.Cached.msSecs (now - t0)}s ({jobs.size} deferred)\n"
       err.flush
-    match parInstallStep mode (i, fe, jobs) pd s with
+    match installStepC mode (i, fe, jobs) pd s with
     | .ok ((i', fe', jobs'), s') =>
       parInstallIO mode err stride total t0 ds i' fe' jobs' s'
     | .error e => return .error e
@@ -706,7 +661,7 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
             if stride > 0 then
               parInstallIO mode (← IO.getStderr) stride decls.size t0
                 decls.toList 0 (ConLeche.mkFEnv ConLeche.Env.empty) #[] {}
-            else pure (parInstall mode decls.toList)
+            else pure (ConLeche.Cached.installPassC mode decls.toList)
           match inst with
           | .error e => pure (.error e)
           | .ok (feFinal, jobs) =>
