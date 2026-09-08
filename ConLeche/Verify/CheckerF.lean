@@ -211,7 +211,7 @@ theorem checkIotaRuleF_eq (ops : CheckerOps m) (env' envS : Env)
     checkIotaRuleF mode ops (mkFEnv env') (mkFEnv envS) f cvName lps tyA
         mI rP j r
       = checkIotaRule mode ops env' envS f cvName lps tyA mI rP j r := by
-  simp only [checkIotaRuleF, checkIotaRule, mkFEnv_find?,
+  simp only [checkIotaRuleF, checkIotaRule, mkFEnv_find?, mkFEnv_find?_fun,
     constsResolveF_eq, checkIotaThmF_eq, checkIotaThmNF_eq] <;> rfl
 
 theorem checkIotaRulesF_eq (ops : CheckerOps m) (env' envS : Env)

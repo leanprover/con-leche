@@ -681,8 +681,7 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
       i).property hF₁₃ hFr
   have hFnp : checkProjFn mode (fueledOps mode F₃) env T ctorName lps nP nF i =
       .ok (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-        [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
-          .plain else .inert, rhsA⟩] :: env.consts⟩ : Env) := by
+        [projFnRule env.find? T ctorName pty nP nF i rhsA] :: env.consts⟩ : Env) := by
     unfold checkProjFn
     show ((checkProjLookups env T ctorName lps nP nF i :
       CheckM _) >>= _) = _
@@ -708,10 +707,10 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     rfl
   have hFn : (checkProjFn mode (fueledOpsM mode) env T ctorName lps nP nF
       i).val F₃ = .ok (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-        [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
-          .plain else .inert, rhsA⟩] :: env.consts⟩ : Env) := by
+        [projFnRule env.find? T ctorName pty nP nF i rhsA] :: env.consts⟩ : Env) := by
     rw [checkProjFn_datF]
     exact hFnp
+  rw [show FEnv.find? (mkFEnv env) = env.find? from mkFEnv_find?_fun env]
   refine ⟨hs₄.residue, rfl, ?_, F₃, hFn⟩
   -- the installed projection recursor is well-formed
   obtain ⟨cvj', mcv', hlk', pty', hty', ⟨_, hshape'⟩, hi', rhsA',
@@ -723,14 +722,11 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
   obtain ⟨raw, rb, cb, cbody, hraw, hrf, hrb, hann, halp, hrres, hrbv,
     hrfv, hsl, hsp, hdm, -⟩ := checkProjRule_inv hrule'
   show EnvWF (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-      [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
-        RecRuleFire.plain else .inert, rhsA⟩] :: env.consts⟩ : Env)
+      [projFnRule env.find? T ctorName pty nP nF i rhsA] :: env.consts⟩ : Env)
   rw [show (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-      [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
-        RecRuleFire.plain else .inert, rhsA⟩] :: env.consts⟩ : Env) =
+      [projFnRule env.find? T ctorName pty nP nF i rhsA] :: env.consts⟩ : Env) =
     ⟨.recInfo ⟨projFnName T i, lps, pty'⟩ nP nP
-      [⟨ctorName, nF, nP, if Expr.recRulePlain pty' nP nP nP then
-        RecRuleFire.plain else .inert, rhsA'⟩] :: env.consts⟩
+      [projFnRule env.find? T ctorName pty' nP nF i rhsA'] :: env.consts⟩
     from by rw [hrecEq]]
   refine EnvWF.cons henv (constWF_intro' hfv hlp
     (Expr.constsResolve_mono hres) hbv
@@ -743,7 +739,7 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
   refine ⟨hrfv, halp, Expr.constsResolve_mono hrres, hrbv, ?_⟩
   intro lvls pins hf
   cases hcond : Expr.recRulePlain pty' nP nP nP <;>
-    simp [hcond] at hf
+    simp [projFnRule, recRuleBits, hcond] at hf
 
 /-- One projection-function install step. -/
 theorem installProjFnStepS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)

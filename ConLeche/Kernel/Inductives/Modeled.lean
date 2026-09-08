@@ -355,7 +355,8 @@ def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
       else
         checkIotaThmN mode ops env' envSelf f cvName lps tyA mI rP j r
           cvj cnP cnF rhsA
-    pure { r with rhs := rhsA, ctorParams := cnP, fire := fire }
+    pure (recRuleBits env'.find? cvName
+      { r with rhs := rhsA, ctorParams := cnP, fire := fire })
 
 /-- The per-rule check, folded over a modeled recursor's rules. -/
 def checkIotaRules (ops : CheckerOps m) (env' envSelf : Env) (f : Name → Name)
@@ -578,8 +579,7 @@ def checkProjFn (ops : CheckerOps m) (env' : Env) (T ctorName : Name) (lps : Lis
   -- major sits at position nP and the rule prefix is the parameters;
   -- the canonical flag is computed here, once, like `checkIotaRule`
   pure ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-    [⟨ctorName, nF, nP,
-      if Expr.recRulePlain pty nP nP nP then .plain else .inert, rhsA⟩] ::
+    [projFnRule env'.find? T ctorName pty nP nF i rhsA] ::
     env'.consts⟩
 
 /-- Does the model document structural eta for this single-constructor
@@ -731,6 +731,14 @@ def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
   unitlike := checkUnitThm mode env cvT.name cvT.levelParams nP
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
+  sortZ := piResultZ cvT.type
+
+/-- The modeled route stores the family's own result-sort datum, so
+`capsNeverZero` at the stored record is `piResultNeverZero` at the
+stored type (`capsNeverZero_eq`). -/
+@[simp] theorem indBlockCaps_sortZ (env : Env) (cvT cvC : ConstantVal)
+    (nP nF : Nat) :
+    (indBlockCaps mode env cvT cvC nP nF).sortZ = piResultZ cvT.type := rfl
 
 /-- **Task #136: an eta-capable family's constructor returns the family
 applied to its parameters.**  Literally the conjunct `checkStructCtor`

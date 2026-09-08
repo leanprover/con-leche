@@ -250,9 +250,10 @@ inductive RecRuleFire where
 parameters, motives and minors) to a `ctor`-headed major premise reduces
 to `rhs` applied to the parameters, motives, minors and the constructor's
 `nfields` fields.  `ctorParams` (the constructor's parameter count) and
-`fire` (the canonical/nested/inert firing mode) are *computed at
-install* from the stored constructor and recursor type — input rules
-carry the parse placeholders `0`/`.inert`; reduction reads only the
+`fire` (the canonical/nested/inert firing mode), and the two rescue
+bits `k`/`eta` are *computed at install* from the stored constructor,
+its inductive's capabilities and the recursor type — input rules carry
+the parse placeholders `0`/`.inert`/`false`; reduction reads only the
 installed values, never re-deriving them per fire. -/
 structure RecRule where
   ctor : Name
@@ -265,6 +266,19 @@ structure RecRule where
   certified nested-auxiliary rules, `.inert` otherwise. -/
   fire : RecRuleFire
   rhs : Expr
+  /-- **The K bit** (install-computed, parse placeholder `false`;
+  official `recursor_val::is_k`): this rule is its recursor's only
+  one, its constructor has no fields, and that constructor's
+  inductive is stored with the K capability — the standing condition
+  of `majorToCtor`'s K rescue, decided once at the block's install
+  instead of at every recursor application. -/
+  k : Bool := false
+  /-- **The η-rescue bit** (install-computed, parse placeholder
+  `false`): this rule is its recursor's only one, its constructor is
+  the η constructor of a stored η-capable inductive, and the recursor
+  is not itself a projection function (whose rescue would loop) — the
+  standing condition of `majorToCtor`'s structure-η rescue. -/
+  eta : Bool := false
   deriving DecidableEq, Repr, Inhabited
 
 /-- Whether the ι step may fire this rule without comparing the
@@ -337,6 +351,14 @@ structure IndCaps where
   when `unitlike`). -/
   unitParams : Nat := 0
   ruleK : Bool := false
+  /-- **The family's result-sort zero-ness datum** (install-computed
+  from the stored type: `piResultZ`; the default `ifAllZero []` reads
+  "zero at every valuation", which no rescue passes).  The structure-η
+  rescue fires only where the official kernel's `is_never_zero` holds
+  of the *instantiated* result sort, and this datum decides that at a
+  use by one level substitution (`capsNeverZero`) instead of a walk
+  down the family's type at every rescue. -/
+  sortZ : PropWhen := .ifAllZero []
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One structure's projection table** (task #175 S1, 2026-09-06):

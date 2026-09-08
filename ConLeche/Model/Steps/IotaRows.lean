@@ -395,7 +395,8 @@ theorem iotaReads_of {m : EnvModel V env} (hrec : RecRules m φ)
             fun l hl => hLc l (ConLeche.whnf_fvarLeaves m.wf fuel hred l hl)⟩)
       (fun hmaj hP => by
         obtain ⟨⟨xa, hxa⟩, hlrx, hwx, hbx, hLx⟩ := hP
-        obtain ⟨hrd, hlry⟩ := majorToCtorFueled_reads ihw ihio hmaj hwx hbx hLx hlrx hxa
+        obtain ⟨hrd, hlry⟩ := majorToCtorFueled_reads ihw ihio hmaj
+          ⟨cv, mI, rP, hfrec⟩ hwx hbx hLx hlrx hxa
         refine ⟨hrd, hlry, ?_⟩
         rcases ConLeche.majorToCtor_inv hmaj with rfl | ⟨hwsB, hbB, hleafB, -⟩
         · exact ⟨hwx, hbx, hLx⟩
@@ -563,7 +564,7 @@ theorem iotaStep_of {m : EnvModel V env}
         obtain ⟨v, hv, hok, heq, hwx, hbx, hLx, hCx⟩ := hP
         obtain ⟨v', hv', hok', heq', hw', hb', hL', hC'⟩ :=
           majorToCtorFueled_step hcaps htower hct hav ihw ihd ihis hsss hexi
-            hreads_ios hwreads hmaj hwx hbx hLx hCx hv hok
+            hreads_ios hwreads hmaj ⟨cv, mI, rP, hfrec⟩ hwx hbx hLx hCx hv hok
         exact ⟨v', hv', hok', fun ρ hρ => (heq ρ hρ).trans (heq' ρ hρ),
           hw', hb', hL', hC'⟩)
       ⟨_, hdMaj, hokMajArg, fun _ _ => rfl, hwM, hbM, hLM, hCM⟩

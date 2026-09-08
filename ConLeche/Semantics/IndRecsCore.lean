@@ -247,13 +247,32 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
       exact ⟨p1, p2, hres₃ _ p3, p4⟩
   · -- `RecCtorsStored`
     intro n cv mI rP rules hf r hr
+    have hkeep : ∀ (m : Name) (ci : ConstantInfo),
+        (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+        envSelf.find? m = some ci → env₃.find? m = some ci :=
+      fun m ci hnr hfc => hcg.findUp m ci hfc hnr
     rcases hentF n cv mI rP rules hf with hfS | hfacts
-    · obtain ⟨cvj, cnP, cnF, hfc⟩ := hctorsS n cv mI rP rules hfS r hr
-      exact ⟨cvj, cnP, cnF, hcg.findUp _ _ hfc
-        (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon)⟩
-    · obtain ⟨-, -, -, -, -, ⟨cvj, cnP, cnF, hfc⟩, -⟩ := hfacts r hr
-      exact ⟨cvj, cnP, cnF, hcg.findUp _ _ hfc
-        (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon)⟩
+    · obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk, he⟩ :=
+        hctorsS n cv mI rP rules hfS r hr
+      exact ⟨⟨cvj, cnP, cnF, hkeep _ _
+          (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon) hfc⟩,
+        fun hb => recRuleKOf_mono hkeep (hk hb),
+        fun hb => recRuleEtaOf_mono hkeep (he hb)⟩
+    · obtain ⟨-, -, -, -, -, ⟨cvj, cnP, cnF, hfc⟩, -, hk, he⟩ := hfacts r hr
+      -- the swapped recursor is stored under its own constant's name
+      have hnR : cv.name = n := by
+        rcases hcorr n with heq | ⟨cv', mI', rP', rules', h₀, h₃, hn'⟩
+        · rw [heq] at hf
+          obtain ⟨-, hfS⟩ : True ∧ envSelf.find? n = some (.recInfo cv mI rP rules) :=
+            ⟨trivial, hf⟩
+          exact (Env.find?_name hfS)
+        · rw [h₃] at hf
+          obtain ⟨rfl, -, -, -⟩ := ConstantInfo.recInfo.inj (Option.some.inj hf)
+          exact hn'
+      exact ⟨⟨cvj, cnP, cnF, hkeep _ _
+          (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon) hfc⟩,
+        fun hb => recRuleKOf_mono hkeep (hk hb),
+        fun hb => recRuleEtaOf_mono hkeep (hnR ▸ he hb)⟩
   · -- `BasisPinnedTT`: a genuinely swapped entry is never reserved
     intro n ci hf hres
     have hf₀ : envSelf.find? n = some ci := by

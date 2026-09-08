@@ -264,7 +264,8 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
         (fixRuleCoreAV (pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))) (A ψ) p.nP
           cA.2 ctorsA.length j (ConLeche.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ))))
     (hfresh : env.find? cvRa.name = none)
-    {rule : RecRule} (hrule : rule = ⟨cA.1.name, cA.2, p.nP, .plain, rhs⟩)
+    {rule : RecRule} {kb eb : Bool}
+    (hrule : rule = ⟨cA.1.name, cA.2, p.nP, .plain, rhs, kb, eb⟩)
     {rules : List RecRule}
     (m₂ : EnvModel V ⟨.recInfo cvRa mI rP rules :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval cvRa.name A)
@@ -591,7 +592,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     -- at any carrier agreeing with this one off the recursor's name
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     (hTlaws : ∀ m₂ : EnvModel V ⟨.recInfo cvRa mI rP
-        (ConLeche.sumRules p.nP mI rP cvRa.type ctorsA rhss) :: env.consts⟩,
+        (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss) :: env.consts⟩,
       (∀ n, n ≠ cvRa.name → m₂.acval n = mp.base2.acval n) →
       FormerData m₂ cvTa (p.nP + p.nIdx) p.resSort ppsAll →
       (∀ ψ, m₂.acval p.cvT.name ψ = mp.base2.acval p.cvT.name ψ) →
@@ -668,7 +669,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
           AnnotValid V (consList bs ρp) E))
     (hwl : p.large = true → p.resSort.isNeverZero = true ∨ ctorsA.length < 2) :
     ∃ (sAV : (Name → Nat) → Nat)
-      (mp' : EnvModelM V μ ⟨.recInfo cvRa mI rP (ConLeche.sumRules p.nP mI rP cvRa.type ctorsA rhss)
+      (mp' : EnvModelM V μ ⟨.recInfo cvRa mI rP (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss)
         :: env.consts⟩),
       mp'.base2.acval = acvalWith mp.base2.acval cvRa.name
         (fixLeafAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA sAV) := by
@@ -1078,7 +1079,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
       rw [hℓ, restrictΨ_congr hφ]
     rw [hA ψ₁, hA ψ₂, hℓ, hw, hcds, hpps, hRD.params ψ₁ ψ₂ hφ, hs]
   -- the cons head
-  let c₀ : ConstantInfo := .recInfo cvRa mI rP (ConLeche.sumRules p.nP mI rP cvRa.type ctorsA rhss)
+  let c₀ : ConstantInfo := .recInfo cvRa mI rP (ConLeche.sumRules env.find? cvRa.name p.nP mI rP cvRa.type ctorsA rhss)
   have hcross : ∀ e : Expr, ConsCrossAt c₀ e := fun _ => ConsCrossAt.ofNtc (fun _ h => nomatch h)
   have hreadR : ∀ ψ : Name → Nat,
       denoteMeta (acvalWith mp.base2.acval cvRa.name A) ⟨c₀ :: env.consts⟩ ψ 0 cvRa.type
@@ -1100,7 +1101,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
         subst hrules
         obtain ⟨j, cA, rhs, hj, -, rfl⟩ := ConLeche.sumRules_getElem? hr
         obtain ⟨hf, -, -⟩ := hcf j cA hj
-        exact ⟨cA.1, p.nP, cA.2, hf⟩))
+        exact ⟨⟨cA.1, p.nP, cA.2, hf⟩, fun hb => hb, fun hb => hb⟩))
     (fun ψ k => AnnotTerm.liftN_eq_self _ (Term.bvarsBelow.mono (Nat.zero_le k) (hAcl ψ)) 1)
     hAparams (fun ψ ρ => (hleafF ψ ρ).1.1) (fun ψ ρ => (hleafF ψ ρ).1.2) (fun ψ => ⟨_, hreadR ψ⟩)
     ?_ ?_ ?_ ?_
@@ -1142,10 +1143,15 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
     intro rl hrl hfire
     obtain ⟨j, cA, rhs, hj, hrhs, rfl⟩ := ConLeche.sumRules_getElem? hrl
     by_cases hplain : Expr.recRulePlain cvRa.type mI rP p.nP = true
-    · have hrule : (⟨cA.1.name, cA.2, p.nP,
-          if Expr.recRulePlain cvRa.type mI rP p.nP then .plain else .inert, rhs⟩ : RecRule)
-          = ⟨cA.1.name, cA.2, p.nP, .plain, rhs⟩ := by
-        simp [hplain]
+    · have hrule : (ConLeche.recRuleBits env.find? cvRa.name
+            { ctor := cA.1.name, nfields := cA.2, ctorParams := p.nP,
+              fire := if Expr.recRulePlain cvRa.type mI rP p.nP then .plain
+                else .inert,
+              rhs := rhs } : RecRule)
+          = ⟨cA.1.name, cA.2, p.nP, .plain, rhs,
+             ConLeche.recRuleKOf env.find? cA.1.name,
+             ConLeche.recRuleEtaOf env.find? cvRa.name cA.1.name⟩ := by
+        simp [hplain, ConLeche.recRuleBits]
       subst hElimL
       exact fixRecRuleLaw mp hmI hrP hRec hfT hlpsT hstripT hopT hFD hlenK hks hcf hidxRes hRD
         hA hpre hAcl (fun ψ ρp hρp => by
@@ -1158,6 +1164,6 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
         hleafC hiff hprop hj hrhs (hRuleOk j cA hj) hfresh hrule m₂ hac φ'
     · exfalso
       apply hfire
-      simp [hplain]
+      simp [hplain, ConLeche.recRuleBits]
 
 end ConLeche.Model

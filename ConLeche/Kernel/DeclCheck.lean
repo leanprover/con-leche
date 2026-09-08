@@ -437,6 +437,12 @@ def indBlockCapsF (fe : FEnv) (cvT cvC : ConstantVal) (nP nF : Nat) :
   unitlike := checkUnitThmF mode fe cvT.name cvT.levelParams nP
   unitParams := nP
   ruleK := nF == 0 && piResultIsProp cvT.type
+  sortZ := piResultZ cvT.type
+
+/-- `indBlockCaps_sortZ` at the indexed lookup. -/
+@[simp] theorem indBlockCapsF_sortZ (fe : FEnv) (cvT cvC : ConstantVal)
+    (nP nF : Nat) :
+    (indBlockCapsF mode fe cvT cvC nP nF).sortZ = piResultZ cvT.type := rfl
 
 /-! ## Indexed mirrors of the declaration-checker functions (task #63)
 
@@ -704,7 +710,8 @@ def checkIotaRuleF (ops : CheckerOps m) (fe' feSelf : FEnv)
       else
         checkIotaThmNF mode ops fe' feSelf f cvName lps tyA mI rP j r
           cvj cnP cnF rhsA
-    pure { r with rhs := rhsA, ctorParams := cnP, fire := fire }
+    pure (recRuleBits fe'.find? cvName
+      { r with rhs := rhsA, ctorParams := cnP, fire := fire })
 
 /-- `checkIotaRules` through the index. -/
 def checkIotaRulesF (ops : CheckerOps m) (fe' feSelf : FEnv)

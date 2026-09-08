@@ -401,7 +401,9 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     rw [← checkNativeRec_datF]; exact hF₃
   have henv₃ := direct_fix_rec_wf henv₂ hF₃p
   -- the projection table at a structure-like block (task #210 Part A)
-  rw [push_mkFEnv] at h
+  rw [push_mkFEnv, show FEnv.find? (mkFEnv (consSumCtors p.nP ctorsA env₁))
+    = (consSumCtors p.nP ctorsA env₁).find? from
+    mkFEnv_find?_fun _] at h
   obtain ⟨hwfO, hfeO, -, F₆, hF₆⟩ := checkNativeTableS_run _ henv₃ hs₃.residue h
   obtain ⟨G, hleP₁, hleP₂, hle₁, hle₀, hle₂, hle₃, hle₆⟩ :
       ∃ G, FP₁ ≤ G ∧ FP₂ ≤ G ∧ F₁ ≤ G ∧ F₀ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₆ ≤ G :=
@@ -431,7 +433,7 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     rw [← checkNativeRec_datF]; exact FueledM.up hle₃ hF₃
   have g₆ : checkNativeTable (m := CheckM) p ctorsA sortss
       ⟨.recInfo cvRa p.majorIdx p.rulePrefix
-        (sumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
+        (sumRules (consSumCtors p.nP ctorsA env₁).find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
         :: (consSumCtors p.nP ctorsA env₁).consts⟩ = .ok feOut.env := by
     rw [← checkNativeTable_datF]; exact FueledM.up hle₆ hF₆
   unfold checkNative
