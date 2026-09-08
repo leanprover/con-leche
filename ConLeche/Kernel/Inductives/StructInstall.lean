@@ -20,13 +20,10 @@ namespace ConLeche
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
 
-/-! ## The direct simple-structure path (task #82)
+/-! ## The structure-shaped block's reference checks
 
 A block recognised by `structParts?` (`ConLeche/Kernel/Direct.lean`)
-installs *directly*: no `_model` artifact is consumed, and the
-set-theoretic model was constructed from the constructor telescope by
-the retired direct model (`ConLeche/ModelV1/*`, deleted at task #148 T7;
-the route ships `false`).  What is left for this layer are the
+consumes no `_model` artifact.  What this layer contributes are the
 reference checks that need inference and definitional equality — the
 per-field universe bound and the definitional pins of the recursor's
 binder domains against the constructor's.

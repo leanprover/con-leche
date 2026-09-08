@@ -27,9 +27,8 @@ open ConLeche.Term
 
 /-! ## The denotation reads only an expression's own level parameters
 
-Transpose of `interp_params_ext` (`ConLeche/ModelV1/InterpLemmas.lean`),
-and the fact every install case needs to discharge `EnvTT.cons`'s
-`hparams`: a definition's denotation is a function of its *own* level
+The fact every install case needs to discharge its `hparams`
+obligation: a definition's denotation is a function of its *own* level
 parameters, so storing it as the new constant's value respects
 `val_params`.
 
@@ -299,8 +298,7 @@ theorem denote_params_ext {env : Env} {cval : TConstVal}
     | .lit (.natVal n) => exact (k9 n rfl).elim
     | .lit (.strVal t) => exact (k10 t rfl).elim
 
-/-- **Level instantiation composes the level assignment.**  Transpose
-of `interp_instLevels` (`ConLeche/ModelV1/InterpLemmas.lean`).  The delta
+/-- **Level instantiation composes the level assignment.**  The delta
 step needs it: `unfoldDefinition` substitutes the levels *into* the
 stored value, while `defn_eq` speaks about the stored value under a
 substituted *assignment*, and this is the bridge between the two.

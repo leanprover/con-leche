@@ -6,27 +6,18 @@ import ConLeche.Kernel.Checker
 public section
 
 /-!
-# `V`-free readings of the environment's guards (task #123)
+# `V`-free readings of the environment's guards
 
 The literal-support guards `natLitSupported` / `strLitSupported` are
 `Bool`s the kernel computes from the environment; their inversion
 (`_inv`) and their read-set (`_congr`) are facts about `Env.find?`
 alone.  `EtaFamilyStored` is the kind- and arity-pinned premise under
-which an eta capability is owed — again a statement about what the
-environment stores.
+which an eta capability is owed, and `EtaFamiliesClosed` its closure
+over a block — again statements about what the environment stores.
 
-All four inversions and the premise were written in
-`ConLeche/ModelV1/Interp.lean`, under that module's `variable (V) [SetTheory
-V]`, but none of them mentions a valuation.  Relocated verbatim so the
-declarative type-theory bridge can consume them instead of restating
-them (task #123; the lane and its record are gone, task #209).
-
-`EtaFamiliesClosed` joined them in task #148's T1, from
-`ConLeche/ModelV1/Interp.lean` and against `EnvTT.lean`'s restatement of
-it: the "eighth `V`-free duplicate" of the relocation note that used to
-sit on `EtaFamilyStored` in `ConLeche/TTVerify/EnvTT.lean`.  That note is
-discharged — every duplicate it listed now has exactly one home, here
-or in `ConLeche/Verify/EnvPreds.lean`.
+None of them mentions a valuation, so every consumer takes them from
+here: this module and `ConLeche/Verify/EnvPreds.lean` are the single
+home of the environment's `V`-free readings.
 -/
 
 set_option linter.unusedVariables false
