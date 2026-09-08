@@ -63790,7 +63790,15 @@ Inversions restated: `majorToCtor_inv`, `structEtaCertWith_inv`,
   telescope is not syntactically `Π^cnP` would then differ: a refused
   rescue becomes an attempted one — accept-ward, licensed by the P row
   that never read the pin, and produced by no corpus (every count
-  below unchanged).
+  below unchanged).  The official kernel rejects such a constructor at
+  install (`src/kernel/inductive.cpp`, `check_constructors`): its walk
+  `while (is_pi(t))` is the syntactic kind test with no `whnf`, it
+  stops at the first non-Π, and `is_valid_ind_app` then demands that
+  the residual is exactly `I p⃗ i⃗` with `nparams + nindices` arguments
+  — so a type whose parameter prefix is not Π^nparams fails there;
+  `declare_constructors` counts `nfields` off the same syntactic
+  telescope.  The input in question is therefore one official rejects,
+  and ConLeche's verdict on it can only move accept-ward.
 * The modeled route grants exactly what it granted.
 
 ### 4. Re-derivation notes
