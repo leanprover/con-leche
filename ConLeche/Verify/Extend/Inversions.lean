@@ -1,12 +1,12 @@
 import ConLeche.Kernel.Checker
 
 /-!
-# Inversions — split out of `ConLeche.Model.Extend`
+# Inversions — split out of `ConLeche.ModelV1.Extend`
 
 Small syntactic inversion lemmas and name disequalities shared by
 the extension lemmas.
 
-Relocated from `ConLeche/Model/Extend/Inversions.lean` (task #123): every
+Relocated from `ConLeche/ModelV1/Extend/Inversions.lean` (task #123): every
 statement here is over `Env`/`Expr` only, so both the set model and the
 declarative type-theory bridge can import it.  The move is verbatim; the
 `omit [SetTheory V] in` lines are dropped because there is no such

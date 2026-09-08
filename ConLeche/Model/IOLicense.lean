@@ -7,7 +7,7 @@ The graph-regime license for the io lane's skipped argument check, and
 the squash-regime refutation that fences it — promoted verbatim from
 the round-D feasibility study (`agent/inferonly-study` @ `17e943d0`,
 probes in `_tmp/inferonly-study/ProbeIO.lean`) to stand beside their
-consumer, the io app clause (`Steps/InferIOP.lean`).  These four
+consumer, the io app clause (`Steps/InferIO.lean`).  These four
 theorems are the *entire* new mathematics of verified infer-only:
 
 * **The license** (`io_domain_transfer`, `io_app_mem`) — the fact an
@@ -25,7 +25,7 @@ theorems are the *entire* new mathematics of verified infer-only:
 
 * **The fence** (`io_squash_no_transfer`,
   `io_membership_fails_at_squash`) — the license's boundary stated as
-  a theorem, the way `gate_zero_kind_unreachable` (`Steps/GateP.lean`)
+  a theorem, the way `gate_zero_kind_unreachable` (`Steps/Gate.lean`)
   fences the β-gate.  At `v' = 0` the premise package does NOT pin the
   domain (both products are truth values inhabited by `pt`) and the
   io-membership conclusion is outright **false** on a closed witness:

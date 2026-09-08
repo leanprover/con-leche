@@ -151,22 +151,22 @@ theorem indBottomPlain {μ : CheckMode} {env : Env}
             (cvj.type.instantiateLevelParams cvj.levelParams usj)
             = some TVja →
           TeleFitPA V ρ TVa
-            (xs ++ [ATerm.mkAppN
+            (xs ++ [AnnotTerm.mkAppN
               (mp.base2.acval ctor
                 (Level.substFn φ cvj.levelParams usj)) ys]) restR →
           TeleFitPA V ρ TVja ys restC →
           interp V ρ
-              (ATerm.mkAppN
+              (AnnotTerm.mkAppN
                 (mp.base2.acval Rn (Level.substFn φ lps us))
-                (xs ++ [ATerm.mkAppN
+                (xs ++ [AnnotTerm.mkAppN
                   (mp.base2.acval ctor
                     (Level.substFn φ cvj.levelParams usj)) ys]))
             = interp V ρ
-                (ATerm.mkAppN Ra
+                (AnnotTerm.mkAppN Ra
                   (xs.take rP ++ ys.drop cnP)) ∧
           ((∀ a ∈ xs, WellDenotedV V ρ a) → (∀ b ∈ ys, WellDenotedV V ρ b) →
             WellDenotedV V ρ
-              (ATerm.mkAppN Ra (xs.take rP ++ ys.drop cnP))) := by
+              (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop cnP))) := by
   intro φ us huslen
   obtain ⟨Ra, taR, hRaden, hRaFacts⟩ := hrhsKey (Level.substFn φ lps us)
   refine ⟨Ra, by rw [denotePInstLevels]; exact hRaden,
@@ -390,7 +390,7 @@ theorem indBottomPlain {μ : CheckMode} {env : Env}
   have hArgsClen : vArgsC.length = cnP + (mI - rP) := by
     rw [← hcspJ.length, List.length_map, hcbodyArity]
   -- ===== the fitting prefix and parameter equalities =====
-  have htakexs : (xs ++ [ATerm.mkAppN
+  have htakexs : (xs ++ [AnnotTerm.mkAppN
       (mp.base2.acval ctor (Level.substFn φ cvj.levelParams usj))
       ys]).take rP = xs.take rP := by
     rw [List.take_append_of_le_length (by rw [hlenX]; omega)]
@@ -533,7 +533,7 @@ theorem indBottomPlain {μ : CheckMode} {env : Env}
       ∃ w0, denoteMeta mp.base2.acval env (Level.substFn φ lps us)
             (rP + cnF) x = some w0 ∧
         (xs.take cnP ++ ys.drop cnP)[q]?
-          = some (ATerm.instSeq (xs.take rP ++ ys.drop cnP)
+          = some (AnnotTerm.instSeq (xs.take rP ++ ys.drop cnP)
               (rP + cnF - 1) w0) := by
     intro q x hx
     have hq : q < cnP + cnF := by
@@ -590,14 +590,14 @@ theorem indBottomPlain {μ : CheckMode} {env : Env}
     exact (hpar q hq).symm
   -- ===== the four ladders, and the zipper =====
   have hpadLen : ∀ N, N ≤ rP + cnF →
-      (List.replicate (rP + cnF - N) (ATerm.sort 0)
+      (List.replicate (rP + cnF - N) (AnnotTerm.sort 0)
         ++ Γs.drop (rP + cnF - N)).length = rP + cnF := by
     intro N hN
     rw [List.length_append, List.length_replicate, List.length_drop,
       hΓslen]
     omega
   have hpadEnt : ∀ N, N ≤ rP + cnF → ∀ i, i < N →
-      (List.replicate (rP + cnF - N) (ATerm.sort 0)
+      (List.replicate (rP + cnF - N) (AnnotTerm.sort 0)
         ++ Γs.drop (rP + cnF - N))[rP + cnF - 1 - i]?
         = some (Γs.getD (rP + cnF - 1 - i) default) := by
     intro N hN i hi
@@ -723,10 +723,10 @@ theorem indBottomPlain {μ : CheckMode} {env : Env}
           | nil => exact ⟨_, _, _, rfl, hα, hL, hR⟩
   have hokVα : ∀ σ : Nat → V, Sat V Γs σ → WellDenotedV V σ va0 := by
     intro σ hσ
-    have h : WellDenotedV V σ (ATerm.mkAppN vEq0 [va0, vl0, vr0]) := by
+    have h : WellDenotedV V σ (AnnotTerm.mkAppN vEq0 [va0, vl0, vr0]) := by
       rw [← hRbodyEq]
       exact wellDenotedV_tower_body_sat htowerS (hokTst _) hσ
-    have hshow : ATerm.mkAppN vEq0 [va0, vl0, vr0]
+    have hshow : AnnotTerm.mkAppN vEq0 [va0, vl0, vr0]
         = .app (.app (.app vEq0 va0) vl0) vr0 := rfl
     refine ⟨?_, ?_⟩
     · have h1 := h.1
@@ -834,7 +834,7 @@ theorem indBottomPlain {μ : CheckMode} {env : Env}
   have hwsX : ∀ x ∈ xFvsP, Expr.WScoped (rP + cnF) x :=
     (openPisAtFvars_WScoped cnF crestP rP hopenXP hwsCrestP).1
   have hsatId : ∀ ρ' : Nat → V, Sat V Γs ρ' →
-      Sat V (List.replicate (rP + cnF - (rP + cnF)) (ATerm.sort 0)
+      Sat V (List.replicate (rP + cnF - (rP + cnF)) (AnnotTerm.sort 0)
         ++ Γs.drop (rP + cnF - (rP + cnF))) ρ' := by
     intro ρ' h
     rw [show rP + cnF - (rP + cnF) = 0 from by omega,
@@ -933,14 +933,14 @@ theorem indBottomPlain {μ : CheckMode} {env : Env}
   obtain ⟨bvs, hbvslen, hbvsel⟩ : ∃ bvs : List AnnotTerm,
       bvs.length = rP + cnF ∧
       ∀ k, k < rP + cnF →
-        bvs[k]? = some (ATerm.bvar (rP + cnF - 1 - k)) := by
+        bvs[k]? = some (AnnotTerm.bvar (rP + cnF - 1 - k)) := by
     refine ⟨(List.range (rP + cnF)).map
-        (fun j => ATerm.bvar (rP + cnF - 1 - j)),
+        (fun j => AnnotTerm.bvar (rP + cnF - 1 - j)),
       by rw [List.length_map, List.length_range], fun k hk => ?_⟩
     rw [List.getElem?_map, List.getElem?_range hk]
     rfl
   have hbvsgetD : ∀ k, k < rP + cnF →
-      bvs.getD k default = ATerm.bvar (rP + cnF - 1 - k) := by
+      bvs.getD k default = AnnotTerm.bvar (rP + cnF - 1 - k) := by
     intro k hk
     rw [List.getD, hbvsel k hk]
     rfl
@@ -975,13 +975,13 @@ theorem indBottomPlain {μ : CheckMode} {env : Env}
     exact hRaden
   have hbaEq : denoteMeta mp.base2.acval env (Level.substFn φ lps us)
       (rP + cnF) (Expr.mkAppN (rhsA.renameConsts f) fvs)
-      = some (ATerm.mkAppN Ra bvs) := denoteMeta_mkAppN_of fvs hRaK hspBvs
+      = some (AnnotTerm.mkAppN Ra bvs) := denoteMeta_mkAppN_of fvs hRaK hspBvs
   have hokApp : ∀ σ : Nat → V, Sat V Γs σ → ∀ ba : AnnotTerm,
       denoteMeta mp.base2.acval env (Level.substFn φ lps us) (rP + cnF)
         (Expr.mkAppN (rhsA.renameConsts f) fvs) = some ba →
       WellDenotedV V σ ba := by
     intro σ hσ ba hba
-    obtain rfl : ba = ATerm.mkAppN Ra bvs :=
+    obtain rfl : ba = AnnotTerm.mkAppN Ra bvs :=
       Option.some.inj (hba.symm.trans hbaEq)
     have hsatB : Sat V Γs (chain V σ bvs) := by
       intro i Aa hi
@@ -1017,7 +1017,7 @@ theorem indBottomPlain {μ : CheckMode} {env : Env}
         (fun j hj => by
           rw [chain_lt (by rw [htklen]; omega), htklen,
             show (bvs.take k).getD (k - 1 - j) default
-              = ATerm.bvar (rP + cnF - 1 - (k - 1 - j)) from by
+              = AnnotTerm.bvar (rP + cnF - 1 - (k - 1 - j)) from by
               rw [List.getD, List.getElem?_take_of_lt (by omega),
                 hbvsel (k - 1 - j) (by omega)]
               rfl]
@@ -1034,7 +1034,7 @@ theorem indBottomPlain {μ : CheckMode} {env : Env}
           have := (List.getElem?_eq_some_iff.mp hq).1
           rw [hbvslen] at this; exact this
         rw [hbvsel q hqlt] at hq
-        obtain rfl : w = ATerm.bvar (rP + cnF - 1 - q) :=
+        obtain rfl : w = AnnotTerm.bvar (rP + cnF - 1 - q) :=
           (Option.some.inj hq).symm
         exact ⟨by simp, by simp⟩)
   -- ===== the right side is the rule's own application =====

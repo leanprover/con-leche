@@ -7,7 +7,7 @@ import ConLeche.Semantics.DeclRun
 # The structural-`Nat` recurrences, established at `interp` from run
 certificates (task #161, literal tier)
 
-The literal tier's wall (`Steps/NatP.lean`) is exactly one law wide:
+The literal tier's wall (`Steps/Nat.lean`) is exactly one law wide:
 the stored operations' recurrences at `interp`.  This file builds the
 recorded resumption route — **establishment from run certificates**:
 `DeclDefnR` records one `isDefEqCore` run per substituted equation

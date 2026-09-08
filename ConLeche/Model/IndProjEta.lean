@@ -18,7 +18,7 @@ is smaller than the phrase suggests: `memberEtaLaw`'s skeleton is
 reused move for move, and the projection spine enters at exactly three
 points —
 
-* the fabricated spine is `ts ++ projSpines2 …` instead of `ts`;
+* the fabricated spine is `ts ++ projSpines …` instead of `ts`;
 * the pinned body `hsbody` carries `etaFields` further arguments, so
   `hCs`'s right-hand side is the model constructor applied to the
   parameter spine **and** to one model-projection application per
@@ -119,7 +119,7 @@ member key inlined this; the mixed spine needs it as a rewrite so the
 two halves can be split with `List.map_append`. -/
 theorem interp_mkAppN_map (σ : Nat → V) (K : AnnotTerm) :
     ∀ as : List AnnotTerm,
-      interp V σ (ATerm.mkAppN K as)
+      interp V σ (AnnotTerm.mkAppN K as)
         = (as.map (interp V σ)).foldl SetTheory.app (interp V σ K) := by
   intro as
   rw [interp_mkAppN]
@@ -240,13 +240,13 @@ theorem projEtaLaw : ProjEtaLaw V := by
   rw [← hψ, hvC]
   -- the fabricated spine, with `hvP` moving every projection leaf to
   -- its model
-  rw [show etaFabArgs2 (fun n => interp V ρ (m₂.acval n ψ)) T ts x
+  rw [show etaFabArgsV (fun n => interp V ρ (m₂.acval n ψ)) T ts x
         caps.etaFields
       = ts ++ (List.range caps.etaFields).map (fun j =>
           (ts ++ [x]).foldl SetTheory.app
             (interp V ρ (mp.base2.acval (ConLeche.projModelName T j) ψ)))
       from by
-    unfold etaFabArgs2 projSpines2
+    unfold etaFabArgsV projSpines
     refine congrArg _ (List.map_congr_left fun j hj => ?_)
     dsimp only
     rw [hvP j (List.mem_range.mp hj) ψ]]
@@ -297,16 +297,16 @@ theorem projEtaLaw : ProjEtaLaw V := by
       denoteMeta mp.base2.acval env ψ d
         (Expr.mkAppN (.const K (cvT.levelParams.map .param))
           (openFvars 0 caps.etaParams))
-      = some (ATerm.mkAppN (mp.base2.acval K ψ)
+      = some (AnnotTerm.mkAppN (mp.base2.acval K ψ)
           ((List.range caps.etaParams).map fun q =>
-            ATerm.bvar (d - 1 - (0 + q)))) :=
+            AnnotTerm.bvar (d - 1 - (0 + q)))) :=
     fun K ci hf hlps d hd => denoteMeta_openSpine hf hlps _ d hd
   have hspineVal : ∀ (K : Name) (d : Nat) (σ : Nat → V),
       (∀ q, q < ts.length →
         σ (d - 1 - (0 + q)) = consN ts ρ (ts.length - 1 - q)) →
-      interp V σ (ATerm.mkAppN (mp.base2.acval K ψ)
+      interp V σ (AnnotTerm.mkAppN (mp.base2.acval K ψ)
           ((List.range caps.etaParams).map fun q =>
-            ATerm.bvar (d - 1 - (0 + q))))
+            AnnotTerm.bvar (d - 1 - (0 + q))))
         = ts.foldl SetTheory.app (interp V ρ (mp.base2.acval K ψ)) := by
     intro K d σ hσ
     rw [← hlents]
@@ -315,9 +315,9 @@ theorem projEtaLaw : ProjEtaLaw V := by
       (acval_interp_closedC mp.base2 _ ψ σ ρ)
   -- the major's slot
   obtain ⟨mx, hxb⟩ := hxdom
-  have hAx : Ax = ATerm.mkAppN (mp.base2.acval (T.str "_model") ψ)
+  have hAx : Ax = AnnotTerm.mkAppN (mp.base2.acval (T.str "_model") ψ)
       ((List.range caps.etaParams).map fun q =>
-        ATerm.bvar (caps.etaParams - 1 - (0 + q))) := by
+        AnnotTerm.bvar (caps.etaParams - 1 - (0 + q))) := by
     have h := hdomsS caps.etaParams _ hxb
     rw [instSeq_openSpine _ _ caps.etaParams caps.etaParams
         (caps.etaParams - 1) (Nat.le_refl _) (by omega),
@@ -351,10 +351,10 @@ theorem projEtaLaw : ProjEtaLaw V := by
           (.const (ConLeche.projModelName T j)
             (cvT.levelParams.map .param))
           (openFvars 0 (caps.etaParams + 1))) j)
-        = some ((fun j => ATerm.mkAppN
+        = some ((fun j => AnnotTerm.mkAppN
             (mp.base2.acval (ConLeche.projModelName T j) ψ)
             ((List.range (caps.etaParams + 1)).map fun q =>
-              ATerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))) j) := by
+              AnnotTerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))) j) := by
     intro j hj
     obtain ⟨cvmj, mvalj, hmj, hfj, hlpj⟩ :=
       hprojE j (List.mem_range.mp hj)
@@ -397,18 +397,18 @@ theorem projEtaLaw : ProjEtaLaw V := by
   have hCs : Cs = .app (.app (.app
       (mp.base2.acval eqName
         (Level.substFn ψ eqA.toConstantVal.levelParams [ℓA]))
-      (ATerm.mkAppN (mp.base2.acval (T.str "_model") ψ)
+      (AnnotTerm.mkAppN (mp.base2.acval (T.str "_model") ψ)
         ((List.range caps.etaParams).map fun q =>
-          ATerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))))
+          AnnotTerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))))
       (.bvar 0))
-      (ATerm.mkAppN (mp.base2.acval (caps.etaCtor.str "_model") ψ)
+      (AnnotTerm.mkAppN (mp.base2.acval (caps.etaCtor.str "_model") ψ)
         (((List.range caps.etaParams).map fun q =>
-            ATerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))
+            AnnotTerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))
           ++ (List.range caps.etaFields).map fun j =>
-              ATerm.mkAppN
+              AnnotTerm.mkAppN
                 (mp.base2.acval (ConLeche.projModelName T j) ψ)
                 ((List.range (caps.etaParams + 1)).map fun q =>
-                  ATerm.bvar (caps.etaParams + 1 - 1 - (0 + q))))) := by
+                  AnnotTerm.bvar (caps.etaParams + 1 - 1 - (0 + q))))) := by
     have h := hbodyS
     rw [show caps.etaParams + 1 - 1 = caps.etaParams from by omega,
       hsbody, Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ rfl,
@@ -463,9 +463,9 @@ theorem projEtaLaw : ProjEtaLaw V := by
       hfitFull
     rwa [hconsApp] at h
   have hSval : ∀ K : Name, interp V (cons x (consN ts ρ))
-      (ATerm.mkAppN (mp.base2.acval K ψ)
+      (AnnotTerm.mkAppN (mp.base2.acval K ψ)
         ((List.range caps.etaParams).map fun q =>
-          ATerm.bvar (caps.etaParams + 1 - 1 - (0 + q))))
+          AnnotTerm.bvar (caps.etaParams + 1 - 1 - (0 + q))))
       = ts.foldl SetTheory.app (interp V ρ (mp.base2.acval K ψ)) :=
     fun K => hspineVal K (caps.etaParams + 1) (cons x (consN ts ρ))
       (fun q hq => by
@@ -475,9 +475,9 @@ theorem projEtaLaw : ProjEtaLaw V := by
   -- the projection arguments, evaluated: the side condition is
   -- reflexivity, because `consN (ts ++ [x]) ρ` IS the environment
   have hPval : ∀ K : Name, interp V (cons x (consN ts ρ))
-      (ATerm.mkAppN (mp.base2.acval K ψ)
+      (AnnotTerm.mkAppN (mp.base2.acval K ψ)
         ((List.range (caps.etaParams + 1)).map fun q =>
-          ATerm.bvar (caps.etaParams + 1 - 1 - (0 + q))))
+          AnnotTerm.bvar (caps.etaParams + 1 - 1 - (0 + q))))
       = (ts ++ [x]).foldl SetTheory.app
           (interp V ρ (mp.base2.acval K ψ)) := by
     intro K
@@ -503,7 +503,7 @@ theorem projEtaLaw : ProjEtaLaw V := by
   rw [interp_mkAppN_map, List.map_append, List.map_map, List.map_map]
     at hRS
   have hmapS : ((List.range caps.etaParams).map fun q =>
-        ATerm.bvar (caps.etaParams + 1 - 1 - (0 + q))).map
+        AnnotTerm.bvar (caps.etaParams + 1 - 1 - (0 + q))).map
         (interp V (cons x (consN ts ρ))) = ts := by
     refine List.ext_getElem (by simp [hlents]) fun q h1 h2 => ?_
     have hq : q < caps.etaParams := by simpa using h1
@@ -517,9 +517,9 @@ theorem projEtaLaw : ProjEtaLaw V := by
       List.getElem?_eq_getElem (by omega)] at this
     exact (Option.some.inj this).symm
   have hmapP : ((List.range caps.etaFields).map fun j =>
-        ATerm.mkAppN (mp.base2.acval (ConLeche.projModelName T j) ψ)
+        AnnotTerm.mkAppN (mp.base2.acval (ConLeche.projModelName T j) ψ)
           ((List.range (caps.etaParams + 1)).map fun q =>
-            ATerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))).map
+            AnnotTerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))).map
         (interp V (cons x (consN ts ρ)))
       = (List.range caps.etaFields).map fun j =>
           (ts ++ [x]).foldl SetTheory.app

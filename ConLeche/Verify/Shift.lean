@@ -15,7 +15,7 @@ with annotated types):
   key equation that lets weakening proofs step under a binder.
 
 Everything here is used by the model's weakening lemmas
-(`ConLeche.Model.InterpLemmas`).
+(`ConLeche.ModelV1.InterpLemmas`).
 -/
 
 namespace ConLeche.Expr

@@ -212,7 +212,7 @@ theorem ihAppAVb_args_interp {nP n nF e i : Nat} {as₁ ms ex fs bs : List V} {M
     (hlenP : as₁.length = nP) (hlenM : ms.length = n) (hlenE : ex.length = e) (hlenF : fs.length = nF)
     (hi : i < nF) (Eis : List AnnotTerm) :
     (prefixVarsAV nP n nF (bs.length + e) ++ Eis.map (ihIdxAtM nF (n + 1 + e) i 0 bs.length) ++
-        [ATerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)]).map
+        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)]).map
       (interp V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ)))))))
       = (as₁ ++ [M]) ++ ms ++ Eis.map (interp V (consList bs (consList (fs.take i) (consList as₁ ρ)))) ++
         [(frameIdx bs.length (consList bs (consList (fs.take i) (consList as₁ ρ)))).foldl SetTheory.app
@@ -240,7 +240,7 @@ theorem ihAppAVb_args_interp {nP n nF e i : Nat} {as₁ ms ex fs bs : List V} {M
     exact interp_ihIdxAtM (ρp := consList as₁ ρ) (M := M) (l := 0) hms hlenF (ihs := []) rfl
       (Nat.le_of_lt hi) bs E
   have hfld : interp V (consList bs (consList fs (consList ex (consList ms (cons M (consList as₁ ρ))))))
-      (ATerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length))
+      (AnnotTerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length))
       = (frameIdx bs.length (consList bs (consList (fs.take i) (consList as₁ ρ)))).foldl
           SetTheory.app (fs.getD i pt) := by
     rw [interp_mkAppN, ← List.foldl_map (f := interp V _) (g := SetTheory.app),
@@ -664,7 +664,7 @@ theorem srcVals_of_fit {ρp : Nat → V} {Fs Es : List AnnotTerm}
     show fs.getD j pt = (Es.map (interp V (consList fs ρp))).getD l pt
     have hr : (Es.map (interp V (consList fs ρp))).getD l pt = interp V (consList fs ρp) Es[l] := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hl]; rfl
-    have hEl : Es[l] = ATerm.bvar (Fs.length - 1 - j) := by
+    have hEl : Es[l] = AnnotTerm.bvar (Fs.length - 1 - j) := by
       rw [← hE, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl]; rfl
     rw [hr, hEl, interp_bvar, consList_getD_lt fs ρp _ (by omega),
       show fs.length - 1 - (Fs.length - 1 - j) = j from by omega]
@@ -1186,16 +1186,16 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
           ((ihTeleAtR (Fss.getD 0 []).length (Fss.length + 1 + (Ids.length + 1)) i 0
             ((tlss.getD 0 []).getD i [])).map (·.2.2)) bs →
         WellDenoted V (consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))))))
-          (ATerm.mkAppN (.bvar (((tlss.getD 0 []).getD i []).length + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP))
+          (AnnotTerm.mkAppN (.bvar (((tlss.getD 0 []).getD i []).length + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP))
             (prefixVarsAV nP Fss.length (Fss.getD 0 []).length (((tlss.getD 0 []).getD i []).length + (Ids.length + 1)) ++
               ((Eiss.getD 0 []).getD i []).map (ihIdxAtM (Fss.getD 0 []).length (Fss.length + 1 + (Ids.length + 1)) i 0 ((tlss.getD 0 []).getD i []).length) ++
-              [ATerm.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + ((tlss.getD 0 []).getD i []).length))
+              [AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + ((tlss.getD 0 []).getD i []).length))
                 (teleVarsAV ((tlss.getD 0 []).getD i []).length)])) ∧
         interp V (consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb)))))))
-          (ATerm.mkAppN (.bvar (((tlss.getD 0 []).getD i []).length + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP))
+          (AnnotTerm.mkAppN (.bvar (((tlss.getD 0 []).getD i []).length + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP))
             (prefixVarsAV nP Fss.length (Fss.getD 0 []).length (((tlss.getD 0 []).getD i []).length + (Ids.length + 1)) ++
               ((Eiss.getD 0 []).getD i []).map (ihIdxAtM (Fss.getD 0 []).length (Fss.length + 1 + (Ids.length + 1)) i 0 ((tlss.getD 0 []).getD i []).length) ++
-              [ATerm.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + ((tlss.getD 0 []).getD i []).length))
+              [AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + ((tlss.getD 0 []).getD i []).length))
                 (teleVarsAV ((tlss.getD 0 []).getD i []).length)]))
           ∈ˢ SetTheory.app
               ((((Eiss.getD 0 []).getD i []).map
@@ -1233,7 +1233,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
       rw [← List.append_assoc] at hval
       have hok : ∀ a ∈ prefixVarsAV nP Fss.length (Fss.getD 0 []).length (bs.length + (Ids.length + 1)) ++
           ((Eiss.getD 0 []).getD i []).map (ihIdxAtM (Fss.getD 0 []).length (Fss.length + 1 + (Ids.length + 1)) i 0 bs.length) ++
-          [ATerm.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + bs.length)) (teleVarsAV bs.length)],
+          [AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length - 1 - i + bs.length)) (teleVarsAV bs.length)],
           WellDenoted V (consList bs (consList fs' (consList (is ++ [pt]) (consList ms (cons M (consList ps (cons r ρb))))))) a := by
         intro a ha
         rcases List.mem_append.mp ha with ha | ha
@@ -1294,13 +1294,13 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
   -- ## the inner body at a fitting field spine
   have hinner : ∀ fs' : List V, SpineFit (consList ps (cons r ρb)) (Fss.getD 0 []) fs' →
       WellDenoted V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-        (ATerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+        (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
           (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
             ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
               Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
               ((Eiss.getD 0 []).getD i []))) ∧
       interp V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-        (ATerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+        (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
           (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
             ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
               Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
@@ -1308,7 +1308,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
         = (fs' ++ sqIhValsK ℓ (consList ps (cons r ρb)) ps ms M r (rss.getD 0 []) (tlss.getD 0 []) (Eiss.getD 0 [])
             (Fss.getD 0 []).length fs').foldl SetTheory.app (ms.getD 0 pt) ∧
       interp V (consList fs' (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-        (ATerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+        (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
           (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
             ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
               Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
@@ -1396,13 +1396,13 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
   have hleafF : ∀ bs : List V, SpineFit (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))
       ((fieldTeleAt (Ids.length + Fss.length + 2) (Fss.getD 0 [])).map (·.2.2)) bs →
       WellDenoted V (consList bs (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-        (ATerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+        (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
           (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
             ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
               Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
               ((Eiss.getD 0 []).getD i []))) ∧
       interp V (consList bs (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-        (ATerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+        (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
           (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
             ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
               Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
@@ -1434,7 +1434,7 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
   have hchainF : AppChainOk
       (interp V (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))
         (mkLamsC ℓ (fieldTeleAt (Ids.length + Fss.length + 2) (Fss.getD 0 []))
-          (ATerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+          (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
             (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
               ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
                 Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
@@ -1444,14 +1444,14 @@ theorem sqFixBody_facts (hℓ : ℓ ≠ 0) {ps ms is : List V} {M r t : V} {ρb 
   have hβ : (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length)).foldl SetTheory.app
       (interp V (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb))))))
         (mkLamsC ℓ (fieldTeleAt (Ids.length + Fss.length + 2) (Fss.getD 0 []))
-          (ATerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+          (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
             (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
               ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
                 Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])
                 ((Eiss.getD 0 []).getD i [])))))
       = interp V (consList (srcVals is (srcList (Ess.getD 0 []) (Fss.getD 0 []).length))
           (cons pt (consList is (consList ms (cons M (consList ps (cons r ρb)))))))
-          (ATerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
+          (AnnotTerm.mkAppN (.bvar ((Fss.getD 0 []).length + 1 + Ids.length + Fss.length - 1))
             (teleVarsAV (Fss.getD 0 []).length ++ (recIdx (rss.getD 0 []) (Fss.getD 0 []).length).map fun i =>
               ihAppAVb ℓ (fun m => .bvar (m + (Fss.getD 0 []).length + 1 + Ids.length + Fss.length + 1 + nP)) nP
                 Fss.length (Fss.getD 0 []).length (Ids.length + 1) i ((tlss.getD 0 []).getD i [])

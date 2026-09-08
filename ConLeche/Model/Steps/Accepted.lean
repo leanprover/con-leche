@@ -32,7 +32,7 @@ body, `b.instantiate1 (.fvar d ty)`.  The two are not the same
 term, so the induction hypothesis lands on the wrong one.
 `denoteMeta_beta` (`Annot/BitInst.lean`) is exactly the bridge, and in
 the direction this walk needs: it states the ζ reading as the *opened*
-reading mapped through `ATerm.inst`, so `some` on the left forces
+reading mapped through `AnnotTerm.inst`, so `some` on the left forces
 `some` inside the map.  The value's own reading — the `x` that lemma
 instantiates at — is the induction hypothesis at `v`, which the same
 clause infers.

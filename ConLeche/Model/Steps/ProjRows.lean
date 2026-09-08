@@ -12,8 +12,8 @@ import ConLeche.Verify.Denote.VClosed
 # The semantic projection rows (task #161, PROJ/STR install tier;
 task #175 W5/W6, the tower route)
 
-`InferProjStep`/`InferProjStepIO` (`Steps/InferP.lean`,
-`Steps/InferIOP.lean`) and `ProjStep` (`Steps/WhnfP.lean`),
+`InferProjStep`/`InferProjStepIO` (`Steps/Infer.lean`,
+`Steps/InferIO.lean`) and `ProjStep` (`Steps/Whnf.lean`),
 discharged.  Every native projection-table entry is tower-backed
 (`ProjOkT`, task #175 W6: the pinned `PSigma'` pair entries are
 retired), so every row is the tower law's (`TowerEntryLaw`, keyed on
@@ -383,7 +383,7 @@ theorem projStep_of_claims (hμ : μ.verifiedChecks = true) {m : EnvModel V env}
         = some (vs.getD (entry.numParams + i) default) :=
       hspa.getD_read hidx
     have hok₃' : ∀ σ : Nat → V, Sat V Δa σ →
-        WellDenotedV V σ (ATerm.mkAppN
+        WellDenotedV V σ (AnnotTerm.mkAppN
           (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) vs) := by
       intro σ hσ; rw [← hveq]; exact hok₃ σ hσ
     obtain ⟨-, hoA⟩ := hoist_spine vs hok₃'

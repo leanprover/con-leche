@@ -43,7 +43,7 @@ variable {V : Type uv} [SetTheory V]
 uniform projections of the major — `towerRec`'s witness
 `m ∘ projList`, spelled. -/
 def recBodyAV (nF : Nat) : AnnotTerm :=
-  ATerm.mkAppN (.bvar 1) ((List.range nF).map fun i => projAV i (.bvar 0))
+  AnnotTerm.mkAppN (.bvar 1) ((List.range nF).map fun i => projAV i (.bvar 0))
 
 /-! ## Projection-list arithmetic -/
 
@@ -169,8 +169,8 @@ theorem minorSp_spine {ℓ w : Nat} {M : V}
       WellDenoted V σ f →
       interp V σ f ∈ˢ minorSp ℓ w M Fs ρf acc →
       ArgsOkFit σ args Fs ρf →
-      WellDenoted V σ (ATerm.mkAppN f args) ∧
-        interp V σ (ATerm.mkAppN f args)
+      WellDenoted V σ (AnnotTerm.mkAppN f args) ∧
+        interp V σ (AnnotTerm.mkAppN f args)
           ∈ˢ SetTheory.app M (if w = 0 then pt
               else mkTower (acc ++ args.map (interp V σ)))
   | [], [], _, acc, f, σ, hokf, hmf, _ => by
@@ -332,11 +332,11 @@ theorem mkAppN_wellDenoted_pt :
     ∀ {args : List AnnotTerm} {f : AnnotTerm} {σ : Nat → V},
       WellDenoted V σ f → interp V σ f = pt →
       (∀ a ∈ args, WellDenoted V σ a ∧ interp V σ a = pt) →
-      WellDenoted V σ (ATerm.mkAppN f args) ∧
-        interp V σ (ATerm.mkAppN f args) = pt
+      WellDenoted V σ (AnnotTerm.mkAppN f args) ∧
+        interp V σ (AnnotTerm.mkAppN f args) = pt
   | [], _, _, hf, hpt, _ => ⟨hf, hpt⟩
   | a :: args, f, σ, hf, hpt, hargs => by
-    rw [ATerm.mkAppN_cons]
+    rw [AnnotTerm.mkAppN_cons]
     refine mkAppN_wellDenoted_pt ?_ ?_ fun a' ha' => hargs a' (.tail _ ha')
     · rw [WellDenoted_app]
       refine ⟨hf, (hargs a (.head _)).1, 0, unitSet, fun _ => unitSet, ?_, ?_,

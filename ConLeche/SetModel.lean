@@ -11,8 +11,8 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
 
 * `Ops` — `piR`/`lamR`/`app`, the two-regime dependent product and
   abstraction (the `R` is *regime*, not the retired R lane);
-* `Value` — the built-in constants' value towers (`natRecV2`,
-  `quotLiftV2`, `psigmaV2`, …) over `piR`/`lamR`;
+* `Value` — the built-in constants' value towers (`natRecV`,
+  `quotLiftV`, `psigmaV`, …) over `piR`/`lamR`;
 * `TupleTower` — the uniform tuple model for directly-installed
   structures: `sigmaSet`-built, unit-terminated pair towers, the
   tupler `mkTower` and the projection family (namespace

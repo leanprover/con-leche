@@ -11,7 +11,7 @@ them back.
 * `numeralAV i` — `Nat.succ^i Nat.zero`, reading to `vnat i`;
 * `natRecAV u M z s k` — the four-application spine of `Nat.rec.{u}`,
   reading to `natrec ⟦z⟧ ⟦s⟧ ⟦k⟧` under the motive/base/step
-  memberships (`natRecV2_app`), graded from the same memberships
+  memberships (`natRecV_app`), graded from the same memberships
   (`natRecAV_wellDenoted` — the spine's four slots are `Nat.rec`'s own product
   chain, both regimes);
 * `caseAVAt w Ts d k` — **the fibre selector**: the nested `Nat.rec`
@@ -53,15 +53,15 @@ theorem natsucc_eq_vsucc (n : V) : natsucc n = vsucc n := by
 theorem interp_numeralAV : ∀ (i : Nat) (ρ : Nat → V), interp V ρ (numeralAV i) = vnat i
   | 0, _ => natzero_eq_vnat
   | i + 1, ρ => by
-    show SetTheory.app (natSuccV2 V) (interp V ρ (numeralAV i)) = vsucc (vnat i)
-    rw [interp_numeralAV i ρ, natSuccV2_app V (vnat_mem_omega i), natsucc_eq_vsucc]
+    show SetTheory.app (natSuccV V) (interp V ρ (numeralAV i)) = vsucc (vnat i)
+    rw [interp_numeralAV i ρ, natSuccV_app V (vnat_mem_omega i), natsucc_eq_vsucc]
 
 theorem numeralAV_wellDenoted : ∀ (i : Nat) (ρ : Nat → V), WellDenoted V ρ (numeralAV i)
   | 0, _ => by simp [numeralAV]
   | i + 1, ρ => by
     show WellDenoted V ρ (.app (.const .natSucc []) (numeralAV i))
     rw [WellDenoted_app]
-    refine ⟨trivial, numeralAV_wellDenoted i ρ, 1, omega, fun _ => omega, natSuccV2_mem V, ?_,
+    refine ⟨trivial, numeralAV_wellDenoted i ρ, 1, omega, fun _ => omega, natSuccV_mem V, ?_,
       fun h => absurd h Nat.one_ne_zero⟩
     rw [interp_numeralAV]
     exact vnat_mem_omega i
@@ -79,10 +79,10 @@ the trivial product over the argument's singleton. -/
 theorem mkAppN_wellDenoted_of_pt_head :
     ∀ {args : List AnnotTerm} {f : AnnotTerm} {σ : Nat → V},
       WellDenoted V σ f → interp V σ f = pt → (∀ a ∈ args, WellDenoted V σ a) →
-      WellDenoted V σ (ATerm.mkAppN f args) ∧ interp V σ (ATerm.mkAppN f args) = pt
+      WellDenoted V σ (AnnotTerm.mkAppN f args) ∧ interp V σ (AnnotTerm.mkAppN f args) = pt
   | [], _, _, hf, hpt, _ => ⟨hf, hpt⟩
   | a :: args, f, σ, hf, hpt, hargs => by
-    rw [ATerm.mkAppN_cons]
+    rw [AnnotTerm.mkAppN_cons]
     refine mkAppN_wellDenoted_of_pt_head ?_ ?_ fun a' ha' => hargs a' (.tail _ ha')
     · rw [WellDenoted_app]
       refine ⟨hf, hargs a (.head _), 0, sing (interp V σ a), fun _ => unitSet, ?_,
@@ -95,32 +95,32 @@ theorem mkAppN_wellDenoted_of_pt_head :
 
 /-- The `Nat.rec.{u}` spine. -/
 def natRecAV (u : Nat) (M z s k : AnnotTerm) : AnnotTerm :=
-  ATerm.mkAppN (.const .natRec [u]) [M, z, s, k]
+  AnnotTerm.mkAppN (.const .natRec [u]) [M, z, s, k]
 
 theorem interp_natRecAV_raw (u : Nat) (M z s k : AnnotTerm) (σ : Nat → V) :
     interp V σ (natRecAV u M z s k)
-      = SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (natRecV2 V u)
+      = SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (natRecV V u)
           (interp V σ M)) (interp V σ z)) (interp V σ s)) (interp V σ k) := rfl
 
-/-- The spine reads to `natrec` (`natRecV2_app`). -/
+/-- The spine reads to `natrec` (`natRecV_app`). -/
 theorem interp_natRecAV {u : Nat} {M z s k : AnnotTerm} {σ : Nat → V}
     (hM : interp V σ M ∈ˢ natMotiveSpace V u)
     (hz : interp V σ z ∈ˢ SetTheory.app (interp V σ M) natzero)
-    (hs : interp V σ s ∈ˢ natStepSpace2 V u (interp V σ M))
+    (hs : interp V σ s ∈ˢ natStepSpace V u (interp V σ M))
     (hk : interp V σ k ∈ˢ (omega : V)) :
     interp V σ (natRecAV u M z s k) = natrec (interp V σ z) (interp V σ s) (interp V σ k) := by
   rw [interp_natRecAV_raw]
-  exact natRecV2_app V hM hz hs hk
+  exact natRecV_app V hM hz hs hk
 
 /-- The spine inhabits the motive at the numeral. -/
 theorem natRecAV_mem {u : Nat} {M z s k : AnnotTerm} {σ : Nat → V}
     (hM : interp V σ M ∈ˢ natMotiveSpace V u)
     (hz : interp V σ z ∈ˢ SetTheory.app (interp V σ M) natzero)
-    (hs : interp V σ s ∈ˢ natStepSpace2 V u (interp V σ M))
+    (hs : interp V σ s ∈ˢ natStepSpace V u (interp V σ M))
     (hk : interp V σ k ∈ˢ (omega : V)) :
     interp V σ (natRecAV u M z s k) ∈ˢ SetTheory.app (interp V σ M) (interp V σ k) := by
   rw [interp_natRecAV hM hz hs hk]
-  exact natRecV2_mem_fibre V hM hz hs hk
+  exact natRecV_mem_fibre V hM hz hs hk
 
 /-- **The spine is graded**, both regimes: the four slots are
 `Nat.rec`'s own product chain, with the squash-side fibre conditions
@@ -130,28 +130,28 @@ theorem natRecAV_wellDenoted {u : Nat} {M z s k : AnnotTerm} {σ : Nat → V}
     (hokk : WellDenoted V σ k)
     (hM : interp V σ M ∈ˢ natMotiveSpace V u)
     (hz : interp V σ z ∈ˢ SetTheory.app (interp V σ M) natzero)
-    (hs : interp V σ s ∈ˢ natStepSpace2 V u (interp V σ M))
+    (hs : interp V σ s ∈ˢ natStepSpace V u (interp V σ M))
     (hk : interp V σ k ∈ˢ (omega : V)) :
     WellDenoted V σ (natRecAV u M z s k) := by
-  have hbv : interp V σ (.const .natRec [u]) = natRecV2 V u := rfl
-  have h0 : natRecV2 V u ∈ˢ piR u (natMotiveSpace V u) fun M =>
+  have hbv : interp V σ (.const .natRec [u]) = natRecV V u := rfl
+  have h0 : natRecV V u ∈ˢ piR u (natMotiveSpace V u) fun M =>
       piR u (SetTheory.app M natzero) fun _ =>
-        piR u (natStepSpace2 V u M) fun _ => piR u omega fun n => SetTheory.app M n := by
-    unfold natRecV2
+        piR u (natStepSpace V u M) fun _ => piR u omega fun n => SetTheory.app M n := by
+    unfold natRecV
     exact lamR_mem fun M hM => lamR_mem fun z hz => lamR_mem fun s hs =>
-      lamR_mem fun n hn => natRecV2_mem_fibre V hM hz hs hn
+      lamR_mem fun n hn => natRecV_mem_fibre V hM hz hs hn
   have hz1 : u = 0 → ∀ M', M' ∈ˢ natMotiveSpace V u →
       (piR u (SetTheory.app M' natzero) fun _ =>
-        piR u (natStepSpace2 V u M') fun _ => piR u omega fun n => SetTheory.app M' n)
+        piR u (natStepSpace V u M') fun _ => piR u omega fun n => SetTheory.app M' n)
         ∈ˢ (univZero : V) := by
     intro h0 _ _; subst h0; exact piR_zero_mem_univZero
   have h1 := app_mem_piR h0 hM hz1
   have hz2 : u = 0 → ∀ z', z' ∈ˢ SetTheory.app (interp V σ M) natzero →
-      (piR u (natStepSpace2 V u (interp V σ M)) fun _ =>
+      (piR u (natStepSpace V u (interp V σ M)) fun _ =>
         piR u omega fun n => SetTheory.app (interp V σ M) n) ∈ˢ (univZero : V) := by
     intro h0 _ _; subst h0; exact piR_zero_mem_univZero
   have h2 := app_mem_piR h1 hz hz2
-  have hz3 : u = 0 → ∀ s', s' ∈ˢ natStepSpace2 V u (interp V σ M) →
+  have hz3 : u = 0 → ∀ s', s' ∈ˢ natStepSpace V u (interp V σ M) →
       (piR u omega fun n => SetTheory.app (interp V σ M) n) ∈ˢ (univZero : V) := by
     intro h0 _ _; subst h0; exact piR_zero_mem_univZero
   have h3 := app_mem_piR h2 hs hz3
@@ -165,7 +165,7 @@ theorem natRecAV_wellDenoted {u : Nat} {M z s k : AnnotTerm} {σ : Nat → V}
   rw [WellDenoted_app]
   refine ⟨?_, hokk, u, omega, fun n => SetTheory.app (interp V σ M) n, ?_, hk, hz4⟩
   · rw [WellDenoted_app]
-    refine ⟨?_, hoks, u, natStepSpace2 V u (interp V σ M), _, ?_, hs, hz3⟩
+    refine ⟨?_, hoks, u, natStepSpace V u (interp V σ M), _, ?_, hs, hz3⟩
     · rw [WellDenoted_app]
       refine ⟨?_, hokz, u, SetTheory.app (interp V σ M) natzero, _, ?_, hz, hz2⟩
       · rw [WellDenoted_app]
@@ -270,9 +270,9 @@ theorem caseAVAt_facts {w : Nat} :
         = lamR (w + 1) omega fun b => lamR (w + 1) (univ w) fun a =>
             interp V (cons a (cons b σ)) (caseAVAt w Ts (d + 2) (.bvar 1)) := rfl
     have hs : interp V σ (.lam (w + 1) natAV (.lam (w + 1) (.sort w) (caseAVAt w Ts (d + 2) (.bvar 1))))
-        ∈ˢ natStepSpace2 V (w + 1) (interp V σ (natSortMotiveAV w)) := by
+        ∈ˢ natStepSpace V (w + 1) (interp V σ (natSortMotiveAV w)) := by
       rw [hsv]
-      unfold natStepSpace2
+      unfold natStepSpace
       refine lamR_mem fun b hb => ?_
       rw [natSortMotiveAV_app w σ hb, natSortMotiveAV_app w σ (natsucc_mem hb)]
       exact lamR_mem fun a _ => (hinner a b hb).1
@@ -289,7 +289,7 @@ theorem caseAVAt_facts {w : Nat} :
           (interp V σ (.lam (w + 1) natAV (.lam (w + 1) (.sort w) (caseAVAt w Ts (d + 2) (.bvar 1)))))
           j ∈ˢ (univ w : V) := by
         intro j
-        have h := natRecV2_mem_fibre V hM hz hs (vnat_mem_omega j)
+        have h := natRecV_mem_fibre V hM hz hs (vnat_mem_omega j)
         rwa [natrec_vnat, natSortMotiveAV_app w σ (vnat_mem_omega j)] at h
       cases i with
       | zero => exact hTv

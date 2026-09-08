@@ -15,7 +15,7 @@ import ConLeche.Model.BasisFalse
 closure — through an accepted stream, and
 `no_proof_of_Empty_pure` is the campaign's **close**, at the frozen letter
 (`CapstoneP.lean`'s docstring): input-level hypotheses only.  The
-milestone-shaped `no_proof_of_Empty_P_of` is kept beside it, now
+milestone-shaped `no_proof_of_Empty_pure_of` is kept beside it, now
 carrying no bundle at all — every tier step is discharged.
 
 The η half of the fold invariant is `declEtaStepRun`
@@ -174,19 +174,19 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    exact harvestDefnP hμ mp hrun
+    exact harvestDefn hμ mp hrun
   | thmDecl cv value =>
     have hsh := hrun
     -- one dash fewer than the `DeclR` pattern: the run record has no
     -- is-a-proposition derivation row (task #161 S11a)
     obtain ⟨type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
-    exact harvestThmP hμ mp hrun
+    exact harvestThm hμ mp hrun
   | opaqueDecl cv value =>
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    exact harvestOpaqueP hμ mp hrun
+    exact harvestOpaque hμ mp hrun
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
   | indDecl block =>
@@ -233,7 +233,7 @@ theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
 /-- **The acceptance theorem, P route — milestone shape** (conditional
 on the tier bundles; the final form replaces them with the tiers'
 theorems). -/
-theorem checkDeclsPure_sound_P_of (hμ : μ.verifiedChecks = true) {F : Nat}
+theorem checkDeclsPure_sound_of (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) ds = .ok env') :
     Nonempty (EnvModelM V μ env') :=
@@ -244,13 +244,13 @@ theorem checkDeclsPure_sound_P_of (hμ : μ.verifiedChecks = true) {F : Nat}
 accepted — the collapse-free model of the validated annotations, at
 the frozen final statement's hypotheses plus the named tier
 bundles. -/
-theorem no_proof_of_Empty_P_of (V : Type w) [SetTheory V]
+theorem no_proof_of_Empty_pure_of (V : Type w) [SetTheory V]
     {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨mp⟩ := checkDeclsPure_sound_P_of (V := V) hμ h
+  obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
   exact no_constant_of_Empty mp c hc hty
 
 /-- **THE CAPSTONE, at the frozen letter** (`CapstoneP.lean`'s
@@ -264,7 +264,7 @@ goal's letter (the annotated checker *is* the verified mode;
 `--trusted` ignores annotations by design).  No residue: every tier
 step is discharged (`axiomStepPB_of`, `basisStepPB_of`,
 `indStepPB_of`), so the conditional milestone form
-`no_proof_of_Empty_P_of` above now carries nothing either.  The #16
+`no_proof_of_Empty_pure_of` above now carries nothing either.  The #16
 hypothesis-minimal precedent, met.
 
 `SetTheory V` is the standing parametricity of the consistency
@@ -276,7 +276,7 @@ theorem no_proof_of_Empty_pure (V : Type w) [SetTheory V]
     (h : checkDeclsPure μ (fueledOps μ F) ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const emptyName [] → False :=
-  fun c hc hty => no_proof_of_Empty_P_of V hμ h c hc hty
+  fun c hc hty => no_proof_of_Empty_pure_of V hμ h c hc hty
 
 /-- **THE CAPSTONE ABOUT `False`** (task #181): *the checker, running
 in a validating mode, never accepts a declaration stream in which some
@@ -293,7 +293,7 @@ theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
     (h : checkDeclsPure μ (fueledOps μ F) ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const falseName [] → False := by
-  obtain ⟨mp⟩ := checkDeclsPure_sound_P_of (V := V) hμ h
+  obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
   exact fun c hc hty => no_constant_of_False mp c hc hty
 
 end ConLeche.Model

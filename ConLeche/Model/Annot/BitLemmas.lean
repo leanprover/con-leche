@@ -92,8 +92,8 @@ theorem denoteMeta_proj_pair (acval : Name → (Name → Nat) → AnnotTerm)
   | some ea =>
     show (match env.findProj? s i with
       | some entry => some (projAV (i + entry.off) ea)
-      | none => if i < 2 then some (ATerm.proj i ea) else none)
-        = if i < 2 then some (ATerm.proj i ea) else none
+      | none => if i < 2 then some (AnnotTerm.proj i ea) else none)
+        = if i < 2 then some (AnnotTerm.proj i ea) else none
     rw [hnt]
 
 theorem denoteMeta_forallE (acval : Name → (Name → Nat) → AnnotTerm)
@@ -152,7 +152,7 @@ theorem denoteMeta_proj_inv {d : Nat} {s : Name} {i : Nat} {e : Expr}
     rw [he] at h
     replace h : (match env.findProj? s i with
         | some entry => some (projAV (i + entry.off) ia)
-        | none => if i < 2 then some (ATerm.proj i ia) else none)
+        | none => if i < 2 then some (AnnotTerm.proj i ia) else none)
           = some ea := h
     cases hfp : env.findProj? s i with
     | some entry =>

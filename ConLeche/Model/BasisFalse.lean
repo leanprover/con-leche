@@ -53,7 +53,7 @@ theorem extendFalse (mp : EnvModelM V μ env)
     (hwf : EnvWF ⟨falseA :: env.consts⟩) :
     Nonempty (EnvModelM V μ ⟨falseA :: env.consts⟩) := by
   refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
-    (A := fun _ => ATerm.const .empty [0]) hfresh
+    (A := fun _ => AnnotTerm.const .empty [0]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
@@ -101,13 +101,13 @@ theorem denoteMeta_falseRecA_type {m : EnvModel V env}
       = some (Term.const .empty [0]) := by
     simp +decide [ConLeche.Verify.pinnedStructT]
   have hleaf : acvalWith m.acval falseRecA.name A falseName ψ
-      = ATerm.const .empty [0] := by
+      = AnnotTerm.const .empty [0] := by
     rw [acvalWith_ne (by decide)]
     exact acval_basis_pinned hE (by decide) hpd
   have hEc : ∀ d : Nat,
       denoteMeta (acvalWith m.acval falseRecA.name A)
           ⟨falseRecA :: env.consts⟩ ψ d (.const falseName [])
-        = some (ATerm.const .empty [0]) := by
+        = some (AnnotTerm.const .empty [0]) := by
     intro d
     have hf : (⟨falseRecA :: env.consts⟩ : Env).find? falseName
         = some falseA := by
@@ -129,7 +129,7 @@ reads.**  Three binders, three `pwBit`s, three `typeAV` slots, and the
 iffs are `pwBit_never` and `pwBit_ifAllZero_single` — nothing here is
 chosen. -/
 theorem bitAgree_falseRecA (ψ : Name → Nat) :
-    ATerm.BitAgree
+    AnnotTerm.BitAgree
       (.pi 0 (pwBit ψ (.ifAllZero [uN]))
         (.pi 0 (pwBit ψ .never) (.const .empty [0]) (.sort (ψ uN)))
         (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .empty [0])
@@ -150,9 +150,9 @@ theorem extendFalseRec (mp : EnvModelM V μ env)
     Nonempty (EnvModelM V μ ⟨falseRecA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteMeta_falseRecA_type (m := mp.base2)
-      (A := fun ψ => ATerm.const .emptyRec [0, ψ uN]) ψ hE
+      (A := fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) ψ hE
   refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
-    (A := fun ψ => ATerm.const .emptyRec [0, ψ uN]) hfresh
+    (A := fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => by injection h with _ _ _ h4; exact h4 ▸ rfl)
@@ -179,7 +179,7 @@ theorem extendFalseRec (mp : EnvModelM V μ env)
   · intro ψ ta h ρ
     rw [hty ψ] at h
     obtain rfl := (Option.some.inj h).symm
-    rw [ATerm.BitAgree.interp_eq V (bitAgree_falseRecA ψ) ρ]
+    rw [AnnotTerm.BitAgree.interp_eq V (bitAgree_falseRecA ψ) ρ]
     exact bval_mem_type V .emptyRec [0, ψ uN] ρ
 
 /-! ## The block

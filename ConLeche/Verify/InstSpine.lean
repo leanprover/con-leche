@@ -188,7 +188,7 @@ theorem recFireComparands_snd_WScoped {d : Nat} (rl : RecRule)
 
 /-- A telescope that strips syntactically admits any instantiation
 walk of matching length.  (Relocated verbatim from
-`ConLeche/Model/InstFrames.lean`, where it sat behind a `SetTheory`
+`ConLeche/ModelV1/InstFrames.lean`, where it sat behind a `SetTheory`
 section variable it never used: it is a statement about `Expr` alone,
 and both verified lanes' install layers need it — the [set] projection
 bottom constructs its constructor/recursor `instPisAt` runs from the

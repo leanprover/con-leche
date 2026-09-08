@@ -162,7 +162,7 @@ under `--trusted`.  The verified instance is covered by
 `no_proof_of_Empty_cached` over `checkDecls`
 (`ConLeche/Verify/Cached/MainC.lean`); the trusted one is unverified by
 design and agrees with it on the install skeletons whenever both
-accept (`trusted_agrees_P_skels_shipped`). -/
+accept (`trusted_agrees_skels_shipped`). -/
 def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
     -- The retired environment variables (tasks #76/#134) are hard
     -- errors, not silently ignored: a verdict's provenance must be

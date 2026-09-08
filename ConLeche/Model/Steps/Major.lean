@@ -20,7 +20,7 @@ their semantic content and nothing else:
 * **R12, the K-flagged rescue** — the fabrication is certified against
   the major by proof irrelevance, and `ProofIrrelPQ` is the equation.
 * **R13, the η rescue** — `structEtaCertWithFueled_step`
-  (`Steps/CapsRowsP.lean`), the caps tier's own theorem at the
+  (`Steps/CapsRows.lean`), the caps tier's own theorem at the
   certificate's shape.  This is the reuse the factoring was for: the
   rescue holds a certificate stated at the `tmaj` it already computed.
 * **R14, the zero-field fallthrough** — `ProofIrrelPQ` again, on a
@@ -418,11 +418,11 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
         DenoteMetaSpine m.acval env φ d fargs fargsa →
         (∀ x ∈ fargsa, ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ x) →
         denoteMeta m.acval env φ d (Expr.mkAppN (.const rl.ctor ust) fargs)
-            = some (ATerm.mkAppN
+            = some (AnnotTerm.mkAppN
               (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
               fargsa) ∧
           ∀ ρ : Nat → V, Sat V Δa ρ →
-            WellDenotedV V ρ (ATerm.mkAppN
+            WellDenotedV V ρ (AnnotTerm.mkAppN
               (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
               fargsa) := by
       intro fargs fargsa hcerts hframes hsp hoks
@@ -603,7 +603,7 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
               denoteMeta m.acval env φ d
                   (Expr.mkAppN (.const (projFnName T j) ust)
                     (tmaj.getAppArgs ++ [major]))
-                = some (ATerm.mkAppN
+                = some (AnnotTerm.mkAppN
                     (m.acval (projFnName T j)
                       (Level.substFn φ cvT.levelParams ust)) (tsa ++ [vm])) := by
             intro j hj
@@ -618,7 +618,7 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
               (Level.substFn φ cvp.levelParams ust)) = _
             rw [hlpp]
           have hokProj : ∀ j ∈ List.range caps.etaFields, ∀ ρ : Nat → V,
-              Sat V Δa ρ → WellDenotedV V ρ (ATerm.mkAppN
+              Sat V Δa ρ → WellDenotedV V ρ (AnnotTerm.mkAppN
                 (m.acval (projFnName T j)
                   (Level.substFn φ cvT.levelParams ust)) (tsa ++ [vm])) := by
             intro j hj ρ hρ
@@ -654,7 +654,7 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
           have hspF : DenoteMetaSpine m.acval env φ d
               (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
               (tsa ++ (List.range caps.etaFields).map fun j =>
-                ATerm.mkAppN (m.acval (projFnName T j)
+                AnnotTerm.mkAppN (m.acval (projFnName T j)
                   (Level.substFn φ cvT.levelParams ust)) (tsa ++ [vm])) := by
             rw [ConLeche.etaFabArgsE, ConLeche.etaProjs, if_neg htow]
             exact hspt.append (DenoteMetaSpine.map_list _ hpfacts)
@@ -679,7 +679,7 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
                   | exact (hfrM y hy).2.2.1 l hly
                   | exact (hfrM y hy).2.2.2.2 l hly
           have hoksF : ∀ x ∈ (tsa ++ (List.range caps.etaFields).map fun j =>
-              ATerm.mkAppN (m.acval (projFnName T j)
+              AnnotTerm.mkAppN (m.acval (projFnName T j)
                 (Level.substFn φ cvT.levelParams ust)) (tsa ++ [vm])),
               ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ x := by
             intro x hx
@@ -704,11 +704,11 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
         have hdF : denoteMeta m.acval env φ d
             (Expr.mkAppN (.const caps.etaCtor ust)
               (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields))
-            = some (ATerm.mkAppN (m.acval caps.etaCtor
+            = some (AnnotTerm.mkAppN (m.acval caps.etaCtor
                 (Level.substFn φ cvj.levelParams ust)) tsa) := by
           rw [hEmpty, ← hectr]; exact hdF0
         have hokF : ∀ ρ : Nat → V, Sat V Δa ρ →
-            WellDenotedV V ρ (ATerm.mkAppN (m.acval caps.etaCtor
+            WellDenotedV V ρ (AnnotTerm.mkAppN (m.acval caps.etaCtor
               (Level.substFn φ cvj.levelParams ust)) tsa) := by
           rw [← hectr]; exact hokF0
         exact ⟨_, hdF, hokF,

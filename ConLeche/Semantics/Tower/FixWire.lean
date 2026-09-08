@@ -69,7 +69,7 @@ theorem substProj_below {K : Nat} (hK : 0 < K) :
   | i + 1, e, h => by
     show Term.bvarsBelow K (substProj i (e.inst (projAV i (.bvar i)))).erase
     refine substProj_below hK i _ ?_
-    rw [ATerm.erase_inst]
+    rw [AnnotTerm.erase_inst]
     have := bvarsBelow_inst (n := K + i) (projAV_bvar_below (i := i) (j := i) (k := K + i) (by omega))
       e.erase 0 (by rw [Nat.add_zero]; exact h)
     rwa [Nat.add_zero] at this
@@ -91,7 +91,7 @@ theorem substProjAt_below {K : Nat} (hK : 0 < K) :
   | m, i + 1, e, h => by
     show Term.bvarsBelow (K + m) (substProjAt m i (e.inst (projAV i (.bvar i)) m)).erase
     refine substProjAt_below hK m i _ ?_
-    rw [ATerm.erase_inst]
+    rw [AnnotTerm.erase_inst]
     exact bvarsBelow_inst (n := K + i) (projAV_bvar_below (i := i) (j := i) (k := K + i) (by omega))
       e.erase m (by rw [show K + i + m + 1 = K + (i + 1) + m from by omega]; exact h)
 
@@ -112,7 +112,7 @@ theorem ihTeleAt_below {nP nIdx n D i : Nat} {tl : List (Nat × Nat × AnnotTerm
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hk]; rfl
   rw [hget]
   refine substProjAt_below (by omega) k i _ ?_
-  rw [ATerm.erase_liftN]
+  rw [AnnotTerm.erase_liftN]
   have := VExprAux.bvarsBelow_liftN (D + nIdx + n + 2) _ (nP + i + k) (i + k) (hT.getD_below k hk)
   rwa [show nP + i + k + (D + nIdx + n + 2) = nP + D + nIdx + n + 2 + i + k from by omega] at this
 
@@ -127,7 +127,7 @@ theorem ihArgAV_below {ℓ k nP n nIdx D i : Nat} {tl : List (Nat × Nat × Anno
     Term.bvarsBelow (k + 1 + nP + 1 + n + nIdx + D + 1) (ihArgAV ℓ nP n nIdx D i tl Eis).erase := by
   unfold ihArgAV
   refine mkLamsC_below (domsBelow_mono (by omega) (ihTeleAt_below hT)) ?_
-  rw [ihTeleAt_length, ATerm.erase_mkAppN]
+  rw [ihTeleAt_length, AnnotTerm.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN
     (show D + 1 + nIdx + n + 1 + nP + tl.length < k + 1 + nP + 1 + n + nIdx + D + 1 + tl.length by omega) ?_
   intro a' ha'
@@ -142,14 +142,14 @@ theorem ihArgAV_below {ℓ k nP n nIdx D i : Nat} {tl : List (Nat × Nat × Anno
       refine Term.bvarsBelow.mono
         (show nP + D + nIdx + n + 2 + tl.length ≤ k + 1 + nP + 1 + n + nIdx + D + 1 + tl.length by omega) ?_
       refine substProjAt_below (by omega) tl.length i _ ?_
-      rw [ATerm.erase_liftN]
+      rw [AnnotTerm.erase_liftN]
       have := VExprAux.bvarsBelow_liftN (D + nIdx + n + 2) E.erase (nP + i + tl.length) (i + tl.length)
         (hE E hE')
       rwa [show nP + i + tl.length + (D + nIdx + n + 2) = nP + D + nIdx + n + 2 + i + tl.length from
         by omega] at this
   · rw [List.mem_singleton] at ha
     subst ha
-    rw [ATerm.erase_mkAppN]
+    rw [AnnotTerm.erase_mkAppN]
     refine VExprAux.bvarsBelow_mkAppN (projAV_bvar_below (by omega)) ?_
     intro a' ha'
     obtain ⟨a, ha, rfl⟩ := List.mem_map.mp ha'
@@ -180,14 +180,14 @@ theorem caseBaseAVI_below {ℓ w n nIdx K : Nat} (hK : nIdx + n < K)
     (hih : ∀ a ∈ ihArgs D j, Term.bvarsBelow (K + D + 1) a.erase) :
     Term.bvarsBelow (K + D) (caseBaseAVI ℓ w Fss ar ihArgs n nIdx D j).erase := by
   refine ⟨?_, ?_⟩
-  · rw [ATerm.erase_liftN]
+  · rw [AnnotTerm.erase_liftN]
     have hFj : FieldsBelow K (Fss.getD j []) := by
       rw [List.getD_eq_getElem?_getD]
       cases hjF : Fss[j]? with
       | none => trivial
       | some Fs' => exact h Fs' (List.mem_of_getElem? hjF)
     exact VExprAux.bvarsBelow_liftN D _ K 0 (towerBodyAV_below hFj)
-  · rw [ATerm.erase_mkAppN]
+  · rw [AnnotTerm.erase_mkAppN]
     refine VExprAux.bvarsBelow_mkAppN (show D + 1 + nIdx + n - 1 - j < K + D + 1 by omega) ?_
     intro a' ha'
     obtain ⟨a, ha, rfl⟩ := List.mem_map.mp ha'
@@ -224,7 +224,7 @@ then by `o`. -/
 theorem ihIdxAtM_below {nF o i l m K : Nat} {E : AnnotTerm} (hE : Term.bvarsBelow K E.erase) :
     Term.bvarsBelow (K + (nF - i + l) + o) (ihIdxAtM nF o i l m E).erase := by
   unfold ihIdxAtM
-  rw [ATerm.erase_liftN, ATerm.erase_liftN]
+  rw [AnnotTerm.erase_liftN, AnnotTerm.erase_liftN]
   exact VExprAux.bvarsBelow_liftN o _ _ _ (VExprAux.bvarsBelow_liftN (nF - i + l) _ _ _ hE)
 
 /-- A telescope moved to the ih frame is bounded there. -/
@@ -276,7 +276,7 @@ theorem ihAppAVb_below {b nP n nF e i K : Nat} {Rm : Nat → AnnotTerm}
   · have := ihTeleAtGo_below (K := nP + i) (nF := nF) (o := n + 1 + e) (i := i) (l := 0) (k := 0)
       (tl := tl) (by rw [Nat.add_zero]; exact hT)
     exact domsBelow_mono (by omega) this
-  · rw [ihTeleAtR_length, ATerm.erase_mkAppN]
+  · rw [ihTeleAtR_length, AnnotTerm.erase_mkAppN]
     refine VExprAux.bvarsBelow_mkAppN (hR tl.length) ?_
     intro a' ha'
     obtain ⟨a, ha, rfl⟩ := List.mem_map.mp ha'
@@ -289,7 +289,7 @@ theorem ihAppAVb_below {b nP n nF e i K : Nat} {Rm : Nat → AnnotTerm}
         exact ihIdxAtM_below (hE E hE')
     · rw [List.mem_singleton] at ha
       subst ha
-      rw [ATerm.erase_mkAppN]
+      rw [AnnotTerm.erase_mkAppN]
       refine VExprAux.bvarsBelow_mkAppN (show nF - 1 - i + tl.length < K + tl.length by omega) ?_
       intro a' ha'
       obtain ⟨a, ha, rfl⟩ := List.mem_map.mp ha'
@@ -320,14 +320,14 @@ theorem sqFixBodyAV_below {ℓ k nP n nIdx : Nat} {Fs Es : List AnnotTerm} {rs :
     Term.bvarsBelow (k + 1 + nP + 1 + n + nIdx + 1)
       (sqFixBodyAV ℓ nP n nIdx Fs Es rs tls Eis).erase := by
   unfold sqFixBodyAV
-  rw [ATerm.erase_mkAppN]
+  rw [AnnotTerm.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN ?_ ?_
   · refine mkLamsC_below ?_ ?_
     · unfold fieldTeleAt
       exact domsBelow_of_fieldsBelow (fieldsBelow_mono
         (show nP + (nIdx + n + 2) ≤ k + 1 + nP + 1 + n + nIdx + 1 by omega)
         (FieldsBelow_liftFields (n := nIdx + n + 2) (Nat.zero_le _) hFs))
-    · rw [fieldTeleAt_length, ATerm.erase_mkAppN]
+    · rw [fieldTeleAt_length, AnnotTerm.erase_mkAppN]
       refine VExprAux.bvarsBelow_mkAppN
         (show Fs.length + 1 + nIdx + n - 1 < k + 1 + nP + 1 + n + nIdx + 1 + Fs.length by omega) ?_
       intro a' ha'
@@ -435,12 +435,12 @@ theorem nativeRecAVI_below {ℓ w nP s : Nat} {Fss Ess : List (List AnnotTerm)}
   have hsig : Term.bvarsBelow k (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).erase := by
     refine ⟨⟨trivial, hTy k⟩, hTy k, ?_⟩
     refine ⟨?_, ⟨?_, show (0 : Nat) < k + 1 by omega⟩, show (0 : Nat) < k + 1 by omega⟩
-    · rw [ATerm.erase_liftN]
+    · rw [AnnotTerm.erase_liftN]
       have := VExprAux.bvarsBelow_liftN 1 _ k 0 (hTy k)
       exact this
-    · rw [ATerm.erase_liftN]
+    · rw [AnnotTerm.erase_liftN]
       exact VExprAux.bvarsBelow_liftN 1 _ k 0 (hstep k)
-  show Term.bvarsBelow k (ATerm.erase (.proj 0 (.app (.app (.const .choice [s]) _) .prf)))
+  show Term.bvarsBelow k (AnnotTerm.erase (.proj 0 (.app (.app (.const .choice [s]) _) .prf)))
   exact ⟨⟨trivial, hsig⟩, trivial⟩
 
 end ConLeche.Semantics

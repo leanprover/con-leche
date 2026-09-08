@@ -108,10 +108,10 @@ theorem tuplerApp_facts (hI : IdxOk u ρp Ids) (as : List V) (t X : V) {Es : Lis
     (hEok : ∀ E ∈ Es, WellDenoted V (consList as ρp) E)
     (hsp : SpineFit ρp Ids (Es.map (interp V (consList as ρp)))) :
     interp V (consList as (cons t (cons X ρp)))
-        (ATerm.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0) (Es.map (·.liftN 2 as.length)))
+        (AnnotTerm.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0) (Es.map (·.liftN 2 as.length)))
       = tupW u (Es.map (interp V (consList as ρp))) ∧
     WellDenoted V (consList as (cons t (cons X ρp)))
-      (ATerm.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0) (Es.map (·.liftN 2 as.length))) := by
+      (AnnotTerm.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0) (Es.map (·.liftN 2 as.length))) := by
   have hfv : interp V (consList as (cons t (cons X ρp))) ((tuplerAV u Ids).liftN (as.length + 2) 0)
       = interp V ρp (tuplerAV u Ids) := by
     rw [interp_liftN, shiftE_Xframe]
@@ -148,11 +148,11 @@ theorem recSlot_facts (hI : IdxOk u ρp Ids) {X : V} (hX : X ∈ˢ lfpFamSpace V
     (hsp : SpineFit ρp Ids (Es.map (interp V (consList as ρp)))) :
     interp V (consList as (cons t (cons X ρp)))
         (.app (.bvar (as.length + 1))
-          (ATerm.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0) (Es.map (·.liftN 2 as.length))))
+          (AnnotTerm.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0) (Es.map (·.liftN 2 as.length))))
       = SetTheory.app X (tupW u (Es.map (interp V (consList as ρp)))) ∧
     WellDenoted V (consList as (cons t (cons X ρp)))
       (.app (.bvar (as.length + 1))
-        (ATerm.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0) (Es.map (·.liftN 2 as.length)))) ∧
+        (AnnotTerm.mkAppN ((tuplerAV u Ids).liftN (as.length + 2) 0) (Es.map (·.liftN 2 as.length)))) ∧
     SetTheory.app X (tupW u (Es.map (interp V (consList as ρp)))) ∈ˢ (univ w : V) := by
   obtain ⟨htv, htok⟩ := tuplerApp_facts (X := X) (t := t) hI as hEok hsp
   have hXm : X ∈ˢ piR (w + 1) (idxSet u ρp Ids) fun _ => (univ w : V) := hX
@@ -187,7 +187,7 @@ theorem spineFit_pt_of_bound0 {ρ : Nat → V} :
 theorem eqsXI_wellDenoted (hI : IdxOk u ρp Ids) {X t : V} (ht : t ∈ˢ idxSet u ρp Ids) {bs : List V}
     {nF : Nat} (hlen : bs.length = nF) {Es : List AnnotTerm}
     (hEok : ∀ E ∈ Es, WellDenoted V (consList bs ρp) E) (hEs : Es.length = Ids.length) :
-    EqsOk2 (consList bs (cons t (cons X ρp))) (eqsXI Ids.length nF Es) := by
+    EqsOk (consList bs (cons t (cons X ρp))) (eqsXI Ids.length nF Es) := by
   intro e he
   obtain ⟨l, hl, rfl⟩ := List.mem_map.mp he
   have hl' : l < Ids.length := List.mem_range.mp hl

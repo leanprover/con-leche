@@ -19,7 +19,7 @@ take a `WhnfClaim` at the same fuel; `whnfStep_of` was already
 discarding exactly that argument).
 
 The reduct's reading, grading and frame conditions are unchanged from
-`Steps/NatP.lean`'s leaf analysis, which was always premise-free; what
+`Steps/Nat.lean`'s leaf analysis, which was always premise-free; what
 lands here is the `interp` equality, and with it the wall.
 -/
 
@@ -322,58 +322,58 @@ theorem reduceNatSem_binary (mp : EnvModelM V μ env) {fuel : Nat}
         rcases h14 with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|
           rfl|rfl|rfl
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
-            (natOpV2_add mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
+            (natOpV_add mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
               mp.acvalValid hfc ρ n₁ n₂)
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
-            (natOpV2_sub mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
+            (natOpV_sub mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
               mp.acvalValid hfc ρ n₁ n₂)
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
-            (natOpV2_mul mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
+            (natOpV_mul mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
               mp.acvalValid hfc ρ n₁ n₂)
         · -- `pow`: the reduct exists only below the official exponent cap
           exact close _ (by
               have hres' := hres
               simp +decide [natOpResult] at hres'
               exact hres'.2.symm)
-            (natOpV2_pow mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
+            (natOpV_pow mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
               mp.acvalValid hfc ρ n₁ n₂)
         · refine closeB (Or.inl rfl)
             (if n₁ = n₂ then ConLeche.boolTrueName
               else ConLeche.boolFalseName)
             (by by_cases hh : n₁ = n₂ <;> simp [hh])
             (by simpa +decide [natOpResult] using hres.symm) ?_
-          exact natOpV2_beq mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
+          exact natOpV_beq mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
             mp.acvalValid hfc ρ n₁ n₂
         · refine closeB (Or.inr rfl)
             (if n₁ ≤ n₂ then ConLeche.boolTrueName
               else ConLeche.boolFalseName)
             (by by_cases hh : n₁ ≤ n₂ <;> simp [hh])
             (by simpa +decide [natOpResult] using hres.symm) ?_
-          exact natOpV2_ble mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
+          exact natOpV_ble mp.base2 (mp.nat_ops φ) (mp.nat_heads φ)
             mp.acvalValid hfc ρ n₁ n₂
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
-            (natOpV2_div (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
+            (natOpV_div (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
               (mp.div_mod φ) hfc ρ n₁ n₂)
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
-            (natOpV2_mod (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
+            (natOpV_mod (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
               (mp.div_mod φ) hfc ρ n₁ n₂)
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
-            (natOpV2_gcd (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
+            (natOpV_gcd (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
               (mp.div_mod φ) hfc ρ n₁ n₂)
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
-            (natOpV2_land (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
+            (natOpV_land (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
               (mp.div_mod φ) hfc ρ n₁ n₂)
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
-            (natOpV2_lor (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
+            (natOpV_lor (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
               (mp.div_mod φ) hfc ρ n₁ n₂)
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
-            (natOpV2_xor (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
+            (natOpV_xor (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
               (mp.div_mod φ) hfc ρ n₁ n₂)
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
-            (natOpV2_shiftLeft (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
+            (natOpV_shiftLeft (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
               (mp.div_mod φ) hfc ρ n₁ n₂)
         · exact close _ (by simpa +decide [natOpResult] using hres.symm)
-            (natOpV2_shiftRight (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
+            (natOpV_shiftRight (mp.nat_ops φ) (mp.nat_heads φ) mp.acvalValid
               (mp.div_mod φ) hfc ρ n₁ n₂)
   · split at h
     · -- the WF-pin safety net: it throws
@@ -451,7 +451,7 @@ theorem reduceNatSem (mp : EnvModelM V μ env) {fuel : Nat}
     simp [reduceNatFueled, ConLeche.reduceNat, pure, Except.pure] at h
 
 /-- **`ReduceNatStep`, proved.**  The reduct's reading, grading and
-frame conditions are `Steps/NatP.lean`'s premise-free leaf analysis;
+frame conditions are `Steps/Nat.lean`'s premise-free leaf analysis;
 the `interp` equality is `reduceNatSem`. -/
 theorem reduceNatStep_of (mp : EnvModelM V μ env) {fuel : Nat}
     (ihw : WhnfClaim μ mp.base2 φ fuel) :

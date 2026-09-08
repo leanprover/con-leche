@@ -10,7 +10,7 @@ rule's spines.  Their specifications (`DefEqListOk`, `TypedListOk`,
 fueled operations on an `Env` and a list of `Expr`s — no valuation, no
 `SetTheory`.
 
-They were written at the head of `ConLeche/Model/IotaWalk.lean`, under
+They were written at the head of `ConLeche/ModelV1/IotaWalk.lean`, under
 that module's `variable {V} [SetTheory V]` (with `omit` on every one of
 them), because that is where the frame-crossing walk needed them.  They
 are relocated here verbatim so the declarative type-theory bridge can

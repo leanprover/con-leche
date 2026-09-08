@@ -1009,7 +1009,7 @@ skips — an inversion of what the trusted mode is defined to be (the
 real mode with certification-only steps omitted).  Validating the
 datum is certification-only work and stays in group A; consuming it is
 not.  The P tier's licensing theorem (`io_domain_transfer`,
-`Model/IOLicenseP.lean`) never used the mode conjunct either: it spends
+`Model/IOLicense.lean`) never used the mode conjunct either: it spends
 only `pwBit_ne_zero_of_isNever`.
 
 **The read is `mode.ioSkip mt.pw`** (the twin's retirement): at

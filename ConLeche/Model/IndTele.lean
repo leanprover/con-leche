@@ -536,19 +536,19 @@ descending bound variables at depth `d`. -/
 theorem denoteMetaSpine_openFvars :
     ∀ (k j d : Nat), j + k ≤ d →
       DenoteMetaSpine acval env φ d (openFvars j k)
-        ((List.range k).map fun q => ATerm.bvar (d - 1 - (j + q))) := by
+        ((List.range k).map fun q => AnnotTerm.bvar (d - 1 - (j + q))) := by
   intro k
   induction k with
   | zero => intro j d _; exact DenoteMetaSpine.nil
   | succ k ih =>
     intro j d hd
     have hlist : ((List.range (k + 1)).map fun q =>
-          (ATerm.bvar (d - 1 - (j + q)) : AnnotTerm))
-        = ATerm.bvar (d - 1 - j)
+          (AnnotTerm.bvar (d - 1 - (j + q)) : AnnotTerm))
+        = AnnotTerm.bvar (d - 1 - j)
             :: ((List.range k).map fun q =>
-              (ATerm.bvar (d - 1 - (j + 1 + q)) : AnnotTerm)) := by
+              (AnnotTerm.bvar (d - 1 - (j + 1 + q)) : AnnotTerm)) := by
       rw [List.range_succ_eq_map, List.map_cons, List.map_map]
-      refine congrArg (fun l => (ATerm.bvar (d - 1 - (j + 0)) : AnnotTerm) :: l)
+      refine congrArg (fun l => (AnnotTerm.bvar (d - 1 - (j + 0)) : AnnotTerm) :: l)
         (List.map_congr_left fun q _ => ?_)
       dsimp only [Function.comp]
       congr 1
@@ -566,12 +566,12 @@ theorem interp_bvarSpine :
     ∀ (ts : List V) {ρ σ : Nat → V} {K : AnnotTerm} (g : Nat → Nat),
       (∀ q, q < ts.length → σ (g q) = consN ts ρ (ts.length - 1 - q)) →
       interp V σ K = interp V ρ K →
-      interp V σ (ATerm.mkAppN K
-          ((List.range ts.length).map fun q => ATerm.bvar (g q)))
+      interp V σ (AnnotTerm.mkAppN K
+          ((List.range ts.length).map fun q => AnnotTerm.bvar (g q)))
         = ts.foldl SetTheory.app (interp V ρ K) := by
   intro ts ρ σ K g hσ hK
   have hmap : ((List.range ts.length).map fun q =>
-      (ATerm.bvar (g q) : AnnotTerm)).map (interp V σ) = ts := by
+      (AnnotTerm.bvar (g q) : AnnotTerm)).map (interp V σ) = ts := by
     refine List.ext_getElem (by simp) ?_
     intro q h1 h2
     have hq : q < ts.length := by simpa using h1

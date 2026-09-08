@@ -80,27 +80,27 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   obtain ⟨cvT, s, hTname₀₀, hTlps₀₀, hccvT, rfl, rfl, bsT, hstripT₀⟩ :=
     ConLeche.checkSumInd_shape hInd
   try dsimp only at hCtors hRec hTbl hFOk hsorts hopT2 hwl
-  have hpT : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).cvT = p₀.cvT := by
+  have hpT : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).cvT = p₀.cvT := by
     simp [ConLeche.NativeParts.withKinds]
-  have hpC : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).ctors = p₀.ctors := by
+  have hpC : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).ctors = p₀.ctors := by
     simp [ConLeche.NativeParts.withKinds]
-  have hpK : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).kinds = kinds := rfl
-  have hpP : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).nP = p₀.nP := by
+  have hpK : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).kinds = kinds := rfl
+  have hpP : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).nP = p₀.nP := by
     simp [ConLeche.NativeParts.withKinds]
-  have hpI : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).nIdx = p₀.nIdx := by
+  have hpI : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).nIdx = p₀.nIdx := by
     simp [ConLeche.NativeParts.withKinds]
-  have hpR : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).cvR = p₀.cvR := by
+  have hpR : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).cvR = p₀.cvR := by
     simp [ConLeche.NativeParts.withKinds]
-  have hpE : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).elim = p₀.elim := by
+  have hpE : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).elim = p₀.elim := by
     simp [ConLeche.NativeParts.withKinds]
-  have hpL : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).large = p₀.large := by
+  have hpL : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).large = p₀.large := by
     simp [ConLeche.NativeParts.withKinds]
-  have hpS : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).resSort = s := by
+  have hpS : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).resSort = s := by
     simp [ConLeche.NativeParts.withKinds]
-  have hpProp : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).isProp
-      = (Level.isEquiv ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).resSort
+  have hpProp : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).isProp
+      = (Level.isEquiv ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).resSort
           .zero == some true) := by simp [ConLeche.NativeParts.withKinds]
-  generalize hp : (p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds = p at hCtors hRec hTbl hFOk hsorts hopT2 hwl hpT hpC hpK hpP hpI hpR hpE hpL hpS hpProp
+  generalize hp : (p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds = p at hCtors hRec hTbl hFOk hsorts hopT2 hwl hpT hpC hpK hpP hpI hpR hpE hpL hpS hpProp
   have hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true) := hpProp
   have hnd : (p.ctors.map (·.1.name)).Nodup := by rw [hpC]; exact hnd₀
   have hlenK : p.kinds.length = p.ctors.length := by rw [hpK, hpC]; exact hlenK₀
@@ -764,7 +764,7 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP).map (·.2.2)) bs →
         interp V (consList bs ρ)
-            (ATerm.mkAppN (leafT ψ) (paramBvars p.nP cA.2 ++ esF j ψ))
+            (AnnotTerm.mkAppN (leafT ψ) (paramBvars p.nP cA.2 ++ esF j ψ))
           = sumSet (p.resSort.eval ψ) (sumFibre (p.resSort.eval ψ)
               (consList (idxValsAt ρ (esF j ψ) bs) ρ)
               (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0))

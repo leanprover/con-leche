@@ -186,7 +186,7 @@ def checkNativeRec (ops : CheckerOps m) (env : Env) (p : NativeParts)
   -- sums or its rules ("Invalid recursor") is INVALID INPUT
   unless p.cvR.name == p.cvT.name.str "rec" do
     throw (.invalid "direct rec: the block's recursor is not the generated T.rec")
-  unless nativeRecLpsOk p.toDirectSumParts do
+  unless nativeRecLpsOk p.toInductiveShape do
     throw (.invalid "direct rec: the recursor's level parameters are not the generated ones")
   unless p.recPinned do
     throw (.invalid "direct rec: the recursor record is not the generated recursor")
@@ -263,7 +263,7 @@ def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env :=
   -- at the kinds, and every later stage runs on the completed record
   -- `p`.  (Official adds the whole block in one step; this is the
   -- same information in two.)
-  let (envP, cvTaP, p₁P) ← checkSumInd ops env p₀.toDirectSumParts (fun _ => {})
+  let (envP, cvTaP, p₁P) ← checkSumInd ops env p₀.toInductiveShape (fun _ => {})
   let p₂P := p₀.complete p₁P
   let (ctorsP, _) ← checkSumCtors ops envP envP p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP
     p₂P.nIdx p₂P.resSort p₂P.isProp p₂P.large cvTaP p₂P.ctors
@@ -272,7 +272,7 @@ def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env :=
   -- (task #195: a former declared at a definition that only unfolds
   -- to its telescope); every later stage runs on the completed record
   -- `p`, whose capability record the former already carries
-  let (env₁, cvTa, p₁) ← checkSumInd ops env p₀.toDirectSumParts
+  let (env₁, cvTa, p₁) ← checkSumInd ops env p₀.toInductiveShape
     (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds))
   let p := (p₀.complete p₁).withKinds kinds
   -- a large eliminator on a block whose sort may be `Prop`: two or more

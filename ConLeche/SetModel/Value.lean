@@ -41,8 +41,8 @@ typings.  Here each law **splits by regime**:
   `v = 0 → the fibres are truth values` premise resurfacing.  Each law
   below discharges it from its own motive/fibre hypothesis rather than
   taking it as an extra argument, so **no statement grew a premise**:
-  `natRecV2_app` needs `hM` (which `natRecV_app` also had),
-  `punitRecV2_app` needs `hM`, and so on.
+  `natRecV_app` needs `hM` (which `natRecV_app` also had),
+  `punitRecV_app` needs `hM`, and so on.
 
 Two values genuinely **change**, both because the empty-domain collapse
 is gone:
@@ -70,12 +70,12 @@ variable (V : Type w) [SetTheory V]
 /-! ## `Nat.succ` -/
 
 /-- `Nat.succ : Nat → Nat`; result sort `1`. -/
-noncomputable def natSuccV2 : V := lamR 1 omega natsucc
+noncomputable def natSuccV : V := lamR 1 omega natsucc
 
-theorem natSuccV2_app {n : V} (hn : n ∈ˢ (omega : V)) :
-    app (natSuccV2 V) n = natsucc n := app_lamR_pos Nat.one_ne_zero hn
+theorem natSuccV_app {n : V} (hn : n ∈ˢ (omega : V)) :
+    app (natSuccV V) n = natsucc n := app_lamR_pos Nat.one_ne_zero hn
 
-theorem natSuccV2_mem : natSuccV2 V ∈ˢ piR 1 (omega : V) fun _ => omega :=
+theorem natSuccV_mem : natSuccV V ∈ˢ piR 1 (omega : V) fun _ => omega :=
   lamR_mem fun _ hx => natsucc_mem hx
 
 /-! ## `Nat.rec` -/
@@ -84,14 +84,14 @@ theorem natSuccV2_mem : natSuccV2 V ∈ˢ piR 1 (omega : V) fun _ => omega :=
 noncomputable def natMotiveSpace (u : Nat) : V := piR (u + 1) omega fun _ => univ u
 
 /-- `(n : Nat) → M n → M (n+1)`, the minor-premise space. -/
-noncomputable def natStepSpace2 (u : Nat) (M : V) : V :=
+noncomputable def natStepSpace (u : Nat) (M : V) : V :=
   piR u omega fun n => piR u (app M n) fun _ => app M (natsucc n)
 
 /-- `Nat.rec.{u}`; result sort `u`. -/
-noncomputable def natRecV2 (u : Nat) : V :=
+noncomputable def natRecV (u : Nat) : V :=
   lamR u (natMotiveSpace V u) fun M =>
     lamR u (app M natzero) fun z =>
-      lamR u (natStepSpace2 V u M) fun s =>
+      lamR u (natStepSpace V u M) fun s =>
         lamR u omega fun n => natrec z s n
 
 theorem natMotive_apply {u : Nat} {M n : V} (hM : M ∈ˢ natMotiveSpace V u)
@@ -101,7 +101,7 @@ theorem natMotive_apply {u : Nat} {M n : V} (hM : M ∈ˢ natMotiveSpace V u)
 /-- The step premise, unpacked.  At `u = 0` this is where the
 fibre-universe facts are consumed — twice, once per `piR`. -/
 theorem natStep_apply {u : Nat} {M s : V} (hM : M ∈ˢ natMotiveSpace V u)
-    (hs : s ∈ˢ natStepSpace2 V u M) :
+    (hs : s ∈ˢ natStepSpace V u M) :
     ∀ k, k ∈ˢ (omega : V) → ∀ ih, ih ∈ˢ app M k →
       app (app s k) ih ∈ˢ app M (natsucc k) := by
   intro k hk ih hih
@@ -114,8 +114,8 @@ theorem natStep_apply {u : Nat} {M s : V} (hM : M ∈ˢ natMotiveSpace V u)
   have h2 := natMotive_apply V hM (natsucc_mem hk)
   rwa [univ_zero] at h2
 
-theorem natRecV2_mem_fibre {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V u)
-    (hz : z ∈ˢ app M natzero) (hs : s ∈ˢ natStepSpace2 V u M)
+theorem natRecV_mem_fibre {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V u)
+    (hz : z ∈ˢ app M natzero) (hs : s ∈ˢ natStepSpace V u M)
     (hn : n ∈ˢ (omega : V)) : natrec z s n ∈ˢ app M n :=
   natrec_mem hz (natStep_apply V hM hs) hn
 
@@ -123,16 +123,16 @@ theorem natRecV2_mem_fibre {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace 
 premise but domain membership.  At `u = 0` both sides are the canonical
 proof, which is exactly the resurfaced pre-#100 premise, discharged
 here from `hM`. -/
-theorem natRecV2_app {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V u)
-    (hz : z ∈ˢ app M natzero) (hs : s ∈ˢ natStepSpace2 V u M)
+theorem natRecV_app {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V u)
+    (hz : z ∈ˢ app M natzero) (hs : s ∈ˢ natStepSpace V u M)
     (hn : n ∈ˢ (omega : V)) :
-    app (app (app (app (natRecV2 V u) M) z) s) n = natrec z s n := by
+    app (app (app (app (natRecV V u) M) z) s) n = natrec z s n := by
   by_cases hu : u = 0
   · subst hu
-    rw [natRecV2, lamR_zero, app_pt, app_pt, app_pt, app_pt]
+    rw [natRecV, lamR_zero, app_pt, app_pt, app_pt, app_pt]
     exact (mem_univ_zero (natMotive_apply V hM hn)
-      (natRecV2_mem_fibre V hM hz hs hn)).symm
-  · rw [natRecV2, app_lamR_pos hu hM, app_lamR_pos hu hz, app_lamR_pos hu hs,
+      (natRecV_mem_fibre V hM hz hs hn)).symm
+  · rw [natRecV, app_lamR_pos hu hM, app_lamR_pos hu hz, app_lamR_pos hu hs,
       app_lamR_pos hu hn]
 
 /-! ## `PUnit.rec` -/
@@ -142,21 +142,21 @@ noncomputable def punitMotiveSpace (v : Nat) : V :=
   piR (v + 1) unitSet fun _ => univ v
 
 /-- `PUnit.rec.{u,v}`; result sort `v`. -/
-noncomputable def punitRecV2 (v : Nat) : V :=
+noncomputable def punitRecV (v : Nat) : V :=
   lamR v (punitMotiveSpace V v) fun M =>
     lamR v (app M pt) fun m =>
       lamR v unitSet fun _ => m
 
-theorem punitRecV2_app {v : Nat} {M m t : V} (hM : M ∈ˢ punitMotiveSpace V v)
+theorem punitRecV_app {v : Nat} {M m t : V} (hM : M ∈ˢ punitMotiveSpace V v)
     (hm : m ∈ˢ app M pt) (ht : t ∈ˢ (unitSet : V)) :
-    app (app (app (punitRecV2 V v) M) m) t = m := by
+    app (app (app (punitRecV V v) M) m) t = m := by
   by_cases hv : v = 0
   · subst hv
     have hMpt : app M pt ∈ˢ (univ 0 : V) :=
       app_mem_piR_pos (Nat.succ_ne_zero 0) hM (pt_mem_unitSet (V := V))
-    rw [punitRecV2, lamR_zero, app_pt, app_pt, app_pt]
+    rw [punitRecV, lamR_zero, app_pt, app_pt, app_pt]
     exact (mem_univ_zero hMpt hm).symm
-  · rw [punitRecV2, app_lamR_pos hv hM, app_lamR_pos hv hm, app_lamR_pos hv ht]
+  · rw [punitRecV, app_lamR_pos hv hM, app_lamR_pos hv hm, app_lamR_pos hv ht]
 
 /-! ## `PSigma'` -/
 
@@ -170,15 +170,15 @@ theorem psigmaFibre_apply {v : Nat} {A B a : V} (hB : B ∈ˢ psigmaFibreSpace V
 
 /-- `PSigma'.{u,v}`; result sort `max u v + 1` — a type former, so
 always in the graph regime. -/
-noncomputable def psigmaV2 (u v : Nat) : V :=
+noncomputable def psigmaV (u v : Nat) : V :=
   lamR (Nat.max u v + 1) (univ u) fun A =>
     lamR (Nat.max u v + 1) (psigmaFibreSpace V v A) fun B =>
       sigmaSet (Nat.max u v) A fun x => app B x
 
-theorem psigmaV2_app {u v : Nat} {A B : V} (hA : A ∈ˢ (univ u : V))
+theorem psigmaV_app {u v : Nat} {A B : V} (hA : A ∈ˢ (univ u : V))
     (hB : B ∈ˢ psigmaFibreSpace V v A) :
-    app (app (psigmaV2 V u v) A) B = sigmaSet (Nat.max u v) A fun x => app B x := by
-  rw [psigmaV2, app_lamR_pos (Nat.succ_ne_zero _) hA,
+    app (app (psigmaV V u v) A) B = sigmaSet (Nat.max u v) A fun x => app B x := by
+  rw [psigmaV, app_lamR_pos (Nat.succ_ne_zero _) hA,
     app_lamR_pos (Nat.succ_ne_zero _) hB]
 
 /-- **The pinned pair type's rigidity** (`mem_psigmaV_app`'s mirror at
@@ -188,17 +188,17 @@ either domain the application is canonical junk, which has no members
 (`app_lamR_of_not_mem`).  Added for the caps tier's pinned-pair η row
 (task #161). -/
 theorem mem_psigmaV2_app {u v : Nat} {A B x : V}
-    (hx : x ∈ˢ app (app (psigmaV2 V u v) A) B) :
+    (hx : x ∈ˢ app (app (psigmaV V u v) A) B) :
     A ∈ˢ (univ u : V) ∧ B ∈ˢ psigmaFibreSpace V v A ∧
       x ∈ˢ sigmaSet (Nat.max u v) A fun y => app B y := by
   by_cases hA : A ∈ˢ (univ u : V)
-  · rw [psigmaV2, app_lamR_pos (Nat.succ_ne_zero _) hA] at hx
+  · rw [psigmaV, app_lamR_pos (Nat.succ_ne_zero _) hA] at hx
     by_cases hB : B ∈ˢ psigmaFibreSpace V v A
     · rw [app_lamR_pos (Nat.succ_ne_zero _) hB] at hx
       exact ⟨hA, hB, hx⟩
     · rw [app_lamR_of_not_mem (Nat.succ_ne_zero _) hB] at hx
       exact absurd hx (not_mem_empty x)
-  · rw [psigmaV2, app_lamR_of_not_mem (Nat.succ_ne_zero _) hA,
+  · rw [psigmaV, app_lamR_of_not_mem (Nat.succ_ne_zero _) hA,
       app_empty] at hx
     exact absurd hx (not_mem_empty x)
 
@@ -206,19 +206,19 @@ theorem mem_psigmaV2_app {u v : Nat} {A B x : V}
 explicit `if max u v = 0 then pt` tag is **gone from the definition**:
 the annotation already squashes the whole tower at `0`, so the body is
 unconditionally the Kuratowski pair. -/
-noncomputable def psigmaMkV2 (u v : Nat) : V :=
+noncomputable def psigmaMkV (u v : Nat) : V :=
   lamR (Nat.max u v) (univ u) fun A =>
     lamR (Nat.max u v) (psigmaFibreSpace V v A) fun B =>
       lamR (Nat.max u v) A fun a =>
         lamR (Nat.max u v) (app B a) fun b => spair a b
 
-theorem psigmaMkV2_app {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
+theorem psigmaMkV_app {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
     (hB : B ∈ˢ psigmaFibreSpace V v A) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
-    app (app (app (app (psigmaMkV2 V u v) A) B) a) b =
+    app (app (app (app (psigmaMkV V u v) A) B) a) b =
       if Nat.max u v = 0 then pt else spair a b := by
   by_cases hw : Nat.max u v = 0
-  · rw [psigmaMkV2, hw, lamR_zero, app_pt, app_pt, app_pt, app_pt, if_pos rfl]
-  · rw [psigmaMkV2, app_lamR_pos hw hA, app_lamR_pos hw hB, app_lamR_pos hw ha,
+  · rw [psigmaMkV, hw, lamR_zero, app_pt, app_pt, app_pt, app_pt, if_pos rfl]
+  · rw [psigmaMkV, app_lamR_pos hw hA, app_lamR_pos hw hB, app_lamR_pos hw ha,
       app_lamR_pos hw hb, if_neg hw]
 
 /-- At a `Prop`-level pair the joint level is `0`, hence both component
@@ -253,8 +253,8 @@ theorem ssnd_mem2 {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
 
 theorem sfst_mk2 {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
     (hB : B ∈ˢ psigmaFibreSpace V v A) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
-    sfst (app (app (app (app (psigmaMkV2 V u v) A) B) a) b) = a := by
-  rw [psigmaMkV2_app V hA hB ha hb]
+    sfst (app (app (app (app (psigmaMkV V u v) A) B) a) b) = a := by
+  rw [psigmaMkV_app V hA hB ha hb]
   split
   · next h =>
     rw [sfst_pt]
@@ -263,8 +263,8 @@ theorem sfst_mk2 {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
 
 theorem ssnd_mk2 {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
     (hB : B ∈ˢ psigmaFibreSpace V v A) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
-    ssnd (app (app (app (app (psigmaMkV2 V u v) A) B) a) b) = b := by
-  rw [psigmaMkV2_app V hA hB ha hb]
+    ssnd (app (app (app (app (psigmaMkV V u v) A) B) a) b) = b := by
+  rw [psigmaMkV_app V hA hB ha hb]
   split
   · next h =>
     rw [ssnd_pt]
@@ -274,10 +274,10 @@ theorem ssnd_mk2 {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
   · next _ => exact ssnd_spair a b
 
 /-- Structure η for the basis pair. -/
-theorem psigmaEta_law2 {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
+theorem psigmaEta_law {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
     (hB : B ∈ˢ psigmaFibreSpace V v A)
     (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
-    app (app (app (app (psigmaMkV2 V u v) A) B) (sfst p)) (ssnd p) = p := by
+    app (app (app (app (psigmaMkV V u v) A) B) (sfst p)) (ssnd p) = p := by
   obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
   by_cases hw : Nat.max u v = 0
   · obtain ⟨hu, hv⟩ := psigma_zero_levels hw
@@ -288,8 +288,8 @@ theorem psigmaEta_law2 {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
     have hpb : (pt : V) ∈ˢ app B pt := by
       have h1 : (pt : V) ∈ˢ app B a := hbpt ▸ hb
       rwa [hapt] at h1
-    rw [h0 hw, sfst_pt, ssnd_pt, psigmaMkV2_app V hA hB hpa hpb, if_pos hw]
-  · rw [hne hw, sfst_spair, ssnd_spair, psigmaMkV2_app V hA hB ha hb, if_neg hw]
+    rw [h0 hw, sfst_pt, ssnd_pt, psigmaMkV_app V hA hB hpa hpb, if_pos hw]
+  · rw [hne hw, sfst_spair, ssnd_spair, psigmaMkV_app V hA hB ha hb, if_neg hw]
 
 /-! ## `Quot` -/
 
@@ -307,31 +307,31 @@ noncomputable def relSpace (u : Nat) (A : V) : V :=
   piR (Nat.max u 1) A fun _ => piR 1 A fun _ => univ 0
 
 /-- `Quot.{u}`; result sort `u + 1` (a type former). -/
-noncomputable def quotV2 (u : Nat) : V :=
+noncomputable def quotV (u : Nat) : V :=
   lamR (u + 1) (univ u) fun A =>
     lamR (u + 1) (relSpace V u A) fun R => quotSet u A R
 
-theorem quotV2_app {u : Nat} {A R : V} (hA : A ∈ˢ (univ u : V))
+theorem quotV_app {u : Nat} {A R : V} (hA : A ∈ˢ (univ u : V))
     (hR : R ∈ˢ relSpace V u A) :
-    app (app (quotV2 V u) A) R = quotSet u A R := by
-  rw [quotV2, app_lamR_pos (Nat.succ_ne_zero u) hA,
+    app (app (quotV V u) A) R = quotSet u A R := by
+  rw [quotV, app_lamR_pos (Nat.succ_ne_zero u) hA,
     app_lamR_pos (Nat.succ_ne_zero u) hR]
 
 /-- `Quot.mk.{u}`; result sort `u`. -/
-noncomputable def quotMkV2 (u : Nat) : V :=
+noncomputable def quotMkV (u : Nat) : V :=
   lamR u (univ u) fun A =>
     lamR u (relSpace V u A) fun R =>
       lamR u A fun a => quotClass u A R a
 
-theorem quotMkV2_app {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
+theorem quotMkV_app {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
     (hR : R ∈ˢ relSpace V u A) (ha : a ∈ˢ A) :
-    app (app (app (quotMkV2 V u) A) R) a = quotClass u A R a := by
+    app (app (app (quotMkV V u) A) R) a = quotClass u A R a := by
   by_cases hu : u = 0
   · subst hu
     have hcp : quotClass 0 A R a = pt :=
       mem_univ_zero (quotSet_mem_univ hA) (quotClass_mem ha)
-    rw [quotMkV2, lamR_zero, app_pt, app_pt, app_pt, hcp]
-  · rw [quotMkV2, app_lamR_pos hu hA, app_lamR_pos hu hR, app_lamR_pos hu ha]
+    rw [quotMkV, lamR_zero, app_pt, app_pt, app_pt, hcp]
+  · rw [quotMkV, app_lamR_pos hu hA, app_lamR_pos hu hR, app_lamR_pos hu ha]
 
 /-- The lift of `f` to the quotient, at an annotation:
 `SetTheory.quotLift` with `lamC` replaced by `lamR v`.  This is the one
@@ -353,7 +353,7 @@ theorem quotLiftR_mem {u v : Nat} {A R f B : V}
 
 /-- `∀ a b, r a b → f a = f b`: `Prop`-valued throughout, so every
 annotation is `0`. -/
-noncomputable def quotInvSpace2 (A R f : V) : V :=
+noncomputable def quotInvSpace (A R f : V) : V :=
   piR 0 A fun a => piR 0 A fun b =>
     piR 0 (app (app R a) b) fun _ => eqv (app f a) (app f b)
 
@@ -361,12 +361,12 @@ noncomputable def quotInvSpace2 (A R f : V) : V :=
 `app_mem_piR` steps, each discharging its `v = 0` fibre premise from
 `piR_zero_mem_univZero` / `eqv_mem_univZero` — the pre-#100 shape,
 recovered. -/
-theorem quotInv_of_mem2 {A R f h : V} (hh : h ∈ˢ quotInvSpace2 V A R f) :
+theorem quotInv_of_mem {A R f h : V} (hh : h ∈ˢ quotInvSpace V A R f) :
     ∀ a b, a ∈ˢ A → b ∈ˢ A → (∃ w, w ∈ˢ app (app R a) b) →
       app f a = app f b := by
   intro a b ha hb hw
   obtain ⟨wv, hwv⟩ := hw
-  rw [quotInvSpace2] at hh
+  rw [quotInvSpace] at hh
   have h1 : app h a ∈ˢ
       piR 0 A fun b => piR 0 (app (app R a) b) fun _ => eqv (app f a) (app f b) :=
     app_mem_piR hh ha fun _ _ _ => piR_zero_mem_univZero
@@ -378,29 +378,29 @@ theorem quotInv_of_mem2 {A R f h : V} (hh : h ∈ˢ quotInvSpace2 V A R f) :
   exact mem_eqv h3
 
 /-- `Quot.lift.{u,v}`; result sort `v`. -/
-noncomputable def quotLiftV2 (u v : Nat) : V :=
+noncomputable def quotLiftV (u v : Nat) : V :=
   lamR v (univ u) fun A =>
     lamR v (relSpace V u A) fun R =>
       lamR v (univ v) fun B =>
         lamR v (piR v A fun _ => B) fun f =>
-          lamR v (quotInvSpace2 V A R f) fun _ => quotLiftR V u v A R f
+          lamR v (quotInvSpace V A R f) fun _ => quotLiftR V u v A R f
 
-theorem quotLiftV2_app {u v : Nat} (hv : v ≠ 0) {A R B f h : V}
+theorem quotLiftV_app {u v : Nat} (hv : v ≠ 0) {A R B f h : V}
     (hA : A ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace V u A)
     (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piR v A fun _ => B)
-    (hh : h ∈ˢ quotInvSpace2 V A R f) :
-    app (app (app (app (app (quotLiftV2 V u v) A) R) B) f) h =
+    (hh : h ∈ˢ quotInvSpace V A R f) :
+    app (app (app (app (app (quotLiftV V u v) A) R) B) f) h =
       quotLiftR V u v A R f := by
-  rw [quotLiftV2, app_lamR_pos hv hA, app_lamR_pos hv hR, app_lamR_pos hv hB,
+  rw [quotLiftV, app_lamR_pos hv hA, app_lamR_pos hv hR, app_lamR_pos hv hB,
     app_lamR_pos hv hf, app_lamR_pos hv hh]
 
 /-- **ι for `Quot.lift` at a `Prop`-valued target** — the case
-`quotLiftV2_app`'s `v ≠ 0` side condition excludes, and it needs no
+`quotLiftV_app`'s `v ≠ 0` side condition excludes, and it needs no
 premises at all.
 
-The ENDGAME D and E seals both flagged `quotLiftR_app`/`quotLiftV2_app`
+The ENDGAME D and E seals both flagged `quotLiftR_app`/`quotLiftV_app`
 as "the only two firing laws with a `v ≠ 0` side condition", with the
-`natRecV2_app` precedent recorded as not transferring.  It does not
+`natRecV_app` precedent recorded as not transferring.  It does not
 have to: at `v = 0` **both sides are `pt`**, because `lamR 0` is `pt`
 by `lamR_zero` and `quotLiftR` is itself a `lamR v`.  There is no
 squash-regime reasoning to do, no motive membership to consume, and no
@@ -409,35 +409,35 @@ premise to discharge — the two collapses meet on the nose.
 Recorded here rather than in a seal because the ledger's rule is that
 a claim about a wall is re-checked, not inherited: this is the check,
 and it costs two lines. -/
-theorem quotLiftV2_app_zero {u : Nat} (A R B f h : V) :
-    app (app (app (app (app (quotLiftV2 V u 0) A) R) B) f) h =
+theorem quotLiftV_app_zero {u : Nat} (A R B f h : V) :
+    app (app (app (app (app (quotLiftV V u 0) A) R) B) f) h =
       quotLiftR V u 0 A R f := by
-  rw [quotLiftV2, lamR_zero, app_pt, app_pt, app_pt, app_pt, app_pt,
+  rw [quotLiftV, lamR_zero, app_pt, app_pt, app_pt, app_pt, app_pt,
     quotLiftR, lamR_zero]
 
 /-- The two branches, packaged: `Quot.lift` fires at **every**
 numeral. -/
-theorem quotLiftV2_app_any {u v : Nat} {A R B f h : V}
+theorem quotLiftV_app_any {u v : Nat} {A R B f h : V}
     (hA : A ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace V u A)
     (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piR v A fun _ => B)
-    (hh : h ∈ˢ quotInvSpace2 V A R f) :
-    app (app (app (app (app (quotLiftV2 V u v) A) R) B) f) h =
+    (hh : h ∈ˢ quotInvSpace V A R f) :
+    app (app (app (app (app (quotLiftV V u v) A) R) B) f) h =
       quotLiftR V u v A R f := by
   by_cases hv : v = 0
-  · subst hv; exact quotLiftV2_app_zero V A R B f h
-  · exact quotLiftV2_app V hv hA hR hB hf hh
+  · subst hv; exact quotLiftV_app_zero V A R B f h
+  · exact quotLiftV_app V hv hA hR hB hf hh
 
 /-! ## `Classical.choice` -/
 
 /-- `¬¬A`, i.e. `(A → False) → False`: `Prop`-valued, annotations `0`. -/
-noncomputable def dnegSpace2 (A : V) : V :=
+noncomputable def dnegSpace (A : V) : V :=
   piR 0 (piR 0 A fun _ => empty) fun _ => empty
 
 theorem piR_zero_empty (B : V → V) : piR 0 (empty : V) B = unitSet := by
   rw [piR_zero, truthVal_eq_unitSet (fun x hx => absurd hx (not_mem_empty x))]
 
 /-- A `¬¬A` inhabitant witnesses that `A` is inhabited. -/
-theorem exists_mem_of_dneg2 {A h : V} (hh : h ∈ˢ dnegSpace2 V A) :
+theorem exists_mem_of_dneg {A h : V} (hh : h ∈ˢ dnegSpace V A) :
     ∃ x, x ∈ˢ A := by
   rcases Classical.em (∃ x, x ∈ˢ A) with hex | hne
   · exact hex
@@ -449,21 +449,21 @@ theorem exists_mem_of_dneg2 {A h : V} (hh : h ∈ˢ dnegSpace2 V A) :
     have hemp : (empty : V) ∈ˢ (univZero : V) := by
       have h0 := empty_mem_univ (V := V) 0
       rwa [univ_zero] at h0
-    rw [dnegSpace2] at hh
+    rw [dnegSpace] at hh
     exact not_mem_empty _ (app_mem_piR hh hpt fun _ _ _ => hemp)
 
 /-- `Classical.choice.{u}`; result sort `u`. -/
-noncomputable def choiceV2 (u : Nat) : V :=
-  lamR u (univ u) fun A => lamR u (dnegSpace2 V A) fun _ => schoice A
+noncomputable def choiceV (u : Nat) : V :=
+  lamR u (univ u) fun A => lamR u (dnegSpace V A) fun _ => schoice A
 
-theorem choiceV2_app {u : Nat} {A h : V} (hA : A ∈ˢ (univ u : V))
-    (hh : h ∈ˢ dnegSpace2 V A) : app (app (choiceV2 V u) A) h = schoice A := by
+theorem choiceV_app {u : Nat} {A h : V} (hA : A ∈ˢ (univ u : V))
+    (hh : h ∈ˢ dnegSpace V A) : app (app (choiceV V u) A) h = schoice A := by
   by_cases hu : u = 0
   · subst hu
-    obtain ⟨x, hx⟩ := exists_mem_of_dneg2 V hh
-    rw [choiceV2, lamR_zero, app_pt, app_pt]
+    obtain ⟨x, hx⟩ := exists_mem_of_dneg V hh
+    rw [choiceV, lamR_zero, app_pt, app_pt]
     exact (mem_univ_zero hA (schoice_mem hx)).symm
-  · rw [choiceV2, app_lamR_pos hu hA, app_lamR_pos hu hh]
+  · rw [choiceV, app_lamR_pos hu hA, app_lamR_pos hu hh]
 
 /-! ## `Empty.rec`
 
@@ -480,14 +480,14 @@ noncomputable def emptyMotiveSpace (v : Nat) : V :=
 /-- `Empty.rec.{u,v}`; result sort `v`.  The inner λ has an empty
 domain, so its value is the empty graph at `v ≠ 0` (and the canonical
 proof at `v = 0`) — **not** unconditionally `pt`. -/
-noncomputable def emptyRecV2 (v : Nat) : V :=
+noncomputable def emptyRecV (v : Nat) : V :=
   lamR v (emptyMotiveSpace V v) fun _ => lamR v empty fun _ => empty
 
-theorem emptyRecV2_ne_pt {v : Nat} (hv : v ≠ 0) : emptyRecV2 V v ≠ pt :=
+theorem emptyRecV_ne_pt {v : Nat} (hv : v ≠ 0) : emptyRecV V v ≠ pt :=
   lamR_ne_pt hv
 
 /-- …and it is still the canonical proof in the squash regime. -/
-theorem emptyRecV2_zero : emptyRecV2 V 0 = pt := lamR_zero
+theorem emptyRecV_zero : emptyRecV V 0 = pt := lamR_zero
 
 /-! ## `lfpFam` (task #188, indexed)
 
@@ -506,7 +506,7 @@ noncomputable def lfpFamFunSpace (u w : Nat) (I : V) : V :=
   piR (Nat.max u (w + 1)) (lfpFamSpace V w I) fun _ => lfpFamSpace V w I
 
 /-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
-noncomputable def lfpFamV2 (u w : Nat) : V :=
+noncomputable def lfpFamV (u w : Nat) : V :=
   lamR (Nat.max u (w + 1)) (univ u) fun I =>
     lamR (Nat.max u (w + 1)) (lfpFamFunSpace V u w I) fun F => lfpFamSet w I F
 
@@ -520,13 +520,13 @@ theorem lfpFamSet_mem_space (w : Nat) (I F : V) : lfpFamSet w I F ∈ˢ lfpFamSp
   rw [piR_pos (Nat.succ_ne_zero w)]
   exact lfpFamSet_mem w I F
 
-theorem lfpFamV2_app {u w : Nat} {I F : V} (hI : I ∈ˢ (univ u : V))
+theorem lfpFamV_app {u w : Nat} {I F : V} (hI : I ∈ˢ (univ u : V))
     (hF : F ∈ˢ lfpFamFunSpace V u w I) :
-    app (app (lfpFamV2 V u w) I) F = lfpFamSet w I F := by
-  rw [lfpFamV2, app_lamR_pos (max_succ_ne_zero u w) hI, app_lamR_pos (max_succ_ne_zero u w) hF]
+    app (app (lfpFamV V u w) I) F = lfpFamSet w I F := by
+  rw [lfpFamV, app_lamR_pos (max_succ_ne_zero u w) hI, app_lamR_pos (max_succ_ne_zero u w) hF]
 
-theorem lfpFamV2_mem (u w : Nat) :
-    lfpFamV2 V u w ∈ˢ piR (Nat.max u (w + 1)) (univ u : V) fun I =>
+theorem lfpFamV_mem (u w : Nat) :
+    lfpFamV V u w ∈ˢ piR (Nat.max u (w + 1)) (univ u : V) fun I =>
       piR (Nat.max u (w + 1)) (lfpFamFunSpace V u w I) fun _ => lfpFamSpace V w I :=
   lamR_mem fun I _ => lamR_mem fun F _ => lfpFamSet_mem_space V w I F
 
@@ -541,22 +541,22 @@ value that differs from `bval` beyond the operator change is
 noncomputable def bval : BConst → List Nat → V
   | .nat, _ => omega
   | .natZero, _ => natzero
-  | .natSucc, _ => natSuccV2 V
-  | .natRec, us => natRecV2 V (lv us 0)
+  | .natSucc, _ => natSuccV V
+  | .natRec, us => natRecV V (lv us 0)
   | .punit, _ => unitSet
   | .punitUnit, _ => pt
-  | .punitRec, us => punitRecV2 V (lv us 1)
-  | .psigma, us => psigmaV2 V (lv us 0) (lv us 1)
-  | .psigmaMk, us => psigmaMkV2 V (lv us 0) (lv us 1)
+  | .punitRec, us => punitRecV V (lv us 1)
+  | .psigma, us => psigmaV V (lv us 0) (lv us 1)
+  | .psigmaMk, us => psigmaMkV V (lv us 0) (lv us 1)
   | .empty, _ => empty
-  | .emptyRec, us => emptyRecV2 V (lv us 1)
-  | .quot, us => quotV2 V (lv us 0)
-  | .quotMk, us => quotMkV2 V (lv us 0)
-  | .quotLift, us => quotLiftV2 V (lv us 0) (lv us 1)
+  | .emptyRec, us => emptyRecV V (lv us 1)
+  | .quot, us => quotV V (lv us 0)
+  | .quotMk, us => quotMkV V (lv us 0)
+  | .quotLift, us => quotLiftV V (lv us 0) (lv us 1)
   | .quotInd, _ => pt
   | .quotSound, _ => pt
   | .propext, _ => pt
-  | .choice, us => choiceV2 V (lv us 0)
-  | .lfpFam, us => lfpFamV2 V (lv us 0) (lv us 1)
+  | .choice, us => choiceV V (lv us 0)
+  | .lfpFam, us => lfpFamV V (lv us 0) (lv us 1)
 
 end ConLeche.SetModel

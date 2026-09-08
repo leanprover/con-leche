@@ -370,7 +370,7 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
     rw [acvalWith_self]
   -- the fits, as spines
   have hspR : SpineFit ρ ((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψR).map (·.2.2))
-      ((xs ++ [ATerm.mkAppN (sumMkAV (p.resSort.eval ψR) j (dsF j ψR)
+      ((xs ++ [AnnotTerm.mkAppN (sumMkAV (p.resSort.eval ψR) j (dsF j ψR)
         (((dsF j ψR).drop p.nP).map (·.2.2))
         (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)))) ys]).map
         (interp V ρ)) := by
@@ -411,22 +411,22 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
     obtain ⟨Ha, cargsa, hrestEq, hcarLen, hcarInterp⟩ := hidx
     rcases hcarLen with hcase | hcarLen
     · omega
-    have hrest : restC = ConLeche.Model.ATerm.instSeq ys (p.nP + cA.2 - 1)
+    have hrest : restC = ConLeche.Model.AnnotTerm.instSeq ys (p.nP + cA.2 - 1)
         (ctorBodyAVI m₂ p.cvT.name p.nP cA.2 ψC (esF j ψR)) := by
       have hfit := hfitC
       rw [hTVja'] at hfit
       exact teleFitPA_rest_eq (p.nP + cA.2) hteleC (by simpa using hyl) hfit
-    have hrest2 : ATerm.mkAppN Ha cargsa
-        = ATerm.mkAppN (ConLeche.Model.ATerm.instSeq ys (p.nP + cA.2 - 1) (m₂.acval p.cvT.name ψC))
-            ((paramBvars p.nP cA.2 ++ esF j ψR).map (ConLeche.Model.ATerm.instSeq ys (p.nP + cA.2 - 1))) := by
+    have hrest2 : AnnotTerm.mkAppN Ha cargsa
+        = AnnotTerm.mkAppN (ConLeche.Model.AnnotTerm.instSeq ys (p.nP + cA.2 - 1) (m₂.acval p.cvT.name ψC))
+            ((paramBvars p.nP cA.2 ++ esF j ψR).map (ConLeche.Model.AnnotTerm.instSeq ys (p.nP + cA.2 - 1))) := by
       rw [← hrestEq, hrest]
       unfold ctorBodyAVI
       rw [instSeqAV_mkAppN]
     have hlenE := hCD.lenE ψR
-    obtain ⟨-, hcargs⟩ := ATerm.mkAppN_inj hrest2
+    obtain ⟨-, hcargs⟩ := AnnotTerm.mkAppN_inj hrest2
       (by simp [hcarLen, paramBvars, hlenE]; omega)
     have hcel : cargsa.getD (p.nP + i) default
-        = ConLeche.Model.ATerm.instSeq ys (p.nP + cA.2 - 1) ((esF j ψR).getD i default) := by
+        = ConLeche.Model.AnnotTerm.instSeq ys (p.nP + cA.2 - 1) ((esF j ψR).getD i default) := by
       have h1 := congrArg (fun l => l[p.nP + i]?) hcargs
       simp only [List.getElem?_map, List.getElem?_append_right (show (paramBvars p.nP cA.2).length ≤ p.nP + i
         by simp [paramBvars]), show (paramBvars p.nP cA.2).length = p.nP by simp [paramBvars],
@@ -1053,7 +1053,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
         obtain ⟨j, cA, rhs, hj, -, rfl⟩ := ConLeche.sumRules_getElem? hr
         obtain ⟨hf, -, -⟩ := hcf j cA hj
         exact ⟨cA.1, p.nP, cA.2, hf⟩))
-    (fun ψ k => ATerm.liftN_eq_self _ (Term.bvarsBelow.mono (Nat.zero_le k) (hAcl ψ)) 1)
+    (fun ψ k => AnnotTerm.liftN_eq_self _ (Term.bvarsBelow.mono (Nat.zero_le k) (hAcl ψ)) 1)
     hAparams (fun ψ ρ => (hleafF ψ ρ).1.1) (fun ψ ρ => (hleafF ψ ρ).1.2) (fun ψ => ⟨_, hreadR ψ⟩)
     ?_ ?_ ?_ ?_
   · intro ψ ta hta ρ

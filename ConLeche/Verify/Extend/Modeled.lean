@@ -2,12 +2,12 @@ import ConLeche.Verify.Extend.Iota
 import ConLeche.Verify.EnvWF
 
 /-!
-# Modeled — the `V`-free half of `ConLeche.Model.Extend.Modeled`
+# Modeled — the `V`-free half of `ConLeche.ModelV1.Extend.Modeled`
 
 The `checkMemberVal` / `checkIndMember` / `provisionRecs` inversions
 that feed the member extension.
 
-Relocated from `ConLeche/Model/Extend/Modeled.lean` (task #123);
+Relocated from `ConLeche/ModelV1/Extend/Modeled.lean` (task #123);
 `extend_modeled_one` and the `BlockInstalled` fold invariant stay there,
 the former being a statement about a valuation and the latter being
 stated over a `ConstVal V`.  The `omit [SetTheory V] in` lines are

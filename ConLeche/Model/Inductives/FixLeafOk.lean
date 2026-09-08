@@ -268,7 +268,7 @@ theorem fixChainWalkValid (hI : IdxOk u ρp Ids) (hIV : FieldsValid ρp Ids) {X 
       interp_congr_noBVar _ hFnb hag
     have hnext : ∀ (a a' : V), (¬ recAt nP ks (nP + as.length) → a' = a) →
         a' ∈ˢ interp V (consList as' ρp)
-          (if recAt nP ks (nP + as.length) then ATerm.sort 0 else Fs.getD as.length default) →
+          (if recAt nP ks (nP + as.length) then AnnotTerm.sort 0 else Fs.getD as.length default) →
         FieldsValid (consList (as ++ [a]) (cons t (cons X ρp)))
           (chainXIGo u Ids (rsOf ks) tls Eis (Fs.drop (as.length + 1)) (as.length + 1) ++
             [idxEqAV (eqsXI Ids.length nF Es)]) := by
@@ -417,7 +417,7 @@ theorem domsBelow_liftTele2 {nP : Nat} :
   | d :: tl, i, h => by
     rw [liftTele2_cons]
     refine ⟨?_, ?_⟩
-    · rw [ATerm.erase_liftN]
+    · rw [AnnotTerm.erase_liftN]
       have := VExprAux.bvarsBelow_liftN 2 d.2.2.erase (nP + i) i h.1
       rwa [show nP + i + 2 = nP + 2 + i from by omega] at this
     · have := domsBelow_liftTele2 tl (i + 1)
@@ -441,11 +441,11 @@ theorem chainXIGo_below (hIds : FieldsBelow nP Ids)
       · unfold slotXI
         refine mkPisAV_below_of (domsBelow_liftTele2 _ i (hTls i)) ?_
         rw [liftTele2_length]
-        simp only [ATerm.erase_app, ATerm.erase_bvar, Term.bvarsBelow]
+        simp only [AnnotTerm.erase_app, AnnotTerm.erase_bvar, Term.bvarsBelow]
         refine ⟨by omega, ?_⟩
-        rw [ATerm.erase_mkAppN]
+        rw [AnnotTerm.erase_mkAppN]
         refine VExprAux.bvarsBelow_mkAppN ?_ ?_
-        · rw [ATerm.erase_liftN]
+        · rw [AnnotTerm.erase_liftN]
           have := VExprAux.bvarsBelow_liftN (i + 2 + (tls.getD i []).length) (tuplerAV u Ids).erase
             nP 0 (tuplerAV_below (u := u) hIds)
           rwa [show nP + (i + 2 + (tls.getD i []).length) = nP + 2 + i + (tls.getD i []).length
@@ -453,12 +453,12 @@ theorem chainXIGo_below (hIds : FieldsBelow nP Ids)
         · intro a ha
           rw [List.map_map] at ha
           obtain ⟨E, hE, rfl⟩ := List.mem_map.mp ha
-          simp only [Function.comp, ATerm.erase_liftN]
+          simp only [Function.comp, AnnotTerm.erase_liftN]
           have := VExprAux.bvarsBelow_liftN 2 E.erase (nP + i + (tls.getD i []).length)
             (i + (tls.getD i []).length) (hEis i E hE)
           rwa [show nP + i + (tls.getD i []).length + 2 = nP + 2 + i + (tls.getD i []).length
             from by omega] at this
-      · rw [ATerm.erase_liftN]
+      · rw [AnnotTerm.erase_liftN]
         have := VExprAux.bvarsBelow_liftN 2 F.erase (nP + i) i hF.1
         rwa [show nP + i + 2 = nP + 2 + i from by omega] at this
     · have := chainXIGo_below hIds hTls hEis Fs (i + 1)
@@ -487,7 +487,7 @@ theorem chainXI_below (hIds : FieldsBelow nP Ids)
     exact List.getElem_mem _
   constructor
   · show Term.bvarsBelow _ ((Es.getD l default).liftN 2 Fs.length).erase
-    rw [ATerm.erase_liftN]
+    rw [AnnotTerm.erase_liftN]
     have := VExprAux.bvarsBelow_liftN 2 (Es.getD l default).erase (nP + Fs.length) Fs.length
       (hEs _ hmem)
     rwa [show nP + Fs.length + 2 = nP + 2 + Fs.length from by omega] at this
@@ -501,16 +501,16 @@ theorem fixBodyAVI_below {rss : List (List Bool)} {tlss : List (List (List (Nat 
     (hchains : ∀ chain ∈ chainsXI u Ids nIdx rss tlss Eiss Fss Ess, FieldsBelow (nP + 2) chain) :
     Term.bvarsBelow nP (fixBodyAVI u w Ids nIdx rss tlss Eiss Fss Ess).erase := by
   unfold fixBodyAVI
-  rw [ATerm.erase_mkAppN]
+  rw [AnnotTerm.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN (by simp [Term.bvarsBelow]) ?_
   intro a ha
   simp only [List.map_cons, List.map_nil, List.mem_cons] at ha
   rcases ha with rfl | rfl | h
   · exact towerBodyAV_below hIds
   · unfold fixFunAVI famTyAV
-    simp only [ATerm.erase_lam, ATerm.erase_pi, ATerm.erase_sort, Term.bvarsBelow]
+    simp only [AnnotTerm.erase_lam, AnnotTerm.erase_pi, AnnotTerm.erase_sort, Term.bvarsBelow]
     refine ⟨⟨towerBodyAV_below hIds, trivial⟩, ?_, ?_⟩
-    · rw [ATerm.erase_liftN]
+    · rw [AnnotTerm.erase_liftN]
       exact VExprAux.bvarsBelow_liftN 1 (towerBodyAV u Ids).erase nP 0 (towerBodyAV_below hIds)
     · exact sumBodyAV_below hchains
   · exact nomatch h
@@ -531,9 +531,9 @@ theorem nativeTyAVI_below {pps : List (Nat × Nat × AnnotTerm)} {rss : List (Li
   have hIL : Ids.length = nIdx := by rw [hIds]; exact hIdsLen
   refine mkLamsAV_below hp.mapC ?_
   rw [List.length_map, hlen, Nat.zero_add]
-  simp only [ATerm.erase_app, Term.bvarsBelow]
+  simp only [AnnotTerm.erase_app, Term.bvarsBelow]
   refine ⟨?_, ?_⟩
-  · rw [ATerm.erase_liftN]
+  · rw [AnnotTerm.erase_liftN]
     have := VExprAux.bvarsBelow_liftN Ids.length
       (fixBodyAVI u w Ids Ids.length rss tlss Eiss Fss Ess).erase nP 0
       (fixBodyAVI_below (w := w) (nIdx := Ids.length) hIdsB (by rw [hIL]; exact hchains))

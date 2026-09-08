@@ -46,13 +46,13 @@ theorem denoteMeta_shiftFromN {acval : Name → (Name → Nat) → AnnotTerm}
     {p : Nat} :
     ∀ (o : Nat) {e : Expr} {d : Nat}, p ≤ d → Expr.WScoped d e →
       denoteMeta acval env φ (d + o) (Expr.shiftFromN p o e)
-        = (denoteMeta acval env φ d e).map (ATerm.liftN o · (d - p))
+        = (denoteMeta acval env φ d e).map (AnnotTerm.liftN o · (d - p))
   | 0, e, d, _, _ => by
     show denoteMeta acval env φ (d + 0) e = _
     rw [Nat.add_zero]
     cases denoteMeta acval env φ d e with
     | none => rfl
-    | some v => simp only [Option.map_some, ATerm.liftN_zero]
+    | some v => simp only [Option.map_some, AnnotTerm.liftN_zero]
   | o + 1, e, d, hpd, hw => by
     show denoteMeta acval env φ (d + (o + 1)) (Expr.shiftFrom p (Expr.shiftFromN p o e)) = _
     rw [show d + (o + 1) = d + o + 1 from by omega,
@@ -755,8 +755,8 @@ theorem denoteMeta_instSeq_mkPisOf {m : EnvModel V env} {ψ : Name → Nat} :
     rw [Expr.instSeq_forallE L (D - 1) _ _ _ (by omega),
       instSeq_idx_congr (sp := L) (t := D - 1 + 1) (t' := D) (Expr.mkPisOf tele body) hnil,
       denoteMeta_forallE, hpty, hY, hIH]
-    show some (ATerm.pi 0 (pwBit ψ mt.pw) p.2.2 (mkPisAV tl' B)) = some (mkPisAV (p :: tl') B)
-    rw [show mkPisAV (p :: tl') B = ATerm.pi p.1 p.2.1 p.2.2 (mkPisAV tl' B) from rfl, hp1, hp2]
+    show some (AnnotTerm.pi 0 (pwBit ψ mt.pw) p.2.2 (mkPisAV tl' B)) = some (mkPisAV (p :: tl') B)
+    rw [show mkPisAV (p :: tl') B = AnnotTerm.pi p.1 p.2.1 p.2.2 (mkPisAV tl' B) from rfl, hp1, hp2]
 
 set_option maxHeartbeats 1600000 in
 /-- **A λ-tower over a frame reads to the λ-tower of the readings.** -/
@@ -836,8 +836,8 @@ theorem denoteMeta_instSeq_mkLamsOf {m : EnvModel V env} {ψ : Name → Nat} :
     rw [ConLeche.instSeq_lam L (D - 1) _ _ _ (by omega),
       instSeq_idx_congr (sp := L) (t := D - 1 + 1) (t' := D) (Expr.mkLamsOf tele body) hnil,
       denoteMeta_lam, hpty, hY, hIH]
-    show some (ATerm.lam (pwBit ψ mt.pw) p.2 (mkLamsAV tl' B)) = some (mkLamsAV (p :: tl') B)
-    rw [show mkLamsAV (p :: tl') B = ATerm.lam p.1 p.2 (mkLamsAV tl' B) from rfl, hp1]
+    show some (AnnotTerm.lam (pwBit ψ mt.pw) p.2 (mkLamsAV tl' B)) = some (mkLamsAV (p :: tl') B)
+    rw [show mkLamsAV (p :: tl') B = AnnotTerm.lam p.1 p.2 (mkLamsAV tl' B) from rfl, hp1]
 
 set_option maxHeartbeats 1600000 in
 /-- **A Π-tower over a frame, read**: the reading is the Π-tower of
@@ -1116,7 +1116,7 @@ theorem denoteMeta_ihDom {m : EnvModel V env} {ψ : Name → Nat} {nP nF o l i :
           (Expr.instSeq (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
               (ConLeche.structFieldTeleOf cty nP nF i).length)
             (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1) (Expr.bvar q))
-        = some (ATerm.bvar q) := by
+        = some (AnnotTerm.bvar q) := by
     intro q hq
     have hb := Expr.instSeq_bvar (P ++ X ++ F ++ I ++ openFvars (nP + o + nF + l)
       (ConLeche.structFieldTeleOf cty nP nF i).length)
@@ -1158,7 +1158,7 @@ theorem denoteMeta_ihDom {m : EnvModel V env} {ψ : Name → Nat} {nP nF o l i :
             (nP + o + nF + l + (ConLeche.structFieldTeleOf cty nP nF i).length - 1)
             (Expr.mkAppN (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
               (ConLeche.structTeleVars (ConLeche.structFieldTeleOf cty nP nF i).length)))
-        = some (ATerm.mkAppN
+        = some (AnnotTerm.mkAppN
             (.bvar (nF - 1 - i + l + (ConLeche.structFieldTeleOf cty nP nF i).length))
             (teleVarsAV (ConLeche.structFieldTeleOf cty nP nF i).length)) := by
       rw [Expr.instSeq_mkAppN]
@@ -1342,7 +1342,7 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
       es.length = nIdx)
     {ds : List (Nat × Nat × AnnotTerm)} {Es : List AnnotTerm}
     (hCread : denoteMeta m.acval env ψ 0 cty
-      = some (mkPisAV ds (ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es))))
+      = some (mkPisAV ds (AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es))))
     (hlenD : ds.length = nP + nF) (hlenE : Es.length = nIdx)
     (hrecBnd : ∀ i ∈ recIdx, i < nF)
     (hfr : ∀ i ∈ recIdx, ∀ (fvs : List Expr) (rest : Expr),
@@ -1398,11 +1398,11 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
   obtain ⟨xFvs, xrest, hopX⟩ := openPisAtFvars_of_stripPis_isSome nF (nP + extras.length) hcstrip
   have hcreadO := ctorResidual_read_lift hcread hcw hlenD extras.length
   have hstX : stripPisAV nF (mkPisAV (liftDoms extras.length 0 (ds.drop nP))
-      ((ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN extras.length nF))
+      ((AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN extras.length nF))
       = some (liftDoms extras.length 0 (ds.drop nP),
-          (ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN extras.length nF) := by
+          (AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN extras.length nF) := by
     have := stripPisAV_mkPisAV (liftDoms extras.length 0 (ds.drop nP))
-      ((ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN extras.length nF)
+      ((AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN extras.length nF)
     rwa [liftDoms_length, List.length_drop, hlenD, Nat.add_sub_cancel_left] at this
   have hminor := denoteMeta_replacePisPw (acval := m.acval) (env := env) (φ := ψ) nF hmin' hopX
     hcreadO hstX
@@ -1439,9 +1439,9 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
         (Expr.mkAppN (.bvar (nF + extras.length - 1))
           (es.map (Expr.liftLooseBVars extras.length nF) ++
             [ConLeche.structCtorSpineAt C lps extras.length nP nF])))
-      = some (ATerm.mkAppN (.bvar (nF + extras.length - 1))
+      = some (AnnotTerm.mkAppN (.bvar (nF + extras.length - 1))
           ((Es.map fun E => E.liftN extras.length nF) ++
-            [ATerm.mkAppN (m.acval C ψ)
+            [AnnotTerm.mkAppN (m.acval C ψ)
               (paramBvarsAt nP (nP + extras.length + nF) ++ fieldBvars nF)])) := by
     rw [← hcomb, ConLeche.instSeq_minorBodyI_at tfvs extras xFvs hlenT hlenX hclT hclE hclX hhead hes]
     have hspI := denoteMetaSpine_idxArgs_lift hfT hlpsT (o := extras.length) hsF hlenT hlenX hclT
@@ -1511,9 +1511,9 @@ theorem denoteMeta_minorAtR {m : EnvModel V env} {ψ : Name → Nat} {T C : Name
           (es.map (Expr.liftLooseBVars extras.length nF) ++
             [ConLeche.structCtorSpineAt C lps extras.length nP nF])).liftLooseBVars
           recIdx.length 0))
-      = some ((ATerm.mkAppN (.bvar (nF + extras.length - 1))
+      = some ((AnnotTerm.mkAppN (.bvar (nF + extras.length - 1))
           ((Es.map fun E => E.liftN extras.length nF) ++
-            [ATerm.mkAppN (m.acval C ψ)
+            [AnnotTerm.mkAppN (m.acval C ψ)
               (paramBvarsAt nP (nP + extras.length + nF) ++ fieldBvars nF)])).liftN
           recIdx.length 0) := by
     have hmid := ConLeche.instSeq_liftLooseBVars_mid (tfvs ++ extras ++ xFvs) I' (c := 0) hcl3
@@ -1799,10 +1799,10 @@ theorem denoteMeta_structRecTyR {m : EnvModel V env} {ψ : Name → Nat} {T : Na
   have htreadN : denoteMeta m.acval env ψ (nP + 1 + n) (Expr.instSeq tfvs (nP - 1) itele)
       = some (mkPisAV (liftDoms (n + 1) 0 (ppsAll.drop nP)) (.sort w)) := by
     have := ctorResidual_read_lift htread htw hlenP (n + 1)
-    rwa [show nP + (n + 1) = nP + 1 + n from by omega, ATerm.liftN_sort] at this
+    rwa [show nP + (n + 1) = nP + 1 + n from by omega, AnnotTerm.liftN_sort] at this
   have hstI : stripPisAV nIdx (mkPisAV (liftDoms (n + 1) 0 (ppsAll.drop nP)) (.sort w))
       = some (liftDoms (n + 1) 0 (ppsAll.drop nP), .sort w) := by
-    have := stripPisAV_mkPisAV (liftDoms (n + 1) 0 (ppsAll.drop nP)) (ATerm.sort w)
+    have := stripPisAV_mkPisAV (liftDoms (n + 1) 0 (ppsAll.drop nP)) (AnnotTerm.sort w)
     rwa [liftDoms_length, List.length_drop, hlenP, Nat.add_sub_cancel_left] at this
   have hmajR := denoteMeta_replacePisPw (acval := m.acval) (env := env) (φ := ψ) nIdx hmaj' hopI
     htreadN hstI
@@ -1887,7 +1887,7 @@ theorem denoteMeta_structRecTyR {m : EnvModel V env} {ψ : Name → Nat} {T : Na
         ifvs (nP + 1 + n) hidxI
       rw [hlenI] at this
       have he : ((List.range nIdx).map fun k =>
-          ATerm.bvar (nP + 1 + n + nIdx + 1 - 1 - (nP + 1 + n + k))) = idxVarsAV nIdx 1 := by
+          AnnotTerm.bvar (nP + 1 + n + nIdx + 1 - 1 - (nP + 1 + n + k))) = idxVarsAV nIdx 1 := by
         unfold idxVarsAV
         apply List.map_congr_left
         intro k _
@@ -1897,7 +1897,7 @@ theorem denoteMeta_structRecTyR {m : EnvModel V env} {ψ : Name → Nat} {T : Na
     rw [denoteMeta_mkAppN (hspI.append (.cons (denoteMeta_fvar _ _ _ _) .nil)) (denoteMeta_fvar _ _ _ _),
       show nP + 1 + n + nIdx + 1 - 1 - nP = 1 + nIdx + n from by omega,
       show nP + 1 + n + nIdx + 1 - 1 - (nP + 1 + n + nIdx) = 0 from by omega,
-      ATerm.mkAppN_append_one]
+      AnnotTerm.mkAppN_append_one]
     rfl
   have hpi : denoteMeta m.acval env ψ (nP + 1 + n + nIdx)
       (.forallE (Expr.mkAppN (.const T (lps.map .param)) (tfvs ++ ifvs))
@@ -1998,7 +1998,7 @@ theorem denoteMeta_ihApp {m : EnvModel V env} {ψ : Name → Nat} {nP nF n i : N
           (Expr.instSeq (P ++ X ++ F ++ openFvars (nP + 1 + n + nF)
               (ConLeche.structFieldTeleOf cty nP nF i).length)
             (nP + 1 + n + nF + (ConLeche.structFieldTeleOf cty nP nF i).length - 1) (Expr.bvar q))
-        = some (ATerm.bvar q) := by
+        = some (AnnotTerm.bvar q) := by
     intro q hq
     have hb := Expr.instSeq_bvar (P ++ X ++ F ++ openFvars (nP + 1 + n + nF)
       (ConLeche.structFieldTeleOf cty nP nF i).length)
@@ -2058,7 +2058,7 @@ theorem denoteMeta_ihApp {m : EnvModel V env} {ψ : Name → Nat} {nP nF n i : N
             (nP + 1 + n + nF + (ConLeche.structFieldTeleOf cty nP nF i).length - 1)
             (Expr.mkAppN (.bvar (nF - 1 - i + (ConLeche.structFieldTeleOf cty nP nF i).length))
               (ConLeche.structTeleVars (ConLeche.structFieldTeleOf cty nP nF i).length)))
-        = some (ATerm.mkAppN
+        = some (AnnotTerm.mkAppN
             (.bvar (nF - 1 - i + (ConLeche.structFieldTeleOf cty nP nF i).length))
             (teleVarsAV (ConLeche.structFieldTeleOf cty nP nF i).length)) := by
       rw [Expr.instSeq_mkAppN]
@@ -2082,8 +2082,8 @@ theorem denoteMeta_ihApp {m : EnvModel V env} {ψ : Name → Nat} {nP nF n i : N
         rw [List.map_map]
         simp only [Function.comp_def]
         have hcong : ((List.range nP).map fun k =>
-              ATerm.bvar (nP + nF + n + 1 + (ConLeche.structFieldTeleOf cty nP nF i).length - 1 - k))
-            = (List.range nP).map fun k => ATerm.bvar
+              AnnotTerm.bvar (nP + nF + n + 1 + (ConLeche.structFieldTeleOf cty nP nF i).length - 1 - k))
+            = (List.range nP).map fun k => AnnotTerm.bvar
               ((ConLeche.structFieldTeleOf cty nP nF i).length + nF + n + 1 + nP - 1 - k) := by
           refine List.map_congr_left ?_
           intro k hk
@@ -2100,8 +2100,8 @@ theorem denoteMeta_ihApp {m : EnvModel V env} {ψ : Name → Nat} {nP nF n i : N
       · rw [List.map_map]
         simp only [Function.comp_def]
         have hcong : ((List.range n).map fun l =>
-              ATerm.bvar (nF + n - 1 - l + (ConLeche.structFieldTeleOf cty nP nF i).length))
-            = (List.range n).map fun l => ATerm.bvar
+              AnnotTerm.bvar (nF + n - 1 - l + (ConLeche.structFieldTeleOf cty nP nF i).length))
+            = (List.range n).map fun l => AnnotTerm.bvar
               ((ConLeche.structFieldTeleOf cty nP nF i).length + nF + n - 1 - l) := by
           refine List.map_congr_left ?_
           intro l hl
@@ -2124,9 +2124,9 @@ theorem denoteMeta_ihApp {m : EnvModel V env} {ψ : Name → Nat} {nP nF n i : N
 first `nP + n + 1` variables. -/
 theorem recPrefixBvars_eq (nP n nF : Nat) :
     recPrefixBvars nP n nF
-      = (List.range (nP + n + 1)).map fun k => ATerm.bvar (nP + n + nF - k) := by
+      = (List.range (nP + n + 1)).map fun k => AnnotTerm.bvar (nP + n + nF - k) := by
   have hlA : (paramBvarsAt nP (nP + nF + n + 1)).length = nP := by simp [paramBvarsAt]
-  have hlAB : (paramBvarsAt nP (nP + nF + n + 1) ++ [ATerm.bvar (nF + n)]).length = nP + 1 := by
+  have hlAB : (paramBvarsAt nP (nP + nF + n + 1) ++ [AnnotTerm.bvar (nF + n)]).length = nP + 1 := by
     simp [paramBvarsAt]
   apply List.ext_getElem?
   intro k
@@ -2226,7 +2226,7 @@ theorem denoteMeta_ruleCoreR {m : EnvModel V env} {ψ : Name → Nat} {pw : Prop
   have hbvar : ∀ q : Nat, q < nP + 1 + n + nF →
       denoteMeta m.acval env ψ (nP + 1 + n + nF)
           (Expr.instSeq (tfvs ++ extras ++ xFvs) (nP + n + nF) (Expr.bvar q))
-        = some (ATerm.bvar q) := by
+        = some (AnnotTerm.bvar q) := by
     intro q hq
     have hb := Expr.instSeq_bvar (tfvs ++ extras ++ xFvs) (nP + n + nF) q hclL
       (by omega) (by rw [hlenL]; omega)
@@ -2254,7 +2254,7 @@ theorem denoteMeta_ruleCoreR {m : EnvModel V env} {ψ : Name → Nat} {pw : Prop
           exact hx)
         exact ⟨ty, by rw [hy, Nat.zero_add]⟩)
     have he : ((List.range (tfvs ++ extras).length).map fun k =>
-        ATerm.bvar (nP + 1 + n + nF - 1 - (0 + k))) = recPrefixBvars nP n nF := by
+        AnnotTerm.bvar (nP + 1 + n + nF - 1 - (0 + k))) = recPrefixBvars nP n nF := by
       rw [recPrefixBvars_eq, hlenTE,
         show nP + (n + 1) = nP + n + 1 from by omega]
       apply List.map_congr_left
@@ -2386,15 +2386,15 @@ theorem denoteMeta_structRecRhsR {m : EnvModel V env} {ψ : Name → Nat} {T : N
   obtain ⟨xFvs, xrest, hopX⟩ := openPisAtFvars_of_stripPis_isSome nF (nP + 1 + n) hcstrip
   have hcreadN : denoteMeta m.acval env ψ (nP + 1 + n) (Expr.instSeq tfvs (nP - 1) crest0)
       = some (mkPisAV (liftDoms (n + 1) 0 (ds.drop nP))
-          ((ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN (n + 1) nF)) := by
+          ((AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN (n + 1) nF)) := by
     have := ctorResidual_read_lift hcread hcw hlenD (n + 1)
     rwa [show nP + (n + 1) = nP + 1 + n from by omega] at this
   have hstX : stripPisAV nF (mkPisAV (liftDoms (n + 1) 0 (ds.drop nP))
-      ((ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN (n + 1) nF))
+      ((AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN (n + 1) nF))
       = some (liftDoms (n + 1) 0 (ds.drop nP),
-          (ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN (n + 1) nF) := by
+          (AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN (n + 1) nF) := by
     have := stripPisAV_mkPisAV (liftDoms (n + 1) 0 (ds.drop nP))
-      ((ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN (n + 1) nF)
+      ((AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN (n + 1) nF)
     rwa [liftDoms_length, List.length_drop, hlenD, Nat.add_sub_cancel_left] at this
   have hinnerR := denoteMeta_pisToLamsPw (acval := m.acval) (env := env) (φ := ψ) nF hinner' hopX
     hcreadN hstX

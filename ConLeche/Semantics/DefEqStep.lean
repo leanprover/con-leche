@@ -34,11 +34,11 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## The equivalence -/
 
-theorem deqStep2_symm {ρ : Nat → V} {aa ba : AnnotTerm}
+theorem deqStep_symm {ρ : Nat → V} {aa ba : AnnotTerm}
     (h : interp V ρ aa = interp V ρ ba) :
     interp V ρ ba = interp V ρ aa := h.symm
 
-theorem deqStep2_trans {ρ : Nat → V} {aa ba ca : AnnotTerm}
+theorem deqStep_trans {ρ : Nat → V} {aa ba ca : AnnotTerm}
     (h₁ : interp V ρ aa = interp V ρ ba)
     (h₂ : interp V ρ ba = interp V ρ ca) :
     interp V ρ aa = interp V ρ ca := h₁.trans h₂
@@ -48,20 +48,20 @@ theorem deqStep2_trans {ρ : Nat → V} {aa ba ca : AnnotTerm}
 The binder cases descend under `Sat_cons`, which is the only
 structural fact about `Sat` the quarter consumes. -/
 
-theorem deqStep2_appCong {ρ : Nat → V} {fa fb aa ab : AnnotTerm}
+theorem deqStep_appCong {ρ : Nat → V} {fa fb aa ab : AnnotTerm}
     (hf : interp V ρ fa = interp V ρ fb)
     (ha : interp V ρ aa = interp V ρ ab) :
     interp V ρ (.app fa aa) = interp V ρ (.app fb ab) := by
   simp only [interp_app, hf, ha]
 
-theorem deqStep2_projCong {ρ : Nat → V} {i : Nat} {ea eb : AnnotTerm}
+theorem deqStep_projCong {ρ : Nat → V} {i : Nat} {ea eb : AnnotTerm}
     (h : interp V ρ ea = interp V ρ eb) :
     interp V ρ (.proj i ea) = interp V ρ (.proj i eb) := by
   simp only [interp_proj, h]
 
 /-- **∀-congruence.**  The codomain descends at the *domain's* own
 value set, which is where `Sat_cons` enters. -/
-theorem deqStep2_piCong {ρ : Nat → V} {u u' v : Nat}
+theorem deqStep_piCong {ρ : Nat → V} {u u' v : Nat}
     {Aa Ab Ba Bb : AnnotTerm}
     (hA : interp V ρ Aa = interp V ρ Ab)
     (hB : ∀ x, x ∈ˢ interp V ρ Aa →
@@ -73,7 +73,7 @@ theorem deqStep2_piCong {ρ : Nat → V} {u u' v : Nat}
 /-- **λ-congruence**, at a shared codomain numeral — which is what the
 run supplies, since both sides' annotations come from one `denoteAnnot`
 walk (R1's coherence, in the form the consumer needs it). -/
-theorem deqStep2_lamCong {ρ : Nat → V} {v : Nat} {Aa Ab ba bb : AnnotTerm}
+theorem deqStep_lamCong {ρ : Nat → V} {v : Nat} {Aa Ab ba bb : AnnotTerm}
     (hA : interp V ρ Aa = interp V ρ Ab)
     (hb : ∀ x, x ∈ˢ interp V ρ Aa →
       interp V (cons x ρ) ba = interp V (cons x ρ) bb) :

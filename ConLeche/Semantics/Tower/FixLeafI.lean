@@ -198,7 +198,7 @@ def slotXI (u : Nat) (Ids : List AnnotTerm) (tl : List (Nat × Nat × AnnotTerm)
     (i : Nat) : AnnotTerm :=
   mkPisAV (liftTele2 i tl)
     (.app (.bvar (i + 1 + tl.length))
-      (ATerm.mkAppN ((tuplerAV u Ids).liftN (i + 2 + tl.length) 0)
+      (AnnotTerm.mkAppN ((tuplerAV u Ids).liftN (i + 2 + tl.length) 0)
         (Eis.map (·.liftN 2 (i + tl.length)))))
 
 omit [SetTheory V] in
@@ -253,7 +253,7 @@ def fixFunAVI (u w : Nat) (Ids : List AnnotTerm) (nIdx : Nat) (rss : List (List 
 /-- The family: `lfpFam.{u,w} I F` at the parameter frame. -/
 def fixBodyAVI (u w : Nat) (Ids : List AnnotTerm) (nIdx : Nat) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (Fss Ess : List (List AnnotTerm)) : AnnotTerm :=
-  ATerm.mkAppN (.const .lfpFam [u, w]) [idxTyAV u Ids, fixFunAVI u w Ids nIdx rss tlss Eiss Fss Ess]
+  AnnotTerm.mkAppN (.const .lfpFam [u, w]) [idxTyAV u Ids, fixFunAVI u w Ids nIdx rss tlss Eiss Fss Ess]
 
 /-- The type-former leaf: the λ-tower over the parameter and index
 domains, the family at the tuple of the index variables. -/
@@ -371,12 +371,12 @@ theorem fixBodyAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids 
       WellDenoted V ρp (fixBodyAVI u w Ids nIdx rss tlss Eiss Fss Ess) := by
   obtain ⟨hiv, hiu, hiok⟩ := idxTyAV_facts hI
   obtain ⟨hfv, hfok⟩ := fixFunAVI_facts hI hok
-  have hc : interp V ρp (.const .lfpFam [u, w]) = lfpFamV2 V u w := rfl
+  have hc : interp V ρp (.const .lfpFam [u, w]) = lfpFamV V u w := rfl
   refine ⟨?_, lfpFamSet_mem_space V w _ _, ?_⟩
   · show SetTheory.app (SetTheory.app (interp V ρp (.const .lfpFam [u, w]))
       (interp V ρp (idxTyAV u Ids))) (interp V ρp (fixFunAVI u w Ids nIdx rss tlss Eiss Fss Ess)) = _
     rw [hc, hiv, hfv]
-    exact lfpFamV2_app V hiu (fixFunVI_mem hok)
+    exact lfpFamV_app V hiu (fixFunVI_mem hok)
   · show WellDenoted V ρp (.app (.app (.const .lfpFam [u, w]) _) _)
     rw [WellDenoted_app]
     refine ⟨?_, hfok, Nat.max u (w + 1), lfpFamFunSpace V u w (idxSet u ρp Ids),
@@ -384,10 +384,10 @@ theorem fixBodyAVI_facts (hI : IdxOk u ρp Ids) (hok : FixChainsOkI u w ρp Ids 
     · rw [WellDenoted_app]
       refine ⟨trivial, hiok, Nat.max u (w + 1), univ u,
         fun I => piR (Nat.max u (w + 1)) (lfpFamFunSpace V u w I) fun _ => lfpFamSpace V w I,
-        lfpFamV2_mem V u w, by rw [hiv]; exact hiu, fun h => absurd h (max_succ_ne_zero u w)⟩
+        lfpFamV_mem V u w, by rw [hiv]; exact hiu, fun h => absurd h (max_succ_ne_zero u w)⟩
     · show SetTheory.app (interp V ρp (.const .lfpFam [u, w])) (interp V ρp (idxTyAV u Ids)) ∈ˢ _
       rw [hc, hiv]
-      exact app_mem_piR_pos (max_succ_ne_zero u w) (lfpFamV2_mem V u w) hiu
+      exact app_mem_piR_pos (max_succ_ne_zero u w) (lfpFamV_mem V u w) hiu
     · rw [hfv]; exact fixFunVI_mem hok
 
 end Facts

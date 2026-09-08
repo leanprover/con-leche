@@ -21,7 +21,7 @@ variable (mode : CheckMode)
 A block recognised by `directParts?` (`ConLeche/Kernel/Direct.lean`)
 installs *directly*: no `_model` artifact is consumed, and the
 set-theoretic model was constructed from the constructor telescope by
-the retired direct model (`ConLeche/Model/*`, deleted at task #148 T7;
+the retired direct model (`ConLeche/ModelV1/*`, deleted at task #148 T7;
 the route ships `false`).  What is left for this layer are the
 reference checks that need inference and definitional equality — the
 per-field universe bound and the definitional pins of the recursor's

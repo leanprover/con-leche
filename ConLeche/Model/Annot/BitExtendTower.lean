@@ -132,8 +132,8 @@ theorem denoteMeta_envExtend_mono_at {env₀ env : Env}
       rw [denoteMeta, ihe hc hnpe hea']
       cases hfp : env.findProj? sn j with
       | none =>
-        show (if j < 2 then some (ATerm.proj j ea') else none)
-          = some (ATerm.proj j ea')
+        show (if j < 2 then some (AnnotTerm.proj j ea') else none)
+          = some (AnnotTerm.proj j ea')
         rw [if_pos hj]
       | some entry =>
         exact absurd (hproj sn j entry hnt0 hfp) hsnT

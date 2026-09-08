@@ -85,7 +85,7 @@ theorem acval_inst_self {env : ConLeche.Env}
     (m : EnvModel V env) (n : ConLeche.Name)
     (ψ : ConLeche.Name → Nat) (y : AnnotTerm) (k : Nat) :
     (m.acval n ψ).inst y k = m.acval n ψ :=
-  ATerm.inst_eq_self _
+  AnnotTerm.inst_eq_self _
     (by rw [m.acval_erase]
         exact Term.bvarsBelow.mono (Nat.zero_le k)
           (m.cval_closed n ψ)) y

@@ -152,23 +152,23 @@ theorem AnnotValid_liftN (n : Nat) :
   induction e with
   | bvar i =>
     intro k ρ
-    simp only [ATerm.liftN_bvar]
+    simp only [AnnotTerm.liftN_bvar]
     split <;> simp
   | sort u => intro k ρ; simp
   | const c us => intro k ρ; simp
   | app f a ihf iha =>
     intro k ρ
-    rw [ATerm.liftN_app, AnnotValid_app, AnnotValid_app, ihf, iha]
+    rw [AnnotTerm.liftN_app, AnnotValid_app, AnnotValid_app, ihf, iha]
   | lam v A b ihA ihb =>
     intro k ρ
-    rw [ATerm.liftN_lam, AnnotValid_lam, AnnotValid_lam, ihA,
+    rw [AnnotTerm.liftN_lam, AnnotValid_lam, AnnotValid_lam, ihA,
       interp_liftN]
     refine and_congr Iff.rfl
       (forall_congr' fun x => imp_congr Iff.rfl ?_)
     rw [ihb, cons_shiftE]
   | pi u v A B ihA ihB =>
     intro k ρ
-    rw [ATerm.liftN_pi, AnnotValid_pi, AnnotValid_pi, ihA,
+    rw [AnnotTerm.liftN_pi, AnnotValid_pi, AnnotValid_pi, ihA,
       interp_liftN]
     refine and_congr Iff.rfl (and_congr
       (forall_congr' fun x => imp_congr Iff.rfl ?_)
@@ -178,14 +178,14 @@ theorem AnnotValid_liftN (n : Nat) :
     · rw [interp_liftN, cons_shiftE]
   | letE T v b ihT ihv ihb =>
     intro k ρ
-    rw [ATerm.liftN_letE, AnnotValid_letE, AnnotValid_letE, ihT, ihv,
+    rw [AnnotTerm.liftN_letE, AnnotValid_letE, AnnotValid_letE, ihT, ihv,
       interp_liftN, ihb, cons_shiftE]
   | eqE T a b ihT iha ihb =>
     intro k ρ
-    rw [ATerm.liftN_eqE, AnnotValid_eqE, AnnotValid_eqE, iha, ihb]
+    rw [AnnotTerm.liftN_eqE, AnnotValid_eqE, AnnotValid_eqE, iha, ihb]
   | proj i e ihe =>
     intro k ρ
-    rw [ATerm.liftN_proj, AnnotValid_proj, AnnotValid_proj, ihe]
+    rw [AnnotTerm.liftN_proj, AnnotValid_proj, AnnotValid_proj, ihe]
   | prf => intro k ρ; simp
 
 /-! ### Instantiation — and the one premise that had to change
@@ -219,22 +219,22 @@ theorem AnnotValid_inst :
     intro a k ρ ha
     show AnnotValid V ρ
         (if i < k then .bvar i
-         else if i = k then ATerm.liftN k a else .bvar (i - 1)) ↔ _
+         else if i = k then AnnotTerm.liftN k a else .bvar (i - 1)) ↔ _
     by_cases h : i < k
     · simp [if_pos h]
     · by_cases h2 : i = k
       · simp only [if_neg h, if_pos h2, AnnotValid_bvar, iff_true]
         exact (AnnotValid_liftN V k a 0 ρ).mpr ha
       · simp [if_neg h, if_neg h2]
-  | sort u => intro a k ρ _; simp [ATerm.inst]
-  | const c us => intro a k ρ _; simp [ATerm.inst]
+  | sort u => intro a k ρ _; simp [AnnotTerm.inst]
+  | const c us => intro a k ρ _; simp [AnnotTerm.inst]
   | app f b ihf ihb =>
     intro a k ρ ha
-    rw [ATerm.inst_app, AnnotValid_app, AnnotValid_app, ihf a k ρ ha,
+    rw [AnnotTerm.inst_app, AnnotValid_app, AnnotValid_app, ihf a k ρ ha,
       ihb a k ρ ha]
   | lam v A b ihA ihb =>
     intro a k ρ ha
-    rw [ATerm.inst_lam, AnnotValid_lam, AnnotValid_lam, ihA a k ρ ha,
+    rw [AnnotTerm.inst_lam, AnnotValid_lam, AnnotValid_lam, ihA a k ρ ha,
       interp_inst]
     refine and_congr Iff.rfl (forall_congr' fun x => imp_congr Iff.rfl ?_)
     have ha' : AnnotValid V (shiftE (k + 1) 0 (cons x ρ)) a := by
@@ -242,7 +242,7 @@ theorem AnnotValid_inst :
     rw [ihb a (k + 1) (cons x ρ) ha', shiftE_succ_cons, cons_instE]
   | pi u v A B ihA ihB =>
     intro a k ρ ha
-    rw [ATerm.inst_pi, AnnotValid_pi, AnnotValid_pi, ihA a k ρ ha,
+    rw [AnnotTerm.inst_pi, AnnotValid_pi, AnnotValid_pi, ihA a k ρ ha,
       interp_inst]
     refine and_congr Iff.rfl (and_congr
       (forall_congr' fun x => imp_congr Iff.rfl ?_)
@@ -254,7 +254,7 @@ theorem AnnotValid_inst :
     · rw [interp_inst, shiftE_succ_cons, cons_instE]
   | letE T v b ihT ihv ihb =>
     intro a k ρ ha
-    rw [ATerm.inst_letE, AnnotValid_letE, AnnotValid_letE,
+    rw [AnnotTerm.inst_letE, AnnotValid_letE, AnnotValid_letE,
       ihT a k ρ ha, ihv a k ρ ha, interp_inst]
     refine and_congr Iff.rfl (and_congr Iff.rfl ?_)
     have ha' : AnnotValid V (shiftE (k + 1) 0
@@ -264,13 +264,13 @@ theorem AnnotValid_inst :
     rw [ihb a (k + 1) _ ha', shiftE_succ_cons, cons_instE]
   | eqE T x y ihT ihx ihy =>
     intro a k ρ ha
-    rw [ATerm.inst_eqE, AnnotValid_eqE, AnnotValid_eqE, ihx a k ρ ha,
+    rw [AnnotTerm.inst_eqE, AnnotValid_eqE, AnnotValid_eqE, ihx a k ρ ha,
       ihy a k ρ ha]
   | proj i e ihe =>
     intro a k ρ ha
-    rw [ATerm.inst_proj, AnnotValid_proj, AnnotValid_proj,
+    rw [AnnotTerm.inst_proj, AnnotValid_proj, AnnotValid_proj,
       ihe a k ρ ha]
-  | prf => intro a k ρ _; simp [ATerm.inst]
+  | prf => intro a k ρ _; simp [AnnotTerm.inst]
 
 /-- Substitution at the outermost binder — the β/ζ transport form,
 `WellDenoted_inst0`'s mirror. -/

@@ -6,8 +6,8 @@ import ConLeche.Semantics.DefEqList
 /-!
 # The two ι rows, discharged (task #161, iota tier)
 
-`IotaReads` (`Steps/ReadsP.lean`) and `IotaStep`
-(`Steps/WhnfP.lean`), the last two semantic-tier entries of the P
+`IotaReads` (`Steps/Reads.lean`) and `IotaStep`
+(`Steps/Whnf.lean`), the last two semantic-tier entries of the P
 census.
 
 ## FINDING — `IotaReads`'s supplier is `accepted_reads`, not the walk
@@ -61,7 +61,7 @@ structural simplifications the P currency buys:
 
 Everything else is v1's walk: `iotaRec_inv`, the subject's spine
 decomposition, the major through `whnf`/`litMajorToCtor`/`majorToCtor`
-(`Steps/MajorP.lean`), the constructor spine, the level congruence
+(`Steps/Major.lean`), the constructor spine, the level congruence
 (`recFireComparands_fst_nil`, currency-free), the `.plain` comparands
 (`map_interp_of_defEqListFueled`), the `.nested` pins (`defEqListFueled_get`
 plus the `denoteMeta_openRev` bridge), the index pin
@@ -475,7 +475,7 @@ RESOLVED (the lane lead's ratified one-conjunct repair, 2026-09-02):
 `RecRuleLaw` now carries the open pins' readings graded at every
 environment, parallel to `Ra`'s conjunct, and the row grades the
 instantiated comparand through the `instRevChain` closure
-(`wellDenotedV_instRevChain`, `Steps/IotaKitP.lean` — proved as an iff at
+(`wellDenotedV_instRevChain`, `Steps/IotaKit.lean` — proved as an iff at
 a generalized body because the grading flows outside-in; the
 arguments' gradings are needed at the ambient environment only, each
 `liftN` popping the chain back down).  `IotaNestedPinP` is deleted;
@@ -594,7 +594,7 @@ theorem iotaStep_of {m : EnvModel V env}
       exact nomatch hl⟩
   -- the two telescope fits
   have hspR : DenoteMetaSpine m.acval env φ d (e.getAppArgs.take mI ++ [major])
-      (xs.take mI ++ [ATerm.mkAppN
+      (xs.take mI ++ [AnnotTerm.mkAppN
         (m.acval r.ctor (Level.substFn φ cvj.levelParams usj)) ys]) :=
     (hspx.take mI).append (DenoteMetaSpine.cons hvmajSave DenoteMetaSpine.nil)
   have hframesR : ∀ x ∈ e.getAppArgs.take mI ++ [major],
@@ -605,7 +605,7 @@ theorem iotaStep_of {m : EnvModel V env}
     · exact hfrE x (List.mem_of_mem_take hx')
     · rcases List.mem_singleton.mp hx' with rfl
       exact ⟨hwmj, hbmj, hLmj, hCmj⟩
-  have hoksR : ∀ x ∈ (xs.take mI ++ [ATerm.mkAppN
+  have hoksR : ∀ x ∈ (xs.take mI ++ [AnnotTerm.mkAppN
       (m.acval r.ctor (Level.substFn φ cvj.levelParams usj)) ys]),
       ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ x := by
     intro x hx
@@ -617,8 +617,8 @@ theorem iotaStep_of {m : EnvModel V env}
   -- the major slot (`heqAll` exchanges the argument), and the rescued
   -- major's grading as the constructor spine's
   have hokSR : ∀ ρ : Nat → V, Sat V Δa ρ →
-      WellDenotedV V ρ (ATerm.mkAppN (m.acval c (Level.substFn φ cv.levelParams us))
-        (xs.take mI ++ [ATerm.mkAppN
+      WellDenotedV V ρ (AnnotTerm.mkAppN (m.acval c (Level.substFn φ cv.levelParams us))
+        (xs.take mI ++ [AnnotTerm.mkAppN
           (m.acval r.ctor (Level.substFn φ cvj.levelParams usj)) ys])) := by
     intro ρ hρ
     have h := hok ρ hρ
@@ -643,11 +643,11 @@ theorem iotaStep_of {m : EnvModel V env}
     exact ConLeche.Level.substFn_congr (ConLeche.Level.isEquivList_sound hlev φ)
   -- the fired equation and the transported grading, at each valuation
   have hmain : ∀ ρ : Nat → V, Sat V Δa ρ →
-      interp V ρ (ATerm.mkAppN
+      interp V ρ (AnnotTerm.mkAppN
           (m.acval c (Level.substFn φ cv.levelParams us)) xs)
-          = interp V ρ (ATerm.mkAppN Ra
+          = interp V ρ (AnnotTerm.mkAppN Ra
               (xs.take rP ++ ys.drop (RecRule.ctorParams r))) ∧
-        WellDenotedV V ρ (ATerm.mkAppN Ra
+        WellDenotedV V ρ (AnnotTerm.mkAppN Ra
           (xs.take rP ++ ys.drop (RecRule.ctorParams r))) := by
     intro ρ hρ
     -- **the index pin**: trivial where the recursor has no indices
@@ -729,7 +729,7 @@ theorem iotaStep_of {m : EnvModel V env}
             ((pins.getD i default).instantiateLevelParams cv.levelParams us))
             = some vpa →
           interp V ρ (ys.getD i default)
-            = interp V ρ (ATerm.instRevChain ((xs.take mI).take rP) vpa) := by
+            = interp V ρ (AnnotTerm.instRevChain ((xs.take mI).take rP) vpa) := by
       intro lvls pins hn i hi vpa hvpa
       obtain ⟨-, -, -, -, -, hrec', -⟩ :=
         m.wf _ (ConLeche.Semantics.Env.find?_mem hfrec)
@@ -796,7 +796,7 @@ theorem iotaStep_of {m : EnvModel V env}
       have hcden' : denoteMeta m.acval env φ d
           (Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
             ((pins.getD i default).instantiateLevelParams cv.levelParams us))
-          = some (ATerm.instRevChain (xs.take rP) vpa) := by
+          = some (AnnotTerm.instRevChain (xs.take rP) vpa) := by
         rw [Expr.instSpine_eq_instSeq]
         simpa using hcden
       have hfrPinX : Expr.WScoped d (Expr.instSpine (e.getAppArgs.take rP)
@@ -827,7 +827,7 @@ theorem iotaStep_of {m : EnvModel V env}
               rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hpinF']; simp)
           · exact ((hfrE y (List.mem_of_mem_take hy)).2.2.2).2 l hly
       have hokCmp : ∀ σ : Nat → V, Sat V Δa σ →
-          WellDenotedV V σ (ATerm.instRevChain (xs.take rP) vpa) := by
+          WellDenotedV V σ (AnnotTerm.instRevChain (xs.take rP) vpa) := by
         obtain ⟨vpa', hvpa', hok'⟩ := hpinsOk lvls pins hn i hi
         obtain rfl : vpa' = vpa :=
           Option.some.inj (hvpa'.symm.trans hvpa)
@@ -857,11 +857,11 @@ theorem iotaStep_of {m : EnvModel V env}
       hlenUj hψ hplain hnested hpinI (hTVaD 0) (hTVjaD 0)
       (hfitR ρ hρ) (hfitC ρ hρ)
     rw [List.take_take, Nat.min_eq_left hrPle] at heqLaw htrans
-    have hsubj : interp V ρ (ATerm.mkAppN
+    have hsubj : interp V ρ (AnnotTerm.mkAppN
         (m.acval c (Level.substFn φ cv.levelParams us)) xs)
-        = interp V ρ (ATerm.mkAppN
+        = interp V ρ (AnnotTerm.mkAppN
           (m.acval c (Level.substFn φ cv.levelParams us))
-          (xs.take mI ++ [ATerm.mkAppN
+          (xs.take mI ++ [AnnotTerm.mkAppN
             (m.acval r.ctor (Level.substFn φ cvj.levelParams usj)) ys])) := by
       refine interp_mkAppN_congr xs _ rfl ?_
       have hsplit : xs.map (interp V ρ)

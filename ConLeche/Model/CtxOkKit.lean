@@ -304,7 +304,7 @@ theorem weakenTop {d : Nat} {Δa : List AnnotTerm} {Ba : AnnotTerm} {e : Expr}
     simpa using hi
   · intro ρ hρ
     rw [show d + 1 - 1 - l.1 = d - 1 - l.1 + 1 from by omega,
-      show ATerm.liftN 1 tya 0 = tya.lift from rfl,
+      show AnnotTerm.liftN 1 tya 0 = tya.lift from rfl,
       interp_lift (V := V) tya ρ, hlink _ (Sat_tail hρ)]
     congr 1
   · exact WellDenotedV.hoist_lift (X := Ba) hok
@@ -338,10 +338,10 @@ theorem openCongC {d : Nat} {Δa : List AnnotTerm} {body ty : Expr}
         rfl
       · intro ρ hρ
         have hρ' : Sat V Δa (fun j => ρ (j + 1)) := Sat_tail hρ
-        show interp V ρ (ATerm.liftN 1 ta₂ 0)
+        show interp V ρ (AnnotTerm.liftN 1 ta₂ 0)
           = interp V (fun j => ρ (j + (d + 1 - 1 - d) + 1)) ta₁
         rw [show d + 1 - 1 - d = 0 from by omega,
-          show ATerm.liftN 1 ta₂ 0 = ta₂.lift from rfl,
+          show AnnotTerm.liftN 1 ta₂ 0 = ta₂.lift from rfl,
           interp_lift (V := V) ta₂ ρ]
         exact (hdom _ hρ').symm
       · exact WellDenotedV.hoist_lift (X := ta₁) hok₂

@@ -118,12 +118,12 @@ def eqRecValAV (ψ : Name → Nat) : AnnotTerm :=
     (.lam m (.bvar 0)
       (.lam m (.pi 0 1 (.bvar 1)
           (.pi 0 (ψ u1N + 1)
-            (ATerm.mkAppN (eqValAV ψ) [.bvar 2, .bvar 1, .bvar 0])
+            (AnnotTerm.mkAppN (eqValAV ψ) [.bvar 2, .bvar 1, .bvar 0])
             (.sort (ψ u1N))))
         (.lam m (.app (.app (.bvar 0) (.bvar 1))
-            (ATerm.mkAppN (eqReflValAV ψ) [.bvar 2, .bvar 1]))
+            (AnnotTerm.mkAppN (eqReflValAV ψ) [.bvar 2, .bvar 1]))
           (.lam m (.bvar 3)
-            (.lam m (ATerm.mkAppN (eqValAV ψ) [.bvar 4, .bvar 3, .bvar 0])
+            (.lam m (AnnotTerm.mkAppN (eqValAV ψ) [.bvar 4, .bvar 3, .bvar 0])
               (.bvar 2))))))
 
 /-! ### Erasure: the towers project onto v1's -/

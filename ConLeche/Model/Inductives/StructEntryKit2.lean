@@ -181,7 +181,7 @@ theorem fieldsValid_getD {Fs : List AnnotTerm} {ρ : Nat → V}
 
 /-- The readings of the opened parameters at the entry's full depth. -/
 def entryParamBvars (nP : Nat) : List AnnotTerm :=
-  (List.range nP).map fun k => ATerm.bvar (nP - k)
+  (List.range nP).map fun k => AnnotTerm.bvar (nP - k)
 
 /-- The readings of the earlier projections of the subject, at the
 table's projection offset `off` (task #210 Part A: `projS (j + off)`
@@ -207,7 +207,7 @@ theorem denoteMetaSpine_entryParams {acval : Name → (Name → Nat) → AnnotTe
   have h := denoteMetaSpine_fvars (acval := acval) (env := env) (φ := φ) (nP + 1) fvsP 0
     (fun k x hx => by obtain ⟨ty, rfl⟩ := hidx k x hx; exact ⟨ty, by rw [Nat.zero_add]⟩)
   rw [hlen] at h
-  have e : ((List.range nP).map fun k => ATerm.bvar (nP + 1 - 1 - (0 + k)))
+  have e : ((List.range nP).map fun k => AnnotTerm.bvar (nP + 1 - 1 - (0 + k)))
       = entryParamBvars nP := by
     unfold entryParamBvars
     apply List.map_congr_left

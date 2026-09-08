@@ -83,7 +83,7 @@ theorem List.mapM_option_length {α β : Type} {f : α → Option β} :
 are the placeholder the install fills. -/
 theorem nativeParts?_inv {block : List ConstantInfo} {p : NativeParts}
     (h : nativeParts? block = some p) :
-    nativeShape? block = some p.toDirectSumParts ∧ p.kinds = [] := by
+    nativeShape? block = some p.toInductiveShape ∧ p.kinds = [] := by
   unfold nativeParts? at h
   cases hs : nativeShape? block with
   | none => rw [hs] at h; exact nomatch h

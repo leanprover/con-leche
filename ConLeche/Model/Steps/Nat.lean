@@ -6,9 +6,9 @@ import ConLeche.Verify.EnvGuards
 /-!
 # The literal tier, P currency (task #161)
 
-The three routed literal rows — `ReduceNatReads` (`Steps/ReadsP.lean`),
-`ReduceNatStep` (`Steps/WhnfP.lean`), `ReduceNatStepPQ`
-(`Steps/DefEqP.lean`) — all key on the same run: `reduceNatFueled`'s success.
+The three routed literal rows — `ReduceNatReads` (`Steps/Reads.lean`),
+`ReduceNatStep` (`Steps/Whnf.lean`), `ReduceNatStepPQ`
+(`Steps/DefEq.lean`) — all key on the same run: `reduceNatFueled`'s success.
 
 ## What lands here
 
@@ -25,7 +25,7 @@ and this file proves them all, unconditionally:
   no `fvar` and no loose `bvar`, so `WScoped`/`looseBVarsBounded`/
   `LeavesBounded`/`CtxOk` are free, exactly as in the collapse lane's
   `reduceNat_frameR`;
-* the reduct's **grading** (`wellDenotedV_of_natLeaf`) — `natLit_facts2`
+* the reduct's **grading** (`wellDenotedV_of_natLeaf`) — `natLit_factsAV`
   and `AnnotValid_natLitAV` on the numeral spine, `acval_wellDenoted` and
   `AcvalValid` on the constant.
 
@@ -73,7 +73,7 @@ Two independent confirmations, both checked rather than assumed:
    `interp V ρ ea = interp V ρ ea.erase` holds only where the two
    interpretations agree clause for clause, i.e. on `AnnotTerm`s with no
    `.lam`/`.pi` node (`lamR v`/`piR v` vs `lamC`/`piC`) *and* no
-   `.const` node where `bval` and `bval` differ (`natSuccV2 =
+   `.const` node where `bval` and `bval` differ (`natSuccV =
    lamR 1 omega natsucc` vs `natSuccV = lamC omega natsucc`;
    `Interp/Value.lean` records `emptyRec` as differing outright).
    The subject of this row is `.app (acval c ψ) …` with `acval c ψ`
@@ -338,7 +338,7 @@ theorem ctxOk_of_natLeaf {m : EnvModel V env} {d : Nat}
   exact nomatch hl
 
 /-- **A guarded leaf's reading is graded.**  The numeral spine by
-`natLit_facts2` (`WellDenoted`) and `AnnotValid_natLitAV`
+`natLit_factsAV` (`WellDenoted`) and `AnnotValid_natLitAV`
 (`AnnotValid`); the constant by `acval_wellDenoted` and `AcvalValid`.  The
 two premises are the P tier's own leaf residues — the same pair
 `infer_natLit_claim` takes. -/
@@ -349,7 +349,7 @@ theorem wellDenotedV_of_natLeaf (m : EnvModel V env)
     WellDenotedV V ρ ea := by
   rcases h with ⟨n, rfl, hg⟩ | ⟨bn, ci, rfl, hf, hlp⟩
   · obtain ⟨-, rfl⟩ := denoteMeta_natLit_inv hea
-    exact ⟨(natLit_facts2 (m.acval_wellDenoted _ _ ρ) (m.acval_wellDenoted _ _ ρ)
+    exact ⟨(natLit_factsAV (m.acval_wellDenoted _ _ ρ) (m.acval_wellDenoted _ _ ρ)
         (hnh hg ρ).1 (hnh hg ρ).2 n).1,
       AnnotValid_natLitAV (hval _ _ ρ) (hval _ _ ρ) n⟩
   · rw [denoteMeta_const hf (by simp [hlp])] at hea

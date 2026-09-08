@@ -162,7 +162,7 @@ theorem sqSumBodyAV_interp {ρ : Nat → V} {Fss : List (List AnnotTerm)}
 theorem sumBodyAVPos_interp {w : Nat} (hw : w ≠ 0) {ρ : Nat → V} {Fss : List (List AnnotTerm)}
     (hok : SumFieldsOkB w ρ Fss) :
     interp V ρ (sumBodyAVPos w Fss) = sumSet w (sumFibre w ρ Fss) := by
-  have hbv : bval V .psigma [w, w] = psigmaV2 V w w := rfl
+  have hbv : bval V .psigma [w, w] = psigmaV V w w := rfl
   have hB : (lamR (w + 1) omega fun k =>
         interp V (cons k ρ) (caseAVAt w (Fss.map (towerBodyAV w)) 1 (.bvar 0)))
       ∈ˢ psigmaFibreSpace V w omega :=
@@ -171,7 +171,7 @@ theorem sumBodyAVPos_interp {w : Nat} (hw : w ≠ 0) {ρ : Nat → V} {Fss : Lis
       (lamR (w + 1) omega fun k =>
         interp V (cons k ρ) (caseAVAt w (Fss.map (towerBodyAV w)) 1 (.bvar 0)))
     = sumSet w (sumFibre w ρ Fss)
-  rw [hbv, psigmaV2_app V (omega_mem_univ_pos hw) hB, show Nat.max w w = w from Nat.max_self w]
+  rw [hbv, psigmaV_app V (omega_mem_univ_pos hw) hB, show Nat.max w w = w from Nat.max_self w]
   unfold sumSet
   exact sigma_congr fun k hk => by
     rw [app_lamR_pos (Nat.succ_ne_zero w) hk, (case_fibre hok hk).1]
@@ -208,10 +208,10 @@ theorem sqSumBodyAV_wellDenoted {ρ : Nat → V} {Fss : List (List AnnotTerm)} (
   exact ⟨(case_fibre hok hk).2.2, fun _ _ => by simp⟩
 
 /-- The graph body is graded: the two `.psigma` slots from
-`psigmaV2_ww_mem`, the fibre λ from the selector's facts. -/
+`psigmaV_ww_mem`, the fibre λ from the selector's facts. -/
 theorem sumBodyAVPos_wellDenoted {w : Nat} (hw : w ≠ 0) {ρ : Nat → V} {Fss : List (List AnnotTerm)}
     (hok : SumFieldsOkB w ρ Fss) : WellDenoted V ρ (sumBodyAVPos w Fss) := by
-  have hbv : interp V ρ (.const .psigma [w, w]) = psigmaV2 V w w := rfl
+  have hbv : interp V ρ (.const .psigma [w, w]) = psigmaV V w w := rfl
   have hvac : ¬ w + 1 = 0 := Nat.succ_ne_zero w
   have hA : (omega : V) ∈ˢ univ w := omega_mem_univ_pos hw
   unfold sumBodyAVPos
@@ -220,7 +220,7 @@ theorem sumBodyAVPos_wellDenoted {w : Nat} (hw : w ≠ 0) {ρ : Nat → V} {Fss 
   · rw [WellDenoted_app]
     exact ⟨trivial, trivial, w + 1, univ w,
       fun A => piR (w + 1) (psigmaFibreSpace V w A) fun _ => (univ w : V),
-      hbv ▸ psigmaV2_ww_mem w, hA, fun h => absurd h hvac⟩
+      hbv ▸ psigmaV_ww_mem w, hA, fun h => absurd h hvac⟩
   · rw [WellDenoted_lam]
     exact ⟨trivial, fun k hk => (case_fibre hok hk).2.2,
       fun _ => (univ w : V), fun k hk => (case_fibre hok hk).2.1, fun h => absurd h hvac⟩
@@ -228,7 +228,7 @@ theorem sumBodyAVPos_wellDenoted {w : Nat} (hw : w ≠ 0) {ρ : Nat → V} {Fss 
       fun h => absurd h hvac⟩
     · show SetTheory.app (interp V ρ (.const .psigma [w, w])) omega ∈ˢ _
       rw [hbv]
-      exact app_mem_piR_pos hvac (psigmaV2_ww_mem w) hA
+      exact app_mem_piR_pos hvac (psigmaV_ww_mem w) hA
     · exact lamR_mem fun k hk => (case_fibre hok hk).2.1
 
 /-- **The carrier body is graded**, both regimes. -/

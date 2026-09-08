@@ -89,7 +89,7 @@ theorem mkAppN_wellDenotedV_of_lam :
       WellDenoted V σ (mkLamsAV lds b) →
       (interp V ρ f = (pt : V) ∨ interp V ρ f = interp V σ (mkLamsAV lds b)) →
       SpineFit σ (lds.map (·.2)) (args.map (interp V ρ)) →
-      WellDenotedV V ρ (ATerm.mkAppN f args)
+      WellDenotedV V ρ (AnnotTerm.mkAppN f args)
   | [], _, _, [], _, _, hf, _, _, _, _ => hf
   | [], _, _, _ :: _, _, _, _, _, _, _, hsp => hsp.elim
   | _ :: _, _, _, [], _, _, hf, _, _, _, _ => hf
@@ -99,7 +99,7 @@ theorem mkAppN_wellDenotedV_of_lam :
     simp only [mkLamsAV, WellDenoted_lam] at hok'
     obtain ⟨-, hrest, B, hB, hB0⟩ := hok'
     have ha := hargs a List.mem_cons_self
-    rw [ATerm.mkAppN_cons]
+    rw [AnnotTerm.mkAppN_cons]
     -- the application's package
     have hokApp : WellDenotedV V ρ (.app f a) := by
       refine ⟨?_, by rw [AnnotValid_app]; exact ⟨hf.2, ha.2⟩⟩

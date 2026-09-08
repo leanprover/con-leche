@@ -27,7 +27,7 @@ The systematic deltas are the P tier's, uniformly:
 exactly two places: `obtain rfl : v₁ = v₂ := hbs.1 hbd hv₁ hv₂` in the
 ∀-congruence case and `obtain rfl : v₁ = v₂ := hbs.2 hbd hv₁ hv₂` in
 the λ-congruence case, where `v₁`/`v₂` are the two sides'
-`sortOfE`/`lamSortE` numerals and `deqStep2_piCong`/`deqStep2_lamCong`
+`sortOfE`/`lamSortE` numerals and `deqStep_piCong`/`deqStep_lamCong`
 demand one shared numeral.
 
 In the P currency those numerals are `pwBit φ m₁.pw` and
@@ -897,9 +897,9 @@ theorem defeqStuck_claim {m : EnvModel V env} {fuel : Nat}
   -- 1: sort/sort
   · rename_i u v
     rw [denoteMeta_sort] at hda hdb
-    obtain rfl : aa' = ATerm.sort (u.eval φ) :=
+    obtain rfl : aa' = AnnotTerm.sort (u.eval φ) :=
       (Option.some.inj hda).symm
-    obtain rfl : ba' = ATerm.sort (v.eval φ) :=
+    obtain rfl : ba' = AnnotTerm.sort (v.eval φ) :=
       (Option.some.inj hdb).symm
     cases hle : Level.isEquiv u v with
     | none => rw [hle] at h; exact nomatch h
@@ -953,7 +953,7 @@ theorem defeqStuck_claim {m : EnvModel V env} {fuel : Nat}
         obtain rfl : fa = m.acval ConLeche.natSuccName
           (Level.substFn φ [] []) := (Option.some.inj hfa).symm
         obtain ⟨hwx, hbx, hLx, hCx⟩ := dq_frame_appArg hwb hbb hLb hCb
-        refine deqStep2_appCong rfl
+        refine deqStep_appCong rfl
           (ihd h (Expr.WScoped.of_not_hasFvar rfl) rfl
             (Expr.LeavesBounded.of_not_hasFvar rfl) hwx hbx hLx
             (CtxOk.of_fvarLeaves_nil hCa.length
@@ -983,7 +983,7 @@ theorem defeqStuck_claim {m : EnvModel V env} {fuel : Nat}
         obtain rfl : fa = m.acval ConLeche.natSuccName
           (Level.substFn φ [] []) := (Option.some.inj hfa).symm
         obtain ⟨hwx, hbx, hLx, hCx⟩ := dq_frame_appArg hwa hba hLa hCa
-        refine deqStep2_appCong rfl
+        refine deqStep_appCong rfl
           (ihd h hwx hbx hLx (Expr.WScoped.of_not_hasFvar rfl) rfl
             (Expr.LeavesBounded.of_not_hasFvar rfl) hCx
             (CtxOk.of_fvarLeaves_nil hCb.length
@@ -1028,9 +1028,9 @@ theorem defeqStuck_claim {m : EnvModel V env} {fuel : Nat}
     · next hij =>
       obtain rfl : i = j := eq_of_beq hij
       rw [denoteMeta_fvar] at hda hdb
-      obtain rfl : aa' = ATerm.bvar (d - 1 - i) :=
+      obtain rfl : aa' = AnnotTerm.bvar (d - 1 - i) :=
         (Option.some.inj hda).symm
-      obtain rfl : ba' = ATerm.bvar (d - 1 - i) :=
+      obtain rfl : ba' = AnnotTerm.bvar (d - 1 - i) :=
         (Option.some.inj hdb).symm
       rfl
     · exact hfall h
@@ -1104,7 +1104,7 @@ theorem defeqStuck_claim {m : EnvModel V env} {fuel : Nat}
         hCb.forallE_body
         hta₁ hva₁ hta₂ hva₂ hoT₁ hoT₂ hoB₁ hoB₂ ρ hρ
       rw [hpw]
-      exact deqStep2_piCong hDA hDB
+      exact deqStep_piCong hDA hDB
   -- 12: λ-congruence
   · rename_i ty₁ bd₁ mb₁ ty₂ bd₂ mb₂
     cases hdt : isDefEqCore μ env fuel d ty₁ ty₂ with
@@ -1159,7 +1159,7 @@ theorem defeqStuck_claim {m : EnvModel V env} {fuel : Nat}
         hCb.lam_body
         hta₁ hva₁ hta₂ hva₂ hoT₁ hoT₂ hoB₁ hoB₂ ρ hρ
       rw [hpw]
-      exact deqStep2_lamCong hDA hDB
+      exact deqStep_lamCong hDA hDB
   -- 13: the stuck spine congruence
   · rename_i f₁ a₁ f₂ a₂
     split at h
@@ -1219,7 +1219,7 @@ theorem defeqStuck_claim {m : EnvModel V env} {fuel : Nat}
           · rw [hnt'] at hfe; exact nomatch hfe
         · rcases hrd₂ with ⟨entry', hfe', -⟩ | ⟨-, -, rfl⟩
           · rw [hnt] at hfe'; exact nomatch hfe'
-          · exact deqStep2_projCong (ihd hde hwa hba
+          · exact deqStep_projCong (ihd hde hwa hba
               (fun l hl => hLa l (by simp [Expr.fvarLeaves, hl]))
               hwb hbb (fun l hl => hLb l (by simp [Expr.fvarLeaves, hl]))
               hCa.proj_arg hCb.proj_arg

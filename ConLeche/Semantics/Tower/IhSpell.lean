@@ -88,8 +88,8 @@ theorem mem_ihTeleAtGo {nF o i l : Nat} :
 /-- The recursor's `(p⃗, M, m⃗)` variables under `m` binders below the
 `nF` fields (`recPrefixBvarsM`'s shape). -/
 def prefixVarsAV (nP n nF m : Nat) : List AnnotTerm :=
-  ((List.range nP).map fun k => ATerm.bvar (nP + nF + n + 1 + m - 1 - k)) ++ [.bvar (nF + n + m)] ++
-    (List.range n).map fun l => ATerm.bvar (nF + n - 1 - l + m)
+  ((List.range nP).map fun k => AnnotTerm.bvar (nP + nF + n + 1 + m - 1 - k)) ++ [.bvar (nF + n + m)] ++
+    (List.range n).map fun l => AnnotTerm.bvar (nF + n - 1 - l + m)
 
 /-- **The ih application** for recursive field `i` under `e` extra
 binders between the fields and the minors: under the field's telescope
@@ -100,9 +100,9 @@ telescope's variables — `λ a⃗, r p⃗ M m⃗ e⃗_i(a⃗) (f_i a⃗)`. -/
 def ihAppAVb (b : Nat) (Rm : Nat → AnnotTerm) (nP n nF e i : Nat) (tl : List (Nat × Nat × AnnotTerm))
     (Eis : List AnnotTerm) : AnnotTerm :=
   mkLamsC b (ihTeleAtR nF (n + 1 + e) i 0 tl)
-    (ATerm.mkAppN (Rm tl.length) (prefixVarsAV nP n nF (tl.length + e) ++
+    (AnnotTerm.mkAppN (Rm tl.length) (prefixVarsAV nP n nF (tl.length + e) ++
       Eis.map (ihIdxAtM nF (n + 1 + e) i 0 tl.length) ++
-      [ATerm.mkAppN (.bvar (nF - 1 - i + tl.length)) (teleVarsAV tl.length)]))
+      [AnnotTerm.mkAppN (.bvar (nF - 1 - i + tl.length)) (teleVarsAV tl.length)]))
 
 /-! ## The squash regime's body -/
 
@@ -134,9 +134,9 @@ and the minors), applied to the sources — the fields read off the
 index variables. -/
 def sqFixBodyAV (ℓ nP n nIdx : Nat) (Fs Es : List AnnotTerm) (rs : List Bool)
     (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm)) : AnnotTerm :=
-  ATerm.mkAppN
+  AnnotTerm.mkAppN
     (mkLamsC ℓ (fieldTeleAt (nIdx + n + 2) Fs)
-      (ATerm.mkAppN (.bvar (Fs.length + 1 + nIdx + n - 1))
+      (AnnotTerm.mkAppN (.bvar (Fs.length + 1 + nIdx + n - 1))
         (teleVarsAV Fs.length ++ (recIdx rs Fs.length).map fun i =>
           ihAppAVb ℓ (fun m => .bvar (m + Fs.length + 1 + nIdx + n + 1 + nP)) nP n Fs.length
             (nIdx + 1) i (tls.getD i []) (Eis.getD i []))))

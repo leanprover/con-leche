@@ -5,7 +5,7 @@ import ConLeche.Verify.Subst
 # Denotation commutes with instantiation
 
 The transpose of `interp_substFvarAt` / `interp_beta`
-(`ConLeche/Model/Subst.lean`), and the bottleneck every interesting
+(`ConLeche/ModelV1/Subst.lean`), and the bottleneck every interesting
 clause of `CheckStepTT` runs through: the checker's `infer` on
 `.app f a` returns the *expression* `B.instantiate1 a`, while
 an application's type is the *term* `(⟦B⟧).inst ⟦a⟧`, and those have
@@ -217,7 +217,7 @@ every inhabitation key needs the denotation to ignore exactly what the
 pin ignores.  It does — `denote` reads a binder's name only to build the
 `fvar` it opens with, and an `fvar` denotes to its de Bruijn index.
 
-Transpose of `interp_erasedEq` (`ConLeche/Model/InterpLemmas.lean`), and
+Transpose of `interp_erasedEq` (`ConLeche/ModelV1/InterpLemmas.lean`), and
 another §8.4 reading: **the pin's tolerance and the denotation's
 blindness are the same set of syntax**, which is why a `matchesPin` hit
 is usable at all. -/

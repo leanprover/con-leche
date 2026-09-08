@@ -42,7 +42,7 @@ identify a `.lam` with a `.pi` or move a leaf.  `erase_eq` records that
 it refines erasure-equality, and it is strictly finer.
 -/
 
--- `ATerm.BitAgree` extends `ConLeche.Semantics.AnnotTerm` (dot notation on
+-- `AnnotTerm.BitAgree` extends `ConLeche.Semantics.AnnotTerm` (dot notation on
 -- readings), so this module stays in the semantic tier's namespace.
 namespace ConLeche.Semantics
 open ConLeche.SetModel ConLeche.Model
@@ -55,7 +55,7 @@ universe w
 numerals' non-zero values.**  Structurally identical trees; at each
 binder the codomain numerals agree on zero-ness and the domain numerals
 are unconstrained (nothing reads them). -/
-inductive ATerm.BitAgree : AnnotTerm → AnnotTerm → Prop where
+inductive AnnotTerm.BitAgree : AnnotTerm → AnnotTerm → Prop where
   | bvar (i : Nat) : BitAgree (.bvar i) (.bvar i)
   | sort (u : Nat) : BitAgree (.sort u) (.sort u)
   | const (c : ConLeche.Term.BConst) (us : List Nat) :
@@ -78,7 +78,7 @@ inductive ATerm.BitAgree : AnnotTerm → AnnotTerm → Prop where
   | proj {i : Nat} {e e' : AnnotTerm} :
       BitAgree e e' → BitAgree (.proj i e) (.proj i e')
 
-namespace ATerm.BitAgree
+namespace AnnotTerm.BitAgree
 
 /-- Reflexivity — every reading agrees with itself. -/
 theorem refl : ∀ e : AnnotTerm, BitAgree e e
@@ -119,12 +119,12 @@ theorem erase_eq : ∀ {e e' : AnnotTerm}, BitAgree e e' →
   | sort u => rfl
   | const c us => rfl
   | prf => rfl
-  | app _ _ ihf iha => simp [ATerm.erase, ihf, iha]
-  | lam _ _ _ ihA ihb => simp [ATerm.erase, ihA, ihb]
-  | pi _ _ _ ihA ihB => simp [ATerm.erase, ihA, ihB]
-  | letE _ _ _ ihT ihe ihb => simp [ATerm.erase, ihT, ihe, ihb]
-  | eqE _ _ _ ihT iha ihb => simp [ATerm.erase, ihT, iha, ihb]
-  | proj _ ih => simp [ATerm.erase, ih]
+  | app _ _ ihf iha => simp [AnnotTerm.erase, ihf, iha]
+  | lam _ _ _ ihA ihb => simp [AnnotTerm.erase, ihA, ihb]
+  | pi _ _ _ ihA ihB => simp [AnnotTerm.erase, ihA, ihB]
+  | letE _ _ _ ihT ihe ihb => simp [AnnotTerm.erase, ihT, ihe, ihb]
+  | eqE _ _ _ ihT iha ihb => simp [AnnotTerm.erase, ihT, iha, ihb]
+  | proj _ ih => simp [AnnotTerm.erase, ih]
 
 variable (V : Type w) [SetTheory V]
 
@@ -226,6 +226,6 @@ theorem validV : ∀ {e e' : AnnotTerm}, BitAgree e e' →
     intro ρ; rw [AnnotValid_eqE, AnnotValid_eqE, iha ρ, ihb ρ]
   | proj _ ih => intro ρ; rw [AnnotValid_proj, AnnotValid_proj, ih ρ]
 
-end ATerm.BitAgree
+end AnnotTerm.BitAgree
 
 end ConLeche.Semantics

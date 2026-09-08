@@ -481,7 +481,7 @@ theorem projSpineMem
   have hlift := denoteMeta_lift (acval := acval) (env := env) (φ := φ) hacl
     (hwsDom q hq) K (by omega)
   rw [hdw, hdomsLow q hq] at hlift
-  obtain rfl : dw = ATerm.liftN (K - q)
+  obtain rfl : dw = AnnotTerm.liftN (K - q)
       (Γs.getD (K - 1 - q) default) 0 := Option.some.inj hlift
   have hslot := hσ (K - 1 - q) (Γs.getD (K - 1 - q) default) (by
     rw [List.getD]

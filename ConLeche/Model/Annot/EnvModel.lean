@@ -30,7 +30,7 @@ next to its consumer and leaving the canonical file untouched:
 * `acval_isEmpty`/`acval_oneParam`/`acval_scalar`/`acval_one`/
   `acval_natPair` (`Steps/Levels.lean`) → the `…P` names in
   `Steps/BitLevels.lean`, the level crossing's own file;
-* `NatHeads2` (`Steps/InferQ.lean`) → `NatHeads` in `Steps/InferP.lean`.
+* `NatHeads2` (`Steps/InferQ.lean`) → `NatHeads` in `Steps/Infer.lean`.
 -/
 
 namespace ConLeche.Model
@@ -92,7 +92,7 @@ structure EnvModel (env : Env) where
 variable {V}
 
 /-- **The collapsed valuation, recovered** — the re-supply the census
-measured at 135 sites (§1.2).  `ATerm.erase` is a total syntactic
+measured at 135 sites (§1.2).  `AnnotTerm.erase` is a total syntactic
 function the carrier already owns, so no model content is
 transported. -/
 def EnvModel.cvalE {env : Env} (m : EnvModel V env) : TConstVal :=

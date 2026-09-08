@@ -9,7 +9,7 @@ The mirrors of `denoteAnnot_closed` (`Interp/DenoteClosed.lean`) and
 
 **Closedness transposes for free, again.**  `denoteAnnot_closed` is not an
 induction: it is `denoteAnnot_erase` composed with v1's `denote_closed`
-and `ATerm.liftN_eq_self` (a lift cannot be moved by a numeral slot).
+and `AnnotTerm.liftN_eq_self` (a lift cannot be moved by a numeral slot).
 `denoteMeta` has the *same* erasure law (`denoteMeta_erase`, `Annot/Bit.lean`)
 onto the *same* `denote`, so the composition transports verbatim.  No
 premise of the original fed a sort run — `hlink`/`hcl` are the leaf
@@ -41,7 +41,7 @@ theorem denoteMeta_closed {acval : Name → (Name → Nat) → AnnotTerm}
     (hb : e.looseBVarsBounded 0 = true)
     (h : denoteMeta acval env φ 0 e = some ea) (n k : Nat) :
     ea.liftN n k = ea :=
-  ATerm.liftN_eq_self ea
+  AnnotTerm.liftN_eq_self ea
     (Term.bvarsBelow.mono (Nat.zero_le k)
       (denote_closed hcl hnf hb (denoteMeta_erase hlink 0 e h))) n
 

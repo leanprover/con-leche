@@ -79,10 +79,10 @@ theorem WellDenoted_substProjAt (σ : Nat → V) (y : V) (bs : List V) :
 the function at the block, the moved index expressions and the field
 applied to the telescope's variables. -/
 def ihArgBody (nP n nIdx D i m : Nat) (Eis : List AnnotTerm) : AnnotTerm :=
-  ATerm.mkAppN (.bvar (D + 1 + nIdx + n + 1 + nP + m))
+  AnnotTerm.mkAppN (.bvar (D + 1 + nIdx + n + 1 + nP + m))
     (idxVarsAV (nP + 1 + n) (D + 1 + nIdx + m) ++
       Eis.map (fun E => substProjAt m i (E.liftN (D + nIdx + n + 2) (i + m))) ++
-      [ATerm.mkAppN (projAV i (.bvar m)) (teleVarsAV m)])
+      [AnnotTerm.mkAppN (projAV i (.bvar m)) (teleVarsAV m)])
 
 omit [SetTheory V] in
 theorem ihArgAV_eq (ℓ nP n nIdx D i : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) :
@@ -285,7 +285,7 @@ index values and the field applied to the telescope's values. -/
 theorem ihArg_args_interp (hfr : RecFrameS D ρ₀ σ) (y : V) (i : Nat) (bs : List V) (Eis : List AnnotTerm) :
     (idxVarsAV (nP + 1 + Fss.length) (D + 1 + Ids.length + bs.length) ++
         Eis.map (fun E => substProjAt bs.length i (E.liftN (D + Ids.length + Fss.length + 2) (i + bs.length))) ++
-        [ATerm.mkAppN (projAV i (.bvar bs.length)) (teleVarsAV bs.length)]).map
+        [AnnotTerm.mkAppN (projAV i (.bvar bs.length)) (teleVarsAV bs.length)]).map
       (interp V (consList bs (cons y σ)))
       = frKSpine nP Fss.length Ids.length ρ₀ ++
           Eis.map (interp V (consList bs (consList (projList i y) (frP Fss.length Ids.length ρ₀)))) ++
@@ -513,7 +513,7 @@ theorem ihArgsOk_tele (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Ei
       have hargs : ∀ a ∈ idxVarsAV (nP + 1 + Fss.length) (D + 1 + Ids.length + bs.length) ++
           ((Eiss.getD j []).getD i []).map
             (fun E => substProjAt bs.length i (E.liftN (D + Ids.length + Fss.length + 2) (i + bs.length))) ++
-          [ATerm.mkAppN (projAV i (.bvar bs.length)) (teleVarsAV bs.length)],
+          [AnnotTerm.mkAppN (projAV i (.bvar bs.length)) (teleVarsAV bs.length)],
           WellDenoted V (consList bs (cons y σ)) a := by
         intro a ha
         simp only [List.mem_append, List.mem_map, List.mem_singleton] at ha
@@ -534,7 +534,7 @@ theorem ihArgsOk_tele (h : FixKI ℓ w u nP ρ₀ Fss Ess Fss₀ Ids rss tlss Ei
           ((idxVarsAV (nP + 1 + Fss.length) (D + 1 + Ids.length + bs.length) ++
             ((Eiss.getD j []).getD i []).map
               (fun E => substProjAt bs.length i (E.liftN (D + Ids.length + Fss.length + 2) (i + bs.length))) ++
-            [ATerm.mkAppN (projAV i (.bvar bs.length)) (teleVarsAV bs.length)]).map
+            [AnnotTerm.mkAppN (projAV i (.bvar bs.length)) (teleVarsAV bs.length)]).map
               (interp V (consList bs (cons y σ)))) := by
         rw [ihArg_args_interp hfr y i bs, ihArg_head_interp hfr y bs]
         exact h.app_chain hvsp hfmem

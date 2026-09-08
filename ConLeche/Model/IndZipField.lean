@@ -69,7 +69,7 @@ theorem zipFieldTermEq
     {mix : List AnnotTerm} (hmixlen : mix.length = cnP + cnF)
     (hmixsp : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       ∃ w0, denoteMeta acval env φ (rP + cnF) x = some w0 ∧
-        mix[q]? = some (ATerm.instSeq zs (rP + cnF - 1) w0))
+        mix[q]? = some (AnnotTerm.instSeq zs (rP + cnF - 1) w0))
     {j : Nat} (hj : j < cnF) :
     Expr.WScoped (rP + j) (cdoms.getD (cnP + j) default) ∧
     (∀ l ∈ (cdoms.getD (cnP + j) default).fvarLeaves,
@@ -77,8 +77,8 @@ theorem zipFieldTermEq
     ∃ vdomLow,
       denoteMeta acval env φ (rP + j) (cdoms.getD (cnP + j) default)
         = some vdomLow ∧
-      ATerm.instSeq (zs.take (rP + j)) (rP + j - 1) vdomLow
-        = ATerm.instSeq (mix.take (cnP + j)) (cnP + j - 1)
+      AnnotTerm.instSeq (zs.take (rP + j)) (rP + j - 1) vdomLow
+        = AnnotTerm.instSeq (mix.take (cnP + j)) (cnP + j - 1)
             (Γj.getD (cnP + cnF - 1 - (cnP + j)) default) := by
   have hΓjlen : Γj.length = cnP + cnF := htowerJ.length
   -- the scattered spine's per-element facts
@@ -211,7 +211,7 @@ theorem zipFieldTermEq
   · rw [hvl] at hlow
     exact nomatch hlow
   rw [hvl] at hlow
-  have hVK : vDomK = ATerm.liftN (rP + cnF - (rP + j)) vdomLow 0 :=
+  have hVK : vDomK = AnnotTerm.liftN (rP + cnF - (rP + j)) vdomLow 0 :=
     Option.some.inj hlow
   refine ⟨by rw [hdomJ]; exact hwsDom, by rw [hdomJ]; exact hleafDom,
     vdomLow, by rw [hdomJ]; exact hvl, ?_⟩
@@ -221,7 +221,7 @@ theorem zipFieldTermEq
     rw [List.length_take, hsplen]
     omega
   have htow : PiTeleAV (sp.take (cnP + j)).length
-      (ATerm.instSeq zs (rP + cnF - 1) TVj)
+      (AnnotTerm.instSeq zs (rP + cnF - 1) TVj)
       (Γj.drop (cnP + cnF - (cnP + j))) mid' := by
     rw [hlenTake, instSeqAV_eq_self_of_closed hTVjcl]
     exact hpre
@@ -229,7 +229,7 @@ theorem zipFieldTermEq
       (sp.take (cnP + j))[q]? = some x →
       ∃ w0, denoteMeta acval env φ (rP + cnF) x = some w0 ∧
         (mix.take (cnP + j))[q]? = some
-          (ATerm.instSeq zs (rP + cnF - 1) w0) := by
+          (AnnotTerm.instSeq zs (rP + cnF - 1) w0) := by
     intro q x hx
     obtain ⟨hx', hqm⟩ := hspTake q x hx
     obtain ⟨w0, hw0, hmx⟩ := hmixsp q x hx'
@@ -269,24 +269,24 @@ theorem zipFieldTermEq
     instSeqAV_pi _ _ _ _ _ _ (by
       rw [List.length_take, hmixlen]
       omega)] at hcross
-  have hdomEq : ATerm.instSeq zs (rP + cnF - 1) vDomK
-      = ATerm.instSeq (mix.take (cnP + j)) (cnP + j - 1) Anext := by
+  have hdomEq : AnnotTerm.instSeq zs (rP + cnF - 1) vDomK
+      = AnnotTerm.instSeq (mix.take (cnP + j)) (cnP + j - 1) Anext := by
     injection hcross with _ _ h3 _
     rw [show (List.take (cnP + j) mix).length = cnP + j from by
       rw [List.length_take, hmixlen]
       omega] at h3
     exact h3
-  have habs : ATerm.instSeq zs (rP + cnF - 1)
-      (ATerm.liftN (rP + cnF - (rP + j)) vdomLow 0)
-      = ATerm.instSeq (zs.take (rP + j)) (rP + j - 1) vdomLow :=
+  have habs : AnnotTerm.instSeq zs (rP + cnF - 1)
+      (AnnotTerm.liftN (rP + cnF - (rP + j)) vdomLow 0)
+      = AnnotTerm.instSeq (zs.take (rP + j)) (rP + j - 1) vdomLow :=
     instSeqAV_absorb_left hzslen (by omega)
-  calc ATerm.instSeq (zs.take (rP + j)) (rP + j - 1) vdomLow
-      = ATerm.instSeq zs (rP + cnF - 1)
-          (ATerm.liftN (rP + cnF - (rP + j)) vdomLow 0) := habs.symm
-    _ = ATerm.instSeq zs (rP + cnF - 1) vDomK := by rw [← hVK]
-    _ = ATerm.instSeq (mix.take (cnP + j)) (cnP + j - 1) Anext :=
+  calc AnnotTerm.instSeq (zs.take (rP + j)) (rP + j - 1) vdomLow
+      = AnnotTerm.instSeq zs (rP + cnF - 1)
+          (AnnotTerm.liftN (rP + cnF - (rP + j)) vdomLow 0) := habs.symm
+    _ = AnnotTerm.instSeq zs (rP + cnF - 1) vDomK := by rw [← hVK]
+    _ = AnnotTerm.instSeq (mix.take (cnP + j)) (cnP + j - 1) Anext :=
         hdomEq
-    _ = ATerm.instSeq (mix.take (cnP + j)) (cnP + j - 1)
+    _ = AnnotTerm.instSeq (mix.take (cnP + j)) (cnP + j - 1)
           (Γj.getD (cnP + cnF - 1 - (cnP + j)) default) := by
         rw [← hAnext]
 

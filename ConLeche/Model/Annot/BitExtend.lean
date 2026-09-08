@@ -113,10 +113,10 @@ theorem denoteMeta_envExtend {env₀ env : Env}
     | some ea =>
       show (match env₀.findProj? sn i with
           | some entry => some (projAV (i + entry.off) ea)
-          | none => if i < 2 then some (ATerm.proj i ea) else none)
+          | none => if i < 2 then some (AnnotTerm.proj i ea) else none)
         = (match env.findProj? sn i with
           | some entry => some (projAV (i + entry.off) ea)
-          | none => if i < 2 then some (ATerm.proj i ea) else none)
+          | none => if i < 2 then some (AnnotTerm.proj i ea) else none)
       cases hfp0 : env₀.findProj? sn i with
       | some entry => rw [hmono sn i entry hfp0]
       | none => rw [hproj sn i hfp0]
@@ -263,8 +263,8 @@ theorem denoteMeta_envExtend_mono {env₀ env : Env}
       rfl
     · -- the table-free path: the extension adds no entry either
       rw [denoteMeta, ihe hc hea', hproj sn i hnt0]
-      show (if i < 2 then some (ATerm.proj i ea') else none)
-        = some (ATerm.proj i ea')
+      show (if i < 2 then some (AnnotTerm.proj i ea') else none)
+        = some (AnnotTerm.proj i ea')
       rw [if_pos hi]
   | case11 d n hsup =>
     intro _ ea h

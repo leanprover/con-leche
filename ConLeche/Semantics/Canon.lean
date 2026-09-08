@@ -303,7 +303,7 @@ theorem denoteAnnot_erase {mode : CheckMode}
     rw [hea] at h
     replace h : (match env.findProj? sn i with
         | some entry => some (projAV (i + entry.off) ea')
-        | none => if i < 2 then some (ATerm.proj i ea') else none)
+        | none => if i < 2 then some (AnnotTerm.proj i ea') else none)
           = some ea := h
     rw [denote_proj, ihe hea]
     dsimp only

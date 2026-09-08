@@ -48,13 +48,13 @@ theorem interp_ihDomBody {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V
     (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
     (hi : i < nF) (as : List V) (Eis : List AnnotTerm) :
     interp V (consList as (consList ihs (consList fs (consList ms (cons M ρp)))))
-        (ATerm.mkAppN (.bvar (nF + o - 1 + l + as.length))
+        (AnnotTerm.mkAppN (.bvar (nF + o - 1 + l + as.length))
           (Eis.map (ihIdxAtM nF o i l as.length) ++
-            [ATerm.mkAppN (.bvar (nF - 1 - i + l + as.length)) (teleVarsAV as.length)]))
+            [AnnotTerm.mkAppN (.bvar (nF - 1 - i + l + as.length)) (teleVarsAV as.length)]))
       = SetTheory.app
           ((Eis.map (interp V (consList as (consList (fs.take i) ρp)))).foldl SetTheory.app M)
           (as.foldl SetTheory.app (fs.getD i pt)) := by
-  rw [ATerm.mkAppN_append_one, interp_app, interp_mkAppN,
+  rw [AnnotTerm.mkAppN_append_one, interp_app, interp_mkAppN,
     interp_bvar, interp_mkAppN, interp_bvar,
     ← List.foldl_map (f := interp V (consList as (consList ihs (consList fs (consList ms (cons M ρp))))))
       (g := SetTheory.app) (l := Eis.map (ihIdxAtM nF o i l as.length)),

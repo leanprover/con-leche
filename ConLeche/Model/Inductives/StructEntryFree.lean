@@ -231,8 +231,8 @@ theorem natLitAV_liftN {za sa : AnnotTerm} {k : Nat} (hz : za.liftN 1 k = za)
     (hs : sa.liftN 1 k = sa) : ∀ n, (natLitAV za sa n).liftN 1 k = natLitAV za sa n
   | 0 => hz
   | n + 1 => by
-    show (ATerm.app sa (natLitAV za sa n)).liftN 1 k = _
-    rw [ATerm.liftN_app, hs, natLitAV_liftN hz hs n]
+    show (AnnotTerm.app sa (natLitAV za sa n)).liftN 1 k = _
+    rw [AnnotTerm.liftN_app, hs, natLitAV_liftN hz hs n]
     rfl
 
 /-- The `let` clause's inversion (`denoteMeta_forallE_inv`'s twin). -/
@@ -278,11 +278,11 @@ theorem denoteMeta_liftN_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Nam
     have hne : idx ≠ q := hl (idx, ty) (by simp [Expr.fvarLeaves])
     rcases Nat.lt_or_gt_of_ne hne with hlt | hgt
     · refine ⟨.bvar (d - 2 - idx), ?_⟩
-      rw [ATerm.liftN_bvar, if_neg (by omega)]
+      rw [AnnotTerm.liftN_bvar, if_neg (by omega)]
       congr 1
       omega
     · refine ⟨.bvar (d - 1 - idx), ?_⟩
-      rw [ATerm.liftN_bvar, if_pos (by omega)]
+      rw [AnnotTerm.liftN_bvar, if_pos (by omega)]
   | case3 d n us ci hf hlen =>
     intro _ q _ _ ea h
     rw [denoteMeta, hf] at h
@@ -315,7 +315,7 @@ theorem denoteMeta_liftN_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Nam
         · exact fun h => by simp at h; omega
         · exact hl l (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl hl')) hba
     refine ⟨.pi 0 (pwBit φ mb.pw) Xt Xb, ?_⟩
-    rw [ATerm.liftN_pi, show d + 1 - 1 - q = d - 1 - q + 1 from by omega]
+    rw [AnnotTerm.liftN_pi, show d + 1 - 1 - q = d - 1 - q + 1 from by omega]
   | case7 d ty body mb ihty ihbody =>
     intro hw q hq hl ea h
     obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_lam_inv h
@@ -331,7 +331,7 @@ theorem denoteMeta_liftN_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Nam
         · exact fun h => by simp at h; omega
         · exact hl l (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl hl')) hba
     refine ⟨.lam (pwBit φ mb.pw) Xt Xb, ?_⟩
-    rw [ATerm.liftN_lam, show d + 1 - 1 - q = d - 1 - q + 1 from by omega]
+    rw [AnnotTerm.liftN_lam, show d + 1 - 1 - q = d - 1 - q + 1 from by omega]
   | case8 d f a ihf iha =>
     intro hw q hq hl ea h
     obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteMeta_app_inv h
@@ -340,7 +340,7 @@ theorem denoteMeta_liftN_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Nam
       simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl hl')) hfa
     obtain ⟨Xa, rfl⟩ := iha hw.2 hq (fun l hl' => hl l (by
       simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inr hl')) haa
-    exact ⟨.app Xf Xa, by rw [ATerm.liftN_app]⟩
+    exact ⟨.app Xf Xa, by rw [AnnotTerm.liftN_app]⟩
   | case9 d ty val body ihty ihval ihbody =>
     intro hw q hq hl ea h
     obtain ⟨ta, va, ba, hta, hva, hba, rfl⟩ := denoteMeta_letE_inv' h
@@ -358,7 +358,7 @@ theorem denoteMeta_liftN_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Nam
         · exact fun h => by simp at h; omega
         · exact hl l (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl (Or.inl hl'))) hba
     refine ⟨.letE Xt Xv Xb, ?_⟩
-    rw [ATerm.liftN_letE, show d + 1 - 1 - q = d - 1 - q + 1 from by omega]
+    rw [AnnotTerm.liftN_letE, show d + 1 - 1 - q = d - 1 - q + 1 from by omega]
   | case10 d sn i e ihe =>
     intro hw q hq hl ea h
     obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h
@@ -366,7 +366,7 @@ theorem denoteMeta_liftN_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Nam
     obtain ⟨Xe, rfl⟩ := ihe hw hq (fun l hl' => hl l (by simpa [Expr.fvarLeaves] using hl')) hia
     rcases hcase with ⟨entry, -, rfl⟩ | ⟨-, -, rfl⟩
     · exact ⟨projAV (i + entry.off) Xe, by rw [projAV_liftN]⟩
-    · exact ⟨.proj i Xe, by rw [ATerm.liftN_proj]⟩
+    · exact ⟨.proj i Xe, by rw [AnnotTerm.liftN_proj]⟩
   | case11 d n hsup =>
     intro _ q _ _ ea h
     rw [denoteMeta, if_pos hsup] at h
@@ -383,7 +383,7 @@ theorem denoteMeta_liftN_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Nam
       rw [denoteMeta, if_pos hsup] at h ⊢; exact h
     have hcl := bvarsBelow_of_reading (m := m) (d := 0) (e := .lit (.strVal s))
       (Expr.WScoped.of_not_hasFvar rfl) rfl h0
-    exact ⟨ea, (ATerm.liftN_eq_self ea (Term.bvarsBelow.mono (Nat.zero_le _) hcl) 1).symm⟩
+    exact ⟨ea, (AnnotTerm.liftN_eq_self ea (Term.bvarsBelow.mono (Nat.zero_le _) hcl) 1).symm⟩
   | case14 d s hsup =>
     intro _ q _ _ ea h
     rw [denoteMeta, if_neg hsup] at h

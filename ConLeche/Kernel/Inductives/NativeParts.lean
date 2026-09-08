@@ -195,7 +195,7 @@ def NativeParts.complete (p₀ : NativeParts) (p₁ : InductiveShape) : NativePa
   ⟨p₁, p₀.kinds, p₀.recPinned⟩
 
 @[simp] theorem NativeParts.complete_toInductiveShape (p₀ : NativeParts)
-    (p₁ : InductiveShape) : (p₀.complete p₁).toDirectSumParts = p₁ := rfl
+    (p₁ : InductiveShape) : (p₀.complete p₁).toInductiveShape = p₁ := rfl
 @[simp] theorem NativeParts.complete_kinds (p₀ : NativeParts) (p₁ : InductiveShape) :
     (p₀.complete p₁).kinds = p₀.kinds := rfl
 @[simp] theorem NativeParts.complete_recPinned (p₀ : NativeParts) (p₁ : InductiveShape) :
@@ -565,7 +565,7 @@ def NativeParts.withKinds (p : NativeParts) (ks : List (List RecFieldKind)) :
 @[simp] theorem NativeParts.withKinds_recPinned (p : NativeParts)
     (ks : List (List RecFieldKind)) : (p.withKinds ks).recPinned = p.recPinned := rfl
 @[simp] theorem NativeParts.withKinds_toInductiveShape (p : NativeParts)
-    (ks : List (List RecFieldKind)) : (p.withKinds ks).toDirectSumParts = p.toDirectSumParts := rfl
+    (ks : List (List RecFieldKind)) : (p.withKinds ks).toInductiveShape = p.toInductiveShape := rfl
 
 /-- Recognise a direct block — ONE ROUTE (task #210): its SHAPE
 (`nativeShape?`); the fields' kinds are a PLACEHOLDER the install

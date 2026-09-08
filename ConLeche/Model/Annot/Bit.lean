@@ -32,7 +32,7 @@ The consequences are the P3 pivot in miniature:
   `==` (equality of canonical data) exactly where the run lemmas open two annotations at one
   index.
 
-**The `pi` `u`-slot.**  `ATerm.pi` carries a domain-sort numeral `u`
+**The `pi` `u`-slot.**  `AnnotTerm.pi` carries a domain-sort numeral `u`
 that `interp` and `WellDenoted` never read (`interp_pi` matches `.pi _
 v A B`; `DefEq`'s congruence rows hold at `u ≠ u'`).  Amendment 1
 deliberately dropped the domain datum from the input language, so
@@ -321,7 +321,7 @@ theorem denoteMeta_erase {acval : Name → (Name → Nat) → AnnotTerm}
     rw [hea] at h
     replace h : (match env.findProj? sn i with
         | some entry => some (projAV (i + entry.off) ea')
-        | none => if i < 2 then some (ATerm.proj i ea') else none)
+        | none => if i < 2 then some (AnnotTerm.proj i ea') else none)
           = some ea := h
     rw [denote_proj, ihe hea]
     dsimp only

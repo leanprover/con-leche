@@ -201,7 +201,7 @@ structure FixCtorDataI {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Name
   eisLen : ∀ ψ i, ks.getD i .ordinary = .recursive → i < nF → ((Eiss ψ).getD i []).length = nIdx
   recEntry : ∀ ψ i, ks.getD i .ordinary = .recursive → i < nF →
     ((ds ψ).getD (nP + i) default).2.2
-      = ATerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + i) ++ (Eiss ψ).getD i [])
+      = AnnotTerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + i) ++ (Eiss ψ).getD i [])
   eissParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvC.levelParams, ψ₁ q = ψ₂ q) → Eiss ψ₁ = Eiss ψ₂
   /-- an index expression is read under the field's telescope (empty at
   a finitary field) -/
@@ -239,7 +239,7 @@ structure FixCtorDataI {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Name
   reflEntry : ∀ ψ i, ks.getD i .ordinary = .reflexive → i < nF →
     ((ds ψ).getD (nP + i) default).2.2
       = mkPisAV ((tss ψ).getD i [])
-          (ATerm.mkAppN (m.acval T ψ)
+          (AnnotTerm.mkAppN (m.acval T ψ)
             (paramBvarsAt nP (nP + i + ((tss ψ).getD i []).length) ++ (Eiss ψ).getD i []))
 
 end ConLeche.Model
@@ -265,7 +265,7 @@ theorem denoteMetaSpine_params {acval : Name → (Name → Nat) → AnnotTerm} {
       obtain ⟨ty, h⟩ := hidx k x hx
       exact ⟨ty, by rw [h, Nat.zero_add]⟩)
   rw [hlen] at this
-  have he : ((List.range nP).map fun k => ATerm.bvar (D - 1 - (0 + k))) = paramBvarsAt nP D := by
+  have he : ((List.range nP).map fun k => AnnotTerm.bvar (D - 1 - (0 + k))) = paramBvarsAt nP D := by
     unfold paramBvarsAt
     apply List.map_congr_left
     intro k _
@@ -279,7 +279,7 @@ theorem bvarsBelow_mkPisAV_inv {k : Nat} :
       DomsBelow k ds ∧ Term.bvarsBelow (k + ds.length) b.erase
   | [], _, h => ⟨trivial, by simpa [mkPisAV] using h⟩
   | d :: ds, b, h => by
-    simp only [mkPisAV, ATerm.erase_pi] at h
+    simp only [mkPisAV, AnnotTerm.erase_pi] at h
     obtain ⟨hd, hb⟩ := h
     obtain ⟨h1, h2⟩ := bvarsBelow_mkPisAV_inv (k := k + 1) (ds := ds) hb
     exact ⟨⟨hd, h1⟩, by simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using h2⟩
@@ -351,7 +351,7 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
       ∀ R, denoteMeta mp.base2.acval env ψ d body = some R →
       ∃ Eis : List AnnotTerm, Eis.length = nIdx ∧
         DenoteMetaSpine mp.base2.acval env ψ d (body.getAppArgs.drop nP) Eis ∧
-        R = ATerm.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP d ++ Eis) := by
+        R = AnnotTerm.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP d ++ Eis) := by
     intro ψ d body hfn htake hlenA R hread
     have hshape : body
         = Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ body.getAppArgs.drop nP) := by
@@ -376,7 +376,7 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
         (∀ x, xFvs[i]? = some x →
           DenoteMetaSpine mp.base2.acval env ψ (nP + i) (x.fvarTypeD.getAppArgs.drop nP) Eis) ∧
         ((ds ψ).getD (nP + i) default).2.2
-          = ATerm.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP (nP + i) ++ Eis) := by
+          = AnnotTerm.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP (nP + i) ++ Eis) := by
     intro ψ i hk hi
     have hil : i < xFvs.length := by omega
     obtain ⟨x, hx⟩ : ∃ x, xFvs[i]? = some x := ⟨_, List.getElem?_eq_getElem hil⟩
@@ -396,7 +396,7 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
             denoteMeta mp.base2.acval env ψ (nP + i + k) a.fvarTypeD = some (tl.getD k default).2.2) ∧
           DenoteMetaSpine mp.base2.acval env ψ (nP + i + tl.length) (body.getAppArgs.drop nP) Eis) ∧
         ((ds ψ).getD (nP + i) default).2.2
-          = mkPisAV tl (ATerm.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP (nP + i + tl.length) ++ Eis)) ∧
+          = mkPisAV tl (AnnotTerm.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP (nP + i + tl.length) ++ Eis)) ∧
         (∀ d ∈ tl, (d.2.1 = 0 ↔ resSort.eval ψ = 0)) ∧
         (∀ d ∈ tl, d.1 = 0 ∧ d.2.1 ≤ 1) := by
     intro ψ i hk hi
@@ -456,7 +456,7 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
       (∀ x, xFvs[i]? = some x →
         DenoteMetaSpine mp.base2.acval env ψ (nP + i) (x.fvarTypeD.getAppArgs.drop nP) (Eis ψ i)) ∧
       ((ds ψ).getD (nP + i) default).2.2
-        = ATerm.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP (nP + i) ++ Eis ψ i) := by
+        = AnnotTerm.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP (nP + i) ++ Eis ψ i) := by
     intro ψ i h
     simp only [Eis, dif_pos h]
     exact Classical.choose_spec (hex ψ i h.1 h.2)
@@ -469,7 +469,7 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
           denoteMeta mp.base2.acval env ψ (nP + i + k) a.fvarTypeD = some ((Tl ψ i).getD k default).2.2) ∧
         DenoteMetaSpine mp.base2.acval env ψ (nP + i + (Tl ψ i).length) (body.getAppArgs.drop nP) (Eis ψ i)) ∧
       ((ds ψ).getD (nP + i) default).2.2
-        = mkPisAV (Tl ψ i) (ATerm.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP (nP + i + (Tl ψ i).length) ++ Eis ψ i)) ∧
+        = mkPisAV (Tl ψ i) (AnnotTerm.mkAppN (mp.base2.acval T ψ) (paramBvarsAt nP (nP + i + (Tl ψ i).length) ++ Eis ψ i)) ∧
       (∀ d ∈ Tl ψ i, (d.2.1 = 0 ↔ resSort.eval ψ = 0)) ∧
       (∀ d ∈ Tl ψ i, d.1 = 0 ∧ d.2.1 ≤ 1) := by
     intro ψ i h
@@ -519,7 +519,7 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
     have hb := hentryBelow ψ i h.2
     rw [(hEisR ψ i h).2.2.2.1] at hb
     obtain ⟨h1, h2⟩ := bvarsBelow_mkPisAV_inv hb
-    rw [ATerm.erase_mkAppN] at h2
+    rw [AnnotTerm.erase_mkAppN] at h2
     obtain ⟨-, hall⟩ := bvarsBelow_mkAppN_inv h2
     exact ⟨h1, fun E hE => hall E.erase (List.mem_map.mpr ⟨E, List.mem_append_right _ hE, rfl⟩)⟩
   refine ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, Eiss, Tss, ⟨hCD, hO, ⟨crest, hopP, hopX⟩, hks,
@@ -575,7 +575,7 @@ theorem fixCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
       by_cases hk : ks.getD i .ordinary = .recursive
       · have hentry := (hEis ψ i ⟨hk, hi⟩).2.2
         have hb := hentryBelow ψ i hi
-        rw [hentry, ATerm.erase_mkAppN] at hb
+        rw [hentry, AnnotTerm.erase_mkAppN] at hb
         obtain ⟨-, hall⟩ := bvarsBelow_mkAppN_inv hb
         rw [hTlNone ψ i (hnotboth i hk), List.length_nil, Nat.add_zero]
         exact hall E.erase (List.mem_map.mpr ⟨E, List.mem_append_right _ hE, rfl⟩)

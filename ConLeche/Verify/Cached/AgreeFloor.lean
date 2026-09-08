@@ -453,8 +453,8 @@ the projection table on top at a structure-like block (one
 constructor, no index). -/
 def nativeSkels (p : NativeParts) (sk : List InstallSkel) : List InstallSkel :=
   if p.ctors.length == 1 && p.nIdx == 0 then
-    .proj (projTableName p.cvT.name) :: sumSkels p.toDirectSumParts sk
-  else sumSkels p.toDirectSumParts sk
+    .proj (projTableName p.cvT.name) :: sumSkels p.toInductiveShape sk
+  else sumSkels p.toInductiveShape sk
 
 /-- The dispatch below the direct-sum gate: the direct recursive gate
 (task #188; the sum's skeleton with the table at a structure-like
@@ -1019,7 +1019,7 @@ theorem checkNativeS_skels (mode : CheckMode) {fe : FEnv}
   ybind
   -- the provisional pass (task #210 Part D): a throwaway former, the
   -- constructors at it, the kinds — nothing of it is kept
-  refine Yields.bind' (checkSumIndF_skels h _ p.toDirectSumParts (fun _ => {}))
+  refine Yields.bind' (checkSumIndF_skels h _ p.toInductiveShape (fun _ => {}))
     fun rP hP => ?_
   obtain ⟨feP, cvTaP, p₁P⟩ := rP
   obtain ⟨hP, sP, hpsP⟩ := hP
@@ -1033,14 +1033,14 @@ theorem checkNativeS_skels (mode : CheckMode) {fe : FEnv}
   try simp only []
   refine Yields.bind fun kinds => ?_
   ybind
-  refine Yields.bind' (checkSumIndF_skels h _ p.toDirectSumParts
+  refine Yields.bind' (checkSumIndF_skels h _ p.toInductiveShape
     (fun p₁ => nativeCaps ((p.complete p₁).withKinds kinds))) fun r₁ h₁ => ?_
   obtain ⟨fe₁, cvTa, p₁⟩ := r₁
   obtain ⟨h₁, s, hps⟩ := h₁
   try simp only [] at hps
   subst hps
   try simp only []
-  generalize hp' : (p.complete (p.toDirectSumParts.withSort s)).withKinds kinds = p'
+  generalize hp' : (p.complete (p.toInductiveShape.withSort s)).withKinds kinds = p'
   have hp'T : p'.cvT = p.cvT := by rw [← hp']; simp [NativeParts.withKinds]
   -- the elimination restriction, on the completed record
   try apply Yields.letFun
@@ -1095,7 +1095,7 @@ theorem checkNativeS_skels (mode : CheckMode) {fe : FEnv}
     (sumRules p'.nP p'.majorIdx p'.rulePrefix cvRa.type ctorsA rhss))
   have hpush' : SkelIs (consSumCtorsF p'.nP ctorsA fe₁ |>.push (.recInfo cvRa p'.majorIdx
       p'.rulePrefix (sumRules p'.nP p'.majorIdx p'.rulePrefix cvRa.type ctorsA rhss)))
-      (sumSkels p'.toDirectSumParts sk) := by
+      (sumSkels p'.toInductiveShape sk) := by
     simpa [ciSkel, sumSkels, hnR, sumRules_map_ctor _ _ _ _ hlen',
       hctors] using hpush
   -- the projection table at a structure-like block (task #210 Part A)
@@ -1275,8 +1275,8 @@ two modes — in particular the trusted (`.trusted`) and the verified
 (`.verified`) mode the binary ships — both accept the same stream, the
 two installed environments carry the same install skeletons.  Stated
 for any two modes: the old two-driver statement is the instance
-`.trusted` / `.verified` (`trusted_agrees_P_skels_shipped`). -/
-theorem trusted_agrees_P_skels_D {μP μT : CheckMode} {ds : List DeclC}
+`.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
+theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : List DeclC}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
@@ -1284,29 +1284,29 @@ theorem trusted_agrees_P_skels_D {μP μT : CheckMode} {ds : List DeclC}
   (checkDecls_skels hN).trans (checkDecls_skels hP).symm
 
 /-- The census's sentence: the accepted declaration **names** agree. -/
-theorem trusted_agrees_P_names_D {μP μT : CheckMode} {ds : List DeclC}
+theorem trusted_agrees_names_D {μP μT : CheckMode} {ds : List DeclC}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
     envN.consts.map ConstantInfo.name = envP.consts.map ConstantInfo.name := by
-  have h := congrArg (List.map skelName) (trusted_agrees_P_skels_D hP hN)
+  have h := congrArg (List.map skelName) (trusted_agrees_skels_D hP hN)
   simpa [envSkels, List.map_map, Function.comp_def] using h
 
 /-- … and so do the accepted declaration **counts**. -/
-theorem trusted_agrees_P_count_D {μP μT : CheckMode} {ds : List DeclC}
+theorem trusted_agrees_count_D {μP μT : CheckMode} {ds : List DeclC}
     {envP envN : Env}
     (hP : checkDecls μP ds = .ok envP)
     (hN : checkDecls μT ds = .ok envN) :
     envN.consts.length = envP.consts.length := by
-  have h := congrArg List.length (trusted_agrees_P_skels_D hP hN)
+  have h := congrArg List.length (trusted_agrees_skels_D hP hN)
   simpa [envSkels] using h
 
 /-- The shipped pair, spelled out: `--trusted` and `--verified` agree on
 the install skeletons whenever both accept. -/
-theorem trusted_agrees_P_skels_shipped {ds : List DeclC} {envP envT : Env}
+theorem trusted_agrees_skels_shipped {ds : List DeclC} {envP envT : Env}
     (hP : checkDecls .verified ds = .ok envP)
     (hT : checkDecls .trusted ds = .ok envT) :
     envSkels envT = envSkels envP :=
-  trusted_agrees_P_skels_D hP hT
+  trusted_agrees_skels_D hP hT
 
 end ConLeche.Cached

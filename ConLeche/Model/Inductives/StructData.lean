@@ -37,7 +37,7 @@ theorem mkPisAV_inj :
   | [], _ :: _, _, _, hlen, _ => by simp at hlen
   | _ :: _, [], _, _, hlen, _ => by simp at hlen
   | d₁ :: pps₁, d₂ :: pps₂, b₁, b₂, hlen, h => by
-    simp only [mkPisAV, ATerm.pi.injEq] at h
+    simp only [mkPisAV, AnnotTerm.pi.injEq] at h
     obtain ⟨hu, hv, hA, hB⟩ := h
     obtain ⟨rfl, rfl⟩ := mkPisAV_inj (by simpa using hlen) hB
     refine ⟨?_, rfl⟩
@@ -157,7 +157,7 @@ theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
       (by rw [(Classical.choose_spec (hper ψ₁)).2.1,
         (Classical.choose_spec (hper ψ₂)).2.1])
       (Option.some.inj (h1.symm.trans h2))
-    exact ⟨hp, ATerm.sort.inj hb⟩
+    exact ⟨hp, AnnotTerm.sort.inj hb⟩
 
 /-- The former's data crosses a cons whose slot does not mention the
 stored type (any block cons after the former's). -/

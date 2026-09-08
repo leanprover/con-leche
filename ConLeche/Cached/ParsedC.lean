@@ -15,7 +15,7 @@ straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 nothing else).  Acceptance at `.verified` is covered by
 `no_proof_of_Empty_cached` (`ConLeche/Verify/Cached/MainC.lean`); the two
 modes agree on the install skeletons whenever both accept
-(`trusted_agrees_P_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
+(`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
 
 The driver's parameter is the `CheckMode` itself (task #185; from
 2026-09-06 to then a configuration record stood in for it): the knot it

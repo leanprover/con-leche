@@ -18,7 +18,7 @@ their interpretation equations:
   bookkeeping; and the fibre λ's annotation is the *codomain type's*
   sort `w + 1 ≠ 0`, so the fibre computes by `app_lamR_pos` in **both**
   regimes and `sigma_congr` rewrites it to the tier's fibre.  The
-  premises of `psigmaV2_app` are exactly `FieldsBound w` — O5 plus
+  premises of `psigmaV_app` are exactly `FieldsBound w` — O5 plus
   cumulativity, nothing else.
 
 * `projAV i` — the tier's structure-independent `projS i = sfst ∘
@@ -28,7 +28,7 @@ their interpretation equations:
 
 `towerBodyAV_wellDenoted` grades the body (`WellDenoted`) from the hereditary
 `FieldsOkB` premise (the domains' own `WellDenoted` + `FieldsBound`);
-the app slots are discharged by `psigmaV2_ww_mem`, the `[w, w]`
+the app slots are discharged by `psigmaV_ww_mem`, the `[w, w]`
 instance of the pinned pair former's product membership.  Bit validity
 (`AnnotValid`) is a lane predicate and lands with the Model battery
 (stage 4).
@@ -161,11 +161,11 @@ theorem sqBodyAV_wellDenoted :
 /-- The `[w, w]` instance of the pair former's product membership: the
 `.psigma [w, w]` value inhabits the two-step product landing in
 `univ w`.  (`sigma_mem_univ` at the joint level `max w w = w`.) -/
-theorem psigmaV2_ww_mem (w : Nat) :
-    psigmaV2 V w w ∈ˢ piR (w + 1) (univ w : V)
+theorem psigmaV_ww_mem (w : Nat) :
+    psigmaV V w w ∈ˢ piR (w + 1) (univ w : V)
       (fun A => piR (w + 1) (psigmaFibreSpace V w A)
         fun _ => (univ w : V)) := by
-  rw [psigmaV2, show Nat.max w w = w from Nat.max_self w]
+  rw [psigmaV, show Nat.max w w = w from Nat.max_self w]
   exact lamR_mem fun A hA => lamR_mem fun B hB => by
     have h := sigma_mem_univ (u := w) (v := w) hA
       (fun x hx => psigmaFibre_apply V hB hx)
@@ -192,13 +192,13 @@ theorem towerBodyAVPos_interp {w : Nat} :
       lamR_mem fun x hx => by
         rw [hG x hx]
         exact towerSet_univ_teleOfFields (hb.2 x hx)
-    have hbv : bval V .psigma [w, w] = psigmaV2 V w w := rfl
+    have hbv : bval V .psigma [w, w] = psigmaV V w w := rfl
     show SetTheory.app (SetTheory.app (bval V .psigma [w, w])
         (interp V ρ F))
         (lamR (w + 1) (interp V ρ F)
           fun x => interp V (cons x ρ) (towerBodyAVPos w Fs))
       = towerSet w (teleOfFields ρ (F :: Fs))
-    rw [hbv, psigmaV2_app V hA hB,
+    rw [hbv, psigmaV_app V hA hB,
       show Nat.max w w = w from Nat.max_self w, teleOfFields_cons]
     show sigmaSet w _ _ = sigmaSet w _ _
     exact sigma_congr fun x hx => by
@@ -257,7 +257,7 @@ theorem projAV_inst :
   | i + 1, e, a, k => projAV_inst i (.proj 1 e) a k
 
 /-- **The carrier body is graded** (`WellDenoted`): every app slot is
-supplied by `psigmaV2_ww_mem` and the fibre package by the tier's
+supplied by `psigmaV_ww_mem` and the fibre package by the tier's
 formation laws; the hereditary premise carries the domains' own
 grading. -/
 theorem towerBodyAVPos_wellDenoted {w : Nat} (hw : w ≠ 0) :
@@ -271,7 +271,7 @@ theorem towerBodyAVPos_wellDenoted {w : Nat} (hw : w ≠ 0) :
         interp V (cons x ρ) (towerBodyAVPos w Fs)
           = towerSet w (teleOfFields (cons x ρ) Fs) :=
       fun x hx => towerBodyAVPos_interp (hb.2 x hx)
-    have hbv : interp V ρ (.const .psigma [w, w]) = psigmaV2 V w w := rfl
+    have hbv : interp V ρ (.const .psigma [w, w]) = psigmaV V w w := rfl
     have hvac : ¬ w + 1 = 0 := Nat.succ_ne_zero w
     show WellDenoted V ρ (.app (.app (.const .psigma [w, w]) F)
       (.lam (w + 1) F (towerBodyAVPos w Fs)))
@@ -283,7 +283,7 @@ theorem towerBodyAVPos_wellDenoted {w : Nat} (hw : w ≠ 0) :
         ⟨w + 1, univ w,
           fun A => piR (w + 1) (psigmaFibreSpace V w A)
             fun _ => (univ w : V),
-          hbv ▸ psigmaV2_ww_mem w, hA, fun h => absurd h hvac⟩⟩
+          hbv ▸ psigmaV_ww_mem w, hA, fun h => absurd h hvac⟩⟩
     · -- the fibre λ
       rw [WellDenoted_lam]
       refine ⟨hok.1, fun x hx => towerBodyAVPos_wellDenoted hw (hok.2.2 x hx),
@@ -296,7 +296,7 @@ theorem towerBodyAVPos_wellDenoted {w : Nat} (hw : w ≠ 0) :
       · show SetTheory.app (interp V ρ (.const .psigma [w, w]))
             (interp V ρ F) ∈ˢ _
         rw [hbv]
-        exact app_mem_piR_pos hvac (psigmaV2_ww_mem w) hA
+        exact app_mem_piR_pos hvac (psigmaV_ww_mem w) hA
       · exact lamR_mem fun x hx => by
           rw [hG x hx]
           exact towerSet_univ_teleOfFields (hb.2 x hx)

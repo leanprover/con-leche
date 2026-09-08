@@ -46,17 +46,17 @@ a type**, so a codomain `.sort k` gets `k + 1`, never `k`.  That is why
 |---|---|---|
 | the five atomic types | — | no binder |
 | `natSucc` | `1` | `lamR 1 omega natsucc` |
-| `natRec` | `u` | `natRecV2` |
-| `punitRec` | `v` | `punitRecV2` |
-| `psigma` | `max u v + 1` | `psigmaV2` (a type former) |
-| `psigmaMk` | `max u v` | `psigmaMkV2` |
-| `emptyRec` | `v` | `emptyRecV2` |
-| `quot` | `u + 1` | `quotV2` (a type former) |
-| `quotMk` | `u` | `quotMkV2` |
-| `quotLift` | `v` | `quotLiftV2` |
+| `natRec` | `u` | `natRecV` |
+| `punitRec` | `v` | `punitRecV` |
+| `psigma` | `max u v + 1` | `psigmaV` (a type former) |
+| `psigmaMk` | `max u v` | `psigmaMkV` |
+| `emptyRec` | `v` | `emptyRecV` |
+| `quot` | `u + 1` | `quotV` (a type former) |
+| `quotMk` | `u` | `quotMkV` |
+| `quotLift` | `v` | `quotLiftV` |
 | `quotInd`/`quotSound`/`propext` | `0` | `pt`: the types are `Prop` |
-| `choice` | `u` | `choiceV2` |
-| `lfpFam` | `max (u + 1) (w + 1)` | `lfpFamV2` (a type former) |
+| `choice` | `u` | `choiceV` |
+| `lfpFam` | `max (u + 1) (w + 1)` | `lfpFamV` (a type former) |
 
 The faithfulness check is `typeAV_erase` below: erasure returns
 `BConst.type` on the nose, so the former adds annotations and nothing
@@ -89,13 +89,13 @@ def punitUnitAV (u : Nat) : AnnotTerm := .const .punitUnit [u]
 def emptyAV (u : Nat) : AnnotTerm := .const .empty [u]
 /-- `@PSigma'.{u,v} A B` -/
 def psigmaAV (u v : Nat) (A B : AnnotTerm) : AnnotTerm :=
-  ATerm.mkAppN (.const .psigma [u, v]) [A, B]
+  AnnotTerm.mkAppN (.const .psigma [u, v]) [A, B]
 /-- `@Quot.{u} A r` -/
 def quotAV (u : Nat) (A r : AnnotTerm) : AnnotTerm :=
-  ATerm.mkAppN (.const .quot [u]) [A, r]
+  AnnotTerm.mkAppN (.const .quot [u]) [A, r]
 /-- `@Quot.mk.{u} A r a` -/
 def quotMkAV (u : Nat) (A r a : AnnotTerm) : AnnotTerm :=
-  ATerm.mkAppN (.const .quotMk [u]) [A, r, a]
+  AnnotTerm.mkAppN (.const .quotMk [u]) [A, r, a]
 
 /-- `A → B`, at the domain's sort `u` and the codomain's sort `v`. -/
 def arrowA (u v : Nat) (A B : AnnotTerm) : AnnotTerm := .pi u v A B.lift
@@ -179,7 +179,7 @@ def BConst.typeAV : BConst → List Nat → AnnotTerm
     .pi (v + 1) v (.sort v) <|
     .pi (ConLeche.Term.imax u v) v (.pi u v (.bvar 2) (.bvar 1)) <|
     .pi 0 v (.pi u 0 (.bvar 3) (.pi u 0 (.bvar 4)
-          (.pi 0 0 (ATerm.mkAppN (.bvar 4) [.bvar 1, .bvar 0])
+          (.pi 0 0 (AnnotTerm.mkAppN (.bvar 4) [.bvar 1, .bvar 0])
             (.eqE (.bvar 4) (.app (.bvar 3) (.bvar 2))
               (.app (.bvar 3) (.bvar 1)))))) <|
     .pi u v (quotAV u (.bvar 4) (.bvar 3)) <|
@@ -200,7 +200,7 @@ def BConst.typeAV : BConst → List Nat → AnnotTerm
     .pi (Nat.max u 1) 0 (relAV u (.bvar 0)) <|
     .pi u 0 (.bvar 1) <|
     .pi u 0 (.bvar 2) <|
-    .pi 0 0 (ATerm.mkAppN (.bvar 2) [.bvar 1, .bvar 0]) <|
+    .pi 0 0 (AnnotTerm.mkAppN (.bvar 2) [.bvar 1, .bvar 0]) <|
     .eqE (quotAV u (.bvar 4) (.bvar 3))
       (quotMkAV u (.bvar 4) (.bvar 3) (.bvar 2))
       (quotMkAV u (.bvar 4) (.bvar 3) (.bvar 1))
@@ -243,6 +243,6 @@ theorem typeAV_erase (c : BConst) (us : List Nat) :
       ConLeche.Term.natSuccT, ConLeche.Term.punitT, ConLeche.Term.punitUnitT,
       ConLeche.Term.emptyT, ConLeche.Term.psigmaT, ConLeche.Term.quotT,
       ConLeche.Term.quotMkT, ConLeche.Term.arrow, ConLeche.Term.relT,
-      ConLeche.Term.negT, ATerm.mkAppN, ConLeche.Term.Term.mkAppN]
+      ConLeche.Term.negT, AnnotTerm.mkAppN, ConLeche.Term.Term.mkAppN]
 
 end ConLeche.Semantics

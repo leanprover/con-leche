@@ -4,10 +4,10 @@ import ConLeche.Semantics.Interp
 # `SetBase/Sat` — the annotated context's satisfaction, and its
 transitivity kit
 
-`Sat` (with its two introduction lemmas) and `interp2C_trans`, re-based
+`Sat` (with its two introduction lemmas) and `interpC_trans`, re-based
 at THE SEPARATION's S2 (task #161).
 
-`interp2C_trans` is the **two-edit sever**'s second edit: the graded
+`interpC_trans` is the **two-edit sever**'s second edit: the graded
 lane's `Steps/WhnfP` imported the whole 2U module `Steps/Whnf` for this
 one eight-line composition.  The lemma is model-free — it is `Eq.trans`
 under a valuation quantifier — but its *statement* names `Sat`, which
@@ -66,7 +66,7 @@ theorem Sat_tail {Δa : List AnnotTerm} {Ba : AnnotTerm} {ρ : Nat → V}
 /-- Equalities compose per valuation; the invariant does not travel
 with them, because in the hoisted currency it is carried separately
 and uniformly. -/
-theorem interp2C_trans {Δa : List AnnotTerm} {a b c : AnnotTerm}
+theorem interpC_trans {Δa : List AnnotTerm} {a b c : AnnotTerm}
     (h1 : ∀ ρ : Nat → V, Sat V Δa ρ →
       interp V ρ a = interp V ρ b)
     (h2 : ∀ ρ : Nat → V, Sat V Δa ρ →

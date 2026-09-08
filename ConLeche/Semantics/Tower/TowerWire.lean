@@ -5,8 +5,8 @@ import ConLeche.Semantics.DenoteClosed
 # The direct-structure leaves' syntactic battery (task #175 wiring, W4)
 
 The wiring checklist's item 1: the `hAclosed` row of an install-step
-leaf is `ATerm.liftN 1 (leaf) k = leaf`, and by
-`ATerm.liftN_eq_self` (`SetBase/DenoteClosed.lean`) that is exactly
+leaf is `AnnotTerm.liftN 1 (leaf) k = leaf`, and by
+`AnnotTerm.liftN_eq_self` (`SetBase/DenoteClosed.lean`) that is exactly
 boundedness of the leaf's **erasure** — annotations are inert, only
 bvars move.  So this module is a bvar-bound walk per leaf
 constructor, plus the peel lemma that produces the binder-data bounds
@@ -190,7 +190,7 @@ theorem projAV_below :
 major (`.bvar 0`). -/
 theorem recBodyAV_below {nF k : Nat} (h2 : 2 ≤ k) :
     Term.bvarsBelow k (recBodyAV nF).erase := by
-  rw [recBodyAV, ATerm.erase_mkAppN]
+  rw [recBodyAV, AnnotTerm.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN (show 1 < k by omega) ?_
   intro a ha
   obtain ⟨ea, hea, rfl⟩ := List.mem_map.mp ha
@@ -205,12 +205,12 @@ theorem mkTowerGoPos_below {w : Nat} :
   | F :: Fs, k, h => by
     have hF : Term.bvarsBelow (k + (Fs.length + 1))
         (F.liftN (Fs.length + 1)).erase := by
-      rw [ATerm.erase_liftN]
+      rw [AnnotTerm.erase_liftN]
       have := VExprAux.bvarsBelow_liftN (Fs.length + 1) F.erase k 0 h.1
       exact this
     have hbody : Term.bvarsBelow (k + (Fs.length + 1) + 1)
         ((towerBodyAV w Fs).liftN (Fs.length + 1) 1).erase := by
-      rw [ATerm.erase_liftN]
+      rw [AnnotTerm.erase_liftN]
       have := VExprAux.bvarsBelow_liftN (Fs.length + 1)
         (towerBodyAV w Fs).erase (k + 1) 1 (towerBodyAV_below h.2)
       rw [show k + 1 + (Fs.length + 1) = k + (Fs.length + 1) + 1
@@ -289,15 +289,15 @@ theorem structRecAV_below {ℓ : Nat} {ds : List (Nat × Nat × AnnotTerm)}
 
 /-! ## The `hAclosed` packages
 
-The install rows want `ATerm.liftN 1 (leaf) k = leaf` for every cut
+The install rows want `AnnotTerm.liftN 1 (leaf) k = leaf` for every cut
 `k`; a leaf bounded at `0` is bounded at every cut
 (`Term.bvarsBelow.mono`), and a lift below the bound is the identity
-(`ATerm.liftN_eq_self`). -/
+(`AnnotTerm.liftN_eq_self`). -/
 
 /-- A closed leaf is `liftN`-invariant at every cut. -/
 theorem liftN_eq_self_of_closed {e : AnnotTerm}
     (h : Term.bvarsBelow 0 e.erase) (k n : Nat) :
-    ATerm.liftN n e k = e :=
-  ATerm.liftN_eq_self e (Term.bvarsBelow.mono (Nat.zero_le k) h) n
+    AnnotTerm.liftN n e k = e :=
+  AnnotTerm.liftN_eq_self e (Term.bvarsBelow.mono (Nat.zero_le k) h) n
 
 end ConLeche.Semantics

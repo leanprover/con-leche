@@ -37,7 +37,7 @@ to carry `SemTierInputsP`, the ∀-environment form of `TierInputsAt`'s
 non-env-tier fields.  The four semantic tiers emptied it — literal,
 caps, the proj/str install rows, iota — and its last field,
 `accepted_reads`, is now `acceptedReads_of`
-(`Steps/AcceptedP.lean`): a syntactic totality walk over `inferBody`'s
+(`Steps/Accepted.lean`): a syntactic totality walk over `inferBody`'s
 clauses, where every `denoteMeta` failure mode is one of the front door's
 own acceptance guards.  So the structure is deleted, and the harvest
 layer proves: accepted stream ⇒ `Nonempty (EnvModelM …)` at the final
@@ -156,11 +156,11 @@ theorem no_constant_of_False (mp : EnvModelM V μ env)
 **`SemTierInputsP` is gone.**  The structure named `TierInputsAt`'s
 non-env-tier fields in ∀-environment form, and the four semantic tiers
 emptied it one by one — literal (`Interp/NatStepP.lean`), caps
-(`Steps/CapsRowsP.lean`, `Interp/CapsP.lean`), the proj/str install
-rows (`Steps/StrLitP.lean`, `Steps/ReadsP.lean`,
-`Steps/ProjRowsP.lean`) and iota (`Steps/IotaRowsP.lean`).  Its last
+(`Steps/CapsRows.lean`, `Interp/CapsP.lean`), the proj/str install
+rows (`Steps/StrLit.lean`, `Steps/Reads.lean`,
+`Steps/ProjRows.lean`) and iota (`Steps/IotaRows.lean`).  Its last
 field, `accepted_reads`, is `acceptedReads_of`
-(`Steps/AcceptedP.lean`), so the bundle has nothing left to carry and
+(`Steps/Accepted.lean`), so the bundle has nothing left to carry and
 is **deleted** rather than left as an empty structure: an empty
 hypothesis is still a hypothesis in every downstream signature, and
 the milestone capstone's census is read off those signatures. -/

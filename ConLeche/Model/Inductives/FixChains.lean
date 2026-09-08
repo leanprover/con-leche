@@ -115,7 +115,7 @@ theorem shadowCtx_drop_fields {nP nF : Nat} {ks : List RecFieldKind}
           List.getElem?_take_of_lt (by omega), List.getElem?_eq_getElem hidx,
           List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hidx]
         rfl
-      have hL : (if recAt nP ks (nP + nF - 1 - (nP + nF - (nP + i) + q)) then ATerm.sort 0
+      have hL : (if recAt nP ks (nP + nF - 1 - (nP + nF - (nP + i) + q)) then AnnotTerm.sort 0
             else ((ds.map (·.2.2)).reverse).getD (nP + nF - (nP + i) + q) default)
           = (ds.getD (nP - 1 - (q - i)) default).2.2 := by
         rw [if_neg, List.getD_eq_getElem?_getD, List.getElem?_reverse (by simp [hlen]; omega)]
@@ -398,7 +398,7 @@ theorem fixChainWalk (hI : IdxOk u ρp Ids) {X : V}
     -- the recursion at an extended spine
     have hnext : ∀ (a a' : V), (¬ recAt nP ks (nP + as.length) → a' = a) →
         a' ∈ˢ interp V (consList as' ρp)
-          (if recAt nP ks (nP + as.length) then ATerm.sort 0 else Fs.getD as.length default) →
+          (if recAt nP ks (nP + as.length) then AnnotTerm.sort 0 else Fs.getD as.length default) →
         FieldsOkB w (consList (as ++ [a]) (cons t (cons X ρp)))
           (chainXIGo u Ids (rsOf ks) tls Eis (Fs.drop (as.length + 1)) (as.length + 1) ++
             [idxEqAV (eqsXI Ids.length nF Es)]) ∧

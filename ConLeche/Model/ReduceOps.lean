@@ -36,7 +36,7 @@ by `interp_app` and leaf closedness.
 This is `NatEqsP.lean`'s species at a one-variable context instead of
 two, and the element type is a stored *level-free constant*
 (`reduceElemTy c`, whose `reduceElemOk` guard stores it), so the
-context kit collapses to `elemAP`/`sat_elemCtx` below.
+context kit collapses to `elemA`/`sat_elemCtx` below.
 
 ## What the conversion costs: the gradings
 
@@ -55,7 +55,7 @@ and every part of it is already established at the install:
   type's reading is `.pi 0 (pwBit ψ mb₀.pw) (acval E ψ) (acval E ψ)`
   and `interp` of it is a `piR` over the element set;
 * the `piR` membership is the constant's own `mem_type` obligation
-  (`hmemA`, which `harvestOpaqueP` proves anyway);
+  (`hmemA`, which `harvestOpaque` proves anyway);
 * the `v = 0` fibre clause is the type reading's **`AnnotValid` `pi`
   third component** — `htyOk`'s own content.  So **no bit is needed**:
   the regime datum `mb₀.pw` stays abstract throughout, exactly as the
@@ -86,24 +86,24 @@ variable {μ : CheckMode} {env : Env}
 /-- The element type's leaf at an assignment (the reduce operations'
 element inductives — `Nat`, `Bool` — are stored level-free, so the
 spelling is the plain assignment). -/
-def elemAP {env : Env} (m : EnvModel V env) (c : Name)
+def elemA {env : Env} (m : EnvModel V env) (c : Name)
     (ψ : Name → Nat) : AnnotTerm :=
   m.acval (ConLeche.reduceElemName c) ψ
 
 /-- The certificate's context: one slot, the element type. -/
 def elemCtx {env : Env} (m : EnvModel V env) (c : Name)
     (ψ : Name → Nat) : List AnnotTerm :=
-  [elemAP m c ψ]
+  [elemA m c ψ]
 
 /-- One element member satisfies the one-variable context (the leaf
 reading collapses by closedness). -/
 theorem sat_elemCtx (m : EnvModel V env) {c : Name} {ψ : Name → Nat}
-    {ρ : Nat → V} {x : V} (hx : x ∈ˢ interp V ρ (elemAP m c ψ)) :
+    {ρ : Nat → V} {x : V} (hx : x ∈ˢ interp V ρ (elemA m c ψ)) :
     Sat V (elemCtx m c ψ) (cons x ρ) := by
   intro i Aa hi
   match i with
   | 0 =>
-    obtain rfl : elemAP m c ψ = Aa := by simpa [elemCtx] using hi
+    obtain rfl : elemA m c ψ = Aa := by simpa [elemCtx] using hi
     show x ∈ˢ interp V _ (m.acval (ConLeche.reduceElemName c) ψ)
     rw [acval_interp_closedC m _ ψ _ ρ]
     exact hx
@@ -303,7 +303,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
     obtain rfl : l = (0, ConLeche.reduceElemTy cv.name) := by simpa using hl
     refine ⟨Nat.zero_lt_one, by rw [hEty]; trivial,
       mp.base2.acval (ConLeche.reduceElemName cv.name) ψ,
-      elemAP mp.base2 cv.name ψ, hdenE ψ 1, rfl, fun ρ' _ => ?_,
+      elemA mp.base2 cv.name ψ, hdenE ψ 1, rfl, fun ρ' _ => ?_,
       fun ρ' _ => ⟨mp.base2.acval_wellDenoted _ ψ ρ', mp.acval_validV _ ψ ρ'⟩⟩
     exact acval_interp_closedC mp.base2 _ ψ _ _
   have hctxApp : ∀ ψ : Name → Nat,
@@ -346,7 +346,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
     intro ρ' hsat
     have h : ρ' 0 ∈ˢ interp V (fun j => ρ' (j + 0 + 1))
         (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) :=
-      hsat 0 (elemAP mp.base2 cv.name ψ) rfl
+      hsat 0 (elemA mp.base2 cv.name ψ) rfl
     rwa [acval_interp_closedC mp.base2 _ ψ _ ρ'] at h
   -- the gradings: the bare variable is free, the applied side is the
   -- constant's own `mem_type`/`type_wellDenotedV` content

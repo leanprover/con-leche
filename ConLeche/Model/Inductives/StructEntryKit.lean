@@ -51,8 +51,8 @@ spine of the tower's length is the body's instantiation sequence
 theorem peelPis_of_piTeleAV :
     ∀ (k : Nat) {T : AnnotTerm} {Γ : List AnnotTerm} {R : AnnotTerm},
       PiTeleAV k T Γ R → ∀ {ws : List AnnotTerm}, ws.length = k →
-      ConLeche.Model.ATerm.peelPis T ws
-        = some (ConLeche.Model.ATerm.instSeq ws (k - 1) R) := by
+      ConLeche.Model.AnnotTerm.peelPis T ws
+        = some (ConLeche.Model.AnnotTerm.instSeq ws (k - 1) R) := by
   intro k
   induction k with
   | zero =>
@@ -68,9 +68,9 @@ theorem peelPis_of_piTeleAV :
     have hlen' : ws'.length = k := by simpa using hlen
     have hinst := htail.inst w 0
     have := ihk hinst hlen'
-    rw [show ConLeche.Model.ATerm.instSeq (w :: ws') (k + 1 - 1) R
-        = ConLeche.Model.ATerm.instSeq ws' (k - 1) (R.inst w k) from by
-      rw [ATerm.instSeq_cons]
+    rw [show ConLeche.Model.AnnotTerm.instSeq (w :: ws') (k + 1 - 1) R
+        = ConLeche.Model.AnnotTerm.instSeq ws' (k - 1) (R.inst w k) from by
+      rw [AnnotTerm.instSeq_cons]
       simp only [Nat.add_sub_cancel]]
     rw [show (0 : Nat) + k = k from Nat.zero_add k] at this
     exact this
@@ -79,11 +79,11 @@ theorem peelPis_of_piTeleAV :
 sequence of its domain. -/
 theorem instSeq_pi_dom :
     ∀ (ws : List AnnotTerm) (t u v : Nat) (A B : AnnotTerm),
-      ∃ B', ConLeche.Model.ATerm.instSeq ws t (.pi u v A B)
-        = .pi u v (ConLeche.Model.ATerm.instSeq ws t A) B'
+      ∃ B', ConLeche.Model.AnnotTerm.instSeq ws t (.pi u v A B)
+        = .pi u v (ConLeche.Model.AnnotTerm.instSeq ws t A) B'
   | [], _, _, _, _, B => ⟨B, rfl⟩
   | w :: ws, t, u, v, A, B => by
-    rw [ATerm.instSeq_cons, ATerm.instSeq_cons, ATerm.inst_pi]
+    rw [AnnotTerm.instSeq_cons, AnnotTerm.instSeq_cons, AnnotTerm.inst_pi]
     exact instSeq_pi_dom ws (t - 1) u v (A.inst w t) (B.inst w (t + 1))
 
 /-! ## Fits from gradings -/
@@ -95,7 +95,7 @@ layer's graph inhabits as a function, and a graph's domain is rigid
 theorem spineFit_of_wellDenotedV_mkAppN_lam :
     ∀ {lds : List (Nat × AnnotTerm)} {b f : AnnotTerm} {args : List AnnotTerm} {ρ σ : Nat → V},
       (∀ d ∈ lds, d.1 ≠ 0) →
-      WellDenotedV V ρ (ATerm.mkAppN f args) →
+      WellDenotedV V ρ (AnnotTerm.mkAppN f args) →
       interp V ρ f = interp V σ (mkLamsAV lds b) →
       args.length = lds.length →
       SpineFit σ (lds.map (·.2)) (args.map (interp V ρ))
@@ -104,7 +104,7 @@ theorem spineFit_of_wellDenotedV_mkAppN_lam :
   | _ :: _, _, _, [], _, _, _, _, _, hlen => by simp at hlen
   | d :: lds, b, f, a :: args, ρ, σ, hnz, hok, hval, hlen => by
     simp only [List.map_cons, SpineFit]
-    rw [ATerm.mkAppN_cons] at hok
+    rw [AnnotTerm.mkAppN_cons] at hok
     have hokApp := WellDenotedV_mkAppN_head args hok
     obtain ⟨-, -, v, A, B, hf, ha, -⟩ := (WellDenoted_app V ρ f a) ▸ hokApp.1
     have hd : d.1 ≠ 0 := hnz d List.mem_cons_self
@@ -224,7 +224,7 @@ theorem spineFit_prefix_next {Fs : List AnnotTerm} {ρ : Nat → V} {as : List V
 /-! ## Application values -/
 
 theorem interp_mkAppN_foldl (ρ : Nat → V) (as : List AnnotTerm) (f : AnnotTerm) :
-    interp V ρ (ATerm.mkAppN f as)
+    interp V ρ (AnnotTerm.mkAppN f as)
       = (as.map (interp V ρ)).foldl SetTheory.app (interp V ρ f) := by
   rw [interp_mkAppN, List.foldl_map]
 

@@ -72,8 +72,8 @@ theorem interp_succsAV : ∀ (j : Nat) {k : AnnotTerm} {σ : Nat → V} {i : Nat
     interp V σ k = vnat i → interp V σ (succsAV j k) = vnat (i + j)
   | 0, _, _, _, h => h
   | j + 1, k, σ, i, h => by
-    show SetTheory.app (natSuccV2 V) (interp V σ (succsAV j k)) = vsucc (vnat (i + j))
-    rw [interp_succsAV j h, natSuccV2_app V (vnat_mem_omega _), natsucc_eq_vsucc]
+    show SetTheory.app (natSuccV V) (interp V σ (succsAV j k)) = vsucc (vnat (i + j))
+    rw [interp_succsAV j h, natSuccV_app V (vnat_mem_omega _), natsucc_eq_vsucc]
 
 theorem succsAV_wellDenoted : ∀ (j : Nat) {k : AnnotTerm} {σ : Nat → V} {i : Nat},
     WellDenoted V σ k → interp V σ k = vnat i → WellDenoted V σ (succsAV j k)
@@ -81,7 +81,7 @@ theorem succsAV_wellDenoted : ∀ (j : Nat) {k : AnnotTerm} {σ : Nat → V} {i 
   | j + 1, k, σ, i, hok, h => by
     show WellDenoted V σ (.app (.const .natSucc []) (succsAV j k))
     rw [WellDenoted_app]
-    refine ⟨trivial, succsAV_wellDenoted j hok h, 1, omega, fun _ => omega, natSuccV2_mem V, ?_,
+    refine ⟨trivial, succsAV_wellDenoted j hok h, 1, omega, fun _ => omega, natSuccV_mem V, ?_,
       fun h => absurd h Nat.one_ne_zero⟩
     rw [interp_succsAV j h]
     exact vnat_mem_omega _
@@ -217,8 +217,8 @@ theorem minorSpI_spine {ℓ : Nat} {c : List V → V}
     ∀ {Fs args : List AnnotTerm} {ρf : Nat → V} {acc : List V} {f : AnnotTerm} {σ : Nat → V},
       WellDenoted V σ f → interp V σ f ∈ˢ minorSpI ℓ c Fs ρf acc →
       ArgsOkFit σ args Fs ρf →
-      WellDenoted V σ (ATerm.mkAppN f args) ∧
-        interp V σ (ATerm.mkAppN f args) ∈ˢ c (acc ++ args.map (interp V σ))
+      WellDenoted V σ (AnnotTerm.mkAppN f args) ∧
+        interp V σ (AnnotTerm.mkAppN f args) ∈ˢ c (acc ++ args.map (interp V σ))
   | [], [], _, acc, f, σ, hokf, hmf, _ => by
     refine ⟨hokf, ?_⟩
     show interp V σ f ∈ˢ c (acc ++ [])
@@ -343,7 +343,7 @@ def idxVarsAV (nIdx D' : Nat) : List AnnotTerm :=
 
 /-- The motive applied to the index variables at depth `D'`. -/
 def motAppAV (n nIdx D' : Nat) : AnnotTerm :=
-  ATerm.mkAppN (.bvar (D' + nIdx + n)) (idxVarsAV nIdx D')
+  AnnotTerm.mkAppN (.bvar (D' + nIdx + n)) (idxVarsAV nIdx D')
 
 /-- The index variables read to the frame's index tuple. -/
 theorem map_idxVarsAV_interp {nIdx D' : Nat} {ρ₀ σ : Nat → V} (h : RecFrameS D' ρ₀ σ) :
@@ -363,8 +363,8 @@ theorem mkAppN_wellDenoted_of_chain :
     ∀ {args : List AnnotTerm} {f : AnnotTerm} {σ : Nat → V},
       WellDenoted V σ f → (∀ a ∈ args, WellDenoted V σ a) →
       AppChainOk (interp V σ f) (args.map (interp V σ)) →
-      WellDenoted V σ (ATerm.mkAppN f args) ∧
-        interp V σ (ATerm.mkAppN f args)
+      WellDenoted V σ (AnnotTerm.mkAppN f args) ∧
+        interp V σ (AnnotTerm.mkAppN f args)
           = (args.map (interp V σ)).foldl SetTheory.app (interp V σ f)
   | [], _, _, hf, _, _ => ⟨hf, rfl⟩
   | a :: args, f, σ, hf, hargs, hchain => by
@@ -380,7 +380,7 @@ theorem mkAppN_wellDenoted_of_chain :
       exact ⟨v', A', B', hm', ha', hz'⟩
     have ih := mkAppN_wellDenoted_of_chain (args := args) (f := .app f a) hoka
       (fun a' ha' => hargs a' (List.mem_cons_of_mem _ ha')) hchain'
-    rw [ATerm.mkAppN_cons]
+    rw [AnnotTerm.mkAppN_cons]
     exact ⟨ih.1, by rw [ih.2, List.map_cons, List.foldl_cons]; rfl⟩
 
 /-- The stage-`j` motive body, under the motive's own tag binder
@@ -542,7 +542,7 @@ theorem motApp_facts {ℓ w D' : Nat} {ρ₀ σ : Nat → V} {Fss Ess : List (Li
   have h := mkAppN_wellDenoted_of_chain (args := idxVarsAV Ids.length D')
     (f := .bvar (D' + Ids.length + Fss.length)) (σ := σ) trivial hargs hchain
   refine ⟨?_, h.1⟩
-  show interp V σ (ATerm.mkAppN (.bvar (D' + Ids.length + Fss.length)) (idxVarsAV Ids.length D')) = _
+  show interp V σ (AnnotTerm.mkAppN (.bvar (D' + Ids.length + Fss.length)) (idxVarsAV Ids.length D')) = _
   rw [h.2, hmot, map_idxVarsAV_interp hfr]
   rfl
 

@@ -69,18 +69,18 @@ theorem iota_slot_transfer {v v' : Nat} {A A' f a : V} {B B' : V → V}
 conjunct at one valuation). -/
 theorem wellDenotedV_mkAppN_head {ρ : Nat → V} :
     ∀ (as : List AnnotTerm) {f : AnnotTerm},
-      WellDenotedV V ρ (ATerm.mkAppN f as) → WellDenotedV V ρ f
+      WellDenotedV V ρ (AnnotTerm.mkAppN f as) → WellDenotedV V ρ f
   | [], _, h => h
   | a :: as, f, h => by
     have h' : WellDenotedV V ρ (.app f a) := wellDenotedV_mkAppN_head as h
     exact ⟨((WellDenoted_app V ρ f a) ▸ h'.1).1,
       ((AnnotValid_app V ρ f a) ▸ h'.2).1⟩
 
-theorem ATerm.mkAppN_append (f : AnnotTerm) :
+theorem AnnotTerm.mkAppN_append (f : AnnotTerm) :
     ∀ (as bs : List AnnotTerm),
-      ATerm.mkAppN f (as ++ bs) = ATerm.mkAppN (ATerm.mkAppN f as) bs
+      AnnotTerm.mkAppN f (as ++ bs) = AnnotTerm.mkAppN (AnnotTerm.mkAppN f as) bs
   | [], _ => rfl
-  | _ :: as, bs => ATerm.mkAppN_append _ as bs
+  | _ :: as, bs => AnnotTerm.mkAppN_append _ as bs
 
 /-- **An app's argument may be exchanged for an interpretation-equal
 graded one**: the slot is about `⟦a⟧`, so it transfers. -/
@@ -103,10 +103,10 @@ slot: the walk is handed the rescued major, the subject carries the
 original — `heqAll` identifies their interpretations). -/
 theorem wellDenotedV_mkAppN_snoc_congr {ρ : Nat → V} {f a a' : AnnotTerm}
     {as : List AnnotTerm}
-    (h : WellDenotedV V ρ (ATerm.mkAppN f (as ++ [a]))) (ha' : WellDenotedV V ρ a')
+    (h : WellDenotedV V ρ (AnnotTerm.mkAppN f (as ++ [a]))) (ha' : WellDenotedV V ρ a')
     (heq : interp V ρ a = interp V ρ a') :
-    WellDenotedV V ρ (ATerm.mkAppN f (as ++ [a'])) := by
-  rw [ATerm.mkAppN_append] at h ⊢
+    WellDenotedV V ρ (AnnotTerm.mkAppN f (as ++ [a'])) := by
+  rw [AnnotTerm.mkAppN_append] at h ⊢
   exact wellDenotedV_app_congr_arg h ha' heq
 
 /-! ## The licensed walk -/
@@ -132,7 +132,7 @@ theorem certs_teleLic {m : EnvModel V env}
         Expr.LeavesBounded x ∧ CtxOk m φ d Δa x) →
       DenoteMetaSpine m.acval env φ d args vs →
       (∀ x ∈ vs, ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ x) →
-      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (ATerm.mkAppN fa vs)) →
+      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (AnnotTerm.mkAppN fa vs)) →
       (∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ fa ∈ˢ interp V ρ Ta) →
       ∃ resta : AnnotTerm,
         (∀ ρ : Nat → V, Sat V Δa ρ → TeleFitPA V ρ Ta vs resta) ∧

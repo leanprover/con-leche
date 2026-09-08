@@ -503,12 +503,12 @@ theorem denotePLift {acval : Name → (Name → Nat) → AnnotTerm}
     (h : denoteMeta acval env ψ d e = some W) :
     denoteMeta acval env ψ (d + n) e = some (W.liftN n 0) := by
   induction n with
-  | zero => rw [Nat.add_zero, h, ATerm.liftN_zero]
+  | zero => rw [Nat.add_zero, h, AnnotTerm.liftN_zero]
   | succ n ih =>
     rw [show d + (n + 1) = (d + n) + 1 from rfl,
       denoteMeta_weaken_top hacl (hw.mono (by omega)), ih]
     simp only [Option.map_some]
-    rw [ATerm.liftN_liftN, Nat.add_comm 1 n]
+    rw [AnnotTerm.liftN_liftN, Nat.add_comm 1 n]
 
 /-- **The certificate frame's leaf discipline, in the lift-carrying
 form.** -/
@@ -833,7 +833,7 @@ theorem dmCtxOk_natLeaves {mp : EnvModelM V μ env} {c : Name}
   have hself : ∀ k : Nat,
       (mp.base2.acval ConLeche.natName ψ).liftN k 0
         = mp.base2.acval ConLeche.natName ψ := fun k =>
-    ATerm.liftN_eq_self _
+    AnnotTerm.liftN_eq_self _
       (by rw [mp.base2.acval_erase]
           exact mp.base2.cval_closed ConLeche.natName ψ) k
   refine ctxOk_pinnedLift hlen (fun l hl => ?_)
@@ -1349,7 +1349,7 @@ theorem dmClause1 {F : Nat} {mp : EnvModelM V μ env} {c : Name}
     have hself : ∀ k : Nat,
         (mp.base2.acval ConLeche.natName ψ).liftN k 0
           = mp.base2.acval ConLeche.natName ψ := fun k =>
-      ATerm.liftN_eq_self _
+      AnnotTerm.liftN_eq_self _
         (by rw [mp.base2.acval_erase]
             exact mp.base2.cval_closed ConLeche.natName ψ) k
     have hnatSlot : ∀ i k : Nat,
@@ -1626,7 +1626,7 @@ theorem dmClause2 {F : Nat} {mp : EnvModelM V μ env} {c : Name}
   have hself : ∀ k : Nat,
       (mp.base2.acval ConLeche.natName ψ).liftN k 0
         = mp.base2.acval ConLeche.natName ψ := fun k =>
-    ATerm.liftN_eq_self _
+    AnnotTerm.liftN_eq_self _
       (by rw [mp.base2.acval_erase]
           exact mp.base2.cval_closed ConLeche.natName ψ) k
   have hnatSlot : ∀ i k : Nat,

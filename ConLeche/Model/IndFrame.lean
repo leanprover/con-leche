@@ -39,7 +39,7 @@ stage's statement, but is introduced and stripped inside the zipper's
 strong induction (`sat_pad_of_mems` up, `padE_shiftE` down).
 
 **The currency delta that matters.**  `Sat` becomes `Sat` and the
-context becomes a `List AnnotTerm`, so the padding slot is `ATerm.sort 0`
+context becomes a `List AnnotTerm`, so the padding slot is `AnnotTerm.sort 0`
 and its value fact is `empty_mem_univ 0` through `interp_sort` —
 `interp` of a sort is `univ` on the nose, so the `.sort 0`/`empty`
 trick transposes with no `dummyPropT` detour at all.
@@ -146,28 +146,28 @@ theorem chain_cons_eq_instE (ρ : Nat → V) (w : AnnotTerm)
 
 The design's central saving, one currency over: interpreting a fully
 spine-instantiated reading is interpreting the open reading at the
-value chain.  `ATerm.instSeq` is `Term.instSeq`'s twin — outermost
+value chain.  `AnnotTerm.instSeq` is `Term.instSeq`'s twin — outermost
 argument first, at descending cuts. -/
 
 /-- Instantiate a spine of readings at descending cuts, outermost
 first (`Term.instSeq`'s twin). -/
-def _root_.ConLeche.Model.ATerm.instSeq :
+def _root_.ConLeche.Model.AnnotTerm.instSeq :
     List AnnotTerm → Nat → AnnotTerm → AnnotTerm
   | [], _, e => e
-  | a :: as, t, e => ConLeche.Model.ATerm.instSeq as (t - 1) (e.inst a t)
+  | a :: as, t, e => ConLeche.Model.AnnotTerm.instSeq as (t - 1) (e.inst a t)
 
-@[simp] theorem ATerm.instSeq_nil (t : Nat) (e : AnnotTerm) :
-    ConLeche.Model.ATerm.instSeq [] t e = e := rfl
+@[simp] theorem AnnotTerm.instSeq_nil (t : Nat) (e : AnnotTerm) :
+    ConLeche.Model.AnnotTerm.instSeq [] t e = e := rfl
 
-theorem ATerm.instSeq_cons (a : AnnotTerm) (as : List AnnotTerm) (t : Nat)
+theorem AnnotTerm.instSeq_cons (a : AnnotTerm) (as : List AnnotTerm) (t : Nat)
     (e : AnnotTerm) :
-    ConLeche.Model.ATerm.instSeq (a :: as) t e
-      = ConLeche.Model.ATerm.instSeq as (t - 1) (e.inst a t) := rfl
+    ConLeche.Model.AnnotTerm.instSeq (a :: as) t e
+      = ConLeche.Model.AnnotTerm.instSeq as (t - 1) (e.inst a t) := rfl
 
 /-- **Evaluation is instantiation** (`interp_instSeq`'s twin). -/
 theorem interp_instSeq :
     ∀ (ws : List AnnotTerm) (e : AnnotTerm) (ρ : Nat → V),
-      interp V ρ (ConLeche.Model.ATerm.instSeq ws (ws.length - 1) e)
+      interp V ρ (ConLeche.Model.AnnotTerm.instSeq ws (ws.length - 1) e)
         = interp V (chain V ρ ws) e := by
   intro ws
   induction ws with
@@ -175,7 +175,7 @@ theorem interp_instSeq :
   | cons w ws ih =>
     intro e ρ
     rw [show (w :: ws).length - 1 = ws.length from by simp,
-      ATerm.instSeq_cons, ih (e.inst w ws.length) ρ, interp_inst]
+      AnnotTerm.instSeq_cons, ih (e.inst w ws.length) ρ, interp_inst]
     congr 1
     funext i
     show instE ws.length
@@ -304,7 +304,7 @@ theorem PiTeleAV.inst : ∀ {k : Nat} {T : AnnotTerm} {Γ : List AnnotTerm}
   | nil => intro v j; simpa using PiTeleAV.nil
   | @cons k u v' A B R Γ _ ih =>
     intro v j
-    rw [ATerm.inst_pi, ctxInstAtAV_snoc]
+    rw [AnnotTerm.inst_pi, ctxInstAtAV_snoc]
     have h1 := ih v (j + 1)
     rw [show j + 1 + k = j + (k + 1) from by omega] at h1
     exact PiTeleAV.cons h1
@@ -322,7 +322,7 @@ benign: `TeleFitPA` peels by *substitution* (`B.inst a`) where
 `TeleFitV` peels by substitution too, so the two inductions coincide
 step for step and `PiTeleAV.inst` plays exactly the role `PiTele.inst`
 plays in `teleFitV_of_tower`.  What changes is only the residual's
-spelling — `ATerm.instSeq` in place of `Term.instSeq`. -/
+spelling — `AnnotTerm.instSeq` in place of `Term.instSeq`. -/
 
 /-- **`Sat` of a tower's context at the chain** (`sat_of_tower`),
 from per-step chain memberships. -/
@@ -365,7 +365,7 @@ theorem teleFitPA_of_tower :
         interp V ρ (ws.getD n default)
           ∈ˢ interp V (chain V ρ (ws.take n))
             (Γ.getD (k - 1 - n) default)) →
-      TeleFitPA V ρ T ws (ConLeche.Model.ATerm.instSeq ws (k - 1) R) := by
+      TeleFitPA V ρ T ws (ConLeche.Model.AnnotTerm.instSeq ws (k - 1) R) := by
   intro k
   induction k with
   | zero =>
@@ -390,9 +390,9 @@ theorem teleFitPA_of_tower :
     -- the tail: the instantiated tower via the recursion at `k`
     have hinst := htail.inst w 0
     have hfit := ihk hinst (ws := ws') (ρ := ρ) hlen' ?_
-    · rw [show ConLeche.Model.ATerm.instSeq (w :: ws') (k + 1 - 1) R
-          = ConLeche.Model.ATerm.instSeq ws' (k - 1) (R.inst w k) from by
-        rw [ATerm.instSeq_cons]
+    · rw [show ConLeche.Model.AnnotTerm.instSeq (w :: ws') (k + 1 - 1) R
+          = ConLeche.Model.AnnotTerm.instSeq ws' (k - 1) (R.inst w k) from by
+        rw [AnnotTerm.instSeq_cons]
         simp only [Nat.add_sub_cancel]]
       rw [show (0 : Nat) + k = k from Nat.zero_add k] at hfit
       exact hfit

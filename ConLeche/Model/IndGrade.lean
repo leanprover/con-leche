@@ -75,7 +75,7 @@ theorem wellDenotedV_tower_slot :
       simp
     -- the tower's grading, at the environment the `.pi` split reads
     have hokT' : WellDenotedV V (fun j => ρ' (j + k + 1))
-        (ATerm.pi u v A B) := hokT
+        (AnnotTerm.pi u v A B) := hokT
     have hsplitA : WellDenotedV V (fun j => ρ' (j + k + 1)) A :=
       ⟨((WellDenoted_pi V (fun j => ρ' (j + k + 1)) u v A B) ▸ hokT'.1).1,
         ((AnnotValid_pi V (fun j => ρ' (j + k + 1)) u v A B)
@@ -138,7 +138,7 @@ theorem hokA_padded {K n : Nat} {Tstmt : AnnotTerm} {Γs : List AnnotTerm}
   have hΓlen : Γs.length = K := htower.length
   -- above the padding the padded context is the tower's
   have hpad : ∀ q, K - n ≤ q → q < K →
-      (List.replicate (K - n) (ATerm.sort 0) ++ Γs.drop (K - n))[q]?
+      (List.replicate (K - n) (AnnotTerm.sort 0) ++ Γs.drop (K - n))[q]?
         = some (Γs.getD q default) := by
     intro q hq1 hq2
     rw [List.getElem?_append_right (by simpa using hq1),

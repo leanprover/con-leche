@@ -53,11 +53,11 @@ theorem bvarsBelow_mkAppN_inv {k : Nat} :
 
 /-- The head and the arguments of a graded spine are graded. -/
 theorem WellDenoted.mkAppN_inv {ρ : Nat → V} :
-    ∀ {args : List AnnotTerm} {f : AnnotTerm}, WellDenoted V ρ (ATerm.mkAppN f args) →
+    ∀ {args : List AnnotTerm} {f : AnnotTerm}, WellDenoted V ρ (AnnotTerm.mkAppN f args) →
       WellDenoted V ρ f ∧ ∀ a ∈ args, WellDenoted V ρ a
   | [], _, h => ⟨h, fun _ ha => nomatch ha⟩
   | a :: args, f, h => by
-    rw [ATerm.mkAppN_cons] at h
+    rw [AnnotTerm.mkAppN_cons] at h
     obtain ⟨hfa, hall⟩ := WellDenoted.mkAppN_inv h
     rw [WellDenoted_app] at hfa
     exact ⟨hfa.1, fun a' ha' => by
@@ -99,13 +99,13 @@ abstraction's domain. -/
 theorem spineFit_of_wellDenoted_lams {u : Nat} (hu : u ≠ 0) {b : AnnotTerm} :
     ∀ {args : List AnnotTerm} {ds : List (Nat × Nat × AnnotTerm)} {σ ρ : Nat → V} {f : AnnotTerm},
       args.length ≤ ds.length →
-      WellDenoted V ρ (ATerm.mkAppN f args) →
+      WellDenoted V ρ (AnnotTerm.mkAppN f args) →
       interp V ρ f = interp V σ (mkLamsC u ds b) →
       SpineFit σ ((ds.take args.length).map (·.2.2)) (args.map (interp V ρ))
   | [], _, _, _, _, _, _, _ => trivial
   | _ :: _, [], _, _, _, hlen, _, _ => by simp at hlen
   | a :: args, d :: ds, σ, ρ, f, hlen, hok, hf => by
-    rw [ATerm.mkAppN_cons] at hok
+    rw [AnnotTerm.mkAppN_cons] at hok
     have hokfa : WellDenoted V ρ (.app f a) := (WellDenoted.mkAppN_inv hok).1
     rw [WellDenoted_app] at hokfa
     obtain ⟨-, -, v, A, B, hfm, ham, -⟩ := hokfa
@@ -268,7 +268,7 @@ theorem fieldsBoundSrc_of_frame {Γ : List AnnotTerm} {k nP nF : Nat} {srcs : Li
 read at the constructor's full frame. -/
 def ctorBodyAVI {env : Env} (m : EnvModel V env) (T : Name) (nP nF : Nat)
     (ψ : Name → Nat) (Es : List AnnotTerm) : AnnotTerm :=
-  ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)
+  AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)
 
 /-- **A constructor's data at an indexed family**: its stored type
 reads to the Π-tower over `ds ψ` ending in the family at the
@@ -303,7 +303,7 @@ structure CtorDataI {env : Env} (m : EnvModel V env) (T : Name) (lps : List Name
   srcLen : srcs.length = nF
   srcBnd : ∀ s ∈ srcs, ∀ l, s = some l → l < nIdx
   srcIdx : ∀ j l, srcs[j]? = some (some l) → ∀ ψ : Name → Nat,
-    (Es ψ)[l]? = some (ATerm.bvar (nF - 1 - j))
+    (Es ψ)[l]? = some (AnnotTerm.bvar (nF - 1 - j))
   srcProp : large = true → ∀ ψ : Name → Nat, resSort.eval ψ = 0 → ∀ ρ : Nat → V,
     Sat V (((ds ψ).take nP).map (·.2.2)).reverse ρ →
     FieldsBoundSrc ρ (((ds ψ).drop nP).map (·.2.2)) srcs
@@ -477,7 +477,7 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
       have hb := hbelowAll.2
       rw [Nat.zero_add] at hb
       unfold ctorBodyAVI at hb
-      rw [ATerm.erase_mkAppN] at hb
+      rw [AnnotTerm.erase_mkAppN] at hb
       exact (bvarsBelow_mkAppN_inv hb).2 _
         (List.mem_map.mpr ⟨E, List.mem_append_right _ hE, rfl⟩)
   -- the sources
@@ -674,7 +674,7 @@ theorem ctorFramesGen (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     -- the former, opened at the parameters
     obtain ⟨Γt, Rt, hteleT, hT⟩ := opened_of hopT hTf hTb (hFD.read ψ) (hFD.okTy ψ)
     obtain ⟨pps', hst', hΓt⟩ := stripPisAV_of_piTeleAV hteleT
-    have hst'' := stripPisAV_mkPisAV_take nP (ppsAll ψ) (ATerm.sort (resSort.eval ψ))
+    have hst'' := stripPisAV_mkPisAV_take nP (ppsAll ψ) (AnnotTerm.sort (resSort.eval ψ))
       (by rw [hFD.len ψ]; omega)
     obtain ⟨rfl, -⟩ := Prod.mk.injEq _ _ _ _ ▸ Option.some.inj (hst'.symm.trans hst'')
     subst hΓt

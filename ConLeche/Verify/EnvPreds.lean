@@ -10,8 +10,8 @@ the native projection-table discipline — plus the two level-parameter
 names the pinned basis declarations use and the basis-kind test on a
 `ConstantInfo`.
 
-These were written inside `ConLeche/Model/IndModel.lean` and
-`ConLeche/Model/BasisVal.lean`, next to the semantic `IndOk`, but none of
+These were written inside `ConLeche/ModelV1/IndModel.lean` and
+`ConLeche/ModelV1/BasisVal.lean`, next to the semantic `IndOk`, but none of
 them mentions a valuation, a set-theoretic universe or the `SetTheory`
 class: they are statements about what the *checker's* environment
 stores.  Relocated verbatim so both the set model and the declarative
@@ -19,7 +19,7 @@ type-theory bridge can import them (task #123; the lane and its
 record are gone, task #209).
 
 Task #148's T1 added the rest of that class: `pinnedInfo` (with its two
-`*_cases` inversions) from `ConLeche/Model/BasisVal.lean`, and `ProjOkT`
+`*_cases` inversions) from `ConLeche/ModelV1/BasisVal.lean`, and `ProjOkT`
 — the strengthening of `ProjOk` that pins the pair block's own
 projection names — from `ConLeche/TTVerify/EnvTT.lean`.  The bridge's
 `uNT`/`vNT`/`u1NT`, `isBasisKind`, `pinnedInfoT` and `RecCtorsStoredT`

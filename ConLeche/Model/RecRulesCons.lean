@@ -191,7 +191,7 @@ theorem recRuleLaw_cons_prefix (mp : EnvModelM V μ env)
             (openRev 0 rP ((pins.getD i default).instantiateLevelParams
               cv.levelParams us)) = some vpa →
           interp V ρ (ys.getD i default)
-            = interp V ρ (ATerm.instRevChain (xs.take rP) vpa) := by
+            = interp V ρ (AnnotTerm.instRevChain (xs.take rP) vpa) := by
       intro lvls pins hn i hi vpa hvpa
       refine hnested lvls pins hn i hi vpa ?_
       obtain ⟨-, -, hpinsWf, -⟩ := hnest lvls pins hn

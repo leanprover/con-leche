@@ -57,7 +57,7 @@ theorem wellDenotedV_lamTower_slot :
       rw [List.getD, List.getElem?_append_right (by omega), hΓ'len]
       simp
     have hokT' : WellDenotedV V (fun j => ρ' (j + k + 1))
-        (ATerm.lam v A B) := hokT
+        (AnnotTerm.lam v A B) := hokT
     have hsplitA : WellDenotedV V (fun j => ρ' (j + k + 1)) A :=
       ⟨((WellDenoted_lam V (fun j => ρ' (j + k + 1)) v A B) ▸ hokT'.1).1,
         ((AnnotValid_lam V (fun j => ρ' (j + k + 1)) v A B)

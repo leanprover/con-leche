@@ -5,7 +5,7 @@ import ConLeche.Model.IndOpenRev
 
 **The part-6 repair's producer.**  The probe refuted the old conjunct
 by naming the wrong object; the ratified repair grades
-`ATerm.instRevChain zs vpa` — the term the equality half already
+`AnnotTerm.instRevChain zs vpa` — the term the equality half already
 names — under the prefix telescope's own fit.  This file establishes
 exactly that, from exactly the certificate the checker runs.
 
@@ -16,7 +16,7 @@ because the fired prefix is graded (which the repaired conjunct, unlike
 the interp-equality half, *does* hypothesise).
 
 ```
-   checkTypedList … pinsP cdomsP          (Kernel/Modeled.lean:290)
+   checkTypedList … pinsP cdomsP          (Inductives/Modeled.lean:290)
      ⇒ TypedListOk.infer_of_mem           (Verify/IotaWalkInv.lean)
      ⇒ InferClaim                      ∀ σ, Sat V Δ σ → WellDenotedV V σ w0
      ⇒ at σ := chain V ρ (zs ++ padA…)   Sat by the prefix fit
@@ -106,7 +106,7 @@ theorem wellDenotedV_instSeq {ρ : Nat → V} :
     ∀ (ws : List AnnotTerm) {X : AnnotTerm},
       (∀ w ∈ ws, WellDenotedV V ρ w) →
       WellDenotedV V (chain V ρ ws) X →
-      WellDenotedV V ρ (ConLeche.Model.ATerm.instSeq ws (ws.length - 1) X) := by
+      WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instSeq ws (ws.length - 1) X) := by
   intro ws
   induction ws with
   | nil => intro X _ hX; exact hX
@@ -126,7 +126,7 @@ theorem wellDenotedV_instSeq {ρ : Nat → V} :
         rw [hshift, ← chain_cons_eq_instE]
         exact hX.2
     have h := ih (fun x hx => hoks x (List.mem_cons_of_mem _ hx)) hstep
-    show WellDenotedV V ρ (ConLeche.Model.ATerm.instSeq ws
+    show WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instSeq ws
       ((w :: ws).length - 1 - 1) (X.inst w ((w :: ws).length - 1)))
     simpa using h
 
@@ -166,7 +166,7 @@ theorem sat_padded_chain {rP cnF : Nat} {TVa RP : AnnotTerm}
             hzslen, List.getElem?_replicate_of_lt (by omega)]
           rfl]
       rw [interp_padA]
-    show _ ∈ˢ interp V _ (ATerm.sort 0)
+    show _ ∈ˢ interp V _ (AnnotTerm.sort 0)
     rw [interp_sort, hval]
     exact eqv_mem_univ _ _
   · -- a tower slot: the chain is the prefix chain, shifted
@@ -212,7 +212,7 @@ set_option maxHeartbeats 1600000 in
 established from the checker's own certificate.**
 
 `hcert` is the claims-layer form of `checkTypedList ops envSelf depth
-pinsP cdomsP` (`Kernel/Modeled.lean:290`) read through
+pinsP cdomsP` (`Inductives/Modeled.lean:290`) read through
 `TypedListOk.infer_of_mem` and `InferClaim`: context-guarded, at the
 public frame's padded context, on the *instantiated* pin `pinsP i` —
 the object the part-6 probe showed the certificate is actually about.
@@ -252,7 +252,7 @@ theorem nestedPinGrade {acval : Name → (Name → Nat) → AnnotTerm}
     (hzslen : zs.length = rP)
     (hzsOk : ∀ z ∈ zs, WellDenotedV V ρ z)
     (hfit : TeleFitPA V ρ TVa zs restR) :
-    WellDenotedV V ρ (ConLeche.Model.ATerm.instRevChain zs vpa) := by
+    WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa) := by
   obtain ⟨w0, hw0, hcross⟩ := pinCross (acval := acval) (cval := cval)
     (env := env) (φ := φ) (cnF := cnF) hacl hainst hlink hcl padA hoslen
     hshape hwsOs hbOs hpw hpb hvpden hzslen (vals := zs) (n := rP)

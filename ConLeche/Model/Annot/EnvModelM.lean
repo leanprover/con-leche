@@ -213,7 +213,7 @@ the `EnvModelM` field must import them and `CapsP` imports `EnvModelM`):
   backward transfer ever appears.
 * **The fired content is value-level** (the divmod-leg lesson): `ts`,
   `x`, `y` are bare `V`s, and the fabricated η spine is
-  `projSpines2`/`etaFabArgs2` — `projSpinesV`/`etaFabArgsV`
+  `projSpines`/`etaFabArgsV` — `projSpinesV`/`etaFabArgsV`
   (`Rel.lean:98/106`) with `cval`-leaves replaced by `interp` values
   of the `acval` leaves at the same assignment.
 
@@ -224,7 +224,7 @@ capability pipeline (kernel pin → `EtaPins` → rule_fold → `ModeledOk`
 law → cert+sound, `Install/EtaLawS.lean`); the P path re-runs its
 defeq certificates through the claims — the run-certificate route —
 when the ind tier lands.  Consumers: `StructEtaIrrel` /
-`StructUnitIrrel` (`Steps/CapsRowsP.lean`), discharged from the
+`StructUnitIrrel` (`Steps/CapsRows.lean`), discharged from the
 field by the caps batch. -/
 
 /-- **The annotated telescope fit** (`TeleFitV`'s `interp` mirror):
@@ -244,17 +244,17 @@ inductive TeleFit (V : Type w) [SetTheory V] :
 /-- The projection spines' values: each stored projection function
 applied to the type arguments and the stuck member
 (`projSpinesV`'s value level). -/
-noncomputable def projSpines2 {V : Type w} [SetTheory V]
+noncomputable def projSpines {V : Type w} [SetTheory V]
     (val : Name → V) (T : Name) (ts : List V) (b : V) (nF : Nat) :
     List V :=
   (List.range nF).map fun j =>
     (ts ++ [b]).foldl SetTheory.app (val (projFnName T j))
 
 /-- The fabricated η spine's values (`etaFabArgsV`'s value level). -/
-noncomputable def etaFabArgs2 {V : Type w} [SetTheory V]
+noncomputable def etaFabArgsV {V : Type w} [SetTheory V]
     (val : Name → V) (T : Name) (ts : List V) (b : V) (nF : Nat) :
     List V :=
-  ts ++ projSpines2 val T ts b nF
+  ts ++ projSpines val T ts b nF
 
 /-- **The fired structural-η law of an η-capable stored family**
 (`EtaLawV`'s mirror; see the note above for the shape). -/
@@ -272,7 +272,7 @@ def EtaLaw {V : Type w} [SetTheory V] {env : Env}
       TeleFit V ρ TVa ts rest →
       x ∈ˢ ts.foldl SetTheory.app
         (interp V ρ (m.acval T (Level.substFn φ' cvT.levelParams us))) →
-      x = (etaFabArgs2
+      x = (etaFabArgsV
             (fun n => interp V ρ
               (m.acval n (Level.substFn φ' cvT.levelParams us)))
             T ts x caps.etaFields).foldl SetTheory.app
@@ -351,7 +351,7 @@ deviation from the v1 shape is a recorded decision:
   decomposes the residual at the ambient environment, v1-verbatim.
 * **The `.nested` pin clause quantifies the pin's own open reading**
   (`denoteMeta` at depth `rP`), concluding at the reading substituted
-  along the argument prefix — `ATerm.instRevChain`, the exact v1
+  along the argument prefix — `AnnotTerm.instRevChain`, the exact v1
   spelling one currency over.  The consumer's bridge is then the
   `denoteMeta` mirror of the existing `denote_openRev`/
   `denote_openRev_base` pair (`Verify/Denote/OpenRevDenote.lean`);
@@ -374,8 +374,8 @@ this file.
 **Establishment**: the inductive install — `IndStepPB`'s bill, where
 the flagged new mathematics lives (a `Prop`-valued motive's minors at
 the squash regime).  **Consumers**: `IotaStep`/`IotaReads`
-(`Steps/WhnfP.lean:182`, `Steps/ReadsP.lean:173`), discharged by the
-iota tier (`Steps/IotaRowsP.lean`). -/
+(`Steps/Whnf.lean:182`, `Steps/Reads.lean:173`), discharged by the
+iota tier (`Steps/IotaRows.lean`). -/
 
 /-- **The annotated telescope fit** (`TeleFitV`'s transpose,
 substitution-peeling): each argument reading inhabits its
@@ -415,11 +415,11 @@ theorem TeleFitPA.take {V : Type w} [SetTheory V] {ρ : Nat → V} :
 (`Term.instRevChain`'s `AnnotTerm` twin, `Verify/Denote/OpenVars.lean:80`
 — outermost argument consumed first, each at cut `0`, lifted past the
 arguments still to come). -/
-def _root_.ConLeche.Model.ATerm.instRevChain :
+def _root_.ConLeche.Model.AnnotTerm.instRevChain :
     List AnnotTerm → AnnotTerm → AnnotTerm
   | [], X => X
   | v :: vs, X =>
-    ConLeche.Model.ATerm.instRevChain vs (X.inst (v.liftN vs.length) 0)
+    ConLeche.Model.AnnotTerm.instRevChain vs (X.inst (v.liftN vs.length) 0)
 
 /-- **The constructor residual's index pin** (`IotaIndexPinV`'s
 mirror, v1-verbatim at `AnnotTerm`): the residual decomposes as a spine
@@ -428,7 +428,7 @@ all at the ambient environment. -/
 def IotaIndexPin {V : Type w} [SetTheory V] (ρ : Nat → V)
     (restC : AnnotTerm) (cnP mI rP : Nat) (xs : List AnnotTerm) : Prop :=
   ∃ (Ha : AnnotTerm) (cargsa : List AnnotTerm),
-    restC = ATerm.mkAppN Ha cargsa ∧
+    restC = AnnotTerm.mkAppN Ha cargsa ∧
     (mI = rP ∨ cargsa.length = cnP + (mI - rP)) ∧
     ∀ i, i < mI - rP →
       interp V ρ (cargsa.getD (cnP + i) default)
@@ -475,7 +475,7 @@ def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
               = some TVa →
             TeleFitPA V ρ TVa zs restR →
             WellDenotedV V ρ
-              (ConLeche.Model.ATerm.instRevChain zs vpa)) ∧
+              (ConLeche.Model.AnnotTerm.instRevChain zs vpa)) ∧
       ∀ (cvj : ConstantVal) (cnP cnF : Nat),
         env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
       ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AnnotTerm)
@@ -500,7 +500,7 @@ def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
                   cv.levelParams us)) = some vpa →
             interp V ρ (ys.getD i default)
               = interp V ρ
-                  (ConLeche.Model.ATerm.instRevChain (xs.take rP)
+                  (ConLeche.Model.AnnotTerm.instRevChain (xs.take rP)
                     vpa)) →
         IotaIndexPin (V := V) ρ restC (RecRule.ctorParams rl)
           mI rP xs →
@@ -511,22 +511,22 @@ def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
           (cvj.type.instantiateLevelParams cvj.levelParams usj)
           = some TVja →
         TeleFitPA V ρ TVa
-          (xs ++ [ATerm.mkAppN
+          (xs ++ [AnnotTerm.mkAppN
             (m.acval (RecRule.ctor rl)
               (Level.substFn φ cvj.levelParams usj)) ys]) restR →
         TeleFitPA V ρ TVja ys restC →
         interp V ρ
-            (ATerm.mkAppN
+            (AnnotTerm.mkAppN
               (m.acval n (Level.substFn φ cv.levelParams us))
-              (xs ++ [ATerm.mkAppN
+              (xs ++ [AnnotTerm.mkAppN
                 (m.acval (RecRule.ctor rl)
                   (Level.substFn φ cvj.levelParams usj)) ys]))
           = interp V ρ
-              (ATerm.mkAppN Ra
+              (AnnotTerm.mkAppN Ra
                 (xs.take rP ++ ys.drop (RecRule.ctorParams rl))) ∧
         ((∀ a ∈ xs, WellDenotedV V ρ a) → (∀ b ∈ ys, WellDenotedV V ρ b) →
           WellDenotedV V ρ
-            (ATerm.mkAppN Ra
+            (AnnotTerm.mkAppN Ra
               (xs.take rP ++ ys.drop (RecRule.ctorParams rl))))
 
 /-- The fired modeled-iota contract, keyed on every stored recursor
@@ -576,15 +576,15 @@ its clause). -/
 
 /-- The syntactic Π-peel along a list of readings: the fit's residual
 without the memberships (`TeleFitPA`'s spine, data only). -/
-def _root_.ConLeche.Model.ATerm.peelPis : AnnotTerm → List AnnotTerm → Option AnnotTerm
+def _root_.ConLeche.Model.AnnotTerm.peelPis : AnnotTerm → List AnnotTerm → Option AnnotTerm
   | T, [] => some T
-  | .pi _ _ _ B, a :: as => ConLeche.Model.ATerm.peelPis (B.inst a) as
+  | .pi _ _ _ B, a :: as => ConLeche.Model.AnnotTerm.peelPis (B.inst a) as
   | _, _ :: _ => none
 
 /-- A fit's residual is the peel's. -/
 theorem TeleFitPA.peelPis {V : Type w} [SetTheory V] {ρ : Nat → V} :
     ∀ {T rest : AnnotTerm} {as : List AnnotTerm}, TeleFitPA V ρ T as rest →
-      ConLeche.Model.ATerm.peelPis T as = some rest := by
+      ConLeche.Model.AnnotTerm.peelPis T as = some rest := by
   intro T rest as h
   induction h with
   | nil => rfl
@@ -716,12 +716,12 @@ def TowerEntryLaw {V : Type w} [SetTheory V] {env : Env}
         (TowerGuardAt φ entry us →
         ∀ (ρ : Nat → V) (vs : List AnnotTerm) (x rest : AnnotTerm),
           vs.length = entry.numParams →
-          WellDenotedV V ρ (ATerm.mkAppN
+          WellDenotedV V ρ (AnnotTerm.mkAppN
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
           WellDenotedV V ρ x →
-          interp V ρ x ∈ˢ interp V ρ (ATerm.mkAppN
+          interp V ρ x ∈ˢ interp V ρ (AnnotTerm.mkAppN
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
-          ConLeche.Model.ATerm.peelPis Ta (vs ++ [x]) = some rest →
+          ConLeche.Model.AnnotTerm.peelPis Ta (vs ++ [x]) = some rest →
           WellDenotedV V ρ (projAV (i + entry.off) x) ∧ WellDenotedV V ρ rest ∧
             interp V ρ (projAV (i + entry.off) x) ∈ˢ interp V ρ rest)) ∧
       -- (B) the iota law: the projection of a *graded* constructor
@@ -742,10 +742,10 @@ def TowerEntryLaw {V : Type w} [SetTheory V] {env : Env}
         (TowerGuardAt φ entry us →
         ∀ (ρ : Nat → V) (ys : List AnnotTerm) (rest : V),
         ys.length = entry.numParams + entry.numFields →
-        WellDenotedV V ρ (ATerm.mkAppN
+        WellDenotedV V ρ (AnnotTerm.mkAppN
           (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys) →
         TeleFit V ρ TCa (ys.map (interp V ρ)) rest →
-        interp V ρ (projAV (i + entry.off) (ATerm.mkAppN
+        interp V ρ (projAV (i + entry.off) (AnnotTerm.mkAppN
             (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys))
           = interp V ρ (ys.getD (entry.numParams + i) default)))) ∧
     -- (C) the structural-η law (task #175 W4c)
@@ -814,19 +814,19 @@ structure EnvModelM (μ : CheckMode) (env : Env) where
   η-capable family's leaf value is fixed by the inductive install and
   by nothing else, so the supplier is `IndStepPB`).  Consumed by the
   `stuckIrrel` cascade's two stored-family arms
-  (`Steps/CapsRowsP.lean`) -/
+  (`Steps/CapsRows.lean`) -/
   caps_ok : CapsOk base2
   /-- the stored recursors' fired modeled-iota contracts (`RecRulesV`'s
   mirror; an *environment law* for the same reason `caps_ok` is — a
   recursor's rules are fixed by the inductive install and by nothing
   else, so the supplier is `IndStepPB`).  Consumed by the ι row
-  (`Steps/IotaRowsP.lean`) -/
+  (`Steps/IotaRows.lean`) -/
   rec_rules : ∀ φ : Name → Nat, RecRules base2 φ
   /-- every stored compiler-trust opaque is the identity on its
   element type (`EnvS.reduce_ops`'s mirror; an *environment law* for
   the same reason `eq_law` is — the opaque's leaf is fixed by its own
   install's identity certificate and by nothing else, so the supplier
-  is `harvestOpaqueP`.  Consumed by the `ofReduce*` axiom branch) -/
+  is `harvestOpaque`.  Consumed by the `ofReduce*` axiom branch) -/
   reduce_ops : ReduceOps base2
   /-- the stored tower-backed projection entries' typing and iota
   laws (task #175 wiring W5; an *environment law* for the same reason
@@ -900,7 +900,7 @@ def toEnvFacts {V : Type w} [SetTheory V] {μ : CheckMode}
   cval_closed := m.base2.cval_closed
   wf := m.base2.wf
   val_params := fun n ci hf φ₁ φ₂ hp =>
-    congrArg ATerm.erase (m.base2.acval_params n ci hf φ₁ φ₂ hp)
+    congrArg AnnotTerm.erase (m.base2.acval_params n ci hf φ₁ φ₂ hp)
   ty_denotes := fun c hc ψ => by
     obtain ⟨ta, hta⟩ := m.type_reads c hc ψ
     exact ⟨ta.erase,

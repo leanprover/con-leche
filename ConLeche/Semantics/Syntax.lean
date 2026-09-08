@@ -302,19 +302,19 @@ annotation to forget. -/
 theorem erase_eq_const {ea : AnnotTerm} {c : BConst} {us : List Nat}
     (h : ea.erase = .const c us) : ea = .const c us := by
   cases ea with
-  | bvar i => rw [ATerm.erase_bvar] at h; exact nomatch h
-  | sort u => rw [ATerm.erase_sort] at h; exact nomatch h
+  | bvar i => rw [AnnotTerm.erase_bvar] at h; exact nomatch h
+  | sort u => rw [AnnotTerm.erase_sort] at h; exact nomatch h
   | const c' us' =>
-    rw [ATerm.erase_const] at h
+    rw [AnnotTerm.erase_const] at h
     injection h with h1 h2
     rw [h1, h2]
-  | app f a => rw [ATerm.erase_app] at h; exact nomatch h
-  | lam u ty b => rw [ATerm.erase_lam] at h; exact nomatch h
-  | pi u v ty b => rw [ATerm.erase_pi] at h; exact nomatch h
-  | letE ty v b => rw [ATerm.erase_letE] at h; exact nomatch h
-  | eqE ty l r => rw [ATerm.erase_eqE] at h; exact nomatch h
-  | proj i e => rw [ATerm.erase_proj] at h; exact nomatch h
-  | prf => rw [ATerm.erase_prf] at h; exact nomatch h
+  | app f a => rw [AnnotTerm.erase_app] at h; exact nomatch h
+  | lam u ty b => rw [AnnotTerm.erase_lam] at h; exact nomatch h
+  | pi u v ty b => rw [AnnotTerm.erase_pi] at h; exact nomatch h
+  | letE ty v b => rw [AnnotTerm.erase_letE] at h; exact nomatch h
+  | eqE ty l r => rw [AnnotTerm.erase_eqE] at h; exact nomatch h
+  | proj i e => rw [AnnotTerm.erase_proj] at h; exact nomatch h
+  | prf => rw [AnnotTerm.erase_prf] at h; exact nomatch h
 
 
 end ConLeche.Semantics

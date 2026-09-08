@@ -148,22 +148,22 @@ theorem indBottomProj {μ : CheckMode} {env : Env}
             (cvj.type.instantiateLevelParams cvj.levelParams usj)
             = some TVja →
           TeleFitPA V ρ TVa
-            (xs ++ [ATerm.mkAppN
+            (xs ++ [AnnotTerm.mkAppN
               (mp.base2.acval ctor
                 (Level.substFn φ cvj.levelParams usj)) ys]) restR →
           TeleFitPA V ρ TVja ys restC →
           interp V ρ
-              (ATerm.mkAppN
+              (AnnotTerm.mkAppN
                 (mp.base2.acval Rn (Level.substFn φ lps us))
-                (xs ++ [ATerm.mkAppN
+                (xs ++ [AnnotTerm.mkAppN
                   (mp.base2.acval ctor
                     (Level.substFn φ cvj.levelParams usj)) ys]))
             = interp V ρ
-                (ATerm.mkAppN Ra
+                (AnnotTerm.mkAppN Ra
                   (xs.take rP ++ ys.drop cnP)) ∧
           ((∀ a ∈ xs, WellDenotedV V ρ a) → (∀ b ∈ ys, WellDenotedV V ρ b) →
             WellDenotedV V ρ
-              (ATerm.mkAppN Ra (xs.take rP ++ ys.drop cnP))) := by
+              (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop cnP))) := by
   intro φ us huslen
   obtain ⟨Ra, taR, hRaden, hRaFacts⟩ := hrhsKey (Level.substFn φ lps us)
   refine ⟨Ra, by rw [denotePInstLevels]; exact hRaden,
@@ -404,7 +404,7 @@ theorem indBottomProj {μ : CheckMode} {env : Env}
   have hsat : Sat V Γs (chain V ρ (xs.take rP ++ ys.drop cnP)) :=
     sat_of_tower htowerS hzslen hallK
   have hfitS : TeleFitPA V ρ Tst (xs.take rP ++ ys.drop cnP)
-      (ATerm.instSeq (xs.take rP ++ ys.drop cnP) (rP + cnF - 1)
+      (AnnotTerm.instSeq (xs.take rP ++ ys.drop cnP) (rP + cnF - 1)
         Rbody) :=
     teleFitPA_of_tower (rP + cnF) htowerS hzslen hallK
   -- ===== the statement body, decomposed and graded =====
@@ -490,10 +490,10 @@ theorem indBottomProj {μ : CheckMode} {env : Env}
           | nil => exact ⟨_, _, _, rfl, hα, hL, hR⟩
   have hokVα : ∀ σ : Nat → V, Sat V Γs σ → WellDenotedV V σ va0 := by
     intro σ hσ
-    have h : WellDenotedV V σ (ATerm.mkAppN vEq0 [va0, vl0, vr0]) := by
+    have h : WellDenotedV V σ (AnnotTerm.mkAppN vEq0 [va0, vl0, vr0]) := by
       rw [← hRbodyEq]
       exact wellDenotedV_tower_body_sat htowerS (hokTst _) hσ
-    have hshow : ATerm.mkAppN vEq0 [va0, vl0, vr0]
+    have hshow : AnnotTerm.mkAppN vEq0 [va0, vl0, vr0]
         = .app (.app (.app vEq0 va0) vl0) vr0 := rfl
     refine ⟨?_, ?_⟩
     · have h1 := h.1
@@ -587,7 +587,7 @@ theorem indBottomProj {μ : CheckMode} {env : Env}
       ∃ w0, denoteMeta mp.base2.acval env (Level.substFn φ lps us)
             (rP + cnF) x = some w0 ∧
         (xs.take rP ++ ys.drop cnP)[q]?
-          = some (ATerm.instSeq (xs.take rP ++ ys.drop cnP)
+          = some (AnnotTerm.instSeq (xs.take rP ++ ys.drop cnP)
               (rP + cnF - 1) w0) := by
     intro q x hx
     have hqlt : q < rP + cnF := by

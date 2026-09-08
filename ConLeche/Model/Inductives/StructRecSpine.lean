@@ -61,7 +61,7 @@ theorem liftN_mkPisAV (n : Nat) :
       (mkPisAV ds b).liftN n k = mkPisAV (liftDoms n k ds) (b.liftN n (k + ds.length))
   | [], b, k => by simp [mkPisAV, liftDoms]
   | d :: ds, b, k => by
-    simp only [mkPisAV, liftDoms, ATerm.liftN_pi, liftN_mkPisAV n ds b (k + 1),
+    simp only [mkPisAV, liftDoms, AnnotTerm.liftN_pi, liftN_mkPisAV n ds b (k + 1),
       List.length_cons]
     rw [show k + 1 + ds.length = k + (ds.length + 1) from by omega]
 
@@ -176,9 +176,9 @@ theorem denoteMetaSpine_fvars {acval : Name → (Name → Nat) → AnnotTerm} (D
       (fun k y hy => by
         obtain ⟨ty', h⟩ := hidx (k + 1) y (by simpa using hy)
         exact ⟨ty', by rw [h]; congr 1; omega⟩)
-    have hmapeq : (List.map ((fun k => ATerm.bvar (D - 1 - (k₀ + k))) ∘ Nat.succ)
+    have hmapeq : (List.map ((fun k => AnnotTerm.bvar (D - 1 - (k₀ + k))) ∘ Nat.succ)
           (List.range fvs.length))
-        = (List.range fvs.length).map fun k => ATerm.bvar (D - 1 - (k₀ + 1 + k)) := by
+        = (List.range fvs.length).map fun k => AnnotTerm.bvar (D - 1 - (k₀ + 1 + k)) := by
       apply List.map_congr_left
       intro k _
       simp only [Function.comp_def]

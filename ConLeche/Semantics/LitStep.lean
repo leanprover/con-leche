@@ -5,7 +5,7 @@ import ConLeche.Semantics.Canon
 # `CheckStep2`, the literal clauses — Tier B (the transposition batch)
 
 *(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161:
-`natLit_facts2` is the module's only theorem, it mentions no `EnvS`,
+`natLit_factsAV` is the module's only theorem, it mentions no `EnvS`,
 no fuel and no mode — a pure `interp`/`WellDenoted` statement about a
 `natLitAV` spine, as the note below already observes — and both lanes'
 numeral clauses consume it.  Path and module name changed; the Lean
@@ -50,7 +50,7 @@ the **graph regime** and `app_mem_piR_pos` applies with no fibre
 premise; the app slot's kind-`0` component is vacuous for the same
 reason.  v1 needed `app_mem_piC` plus the collapse's side conditions
 here. -/
-theorem natLit_facts2 {ρ : Nat → V} {za sa natA : AnnotTerm}
+theorem natLit_factsAV {ρ : Nat → V} {za sa natA : AnnotTerm}
     (hokz : WellDenoted V ρ za) (hoks : WellDenoted V ρ sa)
     (hz : interp V ρ za ∈ˢ interp V ρ natA)
     (hsucc : interp V ρ sa
@@ -74,10 +74,10 @@ theorem natLit_facts2 {ρ : Nat → V} {za sa natA : AnnotTerm}
 
 /-! ## Re-pointed to `Claims2A` (seal 6)
 
-**`natLit_facts2` needed no repair, and that is a fact about the
+**`natLit_factsAV` needed no repair, and that is a fact about the
 amendment rather than about this file.**  All four repairs are about
 *fuel*: R1 and R3 move the annotation's fuel, R2 grades a reduction, R4
-restricts the modes.  `natLit_facts2` mentions no fuel, no `denoteAnnot`
+restricts the modes.  `natLit_factsAV` mentions no fuel, no `denoteAnnot`
 and no mode — it is a pure `interp`/`WellDenoted` statement about a
 `natLitAV` spine — so it is amendment-neutral by construction.
 
@@ -113,7 +113,7 @@ the collision surfaces at the fold rather than at authoring.
 
 `Claims2C` hoists every `WellDenoted` above the `∀ ρ` and makes
 `InferClaims2C` deliver the *returned type's* grading too.
-`natLit_facts2` states both of its conclusions at a single, arbitrary
+`natLit_factsAV` states both of its conclusions at a single, arbitrary
 `ρ` with no `Sat` in sight, so hoisting it is `fun ρ hρ => …` and the
 statement does not move — the same reason seal 6's four repairs passed
 through it.  The returned type is `.const Nat []`, whose grading is

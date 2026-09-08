@@ -37,9 +37,9 @@ and the field applied to the telescope's variables (a finitary field:
 the motive at the readings and the field). -/
 def ihDomAV (nF o i l : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) : AnnotTerm :=
   mkPisAV (ihTeleAtR nF o i l tl)
-    (ATerm.mkAppN (.bvar (nF + o - 1 + l + tl.length))
+    (AnnotTerm.mkAppN (.bvar (nF + o - 1 + l + tl.length))
       (Eis.map (ihIdxAtM nF o i l tl.length) ++
-        [ATerm.mkAppN (.bvar (nF - 1 - i + l + tl.length)) (teleVarsAV tl.length)]))
+        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + l + tl.length)) (teleVarsAV tl.length)]))
 
 /-- The ih binders' Π-tower over the recursive positions (the moved
 telescopes re-bit to the elimination bit `b`, task #202 A2). -/
@@ -59,9 +59,9 @@ def minorAVAtR {env : Env} (m : EnvModel V env) (C : Name) (ψ : Name → Nat) (
     (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) : AnnotTerm :=
   mkPisAV (rebit b (liftDoms o 0 (ds.drop nP)))
     (ihPisAV nF o b tls Eiss recIdx 0
-      ((ATerm.mkAppN (.bvar (nF + o - 1))
+      ((AnnotTerm.mkAppN (.bvar (nF + o - 1))
         ((Es.map fun E => E.liftN o nF) ++
-          [ATerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)])).liftN
+          [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)])).liftN
         recIdx.length 0))
 
 /-- A recursive constructor datum: name, field count, field data,
@@ -147,13 +147,13 @@ fields of a rule (`structRecPrefixAt nP n nF 0`'s reading: the
 parameters sit `nF + n + 1` binders above the fields). -/
 def recPrefixBvars (nP n nF : Nat) : List AnnotTerm :=
   paramBvarsAt nP (nP + nF + n + 1) ++ [.bvar (nF + n)] ++
-    (List.range n).map fun l => ATerm.bvar (nF + n - 1 - l)
+    (List.range n).map fun l => AnnotTerm.bvar (nF + n - 1 - l)
 
 /-- The recursor's leading spine under `m` more binders
 (`structRecPrefixAt nP n nF m`'s reading). -/
 def recPrefixBvarsM (nP n nF m : Nat) : List AnnotTerm :=
   paramBvarsAt nP (nP + nF + n + 1 + m) ++ [.bvar (nF + n + m)] ++
-    (List.range n).map fun l => ATerm.bvar (nF + n - 1 - l + m)
+    (List.range n).map fun l => AnnotTerm.bvar (nF + n - 1 - l + m)
 
 /-- The ih application in a rule for recursive field `i`: under the
 field's telescope (a λ-tower with the telescope's own bits), the
@@ -164,16 +164,16 @@ field: no telescope). -/
 def ihAppAV (R : AnnotTerm) (nP n nF i : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) :
     AnnotTerm :=
   mkLamsAV ((ihTeleAtR nF (n + 1) i 0 tl).map fun d => (d.2.1, d.2.2))
-    (ATerm.mkAppN R (recPrefixBvarsM nP n nF tl.length ++
+    (AnnotTerm.mkAppN R (recPrefixBvarsM nP n nF tl.length ++
       Eis.map (ihIdxAtM nF (n + 1) i 0 tl.length) ++
-      [ATerm.mkAppN (.bvar (nF - 1 - i + tl.length)) (teleVarsAV tl.length)]))
+      [AnnotTerm.mkAppN (.bvar (nF - 1 - i + tl.length)) (teleVarsAV tl.length)]))
 
 /-- Rule `j`'s core at a recursive block: minor `j` at the field
 variables and the ih applications (their telescopes re-bit to the
 elimination bit `b`, task #202 A2). -/
 def fixRuleCoreAV (b : Nat) (R : AnnotTerm) (nP nF n j : Nat) (recIdx : List Nat)
     (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) : AnnotTerm :=
-  ATerm.mkAppN (.bvar (nF + n - 1 - j))
+  AnnotTerm.mkAppN (.bvar (nF + n - 1 - j))
     (fieldBvars nF ++ recIdx.map fun i =>
       ihAppAV R nP n nF i (rebit b (tls.getD i [])) (Eiss.getD i []))
 
@@ -211,7 +211,7 @@ structure CtorReadR {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (T : Na
       = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (ConLeche.structPsAt c.2.1 nP ++ es)) ∧
     es.length = nIdx
   read : denoteMeta m.acval env ψ 0 c.2.2.1
-    = some (mkPisAV cd.2.2.1 (ATerm.mkAppN (m.acval T ψ) (paramBvars nP c.2.1 ++ cd.2.2.2.1)))
+    = some (mkPisAV cd.2.2.1 (AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP c.2.1 ++ cd.2.2.2.1)))
   len : cd.2.2.1.length = nP + c.2.1
   lenE : cd.2.2.2.1.length = nIdx
   recIdx : cd.2.2.2.2.1 = c.2.2.2
@@ -246,7 +246,7 @@ structure CtorReadR {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (T : Na
   recEntry : ∀ i ∈ c.2.2.2,
     (cd.2.2.1.getD (nP + i) default).2.2
       = mkPisAV (cd.2.2.2.2.2.2.getD i [])
-          (ATerm.mkAppN (m.acval T ψ)
+          (AnnotTerm.mkAppN (m.acval T ψ)
             (paramBvarsAt nP (nP + i + (cd.2.2.2.2.2.2.getD i []).length) ++
               cd.2.2.2.2.2.1.getD i []))
 

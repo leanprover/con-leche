@@ -98,10 +98,10 @@ theorem projAV_validV :
 theorem mkAppN_validV :
     ∀ {args : List AnnotTerm} {f : AnnotTerm} {σ : Nat → V},
       AnnotValid V σ f → (∀ a ∈ args, AnnotValid V σ a) →
-      AnnotValid V σ (ATerm.mkAppN f args)
+      AnnotValid V σ (AnnotTerm.mkAppN f args)
   | [], _, _, hf, _ => hf
   | a :: args, f, σ, hf, hargs => by
-    rw [ATerm.mkAppN_cons]
+    rw [AnnotTerm.mkAppN_cons]
     refine mkAppN_validV ?_ fun a' ha' => hargs a' (.tail _ ha')
     rw [AnnotValid_app]
     exact ⟨hf, hargs a (.head _)⟩

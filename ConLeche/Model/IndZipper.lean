@@ -107,7 +107,7 @@ theorem zipper {m : EnvModel V env} {F : Nat}
     {mix : List AnnotTerm} (hmixlen : mix.length = cnP + cnF)
     (hmixsp : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       ∃ w0, denoteMeta m.acval env φ (rP + cnF) x = some w0 ∧
-        mix[q]? = some (ATerm.instSeq (xs.take rP ++ ys.drop cnP)
+        mix[q]? = some (AnnotTerm.instSeq (xs.take rP ++ ys.drop cnP)
           (rP + cnF - 1) w0))
     (hmixFldEq : ∀ j, j < cnF →
       mix.getD (cnP + j) default = ys.getD (cnP + j) default)
@@ -138,7 +138,7 @@ theorem zipper {m : EnvModel V env} {F : Nat}
           interp V ρ' w ∈ˢ interp V ρ' dw) :
     Sat V Γs (chain V ρ (xs.take rP ++ ys.drop cnP)) ∧
     TeleFitPA V ρ Tstmt (xs.take rP ++ ys.drop cnP)
-      (ATerm.instSeq (xs.take rP ++ ys.drop cnP) (rP + cnF - 1)
+      (AnnotTerm.instSeq (xs.take rP ++ ys.drop cnP) (rP + cnF - 1)
         Rbody) := by
   have hΓslen : Γs.length = rP + cnF := htowerS.length
   have hΓPlen : ΓP.length = rP := htowerP.length
@@ -215,9 +215,9 @@ theorem zipper {m : EnvModel V env} {F : Nat}
       ∃ vdomLow,
         denoteMeta m.acval env φ (rP + j) (cdoms.getD (cnP + j) default)
           = some vdomLow ∧
-        ATerm.instSeq ((xs.take rP ++ ys.drop cnP).take (rP + j))
+        AnnotTerm.instSeq ((xs.take rP ++ ys.drop cnP).take (rP + j))
             (rP + j - 1) vdomLow
-          = ATerm.instSeq (mix.take (cnP + j)) (cnP + j - 1)
+          = AnnotTerm.instSeq (mix.take (cnP + j)) (cnP + j - 1)
               (Γj.getD (cnP + cnF - 1 - (cnP + j)) default) := fun j hj =>
     zipFieldTermEq m.acval_closed
       (fun n ψ y k => AVExprSubst.inst_eq_self_of_closed
@@ -302,7 +302,7 @@ theorem zipper {m : EnvModel V env} {F : Nat}
             omega
           rw [show interp V (chain V ρ (mix.take (cnP + (n - rP))))
               (Γj.getD (cnP + cnF - 1 - (cnP + (n - rP))) default)
-            = interp V ρ (ATerm.instSeq (mix.take (cnP + (n - rP)))
+            = interp V ρ (AnnotTerm.instSeq (mix.take (cnP + (n - rP)))
                 (cnP + (n - rP) - 1)
                 (Γj.getD (cnP + cnF - 1 - (cnP + (n - rP))) default))
             from by rw [← interp_instSeq, htake1]] at h1
@@ -312,7 +312,7 @@ theorem zipper {m : EnvModel V env} {F : Nat}
               = n := by
             rw [List.length_take, hzslen]
             omega
-          rw [show interp V ρ (ATerm.instSeq
+          rw [show interp V ρ (AnnotTerm.instSeq
               ((xs.take rP ++ ys.drop cnP).take n) (n - 1) vdomLow)
             = interp V (chain V ρ
                 ((xs.take rP ++ ys.drop cnP).take n)) vdomLow from by

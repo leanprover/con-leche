@@ -99,8 +99,8 @@ theorem denoteMeta_openSpine {K : Name} {ci : ConstantInfo}
     (nP d : Nat) (hd : nP ≤ d) :
     denoteMeta acval env φ d
         (Expr.mkAppN (.const K (lps.map .param)) (openFvars 0 nP))
-      = some (ATerm.mkAppN (acval K φ)
-          ((List.range nP).map fun q => ATerm.bvar (d - 1 - (0 + q)))) := by
+      = some (AnnotTerm.mkAppN (acval K φ)
+          ((List.range nP).map fun q => AnnotTerm.bvar (d - 1 - (0 + q)))) := by
   refine denoteMeta_mkAppN (denoteMetaSpine_openFvars nP 0 d (by omega)) ?_
   rw [denoteMeta_const hf (by rw [hlps, List.length_map]), hlps,
     show Level.substFn φ lps (lps.map .param) = φ from
@@ -318,19 +318,19 @@ theorem memberUnitLaw : MemberUnitLaw V := by
       denoteMeta mp.base2.acval env ψ d
         (Expr.mkAppN (.const (cvA.name.str "_model")
           (cvA.levelParams.map .param)) (openFvars 0 caps.unitParams))
-      = some (ATerm.mkAppN
+      = some (AnnotTerm.mkAppN
           (mp.base2.acval (cvA.name.str "_model") ψ)
           ((List.range caps.unitParams).map fun q =>
-            ATerm.bvar (d - 1 - (0 + q)))) :=
+            AnnotTerm.bvar (d - 1 - (0 + q)))) :=
     fun d hd => denoteMeta_openSpine hTmE hTmlps _ d hd
   -- the spine's value at any environment agreeing with the fit
   have hspineVal : ∀ (d : Nat) (σ : Nat → V),
       (∀ q, q < ts.length →
         σ (d - 1 - (0 + q)) = consN ts ρ (ts.length - 1 - q)) →
-      interp V σ (ATerm.mkAppN
+      interp V σ (AnnotTerm.mkAppN
           (mp.base2.acval (cvA.name.str "_model") ψ)
           ((List.range caps.unitParams).map fun q =>
-            ATerm.bvar (d - 1 - (0 + q))))
+            AnnotTerm.bvar (d - 1 - (0 + q))))
         = ts.foldl SetTheory.app
             (interp V ρ (mp.base2.acval (cvA.name.str "_model") ψ)) := by
     intro d σ hσ
@@ -341,10 +341,10 @@ theorem memberUnitLaw : MemberUnitLaw V := by
       (acval_interp_closedC mp.base2 _ ψ σ ρ)
   -- the x-slot
   obtain ⟨mx, hxb⟩ := hxdom
-  have hAx : Ax = ATerm.mkAppN
+  have hAx : Ax = AnnotTerm.mkAppN
       (mp.base2.acval (cvA.name.str "_model") ψ)
       ((List.range caps.unitParams).map fun q =>
-        ATerm.bvar (caps.unitParams - 1 - (0 + q))) := by
+        AnnotTerm.bvar (caps.unitParams - 1 - (0 + q))) := by
     have h := hdomsS caps.unitParams _ hxb
     rw [instSeq_openSpine _ _ caps.unitParams caps.unitParams
         (caps.unitParams - 1) (Nat.le_refl _) (by omega),
@@ -356,10 +356,10 @@ theorem memberUnitLaw : MemberUnitLaw V := by
     exact (Option.some.inj h).symm
   -- the y-slot
   obtain ⟨my, hyb⟩ := hydom
-  have hAy : Ay = ATerm.mkAppN
+  have hAy : Ay = AnnotTerm.mkAppN
       (mp.base2.acval (cvA.name.str "_model") ψ)
       ((List.range caps.unitParams).map fun q =>
-        ATerm.bvar (caps.unitParams + 1 - 1 - (0 + q))) := by
+        AnnotTerm.bvar (caps.unitParams + 1 - 1 - (0 + q))) := by
     have h := hdomsS (caps.unitParams + 1) _ hyb
     rw [show caps.unitParams + 1 - 1 = caps.unitParams from by omega,
       instSeq_openSpine _ _ caps.unitParams (caps.unitParams + 1)
@@ -399,9 +399,9 @@ theorem memberUnitLaw : MemberUnitLaw V := by
   have hCs : Cs = .app (.app (.app
       (mp.base2.acval eqName
         (Level.substFn ψ eqA.toConstantVal.levelParams [ℓA]))
-      (ATerm.mkAppN (mp.base2.acval (cvA.name.str "_model") ψ)
+      (AnnotTerm.mkAppN (mp.base2.acval (cvA.name.str "_model") ψ)
         ((List.range caps.unitParams).map fun q =>
-          ATerm.bvar (caps.unitParams + 2 - 1 - (0 + q)))))
+          AnnotTerm.bvar (caps.unitParams + 2 - 1 - (0 + q)))))
       (.bvar 1)) (.bvar 0) := by
     have h := hbodyS
     rw [show caps.unitParams + 2 - 1 = caps.unitParams + 1 from by omega,
@@ -457,9 +457,9 @@ theorem memberUnitLaw : MemberUnitLaw V := by
       (hokua ρ) hfitFull
     rwa [hconsApp] at h
   have hSval : interp V (cons y (cons x (consN ts ρ)))
-      (ATerm.mkAppN (mp.base2.acval (cvA.name.str "_model") ψ)
+      (AnnotTerm.mkAppN (mp.base2.acval (cvA.name.str "_model") ψ)
         ((List.range caps.unitParams).map fun q =>
-          ATerm.bvar (caps.unitParams + 2 - 1 - (0 + q))))
+          AnnotTerm.bvar (caps.unitParams + 2 - 1 - (0 + q))))
       = ts.foldl SetTheory.app
           (interp V ρ (mp.base2.acval (cvA.name.str "_model") ψ)) :=
     hspineVal (caps.unitParams + 2) (cons y (cons x (consN ts ρ)))

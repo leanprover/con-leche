@@ -17,7 +17,7 @@ law itself (`TowerOk`, `Annot/EnvModelM.lean`):
   syntactic peel of the entry type's reading along the readings
   (`denoteMeta_instPisAt_peel` — `teleFitPA_residual`'s spine with the
   memberships dropped, which is exactly why the typing law is stated
-  over `ATerm.peelPis`);
+  over `AnnotTerm.peelPis`);
 * the stored entry type is closed (`EnvWF`), so its reading at depth
   `0` is its reading at every depth (`towerEntry_ty_at_depth`);
 * `projAV`'s grading under equal-valued subjects lives one module
@@ -50,7 +50,7 @@ theorem denoteMeta_proj_tower {d : Nat} {s : Name} {i : Nat} {e : Expr}
   rw [denoteMeta_proj, he]
   show (match env.findProj? s i with
     | some entry => some (projAV (i + entry.off) ia)
-    | none => if i < 2 then some (ATerm.proj i ia) else none)
+    | none => if i < 2 then some (AnnotTerm.proj i ia) else none)
       = some (projAV (i + entry.off) ia)
   rw [hfe]
 
@@ -108,7 +108,7 @@ theorem denoteMeta_instPisAt_peel
       denoteMeta acval env φ d ty = some Ta →
       DenoteMetaSpine acval env φ d args vs →
       ∃ restA, denoteMeta acval env φ d rest = some restA ∧
-        ATerm.peelPis Ta vs = some restA := by
+        AnnotTerm.peelPis Ta vs = some restA := by
   intro args
   induction args with
   | nil =>
@@ -198,7 +198,7 @@ theorem denoteMeta_typeAt_peel {m : EnvModel V env} {T : Name} {i : Nat}
     {vs : List AnnotTerm}
     (hsp : DenoteMetaSpine m.acval env φ d (targs ++ [pe]) vs) :
     ∃ restA, denoteMeta m.acval env φ d (entry.typeAt us targs pe) = some restA ∧
-      ATerm.peelPis Ta vs = some restA := by
+      AnnotTerm.peelPis Ta vs = some restA := by
   obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa
   exact denoteMeta_instPisAt_peel m.acval_closed (acval_inst_self m) (targs ++ [pe])
     (ConLeche.instPisAt_typeAt entry us hlen pe)

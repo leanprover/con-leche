@@ -234,7 +234,7 @@ theorem bodyFrames {env : Env} (m : EnvModel V env)
     (ds.getD (nP + i) default).2.2
     (mkPisAV (ds.drop (nP + i + 1)) bodyA)
   rw [hB'] at hpeel'
-  obtain ⟨-, -, hfdomA, -⟩ := ATerm.pi.inj (Option.some.inj hpeel')
+  obtain ⟨-, -, hfdomA, -⟩ := AnnotTerm.pi.inj (Option.some.inj hpeel')
   -- the field's domain, named
   have hFi : ((ds.drop nP).map (·.2.2)).getD i default = (ds.getD (nP + i) default).2.2 := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_drop,

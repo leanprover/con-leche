@@ -3,14 +3,14 @@ import ConLeche.Verify.EnvPreds
 import ConLeche.Verify.Extend.Inversions
 
 /-!
-# Sibs — the `V`-free half of `ConLeche.Model.Extend.Sibs`
+# Sibs — the `V`-free half of `ConLeche.ModelV1.Extend.Sibs`
 
 Per-clause preservation (`.cons`) lemmas for extending an environment by
 one fresh constant, at the two clauses that are statements about the
 environment alone: `BasisBlocks` and `RecCtorsStored`, with the head
 obligation (`SibFinds`) they consume.
 
-Relocated from `ConLeche/Model/Extend/Sibs.lean` (task #123); the
+Relocated from `ConLeche/ModelV1/Extend/Sibs.lean` (task #123); the
 `RecRulesOk` / `CapsOk` clauses and their head obligations stay there,
 being statements about a valuation.
 -/

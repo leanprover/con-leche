@@ -60,7 +60,7 @@ theorem nonempty_of_exists {α : Sort u} {p : α → Prop} (h : ∃ x, p x) :
     Nonempty α := h.elim fun x _ => ⟨x⟩
 
 /-- **`WellDenotedV` is `BitAgree`-invariant** — both halves are
-(`ATerm.BitAgree.wellDenoted`/`.validV`), so the P currency crosses the
+(`AnnotTerm.BitAgree.wellDenoted`/`.validV`), so the P currency crosses the
 bridge between a `denoteMeta` reading and the `BConst.typeAV` tower it
 agrees with.  This is what makes a basis type reading's grading a
 *computation* rather than a re-derivation. -/

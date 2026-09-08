@@ -41,7 +41,7 @@ theorem fixLeafApp {u w nP : Nat} {pps : List (Nat × Nat × AnnotTerm)} {rss : 
       = interp V (fun j => ρp (j + nP)) (nativeTyAVI u w pps ((pps.drop nP).map (·.2.2)) rss tlss Eiss Fss Ess))
     {as : List V} {Eis : List AnnotTerm}
     (hsp : SpineFit ρp ((pps.drop nP).map (·.2.2)) (Eis.map (interp V (consList as ρp)))) :
-    interp V (consList as ρp) (ATerm.mkAppN A (paramBvarsAt nP (nP + as.length) ++ Eis))
+    interp V (consList as ρp) (AnnotTerm.mkAppN A (paramBvarsAt nP (nP + as.length) ++ Eis))
       = SetTheory.app (fixFamI u w ρp ((pps.drop nP).map (·.2.2)) ((pps.drop nP).map (·.2.2)).length
           rss tlss Eiss Fss Ess) (tupW u (Eis.map (interp V (consList as ρp)))) := by
   have hlenI : (Eis.map (interp V (consList as ρp))).length
@@ -140,7 +140,7 @@ theorem fixRealWalk (_hI : IdxOk u ρp Ids) {μ : V}
       interp_congr_noBVar _ (hnb as.length hi) hag
     have hnext : ∀ (a a' : V), (¬ recAt nP ks (nP + as.length) → a' = a) →
         a' ∈ˢ interp V (consList as' ρp)
-          (if recAt nP ks (nP + as.length) then ATerm.sort 0 else Fs₀.getD as.length default) →
+          (if recAt nP ks (nP + as.length) then AnnotTerm.sort 0 else Fs₀.getD as.length default) →
         ChainRealI μ u w ρp Ids (rsOf ks) tls Eis (as.length + 1) (as ++ [a])
           (Fs₀.drop (as.length + 1)) (Fs.drop (as.length + 1)) := by
       intro a a' ha ha'

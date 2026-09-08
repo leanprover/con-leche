@@ -42,7 +42,7 @@ the recorded form is the checker's literal output, one run per
 equation.  The P tier's establishment route consumes these runs
 through `DefEqClaim` — the run-certificate move — because the
 relational `NatEqsR` above concludes a `DefEq` whose soundness lives
-at the collapse currency only (`Interp/Steps/NatP.lean`'s wall
+at the collapse currency only (`Interp/Steps/Nat.lean`'s wall
 record). -/
 def NatEqsRun (μ : CheckMode) (F : Nat) (env : Env)
     (eqs : List (Expr × Expr)) : Prop :=

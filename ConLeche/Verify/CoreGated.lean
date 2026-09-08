@@ -31,7 +31,7 @@ clause is *not* gated (`Kernel/CoreGated.lean`'s docstring), so
 `whnf_proj_inv`'s gated twin is `whnf_proj_inv` itself modulo the
 knot: no certificate the gate skipped is ever reached for, because at
 the zero-kind branch the gate does not fire — see
-`Model/Steps/GateP.lean` for the P-tier reading of that condition
+`Model/Steps/Gate.lean` for the P-tier reading of that condition
 (`isNever_iff_forall_pwBit_ne_zero`).
 -/
 
@@ -168,7 +168,7 @@ The gated disjunct is what a transposed β clause consumes in place of
 the certificate: at a fired gate the λ's datum is `.never`, hence
 positive at *every* valuation, hence the zero-kind arm — the one that
 consumes a certificate — is unreachable (`gate_pwBit_ne_zero`,
-`Model/Steps/GateP.lean`).  No obligation reaches for a certificate the
+`Model/Steps/Gate.lean`).  No obligation reaches for a certificate the
 gate skipped; that is the asymmetry fence, discharged.
 
 (The linter option is `Verify/InferLemmas.lean`'s, for the same

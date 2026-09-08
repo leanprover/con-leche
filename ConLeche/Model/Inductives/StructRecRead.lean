@@ -108,7 +108,7 @@ theorem denoteMeta_replacePisPw {pw : PropWhen} :
         have ih := denoteMeta_replacePisPw k hr'' hop' hba hst'
         rw [denoteMeta_forallE, hta]
         show (denoteMeta acval env φ (d + 1) (r'.instantiate1 (.fvar d ty)) >>= fun ba =>
-          some (ATerm.pi 0 (pwBit φ pw) ta ba)) = _
+          some (AnnotTerm.pi 0 (pwBit φ pw) ta ba)) = _
         rw [ih, show d + (k + 1) = d + 1 + k from by omega]
         show _ = (denoteMeta acval env φ (d + 1 + k)
           (Expr.instSeq fvs' (k + 1 - 1 - 1) (b.instantiate1 (.fvar d ty) (k + 1 - 1)))).map _
@@ -161,7 +161,7 @@ theorem denoteMeta_pisToLamsPw {pw : PropWhen} :
         have ih := denoteMeta_pisToLamsPw k hr'' hop' hba hst'
         rw [denoteMeta_lam, hta]
         show (denoteMeta acval env φ (d + 1) (r'.instantiate1 (.fvar d ty)) >>= fun ba =>
-          some (ATerm.lam (pwBit φ pw) ta ba)) = _
+          some (AnnotTerm.lam (pwBit φ pw) ta ba)) = _
         rw [ih, show d + (k + 1) = d + 1 + k from by omega]
         show _ = (denoteMeta acval env φ (d + 1 + k)
           (Expr.instSeq fvs' (k + 1 - 1 - 1) (b.instantiate1 (.fvar d ty) (k + 1 - 1)))).map _
@@ -254,7 +254,7 @@ theorem opening_vars_at {n d : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
 
 /-- The field variables' spine at the minor's core. -/
 def fieldBvars (nF : Nat) : List AnnotTerm :=
-  (List.range nF).map fun k => ATerm.bvar (nF - 1 - k)
+  (List.range nF).map fun k => AnnotTerm.bvar (nF - 1 - k)
 
 /-! ## The constructor telescope's residual -/
 

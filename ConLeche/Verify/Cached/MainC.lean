@@ -114,7 +114,7 @@ semantic is added; the io-graded P core's soundness (B4's premise-form
 slot claims) arrives through `declStep_preserves`'s dependency cone.
 
 Since the SetR removal (2026-09-05) this is the tree's ONLY letter
-about an executable, and `no_proof_of_Empty_pure` (`Model/FoldP.lean`, the
+about an executable, and `no_proof_of_Empty_pure` (`Model/Fold.lean`, the
 pure fueled checker the tower is stated about) its only sibling. -/
 
 section PLetters

@@ -180,7 +180,7 @@ theorem fixFibreEtaLaw0 {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
     have hsp := spineFit_of_teleFit (by rw [hlen, hpar]) hfitT
     rw [hleaf, hfold _ ρ ts hsp] at hx
     rw [hfields]
-    simp only [etaFabArgs2, projSpines2, List.range_zero, List.map_nil, List.append_nil]
+    simp only [etaFabArgsV, projSpines, List.range_zero, List.map_nil, List.append_nil]
     rw [hleafC]
     by_cases hw : w (Level.substFn φ' cvT.levelParams us) = 0
     · rw [hw] at hx

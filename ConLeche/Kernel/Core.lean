@@ -816,7 +816,7 @@ is a subterm of the subject and carries its own `WellDenoted` app slots)
 a slot whose `∀`-binder datum is `.never` is skipped: the membership
 the run would establish follows from the slot and the head's
 membership in the telescope's reading (`io_domain_transfer`, the io
-gate's theorem verbatim; `Model/Steps/IotaGateP.lean`).  The rescue's
+gate's theorem verbatim; `Model/Steps/IotaGate.lean`).  The rescue's
 synthetic-spine certifications (`majorToCtor`, the η/unit/K
 fabrications) run at `lic = false`: a fabricated spine is not a
 subterm of the subject and its grading is *produced* by this very

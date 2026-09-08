@@ -130,7 +130,7 @@ theorem interp_fixRuleCoreAV {ℓ b nP n nF j : Nat} (hbz : ℓ = 0 ↔ b = 0) {
   unfold fixRuleCoreAV
   rw [interp_mkAppN, ← List.foldl_map (f := interp V (consList as₂ (consList ms (cons M (consList as₁ ρ)))))
     (g := SetTheory.app), List.map_append, List.map_map, interp_bvar,
-    show fieldBvars nF = (List.range nF).map (fun k => ATerm.bvar (nF - 1 - k)) from rfl,
+    show fieldBvars nF = (List.range nF).map (fun k => AnnotTerm.bvar (nF - 1 - k)) from rfl,
     map_fieldBvars_interp hlenF,
     show nF + n - 1 - j = (n - 1 - j) + as₂.length from by omega, consList_apply_add,
     consList_apply_lt' ms _ (by omega), show ms.length - 1 - (n - 1 - j) = j from by omega]
@@ -173,7 +173,7 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
     (hokRa : ∀ ρ : Nat → V, WellDenotedV V ρ Ra)
     {ρ : Nat → V} {xs ys : List AnnotTerm} (hxl : xs.length = nP + 1 + n + nIdx) (hyl : ys.length = nP + nF)
     (hspR : SpineFit ρ (rds.map (·.2.2))
-      ((xs ++ [ATerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]).map
+      ((xs ++ [AnnotTerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]).map
         (interp V ρ)))
     (hspC : SpineFit ρ (ds.map (·.2.2)) (ys.map (interp V ρ)))
     (hplain : ∀ i, i < nP →
@@ -181,11 +181,11 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
     (hpin : ∀ i, i < nIdx →
       interp V (consList (ys.map (interp V ρ)) ρ) (Es.getD i default)
         = interp V ρ (xs.getD (nP + 1 + n + i) default)) :
-    interp V ρ (ATerm.mkAppN R
-        (xs ++ [ATerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]))
-      = interp V ρ (ATerm.mkAppN Ra (xs.take (nP + 1 + n) ++ ys.drop nP)) ∧
+    interp V ρ (AnnotTerm.mkAppN R
+        (xs ++ [AnnotTerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]))
+      = interp V ρ (AnnotTerm.mkAppN Ra (xs.take (nP + 1 + n) ++ ys.drop nP)) ∧
     ((∀ a ∈ xs, WellDenotedV V ρ a) → (∀ b ∈ ys, WellDenotedV V ρ b) →
-      WellDenotedV V ρ (ATerm.mkAppN Ra (xs.take (nP + 1 + n) ++ ys.drop nP))) := by
+      WellDenotedV V ρ (AnnotTerm.mkAppN Ra (xs.take (nP + 1 + n) ++ ys.drop nP))) := by
   have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
   have hFsjD : Fss.getD j [] = (ds.drop nP).map (·.2.2) := by
     rw [List.getD_eq_getElem?_getD, hFsj]; rfl
@@ -204,7 +204,7 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
   rw [List.map_append, List.map_cons, List.map_nil] at hspR'
   generalize hvs : xs.map (interp V ρ) = vs at hspR'
   generalize htv : interp V ρ
-    (ATerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys) = t at hspR'
+    (AnnotTerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys) = t at hspR'
   have hlenvs : vs.length = nP + 1 + n + nIdx := by rw [← hvs, List.length_map, hxl]
   obtain ⟨as₀, is, rfl, hl₀, hli⟩ := kframe_split h hspR'
   rw [hFss] at hl₀
@@ -315,14 +315,14 @@ theorem fixRecLawCore {ℓ b w u s nP nF nIdx n j : Nat} (hbz : ℓ = 0 ↔ b = 
       List.map_drop, hys₂, hxs₁, consList_append, consList_append, consList_append, consList_cons,
       consList_nil]
   -- the right-hand side: the rule's fold to the core
-  have hRHS : interp V ρ (ATerm.mkAppN Ra (xs.take (nP + 1 + n) ++ ys.drop nP))
+  have hRHS : interp V ρ (AnnotTerm.mkAppN Ra (xs.take (nP + 1 + n) ++ ys.drop nP))
       = interp V (consList as₂ (consList ms (cons M (consList as₁ ρ))))
           (fixRuleCoreAV b R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j [])) := by
     rw [interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hRa,
       mkLamsAV_fold_graded (by rw [← hRa]; exact (hokRa ρ).1) hfit, hframeR]
   -- the left-hand side: the recursor's fold
-  have hLHS : interp V ρ (ATerm.mkAppN R
-        (xs ++ [ATerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]))
+  have hLHS : interp V ρ (AnnotTerm.mkAppN R
+        (xs ++ [AnnotTerm.mkAppN (sumMkAV w j ds ((ds.drop nP).map (·.2.2)) (uChains Fss)) ys]))
       = ((((as₁ ++ [M]) ++ ms) ++ is) ++ [t]).foldl SetTheory.app (interp V ρ R) := by
     rw [interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app),
       List.map_append, List.map_cons, List.map_nil, hxsv, htv]

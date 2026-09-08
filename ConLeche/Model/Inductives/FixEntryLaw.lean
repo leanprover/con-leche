@@ -187,11 +187,11 @@ theorem fixEntryTypingCore {u w nP nF i : Nat} {pps ds eds : List (Nat × Nat ×
       WellDenotedV V ρ R) :
     ∀ (ρ : Nat → V) (vs : List AnnotTerm) (x rest : AnnotTerm),
       vs.length = nP →
-      WellDenotedV V ρ (ATerm.mkAppN (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess) vs) →
+      WellDenotedV V ρ (AnnotTerm.mkAppN (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess) vs) →
       WellDenotedV V ρ x →
       interp V ρ x ∈ˢ interp V ρ
-        (ATerm.mkAppN (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess) vs) →
-      ConLeche.Model.ATerm.peelPis (mkPisAV eds R) (vs ++ [x]) = some rest →
+        (AnnotTerm.mkAppN (nativeTyAVI u w pps [] rss tlss eiss Fss₀ Ess) vs) →
+      ConLeche.Model.AnnotTerm.peelPis (mkPisAV eds R) (vs ++ [x]) = some rest →
       WellDenotedV V ρ (projAV (i + 1) x) ∧ WellDenotedV V ρ rest ∧
         interp V ρ (projAV (i + 1) x) ∈ˢ interp V ρ rest := by
   intro ρ vs x rest hlenVs hokApp hokx hmem hpeel
@@ -227,14 +227,14 @@ theorem fixEntryTypingCore {u w nP nF i : Nat} {pps ds eds : List (Nat × Nat ×
   have hframeS : Sat V ((ds.take nP).map (·.2.2)).reverse
       (fun j => (cons (interp V ρ x) (consList (vs.map (interp V ρ)) ρ)) (j + 1)) := hsatC
   -- the residual
-  have hrest : rest = ConLeche.Model.ATerm.instSeq (vs ++ [x]) nP R := by
+  have hrest : rest = ConLeche.Model.AnnotTerm.instSeq (vs ++ [x]) nP R := by
     have h := peelPis_of_piTeleAV (nP + 1) (by rw [← hlenEds]; exact piTeleAV_mkPisAV eds R)
       (ws := vs ++ [x]) (by simp [hlenVs])
     rw [hpeel] at h
     have := Option.some.inj h
     rwa [Nat.add_sub_cancel] at this
-  have hlen' : ConLeche.Model.ATerm.instSeq (vs ++ [x]) nP R
-      = ConLeche.Model.ATerm.instSeq (vs ++ [x]) ((vs ++ [x]).length - 1) R := by
+  have hlen' : ConLeche.Model.AnnotTerm.instSeq (vs ++ [x]) nP R
+      = ConLeche.Model.AnnotTerm.instSeq (vs ++ [x]) ((vs ++ [x]).length - 1) R := by
     simp [hlenVs]
   have hinterpRest : interp V ρ rest
       = interp V (consList (projList i (dropS 1 (interp V ρ x))) (consList (vs.map (interp V ρ)) ρ))
@@ -287,9 +287,9 @@ theorem fixEntryIotaCore {w nP nF i : Nat} {ds : List (Nat × Nat × AnnotTerm)}
     (hokB : ∀ ρ : Nat → V, Sat V ((ds.take nP).map (·.2.2)).reverse ρ →
       FieldsOkB w ρ ((ds.drop nP).map (·.2.2)))
     (ys : List AnnotTerm) (hlen : ys.length = nP + nF)
-    (hok : WellDenotedV V ρ (ATerm.mkAppN
+    (hok : WellDenotedV V ρ (AnnotTerm.mkAppN
       (sumMkAV w 0 ds ((ds.drop nP).map (·.2.2)) (uChains [(ds.drop nP).map (·.2.2)])) ys)) :
-    interp V ρ (projAV (i + 1) (ATerm.mkAppN
+    interp V ρ (projAV (i + 1) (AnnotTerm.mkAppN
         (sumMkAV w 0 ds ((ds.drop nP).map (·.2.2)) (uChains [(ds.drop nP).map (·.2.2)])) ys))
       = interp V ρ (ys.getD (nP + i) default) := by
   have hsp : SpineFit ρ (ds.map (·.2.2)) (ys.map (interp V ρ)) := by
@@ -342,7 +342,7 @@ theorem fixEntryIotaCoreZero {nP nF i : Nat} {ds : List (Nat × Nat × AnnotTerm
     (hz : (sorts.getD i .zero).eval ψ = 0)
     (ys : List AnnotTerm) (hlen : ys.length = nP + nF)
     (hsp : SpineFit ρ (ds.map (·.2.2)) (ys.map (interp V ρ))) :
-    interp V ρ (projAV (i + 1) (ATerm.mkAppN
+    interp V ρ (projAV (i + 1) (AnnotTerm.mkAppN
         (sumMkAV 0 0 ds ((ds.drop nP).map (·.2.2)) (uChains [(ds.drop nP).map (·.2.2)])) ys))
       = interp V ρ (ys.getD (nP + i) default) := by
   rw [projAV_interp, interp_mkAppN_foldl, sumMkAV_zero, foldl_app_pt, projS_pt]

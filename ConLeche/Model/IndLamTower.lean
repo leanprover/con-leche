@@ -47,9 +47,9 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-- An application spine grows at the right. -/
-theorem ATerm.mkAppN_snoc :
+theorem AnnotTerm.mkAppN_snoc :
     ∀ (as : List AnnotTerm) (f a : AnnotTerm),
-      ATerm.mkAppN f (as ++ [a]) = .app (ATerm.mkAppN f as) a := by
+      AnnotTerm.mkAppN f (as ++ [a]) = .app (AnnotTerm.mkAppN f as) a := by
   intro as
   induction as with
   | nil => intro f a; rfl
@@ -91,11 +91,11 @@ theorem lamTowerStep :
         WellDenotedV V ρ L →
         ∃ L' : AnnotTerm,
           LamTele (K - n) L' (Γl.take (K - n)) C ∧
-          interp V ρ (ATerm.mkAppN L (ws.take n))
+          interp V ρ (AnnotTerm.mkAppN L (ws.take n))
             = interp V (chain V ρ (ws.take n)) L' ∧
           WellDenotedV V (chain V ρ (ws.take n)) L' ∧
           ((∀ w ∈ ws, WellDenotedV V ρ w) →
-            WellDenotedV V ρ (ATerm.mkAppN L (ws.take n))) := by
+            WellDenotedV V ρ (AnnotTerm.mkAppN L (ws.take n))) := by
   intro n
   induction n with
   | zero =>
@@ -172,9 +172,9 @@ theorem lamTowerStep :
         ((AnnotValid_lam V (chain V ρ (ws.take n)) v A B)
           ▸ hokL'.2).2 x hx⟩
     -- the value: β at the head layer
-    have hvalStep : interp V ρ (ATerm.mkAppN L (ws.take (n + 1)))
+    have hvalStep : interp V ρ (AnnotTerm.mkAppN L (ws.take (n + 1)))
         = interp V (chain V ρ (ws.take (n + 1))) B := by
-      rw [htk, ATerm.mkAppN_snoc, interp_app, hval', interp_lam,
+      rw [htk, AnnotTerm.mkAppN_snoc, interp_app, hval', interp_lam,
         app_lamR hmemn hBf hBf0, chain_snoc]
     refine ⟨B, ?_, hvalStep, ?_, ?_⟩
     · rw [← hΓ''take]
@@ -182,7 +182,7 @@ theorem lamTowerStep :
     · rw [htk, chain_snoc]
       exact hokB _ hmemn
     · intro hokws
-      rw [htk, ATerm.mkAppN_snoc]
+      rw [htk, AnnotTerm.mkAppN_snoc]
       refine ⟨?_, ?_⟩
       · rw [WellDenoted_app]
         refine ⟨(hokApp' hokws).1, (hokws _ (List.mem_of_getElem? hwn)).1,

@@ -19,12 +19,12 @@ cannot produce because both readings sit in their premises:
 
 | residue | home |
 | --- | --- |
-| `InferReads` | `Steps/InferP.lean` |
-| `WhnfReads` | `Steps/InferP.lean` |
-| `WhnfCoreExists` | `Steps/WhnfP.lean` |
-| `InferExists` | `Steps/WhnfP.lean` |
-| `WhnfCoreReductExists` | `Steps/DefEqP.lean` |
-| `DenoteMetaDelta` | `Steps/DefEqP.lean` |
+| `InferReads` | `Steps/Infer.lean` |
+| `WhnfReads` | `Steps/Infer.lean` |
+| `WhnfCoreExists` | `Steps/Whnf.lean` |
+| `InferExists` | `Steps/Whnf.lean` |
+| `WhnfCoreReductExists` | `Steps/DefEq.lean` |
+| `DenoteMetaDelta` | `Steps/DefEq.lean` |
 
 This module consolidates them.  Two are *free conversions* (T1) —
 `DenoteMetaDelta` of an environment field, `WhnfCoreReductExists` of
@@ -42,7 +42,7 @@ something the subject already reads.
 `ty`, which `denoteMeta`'s `fvar` clause never looks at — so the subject's
 reading carries no information about it, and the residue was false on
 `.fvar 0 (.const c [])` at `d = 1` with `c ∉ env`.  Batch 8 applied
-the sanctioned repair: `InferReads` (`Steps/InferP.lean`) now carries
+the sanctioned repair: `InferReads` (`Steps/Infer.lean`) now carries
 the leaf premise `LeafReads m φ d e`, which its sibling
 `InferExists` got for free from its `CtxOk`.  Nothing is routed —
 every consumer holds a `CtxOk` at the same depth and discharges the
@@ -85,8 +85,8 @@ Two of the six residues are *notational* variants of facts the
 quarters already carry, and the conversions are eta-expansions. -/
 
 /-- **`DenoteMetaDelta` from the environment's own field.**
-`DenoteMetaDelta` (`Steps/DefEqP.lean`) is statement-identical to
-`Delta` (`Steps/WhnfP.lean`) — same binders, same premises, same
+`DenoteMetaDelta` (`Steps/DefEq.lean`) is statement-identical to
+`Delta` (`Steps/Whnf.lean`) — same binders, same premises, same
 conclusion — so `delta_of` discharges it verbatim.  Stated at the
 `AcvalDefnInst` field so the consumer can pass `m.defn_reads`. -/
 theorem denoteMetaDelta_of_fields (m : EnvModel V env)
@@ -117,11 +117,11 @@ theorem whnfCoreExists_of_reduct {m : EnvModel V env}
 
 The leaf side condition `LeafReads` and its kit
 (`of_ctxOk`/`of_subset`/`weakenTop`/`openS`) now live in
-`Steps/InferP.lean`, next to the residue that carries it (batch 8).
+`Steps/Infer.lean`, next to the residue that carries it (batch 8).
 
 ## The walk's three statements
 
-`WhnfReads` and `InferReads` (`Steps/InferP.lean`) are used verbatim
+`WhnfReads` and `InferReads` (`Steps/Infer.lean`) are used verbatim
 — since batch 8's repair the residues' own statements are exactly what
 the induction proves.  `whnfCore` has no residue of its own
 (`WhnfCoreExists`/`WhnfCoreReductExists` carry a `CtxOk` and a
@@ -813,7 +813,7 @@ private theorem inferReads_lam {m : EnvModel V env}
         (hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]))
         htyA)
       hba
-  refine ⟨ATerm.pi 0 (pwBit φ mb.pw) tyA bta, ?_⟩
+  refine ⟨AnnotTerm.pi 0 (pwBit φ mb.pw) tyA bta, ?_⟩
   rw [denoteMeta, htyA, hround, hbta]
   rfl
 

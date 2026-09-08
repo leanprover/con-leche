@@ -26,7 +26,7 @@ for `CtxOk2D`.  The systematic deltas, and what each buys:
   quarter's routed-input list is one shorter than the `…D` lane's.
   Its two leaf premises are discharged here: `hacl` is the environment
   structure's own `acval_closed` field, and `hainst` is
-  `acval_inst_self` below (`ATerm.inst_eq_self` at the erasure's
+  `acval_inst_self` below (`AnnotTerm.inst_eq_self` at the erasure's
   closedness — `EnvS.cval_closed` composed with `acval_erase`).
 * **`Delta2B`'s level crossing is paid.**  `delta2B_of` routes
   `AcvalDefnInst`, whose statement bakes in `instantiateLevelParams`
@@ -60,7 +60,7 @@ therefore the right obligation to route.
 ## Mode
 
 `WhnfCoreStep`/`WhnfStep` carry `μ.verifiedChecks = true` for assembly
-uniformity with the infer quarter (`Steps/InferP.lean`'s docstring
+uniformity with the infer quarter (`Steps/Infer.lean`'s docstring
 records why the step proofs are verified-only).  **Neither quarter's
 proof reads it** — flagged here rather than dropped, because the
 capstone binds the four steps at one mode hypothesis.
@@ -713,9 +713,9 @@ theorem whnfCore_app_claim (m : EnvModel V env) {fuel : Nat}
       hiota hio hwapp hbapp hLapp hCapp hiapp hokapp
     obtain ⟨hok', heq'⟩ := ihwc hwe'' hwe hbe hLe hCe hea₂ hea' hok₂
     exact ⟨hok',
-      interp2C_trans (interp2C_trans heqapp heq₂) heq'⟩
+      interpC_trans (interpC_trans heqapp heq₂) heq'⟩
   · -- stuck
-    obtain rfl : (ATerm.app fa' aa) = ea' :=
+    obtain rfl : (AnnotTerm.app fa' aa) = ea' :=
       Option.some.inj (hiapp.symm.trans hea')
     exact ⟨hokapp, heqapp⟩
 
@@ -806,7 +806,7 @@ theorem whnfLoop_claim (m : EnvModel V env) {fuel : Nat}
         hnat hrn hws₁ hb₁ hLb₁ hC₁ hea₁ hok₁
       obtain ⟨hok', heq'⟩ :=
         ih h hws₂ hb₂ hLb₂ hC₂ hea₂ hea' hok₂
-      exact ⟨hok', interp2C_trans (interp2C_trans heq₁ heq₂) heq'⟩
+      exact ⟨hok', interpC_trans (interpC_trans heq₁ heq₂) heq'⟩
     | none, h =>
       dsimp only at h
       cases hud : unfoldDefinition env e₁ with
@@ -827,7 +827,7 @@ theorem whnfLoop_claim (m : EnvModel V env) {fuel : Nat}
             (hC₁.of_subset
               (unfoldDefinition_fvarLeaves m.wf hud))
             (hdelta hud hea₁) hea' hok₁
-        exact ⟨hok', interp2C_trans heq₁ heq'⟩
+        exact ⟨hok', interpC_trans heq₁ heq'⟩
 
 /-- **`WhnfClaim` at `fuel + 1`.** -/
 theorem whnf_claims (m : EnvModel V env) {fuel : Nat}

@@ -42,9 +42,9 @@ theorem interp_minorConcAV {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
     (hsatC : Sat V (((ds.take nP).map (·.2.2)).reverse) ρp)
     {as : List V} (hsp : SpineFit ρp ((ds.drop nP).map (·.2.2)) as) :
     interp V (consList as (consList ms (cons M ρp)))
-        (ATerm.mkAppN (.bvar (nF + o - 1))
+        (AnnotTerm.mkAppN (.bvar (nF + o - 1))
           ((Es.map fun E => E.liftN o nF) ++
-            [ATerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)]))
+            [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)]))
       = concI w ρp M Es j as := by
   have hlenFs : (((ds.drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
   have hlenAs : as.length = nF := by rw [hsp.length_eq, hlenFs]
@@ -64,7 +64,7 @@ theorem interp_minorConcAV {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
   have hleafC' : m.acval C ψ
       = sumMkAV w j (ds.take nP ++ ds.drop nP) ((ds.drop nP).map (·.2.2)) (uChains Fss) := by
     rw [hleafC, List.take_append_drop]
-  rw [ATerm.mkAppN_append_one, interp_app, interp_mkAppN, interp_bvar, hMval,
+  rw [AnnotTerm.mkAppN_append_one, interp_app, interp_mkAppN, interp_bvar, hMval,
     ← List.foldl_map (f := interp V (consList as (consList ms (cons M ρp)))) (g := SetTheory.app),
     List.map_map]
   have hidxv : Es.map ((interp V (consList as (consList ms (cons M ρp)))) ∘
@@ -81,7 +81,7 @@ theorem interp_minorConcAV {m : EnvModel V env} {ψ : Name → Nat} {C : Name}
     ← List.foldl_map (f := interp V (consList as (consList ms (cons M ρp)))) (g := SetTheory.app),
     List.map_append, show nP + o + nF = nP + (o + nF) from by omega,
     map_paramBvarsAt_interp hσ,
-    show fieldBvars nF = (List.range nF).map (fun k => ATerm.bvar (nF - 1 - k)) from rfl,
+    show fieldBvars nF = (List.range nF).map (fun k => AnnotTerm.bvar (nF - 1 - k)) from rfl,
     map_fieldBvars_interp hlenAs, interp_closed (V := V) hclC _ (fun k => ρp (k + nP)), hleafC']
   have hlenP' : ((((ds.take nP).map (·.2.2)))).length = nP := by simp [hlenDs]
   have hsp₁ := spineFit_of_sat (Δ₀ := []) (Ds := (ds.take nP).map (·.2.2))
@@ -172,7 +172,7 @@ theorem fixFamAt_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {nP nIdx
     {as : List V} (hlenAs : as.length = nIdx) (as₀ : List V)
     (hspAs : SpineFit ρp (ips.map (·.2.2)) as) :
     interp V (consList as (consList as₀ ρp))
-        (ATerm.mkAppN (m.acval T ψ)
+        (AnnotTerm.mkAppN (m.acval T ψ)
           (paramBvarsAt nP (nP + (as₀.length + nIdx)) ++ fieldBvars nIdx))
       = SetTheory.app (fixFamI u w ρp (ips.map (·.2.2)) nIdx rss tlss Eiss Fss₀ Ess) (tupW u as) := by
   have hlenIds : ((ips.map (·.2.2))).length = nIdx := by rw [List.length_map, hlenI]
@@ -193,7 +193,7 @@ theorem fixFamAt_of {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {nP nIdx
   have hlenAll' : (pps ++ ips).length = nP + (((pps ++ ips).drop nP).map (·.2.2)).length := by
     rw [hdropAll]; exact hlenAll
   have hfb : (fieldBvars nIdx).map (interp V (consList as (consList as₀ ρp))) = as := by
-    show ((List.range nIdx).map fun k => ATerm.bvar (nIdx - 1 - k)).map
+    show ((List.range nIdx).map fun k => AnnotTerm.bvar (nIdx - 1 - k)).map
       (interp V (consList as (consList as₀ ρp))) = as
     exact map_fieldBvars_interp hlenAs _
   have h := fixLeafApp (Eis := fieldBvars nIdx) (as := as₀ ++ as) hlenAll' hX' htakeAll hleafT'

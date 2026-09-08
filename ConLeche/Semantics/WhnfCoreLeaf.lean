@@ -22,7 +22,7 @@ relation family and the whole derivation bridge above it.  This module
 then carried the `ConLeche.SetR` namespace and a `whnfCoreR_*` name
 prefix, and it was neither: six `rfl` facts about the *kernel's*
 `whnfCore`, with a live consumer in the graded lane
-(`Model/Steps/WhnfP.lean`).  It is the clearest case in the tree of the
+(`Model/Steps/Whnf.lean`).  It is the clearest case in the tree of the
 rule the batch ran on — *classify a module by what its statements
 mention, not by the namespace it sits in.*  The cleanup pass of
 2026-09-06 gave them their honest names: `whnfCore_leaf_*` (the

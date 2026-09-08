@@ -15,7 +15,7 @@ stored `iota_j` theorem's own tower and is graded by `hokA_padded`.
 The **b**-side is a slot of a *different* stored type's tower,
 instantiated at the statement frame, and nothing in the checker's run
 record types it: `checkIotaThm` compares domains with `checkDefEqList`
-and never infers them (`Kernel/Modeled.lean:109-135`), so the P tier's
+and never infers them (`Inductives/Modeled.lean:109-135`), so the P tier's
 general grading producer — `InferClaim` from an `inferTypeCore`
 run — has nothing to consume.
 
@@ -258,7 +258,7 @@ theorem instPisAt_res_graded {ρ' : Nat → V}
 
 /-! ## Application spines, graded backwards
 
-`wellDenotedV_mkAppN_of_fitA` (`Steps/IotaKitP.lean`) builds an
+`wellDenotedV_mkAppN_of_fitA` (`Steps/IotaKit.lean`) builds an
 application's grading from a fit; the point stage needs the *inverse*,
 because the index walk compares arguments of a spine whose whole
 grading it already has (the checker's own `inferTypeCore` verdict on
@@ -280,7 +280,7 @@ theorem WellDenotedV_app_arg {ρ : Nat → V} {g a : AnnotTerm}
 /-- The head of a graded application spine is graded. -/
 theorem WellDenotedV_mkAppN_head {ρ : Nat → V} :
     ∀ (as : List AnnotTerm) {g : AnnotTerm},
-      WellDenotedV V ρ (ATerm.mkAppN g as) → WellDenotedV V ρ g := by
+      WellDenotedV V ρ (AnnotTerm.mkAppN g as) → WellDenotedV V ρ g := by
   intro as
   induction as with
   | nil => intro g h; exact h
@@ -289,7 +289,7 @@ theorem WellDenotedV_mkAppN_head {ρ : Nat → V} :
 /-- **Every argument of a graded application spine is graded.** -/
 theorem WellDenotedV_mkAppN_args {ρ : Nat → V} :
     ∀ (as : List AnnotTerm) {g : AnnotTerm},
-      WellDenotedV V ρ (ATerm.mkAppN g as) → ∀ a ∈ as, WellDenotedV V ρ a := by
+      WellDenotedV V ρ (AnnotTerm.mkAppN g as) → ∀ a ∈ as, WellDenotedV V ρ a := by
   intro as
   induction as with
   | nil => intro g _ a ha; exact nomatch ha

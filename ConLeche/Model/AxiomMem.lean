@@ -399,12 +399,12 @@ theorem iff_forces_eq (mp : EnvModelM V μ env)
         = interp V ρ (mp.base2.acval iffName ψ) :=
     fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
   -- ARG 1 and 2: the two propositions
-  have hAd : A ∈ˢ interp V ρ (ATerm.sort 0) := by
+  have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort 0) := by
     rw [interp_sort]; exact hA
   have h1 := app_mem_pi_validV hmem hAd hval
   rw [AnnotValid_pi] at hval
   have hval1 := hval.2.1 A hAd
-  have hBd : B ∈ˢ interp V (cons A ρ) (ATerm.sort 0) := by
+  have hBd : B ∈ˢ interp V (cons A ρ) (AnnotTerm.sort 0) := by
     rw [interp_sort]; exact hB
   have h2 := app_mem_pi_validV h1 hBd hval1
   rw [AnnotValid_pi] at hval1
@@ -706,13 +706,13 @@ theorem nonemptyIntroVal_app₂_memP (mp : EnvModelM V μ env)
       interp V ρ' (mp.base2.acval nonemptyName ψ)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
     fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
-  have hAd : A ∈ˢ interp V ρ (ATerm.sort (ψ uN)) := by
+  have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort (ψ uN)) := by
     rw [interp_sort]; exact hA
   have h1 := app_mem_pi_validV hmem hAd hval
   have hvald := hval
   rw [AnnotValid_pi] at hvald
   have hval1 := hvald.2.1 A hAd
-  have had : a ∈ˢ interp V (cons A ρ) (ATerm.bvar 0) := ha
+  have had : a ∈ˢ interp V (cons A ρ) (AnnotTerm.bvar 0) := ha
   have h2 := app_mem_pi_validV h1 had hval1
   simpa only [interp_app, interp_bvar, cons_zero, cons_succ, hNc]
     using h2
@@ -779,7 +779,7 @@ theorem nonemptyVal_forces (mp : EnvModelM V μ env)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
     fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
   -- ARG 1: the type
-  have hAd : A ∈ˢ interp V ρ (ATerm.sort (ψ uN)) := by
+  have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort (ψ uN)) := by
     rw [interp_sort]; exact hA
   have h1 := app_mem_pi_validV hmem hAd hval
   have hvald := hval
@@ -849,18 +849,18 @@ theorem dneg_eq_nonempty (mp : EnvModelM V μ env)
     (htyNr : cvNr.type.erasePw
       = nonemptyRecA.toConstantVal.type.erasePw)
     (ψ : Name → Nat) (ρ : Nat → V) {A : V} (hA : A ∈ˢ univ (ψ uN)) :
-    dnegSpace2 V A
+    dnegSpace V A
       = SetTheory.app (interp V ρ (mp.base2.acval nonemptyName ψ)) A := by
   have hNE := nonemptyVal_app_mem mp hfN htyN ψ ρ hA
-  have hdn : dnegSpace2 V A ∈ˢ (univ 0 : V) := by
-    rw [univ_zero, dnegSpace2]; exact piR_zero_mem_univZero
+  have hdn : dnegSpace V A ∈ˢ (univ 0 : V) := by
+    rw [univ_zero, dnegSpace]; exact piR_zero_mem_univZero
   refine prop_ext hdn hNE (fun hpt => ?_) (fun hpt => ?_)
-  · obtain ⟨x, hx⟩ := exists_mem_of_dneg2 V hpt
+  · obtain ⟨x, hx⟩ := exists_mem_of_dneg V hpt
     have hi := nonemptyIntroVal_app₂_memP mp hfN hlpN hfNi htyNi ψ ρ hA hx
     rwa [mem_univ_zero hNE hi] at hi
   · obtain ⟨x, hx⟩ := nonemptyVal_forces mp hfN hlpN hfNi hlpNi hfNr
       htyNr ψ ρ hA hpt
-    rw [dnegSpace2]
+    rw [dnegSpace]
     exact pt_mem_piR_zero fun g hg =>
       absurd (app_mem_piR hg hx (fun _ _ _ =>
         univ_zero (V := V) ▸ empty_mem_univ 0)) (not_mem_empty _)
@@ -912,10 +912,10 @@ theorem choice_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
       interp V ρ' (mp.base2.acval nonemptyName ψ)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
     fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
-  show choiceV2 V (ψ uN) ∈ˢ _
+  show choiceV V (ψ uN) ∈ˢ _
   simp only [interp_pi, interp_sort, interp_app, interp_bvar,
     cons_zero, cons_succ, hNc]
-  rw [choiceV2]
+  rw [choiceV]
   refine lamR_mem_zero_agree hb₁.symm fun A hA => ?_
   rw [dneg_eq_nonempty mp hfN hlpN htyN hfNi hlpNi htyNi hfNr htyNr
     ψ ρ hA]

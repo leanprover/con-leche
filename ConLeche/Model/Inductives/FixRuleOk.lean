@@ -159,13 +159,13 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
   have hbody : ∀ bs : List V,
       SpineFit (consList (as₂.take i) (consList as₁ ρ)) (((tlss.getD j []).getD i []).map (·.2.2)) bs →
       WellDenoted V (consList bs (consList as₂ (consList ms (cons M (consList as₁ ρ)))))
-          (ATerm.mkAppN R (recPrefixBvarsM nP n nF bs.length ++
+          (AnnotTerm.mkAppN R (recPrefixBvarsM nP n nF bs.length ++
             ((Eiss.getD j []).getD i []).map (ihIdxAtM nF (n + 1) i 0 bs.length) ++
-            [ATerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)])) ∧
+            [AnnotTerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)])) ∧
         interp V (consList bs (consList as₂ (consList ms (cons M (consList as₁ ρ)))))
-            (ATerm.mkAppN R (recPrefixBvarsM nP n nF bs.length ++
+            (AnnotTerm.mkAppN R (recPrefixBvarsM nP n nF bs.length ++
               ((Eiss.getD j []).getD i []).map (ihIdxAtM nF (n + 1) i 0 bs.length) ++
-              [ATerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)]))
+              [AnnotTerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)]))
           ∈ˢ SetTheory.app
             ((((Eiss.getD j []).getD i []).map
               (interp V (consList bs (consList (as₂.take i) (consList as₁ ρ))))).foldl
@@ -177,9 +177,9 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
                 SetTheory.app M)
             (bs.foldl SetTheory.app (as₂.getD i pt)) ∈ˢ (univZero : V)) ∧
         AnnotValid V (consList bs (consList as₂ (consList ms (cons M (consList as₁ ρ)))))
-          (ATerm.mkAppN R (recPrefixBvarsM nP n nF bs.length ++
+          (AnnotTerm.mkAppN R (recPrefixBvarsM nP n nF bs.length ++
             ((Eiss.getD j []).getD i []).map (ihIdxAtM nF (n + 1) i 0 bs.length) ++
-            [ATerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)])) := by
+            [AnnotTerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)])) := by
     intro bs hsp
     obtain ⟨hEok, hvsp⟩ := hfitS.2.2 bs hsp
     rw [consList_append] at hEok hvsp
@@ -202,7 +202,7 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
         (interp V (consList bs (consList as₂ (consList ms (cons M (consList as₁ ρ)))))) = bs :=
       map_fieldBvars_interp rfl _
     have hfld : interp V (consList bs (consList as₂ (consList ms (cons M (consList as₁ ρ)))))
-        (ATerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length))
+        (AnnotTerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length))
         = bs.foldl SetTheory.app (as₂.getD i pt) := by
       rw [interp_mkAppN, interp_bvar, consList_apply_add, consList_apply_lt' as₂ _ (by omega),
         show as₂.length - 1 - (nF - 1 - i) = i from by omega,
@@ -219,7 +219,7 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
       exact this
     have hargs : (recPrefixBvarsM nP n nF bs.length ++
         ((Eiss.getD j []).getD i []).map (ihIdxAtM nF (n + 1) i 0 bs.length) ++
-        [ATerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)]).map
+        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)]).map
           (interp V (consList bs (consList as₂ (consList ms (cons M (consList as₁ ρ))))))
         = ((as₁ ++ [M]) ++ ms) ++ vals ++ [bs.foldl SetTheory.app (as₂.getD i pt)] := by
       rw [List.map_append, List.map_append, hpre, List.map_map]
@@ -233,7 +233,7 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
       exact hidx E hE
     have hargsOk : ∀ a ∈ recPrefixBvarsM nP n nF bs.length ++
         ((Eiss.getD j []).getD i []).map (ihIdxAtM nF (n + 1) i 0 bs.length) ++
-        [ATerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)],
+        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + bs.length)) (teleVarsAV bs.length)],
         WellDenoted V (consList bs (consList as₂ (consList ms (cons M (consList as₁ ρ))))) a := by
       intro a ha
       rcases List.mem_append.mp ha with ha | ha
@@ -301,13 +301,13 @@ theorem ihAppAV_facts {ℓ w u s nP nF nIdx n j i : Nat} {rds : List (Nat × Nat
     rw [ihTeleAtR, ihTeleAtGo_rebit] at hd
     rw [mem_rebit hd]; exact hbz
   have hunder : UnderTowerOk ℓ (consList as₂ (consList ms (cons M (consList as₁ ρ))))
-      (ATerm.mkAppN R (recPrefixBvarsM nP n nF (rebit b ((tlss.getD j []).getD i [])).length ++
+      (AnnotTerm.mkAppN R (recPrefixBvarsM nP n nF (rebit b ((tlss.getD j []).getD i [])).length ++
         ((Eiss.getD j []).getD i []).map (ihIdxAtM nF (n + 1) i 0 (rebit b ((tlss.getD j []).getD i [])).length) ++
-        [ATerm.mkAppN (.bvar (nF - 1 - i + (rebit b ((tlss.getD j []).getD i [])).length))
+        [AnnotTerm.mkAppN (.bvar (nF - 1 - i + (rebit b ((tlss.getD j []).getD i [])).length))
           (teleVarsAV (rebit b ((tlss.getD j []).getD i [])).length)]))
-      (ATerm.mkAppN (.bvar (nF + (n + 1) - 1 + 0 + (rebit b ((tlss.getD j []).getD i [])).length))
+      (AnnotTerm.mkAppN (.bvar (nF + (n + 1) - 1 + 0 + (rebit b ((tlss.getD j []).getD i [])).length))
         (((Eiss.getD j []).getD i []).map (ihIdxAtM nF (n + 1) i 0 (rebit b ((tlss.getD j []).getD i [])).length) ++
-          [ATerm.mkAppN (.bvar (nF - 1 - i + 0 + (rebit b ((tlss.getD j []).getD i [])).length))
+          [AnnotTerm.mkAppN (.bvar (nF - 1 - i + 0 + (rebit b ((tlss.getD j []).getD i [])).length))
             (teleVarsAV (rebit b ((tlss.getD j []).getD i [])).length)]))
       (ihTeleAtR nF (n + 1) i 0 (rebit b ((tlss.getD j []).getD i []))) := by
     refine underTowerOk_of_walk hwalk fun bs hsp => ?_
@@ -489,9 +489,9 @@ theorem fixRuleOk {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL : L
   rw [hlds]
   show WellDenotedV V ρ (mkLamsC b (X ++ D) (fixRuleCoreAV b R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j [])))
   -- the conclusion, spelled at the rule's leaf frame
-  generalize hT : ATerm.mkAppN (.bvar (nF + (n + 1) - 1))
+  generalize hT : AnnotTerm.mkAppN (.bvar (nF + (n + 1) - 1))
       ((Es.map fun E => E.liftN (n + 1) nF) ++
-        [ATerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + (n + 1) + nF) ++ fieldBvars nF)]) = TC
+        [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + (n + 1) + nF) ++ fieldBvars nF)]) = TC
   -- **the leaf facts** at every fitting spine of the rule's binder data
   have hleaf : ∀ as : List V, SpineFit ρ ((X ++ D).map (·.2.2)) as →
       WellDenoted V (consList as ρ) (fixRuleCoreAV b R nP nF n j (recIdx (rss.getD j []) nF) (tlss.getD j []) (Eiss.getD j [])) ∧
@@ -560,7 +560,7 @@ theorem fixRuleOk {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL : L
         show ms.length - 1 - (n - 1 - j) = j from by omega]
     have hfb : (fieldBvars nF).map (interp V (consList as₂ (consList ms (cons M (consList as₁ ρ)))))
         = as₂ := by
-      show ((List.range nF).map fun k => ATerm.bvar (nF - 1 - k)).map
+      show ((List.range nF).map fun k => AnnotTerm.bvar (nF - 1 - k)).map
         (interp V (consList as₂ (consList ms (cons M (consList as₁ ρ))))) = as₂
       exact map_fieldBvars_interp hlen₂ _
     obtain ⟨hokF, hvF⟩ := mkAppN_wellDenoted_of_chain (f := .bvar (nF + n - 1 - j)) (args := fieldBvars nF)
@@ -607,7 +607,7 @@ theorem fixRuleOk {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL : L
       (As := ihDomsI ℓ (consList as₁ ρ) M rss tlss Eiss (fun j' => (Fss.getD j' []).length) j as₂)
       (args := (recIdx (rss.getD j []) nF).map fun i =>
         ihAppAV R nP n nF i (rebit b ((tlss.getD j []).getD i [])) ((Eiss.getD j []).getD i []))
-      (f := ATerm.mkAppN (.bvar (nF + n - 1 - j)) (fieldBvars nF))
+      (f := AnnotTerm.mkAppN (.bvar (nF + n - 1 - j)) (fieldBvars nF))
       (σ := consList as₂ (consList ms (cons M (consList as₁ ρ))))
       (fun h0 => by
         have := hK.hyp.toRecHypCore.conc_univZero h0 hjF as₂
@@ -634,7 +634,7 @@ theorem fixRuleOk {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {elimL : L
         have := hK.hyp.hdoms0 h0 j as₂ A
         rw [hfrP, hfrM] at this
         exact this hA)
-    rw [← ATerm.mkAppN_append] at hsp_ih
+    rw [← AnnotTerm.mkAppN_append] at hsp_ih
     refine ⟨hsp_ih.1, ?_, ?_, ?_⟩
     · rw [hTv, ← hEsD]; exact hsp_ih.2
     · intro hb0

@@ -66,7 +66,7 @@ theorem foldl_app_pt' {ρ : Nat → V} : ∀ (as : List AnnotTerm),
 /-- A spine on a `pt`-valued head interprets to `pt`. -/
 theorem interp_mkAppN_pt {ρ : Nat → V} {f : AnnotTerm}
     (hf : interp V ρ f = pt) (as : List AnnotTerm) :
-    interp V ρ (ATerm.mkAppN f as) = pt := by
+    interp V ρ (AnnotTerm.mkAppN f as) = pt := by
   rw [interp_mkAppN, hf]
   exact foldl_app_pt' as
 
@@ -184,9 +184,9 @@ applied spine's own hereditary app slot — no certificate anywhere. -/
 theorem spine_mem_univ_of_neverChain {ρ : Nat → V} :
     ∀ (vs : List AnnotTerm) {Ta f : AnnotTerm} {u : Nat},
       NeverChain vs.length u Ta →
-      WellDenotedV V ρ Ta → WellDenotedV V ρ (ATerm.mkAppN f vs) →
+      WellDenotedV V ρ Ta → WellDenotedV V ρ (AnnotTerm.mkAppN f vs) →
       interp V ρ f ∈ˢ interp V ρ Ta →
-      interp V ρ (ATerm.mkAppN f vs) ∈ˢ (univ u : V) := by
+      interp V ρ (AnnotTerm.mkAppN f vs) ∈ˢ (univ u : V) := by
   intro vs
   induction vs with
   | nil =>

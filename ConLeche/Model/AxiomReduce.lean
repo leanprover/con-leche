@@ -201,7 +201,7 @@ theorem ofReduce_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     (ψ : Name → Nat) (ta : AnnotTerm)
     (hta : denoteMeta mp.base2.acval env ψ 0 cvA.type = some ta)
     (ρ : Nat → V) :
-    interp V ρ (ATerm.prf) ∈ˢ interp V ρ ta := by
+    interp V ρ (AnnotTerm.prf) ∈ˢ interp V ρ ta := by
   obtain ⟨hEq, helem, ⟨cvR, hfR, hmpR⟩, hApinT⟩ := ofReduce_gatesS hok
   obtain ⟨ciE, hfE, hlpE, htyE⟩ := ConLeche.Verify.reduceElem_sort helem
   obtain ⟨-, hlpR⟩ := ConLeche.Verify.matchesPin_invT hmpR
@@ -347,8 +347,8 @@ theorem axiomOfReduce (hμ : μ.verifiedChecks = true)
     · intro cv2 mI rP rules heq; exact nomatch heq
     · intro cv2 value2 heq; exact nomatch heq
     · intro tbl heq; exact nomatch heq
-  refine harvestAxiomP (V := V) hμ mp hcv
-    (A := fun _ => ATerm.prf) (fun _ => trivial)
+  refine harvestAxiom (V := V) hμ mp hcv
+    (A := fun _ => AnnotTerm.prf) (fun _ => trivial)
     (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ => by simp)
     (fun _ _ => by simp) ?_
     (by rcases hor with h | h <;> rw [h] <;> decide)

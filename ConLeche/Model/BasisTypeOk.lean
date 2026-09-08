@@ -40,7 +40,7 @@ residual goals in nine cases**, and every one is the clause's own
 
 1. `natRec` ×2, `punitRec`, `emptyRec`, `quotInd` ×2, `psigmaMk`,
    `quotMk` — `motive_app_univZero` below, with the argument supplied
-   by `natSuccV2_mem`, `quotClass_mem`, `sigma_mem_univ`, … one per
+   by `natSuccV_mem`, `quotClass_mem`, `sigma_mem_univ`, … one per
    goal, as the ENDGAME E seal forecast;
 2. `quotLift` ×2, `propext` ×2, `choice` ×3 — `univ 0 = univZero` at a
    binder already known to land in `univ v`.
@@ -95,8 +95,8 @@ theorem AnnotValid_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
   all_goals
     simp +contextual +decide only [BConst.typeAV, arrowA, relAV, negTyAV,
       natTyAV, natZeroAV, natSuccAV, punitAV, punitUnitAV, emptyAV,
-      psigmaAV, quotAV, quotMkAV, ATerm.mkAppN, ATerm.lift,
-      ATerm.liftN, AnnotValid_pi, AnnotValid_app, AnnotValid_eqE,
+      psigmaAV, quotAV, quotMkAV, AnnotTerm.mkAppN, AnnotTerm.lift,
+      AnnotTerm.liftN, AnnotValid_pi, AnnotValid_app, AnnotValid_eqE,
       AnnotValid_bvar, AnnotValid_sort, AnnotValid_const,
       interp_pi, interp_app, interp_eqE, interp_sort,
       interp_const, interp_bvar, cons_zero, cons_succ,
@@ -107,7 +107,7 @@ theorem AnnotValid_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
     refine fun M hM z _ => ⟨fun n hn hu _ _ => ?_,
       fun _s _ hu n hn => motive_app_univZero hu hM hn⟩
     exact motive_app_univZero hu hM
-      (app_mem_piR_pos Nat.one_ne_zero (natSuccV2_mem V) hn)
+      (app_mem_piR_pos Nat.one_ne_zero (natSuccV_mem V) hn)
   case punitRec =>
     exact fun _M hM _m _ hu _t ht => motive_app_univZero hu hM ht
   case emptyRec =>
@@ -120,16 +120,16 @@ theorem AnnotValid_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
     have hmem := sigma_mem_univ (u := 0) (v := 0) hA
       (fun x hx => psigmaFibre_apply V hB hx)
     rw [show Nat.max 0 0 = 0 from rfl, univ_zero] at hmem
-    show app (app (psigmaV2 V 0 0) A) B ∈ˢ _
-    rw [psigmaV2_app V hA hB]
+    show app (app (psigmaV V 0 0) A) B ∈ˢ _
+    rw [psigmaV_app V hA hB]
     exact hmem
   case quotMk =>
     intro A hA R hR hu a _
     rw [hu] at hA hR
     have h := quotSet_mem_univ (u := 0) (A := A) (R := R) hA
     rw [univ_zero] at h
-    show app (app (quotV2 V 0) A) R ∈ˢ _
-    rw [quotV2_app V hA hR]
+    show app (app (quotV V 0) A) R ∈ˢ _
+    rw [quotV_app V hA hR]
     exact h
   case quotLift =>
     intro A hA R hR B hB
@@ -140,9 +140,9 @@ theorem AnnotValid_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
     intro A hA R hR M hM
     refine ⟨fun a ha => motive_app_univZero (u := 0) rfl hM ?_,
       fun _mi _ q hq => motive_app_univZero (u := 0) rfl hM hq⟩
-    show app (app (app (quotMkV2 V (lv us 0)) A) R) a
-      ∈ˢ app (app (quotV2 V (lv us 0)) A) R
-    rw [quotMkV2_app V hA hR ha, quotV2_app V hA hR]
+    show app (app (app (quotMkV V (lv us 0)) A) R) a
+      ∈ˢ app (app (quotV V (lv us 0)) A) R
+    rw [quotMkV_app V hA hR ha, quotV_app V hA hR]
     exact quotClass_mem ha
   case propext =>
     exact fun _A hA _B hB => ⟨fun _ _ => univ_zero (V := V) ▸ hB,
@@ -173,7 +173,7 @@ theorem bconst_app_data (c : BConst) (us : List Nat) (ρ : Nat → V)
 /-- The same one binder in: a basis constant applied to its first
 argument.  `app_mem_piR`'s fibre premise is again the outer binder's
 own `AnnotValid` clause, so nothing is chosen here either. -/
-theorem bconst_app_data2 (c : BConst) (us : List Nat) (ρ : Nat → V)
+theorem bconst_app_dataAV (c : BConst) (us : List Nat) (ρ : Nat → V)
     {u v u2 v2 : Nat} {A A2 B2 : AnnotTerm}
     (h : BConst.typeAV c us = .pi u v A (.pi u2 v2 A2 B2))
     {a1 : V} (ha1 : a1 ∈ˢ interp V ρ A)
@@ -307,8 +307,8 @@ theorem bconst_app_data5 (c : BConst) (us : List Nat) (ρ : Nat → V)
 `quotInd`'s and `quotSound`'s motive rows want. -/
 theorem quotMk_mem_quot {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
     (hR : R ∈ˢ relSpace V u A) (ha : a ∈ˢ A) :
-    app (app (app (quotMkV2 V u) A) R) a ∈ˢ app (app (quotV2 V u) A) R := by
-  rw [quotMkV2_app V hA hR ha, quotV2_app V hA hR]
+    app (app (app (quotMkV V u) A) R) a ∈ˢ app (app (quotV V u) A) R := by
+  rw [quotMkV_app V hA hR ha, quotV_app V hA hR]
   exact quotClass_mem ha
 
 /-- A relation applied to one argument is still a graph: the `.app`
@@ -329,8 +329,8 @@ theorem WellDenoted_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
   all_goals
     simp +contextual +decide only [BConst.typeAV, arrowA, relAV, negTyAV,
       natTyAV, natZeroAV, natSuccAV, punitAV, punitUnitAV, emptyAV,
-      psigmaAV, quotAV, quotMkAV, ATerm.mkAppN, ATerm.lift,
-      ATerm.liftN, WellDenoted_pi, WellDenoted_app, WellDenoted_eqE,
+      psigmaAV, quotAV, quotMkAV, AnnotTerm.mkAppN, AnnotTerm.lift,
+      AnnotTerm.liftN, WellDenoted_pi, WellDenoted_app, WellDenoted_eqE,
       WellDenoted_bvar, WellDenoted_sort, WellDenoted_const,
       interp_pi, interp_app, interp_eqE, interp_sort,
       interp_const, interp_bvar, cons_zero, cons_succ,
@@ -343,7 +343,7 @@ theorem WellDenoted_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
       | exact ⟨_, _, _, ‹_›, natzero_mem, fun h => absurd h (Nat.succ_ne_zero _)⟩
       | exact ⟨_, _, _, ‹_›, pt_mem_unitSet, fun h => absurd h (Nat.succ_ne_zero _)⟩
       | exact ⟨_, _, _, ‹_›,
-          app_mem_piR_pos Nat.one_ne_zero (natSuccV2_mem V) ‹_›,
+          app_mem_piR_pos Nat.one_ne_zero (natSuccV_mem V) ‹_›,
           fun h => absurd h (Nat.succ_ne_zero _)⟩
       | exact ⟨_, _, _, ‹_›, ‹_›,
           fun hz _ _ => mem_univZero_of_zero V hz ‹_›⟩
@@ -351,7 +351,7 @@ theorem WellDenoted_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
       | (refine ⟨_, _, _, ‹_›, quotMk_mem_quot V ?_ ?_ ?_,
             fun h => absurd h Nat.one_ne_zero⟩ <;> assumption)
       | (refine bconst_app_data V _ _ ρ rfl ?_; assumption)
-      | (refine bconst_app_data2 V _ _ ρ rfl ?_ ?_ <;> assumption)
+      | (refine bconst_app_dataAV V _ _ ρ rfl ?_ ?_ <;> assumption)
       | (refine bconst_app_data3 V _ _ ρ rfl ?_ ?_ ?_ <;> assumption)
       | apply And.intro
       | intro _
@@ -360,7 +360,7 @@ theorem WellDenoted_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
 /-- **Every built-in constant's annotated type is `WellDenotedV`.**  v1's
 `AnnotOkV_bconst_type`, in the P tier's currency: truthfulness and bit
 validity together.  This is the grading half of the twenty-two basis
-type readings — the other half is `ATerm.BitAgree` (`BitAgree.lean`),
+type readings — the other half is `AnnotTerm.BitAgree` (`BitAgree.lean`),
 which carries this across to whatever `denoteMeta` actually emits. -/
 theorem WellDenotedV_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
     WellDenotedV V ρ (BConst.typeAV c us) :=

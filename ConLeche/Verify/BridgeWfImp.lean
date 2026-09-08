@@ -21,7 +21,7 @@ At each operation call site the argument's well-scopedness comes from
   — the defeq comparisons run at the opened depth, over variables of
   that frame).
 
-`ConLeche/Model/BridgeWF.lean` composes these with the intermediate
+`ConLeche/ModelV1/BridgeWF.lean` composes these with the intermediate
 `EnvWF` facts into `checkDecl_bridge`.
 -/
 

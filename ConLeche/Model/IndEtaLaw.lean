@@ -15,7 +15,7 @@ binder instead of two — and the two deltas are exactly v1's:
 
 * **`etaFields = 0`.** `capsOk_cons_member` only ever leaves the η row
   open at a block former with no projection slots (part 1's finding 5),
-  so `etaFabArgs2 val T ts x 0 = ts ++ [] = ts` and the fabricated
+  so `etaFabArgsV val T ts x 0 = ts ++ [] = ts` and the fabricated
   spine *is* the parameter spine.  No projection leaf is read, and
   `etaLawKeyS`'s whole `hvP`/`projSpinesV` half evaporates.
 * **The fabricated side is typed by no check.**  This is v1's finding 4,
@@ -202,8 +202,8 @@ theorem memberEtaLaw : MemberEtaLaw V := by
   intro ρ ts rest x hlents hfit hmx
   rw [← hψ, hvT] at hmx
   rw [← hψ, h0, hvC,
-    show etaFabArgs2 (fun n => interp V ρ (m₂.acval n ψ)) T ts x 0
-      = ts from by unfold etaFabArgs2 projSpines2; simp]
+    show etaFabArgsV (fun n => interp V ρ (m₂.acval n ψ)) T ts x 0
+      = ts from by unfold etaFabArgsV projSpines; simp]
   -- ===== the two telescopes =====
   obtain ⟨Γm, Cm, hteleM, hΓmlen, hbodyM, hdomsM⟩ :=
     stripPis_denotePTele caps.etaParams hTstrip htaM'
@@ -251,16 +251,16 @@ theorem memberEtaLaw : MemberEtaLaw V := by
       denoteMeta mp.base2.acval env ψ d
         (Expr.mkAppN (.const K (cvT.levelParams.map .param))
           (openFvars 0 caps.etaParams))
-      = some (ATerm.mkAppN (mp.base2.acval K ψ)
+      = some (AnnotTerm.mkAppN (mp.base2.acval K ψ)
           ((List.range caps.etaParams).map fun q =>
-            ATerm.bvar (d - 1 - (0 + q)))) :=
+            AnnotTerm.bvar (d - 1 - (0 + q)))) :=
     fun K ci hf hlps d hd => denoteMeta_openSpine hf hlps _ d hd
   have hspineVal : ∀ (K : Name) (d : Nat) (σ : Nat → V),
       (∀ q, q < ts.length →
         σ (d - 1 - (0 + q)) = consN ts ρ (ts.length - 1 - q)) →
-      interp V σ (ATerm.mkAppN (mp.base2.acval K ψ)
+      interp V σ (AnnotTerm.mkAppN (mp.base2.acval K ψ)
           ((List.range caps.etaParams).map fun q =>
-            ATerm.bvar (d - 1 - (0 + q))))
+            AnnotTerm.bvar (d - 1 - (0 + q))))
         = ts.foldl SetTheory.app (interp V ρ (mp.base2.acval K ψ)) := by
     intro K d σ hσ
     rw [← hlents]
@@ -269,9 +269,9 @@ theorem memberEtaLaw : MemberEtaLaw V := by
       (acval_interp_closedC mp.base2 _ ψ σ ρ)
   -- the major's slot
   obtain ⟨mx, hxb⟩ := hxdom
-  have hAx : Ax = ATerm.mkAppN (mp.base2.acval (T.str "_model") ψ)
+  have hAx : Ax = AnnotTerm.mkAppN (mp.base2.acval (T.str "_model") ψ)
       ((List.range caps.etaParams).map fun q =>
-        ATerm.bvar (caps.etaParams - 1 - (0 + q))) := by
+        AnnotTerm.bvar (caps.etaParams - 1 - (0 + q))) := by
     have h := hdomsS caps.etaParams _ hxb
     rw [instSeq_openSpine _ _ caps.etaParams caps.etaParams
         (caps.etaParams - 1) (Nat.le_refl _) (by omega),
@@ -304,13 +304,13 @@ theorem memberEtaLaw : MemberEtaLaw V := by
   have hCs : Cs = .app (.app (.app
       (mp.base2.acval eqName
         (Level.substFn ψ eqA.toConstantVal.levelParams [ℓA]))
-      (ATerm.mkAppN (mp.base2.acval (T.str "_model") ψ)
+      (AnnotTerm.mkAppN (mp.base2.acval (T.str "_model") ψ)
         ((List.range caps.etaParams).map fun q =>
-          ATerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))))
+          AnnotTerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))))
       (.bvar 0))
-      (ATerm.mkAppN (mp.base2.acval (caps.etaCtor.str "_model") ψ)
+      (AnnotTerm.mkAppN (mp.base2.acval (caps.etaCtor.str "_model") ψ)
         ((List.range caps.etaParams).map fun q =>
-          ATerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))) := by
+          AnnotTerm.bvar (caps.etaParams + 1 - 1 - (0 + q)))) := by
     have h := hbodyS
     rw [show caps.etaParams + 1 - 1 = caps.etaParams from by omega,
       hsbody, Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ rfl,
@@ -351,9 +351,9 @@ theorem memberEtaLaw : MemberEtaLaw V := by
       hfitFull
     rwa [hconsApp] at h
   have hSval : ∀ K : Name, interp V (cons x (consN ts ρ))
-      (ATerm.mkAppN (mp.base2.acval K ψ)
+      (AnnotTerm.mkAppN (mp.base2.acval K ψ)
         ((List.range caps.etaParams).map fun q =>
-          ATerm.bvar (caps.etaParams + 1 - 1 - (0 + q))))
+          AnnotTerm.bvar (caps.etaParams + 1 - 1 - (0 + q))))
       = ts.foldl SetTheory.app (interp V ρ (mp.base2.acval K ψ)) :=
     fun K => hspineVal K (caps.etaParams + 1) (cons x (consN ts ρ))
       (fun q hq => by

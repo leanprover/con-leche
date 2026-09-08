@@ -11,7 +11,7 @@ The worked quarter of the frozen `InferClaimIO` species
 (`Model/ClaimsIO.lean`).  Ten of the eleven dispatcher arms are
 proved here (`.proj` routes, as in the full lane), and the quarter is
 assembled: `inferStepIO_of` discharges `InferStepIO` — the io slot
-of `CheckStep2P5` — modulo the routed `InferInputsIO`.  The recipe,
+of `CheckStep5` — modulo the routed `InferInputsIO`.  The recipe,
 everywhere but `.app`: `inferBodyIO` is `inferBody` **verbatim**, so
 the io twin of a clause proof is the clause proof with
 
@@ -38,7 +38,7 @@ apply across the transfer.
 only new mathematics — the io-license batch's centerpiece.  The
 inversion's certificate disjunct (`inferTypeCoreIO_app_inv`) splits
 it: the gated arm consumes the landed licenses
-(`io_domain_transfer`, `Model/IOLicenseP.lean`) against the premise's
+(`io_domain_transfer`, `Model/IOLicense.lean`) against the premise's
 hereditary app slot (`hoist_app`) at the bit `pwBit_ne_zero_of_isNever`
 pins positive; the kept arm is `infer_app_claim`'s `ihd` route with
 the io lanes threaded.  The squash fence
@@ -65,7 +65,7 @@ universe w
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
 
-/-- The `WellDenotedV` ∀-splitter, public.  `Steps/DefEqP.lean` keeps a
+/-- The `WellDenotedV` ∀-splitter, public.  `Steps/DefEq.lean` keeps a
 private copy for its own plumbing and says in so many words that the
 concurrently-written quarters may want the public name; the io quarter
 is the quarter that wants it, because in premise form *every* binder
@@ -219,7 +219,7 @@ def InferProjStepIO {env : Env} (m : EnvModel V env) (μ : CheckMode)
 
 /-- **The io quarter's step shape** (`InferStep`'s mirror): the five
 claims at `fuel` give the io claim at `fuel + 1`, at a validating
-mode.  This is the io slot of `CheckStep2P5`
+mode.  This is the io slot of `CheckStep5`
 (`ClaimsIO.lean`). -/
 def InferStepIO (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat),
@@ -685,7 +685,7 @@ fibre grading transported by `WellDenotedV_inst0`, and the membership is
 the standard row (`sound_app`, whose kind-`0` premise the ∀'s
 `AnnotValid` component supplies — vacuously at the gated arm's
 nonzero bit).  `io_membership_fails_at_squash`
-(`Model/IOLicenseP.lean`) is why the gated arm's `isNever` test cannot
+(`Model/IOLicense.lean`) is why the gated arm's `isNever` test cannot
 be weakened: the same premise package at bit `0` has a mechanized
 countermodel. -/
 theorem infer_app_claimIO (m : EnvModel V env)

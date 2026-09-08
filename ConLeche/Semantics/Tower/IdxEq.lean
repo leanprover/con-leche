@@ -123,11 +123,11 @@ theorem mem_idxEqAV {eqs : List (AnnotTerm × AnnotTerm)} {ρ : Nat → V} {x : 
 /-! ## The grading -/
 
 /-- The equations' sides graded at `ρ`. -/
-def EqsOk2 (ρ : Nat → V) (eqs : List (AnnotTerm × AnnotTerm)) : Prop :=
+def EqsOk (ρ : Nat → V) (eqs : List (AnnotTerm × AnnotTerm)) : Prop :=
   ∀ e ∈ eqs, WellDenoted V ρ e.1 ∧ WellDenoted V ρ e.2
 
 theorem eqChainAV_wellDenoted :
-    ∀ {eqs : List (AnnotTerm × AnnotTerm)} {ρ : Nat → V}, EqsOk2 ρ eqs →
+    ∀ {eqs : List (AnnotTerm × AnnotTerm)} {ρ : Nat → V}, EqsOk ρ eqs →
       WellDenoted V ρ (eqChainAV eqs)
   | [], _, _ => trivial
   | (a, b) :: r, ρ, hok => by
@@ -138,7 +138,7 @@ theorem eqChainAV_wellDenoted :
     exact eqChainAV_wellDenoted fun e he => hok e (List.mem_cons_of_mem _ he)
 
 /-- **The index equation is graded** from its sides' gradings. -/
-theorem idxEqAV_wellDenoted {eqs : List (AnnotTerm × AnnotTerm)} {ρ : Nat → V} (hok : EqsOk2 ρ eqs) :
+theorem idxEqAV_wellDenoted {eqs : List (AnnotTerm × AnnotTerm)} {ρ : Nat → V} (hok : EqsOk ρ eqs) :
     WellDenoted V ρ (idxEqAV eqs) := by
   unfold idxEqAV negAV
   rw [WellDenoted_pi]
@@ -151,7 +151,7 @@ fields are and the equations' sides are graded at every fitting field
 frame. -/
 theorem FieldsOkB_append_idxEq {w : Nat} {eqs : List (AnnotTerm × AnnotTerm)} :
     ∀ {Fs : List AnnotTerm} {ρ : Nat → V}, FieldsOkB w ρ Fs →
-      (∀ bs : List V, SpineFit ρ Fs bs → EqsOk2 (consList bs ρ) eqs) →
+      (∀ bs : List V, SpineFit ρ Fs bs → EqsOk (consList bs ρ) eqs) →
       FieldsOkB w ρ (Fs ++ [idxEqAV eqs])
   | [], ρ, _, hE => by
     refine ⟨idxEqAV_wellDenoted (by simpa [consList] using hE [] trivial),
@@ -246,7 +246,7 @@ theorem eqChainAV_below {k : Nat} :
   | [], _ => trivial
   | (a, b) :: r, h => by
     refine ⟨⟨trivial, (h (a, b) List.mem_cons_self).1, (h (a, b) List.mem_cons_self).2⟩, ?_⟩
-    rw [ATerm.erase_liftN]
+    rw [AnnotTerm.erase_liftN]
     exact VExprAux.bvarsBelow_liftN 1 _ k 0
       (eqChainAV_below fun e he => h e (List.mem_cons_of_mem _ he))
 
@@ -325,7 +325,7 @@ theorem FieldsBelow_liftFields {n : Nat} :
   | [], _, _, _, _ => trivial
   | F :: Fs, k, K, hk, hb => by
     refine ⟨?_, ?_⟩
-    · rw [ATerm.erase_liftN]
+    · rw [AnnotTerm.erase_liftN]
       exact VExprAux.bvarsBelow_liftN n _ K k hb.1
     · have := FieldsBelow_liftFields (n := n) (Fs := Fs) (k := k + 1) (K := K + 1)
         (by omega) hb.2
@@ -488,12 +488,12 @@ theorem FieldsBelow_rChain {d nIdx : Nat} (hd : nIdx ≤ d) {Fs Es : List AnnotT
   rw [liftFields_length]
   refine ⟨?_, ?_⟩
   · simp only
-    rw [ATerm.erase_liftN]
+    rw [AnnotTerm.erase_liftN]
     have : Term.bvarsBelow (K + Fs.length) (Es.getD l default).erase :=
       hE _ (getD_mem_of_lt (by rw [hEs]; exact List.mem_range.mp hl))
     have h2 := VExprAux.bvarsBelow_liftN d _ (K + Fs.length) Fs.length this
     rwa [show K + Fs.length + d = K + d + Fs.length from by omega] at h2
-  · simp only [ATerm.erase_bvar]
+  · simp only [AnnotTerm.erase_bvar]
     show Fs.length + nIdx - 1 - l < K + d + Fs.length
     have := List.mem_range.mp hl
     omega

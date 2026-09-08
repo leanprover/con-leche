@@ -5,7 +5,7 @@ import ConLeche.Model.Steps.InferIO
 /-!
 # The io reads walk — `InferReadsIO` DISCHARGED (task #172, batch B3)
 
-`InferReadsIO` (`Model/Steps/InferIOP.lean`) is the io lane's
+`InferReadsIO` (`Model/Steps/InferIO.lean`) is the io lane's
 **totality residue**: *if the io inference returns a type, that type
 reads*.  The io-license batch routed it and named its discharge as
 this batch's risk class:
@@ -153,7 +153,7 @@ private theorem inferReadsIO_lam {m : EnvModel V env}
         (hlr.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]))
         htyA)
       hba
-  refine ⟨ATerm.pi 0 (pwBit φ mb.pw) tyA bta, ?_⟩
+  refine ⟨AnnotTerm.pi 0 (pwBit φ mb.pw) tyA bta, ?_⟩
   rw [denoteMeta, htyA, hround, hbta]
   rfl
 

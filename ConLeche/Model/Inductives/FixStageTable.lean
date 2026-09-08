@@ -44,7 +44,7 @@ omit [SetTheory V] in
 /-- Lifting by nothing is the identity on a field chain. -/
 theorem liftFields_zero : ∀ (k : Nat) (Fs : List AnnotTerm), liftFields 0 k Fs = Fs
   | _, [] => rfl
-  | k, F :: Fs => by rw [liftFields_cons, ATerm.liftN_zero, liftFields_zero (k + 1) Fs]
+  | k, F :: Fs => by rw [liftFields_cons, AnnotTerm.liftN_zero, liftFields_zero (k + 1) Fs]
 
 omit [SetTheory V] in
 /-- The one constructor's restricted chain at no index is its

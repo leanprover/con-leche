@@ -215,7 +215,7 @@ theorem consList_apply_lt :
 /-- The field variables, read at a consed field spine, are the spine. -/
 theorem map_fieldBvars_interp {nF : Nat} {as : List V} (hlen : as.length = nF)
     (σ : Nat → V) :
-    ((List.range nF).map fun k => (ATerm.bvar (nF - 1 - k))).map (interp V (consList as σ))
+    ((List.range nF).map fun k => (AnnotTerm.bvar (nF - 1 - k))).map (interp V (consList as σ))
       = as := by
   apply List.ext_getElem
   · simp [hlen]

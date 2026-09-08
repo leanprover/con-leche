@@ -131,7 +131,7 @@ theorem point {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
               (cdoms.getD q default) = some dw →
             interp V σ w ∈ˢ interp V σ dw)
     {vHC : AnnotTerm} {vArgsC : List AnnotTerm}
-    (hRjdec : Rj = ATerm.mkAppN vHC vArgsC)
+    (hRjdec : Rj = AnnotTerm.mkAppN vHC vArgsC)
     (hArgsClen : vArgsC.length = cnP + (mI - rP))
     -- the recorded index run
     (hdeIdx : DefEqListOk μ F env (rP + cnF)
@@ -140,15 +140,15 @@ theorem point {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
     {mix : List AnnotTerm} (hmixlen : mix.length = cnP + cnF)
     (hmixsp : ∀ (q : Nat) (x : Expr), sp[q]? = some x →
       ∃ w0, denoteMeta m.acval env ψ' (rP + cnF) x = some w0 ∧
-        mix[q]? = some (ATerm.instSeq zs (rP + cnF - 1) w0))
+        mix[q]? = some (AnnotTerm.instSeq zs (rP + cnF - 1) w0))
     (hmixVal : ∀ q, q < cnP + cnF →
       interp V ρ (mix.getD q default) = interp V ρ (ys.getD q default))
     {restC : AnnotTerm} (hfitC : TeleFitPA V ρ TVj ys restC)
     (hidx : IotaIndexPin (V := V) ρ restC cnP mI rP xs) :
     interp V (chain V ρ zs) vL
       = interp V ρ
-          (ATerm.mkAppN (m.acval Rn ψ')
-            (xs ++ [ATerm.mkAppN
+          (AnnotTerm.mkAppN (m.acval Rn ψ')
+            (xs ++ [AnnotTerm.mkAppN
               (m.acval ctor (Level.substFn φ cvj.levelParams usj))
               ys])) := by
   have hxtlen : (xs.take rP).length = rP := by
@@ -251,7 +251,7 @@ theorem point {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
       (by rw [m.acval_erase]; exact m.cval_closed Rn ψ')
       (chain V ρ zs) ρ]
   suffices hmap : vLargs.map (interp V (chain V ρ zs))
-      = (xs ++ [ATerm.mkAppN
+      = (xs ++ [AnnotTerm.mkAppN
           (m.acval ctor (Level.substFn φ cvj.levelParams usj)) ys]).map
           (interp V ρ) by
     rw [hmap]
@@ -377,7 +377,7 @@ theorem point {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
           hsat
         -- the full cross
         have htowFull : PiTeleAV sp.length
-            (ATerm.instSeq zs (rP + cnF - 1) TVj) Γj Rj := by
+            (AnnotTerm.instSeq zs (rP + cnF - 1) TVj) Γj Rj := by
           rw [hsplen, instSeqAV_eq_self_of_closed hTVjcl]
           exact htowerJ
         have hcross := instPisAt_denoteMeta_cross m.acval_closed
@@ -388,31 +388,31 @@ theorem point {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
           (ws := mix) (by rw [hmixlen, hsplen]) hmixsp htowFull
         rw [hvCresEq, instSeqAV_mkAppN, hRjdec, instSeqAV_mkAppN,
           hmixlen] at hcross
-        have hcrossSp := (ATerm.mkAppN_inj hcross
+        have hcrossSp := (AnnotTerm.mkAppN_inj hcross
           (by rw [List.length_map, List.length_map, hvcArgsLen,
             hArgsClen])).2
         rcases hva : vArgsC[cnP + (i - rP)]? with _ | va
         · rw [List.getElem?_eq_none_iff, hArgsClen] at hva
           omega
-        have hel : ATerm.instSeq zs (rP + cnF - 1) bv'
-            = ATerm.instSeq mix (cnP + cnF - 1) va := by
+        have hel : AnnotTerm.instSeq zs (rP + cnF - 1) bv'
+            = AnnotTerm.instSeq mix (cnP + cnF - 1) va := by
           have h1 := congrArg (fun l => l[cnP + (i - rP)]?) hcrossSp
           simp only [List.getElem?_map, hbv', hva, Option.map_some] at h1
           exact Option.some.inj h1
         -- the fired pin identifies the `ys`-instantiated element
-        have hrest : restC = ATerm.instSeq ys (cnP + cnF - 1) Rj :=
+        have hrest : restC = AnnotTerm.instSeq ys (cnP + cnF - 1) Rj :=
           teleFitPA_rest_eq (cnP + cnF) htowerJ (by rw [hlenY]) hfitC
         obtain ⟨H, cargs, hrestEq, hcarLen, hcarInterp⟩ := hidx
         rcases hcarLen with hcase | hcarLen
         · omega
-        have hrest2 : ATerm.mkAppN H cargs
-            = ATerm.mkAppN (ATerm.instSeq ys (cnP + cnF - 1) vHC)
-                (vArgsC.map (ATerm.instSeq ys (cnP + cnF - 1))) := by
+        have hrest2 : AnnotTerm.mkAppN H cargs
+            = AnnotTerm.mkAppN (AnnotTerm.instSeq ys (cnP + cnF - 1) vHC)
+                (vArgsC.map (AnnotTerm.instSeq ys (cnP + cnF - 1))) := by
           rw [← hrestEq, hrest, hRjdec, instSeqAV_mkAppN]
-        have hcargsSp := (ATerm.mkAppN_inj hrest2
+        have hcargsSp := (AnnotTerm.mkAppN_inj hrest2
           (by rw [hcarLen, List.length_map, hArgsClen])).2
         have hcel : cargs.getD (cnP + (i - rP)) default
-            = ATerm.instSeq ys (cnP + cnF - 1) va := by
+            = AnnotTerm.instSeq ys (cnP + cnF - 1) va := by
           have h1 := congrArg (fun l => l[cnP + (i - rP)]?) hcargsSp
           simp only [List.getElem?_map, hva, Option.map_some] at h1
           rw [List.getD, h1]
@@ -439,9 +439,9 @@ theorem point {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
             = interp V ρ (xs.getD i default) := by
           calc interp V (chain V ρ zs) vi
               = interp V (chain V ρ zs) bv' := heqAB
-            _ = interp V ρ (ATerm.instSeq zs (zs.length - 1) bv') :=
+            _ = interp V ρ (AnnotTerm.instSeq zs (zs.length - 1) bv') :=
                 (interp_instSeq zs bv' ρ).symm
-            _ = interp V ρ (ATerm.instSeq mix (cnP + cnF - 1) va) := by
+            _ = interp V ρ (AnnotTerm.instSeq mix (cnP + cnF - 1) va) := by
                 rw [hzslen]
                 exact congrArg (interp V ρ) hel
             _ = interp V (chain V ρ mix) va := by
@@ -449,7 +449,7 @@ theorem point {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
                   rw [hmixlen]]
                 exact interp_instSeq _ va ρ
             _ = interp V (chain V ρ ys) va := by rw [hchainEq]
-            _ = interp V ρ (ATerm.instSeq ys (ys.length - 1) va) :=
+            _ = interp V ρ (AnnotTerm.instSeq ys (ys.length - 1) va) :=
                 (interp_instSeq ys va ρ).symm
             _ = interp V ρ (cargs.getD (cnP + (i - rP)) default) := by
                 rw [hlenY, hcel]
@@ -481,9 +481,9 @@ theorem point {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
           rw [← hcspM.length, hsplen]
         rw [List.getElem?_append_right (by rw [hlenX]; omega), hlenX,
           Nat.sub_self]
-        rw [show ([ATerm.mkAppN
+        rw [show ([AnnotTerm.mkAppN
             (m.acval ctor (Level.substFn φ cvj.levelParams usj)) ys])[0]?
-          = some (ATerm.mkAppN
+          = some (AnnotTerm.mkAppN
               (m.acval ctor (Level.substFn φ cvj.levelParams usj)) ys)
           from rfl]
         rw [Option.map_some, Option.map_some]
@@ -517,13 +517,13 @@ theorem point {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
             rw [List.getD, hyq]
             rfl
           have hgm : mix.getD q default
-              = ATerm.instSeq zs (rP + cnF - 1) w0 := by
+              = AnnotTerm.instSeq zs (rP + cnF - 1) w0 := by
             rw [List.getD, hmx]
             rfl
           have hcalc : interp V (chain V ρ zs) w0
               = interp V ρ (ys.getD q default) := by
             calc interp V (chain V ρ zs) w0
-                = interp V ρ (ATerm.instSeq zs (zs.length - 1) w0) :=
+                = interp V ρ (AnnotTerm.instSeq zs (zs.length - 1) w0) :=
                   (interp_instSeq zs w0 ρ).symm
               _ = interp V ρ (mix.getD q default) := by
                   rw [hzslen, hgm]

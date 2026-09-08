@@ -87,11 +87,11 @@ theorem declNativeRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     ConLeche.checkConstantVal_inv hcvT
   -- the completed record, as one name
   try dsimp only at hCtors hRec hTbl
-  have hpT : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).cvT = p₀.cvT := by
+  have hpT : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).cvT = p₀.cvT := by
     simp [ConLeche.NativeParts.withKinds]
-  have hpC : ((p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds).ctors
+  have hpC : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).ctors
       = p₀.ctors := by simp [ConLeche.NativeParts.withKinds]
-  generalize hp : (p₀.complete (p₀.toDirectSumParts.withSort s)).withKinds kinds = p
+  generalize hp : (p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds = p
     at hCtors hRec hTbl hpT hpC
   have hn : cvTa.name = p.cvT.name := by rw [hTeq, hpT]; exact hTn
   replace hnd : (p.ctors.map (·.1.name)).Nodup := by rw [hpC]; exact hnd

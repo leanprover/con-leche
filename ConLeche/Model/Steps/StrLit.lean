@@ -3,7 +3,7 @@ import ConLeche.Model.Steps.CapsRows
 /-!
 # The `String`-literal inference row (task #161, PROJ/STR install tier)
 
-`InferStrLitStep` (`Steps/InferP.lean`), discharged.  The v1 mirror is
+`InferStrLitStep` (`Steps/Infer.lean`), discharged.  The v1 mirror is
 `Sound/Lit.lean`'s `strLit_facts`/`sndInfLitStr`; the transposition is
 shorter, and for one structural reason:
 
@@ -24,7 +24,7 @@ memberships ride `wellDenotedV_mkAppN_of_fit`, whose `v = 0` fibre premise
 comes from the type reading's own `AnnotValid`.
 
 The chain lemma is stated over the five head packages as *explicit
-arguments*, exactly as `natLit_facts2` (`Steps/Lit.lean`) is stated
+arguments*, exactly as `natLit_factsAV` (`Steps/Lit.lean`) is stated
 over the two numeral heads and for the same reason: the head facts are
 one `ConstType` chain, the same for every literal, and factoring them
 out keeps the character induction free of the guard's inversion
@@ -59,7 +59,7 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
 
 /-! ## The character-list chain -/
 
-/-- **The character-list facts** — `natLit_facts2`'s companion.  Every
+/-- **The character-list facts** — `natLit_factsAV`'s companion.  Every
 `denoteMeta` character list is graded and inhabits `List Char`'s reading,
 by induction on the list from the `nil`/`cons`/`Char.ofNat` head
 packages and the two numeral heads. -/
@@ -100,7 +100,7 @@ theorem charList_facts {ρ : Nat → V}
         interp V ρ ((.app KF (natLitAV Kz Ks c.toNat)) : AnnotTerm)
           ∈ˢ interp V ρ KH := by
     intro c
-    have hnat := natLit_facts2 hokKz.1 hokKs.1 hz hsucc c.toNat
+    have hnat := natLit_factsAV hokKz.1 hokKs.1 hz hsucc c.toNat
     have hokNum : WellDenotedV V ρ (natLitAV Kz Ks c.toNat) :=
       ⟨hnat.1, AnnotValid_natLitAV hokKz.2 hokKs.2 c.toNat⟩
     have h := wellDenotedV_mkAppN_of_fit (V := V) (ρ := ρ)

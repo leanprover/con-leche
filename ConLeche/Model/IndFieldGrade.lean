@@ -112,14 +112,14 @@ theorem fieldGradeFire {m : EnvModel V env} {F : Nat}
     have h := instPisAt_length _ hcinst
     omega
   -- the padded context, named once
-  have hΔlen : (List.replicate (rP + cnF - N) (ATerm.sort 0)
+  have hΔlen : (List.replicate (rP + cnF - N) (AnnotTerm.sort 0)
       ++ Γs.drop (rP + cnF - N)).length = (rP + cnF) := by
     rw [List.length_append, List.length_replicate, List.length_drop,
       hΓslen]
     omega
   -- above the padding the padded context is the tower's
   have hent : ∀ i, i < N →
-      (List.replicate (rP + cnF - N) (ATerm.sort 0)
+      (List.replicate (rP + cnF - N) (AnnotTerm.sort 0)
         ++ Γs.drop (rP + cnF - N))[(rP + cnF) - 1 - i]?
         = some (Γs.getD ((rP + cnF) - 1 - i) default) := by
     intro i hi
@@ -134,7 +134,7 @@ theorem fieldGradeFire {m : EnvModel V env} {F : Nat}
     · rfl
   -- the a-side gradings, from the statement type's own
   have hokAll : ∀ i, i ≤ N → i < rP + cnF → ∀ ρ' : Nat → V,
-      Sat V (List.replicate (rP + cnF - N) (ATerm.sort 0)
+      Sat V (List.replicate (rP + cnF - N) (AnnotTerm.sort 0)
         ++ Γs.drop (rP + cnF - N)) ρ' →
       WellDenotedV V (fun j => ρ' (j + ((rP + cnF) - 1 - i) + 1))
         (Γs.getD ((rP + cnF) - 1 - i) default) := by
@@ -213,7 +213,7 @@ theorem fieldGradeFire {m : EnvModel V env} {F : Nat}
     rfl
   -- **the b-side grading, at every satisfying environment**
   have hgbAll : ∀ ρ0 : Nat → V,
-      Sat V (List.replicate (rP + cnF - N) (ATerm.sort 0)
+      Sat V (List.replicate (rP + cnF - N) (AnnotTerm.sort 0)
         ++ Γs.drop (rP + cnF - N)) ρ0 → ∀ dw : AnnotTerm,
       denoteMeta m.acval env φ (rP + cnF)
         (cdoms.getD (cnP + (n - rP)) default) = some dw →
@@ -281,7 +281,7 @@ theorem fieldGradeFire {m : EnvModel V env} {F : Nat}
       (hleafCd (n - rP) hjlt l hl).1
   have hfire := defEqAt_of_run (m := m) hclaims (k := (rP + cnF))
     (fvs := fvs) (Aa := fun i => Γs.getD ((rP + cnF) - 1 - i) default)
-    (Δa := (List.replicate (rP + cnF - N) (ATerm.sort 0)
+    (Δa := (List.replicate (rP + cnF - N) (AnnotTerm.sort 0)
       ++ Γs.drop (rP + cnF - N))) hΔlen
     hshapeS hwsFvs (fun i x hix => hdomsS0 i x hix) (n := n)
     (fun i hi => hent i (by omega))

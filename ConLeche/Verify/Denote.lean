@@ -17,7 +17,7 @@ rules of the deleted judgment where that is what decided a clause's
 shape; those names no longer resolve to anything in the tree, and are
 kept because the *reasons* still bind — see DESIGN.md's task #209
 section.
-It is **the structural transpose of `ConLeche/Model/Interp.lean`'s
+It is **the structural transpose of `ConLeche/ModelV1/Interp.lean`'s
 `interpExpr`**, clause for clause, and the reader should hold the two
 side by side: everything below is `interpExpr` with the set-theoretic
 universe `V` replaced by the syntax `Term` and set-level operations

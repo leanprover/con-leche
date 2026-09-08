@@ -8,7 +8,7 @@ THE SEPARATION's shared base: three lemmas that were filed in
 **model-free** — pure inversions of the checker's `defEqList` run and of
 `recFireComparands`, naming no `EnvS`, no valuation and no relation of
 the `Infer`/`DefEq` family.  Both lanes consume them: `Bridge/Iota.lean`
-for `iota_stepR`, `Interp/Steps/IotaRowsP.lean` for the graded lane's
+for `iota_stepR`, `Interp/Steps/IotaRows.lean` for the graded lane's
 `IotaStep` (design census §3.3, edge 13).
 
 Statements verbatim from their old home; the namespace is unchanged.

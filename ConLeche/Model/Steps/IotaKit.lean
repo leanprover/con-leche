@@ -17,7 +17,7 @@ certificate walk that feeds its two telescope premises.
   `denoteMeta_lift`/`denoteMeta_shiftFrom` take `WScoped` where their
   ancestors take `fvarsBelow`, `denoteMeta_beta` takes the two leaf
   obligations (`hacl`/`hainst`) where `denote_beta` takes `hcl`, and
-  the base lemma's lift-invariance is `ATerm.liftN_eq_self` at the
+  the base lemma's lift-invariance is `AnnotTerm.liftN_eq_self` at the
   erasure's `Term.bvarsBelow` (`denoteMeta_closed`'s route).
 * **`teleFitPA_residual`** — `Tele.residual`'s mirror.  `TeleFitPA` is
   *substitution-peeling*, so this is the walk `piResidual` itself
@@ -58,7 +58,7 @@ variable {acval : Name → (Name → Nat) → AnnotTerm}
 /-- **The base-independence of the opened validated reading**
 (`denote_openRev_base`'s mirror): a constant-frame subject's reverse
 opening reads to the same annotation at every base.  The lift the
-induction has to absorb is killed by `ATerm.liftN_eq_self` at the
+induction has to absorb is killed by `AnnotTerm.liftN_eq_self` at the
 erasure's bvar bound — `denoteMeta_closed`'s route, one depth up. -/
 theorem denoteMeta_openRev_base {cval : TConstVal}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
@@ -84,7 +84,7 @@ theorem denoteMeta_openRev_base {cval : TConstVal}
     | none => rfl
     | some v =>
       simp only [Option.map_some, Option.some.injEq, Nat.sub_zero]
-      refine ATerm.liftN_eq_self v ?_ 1
+      refine AnnotTerm.liftN_eq_self v ?_ 1
       have hws : Expr.WScoped n (openRev 0 n e) := by
         have h2 := openRev_WScoped (d := 0)
           (Expr.WScoped.of_not_hasFvar hnf) n
@@ -108,7 +108,7 @@ theorem denoteMeta_openRev
       ∀ {vs : List AnnotTerm}, DenoteMetaSpine acval env φ d as vs →
       denoteMeta acval env φ d (Expr.instSeq as (as.length - 1) e)
         = (denoteMeta acval env φ (d + as.length)
-            (openRev d as.length e)).map (ATerm.instRevChain vs) := by
+            (openRev d as.length e)).map (AnnotTerm.instRevChain vs) := by
   intro as
   induction as with
   | nil =>
@@ -144,8 +144,8 @@ theorem denoteMeta_openRev
       (openRev_fvarsBelow hfb as.length) (hwa.mono (by omega)) hba ha' 0]
     show ((denoteMeta acval env φ (d + as.length + 1)
       (openRev d (as.length + 1) e)).map
-        (ATerm.inst · (va.liftN as.length) 0)).map
-        (ATerm.instRevChain vs') = _
+        (AnnotTerm.inst · (va.liftN as.length) 0)).map
+        (AnnotTerm.instRevChain vs') = _
     rw [Option.map_map,
       show d + as.length + 1 = d + (a :: as).length from by
         simp only [List.length_cons]
@@ -156,9 +156,9 @@ theorem denoteMeta_openRev
     | none => rfl
     | some X =>
       simp only [Option.map_some, Option.some.injEq, Function.comp_apply]
-      show ATerm.instRevChain vs' (X.inst (va.liftN as.length) 0) = _
-      rw [show ATerm.instRevChain (va :: vs') X
-        = ATerm.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
+      show AnnotTerm.instRevChain vs' (X.inst (va.liftN as.length) 0) = _
+      rw [show AnnotTerm.instRevChain (va :: vs') X
+        = AnnotTerm.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
         hsp'.length]
 
 /-! ## The fit's residual -/
@@ -370,8 +370,8 @@ theorem wellDenotedV_mkAppN_of_fitA {ρ : Nat → V} :
       (∀ x ∈ vs, WellDenotedV V ρ x) →
       interp V ρ f ∈ˢ interp V ρ Ta →
       TeleFitPA V ρ Ta vs rest →
-      WellDenotedV V ρ (ATerm.mkAppN f vs) ∧
-        interp V ρ (ATerm.mkAppN f vs) ∈ˢ interp V ρ rest := by
+      WellDenotedV V ρ (AnnotTerm.mkAppN f vs) ∧
+        interp V ρ (AnnotTerm.mkAppN f vs) ∈ˢ interp V ρ rest := by
   intro vs
   induction vs with
   | nil =>
@@ -448,14 +448,14 @@ a generalized body. -/
 theorem WellDenoted_instRevChain (ρ : Nat → V) :
     ∀ (vs : List AnnotTerm), (∀ v ∈ vs, WellDenoted V ρ v) →
       ∀ X : AnnotTerm,
-        (WellDenoted V ρ (ConLeche.Model.ATerm.instRevChain vs X) ↔
+        (WellDenoted V ρ (ConLeche.Model.AnnotTerm.instRevChain vs X) ↔
           WellDenoted V (envChain ρ vs) X) := by
   intro vs
   induction vs with
   | nil => intro _ X; exact Iff.rfl
   | cons v vs ih =>
     intro hvs X
-    show WellDenoted V ρ (ConLeche.Model.ATerm.instRevChain vs
+    show WellDenoted V ρ (ConLeche.Model.AnnotTerm.instRevChain vs
         (X.inst (v.liftN vs.length) 0)) ↔ _
     rw [ih (fun v' hv' => hvs v' (List.mem_cons_of_mem _ hv'))]
     have hva : WellDenoted V (shiftE 0 0 (envChain ρ vs))
@@ -474,14 +474,14 @@ theorem WellDenoted_instRevChain (ρ : Nat → V) :
 theorem AnnotValid_instRevChain (ρ : Nat → V) :
     ∀ (vs : List AnnotTerm), (∀ v ∈ vs, AnnotValid V ρ v) →
       ∀ X : AnnotTerm,
-        (AnnotValid V ρ (ConLeche.Model.ATerm.instRevChain vs X) ↔
+        (AnnotValid V ρ (ConLeche.Model.AnnotTerm.instRevChain vs X) ↔
           AnnotValid V (envChain ρ vs) X) := by
   intro vs
   induction vs with
   | nil => intro _ X; exact Iff.rfl
   | cons v vs ih =>
     intro hvs X
-    show AnnotValid V ρ (ConLeche.Model.ATerm.instRevChain vs
+    show AnnotValid V ρ (ConLeche.Model.AnnotTerm.instRevChain vs
         (X.inst (v.liftN vs.length) 0)) ↔ _
     rw [ih (fun v' hv' => hvs v' (List.mem_cons_of_mem _ hv'))]
     have hva : AnnotValid V (shiftE 0 0 (envChain ρ vs))
@@ -502,7 +502,7 @@ ambient-graded arguments is graded at the ambient environment. -/
 theorem wellDenotedV_instRevChain {ρ : Nat → V} {vs : List AnnotTerm}
     {X : AnnotTerm} (hX : ∀ σ : Nat → V, WellDenotedV V σ X)
     (hvs : ∀ v ∈ vs, WellDenotedV V ρ v) :
-    WellDenotedV V ρ (ConLeche.Model.ATerm.instRevChain vs X) :=
+    WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain vs X) :=
   ⟨(WellDenoted_instRevChain ρ vs (fun v hv => (hvs v hv).1) X).mpr
       (hX _).1,
     (AnnotValid_instRevChain ρ vs (fun v hv => (hvs v hv).2) X).mpr
@@ -527,7 +527,7 @@ lost by moving to it.) -/
 theorem wellDenotedV_instRevChain_at {ρ : Nat → V} {vs : List AnnotTerm}
     {X : AnnotTerm} (hX : WellDenotedV V (envChain ρ vs) X)
     (hvs : ∀ v ∈ vs, WellDenotedV V ρ v) :
-    WellDenotedV V ρ (ConLeche.Model.ATerm.instRevChain vs X) :=
+    WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain vs X) :=
   ⟨(WellDenoted_instRevChain ρ vs (fun v hv => (hvs v hv).1) X).mpr hX.1,
     (AnnotValid_instRevChain ρ vs (fun v hv => (hvs v hv).2) X).mpr
       hX.2⟩

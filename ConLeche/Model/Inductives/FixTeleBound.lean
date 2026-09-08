@@ -280,7 +280,7 @@ theorem fixTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ en
     have hread := hO.doms (nP + i) x hxA
     rw [reverse_getD_field hlenDs hi, drop_map_getD hlenDs hi, hD.reflEntry ψ i hk hi] at hread
     have hst := stripPisAV_mkPisAV ((tss ψ).getD i [])
-      (ATerm.mkAppN (mp.base2.acval T ψ)
+      (AnnotTerm.mkAppN (mp.base2.acval T ψ)
         (paramBvarsAt nP (nP + i + ((tss ψ).getD i []).length) ++ (Eiss ψ).getD i []))
     have hb := stripPisAV_bits _ (hbits ψ) hread hst
     have hne' : (tss ψ).getD i [] ≠ [] := by

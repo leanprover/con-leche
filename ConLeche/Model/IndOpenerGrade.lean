@@ -116,14 +116,14 @@ theorem annotOpeners {m : EnvModel V env} {F : Nat}
   obtain ⟨bvs, hbvslen, hbvsel⟩ : ∃ bvs : List AnnotTerm,
       bvs.length = K ∧
       ∀ k, k < K →
-        bvs[k]? = some (ATerm.bvar (K - 1 - k)) := by
+        bvs[k]? = some (AnnotTerm.bvar (K - 1 - k)) := by
     refine ⟨(List.range (K)).map
-        (fun j => ATerm.bvar (K - 1 - j)),
+        (fun j => AnnotTerm.bvar (K - 1 - j)),
       by rw [List.length_map, List.length_range], fun k hk => ?_⟩
     rw [List.getElem?_map, List.getElem?_range hk]
     rfl
   have hbvsgetD : ∀ k, k < K →
-      bvs.getD k default = ATerm.bvar (K - 1 - k) := by
+      bvs.getD k default = AnnotTerm.bvar (K - 1 - k) := by
     intro k hk
     rw [List.getD, hbvsel k hk]
     rfl
@@ -158,9 +158,9 @@ theorem annotOpeners {m : EnvModel V env} {F : Nat}
     exact hRa
   have hbaEq : denoteMeta m.acval env φ
       (K) (Expr.mkAppN (rhsA.renameConsts f) fvs)
-      = some (ATerm.mkAppN Ra bvs) := denoteMeta_mkAppN_of fvs hRaK hspBvs
+      = some (AnnotTerm.mkAppN Ra bvs) := denoteMeta_mkAppN_of fvs hRaK hspBvs
   intro σ hσ ba hba
-  obtain rfl : ba = ATerm.mkAppN Ra bvs :=
+  obtain rfl : ba = AnnotTerm.mkAppN Ra bvs :=
     Option.some.inj (hba.symm.trans hbaEq)
   have hsatB : Sat V Γs (chain V σ bvs) := by
     intro i Aa hi
@@ -196,7 +196,7 @@ theorem annotOpeners {m : EnvModel V env} {F : Nat}
       (fun j hj => by
         rw [chain_lt (by rw [htklen]; omega), htklen,
           show (bvs.take k).getD (k - 1 - j) default
-            = ATerm.bvar (K - 1 - (k - 1 - j)) from by
+            = AnnotTerm.bvar (K - 1 - (k - 1 - j)) from by
             rw [List.getD, List.getElem?_take_of_lt (by omega),
               hbvsel (k - 1 - j) (by omega)]
             rfl]
@@ -212,7 +212,7 @@ theorem annotOpeners {m : EnvModel V env} {F : Nat}
         have := (List.getElem?_eq_some_iff.mp hq).1
         rw [hbvslen] at this; exact this
       rw [hbvsel q hqlt] at hq
-      obtain rfl : w = ATerm.bvar (K - 1 - q) :=
+      obtain rfl : w = AnnotTerm.bvar (K - 1 - q) :=
         (Option.some.inj hq).symm
       exact ⟨by simp, by simp⟩)
 

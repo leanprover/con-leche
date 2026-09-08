@@ -694,14 +694,14 @@ theorem sigBKI_mem (ρb : Nat → V) :
 omit [SetTheory V] in
 theorem max_zero' (u : Nat) : Nat.max u 0 = u := Nat.max_zero _
 
-theorem psigmaV2_mem_gen (u v : Nat) :
-    psigmaV2 V u v ∈ˢ piR (Nat.max u v + 1) (univ u : V)
+theorem psigmaV_mem_gen (u v : Nat) :
+    psigmaV V u v ∈ˢ piR (Nat.max u v + 1) (univ u : V)
       (fun A => piR (Nat.max u v + 1) (psigmaFibreSpace V v A) fun _ => (univ (Nat.max u v) : V)) :=
   lamR_mem fun _ hA => lamR_mem fun _ hB => sigma_mem_univ hA (fun _ hx => psigmaFibre_apply V hB hx)
 
 /-- `pt` witnesses the double negation of an inhabited set. -/
-theorem pt_mem_dnegSpace2' {A x : V} (hx : x ∈ˢ A) : (pt : V) ∈ˢ dnegSpace2 V A := by
-  unfold dnegSpace2
+theorem pt_mem_dnegSpace2' {A x : V} (hx : x ∈ˢ A) : (pt : V) ∈ˢ dnegSpace V A := by
+  unfold dnegSpace
   have h1 : piR 0 A (fun _ => (empty : V)) = empty := by
     rw [piR_zero]
     exact truthVal_eq_empty fun hf => not_mem_empty _ (hf x hx).choose_spec
@@ -747,12 +747,12 @@ theorem fixSigAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
     unfold sigBKI
     rw [interp_lam]
     exact lamR_congr fun r hr => (hbody r hr).1
-  have hps := psigmaV2_mem_gen (V := V) (s) 0
+  have hps := psigmaV_mem_gen (V := V) (s) 0
   rw [max_zero'] at hps
   have hv : interp V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) = sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb := by
-    show SetTheory.app (SetTheory.app (psigmaV2 V (s) 0)
+    show SetTheory.app (SetTheory.app (psigmaV V (s) 0)
       (interp V ρb (recTyAV Fss.length Ids.length rds))) (interp V ρb (.lam 1 _ _)) = _
-    rw [hlamv, psigmaV2_app V hTu (sigBKI_mem ρb), max_zero']
+    rw [hlamv, psigmaV_app V hTu (sigBKI_mem ρb), max_zero']
     rfl
   refine ⟨hv, ?_, ?_⟩
   · have := sigma_mem_univ (u := s) (v := 0) hTu
@@ -772,7 +772,7 @@ theorem fixSigAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
       rw [(hbody r hr).1, univ_zero]; exact eqv_mem_univZero _ _
     · refine ⟨s + 1, psigmaFibreSpace V 0 (interp V ρb (recTyAV Fss.length Ids.length rds)),
         fun _ => (univ (s) : V), ?_, ?_, fun h => absurd h (Nat.succ_ne_zero _)⟩
-      · show SetTheory.app (psigmaV2 V (s) 0) (interp V ρb (recTyAV Fss.length Ids.length rds)) ∈ˢ _
+      · show SetTheory.app (psigmaV V (s) 0) (interp V ρb (recTyAV Fss.length Ids.length rds)) ∈ˢ _
         exact app_mem_piR_pos (Nat.succ_ne_zero _) hps hTu
       · rw [hlamv]; exact sigBKI_mem ρb
 
@@ -801,42 +801,42 @@ theorem fixSelAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
         (by rw [sigBKI_app hr₀, hfix₀]; exact pt_mem_eqv_self _)
     · refine ⟨spair (rStar ℓ w u Fss Ess Fss₀ Ids rss tlss Eiss rds ρb) pt, ?_⟩
       exact spair_mem hu hr₀ (by rw [sigBKI_app hr₀, hfix₀]; exact pt_mem_eqv_self _)
-  have hchoice : interp V ρb (ATerm.mkAppN (.const .choice [s])
+  have hchoice : interp V ρb (AnnotTerm.mkAppN (.const .choice [s])
       [fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s, .prf]) = schoice (sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) := by
-    show SetTheory.app (SetTheory.app (choiceV2 V (s))
+    show SetTheory.app (SetTheory.app (choiceV V (s))
       (interp V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s))) pt = _
     rw [hSv]
-    exact choiceV2_app V hSu (pt_mem_dnegSpace2' hSne.choose_spec)
+    exact choiceV_app V hSu (pt_mem_dnegSpace2' hSne.choose_spec)
   have hsel := schoice_mem hSne.choose_spec
   obtain ⟨a, b, ha, hb, hz, hpos⟩ := mem_sigma_elim hsel
   rw [sigBKI_app ha] at hb
   have hfixa : SetTheory.app (stepVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) a = a := eq_of_mem_eqv hb
   have hval : interp V ρb (fixSelAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s) = a := by
-    show sfst (interp V ρb (ATerm.mkAppN (.const .choice [s]) [_, .prf])) = a
+    show sfst (interp V ρb (AnnotTerm.mkAppN (.const .choice [s]) [_, .prf])) = a
     rw [hchoice]
     by_cases hu : s = 0
     · rw [hz hu, sfst_pt]
       exact (eq_pt_of_mem_univZero (hu0 hu) ha).symm
     · rw [hpos hu, sfst_spair]
   refine ⟨by rw [hval]; exact ha, by rw [hval]; exact hfixa, ?_⟩
-  have hchoiceV : choiceV2 V (s) ∈ˢ piR (s) (univ (s) : V)
-      (fun A => piR (s) (dnegSpace2 V A) fun _ => A) :=
-    lamR_mem fun _ _ => lamR_mem fun _ hh => schoice_mem (exists_mem_of_dneg2 V hh).choose_spec
-  show WellDenoted V ρb (.proj 0 (ATerm.mkAppN (.const .choice [s])
+  have hchoiceV : choiceV V (s) ∈ˢ piR (s) (univ (s) : V)
+      (fun A => piR (s) (dnegSpace V A) fun _ => A) :=
+    lamR_mem fun _ _ => lamR_mem fun _ hh => schoice_mem (exists_mem_of_dneg V hh).choose_spec
+  show WellDenoted V ρb (.proj 0 (AnnotTerm.mkAppN (.const .choice [s])
     [fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s, .prf]))
   rw [WellDenoted_proj]
   refine ⟨?_, by omega, s, 0, interp V ρb (recTyAV Fss.length Ids.length rds),
     fun r => SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r, ?_, ?_, ?_⟩
   · show WellDenoted V ρb (.app (.app (.const .choice [s]) _) .prf)
     rw [WellDenoted_app]
-    refine ⟨?_, trivial, s, dnegSpace2 V (sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb),
+    refine ⟨?_, trivial, s, dnegSpace V (sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb),
       fun _ => sigKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb, ?_, ?_, ?_⟩
     · rw [WellDenoted_app]
       refine ⟨trivial, hSok, s, univ (s),
-        fun A => piR (s) (dnegSpace2 V A) fun _ => A, hchoiceV, hSv ▸ hSu, fun hu0 A _ => ?_⟩
+        fun A => piR (s) (dnegSpace V A) fun _ => A, hchoiceV, hSv ▸ hSu, fun hu0 A _ => ?_⟩
       show piR (s) _ _ ∈ˢ _
       rw [hu0]; exact piR_zero_mem_univZero
-    · show SetTheory.app (choiceV2 V (s)) (interp V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)) ∈ˢ _
+    · show SetTheory.app (choiceV V (s)) (interp V ρb (fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s)) ∈ˢ _
       rw [hSv]
       refine app_mem_piR hchoiceV hSu (fun hu0 A _ => ?_)
       show piR (s) _ _ ∈ˢ _

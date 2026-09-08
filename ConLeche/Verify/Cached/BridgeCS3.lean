@@ -430,7 +430,7 @@ theorem checkNativeRecS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
   by_cases hn : (p.cvR.name == p.cvT.name.str "rec") = true
   case neg => simp only [if_neg hn]; intro v' s' hr; exact nomatch hr
   simp only [if_pos hn]
-  by_cases hlp : nativeRecLpsOk p.toDirectSumParts = true
+  by_cases hlp : nativeRecLpsOk p.toInductiveShape = true
   case neg => simp only [if_neg hlp]; intro v' s' hr; exact nomatch hr
   simp only [if_pos hlp]
   by_cases hpin : p.recPinned = true

@@ -6,7 +6,7 @@ import ConLeche.Model.Annot.Bit
 
 The `natLit`/`strLit` infer clauses grade the numeral and character
 spines `denoteMeta` builds; the `WellDenoted` halves live with
-`natLit_facts2` in the canonical lane, and these are the `AnnotValid`
+`natLit_factsAV` in the canonical lane, and these are the `AnnotValid`
 halves: pure app-spine recursions — a spine node is an `.app`, whose
 clause recurses, and the leaves are the routed `AcvalValid` facts at
 the clause's own `acval` reads.

@@ -56,7 +56,7 @@ theorem denoteMeta_mkAppN_of {d : Nat} :
       denoteMeta acval env φ d e = some ea →
       DenoteMetaSpine acval env φ d as vs →
       denoteMeta acval env φ d (Expr.mkAppN e as)
-        = some (ATerm.mkAppN ea vs) := by
+        = some (AnnotTerm.mkAppN ea vs) := by
   intro as
   induction as with
   | nil =>
@@ -118,7 +118,7 @@ theorem reduct {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
     {zs : List AnnotTerm} {ρ : Nat → V} (hzslen : zs.length = rP + cnF)
     (hsat : Sat V Δa (chain V ρ zs)) :
     interp V (chain V ρ zs) vR
-      = interp V ρ (ATerm.mkAppN RV zs) := by
+      = interp V ρ (AnnotTerm.mkAppN RV zs) := by
   have hΓslen : Γs.length = rP + cnF := htowerS.length
   -- the openers' gradings at the ambient context
   have hokAll : ∀ i, i < rP + cnF → ∀ σ : Nat → V, Sat V Δa σ →
@@ -203,7 +203,7 @@ theorem reduct {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
       exact ⟨_, denoteMeta_fvar _ _ _ _⟩)
   have hAppRead : denoteMeta m.acval env ψ' (rP + cnF)
       (Expr.mkAppN (rhsA.renameConsts f) fvs)
-      = some (ATerm.mkAppN RV vsp) :=
+      = some (AnnotTerm.mkAppN RV vsp) :=
     denoteMeta_mkAppN_of fvs hheadK hspine
   -- fire the recorded run
   have hfire := defEqAt_of_run (m := m) hclaims (k := rP + cnF)
@@ -236,7 +236,7 @@ theorem reduct {m : EnvModel V env} {F : Nat} {ψ' : Name → Nat}
     obtain ⟨ty, rfl⟩ := hshapeS i x hx
     obtain ⟨v, hvspi, hdv⟩ := denoteMetaSpine_getElem?' hspine i _ hx
     rw [denoteMeta_fvar] at hdv
-    obtain rfl : ATerm.bvar (rP + cnF - 1 - i) = v :=
+    obtain rfl : AnnotTerm.bvar (rP + cnF - 1 - i) = v :=
       Option.some.inj hdv
     rcases hz : zs[i]? with _ | z
     · rw [List.getElem?_eq_none_iff, hzslen] at hz

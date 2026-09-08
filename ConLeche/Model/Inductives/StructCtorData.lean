@@ -38,18 +38,18 @@ theorem denoteMetaSpine_indexed {acval : Name → (Name → Nat) → AnnotTerm} 
       (∀ (j : Nat) (x : Expr), fvs[j]? = some x →
         ∃ ty, x = Expr.fvar (off + j) ty) →
       DenoteMetaSpine acval env φ d fvs
-        ((List.range fvs.length).map fun j => ATerm.bvar (d - 1 - (off + j)))
+        ((List.range fvs.length).map fun j => AnnotTerm.bvar (d - 1 - (off + j)))
   | [], _, _ => .nil
   | x :: fvs, off, h => by
     obtain ⟨nm, ty, rfl⟩ := h 0 x rfl
     rw [List.length_cons, List.range_succ_eq_map, List.map_cons, List.map_map]
     refine .cons (by rw [denoteMeta_fvar]) ?_
     have hmap : (List.range fvs.length).map
-          ((fun j => ATerm.bvar (d - 1 - (off + j))) ∘ Nat.succ)
-        = (List.range fvs.length).map fun j => ATerm.bvar (d - 1 - (off + 1 + j)) := by
+          ((fun j => AnnotTerm.bvar (d - 1 - (off + j))) ∘ Nat.succ)
+        = (List.range fvs.length).map fun j => AnnotTerm.bvar (d - 1 - (off + 1 + j)) := by
       apply List.map_congr_left
       intro j _
-      show ATerm.bvar (d - 1 - (off + (j + 1))) = ATerm.bvar (d - 1 - (off + 1 + j))
+      show AnnotTerm.bvar (d - 1 - (off + (j + 1))) = AnnotTerm.bvar (d - 1 - (off + 1 + j))
       congr 1; omega
     rw [hmap]
     exact denoteMetaSpine_indexed fvs (off + 1) fun j y hy => by
@@ -59,7 +59,7 @@ theorem denoteMetaSpine_indexed {acval : Name → (Name → Nat) → AnnotTerm} 
 /-- The parameter-variable spine of the constructor's opened body, in
 the reading's spelling. -/
 def paramBvars (nP nF : Nat) : List AnnotTerm :=
-  (List.range nP).map fun k => ATerm.bvar (nP + nF - 1 - k)
+  (List.range nP).map fun k => AnnotTerm.bvar (nP + nF - 1 - k)
 
 omit [SetTheory V] in
 theorem consList_range_reverse :

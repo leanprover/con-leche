@@ -100,7 +100,7 @@ theorem checkNativeRec_pins {env : Env} {p : NativeParts}
       | exact fixThrow_ne_ok (by simpa [bind, Except.bind] using h)
   rw [if_pos hn] at h
   try simp only [bind, Except.bind] at h
-  by_cases hlp : nativeRecLpsOk p.toDirectSumParts = true
+  by_cases hlp : nativeRecLpsOk p.toInductiveShape = true
   case neg =>
     exfalso
     rw [if_neg hlp] at h
@@ -157,7 +157,7 @@ theorem checkNativeRec_shape {env : Env} {p : NativeParts}
       | exact fixThrow_ne_ok (by simpa [bind, Except.bind] using h)
   rw [if_pos hn] at h
   try simp only [bind, Except.bind] at h
-  by_cases hlp : nativeRecLpsOk p.toDirectSumParts = true
+  by_cases hlp : nativeRecLpsOk p.toInductiveShape = true
   case neg =>
     exfalso
     rw [if_neg hlp] at h

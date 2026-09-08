@@ -6,7 +6,7 @@ import ConLeche.Model.Steps.TowerKit
 # The stored-family rows of `stuckIrrel`'s cascade (task #161, caps
 tier)
 
-`StructEtaIrrel` (`Steps/StuckP.lean`), discharged from `CapsOk`
+`StructEtaIrrel` (`Steps/Stuck.lean`), discharged from `CapsOk`
 (`Annot/EnvModelM.lean`) plus the claims.  The v1 route is two files:
 `Bridge/EtaCerts.lean`'s `structEtaCertWith_stepR` (certificate run →
 `DefEq.structEta`'s premises) and `Sound/Struct.lean`'s
@@ -108,7 +108,7 @@ tower typing law's residual, named without a checker run to read it
 off). -/
 theorem peelPis_of_piChain : ∀ (as : List AnnotTerm) {T : AnnotTerm},
     PiChain as.length T →
-      ∃ rest, ConLeche.Model.ATerm.peelPis T as = some rest
+      ∃ rest, ConLeche.Model.AnnotTerm.peelPis T as = some rest
   | [], T, _ => ⟨T, rfl⟩
   | a :: as, T, h => by
     obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv h
@@ -158,7 +158,7 @@ theorem teleFit_of_inst {aa : AnnotTerm} :
   | cons y ys ih =>
     intro E k ρ rest hpc h
     obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv hpc
-    rw [ATerm.inst_pi] at h
+    rw [AnnotTerm.inst_pi] at h
     cases h with
     | cons hmem hfit =>
       refine .cons (by rwa [interp_inst] at hmem) ?_
@@ -376,7 +376,7 @@ theorem denoteMeta_mkAppN {acval : Name → (Name → Nat) → AnnotTerm} {d : N
     {as : List Expr} {vs : List AnnotTerm}
     (h : DenoteMetaSpine acval env φ d as vs) :
     ∀ {f : Expr} {fa : AnnotTerm}, denoteMeta acval env φ d f = some fa →
-      denoteMeta acval env φ d (Expr.mkAppN f as) = some (ATerm.mkAppN fa vs) := by
+      denoteMeta acval env φ d (Expr.mkAppN f as) = some (AnnotTerm.mkAppN fa vs) := by
   induction h with
   | nil => intro f fa hf; exact hf
   | cons ha _ ih =>
@@ -400,8 +400,8 @@ theorem wellDenotedV_mkAppN_of_fit {ρ : Nat → V} :
       (∀ x ∈ vs, WellDenotedV V ρ x) →
       interp V ρ f ∈ˢ interp V σ Ta →
       TeleFit V σ Ta (vs.map (interp V ρ)) rest →
-      WellDenotedV V ρ (ATerm.mkAppN f vs) ∧
-        interp V ρ (ATerm.mkAppN f vs) ∈ˢ rest := by
+      WellDenotedV V ρ (AnnotTerm.mkAppN f vs) ∧
+        interp V ρ (AnnotTerm.mkAppN f vs) ∈ˢ rest := by
   intro vs
   induction vs with
   | nil =>
@@ -490,7 +490,7 @@ holds a `structEtaCertWithFueled` run whose `tmaj` was computed by
 factored its own).
 
 The stored η law fires at the reduced type's parameter spine; the
-fabricated value spine is `etaFabArgs2`, and the certificate's two
+fabricated value spine is `etaFabArgsV`, and the certificate's two
 `defEqList` runs identify it with the constructor application's own
 arguments. -/
 theorem structEtaCertWithFueled_step {m : EnvModel V env}
@@ -790,7 +790,7 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
     have hprojden : ∀ j ∈ List.range cnF,
         denoteMeta m.acval env φ d
             (Expr.mkAppN (.const (projFnName T j) us') (wtb.getAppArgs ++ [b]))
-          = some (ATerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])) := by
+          = some (AnnotTerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])) := by
       intro j hj
       obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpj, -, -⟩ := hslotR j hj
       refine denoteMeta_mkAppN hspTb ?_
@@ -805,7 +805,7 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
         exact absurd (show us'.length = cvp.levelParams.length from by
           rw [hlpj]; exact hlenus) hne
     have hokProj : ∀ x ∈ (List.range cnF).map (fun j =>
-          ATerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])),
+          AnnotTerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])),
         ∀ σ : Nat → V, Sat V Δa σ → WellDenotedV V σ x := by
       intro x hx σ hσ
       obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
@@ -861,7 +861,7 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
           | exact (hframeTb y hy).2.2.2.2 l hly
     have hdrop : (asa.drop cnP).map (interp V ρ)
         = ((List.range cnF).map fun j =>
-            ATerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])).map
+            AnnotTerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])).map
           (interp V ρ) :=
       map_interp_of_defEqListFueled ihd hdefL2
         (fun x hx => frame_spine hwa hba hLa hCa x (List.mem_of_mem_drop hx))
@@ -870,12 +870,12 @@ theorem structEtaCertWithFueled_step {m : EnvModel V env}
         (fun x hx => hoA x (List.mem_of_mem_drop hx)) hokProj ρ hρ
     -- the constructor's arguments ARE the fabricated spine
     have hfab : asa.map (interp V ρ)
-        = etaFabArgs2 (fun n => interp V ρ (m.acval n (Level.substFn φ cvT.levelParams us'))) T
+        = etaFabArgsV (fun n => interp V ρ (m.acval n (Level.substFn φ cvT.levelParams us'))) T
             (tsa.map (interp V ρ)) (interp V ρ ba) caps.etaFields := by
-      rw [etaFabArgs2, projSpines2, ← List.take_append_drop cnP asa,
+      rw [etaFabArgsV, projSpines, ← List.take_append_drop cnP asa,
         List.map_append, htake, hdrop, hefld, List.map_map]
       refine congrArg _ (List.map_congr_left fun j _ => ?_)
-      show interp V ρ (ATerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us'))
+      show interp V ρ (AnnotTerm.mkAppN (m.acval (projFnName T j) (Level.substFn φ cvT.levelParams us'))
         (tsa ++ [ba])) = _
       rw [interp_mkAppN, hfold, List.map_append]
       rfl

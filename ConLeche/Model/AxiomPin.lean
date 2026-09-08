@@ -11,7 +11,7 @@ recorded rather than papered over.
 
 ## What a branch owes
 
-`harvestAxiomP` (`Interp/HarvestP.lean`) is the wrapper: the *type*
+`harvestAxiom` (`Interp/HarvestP.lean`) is the wrapper: the *type*
 side is harvested from `ConstantValR`'s own run (`accepted_reads` is a
 theorem since part 1, so nothing is routed), and what the branch must
 supply is the leaf `A` with
@@ -127,7 +127,7 @@ assumed; a premise for it would be a conditional form, and
   `acval trueName ψ`.
 
 That is also why this branch was landed first: it exercises the whole
-`harvestAxiomP` bill end to end — extension, agreement, the four
+`harvestAxiom` bill end to end — extension, agreement, the four
 syntactic leaf facts and the membership — so the remaining branches
 inherit tested scaffolding;
 * **the two standard axioms** — `axiomStd`, both halves, on
@@ -223,7 +223,7 @@ theorem axiomTrustCompiler (hμ : μ.verifiedChecks = true)
     exact erasePw_const_invS hA.2
   have hnameTi : ciTi.name = ConLeche.trueIntroName := Env.find?_name hfTi
   -- the leaf: the stored `True.intro`'s *annotated* valuation
-  refine harvestAxiomP (V := V) hμ mp hcv
+  refine harvestAxiom (V := V) hμ mp hcv
     (A := fun ψ => mp.base2.acval ConLeche.trueIntroName ψ)
     (fun ψ => mp.base2.cval_closedL _ ψ) ?_ ?_ ?_ ?_ ?_
     -- `trustCompiler` is not a compiler-trust *operation*: the pin
@@ -285,7 +285,7 @@ theorem axiomStd (hμ : μ.verifiedChecks = true)
     · intro cv2 value2 heq; exact nomatch heq
     · intro tbl heq; exact nomatch heq
   by_cases hn : cv.name = propextName
-  · refine harvestAxiomP (V := V) hμ mp hcv
+  · refine harvestAxiom (V := V) hμ mp hcv
       (A := fun _ => .const .propext []) (fun _ => trivial)
       (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ _ => by simp)
       (fun _ _ => by simp) ?_ (by rw [hn]; decide)
@@ -303,12 +303,12 @@ theorem axiomStd (hμ : μ.verifiedChecks = true)
         refine hp uN ?_
         rw [hlpA, show choiceA.levelParams = [uN] from rfl]
         exact List.Mem.head _
-      refine harvestAxiomP (V := V) hμ mp hcv
+      refine harvestAxiom (V := V) hμ mp hcv
         (A := fun ψ => .const .choice [ψ uN])
         (fun _ => trivial)
         (fun _ _ => rfl)
         (fun ψ₁ ψ₂ hp => by
-          show ATerm.const .choice [ψ₁ uN] = ATerm.const .choice [ψ₂ uN]
+          show AnnotTerm.const .choice [ψ₁ uN] = AnnotTerm.const .choice [ψ₂ uN]
           rw [huN ψ₁ ψ₂ hp])
         (fun _ _ => by simp) (fun _ _ => by simp) ?_
         (by rw [hn2]; decide)

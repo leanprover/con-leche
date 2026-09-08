@@ -508,7 +508,7 @@ identical body, transposed only in its carrier (`NatHeads`, below:
 batch 8's carrier sweep moved the P surface to `EnvModel`, and the
 mode-indexed `EnvModelUM` the canonical statement binds is not what the
 P fold can supply).  What the currency swap costs is one extra
-grading per spine: `natLit_facts2` produces the `WellDenoted` half of
+grading per spine: `natLit_factsAV` produces the `WellDenoted` half of
 the numeral's truthfulness (and the membership row) exactly as in the
 canonical lane, and `AnnotValid_natLitAV` (batch 2) produces the
 `AnnotValid` half from the two head leaves' bit validity — which is
@@ -580,7 +580,7 @@ theorem infer_natLit_claim (m : EnvModel V env) (hnh : NatHeads m φ)
                 (m.acval natSuccName (Level.substFn φ [] [])) k)
               ∈ˢ interp V ρ
                 (m.acval natName (Level.substFn φ [] [])) :=
-        fun ρ => natLit_facts2 (m.acval_wellDenoted _ _ ρ) (m.acval_wellDenoted _ _ ρ)
+        fun ρ => natLit_factsAV (m.acval_wellDenoted _ _ ρ) (m.acval_wellDenoted _ _ ρ)
           (hnh hgt ρ).1 (hnh hgt ρ).2 k
       exact ⟨fun ρ _ => ⟨(hrow ρ).1,
           AnnotValid_natLitAV (hval _ _ ρ) (hval _ _ ρ) k⟩,
@@ -636,7 +636,7 @@ def InferProjStep {env : Env} (m : EnvModel V env) (μ : CheckMode)
 `hacl` is the structure field `acval_closed`; `hainst` — the stronger
 `inst`-invariance at every cut — is *derivable* from the same single
 closedness fact the module docstring of `Annot/BitInst.lean` predicts:
-`ATerm.inst_eq_self` wants `Term.bvarsBelow k (acval n ψ).erase`,
+`AnnotTerm.inst_eq_self` wants `Term.bvarsBelow k (acval n ψ).erase`,
 the erasure link `acval_erase` turns that into
 `Term.bvarsBelow k (base.cval n ψ)`, and `EnvS.cval_closed` is
 `bvarsBelow 0` of exactly that, which `bvarsBelow.mono` weakens.  So
@@ -673,7 +673,7 @@ as the claims it feeds.  Two producers, so two residues. -/
 
 /-! ## The leaf side condition the inference residue carries
 
-`LeafReads` was born in `Steps/ReadsP.lean` (batch 6) as the walk's
+`LeafReads` was born in `Steps/Reads.lean` (batch 6) as the walk's
 own hypothesis; batch 8 moved it here, because `InferReads` — stated
 below — now carries it as a premise. -/
 
@@ -688,7 +688,7 @@ from `InferReads` — without it that residue is REFUTABLE, since
 (.const c [])` at `d = 1` with `c ∉ env`).  Batch 8 repaired the
 statement by adding this premise, so nothing is routed: every consumer
 holds a `CtxOk` and discharges it by `of_ctxOk`, and the walk
-(`Steps/ReadsP.lean`) propagates it through the binder clauses
+(`Steps/Reads.lean`) propagates it through the binder clauses
 (`weakenTop`/`openS` below). -/
 def LeafReads {env : Env} (m : EnvModel V env) (φ : Name → Nat)
     (d : Nat) (e : Expr) : Prop :=

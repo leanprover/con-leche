@@ -87,7 +87,7 @@ variable {μ : CheckMode} {env : Env}
 The obvious reading of the basis bill is that the P tier needs its own
 "basis constants are valued by their direct pins" field, mirroring
 `EnvS.basis_pinned`.  **It does not**, and the reason is one line of
-`ATerm.erase`'s definition: the erasure is structural and maps
+`AnnotTerm.erase`'s definition: the erasure is structural and maps
 `.const` to `.const` and *nothing else* to `.const`.  So
 `EnvModel.acval_erase` turns v1's equation `cval n ψ = .const c us`
 into the `AnnotTerm` equation `acval n ψ = .const c us` outright.
@@ -115,7 +115,7 @@ theorem acval_basis_pinned {m : EnvModel V env}
   cases hh : m.acval n ψ with
   | const c' us' =>
     rw [hh] at h2
-    simp only [ConLeche.Semantics.ATerm.erase, Term.const.injEq] at h2
+    simp only [ConLeche.Semantics.AnnotTerm.erase, Term.const.injEq] at h2
     rw [h2.1, h2.2]
   | _ => rw [hh] at h2; exact nomatch h2
 
@@ -245,15 +245,15 @@ theorem capsOk_cons_basis (mp : EnvModelM V μ env)
           (ConLeche.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x hlents hfit hmem
       rw [hac, acvalWith_ne hnT] at hmem
-      have hfab : etaFabArgs2
+      have hfab : etaFabArgsV
             (fun n => interp V ρ
               (m₂.acval n (Level.substFn φ' cvT.levelParams us)))
             T ts x caps.etaFields
-          = etaFabArgs2
+          = etaFabArgsV
             (fun n => interp V ρ
               (mp.base2.acval n (Level.substFn φ' cvT.levelParams us)))
             T ts x caps.etaFields := by
-        unfold etaFabArgs2 projSpines2
+        unfold etaFabArgsV projSpines
         refine congrArg _ (List.map_congr_left fun j hj => ?_)
         dsimp only
         rw [hac, acvalWith_ne (hnP j (List.mem_range.mp hj))]

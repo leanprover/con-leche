@@ -21,7 +21,7 @@ self-consistent with no length parameter threaded.
 
 `mkTowerGo_interp` is the one interpretation equation, two regimes in
 one statement: at a fitting spine the tupler reads back as
-`if w = 0 then pt else mkTower bs` — exactly `psigmaMkV2_app`'s own
+`if w = 0 then pt else mkTower bs` — exactly `psigmaMkV_app`'s own
 collapse, and exactly what the tier expects (`mkTower_mem` at the
 graph regime, `pt_mem_tower` at squash).  The premises are
 `FieldsBound` + `SpineFit`, nothing else.
@@ -98,7 +98,7 @@ theorem mkTowerGo_pos {w : Nat} (hw : w ≠ 0) (Fs : List AnnotTerm) :
 
 /-- **The tupler reads back as the tier's tupler**, two regimes in one
 statement: at a fitting spine, `mkTower bs` in the graph regime and
-`pt` at squash — `psigmaMkV2_app`'s own collapse, matching the tier's
+`pt` at squash — `psigmaMkV_app`'s own collapse, matching the tier's
 `mkTower_mem`/`pt_mem_tower` intro pair. -/
 theorem mkTowerGoPos_interp {w : Nat} (hw : w ≠ 0) :
     ∀ {Fs : List AnnotTerm} {ρp : Nat → V} {bs : List V},
@@ -165,13 +165,13 @@ theorem mkTowerGoPos_interp {w : Nat} (hw : w ≠ 0) :
         (consList bs (cons b ρp) Fs.length))
         (interp V (consList bs (cons b ρp)) (mkTowerGoPos w Fs))
       = if w = 0 then pt else mkTower (b :: bs)
-    have hbv : bval V .psigmaMk [w, w] = psigmaMkV2 V w w := rfl
+    have hbv : bval V .psigmaMk [w, w] = psigmaMkV V w w := rfl
     rw [hA, hval, hrec]
     have hBeq : (fun x => interp V (cons x (consList bs (cons b ρp)))
           ((towerBodyAV w Fs).liftN (Fs.length + 1) 1))
         = fun x => interp V (cons x ρp) (towerBodyAV w Fs) :=
       funext hBfun
-    rw [hBeq, hbv, psigmaMkV2_app V hAm hBm hsp.1 hbm,
+    rw [hBeq, hbv, psigmaMkV_app V hAm hBm hsp.1 hbm,
       show Nat.max w w = w from Nat.max_self w]
     split <;> rfl
 
@@ -191,21 +191,21 @@ theorem mkTowerGo_interp {w : Nat} {Fs : List AnnotTerm} {ρp : Nat → V}
 membership, both regimes: in the graph regime the λ-tower folds onto
 `spair` (`spair_mem` at the bottom); at squash the value IS `pt` and
 every fibre is inhabited (`pt_mem_sigma`). -/
-theorem psigmaMkV2_ww_mem (w : Nat) :
-    psigmaMkV2 V w w ∈ˢ piR w (univ w : V) (fun A =>
+theorem psigmaMkV_ww_mem (w : Nat) :
+    psigmaMkV V w w ∈ˢ piR w (univ w : V) (fun A =>
       piR w (psigmaFibreSpace V w A) (fun B =>
         piR w A (fun a =>
           piR w (SetTheory.app B a) (fun _ =>
             sigmaSet w A fun x => SetTheory.app B x)))) := by
   by_cases hw : w = 0
   · subst hw
-    rw [psigmaMkV2, show Nat.max 0 0 = 0 from Nat.max_self 0, lamR_zero]
+    rw [psigmaMkV, show Nat.max 0 0 = 0 from Nat.max_self 0, lamR_zero]
     refine pt_mem_piR_zero fun A _ => ⟨pt, ?_⟩
     refine pt_mem_piR_zero fun B _ => ⟨pt, ?_⟩
     refine pt_mem_piR_zero fun a ha => ⟨pt, ?_⟩
     refine pt_mem_piR_zero fun b hb => ⟨pt, ?_⟩
     exact pt_mem_sigma ha hb
-  · rw [psigmaMkV2, show Nat.max w w = w from Nat.max_self w]
+  · rw [psigmaMkV, show Nat.max w w = w from Nat.max_self w]
     refine lamR_mem fun A _ => ?_
     refine lamR_mem fun B _ => ?_
     refine lamR_mem fun a ha => ?_
@@ -213,7 +213,7 @@ theorem psigmaMkV2_ww_mem (w : Nat) :
     exact spair_mem hw ha hb
 
 /-- **The tupler is graded** (`WellDenoted`): the four application slots
-are `psigmaMkV2_ww_mem` chained down by `app_mem_piR`, the squash-side
+are `psigmaMkV_ww_mem` chained down by `app_mem_piR`, the squash-side
 fibre conditions all landing on `piR_zero_mem_univZero`/`sigmaSet`'s
 truth value. -/
 theorem mkTowerGoPos_wellDenoted {w : Nat} (hw : w ≠ 0) :
@@ -247,7 +247,7 @@ theorem mkTowerGoPos_wellDenoted {w : Nat} (hw : w ≠ 0) :
       mkTowerGoPos_interp hw (hb.2 b hsp.1) hsp.2
     have hAm : interp V ρp F ∈ˢ (univ w : V) := hb.1
     have hBv : interp V (consList bs (cons b ρp))
-        (ATerm.lam (w + 1) (F.liftN (Fs.length + 1))
+        (AnnotTerm.lam (w + 1) (F.liftN (Fs.length + 1))
           ((towerBodyAV w Fs).liftN (Fs.length + 1) 1))
         = lamR (w + 1) (interp V ρp F)
             (fun x => interp V (cons x ρp) (towerBodyAV w Fs)) := by
@@ -290,12 +290,12 @@ theorem mkTowerGoPos_wellDenoted {w : Nat} (hw : w ≠ 0) :
       rw [sigmaSet_zero]
       exact truthVal_mem_univZero _
     -- the membership chain down the product tower
-    have hm0 : psigmaMkV2 V w w ∈ˢ piR w (univ w : V) (fun A =>
+    have hm0 : psigmaMkV V w w ∈ˢ piR w (univ w : V) (fun A =>
         piR w (psigmaFibreSpace V w A) (fun B =>
           piR w A (fun a =>
             piR w (SetTheory.app B a) (fun _ =>
               sigmaSet w A fun x => SetTheory.app B x)))) :=
-      psigmaMkV2_ww_mem w
+      psigmaMkV_ww_mem w
     have hm1 := app_mem_piR hm0 hAm hz1
     have hm2 := app_mem_piR hm1 hBm hz2
     have hm3 := app_mem_piR hm2 hsp.1 hz3

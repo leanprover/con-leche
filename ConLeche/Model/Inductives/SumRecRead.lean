@@ -99,37 +99,37 @@ theorem map_instantiate1_closed {xs : List Expr} (hcl : ∀ a ∈ xs, a.looseBVa
 /-! ## `AnnotTerm` bookkeeping -/
 
 theorem liftN_mkAppN (n k : Nat) : ∀ (as : List AnnotTerm) (f : AnnotTerm),
-    ATerm.liftN n (ATerm.mkAppN f as) k
-      = ATerm.mkAppN (ATerm.liftN n f k) (as.map fun a => ATerm.liftN n a k)
+    AnnotTerm.liftN n (AnnotTerm.mkAppN f as) k
+      = AnnotTerm.mkAppN (AnnotTerm.liftN n f k) (as.map fun a => AnnotTerm.liftN n a k)
   | [], _ => rfl
   | a :: as, f => by
-    simp only [ATerm.mkAppN_cons, List.map_cons, liftN_mkAppN n k as, ATerm.liftN_app]
+    simp only [AnnotTerm.mkAppN_cons, List.map_cons, liftN_mkAppN n k as, AnnotTerm.liftN_app]
 
-theorem ATerm.mkAppN_append_one : ∀ (as : List AnnotTerm) (f a : AnnotTerm),
-    ATerm.mkAppN f (as ++ [a]) = .app (ATerm.mkAppN f as) a
+theorem AnnotTerm.mkAppN_append_one : ∀ (as : List AnnotTerm) (f a : AnnotTerm),
+    AnnotTerm.mkAppN f (as ++ [a]) = .app (AnnotTerm.mkAppN f as) a
   | [], _, _ => rfl
   | b :: as, f, a => by
-    simp only [List.cons_append, ATerm.mkAppN_cons]
-    exact ATerm.mkAppN_append_one as _ a
+    simp only [List.cons_append, AnnotTerm.mkAppN_cons]
+    exact AnnotTerm.mkAppN_append_one as _ a
 
 theorem mkAppN_inj_args :
     ∀ {as bs : List AnnotTerm} {f g : AnnotTerm},
-      ATerm.mkAppN f as = ATerm.mkAppN g bs → as.length = bs.length → f = g ∧ as = bs
+      AnnotTerm.mkAppN f as = AnnotTerm.mkAppN g bs → as.length = bs.length → f = g ∧ as = bs
   | [], [], _, _, h, _ => ⟨h, rfl⟩
   | [], _ :: _, _, _, _, hl => by simp at hl
   | _ :: _, [], _, _, _, hl => by simp at hl
   | a :: as, b :: bs, f, g, h, hl => by
-    simp only [ATerm.mkAppN_cons] at h
+    simp only [AnnotTerm.mkAppN_cons] at h
     obtain ⟨hfg, hab⟩ := mkAppN_inj_args h (by simpa using hl)
-    obtain ⟨rfl, rfl⟩ := ATerm.app.inj hfg
+    obtain ⟨rfl, rfl⟩ := AnnotTerm.app.inj hfg
     exact ⟨rfl, by rw [hab]⟩
 
 /-- A leaf fixed by every one-step lift is fixed by every lift. -/
-theorem liftN_eq_self_of_one {e : AnnotTerm} (h : ∀ k, ATerm.liftN 1 e k = e) :
-    ∀ (n k : Nat), ATerm.liftN n e k = e
-  | 0, k => ATerm.liftN_zero e k
+theorem liftN_eq_self_of_one {e : AnnotTerm} (h : ∀ k, AnnotTerm.liftN 1 e k = e) :
+    ∀ (n k : Nat), AnnotTerm.liftN n e k = e
+  | 0, k => AnnotTerm.liftN_zero e k
   | n + 1, k => by
-    rw [show n + 1 = 1 + n from by omega, ← ATerm.liftN_liftN e 1 n k,
+    rw [show n + 1 = 1 + n from by omega, ← AnnotTerm.liftN_liftN e 1 n k,
       liftN_eq_self_of_one h n k, h k]
 
 theorem DenoteMetaSpine.append_inv {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat} :
@@ -160,7 +160,7 @@ def motiveAVI {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat) (n
     (ℓ : Level) (ips : List (Nat × Nat × AnnotTerm)) : AnnotTerm :=
   mkPisAV (rebit (pwBit ψ PropWhen.never) ips)
     (.pi 0 (pwBit ψ PropWhen.never)
-      (ATerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + nIdx) ++ fieldBvars nIdx))
+      (AnnotTerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + nIdx) ++ fieldBvars nIdx))
       (.sort (ℓ.eval ψ)))
 
 /-- The major premise's domain reading under the motive, `n` minors
@@ -168,7 +168,7 @@ and the index variables: the family at the parameters and the index
 variables. -/
 def majorAVAt {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat) (nP nIdx n : Nat) :
     AnnotTerm :=
-  ATerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + 1 + n + nIdx) ++ fieldBvars nIdx)
+  AnnotTerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + 1 + n + nIdx) ++ fieldBvars nIdx)
 
 /-- A constructor datum: name, field count, field data, index readings. -/
 abbrev CtorDatum := Name × Nat × List (Nat × Nat × AnnotTerm) × List AnnotTerm
@@ -189,14 +189,14 @@ theorem denoteMeta_famSpine_at {m : EnvModel V env} {ψ : Name → Nat} {C : Nam
     (hidxX : ∀ (k : Nat) (x : Expr), xFvs[k]? = some x →
       ∃ ty, x = Expr.fvar (nP + o + k) ty) :
     denoteMeta m.acval env ψ (nP + o + nF) (Expr.mkAppN (.const C (lps.map .param)) (tfvs ++ xFvs))
-      = some (ATerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)) := by
+      = some (AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt nP (nP + o + nF) ++ fieldBvars nF)) := by
   have hspP : DenoteMetaSpine m.acval env ψ (nP + o + nF) tfvs (paramBvarsAt nP (nP + o + nF)) := by
     have := denoteMetaSpine_fvars (acval := m.acval) (env := env) (φ := ψ) (nP + o + nF) tfvs 0
       (fun k x hx => by
         obtain ⟨ty, h⟩ := hidxT k x hx
         exact ⟨ty, by rw [h, Nat.zero_add]⟩)
     rw [hlenT] at this
-    have he : ((List.range nP).map fun k => ATerm.bvar (nP + o + nF - 1 - (0 + k)))
+    have he : ((List.range nP).map fun k => AnnotTerm.bvar (nP + o + nF - 1 - (0 + k)))
         = paramBvarsAt nP (nP + o + nF) := by
       unfold paramBvarsAt
       apply List.map_congr_left
@@ -207,7 +207,7 @@ theorem denoteMeta_famSpine_at {m : EnvModel V env} {ψ : Name → Nat} {C : Nam
     have := denoteMetaSpine_fvars (acval := m.acval) (env := env) (φ := ψ) (nP + o + nF) xFvs
       (nP + o) hidxX
     rw [hlenX] at this
-    have he : ((List.range nF).map fun k => ATerm.bvar (nP + o + nF - 1 - (nP + o + k)))
+    have he : ((List.range nF).map fun k => AnnotTerm.bvar (nP + o + nF - 1 - (nP + o + k)))
         = fieldBvars nF := by
       unfold fieldBvars
       apply List.map_congr_left
@@ -238,7 +238,7 @@ theorem denoteMetaSpine_idxArgs_lift {m : EnvModel V env} {ψ : Name → Nat} {T
       ∃ ty, x = Expr.fvar (nP + o + k) ty)
     (hcreadO : denoteMeta m.acval env ψ (nP + o) (Expr.instSeq tfvs (nP - 1) crest0)
       = some (mkPisAV (liftDoms o 0 (ds.drop nP))
-          ((ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN o nF)))
+          ((AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN o nF)))
     (hlenD : ds.length = nP + nF) (hlenE : Es.length = nIdx) (hlenes : es.length = nIdx) :
     DenoteMetaSpine m.acval env ψ (nP + o + nF)
       (es.map fun e => Expr.instSeq xFvs (nF - 1) (Expr.instSeq tfvs (nP + nF - 1) e))
@@ -255,11 +255,11 @@ theorem denoteMetaSpine_idxArgs_lift {m : EnvModel V env} {ψ : Name → Nat} {T
   obtain ⟨fbs', hsF'⟩ := stripPis_instSeq tfvs (nP - 1) (by omega) hsF
   obtain ⟨ds', hci⟩ := ConLeche.instPisAt_of_stripPis xFvs (by rw [hlenX]; exact hsF')
   have hstX : stripPisAV nF (mkPisAV (liftDoms o 0 (ds.drop nP))
-      ((ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN o nF))
+      ((AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN o nF))
       = some (liftDoms o 0 (ds.drop nP),
-          (ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN o nF) := by
+          (AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN o nF) := by
     have := stripPisAV_mkPisAV (liftDoms o 0 (ds.drop nP))
-      ((ATerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN o nF)
+      ((AnnotTerm.mkAppN (m.acval T ψ) (paramBvars nP nF ++ Es)).liftN o nF)
     rwa [liftDoms_length, List.length_drop, hlenD, Nat.add_sub_cancel_left] at this
   have htele := piTeleAV_of_stripPisAV hstX
   have hread := instPisAt_openerRes xFvs hci (j := nP + o) hidxX hcreadO (by rw [hlenX]; exact htele)
@@ -334,7 +334,7 @@ theorem denoteMeta_motiveI {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {
   obtain ⟨ifvs, irest, hopI⟩ := openPisAtFvars_of_stripPis_isSome nIdx nP htstrip
   have hstI : stripPisAV nIdx (mkPisAV (ppsAll.drop nP) (.sort w))
       = some (ppsAll.drop nP, .sort w) := by
-    have := stripPisAV_mkPisAV (ppsAll.drop nP) (ATerm.sort w)
+    have := stripPisAV_mkPisAV (ppsAll.drop nP) (AnnotTerm.sort w)
     rwa [List.length_drop, hlenP, Nat.add_sub_cancel_left] at this
   have hmotive := denoteMeta_replacePisPw (acval := m.acval) (env := env) (φ := ψ) nIdx hmot' hopI
     htread hstI
@@ -375,7 +375,7 @@ theorem denoteMeta_motiveI {m : EnvModel V env} {ψ : Name → Nat} {T : Name} {
       (.forallE (Expr.mkAppN (.const T (lps.map .param)) (tfvs ++ ifvs))
         (.sort ℓ) ⟨.never⟩)
       = some (.pi 0 (pwBit ψ PropWhen.never)
-          (ATerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + nIdx) ++ fieldBvars nIdx))
+          (AnnotTerm.mkAppN (m.acval T ψ) (paramBvarsAt nP (nP + nIdx) ++ fieldBvars nIdx))
           (.sort (ℓ.eval ψ))) := by
     rw [denoteMeta_forallE, hspine, Expr.instantiate1_sort, denoteMeta_sort]
     rfl

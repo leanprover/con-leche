@@ -342,7 +342,7 @@ theorem fixChainFacts_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     -- the fit, through the family's λ-tower, at a frame reading the
     -- parameters below `e` field-and-telescope values
     have fitAt : ∀ (σas : List V) (e : Nat), σas.length = e →
-        WellDenoted V (consList σas ρp) (ATerm.mkAppN (mp.base2.acval T ψ)
+        WellDenoted V (consList σas ρp) (AnnotTerm.mkAppN (mp.base2.acval T ψ)
           (paramBvarsAt nP (nP + e) ++ (Eiss ψ).getD i [])) →
         ((Eiss ψ).getD i []).length = nIdx →
         (∀ E ∈ (Eiss ψ).getD i [], WellDenoted V (consList σas ρp) E) ∧

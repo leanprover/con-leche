@@ -83,7 +83,7 @@ theorem wellDenotedV_tower_body :
       rw [List.getD, List.getElem?_append_right (by omega), hΓ'len]
       simp
     have hokT' : WellDenotedV V (fun j => ρ' (j + k + 1))
-        (ATerm.pi u v A B) := hokT
+        (AnnotTerm.pi u v A B) := hokT
     have hmemk : ρ' k ∈ˢ interp V (fun j => ρ' (j + k + 1)) A := by
       have := hmem k (by omega)
       rwa [hgetA] at this
@@ -244,7 +244,7 @@ theorem fire {m : EnvModel V env} {ψ' : Name → Nat}
     (hzslen : zs.length = K)
     (hsat : Sat V Γs (chain V ρ zs))
     (hfit : TeleFitPA V ρ Tstmt zs
-      (ConLeche.Model.ATerm.instSeq zs (K - 1) Rbody)) :
+      (ConLeche.Model.AnnotTerm.instSeq zs (K - 1) Rbody)) :
     ∃ vα vL vR : AnnotTerm,
       denoteMeta m.acval env ψ' K αS = some vα ∧
       denoteMeta m.acval env ψ' K lhsS = some vL ∧
@@ -276,7 +276,7 @@ theorem fire {m : EnvModel V env} {ψ' : Name → Nat}
     exact (Option.some.inj hvEq).symm
   -- the statement body, graded at the fired chain (top-down)
   have hokBody : WellDenotedV V (chain V ρ zs)
-      (ATerm.mkAppN vEq [vα, vL, vR]) :=
+      (AnnotTerm.mkAppN vEq [vα, vL, vR]) :=
     wellDenotedV_tower_body_sat htowerS (hstmtAnnot _) hsat
   -- the pinned `Eq` type's reading at the stored level
   have hbit : pwBit ψ' ConLeche.PropWhen.never = 1 := rfl
@@ -323,7 +323,7 @@ theorem fire {m : EnvModel V env} {ψ' : Name → Nat}
   have hEqIn2 : interp V (chain V ρ zs) vEq
       ∈ˢ piR 1 (univ (ℓA.eval ψ'))
         (fun x => interp V (cons x (chain V ρ zs))
-          (ATerm.pi 0 1 (.bvar 0) (.pi 0 1 (.bvar 1) (.sort 0)))) := by
+          (AnnotTerm.pi 0 1 (.bvar 0) (.pi 0 1 (.bvar 1) (.sort 0)))) := by
     have h3 := hmemEq.1
     rw [interp_pi, interp_sort] at h3
     rw [hvEq']
@@ -332,7 +332,7 @@ theorem fire {m : EnvModel V env} {ψ' : Name → Nat}
   have hαuniv : interp V (chain V ρ zs) vα
       ∈ˢ (univ (ℓA.eval ψ') : V) := by
     have hokB2 := hokBody.1
-    rw [show ATerm.mkAppN vEq [vα, vL, vR]
+    rw [show AnnotTerm.mkAppN vEq [vα, vL, vR]
         = .app (.app (.app vEq vα) vL) vR from rfl,
       WellDenoted_app] at hokB2
     have h1 := hokB2.1
@@ -352,27 +352,27 @@ theorem fire {m : EnvModel V env} {ψ' : Name → Nat}
   -- the sides' memberships, at the slot the rigidity just named
   obtain ⟨hLmem, hRmem⟩ := hsides vα vL vR hvα hvL hvR
   -- the residual computes to the interpreted equation
-  have hEqcl : ∀ k : Nat, ATerm.liftN 1 vEq k = vEq := by
+  have hEqcl : ∀ k : Nat, AnnotTerm.liftN 1 vEq k = vEq := by
     rw [hvEq']
     exact m.acval_closed _ _
   have hlaw := (heqlaw heqfE
     (Level.substFn ψ' eqA.toConstantVal.levelParams [ℓA])).1
   have hresid : interp V ρ
-      (ConLeche.Model.ATerm.instSeq zs (K - 1)
-        (ATerm.mkAppN vEq [vα, vL, vR]))
+      (ConLeche.Model.AnnotTerm.instSeq zs (K - 1)
+        (AnnotTerm.mkAppN vEq [vα, vL, vR]))
       = eqv (interp V (chain V ρ zs) vL)
         (interp V (chain V ρ zs) vR) := by
     rw [show K - 1 = zs.length - 1 from by rw [hzslen],
       instSeqAV_mkAppN, instSeqAV_eq_self_of_closed hEqcl]
-    show interp V ρ (ATerm.mkAppN vEq
-        [ConLeche.Model.ATerm.instSeq zs (zs.length - 1) vα,
-         ConLeche.Model.ATerm.instSeq zs (zs.length - 1) vL,
-         ConLeche.Model.ATerm.instSeq zs (zs.length - 1) vR]) = _
+    show interp V ρ (AnnotTerm.mkAppN vEq
+        [ConLeche.Model.AnnotTerm.instSeq zs (zs.length - 1) vα,
+         ConLeche.Model.AnnotTerm.instSeq zs (zs.length - 1) vL,
+         ConLeche.Model.AnnotTerm.instSeq zs (zs.length - 1) vR]) = _
     show SetTheory.app (SetTheory.app (SetTheory.app
         (interp V ρ vEq)
-        (interp V ρ (ConLeche.Model.ATerm.instSeq zs (zs.length - 1) vα)))
-        (interp V ρ (ConLeche.Model.ATerm.instSeq zs (zs.length - 1) vL)))
-        (interp V ρ (ConLeche.Model.ATerm.instSeq zs (zs.length - 1) vR))
+        (interp V ρ (ConLeche.Model.AnnotTerm.instSeq zs (zs.length - 1) vα)))
+        (interp V ρ (ConLeche.Model.AnnotTerm.instSeq zs (zs.length - 1) vL)))
+        (interp V ρ (ConLeche.Model.AnnotTerm.instSeq zs (zs.length - 1) vR))
       = _
     rw [interp_instSeq, interp_instSeq, interp_instSeq, hvEq']
     exact hlaw ρ _ _ _ hαuniv hLmem hRmem

@@ -36,7 +36,7 @@ def DeclNativeRun (μ : CheckMode) (F : Nat) (env : Env)
     (sortssP : List (List Level)) (kinds : List (List RecFieldKind)),
     -- the provisional pass (task #210 Part D): the kinds, classified on
     -- the constructors normalised at a throwaway former
-    checkSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p₀.toDirectSumParts
+    checkSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p₀.toInductiveShape
       (fun _ => {}) = .ok (envP, cvTaP, p₁P) ∧
     checkSumCtors (m := ConLeche.CheckM) (fueledOps μ F) envP envP
       (p₀.complete p₁P).cvT.name (p₀.complete p₁P).cvT.levelParams (p₀.complete p₁P).nP
@@ -53,7 +53,7 @@ def DeclNativeRun (μ : CheckMode) (F : Nat) (env : Env)
     -- (task #195; task #210 Part B: this route too); every later stage
     -- runs on the completed record `p` — the sort and the kinds — whose
     -- capability record (`nativeCaps`, Part A) the former carries
-    checkSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p₀.toDirectSumParts
+    checkSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p₀.toInductiveShape
       (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds)) = .ok (env₁, cvTa, p₁) ∧
     p = (p₀.complete p₁).withKinds kinds ∧
     -- the elimination restriction: a large eliminator needs a provably
@@ -93,7 +93,7 @@ theorem declNativeRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   rw [if_pos hnd] at h
   try simp only [bind, Except.bind] at h
   -- the provisional pass
-  cases hIndP : checkSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p₀.toDirectSumParts
+  cases hIndP : checkSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p₀.toInductiveShape
       (fun _ => {}) with
   | error e => rw [hIndP] at h; exact nomatch h
   | ok rP =>
@@ -116,7 +116,7 @@ theorem declNativeRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   rw [hK] at h
   dsimp only at h
   -- the former
-  cases hInd : checkSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p₀.toDirectSumParts
+  cases hInd : checkSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p₀.toInductiveShape
       (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds)) with
   | error e => rw [hInd] at h; exact nomatch h
   | ok r₁ =>

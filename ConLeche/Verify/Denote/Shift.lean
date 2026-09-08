@@ -6,7 +6,7 @@ import ConLeche.Verify.Abstract
 /-!
 # Depth shifting
 
-The transpose of `interp_lift` (`ConLeche/Model/Subst.lean`), and **the
+The transpose of `interp_lift` (`ConLeche/ModelV1/Subst.lean`), and **the
 one place where the mirror deviates in the statement rather than only
 in the proof**.  The deviation is deliberate and this is its record.
 
@@ -38,7 +38,7 @@ This is the second half of the same trade as
 `ConLeche/Verify/Denote/VClosed.lean`'s: we saved a valuation parameter on
 every clause of `denote`, and we pay for it here and in `cval_closed`.
 Recorded rather than smoothed over, because a reader checking the
-transposition line by line against `ConLeche/Model/Subst.lean` will
+transposition line by line against `ConLeche/ModelV1/Subst.lean` will
 otherwise stop at this file and wonder what went wrong.
 
 ## The generalization: a shift, not a lift

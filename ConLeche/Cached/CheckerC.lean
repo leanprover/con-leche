@@ -174,7 +174,7 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
   flushC
   -- the provisional pass (task #210 Part D): the kinds, classified on
   -- the constructors normalised at a throwaway former
-  let (feP, cvTaP, p₁P) ← checkSumIndF (sharedOpsC mode fe) fe p₀.toDirectSumParts
+  let (feP, cvTaP, p₁P) ← checkSumIndF (sharedOpsC mode fe) fe p₀.toInductiveShape
     (fun _ => {})
   let p₂P := p₀.complete p₁P
   flushC
@@ -183,7 +183,7 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
   let kinds ← classifyFixKinds (m := CheckCM) p₂P.cvT.name p₂P.cvT.levelParams p₂P.nP p₂P.nIdx
     ctorsP
   flushC
-  let (fe₁, cvTa, p₁) ← checkSumIndF (sharedOpsC mode fe) fe p₀.toDirectSumParts
+  let (fe₁, cvTa, p₁) ← checkSumIndF (sharedOpsC mode fe) fe p₀.toInductiveShape
     (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds))
   let p := (p₀.complete p₁).withKinds kinds
   if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then

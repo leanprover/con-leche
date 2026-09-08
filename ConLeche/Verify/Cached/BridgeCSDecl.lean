@@ -267,7 +267,7 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     (checkSumIndS_sim hμ henv (flushC_csok hwf)) qP sP₁ hindP
   obtain ⟨rfl, -⟩ := hPP
   obtain ⟨envP, cvTaP, p₁P⟩ := qP
-  have hFP₁p : checkSumInd (fueledOps mode FP₁) env p₀.toDirectSumParts
+  have hFP₁p : checkSumInd (fueledOps mode FP₁) env p₀.toInductiveShape
       (fun _ => {}) = .ok (envP, cvTaP, p₁P) := by
     rw [← checkSumInd_datF]; exact hFP₁
   obtain ⟨henvP, hTfP⟩ := direct_sum_ind_wf henv hFP₁p
@@ -304,7 +304,7 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     (checkSumIndS_sim hμ henv (flushC_csok hsK')) q1 s₁ hind
   obtain ⟨rfl, -⟩ := hP1
   obtain ⟨env₁, cvTa, p₁⟩ := q1
-  have hF₁p : checkSumInd (fueledOps mode F₁) env p₀.toDirectSumParts
+  have hF₁p : checkSumInd (fueledOps mode F₁) env p₀.toInductiveShape
       (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds)) = .ok (env₁, cvTa, p₁) := by
     rw [← checkSumInd_datF]; exact hF₁
   obtain ⟨henv₁, hTf⟩ := direct_sum_ind_wf henv hF₁p
@@ -403,7 +403,7 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     ⟨max FP₁ (max FP₂ (max F₁ (max F₀ (max F₂ (max F₃ F₆))))), by omega, by omega, by omega,
       by omega, by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
-  have gP₁ : checkSumInd (fueledOps mode G) env p₀.toDirectSumParts
+  have gP₁ : checkSumInd (fueledOps mode G) env p₀.toInductiveShape
       (fun _ => {}) = .ok (envP, cvTaP, p₁P) := by
     rw [← checkSumInd_datF]; exact FueledM.up hleP₁ hFP₁
   have gP₂ : checkSumCtors (fueledOps mode G) envP envP (p₀.complete p₁P).cvT.name
@@ -411,7 +411,7 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
       (p₀.complete p₁P).resSort (p₀.complete p₁P).isProp (p₀.complete p₁P).large cvTaP
       (p₀.complete p₁P).ctors = .ok (ctorsP, sortssP) := by
     rw [← checkSumCtors_datF]; exact FueledM.up hleP₂ hFP₂
-  have g₁ : checkSumInd (fueledOps mode G) env p₀.toDirectSumParts
+  have g₁ : checkSumInd (fueledOps mode G) env p₀.toInductiveShape
       (fun p₁ => nativeCaps ((p₀.complete p₁).withKinds kinds)) = .ok (env₁, cvTa, p₁) := by
     rw [← checkSumInd_datF]; exact FueledM.up hle₁ hF₁
   have g₀ : checkStructFieldSortsI (fueledOps mode G) env₁ true false p.resSort p.nP

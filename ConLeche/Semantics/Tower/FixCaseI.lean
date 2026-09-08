@@ -61,7 +61,7 @@ theorem ihSpL_spine {ℓ : Nat} {C : V} (hC0 : ℓ = 0 → C ∈ˢ (univZero : V
       (∀ l, l < As.length → WellDenoted V σ (args.getD l default) ∧
         interp V σ (args.getD l default) ∈ˢ As.getD l pt) →
       (ℓ = 0 → ∀ A ∈ As, A ∈ˢ (univZero : V)) →
-      WellDenoted V σ (ATerm.mkAppN f args) ∧ interp V σ (ATerm.mkAppN f args) ∈ˢ C
+      WellDenoted V σ (AnnotTerm.mkAppN f args) ∧ interp V σ (AnnotTerm.mkAppN f args) ∈ˢ C
   | [], [], _, _, hokf, hmf, _, _, _ => ⟨hokf, hmf⟩
   | [], _ :: _, _, _, _, _, hlen, _, _ => nomatch hlen
   | _ :: _, [], _, _, _, _, hlen, _, _ => nomatch hlen
@@ -75,7 +75,7 @@ theorem ihSpL_spine {ℓ : Nat} {C : V} (hC0 : ℓ = 0 → C ∈ˢ (univZero : V
     have hoka : WellDenoted V σ (.app f a) := by
       rw [WellDenoted_app]
       exact ⟨hokf, h0.1, ℓ, _, _, hmf, h0.2, hB0⟩
-    rw [ATerm.mkAppN_cons]
+    rw [AnnotTerm.mkAppN_cons]
     refine ihSpL_spine hC0 (As := As) (args := args) hoka happ (by simpa using hlen) ?_
       (fun h0 A hA => hz h0 A (List.mem_cons_of_mem _ hA))
     intro l hl
@@ -114,12 +114,12 @@ theorem ihSpL_zero_inhab {C : V} :
     exact ihSpL_zero_inhab hy (fun A hA => hg A (List.mem_cons_of_mem _ hA))
 
 omit [SetTheory V] in
-theorem ATerm.mkAppN_append (f : AnnotTerm) :
-    ∀ (as bs : List AnnotTerm), ATerm.mkAppN f (as ++ bs) = ATerm.mkAppN (ATerm.mkAppN f as) bs
+theorem AnnotTerm.mkAppN_append (f : AnnotTerm) :
+    ∀ (as bs : List AnnotTerm), AnnotTerm.mkAppN f (as ++ bs) = AnnotTerm.mkAppN (AnnotTerm.mkAppN f as) bs
   | [], _ => rfl
   | a :: as, bs => by
-    rw [List.cons_append, ATerm.mkAppN_cons, ATerm.mkAppN_cons]
-    exact ATerm.mkAppN_append (.app f a) as bs
+    rw [List.cons_append, AnnotTerm.mkAppN_cons, AnnotTerm.mkAppN_cons]
+    exact AnnotTerm.mkAppN_append (.app f a) as bs
 
 /-! ## The spelled pieces -/
 
@@ -128,7 +128,7 @@ arguments (`ihArgs D j`, spelled at the payload frame at depth `D + 1`). -/
 def caseBaseAVI (ℓ w : Nat) (Fss : List (List AnnotTerm)) (ar : Nat → Nat)
     (ihArgs : Nat → Nat → List AnnotTerm) (n nIdx D j : Nat) : AnnotTerm :=
   .lam ℓ ((towerBodyAV w (Fss.getD j [])).liftN D 0)
-    (ATerm.mkAppN (.bvar (D + 1 + nIdx + n - 1 - j))
+    (AnnotTerm.mkAppN (.bvar (D + 1 + nIdx + n - 1 - j))
       (((List.range (ar j)).map fun i => projAV i (.bvar 0)) ++ ihArgs D j))
 
 /-- The case recursor with inductive hypotheses from stage `j` with
@@ -249,13 +249,13 @@ theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss E
   -- the body at a payload: the minor's fold along the projections and the ihs
   have hbody : ∀ y : V, y ∈ˢ towerSet w (teleOfFields ρ₀
         (rChain (Ids.length + Fss.length + 1) Ids.length (Fss.getD j []) (Ess.getD j []))) →
-      WellDenoted V (cons y σ) (ATerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
+      WellDenoted V (cons y σ) (AnnotTerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
         (((List.range (Fss.getD j []).length).map fun i => projAV i (.bvar 0)) ++ ihArgs D j)) ∧
-      interp V (cons y σ) (ATerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
+      interp V (cons y σ) (AnnotTerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
         (((List.range (Fss.getD j []).length).map fun i => projAV i (.bvar 0)) ++ ihArgs D j))
         = (((List.range (Fss.getD j []).length).map fun i => projS i y) ++ ihVals j y).foldl
             SetTheory.app (frMs Fss.length Ids.length ρ₀ j) ∧
-      interp V (cons y σ) (ATerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
+      interp V (cons y σ) (AnnotTerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
         (((List.range (Fss.getD j []).length).map fun i => projAV i (.bvar 0)) ++ ihArgs D j))
         ∈ˢ SetTheory.app (frMi Fss.length Ids.length ρ₀) (injW w j y) := by
     intro y hy
@@ -264,7 +264,7 @@ theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss E
     obtain ⟨hvals, hihlen, hihok⟩ := hih y hyf
     have hpv : ∀ i, interp V (cons y σ) (projAV i (.bvar 0)) = projS i y := by
       intro i; rw [projAV_interp, interp_bvar]; rfl
-    have hval : interp V (cons y σ) (ATerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
+    have hval : interp V (cons y σ) (AnnotTerm.mkAppN (.bvar (D + 1 + Ids.length + Fss.length - 1 - j))
         (((List.range (Fss.getD j []).length).map fun i => projAV i (.bvar 0)) ++ ihArgs D j))
         = (((List.range (Fss.getD j []).length).map fun i => projS i y) ++ ihVals j y).foldl
             SetTheory.app (frMs Fss.length Ids.length ρ₀ j) := by
@@ -336,7 +336,7 @@ theorem base_factsI {ℓ w D : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss E
       (As := ihDoms j (projList (Fss.getD j []).length y))
       (args := ihArgs D j)
       (σ := cons y σ) hsp.1 hsp.2 hihlen hihok (fun h0 A hA => hyp.hdoms0 h0 j _ A hA)
-    rw [← ATerm.mkAppN_append] at hih'
+    rw [← AnnotTerm.mkAppN_append] at hih'
     rw [hconv] at hih'
     exact ⟨hih'.1, hval, hih'.2⟩
   refine ⟨?_, ?_, ?_⟩
@@ -443,9 +443,9 @@ theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess
     have hs : interp V σ (.lam (imaxN w ℓ) natAV (.lam (imaxN w ℓ)
           (caseMotiveBodyAV ℓ w Fss' Fss.length Ids.length D j)
           (caseRecAVI ℓ w Fss' ar ihArgs Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1))))
-        ∈ˢ natStepSpace2 V (imaxN w ℓ) (interp V σ (caseMotiveAV ℓ w Fss' Fss.length Ids.length D j)) := by
+        ∈ˢ natStepSpace V (imaxN w ℓ) (interp V σ (caseMotiveAV ℓ w Fss' Fss.length Ids.length D j)) := by
       rw [hsv]
-      unfold natStepSpace2
+      unfold natStepSpace
       refine lamR_mem fun b hb => ?_
       rw [hMapp b hb, hMapp (natsucc b) (natsucc_mem hb), (hmb b hb).1]
       refine lamR_mem fun a _ => ?_
@@ -467,7 +467,7 @@ theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess
             (caseRecAVI ℓ w Fss' ar ihArgs Fss.length Ids.length r (D + 2) (j + 1) (.bvar 1))))) i'
           ∈ˢ motSem ℓ w (sumFibre w ρ₀ Fss') (frMi Fss.length Ids.length ρ₀) j (vnat i') := by
         intro i'
-        have h := natRecV2_mem_fibre V hMsp hz hs (vnat_mem_omega i')
+        have h := natRecV_mem_fibre V hMsp hz hs (vnat_mem_omega i')
         rwa [natrec_vnat, hMapp _ (vnat_mem_omega i')] at h
       cases i with
       | zero =>
@@ -493,7 +493,7 @@ theorem caseRec_factsI {ℓ w : Nat} (hw : w ≠ 0) {ρ₀ : Nat → V} {Fss Ess
       · -- the point-headed spine
         have hz' : imaxN w ℓ = 0 := (imaxN_eq_zero_iff w ℓ).mpr h0
         refine (mkAppN_wellDenoted_of_pt_head (f := .const .natRec [imaxN w ℓ]) (σ := σ) trivial
-          (by show natRecV2 V (imaxN w ℓ) = pt; rw [hz', natRecV2, lamR_zero]) ?_).1
+          (by show natRecV V (imaxN w ℓ) = pt; rw [hz', natRecV, lamR_zero]) ?_).1
         intro a ha
         simp only [List.mem_cons, List.not_mem_nil, or_false] at ha
         rcases ha with rfl | rfl | rfl | rfl

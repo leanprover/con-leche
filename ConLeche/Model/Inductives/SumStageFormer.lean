@@ -132,7 +132,7 @@ theorem stageSumFormer (mp : EnvModelM V μ env)
     (ConsHead.ofFresh hwfI (fun ψ => hAbelow ψ) hnresI
       (fun _ h => nomatch h)
       (fun _ _ _ _ h => nomatch h))
-    (fun ψ k => ATerm.liftN_eq_self _
+    (fun ψ k => AnnotTerm.liftN_eq_self _
       (Term.bvarsBelow.mono (Nat.zero_le k) (hAbelow ψ)) 1)
     ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · intro ψ₁ ψ₂ hφ

@@ -4,7 +4,7 @@ import ConLeche.Model.Install
 # The structure-capability laws across a fresh cons (task #161, caps
 tier)
 
-The statements (`TeleFit`, `projSpines2`/`etaFabArgs2`, `EtaLaw`,
+The statements (`TeleFit`, `projSpines`/`etaFabArgsV`, `EtaLaw`,
 `UnitLaw`, `CapsOk`) live in `Annot/EnvModelM.lean` beside `NatOps`,
 `DivMod` and `EqLaw` — the `EnvModelM` field `caps_ok` must mention
 them, and `EnvModelM` is upstream of everything in `Interp/`.  This file
@@ -132,7 +132,7 @@ the certificate never looks at a constructor or a projection.  Nor is
 the premise derivable from the environment: `EtaFamilyStored` is a
 statement about what is *stored* under two name families that an
 `indInfo` entry's `caps` record merely *names*, and `EnvWF` relates
-the two not at all.  `indBlockCaps` (`Kernel/Modeled.lean:713`)
+the two not at all.  `indBlockCaps` (`Inductives/Modeled.lean:713`)
 computes `eta` and `unitlike` by two independent checks, so a
 `unitlike`-but-not-`eta` family — whose projection indices install as
 elimination *templates* (`projInfo`), not projection functions
@@ -222,15 +222,15 @@ theorem capsOk_cons_fresh (mp : EnvModelM V μ env)
           (ConLeche.Semantics.Env.find?_mem hfE) us) hTVa
     · intro ρ ts rest x hlents hfit hmem
       rw [hac, acvalWith_ne hnT] at hmem
-      have hfab : etaFabArgs2
+      have hfab : etaFabArgsV
             (fun n => interp V ρ
               (m₂.acval n (Level.substFn φ' cvT.levelParams us)))
             T ts x caps.etaFields
-          = etaFabArgs2
+          = etaFabArgsV
             (fun n => interp V ρ
               (mp.base2.acval n (Level.substFn φ' cvT.levelParams us)))
             T ts x caps.etaFields := by
-        unfold etaFabArgs2 projSpines2
+        unfold etaFabArgsV projSpines
         refine congrArg _ (List.map_congr_left fun j hj => ?_)
         dsimp only
         rw [hac, acvalWith_ne (hnP j (List.mem_range.mp hj))]

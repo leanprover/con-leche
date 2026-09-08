@@ -84,7 +84,7 @@ S1 re-based them here, below both lanes:
 * `Ops` — `piR`, `lamC`, `app`, `piR_dom_unique` over the `SetTheory`
   interface;
 * `Value` — the graded value tower (with `Term.Const`);
-* `Syntax` — `AnnotTerm` and `ATerm.erase`, the annotated syntax both
+* `Syntax` — `AnnotTerm` and `AnnotTerm.erase`, the annotated syntax both
   lanes read (`erase` is the collapsed lane's own reading function);
 * `Interp` — `interp`/`interp`;
 * `Kit` — the membership kit over `interp`;
@@ -98,7 +98,7 @@ S2 (the 2U/R move) added, on the same terms:
   `Expr` scoping);
 * `LitParams` — the two `*_levelParams_nil` reads off the literal
   support guards;
-* `Sat` — `Sat` with its intro lemmas, and `interp2C_trans`;
+* `Sat` — `Sat` with its intro lemmas, and `interpC_trans`;
 * `WhnfCoreLeaf` — the six `whnfCoreR_*` `rfl` lemmas about the kernel's
   `whnfCore` (S1 deferred them here by name);
 * `DefEqStep` — the definitional-equality quarter's Tier A clauses,
@@ -109,7 +109,7 @@ S2 (the 2U/R move) added, on the same terms:
   and its erasure law (whole-module move of `Annot/Canon`).  `denoteAnnot`
   takes the annotated valuation as a *parameter*, so the pass carries
   no environment at all;
-* `LitStep` — `natLit_facts2`, the numeral induction over
+* `LitStep` — `natLit_factsAV`, the numeral induction over
   `natLitAV` (whole-module move of `Interp/Steps/Lit`).
 
 S4 (the C3 artifact) added the **shared record family** — the design

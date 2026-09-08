@@ -8,7 +8,7 @@ import ConLeche.Verify.Shift
 applications and `Nat` literals only): no free variables, no loose
 bound variables.  This module exposes the form as a structural
 recursion over the character list (`strLitList`) — the induction handle
-the model file (`ConLeche.Model.StrLit`) and the walk proofs share — plus
+the model file (`ConLeche.ModelV1.StrLit`) and the walk proofs share — plus
 the closedness facts.
 -/
 

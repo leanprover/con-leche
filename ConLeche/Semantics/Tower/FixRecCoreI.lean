@@ -338,10 +338,10 @@ the telescope's variables — `λ a⃗, r p⃗ M m⃗ e⃗_i(a⃗) (f_i a⃗)`. 
 def ihArgAV (ℓ nP n nIdx D i : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) : AnnotTerm :=
   let m := tl.length
   mkLamsC ℓ (ihTeleAt nIdx n D i tl)
-    (ATerm.mkAppN (.bvar (D + 1 + nIdx + n + 1 + nP + m))
+    (AnnotTerm.mkAppN (.bvar (D + 1 + nIdx + n + 1 + nP + m))
       (idxVarsAV (nP + 1 + n) (D + 1 + nIdx + m) ++
         Eis.map (fun E => substProjAt m i (E.liftN (D + nIdx + n + 2) (i + m))) ++
-        [ATerm.mkAppN (projAV i (.bvar m)) (teleVarsAV m)]))
+        [AnnotTerm.mkAppN (projAV i (.bvar m)) (teleVarsAV m)]))
 
 omit [SetTheory V] in
 
@@ -721,7 +721,7 @@ def fixStepAVI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List An
 def fixSigAVI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (rds : List (Nat × Nat × AnnotTerm)) (s : Nat) :
     AnnotTerm :=
-  ATerm.mkAppN (.const .psigma [s, 0]) [recTyAV Fss.length Ids.length rds,
+  AnnotTerm.mkAppN (.const .psigma [s, 0]) [recTyAV Fss.length Ids.length rds,
     .lam 1 (recTyAV Fss.length Ids.length rds)
       (.eqE ((recTyAV Fss.length Ids.length rds).liftN 1 0)
         (.app ((fixStepAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s).liftN 1 0) (.bvar 0)) (.bvar 0))]
@@ -731,7 +731,7 @@ def fixSigAVI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List Ann
 def fixSelAVI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (rds : List (Nat × Nat × AnnotTerm)) (s : Nat) :
     AnnotTerm :=
-  .proj 0 (ATerm.mkAppN (.const .choice [s])
+  .proj 0 (AnnotTerm.mkAppN (.const .choice [s])
     [fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s, .prf])
 
 /-! ## The premise -/

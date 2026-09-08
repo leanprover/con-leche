@@ -42,7 +42,7 @@ single `inst`-invariance premise `hainst`; the walk needs a second.
   rewrite).
 
 Both are discharged from one closedness fact at every real supplier:
-`ATerm.liftN_eq_self` and `ATerm.inst_eq_self`
+`AnnotTerm.liftN_eq_self` and `AnnotTerm.inst_eq_self`
 (`Interp/DenoteClosed.lean`) take the same
 `Term.bvarsBelow k (acval n ψ).erase` hypothesis, and `hacl` is
 already an `EnvModelU` field (`acval_closed`).
@@ -51,7 +51,7 @@ already an `EnvModelU` field (`acval_closed`).
 
 Verbatim v1's, and for v1's reason: at depth `D + 1` the variable
 `fvar p` denotes `.bvar (D - p)`, so the substitution happens at cut
-`k = D - p`, and `ATerm.inst e a k` already substitutes `liftN k a`
+`k = D - p`, and `AnnotTerm.inst e a k` already substitutes `liftN k a`
 — which makes `inst`'s built-in lift *be* the depth shift.
 -/
 
@@ -134,8 +134,8 @@ private theorem natLitAV_inst {za sa y : AnnotTerm} {k : Nat}
   induction n with
   | zero => exact hz
   | succ n ih =>
-    show (ATerm.app sa (natLitAV za sa n)).inst y k = _
-    rw [ATerm.inst_app, hs, ih]
+    show (AnnotTerm.app sa (natLitAV za sa n)).inst y k = _
+    rw [AnnotTerm.inst_app, hs, ih]
     rfl
 
 /-- Ditto the character-list spine. -/
@@ -150,8 +150,8 @@ private theorem charListAV_inst {nilA consA ofNatA za sa y : AnnotTerm}
   induction cs with
   | nil => exact hn
   | cons c cs ih =>
-    show (ATerm.app (.app consA (.app ofNatA _)) _).inst y k = _
-    rw [ATerm.inst_app, ATerm.inst_app, ATerm.inst_app, hc, ho,
+    show (AnnotTerm.app (.app consA (.app ofNatA _)) _).inst y k = _
+    rw [AnnotTerm.inst_app, AnnotTerm.inst_app, AnnotTerm.inst_app, hc, ho,
       natLitAV_inst hz hs, ih]
     rfl
 
@@ -165,7 +165,7 @@ theorem denoteMeta_lift
     {p : Nat} {e : Expr} (hw : Expr.WScoped p e) :
     ∀ D : Nat, p ≤ D →
       denoteMeta acval env φ D e
-        = (denoteMeta acval env φ p e).map (ATerm.liftN (D - p) · 0) := by
+        = (denoteMeta acval env φ p e).map (AnnotTerm.liftN (D - p) · 0) := by
   intro D
   induction D with
   | zero =>
@@ -175,7 +175,7 @@ theorem denoteMeta_lift
     simp only [Nat.sub_self]
     cases denoteMeta acval env φ 0 e with
     | none => rfl
-    | some v => simp only [Option.map_some, ATerm.liftN_zero]
+    | some v => simp only [Option.map_some, AnnotTerm.liftN_zero]
   | succ D ih =>
     intro hpD
     by_cases hpD' : p = D + 1
@@ -183,13 +183,13 @@ theorem denoteMeta_lift
       simp only [Nat.sub_self]
       cases denoteMeta acval env φ (D + 1) e with
       | none => rfl
-      | some v => simp only [Option.map_some, ATerm.liftN_zero]
+      | some v => simp only [Option.map_some, AnnotTerm.liftN_zero]
     · have hpD2 : p ≤ D := by omega
       rw [denoteMeta_weaken_top hacl (hw.mono hpD2), ih hpD2]
       cases denoteMeta acval env φ p e with
       | none => rfl
       | some v =>
-        simp only [Option.map_some, ATerm.liftN_liftN]
+        simp only [Option.map_some, AnnotTerm.liftN_liftN]
         congr 2
         omega
 
@@ -208,7 +208,7 @@ theorem denoteMeta_substFvarAt
     (ha : denoteMeta acval env φ p a = some x) :
     ∀ (e : Expr) (D : Nat), p ≤ D → Expr.fvarsBelow (D + 1) e →
       denoteMeta acval env φ D (Expr.substFvarAt p a e) =
-        (denoteMeta acval env φ (D + 1) e).map (ATerm.inst · x (D - p))
+        (denoteMeta acval env φ (D + 1) e).map (AnnotTerm.inst · x (D - p))
   | .bvar i, D, hpD, hfb => by
     have h1 : denoteMeta acval env φ D (.bvar i) = none := by
       rw [denoteMeta.eq_def]
@@ -234,7 +234,7 @@ theorem denoteMeta_substFvarAt
       rw [show ConLeche.Expr.substFvarAt idx a (Expr.fvar idx ty) = a from by
             simp [ConLeche.Expr.substFvarAt],
         denoteMeta_lift hacl hwa D hpD, ha, denoteMeta]
-      simp only [Option.map_some, ATerm.inst_bvar,
+      simp only [Option.map_some, AnnotTerm.inst_bvar,
         show D + 1 - 1 - idx = D - idx from by omega]
       simp
     · by_cases h2 : idx > p
@@ -242,7 +242,7 @@ theorem denoteMeta_substFvarAt
               = .fvar (idx - 1) (ConLeche.Expr.substFvarAt p a ty) from by
               simp [ConLeche.Expr.substFvarAt, h1, h2],
           denoteMeta, denoteMeta]
-        simp only [Option.map_some, ATerm.inst_bvar,
+        simp only [Option.map_some, AnnotTerm.inst_bvar,
           if_pos (show D + 1 - 1 - idx < D - p from by omega)]
         congr 2
         omega
@@ -250,7 +250,7 @@ theorem denoteMeta_substFvarAt
               = .fvar idx ty from by
               simp [ConLeche.Expr.substFvarAt, h1, h2],
           denoteMeta, denoteMeta]
-        simp only [Option.map_some, ATerm.inst_bvar,
+        simp only [Option.map_some, AnnotTerm.inst_bvar,
           if_neg (show ¬ D + 1 - 1 - idx < D - p from by omega),
           if_neg (show ¬ D + 1 - 1 - idx = D - p from by omega)]
         congr 2
@@ -332,9 +332,9 @@ theorem denoteMeta_substFvarAt
     · simp only [Option.map_some]
       refine congrArg some ?_
       symm
-      rw [ATerm.inst_app, hainst,
-        charListAV_inst (by rw [ATerm.inst_app, hainst, hainst])
-          (by rw [ATerm.inst_app, hainst, hainst]) (hainst _ _ _ _)
+      rw [AnnotTerm.inst_app, hainst,
+        charListAV_inst (by rw [AnnotTerm.inst_app, hainst, hainst])
+          (by rw [AnnotTerm.inst_app, hainst, hainst]) (hainst _ _ _ _)
           (hainst _ _ _ _) (hainst _ _ _ _)]
     · rfl
 termination_by e => e.sizeB
@@ -360,7 +360,7 @@ theorem denoteMeta_beta
     (ha : denoteMeta acval env φ d a = some x) (k : Nat) :
     denoteMeta acval env φ d (body.instantiate1 a k) =
       (denoteMeta acval env φ (d + 1)
-        (body.instantiate1 (.fvar d ty) k)).map (ATerm.inst · x 0) := by
+        (body.instantiate1 (.fvar d ty) k)).map (AnnotTerm.inst · x 0) := by
   have h := denoteMeta_substFvarAt (p := d) hacl hainst hwa hba ha
     (body.instantiate1 (.fvar d ty) k) d (Nat.le_refl d)
     (ConLeche.Expr.fvarsBelow_instantiate1 k hfb)

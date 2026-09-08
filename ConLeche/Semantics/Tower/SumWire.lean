@@ -39,7 +39,7 @@ theorem caseAVAt_below {w K : Nat} :
   | [], _, _, _, _ => trivial
   | T :: Ts, d, kx, hT, hk => by
     refine natRecAV_below (natSortMotiveAV_below w _) ?_ ?_ hk
-    · rw [ATerm.erase_liftN]
+    · rw [AnnotTerm.erase_liftN]
       exact VExprAux.bvarsBelow_liftN d T.erase K 0 (hT T List.mem_cons_self)
     · refine ⟨trivial, trivial, ?_⟩
       have := caseAVAt_below (w := w) (K := K) (Ts := Ts) (d := d + 2) (kx := .bvar 1)
@@ -146,12 +146,12 @@ theorem mkTowerGoUPos_below {w : Nat} {E : AnnotTerm} :
     simp only [List.cons_append] at h
     have hF : Term.bvarsBelow (k + (Fs.length + 1))
         (F.liftN (Fs.length + 1)).erase := by
-      rw [ATerm.erase_liftN]
+      rw [AnnotTerm.erase_liftN]
       have := VExprAux.bvarsBelow_liftN (Fs.length + 1) F.erase k 0 h.1
       exact this
     have hbody : Term.bvarsBelow (k + (Fs.length + 1) + 1)
         ((towerBodyAV w (Fs ++ [E])).liftN (Fs.length + 1) 1).erase := by
-      rw [ATerm.erase_liftN]
+      rw [AnnotTerm.erase_liftN]
       have := VExprAux.bvarsBelow_liftN (Fs.length + 1)
         (towerBodyAV w (Fs ++ [E])).erase (k + 1) 1 (towerBodyAV_below h.2)
       rw [show k + 1 + (Fs.length + 1) = k + (Fs.length + 1) + 1
@@ -207,7 +207,7 @@ theorem idxVarsAV_below {nIdx D' K : Nat} (h : nIdx ≤ K) :
 theorem motAppAV_below {n nIdx D' K : Nat} (h : nIdx + n < K) :
     Term.bvarsBelow (K + D') (motAppAV n nIdx D').erase := by
   unfold motAppAV
-  rw [ATerm.erase_mkAppN]
+  rw [AnnotTerm.erase_mkAppN]
   refine VExprAux.bvarsBelow_mkAppN (show D' + nIdx + n < K + D' by omega) ?_
   intro a ha
   obtain ⟨ea, hea, rfl⟩ := List.mem_map.mp ha

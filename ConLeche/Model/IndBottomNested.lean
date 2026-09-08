@@ -165,7 +165,7 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
               = some vpa →
             interp V ρ (ys.getD i default)
               = interp V ρ
-                  (ATerm.instRevChain (xs.take rP) vpa)) →
+                  (AnnotTerm.instRevChain (xs.take rP) vpa)) →
           IotaIndexPin (V := V) ρ restC cnP mI rP xs →
           denoteMeta mp.base2.acval env φ 0
             (tyA.instantiateLevelParams lps us) = some TVa →
@@ -173,22 +173,22 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
             (cvj.type.instantiateLevelParams cvj.levelParams usj)
             = some TVja →
           TeleFitPA V ρ TVa
-            (xs ++ [ATerm.mkAppN
+            (xs ++ [AnnotTerm.mkAppN
               (mp.base2.acval ctor
                 (Level.substFn φ cvj.levelParams usj)) ys]) restR →
           TeleFitPA V ρ TVja ys restC →
           interp V ρ
-              (ATerm.mkAppN
+              (AnnotTerm.mkAppN
                 (mp.base2.acval Rn (Level.substFn φ lps us))
-                (xs ++ [ATerm.mkAppN
+                (xs ++ [AnnotTerm.mkAppN
                   (mp.base2.acval ctor
                     (Level.substFn φ cvj.levelParams usj)) ys]))
             = interp V ρ
-                (ATerm.mkAppN Ra
+                (AnnotTerm.mkAppN Ra
                   (xs.take rP ++ ys.drop cnP)) ∧
           ((∀ a ∈ xs, WellDenotedV V ρ a) → (∀ b ∈ ys, WellDenotedV V ρ b) →
             WellDenotedV V ρ
-              (ATerm.mkAppN Ra (xs.take rP ++ ys.drop cnP))) := by
+              (AnnotTerm.mkAppN Ra (xs.take rP ++ ys.drop cnP))) := by
   intro φ us huslen
   obtain ⟨Ra, taR, hRaden, hRaFacts⟩ := hrhsKey (Level.substFn φ lps us)
   refine ⟨Ra, by rw [denotePInstLevels]; exact hRaden,
@@ -290,14 +290,14 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
   have hokTst : ∀ σ : Nat → V, WellDenotedV V σ Tst :=
     fun σ => (hTstFacts σ).2
   have hpadLen : ∀ N, N ≤ rP + cnF →
-      (List.replicate (rP + cnF - N) (ATerm.sort 0)
+      (List.replicate (rP + cnF - N) (AnnotTerm.sort 0)
         ++ Γs.drop (rP + cnF - N)).length = rP + cnF := by
     intro N hN
     rw [List.length_append, List.length_replicate, List.length_drop,
       hΓslen]
     omega
   have hpadEnt : ∀ N, N ≤ rP + cnF → ∀ i, i < N →
-      (List.replicate (rP + cnF - N) (ATerm.sort 0)
+      (List.replicate (rP + cnF - N) (AnnotTerm.sort 0)
         ++ Γs.drop (rP + cnF - N))[rP + cnF - 1 - i]?
         = some (Γs.getD (rP + cnF - 1 - i) default) := by
     intro N hN i hi
@@ -459,7 +459,7 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
   have hArgsClen : vArgsC.length = cnP + (mI - rP) := by
     rw [← hcspJ.length, List.length_map, hcbodyArity]
   -- ===== the fitting prefix =====
-  have htakexs : (xs ++ [ATerm.mkAppN
+  have htakexs : (xs ++ [AnnotTerm.mkAppN
       (mp.base2.acval ctor (Level.substFn φ cvj.levelParams usj))
       ys]).take rP = xs.take rP := by
     rw [List.take_append_of_le_length (by rw [hlenX]; omega)]
@@ -721,10 +721,10 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
           | nil => exact ⟨_, _, _, rfl, hα, hL, hR⟩
   have hokVα : ∀ σ : Nat → V, Sat V Γs σ → WellDenotedV V σ va0 := by
     intro σ hσ
-    have h : WellDenotedV V σ (ATerm.mkAppN vEq0 [va0, vl0, vr0]) := by
+    have h : WellDenotedV V σ (AnnotTerm.mkAppN vEq0 [va0, vl0, vr0]) := by
       rw [← hRbodyEq]
       exact wellDenotedV_tower_body_sat htowerS (hokTst _) hσ
-    have hshow : ATerm.mkAppN vEq0 [va0, vl0, vr0]
+    have hshow : AnnotTerm.mkAppN vEq0 [va0, vl0, vr0]
         = .app (.app (.app vEq0 va0) vl0) vr0 := rfl
     refine ⟨?_, ?_⟩
     · have h1 := h.1
@@ -762,7 +762,7 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
   -- ===== the pins' canonical readings and the crossing datum =====
   have hspPre : DenoteMetaSpine mp.base2.acval env (Level.substFn φ lps us)
       (rP + cnF) (fvs.take rP)
-      ((List.range rP).map (fun j => ATerm.bvar (rP + cnF - 1 - j))) := by
+      ((List.range rP).map (fun j => AnnotTerm.bvar (rP + cnF - 1 - j))) := by
     refine DenoteMetaSpine.of_getD _ _
       (by rw [htkSlen, List.length_map, List.length_range]) ?_
     intro q hq
@@ -773,8 +773,8 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
     rw [show (fvs.take rP).getD q default = Expr.fvar q ty from by
         rw [List.getD, List.getElem?_take_of_lt hq, hx]; rfl,
       show ((List.range rP).map
-          (fun j => ATerm.bvar (rP + cnF - 1 - j))).getD q default
-        = ATerm.bvar (rP + cnF - 1 - q) from by
+          (fun j => AnnotTerm.bvar (rP + cnF - 1 - j))).getD q default
+        = AnnotTerm.bvar (rP + cnF - 1 - q) from by
         rw [List.getD, List.getElem?_map, List.getElem?_range hq]; rfl]
     exact denoteMeta_fvar mp.base2.acval (rP + cnF) q ty
   have hpinRead : ∀ q, q < cnP → ∃ w,
@@ -825,8 +825,8 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
       denoteMeta mp.base2.acval env (Level.substFn φ lps us) (rP + cnF)
         (Expr.instSpine (fvs.take rP) (rP - 1)
           ((pins.getD q default).renameConsts f)) = some w0 ∧
-      ATerm.instSeq (xs.take rP ++ ys.drop cnP) (rP + cnF - 1) w0
-        = ATerm.instRevChain (xs.take rP) vpa := by
+      AnnotTerm.instSeq (xs.take rP ++ ys.drop cnP) (rP + cnF - 1) w0
+        = AnnotTerm.instRevChain (xs.take rP) vpa := by
     intro q hq
     obtain ⟨vpa, hvpa⟩ := hpinOpen q hq
     have hvpa' : denoteMeta mp.base2.acval env (Level.substFn φ lps us) rP
@@ -839,7 +839,7 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
       (cval := mp.base2.cvalE) (env := env)
       (φ := Level.substFn φ lps us) (cnF := cnF)
       mp.base2.acval_closed hainst mp.base2.acval_erase
-      mp.base2.cval_closed (ATerm.sort 0) htkSlen
+      mp.base2.cval_closed (AnnotTerm.sort 0) htkSlen
       (fun i x hx => by
         have hilt : i < rP := by
           have := (List.getElem?_eq_some_iff.mp hx).1
@@ -856,7 +856,7 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
       List.append_nil] at hcross
     exact ⟨vpa, w0, hvpa, hw0, hcross⟩
   -- ===== the mixed value spine =====
-  have hmixlen : ((vmargs.take cnP).map (ATerm.instSeq
+  have hmixlen : ((vmargs.take cnP).map (AnnotTerm.instSeq
       (xs.take rP ++ ys.drop cnP) (rP + cnF - 1))
       ++ ys.drop cnP).length = cnP + cnF := by
     rw [List.length_append, List.length_map, List.length_take,
@@ -869,10 +869,10 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
       (psR ++ fvs.drop rP)[q]? = some x →
       ∃ w0, denoteMeta mp.base2.acval env (Level.substFn φ lps us)
             (rP + cnF) x = some w0 ∧
-        ((vmargs.take cnP).map (ATerm.instSeq
+        ((vmargs.take cnP).map (AnnotTerm.instSeq
           (xs.take rP ++ ys.drop cnP) (rP + cnF - 1))
           ++ ys.drop cnP)[q]?
-          = some (ATerm.instSeq (xs.take rP ++ ys.drop cnP)
+          = some (AnnotTerm.instSeq (xs.take rP ++ ys.drop cnP)
             (rP + cnF - 1) w0) := by
     intro q x hx
     rcases Nat.lt_or_ge q cnP with hqc | hqc
@@ -903,7 +903,7 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
         omega
       · rfl
   have hmixFldEq : ∀ j, j < cnF →
-      ((vmargs.take cnP).map (ATerm.instSeq
+      ((vmargs.take cnP).map (AnnotTerm.instSeq
         (xs.take rP ++ ys.drop cnP) (rP + cnF - 1))
         ++ ys.drop cnP).getD (cnP + j) default
         = ys.getD (cnP + j) default := by
@@ -914,7 +914,7 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
       show cnP + j - cnP = j from by omega]
     rfl
   have hmixPar : ∀ q, q < cnP →
-      interp V ρ (((vmargs.take cnP).map (ATerm.instSeq
+      interp V ρ (((vmargs.take cnP).map (AnnotTerm.instSeq
         (xs.take rP ++ ys.drop cnP) (rP + cnF - 1))
         ++ ys.drop cnP).getD q default)
         = interp V ρ (ys.getD q default) := by
@@ -923,10 +923,10 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
     obtain ⟨w, hwq, hdw⟩ := denoteMetaSpine_getElem?' hcspSp q _
       (hspPar q hq)
     obtain rfl : w = w0 := Option.some.inj (hdw.symm.trans hw0)
-    have hget : ((vmargs.take cnP).map (ATerm.instSeq
+    have hget : ((vmargs.take cnP).map (AnnotTerm.instSeq
         (xs.take rP ++ ys.drop cnP) (rP + cnF - 1))
         ++ ys.drop cnP).getD q default
-        = ATerm.instSeq (xs.take rP ++ ys.drop cnP) (rP + cnF - 1) w := by
+        = AnnotTerm.instSeq (xs.take rP ++ ys.drop cnP) (rP + cnF - 1) w := by
       rw [List.getD, List.getElem?_append_left
         (by rw [List.length_map, hmixTakeLen]; omega),
         List.getElem?_map, List.getElem?_take_of_lt hq, hwq]
@@ -934,7 +934,7 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
     rw [hget, hcross]
     exact (hparP q hq vpa hvpa).symm
   have hmixVal : ∀ q, q < cnP + cnF →
-      interp V ρ (((vmargs.take cnP).map (ATerm.instSeq
+      interp V ρ (((vmargs.take cnP).map (AnnotTerm.instSeq
         (xs.take rP ++ ys.drop cnP) (rP + cnF - 1))
         ++ ys.drop cnP).getD q default)
         = interp V ρ (ys.getD q default) := by
@@ -1172,7 +1172,7 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
   have hwsX : ∀ x ∈ xFvsP, Expr.WScoped (rP + cnF) x :=
     (openPisAtFvars_WScoped cnF crestP rP hopenXP hwsCrestP).1
   have hsatId : ∀ ρ' : Nat → V, Sat V Γs ρ' →
-      Sat V (List.replicate (rP + cnF - (rP + cnF)) (ATerm.sort 0)
+      Sat V (List.replicate (rP + cnF - (rP + cnF)) (AnnotTerm.sort 0)
         ++ Γs.drop (rP + cnF - (rP + cnF))) ρ' := by
     intro ρ' h
     rw [show rP + cnF - (rP + cnF) = 0 from by omega,

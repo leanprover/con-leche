@@ -557,7 +557,7 @@ theorem shadowOf_fits {j : Nat} (hj : j < Fss.length) {X t : V} :
       rw [shadowFs_length]; exact hlt
     rw [List.drop_eq_getElem_cons hltS]
     have hget : (shadowFs nP (ksF j) (Fss.getD j []).length (Fss.getD j []))[as.length]
-        = if recAt nP (ksF j) (nP + as.length) then ATerm.sort 0
+        = if recAt nP (ksF j) (nP + as.length) then AnnotTerm.sort 0
           else (Fss.getD j []).getD as.length default := by
       have := shadowFs_getElem? (nP := nP) (ks := ksF j) (Fs := Fss.getD j []) hlt
       rw [List.getElem?_eq_getElem hltS] at this

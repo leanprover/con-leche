@@ -17,10 +17,10 @@ at the **mixed** value spine.  `instPisAt_denoteMeta_cross` is the
 identity that crosses them.
 
 Both are **V-free**: they are statements about `denoteMeta` and
-`ATerm.instSeq` only, with no `SetTheory` in sight, so they take the
+`AnnotTerm.instSeq` only, with no `SetTheory` in sight, so they take the
 carrier's two leaf equations (`acval_closed`, the `inst` analogue)
 rather than an `EnvModel`.  That is also why they transpose move for
-move — the only currency deltas are `ATerm.instSeq` for
+move — the only currency deltas are `AnnotTerm.instSeq` for
 `Term.instSeq` and the binder numerals `denoteMeta_forallE` puts on the
 `.pi` node, which `PiTeleAV.cons` carries without reading.
 
@@ -123,11 +123,11 @@ theorem instPisAt_denoteMeta_cross
       ∀ {ws : List AnnotTerm}, ws.length = sp.length →
       (∀ (j : Nat) (x : Expr), sp[j]? = some x →
         ∃ w0, denoteMeta acval env φ D x = some w0 ∧
-          ws[j]? = some (ATerm.instSeq vals (D - 1) w0)) →
+          ws[j]? = some (AnnotTerm.instSeq vals (D - 1) w0)) →
       ∀ {Γ : List AnnotTerm} {R : AnnotTerm},
-        PiTeleAV sp.length (ATerm.instSeq vals (D - 1) T) Γ R →
-        ATerm.instSeq vals (D - 1) vRs
-          = ATerm.instSeq ws (ws.length - 1) R := by
+        PiTeleAV sp.length (AnnotTerm.instSeq vals (D - 1) T) Γ R →
+        AnnotTerm.instSeq vals (D - 1) vRs
+          = AnnotTerm.instSeq ws (ws.length - 1) R := by
   intro sp
   induction sp with
   | nil =>
@@ -174,12 +174,12 @@ theorem instPisAt_denoteMeta_cross
         hfb'.2 hwsa hba hw0den 0
       match ws, hwlen with
       | w :: ws', hwlen => ?_
-      have hw : w = ATerm.instSeq vals (D - 1) w0 := by
+      have hw : w = AnnotTerm.instSeq vals (D - 1) w0 := by
         simpa using hw0
-      rw [show ATerm.instSeq vals (D - 1)
-            (ATerm.pi 0 (pwBit φ mb.pw) A B)
-          = .pi 0 (pwBit φ mb.pw) (ATerm.instSeq vals (D - 1) A)
-              (ATerm.instSeq vals D B) from by
+      rw [show AnnotTerm.instSeq vals (D - 1)
+            (AnnotTerm.pi 0 (pwBit φ mb.pw) A B)
+          = .pi 0 (pwBit φ mb.pw) (AnnotTerm.instSeq vals (D - 1) A)
+              (AnnotTerm.instSeq vals D B) from by
         rw [instSeqAV_pi _ _ _ _ _ _ (by omega)]
         congr 1
         rcases Nat.eq_zero_or_pos D with h0 | h0
@@ -209,14 +209,14 @@ theorem instPisAt_denoteMeta_cross
         (Γ := ctxInstAtAV w 0 Γ') (R := R.inst w sp.length) ?_
       · have hlen' : ws'.length = sp.length := by simpa using hwlen
         rw [hrec, show (w :: ws').length - 1 = ws'.length from by simp,
-          ATerm.instSeq_cons, hlen']
-      · have hID : ATerm.instSeq vals (D - 1) (B.inst w0 0)
-            = (ATerm.instSeq vals D B).inst w 0 := by
+          AnnotTerm.instSeq_cons, hlen']
+      · have hID : AnnotTerm.instSeq vals (D - 1) (B.inst w0 0)
+            = (AnnotTerm.instSeq vals D B).inst w 0 := by
           rcases Nat.eq_zero_or_pos D with h0 | h0
           · obtain rfl : vals = [] := by
               rw [h0] at hvlen
               exact List.eq_nil_of_length_eq_zero hvlen
-            simp only [ATerm.instSeq_nil] at hw ⊢
+            simp only [AnnotTerm.instSeq_nil] at hw ⊢
             rw [hw]
           · rw [instSeqAV_inst0 vals (D - 1) B w0 (by omega),
               show D - 1 + 1 = D from by omega, ← hw]

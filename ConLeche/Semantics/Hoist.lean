@@ -290,11 +290,11 @@ satisfiable, so neither direction is a vacuous implication. -/
 /-- `ρ ≡ ∅` satisfies `[⟪Sort 0⟫]`: the context used below is
 genuinely inhabited. -/
 private theorem sat_sort0_empty :
-    Sat V [ATerm.sort 0] (fun _ => (empty : V)) := by
+    Sat V [AnnotTerm.sort 0] (fun _ => (empty : V)) := by
   intro i Aa hi
   cases i with
   | zero =>
-    obtain rfl : ATerm.sort 0 = Aa := by simpa using hi
+    obtain rfl : AnnotTerm.sort 0 = Aa := by simpa using hi
     simpa using empty_mem_univ (V := V) 0
   | succ i => simp at hi
 
@@ -304,9 +304,9 @@ implication. -/
 example :
     WellDenoted V (fun _ => (empty : V))
       (.pi 1 2 (.sort 0) (.sort 1)) ∧
-    (∀ ρ : Nat → V, Sat V [ATerm.sort 0] ρ →
-      WellDenoted V ρ (ATerm.sort 0)) := by
-  have hpi : ∀ ρ : Nat → V, Sat V [ATerm.sort 0] ρ →
+    (∀ ρ : Nat → V, Sat V [AnnotTerm.sort 0] ρ →
+      WellDenoted V ρ (AnnotTerm.sort 0)) := by
+  have hpi : ∀ ρ : Nat → V, Sat V [AnnotTerm.sort 0] ρ →
       WellDenoted V ρ (.pi 1 2 (.sort 0) (.sort 1)) :=
     WellDenoted.of_pi (fun _ _ => by simp) (fun _ _ => by simp)
   exact ⟨hpi _ sat_sort0_empty, (WellDenoted.hoist_pi hpi).1⟩

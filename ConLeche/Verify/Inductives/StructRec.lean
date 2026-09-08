@@ -10,7 +10,7 @@ parameter binders re-emitted with the elimination datum, the motive,
 one minor premise per constructor — the constructor's field telescope
 lifted under the motive (and the earlier minors), its data reset —
 the major, and `motive t`; the rule is the same telescope as a `λ`
-over `minor f⃗`.  The reading side (`Model/Inductives/DirectRecReadP.lean`)
+over `minor f⃗`.  The reading side (`Model/Inductives/StructRecRead.lean`)
 opens these binder by binder as `denoteMeta` does, and what it needs
 from the syntax is collected here:
 

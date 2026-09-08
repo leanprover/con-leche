@@ -27,7 +27,7 @@ returns the type's truthfulness and the membership.  So
 
 This is the establishment/consumption asymmetry, in one statement.
 Every consumer the campaign switches to the io lane already holds the
-premise (`Steps/IrrelP.lean:187-188` is the canonical witness:
+premise (`Steps/Irrel.lean:187-188` is the canonical witness:
 `ProofIrrelPQ` takes `WellDenotedV` of both sides).
 
 ## The licensed fragment, and the wall
@@ -59,7 +59,7 @@ one slot and nothing else moves —
 
 with the io slot at `fuel + 1` consuming `Whnf`, `DefEq` and `InferIO`
 at `fuel` (and, at the kept-check branch of the app clause, nothing
-else).  `checkSound2P5` closes that induction generically; the step
+else).  `checkSound5` closes that induction generically; the step
 itself is PAID since the io-license batch —
 `checkStep2P5_of_quarters` / `checkSoundP5_of_inputs`
 (`Steps/AssemblyP.lean`), modulo the routed `InferInputsIO`.
@@ -149,7 +149,7 @@ theorem inferClaimIOS_of {μ : CheckMode} {env : Env}
 /-- **The five-way step** (statement only; the assembly proof is the
 campaign's B4).  The four sealed families and the io family, all at
 `fuel`, give the same five at `fuel + 1`. -/
-def CheckStep2P5 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
+def CheckStep5 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat),
     WhnfCoreClaim μ m φ fuel → WhnfClaim μ m φ fuel →
     DefEqClaim μ m φ fuel → InferClaim μ m φ fuel →
@@ -162,8 +162,8 @@ def CheckStep2P5 (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 checker's own zero-fuel throws — the io lane's zero level throws the
 same `internal` error as the full one (`inferTypeCoreIO_zero`), so the
 currency swap costs nothing here either. -/
-theorem checkSound2P5 {μ : CheckMode} {env : Env}
-    (hstep : CheckStep2P5 μ V) (m : EnvModel V env) (φ : Name → Nat) :
+theorem checkSound5 {μ : CheckMode} {env : Env}
+    (hstep : CheckStep5 μ V) (m : EnvModel V env) (φ : Name → Nat) :
     ∀ fuel : Nat,
       WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧
         DefEqClaim μ m φ fuel ∧ InferClaim μ m φ fuel ∧

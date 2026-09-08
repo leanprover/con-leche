@@ -32,11 +32,11 @@ variable {V : Type uv} [SetTheory V]
 /-! ## Kit -/
 
 theorem AnnotValid.mkAppN_inv {ρ : Nat → V} :
-    ∀ {args : List AnnotTerm} {f : AnnotTerm}, AnnotValid V ρ (ATerm.mkAppN f args) →
+    ∀ {args : List AnnotTerm} {f : AnnotTerm}, AnnotValid V ρ (AnnotTerm.mkAppN f args) →
       AnnotValid V ρ f ∧ ∀ a ∈ args, AnnotValid V ρ a
   | [], _, h => ⟨h, fun _ ha => nomatch ha⟩
   | a :: args, f, h => by
-    rw [ATerm.mkAppN_cons] at h
+    rw [AnnotTerm.mkAppN_cons] at h
     obtain ⟨hfa, hall⟩ := AnnotValid.mkAppN_inv h
     rw [AnnotValid_app] at hfa
     exact ⟨hfa.1, fun a' ha' => by

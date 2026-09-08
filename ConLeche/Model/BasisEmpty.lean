@@ -6,7 +6,7 @@ import ConLeche.Model.BasisStep
 
 The ENDGAME E seal itemized the basis tier's remaining bill and its
 item 2 — "compute `denoteMeta` at each basis `ConstantInfo`'s type and
-exhibit `ATerm.BitAgree` to `BConst.typeAV c us`" — is the only item
+exhibit `AnnotTerm.BitAgree` to `BConst.typeAV c us`" — is the only item
 with twenty-two instances.  This file executes it at the smallest
 block, and the point is not the two constants: it is that **the recipe
 is now a proof and not a design**.
@@ -22,7 +22,7 @@ is now a proof and not a design**.
    binder body, with the constant leaves supplied by
    `acval_basis_pinned` (`Interp/BasisConsP.lean`) — the P tier's
    basis leaves are pinned *for free*, so no new field is needed;
-3. exhibit `ATerm.BitAgree` from the reading to `BConst.typeAV`;
+3. exhibit `AnnotTerm.BitAgree` from the reading to `BConst.typeAV`;
 4. `bitAgree_wellDenotedV` + `WellDenotedV_bconst_type` grades it and
    `interp_eq` + `bval_mem_type` inhabits it.
 
@@ -79,7 +79,7 @@ theorem extendEmpty (mp : EnvModelM V μ env)
     (hwf : EnvWF ⟨emptyA :: env.consts⟩) :
     Nonempty (EnvModelM V μ ⟨emptyA :: env.consts⟩) := by
   refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
-    (A := fun _ => ATerm.const .empty [1]) hfresh
+    (A := fun _ => AnnotTerm.const .empty [1]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => nomatch h)
@@ -172,13 +172,13 @@ theorem denoteMeta_emptyRecA_type {m : EnvModel V env}
       = some (Term.const .empty [1]) := by
     simp +decide [ConLeche.Verify.pinnedStructT]
   have hleaf : acvalWith m.acval emptyRecA.name A emptyName ψ
-      = ATerm.const .empty [1] := by
+      = AnnotTerm.const .empty [1] := by
     rw [acvalWith_ne (by decide)]
     exact acval_basis_pinned hE (by decide) hpd
   have hEc : ∀ d : Nat,
       denoteMeta (acvalWith m.acval emptyRecA.name A)
           ⟨emptyRecA :: env.consts⟩ ψ d (.const emptyName [])
-        = some (ATerm.const .empty [1]) := by
+        = some (AnnotTerm.const .empty [1]) := by
     intro d
     have hf : (⟨emptyRecA :: env.consts⟩ : Env).find? emptyName
         = some emptyA := by
@@ -200,7 +200,7 @@ reads.**  Three binders, three `pwBit`s, three `typeAV` slots, and the
 iffs are `pwBit_never` and `pwBit_ifAllZero_single` — nothing here is
 chosen. -/
 theorem bitAgree_emptyRecA (ψ : Name → Nat) :
-    ATerm.BitAgree
+    AnnotTerm.BitAgree
       (.pi 0 (pwBit ψ (.ifAllZero [uN]))
         (.pi 0 (pwBit ψ .never) (.const .empty [1]) (.sort (ψ uN)))
         (.pi 0 (pwBit ψ (.ifAllZero [uN])) (.const .empty [1])
@@ -221,9 +221,9 @@ theorem extendEmptyRec (mp : EnvModelM V μ env)
     Nonempty (EnvModelM V μ ⟨emptyRecA :: env.consts⟩) := by
   have hty := fun ψ =>
     denoteMeta_emptyRecA_type (m := mp.base2)
-      (A := fun ψ => ATerm.const .emptyRec [1, ψ uN]) ψ hE
+      (A := fun ψ => AnnotTerm.const .emptyRec [1, ψ uN]) ψ hE
   refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
-    (A := fun ψ => ATerm.const .emptyRec [1, ψ uN]) hfresh
+    (A := fun ψ => AnnotTerm.const .emptyRec [1, ψ uN]) hfresh
     (fun _ _ _ h => nomatch h) (fun _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ h => by injection h with _ _ _ h4; exact h4 ▸ rfl)
@@ -250,7 +250,7 @@ theorem extendEmptyRec (mp : EnvModelM V μ env)
   · intro ψ ta h ρ
     rw [hty ψ] at h
     obtain rfl := (Option.some.inj h).symm
-    rw [ATerm.BitAgree.interp_eq V (bitAgree_emptyRecA ψ) ρ]
+    rw [AnnotTerm.BitAgree.interp_eq V (bitAgree_emptyRecA ψ) ρ]
     exact bval_mem_type V .emptyRec [1, ψ uN] ρ
 
 /-! ## The block

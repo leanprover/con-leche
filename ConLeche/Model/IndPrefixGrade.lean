@@ -110,12 +110,12 @@ theorem prefixGradeFire {m : EnvModel V env} {F : Nat}
     rw [List.length_take, hfvslen] at h
     omega
   -- the padded context, named once
-  have hΔlen : (List.replicate (rP + cnF - N) (ATerm.sort 0) ++ Γs.drop (rP + cnF - N)).length = (rP + cnF) := by
+  have hΔlen : (List.replicate (rP + cnF - N) (AnnotTerm.sort 0) ++ Γs.drop (rP + cnF - N)).length = (rP + cnF) := by
     rw [List.length_append, List.length_replicate, List.length_drop,
       hΓslen]
     omega
   -- above the padding the padded context is the tower's
-  have hent : ∀ i, i < N → (List.replicate (rP + cnF - N) (ATerm.sort 0) ++ Γs.drop (rP + cnF - N))[(rP + cnF) - 1 - i]? = some
+  have hent : ∀ i, i < N → (List.replicate (rP + cnF - N) (AnnotTerm.sort 0) ++ Γs.drop (rP + cnF - N))[(rP + cnF) - 1 - i]? = some
       (Γs.getD ((rP + cnF) - 1 - i) default) := by
     intro i hi
     rw [List.getElem?_append_right
@@ -127,7 +127,7 @@ theorem prefixGradeFire {m : EnvModel V env} {F : Nat}
     · rw [List.getElem?_eq_none_iff] at hg; omega
     · rfl
   -- the a-side gradings, from the statement type's own
-  have hokAll : ∀ i, i ≤ N → i < rP + cnF → ∀ ρ' : Nat → V, Sat V (List.replicate (rP + cnF - N) (ATerm.sort 0) ++ Γs.drop (rP + cnF - N)) ρ' →
+  have hokAll : ∀ i, i ≤ N → i < rP + cnF → ∀ ρ' : Nat → V, Sat V (List.replicate (rP + cnF - N) (AnnotTerm.sort 0) ++ Γs.drop (rP + cnF - N)) ρ' →
       WellDenotedV V (fun j => ρ' (j + ((rP + cnF) - 1 - i) + 1))
         (Γs.getD ((rP + cnF) - 1 - i) default) := by
     intro i hi hiK ρ' hsat
@@ -276,7 +276,7 @@ theorem prefixGradeFire {m : EnvModel V env} {F : Nat}
   -- **the b-side grading, at every satisfying environment**: the
   -- recursor's own tower, descended by `wellDenotedV_tower_slot`, whose
   -- membership premises are the earlier positions' equalities
-  have hgrBall : ∀ ρ0 : Nat → V, Sat V (List.replicate (rP + cnF - N) (ATerm.sort 0) ++ Γs.drop (rP + cnF - N)) ρ0 →
+  have hgrBall : ∀ ρ0 : Nat → V, Sat V (List.replicate (rP + cnF - N) (AnnotTerm.sort 0) ++ Γs.drop (rP + cnF - N)) ρ0 →
       WellDenotedV V (fun j => ρ0 (j + ((rP + cnF) - n)))
         (ΓP.getD (rP - 1 - n) default) := by
     intro ρ0 hρ0
@@ -344,7 +344,7 @@ theorem prefixGradeFire {m : EnvModel V env} {F : Nat}
     show (if j < 0 then ρ0 j else ρ0 (j + ((rP + cnF) - n))) = _
     rw [if_neg (Nat.not_lt_zero j)]
   have hfire := defEqAt_of_run (m := m) hclaims (k := (rP + cnF)) (fvs := fvs)
-    (Aa := fun i => Γs.getD ((rP + cnF) - 1 - i) default) (Δa := (List.replicate (rP + cnF - N) (ATerm.sort 0) ++ Γs.drop (rP + cnF - N))) hΔlen
+    (Aa := fun i => Γs.getD ((rP + cnF) - 1 - i) default) (Δa := (List.replicate (rP + cnF - N) (AnnotTerm.sort 0) ++ Γs.drop (rP + cnF - N))) hΔlen
     hshapeS hwsFvs (fun i x hix => hdomsS0 i x hix) (n := n)
     (fun i hi => hent i (by omega))
     (fun i hi ρ0 hρ0 => hokAll i (by omega) (by omega) ρ0 hρ0)

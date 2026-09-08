@@ -12,7 +12,7 @@ determinacy of a `TeleFitPA` residual.
 
 All four are `Term`-level facts one currency over and are transposed
 verbatim — they mention no `interp`, no bit, and no environment
-except through `TeleFitPA`.  `ATerm.mkAppN_inj` is the one that
+except through `TeleFitPA`.  `AnnotTerm.mkAppN_inj` is the one that
 carries the point stage's weight: the crossed constructor residual and
 the fired index pin are both applications of the *same* arity, and the
 stage reads their arguments off pointwise.
@@ -53,35 +53,35 @@ theorem denoteMetaSpine_getElem?' {d : Nat} :
 
 /-- Spine instantiation distributes over one application node. -/
 theorem instSeqAV_app : ∀ (as : List AnnotTerm) (t : Nat) (f a : AnnotTerm),
-    ATerm.instSeq as t (.app f a)
-      = .app (ATerm.instSeq as t f) (ATerm.instSeq as t a) := by
+    AnnotTerm.instSeq as t (.app f a)
+      = .app (AnnotTerm.instSeq as t f) (AnnotTerm.instSeq as t a) := by
   intro as
   induction as with
   | nil => intro t f a; rfl
   | cons b bs ih =>
     intro t f a
-    rw [ATerm.instSeq_cons, ATerm.instSeq_cons, ATerm.instSeq_cons,
-      ConLeche.Semantics.ATerm.inst_app, ih]
+    rw [AnnotTerm.instSeq_cons, AnnotTerm.instSeq_cons, AnnotTerm.instSeq_cons,
+      ConLeche.Semantics.AnnotTerm.inst_app, ih]
 
 /-- Spine instantiation distributes over an application
 (`instSeq_mkAppN`). -/
 theorem instSeqAV_mkAppN : ∀ (as : List AnnotTerm) (t : Nat) (f : AnnotTerm)
     (args : List AnnotTerm),
-    ATerm.instSeq as t (ATerm.mkAppN f args) =
-      ATerm.mkAppN (ATerm.instSeq as t f)
-        (args.map (ATerm.instSeq as t ·)) := by
+    AnnotTerm.instSeq as t (AnnotTerm.mkAppN f args) =
+      AnnotTerm.mkAppN (AnnotTerm.instSeq as t f)
+        (args.map (AnnotTerm.instSeq as t ·)) := by
   intro as t f args
   induction args generalizing f with
   | nil => rfl
   | cons a args ih =>
-    rw [ConLeche.Semantics.ATerm.mkAppN_cons, ih, instSeqAV_app]
+    rw [ConLeche.Semantics.AnnotTerm.mkAppN_cons, ih, instSeqAV_app]
     rfl
 
 /-- Applications of equal arity are equal only at equal heads and
 equal argument lists (`Term.mkAppN_inj`). -/
-theorem ATerm.mkAppN_inj :
+theorem AnnotTerm.mkAppN_inj :
     ∀ {as bs : List AnnotTerm} {f g : AnnotTerm},
-      ATerm.mkAppN f as = ATerm.mkAppN g bs → as.length = bs.length →
+      AnnotTerm.mkAppN f as = AnnotTerm.mkAppN g bs → as.length = bs.length →
       f = g ∧ as = bs := by
   intro as
   induction as with
@@ -94,8 +94,8 @@ theorem ATerm.mkAppN_inj :
     cases bs with
     | nil => exact nomatch hlen
     | cons b bs =>
-      rw [ConLeche.Semantics.ATerm.mkAppN_cons,
-        ConLeche.Semantics.ATerm.mkAppN_cons] at h
+      rw [ConLeche.Semantics.AnnotTerm.mkAppN_cons,
+        ConLeche.Semantics.AnnotTerm.mkAppN_cons] at h
       obtain ⟨h1, rfl⟩ := ih h (by simpa using hlen)
       injection h1 with h2 h3
       exact ⟨h2, by rw [h3]⟩
@@ -107,7 +107,7 @@ theorem teleFitPA_rest_eq :
       PiTeleAV k T Γ R → ∀ {ws : List AnnotTerm} {ρ : Nat → V}
         {rest : AnnotTerm},
       ws.length = k → TeleFitPA V ρ T ws rest →
-      rest = ATerm.instSeq ws (k - 1) R := by
+      rest = AnnotTerm.instSeq ws (k - 1) R := by
   intro k
   induction k with
   | zero =>
@@ -125,7 +125,7 @@ theorem teleFitPA_rest_eq :
     cases hfit with
     | cons hmem htailFit =>
       have hr := ihk (htail.inst w 0) hlen' htailFit
-      rw [hr, ATerm.instSeq_cons,
+      rw [hr, AnnotTerm.instSeq_cons,
         show k + 1 - 1 - 1 = k - 1 from by omega, Nat.add_sub_cancel,
         Nat.zero_add]
 

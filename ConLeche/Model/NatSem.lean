@@ -14,11 +14,11 @@ head leaf is closed, so the two-slot extension collapses through
 `acval_interp_closedC`, and the numeral spine is `denoteMeta`'s literal
 clause verbatim (`natLit` below **is** `denoteMeta_natLit`'s output).
 
-Worked example: `natOpV2_add` (the lead-proved species).  The other
+Worked example: `natOpV_add` (the lead-proved species).  The other
 six structural operations follow the same recipe: read the two
 recurrence clauses at values (`natEq_value` at computed `denoteMeta`
 readings), close by the literal meta-induction
-(`natOpV2_bin_of_clauses` for the binary `(op x 0, op x (succ y))`
+(`natOpV_bin_of_clauses` for the binary `(op x 0, op x (succ y))`
 shape).
 -/
 
@@ -63,7 +63,7 @@ theorem natLit_zero (m : EnvModel V env) :
     natLit m φ 0 = m.acval ConLeche.natZeroName φ := rfl
 
 /-- Numerals inhabit the stored `Nat` and are graded
-(`natLit_facts2` at the environment's heads). -/
+(`natLit_factsAV` at the environment's heads). -/
 theorem natLit_facts (m : EnvModel V env) (hnh : NatHeads m φ)
     (hval : AcvalValid m) (hs : natLitSupported env = true)
     (ρ : Nat → V) (n : Nat) :
@@ -72,7 +72,7 @@ theorem natLit_facts (m : EnvModel V env) (hnh : NatHeads m φ)
         ∈ˢ interp V ρ (m.acval ConLeche.natName φ) := by
   obtain ⟨hz, hsucc⟩ := hnh hs ρ
   rw [substFn_nil] at hz hsucc
-  have h := natLit_facts2 (V := V)
+  have h := natLit_factsAV (V := V)
     (za := m.acval ConLeche.natZeroName φ)
     (sa := m.acval ConLeche.natSuccName φ)
     (natA := m.acval ConLeche.natName φ)
@@ -115,7 +115,7 @@ theorem natEq_value (m : EnvModel V env) (hops : NatOps m φ)
 /-- The common shape of the binary structural recurrences: a base
 clause at `y = 0` and a successor clause, assembled by induction on
 the second literal (`natOpV_bin_of_clauses`, transposed). -/
-theorem natOpV2_bin_of_clauses (m : EnvModel V env)
+theorem natOpV_bin_of_clauses (m : EnvModel V env)
     {opv : V} {ρ : Nat → V} (res : Nat → Nat → Nat)
     (h0 : ∀ a : Nat,
       SetTheory.app (SetTheory.app opv
@@ -148,7 +148,7 @@ theorem natOpV2_bin_of_clauses (m : EnvModel V env)
 /-! ## `Nat.add`, the worked example -/
 
 /-- `Nat.add` on literal values (`natOpV_add`'s mirror). -/
-theorem natOpV2_add (m : EnvModel V env) (hops : NatOps m φ)
+theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hf : env.find? ConLeche.natAddName = some (.defnInfo cv v hint))
@@ -253,7 +253,7 @@ theorem natOpV2_add (m : EnvModel V env) (hops : NatOps m φ)
       acval_interp_closedC m ConLeche.natAddName φ _ ρ,
       acval_interp_closedC m ConLeche.natSuccName φ _ ρ] at h
     exact h
-  refine natOpV2_bin_of_clauses m (fun a b => a + b) (fun a => ?_)
+  refine natOpV_bin_of_clauses m (fun a b => a + b) (fun a => ?_)
     (fun a b ih => ?_)
   · exact h0 (interp V ρ (natLit m φ a))
       (natLit_mem m hnh hval hs ρ a)
@@ -271,7 +271,7 @@ form, `mul` reads `add`'s, `pow` reads `mul`'s — each dependency's
 `find?` comes from `natOpGuard_inv`'s `hdeps`. -/
 
 /-- `Nat.pred` on literal values (`natOpV_pred`'s mirror). -/
-theorem natOpV2_pred (m : EnvModel V env) (hops : NatOps m φ)
+theorem natOpV_pred (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hf : env.find? ConLeche.natPredName = some (.defnInfo cv v hint))
@@ -357,7 +357,7 @@ theorem natOpV2_pred (m : EnvModel V env) (hops : NatOps m φ)
     rfl
 
 /-- `Nat.sub` on literal values (`natOpV_sub`'s mirror). -/
-theorem natOpV2_sub (m : EnvModel V env) (hops : NatOps m φ)
+theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hf : env.find? ConLeche.natSubName = some (.defnInfo cv v hint))
@@ -469,16 +469,16 @@ theorem natOpV2_sub (m : EnvModel V env) (hops : NatOps m φ)
       acval_interp_closedC m ConLeche.natSuccName φ _ ρ,
       acval_interp_closedC m ConLeche.natPredName φ _ ρ] at h
     exact h
-  refine natOpV2_bin_of_clauses m (fun a b => a - b) (fun a => ?_)
+  refine natOpV_bin_of_clauses m (fun a b => a - b) (fun a => ?_)
     (fun a b ih => ?_)
   · exact h0 _ (natLit_mem m hnh hval hs ρ a)
   · rw [hS _ _ (natLit_mem m hnh hval hs ρ a)
         (natLit_mem m hnh hval hs ρ b), ih,
-      natOpV2_pred m hops hnh hval hfp ρ (a - b)]
+      natOpV_pred m hops hnh hval hfp ρ (a - b)]
     rfl
 
 /-- `Nat.mul` on literal values (`natOpV_mul`'s mirror). -/
-theorem natOpV2_mul (m : EnvModel V env) (hops : NatOps m φ)
+theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hf : env.find? ConLeche.natMulName = some (.defnInfo cv v hint))
@@ -590,16 +590,16 @@ theorem natOpV2_mul (m : EnvModel V env) (hops : NatOps m φ)
       acval_interp_closedC m ConLeche.natSuccName φ _ ρ,
       acval_interp_closedC m ConLeche.natAddName φ _ ρ] at h
     exact h
-  refine natOpV2_bin_of_clauses m (fun a b => a * b) (fun a => ?_)
+  refine natOpV_bin_of_clauses m (fun a b => a * b) (fun a => ?_)
     (fun a b ih => ?_)
   · exact h0 _ (natLit_mem m hnh hval hs ρ a)
   · rw [hS _ _ (natLit_mem m hnh hval hs ρ a)
         (natLit_mem m hnh hval hs ρ b), ih,
-      natOpV2_add m hops hnh hval hfa ρ (a * b) a]
+      natOpV_add m hops hnh hval hfa ρ (a * b) a]
     rfl
 
 /-- `Nat.pow` on literal values (`natOpV_pow`'s mirror). -/
-theorem natOpV2_pow (m : EnvModel V env) (hops : NatOps m φ)
+theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hf : env.find? ConLeche.natPowName = some (.defnInfo cv v hint))
@@ -716,16 +716,16 @@ theorem natOpV2_pow (m : EnvModel V env) (hops : NatOps m φ)
       acval_interp_closedC m ConLeche.natSuccName φ _ ρ,
       acval_interp_closedC m ConLeche.natMulName φ _ ρ] at h
     exact h
-  refine natOpV2_bin_of_clauses m (fun a b => a ^ b) (fun a => ?_)
+  refine natOpV_bin_of_clauses m (fun a b => a ^ b) (fun a => ?_)
     (fun a b ih => ?_)
   · exact h0 _ (natLit_mem m hnh hval hs ρ a)
   · rw [hS _ _ (natLit_mem m hnh hval hs ρ a)
         (natLit_mem m hnh hval hs ρ b), ih,
-      natOpV2_mul m hops hnh hval hfm ρ (a ^ b) a]
+      natOpV_mul m hops hnh hval hfm ρ (a ^ b) a]
     rfl
 
 /-- `Nat.beq` on literal values (`natOpV_beq`'s mirror). -/
-theorem natOpV2_beq (m : EnvModel V env) (hops : NatOps m φ)
+theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hf : env.find? ConLeche.natBeqName = some (.defnInfo cv v hint))
@@ -919,7 +919,7 @@ theorem natOpV2_beq (m : EnvModel V env) (hops : NatOps m φ)
       · rw [if_neg hab, if_neg (by omega)]
 
 /-- `Nat.ble` on literal values (`natOpV_ble`'s mirror). -/
-theorem natOpV2_ble (m : EnvModel V env) (hops : NatOps m φ)
+theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hf : env.find? ConLeche.natBleName = some (.defnInfo cv v hint))

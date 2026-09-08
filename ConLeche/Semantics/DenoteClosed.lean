@@ -26,7 +26,7 @@ none of it: `denoteAnnot_erase` says the canonical annotation **erases**
 to the denotation, and lifting an `AnnotTerm` is `Term.liftN` on the
 erasure with the numerals riding along untouched (`erase_liftN`).  So
 v1's conclusion transports back through `erase` in one step, and the
-only new content is `ATerm.liftN_eq_self` below — the observation
+only new content is `AnnotTerm.liftN_eq_self` below — the observation
 that a numeral slot cannot be the reason a lift moves a term.
 
 *The rule this instance illustrates: before transposing a v1
@@ -138,7 +138,7 @@ theorem denoteAnnot_closed {mode : CheckMode}
     (hb : e.looseBVarsBounded 0 = true)
     (h : denoteAnnot mode acval env φ fuel 0 e = some ea) (n k : Nat) :
     ea.liftN n k = ea :=
-  ATerm.liftN_eq_self ea
+  AnnotTerm.liftN_eq_self ea
     (Term.bvarsBelow.mono (Nat.zero_le k)
       (denote_closed hcl hnf hb (denoteAnnot_erase hlink 0 e h))) n
 

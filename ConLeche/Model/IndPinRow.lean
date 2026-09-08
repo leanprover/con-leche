@@ -89,7 +89,7 @@ theorem nestedPinRow {m : EnvModel V env} {F : Nat}
         ∀ (ρ : Nat → V) (zs : List AnnotTerm) (restR : AnnotTerm),
           zs.length = rP → (∀ z ∈ zs, WellDenotedV V ρ z) →
           TeleFitPA V ρ TV zs restR →
-          WellDenotedV V ρ (ATerm.instRevChain zs vpa) := by
+          WellDenotedV V ρ (AnnotTerm.instRevChain zs vpa) := by
   have hΓPlen : ΓP.length = rP := htowerP.length
   have htkPlen : (fvsP.take rP).length = rP := by
     rw [List.length_take, hfvsPlen]
@@ -127,12 +127,12 @@ theorem nestedPinRow {m : EnvModel V env} {F : Nat}
       (pins.getD q default).looseBVarsBounded rP = true :=
     fun q hq => hpinsWf _ (List.mem_of_getElem? (hpgetd q hq))
   -- the padded recursor-frame context
-  have hΔblen : (List.replicate cnF (ATerm.sort 0) ++ ΓP).length
+  have hΔblen : (List.replicate cnF (AnnotTerm.sort 0) ++ ΓP).length
       = rP + cnF := by
     rw [List.length_append, List.length_replicate, hΓPlen]
     omega
   have hΔbent : ∀ i, i < rP →
-      (List.replicate cnF (ATerm.sort 0) ++ ΓP)[rP + cnF - 1 - i]?
+      (List.replicate cnF (AnnotTerm.sort 0) ++ ΓP)[rP + cnF - 1 - i]?
         = some (ΓP.getD (rP - 1 - i) default) := by
     intro i hi
     rw [List.getElem?_append_right

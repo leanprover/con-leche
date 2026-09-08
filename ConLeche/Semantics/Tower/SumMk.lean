@@ -13,7 +13,7 @@ the index equation at the family's carrier, the trivially true
 `idxEqAV []` at the constructor's own leaf — so the tupler is
 `mkTowerGoU`: the tuple of the fields followed by the point.  It reads
 to `inj j (mkTower (f⃗ ++ [pt]))` in the graph regime and to the point
-at squash (`psigmaMkV2`'s own collapse — `injW`), and its laws consume
+at squash (`psigmaMkV`'s own collapse — `injW`), and its laws consume
 `MkPreS`, the structure route's `MkPre` with the per-constructor chain
 grading and the constructor's index at the base; the type reading's
 body is only required to read to SOME tagged union whose `j`-th fibre
@@ -36,7 +36,7 @@ variable {V : Type uv} [SetTheory V]
 /-- `PSigma'.mk Nat (λ k, case k) tag payload`, spelled `d` binders below
 the parameter frame (the tower bodies are scoped there). -/
 def sumInjAtAV (w : Nat) (Fss : List (List AnnotTerm)) (d : Nat) (tag payload : AnnotTerm) : AnnotTerm :=
-  ATerm.mkAppN (.const .psigmaMk [w, w])
+  AnnotTerm.mkAppN (.const .psigmaMk [w, w])
     [natAV, .lam (w + 1) natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0)),
       tag, payload]
 
@@ -84,15 +84,15 @@ theorem sumInjAtAV_interp {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : shiftE
   rw [hBv, htag]
   by_cases hw : w = 0
   · subst hw
-    show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkV2 V 0 0) _) _) _) _ = _
-    rw [psigmaMkV2, show Nat.max 0 0 = 0 from rfl, lamR_zero, app_pt, app_pt, app_pt, app_pt,
+    show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkV V 0 0) _) _) _) _ = _
+    rw [psigmaMkV, show Nat.max 0 0 = 0 from rfl, lamR_zero, app_pt, app_pt, app_pt, app_pt,
       injW_zero]
   · have hpay' : interp V σ payload
         ∈ˢ SetTheory.app (lamR (w + 1) omega (natFibre (sumFibre w ρp Fss))) (vnat i) := by
       rw [app_lamR_pos (Nat.succ_ne_zero w) (vnat_mem_omega i), natFibre_vnat]
       exact hpay hw
-    show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkV2 V w w) _) _) _) _ = _
-    rw [psigmaMkV2_app V (omega_mem_univ_pos hw) hBm (vnat_mem_omega i) hpay',
+    show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkV V w w) _) _) _) _ = _
+    rw [psigmaMkV_app V (omega_mem_univ_pos hw) hBm (vnat_mem_omega i) hpay',
       show Nat.max w w = w from Nat.max_self w, if_neg hw, injW_pos hw]
     rfl
 
@@ -109,8 +109,8 @@ theorem sumInjAtAV_wellDenoted {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : s
   by_cases hw : w = 0
   · subst hw
     refine (mkAppN_wellDenoted_of_pt_head (f := .const .psigmaMk [0, 0]) (σ := σ) trivial ?_ ?_).1
-    · show psigmaMkV2 V 0 0 = pt
-      rw [psigmaMkV2, show Nat.max 0 0 = 0 from rfl, lamR_zero]
+    · show psigmaMkV V 0 0 = pt
+      rw [psigmaMkV, show Nat.max 0 0 = 0 from rfl, lamR_zero]
     · intro a ha
       simp only [List.mem_cons, List.not_mem_nil, or_false] at ha
       rcases ha with rfl | rfl | rfl | rfl
@@ -118,7 +118,7 @@ theorem sumInjAtAV_wellDenoted {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : s
       · exact hBok
       · exact hoktag
       · exact hokpay
-  · have hbv : interp V σ (.const .psigmaMk [w, w]) = psigmaMkV2 V w w := rfl
+  · have hbv : interp V σ (.const .psigmaMk [w, w]) = psigmaMkV V w w := rfl
     have hA : (omega : V) ∈ˢ univ w := omega_mem_univ_pos hw
     have hz1 : w = 0 → ∀ A, A ∈ˢ (univ w : V) →
         piR w (psigmaFibreSpace V w A) (fun B => piR w A fun a =>
@@ -138,7 +138,7 @@ theorem sumInjAtAV_wellDenoted {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : s
         sigmaSet w omega
           (fun y => SetTheory.app (lamR (w + 1) omega (natFibre (sumFibre w ρp Fss))) y)
           ∈ˢ (univZero : V) := fun h => absurd h hw
-    have hm0 := psigmaMkV2_ww_mem (V := V) w
+    have hm0 := psigmaMkV_ww_mem (V := V) w
     have hm1 := app_mem_piR hm0 hA hz1
     have hm2 := app_mem_piR hm1 hBm hz2
     have hm3 := app_mem_piR hm2 (vnat_mem_omega i) hz3
@@ -218,8 +218,8 @@ theorem mkTowerGoUPos_interp {w : Nat} (hw : w ≠ 0) {E : AnnotTerm} :
     show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (bval V .psigmaMk [w, w])
         (interp V ρp E)) (lamR (w + 1) (interp V ρp E) fun _ => (unitSet : V))) pt) pt
       = mkTower [pt]
-    have hbv : bval V .psigmaMk [w, w] = psigmaMkV2 V w w := rfl
-    rw [hbv, psigmaMkV2_app V hA hB hpt' hb', show Nat.max w w = w from Nat.max_self w, if_neg hw]
+    have hbv : bval V .psigmaMk [w, w] = psigmaMkV V w w := rfl
+    rw [hbv, psigmaMkV_app V hA hB hpt' hb', show Nat.max w w = w from Nat.max_self w, if_neg hw]
     rfl
   | [], _, _ :: _, _, hsp, _ => hsp.elim
   | _ :: _, _, [], _, hsp, _ => hsp.elim
@@ -274,13 +274,13 @@ theorem mkTowerGoUPos_interp {w : Nat} (hw : w ≠ 0) {E : AnnotTerm} :
         (consList bs (cons b ρp) Fs.length))
         (interp V (consList bs (cons b ρp)) (mkTowerGoUPos w E Fs))
       = mkTower (b :: bs ++ [pt])
-    have hbv : bval V .psigmaMk [w, w] = psigmaMkV2 V w w := rfl
+    have hbv : bval V .psigmaMk [w, w] = psigmaMkV V w w := rfl
     rw [hA, hval, hrec]
     have hBeq : (fun x => interp V (cons x (consList bs (cons b ρp)))
           ((towerBodyAV w (Fs ++ [E])).liftN (Fs.length + 1) 1))
         = fun x => interp V (cons x ρp) (towerBodyAV w (Fs ++ [E])) :=
       funext hBfun
-    rw [hBeq, hbv, psigmaMkV2_app V hAm hBm hsp.1 hbm,
+    rw [hBeq, hbv, psigmaMkV_app V hAm hBm hsp.1 hbm,
       show Nat.max w w = w from Nat.max_self w, if_neg hw]
     rfl
 where
@@ -311,7 +311,7 @@ theorem mkTowerGoUPos_wellDenoted {w : Nat} (hw : w ≠ 0) {E : AnnotTerm} :
     have hBm : (lamR (w + 1) (interp V ρp E) fun _ => (unitSet : V))
         ∈ˢ psigmaFibreSpace V w (interp V ρp E) :=
       lamR_mem fun _ _ => unitSet_mem_univ w
-    have hbv : interp V ρp (.const .psigmaMk [w, w]) = psigmaMkV2 V w w := rfl
+    have hbv : interp V ρp (.const .psigmaMk [w, w]) = psigmaMkV V w w := rfl
     have hz1 : w = 0 → ∀ A, A ∈ˢ (univ w : V) →
         piR w (psigmaFibreSpace V w A) (fun B => piR w A fun a =>
           piR w (SetTheory.app B a) fun _ => sigmaSet w A
@@ -330,7 +330,7 @@ theorem mkTowerGoUPos_wellDenoted {w : Nat} (hw : w ≠ 0) {E : AnnotTerm} :
         sigmaSet w (interp V ρp E)
           (fun y => SetTheory.app (lamR (w + 1) (interp V ρp E) fun _ => (unitSet : V)) y)
           ∈ˢ (univZero : V) := fun h => absurd h hw
-    have hm0 := psigmaMkV2_ww_mem (V := V) w
+    have hm0 := psigmaMkV_ww_mem (V := V) w
     have hm1 := app_mem_piR hm0 hA hz1
     have hm2 := app_mem_piR hm1 hBm hz2
     have hm3 := app_mem_piR hm2 hpt' hz3
@@ -389,7 +389,7 @@ theorem mkTowerGoUPos_wellDenoted {w : Nat} (hw : w ≠ 0) {E : AnnotTerm} :
       mkTowerGoUPos_interp hw (hb.2 b hsp.1) hsp.2 hpt
     have hAm : interp V ρp F ∈ˢ (univ w : V) := hb.1
     have hBv : interp V (consList bs (cons b ρp))
-        (ATerm.lam (w + 1) (F.liftN (Fs.length + 1))
+        (AnnotTerm.lam (w + 1) (F.liftN (Fs.length + 1))
           ((towerBodyAV w (Fs ++ [E])).liftN (Fs.length + 1) 1))
         = lamR (w + 1) (interp V ρp F)
             (fun x => interp V (cons x ρp) (towerBodyAV w (Fs ++ [E]))) := by
@@ -424,12 +424,12 @@ theorem mkTowerGoUPos_wellDenoted {w : Nat} (hw : w ≠ 0) {E : AnnotTerm} :
           (fun y => SetTheory.app (lamR (w + 1) (interp V ρp F)
             fun z => interp V (cons z ρp) (towerBodyAV w (Fs ++ [E]))) y)
           ∈ˢ (univZero : V) := fun h => absurd h hw
-    have hm0 : psigmaMkV2 V w w ∈ˢ piR w (univ w : V) (fun A =>
+    have hm0 : psigmaMkV V w w ∈ˢ piR w (univ w : V) (fun A =>
         piR w (psigmaFibreSpace V w A) (fun B =>
           piR w A (fun a =>
             piR w (SetTheory.app B a) (fun _ =>
               sigmaSet w A fun x => SetTheory.app B x)))) :=
-      psigmaMkV2_ww_mem w
+      psigmaMkV_ww_mem w
     have hm1 := app_mem_piR hm0 hAm hz1
     have hm2 := app_mem_piR hm1 hBm hz2
     have hm3 := app_mem_piR hm2 hsp.1 hz3
@@ -690,8 +690,8 @@ theorem sumMkAV_zero {j : Nat} {ds : List (Nat × Nat × AnnotTerm)} {Fs : List 
   match ds with
   | [] =>
     show interp V ρ (sumInjAtAV 0 Fss Fs.length (numeralAV j) (mkTowerGoU 0 Fs (idxEqAV []))) = pt
-    show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkV2 V 0 0) _) _) _) _ = _
-    rw [psigmaMkV2, show Nat.max 0 0 = 0 from rfl, lamR_zero, app_pt, app_pt, app_pt, app_pt]
+    show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkV V 0 0) _) _) _) _ = _
+    rw [psigmaMkV, show Nat.max 0 0 = 0 from rfl, lamR_zero, app_pt, app_pt, app_pt, app_pt]
   | d :: ds => exact mkLamsAV_zero_head d.2.2 _ _ ρ
 
 end ConLeche.Semantics

@@ -4,7 +4,7 @@ import ConLeche.Verify.Denote.StrLit
 /-!
 # The stuck fallbacks over `interp` (task #161, P4 — batch 7)
 
-The defeq quarter (`Steps/DefEqP.lean`) routes seven residues out of
+The defeq quarter (`Steps/DefEq.lean`) routes seven residues out of
 the stuck block.  This file discharges the four *semantic* ones that
 do not belong to the basis tier:
 
@@ -53,7 +53,7 @@ same reason `IrrelP.lean`'s proof irrelevance was:
 `stuckIrrel`'s cascade tries `structEtaCert` both ways,
 `structUnitCert`, then `proofIrrel` (the pinned pair's `pairEtaCert`
 that used to lead retired with the `PSigma'` pin, task #175 W6).  The
-last arm is `proofIrrelPQ_of_claims` (`Steps/IrrelP.lean`); the first
+last arm is `proofIrrelPQ_of_claims` (`Steps/Irrel.lean`); the first
 three are **structure-capability tier** content — a stored structure's
 η law and a stored unit-like family's collapse — and are routed as
 `StructEtaIrrel` / `StructUnitIrrel`.  Their v1 counterparts (`PairEtaCertStepR`,
@@ -62,7 +62,7 @@ the same three places, so the ledger is unchanged by the currency swap.
 
 The two *totality* premises the P tier owes — a `denoteMeta` success this
 file cannot produce — are the already-routed `InferReads` and
-`WhnfReads` (`Steps/InferP.lean`); no new totality residue is
+`WhnfReads` (`Steps/Infer.lean`); no new totality residue is
 created here.
 -/
 
@@ -127,7 +127,7 @@ theorem denoteMeta_mkAppN_inv {acval : Name → (Name → Nat) → AnnotTerm}
     {d : Nat} : ∀ {as : List Expr} {f : Expr} {ea : AnnotTerm},
     denoteMeta acval env φ d (Expr.mkAppN f as) = some ea →
     ∃ fa vs, denoteMeta acval env φ d f = some fa ∧
-      DenoteMetaSpine acval env φ d as vs ∧ ea = ATerm.mkAppN fa vs := by
+      DenoteMetaSpine acval env φ d as vs ∧ ea = AnnotTerm.mkAppN fa vs := by
   intro as
   induction as with
   | nil => intro f ea h; exact ⟨ea, [], h, .nil, rfl⟩
@@ -146,8 +146,8 @@ theorem interp_mkAppN_congr {ρ : Nat → V} :
     ∀ (asa bsa : List AnnotTerm) {fa fb : AnnotTerm},
       interp V ρ fa = interp V ρ fb →
       asa.map (interp V ρ) = bsa.map (interp V ρ) →
-      interp V ρ (ATerm.mkAppN fa asa)
-        = interp V ρ (ATerm.mkAppN fb bsa) := by
+      interp V ρ (AnnotTerm.mkAppN fa asa)
+        = interp V ρ (AnnotTerm.mkAppN fb bsa) := by
   intro asa
   induction asa with
   | nil =>
@@ -167,7 +167,7 @@ theorem interp_mkAppN_congr {ρ : Nat → V} :
 is its head.  `WellDenoted.hoist_app`'s iterate, at `WellDenotedV`. -/
 theorem hoist_spine {Δa : List AnnotTerm} :
     ∀ (asa : List AnnotTerm) {fa : AnnotTerm},
-      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (ATerm.mkAppN fa asa)) →
+      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (AnnotTerm.mkAppN fa asa)) →
       (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ fa) ∧
         ∀ x ∈ asa, ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ x := by
   intro asa
@@ -366,7 +366,7 @@ def StructEtaIrrel (μ : CheckMode) {env : Env} (m : EnvModel V env)
 Discharged at the **structure-capability tier**: the content is the
 `unitlike` capability's own law, read off the install, exactly as
 `structUnitCert_stepR` reads it off `DefEq.structUnit`.  (Note the
-asymmetry with `UnitIrrelPQ` in `Steps/IrrelP.lean`: that one is
+asymmetry with `UnitIrrelPQ` in `Steps/Irrel.lean`: that one is
 `isUnitLikeTy` on both *whnf'd inferred types*, this one is the
 certificate's own telescope walk — two different obligations of the
 same tier.) -/

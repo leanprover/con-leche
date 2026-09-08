@@ -82,11 +82,11 @@ def cons (x : V) (ρ : Nat → V) : Nat → V
 @[simp] theorem cons_succ (x : V) (ρ : Nat → V) (i : Nat) :
     cons x ρ (i + 1) = ρ i := rfl
 
-/-- The environment transformation matching `ATerm.liftN n · k`. -/
+/-- The environment transformation matching `AnnotTerm.liftN n · k`. -/
 def shiftE (n k : Nat) (ρ : Nat → V) : Nat → V :=
   fun i => if i < k then ρ i else ρ (i + n)
 
-/-- The environment transformation matching `ATerm.inst · a k`. -/
+/-- The environment transformation matching `AnnotTerm.inst · a k`. -/
 def instE (k : Nat) (x : V) (ρ : Nat → V) : Nat → V :=
   fun i => if i < k then ρ i else if i = k then x else ρ (i - 1)
 

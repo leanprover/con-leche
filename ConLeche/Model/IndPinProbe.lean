@@ -74,14 +74,14 @@ accepts today (`tests/e2e/nested_rec.ndjson`).
 It does not claim the *content* the conjunct is reaching for is
 unavailable — only that the `∀ ρ` spelling is unsatisfiable.  The
 supplier is the install's `checkAnnotList ops envSelf depth pinsP`
-(`Kernel/Modeled.lean:288`), fired on the pins **instantiated at the
+(`Inductives/Modeled.lean:288`), fired on the pins **instantiated at the
 public recursor frame's openers** (`pinsP := pins.map (Expr.instSpine
-(fvsP.take rP) (rP - 1) ·)`, `Kernel/Modeled.lean:282`), and every
+(fvsP.take rP) (rP - 1) ·)`, `Inductives/Modeled.lean:282`), and every
 claims-layer conversion of such a certificate produces a grading of the
 form `∀ ρ, Sat V Δa ρ → WellDenotedV V ρ …` — guarded by a context, never
 unconditional.  The consumer wants the same guarded form: the
 conjunct's *equality* half already speaks of the **closed** comparand
-`ATerm.instRevChain (xs.take rP) vpa`, under the ambient
+`AnnotTerm.instRevChain (xs.take rP) vpa`, under the ambient
 `TeleFitPA V ρ TVa (xs ++ …) restR` premise, and that is the term
 `DefEqClaim` needs graded.
 

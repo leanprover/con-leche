@@ -76,7 +76,7 @@ theorem annotTransport {m : EnvModel V env} {F : Nat}
         ∈ˢ interp V (chain V ρ (zs.take k))
           (Γs.getD (K - 1 - k) default))
     (hzsAnnot : ∀ w ∈ zs, WellDenotedV V ρ w) :
-    WellDenotedV V ρ (ATerm.mkAppN Ra zs) := by
+    WellDenotedV V ρ (AnnotTerm.mkAppN Ra zs) := by
   -- the rule's λ-tower, read at the public frame
   obtain ⟨Γlam, C, htowerLam, hΓlamLen, hCden, hdoms⟩ :=
     instLamsAt_denotePTele (acval := m.acval) (env := env) (φ := φ)
