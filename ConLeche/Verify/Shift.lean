@@ -17,8 +17,9 @@ with annotated types):
 * `shiftFrom_instantiate1`: shifting commutes with opening a binder — the
   key equation that lets weakening proofs step under a binder.
 
-Everything here is used by the model's weakening lemmas
-(`ConLeche.ModelV1.InterpLemmas`).
+Everything here is used by the denotation's shifting lemmas
+(`ConLeche/Verify/Denote/Shift.lean`) and, through them, by the model
+tier's weakening arguments.
 -/
 
 namespace ConLeche.Expr

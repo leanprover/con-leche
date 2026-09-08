@@ -8,10 +8,11 @@ public section
 # Substituting a free variable by a term
 
 `substFvarAt p a e` replaces every reachable `fvar p` leaf by `a` and
-lowers higher `fvar` indices by one — the syntactic side of the
-substitution lemma (`ConLeche.ModelV1.Subst`).  The key equation is the
-*beta bridge*: opening a binder with a fresh variable and then
-substituting that variable equals opening with the term directly.
+lowers higher `fvar` indices by one — the syntactic side of
+substitution, under the denotation's own substitution lemmas
+(`ConLeche/Verify/Denote/Inst.lean`).  The key equation is the *beta
+bridge*: opening a binder with a fresh variable and then substituting
+that variable equals opening with the term directly.
 -/
 
 namespace ConLeche.Expr

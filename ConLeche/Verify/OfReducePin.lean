@@ -100,8 +100,7 @@ theorem reduceElem_sort {env : Env} {c : Name}
             simpa [boolCvA, Expr.erasePw] using h.2)
       | _ => exact nomatch h
 
-/-- Name and level-parameter components of a `matchesPin` hit.  A
-duplicate of `ConLeche/ModelV1/StdAxioms.lean`'s lemma. -/
+/-- Name and level-parameter components of a `matchesPin` hit. -/
 theorem matchesPin_invT {cv pin : ConstantVal}
     (h : ConstantVal.matchesPin cv pin = true) :
     cv.name = pin.name ∧ cv.levelParams = pin.levelParams := by

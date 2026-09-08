@@ -5,7 +5,7 @@ public import ConLeche.Verify.Extend.Ind
 public section
 
 /-!
-# Recs — the `V`-free half of `ConLeche.ModelV1.Extend.Recs`
+# Recs
 
 The recursor-group install's bookkeeping: the `ProvFacts` /
 `SwapShList` / `RulesChain` inductive records of what `provisionRecs`
@@ -13,12 +13,9 @@ and the rule fold did, and the `provisionRecs_*` / `checkIndRecs_*`
 families reading the resulting environment (names, kinds,
 monotonicity, freshness, preservation).
 
-Relocated from `ConLeche/ModelV1/Extend/Recs.lean` (task #123);
-`provisionRecs_sound`, `recMemberOk_of_kit` and `checkIndRecs_sound`
-stay there, being statements about a valuation, as do the
-`SwapList`-shaped (valuation-carrying) swap lemmas.  The
-`omit [SetTheory V] in` lines are dropped: there is no such section
-variable here.
+All of it is stated over `Env`/`Expr` alone; the runs that read a
+valuation are assembled from these records one tier up
+(`ConLeche/Semantics/IndBlockFacts.lean`).
 -/
 
 set_option linter.unusedSimpArgs false

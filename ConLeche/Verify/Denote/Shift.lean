@@ -10,28 +10,14 @@ public section
 /-!
 # Depth shifting
 
-The transpose of `interp_lift` (`ConLeche/ModelV1/Subst.lean`), and **the
-one place where the mirror deviates in the statement rather than only
-in the proof**.  The deviation is deliberate and this is its record.
+Reading the same expression at two depths, and what it costs that
+`denote` carries no free-variable valuation.
 
-## The model gets an equation; we get a lift
+## A lift, not an equation
 
-`interp_lift` reads
-
-```
-WScoped p e → p ≤ D → (∀ i < p, ρ' i = ρ i) →
-  interpExpr V cval env φ D ρ' e = interpExpr V cval env φ p ρ e
-```
-
-— *literal equality* of the two interpretations.  It can, because
-`interpExpr` uses the depth only to open binders and reads a free
-variable through `ρ`, never through `d`.  The valuation absorbs the
-depth.
-
-`denote` has no valuation to absorb it (`ConLeche/Verify/Denote.lean`):
-a free variable at level `i` read at depth `d` is `.bvar (d - 1 - i)`,
-which is depth-*relative*.  So the transpose cannot be an equation, and
-is instead
+A free variable at level `i` read at depth `d` denotes `.bvar (d-1-i)`
+(`ConLeche/Verify/Denote.lean`), which is depth-*relative*.  So the two
+readings are not equal; they are related by a lift:
 
 ```
 WScoped p e → p ≤ D →
@@ -39,17 +25,13 @@ WScoped p e → p ≤ D →
 ```
 
 This is the second half of the same trade as
-`ConLeche/Verify/Denote/VClosed.lean`'s: we saved a valuation parameter on
-every clause of `denote`, and we pay for it here and in `cval_closed`.
-Recorded rather than smoothed over, because a reader checking the
-transposition line by line against `ConLeche/ModelV1/Subst.lean` will
-otherwise stop at this file and wonder what went wrong.
+`ConLeche/Verify/Denote/VClosed.lean`'s: `denote` saves a valuation
+parameter on every clause, and pays for it here and in `cval_closed`.
 
 ## The generalization: a shift, not a lift
 
-`interp_lift`'s induction is on `D`, stepping down by one with
-`interp_weaken_top`.  That step will not transpose directly, because
-its binder clause compares
+An induction on `D` alone, stepping down by one, does not close,
+because its binder clause compares
 
 ```
 denote (D+2) (body.instantiate1 (.fvar (D+1) ty))

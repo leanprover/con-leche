@@ -5,22 +5,15 @@ public import ConLeche.Kernel.Checker
 public section
 
 /-!
-# Inverting the iota-install list checks (task #123)
+# Inverting the iota-install list checks
 
 `checkDefEqList`, `checkTypedList` and `checkAnnotList` are the three
 list-shaped checks the modeled-inductive install runs over an iota
 rule's spines.  Their specifications (`DefEqListOk`, `TypedListOk`,
 `AnnotListOk`) and inversion lemmas are statements about the kernel's
 fueled operations on an `Env` and a list of `Expr`s — no valuation, no
-`SetTheory`.
-
-They were written at the head of `ConLeche/ModelV1/IotaWalk.lean`, under
-that module's `variable {V} [SetTheory V]` (with `omit` on every one of
-them), because that is where the frame-crossing walk needed them.  They
-are relocated here verbatim so the declarative type-theory bridge can
-consume the same inversions the set model does (task #123,
-the lane and its record are gone, task #209).  The `omit [SetTheory V] in` lines
-are dropped: there is no such section variable here.
+`SetTheory` — which is what lets the frame-crossing walk of the model
+tier consume them as they stand.
 -/
 
 set_option linter.unusedSimpArgs false

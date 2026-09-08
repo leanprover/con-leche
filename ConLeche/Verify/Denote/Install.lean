@@ -95,17 +95,11 @@ rather than consequences, and the reason is worth stating so that the
 next person does not take them for a gap.  They *are* consequences of
 `hext`: a guard that held in `env₁` forced its slots to be stored
 there, `hext` carries those lookups over unchanged, and the guard reads
-nothing else.  That derivation is exactly
-`natLitSupported_inv` + `natLitSupported_congr` (and the `strLit`
-pair), which already exist — but in `ConLeche/ModelV1/Interp.lean`, which
-this hierarchy does not import.
-
-**Both are `V`-free**: they are facts about `Env` alone and have no
-business in the set model's module.  Moving them to `ConLeche/Verify/*`
-is the right fix and would let these three hypotheses be discharged
-here rather than passed on; it is not done in this commit only because
-`ConLeche/ModelV1/Interp.lean` is heavily trafficked and the move is better
-made on its own. -/
+nothing else — that derivation is `natLitSupported_inv` +
+`natLitSupported_congr` (and the `strLit` pair) of
+`ConLeche/Verify/EnvGuards.lean`.  They are passed in rather than
+derived here so that the install sites, which have the freshness facts
+in hand, discharge them the cheap way. -/
 theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     (hext : EnvExtends env₁ env₂)
     (hproj : ∀ (sn : Name) (i : Nat),
@@ -272,9 +266,9 @@ hypothesis quantified more broadly than the conclusion needs**: here,
 Listing the seven is the fix.
 
 They are hypotheses for the same reason they are in `denote_mono`:
-deriving them from the guards needs
-`natLitSupported_inv`, which was stranded in `ConLeche/ModelV1/Interp.lean`
-and now lives, `V`-free, in `ConLeche/Verify/EnvGuards.lean`.  Install sites discharge them from freshness. -/
+deriving them from the guards needs `natLitSupported_inv`
+(`ConLeche/Verify/EnvGuards.lean`), while the install sites discharge
+them from freshness directly. -/
 
 /-- Denotation reads the valuation only at names the environment
 resolves, so valuations agreeing there give equal denotations. -/
@@ -426,11 +420,9 @@ theorem LitAgree.of_fresh {env : Env} {cval cval' : TConstVal}
 
 Both guards read the environment only at fixed names, so an install
 under a *different* name leaves them alone.  Proving the congruence
-directly avoids needing `natLitSupported_inv`
-(`ConLeche/ModelV1/Interp.lean`) at all — a fact the bridge would otherwise
-have to restate, and the fifth stranded one.  **The inversion is only
-needed to derive the guard from its consequences; the congruence needs
-just the lookups**, which is a cheaper thing to want. -/
+directly avoids needing `natLitSupported_inv` at all: **the inversion is
+only needed to derive the guard from its consequences; the congruence
+needs just the lookups**, which is a cheaper thing to want. -/
 
 /-- The `Nat`-literal guard reads three slots. -/
 theorem natLitSupported_cons_of_ne {env : Env} {c₀ : ConstantInfo}
@@ -475,12 +467,9 @@ larger environment after the install, so discharging it from the
 smaller environment's law means running that hypothesis down, not up.
 
 The converse is false in general — the larger environment denotes
-strictly more — so it is guarded exactly as the set model guards
-`interp_mono`: by `Expr.constsResolve`, which holds of every *stored*
-expression by `EnvWF`.  This is the transpose of `interp_mono`
-(`ConLeche/ModelV1/InterpLemmas.lean`), and it is consumed the way the
-model consumes it, through a telescope-level shrink at the law's own
-premise.
+strictly more — so it is guarded by `Expr.constsResolve`, which holds of
+every *stored* expression by `EnvWF`, and it is consumed through a
+telescope-level shrink at the law's own premise.
 
 **It needs no guard or level-parameter hypotheses**, unlike
 `denote_mono`: for a literal node `constsResolve` already asserts that

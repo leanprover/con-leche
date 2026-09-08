@@ -63371,3 +63371,106 @@ warning-free, `lake test` warning-free, `tests/arena.sh` green with the
 counts above, and one init-full run in verified mode at **677.32 G**
 (677 324 409 781) against #240's recorded **677.29 G** — **+0.005 %**,
 the same delta as at the branch point, 53 088 accepted.
+
+## TASK #242 — THE DOCS CITE THE TREE THAT EXISTS (2026-09-08, `agent/docscrub`)
+
+The user's ruling of 2026-09-08 — docs state the CURRENT fact, no
+change notes, no task numbers, history in this file only — applied to
+the last directory-shaped path dependency in the tree: `ConLeche/ModelV1/*`,
+the first, direct model tier, retired at task #148 T7.  Forty-six lines
+in 27 source files and `CLAUDE.md` still pointed at it, and
+`OVERVIEW.md` carried a paragraph whose whole job was to warn the reader
+that they did.
+
+### 1. What the citations were, and what replaced them
+
+Three kinds, and each got a different treatment.
+
+* **Relocation notes** ("relocated from `ConLeche/ModelV1/Extend/X.lean`,
+  task #123, the move is verbatim, the `omit [SetTheory V] in` lines
+  are dropped") — pure history, deleted.  What survives is the present
+  fact the note existed to justify: the module is `V`-free, so the
+  tiers above import it as it stands.  Seven `Verify/Extend/*` headers,
+  `Verify/EnvPreds.lean`, `Verify/EnvGuards.lean`,
+  `Verify/IotaWalkInv.lean`, `Verify/InferLemmas.lean`,
+  `Verify/InstSpine.lean`.
+* **"The `V`-free half of `ConLeche.ModelV1.Extend.X`"**, with a list of
+  the lemmas that "stay there" — the counterparts were checked by name
+  (`checkIndMember_sound`, `extend_modeled_one`, `checkProjFn_sound`,
+  `provisionRecs_sound`, `RecRulesOk`, …): **none of them exists in the
+  tree today**.  So the comparison is gone and the headers name the
+  live consumer instead — `Model/IndCaps.lean`, `Model/Install.lean`,
+  `Semantics/IndBlockFacts.lean`, `Semantics/EnvFactsCons.lean`,
+  `Semantics/ProjPhase.lean`, `Semantics/Bridge/DeclIndRun.lean`.
+* **"Transpose of `interp_*`"** — same test, same answer for
+  `interpExpr`, `interp_lift`, `interp_substFvarAt`, `interp_erasedEq`,
+  `interp_params_ext`, `interp_instLevels`, `interp_mono`: no live
+  counterpart, comparison dropped, the statement's own content kept.
+  The one citation that *did* resolve was kept and repointed:
+  `Verify/PinnedShapes.lean`'s `pinnedInfoT_recInfo_cases` really is the
+  `pinnedInfoT` counterpart of `Verify/EnvPreds.lean`'s
+  `pinnedInfo_ctorInfo_cases`.
+
+Two file citations were repointed at the module that does the job now:
+`Verify/BridgeDecl.lean` and `Verify/BridgeWfImp.lean` named
+`ModelV1/BridgeWF.lean` for the `wfOpsM` → `fueledOps` composition,
+which is `Verify/BridgeWfImp.lean` itself and the cached tier's
+`BridgeCS1`–`BridgeCSDecl`; `Verify/CheckerF.lean` named
+`ModelV1/BridgeS.lean` for the run-wise relation of the
+environment-extending mirrors, which is `Cached/BridgeCS4.lean`.
+
+### 2. The one docstring that was mostly comparison
+
+`ConLeche/Verify/Denote.lean`'s module docstring was built around a
+two-column table (`interpExpr` | `denote`) and three sections reading
+"where the transpose is nicer than the original".  Rewritten as a
+description of `denote` alone: a single-column clause table and four
+properties of *this* function — no free-variable valuation, delta is
+`rfl`, no `let` in the term language, and why the term language has
+untyped projection formers.  Every present-tense claim of the old text
+survives; what went is the second column.  `Verify/Denote/Shift.lean`
+got the same treatment (the deviation it records is now stated as what
+the lemma is, not as a deviation from a deleted lemma).
+
+`ConLeche/Kernel/Inductives/StructInstall.lean`'s paragraph claimed the
+direct route's model "was constructed by the retired direct model"; the
+route is gone (task #210 Part C), so the paragraph now says only what
+the two surviving functions check.
+
+### 3. Out of scope, deliberately
+
+`CLAUDE.md`'s layering bullet now names the live tiers and nothing else
+(the `SetP`/`SetR`/`SetBase`/`ModelV1` history went with it).  The
+`OVERVIEW.md` paragraph is deleted: with no docstring citing the
+directory it has no reader.  Left alone: the ~2 000 task-number
+references in code comments (a separate decision, not the user's), the
+`ConLeche/SetR/*` and `ConLeche/TTVerify/*` citations in the same files,
+and every dangling *name* that carries no path (`interp_renameConsts`,
+`natLitVal`, `charListVal`).  This file's own `ModelV1` lines stay: it
+is the ledger.
+
+**29 files, 46 citations, 0 remaining** — 27 `.lean` files plus
+`CLAUDE.md` and `OVERVIEW.md`:
+`grep -rn ModelV1 --include=*.lean --include=*.md . | grep -v DESIGN.md`
+is empty.
+
+### 4. Gates
+
+Build warning-free (517 jobs), `lake test` warning-free,
+`tests/arena.sh` green under `env -i`: layering 263/189/3/1 with 0
+impl→theory, proofdeps 2846 rows / 0 doors, axioms pinned (11 theorems
+at `[propext, Classical.choice, Quot.sound]`), arena 90/92, e2e
+178/178, annot 14/14, retired flags 8/8, mode flags 18/18, prelude
+counts 3/3, progress lane 12/12, DAG tower 11/11, trusted sweep
+138 + 178 + 14, shake 464 proposals all allowlisted, pub-imports 907 of
+1234 with none demotable.  `tests/overview-links.sh` **58 links / 44
+files, no update needed**: none of the 26 edited files is cited by an
+anchor, so no linked line moved.  No init-full run: the edits are
+comment-only and the checker binary is byte-identical to a same-worktree
+rebuild of the branch point (`md5 90b0dcb2233a7db4db1372d81238696e`,
+measured by reverting `ConLeche/` to master, rebuilding, and hashing).
+
+(A gate note for the next lane: running `tests/arena.sh` under
+`ulimit -v 16000000` makes the shake half fail spuriously — `lake shake`
+mmaps the toolchain's oleans and the address-space cap kills the read.
+The ulimit belongs on checker runs, not on the battery.)

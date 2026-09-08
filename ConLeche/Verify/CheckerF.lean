@@ -16,8 +16,9 @@ in pure lookup subterms (`FEnv.find?` for `Env.find?`,
 `Expr.constsResolveF` for `Expr.constsResolve`, and the compound
 guards built from them), each of which `mkFEnv_find?` rewrites away.
 Environment-*extending* mirrors (`checkDefnValF` …) return the pushed
-index and are related run-wise in `ConLeche/ModelV1/BridgeS.lean` — here
-only the value-level pieces are proven equal.
+index and are related run-wise by the cached tier's bridge
+(`ConLeche/Verify/Cached/BridgeCS4.lean`) — here only the value-level
+pieces are proven equal.
 -/
 
 namespace ConLeche

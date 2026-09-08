@@ -489,14 +489,9 @@ theorem whnfCore_letE_inv {env : Env} {fuel d : Nat}
 The three inversions the native-pair projection's certificate walk
 needs, in the form that walk consumes: stated at an arbitrary fuel
 rather than at `fuel + 1`, by lifting the one-level forms through
-`Verify/Mono.lean`.  (Task #100 introduced them for the walk that
-replaced the collapse-refuted `PairMkFacts` domain clauses.)
-
-Relocated here from `ConLeche/ModelV1/Core/Whnf.lean` (task #148, T3),
-where they were `private`: they are V-free inversions of the checker,
-which is what this module is for, and both the set model's proj case
-and the `ConLeche/SetR/*` bridge's R6 clause consume them.  Statements
-unchanged. -/
+`Verify/Mono.lean`.  They are `V`-free inversions of the checker, which
+is what this module is for, and the model tier's projection case
+consumes them from here. -/
 
 theorem whnf_forallE_eq {env : Env} {fuel d : Nat}
     {t b e' : Expr} {mb : BinderMeta}

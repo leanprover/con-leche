@@ -25,7 +25,7 @@ namespace ConLeche.Verify
 open ConLeche.Term
 
 /-- Which reserved names carry recursor-shaped pinned declarations.
-The transpose of `ConLeche/ModelV1/BasisVal.lean`'s
+The `pinnedInfoT` counterpart of `ConLeche/Verify/EnvPreds.lean`'s
 `pinnedInfo_ctorInfo_cases`, and proved the same way. -/
 theorem pinnedInfoT_recInfo_cases {n : Name} {cv : ConstantVal}
     {mI rP : Nat} {rules : List RecRule}

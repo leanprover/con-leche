@@ -8,19 +8,16 @@ public section
 /-!
 # Denotation commutes with instantiation
 
-The transpose of `interp_substFvarAt` / `interp_beta`
-(`ConLeche/ModelV1/Subst.lean`), and the bottleneck every interesting
-clause of `CheckStepTT` runs through: the checker's `infer` on
-`.app f a` returns the *expression* `B.instantiate1 a`, while
-an application's type is the *term* `(⟦B⟧).inst ⟦a⟧`, and those have
-to agree.
+The bottleneck every interesting step of the checker's application
+rule runs through: `infer` on `.app f a` returns the *expression*
+`B.instantiate1 a`, while an application's type is the *term*
+`(⟦B⟧).inst ⟦a⟧`, and those have to agree.
 
-## Where the transpose is nicer than the original
+## Why the arithmetic lines up
 
-`interp_substFvarAt` contracts the free-variable *valuation* at `p`
-(`delV`).  There is no valuation here, so the contraction becomes a de
-Bruijn substitution — and the arithmetic lines up without any auxiliary
-shifting, which is not obvious in advance:
+Substituting a free variable at level `p` becomes a de Bruijn
+substitution here, with no auxiliary shifting, which is not obvious in
+advance:
 
 * at depth `D + 1` the variable `fvar p` denotes `.bvar (D - p)`, so the
   substitution happens at cut `k = D - p`;
@@ -205,10 +202,8 @@ every inhabitation key needs the denotation to ignore exactly what the
 pin ignores.  It does — `denote` reads a binder's name only to build the
 `fvar` it opens with, and an `fvar` denotes to its de Bruijn index.
 
-Transpose of `interp_erasedEq` (`ConLeche/ModelV1/InterpLemmas.lean`), and
-another §8.4 reading: **the pin's tolerance and the denotation's
-blindness are the same set of syntax**, which is why a `matchesPin` hit
-is usable at all. -/
+**The pin's tolerance and the denotation's blindness are the same set
+of syntax**, which is why a `matchesPin` hit is usable at all. -/
 
 /-- Erasure-equal expressions denote equally. -/
 theorem denote_erasedEq {cval : TConstVal} {env : Env} {φ : Name → Nat} :
