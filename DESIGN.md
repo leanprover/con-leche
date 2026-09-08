@@ -63701,3 +63701,135 @@ recorded divergences, route census 142 fix / 540 basis, layering
 allowlisted, overview-links 58/44 with no anchor in the three files
 touched), proofdeps 2846 rows and doors 0, axioms pinned at 12
 theorems over the three standard.
+
+## Task #247 — TWO RESCUE BITS AND A ZERO-NESS DATUM BECOME STORED DECLARATION DATA (2026-09-08, `agent/iota-247`)
+
+Task #232's report listed, under "per-call checks on STORED
+declarations", three groups the ι-adjacent paths re-derive at every
+use.  Two of them land here; the third is a finding.
+
+### 1. The K bit and the η-rescue bit (report item 4)
+
+`majorToCtor`'s two rescues stood behind cross-constant conditions
+recomputed at every recursor application — 1.53 M times on
+`init-full`: a single-rule recursor, its rule's constructor looked up,
+that constructor's result-type head looked up again, and the
+inductive's `ruleK` (or `eta`, plus "the rule's constructor IS the η
+constructor", plus "the recursor is not a projection function", whose
+rescue would reduce to its own reduct and loop).  The official kernel
+decides this once, at the block's install, and stores it
+(`recursor_val::is_k`).
+
+`RecRule` now carries `k` and `eta`.  Both are computed by
+`recRuleBits` — the one place the conditions are decided — and every
+route that stores rules stamps through it: the pinned basis blocks
+(`BasisGen`, so `Eq.rec` is stored K-flagged and `PUnit.rec`
+η-flagged), the fixpoint route's generated rules (`sumRules`), the
+modeled route's checked rules (`checkIotaRule`/`checkIotaRuleF`), and
+the projection functions (`projFnRule`, where both bits are `false` by
+construction and the stamping is uniform anyway, so the invariant
+reads the same way everywhere).  `prepareMajor`'s K test is
+`recRuleK` — the single rule's stored bit, with no lookup at all.
+
+The facts move into the environment invariant rather than
+disappearing.  `RecCtorsStored` (`Verify/EnvPreds.lean`) now says,
+besides "every rule's constructor is stored", that a SET bit is the
+store's own verdict: `recRuleKOf` / `recRuleEtaOf` at the recursor's
+stored name.  `recCtors_bits` reads that back at a use as the
+capability facts the rescue consumes.  Both transports the invariant
+already had carry the new clauses — `RecCtorsStored.cons` at a fresh
+cons and the group swap's `swapEnvFacts` through `RuleFacts` — each
+through `recRuleKOf_mono` / `recRuleEtaOf_mono`: the bits read a
+constructor and an inductive, so every extension that keeps the
+non-recursor lookups keeps them.
+
+`majorToCtor_inv` accordingly loses `caps.ruleK ∧ cnF = 0` and
+`caps.eta ∧ rl.ctor = caps.etaCtor ∧ ¬isProjFnShape recName`;
+`majorToCtorFueled_step` and `majorToCtorFueled_reads` obtain them
+from `m.rec_ctors`, for which `MajorStep` carries the recursor's own
+lookup — which its single caller, `iotaStep_of`, already holds.
+
+### 2. The η rescue's never-zero test (report item 6)
+
+The official structure rescue fires only where the major's family has
+a provably nonzero result sort, and ours answered that by walking the
+stored family type's Π telescope to its sort and substituting the use's
+levels (`piResultNeverZero`) at every rescue.  The result sort's
+zero-ness is a property of the stored declaration, so `IndCaps` now
+carries it: `sortZ : PropWhen`, the reading of the family's result
+sort as a predicate on its level parameters (`piResultZ`), computed
+where `ruleK`'s `piResultIsProp` is.  The test is `capsNeverZero`: one
+level substitution on a datum of at most a handful of names.
+
+`capsNeverZero_eq` (`Verify/InferLemmas.lean`) is the licence — where
+a record's `sortZ` is its family's own, reading the datum at a use's
+levels IS the walk.  It rests on two new pure laws,
+`PropWhen.isNever_inter` and `Level.isNeverZero_eq_isNever` (the
+syntactic never-zero test is the datum's unsatisfiability), over the
+existing `zeronessOf_subst`; `piResultNeverZero` stays as that
+statement's specification side.  The two computed routes carry the
+hypothesis outright (`indBlockCaps_sortZ`/`indBlockCapsF_sortZ` by
+`rfl`, `nativeCaps_sortZ` from the former's telescope ending in
+`Sort p.resSort`); the pinned `PUnit` record sets it by hand beside
+the type it reads, as that block's other capability fields already
+are.
+
+### 3. The cross arity/level pins do not fit an environment invariant
+(report item 5) — NOT LANDED
+
+The remaining group — `structEtaCertWith`'s `caps.etaParams = cnP ∧
+caps.etaFields = cnF` and `cvc.levelParams = cvT.levelParams`,
+`structEtaProjCerts`' per-projection pins, and `majorToCtor`'s
+`cvj.levelParams.length = ust.length` — was to become "a stored
+η-capable inductive's constructor is stored with the record's counts
+and its level parameters".  **That statement is false in the
+environments the install passes through**: a block's type former is
+consed *before* its constructor, so between those two conses the
+store holds an η-capable inductive whose `etaCtor` is not stored at
+all.  An `EnvModel` field must hold at every cons, so the predicate
+cannot be one.  The tree already reflects this: the same content is
+`EtaFamilyStored` (`Verify/EnvGuards.lean`), a **premise** of
+`CapsOk`'s η half that the use site discharges from exactly these
+runtime checks — which is what makes them consumed rather than idle.
+
+The reachable design, for a follow-up: key the clause not on the
+former but on a constant the install stores **last** — the projection
+table (native) or the projection functions (modeled), both of which
+the certificate's own slot discipline already requires to be stored.
+`ProjOkT`/`TowerHead` is that shape and already carries two of the
+three pins for tabled families (the constructor at the entry's counts
+and level parameters, and the former's level parameters); what is
+missing is the entry-to-`caps` link and the modeled route's mirror.
+That touches `structEtaCertWith` and `CapsRows.lean`, so it belongs on
+top of task #248's `IndCapsWF`, not beside it.
+
+### 4. Character, and what was measured
+
+Both landed items are de-gating: hypotheses get stronger (an invariant
+of every stored recursor, and stored data plus a proved reading,
+replace conditions recomputed per use), nothing weakens, and no
+input's verdict can change — the bits are computed by the same
+functions on the same lookups at an environment the rest of the run
+only extends with fresh names, and `capsNeverZero_eq` equates the two
+Booleans wherever the datum is the family's own.
+
+`init-full`, one run per mode, `perf stat -e instructions:u` under
+`ulimit -v 16000000`, against master `c6b51a3b`'s 681.14 G verified /
+657.60 G trusted: **681.38 G (+0.035 %) / 657.69 G (+0.014 %)**, 53 088
+declarations accepted in both modes.  The saved lookups (1.53 M
+`recRuleKOf` re-derivations, 46 544 telescope walks) are paid back by
+two extra fields on every parsed `RecRule` and one on every `IndCaps`;
+the net is inside the build-to-build spread and this batch's win is
+architectural, not arithmetic.
+
+Gates: `lake build` 517 jobs warning-free, `lake test` warning-free,
+`tests/arena.sh` green under `env -i` with every count unchanged
+(90/92 arena, 178/178 e2e, 14/14 annot, 8/8 retired flags, 18/18 mode
+flags, 3/3 prelude, 12/12 progress, 11/11 DAG tower, trusted sweep
+138+178+14 with the three recorded divergences, route census 142 fix /
+540 basis, layering 263/189/3/1 and 0/0 edges, trust surface 10 in 4
+of 465), proofdeps 2846 rows and doors 0, axioms pinned at 12 theorems
+over the three standard.  `tests/shake-allowlist.txt` loses one line
+(`Kernel/Core` imports `Kernel/Env` for real now — `projFnName`), and
+ten `OVERVIEW.md` anchors are re-pointed at the same text, which moved
+with `Kernel/Core.lean`'s +111 lines.
