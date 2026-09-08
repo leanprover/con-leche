@@ -77,11 +77,6 @@ theorem WellDenoted_congr_below :
       exact ⟨h1, fun x hx => (ihB (k + 1) _ _ hb.2 (cons_agree_below hag x)).mp (h2 x hx)⟩
     · rintro ⟨h1, h2⟩
       exact ⟨h1, fun x hx => (ihB (k + 1) _ _ hb.2 (cons_agree_below hag x)).mpr (h2 x hx)⟩
-  | letE T v b ihT ihv ihb =>
-    intro k ρ ρ' hb hag
-    rw [WellDenoted_letE, WellDenoted_letE, ihT k ρ ρ' hb.1 hag, ihv k ρ ρ' hb.2.1 hag,
-      interp_congr_below V v k ρ ρ' hb.2.1 hag,
-      ihb (k + 1) _ _ hb.2.2 (cons_agree_below hag _)]
   | eqE a b iha ihb =>
     intro k ρ ρ' hb hag
     rw [WellDenoted_eqE, WellDenoted_eqE, iha k ρ ρ' hb.1 hag, ihb k ρ ρ' hb.2 hag]
@@ -131,11 +126,6 @@ theorem AnnotValid_congr_below :
         fun h0 x hx => ?_⟩
       rw [interp_congr_below V B (k + 1) _ _ hb.2 (cons_agree_below hag x)]
       exact h3 h0 x hx
-  | letE T v b ihT ihv ihb =>
-    intro k ρ ρ' hb hag
-    rw [AnnotValid_letE, AnnotValid_letE, ihT k ρ ρ' hb.1 hag, ihv k ρ ρ' hb.2.1 hag,
-      interp_congr_below V v k ρ ρ' hb.2.1 hag,
-      ihb (k + 1) _ _ hb.2.2 (cons_agree_below hag _)]
   | eqE a b iha ihb =>
     intro k ρ ρ' hb hag
     rw [AnnotValid_eqE, AnnotValid_eqE, iha k ρ ρ' hb.1 hag, ihb k ρ ρ' hb.2 hag]

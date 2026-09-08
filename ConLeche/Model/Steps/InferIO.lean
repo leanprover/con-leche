@@ -153,21 +153,6 @@ theorem WellDenotedV.hoist_app {Δa : List AnnotTerm} {f a : AnnotTerm}
       ((AnnotValid_app V ρ f a) ▸ (h ρ hρ).2).2⟩,
     fun ρ hρ => ((WellDenoted_app V ρ f a) ▸ (h ρ hρ).1).2.2⟩
 
-/-- The `WellDenotedV` `letE` splitter, in the raw value-indexed form
-(`WellDenoted`'s own clause shape — the hoist kit's note explains why no
-opened form exists): the premise form's entry into the ζ crossing. -/
-theorem WellDenotedV.hoist_letE {Δa : List AnnotTerm} {T v b : AnnotTerm}
-    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (.letE T v b)) :
-    (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ T) ∧
-      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ v) ∧
-      ∀ ρ : Nat → V, Sat V Δa ρ →
-        WellDenotedV V (cons (interp V ρ v) ρ) b :=
-  ⟨fun ρ hρ => ⟨((WellDenoted_letE V ρ T v b) ▸ (h ρ hρ).1).1,
-      ((AnnotValid_letE V ρ T v b) ▸ (h ρ hρ).2).1⟩,
-    fun ρ hρ => ⟨((WellDenoted_letE V ρ T v b) ▸ (h ρ hρ).1).2.1,
-      ((AnnotValid_letE V ρ T v b) ▸ (h ρ hρ).2).2.1⟩,
-    fun ρ hρ => ⟨((WellDenoted_letE V ρ T v b) ▸ (h ρ hρ).1).2.2,
-      ((AnnotValid_letE V ρ T v b) ▸ (h ρ hρ).2).2.2⟩⟩
 
 /-- **The io-inferred type reads** (the io lane's totality residue —
 `InferReads` at the io run, with the same `LeafReads` repair).  Its

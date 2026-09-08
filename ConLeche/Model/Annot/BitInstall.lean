@@ -75,8 +75,8 @@ theorem denoteMeta_acval_congr
   | case7 d ty body m ihty ihbody =>
     rw [denoteMeta, denoteMeta, ihty, ihbody]
   | case8 d f a ihf iha => rw [denoteMeta, denoteMeta, ihf, iha]
-  | case9 d ty val body ihty ihval ihbody =>
-    rw [denoteMeta, denoteMeta, ihty, ihval, ihbody]
+  | case9 d ty val body =>
+    rw [denoteMeta, denoteMeta]
   | case10 d sn i e ihe => rw [denoteMeta, denoteMeta, ihe]
   | case11 d n hsup =>
     obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hN, hZ, hS, -⟩ :=

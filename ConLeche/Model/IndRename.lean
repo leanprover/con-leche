@@ -104,9 +104,6 @@ theorem denoteMeta_renameConsts {f : Name → Name}
   | .letE ty val body, d => by
     simp only [Expr.renameConsts]
     rw [denoteMeta, denoteMeta]
-    rw [← Expr.renameConsts_instantiate1]
-    rw [denoteMeta_renameConsts hro ty d, denoteMeta_renameConsts hro val d,
-      denoteMeta_renameConsts hro (body.instantiate1 (.fvar d ty)) (d + 1)]
   termination_by e => e.sizeB
   decreasing_by
     all_goals first

@@ -82,7 +82,6 @@ theorem liftN_zero : ∀ (e : AnnotTerm) (k : Nat), liftN 0 e k = e := by
   | app f a ihf iha => intro k; rw [liftN_app, ihf, iha]
   | lam u A b ihA ihb => intro k; rw [liftN_lam, ihA, ihb]
   | pi u v A B ihA ihB => intro k; rw [liftN_pi, ihA, ihB]
-  | letE T v b ihT ihv ihb => intro k; rw [liftN_letE, ihT, ihv, ihb]
   | eqE a b iha ihb => intro k; rw [liftN_eqE, iha, ihb]
   | fst e ihe => intro k; rw [liftN_fst, ihe]
   | snd e ihe => intro k; rw [liftN_snd, ihe]
@@ -109,8 +108,6 @@ theorem liftN_liftN : ∀ (e : AnnotTerm) (n m k : Nat),
     intro n m k; rw [liftN_lam, liftN_lam, ihA, ihb]; rfl
   | pi u v A B ihA ihB =>
     intro n m k; rw [liftN_pi, liftN_pi, ihA, ihB]; rfl
-  | letE T v b ihT ihv ihb =>
-    intro n m k; rw [liftN_letE, liftN_letE, ihT, ihv, ihb]; rfl
   | eqE a b iha ihb =>
     intro n m k; rw [liftN_eqE, liftN_eqE, iha, ihb]; rfl
   | fst e ihe =>
@@ -299,24 +296,8 @@ theorem denoteMeta_substFvarAt
       | none => rfl
       | some ba => rfl
   | .letE ty val body, D, hpD, hfb => by
-    simp only [ConLeche.Expr.substFvarAt, denoteMeta]
-    rw [denoteMeta_substFvarAt hacl hainst hwa hba ha ty D hpD hfb.1,
-      denoteMeta_substFvarAt hacl hainst hwa hba ha val D hpD hfb.2.1,
-      ← ConLeche.Expr.substFvarAt_instantiate1 hpD hba body 0,
-      denoteMeta_substFvarAt hacl hainst hwa hba ha
-        (body.instantiate1 (.fvar (D + 1) ty)) (D + 1) (by omega)
-        (ConLeche.Expr.fvarsBelow_instantiate1 0 hfb.2.2),
-      show D + 1 - p = D - p + 1 from by omega]
-    cases denoteMeta acval env φ (D + 1) ty with
-    | none => rfl
-    | some ta =>
-      cases denoteMeta acval env φ (D + 1) val with
-      | none => rfl
-      | some va =>
-        cases denoteMeta acval env φ (D + 2)
-            (body.instantiate1 (.fvar (D + 1) ty)) with
-        | none => rfl
-        | some ba => rfl
+    -- task #241: `denoteMeta` is `none` at a `letE`, on both sides
+    simp only [ConLeche.Expr.substFvarAt, denoteMeta, Option.map_none]
   | .proj sn i e, D, hpD, hfb => by
     simp only [ConLeche.Expr.substFvarAt, denoteMeta]
     rw [denoteMeta_substFvarAt hacl hainst hwa hba ha e D hpD hfb]

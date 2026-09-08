@@ -93,9 +93,6 @@ def WellDenoted : (Nat → V) → AnnotTerm → Prop
     ∃ (v : Nat) (A : V) (B : V → V),
       interp V ρ f ∈ˢ piR v A B ∧ interp V ρ a ∈ˢ A ∧
       (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))
-  | ρ, .letE T v b =>
-    WellDenoted ρ T ∧ WellDenoted ρ v ∧
-    WellDenoted (cons (interp V ρ v) ρ) b
   | ρ, .fst e =>
     WellDenoted ρ e ∧
     ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
@@ -141,11 +138,6 @@ theorem WellDenoted_app (ρ : Nat → V) (f a : AnnotTerm) :
         ∃ (v : Nat) (A : V) (B : V → V),
           interp V ρ f ∈ˢ piR v A B ∧ interp V ρ a ∈ˢ A ∧
           (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))) := by
-  rw [WellDenoted]
-theorem WellDenoted_letE (ρ : Nat → V) (T v b : AnnotTerm) :
-    WellDenoted V ρ (.letE T v b) =
-      (WellDenoted V ρ T ∧ WellDenoted V ρ v ∧
-        WellDenoted V (cons (interp V ρ v) ρ) b) := by
   rw [WellDenoted]
 theorem WellDenoted_fst (ρ : Nat → V) (e : AnnotTerm) :
     WellDenoted V ρ (.fst e) =
@@ -195,10 +187,6 @@ theorem WellDenoted_liftN (n : Nat) :
     rw [AnnotTerm.liftN_pi, WellDenoted_pi, WellDenoted_pi, ihA, interp_liftN]
     refine and_congr Iff.rfl (forall_congr' fun x => imp_congr Iff.rfl ?_)
     rw [ihB, cons_shiftE]
-  | letE T v b ihT ihv ihb =>
-    intro k ρ
-    rw [AnnotTerm.liftN_letE, WellDenoted_letE, WellDenoted_letE, ihT, ihv,
-      interp_liftN, ihb, cons_shiftE]
   | eqE a b iha ihb =>
     intro k ρ
     rw [AnnotTerm.liftN_eqE, WellDenoted_eqE, WellDenoted_eqE, iha, ihb]
@@ -259,16 +247,6 @@ theorem WellDenoted_inst :
     have ha' : WellDenoted V (shiftE (k + 1) 0 (cons x ρ)) a := by
       rw [shiftE_succ_cons]; exact ha
     rw [ihB a (k + 1) (cons x ρ) ha', shiftE_succ_cons, cons_instE]
-  | letE T v b ihT ihv ihb =>
-    intro a k ρ ha
-    rw [AnnotTerm.inst_letE, WellDenoted_letE, WellDenoted_letE, ihT a k ρ ha,
-      ihv a k ρ ha, interp_inst]
-    refine and_congr Iff.rfl (and_congr Iff.rfl ?_)
-    have ha' : WellDenoted V (shiftE (k + 1) 0
-        (cons (interp V (instE k (interp V (shiftE k 0 ρ) a) ρ) v)
-          ρ)) a := by
-      rw [shiftE_succ_cons]; exact ha
-    rw [ihb a (k + 1) _ ha', shiftE_succ_cons, cons_instE]
   | eqE x y ihx ihy =>
     intro a k ρ ha
     rw [AnnotTerm.inst_eqE, WellDenoted_eqE, WellDenoted_eqE, ihx a k ρ ha,
@@ -329,18 +307,6 @@ theorem WellDenoted_beta_pos {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm}
   · rw [interp_app, interp_lam, app_lamR_pos hv haA, interp_inst0]
   · exact (WellDenoted_inst0 V ha).mpr (hbody _ haA)
 
-/-- The graded ζ step — both conjuncts, no premises beyond the
-subject's invariant (ζ is annotation-free: `interp`'s `letE` clause
-is already the contractum's reading). -/
-theorem WellDenoted_zeta {T v b : AnnotTerm} {ρ : Nat → V}
-    (h : WellDenoted V ρ (.letE T v b)) :
-    interp V ρ (.letE T v b) = interp V ρ (b.inst v) ∧
-    WellDenoted V ρ (b.inst v) := by
-  rw [WellDenoted_letE] at h
-  obtain ⟨-, hv, hb⟩ := h
-  refine ⟨?_, ?_⟩
-  · rw [interp_letE, interp_inst0]
-  · exact (WellDenoted_inst0 V hv).mpr hb
 
 /-- The graded β step at kind `0` — the residue side: with the
 argument membership supplied (the retained `Prop`-codomain runtime

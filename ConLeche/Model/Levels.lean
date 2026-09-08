@@ -195,9 +195,8 @@ theorem denoteMeta_instLevels (hp : AcvalParamsAt env acval)
       ← Expr.instantiateLevelParams_instantiate1, ihbody]
   | case8 d fe a ihf iha =>
     rw [Expr.instantiateLevelParams, denoteMeta_app, denoteMeta_app, ihf, iha]
-  | case9 d ty val body ihty ihval ihbody =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, ihty, ihval,
-      ← Expr.instantiateLevelParams_instantiate1, ihbody]
+  | case9 d ty val body =>
+    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta]
   | case10 d sn i e ihe =>
     rw [Expr.instantiateLevelParams, denoteMeta_proj, denoteMeta_proj, ihe]
   | case11 d k hsup =>

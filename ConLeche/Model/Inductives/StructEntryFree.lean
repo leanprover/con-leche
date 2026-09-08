@@ -238,25 +238,6 @@ theorem natLitAV_liftN {za sa : AnnotTerm} {k : Nat} (hz : za.liftN 1 k = za)
     rw [AnnotTerm.liftN_app, hs, natLitAV_liftN hz hs n]
     rfl
 
-/-- The `let` clause's inversion (`denoteMeta_forallE_inv`'s twin). -/
-theorem denoteMeta_letE_inv' {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {φ : Name → Nat}
-    {d : Nat} {ty val body : Expr} {ea : AnnotTerm}
-    (h : denoteMeta acval env φ d (.letE ty val body) = some ea) :
-    ∃ ta va ba, denoteMeta acval env φ d ty = some ta ∧ denoteMeta acval env φ d val = some va ∧
-      denoteMeta acval env φ (d + 1) (body.instantiate1 (.fvar d ty)) = some ba ∧
-      ea = .letE ta va ba := by
-  rw [denoteMeta] at h
-  cases ht : denoteMeta acval env φ d ty with
-  | none => rw [ht] at h; exact nomatch h
-  | some ta =>
-    cases hv : denoteMeta acval env φ d val with
-    | none => rw [ht, hv] at h; exact nomatch h
-    | some va =>
-      cases hb : denoteMeta acval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
-      | none => rw [ht, hv, hb] at h; exact nomatch h
-      | some ba =>
-        rw [ht, hv, hb] at h
-        exact ⟨ta, va, ba, rfl, rfl, rfl, (Option.some.inj h).symm⟩
 
 /-- **A leaf-free reading is a lift at the leaf's index.**  A term
 without the `q`-th variable as a leaf reads, at depth `d`, as a
@@ -344,24 +325,10 @@ theorem denoteMeta_liftN_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Nam
     obtain ⟨Xa, rfl⟩ := iha hw.2 hq (fun l hl' => hl l (by
       simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inr hl')) haa
     exact ⟨.app Xf Xa, by rw [AnnotTerm.liftN_app]⟩
-  | case9 d ty val body ihty ihval ihbody =>
-    intro hw q hq hl ea h
-    obtain ⟨ta, va, ba, hta, hva, hba, rfl⟩ := denoteMeta_letE_inv' h
-    simp only [Expr.WScoped] at hw
-    obtain ⟨Xt, rfl⟩ := ihty hw.1 hq (fun l hl' => hl l (by
-      simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl (Or.inl hl'))) hta
-    obtain ⟨Xv, rfl⟩ := ihval hw.2.1 hq (fun l hl' => hl l (by
-      simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl (Or.inr hl'))) hva
-    obtain ⟨Xb, rfl⟩ := ihbody (Expr.WScoped.instantiate1 hw.1 0 hw.2.2) (q := q) (by omega) (by
-      intro l hl'
-      rcases Expr.fvarLeaves_instantiate1 body 0 hl' with hl' | hl'
-      · exact hl l (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inr hl')
-      · simp only [Expr.fvarLeaves, List.mem_cons] at hl'
-        rcases hl' with rfl | hl'
-        · exact fun h => by simp at h; omega
-        · exact hl l (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl (Or.inl hl'))) hba
-    refine ⟨.letE Xt Xv Xb, ?_⟩
-    rw [AnnotTerm.liftN_letE, show d + 1 - 1 - q = d - 1 - q + 1 from by omega]
+  | case9 d ty val body =>
+    intro _ q hq hl ea h
+    rw [denoteMeta] at h
+    exact nomatch h
   | case10 d sn i e ihe =>
     intro hw q hq hl ea h
     obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h

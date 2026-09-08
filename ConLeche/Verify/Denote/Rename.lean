@@ -110,9 +110,6 @@ theorem denote_renameConsts {f : Name → Name} (hro : RenameOkT cval env f) :
       denote_renameConsts hro (body.instantiate1 (.fvar d ty)) (d + 1)]
   | .letE ty val body, d => by
     simp only [Expr.renameConsts, denote_letE]
-    rw [← Expr.renameConsts_instantiate1]
-    rw [denote_renameConsts hro ty d, denote_renameConsts hro val d,
-      denote_renameConsts hro (body.instantiate1 (.fvar d ty)) (d + 1)]
   termination_by e => e.sizeB
   decreasing_by
     all_goals first
@@ -280,14 +277,7 @@ theorem denote_renameConsts_resolve {f : Name → Name}
         (body.instantiate1 (.fvar d ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
   | .letE ty val body, d, hr => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts, denote_letE]
-    rw [← Expr.renameConsts_instantiate1]
-    rw [denote_renameConsts_resolve hup hval ty d hr.1.1,
-      denote_renameConsts_resolve hup hval val d hr.1.2,
-      denote_renameConsts_resolve hup hval
-        (body.instantiate1 (.fvar d ty)) (d + 1)
-        (Expr.constsResolve_instantiate1 hr.1.1 0 hr.2)]
   termination_by e => e.sizeB
   decreasing_by
     all_goals first

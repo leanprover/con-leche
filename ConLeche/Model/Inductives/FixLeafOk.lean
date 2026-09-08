@@ -56,10 +56,6 @@ theorem AnnotValid_congr_noBVar :
       (forall_congr' fun x => imp_congr Iff.rfl (ihB h.2 (agreeOff_cons hag x)))
       (imp_congr Iff.rfl (forall_congr' fun x => imp_congr Iff.rfl ?_)))
     rw [interp_congr_noBVar B h.2 (agreeOff_cons hag x)]
-  | letE T v b ihT ihv ihb =>
-    intro P σ σ' h hag
-    rw [AnnotValid_letE, AnnotValid_letE, ihT h.1 hag, ihv h.2.1 hag,
-      ihb h.2.2 (agreeOff_cons_of hag (interp_congr_noBVar v h.2.1 hag))]
   | eqE a b iha ihb =>
     intro P σ σ' h hag
     rw [AnnotValid, AnnotValid, iha h.1 hag, ihb h.2 hag]

@@ -126,7 +126,7 @@ Trusted mode is verified mode minus certification-only steps; it is
 faster and is outside the theorem. Both use the same core.
 
 The checker is a Lean-kernel-style type checker in the shape of the
-official one: `whnfCore` does β/ζ/ι/projection/quotient reduction,
+official one: `whnfCore` does β/ι/projection/quotient reduction,
 `whnf` adds δ-unfolding and the literal fast paths
 ([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L1816)),
 `inferType` computes a type, and `isDefEq` decides conversion with lazy
@@ -145,7 +145,10 @@ differ from a textbook presentation and matter for the proof:
   The checker validates the coherence of these annotations at run time;
   the proof consumes them. This is the price of not having a syntactic
   type theory (see §4). The annotation pass also ζ-expands `let`, so
-  stored terms are let-free.
+  stored terms are let-free — and since task #241 that is not merely a
+  fact about the output: every other kernel arm that could meet a `letE`
+  node raises a positive internal error, and the term language the
+  denotation targets has no `let` former at all.
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
@@ -185,7 +188,7 @@ predicate
 ([predicate `WellDenoted` in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/WellDenoted.lean#L81-L111)):
 hereditarily, every application applies a function to an argument of
 its domain, every λ has a bounded codomain, every projection hits a
-pair, and so on. Unlike syntactic typing it is preserved by β, ζ and
+pair, and so on. Unlike syntactic typing it is preserved by β and
 the other reduction steps
 ([the preservation lemmas in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/WellDenoted.lean#L303-L361)).
 An environment carries the invariant for every stored constant, plus
@@ -204,9 +207,9 @@ direction only
 
 They are proved by one simultaneous induction on fuel, clause by
 clause
-([the reduction step in `ConLeche/Model/Steps/Whnf.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/Whnf.lean#L912-L913),
+([the reduction step in `ConLeche/Model/Steps/Whnf.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/Whnf.lean#L844-L845),
 [the definitional-equality step in `ConLeche/Model/Steps/DefEq.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/DefEq.lean#L1338-L1347),
-[the inference step in `ConLeche/Model/Steps/Infer.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/Infer.lean#L1131-L1138)).
+[the inference step in `ConLeche/Model/Steps/Infer.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/Infer.lean#L1036-L1043)).
 This is where the usual difficulty of intensional soundness proofs, the
 injectivity of Π needed to invert the typing of `f` in an application,
 does not arise: `inferType` itself reduces `f`'s type to a syntactic Π,

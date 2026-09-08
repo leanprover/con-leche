@@ -37,7 +37,7 @@ replaced by the corresponding term formers.
 | `SetTheory.app vf va` | `.app ⟦f⟧ ⟦a⟧` |
 | `sfst ve`/`ssnd ve` | `.fst ⟦e⟧`/`.snd ⟦e⟧` (the formers, task #119) |
 | `natLitVal zv sv n` | `natLitT ⟦zero⟧ ⟦succ⟧ n` |
-| `letE` ↦ its zeta reduct | `.letE ⟦ty⟧ ⟦val⟧ ⟦body⟧` (**structural**) |
+| `letE` ↦ its zeta reduct | `none` — there is no `letE` former (task #241) |
 
 Three points where the transpose is worth stating rather than reading
 off the table.
@@ -74,11 +74,12 @@ construction of the valuation* as declarations install, which is
 exactly `EnvModel`'s existing induction and needs no new termination
 argument.  Task #119 follows the set model here, by direction.)
 
-## Why `denote` is structural, including at `let`
+## There is no `let` in the term language
 
-**Every clause maps a constructor to a constructor.**  That is not
-cosmetic, and the `letE` clause is where it was decided.  The principle
-to preserve, if any clause is ever tempted to compute:
+**Every clause maps a constructor to a constructor** — or, at `letE`,
+to `none`.  That is not cosmetic, and the `letE` clause is where it was
+decided.  The principle to preserve, if any clause is ever tempted to
+compute:
 
 > **A structural `denote` is what keeps the bridge's substitution
 > metatheory small.**
@@ -95,22 +96,19 @@ that performs a substitution forces the bridge's own metatheory to
 prove that lifting commutes with instantiation, and then that lifting
 commutes with lifting, and the swamp `ConLeche/Term/Subst.lean` is proud
 of avoiding (lean4lean's 123 syntactic lemmas) reappears one layer
-down.  The shift lemma (`ConLeche/Verify/Denote/Shift.lean`) is where this
-showed up concretely: with `b.inst xv` its `letE` case needs two
-commutation lemmas; with `.letE A xv b` it is structural and needs
-none.
+down.
 
-So a `let` denotes to `Term.letE`, and a consumer that wants the
-reduct gets it from a premise-free zeta equation.  The cost is one
-rule application at the zeta clause of `whnfCore`; the saving is that
-the reading keeps the property the term language advertises — its
-substitution metatheory stays small.
-
-(The clause also denotes the type annotation, which `interpExpr` does
-not read.  A substituting `letE` rule needs it, and stored terms carry no `letE`
-today — the checker zeta-expands at annotation time — so nothing is
-lost until task #117 lands, at which point the checker's own `letE`
-rule supplies exactly this premise.)
+The structural alternative — a `Term.letE` former mirroring `Expr`'s —
+carried the clause until task #241, and it is gone too, for the reason
+that made it dead weight: **no stored expression carries a `let`**.
+`annotateBody` is the one pass that meets a `letE` node from the
+stream, and it runs the official `infer_let` triple and returns the
+ζ *reduct* (task #217); every other kernel arm that used to accept a
+`letE` — `whnfCore`'s ζ step, `inferBody`'s and `inferBodyIO`'s
+triples — is now a positive `.internal` error (task #241).  So the
+clause is `none`, the term language has one former fewer, and the
+`letE` case of every reduction walk and every transport lemma is
+**vacuous**: they all carry `denote… = some _` as a premise.
 
 ## Projections, and why the layer grew a former for them
 
@@ -236,15 +234,10 @@ obligation. -/
     match denote cval env φ d f, denote cval env φ d a with
     | some vf, some va => some (.app vf va)
     | _, _ => none
-  | d, .letE ty val body =>
-    -- structural: a `let` denotes to the layer's own `letE`, *not* to
-    -- its zeta reduct.  See "Why `denote` is structural" above.
-    match denote cval env φ d ty, denote cval env φ d val with
-    | some A, some xv =>
-      match denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
-      | none => none
-      | some b => some (.letE A xv b)
-    | _, _ => none
+  | _, .letE _ _ _ =>
+    -- **`none` by design** (task #241): `Term` has no `letE` former.
+    -- See "There is no `let` in the term language" above.
+    none
   | d, .proj sn i e =>
     -- the transpose of `interpExpr`'s clause, the pair side's index
     -- decoded by `projPair?`; a tower-backed entry (task #175 wiring W3)
@@ -337,13 +330,7 @@ theorem denote_lam (cval : TConstVal) (env : Env) (φ : Name → Nat)
 
 theorem denote_letE (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (d : Nat) (ty val body : Expr) :
-    denote cval env φ d (.letE ty val body) =
-      match denote cval env φ d ty, denote cval env φ d val with
-      | some A, some xv =>
-        match denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
-        | none => none
-        | some b => some (.letE A xv b)
-      | _, _ => none := by
+    denote cval env φ d (.letE ty val body) = none := by
   rw [denote]
 
 theorem denote_proj (cval : TConstVal) (env : Env) (φ : Name → Nat)

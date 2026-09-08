@@ -96,8 +96,6 @@ theorem liftN_liftN : ∀ (v : Term) (m n k : Nat),
   | app f a ihf iha => intro m n k; simp only [Term.liftN_app, ihf, iha]
   | lam A b ihA ihb => intro m n k; simp only [Term.liftN_lam, ihA, ihb]
   | pi A B ihA ihB => intro m n k; simp only [Term.liftN_pi, ihA, ihB]
-  | letE T v b ihT ihv ihb =>
-    intro m n k; simp only [Term.liftN_letE, ihT, ihv, ihb]
   | eqE a b iha ihb =>
     intro m n k; simp only [Term.liftN_eqE, iha, ihb]
   | fst e ihe => intro m n k; simp only [Term.liftN_fst, ihe]
@@ -114,8 +112,6 @@ theorem liftN_zero : ∀ (v : Term) (k : Nat), Term.liftN 0 v k = v := by
   | app f a ihf iha => intro k; simp only [Term.liftN_app, ihf, iha]
   | lam A b ihA ihb => intro k; simp only [Term.liftN_lam, ihA, ihb]
   | pi A B ihA ihB => intro k; simp only [Term.liftN_pi, ihA, ihB]
-  | letE T v b ihT ihv ihb => intro k; simp only [Term.liftN_letE, ihT, ihv,
-    ihb]
   | eqE a b iha ihb => intro k; simp only [Term.liftN_eqE, iha, ihb]
   | fst e ihe => intro k; simp only [Term.liftN_fst, ihe]
   | snd e ihe => intro k; simp only [Term.liftN_snd, ihe]
@@ -231,23 +227,8 @@ theorem denote_shiftFrom (hcl : ∀ n ψ, Term.Closed (cval n ψ)) {p : Nat} :
       | none => rfl
       | some B => simp only [Option.map_some, Term.liftN_lam]
   | .letE ty val body, d, hpd, hfb => by
-    simp only [Expr.shiftFrom, denote_letE]
-    rw [denote_shiftFrom hcl ty d hpd hfb.1,
-      denote_shiftFrom hcl val d hpd hfb.2.1]
-    cases hty : denote cval env φ d ty with
-    | none => simp
-    | some A =>
-      cases hval : denote cval env φ d val with
-      | none => simp
-      | some xv =>
-        simp only [Option.map_some]
-        rw [← Expr.shiftFrom_instantiate1 hpd body 0,
-          denote_shiftFrom hcl (body.instantiate1 (.fvar d ty)) (d + 1)
-            (by omega) (Expr.fvarsBelow_instantiate1 0 hfb.2.2),
-          show d + 1 - p = d - p + 1 from by omega]
-        cases denote cval env φ (d + 1) (body.instantiate1 (.fvar d ty)) with
-        | none => rfl
-        | some B => simp only [Option.map_some, Term.liftN_letE]
+    -- task #241: `denote` is `none` at a `letE`, on both sides
+    simp only [Expr.shiftFrom, denote_letE, Option.map_none]
   | .proj s i e, d, hpd, hfb => by
     simp only [Expr.shiftFrom, denote_proj]
     rw [denote_shiftFrom hcl e d hpd hfb]
@@ -412,33 +393,18 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, Term.Closed (cval n ψ)) :
     split at h
     · next vf va k1 k2 => exact (hbad vf va k1 k2).elim
     · exact nomatch h
-  | case14 d ty val body vf va h1 h2 h3 ihty ihval ihbody =>
-    intro _ _ v h; simp only [denote_letE, h1, h2, h3] at h; exact nomatch h
-  | case15 d ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
-    intro hws hb v h
-    simp only [denote_letE, h1, h2, h3] at h
-    obtain rfl : v = .letE vf va B := (Option.some.inj h).symm
-    simp only [Expr.WScoped] at hws
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    exact ⟨ihty hws.1 hb.1.1 h2, ihval hws.2.1 hb.1.2 h1,
-      ihbody (Expr.WScoped.instantiate1 hws.1 0 hws.2.2)
-        (looseBVarsBounded_instantiate1 body 0 hb.2) h3⟩
-  | case16 d ty val body hbad ihty ihval =>
-    intro _ _ v h
-    rw [denote_letE] at h
-    split at h
-    · next vf va k1 k2 => exact (hbad vf va k1 k2).elim
-    · exact nomatch h
-  | case17 d sn i e h1 ihe =>
+  | case14 d ty val body =>
+    intro _ _ v h; rw [denote_letE] at h; exact nomatch h
+  | case15 d sn i e h1 ihe =>
     intro _ _ v h; rw [denote_proj, h1] at h; exact nomatch h
-  | case18 d sn i e B h1 entry h2 ihe =>
+  | case16 d sn i e B h1 entry h2 ihe =>
     intro hws hb v h
     rw [denote_proj, h1, h2] at h
     simp only [Option.some.injEq] at h
     simp only [Expr.WScoped] at hws
     obtain rfl : v = projNV (i + entry.off) B := h.symm
     exact projNV_bvarsBelow _ (ihe hws hb h1)
-  | case19 d sn i e B h1 h2 ihe =>
+  | case17 d sn i e B h1 h2 ihe =>
     intro hws hb v h
     rw [denote_proj, h1, h2] at h
     simp only [Expr.WScoped] at hws
@@ -449,22 +415,22 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, Term.Closed (cval n ψ)) :
     · simp only [Term.projPair?, Option.some.injEq] at h
       exact h ▸ hB
     · exact nomatch h
-  | case20 d n hg =>
+  | case18 d n hg =>
     intro _ _ v h
     rw [denote_natLit, if_pos hg] at h
     obtain rfl := (Option.some.inj h).symm
     exact Term.bvarsBelow.mono (Nat.zero_le d)
       (natLitT_closed (hcl _ _) (hcl _ _) n)
-  | case21 d n hg =>
+  | case19 d n hg =>
     intro _ _ v h; rw [denote_natLit, if_neg hg] at h; exact nomatch h
-  | case22 d t hg =>
+  | case20 d t hg =>
     intro _ _ v h
     rw [denote_strLit, if_pos hg] at h
     obtain rfl := (Option.some.inj h).symm
     exact Term.bvarsBelow.mono (Nat.zero_le d) (strLitT_closed hcl t)
-  | case23 d t hg =>
+  | case21 d t hg =>
     intro _ _ v h; rw [denote_strLit, if_neg hg] at h; exact nomatch h
-  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case22 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     intro _ _ v h
     match x with
     | .bvar i => rw [denote_bvar] at h; exact nomatch h

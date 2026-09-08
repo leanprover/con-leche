@@ -157,27 +157,8 @@ theorem denoteMeta_shiftFrom
       | none => rfl
       | some ba => rfl
   | .letE ty val body, d, hpd, hw => by
-    rw [ConLeche.Expr.WScoped] at hw
-    have hwb : Expr.WScoped (d + 1)
-        (body.instantiate1 (.fvar d ty)) :=
-      ConLeche.Expr.WScoped.instantiate1 hw.1 0 hw.2.2
-    simp only [ConLeche.Expr.shiftFrom, denoteMeta]
-    rw [← ConLeche.Expr.shiftFrom_instantiate1 hpd body 0,
-      denoteMeta_shiftFrom hacl ty d hpd hw.1,
-      denoteMeta_shiftFrom hacl val d hpd hw.2.1,
-      denoteMeta_shiftFrom hacl (body.instantiate1 (.fvar d ty))
-        (d + 1) (by omega) hwb,
-      show d + 1 - p = d - p + 1 from by omega]
-    cases denoteMeta acval env φ d ty with
-    | none => rfl
-    | some ta =>
-      cases denoteMeta acval env φ d val with
-      | none => rfl
-      | some va =>
-        cases denoteMeta acval env φ (d + 1)
-            (body.instantiate1 (.fvar d ty)) with
-        | none => rfl
-        | some ba => rfl
+    -- task #241: `denoteMeta` is `none` at a `letE`, on both sides
+    simp only [ConLeche.Expr.shiftFrom, denoteMeta, Option.map_none]
   | .proj sn i e, d, hpd, hw => by
     rw [ConLeche.Expr.WScoped] at hw
     simp only [ConLeche.Expr.shiftFrom, denoteMeta]

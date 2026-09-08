@@ -143,16 +143,6 @@ theorem WellDenotedV.lam_dom {v : Nat} {A b : AnnotTerm} {ρ : Nat → V}
   · have h1 := h.1; rw [WellDenoted_lam] at h1; exact h1.1
   · have h2 := h.2; rw [AnnotValid_lam] at h2; exact h2.1
 
-/-- **The graded ζ step, P currency.** -/
-theorem WellDenotedV_zeta {T v b : AnnotTerm} {ρ : Nat → V}
-    (h : WellDenotedV V ρ (.letE T v b)) :
-    interp V ρ (.letE T v b) = interp V ρ (b.inst v) ∧
-      WellDenotedV V ρ (b.inst v) := by
-  obtain ⟨heq, hok2⟩ := WellDenoted_zeta V h.1
-  refine ⟨heq, hok2, ?_⟩
-  have hv := h.2
-  rw [AnnotValid_letE] at hv
-  exact (AnnotValid_inst0 V hv.2.1).mpr hv.2.2
 
 /-- **The graded β step at a positive kind, P currency.** -/
 theorem WellDenotedV_beta_pos {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm}

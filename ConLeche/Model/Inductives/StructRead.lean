@@ -83,11 +83,9 @@ theorem denoteMeta_acvalWith_unmentioned
     intro hcr
     simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
     rw [denoteMeta, denoteMeta, ihf hcr.1, iha hcr.2]
-  | case9 d ty val body ihty ihval ihbody =>
-    intro hcr
-    simp only [Expr.constsResolve, Bool.and_eq_true] at hcr
-    rw [denoteMeta, denoteMeta, ihty hcr.1.1, ihval hcr.1.2,
-      ihbody (Expr.constsResolve_instantiate1 hcr.1.1 0 hcr.2)]
+  | case9 d ty val body =>
+    intro _
+    rw [denoteMeta, denoteMeta]
   | case10 d sn i e ihe =>
     intro hcr
     simp only [Expr.constsResolve, Bool.and_eq_true] at hcr

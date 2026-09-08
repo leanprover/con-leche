@@ -75,10 +75,6 @@ theorem liftN_liftN_absorb : ∀ (e : AnnotTerm) {j k m : Nat}, k ≤ j →
     intro j k m hkj hjk n
     simp only [liftN_pi, ihA hkj hjk n,
       ihB (show k + 1 ≤ j + 1 by omega) (show j + 1 ≤ k + 1 + m by omega) n]
-  | letE T v b ihT ihv ihb =>
-    intro j k m hkj hjk n
-    simp only [liftN_letE, ihT hkj hjk n, ihv hkj hjk n,
-      ihb (show k + 1 ≤ j + 1 by omega) (show j + 1 ≤ k + 1 + m by omega) n]
   | eqE a b iha ihb =>
     intro j k m hkj hjk n
     simp only [liftN_eqE, iha hkj hjk n, ihb hkj hjk n]
@@ -118,10 +114,6 @@ theorem inst_liftN_absorb : ∀ (e : AnnotTerm) {j k m : Nat}, j ≤ k →
     intro j k m hjk hkj a
     simp only [liftN_pi, inst_pi, ihA hjk hkj a,
       ihB (show j + 1 ≤ k + 1 by omega) (show k + 1 ≤ j + 1 + m by omega) a]
-  | letE T v b ihT ihv ihb =>
-    intro j k m hjk hkj a
-    simp only [liftN_letE, inst_letE, ihT hjk hkj a, ihv hjk hkj a,
-      ihb (show j + 1 ≤ k + 1 by omega) (show k + 1 ≤ j + 1 + m by omega) a]
   | eqE b c ihb ihc =>
     intro j k m hjk hkj a
     simp only [liftN_eqE, inst_eqE, ihb hjk hkj a,
@@ -176,11 +168,6 @@ theorem inst_liftN_comm : ∀ (e : AnnotTerm) {j k m : Nat}, j + m ≤ k →
     simp only [liftN_pi, inst_pi, ihA hjk a,
       ihB (show j + 1 + m ≤ k + 1 by omega) a]
     rw [show k + 1 - m = k - m + 1 by omega]
-  | letE T v b ihT ihv ihb =>
-    intro j k m hjk a
-    simp only [liftN_letE, inst_letE, ihT hjk a, ihv hjk a,
-      ihb (show j + 1 + m ≤ k + 1 by omega) a]
-    rw [show k + 1 - m = k - m + 1 by omega]
   | eqE b c ihb ihc =>
     intro j k m hjk a
     simp only [liftN_eqE, inst_eqE, ihb hjk a, ihc hjk a]
@@ -234,11 +221,6 @@ theorem inst_inst_comm : ∀ (e : AnnotTerm) {j k : Nat}, j ≤ k →
   | pi u v A B ihA ihB =>
     intro j k hjk a b
     simp only [inst_pi, ihA hjk, ihB (show j + 1 ≤ k + 1 by omega)]
-    rw [show k + 1 - (j + 1) = k - j by omega]
-  | letE T v c ihT ihv ihc =>
-    intro j k hjk a b
-    simp only [inst_letE, ihT hjk, ihv hjk,
-      ihc (show j + 1 ≤ k + 1 by omega)]
     rw [show k + 1 - (j + 1) = k - j by omega]
   | eqE c d ihc ihd =>
     intro j k hjk a b

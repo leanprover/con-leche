@@ -203,20 +203,6 @@ theorem sound_const (ρ : Nat → V) (c : ConLeche.Term.BConst)
 
 /-! ## The remaining structural rows -/
 
-/-- **`letE`.**  Interface facts: the body's two facts at the value
-substituted.  ζ is annotation-free — `interp`'s `letE` clause *is* the
-contractum's reading — so the row is an identity, not a step. -/
-theorem sound_letE {ρ : Nat → V} {Ta va ba Ba : AnnotTerm}
-    (hokT : WellDenoted V ρ Ta) (hokv : WellDenoted V ρ va)
-    (hokb : WellDenoted V (cons (interp V ρ va) ρ) ba)
-    (hb : interp V (cons (interp V ρ va) ρ) ba
-      ∈ˢ interp V (cons (interp V ρ va) ρ) Ba) :
-    WellDenoted V ρ (.letE Ta va ba) ∧
-      interp V ρ (.letE Ta va ba)
-        ∈ˢ interp V (cons (interp V ρ va) ρ) Ba := by
-  refine ⟨by rw [WellDenoted_letE]; exact ⟨hokT, hokv, hokb⟩, ?_⟩
-  rw [interp_letE]
-  exact hb
 
 /-! ## The projection rows
 

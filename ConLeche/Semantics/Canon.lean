@@ -120,12 +120,9 @@ def denoteAnnot (mode : CheckMode) (acval : Name → (Name → Nat) → AnnotTer
     let fa ← denoteAnnot mode acval env φ fuel d f
     let aa ← denoteAnnot mode acval env φ fuel d a
     some (.app fa aa)
-  | d, .letE ty val body => do
-    let ta ← denoteAnnot mode acval env φ fuel d ty
-    let va ← denoteAnnot mode acval env φ fuel d val
-    let ba ← denoteAnnot mode acval env φ fuel (d + 1)
-      (body.instantiate1 (.fvar d ty))
-    some (.letE ta va ba)
+  | _, .letE _ _ _ =>
+    -- **`none` by design** (task #241); see `denoteMeta`'s clause
+    none
   | d, .proj sn i e => do
     let ea ← denoteAnnot mode acval env φ fuel d e
     -- the entry-kind branch (task #175 wiring W3), clause-parallel
@@ -281,22 +278,10 @@ theorem denoteAnnot_erase {mode : CheckMode}
     obtain rfl := Option.some.inj h
     rw [denote_app, ihf hfa, iha haa]
     rfl
-  | case9 d ty val body ihty ihval ihbody =>
+  | case9 d ty val body =>
     intro ea h
     rw [denoteAnnot] at h
-    rcases hta : denoteAnnot mode acval env φ fuel d ty with _ | ta
-    · rw [hta] at h; exact nomatch h
-    rw [hta] at h
-    rcases hva : denoteAnnot mode acval env φ fuel d val with _ | va
-    · rw [hva] at h; exact nomatch h
-    rw [hva] at h
-    rcases hba : denoteAnnot mode acval env φ fuel (d + 1)
-        (body.instantiate1 (.fvar d ty)) with _ | ba
-    · rw [hba] at h; exact nomatch h
-    rw [hba] at h
-    obtain rfl := Option.some.inj h
-    rw [denote_letE, ihty hta, ihval hva, ihbody hba]
-    rfl
+    exact nomatch h
   | case10 d sn i e ihe =>
     intro ea h
     rw [denoteAnnot] at h
