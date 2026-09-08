@@ -414,14 +414,14 @@ after each call. -/
 
 /-- The memo's invariant: every recorded answer is the real one. -/
 def LooseBVarMemoInv (memo : Std.HashMap (Expr × Nat) Bool) : Prop :=
-  ∀ (k : Expr × Nat) (r : Bool), memo[k]? = some r → r = k.1.hasLooseBVarB k.2
+  ∀ (k : Expr × Nat) (r : Bool), memo[k]? = some r → r = Expr.hasLooseBVarB k.2 k.1
 
 theorem LooseBVarMemoInv.empty : LooseBVarMemoInv {} := by
   intro k r h; simp at h
 
 theorem LooseBVarMemoInv.insert {memo : Std.HashMap (Expr × Nat) Bool}
     (hm : LooseBVarMemoInv memo) {e : Expr} {i : Nat} {r : Bool}
-    (heq : r = e.hasLooseBVarB i) :
+    (heq : r = Expr.hasLooseBVarB i e) :
     LooseBVarMemoInv (memo.insert (e, i) r) := by
   intro k r' hk
   rw [Std.HashMap.getElem?_insert] at hk
@@ -432,7 +432,14 @@ theorem LooseBVarMemoInv.insert {memo : Std.HashMap (Expr × Nat) Bool}
     exact heq
   · exact hm k r' hk
 
-/-- Memoized `hasLooseBVarB` (the cutoff first, then the memo). -/
+/-- Record one answer for `(e, i)` in the memo the walk hands back.
+Written with projections rather than a destructuring `let` so that the
+correctness proof can `split` the walk's own matches. -/
+@[inline] def Expr.hasLooseBVarBIns (e : Expr) (i : Nat)
+    (r : Bool × Std.HashMap (Expr × Nat) Bool) : Bool × Std.HashMap (Expr × Nat) Bool :=
+  (r.1, r.2.insert (e, i) r.1)
+
+/-- Memoized `hasLooseBVarB`. -/
 def Expr.hasLooseBVarBGo (memo : Std.HashMap (Expr × Nat) Bool) (i : Nat) (e : Expr) :
     Bool × Std.HashMap (Expr × Nat) Bool :=
   if e.bvarB ≤ i then (false, memo) else
@@ -446,126 +453,177 @@ def Expr.hasLooseBVarBGo (memo : Std.HashMap (Expr × Nat) Bool) (i : Nat) (e : 
     match memo[(e, i)]? with
     | some r => (r, memo)
     | none =>
-      let (r, memo) : Bool × Std.HashMap (Expr × Nat) Bool :=
+      Expr.hasLooseBVarBIns e i <|
         match e with
         | .app f a =>
-          let (b₁, memo) := hasLooseBVarBGo memo i f
-          let (b₂, memo) := hasLooseBVarBGo memo i a
-          (b₁ || b₂, memo)
+          match hasLooseBVarBGo memo i f with
+          | (true, memo) => (true, memo)
+          | (false, memo) => hasLooseBVarBGo memo i a
         | .lam ty b _ =>
-          let (b₁, memo) := hasLooseBVarBGo memo i ty
-          let (b₂, memo) := hasLooseBVarBGo memo (i + 1) b
-          (b₁ || b₂, memo)
+          match hasLooseBVarBGo memo i ty with
+          | (true, memo) => (true, memo)
+          | (false, memo) => hasLooseBVarBGo memo (i + 1) b
         | .forallE ty b _ =>
-          let (b₁, memo) := hasLooseBVarBGo memo i ty
-          let (b₂, memo) := hasLooseBVarBGo memo (i + 1) b
-          (b₁ || b₂, memo)
+          match hasLooseBVarBGo memo i ty with
+          | (true, memo) => (true, memo)
+          | (false, memo) => hasLooseBVarBGo memo (i + 1) b
         | .letE t v b =>
-          let (b₁, memo) := hasLooseBVarBGo memo i t
-          let (b₂, memo) := hasLooseBVarBGo memo i v
-          let (b₃, memo) := hasLooseBVarBGo memo (i + 1) b
-          (b₁ || b₂ || b₃, memo)
+          match hasLooseBVarBGo memo i t with
+          | (true, memo) => (true, memo)
+          | (false, memo) =>
+            match hasLooseBVarBGo memo i v with
+            | (true, memo) => (true, memo)
+            | (false, memo) => hasLooseBVarBGo memo (i + 1) b
         | .proj _ _ sub => hasLooseBVarBGo memo i sub
-        | e => (e.hasLooseBVarB i, memo)
-      (r, memo.insert (e, i) r)
+        | _ => (false, memo)
 
 /-- **The memoized walk is `hasLooseBVarB`.** -/
 theorem Expr.hasLooseBVarBGo_spec :
-    ∀ (e : Expr) (i : Nat) (memo : Std.HashMap (Expr × Nat) Bool),
-      LooseBVarMemoInv memo →
-      (hasLooseBVarBGo memo i e).1 = e.hasLooseBVarB i ∧
+    ∀ (e : Expr) (i : Nat) (memo : Std.HashMap (Expr × Nat) Bool), LooseBVarMemoInv memo →
+      (hasLooseBVarBGo memo i e).1 = Expr.hasLooseBVarB i e ∧
         LooseBVarMemoInv (hasLooseBVarBGo memo i e).2 := by
   intro e
   induction e with
   | bvar j =>
     intro i memo hm
-    rw [hasLooseBVarBGo, hasLooseBVarB]; split <;> exact ⟨rfl, hm⟩
-  | fvar j ty _ =>
+    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
+    split <;> exact ⟨rfl, hm⟩
+  | fvar idx ty _ =>
     intro i memo hm
-    rw [hasLooseBVarBGo, hasLooseBVarB]; split <;> exact ⟨rfl, hm⟩
+    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
+    split <;> exact ⟨rfl, hm⟩
   | sort u =>
     intro i memo hm
-    rw [hasLooseBVarBGo, hasLooseBVarB]; split <;> exact ⟨rfl, hm⟩
+    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
+    split <;> exact ⟨rfl, hm⟩
   | const n us =>
     intro i memo hm
-    rw [hasLooseBVarBGo, hasLooseBVarB]; split <;> exact ⟨rfl, hm⟩
+    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
+    split <;> exact ⟨rfl, hm⟩
   | lit l =>
     intro i memo hm
-    rw [hasLooseBVarBGo, hasLooseBVarB]; split <;> exact ⟨rfl, hm⟩
+    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
+    split <;> exact ⟨rfl, hm⟩
   | app f a ihf iha =>
     intro i memo hm
     rw [hasLooseBVarBGo]
     split
     · rename_i hcut
-      exact ⟨by rw [hasLooseBVarB, if_pos hcut], hm⟩
+      exact ⟨by rw [Expr.hasLooseBVarB, if_pos hcut], hm⟩
     · rename_i hcut
+      have hspec : Expr.hasLooseBVarB i (.app f a)
+          = (Expr.hasLooseBVarB i f || Expr.hasLooseBVarB i a) := by
+        rw [Expr.hasLooseBVarB, if_neg hcut]
       split
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
       · obtain ⟨h1, h2⟩ := ihf i memo hm
-        obtain ⟨h3, h4⟩ := iha i _ h2
-        refine ⟨by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3], ?_⟩
-        exact h4.insert (by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3])
-  | lam ty b bi iht ihb =>
+        simp only [hasLooseBVarBIns]
+        split
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          obtain ⟨h3, h4⟩ := iha i memo₁ h2
+          exact ⟨by simp [hspec, ← h1, h3], h4.insert (by simp [hspec, ← h1, h3])⟩
+  | lam ty b m iht ihb =>
     intro i memo hm
     rw [hasLooseBVarBGo]
     split
     · rename_i hcut
-      exact ⟨by rw [hasLooseBVarB, if_pos hcut], hm⟩
+      exact ⟨by rw [Expr.hasLooseBVarB, if_pos hcut], hm⟩
     · rename_i hcut
+      have hspec : Expr.hasLooseBVarB i (.lam ty b m)
+          = (Expr.hasLooseBVarB i ty || Expr.hasLooseBVarB (i + 1) b) := by
+        rw [Expr.hasLooseBVarB, if_neg hcut]
       split
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
       · obtain ⟨h1, h2⟩ := iht i memo hm
-        obtain ⟨h3, h4⟩ := ihb (i + 1) _ h2
-        refine ⟨by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3], ?_⟩
-        exact h4.insert (by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3])
-  | forallE ty b bi iht ihb =>
+        simp only [hasLooseBVarBIns]
+        split
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          obtain ⟨h3, h4⟩ := ihb (i + 1) memo₁ h2
+          exact ⟨by simp [hspec, ← h1, h3], h4.insert (by simp [hspec, ← h1, h3])⟩
+  | forallE ty b m iht ihb =>
     intro i memo hm
     rw [hasLooseBVarBGo]
     split
     · rename_i hcut
-      exact ⟨by rw [hasLooseBVarB, if_pos hcut], hm⟩
+      exact ⟨by rw [Expr.hasLooseBVarB, if_pos hcut], hm⟩
     · rename_i hcut
+      have hspec : Expr.hasLooseBVarB i (.forallE ty b m)
+          = (Expr.hasLooseBVarB i ty || Expr.hasLooseBVarB (i + 1) b) := by
+        rw [Expr.hasLooseBVarB, if_neg hcut]
       split
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
       · obtain ⟨h1, h2⟩ := iht i memo hm
-        obtain ⟨h3, h4⟩ := ihb (i + 1) _ h2
-        refine ⟨by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3], ?_⟩
-        exact h4.insert (by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3])
+        simp only [hasLooseBVarBIns]
+        split
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          obtain ⟨h3, h4⟩ := ihb (i + 1) memo₁ h2
+          exact ⟨by simp [hspec, ← h1, h3], h4.insert (by simp [hspec, ← h1, h3])⟩
   | letE t v b iht ihv ihb =>
     intro i memo hm
     rw [hasLooseBVarBGo]
     split
     · rename_i hcut
-      exact ⟨by rw [hasLooseBVarB, if_pos hcut], hm⟩
+      exact ⟨by rw [Expr.hasLooseBVarB, if_pos hcut], hm⟩
     · rename_i hcut
+      have hspec : Expr.hasLooseBVarB i (.letE t v b)
+          = (Expr.hasLooseBVarB i t || Expr.hasLooseBVarB i v
+              || Expr.hasLooseBVarB (i + 1) b) := by
+        rw [Expr.hasLooseBVarB, if_neg hcut]
       split
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
       · obtain ⟨h1, h2⟩ := iht i memo hm
-        obtain ⟨h3, h4⟩ := ihv i _ h2
-        obtain ⟨h5, h6⟩ := ihb (i + 1) _ h4
-        refine ⟨by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3, h5], ?_⟩
-        exact h6.insert (by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3, h5])
+        simp only [hasLooseBVarBIns]
+        split
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          obtain ⟨h3, h4⟩ := ihv i memo₁ h2
+          split
+          · rename_i memo₂ heq₂
+            rw [heq₂] at h3 h4
+            exact ⟨by simp [hspec, ← h1, ← h3], h4.insert (by simp [hspec, ← h1, ← h3])⟩
+          · rename_i memo₂ heq₂
+            rw [heq₂] at h3 h4
+            obtain ⟨h5, h6⟩ := ihb (i + 1) memo₂ h4
+            exact ⟨by simp [hspec, ← h1, ← h3, h5],
+              h6.insert (by simp [hspec, ← h1, ← h3, h5])⟩
   | proj s j sub ih =>
     intro i memo hm
     rw [hasLooseBVarBGo]
     split
     · rename_i hcut
-      exact ⟨by rw [hasLooseBVarB, if_pos hcut], hm⟩
+      exact ⟨by rw [Expr.hasLooseBVarB, if_pos hcut], hm⟩
     · rename_i hcut
+      have hspec : Expr.hasLooseBVarB i (.proj s j sub) = Expr.hasLooseBVarB i sub := by
+        rw [Expr.hasLooseBVarB, if_neg hcut]
       split
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
       · obtain ⟨h1, h2⟩ := ih i memo hm
-        refine ⟨by rw [hasLooseBVarB, if_neg hcut]; simp [h1], ?_⟩
-        exact h2.insert (by rw [hasLooseBVarB, if_neg hcut]; simp [h1])
+        simp only [hasLooseBVarBIns]
+        exact ⟨by simp [hspec, h1], h2.insert (by simp [hspec, h1])⟩
 
 /-- The executed `hasLooseBVarB` (one memoized DAG walk). -/
 def Expr.hasLooseBVarBFast (i : Nat) (e : Expr) : Bool :=
-  (hasLooseBVarBGo {} i e).1
+  (Expr.hasLooseBVarBGo {} i e).1
 
 @[csimp] theorem Expr.hasLooseBVarB_eq_hasLooseBVarBFast :
     @Expr.hasLooseBVarB = @Expr.hasLooseBVarBFast := by
@@ -596,6 +654,96 @@ def structProjGuards (cty : Expr) (nP nF : Nat) (sorts : List Level) :
         if structUsedLater cty nP j then .max acc (sorts.getD j .zero)
         else acc)
       (sorts.getD i .zero)
+
+/-! ### The guard table in one traversal (task #236)
+
+`structProjGuards` asks `structUsedLater cty nP j` once for every PAIR
+`j < i < nF`: O(nF²) walks of one telescope for nF distinct answers.
+The fast form computes the nF answers first, threading ONE
+`hasLooseBVarBGo` memo through them — so a node the walk for field `j`
+already answered at index `d` is not re-walked for field `j'` — and
+then folds over the recorded answers.  `@[csimp]`, so the pure
+definition above stays what `structProjGuards_getD` and the model
+stage tables consume. -/
+
+/-- Memoized `structUsedLater`, taking and returning the shared memo. -/
+def structUsedLaterGo (memo : Std.HashMap (Expr × Nat) Bool) (cty : Expr) (nP j : Nat) :
+    Bool × Std.HashMap (Expr × Nat) Bool :=
+  match cty.stripPis (nP + j + 1) with
+  | some (_, rest) => Expr.hasLooseBVarBGo memo 0 rest
+  | none => (false, memo)
+
+theorem structUsedLaterGo_spec (cty : Expr) (nP j : Nat)
+    {memo : Std.HashMap (Expr × Nat) Bool} (hm : LooseBVarMemoInv memo) :
+    (structUsedLaterGo memo cty nP j).1 = structUsedLater cty nP j ∧
+      LooseBVarMemoInv (structUsedLaterGo memo cty nP j).2 := by
+  rw [structUsedLaterGo, structUsedLater]
+  split
+  · exact Expr.hasLooseBVarBGo_spec _ 0 memo hm
+  · exact ⟨rfl, hm⟩
+
+/-- `structUsedLater cty nP j` for `j = base, …, base + n - 1`, in
+order, through one shared memo. -/
+def structUsedLaterList (cty : Expr) (nP : Nat) :
+    Std.HashMap (Expr × Nat) Bool → Nat → Nat → List Bool
+  | _, 0, _ => []
+  | memo, n + 1, base =>
+    let r := structUsedLaterGo memo cty nP base
+    r.1 :: structUsedLaterList cty nP r.2 n (base + 1)
+
+theorem structUsedLaterList_spec (cty : Expr) (nP : Nat) :
+    ∀ (n : Nat) (memo : Std.HashMap (Expr × Nat) Bool), LooseBVarMemoInv memo →
+      ∀ (base t : Nat), t < n →
+        (structUsedLaterList cty nP memo n base).getD t false
+          = structUsedLater cty nP (base + t) := by
+  intro n
+  induction n with
+  | zero => intro _ _ _ t ht; omega
+  | succ n ih =>
+    intro memo hm base t ht
+    obtain ⟨h1, h2⟩ := structUsedLaterGo_spec cty nP base hm
+    rw [structUsedLaterList]
+    cases t with
+    | zero => simpa using h1
+    | succ t =>
+      rw [List.getD_cons_succ, ih _ h2 (base + 1) t (by omega)]
+      congr 1
+      omega
+
+/-- `foldl` respects a pointwise equality of the step functions on the
+list's elements. -/
+private theorem foldlCongrMem {α β : Type _} {f g : α → β → α} :
+    ∀ (l : List β) (a : α), (∀ b ∈ l, ∀ x : α, f x b = g x b) → l.foldl f a = l.foldl g a
+  | [], _, _ => rfl
+  | b :: l, a, h => by
+    rw [List.foldl_cons, List.foldl_cons, h b (by simp) a]
+    exact foldlCongrMem l _ (fun b' hb' => h b' (by simp [hb']))
+
+/-- The executed `structProjGuards`: the `nF` `structUsedLater`
+answers first, one shared memo, then the fold. -/
+def structProjGuardsFast (cty : Expr) (nP nF : Nat) (sorts : List Level) :
+    List Level :=
+  let used := structUsedLaterList cty nP {} nF 0
+  (List.range nF).map fun i =>
+    (List.range i).foldl
+      (fun acc j =>
+        if used.getD j false then .max acc (sorts.getD j .zero)
+        else acc)
+      (sorts.getD i .zero)
+
+@[csimp] theorem structProjGuards_eq_structProjGuardsFast :
+    @structProjGuards = @structProjGuardsFast := by
+  funext cty nP nF sorts
+  have hused : ∀ j, j < nF →
+      (structUsedLaterList cty nP {} nF 0).getD j false = structUsedLater cty nP j := by
+    intro j hj
+    simpa using structUsedLaterList_spec cty nP nF {} LooseBVarMemoInv.empty 0 j hj
+  simp only [structProjGuards, structProjGuardsFast]
+  refine List.map_congr_left ?_
+  intro i hi
+  refine foldlCongrMem _ _ ?_
+  intro j hj x
+  rw [hused j (Nat.lt_trans (List.mem_range.mp hj) (List.mem_range.mp hi))]
 
 /-- **The projection bodies of a recognised block** (task #175 S1),
 one walk of the constructor telescope: after the parameters are

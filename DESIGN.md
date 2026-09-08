@@ -62291,3 +62291,143 @@ and 678 997 282 875 on the master before it — inside the noise band
 between them (+0.04 % / −0.12 %).  Two per-call hash maps on the
 install path cost nothing measurable, which is what the cutoff staying
 in front of the memo buys.
+
+## TASK #236 — THE GUARD TABLE IS ONE TRAVERSAL, AND THE DISJUNCTION SHORT-CIRCUITS: 14 % off `jzero_neron` on top of #233 (2026-09-08, `agent/usedlater`)
+
+#233 memoized `Expr.hasLooseBVarB` and `Expr.abstract1`, which is what
+stopped `ModularCurve.JZeroNeronObjectAtP` exhausting 22 GB.  Two
+things it left on the table, both measured here on the same base
+(`8244482b`), both in the caller rather than the walk:
+
+**1. `structProjGuards` still asks the question O(nF²) times.**  It
+calls `structUsedLater cty nP j` once for every PAIR `j < i < nF` —
+**1 431 calls at nF = 54 for 54 distinct answers** — and each call
+enters `hasLooseBVarBFast`, which allocates a FRESH memo.  So the memo
+is rebuilt 1 431 times over the same DAG and nothing is shared between
+the calls that ask about the same `j`.  `structProjGuardsFast`
+computes the nF answers once, threading ONE memo through them
+(`structUsedLaterGo`, `structUsedLaterList`), then folds over the
+recorded answers: the whole guard table becomes a single DAG
+traversal.
+
+**2. The disjunctions did not short-circuit.**  #233's
+`hasLooseBVarBGo` computes `(b₁ || b₂, memo)` at every binary node, so
+both children are always walked even once the first has answered
+`true`.  The pure `hasLooseBVarB` it is proved equal to uses `||`,
+which does short-circuit, so this was a divergence in *work* only —
+but on a `true` answer it is the difference between stopping at the
+first witness and walking the node's whole open subgraph.  The walk
+now matches `||`: `match hasLooseBVarBGo … with | (true, memo) =>
+(true, memo) | (false, memo) => …`.  The correctness proof splits on
+that match instead of `simp`ing through a `let`, which is why the
+memo-insert moved into `Expr.hasLooseBVarBIns` — projections rather
+than a destructuring `let`, so `split` can reach the walk's own
+matches.
+
+Both are `@[csimp]` as before; `structProjGuards`, `structUsedLater`
+and `Expr.hasLooseBVarB` are untouched, so `structProjGuards_getD`,
+`Expr.hasLooseBVarB_eq` and the model stage tables consume exactly
+what they did.
+
+**Measured** — `jzero_neron`, base `8244482b`, verified lane, single
+thread, `perf stat -e instructions:u`, `ulimit -v 22000000`, same
+verdict both arms (accepted, 40 903 declarations):
+
+| arm | instructions:u | wall |
+|---|---:|---:|
+| `8244482b` as-is | 825 879 840 947 | 103.4 s |
+| + this commit | **709 263 642 311** | **86.9 s** |
+
+**−116 616 198 636 instructions, −14.1 %** of the whole run — and the
+whole run is 40 903 declarations, of which this is one block, so the
+share of the block's own install is far larger than 14 %.  The figure
+also lands within **0.01 %** of an independent build of the same two
+refinements measured on `231c69e5` (709 189 664 567), which is the
+check that the two arms differ by these changes and nothing else.
+
+**MERGE RECORD (review lane `agent/pr2`, 2026-09-08).**  Landed from
+`github.com/leanprover/con-leche` PR #2 (author Kha, head `9c537ae6`)
+onto master `1e6881c6`, which is #231 phases 2 and 3 ahead of the PR's
+base `8244482b`.  The merge is clean: neither phase touched
+`StructParts.lean` below its header, so the file keeps master's
+`module` line, its single `@[expose] public section` — checker code
+stays exposed, and the new definitions sit inside it — and its
+narrowed `public import ConLeche.Kernel.Core`.  THE TASK NUMBER IS
+#236, not the #234 the branch and commit title carried: #234 was taken
+by the PERF-regeneration lane running at the same time, and the code
+section comment's "task #232" was a third number, taken by the
+OVERVIEW-anchor lane.  The header and that comment are the only edits
+the review made to the author's text (plus one doubled blank line).
+
+WHAT THE REVIEW CHECKED, beyond the gates.  `structProjGuards`,
+`structUsedLater` and `Expr.hasLooseBVarB` are textually IDENTICAL to
+master's, so `structProjGuards_getD`
+(`ConLeche/Verify/Inductives/StructPartsInv.lean`, which `unfold`s the
+pure definition), `Expr.hasLooseBVarB_eq`
+(`ConLeche/Verify/Inductives/StructBody.lean`) and the
+`ConLeche/Model/Inductives/FixStageTable.lean` stage tables consume
+exactly what they did; the new `…Fast`/`…Go`/`…List`/`…Ins` names occur
+nowhere outside this file, and the `LooseBVarMemoInv` restatement
+(`k.1.hasLooseBVarB k.2` written as `Expr.hasLooseBVarB k.2 k.1`) is
+the same term — dot notation was already filling `e`, the second
+explicit argument.  Both `@[csimp]` lemmas state `pure = fast` and are
+proved from the spec lemmas; the diff contains no `sorry`,
+`native_decide`, `implemented_by`, `partial`, `unsafe` or new axiom,
+and no threshold or memo-size heuristic.
+
+**Why the short-circuit does not break the memo.**  `LooseBVarMemoInv`
+is a PARTIAL-correctness invariant — *every recorded answer is the real
+one*, never *every subterm is recorded*.  After the first child answers
+`true` the entry written for the node is `true`, which the pure
+`hasLooseBVarB`'s own `||` agrees with whatever the unwalked child
+holds; the unwalked child's subterms are simply ABSENT from the memo
+rather than wrong, and absence costs at most a later re-walk.  That is
+also why threading ONE memo across the `nF` field walks is sound:
+`hasLooseBVarB i e` is a function of `(i, e)` alone, so an answer
+recorded while walking field `j`'s remainder is the answer for every
+other field's, and `structUsedLaterList_spec` PROVES the list agrees
+with `nF` separate `structUsedLater` calls
+(`getD t = structUsedLater cty nP (base + t)` for `t < n`) rather than
+assuming it — it is that lemma the `@[csimp]` proof consumes.  Two
+costs recorded, neither of them a verdict: the fast form computes one
+answer more than the fold reads (`j = nF - 1`, whose remainder is the
+smallest of the `nF`), and the shared memo lives for the whole guard
+table rather than per call, so its peak is the union of the walks
+rather than the largest of them.
+
+**Measured here.**  `jzero_neron` is not on this machine, so the towers
+are the gate.  The committed ones are three-field and move by 0.1 %
+(`tower_usedlater` 217.69 M → 217.49 M instructions:u, `tower_struct`
+and `tower_proj` unchanged to five digits) — the PR's win is in `nF`,
+which they do not have.  A 54-field variant of the same open tower
+(`scripts/mk_tower_fixtures.py`'s `mk_usedlater` with `nF=54`,
+`ftys=[Nat]*53 + [fTy]` and the tower over `bvar 52`; the same script
+at `nF=3` regenerates the committed fixture byte-identically) shows the
+effect directly, both arms accepting:
+
+| arm | instructions:u |
+|---|---:|
+| master `1e6881c6` | 685 633 065 |
+| + this merge | **393 435 508** |
+
+**−42.6 %** on a stream whose only content is one 54-field structure,
+reproducible to five digits over repeated runs — the 1 431-call guard
+table becoming 54 walks over one memo.  It is NOT committed as a
+fixture: both arms accept, so it would add runtime to the DAG-tower
+gate without guarding a verdict, and the O(nF²) it removes is a
+constant factor rather than the exponential the tower fixtures exist to
+catch.  The recipe above is the record.
+
+**Gates on the merged tree**: `lake build` 517 jobs warning-free;
+`lake test` exit 0 and warning-free; `tests/arena.sh` under a clean
+environment, exit 0, every count at master's — 90/92 arena, 177/177
+e2e, 14/14 annot, 8/8 retired flags, 18/18 mode flags, 3/3 prelude,
+12/12 progress, 10/10 DAG-tower, trusted sweep 138+177+14 with the
+three recorded divergences, axioms pinned at 11 theorems over the three
+standard, inmodel OK; layering 263/189/3/1 and 0/0 edges; trust surface
+18 in 4 of 465 and 0 outside; proofdeps 2846 rows across 7 roots with
+doors 0; overview-links 58 links over 44 files with no anchor
+repointed; pindump fresh.  init-full exit 0, 53 088 accepted, route
+census 584 fix / 6 basis / 1 inmodel, 677 995 004 784 instructions:u
+against #233's 678 166 690 054 and #231's 677 912 649 634 — inside the
+band between them, as expected of a stream whose structures are narrow.
