@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Model.Steps.Reads
-import ConLeche.Model.Steps.TowerKit
-import ConLeche.Model.Steps.InferIO
 public section
 
 /-!

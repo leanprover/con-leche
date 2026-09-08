@@ -1,6 +1,5 @@
 module
 
-import ConLeche.SetTheory.Basic
 public import ConLeche.SetTheory.Derive.Sigma
 
 @[expose] public section

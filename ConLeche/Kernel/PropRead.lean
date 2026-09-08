@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Kernel.Env
 public import ConLeche.Kernel.ExprOps
-import ConLeche.Kernel.Level
 
 @[expose] public section
 

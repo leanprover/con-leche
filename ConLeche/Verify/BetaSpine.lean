@@ -1,10 +1,6 @@
 module
 
 public import ConLeche.Verify.Fueled
-import ConLeche.Verify.BetaGate
-import ConLeche.Verify.Knot
-import ConLeche.Verify.InstList
-import ConLeche.Verify.InferLemmas
 
 public section
 

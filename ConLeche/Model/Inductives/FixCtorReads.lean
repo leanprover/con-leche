@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.FixRecReadDefs
-import ConLeche.Model.Inductives.FixData
-import ConLeche.Verify.Inductives.StructBody
 public section
 
 /-!

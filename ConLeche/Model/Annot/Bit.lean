@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Semantics.Canon
-import ConLeche.Semantics.Tower.TowerLeaf
 import ConLeche.Verify.PropWhen
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
 `Std.HashMap` pattern, task #194): the datum's module is `public` but not

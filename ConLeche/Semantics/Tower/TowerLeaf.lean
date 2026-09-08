@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Semantics.Tower.TowerIntro
-import ConLeche.SetModel.Value
 @[expose] public section
 
 /-!

@@ -176,6 +176,15 @@ if tests/trust-surface.sh; then :; else fail=1; fi
 # no build, milliseconds.
 if tests/overview-links.sh; then :; else fail=1; fi
 
+# THE IMPORT GATE (task #235).  Two questions no other gate asks and the
+# compiler answers for neither: is an import LINE needed at all (`lake shake`,
+# read against task #223's criterion and an allowlist of the proposals that
+# criterion rejects), and does a line need its `public` keyword — a re-export
+# only something else's PUBLIC statement can require, whose absence shows up
+# as a `rfl` that stops closing rather than an unknown identifier.  Needs the
+# built tree; ~1 min, most of it the two olean dumps the fixpoint reads.
+if tests/shake.sh; then :; else fail=1; fi
+
 # THE INSTALL-ROUTE CENSUS (task #207, the successor of task #193's
 # native-predicate audit).  There is no external predicate to compare
 # the recognisers against any more — the preprocessor and its mirror

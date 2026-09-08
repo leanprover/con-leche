@@ -1,9 +1,6 @@
 module
 
 public import ConLeche.Kernel.Core
-import ConLeche.Kernel.Env
-import ConLeche.Kernel.ExprOps
-import ConLeche.Kernel.Level
 
 public section
 
