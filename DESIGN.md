@@ -62811,3 +62811,153 @@ and −0.003 %**, 53 088 accepted in both.  And the binary is **byte-identical**
 `md5 ad555ff0c0b41d7132da5a8918453aa5` with the change applied and with it
 stashed, built twice in the same worktree so the baked-in paths match — lake
 does not relink, because no olean in the cone changed.
+
+## TASK #241 — THE `letE` CONSTRUCTOR GOES, AND THE OBSTRUCTION GOES FIRST (2026-09-08, `agent/letfree`)
+
+Task #237's census stopped at one theorem and recommended an
+install-time `Expr.LetFree` invariant.  The user's ruling (2026-09-08)
+rejected the price — *"a new invariant is too expensive! can we not
+make the denotation vacuously total? return some arbitrary value? or
+zeta reduce and denote that?"* — and the answer is the first of those,
+reached from the other side: **make the obstruction vacuous instead of
+making the denotation total.**  No invariant, no arbitrary value, no ζ
+contractum.
+
+### 1. What closed it: step 1 alone
+
+#237 §2's obstruction is `acceptedReads_of`
+(`ConLeche/Model/Steps/Accepted.lean`) — "whatever the front door's
+inference accepts, the validated-annotation reading reads", for
+**every** `e`.  It is false with `denoteMeta (.letE …) = none` *only
+because* `inferTypeCore`'s `.letE` arm accepts.  But #237 §4 had
+already recorded that arm as dead by construction, and dead by
+construction is a fact one can make the compiler state: **the arm is
+now a positive error**, and the hypothesis is unsatisfiable.
+
+Six arms changed, all of them the ones #237 §4 listed as *dead*:
+
+| arm | file |
+|---|---|
+| `whnfCoreBody`'s ζ step | `ConLeche/Kernel/Core.lean` |
+| `inferBody`'s `infer_let` triple | `ConLeche/Kernel/Core.lean` |
+| `inferBodyIO`'s triple | `ConLeche/Kernel/Core.lean` |
+| `whnfCoreBodyGated`'s ζ step | `ConLeche/Kernel/CoreGated.lean` |
+| `whnfCoreStepI`'s ζ step | `ConLeche/Cached/CoreC.lean` |
+| `inferBodyI`'s triple | `ConLeche/Cached/CoreC.lean` |
+
+plus the pure loop mirrors the refinement is stated against
+(`whnfCoreStepM`, `ConLeche/Verify/BetaSpine.lean`, and its unfolding
+in `ConLeche/Verify/Cached/DiscC4.lean`).  Each throws `.internal` —
+**exit 3, never a decline**: a `letE` reaching reduction or inference
+is an invariant violation, not a feature the checker does not support,
+and CLAUDE.md's exit-code rule decides it that way.  A regression would
+therefore show up as exit 3, which is the safe direction.
+
+**What is NOT changed, and why the run still rejects a bad `let`:**
+`annotateBody`'s own `.letE` clause (`Core.lean`, and `annotateBodyI`
+in `CoreC.lean`) is the *live* one — it runs the official `infer_let`
+triple and returns the ζ reduct (task #217).  It is the only pass that
+meets a `letE` node from the stream, every `inferType` call in
+`DeclCheck.lean` is preceded by an `annotate` on the same expression,
+and the three e2e fixtures `let_bad_{type,value,thm}` still reject.
+Every *structural* `Expr` traversal is untouched: the input stream has
+lets.
+
+### 2. The drop itself
+
+With the hypothesis unsatisfiable, `inferTypeCore_letE_inv` and
+`inferTypeCoreIO_letE_inv` (`Verify/InferLemmas.lean`,
+`Verify/InferIOLemmas.lean`) are restated as `… = .ok t → False`, and
+`whnfCore_letE_inv` joins them.  Then:
+
+* `denote` (`Verify/Denote.lean`), `denoteAnnot` (`Semantics/Canon.lean`)
+  and `denoteMeta` (`Model/Annot/Bit.lean`) return **`none`** at `.letE`
+  — kept as an explicit clause, so the functional-induction principles
+  keep a `letE` case (without recursive hypotheses) rather than
+  renumbering every consumer;
+* `Term.letE` and `AnnotTerm.letE` are **gone**;
+* the four `*_letE_claim`/`*Reads_letE` theorems in `Model/Steps/*`
+  are deleted and their dispatch arms are `(… _letE_inv h).elim`;
+* every clause-level lemma goes with the former — `interp_letE`,
+  `WellDenoted_letE`, `AnnotValid_letE`, `erase_letE`, the four
+  `liftN`/`inst` equations on both syntaxes, `sound_letE`,
+  `WellDenoted_zeta`, `WellDenotedV_zeta`, `WellDenoted.hoist_letE` /
+  `.of_letE` / `.hoist_zeta`, `WellDenotedV.hoist_letE`,
+  `BitAgree.letE`, `denoteMeta_letE_inv'`.
+
+#237 §2's prediction held exactly: everything except the ∃-direction
+carries `denote… = some _` as a **premise**, so the reduction walks
+(`Steps/Whnf`, `Steps/Infer`, `Steps/InferIO`, `Steps/Reads`,
+`Steps/ReadsIO`) and all six transport lemmas
+(`Denote/{Shift,Inst,Rename,Levels,Install,EnvExt}`) went vacuous
+rather than false.
+
+### 3. Step 2 was not needed
+
+The plan's fallback — return an arbitrary fixed value at the clause and
+name the theorem that forced it — was **never used**.  No theorem
+anywhere needs a *value* at `.letE`; `none` typechecks through the
+whole tree, `Model/Capstone.lean` included.  The ζ-reduce-and-denote
+route (#237 §3(a)) and the `Expr.LetFree` invariant (#237 §3(b)) both
+stay unbuilt, and the recommendation to build (b) is **withdrawn**:
+what it was going to buy — "the kernel's own dead `.letE` arms are
+*provably* dead rather than dead by inspection" — is now bought by the
+arms themselves being errors, at the cost of one `throw` per arm.
+
+Two `AnnotTerm.letE` findings from #237 §5 lapse with the constructor:
+the `ty` slot's hereditary constraint, and the whole "no sort slot"
+design note.  The `AnnotTerm.pi` `u`-slot finding stands.
+
+### 4. Prose that was stale and is not
+
+`Term/Syntax.lean`'s "`letE` is present … task #117" bullet said the
+opposite of the truth and named a task that never landed; it now says
+there is no `letE` and why.  `Verify/Denote.lean`'s "Why `denote` is
+structural, including at `let`" section — the one that *withdrew* the
+substituting clause — becomes "There is no `let` in the term
+language", keeping the accounting that made the original decision and
+adding the reason the structural former is gone too.
+`Semantics/Syntax.lean`'s annotation table and the `letE`-carries-no-
+sort ruling, `Semantics/Interp.lean`'s ζ note, `Semantics/Hoist.lean`'s
+"no `letE` binder splitter" FINDING, `Model/Steps/Accepted.lean`'s "the
+one clause that is not a guard coincidence", `Model/Steps/Infer.lean`'s
+totality-residue FINDING (two producers → one) and the three ζ mentions
+in the kernel docstrings all follow.  `OVERVIEW.md`: `whnfCore` does
+β/ι/projection/quotient (no ζ), the invariant is preserved by β and the
+other steps (no ζ), and the annotation bullet now says stored terms
+are let-free *and* that nothing downstream could accept one anyway.
+
+**63 files, −1 200 lines** (203 849 → 202 649 across `ConLeche/` and
+`tests/`).
+
+### 5. Gates
+
+Build warning-free (517 jobs), `lake test` warning-free.
+`tests/arena.sh` green under `env -i`: layering 263/189/3/1 with 0
+impl→theory, proofdeps 2846 rows / 0 doors, axioms **pinned, 11
+theorems at `[propext, Classical.choice, Quot.sound]`**, arena 90/92,
+e2e 177/177 (the three `let_bad_*` fixtures among them), annot 14/14,
+retired flags 8/8, mode flags 18/18, prelude counts 3/3, progress lane
+12/12, DAG tower 10/10, trusted sweep unchanged, shake 464 proposals
+all allowlisted and `pub-import-plan --check` clean (907 of 1234
+in-tree edges public, none demotable).  The **trust-surface** gate
+needed no update: it counts escapes per file (18 in 4 allowlisted
+files, 0 outside), and replacing a computation by a `throw` adds none.
+`tests/overview-links.sh` 58 links / 44 files with **two anchors
+repointed** — `Model/Steps/Whnf.lean#L912-L913 → #L844-L845` and
+`Model/Steps/Infer.lean#L1131-L1138 → #L1036-L1043`, both pure shifts
+from the deleted `letE` claims; each new target was read and is
+byte-identical to the old, and the citing paragraph ("proved by one
+simultaneous induction on fuel, clause by clause") is unaffected.
+
+**The checker binary DID change** — unlike #237, three of the changed
+files (`Kernel/Core.lean`, `Kernel/CoreGated.lean`, `Cached/CoreC.lean`)
+are in `Main.lean`'s compiled cone.  init-full, one run per mode:
+**677.996 G** instructions:u verified (677 996 124 976) and **659.349 G**
+trusted (659 349 099 366) against the branch point `b61ba8d7`'s recorded
+677.96 G / 659.35 G — **+0.005 % and −0.0002 %**, 53 088 accepted in both
+modes.  Parity, which is what six arms that never fire should look like;
+the six `throw`s cost one match arm each and nothing at run time.
+(Master moved to `1fdcff9c` (task #240) while this ran, and that
+commit's own gate records 677.29 G / 658.86 G; these cells are against
+the branch point, not against it.)
