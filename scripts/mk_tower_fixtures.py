@@ -336,6 +336,96 @@ def mk_usedlater():
     s.write("tests/e2e/tower_usedlater.ndjson")
 
 
+def mk_beqpair():
+    """The tower under the EQUALITY memo (task #240): two structurally
+    equal towers that are not the same objects, in the shape that makes
+    one node's memo entry ALTERNATE between two partners.
+
+    `Expr.beq`'s memoized descent is what keeps a comparison `O(DAG)`,
+    and until #240 it keyed an entry on `addr a` alone with `addr b` as
+    the value — one partner per node.  A node compared against two
+    partners in turn then invalidates its own entry on every visit,
+    nothing below it stays memoized, and the walk falls back to the
+    unshared tree on exactly the DAG the memo exists for.
+
+    The shape.  `G = fun (a b c : Nat) => a`, and `g x y z = G x y z`,
+    defeq to `x`, so every tower below is defeq to `Nat.zero` and all
+    of them are structurally equal — they differ only in WHICH nodes
+    they share:
+
+    * a SHARED tower `S_{k+1} = g S_k S_k S_k`, one chain of nodes;
+    * an ALTERNATING pair `P_{k+1} = g P_k Q_k P_k`,
+      `Q_{k+1} = g Q_k P_k Q_k`.
+
+    **THREE arguments, not two, is what makes it bite.**  Comparing
+    `S_n` with `P_n` asks `(S, P)`, `(S, Q)`, `(S, P)` one level down:
+    with a memo keyed on the left node the third query finds the entry
+    holding `Q` and re-walks, and so does every level below it, so the
+    cost is `3^n` — 3^60 here.  At two arguments the queries are
+    `(S,P), (S,Q)` and the entries left behind by the first walk still
+    serve the second at every level but the top, which is only
+    quadratic and would pass unnoticed.  Keyed on the PAIR the same
+    comparison is 2 entries per level, `O(n)`.
+
+    Both ORIENTATIONS are here, because which side of a declaration's
+    defeq check is the memo's key side is the checker's business and
+    not the fixture's.  `beqPairA` puts the alternating pair in the
+    theorem's TYPE and the shared tower in its value, so the bad
+    direction is "inferred type on the left"; `beqPairB` is the other
+    way round.  Exactly one of the two is the exponential one under a
+    left-keyed memo, whichever order the checker uses.  Accepts."""
+    s = Stream(); n, e, lU, lOne = base(s)
+
+    def app(f, a):
+        return s.ex({"app": {"fn": f, "arg": a}})
+
+    def zero():
+        return s.ex({"const": {"name": n["Nat.zero"], "us": []}})
+
+    # `G = fun (a b c : Nat) => a`
+    gb = s.ex({"bvar": 2})
+    for _ in range(3):
+        gb = s.ex({"lam": {"binderInfo": "default", "name": 0,
+                           "type": e["Nat"], "body": gb}})
+    eG = gb
+
+    def g3(x, y, z):
+        return app(app(app(eG, x), y), z)
+
+    def shared():
+        t = zero()
+        for _ in range(DEPTH):
+            t = g3(t, t, t)
+        return t
+
+    def alternating():
+        p, q = zero(), zero()
+        for _ in range(DEPTH):
+            p, q = g3(p, q, p), g3(q, p, q)
+        return p, q
+
+    eRefl = s.ex({"const": {"name": n["Eq.refl"], "us": [lOne]}})
+    eEqNat = app(e["Eq"], e["Nat"])
+
+    def thm(nm, ty, val):
+        s.L.append(json.dumps({"thm": {"name": nm, "levelParams": [],
+                                       "type": ty, "value": val,
+                                       "all": [nm]}}))
+
+    # A: the alternating pair is the TYPE's two arguments
+    n["thmA"] = s.name(0, "beqPairA")
+    pA, qA = alternating()
+    thm(n["thmA"], app(app(eEqNat, pA), qA),
+        app(app(eRefl, e["Nat"]), shared()))
+    # B: the alternating pair is what the VALUE's inferred type carries
+    n["thmB"] = s.name(0, "beqPairB")
+    sB = shared()
+    pB, _ = alternating()
+    thm(n["thmB"], app(app(eEqNat, sB), sB),
+        app(app(eRefl, e["Nat"]), pB))
+    s.write("tests/e2e/tower_beqpair.ndjson")
+
+
 def mk_axiom_pin():
     """The tower in the type of an axiom under the PINNED name
     `propext`, over a standardly-shaped stored `Iff` family — the one
@@ -371,3 +461,4 @@ mk_proj()
 mk_axiom_pin()
 mk_axiom_nonstd()
 mk_usedlater()
+mk_beqpair()

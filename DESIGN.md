@@ -62811,3 +62811,407 @@ and −0.003 %**, 53 088 accepted in both.  And the binary is **byte-identical**
 `md5 ad555ff0c0b41d7132da5a8918453aa5` with the change applied and with it
 stashed, built twice in the same worktree so the baked-in paths match — lake
 does not relink, because no olean in the cone changed.
+
+## TASK #240 — THE EQUALITY MEMO'S KEY IS THE PAIR: 295× off the FLT export's slowest theorem (2026-09-08, `agent/beqpair`)
+
+*Merged onto master `ecbce53c` after the branch was cut.  The lane's
+base `9c537ae6` was the branch called `agent/usedlater`, which this
+section originally cited as "task #234"; master landed it as **#236**
+(#234 went to the PERF-regeneration lane running at the same time), so
+those citations read #236 below.  The PR (leanprover/con-leche #3)
+called itself **task #235**, but master had already given #235 to the
+shake batch (`agent/shake-235`, the TASK #235 section above), so this
+record and every citation of it in the diff (`Expr.lean`,
+`mk_tower_fixtures.py`, `arena.sh`, `e2e-expected.txt`) were
+renumbered to **#240** at review (2026-09-08) — the same collision PR
+#2 had, which landed as #236.  Nothing else in this section moved.*
+
+The lane's subject is `_tmp/flt/fixtures/twochart.ndjson`, the fourth
+FLT fixture and the first that is not a `structure`: the closure of
+`P2MW.S_AlgebraicCurve_TwoChartIntegralModel_valuationSubring_eq_of_isPrime_span_of_forall_aeval_mem.solution`,
+a theorem whose value is a **42 579-node DAG with a 160 532 580-node
+unshared tree** (its type is 956 nodes / 4 911).  In the sequential
+`--verified` run of the full export it was the slowest *theorem* at
+**1 h 24 min**, second only to the `jzero_neron` install; the fixture
+README recorded it as never having been run in isolation.  Run in
+isolation at `9c537ae6` it is 236 s of a 281 s stream — 84 % of the
+run in one declaration.  It is now **0.80 s**, and no longer the
+stream's slowest item (`Nat.land` and `Nat.xor` are 0.90 s).
+
+### 1. Where the time went, and how it was found
+
+`perf` could not name the caller: every sample sat 128 frames deep
+inside `Expr.beqGo` and perf's stack cap (`perf_event_max_stack`, 127,
+not writable without root) truncated the rest.  Six `gdb -batch
+"thread apply 2 bt -400"` samples of the worker thread — the Lean main
+thread is the one blocked in `pthread_clockjoin_ex`, the work is on
+thread 2 — named it six times out of six, at frames 256-300:
+
+    Expr.beqFast
+    Std.DHashMap.…AssocList.get?…at…ConLeche.Cached.coreKnotI.spec__0
+    ConLeche.Cached.coreKnotI.lam__12          ← the `inferC` memo probe
+    ConLeche.Cached.inferBodyI / inferSpineI / inferLamsI / inferLamsLeafI
+    ConLeche.Cached.checkThmValC
+
+So: **the `infer` memo's bucket probe**, `memoEI (·.inferC)`, whose
+`BEq ExprC` is `Expr.beq` — the memo key is a whole term and the probe
+is a structural comparison of it.  That is by design (`StateC.lean`'s
+memo-key discipline: pointer identity, then the cached hash, then a
+structural descent), and the descent is memoized precisely so that it
+is `O(DAG)` rather than `O(tree)`.  It was not `O(DAG)`.
+
+### 2. What the memo was doing: counters, not guesses
+
+Counters compiled into `beqFast`/`beqGo` (an `initialize`d `IO.Ref`
+per counter, bumped through a `@[noinline]` helper whose result flows
+into the returned value so the call cannot be dropped — a plain
+`let _ := unsafeBaseIO …` *is* dropped, and a nullary `def … : String`
+report is a CAF evaluated at startup: both were observed) over the
+whole isolated run:
+
+| counter | value |
+|---|---:|
+| `beqFast` calls | 160 232 673 |
+| … decided by pointer identity | 29 092 217 |
+| … rejected by the `data` word | 120 718 985 |
+| … decided by `beqB` inside its 4096-node budget | 10 416 784 |
+| … reaching the memoized descent (`beqGo`) | **4 687** |
+| `beqGo` nodes entered | **8 913 237 800** |
+| memo writes | 4 456 629 359 |
+| writes that RE-BOUND a live key | **4 447 406 282 (99.79 %)** |
+
+4 687 comparisons, all answering `true`, walking 8.9 **billion** nodes
+— 1.9 million nodes per comparison over a 42 579-node DAG.  The memo
+was not slowing the walk down; it was absent from it: 99.79 % of its
+writes overwrote a key that was still live, and the walk re-entered
+what it had already proved because the entry was gone.
+
+### 3. The cause: a half key is not a memo
+
+Task #192 keyed the memo on `addr a` alone with `addr b` as the value,
+and said of the choice: *"a key that gets re-bound (the same `a`
+proved equal to a second `b`) loses its old entry; that costs a
+re-walk, never an answer."*  The answer part is right and the cost
+part is the whole run.
+
+The shape that does it is **one side more shared than the other**,
+which is what an `infer` memo probe *is*: `inferLamsLeafI` bulk-opens
+a λ-telescope (`instListRevM`, deliberately not memoized across
+calls — `StateC.lean`) and probes `inferC` with the freshly built
+body, against a stored key that is the DAG the earlier open produced.
+A node shared on the DAG side meets a *different* node of the rebuilt
+side at nearly every occurrence, so `addr a` is re-bound before it can
+ever be re-queried, and each re-query re-walks that node's whole
+subgraph.  At that point the memo is a hash write per node and
+nothing else.
+
+**The reference kernel does not key it that way.**
+`expr_eq_fn` (`src/kernel/expr_eq_fn.cpp`) keys its cache on
+`std::pair<lean_object *, lean_object *>` — the PAIR — and hashes it
+as `hash((size_t)p.first >> 3, (size_t)p.second >> 3)`.  Everything
+else con-leche does here already follows it: only equal pairs are
+recorded (a completed `false` aborts the whole comparison, so no
+unequal pair is ever re-queried), leaves are neither probed nor
+recorded, and the root pair is decided by pointer identity first.  The
+divergence was the key, and it was the only one.
+
+**This tree had already read those lines.**  The equality-primitive
+divergence audit above (search `expr_eq_fn.cpp:33-43`) cites
+`check_cache` — the very function, the very lines — and takes from it
+the remark that *"ConLeche's `beqGo` memo has no such guard"*, meaning
+official's `if (is_shared(a) && is_shared(b))`.  What it did not
+remark on is what `check_cache` builds its key OUT of, one line below
+the guard it did read.  The lesson is not about that audit's care; it
+is that a *guard* is easy to see as a difference and a *key* reads as
+an implementation detail, and the key is the one that decides whether
+the thing is a memo at all.
+
+**And the guard itself is not available here** — tested, not assumed.
+Official can ask `is_shared(a)` because its recursion passes
+`expr const &`, a borrowed reference, so an unshared subterm really
+does have RC 1.  A Lean function takes its arguments *owned*: the
+caller `lean_inc`s the child before the recursive call while the
+parent still holds it, so RC ≥ 2 at every node.  A standalone probe
+(a `tree/tree` and a `dag/dag` comparison over a 31-node toy, owned
+parameters and `@&`-annotated ones, `isExclusiveUnsafe` at every
+node) reports **0 exclusive out of 62 checks in all four
+configurations**.  So the `is_shared` filter cannot be ported, and
+the `beqB` budget stays what plays its role — as that audit row says.
+
+### 4. The fix: the pair, packed into the key slot it already had
+
+The naive repair — `Std.HashMap (Nat × Nat) Unit` — works and was
+measured (8 913 237 800 → 21 459 162 nodes, **415×**), but it
+re-introduces exactly what task #192 removed: a `Prod` cell allocated
+on every probe and every write, worth **+0.50 %** on `init-prelude`,
+`jzero_struct` and `semistable` alike.  It need not: the pair fits in
+the `(key, value)` slot of the `Nat`-keyed map already there.
+
+    beqKey pa pb = ((pa ^^^ (pb * φ)) &&& 2^62-1).toNat      -- the key
+    value        = pb.toNat
+
+`φ` odd (the golden-ratio constant).  Both words are heap addresses,
+far below `LEAN_MAX_SMALL_NAT`, so `USize.toNat` is `lean_box` — a
+tag, not an allocation — and a probe allocates **nothing**.
+
+**The probe verifies the whole pair.**  A hit at `key` with value
+`pb.toNat` was written by some pair `(a', b')` with `pb' = pb` (the
+value is the address) and `k(a', pb) = k(a, pb)`; since
+`x ↦ (x ^^^ c) &&& M` is injective on `x < 2^62` — every heap address
+is — `addr a' = addr a`.  So a hit means `(a', b') = (a, b)`, exactly
+as a `(Nat × Nat)` key would, and the soundness argument is the one
+`beqFast` already carries: an entry is written only after a completed
+descent proved that pair equal, and both roots stay live for the whole
+call, so no keyed address can be recycled underneath it.
+
+What the packing costs is *collisions between distinct pairs*: two
+pairs sharing a `key` cannot both be stored, so one entry is lost —
+the same failure mode task #192's key had, at a ~2^-62 rate per pair
+instead of at every occurrence of a shared node.
+
+### 5. Measured
+
+`--verified`, single thread, `perf stat -e instructions:u`,
+`ulimit -v 22000000`, base `9c537ae6` (task #236), same verdict and
+same declaration count in every arm:
+
+| stream | base | this commit | Δ |
+|---|---:|---:|---:|
+| `twochart` (30 000 decls) | 4 584 883 835 330 | **374 511 331 927** | **−91.83 %** |
+| `jzero_neron` (40 903) | 709 085 286 252 | 697 989 511 326 | −1.56 % |
+| `semistable` (22 549) | 278 865 696 089 | 277 551 740 580 | −0.47 % |
+| `jzero_struct` (22 431) | 247 361 332 162 | 246 670 911 011 | −0.28 % |
+| `init-prelude` (1 773) | 4 915 763 799 | 4 907 393 514 | −0.17 % |
+
+plus `flt-cone` (a 174 MB Mathlib-scale cone that *declines*, exit 2 in
+both arms, so it exercises the checker without completing):
+323 352 810 551 → 315 040 725 837, −2.57 %.  And, on the fixture's own
+declaration (`--progress=1`, the gap between its line and the next):
+**236.00 s → 0.80 s, 295×**.  Nothing
+regresses; the small gains elsewhere are the same effect at a smaller
+scale, plus the arithmetic key being marginally cheaper to hash than
+the sequential address it replaced.
+
+The `beqGo` counters after the fix, same run: **21 459 162** nodes
+entered (415× fewer), 10 740 040 writes, **0** re-bound keys.  The
+profile is flat afterwards — `beqGo` is 1.38 % of the run, `beqB`
+5.80 %, and the largest single symbol is `lean_dec_ref_cold` at
+13.65 % — so there is no successor hotspot in this function.
+
+### 6. The sweep: every other two-argument memo already keys on both
+
+Asked of every memo table on the executed path
+(`ConLeche/{Kernel,Cached,Frontend}`), the question "is the key the
+whole thing the answer is a function of?":
+
+* `CState.defeqC : Std.HashMap (ExprC × ExprC) Bool` — the
+  *definitional* equality memo one tier above `beq`, keyed on the
+  **pair**;
+* `CState.eqvC : Std.HashMap (Level × Level) Bool` — level
+  equivalence, the exact `Level` twin of this question, keyed on the
+  **pair**;
+* `MemoN`/`MemoNL`/`wscopedBGo` — `(ExprC × Nat)`, node **and**
+  cursor (task #233's rule);
+* `instC : (ExprC × List ExprC × Nat)`, `constTyAt`/`constValAt :
+  (Name × List Level)`, `ruleRhsAt : (Name × Name × List Level)` —
+  every argument;
+* `whnfCoreC`/`whnfC`/`inferC`/`annotC`/`inferIOC : ExprC → ExprC`
+  and `constsResolveFCGo : ExprC → Bool` — one-argument queries
+  (`memoEI` drops the fvar depth `d` deliberately and separately; the
+  environment is fixed for the table's life).
+
+So `beqGo`'s was **the only two-argument memo in the tree keyed on one
+argument**, and the tier directly above it and the tier directly
+beside it both already did the right thing.  That is worth knowing
+before the next such table is written, and it is a mechanical check:
+count the memoized function's arguments, count the key's.
+
+### 7. What this says about the other fixtures
+
+`jzero_neron`'s 25-minute install (tasks #233/#236) and this theorem's
+84 minutes are the same *kind* of defect three times over — a walk
+whose memo does not cover the case in front of it — but not the same
+defect: #233's `hasLooseBVarB` had a cutoff and no memo, #236's
+`structProjGuards` rebuilt a fresh memo per query, and this one had a
+memo whose key covered half the query.  The rule the three share is
+worth stating: **a memo's key must be the whole thing the answer is a
+function of.**  `hasLooseBVarBGo` and `instantiate1Go` already key on
+the cursor for this reason (task #233: "both keys carry the CURSOR");
+structural equality's answer is a function of *both* nodes, and
+nothing less will do.
+
+### Task #240 addendum — THE SECOND LANE'S BATTERY, AND WHAT MASTER COST (2026-09-08, `agent/beqpair-battery`)
+
+Two lanes ran at `twochart.ndjson` at the same time and reached the
+same diagnosis (`Expr.beqGo`'s memo keyed on `addr a`), the same
+counters (8 913 237 800 nodes, 99.79 % re-binding writes) and the same
+repair (the pair packed into the `Nat` key slot, `φ` the golden-ratio
+constant) independently — which is the strongest evidence available
+that the reading is right and not a story fitted to one profile.  What
+the second lane has that the record above does not is breadth of
+streams and a master row; both are folded in here, all measured in one
+worktree so the columns are comparable to each other.
+
+**What the fixture cost before this task, and what #233/#236 did to
+it.**  The fixture README recorded 1 h 24 min from the sequential
+full-export run and noted it had never been run alone.  Run alone it
+is a quarter of an hour less than that by two orders of magnitude:
+
+| arm | `twochart` instructions:u | wall |
+|---|---:|---:|
+| master `8244482b` | 4 717 228 025 208 | 303.8 s |
+| `9c537ae6` (task #236) | 4 596 541 443 312 | 271.4 s |
+| the pair key | 374 615 757 641 | 43.1 s |
+
+So the **1 h 24 min is the full-export CONTEXT, not the declaration**
+— a 1 052 234-constant environment and the memory that goes with it,
+and/or the tree as it stood at `329d24ae` — and #233 and #236 together
+moved this fixture by 2.6 %, which is what one expects of two
+install-path fixes measured on a theorem body.  Anything aimed at this
+declaration has to be measured on the isolated run, and the isolated
+run is what the README now records.  Cross-check that the arms are
+what they say: master measured here at 826 520 700 231 on
+`jzero_neron`, against task #236's recorded 825 879 840 947 for that
+same commit — 0.08 % apart.
+
+**The battery**, `--verified`, single thread, `perf stat -e
+instructions:u`, `ulimit -v 22000000`, `nice -n 5`, one run per cell,
+base `9c537ae6` → the landed pair key, identical verdicts and
+declaration counts in every cell:
+
+| stream | base | landed | Δ |
+|---|---:|---:|---:|
+| **`twochart`** | 4 596 541 443 312 | **374 615 757 641** | **−91.85 %** |
+| `cone1` (declines) | 274 019 991 773 | 265 485 810 702 | −3.11 % |
+| `jzero_neron` | 709 147 331 200 | 698 185 622 193 | −1.55 % |
+| `semistable` | 278 878 382 777 | 277 606 125 735 | −0.46 % |
+| `jzero_struct` | 247 343 160 279 | 246 722 924 295 | −0.25 % |
+| `grind-ring-5` | 28 727 916 414 | 28 656 247 712 | −0.25 % |
+| `init-prelude` | 4 919 058 063 | 4 911 278 899 | −0.16 % |
+| `app-lam` | 160 979 091 638 | 160 979 333 720 | +0.00015 % |
+| `beta-ladder` | 40 364 249 006 | 40 365 039 186 | +0.002 % |
+| `let-ladder` | 8 463 817 135 | 8 463 751 882 | −0.0008 % |
+| `shared-subterm` | 457 192 122 | 457 193 976 | +0.0004 % |
+| `slice-2M` (declines) | 23 790 237 252 | 23 790 239 280 | +0.00001 % |
+
+and seven more arena perf fixtures (`repeated-subproblem`,
+`identical-nesting`, `church-numerals`, `shift-cascade`,
+`args-before-unfold`, `unroll-versus-evaluate`,
+`folded-constant-first`) all inside ±0.006 %.
+
+**`app-lam` is the row worth reading.**  It is the fixture the memo
+was built for — 24 k nodes, ~10^1160 unshared, unreachable without a
+memo — and it moves by 0.00015 %.  Its comparisons have ONE partner
+per node, which is the case task #192's half key was optimal for; the
+pair key is exactly as good there.  That is the shape of the whole
+result: the pair key costs nothing where the half key was already
+right, and is 415× the walk where it was not.  The two are not a
+trade-off, which is why nothing in the battery regresses.
+
+**A third repair was built and measured, and it is the one to
+remember.**  Beside `Std.HashMap (Nat × Nat) Unit` (§4 above: correct,
+and +0.50 % for the `Prod` cell), the other obvious exact memo is to
+keep the `addr a` key and make the VALUE a `List Nat` of every partner
+proved equal to it.  It works — 21 459 162 nodes on the fixture, the
+same 415× — and the partner lists are short, 1.8 elements on the
+average probe and 114 at the longest.  It costs one cons cell per
+write and an owned list per probe, and that is **+1.63 %
+`grind-ring-5`, +0.73 % `semistable`, +0.71 % `jzero_struct`,
++0.64 % `init-prelude`**: measurable exactly on the streams where the
+memoized descent runs but is not the bottleneck.  So all three exact
+repairs fix the algorithm and only the packed key is free; the
+allocation task #192 removed stays removed by construction rather
+than by luck.
+
+### Task #240 addendum — THE PACKING'S SIDE CONDITION IS TESTED, NOT ASSUMED (2026-09-08, `agent/beqpair-guard`)
+
+`beqKey` packs the pair into one small `Nat`, and its exactness
+argument runs "since `x ↦ (x ^^^ c) &&& M` is injective on `x < 2^62`
+— which every heap address is".  The premise is true on every
+platform this runs on, and it was left implicit.
+
+**It is the one approximation in this function whose failure is a
+wrong ANSWER.**  Everything else the memo does cheaply degrades to
+work: a `false` is never recorded (so it is re-derived), a key
+collision between distinct pairs loses an entry (so that pair is
+re-walked), task #192's half key lost entries at every occurrence of a
+shared node (so the walk fell back to `O(tree)` — expensive, and the
+subject of this task, but never unsound).  The `< 2^62` premise is not
+like those: if two distinct `a`s ever agreed modulo `2^62`, a probe
+would report a pair equal that no descent had proved equal, and the
+checker would accept on it.  A premise carrying that weight belongs in
+the code and not only in the prose — this is a checker whose claim is
+about what it accepts.
+
+So `beqGo` tests it: `beqRecursive a && pa < beqKeyBound`, folded into
+`isRec` so the one test gates the probe and the write alike, with
+`beqKey`'s mask written `beqKeyBound - 1` so the constant and the
+bound cannot drift apart.  The condition is on `addr a`, the half the
+entry's *value* does not pin.  Above the bound a pair is simply not
+memoized — a lost entry, the same benign failure as a collision.
+
+**Measured**, same worktree and conditions, without → with the test:
+
+| stream | `cb6e2a74` | + the test | Δ |
+|---|---:|---:|---:|
+| `twochart` | 374 462 085 195 | 374 543 564 806 | +0.022 % |
+| `jzero_struct` | 246 653 101 054 | 246 713 515 566 | +0.024 % |
+| `init-prelude` | 4 907 514 362 | 4 908 620 682 | +0.023 % |
+
++0.02 %, flat across the three: one perfectly-predicted comparison on
+a path that is about to hash a `Nat` anyway.  Gates unchanged —
+`lake build` 517 jobs warning-free, `lake test`, `tests/arena.sh` exit
+0 with e2e 178/178, DAG-tower 11/11, trusted sweep 138 + 178 + 14,
+layering 263/189/3/1, trust surface 18 in 4 of 464, proofdeps 2846
+rows with doors 0.
+
+### Task #240 addendum — THE REGRESSION FIXTURE: `tower_beqpair` (2026-09-08, `agent/beqpair-fixture`)
+
+The landing above changed a memo's key on the strength of a
+measurement; what it did not carry is a fixture that fails when the key
+regresses, and the house rule is that every feature lands together with
+its regression test.  `tests/e2e/tower_beqpair.ndjson` is that test and
+the **eleventh** kind of the DAG-tower gate (a new generator function in
+`scripts/mk_tower_fixtures.py`; the ten older fixtures regenerate
+byte-identical).
+
+`G = fun (a b c : Nat) => a`, so `g x y z` is defeq to `x` and every
+tower below is defeq to `Nat.zero` and structurally equal to every
+other — they differ only in what they SHARE: a shared tower
+`S_{k+1} = g S_k S_k S_k` against an alternating pair
+`P_{k+1} = g P_k Q_k P_k`, `Q_{k+1} = g Q_k P_k Q_k`, at depth 60.
+
+**THREE arguments, not two, is what makes it bite**, and the first
+attempt got this wrong.  Comparing `S` with `P` asks `(S,P)`, `(S,Q)`,
+`(S,P)` one level down, so a half-key memo finds `Q` in the entry at
+the third query and re-walks — `3^60` — at every level.  At TWO
+arguments the queries are `(S,P)`, `(S,Q)` and the entries the first
+walk leaves behind still serve the second at every level but the top:
+the cost is quadratic in the depth, and the two-argument fixture ran in
+**0.03 s on the unfixed binary** — it would have shipped as a test that
+tests nothing.  The shape was settled by simulating `beqGo`'s exact
+memo discipline over candidate families and reading off the ratio,
+which is the cheap way to do this: the two-argument analysis had
+*looked* right.
+
+Both ORIENTATIONS are in the one fixture, because which side of a
+declaration's defeq check ends up as the memo's key side is the
+checker's business and not the fixture's: `beqPairA` carries the
+alternating pair in the theorem's type and the shared tower in its
+value, `beqPairB` the other way round, and exactly one of the two is
+the exponential one.  It is `beqPairB` today — the DECLARED type is the
+key side — which the fixture records but does not depend on.
+
+Measured under the gate's own `ulimit -v 8 GB` + `timeout 60`: the
+unfixed binary (`9c537ae6`, the half key) **HANGS**, exit 124, with
+`perf record` showing 28.28 % `Expr.beqGo` self and a further 43 % in
+its memo's hash-map operations; the pair-keyed binary accepts in
+0.03 s.  It hangs rather than OOMs because a re-binding memo does not
+grow — the same reason #233's `tower_usedlater` hangs, and the reason
+no memory cap would have named either.
+
+Gates with the fixture in: `tests/arena.sh` exit 0 under a clean
+environment, **e2e 178/178** (was 177) and **DAG-tower 11/11** (was
+10), trusted sweep 138 + 178 + 14 with the three recorded divergences,
+every other count unchanged; `lake build` 517 jobs warning-free;
+`lake test` green.

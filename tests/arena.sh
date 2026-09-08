@@ -534,7 +534,11 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 # walking the tower — each through a lockstep comparison bounded by the
 # pin it is compared against.  Task #233 added the OPEN tower — one
 # built over a field's own variable rather than closed — which is what
-# a packed-bound cutoff cannot answer and only a memo can.  The memory
+# a packed-bound cutoff cannot answer and only a memo can.  Task #240
+# added the EQUALITY-memo tower: two structurally equal towers that are
+# not the same objects, shaped so that one node's memo entry alternates
+# between two partners — which is what a memo keyed on one side of the
+# comparison cannot answer and only a pair-keyed one can.  The memory
 # cap makes an unbounded walk fail fast instead of swapping the machine.
 tower_ok=0
 tower_total=0
@@ -569,6 +573,8 @@ tower_run tower_axiom_nonstd 2 \
   "a tower in a non-pinned axiom's type declines on the name"
 tower_run tower_usedlater 0 \
   "a tower over a field variable, asked about a LATER field, accepts"
+tower_run tower_beqpair 0 \
+  "two equal towers whose comparison alternates a node's partner accept"
 echo "DAG-tower gate: $tower_ok/$tower_total as expected"
 
 # The mode sweep (task #147): both suites again with `--trusted`

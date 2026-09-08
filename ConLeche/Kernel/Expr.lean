@@ -703,6 +703,58 @@ the majority of the nodes of a real term. -/
   | .fvar .. | .app .. | .lam .. | .forallE .. | .letE .. | .proj .. => true
   | _ => false
 
+/-- The memo key of a pair of addresses, packed into ONE small `Nat`
+(task #240).
+
+`beqGo`'s memo must be keyed on the **pair** `(addr a, addr b)` (see
+there for what keying on `addr a` alone costs), and a `Nat × Nat` key
+is a `Prod` cell allocated on every probe and every write — the
+allocation task #192 removed and measured at 0.5 % of `init-prelude`
+when it comes back.  It need not come back: the pair fits in a
+`(key, value)` slot of the `Nat`-keyed map it already had.
+
+    key   = ((addr a ^^^ (addr b * φ)) &&& 2^62-1).toNat
+    value = (addr b).toNat
+
+with `φ` any odd 64-bit constant (the golden-ratio one below).  **The
+probe verifies the whole pair**, not half of it: a stored entry at
+`key` whose value is `addr b` was written by some pair `(a', b)` with
+`k(a', b) = k(a, b)`, and since `x ↦ (x ^^^ c) &&& m` is injective on
+`x < 2^62`, `addr a' = addr a`.  So a hit means exactly
+`(a', b') = (a, b)`, as an `(addr a, addr b)` key would.
+
+**`beqKeyBound` is that `2^62`, and `beqGo` TESTS it rather than
+assuming it** (`pa < beqKeyBound`, folded into `isRec` so it gates the
+probe and the write alike).  The condition is on `addr a` — the half
+the entry's *value* does not pin — and every Lean object address
+satisfies it by a wide margin, far below `LEAN_MAX_SMALL_NAT`, which
+is exactly why leaving it implicit would have been comfortable.  It is
+tested because of what it guards: the one way this packing can report
+a pair equal that was never *proved* equal is two distinct `a`s
+agreeing modulo `2^62`, and that is a SOUNDNESS failure, unlike every
+other approximation in this function, which cost entries.  Tested, an
+address above the bound costs a memo entry and nothing else — and it
+is measured to cost **+0.02 %**: one perfectly-predicted comparison on
+a path that is about to hash a `Nat` anyway.  Same worktree, same
+conditions, without → with the test: `twochart` 374 462 085 195 →
+374 543 564 806, `jzero_struct` 246 653 101 054 → 246 713 515 566,
+`init-prelude` 4 907 514 362 → 4 908 620 682 — +0.022 %, +0.024 %,
++0.023 %, which is what a soundness side condition is worth paying.
+The mask is written `beqKeyBound - 1` so the two cannot drift apart.
+
+What the packing does cost is *collisions between distinct pairs*: two
+pairs with the same `key` and different `value`s cannot both be
+stored, so one entry is lost.  That is the same failure mode task
+#192's key had — a lost entry costs a re-walk, never an answer — but
+at a ~2^-62 rate per pair instead of at every occurrence of a shared
+node.  A collision stays a lost entry rather than a wrong answer
+precisely because the probe checks the value as well, under the tested
+bound. -/
+def beqKeyBound : USize := 0x4000000000000000
+
+@[inline] def beqKey (pa pb : USize) : Nat :=
+  ((pa ^^^ (pb * 0x9E3779B97F4A7C15)) &&& (beqKeyBound - 1)).toNat
+
 /-- The executed equality: pointer test, computed-word test, then a
 **memoized** structural descent.
 
@@ -716,28 +768,54 @@ unshared tree) is unreachable.  Pointer identity and the word test
 still carry the overwhelming majority of comparisons; the memo is
 allocated only on the descent.
 
-**Its shape** (task #192; the previous one was
-`Std.HashMap (USize × USize) Bool`).  Task #189 measured 46 – 52 % of
-the five slowest Mathlib declarations in `mi_malloc_small` /
-`lean_dec_ref_cold` under this function, and that traffic was the
-memo's *keys*: a `USize × USize` key is three heap objects (the `Prod`
-cell and a boxed `USize` each), allocated on **every** probe — hit or
-miss — and again on every insert, and the `Bool` payload made a fourth
-object of the bucket cons cell.  Three changes, none of them visible
-to the answer:
+**Its shape** (task #240; task #192's `Std.HashMap Nat Nat`, keyed on
+`addr a` alone, is what this replaces, and the one before that was
+`Std.HashMap (USize × USize) Bool`).  The key is the **PAIR** of
+addresses, exactly as the reference kernel's `expr_eq_fn`
+(`src/kernel/expr_eq_fn.cpp`) keys its `unordered_set` on
+`std::pair<lean_object *, lean_object *>`:
 
-* the key is `addr a` as a **`Nat`**, the value `addr b` as a `Nat`.
-  An address is far below `LEAN_MAX_SMALL_NAT`, so `USize.toNat` is
-  `lean_box` — a tag, not an allocation — and a probe now allocates
-  nothing at all.  `Std.DHashMap`'s `scrambleHash` folds the high bits
-  down, so the alignment zeros in the low bits do not cluster.
-* only **`true`** is recorded, as official's `expr_eq_fn` does: a
-  completed `false` aborts the whole comparison (every arm below
-  propagates it to the root), so no `false` is ever re-queried and
-  `getD pa 0 == pb` — address `0` is no object — is the whole probe.
-  A key that gets re-bound (the same `a` proved equal to a second `b`)
-  loses its old entry; that costs a re-walk, never an answer.
+* the key is the PAIR `(addr a, addr b)`, packed into one small
+  `Nat` by `beqKey` with `addr b` as the map's value — so a probe
+  still allocates **nothing at all** (task #192's property, kept:
+  `USize.toNat` of an address is `lean_box`, a tag), and the probe
+  still verifies the pair exactly.  See `beqKey` for why the packing
+  loses no pair, for the `pa < beqKeyBound` side condition it is
+  exact under — tested here, not assumed — and for what it does cost.
+* only pairs proved **equal** are recorded, as official's
+  `expr_eq_fn` does: a completed `false` aborts the whole comparison
+  (every arm below propagates it to the root), so no unequal pair is
+  ever re-queried and `memo.getD (beqKey pa pb) 0 == pb.toNat` —
+  address `0` is no object — is the whole probe.
 * leaves are neither probed nor recorded (`beqRecursive`).
+
+**WHY THE PAIR, AND WHAT THE HALF-KEY COST** (task #240).  Task #192
+keyed the memo on `addr a` alone with `addr b` as the value, and said
+of it: "a key that gets re-bound (the same `a` proved equal to a
+second `b`) loses its old entry; that costs a re-walk, never an
+answer."  On the FLT fixture `twochart.ndjson` — the closure of one
+Mathlib-scale theorem, `P2MW.…TwoChartIntegralModel…_eq_of_isPrime_…
+.solution`, whose value is a 42 579-node DAG with a 160 532 580-node
+unshared tree — that re-walk is the entire run.  Measured with
+counters in this function, over the 4 687 comparisons big enough to
+reach it (all of them from the `inferC` memo's bucket probe, all of
+them answering `true`):
+
+| | task #192's `addr a` key | the pair key |
+|---|---:|---:|
+| nodes entered | 8 913 237 800 | **21 459 162** |
+| memo writes | 4 456 629 359 | 10 740 040 |
+| writes that RE-BOUND a live key | 4 447 406 282 (99.79 %) | **0** |
+
+**415× the walk**, and the whole 4.58 T-instruction run with it.  The
+shape that does this is not exotic: it is one side much more shared
+than the other — the `infer` memo probes a freshly instantiated
+telescope body against a stored key, so a shared node of the DAG side
+meets a different node of the rebuilt side at nearly every occurrence,
+`addr a` is re-bound before it can ever be re-queried, and each
+re-query re-walks that node's whole subgraph.  The half-key memo is
+not a weaker memo on such a pair; it is *no* memo, at the price of a
+hash write per node.
 
 Soundness is unchanged and rests on the same two runtime facts as
 before (see `beqFast`): an entry is written only after a *completed*
@@ -745,13 +823,18 @@ descent proved that pair equal, and both roots stay live for the whole
 call, so no keyed address can be recycled underneath it. -/
 unsafe def beqGo (memo : Std.HashMap Nat Nat) (a b : Expr) :
     Bool × Std.HashMap Nat Nat :=
-  let pa := (ptrAddrUnsafe a).toNat
-  let pb := (ptrAddrUnsafe b).toNat
+  let pa := ptrAddrUnsafe a
+  let pb := ptrAddrUnsafe b
   if pa == pb then (true, memo)
   else if a.data != b.data then (false, memo)
   else
-    let isRec := beqRecursive a
-    if isRec && memo.getD pa 0 == pb then (true, memo)
+    -- `pa < beqKeyBound` is the packing's side condition, tested here
+    -- rather than assumed: see `beqKey`.  Folded into `isRec`, so it
+    -- gates the probe below and the write at the end alike.
+    let isRec := beqRecursive a && pa < beqKeyBound
+    let key := beqKey pa pb
+    let vb := pb.toNat
+    if isRec && memo.getD key 0 == vb then (true, memo)
     else
       let and2 := fun (memo : Std.HashMap Nat Nat)
           (x y : Expr) (z w : Expr) =>
@@ -776,7 +859,7 @@ unsafe def beqGo (memo : Std.HashMap Nat Nat) (a b : Expr) :
         | .proj s i e .., .proj s' i' e' .. =>
           if s == s' && i == i' then beqGo memo e e' else (false, memo)
         | _, _ => (false, memo)
-      if r && isRec then (true, memo.insert pa pb) else (r, memo)
+      if r && isRec then (true, memo.insert key vb) else (r, memo)
 
 /-- Node budget of the allocation-free descent before the memoized one
 takes over.  Almost every comparison the checker makes is decided by
