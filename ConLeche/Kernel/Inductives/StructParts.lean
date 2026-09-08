@@ -655,7 +655,7 @@ def structProjGuards (cty : Expr) (nP nF : Nat) (sorts : List Level) :
         else acc)
       (sorts.getD i .zero)
 
-/-! ### The guard table in one traversal (task #232)
+/-! ### The guard table in one traversal (task #236)
 
 `structProjGuards` asks `structUsedLater cty nP j` once for every PAIR
 `j < i < nF`: O(nF²) walks of one telescope for nF distinct answers.
@@ -744,7 +744,6 @@ def structProjGuardsFast (cty : Expr) (nP nF : Nat) (sorts : List Level) :
   refine foldlCongrMem _ _ ?_
   intro j hj x
   rw [hused j (Nat.lt_trans (List.mem_range.mp hj) (List.mem_range.mp hi))]
-
 
 /-- **The projection bodies of a recognised block** (task #175 S1),
 one walk of the constructor telescope: after the parameters are
