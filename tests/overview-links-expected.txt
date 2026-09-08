@@ -532,18 +532,18 @@
 == ConLeche/Kernel/Inductives/NativeInstall.lean#L253
    253  def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env := do
 
-== ConLeche/SetModel/Value.lean#L502-L509
-   502  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
-   503  
-   504  /-- `(I → Sort w) → (I → Sort w)`, the functor space. -/
-   505  noncomputable def lfpFamFunSpace (u w : Nat) (I : V) : V :=
-   506    piR (Nat.max u (w + 1)) (lfpFamSpace V w I) fun _ => lfpFamSpace V w I
+== ConLeche/SetModel/Value.lean#L506-L513
+   506  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
    507  
-   508  /-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
-   509  noncomputable def lfpFamV (u w : Nat) : V :=
+   508  /-- `(I → Sort w) → (I → Sort w)`, the functor space. -/
+   509  noncomputable def lfpFamFunSpace (u w : Nat) (I : V) : V :=
+   510    piR (Nat.max u (w + 1)) (lfpFamSpace V w I) fun _ => lfpFamSpace V w I
+   511  
+   512  /-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
+   513  noncomputable def lfpFamV (u w : Nat) : V :=
 
-== ConLeche/SetModel/Container.lean#L593
-   593  theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)
+== ConLeche/SetModel/Container.lean#L594
+   594  theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)
 
 == ConLeche/Model/Inductives/DeclNative.lean#L60
     60  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}

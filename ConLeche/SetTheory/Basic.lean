@@ -1,10 +1,6 @@
 import ConLeche.SetTheory.Core
-import ConLeche.SetTheory.Derive.Sigma
 import ConLeche.SetTheory.Derive.Natrec
-import ConLeche.SetTheory.Derive.Quot
-import ConLeche.SetTheory.Derive.Choice
-import ConLeche.SetTheory.Derive.Lfp
-import ConLeche.SetTheory.Derive.LfpFam
+import ConLeche.SetTheory.Derive.Univ
 
 /-!
 # The target set theory: the derived operator interface

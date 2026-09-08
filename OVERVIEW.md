@@ -256,14 +256,14 @@ Inductive blocks are not trusted from the stream. Three cases:
   recursor the checker was going to generate anyway.
   In the model the block's carrier is the least fixed point of its
   family functor over the index fibres
-  ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Value.lean#L502-L509));
+  ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Value.lean#L506-L513));
   the recursor is the choice of a fixed point of the graph functor,
   and the recursion theorem says that fixed point is a function
   (`ConLeche/SetModel/RecGraph.lean`). That the least fixed point is a
   member of the universe follows from one abstract theorem about
   *member containers*, functors built from constants, sums, products
   and arrows with member domains
-  ([theorem `container_closed_exists` in `ConLeche/SetModel/Container.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Container.lean#L593)),
+  ([theorem `container_closed_exists` in `ConLeche/SetModel/Container.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Container.lean#L594)),
   which covers finitary and reflexive fields alike. The model-tier
   theorem for the whole install is
   [theorem `declNative` in `ConLeche/Model/Inductives/DeclNative.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Inductives/DeclNative.lean#L60).

@@ -61523,9 +61523,10 @@ The remaining **23 removals in 20 files** are what landed:
 `Verify/Cached/BridgeCSDecl`, `Verify/Denote/{EnvExt, IndFrame}`,
 `Verify/Extend/{Block, Ind, Sibs}`, `Verify/Inductives/FixParts`.
 In-tree import edges (`ConLeche/*` plus the three roots) **1309 →
-1286**; every one of the 459 modules (457 + the two test modules) is
-**still reachable from the eleven library roots**, so no module fell
-out of the build; 517 build jobs before and after.
+1286**; with §7's relocation on top, **1288**.  Every one of the 459
+modules (457 + the two test modules) is **still reachable from the
+eleven library roots**, so no module fell out of the build; 517 build
+jobs throughout.
 
 ### 6. Two classes the criterion still misses — the cold build is the arbiter
 
@@ -61568,9 +61569,20 @@ shake's global answer, verbatim:
 — i.e. the local criterion's 43 candidates were not wrong about
 `Basic`; they were *incomplete*, and the missing half is precisely the
 explicit import in `TupleTower` that #221 predicted.  It is a
-relocation, not a removal (5 out, 6 in), so by §4's criterion it is
-**not** in this batch; recorded here as the worked example of what the
-rejected class looks like.
+relocation rather than a removal — **5 out, 7 in**, net +2 edges — so
+by §4's criterion it does not belong to the batch; it is here on its
+own approval, as the one case #221 named, and it lands with it.  It is
+also the worked example of what the rejected class of §8 looks like:
+the *shape* is right and the arithmetic goes the wrong way.
+
+One consequence worth naming because it is the trap `CLAUDE.md` warns
+about: adding four import lines to `SetModel/Value.lean` and one to
+`SetModel/Container.lean` shifted two OVERVIEW.md citations
+(`Value.lean#L502-L509` → `#L506-L513`, the fixed-point family space;
+`Container.lean#L593` → `#L594`, `container_closed_exists`).  The
+cited text is unchanged, so the anchors were repointed and
+`tests/overview-links.sh --update` regenerated — an import line is a
+line like any other.
 
 ### 8. What was rejected, and why
 
@@ -61631,15 +61643,19 @@ instructions:u` over the whole `lake build`:
 | tree | jobs | instructions:u |
 |---|---|---|
 | master `e2ca64df` | 517 | 4 916 435 513 227 |
-| this branch | 517 | 4 916 786 858 157 |
+| this branch, §5 only | 517 | 4 916 786 858 157 |
+| this branch, with §7 | 517 | 4 916 885 157 478 |
 
 **+0.007 %** — noise.  The structural number does move: the sum over
 all modules of the size of the module's transitive import closure —
 which is what "how much has to be rebuilt when a file changes" is
-proportional to — goes **52 360 → 52 013**, −347 (−0.66 %).  So the
-23 edges were real closure edges, not implied ones; a cold build is
-simply dominated by elaboration, and the payoff of removing an unused
-import is hygiene and incremental-rebuild fan-in, not wall clock.
+proportional to — goes **52 360 → 52 013**, −347 (−0.66 %), and with
+§7's relocation **51 971**, −389 in all (−0.74 %) *while the direct
+edge count rises by 2*, which is the whole point of the distinction
+between a removal and a relocation.  So the 23 edges were real closure
+edges, not implied ones; a cold build is simply dominated by
+elaboration, and the payoff of removing an unused import is hygiene
+and incremental-rebuild fan-in, not wall clock.
 `tests/proofdeps.sh` seeing no row move says the same thing from the
 other side: none of the 23 was the *last* path from a capstone to any
 module.
