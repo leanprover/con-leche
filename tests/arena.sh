@@ -523,8 +523,10 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 # the walker.  Task #226 completed the matrix: the four ACCEPTING kinds
 # and the four DECLINING ones, whose verdict has to be reached without
 # walking the tower — each through a lockstep comparison bounded by the
-# pin it is compared against.  The memory cap makes an unbounded walk
-# fail fast instead of swapping the machine.
+# pin it is compared against.  Task #233 added the OPEN tower — one
+# built over a field's own variable rather than closed — which is what
+# a packed-bound cutoff cannot answer and only a memo can.  The memory
+# cap makes an unbounded walk fail fast instead of swapping the machine.
 tower_ok=0
 tower_total=0
 tower_check() { # <description> <condition-result>
@@ -556,6 +558,8 @@ tower_run tower_axiom_pin 2 \
   "a tower in propext's type declines without walking it"
 tower_run tower_axiom_nonstd 2 \
   "a tower in a non-pinned axiom's type declines on the name"
+tower_run tower_usedlater 0 \
+  "a tower over a field variable, asked about a LATER field, accepts"
 echo "DAG-tower gate: $tower_ok/$tower_total as expected"
 
 # The mode sweep (task #147): both suites again with `--trusted`

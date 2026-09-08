@@ -1,0 +1,304 @@
+{"meta": {"exporter": {"name": "mk_tower_fixtures.py", "version": "1"}}}
+{"in": 1, "str": {"pre": 0, "str": "Eq"}}
+{"in": 2, "str": {"pre": 0, "str": "Nat"}}
+{"in": 3, "str": {"pre": 2, "str": "zero"}}
+{"in": 4, "str": {"pre": 1, "str": "refl"}}
+{"in": 5, "str": {"pre": 0, "str": "Quot"}}
+{"in": 6, "str": {"pre": 5, "str": "sound"}}
+{"in": 7, "str": {"pre": 0, "str": "Used"}}
+{"in": 8, "str": {"pre": 7, "str": "mk"}}
+{"in": 9, "str": {"pre": 7, "str": "rec"}}
+{"in": 10, "str": {"pre": 0, "str": "u"}}
+{"in": 11, "str": {"pre": 0, "str": "towerThm"}}
+{"param": 10, "il": 1}
+{"succ": 0, "il": 2}
+{"sort": 0, "ie": 1}
+{"sort": 2, "ie": 2}
+{"sort": 1, "ie": 3}
+{"const": {"name": 2, "us": []}, "ie": 4}
+{"const": {"name": 3, "us": []}, "ie": 5}
+{"const": {"name": 1, "us": [2]}, "ie": 6}
+{"bvar": 1, "ie": 7}
+{"lam": {"binderInfo": "default", "name": 0, "type": 4, "body": 7}, "ie": 8}
+{"lam": {"binderInfo": "default", "name": 0, "type": 4, "body": 8}, "ie": 9}
+{"app": {"fn": 9, "arg": 5}, "ie": 10}
+{"app": {"fn": 10, "arg": 5}, "ie": 11}
+{"app": {"fn": 9, "arg": 11}, "ie": 12}
+{"app": {"fn": 12, "arg": 11}, "ie": 13}
+{"app": {"fn": 9, "arg": 13}, "ie": 14}
+{"app": {"fn": 14, "arg": 13}, "ie": 15}
+{"app": {"fn": 9, "arg": 15}, "ie": 16}
+{"app": {"fn": 16, "arg": 15}, "ie": 17}
+{"app": {"fn": 9, "arg": 17}, "ie": 18}
+{"app": {"fn": 18, "arg": 17}, "ie": 19}
+{"app": {"fn": 9, "arg": 19}, "ie": 20}
+{"app": {"fn": 20, "arg": 19}, "ie": 21}
+{"app": {"fn": 9, "arg": 21}, "ie": 22}
+{"app": {"fn": 22, "arg": 21}, "ie": 23}
+{"app": {"fn": 9, "arg": 23}, "ie": 24}
+{"app": {"fn": 24, "arg": 23}, "ie": 25}
+{"app": {"fn": 9, "arg": 25}, "ie": 26}
+{"app": {"fn": 26, "arg": 25}, "ie": 27}
+{"app": {"fn": 9, "arg": 27}, "ie": 28}
+{"app": {"fn": 28, "arg": 27}, "ie": 29}
+{"app": {"fn": 9, "arg": 29}, "ie": 30}
+{"app": {"fn": 30, "arg": 29}, "ie": 31}
+{"app": {"fn": 9, "arg": 31}, "ie": 32}
+{"app": {"fn": 32, "arg": 31}, "ie": 33}
+{"app": {"fn": 9, "arg": 33}, "ie": 34}
+{"app": {"fn": 34, "arg": 33}, "ie": 35}
+{"app": {"fn": 9, "arg": 35}, "ie": 36}
+{"app": {"fn": 36, "arg": 35}, "ie": 37}
+{"app": {"fn": 9, "arg": 37}, "ie": 38}
+{"app": {"fn": 38, "arg": 37}, "ie": 39}
+{"app": {"fn": 9, "arg": 39}, "ie": 40}
+{"app": {"fn": 40, "arg": 39}, "ie": 41}
+{"app": {"fn": 9, "arg": 41}, "ie": 42}
+{"app": {"fn": 42, "arg": 41}, "ie": 43}
+{"app": {"fn": 9, "arg": 43}, "ie": 44}
+{"app": {"fn": 44, "arg": 43}, "ie": 45}
+{"app": {"fn": 9, "arg": 45}, "ie": 46}
+{"app": {"fn": 46, "arg": 45}, "ie": 47}
+{"app": {"fn": 9, "arg": 47}, "ie": 48}
+{"app": {"fn": 48, "arg": 47}, "ie": 49}
+{"app": {"fn": 9, "arg": 49}, "ie": 50}
+{"app": {"fn": 50, "arg": 49}, "ie": 51}
+{"app": {"fn": 9, "arg": 51}, "ie": 52}
+{"app": {"fn": 52, "arg": 51}, "ie": 53}
+{"app": {"fn": 9, "arg": 53}, "ie": 54}
+{"app": {"fn": 54, "arg": 53}, "ie": 55}
+{"app": {"fn": 9, "arg": 55}, "ie": 56}
+{"app": {"fn": 56, "arg": 55}, "ie": 57}
+{"app": {"fn": 9, "arg": 57}, "ie": 58}
+{"app": {"fn": 58, "arg": 57}, "ie": 59}
+{"app": {"fn": 9, "arg": 59}, "ie": 60}
+{"app": {"fn": 60, "arg": 59}, "ie": 61}
+{"app": {"fn": 9, "arg": 61}, "ie": 62}
+{"app": {"fn": 62, "arg": 61}, "ie": 63}
+{"app": {"fn": 9, "arg": 63}, "ie": 64}
+{"app": {"fn": 64, "arg": 63}, "ie": 65}
+{"app": {"fn": 9, "arg": 65}, "ie": 66}
+{"app": {"fn": 66, "arg": 65}, "ie": 67}
+{"app": {"fn": 9, "arg": 67}, "ie": 68}
+{"app": {"fn": 68, "arg": 67}, "ie": 69}
+{"app": {"fn": 9, "arg": 69}, "ie": 70}
+{"app": {"fn": 70, "arg": 69}, "ie": 71}
+{"app": {"fn": 9, "arg": 71}, "ie": 72}
+{"app": {"fn": 72, "arg": 71}, "ie": 73}
+{"app": {"fn": 9, "arg": 73}, "ie": 74}
+{"app": {"fn": 74, "arg": 73}, "ie": 75}
+{"app": {"fn": 9, "arg": 75}, "ie": 76}
+{"app": {"fn": 76, "arg": 75}, "ie": 77}
+{"app": {"fn": 9, "arg": 77}, "ie": 78}
+{"app": {"fn": 78, "arg": 77}, "ie": 79}
+{"app": {"fn": 9, "arg": 79}, "ie": 80}
+{"app": {"fn": 80, "arg": 79}, "ie": 81}
+{"app": {"fn": 9, "arg": 81}, "ie": 82}
+{"app": {"fn": 82, "arg": 81}, "ie": 83}
+{"app": {"fn": 9, "arg": 83}, "ie": 84}
+{"app": {"fn": 84, "arg": 83}, "ie": 85}
+{"app": {"fn": 9, "arg": 85}, "ie": 86}
+{"app": {"fn": 86, "arg": 85}, "ie": 87}
+{"app": {"fn": 9, "arg": 87}, "ie": 88}
+{"app": {"fn": 88, "arg": 87}, "ie": 89}
+{"app": {"fn": 9, "arg": 89}, "ie": 90}
+{"app": {"fn": 90, "arg": 89}, "ie": 91}
+{"app": {"fn": 9, "arg": 91}, "ie": 92}
+{"app": {"fn": 92, "arg": 91}, "ie": 93}
+{"app": {"fn": 9, "arg": 93}, "ie": 94}
+{"app": {"fn": 94, "arg": 93}, "ie": 95}
+{"app": {"fn": 9, "arg": 95}, "ie": 96}
+{"app": {"fn": 96, "arg": 95}, "ie": 97}
+{"app": {"fn": 9, "arg": 97}, "ie": 98}
+{"app": {"fn": 98, "arg": 97}, "ie": 99}
+{"app": {"fn": 9, "arg": 99}, "ie": 100}
+{"app": {"fn": 100, "arg": 99}, "ie": 101}
+{"app": {"fn": 9, "arg": 101}, "ie": 102}
+{"app": {"fn": 102, "arg": 101}, "ie": 103}
+{"app": {"fn": 9, "arg": 103}, "ie": 104}
+{"app": {"fn": 104, "arg": 103}, "ie": 105}
+{"app": {"fn": 9, "arg": 105}, "ie": 106}
+{"app": {"fn": 106, "arg": 105}, "ie": 107}
+{"app": {"fn": 9, "arg": 107}, "ie": 108}
+{"app": {"fn": 108, "arg": 107}, "ie": 109}
+{"app": {"fn": 9, "arg": 109}, "ie": 110}
+{"app": {"fn": 110, "arg": 109}, "ie": 111}
+{"app": {"fn": 9, "arg": 111}, "ie": 112}
+{"app": {"fn": 112, "arg": 111}, "ie": 113}
+{"app": {"fn": 9, "arg": 113}, "ie": 114}
+{"app": {"fn": 114, "arg": 113}, "ie": 115}
+{"app": {"fn": 9, "arg": 115}, "ie": 116}
+{"app": {"fn": 116, "arg": 115}, "ie": 117}
+{"app": {"fn": 9, "arg": 117}, "ie": 118}
+{"app": {"fn": 118, "arg": 117}, "ie": 119}
+{"app": {"fn": 9, "arg": 119}, "ie": 120}
+{"app": {"fn": 120, "arg": 119}, "ie": 121}
+{"app": {"fn": 9, "arg": 121}, "ie": 122}
+{"app": {"fn": 122, "arg": 121}, "ie": 123}
+{"app": {"fn": 9, "arg": 123}, "ie": 124}
+{"app": {"fn": 124, "arg": 123}, "ie": 125}
+{"app": {"fn": 9, "arg": 125}, "ie": 126}
+{"app": {"fn": 126, "arg": 125}, "ie": 127}
+{"app": {"fn": 9, "arg": 127}, "ie": 128}
+{"app": {"fn": 128, "arg": 127}, "ie": 129}
+{"app": {"fn": 6, "arg": 4}, "ie": 130}
+{"app": {"fn": 130, "arg": 129}, "ie": 131}
+{"app": {"fn": 131, "arg": 129}, "ie": 132}
+{"bvar": 1, "ie": 133}
+{"app": {"fn": 9, "arg": 133}, "ie": 134}
+{"app": {"fn": 134, "arg": 133}, "ie": 135}
+{"app": {"fn": 9, "arg": 135}, "ie": 136}
+{"app": {"fn": 136, "arg": 135}, "ie": 137}
+{"app": {"fn": 9, "arg": 137}, "ie": 138}
+{"app": {"fn": 138, "arg": 137}, "ie": 139}
+{"app": {"fn": 9, "arg": 139}, "ie": 140}
+{"app": {"fn": 140, "arg": 139}, "ie": 141}
+{"app": {"fn": 9, "arg": 141}, "ie": 142}
+{"app": {"fn": 142, "arg": 141}, "ie": 143}
+{"app": {"fn": 9, "arg": 143}, "ie": 144}
+{"app": {"fn": 144, "arg": 143}, "ie": 145}
+{"app": {"fn": 9, "arg": 145}, "ie": 146}
+{"app": {"fn": 146, "arg": 145}, "ie": 147}
+{"app": {"fn": 9, "arg": 147}, "ie": 148}
+{"app": {"fn": 148, "arg": 147}, "ie": 149}
+{"app": {"fn": 9, "arg": 149}, "ie": 150}
+{"app": {"fn": 150, "arg": 149}, "ie": 151}
+{"app": {"fn": 9, "arg": 151}, "ie": 152}
+{"app": {"fn": 152, "arg": 151}, "ie": 153}
+{"app": {"fn": 9, "arg": 153}, "ie": 154}
+{"app": {"fn": 154, "arg": 153}, "ie": 155}
+{"app": {"fn": 9, "arg": 155}, "ie": 156}
+{"app": {"fn": 156, "arg": 155}, "ie": 157}
+{"app": {"fn": 9, "arg": 157}, "ie": 158}
+{"app": {"fn": 158, "arg": 157}, "ie": 159}
+{"app": {"fn": 9, "arg": 159}, "ie": 160}
+{"app": {"fn": 160, "arg": 159}, "ie": 161}
+{"app": {"fn": 9, "arg": 161}, "ie": 162}
+{"app": {"fn": 162, "arg": 161}, "ie": 163}
+{"app": {"fn": 9, "arg": 163}, "ie": 164}
+{"app": {"fn": 164, "arg": 163}, "ie": 165}
+{"app": {"fn": 9, "arg": 165}, "ie": 166}
+{"app": {"fn": 166, "arg": 165}, "ie": 167}
+{"app": {"fn": 9, "arg": 167}, "ie": 168}
+{"app": {"fn": 168, "arg": 167}, "ie": 169}
+{"app": {"fn": 9, "arg": 169}, "ie": 170}
+{"app": {"fn": 170, "arg": 169}, "ie": 171}
+{"app": {"fn": 9, "arg": 171}, "ie": 172}
+{"app": {"fn": 172, "arg": 171}, "ie": 173}
+{"app": {"fn": 9, "arg": 173}, "ie": 174}
+{"app": {"fn": 174, "arg": 173}, "ie": 175}
+{"app": {"fn": 9, "arg": 175}, "ie": 176}
+{"app": {"fn": 176, "arg": 175}, "ie": 177}
+{"app": {"fn": 9, "arg": 177}, "ie": 178}
+{"app": {"fn": 178, "arg": 177}, "ie": 179}
+{"app": {"fn": 9, "arg": 179}, "ie": 180}
+{"app": {"fn": 180, "arg": 179}, "ie": 181}
+{"app": {"fn": 9, "arg": 181}, "ie": 182}
+{"app": {"fn": 182, "arg": 181}, "ie": 183}
+{"app": {"fn": 9, "arg": 183}, "ie": 184}
+{"app": {"fn": 184, "arg": 183}, "ie": 185}
+{"app": {"fn": 9, "arg": 185}, "ie": 186}
+{"app": {"fn": 186, "arg": 185}, "ie": 187}
+{"app": {"fn": 9, "arg": 187}, "ie": 188}
+{"app": {"fn": 188, "arg": 187}, "ie": 189}
+{"app": {"fn": 9, "arg": 189}, "ie": 190}
+{"app": {"fn": 190, "arg": 189}, "ie": 191}
+{"app": {"fn": 9, "arg": 191}, "ie": 192}
+{"app": {"fn": 192, "arg": 191}, "ie": 193}
+{"app": {"fn": 9, "arg": 193}, "ie": 194}
+{"app": {"fn": 194, "arg": 193}, "ie": 195}
+{"app": {"fn": 9, "arg": 195}, "ie": 196}
+{"app": {"fn": 196, "arg": 195}, "ie": 197}
+{"app": {"fn": 9, "arg": 197}, "ie": 198}
+{"app": {"fn": 198, "arg": 197}, "ie": 199}
+{"app": {"fn": 9, "arg": 199}, "ie": 200}
+{"app": {"fn": 200, "arg": 199}, "ie": 201}
+{"app": {"fn": 9, "arg": 201}, "ie": 202}
+{"app": {"fn": 202, "arg": 201}, "ie": 203}
+{"app": {"fn": 9, "arg": 203}, "ie": 204}
+{"app": {"fn": 204, "arg": 203}, "ie": 205}
+{"app": {"fn": 9, "arg": 205}, "ie": 206}
+{"app": {"fn": 206, "arg": 205}, "ie": 207}
+{"app": {"fn": 9, "arg": 207}, "ie": 208}
+{"app": {"fn": 208, "arg": 207}, "ie": 209}
+{"app": {"fn": 9, "arg": 209}, "ie": 210}
+{"app": {"fn": 210, "arg": 209}, "ie": 211}
+{"app": {"fn": 9, "arg": 211}, "ie": 212}
+{"app": {"fn": 212, "arg": 211}, "ie": 213}
+{"app": {"fn": 9, "arg": 213}, "ie": 214}
+{"app": {"fn": 214, "arg": 213}, "ie": 215}
+{"app": {"fn": 9, "arg": 215}, "ie": 216}
+{"app": {"fn": 216, "arg": 215}, "ie": 217}
+{"app": {"fn": 9, "arg": 217}, "ie": 218}
+{"app": {"fn": 218, "arg": 217}, "ie": 219}
+{"app": {"fn": 9, "arg": 219}, "ie": 220}
+{"app": {"fn": 220, "arg": 219}, "ie": 221}
+{"app": {"fn": 9, "arg": 221}, "ie": 222}
+{"app": {"fn": 222, "arg": 221}, "ie": 223}
+{"app": {"fn": 9, "arg": 223}, "ie": 224}
+{"app": {"fn": 224, "arg": 223}, "ie": 225}
+{"app": {"fn": 9, "arg": 225}, "ie": 226}
+{"app": {"fn": 226, "arg": 225}, "ie": 227}
+{"app": {"fn": 9, "arg": 227}, "ie": 228}
+{"app": {"fn": 228, "arg": 227}, "ie": 229}
+{"app": {"fn": 9, "arg": 229}, "ie": 230}
+{"app": {"fn": 230, "arg": 229}, "ie": 231}
+{"app": {"fn": 9, "arg": 231}, "ie": 232}
+{"app": {"fn": 232, "arg": 231}, "ie": 233}
+{"app": {"fn": 9, "arg": 233}, "ie": 234}
+{"app": {"fn": 234, "arg": 233}, "ie": 235}
+{"app": {"fn": 9, "arg": 235}, "ie": 236}
+{"app": {"fn": 236, "arg": 235}, "ie": 237}
+{"app": {"fn": 9, "arg": 237}, "ie": 238}
+{"app": {"fn": 238, "arg": 237}, "ie": 239}
+{"app": {"fn": 9, "arg": 239}, "ie": 240}
+{"app": {"fn": 240, "arg": 239}, "ie": 241}
+{"app": {"fn": 9, "arg": 241}, "ie": 242}
+{"app": {"fn": 242, "arg": 241}, "ie": 243}
+{"app": {"fn": 9, "arg": 243}, "ie": 244}
+{"app": {"fn": 244, "arg": 243}, "ie": 245}
+{"app": {"fn": 9, "arg": 245}, "ie": 246}
+{"app": {"fn": 246, "arg": 245}, "ie": 247}
+{"app": {"fn": 9, "arg": 247}, "ie": 248}
+{"app": {"fn": 248, "arg": 247}, "ie": 249}
+{"app": {"fn": 9, "arg": 249}, "ie": 250}
+{"app": {"fn": 250, "arg": 249}, "ie": 251}
+{"app": {"fn": 9, "arg": 251}, "ie": 252}
+{"app": {"fn": 252, "arg": 251}, "ie": 253}
+{"app": {"fn": 6, "arg": 4}, "ie": 254}
+{"app": {"fn": 254, "arg": 253}, "ie": 255}
+{"app": {"fn": 255, "arg": 5}, "ie": 256}
+{"const": {"name": 7, "us": []}, "ie": 257}
+{"bvar": 0, "ie": 258}
+{"const": {"name": 8, "us": []}, "ie": 259}
+{"forallE": {"binderInfo": "default", "name": 0, "type": 256, "body": 257}, "ie": 260}
+{"forallE": {"binderInfo": "default", "name": 0, "type": 4, "body": 260}, "ie": 261}
+{"forallE": {"binderInfo": "default", "name": 0, "type": 4, "body": 261}, "ie": 262}
+{"forallE": {"binderInfo": "default", "name": 0, "type": 257, "body": 3}, "ie": 263}
+{"bvar": 3, "ie": 264}
+{"bvar": 2, "ie": 265}
+{"app": {"fn": 259, "arg": 265}, "ie": 266}
+{"bvar": 1, "ie": 267}
+{"app": {"fn": 266, "arg": 267}, "ie": 268}
+{"app": {"fn": 268, "arg": 258}, "ie": 269}
+{"app": {"fn": 264, "arg": 269}, "ie": 270}
+{"forallE": {"binderInfo": "default", "name": 0, "type": 256, "body": 270}, "ie": 271}
+{"forallE": {"binderInfo": "default", "name": 0, "type": 4, "body": 271}, "ie": 272}
+{"forallE": {"binderInfo": "default", "name": 0, "type": 4, "body": 272}, "ie": 273}
+{"bvar": 2, "ie": 274}
+{"app": {"fn": 274, "arg": 258}, "ie": 275}
+{"forallE": {"binderInfo": "default", "name": 0, "type": 257, "body": 275}, "ie": 276}
+{"forallE": {"binderInfo": "default", "name": 0, "type": 273, "body": 276}, "ie": 277}
+{"forallE": {"binderInfo": "implicit", "name": 0, "type": 263, "body": 277}, "ie": 278}
+{"bvar": 3, "ie": 279}
+{"bvar": 2, "ie": 280}
+{"app": {"fn": 279, "arg": 280}, "ie": 281}
+{"bvar": 1, "ie": 282}
+{"app": {"fn": 281, "arg": 282}, "ie": 283}
+{"app": {"fn": 283, "arg": 258}, "ie": 284}
+{"lam": {"binderInfo": "default", "name": 0, "type": 256, "body": 284}, "ie": 285}
+{"lam": {"binderInfo": "default", "name": 0, "type": 4, "body": 285}, "ie": 286}
+{"lam": {"binderInfo": "default", "name": 0, "type": 4, "body": 286}, "ie": 287}
+{"lam": {"binderInfo": "default", "name": 0, "type": 273, "body": 287}, "ie": 288}
+{"lam": {"binderInfo": "implicit", "name": 0, "type": 263, "body": 288}, "ie": 289}
+{"inductive": {"types": [{"name": 7, "levelParams": [], "type": 2, "numParams": 0, "numIndices": 0, "numNested": 0, "ctors": [8], "isRec": false, "isUnsafe": false, "isReflexive": false, "all": [7]}], "ctors": [{"name": 8, "levelParams": [], "type": 262, "numParams": 0, "numFields": 3, "cidx": 0, "induct": 7, "isUnsafe": false}], "recs": [{"name": 9, "levelParams": [10], "type": 278, "numParams": 0, "numMotives": 1, "numMinors": 1, "numIndices": 0, "k": false, "isUnsafe": false, "all": [7], "rules": [{"ctor": 8, "nfields": 3, "rhs": 289}]}], "isUnsafe": false, "all": [7]}}

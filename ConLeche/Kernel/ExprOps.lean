@@ -1740,7 +1740,8 @@ def looseBVarsBoundedFast (k : Nat) (e : Expr) : Bool := decide (e.bvarB ≤ k)
     | true => exact absurd (looseBVarsBounded_iff.mp hb) h
 
 
-/-! ### `abstract1` reads the fvar-range field (task #226)
+/-! ### `abstract1` reads the fvar-range field, and memoizes
+(tasks #226, #233)
 
 `abstract1` closes a binder body by turning `fvar d` leaves into
 `bvar k`, and it rebuilds every node on the way — so on a
@@ -1758,7 +1759,16 @@ subterm — which is what a shared tower is — is answered by an `O(1)`
 field read.  `abstract1_of_fvarRange_le` is the identity, `fvarB_eq`
 says the field is the range, and `@[csimp]` swaps the guarded walk in
 for the pure one: kernel-checked, no trust point, and the pure
-definition stays the one every proof consumes. -/
+definition stays the one every proof consumes.
+
+**The cutoff is not the whole answer** (task #233).  It stops the walk
+at a subterm that cannot contain `fvar d`; it cannot stop it at one
+that does.  A tower built *over* the very variable being abstracted —
+`tests/e2e/tower_usedlater.ndjson`, whose field type is a depth-60
+doubling tower on the first field, which the install opens as an fvar
+— has `fvarB > d` at every shared node, so the rebuild is entered once
+per path.  So the walk below is BOTH: the `O(1)` cutoff first, then
+`abstract1Go`'s memo, keyed by the node and the binder cursor. -/
 
 /-- Abstraction at or above the fvar range is the identity. -/
 theorem abstract1_of_fvarRange_le :
@@ -1767,66 +1777,172 @@ theorem abstract1_of_fvarRange_le :
   induction e <;> intro d k h <;>
     simp_all [abstract1, Expr.fvarRange, Nat.max_le] <;> omega
 
+/-- The memo's invariant: every recorded answer is the real one. -/
+def Abs1MemoInv (d : Nat) (memo : Std.HashMap (Expr × Nat) Expr) : Prop :=
+  ∀ (k : Expr × Nat) (r : Expr), memo[k]? = some r → r = abstract1 k.1 d k.2
+
+theorem Abs1MemoInv.empty {d : Nat} : Abs1MemoInv d {} := by
+  intro k r h; simp at h
+
+theorem Abs1MemoInv.insert {d : Nat} {memo : Std.HashMap (Expr × Nat) Expr}
+    (hm : Abs1MemoInv d memo) {e : Expr} {k : Nat} {r : Expr}
+    (heq : r = abstract1 e d k) :
+    Abs1MemoInv d (memo.insert (e, k) r) := by
+  intro key r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm key r' hk
+
 /-- The executed `abstract1`: the fvar-range field read cuts the walk
-off at every node that cannot contain `fvar d`. -/
-def abstract1Fast (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
-  if e.fvarB ≤ d then e else
+off at every node that cannot contain `fvar d`, and the memo shares
+the rebuild of every node that can (task #233 — the cutoff and the
+memo are complementary: a term whose shared tower is built *over* the
+fvar being abstracted passes the cutoff at every node and was rebuilt
+once per path).  The memo is keyed by the node and the binder cursor
+`k` (the abstraction target `bvar k` moves under binders) and dropped
+after each call, since it also depends on `d`. -/
+def abstract1Go (d : Nat) (memo : Std.HashMap (Expr × Nat) Expr)
+    (e : Expr) (k : Nat) : Expr × Std.HashMap (Expr × Nat) Expr :=
+  if e.fvarB ≤ d then (e, memo) else
   match e with
-  | .fvar idx ty => if idx = d then .bvar k else .fvar idx ty
-  | .app f a => .app (abstract1Fast f d k) (abstract1Fast a d k)
-  | .lam ty body m => .lam (abstract1Fast ty d k) (abstract1Fast body d (k + 1)) m
-  | .forallE ty body m =>
-    .forallE (abstract1Fast ty d k) (abstract1Fast body d (k + 1)) m
-  | .letE ty val body =>
-    .letE (abstract1Fast ty d k) (abstract1Fast val d k)
-      (abstract1Fast body d (k + 1))
-  | .proj s i sub => .proj s i (abstract1Fast sub d k)
-  | e => e
+  | .bvar i => (.bvar i, memo)
+  | .fvar idx ty => (if idx = d then .bvar k else .fvar idx ty, memo)
+  | .sort u => (.sort u, memo)
+  | .const n us => (.const n us, memo)
+  | .lit l => (.lit l, memo)
+  | e =>
+    match memo[(e, k)]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap (Expr × Nat) Expr :=
+        match e with
+        | .app f a =>
+          let (f', memo) := abstract1Go d memo f k
+          let (a', memo) := abstract1Go d memo a k
+          (.app f' a', memo)
+        | .lam ty body m =>
+          let (t, memo) := abstract1Go d memo ty k
+          let (b, memo) := abstract1Go d memo body (k + 1)
+          (.lam t b m, memo)
+        | .forallE ty body m =>
+          let (t, memo) := abstract1Go d memo ty k
+          let (b, memo) := abstract1Go d memo body (k + 1)
+          (.forallE t b m, memo)
+        | .letE ty val body =>
+          let (t, memo) := abstract1Go d memo ty k
+          let (w, memo) := abstract1Go d memo val k
+          let (b, memo) := abstract1Go d memo body (k + 1)
+          (.letE t w b, memo)
+        | .proj s i sub =>
+          let (u, memo) := abstract1Go d memo sub k
+          (.proj s i u, memo)
+        | e => (e, memo)
+      (r, memo.insert (e, k) r)
+
+/-- **The memoized walk is `abstract1`.** -/
+theorem abstract1Go_spec {d : Nat} :
+    ∀ (e : Expr) (k : Nat) (memo : Std.HashMap (Expr × Nat) Expr),
+      Abs1MemoInv d memo →
+      (abstract1Go d memo e k).1 = abstract1 e d k ∧
+        Abs1MemoInv d (abstract1Go d memo e k).2 := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k memo hm
+    rw [abstract1Go]; split <;> exact ⟨rfl, hm⟩
+  | sort u =>
+    intro k memo hm
+    rw [abstract1Go]; split <;> exact ⟨rfl, hm⟩
+  | const n us =>
+    intro k memo hm
+    rw [abstract1Go]; split <;> exact ⟨rfl, hm⟩
+  | lit l =>
+    intro k memo hm
+    rw [abstract1Go]; split <;> exact ⟨rfl, hm⟩
+  | fvar i ty _ =>
+    intro k memo hm
+    rw [abstract1Go]; split
+    · rename_i h
+      exact ⟨(abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])).symm, hm⟩
+    · exact ⟨rfl, hm⟩
+  | app f a ihf iha =>
+    intro k memo hm
+    rw [abstract1Go]
+    split
+    · rename_i h
+      exact ⟨(abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := ihf k memo hm
+        obtain ⟨h3, h4⟩ := iha k _ h2
+        refine ⟨by simp [abstract1, h1, h3], ?_⟩
+        exact h4.insert (by simp [abstract1, h1, h3])
+  | lam ty body m iht ihb =>
+    intro k memo hm
+    rw [abstract1Go]
+    split
+    · rename_i h
+      exact ⟨(abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht k memo hm
+        obtain ⟨h3, h4⟩ := ihb (k + 1) _ h2
+        refine ⟨by simp [abstract1, h1, h3], ?_⟩
+        exact h4.insert (by simp [abstract1, h1, h3])
+  | forallE ty body m iht ihb =>
+    intro k memo hm
+    rw [abstract1Go]
+    split
+    · rename_i h
+      exact ⟨(abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht k memo hm
+        obtain ⟨h3, h4⟩ := ihb (k + 1) _ h2
+        refine ⟨by simp [abstract1, h1, h3], ?_⟩
+        exact h4.insert (by simp [abstract1, h1, h3])
+  | letE ty val body iht ihv ihb =>
+    intro k memo hm
+    rw [abstract1Go]
+    split
+    · rename_i h
+      exact ⟨(abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht k memo hm
+        obtain ⟨h3, h4⟩ := ihv k _ h2
+        obtain ⟨h5, h6⟩ := ihb (k + 1) _ h4
+        refine ⟨by simp [abstract1, h1, h3, h5], ?_⟩
+        exact h6.insert (by simp [abstract1, h1, h3, h5])
+  | proj sn i sub ih =>
+    intro k memo hm
+    rw [abstract1Go]
+    split
+    · rename_i h
+      exact ⟨(abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])).symm, hm⟩
+    · split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := ih k memo hm
+        refine ⟨by simp [abstract1, h1], ?_⟩
+        exact h2.insert (by simp [abstract1, h1])
+
+@[inherit_doc abstract1Go]
+def abstract1Fast (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
+  (abstract1Go d {} e k).1
 
 @[csimp] theorem abstract1_eq_abstract1Fast :
     @abstract1 = @abstract1Fast := by
   funext e d k
-  induction e generalizing k with
-  | bvar i => simp [abstract1Fast, abstract1]
-  | sort u => simp [abstract1Fast, abstract1]
-  | const n us => simp [abstract1Fast, abstract1]
-  | lit l => simp [abstract1Fast, abstract1]
-  | fvar i ty _ =>
-    rw [abstract1Fast]
-    split
-    · rename_i h
-      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
-    · rfl
-  | app f a ihf iha =>
-    rw [abstract1Fast]
-    split
-    · rename_i h
-      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
-    · simp [abstract1, ihf, iha]
-  | lam ty body m iht ihb =>
-    rw [abstract1Fast]
-    split
-    · rename_i h
-      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
-    · simp [abstract1, iht, ihb]
-  | forallE ty body m iht ihb =>
-    rw [abstract1Fast]
-    split
-    · rename_i h
-      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
-    · simp [abstract1, iht, ihb]
-  | letE ty val body iht ihv ihb =>
-    rw [abstract1Fast]
-    split
-    · rename_i h
-      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
-    · simp [abstract1, iht, ihv, ihb]
-  | proj sn i sub ih =>
-    rw [abstract1Fast]
-    split
-    · rename_i h
-      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
-    · simp [abstract1, ih]
+  exact (abstract1Go_spec e k {} Abs1MemoInv.empty).1.symm
 
 /-! ## Pointer-equality shortcut -/
 

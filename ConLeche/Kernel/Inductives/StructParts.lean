@@ -389,6 +389,189 @@ def Expr.hasLooseBVarB (i : Nat) (e : Expr) : Bool :=
     hasLooseBVarB i t || hasLooseBVarB i v || hasLooseBVarB (i + 1) b
   | .proj _ _ e => hasLooseBVarB i e
 
+/-! ### `hasLooseBVarB`, memoized (task #233)
+
+The cutoff above stops the walk where the variable **cannot** occur.
+It cannot stop it where a loose variable *above* `i` occurs but `i`
+itself does not: `bvarB` is the bound of the largest loose index, so a
+node holding `bvar 1` has `bvarB = 2` and the `bvarB ≤ 0` test fails at
+every node of a shared tower whose answer is `false` — and with no
+`true` to short-circuit the `||` on, each shared node is re-entered
+once per path.  A user's stream showed 99.5 % of a run inside this one
+function; the depth-60 fixture is `tests/e2e/tower_usedlater.ndjson`
+(a three-field structure whose last field's type is a tower over the
+FIRST field, asked about the SECOND).
+
+The cutoff and the memo are complementary — this keeps both.  As with
+`mentionsConst` below and `instantiate1` (`ConLeche/Kernel/ExprOps.lean`,
+task #215), the memoized walk is swapped in by `@[csimp]`:
+kernel-checked, no trust point, and the pure definition stays what
+every proof consumes (`Expr.hasLooseBVarB_eq`,
+`ConLeche/Verify/Inductives/StructBody.lean`, is unchanged).  The memo
+is keyed by the *node and the index* — the index shifts under binders,
+so a node's answer is not a function of the node alone — and dropped
+after each call. -/
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def LooseBVarMemoInv (memo : Std.HashMap (Expr × Nat) Bool) : Prop :=
+  ∀ (k : Expr × Nat) (r : Bool), memo[k]? = some r → r = k.1.hasLooseBVarB k.2
+
+theorem LooseBVarMemoInv.empty : LooseBVarMemoInv {} := by
+  intro k r h; simp at h
+
+theorem LooseBVarMemoInv.insert {memo : Std.HashMap (Expr × Nat) Bool}
+    (hm : LooseBVarMemoInv memo) {e : Expr} {i : Nat} {r : Bool}
+    (heq : r = e.hasLooseBVarB i) :
+    LooseBVarMemoInv (memo.insert (e, i) r) := by
+  intro k r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k r' hk
+
+/-- Memoized `hasLooseBVarB` (the cutoff first, then the memo). -/
+def Expr.hasLooseBVarBGo (memo : Std.HashMap (Expr × Nat) Bool) (i : Nat) (e : Expr) :
+    Bool × Std.HashMap (Expr × Nat) Bool :=
+  if e.bvarB ≤ i then (false, memo) else
+  match e with
+  | .bvar j => (i == j, memo)
+  | .fvar .. => (false, memo)
+  | .sort _ => (false, memo)
+  | .const .. => (false, memo)
+  | .lit _ => (false, memo)
+  | e =>
+    match memo[(e, i)]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Bool × Std.HashMap (Expr × Nat) Bool :=
+        match e with
+        | .app f a =>
+          let (b₁, memo) := hasLooseBVarBGo memo i f
+          let (b₂, memo) := hasLooseBVarBGo memo i a
+          (b₁ || b₂, memo)
+        | .lam ty b _ =>
+          let (b₁, memo) := hasLooseBVarBGo memo i ty
+          let (b₂, memo) := hasLooseBVarBGo memo (i + 1) b
+          (b₁ || b₂, memo)
+        | .forallE ty b _ =>
+          let (b₁, memo) := hasLooseBVarBGo memo i ty
+          let (b₂, memo) := hasLooseBVarBGo memo (i + 1) b
+          (b₁ || b₂, memo)
+        | .letE t v b =>
+          let (b₁, memo) := hasLooseBVarBGo memo i t
+          let (b₂, memo) := hasLooseBVarBGo memo i v
+          let (b₃, memo) := hasLooseBVarBGo memo (i + 1) b
+          (b₁ || b₂ || b₃, memo)
+        | .proj _ _ sub => hasLooseBVarBGo memo i sub
+        | e => (e.hasLooseBVarB i, memo)
+      (r, memo.insert (e, i) r)
+
+/-- **The memoized walk is `hasLooseBVarB`.** -/
+theorem Expr.hasLooseBVarBGo_spec :
+    ∀ (e : Expr) (i : Nat) (memo : Std.HashMap (Expr × Nat) Bool),
+      LooseBVarMemoInv memo →
+      (hasLooseBVarBGo memo i e).1 = e.hasLooseBVarB i ∧
+        LooseBVarMemoInv (hasLooseBVarBGo memo i e).2 := by
+  intro e
+  induction e with
+  | bvar j =>
+    intro i memo hm
+    rw [hasLooseBVarBGo, hasLooseBVarB]; split <;> exact ⟨rfl, hm⟩
+  | fvar j ty _ =>
+    intro i memo hm
+    rw [hasLooseBVarBGo, hasLooseBVarB]; split <;> exact ⟨rfl, hm⟩
+  | sort u =>
+    intro i memo hm
+    rw [hasLooseBVarBGo, hasLooseBVarB]; split <;> exact ⟨rfl, hm⟩
+  | const n us =>
+    intro i memo hm
+    rw [hasLooseBVarBGo, hasLooseBVarB]; split <;> exact ⟨rfl, hm⟩
+  | lit l =>
+    intro i memo hm
+    rw [hasLooseBVarBGo, hasLooseBVarB]; split <;> exact ⟨rfl, hm⟩
+  | app f a ihf iha =>
+    intro i memo hm
+    rw [hasLooseBVarBGo]
+    split
+    · rename_i hcut
+      exact ⟨by rw [hasLooseBVarB, if_pos hcut], hm⟩
+    · rename_i hcut
+      split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := ihf i memo hm
+        obtain ⟨h3, h4⟩ := iha i _ h2
+        refine ⟨by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3], ?_⟩
+        exact h4.insert (by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3])
+  | lam ty b bi iht ihb =>
+    intro i memo hm
+    rw [hasLooseBVarBGo]
+    split
+    · rename_i hcut
+      exact ⟨by rw [hasLooseBVarB, if_pos hcut], hm⟩
+    · rename_i hcut
+      split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht i memo hm
+        obtain ⟨h3, h4⟩ := ihb (i + 1) _ h2
+        refine ⟨by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3], ?_⟩
+        exact h4.insert (by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3])
+  | forallE ty b bi iht ihb =>
+    intro i memo hm
+    rw [hasLooseBVarBGo]
+    split
+    · rename_i hcut
+      exact ⟨by rw [hasLooseBVarB, if_pos hcut], hm⟩
+    · rename_i hcut
+      split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht i memo hm
+        obtain ⟨h3, h4⟩ := ihb (i + 1) _ h2
+        refine ⟨by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3], ?_⟩
+        exact h4.insert (by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3])
+  | letE t v b iht ihv ihb =>
+    intro i memo hm
+    rw [hasLooseBVarBGo]
+    split
+    · rename_i hcut
+      exact ⟨by rw [hasLooseBVarB, if_pos hcut], hm⟩
+    · rename_i hcut
+      split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht i memo hm
+        obtain ⟨h3, h4⟩ := ihv i _ h2
+        obtain ⟨h5, h6⟩ := ihb (i + 1) _ h4
+        refine ⟨by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3, h5], ?_⟩
+        exact h6.insert (by rw [hasLooseBVarB, if_neg hcut]; simp [h1, h3, h5])
+  | proj s j sub ih =>
+    intro i memo hm
+    rw [hasLooseBVarBGo]
+    split
+    · rename_i hcut
+      exact ⟨by rw [hasLooseBVarB, if_pos hcut], hm⟩
+    · rename_i hcut
+      split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := ih i memo hm
+        refine ⟨by rw [hasLooseBVarB, if_neg hcut]; simp [h1], ?_⟩
+        exact h2.insert (by rw [hasLooseBVarB, if_neg hcut]; simp [h1])
+
+/-- The executed `hasLooseBVarB` (one memoized DAG walk). -/
+def Expr.hasLooseBVarBFast (i : Nat) (e : Expr) : Bool :=
+  (hasLooseBVarBGo {} i e).1
+
+@[csimp] theorem Expr.hasLooseBVarB_eq_hasLooseBVarBFast :
+    @Expr.hasLooseBVarB = @Expr.hasLooseBVarBFast := by
+  funext i e
+  exact (hasLooseBVarBGo_spec e i {} LooseBVarMemoInv.empty).1.symm
+
 /-- **Field `j` is used by a later field** — the official
 `infer_proj`'s `has_loose_bvars(binding_body(r))` at step `j`: the
 field's variable occurs in the constructor telescope's remainder after

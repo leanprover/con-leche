@@ -62058,3 +62058,171 @@ the expectation file did not have to be regenerated at all**;
 three links that cited a file's opening `import` line together with its
 module docstring (`Frontend/{Prelude, InModel/Kit, NatOpGround}`); they now
 cite the docstring alone, which is what the citing sentence was ever about.
+
+## TASK #233 — THE OPEN TOWER: A CUTOFF IS NOT A MEMO (2026-09-08, `agent/loosebvar`)
+
+**The user's report, verbatim:** *"another unmemoed pass found. create a
+tower fixture to reproduce and then fix: block: 99.5 % in
+`Expr.hasLooseBVarB`, a plain tree recursion over `Expr` with no memo
+… called from the install path"*.
+
+### 1. Why the packed-bound cutoff could not have covered it
+
+`Expr.hasLooseBVarB` (`Kernel/Inductives/StructParts.lean`) has carried
+task #210 Part B's cutoff since it was written: `if e.bvarB ≤ i then
+false`.  `bvarB` is the *bound* of the largest loose index, so the test
+answers exactly one question — **can `bvar i` occur below this node?**
+Where the answer is no, the walk stops in `O(1)`; where it is yes, the
+walk descends, and there are two cases the report separates:
+
+* the variable **does** occur — then the first `||` branch that finds
+  it short-circuits and the walk is one root-to-leaf path;
+* the variable does **not** occur, but a loose variable **above** `i`
+  does — then `bvarB > i` at every node on the way down, nothing is
+  cut off, and nothing short-circuits, because every subresult is
+  `false`.  On a DAG each shared node is entered once per path.
+
+The third case is the one no cutoff can reach, and it is not exotic: it
+is what `structUsedLater` asks at *every field but the last*.
+`structProjGuards` runs `structUsedLater cty nP j` for each `j < i`,
+i.e. "does the constructor telescope after binder `j` mention `bvar
+0`?", and in that remainder the fields *before* `j` are the loose
+variables above 0.  A structure whose late field types depend on an
+early field — the ordinary dependent-record shape — has exactly this
+profile.  **The cutoff and the memo are complementary; the fix keeps
+both.**
+
+### 2. The fixture: an OPEN tower (`tower_usedlater`)
+
+The eight fixtures of #215/#226 could not see it, and the reason is
+structural rather than accidental: their tower is **closed**
+(`T_0 = Nat.zero`), so `bvarB = 0` at every tower node and the cutoff
+stops the walk at the tower's root.  The new kind in
+`scripts/mk_tower_fixtures.py` is the **open** tower — one built over a
+variable:
+
+```
+inductive Used where
+  | mk : (x : Nat) → (y : Nat) → (h : @Eq Nat t_60[x] Nat.zero) → Used
+```
+
+with `t_0 = x` and `t_{k+1} = (K t_k) t_k` for the same
+`K = fun (a b : Nat) => a`, so `t_60` is still defeq to `x` and the
+block really installs — 289 expression entries as a DAG, `2^60` nodes
+unshared.
+Three fields, not two, is what makes it bite: the guard for field 2
+asks `structUsedLater … 1`, whose remainder is `(h : @Eq Nat t_60[x]
+Nat.zero) → Used`, where `x` is `bvar 1` and the query is about `bvar
+0`.  Every tower node has `bvarB = 2 > 0` and every answer is `false`.
+`block()` in the generator grew an `ftys` parameter (heterogeneous
+field types, each written in the scope of the fields before it); the
+eight existing fixtures regenerate byte-identical.
+
+The verdict is **0** and the reasoning, not a lean4export round-trip, is
+what fixes it: the block is an ordinary finitary non-recursive
+structure over `Nat` with a `Prop` field, so the official kernel accepts
+it — as con-leche does, in 0.0 s, once the walks are DAG-safe.
+
+**Measured, on `master` 231c69e5's binary and under `ulimit -v 8 GB`
++ `timeout 120`:**
+
+| binary | verdict | evidence |
+|---|---|---|
+| master | **exit 1, `INTERNAL PANIC: out of memory`, 2 s** | `perf record`: `Expr.abstract1Fast` 9.30 % self, `Expr.app` 5.00 %, `mi_malloc_small` — an allocating *rebuild* |
+| this branch, `abstract1` memo only (`@[csimp]` removed from `hasLooseBVarB`) | **exit 124, hangs** | `perf record`: **`Expr.hasLooseBVarB` 99.42 % self** — the user's 99.5 %, reproduced |
+| this branch | **exit 0, 0.0 s** | |
+
+The middle row is the fixture's real point: `hasLooseBVarB` allocates
+nothing, so it *hangs* rather than OOMs, which is why a memory cap
+alone would never have named it.
+
+### 3. The second walker the fixture found
+
+master OOMs in `Expr.abstract1Fast` **before** it reaches
+`hasLooseBVarB` — and that is the same lesson one tier down.  Task #226
+gave `abstract1` the fvar-range cutoff (`e.fvarB ≤ d` ⇒ identity) and
+no memo, which sufficed for `tower_proj` because a closed tower has
+`fvarB = 0`.  The install opens the constructor telescope at fvars, so
+in `tower_usedlater` the tower is built **over the fvar being
+abstracted**: `fvarB > d` at every node, the cutoff never fires, and
+`closeTelescope`/`normPosDom` rebuild each shared node once per path.
+Cutoff and memo are complementary there too.
+
+### 4. Both twins, the same arrangement as #215/#226
+
+A memoized `…Go`, a kernel-checked agreement lemma, swapped in by
+**`@[csimp]`**: no trust point, and the *pure* definition stays the one
+every proof consumes.
+
+| pure | memo | key | spec |
+|---|---|---|---|
+| `Expr.hasLooseBVarB` (`Kernel/Inductives/StructParts.lean`) | `Expr.hasLooseBVarBGo` / `…Fast` | `(e, i)` | `Expr.hasLooseBVarBGo_spec`, `Expr.hasLooseBVarB_eq_hasLooseBVarBFast` |
+| `abstract1` (`Kernel/ExprOps.lean`) | `abstract1Go` / `abstract1Fast` | `(e, k)` | `abstract1Go_spec`, `abstract1_eq_abstract1Fast` |
+
+**Both keys carry the cursor.**  This is the one thing that
+distinguishes them from `mentionsConst`: the index a `hasLooseBVar`
+query asks about *shifts under binders*, and so does the `bvar k`
+`abstract1` writes, so a node's answer is not a function of the node
+alone.  `instantiate1Go`'s `(Expr × Nat)` key is the precedent.  Both
+memos are per-call (`{}` at the top level, dropped after) because both
+also depend on a parameter not in the key — `abstract1`'s `d`.  Both
+keep their cutoff *in front of* the memo lookup, so the common case
+(a closed subterm) is still one field read and touches no hash map.
+
+Nothing downstream moved: `Expr.hasLooseBVarB_eq`
+(`Verify/Inductives/StructBody.lean`) and its consumer in
+`Model/Inductives/FixStageTable.lean` are untouched, and
+`abstract1_of_fvarRange_le` is still the identity lemma the cutoff
+rests on.
+
+### 5. The sweep: what else is a plain tree recursion over `Expr`
+
+`git grep` over `ConLeche/{Kernel,Cached,Frontend}` for `Expr`-shaped
+recursions, checked against the `@[csimp]` census (17 twins) and the
+call sites.  Everything the towers already gate came back covered —
+`canonExpr`/`ConstantInfo.canon` and `Expr.erasePw` are now **specs
+only**, their executed callers being the lockstep `canonEq*` /
+`matchesPinFast`; `occursConst` has #214 P2's fuel; `instantiateLevelParams`
+is executed as `Cached.instLevelParams` (memo + `hasLP` cutoff).  Three
+are open, none of them the one-function shape, so they go on the
+docket rather than into this landing:
+
+| walker | call site | why no tower covers it | why not this landing |
+|---|---|---|---|
+| **`Expr.fvarLeaves`** (`Kernel/ExprOps.lean`) | `Expr.mentionsFvar` (`Kernel/Inductives/NativeInstall{,F}.lean`, the `.recursive`/`.reflexive` field arms) and `Core.lean`'s K-like arm (`fab.fvarLeaves.all (major.fvarLeaves.contains ·)`) | `tower_usedlater`'s fields are all ordinary, so the recursive arms are not entered; no tower has a recursive field | **it cannot be memoized as it stands** — the list it returns *is* tree-sized by construction.  The fix is at the two consumers: `mentionsFvar` wants the `fvarB ≤ q` cutoff plus a memoized `Bool` walk (the shape this task just built twice), and the `Core.lean` arm wants a memoized subset test, on a certified path |
+| `Frontend/InModel/Kit`: `mentionsAny`, `maxHeight`, `sortCeil` | `InModel/{Mutual,Nested}.lean` | every tower fixture is a single non-mutual block, so the in-process modeller is never entered | wants a mutual/nested tower fixture first — a fifth fixture kind |
+| `Expr.lowerBVars` | `Kernel/Inductives/Modeled.lean` (rule-prefix pins) | same: the modeled route | same |
+
+`Expr.substConstAll` (`Kernel/Checker.lean`, four calls on the same
+term) is *not* a risk of this kind and is recorded here so it is not
+re-reported: its input is a built-in certificate blob of fixed small
+size (task #113), never stream data.
+
+### 6. Gates (`agent/loosebvar`, master `e25fae56` — task #231 phase 2 — merged in)
+
+`lake build` **517 jobs, zero warnings**, warm and after the merge.
+`lake test` green — with one warning that is master's, not this
+lane's: `tests/ConLecheTests.lean:400-401`, `@[expose] private def u/v`,
+"Redundant `[expose]` attribute", introduced by `b72d7f3d` (#231 phase
+2) and left for that lane.
+
+`tests/arena.sh` under `env -i HOME=$HOME PATH=$PATH`: **exit 0, 0 FAIL**.
+**DAG-tower gate 10/10** (it ran 9/9) and **e2e 177/177** (176/176),
+the trusted sweep likewise 138 + **177** + 14 with the three recorded
+divergences; every other count unchanged — 90/92 arena, 14/14 annot,
+8/8 retired flags, 18/18 mode flags, 3/3 prelude, 12/12 progress.
+Layering 263 / 189 / 3 / 1, 0 base→lane and 0 impl→theory.  Trust
+surface 18 escapes in 4 allowlisted files of 464, 0 outside.  Proofdeps
+**2 846 rows across 7 roots, doors 0**, expectation file unchanged — as
+expected: neither spec statement moved.  Overview-links **58 links, 44
+files, OK**, no anchor repointed.  Pindump fresh.  Route census 90
+streams, 682 blocks — 142 fix, 0 inmodel, 540 basis, 0 modeled;
+`inmodel` OK; axioms pinned at 11 theorems over the three standard.
+
+`init-full` (default mode, one run): **exit 0, 53 088 accepted**, route
+census **584 fix / 6 basis / 1 inmodel**, **678 166 690 054
+instructions:u** against #231 phase 1's 677 912 649 634 on its branch
+and 678 997 282 875 on the master before it — inside the noise band
+between them (+0.04 % / −0.12 %).  Two per-call hash maps on the
+install path cost nothing measurable, which is what the cutoff staying
+in front of the memo buys.
