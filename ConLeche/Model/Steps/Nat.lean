@@ -1,9 +1,6 @@
 module
 
 public import ConLeche.Model.Steps.Reads
-import ConLeche.Model.Annot.ValidSpine
-import ConLeche.Semantics.LitStep
-import ConLeche.Verify.EnvGuards
 public section
 
 /-!

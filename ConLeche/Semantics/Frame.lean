@@ -1,7 +1,5 @@
 module
 
-import ConLeche.Verify.Abstract
-import ConLeche.Verify.Leaves
 public import ConLeche.Verify.InferLeaves
 
 @[expose] public section

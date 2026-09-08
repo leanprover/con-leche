@@ -1,8 +1,5 @@
 module
 
-import ConLeche.Kernel.Inductives.Modeled
-import ConLeche.Kernel.TrustAxioms
-import ConLeche.Kernel.Inductives.SumInstall
 public import ConLeche.Kernel.Inductives.NativeInstall
 
 @[expose] public section

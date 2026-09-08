@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Semantics.Tower.IdxEq
-import ConLeche.Semantics.Tower.TowerMk
 
 @[expose] public section
 

@@ -14,8 +14,52 @@ gives the importer the imported module's public interface and nothing more:
 
 Everything starts public; an edge is demoted only when neither constraint
 breaks anywhere.  The build is the confirmation, not the search.
+
+TWO MODES.
+
+    scripts/pub-import-plan.py            the PLAN: run the fixpoint from the
+                                          all-public tree and write
+                                          $PUBPLAN_DIR/plan.json for
+                                          scripts/pub-import-apply.py.
+    scripts/pub-import-plan.py --check    the GATE (task #235): start from the
+                                          tree's ACTUAL `public import` set
+                                          and report every edge that is
+                                          individually demotable.  Exit 1 if
+                                          any is — the tree is then not at a
+                                          local minimum.
+
+The gate deliberately does NOT compare against a freshly computed plan: the
+fixpoint is greedy, so its result depends on the order it tries edges in, and
+a plan edge that is plain here and public there is not a finding.  "No public
+import can be demoted on its own" is order-independent.
+
+Inputs (regenerate with `tests/shake.sh`, which is this script's caller in the
+standard battery):
+
+    $PUBPLAN_DIR/census.tsv   lake env lean --run scripts/dead-census.lean <mods>
+    $PUBPLAN_DIR/pub.tsv      lake env lean --run scripts/pub-iface.lean   <mods>
+
+`$PUBPLAN_DIR` defaults to `_tmp/m3`.
 """
-import re, subprocess, json, collections
+import re, subprocess, json, collections, os, sys
+
+CHECK = '--check' in sys.argv[1:]
+DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
+
+# THE PER-FILE FALLBACK (task #231 phase 3, kept by task #235).  The model is
+# a filter on candidate demotions, never a claim, and two files' re-exports
+# are reached by DOT-NOTATION, which no census row and no source-identifier
+# scan can attribute to a module: `RecCtorsStored.cons` in Model/Install and
+# a lemma of the Denote tier in Semantics/IndRecsCore.  Demoting these builds
+# a tree whose `rfl`s stop closing, so they stay public and the gate must not
+# ask for them again.
+FALLBACK = {
+    ('ConLeche.Model.Install',        'ConLeche.Model.Annot.BitExtend'),
+    ('ConLeche.Model.Install',        'ConLeche.Semantics.ConstsBound'),
+    ('ConLeche.Model.Install',        'ConLeche.Verify.Extend.Sibs'),
+    ('ConLeche.Semantics.IndRecsCore','ConLeche.Verify.Denote.EnvExt'),
+    ('ConLeche.Semantics.IndRecsCore','ConLeche.Verify.Denote.Levels'),
+}
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()
        if not f.startswith(('tests/e2e/src/','tests/trust-surface/','_probe/','bridge/','scripts/'))]
@@ -52,11 +96,11 @@ for m in mods:
 # --- reach: every module whose constants this module mentions at all
 declmod={}
 deps=collections.defaultdict(set)
-for line in open('_tmp/m3/census.tsv'):
+for line in open(DIR+'/census.tsv'):
     p=line.rstrip('\n').split('\t')
     if len(p)<3: continue
     declmod[p[0]]=p[1]
-for line in open('_tmp/m3/census.tsv'):
+for line in open(DIR+'/census.tsv'):
     p=line.rstrip('\n').split('\t')
     if len(p)<4: continue
     for c in p[3].split():
@@ -110,7 +154,7 @@ for m in mods:
     srcneed[m]=acc
 
 need={m:0 for m in mods}
-for line in open('_tmp/m3/pub.tsv'):
+for line in open(DIR+'/pub.tsv'):
     if '\t' not in line: continue
     m,rest=line.rstrip('\n').split('\t',1)
     if m in idx: need[m]=sum(bit[x] for x in rest.split() if x in idx)
@@ -150,33 +194,38 @@ def closures():
 
 _OKBASE=set()
 
-def ok(cl):
+def violations(cl):
+    """Every constraint the configuration `P` breaks, as a set of tokens."""
+    out=set()
     for m in mods:
         cov=bit[m]
         pubcov=0
         for t in D[m]:
             cov |= cl[t]
             if t in P[m]: pubcov |= cl[t]
-        if reach[m] & ~cov: return False
-        if need[m] & ~pubcov: return False
+        if reach[m] & ~cov: out.add(('cover', m))
+        if need[m] & ~pubcov: out.add(('pub', m))
         for j,b in enumerate(opens[m]):
-            if (m,j) in _OKBASE: continue
-            if not (b & cov): return False
-    return True
+            if not (b & cov): out.add(('open', m, j))
+    return out
 
-# The all-public tree is correct by construction, so anything the model
-# reports there is the MODEL's imprecision (an `open` picked out of a
-# docstring line, say).  Record those and require only that nothing gets
-# worse — the model is a filter on candidate demotions, never a claim.
-_cl=closures()
-_base=set()
-for m in mods:
-    cov=bit[m]
-    for t in D[m]: cov |= _cl[t]
-    for j,b in enumerate(opens[m]):
-        if not (b & cov): _base.add((m,j))
-if _base: print('model imprecision at baseline (ignored):', sorted(_base))
-_OKBASE=_base
+def ok(cl):
+    return violations(cl) <= _OKBASE
+
+# The STARTING tree is correct by construction — it is the tree that builds —
+# so anything the model reports there is the MODEL's imprecision (an `open`
+# picked out of a docstring line; a match auxiliary the census attributes to
+# the module that first generated it).  Record those and require only that
+# nothing gets worse — the model is a filter on candidate demotions, never a
+# claim.
+def _rebase(label):
+    global _OKBASE
+    _OKBASE=set()
+    b=violations(closures())
+    if b: print(f'model imprecision at {label} (ignored):', sorted(b))
+    _OKBASE=b
+
+_rebase('baseline')
 
 frozen={m for m in mods
         if fileof[m] in UMBRELLA or fileof[m] in CLASSIC
@@ -185,9 +234,38 @@ frozen={m for m in mods
 # dependency set is silently empty and the fixpoint will happily strip it bare
 # (that is what an incomplete root list did on the first run: the whole
 # `Frontend/*` cone had no rows and lost every re-export).
-seen_mods={l.split('\t')[1] for l in open('_tmp/m3/census.tsv') if '\t' in l}
+seen_mods={l.split('\t')[1] for l in open(DIR+'/census.tsv') if '\t' in l}
 missing=[m for m in mods if m not in frozen and m not in seen_mods]
 assert not missing, f'census does not cover: {missing[:6]} ({len(missing)} modules)'
+tot=sum(len(D[m]) for m in mods)
+
+if CHECK:
+    # The tree as it stands: an edge is public iff its line says `public`.
+    for m in mods:
+        pubs=set()
+        for _,ispub,ismeta,t in imports(fileof[m]):
+            if ismeta or t.startswith(EXT) or t not in idx: continue
+            if ispub: pubs.add(t)
+        P[m]=pubs & set(D[m])
+    _rebase('the tree as it stands')
+    bad=[]
+    for m in mods:
+        if m in frozen: continue
+        for t in sorted(P[m]):
+            if (m,t) in FALLBACK: continue
+            P[m].discard(t)
+            if ok(closures()): bad.append((m,t))
+            P[m].add(t)
+    pub=sum(len(P[m]) for m in mods)
+    if bad:
+        print(f'DEMOTABLE `public import` ({len(bad)}) — `public import X` is for a '
+              're-export something else\'s PUBLIC statement needs:')
+        for m,t in bad: print(f'  {fileof[m]}: public import {t}')
+        raise SystemExit(1)
+    print(f'pub-imports: {pub} of {tot} in-tree edges public, none demotable '
+          f'({len(FALLBACK)} dot-notation fallbacks)')
+    raise SystemExit(0)
+
 changed=True
 while changed:
     changed=False
@@ -199,7 +277,6 @@ while changed:
                 changed=True
             else:
                 P[m].add(t)
-tot=sum(len(D[m]) for m in mods)
 pub=sum(len(P[m]) for m in mods)
 print(f'{pub} of {tot} in-tree import edges must stay public  ->  {tot-pub} narrow')
-json.dump({m:sorted(P[m]) for m in mods}, open('_tmp/m3/plan.json','w'))
+json.dump({m:sorted(P[m]) for m in mods}, open(DIR+'/plan.json','w'))

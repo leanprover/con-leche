@@ -18,9 +18,9 @@ con-leche [--verified|--trusted] FILE.ndjson
 `--verified` is the default and the mode the theorem is about;
 `--trusted` runs the same checker bodies with the certification-only
 work switched off, is faster, and is outside the theorem
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L450)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L448)).
 The exit code follows the lean kernel arena convention
-([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L45)):
+([the exit-code mapping in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L43)):
 
 | exit | verdict | meaning |
 |---|---|---|
@@ -69,10 +69,10 @@ Everything below explains how that theorem is reached.
 Read from the outside in:
 
 1. **The driver** (`Main.lean`). The default run parses the stream
-   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L904))
+   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L902))
    and calls the pure fold `checkDecls`, printing nothing per
    declaration
-   ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L352)).
+   ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L350)).
    The optional progress lane (`--progress`) runs a separate,
    plainly unverified fold of the same steps with a line printed before
    each declaration; a run with that flag is not covered by the theorem.
@@ -289,7 +289,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   into single ones with a syntactic correspondence between the original
   and its model; ConLeche originally ran that tool as a preprocessor and
   now performs the same construction in process
-  ([the modeller's kit in `ConLeche/Frontend/InModel/Kit.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/InModel/Kit.lean#L8-L16)).
+  ([the modeller's kit in `ConLeche/Frontend/InModel/Kit.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/InModel/Kit.lean#L7-L15)).
   The model is generated and checked; nothing external is trusted, and
   nothing is read from the input: a stream record whose name happens to
   carry a `_model` component is an ordinary declaration with no effect
@@ -319,7 +319,7 @@ instead of trusting the operation's name.
   the not-yet-enabled fast path cannot discharge its own equations
   vacuously
   ([the account of the certified fast path in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L460-L477),
-  [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Checker.lean#L104-L111)).
+  [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Checker.lean#L101-L108)).
   A nonstandard definition is rejected; presence in the store is the
   certificate, and `whnf` folds literals for stored operations only.
   The model side reads the operation's membership off its pinned type
@@ -411,7 +411,7 @@ definitions, and the two axioms are accepted only after the install
 certifies, by definitional equality, that the stored reduce operation
 is the identity, at which point each axiom's statement is an inhabited
 proposition in the model
-([the compiler-trust family in `ConLeche/Kernel/TrustAxioms.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/TrustAxioms.lean#L13-L39)).
+([the compiler-trust family in `ConLeche/Kernel/TrustAxioms.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/TrustAxioms.lean#L10-L36)).
 Proofs by `native_decide` and `bv_decide` are declined: each such
 proof adds an axiom of its own to the environment, recording the
 result the native evaluator computed, and that axiom is not a pinned

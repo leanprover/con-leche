@@ -5,11 +5,11 @@
 # changed: re-read the paragraph in OVERVIEW.md that cites it, fix the
 # link or the prose, then regenerate.
 
-== Main.lean#L450
-   450  def usage : String := String.intercalate "\n" [
+== Main.lean#L448
+   448  def usage : String := String.intercalate "\n" [
 
-== Main.lean#L45
-    45  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== Main.lean#L43
+    43  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
 == ConLeche/MainTheorem.lean#L30-L34
     30  theorem no_proof_of_False (V : Type w) [SetTheory V]
@@ -22,11 +22,11 @@
     88  #guard_msgs in
     89  #print axioms ConLeche.no_proof_of_False
 
-== ConLeche/Frontend/ExportC.lean#L904
-   904    for line in contents.splitToList (· == '\n') do
+== ConLeche/Frontend/ExportC.lean#L902
+   902    for line in contents.splitToList (· == '\n') do
 
-== Main.lean#L352
-   352            pure (ConLeche.Cached.checkDecls mode decls.toList)
+== Main.lean#L350
+   350            pure (ConLeche.Cached.checkDecls mode decls.toList)
 
 == ConLeche/Cached/ParsedC.lean#L287-L290
    287  def checkDecls (mode : CheckMode) (ds : List DeclC) :
@@ -560,16 +560,16 @@
     78      let depth := rP + cnF
     79      let (fvs, tbody) ← unwrapOr (openPisAtFvars depth cvt.type 0)
 
-== ConLeche/Frontend/InModel/Kit.lean#L8-L16
-     8  /-!
-     9  # The in-process modeller's kit (task #200)
-    10  
-    11  Shared pieces of the in-process construction of `_model` families for
-    12  nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
-    13  
-    14  * the naming scheme (lean-inductive-models' `_impl` names, so the two
-    15    generators' streams are diffable — none of these names is special to
-    16    the checker: only the public `_model` slots are consumed, and only
+== ConLeche/Frontend/InModel/Kit.lean#L7-L15
+     7  /-!
+     8  # The in-process modeller's kit (task #200)
+     9  
+    10  Shared pieces of the in-process construction of `_model` families for
+    11  nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
+    12  
+    13  * the naming scheme (lean-inductive-models' `_impl` names, so the two
+    14    generators' streams are diffable — none of these names is special to
+    15    the checker: only the public `_model` slots are consumed, and only
 
 == ConLeche/Frontend/InModel/Nested.lean#L47-L54
     47  Declines (the residual): a field mentioning the block other than as a
@@ -612,15 +612,15 @@
    476  `beq zero zero ≡ true`) vacuously — accepting definitions that
    477  disagree with the fast path on those points, which is unsound.  The
 
-== ConLeche/Kernel/Checker.lean#L104-L111
-   104  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
-   105      List (Expr × Expr) → m Bool
-   106    | [] => pure true
-   107    | eq :: rest => do
-   108      if ← ops.isDefEq env 2 eq.1 eq.2 then
-   109        certifyNatEqs ops env rest
-   110      else pure false
-   111  
+== ConLeche/Kernel/Checker.lean#L101-L108
+   101  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
+   102      List (Expr × Expr) → m Bool
+   103    | [] => pure true
+   104    | eq :: rest => do
+   105      if ← ops.isDefEq env 2 eq.1 eq.2 then
+   106        certifyNatEqs ops env rest
+   107      else pure false
+   108  
 
 == ConLeche/Model/NatEqs.lean#L1100
   1100  theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
@@ -785,32 +785,32 @@
     50  def toleratedAxiomNames : List Name :=
     51    [ anonymous |>.str "sorryAx" ]
 
-== ConLeche/Kernel/TrustAxioms.lean#L13-L39
-    13  /-!
-    14  # The compiler-trust axiom family (task #95)
+== ConLeche/Kernel/TrustAxioms.lean#L10-L36
+    10  /-!
+    11  # The compiler-trust axiom family (task #95)
+    12  
+    13  `Init`'s compiler-trust scaffolding is installed instead of
+    14  taint-skipped:
     15  
-    16  `Init`'s compiler-trust scaffolding is installed instead of
-    17  taint-skipped:
-    18  
-    19  * `Lean.trustCompiler : True` is trivially realizable — it is
-    20    installed as an *opaque* (stored `thmInfo`, exactly like a checked
-    21    `opaque` declaration) with value `True.intro`, over a pinned `True`
-    22    family.  No new meta-axiom: the model is `True.intro`'s own
-    23    interpretation.
-    24  * `Lean.reduceNat` / `Lean.reduceBool` then check as ordinary
-    25    `opaque`s (their exported values are identity functions modulo the
-    26    `have := trustCompiler` wrapper); at install their stored values are
-    27    pinned against the toolchain's own definitions
-    28    (`ConLeche/Kernel/TrustPins.lean`, generated at build time) by
-    29    definitional equality — the task-#47 pattern: drift declines,
-    30    never silently.
-    31  * `Lean.ofReduceNat` / `Lean.ofReduceBool` are pinned axioms over
-    32    those stored opaques (the task-#34 standard-axioms machinery).  With
-    33    the stored reduce operation certified to be the identity (a
-    34    definitional-equality certificate at the axiom's own install,
-    35    `checkOfReduceAx`), `∀ a b, reduceNat a = b → a = b` interprets to
-    36    an inhabited proposition (the hypothesis *is* the conclusion), so
-    37    both axioms are true in the set model with the proof point as value.
-    38  
-    39  `sorryAx` remains the only tolerated (skip-taint) axiom.
+    16  * `Lean.trustCompiler : True` is trivially realizable — it is
+    17    installed as an *opaque* (stored `thmInfo`, exactly like a checked
+    18    `opaque` declaration) with value `True.intro`, over a pinned `True`
+    19    family.  No new meta-axiom: the model is `True.intro`'s own
+    20    interpretation.
+    21  * `Lean.reduceNat` / `Lean.reduceBool` then check as ordinary
+    22    `opaque`s (their exported values are identity functions modulo the
+    23    `have := trustCompiler` wrapper); at install their stored values are
+    24    pinned against the toolchain's own definitions
+    25    (`ConLeche/Kernel/TrustPins.lean`, generated at build time) by
+    26    definitional equality — the task-#47 pattern: drift declines,
+    27    never silently.
+    28  * `Lean.ofReduceNat` / `Lean.ofReduceBool` are pinned axioms over
+    29    those stored opaques (the task-#34 standard-axioms machinery).  With
+    30    the stored reduce operation certified to be the identity (a
+    31    definitional-equality certificate at the axiom's own install,
+    32    `checkOfReduceAx`), `∀ a b, reduceNat a = b → a = b` interprets to
+    33    an inhabited proposition (the hypothesis *is* the conclusion), so
+    34    both axioms are true in the set model with the proof point as value.
+    35  
+    36  `sorryAx` remains the only tolerated (skip-taint) axiom.
 

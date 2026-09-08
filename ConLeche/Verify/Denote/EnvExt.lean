@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Denote
-import ConLeche.Verify.EnvWF
 
 public section
 
