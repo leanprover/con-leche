@@ -60984,13 +60984,21 @@ block is in the class (every Mathlib nested block is index-free; the
 two indexed blocks of the census are mutual).  Recorded in
 `ConLeche/Frontend/InModel/Nested.lean`'s header as a KNOWN GAP.
 
-### 5. Receipts (branch `agent/modsort`, master `3d560725`)
+### 5. Receipts (branch `agent/modsort`, master `1c66d4a8` merged)
+
+Master's task #228 landed mid-flight and appended the declared
+parameter count to the four `.indDecl` records the modeller pushes; the
+tag and auxiliary families are built over the FIRST member's parameter
+telescope (#218), so the count they declare is the count they have and
+`indParamsOk` passes on the modeller's own records unchanged.  Re-gated
+after the merge; the numbers below are the merged branch's.
 
 * `lake build` 517 jobs, zero warnings; `lake test` green.
 * `tests/arena.sh` under `env -i HOME=$HOME PATH=$PATH`: **exit 0, 0
-  FAIL** — arena tutorial 90/92 (032/033 by design), e2e **168/168**
-  (the two new fixtures), annot 14/14, retired 8/8, mode 18/18,
-  prelude 3/3, progress 6/6, DAG-tower 2/2, trusted sweep 138 + 168 +
+  FAIL** — arena tutorial 90/92 (032/033 by design), e2e **170/170**
+  (this task's two fixtures and #228's two), annot 14/14, retired 8/8,
+  mode 18/18,
+  prelude 3/3, progress 6/6, DAG-tower 2/2, trusted sweep 138 + 170 +
   14 with its three recorded divergences; axioms pinned at 11 theorems,
   `[propext, Classical.choice, Quot.sound]`.
 * `tests/layering.sh` 263/189/3/1 modules, 0 impl→theory;
@@ -60998,19 +61006,21 @@ two indexed blocks of the census are mutual).  Recorded in
   scanned, 0 outside; `tests/proofdeps.sh` **2 846 rows, doors 0** (no
   proof moved — the diff is the frontend and fixtures);
   `tests/inmodel.sh` OK on eight fixtures;
-  `tests/overview-links.sh` 57 links / 44 files OK (the residual anchor
+  `tests/overview-links.sh` 58 links / 44 files OK (the residual anchor
   `Nested.lean#L43-L50` regenerated for the new decline clause; the
   citing paragraph re-read and still true).
 * **init-full**, raw, default mode, `perf stat -e instructions:u`:
   accepted **53 088**, route census **584 fix / 6 basis / 1 inmodel**
-  (`Lean.Syntax` still `inmodel`), at **679.151 G instructions:u**
-  against #222's 679.098 G — parity (+0.008 %; the ceiling runs once
-  per index binder of a mutual or nested block).
+  (`Lean.Syntax` still `inmodel`), at **679.235 G instructions:u**
+  against #228's 679.215 G — parity (+0.003 %; the ceiling runs once per
+  index binder of a mutual or nested block, and only where the exact
+  reading fails).
 * **The Mathlib mutual/nested cone**: all **51** blocks of the census
   (13 mutual incl. mutual+nested, 41 nested incl. the same three) cut
   from `_tmp/mathlib-scoping/mathlib-full.ndjson` with
   `scripts/slice-cone.py` (138 MB, 4 961 declarations).  Accepted, exit
   0, **4 958 declarations**, **51 modelled / 0 declined**, on this
-  branch and on master's binary alike — and the two runs'
-  `CON_LECHE_INMODEL_DUMP` streams are **byte-identical**, so not one
+  branch and on master's binary alike — and the runs'
+  `CON_LECHE_INMODEL_DUMP` streams are **byte-identical** (master's
+  binary, this branch before the #228 merge, and after it), so not one
   generated record of Mathlib's mutual and nested blocks moved.
