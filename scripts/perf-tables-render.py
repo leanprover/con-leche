@@ -13,7 +13,7 @@ and accepted-declaration count beside every cell, and nothing else.  No
 historical columns, no retired flags, no "was X" annotations; prose stays
 at a few lines.
 
-Task #187 adds, without breaking that rule: the input census (a property
+Added without breaking that rule: the input census (a property
 of each stream, not of any checker), and — for the `mathlib-full` row
 only — wall minutes and peak RSS, printed as data in their own small
 table.
@@ -173,20 +173,13 @@ if census:
     A("itself (the fixpoint route, or a model it generates in process),")
     A("split by shape.")
     A("")
-    A("**The `con-leche` column IS the verdict line's count.**  Between")
-    A("tasks #200 and #219 it was not: the in-process modeller pushed its")
-    A("generated records into the parsed list and the fold counted them,")
-    A("so the verdict ran ahead of the file by the size of every generated")
-    A("model family (30 on `init-prelude`, `grind-ring-5` and `init-full`")
-    A("— `Lean.Syntax`'s; 2 168 on `mathlib-full`, for the 51 blocks")
-    A("modelled in process there).  Task #219 books those records as what")
-    A("they are — declarations of the fold, never records of the file —")
-    A("and the census predicts the verdict again.  The accepted counts in")
-    A("the exit-code table above were DERIVED for that change, not")
-    A("re-measured: each con-leche cell lost exactly its stream's gap,")
-    A("which is the number this census already published.  The")
-    A("instruction cells are untouched (they do not move: the same")
-    A("records are checked, only counted differently).")
+    A("**The `con-leche` column IS the verdict line's count.**  The")
+    A("in-process modeller's generated records (30 on `init-prelude`,")
+    A("`grind-ring-5` and `init-full` — `Lean.Syntax`'s; 2 168 on")
+    A("`mathlib-full`, for the 51 blocks modelled in process there) are")
+    A("booked as declarations of the fold, never as records of the file,")
+    A("so the census predicts the verdict.  The instruction cells count")
+    A("the same checked records either way.")
     A("")
     A("| stream | records | con-leche | official | pinned | native | structures | sums | indexed |")
     A("|" + "---|" * 9)
@@ -226,16 +219,14 @@ if meta.get("stalenote"):
     A(f"* {meta['stalenote']}")
 if meta.get("mathlibnote"):
     A(f"* {meta['mathlibnote']}")
-A("* **The verdict line counts declaration RECORDS** (task #187).  It")
-A("  used to print `env.consts.length`, the number of environment")
-A("  CONSTANTS, which counts an inductive block's type former, its")
-A("  constructors, its recursor and its projection table separately —")
-A("  a property of con-leche's representation that moved whenever the")
-A("  representation moved.  It now prints the STREAM's record count —")
-A("  `decls.size - preludeCount + preludeDropped` since task #191's")
-A("  built-in prelude, so a stream that re-declares a prelude block")
-A("  identically reports what it declared.  `CON_LECHE_VERBOSE=1` still")
-A("  prints the constant count, on stderr, beside it.")
+A("* **The verdict line counts declaration RECORDS**, the STREAM's count")
+A("  `decls.size - preludeCount + preludeDropped` (so a stream that")
+A("  re-declares a prelude block identically reports what it declared),")
+A("  not the number of environment CONSTANTS, which would count an")
+A("  inductive block's type former, its constructors, its recursor and")
+A("  its projection table separately — a property of con-leche's")
+A("  representation.  `CON_LECHE_VERBOSE=1` prints the constant count,")
+A("  on stderr, beside it.")
 A("* **The official number is not a record count either.**  Its")
 A("  `Main.lean` prints `constMap.size`: one entry per exported")
 A("  constant, so an inductive record contributes its type formers, its")

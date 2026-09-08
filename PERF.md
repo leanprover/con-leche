@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | commit measured | `1e6881c6e7e8bcb60e0a5af696dbfdaade12e10b` |
-| tree | master at the commit above: every file a `module`, the proof tiers' interfaces narrowed (task #231), the DAG-tower memos (task #233).  Same streams and the same method as the `96344cd1` table, so the cells are like-for-like against it. |
+| tree | master at the commit above: every file a `module` with narrowed proof-tier interfaces, and the DAG-tower memos in place.  Same streams and the same method as the `96344cd1` table, so the cells are like-for-like against it. |
 | date | 2026-09-08T14:35:06+00:00 |
 | machine | bubblewrap — AMD EPYC 9455 48-Core Processor, 96 cores, 125 GB RAM, Linux 6.12.100 |
 | columns | official v4.33.0 · trusted `--trusted` · verified `--verified` |
@@ -51,20 +51,13 @@ below).  `pinned` counts the basis blocks the parse matches;
 itself (the fixpoint route, or a model it generates in process),
 split by shape.
 
-**The `con-leche` column IS the verdict line's count.**  Between
-tasks #200 and #219 it was not: the in-process modeller pushed its
-generated records into the parsed list and the fold counted them,
-so the verdict ran ahead of the file by the size of every generated
-model family (30 on `init-prelude`, `grind-ring-5` and `init-full`
-— `Lean.Syntax`'s; 2 168 on `mathlib-full`, for the 51 blocks
-modelled in process there).  Task #219 books those records as what
-they are — declarations of the fold, never records of the file —
-and the census predicts the verdict again.  The accepted counts in
-the exit-code table above were DERIVED for that change, not
-re-measured: each con-leche cell lost exactly its stream's gap,
-which is the number this census already published.  The
-instruction cells are untouched (they do not move: the same
-records are checked, only counted differently).
+**The `con-leche` column IS the verdict line's count.**  The
+in-process modeller's generated records (30 on `init-prelude`,
+`grind-ring-5` and `init-full` — `Lean.Syntax`'s; 2 168 on
+`mathlib-full`, for the 51 blocks modelled in process there) are
+booked as declarations of the fold, never as records of the file,
+so the census predicts the verdict.  The instruction cells count
+the same checked records either way.
 
 | stream | records | con-leche | official | pinned | native | structures | sums | indexed |
 |---|---|---|---|---|---|---|---|---|
@@ -90,18 +83,16 @@ reader wants before pointing the checker at all of Mathlib.
 
 ## Notes
 
-* **Comparable with the previous table (`96344cd1`), and with nothing before it.**  The streams, the method and the census are unchanged since the raw-stream regeneration at task #207, so these cells read against that table directly; the tree between the two is twenty-odd tasks of checker work (#217-#233).  What moved: `init-full` and the two ladders not at all, `init-prelude` +0.9 % and `grind-ring-5` +0.5 % on both con-leche columns, and `mathlib-full` +0.55 % verified / **+1.32 % trusted** -- the trusted Mathlib cell is the one number outside the spread the official binary itself showed between the two runs (up to 0.25 % on the small streams, +0.03 % at Mathlib scale), and it is recorded here rather than chased.  Master moved to `021ebda9` (task #236, a memo repair with parity on `init-full`) while this battery ran; that commit is not in these cells.
+* **Comparable with the previous table (`96344cd1`), and with nothing before it.**  The streams, the method and the census are unchanged since the raw-stream regeneration, so these cells read against that table directly; the tree between the two is twenty-odd rounds of checker work.  What moved: `init-full` and the two ladders not at all, `init-prelude` +0.9 % and `grind-ring-5` +0.5 % on both con-leche columns, and `mathlib-full` +0.55 % verified / **+1.32 % trusted** -- the trusted Mathlib cell is the one number outside the spread the official binary itself showed between the two runs (up to 0.25 % on the small streams, +0.03 % at Mathlib scale), and it is recorded here rather than chased.  Master moved to `021ebda9` (a memo repair with parity on `init-full`) while this battery ran; that commit is not in these cells.
 * **All of Mathlib, all three checkers, one stream.** The `mathlib-full` row is the whole export (`lean4export` 3.1.0, Lean 4.29.1, 5 636 308 621 B), read by all three cells. **Every cell accepts**: official 670 627 declarations, con-leche 654 499 declaration records in BOTH modes -> **1.35x verified, 1.26x trusted**; the smaller `init-full` stream sits at 1.68x / 1.63x. The count difference is the official binary's counting (see below), not a verdict difference.
-* **The verdict line counts declaration RECORDS** (task #187).  It
-  used to print `env.consts.length`, the number of environment
-  CONSTANTS, which counts an inductive block's type former, its
-  constructors, its recursor and its projection table separately —
-  a property of con-leche's representation that moved whenever the
-  representation moved.  It now prints the STREAM's record count —
-  `decls.size - preludeCount + preludeDropped` since task #191's
-  built-in prelude, so a stream that re-declares a prelude block
-  identically reports what it declared.  `CON_LECHE_VERBOSE=1` still
-  prints the constant count, on stderr, beside it.
+* **The verdict line counts declaration RECORDS**, the STREAM's count
+  `decls.size - preludeCount + preludeDropped` (so a stream that
+  re-declares a prelude block identically reports what it declared),
+  not the number of environment CONSTANTS, which would count an
+  inductive block's type former, its constructors, its recursor and
+  its projection table separately — a property of con-leche's
+  representation.  `CON_LECHE_VERBOSE=1` prints the constant count,
+  on stderr, beside it.
 * **The official number is not a record count either.**  Its
   `Main.lean` prints `constMap.size`: one entry per exported
   constant, so an inductive record contributes its type formers, its
