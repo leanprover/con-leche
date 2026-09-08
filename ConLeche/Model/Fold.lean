@@ -189,13 +189,13 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     exact harvestOpaque hμ mp hrun
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
-  | indDecl block =>
+  | indDecl block nP =>
     -- the `.indDecl` dispatch: a RECOGNISED block installs directly
     -- (ONE ROUTE, task #210), everything else through the modeled path
     -- — the kernel's own two-way case split (task #219)
-    have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block env₂ := hrun
+    have hrun' : ConLeche.Semantics.DeclIndRunDispatch μ F env block nP env₂ := hrun
     unfold ConLeche.Semantics.DeclIndRunDispatch at hrun'
-    cases hdf : ConLeche.nativeParts? block with
+    cases hdf : ConLeche.nativeParts? nP block with
     | some p =>
       rw [hdf] at hrun'
       exact declNative hμ mp hE hdf hrun'

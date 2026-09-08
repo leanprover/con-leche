@@ -22,20 +22,20 @@
     85  #guard_msgs in
     86  #print axioms ConLeche.no_proof_of_False
 
-== ConLeche/Frontend/ExportC.lean#L885
-   885    for line in contents.splitToList (· == '\n') do
+== ConLeche/Frontend/ExportC.lean#L901
+   901    for line in contents.splitToList (· == '\n') do
 
 == Main.lean#L331
    331            let now ← IO.monoMsNow
 
-== ConLeche/Cached/ParsedC.lean#L276-L279
-   276  `no_proof_of_Empty_cached` and the agreement floor keep their
-   277  statements verbatim and reach the plain fold through `foldIdxC_ok`
-   278  below. -/
-   279  def checkDecls (mode : CheckMode) (ds : List DeclC) :
+== ConLeche/Cached/ParsedC.lean#L283-L286
+   283  def checkDecls (mode : CheckMode) (ds : List DeclC) :
+   284      Except (CheckError × Nat) Env := do
+   285    let p ← (ds.foldlM (checkDeclStep mode) (0, mkFEnv Env.empty)).run' {}
+   286    pure p.2.env
 
-== ConLeche/Cached/ParsedC.lean#L244
-   244  declaration that failed.  On the accepting side it is
+== ConLeche/Cached/ParsedC.lean#L248
+   248  declaration that failed.  On the accepting side it is
 
 == ConLeche/Verify/Cached/MainC.lean#L155-L163
    155  theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
@@ -182,8 +182,8 @@
    102    pw : PropWhen
    103    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1278
-  1278  `.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1282
+  1282  `.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
 
 == ConLeche/Term/Syntax.lean#L165-L179
    165  inductive Term where
@@ -488,6 +488,16 @@
     13  `lake exe natop-pins-export` and gated by `tests/pindump.sh`).
     14  
     15  **Why.**  A user report (2026-09-06): the Nat-op pins were sensitive
+
+== ConLeche/Kernel/Env.lean#L525-L532
+   525  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   526    block.all fun ci => match ci with
+   527      | .indInfo cvT _ =>
+   528        match cvT.type.piSortTeleLen? with
+   529        | some n => decide (nP ≤ n)
+   530        | none => true
+   531      | .ctorInfo _ nPc _ => nPc == nP
+   532      | _ => true
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L158
    158  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr

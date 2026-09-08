@@ -96,7 +96,7 @@ private def _root_.ConLeche.Cached.DeclC.asInfo? : DeclC → Option ConstantInfo
 up to the basis-matching canonical form (`ConstantInfo.canon`). -/
 def _root_.ConLeche.Cached.DeclC.sameCanon : DeclC → DeclC → Bool
   | .basisDecl k, .basisDecl k' => k == k'
-  | .indDecl b, .indDecl b' => canonEqList b b'
+  | .indDecl b nP, .indDecl b' nP' => nP == nP' && canonEqList b b'
   | .opaqueDecl .., .defnDecl .. => false
   | .defnDecl .., .opaqueDecl .. => false
   | a, b =>
@@ -201,7 +201,7 @@ private def noteDecl (st : StateD) (d : DeclC) : StateD :=
     | .opaqueDecl cv _ => [(cv.name, cv.levelParams, cv.type, none)]
     | .basisDecl k => k.decls.map fun ci =>
       (ci.toConstantVal.name, ci.toConstantVal.levelParams, ci.toConstantVal.type, none)
-    | .indDecl block => block.map fun ci =>
+    | .indDecl block _ => block.map fun ci =>
       (ci.toConstantVal.name, ci.toConstantVal.levelParams, ci.toConstantVal.type, none)
   let ct := st.constTypes
   let hs := st.heights
@@ -567,6 +567,22 @@ private def processLineCoreD (st : StateD) (j : Json) :
     -- path used to `throw`, which the driver reports as exit 3.
     if ← tys.anyM fun t => do (← t.getObjVal? "isUnsafe").getBool? then
       return .inr "unsafe inductive declaration"
+    -- TASK #228 — THE DECLARED PARAMETER COUNT.  Official's replay
+    -- hands `add_inductive` the `numParams` of ONE inductive record of
+    -- the block (`Declaration.inductDecl lparams nparams types`,
+    -- `Lean4Checker/Replay.lean`) and checks every former and every
+    -- constructor against it; which record that is, is the name order
+    -- of the replay's walk.  So the count is well defined for the
+    -- block exactly when its type records AGREE on it — as every
+    -- record a real export writes does, `add_inductive` storing one
+    -- `m_nparams` in every member's `InductiveVal`.  A block whose
+    -- records disagree has no declared count this checker could hold
+    -- official to, and is positively declined here rather than checked
+    -- against a count official might not have chosen.
+    let nPs ← tys.mapM fun t => do (← t.getObjVal? "numParams").getNat?
+    let nPd := nPs[0]?.getD 0
+    unless nPs.all (· == nPd) do
+      return .inr "inductive block whose type records disagree on numParams"
     let types ← tys.mapM fun t => do
       pure (ConstantInfo.indInfo (← parseConstantValTD st t) {})
     let ctors ← (← (← v.getObjVal? "ctors").getArr?).mapM fun c => do
@@ -634,7 +650,7 @@ private def processLineCoreD (st : StateD) (j : Json) :
         | .error why =>
           if st.inModelCensus then
             return pushDecl { st with inModelDeclined := st.inModelDeclined.push (T0, why) }
-              (.indDecl block)
+              (.indDecl block nPd)
           else
             return .inr s!"in-process model of {T0}: {why}"
         | .ok gen =>
@@ -651,9 +667,9 @@ private def processLineCoreD (st : StateD) (j : Json) :
           st1 := { st1 with
             inModelled := st1.inModelled.push T0,
             inModelGen := st1.inModelGen.push (st1.indCount - 1, gen.toArray) }
-          return pushDecl st1 (.indDecl block)
+          return pushDecl st1 (.indDecl block nPd)
       else
-        return pushDecl st (.indDecl block)
+        return pushDecl st (.indDecl block nPd)
   else
     throw "unrecognized line"
 where

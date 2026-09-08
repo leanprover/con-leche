@@ -613,6 +613,29 @@
 1 ind_stub_univ.ndjson
 1 ind_stub_recname.ndjson
 1 ind_stub_reclps.ndjson
+# TASK #228 — THE DECLARED PARAMETER COUNT.  Two more twins of
+# `direct_fix_nat.ndjson`, patched by `scripts/mk_ind_numparams.py`,
+# which touch INDUCTIVE-RECORD METADATA and nothing else.  Official's
+# replay hands `add_inductive` the `numParams` an inductive record
+# declares and checks the block against it — the type formers'
+# telescopes (`check_inductive_types`, "number of parameters mismatch")
+# and, through the postponed comparison, every constructor record's own
+# count.  Its `numIndices` it never reads: nothing compares an inductive
+# record against the generated `InductiveVal`.
+#   ind_numparams_bad:     `numParams = 1` declared on `Nat' : Type`,
+#                          a former with no Pi binder at all — official
+#                          rejects (1).  Before task #228 the count came
+#                          off the constructors, which all say 0, and
+#                          this stream ACCEPTED: the row is the
+#                          accept-superset that task closed.
+#   ind_numparams_indices: every nonzero declared `numIndices` bumped by
+#                          three, `numParams` untouched — an unread
+#                          field, so the stream still ACCEPTS (0).  The
+#                          guard on the change's one-sidedness, over a
+#                          block that carries both counts (`numParams =
+#                          2` with one index).
+1 ind_numparams_bad.ndjson
+0 ind_numparams_indices.ndjson
 0 direct_fix_refl.ndjson
 1 direct_fix_refl_neg_bad.ndjson
 1 direct_fix_refl_ih_bad.ndjson
