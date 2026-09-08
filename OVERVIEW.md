@@ -94,7 +94,7 @@ Read from the outside in:
    ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2649-L2658)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L291-L298)).
-5. **The model tier** (`ConLeche/Model/*`, "P" for the graded set model)
+5. **The model tier** (`ConLeche/Model/*`, the graded set model)
    shows that each declaration step preserves an invariant on the
    environment
    ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Fold.lean#L158)),
@@ -438,12 +438,48 @@ declare it.)
   semantic comparison of universe levels and a proof-irrelevance
   fall-through, both licensed by the soundness proof.
 
-## 10. Module map
+## 10. Naming conventions
+
+The tree once carried a suffix per verification tier. Those tiers are
+gone — the collapsed set model, the declarative type-theory lane and
+the "tier B" two-regime interpretation were all deleted — and with them
+their markers: **no `2`, `P`, `S2` or `Direct` suffix survives**, and
+**no suffix not listed here carries meaning**. What a reader still has
+to know is short:
+
+| marker | reading |
+|---|---|
+| `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `ExprC`, `SimC`) — the implementation that ships |
+| `I` | interned / indexed (`directFixRecAVI`-style readings that carry an index) |
+| `F` | stated over the environment-with-index `FEnv` (`checkNativeRecF`) |
+| `D` | the direct-parse record type `DeclC` and the functions over it |
+| `AV`, `Annot` | annotated terms: `AnnotTerm` is `Term` with a numeral sort at every binder, and `*AV` names are its readers (`structTyAV`, `natLitAV`) |
+| `WF` | well-formedness (`EnvWF`, `StructWF`) |
+| `_pure` / `_cached` | the two capstones, over the pure fueled fold and over the fold the binary runs (`no_proof_of_False_pure`, `no_proof_of_False_cached`) |
+
+Three words name things rather than tiers. An inductive block is
+installed by one of two routes: the **native** one (`checkNative`,
+`Kernel/Inductives/Native*.lean`), which builds the block's carrier as
+a least fixed point, and the **modeled** one (`checkModeled`,
+`Kernel/Inductives/Modeled.lean`), which installs a mutual or nested
+block through a generated `_model` family. `Struct*` and `Sum*` inside
+those directories are the two stage kits the native route builds on —
+the structure-shaped kit (projections, η, the entry telescope) and the
+tagged-sum kit (the constructors as a sum). `Gated` marks the parked
+β-certificate lane (`Kernel/CoreGated.lean`), which nothing executable
+reaches, and `Fueled` marks a record-parameterised helper applied to
+the pure functions at a fuel (`Verify/Knot.lean`).
+
+A docstring that cites `ConLeche/ModelV1/*` is citing the **first**
+model tier, retired at task #148 T7 and resolvable only in git history;
+it is not `ConLeche/Model/*`, which is this document's model tier.
+
+## 11. Module map
 
 | Directory | Contents |
 |---|---|
 | `Main.lean` | The driver: argument parsing, the stream parse, the two folds, verdict and exit codes. |
-| `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the fixpoint route (`Direct/`), the modeled route (`Modeled.lean`), the Nat-op pins. Imports no theory module. |
+| `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the two inductive routes (`Inductives/`: `Native*.lean` and `Modeled.lean`), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: interned expressions, memo state, the cached core and declaration step, the parsed-record fold. |
 | `ConLeche/Frontend/` | The export parser (`Export*.lean`), the built-in prelude, the Nat-op ground reordering, the projection-function rewrite, the in-process modeller (`InModel/`) — the only source of a block's model. |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
@@ -451,14 +487,14 @@ declare it.)
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
 | `ConLeche/SetModel/` | Pure set constructions with no expressions in sight: tuples and tuple towers, tagged sums, the fixpoint iteration, the recursor's graph, member containers. |
 | `ConLeche/Semantics/` | The annotated term language, the interpretation, the semantic invariant, the tower semantics of inductive blocks, the declaration-level facts. |
-| `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`DirectFix/`, `Ind*`), the Nat-op certification, the capstones. |
-| `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the fixpoint route's kernel-side invariants (`Direct/`). |
+| `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones. |
+| `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the native route's kernel-side invariants (`Inductives/`). |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The theorem, and the challenge statement kept as its own library. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (axiom pin, proof-dependency roots), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |
 
-## 11. Gates
+## 12. Gates
 
 `tests/arena.sh` is the standard battery: the layering fence, the
 proof-term module pin (`tests/proofdeps.sh`, which fails if a new
