@@ -1457,6 +1457,10 @@ def recRuleBits (find? : Name → Option ConstantInfo) (recName : Name)
     (recName : Name) (rl : RecRule) : (recRuleBits find? recName rl).k
       = recRuleKOf find? rl.ctor := rfl
 
+@[simp] theorem recRuleBits_paramsBlind (find? : Name → Option ConstantInfo)
+    (recName : Name) (rl : RecRule) :
+    (recRuleBits find? recName rl).paramsBlind = rl.paramsBlind := rfl
+
 @[simp] theorem recRuleBits_eta (find? : Name → Option ConstantInfo)
     (recName : Name) (rl : RecRule) : (recRuleBits find? recName rl).eta
       = recRuleEtaOf find? recName rl.ctor := rfl
@@ -1471,13 +1475,14 @@ degenerate recursor's single rule, at the constructor's arities and
 the generated right-hand side, with the two rescue bits stamped by
 `recRuleBits` (both are `false` at a projection function — its own
 rescue would loop — but the stamping is uniform, so the environment
-invariant reads the same way at every route). -/
+invariant reads the same way at every route).  The parameter
+comparison stays: the rule's law reads it. -/
 def projFnRule (find? : Name → Option ConstantInfo) (T ctorName : Name)
     (pty : Expr) (nP nF i : Nat) (rhsA : Expr) : RecRule :=
   recRuleBits find? (projFnName T i)
     { ctor := ctorName, nfields := nF, ctorParams := nP,
       fire := if Expr.recRulePlain pty nP nP nP then .plain else .inert,
-      rhs := rhsA }
+      rhs := rhsA, paramsBlind := false }
 
 @[simp] theorem projFnRule_ctor (find? : Name → Option ConstantInfo)
     (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
@@ -1639,9 +1644,14 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 if ← liftFueled "level comparison" (Level.isEquivList usj
                     (recFireComparands rl cv.levelParams us
                       cvj.levelParams args rP).1) then
-                 if ← defEqList r env depth (margs.take rl.ctorParams)
-                    (recFireComparands rl cv.levelParams us
-                      cvj.levelParams args rP).2 then
+                 -- the parameter comparison, run unless the rule is a
+                 -- `.plain` one the installing route marked
+                 -- `paramsBlind` (`RecRule.compareParams`)
+                 if ← (if rl.compareParams then
+                    defEqList r env depth (margs.take rl.ctorParams)
+                      (recFireComparands rl cv.levelParams us
+                        cvj.levelParams args rP).2
+                    else pure true) then
                   -- the two telescope runs, *licensed* (`iotaCerts`'
                   -- docstring): the redex is a subterm of the subject.
                   -- The mode read is the β gate's accessor — the one

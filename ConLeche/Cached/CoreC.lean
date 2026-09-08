@@ -760,17 +760,22 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
                   | _ => pure (args.take rl.ctorParams)
                 if ← liftFueled "level comparison"
                     (← isEquivListLM usj cmpLvls) then do
-                 -- the parameter comparison: verdict-relevant for a
-                 -- nested rule (the comparands ARE the pins) and for
-                 -- a projection-function rule, a certificate family
-                 -- for an ordinary plain rule (official's
-                 -- `inductive_reduce_rec` compares nothing) — the
-                 -- retired twin's judgement, kept
-                 if ← certUnlessI mode
-                    ((match rl.fire with | .nested _ _ => true | _ => false)
-                      || Name.isProjFnShape cn)
-                    (defEqListI r fe depth (margs.take rl.ctorParams)
-                      cmpArgs) then do
+                 -- the parameter comparison: not run at all for a
+                 -- `.plain` rule the installing route marked
+                 -- `paramsBlind` (`RecRule.compareParams`; official's
+                 -- `inductive_reduce_rec` compares nothing).  Where it
+                 -- is run it is verdict-relevant for a nested rule
+                 -- (the comparands ARE the pins) and for a
+                 -- projection-function rule, and a certificate family
+                 -- for every other plain rule — the retired twin's
+                 -- judgement, kept
+                 if ← (if rl.compareParams then
+                    certUnlessI mode
+                      ((match rl.fire with | .nested _ _ => true | _ => false)
+                        || Name.isProjFnShape cn)
+                      (defEqListI r fe depth (margs.take rl.ctorParams)
+                        cmpArgs)
+                    else pure true) then do
                   -- ONE certificate family: the two instantiated
                   -- types, the two telescope runs and the
                   -- canonical-index comparison (which exists only

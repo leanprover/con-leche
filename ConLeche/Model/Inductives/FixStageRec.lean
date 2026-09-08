@@ -265,7 +265,7 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
           cA.2 ctorsA.length j (ConLeche.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ))))
     (hfresh : env.find? cvRa.name = none)
     {rule : RecRule} {kb eb : Bool}
-    (hrule : rule = ⟨cA.1.name, cA.2, p.nP, .plain, rhs, kb, eb⟩)
+    (hrule : rule = ⟨cA.1.name, cA.2, p.nP, .plain, rhs, kb, eb, true⟩)
     {rules : List RecRule}
     (m₂ : EnvModel V ⟨.recInfo cvRa mI rP rules :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval cvRa.name A)
@@ -1147,10 +1147,10 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
             { ctor := cA.1.name, nfields := cA.2, ctorParams := p.nP,
               fire := if Expr.recRulePlain cvRa.type mI rP p.nP then .plain
                 else .inert,
-              rhs := rhs } : RecRule)
+              rhs := rhs, paramsBlind := true } : RecRule)
           = ⟨cA.1.name, cA.2, p.nP, .plain, rhs,
              ConLeche.recRuleKOf env.find? cA.1.name,
-             ConLeche.recRuleEtaOf env.find? cvRa.name cA.1.name⟩ := by
+             ConLeche.recRuleEtaOf env.find? cvRa.name cA.1.name, true⟩ := by
         simp [hplain, ConLeche.recRuleBits]
       subst hElimL
       exact fixRecRuleLaw mp hmI hrP hRec hfT hlpsT hstripT hopT hFD hlenK hks hcf hidxRes hRD

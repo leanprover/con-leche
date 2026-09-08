@@ -834,9 +834,10 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       Level.isEquivList usj
         (recFireComparands r cv.levelParams us cvj.levelParams
           e.getAppArgs rP).1 = some true ∧
-      defEqListFueled mode env fuel d (major.getAppArgs.take r.ctorParams)
-        (recFireComparands r cv.levelParams us cvj.levelParams
-          e.getAppArgs rP).2 = .ok true ∧
+      (r.compareParams = true →
+        defEqListFueled mode env fuel d (major.getAppArgs.take r.ctorParams)
+          (recFireComparands r cv.levelParams us cvj.levelParams
+            e.getAppArgs rP).2 = .ok true) ∧
       iotaCertsFueled mode env fuel d mode.betaGate
         (cv.type.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take mI ++ [major]) = .ok true ∧
@@ -943,8 +944,10 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hpeq : defEqListFueled mode env fuel d (major.getAppArgs.take r.ctorParams)
-      (recFireComparands r cv.levelParams us cvj.levelParams e.getAppArgs rP).2 with
+  cases hpeq : (if r.compareParams then
+      defEqListFueled mode env fuel d (major.getAppArgs.take r.ctorParams)
+        (recFireComparands r cv.levelParams us cvj.levelParams e.getAppArgs rP).2
+      else .ok true) with
   | error err => rw [hpeq] at h; exact nomatch h
   | ok rp =>
   rw [hpeq] at h
@@ -993,7 +996,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     Option.some.injEq] at h
   exact ⟨c, us, cv, mI, rP, rules, major, cj, usj, cvj, cnP,
     cnF, r, rfl, hfc, hlen.1, hlen.2, hprep, hmfn, hfj, hrule,
-    hml, hplain0, hlev, hpeq, hcerts, hmcerts, hidx, h.symm⟩
+    hml, hplain0, hlev, (fun hc => (if_pos hc).symm.trans hpeq), hcerts,
+    hmcerts, hidx, h.symm⟩
 
 /-- Inversion of the canonical-index comparison where the recursor has
 indices: the constructor telescope's residual exists and its index

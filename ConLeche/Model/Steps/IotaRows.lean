@@ -704,15 +704,16 @@ theorem iotaStep_of {m : EnvModel V env}
       rw [getD_dropA, getD_dropA] at hgi
       exact hgi
     -- the `.plain` comparands
-    have hplain : RecRule.fire r = .plain →
+    have hplain : RecRule.paramsBlind r = false → RecRule.fire r = .plain →
         ∀ i, i < RecRule.ctorParams r → i < mI →
           interp V ρ (ys.getD i default)
             = interp V ρ ((xs.take mI).getD i default) := by
-      intro hp i hi him
+      intro hpb hp i hi him
+      have hdefP' := hdefP (RecRule.compareParams_plain hp hpb)
       rw [show (ConLeche.recFireComparands r cv.levelParams us cvj.levelParams
           e.getAppArgs rP).2 = e.getAppArgs.take (RecRule.ctorParams r) from by
-        unfold ConLeche.recFireComparands; rw [hp]] at hdefP
-      have hmapP := map_interp_of_defEqListFueled ihd hdefP
+        unfold ConLeche.recFireComparands; rw [hp]] at hdefP'
+      have hmapP := map_interp_of_defEqListFueled ihd hdefP'
         (fun x hx => hfrC x (List.mem_of_mem_take hx))
         (fun x hx => hfrE x (List.mem_of_mem_take hx))
         (hspy.take _) (hspx.take _)
@@ -735,6 +736,7 @@ theorem iotaStep_of {m : EnvModel V env}
           interp V ρ (ys.getD i default)
             = interp V ρ (AnnotTerm.instRevChain ((xs.take mI).take rP) vpa) := by
       intro lvls pins hn i hi vpa hvpa
+      have hdefP' := hdefP (RecRule.compareParams_nested hn)
       obtain ⟨-, -, -, -, -, hrec', -⟩ :=
         m.wf _ (ConLeche.Semantics.Env.find?_mem hfrec)
       obtain ⟨-, -, -, -, hnest⟩ := hrec' cv mI rP rules rfl r hrmem
@@ -745,7 +747,7 @@ theorem iotaStep_of {m : EnvModel V env}
               (p.instantiateLevelParams cv.levelParams us)) := by
         unfold ConLeche.recFireComparands; rw [hn]
       have hlenPins : pins.length = RecRule.ctorParams r := by
-        have hl := defEqListFueled_length hdefP
+        have hl := defEqListFueled_length hdefP'
         rw [hcmp, List.length_take, List.length_map, hlenM] at hl
         omega
       have hprelen : (e.getAppArgs.take rP).length = rP := by
@@ -790,8 +792,8 @@ theorem iotaStep_of {m : EnvModel V env}
             ((pins.getD i default).instantiateLevelParams
               cv.levelParams us) := by
         simp [List.getD, List.getElem?_map, List.getElem?_eq_getElem hilt]
-      rw [hcmp] at hdefP
-      have hcert := defEqListFueled_get hdefP i (by
+      rw [hcmp] at hdefP'
+      have hcert := defEqListFueled_get hdefP' i (by
         rw [List.length_take, hlenM]; omega)
       rw [hgetL, hgetR] at hcert
       obtain ⟨hwA, hbA, hLA, hCA⟩ := hfrC _ (ConLeche.getD_mem hiy)
@@ -858,7 +860,7 @@ theorem iotaStep_of {m : EnvModel V env}
       TVa TVja restR restC
       (by rw [List.length_take, hxsLen]; omega)
       (by rw [← hspy.length, hlenM])
-      hlenUj hψ (fun _ => hplain) hnested hpinI (hTVaD 0) (hTVjaD 0)
+      hlenUj hψ hplain hnested hpinI (hTVaD 0) (hTVjaD 0)
       (hfitR ρ hρ) (hfitC ρ hρ)
     rw [List.take_take, Nat.min_eq_left hrPle] at heqLaw htrans
     have hsubj : interp V ρ (AnnotTerm.mkAppN

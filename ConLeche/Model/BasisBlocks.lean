@@ -231,7 +231,7 @@ theorem bitAgree_punitRecA (ψ : Name → Nat) :
 /-- `PUnit.rec`'s single stored rule, named. -/
 def punitRecRule : RecRule :=
   { ctor := punitUnitName, nfields := 0, ctorParams := 0,
-    fire := .plain, eta := true,
+    fire := .plain, eta := true, paramsBlind := true,
     rhs := Expr.lam
       (Expr.forallE
         (.const punitName [.param uN]) (.sort (.param u1N))

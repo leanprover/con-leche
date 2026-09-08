@@ -243,7 +243,8 @@ def IotaRuleRun (μ : CheckMode) (F : Nat) (env' envSelf : Env)
     (∃ t', inferTypeCore μ envSelf F 0 rhsA = .ok t') ∧
     ∃ fire,
       r' = recRuleBits env'.find? cvName
-        { r with rhs := rhsA, ctorParams := cnP, fire := fire } ∧
+        { r with rhs := rhsA, ctorParams := cnP, fire := fire,
+                 paramsBlind := false } ∧
       ((Expr.recRulePlain tyA mI rP cnP = true ∧ fire = .plain ∧
           IotaThmRun μ F env' envSelf f cvName lps tyA mI rP j r
             cvj cnP cnF rhsA) ∨

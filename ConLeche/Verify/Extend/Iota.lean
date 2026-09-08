@@ -868,7 +868,8 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
       (∃ cnP fire rhsA,
         annotateCore mode env₀ F 0 (RecRule.rhs r) = .ok rhsA ∧
         r' = recRuleBits env'.find? cvA.name
-          {r with rhs := rhsA, ctorParams := cnP, fire := fire} ∧
+          {r with rhs := rhsA, ctorParams := cnP, fire := fire,
+                  paramsBlind := false} ∧
         (fire = .inert →
           nestedRuleShape env' env₀ cvA.name cvA.levelParams
             cvA.type mI rP cnP j = none) ∧
