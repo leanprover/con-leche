@@ -1,7 +1,11 @@
-import ConLeche.Model.Steps.DefEq
-import ConLeche.Model.Steps.Infer
-import ConLeche.Verify.PinnedShapes
-import ConLeche.Verify.InferIOLeaves
+module
+
+public import ConLeche.Model.Steps.DefEq
+public import ConLeche.Model.Steps.Infer
+public import ConLeche.Verify.PinnedShapes
+public import ConLeche.Verify.InferIOLeaves
+
+@[expose] public section
 
 /-!
 # Proof irrelevance over `interp` (task #161, P4 — the semantic rows begin)

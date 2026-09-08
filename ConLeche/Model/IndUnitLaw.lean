@@ -1,6 +1,10 @@
-import ConLeche.Semantics.IndBlockRun
-import ConLeche.Model.IndTele
-import ConLeche.Model.BasisEq
+module
+
+public import ConLeche.Semantics.IndBlockRun
+public import ConLeche.Model.IndTele
+public import ConLeche.Model.BasisEq
+
+@[expose] public section
 
 /-!
 # The unit-like key, P tier (task #161, IND TIER part 2, item 1b)

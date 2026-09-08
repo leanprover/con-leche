@@ -1,4 +1,8 @@
-import ConLeche.SetTheory.Derive.Pt
+module
+
+public import ConLeche.SetTheory.Derive.Pt
+
+@[expose] public section
 
 /-!
 # Function graphs, application, and the raw dependent-function set

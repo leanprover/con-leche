@@ -1,7 +1,11 @@
-import ConLeche.Model.Install
-import ConLeche.Model.Steps.Nat
-import ConLeche.Semantics.NatFrag
-import ConLeche.Semantics.DeclRun
+module
+
+public import ConLeche.Model.Install
+public import ConLeche.Model.Steps.Nat
+public import ConLeche.Semantics.NatFrag
+public import ConLeche.Semantics.DeclRun
+
+@[expose] public section
 
 /-!
 # The structural-`Nat` recurrences, established at `interp` from run

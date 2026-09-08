@@ -1,4 +1,8 @@
-import ConLeche.Model.IndCons
+module
+
+public import ConLeche.Model.IndCons
+
+@[expose] public section
 
 /-!
 # The P step at a tower-table cons (task #175 W4c, P3 module 4, part 2; S1)

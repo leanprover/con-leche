@@ -1,4 +1,8 @@
-import ConLeche.Cached.CheckerC
+module
+
+public import ConLeche.Cached.CheckerC
+
+@[expose] public section
 
 /-!
 # The parsed-declaration driver on the cached representation

@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Basis.Builder
+module
+
+public import ConLeche.Kernel.Basis.Builder
+
+@[expose] public section
 
 /-!
 # The pinned `Quot` basis block
@@ -21,7 +25,7 @@ open BasisDSL
 
 /-- The relation argument's type in the `α` binder context:
 `α → α → Prop`. -/
-private def quotRel : Expr := piA (bv 0) (piA (bv 1) prop)
+def quotRel : Expr := piA (bv 0) (piA (bv 1) prop)
 
 /-- `Quot.{u} {α : Sort u} (r : α → α → Prop) : Sort u`. -/
 def quotRaw : ConstantInfo :=
@@ -38,11 +42,11 @@ def quotMkRaw : ConstantInfo :=
     2 1
 
 /-- `Quot.lift`'s function slot, in the `α`/`r`/`β` context: `α → β`. -/
-private def quotLiftF : Expr := pi "a" (bv 2) (bv 1)
+def quotLiftF : Expr := pi "a" (bv 2) (bv 1)
 
 /-- `Quot.lift`'s coherence slot, in the `α`/`r`/`β`/`f` context:
 `∀ a b, r a b → f a = f b`. -/
-private def quotLiftH : Expr :=
+def quotLiftH : Expr :=
   pi "a" (bv 3) <|
   pi "b" (bv 4) <|
   pi "a" (ap2 (bv 4) (bv 1) (bv 0)) <|
@@ -69,12 +73,12 @@ def quotLiftRaw : ConstantInfo :=
 
 /-- `Quot.ind`'s motive slot, in the `α`/`r` context:
 `Quot α r → Prop`. -/
-private def quotIndMotive : Expr :=
+def quotIndMotive : Expr :=
   pi "a" (ap2 (cnst quotName [u]) (bv 1) (bv 0)) prop
 
 /-- `Quot.ind`'s minor premise, in the `α`/`r`/`β` context:
 `∀ a, β (Quot.mk α r a)`. -/
-private def quotIndMk : Expr :=
+def quotIndMk : Expr :=
   pi "a" (bv 2) <|
   .app (bv 1) (ap3 (cnst quotMkName [u]) (bv 3) (bv 2) (bv 0))
 

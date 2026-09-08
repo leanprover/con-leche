@@ -1,8 +1,12 @@
-import ConLeche.Model.Steps.Tiers
-import ConLeche.Model.Annot.BitExtend
-import ConLeche.Model.Annot.BitConsCross
-import ConLeche.Semantics.ConstsBound
-import ConLeche.Verify.Extend.Sibs
+module
+
+public import ConLeche.Model.Steps.Tiers
+public import ConLeche.Model.Annot.BitExtend
+public import ConLeche.Model.Annot.BitConsCross
+public import ConLeche.Semantics.ConstsBound
+public import ConLeche.Verify.Extend.Sibs
+
+@[expose] public section
 
 /-!
 # The P declaration step (task #161, P4 — the fold's species)

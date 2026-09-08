@@ -1,4 +1,9 @@
-import ConLeche.Cached.ParsedC
+module
+
+public import Std.Data.HashSet.Basic
+public import ConLeche.Cached.ParsedC
+
+@[expose] public section
 
 /-!
 # Hoisting a pinned `Nat` operation's stream-certified ground (task #191)
@@ -47,7 +52,7 @@ namespace ConLeche.Frontend
 open ConLeche ConLeche.Cached
 
 /-- For the array indexing below (`ds[i]!`); never observed. -/
-private instance : Inhabited DeclC := ⟨.basisDecl .eqK⟩
+instance : Inhabited DeclC := ⟨.basisDecl .eqK⟩
 
 /-- The names a parsed declaration declares (the prelude index and the
 hoist's name index; basis blocks are indexed by kind instead). -/

@@ -1,5 +1,9 @@
-import ConLeche.Kernel.Checker
-import ConLeche.Kernel.FEnv
+module
+
+public import ConLeche.Kernel.Checker
+public import ConLeche.Kernel.FEnv
+
+@[expose] public section
 
 /-!
 # The declaration checker through the environment index (task #63)

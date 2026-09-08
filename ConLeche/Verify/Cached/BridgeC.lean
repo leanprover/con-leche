@@ -1,5 +1,9 @@
-import ConLeche.Verify.Cached.BridgeCSDecl
-import ConLeche.Cached.ParsedC
+module
+
+public import ConLeche.Verify.Cached.BridgeCSDecl
+public import ConLeche.Cached.ParsedC
+
+@[expose] public section
 
 /-!
 # The cached parsed-declaration driver, bridged (task #163)

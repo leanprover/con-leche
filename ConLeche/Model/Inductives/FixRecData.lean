@@ -1,8 +1,12 @@
-import ConLeche.Model.Inductives.FixRecRead
-import ConLeche.Model.Inductives.FixCtorReads
-import ConLeche.Verify.Inductives.FixInv
-import ConLeche.Verify.Inductives.FixWF
-import ConLeche.Model.Inductives.SumStageRec
+module
+
+public import ConLeche.Model.Inductives.FixRecRead
+public import ConLeche.Model.Inductives.FixCtorReads
+public import ConLeche.Verify.Inductives.FixInv
+public import ConLeche.Verify.Inductives.FixWF
+public import ConLeche.Model.Inductives.SumStageRec
+
+@[expose] public section
 
 /-!
 # The recursive recursor's data (task #188)

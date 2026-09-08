@@ -1,5 +1,9 @@
-import ConLeche.Kernel.Inductives.StructParts
-import ConLeche.Verify.FastOps
+module
+
+public import ConLeche.Kernel.Inductives.StructParts
+public import ConLeche.Verify.FastOps
+
+@[expose] public section
 
 /-!
 # The incremental projection residual agrees with the generator (task #175 W4c)

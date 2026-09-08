@@ -1,4 +1,8 @@
-import ConLeche.Verify.Abstract
+module
+
+public import ConLeche.Verify.Abstract
+
+@[expose] public section
 
 /-!
 # Projection nodes and their table slots (task #175 wiring, W4c S6)

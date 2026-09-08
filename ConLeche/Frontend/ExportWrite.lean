@@ -1,4 +1,8 @@
-import ConLeche.Cached.ParsedC
+module
+
+public import ConLeche.Cached.ParsedC
+
+@[expose] public section
 
 /-!
 # Writing parsed declarations back as lean4export NDJSON (task #200)
@@ -36,19 +40,19 @@ namespace ExportWriter
 /-- A writer whose first fresh index is `base`. -/
 def init (base : Nat) : ExportWriter := { next := base }
 
-private def fresh (w : ExportWriter) : Nat × ExportWriter :=
+def fresh (w : ExportWriter) : Nat × ExportWriter :=
   (w.next, { w with next := w.next + 1 })
 
-private def emit (w : ExportWriter) (line : String) : ExportWriter :=
+def emit (w : ExportWriter) (line : String) : ExportWriter :=
   { w with out := w.out.push line }
 
-private def jstr (s : String) : String :=
+def jstr (s : String) : String :=
   "\"" ++ (s.foldl (fun acc c =>
     acc ++ (if c == '"' then "\\\"" else if c == '\\' then "\\\\"
       else if c == '\n' then "\\n" else if c == '\t' then "\\t"
       else if c.toNat < 32 then s!"\\u{String.ofList (Nat.toDigits 16 c.toNat)}" else c.toString)) "") ++ "\""
 
-private def jlist (xs : List Nat) : String :=
+def jlist (xs : List Nat) : String :=
   "[" ++ ",".intercalate (xs.map toString) ++ "]"
 
 partial def name (w : ExportWriter) : Name → Nat × ExportWriter
@@ -87,7 +91,7 @@ partial def level (w : ExportWriter) : Level → Nat × ExportWriter
       let w := { w with levels := w.levels.insert l i }
       (i, w.emit s!"\{\"il\":{i},{body}}")
 
-private def levelIds (w : ExportWriter) (ls : List Level) : List Nat × ExportWriter :=
+def levelIds (w : ExportWriter) (ls : List Level) : List Nat × ExportWriter :=
   ls.foldl (fun (acc, w) l => let (i, w) := w.level l; (acc ++ [i], w)) ([], w)
 
 partial def expr (w : ExportWriter) (e : Expr) : Nat × ExportWriter :=
@@ -127,16 +131,16 @@ partial def expr (w : ExportWriter) (e : Expr) : Nat × ExportWriter :=
     let w := { w with exprs := w.exprs.insert e i }
     (i, w.emit s!"\{\"ie\":{i},{body}}")
 
-private def nameIds (w : ExportWriter) (ns : List Name) : List Nat × ExportWriter :=
+def nameIds (w : ExportWriter) (ns : List Name) : List Nat × ExportWriter :=
   ns.foldl (fun (acc, w) n => let (i, w) := w.name n; (acc ++ [i], w)) ([], w)
 
-private def hints : ReducibilityHint → String
+def hints : ReducibilityHint → String
   | .abbrev => "\"abbrev\""
   | .opaque => "\"opaque\""
   | .regular n => s!"\{\"regular\":{n}}"
 
 /-- Does the constant occur in the expression? -/
-private def mentions (n : Name) : Expr → Bool
+def mentions (n : Name) : Expr → Bool
   | .const m _ => m == n
   | .app f a => mentions n f || mentions n a
   | .lam t b _ | .forallE t b _ => mentions n t || mentions n b

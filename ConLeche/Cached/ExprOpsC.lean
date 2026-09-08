@@ -1,5 +1,9 @@
-import ConLeche.Cached.ExprC
-import ConLeche.Kernel.Core
+module
+
+public import ConLeche.Cached.ExprC
+public import ConLeche.Kernel.Core
+
+@[expose] public section
 
 /-!
 # Syntactic operations on `ExprC`

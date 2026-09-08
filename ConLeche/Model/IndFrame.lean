@@ -1,5 +1,9 @@
-import ConLeche.Model.IndTele
-import ConLeche.Model.Steps.IotaKit
+module
+
+public import ConLeche.Model.IndTele
+public import ConLeche.Model.Steps.IotaKit
+
+@[expose] public section
 
 /-!
 # The P-tier frame kit (task #161, IND TIER part 3, step 1)

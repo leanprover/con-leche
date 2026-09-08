@@ -1,6 +1,10 @@
-import ConLeche.Model.ProjRename
-import ConLeche.Model.IndProjEta
-import ConLeche.Semantics.ProjFnFacts
+module
+
+public import ConLeche.Model.ProjRename
+public import ConLeche.Model.IndProjEta
+public import ConLeche.Semantics.ProjFnFacts
+
+@[expose] public section
 
 /-!
 # The projection-function cons, P tier (task #161, IND TIER part 10)

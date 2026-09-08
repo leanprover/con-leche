@@ -1,7 +1,11 @@
-import ConLeche.Model.IndUnitLaw
-import ConLeche.Verify.Denote
-import ConLeche.Verify.Denote.OpenVars
-import ConLeche.Verify.Denote.VClosed
+module
+
+public import ConLeche.Model.IndUnitLaw
+public import ConLeche.Verify.Denote
+public import ConLeche.Verify.Denote.OpenVars
+public import ConLeche.Verify.Denote.VClosed
+
+@[expose] public section
 
 /-!
 # The η key, P tier (task #161, IND TIER part 2, item 1a)

@@ -1,5 +1,9 @@
-import ConLeche.Semantics.DeclRun
-import ConLeche.Model.AxiomMem
+module
+
+public import ConLeche.Semantics.DeclRun
+public import ConLeche.Model.AxiomMem
+
+@[expose] public section
 
 /-!
 # The pin tier, at the validated-annotation currency (task #161,

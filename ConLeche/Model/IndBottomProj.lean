@@ -1,5 +1,9 @@
-import ConLeche.Model.IndProjKit
-import ConLeche.Model.IndBottomPlain
+module
+
+public import ConLeche.Model.IndProjKit
+public import ConLeche.Model.IndBottomPlain
+
+@[expose] public section
 
 /-!
 # The projection bottom, at the reading (task #161, IND TIER part 9)

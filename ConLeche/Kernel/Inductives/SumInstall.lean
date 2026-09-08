@@ -1,5 +1,9 @@
-import ConLeche.Kernel.Inductives.StructInstall
-import ConLeche.Kernel.Inductives.SumParts
+module
+
+public import ConLeche.Kernel.Inductives.StructInstall
+public import ConLeche.Kernel.Inductives.SumParts
+
+@[expose] public section
 
 /-!
 # The shared install stages (pure fueled checker)

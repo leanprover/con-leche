@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Inductives.DeclNative
-import ConLeche.Semantics.Inductives.DeclStructEta
+module
+
+public import ConLeche.Semantics.Inductives.DeclNative
+public import ConLeche.Semantics.Inductives.DeclStructEta
+
+@[expose] public section
 
 /-!
 # The direct sum declaration keeps the η-families closed (task #175

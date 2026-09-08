@@ -1,4 +1,8 @@
-import ConLeche.Model.IndTransport
+module
+
+public import ConLeche.Model.IndTransport
+
+@[expose] public section
 
 /-!
 # The nested pin bridge, at the reading (task #161, IND TIER part 7)

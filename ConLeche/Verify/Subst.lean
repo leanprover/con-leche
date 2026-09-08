@@ -1,5 +1,9 @@
-import ConLeche.Kernel.ExprOps
-import ConLeche.Verify.Shift
+module
+
+public import ConLeche.Kernel.ExprOps
+public import ConLeche.Verify.Shift
+
+@[expose] public section
 
 /-!
 # Substituting a free variable by a term

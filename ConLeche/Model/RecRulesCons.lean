@@ -1,4 +1,8 @@
-import ConLeche.Model.Caps
+module
+
+public import ConLeche.Model.Caps
+
+@[expose] public section
 
 /-!
 # The fired modeled-iota contract across a fresh cons (task #161, iota

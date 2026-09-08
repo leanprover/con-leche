@@ -1,9 +1,13 @@
-import ConLeche.SetModel.Ops
-import ConLeche.Term.Const
-import ConLeche.SetTheory.Derive.Sigma
-import ConLeche.SetTheory.Derive.Quot
-import ConLeche.SetTheory.Derive.Choice
-import ConLeche.SetTheory.Derive.LfpFam
+module
+
+public import ConLeche.SetModel.Ops
+public import ConLeche.Term.Const
+public import ConLeche.SetTheory.Derive.Sigma
+public import ConLeche.SetTheory.Derive.Quot
+public import ConLeche.SetTheory.Derive.Choice
+public import ConLeche.SetTheory.Derive.LfpFam
+
+@[expose] public section
 
 /-!
 # The built-in constants, two-regime (task #151, tier B — B2)

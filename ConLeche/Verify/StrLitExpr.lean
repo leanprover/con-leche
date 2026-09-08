@@ -1,5 +1,9 @@
-import ConLeche.Kernel.Core
-import ConLeche.Verify.Shift
+module
+
+public import ConLeche.Kernel.Core
+public import ConLeche.Verify.Shift
+
+@[expose] public section
 
 /-!
 # Syntactic facts about the string-literal constructor form

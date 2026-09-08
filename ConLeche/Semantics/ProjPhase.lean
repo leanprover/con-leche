@@ -1,5 +1,9 @@
-import ConLeche.Verify.Denote.Rename
-import ConLeche.Kernel.Inductives.Modeled
+module
+
+public import ConLeche.Verify.Denote.Rename
+public import ConLeche.Kernel.Inductives.Modeled
+
+@[expose] public section
 
 /-!
 # The projection phase's fold invariant (task #161, S1)

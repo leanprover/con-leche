@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Basis.Builder
+module
+
+public import ConLeche.Kernel.Basis.Builder
+
+@[expose] public section
 
 /-!
 # The pinned `Empty` basis block

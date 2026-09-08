@@ -1,5 +1,9 @@
-import ConLeche.Model.IndZipper
-import ConLeche.Model.Steps.Stuck
+module
+
+public import ConLeche.Model.IndZipper
+public import ConLeche.Model.Steps.Stuck
+
+@[expose] public section
 
 /-!
 # The point stage's kit (task #161, IND TIER part 5)

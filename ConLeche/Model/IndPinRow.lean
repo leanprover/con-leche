@@ -1,5 +1,9 @@
-import ConLeche.Model.IndNestedParam
-import ConLeche.Model.Annot.Bit
+module
+
+public import ConLeche.Model.IndNestedParam
+public import ConLeche.Model.Annot.Bit
+
+@[expose] public section
 
 /-!
 # `RecRuleLaw`'s pin conjunct, produced (task #161, IND TIER part 9)

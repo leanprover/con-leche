@@ -1,5 +1,9 @@
-import ConLeche.Semantics.WellDenoted
-import ConLeche.Semantics.Canon
+module
+
+public import ConLeche.Semantics.WellDenoted
+public import ConLeche.Semantics.Canon
+
+@[expose] public section
 
 /-!
 # `CheckStep2`, the literal clauses — Tier B (the transposition batch)

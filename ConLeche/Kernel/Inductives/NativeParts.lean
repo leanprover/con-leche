@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Inductives.SumParts
+module
+
+public import ConLeche.Kernel.Inductives.SumParts
+
+@[expose] public section
 
 /-!
 # The direct recursive class: recognition and the generated recursor

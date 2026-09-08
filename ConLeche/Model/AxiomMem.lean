@@ -1,5 +1,9 @@
-import ConLeche.Model.AxiomBits
-import ConLeche.Verify.StdAxiomPin
+module
+
+public import ConLeche.Model.AxiomBits
+public import ConLeche.Verify.StdAxiomPin
+
+@[expose] public section
 
 /-!
 # The pinned axioms' `interp` memberships (task #161, ENDGAME C, task 1a)

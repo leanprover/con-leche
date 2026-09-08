@@ -1,4 +1,8 @@
-import ConLeche.Verify.InferLemmas
+module
+
+public import ConLeche.Verify.InferLemmas
+
+@[expose] public section
 
 /-!
 # `defEqList` / `recFireComparands` inversions (task #161, S1)

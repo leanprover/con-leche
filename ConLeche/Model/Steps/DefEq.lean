@@ -1,9 +1,13 @@
-import ConLeche.Model.CtxOkKit
-import ConLeche.Model.Annot.BitLemmas
-import ConLeche.Model.Annot.BitRename
-import ConLeche.Semantics.DefEqStep
-import ConLeche.Semantics.Hoist
-import ConLeche.Model.Steps.ProjAVKit
+module
+
+public import ConLeche.Model.CtxOkKit
+public import ConLeche.Model.Annot.BitLemmas
+public import ConLeche.Model.Annot.BitRename
+public import ConLeche.Semantics.DefEqStep
+public import ConLeche.Semantics.Hoist
+public import ConLeche.Model.Steps.ProjAVKit
+
+@[expose] public section
 
 /-!
 # The definitional-equality quarter, P currency (task #161, P3 batch 5)

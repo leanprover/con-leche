@@ -1,4 +1,14 @@
-import ConLeche.Verify.Level
+module
+
+public import ConLeche.Verify.Level
+/- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
+`Std.HashMap` pattern): its constructors are `public` but the module is
+not `@[expose]`d, so a `cases`-then-`rfl` proof about a datum cannot
+see the reduct.  `import all` gives that view HERE only; nothing this
+module exports depends on it. -/
+import all ConLeche.Kernel.PropWhen
+
+@[expose] public section
 
 /-!
 # The zero-ness datum against `Level` (task #161)

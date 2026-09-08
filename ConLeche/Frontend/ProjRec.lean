@@ -1,5 +1,10 @@
-import ConLeche.Kernel.Inductives.NativeParts
-import ConLeche.Kernel.Level
+module
+
+public import Std.Data.HashSet
+public import ConLeche.Kernel.Inductives.NativeParts
+public import ConLeche.Kernel.Level
+
+@[expose] public section
 
 /-!
 # Projection functions of non-direct structure-likes, as recursor

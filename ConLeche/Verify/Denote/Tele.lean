@@ -1,4 +1,8 @@
-import ConLeche.Verify.Denote.Inst
+module
+
+public import ConLeche.Verify.Denote.Inst
+
+@[expose] public section
 
 /-!
 # Denoted application spines

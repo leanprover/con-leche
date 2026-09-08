@@ -1,6 +1,10 @@
-import ConLeche.Model.Inductives.SumRecRead
-import ConLeche.Model.Inductives.SumData
-import ConLeche.Model.Inductives.StructStageCtor
+module
+
+public import ConLeche.Model.Inductives.SumRecRead
+public import ConLeche.Model.Inductives.SumData
+public import ConLeche.Model.Inductives.StructStageCtor
+
+@[expose] public section
 
 /-!
 # The sum recursor's data (task #175 sum-types, indexed)

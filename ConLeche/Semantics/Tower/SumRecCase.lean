@@ -1,6 +1,10 @@
-import ConLeche.Semantics.Tower.SumMk
-import ConLeche.Semantics.Tower.TowerRec
-import ConLeche.Semantics.Univ
+module
+
+public import ConLeche.Semantics.Tower.SumMk
+public import ConLeche.Semantics.Tower.TowerRec
+public import ConLeche.Semantics.Univ
+
+@[expose] public section
 
 /-!
 # The sum recursor's case split, spelled (task #175 sum-types, stage S4a; indexed)

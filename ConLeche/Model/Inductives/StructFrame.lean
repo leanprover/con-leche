@@ -1,10 +1,14 @@
-import ConLeche.Model.Inductives.StructRead
-import ConLeche.Model.IndTowerRead
-import ConLeche.Model.IndFrame
-import ConLeche.Model.IndDomGrade
-import ConLeche.Verify.Leaves
-import ConLeche.Verify.BridgeWfImp
-import ConLeche.Verify.Denote.IndFrame
+module
+
+public import ConLeche.Model.Inductives.StructRead
+public import ConLeche.Model.IndTowerRead
+public import ConLeche.Model.IndFrame
+public import ConLeche.Model.IndDomGrade
+public import ConLeche.Verify.Leaves
+public import ConLeche.Verify.BridgeWfImp
+public import ConLeche.Verify.Denote.IndFrame
+
+@[expose] public section
 
 /-!
 # The direct structure's opened frames (task #175 W4c, P3 module 3)

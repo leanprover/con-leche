@@ -1,4 +1,8 @@
-import ConLeche.Verify.EnvPreds
+module
+
+public import ConLeche.Verify.EnvPreds
+
+@[expose] public section
 
 /-!
 # Sibs — the `V`-free half of `ConLeche.ModelV1.Extend.Sibs`

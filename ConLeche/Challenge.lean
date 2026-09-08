@@ -1,6 +1,10 @@
-import ConLeche.Cached.ParsedC
-import ConLeche.Kernel.Basis.Names
-import ConLeche.SetTheory.Core
+module
+
+public import ConLeche.Cached.ParsedC
+public import ConLeche.Kernel.Basis.Names
+public import ConLeche.SetTheory.Core
+
+@[expose] public section
 
 /-!
 # The advertised statement

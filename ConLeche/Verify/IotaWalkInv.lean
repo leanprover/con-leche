@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Checker
+module
+
+public import ConLeche.Kernel.Checker
+
+@[expose] public section
 
 /-!
 # Inverting the iota-install list checks (task #123)

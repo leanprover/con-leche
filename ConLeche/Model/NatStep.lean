@@ -1,4 +1,8 @@
-import ConLeche.Model.NatWf
+module
+
+public import ConLeche.Model.NatWf
+
+@[expose] public section
 
 /-!
 # `ReduceNatStep`/`PQ`, discharged (task #161, literal tier)

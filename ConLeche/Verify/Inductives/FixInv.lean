@@ -1,6 +1,10 @@
-import ConLeche.Verify.Inductives.SumInv
-import ConLeche.Verify.Inductives.FixParts
-import ConLeche.Kernel.Inductives.NativeInstall
+module
+
+public import ConLeche.Verify.Inductives.SumInv
+public import ConLeche.Verify.Inductives.FixParts
+public import ConLeche.Kernel.Inductives.NativeInstall
+
+@[expose] public section
 
 /-!
 # The direct recursive install: inversion (task #188)

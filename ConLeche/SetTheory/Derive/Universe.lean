@@ -1,4 +1,8 @@
-import ConLeche.SetTheory.Derive.Pair
+module
+
+public import ConLeche.SetTheory.Derive.Pair
+
+@[expose] public section
 
 /-!
 # Grothendieck universes: the diagonal argument and the closure laws

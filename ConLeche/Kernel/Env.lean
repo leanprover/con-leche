@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Expr
+module
+
+public import ConLeche.Kernel.Expr
+
+@[expose] public section
 
 /-!
 # Declarations and the global environment

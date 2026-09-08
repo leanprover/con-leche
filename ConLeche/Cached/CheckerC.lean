@@ -1,6 +1,10 @@
-import ConLeche.Kernel.Inductives.SumInstallF
-import ConLeche.Kernel.Inductives.NativeInstallF
-import ConLeche.Cached.CoreC
+module
+
+public import ConLeche.Kernel.Inductives.SumInstallF
+public import ConLeche.Kernel.Inductives.NativeInstallF
+public import ConLeche.Cached.CoreC
+
+@[expose] public section
 
 /-!
 # The cached declaration driver

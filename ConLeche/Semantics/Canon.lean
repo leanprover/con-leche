@@ -1,6 +1,10 @@
-import ConLeche.Semantics.Syntax
-import ConLeche.Semantics.Tower.TowerLeaf
-import ConLeche.Verify.Denote
+module
+
+public import ConLeche.Semantics.Syntax
+public import ConLeche.Semantics.Tower.TowerLeaf
+public import ConLeche.Verify.Denote
+
+@[expose] public section
 
 /-!
 # Canonical annotations (task #151 tier C — the R1 resolution of WALL 3)

@@ -1,7 +1,11 @@
-import ConLeche.Kernel.Checker
-import ConLeche.Verify.Fueled
-import ConLeche.Verify.Leaves
-import ConLeche.Verify.Extend.Inversions
+module
+
+public import ConLeche.Kernel.Checker
+public import ConLeche.Verify.Fueled
+public import ConLeche.Verify.Leaves
+public import ConLeche.Verify.Extend.Inversions
+
+@[expose] public section
 
 /-!
 # `V`-free inversions of the `Nat.div`/`Nat.mod` pin (task #123)

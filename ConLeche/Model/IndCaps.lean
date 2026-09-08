@@ -1,6 +1,10 @@
-import ConLeche.Model.IndMember
-import ConLeche.Verify.Extend.Iota
-import ConLeche.Verify.Extend.Ind
+module
+
+public import ConLeche.Model.IndMember
+public import ConLeche.Verify.Extend.Iota
+public import ConLeche.Verify.Extend.Ind
+
+@[expose] public section
 
 /-!
 # `caps_ok` at a member cons: the split, and the two live rows (task #161, IND TIER)

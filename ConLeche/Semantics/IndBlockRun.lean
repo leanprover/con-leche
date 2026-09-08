@@ -1,5 +1,9 @@
-import ConLeche.Semantics.DeclIndRun
-import ConLeche.Semantics.IndBlockFacts
+module
+
+public import ConLeche.Semantics.DeclIndRun
+public import ConLeche.Semantics.IndBlockFacts
+
+@[expose] public section
 
 /-!
 # The inductive block's syntactic residue, on the **run** records

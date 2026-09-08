@@ -1,8 +1,12 @@
-import ConLeche.Model.Inductives.FixAssemblyKit
-import ConLeche.Model.Inductives.FixStageTable
-import ConLeche.Model.Inductives.FixZeroField
-import ConLeche.Semantics.Inductives.DeclNative
-import ConLeche.Verify.Inductives.FixParts
+module
+
+public import ConLeche.Model.Inductives.FixAssemblyKit
+public import ConLeche.Model.Inductives.FixStageTable
+public import ConLeche.Model.Inductives.FixZeroField
+public import ConLeche.Semantics.Inductives.DeclNative
+public import ConLeche.Verify.Inductives.FixParts
+
+@[expose] public section
 
 /-!
 # The direct recursive install, assembled (task #188)

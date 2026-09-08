@@ -1,5 +1,9 @@
-import ConLeche.SetTheory.Derive.Lfp
-import ConLeche.SetTheory.Derive.Graphs
+module
+
+public import ConLeche.SetTheory.Derive.Lfp
+public import ConLeche.SetTheory.Derive.Graphs
+
+@[expose] public section
 
 /-!
 # Least pre-fixed points of family functors (task #188, indexed)

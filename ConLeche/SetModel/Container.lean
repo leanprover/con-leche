@@ -1,6 +1,10 @@
-import ConLeche.SetModel.RecGraph
-import ConLeche.SetModel.Iter
-import ConLeche.SetTheory.Derive.Choice
+module
+
+public import ConLeche.SetModel.RecGraph
+public import ConLeche.SetModel.Iter
+public import ConLeche.SetTheory.Derive.Choice
+
+@[expose] public section
 
 /-!
 # The closure witness of a member container (task #202, Stage B)

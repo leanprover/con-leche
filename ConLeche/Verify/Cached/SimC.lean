@@ -1,6 +1,10 @@
-import ConLeche.Cached.StateC
-import ConLeche.Verify.Cached.OpsC
-import ConLeche.Verify.Fueled
+module
+
+public import ConLeche.Cached.StateC
+public import ConLeche.Verify.Cached.OpsC
+public import ConLeche.Verify.Fueled
+
+@[expose] public section
 
 /-!
 # The cached-core faithfulness kit (task #163, batch 5)

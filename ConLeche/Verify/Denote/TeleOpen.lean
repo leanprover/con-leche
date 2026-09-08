@@ -1,6 +1,10 @@
-import ConLeche.Verify.Denote.Rename
-import ConLeche.Verify.Denote.OpenVars
-import ConLeche.Verify.InferLemmas
+module
+
+public import ConLeche.Verify.Denote.Rename
+public import ConLeche.Verify.Denote.OpenVars
+public import ConLeche.Verify.InferLemmas
+
+@[expose] public section
 
 /-!
 # Opening a telescope, and substituting a spine into what is left

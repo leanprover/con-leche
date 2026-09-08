@@ -1,6 +1,10 @@
-import ConLeche.Model.IndDomGrade
-import ConLeche.Model.IndRuns
-import ConLeche.Verify.BridgeWfImp
+module
+
+public import ConLeche.Model.IndDomGrade
+public import ConLeche.Model.IndRuns
+public import ConLeche.Verify.BridgeWfImp
+
+@[expose] public section
 
 /-!
 # The prefix domains, graded and fired (task #161, IND TIER part 4)

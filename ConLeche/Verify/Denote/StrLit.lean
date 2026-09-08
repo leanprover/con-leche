@@ -1,5 +1,9 @@
-import ConLeche.Verify.Denote.Levels
-import ConLeche.Verify.StrLitExpr
+module
+
+public import ConLeche.Verify.Denote.Levels
+public import ConLeche.Verify.StrLitExpr
+
+@[expose] public section
 
 /-!
 # The string-literal constructor form, denoted

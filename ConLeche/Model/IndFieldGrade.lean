@@ -1,4 +1,8 @@
-import ConLeche.Model.IndParamGrade
+module
+
+public import ConLeche.Model.IndParamGrade
+
+@[expose] public section
 
 /-!
 # The field domains, graded and fired (task #161, IND TIER part 5)

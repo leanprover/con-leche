@@ -1,5 +1,9 @@
-import ConLeche.Verify.Cached.DiscC3
-import ConLeche.Verify.BinderLoop
+module
+
+public import ConLeche.Verify.Cached.DiscC3
+public import ConLeche.Verify.BinderLoop
+
+@[expose] public section
 
 /-!
 # Cached binder-loop walks (task #163, batches 9 + 11)
@@ -530,7 +534,13 @@ The two `*_atF` normalizations below are pure comparand-side lemmas
 `BinderLoopI`'s private originals, restated here because the cached
 tier does not import the interned walks. -/
 
-private theorem inferLamTail_atF {env : Env} (d : Nat)
+/- NOT `private` (task #231): the `match bodyx.lamPw with` in the statement
+generates an auxiliary matcher, and the module system reuses an existing
+matcher only when it is visible — a private one is not, so the two later
+proofs re-generate `…match_1` under their OWN names and `rw` then fails to
+find the pattern (the terms print identically; only the matcher constant
+differs). -/
+theorem inferLamTail_atF {env : Env} (d : Nat)
     (tyx bodyx : Expr) (mbx : BinderMeta) (F : Nat) :
     ((do
       let bt ← (fueledFns mode env).infer (d + 1)

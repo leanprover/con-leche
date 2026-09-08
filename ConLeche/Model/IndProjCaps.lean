@@ -1,4 +1,8 @@
-import ConLeche.Model.IndCaps
+module
+
+public import ConLeche.Model.IndCaps
+
+@[expose] public section
 
 /-!
 # `caps_ok` at a projection-function cons (task #161, IND TIER part 3, step 5)

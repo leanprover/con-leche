@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.FixShadow
-import ConLeche.Semantics.Tower.FixFamI
+module
+
+public import ConLeche.Model.Inductives.FixShadow
+public import ConLeche.Semantics.Tower.FixFamI
+
+@[expose] public section
 
 /-!
 # The X-chains, graded at every family (task #188)

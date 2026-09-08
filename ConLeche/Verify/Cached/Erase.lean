@@ -1,5 +1,9 @@
-import ConLeche.Cached.ExprC
-import ConLeche.Verify.Shift
+module
+
+public import ConLeche.Cached.ExprC
+public import ConLeche.Verify.Shift
+
+@[expose] public section
 
 /-!
 # The cached representation's field facts (task #163; rewritten at #172

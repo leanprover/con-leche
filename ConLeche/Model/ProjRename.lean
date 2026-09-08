@@ -1,5 +1,9 @@
-import ConLeche.Model.IndRecs
-import ConLeche.Semantics.ProjPhase
+module
+
+public import ConLeche.Model.IndRecs
+public import ConLeche.Semantics.ProjPhase
+
+@[expose] public section
 
 /-!
 # The projection phase's renaming and valuation invariant, P tier

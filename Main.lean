@@ -1,7 +1,11 @@
-import ConLeche.Cached.ParsedC
-import ConLeche.Frontend.ExportC
-import ConLeche.Frontend.Prelude
-import ConLeche.Frontend.InModelDump
+module
+
+public import ConLeche.Cached.ParsedC
+public import ConLeche.Frontend.ExportC
+public import ConLeche.Frontend.Prelude
+public import ConLeche.Frontend.InModelDump
+
+@[expose] public section
 
 /-!
 Command-line driver: `con-leche FILE.ndjson` reads a **raw** lean4export

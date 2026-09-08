@@ -1,4 +1,8 @@
-import ConLeche.Kernel.CheckerBase
+module
+
+public import ConLeche.Kernel.CheckerBase
+
+@[expose] public section
 
 /-!
 # The modeled-inductive install

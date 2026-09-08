@@ -1,6 +1,10 @@
-import ConLeche.Model.Inductives.DeclStruct
-import ConLeche.Model.Inductives.SumStageRec
-import ConLeche.Verify.Inductives.SumWF
+module
+
+public import ConLeche.Model.Inductives.DeclStruct
+public import ConLeche.Model.Inductives.SumStageRec
+public import ConLeche.Verify.Inductives.SumWF
+
+@[expose] public section
 
 /-!
 # The direct sum's install, assembled (task #175 sum-types, indexed)

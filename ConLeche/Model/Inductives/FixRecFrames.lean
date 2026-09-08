@@ -1,7 +1,11 @@
-import ConLeche.Model.Inductives.FixRecReadDefs
-import ConLeche.Model.Inductives.FixRealChains
-import ConLeche.Model.Inductives.SumRecFrames
-import ConLeche.Semantics.Tower.FixSquashI
+module
+
+public import ConLeche.Model.Inductives.FixRecReadDefs
+public import ConLeche.Model.Inductives.FixRealChains
+public import ConLeche.Model.Inductives.SumRecFrames
+public import ConLeche.Semantics.Tower.FixSquashI
+
+@[expose] public section
 
 /-!
 # The recursive recursor's K-frames, part 1: the ih tower read (task #188)

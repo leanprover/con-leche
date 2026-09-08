@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Core
+module
+
+public import ConLeche.Kernel.Core
+
+@[expose] public section
 
 /-!
 # `SetBase/LitParams` — the literal families carry no level parameters

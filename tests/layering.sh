@@ -47,7 +47,11 @@ cd "$(dirname "$0")/.."
 exec python3 - "$@" <<'PYEOF'
 import os, re, sys
 
-IMP = re.compile(r'^\s*(?:public\s+|private\s+|meta\s+)*import\s+([A-Za-z0-9_.]+)', re.M)
+# `public import X`, `meta import X` and `import all X` are all edges: the
+# module system's visibility keywords change what an importer SEES, never
+# whether it depends on the module, and `import all` is the WIDEST edge of
+# the three (it pulls the private scope too), so the fence must count it.
+IMP = re.compile(r'^\s*(?:public\s+|private\s+|meta\s+)*import\s+(?:all\s+)?([A-Za-z0-9_.]+)', re.M)
 
 # --------------------------------------------------------------- the
 # module graph.

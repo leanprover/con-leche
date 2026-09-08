@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Tower.TowerLeaf
-import ConLeche.SetModel.TaggedSum
+module
+
+public import ConLeche.Semantics.Tower.TowerLeaf
+public import ConLeche.SetModel.TaggedSum
+
+@[expose] public section
 
 /-!
 # The numeral case split, spelled (task #175 sum-types, stage S1)

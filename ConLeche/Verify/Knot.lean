@@ -1,6 +1,10 @@
-import ConLeche.Kernel.TypeChecker
-import ConLeche.Kernel.CoreIO
-import ConLeche.Verify.BetaGate
+module
+
+public import ConLeche.Kernel.TypeChecker
+public import ConLeche.Kernel.CoreIO
+public import ConLeche.Verify.BetaGate
+
+@[expose] public section
 
 /-!
 # Knot equations

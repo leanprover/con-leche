@@ -1,4 +1,8 @@
-import ConLeche.Semantics.Decl
+module
+
+public import ConLeche.Semantics.Decl
+
+@[expose] public section
 
 /-!
 # `DeclRun` — the run/guard projection of `DeclR` (task #161 S4, THE

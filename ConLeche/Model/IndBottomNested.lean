@@ -1,5 +1,9 @@
-import ConLeche.Model.IndNestedParam
-import ConLeche.Model.IndOpenerGrade
+module
+
+public import ConLeche.Model.IndNestedParam
+public import ConLeche.Model.IndOpenerGrade
+
+@[expose] public section
 
 /-!
 # The nested bottom, at the reading (task #161, IND TIER part 8)

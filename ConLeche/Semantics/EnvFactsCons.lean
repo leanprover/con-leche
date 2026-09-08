@@ -1,11 +1,15 @@
-import ConLeche.Semantics.EnvFacts
-import ConLeche.Semantics.DeclIndRun
-import ConLeche.Semantics.IndBlockFacts
-import ConLeche.Verify.Extend.Block
+module
 
-import ConLeche.Verify.Extend.Ind
+public import ConLeche.Semantics.EnvFacts
+public import ConLeche.Semantics.DeclIndRun
+public import ConLeche.Semantics.IndBlockFacts
+public import ConLeche.Verify.Extend.Block
 
-import ConLeche.Semantics.ProjPhase
+public import ConLeche.Verify.Extend.Ind
+
+public import ConLeche.Semantics.ProjPhase
+
+@[expose] public section
 /-!
 # The `EnvFacts`-level cons for the block folds (task #161 S6, the opener)
 

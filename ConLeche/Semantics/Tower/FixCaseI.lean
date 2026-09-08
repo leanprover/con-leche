@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Tower.SumRecCase
-import ConLeche.Semantics.Tower.FixFamI
+module
+
+public import ConLeche.Semantics.Tower.SumRecCase
+public import ConLeche.Semantics.Tower.FixFamI
+
+@[expose] public section
 
 /-!
 # The recursive recursor's case split, spelled (task #188, indexed)

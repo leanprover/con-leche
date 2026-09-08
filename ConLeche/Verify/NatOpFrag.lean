@@ -1,5 +1,9 @@
-import ConLeche.Verify.Denote.SubstConst
-import ConLeche.Verify.EnvGuards
+module
+
+public import ConLeche.Verify.Denote.SubstConst
+public import ConLeche.Verify.EnvGuards
+
+@[expose] public section
 
 /-!
 # The pinned-`Nat` recurrence fragment (V-free)

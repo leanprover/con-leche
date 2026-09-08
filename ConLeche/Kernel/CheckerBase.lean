@@ -1,8 +1,12 @@
-import ConLeche.Kernel.Env
-import ConLeche.Kernel.StdAxioms
-import ConLeche.Kernel.TypeChecker
-import ConLeche.Kernel.NatOpPins
-import ConLeche.Kernel.Inductives.StructParts
+module
+
+public import ConLeche.Kernel.Env
+public import ConLeche.Kernel.StdAxioms
+public import ConLeche.Kernel.TypeChecker
+public import ConLeche.Kernel.NatOpPins
+public import ConLeche.Kernel.Inductives.StructParts
+
+@[expose] public section
 
 /-!
 # The declaration checker's common ground

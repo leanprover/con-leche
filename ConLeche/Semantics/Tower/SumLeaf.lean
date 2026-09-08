@@ -1,4 +1,8 @@
-import ConLeche.Semantics.Tower.SumCase
+module
+
+public import ConLeche.Semantics.Tower.SumCase
+
+@[expose] public section
 
 /-!
 # The tagged sum carrier, spelled (task #175 sum-types, stage S2)

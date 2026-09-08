@@ -1,6 +1,10 @@
-import ConLeche.Frontend.InModel.Kit
-import ConLeche.Frontend.ProjRec
-import ConLeche.Cached.ParsedC
+module
+
+public import ConLeche.Frontend.InModel.Kit
+public import ConLeche.Frontend.ProjRec
+public import ConLeche.Cached.ParsedC
+
+@[expose] public section
 
 /-!
 # In-process models of a MUTUAL inductive block (task #200, B1: index-free)

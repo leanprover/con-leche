@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Level
+module
+
+public import ConLeche.Kernel.Level
+
+@[expose] public section
 
 /-!
 # Soundness of the level operations

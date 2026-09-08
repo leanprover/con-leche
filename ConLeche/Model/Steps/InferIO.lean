@@ -1,8 +1,12 @@
-import ConLeche.Model.Steps.Infer
-import ConLeche.Model.ClaimsIO
-import ConLeche.Model.IOLicense
-import ConLeche.Verify.InferIOLemmas
-import ConLeche.Verify.InferIOLeaves
+module
+
+public import ConLeche.Model.Steps.Infer
+public import ConLeche.Model.ClaimsIO
+public import ConLeche.Model.IOLicense
+public import ConLeche.Verify.InferIOLemmas
+public import ConLeche.Verify.InferIOLeaves
+
+@[expose] public section
 
 /-!
 # The io infer quarter — COMPLETE (stage 2 B1 + the io-license batch)

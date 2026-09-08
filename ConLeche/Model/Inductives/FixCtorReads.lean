@@ -1,6 +1,10 @@
-import ConLeche.Model.Inductives.FixRecReadDefs
-import ConLeche.Model.Inductives.FixData
-import ConLeche.Verify.Inductives.StructBody
+module
+
+public import ConLeche.Model.Inductives.FixRecReadDefs
+public import ConLeche.Model.Inductives.FixData
+public import ConLeche.Verify.Inductives.StructBody
+
+@[expose] public section
 
 /-!
 # The recursive constructors' reading premises (task #188)

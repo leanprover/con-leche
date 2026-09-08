@@ -1,5 +1,9 @@
-import ConLeche.Model.IndProjCaps
-import ConLeche.Model.IndEtaLaw
+module
+
+public import ConLeche.Model.IndProjCaps
+public import ConLeche.Model.IndEtaLaw
+
+@[expose] public section
 
 /-!
 # The η key at the projection cons (task #161, IND TIER part 3, step 5b)

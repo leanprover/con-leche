@@ -1,7 +1,11 @@
-import ConLeche.Semantics.Canon
-import ConLeche.Semantics.WellDenoted
-import ConLeche.Verify.EnvGuards
-import ConLeche.Verify.Denote.Install
+module
+
+public import ConLeche.Semantics.Canon
+public import ConLeche.Semantics.WellDenoted
+public import ConLeche.Verify.EnvGuards
+public import ConLeche.Verify.Denote.Install
+
+@[expose] public section
 
 /-!
 # The `acval` install algebra — the install tier's V-free half

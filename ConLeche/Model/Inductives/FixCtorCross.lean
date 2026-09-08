@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.FixData
-import ConLeche.Model.Inductives.FixRuleData
+module
+
+public import ConLeche.Model.Inductives.FixData
+public import ConLeche.Model.Inductives.FixRuleData
+
+@[expose] public section
 
 /-!
 # The recursive constructor data across a cons (task #188)

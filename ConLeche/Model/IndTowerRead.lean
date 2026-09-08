@@ -1,4 +1,8 @@
-import ConLeche.Model.IndPoint
+module
+
+public import ConLeche.Model.IndPoint
+
+@[expose] public section
 
 /-!
 # The two opened towers, read (task #161, IND TIER part 5)

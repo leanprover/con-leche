@@ -1,7 +1,11 @@
-import ConLeche.Kernel.Checker
-import ConLeche.Verify.Level
-import ConLeche.Verify.EnvWF
-import ConLeche.Term.Const
+module
+
+public import ConLeche.Kernel.Checker
+public import ConLeche.Verify.Level
+public import ConLeche.Verify.EnvWF
+public import ConLeche.Term.Const
+
+@[expose] public section
 
 /-!
 # Denotation of kernel expressions into the erased term language

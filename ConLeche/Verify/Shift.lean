@@ -1,5 +1,9 @@
-import ConLeche.Kernel.ExprOps
-import ConLeche.Kernel.Level
+module
+
+public import ConLeche.Kernel.ExprOps
+public import ConLeche.Kernel.Level
+
+@[expose] public section
 
 /-!
 # Free-variable bounds and shifting

@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.StructIntro
+module
+
+public import ConLeche.Model.Inductives.StructIntro
+
+@[expose] public section
 
 /-!
 # `projAV`'s grading under equal-valued subjects (task #175 wiring, W5 S3)

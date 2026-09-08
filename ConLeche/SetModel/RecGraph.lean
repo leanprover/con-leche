@@ -1,5 +1,9 @@
-import ConLeche.SetTheory.Derive.LfpFam
-import ConLeche.SetTheory.Derive.Pt
+module
+
+public import ConLeche.SetTheory.Derive.LfpFam
+public import ConLeche.SetTheory.Derive.Pt
+
+@[expose] public section
 
 /-!
 # The recursion theorem by lfp induction (task #202, Stage A2)

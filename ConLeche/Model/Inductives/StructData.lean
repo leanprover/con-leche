@@ -1,7 +1,11 @@
-import ConLeche.Model.Inductives.StructLaws
-import ConLeche.Model.Inductives.StructRows
-import ConLeche.Verify.InstLevels
-import ConLeche.Semantics.Tower.TowerWire
+module
+
+public import ConLeche.Model.Inductives.StructLaws
+public import ConLeche.Model.Inductives.StructRows
+public import ConLeche.Verify.InstLevels
+public import ConLeche.Semantics.Tower.TowerWire
+
+@[expose] public section
 
 /-!
 # The direct block's stage data (task #175 W4c, P3 module 6, part 1)

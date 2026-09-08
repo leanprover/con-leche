@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Tower.TowerIntro
-import ConLeche.SetModel.Value
+module
+
+public import ConLeche.Semantics.Tower.TowerIntro
+public import ConLeche.SetModel.Value
+
+@[expose] public section
 
 /-!
 # The carrier body and the uniform projection spelling (task #175, stage 2)

@@ -1,4 +1,8 @@
-import ConLeche.Semantics.Kit
+module
+
+public import ConLeche.Semantics.Kit
+
+@[expose] public section
 
 /-!
 # The universe question, in the `pt`-free world (task #151, tier B)

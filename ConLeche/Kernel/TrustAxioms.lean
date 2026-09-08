@@ -1,9 +1,14 @@
-import ConLeche.Kernel.StdAxioms
-import ConLeche.Kernel.BasisA
-import ConLeche.Kernel.BasisGen
-import ConLeche.Kernel.Basis
-import ConLeche.Kernel.Core
-import ConLeche.Kernel.TrustPins
+module
+
+public import ConLeche.Kernel.StdAxioms
+public import ConLeche.Kernel.BasisA
+meta import ConLeche.Kernel.BasisA
+public import ConLeche.Kernel.BasisGen
+public import ConLeche.Kernel.Basis
+public import ConLeche.Kernel.Core
+public import ConLeche.Kernel.TrustPins
+
+@[expose] public section
 
 /-!
 # The compiler-trust axiom family (task #95)

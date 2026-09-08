@@ -1,49 +1,53 @@
-import ConLeche.Semantics.Syntax
-import ConLeche.Semantics.Interp
-import ConLeche.Semantics.Kit
-import ConLeche.Semantics.WellDenoted
-import ConLeche.Semantics.DefEqList
-import ConLeche.Semantics.EqTower
-import ConLeche.Semantics.EraseInv
-import ConLeche.Semantics.ProjPhase
-import ConLeche.Semantics.DivModEval
-import ConLeche.Semantics.Frame
-import ConLeche.Semantics.LitParams
-import ConLeche.Semantics.Sat
-import ConLeche.Semantics.WhnfCoreLeaf
-import ConLeche.Semantics.DefEqStep
-import ConLeche.Semantics.Canon
-import ConLeche.Semantics.LitStep
-import ConLeche.Semantics.DenoteClosed
-import ConLeche.Semantics.Install
-import ConLeche.Semantics.ConstsBound
-import ConLeche.Semantics.BasisType
-import ConLeche.Semantics.Univ
-import ConLeche.Semantics.BasisOk
-import ConLeche.Semantics.Skeleton
-import ConLeche.Semantics.Hoist
-import ConLeche.Semantics.Decl
-import ConLeche.Semantics.DeclEta
-import ConLeche.Semantics.DeclRun
-import ConLeche.Verify.Inductives.SumWF
-import ConLeche.Semantics.Inductives.DeclSumEta
-import ConLeche.Semantics.DeclIndRun
-import ConLeche.Semantics.IndBlockFacts
-import ConLeche.Semantics.IndBlockRun
-import ConLeche.Semantics.EnvFacts
-import ConLeche.Semantics.EnvFactsCons
-import ConLeche.Semantics.IndRecsCore
-import ConLeche.Semantics.BasisRules
-import ConLeche.Semantics.Tower.TowerIntro
-import ConLeche.Semantics.Tower.TowerLeaf
-import ConLeche.Semantics.Tower.TowerMk
-import ConLeche.Semantics.Tower.TowerRec
-import ConLeche.Semantics.Tower.TowerWire
-import ConLeche.Semantics.ProjFnFacts
-import ConLeche.Semantics.Bridge.Decl
-import ConLeche.Semantics.Bridge.DeclRun
-import ConLeche.Semantics.Bridge.DeclIndRun
-import ConLeche.Semantics.Bridge.Sound
+module
+
+public import ConLeche.Semantics.Syntax
+public import ConLeche.Semantics.Interp
+public import ConLeche.Semantics.Kit
+public import ConLeche.Semantics.WellDenoted
+public import ConLeche.Semantics.DefEqList
+public import ConLeche.Semantics.EqTower
+public import ConLeche.Semantics.EraseInv
+public import ConLeche.Semantics.ProjPhase
+public import ConLeche.Semantics.DivModEval
+public import ConLeche.Semantics.Frame
+public import ConLeche.Semantics.LitParams
+public import ConLeche.Semantics.Sat
+public import ConLeche.Semantics.WhnfCoreLeaf
+public import ConLeche.Semantics.DefEqStep
+public import ConLeche.Semantics.Canon
+public import ConLeche.Semantics.LitStep
+public import ConLeche.Semantics.DenoteClosed
+public import ConLeche.Semantics.Install
+public import ConLeche.Semantics.ConstsBound
+public import ConLeche.Semantics.BasisType
+public import ConLeche.Semantics.Univ
+public import ConLeche.Semantics.BasisOk
+public import ConLeche.Semantics.Skeleton
+public import ConLeche.Semantics.Hoist
+public import ConLeche.Semantics.Decl
+public import ConLeche.Semantics.DeclEta
+public import ConLeche.Semantics.DeclRun
+public import ConLeche.Verify.Inductives.SumWF
+public import ConLeche.Semantics.Inductives.DeclSumEta
+public import ConLeche.Semantics.DeclIndRun
+public import ConLeche.Semantics.IndBlockFacts
+public import ConLeche.Semantics.IndBlockRun
+public import ConLeche.Semantics.EnvFacts
+public import ConLeche.Semantics.EnvFactsCons
+public import ConLeche.Semantics.IndRecsCore
+public import ConLeche.Semantics.BasisRules
+public import ConLeche.Semantics.Tower.TowerIntro
+public import ConLeche.Semantics.Tower.TowerLeaf
+public import ConLeche.Semantics.Tower.TowerMk
+public import ConLeche.Semantics.Tower.TowerRec
+public import ConLeche.Semantics.Tower.TowerWire
+public import ConLeche.Semantics.ProjFnFacts
+public import ConLeche.Semantics.Bridge.Decl
+public import ConLeche.Semantics.Bridge.DeclRun
+public import ConLeche.Semantics.Bridge.DeclIndRun
+public import ConLeche.Semantics.Bridge.Sound
+
+@[expose] public section
 
 /-!
 # `ConLeche.Semantics` — the Expr-facing semantic tier

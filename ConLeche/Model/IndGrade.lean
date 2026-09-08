@@ -1,4 +1,8 @@
-import ConLeche.Model.IndRename
+module
+
+public import ConLeche.Model.IndRename
+
+@[expose] public section
 
 /-!
 # The frame's gradings, discharged (task #161, IND TIER part 4)

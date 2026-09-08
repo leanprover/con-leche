@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Tower.TowerRec
-import ConLeche.Semantics.DenoteClosed
+module
+
+public import ConLeche.Semantics.Tower.TowerRec
+public import ConLeche.Semantics.DenoteClosed
+
+@[expose] public section
 
 /-!
 # The direct-structure leaves' syntactic battery (task #175 wiring, W4)

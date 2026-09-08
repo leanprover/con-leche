@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Core
+module
+
+public import ConLeche.Kernel.Core
+
+@[expose] public section
 
 /-!
 # The pure knot

@@ -1,6 +1,10 @@
-import ConLeche.Model.Inductives.SumRecData
-import ConLeche.Model.Inductives.SumStageCtor
-import ConLeche.Model.Inductives.StructRecFrames
+module
+
+public import ConLeche.Model.Inductives.SumRecData
+public import ConLeche.Model.Inductives.SumStageCtor
+public import ConLeche.Model.Inductives.StructRecFrames
+
+@[expose] public section
 
 /-!
 # The sum recursor's frames (task #175 sum-types, indexed)

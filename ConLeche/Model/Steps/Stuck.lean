@@ -1,5 +1,9 @@
-import ConLeche.Model.Steps.Irrel
-import ConLeche.Verify.Denote.StrLit
+module
+
+public import ConLeche.Model.Steps.Irrel
+public import ConLeche.Verify.Denote.StrLit
+
+@[expose] public section
 
 /-!
 # The stuck fallbacks over `interp` (task #161, P4 — batch 7)

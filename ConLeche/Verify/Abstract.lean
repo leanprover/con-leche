@@ -1,6 +1,10 @@
-import ConLeche.Kernel.TypeChecker
-import ConLeche.Verify.Knot
-import ConLeche.Verify.Shift
+module
+
+public import ConLeche.Kernel.TypeChecker
+public import ConLeche.Verify.Knot
+public import ConLeche.Verify.Shift
+
+@[expose] public section
 
 /-!
 # Abstraction and the open/close roundtrip

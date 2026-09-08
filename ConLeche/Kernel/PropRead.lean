@@ -1,6 +1,10 @@
-import ConLeche.Kernel.Env
-import ConLeche.Kernel.ExprOps
-import ConLeche.Kernel.Level
+module
+
+public import ConLeche.Kernel.Env
+public import ConLeche.Kernel.ExprOps
+public import ConLeche.Kernel.Level
+
+@[expose] public section
 
 /-!
 # Fast prop-ness off the head symbol (task #168)

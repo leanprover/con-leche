@@ -1,6 +1,10 @@
-import ConLeche.Term.Syntax
-import ConLeche.Term.Subst
-import ConLeche.Term.Const
+module
+
+public import ConLeche.Term.Syntax
+public import ConLeche.Term.Subst
+public import ConLeche.Term.Const
+
+@[expose] public section
 
 /-!
 # The erased term language (task #74; cut down and relocated at #209)

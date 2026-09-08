@@ -1,7 +1,11 @@
-import Std.Data.HashMap
-import ConLeche.Kernel.Expr
-import ConLeche.Kernel.ExprOps
-import ConLeche.Kernel.Level
+module
+
+public import Std.Data.HashMap
+public import ConLeche.Kernel.Expr
+public import ConLeche.Kernel.ExprOps
+public import ConLeche.Kernel.Level
+
+@[expose] public section
 
 /-!
 # `ExprC`: the cached engine's namespace over the one expression type

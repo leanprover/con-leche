@@ -1,4 +1,8 @@
-import ConLeche.Semantics.Tower.FixSquashI
+module
+
+public import ConLeche.Semantics.Tower.FixSquashI
+
+@[expose] public section
 /-!
 # The ih arguments at a recursive field's telescope (task #202 Stage B)
 

@@ -1,5 +1,9 @@
-import ConLeche.Model.IndFrame
-import ConLeche.Verify.IotaWalkInv
+module
+
+public import ConLeche.Model.IndFrame
+public import ConLeche.Verify.IotaWalkInv
+
+@[expose] public section
 
 /-!
 # The walks' recorded runs, converted (task #161, IND TIER part 4)

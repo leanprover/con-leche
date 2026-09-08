@@ -1,5 +1,9 @@
-import ConLeche.Verify.EnvPreds
-import ConLeche.Verify.Denote.VClosed
+module
+
+public import ConLeche.Verify.EnvPreds
+public import ConLeche.Verify.Denote.VClosed
+
+@[expose] public section
 
 /-!
 # The `Eq` block's canonical value towers (task #161, S1)

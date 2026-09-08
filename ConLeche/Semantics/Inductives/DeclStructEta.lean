@@ -1,10 +1,14 @@
-import ConLeche.Semantics.DeclIndRun
-import ConLeche.Semantics.IndBlockRun
-import ConLeche.Semantics.DeclEta
-import ConLeche.Verify.Extend.Inversions
+module
 
-import ConLeche.Verify.ExceptBind
-import ConLeche.Verify.Inductives.StructInv
+public import ConLeche.Semantics.DeclIndRun
+public import ConLeche.Semantics.IndBlockRun
+public import ConLeche.Semantics.DeclEta
+public import ConLeche.Verify.Extend.Inversions
+
+public import ConLeche.Verify.ExceptBind
+public import ConLeche.Verify.Inductives.StructInv
+
+@[expose] public section
 
 /-!
 # The direct-structure declaration keeps the η-families closed (task #175 wiring, W5)

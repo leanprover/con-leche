@@ -1,8 +1,12 @@
-import ConLeche.Kernel.Level
-import ConLeche.Kernel.ExprOps
-import ConLeche.Verify.Level
-import ConLeche.Verify.PropWhen
-import ConLeche.Verify.Subst
+module
+
+public import ConLeche.Kernel.Level
+public import ConLeche.Kernel.ExprOps
+public import ConLeche.Verify.Level
+public import ConLeche.Verify.PropWhen
+public import ConLeche.Verify.Subst
+
+@[expose] public section
 
 /-!
 # Syntactic lemmas about level-parameter instantiation

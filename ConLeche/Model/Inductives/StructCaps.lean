@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.TowerCons
+module
+
+public import ConLeche.Model.Inductives.TowerCons
+
+@[expose] public section
 
 /-!
 # `CapsOk` across the direct block's member conses (task #175 W4c, P3 module 5, part 1)

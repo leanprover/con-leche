@@ -1,8 +1,12 @@
-import ConLeche.Verify.Fueled
-import ConLeche.Verify.BetaGate
-import ConLeche.Verify.Knot
-import ConLeche.Verify.InstList
-import ConLeche.Verify.InferLemmas
+module
+
+public import ConLeche.Verify.Fueled
+public import ConLeche.Verify.BetaGate
+public import ConLeche.Verify.Knot
+public import ConLeche.Verify.InstList
+public import ConLeche.Verify.InferLemmas
+
+@[expose] public section
 
 /-!
 # Bulk beta: the spine loop and its identification with `whnfCoreBody`

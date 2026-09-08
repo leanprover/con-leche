@@ -1,4 +1,8 @@
-import ConLeche.Model.IndPinGrade
+module
+
+public import ConLeche.Model.IndPinGrade
+
+@[expose] public section
 
 /-!
 # The plain bottom, at the reading (task #161, IND TIER part 7)

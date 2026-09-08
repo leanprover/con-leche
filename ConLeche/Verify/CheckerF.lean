@@ -1,7 +1,11 @@
-import ConLeche.Verify.FastOps
-import ConLeche.Verify.EnvBound
-import ConLeche.Kernel.Inductives.SumInstallF
-import ConLeche.Kernel.Inductives.NativeInstallF
+module
+
+public import ConLeche.Verify.FastOps
+public import ConLeche.Verify.EnvBound
+public import ConLeche.Kernel.Inductives.SumInstallF
+public import ConLeche.Kernel.Inductives.NativeInstallF
+
+@[expose] public section
 
 /-!
 # The indexed checker mirrors agree with the generic checker (task #63)

@@ -1,6 +1,15 @@
-import ConLeche.Semantics.Canon
-import ConLeche.Semantics.Tower.TowerLeaf
-import ConLeche.Verify.PropWhen
+module
+
+public import ConLeche.Semantics.Canon
+public import ConLeche.Semantics.Tower.TowerLeaf
+public import ConLeche.Verify.PropWhen
+/- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
+`Std.HashMap` pattern, task #194): the datum's module is `public` but not
+`@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
+`import all` restores that view HERE only. -/
+import all ConLeche.Kernel.PropWhen
+
+@[expose] public section
 
 /-!
 # `denoteMeta` — the validated-annotation reading (task #161, P3)

@@ -1,4 +1,8 @@
-import ConLeche.Verify.Inductives.StructWF
+module
+
+public import ConLeche.Verify.Inductives.StructWF
+
+@[expose] public section
 
 /-!
 # The direct install's stage runs, inverted to their records (task #175 W4c, P3)

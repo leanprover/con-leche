@@ -1,4 +1,8 @@
-import ConLeche.Frontend.InModel.Nested
+module
+
+public import ConLeche.Frontend.InModel.Nested
+
+@[expose] public section
 
 /-!
 # The in-process modeller (task #200)

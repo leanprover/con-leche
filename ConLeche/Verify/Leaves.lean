@@ -1,7 +1,11 @@
-import ConLeche.Kernel.ExprOps
-import ConLeche.Verify.Shift
-import ConLeche.Verify.Abstract
-import ConLeche.Verify.Knot
+module
+
+public import ConLeche.Kernel.ExprOps
+public import ConLeche.Verify.Shift
+public import ConLeche.Verify.Abstract
+public import ConLeche.Verify.Knot
+
+@[expose] public section
 
 /-!
 # The free-variable leaf closure

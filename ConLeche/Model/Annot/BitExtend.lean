@@ -1,5 +1,9 @@
-import ConLeche.Model.Annot.BitInstall
-import ConLeche.Semantics.ConstsBound
+module
+
+public import ConLeche.Model.Annot.BitInstall
+public import ConLeche.Semantics.ConstsBound
+
+@[expose] public section
 
 /-!
 # `denoteMeta` across an environment extension (task #161, P3.2)

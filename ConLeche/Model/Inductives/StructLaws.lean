@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.StructCaps
-import ConLeche.Model.Inductives.StructFrames
+module
+
+public import ConLeche.Model.Inductives.StructCaps
+public import ConLeche.Model.Inductives.StructFrames
+
+@[expose] public section
 
 /-!
 # The direct block's family laws (task #175 W4c, P3 module 5, part 2)

@@ -1,8 +1,12 @@
-import ConLeche.Model.Steps.IotaKit
-import ConLeche.Model.Steps.Stuck
-import ConLeche.Verify.Denote
-import ConLeche.Verify.Denote.OpenVars
-import ConLeche.Verify.Denote.VClosed
+module
+
+public import ConLeche.Model.Steps.IotaKit
+public import ConLeche.Model.Steps.Stuck
+public import ConLeche.Verify.Denote
+public import ConLeche.Verify.Denote.OpenVars
+public import ConLeche.Verify.Denote.VClosed
+
+@[expose] public section
 
 /-!
 # The stuck-major rescues, P currency (task #161, iota tier)

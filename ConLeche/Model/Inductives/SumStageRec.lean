@@ -1,6 +1,10 @@
-import ConLeche.Model.Inductives.SumRecFrames
-import ConLeche.Model.Inductives.SumStageCtor
-import ConLeche.Model.IndPointKit
+module
+
+public import ConLeche.Model.Inductives.SumRecFrames
+public import ConLeche.Model.Inductives.SumStageCtor
+public import ConLeche.Model.IndPointKit
+
+@[expose] public section
 
 /-!
 # The sum recursor's cons (task #175 sum-types, indexed)

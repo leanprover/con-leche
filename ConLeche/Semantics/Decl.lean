@@ -1,6 +1,10 @@
-import ConLeche.Verify.Leaves
-import ConLeche.Verify.Denote.Install
-import ConLeche.Verify.IotaWalkInv
+module
+
+public import ConLeche.Verify.Leaves
+public import ConLeche.Verify.Denote.Install
+public import ConLeche.Verify.IotaWalkInv
+
+@[expose] public section
 
 /-!
 # The per-declaration RUN records (task #148 T2; the derivation half

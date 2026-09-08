@@ -1,4 +1,8 @@
-import ConLeche.Verify.InferLemmas
+module
+
+public import ConLeche.Verify.InferLemmas
+
+@[expose] public section
 
 /-!
 # Inversion lemmas for the io lane (task #161, stage 2)

@@ -1,6 +1,10 @@
-import ConLeche.Model.Inductives.FixChains
-import ConLeche.SetModel.Container
-import ConLeche.Semantics.Tower.FixSquashI
+module
+
+public import ConLeche.Model.Inductives.FixChains
+public import ConLeche.SetModel.Container
+public import ConLeche.Semantics.Tower.FixSquashI
+
+@[expose] public section
 
 /-!
 # The closure witness of the fixpoint route's family functor (task #202, Stage B)

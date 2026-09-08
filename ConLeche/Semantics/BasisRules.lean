@@ -1,5 +1,9 @@
-import ConLeche.Kernel.BasisA
-import ConLeche.Verify.EnvPreds
+module
+
+public import ConLeche.Kernel.BasisA
+public import ConLeche.Verify.EnvPreds
+
+@[expose] public section
 
 /-!
 # The basis blocks' stored rules, at the base (task #161 S7, Wall C)

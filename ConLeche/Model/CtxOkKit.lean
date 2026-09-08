@@ -1,5 +1,9 @@
-import ConLeche.Model.WellDenotedTransport
-import ConLeche.Model.Annot.BitShift
+module
+
+public import ConLeche.Model.WellDenotedTransport
+public import ConLeche.Model.Annot.BitShift
+
+@[expose] public section
 
 /-!
 # The `CtxOk` kit — restriction family (task #161, P3.4)

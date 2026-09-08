@@ -1,5 +1,9 @@
-import ConLeche.Model.Annot.Bit
-import ConLeche.Semantics.WellDenoted
+module
+
+public import ConLeche.Model.Annot.Bit
+public import ConLeche.Semantics.WellDenoted
+
+@[expose] public section
 
 /-!
 # `AnnotValid` — bit validity, on the bit (task #161, P3.2)

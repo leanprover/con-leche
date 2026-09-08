@@ -1,5 +1,9 @@
-import ConLeche.Semantics.WellDenoted
-import ConLeche.Semantics.Sat
+module
+
+public import ConLeche.Semantics.WellDenoted
+public import ConLeche.Semantics.Sat
+
+@[expose] public section
 
 /-!
 # `SetBase/Hoist` — the `WellDenoted` hoist kit

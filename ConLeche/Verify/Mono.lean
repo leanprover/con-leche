@@ -1,4 +1,8 @@
-import ConLeche.Verify.PairM
+module
+
+public import ConLeche.Verify.PairM
+
+@[expose] public section
 
 /-!
 # Fuel monotonicity, via the relational pair monad

@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.StructData
-import ConLeche.Verify.Inductives.StructInv
+module
+
+public import ConLeche.Model.Inductives.StructData
+public import ConLeche.Verify.Inductives.StructInv
+
+@[expose] public section
 
 /-!
 # The former's cons (task #175 W4c, P3 module 6, part 2)

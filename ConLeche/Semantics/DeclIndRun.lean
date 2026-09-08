@@ -1,4 +1,8 @@
-import ConLeche.Semantics.DeclRun
+module
+
+public import ConLeche.Semantics.DeclRun
+
+@[expose] public section
 
 /-!
 # `DeclIndRun` — the inductive kind's run/guard record family (task

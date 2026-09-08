@@ -1,6 +1,10 @@
-import ConLeche.Model.Inductives.SumRecRead
-import ConLeche.Model.Inductives.FixData
-import ConLeche.Semantics.Tower.FixRecI
+module
+
+public import ConLeche.Model.Inductives.SumRecRead
+public import ConLeche.Model.Inductives.FixData
+public import ConLeche.Semantics.Tower.FixRecI
+
+@[expose] public section
 
 /-!
 # The generated recursive recursor's readings: the targets (task #188)

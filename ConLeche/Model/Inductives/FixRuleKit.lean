@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.FixRecPre
+module
+
+public import ConLeche.Model.Inductives.FixRecPre
+
+@[expose] public section
 
 /-!
 # The rule right-hand side's gradedness: the kit (task #188)

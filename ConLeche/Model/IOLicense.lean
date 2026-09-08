@@ -1,4 +1,8 @@
-import ConLeche.SetModel.Ops
+module
+
+public import ConLeche.SetModel.Ops
+
+@[expose] public section
 
 /-!
 # The io license kit (task #161 stage 2, the io-license batch)

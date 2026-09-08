@@ -1,6 +1,10 @@
-import ConLeche.Model.IndPlainParam
-import ConLeche.Model.IndZipField
-import ConLeche.Model.IndStageKit
+module
+
+public import ConLeche.Model.IndPlainParam
+public import ConLeche.Model.IndZipField
+public import ConLeche.Model.IndStageKit
+
+@[expose] public section
 
 /-!
 # The zipper, at the reading (task #161, IND TIER part 5)

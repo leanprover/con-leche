@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.StructRecKit2
-import ConLeche.Verify.Inductives.StructRec
+module
+
+public import ConLeche.Model.Inductives.StructRecKit2
+public import ConLeche.Verify.Inductives.StructRec
+
+@[expose] public section
 
 /-!
 # The generated recursor, read (task #175 S2)

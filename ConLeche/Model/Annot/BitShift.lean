@@ -1,5 +1,9 @@
-import ConLeche.Model.Annot.BitLemmas
-import ConLeche.Verify.Shift
+module
+
+public import ConLeche.Model.Annot.BitLemmas
+public import ConLeche.Verify.Shift
+
+@[expose] public section
 
 /-!
 # `denoteMeta`'s depth shift (task #161, P3.2)

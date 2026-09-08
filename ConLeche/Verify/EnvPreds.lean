@@ -1,5 +1,9 @@
-import ConLeche.Kernel.BasisA
-import ConLeche.Verify.EnvWF
+module
+
+public import ConLeche.Kernel.BasisA
+public import ConLeche.Verify.EnvWF
+
+@[expose] public section
 
 /-!
 # `V`-free environment predicates (task #123)

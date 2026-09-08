@@ -1,5 +1,9 @@
-import ConLeche.Cached.StateC
-import ConLeche.Kernel.Env
+module
+
+public import ConLeche.Cached.StateC
+public import ConLeche.Kernel.Env
+
+@[expose] public section
 
 /-!
 # The cached checker core

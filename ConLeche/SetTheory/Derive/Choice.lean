@@ -1,4 +1,8 @@
-import ConLeche.SetTheory.Derive.Graphs
+module
+
+public import ConLeche.SetTheory.Derive.Graphs
+
+@[expose] public section
 
 /-!
 # Choice: the global selector, and the eighth axiom as a theorem

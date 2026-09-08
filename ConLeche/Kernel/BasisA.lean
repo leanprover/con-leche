@@ -1,5 +1,9 @@
-import ConLeche.Kernel.Basis
-import ConLeche.Kernel.BasisGen
+module
+
+public import ConLeche.Kernel.Basis
+public import ConLeche.Kernel.BasisGen
+
+@[expose] public section
 
 /-!
 # The annotated basis blocks

@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Tower.FixLeafI
-import ConLeche.Semantics.Tower.SumRecCase
+module
+
+public import ConLeche.Semantics.Tower.FixLeafI
+public import ConLeche.Semantics.Tower.SumRecCase
+
+@[expose] public section
 
 /-!
 # The recursive family's functor: readings and laws (task #188, indexed)

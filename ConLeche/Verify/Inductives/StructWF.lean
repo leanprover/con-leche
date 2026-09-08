@@ -1,5 +1,9 @@
-import ConLeche.Verify.BridgeWfImp
-import ConLeche.Verify.ExceptBind
+module
+
+public import ConLeche.Verify.BridgeWfImp
+public import ConLeche.Verify.ExceptBind
+
+@[expose] public section
 
 /-!
 # The direct simple-structure install: environment well-formedness

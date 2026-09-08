@@ -1,5 +1,14 @@
-import ConLeche.Kernel.PropRead
-import ConLeche.Verify.Shift
+module
+
+public import ConLeche.Kernel.PropRead
+public import ConLeche.Verify.Shift
+/- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
+`Std.HashMap` pattern, task #194): the datum's module is `public` but not
+`@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
+`import all` restores that view HERE only. -/
+import all ConLeche.Kernel.PropWhen
+
+@[expose] public section
 
 /-!
 # The head-symbol prop-ness readers under the verification walks
@@ -318,9 +327,9 @@ theorem isProofFast_inv (find? : Name → Option ConstantInfo) {a : Expr}
   | none => rw [hp] at h; exact nomatch h
   | some pw => rw [hp] at h; exact ⟨pw, rfl, h⟩
 
-@[simp] theorem PropWhen.isProp_never : PropWhen.isProp .never = false := rfl
+@[simp] theorem PropWhen.isProp_never : PropWhen.isProp .never = false := by rfl
 
 @[simp] theorem Level.substPW_never (ks : List Name) (vs : List Level) :
-    Level.substPW ks vs .never = .never := rfl
+    Level.substPW ks vs .never = .never := by rfl
 
 end ConLeche

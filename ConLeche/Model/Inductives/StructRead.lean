@@ -1,6 +1,10 @@
-import ConLeche.Model.Inductives.StructBits
-import ConLeche.Model.Annot.BitInstall
-import ConLeche.Verify.EnvWF
+module
+
+public import ConLeche.Model.Inductives.StructBits
+public import ConLeche.Model.Annot.BitInstall
+public import ConLeche.Verify.EnvWF
+
+@[expose] public section
 
 /-!
 # The direct structure's readings (task #175 W4c, P3 module 2)

@@ -1,6 +1,10 @@
-import ConLeche.Semantics.Tower.SumLeaf
-import ConLeche.Semantics.Tower.TowerRec
-import ConLeche.Semantics.Tower.TowerWire
+module
+
+public import ConLeche.Semantics.Tower.SumLeaf
+public import ConLeche.Semantics.Tower.TowerRec
+public import ConLeche.Semantics.Tower.TowerWire
+
+@[expose] public section
 
 /-!
 # The index equation, spelled (task #175 indexed)

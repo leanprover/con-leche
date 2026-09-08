@@ -1,5 +1,9 @@
-import ConLeche.SetTheory.Basic
-import ConLeche.SetTheory.Derive.Sigma
+module
+
+public import ConLeche.SetTheory.Basic
+public import ConLeche.SetTheory.Derive.Sigma
+
+@[expose] public section
 
 /-!
 # The uniform tuple model: unit-terminated pair towers (agent/tuple-model)

@@ -1,6 +1,10 @@
-import ConLeche.Verify.Cached.KnotC
-import ConLeche.Verify.BridgeDecl
-import ConLeche.Cached.CheckerC
+module
+
+public import ConLeche.Verify.Cached.KnotC
+public import ConLeche.Verify.BridgeDecl
+public import ConLeche.Cached.CheckerC
+
+@[expose] public section
 
 /-!
 # Cached checker: the per-declaration faithfulness kit (task #163)

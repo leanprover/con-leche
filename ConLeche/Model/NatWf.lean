@@ -1,5 +1,9 @@
-import ConLeche.Model.DivMod
-import ConLeche.PinGen.Certs
+module
+
+public import ConLeche.Model.DivMod
+public import ConLeche.PinGen.Certs
+
+@[expose] public section
 
 /-!
 # The WF-recursive `Nat` operations' literal values at `interp`

@@ -1,5 +1,14 @@
-import ConLeche.Frontend.Prelude
-import ConLeche.Cached.ParsedC
+module
+
+public import ConLeche.Frontend.Prelude
+public import ConLeche.Cached.ParsedC
+/- The `#guard`s below are EVALUATED, so the constants they name have to be
+reachable from meta code too; a plain import is not (`IO of declaration …
+not available`).  A module needed at both levels is imported twice. -/
+meta import ConLeche.Frontend.Prelude
+meta import ConLeche.Cached.ParsedC
+
+@[expose] public section
 
 /-!
 # The built-in prelude (task #191): what it holds, and that the fold

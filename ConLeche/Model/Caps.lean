@@ -1,4 +1,8 @@
-import ConLeche.Model.Install
+module
+
+public import ConLeche.Model.Install
+
+@[expose] public section
 
 /-!
 # The structure-capability laws across a fresh cons (task #161, caps

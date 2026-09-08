@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Tower.FixRecI
-import ConLeche.Semantics.Tower.SumWire
+module
+
+public import ConLeche.Semantics.Tower.FixRecI
+public import ConLeche.Semantics.Tower.SumWire
+
+@[expose] public section
 
 /-!
 # The recursive recursor leaf's closedness (task #188)

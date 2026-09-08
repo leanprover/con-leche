@@ -1,4 +1,8 @@
-import ConLeche.SetTheory.Derive.Empty
+module
+
+public import ConLeche.SetTheory.Derive.Empty
+
+@[expose] public section
 
 /-!
 # Separation, derived from replacement

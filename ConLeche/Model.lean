@@ -1,122 +1,126 @@
-import ConLeche.Model.Claims
-import ConLeche.Model.Inductives.StructIntro
-import ConLeche.Model.ClaimsIO
-import ConLeche.Model.IOLicense
-import ConLeche.Model.WellDenotedTransport
-import ConLeche.Model.CtxOkKit
-import ConLeche.Model.Steps.Infer
-import ConLeche.Model.Steps.InferIO
-import ConLeche.Model.Steps.Whnf
-import ConLeche.Model.Steps.Gate
-import ConLeche.Model.Steps.DefEq
-import ConLeche.Model.Annot.EnvModel
-import ConLeche.Model.Annot.EnvModelM
-import ConLeche.Model.Steps.Irrel
-import ConLeche.Model.Steps.IrrelFast
-import ConLeche.Model.Steps.Stuck
-import ConLeche.Model.Steps.Reads
-import ConLeche.Model.Steps.ReadsIO
-import ConLeche.Model.Steps.Accepted
-import ConLeche.Model.Steps.Nat
-import ConLeche.Model.Steps.CapsRows
-import ConLeche.Model.Steps.Tiers
-import ConLeche.Model.Install
-import ConLeche.Model.NatEqs
-import ConLeche.Model.NatSem
-import ConLeche.Model.Caps
-import ConLeche.Model.DivMod
-import ConLeche.Model.NatWf
-import ConLeche.Model.NatStep
-import ConLeche.Model.DivModCert
-import ConLeche.Model.Capstone
-import ConLeche.Model.AxiomBits
-import ConLeche.Model.BasisCons
-import ConLeche.Model.BitAgree
-import ConLeche.Model.BasisTypeOk
-import ConLeche.Model.EqTower
-import ConLeche.Model.BasisStep
-import ConLeche.Model.BasisEmpty
-import ConLeche.Model.BasisFalse
-import ConLeche.Model.Levels
-import ConLeche.Model.BasisBlocks
-import ConLeche.Model.BasisQuot
-import ConLeche.Model.BasisEq
-import ConLeche.Model.IndCons
-import ConLeche.Model.IndMember
-import ConLeche.Model.IndCaps
-import ConLeche.Model.IndMembers
-import ConLeche.Model.IndTele
-import ConLeche.Model.IndUnitLaw
-import ConLeche.Model.IndEtaLaw
-import ConLeche.Model.IndFrame
-import ConLeche.Model.IndProjCaps
-import ConLeche.Model.IndProjEta
-import ConLeche.Model.IndRuns
-import ConLeche.Model.IndSubst
-import ConLeche.Model.IndStageKit
-import ConLeche.Model.IndCross
-import ConLeche.Model.IndZipField
-import ConLeche.Model.IndRename
-import ConLeche.Model.IndGrade
-import ConLeche.Model.IndDomGrade
-import ConLeche.Model.IndPrefixGrade
-import ConLeche.Model.IndParamGrade
-import ConLeche.Model.IndFieldGrade
-import ConLeche.Model.IndPlainParam
-import ConLeche.Model.IndZipper
-import ConLeche.Model.IndPointKit
-import ConLeche.Model.IndPoint
-import ConLeche.Model.IndTowerRead
-import ConLeche.Model.IndReduct
-import ConLeche.Model.IndLamTower
-import ConLeche.Model.IndAnnotKit
-import ConLeche.Model.IndAnnotMem
-import ConLeche.Model.IndFire
-import ConLeche.Model.IndTransport
-import ConLeche.Model.IndOpenRev
-import ConLeche.Model.IndPinGrade
-import ConLeche.Model.IndBottomPlain
-import ConLeche.Model.IndOpenerGrade
-import ConLeche.Model.IndNestedParam
-import ConLeche.Model.IndBottomNested
-import ConLeche.Model.IndPinRow
-import ConLeche.Model.IndProjKit
-import ConLeche.Model.IndBottomProj
-import ConLeche.Model.IotaRulePlain
-import ConLeche.Model.IotaRuleNested
-import ConLeche.Model.Swap
-import ConLeche.Model.IndRecs
-import ConLeche.Model.ProjRename
-import ConLeche.Model.ProjCons
-import ConLeche.Model.ProjInstall
-import ConLeche.Model.DeclInd
-import ConLeche.Model.IndPinProbe
-import ConLeche.Model.AxiomPin
-import ConLeche.Model.Harvest
-import ConLeche.Model.Fold
-import ConLeche.Model.Annot.Bit
-import ConLeche.Model.Annot.BitLemmas
-import ConLeche.Model.Annot.BitShift
-import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Annot.BitClosed
-import ConLeche.Model.Annot.BitInstall
-import ConLeche.Model.Annot.BitExtend
-import ConLeche.Model.Annot.Valid
-import ConLeche.Model.Annot.ValidSpine
-import ConLeche.Model.Steps.BitLevels
+module
+
+public import ConLeche.Model.Claims
+public import ConLeche.Model.Inductives.StructIntro
+public import ConLeche.Model.ClaimsIO
+public import ConLeche.Model.IOLicense
+public import ConLeche.Model.WellDenotedTransport
+public import ConLeche.Model.CtxOkKit
+public import ConLeche.Model.Steps.Infer
+public import ConLeche.Model.Steps.InferIO
+public import ConLeche.Model.Steps.Whnf
+public import ConLeche.Model.Steps.Gate
+public import ConLeche.Model.Steps.DefEq
+public import ConLeche.Model.Annot.EnvModel
+public import ConLeche.Model.Annot.EnvModelM
+public import ConLeche.Model.Steps.Irrel
+public import ConLeche.Model.Steps.IrrelFast
+public import ConLeche.Model.Steps.Stuck
+public import ConLeche.Model.Steps.Reads
+public import ConLeche.Model.Steps.ReadsIO
+public import ConLeche.Model.Steps.Accepted
+public import ConLeche.Model.Steps.Nat
+public import ConLeche.Model.Steps.CapsRows
+public import ConLeche.Model.Steps.Tiers
+public import ConLeche.Model.Install
+public import ConLeche.Model.NatEqs
+public import ConLeche.Model.NatSem
+public import ConLeche.Model.Caps
+public import ConLeche.Model.DivMod
+public import ConLeche.Model.NatWf
+public import ConLeche.Model.NatStep
+public import ConLeche.Model.DivModCert
+public import ConLeche.Model.Capstone
+public import ConLeche.Model.AxiomBits
+public import ConLeche.Model.BasisCons
+public import ConLeche.Model.BitAgree
+public import ConLeche.Model.BasisTypeOk
+public import ConLeche.Model.EqTower
+public import ConLeche.Model.BasisStep
+public import ConLeche.Model.BasisEmpty
+public import ConLeche.Model.BasisFalse
+public import ConLeche.Model.Levels
+public import ConLeche.Model.BasisBlocks
+public import ConLeche.Model.BasisQuot
+public import ConLeche.Model.BasisEq
+public import ConLeche.Model.IndCons
+public import ConLeche.Model.IndMember
+public import ConLeche.Model.IndCaps
+public import ConLeche.Model.IndMembers
+public import ConLeche.Model.IndTele
+public import ConLeche.Model.IndUnitLaw
+public import ConLeche.Model.IndEtaLaw
+public import ConLeche.Model.IndFrame
+public import ConLeche.Model.IndProjCaps
+public import ConLeche.Model.IndProjEta
+public import ConLeche.Model.IndRuns
+public import ConLeche.Model.IndSubst
+public import ConLeche.Model.IndStageKit
+public import ConLeche.Model.IndCross
+public import ConLeche.Model.IndZipField
+public import ConLeche.Model.IndRename
+public import ConLeche.Model.IndGrade
+public import ConLeche.Model.IndDomGrade
+public import ConLeche.Model.IndPrefixGrade
+public import ConLeche.Model.IndParamGrade
+public import ConLeche.Model.IndFieldGrade
+public import ConLeche.Model.IndPlainParam
+public import ConLeche.Model.IndZipper
+public import ConLeche.Model.IndPointKit
+public import ConLeche.Model.IndPoint
+public import ConLeche.Model.IndTowerRead
+public import ConLeche.Model.IndReduct
+public import ConLeche.Model.IndLamTower
+public import ConLeche.Model.IndAnnotKit
+public import ConLeche.Model.IndAnnotMem
+public import ConLeche.Model.IndFire
+public import ConLeche.Model.IndTransport
+public import ConLeche.Model.IndOpenRev
+public import ConLeche.Model.IndPinGrade
+public import ConLeche.Model.IndBottomPlain
+public import ConLeche.Model.IndOpenerGrade
+public import ConLeche.Model.IndNestedParam
+public import ConLeche.Model.IndBottomNested
+public import ConLeche.Model.IndPinRow
+public import ConLeche.Model.IndProjKit
+public import ConLeche.Model.IndBottomProj
+public import ConLeche.Model.IotaRulePlain
+public import ConLeche.Model.IotaRuleNested
+public import ConLeche.Model.Swap
+public import ConLeche.Model.IndRecs
+public import ConLeche.Model.ProjRename
+public import ConLeche.Model.ProjCons
+public import ConLeche.Model.ProjInstall
+public import ConLeche.Model.DeclInd
+public import ConLeche.Model.IndPinProbe
+public import ConLeche.Model.AxiomPin
+public import ConLeche.Model.Harvest
+public import ConLeche.Model.Fold
+public import ConLeche.Model.Annot.Bit
+public import ConLeche.Model.Annot.BitLemmas
+public import ConLeche.Model.Annot.BitShift
+public import ConLeche.Model.Annot.BitInst
+public import ConLeche.Model.Annot.BitClosed
+public import ConLeche.Model.Annot.BitInstall
+public import ConLeche.Model.Annot.BitExtend
+public import ConLeche.Model.Annot.Valid
+public import ConLeche.Model.Annot.ValidSpine
+public import ConLeche.Model.Steps.BitLevels
 -- P modules the old `ConLeche/SetR.lean` umbrella covered only transitively;
 -- named here so `lake build ConLecheModel` roots the whole lane.
-import ConLeche.Model.Annot.BitRename
-import ConLeche.Model.AxiomMem
-import ConLeche.Model.AxiomReduce
-import ConLeche.Model.ErasePwInv
-import ConLeche.Model.RecRulesCons
-import ConLeche.Model.ReduceOps
-import ConLeche.Model.Steps.IotaKit
-import ConLeche.Model.Steps.IotaRows
-import ConLeche.Model.Steps.Major
-import ConLeche.Model.Steps.ProjRows
-import ConLeche.Model.Steps.StrLit
+public import ConLeche.Model.Annot.BitRename
+public import ConLeche.Model.AxiomMem
+public import ConLeche.Model.AxiomReduce
+public import ConLeche.Model.ErasePwInv
+public import ConLeche.Model.RecRulesCons
+public import ConLeche.Model.ReduceOps
+public import ConLeche.Model.Steps.IotaKit
+public import ConLeche.Model.Steps.IotaRows
+public import ConLeche.Model.Steps.Major
+public import ConLeche.Model.Steps.ProjRows
+public import ConLeche.Model.Steps.StrLit
+
+@[expose] public section
 
 /-!
 # `ConLeche.Model` — the graded-model lane (task #161, S2)

@@ -1,4 +1,8 @@
-import ConLeche.Model.BasisEmpty
+module
+
+public import ConLeche.Model.BasisEmpty
+
+@[expose] public section
 
 /-!
 # `denoteMeta` crosses level instantiation (task #161, ENDGAME G)

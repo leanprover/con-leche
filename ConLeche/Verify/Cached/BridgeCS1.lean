@@ -1,5 +1,9 @@
-import ConLeche.Verify.Cached.SimCS
-import ConLeche.Verify.BridgeWfImp
+module
+
+public import ConLeche.Verify.Cached.SimCS
+public import ConLeche.Verify.BridgeWfImp
+
+@[expose] public section
 
 /-!
 # Cached shared-state walks, part 1: the single-environment checker

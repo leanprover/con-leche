@@ -1,4 +1,8 @@
-import ConLeche.Model.IndReduct
+module
+
+public import ConLeche.Model.IndReduct
+
+@[expose] public section
 
 /-!
 # The λ-tower descent, at the reading (task #161, IND TIER part 5)

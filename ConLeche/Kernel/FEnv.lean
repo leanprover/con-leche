@@ -1,4 +1,8 @@
-import ConLeche.Kernel.Core
+module
+
+public import ConLeche.Kernel.Core
+
+@[expose] public section
 
 /-!
 # `FEnv`: the environment with a name index

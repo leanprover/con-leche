@@ -1,5 +1,9 @@
-import ConLeche.Model.BasisCons
-import ConLeche.Semantics.EqTower
+module
+
+public import ConLeche.Model.BasisCons
+public import ConLeche.Semantics.EqTower
+
+@[expose] public section
 
 /-!
 # The annotated hand-built basis towers, `Eq` family (task #161, ENDGAME E)

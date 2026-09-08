@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Tower.IdxEq
-import ConLeche.Semantics.Tower.TowerMk
+module
+
+public import ConLeche.Semantics.Tower.IdxEq
+public import ConLeche.Semantics.Tower.TowerMk
+
+@[expose] public section
 
 /-!
 # The sum constructor leaf (task #175 sum-types, stage S3; indexed)

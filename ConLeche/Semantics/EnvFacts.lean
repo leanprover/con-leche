@@ -1,10 +1,14 @@
-import ConLeche.Verify.InferLemmas
-import ConLeche.Verify.InferLeaves
-import ConLeche.Verify.Denote.Levels
-import ConLeche.Verify.EnvPreds
-import ConLeche.Verify.Denote
-import ConLeche.Verify.Denote.OpenVars
-import ConLeche.Verify.Denote.VClosed
+module
+
+public import ConLeche.Verify.InferLemmas
+public import ConLeche.Verify.InferLeaves
+public import ConLeche.Verify.Denote.Levels
+public import ConLeche.Verify.EnvPreds
+public import ConLeche.Verify.Denote
+public import ConLeche.Verify.Denote.OpenVars
+public import ConLeche.Verify.Denote.VClosed
+
+@[expose] public section
 
 /-!
 # `EnvFacts`: the environment facts the bridge consumes (task #148, T3)

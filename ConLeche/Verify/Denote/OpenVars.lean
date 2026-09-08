@@ -1,7 +1,11 @@
-import ConLeche.Kernel.ExprOps
-import ConLeche.Term.Subst
-import ConLeche.Verify.Shift
-import ConLeche.Verify.Subst
+module
+
+public import ConLeche.Kernel.ExprOps
+public import ConLeche.Term.Subst
+public import ConLeche.Verify.Shift
+public import ConLeche.Verify.Subst
+
+@[expose] public section
 
 /-!
 # The canonical opening variables

@@ -1,4 +1,8 @@
-import ConLeche.Semantics.Tower.FixSquashI
+module
+
+public import ConLeche.Semantics.Tower.FixSquashI
+
+@[expose] public section
 /-!
 # The recursor's graph over the elements (task #202 Stage B)
 

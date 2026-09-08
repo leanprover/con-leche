@@ -1,5 +1,9 @@
-import ConLeche.Model.Claims
-import ConLeche.Semantics.Tower.TowerRec
+module
+
+public import ConLeche.Model.Claims
+public import ConLeche.Semantics.Tower.TowerRec
+
+@[expose] public section
 
 /-!
 # The direct-structure leaves' bit validity and P packages (task #175, stage 4a)

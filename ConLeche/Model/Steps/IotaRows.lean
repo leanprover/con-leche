@@ -1,7 +1,11 @@
-import ConLeche.Model.Steps.Major
-import ConLeche.Model.Steps.IotaGate
-import ConLeche.Model.Steps.Reads
-import ConLeche.Semantics.DefEqList
+module
+
+public import ConLeche.Model.Steps.Major
+public import ConLeche.Model.Steps.IotaGate
+public import ConLeche.Model.Steps.Reads
+public import ConLeche.Semantics.DefEqList
+
+@[expose] public section
 
 /-!
 # The two ι rows, discharged (task #161, iota tier)

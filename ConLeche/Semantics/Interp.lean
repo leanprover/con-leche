@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Syntax
-import ConLeche.SetModel.Value
+module
+
+public import ConLeche.Semantics.Syntax
+public import ConLeche.SetModel.Value
+
+@[expose] public section
 
 /-!
 # `interp` — the collapse-free two-regime interpretation (task #151, tier B)

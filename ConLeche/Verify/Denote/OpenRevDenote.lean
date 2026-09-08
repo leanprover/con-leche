@@ -1,6 +1,10 @@
-import ConLeche.Verify.Denote.Tele
-import ConLeche.Verify.Denote.OpenVars
-import ConLeche.Verify.InstLevels
+module
+
+public import ConLeche.Verify.Denote.Tele
+public import ConLeche.Verify.Denote.OpenVars
+public import ConLeche.Verify.InstLevels
+
+@[expose] public section
 
 /-!
 # Real-argument instantiation, read through the reverse opening

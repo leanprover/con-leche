@@ -1,6 +1,10 @@
-import ConLeche.Semantics.BasisType
-import ConLeche.Model.BitAgree
-import ConLeche.Model.Claims
+module
+
+public import ConLeche.Semantics.BasisType
+public import ConLeche.Model.BitAgree
+public import ConLeche.Model.Claims
+
+@[expose] public section
 
 /-!
 # Towards `WellDenotedV` at every built-in type (task #161, ENDGAME E)

@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.StructIntro
-import ConLeche.Semantics.Tower.SumWire
+module
+
+public import ConLeche.Model.Inductives.StructIntro
+public import ConLeche.Semantics.Tower.SumWire
+
+@[expose] public section
 
 /-!
 # The sum leaves' bit validity and P packages (task #175 sum-types,

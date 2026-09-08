@@ -1,9 +1,18 @@
-import ConLeche.Model.Steps.Irrel
-import ConLeche.Model.Steps.IotaRows
-import ConLeche.Model.Steps.IotaKit
-import ConLeche.Model.IOLicense
-import ConLeche.Model.Steps.IotaGate
-import ConLeche.Verify.PropRead
+module
+
+public import ConLeche.Model.Steps.Irrel
+public import ConLeche.Model.Steps.IotaRows
+public import ConLeche.Model.Steps.IotaKit
+public import ConLeche.Model.IOLicense
+public import ConLeche.Model.Steps.IotaGate
+public import ConLeche.Verify.PropRead
+/- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
+`Std.HashMap` pattern, task #194): the datum's module is `public` but not
+`@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
+`import all` restores that view HERE only. -/
+import all ConLeche.Kernel.PropWhen
+
+@[expose] public section
 
 /-!
 # The fast `isProof` "yes" arm: the squash-regime licence (task #168, stage 3)

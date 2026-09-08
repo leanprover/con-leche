@@ -1,5 +1,9 @@
-import ConLeche.Semantics.Tower.FixCaseI
-import ConLeche.Semantics.Tower.SumRec
+module
+
+public import ConLeche.Semantics.Tower.FixCaseI
+public import ConLeche.Semantics.Tower.SumRec
+
+@[expose] public section
 
 /-!
 # The ih spellings (tasks #188, #202)

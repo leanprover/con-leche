@@ -1,4 +1,8 @@
-import ConLeche.Frontend.ExportC
+module
+
+public import ConLeche.Frontend.ExportC
+
+@[expose] public section
 
 /-!
 # The built-in prelude (task #191)

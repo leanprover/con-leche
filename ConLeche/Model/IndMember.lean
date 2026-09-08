@@ -1,7 +1,11 @@
-import ConLeche.Semantics.IndBlockRun
-import ConLeche.Model.IndCons
-import ConLeche.Model.Annot.BitRename
-import ConLeche.Verify.Extend.Block
+module
+
+public import ConLeche.Semantics.IndBlockRun
+public import ConLeche.Model.IndCons
+public import ConLeche.Model.Annot.BitRename
+public import ConLeche.Verify.Extend.Block
+
+@[expose] public section
 
 /-!
 # The block member's key, P tier (task #161, IND TIER)

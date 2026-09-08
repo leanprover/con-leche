@@ -1,6 +1,10 @@
-import ConLeche.Semantics.EnvFactsCons
-import ConLeche.Semantics.DeclIndRun
-import ConLeche.Verify.Denote.Levels
+module
+
+public import ConLeche.Semantics.EnvFactsCons
+public import ConLeche.Semantics.DeclIndRun
+public import ConLeche.Verify.Denote.Levels
+
+@[expose] public section
 
 /-!
 # The projection walk's front door, model-free (task #161 S7, Wall B)

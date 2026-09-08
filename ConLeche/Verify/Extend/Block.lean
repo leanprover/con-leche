@@ -1,6 +1,10 @@
-import ConLeche.Verify.Denote.Rename
-import ConLeche.Verify.EnvWF
-import ConLeche.Verify.Extend.Inversions
+module
+
+public import ConLeche.Verify.Denote.Rename
+public import ConLeche.Verify.EnvWF
+public import ConLeche.Verify.Extend.Inversions
+
+@[expose] public section
 
 /-!
 # The modeled block's fold invariant and member valuation

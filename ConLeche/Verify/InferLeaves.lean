@@ -1,7 +1,11 @@
-import ConLeche.Verify.InferLemmas
-import ConLeche.Verify.Leaves
-import ConLeche.Verify.Subst
-import ConLeche.Verify.Abstract
+module
+
+public import ConLeche.Verify.InferLemmas
+public import ConLeche.Verify.Leaves
+public import ConLeche.Verify.Subst
+public import ConLeche.Verify.Abstract
+
+@[expose] public section
 
 /-!
 # Leaf-closure and loose-bvar preservation for `whnf` and `inferTypeCore`

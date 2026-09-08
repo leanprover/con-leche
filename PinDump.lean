@@ -2,6 +2,11 @@ import ConLeche.PinGen
 import ConLeche.PinGen.Prelude
 import ConLeche.PinGen.Certs
 
+/- NOT a `module` (task #231): `main` here drives `ConLeche/PinGen/*`, which
+is `meta` code (a `public meta section` there).  A `module` root cannot call
+it from a non-`meta` definition, and making the root `meta` instead produced
+an executable that segfaults on start — so this generator root stays
+classic, which may import `module`s and may call their `meta` code. -/
 /-!
 # `natop-pins-export` — the pin dump generator (task #176)
 

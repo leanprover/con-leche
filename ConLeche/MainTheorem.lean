@@ -1,4 +1,8 @@
-import ConLeche.Verify.Cached.MainC
+module
+
+public import ConLeche.Verify.Cached.MainC
+
+@[expose] public section
 
 /-!
 # The main theorem

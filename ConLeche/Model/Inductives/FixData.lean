@@ -1,6 +1,10 @@
-import ConLeche.Model.Inductives.SumData
-import ConLeche.Model.Inductives.StructBodyFrames
-import ConLeche.Verify.Inductives.FixWF
+module
+
+public import ConLeche.Model.Inductives.SumData
+public import ConLeche.Model.Inductives.StructBodyFrames
+public import ConLeche.Verify.Inductives.FixWF
+
+@[expose] public section
 
 /-!
 # The recursive constructor's data (task #188)

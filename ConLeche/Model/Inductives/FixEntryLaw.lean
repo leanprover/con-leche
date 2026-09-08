@@ -1,5 +1,9 @@
-import ConLeche.Model.Inductives.StructBodyFrames
-import ConLeche.Model.Inductives.FixRealChains
+module
+
+public import ConLeche.Model.Inductives.StructBodyFrames
+public import ConLeche.Model.Inductives.FixRealChains
+
+@[expose] public section
 
 /-!
 # The projection entry's law on the fixpoint route's carrier (task #210 Part A)

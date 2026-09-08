@@ -1,4 +1,8 @@
-import ConLeche.Model.Inductives.FixRecKFrame
+module
+
+public import ConLeche.Model.Inductives.FixRecKFrame
+
+@[expose] public section
 
 /-!
 # The recursive recursor's premise (task #188)

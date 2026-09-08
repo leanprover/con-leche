@@ -1,5 +1,9 @@
-import ConLeche.SetTheory.Derive.Omega
-import ConLeche.SetTheory.Derive.Graphs
+module
+
+public import ConLeche.SetTheory.Derive.Omega
+public import ConLeche.SetTheory.Derive.Graphs
+
+@[expose] public section
 
 /-!
 # Recursion on `ω`
