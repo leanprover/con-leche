@@ -1031,6 +1031,21 @@
 # --- as a β-redex, the third through `id` with sort `max 1 1` and an
 # --- index; and a Prop pair `Prop` / `Sort (max 0 0)`.  Official 0.
 0 ind_mutual_three.ndjson
+# --- task #227: mutual and nested blocks whose INDEX DOMAINS' sorts are
+# --- not syntactically readable (`(x : α)` at `α : id Type`, an index at
+# --- a constant whose declared type is that same stuck application, a
+# --- domain `FamW Nat` whose HEAD's type is stuck, the universe-poly
+# --- twin, and the two closed domains on nested blocks).  The tag family
+# --- carries the members' index telescopes as FIELDS, so its universe
+# --- must dominate their sorts; the modeller now computes a sort CEILING
+# --- (`Kit.sortCeil`) instead of a syntactic reading (CLOSED: 2 → 0).
+0 ind_mutual_idxsort.ndjson
+# --- its BAD twin (scripts/mk_idxsort_bad.py): the index domain `IdxW`
+# --- replaced by `Nat.zero`, a term that is not a type.  Official
+# --- REJECTS ("type expected"); con-leche's modeller does not validate
+# --- the domain — the ceiling returns a level for any term — and the
+# --- fold rejects the generated tag family ("expected a sort").
+1 ind_mutual_idxsort_bad.ndjson
 #
 # --- A5 / crack C5: a recursive occurrence hidden under a DEFINITION.
 # --- Official whnf's the field before classifying it; the fixpoint

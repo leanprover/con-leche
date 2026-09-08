@@ -581,10 +581,10 @@
     44  whole member/mimic carrier (an occurrence under a binder — infinitary
     45  nesting), a container that is itself nested or mutual or whose mimics
     46  form a cycle (B4), a reflexive member, a `Prop` block with a large
-    47  eliminator, a container field a later container field depends on.
-    48  (Members' parameter telescopes and sorts are not compared: task #218,
-    49  `Mutual.lean`'s header.)
-    50  -/
+    47  eliminator, a container field a later container field depends on, an
+    48  index domain whose sort not even a ceiling bounds (`Kit.sortCeil`,
+    49  task #227).  (Members' parameter telescopes and sorts are not
+    50  compared: task #218, `Mutual.lean`'s header.)
 
 == ConLeche/Kernel/Core.lean#L524-L532
    524  /-- The certified structural-`Nat` operations.  Six of them

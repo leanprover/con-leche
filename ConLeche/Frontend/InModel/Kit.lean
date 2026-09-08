@@ -366,6 +366,69 @@ where
 def sortOf (tbl : ConstTable) (ctx : List Expr) (e : Expr) : Option Level :=
   inferTy.sortOf tbl ctx e
 
+/-! ### The sort ceiling (task #227)
+
+A mutual or nested member's index telescope becomes the FIELDS of a tag
+constructor (`tag.m : ∀ p⃗ ı⃗_m, tag p⃗`), so the tag family's own
+universe has to dominate every index domain's sort — a level the
+modeller must emit, with no environment and no `whnf` to compute it.
+`sortOf` reads that sort only where the domain's type is SYNTACTICALLY
+a sort, and an index `(x : α)` at a member binding `α : id Type`, or one
+at a constant whose declared type is that same stuck application, has no
+such reading: task #200 declined the block there (the #218 finding).
+
+The tag does not need the LEAST universe, only one above every index
+domain's sort: the install checks `field level ≤ result level`
+(`Level.leq`, `ConLeche/Kernel/Inductives/SumInstall.lean`), never
+equality, and the tag's universe is read nowhere else — the auxiliary
+family takes `tag p⃗` as an INDEX domain, which constrains no universe,
+and the public slots are spelled at the members' own declared types.
+So `sortCeil ctx D` returns a level at least the sort of `D`:
+
+* where `sortOf` reads a sort, exactly that sort — so no block that
+  installed before this function existed moves;
+* where `D`'s type `T` is inferable but stuck: `T ≡ Sort ℓ` for the ℓ we
+  want, hence `T` itself lives at `ℓ+1`, and a ceiling for `T` bounds
+  `ℓ`;
+* where `D` is a `∀`: its sort is `imax` of the parts' sorts, and
+  `imax a b ≤ max a b`, so the parts' ceilings bound it — the domain's
+  sort may be unreadable while the `∀`'s is wanted;
+* where `D`'s type is not inferable at all — `D = h a⃗` at a head whose
+  own declared type is stuck (`def FamW : id (Type → Type)`): the head's
+  type is `∀ x⃗, B` with `B ≡ Sort ℓ`, so its own sort `imax … (ℓ+1)`
+  has a non-zero right argument, is therefore a `max`, and is above `ℓ`;
+  a ceiling for the head's type bounds `ℓ` too.
+
+Nothing here is trusted: a ceiling for an ill-sorted domain (a "type"
+that is not one) is a level like any other, and the tag family the
+modeller then emits fails the fold's own type check.  `fuel` bounds the
+walk — up the type tower and down a `∀` telescope — and only keeps the
+function total. -/
+def sortCeil (tbl : ConstTable) : Nat → List Expr → Expr → Option Level
+  | 0, _, _ => none
+  | fuel + 1, ctx, d =>
+    match inferTy tbl ctx d with
+    | some t =>
+      match betaHead t with
+      | .sort u => some u
+      | t' => sortCeil tbl fuel ctx t'
+    | none =>
+      match betaHead d with
+      | .forallE dom body _ =>
+        (sortCeil tbl fuel ctx dom).bind fun a =>
+          (sortCeil tbl fuel (dom :: ctx) body).map fun b => .max a b
+      | .letE _ v b => sortCeil tbl fuel ctx (b.instantiate1 v)
+      | d' =>
+        match inferTy tbl ctx d'.getAppFn with
+        | some f => sortCeil tbl fuel ctx f
+        | none => none
+
+/-- A ceiling for the sort of an index domain at a context
+(`sortCeil`), at a fuel no `∀` telescope or type tower of a real stream
+reaches. -/
+def idxSort (tbl : ConstTable) (ctx : List Expr) (e : Expr) : Option Level :=
+  sortCeil tbl 128 ctx e
+
 /-! ## Definitional heights -/
 
 /-- The highest definitional height of a constant mentioned by `e`

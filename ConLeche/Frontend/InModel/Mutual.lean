@@ -256,8 +256,8 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
     for j in List.range t.nIdx do
       let ctxJ := (pbs ++ idxBs.take j).reverse
       let dom := idxBs.getD j default
-      let some ℓj := sortOf ctx.tbl ctxJ dom
-        | throw s!"cannot infer the sort of index {j} of {t.cv.name} (the tag's universe)"
+      let some ℓj := idxSort ctx.tbl ctxJ dom
+        | throw s!"cannot bound the sort of index {j} of {t.cv.name} (the tag's universe)"
       W := .max W ℓj
   let tagTy ← need "tag type" (Expr.replacePiBody nP t0.cv.type (.sort W))
   let tagCtors : List (Name × Nat × Expr × List Nat) ←
