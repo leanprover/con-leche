@@ -1,6 +1,5 @@
 import ConLeche.Model.IndNestedParam
 import ConLeche.Model.IndOpenerGrade
-import ConLeche.Model.IndBottomPlain
 
 /-!
 # The nested bottom, at the reading (task #161, IND TIER part 8)

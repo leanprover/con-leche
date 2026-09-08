@@ -1,7 +1,6 @@
 import ConLeche.Model.Inductives.StructFrame
 import ConLeche.Model.Capstone
 import ConLeche.Model.Steps.ReadsIO
-import ConLeche.Verify.Inductives.StructInv
 
 /-!
 # The direct structure's stage runs, as rows (task #175 W4c, P3 module 3, part 2)

@@ -1,5 +1,9 @@
 import ConLeche.SetModel.Ops
 import ConLeche.Term.Const
+import ConLeche.SetTheory.Derive.Sigma
+import ConLeche.SetTheory.Derive.Quot
+import ConLeche.SetTheory.Derive.Choice
+import ConLeche.SetTheory.Derive.LfpFam
 
 /-!
 # The built-in constants, two-regime (task #151, tier B — B2)

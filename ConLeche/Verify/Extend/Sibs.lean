@@ -1,6 +1,4 @@
-import ConLeche.Verify.InstSpine
 import ConLeche.Verify.EnvPreds
-import ConLeche.Verify.Extend.Inversions
 
 /-!
 # Sibs — the `V`-free half of `ConLeche.ModelV1.Extend.Sibs`

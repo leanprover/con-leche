@@ -1,5 +1,4 @@
 import ConLeche.Verify.Denote.Rename
-import ConLeche.Verify.Denote.Install
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Extend.Inversions
 

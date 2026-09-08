@@ -1,5 +1,6 @@
 import ConLeche.SetModel.RecGraph
 import ConLeche.SetModel.Iter
+import ConLeche.SetTheory.Derive.Choice
 
 /-!
 # The closure witness of a member container (task #202, Stage B)

@@ -1,4 +1,3 @@
-import ConLeche.Verify.Inductives.SumInv
 import ConLeche.Kernel.Inductives.NativeParts
 
 /-!

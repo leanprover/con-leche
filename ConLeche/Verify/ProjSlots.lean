@@ -1,5 +1,4 @@
 import ConLeche.Verify.Abstract
-import ConLeche.Verify.EnvWF
 
 /-!
 # Projection nodes and their table slots (task #175 wiring, W4c S6)

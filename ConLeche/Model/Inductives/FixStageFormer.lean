@@ -1,5 +1,4 @@
 import ConLeche.Model.Inductives.FixLeafOk
-import ConLeche.Model.Inductives.SumStageFormer
 
 /-!
 # The recursive former's cons (task #188)

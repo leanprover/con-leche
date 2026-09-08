@@ -1,4 +1,3 @@
-import ConLeche.Verify.InferLemmas
 import ConLeche.Kernel.CoreGated
 
 /-!

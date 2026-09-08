@@ -6,9 +6,7 @@ import ConLeche.Verify.Denote.Levels
 import ConLeche.Verify.Denote.Tele
 import ConLeche.Verify.Denote.TeleOpen
 import ConLeche.Verify.Denote.OpenVars
-import ConLeche.Verify.Denote.OpenRevDenote
 import ConLeche.Verify.Denote.VClosed
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InstSpine
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.InferLeaves

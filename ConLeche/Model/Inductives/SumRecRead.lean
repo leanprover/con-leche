@@ -1,6 +1,4 @@
 import ConLeche.Model.Inductives.StructRecRead
-import ConLeche.Verify.Inductives.SumRec
-import ConLeche.Semantics.Tower.SumRec
 
 /-!
 # The generated sum recursor's readings (task #175 sum-types, indexed)

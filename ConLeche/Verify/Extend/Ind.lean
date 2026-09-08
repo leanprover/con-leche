@@ -1,4 +1,3 @@
-import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.Extend.Modeled
 
 /-!

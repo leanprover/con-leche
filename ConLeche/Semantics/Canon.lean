@@ -1,7 +1,6 @@
 import ConLeche.Semantics.Syntax
 import ConLeche.Semantics.Tower.TowerLeaf
 import ConLeche.Verify.Denote
-import ConLeche.Verify.Knot
 
 /-!
 # Canonical annotations (task #151 tier C — the R1 resolution of WALL 3)

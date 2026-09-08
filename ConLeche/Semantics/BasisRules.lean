@@ -1,4 +1,3 @@
-import ConLeche.Semantics.Syntax
 import ConLeche.Kernel.BasisA
 import ConLeche.Verify.EnvPreds
 
