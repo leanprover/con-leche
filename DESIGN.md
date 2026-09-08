@@ -61146,6 +61146,8 @@ scanned, 0 outside**.  Axioms pinned at 11 theorems,
 flags 18/18, prelude counts 3/3, progress lane 6/6, DAG-tower 2/2,
 trusted sweep 138 + 166 + 14 with its three recorded divergences.
 `inmodel` OK.  `tests/overview-links.sh`: 58 links, 44 files, OK.
+(The e2e and DAG-tower figures in this paragraph are the ones this lane
+measured before #226 landed under it; see the merge note below.)
 
 **init-full**, raw, default mode, under `perf stat -e instructions:u`:
 accepted **53 088** declarations, exit 0, route census **584 fix / 6
@@ -61157,6 +61159,9 @@ measured 679.111 G against #222's 679.098 G, the same parity.)
 
 **Merged after #228** (`agent/numparams`), whose hunks in this lane's
 files were the `.indDecl` pattern-arity one-liners in `Semantics/*` and
-`Model/Fold.lean`; the only textual conflict was the DESIGN record's
-tail.  Re-gated whole: e2e is 168/168 with #228's two new twins, and
-the trusted sweep 138 + 168 + 14.
+`Model/Fold.lean`, **and then after #226** (`agent/towers`), which
+touched no file of this lane; the only textual conflict either time was
+the DESIGN record's tail.  Re-gated at each merge: at the landing the
+e2e suite is **174/174** (#228's two twins plus #226's four tower
+fixtures), the DAG-tower gate 9/9, and the trusted sweep
+138 + 174 + 14.
