@@ -60997,10 +60997,18 @@ scanned, 0 outside**.  Axioms pinned at 11 theorems,
 (032/033 by design), e2e 166/166, annot 14/14, retired flags 8/8, mode
 flags 18/18, prelude counts 3/3, progress lane 6/6, DAG-tower 2/2,
 trusted sweep 138 + 166 + 14 with its three recorded divergences.
-`inmodel` OK.  `tests/overview-links.sh`: 57 links, 44 files, OK.
+`inmodel` OK.  `tests/overview-links.sh`: 58 links, 44 files, OK.
 
 **init-full**, raw, default mode, under `perf stat -e instructions:u`:
 accepted **53 088** declarations, exit 0, route census **584 fix / 6
-basis / 1 inmodel**, at **679.111 G instructions:u** against #222's
-published 679.098 G — parity (+0.002 %).  **The kernel was not
-touched, and a proof-side change costs nothing, as it should.**
+basis / 1 inmodel**, at **679.255 G instructions:u** against #228's
+published 679.215 G — parity (+0.006 %).  **The kernel was not
+touched, and a proof-side change costs nothing, as it should.**  (The
+figures above are the post-merge ones; before merging #228 the lane
+measured 679.111 G against #222's 679.098 G, the same parity.)
+
+**Merged after #228** (`agent/numparams`), whose hunks in this lane's
+files were the `.indDecl` pattern-arity one-liners in `Semantics/*` and
+`Model/Fold.lean`; the only textual conflict was the DESIGN record's
+tail.  Re-gated whole: e2e is 168/168 with #228's two new twins, and
+the trusted sweep 138 + 168 + 14.
