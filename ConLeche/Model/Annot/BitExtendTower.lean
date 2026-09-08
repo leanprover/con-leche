@@ -123,7 +123,7 @@ theorem denoteMeta_envExtend_mono_at {env₀ env : Env}
     have hnpe : ∀ j', Expr.NoProjAt T j' e := fun j' => (hnp' j').2
     have hsnT : sn ≠ T := fun hsn => (hnp' j).1 ⟨hsn, rfl⟩
     obtain ⟨ea', hea', hcase⟩ := denoteMeta_proj_inv h
-    rcases hcase with ⟨entry, hfp0, rfl⟩ | ⟨hnt0, hj, rfl⟩
+    rcases hcase with ⟨entry, hfp0, rfl⟩ | ⟨hnt0, hdec⟩
     · -- a table entry at the prefix persists unchanged
       rw [denoteMeta, ihe hc hnpe hea', hmono sn j entry hfp0]
       rfl
@@ -131,10 +131,7 @@ theorem denoteMeta_envExtend_mono_at {env₀ env : Env}
       -- are `T`'s, and the subject has no node there
       rw [denoteMeta, ihe hc hnpe hea']
       cases hfp : env.findProj? sn j with
-      | none =>
-        show (if j < 2 then some (AnnotTerm.proj j ea') else none)
-          = some (AnnotTerm.proj j ea')
-        rw [if_pos hj]
+      | none => exact hdec
       | some entry =>
         exact absurd (hproj sn j entry hnt0 hfp) hsnT
   | case11 d n hsup =>

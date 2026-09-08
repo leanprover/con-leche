@@ -134,7 +134,10 @@ theorem bvarsBelow_liftN (n : Nat) :
   | eqE T a b ihT iha ihb =>
     intro m k h
     exact ⟨ihT m k h.1, iha m k h.2.1, ihb m k h.2.2⟩
-  | proj i e ihe =>
+  | fst e ihe =>
+    intro m k h
+    exact ihe m k h
+  | snd e ihe =>
     intro m k h
     exact ihe m k h
 
@@ -184,7 +187,7 @@ theorem projAV_below :
     ∀ {i : Nat} {e : AnnotTerm} {k : Nat}, Term.bvarsBelow k e.erase →
       Term.bvarsBelow k (projAV i e).erase
   | 0, _, _, h => h
-  | i + 1, e, _, h => projAV_below (i := i) (e := .proj 1 e) h
+  | i + 1, e, _, h => projAV_below (i := i) (e := .snd e) h
 
 /-- The recursor body mentions only the minor (`.bvar 1`) and the
 major (`.bvar 0`). -/

@@ -90,7 +90,7 @@ theorem piChain_succ_inv {n : Nat} {e : AnnotTerm} (h : PiChain (n + 1) e) :
   match e with
   | .pi u v A B => exact ⟨u, v, A, B, rfl, h⟩
   | .bvar _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ _
-  | .letE _ _ _ | .eqE _ _ _ | .proj _ _ | .prf => exact nomatch h
+  | .letE _ _ _ | .eqE _ _ _ | .fst _ | .snd _ | .prf => exact nomatch h
 
 /-- Substitution preserves a ∀-chain: `inst` maps `.pi` to `.pi`. -/
 theorem PiChain.inst : ∀ {n : Nat} {e : AnnotTerm} (a : AnnotTerm) (k : Nat),

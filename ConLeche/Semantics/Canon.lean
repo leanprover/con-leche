@@ -80,7 +80,7 @@ def charListAV (nilA consA ofNatA za sa : AnnotTerm) :
 theorem erase_projAV : ∀ (i : Nat) (ea : AnnotTerm),
     (projAV i ea).erase = ConLeche.Verify.projNV i ea.erase
   | 0, _ => rfl
-  | i + 1, ea => erase_projAV i (.proj 1 ea)
+  | i + 1, ea => erase_projAV i (.snd ea)
 
 /-- The canonical annotation pass: `denote` with every binder numeral
 computed by the checker's own functions and every constant leaf drawn
@@ -130,7 +130,7 @@ def denoteAnnot (mode : CheckMode) (acval : Name → (Name → Nat) → AnnotTer
     -- with `denote` and `denoteMeta`
     match env.findProj? sn i with
     | some entry => some (projAV (i + entry.off) ea)
-    | none => if i < 2 then some (.proj i ea) else none
+    | none => AnnotTerm.projPair? i ea
   | _, .lit (.natVal n) =>
     if natLitSupported env then
       some (natLitAV (acval natZeroName (Level.substFn φ [] []))
@@ -303,7 +303,7 @@ theorem denoteAnnot_erase {mode : CheckMode}
     rw [hea] at h
     replace h : (match env.findProj? sn i with
         | some entry => some (projAV (i + entry.off) ea')
-        | none => if i < 2 then some (AnnotTerm.proj i ea') else none)
+        | none => AnnotTerm.projPair? i ea')
           = some ea := h
     rw [denote_proj, ihe hea]
     dsimp only
@@ -316,13 +316,14 @@ theorem denoteAnnot_erase {mode : CheckMode}
     | none =>
       rw [hfp] at h
       dsimp only at h ⊢
-      by_cases hi : i < 2
-      · rw [if_pos hi] at h
+      match i with
+      | 0 =>
         obtain rfl := Option.some.inj h
-        rw [if_pos hi]
         rfl
-      · rw [if_neg hi] at h
-        exact nomatch h
+      | 1 =>
+        obtain rfl := Option.some.inj h
+        rfl
+      | _ + 2 => exact nomatch h
   | case11 d n hsup =>
     intro ea h
     rw [denoteAnnot, if_pos hsup] at h

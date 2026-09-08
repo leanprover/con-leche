@@ -31,7 +31,7 @@ replaced by the corresponding term formers.
 | `piC A fun x => …` | `.pi ⟦ty⟧ ⟦body opened⟧` |
 | `lamC A fun x => …` | `.lam ⟦ty⟧ ⟦body opened⟧` |
 | `SetTheory.app vf va` | `.app ⟦f⟧ ⟦a⟧` |
-| `sfst ve`/`ssnd ve` | `.proj i ⟦e⟧` (the former, task #119) |
+| `sfst ve`/`ssnd ve` | `.fst ⟦e⟧`/`.snd ⟦e⟧` (the formers, task #119) |
 | `natLitVal zv sv n` | `natLitT ⟦zero⟧ ⟦succ⟧ n` |
 | `letE` ↦ its zeta reduct | `.letE ⟦ty⟧ ⟦val⟧ ⟦body⟧` (**structural**) |
 
@@ -121,13 +121,14 @@ them, and a *relational* denotation is not an option either: the defeq
 claim of the fuel induction needs both sides denoted by the *same*
 function, or the two existentials do not meet.
 
-So the term language gained `Term.proj` (task #119;
-`ConLeche/Term/Syntax.lean`), a former carrying exactly what the
-checker's node carries, whose typing read `A` and `B` off the
+So the term language gained projection formers (task #119;
+`ConLeche/Term/Syntax.lean` — one `proj i e` node until task #225
+split it into `fst`/`snd`), carrying exactly what the checker's node
+carries beyond the index, and typed by reading `A` and `B` off the
 premise.  This clause is then the plain transpose of `interpExpr`'s,
-`i < 2` guard included, and the alphabet came out *smaller*:
-`psigmaFst` and `psigmaSnd` are derivable from the former and left
-`BConst`.
+the index decoded by `Term.projPair?` (whose `none` branch is the old
+`i < 2` guard), and the alphabet came out *smaller*: `psigmaFst` and
+`psigmaSnd` are derivable from the formers and left `BConst`.
 -/
 
 set_option linter.unusedVariables false
@@ -190,12 +191,12 @@ def strLitT (cval : TConstVal) (env : Env) (φ : Name → Nat) (s : String) :
       s.toList)
 
 /-- The tower projection's `Term` spelling (task #175 wiring W3):
-`.proj 0 ∘ (.proj 1)^i` — the erase image of the P reading's `projAV`
+`.fst ∘ .snd^i` — the erase image of the P reading's `projAV`
 (`SetBase/TowerLeaf.lean`), interpreting to `projS i` on the tuple
 tier's carriers.  Depends only on the index. -/
 def projNV : Nat → Term → Term
-  | 0, e => .proj 0 e
-  | i + 1, e => projNV i (.proj 1 e)
+  | 0, e => .fst e
+  | i + 1, e => projNV i (.snd e)
 
 /-- Denote an expression under constant valuation `cval`, level
 assignment `φ` and binder depth `d`.  Clause for clause the transpose
@@ -241,8 +242,8 @@ def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
       | some b => some (.letE A xv b)
     | _, _ => none
   | d, .proj sn i e =>
-    -- the transpose of `interpExpr`'s clause, `i < 2` guard included
-    -- on the pair side; a tower-backed entry (task #175 wiring W3)
+    -- the transpose of `interpExpr`'s clause, the pair side's index
+    -- decoded by `projPair?`; a tower-backed entry (task #175 wiring W3)
     -- reads field `i` by the uniform iterated spelling instead — the
     -- entry key consumed at the reading, never carried in the syntax
     match denote cval env φ d e with
@@ -250,7 +251,7 @@ def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
     | some ve =>
       match env.findProj? sn i with
       | some entry => some (projNV (i + entry.off) ve)
-      | none => if i < 2 then some (.proj i ve) else none
+      | none => Term.projPair? i ve
   | _, .lit (.natVal n) =>
     -- guarded exactly like the checker's literal paths
     if natLitSupported env then
@@ -349,7 +350,7 @@ theorem denote_proj (cval : TConstVal) (env : Env) (φ : Name → Nat)
       | some ve =>
         match env.findProj? T i with
         | some entry => some (projNV (i + entry.off) ve)
-        | none => if i < 2 then some (.proj i ve) else none := by
+        | none => Term.projPair? i ve := by
   rw [denote]
 
 @[simp] theorem denote_bvar (cval : TConstVal) (env : Env) (φ : Name → Nat)

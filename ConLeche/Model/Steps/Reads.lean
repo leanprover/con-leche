@@ -240,7 +240,8 @@ rows (`ProjStep`, `InferProjStep`), not these.
 
 /-- **`WhnfCoreProjReads`, discharged.**  Both branches of the clause
 read: the stuck one is the projection of the reduced scrutinee (the
-subject's own `i < 2` carries over), the firing one is a spine argument
+subject's own index decodes just the same, `projPair?_exists_of_lt`),
+the firing one is a spine argument
 of a constructor application, head-normalised — and a spine argument of
 a reading reads (`DenoteMetaSpine.mem`). -/
 theorem whnfCoreProjReads_of {m : EnvModel V env}
@@ -284,11 +285,13 @@ theorem whnfCoreProjReads_of {m : EnvModel V env}
     -, hwcf, -⟩
   · -- stuck: the projection of the reduced scrutinee, at whichever
     -- entry kind the node's name carries (task #175 wiring W5)
-    rcases hrd with ⟨entry, hfe, -⟩ | ⟨hnt, hi2, -⟩
+    rcases hrd with ⟨entry, hfe, -⟩ | ⟨hnt, hdec⟩
     · exact ⟨projAV (i + entry.off) v₃, denoteMeta_proj_tower hfe hv₃⟩
-    · refine ⟨.proj i v₃, ?_⟩
+    · obtain ⟨x, hx⟩ :=
+        AnnotTerm.projPair?_exists_of_lt (AnnotTerm.lt_of_projPair? hdec) v₃
+      refine ⟨x, ?_⟩
       rw [denoteMeta_proj_pair m.acval (env := env) (φ := φ) _ _ _ _ hnt, hv₃]
-      exact if_pos hi2
+      exact hx
   · -- the table fires: the reduct is a head-normalised spine argument
     have hmem : e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)
         ∈ e₃.getAppArgs := ConLeche.getD_mem (by rw [hlenA]; omega)

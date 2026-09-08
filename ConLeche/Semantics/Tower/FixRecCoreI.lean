@@ -686,8 +686,8 @@ def fixRecBodyAVI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List
   else .app (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
       (fun j => (Fss.getD j []).length)
       (ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length))
-      Fss.length Ids.length Fss.length 1 0 (.proj 0 (.bvar 0)))
-    (.proj 1 (.bvar 0))
+      Fss.length Ids.length Fss.length 1 0 (.fst (.bvar 0)))
+    (.snd (.bvar 0))
 
 theorem fixRecBodyAVI_zero {ℓ : Nat} (h0 : ℓ = 0) (nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) :
@@ -707,8 +707,8 @@ theorem fixRecBodyAVI_pos {w : Nat} (hw : w ≠ 0) (ℓ nP : Nat) (Fss Ess : Lis
       = .app (caseRecAVI ℓ w (rChains (Ids.length + Fss.length + 1) Ids.length Fss Ess)
           (fun j => (Fss.getD j []).length)
           (ihArgsI ℓ nP Fss.length Ids.length rss tlss Eiss (fun j => (Fss.getD j []).length))
-          Fss.length Ids.length Fss.length 1 0 (.proj 0 (.bvar 0)))
-        (.proj 1 (.bvar 0)) := if_neg hw
+          Fss.length Ids.length Fss.length 1 0 (.fst (.bvar 0)))
+        (.snd (.bvar 0)) := if_neg hw
 
 /-- The one-step unfolding `λ r. λ p⃗ M m⃗ ı⃗ t. body`. -/
 def fixStepAVI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
@@ -731,7 +731,7 @@ def fixSigAVI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List Ann
 def fixSelAVI (ℓ w nP : Nat) (Fss Ess : List (List AnnotTerm)) (Ids : List AnnotTerm)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss : List (List (List AnnotTerm))) (rds : List (Nat × Nat × AnnotTerm)) (s : Nat) :
     AnnotTerm :=
-  .proj 0 (AnnotTerm.mkAppN (.const .choice [s])
+  .fst (AnnotTerm.mkAppN (.const .choice [s])
     [fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s, .prf])
 
 /-! ## The premise -/

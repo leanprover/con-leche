@@ -43,7 +43,8 @@ def bvarsBelow : Nat → Term → Prop
   | n, .pi A B => bvarsBelow n A ∧ bvarsBelow (n + 1) B
   | n, .letE T v b => bvarsBelow n T ∧ bvarsBelow n v ∧ bvarsBelow (n + 1) b
   | n, .eqE T a b => bvarsBelow n T ∧ bvarsBelow n a ∧ bvarsBelow n b
-  | n, .proj _ e => bvarsBelow n e
+  | n, .fst e => bvarsBelow n e
+  | n, .snd e => bvarsBelow n e
   | _, .prf => True
 
 /-- Closed: no loose de Bruijn variables at all. -/
@@ -67,7 +68,8 @@ theorem bvarsBelow.mono : ∀ {v : Term} {m n : Nat}, m ≤ n →
     exact ⟨ihT hmn h.1, ihv hmn h.2.1, ihb (Nat.succ_le_succ hmn) h.2.2⟩
   | eqE T a b ihT iha ihb =>
     intro m n hmn h; exact ⟨ihT hmn h.1, iha hmn h.2.1, ihb hmn h.2.2⟩
-  | proj i e ihe => intro m n hmn h; exact ihe hmn h
+  | fst e ihe => intro m n hmn h; exact ihe hmn h
+  | snd e ihe => intro m n hmn h; exact ihe hmn h
 
 /-- Lifting at a cut a term is already below is a no-op. -/
 theorem liftN_eq_self : ∀ {v : Term} {k : Nat}, bvarsBelow k v →
@@ -88,7 +90,8 @@ theorem liftN_eq_self : ∀ {v : Term} {k : Nat}, bvarsBelow k v →
     intro k h n; rw [liftN_letE, ihT h.1, ihv h.2.1, ihb h.2.2]
   | eqE T a b ihT iha ihb =>
     intro k h n; rw [liftN_eqE, ihT h.1, iha h.2.1, ihb h.2.2]
-  | proj i e ihe => intro k h n; rw [liftN_proj, ihe h]
+  | fst e ihe => intro k h n; rw [liftN_fst, ihe h]
+  | snd e ihe => intro k h n; rw [liftN_snd, ihe h]
 
 /-- Instantiating at a cut a term is already below is a no-op. -/
 theorem inst_eq_self : ∀ {v : Term} {k : Nat}, bvarsBelow k v →
@@ -109,7 +112,8 @@ theorem inst_eq_self : ∀ {v : Term} {k : Nat}, bvarsBelow k v →
     intro k h a; rw [inst_letE, ihT h.1, ihv h.2.1, ihb h.2.2]
   | eqE T b c ihT ihb ihc =>
     intro k h a; rw [inst_eqE, ihT h.1, ihb h.2.1, ihc h.2.2]
-  | proj i e ihe => intro k h a; rw [inst_proj, ihe h]
+  | fst e ihe => intro k h a; rw [inst_fst, ihe h]
+  | snd e ihe => intro k h a; rw [inst_snd, ihe h]
 
 /-- A closed term is invariant under lifting at any cut. -/
 theorem liftN_eq_self_of_closed {v : Term} (h : Closed v) (n k : Nat) :

@@ -79,13 +79,13 @@ theorem map_srcAV_interp {nIdx D' : Nat} {ρ₀ σ : Nat → V} (h : RecFrameS D
 
 /-! ## The major's projections -/
 
-/-- The major's tag and payload nodes are graded (graph regime)
-through the carrier's own `sigmaSet`. -/
-theorem major_proj_wellDenoted {w : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss' : List (List AnnotTerm)}
-    (hok : SumFieldsOkB w ρ₀ Fss') (ht : σ 0 ∈ˢ sumSet w (sumFibre w ρ₀ Fss')) {i : Nat}
-    (hi : i < 2) : WellDenoted V σ (.proj i (.bvar 0)) := by
-  rw [WellDenoted_proj]
-  refine ⟨trivial, hi, w, w, omega, natFibre (sumFibre w ρ₀ Fss'), ?_, omega_mem_univ_pos hw, ?_⟩
+/-- The major's own `sigmaSet` package — the payload both projection
+nodes' gradings ask for (task #225: one fact, two clause equations). -/
+theorem major_sigma {w : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {Fss' : List (List AnnotTerm)}
+    (hok : SumFieldsOkB w ρ₀ Fss') (ht : σ 0 ∈ˢ sumSet w (sumFibre w ρ₀ Fss')) :
+    ∃ u v A Bf, interp V σ (.bvar 0) ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+      A ∈ˢ (univ u : V) ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ (univ v : V) := by
+  refine ⟨w, w, omega, natFibre (sumFibre w ρ₀ Fss'), ?_, omega_mem_univ_pos hw, ?_⟩
   · rw [interp_bvar, show Nat.max w w = w from Nat.max_self w]
     exact ht
   · intro k hk
@@ -96,6 +96,23 @@ theorem major_proj_wellDenoted {w : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V} {
     | none => exact empty_mem_univ w
     | some Fs =>
       exact towerSet_univ_teleOfFields ((hok Fs (List.mem_of_getElem? hi')).toBound hw)
+
+/-- The major's tag node is graded (graph regime) through the
+carrier's own `sigmaSet`. -/
+theorem major_fst_wellDenoted {w : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V}
+    {Fss' : List (List AnnotTerm)}
+    (hok : SumFieldsOkB w ρ₀ Fss') (ht : σ 0 ∈ˢ sumSet w (sumFibre w ρ₀ Fss')) :
+    WellDenoted V σ (.fst (.bvar 0)) := by
+  rw [WellDenoted_fst]
+  exact ⟨trivial, major_sigma hw hok ht⟩
+
+/-- The major's payload node, the same way. -/
+theorem major_snd_wellDenoted {w : Nat} (hw : w ≠ 0) {ρ₀ σ : Nat → V}
+    {Fss' : List (List AnnotTerm)}
+    (hok : SumFieldsOkB w ρ₀ Fss') (ht : σ 0 ∈ˢ sumSet w (sumFibre w ρ₀ Fss')) :
+    WellDenoted V σ (.snd (.bvar 0)) := by
+  rw [WellDenoted_snd]
+  exact ⟨trivial, major_sigma hw hok ht⟩
 
 /-! ## The body -/
 

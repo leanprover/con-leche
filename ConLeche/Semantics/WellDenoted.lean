@@ -93,8 +93,12 @@ def WellDenoted : (Nat → V) → AnnotTerm → Prop
   | ρ, .letE T v b =>
     WellDenoted ρ T ∧ WellDenoted ρ v ∧
     WellDenoted (cons (interp V ρ v) ρ) b
-  | ρ, .proj i e =>
-    WellDenoted ρ e ∧ i < 2 ∧
+  | ρ, .fst e =>
+    WellDenoted ρ e ∧
+    ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+      A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
+  | ρ, .snd e =>
+    WellDenoted ρ e ∧
     ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
       A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
   | ρ, .eqE _ a b => WellDenoted ρ a ∧ WellDenoted ρ b
@@ -140,9 +144,15 @@ theorem WellDenoted_letE (ρ : Nat → V) (T v b : AnnotTerm) :
       (WellDenoted V ρ T ∧ WellDenoted V ρ v ∧
         WellDenoted V (cons (interp V ρ v) ρ) b) := by
   rw [WellDenoted]
-theorem WellDenoted_proj (ρ : Nat → V) (i : Nat) (e : AnnotTerm) :
-    WellDenoted V ρ (.proj i e) =
-      (WellDenoted V ρ e ∧ i < 2 ∧
+theorem WellDenoted_fst (ρ : Nat → V) (e : AnnotTerm) :
+    WellDenoted V ρ (.fst e) =
+      (WellDenoted V ρ e ∧
+        ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+          A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v) := by
+  rw [WellDenoted]
+theorem WellDenoted_snd (ρ : Nat → V) (e : AnnotTerm) :
+    WellDenoted V ρ (.snd e) =
+      (WellDenoted V ρ e ∧
         ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
           A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v) := by
   rw [WellDenoted]
@@ -189,9 +199,13 @@ theorem WellDenoted_liftN (n : Nat) :
   | eqE T a b ihT iha ihb =>
     intro k ρ
     rw [AnnotTerm.liftN_eqE, WellDenoted_eqE, WellDenoted_eqE, iha, ihb]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro k ρ
-    rw [AnnotTerm.liftN_proj, WellDenoted_proj, WellDenoted_proj, ihe,
+    rw [AnnotTerm.liftN_fst, WellDenoted_fst, WellDenoted_fst, ihe,
+      interp_liftN]
+  | snd e ihe =>
+    intro k ρ
+    rw [AnnotTerm.liftN_snd, WellDenoted_snd, WellDenoted_snd, ihe,
       interp_liftN]
   | prf => intro k ρ; simp
 
@@ -256,9 +270,13 @@ theorem WellDenoted_inst :
     intro a k ρ ha
     rw [AnnotTerm.inst_eqE, WellDenoted_eqE, WellDenoted_eqE, ihx a k ρ ha,
       ihy a k ρ ha]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro a k ρ ha
-    rw [AnnotTerm.inst_proj, WellDenoted_proj, WellDenoted_proj, ihe a k ρ ha,
+    rw [AnnotTerm.inst_fst, WellDenoted_fst, WellDenoted_fst, ihe a k ρ ha,
+      interp_inst]
+  | snd e ihe =>
+    intro a k ρ ha
+    rw [AnnotTerm.inst_snd, WellDenoted_snd, WellDenoted_snd, ihe a k ρ ha,
       interp_inst]
   | prf => intro a k ρ _; simp [AnnotTerm.inst]
 

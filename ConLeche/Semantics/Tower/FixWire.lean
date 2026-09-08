@@ -52,7 +52,8 @@ theorem bvarsBelow_inst {a : Term} {n : Nat} (ha : Term.bvarsBelow n a) :
     rwa [show n + (k + 1) = n + k + 1 from by omega] at this
   | .eqE T b c, k, he =>
     ⟨bvarsBelow_inst ha T k he.1, bvarsBelow_inst ha b k he.2.1, bvarsBelow_inst ha c k he.2.2⟩
-  | .proj _ e, k, he => bvarsBelow_inst ha e k he
+  | .fst e, k, he => bvarsBelow_inst ha e k he
+  | .snd e, k, he => bvarsBelow_inst ha e k he
   | .prf, _, _ => trivial
 
 /-- The uniform projection of a bounded variable is bounded. -/
@@ -384,7 +385,7 @@ theorem fixRecBodyAVI_below {ℓ w k nP nIdx : Nat} {Fss Ess : List (List AnnotT
       (show nIdx + Fss.length < k + 1 + nP + 1 + Fss.length + nIdx by omega) h
       (fun D j => ihArgsI_below (k := k) (rss := rss) (ar := fun j => (Fss.getD j []).length) hT hE D j)
       Fss.length (D := 1) (j := 0)
-      (kx := .proj 0 (.bvar 0)) (show (0 : Nat) < k + 1 + nP + 1 + Fss.length + nIdx + 1 by omega)
+      (kx := .fst (.bvar 0)) (show (0 : Nat) < k + 1 + nP + 1 + Fss.length + nIdx + 1 by omega)
     exact this
 
 /-! ## The leaf -/
@@ -440,7 +441,7 @@ theorem nativeRecAVI_below {ℓ w nP s : Nat} {Fss Ess : List (List AnnotTerm)}
       exact this
     · rw [AnnotTerm.erase_liftN]
       exact VExprAux.bvarsBelow_liftN 1 _ k 0 (hstep k)
-  show Term.bvarsBelow k (AnnotTerm.erase (.proj 0 (.app (.app (.const .choice [s]) _) .prf)))
+  show Term.bvarsBelow k (AnnotTerm.erase (.fst (.app (.app (.const .choice [s]) _) .prf)))
   exact ⟨⟨trivial, hsig⟩, trivial⟩
 
 end ConLeche.Semantics

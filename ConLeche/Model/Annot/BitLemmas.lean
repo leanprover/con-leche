@@ -73,7 +73,7 @@ theorem denoteMeta_proj (acval : Name → (Name → Nat) → AnnotTerm)
         let ea ← denoteMeta acval env φ d e
         match env.findProj? s i with
         | some entry => some (projAV (i + entry.off) ea)
-        | none => if i < 2 then some (.proj i ea) else none) := by
+        | none => AnnotTerm.projPair? i ea) := by
   rw [denoteMeta]
   rfl
 
@@ -85,15 +85,15 @@ theorem denoteMeta_proj_pair (acval : Name → (Name → Nat) → AnnotTerm)
     denoteMeta acval env φ d (.proj s i e)
       = (do
         let ea ← denoteMeta acval env φ d e
-        if i < 2 then some (.proj i ea) else none) := by
+        AnnotTerm.projPair? i ea) := by
   rw [denoteMeta_proj]
   cases he : denoteMeta acval env φ d e with
   | none => rfl
   | some ea =>
     show (match env.findProj? s i with
       | some entry => some (projAV (i + entry.off) ea)
-      | none => if i < 2 then some (AnnotTerm.proj i ea) else none)
-        = if i < 2 then some (AnnotTerm.proj i ea) else none
+      | none => AnnotTerm.projPair? i ea)
+        = AnnotTerm.projPair? i ea
     rw [hnt]
 
 theorem denoteMeta_forallE (acval : Name → (Name → Nat) → AnnotTerm)
@@ -144,7 +144,7 @@ theorem denoteMeta_proj_inv {d : Nat} {s : Name} {i : Nat} {e : Expr}
     (h : denoteMeta acval env φ d (.proj s i e) = some ea) :
     ∃ ia, denoteMeta acval env φ d e = some ia ∧
       ((∃ entry, env.findProj? s i = some entry ∧ ea = projAV (i + entry.off) ia) ∨
-       (env.findProj? s i = none ∧ i < 2 ∧ ea = .proj i ia)) := by
+       (env.findProj? s i = none ∧ AnnotTerm.projPair? i ia = some ea)) := by
   rw [denoteMeta] at h
   cases he : denoteMeta acval env φ d e with
   | none => rw [he] at h; exact nomatch h
@@ -152,7 +152,7 @@ theorem denoteMeta_proj_inv {d : Nat} {s : Name} {i : Nat} {e : Expr}
     rw [he] at h
     replace h : (match env.findProj? s i with
         | some entry => some (projAV (i + entry.off) ia)
-        | none => if i < 2 then some (AnnotTerm.proj i ia) else none)
+        | none => AnnotTerm.projPair? i ia)
           = some ea := h
     cases hfp : env.findProj? s i with
     | some entry =>
@@ -162,10 +162,7 @@ theorem denoteMeta_proj_inv {d : Nat} {s : Name} {i : Nat} {e : Expr}
     | none =>
       rw [hfp] at h
       dsimp only at h
-      split at h
-      · next hlt =>
-        exact ⟨ia, rfl, Or.inr ⟨rfl, hlt, (Option.some.inj h).symm⟩⟩
-      · exact nomatch h
+      exact ⟨ia, rfl, Or.inr ⟨rfl, h⟩⟩
 
 /-- The inversion at an absent entry — the pre-W3 shape, for consumers
 holding an absence fact. -/
@@ -173,12 +170,12 @@ theorem denoteMeta_proj_inv_pair {d : Nat} {s : Name} {i : Nat} {e : Expr}
     {ea : AnnotTerm}
     (hnt : env.findProj? s i = none)
     (h : denoteMeta acval env φ d (.proj s i e) = some ea) :
-    ∃ ia, denoteMeta acval env φ d e = some ia ∧ i < 2 ∧
-      ea = .proj i ia := by
+    ∃ ia, denoteMeta acval env φ d e = some ia ∧
+      AnnotTerm.projPair? i ia = some ea := by
   obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h
-  rcases hcase with ⟨entry, hfp, -⟩ | ⟨-, hlt, rfl⟩
+  rcases hcase with ⟨entry, hfp, -⟩ | ⟨-, hdec⟩
   · rw [hnt] at hfp; exact nomatch hfp
-  · exact ⟨ia, hia, hlt, rfl⟩
+  · exact ⟨ia, hia, hdec⟩
 
 theorem denoteMeta_forallE_inv {d : Nat} {ty bd : Expr}
     {mb : ConLeche.BinderMeta} {ea : AnnotTerm}

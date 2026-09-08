@@ -34,23 +34,28 @@ Differences from `ConLeche.Expr`, each deliberate:
   scheduled for removal (task #117), after which stored terms carry
   `letE` and the bridge has to type them.  The typing rule substitutes
   the value; zeta is an `Eq` rule.
-* **`proj` is a former, and its type arguments live in the premise.**
-  A projection on a *modeled* structure never reaches this layer: the
-  checker accepts no `.proj` node without a native table entry (task
-  #175 wiring W5 — the annotation-time rewrites into eliminations are
-  gone).  A projection on the **pinned pair** or on a direct
-  structure's tower entry does: `ProjEntry.native` nodes are first-class
-  by design and survive into stored terms — carrying the structure's
-  name and the field index, and *not* the pair's type arguments, which
-  the checker recovers at use time from the subject's inferred type.
+* **`fst`/`snd` are formers, and their type arguments live in the
+  premise.**  A projection on a *modeled* structure never reaches this
+  layer: the checker accepts no `.proj` node without a native table
+  entry (task #175 wiring W5 — the annotation-time rewrites into
+  eliminations are gone).  A projection on the **pinned pair** or on a
+  direct structure's tower entry does: `ProjEntry.native` nodes are
+  first-class by design and survive into stored terms — carrying the
+  structure's name and the field index, and *not* the pair's type
+  arguments, which the checker recovers at use time from the subject's
+  inferred type.
 
-  So `proj i e` takes only the index and the subject, exactly like the
-  checker's node, and the typing rules read `A` and `B` off the
-  premise `Γ ⊢ p : PSigma' A B` instead of off the term.  This is the
-  same move the `app` rule makes, and it pays the same way: the
-  premise hands soundness the `⟦p⟧ ∈ˢ sigmaSet …` package that the set
-  model's `AnnotOk` proj clause has to carry by hand.  Interpretation
-  is then literally `interpExpr`'s clause, `sfst`/`ssnd`.
+  So the layer has **two unary formers**, `fst e` and `snd e`, taking
+  only the subject (task #225; they were one `proj i e` node with a
+  side condition `i < 2` until then).  The checker's node index is
+  decoded once, at the denotation (`Term.projPair?`, below), and every
+  reader downstream matches on a constructor instead of carrying the
+  bound.  The typing rules read `A` and `B` off the premise
+  `Γ ⊢ p : PSigma' A B` instead of off the term.  This is the same move
+  the `app` rule makes, and it pays the same way: the premise hands
+  soundness the `⟦p⟧ ∈ˢ sigmaSet …` package that the set model's
+  `WellDenoted` clause has to carry by hand.  Interpretation is then
+  literally `interpExpr`'s clause, `sfst`/`ssnd`.
 
   (An earlier design had projections denote to applications of basis
   constants `psigmaFst`/`psigmaSnd`.  That is *unimplementable* for the
@@ -93,7 +98,7 @@ therefore absent: `Eq.rec` (transport is the identity once equality is
 reflected, so `fun A a M m b h => m` types by conversion), `PSigma'.rec`
 (`fun A B M f p => f p.1 p.2`, typed by conversion along structure
 eta), and `PSigma'.fst`/`PSigma'.snd` themselves
-(`fun A B p => proj i p`, once `proj` is a former).  Dropping them
+(`fun A B p => p.fst`/`p.snd`, once those are formers).  Dropping them
 removes the most index-heavy dependent types from `BConst.type`, and
 in the projections' case it is evidence that the former is the right
 primitive rather than an addition on top of one.
@@ -186,12 +191,13 @@ inductive Term where
   soundness never constrains it — and it is a trap if you assume
   otherwise: do **not** expect `ty` to relate the two sides. -/
   | eqE (ty lhs rhs : Term)
-  /-- Field `i` of a pair.  Carries **only** what the checker's own
-  `.proj` node carries: the index and the subject.  The pair's type
-  arguments come from the typing premise `Γ ⊢ p : PSigma' A B`, not
-  from the term — see the module docstring.  Interpreted by
-  `sfst`/`ssnd`, i.e. literally `interpExpr`'s clause. -/
-  | proj (i : Nat) (e : Term)
+  /-- First field of a pair.  Carries **only** the subject: the pair's
+  type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
+  not from the term — see the module docstring.  Interpreted by
+  `sfst`, i.e. literally `interpExpr`'s clause. -/
+  | fst (e : Term)
+  /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
+  | snd (e : Term)
   /-- the canonical (irrelevant) proof of a derivable equation -/
   | prf
   deriving Repr, Inhabited
@@ -206,6 +212,17 @@ def mkAppN (f : Term) : List Term → Term
 @[simp] theorem mkAppN_nil (f : Term) : mkAppN f [] = f := rfl
 @[simp] theorem mkAppN_cons (f a : Term) (as : List Term) :
     mkAppN f (a :: as) = mkAppN (.app f a) as := rfl
+
+/-- Decode the checker's projection index for the **pinned pair**: the
+two fields are the two formers `fst`/`snd`, and no other index denotes.
+This is where the side condition `i < 2` of the old single `proj i e`
+former lives now (task #225).  The denotation stays total, and a
+`.proj T i` node with `2 ≤ i` and no projection-table entry still has
+no image, exactly as when the bound was a conjunct of `WellDenoted`. -/
+def projPair? : Nat → Term → Option Term
+  | 0, e => some (.fst e)
+  | 1, e => some (.snd e)
+  | _ + 2, _ => none
 
 end Term
 

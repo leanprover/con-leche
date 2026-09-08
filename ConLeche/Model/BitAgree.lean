@@ -75,8 +75,10 @@ inductive AnnotTerm.BitAgree : AnnotTerm → AnnotTerm → Prop where
   | eqE {T T' a a' b b' : AnnotTerm} :
       BitAgree T T' → BitAgree a a' → BitAgree b b' →
       BitAgree (.eqE T a b) (.eqE T' a' b')
-  | proj {i : Nat} {e e' : AnnotTerm} :
-      BitAgree e e' → BitAgree (.proj i e) (.proj i e')
+  | fst {e e' : AnnotTerm} :
+      BitAgree e e' → BitAgree (.fst e) (.fst e')
+  | snd {e e' : AnnotTerm} :
+      BitAgree e e' → BitAgree (.snd e) (.snd e')
 
 namespace AnnotTerm.BitAgree
 
@@ -91,7 +93,8 @@ theorem refl : ∀ e : AnnotTerm, BitAgree e e
   | .pi _ _ A B => .pi Iff.rfl (refl A) (refl B)
   | .letE T e b => .letE (refl T) (refl e) (refl b)
   | .eqE T a b => .eqE (refl T) (refl a) (refl b)
-  | .proj _ e => .proj (refl e)
+  | .fst e => .fst (refl e)
+  | .snd e => .snd (refl e)
 
 /-- Symmetry. -/
 theorem symm : ∀ {e e' : AnnotTerm}, BitAgree e e' → BitAgree e' e := by
@@ -106,7 +109,8 @@ theorem symm : ∀ {e e' : AnnotTerm}, BitAgree e e' → BitAgree e' e := by
   | pi hz _ _ ihA ihB => exact .pi hz.symm ihA ihB
   | letE _ _ _ ihT ihe ihb => exact .letE ihT ihe ihb
   | eqE _ _ _ ihT iha ihb => exact .eqE ihT iha ihb
-  | proj _ ih => exact .proj ih
+  | fst _ ih => exact .fst ih
+  | snd _ ih => exact .snd ih
 
 /-- **The relation refines erasure-equality** — and strictly: erasure
 also forgets the *structure* of the numerals' binders, while `BitAgree`
@@ -124,7 +128,8 @@ theorem erase_eq : ∀ {e e' : AnnotTerm}, BitAgree e e' →
   | pi _ _ _ ihA ihB => simp [AnnotTerm.erase, ihA, ihB]
   | letE _ _ _ ihT ihe ihb => simp [AnnotTerm.erase, ihT, ihe, ihb]
   | eqE _ _ _ ihT iha ihb => simp [AnnotTerm.erase, ihT, iha, ihb]
-  | proj _ ih => simp [AnnotTerm.erase, ih]
+  | fst _ ih => simp [AnnotTerm.erase, ih]
+  | snd _ ih => simp [AnnotTerm.erase, ih]
 
 variable (V : Type w) [SetTheory V]
 
@@ -152,7 +157,8 @@ theorem interp_eq : ∀ {e e' : AnnotTerm}, BitAgree e e' →
     intro ρ; simp only [interp_letE, ihe ρ]; exact ihb _
   | eqE _ _ _ ihT iha ihb =>
     intro ρ; simp only [interp_eqE, iha, ihb]
-  | proj _ ih => intro ρ; simp only [interp_proj, ih]
+  | fst _ ih => intro ρ; simp only [interp_fst, ih]
+  | snd _ ih => intro ρ; simp only [interp_snd, ih]
 
 /-- **Truthfulness is invariant.**  The `lam`/`app` clauses' fibre
 obligations are `v = 0 → …`, so zero-agreement transfers them; every
@@ -189,9 +195,12 @@ theorem wellDenoted : ∀ {e e' : AnnotTerm}, BitAgree e e' →
       interp_eq V he ρ, ihb _]
   | eqE _ _ _ ihT iha ihb =>
     intro ρ; rw [WellDenoted_eqE, WellDenoted_eqE, iha ρ, ihb ρ]
-  | proj he ih =>
+  | fst he ih =>
     intro ρ
-    rw [WellDenoted_proj, WellDenoted_proj, ih ρ, interp_eq V he ρ]
+    rw [WellDenoted_fst, WellDenoted_fst, ih ρ, interp_eq V he ρ]
+  | snd he ih =>
+    intro ρ
+    rw [WellDenoted_snd, WellDenoted_snd, ih ρ, interp_eq V he ρ]
 
 /-- **Bit validity is invariant.**  The one clause that reads a numeral
 is `pi`'s `v = 0 → …`, and zero-agreement is exactly what it needs. -/
@@ -224,7 +233,8 @@ theorem validV : ∀ {e e' : AnnotTerm}, BitAgree e e' →
       interp_eq V he ρ, ihb _]
   | eqE _ _ _ ihT iha ihb =>
     intro ρ; rw [AnnotValid_eqE, AnnotValid_eqE, iha ρ, ihb ρ]
-  | proj _ ih => intro ρ; rw [AnnotValid_proj, AnnotValid_proj, ih ρ]
+  | fst _ ih => intro ρ; rw [AnnotValid_fst, AnnotValid_fst, ih ρ]
+  | snd _ ih => intro ρ; rw [AnnotValid_snd, AnnotValid_snd, ih ρ]
 
 end AnnotTerm.BitAgree
 

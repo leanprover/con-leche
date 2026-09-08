@@ -183,7 +183,7 @@ def denoteMeta (acval : Name → (Name → Nat) → AnnotTerm)
     -- clause
     match env.findProj? sn i with
     | some entry => some (projAV (i + entry.off) ea)
-    | none => if i < 2 then some (.proj i ea) else none
+    | none => AnnotTerm.projPair? i ea
   | _, .lit (.natVal n) =>
     if natLitSupported env then
       some (natLitAV (acval natZeroName (Level.substFn φ [] []))
@@ -321,7 +321,7 @@ theorem denoteMeta_erase {acval : Name → (Name → Nat) → AnnotTerm}
     rw [hea] at h
     replace h : (match env.findProj? sn i with
         | some entry => some (projAV (i + entry.off) ea')
-        | none => if i < 2 then some (AnnotTerm.proj i ea') else none)
+        | none => AnnotTerm.projPair? i ea')
           = some ea := h
     rw [denote_proj, ihe hea]
     dsimp only
@@ -334,13 +334,14 @@ theorem denoteMeta_erase {acval : Name → (Name → Nat) → AnnotTerm}
     | none =>
       rw [hfp] at h
       dsimp only at h ⊢
-      by_cases hi : i < 2
-      · rw [if_pos hi] at h
+      match i with
+      | 0 =>
         obtain rfl := Option.some.inj h
-        rw [if_pos hi]
         rfl
-      · rw [if_neg hi] at h
-        exact nomatch h
+      | 1 =>
+        obtain rfl := Option.some.inj h
+        rfl
+      | _ + 2 => exact nomatch h
   | case11 d k hsup =>
     intro ea h
     rw [denoteMeta, if_pos hsup] at h

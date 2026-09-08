@@ -38,7 +38,7 @@ The clauses in one line each:
 | `pi u v A B` | `piR v ⟦A⟧ (fun x => ⟦B⟧ₓ)` | annotation |
 | `letE _ e b` | `⟦b⟧` at `x := ⟦e⟧` | ζ; annotation-free |
 | `eqE _ a b` | `eqv ⟦a⟧ ⟦b⟧` | truth value |
-| `proj i e` | `sfst`/`ssnd` | — |
+| `fst e` / `snd e` | `sfst ⟦e⟧` / `ssnd ⟦e⟧` | — |
 | `prf` | `pt` | the canonical proof |
 
 `app` is *uniform*: it needs no annotation, because
@@ -155,7 +155,8 @@ noncomputable def interp : (Nat → V) → AnnotTerm → V
   | ρ, .pi _ v A B => piR v (interp ρ A) fun x => interp (cons x ρ) B
   | ρ, .letE _ e b => interp (cons (interp ρ e) ρ) b
   | ρ, .eqE _ a b => eqv (interp ρ a) (interp ρ b)
-  | ρ, .proj i e => if i = 0 then sfst (interp ρ e) else ssnd (interp ρ e)
+  | ρ, .fst e => sfst (interp ρ e)
+  | ρ, .snd e => ssnd (interp ρ e)
   | _, .prf => pt
 
 @[simp] theorem interp_bvar (ρ : Nat → V) (i : Nat) :
@@ -176,9 +177,10 @@ noncomputable def interp : (Nat → V) → AnnotTerm → V
     interp V ρ (.letE T e b) = interp V (cons (interp V ρ e) ρ) b := rfl
 @[simp] theorem interp_eqE (ρ : Nat → V) (T a b : AnnotTerm) :
     interp V ρ (.eqE T a b) = eqv (interp V ρ a) (interp V ρ b) := rfl
-@[simp] theorem interp_proj (ρ : Nat → V) (i : Nat) (e : AnnotTerm) :
-    interp V ρ (.proj i e) =
-      (if i = 0 then sfst (interp V ρ e) else ssnd (interp V ρ e)) := rfl
+@[simp] theorem interp_fst (ρ : Nat → V) (e : AnnotTerm) :
+    interp V ρ (.fst e) = sfst (interp V ρ e) := rfl
+@[simp] theorem interp_snd (ρ : Nat → V) (e : AnnotTerm) :
+    interp V ρ (.snd e) = ssnd (interp V ρ e) := rfl
 @[simp] theorem interp_prf (ρ : Nat → V) : interp V ρ .prf = pt := rfl
 
 end ConLeche.Semantics

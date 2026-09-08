@@ -346,8 +346,11 @@ theorem sumMkAV_wellDenotedV {w j : Nat} {bodyC : AnnotTerm} {ρ : Nat → V}
 
 /-! ## The recursor -/
 
-theorem major_proj_validV (i : Nat) (σ : Nat → V) : AnnotValid V σ (.proj i (.bvar 0)) := by
-  rw [AnnotValid_proj]; trivial
+theorem major_fst_validV (σ : Nat → V) : AnnotValid V σ (.fst (.bvar 0)) := by
+  rw [AnnotValid_fst]; trivial
+
+theorem major_snd_validV (σ : Nat → V) : AnnotValid V σ (.snd (.bvar 0)) := by
+  rw [AnnotValid_snd]; trivial
 
 theorem motAppAV_validV (n nIdx D' : Nat) (σ : Nat → V) :
     AnnotValid V σ (motAppAV n nIdx D') :=

@@ -82,17 +82,17 @@ theorem towerBodyAV_validV {w : Nat} {Fs : List AnnotTerm} {ρ : Nat → V}
   · rw [towerBodyAV_pos hw]; exact towerBodyAVPos_validV hv
 
 /-- The uniform projection spelling is bit-valid whenever its subject
-is (`.proj`'s validity clause is hereditary). -/
+is (the projections' validity clause is hereditary). -/
 theorem projAV_validV :
     ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
       AnnotValid V σ e → AnnotValid V σ (projAV i e)
   | 0, e, σ, h => by
-    show AnnotValid V σ (.proj 0 e)
-    rw [AnnotValid_proj]
+    show AnnotValid V σ (.fst e)
+    rw [AnnotValid_fst]
     exact h
   | i + 1, e, σ, h => by
-    show AnnotValid V σ (projAV i (.proj 1 e))
-    exact projAV_validV (by rw [AnnotValid_proj]; exact h)
+    show AnnotValid V σ (projAV i (.snd e))
+    exact projAV_validV (by rw [AnnotValid_snd]; exact h)
 
 /-- Application spines are bit-valid from their parts. -/
 theorem mkAppN_validV :

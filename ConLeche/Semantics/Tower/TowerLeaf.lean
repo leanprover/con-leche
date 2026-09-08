@@ -22,7 +22,7 @@ their interpretation equations:
   cumulativity, nothing else.
 
 * `projAV i` — the tier's structure-independent `projS i = sfst ∘
-  ssnd^i`, spelled by the iterated proj node `.proj 0 ∘ (.proj 1)^i`.
+  ssnd^i`, spelled by the iterated projection formers `.fst ∘ .snd^i`.
   No type arguments, no entry consultation; `projAV_interp` is the
   definitional commutation.
 
@@ -80,12 +80,12 @@ theorem towerBodyAV_zero (Fs : List AnnotTerm) :
 theorem towerBodyAV_pos {w : Nat} (hw : w ≠ 0) (Fs : List AnnotTerm) :
     towerBodyAV w Fs = towerBodyAVPos w Fs := if_neg hw
 
-/-- The uniform projection spelling: `.proj 0 ∘ (.proj 1)^i` — the
+/-- The uniform projection spelling: `.fst ∘ .snd^i` — the
 `AnnotTerm` form of the tier's `projS i = sfst ∘ ssnd^i`.  Depends only
 on the index. -/
 def projAV : Nat → AnnotTerm → AnnotTerm
-  | 0, e => .proj 0 e
-  | i + 1, e => projAV i (.proj 1 e)
+  | 0, e => .fst e
+  | i + 1, e => projAV i (.snd e)
 
 /-- `FieldsOkB w ρ Fs`: the hereditary grading the body's `WellDenoted`
 consumes — each domain is itself graded and, in the graph regime, its
@@ -230,31 +230,25 @@ unconditional iota discipline). -/
 theorem projAV_interp :
     ∀ (i : Nat) (e : AnnotTerm) (ρ : Nat → V),
       interp V ρ (projAV i e) = projS i (interp V ρ e)
-  | 0, e, ρ => by
-    show (if 0 = 0 then sfst (interp V ρ e) else ssnd (interp V ρ e))
-      = sfst (interp V ρ e)
-    rw [if_pos rfl]
+  | 0, _, _ => rfl
   | i + 1, e, ρ => by
-    show interp V ρ (projAV i (.proj 1 e))
-      = projS i (ssnd (interp V ρ e))
-    rw [projAV_interp i (.proj 1 e) ρ]
-    show projS i (if 1 = 0 then sfst (interp V ρ e)
-      else ssnd (interp V ρ e)) = _
-    rw [if_neg Nat.one_ne_zero]
+    show interp V ρ (projAV i (.snd e)) = projS i (ssnd (interp V ρ e))
+    rw [projAV_interp i (.snd e) ρ]
+    rfl
 
 /-- `projAV` commutes with lifting (it introduces no binders). -/
 theorem projAV_liftN :
     ∀ (i : Nat) (e : AnnotTerm) (n k : Nat),
       (projAV i e).liftN n k = projAV i (e.liftN n k)
   | 0, _, _, _ => rfl
-  | i + 1, e, n, k => projAV_liftN i (.proj 1 e) n k
+  | i + 1, e, n, k => projAV_liftN i (.snd e) n k
 
 /-- `projAV` commutes with instantiation. -/
 theorem projAV_inst :
     ∀ (i : Nat) (e a : AnnotTerm) (k : Nat),
       (projAV i e).inst a k = projAV i (e.inst a k)
   | 0, _, _, _ => rfl
-  | i + 1, e, a, k => projAV_inst i (.proj 1 e) a k
+  | i + 1, e, a, k => projAV_inst i (.snd e) a k
 
 /-- **The carrier body is graded** (`WellDenoted`): every app slot is
 supplied by `psigmaV_ww_mem` and the fibre package by the tier's

@@ -80,8 +80,10 @@ theorem interp_liftN (n : Nat) :
     simp only [AnnotTerm.liftN_letE, interp_letE, ihe, ihb, cons_shiftE]
   | eqE T a b ihT iha ihb =>
     intro k ρ; simp only [AnnotTerm.liftN_eqE, interp_eqE, iha, ihb]
-  | proj i e ihe =>
-    intro k ρ; simp only [AnnotTerm.liftN_proj, interp_proj, ihe]
+  | fst e ihe =>
+    intro k ρ; simp only [AnnotTerm.liftN_fst, interp_fst, ihe]
+  | snd e ihe =>
+    intro k ρ; simp only [AnnotTerm.liftN_snd, interp_snd, ihe]
   | prf => intro k ρ; rfl
 
 theorem interp_lift (e : AnnotTerm) (ρ : Nat → V) :
@@ -132,8 +134,10 @@ theorem interp_inst :
       cons_instE]
   | eqE T b c ihT ihb ihc =>
     intro a k ρ; simp only [AnnotTerm.inst_eqE, interp_eqE, ihb, ihc]
-  | proj i e ihe =>
-    intro a k ρ; simp only [AnnotTerm.inst_proj, interp_proj, ihe]
+  | fst e ihe =>
+    intro a k ρ; simp only [AnnotTerm.inst_fst, interp_fst, ihe]
+  | snd e ihe =>
+    intro a k ρ; simp only [AnnotTerm.inst_snd, interp_snd, ihe]
   | prf => intro a k ρ; rfl
 
 /-! ### Interpretation invariance below a bound
@@ -193,9 +197,12 @@ theorem interp_congr_below :
     intro k ρ ρ' hb hag
     simp only [interp_eqE, iha k ρ ρ' hb.2.1 hag,
       ihb k ρ ρ' hb.2.2 hag]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro k ρ ρ' hb hag
-    simp only [interp_proj, ihe k ρ ρ' hb hag]
+    simp only [interp_fst, ihe k ρ ρ' hb hag]
+  | snd e ihe =>
+    intro k ρ ρ' hb hag
+    simp only [interp_snd, ihe k ρ ρ' hb hag]
 
 /-- A closed term interprets the same under every environment. -/
 theorem interp_closed {e : AnnotTerm}
