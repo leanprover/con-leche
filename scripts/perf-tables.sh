@@ -10,8 +10,11 @@
 # canonical table and the perf-eng "honest gap" round):
 #   * `perf stat -e instructions:u`, ONE run per cell; instructions are
 #     the only metric reported (contention-independent).
-#   * every run under `ulimit -v 16G`, `nice -n 5`, `timeout`,
-#     `CON_LECHE_SUPERVISED=1` (no supervisor re-exec).
+#   * every run under `ulimit -v 16G`, `nice -n 5`, `timeout`.  (Until
+#     task #230 this line also carried the environment variable that
+#     kept the driver from re-exec'ing itself under the OOM supervisor;
+#     the supervisor is gone, so the checker is always the one process
+#     `perf stat` counts.)
 #   * RAW INPUT ON BOTH SIDES (task #207).  Both checkers ingest the
 #     same raw `lean4export` file, as it comes off the exporter.  Until
 #     #207 con-leche needed a preprocessing step the official kernel
@@ -160,7 +163,7 @@ cell() { # $1 = stream label, $2 = config id, $3 = stream path
     if [ "$1" = mathlib-full ]; then
       # the Mathlib row: `time -v` for peak RSS, and the progress lane's
       # timestamped stderr kept as a receipt
-      out=$( (ulimit -v $vl; CON_LECHE_SUPERVISED=1 \
+      out=$( (ulimit -v $vl; \
                 perf stat -e instructions:u -x, -o "$po" \
                 timeout "$to" nice -n 5 "$TIMEBIN" -v -o "$tv" "${CMD[@]}" \
                 2> >(awk '{ printf "%d %s\n", systime(), $0; fflush() }' \
@@ -168,7 +171,7 @@ cell() { # $1 = stream label, $2 = config id, $3 = stream path
       ex=$?
       rss=$(awk '/Maximum resident/{print $NF}' "$tv" 2>/dev/null)
     else
-      out=$( (ulimit -v $vl; CON_LECHE_SUPERVISED=1 \
+      out=$( (ulimit -v $vl; \
                 perf stat -e instructions:u -x, -o "$po" \
                 timeout "$to" nice -n 5 "${CMD[@]}") 2>&1 )
       ex=$?

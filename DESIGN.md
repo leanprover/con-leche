@@ -1541,6 +1541,9 @@ Findings from the arena `good/perf` OOM pair:
   Known limitation: an external `timeout` killing the supervisor
   orphans the child; the arena harness kills process groups, and the
   in-repo scripts use `timeout` on the whole invocation.
+  **REMOVED at task #230 (2026-09-08)**: an out-of-memory condition
+  exits 1 with the runtime's panic on stderr, and the checker does not
+  spawn a copy of itself.  See that task's record.
 
 ## Kernel design review triage (2026-08-20)
 
@@ -61659,3 +61662,96 @@ and incremental-rebuild fan-in, not wall clock.
 `tests/proofdeps.sh` seeing no row move says the same thing from the
 other side: none of the 23 was the *last* path from a capstone to any
 module.
+
+## TASK #230 — THE OOM RE-EXEC SUPERVISOR GOES (2026-09-08, `agent/nosuper`)
+
+User: *"why do we reexec? seems like something that we would not expect
+in the final product?"* … *"accept that OOM exits 1."*
+
+**What it was.**  Task #65 (2026-08-22, written for the arena's
+automated scoring) made `main` a supervisor.  It re-exec'd `IO.appPath`
+with `CON_LECHE_SUPERVISED=1` in the child's environment, inherited
+stdout, piped the child's stderr and streamed it line by line while
+scanning each line for `INTERNAL PANIC`, and, if the child exited 1
+having printed one, printed `con-leche: internal panic in the checker
+process` and returned 3 instead.  The case it existed for is the Lean
+runtime's out-of-memory handler, `lean_internal_panic_out_of_memory`,
+which prints `INTERNAL PANIC: out of memory` and calls `exit(1)`: it is
+uncatchable in process, and exit 1 is the arena's *reject*.
+
+**Why it goes.**  The mechanism is a distortion of what the binary is
+for: a checker that spawns a copy of itself, and an exit code assembled
+by scanning its own child's stderr for a string, is not what belongs in
+a finished product.  The ruling: an out-of-memory condition simply
+exits 1, with the runtime's panic message on stderr — the *message* is
+what distinguishes it from a reject, and a reader who needs the
+distinction has it.  Nothing about the arena convention changes for the
+three verdicts the checker itself produces (0/1/2) or for the internal
+failures it reports (3); the OOM case is the one the process cannot
+speak for itself about, and it is now left to say so in the runtime's
+own words.
+
+**Deleted**: the `CON_LECHE_SUPERVISED` read, the `IO.Process.spawn`,
+the stderr streaming loop, the marker scan, the exit-code translation,
+and `childArgs` — task #229's `--progress` re-emission existed only to
+put the flag into the child's argument vector, so it goes with it.
+`main` calls `checkMain file a.mode a.progress` directly.  The
+variable is gone from the tree (`git grep CON_LECHE_SUPERVISED` outside
+this file returns nothing), so a stale script that still exports it
+just runs a normal run — there is nothing left to guard.
+
+**Recorded where a reader meets the exit codes**: the driver's module
+docstring under code 1, `OVERVIEW.md` §0 after the exit-code table
+(with the anchor repointing that the five added docstring lines forced:
+`Main.lean#L37` → `#L41`, `#L343` → `#L348`, `#L441` → `#L446` — the
+cited lines themselves unchanged), and the #65 bullet above.  Callers:
+`scripts/perf-tables.sh` no longer sets the variable, and its METHOD
+note says why the line changed; two stale comments go with it
+(`ConLeche/PinGen.lean`'s "twice, under the OOM supervisor re-exec"
+justification for `loadPrefixes` being a function — the argument is
+unaffected, only the doubling was, and `tests/pilot-measure.sh`'s note
+that `RUSAGE_CHILDREN` was chosen to follow the re-exec'd child).  No
+arena case exercised the marker, so the sweep is unchanged.
+
+**Measured** (init-full, `perf stat -e instructions:u`, `ulimit -v
+16000000`, one run each, this worktree's binary):
+
+| binary | processes | instructions:u |
+|---|---|---|
+| master `77dfa83d`, default | supervisor + child | 679 163 933 127 |
+| master `77dfa83d`, `CON_LECHE_SUPERVISED=1` | one | 679 005 683 727 |
+| this branch | one | 678 997 282 875 |
+
+The supervisor's own cost was its second process start, 158 M
+instructions, 0.023%; against the single-process master the branch is
+8.4 M lower, i.e. noise.  `perf stat` follows children, so the default
+column is the only figure that ever included the parent — every
+recorded measurement in this file was taken with the variable set and
+is therefore already a count of the checker alone, and stays
+comparable.  Verdict and shape unchanged: exit 0, **53 088** accepted,
+route census 584 fix / 6 basis / 1 inmodel, peak RSS 723 MB.
+
+**The behaviour, verified.**  init-full under a deliberately small
+address-space limit, `ulimit -v 3350000` (~3.35 GB):
+
+```
+EXIT=1
+INTERNAL PANIC: out of memory
+```
+
+— the panic is the only line on stderr, stdout is empty, and the
+`con-leche: internal panic in the checker process` line is gone.  Two
+neighbouring failure modes turned up while finding that limit and are
+worth recording, because neither is the OOM panic and neither was ever
+translated: below ~3.3 GB the run dies in startup with
+`lean::exception: failed to create thread` (abort, 134), and at
+~3.3 GB with `GNU MP: Cannot allocate memory` (abort, 134) — a
+`ulimit -v` squeeze reaches GMP and the thread pool before it reaches
+`lean_alloc`.  At 3.38 GB and above init-full completes normally.
+
+**Gates**: `lake build` warning-free (517 jobs), `lake test`,
+`tests/arena.sh` under a clean environment with every count unchanged
+(the progress sweep stays 12/12 — no case tested the supervisor),
+`tests/layering.sh`, `tests/trust-surface.sh`,
+`tests/overview-links.sh` (58 links, three anchors repointed),
+`tests/route-census.sh --full`.
