@@ -3,7 +3,6 @@ import ConLeche.SetTheory.Derive.Sigma
 import ConLeche.SetTheory.Derive.Natrec
 import ConLeche.SetTheory.Derive.Quot
 import ConLeche.SetTheory.Derive.Choice
-import ConLeche.SetTheory.Derive.PtFresh
 import ConLeche.SetTheory.Derive.Lfp
 import ConLeche.SetTheory.Derive.LfpFam
 
@@ -55,21 +54,6 @@ theorem mem_univ_zero {T x : V} (hT : T ∈ˢ (univ 0 : V)) (hx : x ∈ˢ T) :
     x = pt :=
   eq_pt_of_mem_univZero (univ_zero (V := V) ▸ hT) hx
 
-/-- Elimination: application stays in the fibre.  The fibre-universe
-premise makes the `v = 0` case realizable (fibres are then truth
-values, so the inhabited fibre is the singleton of `•`). -/
-theorem app_mem {v : Nat} {A f a : V} {B : V → V}
-    (hf : f ∈ˢ pi v A B) (ha : a ∈ˢ A)
-    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univ v : V)) : app f a ∈ˢ B a :=
-  app_mem' hf ha (fun hv x hx => by subst hv; exact univ_zero (V := V) ▸ hB x hx)
-
-/-- Beta: conditional on membership, as set-theoretic functions have set
-domains. -/
-theorem app_lam {v : Nat} {A a : V} {F B : V → V}
-    (ha : a ∈ˢ A) (hF : ∀ x, x ∈ˢ A → F x ∈ˢ B x)
-    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univ v : V)) : app (lam v A F) a = F a :=
-  app_lam' ha hF (fun hv x hx => by subst hv; exact univ_zero (V := V) ▸ hB x hx)
-
 /-- Truth values for equality: `eqv x y` is `{pt}` if `x = y` and `∅`
 otherwise. -/
 theorem eqv_mem_univ (x y : V) : eqv x y ∈ˢ (univ 0 : V) :=
@@ -81,9 +65,6 @@ theorem mem_eqv {a x y : V} (h : a ∈ˢ eqv x y) : x = y :=
 /-- The canonical singleton `{pt}` has only the proof point as member. -/
 theorem mem_unitSet {x : V} (h : x ∈ˢ (unitSet : V)) : x = pt :=
   mem_unitSet_iff.mp h
-
-theorem omega_mem_univ : (omega : V) ∈ˢ univ 1 :=
-  omega_mem_univ_succ 0
 
 /-- The model of `Nat.zero`: the empty set, i.e. the ordinal `0`. -/
 noncomputable def natzero : V := empty

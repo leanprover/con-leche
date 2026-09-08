@@ -690,16 +690,6 @@ theorem Expr.getAppArgs_mkAppN : ∀ (args : List Expr) (f : Expr),
       Expr.getAppArgs_mkAppN as]
     simp [Expr.getAppArgs]
 
-theorem List.length_four {α : Type _} {l : List α} (h : l.length = 4) :
-    ∃ a b c d, l = [a, b, c, d] := by
-  match l, h with
-  | [a, b, c, d], _ => exact ⟨a, b, c, d, rfl⟩
-
-theorem List.length_two {α : Type _} {l : List α} (h : l.length = 2) :
-    ∃ a b, l = [a, b] := by
-  match l, h with
-  | [a, b], _ => exact ⟨a, b, rfl⟩
-
 /-- Inversion for `whnfCore` on projections: the scrutinee whnf, then
 the string-literal expansion step (`projLitToCtorP`), then either a
 stuck projection of the converted scrutinee or a firing table entry. -/
@@ -2392,14 +2382,6 @@ theorem const_ty_hasFvar {env : Env} (henv : EnvWF env) {n : Name}
   have hwf := henv _ (List.mem_of_find?_eq_some hf)
   rw [Expr.hasFvar_instantiateLevelParams]
   exact hwf.1
-
-/-- ...and is therefore scoped at any depth. -/
-theorem const_ty_WScoped {env : Env} (henv : EnvWF env) {n : Name}
-    {ci : ConstantInfo} (hf : env.find? n = some ci) (us : List Level)
-    {d : Nat} :
-    WScoped d (ci.toConstantVal.type.instantiateLevelParams
-      ci.toConstantVal.levelParams us) :=
-  WScoped.of_not_hasFvar (const_ty_hasFvar henv hf us)
 
 /-- A stored projection entry's body is well-formed (`EnvWF`'s table
 clause at the view, task #175 S1): fvar-free, level-defined,

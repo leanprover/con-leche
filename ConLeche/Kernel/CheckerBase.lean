@@ -1,7 +1,6 @@
 import ConLeche.Kernel.Env
 import ConLeche.Kernel.StdAxioms
 import ConLeche.Kernel.TypeChecker
-import ConLeche.Kernel.TypeCheckerC
 import ConLeche.Kernel.NatOpPins
 import ConLeche.Kernel.Direct.Parts
 

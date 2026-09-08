@@ -158,45 +158,12 @@ theorem denote2_acval_congr {mode : CheckMode}
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
-/-- **The install corollary**: choosing the new declaration's
-annotated leaf moves no denotation in the environment it was checked
-in.  This is what carries the `EnvS2` fields of the *already
-installed* constants past a fresh install. -/
-theorem denote2_acvalWith_fresh {mode : CheckMode}
-    {acval : Name → (Name → Nat) → AVExpr} {env : Env}
-    {φ : Name → Nat} {fuel : Nat} {n : Name}
-    {A : (Name → Nat) → AVExpr} (hfresh : env.find? n = none)
-    (d : Nat) (e : Expr) :
-    denote2 mode (acvalWith acval n A) env φ fuel d e
-      = denote2 mode acval env φ fuel d e := by
-  refine denote2_acval_congr (fun c hc => ?_) d e
-  refine acvalWith_ne (fun h => ?_)
-  rw [h, hfresh] at hc
-  exact nomatch hc
-
 /-! ## The three syntactic fields, transported
 
 `acval_erase`, `acval_closed` and `acval_params` are conditions on an
 install-fixed object with no `denote2` and no `interp2` in them (the
 `EnvS2` docstrings say so of the last two).  Each therefore extends by
 a case split on the updated name and nothing else. -/
-
-/-- `acval_erase` extends: the new leaf's own erasure link is all the
-install owes. -/
-theorem acvalWith_erase {acval : Name → (Name → Nat) → AVExpr}
-    {cval : TConstVal} {n : Name}
-    {A : (Name → Nat) → AVExpr} {W : (Name → Nat) → VExpr}
-    (h : ∀ (m : Name) (ψ : Name → Nat), (acval m ψ).erase = cval m ψ)
-    (hA : ∀ ψ : Name → Nat, (A ψ).erase = W ψ) :
-    ∀ (m : Name) (ψ : Name → Nat),
-      (acvalWith acval n A m ψ).erase = cvalWith cval n W m ψ := by
-  intro m ψ
-  by_cases hm : m = n
-  · subst hm
-    rw [acvalWith_self, cvalWith_self]
-    exact hA ψ
-  · rw [acvalWith_ne hm, cvalWith_ne hm]
-    exact h m ψ
 
 /-- `acval_closed` extends. -/
 theorem acvalWith_closed {acval : Name → (Name → Nat) → AVExpr}

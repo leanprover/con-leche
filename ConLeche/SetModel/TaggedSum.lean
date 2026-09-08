@@ -156,27 +156,8 @@ theorem sumRec_inj (r : Nat → V → V) (i : Nat) (a : V) : sumRec r (inj i a) 
   unfold sumRec
   rw [sfst_inj, ssnd_inj, natFibre_vnat]
 
-/-- **The recursor's typing** (graph regime): a case split whose
-branches land in the motive at the injections lands in the motive on
-the whole carrier. -/
-theorem sumRec_mem {w : Nat} (hw : w ≠ 0) {f : Nat → V} {M : V → V} {r : Nat → V → V}
-    (hr : ∀ i a, a ∈ˢ f i → r i a ∈ˢ M (inj i a)) :
-    ∀ x, x ∈ˢ sumSet w f → sumRec r x ∈ˢ M x := by
-  intro x hx
-  obtain ⟨i, a, ha, rfl⟩ := sumSet_elim hw hx
-  rw [sumRec_inj]
-  exact hr i a ha
-
 /-- **Storage hygiene**: the carrier is never the proof point. -/
 theorem sumSet_ne_pt {w : Nat} (f : Nat → V) : sumSet w f ≠ (pt : V) := sigmaSet_ne_pt
-
-/-- A graph-regime carrier member is never the point (the tag is a
-pair component). -/
-theorem sumSet_mem_ne_pt {w : Nat} (hw : w ≠ 0) {f : Nat → V} {x : V}
-    (hx : x ∈ˢ sumSet w f) : x ≠ pt := by
-  obtain ⟨i, a, -, rfl⟩ := sumSet_elim hw hx
-  unfold inj spair
-  exact (pt_ne_kpair (vnat i) a).symm
 
 /-! ## Degeneracy checks -/
 

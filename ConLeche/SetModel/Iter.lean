@@ -89,40 +89,6 @@ noncomputable def iterU (Φ : V → V) : V := natUnion (iterF Φ)
 theorem mem_iterU {Φ : V → V} {x : V} : x ∈ˢ iterU Φ ↔ ∃ n, x ∈ˢ iterF Φ n :=
   mem_natUnion
 
-theorem iterF_subset_iterU (Φ : V → V) (n : Nat) : iterF Φ n ⊆ˢ iterU Φ :=
-  fun _ hx => mem_iterU.mpr ⟨n, hx⟩
-
-/-- Cumulativity, from monotonicity. -/
-theorem iterF_mono {Φ : V → V} (hmono : ∀ X Y : V, X ⊆ˢ Y → Φ X ⊆ˢ Φ Y) :
-    ∀ {m n : Nat}, m ≤ n → iterF Φ m ⊆ˢ iterF Φ n := by
-  intro m n hmn
-  induction n with
-  | zero =>
-    have : m = 0 := Nat.le_zero.mp hmn
-    subst this; exact Subset.refl _
-  | succ n ih =>
-    rcases Nat.lt_succ_iff_lt_or_eq.mp (Nat.lt_succ_of_le hmn) with h | rfl
-    · refine Subset.trans (ih (Nat.le_of_lt_succ h)) ?_
-      -- `iterF n ⊆ iterF (n+1)`: by induction on `n`
-      clear ih h hmn
-      induction n with
-      | zero => exact empty_subset _
-      | succ n ih => exact hmono _ _ ih
-    · exact Subset.refl _
-
-theorem iterU_mem_univ_pos {w : Nat} (hw : w ≠ 0) {Φ : V → V}
-    (h : ∀ n, iterF Φ n ∈ˢ (univ w : V)) : iterU Φ ∈ˢ (univ w : V) :=
-  natUnion_mem_univ_pos hw h
-
-theorem iterU_mem_univZero {Φ : V → V} (h : ∀ n, iterF Φ n ∈ˢ (univZero : V)) :
-    iterU Φ ∈ˢ (univZero : V) :=
-  natUnion_mem_univZero h
-
-/-- Formation, both regimes. -/
-theorem iterU_mem_univ {w : Nat} {Φ : V → V} (h : ∀ n, iterF Φ n ∈ˢ (univ w : V)) :
-    iterU Φ ∈ˢ (univ w : V) :=
-  natUnion_mem_univ h
-
 /-- **Closure** under a finitary functor: if every member of
 `Φ (iterU Φ)` lies in some finite stage's image, the ω-iterate is
 closed. -/

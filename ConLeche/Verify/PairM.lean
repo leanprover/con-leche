@@ -768,18 +768,6 @@ theorem projLitToCtor_snd_proj (d : Nat) (e : Expr) :
   unfold projLitToCtor
   snd_tac2
 
-theorem isPropType_fst_proj (d : Nat) (ty : Expr) :
-    (isPropType (pairFns r₁ r₂ h) env d ty).val.1 =
-      isPropType r₁ env d ty := by
-  unfold isPropType
-  fst_tac2
-
-theorem isPropType_snd_proj (d : Nat) (ty : Expr) :
-    (isPropType (pairFns r₁ r₂ h) env d ty).val.2 =
-      isPropType r₂ env d ty := by
-  unfold isPropType
-  snd_tac2
-
 macro "fst_step3" : tactic =>
   `(tactic| repeat (first
     | rfl

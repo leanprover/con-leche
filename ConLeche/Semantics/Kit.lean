@@ -244,18 +244,6 @@ theorem interp2_mem_pi_pos {v : Nat} (hv : v ≠ 0) {u : Nat} {ρ : Nat → V}
     f ≠ pt :=
   mem_piR_pos hv hf
 
-/-- The domain of a graph-regime product member is exactly the
-interpretation of the binder's domain: it is recoverable from the value
-alone, and two products containing the same member have the same
-domain.  No `≠ pt` side condition — that is the collapse's tax, and it
-is gone. -/
-theorem interp2_pi_dom_unique {v v' : Nat} (hv : v ≠ 0) (hv' : v' ≠ 0)
-    {u u' : Nat} {ρ ρ' : Nat → V} {A B A' B' : AVExpr} {f : V}
-    (h1 : f ∈ˢ interp2 V ρ (.pi u v A B))
-    (h2 : f ∈ˢ interp2 V ρ' (.pi u' v' A' B')) :
-    interp2 V ρ A = interp2 V ρ' A' :=
-  piR_dom_unique hv hv' h1 h2
-
 /-- **Application is graph application.**  On the domain, the value
 `app f a` is literally the second component of the pair that `f`, as a
 set, contains at `a` — there is no tag, no fallback and no dispatch in
@@ -289,13 +277,6 @@ theorem interp2_beta_zero (ρ : Nat → V) (A b a : AVExpr) {B : V → V}
   rw [interp2_app, interp2_lam, interp2_inst0]
   exact app_lamR ha hbody (fun _ => hB)
 
-/-- η in the graph regime: a product member is the abstraction of its
-applications. -/
-theorem interp2_eta {v u : Nat} {ρ : Nat → V} {A B : AVExpr} {f : V}
-    (hf : f ∈ˢ interp2 V ρ (.pi u v A B)) :
-    lamR v (interp2 V ρ A) (fun x => SetTheory.app f x) = f :=
-  lamR_eta hf
-
 /-! ## Junk-freeness: there is no proof point in the graph regime -/
 
 /-- **The proof point never inhabits a graph-regime product.**
@@ -327,15 +308,6 @@ theorem interp2_pi_ext {v u : Nat} {ρ : Nat → V} {A B B' : AVExpr} {f g : V}
       SetTheory.app f x = SetTheory.app g x) : f = g :=
   eq_of_mem_piR_app_eq hf hg h
 
-/-- An empty domain does **not** collapse an abstraction: with a
-nonzero codomain annotation the value is the empty graph, and the
-`Type`-level facts the #100 countermodel needed (`app` computing, the
-value not being `pt`) survive. -/
-theorem interp2_lam_empty_dom {v : Nat} (hv : v ≠ 0) (ρ : Nat → V)
-    (A b : AVExpr) (hA : interp2 V ρ A = empty) :
-    interp2 V ρ (.lam v A b) = empty := by
-  rw [interp2_lam, hA, lamR_pos_empty hv]
-
 /-! ## The squash regime -/
 
 /-- **Impredicativity.**  A product whose codomain annotation is `0` is
@@ -361,16 +333,5 @@ theorem interp2_proof_irrel {ρ : Nat → V} {T : AVExpr} {x y : V}
     (hT : interp2 V ρ T ∈ˢ (univ 0 : V)) (hx : x ∈ˢ interp2 V ρ T)
     (hy : y ∈ˢ interp2 V ρ T) : x = y :=
   subsingleton_of_mem_univZero (univ_zero (V := V) ▸ hT) hx hy
-
-theorem interp2_eq_prf {ρ : Nat → V} {T : AVExpr} {x : V}
-    (hT : interp2 V ρ T ∈ˢ (univ 0 : V)) (hx : x ∈ˢ interp2 V ρ T) :
-    x = interp2 V ρ .prf :=
-  eq_pt_of_mem_univZero (univ_zero (V := V) ▸ hT) hx
-
-/-- Equality reflection: an inhabited `eqE` *is* the equation.  As in
-the collapse layer, the type slot is never read. -/
-theorem interp2_eqE_reflect {ρ : Nat → V} {T a b : AVExpr} {x : V}
-    (hx : x ∈ˢ interp2 V ρ (.eqE T a b)) : interp2 V ρ a = interp2 V ρ b :=
-  mem_eqv hx
 
 end ConLeche.Semantics

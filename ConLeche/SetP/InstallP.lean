@@ -168,17 +168,6 @@ plus the head's obligations — `BasisPinnedTT.cons`, `ProjOkT.cons`,
 all model-free — which is what lets `EnvS2PM.base` go.
 -/
 
-/-- The valuation moves only at the fresh name, at the erased
-spelling: the `Installs` context the three env-facts share. -/
-theorem installsE {acval : Name → (Name → Nat) → AVExpr}
-    {c₀ : ConstantInfo} {A : (Name → Nat) → AVExpr}
-    (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ ≠ .projInfo entry) :
-    Installs env (fun n ψ => (acval n ψ).erase)
-      (fun n ψ => (acvalWith acval c₀.name A n ψ).erase) c₀ :=
-  Installs.of_fresh hfresh hntc (fun n hn =>
-    funext fun ψ => by rw [acvalWith_ne hn])
-
 /-- **The head obligations of a fresh cons** (task #161 S7, Wall C
 step (b)): what `declStepPM_of_cons` used to read off the contained
 `EnvS`, stated at the new leaf.  Bundled because the wrapper stack

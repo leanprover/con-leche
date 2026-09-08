@@ -32,41 +32,6 @@ section Walks
 
 variable {env : Env} {f : Nat}
 
-/-- Port of `isPropTypeI_sim`. -/
-theorem isPropTypeC_sim (ih : SSimC mode env f) {d : Nat} {i : ExprC}
-    {ty : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
-    (hden : RelC i ty) (hw : Expr.WScoped d ty) :
-    SimC mode env s₀ RelVC
-      (isPropTypeI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
-      (isPropType (fueledFns mode env) env d ty) := by
-  show SimC mode env s₀ RelVC
-    ((coreKnotI mode (mkFEnv env) f).annotate d i >>= fun ty' =>
-      (coreKnotI mode (mkFEnv env) f).inferIO d ty' >>= fun tty =>
-      ensureSortI (coreKnotI mode (mkFEnv env) f) d tty >>= fun s =>
-      pure .zero >>= fun z =>
-      isEquivLM s z >>= fun o =>
-      liftFueled "level comparison" o)
-    ((fueledFns mode env).annotate d ty >>= fun ty' =>
-      (fueledFns mode env).inferIO d ty' >>= fun tty =>
-      ensureSort (fueledFns mode env) env d tty >>= fun s =>
-      liftFueled "level comparison" (Level.isEquiv s Level.zero))
-  refine SimC.bind (ih.annotate hs hden hw)
-    (fun s₁ ty' ty'x hs₁ hP => ?_)
-  obtain ⟨hty'd, hwty'⟩ := hP
-  refine SimC.bind (ih.inferIO hs₁ hty'd hwty')
-    (fun s₂ tty ttyx hs₂ hP₂ => ?_)
-  obtain ⟨httyd, hwtty⟩ := hP₂
-  refine SimC.bind (ensureSortC_sim ih hs₂ httyd hwtty)
-    (fun s₃ u lu hs₃ hPu => ?_)
-  obtain rfl : u = lu := hPu
-  refine SimC.bind_left (pureEq_eff hs₃ Level.zero)
-    (fun s₃z z hs₃z hz => ?_)
-  subst hz
-  refine SimC.bind_left (isEquivLM_eff hs₃z u Level.zero)
-    (fun s₃o o hs₃o ho => ?_)
-  subst ho
-  exact SimC.liftFueled _ _ hs₃o
-
 end Walks
 
 section Walks3

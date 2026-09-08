@@ -251,13 +251,6 @@ theorem checkSoundAtP (hμ : μ.verifiedChecks = true)
   ⟨(checkSoundAtP5 hμ h fuel).1, (checkSoundAtP5 hμ h fuel).2.1,
     (checkSoundAtP5 hμ h fuel).2.2.1, (checkSoundAtP5 hμ h fuel).2.2.2.1⟩
 
-/-- The io claim at every fuel — the joint induction's fifth
-conjunct. -/
-theorem checkSoundAtIOP (hμ : μ.verifiedChecks = true)
-    {m : EnvS2Core V env} (h : TierInputsAtP V μ m φ) :
-    ∀ fuel : Nat, InferClaimsIO2P μ m φ fuel := fun fuel =>
-  (checkSoundAtP5 hμ h fuel).2.2.2.2
-
 /-- **The env-tier entries, from the fold's invariant**: an `EnvS2PM`
 supplies the readability bundle, the leaf validity, and the numeral
 heads; what remains as arguments is exactly the semantic-content bill

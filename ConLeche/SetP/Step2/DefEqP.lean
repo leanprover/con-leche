@@ -171,12 +171,6 @@ private theorem hoistP_proj {Δa : List AVExpr} {i : Nat} {e : AVExpr}
   ⟨AnnotOk2.hoist_proj (V := V) (fun σ hσ => (h σ hσ).1) ρ hρ,
     (AnnotValidV_proj V ρ i e) ▸ (h ρ hρ).2⟩
 
-private theorem hoistP_app_arg {Δa : List AVExpr} {f a : AVExpr}
-    (h : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ (.app f a)) :
-    ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOkP V ρ a := fun ρ hρ =>
-  ⟨(AnnotOk2.hoist_app (V := V) (fun σ hσ => (h σ hσ).1)).2 ρ hρ,
-    ((AnnotValidV_app V ρ f a) ▸ (h ρ hρ).2).2⟩
-
 /-! ## T1 — the routed definitions -/
 
 /-- The continuation's contract, P currency. -/

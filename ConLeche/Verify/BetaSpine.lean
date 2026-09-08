@@ -483,38 +483,6 @@ theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
   rw [← iotaRec_atF] at h ⊢
   exact (iotaRec mi (fueledFns mode env) env d e).property hle h
 
-theorem inferTypeCore_det {d F₁ F₂ : Nat} {e v₁ v₂ : Expr}
-    (h1 : inferTypeCore mode env F₁ d e = .ok v₁)
-    (h2 : inferTypeCore mode env F₂ d e = .ok v₂) : v₁ = v₂ := by
-  have g1 := inferTypeCore_mono (Nat.le_max_left F₁ F₂) h1
-  have g2 := inferTypeCore_mono (Nat.le_max_right F₁ F₂) h2
-  rw [g1] at g2
-  exact (Except.ok.injEq .. ▸ g2)
-
-theorem isDefEqCore_det {d F₁ F₂ : Nat} {a b : Expr} {r₁ r₂ : Bool}
-    (h1 : isDefEqCore mode env F₁ d a b = .ok r₁)
-    (h2 : isDefEqCore mode env F₂ d a b = .ok r₂) : r₁ = r₂ := by
-  have g1 := isDefEqCore_mono (Nat.le_max_left F₁ F₂) h1
-  have g2 := isDefEqCore_mono (Nat.le_max_right F₁ F₂) h2
-  rw [g1] at g2
-  exact (Except.ok.injEq .. ▸ g2)
-
-theorem whnfCore_det {d F₁ F₂ : Nat} {e v₁ v₂ : Expr}
-    (h1 : whnfCore mode env F₁ d e = .ok v₁)
-    (h2 : whnfCore mode env F₂ d e = .ok v₂) : v₁ = v₂ := by
-  have g1 := whnfCore_mono (Nat.le_max_left F₁ F₂) h1
-  have g2 := whnfCore_mono (Nat.le_max_right F₁ F₂) h2
-  rw [g1] at g2
-  exact (Except.ok.injEq .. ▸ g2)
-
-theorem iotaRec_det {d F₁ F₂ : Nat} {e : Expr} {o₁ o₂ : Option Expr}
-    (h1 : iotaRec mi (pureFns mode env F₁) env d e = .ok o₁)
-    (h2 : iotaRec mi (pureFns mode env F₂) env d e = .ok o₂) : o₁ = o₂ := by
-  have g1 := iotaRec_mono (Nat.le_max_left F₁ F₂) h1
-  have g2 := iotaRec_mono (Nat.le_max_right F₁ F₂) h2
-  rw [g1] at g2
-  exact (Except.ok.injEq .. ▸ g2)
-
 /-- `whnfCore` is the identity on a lambda (at nonzero fuel). -/
 theorem whnfCore_lam (F d : Nat) (ty body : Expr)
     (mb : BinderMeta) :
@@ -1415,18 +1383,6 @@ theorem inferStep_mono {d : Nat} {tf a : Expr} {F F' : Nat}
     inferStep (pureFns mode env F') d tf a = .ok res := by
   rw [← inferStep_atF] at h ⊢
   exact (inferStep (fueledFns mode env) d tf a).property hle h
-
-theorem whnf_mono' {d : Nat} {e : Expr} {F F' : Nat} (hle : F ≤ F')
-    {res : Expr} (h : whnf mode env F d e = .ok res) :
-    whnf mode env F' d e = .ok res := whnf_mono hle h
-
-theorem whnf_det {d F₁ F₂ : Nat} {e v₁ v₂ : Expr}
-    (h1 : whnf mode env F₁ d e = .ok v₁)
-    (h2 : whnf mode env F₂ d e = .ok v₂) : v₁ = v₂ := by
-  have g1 := whnf_mono (Nat.le_max_left F₁ F₂) h1
-  have g2 := whnf_mono (Nat.le_max_right F₁ F₂) h2
-  rw [g1] at g2
-  exact (Except.ok.injEq .. ▸ g2)
 
 /-- `whnf` is the identity on a `∀` (at fuel `≥ 2`: one level for the
 `whnfCore` inside the loop). -/

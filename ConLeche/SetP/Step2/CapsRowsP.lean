@@ -922,28 +922,6 @@ theorem structEtaIrrelP_of_claims {m : EnvS2Core V env}
     hwa hba hLa hCa hwb hbb hLb hCb hwr hbr hLr hCr hda hdb hwtba
     hokA hokB hokW (fun σ hσ => (heqW σ hσ) ▸ hmemB σ hσ) ρ hρ
 
-/-- The frame conditions of an application's two immediate parts —
-`frame_appFnP`'s one-step twin (the unit-like row peels its spine with
-it). -/
-theorem frame_appP {m : EnvS2Core V env} {d : Nat} {Δa : List AVExpr}
-    {f x : Expr} (hw : Expr.WScoped d (.app f x))
-    (hb : (Expr.app f x).looseBVarsBounded 0 = true)
-    (hL : Expr.LeavesBounded (.app f x))
-    (hC : CtxOkP m φ d Δa (.app f x)) :
-    (Expr.WScoped d f ∧ f.looseBVarsBounded 0 = true ∧
-        Expr.LeavesBounded f ∧ CtxOkP m φ d Δa f) ∧
-      (Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
-        Expr.LeavesBounded x ∧ CtxOkP m φ d Δa x) := by
-  obtain ⟨hwf, hwx⟩ : Expr.WScoped d f ∧ Expr.WScoped d x := by
-    simpa [Expr.WScoped] using hw
-  obtain ⟨hbf, hbx⟩ :
-      f.looseBVarsBounded 0 = true ∧ x.looseBVarsBounded 0 = true := by
-    simpa [Expr.looseBVarsBounded, Bool.and_eq_true] using hb
-  exact ⟨⟨hwf, hbf, fun l hl => hL l (by simp [Expr.fvarLeaves, hl]),
-      hC.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl])⟩,
-    ⟨hwx, hbx, fun l hl => hL l (by simp [Expr.fvarLeaves, hl]),
-      hC.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl])⟩⟩
-
 /-! ## The unit-like row (post-repair)
 
 `structEtaIrrelP_of_claims` minus the fabricated spine: both sides'

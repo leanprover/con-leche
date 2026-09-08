@@ -147,23 +147,6 @@ def EnvFacts.swap {env₀ env₃ : Env} (m₀ : EnvFacts env₀)
     rw [← hcg.guardEq]
     exact m₀.nat_op_guard c hmem (by simp [natOpStored, hf₀])
 
-/-- The swap keeps the valuation — definitionally. -/
-theorem EnvFacts.swap_cval {env₀ env₃ : Env} (m₀ : EnvFacts env₀)
-    (hsw : SwapShList env₀.consts env₃.consts) (hwf : EnvWF env₃)
-    (hle : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
-      (rules : List RecRule),
-      env₃.find? n = some (.recInfo cv mI rP rules) →
-      ∀ r ∈ rules, RecRule.fire r ≠ .inert → rP ≤ mI)
-    (hrhs : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
-      (rules : List RecRule),
-      env₃.find? n = some (.recInfo cv mI rP rules) →
-      ∀ r ∈ rules, RecRule.fire r ≠ .inert →
-        ∀ (us : List Level) (ψ : Name → Nat),
-          us.length = cv.levelParams.length →
-          ∃ R, denoteClosed m₀.cval env₃ ψ
-            (r.rhs.instantiateLevelParams cv.levelParams us) = some R) :
-    (m₀.swap hsw hwf hle hrhs).cval = m₀.cval := rfl
-
 /-! ## The swapped environment's four syntactic facts
 
 `EnvFacts.swap` takes `EnvWF env₃` as a hypothesis and needs no

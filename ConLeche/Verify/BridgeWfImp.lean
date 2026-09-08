@@ -39,9 +39,6 @@ theorem wscopedB_of_not_hasFvar {e : Expr} (h : e.hasFvar = false)
     {d : Nat} : e.wscopedB d = true :=
   (WScoped.of_not_hasFvar h).to_wscopedB
 
-theorem WScoped.to_wscopedB' {e : Expr} {d : Nat} (h : WScoped d e) :
-    e.wscopedB d = true := h.to_wscopedB
-
 theorem hasFvar_liftLooseBVars (n : Nat) :
     ∀ (c : Nat) (e : Expr), (e.liftLooseBVars n c).hasFvar = e.hasFvar := by
   intro c e
@@ -2411,19 +2408,6 @@ theorem stripPis_WScoped {d : Nat} :
       rcases List.mem_cons.mp hb with rfl | hb
       · exact hw.1
       · exact hrest b hb
-
-/-- The head domain of a peeled telescope is scoped. -/
-theorem stripPis_head_WScoped {d k : Nat} {e : Expr}
-    {bs : List (Expr × BinderMeta)} {body dom : Expr}
-    (hst : Expr.stripPis k e = some (bs, body)) (hw : WScoped d e)
-    (hd : (bs[0]?).map (·.1) = some dom) : WScoped d dom := by
-  have hb : ∃ b, bs[0]? = some b ∧ b.1 = dom := by
-    revert hd
-    cases hbs : bs[0]? with
-    | none => intro hd; exact nomatch hd
-    | some b => intro hd; exact ⟨b, rfl, Option.some.inj hd⟩
-  obtain ⟨b, hb0, rfl⟩ := hb
-  exact (stripPis_WScoped k hst hw).1 b (List.mem_of_getElem? hb0)
 
 /-- The projection table, `wfOpsM mode` run to pure run (the stage is
 ops-free, task #175 S1). -/

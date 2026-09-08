@@ -1,6 +1,5 @@
 import ConLeche.Verify.Mono
 import ConLeche.Verify.Deep
-import ConLeche.Kernel.TypeCheckerC
 
 /-!
 # The cache-refinement bridge, part A: fueled families
@@ -399,12 +398,6 @@ theorem projLitToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
     (projLitToCtor (fueledFns mode env) env d e).val F =
       projLitToCtor (pureFns mode env F) env d e := by
   unfold projLitToCtor
-  atF_tac2
-
-theorem isPropType_atF (d : Nat) (ty : Expr) (F : Nat) :
-    (isPropType (fueledFns mode env) env d ty).val F =
-      isPropType (pureFns mode env F) env d ty := by
-  unfold isPropType
   atF_tac2
 
 macro "atF_step3" : tactic =>

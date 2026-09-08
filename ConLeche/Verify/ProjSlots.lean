@@ -376,36 +376,6 @@ theorem FvarTysOk.of_not_hasFvar :
     intro h
     exact fvarTysOk_proj.mpr (ihe (by simpa [Expr.hasFvar] using h))
 
-/-- The hereditary predicate implies the input discipline. -/
-theorem ProjSlotsOk.fvarTysOk : ∀ e : Expr, ProjSlotsOk env e → FvarTysOk env e := by
-  intro e
-  induction e with
-  | bvar j => intro _; simp
-  | sort u => intro _; simp
-  | const n us => intro _; simp
-  | lit l => intro _; simp
-  | fvar idx ty _ => intro h; rw [projSlotsOk_fvar] at h; exact fvarTysOk_fvar.mpr h
-  | app f a ihf iha =>
-    intro h
-    rw [projSlotsOk_app] at h
-    exact fvarTysOk_app.mpr ⟨ihf h.1, iha h.2⟩
-  | lam ty b m ihty ihb =>
-    intro h
-    rw [projSlotsOk_lam] at h
-    exact fvarTysOk_lam.mpr ⟨ihty h.1, ihb h.2⟩
-  | forallE ty b m ihty ihb =>
-    intro h
-    rw [projSlotsOk_forallE] at h
-    exact fvarTysOk_forallE.mpr ⟨ihty h.1, ihb h.2⟩
-  | letE t v b iht ihv ihb =>
-    intro h
-    rw [projSlotsOk_letE] at h
-    exact fvarTysOk_letE.mpr ⟨iht h.1, ihv h.2.1, ihb h.2.2⟩
-  | proj s j e ihe =>
-    intro h
-    rw [projSlotsOk_proj] at h
-    exact fvarTysOk_proj.mpr (ihe h.2)
-
 /-- Every fvar leaf of a `ProjSlotsOk` expression carries a
 `ProjSlotsOk` type. -/
 theorem ProjSlotsOk.fvarLeaves :
@@ -458,47 +428,6 @@ theorem ProjSlotsOk.fvarLeaves :
     rw [projSlotsOk_proj] at h
     rw [Expr.fvarLeaves] at hl
     exact ihe h.2 l hl
-
-/-- The input discipline, from the fvar leaves alone. -/
-theorem FvarTysOk.of_fvarLeaves :
-    ∀ e : Expr, (∀ l ∈ e.fvarLeaves, ProjSlotsOk env l.2) →
-      FvarTysOk env e := by
-  intro e
-  induction e with
-  | bvar j => intro _; simp
-  | sort u => intro _; simp
-  | const n us => intro _; simp
-  | lit l => intro _; simp
-  | fvar idx ty _ =>
-    intro h
-    exact fvarTysOk_fvar.mpr (h (idx, ty) (by rw [Expr.fvarLeaves]; exact List.mem_cons_self))
-  | app f a ihf iha =>
-    intro h
-    refine fvarTysOk_app.mpr ⟨ihf ?_, iha ?_⟩ <;>
-      · intro l hl
-        exact h l (by rw [Expr.fvarLeaves, List.mem_append]; first | exact Or.inl hl | exact Or.inr hl)
-  | lam ty b m ihty ihb =>
-    intro h
-    refine fvarTysOk_lam.mpr ⟨ihty ?_, ihb ?_⟩ <;>
-      · intro l hl
-        exact h l (by rw [Expr.fvarLeaves, List.mem_append]; first | exact Or.inl hl | exact Or.inr hl)
-  | forallE ty b m ihty ihb =>
-    intro h
-    refine fvarTysOk_forallE.mpr ⟨ihty ?_, ihb ?_⟩ <;>
-      · intro l hl
-        exact h l (by rw [Expr.fvarLeaves, List.mem_append]; first | exact Or.inl hl | exact Or.inr hl)
-  | letE t v b iht ihv ihb =>
-    intro h
-    refine fvarTysOk_letE.mpr ⟨iht ?_, ihv ?_, ihb ?_⟩
-    · intro l hl
-      exact h l (by rw [Expr.fvarLeaves, List.mem_append, List.mem_append]; exact Or.inl (Or.inl hl))
-    · intro l hl
-      exact h l (by rw [Expr.fvarLeaves, List.mem_append, List.mem_append]; exact Or.inl (Or.inr hl))
-    · intro l hl
-      exact h l (by rw [Expr.fvarLeaves, List.mem_append]; exact Or.inr hl)
-  | proj s j e ihe =>
-    intro h
-    exact fvarTysOk_proj.mpr (ihe fun l hl => h l (by rw [Expr.fvarLeaves]; exact hl))
 
 /-- Instantiation keeps the input discipline when the substituted term
 has it. -/

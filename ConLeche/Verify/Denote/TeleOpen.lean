@@ -1,5 +1,4 @@
 import ConLeche.Verify.Denote.Rename
-import ConLeche.Verify.Denote.SubstAlgebra
 import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.InferLemmas
 
@@ -83,15 +82,6 @@ theorem instSeq_mkAppN : ∀ (as : List VExpr) (t : Nat) (f : VExpr)
     rw [mkAppN_cons, ih, instSeq_app]
     rfl
 
-/-- Instantiation distributes over an application spine. -/
-theorem inst_mkAppN : ∀ (args : List VExpr) (f a : VExpr) (k : Nat),
-    (mkAppN f args).inst a k =
-      mkAppN (f.inst a k) (args.map (·.inst a k)) := by
-  intro args
-  induction args with
-  | nil => intro f a k; rfl
-  | cons x xs ih => intro f a k; rw [mkAppN_cons, ih]; rfl
-
 /-- Under a binder the cut steps up — the transcription of
 `Expr.instSeq_forallE`, with the same side condition. -/
 theorem instSeq_pi : ∀ (as : List VExpr) (t : Nat) (A B : VExpr),
@@ -110,30 +100,6 @@ theorem instSeq_pi : ∀ (as : List VExpr) (t : Nat) (A B : VExpr),
     | nil => rfl
     | cons y ys => rw [show t - 1 + 1 = t + 1 - 1 from by simp at hlen; omega]
 
-/-- Instantiating the variables a lift just introduced, one per
-argument: each absorbs one unit of the lift. -/
-theorem instSeq_liftN : ∀ (as : List VExpr) (t : Nat) (a : VExpr),
-    as.length ≤ t + 1 → instSeq as t (liftN (t + 1) a 0) =
-      liftN (t + 1 - as.length) a 0 := by
-  intro as
-  induction as with
-  | nil => intro t a _; simp
-  | cons x xs ih =>
-    intro t a hlen
-    simp only [List.length_cons] at hlen
-    rw [instSeq_cons, inst_liftN_absorb a (Nat.zero_le t) (by omega) x]
-    cases xs with
-    | nil => simp [instSeq_nil]
-    | cons y ys =>
-      simp only [List.length_cons] at hlen
-      have ht : t - 1 + 1 = t := by omega
-      have h := ih (t - 1) a (by simp only [List.length_cons]; omega)
-      rw [ht] at h
-      rw [h]
-      simp only [List.length_cons]
-      congr 1
-      omega
-
 /-- A variable below the substituted range is untouched. -/
 theorem instSeq_bvar_lt : ∀ (as : List VExpr) (t j : Nat),
     j + as.length ≤ t → instSeq as t (.bvar j) = .bvar j := by
@@ -145,48 +111,6 @@ theorem instSeq_bvar_lt : ∀ (as : List VExpr) (t j : Nat),
     simp only [List.length_cons] at hlen
     rw [instSeq_cons, inst_bvar, if_pos (by omega)]
     exact ih (t - 1) j (by omega)
-
-/-- **Resolving a variable in the substituted range.**  With `k`
-arguments at cuts `c + k - 1 … c`, the variable `c + i` becomes the
-`i`-th argument *counted from the innermost*, lifted past the `c`
-binders the residual sits under.
-
-The lift is not noise: the consumer instantiates those `c` binders
-next, and `inst_liftN_absorb` removes exactly one unit per binder. -/
-theorem instSeq_bvar_hit : ∀ (as : List VExpr) (c i : Nat) (x : VExpr),
-    as[as.length - 1 - i]? = some x → i < as.length →
-    instSeq as (c + as.length - 1) (.bvar (c + i)) = liftN c x 0 := by
-  intro as
-  induction as with
-  | nil => intro c i x _ h; simp at h
-  | cons a as ih =>
-    intro c i x hx hi
-    simp only [List.length_cons] at hi
-    have hlen : c + (as.length + 1) - 1 = c + as.length := by omega
-    by_cases hin : i = as.length
-    · subst hin
-      simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_self,
-        List.getElem?_cons_zero, Option.some.injEq] at hx
-      subst hx
-      rw [List.length_cons, hlen, instSeq_cons, inst_bvar,
-        if_neg (by omega), if_pos rfl]
-      rcases Nat.eq_zero_or_pos (c + as.length) with h0 | h0
-      · have hc : c = 0 := by omega
-        have hl : as.length = 0 := by omega
-        rw [hc, List.eq_nil_of_length_eq_zero hl]
-        simp
-      · obtain ⟨m, hm⟩ : ∃ m, c + as.length = m + 1 :=
-          ⟨c + as.length - 1, by omega⟩
-        rw [hm, show m + 1 - 1 = m from by omega,
-          instSeq_liftN as m a (by omega)]
-        congr 1
-        omega
-    · have hilt : i < as.length := by omega
-      rw [List.length_cons, hlen, instSeq_cons, inst_bvar, if_pos (by omega)]
-      refine ih c i x ?_ hilt
-      simp only [List.length_cons] at hx
-      rw [show as.length + 1 - 1 - i = (as.length - 1 - i) + 1 from by omega] at hx
-      simpa using hx
 
 end VExpr
 end ConLeche.VExpr

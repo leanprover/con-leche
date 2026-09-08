@@ -124,13 +124,6 @@ theorem qrep_spec {u : Nat} {A R q : V} (hq : q ∈ˢ quotSet u A R) :
   rw [dif_pos (quotClass_surj hq)]
   exact Classical.choose_spec (quotClass_surj hq)
 
-/-- The lift of `f` to the quotient: the abstraction (over the
-quotient) of `f` at representatives.  The collapse op `lamC` subsumes
-the old explicit `pt` tag — a `pt`-valued `f` gives all-`pt` lift
-values, which collapse to `pt` by themselves. -/
-noncomputable def quotLift (u : Nat) (_v : Nat) (A R f : V) : V :=
-  lamC (quotSet u A R) (fun q => app f (qrep u A R q))
-
 /-- The invariance premise extends from the base relation to its
 equivalence closure. -/
 theorem app_eq_of_rel {A R f a b : V}
@@ -157,31 +150,6 @@ theorem app_eq_of_quotClass_eq {u : Nat} {A R f a b : V}
     rw [univ_zero] at hA
     rw [eq_pt_of_mem_univZero hA ha, eq_pt_of_mem_univZero hA hb]
   · exact app_eq_of_rel hinv (rel_of_qclass_eq ha hb hq)
-
-/-- Pointwise beta for the lift at any quotient member (the collapse
-op's premise-free beta; task #100). -/
-theorem quotLift_app {u v : Nat} {A R f q : V} (hq : q ∈ˢ quotSet u A R) :
-    app (quotLift u v A R f) q = app f (qrep u A R q) := by
-  unfold quotLift
-  exact app_lamC hq
-
-theorem quotLift_beta {u v : Nat} {A R f a : V} (hA : A ∈ˢ (univ u : V))
-    (ha : a ∈ˢ A)
-    (hinv : ∀ a' b', a' ∈ˢ A → b' ∈ˢ A → (∃ w, w ∈ˢ app (app R a') b') →
-      app f a' = app f b') :
-    app (quotLift u v A R f) (quotClass u A R a) = app f a := by
-  unfold quotLift
-  rw [app_lamC (quotClass_mem ha)]
-  obtain ⟨hrep, hcls⟩ := qrep_spec (quotClass_mem (u := u) (R := R) ha)
-  exact app_eq_of_quotClass_eq hA hrep ha hinv hcls.symm
-
-theorem quotLift_mem {u v : Nat} {A R f B : V} (_hA : A ∈ˢ (univ u : V))
-    (hf : f ∈ˢ pi v A (fun _ => B))
-    (_hinv : ∀ a b, a ∈ˢ A → b ∈ˢ A → (∃ w, w ∈ˢ app (app R a) b) →
-      app f a = app f b) :
-    quotLift u v A R f ∈ˢ pi v (quotSet u A R) (fun _ => B) := by
-  unfold quotLift
-  exact lamC_mem fun q hq => app_mem_piC hf (qrep_spec hq).1
 
 /-! ## pt-freshness refutation evidence (task #109)
 
@@ -224,6 +192,6 @@ theorem quotSet_eq_pt_countermodel :
     exact ⟨empty, empty_mem_ptTag, (hclass empty empty_mem_ptTag).symm⟩
 
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
-attribute [irreducible] quotSet quotClass quotLift
+attribute [irreducible] quotSet quotClass
 
 end ConLeche.SetTheory

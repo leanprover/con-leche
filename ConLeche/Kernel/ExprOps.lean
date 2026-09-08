@@ -738,9 +738,6 @@ def sizeB : Expr → Nat
   | .letE ty val body => sizeB ty + sizeB val + sizeB body + 1
   | .proj _ _ e => sizeB e + 1
 
-theorem sizeB_pos (e : Expr) : 0 < sizeB e := by
-  cases e <;> simp [sizeB]
-
 /-- Instantiating with a size-1 replacement preserves `sizeB`. -/
 theorem sizeB_instantiate1 (v : Expr) (hv : sizeB v = 1) :
     ∀ (e : Expr) (d : Nat), sizeB (instantiate1 e v d) = sizeB e := by

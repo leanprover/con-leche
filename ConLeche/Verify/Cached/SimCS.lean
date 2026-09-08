@@ -56,12 +56,6 @@ section Runners
 
 variable {env : Env} {s₀ : CState}
 
-private theorem fueledM_bind_pure {α : Type} (x : FueledM α) :
-    x >>= pure = x := by
-  refine Subtype.ext (funext fun F => ?_)
-  show x.val F >>= pure = x.val F
-  cases x.val F <;> rfl
-
 /-- Generic unary shared-runner simulation: convert in, run the
 simulated knot entry, convert back. -/
 theorem opE_sim {pick : CoreFnsI → Nat → ExprC → CheckCM ExprC}

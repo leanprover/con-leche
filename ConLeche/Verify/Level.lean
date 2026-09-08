@@ -336,30 +336,6 @@ theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
     ∀ φ, eval φ l = eval φ r :=
   isEquiv_sound' h
 
-/-- `isNonZero` is conservative: a positive answer means nonzero under
-every level assignment. -/
-theorem isNonZero_sound : ∀ {u : Level}, u.isNonZero = true → ∀ φ, u.eval φ ≠ 0 := by
-  intro u
-  induction u with
-  | zero => simp [isNonZero]
-  | succ v ih => intro _ φ; simp [eval]
-  | max a b iha ihb =>
-    intro h φ
-    simp only [isNonZero, Bool.or_eq_true] at h
-    simp only [eval]
-    rcases h with h | h
-    · have := iha h φ; omega
-    · have := ihb h φ; omega
-  | imax a b iha ihb =>
-    intro h φ
-    simp only [isNonZero] at h
-    have := ihb h φ
-    simp only [eval]
-    split
-    · omega
-    · omega
-  | param n => simp [isNonZero]
-
 
 /-! ## Substitution under pointwise-equal evaluations
 

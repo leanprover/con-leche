@@ -18,15 +18,6 @@ open ConLeche.Cached.ExprC
 
 variable {mode : CheckMode}
 
-/-- Scope inversion at an `app` node, phrased on the erasure (the
-`DiscC` replacement for the interned walks' `simp only [WScoped] at`
-steps, which had a denoted `Expr` to unfold). -/
-private theorem wscoped_appC_inv {d : Nat} {fn arg : ExprC}
-    (hw : Expr.WScoped d ((Expr.app fn arg))) :
-    Expr.WScoped d fn ∧ Expr.WScoped d arg := by
-  have hw' : Expr.WScoped d (.app fn arg) := hw
-  simpa only [Expr.WScoped] using hw'
-
 section Walks
 
 variable {env : Env} {f : Nat}

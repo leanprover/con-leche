@@ -228,23 +228,6 @@ theorem strLitSupported_inv {env : Env} (hs : strLitSupported env = true) :
       rw [heqTC, hC.1.1.1.1, hC.1.1.1.2, hC.1.1.2, hC.1.2, hC.2]⟩
   · exact ⟨mbF, by rw [heqTF, hF2.1, hF2.2]⟩
 
-/-- The string-literal guard only reads the pinned slots
-(`strLitNames`). -/
-theorem strLitSupported_congr {env₁ env₂ : Env}
-    (hNat : env₁.find? natName = env₂.find? natName)
-    (hZero : env₁.find? natZeroName = env₂.find? natZeroName)
-    (hSucc : env₁.find? natSuccName = env₂.find? natSuccName)
-    (hS : env₁.find? stringName = env₂.find? stringName)
-    (hO : env₁.find? stringOfListName = env₂.find? stringOfListName)
-    (hL : env₁.find? listName = env₂.find? listName)
-    (hN : env₁.find? listNilName = env₂.find? listNilName)
-    (hC : env₁.find? listConsName = env₂.find? listConsName)
-    (hH : env₁.find? charName = env₂.find? charName)
-    (hF : env₁.find? charOfNatName = env₂.find? charOfNatName) :
-    strLitSupported env₁ = strLitSupported env₂ := by
-  unfold strLitSupported
-  rw [natLitSupported_congr hNat hZero hSucc, hS, hO, hL, hN, hC, hH, hF]
-
 /-- Every stored non-reserved eta-capable type former's constructor is
 stored, at exactly the capability record's arities.  **Not** an
 `EnvModel` clause: inside a block's install derivation the former is

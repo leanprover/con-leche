@@ -104,15 +104,6 @@ theorem FieldsOkB.toBound {w : Nat} (hw : w ≠ 0) :
   | _ :: Fs, _, h =>
     ⟨h.2.1 hw, fun a ha => FieldsOkB.toBound hw (Fs := Fs) (h.2.2 a ha)⟩
 
-/-- The graded chain, with the bound supplied in both regimes. -/
-theorem FieldsOkB.of_bound {w : Nat} :
-    ∀ {Fs : List AVExpr} {ρ : Nat → V},
-      FieldsOkB w ρ Fs → (w = 0 → FieldsBound 0 ρ Fs) → FieldsBound w ρ Fs
-  | _, _, h, h0 => by
-    by_cases hw : w = 0
-    · subst hw; exact h0 rfl
-    · exact h.toBound hw
-
 /-! ## The squash spelling's interpretation -/
 
 theorem exists_mem_truthVal {p : Prop} :

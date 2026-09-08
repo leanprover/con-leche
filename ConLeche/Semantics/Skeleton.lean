@@ -101,19 +101,6 @@ theorem sound_sort (ρ : Nat → V) (u : Nat) :
   rw [interp2_sort, interp2_sort]
   exact univ_mem_univ u
 
-/-- **`prf`.**  Interface facts: the type is a proposition (the
-`Prop`-ness of an equation's type, or of whatever the run's certificate
-established).  Proof irrelevance is definitional here: `pt` inhabits
-every inhabited truth value. -/
-theorem sound_prf {ρ : Nat → V} {Ta : AVExpr}
-    (hT : interp2 V ρ Ta ∈ˢ (univZero : V))
-    (hinh : ∃ y, y ∈ˢ interp2 V ρ Ta) :
-    AnnotOk2 V ρ .prf ∧ interp2 V ρ .prf ∈ˢ interp2 V ρ Ta := by
-  obtain ⟨y, hy⟩ := hinh
-  refine ⟨by simp, ?_⟩
-  rw [interp2_prf]
-  exact eq_pt_of_mem_univZero hT hy ▸ hy
-
 /-- **`bvar`.**  Interface fact: the annotated context's satisfaction
 (`Sat2`), which is the context currency the graded soundness threads. -/
 theorem sound_bvar {Δa : List AVExpr} {ρ : Nat → V} {i : Nat}
@@ -227,17 +214,6 @@ theorem sound_letE {ρ : Nat → V} {Ta va ba Ba : AVExpr}
   rw [interp2_letE]
   exact hb
 
-/-- **`eqE`.**  Interface facts: the two sides' hereditary halves.  An
-equation is a proposition whatever its (semantically inert) type
-slot. -/
-theorem sound_eqE {ρ : Nat → V} {Ta aa ba : AVExpr}
-    (hoka : AnnotOk2 V ρ aa) (hokb : AnnotOk2 V ρ ba) :
-    AnnotOk2 V ρ (.eqE Ta aa ba) ∧
-      interp2 V ρ (.eqE Ta aa ba) ∈ˢ interp2 V ρ (.sort 0) := by
-  refine ⟨by rw [AnnotOk2_eqE]; exact ⟨hoka, hokb⟩, ?_⟩
-  rw [interp2_eqE, interp2_sort]
-  exact eqv_mem_univ _ _
-
 /-! ## The projection rows
 
 The `Σ`-eliminations, general in the fibre family (`Interp2/Value.lean`
@@ -287,17 +263,5 @@ theorem sound_proj_fst {ρ : Nat → V} {ea : AVExpr}
   refine ⟨u, A, hA, ?_⟩
   rw [interp2_proj, if_pos rfl]
   exact sfst_mem_gen V hA hp
-
-/-- **`proj 1`.**  Ditto, at the dependent fibre. -/
-theorem sound_proj_snd {ρ : Nat → V} {ea : AVExpr}
-    (hok : AnnotOk2 V ρ (.proj 1 ea)) :
-    ∃ (v : Nat) (Bf : V → V),
-      interp2 V ρ (.proj 1 ea) ∈ˢ Bf (sfst (interp2 V ρ ea)) ∧
-      Bf (sfst (interp2 V ρ ea)) ∈ˢ (univ v : V) := by
-  rw [AnnotOk2_proj] at hok
-  obtain ⟨-, -, u, v, A, Bf, hp, hA, hB⟩ := hok
-  refine ⟨v, Bf, ?_, hB _ (sfst_mem_gen V hA hp)⟩
-  rw [interp2_proj]
-  simpa using ssnd_mem_gen V hA hB hp
 
 end ConLeche.Semantics

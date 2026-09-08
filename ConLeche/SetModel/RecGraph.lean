@@ -92,8 +92,6 @@ theorem recGraphStep_closed (hB : ∀ i, i ∈ˢ I → B i ∈ˢ (univ ℓ : V))
   rw [app_graph hi]
   exact (mem_recGraphFibre.mp hv).1
 
-theorem recGraph_mem : recGraph ℓ I pred B st ∈ˢ famSpace ℓ I := lfpFamSet_mem _ _ _
-
 /-- **The fixed-point equation**, fibrewise. -/
 theorem app_recGraph_eq (hB : ∀ i, i ∈ˢ I → B i ∈ˢ (univ ℓ : V))
     (hpred : ∀ i, i ∈ˢ I → pred i ⊆ˢ I) {i : V} (hi : i ∈ˢ I) :

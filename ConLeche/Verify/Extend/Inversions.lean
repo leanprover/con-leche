@@ -36,12 +36,6 @@ theorem fueledOps_ensureSort (F : Nat) (env : Env) (d : Nat) (e : Expr) :
 theorem fueledOps_whnf (F : Nat) (env : Env) (d : Nat) (e : Expr) :
     (fueledOps mode F).whnf env d e = ConLeche.whnf mode env F d e := rfl
 
-theorem find?_none_ne {env : Env} {n : Name} (h : env.find? n = none) :
-    ∀ c ∈ env.consts, c.name ≠ n := by
-  intro c hc
-  have := List.find?_eq_none.mp h c hc
-  simpa using this
-
 /-- Inversion for `checkConstantVal`. -/
 theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     (h : checkConstantVal (fueledOps mode F) env cv = .ok cv') :

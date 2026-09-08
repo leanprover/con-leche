@@ -202,17 +202,6 @@ theorem indRecsFoldRun_mono {μ : CheckMode} {F : Nat}
     · rfl
     · exact hn
 
-/-- The recursor group only extends the environment, run half. -/
-theorem indRecsRun_mono {μ : CheckMode} {F : Nat}
-    {blockNames : List Name} {env₂ env₃ : Env}
-    {recs : List ConstantInfo}
-    (h : IndRecsRun μ F blockNames env₂ recs env₃) :
-    ∀ n, (env₂.find? n).isSome = true →
-      (env₃.find? n).isSome = true := by
-  rcases h with ⟨-, rfl⟩ | ⟨-, -, envSelf, checked, -, hfold⟩
-  · exact fun n hn => hn
-  · exact indRecsFoldRun_mono checked hfold
-
 /-- No group member is stored before the group phase runs, run half. -/
 theorem indRecsRun_fresh {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}
@@ -264,32 +253,6 @@ theorem provisionRecsRunS_mem {μ : CheckMode} {F : Nat}
     intro envAcc envSelf checked h c hc
     obtain ⟨cvA, mI, rP, rules, rest', -, -, hprov', -⟩ := h
     exact ih hprov' c (List.mem_cons_of_mem _ hc)
-
-/-- Each provisioned member is stored rule-less in the self
-environment, run half. -/
-theorem provisionRecsRunS_entries {μ : CheckMode} {F : Nat}
-    {blockNames : List Name} :
-    ∀ (recs : List ConstantInfo) {envAcc envSelf : Env}
-      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
-      ProvisionRecsRun μ F blockNames envAcc recs envSelf checked →
-      ∀ c ∈ checked,
-        envSelf.find? c.1.name
-          = some (.recInfo c.1 c.2.1 c.2.2.1 []) ∧
-        reservedBasisNames.contains c.1.name = false := by
-  intro recs
-  induction recs with
-  | nil =>
-    intro envAcc envSelf checked h c hc
-    obtain ⟨-, rfl⟩ := h
-    exact nomatch hc
-  | cons ci₀ rest ih =>
-    intro envAcc envSelf checked h c hc
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hrec, rfl⟩ := h
-    obtain ⟨type', ⟨-, hres, -, -, -, -, -, -, -, -⟩, rfl, -⟩ := hmv
-    rcases List.mem_cons.mp hc with rfl | hc'
-    · exact ⟨provisionRecsRunS_mono rest hrec _ _
-        (Env.find?_cons_self (.recInfo _ mI rP []) envAcc), hres⟩
-    · exact ih hrec c hc'
 
 /-! ## The member fold's syntactic residue -/
 

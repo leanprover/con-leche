@@ -98,10 +98,6 @@ read is the datum alone. -/
     CheckMode.verifiedChecks .trusted = false := rfl
 @[simp] theorem certs_verified : CheckMode.certs .verified = true := rfl
 @[simp] theorem certs_trusted : CheckMode.certs .trusted = false := rfl
-/-- The io-grade knot slot is the io body at every mode (the licence
-ruling of 2026-09-06); `rfl` at a variable mode, as the definition is a
-wildcard. -/
-theorem ioGate_eq_true : mode.ioGate = true := rfl
 /-- The TT-lane residue is off at every mode (task #148 T7b). -/
 theorem ttChecks_eq_false : mode.ttChecks = false := rfl
 

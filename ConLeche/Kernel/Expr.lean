@@ -212,12 +212,6 @@ theorem bvarOfData_lt (w : UInt64) : (bvarOfData w).toNat < 32768 := by
 theorem fvarOfData_lt (w : UInt64) : (fvarOfData w).toNat < 32768 := by
   simp [fvarOfData, UInt64.toNat_mod]; omega
 
-theorem hashOfData_lt (w : UInt64) : (hashOfData w).toNat < 4294967296 := by
-  have hs := UInt64.toNat_lt_size w
-  simp only [UInt64.size] at hs
-  simp [hashOfData, UInt64.toNat_div]
-  omega
-
 theorem satSucc_lt (n : Nat) : (satSucc n).toNat < 32768 := by
   simp [satSucc, satRange]; omega
 
@@ -286,9 +280,6 @@ theorem hashOfData_pack (h b f : UInt64) (lp : Bool)
   · simp [hashOfData, hash32, packData, UInt64.toNat_add, UInt64.toNat_mul,
       UInt64.toNat_div, UInt64.toNat_mod]
     omega
-
-theorem hash32_lt (w : UInt64) : (hash32 w).toNat < 4294967296 := by
-  simp [hash32, UInt64.toNat_mod]; omega
 
 /-- Kernel expressions.
 

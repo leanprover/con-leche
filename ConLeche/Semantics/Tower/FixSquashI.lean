@@ -37,21 +37,6 @@ theorem shiftE_fieldFrame {o : Nat} {ρp : Nat → V} {M : V} {ms : List V} (hms
   rw [← consList_append, ← List.length_append, shiftE_consList_len, ← hms,
     shiftE_consList_add, shiftE_succ_cons, shiftE_zero_zero, consList_append]
 
-/-- Field `i`'s index expression, moved to the ih binder's frame, reads
-at the field's own frame. -/
-theorem interp_ihIdxAt {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
-    (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
-    (hi : i ≤ nF) (E : AVExpr) :
-    interp2 V (consList ihs (consList fs (consList ms (cons M ρp)))) (ihIdxAt nF o i l E)
-      = interp2 V (consList (fs.take i) ρp) E := by
-  unfold ihIdxAt
-  rw [interp2_liftN, show nF + l = fs.length + ihs.length from by omega, shiftE_fieldFrame hms,
-    interp2_liftN, ← consList_append]
-  have hsplit : fs ++ ihs = fs.take i ++ (fs.drop i ++ ihs) := by
-    rw [← List.append_assoc, List.take_append_drop]
-  rw [hsplit, consList_append, show nF - i + l = (fs.drop i ++ ihs).length from by
-    rw [List.length_append, List.length_drop]; omega, shiftE_consList]
-
 /-- `ihIdxAtM` under `as` telescope values reads the field's
 expression at the field's own frame under those values. -/
 theorem interp_ihIdxAtM {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
@@ -322,7 +307,6 @@ theorem minorSpI_appChainOk {ℓ : Nat} {c : List V → V}
       · simpa only [List.getD_cons_succ] using h2
 
 
-
 theorem AnnotOk2_ihIdxAtM {nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : List V}
     (hms : ms.length + 1 = o) {fs ihs : List V} (hfs : fs.length = nF) (hihs : ihs.length = l)
     (hi : i ≤ nF) (as : List V) (E : AVExpr) :
@@ -381,7 +365,6 @@ theorem fieldsOkB_ihTeleAtGo {w nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : 
       (by rw [← consList_snoc']; exact hrest a ha)
     rw [length_snoc'] at this
     exact this
-
 
 
 /-- A graded telescope walks. -/
@@ -774,20 +757,6 @@ noncomputable def sqGraph (ℓ u : Nat) (ρp : Nat → V) (M : V) (Ids : List AV
     (src : List (Option Nat)) (m : V) : V :=
   recGraph ℓ (idxSet u ρp Ids) (sqPred u ρp Ids rs tls Eis nF src) (sqB u Ids.length M)
     (sqSt ℓ u ρp Ids rs tls Eis nF src m)
-
-/-- The recursor's value at a tuple: the graph's element (the point off
-the family). -/
-noncomputable def sqR (ℓ u : Nat) (ρp : Nat → V) (M : V) (Ids : List AVExpr) (rs : List Bool)
-    (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) (nF : Nat)
-    (src : List (Option Nat)) (m : V) (t : V) : V :=
-  open Classical in
-  if h : ∃ v, v ∈ˢ SetTheory.app (sqGraph ℓ u ρp M Ids rs tls Eis nF src m) t then
-    Classical.choose h else pt
-
-theorem sqPred_subset (u : Nat) (ρp : Nat → V) (Ids : List AVExpr) (rs : List Bool)
-    (tls : List (List (Nat × Nat × AVExpr))) (Eis : List (List AVExpr)) (nF : Nat)
-    (src : List (Option Nat)) (t : V) : sqPred u ρp Ids rs tls Eis nF src t ⊆ˢ idxSet u ρp Ids :=
-  sep_subset
 
 /-! ## The recursion theorem at the family -/
 

@@ -271,42 +271,6 @@ variable {s₀ : CState}
 private theorem modifyGetC_run {α : Type} (f : CState → α × CState)
     (s : CState) : (modifyGet f : CheckCM α) s = .ok (f s) := rfl
 
-theorem simplifyLM_eff (hs : CSOK mode env s₀) (u : Level) :
-    CEff mode env s₀ (fun v => v = Level.simplify u) (simplifyLM u) := by
-  intro v' s' hr
-  unfold simplifyLM at hr
-  rw [modifyGetC_run] at hr
-  dsimp only at hr
-  cases hc : s₀.lsimpC[u]? with
-  | some r =>
-    rw [hc] at hr
-    injection hr with h1
-    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-    exact ⟨hs, hs.lsimp u _ hc⟩
-  | none =>
-    rw [hc] at hr
-    injection hr with h1
-    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-    exact ⟨hs.withLsimp (lsimpInv_insert hs.lsimp u), rfl⟩
-
-theorem isNonZeroLM_eff (hs : CSOK mode env s₀) (u : Level) :
-    CEff mode env s₀ (fun b => b = Level.isNonZero u) (isNonZeroLM u) := by
-  intro v' s' hr
-  unfold isNonZeroLM at hr
-  rw [modifyGetC_run] at hr
-  dsimp only at hr
-  cases hc : s₀.lnzC[u]? with
-  | some r =>
-    rw [hc] at hr
-    injection hr with h1
-    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-    exact ⟨hs, hs.lnz u _ hc⟩
-  | none =>
-    rw [hc] at hr
-    injection hr with h1
-    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-    exact ⟨hs.withLnz (lnzInv_insert hs.lnz u), rfl⟩
-
 /-- The inlined `simplify`-with-memo step of `isEquivLM` (the clone's
 counterpart of the interned `simplifyLIGo` call). -/
 private def simplifyMemo (mp : Std.HashMap Level Level) (u : Level) :
@@ -988,17 +952,6 @@ theorem recordCConst_eff (hs : CSOK mode env s₀) {n : Name} {tyE : Expr}
   injection hr with h1
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
   exact ⟨hs.insertIEnv hty hval, trivial⟩
-
-/-- `flushC` as an effect at the *same* environment (the flush only
-drops entries).  The environment *transition* is `flushC_csok`, which
-re-establishes the invariant for any environment from the residue. -/
-theorem flushC_eff (hs : CSOK mode env s₀) :
-    CEff mode env s₀ (fun _ => True) flushC := by
-  intro v' s' hr
-  rw [flushC_run] at hr
-  injection hr with h1
-  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-  exact ⟨flushC_csok hs.residue, trivial⟩
 
 end CacheFill
 

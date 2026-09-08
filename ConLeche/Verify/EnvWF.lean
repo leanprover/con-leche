@@ -26,11 +26,6 @@ theorem projTableName_inj {T T' : Name} (h : projTableName T = projTableName T')
   simp only [projTableName, Name.num.injEq, Name.str.injEq] at h
   exact h.1.1
 
-/-- A table name is never a projection-function name. -/
-theorem projTableName_ne_projFnName (T T' : Name) (i : Nat) :
-    projTableName T ≠ projFnName T' i := by
-  simp [projTableName, projFnName]
-
 /-- Unfold a successful projection-table lookup to the stored table:
 the structure's table is stored, the index is in range, and the entry
 is the table's view at it (task #175 S1). -/
@@ -53,14 +48,6 @@ theorem Env.findProj?_of_table {env : Env} {T : Name} {tbl : ProjTable}
   unfold Env.findProj?
   rw [h]
   exact if_pos hi
-
-/-- The lookup at a stored table, out of range. -/
-theorem Env.findProj?_of_table_ge {env : Env} {T : Name} {tbl : ProjTable}
-    (h : env.find? (projTableName T) = some (.projInfo tbl)) {i : Nat}
-    (hi : ¬ i < tbl.numFields) : env.findProj? T i = none := by
-  unfold Env.findProj?
-  rw [h]
-  exact if_neg hi
 
 /-- No table stored, no entry. -/
 theorem Env.findProj?_none_of_fresh {env : Env} {T : Name}
@@ -317,40 +304,6 @@ theorem Expr.constsResolve_congr {env₁ env₂ : Env}
   | lit l => cases l <;> simp_all [Expr.constsResolve]
   | _ => simp_all [Expr.constsResolve]
 
-/-- λ-tower domains of a resolving term resolve. -/
-theorem Expr.constsResolve_stripLams {env : Env} :
-    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr},
-      e.stripLams k = some (bs, body) → e.constsResolve env = true →
-      (∀ b ∈ bs, (b.1).constsResolve env = true) ∧
-      body.constsResolve env = true := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs body h hres
-    simp only [Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨fun b hb => absurd hb (List.not_mem_nil), hres⟩
-  | succ k ih =>
-    intro e bs body h hres
-    match e, h with
-    | .lam ty b m, h =>
-      simp only [Expr.stripLams] at h
-      cases hs : b.stripLams k with
-      | none => rw [hs] at h; exact nomatch h
-      | some pr =>
-        rw [hs] at h
-        obtain ⟨bs', body'⟩ := pr
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        simp only [Expr.constsResolve, Bool.and_eq_true] at hres
-        obtain ⟨hd, hrest⟩ := ih hs hres.2
-        refine ⟨?_, hrest⟩
-        intro b' hb'
-        rcases List.mem_cons.mp hb' with rfl | hb'
-        · exact hres.1
-        · exact hd b' hb'
-
 /-- Telescope domains of a resolving type resolve. -/
 theorem Expr.constsResolve_stripPis {env : Env} :
     ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
@@ -416,49 +369,6 @@ theorem Expr.stripPis_renameConsts {f : Name → Name} :
         rw [show (Expr.forallE ty b m).renameConsts f =
           .forallE (ty.renameConsts f) (b.renameConsts f) m from rfl]
         simp only [Expr.stripPis, ih hs, Option.map_some, List.map_cons]
-
-/-- Invert `stripPis` across constant renaming: a strip of the renamed
-telescope comes from a strip of the original. -/
-theorem Expr.stripPis_renameConsts_inv {f : Name → Name} :
-    ∀ (k : Nat) {e : Expr} {bs' : List (Expr × BinderMeta)}
-      {body' : Expr},
-      (e.renameConsts f).stripPis k = some (bs', body') →
-      ∃ bs body, e.stripPis k = some (bs, body) ∧
-        bs' = bs.map (fun b => ((b.1).renameConsts f, b.2)) ∧
-        body' = body.renameConsts f := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs' body' h
-    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨[], e, by simp [Expr.stripPis]⟩
-  | succ k ih =>
-    intro e bs' body' h
-    match e, h with
-    | .forallE ty b m, h =>
-      rw [show (Expr.forallE ty b m).renameConsts f =
-        .forallE (ty.renameConsts f) (b.renameConsts f) m from rfl] at h
-      simp only [Expr.stripPis] at h
-      cases hs : (b.renameConsts f).stripPis k with
-      | none => rw [hs] at h; exact nomatch h
-      | some pr =>
-        rw [hs] at h
-        obtain ⟨bs₀, body₀⟩ := pr
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        obtain ⟨bs, body, hstrip, rfl, rfl⟩ := ih hs
-        refine ⟨(ty, m) :: bs, body, ?_, by simp, rfl⟩
-        simp only [Expr.stripPis, hstrip, Option.map_some]
-    | .bvar _, h => exact nomatch h
-    | .fvar _ _, h => exact nomatch h
-    | .sort _, h => exact nomatch h
-    | .const _ _, h => exact nomatch h
-    | .app _ _, h => exact nomatch h
-    | .lam _ _ _, h => exact nomatch h
-    | .letE _ _ _, h => exact nomatch h
-    | .lit _, h => exact nomatch h
-    | .proj _ _ _, h => exact nomatch h
 
 /-- Renaming maps that agree on every stored name rename a resolving
 expression identically. -/

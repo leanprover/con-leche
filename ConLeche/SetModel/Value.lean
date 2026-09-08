@@ -78,9 +78,6 @@ theorem natSuccV2_app {n : V} (hn : n ∈ˢ (omega : V)) :
 theorem natSuccV2_mem : natSuccV2 V ∈ˢ piR 1 (omega : V) fun _ => omega :=
   lamR_mem fun _ hx => natsucc_mem hx
 
-/-- `Nat.succ`'s value is a genuine graph — never the proof point. -/
-theorem natSuccV2_ne_pt : natSuccV2 V ≠ pt := lamR_ne_pt Nat.one_ne_zero
-
 /-! ## `Nat.rec` -/
 
 /-- `Nat → Sort u`, the motive space. -/
@@ -229,15 +226,6 @@ levels are. -/
 theorem psigma_zero_levels {u v : Nat} (h : Nat.max u v = 0) : u = 0 ∧ v = 0 :=
   ⟨Nat.le_zero.mp (h ▸ Nat.le_max_left u v),
    Nat.le_zero.mp (h ▸ Nat.le_max_right u v)⟩
-
-theorem psigmaMkV2_mem {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
-    (hB : B ∈ˢ psigmaFibreSpace V v A) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
-    app (app (app (app (psigmaMkV2 V u v) A) B) a) b ∈ˢ
-      sigmaSet (Nat.max u v) A fun x => app B x := by
-  rw [psigmaMkV2_app V hA hB ha hb]
-  split
-  · next h => rw [h]; exact pt_mem_sigma ha hb
-  · next h => exact spair_mem h ha hb
 
 /-! ### The projections -/
 
@@ -494,9 +482,6 @@ domain, so its value is the empty graph at `v ≠ 0` (and the canonical
 proof at `v = 0`) — **not** unconditionally `pt`. -/
 noncomputable def emptyRecV2 (v : Nat) : V :=
   lamR v (emptyMotiveSpace V v) fun _ => lamR v empty fun _ => empty
-
-theorem emptyRecV2_inner_eq {v : Nat} (hv : v ≠ 0) (F : V → V) :
-    lamR v (empty : V) F = (empty : V) := lamR_pos_empty hv F
 
 theorem emptyRecV2_ne_pt {v : Nat} (hv : v ≠ 0) : emptyRecV2 V v ≠ pt :=
   lamR_ne_pt hv

@@ -72,31 +72,6 @@ theorem instantiate1_instantiate1 {a b : Expr}
   | lit l => intro j k hjk; simp [instantiate1]
   | proj s i e ih => intro j k hjk; simp [instantiate1, ih _ _ hjk]
 
-/-- A stripped telescope's body has no free variables when the
-telescope has none. -/
-theorem stripPis_body_hasFvar :
-    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr},
-      e.stripPis k = some (bs, body) → e.hasFvar = false →
-      body.hasFvar = false := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs body h hf
-    simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at h
-    rw [← h.2]
-    exact hf
-  | succ k ih =>
-    intro e bs body h hf
-    match e, h with
-    | .forallE ty b m, h =>
-      simp only [stripPis, Option.map_eq_some_iff] at h
-      obtain ⟨⟨bs', body'⟩, hb, heq⟩ := h
-      obtain ⟨-, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body := by
-        simpa using heq
-      simp only [hasFvar, Bool.or_eq_false_iff] at hf
-      exact ih hb hf.2
-
 /-- A stripped telescope's body stays loose-bvar-bounded by the strip
 depth. -/
 theorem stripPis_body_bounded :
@@ -363,46 +338,6 @@ theorem liftLooseBVars_instantiate1 {v : Expr}
   | proj sn i pe ih =>
     intro k c j hjc
     simp only [liftLooseBVars, instantiate1, ih hjc]
-
-/-- Renaming constants moves no `fvar` indices. -/
-theorem fvarsBelow_renameConsts {f : Name → Name} :
-    ∀ {e : Expr} {d : Nat}, fvarsBelow d e → fvarsBelow d (e.renameConsts f) := by
-  intro e
-  induction e <;> intro d h <;> simp_all [fvarsBelow, renameConsts]
-
-/-- Erasure-equal expressions have the same `fvar` indices. -/
-theorem fvarsBelow_erasedEq :
-    ∀ {e₁ e₂ : Expr} {d : Nat}, ErasedEq e₁ e₂ → fvarsBelow d e₁ →
-      fvarsBelow d e₂ := by
-  intro e₁
-  induction e₁ with
-  | bvar i => intro e₂ d he _; match e₂, he with
-    | .bvar j, _ => trivial
-  | fvar idx ty => intro e₂ d he hb; match e₂, he with
-    | .fvar j ty', he =>
-      obtain rfl : idx = j := he
-      exact hb
-  | sort u => intro e₂ d he _; match e₂, he with
-    | .sort u', _ => trivial
-  | const n us => intro e₂ d he _; match e₂, he with
-    | .const n' us', _ => trivial
-  | app f a ihf iha => intro e₂ d he hb; match e₂, he with
-    | .app g b, he => exact ⟨ihf he.1 hb.1, iha he.2 hb.2⟩
-  | lam ty body m ihty ihbody => intro e₂ d he hb; match e₂, he with
-    | .lam ty' body' m', he =>
-      exact ⟨ihty he.2.1 hb.1, ihbody he.2.2 hb.2⟩
-  | forallE ty body m ihty ihbody => intro e₂ d he hb; match e₂, he with
-    | .forallE ty' body' m', he =>
-      exact ⟨ihty he.2.1 hb.1, ihbody he.2.2 hb.2⟩
-  | letE ty vl body ihty ihv ihbody => intro e₂ d he hb; match e₂, he with
-    | .letE ty' vl' body', he =>
-      exact ⟨ihty he.1 hb.1, ihv he.2.1 hb.2.1, ihbody he.2.2 hb.2.2⟩
-  | lit l => intro e₂ d he _; match e₂, he with
-    | .lit l', _ => trivial
-  | proj sn i pe ih => intro e₂ d he hb; match e₂, he with
-    | .proj sn' i' pe', he =>
-      show fvarsBelow d pe'
-      exact ih he.2.2 hb
 
 /-- Instantiation distributes over a `∀`-telescope's decomposition:
 each domain is instantiated at its depth-shifted index, the body at
@@ -836,44 +771,6 @@ theorem getAppFn_not_app : ∀ (e f a : Expr), e.getAppFn ≠ .app f a := by
   induction e with
   | app g b ihg ihb => intro f a; exact ihg f a
   | _ => intro f a h; exact nomatch h
-
-/-- Non-applications have no spine arguments. -/
-theorem getAppArgs_of_not_app {e : Expr}
-    (h : ∀ f a, e ≠ .app f a) : e.getAppArgs = [] := by
-  cases e with
-  | app f a => exact absurd rfl (h f a)
-  | _ => rfl
-
-/-- Instantiating with opening variables preserves non-application
-heads. -/
-theorem instSeq_fvars_not_app :
-    ∀ (args : List Expr) (t : Nat) {h : Expr},
-      (∀ a ∈ args, ∃ i ty, a = .fvar i ty) →
-      (∀ f a, h ≠ .app f a) →
-      ∀ f a, instSeq args t h ≠ .app f a := by
-  intro args
-  induction args with
-  | nil => intro t h _ hna f a; exact hna f a
-  | cons x xs ih =>
-    intro t h hfv hna f a
-    obtain ⟨i, ty, rfl⟩ := hfv x List.mem_cons_self
-    refine ih (t - 1) (fun y hy => hfv y (List.mem_cons_of_mem _ hy)) ?_ f a
-    intro f' a'
-    cases h with
-    | bvar j =>
-      simp only [instantiate1]
-      split
-      · intro hc; exact nomatch hc
-      · split <;> (intro hc; exact nomatch hc)
-    | app g b => exact absurd rfl (hna g b)
-    | fvar _ _ => intro hc; exact nomatch hc
-    | sort _ => intro hc; exact nomatch hc
-    | const _ _ => intro hc; exact nomatch hc
-    | lam _ _ _ => intro hc; exact nomatch hc
-    | forallE _ _ _ => intro hc; exact nomatch hc
-    | letE _ _ _ => intro hc; exact nomatch hc
-    | lit _ => intro hc; exact nomatch hc
-    | proj _ _ _ => intro hc; exact nomatch hc
 
 /-- An instantiation sequence is a no-op on bvar-closed expressions. -/
 theorem instSeq_eq_self :
@@ -1438,44 +1335,6 @@ theorem stripLams_instantiate1_fvar_isSome_rev {i : Nat}
     | .lit _ => simp [instantiate1, stripLams] at h
     | .proj _ _ _ => simp [instantiate1, stripLams] at h
 
-/-- Instantiation preserves a λ-tower's binder metadata. -/
-theorem stripLams_instantiate1_meta {v : Expr} :
-    ∀ (k : Nat) {e : Expr} {bs bs' : List (Expr × BinderMeta)}
-      {body body' : Expr} (j : Nat),
-      e.stripLams k = some (bs, body) →
-      (e.instantiate1 v j).stripLams k = some (bs', body') →
-      bs'.map (·.2) = bs.map (·.2) := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs bs' body body' j h1 h2
-    simp only [stripLams, Option.some.injEq, Prod.mk.injEq] at h1 h2
-    obtain ⟨rfl, rfl⟩ := h1
-    obtain ⟨rfl, rfl⟩ := h2
-    rfl
-  | succ k ih =>
-    intro e bs bs' body body' j h1 h2
-    match e, h1 with
-    | .lam d b m, h1 =>
-      simp only [instantiate1, stripLams] at h1 h2
-      cases hs1 : b.stripLams k with
-      | none => rw [hs1] at h1; exact nomatch h1
-      | some p1 =>
-      cases hs2 : (b.instantiate1 v (j + 1)).stripLams k with
-      | none => rw [hs2] at h2; exact nomatch h2
-      | some p2 =>
-      rw [hs1] at h1
-      rw [hs2] at h2
-      simp only [Option.map_some, Option.some.injEq] at h1 h2
-      obtain ⟨hb1, -⟩ : (d, m) :: p1.1 = bs ∧ p1.2 = body := by
-        cases h1; exact ⟨rfl, rfl⟩
-      obtain ⟨hb2, -⟩ :
-          (d.instantiate1 v j, m) :: p2.1 = bs' ∧ p2.2 = body' := by
-        cases h2; exact ⟨rfl, rfl⟩
-      subst hb1 hb2
-      simp only [List.map_cons]
-      rw [ih (j + 1) hs1 hs2]
-
 /-- Peel `instSeq` through a `∀`-binder (the shift index stays in step
 with the remaining arguments). -/
 theorem instSeq_forallE :
@@ -1504,70 +1363,6 @@ theorem instSeq_forallE :
         omega
       rw [ht]
 
-/-- Split the last binder off a `∀`-telescope strip. -/
-theorem stripPis_snoc :
-    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr},
-      e.stripPis (n + 1) = some (bs, body) →
-      ∃ (dx : Expr) (mx : BinderMeta),
-        bs[n]? = some (dx, mx) ∧
-        e.stripPis n = some (bs.take n, .forallE dx body mx) := by
-  intro n
-  induction n with
-  | zero =>
-    intro e bs body h
-    match e, h with
-    | .forallE dx b mx, h =>
-      simp only [stripPis, Option.map_some, Option.some.injEq,
-        Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      exact ⟨dx, mx, rfl, by simp [stripPis]⟩
-  | succ n ih =>
-    intro e bs body h
-    match e, h with
-    | .forallE d₀ b₀ m₀, h =>
-      simp only [stripPis] at h
-      cases hs : b₀.stripPis (n + 1) with
-      | none => rw [hs] at h; exact nomatch h
-      | some pr =>
-        rw [hs] at h
-        obtain ⟨bs', body'⟩ := pr
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        obtain ⟨dx, mx, hbn, hstrip⟩ := ih hs
-        refine ⟨dx, mx, by simpa using hbn, ?_⟩
-        simp only [stripPis, hstrip]
-        rfl
-
-/-- A longer telescope decomposition restricts to a shorter one with
-the binder-list prefix. -/
-theorem stripPis_prefix :
-    ∀ (a b : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr},
-      e.stripPis (a + b) = some (bs, body) →
-      ∃ body', e.stripPis a = some (bs.take a, body') := by
-  intro a
-  induction a with
-  | zero => intro b e bs body h; exact ⟨e, by simp [stripPis]⟩
-  | succ a ih =>
-    intro b e bs body h
-    rw [show a + 1 + b = (a + b) + 1 from by omega] at h
-    match e, h with
-    | .forallE d bo m, h =>
-      simp only [stripPis] at h ⊢
-      cases hs : bo.stripPis (a + b) with
-      | none => rw [hs] at h; exact nomatch h
-      | some p =>
-        rw [hs] at h
-        simp only [Option.map_some, Option.some.injEq] at h
-        obtain ⟨hb, -⟩ : (d, m) :: p.1 = bs ∧ p.2 = body := by
-          cases h; exact ⟨rfl, rfl⟩
-        obtain ⟨body', hbody'⟩ := ih b (bs := p.1) (body := p.2) (by rw [hs])
-        refine ⟨body', ?_⟩
-        rw [hbody']
-        subst hb
-        simp
-
 /-- An instantiation sequence distributes over a single application. -/
 theorem instSeq_app :
     ∀ (args : List Expr) (t : Nat) (f a : Expr),
@@ -1595,20 +1390,6 @@ theorem fvarsBelow_instantiate1_gen {d : Nat} {a : Expr} (ha : fvarsBelow d a) :
     · split <;> simp [fvarsBelow]
 
 
-/-- Reachable-`fvar` bounds carry through an instantiation sequence. -/
-theorem fvarsBelow_instSeq {D : Nat} :
-    ∀ (args : List Expr) (t : Nat) {e : Expr},
-      (∀ a ∈ args, fvarsBelow D a) → fvarsBelow D e →
-      fvarsBelow D (instSeq args t e) := by
-  intro args
-  induction args with
-  | nil => intro t e _ he; exact he
-  | cons a as ih =>
-    intro t e hargs he
-    exact ih (t - 1)
-      (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
-      (fvarsBelow_instantiate1_gen (hargs a List.mem_cons_self) t he)
-
 /-- Replace `fvar p` by `a`, lowering higher `fvar` indices. -/
 def substFvarAt (p : Nat) (a : Expr) : Expr → Expr
   | .bvar i => .bvar i
@@ -1625,20 +1406,6 @@ def substFvarAt (p : Nat) (a : Expr) : Expr → Expr
     .letE (substFvarAt p a ty) (substFvarAt p a val) (substFvarAt p a body)
   | .lit l => .lit l
   | .proj s i e => .proj s i (substFvarAt p a e)
-
-theorem substFvarAt_eq_self {p : Nat} {a : Expr} :
-    ∀ {e : Expr}, fvarsBelow p e → substFvarAt p a e = e := by
-  intro e
-  induction e with
-  | fvar idx ty ih =>
-    intro hb
-    simp only [fvarsBelow] at hb
-    have h1 : ¬ idx = p := by omega
-    have h2 : ¬ idx > p := by omega
-    simp [substFvarAt, h1, h2]
-  | _ =>
-    intro hb
-    simp_all [fvarsBelow, substFvarAt]
 
 /-- Substitution commutes with opening a binder at a higher index. -/
 theorem substFvarAt_instantiate1 {p d : Nat} (hpd : p ≤ d) {ty a : Expr}
@@ -1692,13 +1459,6 @@ theorem substFvarAt_instantiate1_self {d : Nat} {ty a : Expr} :
     intro k hb
     simp_all [instantiate1, substFvarAt, fvarsBelow]
 
-
-/-- A pointwise-idempotent renaming is idempotent on expressions. -/
-theorem renameConsts_idem_of {f : Name → Name}
-    (hf : ∀ n, f (f n) = f n) :
-    ∀ e : Expr, (e.renameConsts f).renameConsts f = e.renameConsts f := by
-  intro e
-  induction e <;> simp_all [renameConsts]
 
 /-! ### `instantiate1`, constructor by constructor
 

@@ -212,18 +212,6 @@ theorem AnnotOk2.of_letE {Δa : List AVExpr} {T v b : AVExpr}
   exact ⟨hT ρ hρ, hv ρ hρ,
     hb _ (Sat2_cons (V := V) hρ (hmem ρ hρ))⟩
 
-/-- The converse at a `letE` with the body's fact in its raw,
-value-indexed form — for a consumer that has no membership to spend. -/
-theorem AnnotOk2.of_letE_raw {Δa : List AVExpr} {T v b : AVExpr}
-    (hT : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ T)
-    (hv : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ v)
-    (hb : ∀ ρ : Nat → V, Sat2 V Δa ρ →
-      AnnotOk2 V (cons (interp2 V ρ v) ρ) b) :
-    ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ (.letE T v b) := by
-  intro ρ hρ
-  rw [AnnotOk2_letE]
-  exact ⟨hT ρ hρ, hv ρ hρ, hb ρ hρ⟩
-
 /-- The converse at a projection. -/
 theorem AnnotOk2.of_proj {Δa : List AVExpr} {i : Nat} {e : AVExpr}
     (he : ∀ ρ : Nat → V, Sat2 V Δa ρ → AnnotOk2 V ρ e) (hi : i < 2)

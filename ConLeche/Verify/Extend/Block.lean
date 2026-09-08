@@ -157,17 +157,5 @@ theorem cvalAlias_self {cval : TConstVal} {n mn : Name} :
     cvalAlias cval n mn n = cval mn := by
   funext ψ; simp [cvalAlias]
 
-/-- An alias of a closed valuation is closed. -/
-theorem cvalAlias_closed {cval : TConstVal} {n mn : Name}
-    (hcl : ∀ c ψ, VExpr.Closed (cval c ψ)) :
-    ∀ c ψ, VExpr.Closed (cvalAlias cval n mn c ψ) := by
-  intro c ψ
-  by_cases hc : c = n
-  · subst hc
-    rw [cvalAlias_self]
-    exact hcl mn ψ
-  · rw [cvalAlias_ne hc]
-    exact hcl c ψ
-
 
 end ConLeche.Verify

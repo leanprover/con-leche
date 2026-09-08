@@ -240,13 +240,6 @@ theorem paths_step_sub : paths A B tgt (tgt a p) ⊆ˢ paths A B tgt t := by
   obtain ⟨n, hn⟩ := mem_paths.mp hx
   exact mem_paths.mpr ⟨n, pathsN_step_sub ha hp n x hn⟩
 
-theorem codeSpace_step_sub : codeSpace A B tgt (tgt a p) ⊆ˢ codeSpace A B tgt t := by
-  intro S hS
-  rw [mem_codeSpace] at hS ⊢
-  intro x hx
-  obtain ⟨q, hq, a', ha', rfl⟩ := hS x hx
-  exact ⟨q, paths_step_sub ha hp q hq, a', shapes_step_sub ha hp a' ha', rfl⟩
-
 /-- A position of a root shape is a position of the root's space. -/
 theorem mem_positions_of_root : p ∈ˢ positions A B tgt t :=
   mem_positions.mpr ⟨a, mem_shapes.mpr ⟨0, ha⟩, hp⟩
@@ -405,14 +398,6 @@ theorem mkCode_mem_codeSpace {t a g : V} (ha : a ∈ˢ A t)
     rw [sfst_kpair, ssnd_kpair]
     refine ⟨kpair p q, kpair_mem_paths (mem_positions_of_root ha hp) (paths_step_sub ha hp q hq),
       b, shapes_step_sub ha hp b hb, rfl⟩
-
-/-- The root label of a code in the space is a reachable shape. -/
-theorem lab_mem_shapes {t S : V} (hS : S ∈ˢ codeSpace A B tgt t) (hr : HasRoot S) :
-    lab S ∈ˢ shapes A B tgt t := by
-  have := kpair_pt_lab_mem hr (codeSpace_pairs hS)
-  obtain ⟨q, -, a, ha, heq⟩ := mem_codeSpace.mp hS _ this
-  obtain ⟨-, rfl⟩ := kpair_inj heq
-  exact ha
 
 end InSpace
 

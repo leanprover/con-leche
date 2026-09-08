@@ -1,4 +1,4 @@
-import ConLeche.Verify.Disc
+import ConLeche.Verify.Fueled
 import ConLeche.Kernel.Checker
 
 /-!

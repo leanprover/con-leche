@@ -318,42 +318,6 @@ theorem inferTypeCoreIO_app_inv' {env : Env} {fuel d : Nat}
     · exact Or.inr ⟨ta, inferTypeCoreIO_mono (Nat.le_succ _) h4,
         isDefEqCore_mono (Nat.le_succ _) h5⟩
 
-/-- Inversion for the constant rule of the io lane — the clause is the
-full lane's verbatim. -/
-theorem inferTypeCoreIO_const_inv {env : Env} {fuel d : Nat}
-    {n : Name} {us : List Level} {t : Expr}
-    (h : inferTypeCoreIO mode env fuel d (.const n us) = .ok t) :
-    ∃ ci, env.find? n = some ci ∧ ci.isTowerEntry = false ∧
-      t = ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us := by
-  match fuel, h with
-  | 0, h => rw [inferTypeCoreIO_zero] at h; exact nomatch h
-  | fuel + 1, h =>
-    rw [inferTypeCoreIO_succ] at h
-    simp only [inferBodyIO, pure, Except.pure,
-      Bind.bind, Except.bind] at h
-    revert h
-    cases hf : env.find? n with
-    | none =>
-      intro h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    | some ci =>
-      intro h
-      dsimp only at h
-      revert h
-      split
-      · next htw =>
-        intro h
-        revert h
-        split
-        · intro h
-          simp only [pure, Except.pure, Except.ok.injEq] at h
-          exact ⟨ci, rfl, by simpa using htw, h.symm⟩
-        · intro h
-          simp [throw, throwThe, MonadExceptOf.throw] at h
-      · intro h
-        simp [throw, throwThe, MonadExceptOf.throw] at h
-
 /-- Inversion for the let-rule of the io lane
 (`inferTypeCore_letE_inv`'s twin: the three inferences at the io lane,
 the sort/conversion runs at the full one). -/

@@ -879,15 +879,6 @@ theorem constTypeP (m : EnvS2PM V μ env) : ConstTypeP m.base2 φ := by
   · have := m.mem_typeP ci hmem _ ta hta
     rwa [hname] at this
 
-/-- A stored constant whose type is a constant application is not a
-tower table (a table's constant type is the closed dummy `Sort 1`,
-task #175 S1; the capstone reads it: a table never has type `Empty`). -/
-theorem notTower_of_type_const {c : ConstantInfo} {n : Name} {us : List Level}
-    (hty : c.toConstantVal.type = .const n us) : c.isTowerEntry = false := by
-  cases c with
-  | projInfo tbl => simp [ConstantInfo.toConstantVal] at hty
-  | _ => rfl
-
 /-- **The bridge invariant, from the P invariant** (task #161 S7,
 Wall C step (e)) — `EnvS.toEnvFacts`'s P-side twin, and the last thing
 `EnvS2PM.base` was for.  Every field is a projection:
@@ -932,12 +923,6 @@ def toEnvFacts {V : Type w} [SetTheory V] {μ : CheckMode}
     rcases hmem with hm | hm
     · exact (m.nat_ops (fun _ => 0) c hm cv v hh hf).1
     · exact (m.div_mod (fun _ => 0) c hm cv v hh hf).1
-
-/-- The P bridge invariant keeps the carrier's valuation —
-definitionally. -/
-theorem toEnvFacts_cval {V : Type w} [SetTheory V] {μ : CheckMode}
-    {env : Env} (m : EnvS2PM V μ env) :
-    (toEnvFacts m).cval = m.base2.cvalE := rfl
 
 end EnvS2PM
 

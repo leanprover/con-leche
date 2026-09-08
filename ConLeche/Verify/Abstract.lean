@@ -63,36 +63,6 @@ theorem WScoped.abstract1 {d : Nat} :
     · simp only [hidx, if_false, WScoped]
       exact ⟨by omega, hw.2⟩
 
-/-- Opening establishes consistency: a body free of `fvar d` opened with
-`fvar d n ty` mentions it consistently. -/
-theorem fvarConsistent_instantiate1 {d : Nat} {ty : Expr} :
-    ∀ (e : Expr) (k : Nat), fvarsBelow d e →
-      fvarConsistent d ty (e.instantiate1 (.fvar d ty) k) := by
-  intro e
-  induction e <;> intro k hb <;>
-    simp_all [Expr.instantiate1, fvarsBelow, Expr.fvarConsistent]
-  case bvar i =>
-    split
-    · simp [Expr.fvarConsistent]
-    · split <;> simp [Expr.fvarConsistent]
-  case fvar idx ty' ih =>
-    omega
-
-/-- Consistency at `d` survives opening with a *different* index. -/
-theorem fvarConsistent_instantiate1' {d d' : Nat} {ty ty' : Expr}
-    (hne : d ≠ d') :
-    ∀ (e : Expr) (k : Nat), fvarConsistent d ty e →
-      fvarConsistent d ty (e.instantiate1 (.fvar d' ty') k) := by
-  intro e
-  induction e <;> intro k hc <;>
-    simp_all [Expr.instantiate1, Expr.fvarConsistent]
-  case bvar i =>
-    split
-    · simp [Expr.fvarConsistent]
-      intro h
-      exact absurd h.symm hne
-    · split <;> simp [Expr.fvarConsistent]
-
 /-- Consistency at `d` survives abstracting a *different* index. -/
 theorem fvarConsistent_abstract1 {d d' : Nat} {ty : Expr}
     (hne : d ≠ d') :
@@ -589,83 +559,5 @@ theorem Expr.LeafEquiv.hasFvar_eq : ∀ (e₁ e₂ : Expr), Expr.LeafEquiv e₁ 
     intro e₂ hle
     cases e₂ <;> simp_all [Expr.LeafEquiv, Expr.hasFvar]
 
-
-
-/-- Un-instantiation: if `y` has the same leaves as `x` opened with
-`fvar D`, then abstracting `D` out of `y` recovers the leaves of `x` —
-provided `x` does not mention `fvar D` and has no loose bvars above `k`. -/
-theorem leafEquiv_abstract_of_inst {D : Nat} {ty : Expr} :
-    ∀ (x : Expr) (k : Nat) (y : Expr),
-      Expr.LeafEquiv (x.instantiate1 (.fvar D ty) k) y →
-      fvarsBelow D x → x.looseBVarsBounded (k + 1) = true →
-      Expr.LeafEquiv x (y.abstract1 D k) := by
-  intro x
-  induction x with
-  | bvar i =>
-    intro k y hle hf hb
-    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb
-    simp only [Expr.instantiate1] at hle
-    by_cases hik : i = k
-    · simp only [hik, if_pos rfl] at hle
-      cases y <;> simp_all [Expr.LeafEquiv]
-      case fvar idx ty' =>
-        obtain ⟨rfl, -, -⟩ := hle
-        simp [Expr.abstract1, Expr.LeafEquiv, hik]
-    · have hik' : ¬ (i > k) := by omega
-      simp only [hik, if_false, hik', Expr.instantiate1] at hle
-      cases y <;> simp_all [Expr.LeafEquiv]
-      case bvar j =>
-        subst hle
-        simp [Expr.abstract1, Expr.LeafEquiv]
-  | fvar idx ty' _ =>
-    intro k y hle hf hb
-    simp only [Expr.fvarsBelow] at hf
-    simp only [Expr.instantiate1] at hle
-    cases y <;> simp_all [Expr.LeafEquiv]
-    case fvar idx2 ty2 =>
-      obtain ⟨rfl, rfl, rfl⟩ := hle
-      have : ¬ (idx = D) := by omega
-      simp [Expr.abstract1, this, Expr.LeafEquiv]
-  | sort u =>
-    intro k y hle hf hb
-    simp only [Expr.instantiate1] at hle
-    cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
-  | const nm us =>
-    intro k y hle hf hb
-    simp only [Expr.instantiate1] at hle
-    cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
-  | lit l =>
-    intro k y hle hf hb
-    simp only [Expr.instantiate1] at hle
-    cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
-  | app f a ihf iha =>
-    intro k y hle hf hb
-    simp only [Expr.fvarsBelow] at hf
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [Expr.instantiate1] at hle
-    cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
-  | lam tyx body ihm ihty ihbody =>
-    intro k y hle hf hb
-    simp only [Expr.fvarsBelow] at hf
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [Expr.instantiate1] at hle
-    cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
-  | forallE tyx body ihm ihty ihbody =>
-    intro k y hle hf hb
-    simp only [Expr.fvarsBelow] at hf
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [Expr.instantiate1] at hle
-    cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
-  | letE tyx vx body ihty ihv ihbody =>
-    intro k y hle hf hb
-    simp only [Expr.fvarsBelow] at hf
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [Expr.instantiate1] at hle
-    cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
-  | proj s i e ih =>
-    intro k y hle hf hb
-    simp only [Expr.instantiate1] at hle
-    cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
-    case proj s2 i2 e2 => exact ih k e2 hle hf hb
 
 end ConLeche

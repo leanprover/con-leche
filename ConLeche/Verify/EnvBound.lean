@@ -118,11 +118,6 @@ theorem mkFEnv_find? (env : Env) (n : Name) :
 def Env.prefixTo (env : Env) (k : Nat) : Env :=
   ⟨env.consts.drop (env.consts.length - k)⟩
 
-/-- The bound at (or above) the constant count hides nothing. -/
-theorem Env.prefixTo_length (env : Env) {k : Nat}
-    (hk : env.consts.length ≤ k) : env.prefixTo k = env := by
-  rw [Env.prefixTo, Nat.sub_eq_zero_of_le hk, List.drop_zero]
-
 /-- The bounded index lookup, on the specification. -/
 private def idxBelow (l : List ConstantInfo) (k : Nat) (n : Name) :
     Option ConstantInfo :=
@@ -231,11 +226,6 @@ theorem mkFEnv_find?_visibleBelow (env : Env) (k : Nat) (n : Name)
     (hnd : (env.consts.map (·.name)).Nodup) :
     ((mkFEnv env).restrictTo k).find? n = (env.prefixTo k).find? n := by
   rw [restrictTo_find?_eq, idxBelow_eq hnd, Env.prefixTo, Env.find?]
-
-/-- Raising the bound to the constant count restores the full view. -/
-theorem mkFEnv_restrictTo_full (env : Env) :
-    (mkFEnv env).restrictTo env.consts.length = mkFEnv env := by
-  rw [FEnv.restrictTo, ← mkFEnv_visibleBelow]
 
 /-- Pushing the next installed constant onto a restricted view is
 raising the bound by one: a re-check that walks a declaration's

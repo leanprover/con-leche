@@ -319,34 +319,6 @@ theorem FieldsOkB_liftFields {w n : Nat} :
     rw [cons_shiftE]
     exact FieldsOkB_liftFields
 
-/-- The lifted chain's tower is the chain's tower at the shifted
-frame (the towers are characterised by their fitting spines, both
-regimes). -/
-theorem towerSet_liftFields (w n : Nat) (Fs : List AVExpr) (k : Nat) (σ : Nat → V) :
-    towerSet w (teleOfFields σ (liftFields n k Fs))
-      = towerSet w (teleOfFields (shiftE n k σ) Fs) := by
-  apply SetTheory.ext
-  intro x
-  by_cases hw : w = 0
-  · subst hw
-    constructor
-    · intro hx
-      obtain ⟨rfl, as, hfit⟩ := towerSet_zero_elim _ hx
-      exact pt_mem_tower_teleOfFields ((spineFit_liftFields n).mp (fitsS_teleOfFields.mp hfit))
-    · intro hx
-      obtain ⟨rfl, as, hfit⟩ := towerSet_zero_elim _ hx
-      exact pt_mem_tower_teleOfFields ((spineFit_liftFields n).mpr (fitsS_teleOfFields.mp hfit))
-  · constructor
-    · intro hx
-      obtain ⟨hfit, heta⟩ := towerSet_elim_teleOfFields hw hx
-      rw [liftFields_length] at hfit heta
-      rw [heta]
-      exact mkTower_mem_teleOfFields hw ((spineFit_liftFields n).mp hfit)
-    · intro hx
-      obtain ⟨hfit, heta⟩ := towerSet_elim_teleOfFields hw hx
-      rw [heta]
-      exact mkTower_mem_teleOfFields hw ((spineFit_liftFields n).mpr hfit)
-
 theorem FieldsBelow_liftFields {n : Nat} :
     ∀ {Fs : List AVExpr} {k K : Nat}, k ≤ K → FieldsBelow K Fs →
       FieldsBelow (K + n) (liftFields n k Fs)

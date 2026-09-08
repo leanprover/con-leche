@@ -120,19 +120,6 @@ def ProjOkT (env : Env) : Prop :=
 theorem ProjOkT.empty : ProjOkT Env.empty := by
   intro n tbl h; simp [Env.find?, Env.empty] at h
 
-/-- A successful table lookup fixes the entry's struct name and index
-— the store keys a table under `projTableName tbl.structName`, and
-`projTableName` is injective.  No environment predicate. -/
-theorem Env.findProj?_names {env : Env} {sn : Name} {i : Nat}
-    {entry : ProjEntry} (hf : env.findProj? sn i = some entry) :
-    entry.structName = sn ∧ entry.idx = i := by
-  obtain ⟨tbl, hf', -, rfl⟩ := Env.findProj?_some hf
-  have h1 := List.find?_some hf'
-  have h2 : (ConstantInfo.projInfo tbl).name = projTableName sn :=
-    eq_of_beq (by simpa using h1)
-  simp only [ConstantInfo.name, ConstantInfo.toConstantVal] at h2
-  exact ⟨projTableName_inj h2, rfl⟩
-
 /-- A constant stored under a name that is not a `num` name is not a
 tower table (those live under `projTableName`, a `num` name). -/
 theorem isTowerEntry_false_of_find? {env : Env} {n : Name} {c : ConstantInfo}
@@ -241,74 +228,6 @@ theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
   rw [if_neg h18] at h
   by_cases h19 : n = quotIndName
   · rw [if_pos h19] at h; exact nomatch h
-  rw [if_neg h19] at h
-  by_cases h20 : n = quotSoundName
-  · rw [if_pos h20] at h; exact nomatch h
-  rw [if_neg h20] at h
-  exact nomatch h
-
-/-- Which names carry recursor-shaped pinned declarations. -/
-theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
-    {mI rP : Nat} {rules : List RecRule}
-    (h : pinnedInfo n = .recInfo cv mI rP rules) :
-    n = eqName.str "rec" ∨ n = natName.str "rec" ∨
-    n = punitName.str "rec" ∨
-    n = emptyName.str "rec" ∨ n = falseName.str "rec" ∨
-    n = quotLiftName ∨ n = quotIndName := by
-  delta pinnedInfo at h
-  by_cases h1 : n = eqName
-  · rw [if_pos h1] at h; exact nomatch h
-  rw [if_neg h1] at h
-  by_cases h2 : n = eqReflName
-  · rw [if_pos h2] at h; exact nomatch h
-  rw [if_neg h2] at h
-  by_cases h3 : n = eqName.str "rec"
-  · exact Or.inl h3
-  rw [if_neg h3] at h
-  by_cases h4 : n = natName
-  · rw [if_pos h4] at h; exact nomatch h
-  rw [if_neg h4] at h
-  by_cases h5 : n = natZeroName
-  · rw [if_pos h5] at h; exact nomatch h
-  rw [if_neg h5] at h
-  by_cases h6 : n = natSuccName
-  · rw [if_pos h6] at h; exact nomatch h
-  rw [if_neg h6] at h
-  by_cases h7 : n = natName.str "rec"
-  · exact Or.inr (Or.inl h7)
-  rw [if_neg h7] at h
-  by_cases h11 : n = punitName
-  · rw [if_pos h11] at h; exact nomatch h
-  rw [if_neg h11] at h
-  by_cases h12 : n = punitUnitName
-  · rw [if_pos h12] at h; exact nomatch h
-  rw [if_neg h12] at h
-  by_cases h13 : n = punitName.str "rec"
-  · exact Or.inr (Or.inr (Or.inl h13))
-  rw [if_neg h13] at h
-  by_cases h14 : n = emptyName
-  · rw [if_pos h14] at h; exact nomatch h
-  rw [if_neg h14] at h
-  by_cases h15 : n = emptyName.str "rec"
-  · exact Or.inr (Or.inr (Or.inr (Or.inl h15)))
-  rw [if_neg h15] at h
-  by_cases h15a : n = falseName
-  · rw [if_pos h15a] at h; exact nomatch h
-  rw [if_neg h15a] at h
-  by_cases h15b : n = falseName.str "rec"
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h15b))))
-  rw [if_neg h15b] at h
-  by_cases h16 : n = quotName
-  · rw [if_pos h16] at h; exact nomatch h
-  rw [if_neg h16] at h
-  by_cases h17 : n = quotMkName
-  · rw [if_pos h17] at h; exact nomatch h
-  rw [if_neg h17] at h
-  by_cases h18 : n = quotLiftName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h18)))))
-  rw [if_neg h18] at h
-  by_cases h19 : n = quotIndName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h19)))))
   rw [if_neg h19] at h
   by_cases h20 : n = quotSoundName
   · rw [if_pos h20] at h; exact nomatch h

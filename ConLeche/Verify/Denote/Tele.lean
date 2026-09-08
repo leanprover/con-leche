@@ -124,27 +124,6 @@ theorem DenoteSpine.get {cval : TConstVal} {env : Env} {φ : Name → Nat}
       have := ih ⟨j, by simpa using hj⟩
       simpa using this
 
-/-- Splitting a denoted spine at a final argument — the shape the
-recursor's telescope walk has at a fire site, where the major premise
-is the last entry. -/
-theorem DenoteSpine.snoc_inv {cval : TConstVal} {env : Env} {φ : Name → Nat}
-    {d : Nat} : ∀ {as : List Expr} {a : Expr} {zs : List VExpr},
-    DenoteSpine cval env φ d (as ++ [a]) zs →
-    ∃ xs y, zs = xs ++ [y] ∧ DenoteSpine cval env φ d as xs ∧
-      denote cval env φ d a = some y := by
-  intro as
-  induction as with
-  | nil =>
-    intro a zs h
-    cases h with
-    | cons ha hn => cases hn; exact ⟨[], _, rfl, .nil, ha⟩
-  | cons b bs ih =>
-    intro a zs h
-    cases h with
-    | cons hb hn =>
-      obtain ⟨xs, y, rfl, hxs, hy⟩ := ih hn
-      exact ⟨_ :: xs, y, rfl, .cons hb hxs, hy⟩
-
 /-- Denotation of an application spine, inverted: the head and every
 argument denote, and the value is their `VExpr` application.  The
 converse of `denote_mkAppN`, and what the delta step needs to read a

@@ -373,16 +373,6 @@ theorem towerSet_zero_mem_univZero : ∀ {n} (T : TeleS V n),
     rw [sigmaSet_zero]
     exact truthVal_mem_univZero _
 
-/-- **Regime disjointness** (the #109 pt-freshness battery consumed,
-not restated): a graph-regime member of a nonempty tower is never
-`pt` — squash members are exactly `pt`, so the two readings of
-`projS` never compete.  (`n = 0` is the recorded exception by design:
-`unitSet`'s member IS `pt`, and `projS` on it is still correct.) -/
-theorem tower_mem_ne_pt {w : Nat} (hw : w ≠ 0) {n : Nat} {A : V}
-    {B : V → TeleS V n} {x : V} (hx : x ∈ˢ towerSet w (.cons A B)) :
-    x ≠ pt :=
-  ne_pt_of_mem_fresh (ptFresh_sigmaSet_pos hw) hx
-
 /-- **Storage hygiene**: a tower carrier is never the proof point
 (the task-#100 collapse-era non-`pt`-ness of stored values). -/
 theorem towerSet_ne_pt {w : Nat} : ∀ {n} (T : TeleS V n),
