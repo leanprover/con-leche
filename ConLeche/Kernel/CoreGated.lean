@@ -62,7 +62,7 @@ variable (mode : CheckMode)
 clause changed — the `.app` clause's β certificate is skipped when the
 λ-binder's validated annotation licenses it (see the module
 docstring).  Every other clause (iota, the native pair projection,
-zeta, the value clauses) is `whnfCoreBody`'s, verbatim. -/
+the value clauses) is `whnfCoreBody`'s, verbatim. -/
 def whnfCoreBodyGated (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e =>
     match e with
@@ -108,8 +108,9 @@ def whnfCoreBodyGated (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
       | none => pure (.proj sn i e')
-    | .letE _ v b =>
-      r.whnfCore depth (b.instantiate1 v)
+    | .letE _ _ _ =>
+      -- unreachable by construction, as in `whnfCoreBody` (task #241)
+      throw (.internal "whnfCore: `let` in an annotated expression")
     | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")
 

@@ -101,13 +101,9 @@ theorem denoteMeta_envExtend {env₀ env : Env}
     intro hc
     rw [constsBound_app] at hc
     rw [denoteMeta, denoteMeta, ihf hc.1, iha hc.2]
-  | case9 d ty val body ihty ihval ihbody =>
-    intro hc
-    rw [constsBound_letE] at hc
-    have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d ty)) :=
-      ConstsBound.instantiate1
-        (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2.2
-    rw [denoteMeta, denoteMeta, ihty hc.1, ihval hc.2.1, ihbody hcb]
+  | case9 d ty val body =>
+    intro _
+    rw [denoteMeta, denoteMeta]
   | case10 d sn i e ihe =>
     intro hc
     rw [constsBound_proj] at hc
@@ -238,25 +234,10 @@ theorem denoteMeta_envExtend_mono {env₀ env : Env}
     obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteMeta_app_inv h
     rw [denoteMeta, ihf hc.1 hfa, iha hc.2 haa]
     rfl
-  | case9 d ty val body ihty ihval ihbody =>
-    intro hc ea h
-    rw [constsBound_letE] at hc
-    have hcb : ConstsBound env₀ (body.instantiate1 (.fvar d ty)) :=
-      ConstsBound.instantiate1
-        (by rw [constsBound_fvar]; exact hc.1) _ _ hc.2.2
+  | case9 d ty val body =>
+    intro _ ea h
     rw [denoteMeta] at h
-    rcases hta : denoteMeta acval env₀ φ d ty with _ | ta
-    · rw [hta] at h; exact nomatch h
-    rw [hta] at h
-    rcases hva : denoteMeta acval env₀ φ d val with _ | va
-    · rw [hva] at h; exact nomatch h
-    rw [hva] at h
-    rcases hba : denoteMeta acval env₀ φ (d + 1)
-        (body.instantiate1 (.fvar d ty)) with _ | ba
-    · rw [hba] at h; exact nomatch h
-    rw [hba] at h
-    rw [denoteMeta, ihty hc.1 hta, ihval hc.2.1 hva, ihbody hcb hba]
-    exact h
+    exact nomatch h
   | case10 d sn i e ihe =>
     intro hc ea h
     rw [constsBound_proj] at hc

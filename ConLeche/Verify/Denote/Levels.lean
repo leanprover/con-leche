@@ -257,48 +257,34 @@ theorem denote_params_ext {env : Env} {cval : TConstVal}
     intro hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
     rw [denote_app, denote_app, ← ihf hd.1, ← iha hd.2]
-  | case14 d ty val body vf va h1 h2 h3 ihty ihval ihbody =>
-    intro hd
-    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    rw [denote_letE, denote_letE, ← ihty hd.1.1, ← ihval hd.1.2,
-      ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.2)]
-  | case15 d ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
-    intro hd
-    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    rw [denote_letE, denote_letE, ← ihty hd.1.1, ← ihval hd.1.2,
-      ← ihbody (Expr.allLevelParamsDefined_instantiate1 hd.1.1 0 hd.2)]
-  | case16 d ty val body hbad ihty ihval =>
-    intro hd
-    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    rw [denote_letE, denote_letE, ← ihty hd.1.1, ← ihval hd.1.2]
-    split
-    · next vf va k1 k2 => exact (hbad vf va k1 k2).elim
-    · rfl
-  | case17 d sn i e h1 ihe =>
+  | case14 d ty val body =>
+    intro _
+    rw [denote_letE, denote_letE]
+  | case15 d sn i e h1 ihe =>
     intro hd
     rw [denote_proj, denote_proj,
       ← ihe (by simpa [Expr.allLevelParamsDefined] using hd)]
-  | case18 d sn i e B h1 entry h2 ihe =>
+  | case16 d sn i e B h1 entry h2 ihe =>
     intro hd
     rw [denote_proj, denote_proj,
       ← ihe (by simpa [Expr.allLevelParamsDefined] using hd)]
-  | case19 d sn i e B h1 h2 ihe =>
+  | case17 d sn i e B h1 h2 ihe =>
     intro hd
     rw [denote_proj, denote_proj,
       ← ihe (by simpa [Expr.allLevelParamsDefined] using hd)]
-  | case20 d n hg =>
+  | case18 d n hg =>
     intro _
     rw [denote_natLit, denote_natLit, natLitT_params hp hg φ₁ φ₂ n]
-  | case21 d n hg =>
+  | case19 d n hg =>
     intro _
     rw [denote_natLit, denote_natLit, if_neg hg, if_neg hg]
-  | case22 d t hg =>
+  | case20 d t hg =>
     intro _
     rw [denote_strLit, denote_strLit, strLitT_params hp hg φ₁ φ₂ t]
-  | case23 d t hg =>
+  | case21 d t hg =>
     intro _
     rw [denote_strLit, denote_strLit, if_neg hg, if_neg hg]
-  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case22 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     intro _
     match x with
     | .bvar i => rw [denote_bvar, denote_bvar]
@@ -367,33 +353,27 @@ theorem denote_instLevels {env : Env} {cval : TConstVal}
     simp only [Expr.instantiateLevelParams, denote_app, ihf, iha]
   | case13 d f a hbad ihf iha =>
     simp only [Expr.instantiateLevelParams, denote_app, ihf, iha]
-  | case14 d ty val body vf va h1 h2 h3 ihty ihval ihbody =>
-    simp only [Expr.instantiateLevelParams, denote_letE, ihty, ihval]
-    rw [← Expr.instantiateLevelParams_instantiate1, ihbody]
-  | case15 d ty val body vf va h1 h2 B h3 ihty ihval ihbody =>
-    simp only [Expr.instantiateLevelParams, denote_letE, ihty, ihval]
-    rw [← Expr.instantiateLevelParams_instantiate1, ihbody]
-  | case16 d ty val body hbad ihty ihval =>
-    simp only [Expr.instantiateLevelParams, denote_letE, ihty, ihval]
-  | case17 d sn i e h1 ihe =>
+  | case14 d ty val body =>
+    simp only [Expr.instantiateLevelParams, denote_letE]
+  | case15 d sn i e h1 ihe =>
     simp only [Expr.instantiateLevelParams, denote_proj, ihe]
-  | case18 d sn i e B h1 entry h2 ihe =>
+  | case16 d sn i e B h1 entry h2 ihe =>
     simp only [Expr.instantiateLevelParams, denote_proj, ihe]
-  | case19 d sn i e B h1 h2 ihe =>
+  | case17 d sn i e B h1 h2 ihe =>
     simp only [Expr.instantiateLevelParams, denote_proj, ihe]
-  | case20 d n hg =>
+  | case18 d n hg =>
     simp only [Expr.instantiateLevelParams, denote_natLit]
     rw [if_pos hg, if_pos hg, natLitT_params hp hg φ (Level.substFn φ ks us)]
-  | case21 d n hg =>
+  | case19 d n hg =>
     simp only [Expr.instantiateLevelParams, denote_natLit]
     rw [if_neg hg, if_neg hg]
-  | case22 d t hg =>
+  | case20 d t hg =>
     simp only [Expr.instantiateLevelParams, denote_strLit]
     rw [if_pos hg, if_pos hg, strLitT_params hp hg φ (Level.substFn φ ks us)]
-  | case23 d t hg =>
+  | case21 d t hg =>
     simp only [Expr.instantiateLevelParams, denote_strLit]
     rw [if_neg hg, if_neg hg]
-  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case22 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     match x with
     | .bvar i => simp only [Expr.instantiateLevelParams, denote_bvar]
     | .sort u => exact (k1 u rfl).elim

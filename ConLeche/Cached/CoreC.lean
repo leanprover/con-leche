@@ -894,7 +894,7 @@ decreasing_by
 end
 
 /-- Twin of `whnfCoreStep`: one head-normalization step (beta, iota,
-zeta, projection) with the loop's continuation `k` abstracted, in the
+projection) with the loop's continuation `k` abstracted, in the
 open-recursion style of the whole module.  Only the spine head's
 normalization stays a knot call (genuine nesting, bounded by the
 term's depth); every *reduction* step is iteration, so a chain no
@@ -941,11 +941,11 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           else pure (Expr.proj sn i e')
         | _ => pure (Expr.proj sn i e')
       | none => pure (Expr.proj sn i e')
-    | .letE _ v b => do
-      -- zeta on demand (official `whnf_core` Let case); `inst1M` is the
-      -- sharing-preserving arena substitution
-      let e' ← inst1M b v
-      k e'
+    | .letE _ _ _ =>
+      -- unreachable by construction, as in the spec body (task #241):
+      -- the annotate pass returns the ζ reduct, so no `letE` node
+      -- survives into the checked world
+      throw (.internal "whnfCore: `let` in an annotated expression")
     | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")
 
@@ -1323,18 +1323,11 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :=
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
-    | .letE ty v b => do
-      -- The official kernel's `infer_let` check order (`!infer_only`):
-      -- the annotation is a type, the value's inferred type matches it,
-      -- then the body with the value transparent (nanoda `infer_let`;
-      -- task #100 stage 6: the checks moved here from the deleted
-      -- annotation pass).
-      let _ ← ensureSortI r depth (← r.infer depth ty)
-      let tv ← r.infer depth v
-      unless ← r.defeq depth tv ty do
-        throw (.invalid "let value type mismatch")
-      let e' ← inst1M b v
-      r.infer depth e'
+    | .letE _ _ _ =>
+      -- unreachable by construction, as in the spec body (task #241):
+      -- the official `infer_let` triple lives in `annotateBodyI`'s own
+      -- `.letE` clause, which returns the ζ reduct (task #217)
+      throw (.internal "inferType: `let` in an annotated expression")
     | .bvar _ =>
       throw (.notImplemented "inferType beyond the supported fragment")
 
@@ -1627,9 +1620,8 @@ def annotateBindersOutI (mk : ExprC → ExprC → BinderMeta → ExprC)
 
 /-- The ∀ telescope's datum (task #161 P5), computed once: the leaf
 codomain sort's zero-ness — shared by every node of the telescope
-because `zeronessOf (imax u v) = zeronessOf v`.  A ∀ residual (the fuel
-path, or a `letE` whose zeta reduct is a ∀) supplies its own
-already-written datum instead, exactly as `annotPwPi` reads it. -/
+because `zeronessOf (imax u v) = zeronessOf v`.  A ∀ residual (the
+fuel path) supplies its own already-written datum instead, exactly as `annotPwPi` reads it. -/
 def annotPwPiI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (body' : ExprC) :
     CheckCM PropWhen := do
   -- task #168 stage 2: the head-symbol reader first (it subsumes the
@@ -1784,7 +1776,8 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → ExprC → CheckCM ExprC :
       -- then the body with the value transparent (zeta at annotate;
       -- `inst1M` keeps the substitution sharing-preserving).  Task #217
       -- (audit follow-up #206-S1) put the triple back: the pass returns
-      -- the ζ reduct, so `inferBodyC`'s `.letE` arm never sees the node.
+      -- the ζ reduct, so `inferBodyI`'s `.letE` arm never sees the node
+      -- — task #241 made that arm a positive `.internal` error.
       let ty' ← r.annotate depth ty
       let tty ← r.infer depth ty'
       let _ ← ensureSortI r depth tty

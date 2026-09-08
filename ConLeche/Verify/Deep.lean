@@ -1631,15 +1631,8 @@ private theorem whnfCore_step (henv : EnvWF env)
   | .const n us => rfl
   | .lit l => rfl
   | .letE ty v body =>
-    simp only [WScoped] at hw
-    rw [shiftFrom_letE]
-    show whnfCoreBody mode (pureFns mode env fuel) env (d + 1)
-        (.letE (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
-      (whnfCoreBody mode (pureFns mode env fuel) env d (.letE ty v body)).map
-        (shiftFrom p)
-    simp only [whnfCoreBody]
-    have h := ih.whnfCore hpd (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
-    rwa [shiftFrom_instantiate1_gen] at h
+    -- task #241: both sides are the same positive `.internal` error
+    rfl
   | .app f a =>
     simp only [WScoped] at hw
     rw [shiftFrom_app]
@@ -1810,26 +1803,8 @@ private theorem infer_step (henv : EnvWF env)
   match e with
   | .bvar i => rfl
   | .letE ty v body =>
-    simp only [WScoped] at hw
-    rw [shiftFrom_letE]
-    show inferBody mode (pureFns mode env fuel) env (d + 1)
-        (.letE (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
-      (inferBody mode (pureFns mode env fuel) env d (.letE ty v body)).map
-        (shiftFrom p)
-    simp only [inferBody]
-    refine bind_rel _ _ (ih.infer hpd hw.1) ?_
-    intro tty htty
-    refine bind_rel_eq _ (ensureSort_shift henv ih hpd
-      (inferTypeCore_WScoped henv fuel htty hw.1)) ?_
-    intro s _
-    refine bind_rel _ _ (ih.infer hpd hw.2.1) ?_
-    intro tv htv
-    refine bind_rel_eq _ (ih.defeq hpd
-      (inferTypeCore_WScoped henv fuel htv hw.2.1) hw.1) ?_
-    intro bb _
-    refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-    have h := ih.infer hpd (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
-    rwa [shiftFrom_instantiate1_gen] at h
+    -- task #241: both sides are the same positive `.internal` error
+    rfl
   | .sort u => rfl
   | .lit (.natVal n) =>
     show inferBody mode (pureFns mode env fuel) env (d + 1) (.lit (.natVal n)) =
@@ -2032,27 +2007,8 @@ private theorem inferIOCore_step (henv : EnvWF env)
   match e with
   | .bvar i => rfl
   | .letE ty v body =>
-    simp only [WScoped] at hw
-    rw [shiftFrom_letE]
-    show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1)
-        (.letE (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
-      (inferBodyIO mode (pureFnsIO mode env fuel) env d (.letE ty v body)).map
-        (shiftFrom p)
-    simp only [inferBodyIO, inferIO_def,
-      pureFnsIO_defeq, ensureSortIO_def]
-    refine bind_rel _ _ (ihio hpd hw.1) ?_
-    intro tty htty
-    refine bind_rel_eq _ (ensureSort_shift henv ih hpd
-      (inferTypeCoreIO_WScoped henv fuel htty hw.1)) ?_
-    intro s _
-    refine bind_rel _ _ (ihio hpd hw.2.1) ?_
-    intro tv htv
-    refine bind_rel_eq _ (ih.defeq hpd
-      (inferTypeCoreIO_WScoped henv fuel htv hw.2.1) hw.1) ?_
-    intro bb _
-    refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-    have h := ihio hpd (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
-    rwa [shiftFrom_instantiate1_gen] at h
+    -- task #241: both sides are the same positive `.internal` error
+    rfl
   | .sort u => rfl
   | .lit (.natVal n) =>
     show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1) (.lit (.natVal n)) =

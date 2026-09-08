@@ -487,14 +487,9 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
         rw [whnfCore_succ] at h
         simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
       | letE tt vv bb =>
+        -- task #241: the ζ arm is a positive `.internal` error
         rw [whnfCore_succ] at h
-        simp only [whnfCoreBody, whnfCore_def] at h
-        intro l hl
-        have hl' := ihCore h l hl
-        simp only [fvarLeaves, List.mem_append]
-        rcases fvarLeaves_instantiate1 bb 0 hl' with h2 | h2
-        · exact Or.inr h2
-        · exact Or.inl (Or.inr h2)
+        simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
       | app f a =>
         intro l hl
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
@@ -643,10 +638,9 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
         rw [whnfCore_succ] at h
         simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
       | letE tt vv bb =>
+        -- task #241: the ζ arm is a positive `.internal` error
         rw [whnfCore_succ] at h
-        simp only [whnfCoreBody, whnfCore_def] at h
-        simp only [looseBVarsBounded, Bool.and_eq_true] at hb
-        exact ihCore h (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
+        simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
       | app f a =>
         simp only [looseBVarsBounded, Bool.and_eq_true] at hb
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
@@ -863,10 +857,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       rw [inferTypeCore_succ] at h
       simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
     | letE t' v' b' =>
-      obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCore_letE_inv h
-      simp only [WScoped] at hw
-      exact inferTypeCore_WScoped henv fuel h'
-        (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+      exact (inferTypeCore_letE_inv h).elim
 
 theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
@@ -1003,15 +994,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       rw [inferTypeCore_succ] at h
       simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
     | letE t' v' b' =>
-      obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCore_letE_inv h
-      simp only [WScoped] at hw
-      intro l hl
-      have hl' := inferTypeCore_fvarLeaves henv fuel h'
-        (WScoped.instantiate1_gen hw.2.1 0 hw.2.2) l hl
-      simp only [fvarLeaves, List.mem_append]
-      rcases fvarLeaves_instantiate1 b' 0 hl' with h2 | h2
-      · exact Or.inr h2
-      · exact Or.inl (Or.inr h2)
+      exact (inferTypeCore_letE_inv h).elim
 
 theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
@@ -1137,16 +1120,6 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       rw [inferTypeCore_succ] at h
       simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
     | letE t' v' b' =>
-      obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCore_letE_inv h
-      simp only [WScoped] at hw
-      simp only [looseBVarsBounded, Bool.and_eq_true] at hb
-      refine inferTypeCore_looseBVars henv fuel h'
-        (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
-        (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2) ?_
-      intro l hl
-      rcases fvarLeaves_instantiate1 b' 0 hl with h2 | h2
-      · exact hLb l (by simp only [fvarLeaves, List.mem_append]; exact Or.inr h2)
-      · exact hLb l (by
-          simp only [fvarLeaves, List.mem_append]; exact Or.inl (Or.inr h2))
+      exact (inferTypeCore_letE_inv h).elim
 
 end ConLeche

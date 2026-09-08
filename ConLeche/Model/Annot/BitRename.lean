@@ -92,14 +92,7 @@ theorem denoteMeta_erasedEq {acval : Name → (Name → Nat) → AnnotTerm}
           (d + 1)]
   | .letE ty vl body, e₂, he, d => by
     match e₂, he with
-    | .letE ty' vl' body', he =>
-      obtain ⟨h1, h2, h3⟩ : Expr.ErasedEq ty ty' ∧
-        Expr.ErasedEq vl vl' ∧ Expr.ErasedEq body body' := he
-      rw [denoteMeta, denoteMeta]
-      simp only [denoteMeta_erasedEq h1 d, denoteMeta_erasedEq h2 d,
-        denoteMeta_erasedEq (Expr.ErasedEq.instantiate1 h3
-          (show Expr.ErasedEq (.fvar d ty) (.fvar d ty') from rfl))
-          (d + 1)]
+    | .letE ty' vl' body', he => rw [denoteMeta, denoteMeta]
   | .lit l, e₂, he, _ => by
     match e₂, he with
     | .lit l', he => obtain rfl : l = l' := he; rfl
@@ -173,15 +166,8 @@ theorem denoteMeta_renameConsts_resolve {f : Name → Name}
         (body.instantiate1 (.fvar d ty)) (d + 1)
         (Expr.constsResolve_instantiate1 hr.1 0 hr.2)]
   | .letE ty val body, d, hr => by
-    simp only [Expr.constsResolve, Bool.and_eq_true] at hr
     simp only [Expr.renameConsts]
     rw [denoteMeta, denoteMeta]
-    rw [← Expr.renameConsts_instantiate1]
-    rw [denoteMeta_renameConsts_resolve hup hval ty d hr.1.1,
-      denoteMeta_renameConsts_resolve hup hval val d hr.1.2,
-      denoteMeta_renameConsts_resolve hup hval
-        (body.instantiate1 (.fvar d ty)) (d + 1)
-        (Expr.constsResolve_instantiate1 hr.1.1 0 hr.2)]
   termination_by e => e.sizeB
   decreasing_by
     all_goals first

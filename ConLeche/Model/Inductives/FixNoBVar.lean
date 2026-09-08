@@ -73,12 +73,6 @@ theorem NoBVar_congr {P P' : Nat → Prop} (h : ∀ i, P i ↔ P' i) :
     intro i; cases i with
     | zero => exact Iff.rfl
     | succ i => exact h i
-  | letE T v b ihT ihv ihb =>
-    intro hn
-    refine ⟨ihT h hn.1, ihv h hn.2.1, ihb (P := shiftP P) (P' := shiftP P') ?_ hn.2.2⟩
-    intro i; cases i with
-    | zero => exact Iff.rfl
-    | succ i => exact h i
   | eqE a b iha ihb => intro hn; exact ⟨iha h hn.1, ihb h hn.2⟩
   | fst e ih => intro hn; exact ih h hn
   | snd e ih => intro hn; exact ih h hn
@@ -169,25 +163,10 @@ theorem noBVar_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Name → Nat}
         simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl hl')) hfa,
       iha hw.2 hQ (fun l hl' => hl l (by
         simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inr hl')) haa⟩
-  | case9 d ty val body ihty ihval ihbody =>
-    intro hw Q hQ hl ea h
-    obtain ⟨ta, va, ba, hta, hva, hba, rfl⟩ := denoteMeta_letE_inv' h
-    simp only [Expr.WScoped] at hw
-    have h1 := ihty hw.1 hQ (fun l hl' => hl l (by
-      simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl (Or.inl hl'))) hta
-    have h2 := ihval hw.2.1 hQ (fun l hl' => hl l (by
-      simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl (Or.inr hl'))) hva
-    have h3 := ihbody (Expr.WScoped.instantiate1 hw.1 0 hw.2.2) (Q := Q)
-      (fun q hq => Nat.lt_succ_of_lt (hQ q hq)) (by
-        intro l hl'
-        rcases Expr.fvarLeaves_instantiate1 body 0 hl' with hl' | hl'
-        · exact hl l (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inr hl')
-        · simp only [Expr.fvarLeaves, List.mem_cons] at hl'
-          rcases hl' with rfl | hl'
-          · exact fun hq => by have := hQ _ hq; simp at this
-          · exact hl l (by
-              simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl (Or.inl hl'))) hba
-    exact ⟨h1, h2, NoBVar_congr (fun i => (shiftP_exclP Q d hQ i).symm) _ h3⟩
+  | case9 d ty val body =>
+    intro _ Q hQ hl ea h
+    rw [denoteMeta] at h
+    exact nomatch h
   | case10 d sn i e ihe =>
     intro hw Q hQ hl ea h
     obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h

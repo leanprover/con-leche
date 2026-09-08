@@ -78,11 +78,11 @@ into the claim family takes.
 Audited against that use, three things were missing and are added
 here.
 
-1. **The non-binder splitters** (`hoist_app`, `hoist_letE`,
-   `hoist_fst`/`hoist_snd`, `hoist_eqE`) and the two contraction forms
-   (`hoist_beta_pos`, `hoist_zeta`).  Mechanical, but a quarter that
-   re-derives them re-derives them four times.
-2. **The converses** (`of_pi`, `of_lam`, `of_app`, `of_letE`,
+1. **The non-binder splitters** (`hoist_app`, `hoist_fst`/`hoist_snd`,
+   `hoist_eqE`) and the contraction form `hoist_beta_pos`.
+   Mechanical, but a quarter that re-derives them re-derives them four
+   times.
+2. **The converses** (`of_pi`, `of_lam`, `of_app`,
    `of_fst`/`of_snd`, `of_eqE`).  `WhnfCoreClaims2C`/`WhnfClaims2C` and
    `InferClaims2C` now *deliver* a ρ-uniform `WellDenoted`, so assembling
    the node fact from its parts' hoisted forms is an obligation this
@@ -101,13 +101,10 @@ here.
 
 **Two shapes are deliberately absent, and the absence is a finding.**
 
-* There is **no `letE` binder splitter**.  `WellDenoted`'s `letE` clause
-  reads the body at `cons (interp V ρ v) ρ` — the *value's* point —
-  while `Sat (T :: Δa) ρ'` constrains `ρ' 0` only to inhabit `T`.  So
-  the body's fact does not hoist into the extended context, and no
-  restatement of the hoist repairs that.  `hoist_zeta` is what a
-  consumer gets instead, and it is what the checker needs: `letE` is
-  reduced by substitution, not by opening.
+* There is **no `letE` shape at all** — the syntax lost the former at
+  task #241, and with it the splitter's original difficulty (the clause
+  read the body at the *value's* point, which `Sat (T :: Δa)` cannot
+  supply).
 * There is **no unconditional `of_lam`**.  The `λ` clause's fibre
   component is a genuinely per-valuation semantic fact with no
   hereditary source, so the converse takes it as a premise. -/
@@ -121,14 +118,6 @@ theorem WellDenoted.hoist_app {Δa : List AnnotTerm} {f a : AnnotTerm}
   ⟨fun ρ hρ => ((WellDenoted_app V ρ f a) ▸ h ρ hρ).1,
     fun ρ hρ => ((WellDenoted_app V ρ f a) ▸ h ρ hρ).2.1⟩
 
-/-- The `letE`'s two *unopened* parts.  The body is not here — see the
-kit's note; `hoist_zeta` is its usable form. -/
-theorem WellDenoted.hoist_letE {Δa : List AnnotTerm} {T v b : AnnotTerm}
-    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.letE T v b)) :
-    (∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ T) ∧
-      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ v) :=
-  ⟨fun ρ hρ => ((WellDenoted_letE V ρ T v b) ▸ h ρ hρ).1,
-    fun ρ hρ => ((WellDenoted_letE V ρ T v b) ▸ h ρ hρ).2.1⟩
 
 /-- The first projection's subject. -/
 theorem WellDenoted.hoist_fst {Δa : List AnnotTerm} {e : AnnotTerm}
@@ -158,11 +147,6 @@ theorem WellDenoted.hoist_beta_pos {Δa : List AnnotTerm} {v : Nat}
     ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (b.inst a) :=
   fun ρ hρ => (WellDenoted_beta_pos V hv (h ρ hρ)).2
 
-/-- The ζ contractum, hoisted — the `letE` body's usable form. -/
-theorem WellDenoted.hoist_zeta {Δa : List AnnotTerm} {T v b : AnnotTerm}
-    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.letE T v b)) :
-    ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (b.inst v) :=
-  fun ρ hρ => (WellDenoted_zeta V (h ρ hρ)).2
 
 /-! ### The converses -/
 
@@ -207,20 +191,6 @@ theorem WellDenoted.of_app {Δa : List AnnotTerm} {f a : AnnotTerm}
   rw [WellDenoted_app]
   exact ⟨hf ρ hρ, ha ρ hρ, hslot ρ hρ⟩
 
-/-- **The converse at a `letE`**, in the form the extended context can
-actually supply: the value inhabits the annotation, so `Sat_cons`
-puts the body's hoisted fact at exactly the point the clause reads. -/
-theorem WellDenoted.of_letE {Δa : List AnnotTerm} {T v b : AnnotTerm}
-    (hT : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ T)
-    (hv : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ v)
-    (hmem : ∀ ρ : Nat → V, Sat V Δa ρ →
-      interp V ρ v ∈ˢ interp V ρ T)
-    (hb : ∀ ρ : Nat → V, Sat V (T :: Δa) ρ → WellDenoted V ρ b) :
-    ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.letE T v b) := by
-  intro ρ hρ
-  rw [WellDenoted_letE]
-  exact ⟨hT ρ hρ, hv ρ hρ,
-    hb _ (Sat_cons (V := V) hρ (hmem ρ hρ))⟩
 
 /-- The converse at a first projection. -/
 theorem WellDenoted.of_fst {Δa : List AnnotTerm} {e : AnnotTerm}

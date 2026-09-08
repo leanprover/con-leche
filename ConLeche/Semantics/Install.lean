@@ -119,8 +119,8 @@ theorem denoteAnnot_acval_congr {mode : CheckMode}
   | case7 d ty body m ihty ihbody =>
     rw [denoteAnnot, denoteAnnot, ihty, ihbody]
   | case8 d f a ihf iha => rw [denoteAnnot, denoteAnnot, ihf, iha]
-  | case9 d ty val body ihty ihval ihbody =>
-    rw [denoteAnnot, denoteAnnot, ihty, ihval, ihbody]
+  | case9 d ty val body =>
+    rw [denoteAnnot, denoteAnnot]
   | case10 d sn i e ihe => rw [denoteAnnot, denoteAnnot, ihe]
   | case11 d n hsup =>
     obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hN, hZ, hS, -⟩ :=

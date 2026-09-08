@@ -1760,17 +1760,23 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
       | none => pure (.proj sn i e')
-    | .letE _ v b =>
-      -- zeta: instantiate the body with the value on demand and
-      -- continue (official kernel `whnf_core`, `case expr_kind::Let`;
-      -- nanoda `whnf_no_unfolding_aux` `Let`; lean4lean `whnfCore'`
-      -- `.letE`).  No local let environment is kept.
-      r.whnfCore depth (b.instantiate1 v)
+    | .letE _ _ _ =>
+      -- **Unreachable by construction** (task #241).  The former ζ step
+      -- (official kernel `whnf_core`, `case expr_kind::Let`; nanoda
+      -- `whnf_no_unfolding_aux` `Let`; lean4lean `whnfCore'` `.letE`)
+      -- is gone: every expression reduction sees is annotate output or
+      -- stored rule data, and both are let-free, because
+      -- `annotateBody`'s own `.letE` clause runs the official
+      -- `infer_let` triple and returns the ζ *reduct* (task #217).
+      -- A `letE` here is an invariant violation, not an unsupported
+      -- feature, so it is `.internal` (exit 3), never a decline and
+      -- never a silent accept.
+      throw (.internal "whnfCore: `let` in an annotated expression")
     | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")
 
 /-- Step budget of the `whnfCore` head-normalization loop (task #106).
-Beta, iota, zeta and projection steps are *iteration*: the interned
+Beta, iota and projection steps are *iteration*: the interned
 `whnfCoreLoopI` runs them on this budget instead of charging each step
 to the shared recursion-depth budget (and to the native stack).  The
 `Expr`-level specification below stays chained — the refinement bridge
@@ -1979,18 +1985,14 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
-    | .letE ty v b => do
-      -- The official kernel's `infer_let` check order (`!infer_only`):
-      -- the annotation is a type, the value's inferred type matches it,
-      -- then the body *with the value transparent* — nanoda's
-      -- `infer_let` instantiates the body with the value and recurses
-      -- (task #100 stage 6: these checks moved here from the deleted
-      -- annotation pass).
-      let _ ← ensureSort r env depth (← r.infer depth ty)
-      let tv ← r.infer depth v
-      unless ← r.defeq depth tv ty do
-        throw (.invalid "let value type mismatch")
-      r.infer depth (b.instantiate1 v)
+    | .letE _ _ _ =>
+      -- **Unreachable by construction** (task #241).  The official
+      -- kernel's `infer_let` triple (`!infer_only`) is not lost: it is
+      -- `annotateBody`'s `.letE` clause, which is the one pass that
+      -- meets a `let` from the stream and which returns the ζ reduct
+      -- (task #217).  Inference therefore only ever sees annotate
+      -- output, which is let-free; see the `whnfCore` arm.
+      throw (.internal "inferType: `let` in an annotated expression")
     | .bvar _ =>
       throw (.notImplemented "inferType beyond the supported fragment")
 
@@ -2118,12 +2120,9 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
-    | .letE ty v b => do
-      let _ ← ensureSort r env depth (← r.infer depth ty)
-      let tv ← r.infer depth v
-      unless ← r.defeq depth tv ty do
-        throw (.invalid "let value type mismatch")
-      r.infer depth (b.instantiate1 v)
+    | .letE _ _ _ =>
+      -- unreachable by construction, as in `inferBody` (task #241)
+      throw (.internal "inferType: `let` in an annotated expression")
     | .bvar _ =>
       throw (.notImplemented "inferType beyond the supported fragment")
 

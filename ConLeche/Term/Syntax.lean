@@ -33,11 +33,14 @@ Differences from `ConLeche.Expr`, each deliberate:
   at every assignment.  The layer therefore cannot state a polymorphic
   fact internally — and does not need to, because it has no definable
   constants at all.
-* **`letE` is present.**  The checker's input-normalization pass
-  currently zeta-expands `let` before storage, but that pass is
-  scheduled for removal (task #117), after which stored terms carry
-  `letE` and the bridge has to type them.  The typing rule substitutes
-  the value; zeta is an `Eq` rule.
+* **There is no `letE`.**  No stored expression carries a `let`: the
+  annotation pass runs the official `infer_let` triple and returns the
+  ζ *reduct* (task #217), and every kernel arm that used to accept a
+  `letE` node downstream of it is a positive error (task #241).  So the
+  denotation's `letE` clause is `none`, the former is gone, and the
+  substitution metatheory stays as small as it was — see
+  `ConLeche/Verify/Denote.lean`'s "There is no `let` in the term
+  language".
 * **`fst`/`snd` are formers, and their type arguments live in the
   premise.**  A projection on a *modeled* structure never reaches this
   layer: the checker accepts no `.proj` node without a native table
@@ -186,8 +189,6 @@ inductive Term where
   | lam (ty body : Term)
   /-- `(_ : ty) → body` -/
   | pi (ty body : Term)
-  /-- `let _ : ty := value; body` -/
-  | letE (ty value body : Term)
   /-- `@Eq _ lhs rhs`, **without the type**: the interpretation is
   `⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`, so soundness never constrains the type,
   and a census (task #237) found no definition and no theorem in any

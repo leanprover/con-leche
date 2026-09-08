@@ -45,7 +45,6 @@ namespace Term
   | n, .app f a => bvarsBelow n f ∧ bvarsBelow n a
   | n, .lam A b => bvarsBelow n A ∧ bvarsBelow (n + 1) b
   | n, .pi A B => bvarsBelow n A ∧ bvarsBelow (n + 1) B
-  | n, .letE T v b => bvarsBelow n T ∧ bvarsBelow n v ∧ bvarsBelow (n + 1) b
   | n, .eqE a b => bvarsBelow n a ∧ bvarsBelow n b
   | n, .fst e => bvarsBelow n e
   | n, .snd e => bvarsBelow n e
@@ -67,9 +66,6 @@ theorem bvarsBelow.mono : ∀ {v : Term} {m n : Nat}, m ≤ n →
     intro m n hmn h; exact ⟨ihA hmn h.1, ihb (Nat.succ_le_succ hmn) h.2⟩
   | pi A B ihA ihB =>
     intro m n hmn h; exact ⟨ihA hmn h.1, ihB (Nat.succ_le_succ hmn) h.2⟩
-  | letE T v b ihT ihv ihb =>
-    intro m n hmn h
-    exact ⟨ihT hmn h.1, ihv hmn h.2.1, ihb (Nat.succ_le_succ hmn) h.2.2⟩
   | eqE a b iha ihb =>
     intro m n hmn h; exact ⟨iha hmn h.1, ihb hmn h.2⟩
   | fst e ihe => intro m n hmn h; exact ihe hmn h
@@ -90,8 +86,6 @@ theorem liftN_eq_self : ∀ {v : Term} {k : Nat}, bvarsBelow k v →
     intro k h n; rw [liftN_lam, ihA h.1, ihb h.2]
   | pi A B ihA ihB =>
     intro k h n; rw [liftN_pi, ihA h.1, ihB h.2]
-  | letE T v b ihT ihv ihb =>
-    intro k h n; rw [liftN_letE, ihT h.1, ihv h.2.1, ihb h.2.2]
   | eqE a b iha ihb =>
     intro k h n; rw [liftN_eqE, iha h.1, ihb h.2]
   | fst e ihe => intro k h n; rw [liftN_fst, ihe h]
@@ -112,8 +106,6 @@ theorem inst_eq_self : ∀ {v : Term} {k : Nat}, bvarsBelow k v →
     intro k h a; rw [inst_lam, ihA h.1, ihb h.2]
   | pi A B ihA ihB =>
     intro k h a; rw [inst_pi, ihA h.1, ihB h.2]
-  | letE T v b ihT ihv ihb =>
-    intro k h a; rw [inst_letE, ihT h.1, ihv h.2.1, ihb h.2.2]
   | eqE b c ihb ihc =>
     intro k h a; rw [inst_eqE, ihb h.1, ihc h.2]
   | fst e ihe => intro k h a; rw [inst_fst, ihe h]

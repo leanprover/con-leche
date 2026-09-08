@@ -79,9 +79,6 @@ theorem interp_liftN (n : Nat) :
     congr 1
     funext x
     rw [ihB, cons_shiftE]
-  | letE T e b ihT ihe ihb =>
-    intro k ρ
-    simp only [AnnotTerm.liftN_letE, interp_letE, ihe, ihb, cons_shiftE]
   | eqE a b iha ihb =>
     intro k ρ; simp only [AnnotTerm.liftN_eqE, interp_eqE, iha, ihb]
   | fst e ihe =>
@@ -132,10 +129,6 @@ theorem interp_inst :
     congr 1
     funext x
     rw [ihB, shiftE_succ_cons, cons_instE]
-  | letE T e b ihT ihe ihb =>
-    intro a k ρ
-    simp only [AnnotTerm.inst_letE, interp_letE, ihe, ihb, shiftE_succ_cons,
-      cons_instE]
   | eqE b c ihb ihc =>
     intro a k ρ; simp only [AnnotTerm.inst_eqE, interp_eqE, ihb, ihc]
   | fst e ihe =>
@@ -185,14 +178,6 @@ theorem interp_congr_below :
     intro k ρ ρ' hb hag
     simp only [interp_pi, ihA k ρ ρ' hb.1 hag]
     refine piR_congr fun x _ => ihB (k + 1) _ _ hb.2 ?_
-    intro i hi
-    cases i with
-    | zero => rfl
-    | succ i => exact hag i (Nat.lt_of_succ_lt_succ hi)
-  | letE T v b ihT ihv ihb =>
-    intro k ρ ρ' hb hag
-    rw [interp_letE, interp_letE, ihv k ρ ρ' hb.2.1 hag]
-    refine ihb (k + 1) _ _ hb.2.2 ?_
     intro i hi
     cases i with
     | zero => rfl

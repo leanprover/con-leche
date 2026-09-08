@@ -653,12 +653,6 @@ clause that recurses therefore has to *supply* the recursive call's
 type-side reading, and for the sub-runs the clause makes that reading
 is nowhere in its hypotheses:
 
-* `.letE` infers `val`'s type `tvv` and needs `WellDenotedV ρ vA` (the
-  `letE` clause of `WellDenoted`/`AnnotValid` reads the **value's own**
-  grading) — which is `ihi` at `val`, and `ihi` wants
-  `denoteMeta … d tvv = some _`.  Nothing else supplies it: the type
-  side is reachable through `SortSemP` (the clause runs `ensureSort`
-  on `ty`) but the value side has no sort run.
 * `.app` needs the head's inferred type `tf` (for `ihi` at `f` and
   then `ihw`), the whnf'd `∀`-type's own reading (for `ihw`'s
   conclusion and for the domain `Aa`, which does not occur in the
@@ -672,7 +666,9 @@ outputs have none of those on a well-formed environment.  It is
 exactly the "success premises may later be dischargeable outright"
 upgrade path `Claims.lean`'s docstring names, and until that lands
 it is a **routed residue**, in the same currency and at the same fuel
-as the claims it feeds.  Two producers, so two residues. -/
+as the claims it feeds.  One producer, so one residue (task #241
+removed the second: the `.letE` clause, whose value-side reading had
+the same shape, is gone with the constructor). -/
 
 /-! ## The leaf side condition the inference residue carries
 
@@ -822,97 +818,6 @@ theorem sortSemAt_of_claims {env : Env} {m : EnvModel V env}
   have hm := hmem ρ hρ
   rw [heq ρ hρ, interp_sort] at hm
   exact hm
-
-/-- **`.letE`, P currency.**  The ζ crossing is `denoteMeta_beta`
-*directly* — no routed `BetaCross2C`, because in the validated
-reading the two sides are literally the same annotation up to `inst`
-and the transport of the grading is `WellDenotedV_inst0`, an
-equivalence, not a per-site truthfulness ledger.
-
-The type's grading comes from the clause's own `ensureSort` run
-through `SortSemP`; the value's is `ihi` at `val`, whose type-side
-reading is the routed `InferReads` (the FINDING above). -/
-theorem infer_letE_claim (m : EnvModel V env)
-    (hss : SortSemAt m μ φ fuel)
-    (hir : InferReads m μ φ fuel) (ihi : InferClaim μ m φ fuel)
-    {d : Nat} {ty val b t : Expr} {Δa : List AnnotTerm}
-    {ea ta : AnnotTerm}
-    (h : inferTypeCore μ env (fuel + 1) d (.letE ty val b) = .ok t)
-    (hws : Expr.WScoped d (.letE ty val b))
-    (hb : (Expr.letE ty val b).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.letE ty val b))
-    (hC : CtxOk m φ d Δa (.letE ty val b))
-    (hea : denoteMeta m.acval env φ d (.letE ty val b) = some ea)
-    (hta : denoteMeta m.acval env φ d t = some ta) :
-    (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) ∧
-      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ta) ∧
-      ∀ ρ : Nat → V, Sat V Δa ρ →
-        interp V ρ ea ∈ˢ interp V ρ ta := by
-  obtain ⟨tty, sv, tvv, hty, hes, hvv, -, hbody⟩ :=
-    ConLeche.inferTypeCore_letE_inv h
-  simp only [Expr.WScoped] at hws
-  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-  have hLval : Expr.LeavesBounded val := fun l hl =>
-    hLb l (by simp [Expr.fvarLeaves, hl])
-  have hLty : Expr.LeavesBounded ty := fun l hl =>
-    hLb l (by simp [Expr.fvarLeaves, hl])
-  have hsubred : ∀ l ∈ (b.instantiate1 val).fvarLeaves,
-      l ∈ (Expr.letE ty val b).fvarLeaves := by
-    intro l hl
-    rcases Expr.fvarLeaves_instantiate1 b 0 hl with h2 | h2
-    · simp [Expr.fvarLeaves, h2]
-    · simp [Expr.fvarLeaves, h2]
-  have hwred : Expr.WScoped d (b.instantiate1 val) :=
-    Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2
-  have hbred : (b.instantiate1 val).looseBVarsBounded 0 = true :=
-    Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2
-  have hLred : Expr.LeavesBounded (b.instantiate1 val) :=
-    fun l hl => hLb l (hsubred l hl)
-  have hCred : CtxOk m φ d Δa (b.instantiate1 val) :=
-    hC.of_subset hsubred
-  -- the subject's reading
-  rw [denoteMeta] at hea
-  rcases htyA : denoteMeta m.acval env φ d ty with _ | tyA
-  · rw [htyA] at hea; exact nomatch hea
-  rw [htyA] at hea
-  rcases hvA : denoteMeta m.acval env φ d val with _ | vA
-  · rw [hvA] at hea; exact nomatch hea
-  rw [hvA] at hea
-  rcases hbA : denoteMeta m.acval env φ (d + 1)
-      (b.instantiate1 (.fvar d ty)) with _ | bA
-  · rw [hbA] at hea; exact nomatch hea
-  rw [hbA] at hea
-  obtain rfl : ea = .letE tyA vA bA := (Option.some.inj hea).symm
-  -- the ζ crossing: `denoteMeta_beta`, directly
-  have hcross : denoteMeta m.acval env φ d (b.instantiate1 val)
-      = some (bA.inst vA) := by
-    rw [denoteMeta_beta (ty := ty) m.acval_closed
-      (acval_inst_self m) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hvA 0, hbA]
-    rfl
-  -- the value's grading (routed reading), the type's (own sort run)
-  obtain ⟨tvvA, htvvA⟩ :=
-    hir hvv hws.2.1 hb.1.2 hLval (LeafReads.of_ctxOk hC.letE_val) hvA
-  obtain ⟨hrowVE, -, -⟩ :=
-    ihi hvv hws.2.1 hb.1.2 hLval hC.letE_val hvA htvvA
-  have hrowTE : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ tyA :=
-    fun ρ hρ =>
-      (hss hC.letE_ty hws.1 hb.1.1 hLty hty
-        (ConLeche.ensureSortCore_inv hes) htyA ρ hρ).1
-  obtain ⟨hrowBE, hrowBT, hrowBM⟩ :=
-    ihi hbody hwred hbred hLred hCred hcross hta
-  refine ⟨?_, hrowBT, ?_⟩
-  · intro ρ hρ
-    have hokv := hrowVE ρ hρ
-    have hokbA : WellDenotedV V (cons (interp V ρ vA) ρ) bA :=
-      (WellDenotedV_inst0 hokv).mp (hrowBE ρ hρ)
-    refine ⟨?_, ?_⟩
-    · rw [WellDenoted_letE]
-      exact ⟨(hrowTE ρ hρ).1, hokv.1, hokbA.1⟩
-    · rw [AnnotValid_letE]
-      exact ⟨(hrowTE ρ hρ).2, hokv.2, hokbA.2⟩
-  · intro ρ hρ
-    rw [interp_letE, ← interp_inst0]
-    exact hrowBM ρ hρ
 
 /-- **`.app`, P currency — the quarter's hardest clause.**  Three
 things replace canonical machinery:
@@ -1163,8 +1068,7 @@ theorem inferStep_of (h : InferInputs V μ)
     exact infer_app_claim m (h.infer_reads m φ fuel)
       (h.whnf_reads m φ fuel) ihw ihd ihi hrun hws hb hLb hC hea hta
   | .letE ty val bd, hrun, hws, hb, hLb, hC, hea =>
-    exact infer_letE_claim m hss (h.infer_reads m φ fuel)
-      ihi hrun hws hb hLb hC hea hta
+    exact (ConLeche.inferTypeCore_letE_inv hrun).elim
   | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
     exact h.proj m φ fuel hrun hws hb hLb hC hea hta
 

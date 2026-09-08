@@ -36,10 +36,7 @@ which verification is meant to make rare. Only exit 0 carries the
 theorem's guarantee. An out-of-memory condition also exits 1: it is the
 Lean runtime's own panic — `INTERNAL PANIC: out of memory` on stderr,
 then `exit(1)` — which no code of ours can catch, so the stderr message
-is what tells it apart from a reject. (Until task #230 the driver
-re-exec'd itself as a supervised child in order to translate that case
-into exit 3; a checker that spawns a copy of itself is not what belongs
-in the finished product, and the supervisor is gone.)
+is what tells it apart from a reject.
 
 The flag `--progress[=<stride>]` prints a heartbeat line before every
 `stride`-th declaration on stderr (bare, the stride is 1); it runs a
@@ -126,7 +123,7 @@ Trusted mode is verified mode minus certification-only steps; it is
 faster and is outside the theorem. Both use the same core.
 
 The checker is a Lean-kernel-style type checker in the shape of the
-official one: `whnfCore` does β/ζ/ι/projection/quotient reduction,
+official one: `whnfCore` does β/ι/projection/quotient reduction,
 `whnf` adds δ-unfolding and the literal fast paths
 ([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L1816)),
 `inferType` computes a type, and `isDefEq` decides conversion with lazy
@@ -145,7 +142,9 @@ differ from a textbook presentation and matter for the proof:
   The checker validates the coherence of these annotations at run time;
   the proof consumes them. This is the price of not having a syntactic
   type theory (see §4). The annotation pass also ζ-expands `let`, so
-  stored terms are let-free.
+  stored terms are let-free: the reduction and inference arms raise an
+  internal error on a `let` node, and the term language the denotation
+  targets has no `let` former.
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
@@ -185,7 +184,7 @@ predicate
 ([predicate `WellDenoted` in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/WellDenoted.lean#L81-L111)):
 hereditarily, every application applies a function to an argument of
 its domain, every λ has a bounded codomain, every projection hits a
-pair, and so on. Unlike syntactic typing it is preserved by β, ζ and
+pair, and so on. Unlike syntactic typing it is preserved by β and
 the other reduction steps
 ([the preservation lemmas in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Semantics/WellDenoted.lean#L303-L361)).
 An environment carries the invariant for every stored constant, plus
@@ -204,9 +203,9 @@ direction only
 
 They are proved by one simultaneous induction on fuel, clause by
 clause
-([the reduction step in `ConLeche/Model/Steps/Whnf.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/Whnf.lean#L912-L913),
+([the reduction step in `ConLeche/Model/Steps/Whnf.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/Whnf.lean#L844-L845),
 [the definitional-equality step in `ConLeche/Model/Steps/DefEq.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/DefEq.lean#L1338-L1347),
-[the inference step in `ConLeche/Model/Steps/Infer.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/Infer.lean#L1131-L1138)).
+[the inference step in `ConLeche/Model/Steps/Infer.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Model/Steps/Infer.lean#L1036-L1043)).
 This is where the usual difficulty of intensional soundness proofs, the
 injectivity of Π needed to invert the typing of `f` in an application,
 does not arise: `inferType` itself reduces `f`'s type to a syntactic Π,
@@ -256,7 +255,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   the generated recursor with the stream's, rejecting a record that is
   not it; the whole install is one entry
   ([function `checkNative` in `ConLeche/Kernel/Inductives/NativeInstall.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Inductives/NativeInstall.lean#L257)).
-  The two halves are deliberately independent (task #220): a block whose
+  The two halves are deliberately independent: a block whose
   recursor record is a stub is still rejected by its own type and
   constructors, as official rejects it, instead of being declined for a
   recursor the checker was going to generate anyway.
@@ -481,7 +480,7 @@ tagged-sum kit (the constructors as a sum). `Gated` marks the parked
 reaches, and `Fueled` marks a record-parameterised helper applied to
 the pure functions at a fuel (`Verify/Knot.lean`).
 
-**The module system** (task #231). Every file in the build carries the
+**The module system.** Every file in the build carries the
 `module` header, so a declaration and an import are private unless said
 otherwise. The rule that decides which: *checker code is exposed, because
 it is the subject of the proofs* — `Kernel/*`, `Cached/*`, `Frontend/*`
@@ -497,9 +496,9 @@ seal is `Kernel/PropWhen`, whose representation stays hidden behind its
 API and laws; the proofs that need to see through it say `import all
 ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 
-A docstring that cites `ConLeche/ModelV1/*` is citing the **first**
-model tier, retired at task #148 T7 and resolvable only in git history;
-it is not `ConLeche/Model/*`, which is this document's model tier.
+A docstring that cites `ConLeche/ModelV1/*` is citing a directory that
+no longer exists; it is not `ConLeche/Model/*`, which is this document's
+model tier.
 
 ## 11. Module map
 

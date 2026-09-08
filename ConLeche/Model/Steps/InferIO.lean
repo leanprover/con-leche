@@ -153,21 +153,6 @@ theorem WellDenotedV.hoist_app {Δa : List AnnotTerm} {f a : AnnotTerm}
       ((AnnotValid_app V ρ f a) ▸ (h ρ hρ).2).2⟩,
     fun ρ hρ => ((WellDenoted_app V ρ f a) ▸ (h ρ hρ).1).2.2⟩
 
-/-- The `WellDenotedV` `letE` splitter, in the raw value-indexed form
-(`WellDenoted`'s own clause shape — the hoist kit's note explains why no
-opened form exists): the premise form's entry into the ζ crossing. -/
-theorem WellDenotedV.hoist_letE {Δa : List AnnotTerm} {T v b : AnnotTerm}
-    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (.letE T v b)) :
-    (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ T) ∧
-      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ v) ∧
-      ∀ ρ : Nat → V, Sat V Δa ρ →
-        WellDenotedV V (cons (interp V ρ v) ρ) b :=
-  ⟨fun ρ hρ => ⟨((WellDenoted_letE V ρ T v b) ▸ (h ρ hρ).1).1,
-      ((AnnotValid_letE V ρ T v b) ▸ (h ρ hρ).2).1⟩,
-    fun ρ hρ => ⟨((WellDenoted_letE V ρ T v b) ▸ (h ρ hρ).1).2.1,
-      ((AnnotValid_letE V ρ T v b) ▸ (h ρ hρ).2).2.1⟩,
-    fun ρ hρ => ⟨((WellDenoted_letE V ρ T v b) ▸ (h ρ hρ).1).2.2,
-      ((AnnotValid_letE V ρ T v b) ▸ (h ρ hρ).2).2.2⟩⟩
 
 /-- **The io-inferred type reads** (the io lane's totality residue —
 `InferReads` at the io run, with the same `LeafReads` repair).  Its
@@ -598,75 +583,6 @@ theorem infer_lam_claimIO (m : EnvModel V env)
       (fun x hx => hrowM (cons x ρ) (Sat_cons V hρ hx))
       (fun h0 x hx => hzfib h0 (cons x ρ) (Sat_cons V hρ hx))).2
 
-/-- **`.letE`, io lane.**  Premise form sheds *both* of the full
-clause's residues: no `SortSemAt` (the type's grading was only ever
-needed to establish the subject's, which is now given) and no
-`InferReads` (the value's grading likewise).  The ζ crossing is
-`denoteMeta_beta` and the transport is `WellDenotedV_inst0`, unchanged. -/
-theorem infer_letE_claimIO (m : EnvModel V env)
-    (ihio : InferClaimIO μ m φ fuel)
-    {d : Nat} {ty val b t : Expr} {Δa : List AnnotTerm}
-    {ea ta : AnnotTerm}
-    (h : inferTypeCoreIO μ env (fuel + 1) d (.letE ty val b) = .ok t)
-    (hws : Expr.WScoped d (.letE ty val b))
-    (hb : (Expr.letE ty val b).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.letE ty val b))
-    (hC : CtxOk m φ d Δa (.letE ty val b))
-    (hea : denoteMeta m.acval env φ d (.letE ty val b) = some ea)
-    (hta : denoteMeta m.acval env φ d t = some ta)
-    (hok : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) :
-    (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ta) ∧
-      ∀ ρ : Nat → V, Sat V Δa ρ →
-        interp V ρ ea ∈ˢ interp V ρ ta := by
-  obtain ⟨tty, sv, tvv, hty, hes, hvv, -, hbody⟩ :=
-    ConLeche.inferTypeCoreIO_letE_inv h
-  simp only [Expr.WScoped] at hws
-  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-  have hsubred : ∀ l ∈ (b.instantiate1 val).fvarLeaves,
-      l ∈ (Expr.letE ty val b).fvarLeaves := by
-    intro l hl
-    rcases Expr.fvarLeaves_instantiate1 b 0 hl with h2 | h2
-    · simp [Expr.fvarLeaves, h2]
-    · simp [Expr.fvarLeaves, h2]
-  have hwred : Expr.WScoped d (b.instantiate1 val) :=
-    Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2
-  have hbred : (b.instantiate1 val).looseBVarsBounded 0 = true :=
-    Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2
-  have hLred : Expr.LeavesBounded (b.instantiate1 val) :=
-    fun l hl => hLb l (hsubred l hl)
-  have hCred : CtxOk m φ d Δa (b.instantiate1 val) :=
-    hC.of_subset hsubred
-  -- the subject's reading
-  rw [denoteMeta] at hea
-  rcases htyA : denoteMeta m.acval env φ d ty with _ | tyA
-  · rw [htyA] at hea; exact nomatch hea
-  rw [htyA] at hea
-  rcases hvA : denoteMeta m.acval env φ d val with _ | vA
-  · rw [hvA] at hea; exact nomatch hea
-  rw [hvA] at hea
-  rcases hbA : denoteMeta m.acval env φ (d + 1)
-      (b.instantiate1 (.fvar d ty)) with _ | bA
-  · rw [hbA] at hea; exact nomatch hea
-  rw [hbA] at hea
-  obtain rfl : ea = .letE tyA vA bA := (Option.some.inj hea).symm
-  -- the ζ crossing: `denoteMeta_beta`, directly
-  have hcross : denoteMeta m.acval env φ d (b.instantiate1 val)
-      = some (bA.inst vA) := by
-    rw [denoteMeta_beta (ty := ty) m.acval_closed
-      (acval_inst_self m) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hvA 0, hbA]
-    rfl
-  -- **the premise, spent**: the value's and the body's grading
-  obtain ⟨-, hokv, hokb⟩ := WellDenotedV.hoist_letE (V := V) hok
-  have hokred : ∀ ρ : Nat → V, Sat V Δa ρ →
-      WellDenotedV V ρ (bA.inst vA) := fun ρ hρ =>
-    (WellDenotedV_inst0 (hokv ρ hρ)).mpr (hokb ρ hρ)
-  obtain ⟨hrowBT, hrowBM⟩ :=
-    ihio hbody hwred hbred hLred hCred hcross hta hokred
-  refine ⟨hrowBT, ?_⟩
-  intro ρ hρ
-  rw [interp_letE, ← interp_inst0]
-  exact hrowBM ρ hρ
-
 /-- **`.app`, io lane — the campaign's only new mathematics** (the
 frozen statement; DESIGN.md, "THE IO LICENSE BATCH").  The inversion's
 certificate disjunct splits the proof:
@@ -921,7 +837,7 @@ theorem inferStepIO_of (h : InferInputsIO V μ)
       (h.base.whnf_reads m φ fuel) ihw ihd ihio hrun hws hb hLb hC hea
       hta hok
   | .letE ty val bd, hrun, hws, hb, hLb, hC, hea, hok =>
-    exact infer_letE_claimIO m ihio hrun hws hb hLb hC hea hta hok
+    exact (ConLeche.inferTypeCoreIO_letE_inv hrun).elim
   | .proj sn i pe, hrun, hws, hb, hLb, hC, hea, hok =>
     exact h.proj_io m φ fuel hrun hws hb hLb hC hea hta hok
 

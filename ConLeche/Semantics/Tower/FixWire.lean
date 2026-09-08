@@ -49,11 +49,6 @@ theorem bvarsBelow_inst {a : Term} {n : Nat} (ha : Term.bvarsBelow n a) :
     have := bvarsBelow_inst ha B (k + 1) (by
       rw [show n + (k + 1) + 1 = n + k + 1 + 1 from by omega]; exact he.2)
     rwa [show n + (k + 1) = n + k + 1 from by omega] at this
-  | .letE T v b, k, he => by
-    refine ⟨bvarsBelow_inst ha T k he.1, bvarsBelow_inst ha v k he.2.1, ?_⟩
-    have := bvarsBelow_inst ha b (k + 1) (by
-      rw [show n + (k + 1) + 1 = n + k + 1 + 1 from by omega]; exact he.2.2)
-    rwa [show n + (k + 1) = n + k + 1 from by omega] at this
   | .eqE b c, k, he =>
     ⟨bvarsBelow_inst ha b k he.1, bvarsBelow_inst ha c k he.2⟩
   | .fst e, k, he => bvarsBelow_inst ha e k he

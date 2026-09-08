@@ -88,16 +88,16 @@
     54    (pureFns mode env fuel).annotate depth e
 
 == ConLeche/Kernel/Core.lean#L2653-L2662
-  2653      { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
-  2654        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2655        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2656        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2657        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2658        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2659    | fuel + 1 =>
-  2660      wrap
-  2661        { whnfCore := fun d e =>
-  2662            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+  2653        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2654        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2655        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2656        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  2657        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  2658    | fuel + 1 =>
+  2659      wrap
+  2660        { whnfCore := fun d e =>
+  2661            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+  2662          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/Model/Fold.lean#L294-L301
    294      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
@@ -130,10 +130,10 @@
     69  inductive CheckMode where
 
 == ConLeche/Kernel/Core.lean#L1816
-  1816  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+  1816  def whnfLoop (r : CoreFns m) (env : Env) (depth : Nat) :
 
 == ConLeche/Kernel/Core.lean#L2537
-  2537  def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+  2537    fun depth e =>
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
@@ -186,79 +186,79 @@
   1286  `.trusted` / `.verified` (`trusted_agrees_skels_shipped`). -/
 
 == ConLeche/Term/Syntax.lean#L176-L205
-   176  inductive Term where
-   177    /-- de Bruijn index -/
-   178    | bvar (i : Nat)
-   179    /-- `Sort u` at a concrete level -/
-   180    | sort (u : Nat)
-   181    /-- a built-in constant at a concrete level instantiation -/
-   182    | const (c : BConst) (us : List Nat)
-   183    /-- application -/
-   184    | app (f a : Term)
-   185    /-- `fun (_ : ty) => body` -/
-   186    | lam (ty body : Term)
-   187    /-- `(_ : ty) → body` -/
-   188    | pi (ty body : Term)
-   189    /-- `let _ : ty := value; body` -/
-   190    | letE (ty value body : Term)
-   191    /-- `@Eq _ lhs rhs`, **without the type**: the interpretation is
-   192    `⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`, so soundness never constrains the type,
-   193    and a census (task #237) found no definition and no theorem in any
-   194    tier reading the slot the former used to carry.  It is gone; a
-   195    producer that knows the type simply drops it. -/
-   196    | eqE (lhs rhs : Term)
-   197    /-- First field of a pair.  Carries **only** the subject: the pair's
-   198    type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
-   199    not from the term — see the module docstring.  Interpreted by
-   200    `sfst`, i.e. literally `interpExpr`'s clause. -/
-   201    | fst (e : Term)
-   202    /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
-   203    | snd (e : Term)
-   204    /-- the canonical (irrelevant) proof of a derivable equation -/
-   205    | prf
+   176    deriving Repr, DecidableEq, Inhabited
+   177  
+   178  /-- Terms.  See the module docstring for what is *not* here. -/
+   179  inductive Term where
+   180    /-- de Bruijn index -/
+   181    | bvar (i : Nat)
+   182    /-- `Sort u` at a concrete level -/
+   183    | sort (u : Nat)
+   184    /-- a built-in constant at a concrete level instantiation -/
+   185    | const (c : BConst) (us : List Nat)
+   186    /-- application -/
+   187    | app (f a : Term)
+   188    /-- `fun (_ : ty) => body` -/
+   189    | lam (ty body : Term)
+   190    /-- `(_ : ty) → body` -/
+   191    | pi (ty body : Term)
+   192    /-- `@Eq _ lhs rhs`, **without the type**: the interpretation is
+   193    `⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`, so soundness never constrains the type,
+   194    and a census (task #237) found no definition and no theorem in any
+   195    tier reading the slot the former used to carry.  It is gone; a
+   196    producer that knows the type simply drops it. -/
+   197    | eqE (lhs rhs : Term)
+   198    /-- First field of a pair.  Carries **only** the subject: the pair's
+   199    type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
+   200    not from the term — see the module docstring.  Interpreted by
+   201    `sfst`, i.e. literally `interpExpr`'s clause. -/
+   202    | fst (e : Term)
+   203    /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
+   204    | snd (e : Term)
+   205    /-- the canonical (irrelevant) proof of a derivable equation -/
 
 == ConLeche/Semantics/Syntax.lean#L73-L99
-    73  inductive AnnotTerm where
-    74    /-- de Bruijn index -/
-    75    | bvar (i : Nat)
-    76    /-- `Sort u` at a concrete level -/
-    77    | sort (u : Nat)
-    78    /-- a built-in constant at a concrete level instantiation -/
-    79    | const (c : BConst) (us : List Nat)
-    80    /-- application -/
-    81    | app (f a : AnnotTerm)
-    82    /-- `fun (_ : ty) => body`, where `body`'s **type** has sort `u` —
-    83    the codomain numeral `interp` dispatches on (tier B's F4; the
-    84    #152 resolution made it derivable, and `Annotates.lam` caches it) -/
-    85    | lam (u : Nat) (ty body : AnnotTerm)
-    86    /-- `(_ : ty) → body`, with `ty`'s sort `u` and `body`'s sort `v` -/
-    87    | pi (u v : Nat) (ty body : AnnotTerm)
-    88    /-- `let _ : ty := value; body` — **no sort slot**, see the module
-    89    docstring -/
-    90    | letE (ty value body : AnnotTerm)
-    91    /-- `@Eq _ lhs rhs`; no annotation, and no type slot either, as in
-    92    `Term` (task #237) -/
-    93    | eqE (lhs rhs : AnnotTerm)
-    94    /-- first field of a pair -/
-    95    | fst (e : AnnotTerm)
-    96    /-- second field of a pair -/
-    97    | snd (e : AnnotTerm)
-    98    /-- the canonical (irrelevant) proof of a derivable equation -/
-    99    | prf
+    73    | const (c : BConst) (us : List Nat)
+    74    /-- application -/
+    75    | app (f a : AnnotTerm)
+    76    /-- `fun (_ : ty) => body`, where `body`'s **type** has sort `u` —
+    77    the codomain numeral `interp` dispatches on (tier B's F4; the
+    78    #152 resolution made it derivable, and `Annotates.lam` caches it) -/
+    79    | lam (u : Nat) (ty body : AnnotTerm)
+    80    /-- `(_ : ty) → body`, with `ty`'s sort `u` and `body`'s sort `v` -/
+    81    | pi (u v : Nat) (ty body : AnnotTerm)
+    82    /-- `@Eq _ lhs rhs`; no annotation, and no type slot either, as in
+    83    `Term` (task #237) -/
+    84    | eqE (lhs rhs : AnnotTerm)
+    85    /-- first field of a pair -/
+    86    | fst (e : AnnotTerm)
+    87    /-- second field of a pair -/
+    88    | snd (e : AnnotTerm)
+    89    /-- the canonical (irrelevant) proof of a derivable equation -/
+    90    | prf
+    91    deriving Repr, Inhabited
+    92  
+    93  namespace AnnotTerm
+    94  
+    95  /-- Forget the annotations. -/
+    96  def erase : AnnotTerm → Term
+    97    | .bvar i => .bvar i
+    98    | .sort u => .sort u
+    99    | .const c us => .const c us
 
 == ConLeche/Semantics/Interp.lean#L153-L164
-   153  noncomputable def interp : (Nat → V) → AnnotTerm → V
-   154    | ρ, .bvar i => ρ i
-   155    | _, .sort u => univ u
-   156    | _, .const c us => bval V c us
-   157    | ρ, .app f a => SetTheory.app (interp ρ f) (interp ρ a)
-   158    | ρ, .lam v A b => lamR v (interp ρ A) fun x => interp (cons x ρ) b
-   159    | ρ, .pi _ v A B => piR v (interp ρ A) fun x => interp (cons x ρ) B
-   160    | ρ, .letE _ e b => interp (cons (interp ρ e) ρ) b
-   161    | ρ, .eqE a b => eqv (interp ρ a) (interp ρ b)
-   162    | ρ, .fst e => sfst (interp ρ e)
-   163    | ρ, .snd e => ssnd (interp ρ e)
-   164    | _, .prf => pt
+   153    | _, .const c us => bval V c us
+   154    | ρ, .app f a => SetTheory.app (interp ρ f) (interp ρ a)
+   155    | ρ, .lam v A b => lamR v (interp ρ A) fun x => interp (cons x ρ) b
+   156    | ρ, .pi _ v A B => piR v (interp ρ A) fun x => interp (cons x ρ) B
+   157    | ρ, .eqE a b => eqv (interp ρ a) (interp ρ b)
+   158    | ρ, .fst e => sfst (interp ρ e)
+   159    | ρ, .snd e => ssnd (interp ρ e)
+   160    | _, .prf => pt
+   161  
+   162  @[simp] theorem interp_bvar (ρ : Nat → V) (i : Nat) :
+   163      interp V ρ (.bvar i) = ρ i := rfl
+   164  @[simp] theorem interp_sort (ρ : Nat → V) (u : Nat) :
 
 == ConLeche/Semantics/WellDenoted.lean#L81-L111
     81  def WellDenoted : (Nat → V) → AnnotTerm → Prop
@@ -276,83 +276,83 @@
     93      ∃ (v : Nat) (A : V) (B : V → V),
     94        interp V ρ f ∈ˢ piR v A B ∧ interp V ρ a ∈ˢ A ∧
     95        (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V))
-    96    | ρ, .letE T v b =>
-    97      WellDenoted ρ T ∧ WellDenoted ρ v ∧
-    98      WellDenoted (cons (interp V ρ v) ρ) b
-    99    | ρ, .fst e =>
-   100      WellDenoted ρ e ∧
-   101      ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
-   102        A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
-   103    | ρ, .snd e =>
-   104      WellDenoted ρ e ∧
-   105      ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
-   106        A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
-   107    | ρ, .eqE a b => WellDenoted ρ a ∧ WellDenoted ρ b
-   108    | _, .bvar _ => True
-   109    | _, .sort _ => True
-   110    | _, .const _ _ => True
-   111    | _, .prf => True
+    96    | ρ, .fst e =>
+    97      WellDenoted ρ e ∧
+    98      ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+    99        A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
+   100    | ρ, .snd e =>
+   101      WellDenoted ρ e ∧
+   102      ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+   103        A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
+   104    | ρ, .eqE a b => WellDenoted ρ a ∧ WellDenoted ρ b
+   105    | _, .bvar _ => True
+   106    | _, .sort _ => True
+   107    | _, .const _ _ => True
+   108    | _, .prf => True
+   109  
+   110  /-! ### Clause equations -/
+   111  
 
 == ConLeche/Semantics/WellDenoted.lean#L303-L361
-   303  theorem WellDenoted_beta_pos {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm}
-   304      {ρ : Nat → V}
-   305      (h : WellDenoted V ρ (.app (.lam v A b) a)) :
-   306      interp V ρ (.app (.lam v A b) a) = interp V ρ (b.inst a) ∧
-   307      WellDenoted V ρ (b.inst a) := by
-   308    rw [WellDenoted_app] at h
-   309    obtain ⟨hlam, ha, v', A', B', hslot, hmem, -⟩ := h
-   310    rw [WellDenoted_lam] at hlam
-   311    obtain ⟨-, hbody, B, hfib, -⟩ := hlam
-   312    -- the slot's product is in the graph regime: the λ is not `pt`
-   313    have hv' : v' ≠ 0 := by
-   314      intro h0
-   315      subst h0
-   316      have h1 := eq_pt_of_mem_piR_zero hslot
-   317      rw [interp_lam] at h1
-   318      exact lamR_ne_pt hv h1
-   319    -- rigidity pins the slot's domain to the λ's own
-   320    have hown : interp V ρ (.lam v A b)
-   321        ∈ˢ piR v (interp V ρ A) B := by
-   322      rw [interp_lam]
-   323      exact lamR_mem hfib
-   324    have hAA : interp V ρ A = A' := piR_dom_unique hv hv' hown hslot
-   325    have haA : interp V ρ a ∈ˢ interp V ρ A := by
-   326      rw [hAA]
-   327      exact hmem
-   328    refine ⟨?_, ?_⟩
-   329    · rw [interp_app, interp_lam, app_lamR_pos hv haA, interp_inst0]
-   330    · exact (WellDenoted_inst0 V ha).mpr (hbody _ haA)
-   331  
-   332  /-- The graded ζ step — both conjuncts, no premises beyond the
-   333  subject's invariant (ζ is annotation-free: `interp`'s `letE` clause
-   334  is already the contractum's reading). -/
-   335  theorem WellDenoted_zeta {T v b : AnnotTerm} {ρ : Nat → V}
-   336      (h : WellDenoted V ρ (.letE T v b)) :
-   337      interp V ρ (.letE T v b) = interp V ρ (b.inst v) ∧
-   338      WellDenoted V ρ (b.inst v) := by
-   339    rw [WellDenoted_letE] at h
-   340    obtain ⟨-, hv, hb⟩ := h
-   341    refine ⟨?_, ?_⟩
-   342    · rw [interp_letE, interp_inst0]
-   343    · exact (WellDenoted_inst0 V hv).mpr hb
-   344  
-   345  /-- The graded β step at kind `0` — the residue side: with the
-   346  argument membership supplied (the retained `Prop`-codomain runtime
-   347  check's fact), the equality holds because both sides are the canonical
-   348  proof, and the transport is the hereditary component. -/
-   349  theorem WellDenoted_beta_zero {A b a : AnnotTerm} {ρ : Nat → V}
-   350      (h : WellDenoted V ρ (.app (.lam 0 A b) a))
-   351      (hmem : interp V ρ a ∈ˢ interp V ρ A) :
-   352      interp V ρ (.app (.lam 0 A b) a) = interp V ρ (b.inst a) ∧
-   353      WellDenoted V ρ (b.inst a) := by
-   354    rw [WellDenoted_app] at h
-   355    obtain ⟨hlam, ha, -⟩ := h
-   356    rw [WellDenoted_lam] at hlam
-   357    obtain ⟨-, hbody, B, hfib, hz⟩ := hlam
-   358    refine ⟨?_, (WellDenoted_inst0 V ha).mpr (hbody _ hmem)⟩
-   359    rw [interp_app, interp_lam, lamR_zero, app_pt, interp_inst0]
-   360    exact (eq_pt_of_mem_univZero (hz rfl _ hmem) (hfib _ hmem)).symm
-   361  
+   303    have haA : interp V ρ a ∈ˢ interp V ρ A := by
+   304      rw [hAA]
+   305      exact hmem
+   306    refine ⟨?_, ?_⟩
+   307    · rw [interp_app, interp_lam, app_lamR_pos hv haA, interp_inst0]
+   308    · exact (WellDenoted_inst0 V ha).mpr (hbody _ haA)
+   309  
+   310  
+   311  /-- The graded β step at kind `0` — the residue side: with the
+   312  argument membership supplied (the retained `Prop`-codomain runtime
+   313  check's fact), the equality holds because both sides are the canonical
+   314  proof, and the transport is the hereditary component. -/
+   315  theorem WellDenoted_beta_zero {A b a : AnnotTerm} {ρ : Nat → V}
+   316      (h : WellDenoted V ρ (.app (.lam 0 A b) a))
+   317      (hmem : interp V ρ a ∈ˢ interp V ρ A) :
+   318      interp V ρ (.app (.lam 0 A b) a) = interp V ρ (b.inst a) ∧
+   319      WellDenoted V ρ (b.inst a) := by
+   320    rw [WellDenoted_app] at h
+   321    obtain ⟨hlam, ha, -⟩ := h
+   322    rw [WellDenoted_lam] at hlam
+   323    obtain ⟨-, hbody, B, hfib, hz⟩ := hlam
+   324    refine ⟨?_, (WellDenoted_inst0 V ha).mpr (hbody _ hmem)⟩
+   325    rw [interp_app, interp_lam, lamR_zero, app_pt, interp_inst0]
+   326    exact (eq_pt_of_mem_univZero (hz rfl _ hmem) (hfib _ hmem)).symm
+   327  
+   328  /-! ## The app slot's establishment
+   329  
+   330  The clause's kind-`0` fibre component (added at the consumer seal —
+   331  see the module docstring) is not a wish: it is exactly what an
+   332  *annotated* `Π` hands over at the application site.  Stated at the
+   333  value level in `Interp/Pilot.lean`'s style, so the supplier is a
+   334  theorem before the clause that consumes it is relied on. -/
+   335  
+   336  /-- **The app slot, established from the function type's own
+   337  annotation.**  Given the function in an annotated `Π`'s
+   338  interpretation, the argument in its domain, and the `Π`'s *codomain
+   339  sort fact at kind `0`*, the slot follows — new component included.
+   340  
+   341  The codomain premise's supplier is `HasSort.mem_univ`
+   342  (`ConLeche/SetR/Annot/Kinding.lean`) at the `Π`'s own numeral `v`,
+   343  which is the same route `Annotates.lam`'s cached `HasSortC` takes for
+   344  the λ clause's identically-shaped component.  So the two binder
+   345  clauses are symmetric, which is what the amendment restores. -/
+   346  theorem appSlot_of_pi {u v : Nat} {ρ : Nat → V} {f a Aa Ba : AnnotTerm}
+   347      (hf : interp V ρ f ∈ˢ interp V ρ (.pi u v Aa Ba))
+   348      (ha : interp V ρ a ∈ˢ interp V ρ Aa)
+   349      (hcod : v = 0 → ∀ x, x ∈ˢ interp V ρ Aa →
+   350        interp V (cons x ρ) Ba ∈ˢ (univZero : V)) :
+   351      ∃ (v' : Nat) (A : V) (B : V → V),
+   352        interp V ρ f ∈ˢ piR v' A B ∧ interp V ρ a ∈ˢ A ∧
+   353        (v' = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) := by
+   354    rw [interp_pi] at hf
+   355    exact ⟨v, interp V ρ Aa, fun x => interp V (cons x ρ) Ba,
+   356      hf, ha, hcod⟩
+   357  
+   358  /-- The full app-clause establishment: the hereditary halves plus the
+   359  slot.  This is the shape `Claims2`'s `app` case will discharge. -/
+   360  theorem WellDenoted_app_of {u v : Nat} {ρ : Nat → V} {f a Aa Ba : AnnotTerm}
+   361      (hokf : WellDenoted V ρ f) (hoka : WellDenoted V ρ a)
 
 == ConLeche/Model/Annot/EnvModel.lean#L64-L100
     64  structure EnvModel (env : Env) where
@@ -464,9 +464,9 @@
    159  /-- The P-generation step. -/
    160  @[expose] def CheckStep (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
 
-== ConLeche/Model/Steps/Whnf.lean#L912-L913
-   912  theorem whnfStep_of (_hμ : μ.verifiedChecks = true)
-   913      (hin : WhnfInputs V μ) : WhnfStep μ V :=
+== ConLeche/Model/Steps/Whnf.lean#L844-L845
+   844  theorem whnfStep_of (_hμ : μ.verifiedChecks = true)
+   845      (hin : WhnfInputs V μ) : WhnfStep μ V :=
 
 == ConLeche/Model/Steps/DefEq.lean#L1338-L1347
   1338  theorem defEqStep_of (hμ : μ.verifiedChecks = true)
@@ -480,15 +480,15 @@
   1346          (hin.heta env m φ fuel))
   1347        (hin.hspine env m φ fuel))
 
-== ConLeche/Model/Steps/Infer.lean#L1131-L1138
-  1131  theorem inferStep_of (h : InferInputs V μ)
-  1132      (hsssF : ∀ {env : Env} (m : EnvModel V env) (φ : Name → Nat)
-  1133        (fuel : Nat), WhnfClaim μ m φ fuel → InferClaim μ m φ fuel →
-  1134        InferClaimIO μ m φ fuel → SortSemAtIOS m μ φ fuel)
-  1135      (hμ : μ.verifiedChecks = true) :
-  1136      InferStep μ V := by
-  1137    intro env m φ fuel _hv _ihwc ihw ihd ihi ihio
-  1138    have hss : SortSemAt m μ φ fuel :=
+== ConLeche/Model/Steps/Infer.lean#L1036-L1043
+  1036  theorem inferStep_of (h : InferInputs V μ)
+  1037      (hsssF : ∀ {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+  1038        (fuel : Nat), WhnfClaim μ m φ fuel → InferClaim μ m φ fuel →
+  1039        InferClaimIO μ m φ fuel → SortSemAtIOS m μ φ fuel)
+  1040      (hμ : μ.verifiedChecks = true) :
+  1041      InferStep μ V := by
+  1042    intro env m φ fuel _hv _ihwc ihw ihd ihi ihio
+  1043    have hss : SortSemAt m μ φ fuel :=
 
 == ConLeche/Kernel/Basis/False.lean#L52
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]

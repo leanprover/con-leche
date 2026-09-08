@@ -36,7 +36,6 @@ def liftN (n : Nat) : Term → (k : Nat := 0) → Term
   | .app f a, k => .app (liftN n f k) (liftN n a k)
   | .lam A b, k => .lam (liftN n A k) (liftN n b (k + 1))
   | .pi A B, k => .pi (liftN n A k) (liftN n B (k + 1))
-  | .letE T v b, k => .letE (liftN n T k) (liftN n v k) (liftN n b (k + 1))
   | .eqE a b, k => .eqE (liftN n a k) (liftN n b k)
   | .fst e, k => .fst (liftN n e k)
   | .snd e, k => .snd (liftN n e k)
@@ -55,7 +54,6 @@ def inst : Term → Term → (k : Nat := 0) → Term
   | .app f b, a, k => .app (inst f a k) (inst b a k)
   | .lam A b, a, k => .lam (inst A a k) (inst b a (k + 1))
   | .pi A B, a, k => .pi (inst A a k) (inst B a (k + 1))
-  | .letE T v b, a, k => .letE (inst T a k) (inst v a k) (inst b a (k + 1))
   | .eqE b c, a, k => .eqE (inst b a k) (inst c a k)
   | .fst e, a, k => .fst (inst e a k)
   | .snd e, a, k => .snd (inst e a k)
@@ -73,9 +71,6 @@ def inst : Term → Term → (k : Nat := 0) → Term
     liftN n (.lam A b) k = .lam (liftN n A k) (liftN n b (k + 1)) := rfl
 @[simp] theorem liftN_pi (n k : Nat) (A B : Term) :
     liftN n (.pi A B) k = .pi (liftN n A k) (liftN n B (k + 1)) := rfl
-@[simp] theorem liftN_letE (n k : Nat) (T v b : Term) :
-    liftN n (.letE T v b) k =
-      .letE (liftN n T k) (liftN n v k) (liftN n b (k + 1)) := rfl
 @[simp] theorem liftN_eqE (n k : Nat) (a b : Term) :
     liftN n (.eqE a b) k = .eqE (liftN n a k) (liftN n b k) := rfl
 @[simp] theorem liftN_fst (n k : Nat) (e : Term) :
@@ -98,9 +93,6 @@ def inst : Term → Term → (k : Nat := 0) → Term
     inst (.lam A b) a k = .lam (inst A a k) (inst b a (k + 1)) := rfl
 @[simp] theorem inst_pi (a : Term) (k : Nat) (A B : Term) :
     inst (.pi A B) a k = .pi (inst A a k) (inst B a (k + 1)) := rfl
-@[simp] theorem inst_letE (a : Term) (k : Nat) (T v b : Term) :
-    inst (.letE T v b) a k =
-      .letE (inst T a k) (inst v a k) (inst b a (k + 1)) := rfl
 @[simp] theorem inst_eqE (a : Term) (k : Nat) (b c : Term) :
     inst (.eqE b c) a k = .eqE (inst b a k) (inst c a k) := rfl
 @[simp] theorem inst_fst (a : Term) (k : Nat) (e : Term) :
