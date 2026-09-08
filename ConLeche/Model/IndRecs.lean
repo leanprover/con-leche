@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Semantics.IndBlockRun
+import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Semantics.IndRecsCore
 public import ConLeche.Model.Swap
-public import ConLeche.Model.IndMembers
+import ConLeche.Model.IndMembers
 public import ConLeche.Model.Capstone
 public section
 

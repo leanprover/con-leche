@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Verify.Denote.Rename
-public import ConLeche.Verify.EnvWF
-public import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Extend.Inversions
 
 public section
 

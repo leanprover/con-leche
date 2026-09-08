@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Annot.Valid
-public import ConLeche.Model.Annot.Bit
+import ConLeche.Model.Annot.Bit
 
 public section
 

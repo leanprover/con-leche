@@ -2,8 +2,8 @@ module
 
 public import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Model.IndCons
-public import ConLeche.Model.Annot.BitRename
-public import ConLeche.Verify.Extend.Block
+import ConLeche.Model.Annot.BitRename
+import ConLeche.Verify.Extend.Block
 
 public section
 

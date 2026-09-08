@@ -1,10 +1,10 @@
 module
 
 public import ConLeche.Verify.BetaSpine
-public import ConLeche.Verify.Abstract
-public import ConLeche.Verify.AbstractRange
-public import ConLeche.Verify.InferLeaves
-public import ConLeche.Verify.Leaves
+import ConLeche.Verify.Abstract
+import ConLeche.Verify.AbstractRange
+import ConLeche.Verify.InferLeaves
+import ConLeche.Verify.Leaves
 
 public section
 

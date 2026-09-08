@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.StructInstallF
-public import ConLeche.Kernel.Inductives.SumInstall
+import ConLeche.Kernel.Inductives.SumInstall
 
 @[expose] public section
 

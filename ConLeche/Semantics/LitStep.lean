@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.WellDenoted
+import ConLeche.Semantics.WellDenoted
 public import ConLeche.Semantics.Canon
 
 @[expose] public section

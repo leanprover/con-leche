@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Steps.Reads
+import ConLeche.Model.Steps.Reads
 public import ConLeche.Model.Steps.TowerKit
 public section
 

@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.IndMember
-public import ConLeche.Verify.Extend.Iota
-public import ConLeche.Verify.Extend.Ind
+import ConLeche.Verify.Extend.Iota
+import ConLeche.Verify.Extend.Ind
 public section
 
 /-!

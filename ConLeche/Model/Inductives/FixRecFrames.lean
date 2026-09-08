@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.FixRecReadDefs
 public import ConLeche.Model.Inductives.FixRealChains
 public import ConLeche.Model.Inductives.SumRecFrames
-public import ConLeche.Semantics.Tower.FixSquashI
+import ConLeche.Semantics.Tower.FixSquashI
 public section
 
 /-!

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Cached.BinderLoopC
-public import ConLeche.Verify.BetaSpine
+import ConLeche.Verify.BetaSpine
 
 public section
 

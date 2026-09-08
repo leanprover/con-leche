@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.DeclIndRun
+import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Model.ProjInstall
 public section
 

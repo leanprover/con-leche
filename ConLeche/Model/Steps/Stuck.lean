@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Steps.Irrel
-public import ConLeche.Verify.Denote.StrLit
+import ConLeche.Verify.Denote.StrLit
 public section
 
 /-!

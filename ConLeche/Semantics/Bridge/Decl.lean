@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Semantics.Decl
 public import ConLeche.Verify.Extend.Inversions
-public import ConLeche.Verify.IotaWalkInv
+import ConLeche.Verify.IotaWalkInv
 
 @[expose] public section
 

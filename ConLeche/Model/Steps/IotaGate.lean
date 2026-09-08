@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Steps.IotaKit
-public import ConLeche.Model.IOLicense
+import ConLeche.Model.IOLicense
 public section
 
 /-!

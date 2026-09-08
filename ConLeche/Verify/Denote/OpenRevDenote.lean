@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Denote.Tele
 public import ConLeche.Verify.Denote.OpenVars
-public import ConLeche.Verify.InstLevels
+import ConLeche.Verify.InstLevels
 
 public section
 

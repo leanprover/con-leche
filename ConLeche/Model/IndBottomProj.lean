@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.IndProjKit
+import ConLeche.Model.IndProjKit
 public import ConLeche.Model.IndBottomPlain
 public section
 

@@ -1,10 +1,10 @@
 module
 
-public import ConLeche.Model.CtxOkKit
-public import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Model.CtxOkKit
+import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Model.Annot.BitRename
-public import ConLeche.Semantics.DefEqStep
-public import ConLeche.Semantics.Hoist
+import ConLeche.Semantics.DefEqStep
+import ConLeche.Semantics.Hoist
 public import ConLeche.Model.Steps.ProjAVKit
 public section
 

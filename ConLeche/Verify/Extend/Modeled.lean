@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Extend.Iota
-public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.EnvWF
 
 public section
 

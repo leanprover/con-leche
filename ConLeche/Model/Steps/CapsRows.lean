@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Model.Steps.Stuck
-public import ConLeche.Model.Annot.EnvModelM
+import ConLeche.Model.Steps.Stuck
+import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.Steps.TowerKit
 
 public section

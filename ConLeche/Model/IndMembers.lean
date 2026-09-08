@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Semantics.IndBlockRun
+import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Model.IndCaps
-public import ConLeche.Semantics.EnvFactsCons
+import ConLeche.Semantics.EnvFactsCons
 public section
 
 /-!

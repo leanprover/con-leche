@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Cached.CoreC
+import ConLeche.Cached.CoreC
 public import ConLeche.Verify.Cached.GuardsC
 public import ConLeche.Verify.Cached.SimCEff
-public import ConLeche.Verify.InstSpine
+import ConLeche.Verify.InstSpine
 
 public section
 

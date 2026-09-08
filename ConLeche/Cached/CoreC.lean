@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.StateC
-public import ConLeche.Kernel.Env
+import ConLeche.Kernel.Env
 
 @[expose] public section
 

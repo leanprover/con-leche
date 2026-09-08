@@ -2,7 +2,7 @@ module
 
 public import Std.Data.HashSet
 public import ConLeche.Kernel.Inductives.NativeParts
-public import ConLeche.Kernel.Level
+import ConLeche.Kernel.Level
 
 @[expose] public section
 

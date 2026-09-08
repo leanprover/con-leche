@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.EnvWF
-public import ConLeche.Kernel.Checker
+import ConLeche.Kernel.Checker
 
 public section
 

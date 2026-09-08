@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Denote
 public import ConLeche.Verify.Denote.VClosed
 public import ConLeche.Verify.Shift
-public import ConLeche.Verify.Abstract
+import ConLeche.Verify.Abstract
 
 public section
 

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.IndBlockRun
+import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Model.IndTele
 public import ConLeche.Model.BasisEq
 

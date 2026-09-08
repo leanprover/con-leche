@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Kernel.Checker
+import ConLeche.Kernel.Checker
 public import ConLeche.Verify.Fueled
-public import ConLeche.Verify.Leaves
+import ConLeche.Verify.Leaves
 public import ConLeche.Verify.Extend.Inversions
 
 public section

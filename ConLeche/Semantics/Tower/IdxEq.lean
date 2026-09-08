@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.Tower.SumLeaf
-public import ConLeche.Semantics.Tower.TowerRec
+import ConLeche.Semantics.Tower.TowerRec
 public import ConLeche.Semantics.Tower.TowerWire
 
 @[expose] public section

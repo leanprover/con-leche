@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Model.Steps.Major
-public import ConLeche.Model.Steps.IotaGate
+import ConLeche.Model.Steps.Major
+import ConLeche.Model.Steps.IotaGate
 public import ConLeche.Model.Steps.Reads
-public import ConLeche.Semantics.DefEqList
+import ConLeche.Semantics.DefEqList
 public section
 
 /-!

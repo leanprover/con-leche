@@ -2,8 +2,8 @@ module
 
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.Steps.Stuck
-public import ConLeche.Model.Steps.ProjAVKit
-public import ConLeche.Verify.ProjTele
+import ConLeche.Model.Steps.ProjAVKit
+import ConLeche.Verify.ProjTele
 
 public section
 

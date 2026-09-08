@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.SumRec
-public import ConLeche.Kernel.Inductives.NativeParts
+import ConLeche.Kernel.Inductives.NativeParts
 
 public section
 

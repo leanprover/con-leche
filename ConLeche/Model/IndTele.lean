@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndMembers
-public import ConLeche.Model.Steps.CapsRows
+import ConLeche.Model.Steps.CapsRows
 
 public section
 

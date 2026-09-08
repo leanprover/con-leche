@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Semantics.Tower.FixCaseI
-public import ConLeche.Semantics.Tower.SumRec
+import ConLeche.Semantics.Tower.FixCaseI
+import ConLeche.Semantics.Tower.SumRec
 public import ConLeche.Semantics.Tower.SumWire
 public import ConLeche.Semantics.Tower.IhSpell
 

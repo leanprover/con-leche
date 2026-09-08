@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixRecPre
-public import ConLeche.Model.Inductives.FixIntro
+import ConLeche.Model.Inductives.FixIntro
 public section
 
 /-!

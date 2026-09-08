@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructFrame
 public import ConLeche.Model.Capstone
-public import ConLeche.Model.Steps.ReadsIO
+import ConLeche.Model.Steps.ReadsIO
 public section
 
 /-!

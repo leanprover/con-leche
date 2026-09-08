@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Annot.BitShift
-public import ConLeche.Semantics.DenoteClosed
+import ConLeche.Semantics.DenoteClosed
 public import ConLeche.Verify.Denote.Inst
 
 public section

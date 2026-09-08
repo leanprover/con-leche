@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.StructWF
+import ConLeche.Verify.Inductives.StructWF
 public import ConLeche.Verify.Inductives.SumInv
 
 public section

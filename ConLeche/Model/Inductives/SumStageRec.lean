@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.SumRecFrames
-public import ConLeche.Model.Inductives.SumStageCtor
-public import ConLeche.Model.IndPointKit
+import ConLeche.Model.Inductives.SumStageCtor
+import ConLeche.Model.IndPointKit
 public section
 
 /-!

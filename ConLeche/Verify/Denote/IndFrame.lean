@@ -1,16 +1,16 @@
 module
 
-public import ConLeche.Verify.Denote
-public import ConLeche.Verify.Denote.Shift
-public import ConLeche.Verify.Denote.Inst
-public import ConLeche.Verify.Denote.Rename
-public import ConLeche.Verify.Denote.Levels
+import ConLeche.Verify.Denote
+import ConLeche.Verify.Denote.Shift
+import ConLeche.Verify.Denote.Inst
+import ConLeche.Verify.Denote.Rename
+import ConLeche.Verify.Denote.Levels
 public import ConLeche.Verify.Denote.Tele
 public import ConLeche.Verify.Denote.TeleOpen
-public import ConLeche.Verify.Denote.OpenVars
-public import ConLeche.Verify.Denote.VClosed
-public import ConLeche.Verify.InstSpine
-public import ConLeche.Verify.InstLevels
+import ConLeche.Verify.Denote.OpenVars
+import ConLeche.Verify.Denote.VClosed
+import ConLeche.Verify.InstSpine
+import ConLeche.Verify.InstLevels
 public import ConLeche.Verify.InferLeaves
 
 public section

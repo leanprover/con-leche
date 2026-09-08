@@ -2,9 +2,9 @@ module
 
 public import ConLeche.Cached.ExprOpsC
 public import ConLeche.Verify.Cached.Erase
-public import ConLeche.Verify.Subst
-public import ConLeche.Verify.InstList
-public import ConLeche.Verify.AbstractRange
+import ConLeche.Verify.Subst
+import ConLeche.Verify.InstList
+import ConLeche.Verify.AbstractRange
 
 public section
 

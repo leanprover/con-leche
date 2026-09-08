@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.TypeChecker
+import ConLeche.Kernel.TypeChecker
 public import ConLeche.Verify.Knot
 public import ConLeche.Verify.Shift
 

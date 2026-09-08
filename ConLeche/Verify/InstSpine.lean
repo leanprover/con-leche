@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Subst
+import ConLeche.Verify.Subst
 public import ConLeche.Verify.Leaves
 public import ConLeche.Verify.InstLevels
 

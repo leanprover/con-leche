@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Cached.BridgeCSDecl
-public import ConLeche.Cached.ParsedC
+import ConLeche.Cached.ParsedC
 
 public section
 

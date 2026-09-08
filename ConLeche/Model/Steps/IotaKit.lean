@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Steps.CapsRows
 public import ConLeche.Verify.Denote.OpenRevDenote
-public import ConLeche.Verify.InstSpine
+import ConLeche.Verify.InstSpine
 public section
 
 /-!

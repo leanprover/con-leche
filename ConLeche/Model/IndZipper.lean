@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.IndPlainParam
-public import ConLeche.Model.IndZipField
-public import ConLeche.Model.IndStageKit
+import ConLeche.Model.IndZipField
+import ConLeche.Model.IndStageKit
 public section
 
 /-!

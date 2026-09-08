@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.Inductives.DeclNative
-public import ConLeche.Semantics.Inductives.DeclStructEta
+import ConLeche.Semantics.Inductives.DeclStructEta
 
 @[expose] public section
 

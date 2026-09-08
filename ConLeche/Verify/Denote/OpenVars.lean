@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Kernel.ExprOps
+import ConLeche.Kernel.ExprOps
 public import ConLeche.Term.Subst
-public import ConLeche.Verify.Shift
+import ConLeche.Verify.Shift
 public import ConLeche.Verify.Subst
 
 public section
