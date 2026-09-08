@@ -52,16 +52,22 @@ theorem checkDeclRun_ofEnvFactsE
     -- FLAG-AGNOSTIC (task #175 wiring W4): case on the `.indDecl`
     -- clause's own `nativeParts?` dispatch — `declNativeRun_of`
     -- on the direct arm, `declIndRun_of` on the modeled one.
-    (fun {block} hh => by
+    (fun {block nP} hh => by
       rw [checkDecl] at hh
       rw [DeclIndRunDispatch]
-      revert hh
-      cases hdf : nativeParts? block with
-      | some p =>
-        intro hh
-        exact declNativeRun_of hh
-      | none =>
-        intro hh
-        exact declIndRun_of hh) h
+      -- the declared parameter count (task #228): a run that reached
+      -- the dispatch passed the guard
+      by_cases hok : indParamsOk nP block = true
+      · rw [if_pos hok] at hh
+        revert hh
+        cases hdf : nativeParts? nP block with
+        | some p =>
+          intro hh
+          exact declNativeRun_of hh
+        | none =>
+          intro hh
+          exact declIndRun_of hh
+      · rw [if_neg hok] at hh
+        exact nomatch hh) h
 
 end ConLeche.Semantics

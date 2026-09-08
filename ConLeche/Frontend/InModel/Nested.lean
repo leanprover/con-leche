@@ -522,7 +522,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   out := out.push (.indDecl
     ([.indInfo ⟨tag, lps, tagTy⟩ {}] ++
      tagCtors.map (fun (c, nF, ty, _) => ConstantInfo.ctorInfo ⟨c, lps, ty⟩ nP nF) ++
-     [.recInfo ⟨tag.str "rec", elimTag :: lps, tagRecTy⟩ (nP + 1 + M) (nP + 1 + M) tagRules]))
+     [.recInfo ⟨tag.str "rec", elimTag :: lps, tagRecTy⟩ (nP + 1 + M) (nP + 1 + M) tagRules])
+    nP)
   -- 2. the auxiliary family
   let auxTy ← need "aux type" (Expr.replacePiBody nP t0.cv.type
     (.forallE (Expr.mkAppN (constP tag lps) (varsAt 0 nP)) (.sort u) bm))
@@ -541,7 +542,8 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   out := out.push (.indDecl
     ([.indInfo ⟨aux, lps, auxTy⟩ {}] ++
      auxCtors.map (fun (c, nF, ty, _) => ConstantInfo.ctorInfo ⟨c, lps, ty⟩ nP nF) ++
-     [.recInfo ⟨aux.str "rec", rlps, auxRecTy⟩ (nP + 1 + n + 1) (nP + 1 + n) auxRules]))
+     [.recInfo ⟨aux.str "rec", rlps, auxRecTy⟩ (nP + 1 + n + 1) (nP + 1 + n) auxRules])
+    nP)
   -- ---------------------------------------------------------------
   -- shared builders
   let auxCtorName' := fun (c : ACtor) => auxCtorName T c.mem c.cname

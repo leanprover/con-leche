@@ -63,7 +63,7 @@ Everything below explains how that theorem is reached.
 Read from the outside in:
 
 1. **The driver** (`Main.lean`). The default run parses the stream
-   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L884))
+   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Frontend/ExportC.lean#L900))
    and calls the pure fold `checkDecls`, printing nothing per
    declaration
    ([the default run's call in `Main.lean`](https://github.com/leanprover/lech/blob/master/Main.lean#L331)).
@@ -71,9 +71,9 @@ Read from the outside in:
    plainly unverified fold of the same steps with a line printed before
    each declaration; a run with it set is not covered by the theorem.
 2. **The shipped fold**
-   ([function `checkDecls` in `ConLeche/Cached/ParsedC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L276-L279))
+   ([function `checkDecls` in `ConLeche/Cached/ParsedC.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L283-L286))
    folds the per-declaration step of the *cached* checker
-   ([function `checkDeclStep` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L244))
+   ([function `checkDeclStep` in the same file](https://github.com/leanprover/lech/blob/master/ConLeche/Cached/ParsedC.lean#L248))
    over the records, threading the hash-consed environment and the memo
    state. Its error carries the position of the failing declaration.
 3. **The cached checker** (`ConLeche/Cached/*`) is the implementation
@@ -142,7 +142,7 @@ differ from a textbook presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1278)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1282)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes the DAG-safe traversals cheap.
@@ -231,8 +231,12 @@ Inductive blocks are not trusted from the stream. Three cases:
 * **The fixpoint route** takes every other single, non-nested block:
   any number of parameters, indices, constructors and fields, recursive
   and reflexive fields, `Prop` or `Type`. The recogniser reads the
-  block's shape — its parameter count off the constructors, its index
-  count off the type former's telescope, as official reads them, and
+  block's shape — its parameter count as the stream DECLARES it,
+  checked against the type formers' telescopes and against every
+  constructor record before either route runs
+  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Env.lean#L525-L532)),
+  its index count off what is left of the type former's telescope, as
+  official reads them, and
   nothing of the stream's recursor record, which official never reads as
   an input either; the install normalises every constructor field domain
   by official's positivity walk — weak head normal form before
