@@ -4,6 +4,23 @@ a cut point on, plus only what the kept suffix still needs from before it.
 
     resume_slice.py [--dry-run] [--report FILE] STREAM.ndjson CUT [OUT.ndjson]
 
+THE COMPANION TOOL is `scripts/slice-cone.py` (task #224), which cuts a
+*prefix* -- the dependency cone of named declarations -- where this one
+cuts a suffix.  It is the one surviving copy of the three `_tmp/`
+cone slicers.
+
+TASK #224 FINDING, UNFIXED: the reader below still assumes the record
+layout the retired `con-leche-preprocess` wrote, in which an expression
+record's `"ie"` tag came FIRST (`head == b'{"ie":'`, `IE_RE`'s `^`
+anchor, the `APP_HEAD` fast path, the newline-anchored `buf.count`
+expression census).
+Raw `lean4export` writes object keys ALPHABETICALLY, so `ie` comes last
+in an `app`/`bvar`/`const`/`forallE`/`lam` record, and every stream has
+been raw since task #207: this script now exits `unknown record kind
+'forallE'` on the first `forallE`.  `scripts/slice-cone.py` shows the
+order-independent classification; porting it here means reworking the
+chunked fast paths too, which is why it is a separate item.
+
 `CUT` is either a 1-based *declaration record index* (the numbering
 `_tmp/frontier3/decl_index.py` prints) or a declaration name; the cut
 record itself is the first record of the kept suffix.  The output is a
@@ -28,8 +45,7 @@ valid `con-leche` stream:
   kept verbatim -- they are a few percent of the stream, so no name or
   level closure is needed;
 * expression (`ie`) records keep their original ids; unreferenced ones
-  are simply omitted, exactly as `_tmp/next-frontier/slice_fast.py`
-  does.
+  are simply omitted, exactly as `scripts/slice-cone.py` does.
 
 Everything before the cut has a *known verdict* from the run that
 reached the cut, so re-checking it buys nothing: this is the "resume
@@ -67,7 +83,7 @@ Two further fidelity notes:
 
 Speed: two passes over the stream.  The prefix is scanned line by line
 (the expression DAG is flattened into `array`s exactly as
-`slice_fast.py` does); the suffix -- every record of which is kept --
+`scripts/slice-cone.py` does); the suffix -- every record of which is kept --
 is scanned with bulk `re.findall` over 256 MB chunks, which is ~7x
 faster per byte and is all that is needed there, because the only thing
 the suffix contributes is the set of *prefix* ids and names it
@@ -207,7 +223,7 @@ class Scan:
         self.d_kind = []
         self.forced = []            # ordinals kept unconditionally
         self.decl_of_name = {}
-        # prefix expression DAG, flattened (slice_fast's layout)
+        # prefix expression DAG, flattened (slice-cone's layout)
         self.kid_flat = array('i')
         self.kid_off = array('l', [0])
         self.cref = array('i')
