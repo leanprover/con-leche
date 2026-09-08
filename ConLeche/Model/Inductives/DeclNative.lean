@@ -240,7 +240,8 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   have hfreshFam : (ConLeche.nativeCaps p).unitlike = false →
       (ConLeche.nativeCaps p).eta = true →
       (⟨.recInfo cvRa p.majorIdx p.rulePrefix
-        (ConLeche.sumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
+        (ConLeche.sumRules (ConLeche.consSumCtors p.nP ctorsA
+          ⟨.indInfo cvTa (ConLeche.nativeCaps p) :: env.consts⟩).find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
         :: (ConLeche.consSumCtors p.nP ctorsA
           ⟨.indInfo cvTa (ConLeche.nativeCaps p) :: env.consts⟩).consts⟩ : Env).find?
         (projFnName p.cvT.name 0) = none :=

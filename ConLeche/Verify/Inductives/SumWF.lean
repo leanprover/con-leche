@@ -79,9 +79,10 @@ theorem envWF_consSumCtors {nP : Nat} :
 
 /-- The stored rules carry the generated right-hand sides and are
 never `.nested`. -/
-theorem sumRules_mem {nP mI rP : Nat} {recTy : Expr} :
+theorem sumRules_mem {find? : Name → Option ConstantInfo} {recName : Name}
+    {nP mI rP : Nat} {recTy : Expr} :
     ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
-      r ∈ sumRules nP mI rP recTy ctorsA rhss →
+      r ∈ sumRules find? recName nP mI rP recTy ctorsA rhss →
       r.rhs ∈ rhss ∧ ∀ lvls pins, r.fire ≠ .nested lvls pins
   | [], _, r, h => by simp [sumRules] at h
   | _ :: _, [], r, h => by simp [sumRules] at h
@@ -93,5 +94,21 @@ theorem sumRules_mem {nP mI rP : Nat} {recTy : Expr} :
       split <;> simp
     · obtain ⟨hm, hf⟩ := sumRules_mem h
       exact ⟨List.mem_cons_of_mem _ hm, hf⟩
+
+/-- Every stored rule of the fixpoint route carries the two rescue
+bits its own install-time lookup computes. -/
+theorem sumRules_bits {find? : Name → Option ConstantInfo} {recName : Name}
+    {nP mI rP : Nat} {recTy : Expr} :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
+      r ∈ sumRules find? recName nP mI rP recTy ctorsA rhss →
+      r.k = recRuleKOf find? r.ctor ∧
+        r.eta = recRuleEtaOf find? recName r.ctor
+  | [], _, r, h => by simp [sumRules] at h
+  | _ :: _, [], r, h => by simp [sumRules] at h
+  | _ :: cs, _ :: rhss, r, h => by
+    simp only [sumRules, List.mem_cons] at h
+    rcases h with rfl | h
+    · exact ⟨rfl, rfl⟩
+    · exact sumRules_bits h
 
 end ConLeche

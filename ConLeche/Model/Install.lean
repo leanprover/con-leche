@@ -197,12 +197,16 @@ structure ConsHead (env : Env) (c₀ : ConstantInfo)
   extension (task #175 S1) -/
   projTowerHead : ∀ tbl, c₀ = .projInfo tbl →
     ∀ i, i < tbl.numFields → ConLeche.TowerHead ⟨c₀ :: env.consts⟩ (tbl.entry i)
-  /-- a head recursor's rules' constructors are stored
-  (`RecCtorsStored`'s head) -/
+  /-- a head recursor's rules' constructors are stored and its two
+  rescue bits are the store's own verdict (`RecCtorsStored`'s head) -/
   ctorsHead : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
-    ∀ r ∈ rules, ∃ cvj cnP cnF,
-      env.find? (ConLeche.RecRule.ctor r)
-        = some (.ctorInfo cvj cnP cnF)
+    ∀ r ∈ rules,
+      (∃ cvj cnP cnF,
+        env.find? (ConLeche.RecRule.ctor r)
+          = some (.ctorInfo cvj cnP cnF)) ∧
+      (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true) ∧
+      (r.eta = true →
+        ConLeche.recRuleEtaOf env.find? c₀.name r.ctor = true)
 
 /-- **The head obligations of a basis cons**: the head is the pinned
 declaration, its leaf is the direct pin, it is not a projection-table
@@ -216,9 +220,13 @@ theorem ConsHead.ofBasis {c₀ : ConstantInfo}
       pinnedStructT c₀.name ψ = some t → (A ψ).erase = t)
     (hnotproj : ∀ tbl, c₀ ≠ .projInfo tbl)
     (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
-      ∀ r ∈ rules, ∃ cvj cnP cnF,
-        env.find? (ConLeche.RecRule.ctor r)
-          = some (.ctorInfo cvj cnP cnF)) :
+      ∀ r ∈ rules,
+        (∃ cvj cnP cnF,
+          env.find? (ConLeche.RecRule.ctor r)
+            = some (.ctorInfo cvj cnP cnF)) ∧
+        (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true) ∧
+        (r.eta = true →
+          ConLeche.recRuleEtaOf env.find? c₀.name r.ctor = true)) :
     ConsHead env c₀ A :=
   ⟨hwf, hvclosed, fun _ => ⟨hpinned, hleaf⟩,
     fun tbl heq => absurd heq (hnotproj tbl),
@@ -233,9 +241,13 @@ theorem ConsHead.ofFresh {c₀ : ConstantInfo}
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
     (hprojTower : ∀ tbl, c₀ ≠ .projInfo tbl)
     (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
-      ∀ r ∈ rules, ∃ cvj cnP cnF,
-        env.find? (ConLeche.RecRule.ctor r)
-          = some (.ctorInfo cvj cnP cnF)) :
+      ∀ r ∈ rules,
+        (∃ cvj cnP cnF,
+          env.find? (ConLeche.RecRule.ctor r)
+            = some (.ctorInfo cvj cnP cnF)) ∧
+        (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true) ∧
+        (r.eta = true →
+          ConLeche.recRuleEtaOf env.find? c₀.name r.ctor = true)) :
     ConsHead env c₀ A :=
   ⟨hwf, hvclosed,
     fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),

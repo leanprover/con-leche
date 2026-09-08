@@ -72,7 +72,7 @@ theorem direct_fix_rec_wf {env : Env} (henv : EnvWF env)
     {rhss : List Expr} {F : Nat}
     (h : checkNativeRec (fueledOps mode F) env p cvTa ctorsA = .ok (cvRa, rhss)) :
     EnvWF ⟨.recInfo cvRa p.majorIdx p.rulePrefix
-      (sumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss) :: env.consts⟩ := by
+      (sumRules env.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss) :: env.consts⟩ := by
   obtain ⟨-, -, ⟨htf, htp, htr, htb⟩, -, hall⟩ := checkNativeRec_facts h
   refine EnvWF.cons henv (structConstWF htf htp
     (Expr.constsResolve_mono htr) htb
@@ -86,7 +86,7 @@ theorem direct_fix_rec_wf {env : Env} (henv : EnvWF env)
   refine ⟨hrfv, hrlp, Expr.constsResolve_of_find
     (find?_isSome_cons_same (c := .recInfo cvRa p.majorIdx p.rulePrefix [])
       (c' := .recInfo cvRa p.majorIdx p.rulePrefix
-        (sumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)) rfl) hrres, hrbv, ?_⟩
+        (sumRules env.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)) rfl) hrres, hrbv, ?_⟩
   intro lvls pins hf
   exact absurd hf (hfire lvls pins)
 

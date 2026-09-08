@@ -78,7 +78,7 @@ def DeclNativeRun (μ : CheckMode) (F : Nat) (env : Env)
     -- the projection table at a structure-like block (task #210 Part A)
     checkNativeTable (m := ConLeche.CheckM) p ctorsA sortss
       ⟨.recInfo cvRa p.majorIdx p.rulePrefix
-        (sumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
+        (sumRules (consSumCtors p.nP ctorsA env₁).find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
         :: (consSumCtors p.nP ctorsA env₁).consts⟩ = .ok env₂
 
 /-- The bridge inversion: the monad-shape argument, one `cases` per

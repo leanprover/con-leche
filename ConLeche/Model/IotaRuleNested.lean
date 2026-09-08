@@ -74,11 +74,11 @@ theorem iotaRuleNested {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     -- no longer consumed (task #161 S10)
     hrres, hstripRhs, hrun0, fire, hr'eq, hbranch⟩ := hkit
   -- the rule's stored shape
-  have hr'rhs : RecRule.rhs r' = rhsA := by rw [hr'eq]
-  have hr'ctor : RecRule.ctor r' = RecRule.ctor r := by rw [hr'eq]
-  have hr'cp : RecRule.ctorParams r' = cnPK := by rw [hr'eq]
-  have hr'nf : RecRule.nfields r' = cnFK := by rw [hr'eq, hnfK]
-  have hr'fire : RecRule.fire r' = fire := by rw [hr'eq]
+  have hr'rhs : RecRule.rhs r' = rhsA := by rw [hr'eq]; rfl
+  have hr'ctor : RecRule.ctor r' = RecRule.ctor r := by rw [hr'eq]; rfl
+  have hr'cp : RecRule.ctorParams r' = cnPK := by rw [hr'eq]; rfl
+  have hr'nf : RecRule.nfields r' = cnFK := by rw [hr'eq, hnfK]; rfl
+  have hr'fire : RecRule.fire r' = fire := by rw [hr'eq]; rfl
   -- the recursor's and the constructor's stored guards
   obtain ⟨htyw0, -, -, htyb0, -, -, -⟩ :=
     mp.base2.wf _ (Env.find?_mem hself)

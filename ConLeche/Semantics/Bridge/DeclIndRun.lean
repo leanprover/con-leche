@@ -278,8 +278,8 @@ theorem iotaRuleRun_of {env' envSelf : Env}
     hplainIff, hnested, hrawnf, hrawb, hrawann, hrhsnf, hrhsb, hrlp,
     hrres, hstripEq, hity, hplainKit⟩ := hkit
   subst hr'eq
-  dsimp only at hfc hnf hcp hplainIff hnested hrhsnf hrhsb hplainKit
-  dsimp only at hrlp hrres hstripEq hity
+  dsimp only [recRuleBits] at hfc hnf hcp hplainIff hnested hrhsnf hrhsb
+  dsimp only [recRuleBits] at hplainKit hrlp hrres hstripEq hity
   subst hcp
   refine ⟨cvj, cnP0, cnF, rhsA0, hfc, hnf, hrb, hrnf,
     hann0, hrlp, hrres, (by rw [hstripEq]; rfl),

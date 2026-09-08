@@ -1196,7 +1196,8 @@ theorem extendEqRec (mp : EnvModelM V μ env)
         injection heq with _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hR⟩
+        · exact ⟨⟨_, _, _, hR⟩, fun _ => recRuleKOf_of hR rfl hE rfl,
+            fun hb => Bool.noConfusion hb⟩
         · exact nomatch hr'))
     (fun ψ k => AnnotTerm.liftN_eq_self _
       (Term.bvarsBelow.mono (Nat.zero_le k)

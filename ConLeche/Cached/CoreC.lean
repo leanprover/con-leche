@@ -548,18 +548,18 @@ def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : ExprC) :
 
 /-- Twin of `majorToCtor`. -/
 def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (recName : Name) (rules : List RecRule) (major : ExprC) :
+    (_recName : Name) (rules : List RecRule) (major : ExprC) :
     CheckCM ExprC := do
   if ← pure (isCtorAppC fe major) then pure major else
   match rules with
   | [rl] =>
     match fe.find? rl.ctor with
-    | some (.ctorInfo cvj cnP cnF) =>
+    | some (.ctorInfo cvj cnP _cnF) =>
       match (cvj.type.piResult).getAppFn with
       | .const T _ =>
         match fe.find? T with
         | some (.indInfo cvT caps) =>
-          if caps.ruleK = true ∧ cnF = 0 then do
+          if rl.k = true then do
             let tmaj₀ ← r.inferIO depth major
             let tmaj ← r.whnf depth tmaj₀
             match ExprC.getAppFn tmaj with
@@ -601,8 +601,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 else pure major
               else pure major
             | _ => pure major
-          else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-              Name.isProjFnShape recName = false then do
+          else if rl.eta = true then do
             let tmaj₀ ← r.inferIO depth major
             let tmaj ← r.whnf depth tmaj₀
             match ExprC.getAppFn tmaj with
@@ -676,12 +675,12 @@ def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : ExprC) :
 
 /-- Twin of `prepareMajor`: the major's preparation in the official
 order (K rescue on the raw major, then whnf and the literal
-conversion; elsewhere whnf, literal, eta).  The K flag is the spec's
-`recRuleKOf` at the indexed lookup. -/
+conversion; elsewhere whnf, literal, eta).  The K flag is the single
+rule's stored bit, as in the spec (`recRuleK`). -/
 def prepareMajorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (recName : Name) (rules : List RecRule) (major : ExprC) :
     CheckCM ExprC := do
-  if recRuleKOf fe.find? rules then do
+  if recRuleK rules then do
     let majorK ← majorToCtorI mode r fe depth recName rules major
     let major₀ ← r.whnf depth majorK
     litMajorToCtorI r fe depth major₀

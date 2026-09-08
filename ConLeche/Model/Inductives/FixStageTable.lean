@@ -514,11 +514,11 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
     (hC : envC = ConLeche.consSumCtors p.nP ctorsA env₁)
     (hTbl : ConLeche.checkNativeTable (m := ConLeche.CheckM) p ctorsA sortss
       ⟨.recInfo cvRa p.majorIdx p.rulePrefix
-        (ConLeche.sumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
+        (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
         :: envC.consts⟩ = .ok env₂)
     (mpC : EnvModelM V μ envC)
     (mp₃ : EnvModelM V μ ⟨.recInfo cvRa p.majorIdx p.rulePrefix
-        (ConLeche.sumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
+        (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
         :: envC.consts⟩)
     {sAV : (Name → Nat) → Nat} {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -650,12 +650,12 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
         intro h; rw [h, hRfresh] at hfC_C; exact nomatch hfC_C
       -- the lookups at the recursor's environment
       have hfT₃ : (⟨.recInfo cvRa p.majorIdx p.rulePrefix
-          (ConLeche.sumRules p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss)
+          (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss)
           :: envC.consts⟩ : Env).find? p.cvT.name
           = some (.indInfo cvTa (ConLeche.nativeCaps p)) :=
         ConLeche.Env.find?_cons_of_fresh hRfresh hfT_C
       have hfC₃ : (⟨.recInfo cvRa p.majorIdx p.rulePrefix
-          (ConLeche.sumRules p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss)
+          (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss)
           :: envC.consts⟩ : Env).find? cA.1.name = some (.ctorInfo cA.1 p.nP cA.2) :=
         ConLeche.Env.find?_cons_of_fresh hRfresh hfC_C
       -- the constructor type's shape
@@ -692,7 +692,7 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
           subst hc'
           exact hnpC j
       have hnp₃ : ∀ j, NoProjEnv ⟨.recInfo cvRa p.majorIdx p.rulePrefix
-          (ConLeche.sumRules p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss)
+          (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss)
           :: envC.consts⟩ p.cvT.name j := by
         intro j
         have h0 : NoProjEnv env p.cvT.name j := noProjEnv_of_fresh hwfEnv hTfresh j
@@ -733,7 +733,7 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
         (mpC.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfC_C)).2.2.1
       have hFD₃ : FormerData mp₃.base2 cvTa p.nP p.resSort ppsAll := by
         have := hFD_C.cross (c₀ := .recInfo cvRa p.majorIdx p.rulePrefix
-          (ConLeche.sumRules p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss))
+          (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss))
           hRfresh (ConsCrossAt.ofNtc fun _ h => nomatch h) hcbT_C mp₃.base2 hac₃
         rwa [hnIdx', Nat.add_zero] at this
       have hCD_C := (hcf_C 0 cA rfl).2.2
@@ -741,7 +741,7 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
         apply List.eq_nil_of_length_eq_zero
         rw [hCD_C.idxLen, hnIdx']
       have hCD₃ := hCD_C.toCtorDataI.cross (c₀ := .recInfo cvRa p.majorIdx p.rulePrefix
-        (ConLeche.sumRules p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss))
+        (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type [cA] rhss))
         hRfresh hTR (fun _ => ConsCrossAt.ofNtc fun _ h => nomatch h) hcbC_C
         (fun e he => by rw [hidxNil] at he; exact absurd he List.not_mem_nil) mp₃.base2 hac₃
       have hEsNil : ∀ ψ, esF 0 ψ = [] := by

@@ -169,7 +169,7 @@ private def qRecRuleFire : ConLeche.RecRuleFire → Lean.Expr
 private def qRecRule (r : ConLeche.RecRule) : Lean.Expr :=
   mkAppN (mkConst ``ConLeche.RecRule.mk)
     #[qName r.ctor, mkRawNatLit r.nfields, mkRawNatLit r.ctorParams,
-      qRecRuleFire r.fire, qExpr r.rhs]
+      qRecRuleFire r.fire, qExpr r.rhs, qBool r.k, qBool r.eta]
 
 private def qIndCaps (c : ConLeche.IndCaps) : Lean.Expr :=
   mkAppN (mkConst ``ConLeche.IndCaps.mk)
@@ -225,8 +225,9 @@ def annotateInfo (env : ConLeche.Env) (ci : ConLeche.ConstantInfo) :
       let cnP := match env.find? r.ctor with
         | some (.ctorInfo _ nP _) => nP
         | _ => 0
-      { r with ctorParams := cnP,
-               fire := if ConLeche.Expr.recRulePlain ty' mI rP cnP then .plain else .inert }
+      ConLeche.recRuleBits env.find? cv'.name
+        { r with ctorParams := cnP,
+                 fire := if ConLeche.Expr.recRulePlain ty' mI rP cnP then .plain else .inert }
     let envSelf : ConLeche.Env := ⟨.recInfo cv' mI rP rules :: env.consts⟩
     let mut out : List ConLeche.RecRule := []
     for r in rules do

@@ -704,7 +704,8 @@ def checkIotaRuleF (ops : CheckerOps m) (fe' feSelf : FEnv)
       else
         checkIotaThmNF mode ops fe' feSelf f cvName lps tyA mI rP j r
           cvj cnP cnF rhsA
-    pure { r with rhs := rhsA, ctorParams := cnP, fire := fire }
+    pure (recRuleBits fe'.find? cvName
+      { r with rhs := rhsA, ctorParams := cnP, fire := fire })
 
 /-- `checkIotaRules` through the index. -/
 def checkIotaRulesF (ops : CheckerOps m) (fe' feSelf : FEnv)

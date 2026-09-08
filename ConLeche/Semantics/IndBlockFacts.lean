@@ -227,7 +227,10 @@ def RuleFacts (envSelf : Env) (cvalSelf : TConstVal)
   (RecRule.fire rl ≠ .inert →
     rP ≤ mI ∧
     ∀ φ : Name → Nat,
-      ∃ Rv, denoteClosed cvalSelf envSelf φ (RecRule.rhs rl) = some Rv)
+      ∃ Rv, denoteClosed cvalSelf envSelf φ (RecRule.rhs rl) = some Rv) ∧
+  -- the two install-computed rescue bits are the store's own verdict
+  (rl.k = true → recRuleKOf envSelf.find? rl.ctor = true) ∧
+  (rl.eta = true → recRuleEtaOf envSelf.find? cv.name rl.ctor = true)
 
 /-- A plain fire's shape test carries the parameter bound. -/
 theorem recRulePlain_params_le {recTy : Expr} {mI rP cnP : Nat}

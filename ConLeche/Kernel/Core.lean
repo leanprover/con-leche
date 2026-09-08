@@ -1206,20 +1206,20 @@ fabricated and certified by the structure-eta certificate (in the model
 both are the tuple of the major's components).  An uncertified major
 stays put — sound, the reduction simply stays stuck. -/
 def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
-    (recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
+    (_recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
   -- cheap syntactic gates before any inference: a rescue needs a
-  -- single-rule recursor whose constructor's inductive is stored with
-  -- the matching capability
+  -- single-rule recursor whose rule carries the matching install-time
+  -- rescue bit (`RecRule.k`/`RecRule.eta`)
   if isCtorApp env major then pure major else
   match rules with
   | [rl] =>
     match env.find? rl.ctor with
-    | some (.ctorInfo cvj cnP cnF) =>
+    | some (.ctorInfo cvj cnP _cnF) =>
       match (cvj.type.piResult).getAppFn with
       | .const T _ =>
         match env.find? T with
         | some (.indInfo cvT caps) =>
-          if caps.ruleK = true ∧ cnF = 0 then
+          if rl.k = true then
             -- task #172 B4: io grade (lean4lean toCtorWhenK inferType)
             let tmaj ← r.whnf depth (← r.inferIO depth major)
             match tmaj.getAppFn with
@@ -1268,11 +1268,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                 else pure major
               else pure major
             | _ => pure major
-          else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-              -- a projection function's rescue would reduce to a
-              -- no-op (its own reduct), looping the reduction: a
-              -- stuck projection stays stuck
-              Name.isProjFnShape recName = false then
+          else if rl.eta = true then
             let tmaj ← r.whnf depth (← r.inferIO depth major)
             match tmaj.getAppFn with
             | .const T' ust =>
@@ -1364,30 +1360,124 @@ def projLitToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
     else pure (.lit (.strVal s))
   | e => pure e
 
-/-- Is a recursor K-flagged — its single rule's constructor has no
-fields and belongs to an inductive stored with the K capability (an
-inductive proposition)?  Exactly the guard of `majorToCtor`'s K
-rescue, read off the constant lookup: the official kernel's
-`recursor_val::is_k()`, computed at the block's install.  Abstracted
+/-- **The K bit at install** (`RecRule.k`): the rule's constructor has
+no fields and belongs to an inductive stored with the K capability (an
+inductive proposition).  Together with the recursor's rule list being
+a singleton — which the reader `recRuleK` and `majorToCtor` match on
+— this is the official kernel's `recursor_val::is_k()`.  Abstracted
 over the lookup so the interned twin (`FEnv.find?`) shares the body. -/
-def recRuleKOf (find? : Name → Option ConstantInfo) (rules : List RecRule) :
-    Bool :=
-  match rules with
-  | [rl] =>
-    match find? rl.ctor with
-    | some (.ctorInfo cvj _ cnF) =>
-      match (cvj.type.piResult).getAppFn with
-      | .const T _ =>
-        match find? T with
-        | some (.indInfo _ caps) => caps.ruleK && cnF == 0
-        | _ => false
+def recRuleKOf (find? : Name → Option ConstantInfo) (ctor : Name) : Bool :=
+  match find? ctor with
+  | some (.ctorInfo cvj _ cnF) =>
+    match (cvj.type.piResult).getAppFn with
+    | .const T _ =>
+      match find? T with
+      | some (.indInfo _ caps) => caps.ruleK && cnF == 0
       | _ => false
     | _ => false
   | _ => false
 
-/-- `recRuleKOf` at the environment's lookup. -/
-def recRuleK (env : Env) (rules : List RecRule) : Bool :=
-  recRuleKOf env.find? rules
+/-- **The η-rescue bit at install** (`RecRule.eta`): the rule's
+constructor is the η constructor of a stored η-capable inductive, and
+the recursor is not itself a projection function (whose rescue would
+reduce to its own reduct and loop).  Together with the singleton rule
+list this is the standing condition of `majorToCtor`'s structure-η
+rescue. -/
+def recRuleEtaOf (find? : Name → Option ConstantInfo) (recName ctor : Name) :
+    Bool :=
+  match find? ctor with
+  | some (.ctorInfo cvj _ _) =>
+    match (cvj.type.piResult).getAppFn with
+    | .const T _ =>
+      match find? T with
+      | some (.indInfo _ caps) =>
+        caps.eta && caps.etaCtor == ctor && !Name.isProjFnShape recName
+      | _ => false
+    | _ => false
+  | _ => false
+
+/-- **Stamp a rule's two rescue bits at install** — the one place the
+K and η-rescue conditions are decided.  Every route stores its rules
+through this (the pinned basis blocks, the fixpoint route's generated
+rules, the modeled route's checked rules, the projection functions):
+the reduction then reads `RecRule.k`/`RecRule.eta` and re-derives
+nothing, and the environment invariant `RecCtorsStored` records that a
+set bit is the lookup's own verdict. -/
+def recRuleBits (find? : Name → Option ConstantInfo) (recName : Name)
+    (rl : RecRule) : RecRule :=
+  { rl with k := recRuleKOf find? rl.ctor,
+            eta := recRuleEtaOf find? recName rl.ctor }
+
+@[simp] theorem recRuleBits_ctor (find? : Name → Option ConstantInfo)
+    (recName : Name) (rl : RecRule) : (recRuleBits find? recName rl).ctor
+      = rl.ctor := rfl
+
+@[simp] theorem recRuleBits_rhs (find? : Name → Option ConstantInfo)
+    (recName : Name) (rl : RecRule) : (recRuleBits find? recName rl).rhs
+      = rl.rhs := rfl
+
+@[simp] theorem recRuleBits_nfields (find? : Name → Option ConstantInfo)
+    (recName : Name) (rl : RecRule) : (recRuleBits find? recName rl).nfields
+      = rl.nfields := rfl
+
+@[simp] theorem recRuleBits_ctorParams (find? : Name → Option ConstantInfo)
+    (recName : Name) (rl : RecRule) :
+    (recRuleBits find? recName rl).ctorParams = rl.ctorParams := rfl
+
+@[simp] theorem recRuleBits_fire (find? : Name → Option ConstantInfo)
+    (recName : Name) (rl : RecRule) : (recRuleBits find? recName rl).fire
+      = rl.fire := rfl
+
+@[simp] theorem recRuleBits_k (find? : Name → Option ConstantInfo)
+    (recName : Name) (rl : RecRule) : (recRuleBits find? recName rl).k
+      = recRuleKOf find? rl.ctor := rfl
+
+@[simp] theorem recRuleBits_eta (find? : Name → Option ConstantInfo)
+    (recName : Name) (rl : RecRule) : (recRuleBits find? recName rl).eta
+      = recRuleEtaOf find? recName rl.ctor := rfl
+
+@[simp] theorem map_ctor_recRuleBits (find? : Name → Option ConstantInfo)
+    (recName : Name) (rs : List RecRule) :
+    (rs.map (recRuleBits find? recName)).map (·.ctor) = rs.map (·.ctor) := by
+  simp [List.map_map, Function.comp_def]
+
+/-- **The stored rule of an installed projection function**: the
+degenerate recursor's single rule, at the constructor's arities and
+the generated right-hand side, with the two rescue bits stamped by
+`recRuleBits` (both are `false` at a projection function — its own
+rescue would loop — but the stamping is uniform, so the environment
+invariant reads the same way at every route). -/
+def projFnRule (find? : Name → Option ConstantInfo) (T ctorName : Name)
+    (pty : Expr) (nP nF i : Nat) (rhsA : Expr) : RecRule :=
+  recRuleBits find? (projFnName T i)
+    { ctor := ctorName, nfields := nF, ctorParams := nP,
+      fire := if Expr.recRulePlain pty nP nP nP then .plain else .inert,
+      rhs := rhsA }
+
+@[simp] theorem projFnRule_ctor (find? : Name → Option ConstantInfo)
+    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
+    (projFnRule find? T ctorName pty nP nF i rhsA).ctor = ctorName := rfl
+
+@[simp] theorem projFnRule_rhs (find? : Name → Option ConstantInfo)
+    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
+    (projFnRule find? T ctorName pty nP nF i rhsA).rhs = rhsA := rfl
+
+@[simp] theorem projFnRule_nfields (find? : Name → Option ConstantInfo)
+    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
+    (projFnRule find? T ctorName pty nP nF i rhsA).nfields = nF := rfl
+
+@[simp] theorem projFnRule_ctorParams (find? : Name → Option ConstantInfo)
+    (T ctorName : Name) (pty : Expr) (nP nF i : Nat) (rhsA : Expr) :
+    (projFnRule find? T ctorName pty nP nF i rhsA).ctorParams = nP := rfl
+
+/-- Is a recursor K-flagged?  The stored bit of its single rule
+(`RecRule.k`, computed at the block's install by `recRuleKOf`); the
+official kernel reads `recursor_val::is_k()` here in just the same
+way. -/
+def recRuleK (rules : List RecRule) : Bool :=
+  match rules with
+  | [rl] => rl.k
+  | _ => false
 
 /-- The major premise's preparation before a rule fires, in the
 official kernel's order (`inductive_reduce_rec`,
@@ -1419,7 +1509,7 @@ official order fabricates `Eq.refl` from the type (`a ≡ b` by the
 `Nat` literal fast paths) and never opens either proof. -/
 def prepareMajor (r : CoreFns m) (env : Env) (depth : Nat)
     (recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
-  if recRuleK env rules then
+  if recRuleK rules then
     let majorK ← majorToCtor mode r env depth recName rules major
     let major₀ ← r.whnf depth majorK
     litMajorToCtor r env depth major₀

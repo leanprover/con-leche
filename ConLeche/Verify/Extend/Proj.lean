@@ -551,7 +551,8 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
       (∃ u : Unit, checkProjIota mode (fueledOps mode F) env' env' T ctorName
         lps cvj nP nF i = .ok u) ∧
       env₁ = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-        [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩] :: env'.consts⟩ := by
+        [projFnRule env'.find? T ctorName pty nP nF i rhsA]
+        :: env'.consts⟩ := by
   simp only [checkProjFn, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
   cases hlk : (checkProjLookups env' T ctorName lps nP nF i : CheckM _) with
@@ -622,9 +623,7 @@ theorem checkProjFold_find_new {T ctorName : Name} {lps : List Name}
         intro n' ci' hf2
         rw [henv₂, Env.find?_cons] at hf2
         by_cases hh : (ConstantInfo.recInfo ⟨projFnName T i₀, lps, pty⟩
-            nP nP [⟨ctorName, nF, nP,
-              (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
-               else .inert), rhsA⟩]).name = n'
+            nP nP [projFnRule env'.find? T ctorName pty nP nF i₀ rhsA]).name = n'
         · rw [if_pos hh] at hf2
           exact Or.inr ⟨_, _, _, _, (Option.some.inj hf2).symm⟩
         · rw [if_neg hh] at hf2
@@ -663,9 +662,7 @@ theorem checkProjFold_mono {T ctorName : Name} {lps : List Name}
       refine checkProjFold_mono rest env₂ env₁ h n ?_
       rw [henv₂, Env.find?_cons]
       by_cases hh : (ConstantInfo.recInfo ⟨projFnName T i₀, lps, pty⟩
-          nP nP [⟨ctorName, nF, nP,
-            (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
-             else .inert), rhsA⟩]).name = n
+          nP nP [projFnRule env'.find? T ctorName pty nP nF i₀ rhsA]).name = n
       · rw [if_pos hh]
         rfl
       · rw [if_neg hh]
@@ -705,9 +702,9 @@ theorem checkProjFold_find_preserved {T ctorName : Name}
       rw [henv₂]
       rw [Env.find?_cons_of_isSome
         (show env'.find? (ConstantInfo.recInfo
-          ⟨projFnName T i₀, lps, pty⟩ nP nP [⟨ctorName, nF, nP,
-            (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
-             else .inert), rhsA⟩]).name = none from hpnone2)
+          ⟨projFnName T i₀, lps, pty⟩ nP nP
+          [projFnRule env'.find? T ctorName pty nP nF i₀ rhsA]).name
+            = none from hpnone2)
         (by rw [hf]; rfl)]
       exact hf
     · rw [if_neg hm] at h

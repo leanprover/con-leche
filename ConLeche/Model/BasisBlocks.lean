@@ -231,7 +231,7 @@ theorem bitAgree_punitRecA (ψ : Name → Nat) :
 /-- `PUnit.rec`'s single stored rule, named. -/
 def punitRecRule : RecRule :=
   { ctor := punitUnitName, nfields := 0, ctorParams := 0,
-    fire := .plain,
+    fire := .plain, eta := true,
     rhs := Expr.lam
       (Expr.forallE
         (.const punitName [.param uN]) (.sort (.param u1N))
@@ -552,7 +552,8 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
         injection heq with _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hU⟩
+        · exact ⟨⟨_, _, _, hU⟩, fun hb => Bool.noConfusion hb,
+            fun _ => recRuleEtaOf_of hU rfl hP rfl rfl rfl⟩
         · exact nomatch hr'))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
@@ -1854,9 +1855,11 @@ theorem extendNatRec (mp : EnvModelM V μ env)
         injection heq with _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hZ⟩
+        · exact ⟨⟨_, _, _, hZ⟩, fun hb => Bool.noConfusion hb,
+            fun hb => Bool.noConfusion hb⟩
         rcases List.mem_cons.mp hr' with rfl | hr''
-        · exact ⟨_, _, _, hS⟩
+        · exact ⟨⟨_, _, _, hS⟩, fun hb => Bool.noConfusion hb,
+            fun hb => Bool.noConfusion hb⟩
         · exact nomatch hr''))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)

@@ -278,7 +278,7 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let tagRules ← (List.range k).mapM fun m => do
     let rhs ← need "tag rule"
       (recRhs tag lps elimTag true nP 0 tagTy tagCtors (tag.str "rec") (.param elimTag :: lps.map .param) m)
-    pure (RecRule.mk (tagCtorName T m) (nIdxOf m) 0 .inert rhs)
+    pure (RecRule.mk (tagCtorName T m) (nIdxOf m) 0 .inert rhs false false)
   out := out.push (.indDecl
     ([.indInfo ⟨tag, lps, tagTy⟩ {}] ++
      tagCtors.map (fun (c, nF, ty, _) => ConstantInfo.ctorInfo ⟨c, lps, ty⟩ nP nF) ++
@@ -298,7 +298,8 @@ def genMutual (ctx : Ctx) (b : BlockRec) : Except String (List DeclC) := do
   let auxRules ← (List.range n).mapM fun j => do
     let rhs ← need "aux rule"
       (recRhs aux lps elim large nP 1 auxTy auxCtors (aux.str "rec") rlvls j)
-    pure (RecRule.mk (auxCtors.getD j default).1 (auxCtors.getD j default).2.1 0 .inert rhs)
+    pure (RecRule.mk (auxCtors.getD j default).1
+      (auxCtors.getD j default).2.1 0 .inert rhs false false)
   out := out.push (.indDecl
     ([.indInfo ⟨aux, lps, auxTy⟩ {}] ++
      auxCtors.map (fun (c, nF, ty, _) => ConstantInfo.ctorInfo ⟨c, lps, ty⟩ nP nF) ++

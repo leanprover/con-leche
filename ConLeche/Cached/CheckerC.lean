@@ -155,8 +155,7 @@ def checkProjFnS (fe : FEnv) (T ctorName : Name) (lps : List Name)
   let rhsA ← checkProjRuleF (sharedOpsC mode fe) fe pty cvj lps nP nF i
   checkProjIotaF mode (sharedOpsC mode fe) fe T ctorName lps cvj nP nF i
   pure (fe.push (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-    [⟨ctorName, nF, nP,
-      if Expr.recRulePlain pty nP nP nP then .plain else .inert, rhsA⟩]))
+    [projFnRule fe.find? T ctorName pty nP nF i rhsA]))
 
 /-- One projection-function install step (mirrors `installProjFnStep`;
 the artifact lookup goes through the index). -/
@@ -210,7 +209,8 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
   let (cvRa, rhss) ← checkNativeRecF (sharedOpsC mode fe₂) structWalkersC fe₂ p cvTa ctorsA
   -- the projection table at a structure-like block (task #210 Part A)
   checkNativeTableF (m := CheckCM) structWalkersC p ctorsA sortss (fe₂.push (.recInfo cvRa p.majorIdx
-    p.rulePrefix (sumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)))
+    p.rulePrefix (sumRules fe₂.find? cvRa.name p.nP p.majorIdx p.rulePrefix
+      cvRa.type ctorsA rhss)))
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/

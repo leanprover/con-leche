@@ -310,6 +310,7 @@ def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env :=
   let env₂ := consSumCtors p.nP ctorsA env₁
   let (cvRa, rhss) ← checkNativeRec ops env₂ p cvTa ctorsA
   checkNativeTable p ctorsA sortss ⟨.recInfo cvRa p.majorIdx p.rulePrefix
-    (sumRules p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss) :: env₂.consts⟩
+    (sumRules env₂.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type
+      ctorsA rhss) :: env₂.consts⟩
 
 end ConLeche

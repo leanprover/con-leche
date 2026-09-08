@@ -626,9 +626,9 @@ theorem iotaRulesFactsRun {μ : CheckMode} {F : Nat}
     · rw [heqrl]
       obtain ⟨cvjK, cnPK, cnFK, rhsA, hfcK, hnfK, hrb, hrf, hann, hrlp,
         hrres, hstripRhs, hityK, fire, hr'eq, hbranch⟩ := hkit
-      have hr'rhs : RecRule.rhs r' = rhsA := by rw [hr'eq]
-      have hr'ctor : RecRule.ctor r' = RecRule.ctor r := by rw [hr'eq]
-      have hr'fire : RecRule.fire r' = fire := by rw [hr'eq]
+      have hr'rhs : RecRule.rhs r' = rhsA := by rw [hr'eq]; rfl
+      have hr'ctor : RecRule.ctor r' = RecRule.ctor r := by rw [hr'eq]; rfl
+      have hr'fire : RecRule.fire r' = fire := by rw [hr'eq]; rfl
       obtain ⟨hrhsAw, hrhsAb⟩ := annotate_syntax hann hrf hrb
       have hfcS : envSelf.find? (RecRule.ctor r')
           = some (.ctorInfo cvjK cnPK cnFK) := by
@@ -637,9 +637,16 @@ theorem iotaRulesFactsRun {μ : CheckMode} {F : Nat}
           ⟨cv, mI', rP', rules₀, rules₁, heq, -⟩
         · exact h'
         · exact nomatch heq
+      have hkeep : ∀ (n : Name) (ci : ConstantInfo),
+          (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+          env₂.find? n = some ci → envSelf.find? n = some ci := by
+        intro n ci hnr hf
+        rcases hup _ _ hf with h' | ⟨cv, mI', rP', rules₀, rules₁, heq, -⟩
+        · exact h'
+        · exact absurd heq (hnr _ _ _ _)
       refine ⟨by rw [hr'rhs]; exact hrhsAw, by rw [hr'rhs]; exact hrlp,
         by rw [hr'rhs]; exact hrres, by rw [hr'rhs]; exact hrhsAb, ?_,
-        ⟨cvjK, cnPK, cnFK, hfcS⟩, ?_⟩
+        ⟨cvjK, cnPK, cnFK, hfcS⟩, ?_, ?_, ?_⟩
       · -- the nested shape facts, from `nestedRuleShape`
         intro lvls pins hfireN
         rw [hr'fire] at hfireN
@@ -665,6 +672,16 @@ theorem iotaRulesFactsRun {μ : CheckMode} {F : Nat}
         · obtain ⟨t', hty'⟩ := hityK
           obtain ⟨Rv, hRv⟩ := hden rhsA hrhsAw hrhsAb ⟨t', hty'⟩ φ
           exact ⟨Rv, by rw [hr'rhs]; exact hRv⟩
+      · -- the K bit is the install's own lookup, moved to `envSelf`
+        intro hb
+        refine recRuleKOf_mono hkeep ?_
+        rw [hr'eq] at hb ⊢
+        exact hb
+      · -- the η-rescue bit, likewise
+        intro hb
+        refine recRuleEtaOf_mono hkeep ?_
+        rw [hr'eq] at hb ⊢
+        exact hb
     · exact ih (j + 1) rest' hrec rl hrl'
 
 set_option maxHeartbeats 1600000 in

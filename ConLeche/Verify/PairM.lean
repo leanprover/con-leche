@@ -678,12 +678,11 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     cases ciT <;> try rfl
     case indInfo cvT caps =>
     dsimp only
-    by_cases hK : caps.ruleK = true ∧ cnF = 0
+    by_cases hK : rl.k = true
     · rw [if_pos hK, if_pos hK]
       fst_tac2
     rw [if_neg hK, if_neg hK]
-    by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-        Name.isProjFnShape c = false
+    by_cases hE : rl.eta = true
     · rw [if_pos hE, if_pos hE]
       fst_tac2
     rw [if_neg hE, if_neg hE]
@@ -715,12 +714,11 @@ theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     cases ciT <;> try rfl
     case indInfo cvT caps =>
     dsimp only
-    by_cases hK : caps.ruleK = true ∧ cnF = 0
+    by_cases hK : rl.k = true
     · rw [if_pos hK, if_pos hK]
       snd_tac2
     rw [if_neg hK, if_neg hK]
-    by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-        Name.isProjFnShape c = false
+    by_cases hE : rl.eta = true
     · rw [if_pos hE, if_pos hE]
       snd_tac2
     rw [if_neg hE, if_neg hE]

@@ -254,9 +254,7 @@ theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
   obtain ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
     hrhsb, hrlp, hrres, hrstrip, hrhsKey, -, -⟩ := hbig
   subst henv
-  have hrulesWF : ∀ r ∈ [(⟨ctorName, nF, nP,
-        if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
-        else .inert, rhsA⟩ : RecRule)],
+  have hrulesWF : ∀ r ∈ [projFnRule env'.find? T ctorName pty nP nF i rhsA],
       (RecRule.rhs r).hasFvar = false ∧
       (RecRule.rhs r).allLevelParamsDefined lps = true ∧
       (RecRule.rhs r).constsResolve env' = true ∧
@@ -267,9 +265,9 @@ theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     · refine ⟨hrhsw, hrlp, hrres, hrhsb, ?_⟩
       intro lvls pins
       by_cases hc : Expr.recRulePlain pty nP nP nP = true
-      · simp only [hc, if_true]
+      · simp only [projFnRule, recRuleBits, hc, if_true]
         exact fun hh => nomatch hh
-      · simp only [eq_false_of_ne_true hc]
+      · simp only [projFnRule, recRuleBits, eq_false_of_ne_true hc]
         exact fun hh => nomatch hh
     · exact nomatch h
   refine ⟨?_, ?_⟩

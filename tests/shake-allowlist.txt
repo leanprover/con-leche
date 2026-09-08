@@ -53,7 +53,6 @@ ConLeche/Kernel/BasisGen.lean	public meta import Lean	# compensated: +meta impor
 ConLeche/Kernel/CheckerBase.lean	public import ConLeche.Kernel.StdAxioms	# compensated: +public import ConLeche.Kernel.NatOpPins in ConLeche/Kernel/Checker.lean; +public import ConLeche.Kernel.BasisA in ConLeche/Kernel/Inductives/Modeled.lean (+1 more)
 ConLeche/Kernel/CheckerBase.lean	public import ConLeche.Kernel.NatOpPins	# compensated: +public import ConLeche.Kernel.NatOpPins in ConLeche/Kernel/Checker.lean; +public import ConLeche.Kernel.BasisA in ConLeche/Kernel/Inductives/Modeled.lean (+1 more)
 ConLeche/Kernel/CheckerBase.lean	public import ConLeche.Kernel.Inductives.StructParts	# compensated: +public import ConLeche.Kernel.NatOpPins in ConLeche/Kernel/Checker.lean; +public import ConLeche.Kernel.BasisA in ConLeche/Kernel/Inductives/Modeled.lean (+1 more)
-ConLeche/Kernel/Core.lean	import ConLeche.Kernel.Env	# compensated: +public import ConLeche.Kernel.Basis.Names in ConLeche/Kernel/Core.lean
 ConLeche/Kernel/Core.lean	public import ConLeche.Kernel.Basis	# compensated: +public import ConLeche.Kernel.Basis.Names in ConLeche/Kernel/Core.lean
 ConLeche/Kernel/CoreGated.lean	public import ConLeche.Kernel.TypeChecker	# compensated: +public import ConLeche.Kernel.Core in ConLeche/Kernel/CoreGated.lean
 ConLeche/Kernel/CoreIO.lean	public import ConLeche.Kernel.TypeChecker	# compensated: +public import ConLeche.Kernel.Core in ConLeche/Kernel/CoreIO.lean; +public import ConLeche.Kernel.TypeChecker in ConLeche/Verify/Knot.lean

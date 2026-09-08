@@ -100,9 +100,13 @@ theorem projCons {env' : Env} (mp : EnvModelM V μ env')
     (hwf : EnvWF ⟨c₀ :: env'.consts⟩)
     (hctorsHead : ∀ (cvR : ConstantVal) (mI rP : Nat)
       (rules₀ : List RecRule), c₀ = .recInfo cvR mI rP rules₀ →
-      ∀ r ∈ rules₀, ∃ cvj cnP cnF,
-        env'.find? (ConLeche.RecRule.ctor r)
-          = some (.ctorInfo cvj cnP cnF))
+      ∀ r ∈ rules₀,
+        (∃ cvj cnP cnF,
+          env'.find? (ConLeche.RecRule.ctor r)
+            = some (.ctorInfo cvj cnP cnF)) ∧
+        (r.k = true → ConLeche.recRuleKOf env'.find? r.ctor = true) ∧
+        (r.eta = true →
+          ConLeche.recRuleEtaOf env'.find? c₀.name r.ctor = true))
     -- the fired rules: the bottom fires BELOW this cons
     (hnew : ∀ m₂ : EnvModel V ⟨c₀ :: env'.consts⟩,
       m₂.acval = acvalWith mp.base2.acval (projFnName T i)

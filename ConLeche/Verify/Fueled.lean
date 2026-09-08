@@ -369,12 +369,11 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (
     cases ciT <;> try rfl
     case indInfo cvT caps =>
     dsimp only
-    by_cases hK : caps.ruleK = true ∧ cnF = 0
+    by_cases hK : rl.k = true
     · rw [if_pos hK, if_pos hK]
       atF_tac2
     rw [if_neg hK, if_neg hK]
-    by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-        Name.isProjFnShape c = false
+    by_cases hE : rl.eta = true
     · rw [if_pos hE, if_pos hE]
       atF_tac2
     rw [if_neg hE, if_neg hE]

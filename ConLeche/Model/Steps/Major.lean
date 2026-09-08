@@ -156,6 +156,8 @@ reduct's grading). -/
   ∀ {d : Nat} {Δa : List AnnotTerm} {recName : Name} {rules : List RecRule}
     {major major' : Expr} {vm : AnnotTerm},
     ConLeche.majorToCtorFueled μ env fuel d recName rules major = .ok major' →
+    (∃ (cv : ConstantVal) (mI rP : Nat),
+      env.find? recName = some (.recInfo cv mI rP rules)) →
     Expr.WScoped d major → major.looseBVarsBounded 0 = true →
     Expr.LeavesBounded major → CtxOk m φ d Δa major →
     denoteMeta m.acval env φ d major = some vm →
@@ -178,6 +180,8 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
     {d : Nat} {recName : Name} {rules : List ConLeche.RecRule}
     {e e' : Expr} {ea : AnnotTerm}
     (h : ConLeche.majorToCtorFueled μ env fuel d recName rules e = .ok e')
+    (hfrec : ∃ (cv : ConstantVal) (mI rP : Nat),
+      env.find? recName = some (.recInfo cv mI rP rules))
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded e) (hlr : LeafReads m φ d e)
     (hea : denoteMeta m.acval env φ d e = some ea) :
@@ -208,9 +212,12 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
     have hlrTargs : ∀ x ∈ tmaj.getAppArgs, LeafReads m φ d x :=
       fun x hx => hlrtm.of_subset
         (fun l hl => ConLeche.fvarLeaves_getAppArgs hx l hl)
-    rcases hcase with ⟨hK, hcnF, hlpj, hcnP, hstrip, rfl, hcerts,
+    obtain ⟨cvR, mIR, rPR, hfrecE⟩ := hfrec
+    obtain ⟨-, hEbits⟩ := ConLeche.recCtors_bits m.rec_ctors hfrecE
+      (by rw [hrules]; exact List.mem_cons_self) hfcj hpres hfT
+    rcases hcase with ⟨hK, hlpj, hcnP, hstrip, rfl, hcerts,
         ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
-      ⟨heta, hectr, hproj, hnz, hlenP, hlenU, hlpj, hstrip, rfl, hcerts,
+      ⟨hetab, hnz, hlenP, hlenU, hlpj, hstrip, rfl, hcerts,
         hetacase⟩
     · -- K: the parameters-only constructor application
       refine ⟨⟨_, denoteMeta_mkAppN (hspt.take cnP)
@@ -222,6 +229,7 @@ theorem majorToCtorFueled_reads {m : EnvModel V env}
       · exact absurd hl' (by simp [Expr.fvarLeaves])
       · exact hlrTargs y (List.mem_of_mem_take hy) l hly
     · -- η: parameters plus the stored projection spines
+      obtain ⟨heta, hectr⟩ := hEbits hetab
       -- each fabricated argument reads
       have hallF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs e
           caps.etaFields,
@@ -334,7 +342,7 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
     (hreads_ios : InferReadsIOS m μ φ fuel)
     (hwreads : WhnfReads m μ φ fuel) :
     MajorStep μ m φ fuel := by
-  intro d Δa recName rules major major' vm h hws hb hLb hC hvm hokm
+  intro d Δa recName rules major major' vm h hfrec hws hb hLb hC hvm hokm
   have hpi : ProofIrrelPQ μ m φ fuel :=
     proofIrrelPQ_of_claims ihis hsss hreads_ios
       (unitIrrelPQ_of_claims ihw ihis hreads_ios hwreads)
@@ -387,7 +395,7 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
     obtain ⟨-, hoTs⟩ := hoist_spine tsa hokTm
     -- the constructor's stored type, read and graded
     have hlenCj : ust.length = cvj.levelParams.length := by
-      rcases hcase with ⟨-, -, hlpj, -⟩ | ⟨-, -, -, -, -, -, hlpj, -⟩
+      rcases hcase with ⟨-, hlpj, -⟩ | ⟨-, -, -, -, hlpj, -⟩
       · exact hlpj.symm
       · exact hlpj.symm
     obtain ⟨TVja, hTVja, hokTVja, hmemCj⟩ :=
@@ -438,9 +446,12 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
       exact (wellDenotedV_mkAppN_of_fitA fargsa (hokTVja ρ)
         ⟨m.acval_wellDenoted _ _ ρ, hav _ _ ρ⟩
         (fun x hx => hokArgs x hx ρ hρ) (hmemCj ρ) (hfit ρ hρ)).1
-    rcases hcase with ⟨hK, hcnF, hlpj, hcnP, hstrip, rfl, hcerts,
+    obtain ⟨cvR, mIR, rPR, hfrecE⟩ := hfrec
+    obtain ⟨-, hEbits⟩ := ConLeche.recCtors_bits m.rec_ctors hfrecE
+      (by rw [hrules]; exact List.mem_cons_self) hfcj hpres hfT
+    rcases hcase with ⟨hK, hlpj, hcnP, hstrip, rfl, hcerts,
         ⟨tfab, hitfab, hdefab⟩, hirr⟩ |
-      ⟨heta, hectr, hproj, hnz, hlenP, hlenU, hlpj, hstrip, rfl, hcerts,
+      ⟨hetab, hnz, hlenP, hlenU, hlpj, hstrip, rfl, hcerts,
         hetacase⟩
     · -- R12: the K-flagged rescue
       obtain ⟨hdF, hokF⟩ := hfab (tmaj.getAppArgs.take cnP) (tsa.take cnP)
@@ -453,6 +464,7 @@ theorem majorToCtorFueled_step {m : EnvModel V env}
           hokF hokm ρ hρ).symm,
         hwF, hbB, hLF, hCF⟩
     · -- R13/R14: the η-capable rescue
+      obtain ⟨heta, hectr⟩ := hEbits hetab
       have hspM : DenoteMetaSpine m.acval env φ d (tmaj.getAppArgs ++ [major])
           (tsa ++ [vm]) :=
         hspt.append (DenoteMetaSpine.cons hvm DenoteMetaSpine.nil)
