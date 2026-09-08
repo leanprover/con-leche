@@ -58882,3 +58882,362 @@ side.  The methodological change is stated in the file: both checkers
 now read the same raw bytes and do the SAME job, inductive blocks
 included, which con-leche used to have done for it.  **No cell is
 comparable with an earlier PERF.md.**
+
+## Parallelism: the deferred-body fan-out, measured (2026-09-08, `agent/par-explore`)
+
+**Base**: this lane sits on `329d24ae` (task #210 Part B) — the commit
+the live full-export run uses — so that a parallel run and that run are
+comparable.  The measurements below were taken on master `f2289c63`
+(task #220) before the rebase; #215's frontend gate and #220's
+type-and-constructor gate are therefore NOT under them.  Re-measure
+before quoting them against a #210B run.
+
+
+**The user's question:** *"can we a) parallelize only theorem body
+checking and b) use persistent data structures where MT was an
+issue?"* — and, on the worry that the environment index is a
+continually extended array so neither MT nor persistent marking would
+suit it: *"if not, that sounds good to me."*
+
+Both answers are yes, with one correction and one number that decides
+how much any of it is worth.
+
+### 1. Why theorem bodies are the right cut
+
+The `.thmDecl` branch of `checkDeclSPC` splits where the design wants
+it to: `checkConstantValC` (the statement) and then `checkThmValC`,
+whose last two steps — `infer 0 jv` and `defeq 0 jvt jty` — are the
+only ones that need the body.  Everything above them produces the
+constant that gets installed (the pushed value *is* the annotated
+one), so it stays sequential.
+
+The cut avoids task #108's caveat 1 wholesale: inductive blocks, basis
+blocks, axioms and the pinned Nat/div-mod/reduce certificate branches
+— the kinds that "are not separable by construction" — never leave the
+sequential fold.  Exactly one `DeclC` constructor is decomposed.
+
+Soundness rests on two facts already in the tree.  **Checking is a
+predicate, not a transformation**: the installed constant is identical
+whether or not its body has been checked, so deferring changes nothing
+a later step reads.  And the deferred check must run at the
+declaration's own bound, `feFinal.restrictTo k` with `k =
+fe.visibleBelow` at the install — `mkFEnv_find?_visibleBelow_some`
+(`ConLeche/Verify/EnvBound.lean`) is the unconditional statement that a
+bounded lookup cannot reach a constant installed at or after it, i.e.
+no theorem is justified by one declared later.  The verdict is the
+failing job of lowest fold position, so it does not depend on the
+schedule.
+
+### 2. The MT question: which object is which
+
+The environment is two objects with different characters, and the
+user's worry applies to exactly one of them.
+
+* `Env.consts : List ConstantInfo` — a cons list.  Extending allocates
+  one cell and copies nothing.
+* `FEnv.idx : Std.HashMap Name (Nat × ConstantInfo)` — **the
+  continually extended array**.  It is updated in place only because
+  it is exclusive; marking it MT *or* persistent while it still grows
+  is task #179 exactly: the next insert loses exclusivity and copies
+  the whole bucket array, per constant.
+
+What rescues it: the expensive graph and the growing spine are
+different objects.  The `ConstantInfo`s and their `Expr` subgraphs are
+immutable once installed — that is essentially all of the memory and
+all of the RC traffic — and a persistent object referenced *from* an
+ST object is allowed (the runtime invariant forbids only the other
+direction).  So the entries may be marked persistent incrementally as
+they are installed while the index keeps growing in place, and the
+spine — small — is marked only once it stops growing, at the end of
+the install pass.  `mark_mt` guards on `lean_is_st(o)` (verified
+against v4.33.0 `src/runtime/object.cpp`), so a spawn's marking walk
+stops at the first persistent entry.
+
+**In the two-pass design none of that was needed.**  The measurement
+below shows the MT tax does not appear as instructions at all; it
+appears as IPC loss.  Persistent marking is therefore a *tuning* lever
+(and an `@[extern]` entry in `tests/trust-surface.sh`), not a
+prerequisite — which is worth knowing before anyone pays for the FFI.
+
+### 3. What a run is made of
+
+`perf stat -e instructions:u`, one run per cell, `ulimit -v 24000000`,
+`CON_LECHE_SUPERVISED=1`, verified mode, on `_tmp/flt/cone1.ndjson`
+(the raw FLT cone: 145 MB, 23 775 fold records, verdict 2 — one
+`sorryAx` skip — identical in every cell).  Each row is a probe lane
+that omits one more stage; the phase column is the difference between
+consecutive cells.
+
+| cell | instructions | phase priced | share |
+|---|---|---|---|
+| parse only (`CON_LECHE_INMODEL_CENSUS=1`) | 71.1 G | parse + prelude + in-process modelling | 26.0 % |
+| `thmbare` | 112.0 G | statement checks, inductive installs, def bodies, everything else | 15.0 % |
+| `thmnoguard` | 165.8 G | **`annotate` of theorem bodies** | **19.7 %** |
+| `thm` | 172.5 G | theorem value guards | 2.4 % |
+| full | 273.6 G | **theorem bodies (`infer` + `defeq`)** | **37.0 %** |
+
+Two numbers matter.  The fan-out's material is **37 %** of a run (50 %
+of the fold), so Amdahl caps a body-only fan-out at **1.59 ×** —
+1.63 × if the value guards go too (they are pure predicates on the
+body: deferring them only delays the rejection), 1.73 × if definition
+bodies follow (they add 14.6 G by the same argument).  And
+**`annotate` is 19.7 % of a run**, sitting in the serial pass because
+the annotated value is what gets pushed.  That is the ceiling-raising
+lever and a standalone perf finding: were annotation movable, the
+parallel share would be 59 % and the ceiling 2.4 ×.
+
+Whether it *is* movable is open.  Annotating a body reads the
+environment, and what it reads there are the annotated values of
+earlier declarations, so a parallel annotate pass would have to run
+against unannotated stored values.  Task #161 P2's canonicity note
+(`PropWhen.eq_iff_holds`: two annotations valid for level-equivalent
+codomain sorts are equal) is a hint that the result would be the same,
+but nothing in the tree settles it, and installing raw values is a
+semantic change to what the verified statements are about.  Recorded
+as the next question, not attempted.
+
+### 4. The fan-out, built and measured
+
+`CON_LECHE_PAR=<workers>` (`Main.lean`, experiment lane): a sequential
+install pass that records each theorem's `(bound, statement, value)` as
+a `BodyJob`, then `workers` tasks round-robin over the jobs, each
+threading ONE `CState` across its own jobs exactly as the sequential
+fold does (a fresh state per job would throw away the level memos that
+survive `flushC` and make the comparison unfair to the parallel lane).
+
+| workers | wall | body pass | task-clock | instructions | peak RSS |
+|---|---|---|---|---|---|
+| sequential | 28.7 s | — | 28.7 s | 273.6 G | 363 MB |
+| 1 | 29.2 s | 11.6 s | 29.2 s | 280.6 G | — |
+| 2 | 23.9 s | 6.6 s | 30.2 s | 280.6 G | — |
+| 4 | 21.1 s | 3.9 s | 32.0 s | 280.6 G | — |
+| 8 | 19.7 s | 2.4 s | 33.6 s | 280.6 G | — |
+| 16 | 18.9 s | 1.5 s | 36.0 s | 280.6 G | 547 MB |
+| 32 | 18.6 s | 1.2 s | 42.4 s | 280.7 G | — |
+| 64 | 18.4 s | 1.1 s | 49.2 s | 280.7 G | — |
+
+**1.56 × overall against a 1.59 × ceiling**, with the body pass itself
+scaling ~10 ×.  Three things to read off it:
+
+* **The MT tax is not instructions.**  280.6 G is flat from 1 worker to
+  64 — `mark_mt` does not recur, because the parallel phase pushes
+  nothing.  The tax is IPC: task-clock climbs 29.2 → 49.2 s, i.e. at 64
+  workers the run burns 1.7 × the CPU-seconds of the sequential one to
+  finish 1.56 × sooner.  Atomic RC and cache traffic on shared
+  environment nodes, exactly where persistent marking would apply — so
+  that FFI is a lever on *efficiency*, not on feasibility.
+* **The restructuring is not free**: 273.6 → 280.6 G, **+2.3 %**, paid
+  whether or not any worker runs.  A single-threaded build would pay it
+  for nothing.
+* **Memory is the argument for threads over processes**: 363 → 547 MB
+  (+51 %) at 16 workers, against the ~16 × a process fan-out would
+  cost.  The growth is per-worker memo state, not a second environment.
+
+**Agreement**: 148/148 e2e fixtures, identical exit codes, sequential
+against 8 workers.  (The table above is the STRIPED scheduler, which
+§7 replaces; the final lane reaches 18.8 s with 16 workers.)
+
+**An operational trap worth recording**: at 32 workers under `ulimit
+-v 24000000` the run dies with `failed to create thread` — Lean's
+per-thread stack reservations count against the address-space cap that
+CLAUDE.md mandates for checker runs.  A parallel lane needs the cap
+raised in proportion to the pool, or the pool sized to the cap.
+
+### 5. A second corpus: a raw Mathlib prefix
+
+`_tmp/parexplore/ml-prefix.ndjson` — the first 8 000 000 lines of
+`_tmp/flt/mathlib-ord.ndjson` (431 MB, `lean4export` 3.1.0 at Lean
+4.33.1), which the checker ACCEPTS (exit 0, ten blocks modelled
+in-process).  Same cells, same limits.
+
+| cell | instructions | wall | peak RSS |
+|---|---|---|---|
+| parse only | 210.2 G | 14.4 s | 809 MB |
+| full (sequential) | 890.9 G | 100.1 s | 1015 MB |
+| `thm` (bodies skipped) | 521.3 G | 56.0 s | 1056 MB |
+| `thmnoguard` (bodies + guards skipped) | 499.7 G | 53.1 s | 1057 MB |
+| 16 workers | 932.6 G | 62.1 s | 1310 MB |
+| 32 workers | 932.7 G | 61.3 s | 1425 MB |
+| 64 workers | 932.9 G | 59.4 s | 1608 MB |
+
+Theorem bodies are **369.6 G — 41.5 % of the run, 54 % of the fold**;
+the value guards add 21.6 G (2.4 %, the cone's share to the decimal).
+A friendlier mix than the FLT cone: ceiling **1.71 ×** for bodies alone
+(1.78 × with the guards), achieved **1.69 ×** at 64 workers, the body
+pass falling 6.1 → 3.8 s.  The restructuring cost is larger here too:
+890.9 → 932.6 G, **+4.7 %**; peak RSS 1015 → 1608 MB (+58 %) at 64
+workers.
+
+**The `thmbare` cell DECLINES on this stream** (exit 2 at 20.4 s,
+against exit 0 at 100.1 s).  That is a result, not a broken cell:
+installing unannotated values changes what later declarations do, so
+annotations are not operationally inert and §3's "move `annotate` into
+the fan-out" lever is a genuine design change, not free.  The 19.7 %
+annotate figure stands as measured on the cone, where the verdict
+happened to survive.
+
+### 6. Where this leaves the question
+
+* A body fan-out **works, and is worth between 1.5 × and 1.7 ×** on
+  wall time, on two corpora, at 16–64 workers.  Nothing in the run's
+  structure fights it; the `visibleBelow` machinery of task #108 is
+  exactly the primitive it needs and it is already verified.
+* It costs **+2.3 % to +4.7 % in instructions**, the metric PERF.md
+  actually reports, paid even at one worker.  A parallel lane is
+  therefore an *opt-in mode*, never a replacement for the fold the main
+  theorem is about.
+* The **serial remainder is now the parse** (24–26 %) **and the install
+  pass**.  The next wins in order: pipeline the parse against the
+  install (it is fully serial today and runs before the fold starts),
+  defer definition bodies (+5 %), and — only with a real argument about
+  annotation — move `annotate` (≈20 %).
+* **Persistent marking is not needed to make it work.**  The measured
+  MT tax is IPC, not instructions; `lean_mark_persistent` would buy
+  back part of the task-clock growth (29 → 49 CPU-seconds at 64
+  workers) and would also cut RC traffic in the single-threaded run,
+  where `lean_dec_ref_cold` is still 13.9 % of cycles.  Worth its own
+  measurement, and its own `tests/trust-surface.sh` entry, on its own
+  merits.
+* **The verified statement is untouched and its bridge is unbuilt.**
+  Covering the lane needs the three lemmas named in §1: FEnv
+  extensionality across the knot (task #108's env-extent audit, as a
+  theorem), the `.thmDecl` install/check decomposition, and the
+  partition lemma.  Only the first is hard.
+
+### 7. Scheduling: less of it, not more
+
+The first cut fanned out `workers` tasks striding over the job array,
+each threading one `CState` — the striping existing only so that a
+worker could reuse the level memos that survive `flushC`.  The FLT
+runbook's census kills that design: one declaration there carries
+**10 566 117 expression nodes against a mean of 628**, and the top five
+are 6 % of the whole export, so a static assignment can hand one worker
+several giants while the rest idle.
+
+Measured locally (`_tmp/flt/flt-cone.ndjson`, 19 629 deferred bodies,
+pool of 16): Σ = 28 388 ms of body time, **span — the longest single
+body — 248 ms**, p50 423 µs.  The largest body is 590 × the median, but
+Σ/span = 114, so on this stream the span does not bind until ~114
+workers.  On the full export it binds far earlier: nanoda's patched
+worst declaration is 244 s against a 24-minute 16-thread run, i.e. 17 %
+of its own parallel wall.
+
+The first replacement was **one task per job**, Lean's pool doing the
+balancing — simpler than striping and immune to the skew.  It aborted 16
+of the 148 e2e fixtures with `failed to create thread` (exit 134): under
+the project's standing `ulimit -v` rule the pool grows to `nproc` and
+mimalloc's per-thread arenas exhaust the address space, the failure this
+document already records for *builds*.
+
+**That is a configuration fault, not a design fault** — the user's
+question, and the right one: *"is `LEAN_NUM_THREADS` not sufficient for
+limiting?"*  It is.  Three sweeps, 148 e2e fixtures each, sequential
+against the lane under `ulimit -v 16000000`:
+
+| schedule | differing exit codes | aborts |
+|---|---|---|
+| per job, no thread cap | 16 | 16 |
+| per job, `LEAN_NUM_THREADS=8` | **0** | **0** |
+| bounded queue, no thread cap | **0** | **0** |
+
+And the two are indistinguishable in cost — same binary, 16 workers:
+
+| stream | bounded queue | per job + `LEAN_NUM_THREADS` |
+|---|---|---|
+| cone | 19.1 s · 281.2 G · 568 MB | 19.2 s · 281.4 G · 568 MB |
+| Mathlib prefix | 63.9 s · 934.9 G · 1400 MB | 62.3 s · 935.5 G · 1403 MB |
+
+So the choice is **only about where the bound lives**, and the queue's
+extra ~15 lines (`workers` tasks pulling from one `Std.Mutex`-protected
+index) buy exactly one thing: a caller cannot forget it.  That is worth
+more here than it sounds — every checker run in this project is under
+`ulimit -v` by standing rule, and the measurement runs set
+`CON_LECHE_SUPERVISED=1`, which skips the re-exec, so a cap forwarded by
+the supervisor would miss exactly the runs that measure.  A forgotten
+variable does not produce a slow run; it produces an abort partway
+through.  Both schedules are in the lane (`CON_LECHE_PAR_JOB=1` selects
+per job) until that call is made.
+
+Measured on the cone at 16 workers: **18.8 s** (against 28.7 s
+sequential and 18.4 s for the 64-worker striped version), body pass
+1.5 s against a Σ of 19.8 s — 83 % of ideal — span 232 ms, and 148/148
+e2e fixtures agreeing under a 16 GB cap.  Dropping per-worker `CState`
+reuse (the only thing the striping bought) costs +0.9 % instructions.
+
+**Two instrument traps, both recorded because both produced confident
+wrong numbers.**  `BaseIO.asTask (pure e)` evaluates `e` in the CALLING
+thread — Lean is strict, and `e` is forced while the action value is
+built — so the whole first scaling matrix came back with every worker
+count within noise of sequential.  And `let r := checkOneJob …` between
+two clock reads measures 0 ns for every job: the binding is pure, so the
+compiler sinks it to its use site, past the second read.  `IO.lazyPure`
+is what keeps the work inside the measured window.
+
+If the span ever does bind, the refinement is to hand the queue the
+biggest jobs first (LPT), approximating cost by term size.
+
+### 8. What a full FLT run would need
+
+The FLT comparator runbook (measured 6–7 September 2026 on a 64-core
+EPYC 9554P with 755 GB) is the reference for the corpus this fan-out
+would be aimed at:
+
+| | |
+|---|---|
+| export | 37.77 GB, 665 141 743 lines, 1 052 234 declarations |
+| census | **902 085 theorems** · 138 264 defs · 3 786 inductives · 84 opaque · 4 quot |
+| nanoda, patched, 16 threads | 24 min (≈6 h single-threaded — **~15 ×**) |
+| nanoda's worst declaration | 244 s |
+| Lean kernel replay | ~9 h single core, **229.8 GB** peak |
+| other arena kernels | sokonanoda OOM at 747 GB; nanobruijn no progress in 14 h (43.6 %); lean4lean stalls at 33.5 % after 11.5 h |
+
+Three things follow for con-leche.
+
+1. **The cut is aimed at the right mass.**  Theorems are 85.7 % of the
+   declarations there, against the 37 % of *run cost* the FLT cone gave
+   us — so the ceiling on the full export should be materially better
+   than the 1.6–1.7 × measured here.  nanoda's 15 × on 16 threads is the
+   existence proof that this corpus parallelizes at declaration
+   granularity.
+2. **Memory decides where it can run.**  con-leche parses the whole
+   stream before folding and peaked at 12.84 GB on the 6 GB Mathlib
+   stream (≈2.1 ×); 37.77 GB extrapolates to ~80 GB before the lane's
+   own +50 %, on a box with 125 GB that other agents share.  The
+   runbook's own figures were taken on 755 GB.  A full run belongs on
+   that machine, or on a slice.
+3. **It is already running, and the live dashboard settles two of the
+   three unknowns.**  A ConLeche full-export run (commit `329d24ae`,
+   upstream master at task #210 Part B, verified lane, heartbeats only)
+   was at 58.94 % — 615 454 of 1 044 245 declarations — after 14 h 03 m,
+   at 158 declarations/min, ETA 1 d 21 h, RSS 62.4 GB.  Both earlier
+   roadblocks (the frontend tree-size budget, the direct-structure
+   installer's walks) are fixed upstream at #215 and #210 Part B, so the
+   corpus is no longer a question of whether the checker finishes.
+
+   * **Parse is ~1 %**: 665 141 743 lines in 31 min 32 s against a
+     ~59 h run.  The 24–26 % parse share the cone and the Mathlib
+     prefix showed is an artefact of small streams; on this corpus it
+     is noise, which raises the fan-out's ceiling accordingly.
+     Rescaling the probe's numbers to a parse-free run puts theorem
+     bodies at **50 % (cone) / 54 % (Mathlib prefix)** of the work,
+     i.e. a ceiling near **2 ×**, with the definition bodies worth
+     another few points.
+   * **The span is minutes, not seconds.**  Of 615 455 timed
+     declarations the slowest are 25 min 18 s
+     (`inductive ModularCurve.JZeroNeronObjectAtP`), 20 min 00 s,
+     13 min 19 s, 10 min 01 s, 9 min 07 s, 7 min 08 s.  Two
+     consequences.  The 20-minute one is a THEOREM, so it bounds the
+     body pass from below — but only past ~100 workers at these
+     totals, so it is not the binding constraint.  The 25-minute one
+     is an INDUCTIVE, which this design keeps SEQUENTIAL: the serial
+     pass carries it whatever the fan-out does.
+   * **Memory, not cores, is the binding constraint here.**  Peak RSS
+     on this corpus is set by the largest single declaration's working
+     set — the roadblock log records single records at 37.3 GB, 394 GB
+     — and `workers` workers can have `workers` such declarations in
+     flight at once.  The +51 %/+58 % this lane cost on the small
+     streams is per-worker memo state on ordinary declarations; it is
+     not a bound on what a run holds when several giants coincide.  A
+     memory-aware queue (never two giants at once, cost approximated
+     by term size) is the refinement this corpus would actually need,
+     and it is the same LPT machinery §7 names.

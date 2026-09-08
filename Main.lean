@@ -145,6 +145,364 @@ def progressStride : IO (Except String Nat) := do
     | none => return .error s!"CON_LECHE_PROGRESS must be a declaration stride \
         (a decimal numeral; 0 or unset is off), got {repr s}"
 
+/-! ## The parallel-ceiling probe — A MEASUREMENT LANE, NOT A VERDICT
+
+`CON_LECHE_PROBE_SKIP=thm|thmdef` runs the ordinary fold with the
+*body* check of theorem (and, at `thmdef`, definition) declarations
+omitted: everything that produces the installed constant still runs —
+the statement check, the value's syntactic guards, `annotate`, the
+`ienv` recording and the push — and exactly the two steps that need the
+body, `infer` and `defeq`, do not.  The difference in `instructions:u`
+against a baseline run is the work a declaration-body fan-out could
+move off the critical path, measured before any thread exists.
+
+**This is not a checker.**  A run under the variable accepts streams it
+must reject, and it says so on stderr.  It exists to measure Amdahl's
+serial fraction for the deferred-body design and belongs in a
+measurement lane, never on master. -/
+
+section Probe
+open ConLeche.Cached
+
+/-- Which declaration kinds' body checks the probe omits. -/
+inductive ProbeSkip where
+  | off
+  | thm
+  | thmDef
+  /-- also skips the value-side guards and `annotate`, installing the
+  RAW value: not even a well-formedness check, but it measures how much
+  of the install pass is per-body work that a fan-out could take. -/
+  | thmBare
+  /-- skips the value-side GUARDS only, keeping `annotate` — the cell
+  that splits `thmbare`'s number into guards and annotation. -/
+  | thmNoGuard
+deriving BEq
+
+/-- `CON_LECHE_PROBE_SKIP`, validated once (unset is off). -/
+def probeSkipEnv : IO (Except String ProbeSkip) := do
+  match ← IO.getEnv "CON_LECHE_PROBE_SKIP" with
+  | none => return .ok .off
+  | some "thm" => return .ok .thm
+  | some "thmdef" => return .ok .thmDef
+  | some "thmbare" => return .ok .thmBare
+  | some "thmnoguard" => return .ok .thmNoGuard
+  | some s => return .error s!"CON_LECHE_PROBE_SKIP must be thm or thmdef \
+      (unset is off), got {repr s}"
+
+/-- `checkThmValC` with its two body steps (`infer`, `defeq`) omitted;
+every step that produces the installed constant is copied verbatim. -/
+def probeThmInstall (mode : CheckMode) (fe : FEnv) (cvA : ConstantVal)
+    (jty : ExprC) (value : ExprC) : CheckCM FEnv := do
+  let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
+  let ul ← opSIxC mode fe 0 jsty
+  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
+    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
+  unless ExprC.looseBVarsBounded 0 value do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if value.hasFvar then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
+  unless ExprC.allLevelParamsDefined cvA.levelParams jv do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless constsResolveFC fe jv do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  recordCConst cvA.name cvA.type jty (some (jv, jv))
+  pure (fe.push (.thmInfo cvA jv))
+
+/-- The `thmbare` arm: the statement check, then the RAW value pushed —
+no value guards, no `annotate`, no body check.  Its only purpose is to
+price the per-body work that sits in the install pass. -/
+def probeThmBare (mode : CheckMode) (fe : FEnv) (cvA : ConstantVal)
+    (jty : ExprC) (value : ExprC) : CheckCM FEnv := do
+  let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
+  let ul ← opSIxC mode fe 0 jsty
+  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
+    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
+  recordCConst cvA.name cvA.type jty (some (value, value))
+  pure (fe.push (.thmInfo cvA value))
+
+/-- The `thmnoguard` arm: `probeThmInstall` without the three value-side
+guards (loose bvars, free variables, level parameters, resolvable
+constants), `annotate` kept — those guards are pure predicates on the
+body, so a fan-out could carry them; `annotate` cannot, since its result
+is what gets installed. -/
+def probeThmNoGuard (mode : CheckMode) (fe : FEnv) (cvA : ConstantVal)
+    (jty : ExprC) (value : ExprC) : CheckCM FEnv := do
+  let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
+  let ul ← opSIxC mode fe 0 jsty
+  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
+    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
+  recordCConst cvA.name cvA.type jty (some (jv, jv))
+  pure (fe.push (.thmInfo cvA jv))
+
+/-- `checkDefnValC` with its two body steps omitted (the `thmdef`
+arm only; the pinned Nat/div-mod names never take this route). -/
+def probeDefnInstall (mode : CheckMode) (fe : FEnv) (cvA : ConstantVal)
+    (jty : ExprC) (value : ExprC) (hint : ReducibilityHint) : CheckCM FEnv := do
+  unless ExprC.looseBVarsBounded 0 value do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if value.hasFvar then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
+  unless ExprC.allLevelParamsDefined cvA.levelParams jv do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless constsResolveFC fe jv do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  recordCConst cvA.name cvA.type jty (some (jv, jv))
+  pure (fe.push (.defnInfo cvA jv hint))
+
+/-- The probe's step: `checkDeclSPStepC` with the selected kinds'
+bodies left unchecked.  The pinned Nat operations and div/mod keep the
+full path (their certificates are part of the install). -/
+def probeStep (mode : CheckMode) (skip : ProbeSkip) (fe : FEnv) (pd : DeclC) :
+    CheckCM FEnv := do
+  flushC
+  match pd with
+  | .thmDecl cv value =>
+    let (cvA, jty) ← checkConstantValC mode fe cv
+    if skip == .thmBare then probeThmBare mode fe cvA jty value
+    else if skip == .thmNoGuard then probeThmNoGuard mode fe cvA jty value
+    else probeThmInstall mode fe cvA jty value
+  | .defnDecl cv value hint =>
+    if skip == .thmDef && !(natOpNames.contains cv.name)
+        && !(natDivModNames.contains cv.name) then do
+      let (cvA, jty) ← checkConstantValC mode fe cv
+      probeDefnInstall mode fe cvA jty value hint
+    else checkDeclSPC mode fe pd
+  | _ => checkDeclSPC mode fe pd
+
+/-- The probe's fold: `checkDeclsSPCachedD`'s shape exactly, over
+`probeStep`. -/
+def probeFold (mode : CheckMode) (skip : ProbeSkip) (ds : List DeclC) :
+    Except (CheckError × Nat) Env := do
+  let step : Nat × FEnv → DeclC → StateT CState (Except (CheckError × Nat)) (Nat × FEnv) :=
+    fun p pd s =>
+      match probeStep mode skip p.2 pd s with
+      | .ok (fe', s') => .ok ((p.1 + 1, fe'), s')
+      | .error e => .error (e, p.1)
+  let p ← (ds.foldlM step (0, mkFEnv Env.empty)).run' {}
+  pure p.2.env
+
+end Probe
+
+/-! ## The deferred-body fan-out — AN EXPERIMENT, NOT A VERDICT LANE
+
+`CON_LECHE_PAR=<workers>` runs the stream in two passes:
+
+1. a sequential install pass — the ordinary fold, except that a
+   theorem's two body steps (`infer`, `defeq`) are not run; instead the
+   annotated statement and value are recorded as a `BodyJob` together
+   with `fe.visibleBelow` at that point, i.e. the number of constants
+   installed *before* the theorem;
+2. a parallel body pass — `workers` tasks, round-robin over the jobs,
+   each running `infer`/`defeq` against `feFinal.restrictTo job.bound`
+   with its own `CState`.
+
+The bound is what keeps this honest: `mkFEnv_find?_visibleBelow_some`
+(`ConLeche/Verify/EnvBound.lean`) says a bounded lookup cannot reach a
+constant installed at or after it, so no theorem can be justified by
+one declared later.  The verdict is the failing job of LOWEST fold
+position, so it does not depend on the schedule.
+
+Not covered by `no_proof_of_False`: that theorem is about
+`checkDeclsSPCachedD`, and this is a different function.  The bridge
+that would cover it is stated in DESIGN (FEnv-extensionality across the
+knot + the `.thmDecl` install/check decomposition); until it exists
+this lane is an experiment. -/
+
+section Par
+open ConLeche.Cached
+
+/-- A deferred theorem-body check. -/
+structure BodyJob where
+  idx : Nat
+  bound : Nat
+  name : Name
+  jty : ExprC
+  jv : ExprC
+
+/-- The install half of a theorem, emitting its deferred body job.
+`checkThmValC` verbatim, with the two body steps replaced by the job. -/
+def parThmInstall (mode : CheckMode) (fe : FEnv) (cvA : ConstantVal)
+    (jty : ExprC) (value : ExprC) : CheckCM (FEnv × BodyJob) := do
+  let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
+  let ul ← opSIxC mode fe 0 jsty
+  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
+    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
+  unless ExprC.looseBVarsBounded 0 value do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if value.hasFvar then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
+  unless ExprC.allLevelParamsDefined cvA.levelParams jv do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless constsResolveFC fe jv do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  recordCConst cvA.name cvA.type jty (some (jv, jv))
+  pure (fe.push (.thmInfo cvA jv), ⟨0, fe.visibleBelow, cvA.name, jty, jv⟩)
+
+/-- The install pass's step: `checkDeclSPStepC` with theorem bodies
+deferred.  The accumulator carries the fold position, the environment
+and the jobs collected so far. -/
+def parInstallStep (mode : CheckMode) (p : Nat × FEnv × Array BodyJob) (pd : DeclC) :
+    StateT CState (Except (CheckError × Nat)) (Nat × FEnv × Array BodyJob) := fun s =>
+  let (i, fe, jobs) := p
+  match pd with
+  | .thmDecl cv value =>
+    match (do flushC; let (cvA, jty) ← checkConstantValC mode fe cv
+              parThmInstall mode fe cvA jty value : CheckCM (FEnv × BodyJob)) s with
+    | .ok ((fe', job), s') => .ok ((i + 1, fe', jobs.push { job with idx := i }), s')
+    | .error e => .error (e, i)
+  | _ =>
+    match checkDeclSPStepC mode fe pd s with
+    | .ok (fe', s') => .ok ((i + 1, fe', jobs), s')
+    | .error e => .error (e, i)
+
+/-- The install pass. -/
+def parInstall (mode : CheckMode) (ds : List DeclC) :
+    Except (CheckError × Nat) (FEnv × Array BodyJob) := do
+  let p ← (ds.foldlM (parInstallStep mode) (0, mkFEnv Env.empty, #[])).run' {}
+  pure (p.2.1, p.2.2)
+
+/-- One deferred body's check, at its own bounded view of the final
+environment: `checkThmValC`'s two body steps and nothing else. -/
+def bodyAct (mode : CheckMode) (fe : FEnv) (j : BodyJob) : CheckCM Unit := do
+  flushC
+  let jvt ← (coreKnotI mode fe checkFuel).infer 0 j.jv
+  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt j.jty do
+    throw (.invalid s!"type mismatch in theorem {j.name}")
+
+/-- Keep the failure of lowest fold position. -/
+def firstFailure : Option (CheckError × Nat) → Option (CheckError × Nat) →
+    Option (CheckError × Nat)
+  | none, b => b
+  | a, none => a
+  | some a, some b => if a.2 ≤ b.2 then some a else some b
+
+/-- One job, checked at its own bounded view of the final environment
+with a fresh memo state. -/
+def checkOneJob (mode : CheckMode) (feFinal : FEnv) (j : BodyJob) :
+    Option (CheckError × Nat) :=
+  match (bodyAct mode (feFinal.restrictTo j.bound) j).run' {} with
+  | .ok _ => none
+  | .error e => some (e, j.idx)
+
+/-- One job, timed.  `IO.lazyPure` is what puts the work between the two
+clock reads: a plain `let` is a PURE binding and the compiler sinks it to
+its use site — past the second read — which is how the first cut of this
+instrument measured 0 ns for every job while the pass still took
+seconds. -/
+def timedJob (mode : CheckMode) (feFinal : FEnv) (j : BodyJob) :
+    IO (Option (CheckError × Nat) × Nat) := do
+  let t0 ← IO.monoNanosNow
+  let r ← IO.lazyPure fun _ => checkOneJob mode feFinal j
+  let t1 ← IO.monoNanosNow
+  pure (r, t1 - t0)
+
+/-- The alternative schedule: ONE TASK PER JOB, Lean's own pool doing
+the balancing and `LEAN_NUM_THREADS` bounding the threads.  Kept beside
+the queue so the two can be compared on the same binary; selected by
+`CON_LECHE_PAR_JOB=1`. -/
+def parBodiesPerJob (mode : CheckMode) (feFinal : FEnv) (jobs : Array BodyJob) :
+    IO (Option (CheckError × Nat) × Nat × Nat) := do
+  let ts ← jobs.mapM fun j => IO.asTask (timedJob mode feFinal j)
+  let mut err : Option (CheckError × Nat) := none
+  let mut span := 0
+  let mut sum := 0
+  for t in ts do
+    match t.get with
+    | .ok (r, dt) =>
+      err := firstFailure err r
+      span := max span dt
+      sum := sum + dt
+    | .error e => throw e
+  pure (err, span, sum)
+
+/-- Pull the next job index, or `none` when the queue is drained. -/
+def nextJob (q : Std.Mutex Nat) (n : Nat) : BaseIO (Option Nat) :=
+  q.atomically do
+    let i ← get
+    if i < n then
+      set (i + 1)
+      return some i
+    else
+      return none
+
+/-- One worker: pull, check, repeat, carrying the lowest-position
+failure, the largest single-body time (the SPAN) and the total. -/
+partial def pullLoop (mode : CheckMode) (feFinal : FEnv) (jobs : Array BodyJob)
+    (q : Std.Mutex Nat) (acc : Option (CheckError × Nat)) (span sum : Nat) :
+    IO (Option (CheckError × Nat) × Nat × Nat) := do
+  match ← nextJob q jobs.size with
+  | none => pure (acc, span, sum)
+  | some i =>
+    match jobs[i]? with
+    | none => pure (acc, span, sum)   -- unreachable: `nextJob` bounds `i`
+    | some j =>
+    let t0 ← IO.monoNanosNow
+    -- `IO.lazyPure`, not a `let`: a pure binding is sunk to its use site
+    -- by the compiler, past the second clock read, and every job then
+    -- measures 0 ns.
+    let r ← IO.lazyPure fun _ => checkOneJob mode feFinal j
+    let t1 ← IO.monoNanosNow
+    let dt := t1 - t0
+    pullLoop mode feFinal jobs q (firstFailure acc r) (max span dt) (sum + dt)
+
+/-- The body pass: `workers` tasks pulling from ONE shared queue.
+
+Two constraints pick this shape.  **Skew**: the body-time distribution
+is long-tailed (FLT cone: p50 423 us, span 248 ms — 590 x; on the full
+FLT export one declaration carries 10.5 M expression nodes against a
+mean of 628), so assignment must be dynamic — a static round-robin can
+hand one worker several giants while the rest idle.  **`ulimit -v`**:
+one task per job lets Lean's pool grow to `nproc` threads, whose
+mimalloc arenas blow the address-space cap this project runs every
+checker under (`failed to create thread`, exit 134 — the failure DESIGN
+already records for builds).  Spawning exactly `workers` tasks bounds
+the thread count without an environment variable.
+
+The verdict is the failing job of LOWEST fold position, so it does not
+depend on the schedule. -/
+def parBodies (mode : CheckMode) (feFinal : FEnv) (jobs : Array BodyJob)
+    (workers : Nat) : IO (Option (CheckError × Nat) × Nat × Nat) := do
+  let q ← Std.Mutex.new 0
+  let ts ← (List.range (max workers 1)).mapM fun _ =>
+    IO.asTask (pullLoop mode feFinal jobs q none 0 0)
+  let mut err : Option (CheckError × Nat) := none
+  let mut span := 0
+  let mut sum := 0
+  for t in ts do
+    match t.get with
+    | .ok (e, sp, su) =>
+      err := firstFailure err e
+      span := max span sp
+      sum := sum + su
+    | .error e => throw e
+  pure (err, span, sum)
+
+/-- The install pass with a heartbeat: the same steps as `parInstall`,
+in `IO`, printing one line every `stride` declarations.  A run that takes
+hours must not be blind. -/
+partial def parInstallIO (mode : CheckMode) (err : IO.FS.Stream)
+    (stride total t0 : Nat) :
+    List DeclC → Nat → FEnv → Array BodyJob → CState →
+      IO (Except (CheckError × Nat) (FEnv × Array BodyJob))
+  | [], _, fe, jobs, _ => return .ok (fe, jobs)
+  | pd :: ds, i, fe, jobs, s => do
+    if stride > 0 && i % stride == 0 then
+      let now ← IO.monoMsNow
+      err.putStr s!"con-leche: par install {i}/{total} \
+        {ConLeche.Cached.declCLabel pd} \
+        t={ConLeche.Cached.msSecs (now - t0)}s ({jobs.size} deferred)\n"
+      err.flush
+    match parInstallStep mode (i, fe, jobs) pd s with
+    | .ok ((i', fe', jobs'), s') =>
+      parInstallIO mode err stride total t0 ds i' fe' jobs' s'
+    | .error e => return .error e
+
+end Par
+
 /-- The real driver (run in the supervised child process).  `mode` is
 the three-mode setting (task #147), validated once by the caller and
 consumed here as configuration.
@@ -181,6 +539,30 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
     let stride ← match ← progressStride with
       | .error msg => IO.eprintln s!"con-leche: {msg}"; return 3
       | .ok n => pure n
+    -- The parallel-ceiling probe (`CON_LECHE_PROBE_SKIP`): validated
+    -- here, once, and announced loudly — a probe run is a MEASUREMENT,
+    -- not a verdict.
+    let skip ← match ← probeSkipEnv with
+      | .error msg => IO.eprintln s!"con-leche: {msg}"; return 3
+      | .ok s => pure s
+    -- The deferred-body fan-out (`CON_LECHE_PAR=<workers>`): an
+    -- EXPERIMENT, announced as loudly as the probe.
+    let par ← match ← IO.getEnv "CON_LECHE_PAR" with
+      | none => pure 0
+      | some s => match s.toNat? with
+        | some n => pure n
+        | none =>
+          IO.eprintln s!"con-leche: CON_LECHE_PAR must be a worker count \
+            (a decimal numeral; 0 or unset is off), got {repr s}"
+          return 3
+    unless skip == .off do
+      let what := if skip == .thm then "theorem"
+        else if skip == .thmNoGuard then "theorem (bodies and value guards)"
+        else if skip == .thmBare then "theorem (bodies, guards and annotation)"
+        else "theorem and definition"
+      IO.eprintln s!"con-leche: PROBE LANE — {what} BODIES ARE NOT CHECKED; \
+        this run measures the deferred-body design's serial fraction and its \
+        exit code is not a verdict."
     -- The route trace (`CON_LECHE_ROUTE_TRACE`, task #193): one `con-leche:
     -- route <block> <struct|sum|fix|inmodel|modeled>` line per inductive block,
     -- on the progress lane (so a traced run is as unverified as a
@@ -323,10 +705,48 @@ def checkMain (file : String) (mode : CheckMode) : IO UInt32 := do
             {decls.size} t={ConLeche.Cached.msSecs (now - t0)}s \
             (fold {ConLeche.Cached.msSecs (now - tParse)}s)"
           (← IO.getStderr).flush
-      let verdict ←
-        if stride > 0 || trace then
+      let verdict : Except (ConLeche.CheckError × Nat) ConLeche.Env ←
+        if par > 0 then do
+          IO.eprintln s!"con-leche: PAR LANE — the deferred body pass is an \
+            EXPERIMENT, not covered by the main theorem (pool size is \
+            LEAN_NUM_THREADS; cap it under ulimit -v)."
+          let inst ←
+            if stride > 0 then
+              parInstallIO mode (← IO.getStderr) stride decls.size t0
+                decls.toList 0 (ConLeche.mkFEnv ConLeche.Env.empty) #[] {}
+            else pure (parInstall mode decls.toList)
+          match inst with
+          | .error e => pure (.error e)
+          | .ok (feFinal, jobs) =>
+            let tI ← IO.monoMsNow
+            IO.eprintln s!"con-leche: par install pass: {jobs.size} deferred \
+              theorem bodies, t={ConLeche.Cached.msSecs (tI - tParse)}s"
+            (← IO.getStderr).flush
+            -- ONE TASK PER JOB.  The schedule is Lean's pool, not ours:
+            -- the body-time distribution is heavily skewed (measured on
+            -- the FLT cone: p50 423 us, max 248 ms — 590x), so a static
+            -- round-robin assignment risks one worker drawing several
+            -- giants while the rest idle.  Dropping the striping cost
+            -- +0.9 % instructions (the level memos are no longer reused
+            -- across a worker's jobs) and no wall time.
+            let perJob := (← IO.getEnv "CON_LECHE_PAR_JOB") == some "1"
+            let (res, span, sum) ←
+              if perJob then parBodiesPerJob mode feFinal jobs
+              else parBodies mode feFinal jobs par
+            IO.eprintln s!"con-leche: par job stats: {jobs.size} bodies, \
+              Σ={sum / 1000000}ms, span(max)={span / 1000000}ms, \
+              workers={par}"
+            let tB ← IO.monoMsNow
+            IO.eprintln s!"con-leche: par body pass: \
+              t={ConLeche.Cached.msSecs (tB - tI)}s"
+            match res with
+            | none => pure (.ok feFinal.env)
+            | some e => pure (.error e)
+        else if stride > 0 || trace then
           checkDeclsProgressIO mode (← IO.getStderr) stride decls.size t0 trace
             inModelled decls.toList 0 (ConLeche.mkFEnv ConLeche.Env.empty) {}
+        else if skip != .off then
+          pure (probeFold mode skip decls.toList)
         else
           pure (ConLeche.Cached.checkDeclsSPCachedD mode decls.toList)
       match verdict with
