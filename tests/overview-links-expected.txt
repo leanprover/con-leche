@@ -87,17 +87,17 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2771-L2780
-  2771        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2772        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2773        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2774        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
-  2775        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  2776    | fuel + 1 =>
-  2777      wrap
-  2778        { whnfCore := fun d e =>
-  2779            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
-  2780          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+== ConLeche/Kernel/Core.lean#L2781-L2790
+  2781        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2782        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2783        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2784        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+  2785        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  2786    | fuel + 1 =>
+  2787      wrap
+  2788        { whnfCore := fun d e =>
+  2789            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+  2790          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
 == ConLeche/Model/Fold.lean#L294-L301
    294      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
@@ -129,11 +129,11 @@
 == ConLeche/Kernel/Env.lean#L69
     69  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1931
-  1931  def whnfLoop (r : CoreFns m) (env : Env) (depth : Nat) :
+== ConLeche/Kernel/Core.lean#L1941
+  1941  def whnfLoop (r : CoreFns m) (env : Env) (depth : Nat) :
 
-== ConLeche/Kernel/Core.lean#L2655
-  2655    fun depth e =>
+== ConLeche/Kernel/Core.lean#L2665
+  2665    fun depth e =>
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
@@ -508,15 +508,15 @@
     18  
     19  **Why.**  A user report (2026-09-06): the Nat-op pins were sensitive
 
-== ConLeche/Kernel/Env.lean#L551-L558
-   551  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   552    block.all fun ci => match ci with
-   553      | .indInfo cvT _ =>
-   554        match cvT.type.piSortTeleLen? with
-   555        | some n => decide (nP ≤ n)
-   556        | none => true
-   557      | .ctorInfo _ nPc _ => nPc == nP
-   558      | _ => true
+== ConLeche/Kernel/Env.lean#L579-L586
+   579  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   580    block.all fun ci => match ci with
+   581      | .indInfo cvT _ =>
+   582        match cvT.type.piSortTeleLen? with
+   583        | some n => decide (nP ≤ n)
+   584        | none => true
+   585      | .ctorInfo _ nPc _ => nPc == nP
+   586      | _ => true
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L162
    162  def normPosDom (ops : CheckerOps m) (env : Env) (T : Name) : Nat → Nat → Expr → m Expr

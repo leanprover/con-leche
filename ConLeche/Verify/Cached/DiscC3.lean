@@ -880,10 +880,12 @@ private theorem iotaRec_unfold (mi : CheckMode) (env : Env) (d : Nat)
                           cvj.levelParams e.getAppArgs rP).1) >>=
                       fun okl =>
                     if okl then
-                      defEqList (fueledFns mode env) env d
-                          (major.getAppArgs.take rl.ctorParams)
-                          (recFireComparands rl cv.levelParams us
-                            cvj.levelParams e.getAppArgs rP).2 >>=
+                      (if rl.compareParams then
+                          defEqList (fueledFns mode env) env d
+                            (major.getAppArgs.take rl.ctorParams)
+                            (recFireComparands rl cv.levelParams us
+                              cvj.levelParams e.getAppArgs rP).2
+                          else pure true) >>=
                         fun r₁ =>
                       if r₁ then
                         iotaCerts (fueledFns mode env) env d mi.betaGate
@@ -1043,14 +1045,21 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
                           exact SimC.pure hs₆ trivial
                         | true =>
                           simp only [↓reduceIte]
-                          refine SimC.bind (defEqListC_sim ih hs₆
-                            (hmargs.take rl.ctorParams)
-                            (hargs.take rl.ctorParams)
-                            (fun x hx => hmaj.getAppArgs x
-                              (List.mem_of_mem_take hx))
-                            (fun x hx => hargsW x
-                              (List.mem_of_mem_take hx)))
+                          refine SimC.bind (P := RelVC) ?_
                             (fun s₇ r₁ r₁' hs₇ hPr₁ => ?_)
+                          · -- the parameter comparison, absent from both
+                            -- sides at a `paramsBlind` rule
+                            by_cases hcp : rl.compareParams = true
+                            · rw [if_pos hcp, if_pos hcp]
+                              exact defEqListC_sim ih hs₆
+                                (hmargs.take rl.ctorParams)
+                                (hargs.take rl.ctorParams)
+                                (fun x hx => hmaj.getAppArgs x
+                                  (List.mem_of_mem_take hx))
+                                (fun x hx => hargsW x
+                                  (List.mem_of_mem_take hx))
+                            · rw [if_neg hcp, if_neg hcp]
+                              exact SimC.pure hs₆ rfl
                           obtain rfl : r₁ = r₁' := hPr₁
                           cases r₁ with
                           | false =>
@@ -1083,6 +1092,8 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
                           exact SimC.pure hs₆ trivial
                         | true =>
                           simp only [↓reduceIte]
+                          rw [if_pos (RecRule.compareParams_nested hfire),
+                            if_pos (RecRule.compareParams_nested hfire)]
                           refine SimC.bind (defEqListC_sim ih hs₆
                             (hmargs.take rl.ctorParams) hQc
                             (fun x hx => hmaj.getAppArgs x

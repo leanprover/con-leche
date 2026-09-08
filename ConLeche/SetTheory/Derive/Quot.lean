@@ -94,6 +94,31 @@ theorem quotClass_surj {u : Nat} {A R q : V} (hq : q ∈ˢ quotSet u A R) :
     obtain ⟨a, ha, rfl⟩ := mem_image.mp hq
     exact ⟨a, ha, (if_neg h).symm⟩
 
+/-- A class formed at ONE pair of parameters that lands in the quotient
+of ANOTHER: its representative lies in the second parameter's carrier,
+and the class is the second quotient's class of that same
+representative.  Nothing relates the two parameter pairs — at a positive
+level the first class is a `qclass` of the second's, and at level zero
+both classes are the point and the second carrier is inhabited because
+the quotient is. -/
+theorem quotClass_of_mem_quotSet {u : Nat} {Aset R A' R' a : V}
+    (hAset : Aset ∈ˢ (univ u : V)) (hA' : A' ∈ˢ (univ u : V)) (ha : a ∈ˢ A')
+    (hmem : quotClass u A' R' a ∈ˢ quotSet u Aset R) :
+    a ∈ˢ Aset ∧ quotClass u A' R' a = quotClass u Aset R a := by
+  obtain ⟨b, hb, hcls⟩ := quotClass_surj hmem
+  by_cases hu : u = 0
+  · subst hu
+    refine ⟨?_, by unfold quotClass; rw [if_pos rfl, if_pos rfl]⟩
+    rw [univ_zero] at hA' hAset
+    rw [eq_pt_of_mem_univZero hA' ha, ← eq_pt_of_mem_univZero hAset hb]
+    exact hb
+  · unfold quotClass at hcls ⊢
+    rw [if_neg hu, if_neg hu] at hcls
+    rw [if_neg hu, if_neg hu]
+    have hab : a ∈ˢ qclass Aset R b := by rw [← hcls]; exact self_mem_qclass ha
+    obtain ⟨haA, hrel⟩ := mem_qclass.mp hab
+    exact ⟨haA, hcls.trans (qclass_eq_of_rel hrel)⟩
+
 theorem quotSound {u : Nat} {A R a b w : V} (ha : a ∈ˢ A) (hb : b ∈ˢ A)
     (hw : w ∈ˢ app (app R a) b) : quotClass u A R a = quotClass u A R b := by
   unfold quotClass

@@ -470,7 +470,7 @@ def blockRecOf (st : StateD) (v : Json) : M InModel.BlockRec := do
     let rules ← (← (← r.getObjVal? "rules").getArr?).toList.mapM fun ru => do
       pure (RecRule.mk (← getNameD st ru "ctor")
         (← (← ru.getObjVal? "nfields").getNat?) 0 .inert
-        (← getDeclExprD st ru "rhs") false false)
+        (← getDeclExprD st ru "rhs") false false false)
     pure { cv := ← parseConstantValTD st r
            nP := ← (← r.getObjVal? "numParams").getNat?
            nM := ← (← r.getObjVal? "numMotives").getNat?
@@ -594,7 +594,7 @@ def processLineCoreD (st : StateD) (j : Json) :
       let rules ← (← (← r.getObjVal? "rules").getArr?).mapM fun ru => do
         pure (RecRule.mk (← getNameD st ru "ctor")
           (← (← ru.getObjVal? "nfields").getNat?) 0 .inert
-          (← getDeclExprD st ru "rhs") false false)
+          (← getDeclExprD st ru "rhs") false false false)
       let nP ← (← r.getObjVal? "numParams").getNat?
       let nM ← (← r.getObjVal? "numMotives").getNat?
       let nm ← (← r.getObjVal? "numMinors").getNat?

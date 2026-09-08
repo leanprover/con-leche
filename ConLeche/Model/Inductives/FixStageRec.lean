@@ -236,6 +236,24 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
     (hleafC : ∀ j cA, ctorsA[j]? = some cA → ∀ ψ, mp.base2.acval cA.1.name ψ
       = sumMkAV (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
           (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))))
+    -- a constructor's parameter domains and the former's are the same
+    -- `Sat`, so the law needs no comparison of the two parameter spines
+    (hiff : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+        Sat V (((dsF j ψ).take p.nP).map (·.2.2)).reverse ρ)
+    -- the subsingleton criterion at the former's parameter frame
+    (hsrcH : ∀ ψ : Name → Nat, p.resSort.eval ψ = 0 →
+      (ConLeche.structElimLevel p.elim p.large).eval ψ ≠ 0 → ∀ ρp : Nat → V,
+      Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
+      ∀ k, k < ctorsA.length →
+      ∀ i, i < ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD k []).length →
+      srcOfEs ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD k [])
+        ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD k []).length i = none →
+      ∀ fs : List V,
+        SpineFit ρp (((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD k []).take i) fs →
+        interp V (consList fs ρp)
+            (((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)).getD k []).getD i default)
+          ∈ˢ (univZero : V))
     -- the rule
     {j : Nat} {cA : ConstantVal × Nat} (hj : ctorsA[j]? = some cA) {rhs : Expr}
     (hrhs : rhss[j]? = some rhs)
@@ -247,7 +265,7 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
           cA.2 ctorsA.length j (ConLeche.recIdxOf (ksF j)) (tssF j ψ) (eissF j ψ))))
     (hfresh : env.find? cvRa.name = none)
     {rule : RecRule} {kb eb : Bool}
-    (hrule : rule = ⟨cA.1.name, cA.2, p.nP, .plain, rhs, kb, eb⟩)
+    (hrule : rule = ⟨cA.1.name, cA.2, p.nP, .plain, rhs, kb, eb, true⟩)
     {rules : List RecRule}
     (m₂ : EnvModel V ⟨.recInfo cvRa mI rP rules :: env.consts⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval cvRa.name A)
@@ -317,7 +335,7 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
           cA.2 ctorsA.length j (ConLeche.recIdxOf (ksF j)) (tssF j ψR) (eissF j ψR))) := by
     rw [hinstR, hread ψR, fixRuleDataAV_congr (hTac ψR) (hCac ψR)]
   refine ⟨_, hRa₂, hRuleOk ψR, fun _ _ h => absurd h (by simp), ?_⟩
-  intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl husjl hψ hplain _ hidx hTVa
+  intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl husjl hψ _ _ hidx hTVa
     hTVja hfitR hfitC
   -- the constructor found is the block's
   obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj (hfindC.symm.trans hfcj))
@@ -403,9 +421,6 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
     intro n hn
     have := hchain n (by simpa [hCD.len ψR] using hn)
     simpa [hCD.len ψR] using this
-  have hplain' : ∀ i, i < p.nP →
-      interp V ρ (ys.getD i default) = interp V ρ (xs.getD i default) :=
-    fun i hi => hplain rfl i hi (by omega)
   -- the index pin: the constructor's index values at the fields are the
   -- application's index arguments
   have hpin : ∀ i, i < p.nIdx →
@@ -469,23 +484,53 @@ theorem fixRecRuleLaw (mp : EnvModelM V μ env)
     unfold fixRdsAV at hρ
     rw [fixRecDataAV_take_nP hlenPps] at hρ
     exact hokFssH ψR ρp hρ
+  -- the two parameter frames coincide, so the law compares neither
+  -- spine with the other
+  have hsatIffR : ∀ ρp : Nat → V,
+      Sat V ((((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψR).take p.nP).map (·.2.2)).reverse) ρp ↔
+        Sat V ((((dsF j ψR).take p.nP).map (·.2.2)).reverse) ρp := by
+    intro ρp
+    unfold fixRdsAV
+    rw [fixRecDataAV_take_nP hlenPps]
+    exact hiff j cA hj ψR ρp
+  have hsrcR : p.resSort.eval ψR = 0 →
+      (ConLeche.structElimLevel p.elim p.large).eval ψR ≠ 0 → ∀ ρp : Nat → V,
+      Sat V ((((fixRdsAV mp.base2 p ppsAll dsF esF ksF eissF tssF ctorsA ψR).take p.nP).map (·.2.2)).reverse) ρp →
+      ∀ i, i < ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)).getD 0 []).length →
+      srcOfEs ((essOfR (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)).getD 0 [])
+        ((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)).getD 0 []).length i = none →
+      ∀ fs : List V,
+        SpineFit ρp (((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)).getD 0 []).take i) fs →
+        interp V (consList fs ρp)
+            (((fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)).getD 0 []).getD i default)
+          ∈ˢ (univZero : V) := by
+    intro hw0 hl0 ρp hρ
+    unfold fixRdsAV at hρ
+    rw [fixRecDataAV_take_nP hlenPps] at hρ
+    exact hsrcH ψR hw0 hl0 ρp hρ 0 (by omega)
+  -- every rule binder carries the elimination level's bit
+  have hldsBits : ∀ d ∈ fixRuleDataAV mp.base2 p.cvT.name ψR p.nP p.nIdx
+      (ConLeche.structElimLevel p.elim p.large) ((ppsAll ψR).take p.nP) ((ppsAll ψR).drop p.nP)
+      (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0) (dsF j ψR),
+      d.1 = pwBit ψR (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) :=
+    fun _ hd => mem_fixRuleDataAV hd
   have hbzR : (ConLeche.structElimLevel p.elim p.large).eval ψR = 0 ↔
       pwBit ψR (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)) = 0 := by
     rw [pwBit_eq_zero_iff, ConLeche.PropWhen.zeronessOf_sound, beq_iff_eq]
   have hcore := fixRecLawCore hbzR (hpre ψR) (n := ctorsA.length) (nF := cA.2) (nIdx := p.nIdx) (j := j)
     (by rw [fssOfR_length, hlenCds]) (by rw [List.length_map, hlenIps]) (hCD.len ψR) hjn hFsj hEsj
-    (hCD.lenE ψR) (R := A ψR) (by rw [hA ψR]) (hAcl ψR) hokFss
+    (hCD.lenE ψR) (R := A ψR) (by rw [hA ψR]) (hAcl ψR) hokFss hsatIffR hsrcR
     (lds := fixRuleDataAV mp.base2 p.cvT.name ψR p.nP p.nIdx (ConLeche.structElimLevel p.elim p.large)
       ((ppsAll ψR).take p.nP) ((ppsAll ψR).drop p.nP) (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0)
       (dsF j ψR))
-    (by rw [fixRuleDataAV_map_dom hlenPps hlenIps, hlenCds]; rfl)
+    (by rw [fixRuleDataAV_map_dom hlenPps hlenIps, hlenCds]; rfl) hldsBits
     (Ra := mkLamsAV (fixRuleDataAV mp.base2 p.cvT.name ψR p.nP p.nIdx
         (ConLeche.structElimLevel p.elim p.large) ((ppsAll ψR).take p.nP) ((ppsAll ψR).drop p.nP)
         (fixCtorDataList dsF esF ksF eissF tssF ψR ctorsA 0) (dsF j ψR))
       (fixRuleCoreAV (pwBit ψR (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))) (A ψR) p.nP
         cA.2 ctorsA.length j (ConLeche.recIdxOf (ksF j)) (tssF j ψR) (eissF j ψR)))
     (by rw [hEisj, hTlsj, hrssj, ← recIdx_rsOf, hD.ksLen]) (hRuleOk ψR) (by rw [hxl, hmI])
-    (by simpa using hyl) hspR hspC hplain' hpin
+    (by simpa using hyl) hspR hspC hpin
   try simp only [RecRule.ctor, RecRule.ctorParams] at hcore ⊢
   rw [hleafR₂, hleafC₂, hrP]
   exact hcore
@@ -1102,10 +1147,10 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
             { ctor := cA.1.name, nfields := cA.2, ctorParams := p.nP,
               fire := if Expr.recRulePlain cvRa.type mI rP p.nP then .plain
                 else .inert,
-              rhs := rhs } : RecRule)
+              rhs := rhs, paramsBlind := true } : RecRule)
           = ⟨cA.1.name, cA.2, p.nP, .plain, rhs,
              ConLeche.recRuleKOf env.find? cA.1.name,
-             ConLeche.recRuleEtaOf env.find? cvRa.name cA.1.name⟩ := by
+             ConLeche.recRuleEtaOf env.find? cvRa.name cA.1.name, true⟩ := by
         simp [hplain, ConLeche.recRuleBits]
       subst hElimL
       exact fixRecRuleLaw mp hmI hrP hRec hfT hlpsT hstripT hopT hFD hlenK hks hcf hidxRes hRD
@@ -1116,7 +1161,7 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
             rw [← hlenFs ψ]; exact (List.getElem?_eq_some_iff.mp hj').1
           have := ((hframes ψ ρp hρp).2.2.1 j' hjn').1
           rwa [List.getD_eq_getElem?_getD, hj'] at this)
-        hleafC hj hrhs (hRuleOk j cA hj) hfresh hrule m₂ hac φ'
+        hleafC hiff hprop hj hrhs (hRuleOk j cA hj) hfresh hrule m₂ hac φ'
     · exfalso
       apply hfire
       simp [hplain, ConLeche.recRuleBits]

@@ -64112,3 +64112,137 @@ three standard.  `tests/shake-allowlist.txt` loses one line
 `OVERVIEW.md`'s anchors are re-pointed at the same text, which moved
 with the two batches' additions; every moved anchor was located by
 content and its new target read.
+
+## Task #250 — THE ι STEP'S PARAMETER COMPARISON BECOMES A ROUTE-KEYED LAW (2026-09-08, `agent/paramlaw-250`)
+
+The ι step compared, on every fire, the constructor's parameter
+arguments with the recursor's (`defEqList` over `recFireComparands`'s
+second component).  The official kernel's `inductive_reduce_rec`
+compares nothing there.  Task #249 showed the check is not needed by
+the fixpoint route's rule law, and this task makes that a stored
+per-rule bit.
+
+### 1. The law, without the parameter hypothesis
+
+`fixRecLawCore` (`Model/Inductives/FixRecLaw.lean`) used the ι step's
+parameter equalities exactly once: to identify the constructor spine's
+parameter values with the recursor spine's.  It no longer takes them.
+Three facts the install already has stand in their place:
+
+* `hsatIff` — the constructor's parameter frame and the former's are
+  the same `Sat` (the install pins the constructor's parameter domains
+  against the former's by defeq; `DeclNative.lean`'s `hframes` is that
+  iff, and `fixRecRuleLaw` now takes it as `hiff`);
+* `hsrc` — the subsingleton criterion at ANY frame satisfying the
+  parameter domains (`CtorDataI.srcProp` is parameter-generic by
+  statement, so `FixStageRec.lean`'s `hprop` serves at either spine);
+* `hldsBits` — every rule binder carries the elimination level's bit
+  (`mem_fixRuleDataAV`, the `fixRuleDataAV` twin of `mem_fixRecDataAV`).
+
+What replaces the identification is semantic.  In the graph regime the
+constructor's value is `inj j (mkTower (as₂ ++ [pt]))` and does not
+mention its own parameters (`sumMkAV_fold`), while the recursor's
+telescope fit already places that value in the family's fibre at the
+RECURSOR's parameters; `sumSet_elim` and `towerSet_elim_teleOfFields`
+invert that membership into a fit of the fields there, which is all the
+rule's λ-tower fold asks for.  In the squash regime the fibre is
+inhabited by some fitting spine (`sumSet_zero_elim`,
+`towerSet_zero_elim`), and the subsingleton criterion — at the
+recursor's frame from `hK.hsq`, at the constructor's from `hsrc` —
+makes both that spine and the constructor's fields the source spine.
+At `ℓ = 0` both sides read as the point, which needs the rule's leading
+binder bit and the new `mkAppN_wellDenotedV_of_pt`.
+
+The basis rows: `Eq.rec` bound the two parameter equalities and used
+neither, so they are gone.  `Quot.ind`, `PUnit.rec` and `Nat.rec` never
+read them.  `Quot.lift` did, twice — to rewrite the class into the
+recursor's parameters before `quotLiftV_fired`, and to place the
+constructor's field in the recursor's carrier for the transport half.
+One pure lemma covers both: `quotClass_of_mem_quotSet`
+(`SetTheory/Derive/Quot.lean`) says that a class formed at one
+parameter pair which lands in another's quotient has its representative
+in the second carrier AND is that quotient's class of the same
+representative.  At a positive level this is `qclass`'s own
+`mem_qclass`; at level zero it is `quotSet 0 A R = image (fun _ => pt) A`
+being inhabited only when `A` is.  `quotLiftV_fired` then applies
+unchanged.  (Task #249's probe `quotLiftV_fired_blind` proves only the
+fired equality and does not reach the transport half; it is not used.)
+
+### 2. The bit
+
+`RecRule.paramsBlind` is a field beside `k` and `eta`, stamped per
+route rather than by `recRuleBits` (which reads only the store, and the
+claim is the installing route's): `sumRules` and the `#annotate_basis`
+splice set it, `checkIotaRule`/`checkIotaRuleF` (the modeled route),
+`projFnRule` and the two parse sites do not.  `RecRule.compareParams`
+reads it together with the firing mode —
+
+```
+match rl.fire with | .plain => !rl.paramsBlind | _ => true
+```
+
+— so a `.nested` rule, whose comparands ARE its stored pins, is
+compared at every route no matter what the bit says, and the ι step
+needs no environment invariant about the bit.  `iotaRec` and `iotaRecI`
+guard the `defEqList` with that one test; `iotaRec_inv` yields the
+comparison only under `compareParams`; `RecRuleLaw`'s parameter
+hypothesis is guarded by `paramsBlind = false` and `iotaStep_of`
+supplies it from the inversion (`compareParams_plain`), the nested pins
+from `compareParams_nested`.  The bit is checked where it is claimed:
+a route that set it but proved only the old law would not typecheck,
+because `RecRuleLaw` is exactly what the install's rule-law obligation
+produces.
+
+### 3. Conformance — an accept-superset of today's verified mode
+
+This is de-gating, and it is reported rather than hidden (the
+`proofIrrel` ruling).  Per route:
+
+* **Native fixpoint route and the pinned basis blocks** (`paramsBlind`
+  set): the verified mode now fires without the comparison.  The
+  trusted mode's verdict cannot change at all — `certUnlessI` already
+  classified this check as a certificate family for every plain rule
+  that is not a projection function, so `--trusted` has been skipping
+  it, and the measurement below confirms it (−0.055 %, noise).  The
+  verified mode therefore de-gates to what the trusted mode already
+  did, and both stay ⊆ official, which compares nothing.
+* **Modeled route, nested rules, projection functions** (`paramsBlind`
+  clear): nothing changes in either mode.  The modeled route's law
+  fires the opaque `iota_j` theorem through `plainParamSupply` and
+  reads the comparison; a nested rule's comparands are its pins.
+
+Can a verified-mode verdict change?  No input is known that would, and
+the reason is the certificate that stays: the ι step's recursor-side
+telescope run types the major premise against the recursor's major
+slot, so the family at the constructor's parameters must be defeq to
+the family at the recursor's.  Both sides are applications of the same
+inductive constant in whnf — there is no unfolding, and proof
+irrelevance does not apply to a type — so the kernel decides that
+equation argument by argument, which is the deleted comparison.
+Removing it can therefore only drop a spurious reject (fuel, or an
+incompleteness that the certificate's own comparison happened not to
+hit), never admit a new accept.  The corpus agrees: `init-full` accepts
+53 088 declarations in both modes before and after, and the arena's 90
+of 92 and the trusted sweep's three recorded divergences are unmoved.
+
+### 4. Measured and gates
+
+`init-full`, one run per mode, `perf stat -e instructions:u` under
+`ulimit -v 16000000` and `timeout 3000`, against master `455ab115`'s
+681.41 G verified / 657.71 G trusted: **675.19 G (−0.912 %) / 657.35 G
+(−0.055 %)**.  53 088 declarations accepted in every cell, exit 0.  The
+verified win is the whole point — a `defEqList` over the parameter
+spine, on every ι fire of every native and basis rule.
+
+Gates: `lake build` 517 jobs warning-free, `lake test` warning-free,
+`tests/arena.sh` green under `env -i` with every count as master's
+(90/92 arena, 181/181 e2e, 14/14 annot, 8/8 retired flags, 18/18 mode
+flags, 3/3 prelude, 12/12 progress, 14/14 DAG tower, trusted sweep
+138+181+14 with the three recorded divergences, route census 142 fix /
+540 basis, layering 263/189/3/1 and 0/0 edges, trust surface 10 in 4 of
+465, shake 461 removals all allowlisted, overview-links 58/44),
+proofdeps 2846 rows and doors 0, axioms pinned at 12 theorems over the
+three standard.  Four `OVERVIEW.md` anchors move as pure shifts (three
+in `Kernel/Core.lean`, one in `Kernel/Env.lean`); each new target was
+read and carries the same text, and the citing paragraphs are unchanged
+in substance.

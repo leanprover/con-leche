@@ -1510,7 +1510,10 @@ private theorem iotaRec_shift (henv : EnvWF env)
         rw [← recFireComparands_snd_shift rl cv.levelParams us
           cvj.levelParams e.getAppArgs rP hpins,
           List.map_take] at h1
-        refine bind_rel_eq _ h1 ?_
+        refine bind_rel_eq _ ?_ ?_
+        · by_cases hcp : rl.compareParams = true
+          · rw [if_pos hcp, if_pos hcp]; exact h1
+          · rw [if_neg hcp, if_neg hcp]
         intro b₁ _
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
         have htel₁ : (cv.type.instantiateLevelParams cv.levelParams

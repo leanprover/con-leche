@@ -356,7 +356,8 @@ def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
         checkIotaThmN mode ops env' envSelf f cvName lps tyA mI rP j r
           cvj cnP cnF rhsA
     pure (recRuleBits env'.find? cvName
-      { r with rhs := rhsA, ctorParams := cnP, fire := fire })
+      { r with rhs := rhsA, ctorParams := cnP, fire := fire,
+               paramsBlind := false })
 
 /-- The per-rule check, folded over a modeled recursor's rules. -/
 def checkIotaRules (ops : CheckerOps m) (env' envSelf : Env) (f : Name → Name)

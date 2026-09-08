@@ -491,7 +491,9 @@ every deviation). -/
           = Level.substFn φ cvj.levelParams
               (ConLeche.recFireComparands rl cv.levelParams us
                 cvj.levelParams [] rP).1 →
-        (RecRule.fire rl = .plain →
+        -- the ι step's parameter comparison, supplied only for a rule
+        -- that is not `paramsBlind`
+        (RecRule.paramsBlind rl = false → RecRule.fire rl = .plain →
           ∀ i, i < RecRule.ctorParams rl → i < mI →
             interp V ρ (ys.getD i default)
               = interp V ρ (xs.getD i default)) →

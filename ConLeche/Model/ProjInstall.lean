@@ -369,7 +369,7 @@ theorem projFn (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
     rw [hac, acvalWith_ne hCne] at hfitR
     rw [hac, acvalWith_ne hCne, acvalWith_self]
     refine hRalaw usj ρ xs ys TVa' TVja' restR restC hlenX hlenY
-      husjlen ?_ (fun i0 h1 h2 => hplain hplainFire i0 h1 h2) hidx
+      husjlen ?_ (fun i0 h1 h2 => hplain rfl hplainFire i0 h1 h2) hidx
       hTVa' hTVja' hfitR hfitC
     rw [hlev, recFireComparands_plain hplainFire]
   -- the P cons

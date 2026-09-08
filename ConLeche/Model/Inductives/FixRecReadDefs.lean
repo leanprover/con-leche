@@ -193,6 +193,20 @@ lifted `n + 1` under. -/
     rebit (pwBit ψ (Level.zeronessOf ℓ)) (liftDoms (cds.length + 1) 0 (ds.drop nP))).map
     fun d : Nat × Nat × AnnotTerm => (d.2.1, d.2.2)
 
+/-- Every rule binder carries the elimination level's bit. -/
+theorem mem_fixRuleDataAV {m : EnvModel V env} {T : Name} {ψ : Name → Nat} {nP nIdx : Nat}
+    {ℓ : Level} {pps ips : List (Nat × Nat × AnnotTerm)} {cds : List CtorDatumR}
+    {ds : List (Nat × Nat × AnnotTerm)} {d : Nat × AnnotTerm}
+    (hd : d ∈ fixRuleDataAV m T ψ nP nIdx ℓ pps ips cds ds) :
+    d.1 = pwBit ψ (Level.zeronessOf ℓ) := by
+  obtain ⟨d', hd', rfl⟩ := List.mem_map.mp hd
+  simp only [List.mem_append, List.mem_singleton] at hd'
+  rcases hd' with ((h | rfl) | h) | h
+  · exact mem_rebit h
+  · rfl
+  · exact mem_fixMinorsData h
+  · exact mem_rebit h
+
 /-! ## The per-constructor reading premise -/
 
 /-- What the readings need of one constructor `(C, nF, cty, recIdx)`

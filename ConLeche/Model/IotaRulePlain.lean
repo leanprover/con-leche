@@ -93,6 +93,7 @@ theorem iotaRulePlain {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
   have hr'cp : RecRule.ctorParams r' = cnPK := by rw [hr'eq]; rfl
   have hr'nf : RecRule.nfields r' = cnFK := by rw [hr'eq, hnfK]; rfl
   have hr'fire : RecRule.fire r' = fire := by rw [hr'eq]; rfl
+  have hr'pb : RecRule.paramsBlind r' = false := by rw [hr'eq]; rfl
   -- the recursor's and the constructor's stored guards
   obtain ⟨htyw, -, -, htyb, -, -, -⟩ :=
     mp.base2.wf _ (Env.find?_mem hself)
@@ -285,6 +286,6 @@ theorem iotaRulePlain {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     ?_ ?_ hidx hTVa hTVja hfitR hfitC
   · rw [hlev, recFireComparands_plain hfireP]
   · intro i hi him
-    exact hplain hfireP i (by rw [hr'cp]; exact hi) him
+    exact hplain hr'pb hfireP i (by rw [hr'cp]; exact hi) him
 
 end ConLeche.Model

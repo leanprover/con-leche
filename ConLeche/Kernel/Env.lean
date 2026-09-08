@@ -250,11 +250,12 @@ inductive RecRuleFire where
 parameters, motives and minors) to a `ctor`-headed major premise reduces
 to `rhs` applied to the parameters, motives, minors and the constructor's
 `nfields` fields.  `ctorParams` (the constructor's parameter count) and
-`fire` (the canonical/nested/inert firing mode), and the two rescue
-bits `k`/`eta` are *computed at install* from the stored constructor,
-its inductive's capabilities and the recursor type — input rules carry
-the parse placeholders `0`/`.inert`/`false`; reduction reads only the
-installed values, never re-deriving them per fire. -/
+`fire` (the canonical/nested/inert firing mode), the two rescue
+bits `k`/`eta` and the parameter-comparison bit `paramsBlind` are
+*computed at install* from the stored constructor, its inductive's
+capabilities, the recursor type and the installing route — input rules
+carry the parse placeholders `0`/`.inert`/`false`; reduction reads only
+the installed values, never re-deriving them per fire. -/
 structure RecRule where
   ctor : Name
   nfields : Nat
@@ -279,7 +280,34 @@ structure RecRule where
   is not itself a projection function (whose rescue would loop) — the
   standing condition of `majorToCtor`'s structure-η rescue. -/
   eta : Bool := false
+  /-- **The parameter-comparison bit** (install-computed, parse
+  placeholder `false`): the ι step fires this rule without comparing
+  the recursor's parameter arguments with the constructor's.  The
+  fixpoint route and the pinned basis blocks set it, because their rule
+  laws hold at any pair of fitting parameter spines; the modeled route
+  and the projection functions do not, because their laws read the
+  comparison.  The official kernel compares nothing here
+  (`inductive_reduce_rec`), so a set bit is a step towards it. -/
+  paramsBlind : Bool := false
   deriving DecidableEq, Repr, Inhabited
+
+/-- Whether the ι step compares this rule's parameter comparands.  A
+`.plain` rule marked `paramsBlind` fires without them; a `.nested`
+rule's comparands are its stored pins and are compared at every
+route. -/
+def RecRule.compareParams (rl : RecRule) : Bool :=
+  match rl.fire with
+  | .plain => !rl.paramsBlind
+  | _ => true
+
+theorem RecRule.compareParams_plain {rl : RecRule} (hf : rl.fire = .plain)
+    (hb : rl.paramsBlind = false) : rl.compareParams = true := by
+  unfold RecRule.compareParams; rw [hf, hb]; rfl
+
+theorem RecRule.compareParams_nested {rl : RecRule} {lvls : List Level}
+    {pins : List Expr} (hf : rl.fire = .nested lvls pins) :
+    rl.compareParams = true := by
+  unfold RecRule.compareParams; rw [hf]
 
 /-- Reducibility hint of a definition, mirroring Lean's
 `ReducibilityHints`: `abbrev` unfolds first, `opaque` last, `regular`
