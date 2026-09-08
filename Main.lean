@@ -1,7 +1,5 @@
 module
 
-import ConLeche.Cached.ParsedC
-import ConLeche.Frontend.ExportC
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Frontend.InModelDump
 

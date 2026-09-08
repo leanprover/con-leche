@@ -1,10 +1,8 @@
 module
 
 public import ConLeche.Frontend.Export
-import ConLeche.Frontend.ProjRec
 public import ConLeche.Frontend.InModel
 public import ConLeche.Frontend.NatOpGround
-import ConLeche.Cached.ParsedC
 
 @[expose] public section
 

@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Kernel.Inductives.SumInstallF
 public import ConLeche.Kernel.Inductives.NativeInstallF
 public import ConLeche.Cached.CoreC
 

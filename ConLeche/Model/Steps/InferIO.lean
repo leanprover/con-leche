@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Steps.Infer
-import ConLeche.Model.ClaimsIO
 import ConLeche.Model.IOLicense
 import ConLeche.Verify.InferIOLemmas
 import ConLeche.Verify.InferIOLeaves

@@ -3,7 +3,6 @@ module
 public import Std.Data.HashMap
 import ConLeche.Kernel.Expr
 public import ConLeche.Kernel.ExprOps
-import ConLeche.Kernel.Level
 
 @[expose] public section
 
