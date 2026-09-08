@@ -452,6 +452,316 @@ def mk_axiom_nonstd():
     s.write("tests/e2e/tower_axiom_nonstd.ndjson")
 
 
+
+def _ops(s):
+    """The raw builders every hand-written block below shares."""
+    def pi(ty, body, bi="default"):
+        return s.ex({"forallE": {"binderInfo": bi, "name": 0, "type": ty,
+                                 "body": body}})
+
+    def lam(ty, body, bi="default"):
+        return s.ex({"lam": {"binderInfo": bi, "name": 0, "type": ty,
+                             "body": body}})
+
+    def bv(i):
+        return s.ex({"bvar": i})
+
+    def app(f, a):
+        return s.ex({"app": {"fn": f, "arg": a}})
+
+    def apps(f, *args):
+        for a in args:
+            f = app(f, a)
+        return f
+
+    def lams(tys, body):
+        for ty in reversed(tys):
+            body = lam(ty, body)
+        return body
+
+    def pis(tys, body):
+        for ty in reversed(tys):
+            body = pi(ty, body)
+        return body
+
+    return pi, lam, bv, app, apps, lams, pis
+
+
+def open_tower(s, e, i):
+    """`@Eq Nat t_60 Nat.zero` with `t_0 = bvar i` and
+    `t_{k+1} = (K t_k) t_k` — the depth-60 tower over the binder `i`
+    steps below, still defeq to `@Eq Nat (bvar i) Nat.zero`.  Written
+    at the frame of the field it is a domain of, which is the SAME
+    frame in the constructor, in the minor premise and in the rule's
+    λ-telescope, so the three records share one entry."""
+    def app(f, a):
+        return s.ex({"app": {"fn": f, "arg": a}})
+
+    t = s.ex({"bvar": i})
+    for _ in range(DEPTH):
+        t = app(app(e["K"], t), t)
+    return app(app(app(e["Eq"], e["Nat"]), t), e["zero"])
+
+
+def mk_recfield():
+    """The tower under `Expr.mentionsFvar` (`Expr.fvarLeaves`): a
+    RECURSIVE structure whose field after the recursive one is a tower
+    over the FIRST field's variable.
+
+        inductive RecF where
+          | mk : (x : Nat) → (r : RecF) → (h : @Eq Nat t_60[x] Nat.zero) → RecF
+
+    `nativeOpenedOk`/`nativeOpenedOkF` re-check the recogniser's kinds
+    on the constructor type OPENED at variables, and at a `.recursive`
+    field `i` they ask that the field's variable occur in no LATER
+    field's domain — `!(xFvs.drop (i+1)).any (·.fvarTypeD.mentionsFvar
+    (nP + i))`.  Here field 1 is the recursive one and field 2's domain
+    is the tower, built over field 0's variable, so the query is about
+    a variable the tower does not mention: nothing short-circuits and
+    the answer needs the whole open subgraph.  The earlier fixtures do
+    not reach it — `tower_usedlater`'s fields are all ordinary, so no
+    recursive arm is entered, and none of the closed towers is walked
+    for a variable at all.  Accepts."""
+    s = Stream(); n, e, lU, _ = base(s, tyname="RecF")
+    pi, lam, bv, app, apps, lams, pis = _ops(s)
+    eT = s.ex({"const": {"name": n["T"], "us": []}})
+    eMk = s.ex({"const": {"name": n["T.mk"], "us": []}})
+    eRec = s.ex({"const": {"name": n["T.rec"], "us": [lU]}})
+    # the third field's domain, at the frame where `x` is `bvar 1`
+    fTy = open_tower(s, e, 1)
+    eMkTy = pi(e["Nat"], pi(eT, pi(fTy, eT)))
+    eMotiveTy = pi(eT, e["SortU"])
+    # the minor: the fields, then the recursive field's ih, then the
+    # conclusion — `∀ x r h, motive r → motive (RecF.mk x r h)`
+    eMinor = pi(e["Nat"], pi(eT, pi(fTy,
+        pi(app(bv(3), bv(1)),
+           app(bv(4), apps(eMk, bv(3), bv(2), bv(1)))))))
+    eRecTy = pi(eMotiveTy, pi(eMinor, pi(eT, app(bv(2), bv(0)))), "implicit")
+    # `fun motive minor x r h => minor x r h (RecF.rec motive minor r)`
+    eRhs = lams([eMotiveTy, eMinor, e["Nat"], eT, fTy],
+        app(apps(bv(3), bv(2), bv(1), bv(0)),
+            apps(eRec, bv(4), bv(3), bv(1))))
+    s.L.append(json.dumps({"inductive": {
+        "types": [{"name": n["T"], "levelParams": [], "type": e["Type"],
+                   "numParams": 0, "numIndices": 0, "numNested": 0,
+                   "ctors": [n["T.mk"]], "isRec": True, "isUnsafe": False,
+                   "isReflexive": False, "all": [n["T"]]}],
+        "ctors": [{"name": n["T.mk"], "levelParams": [], "type": eMkTy,
+                   "numParams": 0, "numFields": 3, "cidx": 0,
+                   "induct": n["T"], "isUnsafe": False}],
+        "recs": [{"name": n["T.rec"], "levelParams": [n["u"]], "type": eRecTy,
+                  "numParams": 0, "numMotives": 1, "numMinors": 1,
+                  "numIndices": 0, "k": False, "isUnsafe": False,
+                  "all": [n["T"]],
+                  "rules": [{"ctor": n["T.mk"], "nfields": 3, "rhs": eRhs}]}],
+        "isUnsafe": False, "all": [n["T"]]}}))
+    s.write("tests/e2e/tower_recfield.ndjson")
+
+
+def mk_mutual():
+    """The tower under the in-process modeller's MUTUAL rung
+    (`ConLeche/Frontend/InModel/{Kit,Mutual}.lean`): a two-member
+    mutual block whose first constructor carries a tower field.
+
+        mutual
+          inductive MutA where
+            | mk : (x : Nat) → (h : @Eq Nat t_60[x] Nat.zero) → MutB → MutA
+          inductive MutB where
+            | mk : MutA → MutB
+        end
+
+    A mutual block goes to the MODELED route, so the frontend
+    generates its `_model` family in-process; `classifyCtor` asks
+    `Kit.mentionsAny memberNames d` of every ORDINARY field domain,
+    and `Kit.hintFor`/`Kit.maxHeight` walks every generated value —
+    both plain `Expr` recursions with no cutoff and nothing to
+    short-circuit on (the domain mentions neither member, and the
+    tower's constants all have height 0).  Every earlier tower fixture
+    is a single non-mutual block, so the modeller is never entered.
+    Accepts."""
+    s = Stream(); n, e, lU, _ = base(s, tyname="MutA")
+    pi, lam, bv, app, apps, lams, pis = _ops(s)
+    n["B"] = s.name(0, "MutB")
+    n["B.mk"] = s.name(n["B"], "mk")
+    n["B.rec"] = s.name(n["B"], "rec")
+    eA = s.ex({"const": {"name": n["T"], "us": []}})
+    eB = s.ex({"const": {"name": n["B"], "us": []}})
+    eAmk = s.ex({"const": {"name": n["T.mk"], "us": []}})
+    eBmk = s.ex({"const": {"name": n["B.mk"], "us": []}})
+    eArec = s.ex({"const": {"name": n["T.rec"], "us": [lU]}})
+    eBrec = s.ex({"const": {"name": n["B.rec"], "us": [lU]}})
+    # the second field's domain, at the frame where `x` is `bvar 0`
+    fTy = open_tower(s, e, 0)
+    eAmkTy = pi(e["Nat"], pi(fTy, pi(eB, eA)))
+    eBmkTy = pi(eA, eB)
+    mA = pi(eA, e["SortU"])          # motive_A
+    mB = pi(eB, e["SortU"])          # motive_B
+    # minor_A : ∀ x h (b : MutB), motive_B b → motive_A (MutA.mk x h b)
+    minA = pi(e["Nat"], pi(fTy, pi(eB,
+        pi(app(bv(3), bv(0)), app(bv(5), apps(eAmk, bv(3), bv(2), bv(1)))))))
+    # minor_B : ∀ (a : MutA), motive_A a → motive_B (MutB.mk a)
+    minB = pi(eA, pi(app(bv(3), bv(0)), app(bv(3), app(eBmk, bv(1)))))
+    eArecTy = pi(mA, pi(mB, pis([minA, minB],
+        pi(eA, app(bv(4), bv(0)))), "implicit"), "implicit")
+    eBrecTy = pi(mA, pi(mB, pis([minA, minB],
+        pi(eB, app(bv(3), bv(0)))), "implicit"), "implicit")
+    # `fun mA mB minA minB x h b => minA x h b (MutB.rec mA mB minA minB b)`
+    eArhs = lams([mA, mB, minA, minB, e["Nat"], fTy, eB],
+        app(apps(bv(4), bv(2), bv(1), bv(0)),
+            apps(eBrec, bv(6), bv(5), bv(4), bv(3), bv(0))))
+    # `fun mA mB minA minB a => minB a (MutA.rec mA mB minA minB a)`
+    eBrhs = lams([mA, mB, minA, minB, eA],
+        app(app(bv(1), bv(0)),
+            apps(eArec, bv(4), bv(3), bv(2), bv(1), bv(0))))
+    tys = [{"name": nm, "levelParams": [], "type": e["Type"],
+            "numParams": 0, "numIndices": 0, "numNested": 0,
+            "ctors": [ct], "isRec": True, "isUnsafe": False,
+            "isReflexive": False, "all": [n["T"], n["B"]]}
+           for nm, ct in [(n["T"], n["T.mk"]), (n["B"], n["B.mk"])]]
+    s.L.append(json.dumps({"inductive": {
+        "types": tys,
+        "ctors": [{"name": n["T.mk"], "levelParams": [], "type": eAmkTy,
+                   "numParams": 0, "numFields": 3, "cidx": 0,
+                   "induct": n["T"], "isUnsafe": False},
+                  {"name": n["B.mk"], "levelParams": [], "type": eBmkTy,
+                   "numParams": 0, "numFields": 1, "cidx": 0,
+                   "induct": n["B"], "isUnsafe": False}],
+        "recs": [{"name": n["T.rec"], "levelParams": [n["u"]],
+                  "type": eArecTy, "numParams": 0, "numMotives": 2,
+                  "numMinors": 2, "numIndices": 0, "k": False,
+                  "isUnsafe": False, "all": [n["T"], n["B"]],
+                  "rules": [{"ctor": n["T.mk"], "nfields": 3,
+                             "rhs": eArhs}]},
+                 {"name": n["B.rec"], "levelParams": [n["u"]],
+                  "type": eBrecTy, "numParams": 0, "numMotives": 2,
+                  "numMinors": 2, "numIndices": 0, "k": False,
+                  "isUnsafe": False, "all": [n["T"], n["B"]],
+                  "rules": [{"ctor": n["B.mk"], "nfields": 1,
+                             "rhs": eBrhs}]}],
+        "isUnsafe": False, "all": [n["T"], n["B"]]}}))
+    s.write("tests/e2e/tower_mutual.ndjson")
+
+
+def mk_nested():
+    """The tower under the in-process modeller's NESTED rung
+    (`ConLeche/Frontend/InModel/Nested.lean`, and `Expr.lowerBVars`,
+    which lowers the generated pins and domains out of the rule-prefix
+    context):
+
+        inductive NBox (α : Type) where
+          | nil : NBox α
+          | cons : α → NBox α → NBox α
+
+        inductive NTow where
+          | node : (x : Nat) → (h : @Eq Nat t_60[x] Nat.zero) → NBox NTow → NTow
+
+    The container is an ordinary block on the fixpoint route; the
+    nested block that follows is modeled, so the nested rung reads the
+    container's shape, specialises it, and moves every domain — the
+    tower among them — with `Expr.lowerBVars`, a plain rebuild with no
+    memo.  Accepts."""
+    s = Stream(); n, e, lU, _ = base(s, tyname="NTow")
+    pi, lam, bv, app, apps, lams, pis = _ops(s)
+    n["L"] = s.name(0, "NBox")
+    n["L.nil"] = s.name(n["L"], "nil")
+    n["L.cons"] = s.name(n["L"], "cons")
+    n["L.rec"] = s.name(n["L"], "rec")
+    n["T.rec1"] = s.name(n["T"], "rec_1")
+    eL = s.ex({"const": {"name": n["L"], "us": []}})
+    eLnil = s.ex({"const": {"name": n["L.nil"], "us": []}})
+    eLcons = s.ex({"const": {"name": n["L.cons"], "us": []}})
+    eLrec = s.ex({"const": {"name": n["L.rec"], "us": [lU]}})
+    eT = s.ex({"const": {"name": n["T"], "us": []}})
+    eNode = s.ex({"const": {"name": n["T.mk"], "us": []}})
+    eTrec = s.ex({"const": {"name": n["T.rec"], "us": [lU]}})
+    eTrec1 = s.ex({"const": {"name": n["T.rec1"], "us": [lU]}})
+
+    # --- the container `NBox`, exactly as the elaborator generates it
+    eNilTy = pi(e["Type"], app(eL, bv(0)), "implicit")
+    eConsTy = pi(e["Type"], pi(bv(0), pi(app(eL, bv(1)), app(eL, bv(2)))),
+                 "implicit")
+    lMotive = pi(app(eL, bv(0)), e["SortU"])
+    lMinNil = app(bv(0), app(eLnil, bv(1)))
+    lMinCons = pi(bv(2), pi(app(eL, bv(3)), pi(app(bv(3), bv(0)),
+        app(bv(4), apps(eLcons, bv(5), bv(2), bv(1))))))
+    eLrecTy = pi(e["Type"], pi(lMotive, pis([lMinNil, lMinCons],
+        pi(app(eL, bv(3)), app(bv(3), bv(0)))), "implicit"), "implicit")
+    eLnilRhs = lams([e["Type"], lMotive, lMinNil, lMinCons], bv(1))
+    eLconsRhs = lams([e["Type"], lMotive, lMinNil, lMinCons],
+        lam(bv(3), lam(app(eL, bv(4)),
+            app(apps(bv(2), bv(1), bv(0)),
+                apps(eLrec, bv(5), bv(4), bv(3), bv(2), bv(0))))))
+    s.L.append(json.dumps({"inductive": {
+        "types": [{"name": n["L"], "levelParams": [],
+                   "type": pi(e["Type"], e["Type"]),
+                   "numParams": 1, "numIndices": 0, "numNested": 0,
+                   "ctors": [n["L.nil"], n["L.cons"]], "isRec": True,
+                   "isUnsafe": False, "isReflexive": False, "all": [n["L"]]}],
+        "ctors": [{"name": n["L.nil"], "levelParams": [], "type": eNilTy,
+                   "numParams": 1, "numFields": 0, "cidx": 0,
+                   "induct": n["L"], "isUnsafe": False},
+                  {"name": n["L.cons"], "levelParams": [], "type": eConsTy,
+                   "numParams": 1, "numFields": 2, "cidx": 1,
+                   "induct": n["L"], "isUnsafe": False}],
+        "recs": [{"name": n["L.rec"], "levelParams": [n["u"]],
+                  "type": eLrecTy, "numParams": 1, "numMotives": 1,
+                  "numMinors": 2, "numIndices": 0, "k": False,
+                  "isUnsafe": False, "all": [n["L"]],
+                  "rules": [{"ctor": n["L.nil"], "nfields": 0,
+                             "rhs": eLnilRhs},
+                            {"ctor": n["L.cons"], "nfields": 2,
+                             "rhs": eLconsRhs}]}],
+        "isUnsafe": False, "all": [n["L"]]}}))
+
+    # --- the nested block `NTow`
+    eLT = app(eL, eT)                       # `NBox NTow`
+    fTy = open_tower(s, e, 0)               # the tower field, `x = bvar 0`
+    eNodeTy = pi(e["Nat"], pi(fTy, pi(eLT, eT)))
+    mT = pi(eT, e["SortU"])                 # motive for `NTow`
+    mL = pi(eLT, e["SortU"])                # motive for `NBox NTow`
+    # minor_node : ∀ x h (l : NBox NTow), motive_L l → motive_T (node x h l)
+    minNode = pi(e["Nat"], pi(fTy, pi(eLT,
+        pi(app(bv(3), bv(0)), app(bv(5), apps(eNode, bv(3), bv(2), bv(1)))))))
+    minNil = app(bv(1), app(eLnil, eT))
+    minCons = pi(eT, pi(eLT, pi(app(bv(5), bv(1)), pi(app(bv(5), bv(1)),
+        app(bv(6), apps(eLcons, eT, bv(3), bv(2)))))))
+    eTrecTy = pi(mT, pi(mL, pis([minNode, minNil, minCons],
+        pi(eT, app(bv(5), bv(0)))), "implicit"), "implicit")
+    eTrec1Ty = pi(mT, pi(mL, pis([minNode, minNil, minCons],
+        pi(eLT, app(bv(4), bv(0)))), "implicit"), "implicit")
+    # `fun mT mL minNode minNil minCons x h l =>
+    #     minNode x h l (NTow.rec_1 mT mL minNode minNil minCons l)`
+    eNodeRhs = lams([mT, mL, minNode, minNil, minCons, e["Nat"], fTy, eLT],
+        app(apps(bv(5), bv(2), bv(1), bv(0)),
+            apps(eTrec1, bv(7), bv(6), bv(5), bv(4), bv(3), bv(0))))
+    eNilRhs = lams([mT, mL, minNode, minNil, minCons], bv(1))
+    eConsRhs = lams([mT, mL, minNode, minNil, minCons, eT, eLT],
+        app(app(apps(bv(2), bv(1), bv(0)),
+                apps(eTrec, bv(6), bv(5), bv(4), bv(3), bv(2), bv(1))),
+            apps(eTrec1, bv(6), bv(5), bv(4), bv(3), bv(2), bv(0))))
+    prefixR = {"levelParams": [n["u"]], "numParams": 0, "numMotives": 2,
+               "numMinors": 3, "numIndices": 0, "k": False,
+               "isUnsafe": False, "all": [n["T"]]}
+    s.L.append(json.dumps({"inductive": {
+        "types": [{"name": n["T"], "levelParams": [], "type": e["Type"],
+                   "numParams": 0, "numIndices": 0, "numNested": 1,
+                   "ctors": [n["T.mk"]], "isRec": True, "isUnsafe": False,
+                   "isReflexive": False, "all": [n["T"]]}],
+        "ctors": [{"name": n["T.mk"], "levelParams": [], "type": eNodeTy,
+                   "numParams": 0, "numFields": 3, "cidx": 0,
+                   "induct": n["T"], "isUnsafe": False}],
+        "recs": [dict(prefixR, name=n["T.rec1"], type=eTrec1Ty,
+                      rules=[{"ctor": n["L.nil"], "nfields": 0,
+                              "rhs": eNilRhs},
+                             {"ctor": n["L.cons"], "nfields": 2,
+                              "rhs": eConsRhs}]),
+                 dict(prefixR, name=n["T.rec"], type=eTrecTy,
+                      rules=[{"ctor": n["T.mk"], "nfields": 3,
+                              "rhs": eNodeRhs}])],
+        "isUnsafe": False, "all": [n["T"]]}}))
+    s.write("tests/e2e/tower_nested.ndjson")
+
+
 mk_struct()
 mk_thm()
 mk_prelude()
@@ -462,3 +772,6 @@ mk_axiom_pin()
 mk_axiom_nonstd()
 mk_usedlater()
 mk_beqpair()
+mk_recfield()
+mk_mutual()
+mk_nested()

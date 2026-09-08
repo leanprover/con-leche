@@ -123,42 +123,97 @@ def overFirstParams (nP : Nat) (former ty : Expr) : Option Expr :=
 
 /-! ## Family occurrences -/
 
+mutual
+
 /-- Rewrite every occurrence `T_m a⃗` (exactly `nP + nIdx_m` arguments)
 of a member of the block into `aux a⃗_P (tag.m a⃗_P a⃗_I)` — the
 auxiliary family at the member's tag constructor carrying the index
 arguments.  `members` lists `(T_m, m, nIdx_m)`.  An occurrence with any
 other arity is left alone (the caller's field classification rejects
-such blocks). -/
-partial def specFam (T : Name) (lps : List Name) (nP : Nat)
-    (members : List (Name × Nat × Nat)) : Expr → Expr
-  | e@(.app _ _) =>
-    let f := e.getAppFn
-    let args := e.getAppArgs
-    match f with
-    | .const n us =>
-      match members.find? (·.1 == n) with
-      | some (_, m, nIdx) =>
-        if args.length == nP + nIdx && us == lps.map .param then
-          let ps := (args.take nP).map (specFam T lps nP members)
-          let is := (args.drop nP).map (specFam T lps nP members)
-          Expr.mkAppN (constP (auxName T) lps)
-            (ps ++ [Expr.mkAppN (constP (tagCtorName T m) lps) (ps ++ is)])
-        else Expr.mkAppN (specFam T lps nP members f) (args.map (specFam T lps nP members))
-      | none => Expr.mkAppN f (args.map (specFam T lps nP members))
-    | _ => Expr.mkAppN (specFam T lps nP members f) (args.map (specFam T lps nP members))
+such blocks).
+
+One memoized DAG walk (keyed by the node — the rewrite reads no binder
+cursor), and, like `mentionsAnyGo`, with no spec lemma: the modeller
+is untrusted.  Without it the rebuild runs once per path, which is what
+`tests/e2e/tower_mutual.ndjson` exposes. -/
+partial def specFamGo (T : Name) (lps : List Name) (nP : Nat)
+    (members : List (Name × Nat × Nat)) (memo : Std.HashMap Expr Expr) :
+    Expr → Expr × Std.HashMap Expr Expr
+  | .bvar i => (.bvar i, memo)
+  | .sort u => (.sort u, memo)
+  | .fvar i t => (.fvar i t, memo)
+  | .lit l => (.lit l, memo)
   | .const n us =>
     match members.find? (·.1 == n) with
     | some (_, m, nIdx) =>
       if nP + nIdx == 0 && us == lps.map .param then
-        Expr.mkAppN (constP (auxName T) lps) [constP (tagCtorName T m) lps]
-      else .const n us
-    | none => .const n us
-  | .lam d b m => .lam (specFam T lps nP members d) (specFam T lps nP members b) m
-  | .forallE d b m => .forallE (specFam T lps nP members d) (specFam T lps nP members b) m
-  | .letE t v b =>
-    .letE (specFam T lps nP members t) (specFam T lps nP members v) (specFam T lps nP members b)
-  | .proj s i e => .proj s i (specFam T lps nP members e)
-  | e => e
+        (Expr.mkAppN (constP (auxName T) lps) [constP (tagCtorName T m) lps], memo)
+      else (.const n us, memo)
+    | none => (.const n us, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap Expr Expr :=
+        match e with
+        | e@(.app _ _) =>
+          let f := e.getAppFn
+          let args := e.getAppArgs
+          match f with
+          | .const n us =>
+            match members.find? (·.1 == n) with
+            | some (_, m, nIdx) =>
+              if args.length == nP + nIdx && us == lps.map .param then
+                let (ps, memo) := specFamGoList T lps nP members memo (args.take nP)
+                let (is, memo) := specFamGoList T lps nP members memo (args.drop nP)
+                (Expr.mkAppN (constP (auxName T) lps)
+                  (ps ++ [Expr.mkAppN (constP (tagCtorName T m) lps) (ps ++ is)]), memo)
+              else
+                let (f', memo) := specFamGo T lps nP members memo f
+                let (as, memo) := specFamGoList T lps nP members memo args
+                (Expr.mkAppN f' as, memo)
+            | none =>
+              let (as, memo) := specFamGoList T lps nP members memo args
+              (Expr.mkAppN f as, memo)
+          | _ =>
+            let (f', memo) := specFamGo T lps nP members memo f
+            let (as, memo) := specFamGoList T lps nP members memo args
+            (Expr.mkAppN f' as, memo)
+        | .lam d b m =>
+          let (d', memo) := specFamGo T lps nP members memo d
+          let (b', memo) := specFamGo T lps nP members memo b
+          (.lam d' b' m, memo)
+        | .forallE d b m =>
+          let (d', memo) := specFamGo T lps nP members memo d
+          let (b', memo) := specFamGo T lps nP members memo b
+          (.forallE d' b' m, memo)
+        | .letE t v b =>
+          let (t', memo) := specFamGo T lps nP members memo t
+          let (v', memo) := specFamGo T lps nP members memo v
+          let (b', memo) := specFamGo T lps nP members memo b
+          (.letE t' v' b', memo)
+        | .proj s i x =>
+          let (x', memo) := specFamGo T lps nP members memo x
+          (.proj s i x', memo)
+        | e => (e, memo)
+      (r, memo.insert e r)
+
+@[inherit_doc specFamGo]
+partial def specFamGoList (T : Name) (lps : List Name) (nP : Nat)
+    (members : List (Name × Nat × Nat)) (memo : Std.HashMap Expr Expr) :
+    List Expr → List Expr × Std.HashMap Expr Expr
+  | [] => ([], memo)
+  | x :: xs =>
+    let (y, memo) := specFamGo T lps nP members memo x
+    let (ys, memo) := specFamGoList T lps nP members memo xs
+    (y :: ys, memo)
+
+end
+
+@[inherit_doc specFamGo]
+def specFam (T : Name) (lps : List Name) (nP : Nat)
+    (members : List (Name × Nat × Nat)) (e : Expr) : Expr :=
+  (specFamGo T lps nP members {} e).1
 
 /-- Simultaneous substitution of a parameter block: under `d` binders,
 `bvar (d + j)` (`j < n`, innermost first) becomes `vals[n - 1 - j]`
@@ -168,30 +223,99 @@ block's, lifted past the binders passed on the way), and every loose
 replacements are never re-traversed, so they may mention variables of
 the surrounding frame. -/
 partial def substParams (d n : Nat) (vals : List Expr) (e : Expr) : Expr :=
-  go 0 e
+  (go {} 0 e).1
 where
-  go (k : Nat) : Expr → Expr
+  /-- The memoized rebuild, keyed by the node and the binder cursor
+  `k` (which shifts under binders).  As everywhere in the modeller,
+  no spec lemma: it is untrusted, and what it emits is checked. -/
+  go (memo : Std.HashMap (Expr × Nat) Expr) (k : Nat) :
+      Expr → Expr × Std.HashMap (Expr × Nat) Expr
     | .bvar i =>
-      if i < d + k then .bvar i
-      else if i < d + k + n then (vals.getD (n - 1 - (i - d - k)) default).liftLooseBVars k 0
-      else .bvar (i - n)
-    | .app f a => .app (go k f) (go k a)
-    | .lam t b m => .lam (go k t) (go (k + 1) b) m
-    | .forallE t b m => .forallE (go k t) (go (k + 1) b) m
-    | .letE t v b => .letE (go k t) (go k v) (go (k + 1) b)
-    | .proj s i x => .proj s i (go k x)
-    | .fvar i t => .fvar i (go k t)
-    | e => e
+      (if i < d + k then .bvar i
+       else if i < d + k + n then (vals.getD (n - 1 - (i - d - k)) default).liftLooseBVars k 0
+       else .bvar (i - n), memo)
+    | .sort u => (.sort u, memo)
+    | .const nm us => (.const nm us, memo)
+    | .lit l => (.lit l, memo)
+    | e =>
+      match memo[(e, k)]? with
+      | some r => (r, memo)
+      | none =>
+        let (r, memo) : Expr × Std.HashMap (Expr × Nat) Expr :=
+          match e with
+          | .app f a =>
+            let (f', memo) := go memo k f
+            let (a', memo) := go memo k a
+            (.app f' a', memo)
+          | .lam t b m =>
+            let (t', memo) := go memo k t
+            let (b', memo) := go memo (k + 1) b
+            (.lam t' b' m, memo)
+          | .forallE t b m =>
+            let (t', memo) := go memo k t
+            let (b', memo) := go memo (k + 1) b
+            (.forallE t' b' m, memo)
+          | .letE t v b =>
+            let (t', memo) := go memo k t
+            let (v', memo) := go memo k v
+            let (b', memo) := go memo (k + 1) b
+            (.letE t' v' b', memo)
+          | .proj s i x =>
+            let (x', memo) := go memo k x
+            (.proj s i x', memo)
+          | .fvar i t =>
+            let (t', memo) := go memo k t
+            (.fvar i t', memo)
+          | e => (e, memo)
+        (r, memo.insert (e, k) r)
 
-/-- Does `e` mention any of the names? -/
-def mentionsAny (ns : List Name) : Expr → Bool
-  | .bvar _ | .sort _ | .lit _ => false
-  | .const n _ => ns.contains n
-  | .fvar _ ty => mentionsAny ns ty
-  | .app f a => mentionsAny ns f || mentionsAny ns a
-  | .lam ty b _ | .forallE ty b _ => mentionsAny ns ty || mentionsAny ns b
-  | .letE ty v b => mentionsAny ns ty || mentionsAny ns v || mentionsAny ns b
-  | .proj s _ e => ns.contains s || mentionsAny ns e
+/-- Does `e` mention any of the names?  One memoized DAG walk: the
+answer at a node is a function of the node and `ns`, and `ns` is fixed
+for the walk, so the memo is keyed by the node alone and dropped after
+each call.
+
+**No spec lemma, and none is owed**: the modeller is untrusted (the
+`_model` family it emits is checked at install like any other
+declaration), so a memo here needs no `@[csimp]` twin — unlike
+`Expr.mentionsFvar` or `lowerBVars`, whose answers a proof consumes.
+`tests/e2e/tower_mutual.ndjson` is what walks it: `classifyCtor` asks
+this of every ordinary field domain, and a domain carrying a depth-60
+shared tower mentions no member, so nothing short-circuits. -/
+def mentionsAnyGo (ns : List Name) (memo : Std.HashMap Expr Bool) :
+    Expr → Bool × Std.HashMap Expr Bool
+  | .bvar _ => (false, memo)
+  | .sort _ => (false, memo)
+  | .lit _ => (false, memo)
+  | .const n _ => (ns.contains n, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Bool × Std.HashMap Expr Bool :=
+        match e with
+        | .fvar _ ty => mentionsAnyGo ns memo ty
+        | .app f a =>
+          match mentionsAnyGo ns memo f with
+          | (true, memo) => (true, memo)
+          | (false, memo) => mentionsAnyGo ns memo a
+        | .lam ty b _ | .forallE ty b _ =>
+          match mentionsAnyGo ns memo ty with
+          | (true, memo) => (true, memo)
+          | (false, memo) => mentionsAnyGo ns memo b
+        | .letE ty v b =>
+          match mentionsAnyGo ns memo ty with
+          | (true, memo) => (true, memo)
+          | (false, memo) =>
+            match mentionsAnyGo ns memo v with
+            | (true, memo) => (true, memo)
+            | (false, memo) => mentionsAnyGo ns memo b
+        | .proj s _ x =>
+          if ns.contains s then (true, memo) else mentionsAnyGo ns memo x
+        | _ => (false, memo)
+      (r, memo.insert e r)
+
+@[inherit_doc mentionsAnyGo]
+def mentionsAny (ns : List Name) (e : Expr) : Bool := (mentionsAnyGo ns {} e).1
 
 /-! ## The kernel-shape recursor of an indexed recursive family
 
@@ -436,15 +560,44 @@ def idxSort (tbl : ConstTable) (ctx : List Expr) (e : Expr) : Option Level :=
 
 /-- The highest definitional height of a constant mentioned by `e`
 (`heights`: the height of every definition declared so far; `0` for
-anything else). -/
-def maxHeight (heights : Name → Nat) : Expr → Nat
-  | .const n _ => heights n
-  | .fvar _ ty => maxHeight heights ty
-  | .app f a => max (maxHeight heights f) (maxHeight heights a)
-  | .lam ty b _ | .forallE ty b _ => max (maxHeight heights ty) (maxHeight heights b)
-  | .letE ty v b => max (maxHeight heights ty) (max (maxHeight heights v) (maxHeight heights b))
-  | .proj _ _ e => maxHeight heights e
-  | _ => 0
+anything else).  One memoized DAG walk, keyed by the node — and, like
+`mentionsAnyGo`, with no spec lemma, since the modeller is untrusted
+and the hint it computes is checked with the declaration it rides on.
+Every generated value embeds the block's constructor domains, so a
+tower in one of them is walked here once per path without it. -/
+def maxHeightGo (heights : Name → Nat) (memo : Std.HashMap Expr Nat) :
+    Expr → Nat × Std.HashMap Expr Nat
+  | .const n _ => (heights n, memo)
+  | .bvar _ => (0, memo)
+  | .sort _ => (0, memo)
+  | .lit _ => (0, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Nat × Std.HashMap Expr Nat :=
+        match e with
+        | .fvar _ ty => maxHeightGo heights memo ty
+        | .app f a =>
+          let (rf, memo) := maxHeightGo heights memo f
+          let (ra, memo) := maxHeightGo heights memo a
+          (max rf ra, memo)
+        | .lam ty b _ | .forallE ty b _ =>
+          let (rt, memo) := maxHeightGo heights memo ty
+          let (rb, memo) := maxHeightGo heights memo b
+          (max rt rb, memo)
+        | .letE ty v b =>
+          let (rt, memo) := maxHeightGo heights memo ty
+          let (rv, memo) := maxHeightGo heights memo v
+          let (rb, memo) := maxHeightGo heights memo b
+          (max rt (max rv rb), memo)
+        | .proj _ _ x => maxHeightGo heights memo x
+        | _ => (0, memo)
+      (r, memo.insert e r)
+
+@[inherit_doc maxHeightGo]
+def maxHeight (heights : Name → Nat) (e : Expr) : Nat :=
+  (maxHeightGo heights {} e).1
 
 /-- The reducibility hint of a generated definition: one above the
 highest constant its value mentions (the kernel's `getMaxHeight`
