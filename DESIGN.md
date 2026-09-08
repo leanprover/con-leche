@@ -63340,11 +63340,13 @@ Build warning-free (517 jobs), `lake test` warning-free.
 `tests/arena.sh` green under `env -i`: layering 263/189/3/1 with 0
 impl→theory, proofdeps 2846 rows / 0 doors, axioms **pinned, 11
 theorems at `[propext, Classical.choice, Quot.sound]`**, arena 90/92,
-e2e 177/177 (the three `let_bad_*` fixtures among them), annot 14/14,
+e2e 178/178 (the four `let_bad_*` fixtures among them), annot 14/14,
 retired flags 8/8, mode flags 18/18, prelude counts 3/3, progress lane
-12/12, DAG tower 10/10, trusted sweep unchanged, shake 464 proposals
-all allowlisted and `pub-import-plan --check` clean (907 of 1234
-in-tree edges public, none demotable).  The **trust-surface** gate
+12/12, DAG tower 11/11, trusted sweep 138 + 178 + 14 with the three
+recorded divergences, shake 464 proposals all allowlisted and
+`pub-import-plan --check` clean (907 of 1234 in-tree edges public, none
+demotable).  (The 178 and the 11 are task #240's counts, which this
+lane merged before landing; at the branch point they were 177 and 10.)  The **trust-surface** gate
 needed no update: it counts escapes per file (18 in 4 allowlisted
 files, 0 outside), and replacing a computation by a `throw` adds none.
 `tests/overview-links.sh` 58 links / 44 files with **two anchors
@@ -63362,6 +63364,10 @@ trusted (659 349 099 366) against the branch point `b61ba8d7`'s recorded
 677.96 G / 659.35 G — **+0.005 % and −0.0002 %**, 53 088 accepted in both
 modes.  Parity, which is what six arms that never fire should look like;
 the six `throw`s cost one match arm each and nothing at run time.
-(Master moved to `1fdcff9c` (task #240) while this ran, and that
-commit's own gate records 677.29 G / 658.86 G; these cells are against
-the branch point, not against it.)
+
+Master moved to `1fdcff9c` (task #240, the equality memo's pair key)
+before this landed, so the merge was re-gated: build 517 jobs
+warning-free, `lake test` warning-free, `tests/arena.sh` green with the
+counts above, and one init-full run in verified mode at **677.32 G**
+(677 324 409 781) against #240's recorded **677.29 G** — **+0.005 %**,
+the same delta as at the branch point, 53 088 accepted.
