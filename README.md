@@ -68,7 +68,7 @@ Future work: The assumption that we need a ω-chain is maybe unnecessary strong.
 
 ### Level annotation
 
-In our set interpretation, false propositions are $\emptyset$ and true propositions are $\{\emptyset\}$, so proof irrelevance and propositional extensionality is built in. This causes problems when interpreting Lean’s `∀`: If the pi type is building a proposition we need to model this differently than if we are building a type. But we want the interpretation to be syntax directed, and *not* depend on type inference!
+In our set interpretation, false propositions are *∅* and true propositions are *{∅}*, so proof irrelevance and propositional extensionality is built in. This causes problems when interpreting Lean’s `∀`: If the pi type is building a proposition we need to model this differently than if we are building a type. But we want the interpretation to be syntax directed, and *not* depend on type inference!
 
 To resolve this, the checker annotates every `.pi` and `.lambda` with a `PropWhen` datum that says under which level assignments this is a proposition or a type. This is either “always type” or “prop when all of these level parameters are zero”.
 
