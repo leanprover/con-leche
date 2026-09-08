@@ -23,7 +23,7 @@ public import ConLeche.Verify.Cached.BridgeC
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Verify.Cached.AgreeFloor
 
-@[expose] public section
+public section
 
 /-!
 # The cached checker variant's verification (task #163)

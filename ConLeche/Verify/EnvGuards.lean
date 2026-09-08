@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.EnvWF
 public import ConLeche.Kernel.Checker
 
-@[expose] public section
+public section
 
 /-!
 # `V`-free readings of the environment's guards (task #123)
@@ -46,7 +46,7 @@ arity-pinned**: an installation of a non-constructor under the
 constructor's name (or a non-recursor under a projection name) never
 completes the family, which is what keeps the `CapsOk.cons` head
 obligations dischargeable at every install site. -/
-def EtaFamilyStored (env : Env) (T : Name) (caps : IndCaps) : Prop :=
+@[expose] def EtaFamilyStored (env : Env) (T : Name) (caps : IndCaps) : Prop :=
   -- name-only conjunct (static in `caps`): a reserved-named capability
   -- constructor never completes a family, which keeps the basis
   -- installs' head obligations vacuous by computation
@@ -241,7 +241,7 @@ every declaration boundary and is threaded through the consistency
 fold *next to* the model; constructor-installing sites consume it to
 refute a fresh constructor completing an *older* former's eta family
 (the older family's constructor slot is already taken). -/
-def EtaFamiliesClosed (env : Env) : Prop :=
+@[expose] def EtaFamiliesClosed (env : Env) : Prop :=
   ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.eta = true →
     reservedBasisNames.contains T = false →
@@ -278,7 +278,7 @@ theorem EtaFamiliesClosed.cons_nonind {env : Env} {c₀ : ConstantInfo}
 former's cons and its constructor's, where the block's own η-capable
 family (the fixpoint route's structure-like block claims η at the
 former's cons) is not yet complete. -/
-def EtaFamiliesClosedExcept (env : Env) (T : Name) : Prop :=
+@[expose] def EtaFamiliesClosedExcept (env : Env) (T : Name) : Prop :=
   ∀ (T' : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T' = some (.indInfo cvT caps) → T' ≠ T → caps.eta = true →
     reservedBasisNames.contains T' = false →
@@ -327,7 +327,7 @@ theorem EtaFamiliesClosedExcept.closed {env : Env} {T : Name}
 /-- The extension shape every phase after a block's member fold has:
 non-recursor entries survive verbatim (the recursor swap replaces its
 own provisional entries), and no new former appears. -/
-def ExtEta (env env' : Env) : Prop :=
+@[expose] def ExtEta (env env' : Env) : Prop :=
   (∀ (n : Name) (ci : ConstantInfo), env.find? n = some ci →
     (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
     env'.find? n = some ci) ∧

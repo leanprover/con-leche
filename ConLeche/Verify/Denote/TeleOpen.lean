@@ -4,7 +4,7 @@ public import ConLeche.Verify.Denote.Rename
 public import ConLeche.Verify.Denote.OpenVars
 public import ConLeche.Verify.InferLemmas
 
-@[expose] public section
+public section
 
 /-!
 # Opening a telescope, and substituting a spine into what is left
@@ -43,7 +43,7 @@ namespace Term
 
 /-- Instantiate a spine at descending cuts, outermost argument first —
 the term-side counterpart of `ConLeche.Expr.instSeq`. -/
-def instSeq : List Term → Nat → Term → Term
+@[expose] def instSeq : List Term → Nat → Term → Term
   | [], _, e => e
   | a :: as, t, e => instSeq as (t - 1) (e.inst a t)
 

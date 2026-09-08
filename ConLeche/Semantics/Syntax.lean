@@ -250,7 +250,7 @@ theorem projPair?_cases₂ {i : Nat} {e x e' x' : AnnotTerm}
 
 @[simp] theorem inst_bvar (a : AnnotTerm) (k i : Nat) :
     inst (.bvar i) a k =
-      (if i < k then .bvar i else if i = k then liftN k a else .bvar (i - 1)) :=
+      (if i < k then .bvar i else if i = k then liftN k a else .bvar (i - 1)) := by
   rfl
 @[simp] theorem inst_sort (a : AnnotTerm) (k u : Nat) :
     inst (.sort u) a k = .sort u := rfl

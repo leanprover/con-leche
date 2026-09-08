@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Annot.Bit
 public import ConLeche.Semantics.WellDenoted
-
-@[expose] public section
+public section
 
 /-!
 # `AnnotValid` — bit validity, on the bit (task #161, P3.2)
@@ -57,7 +56,7 @@ variable (V : Type w) [SetTheory V]
 environment (see the module docstring): the one new fact is the `pi`
 clause's `v = 0` component; everything else is the hereditary
 environment discipline of `WellDenoted`. -/
-def AnnotValid : (Nat → V) → AnnotTerm → Prop
+@[expose] def AnnotValid : (Nat → V) → AnnotTerm → Prop
   | ρ, .pi _u v A B =>
     AnnotValid ρ A ∧
     (∀ x, x ∈ˢ interp V ρ A → AnnotValid (cons x ρ) B) ∧

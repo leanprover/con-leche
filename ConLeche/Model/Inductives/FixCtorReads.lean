@@ -3,8 +3,7 @@ module
 public import ConLeche.Model.Inductives.FixRecReadDefs
 public import ConLeche.Model.Inductives.FixData
 public import ConLeche.Verify.Inductives.StructBody
-
-@[expose] public section
+public section
 
 /-!
 # The recursive constructors' reading premises (task #188)
@@ -72,7 +71,7 @@ theorem Expr.getAppArgs_instSeq_fvars :
 
 /-- The recursive constructor data of a list of constructors, from
 constructor `j` on. -/
-def fixCtorDataList (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+@[expose] def fixCtorDataList (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm) (ksF : Nat → List RecFieldKind)
     (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
     (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))) (ψ : Name → Nat) :
@@ -113,7 +112,7 @@ theorem fixCtorDataList_getElem? (dsF : Nat → (Name → Nat) → List (Nat × 
     rw [show j + 1 + i = j + (i + 1) from by omega]
 
 /-- The per-constructor facts of a recursive block at a position. -/
-def FixCtorFactsAt {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Name) (lps : List Name)
+@[expose] def FixCtorFactsAt {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Name) (lps : List Name)
     (nP nIdx : Nat) (resSort : Level) (isProp large : Bool) (idxF : Nat → List Expr)
     (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))

@@ -8,7 +8,7 @@ not available`).  A module needed at both levels is imported twice. -/
 meta import ConLeche.Frontend.Prelude
 meta import ConLeche.Cached.ParsedC
 
-@[expose] public section
+public section
 
 /-!
 # The built-in prelude (task #191): what it holds, and that the fold

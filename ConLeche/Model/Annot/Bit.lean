@@ -9,7 +9,7 @@ public import ConLeche.Verify.PropWhen
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # `denoteMeta` — the validated-annotation reading (task #161, P3)
@@ -73,7 +73,7 @@ valuation: `0` (the squash regime) exactly when the datum holds —
 "the codomain is a proposition here" — and `1` otherwise.  The value
 `1` is arbitrary; `interp` reads binder numerals only through the
 `v = 0` test (`piR_zero_agree`/`lamR_zero_agree`). -/
-def pwBit (φ : Name → Nat) (pw : PropWhen) : Nat :=
+@[expose] def pwBit (φ : Name → Nat) (pw : PropWhen) : Nat :=
   if pw.holds φ then 0 else 1
 
 @[simp] theorem pwBit_eq_zero_iff {φ : Name → Nat} {pw : PropWhen} :
@@ -151,7 +151,7 @@ theorem pwBit_substPW (φ : Name → Nat) (ks : List Name)
 binder numeral read off the term's own meta (`pwBit φ m.pw`) — no
 checker runs, no fuel, no mode.  See the module docstring for the
 `pi` `u`-slot convention. -/
-def denoteMeta (acval : Name → (Name → Nat) → AnnotTerm)
+@[expose] def denoteMeta (acval : Name → (Name → Nat) → AnnotTerm)
     (env : Env) (φ : Name → Nat) :
     (d : Nat) → Expr → Option AnnotTerm
   | _, .sort u => some (.sort (u.eval φ))

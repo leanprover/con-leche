@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructBodyFrames
 public import ConLeche.Verify.Inductives.StructPartsInv
-
-@[expose] public section
+public section
 
 /-!
 # The projection table's cons (task #175 S1)

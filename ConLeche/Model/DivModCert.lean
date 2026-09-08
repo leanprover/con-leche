@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.NatWf
 public import ConLeche.Semantics.DivModEval
-
-@[expose] public section
+public section
 
 /-!
 # The WF-recursive operations' clauses, established at `interp` from

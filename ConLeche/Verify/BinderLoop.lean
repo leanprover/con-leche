@@ -6,7 +6,7 @@ public import ConLeche.Verify.AbstractRange
 public import ConLeche.Verify.InferLeaves
 public import ConLeche.Verify.Leaves
 
-@[expose] public section
+public section
 
 /-!
 # Binder-telescope loops and their identification with the chained
@@ -59,7 +59,7 @@ domain, binder meta. -/
 abbrev AnnotBinderEntryX := Expr × BinderMeta
 
 /-- Pure mirror of `inferLamsOutI` (a pure rebuild fold). -/
-def inferLamsOut (mode : CheckMode) (d : Nat) :
+@[expose] def inferLamsOut (mode : CheckMode) (d : Nat) :
     List InferLamEntryX → Nat → Expr → PropWhen → m Expr
   | [], _j, cur, _prevPw => pure cur
   | (tyo, mb) :: rest, j, cur, prevPw => do
@@ -109,7 +109,7 @@ theorem lamPw_instantiateList_fvars {vs : List Expr}
 
 /-- Pure mirror of `inferLamsLeafI` (task #152: the chain's body-type
 sort check, at the verified modes, on a non-λ residual). -/
-def inferLamsLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
+@[expose] def inferLamsLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
     (t : Expr) (k : Nat) (fvs : List Expr)
     (stk : List InferLamEntryX) : m Expr := do
   let bt ← r.infer (d + k) (t.instantiateList fvs)
@@ -137,7 +137,7 @@ def inferLamsLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
        | [] => .never)
 
 /-- Pure mirror of `inferLamsI`. -/
-def inferLams (mode : CheckMode) (r : CoreFns m) (d : Nat) :
+@[expose] def inferLams (mode : CheckMode) (r : CoreFns m) (d : Nat) :
     Nat → Expr → Nat → List Expr → List InferLamEntryX → m Expr
   | fuel + 1, t, k, fvs, stk =>
     match t with
@@ -153,7 +153,7 @@ def inferLams (mode : CheckMode) (r : CoreFns m) (d : Nat) :
   | 0, t, k, fvs, stk => inferLamsLeaf mode r d t k fvs stk
 
 /-- Pure mirror of `inferPisOutI` (the `imax` fold, pure). -/
-def inferPisOut (mode : CheckMode) :
+@[expose] def inferPisOut (mode : CheckMode) :
     List (Level × PropWhen) → Level → m Level
   | [], v => pure v
   | (u, pw) :: rest, v => do
@@ -163,7 +163,7 @@ def inferPisOut (mode : CheckMode) :
 
 /-- Pure mirror of `inferPisLeafI` (task #161: the fold validates each
 node's prop-ness annotation against its codomain sort). -/
-def inferPisLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
+@[expose] def inferPisLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
     (t : Expr) (k : Nat)
     (fvs : List Expr) (stk : List (Level × PropWhen)) : m Expr := do
   let bt ← r.infer (d + k) (t.instantiateList fvs)
@@ -174,7 +174,7 @@ def inferPisLeaf (mode : CheckMode) (r : CoreFns m) (d : Nat)
   | _ => throw (.invalid "expected a sort")
 
 /-- Pure mirror of `inferPisI`. -/
-def inferPis (mode : CheckMode) (r : CoreFns m) (d : Nat) :
+@[expose] def inferPis (mode : CheckMode) (r : CoreFns m) (d : Nat) :
     Nat → Expr → Nat → List Expr → List (Level × PropWhen) → m Expr
   | fuel + 1, t, k, fvs, stk =>
     match t with
@@ -205,7 +205,7 @@ just below — each node takes it unless it carries a real input
 annotation, and passes on whatever it ended up with (the chain rule
 `annotPwPi`/`annotPwLam` read on the spec side).  `none` = no write. -/
 
-def annotateBindersOut (mk : Expr → Expr → BinderMeta → Expr)
+@[expose] def annotateBindersOut (mk : Expr → Expr → BinderMeta → Expr)
     (d : Nat) (pw? : Option PropWhen) :
     List AnnotBinderEntryX → Nat → Expr → m Expr
   | [], _j, cur => pure cur
@@ -217,13 +217,13 @@ def annotateBindersOut (mk : Expr → Expr → BinderMeta → Expr)
 /-- Pure mirror of `annotatePisLeafI` (task #161 P5: the telescope's
 datum, computed once here — the leaf's own if the residual annotates to
 a ∀, else the leaf codomain sort's zero-ness). -/
-def annotatePisPw (r : CoreFns m) (env : Env) (d k : Nat)
+@[expose] def annotatePisPw (r : CoreFns m) (env : Env) (d k : Nat)
     (leaf' : Expr) : m (Option PropWhen) := do
   let p ← annotPwPi r env (d + k) leaf'
   pure (some p)
 
 /-- Pure mirror of `annotatePisLeafI`'s rebuild. -/
-def annotatePisLeaf (r : CoreFns m) (env : Env)
+@[expose] def annotatePisLeaf (r : CoreFns m) (env : Env)
     (d : Nat) (t : Expr)
     (k : Nat) (fvs : List Expr) (stk : List AnnotBinderEntryX) : m Expr := do
   let leaf' ← r.annotate (d + k) (t.instantiateList fvs)
@@ -232,7 +232,7 @@ def annotatePisLeaf (r : CoreFns m) (env : Env)
     stk (k - 1) (leaf'.abstractRange d k)
 
 /-- Pure mirror of `annotatePisI`. -/
-def annotatePis (r : CoreFns m) (env : Env) (d : Nat) :
+@[expose] def annotatePis (r : CoreFns m) (env : Env) (d : Nat) :
     Nat → Expr → Nat → List Expr → List AnnotBinderEntryX → m Expr
   | fuel + 1, t, k, fvs, stk =>
     match t with
@@ -245,13 +245,13 @@ def annotatePis (r : CoreFns m) (env : Env) (d : Nat) :
 
 /-- Pure mirror of `annotateLamsLeafI` (the λ twin: the chain's datum
 is the innermost λ's own, else the sort of the body's type). -/
-def annotateLamsPw (r : CoreFns m) (env : Env) (d k : Nat)
+@[expose] def annotateLamsPw (r : CoreFns m) (env : Env) (d k : Nat)
     (leaf' : Expr) : m (Option PropWhen) := do
   let p ← annotPwLam r env (d + k) leaf'
   pure (some p)
 
 /-- Pure mirror of `annotateLamsLeafI`'s rebuild. -/
-def annotateLamsLeaf (r : CoreFns m) (env : Env)
+@[expose] def annotateLamsLeaf (r : CoreFns m) (env : Env)
     (d : Nat) (t : Expr)
     (k : Nat) (fvs : List Expr) (stk : List AnnotBinderEntryX) : m Expr := do
   let leaf' ← r.annotate (d + k) (t.instantiateList fvs)
@@ -260,7 +260,7 @@ def annotateLamsLeaf (r : CoreFns m) (env : Env)
     stk (k - 1) (leaf'.abstractRange d k)
 
 /-- Pure mirror of `annotateLamsI`. -/
-def annotateLams (r : CoreFns m) (env : Env) (d : Nat) :
+@[expose] def annotateLams (r : CoreFns m) (env : Env) (d : Nat) :
     Nat → Expr → Nat → List Expr → List AnnotBinderEntryX → m Expr
   | fuel + 1, t, k, fvs, stk =>
     match t with
@@ -277,7 +277,7 @@ def annotateLams (r : CoreFns m) (env : Env) (d : Nat) :
 (innermost first, `j` the head entry's binder level): every wrapped
 level's body is a λ, so the λ-rule performs no runs there (its
 codomain check is chain-guarded, task #152) and the fold is pure. -/
-def inferLamsWrap (mode : CheckMode) (d : Nat) :
+@[expose] def inferLamsWrap (mode : CheckMode) (d : Nat) :
     List InferLamEntryX → Nat → Expr → PropWhen → m Expr
   | [], _j, bt, _prevPw => pure bt
   | (tyo, mb) :: rest, j, bt, prevPw => do
@@ -290,7 +290,7 @@ def inferLamsWrap (mode : CheckMode) (d : Nat) :
 own codomain-sort check (task #152 — it fires exactly when the residual
 `t` is not a λ, which is when the peel stopped on it), then the pure
 wrap of the peeled binders. -/
-def inferLamsTail (mode : CheckMode) (r : CoreFns m) (env : Env)
+@[expose] def inferLamsTail (mode : CheckMode) (r : CoreFns m) (env : Env)
     (d : Nat) (t : Expr) (k : Nat) (stk : List InferLamEntryX)
     (bt : Expr) : m Expr := do
   if mode.verifiedChecks && !t.isLam then
@@ -312,7 +312,7 @@ def inferLamsTail (mode : CheckMode) (r : CoreFns m) (env : Env)
 /-- The chained `inferBody` ∀-tail folded over the peeled binders: per
 level, the chained rule's `ensureSort` of the freshly built inner sort
 (reproduced by `whnf_sort`), then the `imax`. -/
-def inferPisWrap (mode : CheckMode) (r : CoreFns m) (env : Env)
+@[expose] def inferPisWrap (mode : CheckMode) (r : CoreFns m) (env : Env)
     (d : Nat) :
     List (Level × PropWhen) → Nat → Expr → m Expr
   | [], _j, bt => pure bt
@@ -357,7 +357,7 @@ variable {r : CoreFns m} {env : Env} {d : Nat}
 theorem inferLams_zero (t : Expr) (k : Nat) (fvs : List Expr)
     (stk : List InferLamEntryX) :
     inferLams mode r d 0 t k fvs stk
-      = inferLamsLeaf mode r d t k fvs stk := rfl
+      = inferLamsLeaf mode r d t k fvs stk := by rfl
 
 theorem inferLams_succ_lam (fuel : Nat) (ty body : Expr)
     (mb : BinderMeta) (k : Nat) (fvs : List Expr)
@@ -370,7 +370,7 @@ theorem inferLams_succ_lam (fuel : Nat) (ty body : Expr)
           inferLams mode r d fuel body (k + 1)
             (Expr.fvar (d + k) (ty.instantiateList fvs) :: fvs)
             ((ty.instantiateList fvs, mb) :: stk)
-        | _ => throw (.invalid "expected a sort")) := rfl
+        | _ => throw (.invalid "expected a sort")) := by rfl
 
 theorem inferLams_succ_ne_lam (fuel : Nat) {t : Expr}
     (ht : ∀ ty body mb, t ≠ .lam ty body mb) (k : Nat)
@@ -384,7 +384,7 @@ theorem inferLams_succ_ne_lam (fuel : Nat) {t : Expr}
 theorem inferPis_zero (t : Expr) (k : Nat) (fvs : List Expr)
     (stk : List (Level × PropWhen)) :
     inferPis mode r d 0 t k fvs stk
-      = inferPisLeaf mode r d t k fvs stk := rfl
+      = inferPisLeaf mode r d t k fvs stk := by rfl
 
 theorem inferPis_succ_pi (fuel : Nat) (ty body : Expr)
     (mb : BinderMeta) (k : Nat) (fvs : List Expr)
@@ -397,7 +397,7 @@ theorem inferPis_succ_pi (fuel : Nat) (ty body : Expr)
           inferPis mode r d fuel body (k + 1)
             (Expr.fvar (d + k) (ty.instantiateList fvs) :: fvs)
             ((u, mb.pw) :: stk)
-        | _ => throw (.invalid "expected a sort")) := rfl
+        | _ => throw (.invalid "expected a sort")) := by rfl
 
 theorem inferPis_succ_ne_pi (fuel : Nat) {t : Expr}
     (ht : ∀ ty body mb, t ≠ .forallE ty body mb) (k : Nat)
@@ -410,7 +410,7 @@ theorem inferPis_succ_ne_pi (fuel : Nat) {t : Expr}
 
 theorem annotatePis_zero (t : Expr) (k : Nat) (fvs : List Expr)
     (stk : List AnnotBinderEntryX) :
-    annotatePis r env d 0 t k fvs stk = annotatePisLeaf r env d t k fvs stk := rfl
+    annotatePis r env d 0 t k fvs stk = annotatePisLeaf r env d t k fvs stk := by rfl
 
 theorem annotatePis_succ_pi (fuel : Nat) (ty body : Expr)
     (mb : BinderMeta) (k : Nat) (fvs : List Expr)
@@ -419,7 +419,7 @@ theorem annotatePis_succ_pi (fuel : Nat) (ty body : Expr)
       = (do
         let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
         annotatePis r env d fuel body (k + 1)
-          (Expr.fvar (d + k) ty' :: fvs) ((ty', mb) :: stk)) := rfl
+          (Expr.fvar (d + k) ty' :: fvs) ((ty', mb) :: stk)) := by rfl
 
 theorem annotatePis_succ_ne_pi (fuel : Nat) {t : Expr}
     (ht : ∀ ty body mb, t ≠ .forallE ty body mb) (k : Nat)
@@ -432,7 +432,7 @@ theorem annotatePis_succ_ne_pi (fuel : Nat) {t : Expr}
 
 theorem annotateLams_zero (t : Expr) (k : Nat) (fvs : List Expr)
     (stk : List AnnotBinderEntryX) :
-    annotateLams r env d 0 t k fvs stk = annotateLamsLeaf r env d t k fvs stk := rfl
+    annotateLams r env d 0 t k fvs stk = annotateLamsLeaf r env d t k fvs stk := by rfl
 
 theorem annotateLams_succ_lam (fuel : Nat) (ty body : Expr)
     (mb : BinderMeta) (k : Nat) (fvs : List Expr)
@@ -441,7 +441,7 @@ theorem annotateLams_succ_lam (fuel : Nat) (ty body : Expr)
       = (do
         let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
         annotateLams r env d fuel body (k + 1)
-          (Expr.fvar (d + k) ty' :: fvs) ((ty', mb) :: stk)) := rfl
+          (Expr.fvar (d + k) ty' :: fvs) ((ty', mb) :: stk)) := by rfl
 
 theorem annotateLams_succ_ne_lam (fuel : Nat) {t : Expr}
     (ht : ∀ ty body mb, t ≠ .lam ty body mb) (k : Nat)
@@ -1410,7 +1410,7 @@ theorem annotateBindersOut_wrap
 
 theorem annotatePisWrap_nil (r : CoreFns CheckM) (env : Env) (d j : Nat)
     (bt : Expr) :
-    annotatePisWrap r env d [] j bt = pure bt := rfl
+    annotatePisWrap r env d [] j bt = pure bt := by rfl
 
 theorem annotatePisWrap_cons (r : CoreFns CheckM) (env : Env) (d : Nat)
     (ty' : Expr) (mb : BinderMeta)
@@ -1427,7 +1427,7 @@ theorem annotatePisWrap_cons (r : CoreFns CheckM) (env : Env) (d : Nat)
 
 theorem annotateLamsWrap_nil (r : CoreFns CheckM) (env : Env) (d j : Nat)
     (bt : Expr) :
-    annotateLamsWrap r env d [] j bt = pure bt := rfl
+    annotateLamsWrap r env d [] j bt = pure bt := by rfl
 
 theorem annotateLamsWrap_cons (r : CoreFns CheckM) (env : Env) (d : Nat)
     (ty' : Expr) (mb : BinderMeta)

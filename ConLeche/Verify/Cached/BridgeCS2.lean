@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.BridgeCS1
 
-@[expose] public section
+public section
 
 /-!
 # Cached shared-state walks, part 2: the inductive-install checker

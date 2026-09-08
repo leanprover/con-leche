@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixData
 public import ConLeche.Model.Inductives.FixRuleData
-
-@[expose] public section
+public section
 
 /-!
 # The recursive constructor data across a cons (task #188)

@@ -3,7 +3,6 @@ import ConLeche.Semantics
 import ConLeche.Model
 import ConLeche.Verify.Cached
 import ConLeche.MainTheorem
-
 /- NOT a `module` (task #231): this file is not part of any Lake target —
 `tests/proofdeps.sh` runs it with `lake env lean`, and its `#eval` walks the
 imported environment with full-view `Lean` metaprogramming.  A classic file

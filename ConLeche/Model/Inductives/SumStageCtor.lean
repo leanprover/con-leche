@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.SumStageFormer
 public import ConLeche.Model.Inductives.StructStageCtor
-
-@[expose] public section
+public section
 
 /-!
 # A sum constructor's cons (task #175 sum-types, indexed)

@@ -50,9 +50,17 @@ iteration protocol. Keep it up to date when decisions change.
   tiers unfold their bodies by design, so a `private` helper there must
   be public if any *definition* mentions it (a `theorem` proof may
   still use one: proofs are private regardless).  **Proof code is
-  private by default**: the theory tiers narrow to plain `import`,
-  `public` only on what another file names, `@[expose]` only on a `def`
-  a downstream *proof* unfolds.  `import all X` is the escape for a
+  private by default**: `Model/*` and `Verify/*` (and the tests and
+  capstones) open a plain `public section`, so their `def` bodies are
+  private and `@[expose]` appears only where the compiler asked — on a
+  definition another file unfolds.  `Term/*`, `SetTheory/*`,
+  `SetModel/*` and `Semantics/*` keep the blanket for the same reason
+  the checker does: the tiers above reason about them definitionally.
+  Two traps when you re-privatise: a `private` lemma's `match` matcher
+  is not reused, so a `rw` elsewhere stops finding its pattern; and
+  moving a `@[simp]` lemma's proof from `:= rfl` to `:= by rfl` costs
+  it its `rfl`-status and `simp only` silently stops firing — expose
+  what it unfolds instead.  `import all X` is the escape for a
   representation that is sealed on purpose — `ConLeche/Kernel/PropWhen`
   (the datum's API and laws are its whole interface) and `Init.Util`'s
   `withPtrEq` — and nothing else; each site carries the reason.

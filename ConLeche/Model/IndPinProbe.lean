@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.NatEqs
 public import ConLeche.Model.Claims
-
-@[expose] public section
+public section
 
 /-!
 # The nested-pin conjunct is refuted (task #161 ind tier part 6, THE PROBE)

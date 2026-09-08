@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.BasisCons
 public import ConLeche.Semantics.EqTower
 
-@[expose] public section
+public section
 
 /-!
 # The annotated hand-built basis towers, `Eq` family (task #161, ENDGAME E)
@@ -103,20 +103,20 @@ former a graph and not a proof point. -/
 
 /-- `Eq`'s annotated valuation: v1's `eqValT` with all three binders in
 the graph regime (forced — see the module docstring). -/
-def eqValAV (ψ : Name → Nat) : AnnotTerm :=
+@[expose] def eqValAV (ψ : Name → Nat) : AnnotTerm :=
   .lam 1 (.sort (ψ uN)) (.lam 1 (.bvar 0) (.lam 1 (.bvar 1)
     (.eqE (.bvar 2) (.bvar 1) (.bvar 0))))
 
 /-- `Eq.refl`'s annotated valuation: `.prf` under two **squash-regime**
 binders (forced: the pinned `pw` is `.ifAllZero []` at both, because
 `Eq α a a` is a proposition). -/
-def eqReflValAV (ψ : Name → Nat) : AnnotTerm :=
+@[expose] def eqReflValAV (ψ : Name → Nat) : AnnotTerm :=
   .lam 0 (.sort (ψ uN)) (.lam 0 (.bvar 0) .prf)
 
 /-- `Eq.rec`'s annotated valuation: the minor premise, returned, under
 six binders whose bit is the motive level's own zero test — the pinned
 `pw` is `.ifAllZero [u_1]` at every one of them. -/
-def eqRecValAV (ψ : Name → Nat) : AnnotTerm :=
+@[expose] def eqRecValAV (ψ : Name → Nat) : AnnotTerm :=
   let m : Nat := pwBit ψ (.ifAllZero [u1N])
   .lam m (.sort (ψ uN))
     (.lam m (.bvar 0)

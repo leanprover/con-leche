@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructEntryKit
-
-@[expose] public section
+public section
 
 /-!
 # The projection entry's kit, continued (task #175 W4c, P3 module 7, part 3)
@@ -192,14 +191,14 @@ theorem fieldsValid_getD {Fs : List AnnotTerm} {ρ : Nat → V}
 /-! ## The residual's chain frame -/
 
 /-- The readings of the opened parameters at the entry's full depth. -/
-def entryParamBvars (nP : Nat) : List AnnotTerm :=
+@[expose] def entryParamBvars (nP : Nat) : List AnnotTerm :=
   (List.range nP).map fun k => AnnotTerm.bvar (nP - k)
 
 /-- The readings of the earlier projections of the subject, at the
 table's projection offset `off` (task #210 Part A: `projS (j + off)`
 is field `j` of a carrier whose tuple tower sits below `off` leading
 pair components). -/
-def entryProjAVs (off i : Nat) : List AnnotTerm :=
+@[expose] def entryProjAVs (off i : Nat) : List AnnotTerm :=
   (List.range i).map fun j => projAV (j + off) (.bvar 0)
 
 omit [SetTheory V] in

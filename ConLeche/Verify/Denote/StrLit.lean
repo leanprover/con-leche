@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Denote.Levels
 public import ConLeche.Verify.StrLitExpr
 
-@[expose] public section
+public section
 
 /-!
 # The string-literal constructor form, denoted

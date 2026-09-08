@@ -7,7 +7,7 @@ public import ConLeche.Model.IndAnnotMem
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The firing stage, at the reading (task #161, IND TIER part 7)

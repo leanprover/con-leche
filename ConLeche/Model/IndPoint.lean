@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.IndPointKit
 public import ConLeche.Model.IndProjEta
-
-@[expose] public section
+public section
 
 /-!
 # The point stage, at the reading (task #161, IND TIER part 5)

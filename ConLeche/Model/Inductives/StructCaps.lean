@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.TowerCons
 
-@[expose] public section
+public section
 
 /-!
 # `CapsOk` across the direct block's member conses (task #175 W4c, P3 module 5, part 1)
@@ -42,7 +42,7 @@ stored complete, the unit law where it claims unit-likeness.  A stage
 takes it as a hypothesis about the carrier it builds; the assembly
 discharges it from the leaves (or vacuously: `capsLawsAt_of_none`,
 `capsLawsAt_vacuous`). -/
-def CapsLawsAt {env : Env} (m : EnvModel V env) (T : Name) (cvT : ConstantVal)
+@[expose] def CapsLawsAt {env : Env} (m : EnvModel V env) (T : Name) (cvT : ConstantVal)
     (caps : IndCaps) : Prop :=
   (caps.eta = true → ConLeche.EtaFamilyStored env T caps →
     ∀ φ' : Name → Nat, EtaLaw m φ' T cvT caps) ∧

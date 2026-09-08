@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.SumIntro
 public import ConLeche.Semantics.Tower.FixRecI
 
-@[expose] public section
+public section
 
 /-!
 # The recursive recursor leaf's bit validity (task #188)

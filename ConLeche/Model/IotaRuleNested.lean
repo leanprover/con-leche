@@ -2,12 +2,9 @@ module
 
 public import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Model.IotaRulePlain
-
 public import ConLeche.Model.IndPinRow
-
 public import ConLeche.Model.IndBottomNested
-
-@[expose] public section
+public section
 
 /-!
 # The per-rule bridge, nested branch (task #161, IND TIER part 9)

@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.IndProjCaps
 public import ConLeche.Model.IndEtaLaw
-
-@[expose] public section
+public section
 
 /-!
 # The η key at the projection cons (task #161, IND TIER part 3, step 5b)
@@ -145,7 +144,7 @@ install-supplied).  Part 2 derived `hvT`/`hvC` from
 because the family's earlier projection slots were installed by
 earlier `ProjInstallR` steps and that fold is where the
 identification lives. -/
-def ProjEtaLaw (V : Type w) [SetTheory V] : Prop :=
+@[expose] def ProjEtaLaw (V : Type w) [SetTheory V] : Prop :=
   ∀ {μ : CheckMode} {blockNames : List Name} {env : Env}
     (mp : EnvModelM V μ env) {c₀ : ConstantInfo}
     {A : (Name → Nat) → AnnotTerm} {T : Name} {i : Nat},

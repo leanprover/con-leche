@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.IndCross
 public import ConLeche.Verify.BridgeWfImp
 
-@[expose] public section
+public section
 
 /-!
 # The zipper's field-branch core, at the reading (task #161, part 4)

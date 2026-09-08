@@ -4,7 +4,7 @@ public import ConLeche.Verify.Denote.Install
 public import ConLeche.Verify.Denote.VClosed
 public import ConLeche.Verify.Denote.Shift
 
-@[expose] public section
+public section
 
 /-!
 # Substituting the operation for its own constant
@@ -39,7 +39,7 @@ private theorem substFn_nil0 (φ : Name → Nat) :
 
 /-- The fragment `Expr.substConst0` is faithful on: application spines
 over constants, sorts and free variables. -/
-def shallowE : Expr → Bool
+@[expose] def shallowE : Expr → Bool
   | .sort _ => true
   | .const _ _ => true
   | .fvar _ _ => true

@@ -5,8 +5,7 @@ public import ConLeche.Model.Inductives.FixCtorReads
 public import ConLeche.Verify.Inductives.FixInv
 public import ConLeche.Verify.Inductives.FixWF
 public import ConLeche.Model.Inductives.SumStageRec
-
-@[expose] public section
+public section
 
 /-!
 # The recursive recursor's data (task #188)
@@ -36,7 +35,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 /-! ## The data, per block -/
 
 /-- The recursive recursor's binder data at the block. -/
-def fixRdsAV {env : Env} (m : EnvModel V env) (p : NativeParts)
+@[expose] def fixRdsAV {env : Env} (m : EnvModel V env) (p : NativeParts)
     (ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm) (ksF : Nat → List RecFieldKind)

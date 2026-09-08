@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.DiscC6
 
-@[expose] public section
+public section
 
 /-!
 # The cached knot: memo wrappers and the conditional simulation

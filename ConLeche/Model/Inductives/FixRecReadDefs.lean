@@ -3,8 +3,7 @@ module
 public import ConLeche.Model.Inductives.SumRecRead
 public import ConLeche.Model.Inductives.FixData
 public import ConLeche.Semantics.Tower.FixRecI
-
-@[expose] public section
+public section
 
 /-!
 # The generated recursive recursor's readings: the targets (task #188)
@@ -39,7 +38,7 @@ variable {V : Type w} [SetTheory V] {env : Env}
 under the field's telescope, the motive at the field's index readings
 and the field applied to the telescope's variables (a finitary field:
 the motive at the readings and the field). -/
-def ihDomAV (nF o i l : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) : AnnotTerm :=
+@[expose] def ihDomAV (nF o i l : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) : AnnotTerm :=
   mkPisAV (ihTeleAtR nF o i l tl)
     (AnnotTerm.mkAppN (.bvar (nF + o - 1 + l + tl.length))
       (Eis.map (ihIdxAtM nF o i l tl.length) ++
@@ -47,7 +46,7 @@ def ihDomAV (nF o i l : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List A
 
 /-- The ih binders' Π-tower over the recursive positions (the moved
 telescopes re-bit to the elimination bit `b`, task #202 A2). -/
-def ihPisAV (nF o b : Nat) (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
+@[expose] def ihPisAV (nF o b : Nat) (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) :
     List Nat → Nat → AnnotTerm → AnnotTerm
   | [], _, body => body
   | i :: is, l, body =>
@@ -58,7 +57,7 @@ def ihPisAV (nF o b : Nat) (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss :
 constructor's field data lifted `o` under (bits reset to `b`), the ih
 binders, the motive at the constructor's index readings and spine
 lifted above the ih binders. -/
-def minorAVAtR {env : Env} (m : EnvModel V env) (C : Name) (ψ : Name → Nat) (nP nF b o : Nat)
+@[expose] def minorAVAtR {env : Env} (m : EnvModel V env) (C : Name) (ψ : Name → Nat) (nP nF b o : Nat)
     (ds : List (Nat × Nat × AnnotTerm)) (Es : List AnnotTerm) (recIdx : List Nat)
     (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) : AnnotTerm :=
   mkPisAV (rebit b (liftDoms o 0 (ds.drop nP)))
@@ -77,7 +76,7 @@ abbrev CtorDatumR :=
     List (List (Nat × Nat × AnnotTerm))
 
 /-- The minor entries, one per constructor datum, from offset `o`. -/
-def fixMinorsData {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (nP b : Nat) :
+@[expose] def fixMinorsData {env : Env} (m : EnvModel V env) (ψ : Name → Nat) (nP b : Nat) :
     List CtorDatumR → Nat → List (Nat × Nat × AnnotTerm)
   | [], _ => []
   | (C, nF, ds, Es, recIdx, Eiss, tls) :: cs, o =>
@@ -115,7 +114,7 @@ theorem fixMinorsData_getElem? {m : EnvModel V env} {ψ : Name → Nat} {nP b : 
 /-- **The generated recursive recursor type's binder data**: parameters,
 motive, minors (with the ih binders), the index telescope lifted under
 the motive and the minors, major. -/
-def fixRecDataAV {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat)
+@[expose] def fixRecDataAV {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat)
     (nP nIdx : Nat) (ℓ : Level) (pps ips : List (Nat × Nat × AnnotTerm))
     (cds : List CtorDatumR) : List (Nat × Nat × AnnotTerm) :=
   rebit (pwBit ψ (Level.zeronessOf ℓ)) pps ++
@@ -149,13 +148,13 @@ theorem fixRecDataAV_length {m : EnvModel V env} {T : Name} {ψ : Name → Nat} 
 /-- The recursor's leading spine `p⃗ motive m⃗` read under the `nF`
 fields of a rule (`structRecPrefixAt nP n nF 0`'s reading: the
 parameters sit `nF + n + 1` binders above the fields). -/
-def recPrefixBvars (nP n nF : Nat) : List AnnotTerm :=
+@[expose] def recPrefixBvars (nP n nF : Nat) : List AnnotTerm :=
   paramBvarsAt nP (nP + nF + n + 1) ++ [.bvar (nF + n)] ++
     (List.range n).map fun l => AnnotTerm.bvar (nF + n - 1 - l)
 
 /-- The recursor's leading spine under `m` more binders
 (`structRecPrefixAt nP n nF m`'s reading). -/
-def recPrefixBvarsM (nP n nF m : Nat) : List AnnotTerm :=
+@[expose] def recPrefixBvarsM (nP n nF m : Nat) : List AnnotTerm :=
   paramBvarsAt nP (nP + nF + n + 1 + m) ++ [.bvar (nF + n + m)] ++
     (List.range n).map fun l => AnnotTerm.bvar (nF + n - 1 - l + m)
 
@@ -165,7 +164,7 @@ recursor's leaf `R` at the block's variables, the field's index
 readings moved under the fields (with the motive and `n` minors as the
 extras) and the field applied to the telescope's variables (a finitary
 field: no telescope). -/
-def ihAppAV (R : AnnotTerm) (nP n nF i : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) :
+@[expose] def ihAppAV (R : AnnotTerm) (nP n nF i : Nat) (tl : List (Nat × Nat × AnnotTerm)) (Eis : List AnnotTerm) :
     AnnotTerm :=
   mkLamsAV ((ihTeleAtR nF (n + 1) i 0 tl).map fun d => (d.2.1, d.2.2))
     (AnnotTerm.mkAppN R (recPrefixBvarsM nP n nF tl.length ++
@@ -175,7 +174,7 @@ def ihAppAV (R : AnnotTerm) (nP n nF i : Nat) (tl : List (Nat × Nat × AnnotTer
 /-- Rule `j`'s core at a recursive block: minor `j` at the field
 variables and the ih applications (their telescopes re-bit to the
 elimination bit `b`, task #202 A2). -/
-def fixRuleCoreAV (b : Nat) (R : AnnotTerm) (nP nF n j : Nat) (recIdx : List Nat)
+@[expose] def fixRuleCoreAV (b : Nat) (R : AnnotTerm) (nP nF n j : Nat) (recIdx : List Nat)
     (tls : List (List (Nat × Nat × AnnotTerm))) (Eiss : List (List AnnotTerm)) : AnnotTerm :=
   AnnotTerm.mkAppN (.bvar (nF + n - 1 - j))
     (fieldBvars nF ++ recIdx.map fun i =>
@@ -184,7 +183,7 @@ def fixRuleCoreAV (b : Nat) (R : AnnotTerm) (nP nF n j : Nat) (recIdx : List Nat
 /-- **Rule `j`'s binder data** at a recursive block: the recursor's
 parameter, motive and minor entries, then constructor `j`'s field data
 lifted `n + 1` under. -/
-def fixRuleDataAV {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat)
+@[expose] def fixRuleDataAV {env : Env} (m : EnvModel V env) (T : Name) (ψ : Name → Nat)
     (nP nIdx : Nat) (ℓ : Level) (pps ips : List (Nat × Nat × AnnotTerm))
     (cds : List CtorDatumR) (ds : List (Nat × Nat × AnnotTerm)) :
     List (Nat × AnnotTerm) :=

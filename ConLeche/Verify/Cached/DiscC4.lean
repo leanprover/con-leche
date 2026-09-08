@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Cached.BinderLoopC
 public import ConLeche.Verify.BetaSpine
 
-@[expose] public section
+public section
 
 /-!
 # Cached body walks, part 4: head normalization and the whnf loop

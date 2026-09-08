@@ -8,7 +8,7 @@ pointer-guarded `Expr.exprPtrBEq`/`beq` identities below are exactly the
 `ConLeche/Kernel/Expr.lean` take at the definition sites. -/
 import all Init.Util
 
-@[expose] public section
+public section
 
 /-!
 # Effect specs for the cached checker's state wrappers (task #163, batch 5)

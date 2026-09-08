@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Steps.Reads
 public import ConLeche.Model.Steps.TowerKit
-
-@[expose] public section
+public section
 
 /-!
 # The subject-side totality walk (task #161, ENDGAME A)

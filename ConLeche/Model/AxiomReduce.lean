@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.AxiomPin
 
-@[expose] public section
+public section
 
 /-!
 # `DeclAxiomR`'s fourth branch: `ofReduceNat`/`ofReduceBool` at the

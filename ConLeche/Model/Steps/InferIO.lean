@@ -5,8 +5,7 @@ public import ConLeche.Model.ClaimsIO
 public import ConLeche.Model.IOLicense
 public import ConLeche.Verify.InferIOLemmas
 public import ConLeche.Verify.InferIOLeaves
-
-@[expose] public section
+public section
 
 /-!
 # The io infer quarter — COMPLETE (stage 2 B1 + the io-license batch)
@@ -93,7 +92,7 @@ batch; its discharge (`sortSemAtIO_of_claims`, the mirror of
 `sortSemAt_of_claims`) needs the io *reads* walk, which is batch B3's
 named risk class, so it is carried as a hypothesis here exactly as
 `SortSemAt` is carried by `infer_forallE_claim`. -/
-def SortSemAtIO {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def SortSemAtIO {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {u : Level} {Δa : List AnnotTerm}
     {ea : AnnotTerm},
@@ -175,7 +174,7 @@ theorem WellDenotedV.hoist_letE {Δa : List AnnotTerm} {T v b : AnnotTerm}
 `InferReads` at the io run, with the same `LeafReads` repair).  Its
 discharge is the io *reads* walk, batch B3's named risk class; until
 then it routes exactly as the full lane's does. -/
-def InferReadsIO {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def InferReadsIO {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {ea : AnnotTerm},
     inferTypeCoreIO μ env fuel d e = .ok t →
@@ -205,7 +204,7 @@ theorem inferReadsIOS_of {env : Env} {m : EnvModel V env}
 clause infers its scrutinee, and the subject's `WellDenotedV` moves to
 the premises).  Its discharge is the structure-type walk, exactly as
 the full lane's. -/
-def InferProjStepIO {env : Env} (m : EnvModel V env) (μ : CheckMode)
+@[expose] def InferProjStepIO {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d i : Nat} {sn : Name} {pe t : Expr} {Δa : List AnnotTerm}
     {ea ta : AnnotTerm},
@@ -225,7 +224,7 @@ def InferProjStepIO {env : Env} (m : EnvModel V env) (μ : CheckMode)
 claims at `fuel` give the io claim at `fuel + 1`, at a validating
 mode.  This is the io slot of `CheckStep5`
 (`ClaimsIO.lean`). -/
-def InferStepIO (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
+@[expose] def InferStepIO (μ : CheckMode) (V : Type w) [SetTheory V] : Prop :=
   ∀ (env : Env) (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat),
     μ.verifiedChecks = true →
     WhnfCoreClaim μ m φ fuel → WhnfClaim μ m φ fuel →

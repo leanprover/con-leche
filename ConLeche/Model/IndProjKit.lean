@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.IndPinGrade
-
-@[expose] public section
+public section
 
 /-!
 # The projection bottom's kit, at the reading (task #161, IND TIER part 9)

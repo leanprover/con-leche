@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixRecPre
 public import ConLeche.Model.Inductives.FixIntro
-
-@[expose] public section
+public section
 
 /-!
 # The recursive recursor leaf's facts (task #188)

@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.SumData
 public import ConLeche.Verify.Inductives.SumWF
-
-@[expose] public section
+public section
 
 /-!
 # The sum former's cons (task #175 sum-types, indexed)

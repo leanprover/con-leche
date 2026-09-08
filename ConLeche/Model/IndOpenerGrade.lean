@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.IndPinGrade
-
-@[expose] public section
+public section
 
 /-!
 # The applied reduct at the frame's own openers (task #161, IND TIER

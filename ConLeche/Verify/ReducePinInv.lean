@@ -4,7 +4,7 @@ public import ConLeche.Verify.EnvGuards
 public import ConLeche.Verify.Extend.Inversions
 public import ConLeche.Verify.NatOpFrag
 
-@[expose] public section
+public section
 
 /-!
 # The compiler-trust opaque pin, inverted (V-free)

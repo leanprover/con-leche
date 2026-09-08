@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.EnvGuards
 public import ConLeche.Verify.NatOpFrag
 
-@[expose] public section
+public section
 
 /-!
 # The pinned `ofReduce` axioms' shapes (V-free)

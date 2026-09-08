@@ -5,8 +5,7 @@ public import ConLeche.Model.Inductives.FixStageTable
 public import ConLeche.Model.Inductives.FixZeroField
 public import ConLeche.Semantics.Inductives.DeclNative
 public import ConLeche.Verify.Inductives.FixParts
-
-@[expose] public section
+public section
 
 /-!
 # The direct recursive install, assembled (task #188)

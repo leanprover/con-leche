@@ -4,7 +4,7 @@ public import ConLeche.Verify.InstLevels
 public import ConLeche.Model.Annot.Bit
 public import ConLeche.Model.Annot.EnvModel
 
-@[expose] public section
+public section
 
 /-!
 # The level crossing for `denoteMeta`: algebra, outright (task #161, P3)

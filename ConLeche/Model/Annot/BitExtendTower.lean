@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Annot.BitExtend
 public import ConLeche.Verify.ProjSlots
 
-@[expose] public section
+public section
 
 /-!
 # `denoteMeta` across a tower-entry cons (task #175 wiring, W4c S6)

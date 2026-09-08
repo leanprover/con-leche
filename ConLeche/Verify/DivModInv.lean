@@ -5,7 +5,7 @@ public import ConLeche.Verify.Fueled
 public import ConLeche.Verify.Leaves
 public import ConLeche.Verify.Extend.Inversions
 
-@[expose] public section
+public section
 
 /-!
 # `V`-free inversions of the `Nat.div`/`Nat.mod` pin (task #123)
@@ -40,7 +40,7 @@ inductive CertRuns (P : (List Expr × Expr) → Expr → Prop) :
       CertRuns P (st :: srest) (proof :: prest)
 
 /-- The per-certificate content of a successful run. -/
-def CertRunFacts (mode : CheckMode) (env : Env) (F : Nat) (c : Name) (annVal : Expr)
+@[expose] def CertRunFacts (mode : CheckMode) (env : Env) (F : Nat) (c : Name) (annVal : Expr)
     (st : List Expr × Expr) (proof : Expr) : Prop :=
   divModCertGuard env c annVal st.1 st.2 proof = true ∧
   ∃ appliedA tp,

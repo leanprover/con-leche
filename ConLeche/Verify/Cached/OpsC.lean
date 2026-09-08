@@ -6,7 +6,7 @@ public import ConLeche.Verify.Subst
 public import ConLeche.Verify.InstList
 public import ConLeche.Verify.AbstractRange
 
-@[expose] public section
+public section
 
 /-!
 # The cached representation's syntactic operations are the pure ones
@@ -87,7 +87,7 @@ expression) transposes to this. -/
 /-- An optional cached result agrees with the optional `Expr`-side
 result.  (Before task #172 B3b this also carried the field invariant
 of the value; the invariant is the compiler's now.) -/
-def OptEr : Option ExprC → Option Expr → Prop
+@[expose] def OptEr : Option ExprC → Option Expr → Prop
   | none, none => True
   | some e, some x => e = x
   | _, _ => False

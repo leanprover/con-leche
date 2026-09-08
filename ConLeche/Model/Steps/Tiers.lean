@@ -7,8 +7,7 @@ public import ConLeche.Model.Steps.StrLit
 public import ConLeche.Model.Steps.ProjRows
 public import ConLeche.Model.Steps.IotaRows
 public import ConLeche.Model.Steps.IrrelFast
-
-@[expose] public section
+public section
 
 /-!
 # The tiers assembly (task #161, P4): one env-fixed bundle, one induction

@@ -5,7 +5,7 @@ public import ConLeche.Verify.Level
 public import ConLeche.Verify.EnvWF
 public import ConLeche.Term.Const
 
-@[expose] public section
+public section
 
 /-!
 # Denotation of kernel expressions into the erased term language
@@ -155,13 +155,13 @@ computes it, and the literal fast paths are discharged by lemma
 families proved by meta-level induction on the literal (task #119, the
 `Nat` interface), never by exhibiting a derivation of the size of the
 numeral. -/
-def natLitT (zv sv : Term) : Nat → Term
+@[expose] def natLitT (zv sv : Term) : Nat → Term
   | 0 => zv
   | n + 1 => .app sv (natLitT zv sv n)
 
 /-- The character-list part of a string literal's constructor form.
 Transpose of `charListVal`. -/
-def charListT (nilV consV ofNatV zv sv : Term) : List Char → Term
+@[expose] def charListT (nilV consV ofNatV zv sv : Term) : List Char → Term
   | [] => nilV
   | c :: cs =>
     .app (.app consV (.app ofNatV (natLitT zv sv c.toNat)))
@@ -170,7 +170,7 @@ def charListT (nilV consV ofNatV zv sv : Term) : List Char → Term
 /-- The stored level-parameter list of a constant (`[]` when absent).
 Transpose of `ConLeche.Env.levelParamsAt`; restated here because
 `ConLeche/TTVerify/*` does not import the set model. -/
-def levelParamsAt (env : Env) (n : Name) : List Name :=
+@[expose] def levelParamsAt (env : Env) (n : Name) : List Name :=
   match env.find? n with
   | some ci => ci.toConstantVal.levelParams
   | none => []
@@ -179,7 +179,7 @@ def levelParamsAt (env : Env) (n : Name) : List Name :=
 form (`strLitToConstructor`), written out — each constant valued
 exactly as the `.const` clause values it on that form.  Transpose of
 `strLitVal`. -/
-def strLitT (cval : TConstVal) (env : Env) (φ : Name → Nat) (s : String) :
+@[expose] def strLitT (cval : TConstVal) (env : Env) (φ : Name → Nat) (s : String) :
     Term :=
   .app (cval stringOfListName (Level.substFn φ [] []))
     (charListT
@@ -198,7 +198,7 @@ def strLitT (cval : TConstVal) (env : Env) (φ : Name → Nat) (s : String) :
 `.fst ∘ .snd^i` — the erase image of the P reading's `projAV`
 (`SetBase/TowerLeaf.lean`), interpreting to `projS i` on the tuple
 tier's carriers.  Depends only on the index. -/
-def projNV : Nat → Term → Term
+@[expose] def projNV : Nat → Term → Term
   | 0, e => .fst e
   | i + 1, e => projNV i (.snd e)
 
@@ -207,7 +207,7 @@ assignment `φ` and binder depth `d`.  Clause for clause the transpose
 of `ConLeche.interpExpr`; see the module docstring, in particular for the
 absent free-variable valuation, for `letE`, and for the open `.proj`
 obligation. -/
-def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
+@[expose] def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
     (d : Nat) → Expr → Option Term
   | _, .sort u => some (.sort (u.eval φ))
   | d, .fvar idx _ => some (.bvar (d - 1 - idx))
@@ -274,7 +274,7 @@ decreasing_by
 
 /-- Denotation of a closed expression (as they appear in declarations).
 Transpose of `interpClosed`. -/
-def denoteClosed (cval : TConstVal) (env : Env) (φ : Name → Nat)
+@[expose] def denoteClosed (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (e : Expr) : Option Term :=
   denote cval env φ 0 e
 

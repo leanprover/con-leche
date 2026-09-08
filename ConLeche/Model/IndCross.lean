@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.IndStageKit
 public import ConLeche.Verify.Denote.IndFrame
 
-@[expose] public section
+public section
 
 /-!
 # The cross-frame instantiation, at the reading (task #161, part 4)

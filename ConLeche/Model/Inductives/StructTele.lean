@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructRows
 public import ConLeche.Semantics.Tower.TowerRec
-
-@[expose] public section
+public section
 
 /-!
 # The direct structure's telescope walks (task #175 W4c, P3 module 3, part 3)
@@ -148,7 +147,7 @@ theorem hereditaryWalk {Q : (Nat → V) → List (Nat × Nat × AnnotTerm) → P
 
 /-- The field entries of a context, in binder order, from position
 `j`: entry `nP + j + t` of an opening of length `k`. -/
-def fieldsFrom (Γ : List AnnotTerm) (k nP nF j : Nat) : List AnnotTerm :=
+@[expose] def fieldsFrom (Γ : List AnnotTerm) (k nP nF j : Nat) : List AnnotTerm :=
   (List.range (nF - j)).map fun t => Γ.getD (k - 1 - (nP + j + t)) default
 
 theorem fieldsFrom_succ {Γ : List AnnotTerm} {k nP nF j : Nat} (hj : j < nF) :

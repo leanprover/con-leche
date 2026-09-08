@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixStageTable
-
-@[expose] public section
+public section
 
 /-!
 # The fieldless one-constructor block's laws (task #210 Part B)

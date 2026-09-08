@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructRecRead
-
-@[expose] public section
+public section
 
 /-!
 # The recursor's frames (task #175 W4c, P3 module 6, part 13; S2)

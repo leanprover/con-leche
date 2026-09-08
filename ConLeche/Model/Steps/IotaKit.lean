@@ -3,8 +3,7 @@ module
 public import ConLeche.Model.Steps.CapsRows
 public import ConLeche.Verify.Denote.OpenRevDenote
 public import ConLeche.Verify.InstSpine
-
-@[expose] public section
+public section
 
 /-!
 # The iota tier's kit (task #161, iota tier)

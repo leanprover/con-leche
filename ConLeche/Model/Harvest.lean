@@ -8,7 +8,7 @@ public import ConLeche.Model.RecRulesCons
 public import ConLeche.Model.ReduceOps
 public import ConLeche.Semantics.DeclRun
 
-@[expose] public section
+public section
 
 /-!
 # The harvest, value kinds (task #161, P4 — the fold's species)

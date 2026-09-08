@@ -9,7 +9,7 @@ public import ConLeche.Semantics.Sat
 public import ConLeche.Semantics.WhnfCoreLeaf
 public import ConLeche.Model.ClaimsIO
 
-@[expose] public section
+public section
 
 /-!
 # The two head-normalisation quarters, P currency (task #161, P3.4)
@@ -188,7 +188,7 @@ discharge them. -/
 /-- `IotaStep2D` in the P currency.  Kept **producing** (see the module
 docstring): the app clause's ι branch continues into `ihwc` at the
 fired rule's RHS, so the residue must supply that reduct's reading. -/
-def IotaStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def IotaStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e'' : Expr} {Δa : List AnnotTerm},
     iotaRecFueled μ env fuel d e = .ok (some e'') →
@@ -208,7 +208,7 @@ def IotaStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
 /-- `ProjStep2D` in the P currency, **dual success**: the clause is the
 whole of the dispatcher's `.proj` case and nothing continues past it,
 so the reduct's reading is a premise here as it is in the claim. -/
-def ProjStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def ProjStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {sn : Name} {i : Nat} {pe e' : Expr}
     {Δa : List AnnotTerm},
@@ -227,7 +227,7 @@ def ProjStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
 
 /-- `ReduceNatStep2D` in the P currency.  Producing, for the loop's
 sake (the budget induction continues at `e₂`). -/
-def ReduceNatStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def ReduceNatStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e₂ : Expr} {Δa : List AnnotTerm},
     reduceNatFueled μ env fuel d e = .ok (some e₂) →
@@ -246,7 +246,7 @@ def ReduceNatStep (μ : CheckMode) {env : Env} (m : EnvModel V env)
 
 /-- `Delta2B` in the P currency: the annotation does not move, and now
 neither does anything else — there is no fuel left to step. -/
-def Delta {env : Env} (m : EnvModel V env)
+@[expose] def Delta {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {ea : AnnotTerm},
     unfoldDefinition env e = some e' →
@@ -271,7 +271,7 @@ Routed.  The install tier discharges it; `acvalDefnInst_noParams`
 (`Steps/Whnf.lean`) is the canonical tier's evidence that the shape is
 inhabited well beyond vacuity, and the P shape asks for *less* than
 that one (no `us`, no instantiation). -/
-def AcvalDefnInst {env : Env} (m : EnvModel V env) : Prop :=
+@[expose] def AcvalDefnInst {env : Env} (m : EnvModel V env) : Prop :=
   ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
     ((∃ hint : ReducibilityHint,
         ConstantInfo.defnInfo cv value hint ∈ env.consts) ∨
@@ -379,7 +379,7 @@ reduct annotating, and this quarter reduces the head of an application
 before it can say anything about the application. -/
 
 /-- The head-normalisation existence factor, P currency. -/
-def WhnfCoreExists (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def WhnfCoreExists (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List AnnotTerm},
     whnfCore μ env fuel d e = .ok e' →
@@ -394,7 +394,7 @@ def WhnfCoreExists (μ : CheckMode) {env : Env} (m : EnvModel V env)
 /-- The inference existence factor, P currency — what the β
 certificate needs and `InferClaim`, being dual success, does not
 give. -/
-def InferExists (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def InferExists (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AnnotTerm},
     inferTypeCore μ env fuel d e = .ok t →
@@ -407,7 +407,7 @@ def InferExists (μ : CheckMode) {env : Env} (m : EnvModel V env)
 
 /-- `InferExists` at the io slot (task #172 B4): the totality factor
 for a converted call site's inferred type. -/
-def InferExistsIOS (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def InferExistsIOS (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List AnnotTerm},
     ConLeche.inferTypeIO μ env fuel d e = .ok t →

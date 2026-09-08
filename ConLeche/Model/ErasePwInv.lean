@@ -1,9 +1,9 @@
 module
 
 public import ConLeche.Semantics.EraseInv
-public import ConLeche.Verify.Denote -- shake: keep (the `open ConLeche.Term` below; task #223)
+import ConLeche.Verify.Denote -- shake: keep (the `open ConLeche.Term` below; task #223)
 
-@[expose] public section
+public section
 
 /-!
 # The `erasePw` head inversions (task #161)

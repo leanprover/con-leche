@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.IndPinGrade
 public import ConLeche.Model.IndPlainParam
-
-@[expose] public section
+public section
 
 /-!
 # The `.nested` fire's parameter supply (task #161, IND TIER part 8)

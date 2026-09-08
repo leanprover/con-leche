@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Extend.Modeled
 
-@[expose] public section
+public section
 
 /-!
 # Proj — the `V`-free half of `ConLeche.ModelV1.Extend.Proj`

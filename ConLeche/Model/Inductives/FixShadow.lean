@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixData
 public import ConLeche.Model.Inductives.FixNoBVar
-
-@[expose] public section
+public section
 
 /-!
 # The shadow context: a recursive constructor's entries graded off the
@@ -40,7 +39,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 /-! ## The shadow context -/
 
 /-- Binder `b` (the parameters first) is a recursive field. -/
-def recAt (nP : Nat) (ks : List RecFieldKind) (b : Nat) : Prop :=
+@[expose] def recAt (nP : Nat) (ks : List RecFieldKind) (b : Nat) : Prop :=
   nP ≤ b ∧ (ks.getD (b - nP) .ordinary = .recursive ∨ ks.getD (b - nP) .ordinary = .reflexive)
 
 instance (nP : Nat) (ks : List RecFieldKind) (b : Nat) : Decidable (recAt nP ks b) :=

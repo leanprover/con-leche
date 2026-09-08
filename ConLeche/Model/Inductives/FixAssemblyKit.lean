@@ -5,8 +5,7 @@ public import ConLeche.Model.Inductives.FixStageFormer
 public import ConLeche.Model.Inductives.FixCtorsLoop
 public import ConLeche.Model.Inductives.FixCtorCross
 public import ConLeche.Model.Inductives.FixWitness
-
-@[expose] public section
+public section
 
 /-!
 # Kit for the direct recursive install's assembly (task #188)

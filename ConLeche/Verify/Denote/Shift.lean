@@ -5,7 +5,7 @@ public import ConLeche.Verify.Denote.VClosed
 public import ConLeche.Verify.Shift
 public import ConLeche.Verify.Abstract
 
-@[expose] public section
+public section
 
 /-!
 # Depth shifting

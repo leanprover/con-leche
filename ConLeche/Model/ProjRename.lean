@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.IndRecs
 public import ConLeche.Semantics.ProjPhase
-
-@[expose] public section
+public section
 
 /-!
 # The projection phase's renaming and valuation invariant, P tier
@@ -39,7 +38,7 @@ variable {V : Type w} [SetTheory V]
 parent type, the constructor and every installed projection function
 carry their model artifact's *leaf*.  `ProjPhaseInvS`'s third
 component, one currency over; the lookups stay in the v1 predicate. -/
-def ProjPhaseAcval (T ctorName : Name) (nF : Nat) (env' : Env)
+@[expose] def ProjPhaseAcval (T ctorName : Name) (nF : Nat) (env' : Env)
     (acval : Name → (Name → Nat) → AnnotTerm) : Prop :=
   ((env'.find? T).isSome = true →
     ∀ ψ : Name → Nat, acval T ψ = acval (T.str "_model") ψ) ∧

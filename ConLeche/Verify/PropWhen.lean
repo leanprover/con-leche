@@ -6,9 +6,10 @@ public import ConLeche.Verify.Level
 not `@[expose]`d, so a `cases`-then-`rfl` proof about a datum cannot
 see the reduct.  `import all` gives that view HERE only; nothing this
 module exports depends on it. -/
+public import ConLeche.Kernel.PropWhen
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The zero-ness datum against `Level` (task #161)

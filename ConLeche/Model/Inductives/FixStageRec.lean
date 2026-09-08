@@ -4,8 +4,7 @@ public import ConLeche.Model.Inductives.FixRuleData
 public import ConLeche.Model.Inductives.FixRuleOk
 public import ConLeche.Model.Inductives.FixRecLeaf
 public import ConLeche.Semantics.Tower.FixWire
-
-@[expose] public section
+public section
 
 /-!
 # The recursive recursor's stage, part 1: the rule law (task #188)
@@ -35,21 +34,21 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 /-! ## The semantic data of a block -/
 
 /-- The constructors' field lists. -/
-def fssOfR (nP : Nat) (cds : List CtorDatumR) : List (List AnnotTerm) :=
+@[expose] def fssOfR (nP : Nat) (cds : List CtorDatumR) : List (List AnnotTerm) :=
   cds.map fun cd => (cd.2.2.1.drop nP).map (·.2.2)
 
 /-- The constructors' index readings. -/
-def essOfR (cds : List CtorDatumR) : List (List AnnotTerm) := cds.map fun cd => cd.2.2.2.1
+@[expose] def essOfR (cds : List CtorDatumR) : List (List AnnotTerm) := cds.map fun cd => cd.2.2.2.1
 
 /-- The constructors' per-field index expressions. -/
-def eissOfR (cds : List CtorDatumR) : List (List (List AnnotTerm)) := cds.map fun cd => cd.2.2.2.2.2.1
+@[expose] def eissOfR (cds : List CtorDatumR) : List (List (List AnnotTerm)) := cds.map fun cd => cd.2.2.2.2.2.1
 
 /-- The per-constructor telescopes (task #202). -/
-def tlssOfR (cds : List CtorDatumR) : List (List (List (Nat × Nat × AnnotTerm))) :=
+@[expose] def tlssOfR (cds : List CtorDatumR) : List (List (List (Nat × Nat × AnnotTerm))) :=
   cds.map fun cd => cd.2.2.2.2.2.2
 
 /-- The recursive flags of the first `n` constructors. -/
-def rssOfK (ksF : Nat → List RecFieldKind) (n : Nat) : List (List Bool) :=
+@[expose] def rssOfK (ksF : Nat → List RecFieldKind) (n : Nat) : List (List Bool) :=
   (List.range n).map fun j => rsOf (ksF j)
 
 omit [SetTheory V] in
@@ -116,7 +115,7 @@ theorem fixRuleDataAV_map_dom {m : EnvModel V env} {T : Name} {ψ : Name → Nat
 /-! ## The recursor leaf -/
 
 /-- The restriction of an assignment to a level-parameter list. -/
-def restrictΨ (lps : List Name) (ψ : Name → Nat) : Name → Nat :=
+@[expose] def restrictΨ (lps : List Name) (ψ : Name → Nat) : Name → Nat :=
   fun q => if q ∈ lps then ψ q else 0
 
 omit [SetTheory V] in
@@ -137,7 +136,7 @@ theorem restrictΨ_congr {lps : List Name} {ψ₁ ψ₂ : Name → Nat}
 /-- The recursor leaf's sort: the kernel's inferred sort at the
 restricted assignment, floored at one at a nonzero elimination level,
 zero at a zero one. -/
-def fixSortAV (elimL : Level) (u : Level) (lps : List Name) (ψ : Name → Nat) : Nat :=
+@[expose] def fixSortAV (elimL : Level) (u : Level) (lps : List Name) (ψ : Name → Nat) : Nat :=
   if elimL.eval ψ = 0 then 0 else max 1 (u.eval (restrictΨ lps ψ))
 
 omit [SetTheory V] in
@@ -517,7 +516,7 @@ theorem fieldsBoundSrc_at {ρ : Nat → V} :
 /-! ## The stage -/
 
 /-- The recursor leaf of a recursive block at an assignment. -/
-def fixLeafAV {env : Env} (m : EnvModel V env) (p : NativeParts)
+@[expose] def fixLeafAV {env : Env} (m : EnvModel V env) (p : NativeParts)
     (ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm) (ksF : Nat → List RecFieldKind)

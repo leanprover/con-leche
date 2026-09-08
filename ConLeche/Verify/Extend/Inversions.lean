@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.Checker
 
-@[expose] public section
+public section
 
 /-!
 # Inversions — split out of `ConLeche.ModelV1.Extend`

@@ -153,17 +153,17 @@ def eqRecRule : RecRule :=
 
 /-- The stored declaration, with its rule named. -/
 theorem quotIndA_eq :
-    quotIndA = .recInfo quotIndA.toConstantVal 4 4 [quotIndRule] := rfl
+    quotIndA = .recInfo quotIndA.toConstantVal 4 4 [quotIndRule] := by rfl
 
 
 theorem quotLiftA_eq :
-    quotLiftA = .recInfo quotLiftA.toConstantVal 5 5 [quotLiftRule] :=
+    quotLiftA = .recInfo quotLiftA.toConstantVal 5 5 [quotLiftRule] := by
       rfl
 
 
 /-- The stored declaration, with its rule named. -/
 theorem eqRecA_eq :
-    eqRecA = .recInfo eqRecA.toConstantVal 5 4 [eqRecRule] := rfl
+    eqRecA = .recInfo eqRecA.toConstantVal 5 4 [eqRecRule] := by rfl
 
 
 end ConLeche.Semantics

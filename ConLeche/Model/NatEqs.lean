@@ -5,7 +5,7 @@ public import ConLeche.Model.Steps.Nat
 public import ConLeche.Semantics.NatFrag
 public import ConLeche.Semantics.DeclRun
 
-@[expose] public section
+public section
 
 /-!
 # The structural-`Nat` recurrences, established at `interp` from run

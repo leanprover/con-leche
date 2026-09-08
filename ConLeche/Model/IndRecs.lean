@@ -5,8 +5,7 @@ public import ConLeche.Semantics.IndRecsCore
 public import ConLeche.Model.Swap
 public import ConLeche.Model.IndMembers
 public import ConLeche.Model.Capstone
-
-@[expose] public section
+public section
 
 /-!
 # The recursor-group phase, P tier (task #161, IND TIER part 10)

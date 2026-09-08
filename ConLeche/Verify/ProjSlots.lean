@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Abstract
 
-@[expose] public section
+public section
 
 /-!
 # Projection nodes and their table slots (task #175 wiring, W4c S6)
@@ -38,7 +38,7 @@ open ConLeche.Expr
 /-! ## `NoProjAt` -/
 
 /-- No `.proj T i` node, hereditarily (through fvar types). -/
-def Expr.NoProjAt (T : Name) (i : Nat) : Expr → Prop
+@[expose] def Expr.NoProjAt (T : Name) (i : Nat) : Expr → Prop
   | .proj s j e => ¬ (s = T ∧ j = i) ∧ NoProjAt T i e
   | .app f a => NoProjAt T i f ∧ NoProjAt T i a
   | .lam ty b _ => NoProjAt T i ty ∧ NoProjAt T i b

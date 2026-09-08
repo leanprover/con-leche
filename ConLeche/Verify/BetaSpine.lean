@@ -6,7 +6,7 @@ public import ConLeche.Verify.Knot
 public import ConLeche.Verify.InstList
 public import ConLeche.Verify.InferLemmas
 
-@[expose] public section
+public section
 
 /-!
 # Bulk beta: the spine loop and its identification with `whnfCoreBody`
@@ -74,13 +74,13 @@ theorem whnfCoreBody_app (r : CoreFns m) (env : Env) (depth : Nat)
     (f a : Expr) :
     whnfCoreBody mode r env depth (.app f a)
       = r.whnfCore depth f >>= fun w =>
-          appStep mode r env depth (r.whnfCore depth) w a := rfl
+          appStep mode r env depth (r.whnfCore depth) w a := by rfl
 
 mutual
 
 /-- Pure mirror of the interned bulk-beta loop `whnfAppI`: consume the
 spine against the whnf'd head. -/
-def whnfApp (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+@[expose] def whnfApp (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) :
     Expr → List Expr → m Expr
   | v, [] => pure v
@@ -139,7 +139,7 @@ end
 as a standalone computation: `whnfApp_ne_lam` identifies the loop with
 it, giving every downstream proof a single equation instead of nine
 head shapes. -/
-def whnfAppIota (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+@[expose] def whnfAppIota (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (v a : Expr) (rest : List Expr) : m Expr := do
   match ← iotaRec mode r env depth (.app v a) with
   | some e'' => do
@@ -149,7 +149,7 @@ def whnfAppIota (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
 
 /-- The lambda arm of `whnfApp` (first binder of the peel), as a
 standalone computation. -/
-def whnfAppLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+@[expose] def whnfAppLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
     (ty body : Expr) (mb : BinderMeta) (a : Expr)
     (rest : List Expr) : m Expr := do
@@ -203,7 +203,7 @@ theorem betaPeel_nil (r : CoreFns m) (env : Env) (depth : Nat)
   rw [betaPeel]
 
 /-- The lambda arm of `betaPeel` (peel one more binder). -/
-def betaPeelLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+@[expose] def betaPeelLam (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr)
     (ty body : Expr) (mb : BinderMeta) (acc : List Expr)
     (a : Expr) (rest : List Expr) : m Expr := do
@@ -247,7 +247,7 @@ unchanged. -/
 
 /-- Pure mirror of `whnfCoreStepI`: one head-normalization step with
 the loop's continuation `k` abstracted. -/
-def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
+@[expose] def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) : Expr → m Expr
   | .sort u => pure (.sort u)
   | .fvar idx ty => pure (.fvar idx ty)
@@ -282,7 +282,7 @@ def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
 
 /-- Pure mirror of `whnfCoreLoopI`: iterate `whnfCoreStepM` on the
 step budget. -/
-def whnfCoreLoopM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat) :
+@[expose] def whnfCoreLoopM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat) :
     Nat → Expr → m Expr
   | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
   | n + 1, e => whnfCoreStepM mode r env depth (whnfCoreLoopM mode r env depth n) e
@@ -1245,12 +1245,12 @@ by `inferStep` (stated at `CheckM`, where the do-notation reduces). -/
 theorem inferBody_app_pure (env : Env) (F depth : Nat) (f a : Expr) :
     inferBody mode (pureFns mode env F) env depth (.app f a)
       = (pureFns mode env F).infer depth f >>= fun tf =>
-          inferStep (pureFns mode env F) depth tf a := rfl
+          inferStep (pureFns mode env F) depth tf a := by rfl
 
 /-- Pure mirror of the interned inference spine loop `inferSpineI`:
 `ty` is the raw Π-telescope after the binders consumed so far, `acc`
 their arguments (innermost first). -/
-def inferSpine (r : CoreFns m) (depth : Nat) :
+@[expose] def inferSpine (r : CoreFns m) (depth : Nat) :
     Expr → List Expr → List Expr → m Expr
   | ty, acc, [] => pure (ty.instantiateList acc)
   | ty, acc, a :: rest =>
@@ -1270,7 +1270,7 @@ def inferSpine (r : CoreFns m) (depth : Nat) :
       | _ => throw (.invalid "function expected")
 
 /-- The syntactic-`∀` arm of `inferSpine`. -/
-def inferSpinePi (r : CoreFns m) (depth : Nat) (dom body : Expr)
+@[expose] def inferSpinePi (r : CoreFns m) (depth : Nat) (dom body : Expr)
     (_mt : BinderMeta) (acc : List Expr) (a : Expr) (rest : List Expr) :
     m Expr := do
   let ta ← r.infer depth a
@@ -1279,7 +1279,7 @@ def inferSpinePi (r : CoreFns m) (depth : Nat) (dom body : Expr)
   inferSpine r depth body (a :: acc) rest
 
 /-- The normalize-and-retry arm of `inferSpine`. -/
-def inferSpineWhnf (r : CoreFns m) (depth : Nat) (ty : Expr)
+@[expose] def inferSpineWhnf (r : CoreFns m) (depth : Nat) (ty : Expr)
     (acc : List Expr) (a : Expr) (rest : List Expr) : m Expr := do
   match ← r.whnf depth (ty.instantiateList acc) with
   | .forallE dom body _mt => do
@@ -1642,7 +1642,7 @@ def inferStepIO (r : CoreFns m) (depth : Nat)
 /-- The io-grade spine mirror (the cached `inferSpineIOI`'s pure
 twin): per-argument certificate skipped at a `.never` binder, on the
 datum alone. -/
-def inferSpineIO (r : CoreFns m) (depth : Nat) :
+@[expose] def inferSpineIO (r : CoreFns m) (depth : Nat) :
     Expr → List Expr → List Expr → m Expr
   | ty, acc, [] => pure (ty.instantiateList acc)
   | ty, acc, a :: rest =>
@@ -1668,7 +1668,7 @@ def inferSpineIO (r : CoreFns m) (depth : Nat) :
       | _ => throw (.invalid "function expected")
 
 /-- The syntactic-`∀` arm of `inferSpineIO`. -/
-def inferSpineIOPi (r : CoreFns m) (depth : Nat)
+@[expose] def inferSpineIOPi (r : CoreFns m) (depth : Nat)
     (dom body : Expr) (mt : BinderMeta) (acc : List Expr) (a : Expr)
     (rest : List Expr) : m Expr :=
   if mt.pw.isNever then
@@ -1680,7 +1680,7 @@ def inferSpineIOPi (r : CoreFns m) (depth : Nat)
     else throw (.invalid "application type mismatch")
 
 /-- The normalize-and-retry arm of `inferSpineIO`. -/
-def inferSpineIOWhnf (r : CoreFns m) (depth : Nat)
+@[expose] def inferSpineIOWhnf (r : CoreFns m) (depth : Nat)
     (ty : Expr) (acc : List Expr) (a : Expr) (rest : List Expr) :
     m Expr := do
   match ← r.whnf depth (ty.instantiateList acc) with
@@ -1803,13 +1803,13 @@ theorem inferBodyIO_app_pure (env : Env) (F depth : Nat) (f a : Expr) :
         (.app f a)
       = (pureFns mode env F).inferIO depth f >>= fun tf =>
           inferStepIO (CoreFns.ioView (pureFns mode env F)) depth
-            tf a := rfl
+            tf a := by rfl
 
 /-- The io mirrors read only `whnf`, `inferIO` and `defeq`, none of
 which the io-grade view touches, so the view is transparent to them. -/
 theorem inferStepIO_ioView (F d : Nat) (tf a : Expr) :
     inferStepIO (CoreFns.ioView (pureFns mode env F)) d tf a
-      = inferStepIO (pureFns mode env F) d tf a := rfl
+      = inferStepIO (pureFns mode env F) d tf a := by rfl
 
 end InferIOAtF
 

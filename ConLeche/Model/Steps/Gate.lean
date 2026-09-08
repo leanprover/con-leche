@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Steps.Whnf
 
-@[expose] public section
+public section
 
 /-!
 # The β-gate's license, at the P currency (task #161, S12)

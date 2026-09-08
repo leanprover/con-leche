@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Fueled
 public import ConLeche.Kernel.Checker
 
-@[expose] public section
+public section
 
 /-!
 # The cache-refinement bridge, part C: the declaration checker
@@ -90,7 +90,7 @@ def pairOps {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
   whnf env d e := ⟨(o₁.whnf env d e, o₂.whnf env d e), h.2.2.2.2 env d e⟩
 
 /-- The fueled operations as monotone families. -/
-def fueledOpsM (mode : CheckMode) : CheckerOps FueledM where
+@[expose] def fueledOpsM (mode : CheckMode) : CheckerOps FueledM where
   annotate env d e :=
     ⟨fun F => annotateCore mode env F d e, fun hle h => annotateCore_mono hle h⟩
   inferType env d e :=
@@ -247,7 +247,7 @@ theorem checkProjShape_datF (pty cty : Expr) (nP nF : Nat) (F : Nat) :
 theorem fueledOpsM_isDefEq_atF (env : Env) (d : Nat) (a b : Expr)
     (F : Nat) :
     ((fueledOpsM mode).isDefEq env d a b).val F =
-      (fueledOps mode F).isDefEq env d a b := rfl
+      (fueledOps mode F).isDefEq env d a b := by rfl
 
 theorem unwrapOr_atF {α : Type} (o : Option α) (e : CheckError)
     (F : Nat) :
@@ -269,7 +269,7 @@ theorem checkDefEqList_datF (env : Env) (depth F : Nat) :
 theorem fueledOpsM_inferType_atF (env : Env) (d : Nat) (a : Expr)
     (F : Nat) :
     ((fueledOpsM mode).inferType env d a).val F =
-      (fueledOps mode F).inferType env d a := rfl
+      (fueledOps mode F).inferType env d a := by rfl
 
 theorem checkTypedList_datF (env : Env) (depth F : Nat) :
     ∀ (as bs : List Expr),
@@ -287,7 +287,7 @@ theorem checkTypedList_datF (env : Env) (depth F : Nat) :
 theorem fueledOpsM_annotate_atF' (env : Env) (d : Nat) (a : Expr)
     (F : Nat) :
     ((fueledOpsM mode).annotate env d a).val F =
-      (fueledOps mode F).annotate env d a := rfl
+      (fueledOps mode F).annotate env d a := by rfl
 
 theorem checkAnnotList_datF (env : Env) (depth F : Nat) :
     ∀ (as : List Expr),
@@ -513,12 +513,12 @@ theorem installBasisDecl_datF (env : Env) (ci : ConstantInfo) (F : Nat) :
 theorem fueledOpsM_annotate_atF (env : Env) (d : Nat) (a : Expr)
     (F : Nat) :
     ((fueledOpsM mode).annotate env d a).val F =
-      (fueledOps mode F).annotate env d a := rfl
+      (fueledOps mode F).annotate env d a := by rfl
 
 theorem fueledOpsM_ensureSort_atF (env : Env) (d : Nat) (a : Expr)
     (F : Nat) :
     ((fueledOpsM mode).ensureSort env d a).val F =
-      (fueledOps mode F).ensureSort env d a := rfl
+      (fueledOps mode F).ensureSort env d a := by rfl
 
 theorem checkStructDomsAt_datF (env : Env) (off : Nat)
     (fvs doms : List Expr) (F : Nat) :
@@ -544,7 +544,7 @@ theorem checkStructProjTable_datF (T C : Name) (lps : List Name)
 /-! ### The direct sum route (task #175 sum-types) -/
 
 theorem fueledOpsM_whnf_atF (env : Env) (d : Nat) (a : Expr) (F : Nat) :
-    ((fueledOpsM mode).whnf env d a).val F = (fueledOps mode F).whnf env d a := rfl
+    ((fueledOpsM mode).whnf env d a).val F = (fueledOps mode F).whnf env d a := by rfl
 
 /-- Official's telescope loop (task #195) at fuel `F`. -/
 theorem whnfTelescope_datF (env : Env) (F : Nat) :

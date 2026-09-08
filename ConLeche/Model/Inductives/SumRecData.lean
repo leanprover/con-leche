@@ -3,8 +3,7 @@ module
 public import ConLeche.Model.Inductives.SumRecRead
 public import ConLeche.Model.Inductives.SumData
 public import ConLeche.Model.Inductives.StructStageCtor
-
-@[expose] public section
+public section
 
 /-!
 # The sum recursor's data (task #175 sum-types, indexed)
@@ -34,7 +33,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 /-! ## The constructors' data, positionally -/
 
 /-- The constructor data list from position-indexed data functions. -/
-def ctorDataList (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+@[expose] def ctorDataList (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm) (ψ : Name → Nat) :
     List (ConstantVal × Nat) → Nat → List CtorDatum
   | [], _ => []
@@ -74,7 +73,7 @@ theorem ctorDataList_params {dsF : Nat → (Name → Nat) → List (Nat × Nat �
 
 /-- What the readings need of every constructor at its position:
 stored, at the block's level parameters, and its data. -/
-def CtorFactsAt {env : Env} (m : EnvModel V env) (T : Name) (lps : List Name) (nP nIdx : Nat)
+@[expose] def CtorFactsAt {env : Env} (m : EnvModel V env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (resSort : Level) (isProp large : Bool) (idxF : Nat → List Expr)
     (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))

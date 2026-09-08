@@ -3,7 +3,7 @@ module
 public import ConLeche.Kernel.ExprOps
 public import ConLeche.Verify.Shift
 
-@[expose] public section
+public section
 
 /-!
 # Bulk abstraction equals the `abstract1` fold (task #72)

@@ -5,7 +5,7 @@ public import ConLeche.Kernel.Env
 public import ConLeche.Kernel.ExprOps
 public import ConLeche.Kernel.Level
 
-@[expose] public section
+public section
 
 /-!
 # Environment well-formedness
@@ -105,7 +105,7 @@ theorem Env.findProj?_off_eq {env : Env} {T : Name} {i j : Nat} {e e' : ProjEntr
 @[simp] theorem ProjTable.entry_off (tbl : ProjTable) (i : Nat) :
     (tbl.entry i).off = tbl.off := rfl
 /-- Syntactic well-formedness of one stored constant w.r.t. `env`. -/
-def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
+@[expose] def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
   c.toConstantVal.type.hasFvar = false ∧
   c.toConstantVal.type.allLevelParamsDefined c.toConstantVal.levelParams = true ∧
   c.toConstantVal.type.constsResolve env = true ∧
@@ -162,7 +162,7 @@ def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
       b.looseBVarsBounded (tbl.numParams + 1) = true)
 
 /-- Every stored constant is syntactically well-formed. -/
-def EnvWF (env : Env) : Prop := ∀ c ∈ env.consts, ConstWF env c
+@[expose] def EnvWF (env : Env) : Prop := ∀ c ∈ env.consts, ConstWF env c
 
 /-- `find?` on a cons. -/
 theorem Env.find?_cons {c : ConstantInfo} {env : Env} {n : Name} :

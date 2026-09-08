@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Denote.Inst
 
-@[expose] public section
+public section
 
 /-!
 # Denoted application spines

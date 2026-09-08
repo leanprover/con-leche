@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Denote.Shift
 public import ConLeche.Verify.Subst
 
-@[expose] public section
+public section
 
 /-!
 # Denotation commutes with instantiation

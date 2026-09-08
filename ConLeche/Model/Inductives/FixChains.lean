@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.FixShadow
 public import ConLeche.Semantics.Tower.FixFamI
-
-@[expose] public section
+public section
 
 /-!
 # The X-chains, graded at every family (task #188)
@@ -38,7 +37,7 @@ variable {V : Type w'} [SetTheory V]
 /-! ## Kit -/
 
 /-- The recursive positions as the functor's Bool list. -/
-def rsOf (ks : List RecFieldKind) : List Bool := ks.map fun k => decide (k = .recursive ∨ k = .reflexive)
+@[expose] def rsOf (ks : List RecFieldKind) : List Bool := ks.map fun k => decide (k = .recursive ∨ k = .reflexive)
 
 omit [SetTheory V] in
 theorem rsOf_getD {ks : List RecFieldKind} {i : Nat} (hi : i < ks.length) :
@@ -143,7 +142,7 @@ theorem shadowVal_mem : (shadowVal : V) ∈ˢ (univ 0 : V) := truthVal_mem_univ 
 
 /-- The shadow spine tracks the X-chain's spine off the recursive
 slots. -/
-def ShadowRel (nP : Nat) (ks : List RecFieldKind) (as as' : List V) : Prop :=
+@[expose] def ShadowRel (nP : Nat) (ks : List RecFieldKind) (as as' : List V) : Prop :=
   as'.length = as.length ∧
   ∀ l, l < as.length → ¬ recAt nP ks (nP + l) → as'.getD l pt = as.getD l pt
 

@@ -6,7 +6,7 @@ public import ConLeche.Model.Annot.BitConsCross
 public import ConLeche.Semantics.ConstsBound
 public import ConLeche.Verify.Extend.Sibs
 
-@[expose] public section
+public section
 
 /-!
 # The P declaration step (task #161, P4 — the fold's species)
@@ -246,7 +246,7 @@ theorem ConsHead.ofFresh {c₀ : ConstantInfo}
 /-- **The de-based core at a fresh cons** — `coreOfBase`'s successor
 (task #161 S7).  Every field is the prefix's own, stepped by the
 head's obligation; nothing of the collapsed model is consulted. -/
-def coreCons (m : EnvModel V env) {c₀ : ConstantInfo}
+@[expose] def coreCons (m : EnvModel V env) {c₀ : ConstantInfo}
     (A : (Name → Nat) → AnnotTerm)
     (hfresh : env.find? c₀.name = none)
     (hh : ConsHead env c₀ A)

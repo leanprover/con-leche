@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Denote
 public import ConLeche.Verify.InstLevels
 
-@[expose] public section
+public section
 
 /-!
 # The denotation and level parameters

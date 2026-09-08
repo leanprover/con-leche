@@ -7,7 +7,7 @@ public import ConLeche.Model.BasisEmpty
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 
-@[expose] public section
+public section
 
 /-!
 # The `False` block, P tier (task #181)

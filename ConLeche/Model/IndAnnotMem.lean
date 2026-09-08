@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.IndAnnotKit
-
-@[expose] public section
+public section
 
 /-!
 # The transport's layer memberships (task #161, IND TIER part 5)
