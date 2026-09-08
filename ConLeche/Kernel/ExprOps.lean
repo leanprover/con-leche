@@ -1730,6 +1730,94 @@ def looseBVarsBoundedFast (k : Nat) (e : Expr) : Bool := decide (e.bvarB ≤ k)
     | true => exact absurd (looseBVarsBounded_iff.mp hb) h
 
 
+/-! ### `abstract1` reads the fvar-range field (task #226)
+
+`abstract1` closes a binder body by turning `fvar d` leaves into
+`bvar k`, and it rebuilds every node on the way — so on a
+DAG-shared term it is `O(tree)`.  It is the walk the native install
+route runs per binder (`closeTelescope`, `normPosDom` in
+`Kernel/Inductives/SumInstall.lean`), and
+`tests/e2e/tower_proj.ndjson` — a two-field structure whose field
+types carry a depth-60 shared tower — exhausts memory on it.
+
+The remedy is the ONE the packed range fields already license (task
+#210 Part B, and the cached twin `Cached.abstract1` has had it all
+along): **a node whose fvar range is at or below `d` contains no
+`fvar d`, so abstraction returns it unchanged.**  Every closed
+subterm — which is what a shared tower is — is answered by an `O(1)`
+field read.  `abstract1_of_fvarRange_le` is the identity, `fvarB_eq`
+says the field is the range, and `@[csimp]` swaps the guarded walk in
+for the pure one: kernel-checked, no trust point, and the pure
+definition stays the one every proof consumes. -/
+
+/-- Abstraction at or above the fvar range is the identity. -/
+theorem abstract1_of_fvarRange_le :
+    ∀ (e : Expr) (d k : Nat), e.fvarRange ≤ d → abstract1 e d k = e := by
+  intro e
+  induction e <;> intro d k h <;>
+    simp_all [abstract1, Expr.fvarRange, Nat.max_le] <;> omega
+
+/-- The executed `abstract1`: the fvar-range field read cuts the walk
+off at every node that cannot contain `fvar d`. -/
+def abstract1Fast (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
+  if e.fvarB ≤ d then e else
+  match e with
+  | .fvar idx ty => if idx = d then .bvar k else .fvar idx ty
+  | .app f a => .app (abstract1Fast f d k) (abstract1Fast a d k)
+  | .lam ty body m => .lam (abstract1Fast ty d k) (abstract1Fast body d (k + 1)) m
+  | .forallE ty body m =>
+    .forallE (abstract1Fast ty d k) (abstract1Fast body d (k + 1)) m
+  | .letE ty val body =>
+    .letE (abstract1Fast ty d k) (abstract1Fast val d k)
+      (abstract1Fast body d (k + 1))
+  | .proj s i sub => .proj s i (abstract1Fast sub d k)
+  | e => e
+
+@[csimp] theorem abstract1_eq_abstract1Fast :
+    @abstract1 = @abstract1Fast := by
+  funext e d k
+  induction e generalizing k with
+  | bvar i => simp [abstract1Fast, abstract1]
+  | sort u => simp [abstract1Fast, abstract1]
+  | const n us => simp [abstract1Fast, abstract1]
+  | lit l => simp [abstract1Fast, abstract1]
+  | fvar i ty _ =>
+    rw [abstract1Fast]
+    split
+    · rename_i h
+      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
+    · rfl
+  | app f a ihf iha =>
+    rw [abstract1Fast]
+    split
+    · rename_i h
+      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
+    · simp [abstract1, ihf, iha]
+  | lam ty body m iht ihb =>
+    rw [abstract1Fast]
+    split
+    · rename_i h
+      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
+    · simp [abstract1, iht, ihb]
+  | forallE ty body m iht ihb =>
+    rw [abstract1Fast]
+    split
+    · rename_i h
+      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
+    · simp [abstract1, iht, ihb]
+  | letE ty val body iht ihv ihb =>
+    rw [abstract1Fast]
+    split
+    · rename_i h
+      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
+    · simp [abstract1, iht, ihv, ihb]
+  | proj sn i sub ih =>
+    rw [abstract1Fast]
+    split
+    · rename_i h
+      exact abstract1_of_fvarRange_le _ d k (by rwa [← fvarB_eq])
+    · simp [abstract1, ih]
+
 /-! ## Pointer-equality shortcut -/
 
 /-- Structural expression equality with a physical-equality shortcut

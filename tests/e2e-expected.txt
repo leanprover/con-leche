@@ -1130,12 +1130,13 @@
 1 let_bad_thm.ndjson
 1 let_bad_value_used.ndjson
 # The DAG-tower fixtures (task #215; scripts/mk_tower_fixtures.py) and
-# the two fixtures the retired tree-size budget left behind.  With the
-# budget gone all of these are plain accepts; what they gate is that the
-# frontend's walks stay DAG-safe, since an unmemoized one does not
-# finish on a depth-60 tower.  The per-kind matrix that does NOT pass
-# yet (axiom, quotient, prelude-named, inductive) is in DESIGN's #215
-# record, with the walker each one exposes.
+# the two fixtures the retired tree-size budget left behind.  Each puts
+# a shared tower of depth 60 (about 2^60 nodes unshared, ~190 entries as
+# a DAG) into ONE record kind; what they gate is that every walk the
+# frontend and the install run stays DAG-safe, since an unmemoized one
+# does not finish on such a tower.  Task #226 completed the per-kind
+# matrix: the accepting kinds below, and the four DECLINING ones after
+# them, whose verdict has to be reached WITHOUT walking the tower.
 0 budget_model.ndjson
 0 budget_block.ndjson
 0 tower_thm.ndjson
@@ -1148,3 +1149,35 @@
 # `hasFvar`) and the constant walks go through `constsResolveFC`
 # (JZero P3).
 0 tower_struct.ndjson
+# tower_proj (task #226): the tower in the field types of a TWO-field
+# structure, so the projection bodies substitute `T.field_0` into a
+# telescope that carries it (`structProjBodies`).  Exposed the pure
+# `Expr.abstract1` of `closeTelescope` (`Kernel/Inductives/SumInstall.lean`),
+# which rebuilt every node; it reads the fvar-range field now
+# (`abstract1Fast`, `@[csimp]`, `Kernel/ExprOps.lean`).
+0 tower_proj.ndjson
+# The four DECLINING tower kinds (task #226).  Each reaches its verdict
+# through a comparison against a pinned or built-in shape, and each of
+# those comparisons is a LOCKSTEP one: it descends both terms together
+# and stops at the first disagreement, so the work is bounded by the
+# pin, not by the stream (`Frontend/Export.lean`, `Kernel/StdAxioms.lean`).
+# tower_axiom: `Quot.sound` with a tower type -> divergent quotient pin
+# (`ConstantInfo.canonEq`).
+2 tower_axiom.ndjson
+# tower_quot: a `quot` record for `Quot` with a tower type -> divergent
+# quotient pin (`ConstantVal.canonEq`).
+2 tower_quot.ndjson
+# tower_prelude: an inductive block named `Bool` with a tower in its
+# constructor field -> differs from the built-in prelude's `Bool`
+# (`DeclC.sameCanon` through `canonEqList`).
+2 tower_prelude.ndjson
+# tower_axiom_pin: `propext` with a tower type, over a standardly-shaped
+# stored `Iff` family (the only shape that reaches the pin comparison at
+# all) -> divergent standard-axiom pin (`ConstantVal.matchesPin` through
+# `Expr.erasePwEq`).
+2 tower_axiom_pin.ndjson
+# tower_axiom_nonstd: the same tower under a NON-pinned axiom name ->
+# the positive "non-standard axiom" decline, on the name alone.  No pin
+# comparison is reached; what this one gates is the annotation pass,
+# which does check the tower type.
+2 tower_axiom_nonstd.ndjson

@@ -96,15 +96,15 @@ theorem body_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
     · rw [fixRecBodyAVI_pos hw]
       have hcase := caseRec_factsI hw hKI.hyp
         (fun D' j' σ' hfr' hj' => FixKI.ihArgsOk_tele hKI hw hfr' hj') Fss.length (D := 1) (j := 0)
-        (σ := cons t (consList as (cons r ρb))) (k := .proj 0 (.bvar 0)) hfr (Nat.zero_add _)
-      have hok0 := major_proj_wellDenoted hw hKI.hyp.hok (σ := cons t (consList as (cons r ρb))) ht' (i := 0) (by omega)
-      have hok1 := major_proj_wellDenoted hw hKI.hyp.hok (σ := cons t (consList as (cons r ρb))) ht' (i := 1) (by omega)
+        (σ := cons t (consList as (cons r ρb))) (k := .fst (.bvar 0)) hfr (Nat.zero_add _)
+      have hok0 := major_fst_wellDenoted hw hKI.hyp.hok (σ := cons t (consList as (cons r ρb))) ht'
+      have hok1 := major_snd_wellDenoted hw hKI.hyp.hok (σ := cons t (consList as (cons r ρb))) ht'
       obtain ⟨i, a, ha, hta⟩ := sumSet_elim hw ht'
-      have htag : interp V (cons t (consList as (cons r ρb))) (.proj 0 (.bvar 0)) = vnat i := by
-        rw [interp_proj, if_pos rfl, interp_bvar, cons_zero, hta, sfst_inj]
-      have hpay : interp V (cons t (consList as (cons r ρb))) (.proj 1 (.bvar 0)) = a := by
-        rw [interp_proj, if_neg Nat.one_ne_zero, interp_bvar, cons_zero, hta, ssnd_inj]
-      have hkω : interp V (cons t (consList as (cons r ρb))) (.proj 0 (.bvar 0)) ∈ˢ (omega : V) := by
+      have htag : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) = vnat i := by
+        rw [interp_fst, interp_bvar, cons_zero, hta, sfst_inj]
+      have hpay : interp V (cons t (consList as (cons r ρb))) (.snd (.bvar 0)) = a := by
+        rw [interp_snd, interp_bvar, cons_zero, hta, ssnd_inj]
+      have hkω : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) ∈ˢ (omega : V) := by
         rw [htag]; exact vnat_mem_omega i
       obtain ⟨hmem, -⟩ := hcase.1 hkω
       rw [htag, motSem_vnat, Nat.zero_add] at hmem
@@ -127,13 +127,13 @@ theorem body_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds
     · rw [fixRecBodyAVI_pos hw]
       have hcase := caseRec_factsI hw hKI.hyp
         (fun D' j' σ' hfr' hj' => FixKI.ihArgsOk_tele hKI hw hfr' hj') Fss.length (D := 1) (j := 0)
-        (σ := cons t (consList as (cons r ρb))) (k := .proj 0 (.bvar 0)) hfr (Nat.zero_add _)
+        (σ := cons t (consList as (cons r ρb))) (k := .fst (.bvar 0)) hfr (Nat.zero_add _)
       obtain ⟨i, a, ha, hta⟩ := sumSet_elim hw ht'
-      have htag : interp V (cons t (consList as (cons r ρb))) (.proj 0 (.bvar 0)) = vnat i := by
-        rw [interp_proj, if_pos rfl, interp_bvar, cons_zero, hta, sfst_inj]
-      have hpay : interp V (cons t (consList as (cons r ρb))) (.proj 1 (.bvar 0)) = a := by
-        rw [interp_proj, if_neg Nat.one_ne_zero, interp_bvar, cons_zero, hta, ssnd_inj]
-      have hkω : interp V (cons t (consList as (cons r ρb))) (.proj 0 (.bvar 0)) ∈ˢ (omega : V) := by
+      have htag : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) = vnat i := by
+        rw [interp_fst, interp_bvar, cons_zero, hta, sfst_inj]
+      have hpay : interp V (cons t (consList as (cons r ρb))) (.snd (.bvar 0)) = a := by
+        rw [interp_snd, interp_bvar, cons_zero, hta, ssnd_inj]
+      have hkω : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) ∈ˢ (omega : V) := by
         rw [htag]; exact vnat_mem_omega i
       obtain ⟨hmem, -⟩ := hcase.1 hkω
       rw [htag, motSem_vnat, Nat.zero_add] at hmem
@@ -251,12 +251,12 @@ theorem body_iota (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eiss rds 
   rw [fixRecBodyAVI_pos hw]
   have hcase := caseRec_factsI hw hKI.hyp
     (fun D' j' σ' hfr' hj' => FixKI.ihArgsOk_tele hKI hw hfr' hj') Fss.length (D := 1) (j := 0)
-    (σ := cons t (consList as (cons r ρb))) (k := .proj 0 (.bvar 0)) hfr (Nat.zero_add _)
-  have htag : interp V (cons t (consList as (cons r ρb))) (.proj 0 (.bvar 0)) = vnat j := by
-    rw [interp_proj, if_pos rfl, interp_bvar, cons_zero, hmaj, sfst_inj]
-  have hpay : interp V (cons t (consList as (cons r ρb))) (.proj 1 (.bvar 0)) = mkTower (fs ++ [pt]) := by
-    rw [interp_proj, if_neg Nat.one_ne_zero, interp_bvar, cons_zero, hmaj, ssnd_inj]
-  have hkω : interp V (cons t (consList as (cons r ρb))) (.proj 0 (.bvar 0)) ∈ˢ (omega : V) := by
+    (σ := cons t (consList as (cons r ρb))) (k := .fst (.bvar 0)) hfr (Nat.zero_add _)
+  have htag : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) = vnat j := by
+    rw [interp_fst, interp_bvar, cons_zero, hmaj, sfst_inj]
+  have hpay : interp V (cons t (consList as (cons r ρb))) (.snd (.bvar 0)) = mkTower (fs ++ [pt]) := by
+    rw [interp_snd, interp_bvar, cons_zero, hmaj, ssnd_inj]
+  have hkω : interp V (cons t (consList as (cons r ρb))) (.fst (.bvar 0)) ∈ˢ (omega : V) := by
     rw [htag]; exact vnat_mem_omega j
   have hsel := (hcase.1 hkω).2 j htag hj
   rw [Nat.zero_add] at hsel
@@ -822,10 +822,10 @@ theorem fixSelAVI_facts (h : FixPre V ℓ w u nP Fss Ess Fss₀ Ids rss tlss Eis
   have hchoiceV : choiceV V (s) ∈ˢ piR (s) (univ (s) : V)
       (fun A => piR (s) (dnegSpace V A) fun _ => A) :=
     lamR_mem fun _ _ => lamR_mem fun _ hh => schoice_mem (exists_mem_of_dneg V hh).choose_spec
-  show WellDenoted V ρb (.proj 0 (AnnotTerm.mkAppN (.const .choice [s])
+  show WellDenoted V ρb (.fst (AnnotTerm.mkAppN (.const .choice [s])
     [fixSigAVI ℓ w nP Fss Ess Ids rss tlss Eiss rds s, .prf]))
-  rw [WellDenoted_proj]
-  refine ⟨?_, by omega, s, 0, interp V ρb (recTyAV Fss.length Ids.length rds),
+  rw [WellDenoted_fst]
+  refine ⟨?_, s, 0, interp V ρb (recTyAV Fss.length Ids.length rds),
     fun r => SetTheory.app (sigBKI ℓ w nP Fss Ess Ids rss tlss Eiss rds s ρb) r, ?_, ?_, ?_⟩
   · show WellDenoted V ρb (.app (.app (.const .choice [s]) _) .prf)
     rw [WellDenoted_app]

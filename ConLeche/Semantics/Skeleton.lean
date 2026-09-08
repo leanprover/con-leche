@@ -251,17 +251,17 @@ theorem ssnd_mem_gen {u v : Nat} {A p : V} {Bf : V → V}
     exact hbpt ▸ hb
   · rw [hne hw, ssnd_spair, sfst_spair]; exact hb
 
-/-- **`proj 0`.**  Interface facts: the subject's `Σ`-package — which
-is exactly what `WellDenoted`'s proj clause carries, so this row consumes
-the invariant and nothing else. -/
+/-- **`fst`.**  Interface facts: the subject's `Σ`-package — which
+is exactly what `WellDenoted`'s `fst` clause carries, so this row
+consumes the invariant and nothing else. -/
 theorem sound_proj_fst {ρ : Nat → V} {ea : AnnotTerm}
-    (hok : WellDenoted V ρ (.proj 0 ea)) :
+    (hok : WellDenoted V ρ (.fst ea)) :
     ∃ (u : Nat) (A : V), A ∈ˢ (univ u : V) ∧
-      interp V ρ (.proj 0 ea) ∈ˢ A := by
-  rw [WellDenoted_proj] at hok
-  obtain ⟨-, -, u, v, A, Bf, hp, hA, -⟩ := hok
+      interp V ρ (.fst ea) ∈ˢ A := by
+  rw [WellDenoted_fst] at hok
+  obtain ⟨-, u, v, A, Bf, hp, hA, -⟩ := hok
   refine ⟨u, A, hA, ?_⟩
-  rw [interp_proj, if_pos rfl]
+  rw [interp_fst]
   exact sfst_mem_gen V hA hp
 
 end ConLeche.Semantics

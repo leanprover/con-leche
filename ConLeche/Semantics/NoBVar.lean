@@ -44,7 +44,8 @@ def NoBVar (P : Nat → Prop) : AnnotTerm → Prop
   | .pi _ _ A B => NoBVar P A ∧ NoBVar (shiftP P) B
   | .letE T v b => NoBVar P T ∧ NoBVar P v ∧ NoBVar (shiftP P) b
   | .eqE T a b => NoBVar P T ∧ NoBVar P a ∧ NoBVar P b
-  | .proj _ e => NoBVar P e
+  | .fst e => NoBVar P e
+  | .snd e => NoBVar P e
 
 /-- Two frames agreeing off `P`. -/
 def AgreeOff (P : Nat → Prop) (σ σ' : Nat → V) : Prop := ∀ i, ¬ P i → σ i = σ' i
@@ -95,9 +96,12 @@ theorem interp_congr_noBVar :
   | eqE T a b ihT iha ihb =>
     intro P σ σ' h hag
     simp only [interp_eqE, iha h.2.1 hag, ihb h.2.2 hag]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro P σ σ' h hag
-    simp only [interp_proj, ihe h hag]
+    simp only [interp_fst, ihe h hag]
+  | snd e ihe =>
+    intro P σ σ' h hag
+    simp only [interp_snd, ihe h hag]
   | prf => intros; rfl
 
 /-- **The grading of a term ignores the variables it does not
@@ -133,9 +137,12 @@ theorem WellDenoted_congr_noBVar :
   | eqE T a b ihT iha ihb =>
     intro P σ σ' h hag
     rw [WellDenoted_eqE, WellDenoted_eqE, iha h.2.1 hag, ihb h.2.2 hag]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro P σ σ' h hag
-    rw [WellDenoted_proj, WellDenoted_proj, ihe h hag, interp_congr_noBVar e h hag]
+    rw [WellDenoted_fst, WellDenoted_fst, ihe h hag, interp_congr_noBVar e h hag]
+  | snd e ihe =>
+    intro P σ σ' h hag
+    rw [WellDenoted_snd, WellDenoted_snd, ihe h hag, interp_congr_noBVar e h hag]
   | prf => intros; simp
 
 omit [SetTheory V] in
@@ -158,7 +165,8 @@ theorem NoBVar.mono :
     intro P Q h h'
     exact ⟨ihT h h'.1, ihv h h'.2.1, ihb (shiftP_mono h) h'.2.2⟩
   | eqE T a b ihT iha ihb => intro P Q h h'; exact ⟨ihT h h'.1, iha h h'.2.1, ihb h h'.2.2⟩
-  | proj i e ihe => intro P Q h h'; exact ihe h h'
+  | fst e ihe => intro P Q h h'; exact ihe h h'
+  | snd e ihe => intro P Q h h'; exact ihe h h'
   | prf => intros; trivial
 
 omit [SetTheory V] in
@@ -202,7 +210,8 @@ theorem NoBVar_of_bvarsBelow :
   | eqE T a b ihT iha ihb =>
     intro k P h hP
     exact ⟨ihT h.1 hP, iha h.2.1 hP, ihb h.2.2 hP⟩
-  | proj i e ihe => intro k P h hP; exact ihe h hP
+  | fst e ihe => intro k P h hP; exact ihe h hP
+  | snd e ihe => intro k P h hP; exact ihe h hP
   | prf => intros; trivial
 
 end ConLeche.Semantics

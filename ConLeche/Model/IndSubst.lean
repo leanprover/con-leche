@@ -78,9 +78,12 @@ theorem liftN_liftN_absorb : ∀ (e : AnnotTerm) {j k m : Nat}, k ≤ j →
   | eqE T a b ihT iha ihb =>
     intro j k m hkj hjk n
     simp only [liftN_eqE, ihT hkj hjk n, iha hkj hjk n, ihb hkj hjk n]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro j k m hkj hjk n
-    simp only [liftN_proj, ihe hkj hjk n]
+    simp only [liftN_fst, ihe hkj hjk n]
+  | snd e ihe =>
+    intro j k m hkj hjk n
+    simp only [liftN_snd, ihe hkj hjk n]
 
 /-- Instantiating inside the range a lift just created absorbs one
 unit of it (`Term.inst_liftN_absorb`). -/
@@ -119,9 +122,12 @@ theorem inst_liftN_absorb : ∀ (e : AnnotTerm) {j k m : Nat}, j ≤ k →
     intro j k m hjk hkj a
     simp only [liftN_eqE, inst_eqE, ihT hjk hkj a, ihb hjk hkj a,
       ihc hjk hkj a]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro j k m hjk hkj a
-    simp only [liftN_proj, inst_proj, ihe hjk hkj a]
+    simp only [liftN_fst, inst_fst, ihe hjk hkj a]
+  | snd e ihe =>
+    intro j k m hjk hkj a
+    simp only [liftN_snd, inst_snd, ihe hjk hkj a]
 
 /-- Instantiating strictly above a lift moves under it, with the cut
 shrunk by the lift amount (`Term.inst_liftN_comm`). -/
@@ -174,9 +180,12 @@ theorem inst_liftN_comm : ∀ (e : AnnotTerm) {j k m : Nat}, j + m ≤ k →
   | eqE T b c ihT ihb ihc =>
     intro j k m hjk a
     simp only [liftN_eqE, inst_eqE, ihT hjk a, ihb hjk a, ihc hjk a]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro j k m hjk a
-    simp only [liftN_proj, inst_proj, ihe hjk a]
+    simp only [liftN_fst, inst_fst, ihe hjk a]
+  | snd e ihe =>
+    intro j k m hjk a
+    simp only [liftN_snd, inst_snd, ihe hjk a]
 
 /-- Two instantiations commute, with the cuts adjusted
 (`Term.inst_inst_comm`). -/
@@ -230,9 +239,12 @@ theorem inst_inst_comm : ∀ (e : AnnotTerm) {j k : Nat}, j ≤ k →
   | eqE T c d ihT ihc ihd =>
     intro j k hjk a b
     simp only [inst_eqE, ihT hjk, ihc hjk, ihd hjk]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro j k hjk a b
-    simp only [inst_proj, ihe hjk]
+    simp only [inst_fst, ihe hjk]
+  | snd e ihe =>
+    intro j k hjk a b
+    simp only [inst_snd, ihe hjk]
 
 /-- A reading closed in the lifting sense is fixed by any
 instantiation.  The `AnnotTerm` closedness currency is the lifting

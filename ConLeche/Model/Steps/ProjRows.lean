@@ -57,7 +57,7 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat} {fuel : Nat}
 /-- **`InferProjStep`, discharged.**  At a pair-backed entry the
 subject's type reduces to the pinned pair applied to its two
 parameters; `mem_psigmaV2_app` inverts that into the three facts
-`WellDenoted_proj` asks for, and the returned type is `projResidualP`'s
+`WellDenoted_fst`/`WellDenoted_snd` ask for, and the returned type is `projResidualP`'s
 computed residual — the first parameter, or the second applied to the
 first projection.  At a tower-backed entry (task #175 wiring W5) the
 returned type is the checker's peel of the stored entry type along the
@@ -175,10 +175,13 @@ theorem inferProjStepIO_of_claims {m : EnvModel V env}
   -- form: the full lane established it; the io lane reads it)
   have hokPe : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ vp := by
     intro ρ hρ
-    rcases hrd with ⟨_, -, rfl⟩ | ⟨-, -, rfl⟩
+    rcases hrd with ⟨_, -, rfl⟩ | ⟨-, hdec⟩
     · exact WellDenotedV_projAV_hoist (hok ρ hρ)
-    · exact ⟨WellDenoted.hoist_proj (V := V) (fun σ hσ => (hok σ hσ).1) ρ hρ,
-        (AnnotValid_proj V ρ i vp) ▸ (hok ρ hρ).2⟩
+    · rcases AnnotTerm.projPair?_cases hdec with rfl | rfl
+      · exact ⟨WellDenoted.hoist_fst (V := V) (fun σ hσ => (hok σ hσ).1) ρ hρ,
+          (AnnotValid_fst V ρ vp) ▸ (hok ρ hρ).2⟩
+      · exact ⟨WellDenoted.hoist_snd (V := V) (fun σ hσ => (hok σ hσ).1) ρ hρ,
+          (AnnotValid_snd V ρ vp) ▸ (hok ρ hρ).2⟩
   -- its io-inferred type: reading, then grading + membership
   obtain ⟨tpea, htpea⟩ :=
     hreads htpe hws hb hLpe (LeafReads.of_ctxOk hCpe) hvp
@@ -260,7 +263,7 @@ theorem teleFit_of_teleFitPA {ρ : Nat → V} :
       (ih (PiChain.inst a 0 hpcB)))
 
 /-- **`ProjStep`, discharged.**  The stuck branch is a congruence
-under the projection reading (pair: `.proj i`; tower: `projAV i`,
+under the projection reading (pair: `.fst`/`.snd`; tower: `projAV i`,
 `WellDenotedV_projAV_congr`).  The firing branch at a pair-backed entry
 identifies the reduct's value with `sfst`/`ssnd` of the constructor
 application through `sfst_mk2`/`ssnd_mk2`, whose four typing
@@ -287,11 +290,15 @@ theorem projStep_of_claims (hμ : μ.verifiedChecks = true) {m : EnvModel V env}
   obtain ⟨vp, hvp, hrd⟩ := denoteMeta_proj_inv hea
   have hokVp : ∀ σ : Nat → V, Sat V Δa σ → WellDenotedV V σ vp := by
     intro σ hσ
-    rcases hrd with ⟨_, -, -, rfl⟩ | ⟨-, -, rfl⟩
+    rcases hrd with ⟨_, -, -, rfl⟩ | ⟨-, hdec⟩
     · exact WellDenotedV_projAV_hoist (hokA σ hσ)
-    · refine ⟨?_, ?_⟩
-      · have h1 := (hokA σ hσ).1; rw [WellDenoted_proj] at h1; exact h1.1
-      · have h2 := (hokA σ hσ).2; rwa [AnnotValid_proj] at h2
+    · rcases AnnotTerm.projPair?_cases hdec with rfl | rfl
+      · refine ⟨?_, ?_⟩
+        · have h1 := (hokA σ hσ).1; rw [WellDenoted_fst] at h1; exact h1.1
+        · have h2 := (hokA σ hσ).2; rwa [AnnotValid_fst] at h2
+      · refine ⟨?_, ?_⟩
+        · have h1 := (hokA σ hσ).1; rw [WellDenoted_snd] at h1; exact h1.1
+        · have h2 := (hokA σ hσ).2; rwa [AnnotValid_snd] at h2
   -- the reduced scrutinee
   obtain ⟨v₂, hv₂⟩ := hwreads hwpe hws hb hLpe
     (LeafReads.of_ctxOk hCpe) hvp
@@ -331,25 +338,37 @@ theorem projStep_of_claims (hμ : μ.verifiedChecks = true) {m : EnvModel V env}
     -- own entry kind
     obtain ⟨v₃', hv₃', hrd'⟩ := denoteMeta_proj_inv hea'
     obtain rfl : v₃ = v₃' := Option.some.inj (hv₃.symm.trans hv₃')
-    rcases hrd with ⟨entry, hfe, rfl⟩ | ⟨hnt, hi2, rfl⟩
+    rcases hrd with ⟨entry, hfe, rfl⟩ | ⟨hnt, hdec⟩
     · -- a stored entry: `projAV` congruence
-      rcases hrd' with ⟨entry', hfe', rfl⟩ | ⟨hnt', -, -⟩
+      rcases hrd' with ⟨entry', hfe', rfl⟩ | ⟨hnt', -⟩
       · obtain rfl : entry = entry' := Option.some.inj (hfe.symm.trans hfe')
         exact ⟨fun σ hσ => WellDenotedV_projAV_congr (heq₃ σ hσ) (hok₃ σ hσ)
           (hokA σ hσ), fun σ hσ => interp_projAV_congr (heq₃ σ hσ)⟩
       · rw [hnt'] at hfe; exact nomatch hfe
-    · -- table-free
-      rcases hrd' with ⟨entry', hfe', -⟩ | ⟨-, -, rfl⟩
+    · -- table-free: the node's index decodes to the same former on
+      -- both sides, so the congruence is one clause equation
+      rcases hrd' with ⟨entry', hfe', -⟩ | ⟨-, hdec'⟩
       · rw [hnt] at hfe'; exact nomatch hfe'
-      · refine ⟨fun σ hσ => ?_, fun σ hσ => ?_⟩
-        · refine ⟨?_, ?_⟩
-          · have h1 := (hokA σ hσ).1
-            rw [WellDenoted_proj] at h1 ⊢
-            obtain ⟨-, -, u, v, A, Bf, hsig, hA, hfib⟩ := h1
-            exact ⟨(hok₃ σ hσ).1, hi2, u, v, A, Bf,
-              (heq₃ σ hσ) ▸ hsig, hA, hfib⟩
-          · rw [AnnotValid_proj]; exact (hok₃ σ hσ).2
-        · rw [interp_proj, interp_proj, heq₃ σ hσ]
+      · rcases AnnotTerm.projPair?_cases₂ hdec hdec' with
+          ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+        · refine ⟨fun σ hσ => ?_, fun σ hσ => ?_⟩
+          · refine ⟨?_, ?_⟩
+            · have h1 := (hokA σ hσ).1
+              rw [WellDenoted_fst] at h1 ⊢
+              obtain ⟨-, u, v, A, Bf, hsig, hA, hfib⟩ := h1
+              exact ⟨(hok₃ σ hσ).1, u, v, A, Bf,
+                (heq₃ σ hσ) ▸ hsig, hA, hfib⟩
+            · rw [AnnotValid_fst]; exact (hok₃ σ hσ).2
+          · rw [interp_fst, interp_fst, heq₃ σ hσ]
+        · refine ⟨fun σ hσ => ?_, fun σ hσ => ?_⟩
+          · refine ⟨?_, ?_⟩
+            · have h1 := (hokA σ hσ).1
+              rw [WellDenoted_snd] at h1 ⊢
+              obtain ⟨-, u, v, A, Bf, hsig, hA, hfib⟩ := h1
+              exact ⟨(hok₃ σ hσ).1, u, v, A, Bf,
+                (heq₃ σ hσ) ▸ hsig, hA, hfib⟩
+            · rw [AnnotValid_snd]; exact (hok₃ σ hσ).2
+          · rw [interp_snd, interp_snd, heq₃ σ hσ]
   · -- the table fires
     -- the tower law's iota clause (task #175 wiring W5)
     obtain ⟨vp', hvp', rfl⟩ := denoteMeta_proj_inv_tower hfe hea

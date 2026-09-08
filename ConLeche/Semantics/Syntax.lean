@@ -87,8 +87,10 @@ inductive AnnotTerm where
   /-- `@Eq ty lhs rhs`; the `ty` slot is carried and never read, as in
   `Term` -/
   | eqE (ty lhs rhs : AnnotTerm)
-  /-- field `i` of a pair -/
-  | proj (i : Nat) (e : AnnotTerm)
+  /-- first field of a pair -/
+  | fst (e : AnnotTerm)
+  /-- second field of a pair -/
+  | snd (e : AnnotTerm)
   /-- the canonical (irrelevant) proof of a derivable equation -/
   | prf
   deriving Repr, Inhabited
@@ -105,7 +107,8 @@ def erase : AnnotTerm → Term
   | .pi _ _ A B => .pi (erase A) (erase B)
   | .letE T v b => .letE (erase T) (erase v) (erase b)
   | .eqE T a b => .eqE (erase T) (erase a) (erase b)
-  | .proj i e => .proj i (erase e)
+  | .fst e => .fst (erase e)
+  | .snd e => .snd (erase e)
   | .prf => .prf
 
 @[simp] theorem erase_bvar (i : Nat) : erase (.bvar i) = .bvar i := rfl
@@ -122,8 +125,10 @@ def erase : AnnotTerm → Term
     erase (.letE T v b) = .letE (erase T) (erase v) (erase b) := rfl
 @[simp] theorem erase_eqE (T a b : AnnotTerm) :
     erase (.eqE T a b) = .eqE (erase T) (erase a) (erase b) := rfl
-@[simp] theorem erase_proj (i : Nat) (e : AnnotTerm) :
-    erase (.proj i e) = .proj i (erase e) := rfl
+@[simp] theorem erase_fst (e : AnnotTerm) :
+    erase (.fst e) = .fst (erase e) := rfl
+@[simp] theorem erase_snd (e : AnnotTerm) :
+    erase (.snd e) = .snd (erase e) := rfl
 @[simp] theorem erase_prf : erase .prf = .prf := rfl
 
 /-- Weakening: insert `n` fresh binders at depth `k`.  Clause for
@@ -137,7 +142,8 @@ def liftN (n : Nat) : AnnotTerm → (k : Nat := 0) → AnnotTerm
   | .pi u v A B, k => .pi u v (liftN n A k) (liftN n B (k + 1))
   | .letE T v b, k => .letE (liftN n T k) (liftN n v k) (liftN n b (k + 1))
   | .eqE T a b, k => .eqE (liftN n T k) (liftN n a k) (liftN n b k)
-  | .proj i e, k => .proj i (liftN n e k)
+  | .fst e, k => .fst (liftN n e k)
+  | .snd e, k => .snd (liftN n e k)
   | .prf, _ => .prf
 
 /-- Weakening by one. -/
@@ -155,7 +161,8 @@ def inst : AnnotTerm → AnnotTerm → (k : Nat := 0) → AnnotTerm
   | .pi u v A B, a, k => .pi u v (inst A a k) (inst B a (k + 1))
   | .letE T v b, a, k => .letE (inst T a k) (inst v a k) (inst b a (k + 1))
   | .eqE T b c, a, k => .eqE (inst T a k) (inst b a k) (inst c a k)
-  | .proj i e, a, k => .proj i (inst e a k)
+  | .fst e, a, k => .fst (inst e a k)
+  | .snd e, a, k => .snd (inst e a k)
   | .prf, _, _ => .prf
 
 /-- Iterated application (`Term.mkAppN`'s transpose). -/
@@ -166,6 +173,52 @@ def mkAppN (f : AnnotTerm) : List AnnotTerm → AnnotTerm
 @[simp] theorem mkAppN_nil (f : AnnotTerm) : mkAppN f [] = f := rfl
 @[simp] theorem mkAppN_cons (f a : AnnotTerm) (as : List AnnotTerm) :
     mkAppN f (a :: as) = mkAppN (.app f a) as := rfl
+
+/-- `Term.projPair?`'s transpose: decode the checker's projection index
+for the pinned pair (task #225).  The bound `i < 2` that the single
+`proj i e` former carried as a side condition is this function's
+`none` branch. -/
+def projPair? : Nat → AnnotTerm → Option AnnotTerm
+  | 0, e => some (.fst e)
+  | 1, e => some (.snd e)
+  | _ + 2, _ => none
+
+/-- The decoder is defined exactly at the two field indices, so a
+decoded projection still witnesses the old side condition. -/
+theorem lt_of_projPair? {i : Nat} {e x : AnnotTerm} (h : projPair? i e = some x) :
+    i < 2 := by
+  rcases i with _ | _ | i
+  · omega
+  · omega
+  · exact nomatch h
+
+/-- …and conversely: below the bound the decoder always fires, on any
+subject.  Definedness depends on the index alone. -/
+theorem projPair?_exists_of_lt {i : Nat} (h : i < 2) (e : AnnotTerm) :
+    ∃ x, projPair? i e = some x := by
+  rcases i with _ | _ | i
+  · exact ⟨.fst e, rfl⟩
+  · exact ⟨.snd e, rfl⟩
+  · omega
+
+/-- A decoded projection is one of the two formers on the same
+subject — the case split consumers of the decoder want. -/
+theorem projPair?_cases {i : Nat} {e x : AnnotTerm} (h : projPair? i e = some x) :
+    x = .fst e ∨ x = .snd e := by
+  rcases i with _ | _ | i
+  · exact Or.inl (Option.some.inj h).symm
+  · exact Or.inr (Option.some.inj h).symm
+  · exact nomatch h
+
+/-- The same split for two decodings **at one index**: a congruence
+site sees the same former on both sides. -/
+theorem projPair?_cases₂ {i : Nat} {e x e' x' : AnnotTerm}
+    (h : projPair? i e = some x) (h' : projPair? i e' = some x') :
+    (x = .fst e ∧ x' = .fst e') ∨ (x = .snd e ∧ x' = .snd e') := by
+  rcases i with _ | _ | i
+  · exact Or.inl ⟨(Option.some.inj h).symm, (Option.some.inj h').symm⟩
+  · exact Or.inr ⟨(Option.some.inj h).symm, (Option.some.inj h').symm⟩
+  · exact nomatch h
 
 /-! ### Clause equations for the substitution operations -/
 
@@ -185,8 +238,10 @@ def mkAppN (f : AnnotTerm) : List AnnotTerm → AnnotTerm
       .letE (liftN n T k) (liftN n v k) (liftN n b (k + 1)) := rfl
 @[simp] theorem liftN_eqE (n k : Nat) (T a b : AnnotTerm) :
     liftN n (.eqE T a b) k = .eqE (liftN n T k) (liftN n a k) (liftN n b k) := rfl
-@[simp] theorem liftN_proj (n k i : Nat) (e : AnnotTerm) :
-    liftN n (.proj i e) k = .proj i (liftN n e k) := rfl
+@[simp] theorem liftN_fst (n k : Nat) (e : AnnotTerm) :
+    liftN n (.fst e) k = .fst (liftN n e k) := rfl
+@[simp] theorem liftN_snd (n k : Nat) (e : AnnotTerm) :
+    liftN n (.snd e) k = .snd (liftN n e k) := rfl
 @[simp] theorem liftN_prf (n k : Nat) : liftN n .prf k = .prf := rfl
 
 @[simp] theorem inst_bvar (a : AnnotTerm) (k i : Nat) :
@@ -208,8 +263,10 @@ def mkAppN (f : AnnotTerm) : List AnnotTerm → AnnotTerm
       .letE (inst T a k) (inst v a k) (inst b a (k + 1)) := rfl
 @[simp] theorem inst_eqE (a : AnnotTerm) (k : Nat) (T b c : AnnotTerm) :
     inst (.eqE T b c) a k = .eqE (inst T a k) (inst b a k) (inst c a k) := rfl
-@[simp] theorem inst_proj (a : AnnotTerm) (k i : Nat) (e : AnnotTerm) :
-    inst (.proj i e) a k = .proj i (inst e a k) := rfl
+@[simp] theorem inst_fst (a : AnnotTerm) (k : Nat) (e : AnnotTerm) :
+    inst (.fst e) a k = .fst (inst e a k) := rfl
+@[simp] theorem inst_snd (a : AnnotTerm) (k : Nat) (e : AnnotTerm) :
+    inst (.snd e) a k = .snd (inst e a k) := rfl
 @[simp] theorem inst_prf (a : AnnotTerm) (k : Nat) : inst .prf a k = .prf := rfl
 
 /-! ### The erase-commutations
@@ -239,8 +296,10 @@ rewriting with them, never by re-deriving a sort fact. -/
       ihT, ihv, ihb, Term.liftN_letE]
   | eqE T a b ihT iha ihb => intro n k; simp only [liftN_eqE, erase_eqE,
       ihT, iha, ihb, Term.liftN_eqE]
-  | proj i e ih => intro n k; simp only [liftN_proj, erase_proj, ih,
-      Term.liftN_proj]
+  | fst e ih => intro n k; simp only [liftN_fst, erase_fst, ih,
+      Term.liftN_fst]
+  | snd e ih => intro n k; simp only [liftN_snd, erase_snd, ih,
+      Term.liftN_snd]
   | prf => intros; rfl
 
 /-- `erase` commutes with instantiation. -/
@@ -268,8 +327,10 @@ rewriting with them, never by re-deriving a sort fact. -/
       ihT, ihv, ihb, Term.inst_letE]
   | eqE T b c ihT ihb ihc => intro a k; simp only [inst_eqE, erase_eqE,
       ihT, ihb, ihc, Term.inst_eqE]
-  | proj i e ih => intro a k; simp only [inst_proj, erase_proj, ih,
-      Term.inst_proj]
+  | fst e ih => intro a k; simp only [inst_fst, erase_fst, ih,
+      Term.inst_fst]
+  | snd e ih => intro a k; simp only [inst_snd, erase_snd, ih,
+      Term.inst_snd]
   | prf => intros; rfl
 
 /-- `erase` commutes with application spines. -/
@@ -313,7 +374,8 @@ theorem erase_eq_const {ea : AnnotTerm} {c : BConst} {us : List Nat}
   | pi u v ty b => rw [AnnotTerm.erase_pi] at h; exact nomatch h
   | letE ty v b => rw [AnnotTerm.erase_letE] at h; exact nomatch h
   | eqE ty l r => rw [AnnotTerm.erase_eqE] at h; exact nomatch h
-  | proj i e => rw [AnnotTerm.erase_proj] at h; exact nomatch h
+  | fst e => rw [AnnotTerm.erase_fst] at h; exact nomatch h
+  | snd e => rw [AnnotTerm.erase_snd] at h; exact nomatch h
   | prf => rw [AnnotTerm.erase_prf] at h; exact nomatch h
 
 

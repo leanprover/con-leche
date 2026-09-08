@@ -75,11 +75,11 @@ Audited against that use, three things were missing and are added
 here.
 
 1. **The non-binder splitters** (`hoist_app`, `hoist_letE`,
-   `hoist_proj`, `hoist_eqE`) and the two contraction forms
+   `hoist_fst`/`hoist_snd`, `hoist_eqE`) and the two contraction forms
    (`hoist_beta_pos`, `hoist_zeta`).  Mechanical, but a quarter that
    re-derives them re-derives them four times.
 2. **The converses** (`of_pi`, `of_lam`, `of_app`, `of_letE`,
-   `of_proj`, `of_eqE`).  `WhnfCoreClaims2C`/`WhnfClaims2C` and
+   `of_fst`/`of_snd`, `of_eqE`).  `WhnfCoreClaims2C`/`WhnfClaims2C` and
    `InferClaims2C` now *deliver* a ρ-uniform `WellDenoted`, so assembling
    the node fact from its parts' hoisted forms is an obligation this
    generation created.  `Sat_cons` is the whole content of the binder
@@ -126,11 +126,17 @@ theorem WellDenoted.hoist_letE {Δa : List AnnotTerm} {T v b : AnnotTerm}
   ⟨fun ρ hρ => ((WellDenoted_letE V ρ T v b) ▸ h ρ hρ).1,
     fun ρ hρ => ((WellDenoted_letE V ρ T v b) ▸ h ρ hρ).2.1⟩
 
-/-- The projection's subject. -/
-theorem WellDenoted.hoist_proj {Δa : List AnnotTerm} {i : Nat} {e : AnnotTerm}
-    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.proj i e)) :
+/-- The first projection's subject. -/
+theorem WellDenoted.hoist_fst {Δa : List AnnotTerm} {e : AnnotTerm}
+    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.fst e)) :
     ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ e :=
-  fun ρ hρ => ((WellDenoted_proj V ρ i e) ▸ h ρ hρ).1
+  fun ρ hρ => ((WellDenoted_fst V ρ e) ▸ h ρ hρ).1
+
+/-- The second projection's subject. -/
+theorem WellDenoted.hoist_snd {Δa : List AnnotTerm} {e : AnnotTerm}
+    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.snd e)) :
+    ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ e :=
+  fun ρ hρ => ((WellDenoted_snd V ρ e) ▸ h ρ hρ).1
 
 /-- The equality node's two sides. -/
 theorem WellDenoted.hoist_eqE {Δa : List AnnotTerm} {T a b : AnnotTerm}
@@ -212,16 +218,27 @@ theorem WellDenoted.of_letE {Δa : List AnnotTerm} {T v b : AnnotTerm}
   exact ⟨hT ρ hρ, hv ρ hρ,
     hb _ (Sat_cons (V := V) hρ (hmem ρ hρ))⟩
 
-/-- The converse at a projection. -/
-theorem WellDenoted.of_proj {Δa : List AnnotTerm} {i : Nat} {e : AnnotTerm}
-    (he : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ e) (hi : i < 2)
+/-- The converse at a first projection. -/
+theorem WellDenoted.of_fst {Δa : List AnnotTerm} {e : AnnotTerm}
+    (he : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ e)
     (hsig : ∀ ρ : Nat → V, Sat V Δa ρ → ∃ u v A Bf,
       interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
       A ∈ˢ (univ u : V) ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ (univ v : V)) :
-    ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.proj i e) := by
+    ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.fst e) := by
   intro ρ hρ
-  rw [WellDenoted_proj]
-  exact ⟨he ρ hρ, hi, hsig ρ hρ⟩
+  rw [WellDenoted_fst]
+  exact ⟨he ρ hρ, hsig ρ hρ⟩
+
+/-- The converse at a second projection. -/
+theorem WellDenoted.of_snd {Δa : List AnnotTerm} {e : AnnotTerm}
+    (he : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ e)
+    (hsig : ∀ ρ : Nat → V, Sat V Δa ρ → ∃ u v A Bf,
+      interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+      A ∈ˢ (univ u : V) ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ (univ v : V)) :
+    ∀ ρ : Nat → V, Sat V Δa ρ → WellDenoted V ρ (.snd e) := by
+  intro ρ hρ
+  rw [WellDenoted_snd]
+  exact ⟨he ρ hρ, hsig ρ hρ⟩
 
 /-- The converse at an equality node. -/
 theorem WellDenoted.of_eqE {Δa : List AnnotTerm} {T a b : AnnotTerm}

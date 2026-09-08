@@ -52,7 +52,7 @@ theorem inst_projNV :
     ∀ (i : Nat) (v x : Term) (k : Nat),
       (projNV i v).inst x k = projNV i (v.inst x k)
   | 0, _, _, _ => rfl
-  | i + 1, v, x, k => inst_projNV i (.proj 1 v) x k
+  | i + 1, v, x, k => inst_projNV i (.snd v) x k
 
 /-- **The substitution lemma.**  Substituting the expression `a` for
 `fvar p` corresponds to instantiating the denotation at de Bruijn cut
@@ -167,8 +167,9 @@ theorem denote_substFvarAt (hcl : ∀ n ψ, Term.Closed (cval n ψ))
       cases env.findProj? s i with
       | none =>
         dsimp only
-        split
-        · simp only [Option.map_some, Term.inst_proj]
+        rcases i with _ | _ | i
+        · simp only [Term.projPair?, Option.map_some, Term.inst_fst]
+        · simp only [Term.projPair?, Option.map_some, Term.inst_snd]
         · rfl
       | some entry =>
         simp only [Option.map_some, inst_projNV]

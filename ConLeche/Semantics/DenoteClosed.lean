@@ -83,8 +83,10 @@ theorem liftN_eq_self : ∀ (e : AnnotTerm) {k : Nat},
     intro k h n; rw [liftN_letE, ihT h.1 n, ihv h.2.1 n, ihb h.2.2 n]
   | eqE T a b ihT iha ihb =>
     intro k h n; rw [liftN_eqE, ihT h.1 n, iha h.2.1 n, ihb h.2.2 n]
-  | proj i e ihe =>
-    intro k h n; rw [liftN_proj, ihe h n]
+  | fst e ihe =>
+    intro k h n; rw [liftN_fst, ihe h n]
+  | snd e ihe =>
+    intro k h n; rw [liftN_snd, ihe h n]
 
 /-- **`liftN_eq_self`'s substitution twin.**  `inst` never reads or
 writes a numeral slot either, and it touches a term only at the `bvar`
@@ -116,8 +118,10 @@ theorem inst_eq_self : ∀ (e : AnnotTerm) {k : Nat},
     intro k h x; rw [inst_letE, ihT h.1 x, ihv h.2.1 x, ihb h.2.2 x]
   | eqE T a b ihT iha ihb =>
     intro k h x; rw [inst_eqE, ihT h.1 x, iha h.2.1 x, ihb h.2.2 x]
-  | proj i e ihe =>
-    intro k h x; rw [inst_proj, ihe h x]
+  | fst e ihe =>
+    intro k h x; rw [inst_fst, ihe h x]
+  | snd e ihe =>
+    intro k h x; rw [inst_snd, ihe h x]
 
 end AnnotTerm
 

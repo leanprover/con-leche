@@ -17,7 +17,7 @@ already checked the same condition.
 | a loose `.bvar` | outside the fragment (`.notImplemented`); also excluded by the subject's own `looseBVarsBounded 0` |
 | `.const` unfindable / mis-arity | `env.find?` + `us.length = cv.levelParams.length`, the two `throw`s of the `.const` clause |
 | a literal without its basis | `natLitSupported` / `strLitSupported`, the literal clauses' guards |
-| `.proj i` with `2 ≤ i` | the projection table: a `native` entry is one of the two pinned pair entries, so `i < 2` (`projPinsP`) |
+| `.proj i` with `2 ≤ i` (the decoder `AnnotTerm.projPair?`'s `none`) | the projection table: a `native` entry is one of the two pinned pair entries, so `i < 2` (`projPinsP`) |
 
 The `.fvar` clause reads **unconditionally** — `denoteMeta` never looks
 at the leaf's stored annotation (this is the asymmetry batch 6's

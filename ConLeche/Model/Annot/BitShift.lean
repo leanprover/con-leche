@@ -185,9 +185,7 @@ theorem denoteMeta_shiftFrom
       cases env.findProj? sn i with
       | none =>
         dsimp only
-        split
-        · rfl
-        · rfl
+        rcases i with _ | _ | i <;> rfl
       | some entry =>
         show some (projAV (i + entry.off) (AnnotTerm.liftN 1 ea (d - p)))
           = Option.map (fun x => AnnotTerm.liftN 1 x (d - p))

@@ -192,35 +192,30 @@ theorem denote_mono {cval : TConstVal} {env₁ env₂ : Env} {φ : Name → Nat}
     rw [denote_proj, h1, h2] at h
     rw [denote_proj, ihe h1, hext.findProj?_mono h2]
     exact h
-  | case19 d sn i e B h1 h2 h3 ihe =>
+  | case19 d sn i e B h1 h2 ihe =>
     intro v h
     rw [denote_proj, h1, h2] at h
     rw [denote_proj, ihe h1, hproj sn i h2]
     exact h
-  | case20 d sn i e B h1 h2 h3 ihe =>
-    intro v h
-    rw [denote_proj, h1, h2] at h
-    simp only [if_neg h3] at h
-    exact nomatch h
-  | case21 d n hg =>
+  | case20 d n hg =>
     intro v h
     rw [denote_natLit, if_pos hg] at h
     rw [denote_natLit, if_pos (hnat hg)]
     exact h
-  | case22 d n hg =>
+  | case21 d n hg =>
     intro v h
     rw [denote_natLit, if_neg hg] at h
     exact nomatch h
-  | case23 d s hg =>
+  | case22 d s hg =>
     intro v h
     rw [denote_strLit, if_pos hg] at h
     rw [denote_strLit, if_pos (hstr hg), strLitT, hlpNil hg, hlpCons hg]
     exact h
-  | case24 d s hg =>
+  | case23 d s hg =>
     intro v h
     rw [denote_strLit, if_neg hg] at h
     exact nomatch h
-  | case25 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     intro v h
     match x with
     | .bvar i => rw [denote_bvar] at h; exact nomatch h
@@ -339,16 +334,14 @@ theorem denote_cval_congr {cval₁ cval₂ : TConstVal} {env : Env}
   | case17 d sn i e h1 ihe => simp only [denote_proj, h1, ← ihe]
   | case18 d sn i e B h1 entry h2 ihe =>
     simp only [denote_proj, h1, ← ihe]
-  | case19 d sn i e B h1 h2 h3 ihe =>
+  | case19 d sn i e B h1 h2 ihe =>
     simp only [denote_proj, h1, ← ihe]
-  | case20 d sn i e B h1 h2 h3 ihe =>
-    simp only [denote_proj, h1, ← ihe]
-  | case21 d n _ | case22 d n _ =>
+  | case20 d n _ | case21 d n _ =>
     simp only [denote_natLit]
     by_cases hg2 : natLitSupported env = true
     · rw [if_pos hg2, if_pos hg2, hnat hg2, hsucc hg2]
     · simp [hg2]
-  | case23 d s _ | case24 d s _ =>
+  | case22 d s _ | case23 d s _ =>
     simp only [denote_strLit]
     by_cases hg2 : strLitSupported env = true
     · have hgN : natLitSupported env = true := by
@@ -357,7 +350,7 @@ theorem denote_cval_congr {cval₁ cval₂ : TConstVal} {env : Env}
       rw [if_pos hg2, if_pos hg2, strLitT, strLitT, hnat hgN, hsucc hgN,
         hsol hg2, hnil hg2, hcons hg2, hchar hg2, hofn hg2]
     · simp [hg2]
-  | case25 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     match x with
     | .bvar i => simp only [denote_bvar]
     | .sort u => exact (k1 u rfl).elim
@@ -523,10 +516,10 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
   have hbranch : ∀ (sn : Name) (i : Nat) (ve : Term),
       (match Env.findProj? ⟨c₀ :: env.consts⟩ sn i with
         | some entry => some (projNV (i + entry.off) ve)
-        | none => if i < 2 then some (.proj i ve) else none)
+        | none => Term.projPair? i ve)
       = (match env.findProj? sn i with
         | some entry => some (projNV (i + entry.off) ve)
-        | none => if i < 2 then some (.proj i ve) else none) := by
+        | none => Term.projPair? i ve) := by
     intro sn i ve
     by_cases hn : c₀.name = projTableName sn
     · have h0 : env.findProj? sn i = none :=
@@ -616,20 +609,20 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
     cases denote cval env φ d e with
     | none => rfl
     | some ve => exact hbranch sn i ve
-  | case19 d sn i e B h1 h2 h3 ihe =>
+  | case19 d sn i e B h1 h2 ihe =>
     intro hres
     rw [Expr.constsResolve, Bool.and_eq_true] at hres
     rw [denote_proj, denote_proj, ihe hres.2]
     cases denote cval env φ d e with
     | none => rfl
     | some ve => exact hbranch sn i ve
-  | case20 d sn i e B h1 h2 h3 ihe =>
+  | case20 d n hg =>
     intro hres
-    rw [Expr.constsResolve, Bool.and_eq_true] at hres
-    rw [denote_proj, denote_proj, ihe hres.2]
-    cases denote cval env φ d e with
-    | none => rfl
-    | some ve => exact hbranch sn i ve
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [denote_natLit, denote_natLit,
+      natLitSupported_cons_of_ne (ne_of_isSome_fresh hfresh hres.1.1)
+        (ne_of_isSome_fresh hfresh hres.1.2)
+        (ne_of_isSome_fresh hfresh hres.2)]
   | case21 d n hg =>
     intro hres
     simp only [Expr.constsResolve, Bool.and_eq_true] at hres
@@ -637,13 +630,20 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
       natLitSupported_cons_of_ne (ne_of_isSome_fresh hfresh hres.1.1)
         (ne_of_isSome_fresh hfresh hres.1.2)
         (ne_of_isSome_fresh hfresh hres.2)]
-  | case22 d n hg =>
+  | case22 d s hg =>
     intro hres
     simp only [Expr.constsResolve, Bool.and_eq_true] at hres
-    rw [denote_natLit, denote_natLit,
-      natLitSupported_cons_of_ne (ne_of_isSome_fresh hfresh hres.1.1)
-        (ne_of_isSome_fresh hfresh hres.1.2)
-        (ne_of_isSome_fresh hfresh hres.2)]
+    obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨k1, k2⟩, k3⟩, k4⟩, k5⟩, k6⟩, k7⟩, k8⟩, k9⟩, k10⟩ := hres
+    rw [denote_strLit, denote_strLit,
+      strLitSupported_cons_of_ne (ne_of_isSome_fresh hfresh k1)
+        (ne_of_isSome_fresh hfresh k2) (ne_of_isSome_fresh hfresh k3)
+        (ne_of_isSome_fresh hfresh k4) (ne_of_isSome_fresh hfresh k5)
+        (ne_of_isSome_fresh hfresh k6) (ne_of_isSome_fresh hfresh k7)
+        (ne_of_isSome_fresh hfresh k8) (ne_of_isSome_fresh hfresh k9)
+        (ne_of_isSome_fresh hfresh k10),
+      strLitT, strLitT,
+      levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k7),
+      levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k8)]
   | case23 d s hg =>
     intro hres
     simp only [Expr.constsResolve, Bool.and_eq_true] at hres
@@ -658,21 +658,7 @@ theorem denote_env_shrink {cval : TConstVal} {env : Env} {φ : Name → Nat}
       strLitT, strLitT,
       levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k7),
       levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k8)]
-  | case24 d s hg =>
-    intro hres
-    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
-    obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨k1, k2⟩, k3⟩, k4⟩, k5⟩, k6⟩, k7⟩, k8⟩, k9⟩, k10⟩ := hres
-    rw [denote_strLit, denote_strLit,
-      strLitSupported_cons_of_ne (ne_of_isSome_fresh hfresh k1)
-        (ne_of_isSome_fresh hfresh k2) (ne_of_isSome_fresh hfresh k3)
-        (ne_of_isSome_fresh hfresh k4) (ne_of_isSome_fresh hfresh k5)
-        (ne_of_isSome_fresh hfresh k6) (ne_of_isSome_fresh hfresh k7)
-        (ne_of_isSome_fresh hfresh k8) (ne_of_isSome_fresh hfresh k9)
-        (ne_of_isSome_fresh hfresh k10),
-      strLitT, strLitT,
-      levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k7),
-      levelParamsAt_cons_of_ne (ne_of_isSome_fresh hfresh k8)]
-  | case25 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
+  | case24 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     intro _
     match x with
     | .bvar i => rw [denote_bvar, denote_bvar]

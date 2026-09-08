@@ -273,8 +273,8 @@ theorem fixRecBody_validV (hfr : RecFrameS 1 ρ₀ σ) (hyp : RecHypI ℓ w ρ�
     · rw [fixRecBodyAVI_sq hℓ]
       exact hsq rfl hℓ
   · rw [fixRecBodyAVI_pos hw, AnnotValid_app]
-    exact ⟨fixCaseRec_validV hyp hw hv (hEV hw) Fss.length hfr (major_proj_validV 0 σ),
-      major_proj_validV 1 σ⟩
+    exact ⟨fixCaseRec_validV hyp hw hv (hEV hw) Fss.length hfr (major_fst_validV σ),
+      major_snd_validV σ⟩
 
 /-! ## The ih-moved telescopes' validity (task #202) -/
 
@@ -423,8 +423,8 @@ theorem fixSelAVI_validV {ℓ w nP s : Nat} {Fss Ess : List (List AnnotTerm)} {I
     refine ⟨hTy, hTy, fun r _ => ?_⟩
     rw [AnnotValid_liftN, shiftE_succ_cons, shiftE_zero_zero]
     exact hstep
-  show AnnotValid V ρ (.proj 0 (.app (.app (.const .choice [s]) _) .prf))
-  simp only [AnnotValid_proj, AnnotValid_app, AnnotValid_const, AnnotValid_prf, and_true,
+  show AnnotValid V ρ (.fst (.app (.app (.const .choice [s]) _) .prf))
+  simp only [AnnotValid_fst, AnnotValid_app, AnnotValid_const, AnnotValid_prf, and_true,
     true_and]
   exact hsig
 

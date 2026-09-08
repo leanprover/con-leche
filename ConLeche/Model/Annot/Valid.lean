@@ -67,7 +67,8 @@ def AnnotValid : (Nat → V) → AnnotTerm → Prop
     AnnotValid ρ T ∧ AnnotValid ρ v ∧
     AnnotValid (cons (interp V ρ v) ρ) b
   | ρ, .eqE _ a b => AnnotValid ρ a ∧ AnnotValid ρ b
-  | ρ, .proj _ e => AnnotValid ρ e
+  | ρ, .fst e => AnnotValid ρ e
+  | ρ, .snd e => AnnotValid ρ e
   | _, .bvar _ => True
   | _, .sort _ => True
   | _, .const _ _ => True
@@ -106,8 +107,11 @@ theorem AnnotValid_letE (ρ : Nat → V) (T v b : AnnotTerm) :
 theorem AnnotValid_eqE (ρ : Nat → V) (T a b : AnnotTerm) :
     AnnotValid V ρ (.eqE T a b) =
       (AnnotValid V ρ a ∧ AnnotValid V ρ b) := by rw [AnnotValid]
-theorem AnnotValid_proj (ρ : Nat → V) (i : Nat) (e : AnnotTerm) :
-    AnnotValid V ρ (.proj i e) = AnnotValid V ρ e := by
+theorem AnnotValid_fst (ρ : Nat → V) (e : AnnotTerm) :
+    AnnotValid V ρ (.fst e) = AnnotValid V ρ e := by
+  rw [AnnotValid]
+theorem AnnotValid_snd (ρ : Nat → V) (e : AnnotTerm) :
+    AnnotValid V ρ (.snd e) = AnnotValid V ρ e := by
   rw [AnnotValid]
 
 /-! ## The establishment step, isolated
@@ -183,9 +187,12 @@ theorem AnnotValid_liftN (n : Nat) :
   | eqE T a b ihT iha ihb =>
     intro k ρ
     rw [AnnotTerm.liftN_eqE, AnnotValid_eqE, AnnotValid_eqE, iha, ihb]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro k ρ
-    rw [AnnotTerm.liftN_proj, AnnotValid_proj, AnnotValid_proj, ihe]
+    rw [AnnotTerm.liftN_fst, AnnotValid_fst, AnnotValid_fst, ihe]
+  | snd e ihe =>
+    intro k ρ
+    rw [AnnotTerm.liftN_snd, AnnotValid_snd, AnnotValid_snd, ihe]
   | prf => intro k ρ; simp
 
 /-! ### Instantiation — and the one premise that had to change
@@ -266,10 +273,12 @@ theorem AnnotValid_inst :
     intro a k ρ ha
     rw [AnnotTerm.inst_eqE, AnnotValid_eqE, AnnotValid_eqE, ihx a k ρ ha,
       ihy a k ρ ha]
-  | proj i e ihe =>
+  | fst e ihe =>
     intro a k ρ ha
-    rw [AnnotTerm.inst_proj, AnnotValid_proj, AnnotValid_proj,
-      ihe a k ρ ha]
+    rw [AnnotTerm.inst_fst, AnnotValid_fst, AnnotValid_fst, ihe a k ρ ha]
+  | snd e ihe =>
+    intro a k ρ ha
+    rw [AnnotTerm.inst_snd, AnnotValid_snd, AnnotValid_snd, ihe a k ρ ha]
   | prf => intro a k ρ _; simp [AnnotTerm.inst]
 
 /-- Substitution at the outermost binder — the β/ζ transport form,

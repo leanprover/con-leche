@@ -97,15 +97,15 @@ theorem fieldsBound_append_idxEq {w : Nat} {ρ' : Nat → V} {Fs : List AnnotTer
 
 /-! ## The tag projection's grading -/
 
-/-- `.proj 1` of a member of the tagged union is graded: the union is a
+/-- `.snd` of a member of the tagged union is graded: the union is a
 Σ over the numerals whose fibres are bounded towers. -/
 theorem wellDenoted_proj1_sum {w : Nat} (hw : w ≠ 0) {ρ' ρ : Nat → V} {Fs : List AnnotTerm}
     {e : AnnotTerm} (hb : FieldsBound w ρ' (Fs ++ [idxEqAV []]))
     (hok : WellDenoted V ρ e)
     (hval : interp V ρ e ∈ˢ sumSet w (sumFibre w ρ' [Fs ++ [idxEqAV []]])) :
-    WellDenoted V ρ (.proj 1 e) := by
-  rw [WellDenoted_proj]
-  refine ⟨hok, by decide, w, w, omega, natFibre (sumFibre w ρ' [Fs ++ [idxEqAV []]]), ?_, ?_, ?_⟩
+    WellDenoted V ρ (.snd e) := by
+  rw [WellDenoted_snd]
+  refine ⟨hok, w, w, omega, natFibre (sumFibre w ρ' [Fs ++ [idxEqAV []]]), ?_, ?_, ?_⟩
   · rw [nat_max_self]; exact hval
   · obtain ⟨w', rfl⟩ : ∃ w', w = w' + 1 := ⟨w - 1, by omega⟩
     exact omega_mem_univ_succ w'
@@ -120,11 +120,11 @@ theorem wellDenoted_proj1_sum {w : Nat} (hw : w ≠ 0) {ρ' ρ : Nat → V} {Fs 
       rw [sumFibre_of_ge (by simp)]
       exact empty_mem_univ w
 
-/-- `.proj 1` of the point is graded (the squash regime). -/
+/-- `.snd` of the point is graded (the squash regime). -/
 theorem wellDenoted_proj1_pt {ρ : Nat → V} {e : AnnotTerm} (hok : WellDenoted V ρ e)
-    (hpt : interp V ρ e = (pt : V)) : WellDenoted V ρ (.proj 1 e) := by
-  rw [WellDenoted_proj]
-  refine ⟨hok, by decide, 0, 0, unitSet, fun _ => unitSet, ?_, unitSet_mem_univ 0,
+    (hpt : interp V ρ e = (pt : V)) : WellDenoted V ρ (.snd e) := by
+  rw [WellDenoted_snd]
+  refine ⟨hok, 0, 0, unitSet, fun _ => unitSet, ?_, unitSet_mem_univ 0,
     fun _ _ => unitSet_mem_univ 0⟩
   rw [hpt, nat_max_self]
   exact pt_mem_sigma pt_mem_unitSet pt_mem_unitSet
@@ -136,17 +136,17 @@ theorem wellDenoted_projAV_succ_fibre {w i : Nat} {ρ' ρ : Nat → V} {Fs : Lis
     (hok : WellDenoted V ρ e)
     (hval : interp V ρ e ∈ˢ sumSet w (sumFibre w ρ' [Fs ++ [idxEqAV []]]))
     (hi : i < Fs.length) : WellDenoted V ρ (projAV (i + 1) e) := by
-  show WellDenoted V ρ (projAV i (.proj 1 e))
+  show WellDenoted V ρ (projAV i (.snd e))
   by_cases hw : w = 0
   · subst hw
     obtain ⟨hpt, -⟩ := fixFibre_zero_elim hval
     refine wellDenoted_projAV_pt (wellDenoted_proj1_pt hok hpt) ?_
-    rw [interp_proj, if_neg (by decide), hpt, ssnd_pt]
+    rw [interp_snd, hpt, ssnd_pt]
   · obtain ⟨fs, heq, -, hmem⟩ := fixFibre_elim hw hval
     have hb := fieldsBound_append_idxEq hw (hokB hw)
     refine wellDenoted_projAV_tower hb hmem (wellDenoted_proj1_sum hw hb hok hval) ?_
       (by rw [List.length_append, List.length_singleton]; omega)
-    rw [interp_proj, if_neg (by decide), heq]
+    rw [interp_snd, heq]
     exact ssnd_spair _ _
 
 /-! ## (A) the typing law -/

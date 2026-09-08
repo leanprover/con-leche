@@ -77,13 +77,14 @@ theorem NoBVar_congr {P P' : Nat → Prop} (h : ∀ i, P i ↔ P' i) :
     | zero => exact Iff.rfl
     | succ i => exact h i
   | eqE T a b ihT iha ihb => intro hn; exact ⟨ihT h hn.1, iha h hn.2.1, ihb h hn.2.2⟩
-  | proj _ e ih => intro hn; exact ih h hn
+  | fst e ih => intro hn; exact ih h hn
+  | snd e ih => intro hn; exact ih h hn
 
 omit [SetTheory V] in
 theorem NoBVar_projAV {P : Nat → Prop} :
     ∀ (i : Nat) (e : AnnotTerm), NoBVar P e → NoBVar P (projAV i e)
   | 0, _, h => h
-  | i + 1, e, h => NoBVar_projAV i (.proj 1 e) h
+  | i + 1, e, h => NoBVar_projAV i (.snd e) h
 
 /-- **A leaf-free reading mentions none of the excluded slots.** -/
 theorem noBVar_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Name → Nat} :
@@ -189,9 +190,11 @@ theorem noBVar_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Name → Nat}
     obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h
     simp only [Expr.WScoped] at hw
     have h1 := ihe hw hQ (fun l hl' => hl l (by simpa [Expr.fvarLeaves] using hl')) hia
-    rcases hcase with ⟨_, -, rfl⟩ | ⟨-, -, rfl⟩
+    rcases hcase with ⟨_, -, rfl⟩ | ⟨-, hdec⟩
     · exact NoBVar_projAV _ ia h1
-    · exact h1
+    · rcases AnnotTerm.projPair?_cases hdec with rfl | rfl
+      · exact h1
+      · exact h1
   | case11 d n hsup =>
     intro _ Q _ _ ea h
     have h0 : denoteMeta m.acval env φ 0 (.lit (.natVal n)) = some ea := by

@@ -60853,6 +60853,319 @@ inmodel** — #220's numbers to the declaration and to the block — at
 (+0.007 %): the gate is one spine walk per type former and one
 comparison per constructor record.
 
+## TASK #226 — THE DAG-TOWER MATRIX IS COMPLETE: four more record kinds, and the pin comparisons go lockstep (2026-09-08, `agent/towers`)
+
+**The user's word, verbatim:** *"ok, do 4, it does not hurt"* — item 4
+of the quiet-time docket that task #215 left: *"the per-kind tower
+matrix — the axiom, quotient and prelude-named mines, plus a
+projection-body tower — and the `canonEq`/`erasePw` short-circuiting
+that closes them."*
+
+### 1. What the gate is, and what it now covers
+
+`scripts/mk_tower_fixtures.py` puts a **shared tower of depth 60**
+(`T_0 = Nat.zero`, `T_{k+1} = (K T_k) T_k`, every `T_k` defeq to
+`Nat.zero`, ~190 entries as a DAG and about `2^60` nodes unshared) into
+**one record kind each**.  A walk that is not DAG-safe never finishes on
+one, so a regression makes a *test* fail instead of making a legitimate
+Mathlib declaration decline.  The matrix is now complete — the arena's
+DAG-tower section runs **9/9** (it ran 2/2), and `tests/e2e` **172/172**
+(it ran 166/166):
+
+| fixture | verdict | what it gates |
+|---|---|---|
+| `tower_thm` | 0 | the tower in a theorem's type and value |
+| `budget_block` | 0 | the retired budget's own fixture, uncapped |
+| `tower_struct` | 0 | the tower in a structure's constructor field type (#215, wired at #210 Part B) |
+| **`tower_proj`** | **0** | a TWO-field structure: the projection bodies substitute `T.field_0` into a telescope that carries the tower |
+| **`tower_axiom`** | **2** | `Quot.sound` with a tower type — divergent quotient pin |
+| **`tower_quot`** | **2** | a `quot` record for `Quot` with a tower type — divergent quotient pin |
+| **`tower_prelude`** | **2** | an inductive block named `Bool` with a tower in its field — differs from the built-in prelude's `Bool` |
+| **`tower_axiom_pin`** | **2** | `propext` with a tower type, over a standardly-shaped stored `Iff` family — divergent standard-axiom pin |
+| **`tower_axiom_nonstd`** | **2** | the same tower under a NON-pinned axiom name — the decline is on the name alone |
+
+All five new fixtures reach their verdict in **t = 0.0 s**.
+
+### 2. The walkers, and what replaced each
+
+| fixture | walker it exposed (measured: OOM under `ulimit -v 8 GB`) | replacement |
+|---|---|---|
+| `tower_axiom` | `Frontend.canonExpr` via `ConstantInfo.canon`, at the `Quot.sound` axiom arm | `ConstantInfo.canonEq` (lockstep) |
+| `tower_quot` | the same, at the `quot` record arm, through `.toConstantVal` | `ConstantVal.canonEq` (lockstep) |
+| `tower_prelude` | the same, through `DeclC.sameCanon`'s block arm | `canonEqList` (lockstep, member for member) |
+| `tower_axiom_pin` | **`Expr.erasePw` via `ConstantVal.matchesPin`** (`Kernel/StdAxioms.lean`) | `Expr.erasePwEq` / `matchesPinFast` (lockstep) |
+| `tower_proj` | **`Expr.abstract1`** (the PURE one) via `closeTelescope` / `normPosDom` in `Kernel/Inductives/SumInstall.lean` — 14.3 % self plus the `lam`/`app` constructor calls it drives, ≈ 28 % of the run | `abstract1Fast`: the `O(1)` fvar-range field read at every node |
+| `tower_axiom_nonstd` | none — it passed before and after | it gates the annotation pass, which does check the tower type |
+
+**The lockstep comparison** (task #215 drafted it as `canonEq` and
+dropped it when the name pre-filter sufficed for the basis-BLOCK match;
+this task revives it for exactly the sites the pre-filter does not
+cover).  Instead of building the canonical form of BOTH sides and
+comparing the results, the comparison descends both terms **together**,
+applying each side's own level-parameter renaming on the fly, and stops
+at the first disagreement.  Wherever the two agree they have the pin's
+shape, so **the walk is bounded by the PIN's tree size — a few dozen
+nodes — however large the stream side is**; where they disagree it stops
+there.  The **name pre-filter of #215 stays in front** of the block
+comparison.
+
+**The agreement is proved, not asserted.**  Each spec function is
+spelled exactly as the call site used to be —
+`ConstantVal.canonEq cv cv' = decide (cv.canon = cv'.canon)`,
+`ConstantInfo.canonEq`, `canonEqList`, and `matchesPin` is
+UNCHANGED — and each lockstep twin is swapped in by **`@[csimp]`**:
+`ConstantVal.canonEq_eq_canonEqFast`,
+`ConstantInfo.canonEq_eq_canonEqFast`,
+`canonEqList_eq_canonEqListFast`,
+`ConstantVal.matchesPin_eq_matchesPinFast`,
+`abstract1_eq_abstract1Fast`.  Kernel-checked, no trust point, and the
+*pure* definition stays the one every proof consumes — which matters
+here, because `matchesPin` IS consumed by proofs (`Verify/StdAxiomPin.lean`,
+`Verify/OfReducePin.lean`, `Verify/ReducePinInv.lean`, `Model/DivMod.lean`
+all unfold it): **not one of them changed a character.**  The
+descent lemmas underneath are `Expr.erasePwEq_iff` / `_eq`,
+`canonExprEqFast_iff`, `canonRulesEqFast_iff`,
+`ConstantVal.canonEqFast_iff`, `ConstantInfo.canonEqFast_iff`,
+`canonEqListFast_iff` and `abstract1_of_fvarRange_le`; the last says
+abstraction at or above the fvar range is the identity, and `fvarB_eq`
+(task #210 Part B) says the packed field is that range.
+
+### 3. Findings
+
+**(1) The projection-body tower did NOT already pass, and the walker
+was not a frontend one.**  It was expected to be a regression guard on
+#210 Part B's cached `instantiate1Lift`; it exposed the *pure*
+`Expr.abstract1` instead, in the NATIVE install route's
+`closeTelescope`.  `tower_struct` could not see it: at ONE field the
+telescope close has nothing to abstract *through* — the body after the
+single binder is the type former itself.  **A one-field structure is
+not a structure fixture; the second field is where the substitutions
+start.**  The cached twin `Cached.abstract1` has had the fvar-range
+cutoff since it was written and its docstring called it a "documented
+deviation from the arena twin"; the deviation is now gone, in the
+direction of the twin that was right.
+
+**(2) A pin comparison can be unreachable for a fixture to reach.**
+`stdAxiomOk`'s `propext` arm short-circuits on the stored `Iff`
+family, so an axiom named `propext` over an environment WITHOUT a
+standardly-shaped `Iff` never reaches `matchesPin` at all — it declines
+on the family.  The fixture therefore carries the `Iff` block, spelled
+as `iffRaw`/`iffIntroRaw`/`iffRecRaw` pin them (`iff_family` in the
+generator).  That it is spelled RIGHT is not taken on faith: the same
+stream with the *correct* `propext` type **accepts** (2 declarations),
+which is only possible if every guard including `matchesPin` passed.
+And with the `@[csimp]` removed, `tower_axiom_pin` **OOMs** — the
+before/after that names the walker.
+
+**(3) `==` at a derived `DecidableEq` type does not simp away.**  The
+first draft spelled the specs `canon x == canon y`, and every proof
+stalled on the `BEq` instance.  Spelling them `decide (canon x = canon y)`
+— which is what `instBEqOfDecidableEq` unfolds to, so the same function
+— made `decide_eq_true_eq` the whole bridge.  `Expr` is the exception
+that proves it: `Expr.beq` is `decide (· = ·)` by definition and carries
+a `LawfulBEq`, so `beq_iff_eq` fires there.
+
+### 4. Gates (`agent/towers`, master `1c66d4a8` — task #228 — merged; the
+figures below are the merged tree's)
+
+`lake build` **517 jobs, zero warnings, zero errors**; `lake test` green.
+
+`tests/arena.sh` under `env -i HOME=$HOME PATH=$PATH`: **exit 0, 0 FAIL**.
+Layering base **263** / model **189** / caps 3 / umbrella 1, 0 base→lane
+and 0 impl→theory.  Proofdeps **2 846 rows across 7 roots, doors 0** —
+unchanged, as expected (`Frontend` is outside the roots, and
+`matchesPin`'s statement did not move).  Pindump fresh (40 378 lines,
+229 prelude lines / 11 records).  Trust surface **18 escapes in 4
+allowlisted files of 464 scanned, 0 outside**.  Route census 90 streams,
+682 blocks — 142 fix, 0 inmodel, 540 basis, 0 modeled.  `inmodel` OK.
+Arena tutorial 90/92 (032/033 by design), **e2e 174/174** (#228's two
+twins included), annot 14/14, retired flags 8/8, mode flags 18/18,
+prelude counts 3/3, progress lane 6/6, **DAG-tower 9/9**, trusted sweep
+138 + 174 + 14 with its three recorded divergences.
+`tests/overview-links.sh`: **58 links, 44 files, OK** — one anchor moved
+by a line (`ExportC.lean#L900` → `#L901`, the parse loop; the citing
+paragraph re-read and still accurate) and the expectation regenerated.
+
+**init-full**, raw, default mode, under `perf stat -e instructions:u`:
+accepted **53 088** declarations, exit 0, route census **584 fix / 6
+basis / 1 inmodel**, at **679.193 G instructions:u** against #228's
+published 679.215 G — **parity (−0.003 %)**; on the pre-merge tree it
+was 679.044 G against #222's 679.098 G, the same −0.008 %.  The lockstep
+comparisons do strictly less work, and the `abstract1` cutoff pays for
+itself; on this stream neither is hot enough to show.
+
+**The merge.**  `Frontend/ExportC.lean` was the one file both lanes
+touched: #228 gave `DeclC.indDecl` a `numParams` field, so
+`DeclC.sameCanon`'s block arm now reads
+`| .indDecl b nP, .indDecl b' nP' => nP == nP' && canonEqList b b'` —
+#228's extra comparison in front of this task's lockstep one.  Nothing
+else conflicted in code.
+
+## TASK #225 — THE PROJECTION FORMERS SPLIT: `AnnotTerm.proj i e` becomes `fst e` / `snd e`, and the `i < 2` side condition becomes a decoder (2026-09-08, `agent/projfst`)
+
+**The user's standing request, verbatim:** *"the annotated term's `.proj
+0/1` should be `.fst/.snd`."*
+
+**No statement changed.**  Every capstone, pin and claim keeps its
+sentence; the claims are per-constructor and gained one case each.  The
+axiom pin is the same eleven theorems at the same three axioms,
+`tests/proofdeps.sh` is master's 2 846 rows edge for edge with doors 0
+and no new leaf, `tests/layering.sh`'s counts are unchanged, the arena
+verdicts are unchanged, and `init-full` accepts the same 53 088
+declarations at the same instruction count.
+
+### 1. What moved
+
+Both term tiers had one binary projection former carrying a `Nat`:
+
+    ConLeche.Term.proj       (i : Nat) (e : Term)        -- the erased tier
+    ConLeche.Semantics.AnnotTerm.proj (i : Nat) (e : AnnotTerm)
+
+with the index constrained *outside* the syntax — `WellDenoted`'s proj
+clause read
+
+    | ρ, .proj i e => WellDenoted ρ e ∧ i < 2 ∧ ∃ u v A Bf, …
+
+and `interp` dispatched on it, `if i = 0 then sfst … else ssnd …`.
+Both are now two unary formers, in lockstep across the tiers (the
+`erase` map stays a clause-for-clause homomorphism):
+
+    | fst (e : Term)      | fst (e : AnnotTerm)
+    | snd (e : Term)      | snd (e : AnnotTerm)
+
+`interp` gets two clauses with no test (`sfst (interp ρ e)`,
+`ssnd (interp ρ e)`); `WellDenoted` gets two clauses whose *only*
+difference from each other is the constructor matched — the `i < 2`
+conjunct is gone, and with it the `by omega` / `by decide` /
+`Nat.one_ne_zero` residue at every site that built or consumed the
+clause.
+
+### 2. WHERE THE `i < 2` INVARIANT WENT — the one decision worth recording
+
+The bound had **two jobs**, and only one of them was structural.
+
+* **As a conjunct of `WellDenoted`** it was an invariant carried
+  through every proof about annotated terms: hoisting, congruence,
+  substitution, the tower kit, the `Steps/Proj*` rows.  That job is
+  **gone, absorbed into the datatype** — a `.fst`/`.snd` node cannot
+  be out of range, so nothing carries, re-establishes or discharges the
+  bound any more.  This is the whole payoff: the sites that used to
+  produce `by omega` or destructure `⟨hok, hi2, u, v, A, Bf, …⟩` now
+  produce and destructure one component less.
+* **As a guard in the denotation** it was a *totality* decision, not an
+  invariant: the checker's `Expr.proj T i e` node carries an arbitrary
+  `Nat`, and when the projection table has no entry for `(T, i)` only
+  `i < 2` (the two pinned pair fields) may denote at all.  That job
+  **cannot be absorbed into the datatype** — the index is input — so it
+  becomes an explicit decoder, one per tier:
+
+      def Term.projPair? : Nat → Term → Option Term
+        | 0, e => some (.fst e)
+        | 1, e => some (.snd e)
+        | _ + 2, _ => none
+
+  and the three denotations (`Verify.denote`, `Semantics.denoteAnnot`,
+  `Model.denoteMeta`) read `| none => projPair? i ve` where they read
+  `| none => if i < 2 then some (.proj i ve) else none`.  The `none`
+  branch **is** the old guard: a `.proj T i` node with `2 ≤ i` and no
+  table entry still has no image, exactly as before.
+
+Consumers of the guard take one of three small lemmas beside the
+decoder (`ConLeche/Semantics/Syntax.lean`), which is the entire new API:
+
+    lt_of_projPair?         : projPair? i e = some x → i < 2
+    projPair?_exists_of_lt  : i < 2 → ∀ e, ∃ x, projPair? i e = some x
+    projPair?_cases         : projPair? i e = some x → x = .fst e ∨ x = .snd e
+    projPair?_cases₂        : two decodings AT ONE INDEX agree on the former
+
+`projPair?_cases₂` is the one that earns its place: a congruence site
+(`Steps/DefEq.lean`'s stuck projection, `Steps/ProjRows.lean`'s
+`projStep_of_claims`) has *two* readings at the *same* node index, and
+splitting them independently would leave two impossible cross cases.
+Splitting once, on the index, gives both.  The erased tier needs only
+the decoder itself, so `ConLeche.Term` carries `projPair?` and nothing
+else.
+
+### 3. The shapes that shortened
+
+* **The clause equations** double (`WellDenoted_fst`/`_snd`,
+  `AnnotValid_fst`/`_snd`, `interp_fst`/`_snd`, `liftN_fst`/`_snd`,
+  `inst_fst`/`_snd`, `erase_fst`/`_snd`) and each loses a conjunct or
+  an `if`.  `interp_fst` is `rfl`; `interp_proj` was an `if`.
+* **`WellDenoted.hoist_proj` / `of_proj`** (`Semantics/Hoist.lean`)
+  become `hoist_fst`/`hoist_snd` and `of_fst`/`of_snd`; `of_*` drops
+  its `(hi : i < 2)` argument outright — the converse no longer has a
+  side condition to be handed.
+* **`deqStep_projCong`** (`Semantics/DefEqStep.lean`) becomes
+  `deqStep_fstCong`/`deqStep_sndCong`, each `simp only [interp_fst, h]`.
+* **`major_proj_wellDenoted`** (`Semantics/Tower/SumRec.lean`) was one
+  theorem taking `i < 2`; it is now the shared `major_sigma` (the
+  `sigmaSet` package, which is what both clauses actually wanted) plus
+  `major_fst_wellDenoted` / `major_snd_wellDenoted`, two lines each.
+  `major_proj_validV` splits the same way.
+* **The tower spellings** are unchanged in meaning and clearer on the
+  page: `projNV`/`projAV` are `.fst ∘ .snd^i`, and `projAV_interp`'s
+  base case became `rfl` (it was `rw [if_pos rfl]`).
+* **`denote.induct` lost a case.**  The `if i < 2` was a *split* in the
+  function body, so the functional induction principle had four
+  projection cases (denote-fails / entry-found / in-range / out-of-range);
+  it now has three, and the four files that use it
+  (`Verify/Denote/{Install,Levels,Shift,EnvExt}.lean`, eight proofs)
+  merged `case19`/`case20` and renumbered `case21`…`case25` down by one.
+  This is the only *mechanical* consequence that was not local.
+
+### 4. Cost
+
+52 Lean files, **+683 / −455 lines** — and the insertions are
+overwhelmingly the second copy of a two-line clause, not new reasoning.
+Three proofs needed a genuinely different tactic, all three because a
+`split` on the vanished `if` had to become a case split on the index:
+`Verify/Denote/{Shift,Inst}.lean`'s shift/substitution transport and
+`Model/Annot/BitShift.lean`'s (`rcases i with _ | _ | i <;> rfl`).
+
+Two `OVERVIEW.md` citations widened rather than moved: §4's "Terms"
+paragraph now cites `ConLeche/Term/Syntax.lean#L170-L202` and
+`ConLeche/Semantics/Syntax.lean#L69-L95`, both extended to the end of
+the constructor list so the two projection formers are visible at the
+link; `Interp.lean` and the two `WellDenoted.lean` anchors were
+re-fitted to the (unchanged) declarations they name, and
+`Steps/DefEq.lean`'s shifted by the two new `hoist_*` lemmas.  Every
+citing paragraph was re-read: "every projection hits a pair" is still
+what `WellDenoted` says, in two clauses instead of one.
+
+### 5. Gates
+
+`lake build` warning-free, `lake test` green.  Layering **base 263 /
+model 189 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory** —
+unchanged.  Proofdeps **2 846 rows across 7 roots, doors 0**, accepted
+without regeneration (the change is inside modules the roots already
+reach).  Trust surface **18 escapes in 4 allowlisted files of 464
+scanned, 0 outside**.  Axioms pinned at 11 theorems,
+`[propext, Classical.choice, Quot.sound]`.  Arena tutorial 90/92
+(032/033 by design), e2e 166/166, annot 14/14, retired flags 8/8, mode
+flags 18/18, prelude counts 3/3, progress lane 6/6, DAG-tower 2/2,
+trusted sweep 138 + 166 + 14 with its three recorded divergences.
+`inmodel` OK.  `tests/overview-links.sh`: 58 links, 44 files, OK.
+(The e2e and DAG-tower figures in this paragraph are the ones this lane
+measured before #226 landed under it; see the merge note below.)
+
+**init-full**, raw, default mode, under `perf stat -e instructions:u`:
+accepted **53 088** declarations, exit 0, route census **584 fix / 6
+basis / 1 inmodel**, at **679.255 G instructions:u** against #228's
+published 679.215 G — parity (+0.006 %).  **The kernel was not
+touched, and a proof-side change costs nothing, as it should.**  (The
+figures above are the post-merge ones; before merging #228 the lane
+measured 679.111 G against #222's 679.098 G, the same parity.)
+
+**Merged after #228** (`agent/numparams`), whose hunks in this lane's
+files were the `.indDecl` pattern-arity one-liners in `Semantics/*` and
+`Model/Fold.lean`, **and then after #226** (`agent/towers`), which
+touched no file of this lane; the only textual conflict either time was
+the DESIGN record's tail.  Re-gated at each merge: at the landing the
+e2e suite is **174/174** (#228's two twins plus #226's four tower
+fixtures), the DAG-tower gate 9/9, and the trusted sweep
+138 + 174 + 14.
+
 ## TASK #227 — THE TAG'S UNIVERSE WITHOUT AN ENVIRONMENT: a sort CEILING, and the #218/#200 finding closed (2026-09-08, `agent/modsort`)
 
 ### 0. The finding, and the ruling it is decided under

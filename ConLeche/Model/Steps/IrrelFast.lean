@@ -142,7 +142,7 @@ theorem neverChain_succ_inv {n u : Nat} {e : AnnotTerm}
   match e with
   | .pi w v A B => exact ⟨w, v, A, B, rfl, h.1, h.2⟩
   | .bvar _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ _
-  | .letE _ _ _ | .eqE _ _ _ | .proj _ _ | .prf => exact nomatch h
+  | .letE _ _ _ | .eqE _ _ _ | .fst _ | .snd _ | .prf => exact nomatch h
 
 /-- Substitution preserves the chain (`inst` maps `.pi` to `.pi` and
 `.sort` to itself). -/
