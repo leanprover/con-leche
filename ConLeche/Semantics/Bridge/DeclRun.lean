@@ -134,7 +134,7 @@ theorem declThmRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
     (h : checkDecl μ (fueledOps μ F) env (.thmDecl cv value)
       = .ok env₂) :
     DeclThmRun μ F env cv value env₂ := by
-  simp only [checkDecl, checkThmVal, fueledOps_annotate,
+  simp only [checkDecl, checkThmVal, thmPrep, thmBody, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
     Bind.bind, Except.bind] at h
   cases hccv : checkConstantVal (fueledOps μ F) env cv with

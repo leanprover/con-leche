@@ -72,7 +72,7 @@ theorem checkThmValF_pushC (ops : CheckerOps CheckCM) (env : Env)
     (cv : ConstantVal) (value : Expr) :
     checkThmValF ops (mkFEnv env) cv value
       = checkThmVal ops env cv value >>= fun e => pure (mkFEnv e) := by
-  unfold checkThmValF checkThmVal
+  unfold checkThmValF checkThmVal thmPrep thmBody
   simp only [constsResolveF_eq, mkFEnv_env, push_mkFEnv, bind_assoc,
     pure_bind, ite_bindC, throwC_bind_eq] <;> rfl
 

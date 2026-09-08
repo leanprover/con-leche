@@ -838,7 +838,8 @@ theorem checkThmVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
     (F : Nat) :
     (checkThmVal (fueledOpsM mode) env cv value).val F =
       checkThmVal (fueledOps mode F) env cv value := by
-  unfold checkThmVal
+  -- the branch is its two halves since the deferred-body cut
+  unfold checkThmVal thmPrep thmBody
   datF_tac
 
 theorem checkOpaqueVal_datF (env : Env) (cv : ConstantVal) (value : Expr)

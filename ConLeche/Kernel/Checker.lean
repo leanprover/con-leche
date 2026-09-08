@@ -48,10 +48,27 @@ def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     throw (.invalid s!"type mismatch in definition {cv.name}")
   pure ⟨.defnInfo cv value hint :: env.consts⟩
 
-/-- Check a `theorem` declaration's value against its checked constant
-(whose type must additionally be a proposition). -/
-def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
-    (value : Expr) : m Env := do
+/-! ### The theorem check, cut in two
+
+The spec twin of `ConLeche.Cached.thmPrepC` / `thmBodyC`
+(`ConLeche/Cached/ParsedC.lean`): everything that produces the installed
+constant, then the two steps that need the value.  The deferred-body
+fan-out defers exactly the second half, and it is at the SPEC level that
+the two halves have to meet — a cached run's success gives a spec run's
+success (the simulation's direction), and the spec checker has no memo
+state at all, so two spec runs of the same half are the same run.  That
+is what lets an install pass and a worker, which never share a memo
+state, be assembled into one sequential meaning.
+
+Continuation-passing for the reason the cached twin is: cutting a
+`do` block after the fact is not definitional, because the
+`unless … do throw` guards elaborate to join points whose shape depends
+on the tail. -/
+
+/-- The install half of the theorem check: up to and including the
+annotated value, which is handed to `k`. -/
+def thmPrep {α : Type} (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
+    (value : Expr) (k : Expr → m α) : m α := do
   -- the type of a theorem must be a proposition
   let stype ← ops.inferType env 0 cv.type
   let u ← ops.ensureSort env 0 stype
@@ -66,10 +83,33 @@ def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless value.constsResolve env do
     throw (.invalid s!"unknown constant in value of {cv.name}")
+  k value
+
+/-- The body half of the theorem check: the two steps that need the
+value, then `k`. -/
+def thmBody {α : Type} (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
+    (value : Expr) (k : m α) : m α := do
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in theorem {cv.name}")
-  pure ⟨.thmInfo cv value :: env.consts⟩
+  k
+
+/-- Check a `theorem` declaration's value against its checked constant
+(whose type must additionally be a proposition), as its two halves —
+so `checkThmVal_split` is `rfl`. -/
+def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
+    (value : Expr) : m Env :=
+  thmPrep ops env cv value (fun value =>
+    thmBody ops env cv value (pure ⟨.thmInfo cv value :: env.consts⟩))
+
+/-- **The spec-level decomposition**, the twin of
+`ConLeche.Cached.checkThmValC_split`. -/
+theorem checkThmVal_split (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
+    (value : Expr) :
+    checkThmVal ops env cv value
+      = thmPrep ops env cv value (fun value =>
+          thmBody ops env cv value (pure ⟨.thmInfo cv value :: env.consts⟩)) :=
+  rfl
 
 /-- Check an `opaque` declaration's value against its checked
 constant: exactly the theorem check without the is-a-proposition

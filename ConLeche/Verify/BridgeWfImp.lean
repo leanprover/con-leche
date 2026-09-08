@@ -268,8 +268,11 @@ theorem checkThmVal_wfimp {env : Env} (henv : EnvWF env)
     (hcvty : cv.type.hasFvar = false) {F : Nat} {v : Env}
     (h : (checkThmVal (wfOpsM mode) env cv value).val F = .ok v) :
     checkThmVal (fueledOps mode F) env cv value = .ok v := by
-  unfold checkThmVal at h ⊢
-  dsimp only [] at h ⊢
+  -- the check is its two halves since the deferred-body cut, so both
+  -- come with the unfold; the continuation leaves an applied lambda
+  -- that the walk below must see through, hence the beta step
+  unfold checkThmVal thmPrep thmBody at h ⊢
+  simp only [] at h ⊢
   rw [wfOpsM_inferType henv (wscopedB_of_not_hasFvar hcvty)] at h
   obtain ⟨stype, hst, h⟩ := atF_bind_ok h
   have hst' : inferTypeCore mode env F 0 cv.type = .ok stype := hst
