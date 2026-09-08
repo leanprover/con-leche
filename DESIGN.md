@@ -61341,3 +61341,238 @@ overview-links) at the landing merge, where the e2e suite reads
   `CON_LECHE_INMODEL_DUMP` streams are **byte-identical** (master's
   binary, this branch before the #228 merge, and after it), so not one
   generated record of Mathlib's mutual and nested blocks moved.
+
+
+## TASK #223 — UNUSED IMPORTS WITH LAKE'S `shake`: the tool exists, it refuses this tree, and the criterion it needs is not its own output (2026-09-08, `agent/shake`)
+
+User: *"isn't there a lean shake tool we can use?"* … *"do that"*.
+There is, it is no longer Mathlib's, and the interesting part of this
+task is everything between "there is" and the 23 import lines that
+landed.
+
+### 1. `shake` was upstreamed into Lake — and it refuses this tree
+
+`Shake/Main.lean` left Mathlib on 2025-07-29 (`mathlib4#27632`,
+*"feat: remove (upstreamed) shake"*): there is no `Shake/` directory at
+`v4.33.0`, so the plan of building it out of tree against our toolchain
+had no subject.  It ships **in our toolchain**, as the Lake subcommand
+`lake shake`, sources at
+`$(lean --print-prefix)/src/lean/lake/Lake/CLI/Shake.lean` — 760 lines,
+`Lake.Shake.run` the only `public` entry point.  Nothing had to be
+built: `lake shake --help` works in the worktree as it stands.
+
+It also does not run.  `Lake.Shake.run`'s fourth statement is
+
+    if env.header.moduleData.any (!·.isModule) then
+      throw <| .userError "`lake shake` only works with `module`s currently"
+
+and this tree is **18 `module` files against 529 classic ones** (per
+directory: `Kernel` 6/41, `Semantics` 4/66, `Model` 4/188, `Verify`
+2/105, `Cached` 0/6, `SetTheory` 0/16, `SetModel` 0/8).  The guard is
+over the whole *closure*, so there is no classic subset to point it at
+either.  The same guard stands in `v4.33.1` and `v4.34.0-rc2`.
+
+### 2. The probe: what the module system does, and what shake models
+
+Before trusting anything, a five-file probe (`_tmp/shake/probe*`),
+built and re-built until each cell was ground truth from `lake build`:
+
+| configuration | `lake build` | shake |
+|---|---|---|
+| `module A` with `public import B`, plain `import C`; **`module D`** imports only `A`, uses `bName` and `cName` | **fails** — `Unknown identifier cName` | — |
+| same, `D` imports `A` **and** `C` | builds | does **not** propose removing `D`'s `import C`; proposes replacing `import A` by `import B` (correct: only `bName` is reached through `A`) |
+| `module A` as above; **classic `D`** imports only `A`, uses `bName` **and** `cName` | **builds** | proposes removing `import A` and adding `B` *and* `C` |
+| a `module` file importing a classic file | **fails** — `cannot import non-`module` P.B from `module`` | — |
+
+Two facts fall out, and both matter for the rest of this record.
+
+**(i) shake's model of the module system is exact where it applies.**
+`Lake.Shake.addTransitiveImps` implements the re-export rules
+literally (`j ∈ transDeps[i].pub` iff `i -(public import)->+ j`;
+`j ∈ transDeps[i].priv` iff `i -(import)-> _ -(public import)->* j`),
+and the probe's second row is the check that it does not remove an
+import whose target is unreachable any other way.
+
+**(ii) a CLASSIC file sees a `module` file's PRIVATE imports.**  Third
+row: `D` compiles against `cName` even though `A` imports `C`
+privately.  The module system's export discipline is enforced for
+`module` importers only; a classic importer gets the whole closure.
+shake models a classic import as `public import` — which is exactly
+right for classic→classic, and an **under**-approximation for
+classic→`module`.  Under-approximating reachability is the safe
+direction (it can only make shake ask for MORE imports, never fewer),
+but it means shake's `add` suggestions on this tree are not all real.
+
+### 3. Three patches, in a scratch project, verified against the original
+
+`scripts/shake-setup.sh` vendors that one upstream file into
+`_tmp/shake-tool/` (gitignored; **the package manifest stays empty** —
+task #207's no-dependencies property is untouched) and patches three
+places, all of them classic-file edges rather than analysis:
+
+1. the guard of §1, dropped.  A classic file's imports are recorded in
+   the olean as `isExported := true, importAll := false` — measured,
+   not assumed — i.e. exactly `public import`, which *is* classic
+   re-export semantics, so the analysis core applies unchanged.
+2. `decodeImport` read `isExported` off the `public` token, which a
+   classic header cannot carry.  The decoded `Import` therefore never
+   equalled the one from the olean, and `--fix` and `--explain` would
+   have silently done nothing on classic files.  It now takes the
+   header's `module?`.
+3. the `--fix` writer spelled an added import `{mod}`, i.e.
+   `public import X` — not valid syntax in a classic file.
+
+The vendored-and-patched tool reproduces unpatched `lake shake`
+**byte-for-byte** on the all-`module` probe, and `scripts/shake-setup.sh`
+reproduces the hand-patched copy (the two differ only in comment
+wording) and the same output on this tree.
+
+### 4. The criterion is NOT shake's proposal set
+
+Pointed at the tree (455 modules; `Main` and `PinDump` need separate
+runs — both define `main`), shake proposes, in its default
+transitive-minimization mode, **492 removals and 502 additions**;
+with `--keep-implied` (keep an import that another import already
+implies) **281 and 502**; with `--keep-implied --keep-prefix`
+**272 and 474**.  It is a *minimizer*, not an unused-import remover:
+its output relocates imports downward — the direct-edge count would
+**rise** by ~200 — and 52 of the additions name modules like
+`Std.Data.DTreeMap.Internal.Operations`,
+`Std.Data.DTreeMap.Internal.Balancing`,
+`Std.Tactic.BVDecide.Normalize` and `Std.Do.Triple.SpecLemmas`, which
+no file of ours should be naming.
+
+Worse, most of those additions are **false**, and this is finding (ii)
+of §2 cashed out.  A run with `--only ConLeche.NoSuchModule`
+minimizes nothing at all and still reports **22 `add` lines**: that is
+the tree's *noise floor*, entirely the classic-sees-private gap.  A
+proposal set has to be read against it.
+
+So the criterion this task actually used, and the one the re-run
+recipe in `scripts/README.md` states:
+
+> An import `I` of `M` may be removed when the run
+> `shaketool --keep-implied --only M` reports the noise floor **and
+> nothing more** — no compensating addition anywhere in the tree.
+
+That is a *global* criterion (it is shake, over the whole closure, that
+decides), which is what task #221 §7 said the local one could not be;
+and it is cheap: one run is ~2.5 s, so all 455 modules is one pass of
+a few minutes.
+
+### 5. What that yields: 24 modules, 27 items, 23 landed
+
+The per-module pass found **24 modules** with compensation-free
+removals, **27 items**.  Three did not land:
+
+* `Kernel/NatOpPins.lean` and `Kernel/TrustPins.lean` — the "removal"
+  of `meta import ConLeche.PinGen.Dump` / `meta import ConLeche.PinGen`
+  is paired with a floor-level *addition* of the same module without
+  `meta`.  A `meta`→plain rewrite is not an unused import; skipped.
+* `Model/Inductives/FixRecLaw.lean` — see §6.
+
+The remaining **23 removals in 20 files** are what landed:
+`Model/{IndBottomNested, Steps/IotaGate}`,
+`Model/Inductives/{FixCtorReads, FixRuleKit, FixStageFormer, StructRows, SumRecRead}`,
+`Semantics/{BasisRules, Canon}`,
+`Verify/{CoreGated, InstSpine, ProjSlots, StdAxiomPin}`,
+`Verify/Cached/BridgeCSDecl`, `Verify/Denote/{EnvExt, IndFrame}`,
+`Verify/Extend/{Block, Ind, Sibs}`, `Verify/Inductives/FixParts`.
+In-tree import edges **1316 → 1293**; 459 modules, **459 still
+reachable from the library roots** (no module fell out of the build);
+517 build jobs before and after.
+
+### 6. Two classes the criterion still misses — the cold build is the arbiter
+
+Applying all 25 non-`meta` items broke the build in exactly two
+places, and both are worth stating because neither is visible to a
+*constant*-dependency analysis:
+
+* **`Model/ErasePwInv.lean`** — removing `import ConLeche.Verify.Denote`
+  gives `unknown namespace ConLeche.Term` at an `open`.  A bare
+  `open N` needs the namespace to *exist*; no declaration of the module
+  refers to any constant in it, and `Lean.recordExtraModUse` does not
+  record namespace existence.  Reverted.
+* **`Model/Inductives/FixRuleOk.lean`** — `Unknown identifier
+  AnnotValid_ihIdxAtM`.  `FixRuleOk` imports `FixRuleKit` *and*
+  `FixRecLaw`, and both reach `FixIntro`; each removal alone is
+  compensation-free, and the two **jointly orphan** `FixIntro` from
+  `FixRuleOk`.  The per-module criterion is not closed under union.
+  `FixRecLaw`'s removal was reverted, `FixRuleKit`'s kept.
+
+After the reverts the noise floor is **identical** to the pre-landing
+one, which is the joint check: nothing became unreachable.
+
+### 7. Task #221 §7's named case: shake agrees, and supplies what #221 could not
+
+The dead-code lane's finding was `SetTheory/Basic.lean`'s
+`import ConLeche.SetTheory.Derive.Sigma` — redundant for `Basic`'s own
+declarations, and how `SetModel/TupleTower.lean` reaches `sigmaSet`.
+shake's global answer, verbatim:
+
+    ./ConLeche/SetTheory/Basic.lean:
+      remove #[… Derive.Sigma, … Derive.Quot, … Derive.Choice, … Derive.Lfp, … Derive.LfpFam]
+      add    #[… Derive.Univ]
+    ./ConLeche/SetModel/Value.lean:
+      add    #[… Derive.LfpFam, … Derive.Choice, … Derive.Quot, … Derive.Sigma]
+    ./ConLeche/SetModel/TupleTower.lean:
+      add    #[… Derive.Sigma]
+    ./ConLeche/SetModel/Container.lean:
+      add    #[… Derive.Choice]
+
+— i.e. the local criterion's 43 candidates were not wrong about
+`Basic`; they were *incomplete*, and the missing half is precisely the
+explicit import in `TupleTower` that #221 predicted.  It is a
+relocation, not a removal (5 out, 6 in), so by §4's criterion it is
+**not** in this batch; recorded here as the worked example of what the
+rejected class looks like.
+
+### 8. What was rejected, and why
+
+**163 modules / 226 items** fail the criterion: 158 of them need a
+compensating addition of an in-tree module, 5 only of `Std` internals.
+They are the same restructuring §4 describes.  Ranked by net edge
+delta the cleanest are `Semantics/EnvFacts` (4 out, 1 in),
+`Semantics/Inductives/DeclStructEta` (5/3), `Semantics/Tower/FixLeafI`
+(4/3), `Verify/{ReducePinInv, DivModInv}` and
+`Semantics/IndBlockFacts` (3/2 each); a batch of those is a separate
+task with its own build gate, not an unused-import cleanup.
+
+Two whole cones were rejected outright:
+
+* **`PinDump` / `PinGen/*`.**  Every proposal there replaces
+  `import Lean` with a shopping list (`Lean.Elab.Command`,
+  `Lean.Exception`, `Lean.Expr`, `Lean.Data.Json.Basic`,
+  `Lean.Meta.Basic`, `Lean.ToExpr`, `Lean.Environment`,
+  `Lean.Util.Path`).  `import Lean` is the intended spelling.
+* **`tests/`.**  shake wants `tests/ConLecheTests/Axioms.lean` to drop
+  all four capstone imports and `tests/ConLecheTests.lean` to drop
+  `import ConLeche`.  Both modules are `#guard`/`example`-only: an
+  `example` elaborates but stores no constant, so
+  `moduleData.constants` — everything shake reads — is blind to the
+  whole test suite.  A third blindness class, beside the two of §6.
+
+### 9. Umbrellas
+
+Nothing had to be configured.  shake preserves a *folder-nested*
+import (`modName.isPrefixOf imp.module`) unconditionally, so
+`ConLeche.lean`, `ConLeche/{Model,Semantics,SetModel,Term}.lean`,
+`ConLeche/Verify/{Cached,Denote}.lean`, `ConLeche/PinGen.lean` and
+`ConLeche/Frontend/InModel.lean` received no removal proposal in any
+run.  A separate reachability sweep over the eleven library roots
+confirms every one of the 459 modules is still reached after the
+landing, so no umbrella is missing a module.
+
+### 10. Gates
+
+`lake build` warm and **cold** (517 jobs, warning-free), `lake test`,
+`tests/arena.sh` under a clean environment (90/92 arena, 176/176 e2e,
+14/14 annot, trusted sweep unchanged), `tests/layering.sh`
+**base 263 / model 189 / caps 3 / umbrella 1, 0 base→lane, 0
+impl→theory — identical**, `tests/proofdeps.sh` **2846 module rows as
+pinned across 7 roots, doors 0 — no row moved**, so there was nothing
+to regenerate (every removed edge was implied by another edge inside
+the capstones' closures), `tests/trust-surface.sh` (18 escapes in 4
+allowlisted files, 464 scanned), `tests/pindump.sh`,
+`tests/overview-links.sh` (58 links, 44 files — no linked range
+shifted), `tests/route-census.sh`, `tests/inmodel.sh`.
