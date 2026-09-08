@@ -69,7 +69,8 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
       | none => pure (.proj sn i e')
-    | .letE _ v b => kM (b.instantiate1 v)
+    | .letE _ _ _ =>
+      throw (.internal "whnfCore: `let` in an annotated expression")
     | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")) := by
   cases e <;> rfl
@@ -481,13 +482,8 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
   | lit l => exact SimC.pure hs ⟨hden, hw⟩
   | bvar k => exact SimC.throw
   | letE t v b =>
-    dsimp only
-    have hw' : Expr.WScoped d
-      (.letE t v b) := hw
-    simp only [Expr.WScoped] at hw'
-    refine SimC.bind_left (inst1M_eff hs rfl rfl)
-      (fun s₁ e' hs₁ hQ => ?_)
-    exact hk hs₁ hQ (Expr.WScoped.instantiate1_gen hw'.2.1 0 hw'.2.2)
+    -- task #241: both sides are the same positive `.internal` error
+    exact SimC.throw
   | app g' a =>
     dsimp only
     -- Bulk beta (task #50): the twin normalizes the spine head once and
@@ -1830,35 +1826,8 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     try dsimp only
     exact SimC.throw
   | letE t v b =>
-    dsimp only
-    unfold inferBody
-    dsimp only
-    try dsimp only
-    have hw' : Expr.WScoped d
-      (.letE t v b) := hw
-    simp only [Expr.WScoped] at hw'
-    -- task #100 stage 6: the `let` checks moved here from the deleted
-    -- annotation pass (official `infer_let` order)
-    refine SimC.bind (ih.infer hs rfl hw'.1)
-      (fun s₁ tty ttyx hs₁ hP₁ => ?_)
-    obtain ⟨httyd, hwtty⟩ := hP₁
-    refine SimC.bind (ensureSortC_sim ih hs₁ httyd hwtty)
-      (fun s₂ u lu hs₂ _hPu => ?_)
-    refine SimC.bind (ih.infer hs₂ rfl hw'.2.1)
-      (fun s₃ tv tvx hs₃ hP₃ => ?_)
-    obtain ⟨htvd, hwtv⟩ := hP₃
-    refine SimC.bind (ih.defeq hs₃ htvd rfl hwtv hw'.1)
-      (fun s₄ bb' bb'' hs₄ hPb => ?_)
-    obtain rfl : bb' = bb'' := hPb
-    cases bb' with
-    | false =>
-      simp only [Bool.false_eq_true, ↓reduceIte]
-      exact SimC.throw_bind
-    | true =>
-      simp only [↓reduceIte]
-      refine SimC.bind_left (inst1M_eff hs₄ rfl rfl)
-        (fun s₅ e' hs₅ hQ => ?_)
-      exact ih.infer hs₅ hQ (Expr.WScoped.instantiate1_gen hw'.2.1 0 hw'.2.2)
+    -- task #241: both sides are the same positive `.internal` error
+    exact SimC.throw
   | fvar idx t =>
     simp only [inferBodyI, inferBody]
     have h' : idx < d ∧ Expr.WScoped idx t := by
@@ -2117,35 +2086,8 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     try dsimp only
     exact SimC.throw
   | letE t v b =>
-    dsimp only
-    unfold inferBodyI inferBodyIO
-    dsimp only
-    try dsimp only
-    have hw' : Expr.WScoped d
-      (.letE t v b) := hw
-    simp only [Expr.WScoped] at hw'
-    -- task #100 stage 6: the `let` checks moved here from the deleted
-    -- annotation pass (official `infer_let` order)
-    refine SimC.bind (ih.inferIO hs rfl hw'.1)
-      (fun s₁ tty ttyx hs₁ hP₁ => ?_)
-    obtain ⟨httyd, hwtty⟩ := hP₁
-    refine SimC.bind (ensureSortC_sim ih hs₁ httyd hwtty)
-      (fun s₂ u lu hs₂ _hPu => ?_)
-    refine SimC.bind (ih.inferIO hs₂ rfl hw'.2.1)
-      (fun s₃ tv tvx hs₃ hP₃ => ?_)
-    obtain ⟨htvd, hwtv⟩ := hP₃
-    refine SimC.bind (ih.defeq hs₃ htvd rfl hwtv hw'.1)
-      (fun s₄ bb' bb'' hs₄ hPb => ?_)
-    obtain rfl : bb' = bb'' := hPb
-    cases bb' with
-    | false =>
-      simp only [Bool.false_eq_true, ↓reduceIte]
-      exact SimC.throw_bind
-    | true =>
-      simp only [↓reduceIte]
-      refine SimC.bind_left (inst1M_eff hs₄ rfl rfl)
-        (fun s₅ e' hs₅ hQ => ?_)
-      exact ih.inferIO hs₅ hQ (Expr.WScoped.instantiate1_gen hw'.2.1 0 hw'.2.2)
+    -- task #241: both sides are the same positive `.internal` error
+    exact SimC.throw
   | fvar idx t =>
     simp only [inferBodyI, inferBodyIO]
     have h' : idx < d ∧ Expr.WScoped idx t := by

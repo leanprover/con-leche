@@ -322,47 +322,15 @@ theorem inferTypeCoreIO_app_inv' {env : Env} {fuel d : Nat}
     · exact Or.inr ⟨ta, inferTypeCoreIO_mono (Nat.le_succ _) h4,
         isDefEqCore_mono (Nat.le_succ _) h5⟩
 
-/-- Inversion for the let-rule of the io lane
-(`inferTypeCore_letE_inv`'s twin: the three inferences at the io lane,
-the sort/conversion runs at the full one). -/
+/-- The let-rule of the io lane is **unreachable** (task #241), like
+`inferTypeCore_letE_inv`'s: the arm is a positive `.internal` error. -/
 theorem inferTypeCoreIO_letE_inv {env : Env} {fuel d : Nat}
     {ty v b t : Expr}
     (h : inferTypeCoreIO mode env (fuel + 1) d (.letE ty v b)
       = .ok t) :
-    ∃ tty s tv, inferTypeCoreIO mode env fuel d ty = .ok tty ∧
-      ensureSortCore mode env fuel d tty = .ok s ∧
-      inferTypeCoreIO mode env fuel d v = .ok tv ∧
-      isDefEqCore mode env fuel d tv ty = .ok true ∧
-      inferTypeCoreIO mode env fuel d (b.instantiate1 v) = .ok t := by
+    False := by
   rw [inferTypeCoreIO_succ] at h
-  simp only [inferBodyIO, pure, Except.pure, Bind.bind,
-    Except.bind] at h
-  simp only [inferIO_def, pureFnsIO_whnf, pureFnsIO_defeq,
-    ensureSortIO_def] at h
-  cases hty : inferTypeCoreIO mode env fuel d ty with
-  | error err => rw [hty] at h; exact nomatch h
-  | ok tty =>
-  rw [hty] at h
-  dsimp only at h
-  cases hes : ensureSortCore mode env fuel d tty with
-  | error err => rw [hes] at h; exact nomatch h
-  | ok s =>
-  rw [hes] at h
-  dsimp only at h
-  cases htv : inferTypeCoreIO mode env fuel d v with
-  | error err => rw [htv] at h; exact nomatch h
-  | ok tv =>
-  rw [htv] at h
-  dsimp only at h
-  cases hde : isDefEqCore mode env fuel d tv ty with
-  | error err => rw [hde] at h; exact nomatch h
-  | ok r =>
-  rw [hde] at h
-  cases r with
-  | false => simp [throw, throwThe, MonadExceptOf.throw] at h
-  | true =>
-    simp only [↓reduceIte] at h
-    exact ⟨tty, s, tv, rfl, hes, rfl, hde, h⟩
+  simp [inferBodyIO, throw, throwThe, MonadExceptOf.throw] at h
 
 /-- Inversion for the projection rule of the io lane
 (`inferTypeCore_proj_inv`'s twin: the scrutinee's inference at the io
@@ -492,7 +460,6 @@ theorem inferTypeCoreIO_const_eq {env : Env} {fuel d : Nat} {n : Name}
   rw [inferTypeCoreIO_succ, inferTypeCore_succ]
   rfl
 
-
 /-! ## The full→io weakening (task #172 B4 — the interned short-bridge)
 
 A successful full-grade inference is a successful io-grade inference
@@ -606,22 +573,7 @@ theorem inferTypeCoreIO_of_full {env : Env} :
         rw [hde]
         simp
     | .letE ty v b =>
-      obtain ⟨tty, sv, tv, hty, hes, htv, hde, htail⟩ :=
-        inferTypeCore_letE_inv h
-      rw [inferTypeCoreIO_succ]
-      simp only [inferBodyIO, pure, Except.pure,
-        Bind.bind, Except.bind]
-      simp only [inferIO_def, pureFnsIO_whnf, pureFnsIO_defeq,
-        ensureSortIO_def]
-      rw [inferTypeCoreIO_of_full hty]
-      dsimp only
-      rw [hes]
-      dsimp only
-      rw [inferTypeCoreIO_of_full htv]
-      dsimp only
-      rw [hde]
-      simp only [if_true, ↓reduceIte]
-      exact inferTypeCoreIO_of_full htail
+      exact (inferTypeCore_letE_inv h).elim
     | .proj sn i pe =>
       obtain ⟨tpe, te, T, us, entry, htpe, hwte, hfn, hfe,
         hlenArgs, hlenUs, hguard, rfl, hsn⟩ :=
@@ -666,6 +618,5 @@ theorem inferTypeCoreIO_of_slot {env : Env} {fuel d : Nat} {e t : Expr}
   | true =>
     rw [inferTypeIO_on hg] at h
     exact h
-
 
 end ConLeche

@@ -462,44 +462,27 @@ theorem Expr.WScoped.getAppFn {d : Nat} :
     exact ihf hfa.1
   | _ => intro h; exact h
 
-/-- Inversion for the let-rule of `inferTypeCore` (task #100 stage 6:
-the official kernel's `infer_let` checks moved here from the deleted
-annotation pass). -/
+/-- The let-rule of `inferTypeCore` is **unreachable** (task #241): the
+arm is a positive `.internal` error, not the official `infer_let`
+triple, which lives in `annotateBody` and returns the ζ reduct
+(task #217).  So an accepting inference run never meets a `letE` node,
+and every `letE` case downstream is vacuous. -/
 theorem inferTypeCore_letE_inv {env : Env} {fuel d : Nat}
     {ty v b t : Expr}
     (h : inferTypeCore mode env (fuel + 1) d (.letE ty v b) = .ok t) :
-    ∃ tty s tv, inferTypeCore mode env fuel d ty = .ok tty ∧
-      ensureSortCore mode env fuel d tty = .ok s ∧
-      inferTypeCore mode env fuel d v = .ok tv ∧
-      isDefEqCore mode env fuel d tv ty = .ok true ∧
-      inferTypeCore mode env fuel d (b.instantiate1 v) = .ok t := by
+    False := by
   rw [inferTypeCore_succ] at h
-  simp only [inferBody, pure, Except.pure, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def, defeq_def, ensureSort_def] at h
-  cases hty : inferTypeCore mode env fuel d ty with
-  | error err => rw [hty] at h; exact nomatch h
-  | ok tty =>
-  rw [hty] at h
-  dsimp only at h
-  cases hes : ensureSortCore mode env fuel d tty with
-  | error err => rw [hes] at h; exact nomatch h
-  | ok s =>
-  rw [hes] at h
-  dsimp only at h
-  cases htv : inferTypeCore mode env fuel d v with
-  | error err => rw [htv] at h; exact nomatch h
-  | ok tv =>
-  rw [htv] at h
-  dsimp only at h
-  cases hde : isDefEqCore mode env fuel d tv ty with
-  | error err => rw [hde] at h; exact nomatch h
-  | ok r =>
-  rw [hde] at h
-  cases r with
-  | false => simp [throw, throwThe, MonadExceptOf.throw] at h
-  | true =>
-    simp only [↓reduceIte] at h
-    exact ⟨tty, s, tv, rfl, hes, rfl, hde, h⟩
+  simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
+
+/-- The ζ arm of `whnfCore` is **unreachable** (task #241), for the same
+reason: it is a positive `.internal` error, because reduction only ever
+sees let-free expressions. -/
+theorem whnfCore_letE_inv {env : Env} {fuel d : Nat}
+    {ty v b e' : Expr}
+    (h : whnfCore mode env (fuel + 1) d (.letE ty v b) = .ok e') :
+    False := by
+  rw [whnfCore_succ] at h
+  simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
 
 /-! ## Fuel-lifted inversions
 
@@ -2986,10 +2969,9 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
         rw [whnfCore_succ] at h
         simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
       | letE tt vv bb =>
+        -- task #241: the ζ arm is a positive `.internal` error
         rw [whnfCore_succ] at h
-        simp only [whnfCoreBody, whnfCore_def] at h
-        simp only [WScoped] at hw
-        exact ihCore h (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+        simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
       | app f a =>
         simp only [WScoped] at hw
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h

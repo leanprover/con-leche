@@ -27,18 +27,14 @@ at the leaf's stored annotation (this is the asymmetry batch 6's
 FINDING recorded from the other side: it is what made *`InferReads`*
 refutable and what makes *this* statement free of a leaf premise).
 
-## The one clause that is not a guard coincidence: `letE`
+## The clause that is not a guard at all: `letE`
 
-`inferBody`'s `letE` clause is ζ — it recurses on
-`b.instantiate1 v` — while `denoteMeta`'s `letE` clause **opens** the
-body, `b.instantiate1 (.fvar d ty)`.  The two are not the same
-term, so the induction hypothesis lands on the wrong one.
-`denoteMeta_beta` (`Annot/BitInst.lean`) is exactly the bridge, and in
-the direction this walk needs: it states the ζ reading as the *opened*
-reading mapped through `AnnotTerm.inst`, so `some` on the left forces
-`some` inside the map.  The value's own reading — the `x` that lemma
-instantiates at — is the induction hypothesis at `v`, which the same
-clause infers.
+`inferBody`'s `letE` arm is a positive `.internal` error (task #241) —
+the official `infer_let` triple lives in `annotateBody`, which returns
+the ζ *reduct* (task #217), so inference only ever sees let-free
+expressions.  The clause is therefore **vacuous**:
+`inferTypeCore_letE_inv` turns the run hypothesis into `False`, which
+is exactly what licenses `denoteMeta`'s own `letE`-free totality.
 
 No environment field is consulted beyond `EnvS`'s `proj_ok`
 (syntactic, `V`-free): the walk is a statement about the *checker*,
@@ -61,8 +57,8 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
 
 /-! ## The three run inversions the walk adds
 
-`Verify/InferLemmas.lean` has the binder, application, `letE` and
-projection inversions already; the `.const` one there drops the arity
+`Verify/InferLemmas.lean` has the binder, application, `letE` (now the
+vacuous one) and projection inversions already; the `.const` one there drops the arity
 equation (it is consumed inside its own `split`) and the two literal
 clauses have none, because no previous consumer needed the guard.  All
 three are one `simp only [inferBody, …]` deep. -/
@@ -206,41 +202,13 @@ private theorem acceptedReads_aux (m : EnvModel V env) (φ : Name → Nat) :
         hL l (by simpa [Expr.fvarLeaves] using hl))
       exact ⟨_, denoteMeta_proj_tower hfe hpa⟩
     | .letE ty val body =>
-      obtain ⟨tty, s, tv, htty, -, htv, -, hbody⟩ :=
-        ConLeche.inferTypeCore_letE_inv h
-      simp only [Expr.WScoped] at hws
-      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-      have hLty : Expr.LeavesBounded ty := fun l hl =>
-        hL l (by simp [Expr.fvarLeaves, hl])
-      have hLval : Expr.LeavesBounded val := fun l hl =>
-        hL l (by simp [Expr.fvarLeaves, hl])
-      have hLbd : Expr.LeavesBounded body := fun l hl =>
-        hL l (by simp [Expr.fvarLeaves, hl])
-      obtain ⟨ta, hta⟩ := ih htty hws.1 hb.1.1 hLty
-      obtain ⟨va, hva⟩ := ih htv hws.2.1 hb.1.2 hLval
-      -- the ζ reduct reads (the clause's own recursion) …
-      have hsubred : ∀ l ∈ (body.instantiate1 val).fvarLeaves,
-          l ∈ (Expr.letE ty val body).fvarLeaves := by
-        intro l hl
-        rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
-        · simp [Expr.fvarLeaves, h2]
-        · simp [Expr.fvarLeaves, h2]
-      obtain ⟨za, hza⟩ := ih hbody
-        (Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2)
-        (Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
-        (fun l hl => hL l (hsubred l hl))
-      -- … and `denoteMeta_beta` reads it as the *opened* body's reading
-      rw [denoteMeta_beta m.acval_closed (acval_inst_self m)
-        (ty := ty) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0] at hza
-      rcases hba : denoteMeta m.acval env φ (d + 1)
-          (body.instantiate1 (.fvar d ty)) with _ | ba
-      · rw [hba] at hza; exact nomatch hza
-      exact ⟨_, by rw [denoteMeta, hta, hva, hba]; rfl⟩
+      exact (ConLeche.inferTypeCore_letE_inv h).elim
 
 /-- **`accepted_reads`, discharged** — the statement `SemTierInputsP`
 carried as its last field, now a theorem.  Whatever the front door's
 inference accepts, the validated-annotation reading reads.  See the
-module docstring for the guard table and for the `letE` bridge. -/
+module docstring for the guard table and for the vacuous `letE`
+clause. -/
 theorem acceptedReads_of (m : EnvModel V env) (φ : Name → Nat)
     {F d : Nat} {e t : Expr}
     (h : inferTypeCore μ env F d e = .ok t)

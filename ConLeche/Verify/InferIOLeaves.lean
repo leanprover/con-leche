@@ -138,10 +138,7 @@ theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
       simp [inferBodyIO, Bind.bind, Except.bind, pure,
         Except.pure, throw, throwThe, MonadExceptOf.throw] at h
     | letE t' v' b' =>
-      obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCoreIO_letE_inv h
-      simp only [WScoped] at hw
-      exact inferTypeCoreIO_WScoped henv fuel h'
-        (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+      exact (inferTypeCoreIO_letE_inv h).elim
 
 theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
@@ -281,15 +278,7 @@ theorem inferTypeCoreIO_fvarLeaves {env : Env} (henv : EnvWF env) :
       simp [inferBodyIO, Bind.bind, Except.bind, pure,
         Except.pure, throw, throwThe, MonadExceptOf.throw] at h
     | letE t' v' b' =>
-      obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCoreIO_letE_inv h
-      simp only [WScoped] at hw
-      intro l hl
-      have hl' := inferTypeCoreIO_fvarLeaves henv fuel h'
-        (WScoped.instantiate1_gen hw.2.1 0 hw.2.2) l hl
-      simp only [fvarLeaves, List.mem_append]
-      rcases fvarLeaves_instantiate1 b' 0 hl' with h2 | h2
-      · exact Or.inr h2
-      · exact Or.inl (Or.inr h2)
+      exact (inferTypeCoreIO_letE_inv h).elim
 
 theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
@@ -419,19 +408,7 @@ theorem inferTypeCoreIO_looseBVars {env : Env} (henv : EnvWF env) :
       simp [inferBodyIO, Bind.bind, Except.bind, pure,
         Except.pure, throw, throwThe, MonadExceptOf.throw] at h
     | letE t' v' b' =>
-      obtain ⟨-, -, -, -, -, -, -, h'⟩ := inferTypeCoreIO_letE_inv h
-      simp only [WScoped] at hw
-      simp only [looseBVarsBounded, Bool.and_eq_true] at hb
-      refine inferTypeCoreIO_looseBVars henv fuel h'
-        (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
-        (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2) ?_
-      intro l hl
-      rcases fvarLeaves_instantiate1 b' 0 hl with h2 | h2
-      · exact hLb l (by
-          simp only [fvarLeaves, List.mem_append]; exact Or.inr h2)
-      · exact hLb l (by
-          simp only [fvarLeaves, List.mem_append]
-          exact Or.inl (Or.inr h2))
+      exact (inferTypeCoreIO_letE_inv h).elim
 
 
 

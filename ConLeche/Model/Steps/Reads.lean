@@ -392,48 +392,6 @@ private theorem whnfCoreReads_leaf {m : EnvModel V env}
   subst he
   exact ⟨ea, hea⟩
 
-/-- **The ζ clause.**  `denoteMeta_beta` at the `letE` reading: the
-reduct's annotation is the body's, instantiated at the value's. -/
-private theorem whnfCoreReads_letE {m : EnvModel V env}
-    (ihwc : WhnfCoreReads m μ φ fuel)
-    {d : Nat} {tt vv bb e' : Expr} {ea : AnnotTerm}
-    (h : whnfCore μ env (fuel + 1) d (.letE tt vv bb) = .ok e')
-    (hws : Expr.WScoped d (.letE tt vv bb))
-    (hb : (Expr.letE tt vv bb).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.letE tt vv bb))
-    (hlr : LeafReads m φ d (.letE tt vv bb))
-    (hea : denoteMeta m.acval env φ d (.letE tt vv bb) = some ea) :
-    ∃ ea', denoteMeta m.acval env φ d e' = some ea' := by
-  rw [ConLeche.whnfCore_succ] at h
-  simp only [ConLeche.whnfCoreBody, ConLeche.whnfCore_def] at h
-  simp only [Expr.WScoped] at hws
-  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-  rw [denoteMeta] at hea
-  rcases hta : denoteMeta m.acval env φ d tt with _ | ta
-  · rw [hta] at hea; exact nomatch hea
-  rw [hta] at hea
-  rcases hva : denoteMeta m.acval env φ d vv with _ | va
-  · rw [hva] at hea; exact nomatch hea
-  rw [hva] at hea
-  rcases hba : denoteMeta m.acval env φ (d + 1)
-      (bb.instantiate1 (.fvar d tt)) with _ | ba
-  · rw [hba] at hea; exact nomatch hea
-  have hsubred : ∀ l ∈ (bb.instantiate1 vv).fvarLeaves,
-      l ∈ (Expr.letE tt vv bb).fvarLeaves := by
-    intro l hl
-    rcases Expr.fvarLeaves_instantiate1 bb 0 hl with h2 | h2
-    · simp [Expr.fvarLeaves, h2]
-    · simp [Expr.fvarLeaves, h2]
-  have hred : denoteMeta m.acval env φ d (bb.instantiate1 vv)
-      = some (ba.inst va) := by
-    rw [denoteMeta_beta m.acval_closed (acval_inst_self m)
-      (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
-      hba]
-    rfl
-  exact ihwc h (Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2)
-    (Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
-    (fun l hl => hLb l (hsubred l hl)) (hlr.of_subset hsubred) hred
-
 /-- **The `.app` clause.**  The head's reduct reads by the induction
 hypothesis; the β branch is `denoteMeta_beta` again, the ι branch is the
 routed `IotaReads`, and the stuck fallback re-assembles the two
@@ -537,7 +495,7 @@ theorem whnfCoreReads_succ {m : EnvModel V env}
       (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr ⟨l, rfl⟩))))) h hea
   | .bvar i => exact (whnfCore_bvar_claim m hea).elim
   | .letE tt vv bb =>
-    exact whnfCoreReads_letE ihwc h hws hb hLb hlr hea
+    exact (ConLeche.whnfCore_letE_inv h).elim
   | .app f a => exact whnfCoreReads_app hiota ihwc h hws hb hLb hlr hea
   | .proj sn i pe =>
     exact whnfCoreProjReads_of ihwc ihw h hws hb hLb hlr hea
@@ -867,49 +825,6 @@ private theorem inferReads_app {m : EnvModel V env}
     (ty := ty') hwW.2.fvarsBelow hws.2 hb.2 haa 0, hb'a]
   rfl
 
-/-- `.letE`: the ζ-shaped recursion — the checker infers the body
-*opened at the value*, whose reading is `denoteMeta_beta` at the `letE`
-node's own three readings. -/
-private theorem inferReads_letE {m : EnvModel V env}
-    (ihi : InferReads m μ φ fuel)
-    {d : Nat} {tt vv bb t : Expr} {ea : AnnotTerm}
-    (h : inferTypeCore μ env (fuel + 1) d (.letE tt vv bb) = .ok t)
-    (hws : Expr.WScoped d (.letE tt vv bb))
-    (hb : (Expr.letE tt vv bb).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.letE tt vv bb))
-    (hlr : LeafReads m φ d (.letE tt vv bb))
-    (hea : denoteMeta m.acval env φ d (.letE tt vv bb) = some ea) :
-    ∃ ta, denoteMeta m.acval env φ d t = some ta := by
-  obtain ⟨-, -, -, -, -, -, -, hbody⟩ :=
-    ConLeche.inferTypeCore_letE_inv h
-  simp only [Expr.WScoped] at hws
-  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-  rw [denoteMeta] at hea
-  rcases hta : denoteMeta m.acval env φ d tt with _ | ta
-  · rw [hta] at hea; exact nomatch hea
-  rw [hta] at hea
-  rcases hva : denoteMeta m.acval env φ d vv with _ | va
-  · rw [hva] at hea; exact nomatch hea
-  rw [hva] at hea
-  rcases hba : denoteMeta m.acval env φ (d + 1)
-      (bb.instantiate1 (.fvar d tt)) with _ | ba
-  · rw [hba] at hea; exact nomatch hea
-  have hsubred : ∀ l ∈ (bb.instantiate1 vv).fvarLeaves,
-      l ∈ (Expr.letE tt vv bb).fvarLeaves := by
-    intro l hl
-    rcases Expr.fvarLeaves_instantiate1 bb 0 hl with h2 | h2
-    · simp [Expr.fvarLeaves, h2]
-    · simp [Expr.fvarLeaves, h2]
-  have hred : denoteMeta m.acval env φ d (bb.instantiate1 vv)
-      = some (ba.inst va) := by
-    rw [denoteMeta_beta m.acval_closed (acval_inst_self m)
-      (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
-      hba]
-    rfl
-  exact ihi hbody (Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2)
-    (Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
-    (fun l hl => hLb l (hsubred l hl)) (hlr.of_subset hsubred) hred
-
 /-- **`InferReads` at `fuel + 1`** — the eleven shapes. -/
 theorem inferReads_succ {m : EnvModel V env}
     (hct : ConstType m φ) (htower : TowerOk m φ)
@@ -928,7 +843,7 @@ theorem inferReads_succ {m : EnvModel V env}
     exact inferReads_lam ihi h hws hb hLb hlr hea
   | .app f a => exact inferReads_app ihi ihw h hws hb hLb hlr hea
   | .letE tt vv bb =>
-    exact inferReads_letE ihi h hws hb hLb hlr hea
+    exact (ConLeche.inferTypeCore_letE_inv h).elim
   | .proj sn i pe =>
     exact inferProjReads_of htower ihi ihw h hws hb hLb hlr hea
 

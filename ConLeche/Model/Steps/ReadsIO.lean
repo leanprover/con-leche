@@ -207,51 +207,6 @@ private theorem inferReadsIO_app {m : EnvModel V env}
     (ty := ty') hwW.2.fvarsBelow hws.2 hb.2 haa 0, hb'a]
   rfl
 
-/-- `.letE`, io lane: the ζ-shaped recursion, whose three preceding
-runs (the type's inference, its sort check, the value's conversion)
-contribute nothing to the reading — the returned type is the *body
-opened at the value*'s own inferred type, and its reading is
-`denoteMeta_beta` at the `letE` node's three readings. -/
-private theorem inferReadsIO_letE {m : EnvModel V env}
-    (ihi : InferReadsIO m μ φ fuel)
-    {d : Nat} {tt vv bb t : Expr} {ea : AnnotTerm}
-    (h : inferTypeCoreIO μ env (fuel + 1) d (.letE tt vv bb) = .ok t)
-    (hws : Expr.WScoped d (.letE tt vv bb))
-    (hb : (Expr.letE tt vv bb).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.letE tt vv bb))
-    (hlr : LeafReads m φ d (.letE tt vv bb))
-    (hea : denoteMeta m.acval env φ d (.letE tt vv bb) = some ea) :
-    ∃ ta, denoteMeta m.acval env φ d t = some ta := by
-  obtain ⟨-, -, -, -, -, -, -, hbody⟩ :=
-    ConLeche.inferTypeCoreIO_letE_inv h
-  simp only [Expr.WScoped] at hws
-  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-  rw [denoteMeta] at hea
-  rcases hta : denoteMeta m.acval env φ d tt with _ | ta
-  · rw [hta] at hea; exact nomatch hea
-  rw [hta] at hea
-  rcases hva : denoteMeta m.acval env φ d vv with _ | va
-  · rw [hva] at hea; exact nomatch hea
-  rw [hva] at hea
-  rcases hba : denoteMeta m.acval env φ (d + 1)
-      (bb.instantiate1 (.fvar d tt)) with _ | ba
-  · rw [hba] at hea; exact nomatch hea
-  have hsubred : ∀ l ∈ (bb.instantiate1 vv).fvarLeaves,
-      l ∈ (Expr.letE tt vv bb).fvarLeaves := by
-    intro l hl
-    rcases Expr.fvarLeaves_instantiate1 bb 0 hl with h2 | h2
-    · simp [Expr.fvarLeaves, h2]
-    · simp [Expr.fvarLeaves, h2]
-  have hred : denoteMeta m.acval env φ d (bb.instantiate1 vv)
-      = some (ba.inst va) := by
-    rw [denoteMeta_beta m.acval_closed (acval_inst_self m)
-      (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
-      hba]
-    rfl
-  exact ihi hbody (Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2)
-    (Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
-    (fun l hl => hLb l (hsubred l hl)) (hlr.of_subset hsubred) hred
-
 /-- `.proj`, io lane: the full row's mirror with the io inversion
 (`inferProjReads_of`; task #175 wiring W5 for the tower branch). -/
 private theorem inferReadsIO_proj {m : EnvModel V env}
@@ -338,7 +293,7 @@ theorem inferReadsIO_succ {m : EnvModel V env}
     exact inferReadsIO_lam ihi h hws hb hLb hlr hea
   | .app f a => exact inferReadsIO_app ihi ihw h hws hb hLb hlr hea
   | .letE tt vv bb =>
-    exact inferReadsIO_letE ihi h hws hb hLb hlr hea
+    exact (ConLeche.inferTypeCoreIO_letE_inv h).elim
   | .proj sn i pe =>
     exact inferReadsIO_proj htower ihi ihw h hws hb hLb hlr hea
 

@@ -202,8 +202,7 @@ theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
         exact infer_app_claim m hreads hwreads ihw ihd ihi hrun
           hws hb hLb hC hea hta
       | .letE ty val bd, hrun, hws, hb, hLb, hC, hea =>
-        exact infer_letE_claim m hss hreads ihi hrun hws hb hLb
-          hC hea hta
+        exact (ConLeche.inferTypeCore_letE_inv hrun).elim
       | .proj sn i pe, hrun, hws, hb, hLb, hC, hea =>
         exact inferProjStep_of_claims h.reads.tower_ok ihw ihi hreads
           hwreads hrun hws hb
@@ -237,7 +236,7 @@ theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
         exact infer_app_claimIO m hreads_io hwreads ihw ihd ihio hrun
           hws hb hLb hC hea hta hok
       | .letE ty val bd, hrun, hws, hb, hLb, hC, hea, hok =>
-        exact infer_letE_claimIO m ihio hrun hws hb hLb hC hea hta hok
+        exact (ConLeche.inferTypeCoreIO_letE_inv hrun).elim
       | .proj sn i pe, hrun, hws, hb, hLb, hC, hea, hok =>
         exact inferProjStepIO_of_claims h.reads.tower_ok ihw ihio hreads_io
           hwreads hrun

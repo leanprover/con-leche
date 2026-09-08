@@ -232,7 +232,7 @@ theorem iotaRec_head_not_const (r : CoreFns m) (env : Env) (depth : Nat)
 
 /-! ## The head-normalization loop mirror (task #106)
 
-The interned `whnfCoreStepI`/`whnfCoreLoopI` run beta, iota, zeta and
+The interned `whnfCoreStepI`/`whnfCoreLoopI` run beta, iota and
 projection steps as *iteration* on their own step budget instead of
 chaining them through the knot.  These are the pure `Expr`-level
 mirrors; `ConLeche/Verify/DiscI4.lean` simulates the interned loop
@@ -273,7 +273,9 @@ the loop's continuation `k` abstracted. -/
         else pure (.proj sn i e')
       | _ => pure (.proj sn i e')
     | none => pure (.proj sn i e')
-  | .letE _ v b => k (b.instantiate1 v)
+  | .letE _ _ _ =>
+    -- unreachable by construction, as in `whnfCoreStepI` (task #241)
+    throw (.internal "whnfCore: `let` in an annotated expression")
   | .bvar _ => throw (.notImplemented "whnf beyond the supported fragment")
 
 /-- Pure mirror of `whnfCoreLoopI`: iterate `whnfCoreStepM` on the
@@ -397,7 +399,6 @@ theorem whnfCoreStepM_atF (d : Nat) (k : Expr → FueledM Expr)
     (whnfCoreStepM mode (fueledFns mode env) env d k e).val F
       = whnfCoreStepM mode (pureFns mode env F) env d kF e := by
   cases e <;> (unfold whnfCoreStepM; try rfl)
-  case letE ty v bd => exact hk _
   case app f a =>
     rw [FueledM.atF_bind]
     congr 1
@@ -1105,9 +1106,8 @@ theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
   | lam ty bd mb => exact ⟨F, H⟩
   | forallE ty bd mb => exact ⟨F, H⟩
   | letE ty v bd =>
-    simp only [whnfCoreStepM] at H
-    obtain ⟨M, hM⟩ := hks F _ _ H
-    exact ⟨M, hM⟩
+    -- task #241: the ζ arm is a positive `.internal` error
+    exact absurd H (by simp [whnfCoreStepM])
   | app f a =>
     simp only [whnfCoreStepM] at H
     obtain ⟨vh, hvh, H⟩ := bind_ok H

@@ -523,64 +523,6 @@ theorem whnfCore_leaf_claim (m : EnvModel V env) {fuel d : Nat}
   obtain rfl : ea = ea' := Option.some.inj (hea.symm.trans hea')
   exact ⟨hok, fun _ _ => rfl⟩
 
-/-- **The ζ clause, P currency.**  Where the `…D` lane consumed
-`Denote2Inst1B` (a routed residue with a fuel move), this reads
-`denoteMeta_beta` — a theorem, and an equality. -/
-theorem whnfCore_letE_claim (m : EnvModel V env) {fuel : Nat}
-    (ihwc : WhnfCoreClaim μ m φ fuel)
-    {d : Nat} {tt vv bb e' : Expr} {Δa : List AnnotTerm}
-    (h : whnfCore μ env (fuel + 1) d (.letE tt vv bb) = .ok e')
-    (hws : Expr.WScoped d (.letE tt vv bb))
-    (hb : (Expr.letE tt vv bb).looseBVarsBounded 0 = true)
-    (hLb : Expr.LeavesBounded (.letE tt vv bb))
-    {ea ea' : AnnotTerm}
-    (hC : CtxOk m φ d Δa (.letE tt vv bb))
-    (hea : denoteMeta m.acval env φ d (.letE tt vv bb) = some ea)
-    (hea' : denoteMeta m.acval env φ d e' = some ea')
-    (hok : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) :
-    (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea') ∧
-      ∀ ρ : Nat → V, Sat V Δa ρ →
-        interp V ρ ea = interp V ρ ea' := by
-  rw [ConLeche.whnfCore_succ] at h
-  simp only [ConLeche.whnfCoreBody, ConLeche.whnfCore_def] at h
-  simp only [Expr.WScoped] at hws
-  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-  rw [denoteMeta] at hea
-  rcases hta : denoteMeta m.acval env φ d tt with _ | ta
-  · rw [hta] at hea; exact nomatch hea
-  rw [hta] at hea
-  rcases hva : denoteMeta m.acval env φ d vv with _ | va
-  · rw [hva] at hea; exact nomatch hea
-  rw [hva] at hea
-  rcases hba : denoteMeta m.acval env φ (d + 1)
-      (bb.instantiate1 (.fvar d tt)) with _ | ba
-  · rw [hba] at hea; exact nomatch hea
-  rw [hba] at hea
-  obtain rfl : ea = .letE ta va ba := (Option.some.inj hea).symm
-  have hsubred : ∀ l ∈ (bb.instantiate1 vv).fvarLeaves,
-      l ∈ (Expr.letE tt vv bb).fvarLeaves := by
-    intro l hl
-    rcases Expr.fvarLeaves_instantiate1 bb 0 hl with h2 | h2
-    · simp [Expr.fvarLeaves, h2]
-    · simp [Expr.fvarLeaves, h2]
-  have hwred : Expr.WScoped d (bb.instantiate1 vv) :=
-    Expr.WScoped.instantiate1_gen hws.2.1 0 hws.2.2
-  have hbred : (bb.instantiate1 vv).looseBVarsBounded 0 = true :=
-    Expr.looseBVarsBounded_instantiate1_gen hb.1.2 hb.2
-  have hLred : Expr.LeavesBounded (bb.instantiate1 vv) :=
-    fun l hl => hLb l (hsubred l hl)
-  have hred : denoteMeta m.acval env φ d (bb.instantiate1 vv)
-      = some (ba.inst va) := by
-    rw [denoteMeta_beta m.acval_closed (acval_inst_self m)
-      (ty := tt) hws.2.2.fvarsBelow hws.2.1 hb.1.2 hva 0,
-      hba]
-    rfl
-  obtain ⟨hok', heq'⟩ :=
-    ihwc h hwred hbred hLred (hC.of_subset hsubred) hred hea'
-      (fun ρ hρ => (WellDenotedV_zeta (hok ρ hρ)).2)
-  exact ⟨hok', fun ρ hρ =>
-    ((WellDenotedV_zeta (hok ρ hρ)).1).trans (heq' ρ hρ)⟩
-
 /-- **The `.app` clause, P currency.**  The β kind split is verbatim
 the `…D` lane's — `Nat.eq_zero_or_pos` on the λ's stored numeral, which
 in this currency is `pwBit φ mb.pw` — and the two arms are
@@ -754,7 +696,7 @@ theorem whnfCore_claims (m : EnvModel V env) {fuel : Nat}
       h hea hea' hok
   | .bvar i => exact (whnfCore_bvar_claim m hea).elim
   | .letE tt vv bb =>
-    exact whnfCore_letE_claim m ihwc h hws hb hLb hC hea hea' hok
+    exact (ConLeche.whnfCore_letE_inv h).elim
   | .app f a =>
     exact whnfCore_app_claim m hex hcert hiota ihwc h hws hb hLb hC
       hea hea' hok
