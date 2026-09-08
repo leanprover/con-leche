@@ -285,6 +285,6 @@ theorem iotaRulePlain {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     ?_ ?_ hidx hTVa hTVja hfitR hfitC
   · rw [hlev, recFireComparands_plain hfireP]
   · intro i hi him
-    exact hplain hfireP i (by rw [hr'cp]; exact hi) him
+    exact hplain rfl hfireP i (by rw [hr'cp]; exact hi) him
 
 end ConLeche.Model

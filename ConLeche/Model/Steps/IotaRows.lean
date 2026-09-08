@@ -857,7 +857,7 @@ theorem iotaStep_of {m : EnvModel V env}
       TVa TVja restR restC
       (by rw [List.length_take, hxsLen]; omega)
       (by rw [← hspy.length, hlenM])
-      hlenUj hψ hplain hnested hpinI (hTVaD 0) (hTVjaD 0)
+      hlenUj hψ (fun _ => hplain) hnested hpinI (hTVaD 0) (hTVjaD 0)
       (hfitR ρ hρ) (hfitC ρ hρ)
     rw [List.take_take, Nat.min_eq_left hrPle] at heqLaw htrans
     have hsubj : interp V ρ (AnnotTerm.mkAppN

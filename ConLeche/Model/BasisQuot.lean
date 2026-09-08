@@ -689,7 +689,7 @@ theorem quotIndLaw {m : EnvModel V env}
   · intro _ _ h
     exact nomatch h
   intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
-    hlev hplain hnested hpin hTVa hTVja hfitR hfitC
+    hlev _ hnested hpin hTVa hTVja hfitR hfitC
   -- the fired constructor is `Quot.mk`, stored in the prefix
   have hM' : (⟨quotIndA :: env.consts⟩ : Env).find? quotMkName
       = some quotMkA := by
@@ -2051,7 +2051,7 @@ theorem quotLiftLaw {m : EnvModel V env}
   · intro _ _ h
     exact nomatch h
   intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
-    hlev hplain hnested hpin hTVa hTVja hfitR hfitC
+    hlev _ hnested hpin hTVa hTVja hfitR hfitC
   have hM' : (⟨quotLiftA :: env.consts⟩ : Env).find? quotMkName
       = some quotMkA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM
@@ -2131,13 +2131,6 @@ theorem quotLiftLaw {m : EnvModel V env}
   rw [interp_inst0, quotRelTy_interp (ψ uN)] at g2
   rw [interp_inst0, interp_inst_cons1] at g3
   simp only [interp_bvar, cons] at g3
-  -- the plain firing conditions identify the constructor's parameters
-  have hp0 : interp V ρ y1 = interp V ρ x1 :=
-    hplain rfl 0 (by decide) (by decide)
-  have hp1 : interp V ρ y2 = interp V ρ x2 :=
-    hplain rfl 1 (by decide) (by decide)
-  have hg3 : interp V ρ y3 ∈ˢ interp V ρ x1 := by
-    rw [← hp0]; exact g3
   -- the two leaves
   have hrecL : m₂.acval quotLiftA.name
       (Level.substFn φ quotLiftA.toConstantVal.levelParams us)
@@ -2153,6 +2146,17 @@ theorem quotLiftLaw {m : EnvModel V env}
   have hctorL : m₂.acval quotMkName
       (Level.substFn φ quotMkA.toConstantVal.levelParams usj)
       = AnnotTerm.const .quotMk [ψ uN] := by rw [hctorL0, hulev]
+  -- the major premise's fit: the class formed at the CONSTRUCTOR's
+  -- parameters lies in the quotient at the recursor's, which is all the
+  -- rule needs — the two parameter spines are never compared
+  have hmem : quotClass (ψ uN) (interp V ρ y1) (interp V ρ y2) (interp V ρ y3)
+      ∈ˢ quotSet (ψ uN) (interp V ρ x1) (interp V ρ x2) := by
+    simp only [show RecRule.ctor quotLiftRule = quotMkName from rfl,
+      AnnotTerm.mkAppN_cons, AnnotTerm.mkAppN_nil, interp_app,
+      hctorL, interp_const, bval, ConLeche.Term.lv,
+      List.getD_cons_zero] at f6
+    rwa [quotMkV_app V g1 g2 g3] at f6
+  obtain ⟨hg3, hcls⟩ := quotClass_of_mem_quotSet f1 g1 g3 hmem
   have hfv : interp V ρ x4
       ∈ˢ piR (ψ vN) (interp V ρ x1) fun _ => interp V ρ x3 := by
     rwa [piR_zero_agree hz (fun _ _ => rfl)] at f4
@@ -2164,7 +2168,7 @@ theorem quotLiftLaw {m : EnvModel V env}
       AnnotTerm.mkAppN_cons, AnnotTerm.mkAppN_nil, hrecL, hctorL,
       interp_app, interp_const, bval, ConLeche.Term.lv,
       List.getD_cons_zero, List.getD_cons_succ]
-    rw [quotMkV_app V g1 g2 g3, hp0, hp1,
+    rw [quotMkV_app V g1 g2 g3, hcls,
       quotLiftV_fired f1 f2 f3 hfv f5 hg3,
       quotLiftRa_app hval0 hgr0 ρ f1 f2 f3 f4 f5 hg3]
   · -- the transport

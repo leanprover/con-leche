@@ -356,7 +356,7 @@ theorem punitRecLaw {m : EnvModel V env}
   · intro _ _ h
     exact nomatch h
   intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
-    hlev hplain hnested hpin hTVa hTVja hfitR hfitC
+    hlev _ hnested hpin hTVa hTVja hfitR hfitC
   -- the rule's constructor is `PUnit.unit`, stored in the prefix
   have hU' : (⟨punitRecA :: env.consts⟩ : Env).find? punitUnitName
       = some punitUnitA := by
@@ -1697,7 +1697,7 @@ theorem natRecZeroLaw {m : EnvModel V env}
       denoteMeta_natRec_zeroRhs (m := m) _ hN hZ hS]
   · intro _ _ h; exact nomatch h
   intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
-    hlev hplain hnested hpin hTVa hTVja hfitR hfitC
+    hlev _ hnested hpin hTVa hTVja hfitR hfitC
   obtain rfl : ys = [] := List.eq_nil_of_length_eq_zero hys
   obtain rfl : TVa = _ := (Option.some.inj
     ((natRecTyRead (m := m) m₂ hN hZ hS hac φ us hψ).symm.trans
@@ -1758,7 +1758,7 @@ theorem natRecSuccLaw {m : EnvModel V env}
       denoteMeta_natRec_succRhs (m := m) _ hN hZ hS]
   · intro _ _ h; exact nomatch h
   intro cvj cnP cnF hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
-    hlev hplain hnested hpin hTVa hTVja hfitR hfitC
+    hlev _ hnested hpin hTVa hTVja hfitR hfitC
   obtain ⟨n, rfl⟩ : ∃ a, ys = [a] := by
     match ys, hys with
     | [a], _ => exact ⟨a, rfl⟩

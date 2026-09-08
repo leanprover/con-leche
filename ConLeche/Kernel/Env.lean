@@ -267,6 +267,12 @@ structure RecRule where
   rhs : Expr
   deriving DecidableEq, Repr, Inhabited
 
+/-- Whether the ι step may fire this rule without comparing the
+recursor's parameter arguments with the constructor's.  It marks the
+rules whose law is proved with no relation between the two parameter
+spines; no rule claims it. -/
+def RecRule.paramsBlind (_ : RecRule) : Bool := false
+
 /-- Reducibility hint of a definition, mirroring Lean's
 `ReducibilityHints`: `abbrev` unfolds first, `opaque` last, `regular`
 definitions compare by their definitional height.  The hints steer only
