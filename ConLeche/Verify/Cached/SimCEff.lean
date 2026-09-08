@@ -75,15 +75,6 @@ theorem CSOK.withLsimp {s : CState} (hs : CSOK mode env s)
     hs.inferC, hs.inferIOC, hs.annotC, hs.defeqC, hm, hs.lnz, hs.eqv, hs.ienv,
     hs.instC⟩
 
-/-- Replace the `Level.isNonZero` memo. -/
-theorem CSOK.withLnz {s : CState} (hs : CSOK mode env s)
-    {m' : Std.HashMap Level Bool}
-    (hm : ∀ u b, m'[u]? = some b → b = Level.isNonZero u) :
-    CSOK mode env { s with lnzC := m' } :=
-  ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
-    hs.inferC, hs.inferIOC, hs.annotC, hs.defeqC, hs.lsimp, hm, hs.eqv, hs.ienv,
-    hs.instC⟩
-
 /-- Replace the `Level.simplify` memo and the equivalence result cache
 together (the `isEquivLM` wrapper touches both). -/
 theorem CSOK.withLsimpEqv {s : CState} (hs : CSOK mode env s)
@@ -109,20 +100,6 @@ theorem lsimpInv_insert {m : Std.HashMap Level Level}
     rw [eq_of_beq hk]
   · rw [if_neg (by simpa using hk)] at h
     exact hm u v h
-
-/-- Inserting the spec value at a key keeps the `lnzC` clause. -/
-theorem lnzInv_insert {m : Std.HashMap Level Bool}
-    (hm : ∀ u b, m[u]? = some b → b = Level.isNonZero u) (k : Level) :
-    ∀ u b, (m.insert k (Level.isNonZero k))[u]? = some b →
-      b = Level.isNonZero u := by
-  intro u b h
-  rw [Std.HashMap.getElem?_insert] at h
-  by_cases hk : k == u
-  · rw [if_pos hk] at h
-    cases h
-    rw [eq_of_beq hk]
-  · rw [if_neg (by simpa using hk)] at h
-    exact hm u b h
 
 /-- Inserting a certified verdict keeps the `eqvC` clause. -/
 theorem eqvInv_insert {m : Std.HashMap (Level × Level) Bool}
@@ -267,9 +244,6 @@ end Effects
 section LevelEffects
 
 variable {s₀ : CState}
-
-private theorem modifyGetC_run {α : Type} (f : CState → α × CState)
-    (s : CState) : (modifyGet f : CheckCM α) s = .ok (f s) := rfl
 
 /-- The inlined `simplify`-with-memo step of `isEquivLM` (the clone's
 counterpart of the interned `simplifyLIGo` call). -/

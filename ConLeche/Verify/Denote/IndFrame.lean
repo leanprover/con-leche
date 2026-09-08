@@ -1,7 +1,6 @@
 import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Verify.Denote.Inst
-import ConLeche.Verify.Denote.InstSimp
 import ConLeche.Verify.Denote.Rename
 import ConLeche.Verify.Denote.Levels
 import ConLeche.Verify.Denote.Tele

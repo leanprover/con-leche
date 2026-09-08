@@ -212,7 +212,6 @@ macro "datF_step_alt" : tactic =>
     | rfl
     | (simp only []))
 
-macro "datF_step" : tactic => `(tactic| repeat datF_step_alt)
 
 macro "datF_tac" : tactic =>
   `(tactic| repeat' datF_step_alt)
@@ -316,7 +315,6 @@ macro "datF_stepPI_alt" : tactic =>
     | rfl
     | (simp only []))
 
-macro "datF_stepPI" : tactic => `(tactic| repeat datF_stepPI_alt)
 
 theorem checkProjIota_datF (env' envSelf : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) (F : Nat) :
     (checkProjIota mode (fueledOpsM mode) env' envSelf T ctorName lps cvj nP nF i).val F =
@@ -772,7 +770,6 @@ macro "datF_step4_alt" : tactic =>
     | rfl
     | (simp only []))
 
-macro "datF_step4" : tactic => `(tactic| repeat datF_step4_alt)
 
 macro "datF_tac4" : tactic =>
   `(tactic| repeat' datF_step4_alt)
@@ -782,38 +779,6 @@ theorem checkIndDecl_datF (env : Env) (block : List ConstantInfo) (F : Nat) :
       checkIndDecl mode (fueledOps mode F) env block := by
   unfold checkIndDecl
   datF_tac4
-
-macro "datF_step5_alt" : tactic =>
-  `(tactic| first
-    | (rw [liftFueled_atF])
-    | (rw [foldlM_atF])
-    | (simp only [checkIndMember_datF, checkProjFn_datF,
-        installProjFnStep_datF, installBasisDecl_datF,
-        checkIndDecl_datF])
-    | (rw [checkConstantVal_datF])
-    | (rw [checkProjLookups_datF])
-    | (rw [checkProjTy_datF])
-    | (rw [checkProjShape_datF])
-    | (rw [checkProjIota_datF])
-    | (rw [checkProjRule_datF])
-    | (rw [checkDefEqList_datF])
-    | (rw [checkIndMember_datF])
-    | (rw [checkIotaRule_datF])
-    | (rw [checkIotaRules_datF])
-    | (rw [checkIndRecs_datF])
-    | (rw [checkProjFn_datF])
-    | (rw [checkDirectStruct_datF])
-    | (rw [checkIndDecl_datF])
-    | (rw [checkDecl_datF])
-    | split
-    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
-    | rfl
-    | (simp only []))
-
-macro "datF_step5" : tactic => `(tactic| repeat datF_step5_alt)
-
-macro "datF_tac5" : tactic =>
-  `(tactic| repeat' datF_step5_alt)
 
 theorem checkDefnVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
     (hint : ReducibilityHint) (F : Nat) :

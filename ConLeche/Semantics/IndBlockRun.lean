@@ -178,30 +178,6 @@ theorem indRecsRun_noInd {μ : CheckMode} {F : Nat}
   · exact fun _ _ _ hf => hf
   · exact indRecsFoldRun_noInd checked hfold
 
-/-- The install fold only extends the accumulator, run half. -/
-theorem indRecsFoldRun_mono {μ : CheckMode} {F : Nat}
-    {blockNames : List Name} {envBase envSelf : Env} :
-    ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule))
-      {acc out : Env},
-      IndRecsRun.IndRecsFoldRun μ F blockNames envBase envSelf
-        acc checked out →
-      ∀ n, (acc.find? n).isSome = true →
-        (out.find? n).isSome = true := by
-  intro checked
-  induction checked with
-  | nil =>
-    intro acc out h n hn
-    subst h
-    exact hn
-  | cons c rest ih =>
-    intro acc out h n hn
-    obtain ⟨rules', -, htail⟩ := h
-    refine ih htail n ?_
-    rw [Env.find?_cons]
-    split
-    · rfl
-    · exact hn
-
 /-- No group member is stored before the group phase runs, run half. -/
 theorem indRecsRun_fresh {μ : CheckMode} {F : Nat}
     {blockNames : List Name} {env₂ env₃ : Env}

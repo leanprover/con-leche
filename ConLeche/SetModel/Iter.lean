@@ -76,13 +76,6 @@ theorem natUnion_mem_univZero {f : Nat → V} (h : ∀ n, f n ∈ˢ (univZero : 
   obtain ⟨n, hn⟩ := mem_natUnion.mp hx
   exact (mem_univZero.mp (h n)) x hn
 
-/-- Formation, both regimes. -/
-theorem natUnion_mem_univ {w : Nat} {f : Nat → V} (h : ∀ n, f n ∈ˢ (univ w : V)) :
-    natUnion f ∈ˢ (univ w : V) := by
-  rcases Nat.eq_zero_or_pos w with rfl | hw
-  · rw [univ_zero] at h ⊢; exact natUnion_mem_univZero h
-  · exact natUnion_mem_univ_pos (Nat.pos_iff_ne_zero.mp hw) h
-
 /-- The ω-iterate: the union of the finite iterates. -/
 noncomputable def iterU (Φ : V → V) : V := natUnion (iterF Φ)
 

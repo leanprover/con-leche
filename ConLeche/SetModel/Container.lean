@@ -321,20 +321,6 @@ theorem lab_mkCode (a g : V) : lab (mkCode B a g) = a := by
   rw [rootLabels_mkCode]
   exact mem_sing.mp (schoice_mem (mem_sing.mpr rfl))
 
-/-- With a root, the root label sits at the empty path. -/
-theorem kpair_pt_lab_mem {S : V} (h : HasRoot S) (hpairs : ∀ x, x ∈ˢ S → ∃ q a, x = kpair q a) :
-    kpair pt (lab S) ∈ˢ S := by
-  obtain ⟨a, ha⟩ := h
-  have hmem : a ∈ˢ rootLabels S :=
-    mem_rootLabels.mpr ⟨kpair pt a, ha, sfst_kpair _ _, ssnd_kpair _ _⟩
-  obtain ⟨pr, hpr, h1, h2⟩ := mem_rootLabels.mp (schoice_mem hmem)
-  obtain ⟨q, a', rfl⟩ := hpairs pr hpr
-  rw [sfst_kpair] at h1
-  rw [ssnd_kpair] at h2
-  unfold lab
-  rw [← h2, ← h1]
-  exact hpr
-
 /-- The subcode of an assembled code at a position is the subcode put
 there (the codes' elements being labelled paths). -/
 theorem subCode_mkCode {a g p : V} (hp : p ∈ˢ B a)
