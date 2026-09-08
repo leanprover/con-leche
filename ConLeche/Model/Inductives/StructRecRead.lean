@@ -5,7 +5,7 @@ import ConLeche.Verify.Inductives.StructRec
 # The generated recursor, read (task #175 S2)
 
 The direct install stores the recursor it generates
-(`directRecTy`/`directRecRhs`), so its reading is **syntactic**: the
+(`structRecTy`/`structRecRhs`), so its reading is **syntactic**: the
 generated type reads to the Π-tower
 
     mkPisAV (params (bit ℓ) ++ [motive, minor, major]) (motive t)
@@ -13,7 +13,7 @@ generated type reads to the Π-tower
 whose three special entries are spelled out (`motiveAV`, `minorAV`,
 `majorAV`) over the type former's and the constructor's readings, and
 the generated rule reads to the λ-tower over the same data
-(`denoteP_directRecRhs`).  No frame pin is consumed: the recursor's
+(`denoteP_structRecRhs`).  No frame pin is consumed: the recursor's
 data (`recData_of`) comes from these readings, the fabricated type's
 own inference run (its grading, `inferRow`) and the elimination datum
 the generator wrote (its bits, `zeronessOf_sound`).

@@ -18,7 +18,7 @@ variable (mode : CheckMode)
 
 /-! ## The direct simple-structure path (task #82)
 
-A block recognised by `directParts?` (`ConLeche/Kernel/Direct.lean`)
+A block recognised by `structParts?` (`ConLeche/Kernel/Direct.lean`)
 installs *directly*: no `_model` artifact is consumed, and the
 set-theoretic model was constructed from the constructor telescope by
 the retired direct model (`ConLeche/ModelV1/*`, deleted at task #148 T7;
@@ -38,7 +38,7 @@ compare it in, with those binders in scope and no more.  Because each
 telescope is opened at its **own** variables, neither side's
 annotations are borrowed from the other, which is what lets the model's
 walks carry their own frame conditions at every stage.  Walks from the
-last binder to the first, like `checkDirectFieldUniv`. -/
+last binder to the first, like `checkStructFieldUniv`. -/
 def checkStructDomsAt (ops : CheckerOps m) (env : Env) (off : Nat)
     (fvs doms : List Expr) : Nat → m Unit
   | 0 => pure ()
@@ -59,7 +59,7 @@ annotated, inferred or pinned here — a `.proj T i e` use instantiates
 official `infer_proj` guard test, and a slot with no legal
 instantiation (a used-later data field of a `Prop` structure) simply
 fails that guard at every use (`invalid`, as official).  The body
-walk cannot fail on a constructor type `checkDirectCtor` accepted
+walk cannot fail on a constructor type `checkStructCtor` accepted
 (it peels exactly `nP + nF` binders), so its failure is internal. -/
 def checkStructProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
     (resSort : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal) (env : Env) :

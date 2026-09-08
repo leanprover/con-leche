@@ -7,7 +7,7 @@ import ConLeche.Model.IndPointKit
 
 `stageSumRec`: the P step at the sum recursor's cons.  The stored
 recursor is the generated one: its data is read off syntactically
-(`sumRecData_of`), its leaf is `directSumRecAV` over that data, the
+(`sumRecData_of`), its leaf is `sumRecAV` over that data, the
 field chains, the index readings and the sources, the frames' walks
 (`sumRecLeafFacts` over `sumRecFrames`) give the leaf's grading and
 membership, the capability laws are vacuous (the block claims no eta

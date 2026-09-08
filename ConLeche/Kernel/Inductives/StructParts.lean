@@ -59,16 +59,16 @@ official `src/kernel/inductive/inductive.cpp`; nanoda
 
 The per-field universe bound (`Add.lean:225-228`,
 nanoda `check_ctor`, `inductive.rs:809`) needs inference, and the
-recursor is **generated** here (`directRecTy`/`directRecRhs`, task
+recursor is **generated** here (`structRecTy`/`structRecRhs`, task
 #175 S2) and compared against the stream's by one closed `isDefEq`;
 both live in the monadic `checkStruct`
 (`ConLeche/Kernel/Inductives/StructInstall.lean`).
 
 The direct path installs **native tower-backed projection entries**
-(`checkDirectProj`, task #175 wiring): `.proj T i` nodes are typed by
+(`checkStructProj`, task #175 wiring): `.proj T i` nodes are typed by
 the entry's stored type and reduced by the structural rule, and the
 model reads them by the uniform tower projection.  The capability
-record (`directCaps`) claims structure eta (the tower's own law),
+record (`structCaps`) claims structure eta (the tower's own law),
 unit-likeness for the fieldless case, and K for the fieldless
 propositional case.
 -/
@@ -102,7 +102,7 @@ The reference kernels *generate* the recursor from the block
 does the direct route: the recursor type and its rule are built here,
 syntactically, from the **annotated** type former and constructor
 types, and the stream's recursor is compared against the generated
-type by one closed `isDefEq` (`checkDirectRec`).  What is stored is
+type by one closed `isDefEq` (`checkStructRec`).  What is stored is
 the generated form — which is what makes its reading syntactic in the
 model (`ConLeche/Model/Inductives/StructRecRead.lean`): no pin at an opened
 frame is consumed anywhere.
@@ -140,7 +140,7 @@ def structElimLevel (elim : Name) (large : Bool) : Level :=
 /-- The constructor applied to the parameter and field variables, as
 spelled under `o` binders between the parameters and the fields (the
 motive and the earlier minor premises); `structCtorSpine` is the
-`o = 1` case (`directCtorSpine_eq_at`). -/
+`o = 1` case (`structCtorSpine_eq_at`). -/
 def structCtorSpineAt (C : Name) (lps : List Name) (o nP nF : Nat) : Expr :=
   Expr.mkAppN (.const C (lps.map .param))
     (structPsAt (o + nF) nP ++ (List.range nF).map fun j => Expr.bvar (nF - 1 - j))
@@ -178,7 +178,7 @@ parameters, re-emitted twice — at the motive (over the parameters
 alone) and after the minors (lifted under the motive and the `n`
 minors); the minor's conclusion applies the motive to the
 constructor's residual index expressions (lifted under the extras)
-before the constructor spine.  The rules are `directRecRhs`'s: a
+before the constructor spine.  The rules are `structRecRhs`'s: a
 rule binds no index (`rulePrefix = nP + 1 + n`).  At `nIdx = 0` every
 generator below is the index-free one above. -/
 
@@ -247,9 +247,9 @@ The binder-domain correspondences are deliberately **not** here: the
 reference kernels compare the constructor's parameter domains to the
 type former's by `isDefEq` (`Add.lean:220-222`) and build the
 recursor's telescope from `whnf`-peeled domains (`Add.lean:79-95`), so
-a syntactic pin would wrongly reject; `checkDirectCtor` pins the
+a syntactic pin would wrongly reject; `checkStructCtor` pins the
 parameter domains definitionally over the opened telescopes, and the
-recursor is generated and compared as a whole (`checkDirectRec`, task
+recursor is generated and compared as a whole (`checkStructRec`, task
 #175 S2). -/
 def structShape (T C : Name) (lps : List Name) (elim : Name) (large : Bool)
     (nP nF : Nat) (tty cty rty : Expr) : Bool :=
@@ -334,13 +334,13 @@ def structProjPs (nP : Nat) : List Expr :=
 
 /-- The `j`-th earlier-field substitute in a **tower entry's**
 generated type (task #175 wiring): the first-class node `t.j`
-(`.proj T j` of the subject), at `directProjArg`'s frame (subject
+(`.proj T j` of the subject), at `structProjArg`'s frame (subject
 `t = bvar 0`).  No `projFnName` chain — each field's entry stands
 alone, which is what makes O4's per-field entry branch real. -/
 def structProjArgP (T : Name) (j : Nat) : Expr :=
   Expr.proj T j (Expr.bvar 0)
 
-/-- `directProjResid` in the `.proj`-node spelling: the constructor
+/-- `structProjResid` in the `.proj`-node spelling: the constructor
 telescope peeled at the parameters and the first `i` subject
 projections, threaded incrementally (step `i → i + 1` is a single
 `instantiate1Lift`). -/
@@ -400,7 +400,7 @@ its own sort joined with the sorts of the earlier fields that a later
 field uses — the level a `.proj T i` use on a `Prop`-declared
 structure must instantiate to `Prop` (the official `infer_proj`
 restriction, both of its clauses, as one level).  `sorts` are the
-fields' sorts in order (`checkDirectFieldSorts`). -/
+fields' sorts in order (`checkStructFieldSorts`). -/
 def structProjGuards (cty : Expr) (nP nF : Nat) (sorts : List Level) :
     List Level :=
   (List.range nF).map fun i =>

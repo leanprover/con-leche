@@ -15,7 +15,7 @@
 # An <expectation> is a single exit code.  Until task #148 T0b it could
 # also be a pair "<on>|<off>" for the five fixtures whose verdict
 # depended on the direct simple-structure master switch
-# (`ConLeche.structsEnabled`, ConLeche/Kernel/Direct.lean, task
+# (`ConLeche.structsEnabled`, ConLeche/Kernel/Inductives/*, task
 # #119/#120), and `--direct-off` ran the whole suite against a second
 # binary built with the switch off.  The switch now ships `false` — the
 # configuration both verified lanes reason about — so the shipped binary

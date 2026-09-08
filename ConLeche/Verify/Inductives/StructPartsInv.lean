@@ -7,7 +7,7 @@ import ConLeche.Verify.FastOps
 V-free facts the direct install's assembly reads off the kernel's
 recogniser and slot decision:
 
-* `directParts?_inv`: the block's shape facts the recogniser pins —
+* `structParts?_inv`: the block's shape facts the recogniser pins —
   the propositionality datum is the result sort's, the recursor is
   `T.rec` at the block's level parameters (plus the large eliminator's
   fresh one), the constructor carries the former's;

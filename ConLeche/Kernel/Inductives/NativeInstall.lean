@@ -76,7 +76,7 @@ the model: on `ind_nest_via_refl` the tool's nested model over a
 reflexive `W1 α = sup (a : α) (f : Nat → W1 α)` made `isDefEq` spin
 through η-expansion — official's `!is_rec` is load-bearing.)  On the
 sum route's domain (never one constructor without an index) this is
-`directSumCaps`. -/
+`sumCaps`. -/
 def nativeCaps (p : NativeParts) : IndCaps :=
   match p.ctors with
   | [c] =>

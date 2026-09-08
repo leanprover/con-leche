@@ -135,7 +135,7 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V μ env)
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRules m₂ φ)
     -- the head is not a projection table (task #175 W4c: those get
-    -- their own kit, `DeclDirectP`)
+    -- their own kit, `DeclStructP`)
     (hntc : ∀ entry, c₀ ≠ .projInfo entry) :
     ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by

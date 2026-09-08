@@ -11,7 +11,7 @@ import ConLeche.Verify.Denote.IndFrame
 
 The direct install's stage checks run **at opened frames**: each
 binder-domain comparison (`checkStructDomsAt`), each field's sort
-inference (`checkDirectFieldSorts`) and the recursor's pins run at the
+inference (`checkStructFieldSorts`) and the recursor's pins run at the
 depth of the binder they concern, over the variables `openPisAtFvars`
 created for the earlier binders.  The claims interface
 (`Model/Claims.lean`) answers such a run at a context `Δa` that

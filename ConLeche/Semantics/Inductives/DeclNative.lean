@@ -8,7 +8,7 @@ import ConLeche.Verify.Inductives.FixWF
 
 The direct recursive arm of `checkDecl`'s `.indDecl` clause
 (`checkNative`, `ConLeche/Kernel/Inductives/NativeInstall.lean`), recorded as
-a run relation exactly as `DeclDirectSumRun`: the three front guards
+a run relation exactly as `DeclSumRun`: the three front guards
 (positivity — no negative field kind; the elimination restriction —
 a large eliminator needs a provably nonzero sort, the one-constructor
 `Prop` case being declined; the constructors' distinct names), the

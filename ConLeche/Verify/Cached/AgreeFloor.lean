@@ -44,8 +44,8 @@ Two facts close the remaining branches without core reasoning:
   route) installs under guards that are the block's own (the
   projection bodies' scoping, task #175 S1) or freshness checks, and
   its dispatch
-  (`directPartsF?`) reads the index only through name lookups
-  (`directNonRecF_skel`), so it runs on the skeleton too;
+  (`structPartsF?`) reads the index only through name lookups
+  (`structNonRecF_skel`), so it runs on the skeleton too;
 * at `.axiomDecl` the push-or-not decision is a function of the header
   name alone — `toleratedAxiomNames = [sorryAx]` installs nothing in
   both drivers, and `stdAxiomOkF` is `false` off `propext`/`choice`, so
@@ -370,7 +370,7 @@ def indDeclSkelsModeled (block : List ConstantInfo) (sk : List InstallSkel) :
 
 /-! ### The direct simple-structure clause (task #175 W4c)
 
-The priority gate `directPartsF?` reads the block (`structPartsCore?`,
+The priority gate `structPartsF?` reads the block (`structPartsCore?`,
 pure) and the index only through `constsResolveF` on the raw
 constructor domains — skeleton-level lookups — so the dispatch is a
 function of the skeleton; the direct install's own install decisions

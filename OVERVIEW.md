@@ -450,7 +450,7 @@ to know is short:
 | marker | reading |
 |---|---|
 | `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `ExprC`, `SimC`) — the implementation that ships |
-| `I` | interned / indexed (`directFixRecAVI`-style readings that carry an index) |
+| `I` | interned / indexed (`nativeRecAVI`-style readings that carry an index) |
 | `F` | stated over the environment-with-index `FEnv` (`checkNativeRecF`) |
 | `D` | the direct-parse record type `DeclC` and the functions over it |
 | `AV`, `Annot` | annotated terms: `AnnotTerm` is `Term` with a numeral sort at every binder, and `*AV` names are its readers (`structTyAV`, `natLitAV`) |

@@ -89,7 +89,7 @@ theorem stageSumFormer (mp : EnvModelM V μ env)
       Sat V ((pps ψ).map (·.2.2)).reverse ρ →
       SumFieldsOkB (p.resSort.eval ψ) ρ (Fss ψ) ∧ SumFieldsValid ρ (Fss ψ))
     -- the block's capability record and its laws at the cons (task
-    -- #210 Part A: `directSumCaps` on the sum route, `nativeCaps` on
+    -- #210 Part A: `sumCaps` on the sum route, `nativeCaps` on
     -- the fixpoint route)
     (caps : IndCaps)
     (hTlaws : ∀ m₂ : EnvModel V ⟨.indInfo cvTa caps :: env.consts⟩,

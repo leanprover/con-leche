@@ -1573,7 +1573,7 @@ retired.  The model licence: at a squash instance (the structure's
 sort is `0` at the valuation) the constructor application reads as
 the point, and so does the selected field — for a non-`Prop`-declared
 family every field's sort is bounded by the structure's (the O5 bound
-`checkDirectFieldSorts` checks), so at a zero instantiation every
+`checkStructFieldSorts` checks), so at a zero instantiation every
 field is a proposition; for a `Prop`-declared family the guard says
 so of the projected field directly (`TowerEntryLaw`'s iota clause,
 `ConLeche/Model/Annot/EnvModelM.lean`).  Ungated rules on a data field of a

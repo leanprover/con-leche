@@ -4,8 +4,8 @@ import ConLeche.Verify.ProjSlots
 /-!
 # The generated recursor, opened (task #175 S2)
 
-The direct install stores the recursor it *generates* (`directRecTy`,
-`directRecRhs`, `ConLeche/Kernel/Inductives/StructParts.lean`): the type former's
+The direct install stores the recursor it *generates* (`structRecTy`,
+`structRecRhs`, `ConLeche/Kernel/Inductives/StructParts.lean`): the type former's
 parameter binders re-emitted with the elimination datum, the motive,
 one minor premise per constructor — the constructor's field telescope
 lifted under the motive (and the earlier minors), its data reset —
@@ -28,7 +28,7 @@ from the syntax is collected here:
   variables (`map_instSeq_structPsAt`, `instSeq_minorBody`,
   `instSeq_ruleBody`);
 * no generated node is a `.proj` node
-  (`Expr.NoProjAt.directRecTy`/`.directRecRhs`), for the tower law's
+  (`Expr.NoProjAt.structRecTy`/`.structRecRhs`), for the tower law's
   `NoProjEnv` invariant.
 -/
 

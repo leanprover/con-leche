@@ -136,7 +136,7 @@ theorem declEtaStepRun {μ : CheckMode} {F : Nat}
   | indDecl block => exact hind h
 
 /-! `declEtaStep` — the `DeclR` instance — moved to
-`SetBase/DeclDirectEta.lean` at task #175 wiring W5, where the
+`SetBase/DeclStructEta.lean` at task #175 wiring W5, where the
 `.indDecl` dispatch's η half is proved for BOTH arms and the instance
 reads the kernel's own case split instead of the flag. -/
 

@@ -16,8 +16,8 @@ here is a walk with no semantic content beyond the λ-clause guards.
 `UnderTowerValid` is the single hereditary premise shape, shared by
 all three leaves (each IS a `mkLamsC` tower).
 
-The `WellDenotedV` packages (`directTyAV_okP`/`directMkAV_okP`/
-`directRecAV_okP`) pair the SetBase `_ok2` laws with the validity
+The `WellDenotedV` packages (`structTyAV_okP`/`structMkAV_okP`/
+`structRecAV_okP`) pair the SetBase `_ok2` laws with the validity
 walks — the `hAok`/`hAvalid` rows of `declStep_preserves_of_basis_cons`, per
 leaf.
 -/

@@ -31,7 +31,7 @@ def checkStructDomsAtF (ops : CheckerOps m) (fe : FEnv) (off : Nat)
       throw (.notImplemented "direct structure: binder domain mismatch")
     checkStructDomsAtF ops fe off fvs doms j
 
-/-- `checkStructDomsAtF` over arrays (see `checkDirectFieldUnivFA`).
+/-- `checkStructDomsAtF` over arrays (see `checkStructFieldUnivFA`).
 Equal to it at `List.toArray`: `checkStructDomsAtFA_eq`. -/
 def checkStructDomsAtFA (ops : CheckerOps m) (fe : FEnv) (off : Nat)
     (fvs doms : Array Expr) : Nat → m Unit

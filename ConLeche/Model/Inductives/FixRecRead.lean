@@ -258,7 +258,7 @@ theorem structFieldTele_props {cty : Expr} {nP nF i : Nat}
   exact ⟨ConLeche.hasFvar_getAppArgs hpf e hmem, ConLeche.looseBVarsBounded_getAppArgs hpb e hmem⟩
 
 /-- **`structIdxAt`, instantiated at the recursor's frame under the
-field's own telescope** — `ConLeche.instSeq_directIdxAt` with the
+field's own telescope** — `ConLeche.instSeq_structIdxAt` with the
 telescope's `j` openers below the frame (task #202). -/
 theorem instSeq_structIdxAtM (P X F I A : List Expr) {nP o nF l i j : Nat} {e : Expr}
     (hP : P.length = nP) (hX : X.length = o) (hF : F.length = nF) (hI : I.length = l)

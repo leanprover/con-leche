@@ -9,9 +9,9 @@ The block's own capability laws, from the leaves' semantic summary:
 * `formerFold` — the former applied along a fitting parameter spine is
   the instantiated carrier (`structTyAV_fold` under the hereditary
   premise);
-* `directUnitLawP` — a fieldless family is unit-like (its carrier is
+* `structUnitLawP` — a fieldless family is unit-like (its carrier is
   `unitSet`, both regimes);
-* `directEtaLawP0` — a fieldless family's η law: the member is the
+* `structEtaLawP0` — a fieldless family's η law: the member is the
   point and so is the constructor's application.
 -/
 

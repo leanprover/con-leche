@@ -5,9 +5,9 @@ import ConLeche.Verify.Cached.BridgeCS2
 
 Port of `ConLeche/Verify/BridgeS3.lean` for the cached tier.  The
 single-environment functions of the direct-install path
-(`checkDirectFieldSorts`, `checkStructDomsAt`, `checkDirectInd`,
-`checkDirectCtor`, `checkDirectRec`,
-`checkDirectProj`), as `SimC`s between the `sharedOpsC` and
+(`checkStructFieldSorts`, `checkStructDomsAt`, `checkStructInd`,
+`checkStructCtor`, `checkStructRec`,
+`checkStructProj`), as `SimC`s between the `sharedOpsC` and
 `(fueledOpsM mode)` instantiations.  The per-site scoping facts mirror
 `ConLeche/Verify/BridgeWfImp.lean`'s `_wfimp` walks one for one; the
 `FEnv`-to-`Env` step is `ConLeche/Verify/CheckerF.lean`'s `_eq`/`_push`

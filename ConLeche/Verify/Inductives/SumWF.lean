@@ -5,11 +5,11 @@ import ConLeche.Verify.Inductives.SumInv
 # The direct sum install: environment well-formedness (task #175
 sum-types, indexed)
 
-`EnvWF` for the environments `checkDirectSum` walks through, read off
-the stages' own guards (as `DirectWF.lean` for the structure route):
+`EnvWF` for the environments `checkSum` walks through, read off
+the stages' own guards (as `StructWF.lean` for the structure route):
 the former's cons, the constructors' conses (`consSumCtors`, each a
 checked constant), the recursor's cons with its rules (each rule's
-right-hand side scoped by `checkDirectSumRules`, never `.nested`).
+right-hand side scoped by `checkSumRules`, never `.nested`).
 Task #175 indexed: the recursor's cons is generic over its major index
 and rule prefix (`p.majorIdx`/`p.rulePrefix` at the install).
 -/

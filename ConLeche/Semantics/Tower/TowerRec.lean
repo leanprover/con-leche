@@ -248,7 +248,7 @@ def RecBase (ℓ w : Nat) (ρp : Nat → V) (Fs : List AnnotTerm)
     (dM dm dt : Nat × Nat × AnnotTerm) : Prop :=
   FieldsOkB w ρp Fs ∧
   -- the large eliminator of a propositional structure has every field
-  -- propositional (task #175 W4c/O4, `checkDirectFieldSorts`); the
+  -- propositional (task #175 W4c/O4, `checkStructFieldSorts`); the
   -- small one at squash needs no bound (the minor is the point)
   (w = 0 → ℓ ≠ 0 → FieldsBound 0 ρp Fs) ∧
   WellDenoted V ρp dM.2.2 ∧

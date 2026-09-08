@@ -30,7 +30,7 @@ numeral tag (the constructor's index) and the constructor's tower;
 the recursor cases on the tag.  Installation is the direct route's
 (`ConLeche/Kernel/Inductives/SumInstall.lean`): the reference checks alone,
 no `_model` artifact consumed, the recursor generated and compared
-(task #175 S2 — `directRecTyI`/`directRecRhs`).
+(task #175 S2 — `structRecTyI`/`structRecRhs`).
 
 The checks mirror the reference kernels' inductive-declaration checks
 restricted to this class (lean4lean `Lean4Lean/Inductive/Add.lean`,
@@ -44,7 +44,7 @@ the official `inductive.cpp`):
   (`isValidIndAppIdx`); the parameter domains are pinned
   definitionally at install (`checkStructDomsAt`);
 * no recursive occurrence: every constructor binder domain resolves
-  in the pre-block environment (`directSumNonRec`), which subsumes
+  in the pre-block environment (`sumNonRec`), which subsumes
   positivity for this class and is what the model construction needs;
 * the recursor is `T.rec` with `numIndices` indices, one motive, one
   minor per constructor (`rulePrefix = numParams + 1 + n`, `majorIdx =
@@ -58,7 +58,7 @@ the official `inductive.cpp`):
   an inductive whose result sort is not provably nonzero
   (`Level.isNeverZero`) and which has two or more constructors
   eliminates into `Prop` only — a large eliminator on such a block is
-  rejected at install (`checkDirectSum`); with ONE constructor every
+  rejected at install (`checkSum`); with ONE constructor every
   field that is not a proposition must be one of the residual's index
   expressions (`checkStructFieldSortsI`, official's subsingleton-
   elimination criterion — `Eq`'s rule).  This is the rule that keeps

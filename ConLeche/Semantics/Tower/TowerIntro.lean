@@ -31,7 +31,7 @@ The tier's premise/conclusion currencies transpose:
 | `PropS T` | `FieldsBound 0 ρ Fs` (`propS_teleOfFields`; `univ_zero`) |
 
 `FieldsGraded` carries the **per-field** sort data `(uᵢ, Fᵢ)` the O5
-check (`checkDirectFieldUniv`, field sort `≤` result sort) produces:
+check (`checkStructFieldUniv`, field sort `≤` result sort) produces:
 `fieldsBound_of_graded` is O5's semantic discharge (cumulativity,
 `univ_mono`), and at a squash instantiation (`w = 0`) the same bound
 forces every field sort to `0`, which is the O4/R1 branch —

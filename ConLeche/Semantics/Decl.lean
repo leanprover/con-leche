@@ -10,7 +10,7 @@ The V-free records `checkDecl`'s per-kind checks produce: the `Nat`
 recurrences' runs, the pinned basis install, the iota walks' runs and
 the direct-structure stage runs.  Every one is a statement about the
 CHECKER — `isDefEqCore … = .ok true`,
-`checkDirectProj … = .ok env''` — and mentions no relation and no
+`checkStructProj … = .ok env''` — and mentions no relation and no
 valuation.
 
 **What this file used to be.**  It was `DeclR`: the transpose of
@@ -101,7 +101,7 @@ no model artifacts, so nothing V-free can pin its valuations here —
 the tier's leaves are built by the install soundness from these rows'
 readings, with the semantics coming from the claims interface.  The
 per-stage anatomy is exposed by inversion lemmas on the stage
-functions where the dischargers need it (`SetBase/DeclDirect.lean`
+functions where the dischargers need it (`SetBase/DeclStruct.lean`
 holds the `checkStruct` inversion). -/
 
 end ConLeche.Semantics

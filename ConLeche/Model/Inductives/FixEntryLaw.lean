@@ -12,7 +12,7 @@ route's restricted tagged union over the one constructor,
 whose elements are `inj 0 (mkTower (fs ++ [pt]))` with `fs` fitting the
 fields.  So field `i` is `projS (i + 1)` of a member (the tag in front,
 `ProjTable.off = 1`), the tuple below the tag is `dropS 1`, and the
-laws are the direct structure's (`DirectEntryLawP`) with one pair
+laws are the direct structure's (`StructEntryLawP`) with one pair
 component to cross:
 
 * **(A) the typing law** (`fixEntryTypingCore`): a member projects at

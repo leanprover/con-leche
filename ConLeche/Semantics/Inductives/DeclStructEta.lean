@@ -11,16 +11,16 @@ import ConLeche.Verify.Inductives.StructInv
 
 The declaration fold's η half at the `.indDecl` dispatch: the modeled
 arm is `declIndEtaClosedRun` (`IndBlockRun`), and the direct arm is
-proved here from `DeclDirectRun`'s recorded runs — every store the
+proved here from `DeclStructRun`'s recorded runs — every store the
 direct install performs is a **fresh cons** (`checkConstantVal`'s
-duplicate guard for the three constants, `checkDirectProj`'s own
+duplicate guard for the three constants, `checkStructProj`'s own
 `isNone` guard for the entries), and the one former it stores carries
-`directCaps`, whose `eta` slot is a literal `false`, so
+`structCaps`, whose `eta` slot is a literal `false`, so
 `EtaFamiliesClosed.cons_nonind` applies at every step.
 
 With this the two dispatch lemmas below make the fold's η half
 **flag-agnostic**: `declStep_preserves` (`Model/FoldP`) and `declEtaStep` read
-the kernel's own `directParts?` dispatch and no longer consult
+the kernel's own `structParts?` dispatch and no longer consult
 the former master switch (gone at W4c).
 -/
 

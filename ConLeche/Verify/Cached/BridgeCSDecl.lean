@@ -16,7 +16,7 @@ per-declaration bridge (`checkDeclSharedF_bridge`).
 
 As in the interned original the *direct simple-structure* run has no
 bridge here: `structsEnabled = false` makes the arm that would
-call it unreachable and `directParts?_none` collapses it at one `rw`.
+call it unreachable and `structParts?_none` collapses it at one `rw`.
 
 Against `BridgeSDecl` the systematic deletions of the tier carry
 through: no arena, hence no `Ext` conjunct anywhere and no

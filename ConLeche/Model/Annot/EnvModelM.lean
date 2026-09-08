@@ -554,7 +554,7 @@ family lands in the peeled entry type's reading, graded) and the
 selected field's reading).  Both are **environment laws** in the sense
 of `caps_ok`/`rec_rules` — fixed by the direct install and by nothing
 else — so they are a field of `EnvModelM`, established at the install
-(`Model/DirectInstallP`, W4c) and transported across every other cons
+(`Model/StructInstallP`, W4c) and transported across every other cons
 (`towerOk_cons_fresh`, `Model/RecRulesCons.lean`).
 
 **Why the typing law is stated over a syntactic peel** (`peelPis`)
@@ -632,7 +632,7 @@ def TowerGuardAt (φ : Name → Nat) (entry : ProjEntry) (us : List Level) :
 
 /-- **The O5 conjunct**: a non-`Prop` family's guard level is bounded
 by its result sort at every valuation (the field sorts are checked
-`≤` the result sort, `checkDirectFieldSorts`), so the guard holds
+`≤` the result sort, `checkStructFieldSorts`), so the guard holds
 wherever the structure happens to be a proposition. -/
 def TowerO5 (entry : ProjEntry) : Prop :=
   (Level.isEquiv entry.structSort .zero == some true) = false →

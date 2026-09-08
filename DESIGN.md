@@ -17,8 +17,22 @@ called Setlec until 2026-09-06 (task #186) and Lech until 2026-09-07 (task
 tree where either old name is allowed to appear — see the task #186 and task
 #211 sections at the end of this document.
 
+**THE RULE FOR THIS DOCUMENT'S NAMES, task #222.**  Task #222 removed
+the suffixes of tiers that no longer exist — `2`, `P`, `S2`, `Direct` —
+and renamed the load-bearing concepts to say what they are.  This
+journal's *historical* sections were not rewritten: a name in them that
+carries one of those markers (`AnnotOk2`, `denoteP`, `EnvS2Core`,
+`checkDeclsSPCachedD`, `SetP/FoldP.lean`, `checkDirectFix`, …) is the
+spelling of its own date, and the task #222 section at the end of this
+document holds the whole old→new mapping.  Only this opening block, and
+the sections dated after it, are kept current.  Two names are
+deliberately **reused**: `ConLeche/Model/*` and `EnvModel`, which
+before task #148 T7 named the retired direct model tier and its
+invariant; docstrings that still cite the retired tier now say
+`ConLeche/ModelV1/*`.
+
 **Where the consistency proof lives** (current, since the SetR removal of
-2026-09-05): the **graded ("P") tier**, `ConLeche/SetP/*`, with the
+2026-09-05): the **graded model tier**, `ConLeche/Model/*`, with the
 capstone assembly in `ConLeche/Verify/Cached/*`, and the statement a
 reader comes for in `ConLeche/MainTheorem.lean`.
 
@@ -40,29 +54,29 @@ nothing else — the `Empty` statement lives with the letters, and the
 | theorem | file | what it says |
 |---|---|---|
 | `ConLeche.no_proof_of_False` | `ConLeche/MainTheorem.lean` | **THE MAIN THEOREM** — if the checker in its default `--verified` mode accepts a stream, the resulting environment holds no constant of type `False` (task #181: `False` is a pinned basis block, `ConLeche/Kernel/Basis/False.lean`, so the statement needs no hypothesis about how the stream declares it — a stream declaring the name any other way is rejected) |
-| `ConLeche.Cached.no_proof_of_{False,Empty}_SPCD_P` | `ConLeche/Verify/Cached/MainC.lean` | the shipped driver's letters, stated for every validating mode at once |
-| `ConLeche.SetP.no_proof_of_{False,Empty}_P` | `ConLeche/SetP/FoldP.lean` | **the pure letters** — the same conclusions for the pure fueled checker `checkDecls μ (fueledOps μ F)`, at every fuel |
-| `ConLeche.SetP.no_proof_of_Empty_P_of` | `ConLeche/SetP/FoldP.lean` | its install-tier-conditional form, the shape the harvest closes |
-| `ConLeche.Cached.checkDeclsSPCachedD_sound_P` | `ConLeche/Verify/Cached/MainC.lean` | the acceptance corollary under the driver's letter: an accepted cached run yields the model invariant `EnvS2PM` at the final environment |
-| `ConLeche.Cached.foldSPC_PM` | `ConLeche/Verify/Cached/MainC.lean` | the fold that threads that invariant step by step (an assembly lemma: fold-state hypotheses) |
-| `ConLeche.SetP.no_constant_of_{False,Empty}_P` | `ConLeche/SetP/CapstoneP.lean` | the business end: an environment carrying the P invariant stores no constant of type `False` / `Empty` (the invariant is its hypothesis; the harvest is what discharges it); both are instances of `no_constant_of_emptyPin_P`, the argument at any reserved name pinned to `emptyT u` |
+| `ConLeche.Cached.no_proof_of_{False,Empty}_cached` | `ConLeche/Verify/Cached/MainC.lean` | the shipped driver's letters, stated for every validating mode at once |
+| `ConLeche.Model.no_proof_of_{False,Empty}_pure` | `ConLeche/Model/Fold.lean` | **the pure letters** — the same conclusions for the pure fueled checker `checkDeclsPure μ (fueledOps μ F)`, at every fuel |
+| `ConLeche.Model.no_proof_of_Empty_pure_of` | `ConLeche/Model/Fold.lean` | its install-tier-conditional form, the shape the harvest closes |
+| `ConLeche.Cached.checkDecls_sound` | `ConLeche/Verify/Cached/MainC.lean` | the acceptance corollary under the driver's letter: an accepted cached run yields the model invariant `EnvModelM` at the final environment |
+| `ConLeche.Cached.fold_preserves` | `ConLeche/Verify/Cached/MainC.lean` | the fold that threads that invariant step by step (an assembly lemma: fold-state hypotheses) |
+| `ConLeche.Model.no_constant_of_{False,Empty}` | `ConLeche/Model/Capstone.lean` | the business end: an environment carrying the model invariant stores no constant of type `False` / `Empty` (the invariant is its hypothesis; the harvest is what discharges it); both are instances of `no_constant_of_emptyPin`, the argument at any reserved name pinned to `emptyT u` |
 
 The axiom footprint is **pinned in the tree, not only claimed**:
 `tests/ConLecheTests/Axioms.lean` (built by `lake test`, reported by `tests/arena.sh`
 as the `axioms:` line) carries a `#guard_msgs in #print axioms` for each
 of the eleven, so a drifting axiom footprint is a test failure. Seven
-of them — the main theorem, `no_proof_of_{False,Empty}_SPCD_P`,
-`checkDeclsSPCachedD_sound_P`, `foldSPC_PM` and
-`no_proof_of_{False,Empty}_P` — additionally have their
+of them — the main theorem, `no_proof_of_{False,Empty}_cached`,
+`checkDecls_sound`, `fold_preserves` and
+`no_proof_of_{False,Empty}_pure` — additionally have their
 module-level dependency closure pinned by `tests/proofdeps.sh`; the
 two gates measure different things (what a proof term ASSUMES vs which
 modules it REACHES) and neither implies the other.
 
 **THE PROGRESS LANE IS A SECOND, UNVERIFIED FOLD** (user ruling,
-2026-09-07).  A default run calls `checkDeclsSPCachedD` — the function
+2026-09-07).  A default run calls `checkDecls` — the function
 the theorem above is about — and prints nothing per declaration.  With
 `CON_LECHE_PROGRESS=<stride>` the driver instead runs
-`Main.checkDeclsProgressIO`: the same `checkDeclStepIdxC` steps in the
+`Main.checkDeclsProgressIO`: the same `checkDeclStep` steps in the
 same order, in `IO`, with one line printed before each declaration.
 The user's words: *"Let's just have multiple modes in main, with their
 own loops. The pure one does not print status and is the one that the
@@ -75,8 +89,9 @@ and why the replacement is better, is recorded under the progress-lane
 section below.
 
 **Three tiers were retired, by user ruling.** The direct `Expr` set
-model and its consistency proof (`ConLeche/Model/*`, 83 files / 62,992
-lines, invariant `EnvModel`) and the declarative verification lane
+model and its consistency proof (`ConLeche/ModelV1/*`, 83 files /
+62,992 lines, invariant `EnvModel` — task #222 reused both names for
+the graded tier) and the declarative verification lane
 (`ConLeche/TTVerify/*`, 50 files / 33,808 lines, invariant `EnvTT`) went
 at task #148 T7/T7b, together with the `--tt-model` mode the second was
 stated at; the collapsed-model tier (`ConLeche/SetR/*` and its fourteen
@@ -91,11 +106,12 @@ the opening of this section is the one place kept current.
 tower consumes is the **syntax**, not the declarative semantics —
 `VExpr`/`BConst`/`mkAppN`, `liftN`/`inst`/`arrow` with their laws, and
 the basis constants — so at #209 those three modules moved out from
-under the retired theory's name to `ConLeche/VExpr/{Syntax,Subst,Const}`
-(`namespace ConLeche.VExpr`), and `ConLeche/TT/*` is gone.  They are read by
+under the retired theory's name to `ConLeche/Term/{Syntax,Subst,Const}`
+(`namespace ConLeche.Term`, `ConLeche/VExpr/*` until task #222), and
+`ConLeche/TT/*` is gone.  They are read by
 `Semantics/BasisType`, `SetModel/Value` and — `emptyT`, which the
-`Empty` letter is stated at — `SetP/CapstoneP`; the P tier's
-`interp2`/`bval2` are its **own**, in `ConLeche/Semantics/*`, and never
+`Empty` letter is stated at — `Model/Capstone`; the model tier's
+`interp`/`bval` are its **own**, in `ConLeche/Semantics/*`, and never
 were the lane's.  `ConLeche/TT/Semantics/*` (the lane's model and its
 soundness theorem) went at task #190 unread; `TT/Judgment`'s `HasType`
 relation lost its last reader with it and went at #209, together with

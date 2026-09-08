@@ -6,7 +6,7 @@ import ConLeche.Kernel.Inductives.NativeParts
 
 `nativeShape?` is the sum route's core recogniser without the
 one-constructor exclusion; `nativeParts?` adds the field kinds
-(`directFixKinds?`, one list per constructor).  The inversions give
+(`nativeKinds?`, one list per constructor).  The inversions give
 the pins the P tier consumes: the `isProp` datum, the recursor's level
 parameters, the constructors' level parameters and the kinds'
 placeholder.  What the recogniser pinned before task #220 and no longer
@@ -14,7 +14,7 @@ does — the recursor's NAME, its rule count and rule metadata, the
 constructors' result shape — is checked at the install, where a
 mismatch REJECTS (`checkNativeRec`, `checkSumCtor`); the facts
 the P tier still needs come from those stages' own inversions
-(`checkDirectFixRec_name`).
+(`checkNativeRec_name`).
 -/
 
 namespace ConLeche

@@ -9,7 +9,7 @@ Every store the direct sum install performs is a fresh cons
 (`checkConstantVal`'s duplicate guard for the former and the recursor;
 the constructors are checked at the former's environment and consed
 in order under the distinct-names guard), and the one former it
-stores carries the sum's capability record (`directSumCaps`, whose
+stores carries the sum's capability record (`sumCaps`, whose
 `eta` is `false` — a sum is never structure-like), so
 `EtaFamiliesClosed.cons_nonind` applies at every step.
 -/

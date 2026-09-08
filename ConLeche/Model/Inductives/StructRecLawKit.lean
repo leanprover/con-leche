@@ -24,7 +24,7 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → Nat}
 
-/-! ## The frame values (from the retired `DirectRecLawFitsP`, task #175 S2) -/
+/-! ## The frame values (from the retired `StructRecLawFitsP`, task #175 S2) -/
 
 /-! ## Fits as spines -/
 

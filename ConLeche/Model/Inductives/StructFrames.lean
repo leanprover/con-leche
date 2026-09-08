@@ -4,7 +4,7 @@ import ConLeche.Model.Inductives.StructTele
 # The direct structure's two parameter frames, identified (task #175 W4c, P3 module 3, part 4)
 
 The type former's parameter telescope and the constructor's are opened
-at their own variables (`checkDirectCtor`), and `checkStructDomsAt`
+at their own variables (`checkStructCtor`), and `checkStructDomsAt`
 pins the domains definitionally, binder by binder, each at its own
 frame.  `paramFrames` turns the pins into the semantic identification
 the leaves need: the two contexts have the same satisfying valuations

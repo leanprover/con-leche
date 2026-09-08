@@ -6,8 +6,8 @@ import ConLeche.Verify.InstList
 
 The direct simple-structure install's hot loops run the `*F`/`*A`
 variants (`Expr.instPisAtF`, `Expr.instLamsAtF`, `openPisAtFvarsF`,
-`domsMatchAuxA`, `checkStructDomsAtFA`, `checkDirectFieldUnivFA`, and
-the threaded `directProjResid`); every lemma here identifies one of
+`domsMatchAuxA`, `checkStructDomsAtFA`, `checkStructFieldUnivFA`, and
+the threaded `structProjResid`); every lemma here identifies one of
 them **unconditionally** with the sequential function the Model/Verify
 layers keep seeing.  The `Go` cores accumulate the pending
 substitutions and apply them in a single `instantiateList` pass per

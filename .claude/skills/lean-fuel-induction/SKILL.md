@@ -196,7 +196,7 @@ rest opaque.
 
 | Function | File | Notes |
 |----------|------|-------|
-| `parseHuffmanWeightsDirect` | ZstdHuffman.lean | simple accumulation, no spec unfold |
+| `parseHuffmanWeightsStruct` | ZstdHuffman.lean | simple accumulation, no spec unfold |
 | `weightsToMaxBits` | ZstdHuffman.lean | summation — has WF alt `findMaxBitsWF` |
 | `buildZstdHuffmanTable` | ZstdHuffman.lean | `tableSize` theorem needs only fill loops |
 | `parseHuffmanTreeDescriptor` (trim) | ZstdHuffman.lean | trailing-zero trim, no spec impact |

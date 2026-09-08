@@ -164,7 +164,7 @@ checker-to-derivation bridge, twenty-two modules, from `Claims` to
 * `Bridge/DeclInd` — the interleaved `indDecl` walk, model-free since
   S7 (`declIndRR`, off an `EnvFacts`; its `EnvS` instance `declIndRS` was
   consumer-free after that re-proof and is deleted);
-* `Bridge/Sound` — `directParts?_none`, `checkDeclR_ofEnvR` and
+* `Bridge/Sound` — `structParts?_none`, `checkDeclR_ofEnvR` and
   `checkDeclR_ofEnvRE`, the dispatch off an `EnvFacts`.
 
 S11a added `Bridge/DeclRun` — the **run-only** bridges for the five

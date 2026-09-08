@@ -5,8 +5,8 @@ import ConLeche.Verify.Inductives.SumWF
 /-!
 # The direct sum's install, assembled (task #175 sum-types, indexed)
 
-`declDirectSumP`: the P carrier survives the direct sum install's run
-(`DeclDirectSumRun`).  The stages: the former (twice — first with the
+`declSumP`: the P carrier survives the direct sum install's run
+(`DeclSumRun`).  The stages: the former (twice — first with the
 empty chain list, to read the constructors' field data and index
 readings at a carrier storing the former; then with the restricted
 chains `rChains` read off that data, the readings identified by

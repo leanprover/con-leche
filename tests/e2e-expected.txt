@@ -279,7 +279,7 @@
 0 dag_tower_unfold.ndjson
 # The direct simple-structure install (task #82).  A *raw* lean4export
 # fixture: the stream carries no `_model` declaration at all — the artifact-free route
-# `directParts?` recognises, installed and modelled from the reference
+# `structParts?` recognises, installed and modelled from the reference
 # checks alone.  Accepted from task #82 until task #148 T0b (which
 # switched the route off: both lines declined, 2, the modeled fallback
 # having nothing to install from), and accepted again since task #175

@@ -13,12 +13,12 @@ stages are the one route's now.  No projection
 table, no eta, no unit-likeness — a sum has no structure-like
 capability (the official kernel's `is_structure_like` needs one
 constructor and no index); the former is stored with the capability
-record `directSumCaps` (only `ruleK`, official's `is_K_target`: a
+record `sumCaps` (only `ruleK`, official's `is_K_target`: a
 `Prop` family with one constructor taking only the parameters — `Eq`'s
 shape) and the recursor's rules are the block's only definitional
 content.
 
-The per-constructor stage is `checkDirectCtor` with the constructor
+The per-constructor stage is `checkStructCtor` with the constructor
 made explicit (the direct structure route's stage reads it off its
 `StructParts`) and the residual widened to the family at the
 parameters followed by `nIdx` index expressions; the field-sort walk
@@ -90,7 +90,7 @@ def checkSumTele (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat)
     pure (cvTa, s)
 
 /-- Stage 1: the type former, stored with the block's capability
-record — `capsOf` at the completed record: `directSumCaps` on the sum
+record — `capsOf` at the completed record: `sumCaps` on the sum
 route, `nativeCaps` on the fixpoint route (task #210 Part A) — at
 its telescope (`checkSumTele`); returns the record completed
 with the result sort (`InductiveShape.withSort`), which every later
@@ -109,13 +109,13 @@ def checkSumInd (ops : CheckerOps m) (env : Env) (p : InductiveShape)
 
 /-- The fields' sorts over the opened constructor telescope, with the
 official per-field universe bound unless the family is
-propositional (`checkDirectFieldSorts` at an indexed family): at a
+propositional (`checkStructFieldSorts` at an indexed family): at a
 `Prop` family with a large eliminator every field must be a
 proposition OR one of the residual's index expressions — official's
 `elim_only_at_universe_zero` for one constructor (the subsingleton-
 elimination criterion, `Eq`'s rule; `inductive.cpp`).  A block with
 two or more constructors never reaches this walk with a large
-eliminator (`checkDirectSum`'s front guard).  Walks the fields from
+eliminator (`checkSum`'s front guard).  Walks the fields from
 the last to the first and returns the sorts in field order. -/
 def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
     (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)
@@ -204,12 +204,12 @@ def normCtorVal (ops : CheckerOps m) (env : Env) (T : Name) (nP nF : Nat)
 annotated result shape (the family at the parameters followed by
 `nIdx` index expressions), the parameter pins against the type
 former's opened telescope, the pre-block resolution of the field
-domains, and the per-field universe bound (`checkDirectCtor`, the
+domains, and the per-field universe bound (`checkStructCtor`, the
 constructor made explicit; `env₀` is the pre-block environment, `env`
 the one holding the type former).  Every constructor is checked at
 the environment holding the type former alone — the constructors do
 not mention each other — and the block conses them afterwards
-(`checkDirectSum`).  Returns the annotated constructor and its fields'
+(`checkSum`).  Returns the annotated constructor and its fields'
 sorts (task #210 Part A: the projection table's guard levels at a
 structure-like block on the fixpoint route are computed from them). -/
 def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)

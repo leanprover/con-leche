@@ -3,7 +3,7 @@ import ConLeche.Semantics.Tower.SumRecCase
 /-!
 # The sum recursor leaf (task #175 sum-types, stage S4b; indexed)
 
-`directSumRecAV ℓ w rds Fss Ess srcs nIdx = mkLamsC ℓ rds (sumRecBodyAV …)` —
+`sumRecAV ℓ w rds Fss Ess srcs nIdx = mkLamsC ℓ rds (sumRecBodyAV …)` —
 the constant-bit λ-tower (bit `ℓ`) over the recursor type reading's
 binder data (parameters, motive, one minor per constructor, the
 `nIdx` index binders, major), whose body sits one binder below the

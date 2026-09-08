@@ -6,7 +6,7 @@ import ConLeche.Verify.FastOps
 
 The cached drivers thread `structProjResidP` — the constructor
 telescope peeled one earlier-projection substitute at a time — and read
-each slot's type off it (`directProjTyR`); the pure checker computes
+each slot's type off it (`structProjTyR`); the pure checker computes
 `structProjTyP` from scratch.  The two agree: the incremental residual
 is the whole-spine `instPisAtLift`.
 -/

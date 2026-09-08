@@ -3,8 +3,8 @@ import ConLeche.Model.Inductives.StructStageTable
 /-!
 # The direct structure's install, assembled (task #175 W4c, P3 module 7, part 9; S1)
 
-`declDirectP`: the P carrier survives the direct install's run
-(`DeclDirectRun`).  The stages compose as the checker runs them —
+`declStructP`: the P carrier survives the direct install's run
+(`DeclStructRun`).  The stages compose as the checker runs them —
 former, constructor, recursor, the projection table (task #175 S1:
 one cons, `stageTable`) — with one twist: the
 former's leaf mentions the field chain, which is read off the

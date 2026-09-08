@@ -4,7 +4,7 @@ import ConLeche.Kernel.Inductives.SumInstall
 /-!
 # The direct sum install, through the index
 
-`checkDirectSum`'s stages (`ConLeche/Kernel/Inductives/SumInstall.lean`)
+`checkSum`'s stages (`ConLeche/Kernel/Inductives/SumInstall.lean`)
 over an `FEnv`, the mirrors the cached drivers run.
 -/
 

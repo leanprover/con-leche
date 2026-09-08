@@ -5,12 +5,12 @@ import ConLeche.Kernel.Inductives.SumInstall
 # The direct sum install's stage runs, inverted (task #175 sum-types,
 indexed)
 
-Each stage of `checkDirectSum` inverted to the facts the semantic
+Each stage of `checkSum` inverted to the facts the semantic
 modules consume: the type former's run, every constructor's run at the
 former's environment (`checkSumCtors_inv`, positionally), the
 generated recursor's comparison and every generated rule's run
-(`checkDirectSumRules_inv`), and the recogniser's pins
-(`directSumParts?_inv`).  Shape walks only, as `DirectInv.lean`.
+(`checkSumRules_inv`), and the recogniser's pins
+(`sumParts?_inv`).  Shape walks only, as `StructInv.lean`.
 
 Task #175 indexed: every stage carries the index count `nIdx`, the
 constructor's residual is the family at the parameters followed by
@@ -116,7 +116,7 @@ the field annotation's inferred type at the field's own frame, under
 the official universe bound (`isProp = false`) or — at a large
 eliminator on a `Prop` family — the subsingleton-elimination criterion:
 the field is a proposition OR one of the residual's index expressions
-(`checkDirectFieldSorts_inv` widened). -/
+(`checkStructFieldSorts_inv` widened). -/
 theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
     {s : Level} {nP F : Nat} {fvs idxArgs : List Expr} :
     ∀ {j : Nat} {sorts : List Level},

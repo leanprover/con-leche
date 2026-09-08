@@ -158,7 +158,7 @@ theorem mkPisAV_append :
 /-! ## The minor space as a Π-tower reading -/
 
 /-! ## Lifted domains, field spines, and frame arithmetic (from the retired
-`DirectRecMinorP`, task #175 S2) -/
+`StructRecMinorP`, task #175 S2) -/
 
 theorem liftDoms_take (n : Nat) :
     ∀ (ds : List (Nat × Nat × AnnotTerm)) (k j : Nat),

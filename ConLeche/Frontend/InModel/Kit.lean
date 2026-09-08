@@ -16,7 +16,7 @@ nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
 * `specFam`, the syntactic rewrite of every member occurrence
   `T_m p⃗` into the auxiliary family at its tag, `aux p⃗ (tag.m p⃗ ı⃗)`;
 * the **kernel-shape recursor** of an indexed recursive family with
-  inductive hypotheses — `directRecTyI`/`directRecRhsI`
+  inductive hypotheses — `structRecTyI`/`structRecRhsI`
   (`ConLeche/Kernel/Inductives/StructParts.lean`) with the `ih` binders of the
   official `mk_rec_infos` threaded in; the direct fixpoint route
   regenerates and compares the recursor of the auxiliary family
@@ -229,7 +229,7 @@ def ihPis (nP nF o : Nat) (pw : PropWhen) (doms : List Expr) : List Nat → Nat 
 the `o` extras (every field datum reset to the elimination datum), the
 `ih` binders, and `motive e⃗_C (C p⃗ f⃗)` lifted above the `ih`s.  The
 residual's index expressions are read off the once-lifted telescope
-(`tele`), so unlike `directMinorTyI` they are lifted only above the
+(`tele`), so unlike `structMinorTyI` they are lifted only above the
 `ih`s here. -/
 def minorTy (C : Name) (lps : List Name) (nP nF o : Nat) (pw : PropWhen)
     (cty : Expr) (recIdx : List Nat) : Option Expr :=
@@ -269,7 +269,7 @@ def minorsLams (lps : List Name) (nP : Nat) (pw : PropWhen) :
       (minor_C : ∀ f⃗ (ih⃗ : motive e⃗_i f_i)…, motive e⃗_C (C p⃗ f⃗))…
       ı⃗ (t : T p⃗ ı⃗), motive ı⃗ t
 
-over the former's type `tty = ∀ p⃗ ı⃗, Sort w` (`directRecTyI` with
+over the former's type `tty = ∀ p⃗ ı⃗, Sort w` (`structRecTyI` with
 inductive hypotheses). -/
 def recTy (T : Name) (lps : List Name) (elim : Name) (large : Bool)
     (nP nIdx : Nat) (tty : Expr) (ctors : List (Name × Nat × Expr × List Nat)) : Option Expr :=

@@ -10,7 +10,7 @@ hypotheses threaded: the unfoldings of the recursive generators
 `structRecTyR`, `structRecRhsR`), and the closed spellings the
 readings need.
 
-The one genuinely new piece is `instSeq_directIdxAt`: a recursive
+The one genuinely new piece is `instSeq_structIdxAt`: a recursive
 field's index expression is spelled at the field's own frame (the
 parameters and the `i` earlier fields) and moved to the recursor's
 frame `p⃗ x⃗ f⃗ ih⃗` by `structIdxAt`'s two lifts; instantiating there at
@@ -87,7 +87,7 @@ theorem structMinorsLamsR_nil {lps : List Name} {nP : Nat} {pw : PropWhen} {o : 
   simp only [structMinorsLamsR, Option.some.injEq] at h
   exact h.symm
 
-/-- `structRecTyR`, unfolded to its five steps (`directRecTyI_unfold`
+/-- `structRecTyR`, unfolded to its five steps (`structRecTyI_unfold`
 with the recursive minors). -/
 theorem structRecTyR_unfold {T : Name} {lps : List Name} {elim : Name} {large : Bool}
     {nP nIdx : Nat} {tty recTy : Expr} {ctors : List (Name × Nat × Expr × List Nat)}
@@ -391,7 +391,7 @@ end ConLeche
 The table stage of a structure-like block on the fixpoint route needs
 `NoProjEnv` at the recursor's cons: the generated recursor type and
 rules mention no `.proj T j` node the former's and the constructors'
-types do not (the sum route's `NoProjAt.directRecTy_list` for the
+types do not (the sum route's `NoProjAt.structRecTy_list` for the
 generators with the inductive hypotheses). -/
 
 namespace ConLeche

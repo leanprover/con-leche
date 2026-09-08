@@ -679,7 +679,7 @@ constructor** (`is_non_rec_structure`, `src/kernel/inductive.cpp`: one
 constructor and *no indices*; the recursion half is decided by the
 projection artifacts' own shape).  An index-free single-constructor
 family's constructor targets the family at exactly its parameters,
-`T p⃗` — the same conjunct `checkDirectCtor` pins on the direct route —
+`T p⃗` — the same conjunct `checkStructCtor` pins on the direct route —
 while an indexed family's targets `T p⃗ i⃗`.
 
 Task #175 SigmaHom (2026-09-06): the modeller also emits
@@ -729,7 +729,7 @@ def indBlockCaps (env : Env) (cvT cvC : ConstantVal) (nP nF : Nat) :
   ruleK := nF == 0 && piResultIsProp cvT.type
 
 /-- **Task #136: an eta-capable family's constructor returns the family
-applied to its parameters.**  Literally the conjunct `checkDirectCtor`
+applied to its parameters.**  Literally the conjunct `checkStructCtor`
 (`ConLeche/Kernel/Checker.lean`) already makes on the direct path,
 `cbody == structFam T lps nP nF`, here on the modeled path.
 

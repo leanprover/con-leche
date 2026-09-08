@@ -6,8 +6,8 @@ import ConLeche.Kernel.Inductives.SumInstall
 
 `ConLeche/Verify/Inductives/StructRec.lean`'s syntactic kit at one
 constructor, generalized to the list the generators fold over
-(`directMinorsPis`/`directMinorsLams`): the unfoldings of
-`directRecTy`/`directRecRhs`, the minor premise's telescope under any
+(`structMinorsPis`/`structMinorsLams`): the unfoldings of
+`structRecTy`/`structRecRhs`, the minor premise's telescope under any
 number of earlier binders (`instSeq_minorBody_at`: the motive is the
 first extra, the earlier minors follow), the rule body under the
 motive and all minors (`instSeq_ruleBody_at`: minor `j` is extra
