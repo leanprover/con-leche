@@ -91,7 +91,7 @@ Read from the outside in:
    parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/TypeChecker.lean#L24-L50));
    on exhaustion every operation throws
-   ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2646-L2655)).
+   ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2649-L2658)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_P` in `ConLeche/SetP/FoldP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/FoldP.lean#L291-L298)).
 5. **The model tier** (`ConLeche/SetP/*`, "P" for the graded set model)
@@ -121,7 +121,7 @@ faster and is outside the theorem. Both use the same core.
 The checker is a Lean-kernel-style type checker in the shape of the
 official one: `whnfCore` does β/ζ/ι/projection/quotient reduction,
 `whnf` adds δ-unfolding and the literal fast paths
-([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L1809)),
+([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L1812)),
 `inferType` computes a type, and `isDefEq` decides conversion with lazy
 unfolding, η, proof irrelevance, structure η, unit-likeness and K-like
 reduction as the environment's capability flags permit. Two things
@@ -129,7 +129,7 @@ differ from a textbook presentation and matter for the proof:
 
 * **Annotation.** Before a declaration's terms are checked, an
   annotation pass
-  ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2530))
+  ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L2533))
   records at every binder the sort of its codomain as a "Prop-when"
   datum, a function of the level parameters
   ([the `PropWhen` module's account in `ConLeche/Kernel/PropWhen.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/PropWhen.lean#L1-L40)),
@@ -198,7 +198,7 @@ direction only
 They are proved by one simultaneous induction on fuel, clause by
 clause
 ([the reduction step in `ConLeche/SetP/Step2/WhnfP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Step2/WhnfP.lean#L908-L909),
-[the definitional-equality step in `ConLeche/SetP/Step2/DefEqP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Step2/DefEqP.lean#L1328-L1337),
+[the definitional-equality step in `ConLeche/SetP/Step2/DefEqP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Step2/DefEqP.lean#L1322-L1331),
 [the inference step in `ConLeche/SetP/Step2/InferP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/Step2/InferP.lean#L1128-L1135)).
 This is where the usual difficulty of intensional soundness proofs, the
 injectivity of Π needed to invert the typing of `f` in an application,
@@ -251,14 +251,14 @@ Inductive blocks are not trusted from the stream. Three cases:
   recursor the checker was going to generate anyway.
   In the model the block's carrier is the least fixed point of its
   family functor over the index fibres
-  ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Value.lean#L517-L524));
+  ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Value.lean#L502-L509));
   the recursor is the choice of a fixed point of the graph functor,
   and the recursion theorem says that fixed point is a function
   (`ConLeche/SetModel/RecGraph.lean`). That the least fixed point is a
   member of the universe follows from one abstract theorem about
   *member containers*, functors built from constants, sums, products
   and arrows with member domains
-  ([theorem `container_closed_exists` in `ConLeche/SetModel/Container.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Container.lean#L622)),
+  ([theorem `container_closed_exists` in `ConLeche/SetModel/Container.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetModel/Container.lean#L593)),
   which covers finitary and reflexive fields alike. The model-tier
   theorem for the whole install is
   [theorem `declDirectFixP` in `ConLeche/SetP/DirectFix/DeclDirectFixP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/DirectFix/DeclDirectFixP.lean#L60).
@@ -300,24 +300,24 @@ instead of trusting the operation's name.
 
 * **Structural operations** (`Nat.add`, `sub`, `mul`, `pow`, `beq`,
   `ble`, and `pred` as a dependency;
-  [the list `natOpNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L521-L529)):
+  [the list `natOpNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L524-L532)):
   when a definition under one of these names arrives, the install
   certifies its defining recurrence equations by definitional
   equality, in the environment *before* the operation is stored, with
   the operation's self-references replaced by its definition value, so
   the not-yet-enabled fast path cannot discharge its own equations
   vacuously
-  ([the account of the certified fast path in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L453-L470),
+  ([the account of the certified fast path in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L456-L473),
   [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Checker.lean#L100-L107)).
   A nonstandard definition is rejected; presence in the store is the
   certificate, and `whnf` folds literals for stored operations only.
   The model side reads the operation's membership off its pinned type
   shape and proves the literal semantics from the certified
   recurrences
-  ([theorem `natOpsP_install` in `ConLeche/SetP/NatEqsP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/NatEqsP.lean#L1102)).
+  ([theorem `natOpsP_install` in `ConLeche/SetP/NatEqsP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/NatEqsP.lean#L1096)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
-  [the list `natDivModNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L531-L546))
+  [the list `natDivModNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/Kernel/Core.lean#L534-L549))
   are defined by well-founded recursion and have no recurrence the
   kernel can check directly. Their install compares the stream's
   definition by definitional equality against a *pinned* copy of the
@@ -329,7 +329,7 @@ instead of trusting the operation's name.
   [the certificate library `ConLeche/PinGen/Certs.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/PinGen/Certs.lean#L1-L12)).
   The pins are committed per toolchain under `pins/` and regenerated
   with `lake exe natop-pins-export`. The model side is
-  [theorem `divModP_install` in `ConLeche/SetP/DivModCertP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/DivModCertP.lean#L2031).
+  [theorem `divModP_install` in `ConLeche/SetP/DivModCertP.lean`](https://github.com/leanprover/lech/blob/master/ConLeche/SetP/DivModCertP.lean#L2020).
 * **Order independence.** The certificates are spelled over the
   structural operations and the basis blocks, which an export may emit
   in any order. The built-in prelude supplies the basis blocks, and a
